@@ -1212,78 +1212,168 @@ async function handleChat(request, env) {
   }
 }
 __name(handleChat, "handleChat");
-var JAESUN_VOICE_ID = "tc_684a7a1446e2a628b5b07230";
-var VOICE_MODEL = "ssfm-v30";
-var cachedStudentVoiceId = null;
-async function pickVoiceId(env, mode) {
-  if (mode === "ops") {
-    return env && env.TYPECAST_VOICE_ID || JAESUN_VOICE_ID;
-  }
-  if (env && env.TYPECAST_VOICE_ID_STUDENT) return env.TYPECAST_VOICE_ID_STUDENT;
-  if (cachedStudentVoiceId) return cachedStudentVoiceId;
+// ── 음성 합성 /api/tts — Azure Speech + R2 캐시 (2026-10-26 사장님 지시: Typecast 사용 중지) ──
+//   쓰는 곳: 관리자 «AI 운영 비서» 한국어 음성(mangoi.ai /api/ops-tts 프록시 → 여기, js/adm-p2.js).
+//   학생 상담사(student.html)·운영비서 위젯(index.html)은 이 경로를 안 씁니다 — 그쪽은 /api/tts-free.
+//   ① R2 캐시(같은 문장은 한 번만 만들고 이후 무료) → ② Azure Neural(100만 자당 $15)
+//   → ③ 실패·키 없음은 JSON 오류 → ops-tts 가 구글 무료 음성, 화면이 브라우저 음성으로 폴백.
+//   ⛔ Typecast 를 되살리지 마세요 — 100만 자당 $70~90(Azure 의 5배 이상)이고,
+//      2026-10-26 «UNUSUAL_ACTIVITY_DETECTED»(403)로 막혀 운영비서 음성이 구글 음성으로 떨어졌습니다.
+//   ⛔ 무인증 API 라 돈이 나가는 호출에 상한을 둡니다: 글자 수(TTS_MAX_CHARS) · 아는 목소리 이름만.
+//   🔑 시크릿: AZURE_SPEECH_KEY · AZURE_SPEECH_REGION (mangoi.ai 메인 워커와 같은 Speech 리소스 값)
+//      (선택) AZURE_VOICE_KO / AZURE_VOICE_KO_OPS / AZURE_VOICE_EN — 형식이 틀리면 기본값을 씁니다.
+var TTS_MAX_CHARS = 600;   // 운영비서 화면이 600자로 잘라 보냅니다(adm-p2.js). ⛔ 함부로 늘리지 마세요 — 글자 수가 곧 요금.
+var TTS_CACHE_VER = "v1";  // 목소리·형식을 바꾸면 올려서 옛 캐시본을 버립니다.
+var AZURE_VOICE_KO = "ko-KR-SunHiNeural";   // 여성 — 관리자 비서는 항상 «여성» 목소리(adm-p2.js pickVoice 주석)
+var AZURE_VOICE_EN = "en-US-JennyNeural";
+var AZURE_VOICE_RE = /^[a-z]{2}-[A-Z]{2}-[A-Za-z0-9]+Neural$/;
+var AZURE_PRICE_PER_M = 15;        // 종량제 $15 / 100만 자
+var AZURE_COMMIT_MONTHLY = 960;    // 약정 $960 / 월(8,000만 자 포함, 초과 $12/100만 자)
+var AZURE_COMMIT_BREAKEVEN = 64e6; // $960 ÷ $15 = 6,400만 자 — 이 이상이면 약정이 싸다
+function hasAzureKey(env) {
+  return !!(env && env.AZURE_SPEECH_KEY && env.AZURE_SPEECH_REGION);
+}
+__name(hasAzureKey, "hasAzureKey");
+function azureVoice(env, lang, mode) {
+  const e = env || {};
+  const fallback = lang === "en" ? AZURE_VOICE_EN : AZURE_VOICE_KO;
+  const want = lang === "en" ? e.AZURE_VOICE_EN : (mode === "ops" && e.AZURE_VOICE_KO_OPS) || e.AZURE_VOICE_KO;
+  return want && AZURE_VOICE_RE.test(want) ? want : fallback;
+}
+__name(azureVoice, "azureVoice");
+// 🔴 SSML 은 XML — 글자가 그대로 들어가므로 반드시 이스케이프(안 하면 «&» 하나에 합성 실패·태그 주입 가능).
+function escapeXml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+__name(escapeXml, "escapeXml");
+function buildAzureSsml(text, lang, voice) {
+  const xmlLang = lang === "en" ? "en-US" : "ko-KR";
+  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${xmlLang}"><voice name="${voice}">${escapeXml(text)}</voice></speak>`;
+}
+__name(buildAzureSsml, "buildAzureSsml");
+// 이모지·마크다운 기호는 소리로 내지 않고, 이모지·띄어쓰기만 다른 같은 문장이 캐시를 빗나가지 않게 합니다.
+var TTS_EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/gu;
+function normalizeTtsText(text) {
+  return String(text || "").replace(TTS_EMOJI_RE, "").replace(/[*_`#]+/g, "").replace(/\s+/g, " ").trim();
+}
+__name(normalizeTtsText, "normalizeTtsText");
+// ⚠️ 키에는 «실제로 쓸 목소리» 를 넣습니다 — 안 넣으면 목소리를 바꿔도 옛 소리가 계속 나옵니다.
+async function ttsCacheKey(voice, text) {
+  const dig = await crypto.subtle.digest("SHA-256", new TextEncoder().encode([TTS_CACHE_VER, voice, text].join("|")));
+  return "tts/" + [...new Uint8Array(dig)].map((x) => x.toString(16).padStart(2, "0")).join("") + ".mp3";
+}
+__name(ttsCacheKey, "ttsCacheKey");
+// ── 월별 Azure 사용량 — 약정 요금제 가입 시점 알림용(매월 1일 점검 작업이 /api/tts/usage 를 읽음) ──
+//   Azure 를 «실제로 부른» 글자만 셉니다(캐시 재생은 요금 0). 동시 요청이면 몇 건 덜 셀 수 있습니다(대략값).
+function usageMonth(nowMs) {
+  return new Date(nowMs + 9 * 36e5).toISOString().slice(0, 7);   // 한국 시간 기준 "2026-10"
+}
+__name(usageMonth, "usageMonth");
+async function readUsage(r2, month) {
   try {
-    const r = await fetch(
-      "https://api.typecast.ai/v2/voices?model=ssfm-v30&gender=female&age=young_adult",
-      { headers: { "X-API-KEY": env.TYPECAST_API_KEY } }
-    );
-    if (r.ok) {
-      const data = await r.json();
-      const list = Array.isArray(data) ? data : data && (data.voices || data.data || data.result);
-      if (Array.isArray(list)) {
-        const v = list.find((x) => x && x.voice_id);
-        if (v) {
-          cachedStudentVoiceId = v.voice_id;
-          return cachedStudentVoiceId;
-        }
-      }
-    }
+    const o = await r2.get("usage/" + month + ".json");
+    if (o) return Object.assign({ chars: 0, calls: 0 }, JSON.parse(await o.text()));
   } catch (_) {
   }
-  return null;
+  return { chars: 0, calls: 0 };
 }
-__name(pickVoiceId, "pickVoiceId");
-async function handleTTS(request, env) {
+__name(readUsage, "readUsage");
+async function recordAzureUsage(r2, chars) {
+  const month = usageMonth(Date.now());
+  const u = await readUsage(r2, month);
+  u.chars += chars;
+  u.calls += 1;
+  await r2.put("usage/" + month + ".json", JSON.stringify(u), { httpMetadata: { contentType: "application/json" } });
+}
+__name(recordAzureUsage, "recordAzureUsage");
+function usageReport(month, u) {
+  const payg = u.chars / 1e6 * AZURE_PRICE_PER_M;
+  const commit = AZURE_COMMIT_MONTHLY + Math.max(0, u.chars - 8e7) / 1e6 * 12;
+  return {
+    month,
+    azure_chars: u.chars,
+    azure_calls: u.calls,
+    payg_usd: Math.round(payg * 100) / 100,
+    commit_usd: Math.round(commit * 100) / 100,
+    breakeven_chars: AZURE_COMMIT_BREAKEVEN,
+    commit_recommended: u.chars >= AZURE_COMMIT_BREAKEVEN
+  };
+}
+__name(usageReport, "usageReport");
+async function handleTTS(request, env, ctx) {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
-  if (request.method !== "POST") return json({ error: "POST \uBA54\uC11C\uB4DC\uB9CC \uD5C8\uC6A9\uB429\uB2C8\uB2E4." }, 405);
-  const key = env.TYPECAST_API_KEY || "";
-  if (!key) return json({ error: "no_tts_key" }, 503);
+  if (request.method !== "POST") return json({ error: "POST 메서드만 허용됩니다." }, 405);
   let body = {};
   try {
     body = await request.json();
   } catch (_) {
   }
-  const text = (body && body.text || "").toString().trim().slice(0, 2e3);
+  // 글자(string)만 받습니다 — 숫자·객체가 「[object Object]」 같은 글자로 Azure 에 가서 과금되지 않게.
+  const text = body && typeof body.text === "string" ? normalizeTtsText(body.text) : "";
   const mode = body && body.mode === "ops" ? "ops" : "student";
   if (!text) return json({ error: "empty" }, 400);
-  const voiceId = await pickVoiceId(env, mode);
-  if (!voiceId) return json({ error: "no_voice" }, 503);
-  const payload = {
-    voice_id: voiceId,
-    text,
-    model: VOICE_MODEL,
-    language: "kor",
-    prompt: { emotion_type: "preset", emotion_preset: "happy", emotion_intensity: 1 },
-    output: { volume: 100, audio_pitch: 0, audio_tempo: 1, audio_format: "mp3" }
-  };
+  if (text.length > TTS_MAX_CHARS) return json({ error: "too_long", max: TTS_MAX_CHARS }, 413);
+  const lang = hasKorean(text) ? "ko" : "en";
+  const voice = azureVoice(env, lang, mode);
+  const audio = (b, src) => new Response(b, {
+    headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": src, "X-TTS-Voice": voice, ...CORS }
+  });
+  // ① 캐시 적중 → Azure 를 부르지 않으므로 요금 0 (키가 없어도 만들어 둔 소리는 납니다)
+  const r2 = env.TTS_CACHE;
+  const key = r2 ? await ttsCacheKey(voice, text) : "";
+  if (r2) {
+    try {
+      const hit = await r2.get(key);
+      if (hit) return audio(hit.body, "r2-cache");
+    } catch (_) {
+    }
+  }
+  if (!hasAzureKey(env)) return json({ error: "no_tts_key" }, 503);
+  // ② Azure 호출
   let r;
   try {
-    r = await fetch("https://api.typecast.ai/v1/text-to-speech", {
+    const region = String(env.AZURE_SPEECH_REGION).trim().toLowerCase();
+    r = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`, {
       method: "POST",
-      headers: { "X-API-KEY": key, "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      headers: {
+        "Ocp-Apim-Subscription-Key": env.AZURE_SPEECH_KEY,
+        "Content-Type": "application/ssml+xml",
+        "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
+        "User-Agent": "mangoi-ai-avatar-cf"
+      },
+      body: buildAzureSsml(text, lang, voice)
     });
   } catch (e) {
     return json({ error: "tts_fetch_failed", detail: String(e) }, 502);
   }
   if (!r.ok) {
     const det = await r.text();
-    return json({ error: "tts_failed", status: r.status, detail: det.slice(0, 400) }, 502);
+    return json({ error: "tts_failed", status: r.status, detail: det.slice(0, 300) }, 502);
   }
-  return new Response(r.body, {
-    headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", ...CORS }
-  });
+  const bytes = await r.arrayBuffer();
+  // 빈 응답·에러 본문을 «소리» 로 내보내거나 캐시에 넣지 않습니다(mangoi.ai 2026-09 사고와 같은 자리).
+  if (!bytes || bytes.byteLength < 800) return json({ error: "tts_empty" }, 502);
+  if (r2) {
+    const save = Promise.all([
+      r2.put(key, bytes, { httpMetadata: { contentType: "audio/mpeg" } }),
+      recordAzureUsage(r2, text.length)
+    ]).catch(() => {
+    });
+    if (ctx && ctx.waitUntil) ctx.waitUntil(save);
+    else await save;
+  }
+  return audio(bytes, "azure");
 }
 __name(handleTTS, "handleTTS");
+// GET /api/tts/usage?month=YYYY-MM — 그달 Azure 사용 글자 수·예상 요금·약정 권장 여부
+async function handleTtsUsage(request, env) {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+  if (!env.TTS_CACHE) return json({ error: "no_cache_bucket" }, 503);
+  const q = new URL(request.url).searchParams.get("month") || "";
+  const month = /^\d{4}-\d{2}$/.test(q) ? q : usageMonth(Date.now());
+  return json(usageReport(month, await readUsage(env.TTS_CACHE, month)));
+}
+__name(handleTtsUsage, "handleTtsUsage");
 // ── 여성 음성 서버 TTS(Workers AI) — 상담직원은 "여자 목소리"여야 해서 화자를 고를 수 있는
 //    Workers AI 모델을 1순위로 쓴다: ko=MeloTTS(kr, 여성) · en=Aura-2(asteria, 여성).
 //    Google 번역 TTS는 화자 선택이 불가(한국어 기본음이 남자처럼 들림) → 폴백으로 강등.
@@ -1452,10 +1542,11 @@ async function handleSTT(request, env) {
 }
 __name(handleSTT, "handleSTT");
 var index_default = {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === "/api/chat") return handleChat(request, env);
-    if (url.pathname === "/api/tts") return handleTTS(request, env);
+    if (url.pathname === "/api/tts") return handleTTS(request, env, ctx);
+    if (url.pathname === "/api/tts/usage") return handleTtsUsage(request, env);
     if (url.pathname === "/api/tts-free") return handleTTSFree(request, env);
     if (url.pathname === "/api/stt") return handleSTT(request, env);
     if (env.ASSETS) return env.ASSETS.fetch(request);
@@ -1475,6 +1566,12 @@ export {
   extractGo,
   extractStudentName,
   hasKorean,
+  azureVoice,
+  buildAzureSsml,
+  normalizeTtsText,
+  ttsCacheKey,
+  usageReport,
+  usageMonth,
   isPointsQuestion,
   isRefundQuestion,
   stripLeakedCodes

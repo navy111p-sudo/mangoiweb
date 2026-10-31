@@ -292,10 +292,16 @@
     "moreEn": "One more step: after «because», use the idea of supply or demand in your reason. (e.g. because many people want them)"
   },
   "img": {
+    "style": "editorial",
     "cover": "A busy outdoor vegetable market stall piled high with round green cabbages, with shoppers choosing produce from wooden crates",
     "scenes": {
       "1": "A farmer standing in a muddy cabbage field after heavy rain, holding a small damaged cabbage",
       "2": "A farmer loading many crates of fresh green cabbages onto a truck beside a large, healthy field"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

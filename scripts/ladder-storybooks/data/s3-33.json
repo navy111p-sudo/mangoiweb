@@ -1,0 +1,311 @@
+{
+  "id": "s3-33",
+  "breaks": [
+    3,
+    2,
+    5,
+    3
+  ],
+  "key": {
+    "P": 2,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «번개는 거대한 전기 불꽃이다(주제)» 와 «번개는 보기에 아름답지만 언제나 조심해야 한다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (lightning is a giant spark of electricity) and the conclusion (lightning is beautiful to watch, but it should always be respected). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "What lightning is and how to stay safe"
+    },
+    {
+      "k": "Key fact",
+      "qko": "번개는 어떻게 생기나요?",
+      "qen": "How does lightning form?",
+      "a": "Ice pieces in a storm cloud build up charges"
+    },
+    {
+      "k": "Safety",
+      "qko": "천둥소리가 들리면 어떻게 해야 하나요?",
+      "qen": "What should you do when you hear thunder?",
+      "a": "Go inside a building or a car"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Lightning is a giant spark of ",
+      "ans": "electricity",
+      "opts": [
+        "electricity",
+        "sunlight",
+        "water"
+      ]
+    },
+    {
+      "pre": ". Inside a storm cloud, tiny pieces of ",
+      "ans": "ice",
+      "opts": [
+        "ice",
+        "sand",
+        "glass"
+      ]
+    },
+    {
+      "pre": " crash into each other and build up electric charges. A lightning bolt is so hot that the air around it ",
+      "ans": "expands",
+      "opts": [
+        "expands",
+        "freezes",
+        "shrinks"
+      ]
+    },
+    {
+      "pre": " very quickly and makes the sound of thunder. Because light travels much faster than ",
+      "ans": "sound",
+      "opts": [
+        "sound",
+        "wind",
+        "rain"
+      ]
+    },
+    {
+      "pre": ", we see lightning before we hear thunder. When you hear thunder, go ",
+      "ans": "inside",
+      "opts": [
+        "inside",
+        "outside",
+        "behind"
+      ]
+    },
+    {
+      "pre": " a building or a car.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "spark",
+      "불꽃",
+      "Lightning is a giant <b>spark</b> of electricity.",
+      "a quick, bright flash made by electricity or fire"
+    ],
+    [
+      "charges",
+      "전하(전기의 양)",
+      "build up electric <b>charges</b>",
+      "amounts of electricity stored in something"
+    ],
+    [
+      "electricity",
+      "전기",
+      "<b>electricity</b> jumps between the cloud and the ground",
+      "a kind of energy that gives power to lights and machines"
+    ],
+    [
+      "expand",
+      "팽창하다",
+      "This heat makes the air <b>expand</b> very quickly",
+      "to become bigger"
+    ],
+    [
+      "roughly",
+      "대략",
+      "you will know <b>roughly</b> how many kilometers away the storm is",
+      "about; not exactly"
+    ],
+    [
+      "dangerous",
+      "위험한",
+      "It can be <b>dangerous</b>, so when you hear thunder, go inside a building or a car.",
+      "able to hurt people"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why do we see lightning before we hear thunder?",
+      "qko": "왜 천둥소리를 듣기 전에 번개를 먼저 보나요?",
+      "opts": [
+        "Because light travels much faster than sound",
+        "Because thunder starts long after the lightning ends",
+        "Because our eyes are stronger than our ears"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Because light travels much faster than sound, we see lightning before we hear thunder.",
+        "This heat makes the air expand very quickly, and that creates the sound of thunder.",
+        "Here is a useful trick: count the seconds between the flash and the boom.",
+        "When the charge becomes strong enough, electricity jumps between the cloud and the ground."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "빛이 소리보다 훨씬 빨리 이동하기 때문에 번개를 먼저 보고 천둥소리를 나중에 들어요.",
+        "Light travels much faster than sound, so we see the flash first and hear the boom later."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In “it should always be respected,” what does “respected” mean here?",
+      "qko": "«it should always be respected» 에서 «respected» 는 여기서 무슨 뜻인가요?",
+      "opts": [
+        "treated with care because it can be dangerous",
+        "watched closely just for fun",
+        "ignored because it is far away"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "It can be dangerous, so when you hear thunder, go inside a building or a car.",
+        "Because light travels much faster than sound, we see lightning before we hear thunder.",
+        "Lightning is a giant spark of electricity.",
+        "Lightning flashes about 40 to 50 times every second somewhere on Earth."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "바로 앞에서 번개는 위험할 수 있으니 천둥이 들리면 건물이나 차 안으로 들어가라고 했어요. 그러니 여기서 «respected» 는 «위험을 알고 조심스럽게 대한다» 는 뜻이에요.",
+        "The sentence before says lightning can be dangerous, so we should go inside. Here, «respected» means treated with care."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "You count 6 seconds between the flash and the boom. About how far away is the storm?",
+      "qko": "번쩍인 뒤 쾅 소리가 날 때까지 6초를 셌어요. 폭풍은 대략 얼마나 떨어져 있나요?",
+      "opts": [
+        "About 2 kilometers away",
+        "About 6 kilometers away",
+        "About 18 kilometers away"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Here is a useful trick: count the seconds between the flash and the boom.",
+        "If you divide that number by three, you will know roughly how many kilometers away the storm is.",
+        "Because light travels much faster than sound, we see lightning before we hear thunder.",
+        "Lightning flashes about 40 to 50 times every second somewhere on Earth."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "번쩍임과 쾅 소리 사이의 초(6초)를 세고, 그 수를 3으로 나누면(6 ÷ 3 = 2) 폭풍이 대략 몇 킬로미터 떨어져 있는지 알 수 있어요. 두 문장을 이어야 계산할 수 있어요.",
+        "Count the seconds between the flash and the boom (6), then divide by three (6 ÷ 3 = 2). You need both sentences to work it out."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Why does lightning often strike tall buildings?",
+      "번개는 왜 높은 건물에 자주 칠까?",
+      "Lightning and Tall Buildings"
+    ],
+    [
+      "B",
+      "How does a rainbow appear after a storm?",
+      "폭풍이 지나간 뒤 무지개는 어떻게 생길까?",
+      "After the Storm: Rainbows"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“Let’s <u>go inside when we hear thunder</u> so that <u>we stay safe from lightning</u>.”",
+    "slotKo": [
+      "함께 할 일",
+      "그 결과"
+    ],
+    "slotEn": [
+      "what we do",
+      "the result"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그 결과» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we can do together and the result in English.",
+    "chips": [
+      {
+        "a": "take an umbrella today",
+        "b": "we stay dry in the rain",
+        "label": "umbrella"
+      },
+      {
+        "a": "turn off the TV",
+        "b": "we can focus on our homework",
+        "label": "homework"
+      },
+      {
+        "a": "cross at the crosswalk",
+        "b": "drivers can see us",
+        "label": "crosswalk"
+      }
+    ],
+    "aria": [
+      "what we do",
+      "the result"
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에 «누가 + 무엇을» 넣어 결과를 분명하게 써 보세요. (예: so that everyone stays safe)",
+    "moreEn": "One more step: after «so that», write who + what to make the result clear. (e.g. so that everyone stays safe)"
+  },
+  "img": {
+    "style": "photo",
+    "cover": "A bright, branching bolt of lightning striking down from dark purple storm clouds over a wide open field at night, lighting up the grass below",
+    "scenes": {
+      "1": "A towering dark storm cloud with a flat, spreading top rising high over flat farmland, with a jagged bolt of lightning linking the bottom of the cloud to the ground",
+      "2": "A child seen from behind standing safely indoors at a rain-streaked window, counting on her fingers as a flash of lightning lights up distant hills"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "A tall storm cloud with lightning reaching the ground",
+    "2": "A child counting seconds at a window during a storm",
+    "cover": "A lightning bolt over a field at night"
+  }
+}

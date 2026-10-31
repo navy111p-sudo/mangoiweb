@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what happens to make the result clear. (e.g. so that no one is left out)"
   },
   "img": {
+    "style": "editorial",
     "cover": "A group of young engineers of different genders and skin tones gathered around a laptop in a bright office, the laptop seen from behind",
     "scenes": {
       "1": "A tall stack of old paper personnel folders on an office desk next to an open metal filing cabinet, with no visible writing",
       "3": "A team of people of different ages, genders, and skin tones discussing ideas around a meeting table covered with blank sticky notes"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

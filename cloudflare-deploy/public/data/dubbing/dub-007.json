@@ -1,0 +1,683 @@
+{
+  "id": "dub-007",
+  "title": {
+    "ko": "별 너머에서 온 친구",
+    "en": "A Friend Beyond the Stars"
+  },
+  "status": "final",
+  "timing": "synced",
+  "level": 1,
+  "palette": "space",
+  "characters": {
+    "luna": {
+      "name": {
+        "ko": "루나",
+        "en": "Luna"
+      },
+      "emoji": "👧",
+      "ttsSpeaker": "thalia"
+    },
+    "nova": {
+      "name": {
+        "ko": "노바",
+        "en": "Nova"
+      },
+      "emoji": "🤖",
+      "ttsSpeaker": "apollo"
+    },
+    "zio": {
+      "name": {
+        "ko": "지오",
+        "en": "Zio"
+      },
+      "emoji": "👽",
+      "ttsSpeaker": "aries"
+    },
+    "nora": {
+      "name": {
+        "ko": "엄마 노라",
+        "en": "Mom Nora"
+      },
+      "emoji": "👩",
+      "ttsSpeaker": "asteria"
+    }
+  },
+  "playable": [
+    "luna",
+    "nova",
+    "zio"
+  ],
+  "note": {
+    "ko": "루나·노바·지오 중 역할을 골라 연습해요 · 엄마 노라는 마지막에 등장하는 손님 역이에요",
+    "en": "Practice as Luna, Nova or Zio · Mom Nora is a guest in the final scene"
+  },
+  "scenes": [
+    {
+      "no": 1,
+      "label": {
+        "ko": "지구가 보이는 창",
+        "en": "A Window to Earth"
+      },
+      "arc": "ki",
+      "mood": "wonder",
+      "durationSec": 61,
+      "playbackStartSec": 2,
+      "video": "/media/dubbing/dub-007/scene-1.mp4?v=3",
+      "poster": "/media/dubbing/dub-007/scene-1.jpg?v=2",
+      "videoAudio": "mute",
+      "voices": {
+        "luna": "/media/dubbing/dub-007/scene-1-luna.mp3?v=2",
+        "nova": "/media/dubbing/dub-007/scene-1-nova.mp3?v=2",
+        "zio": "/media/dubbing/dub-007/scene-1-zio.mp3?v=2"
+      },
+      "lines": [
+        {
+          "id": "s1-l1",
+          "speaker": "luna",
+          "en": "Look! Earth is so beautiful.",
+          "ko": "봐! 지구가 정말 아름다워.",
+          "start": 10.24,
+          "end": 13.68
+        },
+        {
+          "id": "s1-l2",
+          "speaker": "nova",
+          "en": "Our journey is just beginning.",
+          "ko": "우리 여행은 이제 시작이야.",
+          "start": 14.4,
+          "end": 16.54
+        },
+        {
+          "id": "s1-l3",
+          "speaker": "zio",
+          "en": "A little ship is in trouble.",
+          "ko": "작은 우주선이 위험에 빠졌어.",
+          "start": 36.78,
+          "end": 39.28
+        },
+        {
+          "id": "s1-l4",
+          "speaker": "zio",
+          "en": "I must go and help.",
+          "ko": "가서 도와줘야겠어.",
+          "start": 45.28,
+          "end": 46.92
+        },
+        {
+          "id": "s1-l5",
+          "speaker": "luna",
+          "en": "Wait! What was that sound?",
+          "ko": "잠깐! 무슨 소리지?",
+          "start": 51.52,
+          "end": 56.16
+        },
+        {
+          "id": "s1-l6",
+          "speaker": "nova",
+          "en": "Warning! We are losing power.",
+          "ko": "경고! 전력이 줄고 있어.",
+          "start": 56.54,
+          "end": 59.1
+        }
+      ],
+      "sfx": [
+        {
+          "t": 2,
+          "name": "engine",
+          "gain": 0.18
+        },
+        {
+          "t": 50.5,
+          "name": "beep",
+          "gain": 0.25
+        },
+        {
+          "t": 56.2,
+          "name": "alarm",
+          "gain": 0.18
+        }
+      ],
+      "bgm": "/media/dubbing/dub-007/scene-1-bgm.mp3?v=2"
+    },
+    {
+      "no": 2,
+      "label": {
+        "ko": "긴급 수리 작전",
+        "en": "An Emergency Repair"
+      },
+      "arc": "seung",
+      "mood": "tense",
+      "durationSec": 61,
+      "playbackStartSec": 2,
+      "video": "/media/dubbing/dub-007/scene-2.mp4?v=3",
+      "poster": "/media/dubbing/dub-007/scene-2.jpg?v=2",
+      "videoAudio": "mute",
+      "voices": {
+        "luna": "/media/dubbing/dub-007/scene-2-luna.mp3?v=2",
+        "nova": "/media/dubbing/dub-007/scene-2-nova.mp3?v=2",
+        "zio": "/media/dubbing/dub-007/scene-2-zio.mp3?v=2"
+      },
+      "lines": [
+        {
+          "id": "s2-l1",
+          "speaker": "nova",
+          "en": "The engine is getting too hot.",
+          "ko": "엔진이 너무 뜨거워지고 있어.",
+          "start": 4.98,
+          "end": 7.66
+        },
+        {
+          "id": "s2-l2",
+          "speaker": "luna",
+          "en": "Can we fix it inside?",
+          "ko": "안에서 고칠 수 있어?",
+          "start": 14.62,
+          "end": 16.32
+        },
+        {
+          "id": "s2-l3",
+          "speaker": "zio",
+          "en": "Their engine is getting too hot.",
+          "ko": "저들의 엔진이 너무 뜨거워지고 있어.",
+          "start": 22.62,
+          "end": 25.74
+        },
+        {
+          "id": "s2-l4",
+          "speaker": "zio",
+          "en": "My ship has a spare part.",
+          "ko": "내 우주선에 여분 부품이 있어.",
+          "start": 28.94,
+          "end": 31.5
+        },
+        {
+          "id": "s2-l5",
+          "speaker": "nova",
+          "en": "Check your helmet and safety line.",
+          "ko": "헬멧과 안전줄을 확인해.",
+          "start": 53.24,
+          "end": 55.86
+        },
+        {
+          "id": "s2-l6",
+          "speaker": "luna",
+          "en": "I am ready. Open the door.",
+          "ko": "준비됐어. 문을 열어 줘.",
+          "start": 56.04,
+          "end": 58.24
+        }
+      ],
+      "sfx": [
+        {
+          "t": 2.2,
+          "name": "alarm",
+          "gain": 0.18
+        },
+        {
+          "t": 4.1,
+          "name": "zap",
+          "gain": 0.16
+        },
+        {
+          "t": 58.6,
+          "name": "whoosh",
+          "gain": 0.25
+        }
+      ],
+      "bgm": "/media/dubbing/dub-007/scene-2-bgm.mp3?v=2"
+    },
+    {
+      "no": 3,
+      "label": {
+        "ko": "우주 밖의 위기",
+        "en": "Trouble Outside"
+      },
+      "arc": "jeon",
+      "mood": "tense",
+      "durationSec": 61,
+      "playbackStartSec": 2,
+      "video": "/media/dubbing/dub-007/scene-3.mp4?v=4",
+      "poster": "/media/dubbing/dub-007/scene-3.jpg?v=2",
+      "videoAudio": "mute",
+      "voices": {
+        "luna": "/media/dubbing/dub-007/scene-3-luna.mp3?v=2",
+        "nova": "/media/dubbing/dub-007/scene-3-nova.mp3?v=2",
+        "zio": "/media/dubbing/dub-007/scene-3-zio.mp3?v=2"
+      },
+      "lines": [
+        {
+          "id": "s3-l1",
+          "speaker": "luna",
+          "en": "I can see the broken part.",
+          "ko": "고장 난 부품이 보여.",
+          "start": 6.04,
+          "end": 9.84
+        },
+        {
+          "id": "s3-l2",
+          "speaker": "nova",
+          "en": "Stay close to the ship.",
+          "ko": "우주선 가까이 있어.",
+          "start": 15.2,
+          "end": 16.66
+        },
+        {
+          "id": "s3-l3",
+          "speaker": "zio",
+          "en": "I can reach them in time.",
+          "ko": "늦기 전에 도착할 수 있어.",
+          "start": 40.76,
+          "end": 42.84
+        },
+        {
+          "id": "s3-l4",
+          "speaker": "zio",
+          "en": "Hold on! I am coming.",
+          "ko": "조금만 버텨! 내가 가고 있어.",
+          "start": 42.84,
+          "end": 46.72
+        },
+        {
+          "id": "s3-l5",
+          "speaker": "luna",
+          "en": "Wait! Something is coming closer.",
+          "ko": "잠깐! 뭔가 가까이 오고 있어.",
+          "start": 54.8,
+          "end": 57.36
+        },
+        {
+          "id": "s3-l6",
+          "speaker": "nova",
+          "en": "I see an unknown flying object.",
+          "ko": "정체를 알 수 없는 비행체가 보여.",
+          "start": 57.7,
+          "end": 59.86
+        }
+      ],
+      "sfx": [
+        {
+          "t": 2.3,
+          "name": "heartbeat",
+          "gain": 0.16
+        },
+        {
+          "t": 28,
+          "name": "beep",
+          "gain": 0.2
+        },
+        {
+          "t": 49.6,
+          "name": "rumble",
+          "gain": 0.18
+        }
+      ],
+      "bgm": "/media/dubbing/dub-007/scene-3-bgm.mp3?v=2"
+    },
+    {
+      "no": 4,
+      "label": {
+        "ko": "낯선 친구의 손길",
+        "en": "A Stranger Offers Help"
+      },
+      "arc": "jeon",
+      "mood": "mystery",
+      "durationSec": 61,
+      "playbackStartSec": 2,
+      "video": "/media/dubbing/dub-007/scene-4.mp4?v=5",
+      "poster": "/media/dubbing/dub-007/scene-4.jpg?v=3",
+      "videoAudio": "mute",
+      "voices": {
+        "luna": "/media/dubbing/dub-007/scene-4-luna.mp3?v=2",
+        "zio": "/media/dubbing/dub-007/scene-4-zio.mp3?v=2",
+        "nova": "/media/dubbing/dub-007/scene-4-nova.mp3?v=2"
+      },
+      "lines": [
+        {
+          "id": "s4-l1",
+          "speaker": "zio",
+          "en": "Do not be afraid of me.",
+          "ko": "나를 무서워하지 마.",
+          "start": 10.52,
+          "end": 12.12
+        },
+        {
+          "id": "s4-l2",
+          "speaker": "luna",
+          "en": "Can you help us get home?",
+          "ko": "우리가 집에 가도록 도와줄래?",
+          "start": 14.6,
+          "end": 16.14
+        },
+        {
+          "id": "s4-l3",
+          "speaker": "nova",
+          "en": "Our engine needs a new part.",
+          "ko": "우리 엔진에는 새 부품이 필요해.",
+          "start": 37.48,
+          "end": 40.04
+        },
+        {
+          "id": "s4-l4",
+          "speaker": "zio",
+          "en": "My ship has what you need.",
+          "ko": "내 우주선에 필요한 게 있어.",
+          "start": 47.04,
+          "end": 49.7
+        },
+        {
+          "id": "s4-l5",
+          "speaker": "luna",
+          "en": "Thank you. Please stay with me.",
+          "ko": "고마워. 내 곁에 있어 줘.",
+          "start": 52.08,
+          "end": 54.88
+        },
+        {
+          "id": "s4-l6",
+          "speaker": "nova",
+          "en": "We must work together now.",
+          "ko": "이제 함께 힘을 모아야 해.",
+          "start": 56.78,
+          "end": 59.74
+        }
+      ],
+      "sfx": [
+        {
+          "t": 2.3,
+          "name": "whoosh",
+          "gain": 0.2
+        },
+        {
+          "t": 17.1,
+          "name": "chime",
+          "gain": 0.2
+        },
+        {
+          "t": 36,
+          "name": "beep",
+          "gain": 0.2
+        },
+        {
+          "t": 50.1,
+          "name": "sparkle",
+          "gain": 0.15
+        }
+      ],
+      "bgm": "/media/dubbing/dub-007/scene-4-bgm.mp3?v=2"
+    },
+    {
+      "no": 5,
+      "label": {
+        "ko": "마지막 전력",
+        "en": "The Last Spark"
+      },
+      "arc": "jeon",
+      "mood": "action",
+      "durationSec": 61,
+      "playbackStartSec": 2,
+      "video": "/media/dubbing/dub-007/scene-5.mp4?v=3",
+      "poster": "/media/dubbing/dub-007/scene-5.jpg?v=2",
+      "videoAudio": "mute",
+      "voices": {
+        "luna": "/media/dubbing/dub-007/scene-5-luna.mp3?v=2",
+        "nova": "/media/dubbing/dub-007/scene-5-nova.mp3?v=2",
+        "zio": "/media/dubbing/dub-007/scene-5-zio.mp3?v=2"
+      },
+      "lines": [
+        {
+          "id": "s5-l1",
+          "speaker": "nova",
+          "en": "Only one minute of power left.",
+          "ko": "전력이 일 분밖에 안 남았어.",
+          "start": 5.83,
+          "end": 7.79
+        },
+        {
+          "id": "s5-l2",
+          "speaker": "luna",
+          "en": "I will hold the light steady.",
+          "ko": "내가 불빛을 흔들리지 않게 잡을게.",
+          "start": 14.88,
+          "end": 16.4
+        },
+        {
+          "id": "s5-l3",
+          "speaker": "zio",
+          "en": "Connect the blue cable here.",
+          "ko": "파란 전선을 여기에 연결해.",
+          "start": 24.093,
+          "end": 26.619
+        },
+        {
+          "id": "s5-l4",
+          "speaker": "luna",
+          "en": "It is stuck! Try... Try once more.",
+          "ko": "걸렸어! 다시... 한 번 더 해 봐.",
+          "start": 27.581,
+          "end": 31.792
+        },
+        {
+          "id": "s5-l5",
+          "speaker": "zio",
+          "en": "Now! Turn the handle with me.",
+          "ko": "지금이야! 나와 함께 손잡이를 돌려.",
+          "start": 52.41,
+          "end": 55.35
+        },
+        {
+          "id": "s5-l6",
+          "speaker": "nova",
+          "en": "Power is back. You did it!",
+          "ko": "전력이 돌아왔어. 너희가 해냈어!",
+          "start": 55.35,
+          "end": 59.98
+        }
+      ],
+      "sfx": [
+        {
+          "t": 2.1,
+          "name": "alarm",
+          "gain": 0.18
+        },
+        {
+          "t": 25.45,
+          "name": "zap",
+          "gain": 0.12
+        },
+        {
+          "t": 57.25,
+          "name": "powerup",
+          "gain": 0.18
+        }
+      ],
+      "bgm": "/media/dubbing/dub-007/scene-5-bgm.mp3?v=2"
+    },
+    {
+      "no": 6,
+      "label": {
+        "ko": "지구로 돌아가는 길",
+        "en": "The Journey Home"
+      },
+      "arc": "gyeol",
+      "mood": "triumph",
+      "durationSec": 61,
+      "playbackStartSec": 2,
+      "video": "/media/dubbing/dub-007/scene-6.mp4?v=8",
+      "poster": "/media/dubbing/dub-007/scene-6.jpg?v=3",
+      "videoAudio": "mute",
+      "voices": {
+        "luna": "/media/dubbing/dub-007/scene-6-luna.mp3?v=4",
+        "zio": "/media/dubbing/dub-007/scene-6-zio.mp3?v=5",
+        "nova": "/media/dubbing/dub-007/scene-6-nova.mp3?v=4",
+        "nora": "/media/dubbing/dub-007/scene-6-nora.mp3?v=6"
+      },
+      "lines": [
+        {
+          "id": "s6-l1",
+          "speaker": "luna",
+          "en": "We can go home at last.",
+          "ko": "드디어 집에 갈 수 있어.",
+          "start": 11.68,
+          "end": 13.66
+        },
+        {
+          "id": "s6-l2",
+          "speaker": "zio",
+          "en": "Your friends are waiting for you.",
+          "ko": "친구들이 너를 기다리고 있어.",
+          "start": 14.9,
+          "end": 16.9
+        },
+        {
+          "id": "s6-l3",
+          "speaker": "nova",
+          "en": "Our ship is ready for Earth.",
+          "ko": "우리 우주선이 지구로 갈 준비가 됐어.",
+          "start": 23.82,
+          "end": 26.023
+        },
+        {
+          "id": "s6-l4",
+          "speaker": "luna",
+          "en": "Thank you for helping us, Zio.",
+          "ko": "우리를 도와줘서 고마워, 지오.",
+          "start": 27.515,
+          "end": 30.718
+        },
+        {
+          "id": "s6-l6",
+          "speaker": "nora",
+          "en": "Welcome home, our brave astronaut.",
+          "ko": "용감한 우주비행사야, 집에 온 걸 환영해.",
+          "start": 53.296667,
+          "end": 56.426667
+        },
+        {
+          "id": "s6-l5",
+          "speaker": "zio",
+          "en": "We are friends across the stars.",
+          "ko": "우린 별을 넘어 함께하는 친구야.",
+          "start": 56.943333,
+          "end": 60.343333
+        }
+      ],
+      "sfx": [
+        {
+          "t": 17.3,
+          "name": "engine",
+          "gain": 0.17
+        },
+        {
+          "t": 38.8,
+          "name": "rocket",
+          "gain": 0.2
+        },
+        {
+          "t": 50.616667,
+          "name": "chime",
+          "gain": 0.18
+        }
+      ],
+      "bgm": "/media/dubbing/dub-007/scene-6-bgm.mp3?v=3"
+    }
+  ],
+  "_production": {
+    "edit": "Six approximately one-minute episodes; animated action with cinematic still inserts",
+    "dialogue": "Original generated English voices retained; six dialogue close-ups regenerated with Wan 2.7 using the original separated audio as waveform reference, then composited on the original clock.",
+    "music": "Original instrumental space score and synthetic effects; no speech in background tracks",
+    "guest": "The visible ground controller delivering the final greeting is Mom Nora, not Nova.",
+    "review": "Revision 2: 61 seconds per episode, isolated speaker framing, baked BGM dialogue ducking, timed low-gain SFX rendered from the same app sound recipes; media cache version 2.",
+    "ep6AudioRestoration": "Original recorded tails recovered; line 4 restored from one continuous original utterance; no synthesized speech; role audio cache v4.",
+    "ep6DialogueSpacing": {
+      "gapSec": 0.516667,
+      "insertSec": 0.4166666666666667,
+      "videoCutSec": 46.791666666666664,
+      "method": "10-frame reaction hold after shot change; Nora audio and later SFX shifted equally; original speech unchanged; unused ending trimmed to retain 61 seconds."
+    },
+    "ep6VisualContinuity": {
+      "date": "2026-10-24",
+      "videoCache": 4,
+      "posterCache": 3,
+      "edit": "2-16s: Luna opens the hatch, exits with Nova, and closes it only after both are outside. 16-32s: closed human spacecraft hatch, larger saucer and a distinct purple pilot wearing blue; green Zio remains outside and later arrives on Earth.",
+      "audio": "Original role audio, BGM, SFX and all subtitle timings unchanged. Replacement master remains silent for the existing separate-track player.",
+      "durationSec": 61,
+      "generationJobs": [
+        "ed30b6fe-17d4-4b9d-bd4a-0aaf560b5341",
+        "678076b8-1ab2-445b-a77e-cee4591331f2",
+        "c11f3bd7-165d-4217-9002-436bd05c8e9d"
+      ],
+      "limitation": "Newly generated character motion is not phoneme-level lip synchronization."
+    },
+    "ep6BoardingContinuity": {
+      "date": "2026-10-24",
+      "videoCache": 5,
+      "replaceSec": [
+        30.75,
+        40
+      ],
+      "edit": "After the farewell, Luna, green Zio and Nova board the same silver human spacecraft. The hatch closes after the last passenger enters. A cabin shot shows Luna and Zio together, followed by departure toward Earth; the purple pilot remains aboard the separate saucer.",
+      "audio": "Original dialogue, role stems, BGM and subtitle timings retained. Rocket SFX moved from 30.8s to 38.8s to match the new departure.",
+      "durationSec": 61,
+      "generationJob": "2e58abcc-e99a-499c-a88f-366d834f6c26"
+    },
+    "ep6ArrivalContinuity": {
+      "date": "2026-10-25",
+      "videoCache": 6,
+      "replaceSec": [
+        40,
+        46.75
+      ],
+      "edit": "The same silver human spacecraft is landed with its hatch open and ramp down. Luna walks down first, green Zio follows through the same doorway, and Nova follows. Both passengers reach the ground and stand side by side before the existing mother reunion shot.",
+      "audio": "All existing dialogue, role stems, BGM, SFX and subtitle timings retained. The new arrival action uses the existing Zio dialogue as accompaniment and is not phoneme-level lip synchronization.",
+      "durationSec": 61,
+      "generationJob": "5a4f8860-f4ef-461e-9443-4a6e4d386451"
+    },
+    "ep6ZioWelcome": {
+      "date": "2026-10-25",
+      "videoCache": 7,
+      "replaceSec": [
+        46.75,
+        60.5
+      ],
+      "edit": "Luna and Nora first share their original reunion hug at 46.75-53s. Then Nora turns to welcome green Zio and hugs him. Zio returns the embrace; Luna and Nova watch beside them.",
+      "audio": "Nora's original complete welcome take moves from 47.296667-50.426667s to 53.296667-56.426667s. Zio's original complete friends-across-the-stars utterance moves from 43.38-46.78s to 56.943333-60.343333s, following a 0.516666s reply gap. No new or repeated speech; original utterances include 100ms handles. BGM is ducked for the new exchange. Existing six lines are retained and sorted by new timestamps.",
+      "durationSec": 61,
+      "generationJob": "3811da31-9419-4fdc-860e-d1f82f117dfd",
+      "billing": "One explicitly authorized free Genjutsu edit, no generation credits."
+    },
+    "wholeStoryContinuityReview": {
+      "date": "2026-10-25",
+      "reviewedScenes": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "edits": [
+        "EP3 8-17s: reframe repair to exclude the unintended Zio inside Luna's hatch.",
+        "EP4 frames 840-892 and 967-1233: Zio reaction/tool close-up excludes duplicate Nova and the extra small UFO.",
+        "EP6 2-4s: helmet close-up excludes the ambiguous green background face.",
+        "EP6 46.75-53s and 56.5-61s: medium reunion shots exclude the unrelated cone-shaped lander; greeting close-up 53-56.5s preserved."
+      ],
+      "timing": "All 61-second silent masters, original action order, dialogue offsets and role/BGM stems retained.",
+      "limitations": "At that editorial pass, the early cyan UFO/cockpit and red-striped wide hull still differed from EP6. The subsequent existingFootageShipMatch pass below replaces conflicting wide shots and reframes interiors without generating footage."
+    },
+    "existingFootageShipMatch": {
+      "date": "2026-10-25",
+      "sourceCommit": "8dccc88",
+      "method": "Existing moving footage only: exact-frame cuts, reframing and motion interpolation for retiming. No generative image/video calls or added characters.",
+      "referenceCraft": "EP6 silver horizontal human spacecraft with blue engines; silver saucer with gold rim and transparent dome, distinct purple pilot in blue.",
+      "edits": [
+        "EP1 35-50s: Zio close-up conceals conflicting wide cockpit/window geometry. 50-54.5s: reuse EP6 38-40s, establishing the same two craft and purple pilot early. 54.5-61s: reuse EP2 8-14.5s as the red-alert reaction leading into EP2.",
+        "EP2 17-32s: Zio/part close-up excludes the different cylindrical ship outside and the miniature Luna hologram.",
+        "EP3 2-8s: repair close-up excludes the early cyan saucer. 35-50s: Zio close-up reduces cockpit geometry changes. 50-54.791667s: Luna reaction excludes the morphing cyan craft. 54.791667-57.458333s: reuse EP6 39.125-40s cropped to gold-rimmed saucer. 57.458333-61s: reuse EP6 23.5-26.083333s purple-pilot close-up.",
+        "EP4 2-9.416667s: reuse EP3 28.25-34.75s damaged-component inspection, tightly framed with a gentle camera push. This removes both the different rounded whole-ship silhouette and its prominent red hull stripes. Poster now uses Zio greeting.",
+        "EP5 and EP6 retained, including physical boarding, shared cabin, same-ship landing/disembarkation, mother greeting and both hugs."
+      ],
+      "timing": "Each silent master remains exactly 1464 frames / 61 seconds, 1280x720 at 24fps. All original role/BGM files, 36 line timings and SFX offsets unchanged.",
+      "scope": "Maximizes continuity using existing footage; small surface markings and cockpit lighting still vary between original angles. Those views are close-framed; exact 3D-model uniformity is not claimed."
+    }
+  }
+}

@@ -1,0 +1,310 @@
+{
+  "id": "s1-27",
+  "breaks": [
+    3,
+    4,
+    3
+  ],
+  "key": {
+    "P": 7,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "마음",
+      "en": "feeling"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «톰이 아주 외로워한다(마음)» 와 «사랑하는 사람들이 나를 봐 주는 것이 가장 좋다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the feeling (Tom feels very lonely) and the lesson (being seen by the people you love is the best). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Tom, his friends, and Mom"
+    },
+    {
+      "k": "Feeling",
+      "qko": "톰은 어떤 마음이 되나요?",
+      "qen": "How does Tom feel?",
+      "a": "Tom feels very lonely because nobody can see him."
+    },
+    {
+      "k": "Lesson",
+      "qko": "무엇을 배울 수 있나요?",
+      "qen": "What can we learn?",
+      "a": "Being seen by the people you love is the best."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Tom drinks a strange blue ",
+      "ans": "juice",
+      "opts": [
+        "juice",
+        "soup",
+        "tea"
+      ]
+    },
+    {
+      "pre": " and becomes ",
+      "ans": "invisible",
+      "opts": [
+        "invisible",
+        "tall",
+        "tiny"
+      ]
+    },
+    {
+      "pre": ". At first, it is ",
+      "ans": "fun",
+      "opts": [
+        "fun",
+        "sad",
+        "scary"
+      ]
+    },
+    {
+      "pre": ". But his friends play without him, and Mom cannot give him a ",
+      "ans": "hug",
+      "opts": [
+        "hug",
+        "cake",
+        "gift"
+      ]
+    },
+    {
+      "pre": ". Tom feels very ",
+      "ans": "lonely",
+      "opts": [
+        "lonely",
+        "happy",
+        "hungry"
+      ]
+    },
+    {
+      "pre": ". The next morning, everyone can see him again.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "strange",
+      "이상한",
+      "Tom drinks a <b>strange</b> blue juice.",
+      "not usual, different from normal"
+    ],
+    [
+      "invisible",
+      "눈에 보이지 않는",
+      "Poof! He is <b>invisible</b>!",
+      "not able to be seen"
+    ],
+    [
+      "nobody",
+      "아무도 ~않다",
+      "<b>Nobody</b> can see him.",
+      "no person"
+    ],
+    [
+      "without",
+      "~없이",
+      "But at lunch, his friends play <b>without</b> him.",
+      "not having or not together with"
+    ],
+    [
+      "hug",
+      "꼭 껴안기",
+      "At home, Mom cannot find him to give him a <b>hug</b>.",
+      "holding someone close with your arms"
+    ],
+    [
+      "lonely",
+      "외로운",
+      "Tom feels very <b>lonely</b>.",
+      "sad because you are alone"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does Tom feel lonely?",
+      "qko": "톰은 왜 외로워하나요?",
+      "opts": [
+        "His friends play without him.",
+        "He eats too many cookies.",
+        "Mom is angry with him."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "But at lunch, his friends play without him.",
+        "At first, it is fun.",
+        "He takes cookies, and nobody knows.",
+        "The next morning, everyone can see Tom again."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«But at lunch, his friends play without him.» 아무도 톰을 볼 수 없어서 친구들이 톰 없이 놀아요. 혼자가 되니 외로워요.",
+        "Nobody can see Tom, so his friends play without him. That is why Tom feels lonely."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Poof! He is invisible!\" What does \"invisible\" mean?",
+      "qko": "«He is invisible!» 에서 «invisible» 은 무슨 뜻일까요?",
+      "opts": [
+        "nobody can see him",
+        "he is very strong",
+        "he can fly"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Nobody can see him.",
+        "Tom drinks a strange blue juice.",
+        "Tom feels very lonely.",
+        "At first, it is fun."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«Nobody can see him.» 아무도 톰을 볼 수 없어요. 그러니 «invisible» 은 «눈에 보이지 않는» 이라는 뜻이에요.",
+        "Nobody can see him. So \"invisible\" means not able to be seen."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why can’t Mom give Tom a hug?",
+      "qko": "엄마는 왜 톰을 안아 줄 수 없나요?",
+      "opts": [
+        "Tom is invisible, so Mom cannot find him.",
+        "Tom is at school all day.",
+        "Mom is too busy cooking."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "At home, Mom cannot find him to give him a hug.",
+        "Nobody can see him.",
+        "The next morning, everyone can see Tom again.",
+        "At first, it is fun."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "아무도 톰을 볼 수 없어서(«Nobody can see him.») 엄마가 톰을 찾지 못해 안아 줄 수 없어요(«At home, Mom cannot find him to give him a hug.»). 두 문장을 이어야 알 수 있어요.",
+        "Nobody can see Tom, so Mom cannot find him to give him a hug. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Tom gives Mom a big hug and plays with his friends.",
+      "톰은 엄마를 꼭 안아 주고 친구들과 함께 논다.",
+      "A Big Hug for Mom"
+    ],
+    [
+      "B",
+      "Tom pours the blue juice away so he will not be invisible again.",
+      "톰은 다시는 투명해지지 않도록 파란 주스를 버린다.",
+      "No More Blue Juice"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he is smiling)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)",
+    "src": "“I think <u>Tom is happy now</u> because <u>everyone can see him again</u>.”",
+    "chips": [
+      {
+        "a": "my friend is lonely",
+        "b": "she sits alone",
+        "label": "friend"
+      },
+      {
+        "a": "Mom loves me",
+        "b": "she gives me a hug",
+        "label": "hug"
+      },
+      {
+        "a": "I am happy",
+        "b": "my friends play with me",
+        "label": "play"
+      }
+    ]
+  },
+  "img": {
+    "style": "webtoon",
+    "cover": "In a cozy kitchen, a boy with short black hair in a red hoodie and blue jeans finishes a glass of strange glowing blue juice, and with a big puff of blue sparkles his body starts to turn see-through from his feet up.",
+    "scenes": {
+      "1": "On a sunny school playground, a group of friends play ball together, while a faint, see-through outline of a boy with short black hair in a red hoodie and blue jeans stands alone at the side holding a cookie and looking sad.",
+      "2": "In a bright home in the morning, a boy with short black hair in a red hoodie and blue jeans can be seen clearly again, and Mom gives him a big warm hug while two of his friends wave happily at the door."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Invisible Tom stands alone while his friends play.",
+    "2": "Mom hugs Tom when everyone can see him again.",
+    "cover": "Tom drinks blue juice and starts to disappear."
+  }
+}

@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «If», write who + what they do. (e.g. If we eat kimchi often)"
   },
   "img": {
+    "style": "webtoon",
     "cover": "A Korean family wearing rubber gloves, rubbing red seasoning into salted napa cabbage leaves in a large bowl at kimjang time",
     "scenes": {
       "1": "Fresh napa cabbages, white radishes, coarse salt, and red chili pepper flakes laid out on a kitchen table",
       "2": "A glass jar packed with red cabbage kimchi, with tiny bubbles visible against the glass"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

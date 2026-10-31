@@ -291,10 +291,16 @@
     ]
   },
   "img": {
+    "style": "editorial",
     "cover": "A child sleeping peacefully under a soft blanket in a quiet bedroom, with moonlight coming through the window",
     "scenes": {
       "1": "A boy lying in bed with his eyes closed and a small night light glowing on the bedside table",
       "3": "A dim bedroom at night with a smartphone resting on a desk across the room from a neatly made bed and a softly glowing bedside lamp"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

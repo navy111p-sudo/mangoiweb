@@ -1,0 +1,311 @@
+{
+  "id": "s2-46",
+  "breaks": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 1,
+    "S": 11
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «삼촌이 얼음에 미끄러져 다리를 다쳤다(문제)» 와 «준의 용기와 호랑이의 길이 둘을 구했다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (Uncle slipped on the ice and hurt his leg) and the solution (Jun's courage and the tiger's path saved them both). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Jun, his uncle, a tiger"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Uncle hurt his leg in heavy snow on the mountain."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "They followed the tiger's tracks to a ranger's cabin."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Jun and his uncle were hiking when heavy ",
+      "ans": "snow",
+      "opts": [
+        "snow",
+        "rain",
+        "sand"
+      ]
+    },
+    {
+      "pre": " began to fall. Uncle hurt his ",
+      "ans": "leg",
+      "opts": [
+        "leg",
+        "arm",
+        "head"
+      ]
+    },
+    {
+      "pre": ", and a huge ",
+      "ans": "tiger",
+      "opts": [
+        "tiger",
+        "bear",
+        "wolf"
+      ]
+    },
+    {
+      "pre": " came out of the trees. Jun was scared, but he stood in front of his ",
+      "ans": "uncle",
+      "opts": [
+        "uncle",
+        "tree",
+        "dog"
+      ]
+    },
+    {
+      "pre": ". The tiger walked away, and its ",
+      "ans": "tracks",
+      "opts": [
+        "tracks",
+        "songs",
+        "toys"
+      ]
+    },
+    {
+      "pre": " led them to a warm cabin. They were both safe.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "slipped",
+      "미끄러졌다",
+      "Uncle <b>slipped</b> on the ice and hurt his leg.",
+      "slid and fell by accident"
+    ],
+    [
+      "growl",
+      "으르렁거리는 소리",
+      "Then they heard a low <b>growl</b> behind the trees.",
+      "a low, angry sound an animal makes"
+    ],
+    [
+      "pounded",
+      "쿵쾅쿵쾅 뛰었다",
+      "Jun's heart <b>pounded</b>",
+      "beat very hard and fast"
+    ],
+    [
+      "tracks",
+      "발자국",
+      "in the tiger's <b>tracks</b>",
+      "marks left by feet on the ground or in snow"
+    ],
+    [
+      "cabin",
+      "오두막",
+      "The tracks led them to a ranger's <b>cabin</b> with warm lights.",
+      "a small wooden house"
+    ],
+    [
+      "courage",
+      "용기",
+      "Jun's <b>courage</b> and the tiger's path saved them both.",
+      "being brave when you are scared"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did Jun not go to find help alone?",
+      "qko": "준은 왜 혼자 도움을 구하러 가지 않았나요?",
+      "opts": [
+        "He did not want to leave his uncle alone.",
+        "He was afraid of the snow.",
+        "His uncle told him to stay."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Jun and his uncle were hiking on Mount Baekdu when heavy snow began to fall.",
+        "Then it turned and walked slowly down the mountain, leaving deep footprints.",
+        "\"Go and find help,\" he said, but Jun did not want to leave him alone.",
+        "The tracks led them to a ranger's cabin with warm lights."
+      ],
+      "ev": [
+        2
+      ],
+      "why": [
+        "삼촌은 «가서 도움을 구해 와» 라고 했지만, 준은 삼촌을 혼자 두고 싶지 않았어요. 삼촌이 남으라고 한 것이 아니에요.",
+        "Uncle said, \"Go and find help,\" but Jun did not want to leave him alone. Uncle did not tell him to stay."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The text says, \"Jun's heart pounded, but he stood in front of his uncle.\" How did Jun feel?",
+      "qko": "\"Jun's heart pounded, but he stood in front of his uncle.\"라고 나와요. 준은 어떤 마음이었나요?",
+      "opts": [
+        "very scared, but he was still brave",
+        "calm and bored",
+        "happy to see the tiger"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "\"Follow the tiger,\" whispered Uncle.",
+        "A huge tiger stepped out of the snow, with orange fur and bright yellow eyes.",
+        "The tracks led them to a ranger's cabin with warm lights.",
+        "Jun and his uncle were hiking on Mount Baekdu when heavy snow began to fall."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "커다란 호랑이가 눈 속에서 나타났어요. 준은 무서워서 심장이 쿵쾅거렸지만, 그래도 삼촌 앞에 섰어요. 무서웠지만 용감했던 거예요.",
+        "A huge tiger stepped out of the snow. Jun's heart beat fast because he was scared, but he still stood in front of his uncle."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did Jun and his uncle find the cabin?",
+      "qko": "준과 삼촌은 어떻게 오두막을 찾았나요?",
+      "opts": [
+        "They followed the tiger's tracks down the mountain.",
+        "The ranger came up and carried them.",
+        "Jun ran ahead and found it alone."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Then it turned and walked slowly down the mountain, leaving deep footprints.",
+        "Then they heard a low growl behind the trees.",
+        "The tracks led them to a ranger's cabin with warm lights.",
+        "Uncle slipped on the ice and hurt his leg."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "호랑이가 깊은 발자국을 남기며 산을 내려갔고, 그 발자국이 산지기의 오두막으로 이어졌어요. 두 문장을 이으면 답이 나와요.",
+        "The tiger walked down the mountain and left deep footprints, and the tracks led them to a ranger's cabin. Put these two clues together."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Jun goes back in spring to look for the tiger again.",
+      "준이 봄에 다시 호랑이를 찾으러 가요.",
+      "Looking for the Tiger"
+    ],
+    [
+      "B",
+      "The ranger teaches Jun how to stay safe on the mountain.",
+      "산지기가 준에게 산에서 안전하게 지내는 법을 가르쳐 줘요.",
+      "Mountain Safety"
+    ]
+  ],
+  "write": {
+    "pre": "It is important to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“It is important to <u>stay calm</u> because <u>it helps us think clearly</u>.”",
+    "slotKo": [
+      "중요한 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "an important thing to do",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «중요한 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write an important thing to do and your reason in English.",
+    "chips": [
+      {
+        "a": "help a friend in trouble",
+        "b": "friends take care of each other",
+        "label": "friend"
+      },
+      {
+        "a": "wear warm clothes in winter",
+        "b": "the snow is very cold",
+        "label": "winter"
+      },
+      {
+        "a": "tell an adult when we are lost",
+        "b": "they can help us",
+        "label": "lost"
+      }
+    ],
+    "aria": [
+      "what is important to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «It is important to» 뒤에는 동사(stay, help, wear)를 바로 쓰고, «because» 뒤에는 «누가 + 무엇을» 을 쓰세요.",
+    "moreEn": "One more step: after «It is important to», write a verb (stay, help, wear). After «because», write who + what."
+  },
+  "img": {
+    "style": "minhwa",
+    "cover": "In a snowy pine forest on a mountain, a boy with short spiky black hair in a red puffy winter jacket and a yellow knit hat stands with his arms spread wide in front of a tall man with a short black beard in a green winter jacket and a gray backpack, who sits in the snow, while a huge tiger with orange fur and bright yellow eyes stands calmly between the trees and looks quietly at the boy.",
+    "scenes": {
+      "2": "On the snowy mountain, a huge tiger with orange fur and bright yellow eyes walks slowly away down the hill and leaves a line of deep footprints, while a boy with short spiky black hair in a red puffy winter jacket and a yellow knit hat and a tall man with a short black beard in a green winter jacket and a gray backpack watch it go from the snow.",
+      "3": "At dusk on the snowy mountain, a boy with short spiky black hair in a red puffy winter jacket and a yellow knit hat helps a tall man with a short black beard in a green winter jacket and a gray backpack walk step by step in a line of big tiger footprints toward a small wooden cabin with warm yellow lights in the windows."
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "2": "The tiger walks away and leaves deep footprints.",
+    "3": "Jun and his uncle follow the tracks to a cabin.",
+    "cover": "Jun stands in front of his uncle as a tiger looks at him."
+  }
+}

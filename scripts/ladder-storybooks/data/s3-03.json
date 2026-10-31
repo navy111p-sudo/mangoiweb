@@ -291,10 +291,16 @@
     ]
   },
   "img": {
+    "style": "cg3d",
     "cover": "A volcano erupting at dusk with bright orange lava flowing down its dark rocky slopes and a cloud of ash above it",
     "scenes": {
       "1": "A museum cross-section model of the Earth cut open to show the hot red and orange layers deep inside",
       "3": "A tall cone-shaped volcano with clear layers of dark cooled lava and gray ash on its slopes and a little steam rising from the top"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

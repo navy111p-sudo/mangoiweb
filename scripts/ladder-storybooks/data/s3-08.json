@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», use a fact from the text to make your reason clear. (e.g. because they huddle together)"
   },
   "img": {
+    "style": "photo",
     "cover": "A large group of emperor penguins huddled close together on snow and ice in Antarctica during a windy storm",
     "scenes": {
       "1": "A plump emperor penguin standing alone on snowy ice, showing its round, well-padded body",
       "2": "A close view of a penguin coming out of icy seawater, with water drops sliding off its short, tightly packed feathers"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

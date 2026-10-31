@@ -1,0 +1,310 @@
+{
+  "id": "s1-45",
+  "breaks": [
+    3,
+    3,
+    4
+  ],
+  "key": {
+    "P": 3,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "사건",
+      "en": "event"
+    },
+    "S": {
+      "ko": "반전",
+      "en": "twist"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «커다란 공룡 뼈가 움직인다(사건)» 와 «주머니에서 작은 뼈를 하나 찾는다(반전)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the event (the big dinosaur bones are moving) and the twist (I find a tiny bone in my pocket). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "I (a student), my class, and the dinosaur bones"
+    },
+    {
+      "k": "Event",
+      "qko": "무슨 일이 일어났나요?",
+      "qen": "What happens?",
+      "a": "At midnight, the big dinosaur bones move and dance to music."
+    },
+    {
+      "k": "Twist",
+      "qko": "어떤 반전이 있나요?",
+      "qen": "What is the surprise?",
+      "a": "In the morning, I wonder if it was a dream, but I find a tiny bone in my pocket."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Our class has a sleepover at the ",
+      "ans": "museum",
+      "opts": [
+        "museum",
+        "beach",
+        "zoo"
+      ]
+    },
+    {
+      "pre": ". At midnight, the big dinosaur ",
+      "ans": "bones",
+      "opts": [
+        "bones",
+        "cars",
+        "trees"
+      ]
+    },
+    {
+      "pre": " start to move and ",
+      "ans": "dance",
+      "opts": [
+        "dance",
+        "sleep",
+        "cry"
+      ]
+    },
+    {
+      "pre": ". I dance with them all ",
+      "ans": "night",
+      "opts": [
+        "night",
+        "week",
+        "year"
+      ]
+    },
+    {
+      "pre": ". In the morning, the bones are still, but I find a tiny ",
+      "ans": "bone",
+      "opts": [
+        "bone",
+        "cake",
+        "coin"
+      ]
+    },
+    {
+      "pre": " in my pocket!",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "museum",
+      "박물관",
+      "Our class has a sleepover at the <b>museum</b>.",
+      "a building where you can see old and special things"
+    ],
+    [
+      "midnight",
+      "한밤중",
+      "At <b>midnight</b>, I hear a strange sound.",
+      "twelve o'clock at night"
+    ],
+    [
+      "strange",
+      "이상한",
+      "I hear a <b>strange</b> sound.",
+      "new and different, not usual"
+    ],
+    [
+      "bones",
+      "뼈",
+      "The big dinosaur <b>bones</b> are moving!",
+      "the hard parts inside a body"
+    ],
+    [
+      "still",
+      "가만히 있는",
+      "In the morning, the bones are <b>still</b> again.",
+      "not moving"
+    ],
+    [
+      "pocket",
+      "주머니",
+      "Then I find a tiny bone in my <b>pocket</b>!",
+      "a small bag in your clothes"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does the child get up at midnight?",
+      "qko": "아이는 왜 한밤중에 일어나나요?",
+      "opts": [
+        "The child is very hungry.",
+        "The teacher calls the child.",
+        "The child hears a strange sound."
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Our class has a sleepover at the museum.",
+        "At midnight, I hear a strange sound. Click, clack!",
+        "In the morning, the bones are still again.",
+        "Was it a dream?"
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "한밤중에 «딸깍, 딸각!» 하는 이상한 소리가 들려서 일어나요.",
+        "The child hears a strange sound, \"Click, clack!\", so the child gets up."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"In the morning, the bones are still again.\" What does \"still\" mean here?",
+      "qko": "«the bones are still again» 에서 «still» 은 무슨 뜻일까요?",
+      "opts": [
+        "moving fast",
+        "not moving",
+        "very loud"
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "The big dinosaur bones are moving!",
+        "Our class has a sleepover at the museum.",
+        "A long-neck dinosaur says, \"Come and dance with us!\"",
+        "Then I find a tiny bone in my pocket!"
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "밤에는 뼈들이 «moving» 움직였지만, 아침에는 다시 «still» 이에요. 움직이지 않고 가만히 있다는 뜻이에요.",
+        "At night the bones are moving, but in the morning they are still again. \"Still\" means not moving."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why do we think it was not just a dream?",
+      "qko": "그 일이 그냥 꿈이 아니었다고 생각하는 까닭은 무엇인가요?",
+      "opts": [
+        "There is a tiny bone in the child's pocket.",
+        "The teacher saw the dinosaurs dance.",
+        "The bones are still moving in the morning."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Was it a dream?",
+        "Our class has a sleepover at the museum.",
+        "Then I find a tiny bone in my pocket!",
+        "I get up and walk to the dinosaur hall."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "아이는 «꿈이었을까?» 하고 생각해요. 그런데 주머니에서 작은 뼈를 찾아요. 두 문장을 이어야 알 수 있어요.",
+        "The child wonders, \"Was it a dream?\" Then the child finds a tiny bone in the pocket. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "The class goes back to the museum to return the tiny bone.",
+      "반 친구들이 작은 뼈를 돌려주러 다시 박물관에 간다.",
+      "Returning the Tiny Bone"
+    ],
+    [
+      "B",
+      "The dinosaurs come to our school for a dance party.",
+      "공룡들이 춤 파티를 하러 우리 학교에 온다.",
+      "Dinosaur Dance Party"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "before",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“Let’s <u>dance with the dinosaurs</u> before <u>the morning comes</u>.”",
+    "slotKo": [
+      "함께 할 일",
+      "그보다 나중에 일어날 일"
+    ],
+    "slotEn": [
+      "what to do",
+      "what happens later"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그보다 나중에 일어날 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what to do together and what happens later in English.",
+    "chips": [
+      {
+        "a": "clean our room",
+        "b": "Mom comes home",
+        "label": "room"
+      },
+      {
+        "a": "eat lunch",
+        "b": "the bell rings",
+        "label": "lunch"
+      },
+      {
+        "a": "play outside",
+        "b": "it gets dark",
+        "label": "outside"
+      }
+    ],
+    "aria": [
+      "what to do",
+      "what happens later"
+    ],
+    "moreKo": "한 걸음 더: «before» 뒤에 «누가 + 무엇을» 넣어 써 보세요. (예: before Dad comes home)",
+    "moreEn": "One more step: after «before», write who + what. (e.g. before Dad comes home)"
+  },
+  "img": {
+    "style": "clay",
+    "cover": "In a dark museum hall lit by moonlight from tall windows, a girl with long brown hair in a ponytail, wearing green pajamas with yellow moons, dances happily with a tall long-neck dinosaur skeleton made of smooth cream-colored bones, with a friendly grin, while other dinosaur skeletons twirl around them.",
+    "scenes": {
+      "1": "At midnight in the museum's dinosaur hall, big dinosaur skeletons start to move and dance, and a tall long-neck dinosaur skeleton made of smooth cream-colored bones, with a friendly grin, bends its long neck down toward a girl with long brown hair in a ponytail, wearing green pajamas with yellow moons, who peeks in from the doorway with wide eyes.",
+      "2": "In the bright morning, the dinosaur skeletons stand still on their platforms, including a tall long-neck dinosaur skeleton made of smooth cream-colored bones, with a friendly grin, and a girl with long brown hair in a ponytail, wearing green pajamas with yellow moons, stares in surprise at a tiny bone in her open hand next to her pajama pocket."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "The dinosaur bones start to dance at midnight.",
+    "2": "The girl finds a tiny bone in her pocket.",
+    "cover": "A girl dances with a dinosaur skeleton in the museum."
+  }
+}

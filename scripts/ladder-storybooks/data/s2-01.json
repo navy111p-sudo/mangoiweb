@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because she works hard)"
   },
   "img": {
+    "style": "clay",
     "cover": "A small red ant carries a seed across a sunny summer field while a green grasshopper holding a small violin sits on a leaf and watches her.",
     "scenes": {
       "1": "A green grasshopper holding a small violin laughs on a leaf in the summer sun as a small red ant walks past him carrying grain toward a little hole in the ground.",
       "2": "A cold winter field covered with snow; the green grasshopper with his small violin sits alone and shivers next to bare, frozen plants."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

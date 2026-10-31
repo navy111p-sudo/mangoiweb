@@ -1,0 +1,310 @@
+{
+  "id": "s1-41",
+  "breaks": [
+    3,
+    3,
+    4
+  ],
+  "key": {
+    "P": 3,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "실수",
+      "en": "mistake"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «핀이 주문을 잘못 외웠다(실수)» 와 «핀은 마법을 조심해서 써야 한다는 것을 배운다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the mistake (Finn says the wrong word) and the lesson (Finn learns to be careful with magic). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Finn and his teacher"
+    },
+    {
+      "k": "Mistake",
+      "qko": "핀은 어떤 실수를 했나요?",
+      "qen": "What is Finn's mistake?",
+      "a": "Finn says the wrong word, and his teacher turns into a frog."
+    },
+    {
+      "k": "Lesson",
+      "qko": "핀은 무엇을 배웠나요?",
+      "qen": "What does Finn learn?",
+      "a": "Finn learns to be careful with magic."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Finn is a young ",
+      "ans": "wizard",
+      "opts": [
+        "wizard",
+        "doctor",
+        "farmer"
+      ]
+    },
+    {
+      "pre": ". He must turn a frog into a prince, but he says the wrong ",
+      "ans": "word",
+      "opts": [
+        "word",
+        "song",
+        "color"
+      ]
+    },
+    {
+      "pre": ". Now his teacher is a big green ",
+      "ans": "frog",
+      "opts": [
+        "frog",
+        "dragon",
+        "cat"
+      ]
+    },
+    {
+      "pre": "! Finn reads his spell book very ",
+      "ans": "carefully",
+      "opts": [
+        "carefully",
+        "quickly",
+        "sadly"
+      ]
+    },
+    {
+      "pre": ", and the teacher is ",
+      "ans": "back",
+      "opts": [
+        "back",
+        "gone",
+        "asleep"
+      ]
+    },
+    {
+      "pre": ". Finn learns to be careful with magic.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "wizard",
+      "마법사",
+      "Finn is a young <b>wizard</b> in training.",
+      "a person who can do magic"
+    ],
+    [
+      "wand",
+      "마법 지팡이",
+      "He waves his <b>wand</b>.",
+      "a thin stick for doing magic"
+    ],
+    [
+      "wrong",
+      "틀린",
+      "Oops! He says the <b>wrong</b> word.",
+      "not right"
+    ],
+    [
+      "frog",
+      "개구리",
+      "Now his teacher is a big green <b>frog</b>!",
+      "a small green animal that jumps and lives near water"
+    ],
+    [
+      "carefully",
+      "꼼꼼히",
+      "Finn opens his spell book and reads very <b>carefully</b>.",
+      "slowly and with a lot of attention"
+    ],
+    [
+      "magic",
+      "마법",
+      "Finn learns to be careful with <b>magic</b>.",
+      "a special power to do things that are not possible"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does the teacher turn into a frog?",
+      "qko": "선생님은 왜 개구리가 되나요?",
+      "opts": [
+        "The teacher drinks a potion.",
+        "The prince does magic.",
+        "Finn says the wrong word."
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Finn is a young wizard in training.",
+        "Oops! He says the wrong word.",
+        "Finn opens his spell book and reads very carefully.",
+        "The teacher is back!"
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "핀이 주문을 잘못 외워서 선생님이 개구리가 돼요.",
+        "Finn says the wrong word, so his teacher turns into a frog."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Finn is a young wizard in training.\" What does \"in training\" mean?",
+      "qko": "«in training» 은 무슨 뜻일까요?",
+      "opts": [
+        "riding on a train",
+        "still learning to do magic",
+        "already the best wizard"
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Now his teacher is a big green frog!",
+        "Oops! He says the wrong word.",
+        "He waves his wand. \"Abra-ca-FROG!\"",
+        "\"Abra-ca-DONE!\""
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "핀에게는 마법을 가르치는 선생님이 있어요. «in training» 은 아직 배우는 중이라는 뜻이에요.",
+        "Finn has a teacher. \"In training\" means he is still learning."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How does Finn fix his mistake?",
+      "qko": "핀은 어떻게 실수를 바로잡나요?",
+      "opts": [
+        "He reads his spell book carefully and says a new spell.",
+        "He asks a prince for help.",
+        "He runs away from the school."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Finn opens his spell book and reads very carefully.",
+        "Today, he must turn a frog into a prince.",
+        "\"Abra-ca-DONE!\"",
+        "Now his teacher is a big green frog!"
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "핀이 주문책을 꼼꼼히 읽고, 새 주문 «Abra-ca-DONE!» 을 외워요. 두 문장을 이어야 알 수 있어요.",
+        "Finn reads his spell book carefully, and then he says \"Abra-ca-DONE!\" You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Finn tries again and turns the frog into a prince.",
+      "핀이 다시 도전해서 개구리를 왕자로 바꾼다.",
+      "The Frog Prince"
+    ],
+    [
+      "B",
+      "Finn's teacher teaches the class a fun flying spell.",
+      "선생님이 반 아이들에게 재미있는 하늘 나는 주문을 가르쳐 준다.",
+      "The Flying Spell"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "before",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“Let’s <u>read the spell book</u> before <u>we do magic</u>.”",
+    "slotKo": [
+      "함께 할 일",
+      "그보다 나중에 일어날 일"
+    ],
+    "slotEn": [
+      "what to do",
+      "what happens later"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그보다 나중에 일어날 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what to do together and what happens later in English.",
+    "chips": [
+      {
+        "a": "read the rules",
+        "b": "we play the game",
+        "label": "game"
+      },
+      {
+        "a": "wash our hands",
+        "b": "we eat dinner",
+        "label": "dinner"
+      },
+      {
+        "a": "look both ways",
+        "b": "we cross the street",
+        "label": "street"
+      }
+    ],
+    "aria": [
+      "what to do",
+      "what happens later"
+    ],
+    "moreKo": "한 걸음 더: «before» 뒤에 «누가 + 무엇을» 넣어 써 보세요. (예: before Dad comes home)",
+    "moreEn": "One more step: after «before», write who + what. (e.g. before Dad comes home)"
+  },
+  "img": {
+    "style": "fairytale",
+    "cover": "In a stone classroom with shelves of glass potion bottles, Finn, a young boy with messy red hair, freckles, a blue robe with yellow stars and a short wooden wand, covers his mouth in shock as purple sparkles swirl around a big green frog wearing round glasses and a purple pointy hat on the teacher's chair, while a small frog on the desk watches.",
+    "scenes": {
+      "1": "On a wooden desk in a stone classroom, a big green frog wearing round glasses and a purple pointy hat stands up and points a webbed finger at Finn, a young boy with messy red hair, freckles, a blue robe with yellow stars and a short wooden wand, who looks worried and scratches his head.",
+      "2": "In the stone classroom, Finn, a young boy with messy red hair, freckles, a blue robe with yellow stars and a short wooden wand, holds open a big old spell book and waves his wand, and golden sparkles turn the frog back into his teacher, a tall woman with a long white braid, round glasses and a purple pointy hat, who smiles at him."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "The frog teacher points at worried Finn.",
+    "2": "Finn reads his spell book and turns the teacher back.",
+    "cover": "Finn's spell turns his teacher into a big green frog."
+  }
+}

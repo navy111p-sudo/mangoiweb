@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «before», write who + what. (e.g. before Dad comes home)"
   },
   "img": {
+    "style": "papercut",
     "cover": "On a dark summer night in a grassy field, a boy with spiky black hair in an orange T-shirt and a girl with long braids in a white dress watch many tiny glowing fireflies rise toward the stars.",
     "scenes": {
       "1": "In a dark grassy field, a boy with spiky black hair in an orange T-shirt holds up a glass jar that glows with tiny fireflies, next to a girl with long braids in a white dress.",
       "2": "A boy with spiky black hair in an orange T-shirt opens a glass jar, and tiny glowing fireflies fly out toward the starry sky, while a girl with long braids in a white dress smiles."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

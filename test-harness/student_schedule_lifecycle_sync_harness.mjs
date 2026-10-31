@@ -219,7 +219,7 @@ if (process.env.SLS_CHILD === '1') {
     const a=list(today.body).filter(s=>Number(s.schedule_id)===id);
     const w=list(weekly.body).filter(s=>Number(s.id)===id);
     const tw=(tp.body.week?.days||[]).flatMap(d=>(d.items||[]).filter(s=>Number(s.id)===id).map(s=>({...s,date:d.date})));
-    ok(label+': teacher weekly calendar agrees with final state',present?tw.length===1&&tw[0].date===date&&tw[0].start_time===time:tw.length===0,JSON.stringify(tw));
+    ok(label+': teacher weekly calendar agrees with final state',tw.length===1&&tw[0].date===date&&tw[0].start_time===time&&(present||tw[0].class_state==='postponed'),JSON.stringify(tw));
     ok(label+': all role APIs succeeded',[mine,sessions,tp,today,weekly].every(r=>r.status===200&&r.body.ok!==false),JSON.stringify({mine,sessions,tp,today,weekly}).slice(0,1000));
     ok(label+': student schedule and today counts',present?m.length===1&&s.length===1:m.length===0&&s.length===0,JSON.stringify({m,s}));
     ok(label+': old teacher has no moved occurrence',!(old.body.classes||[]).some(s=>Number(s.schedule_id)===id));
@@ -503,7 +503,7 @@ try {
   writeFileSync(join(tmp,'reg.mjs'),`import {register} from 'node:module';register('./hooks.mjs',import.meta.url);`);
   for(const[i,tz]of ['UTC','America/Los_Angeles','Asia/Seoul'].entries()){
     console.log('\nTRIAL '+(i+1)+' TZ='+tz);
-    const r=spawnSync(process.execPath,['--experimental-strip-types','--no-warnings','--import',join(tmp,'reg.mjs'),SELF],{encoding:'utf8',env:{...process.env,SLS_CHILD:'1',SLS_SRC:REAL_SRC,SLS_TRIAL:String(i),TZ:tz},maxBuffer:32*1024*1024,timeout:180000});
+    const r=spawnSync(process.execPath,['--experimental-strip-types','--no-warnings','--import',pathToFileURL(join(tmp,'reg.mjs')).href,SELF],{encoding:'utf8',env:{...process.env,SLS_CHILD:'1',SLS_SRC:REAL_SRC,SLS_TRIAL:String(i),TZ:tz},maxBuffer:32*1024*1024,timeout:180000});
     const marker=r.stdout?.lastIndexOf('@@RESULTS@@')??-1;
     if(marker<0){fail++;console.log('FAIL child crashed '+r.stderr+'\n'+r.stdout);continue;}
     const result=JSON.parse(r.stdout.slice(marker+'@@RESULTS@@'.length).trim());

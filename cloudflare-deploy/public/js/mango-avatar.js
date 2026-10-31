@@ -138,16 +138,47 @@
 /* v15: (2026-10-18) 사장님 「lily 랑 noah 가 눈썹도 말할 때 자연스럽게 움직이게」 — 예전 눈썹은
        «올린 그림» 을 0.4~0.7초 «통째로 교체» 했다가 원래대로 «뚝» 돌아가고(중간이 없음), 3.5~8초에 한 번
        55% 확률이라 말하는 동안 거의 안 움직였습니다. Lily·Noah(BROW_SMOOTH)만 바꿉니다:
-         ① 높이(browLv 0~1)를 시간에 따라 부드럽게 — 올릴 때 약 0.1초, 내릴 때 약 0.25초(지수 감쇠).
+         ① 높이(browLv 0~1)를 시간에 따라 부드럽게 — 올릴 때 약 0.1초, 내릴 때 약 0.25초(지수 감쇠 → v18 에서 부드러운 곡선 0.5~0.7초).
             «올린 눈썹 그림» 을 겹치지 않고, 원본 얼굴의 눈썹 띠를 «위로 밀어 올려» 그립니다(BROW_SMOOTH 의 띠):
             이마는 살짝 눌리고 · 눈썹은 통째로 올라가고 · 눈썹과 눈 사이 피부는 늘어납니다(진짜 눈썹처럼).
             ⛔ 올린 그림을 반투명으로 겹치지 마세요 — 높이가 0.35~0.6 일 때 «눈썹이 두 줄» 로 보였습니다
                (2026-10-18 크로미움 렌더로 확인 — 그래서 바꿨습니다).
-         ② 강세(크게 벌린 입이 «새로» 시작되는 순간)마다 1.4~4초 간격으로, 높이를 매번 다르게
+         ② 강세(크게 벌린 입이 «새로» 시작되는 순간)마다 1.4~4초 간격(80%)으로(→ v16 에서 1~2초·매번), 높이를 매번 다르게
             (보통 0.45~0.75 · 가끔 크게 0.85~1). 말 첫마디(0.5~1.4초)에도 한 번 걸 수 있습니다.
-         ③ 말이 끝나면 «뚝» 이 아니라 짧게(최대 0.6초) 내려앉습니다(browSettle).
+         ③ 말이 끝나면 «뚝» 이 아니라 짧게(최대 0.6초 → v18 에서 0.75초) 내려앉습니다(browSettle).
        ⚠️ 깜빡임 중에는 안 올리고, 올린 동안은 깜빡임을 미룹니다(그림 칸이 하나라 겹쳐 그릴 수 없음).
        ⛔ 다른 친구(emma·mei·long·jake)는 예전 동작 그대로입니다 — BROW_SMOOTH 에 한 줄 더하면 같이 바뀝니다. */
+/* v16: (2026-10-19) 사장님 「더 자주 올라가게」 — Lily·Noah 만 바꿉니다(높이 D 는 그대로 → v17 에서 올림):
+         ① 강세 간격 1.4~4초·80% → 1~2초·매번(browSpeak).
+         ② 눈썹이 올라가 있어 미룬 깜빡임을 «내려앉은 직후»(browUntil+0.12~0.52초) 다시 시도(blink) —
+            새로 2.2~6초를 기다리면 자주 올리는 동안 깜빡임이 크게 줄어듭니다(모의실험: 평균 5초 → 약 7초).
+       ⛔ ②를 다른 친구에게 넓히지 마세요 — 그 친구들은 v15 앞 동작 그대로라는 약속입니다(하니스 ⑤-2 짝 검사). */
+/* v17: (2026-10-19) 사장님 「눈썹 높이도 조금 더 올려줘」 — Lily·Noah 최대 높이 D 를 7→9px · 8→10px(원본 640x800 기준).
+         간격·확률·높이 비율(browAmp)은 그대로라, 모든 올림이 약 1.25~1.3배 높아집니다.
+       ⚠️ D 를 올리면 눈썹 아래 피부(b1..bot)가 그만큼 «늘어납니다» — 늘어나는 배율 (bot-b1)/(bot-b1-D) 가
+          Lily 1.5→1.75 · Noah 1.57→1.83. 크로미움으로 D 8~12 를 그려 «제 눈으로» 보니 배율 1.9 근처(Lily D 10)부터
+          윗눈꺼풀 주름이 겹으로 보이기 시작하고 2.2 이상(D 12)이면 뚜렷해, 하니스가 «배율 1.85 이하» 를 지킵니다
+          (사람이 실제 화면에서 본 판단은 아직 아님).
+       ⛔ 더 올리려면 D 만 키우지 말고 그 렌더부터 다시 보세요(작업기록 261019_아바타_Lily_Noah_눈썹_더높이). */
+/* v18: (2026-10-19) 사장님 「눈썹 조금 더 자연스럽게 내려오게」 — Lily·Noah 의 «내려오기» 만 바꿉니다(browStep):
+         전에는 지수 감쇠(τ 170ms)라 지키던 높이에서 내려오기 «시작하는 순간이 가장 빨라» 툭 떨어지고 끝은 오래 끌렸습니다.
+         이제 smoothstep 곡선 — 천천히 떨어지기 시작해 · 가운데서 가장 빠르고 · 살며시 내려앉습니다.
+         걸리는 시간은 올렸던 높이에 비례(browDownMs = 0.38 + 0.3×높이 초 → 약 0.5~0.68초).
+       ⚠️ 그만큼 깜빡임을 더 미룹니다(browUntil = 지키기 끝 + 내려오기 + 0.04초). 모의실험: 깜빡임 평균 4.3→4.4초,
+          최대 간격 약 7→9초(재시도 보정 덕에 옛 v15 의 5.0초·18초보다 여전히 고름).
+       ⛔ 올라가기는 그대로(지수 τ 70ms) — 눈썹은 «빠르게 올라가고 천천히 내려오는» 것이 자연스럽습니다. */
+/* v19: (2026-10-19) 사장님 「왜 아직도 noah랑 lily 눈썹이 안움직여」 — 고치려던 것은 «얼마나·어떻게» 가 아니라 «언제» 입니다.
+         실측(진짜 크로미움 + 진짜 입모양 큐 Rhubarb, 영어 답변 3개 약 9초씩): Noah 눈썹이 한 답에 0~2번만 올라갔고
+         한국어 음성은 0번이었습니다. 방아쇠가 loudNow 였는데, 입모양 큐가 있으면 loudNow = 'D'(가장 크게 벌린 입) 큐뿐이고
+         그 큐는 답 하나에 0.1~0.34초밖에 없습니다. 하니스는 음량(RMS) 경로만 시험해 이것을 못 봤습니다.
+         이제 Lily·Noah 눈썹은 accentNow — 열린 모음(C·D·E) 큐가 «새로» 시작되는 순간 — 에 맞춥니다.
+         소리를 모르는 흉내 입(speechSynthesis)은 크게 벌어지는 차례에, 화면이 정한 입(mouth())은 입이 열리는 순간에.
+       ⛔ loudNow 는 그대로 둡니다 — Emma·Jake·Mei·Long 의 옛 눈썹(칸 바꾸기)이 그것을 씁니다(그쪽은 «가끔» 이 맞습니다).
+       ⛔ 횟수를 늘리려고 browNext(1~2초)를 줄이지 마세요 — 횟수는 v16 에서 정했고, 이번에 고친 것은 «방아쇠가 안 당겨지던» 것입니다. */
+/* v20: (2026-10-20) 사장님 「A.i 말하기와 A.i 친구들 대답 속도, 반응과 대답을 더 빠르게」 — prepare() 가
+         입모양 분석(Rhubarb)이 «끝날 때까지» 소리를 막고 있었습니다(문장마다 약 0.8배 길이 · 첫 회는 부팅 최대 30초).
+         이제 CUE_WAIT_MS(250ms)까지만 기다리고 소리를 냅니다. 분석이 늦게 끝나면 그 순간부터 정확한 입모양으로 바뀝니다.
+       ⛔ 상한을 지우지 마세요 — 지우면 매 문장 앞의 조용한 시간이 그대로 되돌아옵니다. */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -406,6 +437,7 @@
     // ── 음량 분석(Web Audio) — attach 로 오디오를 물릴 때 1회 그래프 생성 ──
     var actx=null, boundEl=null, analyser=null, lipData=null, audioFailed=false;
     var bindings = new WeakMap(), buffering = false, mouthCues=null, cueUrl='', preciseFaces={};
+    var CUE_WAIT_MS = 250;   // ⚡ 재생 전 입모양 분석을 기다리는 상한(아래 prepare)
     // Reviewed nine-pose anchors plus 288 optical-flow inbetweens per actor.
     // The latter are transition shapes, not additional recognized phonemes.
     // base/atlas/trans must carry the same ?v= as the CHARACTERS frames above (one retouch, one version).
@@ -477,15 +509,19 @@
       emma:{x:151,y:174,w:213,h:80},mei:{x:206,y:220,w:236,h:84},long:{x:210,y:214,w:224,h:86},
       jake:{x:153,y:181,w:209,h:74}};
     var eyeImg=null, eyeOk=false, eyeFor='', eyeState=0, eyeTimer=0, browUntil=0, browNext=0, loudNow=false;
+    // 🤨 (v19) accentNow — Lily·Noah 눈썹 전용 «강세» 신호(지금 열린 모음을 내는 중인가). loudNow(크게 벌린 입)는
+    //   다른 캐릭터의 옛 눈썹이 그대로 씁니다. 왜 따로 두나는 아래 browSpeak 주석.
+    var accentNow=false;
     // 🤨 (v15) 부드러운 눈썹 — 이 표의 캐릭터만. browLv 는 지금 높이(0~1), browAmp 는 이번 강세의 목표 높이,
-    //   browHold 는 그 높이를 지키는 끝 시각, browAt 은 마지막으로 높이를 계산한 시각, loudPrev 는 앞 프레임의 강세.
+    //   browHold 는 그 높이를 지키는 끝 시각, browAt 은 마지막으로 높이를 계산한 시각, accentPrev 는 앞 프레임의 강세(v19 — 전에는 loudPrev).
     //   표의 숫자는 그 초상화의 원본 px(640x800) — x0..x1 가로 범위(EYES 상자 안), top 여기부터 위는 안 움직임,
     //   b0..b1 눈썹(통째로 D 만큼 올라감), bot 여기부터 아래(눈)는 안 움직임, fl·fr 좌우 가장자리 부드럽게 섞는 폭.
     //   ⚠️ D 는 (b0-top)·(bot-b1) 보다 충분히 작아야 합니다 — 크면 피부가 뒤집혀 접힙니다(하니스가 봅니다).
+    //      (v17) 눈썹 아래 피부 배율 (bot-b1)/(bot-b1-D) 는 1.85 이하 — 1.9 근처부터 윗눈꺼풀 주름이 겹으로 보이기 시작합니다.
     //   ⚠️ 띠는 EYES 상자 «안» 이어야 합니다 — 프레임마다 다시 까는 칸(preciseRestore)이 그 상자뿐이라
     //      밖으로 나가면 앞 프레임의 눈썹이 남습니다.
-    var BROW_SMOOTH={lily:{x0:226,x1:428,top:205,b0:229,b1:241,bot:262,D:7,fl:12,fr:14},
-      noah:{x0:192,x1:452,top:240,b0:263,b1:278,bot:300,D:8,fl:6,fr:8}};
+    var BROW_SMOOTH={lily:{x0:226,x1:428,top:205,b0:229,b1:241,bot:262,D:9,fl:12,fr:14},
+      noah:{x0:192,x1:452,top:240,b0:263,b1:278,bot:300,D:10,fl:6,fr:8}};
     var browCv=null;
     function browProf(b,y){ if(y<=b.top||y>=b.bot) return 0; if(y<b.b0) return (y-b.top)/(b.b0-b.top); if(y<=b.b1) return 1; return (b.bot-y)/(b.bot-b.b1); }
     // 눈썹 띠를 «위로 밀어 올려» 그린다 — 토막마다 «조금 아래» 원본을 늘여 가져온다(세로로만 휘기).
@@ -516,31 +552,58 @@
         return true;
       }catch(err){ try{ ctx.restore(); }catch(_){} return false; }
     }
-    var browLv=0, browAmp=0, browHold=0, browAt=0, loudPrev=false, browRaf=0;
+    var browLv=0, browAmp=0, browHold=0, browAt=0, accentPrev=false, browRaf=0;
+    // (v18) 내려오기 — browDownAt 내려오기 시작한 시각(0 = 안 내려오는 중), browFrom 그때 높이, browDownDur 걸리는 시간.
+    var browDownAt=0, browFrom=0, browDownDur=0;
     function browSmooth(){ return !!BROW_SMOOTH[curChar]; }   // (EYES 가 없으면 drawEyes 가 먼저 돌아간다)
-    // 지금 시각의 높이로 한 걸음 — 올릴 때 빠르게(τ 70ms), 내릴 때 느리게(τ 170ms).
+    // (v18) 내려오는 데 걸리는 시간 — 높이 1(최대)이면 0.68초, 0.6 이면 0.56초. 높이 올렸던 만큼 천천히.
+    function browDownMs(from){ return 380 + 300 * Math.max(0, Math.min(1, from)); }
+    // 지금 시각의 높이로 한 걸음 — 올릴 때는 빠르게(τ 70ms, 지수).
+    //   (v18) 내릴 때는 «천천히 떨어지기 시작해 · 가운데서 가장 빠르고 · 살며시 내려앉는» 곡선(smoothstep)으로.
+    //   전에는 지수 감쇠(τ 170ms)라 지키던 높이에서 «내려오기 시작하는 순간이 가장 빨라» 툭 떨어지는 느낌이었습니다.
     function browStep(now){
-      var dt = browAt ? Math.min(1000, Math.max(0, now - browAt)) : 16; browAt = now;
+      var prev = browAt ? browAt : now - 16;
+      var dt = Math.min(1000, Math.max(0, now - prev)); browAt = now;
       var want = now < browHold ? browAmp : 0;
-      var tau = want > browLv ? 70 : 170;
-      browLv += (want - browLv) * (1 - Math.exp(-dt / tau));
-      if (browLv < 0.01 && want === 0) browLv = 0;
+      if (want > browLv) {                                   // 올라가는 중(새 강세) — 내려오던 것은 그만
+        browDownAt = 0;
+        browLv += (want - browLv) * (1 - Math.exp(-dt / 70));
+        return;
+      }
+      if (want > 0) {                                        // 지키는 중인데 목표가 지금보다 조금 낮다 — 살짝만 맞춘다
+        browDownAt = 0;
+        browLv += (want - browLv) * (1 - Math.exp(-dt / 170));
+        return;
+      }
+      if (!browLv) { browDownAt = 0; return; }
+      if (!browDownAt) {                                     // 이제 막 내려오기 시작 — 지키기가 끝난 그 시각부터 잰다
+        browDownAt = Math.max(prev, Math.min(now, browHold > 0 ? browHold : prev));
+        browFrom = browLv; browDownDur = browDownMs(browFrom);
+      }
+      var p = (now - browDownAt) / browDownDur;
+      if (p >= 1) { browLv = 0; browDownAt = 0; return; }
+      if (p < 0) { browDownAt = now; p = 0; }   // 시계가 뒤로 갔으면(시간 동기화 등) 지금부터 다시 잰다 — 안 그러면 올라간 채 멈춤
+      browLv = browFrom * (1 - p * p * (3 - 2 * p));
+      if (browLv < 0.002) { browLv = 0; browDownAt = 0; }
     }
     // 말하는 동안 매 프레임 — 강세가 «새로» 시작되는 순간에만, 간격을 두고, 높이를 매번 다르게 올린다.
+    //   (v16) 사장님 「더 자주 올라가게」 — 간격 1.4~4초·80% → 1~2초·매번.
+    //   (v17) 높이는 BROW_SMOOTH 의 D(Lily 9·Noah 10px)가 정하고 여기 비율(browAmp)은 그대로입니다.
+    //   (v19) 방아쇠는 loudNow 가 아니라 accentNow(열린 모음 C·D·E 가 «새로» 시작되는 순간)입니다 —
+    //   loudNow 는 입모양 큐에서 'D'(가장 크게 벌림)뿐인데 그 큐가 한 답에 0~2번밖에 안 나와(실측)
+    //   눈썹이 거의 안 올라갔습니다. 횟수는 여전히 browNext(1~2초 간격)가 정합니다.
     function browSpeak(now){
-      var onset = loudNow && !loudPrev; loudPrev = loudNow;
+      var onset = accentNow && !accentPrev; accentPrev = accentNow;
       if (onset && eyeOk && eyeState === 0 && now >= browNext && now >= browHold){
-        browNext = now + 1400 + Math.random()*2600;
-        if (Math.random() < 0.8){
-          var big = Math.random() < 0.3;
-          browAmp = big ? 0.85 + Math.random()*0.15 : 0.45 + Math.random()*0.3;
-          browHold = now + 160 + Math.random()*(big ? 420 : 300);
-          browUntil = browHold + 450;   // 내려앉는 동안도 깜빡임을 미룬다(blink() 가 본다)
-        }
+        browNext = now + 1000 + Math.random()*1000;
+        var big = Math.random() < 0.3;
+        browAmp = big ? 0.85 + Math.random()*0.15 : 0.45 + Math.random()*0.3;
+        browHold = now + 160 + Math.random()*(big ? 420 : 300);
+        browUntil = browHold + browDownMs(browAmp) + 40;   // 내려앉는 동안도 깜빡임을 미룬다(blink() 가 본다)
       }
       browStep(now);
     }
-    // 말이 끝난 뒤 짧게 내려앉기 — 그리기 루프가 멈췄으므로 따로 몇 프레임만 그린다(최대 0.6초).
+    // 말이 끝난 뒤 짧게 내려앉기 — 그리기 루프가 멈췄으므로 따로 몇 프레임만 그린다(최대 0.75초 — browDownMs 의 최대 0.68초 + 여유).
     function browSettle(){
       if (browRaf) return;
       browHold = 0;
@@ -550,7 +613,7 @@
         browRaf = 0;
         if (drawing) return;                         // 다시 말하기 시작하면 그리기 루프가 이어받는다
         var now = Date.now();
-        if (document.hidden || now - t0 > 600) browLv = 0; else browStep(now);
+        if (document.hidden || now - t0 > 750) { browLv = 0; browDownAt = 0; } else browStep(now);
         keyFrame();
         if (browLv > 0) browRaf = requestAnimationFrame(tick);
       };
@@ -570,7 +633,7 @@
     function mountEyes(name){
       if(eyeTimer){ clearTimeout(eyeTimer); eyeTimer=0; }
       eyeState=0; browUntil=0; eyeOk=false; eyeFor=name; eyeImg=null;
-      browLv=0; browAmp=0; browHold=0; browAt=0; loudPrev=false;   // 🤨 (v15) 캐릭터가 바뀌면 눈썹도 처음부터
+      browLv=0; browAmp=0; browHold=0; browAt=0; accentPrev=false; browDownAt=0;   // 🤨 (v15) 캐릭터가 바뀌면 눈썹도 처음부터
       if(browRaf){ try{ cancelAnimationFrame(browRaf); }catch(e){} browRaf=0; }   // 앞 친구의 «내려앉기» 가 새 얼굴을 그리지 않게
       var on=!!EYES[name];
       try{ canvas.classList.toggle('mg-alive', on); }catch(e){}
@@ -601,7 +664,12 @@
       eyeTimer=0;
       // 화면에서 빠졌거나 탭이 숨겨졌으면 여기서 멈춘다 — 다시 보이면 visibilitychange 가 켠다.
       if(!eyeOk || !EYES[curChar] || !canvas.isConnected || document.hidden) return;
-      if(Date.now()<browUntil){ scheduleBlink(); return; }
+      if(Date.now()<browUntil){
+        // (v16) Lily·Noah 는 눈썹을 자주 올리므로, 새로 2.2~6초를 기다리지 않고 «내려앉은 직후» 다시 시도한다
+        //   (안 그러면 말하는 동안 깜빡임이 평균 5초 → 7초, 길게는 20초 넘게 끊깁니다 — 모의실험).
+        if(browSmooth()){ eyeTimer=setTimeout(blink, browUntil-Date.now()+120+Math.random()*400); return; }
+        scheduleBlink(); return;
+      }
       var seq=[[1,50],[2,85],[1,65],[0,0]];
       if(Math.random()<0.18) seq=[[1,50],[2,80],[1,60],[0,150],[1,50],[2,80],[1,60],[0,0]];
       (function step(i){
@@ -985,12 +1053,12 @@
     function loop(){
       if(!drawing){ raf=0; return; }
       if(extTier && !clipActive){
-        idleTicks = 0; loudNow = (extTier === 'wide');
+        idleTicks = 0; loudNow = (extTier === 'wide'); accentNow = (extTier !== 'closed');   // 🤨 (v19) 입이 열리는 순간 = 음절
         showTier(extTier, extTier === 'closed');
       } else if(boundEl && analyser && !clipActive){
         if(boundEl.paused || boundEl.ended || buffering){
           showTier('closed', true);                        // 말 안 하는 중 → 다문 입 프레임에 고정
-          loudNow = false;
+          loudNow = false; accentNow = false;
           idleTicks++;
           if(idleTicks > 300){ doStop(); return; }         // 5초 넘게 안 멈춰지면 plainStop() 유실로 보고 안전 종료
         } else {
@@ -1000,13 +1068,14 @@
             var cue=window.AvatarVisemes.at(mouthCues,boundEl.currentTime);
             var tier=(cue==='X'||cue==='A')?'closed':(cue==='D'?'wide':'medium');
             loudNow = (tier==='wide');
+            accentNow = (cue==='C'||cue==='D'||cue==='E');   // 🤨 (v19) 열린 모음 — 'D' 만 보면 한 답에 0~2번뿐(실측)
             showTier(tier,tier==='closed');
-          }else{ var lt=tierFor(rmsLevel()); loudNow = (lt==='wide'); showTier(lt); }
+          }else{ var lt=tierFor(rmsLevel()); loudNow = (lt==='wide'); accentNow = loudNow; showTier(lt); }
         }
       } else {
         // 🔇 분석 불가능한 음성(브라우저 speechSynthesis) — 실제 음량을 모르니 poses 대신
         //    기존처럼 루프를 계속 재생해 "말하는 느낌"만 흉내낸다.
-        idleTicks = 0; loudNow = false;
+        idleTicks = 0; loudNow = false; accentNow = false;
         if(imgFrames){
           // 🖼 이미지 캐릭터는 '재생' 이 없으므로 세 장을 일정 간격으로 번갈아 보여 준다.
           //    ⚠️ 간격은 그 캐릭터의 curHold 보다 «커야» 한다 — 작으면 showTier 가 매번
@@ -1015,7 +1084,9 @@
           //       안 적어 90 이라 결과는 예전과 같은 150ms 다.
           var SEQ = ['closed','medium','wide','medium'];
           var seqMs = Math.max(150, curHold + 60);
-          showTier(SEQ[Math.floor(Date.now() / seqMs) % SEQ.length]);
+          var seqT = SEQ[Math.floor(Date.now() / seqMs) % SEQ.length];
+          accentNow = (seqT === 'wide');   // 🤨 (v19) 소리를 모르니 흉내 입이 크게 벌어지는 차례에 맞춘다(간격은 browNext)
+          showTier(seqT);
         } else {
           curTier = null;
           if(video.paused){ try{ video.playbackRate=1; video.play(); }catch(e){} }
@@ -1034,7 +1105,7 @@
     }
     function startDraw(){ idleTicks=0; curTier=null; lastSwitchAt=0; fadeData=null; drawing=true;
       browNext=Date.now()+1200+Math.random()*1500;   // 말 첫마디부터 눈썹을 올리지 않는다
-      if(browSmooth()){ browNext=Date.now()+500+Math.random()*900; loudPrev=false; browAt=0; }   // 🤨 (v15) 첫마디 무렵에도 한 번
+      if(browSmooth()){ browNext=Date.now()+500+Math.random()*900; accentPrev=false; browAt=0; }   // 🤨 (v15) 첫마디 무렵에도 한 번
       if(browRaf){ try{ cancelAnimationFrame(browRaf); }catch(e){} browRaf=0; }
       if(!raf) raf=requestAnimationFrame(loop); }
     function stopDraw(){ drawing=false; if(raf){ try{cancelAnimationFrame(raf);}catch(e){} raf=0; } swayKick(); }
@@ -1102,10 +1173,18 @@
           return true;
         }catch(e){ /* Preserve audible playback if Web Audio is unavailable. */ return false; }
       },
+      /* ⚡ (2026-10-20 사장님 「A.i 말하기·A.i 친구 반응과 대답을 더 빠르게」)
+         입모양 분석은 «CUE_WAIT_MS 까지만» 기다린다. 예전에는 분석이 끝나야 소리가 났다 —
+         실측(크로미움): 3초 문장 2.3초 · 6초 문장 5.1초 · 첫 부팅 5~6초(+모델 37.8MB 다운로드,
+         최대 30초). 그만큼 매 문장 «조용한 시간» 이었다.
+         늦게 끝난 분석도 버리지 않는다 — prepareCues 가 «같은 소리면» 그 자리에서 꽂고,
+         입은 오디오 시계로 표본을 잡으므로 그 순간부터 정확해진다. 그 전에는 음량 립싱크(v2)다.
+         ⛔ 얼굴 그림 준비(pf.ready — 캐릭터마다 처음 한 번)는 그대로 기다린다(빈 얼굴로 말하지 않게). */
       prepare: function(audioEl){
         if(boundEl!==audioEl)window.MangoAvatar.attach(audioEl);
         var pf=precisionFace();
-        return Promise.all([prepareCues(audioEl),pf ? pf.ready : Promise.resolve()]).then(function(results){return results[0];});
+        var cues=prepareCues(audioEl), capped=new Promise(function(res){ setTimeout(function(){ res(null); }, CUE_WAIT_MS); });
+        return Promise.all([Promise.race([cues,capped]),pf ? pf.ready : Promise.resolve()]).then(function(results){return results[0];});
       },
       // 캐릭터 전환 — 'emma'|'jake'|'lily'|'noah' (옛 'female'|'male' 도 받습니다).
       setCharacter: function(name){

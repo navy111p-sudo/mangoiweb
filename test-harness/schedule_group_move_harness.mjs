@@ -153,6 +153,70 @@ if (process.env.SGM_CHILD === '1') {
     return result;
   };
 
+  const restore = (id, originals) => move(env, actor, { ids: [id], patch: {} }, originals, { restorePostponed: true });
+  reset();
+  let restoredId = seed({ status: 'postponed', start_time: '07:40' });
+  let restored = await restore(restoredId);
+  check('restore: exact original 07:40 remains morning, same ID and count', restored.ok && row(restoredId).start_time === '07:40' && row(restoredId).status === 'active' && sq.prepare('SELECT count(*) n FROM class_schedules').get().n === 1, restored);
+  check('restore: one atomic restore audit', auditCount() === 1 && sq.prepare('SELECT action FROM class_audit_log').get().action === 'restore' && guardEmpty());
+  let twice = await restore(restoredId);
+  check('restore twice: second rejects with no extra audit', !twice.ok && twice.error === 'not_cancelled' && auditCount() === 1, twice);
+  const permanent = await move(env, actor, input([restoredId], { start_time: '19:40', teacher_id: '1' }));
+  check('restore then time change: 19:40 remains evening, same ID and count', permanent.ok && row(restoredId).start_time === '19:40' && sq.prepare('SELECT count(*) n FROM class_schedules').get().n === 1, permanent);
+  for (const status of ['active','cancelled','completed','ended']) {
+    reset(); const id=seed({status}); const before=snapshot(); const out=await restore(id);
+    check('restore does not resurrect '+status, !out.ok && snapshot()===before && auditCount()===0, out);
+  }
+  for (const overrides of [{scheduled_date:'2026-10-03'}, {scheduled_date:'2026-10-04',start_time:'07:40'}, {scheduled_date:null,schedule_kind:'recurring',day_of_week:'Mon'}]) {
+    reset(); const id=seed({status:'postponed',...overrides}); const before=snapshot(); const out=await restore(id);
+    check('restore rejects past/started/weekly '+JSON.stringify(overrides), !out.ok && snapshot()===before && auditCount()===0, out);
+  }
+  for (const other of [
+    {user_id:'another',teacher_id:'1',start_time:'9:20'},
+    {user_id:'another',teacher_id:'1',start_time:'09:10'},
+    {user_id:'student_a',teacher_id:'2',start_time:'09:10'},
+    {user_id:'another',teacher_id:'1',start_time:'09:10',scheduled_date:null,schedule_kind:'recurring',day_of_week:'Mon'}
+  ]) {
+    reset(); const id=seed({status:'postponed'}); seed(other); const before=snapshot(); const out=await restore(id);
+    check('restore conflict: '+JSON.stringify(other), !out.ok && out.error==='slot_taken' && snapshot()===before && auditCount()===0, out);
+  }
+  reset(); restoredId=seed({status:'postponed'}); block({teacher_id:'1',start_time:'09:00',end_time:'10:00'});
+  restored=await restore(restoredId);
+  check('restore respects teacher unavailability', !restored.ok && restored.error==='teacher_unavailable' && row(restoredId).status==='postponed' && auditCount()===0, restored);
+  reset(); restoredId=seed({status:'postponed'}); const staleOriginal=row(restoredId); exec('UPDATE class_schedules SET start_time=? WHERE id=?','19:40',restoredId);
+  restored=await restore(restoredId,[staleOriginal]);
+  check('restore rejects stale original row', !restored.ok && restored.error==='schedule_changed' && row(restoredId).status==='postponed', restored);
+  reset(); restoredId=seed({status:'postponed'});
+  beforeBatch=()=>seed({user_id:'race',start_time:'09:10'});
+  restored=await restore(restoredId);
+  check('restore rolls back if another booking arrives during validation', !restored.ok && restored.error==='schedule_changed' && row(restoredId).status==='postponed' && auditCount()===0 && guardEmpty(), restored);
+  reset(); restoredId=seed({status:'postponed'}); writeFailure={match:sql=>/^INSERT INTO class_audit_log/.test(sql)};
+  restored=await restore(restoredId);
+  check('restore audit failure rolls status back', !restored.ok && row(restoredId).status==='postponed' && auditCount()===0 && guardEmpty(), restored);
+  reset(); restored=await restore(999999);
+  check('restore missing ID leaves no mutation', !restored.ok && restored.status===404 && auditCount()===0, restored);
+  check('restore route stays HQ gated', /enrollAdminHqOnly[\s\S]{0,2000}body.action === 'restore'/.test(adminSrc));
+
+  sq.exec(ddl(adminSrc, 'attendance', 'room_id TEXT NOT NULL'));
+  for (const role of ['student','teacher']) {
+    reset(); sq.exec('DELETE FROM attendance');
+    const id=seed({status:'postponed'});
+    insert('attendance',{room_id:'class-'+id+'-20261005',user_id:role,role,status:'present',joined_at:NOW});
+    const before=JSON.stringify(sq.prepare('SELECT * FROM attendance ORDER BY id').all());
+    const out=await restore(id);
+    check('restore rejects existing '+role+' attendance without changing ledger',!out.ok&&out.error==='class_already_attended'&&row(id).status==='postponed'&&JSON.stringify(sq.prepare('SELECT * FROM attendance ORDER BY id').all())===before,out);
+  }
+  reset(); sq.exec('DELETE FROM attendance'); restoredId=seed({status:'postponed'});
+  insert('class_room_override',{schedule_id:restoredId,ymd:'20261005',room_id:'meet-restored',created_by:'admin',created_at:NOW});
+  insert('attendance',{room_id:'meet-restored',user_id:'student_a',role:'student',status:'present',joined_at:NOW});
+  restored=await restore(restoredId);
+  check('restore checks room overrides for attendance',!restored.ok&&restored.error==='class_already_attended'&&row(restoredId).status==='postponed',restored);
+  reset(); sq.exec('DELETE FROM attendance'); restoredId=seed({status:'postponed'});
+  beforeBatch=()=>insert('attendance',{room_id:'class-'+restoredId+'-20261005',user_id:'student_a',role:'student',status:'present',joined_at:NOW});
+  restored=await restore(restoredId);
+  check('restore attendance race rolls status and audit back',!restored.ok&&restored.error==='schedule_changed'&&row(restoredId).status==='postponed'&&auditCount()===0&&guardEmpty(),restored);
+  sq.exec('DROP TABLE attendance');
+
   reset(); let ids = group();
   for (const [i, id] of ids.entries()) insert('class_room_override', { schedule_id: id, ymd: '20261005', room_id: 'meet-distinct-' + i, created_by: 'admin', created_at: NOW });
   const roomsBefore = JSON.stringify(sq.prepare('SELECT * FROM class_room_override ORDER BY schedule_id').all());
@@ -366,7 +430,7 @@ export async function resolve(spec, ctx, next) {
  } return next(spec, ctx);
 }`);
   writeFileSync(join(tmp, 'reg.mjs'), `import { register } from 'node:module'; register('./hooks.mjs', import.meta.url);`);
-  const child = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', '--import', join(tmp, 'reg.mjs'), SELF], {
+  const child = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', '--import', pathToFileURL(join(tmp, 'reg.mjs')).href, SELF], {
     encoding: 'utf8', env: { ...process.env, SGM_CHILD: '1' }, timeout: 120000, maxBuffer: 16 * 1024 * 1024
   });
   const marker = child.stdout?.lastIndexOf('@@RESULTS@@') ?? -1;

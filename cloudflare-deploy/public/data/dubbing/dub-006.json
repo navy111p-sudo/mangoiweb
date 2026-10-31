@@ -1,0 +1,587 @@
+{
+ "_comment": "A.i영화더빙 dub-006 (6편 «감동의 해피엔딩!» — 하늘 성의 별빛 축제를 지켜라!). 연동 규격: docs/A.i영화더빙_화면연동_설명서.md 6-1d절. Claude 아티팩트 6편(입모양을 맞춘 AI 영상 + 캐릭터 목소리 + 배경음악·효과음)을 그대로 옮긴 것 — 대사 시각이 영상의 입모양에 맞춰져 있어 timing=synced, 장면마다 말하는 캐릭터 전원의 음성 파일(scene-N-<캐릭터>.mp3, 장면 길이와 같음·말 안 하는 구간은 무음)이 있어 «동기 + 음성 파일» 모드로 돈다. 등장인물 = 하나(한국 여자아이)·마테오(멕시코계 남자아이)·지비(외계인 아이) — 학생이 고르는 역, 위스커스 선장(해적 고양이)은 4~6장면에만 나오는 «손님» 이라 고를 수 없고 늘 원래 목소리로 나온다(장면마다 아이들 몫이 공평하게 남는지는 하니스 ⑥-14 가 본다). 영상 = 장면마다 10초 AI 클립 2개를 이어 20초 · 합 약 2분(0-1 의 «약 4분» 보다 짧음). 영상·음성은 우리 서버 /media/dubbing/dub-006/ — 갈아 끼울 때는 ?v= 를 붙이세요(미디어 7일 캐시).",
+ "id": "dub-006",
+ "title": {
+  "en": "A Happy Ending! — Save the Sky Castle Star Festival",
+  "ko": "감동의 해피엔딩! — 하늘 성의 별빛 축제를 지켜라"
+ },
+ "level": 1,
+ "status": "final",
+ "timing": "synced",
+ "palette": "cinematic",
+ "note": {
+  "ko": "캐릭터 목소리는 영상의 입모양에 맞춰 만든 AI 음성이에요 · 위스커스 선장은 고를 수 없는 손님 역이에요",
+  "en": "Character voices are AI voices made to match the mouths in the video · Captain Whiskers is a guest role you cannot pick"
+ },
+ "characters": {
+  "hana": {
+   "id": "hana",
+   "name": {
+    "en": "Hana",
+    "ko": "하나"
+   },
+   "emoji": "👧",
+   "ttsSpeaker": "delia"
+  },
+  "mateo": {
+   "id": "mateo",
+   "name": {
+    "en": "Mateo",
+    "ko": "마테오"
+   },
+   "emoji": "👦",
+   "ttsSpeaker": "aries"
+  },
+  "zibi": {
+   "id": "zibi",
+   "name": {
+    "en": "Zibi",
+    "ko": "지비"
+   },
+   "emoji": "👽",
+   "ttsSpeaker": "amalthea"
+  },
+  "whiskers": {
+   "id": "whiskers",
+   "name": {
+    "en": "Captain Whiskers",
+    "ko": "위스커스 선장"
+   },
+   "emoji": "🐱",
+   "ttsSpeaker": "zeus"
+  }
+ },
+ "playable": [
+  "hana",
+  "mateo",
+  "zibi"
+ ],
+ "scenes": [
+  {
+   "no": 1,
+   "label": {
+    "ko": "별빛 축제의 밤",
+    "en": "Star Festival Night"
+   },
+   "arc": "ki",
+   "video": "/media/dubbing/dub-006/scene-1.mp4",
+   "poster": "/media/dubbing/dub-006/scene-1.jpg",
+   "durationSec": 20.04,
+   "videoAudio": "mute",
+   "bgm": "/media/dubbing/dub-006/scene-1-bgm.mp3",
+   "sfx": [
+    {"at": "start", "name": "whoosh", "gain": 0.7},
+    {"line": 2, "name": "sparkle", "gain": 0.7},
+    {"line": 4, "name": "magic", "gain": 0.7},
+    {"line": 5, "name": "whoosh", "gain": 0.8},
+    {"line": 6, "name": "zap", "gain": 0.6}
+   ],
+   "voices": {
+    "zibi": "/media/dubbing/dub-006/scene-1-zibi.mp3",
+    "hana": "/media/dubbing/dub-006/scene-1-hana.mp3",
+    "mateo": "/media/dubbing/dub-006/scene-1-mateo.mp3"
+   },
+   "lines": [
+    {
+     "id": "s1-l1",
+     "speaker": "zibi",
+     "en": "Hold on! We're almost there!",
+     "ko": "꽉 잡아! 거의 다 왔어!",
+     "emotion": "happy",
+     "start": 0.36,
+     "end": 2.86,
+     "scored": true
+    },
+    {
+     "id": "s1-l2",
+     "speaker": "hana",
+     "en": "Wow! The Sky Castle is shining!",
+     "ko": "와! 하늘 성이 반짝반짝 빛나!",
+     "emotion": "surprised",
+     "start": 4.5,
+     "end": 8.33,
+     "scored": true
+    },
+    {
+     "id": "s1-l3",
+     "speaker": "mateo",
+     "en": "Tonight is the Star Festival!",
+     "ko": "오늘 밤은 별빛 축제야!",
+     "emotion": "happy",
+     "start": 8.4,
+     "end": 10.73,
+     "scored": true
+    },
+    {
+     "id": "s1-l4",
+     "speaker": "hana",
+     "en": "Look! The Star Crystal!",
+     "ko": "봐! 별빛 수정이야!",
+     "emotion": "surprised",
+     "start": 10.78,
+     "end": 13.81,
+     "scored": true
+    },
+    {
+     "id": "s1-l5",
+     "speaker": "mateo",
+     "en": "Someone is taking it away!",
+     "ko": "누가 그걸 가져가고 있어!",
+     "emotion": "scared",
+     "start": 14.5,
+     "end": 16.89,
+     "scored": true
+    },
+    {
+     "id": "s1-l6",
+     "speaker": "zibi",
+     "en": "Oh no! The lights are going out!",
+     "ko": "이런! 불빛이 꺼지고 있어!",
+     "emotion": "scared",
+     "start": 17.06,
+     "end": 19.99,
+     "scored": true
+    }
+   ]
+  },
+  {
+   "no": 2,
+   "label": {
+    "ko": "번개 속 하늘 추격전",
+    "en": "The Lightning Chase"
+   },
+   "arc": "seung",
+   "video": "/media/dubbing/dub-006/scene-2.mp4",
+   "poster": "/media/dubbing/dub-006/scene-2.jpg",
+   "durationSec": 20.04,
+   "videoAudio": "mute",
+   "bgm": "/media/dubbing/dub-006/scene-2-bgm.mp3",
+   "sfx": [
+    {"at": "start", "name": "engine", "gain": 0.6},
+    {"line": 2, "name": "rocket", "gain": 0.7},
+    {"line": 3, "name": "thunder", "gain": 0.8},
+    {"line": 4, "name": "swing", "gain": 0.7},
+    {"line": 5, "name": "boing", "gain": 0.5}
+   ],
+   "voices": {
+    "mateo": "/media/dubbing/dub-006/scene-2-mateo.mp3",
+    "zibi": "/media/dubbing/dub-006/scene-2-zibi.mp3",
+    "hana": "/media/dubbing/dub-006/scene-2-hana.mp3"
+   },
+   "lines": [
+    {
+     "id": "s2-l1",
+     "speaker": "mateo",
+     "en": "Follow that flying ship!",
+     "ko": "저 하늘 배를 따라가!",
+     "emotion": "calm",
+     "start": 1.26,
+     "end": 3.75,
+     "scored": true
+    },
+    {
+     "id": "s2-l2",
+     "speaker": "zibi",
+     "en": "Full speed! Zoom!",
+     "ko": "최고 속도! 슝!",
+     "emotion": "happy",
+     "start": 3.8,
+     "end": 6.24,
+     "scored": true
+    },
+    {
+     "id": "s2-l3",
+     "speaker": "hana",
+     "en": "Watch out! Lightning!",
+     "ko": "조심해! 번개야!",
+     "emotion": "scared",
+     "start": 6.6,
+     "end": 9.37,
+     "scored": true
+    },
+    {
+     "id": "s2-l4",
+     "speaker": "zibi",
+     "en": "Hold on tight! Spin!",
+     "ko": "꽉 잡아! 빙글!",
+     "emotion": "surprised",
+     "start": 10.05,
+     "end": 13.05,
+     "scored": true
+    },
+    {
+     "id": "s2-l5",
+     "speaker": "hana",
+     "en": "Phew! That was close!",
+     "ko": "휴! 큰일 날 뻔했어!",
+     "emotion": "calm",
+     "start": 14.9,
+     "end": 17.33,
+     "scored": true
+    },
+    {
+     "id": "s2-l6",
+     "speaker": "mateo",
+     "en": "It's flying to the tall tower!",
+     "ko": "높은 탑으로 날아가고 있어!",
+     "emotion": "surprised",
+     "start": 17.72,
+     "end": 19.75,
+     "scored": true
+    }
+   ]
+  },
+  {
+   "no": 3,
+   "label": {
+    "ko": "무너지는 구름다리",
+    "en": "The Crumbling Bridge"
+   },
+   "arc": "seung",
+   "video": "/media/dubbing/dub-006/scene-3.mp4",
+   "poster": "/media/dubbing/dub-006/scene-3.jpg",
+   "durationSec": 20.04,
+   "videoAudio": "mute",
+   "bgm": "/media/dubbing/dub-006/scene-3-bgm.mp3",
+   "sfx": [
+    {"line": 1, "name": "beep", "gain": 0.6},
+    {"line": 3, "name": "crack", "gain": 0.8},
+    {"line": 3, "when": "after", "name": "crash", "gain": 0.7},
+    {"line": 4, "name": "boing", "gain": 0.7},
+    {"line": 6, "name": "heartbeat", "gain": 0.7}
+   ],
+   "voices": {
+    "zibi": "/media/dubbing/dub-006/scene-3-zibi.mp3",
+    "mateo": "/media/dubbing/dub-006/scene-3-mateo.mp3",
+    "hana": "/media/dubbing/dub-006/scene-3-hana.mp3"
+   },
+   "lines": [
+    {
+     "id": "s3-l1",
+     "speaker": "zibi",
+     "en": "Uh-oh. My saucer is sleepy!",
+     "ko": "어라. 내 비행접시가 졸린가 봐!",
+     "emotion": "sad",
+     "start": 2.14,
+     "end": 5.51,
+     "scored": true
+    },
+    {
+     "id": "s3-l2",
+     "speaker": "mateo",
+     "en": "Let's run across the bridge!",
+     "ko": "다리를 건너 달려가자!",
+     "emotion": "calm",
+     "start": 5.56,
+     "end": 7.51,
+     "scored": true
+    },
+    {
+     "id": "s3-l3",
+     "speaker": "hana",
+     "en": "The bridge is falling apart!",
+     "ko": "다리가 무너지고 있어!",
+     "emotion": "scared",
+     "start": 7.56,
+     "end": 10.23,
+     "scored": true
+    },
+    {
+     "id": "s3-l4",
+     "speaker": "mateo",
+     "en": "Jump! Take my hand!",
+     "ko": "뛰어! 내 손 잡아!",
+     "emotion": "scared",
+     "start": 12.82,
+     "end": 14.75,
+     "scored": true
+    },
+    {
+     "id": "s3-l5",
+     "speaker": "hana",
+     "en": "Got it! Thank you, Mateo!",
+     "ko": "잡았다! 고마워, 마테오!",
+     "emotion": "happy",
+     "start": 14.8,
+     "end": 17.83,
+     "scored": true
+    },
+    {
+     "id": "s3-l6",
+     "speaker": "zibi",
+     "en": "Look up! The thief is there!",
+     "ko": "위를 봐! 도둑이 저기 있어!",
+     "emotion": "surprised",
+     "start": 17.88,
+     "end": 19.99,
+     "scored": true
+    }
+   ]
+  },
+  {
+   "no": 4,
+   "label": {
+    "ko": "해적 고양이 선장",
+    "en": "Captain Whiskers"
+   },
+   "arc": "jeon",
+   "video": "/media/dubbing/dub-006/scene-4.mp4",
+   "poster": "/media/dubbing/dub-006/scene-4.jpg",
+   "durationSec": 20.04,
+   "videoAudio": "mute",
+   "bgm": "/media/dubbing/dub-006/scene-4-bgm.mp3",
+   "sfx": [
+    {"line": 1, "name": "purr", "gain": 0.6},
+    {"line": 3, "name": "whoosh", "gain": 0.7},
+    {"line": 4, "name": "zap", "gain": 0.7},
+    {"line": 5, "name": "crack", "gain": 0.8},
+    {"line": 6, "name": "rumble", "gain": 0.7}
+   ],
+   "voices": {
+    "whiskers": "/media/dubbing/dub-006/scene-4-whiskers.mp3",
+    "hana": "/media/dubbing/dub-006/scene-4-hana.mp3",
+    "mateo": "/media/dubbing/dub-006/scene-4-mateo.mp3",
+    "zibi": "/media/dubbing/dub-006/scene-4-zibi.mp3"
+   },
+   "lines": [
+    {
+     "id": "s4-l1",
+     "speaker": "whiskers",
+     "en": "Meow-ha-ha! The star is mine!",
+     "ko": "야옹하하! 별은 내 거다!",
+     "emotion": "happy",
+     "start": 0.2,
+     "end": 3.51,
+     "scored": true
+    },
+    {
+     "id": "s4-l2",
+     "speaker": "hana",
+     "en": "Give it back! It's for everyone!",
+     "ko": "돌려줘! 모두를 위한 거야!",
+     "emotion": "calm",
+     "start": 3.56,
+     "end": 5.79,
+     "scored": true
+    },
+    {
+     "id": "s4-l3",
+     "speaker": "whiskers",
+     "en": "Never! Catch me if you can!",
+     "ko": "싫어! 잡을 수 있으면 잡아 봐!",
+     "emotion": "happy",
+     "start": 6.94,
+     "end": 9.82,
+     "scored": true
+    },
+    {
+     "id": "s4-l4",
+     "speaker": "mateo",
+     "en": "Duck! Flying stars!",
+     "ko": "숙여! 별이 날아와!",
+     "emotion": "scared",
+     "start": 10.32,
+     "end": 13.52,
+     "scored": true
+    },
+    {
+     "id": "s4-l5",
+     "speaker": "zibi",
+     "en": "The crystal is cracking!",
+     "ko": "수정에 금이 가고 있어!",
+     "emotion": "scared",
+     "start": 14.7,
+     "end": 17.04,
+     "scored": true
+    },
+    {
+     "id": "s4-l6",
+     "speaker": "whiskers",
+     "en": "Oh no! What did I do?",
+     "ko": "이런! 내가 무슨 짓을 한 거지?",
+     "emotion": "scared",
+     "start": 17.64,
+     "end": 19.99,
+     "scored": true
+    }
+   ]
+  },
+  {
+   "no": 5,
+   "label": {
+    "ko": "고양이 선장의 비밀",
+    "en": "The Captain's Secret"
+   },
+   "arc": "jeon",
+   "video": "/media/dubbing/dub-006/scene-5.mp4",
+   "poster": "/media/dubbing/dub-006/scene-5.jpg",
+   "durationSec": 20.04,
+   "videoAudio": "mute",
+   "bgm": "/media/dubbing/dub-006/scene-5-bgm.mp3",
+   "sfx": [
+    {"at": "start", "name": "rumble", "gain": 0.7},
+    {"line": 1, "when": "after", "name": "crash", "gain": 0.6},
+    {"line": 4, "name": "magic", "gain": 0.7},
+    {"line": 5, "when": "after", "name": "powerup", "gain": 0.8},
+    {"line": 6, "name": "sparkle", "gain": 0.8},
+    {"line": 6, "when": "after", "name": "cheer", "gain": 0.8}
+   ],
+   "voices": {
+    "zibi": "/media/dubbing/dub-006/scene-5-zibi.mp3",
+    "whiskers": "/media/dubbing/dub-006/scene-5-whiskers.mp3",
+    "hana": "/media/dubbing/dub-006/scene-5-hana.mp3",
+    "mateo": "/media/dubbing/dub-006/scene-5-mateo.mp3"
+   },
+   "lines": [
+    {
+     "id": "s5-l1",
+     "speaker": "zibi",
+     "en": "The castle is falling down!",
+     "ko": "성이 아래로 떨어지고 있어!",
+     "emotion": "scared",
+     "start": 0.98,
+     "end": 4.05,
+     "scored": true
+    },
+    {
+     "id": "s5-l2",
+     "speaker": "whiskers",
+     "en": "I'm sorry! Nobody invited me.",
+     "ko": "미안해! 아무도 나를 초대하지 않았어.",
+     "emotion": "sad",
+     "start": 4.62,
+     "end": 7.77,
+     "scored": true
+    },
+    {
+     "id": "s5-l3",
+     "speaker": "hana",
+     "en": "Then come with us, Captain!",
+     "ko": "그럼 우리랑 같이 가자, 선장님!",
+     "emotion": "calm",
+     "start": 7.96,
+     "end": 10.23,
+     "scored": true
+    },
+    {
+     "id": "s5-l4",
+     "speaker": "mateo",
+     "en": "Everyone, hands on the crystal!",
+     "ko": "모두 수정에 손을 올려!",
+     "emotion": "calm",
+     "start": 10.38,
+     "end": 13.07,
+     "scored": true
+    },
+    {
+     "id": "s5-l5",
+     "speaker": "whiskers",
+     "en": "Together? Okay! Meow!",
+     "ko": "함께? 좋아! 야옹!",
+     "emotion": "happy",
+     "start": 13.12,
+     "end": 15.45,
+     "scored": true
+    },
+    {
+     "id": "s5-l6",
+     "speaker": "hana",
+     "en": "It's glowing again! Hooray!",
+     "ko": "다시 빛난다! 만세!",
+     "emotion": "happy",
+     "start": 17.32,
+     "end": 19.99,
+     "scored": true
+    }
+   ]
+  },
+  {
+   "no": 6,
+   "label": {
+    "ko": "가장 행복한 축제",
+    "en": "The Happiest Festival"
+   },
+   "arc": "gyeol",
+   "video": "/media/dubbing/dub-006/scene-6.mp4",
+   "poster": "/media/dubbing/dub-006/scene-6.jpg",
+   "durationSec": 20.04,
+   "videoAudio": "mute",
+   "bgm": "/media/dubbing/dub-006/scene-6-bgm.mp3",
+   "sfx": [
+    {"at": "start", "name": "pop", "gain": 0.7},
+    {"line": 1, "when": "after", "name": "sparkle", "gain": 0.7},
+    {"line": 3, "when": "after", "name": "cheer", "gain": 0.7},
+    {"line": 5, "name": "purr", "gain": 0.6},
+    {"line": 6, "when": "after", "name": "tada", "gain": 0.9}
+   ],
+   "voices": {
+    "hana": "/media/dubbing/dub-006/scene-6-hana.mp3",
+    "whiskers": "/media/dubbing/dub-006/scene-6-whiskers.mp3",
+    "mateo": "/media/dubbing/dub-006/scene-6-mateo.mp3",
+    "zibi": "/media/dubbing/dub-006/scene-6-zibi.mp3"
+   },
+   "lines": [
+    {
+     "id": "s6-l1",
+     "speaker": "hana",
+     "en": "Look! Fireworks everywhere!",
+     "ko": "봐! 하늘 가득 불꽃놀이야!",
+     "emotion": "happy",
+     "start": 0.05,
+     "end": 3.57,
+     "scored": true
+    },
+    {
+     "id": "s6-l2",
+     "speaker": "whiskers",
+     "en": "Thank you, my new friends!",
+     "ko": "고마워, 나의 새 친구들아!",
+     "emotion": "happy",
+     "start": 3.62,
+     "end": 5.66,
+     "scored": true
+    },
+    {
+     "id": "s6-l3",
+     "speaker": "mateo",
+     "en": "This is the best festival ever!",
+     "ko": "이건 최고의 축제야!",
+     "emotion": "happy",
+     "start": 5.8,
+     "end": 8.91,
+     "scored": true
+    },
+    {
+     "id": "s6-l4",
+     "speaker": "whiskers",
+     "en": "Can I bring my friends, too?",
+     "ko": "내 친구들도 데려와도 돼?",
+     "emotion": "calm",
+     "start": 10.1,
+     "end": 12.39,
+     "scored": true
+    },
+    {
+     "id": "s6-l5",
+     "speaker": "zibi",
+     "en": "Sure! Whoa, so many kittens!",
+     "ko": "물론이지! 우와, 아기 고양이가 이렇게 많아!",
+     "emotion": "surprised",
+     "start": 13.78,
+     "end": 16.49,
+     "scored": true
+    },
+    {
+     "id": "s6-l6",
+     "speaker": "hana",
+     "en": "A happy ending for everyone!",
+     "ko": "모두를 위한 해피엔딩이야!",
+     "emotion": "happy",
+     "start": 16.54,
+     "end": 19.82,
+     "scored": true
+    }
+   ]
+  }
+ ]
+}
