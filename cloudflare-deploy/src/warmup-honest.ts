@@ -69,7 +69,7 @@ export async function resolveWarmupHonest(
   try {
     if (opts.lang === 'zh' || opts.eleader) return null;
     /* 🎚️ 학생이 첫 화면에서 «직접 고른» 모드가 이긴다(2026-10-29 사장님 «3가지 옵션을 처음페이지에»).
-       화면은 사람이 고른 경우에만 correction_mode 를 보낸다 — 안 고르면 아래 시범 학원 판정(예전 그대로).
+       화면은 사람이 고른 경우에만 correction_mode 를 보낸다 — 안 고르면 아래 기본 모드(집중교정).
        ⛔ 모르는 값은 무시한다(지어내지 않음). 로그인하지 않아도 고를 수 있다(D1 을 안 읽음). */
     const c = typeof opts.chosen === 'string' ? opts.chosen.trim() : '';
     if (c && (WARMUP_MODES as readonly string[]).includes(c)) return { mode: c as WarmupMode };
@@ -118,7 +118,7 @@ const MODE_LINES: Record<WarmupMode, string> = {
   balanced:
     '[교정 모드: 균형] 기본은 바른 문장으로 자연스럽게 되받아 말하기(recast). 같은 실수가 되풀이되면 고친 문장을 또박또박 말해 주고 한 번 따라 말해 보자고 해.',
   focused:
-    '[교정 모드: 집중교정] 작은 것(관사·복수·전치사·낱말 고르기 포함)도 빠짐없이 전부 고쳐 — 「사소하니 넘어가」는 이 모드에서 금지다. 한 카드에 모두 담을 수 있게 fix 의 now 에는 학생 문장 전체의 오류를 전부 고친 완성 문장을 적어. grade 가 perfect 가 아니면 ① 무엇을 고칠지 아주 짧게 말하고 ② 고친 문장을 또박또박 들려준 뒤 ③ "Can you say it with me?" 처럼 따라 말해 보자고 해. 이때 다음 질문은 하지 마 — 학생이 따라 말한 뒤에 이어가.',
+    '[교정 모드: 집중교정] 이 모드에서는 「한 번에 한 가지만 고쳐」 규칙을 적용하지 마 — 학생 문장의 오류를 하나도 빠뜨리지 말고 전부 고쳐. 아래 문법 항목을 한 문장씩 빠짐없이 점검해(어느 것도 생략 금지): ① 대소문자 — 문장 첫 글자, 문장 가운데 불필요한 대문자(not Secret→not secret), 고유명사 ② 구두점 — 마침표·물음표·쉼표·따옴표 ③ 관사 a/an/the(없어야 할 곳 포함) ④ 명사 — 가산·불가산, 단수·복수형, 소유격 어포스트로피-s ⑤ 대명사 — 주격·목적격·소유격, 재귀대명사, 관계대명사 who/which/that/whom/whose ⑥ 동사 — 시제(현재·과거·현재완료·과거진행 등), 동사꼴, 주어와 동사의 수 일치, 조동사(can·will·should 등)와 뒤 동사원형, 수동태, 명령문 ⑦ 준동사 — 동명사(-ing 명사)와 to부정사, 그 쓰임 구별 ⑧ 형용사·부사 — 형용사 자리, 부사 자리, 비교급·최상급 ⑨ 전치사 — 시간·장소 전치사 선택(in/on/at), 전치사 뒤 동명사 ⑩ 접속사·관계부사 — and/but/because/so/when/if 등의 선택과 어순, 관계부사 where/when/why ⑪ 의문문·부정문 어순(do/does/did, be동사 도치) ⑫ 낱말 고르기(의미는 통하지만 어색한 낱말). 하나라도 틀렸으면 fix 는 null 이 아니어야 하고, fix 의 now 에는 학생 문장 전체를 위 항목을 모두 고친 완성 문장으로 적어(was 는 학생이 실제로 말한 문장 전체). 한 카드에 모두 담을 수 있게 — 「사소하니 넘어가」는 이 모드에서 금지다. grade 가 perfect 가 아니면 ① 무엇을 고칠지 아주 짧게 말하고 ② 고친 문장을 또박또박 들려준 뒤 ③ "Can you say it with me?" 처럼 따라 말해 보자고 해. 이때 다음 질문은 하지 마 — 학생이 따라 말한 뒤에 이어가.',
 };
 
 export function warmupHonestRule(mode: WarmupMode): string {

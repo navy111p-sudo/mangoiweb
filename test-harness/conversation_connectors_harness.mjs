@@ -273,7 +273,10 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
   replyText = 'So, is your cat big?';
   await post('/api/warmup/chat', { session_id: 'w-op', student_input: 'Yes.', difficulty: 3 });
   const r3 = await post('/api/warmup/chat', { session_id: 'w-op', student_input: 'No, it is small.', difficulty: 3 });
-  ok(/Your last replies started with "So,", "Great try!"\./.test(r3.sys), '웜업: 지난 답장들의 실제 시작 말을 지시에 싣는다(최근 것부터)', r3.sys.slice(-260));
+  /* 2026-10-31: 기본 모드가 집중교정이 되면서(warmup-honest) 「Great try!」 같은 칭찬 말머리는 저장 전에 떼어진다
+     (applyHonestPraise). 그래서 지난 답장의 시작 말은 "So," 하나만 남는다 — 칭찬이 다시 실리지 않는 것까지 함께 본다. */
+  const lastLine = (r3.sys.match(/Your last replies[^\n]{0,200}/) || [''])[0];
+  ok(/Your last replies started with "So,"\./.test(lastLine) && !/Great try!/.test(lastLine), '웜업: 지난 답장들의 실제 시작 말을 지시에 싣는다(최근 것부터·칭찬 말머리는 뺀 채)', r3.sys.slice(-260));
   const zh = await post('/api/warmup/chat', { session_id: 'w-zh', student_input: '你好', difficulty: 2, lang: 'zh' });
   ok(zh.status === 200 && zh.sys.length > 0 && !zh.sys.includes('[연결 표현]') && !zh.sys.includes('LINKING WORDS'), '(짝) 중국어 웜업에는 싣지 않는다', zh.status);
 }
