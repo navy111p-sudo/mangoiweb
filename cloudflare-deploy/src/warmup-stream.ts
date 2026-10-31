@@ -130,7 +130,7 @@ const squash = (s: string) => String(s == null ? '' : s).replace(/\s+/g, ' ').tr
 
 export function createWarmupLive(
   send: (o: any) => void,
-  o: { lang: string; cap: number; friend: string; studentInput: string; fragQ?: boolean; repeatOf?: (sentence: string) => boolean; honest?: boolean },
+  o: { lang: string; cap: number; friend: string; studentInput: string; fragQ?: boolean; repeatOf?: (sentence: string) => boolean; honest?: boolean; focused?: boolean },
 ): WarmupLive {
   let text = '';
   let n = 0;
@@ -144,6 +144,8 @@ export function createWarmupLive(
     push(sen: string): boolean {
       const s = String(sen == null ? '' : sen).trim();
       if (!s || halt) return false;
+      // Correction is only known after the model finishes: no question may be spoken first.
+      if (o.focused) { halt = 'focused'; return false; }
       if (negative) { halt = 'empathy'; return false; }
       /* 🎯 (2026-10-29) 정직한 칭찬 시범(src/warmup-honest.ts) — 등급은 답이 «다 끝나야» 정해지므로, 첫 문장이 칭찬 말머리로
          시작하면 미리 읽지 않는다(틀린 문장에 「Great!」 를 먼저 들려주는 것이 바로 고치려는 사고다). 최종본은 done 으로 간다. */

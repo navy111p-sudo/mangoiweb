@@ -120,7 +120,7 @@ const MODE_LINES: Record<WarmupMode, string> = {
   balanced:
     '[교정 모드: 균형] 기본은 바른 문장으로 자연스럽게 되받아 말하기(recast). 같은 실수가 되풀이되면 고친 문장을 또박또박 말해 주고 한 번 따라 말해 보자고 해.',
   focused:
-    '[교정 모드: 집중교정] 이 모드에서는 「한 번에 한 가지만 고쳐」 규칙을 적용하지 마 — 학생 문장의 오류를 하나도 빠뜨리지 말고 전부 고쳐. 아래 문법 항목을 한 문장씩 빠짐없이 점검해(어느 것도 생략 금지): ① 대소문자 — 문장 첫 글자, 문장 가운데 불필요한 대문자(not Secret→not secret), 고유명사 ② 구두점 — 마침표·물음표·쉼표·따옴표 ③ 관사 a/an/the(없어야 할 곳 포함) ④ 명사 — 가산·불가산, 단수·복수형, 소유격 어포스트로피-s ⑤ 대명사 — 주격·목적격·소유격, 재귀대명사, 관계대명사 who/which/that/whom/whose ⑥ 동사 — 시제(현재·과거·현재완료·과거진행 등), 동사꼴, 주어와 동사의 수 일치, 조동사(can·will·should 등)와 뒤 동사원형, 수동태, 명령문 ⑦ 준동사 — 동명사(-ing 명사)와 to부정사, 그 쓰임 구별 ⑧ 형용사·부사 — 형용사 자리, 부사 자리, 비교급·최상급 ⑨ 전치사 — 시간·장소 전치사 선택(in/on/at), 전치사 뒤 동명사 ⑩ 접속사·관계부사 — and/but/because/so/when/if 등의 선택과 어순, 관계부사 where/when/why ⑪ 의문문·부정문 어순(do/does/did, be동사 도치) ⑫ 낱말 고르기(의미는 통하지만 어색한 낱말). 하나라도 틀렸으면 fix 는 null 이 아니어야 하고, fix 의 now 에는 학생 문장 전체를 위 항목을 모두 고친 완성 문장으로 적어(was 는 학생이 실제로 말한 문장 전체). 한 카드에 모두 담을 수 있게 — 「사소하니 넘어가」는 이 모드에서 금지다. grade 가 perfect 가 아니면 ① 무엇을 고칠지 아주 짧게 말하고 ② 고친 문장을 또박또박 들려준 뒤 ③ "Can you say it with me?" 처럼 따라 말해 보자고 해. 이때 다음 질문은 하지 마 — 학생이 따라 말한 뒤에 이어가.',
+    '[교정 모드: 집중교정] 이 모드에서는 「한 번에 한 가지만 고쳐」 규칙을 적용하지 마 — 학생 문장의 오류를 하나도 빠뜨리지 말고 전부 고쳐. 아래 문법 항목을 한 문장씩 빠짐없이 점검해(어느 것도 생략 금지): ① 대소문자 — 문장 첫 글자, 문장 가운데 불필요한 대문자(not Secret→not secret), 고유명사 ② 구두점 — 마침표·물음표·쉼표·따옴표 ③ 관사 a/an/the(없어야 할 곳 포함) ④ 명사 — 가산·불가산, 단수·복수형, 소유격 어포스트로피-s ⑤ 대명사 — 주격·목적격·소유격, 재귀대명사, 관계대명사 who/which/that/whom/whose ⑥ 동사 — 시제(현재·과거·현재완료·과거진행 등), 동사꼴, 주어와 동사의 수 일치, 조동사(can·will·should 등)와 뒤 동사원형, 수동태, 명령문 ⑦ 준동사 — 동명사(-ing 명사)와 to부정사, 그 쓰임 구별 ⑧ 형용사·부사 — 형용사 자리, 부사 자리, 비교급·최상급 ⑨ 전치사 — 시간·장소 전치사 선택(in/on/at), 전치사 뒤 동명사 ⑩ 접속사·관계부사 — and/but/because/so/when/if 등의 선택과 어순, 관계부사 where/when/why ⑪ 의문문·부정문 어순(do/does/did, be동사 도치) ⑫ 낱말 고르기(의미는 통하지만 어색한 낱말). 하나라도 틀렸으면 fix 는 null 이 아니어야 하고, fix 의 now 에는 학생 문장 전체를 위 항목을 모두 고친 완성 문장으로 적어(was 는 학생이 실제로 말한 문장 전체). 한 카드에 모두 담을 수 있게 — 「사소하니 넘어가」는 이 모드에서 금지다. grade 가 perfect 가 아니면 ① 인사·칭찬·다음 질문보다 먼저 "You can say..." 뒤에 고친 문장을 말해 ② 같은 고친 문장을 총 3번 또박또박 반복한 뒤 ③ "Can you say it with me?" 처럼 따라 말해 보자고 해. 이때 다음 질문은 하지 마 — 학생이 따라 말한 뒤에 이어가.',
 };
 
 export function warmupHonestRule(mode: WarmupMode): string {
@@ -207,7 +207,7 @@ export function gateFixForMode(
 
 /**
  * 집중교정 — 검증된 교정이 있으면 아바타가 «고친 문장을 먼저» 말하게 한다.
- *   순서: 고친 문장 → "Let's say it this way" → 고친 문장 3번 반복 → 따라 말하자 → 답장.
+ *   순서: "You can say..." + 고친 문장을 총 3번 → 따라 말하자. 다음 질문은 학생이 따라 말한 뒤에 한다.
  *   · 답장에 고친 문장이 이미 들어 있어도 이 순서는 항상 지킨다(답장이 먼저 나오면 교정이 뒤로 밀린다).
  *   · 문장을 새로 지어내지 않는다 — 서버가 검증을 통과시킨 fix.now 만 쓴다.
  *   · 완벽(perfect)이면 고칠 것이 없으니 건드리지 않는다.
@@ -233,7 +233,7 @@ export function ensureFocusedFixSpoken(
     if (mode !== 'focused' || !fix || grade === 'perfect') return reply;
     const now = String(fix.now == null ? '' : fix.now).trim();
     if (!now) return reply;
-    const repeated = Array.from({ length: FOCUSED_FIX_REPEATS }, () => `"${now}"`).join(' ');
-    return `"${now}" Let's say it this way: ${repeated} Can you say it with me? ${reply}`;
+    const repeated = Array.from({ length: FOCUSED_FIX_REPEATS }, () => `You can say... "${now}"`).join(' ');
+    return `${repeated} Can you say it with me?`;
   } catch { return reply; }
 }
