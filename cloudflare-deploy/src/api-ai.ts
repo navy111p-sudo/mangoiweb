@@ -26,6 +26,7 @@ import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint, aiFriendS
 import { resolveFriendName, wrongSelfName, askedOwnName } from './ai-friends';   // 🧑 AI 친구 이름 정본 + «다른 이름으로 소개했나» 판정
 import { stripAddedKorean, hasAddedKorean } from './reply-korean';               // 🇰🇷 모델이 덧붙인 한국어 번역 제거 — 「뜻」 버튼 설계를 지킨다
 import { parseJsonBody } from './api-util';
+import { assessPronFix } from './pron-focus';   // 🎯 집중교정 발음 교정(2026-11-01)
 /* ✏️ «교정 카드» 판정 정본 — 웜업과 «같은 한 벌» 을 쓴다 (2026-09-09 사장님 「A.i 친구도 똑같이」).
    ⛔ 파일 이름이 warmup 이라고 복제해 오지 말 것. 판정이 두 벌이 되면 한쪽만 고쳐진다. */
 import { backfillPastTenseFix } from './tense-backfill';
@@ -33,6 +34,7 @@ import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
          decideWarmupFixShow, warmupShouldOfferRepeat, isRfRejection } from './warmup-correction';
 import type { MangoEnv } from './api-mango';
 import { recordAiFailure } from './ai-failure-log';
+import { correctionModeOf, gateFixForMode } from './warmup-honest';   // 🎚️ A.i 친구 교정 모드(자유대화·균형·집중교정, 기본 집중교정)
 import { handleClassAsk } from './class-ask';   // ✋ A.i 선생님 수업 — 학생 질문 즉답(2026-10-08)
 import { connectorRule, connectorPromptBlock, linkBandForFriendLevel } from './conversation-connectors';   // 🔗 연결 표현 정본(2026-10-28 · 세 화면 공용)
 import { handleStoryApi } from './story-correct';   // 📖 동화책 바꿔 쓰기 AI 한 번 더 보기·기록(2026-10-13)
@@ -662,7 +664,12 @@ Student text: """${text}"""`;
       const uid = String(b.uid || '').trim();
       const msg = String(b.msg || '').trim();
       /* 🎯 집중교정이면 옛 게이트(두 번째부터·연달아 막기)를 건너뛰고 검증된 교정을 매번 보여 준다(2026-10-31). */
-      const immediateFix = String(b.correction_mode || '') === 'focused';
+      const friendMode = correctionModeOf(b.correction_mode);   // 🎚️ 값이 없으면 집중교정
+      const immediateFix = friendMode === 'focused';
+      /* 🎯 발음 교정 — 집중교정 + 음성(WAV) + 기준 낱말이 있을 때만 Azure 발음평가를 «미리» 돌린다.
+         응답을 기다리게 하지 않으려고 여기서 시작하고, 응답을 만들 때 결과만 받는다(실패는 null). */
+      const pronIn: any = (friendMode === 'focused' && b.pron && typeof b.pron === 'object') ? b.pron : null;
+      const pronP: Promise<any> = pronIn ? assessPronFix(env as any, pronIn.audio_b64, pronIn.target) : Promise.resolve(null);
       /* 🪜 여덟 칸으로 넓히면서, 학생 브라우저에 남아 있는 옛 키(A1…C1)도 그대로 받습니다.
          ⛔ 정규화를 빼면 옛 값이 «모르는 값» 이 되어 조용히 기본값으로 떨어집니다 —
             학생이 고른 레벨이 리셋된 것처럼 보입니다. */
@@ -1268,10 +1275,13 @@ ${AI_FRIEND_CORRECTION_RULE}`;
           //    작은 실수일 때만 조회한다 — 큰 실수는 원래 바로 고친다.
           if (verified && verified.severity !== 'major') memoIn = carryRepeatTags(memoIn, await loadRecentFixTags(env.DB, uid, Date.now()));
           const decided = decideWarmupFixShow(verified, memoIn, turnNo, { immediate: immediateFix });
-          showFix = decided.show;
+          // 🎚️ 모드별 게이트 — 자유대화는 따라 말하기 없음, 집중교정은 검증된 교정을 매번(warmup-honest gateFixForMode).
+          showFix = gateFixForMode(friendMode, verified, decided.show, false).show;
           // 🔁 보여 준 교정은 남겨 다음 대화에서 다시 쓰게 한다(KV 메모는 6시간 «간격» 만 기억). 던지지 않는다.
           if (showFix) await logAiFriendFix(env.DB, uid, showFix, Date.now());
           offerRepeat = warmupShouldOfferRepeat(decided.show, decided.memo, turnNo);
+          if (friendMode === 'free_talk') offerRepeat = false;
+          else if (friendMode === 'focused') offerRepeat = !!showFix;
           try {
             if ((env as any).SESSION_STATE) {
               await (env as any).SESSION_STATE.put(mkey, JSON.stringify(decided.memo), { expirationTtl: 6 * 3600 });
@@ -1309,11 +1319,13 @@ ${AI_FRIEND_CORRECTION_RULE}`;
         console.error('[chat-friend] recordAiLatency failed:', e?.message || e);
       }
 
+      const pronFix = await pronP;   // 🎯 발음 교정 결과(없으면 null)
       return { ok: true, reply, level, persona, model: usedModel || 'fallback', gam,
                     // 🚨 «AI 가 답을 못 만들었다» 를 화면이 알 수 있게. 옛 화면은 이 칸을 모르고
                     //    그냥 reply 를 그리므로 «고치기 전» 과 같습니다(안전한 방향).
                     ...(usedFallback ? { ai_unavailable: true } : {}),
                     fix: usedFallback ? null : showFix, repeat: usedFallback ? false : offerRepeat,
+                    ...(pronFix ? { pron_fix: pronFix } : {}),
                     // 📡 스트리밍으로 미리 보낸 문장과 최종본이 «다른가» — 화면이 그때만 다시 읽습니다.
                     ...(wantStream ? { replaced: streamedText && streamedText.trim() !== reply.trim() ? 1 : 0 } : {}) };
       };

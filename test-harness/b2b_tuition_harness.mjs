@@ -26,6 +26,11 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+/* 시계 고정 (2026-10-31) — 화면 계산은 Date.now() 를 기본값으로 써서 실제 날짜가 지나면
+   픽스처(2026-10 수업)의 «지난 수업/예정» 판정이 바뀌었다. 검사 전체가 같은 날(KST 2026-10-08 정오)을
+   보도록 고정한다. 픽스처가 이 날을 기준으로 짜여 있다. */
+const FROZEN_NOW = Date.parse('2026-10-08T03:00:00Z');
+Date.now = () => FROZEN_NOW;
 const SRC_DIR = process.env.B2B_SRC_DIR || path.join(ROOT, 'cloudflare-deploy', 'src');
 const PUB = path.join(ROOT, 'cloudflare-deploy', 'public');
 
