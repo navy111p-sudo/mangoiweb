@@ -3,6 +3,15 @@ on:
   pull_request:
     paths:
       - 'cloudflare-deploy/public/warmup.html'
+      - 'cloudflare-deploy/public/ai-friend.html'
+      - 'cloudflare-deploy/public/js/speech-preferences.js'
+      - 'cloudflare-deploy/public/img/visemes/**'
+      - 'cloudflare-deploy/public/js/avatar-visemes.js'
+      - 'cloudflare-deploy/public/js/avatar-viseme-worker.js'
+      - 'cloudflare-deploy/public/js/mango-avatar.js'
+      - 'test-harness/manual/avatar-viseme-browser.mjs'
+      - 'test-harness/manual/speech-preferences-browser.mjs'
+      - 'test-harness/helpers/speech-sandbox.mjs'
       - 'cloudflare-deploy/public/js/warmup-guide.js'
       - 'cloudflare-deploy/public/css/warmup-guide.css'
       - 'cloudflare-deploy/public/video/warmup-scenes/**'
@@ -27,6 +36,12 @@ jobs:
           "$RUNNER_TEMP/warmup-pw/node_modules/.bin/playwright" install --with-deps chromium
           mkdir -p "$RUNNER_TEMP/warmup-browser/installed/chrome-linux"
           PW_ROOT="$RUNNER_TEMP/warmup-pw" node -e 'const {chromium}=require(process.env.PW_ROOT+"/node_modules/playwright");require("fs").symlinkSync(chromium.executablePath(),process.env.RUNNER_TEMP+"/warmup-browser/installed/chrome-linux/chrome");'
+      - name: Avatar cue clock, speed and cancellation (18 browser cases)
+        env:
+          PW_DIR: ${{ runner.temp }}/warmup-pw
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/warmup-browser
+        run: node test-harness/manual/avatar-viseme-browser.mjs
+
       - name: Browser baseline and broken-wiring regression
         env:
           PW_DIR: ${{ runner.temp }}/warmup-pw
@@ -47,3 +62,9 @@ jobs:
           node test-harness/manual/warmup-bts-book-browser.mjs | tee "$RUNNER_TEMP/warmup-bts.log"
           grep -Eq 'warmup-bts-book-browser — PASS [1-9][0-9]* / FAIL 0' "$RUNNER_TEMP/warmup-bts.log"
           node test-harness/manual/warmup-two-way-mutation.mjs
+
+      - name: Account speech preferences sandbox (50 full-page cases)
+        env:
+          PW_DIR: ${{ runner.temp }}/warmup-pw
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/warmup-browser
+        run: node test-harness/manual/speech-preferences-browser.mjs

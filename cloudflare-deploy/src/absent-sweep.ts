@@ -19,6 +19,8 @@
  */
 
 import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
+import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
+import { loadHolidayClosure, isHolidayClosedFor } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 import { sendPlainSms } from './solapi-client';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 /* 📧 강사 대부분이 필리핀에 있어 «한국 문자» 로는 못 닿는다 — 이메일이 유일한 국제 자동 수단이다. */
@@ -26,6 +28,7 @@ import { sendEmail, emailLayout } from './email';
 import { pushToTeacher } from './teacher-push';   // 🔔 강사 웹푸시(정본) — 카카오는 필리핀 번호에 안 닿는다(2026-09-14)
 import { applyRoomOverrides } from './class-room-override';   // 🚪 지정된 회의방의 출석을 봐야 급여가 0원이 되지 않는다
 import { loadHoldRanges, heldOnFor, maybeHoldStudent, autoResumeReturning, maybeSendHoldDigest } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25)
+import { runTeacherMissingAlerts } from './teacher-missing-alert';   // 🧑‍🏫 학생은 왔는데 강사가 없다 → 강사 먼저, 안 닿으면 운영자(2026-10-28)
 
 /** 이메일 본문에 학생·강사 이름이 그대로 들어간다 — 태그로 읽히지 않게 막는다. */
 function escapeHtmlAbs(s: any): string {
@@ -45,6 +48,7 @@ export interface AbsentSweepResult {
   owner_mode?: boolean;        // 운영자 요약 문자 모드였는지 (기본 OFF)
   owner_sms?: any;             // 운영자 요약 문자 결과
   hold_digest?: any;           // ⏸ 아침 보류 요약 결과(창 밖이면 why=outside_window)
+  teacher_missing?: any;       // 🧑‍🏫 학생은 왔는데 강사가 없는 수업 처리 결과(teacher-missing-alert.ts)
   details: any[];
   dry?: boolean;
 }
@@ -121,12 +125,13 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
   const pad = (n: number) => String(n).padStart(2, '0');
   const ymd = `${kY}${pad(kMo + 1)}${pad(kD)}`;
   const todayStr = `${kY}-${pad(kMo + 1)}-${pad(kD)}`;
+  const _holiday = await loadHolidayClosure(env.DB, todayStr);   // 🎌 던지지 않는다(fail-open)
 
   // 오늘 발생 예약 전체 (일회성=날짜 일치 / 반복=요일 일치) — /api/class/sessions/today 와 동일 규칙
   let rows: any[] = [];
   try {
     const rs = await env.DB.prepare(
-      `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, duration_min, teacher_id${startsOnSel(await ensureStartsOnColumn(env))}
+      `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, duration_min, status, teacher_id${startsOnSel(await ensureStartsOnColumn(env))}
        FROM class_schedules WHERE status != 'cancelled'`
     ).all();
     rows = rs.results || [];
@@ -143,6 +148,8 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
     else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow) && recurStartedOn(s, todayStr);
     if (!occurs) continue;
     seen.add(s.id);
+    if (isPostponedOccurrence(s)) continue;   // ⏸ 연기된 회차는 오늘 열리지 않는다(2026-10-01, class-postponed.ts)
+    if (isHolidayClosedFor(_holiday, s.teacher_id)) continue;   // 🎌 공휴일 휴강 — 문자·결석감지 안 함(중국어 수업 제외)
     const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
     if (!Number.isFinite(hh)) continue;
     const start_ts = Date.UTC(kY, kMo, kD, hh, mm || 0, 0) - KST;
@@ -203,6 +210,7 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
   const holdRanges = await loadHoldRanges(env);
 
   const newlyAbsent: any[] = [];
+  const studentJoined: any[] = [];   // 🧑‍🏫 학생은 들어온 수업 — 아래에서 «강사가 있나» 를 본다
   for (const c of candidates) {
     if (heldOnFor(holdRanges, c.user_id, todayStr)) { result.details.push({ room_id: c.room_id, status: 'absence_hold' }); continue; }
     // ① 학생이 이미 입장했으면 정상 — attendance 는 /api/attendance/join 이 기록
@@ -210,7 +218,7 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
       const att = await env.DB.prepare(
         `SELECT 1 FROM attendance WHERE room_id = ? AND (user_id = ? OR role = 'student') LIMIT 1`
       ).bind(c.room_id, c.user_id || '').first();
-      if (att) { result.details.push({ room_id: c.room_id, status: 'joined' }); continue; }
+      if (att) { result.details.push({ room_id: c.room_id, status: 'joined' }); studentJoined.push(c); continue; }
     } catch { continue; } // attendance 조회 실패 시 오탐 알림 금지 — 스킵
     // ② 이미 기록/알림된 세션이면 스킵 (room_id 에 날짜 포함 = 세션당 1회 보장)
     try {
@@ -221,6 +229,14 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
     } catch {}
     newlyAbsent.push(c);
   }
+
+  /* 🧑‍🏫 (2026-10-28 사장님 지시) 학생은 들어왔는데 강사가 없는 수업 — 강사에게 먼저 알리고,
+     아무 데도 안 닿으면 운영자에게 문자 1통. 정본·근거는 src/teacher-missing-alert.ts 머리말.
+     ⚠️ 아래 «결석 없음» 조기 반환보다 «앞» 이어야 한다 — 학생이 다 들어온 날에만 도는 일이라
+        뒤에 두면 한 번도 안 돈다. ⚠️ 던지지 않는다(그 함수가 안에서 다 받는다). */
+  try {
+    result.teacher_missing = await runTeacherMissingAlerts(env, studentJoined, now, { dry, findContact: findTeacherContact });
+  } catch (e: any) { result.teacher_missing = { error: String(e?.message || e).slice(0, 120) }; }
 
   if (!newlyAbsent.length) return result;
 

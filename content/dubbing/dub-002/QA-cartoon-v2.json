@@ -1,0 +1,338 @@
+{
+  "episode": "dub-002",
+  "version": "cartoon-v2",
+  "approval": "REVIEW_ONLY",
+  "reference_cast": "EP02 Four Cast / Higgsfield element 67713c4d-1dfd-4ce1-9433-88ccfd04096b",
+  "scene_files": [
+    {
+      "scene": 1,
+      "duration_expected": 45,
+      "files": {
+        "video.mp4": {
+          "size": 3379460,
+          "duration": 45.0
+        },
+        "preview.mp4": {
+          "size": 4336583,
+          "duration": 45.0
+        },
+        "bgm.wav": {
+          "size": 8640044,
+          "duration": 45.0
+        },
+        "music.wav": {
+          "size": 8640044,
+          "duration": 45.0
+        },
+        "sfx.wav": {
+          "size": 8640044,
+          "duration": 45.0
+        },
+        "thumb.webp": {
+          "size": 43550,
+          "duration": null
+        },
+        "voice-maya.wav": {
+          "size": 4320044,
+          "duration": 45.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-kai.wav": {
+          "size": 4320044,
+          "duration": 45.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-emma.wav": {
+          "size": 4320044,
+          "duration": 45.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-pip.wav": {
+          "size": 4320044,
+          "duration": 45.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        }
+      }
+    },
+    {
+      "scene": 2,
+      "duration_expected": 45,
+      "files": {
+        "video.mp4": {
+          "size": 3893087,
+          "duration": 45.0
+        },
+        "preview.mp4": {
+          "size": 4840601,
+          "duration": 45.0
+        },
+        "bgm.wav": {
+          "size": 8640044,
+          "duration": 45.0
+        },
+        "music.wav": {
+          "size": 8640044,
+          "duration": 45.0
+        },
+        "sfx.wav": {
+          "size": 8640044,
+          "duration": 45.0
+        },
+        "thumb.webp": {
+          "size": 50472,
+          "duration": null
+        },
+        "voice-maya.wav": {
+          "size": 4320044,
+          "duration": 45.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-kai.wav": {
+          "size": 4320044,
+          "duration": 45.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-emma.wav": {
+          "size": 4320044,
+          "duration": 45.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-pip.wav": {
+          "size": 4320044,
+          "duration": 45.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        }
+      }
+    },
+    {
+      "scene": 3,
+      "duration_expected": 45,
+      "files": {
+        "video.mp4": {
+          "size": 5932399,
+          "duration": 45.0
+        },
+        "preview.mp4": {
+          "size": 6882028,
+          "duration": 45.0
+        },
+        "bgm.wav": {
+          "size": 8640044,
+          "duration": 45.0
+        },
+        "music.wav": {
+          "size": 8640044,
+          "duration": 45.0
+        },
+        "sfx.wav": {
+          "size": 8640044,
+          "duration": 45.0
+        },
+        "thumb.webp": {
+          "size": 61398,
+          "duration": null
+        },
+        "voice-maya.wav": {
+          "size": 4320044,
+          "duration": 45.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-kai.wav": {
+          "size": 4320044,
+          "duration": 45.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-emma.wav": {
+          "size": 4320044,
+          "duration": 45.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-pip.wav": {
+          "size": 4320044,
+          "duration": 45.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        }
+      }
+    },
+    {
+      "scene": 4,
+      "duration_expected": 30,
+      "files": {
+        "video.mp4": {
+          "size": 2948782,
+          "duration": 30.0
+        },
+        "preview.mp4": {
+          "size": 3580325,
+          "duration": 30.0
+        },
+        "bgm.wav": {
+          "size": 5760044,
+          "duration": 30.0
+        },
+        "music.wav": {
+          "size": 5760044,
+          "duration": 30.0
+        },
+        "sfx.wav": {
+          "size": 5760044,
+          "duration": 30.0
+        },
+        "thumb.webp": {
+          "size": 46058,
+          "duration": null
+        },
+        "voice-maya.wav": {
+          "size": 2880044,
+          "duration": 30.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-kai.wav": {
+          "size": 2880044,
+          "duration": 30.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-emma.wav": {
+          "size": 2880044,
+          "duration": 30.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-pip.wav": {
+          "size": 2880044,
+          "duration": 30.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        }
+      }
+    },
+    {
+      "scene": 5,
+      "duration_expected": 45,
+      "files": {
+        "video.mp4": {
+          "size": 6920196,
+          "duration": 45.0
+        },
+        "preview.mp4": {
+          "size": 7870551,
+          "duration": 45.0
+        },
+        "bgm.wav": {
+          "size": 8640044,
+          "duration": 45.0
+        },
+        "music.wav": {
+          "size": 8640044,
+          "duration": 45.0
+        },
+        "sfx.wav": {
+          "size": 8640044,
+          "duration": 45.0
+        },
+        "thumb.webp": {
+          "size": 61020,
+          "duration": null
+        },
+        "voice-maya.wav": {
+          "size": 4320044,
+          "duration": 45.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-kai.wav": {
+          "size": 4320044,
+          "duration": 45.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-emma.wav": {
+          "size": 4320044,
+          "duration": 45.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-pip.wav": {
+          "size": 4320044,
+          "duration": 45.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        }
+      }
+    },
+    {
+      "scene": 6,
+      "duration_expected": 30,
+      "files": {
+        "video.mp4": {
+          "size": 2676481,
+          "duration": 30.0
+        },
+        "preview.mp4": {
+          "size": 3309959,
+          "duration": 30.0
+        },
+        "bgm.wav": {
+          "size": 5760044,
+          "duration": 30.0
+        },
+        "music.wav": {
+          "size": 5760044,
+          "duration": 30.0
+        },
+        "sfx.wav": {
+          "size": 5760044,
+          "duration": 30.0
+        },
+        "thumb.webp": {
+          "size": 42936,
+          "duration": null
+        },
+        "voice-maya.wav": {
+          "size": 2880044,
+          "duration": 30.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-kai.wav": {
+          "size": 2880044,
+          "duration": 30.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-emma.wav": {
+          "size": 2880044,
+          "duration": 30.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        },
+        "voice-pip.wav": {
+          "size": 2880044,
+          "duration": 30.0,
+          "sample_rate": 48000,
+          "is_non_silent": true
+        }
+      }
+    }
+  ],
+  "errors": [],
+  "warnings": [
+    "Computer-generated cartoon shots retain residual risk of facial drift at some frames. Manual actor/costume and lip-sync check is required.",
+    "The 48 scripted lines are aligned to schedule estimates, not phoneme-level mouth motion. Classroom use requires checking recorded mouth movement against each line.",
+    "Music, SFX and character voices are separate tracks."
+  ]
+}

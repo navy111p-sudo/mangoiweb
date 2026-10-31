@@ -1,0 +1,60 @@
+{
+  "brand": "mangoi.ai",
+  "episode": "dub-001",
+  "status": "submitted_not_yet_qa_verified",
+  "totalAdditionalDurationSec": 150,
+  "estimatedAdditionalCredits": 300,
+  "jobs": [
+    {
+      "clip": 7,
+      "job_id": "bbf32f7d-3de8-4926-bb5e-6a6c8768f271",
+      "requestedDurationSec": 15
+    },
+    {
+      "clip": 8,
+      "job_id": "e346b824-232b-43cf-a3fb-d18dd5e39ec3",
+      "requestedDurationSec": 15
+    },
+    {
+      "clip": 9,
+      "job_id": "dedf2934-86c0-4987-8ef2-ebd899064375",
+      "requestedDurationSec": 15
+    },
+    {
+      "clip": 10,
+      "job_id": "0a180db5-27a4-434b-becb-0051d3248b2e",
+      "requestedDurationSec": 15
+    },
+    {
+      "clip": 11,
+      "job_id": "80b8f287-a1e4-4ece-beca-6d15f48b4700",
+      "requestedDurationSec": 15
+    },
+    {
+      "clip": 12,
+      "job_id": "fc8b259a-c519-4950-9002-ea22c9997f39",
+      "requestedDurationSec": 15
+    },
+    {
+      "clip": 13,
+      "job_id": "c635f2c2-e4aa-45a1-8d7c-d52a48062247",
+      "requestedDurationSec": 15
+    },
+    {
+      "clip": 14,
+      "job_id": "3a5547a6-f810-4243-9da3-1ad03b8abdae",
+      "requestedDurationSec": 15
+    },
+    {
+      "clip": 15,
+      "job_id": "4d600697-835a-4dc8-bbee-83b61630154b",
+      "requestedDurationSec": 15
+    },
+    {
+      "clip": 16,
+      "job_id": "d2546004-00fe-45ab-8d31-0f20bc5e7d6a",
+      "requestedDurationSec": 15
+    }
+  ],
+  "note": "Six original clips (90 sec) + these ten requested clips (150 sec) target 240 sec. Generation completion, narrative continuity, audio stems, and video merge still require verification."
+}

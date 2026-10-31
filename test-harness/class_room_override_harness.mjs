@@ -10,12 +10,13 @@
  * ⛔ 검사를 「그 함수가 있는가」로 되돌리지 말 것 — 함수도 값도 «있는데» 답만 틀린 것이
  *    이 저장소가 반복해서 밟은 모양이다.
  */
+import { fileURLToPath } from 'node:url';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 
-const ROOT = new URL('..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const SRC = join(ROOT, 'cloudflare-deploy/src');
 const PUB = join(ROOT, 'cloudflare-deploy/public');
 
@@ -271,7 +272,7 @@ console.log('\n⑥ 화면 — 지정 버튼과 학생 안내가 실제로 붙어
   // 선생님 화면
   check('⑥-1 강사 화면에 지정 버튼이 있다', /data-roomset=/.test(tBare));
   check('⑥-2 그 버튼이 openRoomOverride 를 실제로 부른다',
-    /\[data-roomset\]/.test(tBare) && /openRoomOverride\s*\(\s*list\[/.test(tBare),
+    /\[data-roomset\]/.test(tBare) && /openRoomOverride\s*\(\s*(?:freshClass\s*\(\s*)?list\[/.test(tBare),
     '버튼만 있고 배선이 없으면 눌러도 아무 일도 안 일어난다');
   check('⑥-3 지정 API 를 PUT 으로 부른다', /method:\s*'PUT'/.test(tBare) && /'\/api\/admin\/class-schedules'/.test(tBare));
   check('⑥-4 🔴 «성공이라고 말했는가»(d.ok !== true)로 가른다',
@@ -372,8 +373,9 @@ console.log('\n⑦ 방 번호를 만드는 곳들이 지정을 보는가');
       if (/class-\$\{/.test(t) && !/applyRoomOverrides/.test(t)) OPEN.push(f);
     } catch {}
   }
-  console.log('  ℹ️ 아직 지정을 안 보는 곳(사람 결정 대기): ' + (OPEN.join(' · ') || '없음'));
-  console.log('     → 지정된 수업의 참관 버튼·리마인더 링크는 «옛 방» 을 가리킵니다.');
+  console.log('  ℹ️ 방 ID를 만들지만 파일 안에서 지정 정본을 부르지 않는 곳: ' + (OPEN.join(' · ') || '없음'));
+  console.log('     → 이것만으로 잘못된 입장 링크라고 단정하지 않습니다. classes-now는 호출 핸들러에서 지정을 적용합니다(classes_now_room_override_harness).');
+  console.log('     → lesson-reminder의 class-*는 발송 중복 방지 키이고, 문자 입장 링크는 방 번호 없는 /?go=videocall 입니다.');
 }
 
 console.log('\n결과: PASS ' + pass + ' / FAIL ' + fail);

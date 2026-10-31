@@ -402,6 +402,8 @@ footer b{color:var(--ink2);font-weight:700}
 .leaf a::after{content:"↗";float:right;margin-left:8px;color:var(--muted);font-size:11px;font-weight:800}
 .leaf a:hover::after{color:var(--lane)}
 </style>
+<style>/* PC 가독성 확대 — admin.html(body zoom 1.3)과 같은 배율. 폰(1024px 미만)은 그대로 (2026-10-09) */
+@media (min-width:1024px){ body{ zoom:1.3; } }</style>
 </head>
 <body>
 <div class="page">
@@ -506,7 +508,7 @@ footer b{color:var(--ink2);font-weight:700}
             <path d="M3 7.5 12 4l9 3.5-9 3.5z"/><path d="M7 10v4.5c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5V10"/><path d="M21 8v5"/>
           </svg>
           <span class="t">학생<br>영어 배우는 친구</span>
-          <span class="n">41</span>
+          <span class="n">231</span>
         </div>
         <p class="lane-why">가장 <b>큰 덩어리</b>예요. 수업 듣고, 혼자 공부하고, 게임으로 복습해요.</p>
 
@@ -525,28 +527,224 @@ footer b{color:var(--ink2);font-weight:700}
           </div>
 
           <div class="group">
-            <div class="group-t">AI 도구 <span class="gn">4</span></div>
+            <div class="group-t">AI 도구 <span class="gn">5</span></div>
             <ul class="leaves">
               <li class="leaf"><a href="/speech-coach.html" target="_blank" rel="noopener">AI 음성코치<span class="p">/speech-coach.html</span></a></li>
               <li class="leaf"><a href="/ai-friend.html" target="_blank" rel="noopener">AI 친구 대화<span class="p">/ai-friend.html</span></a></li>
               <li class="leaf"><a href="/ai-write.html" target="_blank" rel="noopener">AI 글쓰기 첨삭<span class="p">/ai-write.html</span></a></li>
               <li class="leaf"><a href="/judgment.html" target="_blank" rel="noopener">판단력 훈련<span class="p">/judgment.html</span></a></li>
+              <li class="leaf"><a href="/ai-class.html" target="_blank" rel="noopener">A.i 선생님 수업 (시범)<span class="p">/ai-class.html</span></a></li>
             </ul>
           </div>
 
           <div class="group">
-            <div class="group-t">혼자 공부 <span class="gn">10</span></div>
+            <div class="group-t">혼자 공부 <span class="gn">19</span></div>
             <ul class="leaves">
               <li class="leaf"><a href="/today.html" target="_blank" rel="noopener">오늘의 A.i 학습 (AI 도구를 오늘 할 순서로)<span class="p">/today.html</span></a></li>
+              <li class="leaf"><a href="/ai-guide.html" target="_blank" rel="noopener">A.i학습 사용설명서 (원장님·선생님용 · AI 도구 11종 사용법)<span class="p">/ai-guide.html</span></a></li>
               <li class="leaf"><a href="/vocab.html" target="_blank" rel="noopener">단어장<span class="p">/vocab.html</span></a></li>
-              <li class="leaf"><a href="/review-quiz.html" target="_blank" rel="noopener">복습 퀴즈<span class="p">/review-quiz.html</span></a></li>
+              <li class="leaf"><a href="/stories.html" target="_blank" rel="noopener">영어 독서 (4단계 사다리 180편 · 고르기 한 화면)<span class="p">/stories.html</span></a></li>
+              <li class="leaf"><a href="/story-cover-gallery.html" target="_blank" rel="noopener">그림책 표지 갤러리 (180권 · 16화풍)<span class="p">/story-cover-gallery.html</span></a></li>
+              <li class="leaf"><a href="/ai-dubbing.html" target="_blank" rel="noopener">A.i영화더빙 (모험 3D 애니 6편 × 에피소드 6 · 키키와 토토 10편 고르기)<span class="p">/ai-dubbing.html</span></a></li>
+              <li class="leaf"><a href="/ai-dubbing-studio.html" target="_blank" rel="noopener">A.i 더빙동영상 (키키와 토토 10편 · A.i영화더빙 안)<span class="p">/ai-dubbing-studio.html</span></a></li>
+              <li class="leaf"><a href="/story-red-umbrella.html" target="_blank" rel="noopener">A.i 동화책 (심화1 · The Red Umbrella)<span class="p">/story-red-umbrella.html</span></a></li>
+              <li class="leaf"><a href="/story-birthday-cake.html" target="_blank" rel="noopener">A.i 동화책 (심화1 · The Missing Birthday Cake)<span class="p">/story-birthday-cake.html</span></a></li>
+              <li class="leaf"><a href="/story-robot-dance.html" target="_blank" rel="noopener">A.i 동화책 (심화1 · Bolt Can Dance)<span class="p">/story-robot-dance.html</span></a></li>
+              <li class="leaf"><a href="/story-treasure-map.html" target="_blank" rel="noopener">A.i 동화책 (심화1 · The Map in the Library Book)<span class="p">/story-treasure-map.html</span></a></li>
+              <li class="leaf"><a href="/review-quiz.html" target="_blank" rel="noopener">BTS/SIU 퀴즈<span class="p">/review-quiz.html</span></a></li>
               <li class="leaf"><a href="/micro-quiz.html" target="_blank" rel="noopener">AI 단어 퀴즈<span class="p">/micro-quiz.html</span></a></li>
               <li class="leaf"><a href="/speaking-quiz.html" target="_blank" rel="noopener">말하기 퀴즈<span class="p">/speaking-quiz.html</span></a></li>
-              <li class="leaf"><a href="/warmup.html" target="_blank" rel="noopener">수업 전 워밍업<span class="p">/warmup.html</span></a></li>
+              <li class="leaf"><a href="/warmup.html" target="_blank" rel="noopener">A.i 말하기<span class="p">/warmup.html</span></a></li>
               <li class="leaf"><a href="/streak.html" target="_blank" rel="noopener">연속 출석<span class="p">/streak.html</span></a></li>
-              <li class="leaf"><a href="/review-quiz-cn.html" target="_blank" rel="noopener">복습퀴즈 (중국어)<span class="p">/review-quiz-cn.html</span></a></li>
+              <li class="leaf"><a href="/review-quiz-cn.html" target="_blank" rel="noopener">중국어퀴즈<span class="p">/review-quiz-cn.html</span></a></li>
               <li class="leaf"><a href="/speech-coach-cn.html" target="_blank" rel="noopener">중국어 발음 교정<span class="p">/speech-coach-cn.html</span></a></li>
               <li class="leaf"><a href="/docs/" target="_blank" rel="noopener">자료실 (교재·자료 받기)<span class="p">/docs/</span></a></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <div class="group-t">독서 사다리 그림책 (1~4단계) <span class="gn">180</span></div>
+            <ul class="leaves">
+              <li class="leaf"><a href="/story-s1-01.html" target="_blank" rel="noopener">1단계 그림책 · Max Finds His Way Home<span class="p">/story-s1-01.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-02.html" target="_blank" rel="noopener">1단계 그림책 · A Fun Rainy Day<span class="p">/story-s1-02.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-03.html" target="_blank" rel="noopener">1단계 그림책 · Jun's New Friend<span class="p">/story-s1-03.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-04.html" target="_blank" rel="noopener">1단계 그림책 · Grandma's Garden<span class="p">/story-s1-04.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-05.html" target="_blank" rel="noopener">1단계 그림책 · A Surprise for Mom<span class="p">/story-s1-05.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-06.html" target="_blank" rel="noopener">1단계 그림책 · Half a Sandwich<span class="p">/story-s1-06.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-07.html" target="_blank" rel="noopener">1단계 그림책 · Brave at the Dentist<span class="p">/story-s1-07.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-08.html" target="_blank" rel="noopener">1단계 그림책 · The Cat in the Tree<span class="p">/story-s1-08.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-09.html" target="_blank" rel="noopener">1단계 그림책 · Pancakes with Dad<span class="p">/story-s1-09.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-10.html" target="_blank" rel="noopener">1단계 그림책 · The Lost Mitten<span class="p">/story-s1-10.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-11.html" target="_blank" rel="noopener">1단계 그림책 · Hana's Flower<span class="p">/story-s1-11.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-12.html" target="_blank" rel="noopener">1단계 그림책 · Fireflies at Night<span class="p">/story-s1-12.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-13.html" target="_blank" rel="noopener">1단계 그림책 · The Alien in My Backyard<span class="p">/story-s1-13.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-14.html" target="_blank" rel="noopener">1단계 그림책 · Rocket to the Moon<span class="p">/story-s1-14.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-15.html" target="_blank" rel="noopener">1단계 그림책 · The Dinosaur Egg<span class="p">/story-s1-15.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-16.html" target="_blank" rel="noopener">1단계 그림책 · My Robot Ate My Homework<span class="p">/story-s1-16.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-17.html" target="_blank" rel="noopener">1단계 그림책 · The Secret Treasure Map<span class="p">/story-s1-17.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-18.html" target="_blank" rel="noopener">1단계 그림책 · The Monster Under My Bed<span class="p">/story-s1-18.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-19.html" target="_blank" rel="noopener">1단계 그림책 · The Little Dragon Who Sneezed Fire<span class="p">/story-s1-19.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-20.html" target="_blank" rel="noopener">1단계 그림책 · Super Sam Saves the Day<span class="p">/story-s1-20.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-21.html" target="_blank" rel="noopener">1단계 그림책 · The Talking Cat<span class="p">/story-s1-21.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-22.html" target="_blank" rel="noopener">1단계 그림책 · Lost on Planet Zog<span class="p">/story-s1-22.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-23.html" target="_blank" rel="noopener">1단계 그림책 · The Magic Pencil<span class="p">/story-s1-23.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-24.html" target="_blank" rel="noopener">1단계 그림책 · Pirate Pete and the Giant Octopus<span class="p">/story-s1-24.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-25.html" target="_blank" rel="noopener">1단계 그림책 · The Ghost Who Was Afraid of the Dark<span class="p">/story-s1-25.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-26.html" target="_blank" rel="noopener">1단계 그림책 · Mission to Mars<span class="p">/story-s1-26.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-27.html" target="_blank" rel="noopener">1단계 그림책 · The Invisible Boy<span class="p">/story-s1-27.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-28.html" target="_blank" rel="noopener">1단계 그림책 · T. rex Goes to School<span class="p">/story-s1-28.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-29.html" target="_blank" rel="noopener">1단계 그림책 · The Haunted House<span class="p">/story-s1-29.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-30.html" target="_blank" rel="noopener">1단계 그림책 · The Mermaid's Lost Pearl<span class="p">/story-s1-30.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-31.html" target="_blank" rel="noopener">1단계 그림책 · Robot Dog to the Rescue<span class="p">/story-s1-31.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-32.html" target="_blank" rel="noopener">1단계 그림책 · The Shrinking Potion<span class="p">/story-s1-32.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-33.html" target="_blank" rel="noopener">1단계 그림책 · Space Pizza Delivery<span class="p">/story-s1-33.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-34.html" target="_blank" rel="noopener">1단계 그림책 · The Volcano Island<span class="p">/story-s1-34.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-35.html" target="_blank" rel="noopener">1단계 그림책 · The Ninja Cat<span class="p">/story-s1-35.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-36.html" target="_blank" rel="noopener">1단계 그림책 · The Time Machine<span class="p">/story-s1-36.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-37.html" target="_blank" rel="noopener">1단계 그림책 · The Snow Monster<span class="p">/story-s1-37.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-38.html" target="_blank" rel="noopener">1단계 그림책 · Alien at the Zoo<span class="p">/story-s1-38.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-39.html" target="_blank" rel="noopener">1단계 그림책 · The Giant's Shoe<span class="p">/story-s1-39.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-40.html" target="_blank" rel="noopener">1단계 그림책 · The Whale in the Net<span class="p">/story-s1-40.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-41.html" target="_blank" rel="noopener">1단계 그림책 · The Wizard's Mistake<span class="p">/story-s1-41.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-42.html" target="_blank" rel="noopener">1단계 그림책 · The Jungle Rescue<span class="p">/story-s1-42.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-43.html" target="_blank" rel="noopener">1단계 그림책 · The Moon Rabbit<span class="p">/story-s1-43.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-44.html" target="_blank" rel="noopener">1단계 그림책 · Super Grandma<span class="p">/story-s1-44.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-45.html" target="_blank" rel="noopener">1단계 그림책 · Dinosaurs Dance at Night<span class="p">/story-s1-45.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-46.html" target="_blank" rel="noopener">1단계 그림책 · The Alien Who Loved Kimchi<span class="p">/story-s1-46.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-47.html" target="_blank" rel="noopener">1단계 그림책 · The Dragon Egg Race<span class="p">/story-s1-47.html</span></a></li>
+              <li class="leaf"><a href="/story-s1-48.html" target="_blank" rel="noopener">1단계 그림책 · Captain Kim and the Comet<span class="p">/story-s1-48.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-01.html" target="_blank" rel="noopener">2단계 그림책 · The Ant and the Grasshopper<span class="p">/story-s2-01.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-02.html" target="_blank" rel="noopener">2단계 그림책 · The Boy Who Cried Wolf<span class="p">/story-s2-02.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-03.html" target="_blank" rel="noopener">2단계 그림책 · One Team<span class="p">/story-s2-03.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-04.html" target="_blank" rel="noopener">2단계 그림책 · The New Kid<span class="p">/story-s2-04.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-05.html" target="_blank" rel="noopener">2단계 그림책 · Bolt the Robot Helper<span class="p">/story-s2-05.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-06.html" target="_blank" rel="noopener">2단계 그림책 · Lost in the Museum<span class="p">/story-s2-06.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-07.html" target="_blank" rel="noopener">2단계 그림책 · The Volcano That Did Not Erupt<span class="p">/story-s2-07.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-08.html" target="_blank" rel="noopener">2단계 그림책 · Grandpa's Old Camera<span class="p">/story-s2-08.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-09.html" target="_blank" rel="noopener">2단계 그림책 · The Honest Woodcutter<span class="p">/story-s2-09.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-10.html" target="_blank" rel="noopener">2단계 그림책 · Stone Soup<span class="p">/story-s2-10.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-11.html" target="_blank" rel="noopener">2단계 그림책 · The Turtle on the Beach<span class="p">/story-s2-11.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-12.html" target="_blank" rel="noopener">2단계 그림책 · Juno's Song<span class="p">/story-s2-12.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-13.html" target="_blank" rel="noopener">2단계 그림책 · The Signal from Space<span class="p">/story-s2-13.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-14.html" target="_blank" rel="noopener">2단계 그림책 · Escape from the Sinking Ship<span class="p">/story-s2-14.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-15.html" target="_blank" rel="noopener">2단계 그림책 · The Robot That Learned to Lie<span class="p">/story-s2-15.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-16.html" target="_blank" rel="noopener">2단계 그림책 · Detective Mina and the Missing Diamond<span class="p">/story-s2-16.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-17.html" target="_blank" rel="noopener">2단계 그림책 · The Last Dragon of Jeju<span class="p">/story-s2-17.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-18.html" target="_blank" rel="noopener">2단계 그림책 · Trapped in the Video Game<span class="p">/story-s2-18.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-19.html" target="_blank" rel="noopener">2단계 그림책 · The Secret of the Pyramid<span class="p">/story-s2-19.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-20.html" target="_blank" rel="noopener">2단계 그림책 · Space Station Emergency<span class="p">/story-s2-20.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-21.html" target="_blank" rel="noopener">2단계 그림책 · The Boy Who Talked to Whales<span class="p">/story-s2-21.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-22.html" target="_blank" rel="noopener">2단계 그림책 · The Haunted Library<span class="p">/story-s2-22.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-23.html" target="_blank" rel="noopener">2단계 그림책 · The Time-Travel Watch<span class="p">/story-s2-23.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-24.html" target="_blank" rel="noopener">2단계 그림책 · Lost in the Amazon<span class="p">/story-s2-24.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-25.html" target="_blank" rel="noopener">2단계 그림책 · The Alien Exchange Student<span class="p">/story-s2-25.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-26.html" target="_blank" rel="noopener">2단계 그림책 · The Invisible Thief<span class="p">/story-s2-26.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-27.html" target="_blank" rel="noopener">2단계 그림책 · Mission: Save the Coral Reef<span class="p">/story-s2-27.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-28.html" target="_blank" rel="noopener">2단계 그림책 · Dinosaur Island<span class="p">/story-s2-28.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-29.html" target="_blank" rel="noopener">2단계 그림책 · The Mirror World<span class="p">/story-s2-29.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-30.html" target="_blank" rel="noopener">2단계 그림책 · The Mountain Rescue Dog<span class="p">/story-s2-30.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-31.html" target="_blank" rel="noopener">2단계 그림책 · The Moon Base Mystery<span class="p">/story-s2-31.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-32.html" target="_blank" rel="noopener">2단계 그림책 · The Pirate's Riddle<span class="p">/story-s2-32.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-33.html" target="_blank" rel="noopener">2단계 그림책 · The Girl Who Could Freeze Time<span class="p">/story-s2-33.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-34.html" target="_blank" rel="noopener">2단계 그림책 · The Volcano Scientist<span class="p">/story-s2-34.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-35.html" target="_blank" rel="noopener">2단계 그림책 · Robot Soccer Championship<span class="p">/story-s2-35.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-36.html" target="_blank" rel="noopener">2단계 그림책 · The Ghost Ship<span class="p">/story-s2-36.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-37.html" target="_blank" rel="noopener">2단계 그림책 · Journey Inside the Body<span class="p">/story-s2-37.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-38.html" target="_blank" rel="noopener">2단계 그림책 · The Desert Treasure<span class="p">/story-s2-38.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-39.html" target="_blank" rel="noopener">2단계 그림책 · Message in a Bottle<span class="p">/story-s2-39.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-40.html" target="_blank" rel="noopener">2단계 그림책 · The Weather Machine<span class="p">/story-s2-40.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-41.html" target="_blank" rel="noopener">2단계 그림책 · Ninja School<span class="p">/story-s2-41.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-42.html" target="_blank" rel="noopener">2단계 그림책 · The Black Hole Shortcut<span class="p">/story-s2-42.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-43.html" target="_blank" rel="noopener">2단계 그림책 · The Dream Thief<span class="p">/story-s2-43.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-44.html" target="_blank" rel="noopener">2단계 그림책 · The Last Tree on Mars<span class="p">/story-s2-44.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-45.html" target="_blank" rel="noopener">2단계 그림책 · The Great Museum Heist<span class="p">/story-s2-45.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-46.html" target="_blank" rel="noopener">2단계 그림책 · The Tiger of Mount Baekdu<span class="p">/story-s2-46.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-47.html" target="_blank" rel="noopener">2단계 그림책 · The Secret Door in the School<span class="p">/story-s2-47.html</span></a></li>
+              <li class="leaf"><a href="/story-s2-48.html" target="_blank" rel="noopener">2단계 그림책 · The Day the Aliens Came<span class="p">/story-s2-48.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-01.html" target="_blank" rel="noopener">3단계 그림책 · Why Leaves Change Color<span class="p">/story-s3-01.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-02.html" target="_blank" rel="noopener">3단계 그림책 · Honeybees and Flowers<span class="p">/story-s3-02.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-03.html" target="_blank" rel="noopener">3단계 그림책 · How Volcanoes Form<span class="p">/story-s3-03.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-04.html" target="_blank" rel="noopener">3단계 그림책 · The Water Cycle<span class="p">/story-s3-04.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-05.html" target="_blank" rel="noopener">3단계 그림책 · King Sejong and Hangul<span class="p">/story-s3-05.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-06.html" target="_blank" rel="noopener">3단계 그림책 · Sleep and Your Brain<span class="p">/story-s3-06.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-07.html" target="_blank" rel="noopener">3단계 그림책 · Recycling Plastic<span class="p">/story-s3-07.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-08.html" target="_blank" rel="noopener">3단계 그림책 · How Penguins Stay Warm<span class="p">/story-s3-08.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-09.html" target="_blank" rel="noopener">3단계 그림책 · The First Airplane Flight<span class="p">/story-s3-09.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-10.html" target="_blank" rel="noopener">3단계 그림책 · The Ancient Olympic Games<span class="p">/story-s3-10.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-11.html" target="_blank" rel="noopener">3단계 그림책 · The Changing Moon<span class="p">/story-s3-11.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-12.html" target="_blank" rel="noopener">3단계 그림책 · Kimchi and Fermentation<span class="p">/story-s3-12.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-13.html" target="_blank" rel="noopener">3단계 그림책 · How a Fishing Net Became a Book<span class="p">/story-s3-13.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-14.html" target="_blank" rel="noopener">3단계 그림책 · Can You Buy a Snack with a Chicken?<span class="p">/story-s3-14.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-15.html" target="_blank" rel="noopener">3단계 그림책 · Surviving the Driest Places on Earth<span class="p">/story-s3-15.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-16.html" target="_blank" rel="noopener">3단계 그림책 · The Doctor, the Milkmaid, and the Cow<span class="p">/story-s3-16.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-17.html" target="_blank" rel="noopener">3단계 그림책 · When the Whole World Lights Up<span class="p">/story-s3-17.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-18.html" target="_blank" rel="noopener">3단계 그림책 · Why Can't a Robot Fold Your T-Shirt?<span class="p">/story-s3-18.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-19.html" target="_blank" rel="noopener">3단계 그림책 · The Woman Who Solved the Butterfly Mystery<span class="p">/story-s3-19.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-20.html" target="_blank" rel="noopener">3단계 그림책 · Water, Water Everywhere<span class="p">/story-s3-20.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-21.html" target="_blank" rel="noopener">3단계 그림책 · The Doctor Who Followed the Blood<span class="p">/story-s3-21.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-22.html" target="_blank" rel="noopener">3단계 그림책 · The Wall That Took 2,000 Years<span class="p">/story-s3-22.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-23.html" target="_blank" rel="noopener">3단계 그림책 · The Phone That Changed Everything<span class="p">/story-s3-23.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-24.html" target="_blank" rel="noopener">3단계 그림책 · The Wolves of Yellowstone<span class="p">/story-s3-24.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-25.html" target="_blank" rel="noopener">3단계 그림책 · Alarm on the Way to the Moon<span class="p">/story-s3-25.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-26.html" target="_blank" rel="noopener">3단계 그림책 · The Girl Who Saved a Beach<span class="p">/story-s3-26.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-27.html" target="_blank" rel="noopener">3단계 그림책 · Are We Alone in the Universe?<span class="p">/story-s3-27.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-28.html" target="_blank" rel="noopener">3단계 그림책 · How Did the Dinosaurs Disappear?<span class="p">/story-s3-28.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-29.html" target="_blank" rel="noopener">3단계 그림책 · The Deepest Place on Earth<span class="p">/story-s3-29.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-30.html" target="_blank" rel="noopener">3단계 그림책 · Animals That Glow in the Dark<span class="p">/story-s3-30.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-31.html" target="_blank" rel="noopener">3단계 그림책 · How Do Astronauts Live in Space?<span class="p">/story-s3-31.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-32.html" target="_blank" rel="noopener">3단계 그림책 · Secrets of the Mummies<span class="p">/story-s3-32.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-33.html" target="_blank" rel="noopener">3단계 그림책 · Lightning: Nature's Electricity<span class="p">/story-s3-33.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-34.html" target="_blank" rel="noopener">3단계 그림책 · Tardigrades: The Toughest Animals<span class="p">/story-s3-34.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-35.html" target="_blank" rel="noopener">3단계 그림책 · How Video Games Are Made<span class="p">/story-s3-35.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-36.html" target="_blank" rel="noopener">3단계 그림책 · The Secret Life of Octopuses<span class="p">/story-s3-36.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-37.html" target="_blank" rel="noopener">3단계 그림책 · Black Holes Explained<span class="p">/story-s3-37.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-38.html" target="_blank" rel="noopener">3단계 그림책 · Super Senses of Animals<span class="p">/story-s3-38.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-39.html" target="_blank" rel="noopener">3단계 그림책 · The Magic School 1: The Voice in the Fog<span class="p">/story-s3-39.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-40.html" target="_blank" rel="noopener">3단계 그림책 · The Magic School 2: The Thirteenth Bell<span class="p">/story-s3-40.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-41.html" target="_blank" rel="noopener">3단계 그림책 · The Magic School 3: The Lost Name<span class="p">/story-s3-41.html</span></a></li>
+              <li class="leaf"><a href="/story-s3-42.html" target="_blank" rel="noopener">3단계 그림책 · The Magic School 4: The Last Train<span class="p">/story-s3-42.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-01.html" target="_blank" rel="noopener">4단계 그림책 · Why Notifications Steal Our Focus<span class="p">/story-s4-01.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-02.html" target="_blank" rel="noopener">4단계 그림책 · The Greenhouse Effect: Helpful and Harmful<span class="p">/story-s4-02.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-03.html" target="_blank" rel="noopener">4단계 그림책 · How Vaccines Train the Body<span class="p">/story-s4-03.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-04.html" target="_blank" rel="noopener">4단계 그림책 · The Press That Changed the World<span class="p">/story-s4-04.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-05.html" target="_blank" rel="noopener">4단계 그림책 · What Sets the Price?<span class="p">/story-s4-05.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-06.html" target="_blank" rel="noopener">4단계 그림책 · Where AI Bias Comes From<span class="p">/story-s4-06.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-07.html" target="_blank" rel="noopener">4단계 그림책 · Cooling Cities with Green Spaces<span class="p">/story-s4-07.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-08.html" target="_blank" rel="noopener">4단계 그림책 · The Power of Belief: The Placebo Effect<span class="p">/story-s4-08.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-09.html" target="_blank" rel="noopener">4단계 그림책 · Tiny Plastics, Big Problem<span class="p">/story-s4-09.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-10.html" target="_blank" rel="noopener">4단계 그림책 · Learning from Failure<span class="p">/story-s4-10.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-11.html" target="_blank" rel="noopener">4단계 그림책 · Why Endangered Languages Matter<span class="p">/story-s4-11.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-12.html" target="_blank" rel="noopener">4단계 그림책 · Clean Energy and the Storage Challenge<span class="p">/story-s4-12.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-13.html" target="_blank" rel="noopener">4단계 그림책 · Why Your Brain Loves Bad Habits<span class="p">/story-s4-13.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-14.html" target="_blank" rel="noopener">4단계 그림책 · Is the Chatbot Really Thinking?<span class="p">/story-s4-14.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-15.html" target="_blank" rel="noopener">4단계 그림책 · The Road That Connected the World<span class="p">/story-s4-15.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-16.html" target="_blank" rel="noopener">4단계 그림책 · The Hidden Price of Every Choice<span class="p">/story-s4-16.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-17.html" target="_blank" rel="noopener">4단계 그림책 · The Tiny Partners Living Inside You<span class="p">/story-s4-17.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-18.html" target="_blank" rel="noopener">4단계 그림책 · Does Your Language Shape Your Mind?<span class="p">/story-s4-18.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-19.html" target="_blank" rel="noopener">4단계 그림책 · The Day Two Satellites Crashed<span class="p">/story-s4-19.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-20.html" target="_blank" rel="noopener">4단계 그림책 · The Real Price of Your Coffee<span class="p">/story-s4-20.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-21.html" target="_blank" rel="noopener">4단계 그림책 · Your Brain's Night Shift<span class="p">/story-s4-21.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-22.html" target="_blank" rel="noopener">4단계 그림책 · Editing the Code of Life<span class="p">/story-s4-22.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-23.html" target="_blank" rel="noopener">4단계 그림책 · The Comeback of the Electric Car<span class="p">/story-s4-23.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-24.html" target="_blank" rel="noopener">4단계 그림책 · A World Without Bees?<span class="p">/story-s4-24.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-25.html" target="_blank" rel="noopener">4단계 그림책 · The Thirsty Blue Planet<span class="p">/story-s4-25.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-26.html" target="_blank" rel="noopener">4단계 그림책 · Why Is Everything Getting More Expensive?<span class="p">/story-s4-26.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-27.html" target="_blank" rel="noopener">4단계 그림책 · The Age of Exploration: Two Sides of History<span class="p">/story-s4-27.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-28.html" target="_blank" rel="noopener">4단계 그림책 · The Mold That Saved Millions<span class="p">/story-s4-28.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-29.html" target="_blank" rel="noopener">4단계 그림책 · Don't Click Share Yet!<span class="p">/story-s4-29.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-30.html" target="_blank" rel="noopener">4단계 그림책 · Life on Mars?<span class="p">/story-s4-30.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-31.html" target="_blank" rel="noopener">4단계 그림책 · The Search for Alien Life<span class="p">/story-s4-31.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-32.html" target="_blank" rel="noopener">4단계 그림책 · Could We Bring Back Dinosaurs?<span class="p">/story-s4-32.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-33.html" target="_blank" rel="noopener">4단계 그림책 · The Science of Dreams<span class="p">/story-s4-33.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-34.html" target="_blank" rel="noopener">4단계 그림책 · Living on Mars: Dream or Plan?<span class="p">/story-s4-34.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-35.html" target="_blank" rel="noopener">4단계 그림책 · Robots That Learn<span class="p">/story-s4-35.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-36.html" target="_blank" rel="noopener">4단계 그림책 · The Mystery of Dark Matter<span class="p">/story-s4-36.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-37.html" target="_blank" rel="noopener">4단계 그림책 · How Pandemics Spread<span class="p">/story-s4-37.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-38.html" target="_blank" rel="noopener">4단계 그림책 · The Ocean's Twilight Zone<span class="p">/story-s4-38.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-39.html" target="_blank" rel="noopener">4단계 그림책 · Can Money Buy Happiness?<span class="p">/story-s4-39.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-40.html" target="_blank" rel="noopener">4단계 그림책 · Music and the Brain<span class="p">/story-s4-40.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-41.html" target="_blank" rel="noopener">4단계 그림책 · Self-Driving Cars and Trust<span class="p">/story-s4-41.html</span></a></li>
+              <li class="leaf"><a href="/story-s4-42.html" target="_blank" rel="noopener">4단계 그림책 · Earth in 2100<span class="p">/story-s4-42.html</span></a></li>
             </ul>
           </div>
 
@@ -592,7 +790,7 @@ footer b{color:var(--ink2);font-weight:700}
             <path d="M3 10.5 12 4l9 6.5"/><path d="M5.5 12v7.5h13V12"/><path d="M12 19.5v-4.5"/>
           </svg>
           <span class="t">부모님<br>학부모</span>
-          <span class="n">16</span>
+          <span class="n">18</span>
         </div>
         <p class="lane-why">우리 아이가 <b>얼마나 늘었는지</b> 보고, 수업료를 내는 곳이에요.</p>
 
@@ -615,12 +813,14 @@ footer b{color:var(--ink2);font-weight:700}
           </div>
 
           <div class="group">
-            <div class="group-t">수업료 내기 <span class="gn">4</span></div>
+            <div class="group-t">수업료 내기 <span class="gn">6</span></div>
             <ul class="leaves">
+              <li class="leaf"><a href="/ai-pass.html" target="_blank" rel="noopener">A.i 이용권 · 매달 자동결제<span class="p">/ai-pass.html</span></a></li>
               <li class="leaf"><a href="/pay-link.html" target="_blank" rel="noopener">결제 링크<span class="p">/pay-link.html</span></a></li>
               <li class="leaf"><a href="/payment-success.html" target="_blank" rel="noopener">결제 완료<span class="p">/payment-success.html</span></a></li>
               <li class="leaf"><a href="/payment-fail.html" target="_blank" rel="noopener">결제 실패<span class="p">/payment-fail.html</span></a></li>
               <li class="leaf"><a href="/refund.html" target="_blank" rel="noopener">환불 신청<span class="p">/refund.html</span></a></li>
+              <li class="leaf"><a href="/b2b-pay.html" target="_blank" rel="noopener">학원 수업료 · 충전금 (문자 링크)<span class="p">/b2b-pay.html</span></a></li>
             </ul>
           </div>
 
@@ -644,7 +844,7 @@ footer b{color:var(--ink2);font-weight:700}
             <rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4"/><path d="M8 20h8"/><path d="M7 8.5h7"/><path d="M7 11.5h4"/>
           </svg>
           <span class="t">선생님<br>강사</span>
-          <span class="n">15</span>
+          <span class="n">16</span>
         </div>
         <p class="lane-why">수업을 <b>하고, 기록하고</b>, 일한 만큼 급여를 확인하는 곳이에요.</p>
 
@@ -661,7 +861,7 @@ footer b{color:var(--ink2);font-weight:700}
           </div>
 
           <div class="group">
-            <div class="group-t">기록하기 <span class="gn">6</span></div>
+            <div class="group-t">기록하기 <span class="gn">7</span></div>
             <ul class="leaves">
               <li class="leaf"><a href="/eval.html" target="_blank" rel="noopener">수업일지 작성<span class="p">/eval.html</span></a></li>
               <li class="leaf"><span>AI 수업 리포트<span class="p">src/api-lessons.ts</span></span></li>
@@ -669,6 +869,7 @@ footer b{color:var(--ink2);font-weight:700}
               <li class="leaf"><a href="/teacher-praise.html" target="_blank" rel="noopener">칭찬 보내기<span class="p">/teacher-praise.html</span></a></li>
               <li class="leaf"><a href="/textbook-uploader.html" target="_blank" rel="noopener">교재 업로드<span class="p">/textbook-uploader.html</span></a></li>
               <li class="leaf"><a href="/textbook-viewer.html" target="_blank" rel="noopener">교재 보기<span class="p">/textbook-viewer.html</span></a></li>
+              <li class="leaf"><a href="/textbook-index.html" target="_blank" rel="noopener">교재 목차<span class="p">/textbook-index.html</span></a></li>
             </ul>
           </div>
 
@@ -692,7 +893,7 @@ footer b{color:var(--ink2);font-weight:700}
             <path d="M4 20V7l7-3v16"/><path d="M11 10h6a2 2 0 0 1 2 2v8"/><path d="M2.5 20h19"/><path d="M7 9v0M7 13v0M15 14v0"/>
           </svg>
           <span class="t">운영자<br>본사 · 지사 · 대리점</span>
-          <span class="n">75</span>
+          <span class="n">78</span>
         </div>
         <p class="lane-why">학원을 <b>굴리는 사람</b>만 들어가요. 로그인해야 문이 열립니다.</p>
 
@@ -751,11 +952,12 @@ footer b{color:var(--ink2);font-weight:700}
           </div>
 
           <div class="group">
-            <div class="group-t">수업 · 콘텐츠 <span class="gn">8</span></div>
+            <div class="group-t">수업 · 콘텐츠 <span class="gn">9</span></div>
             <ul class="leaves">
               <li class="leaf"><a href="/admin.html#card-eval-mgmt" target="_blank" rel="noopener">평가서<span class="tag">7칸</span><span class="p">/admin.html#card-eval-mgmt</span></a></li>
               <li class="leaf"><a href="/admin.html#card-textbooks" target="_blank" rel="noopener">교재<span class="p">/admin.html#card-textbooks</span></a></li>
               <li class="leaf"><a href="/admin/textbook-ocr.html" target="_blank" rel="noopener">교재 본문 추출 시험<span class="p">/admin/textbook-ocr.html</span></a></li>
+              <li class="leaf"><a href="/admin/voice-compare.html" target="_blank" rel="noopener">남자 목소리 비교 듣기<span class="p">/admin/voice-compare.html</span></a></li>
               <li class="leaf"><a href="/admin.html#card-review-quiz" target="_blank" rel="noopener">학습 콘텐츠<span class="tag">5칸</span><span class="p">/admin.html#card-review-quiz</span></a></li>
               <li class="leaf"><a href="/admin.html#card-homework" target="_blank" rel="noopener">숙제<span class="p">/admin.html#card-homework</span></a></li>
               <li class="leaf"><a href="/admin/scene-homework.html" target="_blank" rel="noopener">쓰기 숙제 현황<span class="p">/admin/scene-homework.html</span></a></li>
@@ -765,7 +967,7 @@ footer b{color:var(--ink2);font-weight:700}
           </div>
 
           <div class="group">
-            <div class="group-t">돈 관리 (정산 · 매출) <span class="gn">10</span></div>
+            <div class="group-t">돈 관리 (정산 · 매출) <span class="gn">11</span></div>
             <ul class="leaves">
               <li class="leaf"><a href="/admin.html#card-accounting-mgmt" target="_blank" rel="noopener">회계<span class="tag">19칸</span><span class="p">/admin.html#card-accounting-mgmt</span></a></li>
               <li class="leaf"><a href="/admin.html#card-payments-b2b" target="_blank" rel="noopener">결제<span class="tag">4칸</span><span class="p">/admin.html#card-payments-b2b</span></a></li>
@@ -777,6 +979,7 @@ footer b{color:var(--ink2);font-weight:700}
               <li class="leaf"><a href="/admin/duplicate-payments.html" target="_blank" rel="noopener">중복 결제 점검<span class="p">/admin/duplicate-payments.html</span></a></li>
               <li class="leaf"><a href="/admin/refunds.html" target="_blank" rel="noopener">환불 처리<span class="p">/admin/refunds.html</span></a></li>
               <li class="leaf"><a href="/admin/send-pay-link.html" target="_blank" rel="noopener">결제 링크 발송<span class="p">/admin/send-pay-link.html</span></a></li>
+              <li class="leaf"><a href="/admin/b2b-tuition.html" target="_blank" rel="noopener">학원 수업료 정산 (B2B 충전금)<span class="p">/admin/b2b-tuition.html</span></a></li>
             </ul>
           </div>
 
@@ -791,11 +994,12 @@ footer b{color:var(--ink2);font-weight:700}
           </div>
 
           <div class="group">
-            <div class="group-t">영업 · 결재 <span class="gn">4</span></div>
+            <div class="group-t">영업 · 결재 <span class="gn">5</span></div>
             <ul class="leaves">
               <li class="leaf"><a href="/sales.html" target="_blank" rel="noopener">영업 현장 (휴대폰)<span class="p">/sales.html</span></a></li>
               <li class="leaf"><a href="/admin/sales-hr.html" target="_blank" rel="noopener">영업 실적 · 인사평가<span class="p">/admin/sales-hr.html</span></a></li>
               <li class="leaf"><a href="/work.html" target="_blank" rel="noopener">결재함<span class="p">/work.html</span></a></li>
+              <li class="leaf"><a href="/daily-handover.html" target="_blank" rel="noopener">매일보고 · Daily handover<span class="p">/daily-handover.html</span></a></li>
               <li class="leaf"><a href="/branch.html" target="_blank" rel="noopener">지사장 홈<span class="p">/branch.html</span></a></li>
             </ul>
           </div>

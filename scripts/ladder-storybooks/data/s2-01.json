@@ -1,0 +1,311 @@
+{
+  "id": "s2-01",
+  "breaks": [
+    2,
+    4,
+    2,
+    2
+  ],
+  "key": {
+    "P": 7,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «겨울에 먹을 것이 없어 배가 고팠다(문제)» 와 «미래를 위해 준비하는 것이 현명하다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the grasshopper had no food in winter) and the lesson (it is wise to prepare for the future). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "an ant, a grasshopper"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 생겼나요?",
+      "qen": "What is the problem?",
+      "a": "The grasshopper had no food in winter."
+    },
+    {
+      "k": "Lesson",
+      "qko": "무엇을 배웠나요?",
+      "qen": "What is the lesson?",
+      "a": "It is wise to prepare for the future."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "One hot summer, the ant saved ",
+      "ans": "food",
+      "opts": [
+        "food",
+        "toys",
+        "water"
+      ]
+    },
+    {
+      "pre": " for winter. The grasshopper played music and ",
+      "ans": "slept",
+      "opts": [
+        "slept",
+        "worked",
+        "cooked"
+      ]
+    },
+    {
+      "pre": " in the sun. When winter came, he was ",
+      "ans": "hungry",
+      "opts": [
+        "hungry",
+        "happy",
+        "busy"
+      ]
+    },
+    {
+      "pre": ". The ant ",
+      "ans": "shared",
+      "opts": [
+        "shared",
+        "sold",
+        "hid"
+      ]
+    },
+    {
+      "pre": " some food, and he learned it is wise to ",
+      "ans": "prepare",
+      "opts": [
+        "prepare",
+        "forget",
+        "sleep"
+      ]
+    },
+    {
+      "pre": " for the future.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "prepare",
+      "준비하다",
+      "it is wise to <b>prepare</b> for the future.",
+      "to get ready for something"
+    ],
+    [
+      "hungry",
+      "배고픈",
+      "The grasshopper was <b>hungry</b> because he had no food at all.",
+      "wanting to eat"
+    ],
+    [
+      "shared",
+      "나누어 주었다",
+      "The ant <b>shared</b> some food",
+      "gave part of something to another"
+    ],
+    [
+      "grain",
+      "곡식",
+      "She carried seeds and <b>grain</b> to her home under the ground.",
+      "small seeds of plants like rice and wheat"
+    ],
+    [
+      "saving",
+      "모으는, 아껴 두는",
+      "I am <b>saving</b> food for winter",
+      "keeping something to use later"
+    ],
+    [
+      "knocked",
+      "두드렸다",
+      "He <b>knocked</b> on the ant's door and asked for help.",
+      "hit a door to tell someone you are there"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why was the grasshopper hungry in winter?",
+      "qko": "베짱이는 왜 겨울에 배가 고팠나요?",
+      "opts": [
+        "He had no food at all.",
+        "The ant ate all his food.",
+        "He was sick in the snow."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "A grasshopper watched her and laughed.",
+        "The grasshopper was hungry because he had no food at all.",
+        "She carried seeds and grain to her home under the ground.",
+        "One hot summer, an ant worked hard every day."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "베짱이는 먹을 것이 하나도 없어서 배가 고팠다고 본문에 그대로 나와요. 개미가 음식을 먹었다거나 아팠다는 말은 없어요.",
+        "The text says he was hungry because he had no food at all. Nothing says the ant ate his food or that he was sick."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The ant says, \"I am saving food for winter.\" What does \"saving\" mean here?",
+      "qko": "개미가 \"I am saving food for winter.\"라고 해요. 여기서 \"saving\"은 무슨 뜻인가요?",
+      "opts": [
+        "keeping food to use later",
+        "eating food right now",
+        "throwing food away"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "\"Why do you work so hard?\" he asked. \"Come and sing with me!\"",
+        "\"I am saving food for winter,\" said the ant, and she kept working.",
+        "The grasshopper played music and slept in the sun all summer long.",
+        "A grasshopper watched her and laughed."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "«for winter(겨울을 위해)» 라는 말이 단서예요. 지금 먹는 것이 아니라 나중에 쓰려고 모아 두는 것이에요.",
+        "The words «for winter» are the clue. She is keeping the food to use later, not eating it now."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why did the ant have food to share in winter?",
+      "qko": "개미는 왜 겨울에 나누어 줄 음식이 있었나요?",
+      "opts": [
+        "She carried and saved food all summer.",
+        "The grasshopper gave her seeds.",
+        "She found food in the snow."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "She carried seeds and grain to her home under the ground.",
+        "The grasshopper played music and slept in the sun all summer long.",
+        "\"I am saving food for winter,\" said the ant, and she kept working.",
+        "The grasshopper was hungry because he had no food at all."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "개미는 여름에 씨앗과 곡식을 집으로 나르고, 겨울을 위해 음식을 모았어요. 이 두 문장을 이으면 답이 나와요.",
+        "The ant carried seeds and grain home, and she saved food for winter. Put these two clues together to find the answer."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Next summer, the grasshopper works with the ant.",
+      "다음 여름, 베짱이가 개미와 함께 일해요.",
+      "Working Together"
+    ],
+    [
+      "B",
+      "The grasshopper teaches the ant to sing in winter.",
+      "겨울 동안 베짱이가 개미에게 노래를 가르쳐 줘요.",
+      "Songs in the Snow"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "src": "“I think <u>the ant is wise</u> because <u>she saves food for winter</u>.”",
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "chips": [
+      {
+        "a": "my brother is tired",
+        "b": "he played soccer all day",
+        "label": "tired"
+      },
+      {
+        "a": "it will be cold tomorrow",
+        "b": "the wind is very strong",
+        "label": "cold"
+      },
+      {
+        "a": "my mom is happy",
+        "b": "she is singing in the kitchen",
+        "label": "happy"
+      }
+    ],
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because she works hard)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because she works hard)"
+  },
+  "img": {
+    "style": "clay",
+    "cover": "A small red ant carries a seed across a sunny summer field while a green grasshopper holding a small violin sits on a leaf and watches her.",
+    "scenes": {
+      "1": "A green grasshopper holding a small violin laughs on a leaf in the summer sun as a small red ant walks past him carrying grain toward a little hole in the ground.",
+      "2": "A cold winter field covered with snow; the green grasshopper with his small violin sits alone and shivers next to bare, frozen plants."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "The grasshopper laughs as the ant carries grain.",
+    "2": "The grasshopper is cold and alone in the snow.",
+    "cover": "An ant carries a seed while a grasshopper with a violin watches."
+  }
+}

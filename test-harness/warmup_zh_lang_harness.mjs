@@ -140,8 +140,9 @@ check('영어 축과 «합치지» 않았다',
   !/MEANING_CHANGING_TAGS\s*=\s*\[[^\]]*ZH_MEANING/.test(strip(CORR)));
 check('검증기가 축을 받아서 판정한다',
   /function verifyWarmupFix\([\s\S]{0,200}majorTags/.test(CORR));
+// 2026-10-31: 과거형 보완 항과 🀄 주석이 끼어 호출이 길어졌다 — 축이 «같은 호출 안» 에 있는가로 본다
 check('서버가 중국어일 때 그 축을 넘긴다',
-  /verifyWarmupFix\([\s\S]{0,120}ZH_MEANING_CHANGING_TAGS/.test(IDXC));
+  /verifyWarmupFix\([\s\S]{0,320}ZH_MEANING_CHANGING_TAGS/.test(IDXC));
 /* ⚠️ 중국어에는 «낱말 수» 상한이 성립하지 않는다(띄어쓰기가 없다) — 0 으로 꺼야 한다.
    안 끄면 한자 한 덩어리가 «1낱말» 로 세어져 상한이 아무 일도 안 하거나, 반대로 통째로 버린다. */
 check('중국어에는 낱말 수 상한을 걸지 않는다',
@@ -786,8 +787,10 @@ console.log('\n[ ⑯ 중국어 선생님 — 그 언어의 사람만 말한다 ]
       const P = Number(pitchDecl[1]);
       const rate = (lv, deep) => {
         try {
-          return new Function('AUDIO_RATE', '_rateLevel', 'ZH_MALE_PITCH', 'deep',
-            'return ' + rateExpr[1])({ 2: 0.65, 4: 1.0 }, lv, P, deep);
+          /* 📌 2026-10-02 — 굵게 안 만든 판은 _enMaleRate 를 지난다(영어 남자만 0.9배 하한).
+             여기서 묻는 것은 «메이·영어 여자» 라 그대로 돌려주는 것으로 물린다(남자 쪽은 warmup_feedback_1002_harness). */
+          return new Function('AUDIO_RATE', '_rateLevel', 'ZH_MALE_PITCH', 'deep', '_enMaleRate',
+            'return ' + rateExpr[1])({ 2: 0.65, 4: 1.0 }, lv, P, deep, (r) => r);
         } catch (e) { return 'ERR:' + e.message; }
       };
       /* ⓒ 굵게 만든 판은 길이가 1/P 로 늘어나 있다 — 배속을 P 로 나눠야 «원래 길이» 가 된다.

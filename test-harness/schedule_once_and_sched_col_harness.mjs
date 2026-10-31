@@ -84,6 +84,10 @@ const SO_SRC = rd('cloudflare-deploy/src/class-start-date.ts');
 const SO_FN = (SO_SRC.match(/const YMD = [^\n]*\n/) || [''])[0]
   + ((SO_SRC.match(/export function normStartsOn[\s\S]*?\n}\n/) || [''])[0]).replace(/^export /, '');
 ok('[전제] 시작일 정본(normStartsOn)을 오려 냈다', /function normStartsOn/.test(SO_FN));
+/* ⏭ (2026-10-09) 그 블록이 «그 주만 빠진 날» 정본(recurSkippedOn·normSkipDates)도 부른다 — 정본에서 오려 와 타입만 벗긴다. */
+const SKIP_FN = ['normSkipDates', 'recurSkippedOn'].map((n) => ((SO_SRC.match(new RegExp('export function ' + n + '[\\s\\S]*?\\n}\\n')) || [''])[0])
+  .replace(/^export /, '').replace(/\((\w+): any\): string\[\]/, '($1)').replace(/\(row: any, ymd: string\): boolean/, '(row, ymd)').replace(/const out: string\[\] = \[\]/, 'const out = []')).join('');
+ok('[전제] 빠진 날 정본(recurSkippedOn)을 오려 냈다', /function recurSkippedOn\(row, ymd\)/.test(SKIP_FN) && /function normSkipDates\(v\)/.test(SKIP_FN));
 
 let msRun = null;
 if (msBlock) {
@@ -100,6 +104,7 @@ export function run(msRows, msNow) {
   const DOW_LABEL_KO = ['일','월','화','수','목','금','토'];
   const DOW_LABEL_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   ${SO_FN}
+  ${SKIP_FN}
   ${msBlock};
   return schedules;
 }`;

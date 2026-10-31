@@ -68,6 +68,15 @@
       hideFrom: ['franchise', 'branch', 'agency'],
       ico: '<path d="M3 13h4l2 3h6l2-3h4"/><path d="M5.5 5h13l2.5 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/>' },
 
+    /* 🗼 (2026-10-21 사장님 「잘 보이는 곳에 — 관리자들이 잘 찾게」) 결재함 바로 다음 + pin — 덜 눌렀다고 뒤로 밀리지 않는다.
+       ⚠️ key '관제탑' 은 그대로(사용기록이 그 키로 쌓여 있다). 영어 이름만 «Class Monitor» 로(사이드바와 같은 말).
+       (2026-08-30) 수업 관제탑 — 지금 열린 수업을 한 표로 보고 그 자리에서 참관·입장·종료.
+       ⚠️ 결재함과 같은 href 항목이다(card 가 없으므로 usable()·roleHidden() 판정 대상이 아니다).
+          강사·지사에게도 칸이 보이지만 화면 쪽이 스스로 막는다(monitor-wall 머리말 참고). */
+    { key: '관제탑',     ko: '수업 관제탑 (전체 현황)', en: 'Class Monitor (all live classes)',
+      card: null, sub: null, href: '/admin/monitor-wall.html', pin: true,
+      ico: '<path d="M12 2v20"/><path d="M5 22l7-9 7 9"/><path d="M7 8h10"/><circle cx="12" cy="5" r="2"/>' },
+
     /* 🚪 (2026-09-01 B안) 이름을 사이드바·카드와 «같은 말» 로 맞춘다.
        ⚠️ key 는 '오늘수업' 그대로 둔다 — 사용기록(mangoi_qa_use)이 그 키로 쌓여 있어서
           바꾸면 사람이 쌓아 둔 순서가 통째로 초기화된다. */
@@ -79,16 +88,22 @@
       card: 'card-admin-ghost', sub: null,
       ico: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>' },
 
-    /* 🗼 (2026-08-30) 수업 관제탑 — 지금 열린 수업을 한 표로 보고 그 자리에서 참관·입장·종료.
-       ⚠️ 결재함과 같은 href 항목이다(card 가 없으므로 usable()·roleHidden() 판정 대상이 아니다).
-          강사·지사에게도 칸이 보이지만 화면 쪽이 스스로 막는다(monitor-wall 머리말 참고). */
-    { key: '관제탑',     ko: '수업 관제탑 (전체 현황)', en: 'Class control tower',
-      card: null, sub: null, href: '/admin/monitor-wall.html',
-      ico: '<path d="M12 2v20"/><path d="M5 22l7-9 7 9"/><path d="M7 8h10"/><circle cx="12" cy="5" r="2"/>' },
-
-    { key: '수업종료연장', ko: '수업 종료 / 연장', en: 'End / extend classes',
+    /* ⚠️ (2026-10-07 매니저 요청 4) 이 칸은 «지금 열려 있는 화상방» 을 끝내거나 늘리는 카드다.
+       「End / extend classes」라는 이름 때문에 «수강을 끝내는 곳» 으로 읽혀, 수업이 없는 시간에 열면
+       빈 화면만 나와 «아무것도 안 된다» 로 보였다 → 이름에 «화상방» 을 밝히고(key 는 사용기록 때문에 그대로),
+       수강 종료는 아래 새 칸(수강 운영 › 종료 후보 · 학생 상세 › 종료·연장)으로 보낸다. */
+    { key: '수업종료연장', ko: '진행 중 화상수업 종료 / 연장', en: 'End / extend a live video class',
       card: 'card-active-rooms', sub: null,
       ico: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
+
+    /* 🗓️ (2026-10-07 매니저 요청 4) 수강 종료 — 카페24 «수업종료대상 / 종료완료» 에 해당하는 곳.
+       종료가 가까운 학생 명단(수강 운영 › 종료 후보)으로 바로 간다. 한 학생을 끝내거나 잘못 끝낸 것을
+       되돌리는 일은 그 학생 상세의 「🗓️ 종료·연장」 탭에서 한다.
+       🔒 수강 운영은 본사 전용(enrollAdminHqOnly) — 강사·지사·대리점에는 «들어갈 수 없는 버튼» 이 되므로 감춘다. */
+    { key: '수강종료', ko: '수강 종료 · 종료 후보', en: 'Course end · ending soon',
+      card: null, sub: null, href: '/enroll-ops.html#ending',
+      hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+      ico: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="15" x2="15" y2="15"/>' },
 
     /* 신규 — 30일 4,834건으로 데이터량 1위인데 지금까지 두 번 눌러야 닿았다 */
     { key: '출결현황',   ko: '출결 현황', en: 'Attendance',

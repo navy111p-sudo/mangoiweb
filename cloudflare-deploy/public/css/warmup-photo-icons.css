@@ -1,0 +1,26 @@
+/* Locally hosted photographic icons: no remote image service at runtime. */
+.wu-photo-icon{display:inline-block;width:24px;height:24px;object-fit:cover;vertical-align:middle;border-radius:6px;flex-shrink:0;background:#d6e8f3;box-shadow:0 0 0 1px rgba(255,255,255,.18);margin-right:3px}
+.wu-photo-face{object-position:center 22%;border-radius:50%}
+.wu-photo-muted{opacity:.45;filter:grayscale(1)}
+#wusAges .wu-photo-icon{width:48px;height:48px;float:left;margin:0 10px 5px 0;border-radius:10px}
+#wusAges .wus-card{min-height:92px}
+#wusAges .wus-name{display:flow-root}
+#wusAges .wus-desc{clear:both}
+.wus-two-ic .wu-photo-icon{width:64px;height:64px;border-radius:12px;margin:0}
+.wus-sub .wu-photo-icon{width:26px;height:26px;margin-right:6px}
+#ageBtns button,#voiceBtns button,#voiceBtnsZh button{display:flex;align-items:center;justify-content:center;gap:4px;min-width:0}
+#ageBtns .wu-photo-icon,#voiceBtns .wu-photo-icon,#voiceBtnsZh .wu-photo-icon{width:30px;height:30px;margin-right:0}
+#menuPanel .menu-label .wu-photo-icon,#menuPanel .menu-head .wu-photo-icon{width:21px;height:21px}
+#voiceVal .wu-photo-icon{width:24px;height:24px}
+#menuPanel .ls-ends .wu-photo-icon{width:19px;height:19px}
+#menuPanel .rate-side .wu-photo-icon{width:27px;height:27px;margin:0}
+#menuPanel .menu-reopen .wu-photo-icon,#menuPanel .menu-newchat .wu-photo-icon,#menuPanel .menu-howto .wu-photo-icon{width:21px;height:21px}
+.top>.icon-btn .wu-photo-icon,.top>.home .wu-photo-icon{width:24px;height:24px;margin:0}
+@media(max-width:480px){
+  #wusAges .wu-photo-icon{width:40px;height:40px;margin-right:7px}
+  #wusAges .wus-card{min-height:106px}
+  .wus-two-ic .wu-photo-icon{width:54px;height:54px}
+  #ageBtns .wu-photo-icon,#voiceBtns .wu-photo-icon{width:26px;height:26px}
+}
+
+#menuPanel .menu-label>span:first-child{word-break:keep-all}

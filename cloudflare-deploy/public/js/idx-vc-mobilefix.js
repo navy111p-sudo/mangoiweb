@@ -37,6 +37,8 @@
  *      (2026-09-10 사장님 「교사가 prize 를 줘도 점수도 소리도 변화가 없어」).
  *   ⑯ 🏷 이름표(로스터) 등록을 «끝이 있는» 일정으로 몇 번 더 시도한다 — 두 번 만에
  *      포기하면 그 수업 내내 칭찬을 넣을 계정이 없다(같은 날 아침 실측 0장).
+ *   ⑱ 교재가 «살짝만 건드려도» 다음 장으로 넘어가던 것 — 스와이프 판정을 조이고(A)
+ *      손가락 넘김 직후 0.6초·다음 파일 받는 중에는 한 번 더 넘기지 않는다(B).
  *
  * ⚠️ idx-main.js 의 전역을 «덮어쓰는» 방식이다. 그쪽 함수 이름이 바뀌면 여기도 같이 고칠 것.
  *    원본이 없으면 조용히 건너뛴다(아래 typeof 검사) — 이 파일 때문에 수업이 멈추지는 않는다.
@@ -1979,5 +1981,306 @@
     } catch (e) {}
   })();
 
-  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 · 화면공유 15fps · 칭찬 실패 안내 · 이름표 재시도 · 인앱안내 준비됨'); } catch (e) {}
+  /* ═══════════════════════════════════════════════════════════════════
+     ⑰ 🖍 판서 선 보정 — «판서 선이 울퉁불퉁하다» (2026-10-02 P3)
+
+     [왜] 칠판 펜은 마우스가 움직일 때마다 «앞 점 → 지금 점» 직선 한 토막(seg)을
+       그리고 보낸다. 빠르게 쓰면 토막이 길어져 곡선이 꺾은선으로 보였다.
+     [무엇을 하나]
+       ⓐ 칠판 펜 토막을 «중점 2차곡선» 으로 잇는다. 토막 k 를 받으면
+          «앞 토막의 중점 → (조절점 = 이음점) → 이 토막의 중점» 을 그린다.
+          마지막 반 토막(중점 → 끝점)은 다음 토막을 기다렸다가, 220ms 안에 안 오면
+          (또는 손을 떼면) 직선으로 마저 그린다 — 받는 쪽은 «획 끝» 신호가 없어서다.
+       ⓑ 펜일 때만 PointerEvent.getCoalescedEvents() 로 사이 점을 «최대 1개» 더
+          넣는다(빠를 때만 · 6px 이상 떨어진 점). 보내는 양은 많아야 2배이고 천천히
+          쓰면 그대로다. getCoalescedEvents 가 없으면 아무것도 안 한다(예전과 같다).
+       ⓒ 점 배열 획(교재 필기·AI 원본 잉크)은 idx-main.js 의 wbInkPath 가 곡선으로 그린다.
+     ⛔ 주고받는 데이터 모양은 한 글자도 안 바꾼다 — 옛 화면과 그대로 섞여 그린다.
+     ⛔ 지우개·직선·사각형·원은 예전 그대로(wbPaintSeg 원본) 그린다.
+     ⚠️ 이음 판정은 «앞 토막의 끝 == 이 토막의 시작» 정확일치다(보내는 쪽이 같은 식으로
+        계산해 같은 실수값이 나온다). 어긋나면 새 획으로 보고 그대로 그린다(= 예전 모양).
+     ⚠️ 기다리던 반 토막은 «다른 것을 칠하기 직전» 에 먼저 마저 그린다 — 순서가 뒤집히면
+        지우개 위에 펜 꼬리가 올라앉는다. 다시 그리기·전체 지우기 때는 버린다(이미 기록에 있다).
+     감시: test-harness/pen_smoothing_harness.mjs
+  ═══════════════════════════════════════════════════════════════════ */
+  (function () {
+    var TAIL_MS = 220, MAX_CHAINS = 8, GAP_PX = 6;
+    var origSeg = window.wbPaintSeg;
+    if (typeof origSeg !== 'function' || origSeg.__mgInk) return;
+
+    function st(ctx) { return ctx && (ctx.__mgInk || (ctx.__mgInk = { chains: [] })); }
+    function style(ctx, c) { ctx.beginPath(); ctx.strokeStyle = c.color; ctx.lineWidth = c.size; ctx.lineCap = 'round'; }
+    function tail(ctx, c) {
+      if (c.timer) { try { clearTimeout(c.timer); } catch (e) {} c.timer = null; }
+      style(ctx, c); ctx.moveTo(c.mx, c.my); ctx.lineTo(c.tx, c.ty); ctx.stroke();
+    }
+    function flushAll(ctx) {
+      var s = ctx && ctx.__mgInk; if (!s || !s.chains.length) return;
+      var list = s.chains; s.chains = [];
+      for (var i = 0; i < list.length; i++) { try { tail(ctx, list[i]); } catch (e) {} }
+    }
+    function dropAll(ctx) {
+      var s = ctx && ctx.__mgInk; if (!s) return;
+      for (var i = 0; i < s.chains.length; i++) { try { if (s.chains[i].timer) clearTimeout(s.chains[i].timer); } catch (e) {} }
+      s.chains = [];
+    }
+    function arm(ctx, c) {
+      if (c.timer) { try { clearTimeout(c.timer); } catch (e) {} }
+      c.timer = setTimeout(function () {
+        c.timer = null;
+        var s = ctx.__mgInk, k = s ? s.chains.indexOf(c) : -1;
+        if (k < 0) return;
+        s.chains.splice(k, 1);
+        try { tail(ctx, c); } catch (e) {}
+      }, TAIL_MS);
+    }
+
+    window.wbPaintSeg = function (ctx, W, H, d) {
+      if (!d || d.tool !== 'pen' || !(W > 0 && H > 0)) {
+        flushAll(ctx);
+        return origSeg.apply(this, arguments);
+      }
+      var s = st(ctx), c = null, i;
+      var fx = d.fromX * W, fy = d.fromY * H, tx = d.toX * W, ty = d.toY * H;
+      var mx = (fx + tx) / 2, my = (fy + ty) / 2;
+      for (i = 0; i < s.chains.length; i++) {
+        var q = s.chains[i];
+        if (q.ex === d.fromX && q.ey === d.fromY && q.color === d.color && q.size === d.size && q.W === W && q.H === H) { c = q; break; }
+      }
+      if (c) {
+        style(ctx, c);
+        ctx.moveTo(c.mx, c.my);
+        ctx.quadraticCurveTo(fx, fy, mx, my);
+        ctx.stroke();
+      } else {
+        c = { color: d.color, size: d.size, W: W, H: H, timer: null };
+        style(ctx, c);
+        ctx.moveTo(fx, fy);
+        ctx.lineTo(mx, my);
+        ctx.stroke();
+        s.chains.push(c);
+        if (s.chains.length > MAX_CHAINS) { var old = s.chains.shift(); try { tail(ctx, old); } catch (e) {} }
+      }
+      c.mx = mx; c.my = my; c.tx = tx; c.ty = ty; c.ex = d.toX; c.ey = d.toY;
+      arm(ctx, c);
+    };
+    window.wbPaintSeg.__mgInk = 1;
+
+    function wbCtx() { var cv = document.getElementById('wb-canvas'); try { return cv ? cv.getContext('2d') : null; } catch (e) { return null; } }
+
+    /* 다른 것을 칠하기 «직전» 에 기다리던 꼬리를 먼저 마저 그린다 */
+    ['wbPaintStroke', 'wbPaintText', 'wbRenderShape'].forEach(function (name) {
+      var f = window[name];
+      if (typeof f !== 'function' || f.__mgInk) return;
+      window[name] = function (ctx) { flushAll(ctx); return f.apply(this, arguments); };
+      window[name].__mgInk = 1;
+    });
+    /* 다시 그리기·전체 지우기 — 캔버스가 지워지므로 기다리던 꼬리는 버린다(기록에 이미 있다).
+       다시 그리기는 끝난 뒤 남은 꼬리를 바로 마저 그려 «완성된 그림» 으로 둔다. */
+    var origRedraw = window.wbRedrawAll;
+    if (typeof origRedraw === 'function' && !origRedraw.__mgInk) {
+      window.wbRedrawAll = function () {
+        var c = wbCtx(); dropAll(c);
+        var r = origRedraw.apply(this, arguments);
+        flushAll(c);
+        return r;
+      };
+      window.wbRedrawAll.__mgInk = 1;
+    }
+    var origClear = window.wbReceiveClear;
+    if (typeof origClear === 'function' && !origClear.__mgInk) {
+      window.wbReceiveClear = function () { dropAll(wbCtx()); return origClear.apply(this, arguments); };
+      window.wbReceiveClear.__mgInk = 1;
+    }
+
+    /* 칠판을 새로 누르거나 손을 떼면 꼬리를 바로 그린다
+       (도형 미리보기는 누르는 순간의 스냅샷을 쓰므로 그 안에 꼬리가 들어 있어야 한다) */
+    function onEdge(e) {
+      var t = e && e.target;
+      if (e.type === 'mouseup' || (t && t.id === 'wb-canvas')) flushAll(wbCtx());
+    }
+    document.addEventListener('mousedown', onEdge, true);
+    document.addEventListener('mouseup', onEdge, true);
+
+    /* ⓑ 사이 점 하나 더 — 펜일 때만 */
+    function pickExtra(list, last, fin, gap) {
+      if (!list || list.length < 2 || !last || !fin) return null;
+      var best = null, bestD = -1;
+      for (var i = 0; i < list.length - 1; i++) {
+        var p = list[i]; if (!p) continue;
+        var m = Math.min(Math.hypot(p.clientX - last.x, p.clientY - last.y),
+                         Math.hypot(p.clientX - fin.x, p.clientY - fin.y));
+        if (m > bestD) { bestD = m; best = p; }
+      }
+      return (best && bestD >= gap) ? { x: best.clientX, y: best.clientY } : null;
+    }
+
+    var lastPt = null;
+    function kindOf(t) {
+      if (!t) return '';
+      if (t.id === 'wb-canvas') return 'wb';
+      if (t.classList && t.classList.contains('pdf-anno')) return 'pdf';
+      return '';
+    }
+    function penOn(kind) {
+      try {
+        if (kind === 'wb') return wbDrawing === true && wbTool === 'pen';
+        if (kind === 'pdf') return pdfDrawTool === 'pen';
+      } catch (e) {}
+      return false;
+    }
+    document.addEventListener('pointerdown', function (e) {
+      if (!e.isTrusted || !kindOf(e.target)) return;
+      lastPt = { x: e.clientX, y: e.clientY };
+    }, true);
+    document.addEventListener('pointermove', function (e) {
+      if (!e.isTrusted) return;                    // 우리가(또는 칠판 터치 다리가) 만든 가짜 이벤트는 건너뛴다
+      var kind = kindOf(e.target);
+      if (!kind || !penOn(kind)) return;
+      if (kind === 'pdf' && !e.buttons) return;     // 눌린 채로 움직일 때만
+      var fin = { x: e.clientX, y: e.clientY };
+      var p = null;
+      if (typeof e.getCoalescedEvents === 'function') {
+        try { p = pickExtra(e.getCoalescedEvents(), lastPt, fin, GAP_PX); } catch (err) { p = null; }
+      }
+      lastPt = fin;
+      if (!p) return;
+      try {
+        e.target.dispatchEvent(kind === 'wb'
+          ? new MouseEvent('mousemove', { clientX: p.x, clientY: p.y })
+          : new PointerEvent('pointermove', { clientX: p.x, clientY: p.y, pointerId: e.pointerId, pointerType: e.pointerType, buttons: e.buttons, isPrimary: e.isPrimary }));
+      } catch (err) {}
+    }, true);
+  })();
+  /* ⑰ 끝 */
+
+  /* ═══════════════════════════════════════════════════════════════════
+     ⑱ 📖 교재가 «살짝만 건드려도» 다음 장으로 넘어가던 것 (2026-10-08 사장님)
+     ───────────────────────────────────────────────────────────────────
+     교재 영역(#pdf-scroll-wrap)은 idx-main.js 가 «0.5초 안에 옆으로 100px» 이면
+     장을 넘긴다. 그 판정에 구멍이 셋 있었다.
+       ㉠ 교재가 화면 폭에 딱 맞으면 «왼쪽 끝·오른쪽 끝» 이 둘 다 참이라
+          위아래로 보다가 손이 조금만 비스듬히 빨리 가도 넘어갔다.
+       ㉡ 두 손가락으로 확대하고 손을 떼면 그 «떼기» 가 스와이프로 세였다.
+       ㉢ 펜으로 필기하는 중에도 가로로 빨리 그으면 넘어갔다
+          (화면 끌기는 펜 모드면 멈추는데 장 넘기기는 펜 모드를 안 봤다).
+     A) 그래서 «교재 영역에서 시작한 손가락 동작» 이 끝나는 순간 캡처 단계에서
+        «정말 넘길 만한 동작이었나» 를 먼저 판정해 두고, 그 직후 같은 이벤트에서
+        불리는 pdfNextPage/pdfPrevPage 가 «아니오» 면 무시한다.
+     B) 손가락으로 장을 넘긴 직후 0.6초는 다음 넘김을 무시하고,
+        다음 «파일» 을 받아 오는 동안(비동기)에는 한 번 더 넘기지 않는다
+        (두 번 감지·연타로 두 장 / 두 파일을 건너뛰던 것).
+     ⛔ idx-main.js 의 원래 처리는 지우지 않는다 — 그 파일은 blocking 이라 손대지 않고
+        여기서 «막기만» 한다. 이 절이 없으면 예전 동작 그대로다.
+     ⛔ 화살표·툴바 버튼으로 «한 번» 누른 넘김은 막지 않는다 — 막는 것은
+        «교재 영역 스와이프 판정이 아니오인 경우» 와 «터치 직후 0.6초 안의 두 번째» 뿐.
+     ⛔ 상대에게서 온 장 이동(pdf-page-change → pdfGoToPage)은 이 길을 안 탄다.
+     ═══════════════════════════════════════════════════════════════════ */
+  (function () {
+    var SWIPE_MIN_PX = 140;       // 옛 100px → 140px
+    var SWIPE_RATIO = 3;          // 옛 «가로 ≥ 세로×2» → ×3 (거의 수평일 때만)
+    var SWIPE_MAX_MS = 500;       // 옛 값 그대로 — 천천히 끈 것은 넘김이 아니다
+    var FIT_MIN_FRAC = 0.4;       // 폭이 딱 맞는 교재는 화면 폭의 40% 이상 밀어야
+    var COOLDOWN_MS = 600;        // B) 손가락 넘김 직후 무시 구간
+    var TOUCH_RECENT_MS = 1000;   // 이 안에 터치가 있었으면 «손가락으로 부른 넘김»
+    var INFLIGHT_MAX_MS = 4000;   // 비동기 넘김이 끝나지 않아도 이만큼 지나면 풀어 준다
+
+    function swipeVerdict(g) {
+      /* g: { maxTouches, pen, dx, dy, dt, fits, width, edgeStart:{left,right} }
+         돌려주는 값: true = 넘겨도 된다 / false = 막는다 */
+      if (!g) return true;
+      if (g.maxTouches !== 1) return false;                 // ㉡ 두 손가락(확대) 동작
+      if (g.pen) return false;                              // ㉢ 펜 필기 중
+      var ax = Math.abs(g.dx), ay = Math.abs(g.dy);
+      if (!(g.dt <= SWIPE_MAX_MS)) return false;
+      if (ax < SWIPE_MIN_PX) return false;
+      if (ax < ay * SWIPE_RATIO) return false;
+      if (g.fits) {                                         // ㉠ 폭이 딱 맞는 교재
+        if (ax < Math.max(SWIPE_MIN_PX, (g.width || 0) * FIT_MIN_FRAC)) return false;
+        return true;
+      }
+      /* 확대해 옆으로 굴릴 수 있는 교재 — 이미 그 끝에 닿아 있던 상태에서 «한 번 더» 민 경우만.
+         끌다가 끝에 닿은 순간 같은 동작이 장까지 넘기던 것을 막는다. */
+      if (g.dx > 0) return !!(g.edgeStart && g.edgeStart.left);
+      return !!(g.edgeStart && g.edgeStart.right);
+    }
+
+    var G = null;            // 지금 진행 중인 교재 영역 손가락 동작
+    var gate = null;         // 방금 끝난 동작의 판정 — 같은 이벤트 안에서만 유효
+    var lastTouchAt = 0, lastTouchFlipAt = 0, inflightAt = 0;
+
+    function wrapOf(t) {
+      try { return t && t.closest ? t.closest('#pdf-scroll-wrap') : null; } catch (e) { return null; }
+    }
+    document.addEventListener('touchstart', function (e) {
+      lastTouchAt = Date.now();
+      try {
+        var w = wrapOf(e.target);
+        if (!w) return;
+        var n = e.touches ? e.touches.length : 0;
+        if (n === 1 || !G) {
+          var t = e.touches[0];
+          var maxL = w.scrollWidth - w.clientWidth;
+          G = {
+            maxTouches: n, x: t.clientX, y: t.clientY, t0: Date.now(),
+            pen: !!document.querySelector('.pdf-anno.active'),
+            fits: maxL <= 1, width: w.clientWidth,
+            edgeStart: { left: w.scrollLeft <= 1, right: w.scrollLeft >= maxL - 1 }
+          };
+        } else if (n > G.maxTouches) {
+          G.maxTouches = n;
+        }
+      } catch (err) {}
+    }, true);
+    document.addEventListener('touchend', function (e) {
+      lastTouchAt = Date.now();
+      try {
+        if (!G || !wrapOf(e.target)) return;
+        var c = e.changedTouches && e.changedTouches[0];
+        var allow = false;
+        if (c && e.touches && e.touches.length === 0) {
+          allow = swipeVerdict({
+            maxTouches: G.maxTouches, pen: G.pen, fits: G.fits, width: G.width, edgeStart: G.edgeStart,
+            dx: c.clientX - G.x, dy: c.clientY - G.y, dt: Date.now() - G.t0
+          });
+        }
+        gate = { allow: allow };
+        if (e.touches && e.touches.length === 0) G = null;
+        setTimeout(function () { gate = null; }, 0);   // 같은 이벤트가 끝나면 판정도 끝
+      } catch (err) { gate = null; }
+    }, true);
+    document.addEventListener('touchcancel', function () { G = null; gate = null; }, true);
+
+    function guard(orig) {
+      return function () {
+        var now = Date.now();
+        if (gate && !gate.allow) return Promise.resolve();                 // A) 넘길 동작이 아님
+        var byTouch = (now - lastTouchAt) < TOUCH_RECENT_MS;
+        if (byTouch && (now - lastTouchFlipAt) < COOLDOWN_MS) return Promise.resolve();  // B) 연속
+        if (inflightAt && (now - inflightAt) < INFLIGHT_MAX_MS) return Promise.resolve(); // B) 파일 받는 중
+        if (byTouch) lastTouchFlipAt = now;
+        var r;
+        try { r = orig.apply(this, arguments); } catch (err) { return Promise.resolve(); }
+        if (r && typeof r.then === 'function') {
+          var mine = inflightAt = now;
+          var done = function () { if (inflightAt === mine) inflightAt = 0; };
+          r.then(done, done);
+        }
+        return r;
+      };
+    }
+    try {
+      if (typeof window.pdfNextPage === 'function' && !window.pdfNextPage.__mgSwipeGuard) {
+        window.pdfNextPage = guard(window.pdfNextPage); window.pdfNextPage.__mgSwipeGuard = 1;
+      }
+      if (typeof window.pdfPrevPage === 'function' && !window.pdfPrevPage.__mgSwipeGuard) {
+        window.pdfPrevPage = guard(window.pdfPrevPage); window.pdfPrevPage.__mgSwipeGuard = 1;
+      }
+      window.__mgSwipeVerdict = swipeVerdict;   // 하니스·진단용
+      window.__mgSwipeGuardReady = 1;
+    } catch (err) {}
+  })();
+  /* ⑱ 끝 */
+
+  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 · 화면공유 15fps · 칭찬 실패 안내 · 이름표 재시도 · 인앱안내 · 판서 곡선 · 교재 넘김 보호 준비됨'); } catch (e) {}
 })();

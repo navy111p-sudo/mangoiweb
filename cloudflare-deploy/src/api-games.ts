@@ -9,6 +9,7 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
+import { KOREAN_GLOSS_RULE, hasForeignGloss, normalizeKoreanGloss, isKoreanGloss, repairKoreanGlosses, readableKoreanVocabulary } from './korean-vocab';
 import { applyPointTransaction } from './api-points';   // 🧾 포인트는 원장(point_transactions)을 거친다
 import { dailyAllowance } from './point-policy';        // 🧢 하루 총량 상한(100점)을 이 경로도 지난다
 import { authUidFromRequest as authUidGlobal } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)
@@ -30,6 +31,7 @@ import { resolveZhTextbook, zhDisplayTextbook, zhDisplayDesc } from './zh-textbo
 import { filterQuizQuestions, summarizeRejects } from './quiz-quality';
 import { ATTENDANCE_BY_UID, attUidBinds } from './attendance-uid';
 import { BAND_SPECS, bandFromTextbookLevel } from './judgment-level';       // 📏 레벨별 문장 길이 정본  // 🧪 AI 문항 검사(2026-09-02)
+import { isSttRepeatLoop } from './stt-loop';
 
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -37,7 +39,7 @@ import { BAND_SPECS, bandFromTextbookLevel } from './judgment-level';       // �
 //   checkAndAwardBadges 는 api-mango(영작 첨삭)도 import 해서 사용한다.
 // ═══════════════════════════════════════════════════════════════════════
 /**
- * 🔤 학생에게 글자를 보여줘도 되는지 — 인코딩이 깨진 문자열을 걸러냅니다.
+ * 🔤 한국어 퀴즈 뜻 검사 — 깨진 글자와 한자·가나 혼입을 걸러냅니다.
  *   U+FFFD(replacement character)는 "여기 바이트를 못 읽었다"는 표시라, 한 글자라도 있으면
  *   그 문자열은 이미 원본을 잃은 것입니다(되살릴 수 없음). 화면에 내보내지 않습니다.
  *
@@ -52,7 +54,32 @@ export function isCleanText(s: any): boolean {
   if (s == null) return false;
   const t = String(s).trim();
   if (!t) return false;
-  return t.indexOf(String.fromCharCode(0xFFFD)) === -1;
+  return t.indexOf(String.fromCharCode(0xFFFD)) === -1 && isKoreanGloss(t);
+}
+
+/** 📅 단어 간격 반복(SRS) 정본 — 플래시카드 복습(/api/vocab/review)과 단어 퀴즈(/api/vocab/quiz-submit)가 같이 쓴다.
+ *  정답이면 level+1(최대 7), 오답이면 0. 다음 복습까지 일수: 0=1, 1=2, 2=4, 3=7, 4=14, 5=30, 6=60, 7=120.
+ *  ⛔ 간격표를 다른 경로에 다시 적지 말 것 — 한쪽만 바뀌면 같은 단어가 경로마다 다른 날짜에 돌아온다. */
+export const VOCAB_SRS_INTERVALS = [1, 2, 4, 7, 14, 30, 60, 120];
+export function vocabSrsNext(level: any, correct: boolean, now: number): { level: number; days: number; next: number } {
+  const cur = Number.isFinite(Number(level)) ? Math.max(0, Math.min(7, Math.floor(Number(level)))) : 0;
+  const lv = correct ? Math.min(cur + 1, 7) : 0;
+  const days = VOCAB_SRS_INTERVALS[lv] || 1;
+  return { level: lv, days, next: now + days * 86400000 };
+}
+
+/** 🔐 (2026-10-19) 단어장 «쓰기» 본인 확인 — 남이 다른 학생의 단어장에 낱말·오답을 심지 못하게.
+ *  그 오답(«단어장 약점»)은 웜업 대화·A.i 친구 프롬프트와 게임 복습 큐에 그대로 실린다(src/vocab-weak.ts).
+ *  판정은 /api/vocab/review·reward·DELETE 와 같은 resolveOwnerScope 하나 — 게스트(guest*)는 통과,
+ *  관리자·교사 세션은 통과, 그 밖에는 서명 토큰 uid 가 «그 단어장 주인» 과 같아야 한다.
+ *  막히면 401 응답, 통과면 null. ⛔ 판정을 라우트마다 다시 적지 말 것(한쪽만 느슨해진다). */
+export async function vocabWriteDenied(request: Request, url: URL, env: any, ownerUid: string, body?: any): Promise<Response | null> {
+  if ((await resolveOwnerScope(request, url, env, String(ownerUid || ''), body)) !== 'deny') return null;
+  return json({
+    ok: false, error: 'auth_required',
+    message: '🔑 로그인 정보가 만료됐어요. 다시 로그인한 뒤 해 주세요.',
+    message_en: '🔑 Your login has expired. Please log in again.',
+  }, 401);
 }
 
 // ── 🔥 연속 출석(Streak) 그래프 DFS — 출결의 단일 권위(source of truth) ──────
@@ -355,6 +382,26 @@ export async function handleGamesApi(
       return { allow: false as const, error: 'auth_required', message: '로그인 후 본인 단어장만 조회할 수 있습니다.' };
     };
 
+    // Owner-gated legacy repair. Preserve original values and concurrent teacher edits.
+    const readableVocab = async (rows: any[], uid: string) => {
+      const clean = await readableKoreanVocabulary(rows, env.AI);
+      const changed = clean.map((row, i) => ({ row, before: rows[i].korean }))
+        .filter(({ row, before }) => row.id && isKoreanGloss(row.korean) && row.korean !== before);
+      if (changed.length) {
+        try {
+          await env.DB.prepare(`CREATE TABLE IF NOT EXISTS vocab_korean_repair_backup (vocab_id INTEGER NOT NULL, user_id TEXT NOT NULL, original_korean TEXT NOT NULL, repaired_korean TEXT NOT NULL, repaired_at INTEGER NOT NULL, UNIQUE(vocab_id, original_korean))`).run();
+          for (let offset = 0; offset < changed.length; offset += 20) {
+            const statements = changed.slice(offset, offset + 20).flatMap(({ row, before }) => [
+              env.DB.prepare(`INSERT OR IGNORE INTO vocab_korean_repair_backup (vocab_id,user_id,original_korean,repaired_korean,repaired_at) SELECT id,user_id,korean,?,? FROM vocabulary WHERE id=? AND user_id=? AND korean=?`).bind(row.korean, Date.now(), row.id, uid, before),
+              env.DB.prepare(`UPDATE vocabulary SET korean=? WHERE id=? AND user_id=? AND korean=?`).bind(row.korean, row.id, uid, before),
+            ]);
+            await env.DB.batch(statements);
+          }
+        } catch (error) { console.error('[vocab] Korean meaning repair persistence failed'); }
+      }
+      return clean;
+    };
+
     // ── POST /api/vocab/add — 단어 추가 (AI 가 자동으로 한국어/예문 생성) ──
     if (method === 'POST' && path === '/api/vocab/add') {
       await ensureVocab();
@@ -362,6 +409,7 @@ export async function handleGamesApi(
       const userId = String(b.user_id || '').trim();
       const word = String(b.word || '').trim();
       if (!userId || !word) return json({ ok: false, error: 'user_id_and_word_required' }, 400);
+      { const deny = await vocabWriteDenied(request, url, env, userId, b); if (deny) return deny; }   // 🔐 AI 호출(비용) 전에
       let korean = String(b.korean || '').trim();
       let example = String(b.example || '').trim();
       // AI 가 한국어/예문 자동 생성 (옵션)
@@ -369,7 +417,7 @@ export async function handleGamesApi(
         try {
           const resp: any = await (env as any).AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
             messages: [
-              { role: 'system', content: 'You output Korean meaning and short English example. JSON only.' },
+              { role: 'system', content: 'You output Korean meaning and short English example. JSON only. ' + KOREAN_GLOSS_RULE },
               { role: 'user', content: `Word: "${word}"\n\nReturn JSON: { "korean": "<한국어 뜻 한줄>", "example": "<짧은 영어 예문 1개>" }` }
             ],
             max_tokens: 200,
@@ -383,6 +431,8 @@ export async function handleGamesApi(
           if (m) { const j = JSON.parse(m[0]); korean = korean || j.korean || ''; example = example || j.example || ''; }
         } catch {}
       }
+      korean = (await repairKoreanGlosses([{ word, korean, example }], env.AI))[0].korean;
+      if (hasForeignGloss(korean)) return json({ ok: false, error: 'invalid_korean_meaning', message: '뜻을 한글로 바꾼 뒤 다시 저장해주세요.' }, 422);
       const now = Date.now();
       await env.DB.prepare(`INSERT INTO vocabulary (user_id, word, korean, example, level, next_review_at, created_at) VALUES (?,?,?,?,?,?,?)`)
         .bind(userId, word, korean, example, 0, now, now).run();
@@ -403,7 +453,7 @@ export async function handleGamesApi(
         try {
           const resp: any = await (env as any).AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
             messages: [
-              { role: 'system', content: 'You extract an English vocabulary list from messy text. Output ONLY a JSON array, no prose.' },
+              { role: 'system', content: 'You extract an English vocabulary list from messy text. Output ONLY a JSON array, no prose. ' + KOREAN_GLOSS_RULE },
               { role: 'user', content: `Extract English vocabulary words (and their Korean meaning if present) from the text below.\nRules: word = single English word or short phrase (max 4 words). korean = Korean meaning if given in the text, else "".\nSkip sentences, headers, page numbers. Max 150 entries.\nReturn JSON array: [{"word":"...","korean":"..."}]\n\nTEXT:\n${text}` }
             ],
             max_tokens: 3000,
@@ -418,7 +468,9 @@ export async function handleGamesApi(
             word: String(x?.word || '').trim().slice(0, 60),
             korean: String(x?.korean || '').trim().slice(0, 80),
           })).filter((x: any) => /[A-Za-z]/.test(x.word) && x.word.length >= 2).slice(0, 200);
-          return json({ ok: true, items });
+          const repaired = await repairKoreanGlosses(items, env.AI);
+          if (repaired.some(it => hasForeignGloss(it.korean))) return json({ ok: false, error: 'invalid_korean_meaning', message: '일부 뜻을 한글로 바꾸지 못했어요. 원본 뜻을 확인해주세요.' }, 422);
+          return json({ ok: true, items: repaired });
         } catch (e: any) {
           return json({ ok: false, error: 'ai_extract_failed' }, 500);
         }
@@ -466,6 +518,7 @@ export async function handleGamesApi(
       const userId = String(b.user_id || '').trim();
       const raw: any[] = Array.isArray(b.items) ? b.items.slice(0, 60) : [];
       if (!userId || !raw.length) return json({ ok: false, error: 'user_id_and_items_required' }, 400);
+      { const deny = await vocabWriteDenied(request, url, env, userId, b); if (deny) return deny; }
       // 정규화 + 배치 내 중복 제거
       const seen = new Set<string>();
       const items: { word: string; korean: string; example: string }[] = [];
@@ -494,7 +547,7 @@ export async function handleGamesApi(
           try {
             const resp: any = await (env as any).AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
               messages: [
-                { role: 'system', content: 'You output Korean meanings and short English examples for vocabulary words. JSON array only, no prose.' },
+                { role: 'system', content: 'You output Korean meanings and short English examples for vocabulary words. JSON array only, no prose. ' + KOREAN_GLOSS_RULE },
                 { role: 'user', content: `For each word, give its Korean meaning (one short line) and one short simple English example sentence.\nWords: ${chunk.map(c => c.word).join(', ')}\nReturn JSON array in the same order: [{"word":"...","korean":"...","example":"..."}]` }
               ],
               max_tokens: 2500,
@@ -516,6 +569,9 @@ export async function handleGamesApi(
           } catch {}
         }
       }
+      const repaired = await repairKoreanGlosses(fresh, env.AI);
+      if (repaired.some(it => hasForeignGloss(it.korean))) return json({ ok: false, error: 'invalid_korean_meaning', message: '일부 뜻을 한글로 바꾸지 못했어요. 확인 후 다시 저장해주세요.' }, 422);
+      repaired.forEach((it, i) => { fresh[i].korean = it.korean; });
       const now = Date.now();
       if (fresh.length) {
         const stmt = env.DB.prepare(`INSERT INTO vocabulary (user_id, word, korean, example, level, next_review_at, created_at) VALUES (?,?,?,?,?,?,?)`);
@@ -532,7 +588,7 @@ export async function handleGamesApi(
       const gate = await gateVocabOwner(uid);
       if (!gate.allow) return json({ ok: false, error: gate.error, message: gate.message }, 401);
       const rs = await env.DB.prepare(`SELECT id, word, korean, example, level, next_review_at, correct_count, wrong_count, created_at FROM vocabulary WHERE user_id = ? ORDER BY created_at DESC LIMIT 500`).bind(uid).all();
-      return json({ ok: true, count: rs.results?.length || 0, words: rs.results || [], trial: gate.trial });
+      return json({ ok: true, count: rs.results?.length || 0, words: await readableVocab((rs.results || []) as any[], uid), trial: gate.trial });
     }
 
     // ── GET /api/vocab/due?uid=X — 오늘 복습할 단어 (게스트=하루10분·총3일 체험) ──
@@ -544,7 +600,7 @@ export async function handleGamesApi(
       if (!gate.allow) return json({ ok: false, error: gate.error, message: gate.message }, 401);
       const now = Date.now();
       const rs = await env.DB.prepare(`SELECT id, word, korean, example, level FROM vocabulary WHERE user_id = ? AND next_review_at <= ? ORDER BY next_review_at ASC LIMIT 20`).bind(uid, now).all();
-      return json({ ok: true, due_count: rs.results?.length || 0, words: rs.results || [], trial: gate.trial });
+      return json({ ok: true, due_count: rs.results?.length || 0, words: await readableVocab((rs.results || []) as any[], uid), trial: gate.trial });
     }
 
     // ── POST /api/vocab/review — 단어 복습 결과 (correct/wrong → 다음 복습 일정 자동 조정) ──
@@ -562,13 +618,10 @@ export async function handleGamesApi(
       if ((await resolveOwnerScope(request, url, env as any, String(row.user_id || ''), b)) === 'deny') {
         return json({ ok: false, error: 'auth_required' }, 401);
       }
-      // 간격 반복: 정답 시 level+1, 오답 시 level=0 으로 리셋
-      const newLevel = correct ? Math.min((row.level || 0) + 1, 7) : 0;
-      // 다음 복습 간격 (일): 0=1, 1=2, 2=4, 3=7, 4=14, 5=30, 6=60, 7=120 (망각곡선 기반)
-      const intervals = [1, 2, 4, 7, 14, 30, 60, 120];
-      const nextDays = intervals[newLevel] || 1;
+      // 간격 반복 — 정본 vocabSrsNext(정답 level+1 · 오답 0)
       const now = Date.now();
-      const next = now + nextDays * 86400000;
+      const srs = vocabSrsNext(row.level, correct, now);
+      const newLevel = srs.level, nextDays = srs.days, next = srs.next;
       await env.DB.prepare(`UPDATE vocabulary SET level = ?, next_review_at = ?, last_reviewed_at = ?, correct_count = correct_count + ?, wrong_count = wrong_count + ? WHERE id = ?`)
         .bind(newLevel, next, now, correct ? 1 : 0, correct ? 0 : 1, id).run();
       // 스트릭/미션/랭킹 계산용 이력 (실패해도 복습 자체는 성공)
@@ -793,10 +846,11 @@ export async function handleGamesApi(
       const userId = String(b.user_id || b.uid || '').trim();
       const word = String(b.word || '').trim();
       if (!userId || !word) return json({ ok: false, error: 'uid_and_word_required' }, 400);
+      { const deny = await vocabWriteDenied(request, url, env, userId, b); if (deny) return deny; }   // 🔐 AI 호출(비용) 전에
 
       let korean = '', example = '', synonyms: any[] = [];
       if (env.AI) {
-        const prompt = `For English word "${word}", provide JSON only:
+        const prompt = `For English word "${word}", provide JSON only. ${KOREAN_GLOSS_RULE}
 {"korean":"<Korean meaning>","example":"<short English example sentence>","synonyms":[{"word":"<syn1>","meaning_ko":"<Korean>","example":"<sentence>"},{"word":"<syn2>","meaning_ko":"<Korean>","example":"<sentence>"},{"word":"<syn3>","meaning_ko":"<Korean>","example":"<sentence>"}]}`;
         try {
           const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast','@cf/meta/llama-3.1-8b-instruct','@cf/meta/llama-3-8b-instruct'];
@@ -820,6 +874,10 @@ export async function handleGamesApi(
           }
         } catch (e: any) { console.error('[vocab-ai] failed:', e?.message); }
       }
+      korean = (await repairKoreanGlosses([{ word, korean, example }], env.AI))[0].korean;
+      if (hasForeignGloss(korean)) return json({ ok: false, error: 'invalid_korean_meaning', message: '한국어 뜻을 만들지 못했어요. 다시 시도해주세요.' }, 422);
+      synonyms = await repairKoreanGlosses(synonyms.filter((sy: any) => sy && typeof sy === 'object').map((sy: any) => ({ ...sy, korean: sy.meaning_ko })), env.AI);
+      synonyms = synonyms.filter((sy: any) => isKoreanGloss(sy.korean)).map((sy: any) => ({ ...sy, meaning_ko: sy.korean }));
       // 기본 폴백
       if (!korean) korean = '(AI 미생성)';
       if (!example) example = `I learned the word "${word}" today.`;
@@ -849,6 +907,7 @@ export async function handleGamesApi(
       const topic = String(b.topic || '').trim(); // 선택: 'school', 'food', 'travel' 등
       const count = Math.min(30, Math.max(5, Number(b.count) || 10));
       if (!userId) return json({ ok: false, error: 'uid_required' }, 400);
+      { const deny = await vocabWriteDenied(request, url, env, userId, b); if (deny) return deny; }   // 🔐 AI 호출(비용) 전에
       if (!env.AI) return json({ ok: false, error: 'AI_binding_missing' }, 503);
 
       // 기존 단어 (중복 방지)
@@ -856,7 +915,7 @@ export async function handleGamesApi(
       const existing = new Set((existRs.results || []).map((r: any) => String(r.word).toLowerCase()));
 
       const topicStr = topic ? ` related to "${topic}"` : '';
-      const prompt = `Generate ${count + 5} useful English vocabulary words for a Korean student at CEFR level ${level}${topicStr}. For each word provide: English word, Korean meaning, short English example sentence.
+      const prompt = `Generate ${count + 5} useful English vocabulary words for a Korean student at CEFR level ${level}${topicStr}. For each word provide: English word, Korean meaning, short English example sentence. ${KOREAN_GLOSS_RULE}
 
 Respond in strict JSON only:
 {"words":[{"word":"...","korean":"...","example":"..."},...]}
@@ -883,8 +942,10 @@ Variety: mix of nouns, verbs, adjectives.`;
       //    빈 뜻으로 저장되면 gen-quiz 의 출제 대상에서 영영 제외돼(뜻이 정답 보기라서),
       //    학생 입장에서는 "단어를 담았는데 퀴즈에 안 나오는" 상태가 된다. 그래서 저장 전에 거른다.
       //    (2026-08-03 조사: 운영 D1 에 이렇게 생긴 빈 뜻 90행 확인 — 시도 14회 중 9회)
+      words = await repairKoreanGlosses(words.filter((w: any) => w && typeof w === 'object'), env.AI);
       const aiTotal = words.length;
       words = words.filter((w: any) => String(w?.word || '').trim() && String(w?.korean || '').trim());
+      words = words.filter((w: any) => !hasForeignGloss(w.korean));
       if (aiTotal && words.length < aiTotal) {
         console.error(`[auto-gen] dropped ${aiTotal - words.length}/${aiTotal} AI words with no Korean meaning (level=${level}, topic=${topic || '-'})`);
       }
@@ -985,6 +1046,8 @@ Variety: mix of nouns, verbs, adjectives.`;
       const count = Math.min(20, Math.max(1, Number(b.count) || 5));
       const source = String(b.source || 'mywords').trim();
       if (!userId) return json({ ok: false, error: 'uid_required' }, 400);
+      // 🔐 그 학생 단어장으로 문제를 만든다 = 단어장을 «읽는» 것이기도 하다(/api/vocab/list 와 같은 본인 확인 — 단 게스트 체험 시간 제한은 안 건다).
+      { const deny = await vocabWriteDenied(request, url, env, userId, b); if (deny) return deny; }
 
       let words: any[] = [];
       let band = '';
@@ -1051,8 +1114,9 @@ Variety: mix of nouns, verbs, adjectives.`;
       const distRs: any = source === 'textbook'
         ? await env.DB.prepare(`SELECT ko AS korean FROM en_vocab WHERE active=1 AND type='word' AND ko IS NOT NULL AND ko != '' AND ko NOT LIKE '%'||char(65533)||'%' ORDER BY RANDOM() LIMIT 60`).all()
         : await env.DB.prepare(`SELECT korean FROM vocabulary WHERE user_id != ? AND korean IS NOT NULL AND korean != '' AND korean NOT LIKE '%'||char(65533)||'%' AND user_id NOT LIKE '\\_\\_%' ESCAPE '\\' ORDER BY RANDOM() LIMIT 60`).bind(userId).all();
+      words = words.map(w => ({ ...w, korean: normalizeKoreanGloss(w.korean) }));
       // 마지막 방어선 — DB 필터를 빠져나온 깨진 문자열은 여기서 버립니다(어느 경로로 들어왔든).
-      const distractors = (distRs.results || []).map((x: any) => x.korean).filter((s: any) => isCleanText(s));
+      const distractors = (distRs.results || []).map((x: any) => normalizeKoreanGloss(x.korean)).filter((s: any) => isCleanText(s));
       const myDistractors = words.map(w => w.korean).filter((s: any) => isCleanText(s));
 
       const now = Date.now();
@@ -1066,6 +1130,7 @@ Variety: mix of nouns, verbs, adjectives.`;
         const uniq = [...new Set(pool)];
         for (let i = uniq.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [uniq[i],uniq[j]] = [uniq[j],uniq[i]]; }
         const wrong = uniq.slice(0, 3);
+        if (!wrong.length) continue; // Never issue a question with only the answer.
         const opts = [w.korean, ...wrong];
         for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [opts[i],opts[j]] = [opts[j],opts[i]]; }
         const correctIndex = opts.indexOf(w.korean);
@@ -1108,23 +1173,49 @@ Variety: mix of nouns, verbs, adjectives.`;
       if (!quizId || isNaN(answer)) return json({ ok: false, error: 'quiz_id_and_answer_required' }, 400);
       const row: any = await env.DB.prepare(`SELECT user_id, correct_index, source_word FROM vocab_quizzes WHERE id = ?`).bind(quizId).first();
       if (!row) return json({ ok: false, error: 'quiz_not_found' }, 404);
+      /* 🔐 (2026-10-19) 그 퀴즈의 «주인» 인지 — 정수 quiz_id 를 훑으며 남의 단어에 오답을 찍으면
+         그 낱말이 «단어장 약점» 이 되어 그 학생의 웜업·A.i 친구 대화에 실린다. 정답(correct_index)도 이 뒤에서만 돌려준다. */
+      { const deny = await vocabWriteDenied(request, url, env, String(row.user_id || ''), b); if (deny) return deny; }
       const isCorrect = row.correct_index === answer;
-      await env.DB.prepare(
-        `UPDATE vocab_quizzes SET completed = 1, user_answer = ?, is_correct = ?, completed_at = ? WHERE id = ?`
-      ).bind(answer, isCorrect ? 1 : 0, Date.now(), quizId).run();
-      // 정답/오답 카운트 갱신 + 복습 이력(vocab_review_log → 일일미션·스트릭·주간랭킹 공용)
+      /* 🔁 (2026-10-18) 같은 문제를 다시 제출해도 채점은 돌려주되, 기록·복습 일정은 «처음 한 번» 만 반영한다.
+         퀴즈는 출제할 때마다 새 행이라 정상 흐름은 한 번 제출이고, 되풀이 제출로 단어를 level 7 까지
+         밀어 올리는 길을 막는다.
+         ⚛️ 완료 표시·복습 이력·SRS 갱신을 «한 batch» 로 묶는다 — 따로 쓰면 완료만 남고 SRS 가 실패했을 때
+         재제출이 «이미 완료» 로 걸러져 그 답이 복습 일정에 영영 안 들어간다(Codex 리뷰 #1608).
+         뒤 두 문장은 `changes() > 0` 으로 «앞 문장이 실제로 바꿨을 때만» 돈다(처음 제출 판정의 사슬). */
+      let vr: any = null;
       if (row.source_word) {
         try {
-          await env.DB.prepare(isCorrect
-            ? `UPDATE vocabulary SET correct_count = correct_count + 1, last_reviewed_at = ? WHERE user_id = ? AND word = ?`
-            : `UPDATE vocabulary SET wrong_count = wrong_count + 1, last_reviewed_at = ? WHERE user_id = ? AND word = ?`
-          ).bind(Date.now(), row.user_id, row.source_word).run();
-        } catch {}
-        try {
-          const v: any = await env.DB.prepare(`SELECT id FROM vocabulary WHERE user_id = ? AND word = ?`).bind(row.user_id, row.source_word).first();
-          await env.DB.prepare(`INSERT INTO vocab_review_log (user_id, vocab_id, correct, reviewed_at) VALUES (?,?,?,?)`)
-            .bind(row.user_id, v?.id || null, isCorrect ? 1 : 0, Date.now()).run();
-        } catch {}
+          vr = await env.DB.prepare(`SELECT id, level FROM vocabulary WHERE user_id = ? AND word = ? LIMIT 1`).bind(row.user_id, row.source_word).first();
+        } catch (e: any) {
+          console.warn('[vocab quiz-submit] vocab lookup failed:', e?.message || e);
+          return json({ ok: false, error: 'submit_failed', retryable: true, correct: isCorrect, correct_index: row.correct_index }, 503);
+        }
+      }
+      const now = Date.now();
+      const stmts: any[] = [env.DB.prepare(
+        `UPDATE vocab_quizzes SET completed = 1, user_answer = ?, is_correct = ?, completed_at = ? WHERE id = ? AND COALESCE(completed, 0) = 0`
+      ).bind(answer, isCorrect ? 1 : 0, now, quizId)];
+      // 정답/오답 카운트 + 📅 복습 일정(SRS) 갱신 + 복습 이력(vocab_review_log → 일일미션·스트릭·주간랭킹 공용)
+      //   ⚠️ 2026-10-18 전에는 카운트만 올리고 next_review_at 을 안 건드려, 퀴즈에서 틀린 단어가 복습에 다시 안 나왔다.
+      if (row.source_word) {
+        stmts.push(env.DB.prepare(
+          `INSERT INTO vocab_review_log (user_id, vocab_id, correct, reviewed_at) SELECT ?, ?, ?, ? WHERE changes() > 0`
+        ).bind(row.user_id, vr?.id || null, isCorrect ? 1 : 0, now));
+        if (vr) {
+          const srs = vocabSrsNext(vr.level, isCorrect, now);
+          stmts.push(env.DB.prepare(isCorrect
+            ? `UPDATE vocabulary SET correct_count = correct_count + 1, level = ?, next_review_at = ?, last_reviewed_at = ? WHERE user_id = ? AND word = ? AND changes() > 0`
+            : `UPDATE vocabulary SET wrong_count = wrong_count + 1, level = ?, next_review_at = ?, last_reviewed_at = ? WHERE user_id = ? AND word = ? AND changes() > 0`
+          ).bind(srs.level, srs.next, now, row.user_id, row.source_word));
+        }
+      }
+      try {
+        await env.DB.batch(stmts);
+      } catch (e: any) {
+        // 아무것도 안 써졌으므로(batch = 한 트랜잭션) 다시 제출하면 처음 제출로 반영된다.
+        console.warn('[vocab quiz-submit] batch failed:', e?.message || e);
+        return json({ ok: false, error: 'submit_failed', retryable: true, correct: isCorrect, correct_index: row.correct_index }, 503);
       }
       return json({ ok: true, correct: isCorrect, correct_index: row.correct_index });
     }
@@ -2684,6 +2775,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
             cora: 'athena', phoebe: 'hera', andromeda: 'stella',
             // 남자
             aries: 'orion', atlas: 'zeus', hermes: 'orpheus', apollo: 'perseus',
+            odysseus: 'perseus',   // 2026-10-02 Jake 목소리 — 기본(orion)으로 떨어지면 Noah(aries→orion)와 같은 목소리가 된다
           };
           const spk1 = AURA1.has(requested)
             ? requested
@@ -2830,7 +2922,13 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
             };
             if (hintPrompt) turboParams.initial_prompt = hintPrompt;
             const turbo: any = await ai.run('@cf/openai/whisper-large-v3-turbo', turboParams);
-            const tt = String(turbo?.text || '').trim();
+            const ttRaw = String(turbo?.text || '').trim();
+            // 🔁 (2026-10-02) 「oah, oah, oah …」 같은 반복 환각은 «들은 것 없음» 으로 돌려준다(src/stt-loop.ts)
+            if (ttRaw && isSttRepeatLoop(ttRaw)) {
+              console.warn('[voice/transcribe] repeat-loop dropped len=' + ttRaw.length);
+              return json({ ok: true, text: '', dropped: 'repeat_loop', lang, segments: null, transcription_info: null, azure: null, azure_diag: 'dropped' });
+            }
+            const tt = ttRaw;
             // 🎧 (2026-07-30) segments/transcription_info 를 함께 돌려준다 — 발음 채점(또렷함·흐름)이
             //   avg_logprob·no_speech_prob·단어 타이밍을 쓴다. 텍스트만으로는 또렷함을 잴 수 없다.
             //   구 whisper 폴백 경로에는 이 정보가 없다 → 그때는 채점이 옛 텍스트 방식으로 자동 복귀.
@@ -2849,6 +2947,8 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         // 폴백: 구 whisper (언어 힌트 미지원, 자동감지)
         const arr = [...new Uint8Array(audio)];
         const result = await ai.run('@cf/openai/whisper', { audio: arr });
+        const baseText = String(result?.text || '');
+        if (isSttRepeatLoop(baseText)) return json({ ok: true, text: '', dropped: 'repeat_loop', lang: lang || null, azure: null, azure_diag: 'dropped' });
         return json({ ok: true, text: result?.text || '', vtt: result?.vtt || null, word_count: result?.word_count || 0, lang: lang || null, ...(await azureOut()) });
       } catch (e: any) {
         console.warn('[voice/transcribe] error:', e?.message);
@@ -3062,3 +3162,4 @@ Respond in JSON ONLY:
 
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
 }
+

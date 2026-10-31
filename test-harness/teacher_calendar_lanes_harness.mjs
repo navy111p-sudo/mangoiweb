@@ -112,9 +112,12 @@ console.log('\n[ B. 렌더 배선 — 함수가 «있는가» 가 아니라 «�
   check('다시 그려도 스크롤 위치를 지킨다', /var keepTop = prevBody \? prevBody\.scrollTop : -1;/.test(render) && /if \(keepTop >= 0\) calBody\.scrollTop = keepTop;/.test(render));
   check('드롭 자리에 접힌 띠도 포함(.ph54-cal-col, .ph54-cal-fold)', /var PH54_DROP_SEL = '\.ph54-cal-col, \.ph54-cal-fold';/.test(render) && (render.match(/closest\(PH54_DROP_SEL\)/g) || []).length >= 4);
   check('접힌 띠에 놓으면 그 요일을 펼친다', /if \(col\.classList\.contains\('ph54-cal-fold'\)\) ph54State\.openDay = newCol;/.test(render));
-  check('다른 강사 열에 놓아도 강사는 안 바뀐다고 «저장 토스트에 덧붙여» 말한다(따로 띄우면 0ms 뒤 덮인다)',
-    /var keepNote = otherTeacher \? ph54T\(' · 강사는 그대로/.test(render) && /'✅ 저장됨: '[^\n]*\+ keepNote\);/.test(render)
-    && !/if \(otherTeacher\) ph54Toast\(/.test(render) && /body: JSON\.stringify\(\{ day_of_week: dowKeyByIdx\[newCol\], start_time: newTime \}\)/.test(render));
+  // 2026-10-10: 드롭이 옛 단건 PATCH(day_of_week 만 보냄 → 날짜 지정 수업은 날짜가 안 바뀌던 버그)에서
+  //   원자 이동 API(/class-schedules/move)로 바뀌었다. «강사는 그대로» 안내는 저장 «전» 확인창에 실린다.
+  //   (옛 검사는 그 버그 body 를 글자 그대로 못 박고 있었다 — 뜻으로 옮겨 적음. 세부는 ph54_drag_move_harness)
+  check('다른 강사 열에 놓아도 강사는 안 바뀐다고 확인창에서 말하고, 따로 토스트를 띄우지 않는다',
+    /(?<!!)otherTeacher \? ph54T\('\\nℹ️ 강사는 그대로/.test(render) && !/if \(otherTeacher\) ph54Toast\(/.test(render)
+    && !/day_of_week: dowKeyByIdx\[newCol\]/.test(render) && /ph54SaveMove\(plan,/.test(render));
   check('주를 옮기면 펼친 요일을 다시 정한다(3곳)', (render.match(/ph54State\.openDay = null;/g) || []).length === 3);
   check('안내문이 새 조작(요일 접기·강사 이름)을 한/영으로 말한다', /강사별 열<\/b>로 펼쳐져요/.test(render) && /one column per instructor/.test(render));
   check('범례에 빈 자리·겹침이 있다', /ph54-legend-gap/.test(render) && /ph54-legend-dup/.test(render));

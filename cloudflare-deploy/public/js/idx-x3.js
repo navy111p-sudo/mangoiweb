@@ -32,7 +32,7 @@
   function courseIcon(name){
     var n = (name || '').toLowerCase();
     if (n.indexOf('phonics') >= 0) return '🔤';
-    if (n.indexOf('mes') >= 0) return '🎯';
+    if (/(^|[^a-z])mes([^a-z]|$)/.test(n)) return '🎯'; // 낱말로만(Games 오인 방지)
     if (n.indexOf('bts') >= 0) return '🌟';
     if (n.indexOf('siu') >= 0) return '🦁';
     if (n.indexOf('마스터') >= 0 || n.indexOf('master') >= 0) return '🏆';
@@ -41,7 +41,8 @@
   function courseOrder(name){
     var n = (name || '').toLowerCase();
     for (var i = 0; i < COURSE_ORDER.length; i++) {
-      if (n.indexOf(COURSE_ORDER[i].toLowerCase()) >= 0) return i;
+      var k = COURSE_ORDER[i].toLowerCase();
+      if (k === 'mes' ? /(^|[^a-z])mes([^a-z]|$)/.test(n) : n.indexOf(k) >= 0) return i;
     }
     return 99;
   }
@@ -103,7 +104,7 @@
                  옛 방식으로 남아 있었다. 정본 함수를 쓰면 렌더와 «320%» 라벨까지 함께 갱신된다.
               ⛔ window.pdfZoom 으로 되돌리지 말 것 — 조용히 아무 일도 안 하게 된다. */
         if (typeof window.pdfSetZoom === 'function') window.pdfSetZoom(1);
-        await window.pdfLoad(url, kind);
+        if (await window.pdfLoad(url, kind) === false) return; // A newer selection won while this file loaded.
         console.log('[ph247] pdfLoad OK');
       } else {
         console.warn('[ph247] pdfLoad missing, fallback');
@@ -211,7 +212,7 @@
     if (/phonics|파닉스/.test(b)) return 'Phonics';
     if (/siu/.test(b)) return 'SIU';
     if (/bts/.test(b)) return 'BTS';
-    if (/mes/.test(b)) return 'MES';
+    if (/(^|[^a-z])mes([^a-z]|$)/.test(b)) return 'MES';
     if (/다락원|master|마스터/.test(b)) return '중국어';
     return '서버 교재';
   }

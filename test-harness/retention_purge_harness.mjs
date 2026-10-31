@@ -18,7 +18,14 @@ const ok  = (n, c, d='') => { if (c) { pass++; console.log(`  ✅ ${n}`); } else
 const src = readFileSync(SRC, 'utf8');
 const js = ts.transpileModule(src, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 }
-}).outputText;
+}).outputText
+  /* retention.ts 는 보관기간 상수를 story-correct.ts 에서 import 한다(2026-10-13).
+     data: 모듈은 상대 경로 import 를 못 풀므로 그 한 줄을 «소스에서 읽은 값» 으로 바꿔 넣는다
+     (⛔ 값을 여기에 손으로 적지 말 것 — 정본이 바뀌면 조용히 어긋난다). */
+  .replace(/^import\s*\{\s*STORY_LOG_RETENTION_DAYS\s*\}\s*from\s*'\.\/story-correct';?/m, () => {
+    const m = readFileSync('cloudflare-deploy/src/story-correct.ts', 'utf8').match(/STORY_LOG_RETENTION_DAYS\s*=\s*(\d+)/);
+    return 'const STORY_LOG_RETENTION_DAYS = ' + (m ? m[1] : 'NaN') + ';';
+  });
 const mod = await import('data:text/javascript;base64,' + Buffer.from(js).toString('base64'));
 const purgeExpired = mod.purgeExpired;
 

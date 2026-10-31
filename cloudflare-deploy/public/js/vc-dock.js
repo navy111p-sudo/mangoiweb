@@ -626,7 +626,7 @@
               «100% 가 원래 소리» 라는 것도 안 보인다. */
         '<div class="sg-row"><label data-ko="출력 음량" data-en="Output volume">출력 음량</label>' +
           '<span style="display:flex;align-items:center;gap:8px;min-width:0">' +
-            '<input type="range" id="sg-out-vol" min="0" max="300" step="10" value="100" style="flex:1;min-width:96px">' +
+            '<input type="range" id="sg-out-vol" min="10" max="300" step="10" value="100" style="flex:1;min-width:96px">' +
             '<b id="sg-out-vol-num" style="color:#e6edf6;font-size:13px;min-width:44px;text-align:right">100%</b>' +
           '</span></div>' +
         '<div class="sg-row"><label data-ko="카메라" data-en="Camera">카메라</label><select id="sg-cam-dev"><option data-ko="기본 카메라" data-en="Default camera">기본 카메라</option></select></div>' +

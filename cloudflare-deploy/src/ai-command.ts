@@ -953,7 +953,8 @@ export async function executeAction(
       const note = String(args?.note || '').slice(0, 500);
       if (!userId) return { ok: false, error: 'user_id_required' };
       // intervention_logs 테이블 자동 생성 (스키마 누락 환경 대비)
-      await env.DB.exec(
+      //   ⚠️ (2026-10-28) prepare().run() — D1 exec() 는 줄마다 따로 실행해 여러 줄 CREATE 가 죽는다(이 표가 운영에 없던 이유).
+      await env.DB.prepare(
         `CREATE TABLE IF NOT EXISTS intervention_logs (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           user_id TEXT NOT NULL,
@@ -962,7 +963,7 @@ export async function executeAction(
           created_by TEXT,
           created_at INTEGER NOT NULL
         )`
-      );
+      ).run();
       await env.DB.prepare(
         `INSERT INTO intervention_logs (user_id, note, source, created_by, created_at)
          VALUES (?, ?, 'ai-command', ?, ?)`
@@ -1615,7 +1616,7 @@ export const STUDENT_ROUTES: StudentRoute[] = [
   { kws: ['월간리포트', '월간 리포트', 'monthly report'], url: '/monthly-report.html', label: '📈 월간 리포트' },
   // 📖 학습 기능
   { kws: ['단어장', '단어 장', '내 단어장', '어휘장', '어휘', '단어', 'vocab', 'vocabulary', 'word list'], url: '/vocab.html', label: '📖 단어장' },
-  { kws: ['복습퀴즈', '복습 퀴즈', '선생님 퀴즈', '리뷰 퀴즈', '복습', 'review quiz'], url: '/review-quiz.html', label: '🧠 복습퀴즈' },
+  { kws: ['bts/siu 퀴즈', 'bts 퀴즈', 'siu 퀴즈', '복습퀴즈', '복습 퀴즈', '선생님 퀴즈', '리뷰 퀴즈', '복습', 'review quiz'], url: '/review-quiz.html', label: '🧠 BTS/SIU 퀴즈' },
   { kws: ['미니퀴즈', '미니 퀴즈', '단어퀴즈', '단어 퀴즈', '쪽지시험', '퀴즈', 'quiz'], url: '/micro-quiz.html', label: '🎯 미니 퀴즈' },
   { kws: ['연속출석', '연속 출석', '출석체크', '출석 체크', '스트릭', '데일리 출석', '출석', 'streak', 'attendance'], url: '/streak.html', label: '🔥 연속 출석' },
   { kws: ['칭찬스티커', '칭찬 스티커', '칭찬', '스티커', '선생님 칭찬', 'praise', 'sticker'], url: '/teacher-praise.html', label: '🌟 칭찬 스티커' },

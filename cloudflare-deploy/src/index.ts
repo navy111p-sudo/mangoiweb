@@ -1,3 +1,12 @@
+import { eleaderStagedResponse } from './eleader-release';
+import { ELEADER_EXPANSION_RULE, markEleaderExpansion, hasEleaderExpansion } from './eleader-expansion';
+import { ephemeralEleaderEnv } from './eleader-engines';
+import { handleGamesApi } from './api-games';
+import { handleSeedShares } from './seed-shares';
+import { handleSpeechPreferences } from './speech-preferences';
+import { loadRecentMistakes, recentMistakesPromptLine } from './recent-mistakes';   // 🔁 최근 교정 다시 쓰기(2026-10-18)
+import { loadVocabWeakRows, loadWeakWordsForWarmup, weakWordsPromptLine, weakWordsCallerOk, mergeWeakFirst, VOCAB_WEAK_GAME_MAX } from './vocab-weak';   // 🔁 틀린 낱말 다시 쓰기(2026-10-18)
+import { readableKoreanVocabulary, hasForeignGloss } from './korean-vocab';
 /**
  * index.ts - Main Worker entry point
  * Handles routing, API endpoints, and WebSocket upgrades
@@ -55,11 +64,18 @@ import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmu
 import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // 🧑‍🎓 웜업 연령대(소재·말투 축)
 import { logWarmupSessionStart, markWarmupFirstReply, warmupShouldMarkFirstReply } from './warmup-log';  // 📊 웜업 «몇 단계로 쓰는가» 기록
 import { warmupAnswerChips } from './warmup-answers';                    // 💬 웜업 «이렇게 대답해 보세요» 보기 칩
-import { WARMUP_CORRECTION_RULE, WARMUP_ZH_CORRECTION_RULE, ZH_MEANING_CHANGING_TAGS, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
+import { backfillPastTenseFix } from './tense-backfill';
+import { WARMUP_CORRECTION_RULE, WARMUP_ZH_CORRECTION_RULE, ZH_MEANING_CHANGING_TAGS, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat, correctionLeadIn } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
+import { resolveWarmupHonest, warmupHonestRule, parseWarmupGrade, finalizeWarmupGrade, applyHonestPraise, gateFixForMode, ensureFocusedFixSpoken } from './warmup-honest';  // 🎯 정직한 칭찬 + 교정 모드(2026-10-29 시범 — 정본 그 파일)
 import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
+import { fragmentQuestions, fragmentQuestionHint, checksFragmentQuestions, fullQuestionRule, FRAG_RETRY_BUDGET_MS } from './reply-questions';   // 🧩 기초 단계 «조각 질문»(like space?) 막기
+import { questionMemory, askedQuestionsLine, ASKED_LINE_HEAD, repeatedQuestions, retryRepeatedQuestion } from './question-memory';   // 🔁 같은 질문 두 번 금지(말만 바꾼 것·반대말 포함)
+import { connectorPromptBlock, linkBandForStep } from './conversation-connectors';   // 🔗 연결 표현(2026-10-28 · 세 화면 공용 정본)
 import { normalizeWarmupLang, warmupZhSystem, WARMUP_ZH_LEVELS, zhWarmupSentences, zhStudentByTeacher,
          warmupZhAnswerChips, WARMUP_ZH_FALLBACK_QUESTIONS, WARMUP_ZH_QUESTION_LANG } from './warmup-zh';  // 🀄 중국어 대화 정본(2026-09-13) — 영어 규칙은 한 글자도 안 건드린다
 import { applyEmpathyGuard, WARMUP_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)
+import { warmupChatEntry, createWarmupLive, readWarmupAiStream } from './warmup-stream';  // 📡 P2 웜업 문장 단위 스트리밍(옵트인 — 2026-10-02)
+import { recordAiLatency } from './ai-latency-log';                     // ⏱ «학생이 얼마나 기다리는가» — 웜업도 같은 표에(feature='warmup')
 // «영어만» 게이트 — review_quizzes 는 영어 전용 표가 아니다(중국어 교재 「다락원」이 함께 들어 있다).
 // 라틴 글자 유무로 판정하면 병음이 그대로 통과한다. 정본은 english-only.ts 한 곳뿐.
 import { isEnglishText, isEnglishQuestion } from './english-only';
@@ -68,6 +84,11 @@ import { runGrowthSnapshot } from './api-judgment';                            /
 import { churnContagionRouter, runContagionGraphSync } from './churn-contagion';
 import { nightlyCafe24Refresh } from './cafe24-sync';  // 🔄 카페24→D1 야간 자동 새로고침
 import { handleSpaceMonsterApi } from './api-space-monster';  // 🛸 Space Monster Hunter 게임 API
+import { logWarmupFix } from './warmup-parent';            // 📝 학부모 화면용 «고쳐 준 표현» 기록 (2026-10-02 P4)
+import { logWarmupFixTrace, type WarmupFixTraceReason } from './warmup-fix-trace';   // 🔎 교정 판정 사유 기록 (2026-10-31)
+import { authUidFromRequest } from './auth-token';          //    ↑ 본인 확인용(토큰 uid == 요청 user_id 일 때만 기록)
+import { retiredDomainResponse } from './retired-domain';    // 🚫 폐지 주소(test.mangoi.co.kr) → 안내문만 (2026-10-16)
+import { handleDubbingApi, isPrivateDubbingKey } from './api-dubbing'; // 🎬 계정별 더빙 작품·이어하기 (기존 녹화와 분리)
 
 interface Env {
   SIGNALING_ROOM: DurableObjectNamespace;
@@ -199,6 +220,8 @@ const worker = {
   // 얇은 래퍼: 실제 처리는 handle()이 하고, 여기서 보안 헤더만 씌운다.
   //   this 바인딩에 의존하지 않도록 worker.handle 로 명시 참조(진입점 안정성).
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const staged = eleaderStagedResponse(request);
+    if (staged) return applySecurityHeaders(staged);
     // ⚡ (2026-08-09) 같은 DDL 을 이 격리에서 한 번만 D1 으로 보낸다.
     //   이 저장소는 표를 요청 처리 도중 만든다(CREATE TABLE IF NOT EXISTS 가 핸들러 첫 줄마다).
     //   실측: DDL 411건 중 392건이 «요청마다» 나갈 수 있었다. 표가 이미 있어도 왕복은 그대로다.
@@ -220,6 +243,10 @@ const worker = {
   async handle(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
+
+    // 🚫 폐지된 옛 주소(test.mangoi.co.kr)는 사이트를 아예 안 보여 준다 — src/retired-domain.ts
+    const retired = retiredDomainResponse(url);
+    if (retired) return retired;
 
     // CORS preflight
     if (request.method === 'OPTIONS') {
@@ -260,6 +287,14 @@ const worker = {
       const permanent = request.method === 'GET' || request.method === 'HEAD';
       return Response.redirect(canonical.toString(), permanent ? 301 : 308);
     }
+
+    if (path === '/api/seed-shares' || path.startsWith('/api/seed-shares/') || path.startsWith('/s/')) return handleSeedShares(request, env);
+
+    if (path === '/api/student/speech-preferences') return handleSpeechPreferences(request, env);
+
+    // This handler authenticates BOTH students and staff and derives its own
+    // account namespace. Do not route it through the admin-only classroom gate.
+    if (path === '/api/dubbing' || path.startsWith('/api/dubbing/')) return handleDubbingApi(request, env);
 
     // 💬 문의·신규상담 페이지 폐지 → 카카오톡 실시간 상담으로 통합 (2026-08-14 피드백 ⑤)
     //   public/contact.html 을 지웠다. 그런데 이 주소는 검색엔진에 색인돼 있고, 카톡·문자로
@@ -584,7 +619,10 @@ const worker = {
     //   - POST /api/warmup/chat     {session_id, student_input, lesson_topic?, user_id?, textbook?, level?, lesson_no?}
     //   - GET  /api/warmup/context  ?user_id=&textbook=&level=&lesson=  → 오늘 배울 교재/문장 (students_erp + review_quizzes)
     if (path === '/api/warmup/chat' && request.method === 'POST') {
-      return handleWarmupChat(request, env);
+      /* 📡 P2 (2026-10-02 사장님 승인) — 본문에 stream:1 이 있을 때만 SSE 로 문장을 먼저 흘린다.
+         없으면 warmupChatEntry 가 아래 핸들러 응답을 «그대로» 돌려준다(옛 화면은 한 바이트도 안 바뀜).
+         정본·안전문(gate)·done 계약은 src/warmup-stream.ts 머리말. */
+      return warmupChatEntry(request, (req, send) => handleWarmupChat(req, env, send));
     }
     if (path === '/api/warmup/context' && request.method === 'GET') {
       return handleWarmupContext(request, env);
@@ -676,10 +714,11 @@ const worker = {
     }
 
     // 🩺 /admin/health 페이지가 호출하는 서버측 자가진단 API
-    //   - D1/R2/KV 바인딩 실제 호출 + 시크릿 presence + BUILD_STAMP 리턴
-    //   - Basic Auth 미들웨어 뒤에 걸려 있음 (isAdminPath 참조)
+    //   - mode=passive: 바인딩/시크릿 존재 여부 + BUILD_STAMP만, 진단 쿼리 없음
+    //   - 기본 동작은 기존 SELECT 1 진단 유지. 관리자 세션/스코프 게이트 뒤 (isAdminPath 참조)
     if (path === '/api/admin/health-check') {
-      // Inline admin health probe — no separate handler module needed.
+      // Keep the same authentication/authorization for both modes. Auth still reads D1 and records session activity.
+      const passive = url.searchParams.get('mode') === 'passive';
       const probe: any = {
         ok: true,
         ts: new Date().toISOString(),
@@ -714,8 +753,9 @@ const worker = {
         'GIFTISHOW_API_KEY', 'GIFTISHOW_USER_ID',                    // 🎁 기프티콘
       ];
       for (const k of secretKeys) probe.secrets_present[k] = !!(env as any)?.[k];
+      if (passive) probe.mode = 'passive';
       try {
-        if ((env as any)?.DB) {
+        if (!passive && (env as any)?.DB) {
           const r: any = await (env as any).DB.prepare('SELECT 1 AS one').first();
           probe.db_query_ok = r?.one === 1;
         }
@@ -909,6 +949,7 @@ const worker = {
       try {
         if (!env.RECORDINGS) return new Response(JSON.stringify({ ok:false, error:'R2 not configured' }), { headers:{'Content-Type':'application/json'} });
         const k = url.searchParams.get('key') || '';
+        if (isPrivateDubbingKey(k)) return new Response('Not found', { status: 404 });
         if (!k) {
           // 🎬 두 prefix 모두 검사: rec/ (multipart 자동녹화) + recordings/ (옛날 단일 업로드)
           const [recList, recordingsList] = await Promise.all([
@@ -1232,6 +1273,8 @@ const worker = {
         path === '/api/admin/ai-action' ||
         path === '/api/admin/class-schedules' ||
         path === '/api/admin/class-schedules/seed-demo' ||
+        path === '/api/admin/class-schedules/teacher-options' ||
+        path === '/api/admin/class-schedules/move' ||
         /* 🧹 (2026-08-24) LMS·시드 자리표시 일괄 정리.
            ⚠️ 이 목록은 «허용목록» 이다 — 인증 게이트(isAdminPath)가 `/api/admin/` 을
               통째로 default-deny 하는 것과 **다른 것**이다. 인증은 통과하는데 여기 없으면
@@ -1420,6 +1463,8 @@ const worker = {
         path === '/api/chat/cleanup' ||
         // 📝 Phase E1-E4 평가서
         path === '/api/eval/create' ||
+        path === '/api/eval/draft-create' ||
+        path === '/api/eval/manual-create' ||
         path === '/api/eval/list' ||
         /^\/api\/eval\/\d+$/.test(path) ||
         path === '/api/admin/eval/list' ||
@@ -1473,6 +1518,7 @@ const worker = {
         // 📈 Phase RCF — AI 매출/이탈 예측
         path === '/api/admin/forecast/revenue' ||
         path === '/api/admin/forecast/churn' ||
+        path === '/api/admin/forecast/message' ||
         // 📚 Phase VOC 단어장
         path === '/api/vocab/add' ||
         path === '/api/vocab/extract' ||
@@ -1503,6 +1549,7 @@ const worker = {
         path === '/api/streak/status' ||
         path === '/api/streak/leaderboard' ||
         // ✍️ Phase AW AI 영작 첨삭
+        path.startsWith('/api/ai/eleader/') || // opt-in pilot; handler enforces membership
         path === '/api/ai/write-correct' ||
         path === '/api/ai/write-history' ||
         path === '/api/ai/write-stats' ||
@@ -1512,6 +1559,7 @@ const worker = {
         path === '/api/ai/chat-history' ||
         path === '/api/ai/chat-clear' ||
         path === '/api/ai/chat-guest-token' ||
+        path === '/api/ai/class-ask' ||        // ✋ A.i 선생님 수업 질문 즉답(2026-10-08 사장님 승인)
         // 📅 Phase WD 부모 위클리 다이제스트
         path === '/api/parent/digest/preview' ||
         path === '/api/parent/digest/send-one' ||
@@ -1786,6 +1834,14 @@ const worker = {
           if (dq) return dq;
         }
 
+        if (path.startsWith('/api/ai/eleader/')) {
+          const pilotRes = await handleMangoApi(request, url, env, ctx, {
+            chat: r => handleWarmupChat(markEleaderExpansion(r), ephemeralEleaderEnv(env)),
+            voice: r => handleGamesApi(r, new URL(r.url), ephemeralEleaderEnv(env)),
+            warm: r => warmupChatEntry(r, (req, send) => handleWarmupChat(req, env, send)),
+          });
+          if (pilotRes) return pilotRes;
+        }
         const res = await handleMangoApi(request, url, env, ctx);
         if (res) return res;
       } catch (e: any) {
@@ -3186,7 +3242,7 @@ const WARMUP_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
    학생이 이름을 물으면 AI 가 다른 이름을 대는 어긋남이 있었다(2026-08-31 사장님 제보).
    ⛔ 화면이 보낸 문자열을 그대로 끼우지 말 것 — 정본 표(src/ai-friends.ts)를 거친 이름만 넣는다. */
 const warmupSystem = (friendName: string) => [
-  `너는 망고아이의 AI 대화 친구 '${friendName}' 야. 수업 전에 학생의 입을 풀어 주는 영어 워밍업 상대야. 밝고 장난기 많은 단짝 친구처럼 신나게 리액션해줘.`,
+  `너는 망고아이의 AI 대화 친구 '${friendName}' 야. 수업 전에 학생의 입을 풀어 주는 영어 말하기 상대야. 밝고 장난기 많은 단짝 친구처럼 신나게 리액션해줘.`,
   `[이름] 학생이 이름을 물으면 반드시 '${friendName}' 라고 답해. 다른 이름을 지어내지 마.`,
   "[언어] 네 대사는 반드시 영어로 말해. 한국어가 꼭 필요하면 영어 문장 뒤 «괄호 안» 에만 짧게 덧붙여 — 괄호 안은 음성으로 읽히지 않고 자막에만 보인다. 괄호 밖에 한국어를 쓰면 영어 목소리가 그대로 읽어서 소리가 뭉개진다.",
   "[길이] 한 번에 2문장을 넘기지 마. 그리고 질문은 «한 번에 하나만» 해 — 두세 개를 몰아 묻지 마.",
@@ -3421,7 +3477,7 @@ async function handleGamesVocab(request: Request, env: Env): Promise<Response> {
       const key = s.toLowerCase();
       if (seenEn.has(key)) return;
       seenEn.add(key);
-      sentences.push({ en: s, ko });
+      sentences.push({ en: s, ko: hasForeignGloss(ko) ? '' : ko });
     };
     const koFromPrompt = (q: any): string => {
       // "다음 뜻의 영어 문장을 쓰세요: 나는 망고를 좋아해요." → 콜론 뒤 한국어만 채택
@@ -3464,9 +3520,14 @@ async function handleGamesVocab(request: Request, env: Env): Promise<Response> {
     const words: Array<{ en: string; ko: string }> = [];
     try {
       if (userId) {
+        /* 🔁 (2026-10-18) 단어장에서 틀린 낱말을 «먼저» 담는다 — 정본 src/vocab-weak.ts.
+           [왜] 단어가 30개를 넘으면 오래전에 넣은 약점 낱말이 «최근 30개» 밖으로 밀린다(구조상 — 오늘 대상 학생은 10~17개라 아직 해당 없음).
+           ⚠️ 개수는 /api/games/weak 의 vocab_weak 와 같은 VOCAB_WEAK_GAME_MAX — 허브가 그 낱말을 이 목록에서 찾는다. */
+        const weakRows = await loadVocabWeakRows(env.DB, userId, Date.now(), VOCAB_WEAK_GAME_MAX);
         const rs = await env.DB.prepare(`SELECT word, korean FROM vocabulary WHERE user_id = ? ORDER BY id DESC LIMIT 30`).bind(userId).all();
+        const vrows = mergeWeakFirst<any>(weakRows, ((rs.results as any[]) || []), 38, (r: any) => String(r.word || '').trim());
         const seenW = new Set<string>();
-        for (const row of (((rs.results as any[]) || []))) {
+        for (const row of await readableKoreanVocabulary(vrows, env.AI)) {
           const en = String((row as any).word || '').trim();
           const ko = String((row as any).korean || '').trim();
           // 단어장에 병음·한자를 적어 둔 학생이 있어도 «영어» 게임에는 내보내지 않는다
@@ -3977,6 +4038,13 @@ async function handleUxTrack(request: Request, env: Env): Promise<Response> {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
 }
+/** 🔁 (2026-10-18) 단어장 약점을 읽어도 되는 «본인» 인가 — 토큰 uid 또는 같은 이름의 관리자 세션(정확일치, 정본 weakWordsCallerOk).
+ *  웜업·/api/games/weak 가 함께 쓴다(⛔ 한 곳에 판정을 다시 적지 말 것). 확인 중 무엇이 실패해도 false — 던지지 않는다. */
+async function vocabWeakCallerVerified(request: Request, env: Env, uid: string, body?: any): Promise<boolean> {
+  if (!uid) return false;
+  try { if (weakWordsCallerOk(uid, await authUidFromRequest(request, new URL(request.url), env, body), null)) return true; } catch {}
+  try { const ses: any = await checkAdminSession(request, env as any); return weakWordsCallerOk(uid, null, ses && ses.ok ? ses.username : null); } catch { return false; }
+}
 async function handleGamesWeak(request: Request, env: Env): Promise<Response> {
   try {
     const u = new URL(request.url);
@@ -3995,7 +4063,18 @@ async function handleGamesWeak(request: Request, env: Env): Promise<Response> {
       item: r.item, ko: r.ko || '', wrong: r.wrong_count || 0, correct: r.correct_count || 0,
       pron_best: r.pron_best || 0, pron_count: r.pron_count || 0
     }));
-    return new Response(JSON.stringify({ ok: true, lang, weak }), { status: 200, headers: _MS_JSON });
+    /* 🔁 (2026-10-18) 단어장에서 틀린 낱말 — 정본 src/vocab-weak.ts. 게임 허브가 «자기 단어 목록에 있는 것만» 복습 큐에 넣는다.
+       ⛔ weak 배열에 섞지 않는다 — 교사용 게임 리포트(game-report.html)가 그 배열을 «게임에서 틀린 단어» 로 그린다.
+       ⛔ 본인 확인이 될 때만 싣는다 — 이 경로는 user_id 만으로 답하는데, 단어장의 «틀린 기록» 은
+          /api/vocab/list 에서도 본인에게만 보인다(gateVocabOwner). 모르면 빈 배열(게임은 예전처럼 돈다).
+       ⚠️ 낱말 글자는 /api/games/vocab 과 «같은 다듬기»(trim · 영어 30자)여야 허브가 정확일치로 찾는다. */
+    let vocabWeak: Array<{ item: string }> = [];
+    if (lang === 'en' && await vocabWeakCallerVerified(request, env, userId)) {
+      vocabWeak = mergeWeakFirst<string>(
+        (await loadVocabWeakRows(env.DB, userId, Date.now(), VOCAB_WEAK_GAME_MAX)).map((r) => String(r.word || '').trim()).filter((w) => isEnglishText(w, 30)),
+        [], VOCAB_WEAK_GAME_MAX, (w) => w).map((item) => ({ item }));
+    }
+    return new Response(JSON.stringify({ ok: true, lang, weak, vocab_weak: vocabWeak }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
@@ -4149,7 +4228,11 @@ async function handleGamesRecommend(request: Request, env: Env): Promise<Respons
   }
 }
 
-async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
+async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) => void) | null = null): Promise<Response> {
+  /* ⏱ 지연 기록(feature='warmup') — 정본 ai-latency-log.ts. 학생 발화·답변은 싣지 않는다(길이만).
+     📡 sseSend 가 있으면(P2) 첫 모델 호출의 문장을 먼저 흘린다 — 없으면 예전과 똑같다. */
+  const latT0 = Date.now();
+  let latModelMs = 0, latTries = 0;
   try {
     let body: any = {};
     try { body = await request.json(); } catch {}
@@ -4194,6 +4277,9 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
       const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(hkey) : null;
       if (raw) history = JSON.parse(raw);
     } catch {}
+    /* 🔁 (2026-10-28 사장님 「일반 A.i 말하기에도 같은 질문 금지 적용해줘」) 이 대화에서 «이미 물은 질문 → 학생 답».
+       정본 src/question-memory.ts(엘리더잼과 같은 판정). 영어만 — 중국어는 낱말을 못 뽑아 null 이고 예전 그대로다. */
+    const qmem = ctxLang === 'zh' ? null : questionMemory(history, studentInput);
 
     // 📊 웜업 기록(src/warmup-log.ts) — 세션당 INSERT 1 + 조건부 UPDATE 최대 2. 발화마다 쓰지 않는다.
     //   ① 첫 턴의 INSERT 는 «안전망» 이다. 로그인 학생은 /api/warmup/context 에서 이미 잡히고,
@@ -4212,6 +4298,9 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     let sys = ctxLang === 'zh' ? warmupZhSystem(ctxFriend) : warmupSystem(ctxFriend);
     sys += ' ' + warmupAgeLine(ctxAge);
     if (ctxDifficulty) sys += ` [난이도] ${(ctxLang === 'zh' ? WARMUP_ZH_LEVELS : WARMUP_LEVELS)[ctxDifficulty]}`;
+    /* 🧩 (2026-10-28 사장님 「like space? 이런 식으로 나오지 말게」) 기초 단계는 «단어 수» 지시 때문에 모델이
+       질문의 앞부분(do you)을 떼어 낸다 — 문법이 먼저라고 예문으로 못 박는다. 정본·이유는 src/reply-questions.ts. */
+    if (checksFragmentQuestions(ctxDifficulty, ctxLang)) sys += ' ' + fullQuestionRule(ctxDifficulty);
     if (lessonTopic) sys += ` 오늘의 대화 주제는 '${lessonTopic}' 이야.`;
     // 🗓️ 오늘 배울 교재 연동: 학생 배정 교재(students_erp) + 그 교재의 실제 문장(review_quizzes)으로 워밍업 질문
     if (ctxUserId || ctxTextbook || ctxLevel) {
@@ -4229,8 +4318,8 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
             ? ` 오늘 배울 핵심 중국어 표현 예시: ${lc.sentences.map((s) => `"${s}"`).join(' / ')}.`
             : ` 오늘 배울 핵심 영어 문장 예시: ${lc.sentences.map((s) => `"${s}"`).join(' / ')}.`;
           sys += ctxLang === 'zh'
-            ? " 웜업 방식: 이 교재 내용(위 표현들의 단어·주제)을 활용해서 아주 쉬운 중국어(간체자) 질문을 한 번에 하나만 물어봐. 학생이 답하면 1문장으로 칭찬하거나 자연스럽게 교정해 주고, 이어서 교재와 관련된 다음 질문을 해줘."
-            : " 웜업 방식: 이 교재 내용(위 문장들의 단어·표현·주제)을 활용해서 아주 쉬운 영어 질문을 한 번에 하나만 물어봐. 학생이 답하면 1문장으로 칭찬하거나 자연스럽게 교정해 주고, 이어서 교재와 관련된 다음 질문을 해줘.";
+            ? " 말하기 방식: 이 교재 내용(위 표현들의 단어·주제)을 활용해서 아주 쉬운 중국어(간체자) 질문을 한 번에 하나만 물어봐. 학생이 답하면 1문장으로 칭찬하거나 자연스럽게 교정해 주고, 이어서 교재와 관련된 다음 질문을 해줘."
+            : " 말하기 방식: 이 교재 내용(위 문장들의 단어·표현·주제)을 활용해서 아주 쉬운 영어 질문을 한 번에 하나만 물어봐. 학생이 답하면 1문장으로 칭찬하거나 자연스럽게 교정해 주고, 이어서 교재와 관련된 다음 질문을 해줘.";
         }
         // 🕸️ 개인화(Neo4j): 이 학생이 복습퀴즈에서 자주 틀린 문장 → 우선 복습 질문.
         //    Aura 는 외부 HTTP 라 세션당 1회만 조회하고 KV 에 30분 캐시(매 메시지 호출 방지).
@@ -4249,20 +4338,69 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
           }
           if (weak.length) {
             const list = weak.map((w) => `"${w.text}"(${w.wrongCount}회 틀림${w.inTodayTextbook ? '·오늘 교재' : ''})`).join(' / ');
-            sys += ` [개인화] 이 학생이 복습퀴즈에서 자주 틀린 문장: ${list}. 웜업 질문을 만들 때 이 표현들을 우선으로 자연스럽게 섞어서 다시 연습시켜줘. 단, 틀렸다는 사실은 언급하지 말고 격려하는 톤을 유지해.`;
+            sys += ` [개인화] 이 학생이 복습퀴즈에서 자주 틀린 문장: ${list}. 말하기 질문을 만들 때 이 표현들을 우선으로 자연스럽게 섞어서 다시 연습시켜줘. 단, 틀렸다는 사실은 언급하지 말고 격려하는 톤을 유지해.`;
           }
         }
       } catch {}
     }
+    /* 🔁 (2026-10-18 개선안 1순위 ② · 사장님 승인 «웜업 쪽도 붙여줘») 최근 교정받은 표현을 다시 써 볼 기회.
+       정본 src/recent-mistakes.ts(AI 친구와 같은 함수) — 영어 대화만, 세션당 1회 조회 후 KV 30분 캐시.
+       ⛔ 던지지 않는다(실패하면 그냥 안 붙는다). 기초(1~2단계·미지정)는 1개만.
+       🔐 (2026-10-19 · 사장님 승인) user_id 는 화면이 보내는 값이라, 본인 확인(약점 낱말과 같은 vocabWeakCallerVerified)을
+          «캐시를 읽기 전에» 매번 한다 — 남의 아이디를 보내 그 학생의 교정 문장이 프롬프트에 실리지 않게. 확인이 안 되면 그냥 안 붙는다. */
+    if (ctxUserId && ctxLang !== 'zh') {
+      try {
+        if (await vocabWeakCallerVerified(request, env, ctxUserId, body)) {
+          const rkey = 'warmupmistake:' + sessionId + ':' + ctxUserId;
+          let past: any[] | null = null;
+          try { const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(rkey) : null; if (raw != null) past = JSON.parse(raw); } catch {}
+          if (!Array.isArray(past)) {
+            past = await loadRecentMistakes(env.DB, ctxUserId, Date.now());
+            try { if (env.SESSION_STATE) await env.SESSION_STATE.put(rkey, JSON.stringify(past), { expirationTtl: 1800 }); } catch {}
+          }
+          const line = recentMistakesPromptLine(past, ctxDifficulty <= 2);
+          if (line) sys += line;
+        }
+      } catch (e: any) { console.warn('[warmup] recent mistakes skipped:', e?.message || e); }
+    }
+    /* 🔁 (2026-10-18 · 사장님 승인 «약점 낱말 넣기») 단어장·게임에서 틀린 낱말을 대화에 «가끔 하나만» 섞어 쓰게.
+       정본 src/vocab-weak.ts — 영어 대화만, 조회 결과는 KV 30분 캐시. 기초(1~2단계·미지정)는 1개만.
+       ⛔ user_id 는 화면이 보내는 값이다 — 본인 확인을 «캐시를 읽기 전에» 매번 한다(캐시만 맞추면 남의 낱말이 붙지 않게).
+       ⛔ 던지지 않는다(실패하면 그냥 안 붙는다). */
+    if (ctxUserId && ctxLang !== 'zh') {
+      try {
+        if (await vocabWeakCallerVerified(request, env, ctxUserId, body)) {
+          const vkey = 'warmupweakword:' + sessionId + ':' + ctxUserId;
+          let words: any[] | null = null;
+          try { const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(vkey) : null; if (raw != null) words = JSON.parse(raw); } catch {}
+          if (!Array.isArray(words)) {
+            words = await loadWeakWordsForWarmup(env.DB, ctxUserId, Date.now());
+            try { if (env.SESSION_STATE) await env.SESSION_STATE.put(vkey, JSON.stringify(words), { expirationTtl: 1800 }); } catch {}
+          }
+          const wline = weakWordsPromptLine(words, ctxDifficulty <= 2);
+          if (wline) sys += wline;
+        }
+      } catch (e: any) { console.warn('[warmup] weak words skipped:', e?.message || e); }
+    }
     // 🔁 반복 방지: 직전에 했던 질문/문장을 그대로 다시 묻는 문제(한 문장 반복) 차단
     sys += ' [중요] 이전 대화에서 이미 했던 질문이나 문장을 그대로 반복하지 마. 매번 새로운 표현과 다른 각도의 질문으로 대화를 이어가.';
+    // 🔁 이미 물은 질문 목록 — 엘리더잼은 lesson_topic 에 같은 머리말로 이미 실어 보내므로 두 번 싣지 않는다.
+    if (qmem && !lessonTopic.includes(ASKED_LINE_HEAD)) sys += ' ' + askedQuestionsLine(qmem);
+    /* 🔗 (2026-10-28 사장님 지시) 연결 표현 규칙 + 최근 답장과 다른 말로 시작하기 — 정본 src/conversation-connectors.ts(부르기만).
+       ⛔ 중국어 대화·엘리더잼 예시형 계약(형식 고정 «You could say: …»)에는 싣지 않는다. 던지지 않는다(못 만들면 빈 문자열). */
+    if (ctxLang !== 'zh' && !hasEleaderExpansion(request)) sys += '\n[연결 표현]\n' + connectorPromptBlock(linkBandForStep(ctxDifficulty), history);
     /* ✏️ 교정 카드 (2026-09-08) — 답장과 «같은 한 번의 호출» 에서 JSON 으로 함께 받는다.
        따로 부르면 왕복이 하나 더 붙어 한 턴이 두 배가 된다. 판정 정본은 src/warmup-correction.ts.
        ⚠️ 이 절이 출력 형식을 평문 → JSON 으로 바꾸므로, 아래 모든 추출 자리는 반드시
           takeWarmupReply() 를 지나야 한다. 안 지나면 무너진출력·이름·반복 게이트가
           중괄호 덩어리를 보고 «무너졌다» 로 판정해 대화가 통째로 안전문구로 떨어진다. */
     sys += '\n' + (ctxLang === 'zh' ? WARMUP_ZH_CORRECTION_RULE : WARMUP_CORRECTION_RULE);
+    /* 🎯 (2026-10-29 사장님 «제안서대로») 학생이 고른 교정 모드, 없으면 시범 학원만 «평가 등급 + 정직한 칭찬 + 교정 모드». 정본 src/warmup-honest.ts.
+       ⛔ null 이면 아래 어디에서도 동작이 바뀌지 않는다(예전과 같음). 던지지 않는다. */
+    const honest = await resolveWarmupHonest(env, sessionId, ctxUserId, { lang: ctxLang, chosen: body && body.correction_mode });
+    if (honest) sys += '\n' + warmupHonestRule(honest.mode);
     sys += '\n' + warmupGuidanceRule(body, ctxLang);
+    if (hasEleaderExpansion(request)) sys += ELEADER_EXPANSION_RULE;
     /* 🏷️ 첫 턴에는 «화면 인사» 를 모델 문맥에 넣어 준다 (2026-09-01).
        ⚠️ 이 파일은 공동 금지구역이다 — 2026-08-31 사장님이 「진행해」로 승인하신 «AI 가 자기
           이름을 못 지키는» 그 버그의 연장이고, 변경은 이 조립 1줄 + 주석뿐이다.
@@ -4288,6 +4426,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     let rawFix: any = null;
     let stagedFix: any = null;
     let rawHelp: any = null, stagedHelp: any = null;
+    let rawGrade: any = null, stagedGrade: any = null;   // 🎯 시범 학원만 쓴다(warmup-honest.ts)
     /* ⚠️ 이 파일은 공동 금지구역이다(CLAUDE.md 4-2) — 2026-09-08 사장님
        「테스트 했는데 이전과 달라진게 없는데」(교정 카드 미표시) 제보를 고치는 회귀 수리라
        범위를 이 핸들러 안으로 한정했다. 다른 두 WARMUP_MODEL 호출(3662·4456행)은 안 건드린다
@@ -4321,14 +4460,32 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     };
     /* ⚠️ 모델을 부르는 곳은 «여기 하나» 다 — 폴백을 첫 호출에만 두면 나머지 네 경로가
        그 보호를 못 받고, 「AI 호출 수 == 추출 수」 짝도 어긋난다(하니스가 잡았다). */
-    const runWarmup = async (msgs: any[], temperature: number): Promise<any> => {
+    /* 📡 live(P2) 는 «첫 호출» 에만 넘긴다 — 재시도까지 흘리면 이미 보낸 문장과 새 답이 뒤섞인다
+       (그때는 done 의 replaced:1 로 화면이 정본을 다시 읽는다). 스트림이 안 되면(모델·계정이
+       지원 안 함·중간에 끊김) 같은 호출을 «예전 방식» 으로 다시 해 이득만 잃는다. */
+    const runWarmup = async (msgs: any[], temperature: number, live: any = null): Promise<any> => {
+      const mT0 = Date.now();   // ⏱ 실패한 호출도 센다(그 시간도 학생은 기다린다) — finally 인 이유
+      latTries++;
       try {
+        if (live) {
+          try {
+            const st: any = await env.AI.run(WARMUP_MODEL, { ...warmupAIOpts(msgs, temperature), stream: true });
+            if (!st || typeof st.getReader !== 'function') return st;
+            return { response: await readWarmupAiStream(st, ctxLang, (sen: string) => { live.push(sen); }) };
+          } catch (se: any) {
+            console.warn('[warmup] stream call failed, falling back:', se?.message || se);
+            latTries++;
+          }
+        }
         return await env.AI.run(WARMUP_MODEL, warmupAIOpts(msgs, temperature));
       } catch (rfErr: any) {
         if (!warmupRF || !isRfRejection(rfErr)) throw rfErr;   // 제약 탓이 아니면 그대로 위로 올린다
         console.warn('[warmup] response_format rejected, retrying without:', rfErr?.message || rfErr);
         warmupRF = false;
+        latTries++;
         return await env.AI.run(WARMUP_MODEL, warmupAIOpts(msgs, temperature));
+      } finally {
+        latModelMs += Date.now() - mT0;
       }
     };
     const takeWarmupReply = (r: any): string => {
@@ -4337,6 +4494,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
          `r?.response ?? r?.result?.response` 로 읽는다(2026-09-08 실사고로 맞춤). */
       const parsed = parseWarmupOutput(r?.response ?? r?.result?.response ?? '');
       stagedFix = parsed.fix;
+      stagedGrade = parseWarmupGrade(r?.response ?? r?.result?.response ?? '');
       stagedHelp = body.guided === 1 ? parseSpeakingHelp(r?.response ?? r?.result?.response ?? '', ctxLang) : null;
       /* ⚠️ «빈 응답» 과 «평문이 왔다» 는 다른 사실이다 — 한 숫자로 뭉치면 그 로그를
          보러 온 사람이 「프롬프트가 안 먹는다」로 읽고 엉뚱한 곳을 고친다.
@@ -4348,9 +4506,37 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     /* ⚠️ 교정은 «그 답장을 실제로 채택했을 때만» 확정한다.
        재시도 답장은 거절될 수 있는데(이름·반복 검사), 파싱하자마자 rawFix 를 덮으면
        화면의 답장은 옛것인데 교정 카드만 새 답장의 것이 되어 서로 어긋난다. */
-    const commitFix = () => { rawFix = stagedFix; rawHelp = stagedHelp; };
+    const commitFix = () => { rawFix = stagedFix; rawHelp = stagedHelp; rawGrade = stagedGrade; };
+    /* ⏱ 지연 기록 — ⛔ 학생 발화·답변은 한 글자도 싣지 않는다(길이만). ⛔ 기록이 대화를 막으면 안 된다
+       (통째로 try/catch). level 은 AI 친구와 같은 눈금(1단계 = S1 — CLAUDE.md «레벨은 한 눈금»). */
+    const logWarmupLatency = async (replyText: string, ok: number): Promise<void> => {
+      try {
+        await recordAiLatency(env, {
+          feature: 'warmup',
+          model: WARMUP_MODEL,
+          ms: Date.now() - latT0,
+          model_ms: latModelMs,
+          tries: latTries,
+          chars: String(replyText || '').length,
+          level: ctxDifficulty ? 'S' + ctxDifficulty : undefined,
+          rf: warmupRF ? 1 : 0,
+          ok,
+        });
+      } catch (e: any) {
+        console.error('[warmup] recordAiLatency failed:', e?.message || e);
+      }
+    };
+    /* ⚠️ 중국어는 0(끔) — 아래 «무너진 출력 차단» 주석 참고. 📡 P2 의 «먼저 막는 문» 도 같은 값을 써야
+       해서 첫 호출 «앞» 으로 끌어올렸다(값·식은 그대로다). */
+    const sanityCap = ctxLang === 'zh' ? 0 : (WARMUP_WORD_CAP[ctxDifficulty] || 0);
+    const fragQ = checksFragmentQuestions(ctxDifficulty, ctxLang);   // 🧩 기초 단계(영어 1~3)만 «조각 질문» 을 본다
+    /* 📡 P2 — 흘려보낼 문장을 «내보내기 직전» 에 같은 정본 판정(replyRejectReason·wrongSelfName)에 건다.
+       걸리면 그 자리에서 미리보기를 멈춘다. 정본·이유는 src/warmup-stream.ts 머리말.
+       🔁 이미 물은 질문(repeatOf)도 멈추되, 시간 예산을 넘긴 턴은 다시 안 뽑으니 멈추지도 않는다. */
+    const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput, fragQ, honest: !!honest,
+      repeatOf: qmem ? (sen) => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS && repeatedQuestions(sen, qmem).length > 0 : undefined }) : null;
     try {
-      const result: any = await runWarmup(messages, 0.7);
+      const result: any = await runWarmup(messages, 0.7, live);
       aiText = takeWarmupReply(result); commitFix();
       // 🔁 (2026-07-27) Workers AI 가 드물게 빈 응답을 준다 — 이걸 그대로 두면 아래
       //    "Let's try again" 문구가 나가서, 학생은 자기가 잘 말했는데도 AI가 못 알아들은
@@ -4372,8 +4558,8 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
       /* ⚠️ 중국어는 0(끔) — replyRejectReason 의 길이 판정이 «낱말 수» 인데 중국어 문장은
             공백이 없어 늘 1~2낱말로 세어져 상한에 원리상 안 걸린다. 잘못된 단위로 재느니
             안 재는 편이 낫다(길이 외 판정은 그대로 돈다). 글자 기준 상한은
-            src/warmup-zh.ts 의 WARMUP_ZH_CHAR_CAP 에 적어 두었다 — 쓰려면 별건. */
-      const sanityCap = ctxLang === 'zh' ? 0 : (WARMUP_WORD_CAP[ctxDifficulty] || 0);
+            src/warmup-zh.ts 의 WARMUP_ZH_CHAR_CAP 에 적어 두었다 — 쓰려면 별건.
+         (sanityCap 선언은 📡 P2 로 첫 호출 «앞» 으로 옮겼다 — 값은 그대로) */
       let broke = aiText ? replyRejectReason(aiText, sanityCap) : '';
       if (broke) {
         /* ⚠️ 본문을 로그에 남기지 않는다 — 학생 이름·대화 내용이 섞입니다.
@@ -4409,16 +4595,48 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
           }
         } catch {}
       }
-      // 🔁 그래도 직전 AI 발화와 (거의) 같은 문장이 나오면 1회 재생성 — temperature 를 올리고 명시적으로 지시
-      if (aiText && warmupIsRepeat(aiText, history)) {
-        const retry: any = await runWarmup(messages.concat([
-          { role: 'assistant', content: aiText },
-          { role: 'user', content: '(방금 질문은 이미 했던 거야. 완전히 다른 새로운 질문 하나로 다시 물어봐 줘!)' },
-        ]), 0.95);
-        const retryText = takeWarmupReply(retry);
-        if (retryText && !warmupIsRepeat(retryText, history)) { aiText = retryText; commitFix(); }
+      /* 🧩 «조각 질문» 이면 한 번 다시 뽑는다 (2026-10-28 사장님 「like space? 이런 식으로 나오지 말게」).
+         1단계 «3~5단어» 와 접속사 지시가 겹치면 모델이 do you 를 떼어 「By the way, like space?」 를 만든다.
+         ⛔ 문장을 고쳐 쓰지 않는다 — 다시 뽑게만 한다(아이가 따라 읽을 문장을 코드가 지어내면 안 된다).
+         ⚠️ 다시 뽑은 것이 «조각이 더 적고» 다른 검사도 통과할 때만 받는다 — 아니면 원래 답을 그대로 둔다
+            (조각 하나보다 대화가 끊기는 것이 더 나쁘다). 판정 정본은 src/reply-questions.ts. */
+      const frag = fragQ && aiText ? fragmentQuestions(aiText) : [];
+      if (frag.length && Date.now() - latT0 > FRAG_RETRY_BUDGET_MS) {
+        console.warn('[warmup] fragment question kept (time budget)', 'lv=' + ctxDifficulty);   // ⏱ 이미 오래 기다렸다 — 원래 답을 둔다
+      } else if (frag.length) {
+        console.warn('[warmup] fragment question x' + frag.length, 'lv=' + ctxDifficulty);
+        try {
+          const whole: any = await runWarmup(messages.concat([
+            { role: 'assistant', content: aiText },
+            { role: 'user', content: fragmentQuestionHint(frag, ctxDifficulty) },
+          ]), 0.7);
+          const wholeText = takeWarmupReply(whole);
+          if (wholeText && fragmentQuestions(wholeText).length < frag.length && !replyRejectReason(wholeText, sanityCap)
+              && !wrongSelfName(wholeText, ctxFriend, { askedName: askedOwnName(studentInput) })) {
+            aiText = wholeText; commitFix();
+          }
+        } catch {}
       }
+      // 🔁 그래도 직전 AI 발화와 (거의) 같은 문장이 나오면 1회 재생성 — temperature 를 올리고 명시적으로 지시
+      /* 🔁 (2026-10-28) «말만 바꾼 같은 질문»(big↔small · 방금 들은 white 되묻기)도 잡는다 — 판정·순서 정본 src/question-memory.ts.
+         ⚠️ 그쪽은 시간 예산(FRAG_RETRY_BUDGET_MS) 안에서만, 최대 두 번 다시 뽑는다(한 턴에 호출이 여럿 이어질 수 있다).
+         ⚠️ 다시 뽑은 것이 «같은 질문이 없거나 줄었고» 다른 검사도 통과할 때만 받는다 — 아니면 원래 답(대화를 끊지 않는다).
+         ⚠️ 던지지 않는다 — 예전엔 여기서 던지면 멀쩡한 턴이 통째로 502 였다. */
+      const rr = await retryRepeatedQuestion({
+        text: aiText, textRepeat: !!aiText && warmupIsRepeat(aiText, history),
+        repeatsOf: (t) => repeatedQuestions(t, qmem),
+        inBudget: () => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS,
+        ask: async (extra) => takeWarmupReply(await runWarmup(messages.concat(extra), 0.95)),
+        acceptable: (t) => !warmupIsRepeat(t, history) && !replyRejectReason(t, sanityCap)
+          && !wrongSelfName(t, ctxFriend, { askedName: askedOwnName(studentInput) })
+          && (!fragQ || fragmentQuestions(t).length <= fragmentQuestions(aiText).length),   // 🧩 조각 질문을 되살리지 않게
+        onAccept: () => commitFix(),
+        genericHint: '(방금 질문은 이미 했던 거야. 완전히 다른 새로운 질문 하나로 다시 물어봐 줘!)',
+      });
+      if (rr.tries) console.warn('[warmup] repeat retry', 'tries=' + rr.tries, 'left=' + rr.left, 'lv=' + ctxDifficulty, rr.error || '');
+      aiText = rr.text;
     } catch (e: any) {
+      await logWarmupLatency('', 0);   // ⏱ 실패한 턴의 지연도 «사실» 이라 남긴다(ok=0)
       return new Response(JSON.stringify({ detail: 'AI 응답 생성 실패: ' + String(e?.message || e) }), { status: 502, headers: _MS_JSON });
     }
     // (2026-07-27) 문구 변경: "Let's try again"은 "네가 잘못 말했다"로 읽혀서 학생이
@@ -4430,11 +4648,12 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
       console.warn('[warmup] model returned plain text (no JSON) x' + warmupPlain + ' rf=' + warmupRF);
     }
     if (warmupEmpty) console.warn('[warmup] model returned empty x' + warmupEmpty);
+    const modelOk = !!aiText;   // ⏱ 모델이 답을 만들었나 — 아래 안전 문구로 떨어지면 0
     if (!aiText) {
       aiText = "Oops, I got a little confused there! Can you tell me one more time? 😊";
       /* ⚠️ 답장을 버렸으면 그 출력에서 뽑은 교정도 함께 버린다 — 안 그러면 AI 가
          「못 알아들었어」라고 말하는 바로 밑에 「내가 말한 것 → 이렇게」 카드가 붙는다. */
-      rawFix = null; rawHelp = null;
+      rawFix = null; rawHelp = null; rawGrade = null;
     }
 
     /* 💛 (2026-09-09) 학생이 「학교 싫어」라고 한 턴에는 답장 앞머리의 칭찬 상투구를 떼어 낸다.
@@ -4443,17 +4662,33 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
        ⛔ 말을 지어내지 않는다 — 떼기만 하고, 뗄 것이 없거나 다 떼면 원문 그대로다.
        ⚠️ 판정에 넣는 것은 «학생 발화»(studentInput)다. AI 답장을 넣으면 정반대가 된다. */
     aiText = applyEmpathyGuard(studentInput, aiText) || aiText;   // 빈 값이 오면 «고치기 전» 그대로
+    /* 🎯 시범 학원 — 모델 등급을 믿지 않고 확인한 뒤, 완벽이 아니면 칭찬 말머리를 뗀다(히스토리 저장 «전»).
+       ⚠️ 교정 검증은 아래 카드 게이트와 «같은 함수» 다 — 카드와 음성이 같은 판정에서 나온다. */
+    let honestGrade: any = null;
+    if (honest) {
+      try {
+        /* ⚠️ 카드(아래 verified)와 «같은» 교정을 말해야 한다 — 카드는 모델 교정이 없으면 과거형 규칙을 쓰는데
+           여기서 모델 교정만 보면 카드는 뜨고 3번 반복은 안 되는 엇갈림이 생긴다(2026-10-31 사장님 화면). */
+        const vfix = verifyWarmupFix(rawFix || backfillPastTenseFix(studentInput), studentInput, undefined);
+        honestGrade = finalizeWarmupGrade(modelOk ? rawGrade : null, vfix, studentInput);
+        aiText = applyHonestPraise(aiText, honestGrade) || aiText;
+        // 🎯 집중교정 — 고친 문장을 아바타가 소리 내어 말하게 한다(검증된 교정만, 히스토리 저장 전)
+        aiText = ensureFocusedFixSpoken(aiText, honest.mode, honestGrade, vfix);
+      } catch (e: any) { honestGrade = 'partial'; console.warn('[warmup-honest] grade skipped:', e?.message || e); }
+    }
 
-    // ── 히스토리 갱신(최근 N턴만) + 6시간 TTL 저장 ──
+    /* 🔢 (2026-10-18) «몇 번째 턴인가» 는 단조 증가해야 한다 — 히스토리는 WARMUP_MAX_TURNS 로 잘려
+       history 로만 세면 21에 붙어 교정 게이트(turnCount - lastShownTurn)가 영영 0 이 된다.
+       세션별 카운터를 KV 에 두고, 없거나 못 읽으면 예전 계산 그대로(fail-open). */
+    let turnCount = Math.floor(history.length / 2) + 1;
     try {
-      const updated = history.concat([
-        { role: 'user', content: studentInput },
-        { role: 'assistant', content: aiText }
-      ]).slice(-WARMUP_MAX_TURNS * 2);
-      if (env.SESSION_STATE) await env.SESSION_STATE.put(hkey, JSON.stringify(updated), { expirationTtl: 6 * 3600 });
-    } catch {}
-
-    const turnCount = Math.floor(history.length / 2) + 1;
+      if (env.SESSION_STATE) {
+        const tkey = 'warmupturn:' + sessionId;
+        const prev = Number(await env.SESSION_STATE.get(tkey));
+        if (Number.isFinite(prev) && prev > 0) turnCount = Math.max(turnCount, prev + 1);
+        await env.SESSION_STATE.put(tkey, String(turnCount), { expirationTtl: 6 * 3600 });
+      }
+    } catch (e: any) { console.warn('[warmup] turn counter skipped:', e?.message || e); }
 
     /* ✏️ 교정 카드 (2026-09-08) — 모델이 준 fix 를 «믿지 않고» 검증한 뒤, 보여 줄지까지 정한다.
        ⛔ 매 턴 고치지 않는다. 2026-09-03 AI 영어친구에서 「주제를 벗어나지 마」를 세 겹으로
@@ -4462,13 +4697,20 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
           그래서 통으로 try/catch 이고, 실패하면 fix 없이(=고치기 전과 똑같이) 내려간다. */
     let showFix: any = null;
     let offerRepeat = false;
+    /* 🔎 판정 사유 — 턴마다 한 줄 D1 에 남긴다(정본 src/warmup-fix-trace.ts). 학생 발화는 싣지 않는다. */
+    let traceReason: WarmupFixTraceReason = 'fix_missing';
+    let traceTag = '';
     try {
       /* 🀄 «뜻이 달라지는 축» 은 언어마다 다르다(중국어엔 시제·수일치가 없다).
          안 넘기면 영어 표 — 기존 동작은 한 글자도 안 바뀐다. 정본 src/warmup-correction.ts */
-      const verified = verifyWarmupFix(rawFix, studentInput,
+      /* ✏️ 과거형 보완 (2026-10-31) — 모델이 fix 를 비워 보낸 영어 턴에만 규칙으로 채운다(tense-backfill.ts). */
+      const verified = verifyWarmupFix(rawFix || (ctxLang === 'zh' ? null : backfillPastTenseFix(studentInput)), studentInput,
         /* 🀄 lang 을 빼면 검증기가 «영어 문장인가» 로 재서 **중국어 교정이 100% 버려집니다**
            (isEnglishText 가 한자를 떨어뜨리고 normEn 이 빈 문자열을 만듭니다 — 에러 없음). */
         ctxLang === 'zh' ? { majorTags: ZH_MEANING_CHANGING_TAGS, lang: 'zh' as const } : undefined);
+      /* 🔎 (2026-10-31 제안서 B) 교정이 «왜» 안 떴는지 Workers 로그에 남긴다 — 학생 발화·교정 문장은 싣지 않는다. */
+      if (!verified) console.warn('[warmup-fix] no card:', rawFix ? 'fix-rejected' : 'fix-missing', 'lang=' + ctxLang);
+      traceReason = verified ? 'shown' : (rawFix ? 'fix_rejected' : 'fix_missing');
       if (verified) {
         const mkey = 'warmupfix:' + sessionId;
         let memoIn: any = null;
@@ -4476,9 +4718,29 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
           const rawMemo = env.SESSION_STATE ? await env.SESSION_STATE.get(mkey) : null;
           if (rawMemo != null) memoIn = JSON.parse(rawMemo);
         } catch {}
-        const decided = decideWarmupFixShow(verified, memoIn, turnCount);
+        const decided = decideWarmupFixShow(verified, memoIn, turnCount, { immediate: !!honest && honest.mode === 'focused' });
         showFix = decided.show;
+        traceTag = verified.tag;
+        if (!showFix) traceReason = 'held_gap';   // 검증은 통과 — 턴 간격 규칙이 이번 턴을 미뤘다
+        /* 📝 학부모 화면 «AI가 고쳐 준 표현» 기록 (2026-10-02 파일럿 후속 P4 — 정본 src/warmup-parent.ts)
+           ⛔ ctxUserId 는 화면이 보내는 값이라 그대로 믿으면 남의 아이 학부모 화면에 글자를 심을 수 있다 —
+              서명 토큰 uid(또는 같은 이름의 관리자 세션)가 그 아이디와 «정확히» 같을 때만 기록한다.
+           ⚠️ 기록 실패는 대화를 멈추지 않는다(logWarmupFix 자체도 던지지 않는다). */
+        if (showFix && ctxUserId) {
+          try {
+            let mine = false;
+            const tokUid = await authUidFromRequest(request, new URL(request.url), env, body);
+            if (tokUid && tokUid === ctxUserId) mine = true;
+            else {
+              const ses: any = await checkAdminSession(request, env as any);
+              if (ses && ses.ok && ses.username === ctxUserId) mine = true;
+            }
+            if (mine) await logWarmupFix(env, { sessionId, userId: ctxUserId, fix: showFix, lang: ctxLang });
+          } catch (e: any) { console.warn('[warmup-fix-log]', e?.message || e); }
+        }
         offerRepeat = warmupShouldOfferRepeat(decided.show, decided.memo, turnCount);
+        if (honest) { const g = gateFixForMode(honest.mode, verified, showFix, offerRepeat); showFix = g.show; offerRepeat = g.repeat; }   // 🎯 교정 모드
+        if (traceReason === 'shown' && !showFix) traceReason = 'mode_hidden';   // 🎯 보여줄 것이 있었는데 모드가 가렸다
         // 히스토리와 같은 6시간 — 세션이 끝나면 함께 사라진다(발화를 저장하는 것이 아니다)
         try {
           if (env.SESSION_STATE) await env.SESSION_STATE.put(mkey, JSON.stringify(decided.memo), { expirationTtl: 6 * 3600 });
@@ -4491,6 +4753,24 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     } catch (e: any) {
       console.warn('[warmup] fix gate skipped:', e?.message || e);
     }
+    // 🔎 판정 사유 한 줄 — 실패해도 대화는 계속된다(정본은 던지지 않는다).
+    await logWarmupFixTrace(env, { userId: ctxUserId, sessionId, lang: ctxLang, mode: honest ? honest.mode : '', reason: traceReason, tag: traceTag });
+
+    /* 🧭 (2026-10-31 사장님 「무조건 교정 후에 질문」) 교정 카드가 뜨는 턴이면, 답장은 고친 문장이 «질문보다 먼저»
+       말해진 뒤에 질문으로 간다. 순서는 프롬프트에만 맡기지 않고 correctionLeadIn 이 보장한다.
+       ⚠️ 히스토리 저장은 이 보정 «뒤» 에 한다 — 학생이 본 문장과 모델이 다음 턴에 읽는 문장을 같게 두기 위해서다. */
+    if (showFix) aiText = correctionLeadIn(aiText, showFix, ctxLang === 'zh' ? 'zh' : 'en');
+
+    // ── 히스토리 갱신(최근 N턴만) + 6시간 TTL 저장 ──
+    try {
+      const updated = history.concat([
+        { role: 'user', content: studentInput },
+        { role: 'assistant', content: aiText }
+      ]).slice(-WARMUP_MAX_TURNS * 2);
+      if (env.SESSION_STATE) await env.SESSION_STATE.put(hkey, JSON.stringify(updated), { expirationTtl: 6 * 3600 });
+    } catch {}
+
+    await logWarmupLatency(aiText, modelOk ? 1 : 0);
 
     // 💬 「어떻게 대답하면 되나」 보기 칩 — AI 질문에서 «결정론적으로» 유도한다(src/warmup-answers.ts).
     //    LLM 을 한 번 더 부르지 않으므로 응답이 느려지지 않고, 못 만들면 빈 배열이라 화면이 아무것도 안 그린다.
@@ -4501,6 +4781,10 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
             중국어를 고른 학생에게 영어 보기가 그대로 뜬다(src/warmup-zh.ts 의 주석 참고). */
       answer_chips: ctxLang === 'zh' ? warmupZhAnswerChips(aiText, ctxDifficulty) : warmupAnswerChips(aiText, ctxDifficulty),
       fix: showFix, repeat: offerRepeat, speaking_help: rawHelp,
+      ...(honest ? { grade: honestGrade || 'partial', correction_mode: honest.mode } : {}),   // 🎯 시범 학원만 — 화면이 팡파레를 이 값으로 정한다
+      /* 📡 P2 — 스트리밍 요청일 때만 싣는다(옛 응답 모양은 그대로). 흘려보낸 것과 최종본이 다르면
+         replaced:1 → 화면이 읽던 것을 멈추고 정본을 처음부터 읽는다. halted 는 «이유 코드» 뿐이다. */
+      ...(live ? { replaced: live.replacedBy(aiText), streamed: live.sent(), ...(live.halted() ? { halted: live.halted() } : {}) } : {}),
     }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ detail: 'warmup_failed: ' + String(e?.message || e) }), { status: 500, headers: _MS_JSON });
@@ -4591,19 +4875,26 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     if (qkey && env.SESSION_STATE) {
       try { const raw = await env.SESSION_STATE.get(qkey); if (raw) recentQs = JSON.parse(raw) || []; } catch {}
     }
+    /* 🔁 (2026-10-28) 「질문 골라 보기」 도 대화에서 이미 물은 질문(말만 바꾼 것·반대말 포함)은 내놓지 않는다 —
+       고른 질문은 곧바로 AI 발화가 되기 때문이다. 정본 src/question-memory.ts. 영어만, 기록을 못 읽으면 예전 그대로. */
+    let qmem: ReturnType<typeof questionMemory> = null;
+    if (sessionId && qLang !== 'zh' && env.SESSION_STATE) {
+      try { const raw = await env.SESSION_STATE.get('warmup:' + sessionId); if (raw) qmem = questionMemory(JSON.parse(raw)); } catch {}
+    }
 
     // ── 프롬프트 (전문 화상영어 AI 조교 — 사장님 사양 이식) ──
     const levelDesc = difficulty ? (qLang === 'zh' ? WARMUP_ZH_LEVELS[difficulty] : WARMUP_LEVELS[difficulty])
                                  : (lc.level ? `학생 레벨: ${lc.level}` : '');
     let prompt = qLang === 'zh'
-      ? `당신은 전문 화상 중국어 AI 조교입니다. 수업 전 워밍업에서 학생에게 물어볼 중국어(간체자) 질문을 만듭니다.\n`
-      : `당신은 전문 화상영어 AI 조교입니다. 수업 전 워밍업에서 학생에게 물어볼 영어 질문을 만듭니다.\n`;
+      ? `당신은 전문 화상 중국어 AI 조교입니다. 수업 전 말하기에서 학생에게 물어볼 중국어(간체자) 질문을 만듭니다.\n`
+      : `당신은 전문 화상영어 AI 조교입니다. 수업 전 말하기에서 학생에게 물어볼 영어 질문을 만듭니다.\n`;
     if (levelDesc) prompt += `- 학생 수준: ${levelDesc}\n`;
     prompt += `- ${warmupAgeLine(ageGroup)}\n`;
     if (lc.textbook) prompt += `- 교재 이름: '${lc.textbook}'${lc.lesson_no ? ` (Lesson ${lc.lesson_no})` : ''}\n`;
     if (topic) prompt += `- 오늘의 주제: '${topic}'\n`;
     if (lc.sentences.length) prompt += `- 오늘 배울 핵심 문장: ${lc.sentences.slice(0, 6).map((s) => `"${s}"`).join(' / ')}\n`;
     if (recentQs.length) prompt += `- 이미 사용한 질문(절대 반복 금지): ${recentQs.slice(-12).map((q) => `"${q}"`).join(' / ')}\n`;
+    if (qmem) prompt += `- ${askedQuestionsLine(qmem)}\n`;
     // 🕸️ 개인화(Neo4j): 이 학생이 복습퀴즈에서 자주 틀린 문장 → 그 표현·문형을 다시 쓰게 만드는 질문 우선.
     //    채팅(handleWarmupChat)과 동일하게 세션당 1회 조회 + KV 30분 캐시, 장애 시 조용히 생략.
     if (userId && env.NEO4J_QUERY_URL) {
@@ -4680,14 +4971,16 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
 
     // 반복 제거(기존 사용분과 정규화 비교) + 개수 보정
     const seen = new Set(recentQs.map(warmupNormSent));
-    questions = questions.filter((q) => !seen.has(warmupNormSent(q))).slice(0, count);
+    questions = questions.filter((q) => !seen.has(warmupNormSent(q)) && !repeatedQuestions(q, qmem).length).slice(0, count);
     if (!questions.length) {
       // AI 실패/전부 중복 → 레벨대별 준비 질문에서 미사용분 채움 (화면이 비지 않게)
       const band = difficulty >= 6 ? 'high' : difficulty >= 4 ? 'mid' : 'low';
       /* ⚠️ 안전망도 «고른 말» 로 준다 — 영어 목록을 그대로 쓰면 중국어 대화에 영어 질문이
             세 개 뜬다. 모델이 실패했을 때만 오는 갈래라 조용히 새기 쉽다. */
       const bank = qLang === 'zh' ? WARMUP_ZH_FALLBACK_QUESTIONS : WARMUP_FALLBACK_QUESTIONS;
-      questions = bank[band].filter((q) => !seen.has(warmupNormSent(q))).slice(0, count);
+      questions = bank[band].filter((q) => !seen.has(warmupNormSent(q)) && !repeatedQuestions(q, qmem).length).slice(0, count);
+      // 🔁 다 걸러졌으면 «보여 줬던» 질문이라도 다시 준다 — 단 이미 물은 질문(qmem)은 끝까지 뺀다(빈 칩이 반복 질문보다 낫다)
+      if (!questions.length) questions = bank[band].filter((q) => !repeatedQuestions(q, qmem).length).slice(0, count);
     }
 
     // 사용 질문 목록 갱신 (최근 30개, 6시간)
@@ -5690,6 +5983,9 @@ async function handleRecordingList(request: Request, env: Env): Promise<Response
       for (let page = 0; page < REC_LIST_MAX_PAGES; page++) {
         const listed: any = await env.RECORDINGS.list({ prefix, limit: 1000, cursor });
         for (const o of (listed.objects || [])) {
+          // An explicit ?prefix= may cover the entire shared bucket. Private
+          // learner works are accessible only through their own authenticated API.
+          if (isPrivateDubbingKey(o.key)) continue;
           // 🛟 `<키>.snap` 은 짧은 녹화 안전망의 «사본» 이라 목록에 내보내지 않는다.
           //   내보내면 관리자 화면에 「⚠ 기록 없음(고아)」 로 한 줄씩 더 뜬다(recordings-r2.ts 참고).
           if (String(o.key).endsWith('.snap')) continue;
@@ -5721,6 +6017,7 @@ async function handleRecordingDownload(path: string, request: Request, env: Env)
     const rawKey = path.replace('/api/recordings/blob/', '');
     const key = decodeURIComponent(rawKey);
     if (!key) return recordingJson({ error: 'No key provided' }, 400);
+    if (isPrivateDubbingKey(key)) return recordingJson({ error: 'Not found' }, 404);
 
     const rangeHeader = request.headers.get('range');
     let range: { offset: number; length?: number } | undefined;
@@ -5780,6 +6077,7 @@ async function handleRecordingDelete(path: string, env: Env): Promise<Response> 
     const rawKey = path.replace('/api/recordings/blob/', '');
     const key = decodeURIComponent(rawKey);
     if (!key) return recordingJson({ error: 'No key provided' }, 400);
+    if (isPrivateDubbingKey(key)) return recordingJson({ error: 'Not found' }, 404);
     await env.RECORDINGS.delete(key);
     return recordingJson({ success: true, key });
   } catch (err: any) {

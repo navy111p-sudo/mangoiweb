@@ -1,0 +1,311 @@
+{
+  "id": "s3-25",
+  "breaks": [
+    4,
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 4,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "위기",
+      "en": "crisis"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «컴퓨터에 일이 너무 몰려 경보가 계속 울렸다(위기)» 와 «협동과 용기가 있으면 사람은 불가능해 보이던 곳에도 갈 수 있다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the crisis (the overloaded computer kept sounding alarms) and the lesson (with teamwork and courage, humans can reach places that once seemed impossible). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "The first Moon landing"
+    },
+    {
+      "k": "Problems",
+      "qko": "착륙 직전에 어떤 위험이 있었나요?",
+      "qen": "What dangers did they face?",
+      "a": "Computer alarms, large rocks, and low fuel"
+    },
+    {
+      "k": "Result",
+      "qko": "결국 어떻게 되었나요?",
+      "qen": "What happened in the end?",
+      "a": "The Eagle landed safely, and Armstrong walked on the Moon"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "On July 20, 1969, the Eagle dropped toward the ",
+      "ans": "Moon",
+      "opts": [
+        "Moon",
+        "Mars",
+        "Sun"
+      ]
+    },
+    {
+      "pre": ". The computer was overloaded and kept sounding ",
+      "ans": "alarms",
+      "opts": [
+        "alarms",
+        "songs",
+        "jokes"
+      ]
+    },
+    {
+      "pre": ", but an engineer in Houston said it was safe to continue. Then Armstrong saw that the landing area was full of large ",
+      "ans": "rocks",
+      "opts": [
+        "rocks",
+        "trees",
+        "people"
+      ]
+    },
+    {
+      "pre": ", so he flew by hand as the ",
+      "ans": "fuel",
+      "opts": [
+        "fuel",
+        "snow",
+        "paint"
+      ]
+    },
+    {
+      "pre": " ran low. Finally, the Eagle touched down safely, showing that with teamwork and ",
+      "ans": "courage",
+      "opts": [
+        "courage",
+        "luck",
+        "fear"
+      ]
+    },
+    {
+      "pre": ", humans can reach places that once seemed impossible.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "spacecraft",
+      "우주선",
+      "his tiny <b>spacecraft</b> dropped toward the Moon",
+      "a vehicle that travels in space"
+    ],
+    [
+      "orbit",
+      "궤도",
+      "circled above in <b>orbit</b>",
+      "the curved path something takes around a planet or moon"
+    ],
+    [
+      "overloaded",
+      "과부하가 걸린",
+      "the computer was <b>overloaded</b>",
+      "given too much work to do at once"
+    ],
+    [
+      "danger",
+      "위험",
+      "Armstrong saw another <b>danger</b>",
+      "something that can cause harm"
+    ],
+    [
+      "fuel",
+      "연료",
+      "as the <b>fuel</b> ran low",
+      "something burned to make power, like gas for a rocket"
+    ],
+    [
+      "courage",
+      "용기",
+      "with teamwork and <b>courage</b>",
+      "being brave when something is scary"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did Armstrong fly the Eagle over the rocks by hand?",
+      "qko": "암스트롱이 이글호를 직접 조종해 바위 위를 날아간 이유는 무엇인가요?",
+      "opts": [
+        "Because the landing area was full of large rocks",
+        "Because the computer told him to land on the rocks",
+        "Because the Moon has no flat places at all"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Then Armstrong saw another danger: the landing area was full of large rocks.",
+        "Now the computer was overloaded and kept sounding alarms.",
+        "Their Apollo 11 mission had traveled about 384,000 kilometers from Earth.",
+        "About 600 million people watched on television."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "착륙 장소가 큰 바위로 가득 차 있는 것을 보고, 암스트롱은 직접 조종해 평평한 곳을 찾았다고 했어요.",
+        "Armstrong saw that the landing area was full of large rocks, so he took control by hand to find a flat spot."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In \"Finally, the Eagle touched down safely,\" what does \"touched down\" mean?",
+      "qko": "«Finally, the Eagle touched down safely» 에서 «touched down» 은 무슨 뜻인가요?",
+      "opts": [
+        "landed on the ground",
+        "flew higher into space",
+        "broke into pieces"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "\"The Eagle has landed,\" Armstrong reported, and people at Mission Control cheered.",
+        "Armstrong and Buzz Aldrin were inside the lunar module called the Eagle, while Michael Collins circled above in orbit.",
+        "In Houston, a young engineer quickly checked and said it was safe to continue.",
+        "About 600 million people watched on television."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "바로 뒤에 암스트롱이 «The Eagle has landed(이글호가 착륙했다)» 고 보고했어요. 그러니 «touched down» 은 «땅에 내려앉다, 착륙하다» 라는 뜻이에요.",
+        "Right after, Armstrong reported «The Eagle has landed», so «touched down» means landed on the ground."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did teamwork help solve the alarm problem?",
+      "qko": "협동은 경보 문제를 어떻게 해결했나요?",
+      "opts": [
+        "When the computer kept sounding alarms, an engineer in Houston checked and said it was safe to go on",
+        "Armstrong turned the computer off and flew back to Earth",
+        "Michael Collins landed the Eagle by himself"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Now the computer was overloaded and kept sounding alarms.",
+        "Finally, the Eagle touched down safely.",
+        "In Houston, a young engineer quickly checked and said it was safe to continue.",
+        "Hours later, he stepped onto the surface and said, \"That's one small step for man, one giant leap for mankind.\""
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "컴퓨터에 일이 몰려 경보가 계속 울렸지만, 휴스턴의 젊은 기술자가 재빨리 확인하고 계속해도 안전하다고 알려 주었어요. 우주와 땅의 협동이 보이는 두 문장이에요.",
+        "The overloaded computer kept sounding alarms, but a young engineer in Houston quickly checked and said it was safe to continue. These two sentences show teamwork between space and Earth."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "What is it like to live and work on a space station?",
+      "우주 정거장에서 살며 일하는 것은 어떤 모습일까요?",
+      "Life on the Space Station"
+    ],
+    [
+      "B",
+      "Will people someday walk on Mars?",
+      "사람들은 언젠가 화성 위를 걸을 수 있을까요?",
+      "The Road to Mars"
+    ]
+  ],
+  "write": {
+    "pre": "I want to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“I want to <u>visit the Moon someday</u> because <u>I want to see Earth from space</u>.”",
+    "slotKo": [
+      "하고 싶은 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what you want to do",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «하고 싶은 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you want to do and your reason in English.",
+    "chips": [
+      {
+        "a": "become a scientist",
+        "b": "I love solving puzzles",
+        "label": "science"
+      },
+      {
+        "a": "build a rocket model",
+        "b": "rockets are exciting",
+        "label": "rocket"
+      },
+      {
+        "a": "look at the stars tonight",
+        "b": "the sky is clear",
+        "label": "stars"
+      }
+    ],
+    "aria": [
+      "what you want to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because astronauts are brave)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because astronauts are brave)"
+  },
+  "img": {
+    "style": "photo",
+    "cover": "A spider-legged lunar landing craft wrapped in gold foil resting on the gray, dusty surface of the Moon, with a black sky and the blue Earth hanging above the horizon",
+    "scenes": {
+      "1": "Inside a cramped spacecraft cabin with rows of plain switches, round dials, and small warning lights glowing amber",
+      "3": "Close view of an astronaut’s ridged white boot pressing a deep footprint into fine gray Moon dust"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "Warning lights inside a spacecraft",
+    "3": "A boot print in Moon dust",
+    "cover": "A landing craft on the Moon with Earth above"
+  }
+}

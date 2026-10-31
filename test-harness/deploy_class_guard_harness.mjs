@@ -33,7 +33,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 //    ERR_UNSUPPORTED_ESM_URL_SCHEME 로 죽는다(리눅스 CI 는 통과해서 로컬만 빨간불).
 //    반드시 pathToFileURL(...).href 로 넘긴다 — 이 저장소의 다른 하니스들과 같은 방식.
 const W = await import(pathToFileURL(join(ROOT, '.github/scripts/class-window.mjs')).href);
-const { LIVE_CLASS_SQL, LIVE_WINDOW_MS, probeLiveClass, readCfIds, decideHold, isClassWindow } = W;
+const { LIVE_CLASS_SQL, LIVE_WINDOW_MS, probeLiveClass, readCfIds, decideHold, isClassWindow, probeNotice } = W;
 const MANGO = readFileSync(join(ROOT, 'cloudflare-deploy/src/api-mango.ts'), 'utf8');
 const YML   = readFileSync(join(ROOT, '.github/workflows/deploy.yml'), 'utf8');
 const PS1   = readFileSync(join(ROOT, 'deploy.ps1'), 'utf8');
@@ -140,6 +140,24 @@ ok('응답 모양이 다르면 → 막지 않는다', weird.ok === false && weir
    (CLAUDE.md 2장 「가짜 DB 로 하니스를 돌렸는데 검사가 헛돌며 통과」) */
 ok('🧬 그래서 «제대로 찾는다» 검사가 위에 짝으로 있다', good.ok === true && good.live === 3);
 
+console.log('\n── ②-1 실패 안내 문구 (probeNotice — 2026-10-26 「실접속 판정 켜기」 결정) ──');
+/* 403 = «켜기로 했는데 토큰 권한이 아직 없음». 무엇을 하면 풀리는지 말해야 한다.
+   ⛔ 「403 만 친절하게」가 «나머지 실패를 조용히» 로 번지면 안 된다 — 짝으로 본다. */
+const n403 = probeNotice('http-403');
+ok('403 → 안내가 나온다 (조용히 넘기지 않는다)', !!n403 && n403.level === 'warn');
+ok('403 → 해결책(D1 · Read 권한 추가)을 말한다', /D1 · Read/.test(n403.line) && /D1 · Read/.test(n403.summary));
+ok('403 → 어느 토큰인지 말한다', /CLOUDFLARE_API_TOKEN/.test(n403.line) && /CLOUDFLARE_API_TOKEN/.test(n403.summary));
+ok('403 → «막지 않음» 을 말한다 (fail-open 이 그대로임을 사람에게)', /막지 않/.test(n403.line));
+for (const e of ['http-500', 'TimeoutError', 'unexpected-shape', 'no-credentials']) {
+    const n = probeNotice(e);
+    ok(`🧬 짝: ${e} → 원래 경고 그대로 (조용해지지 않는다)`,
+       !!n && n.level === 'warn' && /실접속 확인 실패/.test(n.line) && n.line.includes(e) && !/D1 · Read/.test(n.line));
+}
+ok('건너뜀/오류 없음 → 아무 말도 안 한다', probeNotice('skipped') === null && probeNotice('') === null);
+const SRC_NOTICE = readFileSync(join(ROOT, '.github/scripts/class-window.mjs'), 'utf8');
+ok('CLI 가 문구 정본(probeNotice)을 부른다 — 따로 조립하지 않는다',
+   /probeNotice\(probe\.error\)/.test(SRC_NOTICE) && !/console\.log\(`⚠️ 실접속/.test(SRC_NOTICE));
+
 console.log('\n── ②-2 창 안에서는 D1 을 «부르지 않는다» (CLI 를 실제로 실행) ──');
 /* ⚠️ 창 안이면 어차피 보류라 물어볼 이유가 없다. 부르면 배포마다 쓸데없는 왕복이 생기고,
    D1 이 흔들릴 때 «보류인데도» 8초를 더 기다린다. 순서를 뒤집지 말라는 계약이다.
@@ -151,8 +169,8 @@ const runCli = (nowIso) => spawnSync(process.execPath,
         CLOUDFLARE_API_TOKEN: 'dummy-token-for-probe-test',
         CLOUDFLARE_ACCOUNT_ID: '', FORCE_NOW: '', COMMIT_MESSAGE: '',
         GITHUB_OUTPUT: '', GITHUB_STEP_SUMMARY: '' } });
-/* 2026-09-01 은 화요일 — 06:00 UTC = 15:00 KST = 창 «안» */
-const inWin = runCli('2026-09-01T06:00:00Z');
+/* 2026-09-01 은 화요일 — 05:00 UTC = 14:00 KST = 창 «안» (2026-10-02 창 끝이 15:00 으로 당겨져 06:00 UTC 는 창 밖) */
+const inWin = runCli('2026-09-01T05:00:00Z');
 ok('창 안이면 보류로 끝난다', /hold=true/.test(inWin.stdout));
 ok('창 안에서는 실접속을 물어보지 않는다 (조회 실패 문구가 없다)',
    !/실접속 확인 실패/.test(inWin.stdout));

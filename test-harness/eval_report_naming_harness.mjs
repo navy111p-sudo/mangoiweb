@@ -9,7 +9,7 @@
 //          (실제로는 낱장 /eval.html 과 한 달치 합본 /report.html)
 //       ② 점수 만점 표기가 틀렸다 — report.html 이 「/10」으로 못 박아 두었는데
 //          `student_evaluations.score_overall` 은 **한 칸에 두 척도** 다:
-//            · 강사 1분 수업일지(/api/eval/create · bulk-create) … 1~5
+//            · 강사 1분 수업일지 … 1~5; 관리자 AI 초안·일괄 평가 … 0~10
 //            · AI 수업 리포트(/api/eval/ai-lesson-report)         … 0~100
 //          2026-09-04 운영 D1 실측: 1~5 행 3건 · 0~100 행 2건. 「/10」은 어느 쪽도 아니다.
 //       ③ 그 탓에 eval.html 목록이 0~100 행에서 **RangeError 로 통째로 안 그려졌다**
@@ -128,7 +128,8 @@ if (fEval && fRep) {
   ok('두 화면의 만점 판정이 «같은 답» 을 낸다', same, bad);
   ok('1~5 행은 만점 5 · 0~100 행은 만점 100 으로 읽는다', right, bad);
 }
-// ⛔ 「/10」은 두 척도 어느 쪽도 아니다 — 되살아나면 학부모가 틀린 만점을 본다.
+// 이 두 학부모 화면은 아직 값으로 척도를 추정한다. 관리자 목록은 메타데이터를 사용한다.
+// 아래 검사는 기존 학부모 화면의 회귀만 보며, 실제 bulk/draft의 /10 지원은 후속 과제다.
 // 세부 점수(참여도·말하기 …)도 만점이 하나가 아니다 — AI 리포트 행은 0~100 이라 「90 / 5」가 된다.
 ok('eval.html 세부 점수 막대가 「/ 5」를 못 박지 않는다', !/">\/ 5<\/span>/.test(strip(evalH)));
 ok('eval.html 세부 점수 막대가 evalMax() 로 만점을 정한다', /const smax = evalMax\(value\)/.test(evalH) && /\/ \$\{smax\}/.test(evalH));
@@ -183,18 +184,20 @@ ok('관리자 평가서 표(adm-r6.js)가 점수를 그대로 repeat() 하지 �
   // 실제로 돌려서 확인한다 — 88 이 들어오면 옛 코드는 RangeError 를 던졌다
   const m = strip(admR6).match(/const evMax = [\s\S]*?const stars = [^;]+;/);
   if (m) {
-    const f = new Function('overall', `${m[0]} return stars;`);
+    const f = new Function('e', `${m[0]} return stars;`);
+    const known = v => ({ score_max: 100, score_status: 'ok', score_normalized_100: v });
     let threw = '';
-    for (const v of [88, 84, 5, 0, null, 120]) { try { f(v); } catch (e) { threw += ` ${v}:${e.constructor.name}`; } }
+    for (const v of [88, 84, 5, 0, null, 120]) { try { f(known(v)); } catch (e) { threw += ` ${v}:${e.constructor.name}`; } }
     ok('관리자 표 별점이 0~100 행에서 안 던진다', !threw, threw);
     /* ⚠️ try/catch 로 감싼다 — 되돌리면 f(88) 이 던지는데, 안 감싸면 하니스가 스택트레이스만
      *   남기고 죽어 «무엇이 깨졌는지» 가 안 보인다(CLAUDE.md: 하니스를 크래시시키지 말 것). */
     let five = true, err5 = '';
     for (const v of [88, 5, 0, 120]) {
-      try { if ((f(v).match(/[★☆]/g) || []).length !== 5) { five = false; err5 += ` ${v}:${(f(v).match(/[★☆]/g) || []).length}칸`; } }
+      try { if ((f(known(v)).match(/[★☆]/g) || []).length !== 5) { five = false; err5 += ` ${v}:${(f(known(v)).match(/[★☆]/g) || []).length}칸`; } }
       catch (e) { five = false; err5 += ` ${v}:${e.constructor.name}`; }
     }
-    ok('관리자 표 별점이 언제나 5칸이다', five, err5);
+    ok('관리자 표 별점이 알려진 척도에서 언제나 5칸이다', five, err5);
+    ok('관리자 표는 미확인 척도의 별점을 추측하지 않는다', f({ score_status: 'unknown_scale', score_normalized_100: null }) === '-');
   } else ok('adm-r6.js 별점 블록을 오려 낼 수 있다', false, '못 찾음 — 검사가 헛돈다');
 }
 // 성적표 「평균 점수」 — 섞인 달이면 «모른다» 고 말해야 한다

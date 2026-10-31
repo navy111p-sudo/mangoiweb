@@ -1,0 +1,310 @@
+{
+  "id": "s2-11",
+  "breaks": [
+    3,
+    3,
+    4
+  ],
+  "key": {
+    "P": 2,
+    "S": 4
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «거북의 다리가 비닐봉지와 그물에 엉킨 것(문제)» 과 «아빠가 거북을 잡고 지수가 비닐을 잘라 낸 것(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the turtle's legs were tangled in plastic and a net) and the solution (Jisu and her dad cut the plastic away). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Jisu, her dad"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "A sea turtle's legs were tangled in plastic and a fishing net."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "They cut the plastic away, and the turtle went back to the sea."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Jisu found a small sea ",
+      "ans": "turtle",
+      "opts": [
+        "turtle",
+        "dog",
+        "bird"
+      ]
+    },
+    {
+      "pre": " on the beach. Its legs were tangled in a plastic ",
+      "ans": "bag",
+      "opts": [
+        "bag",
+        "hat",
+        "book"
+      ]
+    },
+    {
+      "pre": " and a fishing net. Jisu and her dad cut the plastic away, and the turtle crawled back into the ",
+      "ans": "waves",
+      "opts": [
+        "waves",
+        "trees",
+        "house"
+      ]
+    },
+    {
+      "pre": ". Then Jisu saw lots of ",
+      "ans": "trash",
+      "opts": [
+        "trash",
+        "flowers",
+        "shells"
+      ]
+    },
+    {
+      "pre": " on the sand. She and her dad ",
+      "ans": "picked",
+      "opts": [
+        "picked",
+        "threw",
+        "dropped"
+      ]
+    },
+    {
+      "pre": " up three bags of it. Small actions can protect sea animals.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "tangled",
+      "엉킨",
+      "Its legs were <b>tangled</b> in an old plastic bag and a fishing net.",
+      "twisted and caught"
+    ],
+    [
+      "plastic",
+      "플라스틱, 비닐",
+      "Its legs were tangled in an old <b>plastic</b> bag and a fishing net.",
+      "a light material used for bags and bottles"
+    ],
+    [
+      "gently",
+      "살살, 부드럽게",
+      "Jisu <b>gently</b> cut the plastic away with small scissors",
+      "in a soft and careful way"
+    ],
+    [
+      "crawled",
+      "기어갔다",
+      "When it was free, the turtle slowly <b>crawled</b> back into the waves.",
+      "moved slowly with the body close to the ground"
+    ],
+    [
+      "trash",
+      "쓰레기",
+      "This <b>trash</b> can hurt so many animals",
+      "things people throw away"
+    ],
+    [
+      "protect",
+      "보호하다",
+      "small actions, like picking up plastic, can <b>protect</b> sea animals",
+      "to keep safe"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why was the sea turtle not moving well?",
+      "qko": "바다거북은 왜 잘 움직이지 못했나요?",
+      "opts": [
+        "Its legs were tangled in plastic and a net.",
+        "It was sleeping in the sun.",
+        "Jisu was holding it in her hands."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Near the rocks, she saw a small sea turtle that was not moving well.",
+        "Its legs were tangled in an old plastic bag and a fishing net.",
+        "When it was free, the turtle slowly crawled back into the waves.",
+        "Jisu looked around and saw bottles, cups, and bags everywhere on the sand."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "거북의 다리가 낡은 비닐봉지와 그물에 엉켜 있었다고 나와 있어요.",
+        "The text says its legs were tangled in an old plastic bag and a fishing net."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In \"When it was free,\" what does \"free\" mean?",
+      "qko": "«When it was free» 에서 «free» 는 무슨 뜻인가요?",
+      "opts": [
+        "the plastic was no longer around its legs",
+        "it did not cost any money",
+        "it was very tired and sleepy"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Her dad carefully held the turtle while Jisu gently cut the plastic away with small scissors.",
+        "On a sunny morning, Jisu walked along the beach with her dad.",
+        "\"This trash can hurt so many animals,\" she said sadly.",
+        "That afternoon, she and her dad picked up three bags of trash."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "바로 앞에서 지수가 비닐을 잘라 냈어요. 그래서 다리를 묶던 것이 없어졌다는 뜻이에요.",
+        "Just before, Jisu cut the plastic away. So «free» means nothing was holding its legs anymore."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "What two things did Jisu do to help sea animals?",
+      "qko": "지수는 바다 동물을 돕기 위해 어떤 두 가지 일을 했나요?",
+      "opts": [
+        "She freed a turtle and picked up trash on the beach.",
+        "She took the turtle home as a pet.",
+        "She bought a new fishing net."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Her dad carefully held the turtle while Jisu gently cut the plastic away with small scissors.",
+        "That afternoon, she and her dad picked up three bags of trash.",
+        "On a sunny morning, Jisu walked along the beach with her dad.",
+        "Jisu looked around and saw bottles, cups, and bags everywhere on the sand."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "지수는 거북에게서 비닐을 잘라 냈고, 오후에는 아빠와 쓰레기 세 봉지를 주웠어요. 두 문장을 이으면 알 수 있어요.",
+        "Jisu cut the plastic off the turtle, and that afternoon she and her dad picked up three bags of trash."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Jisu asks her class to clean the beach together.",
+      "지수가 반 친구들에게 함께 바닷가를 청소하자고 해요.",
+      "Beach Clean-Up Day"
+    ],
+    [
+      "B",
+      "Jisu sees the same turtle swimming in the sea.",
+      "지수가 바다에서 헤엄치는 그 거북을 다시 봐요.",
+      "Hello Again, Turtle"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“Let’s <u>pick up the trash on the beach</u> so that <u>sea animals stay safe</u>.”",
+    "slotKo": [
+      "함께 할 일",
+      "그러면 생기는 좋은 점"
+    ],
+    "slotEn": [
+      "what we do together",
+      "what good thing happens"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그러면 생기는 좋은 점» 으로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we can do together and the good thing that happens in English.",
+    "chips": [
+      {
+        "a": "turn off the lights",
+        "b": "we save energy",
+        "label": "lights"
+      },
+      {
+        "a": "use our own cups",
+        "b": "we make less trash",
+        "label": "cups"
+      },
+      {
+        "a": "water the plants",
+        "b": "they grow tall",
+        "label": "plants"
+      }
+    ],
+    "aria": [
+      "what we do",
+      "what good thing happens"
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에 «누가 + 무엇을 한다» 를 넣어 보세요. (예: so that the birds are safe)",
+    "moreEn": "One more step: after «so that», write who + what happens. (e.g. so that the birds are safe)"
+  },
+  "img": {
+    "style": "papercut",
+    "cover": "On a sunny beach near some rocks, a girl with short black hair, a red cap and a blue T-shirt kneels beside a small sea turtle, with a tall man with glasses and a white shirt beside her and waves behind them.",
+    "scenes": {
+      "1": "On the sand, the tall man with glasses and a white shirt carefully holds a small sea turtle while the girl with short black hair, a red cap and a blue T-shirt cuts a plastic bag and a fishing net away from its legs with small scissors.",
+      "2": "On the beach, the girl with short black hair, a red cap and a blue T-shirt and the tall man with glasses and a white shirt pick up plastic bottles, cups and bags and put them into large trash bags."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Jisu cuts the plastic away from the turtle's legs.",
+    "2": "Jisu and her dad pick up trash on the beach.",
+    "cover": "Jisu and her dad find a small sea turtle on the beach."
+  }
+}

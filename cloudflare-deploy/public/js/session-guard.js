@@ -222,3 +222,240 @@
     else sweep();
   } catch (_) { /* 이 파일의 어떤 실패도 페이지를 막지 않는다 */ }
 })();
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * 🆘 ENTRY-FAIL-HELP — 수업 입장이 막힌 «그 순간» 진단·상담으로 잇기 (2026-10-02, P5)
+ *
+ *   왜 — 파일럿 VoC 1번이 「아예 수업에 입장을 못했다」였다. 진단 화면(/precheck.html,
+ *     메뉴 「🎥 수업 진단」)은 이미 있는데, 막힌 학생은 그것이 있는 줄 모른다.
+ *     그래서 «실패가 확인된 순간에만» 작은 안내 카드를 띄워 두 길을 준다.
+ *       ① 🎥 수업 진단 열기(/precheck.html) ② 💬 카카오 상담(채널 홈 — /chat 금지)
+ *
+ *   언제 뜨나 (이것뿐이다 — 정상 입장 경로에는 아무것도 안 그린다)
+ *     ⓐ 카메라·마이크: idx-main.js 가 vcShowLocalPlaceholder('all-fail') 를 부를 때,
+ *        또는 'camera-fail' 인데 직전 오류가 «권한 거부·장치 없음·차단·미지원» 일 때.
+ *        ('사용 중(NotReadable)' 은 idx-main 이 스스로 다시 시도하므로 띄우지 않는다)
+ *        그리고 「⚠️ 마이크가 감지되지 않았습니다」 alert 뒤(그 alert 는 그대로 둔다).
+ *     ⓑ 수업 연결(WebSocket /ws/video-call): 연결 성공 없이 끊김이 FAIL_N 번 이어질 때,
+ *        또는 만든 뒤 OPEN_WAIT_MS 동안 한 번도 안 열렸을 때. 다시 열리면 카드를 거둔다.
+ *
+ *   어떻게 — idx-main.js(blocking, 첫 화면 예산)와 index.html(공동 금지구역)을 한 글자도 안 고치고
+ *     전역 함수(createWebSocket·vcShowLocalPlaceholder·describeMediaError·alert)를 «밖에서» 감싼다.
+ *     ⚠️ 약점: 그 이름이 바뀌면 조용히 헛돈다 — test-harness/entry_fail_help_harness.mjs 가
+ *        «idx-main 에 그 이름들이 아직 있는가» 를 함께 본다.
+ *   이 파일을 고른 이유 — index.html 이 ?v= 없이 싣는 defer 파일이라 index.html 의 ?v= 를
+ *     올릴 필요가 없다(no-cache 재검증). teacher.html 은 이 파일을 싣지 않는다(학생 화면 전용).
+ *
+ *   ⛔ 상주 setInterval·body class MutationObserver 없음(홈 정지 전력). 타이머는 소켓마다 한 번뿐.
+ *   ⚠️ top 80px — 폰의 재연결 배너가 14~70px 라(브라우저 실측) 그 아래에 둔다.
+ *   ⛔ 카드 z-index 2147483001 — A.i 상담사 위젯(2147483000) 바로 위, ➕ FAB(2147483200)·
+ *      재연결 배너(2147483646) 아래. 더 올리지 말 것.
+ *   ⛔ 버튼에 data-ko/data-en 을 달지 않는다(두 i18n 엔진이 textContent 를 갈아끼운다).
+ *      언어가 바뀌면 카드를 통째로 다시 그린다.
+ * ═══════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  try {
+    if (window.__mgEntryHelp) return;
+    // index.html(수업 화면)에서만 — 다른 학생 화면은 그 전역이 없다.
+    if (typeof window.createWebSocket !== 'function' && typeof window.vcShowLocalPlaceholder !== 'function') return;
+
+    var PRECHECK_URL = '/precheck.html';
+    var KAKAO_URL = 'https://pf.kakao.com/_xlqnSxd';     // ⛔ 뒤에 /chat 붙이지 말 것(비로그인 PC 가 로그인 화면으로 튕김)
+    var FAIL_N = 4;                // 성공 없이 끊긴 횟수 — 재시도 1+2+4+8 ≈ 15초 뒤
+    var OPEN_WAIT_MS = 25000;      // 첫 연결이 이 시간 안에 한 번도 안 열리면
+    var DENY = { NotAllowedError: 1, PermissionDeniedError: 1, NotFoundError: 1, DevicesNotFoundError: 1, SecurityError: 1, TypeError: 1 };
+
+    var state = { reason: '', dismissed: {}, lastErr: '', lastErrAt: 0 };
+
+    function lang() {
+      try { if (typeof window.getLang === 'function') { var g = String(window.getLang() || ''); if (g) return g.toLowerCase(); } } catch (_) {}
+      try { return String(localStorage.getItem('mangoi_lang') || 'ko').toLowerCase(); } catch (_) { return 'ko'; }
+    }
+    function isZh() {
+      try { return /^zh/i.test(String(navigator.language || '')); } catch (_) { return false; }
+    }
+    function isObserver() {
+      try { return !!(document.body && document.body.classList.contains('vc-observer')); } catch (_) { return false; }
+    }
+
+    function texts(reason) {
+      var en = lang() === 'en';
+      var title = reason === 'net'
+        ? (en ? 'Can’t connect to the class' : '수업에 연결이 안 되고 있어요')
+        : (en ? 'Camera or microphone isn’t working' : '카메라·마이크가 켜지지 않았어요');
+      var body = en
+        ? 'Run the class check to find the cause, or ask us on KakaoTalk.'
+        : '수업 진단으로 원인을 확인하거나, 카카오로 바로 물어보세요.';
+      return {
+        title: title, body: body,
+        zh: isZh() ? '无法进入课堂？请点下面蓝色按钮做课堂检测，或点黄色按钮用 Kakao 咨询。' : '',
+        diag: en ? '🎥 Open class check' : '🎥 수업 진단 열기',
+        kakao: en ? '💬 Ask on KakaoTalk' : '💬 카카오 상담',
+        close: en ? 'Close' : '닫기'
+      };
+    }
+
+    function ensureStyle() {
+      if (document.getElementById('mg-entry-help-style')) return;
+      var st = document.createElement('style');
+      st.id = 'mg-entry-help-style';
+      st.textContent =
+        '#mg-entry-help{position:fixed;left:50%;top:80px;transform:translateX(-50%);z-index:2147483001;' +
+        'width:min(360px,calc(100vw - 32px));box-sizing:border-box;background:#ffffff;color:#101828;' +
+        'border:1px solid #f59e0b;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.28);' +
+        'padding:14px 14px 12px;font:14px/1.45 system-ui,-apple-system,sans-serif;text-align:left}' +
+        '#mg-entry-help[hidden]{display:none!important}' +
+        '#mg-entry-help .meh-t{display:block;font-weight:800;font-size:15px;margin:0 28px 4px 0;color:#101828}' +
+        '#mg-entry-help .meh-b{display:block;margin:0 0 10px;color:#344054}' +
+        '#mg-entry-help .meh-zh{display:block;margin:-6px 0 10px;color:#475467;font-size:13px}' +
+        '#mg-entry-help .meh-a{display:inline-block;box-sizing:border-box;min-height:40px;padding:9px 12px;margin:0 6px 6px 0;' +
+        'border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;line-height:22px;cursor:pointer}' +
+        '#mg-entry-help .meh-diag{background:#1d4ed8;color:#ffffff;border:1px solid #1d4ed8}' +
+        '#mg-entry-help .meh-kakao{background:#fee500;color:#191600;border:1px solid #e6cf00}' +
+        '#mg-entry-help .meh-x{position:absolute;top:6px;right:6px;width:32px;height:32px;padding:0;margin:0;border:0;' +
+        'background:transparent;color:#475467;font-size:20px;line-height:32px;text-align:center;cursor:pointer;overflow:hidden}';
+      (document.head || document.documentElement).appendChild(st);
+    }
+
+    /* 새 창이 안 열리는 인앱 브라우저(카톡 등)는 예외 없이 null 만 돌려준다 → 같은 창으로.
+       ⛔ 'noopener' 를 기능 문자열로 주지 않는다(그러면 열려도 null 이라 «언제나 막혔다» 가 된다). */
+    function openOut(url) {
+      var w = null;
+      try { w = window.open(url, '_blank'); } catch (_) { w = null; }
+      if (w) { try { w.opener = null; } catch (_) {} return 'tab'; }
+      try { window.location.href = url; } catch (_) {}
+      return 'same';
+    }
+
+    function render(reason) {
+      var t = texts(reason);
+      var box = document.getElementById('mg-entry-help');
+      if (!box) {
+        box = document.createElement('div');
+        box.id = 'mg-entry-help';
+        box.setAttribute('role', 'alertdialog');
+        box.addEventListener('click', function (e) {
+          var a = e.target && e.target.closest ? e.target.closest('[data-meh]') : null;
+          if (!a) return;
+          var k = a.getAttribute('data-meh');
+          e.preventDefault();
+          if (k === 'x') { hide(true); return; }
+          openOut(k === 'diag' ? PRECHECK_URL : KAKAO_URL);
+        });
+        document.body.appendChild(box);
+      }
+      box.setAttribute('aria-label', t.title);
+      box.innerHTML =
+        '<button type="button" class="meh-x" data-meh="x" aria-label="' + t.close + '" title="' + t.close + '">×</button>' +
+        '<span class="meh-t">' + t.title + '</span>' +
+        '<span class="meh-b">' + t.body + '</span>' +
+        (t.zh ? '<span class="meh-zh" lang="zh">' + t.zh + '</span>' : '') +
+        '<a class="meh-a meh-diag" data-meh="diag" href="' + PRECHECK_URL + '">' + t.diag + '</a>' +
+        '<a class="meh-a meh-kakao" data-meh="kakao" href="' + KAKAO_URL + '" rel="noopener">' + t.kakao + '</a>';
+      box.hidden = false;
+      return box;
+    }
+
+    function show(reason) {
+      try {
+        if (!document.body || isObserver()) return false;
+        if (state.dismissed[reason]) return false;      // 그 사유로 사람이 닫았으면 이 페이지에선 다시 안 띄운다
+        state.reason = reason;
+        ensureStyle();
+        render(reason);
+        return true;
+      } catch (_) { return false; }
+    }
+    function hide(byUser) {
+      try {
+        if (byUser && state.reason) state.dismissed[state.reason] = true;
+        state.reason = '';
+        var box = document.getElementById('mg-entry-help');
+        if (box) box.hidden = true;
+      } catch (_) {}
+    }
+
+    // 언어가 바뀌면 떠 있는 카드만 다시 그린다(관리자 엔진은 document, 공용 엔진은 window 에서 발행).
+    function onLang() { if (state.reason) { try { render(state.reason); } catch (_) {} } }
+    try { window.addEventListener('mangoi:lang-changed', onLang); document.addEventListener('mangoi:lang-changed', onLang); } catch (_) {}
+
+    /* ⓐ 카메라·마이크 */
+    try {
+      var origDesc = window.describeMediaError;
+      if (typeof origDesc === 'function' && !origDesc.__mehWrapped) {
+        window.describeMediaError = function (err) {
+          try { state.lastErr = String((err && err.name) || ''); state.lastErrAt = Date.now(); } catch (_) {}
+          return origDesc.apply(this, arguments);
+        };
+        window.describeMediaError.__mehWrapped = true;
+      }
+    } catch (_) {}
+    try {
+      var origPh = window.vcShowLocalPlaceholder;
+      if (typeof origPh === 'function' && !origPh.__mehWrapped) {
+        window.vcShowLocalPlaceholder = function (kind) {
+          var r = origPh.apply(this, arguments);
+          try {
+            var recentDeny = DENY[state.lastErr] === 1 && (Date.now() - state.lastErrAt) < 8000;
+            if (kind === 'all-fail' || (kind === 'camera-fail' && recentDeny)) show('media');
+          } catch (_) {}
+          return r;
+        };
+        window.vcShowLocalPlaceholder.__mehWrapped = true;
+      }
+    } catch (_) {}
+    try {
+      var origAlert = window.alert;
+      if (typeof origAlert === 'function' && !origAlert.__mehWrapped) {
+        window.alert = function (msg) {
+          var r = origAlert.apply(this, arguments);      // 원래 alert 는 그대로 뜬다
+          try { if (/마이크가 감지되지 않았습니다/.test(String(msg))) show('media'); } catch (_) {}
+          return r;
+        };
+        window.alert.__mehWrapped = true;
+      }
+    } catch (_) {}
+
+    /* ⓑ 수업 연결 */
+    try {
+      var origWs = window.createWebSocket;
+      if (typeof origWs === 'function' && !origWs.__mehWrapped) {
+        window.createWebSocket = function (path, onMessage, onOpen, onClose) {
+          if (!/\/ws\/video-call/.test(String(path || ''))) return origWs.apply(this, arguments);
+          var fails = 0, opened = false, stopped = false, timer = null;
+          var wOpen = function () {
+            opened = true; fails = 0;
+            if (timer) { try { clearTimeout(timer); } catch (_) {} timer = null; }
+            if (state.reason === 'net') hide(false);
+            if (onOpen) return onOpen.apply(this, arguments);
+          };
+          var wClose = function () {
+            var r = onClose ? onClose.apply(this, arguments) : undefined;
+            if (!stopped) { fails++; if (fails >= FAIL_N) show('net'); }
+            return r;
+          };
+          var conn = origWs.call(this, path, onMessage, wOpen, wClose);
+          try {
+            timer = setTimeout(function () { timer = null; if (!opened && !stopped) show('net'); }, OPEN_WAIT_MS);
+          } catch (_) {}
+          try {
+            if (conn && typeof conn.close === 'function') {
+              var oc = conn.close;
+              conn.close = function () {
+                stopped = true;
+                if (timer) { try { clearTimeout(timer); } catch (_) {} timer = null; }
+                return oc.apply(this, arguments);
+              };
+            }
+          } catch (_) {}
+          return conn;
+        };
+        window.createWebSocket.__mehWrapped = true;
+      }
+    } catch (_) {}
+
+    window.__mgEntryHelp = { show: show, hide: hide, state: state, texts: texts, openOut: openOut, FAIL_N: FAIL_N, OPEN_WAIT_MS: OPEN_WAIT_MS, PRECHECK_URL: PRECHECK_URL, KAKAO_URL: KAKAO_URL };
+  } catch (_) { /* 이 절의 어떤 실패도 입장을 막지 않는다 */ }
+})();
+/* ENTRY-FAIL-HELP 끝 */

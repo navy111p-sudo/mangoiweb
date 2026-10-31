@@ -136,7 +136,7 @@ console.log('\n② 서버 — 계정 없는 옛 리터럴이 남아 있지 않�
    «응답을 만드는 자리»(호출부)가 붙인다. 게이트에 계정을 넘기면 그 함수들의 기존
    하니스가 잡고 있는 입력 모양이 깨진다. 그래서 예외로 두고, 대신 아래에서
    «그 호출부가 헬퍼를 쓰는가» 를 따로 본다. */
-const GATE_ALLOW = new Set(['class-teacher-move.ts', 'textbook-purge-gate.ts', 'forbidden-teacher.ts']);
+const GATE_ALLOW = new Set(['class-teacher-move.ts', 'textbook-purge-gate.ts', 'agency-login-gate.ts', 'forbidden-teacher.ts']);
 
 const tsFiles = readdirSync(SRC).filter((f) => f.endsWith('.ts'));
 const leftovers = [];
@@ -177,6 +177,9 @@ check('textbookPurgeGate 호출부가 강사일 때 헬퍼로 답한다',
   /gate\.error === 'forbidden_teacher'\s*\?\s*forbiddenTeacherBody\(/.test(adm));
 check('teacherMoveDenyReason 호출부가 강사일 때 헬퍼로 답한다',
   /_deny\.error === 'forbidden_teacher'[\s\S]{0,120}?forbiddenTeacherBody\(/.test(adm));
+/* (2026-10-28) 대리점 로그인 계정 게이트(agency-login-gate.ts)도 순수 게이트라 위 예외에 넣었다 — 그 호출부도 같은 짝 */
+check('agencyLoginGate 호출부가 강사일 때 헬퍼로 답한다',
+  /g\.error === 'forbidden_teacher'\s*\?\s*json\(\s*forbiddenTeacherBody\(\s*a\s*,/.test(adm));
 
 /* ⚠️ 액터를 «넘기지 않고» 부르면 계정 줄이 영영 비어 조용히 옛 동작으로 돌아간다.
    인자 없는 호출은 0건이어야 한다. */

@@ -72,7 +72,8 @@ console.log('PASS: forecast calculations, KST ledger filters, retention joins, u
 
 // Execute the actual route branch with stub actors; denial must happen before DB reads/writes.
 const apiSource=readFileSync(new URL('../cloudflare-deploy/src/api-admin.ts',import.meta.url),'utf8');
-const start=apiSource.indexOf("    if (path === '/api/admin/forecast/revenue' || path === '/api/admin/forecast/churn') {");
+const start=apiSource.indexOf("    if (path === '/api/admin/forecast/revenue' || path === '/api/admin/forecast/churn'");
+assert(start >= 0, 'forecast route branch must exist');
 const wrapped=stripTypeScriptTypes('async function branch(){'+apiSource.slice(start,apiSource.indexOf('    // [Phase FAM]',start))+'}');
 const branch=wrapped.slice(wrapped.indexOf('{')+1,wrapped.lastIndexOf('}')); 
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;

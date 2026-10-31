@@ -21,14 +21,41 @@
   if (window.__admScopeGuard) return;   // 중복 설치 방지
 
   // ── 서버 index.ts isAgencyAllowedApi 미러(prefix/exact 판정도 서버와 동일) ──
+  // CI executes both lists: changes to the server gate must update this mirror.
   var ALLOW = [
-    '/api/admin/exec/', '/api/admin/realtime/', '/api/admin/stats/',
-    '/api/admin/students/unified', '/api/admin/students/erp-list',
-    '/api/admin/me', '/api/admin/profile', '/api/admin/logout',
-    '/api/admin/change-password', '/api/admin/login-history', '/api/admin/sessions',
-    '/api/admin/health-check', '/api/admin/omnisearch',
+    '/api/admin/exec/',
+    '/api/admin/realtime/',
+    '/api/admin/stats/',
+    '/api/admin/students/unified',
+    '/api/admin/students/erp-list',
+    '/api/admin/me',
+    '/api/admin/profile',
+    '/api/admin/logout',
+    '/api/admin/change-password',
+    '/api/admin/login-history',
+    '/api/admin/sessions',
+    '/api/admin/health-check',
+    '/api/admin/omnisearch',
     '/api/admin/settlement/',
-    // 게이트 밖 경로(항상 통과) — isAuthPublicPath·isAdminPublicApi 미러
+    '/api/admin/ai-billing/',
+    '/api/admin/capitown/',
+    '/api/admin/game-insights',
+    '/api/admin/ai-usage/',
+    '/api/admin/menu-hit',
+    '/api/admin/schedule-requests',
+    '/api/admin/franchises',
+    '/api/admin/centers',
+    '/api/admin/attendance/school-stats',
+    '/api/admin/classes-now',
+    '/api/admin/classes/today',
+    '/api/admin/teachers',
+    '/api/admin/staff/graph-list',
+    '/api/admin/books/graph-list',
+    '/api/admin/leveltest/applications',
+    '/api/admin/community-posts',
+    '/api/admin/calendar/events',
+    '/api/admin/calendar/seed-holidays',
+    // Public auth routes bypass the server agency gate.
     '/api/admin/login',
     '/api/admin/ai-analyze/student'
   ];

@@ -357,13 +357,19 @@ console.log('\n[ I. 💬 대답 보기 칩 — 결정론으로 «맞는 영어»
   // ② 실제 질문을 넣어 «나온 문장» 을 본다
   const words = (s) => s.trim().split(/\s+/).filter(Boolean).length;
   const cases = [
-    { q: "Hi! I'm Mango. 🥭 Are you happy today?", lv: 1, want: ['Yes, I am.', "No, I'm not."] },
+    { q: "Hi! I'm Mango. 🥭 Are you happy today?", lv: 1, want: ['I am happy today.', 'I am not happy today.'] },
     { q: 'Hi! I\'m Mango. 🥭 How are you today, happy or tired?', lv: 2, want: ['I am happy.', 'I am tired.'] },
     { q: 'Nice! Do you like pizza or chicken?', lv: 1, want: ['I like pizza.', 'I like chicken.'] },
     { q: 'Do you like ice cream or cake?', lv: 2, want: ['I like ice cream.', 'I like cake.'] },
     { q: 'Are you a student or a teacher?', lv: 2, want: ['I am a student.', 'I am a teacher.'] },
-    { q: 'Wow! Do you have a pet?', lv: 1, want: ['Yes, I do.', "No, I don't."] },
-    { q: 'Can you swim?', lv: 2, want: ['Yes, I can.', "No, I can't."] },
+    { q: 'Wow! Do you have a pet?', lv: 1, want: ['I have a pet.', "I don't have a pet."] },
+    { q: 'Can you swim?', lv: 2, want: ['I can swim.', "I can't swim."] },
+    // 📜 2026-10-02 사장님 지시 — Yes/No 질문은 «그 질문의 낱말» 로 길게 대답한다(I like coffee / I don't like coffee)
+    { q: 'Do you like coffee?', lv: 1, want: ['I like coffee.', "I don't like coffee."] },
+    // ⛔ 대명사·부정사가 섞이면 비문이 되므로 긴 대답을 만들지 않고 짧은 대답으로 떨어진다 (짝)
+    { q: 'Do you like your school?', lv: 2, want: ['Yes, I do.', "No, I don't."] },
+    { q: 'Can you help me?', lv: 2, want: ['Yes, I can.', "No, I can't."] },
+    { q: 'Are you going to school?', lv: 2, want: ['Yes, I am.', "No, I'm not."] },
     { q: 'Would you like some water?', lv: 2, want: ['Yes, please.', 'No, thank you.'] },
     { q: 'Is it hot today?', lv: 3, want: ['Yes, it is.', "No, it isn't."] },
   ];
@@ -440,16 +446,18 @@ console.log('\n[ I. 💬 대답 보기 칩 — 결정론으로 «맞는 영어»
     && !/💡 이 중에서 골라 대답해 보세요/.test(HTML));
 }
 
-console.log('\n[ J. 🇰🇷 낮은 단계 자동 뜻 — 탭하지 않아도 보이는가 ]');
+console.log('\n[ J. 🇰🇷 낮은 단계 뜻 — «모를 때만» 보이는가 (2026-10-02 경계 변경) ]');
 {
-  // 「뜻」 버튼은 초보가 있는 줄도 모른다. 다만 «듣기 훈련» 을 깨면 안 된다.
-  check('레벨 1~2 에서만 자동으로 연다', /if\(_warmLevel <= 2 && _subMode === 'on'\)\{/.test(HTML));
-  check('그 자리가 AI 말풍선 분기 안이다',
-    /mb\.onclick[\s\S]{0,700}_warmLevel <= 2 && _subMode === 'on'/.test(HTML));
-  check('자막이 「가리기·완전 끄기」면 열지 않는다(듣기 훈련 보호)',
-    /_subMode === 'on'\)\{\s*try\{ toggleMeaning/.test(HTML.replace(/\n\s*/g, ' ').replace(/ \{/g, '{')));
-  check('실패해도 대화가 멈추지 않는다(try/catch)',
-    /try\{ toggleMeaning\(text, mb, d\); \}catch\(e\)\{\}/.test(HTML));
+  /* 📜 2026-08 에는 «1~2단계는 탭하지 않아도 뜻을 자동으로 연다» 를 여기서 못 박았다(초보가 「뜻」 버튼을
+     못 찾아서). 2026-10-02 사장님 「뜻을 처음부터 보여주면 교육 효과가 떨어지니 뜻을 모를 때만」으로
+     전제가 바뀌었다. 찾기 어려움은 «작은 버튼» 대신 «말풍선 폭 전체의 가려진 줄» + 1~2단계 5초 반짝임으로 푼다.
+     ⛔ 느슨하게 지우지 않고 새 경계로 옮겨 적었다 — 자세한 실행 검사는 warmup_meaning_veil_harness. */
+  const H = HTML.replace(/\/\*[\s\S]*?\*\//g, '');
+  check('AI 말풍선 분기 안에 «가려진 뜻» 줄이 있다', /if\(who==='ai'\)\{[\s\S]{0,2600}mb\.className = 'mean-btn mean-veil'/.test(H));
+  check('1~2단계 자동 열기는 없다(교육 효과 — 2026-10-02 사장님)', !/_warmLevel <= 2 && _subMode === 'on'/.test(H));
+  check('누르면 그 말풍선의 뜻을 연다', /mb\.onclick = function\(e\)\{[^}]*openMeaningVeil\(text, mb, d\)/.test(H));
+  check('뜻을 못 받으면 가리개를 되돌린다(눌러도 아무것도 없는 상태로 굳지 않게)',
+    /function openMeaningVeil\([\s\S]{0,700}btn\.hidden = false/.test(H));
 }
 
 console.log('\n[ K. 다시 고르기에 손이 닿는가 — 되돌리기 방지 (2026-09-15) ]');
@@ -498,7 +506,7 @@ console.log('\n[ K. 다시 고르기에 손이 닿는가 — 되돌리기 방지
      「이 이름이 교재를 암시하지 않아 아무도 못 찾는다」를 고쳤는데(#987), 새로 낸 상단바
      지름길이 옛 말을 그대로 쓰면 그 수리가 새 입구에서 되살아납니다.
      ⛔ 기대 글자를 여기 손으로 적지 마세요 — 둘을 «서로» 대조해야 한쪽만 바꿔도 잡힙니다. */
-  const reopenLabel = ((HTML.match(/class="menu-reopen"[^>]*>([^<]+)</) || [, ''])[1] || '')
+  const reopenLabel = ((HTML.match(/class="menu-reopen"[^>]*>(?:<span[^>]*>)?([^<]+)</) || [, ''])[1] || '')
     .replace(/[^가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9·]/g, '');
   const tuneLabel = ((tune.match(/title="([^"]+)"/) || [, ''])[1] || '')
     .replace(/[^가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9·]/g, '');
@@ -528,7 +536,7 @@ console.log('\n[ K. 다시 고르기에 손이 닿는가 — 되돌리기 방지
       const LEV = [{ n: 3, ko: '기초' }, { n: 4, ko: '중급' }];
       const AGE = [{ id: 'kid', ko: '유아' }, { id: 'adult', ko: '어른' }];
       try {
-        new Function('document', 'LEVEL_CATALOG', 'AGE_CATALOG', '_warmLevel', '_warmAge', pickSrc)(doc, LEV, AGE, lv, ag);
+        new Function('document', 'LEVEL_CATALOG', 'AGE_CATALOG', '_warmLevel', '_warmAge', "/* 🌐 2026-10-03 — 화면 언어 헬퍼(wuT·wuEn·ageName)는 KO 로 돌린다. */ function wuEn(){return false} function wuT(k,e){return k} function ageName(a){return a?a.ko:''} " + pickSrc)(doc, LEV, AGE, lv, ag);
       } catch (e) { return { err: String((e && e.message) || e) }; }
       return el;
     };

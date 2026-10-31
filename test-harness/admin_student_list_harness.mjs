@@ -185,6 +185,30 @@ console.log('\n[ ⑦ 서버 쿼리 — 학생 한 명마다 테이블을 다시 
     /ORDER BY COALESCE\(p\.created_at,0\) DESC, p\._rid DESC/.test(uni));
 }
 
+console.log('\n[ ⑦ (2026-10-09 A안) 버튼을 관련 칸으로 — «상세보기» 칸 없음 ]');
+{
+  const thead = /<table id="sm-students-table"[\s\S]*?<thead><tr>([\s\S]*?)<\/tr><\/thead>/.exec(html)?.[1] || '';
+  check('전제: 머리글을 오려 냈다', thead.length > 200);
+  check('«상세보기» 머리글이 없다', !/data-ko="상세보기"/.test(thead));
+  check('학생명이 상세로 가는 링크다', /class="sm-name-go" href="\/admin\/student\?uid=\$\{uidEnc\}"/.test(rowSrc));
+  check('이름 옆 ✏️ 가 smContactUrl() 로 간다', /sm-act-edit" href="\$\{smContactUrl\(uid\)\}"/.test(rowSrc));
+  check('수강 종료일 칸에 종료·연장(tab=extension)', /_d\(s\.end_date\)\}[^\n]*tab=extension/.test(rowSrc));
+  // 예약 칸 버튼 — 중괄호 짝으로 오려 «실제로» 돌린다
+  const i = core.indexOf('const _schedActs = (s, hasSched) =>');
+  let j = core.indexOf('{', i), d = 0, k = j;
+  for (; k < core.length; k++) { const c = core[k]; if (c === '{') d++; else if (c === '}') { d--; if (!d) break; } }
+  const body = i >= 0 ? core.slice(j, k + 1) : '';
+  check('전제: _schedActs 를 오려 냈다', body.length > 200);
+  let f = null;
+  try { f = new Function('_esc', '_L', 'return (s, hasSched) => ' + body); } catch (e) { console.log('   (평가 실패: ' + e.message + ')'); }
+  const esc = x => String(x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  let on = '', off = '', none = '';
+  try { const g = f(esc, false); on = g({ user_id: 'Melca08', username: 'Melca' }, true); off = g({ user_id: 'lby01' }, false); none = g({}, true); } catch (e) { console.log('   (실행 실패: ' + e.message + ')'); }
+  check('예약이 있으면 📅 스케줄 + ⏸ 연기·변경 둘 다', /tab=schedule/.test(on) && /class="sm-move-go"[^>]*smOpenMovePick\(/.test(on));
+  check('[짝] 예약이 없으면 ⏸ 는 안 그린다(📅 는 남는다)', /tab=schedule/.test(off) && !/sm-move-go/.test(off));
+  check('[짝] 아이디가 없으면 아무 버튼도 안 그린다', none === '');
+}
+
 console.log(`\n─────────────────────────────────────────────`);
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);
 if (FAIL) { console.log('  실패 항목:'); FAILS.forEach(f => console.log('   · ' + f)); }

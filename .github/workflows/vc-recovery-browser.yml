@@ -1,7 +1,7 @@
 name: Video recovery browser verification
 on:
   push:
-    branches: [fix/webrtc-fast-video-recovery]
+    branches: [fix/webrtc-fast-video-recovery, fix/video-recovery-retry-20260926, fix/webrtc-recovery-review-20261003]
   workflow_dispatch:
 env:
   TZ: Asia/Seoul
@@ -20,7 +20,7 @@ jobs:
         working-directory: cloudflare-deploy
         run: |
           npm ci --legacy-peer-deps
-          npx tsc --noEmit
+          node node_modules/typescript/bin/tsc --noEmit
       - name: Required recovery regressions
         run: |
           node test-harness/aao_freeze_harness.mjs
@@ -31,6 +31,7 @@ jobs:
           node test-harness/asset_version_harness.mjs
           node test-harness/vc_rx_stall_harness.mjs
           node test-harness/vc_fast_recovery_harness.mjs
+          node test-harness/vc_office_recovery_harness.mjs
       - name: Install isolated browser dependencies
         run: |
           npm install --prefix "$RUNNER_TEMP/vc-pw" playwright@1.58.2
@@ -45,9 +46,19 @@ jobs:
           set -o pipefail
           node test-harness/manual/vc-aao-realpc-browser.mjs | tee "$RUNNER_TEMP/vc-realpc.log"
           grep -Eq '결과: PASS [1-9][0-9]* / FAIL 0' "$RUNNER_TEMP/vc-realpc.log"
+      - name: Real outgoing audio after AudioContext failure
+        env:
+          PW_DIR: ${{ runner.temp }}/vc-pw
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/vc-browser
+        run: |
+          set -o pipefail
+          node test-harness/manual/vc-office-recovery-browser.mjs | tee "$RUNNER_TEMP/vc-office-audio.log"
+          grep -Eq 'PASS [1-9][0-9]* / FAIL 0' "$RUNNER_TEMP/vc-office-audio.log"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: vc-recovery-browser-log
-          path: ${{ runner.temp }}/vc-realpc.log
+          path: |
+            ${{ runner.temp }}/vc-realpc.log
+            ${{ runner.temp }}/vc-office-audio.log
           if-no-files-found: ignore

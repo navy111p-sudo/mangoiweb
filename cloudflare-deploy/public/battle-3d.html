@@ -132,7 +132,7 @@
     .nameplate .hp{height:8px}
   }
 </style>
-<script src="/js/i18n-sweep.js?v=22" defer></script>
+<script src="/js/i18n-sweep.js?v=23" defer></script>
 <script src="/js/game-track.js?v=4" defer></script>
 <script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 </head>
@@ -210,9 +210,9 @@
        ⚠️ game-tts.js 를 함께 싣는 이유: 이 게임은 자체 <audio>(ttsA) 로만 발음하는데,
           4단 모듈의 낭독은 MangoiTTS 를 쓴다. 안 실으면 브라우저 speechSynthesis 로 떨어지고
           중국어는 그 경로가 깨진 음성이 나온다(CLAUDE.md 함정표). -->
-  <script src="/js/game-tts.js?v=6"></script>
+  <script src="/js/game-tts.js?v=8"></script>
   <script src="/js/mangoi-stt.js?v=2"></script>
-  <script src="/js/mangoi-voice-input.js?v=4"></script>
+  <script src="/js/mangoi-voice-input.js?v=6"></script>
   <script src="/js/mangoi-speak-score.js?v=1"></script>
   <script src="/js/mangoi-pron-tags.js?v=1"></script>
   <script src="/js/mangoi-memory.js?v=1"></script>
@@ -1726,7 +1726,7 @@
         두면 escape_school_mic·escape_zombie_mic 가 «닫기 직전의 인라인 코드» 를 오려
         내는 정규식에 걸려 깨진다. defer 라 위치를 옮겨도 실행 시점은 그대로다. -->
 <script defer src="/js/game-standalone-exit.js?v=5"></script>
-<script defer src="/js/flow.js?v=22"></script>
+<script defer src="/js/flow.js?v=23"></script>
 <!-- BUILD:20260813015745 -->
 </body>
 </html>

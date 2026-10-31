@@ -1,0 +1,311 @@
+{
+  "id": "s4-36",
+  "breaks": [
+    5,
+    6,
+    2,
+    5
+  ],
+  "key": {
+    "P": 3,
+    "S": 17
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «과학자들은 우주 물질의 대부분이 보이지 않는다고 생각한다(주제)» 와 «암흑 물질의 수수께끼는 우리가 많이 알아도 우주의 상당 부분이 아직 미지라는 것을 보여 준다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (most of the matter in the universe is invisible) and the conclusion (the mystery of dark matter shows that, despite all our knowledge, much of the universe is still unknown). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Dark matter, the invisible matter in the universe"
+    },
+    {
+      "k": "Evidence",
+      "qko": "무엇이 암흑 물질이 있다는 증거인가요?",
+      "qen": "What is the evidence?",
+      "a": "Stars at galaxy edges move too fast, so extra gravity must hold them"
+    },
+    {
+      "k": "Mystery",
+      "qko": "아직 모르는 것은 무엇인가요?",
+      "qen": "What is still unknown?",
+      "a": "No one knows what dark matter actually is"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Most of the matter in the universe is ",
+      "ans": "invisible",
+      "opts": [
+        "invisible",
+        "bright",
+        "liquid"
+      ]
+    },
+    {
+      "pre": ". Scientists think it exists because of its ",
+      "ans": "gravity",
+      "opts": [
+        "gravity",
+        "color",
+        "smell"
+      ]
+    },
+    {
+      "pre": ": stars at the edges of galaxies move much ",
+      "ans": "faster",
+      "opts": [
+        "faster",
+        "slower",
+        "quieter"
+      ]
+    },
+    {
+      "pre": " than expected. Dark matter makes up about 85 percent of all the ",
+      "ans": "matter",
+      "opts": [
+        "matter",
+        "light",
+        "planets"
+      ]
+    },
+    {
+      "pre": " in the universe. Many scientists think it is made of tiny ",
+      "ans": "particles",
+      "opts": [
+        "particles",
+        "rocks",
+        "animals"
+      ]
+    },
+    {
+      "pre": ", but no one knows what it actually is.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "invisible",
+      "보이지 않는",
+      "most of the matter in the universe is <b>invisible</b>",
+      "not able to be seen"
+    ],
+    [
+      "reflect",
+      "반사하다",
+      "it does not give off, absorb, or <b>reflect</b> light",
+      "to send back light from a surface"
+    ],
+    [
+      "gravity",
+      "중력",
+      "The main reason is <b>gravity</b>.",
+      "the force that pulls objects toward each other"
+    ],
+    [
+      "observations",
+      "관측, 관찰",
+      "Other <b>observations</b> support this idea",
+      "things noticed by watching carefully"
+    ],
+    [
+      "estimate",
+      "추정하다, 어림잡다",
+      "scientists <b>estimate</b> that dark matter makes up about 85 percent of all the matter in the universe",
+      "to guess an amount carefully using information"
+    ],
+    [
+      "particles",
+      "입자",
+      "it is made of tiny <b>particles</b> that have not been discovered yet",
+      "extremely small pieces of matter"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why do scientists call it 'dark' matter?",
+      "qko": "과학자들은 왜 그것을 «암흑» 물질이라고 부르나요?",
+      "opts": [
+        "Because it is found only at night",
+        "Because it does not give off, absorb, or reflect light",
+        "Because it is made of black rocks"
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Everything we can see in the universe, from planets to stars to entire galaxies, makes up only a small part of it.",
+        "They call it dark matter because it does not give off, absorb, or reflect light.",
+        "Yet the biggest surprise is that no one knows what it actually is.",
+        "Huge detectors have been built deep underground to catch these particles, but none has been detected so far."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "암흑 물질은 빛을 내지도, 흡수하지도, 반사하지도 않아서 «암흑» 이라는 이름이 붙었어요.",
+        "It does not give off, absorb, or reflect light, so it is called dark matter."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what does 'should have flown apart' mean?",
+      "qko": "글에서 'should have flown apart' 는 무슨 뜻인가요?",
+      "opts": [
+        "should have moved closer to Earth",
+        "should have turned into new stars",
+        "should have broken up and scattered"
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Something unseen must be adding extra gravity to hold them together.",
+        "Scientists believe that most of the matter in the universe is invisible.",
+        "Today, scientists estimate that dark matter makes up about 85 percent of all the matter in the universe.",
+        "A small group of researchers even suggests that our understanding of gravity itself may need to change."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "바로 다음 문장에서 보이지 않는 무언가가 은하를 «붙잡아 두고(hold them together)» 있다고 했어요. 그러니 flown apart 는 그 반대, 뿔뿔이 흩어져 버린다는 뜻이에요.",
+        "The next sentence says something unseen holds the galaxies together. So 'flown apart' means the opposite: breaking up and scattering."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How do scientists know dark matter exists even though no one can see it?",
+      "qko": "아무도 볼 수 없는데, 과학자들은 암흑 물질이 있다는 것을 어떻게 알까요?",
+      "opts": [
+        "Its gravity speeds up stars at galaxy edges and bends passing light",
+        "Underground detectors have caught many dark matter particles",
+        "Powerful telescopes can see it reflecting light"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "She found that stars near the outer edges were moving much faster than expected.",
+        "Many scientists think it is made of tiny particles that have not been discovered yet.",
+        "Other observations support this idea, such as the way large clusters of galaxies bend the light that passes near them, an effect called gravitational lensing.",
+        "They call it dark matter because it does not give off, absorb, or reflect light."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "은하 바깥쪽 별들이 예상보다 훨씬 빨리 돌고, 거대한 은하단은 근처를 지나는 빛을 휘게 해요. 두 관측 모두 보이지 않는 물질의 중력을 보여 줘요.",
+        "Stars at the outer edges move much faster than expected, and galaxy clusters bend passing light. Both show the gravity of unseen matter."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How do underground detectors try to catch dark matter?",
+      "지하 검출기는 암흑 물질을 어떻게 잡으려 할까?",
+      "Hunting Under the Ground"
+    ],
+    [
+      "B",
+      "What is dark energy, and how is it different from dark matter?",
+      "암흑 에너지는 무엇이고, 암흑 물질과 어떻게 다를까?",
+      "The Other Dark Mystery"
+    ]
+  ],
+  "write": {
+    "pre": "If",
+    "mid": "we can",
+    "sep": ", ",
+    "slots": [
+      "cl",
+      "vp"
+    ],
+    "slotKo": [
+      "조건(만약 ~하면)",
+      "할 수 있는 일"
+    ],
+    "slotEn": [
+      "a condition",
+      "what we can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «어떤 조건 + 그때 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own condition and what we can do in English.",
+    "aria": [
+      "the condition",
+      "what we can do"
+    ],
+    "src": "“If <u>scientists finally detect dark matter particles</u>, we can <u>understand much more of the universe</u>.”",
+    "chips": [
+      {
+        "a": "we go somewhere far from city lights",
+        "b": "see the Milky Way at night",
+        "label": "stars"
+      },
+      {
+        "a": "we use a magnifying glass",
+        "b": "see tiny details on a leaf",
+        "label": "leaf"
+      },
+      {
+        "a": "we ask good questions in class",
+        "b": "learn things that are not in the textbook",
+        "label": "questions"
+      }
+    ],
+    "moreKo": "한 걸음 더: «If» 뒤에는 «누가 + 무엇을 하면» 을, «we can» 뒤에는 동사원형을 넣어 보세요. (예: If we visit a planetarium, we can learn the names of stars)",
+    "moreEn": "One more step: after «If», write who + what; after «we can», start with a base verb. (e.g. If we visit a planetarium, we can learn the names of stars)"
+  },
+  "img": {
+    "style": "photo",
+    "cover": "A giant cluster of glowing yellow and white galaxies against a black sky, with faint stretched arcs of bluish light curving around its center",
+    "scenes": {
+      "1": "A huge spiral galaxy seen face-on, its bright yellow core surrounded by sweeping blue arms dotted with pink glowing clouds, stars thinning out toward its faint outer edge",
+      "3": "Deep underground inside a vast rock cavern, a giant cylindrical tank lined on the inside with hundreds of round golden light sensors, an engineer in a hard hat standing small beside it"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "A spiral galaxy with blue arms",
+    "3": "A giant underground detector lined with sensors",
+    "cover": "A galaxy cluster bending light into arcs"
+  }
+}

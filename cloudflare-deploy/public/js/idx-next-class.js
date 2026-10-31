@@ -114,13 +114,13 @@
         }
 
         /* 📋 오늘 남은 수업이 2개 이상일 때만 붙인다. 1개면 카드 하나로 충분하고,
-           줄을 더하면 홈만 길어진다(수업 3~4개인 학생 화면에서 특히). */
+           줄을 더하면 홈만 길어진다(수업 3~4개인 학생 화면에서 특히).
+           (2026-09-30 사장님 C안) 따로 떠 있던 옅은 상자가 밝은 하늘 위에서 안 읽혀(대비≈1.3)
+           카운트다운 카드 «안» 점선 아래 한 줄로 합쳤다. ⛔ .ncc-sub 를 달지 말 것(idx-cta-status.js 계약). */
         function moreHtml(rest){
           if(!rest.length) return '';
-          return '<div class="ncc-more"><div class="ncc-more-top">'
-            +(L()?'오늘 남은 수업':'Later today')+'</div>'
-            +rest.map(function(x){
-              return '<div class="ncc-more-row"><b>'+timeLabel(x.start_ts)+'</b>'
+          return '<div class="ncc-more">'+rest.map(function(x,i){
+              return '<div class="ncc-more-row">'+(i?'':(L()?'그다음 ':'Then '))+'<b>'+timeLabel(x.start_ts)+'</b>'
                 +(x.teacher_name?('<span>'+esc(x.teacher_name)+'</span>'):'')+'</div>';
             }).join('')+'</div>';
         }
@@ -158,14 +158,14 @@
               +'<div class="ncc-top">🔴 '+(L()?'지금 입장할 수 있어요':'You can join now')+'</div>'
               +'<button class="ncc-join" onclick="if(typeof vcJoinMyClass===\'function\')vcJoinMyClass()">▶ '+(L()?'수업 입장':'Join class')+'</button>'
               +(teacher?'<div class="ncc-sub">'+timeLabel(s.start_ts)+' · '+teacher+'</div>':'')
-              +'</div>'+moreHtml(rest);
+              +moreHtml(rest)+'</div>';
           }else{
             c.innerHTML='<div class="ncc-card'+(soon?' ncc-soon':'')+'">'
               +(soon?'<div class="ncc-bubble ncc-bubble-soon">🔔 곧 수업이 시작돼요<span class="en">Class starts soon!</span></div>':'')
               +'<div class="ncc-top">⏰ '+(L()?'다음 수업까지':'Next class in')+'</div>'
               +'<div class="ncc-time">'+fmt(toStart)+'</div>'
               +'<div class="ncc-sub">'+timeLabel(s.start_ts)+(teacher?' · '+teacher:'')+'</div>'
-              +'</div>'+moreHtml(rest);
+              +moreHtml(rest)+'</div>';
           }
         }
 
@@ -173,11 +173,11 @@
           if(!document.getElementById('ncc-style')){
             var st=document.createElement('style'); st.id='ncc-style';
             st.textContent='#next-class-countdown{width:fit-content;margin:14px auto 0}'
-              +'.ncc-card{background:rgba(0,0,0,.5);border:1px solid rgba(251,191,36,.35);border-radius:16px;padding:12px 22px;text-align:center;color:#e2e8f0;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 8px 24px rgba(0,0,0,.35)}'
+              +'.ncc-card{background:rgba(15,23,42,.72);border:1px solid rgba(251,191,36,.35);border-radius:16px;padding:12px 22px;text-align:center;color:#e2e8f0;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 8px 24px rgba(0,0,0,.35)}'
               +'.ncc-card.ncc-live{border-color:rgba(239,68,68,.9);animation:nccBlinkLive .8s infinite}'
-              +'@keyframes nccBlinkLive{0%,100%{background:rgba(0,0,0,.5);box-shadow:0 8px 24px rgba(239,68,68,.25)}50%{background:rgba(220,38,38,.34);box-shadow:0 0 0 8px rgba(239,68,68,.16),0 8px 30px rgba(239,68,68,.65)}}'
+              +'@keyframes nccBlinkLive{0%,100%{background:rgba(15,23,42,.72);box-shadow:0 8px 24px rgba(239,68,68,.25)}50%{background:rgba(220,38,38,.34);box-shadow:0 0 0 8px rgba(239,68,68,.16),0 8px 30px rgba(239,68,68,.65)}}'
               +'.ncc-card.ncc-soon{border-color:rgba(251,191,36,.85);animation:nccBlinkSoon 1.1s infinite}'
-              +'@keyframes nccBlinkSoon{0%,100%{background:rgba(0,0,0,.5);box-shadow:0 8px 24px rgba(251,191,36,.15)}50%{background:rgba(251,191,36,.22);box-shadow:0 0 0 6px rgba(251,191,36,.13),0 8px 30px rgba(251,191,36,.5)}}'
+              +'@keyframes nccBlinkSoon{0%,100%{background:rgba(15,23,42,.72);box-shadow:0 8px 24px rgba(251,191,36,.15)}50%{background:rgba(251,191,36,.22);box-shadow:0 0 0 6px rgba(251,191,36,.13),0 8px 30px rgba(251,191,36,.5)}}'
               +'.ncc-bubble{position:relative;display:inline-block;background:#fff;color:#b91c1c;font-weight:900;font-size:15px;line-height:1.3;padding:9px 18px;border-radius:14px;margin:0 0 12px;box-shadow:0 6px 18px rgba(0,0,0,.35);animation:nccBubbleBob 1s infinite}'
               +'.ncc-bubble .en{display:block;margin-top:2px;font-size:12.5px;font-weight:800;color:#334155}'
               +'.ncc-bubble:after{content:"";position:absolute;left:50%;bottom:-8px;margin-left:-8px;border:8px solid transparent;border-bottom:0;border-top-color:#fff}'
@@ -186,16 +186,13 @@
               +'.ncc-top{font-size:12px;color:#fcd34d;font-weight:700;margin-bottom:4px}'
               +'.ncc-card.ncc-live .ncc-top{color:#fca5a5}'
               +'.ncc-time{font-size:30px;font-weight:900;letter-spacing:-1px;color:#7dd3fc;font-variant-numeric:tabular-nums;line-height:1.1}'
-              +'.ncc-sub{font-size:11.5px;color:#94a3b8;margin-top:5px}'
+              +'.ncc-sub{font-size:11.5px;color:#f1f5f9;margin-top:5px}'
               +'.ncc-join{margin-top:2px;background:#f59e0b;color:#1a1a1a;border:none;border-radius:10px;padding:9px 22px;font-size:14px;font-weight:800;cursor:pointer}'
               +'.ncc-join:hover{background:#fbbf24}'
-              /* 📋 오늘 남은 수업 목록 — 위 카드보다 한 단 조용하게(글씨·투명도).
-                 ⚠️ hover 확대(scale/translate) 금지 — 「정신없다」고 걷어낸 규칙(CLAUDE.md 1-3). */
-              +'.ncc-more{margin:8px auto 0;background:rgba(0,0,0,.34);border:1px solid rgba(148,163,184,.28);border-radius:13px;padding:8px 16px;text-align:center;backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}'
-              +'.ncc-more-top{font-size:10.5px;color:#94a3b8;font-weight:700;letter-spacing:.2px;margin-bottom:4px}'
-              +'.ncc-more-row{font-size:12.5px;color:#cbd5e1;line-height:1.7;white-space:nowrap}'
-              +'.ncc-more-row b{color:#e2e8f0;font-weight:800;font-variant-numeric:tabular-nums}'
-              +'.ncc-more-row span{color:#94a3b8;margin-left:7px}';
+              +'.ncc-more{margin-top:9px;padding-top:8px;border-top:1px dashed rgba(251,191,36,.55)}'
+              +'.ncc-more-row{font-size:12.5px;color:#fff;line-height:1.7;white-space:nowrap}'
+              +'.ncc-more-row b{color:#fcd34d;font-weight:800;font-variant-numeric:tabular-nums}'
+              +'.ncc-more-row span{color:#f1f5f9;margin-left:6px}';
             document.head.appendChild(st);
           }
           refresh().then(render);

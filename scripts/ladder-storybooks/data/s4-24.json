@@ -1,0 +1,311 @@
+{
+  "id": "s4-24",
+  "breaks": [
+    3,
+    7,
+    6,
+    3
+  ],
+  "key": {
+    "P": 1,
+    "S": 18
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «우리가 즐기는 많은 음식이 꽃가루받이에 달려 있다(주제)» 와 «벌을 지키는 것은 곧 우리 식탁의 음식을 지키는 일이다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (many of the foods we enjoy depend on pollination) and the conclusion (protecting bees is about protecting the food on our tables). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Why bees and pollination matter for our food"
+    },
+    {
+      "k": "Problem",
+      "qko": "벌은 어떤 위협을 받고 있나요?",
+      "qen": "What threats do bees face?",
+      "a": "Loss of wild flowers, pesticides, parasites, diseases, and climate change"
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 도울 수 있나요?",
+      "qen": "How can we help?",
+      "a": "Plant flowers, grow native plants, and reduce harmful pesticides"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Many fruits, nuts, and vegetables depend on ",
+      "ans": "pollination",
+      "opts": [
+        "pollination",
+        "pollution",
+        "population"
+      ]
+    },
+    {
+      "pre": ", the movement of pollen from one flower to another. As bees collect nectar, pollen sticks to their hairy ",
+      "ans": "bodies",
+      "opts": [
+        "bodies",
+        "homes",
+        "eggs"
+      ]
+    },
+    {
+      "pre": " and travels to the next flower. Unfortunately, bees face serious threats, such as the loss of wild flowers and certain ",
+      "ans": "pesticides",
+      "opts": [
+        "pesticides",
+        "vitamins",
+        "songs"
+      ]
+    },
+    {
+      "pre": ". Wild bees and other insects also pollinate crops, but many of them are ",
+      "ans": "declining",
+      "opts": [
+        "declining",
+        "growing",
+        "sleeping"
+      ]
+    },
+    {
+      "pre": " too. By planting flowers and reducing harmful pesticides, we can protect bees and the ",
+      "ans": "food",
+      "opts": [
+        "food",
+        "toys",
+        "roads"
+      ]
+    },
+    {
+      "pre": " on our tables.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "pollination",
+      "꽃가루받이, 수분",
+      "Many of the foods we enjoy depend on <b>pollination</b>.",
+      "the moving of pollen so that plants can make fruit and seeds"
+    ],
+    [
+      "pesticides",
+      "농약, 살충제",
+      "Farmers can plant flower strips beside fields and reduce harmful <b>pesticides</b>",
+      "chemicals used to kill insects that harm crops"
+    ],
+    [
+      "species",
+      "종(種)",
+      "Thousands of <b>species</b> of wild bees",
+      "groups of living things of the same kind"
+    ],
+    [
+      "nectar",
+      "꽃꿀",
+      "As bees collect <b>nectar</b> for food, pollen sticks to their hairy bodies",
+      "the sweet liquid inside flowers"
+    ],
+    [
+      "efficient",
+      "효율적인",
+      "some are even more <b>efficient</b> than honeybees",
+      "doing a job well without wasting time or energy"
+    ],
+    [
+      "colonies",
+      "군집, 벌 떼",
+      "Beekeepers in many countries have reported large losses of <b>colonies</b> in recent decades.",
+      "groups of insects that live together"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why are honeybee hives trucked into almond orchards in California every spring?",
+      "qko": "캘리포니아에서는 왜 해마다 봄이면 꿀벌 벌통을 아몬드 과수원으로 실어 나르나요?",
+      "opts": [
+        "Without the bees, the almond harvest would be much smaller",
+        "The bees make the almonds taste sweeter",
+        "Farmers want to sell the hives to tourists"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Without them, the harvest would be much smaller.",
+        "Some plants, such as wheat and rice, are pollinated mainly by the wind.",
+        "Beekeepers in many countries have reported large losses of colonies in recent decades.",
+        "Fortunately, there are ways to help."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "본문에 벌이 없으면 수확량이 훨씬 적어질 것이라고 나와요. 아몬드 꽃의 꽃가루받이를 벌이 해 주기 때문이에요.",
+        "The text says that without the bees, the harvest would be much smaller."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what does \"honeybees are only part of the story\" mean?",
+      "qko": "글에서 «honeybees are only part of the story» 는 무슨 뜻인가요?",
+      "opts": [
+        "Many other insects, such as wild bees and butterflies, also pollinate crops",
+        "Honeybees only work during part of the year",
+        "Only half of all honeybees can make honey"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Thousands of species of wild bees, along with butterflies, flies, and other insects, also pollinate crops, and some are even more efficient than honeybees.",
+        "In California, for example, huge numbers of honeybee hives are trucked into almond orchards every spring.",
+        "Some plants, such as wheat and rice, are pollinated mainly by the wind.",
+        "Beekeepers in many countries have reported large losses of colonies in recent decades."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "바로 다음 문장에서 수천 종의 야생벌과 나비, 파리 같은 다른 곤충도 작물의 꽃가루받이를 한다고 해요. 꿀벌은 이야기의 일부일 뿐이라는 뜻이에요.",
+        "The next sentence says thousands of species of wild bees, butterflies, and flies also pollinate crops. Honeybees are only one part."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How do bees help pollen travel from one flower to another?",
+      "qko": "벌은 꽃가루가 한 꽃에서 다른 꽃으로 옮겨 가도록 어떻게 돕나요?",
+      "opts": [
+        "Pollen sticks to bees' hairy bodies as they collect nectar and is carried to the next flower",
+        "Bees eat the pollen and drop seeds on the ground",
+        "Bees fan their wings so the wind blows pollen into the sky"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Pollination is the movement of pollen from one flower to another, which allows plants to produce fruit and seeds.",
+        "As bees collect nectar for food, pollen sticks to their hairy bodies and travels to the next flower.",
+        "Some plants, such as wheat and rice, are pollinated mainly by the wind.",
+        "Scientists point to several causes working together, including the loss of wild flowers, certain pesticides, parasites like the varroa mite, diseases, and climate change."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "꽃가루받이는 꽃가루가 한 꽃에서 다른 꽃으로 옮겨 가 열매와 씨를 맺게 하는 일이에요. 벌이 꽃꿀을 모을 때 털 많은 몸에 꽃가루가 붙어 다음 꽃으로 옮겨져요. 두 문장을 이어 봐야 해요.",
+        "Pollination is the movement of pollen between flowers. As bees collect nectar, pollen sticks to their hairy bodies and travels to the next flower."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How do beekeepers take care of their hives?",
+      "양봉가는 벌통을 어떻게 돌볼까?",
+      "A Day with a Beekeeper"
+    ],
+    [
+      "B",
+      "Which flowers help wild bees the most?",
+      "어떤 꽃이 야생벌에게 가장 도움이 될까?",
+      "Flowers for Wild Bees"
+    ]
+  ],
+  "write": {
+    "pre": "We should",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "우리가 해야 할 일",
+      "그렇게 하면 생기는 결과"
+    ],
+    "slotEn": [
+      "what we should do",
+      "the result we want"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «해야 할 일 + 그 목적» 으로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and the result you want in English.",
+    "aria": [
+      "what we should do",
+      "the result"
+    ],
+    "src": "“We should <u>plant flowers at our school</u> so that <u>bees can find food in our city</u>.”",
+    "chips": [
+      {
+        "a": "grow herbs on our balcony",
+        "b": "bees have more flowers to visit",
+        "label": "balcony"
+      },
+      {
+        "a": "leave some wild flowers in the park",
+        "b": "wild bees have places to feed",
+        "label": "park"
+      },
+      {
+        "a": "tell our families why bees matter",
+        "b": "more people help protect them",
+        "label": "family"
+      }
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에 «벌에게 + 어떤 도움이 되는지» 를 넣어 결과를 분명하게 써 보세요. (예: so that bees have flowers all summer)",
+    "moreEn": "One more step: after «so that», write how it helps the bees. (e.g. so that bees have flowers all summer)"
+  },
+  "img": {
+    "style": "photo",
+    "cover": "A honeybee covered in yellow pollen grains landing on a blooming pink apple blossom, close-up in bright spring sunlight",
+    "scenes": {
+      "1": "Rows of white wooden beehives standing between flowering almond trees in a large orchard in spring, bees flying around the hives",
+      "3": "Students planting colorful flowers in a garden bed beside their school building on a sunny day, bees visiting the blossoms"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "Beehives in a blooming almond orchard",
+    "3": "Students planting flowers at school",
+    "cover": "A pollen-covered bee on an apple blossom"
+  }
+}

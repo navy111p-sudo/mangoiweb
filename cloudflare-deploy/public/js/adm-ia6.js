@@ -126,14 +126,10 @@
         { ko: '오늘 수업', en: "Today's classes", cards: ['card-students-mgmt', 'card-active-rooms', 'card-room-invite'], openSub: 'sm-today-classes',
           tip: '🚪 오늘 전체 · 🔴 진행 중 · 🎥 화상방 접속 — 한 화면에서 탭으로 갈라 봅니다',
           tipEn: '🚪 All of today · 🔴 in class · 🎥 in a room - one screen, three tabs' },
-        { ko: '출결',       en: 'Attendance',      cards: ['card-attendance-status', 'card-auto-attendance', 'card-class-attendance'] },
-        /* 🚷 (2026-08-13 수정요청 #05) 「담당자가 클릭 한 번으로」 가 요구사항이라 「출결」 안에
-           끼워 넣지 않고 자기 항목을 준다. 출결 항목은 카드 3장을 한 화면에 펴 놓기 때문에,
-           거기 넣으면 장기 결석생 표를 보려고 아래로 스크롤해야 한다(그게 이 카드의 요점이 아니다). */
-        { ko: '장기 결석생', en: 'Long absent',     cards: ['card-long-absent'],
-          tip: '🚨 연속 결석이 쌓인 학생 — 연락할 순서대로', tipEn: '🚨 Students with the longest absence streaks' },
-        { ko: '수업 관찰',  en: 'Observe class',   cards: ['card-admin-ghost', 'card-admin-whisper'] },
-        /* 🗼 (2026-08-30 사장님 「하나하나 입력하지 않고 바로바로」) — 전체 수업을 한 표로 보고
+        /* 🗼 (2026-10-21 사장님 「잘 보이는 곳에 — 관리자들이 잘 찾게」) 「오늘 수업」 바로 아래로 올리고 영어 이름을
+           «Class Monitor» 로 — 필리핀 직원이 BODA 에서 쓰던 «관찰 화면» 을 여기서 찾는다(예전 5번째 · «Control tower»).
+           ⛔ 다시 아래로 내리지 말 것 · ⛔ hideFrom 을 넓히지 말 것(아래 주석).
+           (2026-08-30 사장님 「하나하나 입력하지 않고 바로바로」) — 전체 수업을 한 표로 보고
            줄마다 참관·입장·종료까지 하는 별도 화면. 별도 페이지라 href 다(「수업 길이 변경」과 같은 꼴).
            🔐 (2026-09-09) 강사에게는 감춘다 — 이 화면의 **뼈대**(목록·알림·참관·회선)가 강사 차단이라
               눌러도 빈 표만 나온다(src/index.ts TEACHER_BLOCKED_PREFIXES 의
@@ -148,10 +144,17 @@
               ⛔ 「참관만 403」이 아닙니다 — 조직 계정에게 열린 것은 **`classes-now` 하나뿐**이고
                  `alerts`·`ghost/start`·`live-classes`·`room/`·`vc/quality` 는 전부 forbidden_scope 입니다.
                  그래도 «목록은 되므로» 감추지 않습니다(되는 것을 메뉴에서 빼는 쪽이 더 나쁩니다). */
-        { ko: '수업 관제탑', en: 'Control tower', href: '/admin/monitor-wall.html',
+        { ko: '수업 관제탑', en: 'Class Monitor', href: '/admin/monitor-wall.html',
           hideFrom: ['teacher'],
           tip: '🗼 지금 열린 수업을 한 표로 — 참관·입장·종료·순회 참관',
           tipEn: '🗼 Every live class in one table - observe, enter, end, rotate' },
+        { ko: '출결',       en: 'Attendance',      cards: ['card-attendance-status', 'card-auto-attendance', 'card-class-attendance'] },
+        /* 🚷 (2026-08-13 수정요청 #05) 「담당자가 클릭 한 번으로」 가 요구사항이라 「출결」 안에
+           끼워 넣지 않고 자기 항목을 준다. 출결 항목은 카드 3장을 한 화면에 펴 놓기 때문에,
+           거기 넣으면 장기 결석생 표를 보려고 아래로 스크롤해야 한다(그게 이 카드의 요점이 아니다). */
+        { ko: '장기 결석생', en: 'Long absent',     cards: ['card-long-absent'],
+          tip: '🚨 연속 결석이 쌓인 학생 — 연락할 순서대로', tipEn: '🚨 Students with the longest absence streaks' },
+        { ko: '수업 관찰',  en: 'Observe class',   cards: ['card-admin-ghost', 'card-admin-whisper'] },
         { ko: '연기·변경',  en: 'Reschedule',      cards: ['card-schedule-requests'],
           tip: '📅 수업 연기·시간 변경 요청 처리', tipEn: '📅 Handle postpone / time-change requests' },
         /* 🐞 (2026-08-13 수정요청 #04) 「문의·버그」 한 항목이 신규상담 카드와 버그 카드를
@@ -226,7 +229,13 @@
       ico: '<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/>',
       items: [
         { ko: '강사 명부',   en: 'Teachers',        cards: ['card-teacher-mgmt', 'card-mbti-mgmt', 'card-teacher-link', 'card-teacher-contact'] },
-        { ko: '시간표·근무', en: 'Schedule',        cards: ['card-timetable', 'card-calendar', 'card-auto-schedule', 'card-schedule-seed'] },
+        /* 📅 (2026-10-07 사장님) 「시간표·근무」를 누르면 «오늘» 일간 시간표가 바로 뜨게 — go.
+           go 는 «사람이 직접 누른 클릭» 에서만 쓴다(wireDelegate). select() 는 안 쓴다 —
+           select 는 «마지막으로 보던 항목» 복원에도 불리므로, 거기서 이동하면 admin.html 을
+           열 때마다 시간표로 튕겨 나간다. 카드(cards)·▾ 손자는 그대로 둔다 — 캘린더·자동배정·
+           씨앗 카드는 ▾ 손자나 검색으로 계속 간다. ?preset=today 는 weekly-schedule.html 의
+           PRESET_KEYS 와 짝이다(일간 버튼을 실제로 눌러 오늘로 연다). */
+        { ko: '시간표·근무', en: 'Schedule',        cards: ['card-timetable', 'card-calendar', 'card-auto-schedule', 'card-schedule-seed'], go: '/admin/weekly-schedule.html?preset=today' },
         /* 📅 수업 길이 변경 신청함 (2026-08-17 사장님) — 카드가 아니라 별도 페이지다.
            href 배선은 capiHref 와 같은 계약으로 이미 있었다(select() 참고). 여기가 첫 사용처다.
            ⚠️ href 항목은 select() 가 localStorage 에 «마지막으로 보던 항목» 으로 저장하지 않는다
@@ -329,6 +338,12 @@
             { ko: '① 환불할 결제 고르기', en: '① Pick a payment', id: 'rf-pick' },
             { ko: '📒 환불 내역',          en: '📒 Refund history', id: 'rf-history' }
           ] },
+        /* 🏫 (2026-10-01 신설) 대리점 수업료 — 충전금 자동 차감·청구서·독촉 문자·자동결제.
+           별도 페이지(href). 서버가 본사 전용(enrollAdminHqOnly)이라 화면도 짝으로 감춘다. */
+        { ko: '🏫 대리점 수업료', en: '🏫 Agency Tuition', href: '/admin/b2b-tuition.html',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🏫 대리점 충전금 · 자동 차감 · 청구서 · 독촉 문자 (본사 전용)',
+          tipEn: '🏫 Agency prepaid balance · auto deduction · invoices · reminders (HQ only)' },
         // 🏬 (2026-08-12 수정요청 #04) 「지사 정산」이 역할 무관하게 캐피타운 전용 페이지로
         //    직행하던 것을 고친다 — 캐피타운이 아닌 지사 관리자는 그 페이지의 게이트에서
         //    무조건 「접근 권한이 없습니다」를 봤다. 이제 기본은 권한 스코프가 이미 걸려 있는
@@ -980,6 +995,7 @@
            손자 생성기(adm-r25.js)는 이 화면의 카드만 읽을 수 있어서, 이걸 안 실어 주면
            그 항목만 손자가 없는 «2단짜리» 로 남는다. */
         if (it.href) d.setAttribute('data-ia6-href', it.href);
+        if (it.go) d.setAttribute('data-ia6-go', it.go);
         /* 🔐 (2026-09-09) 이 항목을 감춰야 하는 역할. 사이드바는 통째로 다시 그려질 수 있어서
            («리스너를 붙이지 않는다» 바로 아래 주석과 같은 사정) 판정 근거를 DOM 에 실어 둔다. */
         if (it.hideFrom && it.hideFrom.length) d.setAttribute('data-ia6-hide-from', it.hideFrom.join(' '));
@@ -1198,6 +1214,9 @@
            표시는 adm-r25.js 가 남긴다(우리보다 먼저 돈다 — 문서상 위). 800ms 뒤 저절로 풀린다. */
         if (sub.getAttribute('data-ia6-secs') && window.__ph125OpenedEl === sub &&
             window.__ph125OpenedUntil > Date.now()) return;
+        /* 📅 (2026-10-07) 직접 누르면 바로 그 화면으로 — 위 GROUPS 의 go 주석 참고. */
+        var go = sub.getAttribute('data-ia6-go');
+        if (go) { location.href = go; return; }
         select(sub.getAttribute('data-ia6-item'));
         return;
       }

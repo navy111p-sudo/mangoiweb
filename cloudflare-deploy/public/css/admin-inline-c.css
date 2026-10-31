@@ -10368,3 +10368,23 @@ html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span.lib-lvl:no
 #card-recording-storage .rs-kpi button.rs-act span { color:#b91c1c !important; }
 #card-recording-storage .rs-kpi button.rs-act:hover { background-color:#fecaca !important; transform:none !important; box-shadow:none !important; }
 #card-recording-storage .rs-kpi button.rs-act[hidden] { display:none !important; }
+
+/* 📝 (2026-09-30) 「오늘 수업」 지난/오늘 평가 칸의 «📄 전문 보기» 링크 — js/adm-today-classes.js xEval.
+   details.menu-card a{color:#60A5FA!important;underline} 는 흰 카드 위 대비가 약해(≈2.5) ID 접두로 이긴다. */
+#sm-today-classes a.tc-evq-link{display:inline-block;margin-top:2px;color:#1d4ed8 !important;font-weight:700;text-decoration:none !important;white-space:nowrap}
+#sm-today-classes a.tc-evq-link:hover{text-decoration:underline !important}
+
+/* 🎨 (2026-10-01) 오늘 수업 표 «⏸ 연기됨/Postponed» — 회색에 묻혀 안 보였다 → 보라 배지.
+   인라인 색은 [id^="card-"] :is(span…) 규칙에 검정으로 눌리므로 조상 id 로 이긴다. 대비 #6d28d9/#ede9fe ≈ 6.4 */
+#sm-today-classes span.tc-st-postponed{display:inline-block;padding:2px 9px;border-radius:99px;
+  background-color:#ede9fe !important;color:#6d28d9 !important;border:1px solid #a78bfa !important;font-weight:800 !important;box-sizing:border-box}
+
+/* ✏️➕ (2026-10-28 매니저·강사 제안) 「오늘 수업」 지난/오늘 피드백 칸의 「✏️ 고치기」·「➕ 추가」 — js/adm-today-classes.js xEvalAct.
+   인라인 색은 [id^="card-"] :is(span…) 규칙에 검정으로 눌리므로 조상 id 로 이긴다(바로 위 tc-st-postponed 와 같은 방식).
+   hover 는 색·밑줄만(크기·위치 고정 — CLAUDE.md 1-3). 대비 #1d4ed8/#eff6ff ≈ 6.4 · #047857/#ecfdf3 ≈ 5.3 */
+#sm-today-classes span.tc-evq-act{display:block;width:max-content;margin-top:4px;padding:2px 9px;border-radius:99px;cursor:pointer;
+  white-space:nowrap;font-size:11px;background-color:#eff6ff !important;color:#1d4ed8 !important;border:1px solid #93c5fd !important;
+  font-weight:800 !important;box-sizing:border-box}
+#sm-today-classes span.tc-evq-act.tc-evq-add{background-color:#ecfdf3 !important;color:#047857 !important;border-color:#6ce9a6 !important}
+#sm-today-classes span.tc-evq-act:hover{text-decoration:underline}
+#sm-today-classes span.tc-evq-act:focus-visible{outline:2px solid #1d4ed8;outline-offset:2px}

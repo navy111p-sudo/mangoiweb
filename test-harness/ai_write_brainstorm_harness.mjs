@@ -264,13 +264,21 @@ check('오가나이저 라벨은 글자 흐름을 flex 로 쪼개지 않는다',
 check('긴 글은 «고쳐진 문장만» 따라 쓰게 한다', /function pickRewriteTarget/.test(HTML) && /_lastCorrected = rwTarget/.test(HTML));
 /* 🔗 주제 목록 셋이 한 길로 모인다 — 화면 배선 */
 check('🔗 그림 「이 장면으로 쓰기」가 브레인스토밍을 연다', /window\.usePicPrompt[\s\S]{0,400}goSelectScene\(_picIdx\)/.test(HTML));
-check('🔗 글감 칩이 브레인스토밍을 연다', /chip\.onclick = \(\) => \{ try \{ goSelectTopic\(i\)/.test(HTML));
+/* 📅 (2026-10-19 사장님 지시 «글감은 한 곳에서 고르고, 브레인스토밍은 그림 바로 아래») — 옛 검사 두 줄을 옮겨 적었다.
+     예전엔 «🎲 오늘의 글감» 칩이 따로 있어 «칩을 누르면 브레인스토밍이 열린다» 를 봤는데, 그 칩은 «🎬 장면·글감 선택» 목록 하나로 합쳐 지웠다.
+     지키던 것(글감을 고르면 그 글감으로 6하원칙 질문이 열린다 · 영어 화면에서 영어로 보인다)은 그대로라 «새 입구» 로 묻는다.
+     ⛔ 칩 검사로 되돌리지 말 것 — 고르는 곳이 다시 셋이 된다. 실제 동작(값 → 주제)은 write_topics_harness [C] 가 돌려 본다. */
+const pickSrc = (() => { const a = HTML.indexOf('window.awPickTopic = function'); const b = HTML.indexOf('window.awFocusPicker', a); return a >= 0 && b > a ? HTML.slice(a, b) : ''; })();
+check('🔗 «장면·글감 선택» 의 오늘의 글감(topic:) 값이 브레인스토밍을 연다',
+  (() => { const m = pickSrc.match(/kind === 'topic'\) \{([\s\S]*?)\} else if/); const br = m ? m[1] : '';
+            return /goThemeFromTopic\(/.test(br) && /goApplyTheme\(t/.test(br); })());   // ⚠️ 그 갈래 «안» 만 본다 — 다른 갈래의 goApplyTheme 에 가려지지 않게
 check('🔗 예전 동작(시작 문장 한 줄)은 «질문 없이 바로 쓰기» 로 남아 있다',
   /window\.goSkipToWrite/.test(HTML) && /질문 없이 바로 쓰기/.test(HTML));
 check('🔗 «지금 주제» 표시줄이 어디서 온 주제인지 말한다',
   /go-cur-src/.test(HTML) && /goClearTheme/.test(HTML));
-check('🔗 글감 칩도 EN 에서 영어로 보인다 (TOPICS 에 en)',
-  /\{ ko: '🍕 내가 좋아하는 음식', en: '/.test(HTML) && /chip\.setAttribute\('data-en'/.test(HTML));
+check('🔗 오늘의 글감도 EN 에서 영어로 보인다 (TOPICS 에 en · 목록 항목이 data-en 을 단다 · 🌐 에 목록을 다시 그린다)',
+  /\{ ko: '🍕 내가 좋아하는 음식', en: '/.test(HTML) && /if \(key === 'topic'\) return TOPICS\.map\(\(t, i\) => \(\{ v: 'topic:' \+ i, ko: t\.ko, en: t\.en/.test(HTML)
+  && /o\.setAttribute\('data-en', e\.en\)/.test(HTML) && /mangoi:lang-changed[\s\S]{0,200}awBuildPicker\(\)/.test(HTML));
 check('문장 나누기에 lookbehind 를 쓰지 않는다 (구형 사파리)', !/\(\?<=/.test(HTML));
 
 /* ═══════════════════════════════════════════════════════════════════

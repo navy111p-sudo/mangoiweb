@@ -39,6 +39,8 @@
 
 import { selectInChunks } from './d1-chunk';   // 🔢 IN 목록은 공용 헬퍼로 — D1 바인드 100개 한도
 import { loadHiddenStudents } from './student-override';   // 🙈 명부에서 숨긴 학생은 안 만든다
+import { findTeacherClashes, loadMangoiForClash, type TeacherClash } from './teacher-clash';   // ⚔️ LMS↔망고아이 강사 겹침
+import { enrollDowList } from './enroll-ops';   // 🗓 요일 판정 정본(복제 금지)
 
 /** 미러 동작 단계 */
 export type MirrorMode = 'off' | 'whitelist' | 'all';
@@ -731,6 +733,12 @@ export async function c24MirrorReport(
      읽기만 추가한 것이라 기존 호출자는 그대로다(하니스가 이 필드를 요구하지 않는다). */
   enabled_teachers: string[];
   blocked_teachers: string[];
+  /* ⚔️ (2026-09-30) 같은 강사가 같은 시간에 LMS 수업과 망고아이 수업을 함께 가진 자리.
+     null = 망고아이 쪽을 못 읽었다(«0건=깨끗» 과 구분한다). 강사를 켰든 안 켰든 «전원» 을 본다. */
+  clashes: TeacherClash[] | null;
+  clash_unchecked_no_teacher: number;
+  /** 망고아이 쪽 teacher_id 가 원부 번호가 아니라 대조 못 한 행 수 */
+  clash_unchecked_mangoi_teacher: number;
 }> {
   await ensureMirrorTables(env);
   const kstToday = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
@@ -751,6 +759,16 @@ export async function c24MirrorReport(
   const slotSeen = dupGuard ? await loadSlotHistory(env, classes.map(c => c.user_id)) : new Map<string, number>();
   const rows = planMirror(classes, links, students, existing, mode, enabled, hidden, slotSeen);
   const summary = summarize(rows);
+
+  /* ⚔️ 강사 겹침 — 실패해도 성적표는 그대로 낸다(대신 clashes=null 로 «못 봤다» 고 말한다). */
+  let clashes: TeacherClash[] | null = null;
+  let clashUnchecked = 0;
+  let clashUncheckedMg = 0;
+  try {
+    const mg = await loadMangoiForClash(env, since, until);
+    const r = findTeacherClashes(rows, mg, enrollDowList);
+    clashes = r.clashes; clashUnchecked = r.unchecked_no_teacher; clashUncheckedMg = r.unchecked_mangoi_teacher;
+  } catch (e) { console.warn('[c24-mirror] teacher clash check failed', e); }
 
   const byDate = new Map<string, { date: string; total: number; ok: number; blocked: number }>();
   for (const r of rows) {
@@ -777,6 +795,9 @@ export async function c24MirrorReport(
     dup_guard: dupGuard,
     enabled_teachers: Array.from(enabled).sort(),
     blocked_teachers: Array.from(blocked).sort(),
+    clashes,
+    clash_unchecked_no_teacher: clashUnchecked,
+    clash_unchecked_mangoi_teacher: clashUncheckedMg,
   };
 }
 

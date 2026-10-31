@@ -1,0 +1,172 @@
+{
+ "schema": 1,
+ "sourceRev": "f4ef7ac",
+ "params": {
+  "poses": "EF",
+  "lipK": 11,
+  "tipMargin": 4,
+  "baseLipMargin": 10,
+  "ellipseThr": 4,
+  "colorSigma": 10,
+  "colorFeather": 12,
+  "smoothSigma": 6,
+  "grainSigma": 1.5,
+  "grainClip": 5,
+  "lipMargin": 3,
+  "lipFade": 6,
+  "ringOut": 45,
+  "ringFade": 12,
+  "noseGap": 16,
+  "noseFade": 8,
+  "borderKeep": 2,
+  "borderFade": 8
+ },
+ "actors": {
+  "lily": {
+   "rect": [
+    250,
+    294,
+    144,
+    122
+   ],
+   "files": {
+    "img/visemes/lily-mouths.webp": {
+     "sourceSha256": "d1b25cc9cafcf83462f793d1667627a194978eeaa2ad512ed594091d27cddaf2",
+     "sha256": "5c889b78d1918bc1a23960e302eb81f43a2a9d2becb87ed23ea17b98668ede66",
+     "bytes": 115788,
+     "tiles": [
+      {
+       "pose": "X",
+       "action": "keep",
+       "borderMaxChange": 0.0
+      },
+      {
+       "pose": "A",
+       "action": "keep",
+       "borderMaxChange": 0.0
+      },
+      {
+       "pose": "B",
+       "action": "keep",
+       "borderMaxChange": 0.0
+      },
+      {
+       "pose": "C",
+       "action": "keep",
+       "borderMaxChange": 0.0
+      },
+      {
+       "pose": "D",
+       "action": "keep",
+       "borderMaxChange": 0.0
+      },
+      {
+       "pose": "E",
+       "action": "clean",
+       "foldBefore": 3.587,
+       "foldAfter": 3.276,
+       "skinToBaseBefore": 20.5,
+       "skinToBaseAfter": 9.35,
+       "lipMaxChange": 0.0,
+       "borderMaxChange": 0.0
+      },
+      {
+       "pose": "F",
+       "action": "clean",
+       "foldBefore": 3.716,
+       "foldAfter": 3.127,
+       "skinToBaseBefore": 17.7,
+       "skinToBaseAfter": 7.51,
+       "lipMaxChange": 0.0,
+       "borderMaxChange": 0.0
+      },
+      {
+       "pose": "G",
+       "action": "keep",
+       "borderMaxChange": 0.0
+      },
+      {
+       "pose": "H",
+       "action": "keep",
+       "borderMaxChange": 0.0
+      }
+     ]
+    }
+   }
+  },
+  "noah": {
+   "rect": [
+    214,
+    364,
+    214,
+    130
+   ],
+   "files": {
+    "img/visemes/noah-mouths.webp": {
+     "sourceSha256": "fc4264612655ba745929d2b6031037cdd63649e754edad2647f7100f0976c092",
+     "sha256": "11497768fb055f012018e8a69e96de714503223d9d177f3d88404c0405c283fa",
+     "bytes": 161962,
+     "tiles": [
+      {
+       "pose": "X",
+       "action": "keep",
+       "borderMaxChange": 0.0
+      },
+      {
+       "pose": "A",
+       "action": "keep",
+       "borderMaxChange": 0.0
+      },
+      {
+       "pose": "B",
+       "action": "keep",
+       "borderMaxChange": 0.0
+      },
+      {
+       "pose": "C",
+       "action": "keep",
+       "borderMaxChange": 0.0
+      },
+      {
+       "pose": "D",
+       "action": "keep",
+       "borderMaxChange": 0.0
+      },
+      {
+       "pose": "E",
+       "action": "clean",
+       "foldBefore": 2.604,
+       "foldAfter": 2.282,
+       "skinToBaseBefore": 21.22,
+       "skinToBaseAfter": 8.49,
+       "lipMaxChange": 0.0,
+       "borderMaxChange": 0.0
+      },
+      {
+       "pose": "F",
+       "action": "clean",
+       "foldBefore": 3.44,
+       "foldAfter": 2.427,
+       "skinToBaseBefore": 23.65,
+       "skinToBaseAfter": 9.49,
+       "lipMaxChange": 0.0,
+       "borderMaxChange": 0.0
+      },
+      {
+       "pose": "G",
+       "action": "substitute:B",
+       "blackBefore": 0.371,
+       "borderMaxChange": 0.0
+      },
+      {
+       "pose": "H",
+       "action": "substitute:C",
+       "blackBefore": 0.371,
+       "borderMaxChange": 0.0
+      }
+     ]
+    }
+   }
+  }
+ }
+}

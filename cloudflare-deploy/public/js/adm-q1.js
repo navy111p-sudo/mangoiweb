@@ -15,11 +15,11 @@
       teacher_name: document.getElementById('aed-teacher-name').value.trim(),
       lesson_title: document.getElementById('aed-lesson-title').value.trim(),
       scores: {
-        participation: parseInt(document.getElementById('aed-sc-part').value) || null,
-        comprehension: parseInt(document.getElementById('aed-sc-comp').value) || null,
-        homework: parseInt(document.getElementById('aed-sc-hw').value) || null,
-        attitude: parseInt(document.getElementById('aed-sc-att').value) || null,
-        speaking: parseInt(document.getElementById('aed-sc-sp').value) || null,
+        participation: (document.getElementById('aed-sc-part').value === '' ? null : Number(document.getElementById('aed-sc-part').value)),
+        comprehension: (document.getElementById('aed-sc-comp').value === '' ? null : Number(document.getElementById('aed-sc-comp').value)),
+        homework: (document.getElementById('aed-sc-hw').value === '' ? null : Number(document.getElementById('aed-sc-hw').value)),
+        attitude: (document.getElementById('aed-sc-att').value === '' ? null : Number(document.getElementById('aed-sc-att').value)),
+        speaking: (document.getElementById('aed-sc-sp').value === '' ? null : Number(document.getElementById('aed-sc-sp').value)),
       },
       keywords: document.getElementById('aed-keywords').value.split(',').map(s=>s.trim()).filter(Boolean),
     };
@@ -64,18 +64,18 @@
       teacher_name: document.getElementById('aed-teacher-name').value.trim(),
       lesson_title: document.getElementById('aed-lesson-title').value.trim(),
       lesson_date: new Date().toISOString().slice(0,10),
-      score_participation: parseInt(document.getElementById('aed-sc-part').value) || null,
-      score_comprehension: parseInt(document.getElementById('aed-sc-comp').value) || null,
-      score_homework: parseInt(document.getElementById('aed-sc-hw').value) || null,
-      score_attitude: parseInt(document.getElementById('aed-sc-att').value) || null,
-      score_speaking: parseInt(document.getElementById('aed-sc-sp').value) || null,
+      score_participation: (document.getElementById('aed-sc-part').value === '' ? null : Number(document.getElementById('aed-sc-part').value)),
+      score_comprehension: (document.getElementById('aed-sc-comp').value === '' ? null : Number(document.getElementById('aed-sc-comp').value)),
+      score_homework: (document.getElementById('aed-sc-hw').value === '' ? null : Number(document.getElementById('aed-sc-hw').value)),
+      score_attitude: (document.getElementById('aed-sc-att').value === '' ? null : Number(document.getElementById('aed-sc-att').value)),
+      score_speaking: (document.getElementById('aed-sc-sp').value === '' ? null : Number(document.getElementById('aed-sc-sp').value)),
       strengths: document.getElementById('aed-out-strengths').value.trim(),
       improvements: document.getElementById('aed-out-improvements').value.trim(),
       next_goals: document.getElementById('aed-out-next_goals').value.trim(),
       teacher_comment: document.getElementById('aed-out-teacher_comment').value.trim(),
     };
     try {
-      const r = await fetch('/api/eval/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      const r = await fetch('/api/eval/draft-create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error);
       let extra = '';
@@ -84,7 +84,7 @@
         const sent = d.push.filter(p => p.sent > 0).length;
         if (sent) extra += ` · 푸시 ${sent}건`;
       }
-      out.innerHTML = `<div style="padding:12px 16px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);border-radius:8px;font-size:13px"><b style="color:#34d399">✅ 평가서 #${d.id} 저장 완료</b><br><span style="color:#a3b3d1;font-size:11.5px">종합 점수: <b style="color:#fbbf24">${d.overall}</b>점${extra}</span><br><a href="/eval.html?id=${d.id}" target="_blank" style="color:#93c5fd;font-size:12px;text-decoration:underline">📄 평가서 페이지 열기</a></div>`;
+      out.innerHTML = `<div style="padding:12px 16px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);border-radius:8px;font-size:13px"><b style="color:#34d399">✅ 평가서 #${d.id} 저장 완료</b><br><span style="color:#a3b3d1;font-size:11.5px">종합 점수: <b style="color:#fbbf24">${d.overall == null ? '-' : d.overall + '/10'}</b>점${extra}</span><br><a href="/eval.html?id=${d.id}" target="_blank" style="color:#93c5fd;font-size:12px;text-decoration:underline">📄 평가서 페이지 열기</a></div>`;
     } catch(e) { out.innerHTML = '<div style="color:#f87171">❌ '+esc(e.message)+'</div>'; }
   };
 
@@ -97,8 +97,15 @@
       const r = await fetch('/api/admin/retention/risk');
       const d = await r.json();
       if (!d.ok) throw new Error(d.error);
+      /* 📏 (2026-10-13) «누구를 봤는지» 를 말한다 — 예전엔 명부에서 아무 500명만 보고도 아무 말이 없었다.
+         서버가 scan 을 안 보내면(옛 서버) 이 줄은 그리지 않는다(지어내지 않음). */
+      const _sc = d.scan;
+      const scanLine = _sc ? `<div style="font-size:12px;color:#64748b;margin:0 0 10px;line-height:1.6">${isEn
+        ? `Checked ${_sc.scanned.toLocaleString()} students with a class record in the last ${_sc.window_days} days (or in the expiry list)` + (_sc.active_total != null ? ` out of ${_sc.active_total.toLocaleString()} active.` : '.') + ` Students with no class record in ${_sc.window_days} days (incl. new students and future-only bookings) were left out of this list.` + (_sc.truncated ? ` ⚠️ Limit reached — the ${(_sc.candidates - _sc.scanned).toLocaleString()} most active students were not scored.` : '')
+        : (_sc.active_total != null ? `명부 활성 ${_sc.active_total.toLocaleString()}명 중 ` : '') + `최근 ${_sc.window_days}일 수업 기록(또는 만료 목록)이 있는 ${_sc.scanned.toLocaleString()}명을 살펴봤습니다. ${_sc.window_days}일 동안 수업 기록이 없는 학생(새로 등록했거나 앞으로의 예약만 있는 학생 포함)은 이번 목록에서 뺐습니다.` + (_sc.truncated ? ` ⚠️ 상한에 걸려 가장 활발한 ${(_sc.candidates - _sc.scanned).toLocaleString()}명은 점수를 매기지 않았습니다.` : '')
+      }</div>` : '';
       if (!d.count) {
-        out.innerHTML = `<div style="padding:24px;text-align:center;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px"><b style="color:#34d399">✅ ${isEn?'No at-risk students!':'위험 학생이 없습니다!'}</b><br><span style="font-size:11.5px;color:#a3b3d1;margin-top:6px;display:inline-block">${isEn?'All students are attending normally.':'모든 학생이 정상 출석/학습 중입니다.'}</span></div>`;
+        out.innerHTML = scanLine + `<div style="padding:24px;text-align:center;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px"><b style="color:#34d399">✅ ${isEn?'No at-risk students!':'위험 학생이 없습니다!'}</b><br><span style="font-size:11.5px;color:#a3b3d1;margin-top:6px;display:inline-block">${isEn?'All students are attending normally.':'모든 학생이 정상 출석/학습 중입니다.'}</span></div>`;
         return;
       }
       // 위험도 분포 요약
@@ -106,7 +113,7 @@
       const medN = d.at_risk.filter(x=>x.risk_level==='medium').length;
       const lowN = d.at_risk.filter(x=>x.risk_level==='low').length;
 
-      out.innerHTML = `
+      out.innerHTML = scanLine + `
         <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
           <div style="background:rgba(239,68,68,0.15);border:1px solid #ef4444;border-radius:8px;padding:8px 14px;font-size:12px">
             🚨 ${isEn?'High':'심각'}: <b style="color:#fca5a5;font-size:14px">${highN}</b>
@@ -126,6 +133,8 @@
           const color = r.risk_level === 'high' ? '#ef4444' : r.risk_level === 'medium' ? '#f59e0b' : '#94a3b8';
           const bg = r.risk_level === 'high' ? 'rgba(239,68,68,0.08)' : r.risk_level === 'medium' ? 'rgba(245,158,11,0.08)' : 'rgba(148,163,184,0.06)';
           const actions = (r.recommended_actions||[r.recommended_action]).map(a => esc(a)).join(' · ');
+          // 학생이름: 서버가 이름을 못 찾으면 student_name 에 아이디를 넣으므로, 같으면 «이름 없음» 으로 그림(아이디를 이름처럼 보이지 않게)
+          const _nm = r.name_known !== false && r.student_name && r.student_name !== r.user_id;
           const metrics = `
             <span title="최근 30일 출석">📅 ${r.attendance_30d}회</span>
             <span title="평가 평균">⭐ ${r.eval_avg||'-'}</span>
@@ -137,11 +146,14 @@
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
               <div style="flex:1;min-width:0">
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                  <span style="font-weight:800;font-size:15px">${esc(r.student_name)}</span>
+                  <span style="font-size:11px;color:#94a3b8">${isEn?'Name':'학생이름'}</span>
+                  <span style="font-weight:800;font-size:15px">${_nm ? esc(r.student_name) : `<span style="color:#94a3b8;font-weight:600">${isEn?'(no name)':'(이름 없음)'}</span>`}</span>
+                  <span style="font-size:11px;color:#94a3b8">${isEn?'ID':'아이디'}</span>
                   <span style="font-family:MangoiHanSC,monospace;font-size:11px;color:#a3b3d1">${esc(r.user_id)}</span>
                   ${r.parent_name ? `<span style="font-size:11px;color:#94a3b8">👪 ${esc(r.parent_name)}${r.parent_phone?' · '+esc(r.parent_phone):''}</span>` : ''}
                 </div>
                 <div style="margin-top:6px;display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px;color:#cbd5e1">${metrics}</div>
+                ${arrLastContactLine(r, d, isEn)}
                 <div style="margin-top:8px;font-size:11.5px;color:#cbd5e1;line-height:1.55">${r.reasons.map(x => `<span style="display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;background:rgba(255,255,255,0.05);border-radius:6px">${esc(x)}</span>`).join('')}</div>
                 <div style="margin-top:8px;font-size:12px;color:#fbbf24"><b>💡 ${isEn?'Recommended':'추천'}:</b> ${actions}</div>
                 <!-- 케어 액션 버튼들 -->
@@ -166,6 +178,21 @@
       window._arrAtRisk = d.at_risk;
     } catch(e) { out.innerHTML = '<div style="color:#f87171">❌ '+esc(e.message)+'</div>'; }
   };
+
+  /* 📞 (2026-10-13 케어 보드 2단계) 마지막 연락 — 서버 정본 lastContactMap(care-contact.ts)이 다섯 원천
+     (이 카드의 카톡·문자·전화 · AI 매출·이탈 요약 · 수강권 만료 화면의 연락함·자동 문자 · 상담 문자)을 합쳐 준다.
+     서버가 그 칸을 안 보냈으면(옛 서버·조회 실패) 아무것도 그리지 않는다 — «연락 안 함» 으로 지어내지 않는다. */
+  function arrLastContactLine(r, d, isEn){
+    if (!d || d.last_contact_ok !== true) return '';
+    var c = r.last_contact;
+    if (!c || !(c.at > 0)) return '<div style="margin-top:6px;font-size:11.5px;color:#475467">📞 ' + (isEn ? 'No contact recorded yet' : '아직 연락 기록 없음') + '</div>';
+    var days = Math.max(0, Math.floor((Date.now() - c.at) / 86400000));
+    var VIA = { kakao:['카톡(문자로 발송)','Kakao (sent as SMS)'], sms:['문자','SMS'], call:['전화','Call'], care:['AI 매출·이탈 요약','AI churn summary'],
+                retention:['수강권 만료 화면','Expiry page'], auto_sms:['자동 안내 문자','Auto SMS'], counsel_sms:['상담 문자','Counseling SMS'] };
+    var v = VIA[c.via] || [String(c.via || ''), String(c.via || '')];
+    var when = days === 0 ? (isEn ? 'today' : '오늘') : (isEn ? days + ' day' + (days === 1 ? '' : 's') + ' ago' : days + '일 전');
+    return '<div style="margin-top:6px;font-size:11.5px;color:#15803d">📞 ' + (isEn ? 'Last contact: ' : '마지막 연락: ') + esc(when) + ' · ' + esc(isEn ? v[1] : v[0]) + '</div>';
+  }
 
   // 📵 Phase RM — 노쇼(수업 미입장) 리포트 로드
   window.noShowsLoad = async function(){

@@ -1,0 +1,310 @@
+{
+  "id": "s1-33",
+  "breaks": [
+    2,
+    3,
+    4
+  ],
+  "key": {
+    "P": 1,
+    "S": 7
+  },
+  "roleNames": {
+    "P": {
+      "ko": "할 일",
+      "en": "task"
+    },
+    "S": {
+      "ko": "결과",
+      "en": "result"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «블립 행성에서 피자 주문이 왔다(할 일)» 와 «외계인들이 지구 피자가 우주 최고라고 한다(결과)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the task (an order comes from Planet Blip) and the result (the aliens say Earth pizza is the best). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Rosa and a family of round, yellow aliens"
+    },
+    {
+      "k": "Task",
+      "qko": "로사는 무엇을 해야 하나요?",
+      "qen": "What must Rosa do?",
+      "a": "Rosa must bring a hot pizza to Planet Blip."
+    },
+    {
+      "k": "Result",
+      "qko": "결과는 어떻게 되나요?",
+      "qen": "What happens in the end?",
+      "a": "The aliens love the pizza, and Rosa gets the biggest tip."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Rosa delivers pizza in a flying ",
+      "ans": "spaceship",
+      "opts": [
+        "spaceship",
+        "bus",
+        "boat"
+      ]
+    },
+    {
+      "pre": ". Today, she flies to Planet Blip. The pizza must stay ",
+      "ans": "hot",
+      "opts": [
+        "hot",
+        "cold",
+        "wet"
+      ]
+    },
+    {
+      "pre": "! A family of round, yellow ",
+      "ans": "aliens",
+      "opts": [
+        "aliens",
+        "robots",
+        "dogs"
+      ]
+    },
+    {
+      "pre": " opens the door. They take one bite and they are very ",
+      "ans": "happy",
+      "opts": [
+        "happy",
+        "angry",
+        "sad"
+      ]
+    },
+    {
+      "pre": ". They say Earth pizza is the best, and Rosa gets the biggest ",
+      "ans": "tip",
+      "opts": [
+        "tip",
+        "rock",
+        "hat"
+      ]
+    },
+    {
+      "pre": " in the galaxy.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "delivers",
+      "배달하다",
+      "Rosa <b>delivers</b> pizza in a flying spaceship.",
+      "brings something to a person or a place"
+    ],
+    [
+      "spaceship",
+      "우주선",
+      "Rosa delivers pizza in a flying <b>spaceship</b>.",
+      "a ship that flies in space"
+    ],
+    [
+      "order",
+      "주문",
+      "Today, the <b>order</b> is from Planet Blip.",
+      "a request to buy food or things"
+    ],
+    [
+      "aliens",
+      "외계인들",
+      "A family of round, yellow <b>aliens</b> opens the door.",
+      "living things from another planet"
+    ],
+    [
+      "universe",
+      "우주",
+      "Earth pizza is the best in the <b>universe</b>!",
+      "all of space and everything in it"
+    ],
+    [
+      "tip",
+      "팁",
+      "Rosa gets the biggest <b>tip</b> in the galaxy.",
+      "extra money you give to say thank you"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does Rosa fly past the Moon and around Saturn's rings?",
+      "qko": "로사는 왜 달을 지나 토성의 고리를 돌아 날아가나요?",
+      "opts": [
+        "She wants to look at the stars.",
+        "She is lost in space.",
+        "The order is from Planet Blip."
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "The pizza must stay hot!",
+        "Today, the order is from Planet Blip.",
+        "A family of round, yellow aliens opens the door.",
+        "Rosa gets the biggest tip in the galaxy."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "오늘 주문이 블립 행성에서 왔어요. 그래서 로사는 블립 행성까지 멀리 날아가요.",
+        "The order is from Planet Blip, so Rosa flies far to get there."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"They take one bite and jump for joy.\" What does \"jump for joy\" mean?",
+      "qko": "«jump for joy» 는 무슨 뜻일까요?",
+      "opts": [
+        "jump because they are scared",
+        "jump because they are very happy",
+        "jump to catch the pizza"
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "\"Earth pizza is the best in the universe!\"",
+        "She flies past the Moon and around Saturn's rings.",
+        "Today, the order is from Planet Blip.",
+        "Rosa delivers pizza in a flying spaceship."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "외계인들이 «지구 피자가 우주 최고야!» 라고 외쳐요. «jump for joy» 는 너무 기뻐서 펄쩍 뛴다는 뜻이에요.",
+        "The aliens shout that Earth pizza is the best. \"Jump for joy\" means jump because you are very happy."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why does Rosa get the biggest tip?",
+      "qko": "로사는 왜 가장 많은 팁을 받나요?",
+      "opts": [
+        "The aliens love her pizza.",
+        "She cleans their house.",
+        "She brings them a cake."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "They take one bite and jump for joy.",
+        "She flies past the Moon and around Saturn's rings.",
+        "Rosa gets the biggest tip in the galaxy.",
+        "Rosa delivers pizza in a flying spaceship."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "외계인들이 피자를 먹고 기뻐서 펄쩍 뛰어요. 그래서 로사가 가장 많은 팁을 받아요. 두 문장을 이어야 알 수 있어요.",
+        "The aliens love the pizza and jump for joy, and then Rosa gets the biggest tip. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Rosa delivers ice cream to a very hot planet.",
+      "로사가 아주 뜨거운 행성에 아이스크림을 배달한다.",
+      "Ice Cream for the Hot Planet"
+    ],
+    [
+      "B",
+      "The yellow aliens visit Earth to eat more pizza.",
+      "노란 외계인들이 피자를 더 먹으러 지구에 온다.",
+      "Aliens Come to Earth"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "before",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“Let’s <u>eat the pizza</u> before <u>it gets cold</u>.”",
+    "slotKo": [
+      "함께 할 일",
+      "그보다 나중에 일어날 일"
+    ],
+    "slotEn": [
+      "what to do",
+      "what happens later"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그보다 나중에 일어날 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what to do together and what happens later in English.",
+    "chips": [
+      {
+        "a": "finish our homework",
+        "b": "we play outside",
+        "label": "homework"
+      },
+      {
+        "a": "put on our coats",
+        "b": "we go out",
+        "label": "coats"
+      },
+      {
+        "a": "brush our teeth",
+        "b": "we go to bed",
+        "label": "teeth"
+      }
+    ],
+    "aria": [
+      "what to do",
+      "what happens later"
+    ],
+    "moreKo": "한 걸음 더: «before» 뒤에 «누가 + 무엇을» 넣어 써 보세요. (예: before Dad comes home)",
+    "moreEn": "One more step: after «before», write who + what. (e.g. before Dad comes home)"
+  },
+  "img": {
+    "style": "flat",
+    "cover": "On a purple planet with pink rocks, Rosa, a girl with two curly black puffs of hair, a red pilot jacket and silver space boots, holds out a steaming pizza box to a family of round, yellow aliens with two big eyes and little antennae standing in a round doorway, with a small round red spaceship parked behind her and a ringed planet in the starry sky.",
+    "scenes": {
+      "1": "Rosa, a girl with two curly black puffs of hair, a red pilot jacket and silver space boots, sits in a small round red spaceship flying around the bright rings of Saturn, the gray Moon behind her, and a pizza box with warm steam rising sits buckled into the seat next to her.",
+      "2": "Inside a round house on Planet Blip, a family of round, yellow aliens with two big eyes and little antennae jump high in the air with happy faces, holding pizza slices, while Rosa, a girl with two curly black puffs of hair, a red pilot jacket and silver space boots, laughs and holds a big bag of shining coins, a small round red spaceship seen through the window."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Rosa flies her spaceship around Saturn's rings.",
+    "2": "The happy aliens jump for joy with pizza.",
+    "cover": "Rosa brings a hot pizza to a family of yellow aliens."
+  }
+}

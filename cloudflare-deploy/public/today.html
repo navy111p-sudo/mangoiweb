@@ -76,6 +76,23 @@
               background:linear-gradient(135deg,var(--gold2),var(--gold)); color:#1a1200; font-weight:900; font-size:14px; text-decoration:none; }
   .step.done .go { background:rgba(255,255,255,.08); color:var(--text2); }
   .step .ok { position:absolute; right:14px; top:14px; color:var(--ok); font-weight:900; font-size:12.5px; }
+  /* ── 📝 «지난번에 틀린 문장» 카드 (2026-10-10) — 서버 정본 fix-cards.ts 가 준 것만 그린다.
+     ⚠️ 문장 줄은 보통 글자 흐름(block)으로 둔다 — flex 로 감싸면 좁은 폭에서 낱글자로 쪼개진다. */
+  .fix .from { color:var(--muted); font-size:13.5px; margin:0 0 4px; text-decoration:line-through; text-decoration-color:rgba(248,113,113,.7); }
+  .fix .to { font-size:16.5px; font-weight:900; margin:0 0 4px; color:var(--text); }
+  .fix .why { color:var(--text2); font-size:13.5px; margin:0 0 8px; }
+  .fix .lab { display:inline-block; font-size:11.5px; font-weight:800; padding:2px 8px; border-radius:999px;
+              background:rgba(167,139,250,.15); color:#c4b5fd; margin-bottom:6px; }
+  .fix .lab.warm { background:rgba(96,165,250,.15); color:var(--blue); }
+  .fix .go { display:inline-block; padding:9px 16px; border-radius:12px; text-decoration:none; font-weight:900; font-size:14px;
+             background:linear-gradient(135deg,var(--gold2),var(--gold)); color:#1a1200; }
+  .fix .pr { color:var(--muted); font-size:12.5px; margin-left:6px; }
+  .fix .pr.ok { color:var(--ok); }
+  /* 🗓 (2026-10-10) 4주 목표 — 막대는 «시간» 진행(N/28일)이지 «달성률» 이 아니다. 채움은 div(인라인이면 폭이 안 먹는다). */
+  .goal .gt { font-size:16px; font-weight:900; margin:0 0 6px; color:var(--text); }
+  .goal .gbar { display:block; height:8px; border-radius:99px; background:rgba(148,163,184,.25); overflow:hidden; margin:4px 0 6px; }
+  .goal .gfill { display:block; height:100%; border-radius:99px; background:var(--ok); }
+  .goal .gm { color:var(--muted); font-size:12.5px; margin:0; }
   /* ── 주간표 «이번 주 리듬 띠» (2026-09-04 사장님이 4안 중 «C + 오늘만 B처럼 펼치기» 를 고름)
      예전에는 칸마다 이모지를 2~3개씩 늘어놓고 밑에 범례를 한 줄로 눌러 두었다. 🎤 가 음성코치인지
      🧠 가 복습퀴즈인지 알려면 범례를 읽어야 해서, «오늘 뭐 하지»에는 답이 되는데
@@ -139,6 +156,11 @@
             box-shadow:0 6px 18px rgba(0,0,0,.28); }
   .foot a:active { background:rgba(251,191,36,.18); }
   .foot .foot-note { color:var(--muted); font-size:12px; margin-top:8px; }
+  /* ❓ (2026-10-10) 사용법 다시 보기 — 처음 한 번은 저절로 열리고, 다음부터는 이 버튼으로(js/today-guide.js).
+     ⛔ 상단바(.top)에 넣지 말 것 — 오른쪽 120px 은 공용 홈/EN 칩 자리라 390px 폭에서 제목과 겹친다. */
+  .tg-row { text-align:right; margin:0 0 10px; }
+  .tg-btn { min-height:40px; padding:8px 14px; border-radius:999px; cursor:pointer; font-size:14px; font-weight:900;
+            color:#e6ecff; background:rgba(96,165,250,.16); border:1.5px solid rgba(96,165,250,.55); }
 </style>
 </head>
 <body>
@@ -148,6 +170,7 @@
 </div>
 
 <div class="wrap">
+  <div class="tg-row"><button type="button" class="tg-btn" id="td-guide-btn" data-ko="❓ 사용법 보기" data-en="❓ How to use">❓ 사용법 보기</button></div>
   <!-- 로그인 전 -->
   <div class="card login" id="td-login" hidden>
     <p class="hello" data-ko="로그인하면 오늘 할 일이 보여요" data-en="Log in to see today's plan">로그인하면 오늘 할 일이 보여요</p>
@@ -194,8 +217,21 @@
     <!-- 🎬 처음 온 사람에게만(아직 레벨이 없을 때) 뜬다. 닫으면 다시 안 뜬다. -->
     <div class="intro" id="td-intro" hidden></div>
 
+    <!-- 🗓 (2026-10-10) 선생님이 정한 «4주 목표» — 목표가 없으면 칸째 감춘다. 그리는 것은 js/today-page.js renderGoal(서버 ?goal=1). -->
+    <div id="td-goal" hidden>
+      <div class="h" id="td-h-goal"></div>
+      <div class="card goal" id="td-goal-card"></div>
+    </div>
+
     <div class="h" id="td-h-steps"></div>
     <div id="td-steps"></div>
+
+    <!-- 📝 (2026-10-10) «지난번에 틀린 문장 다시 말하기» — 카드가 0장이면 칸째 감춘다(대부분의 학생이 그렇다).
+         그리는 것은 js/today-page.js 의 renderFix — 서버(?fixcards=1)가 준 것만. -->
+    <div id="td-fix" hidden>
+      <div class="h" id="td-h-fix"></div>
+      <div id="td-fix-list"></div>
+    </div>
 
     <div class="h" data-ko="이번 주" data-en="This week">이번 주</div>
     <div class="card">
@@ -218,6 +254,7 @@
   </div>
 </div>
 
-<script defer src="/js/today-page.js?v=9"></script>
+<script defer src="/js/today-page.js?v=14"></script>
+<script defer src="/js/today-guide.js?v=2"></script>
 </body>
 </html>

@@ -19,16 +19,16 @@
 //
 // [보안]
 //   토큰은 HMAC 서명. 신청번호를 바꿔치기하면 서명이 깨져 남의 티켓을 볼 수 없다.
-//   시크릿은 uid 토큰과 같은 ROOM_JWT_SECRET 을 쓴다(auth-token.ts 와 동일 폴백).
+//   시크릿은 uid 토큰과 같은 ROOM_JWT_SECRET 을 쓴다(미설정 시 발급·검증 거부).
 // ═══════════════════════════════════════════════════════════════════════
 
 import { sendPlainSms } from './solapi-client';
 import { siteBase } from './site-url';          // 🔗 사람에게 나가는 링크는 한 곳에서
 
-/** ⚠️ auth-token.ts 의 폴백과 반드시 같아야 한다(같은 시크릿을 쓰는 것이 의도). */
-const UID_SECRET_FALLBACK = 'mgi-fb-d0895a3a232c5ef0f0950c6128a04a5311ec69ba142cb4a86a8d334e33c56f30';
+import { requireRoomJwtSecret } from './room-jwt-secret';
+
 function ticketSecret(env: any): string {
-  return (env && env.ROOM_JWT_SECRET) || UID_SECRET_FALLBACK;
+  return requireRoomJwtSecret(env);
 }
 
 /** 운영 주소. ⚠️ mango-i.com 은 등록조차 안 된 도메인이다 — 여기에 쓰면 링크가 죽는다. */

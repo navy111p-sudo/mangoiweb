@@ -45,6 +45,8 @@
     /* 📅 (2026-09-03) 오늘의 A.i 학습 — AI 도구 8종을 «오늘 할 순서» 로 이어 주는 화면. img 는 일부러 비운다
        (전용 사진이 없고, 위 렌더는 img 가 비면 emoji 로 그린다 — 없는 파일을 적으면 열 때마다 404). */
     {emoji:'📅', img:'', name:'오늘의 A.i 학습', url:'/today.html'},
+    /* 🎓 (2026-10-08 사장님 「메뉴에도 연결해줘」) A.i 선생님 수업 — 전용 사진이 없어 img 는 비운다(emoji 로 그림). */
+    {emoji:'🎓', img:'', name:'A.i 선생님 수업', en:'A.i Teacher Class', url:'/ai-class.html'},
     {emoji:'🤖', img:'/img/menu/ai-friend.webp', name:'AI 친구', url:'/ai-friend.html'},
     {emoji:'✍', img:'/img/menu/ai-write.webp', name:'AI 작문', url:'/ai-write.html'},
     {emoji:'🗣', img:'/img/menu/speech.webp', name:'영어 발음 코치', url:'/speech-coach.html'},
@@ -60,12 +62,12 @@
     /* 🎯 (2026-09-23) liveOnly — AI 학습만 하는 학생(활성 예약 0건)에게는 감춘다(아래 mangoiTrackHide).
      *   복습퀴즈는 «수업에서 배운 내용» 을 묻는데 그 학생에게는 수업이 없어 목록이 빈다.
      *   감추면 바로 뒤의 단어장·AI 단어 퀴즈가 한 칸씩 앞으로 온다. 주소로는 그대로 열린다. */
-    {emoji:'🧠', img:'', name:'복습퀴즈', url:'/review-quiz.html', liveOnly:true},
+    {emoji:'🧠', img:'', name:'BTS/SIU 퀴즈', url:'/review-quiz.html', liveOnly:true},
     /* zh:true — 중국어 수강생에게만 보이는 타일(아래 mangoiZhLearner 참고).
      *   2026-08-24 학원장 검수 «영어 앱인데 중국어 퀴즈가 왜 있나» — 기능을 없애는 게 아니라
      *   볼 사람에게만 보여주는 것. 페이지 자체(/review-quiz-cn.html)와 AI 명령 검색은 그대로 열린다. */
     /* 🎯 liveOnly — 중국어 복습퀴즈도 «수업(다락원) 진도» 를 묻는 것이라 같은 규칙(2026-09-23). */
-    {emoji:'🇨🇳', img:'', name:'중국어 복습퀴즈', url:'/review-quiz-cn.html', zh:true, liveOnly:true},
+    {emoji:'🇨🇳', img:'', name:'중국어퀴즈', url:'/review-quiz-cn.html', zh:true, liveOnly:true},
     /* ⛔ 「레벨 테스트」 타일을 여기 되살리지 마세요 (2026-08-26 사장님 지시로 뺐습니다).
      *   2026-08-24 검수 «처음엔 있었는데 다시 못 찾겠다» 대응으로 넣었던 타일인데,
      *   판단력 훈련이 **첫 진입에 설정 카드**를 띄우게 되면서(PR #512) 그 카드의
@@ -169,6 +171,9 @@
     var els = (root||document).querySelectorAll('[data-go="review-quiz-cn"], button[onclick*="review-quiz-cn"]');
     for(var i=0;i<els.length;i++) els[i].style.display='none';
   }
+  // 스크롤·스와이프의 touchend 로는 아무것도 실행하지 않는다 — 판정 정본은 js/idx-tap-guard.js 의 mgIsTap.
+  // 그 파일이 없는 페이지에서는 touchend 를 건너뛰고 브라우저의 click 이 처리한다.
+  function _isTap(e){ return !!(window.mgIsTap && window.mgIsTap(e)); }
   function _allmenuEsc(ev){ if (ev.key === 'Escape' || ev.keyCode === 27) closeAllMenuOverlay(); }
   function closeAllMenuOverlay(){
     var ov = document.getElementById('mangoi-allmenu');
@@ -385,9 +390,10 @@
 
     function _closeFromEvent(ev){ ev.preventDefault(); ev.stopPropagation(); closeAllMenuOverlay(); }
     var x = document.getElementById('mangoi-allmenu-x');
-    if (x) { x.addEventListener('click', _closeFromEvent); x.addEventListener('touchend', _closeFromEvent); }
+    if (x) { x.addEventListener('click', _closeFromEvent); x.addEventListener('touchend', function(ev){ if (_isTap(ev)) _closeFromEvent(ev); }); }
     ov.addEventListener('click', function(ev){ if (ev.target === ov) closeAllMenuOverlay(); });
-    ov.addEventListener('touchend', function(ev){ if (ev.target === ov) { ev.preventDefault(); closeAllMenuOverlay(); } });
+    // 메뉴를 스크롤하다 빈 곳에서 손을 떼도 닫히지 않게 — «탭» 일 때만 닫는다
+    ov.addEventListener('touchend', function(ev){ if (ev.target === ov && _isTap(ev)) { ev.preventDefault(); closeAllMenuOverlay(); } });
     document.addEventListener('keydown', _allmenuEsc);
     console.log('[allmenu] 열림(overlay v4 우주글래스) — ' + ALLMENU_ITEMS.length + '개');
   }
@@ -396,6 +402,8 @@
   // === capture-phase 트리거 (click + touchend) + 디바운스 ===
   //   fix (2026-06-01 v3) — 휴대폰에서 한 번 탭 시 터치+클릭 이벤트가 2번 발생해
   //   토글이 열림→닫힘으로 즉시 닫히던 문제: 600ms 디바운스로 1회만 동작.
+  //   fix (2026-10-28) — touchend 는 «탭» 일 때만 받는다(_isTap). 버튼 위에서 스크롤만 해도
+  //   메뉴가 열리던 문제(터치 target 은 손가락이 움직여도 처음 닿은 버튼 그대로).
   var _allmenuLastTrigger = 0;
   function allmenuTrigger(e){
     if (!e || !e.target || typeof e.target.closest !== 'function') return;
@@ -405,6 +413,7 @@
       if (clicked && clicked.textContent.indexOf('전체메뉴') >= 0) btn = clicked;
     }
     if (!btn) return;
+    if (e.type === 'touchend' && !_isTap(e)) return;
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
@@ -467,6 +476,120 @@
       } catch (_e2) {}
     }
   } catch (_e1) {}
+
+  /* 💡 「A.i말하기와 A.i친구하기 차이」 — 학생 안내 (2026-09-26 사장님 지시)
+     [왜] 「AI와 친구하기」 목록에 비슷해 보이는 두 카드(A.i 말하기 연습 · AI 친구)가 나란히 있는데
+          무엇이 다른지 화면 어디에도 없었다. 두 카드 안에 작은 «차이 보기» 칩을 달고,
+          누르면 10대 눈높이의 비교 안내가 뜬다.
+     [어디] 그 목록은 index.html 인라인(공동 금지구역)이 «처음 열 때» 만든다 → 여기(defer)에서
+          body «childList» 로 붙는 순간을 한 번 보고 칩을 단다(class 감시는 금지 — CLAUDE.md 2장).
+     ⛔ 칩을 <button> 으로 만들지 말 것 — 카드가 이미 <button> 이라 파서가 바깥 버튼을 닫아
+        카드가 무너진다. span[role=button] + 이벤트 전파 차단으로 «카드 이동» 을 막는다.
+     ⛔ 칩에 달린 data-ko/data-en 은 «글자만 든» span 에만 — 아이콘·자식이 있으면 사라진다.
+     ⚠️ 내용(사실)은 warmup.html · ai-friend.html 기준 — 기능이 바뀌면 이 문구도 함께. */
+  /* 안내창 본체(문구·모양)는 js/ai-diff.js 한 곳 — 누를 때 한 번만 불러온다(첫 화면 무게 0). */
+  var AIDIFF_SRC = '/js/ai-diff.js?v=1';
+  var AIDIFF_CHIP = { ko: '💡 A.i말하기와 A.i친구하기 차이', en: '💡 Speaking vs. Friend: what\'s different?' };
+  function aidiffStyle(){
+    if (document.getElementById('aidiff-chip-style')) return;
+    var st = document.createElement('style'); st.id = 'aidiff-chip-style';
+    st.textContent =
+      '#ai-friends-ov .aif-tx>span.aif-diff{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:99px;'
+     +'background:rgba(251,191,36,.16);border:1px solid rgba(251,191,36,.55);color:#fde68a;font-size:12.5px;font-weight:700;line-height:1.35;cursor:pointer}'
+     +'#ai-friends-ov .aif-tx>span.aif-diff:hover,#ai-friends-ov .aif-tx>span.aif-diff:focus-visible{background:rgba(251,191,36,.3);outline:none}';
+    document.head.appendChild(st);
+  }
+  var _adLoading = null;
+  function aidiffOpen(){
+    if (window.mgOpenAiDiff) { window.mgOpenAiDiff(); return; }
+    if (!_adLoading) {
+      _adLoading = new Promise(function(res, rej){
+        var sc = document.createElement('script'); sc.src = AIDIFF_SRC;
+        sc.onload = res; sc.onerror = function(){ _adLoading = null; rej(); };
+        document.head.appendChild(sc);
+      });
+    }
+    _adLoading.then(function(){ if (window.mgOpenAiDiff) window.mgOpenAiDiff(); }, function(){});
+  }
+
+  function aidiffDecorate(ov){
+    if (!ov || ov.__aidiff) return;
+    ov.__aidiff = true;
+    aidiffStyle();
+    var items = ov.querySelectorAll('.aif-item');
+    for (var i = 0; i < items.length; i++) {
+      var oc = items[i].getAttribute('onclick') || '';
+      if (oc.indexOf('/warmup.html') < 0 && oc.indexOf('/ai-friend.html') < 0) continue;
+      var tx = items[i].querySelector('.aif-tx');
+      if (!tx || tx.querySelector('.aif-diff')) continue;
+      var chip = document.createElement('span');
+      chip.className = 'aif-diff';
+      chip.setAttribute('role', 'button');
+      chip.setAttribute('tabindex', '0');
+      chip.setAttribute('data-ko', AIDIFF_CHIP.ko);
+      chip.setAttribute('data-en', AIDIFF_CHIP.en);
+      chip.textContent = allmenuIsEn() ? AIDIFF_CHIP.en : AIDIFF_CHIP.ko;
+      /* 카드(<button onclick=이동>)까지 올라가지 않게 — 여기서 끊는다 */
+      chip.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); aidiffOpen(); });
+      chip.addEventListener('keydown', function(e){
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); aidiffOpen(); }
+      });
+      tx.appendChild(chip);
+    }
+  }
+  /* 📖 「A.i학습 사용설명서」 입구 (2026-10-28 사장님 지시)
+     [왜] 처음 망고아이 AI 도구를 접하는 학원(원장님·선생님)이 11가지를 «어떻게 쓰는지» 볼 곳이 없었다.
+     [어디] 목록 제목 아래(.aif-head)에 여는 단추 하나만 단다. 카드(<button>) 밖이라 진짜 <a> 로 둔다.
+     ⛔ 설명서 문구를 여기 복사하지 말 것 — 본문은 /ai-guide.html 한 곳만 고친다.
+     ⛔ data-ko/data-en 은 «글자만 든» span 에만 — 아이콘 span 이 함께 지워진다(CLAUDE.md 2장). */
+  var GUIDE_URL = '/ai-guide.html';
+  var GUIDE_LABEL = { ko: 'A.i학습 사용설명서', en: 'A.i Learning Guide' };
+  function guideStyle(){
+    if (document.getElementById('aif-guide-style')) return;
+    var st = document.createElement('style'); st.id = 'aif-guide-style';
+    st.textContent =
+      '#ai-friends-ov .aif-guide{display:inline-flex;align-items:center;gap:7px;margin-top:16px;padding:10px 20px;border-radius:99px;'
+     +'background:linear-gradient(135deg,#fde68a,#fbbf24 55%,#f59e0b);color:#1a1a1a;font-size:15.5px;font-weight:900;line-height:1.2;'
+     +'text-decoration:none;box-shadow:0 8px 20px -8px rgba(245,158,11,.75)}'
+     +'#ai-friends-ov .aif-guide:hover,#ai-friends-ov .aif-guide:focus-visible{background:#fde68a;outline:none}'
+     +'@media(max-width:560px){#ai-friends-ov .aif-guide{font-size:14px;padding:9px 16px;margin-top:12px}}';
+    document.head.appendChild(st);
+  }
+  function guideDecorate(ov){
+    var head = ov && ov.querySelector('.aif-head');
+    if (!head || head.querySelector('.aif-guide')) return;
+    guideStyle();
+    var a = document.createElement('a');
+    a.className = 'aif-guide';
+    a.href = GUIDE_URL;
+    var ic = document.createElement('span');
+    ic.setAttribute('aria-hidden', 'true');
+    ic.textContent = '📖';
+    var tx = document.createElement('span');
+    tx.setAttribute('data-ko', GUIDE_LABEL.ko);
+    tx.setAttribute('data-en', GUIDE_LABEL.en);
+    tx.textContent = allmenuIsEn() ? GUIDE_LABEL.en : GUIDE_LABEL.ko;
+    a.appendChild(ic);
+    a.appendChild(tx);
+    head.appendChild(a);
+  }
+
+  /* 목록이 body 에 «붙는 순간» 한 번에 꾸민다 — 감시자는 하나만(class 감시 금지, CLAUDE.md 2장) */
+  function aifDecorate(ov){
+    aidiffDecorate(ov);
+    guideDecorate(ov);
+  }
+  var _adNow = document.getElementById('ai-friends-ov');
+  if (_adNow) aifDecorate(_adNow);
+  else {
+    try {
+      var _adMo = new MutationObserver(function(){
+        var ov = document.getElementById('ai-friends-ov');
+        if (ov) { aifDecorate(ov); _adMo.disconnect(); }
+      });
+      _adMo.observe(document.body, { childList: true });
+    } catch(e){}
+  }
 
   console.log('[v22] 전체메뉴 capture-phase 핸들러 + 패널 즉시 생성 활성');
 })();

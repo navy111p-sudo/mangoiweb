@@ -45,6 +45,7 @@ const BOOT = `
   try {
     localStorage.setItem('mangoi_admin_session', JSON.stringify({ username:'mgr_karl', role:'hq_mgr' }));
     localStorage.setItem('mangoi_lang','ko');
+    localStorage.setItem('mgr_today_detail','1'); // 📋 (2026-10-07) 자세히 보기의 배지를 잰다 — 기본은 «간단히»
   } catch(e){}
   (function(){
     window.__scripts = [];       /* 이 화면이 «받은» 외부 스크립트 — 계약 1번을 재는 자다 */

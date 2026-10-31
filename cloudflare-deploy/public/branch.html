@@ -131,9 +131,10 @@ details.card[open] > summary::after{content:'\2212'}
 details.card > summary + *{margin-top:12px}
 
 /* KPI 타일 — 이모지 없음(관리자 KPI 타일 이모지는 과거에 일부러 뺐다) */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+/* 🔢 (2026-09-28) 금액을 «27,170,000» 처럼 다 쓰므로 칸을 150px 로 넓히고, 그래도 좁으면 글자를 줄인다(넘치지 않게). */
 .kpi{background:#f7f9fb;border:1px solid #e6ecf2;border-radius:8px;padding:10px 12px}
-.kpi b{display:block;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;color:#16202c;line-height:1.25}
+.kpi b{display:block;font-size:clamp(17px,5vw,22px);overflow-wrap:anywhere;font-weight:800;font-variant-numeric:tabular-nums;color:#16202c;line-height:1.25}
 .kpi span{display:block;font-size:12.5px;color:#5d6b7a;margin-top:2px}
 /* 👆 (2026-08-17) 누를 수 있게 된 타일. <button> 이라 브라우저 기본값이 붙으므로
    «원래 <div> 와 똑같이» 보이도록 되돌린다 — 모양을 바꾸면 이번 변경의 뜻이 흐려진다.
@@ -174,6 +175,9 @@ html.dark .kpi-arrow{color:#7c8899}
 .tkpis .kpi.t-ai{background:#f4f0fd;border-color:#ddd3f5}
 .tkpis .kpi.t-live b{color:#17614f}
 .tkpis .kpi.t-ai b{color:#5b3fa8}
+.stushop{display:flex;align-items:center;gap:8px;margin:8px 0 0;font-size:13px;color:#4b5663}
+.stushop select{flex:1;min-width:0;min-height:44px;padding:9px 10px;border:1px solid #d7dee6;border-radius:8px;font-size:14px;font-family:inherit;background:#fff;color:#16202c}
+.row .shop{font-size:12.5px;color:#4b5663;background:#eef1f5;border-radius:6px;padding:2px 7px}
 .tchip{display:inline-flex;align-items:center;gap:6px;margin:6px 0 2px;padding:4px 6px 4px 10px;border-radius:999px;background:#eef1f5;font-size:13px}
 .tchip button{border:0;background:#dfe5ec;border-radius:999px;width:26px;height:26px;cursor:pointer;font:inherit;color:#2c3a48}
 .orgs{margin-top:10px}
@@ -199,6 +203,9 @@ html.dark .tkpis .kpi.t-ai{background:#241f38;border-color:#3a3160}
 html.dark .tkpis .kpi.t-live b{color:#7fd9bd}
 html.dark .tkpis .kpi.t-ai b{color:#c3b1f5}
 html.dark .tchip{background:#20272f}
+html.dark .stushop{color:#aeb9c4}
+html.dark .stushop select{background:#20272f;border-color:#39434f;color:#dbe3ea}
+html.dark .row .shop{background:#20272f;color:#c7d0da}
 html.dark .tchip button{background:#2f3944;color:#d3dbe4}
 html.dark .orgrow{border-top-color:#242d37}
 html.dark .orgrow .n{color:#95a2b0}
@@ -821,20 +828,18 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="sgrp">
     <button type="button" onclick="sideGo('c-students')"><span class="ic">👤</span><span data-en="Student roster" data-ko="학생 명부">Student roster</span></button>
     <button type="button" onclick="sideGo('c-flow')"><span class="ic">🔀</span><span data-en="Student flow" data-ko="학생 흐름">Student flow</span></button>
-    <button type="button" onclick="sideGo('c-wait')"><span class="ic">⏳</span><span data-en="Waiting list" data-ko="대기자">Waiting list</span></button>
     <button type="button" onclick="sideGo('c-attn')"><span class="ic">📋</span><span data-en="Attendance by academy" data-ko="학원별 출석 현황">Attendance by academy</span></button>
     <button type="button" onclick="sideGo('c-aiusage')"><span class="ic">🤖</span><span data-en="AI tool usage" data-ko="AI 학습도구 활용 학생">AI tool usage</span></button>
   </div>
   <div class="sgrp-h" data-en="Classes" data-ko="수업 관리">Classes</div>
   <div class="sgrp">
-    <button type="button" onclick="sideGo('c-req')"><span class="ic">🗓</span><span data-en="Reschedule requests" data-ko="수업 연기 · 변경 요청">Reschedule requests</span></button>
     <button type="button" onclick="sideGo('c-today')"><span class="ic">🏫</span><span data-en="All classes today" data-ko="오늘 전체 수업">All classes today</span></button>
-    <button type="button" onclick="sideGo('c-util')"><span class="ic">📈</span><span data-en="Teacher utilisation" data-ko="강사 가동률">Teacher utilisation</span></button>
+    <button type="button" id="sideUtil" onclick="sideGo('c-util')"><span class="ic">📈</span><span data-en="Teacher utilisation" data-ko="강사 가동률">Teacher utilisation</span></button>
   </div>
   <div class="sgrp-h" data-en="Settlement &amp; stats" data-ko="정산통계관리">Settlement &amp; stats</div>
   <div class="sgrp">
     <button type="button" onclick="sideGo('c-trend')"><span class="ic">📊</span><span data-en="30-day trend" data-ko="30일 추이">30-day trend</span></button>
-    <button type="button" onclick="sideGo('c-settle')"><span class="ic">💰</span><span data-en="Settlement" data-ko="지사 · 대리점별 정산">Settlement</span></button>
+    <button type="button" onclick="sideGo('c-settle')"><span class="ic">💰</span><span data-en="Settlement by agency" data-ko="대리점별 정산">Settlement by agency</span></button>
     <button type="button" id="sideAibill" onclick="sideGo('c-aibill')" hidden><span class="ic">🧾</span><span data-en="AI usage invoice" data-ko="AI 사용료 청구서">AI usage invoice</span></button>
   </div>
   <div class="sgrp-h" data-en="Operations" data-ko="운영관리">Operations</div>
@@ -857,7 +862,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <button type="button" class="side-m" onclick="closeSide();reloadAll()"><span class="ic">🔄</span><span data-en="Refresh" data-ko="새로고침">Refresh</span></button>
     <button type="button" class="side-m" onclick="toggleMode()"><span class="ic">🌗</span><span data-en="Dark / light" data-ko="어둡게 · 밝게">Dark / light</span></button>
     <a class="side-m" href="/"><span class="ic">🌐</span><span data-en="Mangoi home" data-ko="사이트 홈">Mangoi home</span></a>
-    <a href="/admin.html?full=1"><span class="ic">🖥</span><span data-en="Full management dashboard" data-ko="전체 경영 대시보드">Full management dashboard</span></a>
+    <a id="sideFull" href="/admin.html?full=1"><span class="ic">🖥</span><span data-en="Full management dashboard" data-ko="전체 경영 대시보드">Full management dashboard</span></a>
   </div>
 </nav>
 
@@ -934,9 +939,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="qlbl" data-en="Quick access" data-ko="자주 쓰는 기능">Quick access</div>
   <div class="qbar">
     <button type="button" onclick="openCard('c-search')"><span data-en="Search" data-ko="통합 검색">Search</span></button>
-    <button type="button" onclick="openCard('c-wait')"><span data-en="Waiting list" data-ko="대기자">Waiting list</span></button>
     <button type="button" onclick="openCard('c-students')"><span data-en="My students" data-ko="학생 명부">My students</span></button>
-    <button type="button" onclick="openCard('c-util')"><span data-en="Teacher use" data-ko="강사 가동률">Teacher use</span></button>
+    <button type="button" id="qUtil" onclick="openCard('c-util')"><span data-en="Teacher use" data-ko="강사 가동률">Teacher use</span></button>
     <!-- 👩‍🏫 (2026-08-19 Melca 8/19 제보 ④) 강사 명부·검색·재직/퇴사 필터는 관리자 화면에
          **이미 있다**(#card-teacher-mgmt). 이 화면에 옮겨오지 않는다 — 설계 계약 1·4번을 깬다.
          한 번 눌러 그 카드로 바로 가는 링크만 둔다. 본사(hq)일 때만 보인다(#toTeacher 와 같은 판정). -->
@@ -1012,6 +1016,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <div>
       <input type="search" id="stuQ" oninput="paintStudents()" placeholder="이름 · 아이디로 찾기"
              data-en-ph="Search by name or ID" data-ko-ph="이름 · 아이디로 찾기">
+      <!-- 🏫 (2026-09-28 사장님) 대리점 고르기 — «전체» 또는 한 대리점. 아래 구분 탭(전체/화상+AI/…)은 그 안에서 그대로 거른다. -->
+      <label id="stuShopWrap" class="stushop" hidden><span data-en="Academy" data-ko="대리점">Academy</span>
+        <select id="stuShopSel" onchange="stuShopPick(this.value)"></select></label>
       <div id="stuSeg" class="tseg" role="tablist" hidden></div>
       <div id="stuBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
     </div>
@@ -1023,11 +1030,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <div id="flowBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
-  <!-- ⑦ 대기자 -->
-  <details class="card" id="c-wait" ontoggle="if(this.open)loadWait()">
-    <summary><span data-en="Waiting list" data-ko="대기자 명단">Waiting list</span></summary>
-    <div id="waitBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
-  </details>
+  <!-- ⛔ ⑦ 대기자 카드는 뺐다 (2026-09-28 사장님) — 「망고아이는 대기라는 개념이 없다. 시간이 꽉 차면
+       그 즉시 고객에게 연락해 다른 수업으로 배정하고, 고객도 꽉 찬 시간을 피해 신청한다」.
+       사이드바 줄 · 「자주 쓰는 기능」 버튼 · 「오늘 봐야 할 것」 줄 · 미리 받기 요청을 함께 뺐다.
+       ⚠️ 서버(/api/admin/stats/waitlist)와 다른 화면은 그대로다. loadWait/paintWait 는 요소가 없으면 조용히 돌아간다. -->
 
   <!-- 📋 (2026-09-21) 학원별 출석 현황 — attendance/school-stats 는 index.ts 6196-6198 에서
        scopeStudentCond() 로 이미 자기 범위만 잘라 준다고 확인된 주소. -->
@@ -1051,7 +1057,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
           <option value="friend" data-en="AI friend chat" data-ko="AI 영어친구">AI friend chat</option>
           <option value="write" data-en="AI writing" data-ko="AI 글쓰기">AI writing</option>
           <option value="speech" data-en="Speech coaching" data-ko="발음코칭">Speech coaching</option>
-          <option value="review" data-en="Review quiz" data-ko="복습퀴즈">Review quiz</option>
+          <option value="review" data-en="BTS/SIU &amp; Chinese quiz" data-ko="BTS/SIU·중국어퀴즈">BTS/SIU &amp; Chinese quiz</option>
           <option value="vocab" data-en="Vocabulary" data-ko="단어장">Vocabulary</option>
           <option value="micro" data-en="AI word quiz" data-ko="AI 단어 퀴즈">AI word quiz</option>
         </select>
@@ -1075,10 +1081,12 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
        ⚠️ 화면만 옮긴 게 아니다 — 서버(api-admin.ts)가 자기 학생 요청만 돌려주도록 먼저 고쳤고,
           승인·거절도 같은 조건으로 다시 확인한다. 그 격리를 빼면 남의 대리점 학생이 보인다.
        ⚠️ 본사(hq)는 예전처럼 전부 본다 — 달라진 것은 «지사·대리점에게도 보인다» 뿐이다. -->
-<details class="card" id="c-req" ontoggle="if(this.open)loadReqs()">
-      <summary><span data-en="Class change requests" data-ko="수업 연기 · 변경 요청">Class change requests</span></summary>
-      <div id="reqBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
-    </details>
+<!-- ⛔ (2026-09-28 사장님) 이 카드를 지사 화면에서 뺐다 — 「지사장은 연기·변경 요청을 받을
+       필요가 없다. 학생이 신청한 직후 자동으로 진행되어야 한다」. 사이드바 줄 · 「오늘 봐야 할 것」
+       줄 · 미리 받기 요청까지 함께 뺐다(카드만 빼면 숫자는 남아 «누를 곳 없는 알림» 이 된다).
+       ⚠️ 서버·다른 화면(manager.html · admin.html)의 요청 처리는 그대로다 — 이 화면에서만 안 보인다.
+       ⚠️ loadReqs/paintReqs 는 남겨 두었다(요소가 없으면 조용히 돌아간다). 되살리려면 이 자리에
+          카드를 · 사이드바에 줄을 · loadTodo 에 요청을 되돌리면 된다. -->
 
   <!-- 📅 (2026-09-21) «본사 매니저 전용» 칸 밖으로 옮김 — /api/admin/classes/today 는
        index.ts 6203-6206 에서 scopeStudentCond() 로 지사·대리점 몫만 잘라서 준다고
@@ -1122,7 +1130,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
        root 를 null 로 막아 버려서 빈 화면이 된다. branch-summary 는 세 스코프 전부 된다).
        ⚠️ 수수료율을 «바꾸는» /rate-config POST 는 이 카드에 없다 — 본사만 쓰는 설정이다. -->
   <details class="card" id="c-settle" ontoggle="if(this.open)loadSettle()">
-    <summary><span data-en="Settlement" data-ko="지사 · 대리점별 정산">Settlement</span></summary>
+    <summary><span data-en="Settlement by agency" data-ko="대리점별 정산">Settlement by agency</span></summary>
     <div id="settleBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
@@ -1138,12 +1146,20 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   <div class="grouphead" data-en="Operations" data-ko="운영관리">Operations</div>
 
   <!-- ⑧ 통합 검색 -->
-  <details class="card" id="c-search" ontoggle="if(this.open)setTimeout(function(){var e=document.getElementById('omniQ');if(e)e.focus();},0)">
+  <details class="card" id="c-search" ontoggle="if(this.open){setTimeout(function(){var e=document.getElementById('omniQ');if(e)e.focus();},0);if(window.aiHelpCheck)aiHelpCheck();}">
     <summary><span data-en="Search" data-ko="통합 검색">Search</span></summary>
     <div>
       <input type="text" id="omniQ" onkeydown="if(event.key==='Enter')runOmni()"
              placeholder="학생 · 강사 이름으로 찾기" data-en-ph="Find a student or teacher" data-ko-ph="학생 · 강사 이름으로 찾기">
-      <div style="margin-top:8px"><button class="btn" onclick="runOmni()"><span data-en="Search" data-ko="찾기">Search</span></button></div>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="runOmni()"><span data-en="Search" data-ko="찾기">Search</span></button>
+        <!-- 🤖 (2026-10-14) AI 도우미 — 서버가 허락한 계정(지금은 testbranch)에만 보인다. aiHelpCheck() 가 hidden 을 푼다. -->
+        <button class="btn btn-gray" id="aiHelpBtn" type="button" onclick="runAiHelp()" hidden><span data-en="🤖 Ask AI" data-ko="🤖 AI 에게 묻기">🤖 Ask AI</span></button>
+      </div>
+      <div id="aiHelpNote" class="muted" style="font-size:12px;line-height:1.6;padding-top:6px" hidden
+           data-en="Type a question (e.g. «Where do I see this month's settlement?») and press «Ask AI». The AI only explains menus — it cannot see your data."
+           data-ko="궁금한 것을 적고 「AI 에게 묻기」를 누르세요 (예: 「이번 달 정산은 어디서 봐?」). AI 는 메뉴·사용법만 알려 주고 실제 자료는 보지 않습니다.">Type a question and press «Ask AI».</div>
+      <div id="aiHelpBody"></div>
       <div id="omniBody"></div>
     </div>
   </details>
@@ -1212,7 +1228,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   </div>
 
   <div class="muted" style="text-align:center;padding:6px 0 0">
-    <a href="/admin.html?full=1" class="footlink" data-en="Full management dashboard" data-ko="전체 경영 대시보드">Full management dashboard</a>
+    <a id="footFull" href="/admin.html?full=1" class="footlink" data-en="Full management dashboard" data-ko="전체 경영 대시보드">Full management dashboard</a>
   </div>
 
 </div>
@@ -1350,18 +1366,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   // ── 숫자 표기 ─────────────────────────────────────────────────────────────
   function n0(v){ return (Number(v) || 0).toLocaleString(); }
   function won(v){
-    var x = Number(v) || 0;
-    // 매니저 화면은 폰에서 본다. 억/만 단위로 접어야 한 줄에 들어간다.
-    // ⚠️ (2026-09-27) 영어는 «만» 단위 숫자에 '0k' 를 붙이면 안 된다 — 25,520,000 이 «2,5520k» 가 됐다.
-    //    영어는 천(k)·백만(M) 단위로 따로 접는다(한국어 표기는 그대로).
-    if (EN()) {
-      if (Math.abs(x) >= 1000000) return (x / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-      if (Math.abs(x) >= 10000)   return Math.round(x / 1000).toLocaleString() + 'k';
-      return n0(x);
-    }
-    if (Math.abs(x) >= 100000000) return (x / 100000000).toFixed(1) + '억';
-    if (Math.abs(x) >= 10000)     return Math.round(x / 10000).toLocaleString() + '만';
-    return n0(x);
+    // 🔢 (2026-09-28 사장님 「모든 단위를 27,170,000 이런 형태로」) 억·만·k·M 으로 접지 않고
+    //    원 단위를 쉼표로 그대로 쓴다(한국어·영어 같음). ⛔ 접는 표기로 되돌리지 말 것.
+    //    옛 영어 판은 25,520,000 을 «2,5520k» 로 찍던 사고도 있었다(2026-09-27).
+    return n0(Math.round(Number(v) || 0));
   }
   function esc(s){
     return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
@@ -1527,6 +1535,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
        범위를 모를 때(sc.type 없음)는 감추지 않는다 — 눌러도 결재 화면이 «본사 전용» 이라고 말한다. */
     var _orgAcct = (sc.type === 'branch' || sc.type === 'agency' || sc.type === 'franchise');
     ['toWork', 'tbWork'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = _orgAcct; });
+    /* 🧹 (2026-09-28 사장님 「지사 페이지에서 전체 경영 대시보드·강사 가동률은 불필요」) 지사·대리점에게만 감춘다.
+       본사 매니저는 그대로 쓴다. 범위를 모르면 감추지 않는다(위 결재함과 같은 판정). */
+    ['sideUtil', 'qUtil', 'c-util', 'sideFull', 'footFull'].forEach(function(id){ var w = document.getElementById(id); if (w) w.hidden = _orgAcct; });
     var _sHq = document.getElementById('sideHq');
     if (_sHq) _sHq.hidden = !IS_HQ;
     if (sc.type === 'hq') {
@@ -1554,13 +1565,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       tile(won(m.settle), T('Your settlement', '정산액'), '', '', 'c-trend') +
       tile(n0(st.new_this_month), T('New this month', '이번 달 신규'), T('today ' + n0(st.new_today), '오늘 ' + n0(st.new_today) + '명'),
            st.new_this_month > 0 ? 'good' : '', 'c-flow');
-    // 비용은 본사 통합 관리라 매니저에게 0 으로 온다. «0 원» 으로 오해하지 않게 밝힌다.
-    document.getElementById('feeNote').innerHTML = d.cost_hq_only
-      ? esc(T('Costs are managed by HQ and are not shown here. Settlement = income minus the HQ fee ('
-              + Math.round((d.fee_rate || 0) * 100) + '%).',
-              '비용은 본사에서 통합 관리하여 여기 표시되지 않습니다. 정산액 = 수입에서 본사 수수료('
-              + Math.round((d.fee_rate || 0) * 100) + '%)를 뺀 금액입니다.'))
-      : '';
+    // 🧹 (2026-10-14 사장님) «비용은 본사에서 통합 관리…정산액 = 수입 − 본사 수수료» 안내 문구는 지운다.
+    document.getElementById('feeNote').innerHTML = '';
   }
 
   // ── ③ 30일 추이 — 차트 라이브러리 대신 SVG 선 ─────────────────────────────
@@ -1650,11 +1656,28 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   };
   window.stuTabSet = function(tab){ D.stuTab = tab || 'all'; window.paintStudents(); };
   window.stuShopClear = function(){ D.stuShop = null; window.paintStudents(); };
+  // 🏫 드롭다운 값: '*' = 전체, 그 밖은 대리점 이름('' = 대리점 미지정). ⛔ 빈 문자열을 «전체» 로 쓰지 말 것 — 미지정과 겹친다.
+  window.stuShopPick = function(v){ D.stuShop = (v === '*') ? null : String(v); window.paintStudents(); };
+  function paintShopSel(all){
+    var wrap = document.getElementById('stuShopWrap'), sel = document.getElementById('stuShopSel');
+    if (!wrap || !sel) return;
+    var byShop = {};
+    all.forEach(function(s){ var k = String(s.shop_name || '').trim(); byShop[k] = (byShop[k] || 0) + 1; });
+    var names = Object.keys(byShop).filter(function(k){ return k; }).sort(function(a, b){ return a.localeCompare(b, 'ko'); });
+    if (D.stuShop !== null && !Object.prototype.hasOwnProperty.call(byShop, D.stuShop)) byShop[D.stuShop] = 0, names.push(D.stuShop);
+    var opts = ['<option value="*">' + esc(T('All academies', '전체 대리점')) + ' (' + all.length + ')</option>'];
+    names.forEach(function(k){ opts.push('<option value="' + esc(k) + '">' + esc(k) + ' (' + byShop[k] + ')</option>'); });
+    if (byShop['']) opts.push('<option value="">' + esc(T('No academy', '대리점 미지정')) + ' (' + byShop[''] + ')</option>');
+    sel.innerHTML = opts.join('');
+    sel.value = D.stuShop === null ? '*' : D.stuShop;
+    wrap.hidden = false;
+  }
   window.paintStudents = function(){
     var j = D.students; if (!j) return;
     var el = document.getElementById('stuBody');
     var seg = document.getElementById('stuSeg');
     var q = (document.getElementById('stuQ').value || '').trim().toLowerCase();
+    paintShopSel(j.students || []);
     var base = (j.students || []).filter(function(s){
       if (D.stuShop !== null && String(s.shop_name || '').trim() !== D.stuShop) return false;   // 요약(서버 TRIM)과 같게
       if (!q) return true;
@@ -1676,10 +1699,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
            + ' onclick="stuTabSet(\'' + t[0] + '\')">' + esc(t[1]) + ' ' + cnt[t[0]] + '</button>';
     }).join('');
     var list = D.stuTab === 'all' ? base : base.filter(function(s){ return trkOf(s) === D.stuTab; });
-    var chip = D.stuShop !== null
-      ? '<div class="tchip">📍 ' + esc(D.stuShop || T('No academy', '대리점 미지정'))
-        + ' <button type="button" onclick="stuShopClear()" aria-label="' + esc(T('Show all academies', '모든 대리점 보기')) + '">✕</button></div>'
-      : '';
+    var chip = '';   // (2026-09-28) 고른 대리점은 위 드롭다운이 보여 준다 — 칩을 따로 그리지 않는다.
     if (!list.length) {
       el.className = '';
       el.innerHTML = chip + '<div class="empty">' + esc(T('No students found.', '해당하는 학생이 없습니다.')) + '</div>';
@@ -1693,7 +1713,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var nm = (s.name && String(s.name) !== String(id)) ? s.name : T('(no name on file)', '이름 미등록');
       var tk = TRK[trkOf(s)];
       var st = s.status || '';
-      return '<div class="row"><b>' + esc(nm) + '</b><span class="muted">' + esc(id) + '</span>'
+      var shop = String(s.shop_name || '').trim();
+      return '<div class="row"><b>' + esc(nm) + '</b>'
+           + '<span class="shop">' + esc(shop || T('No academy', '대리점 미지정')) + '</span>'
+           + '<span class="muted">' + esc(id) + '</span>'
            + '<span class="trk ' + tk.cls + '">' + esc(T(tk.en, tk.ko)) + '</span>'
            + (st ? '<span class="muted">' + esc(st) + '</span>' : '') + '</div>';
     }).join('')
@@ -1809,8 +1832,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 
   // ── ⑦ 대기자 ──────────────────────────────────────────────────────────────
   window.loadWait = function(){
-    if (D.wait) { paintWait(); return; }
     var el = document.getElementById('waitBody');
+    if (!el) return;   // 카드를 뺀 화면(2026-09-28)
+    if (D.wait) { paintWait(); return; }
     el.textContent = T('Loading...', '불러오는 중...');
     once('wait', function(){ return get('/api/admin/stats/waitlist', 'wait'); })
       .then(function(j){ D.wait = j; paintWait(); }).catch(function(e){ failBox(el, e); });
@@ -1818,6 +1842,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   function paintWait(){
     var j = D.wait; if (!j) return;
     var el = document.getElementById('waitBody');
+    if (!el) return;
     var rows = j.items || j.rows || j.waitlist || [];
     if (!rows.length) { el.className = 'empty'; el.textContent = T('Nobody is waiting.', '대기자가 없습니다.'); return; }
     el.className = '';
@@ -1912,7 +1937,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     { key: 'friend',   en: 'AI friend chat',    ko: 'AI 영어친구' },
     { key: 'write',    en: 'AI writing',        ko: 'AI 글쓰기' },
     { key: 'speech',   en: 'Speech coaching',   ko: '발음코칭' },
-    { key: 'review',   en: 'Review quiz',       ko: '복습퀴즈' },
+    { key: 'review',   en: 'BTS/SIU & Chinese quiz', ko: 'BTS/SIU·중국어퀴즈' },
     { key: 'vocab',    en: 'Vocabulary',        ko: '단어장' },
     { key: 'micro',    en: 'AI word quiz',      ko: 'AI 단어 퀴즈' }
   ];
@@ -2093,11 +2118,15 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     }).then(function(r){ return r.json(); }).then(async function(o){
       if (!o || !o.ok) { alert((o && o.error) || T('Could not start payment.', '결제를 시작하지 못했습니다.')); if (btn) btn.disabled = false; return; }
       // 서버가 준 키만 쓴다(/api/pay/config — 개인 결제창과 같은 정본, 테스트/실결제 전환이 여기서 자동 반영된다).
-      var ck = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
+      var ck = '', cfgBad = false;
       try {
         var cfg = await fetch('/api/pay/config').then(function(r){ return r.json(); });
         if (cfg && cfg.ok && cfg.clientKey) ck = cfg.clientKey;
       } catch (e) {}
+      /* 🔑 (2026-10-21) 설정을 못 받았거나 키가 서로 어긋나면 «연습 키로 몰래 열지» 않고 멈춘다 —
+         실결제로 바꾼 뒤 연습 키로 열면 카드는 연습 결제창에 들어가고 서버 승인은 실패한다(돈은 안 빠지지만 «결제가 안 된다» 만 남는다). */
+      if (cfg && cfg.key_mismatch) cfgBad = true;
+      if (!ck || cfgBad) { alert(cfgBad ? T('Payment keys are misconfigured. Please contact HQ.', '결제 키 설정이 어긋나 있습니다. 본사에 알려 주세요.') : T('Could not load payment settings. Please try again in a moment.', '결제 설정을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')); if (btn) btn.disabled = false; return; }
       if (!window.TossPayments) {
         try {
           await new Promise(function(resolve, reject){
@@ -2123,7 +2152,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     }).catch(function(){ alert(T('Network error.', '네트워크 오류가 발생했습니다.')); if (btn) btn.disabled = false; });
   };
   /* 💰 (2026-09-24) 적용 단가·최소 청구·경계 보정 설명은 서버(ai-billing-price.ts)가 만든 글자를 그대로 그린다.
-     ⛔ 이 화면에서 인원 × 단가를 계산하지 말 것(구간·최소 20명분이 있어 반드시 틀린다).
+     ⛔ 이 화면에서 인원 × 단가를 계산하지 말 것(구간·경계 보정이 있어 반드시 틀린다 — 최소 청구는 2026-10-26 폐지).
      ⛔ 지사 커미션(branch_commission_krw)은 이 카드(학원 계정 전용)에 그리지 않는다 — 본사·지사 사이 금액이다. */
   function aiBillPriceRows(o){
     var note = T(o.price_note_en || '', o.price_note_ko || '');
@@ -2257,12 +2286,15 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 
   // ③ 수업 연기·변경 요청 — 대기 중인 것이 위로
   window.loadReqs = function(){
+    var el = document.getElementById('reqBody');
+    if (!el) return;   // 카드를 뺀 화면(2026-09-28) — 아무것도 안 부른다
     if (D.reqs) { paintReqs(); return; }
-    var el = document.getElementById('reqBody'); el.textContent = T('Loading...', '불러오는 중...');
+    el.textContent = T('Loading...', '불러오는 중...');
     once('reqs', function(){ return get('/api/admin/schedule-requests?limit=60', 'reqs'); })
       .then(function(j){ D.reqs = j; paintReqs(); }).catch(function(e){ failBox(el, e); });
   };
   function paintReqs(){
+    if (!document.getElementById('reqBody')) return;
     var j = D.reqs || {};
     var rows = j.items || j.rows || j.requests || [];
     hqRows('reqBody', rows, function(r){
@@ -2458,6 +2490,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
                 '☎ 연락처 ' + noMobile + '/' + rows.length + '건이 «—» 입니다 — 명부에는 번호가 없고 «관리 대상» 학생만 있습니다.');
     }
     var head = '<div class="muted" style="padding-bottom:6px">'
+      /* 🎌 휴강일이면 맨 위에 한 줄 — 서버가 준 이름·건수만 쓴다(판정은 서버 holiday-closure.ts). */
+      + (j.holiday ? '<b>' + esc(T('🎌 ' + (j.holiday.name || 'Holiday') + ' — ' + (j.holiday.closed || 0) + ' class(es) off today (Chinese classes run as usual)',
+                                   '🎌 ' + (j.holiday.name || '공휴일') + ' 휴강 — ' + (j.holiday.closed || 0) + '건 쉼 (중국어 수업은 그대로)')) + '</b><br>' : '')
       + (cnote ? esc(cnote) + '<br>' : '')
       + esc(T((j.date || '') + ' · ' + rows.length + ' total'
                 + (c.cafe24 ? ' · ' + c.cafe24 + ' on cafe24' : '')
@@ -2527,13 +2562,14 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
             취소하면 그 주만이 아니라 **모든 주가 죽는다.** 판정은 서버가 준 can_move 하나다
             (⛔ schedule_kind 로 추측하지 말 것 — 실측 값이 one_off·dated·recurring 셋이다).
          ⚠️ 그래서 문구를 «보이는 글자» 로 쓴다 — 폰에는 hover 가 없어 title 로는 안 전해진다. */
+      /* ⛔ (2026-09-28 사장님) 지사장 화면에서는 이 줄 버튼(📅 연기·변경 / 매주 반복 — 시간표에서)을 뺐다 —
+         「지사장은 연기·변경을 다루지 않는다. 학생이 신청하면 처리된다」. 연기·변경·취소는
+         본사 화면(admin.html 「오늘 수업」·manager.html)에 그대로 있다. 되살리지 말 것. */
       var resch = '';
-      if (r.schedule_id && r.can_move === false) {
-        resch = '<span class="tag">' + esc(T('weekly — use timetable', '매주 반복 — 시간표에서')) + '</span>';
-      } else if (r.schedule_id) {
-        resch = '<span class="tag ta-open" role="button" tabindex="0" data-ta="' + esc(r.schedule_id) + '">'
-              + esc(T('📅 Move', '📅 연기·변경')) + '</span>';
-      }
+      /* ⏸ (2026-10-01) 연기된 수업은 «연기됨» 을 글자로 — manager.html 과 같은 서버 칸(postponed). */
+      if (r.postponed) act = '<span class="tag hot">' + esc(T('⏸ Postponed', '⏸ 연기됨')) + '</span>';
+      /* 🎌 (2026-10-09) 공휴일 휴강 — 서버가 status='holiday'·join_open=false 로 보낸다(중국어 수업은 그대로 열림). */
+      if (r.holiday) act = '<span class="tag">' + esc(T('🎌 Holiday — no class', '🎌 공휴일 휴강')) + '</span>';
       /* 📋 (2026-09-23 매니저 요청) 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결 — admin.html 「오늘 수업」 표와
          **같은 API·같은 칸**(서버 정본 src/class-today-extras.ts). 모르면 «—». 색이 아니라 글자·이모지로 뜻을 전한다. */
       var hm = function (ts) { try { return new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' }); } catch (e) { return ''; } };
@@ -2546,11 +2582,13 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         : te.state === 'on_time' ? '✅ ' + hm(te.at) + ' ' + T('on time', '정시')
         : te.state === 'late' ? '⏰ ' + hm(te.at) + ' ' + T(te.late_min + ' min late', te.late_min + '분 지각')
         : te.state === 'pending' ? T('not yet', '아직 전')
+        : te.state === 'postponed' ? '⏸ ' + T('postponed', '연기됨')
+        : te.state === 'holiday' ? '🎌 ' + T('holiday', '휴강')
         : te.state === 'none' ? '⚠ ' + T('no entry record', '입장 기록 없음')
         : te.state === 'cafe24' ? T('cafe24 · n/a', '카페24 · 기록 없음') : T('unknown', '확인 불가');
       ex.push(esc(T('Instructor in: ', '강사 입장: ')) + esc(teTxt));
       var AT = { attended: ['✅', 'Attended', '출석'], late: ['⏰', 'Late', '지각'], absent: ['❌', 'Absent (no entry)', '결석(입장 기록 없음)'],
-                 waiting: ['⏳', 'Not in yet', '아직 입장 안 함'], not_yet: ['', 'Not started', '시작 전'],
+                 waiting: ['⏳', 'Not in yet', '아직 입장 안 함'], not_yet: ['', 'Not started', '시작 전'], postponed: ['⏸', 'Postponed', '연기됨'], holiday: ['🎌', 'Holiday', '휴강'],
                  unknown: ['❔', 'Unknown', '확인 불가'], cafe24: ['', 'cafe24 · n/a', '카페24 · 기록 없음'] }[at && at.state];
       var atTxt = AT ? ((AT[0] ? AT[0] + ' ' : '') + T(AT[1], AT[2]) + (at.at ? ' ' + hm(at.at) : '')
                    + (at.state === 'late' && at.late_min != null ? ' (+' + at.late_min + T('m', '분') + ')' : '')) : '—';
@@ -2651,7 +2689,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       for (var i = 0; i < qs.length; i++) qs[i](got);
     };
     var sc = document.createElement('script');
-    sc.src = '/js/class-move-modal.js?v=2';
+    sc.src = '/js/class-move-modal.js?v=12';
     sc.onload = function(){ done(true); };
     sc.onerror = function(){ done(false); };
     document.head.appendChild(sc);
@@ -2867,6 +2905,76 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     }).catch(function(e){ failBox(el, e); });
   };
 
+  // ── ⑧-2 🤖 AI 도우미 (2026-10-14 사장님 「testbranch 계정에만 일단」) ─────────────
+  //   서버(src/branch-ai-help.ts)가 계정을 다시 확인한다 — 여기 목록은 «버튼을 보일지» 만 정한다.
+  //   ⛔ 판정을 넓히려면 서버 BRANCH_AI_USERS 와 함께 고친다(한쪽만 넓히면 보이는데 403 인 버튼).
+  //   ⛔ AI 가 준 카드 id 는 이 화면에 실제로 있고 감춰지지 않은 카드일 때만 버튼으로 그린다.
+  var AI_HELP_USERS = { testbranch: 1 };
+  window.aiHelpCheck = function(){
+    once('me', function(){ return D.me ? Promise.resolve(D.me) : get('/api/admin/me', 'me'); }).then(function(j){
+      D.me = j;
+      var u = (j && (j.user || j.admin || j)) || {};
+      var name = String(u.username || u.uid || j.username || '').toLowerCase();
+      var on = !!AI_HELP_USERS[name];
+      ['aiHelpBtn', 'aiHelpNote'].forEach(function(id){ var e = document.getElementById(id); if (e) e.hidden = !on; });
+      if (on) { var q = document.getElementById('omniQ'); if (q) q.placeholder = T('Name to find, or a question for the AI', '이름으로 찾거나, AI 에게 물어볼 질문'); }
+    }).catch(function(){});
+  };
+  function aiCardUsable(id){
+    var el = document.getElementById(id);
+    if (!el || !/^c-/.test(id)) return null;
+    if (el.closest('[hidden]')) return null;   // 이 계정에 감춘 카드(본사 전용 등)는 안내하지 않는다
+    var sm = el.querySelector('summary');
+    return (sm ? sm.textContent : id).trim();
+  }
+  window.runAiHelp = function(){
+    var q = (document.getElementById('omniQ').value || '').trim();
+    var el = document.getElementById('aiHelpBody');
+    if (!q) { el.className = 'empty'; el.textContent = T('Type a question first.', '먼저 질문을 적어 주세요.'); return; }
+    var btn = document.getElementById('aiHelpBtn');
+    if (btn) btn.disabled = true;
+    el.className = 'empty';
+    el.textContent = T('Asking the AI...', 'AI 에게 묻는 중...');
+    fetch('/api/admin/omnisearch', { method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ action: 'ai_help', q: q, lang: EN() ? 'en' : 'ko' }) })
+      .then(function(r){
+        if (r.status === 401) { location.href = '/admin/login?next=%2Fbranch'; throw new Error('auth'); }
+        if (r.status === 403) throw new Error('forbidden');
+        return r.json().catch(function(){ return null; });
+      })
+      .then(function(j){
+        if (!j || j.ok !== true) throw new Error((j && j.error) || 'load_failed');
+        var cards = (Array.isArray(j.cards) ? j.cards : []).map(function(id){ return { id: id, label: aiCardUsable(id) }; })
+          .filter(function(c){ return !!c.label; });
+        var h = '<div class="row" style="display:block;white-space:pre-wrap;line-height:1.6">' + esc(j.answer || '') + '</div>';
+        if (cards.length) {
+          h += '<div style="display:flex;gap:6px;flex-wrap:wrap;padding:6px 0">' + cards.map(function(c){
+            return '<button type="button" class="btn btn-gray" data-ai-card="' + esc(c.id) + '">→ ' + esc(c.label) + '</button>';
+          }).join('') + '</div>';
+        } else if (j.used_ai === false) {
+          h += '<div class="muted" style="font-size:12px">' + esc(T('No matching menu found.', '맞는 메뉴를 찾지 못했습니다.')) + '</div>';
+        }
+        h += '<div class="muted" style="font-size:11px;padding-bottom:6px">' + esc(j.used_ai
+          ? T('AI answers can be wrong — check the menu itself.', 'AI 답변은 틀릴 수 있습니다 — 메뉴에서 직접 확인해 주세요.')
+          : T('Found by keyword, not by AI.', 'AI 가 아니라 낱말 일치로 찾은 결과입니다.')) + '</div>';
+        el.className = '';
+        el.innerHTML = h;
+      })
+      .catch(function(e){
+        el.className = 'empty';
+        if (e && e.message === 'forbidden') { el.textContent = T('This account cannot use the AI helper.', '이 계정은 AI 도우미를 쓸 수 없습니다.'); return; }
+        if (e && e.message === 'auth') return;
+        el.textContent = T('The AI did not answer. Try again in a moment.', 'AI 가 답하지 못했습니다. 잠시 뒤 다시 눌러 주세요.')
+                       + (e && e.message ? ' (' + e.message + ')' : '');
+      })
+      .then(function(){ if (btn) btn.disabled = false; });
+  };
+  document.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('#aiHelpBody [data-ai-card]');
+    if (b) window.openCard(b.getAttribute('data-ai-card'));
+  });
+
   // ── ⑨ 내 계정 ─────────────────────────────────────────────────────────────
   window.loadMe = function(){
     if (D.me) { paintMe(); return; }
@@ -2944,7 +3052,6 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (document.getElementById('c-flow').open) window.loadFlow();
     if (document.getElementById('c-students').open) window.loadStudents();
     if (document.getElementById('c-util').open) window.loadUtil();
-    if (document.getElementById('c-wait').open) window.loadWait();
     if (document.getElementById('c-me').open) window.loadMe();
     ['c-payroll:loadPayroll','c-leave:loadLeave','c-req:loadReqs','c-today:loadTodayAll','c-live:loadLive','c-outage:loadOutage','c-bugs:loadBugs',
      'c-org:loadOrg','c-attn:loadAttn','c-settle:loadSettle','c-aiusage:loadAiUsage']
@@ -3047,47 +3154,15 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         '', '/work');
     }
 
-    // ① 연기 · 변경 요청 — 학원장이 승인·거절해야 하는 것 (지사·대리점은 자기 학생 것만)
-    if (D.reqs) {
-      // 필드 읽는 순서를 paintReqs 와 똑같이 맞춘다 — 한쪽만 고치면 숫자가 서로 어긋난다
-      var rq = (D.reqs.items || D.reqs.rows || D.reqs.requests || []).filter(function(r){ return (r.status || '') === 'pending'; });
-      var rqN = Number(D.reqs.pending_count != null ? D.reqs.pending_count : rq.length) || 0;
-      if (rqN > 0) {
-        var who = rq.length ? (rq[0].student_name || rq[0].teacher_name || '') : '';
-        html += todoRow('#b45309',
-          T('Reschedule requests: ' + rqN, '연기 · 변경 요청 ' + rqN + '건'),
-          rqN > 1 && who ? T(who + ' and ' + (rqN - 1) + ' more — waiting for you', who + ' 외 ' + (rqN - 1) + '건 — 승인 대기')
-                         : T('Waiting for your decision', '승인 · 거절을 기다리고 있어요'),
-          'c-req');
-        total += rqN;
-      }
-    }
+    // ① (2026-09-28) 연기 · 변경 요청 줄은 뺐다 — 지사장은 요청을 받지 않는다(사장님). 카드 자리 주석 참고.
 
-    // ② 대기자 — 상담·배정을 기다리는 학생
-    if (D.wait) {
-      var wr = D.wait.items || D.wait.rows || D.wait.waitlist || [];
-      if (wr.length > 0) {
-        var w0 = wr[0].student_name || wr[0].name || '';
-        html += todoRow('#0369a1',
-          T('Waiting list: ' + wr.length, '대기자 ' + wr.length + '명'),
-          wr.length > 1 && w0 ? T(w0 + ' and ' + (wr.length - 1) + ' more', w0 + ' 외 ' + (wr.length - 1) + '명')
-                              : T('Waiting to be placed', '배정을 기다리고 있어요'),
-          'c-wait');
-        total += wr.length;
-      }
-    }
+    // ② (2026-09-28) 대기자 줄도 뺐다 — 망고아이에는 대기 개념이 없다(사장님).
+    //    그래서 지금 이 칸에 남은 것은 결재 대기뿐이다. 볼 것이 없으면 칸을 통째로 감춘다
+    //    («지금은 볼 것이 없습니다» 라고 단정하지 않는다 — 결재 수를 아직 못 받았을 수도 있다).
+    if (!html) { box.hidden = true; return; }
 
-    // 받은 게 하나도 없으면 «괜찮다» 고 말하지 않는다 — 모르는 것과 없는 것은 다르다
-    if (!D.reqs && !D.wait) { box.hidden = true; return; }
-
-    if (!html) {
-      body.innerHTML = '<div class="todo-clear">' + esc(T('Nothing to check right now', '지금은 볼 것이 없습니다'))
-        + '<span>' + esc(T('No requests or waiting students', '대기 중인 요청도 대기자도 없어요')) + '</span></div>';
-      nEl.textContent = ''; nEl.hidden = true;
-    } else {
-      body.innerHTML = html;
-      nEl.textContent = String(total); nEl.hidden = false;
-    }
+    body.innerHTML = html;
+    nEl.textContent = String(total); nEl.hidden = false;
     box.hidden = false;
   }
 
@@ -3104,10 +3179,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   });
 
   function loadTodo(){
-    Promise.all([
-      quietGet('/api/admin/schedule-requests?limit=60', 'reqs').then(function(j){ if (j) D.reqs = j; }),
-      quietGet('/api/admin/stats/waitlist', 'wait').then(function(j){ if (j) D.wait = j; })
-    ]).then(paintTodo);
+    // (2026-09-28) 미리 받던 두 요청(연기·변경 요청 · 대기자)을 모두 뺐다 — 남은 결재 대기는
+    // loadApprovalBadge() 가 받아 paintTodo() 를 다시 부른다.
+    paintTodo();
   }
 
   function loadApprovalBadge(){

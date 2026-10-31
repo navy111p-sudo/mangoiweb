@@ -54,6 +54,11 @@
         + (d.method ? '<div class="row"><span>결제 수단</span><span>'+esc(d.method)+'</span></div>' : '')
       + '</div>'
       + (d.receipt ? '<a class="link" href="'+esc(d.receipt)+'" target="_blank">🧾 영수증 보기</a><br>' : '')
+      /* 🤖 (2026-09-29) A.i 이용권이면 «언제까지» 와 «매달 자동결제» 입구를 함께 — 끝나는 날은 서버가 정한 값 그대로 */
+      + (d.program === 'ai_content' && d.ai_pass_ends_at
+          ? '<div class="sub" style="margin-top:6px">📅 A.i 이용권 <b>' + new Date(Number(d.ai_pass_ends_at) + 9*3600*1000).toISOString().slice(0,10) + '</b>까지</div>'
+            + '<a class="link" href="/ai-pass.html">♾️ 매달 자동결제 켜기</a><br>'
+          : '')
       + '<a class="btn btn-primary" href="/">홈으로 돌아가기</a>';
   }
 

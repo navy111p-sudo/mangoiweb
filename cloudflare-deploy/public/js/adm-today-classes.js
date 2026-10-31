@@ -35,7 +35,12 @@
     live:  { ko: '🔴 진행중',   en: '🔴 Live',     bg: 'rgba(239,68,68,0.16)',  fg: '#b91c1c', bd: 'rgba(239,68,68,0.45)' },
     open:  { ko: '🟢 입장가능', en: '🟢 Open',     bg: 'rgba(16,185,129,0.16)', fg: '#047857', bd: 'rgba(16,185,129,0.45)' },
     early: { ko: '⏳ 예정',     en: '⏳ Upcoming', bg: 'rgba(148,163,184,0.18)', fg: '#475569', bd: 'rgba(148,163,184,0.45)' },
-    ended: { ko: '✔ 종료',      en: '✔ Ended',    bg: 'rgba(148,163,184,0.12)', fg: '#94a3b8', bd: 'rgba(148,163,184,0.3)' }
+    ended: { ko: '✔ 종료',      en: '✔ Ended',    bg: 'rgba(148,163,184,0.12)', fg: '#94a3b8', bd: 'rgba(148,163,184,0.3)' },
+    /* ⏸ (2026-10-01) 연기된 수업 — 서버가 시각 판정을 덮어 'postponed' 로 보낸다(api-admin.ts classes/today).
+       그전에는 «🟢 Open» 으로 보여 연기가 됐는지 알 수 없었다. */
+    postponed: { ko: '⏸ 연기됨', en: '⏸ Postponed', bg: '#fff4e0', fg: '#b45309', bd: '#f5c98a' },
+    /* 🎌 (2026-10-09) 공휴일 휴강 — 서버가 'holiday' 로 보낸다(판정 정본 holiday-closure.ts · 중국어 수업은 그대로 열림). */
+    holiday: { ko: '🎌 공휴일 휴강', en: '🎌 Holiday', bg: '#f1f5f9', fg: '#475569', bd: '#cbd5e1' }
   };
 
   /* 📋 (2026-09-23 매니저 요청) 일곱 칸 — 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결.
@@ -43,18 +48,88 @@
      ⛔ 모르면 «—» — 지어내지 않는다. ⚠️ 색만으로 뜻을 전하지 않는다(카드 안 글자색은
         admin-inline-c.css 가 검정으로 덮을 수 있다) → 이모지 + 글자로 뜻을 지고 간다. */
   function xDash() { return '<span style="color:#9ca3af;font-size:11px">—</span>'; }
-  function xSmall(txt, extra) {
-    return '<span style="font-size:11px;white-space:nowrap' + (extra || '') + '">' + txt + '</span>';
+  /* 🎨 (2026-10-01 사장님 «Postponed 가 잘 안 보인다 · 눈에 띄는 색») 인라인 색은 카드 안에서 검정으로
+     눌리므로 클래스로 준다 — 색 정본은 css/admin-inline-c.css 맨 끝 #sm-today-classes span.tc-st-postponed. */
+  function xSmall(txt, extra, cls) {
+    return '<span' + (cls ? ' class="' + cls + '"' : '') + ' style="font-size:11px;white-space:nowrap' + (extra || '') + '">' + txt + '</span>';
   }
   function xTeacherEntry(e) {
     if (!e) return xDash();
     if (e.state === 'on_time') return xSmall('✅ ' + esc(hhmm(e.at)) + ' · ' + T('정시', 'on time'), ';color:#047857;font-weight:700');
     if (e.state === 'late') return xSmall('⏰ ' + esc(hhmm(e.at)) + ' · ' + T(e.late_min + '분 지각', e.late_min + ' min late'), ';color:#b91c1c;font-weight:800');
     if (e.state === 'pending') return xSmall(T('아직 전', 'not yet'), ';color:#6b7280');
+    if (e.state === 'postponed') return xSmall(T('⏸ 연기됨', '⏸ postponed'), ';color:#b45309');
+    if (e.state === 'holiday') return xSmall(T('🎌 휴강', '🎌 holiday'), ';color:#475569');
     if (e.state === 'none') return xSmall('⚠ ' + T('입장 기록 없음', 'no entry record'), ';color:#b45309;font-weight:700');
     if (e.state === 'cafe24') return xSmall(T('카페24 · 기록 없음', 'cafe24 · n/a'), ';color:#92400e');
     return xSmall(T('확인 불가', 'unknown'), ';color:#6b7280');
   }
+  var _presenceExpiry = null;
+  function xTeacherConnection(s) {
+    var p = s.teacher_connection;
+    if (!p) return xTeacherEntry(s.teacher_entry);
+    var rows = p.sessions || [];
+    var now = Date.now();
+    var state = p.state;
+    // Expire a cached green badge locally. No background API polling or permanent interval.
+    var fresh = rows.filter(function (r) { return r.left_at == null && now >= Number(r.last_seen_at) && now - Number(r.last_seen_at) <= 75000; });
+    if (['same', 'other', 'multiple'].indexOf(state) >= 0) {
+      var validUntil = Number(p.valid_until) || Math.min.apply(null, rows.map(function (r) { return Number(r.last_seen_at) + 75000; }));
+      if (!Number.isFinite(validUntil) || now > validUntil) state = 'stale';
+      else if (!_presenceExpiry) {
+        _presenceExpiry = setTimeout(function () { _presenceExpiry = null; if (_rows.length) render(); }, Math.max(1, validUntil + 1 - now));
+      }
+    }
+    var labels = {
+      same: ['🟢 예정 교실 연결 확인', '🟢 Expected room confirmed', '#067647', '#ecfdf3'],
+      other: ['🟠 다른 교실 연결 확인', '🟠 Other room confirmed', '#9a3412', '#fff7ed'],
+      multiple: ['🟠 여러 교실 연결 확인', '🟠 Multiple rooms confirmed', '#9a3412', '#fff7ed'],
+      stale: ['🟡 연결 확인 지연', '🟡 Connection check overdue', '#854d0e', '#fefce8'],
+      left: ['⚪ 퇴장 기록', '⚪ Left room', '#475467', '#f2f4f7'],
+      none: ['⚪ 확인된 입장 기록 없음', '⚪ No verified entry', '#475467', '#f2f4f7'],
+      unlinked: ['⚠ 교사 계정 연결 필요', '⚠ Link teacher account', '#854d0e', '#fefce8'],
+      unavailable: ['⚠ 접속 조회 실패', '⚠ Connection lookup failed', '#b42318', '#fef3f2'],
+      external: ['카페24 · 입장 확인 불가', 'Cafe24 · entry unavailable', '#475467', '#f2f4f7'],
+      history: ['📋 해당 날짜 접속 기록', '📋 Connection history', '#475467', '#f2f4f7']
+    };
+    var label = labels[state] || labels.unavailable;
+    var accounts = (p.accounts || []).join(', ');
+    var activeRooms = fresh.map(function (r) { return r.room_id; }).filter(function (r, i, a) { return a.indexOf(r) === i; });
+    var text = '<div style="font-size:14px!important;font-weight:800!important;color:' + label[2] + '!important">' + T(label[0], label[1]) + '</div>'
+      + '<div style="font-size:12px!important;overflow-wrap:anywhere;margin-top:4px">' + esc(accounts || T('계정 확인 불가', 'Account unavailable')) + '</div>'
+      + '<div style="font-size:12px!important;overflow-wrap:anywhere">' + esc(activeRooms.join(', ') || p.expected_room || s.room_id || '') + '</div>';
+    var detail = '<p>' + T('예정 교실: ', 'Expected room: ') + '<b>' + esc(p.expected_room || s.room_id || '—') + '</b></p>'
+      + '<p>' + T('조회 시각: ', 'Checked: ') + esc(presenceTime(p.checked_at)) + '</p>'
+      + '<p>' + T('출석 체크와 별도입니다. 최근 서버 연결 확인이며, 영상·음성 수신을 보장하지 않습니다. 새 기록은 배포 후부터 쌓입니다.', 'Separate from attendance. Recent server activity does not guarantee video/audio delivery. Verified receipts start after deployment.') + '</p>';
+    if (!rows.length) detail += '<p>' + T('확인된 기록이 없다고 미입장·결석으로 단정하지 않습니다.', 'Missing verified receipts do not prove absence.') + '</p>';
+    rows.forEach(function (r) {
+      var current = r.left_at != null ? T('퇴장', 'Left') : now - Number(r.last_seen_at) <= 75000 && now >= Number(r.last_seen_at) ? T('최근 연결', 'Recent activity') : T('확인 지연', 'Overdue');
+      detail += '<div style="border-top:1px solid #d0d5dd;padding:8px 0;overflow-wrap:anywhere">'
+        + '<b>' + esc(r.account_uid) + ' · ' + esc(r.room_id) + '</b><br>'
+        + esc(r.host) + ' · ' + current + '<br>'
+        + T(r.entry_kind === 'join' ? '입장 요청 확인: ' : '최초 연결 확인: ', r.entry_kind === 'join' ? 'Entry receipt: ' : 'First receipt: ') + esc(presenceTime(r.joined_at)) + '<br>'
+        + T('최근 연결: ', 'Last activity: ') + esc(presenceTime(r.last_seen_at))
+        + (r.left_at != null ? '<br>' + T('퇴장: ', 'Left: ') + esc(presenceTime(r.left_at)) : '') + '</div>';
+    });
+    if (p.truncated) detail += '<p>' + T('최근 기록 30건 표시', 'Showing the latest 30 receipts') + '</p>';
+    detail += '<button type="button" onclick="tcLoadToday()">' + T('접속 상태 새로고침', 'Refresh connection status') + '</button> '
+      + '<button type="button" data-room="' + esc(p.expected_room || s.room_id || '') + '" onclick="tcCopyPresenceRoom(this)">' + T('예정 교실 링크 복사', 'Copy expected room link') + '</button>';
+    return '<div style="min-width:190px;max-width:250px;line-height:1.5;padding:9px;border-radius:8px;background-color:' + label[3] + '!important">' + text
+      + '<details style="margin-top:5px"><summary style="cursor:pointer;font-size:13px!important;font-weight:700!important">' + T('상세 보기', 'Details') + '</summary>'
+      + '<div style="font-size:12px!important;max-height:320px;overflow:auto;white-space:normal">' + detail + '</div></details></div>';
+  }
+  function presenceTime(ms) {
+    if (!Number(ms)) return '—';
+    return new Date(Number(ms)).toLocaleString(isEn() ? 'en-GB' : 'ko-KR', { timeZone: 'Asia/Seoul', hour12: false }) + ' KST';
+  }
+  window.tcCopyPresenceRoom = function (button) {
+    var room = button.getAttribute('data-room');
+    if (!room) return;
+    var link = location.origin + '/?vc_room=' + encodeURIComponent(room);
+    if (!navigator.clipboard || !navigator.clipboard.writeText) { window.prompt(T('교실 링크를 복사하세요', 'Copy the room link'), link); return; }
+    navigator.clipboard.writeText(link).then(function () { button.textContent = T('복사됨', 'Copied'); }, function () { window.prompt(T('교실 링크를 복사하세요', 'Copy the room link'), link); });
+  };
+
   function xAttendance(a) {
     if (!a) return xDash();
     var m = {
@@ -63,6 +138,8 @@
       absent:   ['❌', '결석(입장 기록 없음)', 'Absent (no entry)', ';color:#b91c1c;font-weight:800'],
       waiting:  ['⏳', '아직 입장 안 함', 'Not in yet', ';color:#b45309'],
       not_yet:  ['', '시작 전', 'Not started', ';color:#6b7280'],
+      postponed: ['⏸', '연기됨', 'Postponed', '', 'tc-st-postponed'],
+      holiday:  ['🎌', '휴강', 'Holiday', ';color:#475569'],
       unknown:  ['❔', '확인 불가', 'Unknown', ';color:#6b7280'],
       cafe24:   ['', '카페24 · 기록 없음', 'cafe24 · n/a', ';color:#92400e']
     }[a.state];
@@ -70,7 +147,7 @@
     var t = (m[0] ? m[0] + ' ' : '') + T(m[1], m[2]);
     if (a.at) t += ' · ' + esc(hhmm(a.at));
     if (a.state === 'late' && a.late_min != null) t += T(' (+' + a.late_min + '분)', ' (+' + a.late_min + 'm)');
-    return xSmall(t, m[3]);
+    return xSmall(t, m[3], m[4]);
   }
   function xPay(v) {
     if (v !== 'B2B' && v !== 'B2C') return xDash();
@@ -159,11 +236,101 @@
     if (hidden) return xSmall(T('본사 전용', 'HQ only'), ';color:#6b7280');
     if (!e) return xDash();
     var head = esc(e.date || '') + (e.score != null ? ' · ⭐ ' + esc(e.score) + '/' + esc(e.max || '') : '');
-    return '<div style="font-size:11px;color:#475569;min-width:130px;max-width:220px;line-height:1.45">'
-      + '<div style="white-space:nowrap;font-weight:700">' + head + '</div>'
-      + (e.text ? '<div title="' + esc(e.text) + '">' + esc(e.text) + '</div>' : '')
-      + '</div>';
+    var inner = '<div style="white-space:nowrap;font-weight:700">' + head + '</div>'
+      + (e.text ? '<div title="' + esc(e.text) + '">' + esc(e.text) + '</div>' : '');
+    /* 📝 (2026-09-30 매니저 제보) 누르면 전문을 바로 연다 — 대체강사가 «지난 수업에서 무엇을 했나» 를 읽게.
+       칸 전체(data-evq)와 아래 «📄 전문 보기» 링크 둘 다 누를 수 있다(클릭 위임은 아래 evqOpen).
+       ⚠️ <button> 이 아니라 <a> — 이 표는 details.menu-card 안이라 전역 button 규칙이 큰 파란 알약으로 덮는다.
+       ⚠️ 링크 색은 인라인이 아니라 클래스(tc-evq-link) — details.menu-card a 의 !important 가 인라인을 이긴다.
+          색 정본은 css/admin-inline-c.css 맨 끝 #sm-today-classes a.tc-evq-link (CLAUDE.md 2장). */
+    if (e.id) {
+      return '<div data-evq="' + esc(e.id) + '" title="' + esc(T('눌러서 전문 보기', 'Tap to read the full log')) + '"'
+        + ' style="font-size:11px;color:#475569;min-width:130px;max-width:220px;line-height:1.45;cursor:pointer">' + inner
+        + '<a class="tc-evq-link" href="/eval.html?id=' + encodeURIComponent(e.id) + '" target="_blank" rel="noopener">'
+        + esc(T('📄 전문 보기', '📄 Open full log')) + '</a></div>';
+    }
+    return '<div style="font-size:11px;color:#475569;min-width:130px;max-width:220px;line-height:1.45">' + inner + '</div>';
   }
+
+  /* ✏️➕ (2026-10-28 매니저·강사 제안 «오늘·지난 피드백 칸에 고치기·추가 버튼») 칸 아래 버튼 하나.
+     · 글이 있으면 「✏️ 고치기」 — 보기를 건너뛰고 곧장 고치기 창(허락은 서버 evalEditAllowed, 안 되면 보기 + 이유).
+     · 없으면 「➕ 추가」 — 공용 쓰기 창(js/eval-quick-view.js create). 오늘 칸은 수업이 «시작된 뒤» 에만
+       (teacher.html 「✍ 피드백 작성」과 같은 이유 — 수업 전에 쓴 일지는 거짓이 된다). 지난 칸은 서버가 준
+       «지난 회차» 목록(prev_classes)에서 고르게 한다 — 목록이 없으면 버튼도 없다.
+     ⛔ 카페24 줄·학생 아이디 없는 줄·본사 전용(지사·대리점)에는 주지 않는다 — 붙일 방이 없거나, 누구 것인지
+        모르거나, 볼 권한부터 없다.
+     ⚠️ xEval 과 따로 둔다 — xEval 은 정렬값(tcSortVal)에도 쓰여, 버튼 글자가 섞이면 «빈 칸은 맨 뒤» 정렬이 깨진다.
+     ⚠️ <button> 금지(전역 인디고 알약) · 색은 클래스로(css/admin-inline-c.css 맨 끝 #sm-today-classes span.tc-evq-act).
+     ⚠️ 속성 이름은 data-evq-fix / data-evq-new — 공용 창 안의 버튼이 data-evq-edit 를 쓴다(겹치면 위임 클릭이 그것까지 잡는다). */
+  function xEvalAct(s, which) {
+    if (!s || s.eval_hidden || s.source === 'cafe24') return '';
+    var e = which === 'last' ? s.last_eval : s.today_eval;
+    if (e && e.id) {
+      return '<span class="tc-evq-act" role="button" tabindex="0" data-evq-fix="' + esc(e.id) + '">'
+        + esc(T('✏️ 고치기', '✏️ Edit')) + '</span>';
+    }
+    if (e) return '';   /* 글은 있는데 번호가 없다(옛 응답) — 두 번째 글이 생기지 않게 «추가» 를 주지 않는다 */
+    if (!String(s.student_uid || '').trim()) return '';
+    if (which === 'today' && !(s.status === 'live' || s.status === 'ended')) return '';
+    /* 지난 = 서버가 예약표로 계산한 «지난 회차»(prev_classes)가 있을 때만 — 방 번호를 화면에서 지어내지 않는다 */
+    if (which === 'last' && !(Array.isArray(s.prev_classes) && s.prev_classes.length)) return '';
+    return '<span class="tc-evq-act tc-evq-add" role="button" tabindex="0" data-evq-new="' + which + '"'
+      + ' data-room="' + esc(s.room_id) + '" data-uid="' + esc(s.student_uid) + '">'
+      + esc(which === 'last' ? T('➕ 지난 피드백 추가', '➕ Add last') : T('➕ 오늘 피드백 추가', '➕ Add today')) + '</span>';
+  }
+
+  /* 📝 평가 전문 보기 — 공용 창(js/eval-quick-view.js)을 «처음 누를 때» 만 불러온다. */
+  function evqLoad(go) {
+    if (window.mgEvalQuick) return go();
+    var sc = document.createElement('script');
+    sc.src = '/js/eval-quick-view.js?v=3';
+    sc.onload = go;
+    sc.onerror = function () { alert(T('전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.', 'Could not load the viewer — please tap again.')); };
+    document.head.appendChild(sc);
+  }
+  /* 고치거나 쓴 뒤에는 표를 다시 불러 칸이 바로 바뀌게 한다(창은 body 에 따로 떠 있어 다시 그려도 안 닫힌다). */
+  function evqSaved() { try { window.tcLoadToday(); } catch (e) {} }
+  function evqOpen(id, edit) {
+    evqLoad(function () { if (window.mgEvalQuick) window.mgEvalQuick(id, { en: isEn(), edit: !!edit, onSaved: evqSaved }); });
+  }
+  function evqNew(el) {
+    var room = el.getAttribute('data-room') || '', uid = el.getAttribute('data-uid') || '', s = null;
+    for (var i = 0; i < _rows.length; i++) {
+      if (String(_rows[i].room_id || '') === room && String(_rows[i].student_uid || '') === uid) { s = _rows[i]; break; }
+    }
+    if (!s) return;
+    evqLoad(function () {
+      if (!window.mgEvalQuick || typeof window.mgEvalQuick.create !== 'function') {
+        alert(T('쓰기 창이 옛 판입니다 — 새로고침 후 다시 눌러 주세요.', 'The writing window is out of date — please refresh and tap again.'));
+        return;
+      }
+      window.mgEvalQuick.create({
+        which: el.getAttribute('data-evq-new') === 'last' ? 'last' : 'today',
+        student_uid: s.student_uid, student_name: s.student_name, teacher_name: s.teacher_name,
+        room_id: s.room_id, class_date: s.class_date, prev_classes: s.prev_classes
+      }, { en: isEn(), onSaved: evqSaved });
+    });
+  }
+  function evqAct(ev) {
+    var t = ev.target && ev.target.closest ? ev.target : null;
+    if (!t) return false;
+    var fx = t.closest('[data-evq-fix]');
+    if (fx) { ev.preventDefault(); evqOpen(fx.getAttribute('data-evq-fix'), true); return true; }
+    var nw = t.closest('[data-evq-new]');
+    if (nw) { ev.preventDefault(); evqNew(nw); return true; }
+    return false;
+  }
+  document.addEventListener('click', function (ev) {
+    if (evqAct(ev)) return;
+    var a = ev.target && ev.target.closest ? ev.target.closest('[data-evq]') : null;
+    if (!a) return;
+    ev.preventDefault();
+    evqOpen(a.getAttribute('data-evq'));
+  });
+  /* role="button" 이라 키보드도 받는다(Enter·Space) — 안 그러면 마우스 전용이 된다. */
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' || ev.key === ' ') evqAct(ev);
+  });
 
   function badge(status) {
     var b = BADGE[status] || BADGE.early;
@@ -188,6 +355,28 @@
         hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul'
       });
     } catch (e) { return '-'; }
+  }
+
+  /* 🕓 (2026-10-27 매니저 제안 «시작·끝을 한국 시간으로, 24시간제 말고») 시간 칸 = 「4:00pm – 4:20pm」.
+     ⚠️ 표 «시간 칸» 전용이다 — 강사 입장·출결 시각(위 hhmm)은 그대로 둔다(다른 칸이라 바꿔 달라는 요청이 없었다).
+     ⚠️ 벽시계는 toLocaleTimeString 을 다시 파싱하지 않고 «+9시간 뒤 UTC 시·분» 으로 곧장 센다
+        (아래 LATE_FROM_HOUR 주석과 같은 이유 — 로케일 문자열은 판정·조립의 근거가 못 된다).
+     ⚠️ 모양은 강사·매니저 화면의 MangoiClassDisplay.time(12시간제)과 같다 — 같은 수업이 화면마다 다르게 읽히지 않게.
+     끝 시각이 없거나 시작보다 앞이면 시작만 그린다(지어내지 않는다). 날을 넘기면 « (+1d)».
+     ⚠️ 카페24 줄은 서버가 left_at 이 없을 때 끝을 «시작+30분» 으로 채운다 → end_known === false 면 시작만. */
+  function kst12(ts) {
+    var d = new Date(Number(ts) + 9 * 3600 * 1000);
+    if (isNaN(d.getTime())) return '';
+    var h = d.getUTCHours(), m = d.getUTCMinutes();
+    return (h % 12 || 12) + ':' + ('0' + m).slice(-2) + (h < 12 ? 'am' : 'pm');
+  }
+  function kstRange(s) {
+    var a = kst12(s && s.start_ts);
+    if (!a) return '-';
+    if (!(s.end_ts > s.start_ts) || s.end_known === false) return a;
+    var dayA = Math.floor((Number(s.start_ts) + 9 * 3600 * 1000) / 86400000);
+    var dayB = Math.floor((Number(s.end_ts) + 9 * 3600 * 1000) / 86400000);
+    return a + ' – ' + kst12(s.end_ts) + (dayB > dayA ? ' (+1d)' : '');
   }
 
   /* 🌙 (2026-09-08 사장님 요청) 「23시 이후」 거르기 — 늦은 밤 수업만 따로 본다.
@@ -423,7 +612,108 @@
   };
 
   var _rows = [];
-  var _contactSrc = '';   // 서버가 준 연락처 근거('retention' | 'restricted')
+  /* 📊 (2026-10-01 사장님 「여기에도 보이게」) 상태별 개수 칩 — 강사 «오늘의 수업» 의 요약 칩(B)과 같은 생각.
+     누르면 그 상태만 보이고, 한 번 더 누르면 풀린다. ⏸ 연기는 0건이어도 늘 보인다(«연기가 됐나» 가 묻는 질문이라). */
+  var _stSel = '';
+  var ST_ORDER = ['live', 'open', 'early', 'postponed', 'holiday', 'ended'];
+  function stChipsHtml(base) {
+    var n = {}; for (var i = 0; i < base.length; i++) { var k = String(base[i].status || 'early'); n[k] = (n[k] || 0) + 1; }
+    var h = '<div class="tc-st-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 2px 8px">';
+    for (var j = 0; j < ST_ORDER.length; j++) {
+      var st = ST_ORDER[j], c = n[st] || 0, b = BADGE[st];
+      if (!c && st !== 'postponed') continue;
+      var on = (_stSel === st);
+      h += '<span class="tc-st-chip" role="button" tabindex="0" data-st="' + st + '" aria-pressed="' + on + '" '
+        + 'style="cursor:pointer;white-space:nowrap;padding:3px 10px;border-radius:99px;font-size:11.5px;font-weight:800;'
+        + 'background:' + b.bg + ';color:' + b.fg + ';border:' + (on ? '2px solid ' + b.fg : '1px solid ' + b.bd) + '">'
+        + (isEn() ? b.en : b.ko) + ' ' + c + '</span>';
+    }
+    if (_stSel) {
+      h += '<span class="tc-st-chip" role="button" tabindex="0" data-st="" '
+        + 'style="cursor:pointer;white-space:nowrap;padding:3px 10px;border-radius:99px;font-size:11.5px;font-weight:700;'
+        + 'background:#f1f5f9;color:#475467;border:1px solid #cbd5e1">' + T('✕ 상태 거르기 풀기', '✕ Show all states') + '</span>';
+    }
+    return h + '</div>';
+  }
+  function bindStChips(box) {
+    var cs = box.querySelectorAll('.tc-st-chip');
+    for (var i = 0; i < cs.length; i++) {
+      (function (el) {
+        var go = function (ev) {
+          if (ev) ev.preventDefault();
+          var st = el.getAttribute('data-st') || '';
+          _stSel = (_stSel === st) ? '' : st;
+          render();
+        };
+        el.addEventListener('click', go);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') go(ev);
+        });
+      })(cs[i]);
+    }
+  }
+  /* ↕ (2026-09-28 사장님 «이것도 오름·내림 필터») 머리글을 누르면 정렬 — manager.html AIU_SORT 와 같은 규칙.
+     첫 번째 누름 ▲ 오름 · 두 번째 ▼ 내림 · 세 번째는 원래 순서(지금 입장가능 → 시작 시각).
+     빈 값(—)은 방향과 무관하게 맨 아래. 거른 «뒤» 에 정렬한다(화면에 보이는 줄끼리).
+     ⛔ 날짜·시간은 글자가 아니라 start_ts 로 — «오후 9:00» 과 «오전 10:00» 을 글자로 비교하면 뒤집힌다.
+     ⛔ 수업 캘린더 칸은 정렬하지 않는다(값이 7칸 달력이라 순서의 뜻이 없다). */
+  var TC_SORT = { key: '', dir: 0 };
+  function tcPlain(html) {
+    var t = String(html == null ? '' : html).replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
+    return (t === '—' || t === '-') ? '' : t;
+  }
+  function tcSortVal(s, key) {
+    var ts = Number(s.start_ts);
+    switch (key) {
+      case 'date': return isFinite(ts) && ts > 0 ? ts : null;
+      case 'time': {
+        if (!(isFinite(ts) && ts > 0)) return null;
+        var k = new Date(ts + 9 * 3600 * 1000);   /* KST 시·분 — 날짜와 무관하게 시각만 */
+        return k.getUTCHours() * 60 + k.getUTCMinutes();
+      }
+      case 'status': return tcPlain(badge(s.status));
+      case 'student': return String(s.student_name || s.student_uid || '').trim();
+      case 'contact': return String(s.contact_phone || '').trim();
+      case 'academy': return String(s.academy || '').trim();
+      case 'pay': return tcPlain(xPay(s.pay_type));
+      case 'sched': return tcPlain(xSched(s));
+      case 'tentry': return tcPlain(xTeacherConnection(s));
+      case 'att': return tcPlain(xAttendance(s.attendance));
+      case 'lastEval': return tcPlain(xEval(s.last_eval, s.eval_hidden));
+      case 'todayEval': return tcPlain(xEval(s.today_eval, s.eval_hidden));
+      case 'level': return String((s.level || '') + ' ' + (s.textbook_assigned ? (s.textbook || '') : '')).trim();
+      case 'teacher': return String(s.teacher_name || '').trim();
+      case 'room': return String(s.room_id || '').trim();
+    }
+    return null;
+  }
+  function tcSorted(rows) {
+    var key = TC_SORT.key, dir = TC_SORT.dir;
+    if (!key || !dir) return rows;
+    var blank = function (v) { return v == null || v === '' || (typeof v === 'number' && isNaN(v)); };
+    return rows.map(function (s, i) { return { s: s, i: i, v: tcSortVal(s, key) }; }).sort(function (a, b) {
+      var ab = blank(a.v), bb = blank(b.v);
+      if (ab || bb) return ab === bb ? a.i - b.i : (ab ? 1 : -1);
+      var c = (typeof a.v === 'number' && typeof b.v === 'number') ? (a.v - b.v)
+        : String(a.v).localeCompare(String(b.v), 'ko', { numeric: true });
+      return c ? c * dir : a.i - b.i;
+    }).map(function (x) { return x.s; });
+  }
+  function tcTh(key, ko, en) {
+    var label = T(ko, en);
+    if (!key) return '<th>' + label + '</th>';
+    var on = TC_SORT.key === key && TC_SORT.dir;
+    var ar = on ? (TC_SORT.dir > 0 ? '▲' : '▼') : '↕';
+    return '<th class="tc-sort-th" data-sk="' + key + '" role="button" tabindex="0" aria-sort="'
+      + (on ? (TC_SORT.dir > 0 ? 'ascending' : 'descending') : 'none') + '" '
+      + 'title="' + T('눌러서 정렬 (▲ 오름 → ▼ 내림 → 원래 순서)', 'Click to sort (▲ asc → ▼ desc → original)') + '" '
+      + 'style="cursor:pointer;user-select:none;white-space:nowrap' + (on ? ';color:#1d4ed8' : '') + '">'
+      + label + '<span aria-hidden="true" style="margin-left:3px;font-size:10px;opacity:' + (on ? '1' : '.4') + '">' + ar + '</span></th>';
+  }
+  var _contactSrc = '';   // 서버가 준 연락처 근거('lookup' | 'failed' | 'restricted') — 2026-10-27 전에는 'retention'
+  var _holiday = null;    // 🎌 서버가 준 휴강일 정보 {name, closed} — 평일이면 null
 
   /* 🔎 (2026-09-01 사장님 요청) 「카페24 수업」과 「우리가 새로 넣은 수업」 가르기 + 검색.
      [왜] 오늘 목록 166건 중 142건이 카페24라, 새로 넣은 수업이 그 안에 파묻혀 눈으로 못 찾았다.
@@ -438,6 +728,69 @@
     for (var i = 0; i < _rows.length; i++) if (String(_rows[i].schedule_id) === String(sid)) return _rows[i];
     return null;
   }
+  /* 📩 메시지 — 누가 보낼 수 있나(화면 판정). 정본은 서버(enrollAdminHqOnly)이고 여기는 «안 되는 버튼» 을 안 그리는 것뿐.
+     역할을 모르면 그린다(서버가 최종 판정 — 본사 화면이 잠깐 비는 것보다 낫다). */
+  function tcCanMessage() {
+    var role = '';
+    try { role = (window.__ADM_ME && window.__ADM_ME.role) ? String(window.__ADM_ME.role) : ''; } catch (e) {}
+    return ['teacher', 'franchise', 'branch', 'agency'].indexOf(role) < 0;
+  }
+  function tcMsgModalClose() { var m = document.getElementById('tc-msg-modal'); if (m) m.remove(); }
+  function tcOpenMsgModal(el) {
+    tcMsgModalClose();
+    var uid = el.getAttribute('data-uid') || '', name = el.getAttribute('data-name') || uid;
+    var tch = el.getAttribute('data-teacher') || '', tm = el.getAttribute('data-time') || '';
+    var tpl = T(
+      '[망고아이] ' + name + ' 학생, 오늘' + (tm ? ' ' + tm : '') + ' 수업 안내입니다.\n'
+        + (tch ? tch + ' 선생님께 ' : '선생님께 ') + '갑작스러운 기술 문제가 생겨 잠시 지연되고 있습니다. 조금만 기다려 주세요. 불편을 드려 죄송합니다.',
+      '[Mangoi] Hi ' + name + ', about your class today' + (tm ? ' at ' + tm : '') + ':\n'
+        + 'Your teacher' + (tch ? ' (' + tch + ')' : '') + ' has a sudden technical problem, so the class is slightly delayed. Please wait a moment. We are sorry for the inconvenience.'
+    );
+    var box = document.createElement('div');
+    box.id = 'tc-msg-modal';
+    box.setAttribute('role', 'dialog');
+    box.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:100002;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
+    box.innerHTML = '<div style="background:#ffffff;color:#101828;border-radius:12px;max-width:520px;width:100%;padding:18px;margin:auto;box-shadow:0 10px 30px rgba(0,0,0,.25)">'
+      + '<div style="font-weight:800;font-size:15px;margin-bottom:6px">📩 ' + T('학생에게 안내 보내기', 'Send a notice to the student') + '</div>'
+      + '<div style="font-size:12.5px;color:#475467;margin-bottom:8px">' + esc(name) + ' · <code>' + esc(uid) + '</code></div>'
+      + '<textarea id="tc-msg-text" rows="6" style="width:100%;box-sizing:border-box;background:#ffffff;color:#101828;border:1px solid #cbd5e1;border-radius:8px;padding:8px;font-size:13px"></textarea>'
+      + '<div style="display:flex;gap:14px;margin:8px 0;font-size:13px;color:#344054">'
+      +   '<label><input type="checkbox" id="tc-msg-push" checked> ' + T('푸시', 'Push') + '</label>'
+      +   '<label><input type="checkbox" id="tc-msg-sms" checked> ' + T('문자(SMS)', 'SMS') + '</label></div>'
+      + '<div style="font-size:11.5px;color:#475467;margin-bottom:10px">' + T('푸시는 그 학생이 알림을 켰을 때만, 문자는 연락처가 등록돼 있을 때만 갑니다. 결과를 아래에 그대로 알려 드립니다.',
+          'Push reaches the student only if they turned on notifications; SMS only if a phone number is on file. The result is shown below.') + '</div>'
+      + '<div id="tc-msg-out" style="font-size:12.5px;min-height:18px;margin-bottom:8px"></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end">'
+      +   '<span role="button" tabindex="0" id="tc-msg-cancel" style="cursor:pointer;padding:7px 14px;border-radius:8px;border:1px solid #cbd5e1;color:#344054;background:#ffffff">' + T('닫기', 'Close') + '</span>'
+      +   '<span role="button" tabindex="0" id="tc-msg-send" style="cursor:pointer;padding:7px 14px;border-radius:8px;background:#067647;color:#ffffff;font-weight:800">' + T('보내기', 'Send') + '</span>'
+      + '</div></div>';
+    document.body.appendChild(box);
+    document.getElementById('tc-msg-text').value = tpl;
+    box.addEventListener('click', function (e) { if (e.target === box) tcMsgModalClose(); });
+    document.getElementById('tc-msg-cancel').addEventListener('click', tcMsgModalClose);
+    var busy = false;
+    document.getElementById('tc-msg-send').addEventListener('click', function () {
+      if (busy) return;
+      var out = document.getElementById('tc-msg-out');
+      var msg = String(document.getElementById('tc-msg-text').value || '').trim();
+      var push = document.getElementById('tc-msg-push').checked, sms = document.getElementById('tc-msg-sms').checked;
+      if (!msg) { out.style.color = '#b42318'; out.textContent = T('보낼 내용을 적어 주세요.', 'Please write a message.'); return; }
+      if (!push && !sms) { out.style.color = '#b42318'; out.textContent = T('푸시나 문자 중 하나는 골라 주세요.', 'Pick push or SMS.'); return; }
+      busy = true; out.style.color = '#475467'; out.textContent = T('보내는 중…', 'Sending…');
+      fetch('/api/admin/retention/care', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: uid, action_type: 'class_notice', message: msg, push: push, sms: sms, title: T('망고아이 수업 안내', 'Mangoi class notice') })
+      }).then(function (r) { return r.json().then(function (j) { return { r: r, j: j }; }, function () { return { r: r, j: {} }; }); })
+        .then(function (x) {
+          busy = false;
+          var j = x.j || {};
+          if (x.r.ok && j.ok === true && j.status === 'sent') { out.style.color = '#067647'; out.textContent = '✅ ' + (j.detail || T('보냈습니다', 'Sent')); }
+          else if (x.r.ok && j.ok === true) { out.style.color = '#b42318'; out.textContent = '⚠️ ' + T('아무 데도 닿지 않았습니다: ', 'Not delivered: ') + (j.detail || ''); }
+          else { out.style.color = '#b42318'; out.textContent = '❌ ' + (j.who_line ? j.who_line + ' ' : '') + (j.detail || j.message || j.error || x.r.status); }
+        }, function (e) { busy = false; out.style.color = '#b42318'; out.textContent = '❌ ' + T('통신 오류: ', 'Network error: ') + (e && e.message || e); });
+    });
+  }
+
   function tcOpenMoveModal(sid) {
     var r = mvRowOf(sid);
     if (!r || !window.mangoiMoveModal) return;
@@ -470,11 +823,19 @@
      · 값이 빈 줄은 PICK_NONE(«(학원 미지정)»·«(강사 미배정)») 으로 모은다 — 목록에서 조용히 사라지면 안 된다.
      · 공백만 다른 이름(«BNJ  어학원» 대 «BNJ 어학원»)은 한 항목으로 본다. 대소문자는 가리지 않는다(다른 학원일 수 있다). */
   var PICK_NONE = '__none__';
-  function pickKey(v) { return String(v == null ? '' : v).replace(/\s+/g, ' ').trim() || PICK_NONE; }
-  function pickMatch(s, field, sel) { return !sel || pickKey(s[field]) === sel; }
+  function pickKey(v, field) {
+    var k = String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+    /* 강사는 «Teacher Zee»(카페24)와 «ZEE»(원부)가 같은 사람 — 접두사를 떼고 대소문자를 맞춰 한 항목으로 (2026-09-28) */
+    if (field === 'teacher_name' && k) {
+      var core = k.replace(/^(?:(?:teacher|교사|선생님)(?![a-z])\s*[-:.·]?\s*)+/i, '').trim();
+      if (core) k = 'Teacher ' + core.toLowerCase().replace(/(^|[\s-])(\S)/g, function (_, a, c) { return a + c.toUpperCase(); });
+    }
+    return k || PICK_NONE;
+  }
+  function pickMatch(s, field, sel) { return !sel || pickKey(s[field], field) === sel; }
   function pickOptions(rows, field) {
     var m = {};
-    rows.forEach(function (s) { var k = pickKey(s[field]); m[k] = (m[k] || 0) + 1; });
+    rows.forEach(function (s) { var k = pickKey(s[field], field); m[k] = (m[k] || 0) + 1; });
     return Object.keys(m).sort(function (a, b) {
       if (a === PICK_NONE) return 1;
       if (b === PICK_NONE) return -1;
@@ -568,10 +929,17 @@
       return T('☎ 연락처는 본사 계정에서만 보입니다.',
                'Contact numbers are visible to HQ accounts only.');
     }
-    return T('☎ 연락처 ' + missing + '/' + total + '건이 «—» 입니다 — 학생 명부에는 번호가 저장돼 있지 않고, '
-           + '«관리 대상(만료·휴면)» 명단에 오른 학생만 번호가 있습니다.',
-             '☎ ' + missing + ' of ' + total + ' have no number — the student roster stores no phone numbers; '
-           + 'only students on the at-risk (expiring/inactive) list have one.');
+    /* ☎ (2026-10-27) 조회가 실패했으면 «없다» 가 아니라 «확인 못 함» — 같은 글자로 말하지 않는다 */
+    if (_contactSrc === 'failed') {
+      return T('☎ 지금 연락처를 확인하지 못했습니다 — 잠시 뒤 새로고침해 주세요.',
+               '☎ Could not check contact numbers right now — please refresh in a moment.');
+    }
+    if (_contactSrc !== 'lookup') return '';
+    /* 문구는 강사 화면(teacher.html contactNoteHtml)·manager.html 과 같은 말 — 번호 원천도 같은 정본(loadContactPhones) */
+    return T('☎ 연락처 ' + missing + '/' + total + '건이 «—» 입니다 — 학생 명부에는 번호가 거의 없어, '
+           + '주로 «관리 대상(만료·휴면)» 학생이나 직원이 학생 상세에 넣은 번호만 보입니다.',
+             '☎ ' + missing + ' of ' + total + ' have no number — the student roster has almost no phone numbers; '
+           + 'mostly only at-risk (expiring/inactive) students or numbers saved by staff in the student profile show here.');
   }
 
   /* 📚 (2026-09-08 사장님 요청) «교재 미배정» 이 몇 건인지 목록 위에서 한 번 말하고,
@@ -614,7 +982,7 @@
   function academySummary(rows, acSel) {
     var c24 = rows.filter(function (s) { return s.source === 'cafe24'; }).length;
     var tset = {};
-    rows.forEach(function (s) { tset[pickKey(s.teacher_name)] = 1; });
+    rows.forEach(function (s) { tset[pickKey(s.teacher_name, 'teacher_name')] = 1; });
     var nt = Object.keys(tset).filter(function (k) { return k !== PICK_NONE; }).length;
     var name = acSel === PICK_NONE ? T('(학원 미지정)', '(no academy)') : acSel;
     return '<div class="tc-ac-sum" style="padding:7px 10px;margin:2px 0 8px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:6px;color:#1e3a8a;font-size:12px;line-height:1.6">'
@@ -679,9 +1047,12 @@
       if (q && rowText(s).indexOf(q) < 0) return false;
       return true;
     });
+    /* 📊 상태 칩은 «다른 거르기를 마친 줄» 로 센다 — 상태 거르기 자신은 셈에서 뺀다(누르면 나머지 칩이 0 이 되지 않게) */
+    var stChips = stChipsHtml(rows);
+    if (_stSel) rows = rows.filter(function (s) { return String(s.status || 'early') === _stSel; });
     /* 🌙 시간대 고르기도 거르기다 — 여기 안 넣으면 0건일 때 «원래 없다» 고 말해
        버려서(아래 else 갈래) 「필터가 켜져 있다」는 사실이 화면에서 사라진다. */
-    var filtering = !!(src || q || night || acSel || teSel);
+    var filtering = !!(src || q || night || acSel || teSel || _stSel);
 
     if (!rows.length) {
       /* 비어 있는 이유를 그 자리에서 말한다 — 「거르는 중이라 없는 것」과 「원래 없는 것」은 다르다 */
@@ -694,13 +1065,15 @@
           + (q ? ' · "' + esc(q) + '"' : '')
           + (onlyLive ? ' · ' + T('지금 입장가능만', 'joinable only') : '')
           + (night ? ' · ' + nightLabel(night) : '')
+          + (_stSel && BADGE[_stSel] ? ' · ' + (isEn() ? BADGE[_stSel].en : BADGE[_stSel].ko) : '')
           + ') · ' + T('전체 ', 'total ') + _rows.length + T('건', '');
       } else {
         why = onlyLive
           ? T('지금 들어갈 수 있는 수업이 없습니다.', 'No classes are joinable right now.')
           : T('오늘 예정된 수업이 없습니다.', 'No classes scheduled today.');
       }
-      box.innerHTML = '<div class="empty">' + why + '</div>';
+      box.innerHTML = stChips + '<div class="empty">' + why + '</div>';
+      bindStChips(box);
       if (cntEl) cntEl.textContent = filtering ? T('0건 표시', '0 shown') : '';
       announceCounts(0);
       return;
@@ -746,7 +1119,13 @@
     /* 🏫 학원을 골랐으면 «그 학원 오늘 한눈에» 한 줄 — 연기할 대상(몇 건·어디서·강사 몇 명)을 먼저 읽게.
        ⚠️ 카페24 줄은 여기서 옮길 수 없다는 사실도 함께(버튼이 없는 이유). */
     var acLine = acSel ? academySummary(rows, acSel) : '';
-    box.innerHTML = acLine + (nNote
+    /* 🎌 휴강일이면 목록 위에 한 줄 — 이름·건수는 서버가 센 값(판정을 화면이 다시 하지 않는다). */
+    var holLine = _holiday
+      ? '<div style="padding:6px 2px 4px;color:#475569;font-size:12px;font-weight:700;line-height:1.6">'
+        + esc(T('🎌 ' + (_holiday.name || '공휴일') + ' 휴강 — ' + (_holiday.closed || 0) + '건 쉼 (중국어 수업은 그대로)',
+                '🎌 ' + (_holiday.name || 'Holiday') + ' — ' + (_holiday.closed || 0) + ' class(es) off (Chinese classes run as usual)')) + '</div>'
+      : '';
+    box.innerHTML = holLine + stChips + acLine + (nNote
         ? '<div style="padding:6px 2px 4px;color:#4338ca;font-size:11.5px;line-height:1.6">' + esc(nNote) + '</div>'
         : '')
       + (note
@@ -755,24 +1134,26 @@
       + bookLine
       + '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse">'
       + '<thead><tr>'
-      +   '<th>' + T('날짜', 'Date') + '</th>'
-      +   '<th>' + T('시간', 'Time') + '</th>'
-      +   '<th>' + T('상태', 'Status') + '</th>'
-      +   '<th>' + T('학생 / 액션', 'Student / Action') + '</th>'
-      +   '<th>' + T('연락처', 'Contact') + '</th>'
-      +   '<th>' + T('학원', 'Academy') + '</th>'
-      +   '<th>' + T('수업 캘린더', 'Class calendar') + '</th>'
-      +   '<th>' + T('결제 유형', 'Payment type') + '</th>'
-      +   '<th>' + T('일정', 'Schedule') + '</th>'
-      +   '<th>' + T('강사 입장', 'Instructor entrance') + '</th>'
-      +   '<th>' + T('학생 출결', 'Attendance') + '</th>'
-      +   '<th>' + T('지난 수업 평가', 'Last class feedback') + '</th>'
-      +   '<th>' + T('오늘 평가', "Today's feedback") + '</th>'
-      +   '<th>' + T('레벨 · 교재', 'Level · Textbook') + '</th>'
-      +   '<th>' + T('강사', 'Teacher') + '</th>'
-      +   '<th>' + T('강의실', 'Room') + '</th>'
+      +   tcTh('date', '날짜', 'Date')
+      +   tcTh('time', '시간 (한국)', 'Time (KST)')
+      +   tcTh('status', '상태', 'Status')
+      +   tcTh('student', '학생 / 액션', 'Student / Action')
+      /* (2026-09-29 매니저 요청 «move teacher's names near the student's name») 강사 칸을 학생 바로 옆으로.
+         맨 끝에 있어 50% 로 줄여야 누가 강사인지 보였다. ⚠️ th 와 td 순서는 짝 — 한쪽만 옮기지 말 것. */
+      +   tcTh('teacher', '강사', 'Teacher')
+      +   tcTh('contact', '연락처', 'Contact')
+      +   tcTh('academy', '학원', 'Academy')
+      +   tcTh('', '수업 캘린더', 'Class calendar')
+      +   tcTh('pay', '결제 유형', 'Payment type')
+      +   tcTh('sched', '일정', 'Schedule')
+      +   tcTh('tentry', '교사 입장 상태', 'Teacher connection')
+      +   tcTh('att', '학생 출결', 'Attendance')
+      +   tcTh('lastEval', '지난 수업 평가', 'Last class feedback')
+      +   tcTh('todayEval', '오늘 평가', "Today's feedback")
+      +   tcTh('level', '레벨 · 교재', 'Level · Textbook')
+      +   tcTh('room', '강의실', 'Room')
       + '</tr></thead><tbody>'
-      + rows.map(function (s) {
+      + tcSorted(rows).map(function (s) {
           var rid = encodeURIComponent(s.room_id);
           var who = encodeURIComponent(s.student_name || s.student_uid || '');
           /* 강사 미배정은 매니저가 가장 먼저 봐야 하는 줄 → 눈에 띄게 */
@@ -795,6 +1176,44 @@
               + T('카페24에서 진행되는 수업입니다. 망고아이 화상방이 없어 입장·참관할 수 없습니다.',
                   'This class runs on cafe24. There is no Mangoi room, so join/observe is not possible.') + '">'
               + T('카페24 수업 · 입장 불가', 'on cafe24 · cannot join') + '</span>';
+            /* ❔ (2026-10-13 매니저 «Not all schedules have move button») 카페24 줄은 망고아이 예약표에 행이 없어
+               옮길 대상이 없다 — 버튼이 «없는» 대신 이유를 글자로(폰엔 hover 없음). manager.html 과 같은 말. */
+            act += '<span style="display:inline-block;white-space:nowrap;font-size:10.5px;color:#475467;padding:2px 8px;border-radius:99px;background:#f1f5f9;border:1px solid #cbd5e1">'
+              + T('카페24 수업 — 카페24에서 변경', 'LMS class — change in cafe24') + '</span>';
+          } else if (s.holiday) {
+            /* 🎌 공휴일 휴강 — 입장·참관 버튼을 주지 않는다(서버가 join_open=false 로 보낸다). */
+            act = '<span style="color:#475569;font-size:11.5px;font-weight:700;margin-right:4px">'
+              + T('🎌 공휴일 휴강', '🎌 Holiday — no class') + '</span>';
+          } else if (s.postponed) {
+            /* ⏸ 연기된 수업 — 입장·참관·초대 링크를 주지 않는다(강사가 연기된 방에 들어가 기다린 사고, class-1931).
+               「📅 연기·변경」은 남긴다: «새 날짜로 옮기기» 를 여기서 마저 할 수 있어야 한다. */
+            act = '<span style="color:#b45309;font-size:11.5px;font-weight:700;margin-right:4px">'
+              + T('⏸ 연기됨 — 새 날짜 미정', '⏸ Postponed — no new date yet') + '</span>';
+            if (s.schedule_id && s.can_move !== false) {
+              act += '<span class="tc-move-pin" role="button" tabindex="0" data-sid="' + esc(s.schedule_id) + '" '
+                + 'style="cursor:pointer;display:inline-block;white-space:nowrap;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
+                + 'background:#eaf0fb;color:#1d4ed8;border:1px solid #bfd3f5">'
+                + T('📅 새 날짜로', '📅 Rebook') + '</span>';
+            }
+            /* ↩ (2026-10-29 매니저 «how to undo the postponement… add a restore button») 연기를 없던 일로 —
+               원래 날짜·시각 그대로 다시 «열린 수업». 서버 정본은 POST /api/admin/class-schedules/:id
+               { action:'restore' }(본사 전용 · 지난 날짜·같은 자리 다른 수업이 있으면 거절하고 그 사유를 말한다).
+               ⛔ <button> 대신 span[role=button] — 카드 안 전역 button 규칙이 파란 알약으로 덮는다. */
+            /* ↩ (2026-10-30) 원래 시각이 이미 시작했으면 서버가 언제나 past_date 로 거절한다(class-schedule-move.ts —
+               시작·출석한 수업 되돌리기 금지). «눌러 보면 거절되는 버튼» 대신 그 사실을 글자로 말하고 «📅 새 날짜로» 만 남긴다.
+               start_ts 를 모르면 예전처럼 보여 준다(서버가 최종 판정). */
+            var rsStarted = Number(s.start_ts) > 0 && Number(s.start_ts) <= Date.now();
+            if (s.schedule_id && rsStarted) {
+              act += '<span style="display:inline-block;margin-left:4px;color:#475467;font-size:11px">'
+                + T('원래 시각이 지나 되돌릴 수 없음 — 새 날짜로 잡으세요', 'Original time has passed — rebook to a new date') + '</span>';
+            } else if (s.schedule_id) {
+              act += '<span class="tc-restore-pin" role="button" tabindex="0" data-sid="' + esc(s.schedule_id) + '" '
+                + 'data-name="' + esc(s.student_name || s.student_uid || '') + '" data-when="' + esc(Number(s.start_ts) > 0 ? new Date(Number(s.start_ts) + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ') : (s.start_time || '')) + '" '
+                + 'title="' + T('연기를 취소하고 원래 날짜·시각으로 되돌립니다', 'Undo the postponement — back to the original date and time') + '" '
+                + 'style="cursor:pointer;display:inline-block;white-space:nowrap;margin-left:4px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
+                + 'background:#fff7ed;color:#b45309;border:1px solid #fcd9a8">'
+                + T('↩ 연기 취소', '↩ Restore') + '</span>';
+            }
           } else {
             act = s.join_open
               /* 🚪 학생에게 «보이는» 입장이라 참관(보라)과 색을 갈라 둔다 — 주황 + (보임) 표시 */
@@ -820,8 +1239,10 @@
                ⛔ 매주 반복 행(can_move===false)에는 조작을 주지 않는다 — 한 행이 «매주» 라
                   취소하면 모든 주가 죽는다. 판정은 서버가 준 can_move 하나.
                ⛔ <button> 이 아니라 span[role=button] — 카드 안 전역 button 규칙이 파란 알약으로 덮는다. */
+            /* 🔁 (2026-10-08 매니저 「다음 주 수업도 아무 때나 연기하게」) 매주 반복 줄도 서버가 can_split 을 주면
+               버튼을 준다 — 창이 먼저 «날짜별로 나누기» 를 한 뒤 그 날만 처리한다(js/class-move-modal.js mvSplitFirst). */
             if (s.schedule_id) {
-              if (s.can_move === false) {
+              if (s.can_move === false && s.can_split !== true) {
                 act += '<span style="display:inline-block;white-space:nowrap;font-size:10.5px;color:#475467;padding:2px 8px;border-radius:99px;background:#f1f5f9;border:1px solid #cbd5e1">'
                   + T('매주 반복 — 시간표에서', 'weekly — use timetable') + '</span>';
               } else {
@@ -832,6 +1253,20 @@
                   + T('📅 연기·변경', '📅 Move') + '</span>';
               }
             }
+          }
+          /* 📩 (2026-10-07 매니저 요청 3) 「강사에게 기술 문제가 생겼다」 같은 안내를 그 학생에게 바로 —
+             카페24 「메시지 보내기」(PUSH+SMS)에 해당. 서버 정본은 /api/admin/retention/care 의 'class_notice'
+             (본사 전용 · 받아 둔 번호 먼저 · 하나도 안 닿으면 «못 보냈다» 고 말함).
+             ⛔ 강사·지사·대리점에는 안 그린다(서버도 403) — «눌러도 안 되는 버튼» 을 만들지 않는다.
+             ⛔ <button> 대신 span[role=button] — 카드 안 전역 button 규칙이 파란 알약으로 덮는다. */
+          if (s.student_uid && tcCanMessage()) {
+            act += '<span class="tc-msg-pin" role="button" tabindex="0" data-uid="' + esc(s.student_uid) + '" '
+              + 'data-name="' + esc(s.student_name || s.student_uid) + '" data-teacher="' + esc(s.teacher_name || '') + '" '
+              + 'data-time="' + esc(s.start_time || '') + '" '
+              + 'title="' + T('이 학생에게 안내(푸시·문자)를 보냅니다', 'Send a notice (push · SMS) to this student') + '" '
+              + 'style="cursor:pointer;display:inline-block;white-space:nowrap;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
+              + 'background:#ecfdf3;color:#067647;border:1px solid #a6e9c5">'
+              + T('📩 메시지', '📩 Message') + '</span>';
           }
           /* 📚 (2026-08-25 보고서 ①) 옛 LMS 한 줄에 있던 「TEXTBOOK 배정 없음」 배지의 대응.
              수업 «전에» 손써야 하는 줄이라 눈에 띄어야 한다 — 배정된 줄은 조용히 교재명만. */
@@ -901,7 +1336,7 @@
           }
           return '<tr>'
             + '<td style="white-space:nowrap;font-size:11.5px">' + esc(s.class_date || '') + '</td>'
-            + '<td style="white-space:nowrap">' + hhmm(s.start_ts) + '</td>'
+            + '<td style="white-space:nowrap" title="KST">' + esc(kstRange(s)) + '</td>'
             + '<td>' + badge(s.status) + '</td>'
             + '<td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>' + esc(s.student_name || s.student_uid || '-') + '</b>' + kindTag + act + '</div>'
               /* 🆔 아이디 — 이름이 같은 학생이 실재해서(동명이인) 매니저가 확정하려면 필요하다.
@@ -910,17 +1345,17 @@
                   ? '<div style="font-size:10.5px;color:#6b7280;letter-spacing:0.2px">' + esc(s.student_uid) + '</div>'
                   : '')
             + '</td>'
+            + '<td>' + teacher + '</td>'
             + '<td>' + contact + '</td>'
             + '<td>' + academy + '</td>'
             + '<td>' + xCal(s, isC24) + '</td>'
             + '<td>' + xPay(s.pay_type) + '</td>'
             + '<td>' + xSched(s) + '</td>'
-            + '<td>' + xTeacherEntry(s.teacher_entry) + '</td>'
+            + '<td>' + xTeacherConnection(s) + '</td>'
             + '<td>' + xAttendance(s.attendance) + '</td>'
-            + '<td>' + xEval(s.last_eval, s.eval_hidden) + '</td>'
-            + '<td>' + xEval(s.today_eval, s.eval_hidden) + '</td>'
+            + '<td>' + xEval(s.last_eval, s.eval_hidden) + xEvalAct(s, 'last') + '</td>'
+            + '<td>' + xEval(s.today_eval, s.eval_hidden) + xEvalAct(s, 'today') + '</td>'
             + '<td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + levelTag + bookTag + '</div></td>'
-            + '<td>' + teacher + '</td>'
             + '<td><code style="font-size:11px;color:#6b7280">' + esc(s.room_id) + '</code>'
             +   (isC24 ? ' <span style="font-size:10px;color:#92400e;font-weight:800">LMS</span>' : '') + '</td>'
             + '</tr>';
@@ -952,6 +1387,25 @@
       })(pins[pi]);
     }
     /* 📅 수업 캘린더 칩 → 학생 상세 스케줄 탭 창. render() 가 통째로 다시 그리므로 리스너는 안 쌓인다. */
+    /* ↕ 머리글 정렬 — render() 가 통째로 다시 그리므로 리스너는 안 쌓인다. 키보드(Enter·Space)도 받는다. */
+    var sths = box.querySelectorAll('th.tc-sort-th');
+    for (var si = 0; si < sths.length; si++) {
+      (function (el) {
+        var go = function (ev) {
+          if (ev) ev.preventDefault();
+          var key = el.getAttribute('data-sk') || '';
+          if (!key) return;
+          if (TC_SORT.key !== key) TC_SORT = { key: key, dir: 1 };
+          else if (TC_SORT.dir === 1) TC_SORT.dir = -1;
+          else TC_SORT = { key: '', dir: 0 };
+          render();
+        };
+        el.addEventListener('click', go);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') go(ev);
+        });
+      })(sths[si]);
+    }
     var cals = box.querySelectorAll('.tc-cal-pin');
     for (var ci = 0; ci < cals.length; ci++) {
       (function (el) {
@@ -974,6 +1428,27 @@
       bk.addEventListener('keydown', function (ev) {
         if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') bkOpen(ev);
       });
+    }
+    bindStChips(box);
+    var mss = box.querySelectorAll('.tc-msg-pin');
+    for (var si2 = 0; si2 < mss.length; si2++) {
+      (function (el) {
+        var open = function (ev) { if (ev) ev.preventDefault(); tcOpenMsgModal(el); };
+        el.addEventListener('click', open);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') open(ev);
+        });
+      })(mss[si2]);
+    }
+    var rss = box.querySelectorAll('.tc-restore-pin');
+    for (var ri = 0; ri < rss.length; ri++) {
+      (function (el) {
+        var go = function (ev) { if (ev) ev.preventDefault(); tcRestorePostponed(el); };
+        el.addEventListener('click', go);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') go(ev);
+        });
+      })(rss[ri]);
     }
     var mvs = box.querySelectorAll('.tc-move-pin');
     for (var mi = 0; mi < mvs.length; mi++) {
@@ -1010,6 +1485,43 @@
     announceCounts(rows.length);
   }
 
+  /* ↩ 연기 취소 — 서버가 «왜 안 되는지» 를 말하면 그 사유를 사람 말로 보여 준다(조용히 실패하지 않는다). */
+  async function tcRestorePostponed(el) {
+    if (!el || el._busy) return;
+    var sid = el.getAttribute('data-sid');
+    var who = el.getAttribute('data-name') || '';
+    var when = el.getAttribute('data-when') || '';
+    if (!confirm(T('연기를 취소할까요?\n\n' + who + ' · ' + when + '\n\n· 원래 날짜·시각 그대로 다시 열린 수업이 됩니다.',
+                   'Undo this postponement?\n\n' + who + ' · ' + when + '\n\n· The class goes back to its original date and time.'))) return;
+    el._busy = true;
+    var old = el.textContent;
+    el.textContent = T('되돌리는 중…', 'Restoring…');
+    var j = null, httpOk = false;
+    try {
+      var r = await fetch('/api/admin/class-schedules/' + encodeURIComponent(sid), {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restore', reason: '연기 취소 (오늘 수업 화면)' })
+      });
+      httpOk = r.ok;
+      j = await r.json().catch(function () { return null; });
+    } catch (e) { j = null; }
+    el._busy = false;
+    if (httpOk && j && j.ok === true) {
+      try { window.tcLoadToday(); } catch (e) {}
+      return;
+    }
+    el.textContent = old;
+    var err = j && j.error;
+    var why = err === 'slot_taken' ? T('그 시각에 이미 다른 수업이 잡혀 있습니다. 「📅 새 날짜로」로 다른 시각을 고르세요.', 'Another class already uses that time slot. Use «📅 Rebook» to pick another time.')
+      : err === 'past_date' ? T('원래 시각이 이미 시작했거나 지난 수업은 되돌릴 수 없습니다. 「📅 새 날짜로」로 다시 잡아 주세요.', 'This class\'s original time has already started or passed, so it cannot be restored. Use «📅 Rebook» to pick a new date.')
+      : err === 'weekly_row' ? T('매주 반복 수업은 시간표에서 고쳐 주세요.', 'Weekly classes must be fixed in the timetable.')
+      : err === 'not_cancelled' ? T('이미 연기 상태가 아닙니다. 목록을 새로고침합니다.', 'This class is no longer postponed. Refreshing the list.')
+      : (j && (j.message || j.error)) ? String(j.message || j.error)
+      : T('되돌리지 못했습니다. 잠시 후 다시 시도해 주세요.', 'Could not restore. Please try again shortly.');
+    alert('↩ ' + why);
+    if (err === 'not_cancelled') { try { window.tcLoadToday(); } catch (e) {} }
+  }
+
   window.tcLoadToday = async function () {
     var box = $('tc-body');
     if (!box) return;
@@ -1043,7 +1555,9 @@
         throw new Error((d && d.error) || 'load_failed');
       }
       /* ☎️ 연락처 근거는 서버 말을 그대로 받는다(모르면 빈 값 → 안내를 안 그린다) */
-      _contactSrc = (d.contact_source === 'retention' || d.contact_source === 'restricted') ? d.contact_source : '';
+      _contactSrc = (d.contact_source === 'lookup' || d.contact_source === 'failed' || d.contact_source === 'restricted') ? d.contact_source : '';
+      /* 🎌 휴강일 정보도 서버 말 그대로(평일이면 null) */
+      _holiday = (d.holiday && typeof d.holiday === 'object') ? d.holiday : null;
       /* 지금 들어갈 수 있는 수업을 맨 위로 — 급할 때 위만 보면 되도록 */
       _rows = (d.sessions || []).slice().sort(function (a, b) {
         if (!!a.join_open !== !!b.join_open) return a.join_open ? -1 : 1;
@@ -1061,6 +1575,76 @@
   function syncSubHelp() {
     var h = $('tc-sub-help');
     if (h) h.style.display = subAllowed() ? '' : 'none';
+  }
+
+  /* 📆 (2026-09-29 매니저 요청 «make date selection into drop-down list than typing the date»)
+     날짜를 «치는» 칸 대신 연·월·일 드롭다운 + ◀ ▶ + 「오늘」.
+     ⚠️ 원래 입력칸(#tc-date)은 **지우지 않고 감춰서 값 보관소로** 쓴다 — 로더·연기창·대체강사 창이
+        전부 그 칸의 value 를 읽는다(여섯 곳). 드롭다운은 그 값을 쓰고 change 를 쏠 뿐이다.
+     ⛔ <button> 금지 — `details.menu-card button{…!important}` 가 파란 알약으로 덮는다(CLAUDE.md 2장).
+        ◀ ▶ 오늘 은 span[role=button]. */
+  function tcYmd(y, m, d) { return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0'); }
+  function tcDaysIn(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate(); }
+  function tcDatePick() {
+    var inp = $('tc-date');
+    if (!inp) return;
+    var box = $('tc-date-pick');
+    if (!box) {
+      box = document.createElement('span');
+      box.id = 'tc-date-pick';
+      box.style.cssText = 'display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap';
+      inp.parentNode.insertBefore(box, inp);
+      inp.style.setProperty('display', 'none', 'important');
+      box.addEventListener('change', function () {
+        var y = +$('tc-dp-y').value, m = +$('tc-dp-m').value, d = +$('tc-dp-d').value;
+        d = Math.min(d, tcDaysIn(y, m));
+        tcSetDate(tcYmd(y, m, d));
+      });
+      box.addEventListener('click', function (e) {
+        var t = e.target.closest && e.target.closest('[data-dp]');
+        if (t) tcStepDate(t.getAttribute('data-dp'));
+      });
+      box.addEventListener('keydown', function (e) {
+        var t = e.target.closest && e.target.closest('[data-dp]');
+        if (t && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); tcStepDate(t.getAttribute('data-dp')); }
+      });
+    }
+    var cur = /^\d{4}-\d{2}-\d{2}$/.test(inp.value || '') ? inp.value : kstTodayStr();
+    var y = +cur.slice(0, 4), m = +cur.slice(5, 7), d = +cur.slice(8, 10);
+    var ty = +kstTodayStr().slice(0, 4);
+    var WK = isEn() ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : ['일', '월', '화', '수', '목', '금', '토'];
+    var sel = 'box-sizing:border-box;font-size:12px;padding:3px 4px';
+    var btn = 'cursor:pointer;display:inline-block;white-space:nowrap;padding:3px 9px;border-radius:99px;font-size:12px;font-weight:800;'
+      + 'background:#eaf0fb;color:#1d4ed8;border:1px solid #bfd3f5;user-select:none';
+    var ys = '', ms = '', ds = '';
+    for (var yy = Math.min(y, ty - 1); yy <= Math.max(y, ty + 1); yy++) ys += '<option value="' + yy + '"' + (yy === y ? ' selected' : '') + '>' + yy + '</option>';
+    for (var mm = 1; mm <= 12; mm++) ms += '<option value="' + mm + '"' + (mm === m ? ' selected' : '') + '>' + String(mm).padStart(2, '0') + T('월', '') + '</option>';
+    for (var dd = 1; dd <= tcDaysIn(y, m); dd++) {
+      var w = new Date(Date.UTC(y, m - 1, dd)).getUTCDay();
+      ds += '<option value="' + dd + '"' + (dd === d ? ' selected' : '') + '>' + String(dd).padStart(2, '0') + ' (' + WK[w] + ')</option>';
+    }
+    box.innerHTML = '<span role="button" tabindex="0" data-dp="-1" style="' + btn + '" title="' + T('전날', 'Previous day') + '">◀</span>'
+      + '<select id="tc-dp-y" style="' + sel + '" aria-label="' + T('연도', 'Year') + '">' + ys + '</select>'
+      + '<select id="tc-dp-m" style="' + sel + '" aria-label="' + T('월', 'Month') + '">' + ms + '</select>'
+      + '<select id="tc-dp-d" style="' + sel + '" aria-label="' + T('일', 'Day') + '">' + ds + '</select>'
+      + '<span role="button" tabindex="0" data-dp="1" style="' + btn + '" title="' + T('다음날', 'Next day') + '">▶</span>'
+      + '<span role="button" tabindex="0" data-dp="0" style="' + btn + '">' + T('오늘', 'Today') + '</span>';
+  }
+  function tcSetDate(ymd) {
+    var inp = $('tc-date');
+    if (!inp) return;
+    inp.value = ymd;
+    tcDatePick();
+    /* 로더는 #tc-date 의 change 에 묶여 있다(아래 bind) — 같은 길로 다시 불러온다 */
+    try { inp.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+  }
+  function tcStepDate(step) {
+    if (step === '0') { tcSetDate(kstTodayStr()); return; }
+    var inp = $('tc-date');
+    var cur = inp && /^\d{4}-\d{2}-\d{2}$/.test(inp.value || '') ? inp.value : kstTodayStr();
+    var t = Date.UTC(+cur.slice(0, 4), +cur.slice(5, 7) - 1, +cur.slice(8, 10)) + Number(step) * 86400000;
+    var k = new Date(t);
+    tcSetDate(tcYmd(k.getUTCFullYear(), k.getUTCMonth() + 1, k.getUTCDate()));
   }
 
   function bind() {
@@ -1092,6 +1676,7 @@
        ⚠️ render() 가 아니라 로더를 부른다. 날짜가 바뀌면 «서버에서 다시» 받아야 한다. */
     var dt = $('tc-date');
     if (dt && !dt._tcBound) { dt._tcBound = true; dt.addEventListener('change', function () { window.tcLoadToday(); }); }
+    tcDatePick();
     /* 카드를 처음 펼칠 때 1회 자동 로드 — 매니저가 버튼을 또 누르지 않아도 되게 */
     var d = $('sm-today-classes');
     if (d && !d._tcBound) {
@@ -1119,6 +1704,7 @@
      ⛔ data-ko/data-en 으로 풀지 말 것 — 그 줄에는 버튼이 들어 있어 두 i18n 엔진이
         textContent 를 통째로 갈아끼우면 **버튼이 사라진다**(CLAUDE.md 2장).
      ⛔ 서버를 다시 부르지 않는다(render() 만) — 이미 받아 둔 _rows 로 다시 그린다. */
-  document.addEventListener('mangoi:lang-changed', function () { syncSubHelp(); if (_rows.length) render(); });
-  window.addEventListener('mangoi:lang-changed', function () { syncSubHelp(); if (_rows.length) render(); });
+  document.addEventListener('mangoi:lang-changed', function () { syncSubHelp(); tcDatePick(); if (_rows.length) render(); });
+  window.addEventListener('mangoi:lang-changed', function () { syncSubHelp(); tcDatePick(); if (_rows.length) render(); });
 })();
+

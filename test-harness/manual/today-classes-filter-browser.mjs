@@ -103,9 +103,10 @@ async function main() {
     `--remote-debugging-port=${CDP}`, '--window-size=1500,1000', 'about:blank'], { stdio: 'ignore' });
   const bye = () => { try { br.kill(); } catch (e) {} try { srv.kill(); } catch (e) {} };
   process.on('exit', bye);
-  await sleep(2200);
-
-  const c = await cdp();
+  /* 크로미움이 늦게 뜨는 날이 있다(2026-10-01 ECONNREFUSED 실측) — 접속될 때까지 다시 묻는다 */
+  let c = null;
+  for (let t = 0; t < 30 && !c; t++) { await sleep(700); try { c = await cdp(); } catch (e) { c = null; } }
+  if (!c) throw new Error('크로미움 CDP 에 접속하지 못했습니다');
   await c.send('Page.enable'); await c.send('Runtime.enable');
   /* ⚠️ 헤드리스 창은 «포커스가 없는 창» 이라 el.focus() 가 통째로 안 먹는다 — 그대로 재면
      멀쩡한 화면이 「커서가 날아간다」로 나온다(검사 환경 문제. CLAUDE.md 2장). 강제로 켠다. */
@@ -119,7 +120,7 @@ async function main() {
     if (r.exceptionDetails) throw new Error(r.exceptionDetails.text + ' ' + (r.exceptionDetails.exception || {}).description);
     return r.result.value;
   };
-  const names = () => ev('[...document.querySelectorAll("#tc-body tbody tr td:nth-child(3) b")].map(e=>e.textContent.trim()).join(",")');
+  const names = () => ev('[...document.querySelectorAll("#tc-body tbody tr td:nth-child(4) b")].map(e=>e.textContent.trim()).join(",")');
   const setQ = async v => ev(`(function(){var e=document.getElementById("tc-q");e.value=${JSON.stringify(v)};e.dispatchEvent(new Event("input",{bubbles:true}));})()`);
   const setSrc = async v => ev(`(function(){var e=document.getElementById("tc-source");e.value=${JSON.stringify(v)};e.dispatchEvent(new Event("change",{bubbles:true}));})()`);
 
@@ -322,6 +323,36 @@ async function main() {
   await setNight(''); await sleep(150);
   check('   전체로 되돌리면 여섯 건이 돌아온다',
     (await ev('document.querySelectorAll("#tc-body tbody tr").length')) === 6);
+
+  /* ⏸ ⑪ 상태 칩(2026-10-01) — 연기된 수업이 «⏸ 연기됨» 으로 세어지고, 누르면 그것만 보이고, 다시 누르면 풀린다 */
+  await ev(`(function(){
+    var S = ${JSON.stringify(SESSIONS)};
+    S.push({ source:'mangoi', schedule_id:1931, observable:true, room_id:'class-1931-20261001', student_uid:'ysyt01',
+      student_name:'연기학생', teacher_name:'FAR', level:'Lv 3', textbook:'', textbook_assigned:false, start_time:'14:00',
+      start_ts:Date.now(), end_ts:Date.now()+12e5, status:'postponed', postponed:true, join_open:false, is_level_test:false, can_move:true });
+    window.__tcSetSessions(S);
+    ['tc-q','tc-source','tc-night','tc-academy','tc-teacher'].forEach(function(id){ var e=document.getElementById(id); if(e){ e.value=''; } });
+    var o=document.getElementById('tc-only-live'); if(o) o.checked=false;
+    window.tcLoadToday();
+  })()`);
+  await sleep(700);
+  const chips = await ev('[...document.querySelectorAll("#tc-body .tc-st-chip")].map(e=>e.getAttribute("data-st")+"="+e.textContent.trim()).join("|")');
+  check('⑪ 상태 칩이 그려진다(진행중·예정·연기)', /live=.*진행중 4/.test(chips) && /early=.*예정 1/.test(chips) && /postponed=⏸ 연기됨 1/.test(chips), chips);
+  check('⑪ 연기 줄은 표에서 «⏸ 연기됨» 배지·입장 버튼 없음',
+    await ev('(function(){ var tr=[...document.querySelectorAll("#tc-body tbody tr")].find(r=>/연기학생/.test(r.textContent)); return !!tr && /⏸ 연기됨/.test(tr.textContent) && !tr.querySelector(".tc-act-enter"); })()'));
+  await ev('document.querySelector(\'#tc-body .tc-st-chip[data-st="postponed"]\').click()');
+  await sleep(300);
+  check('⑪ 연기 칩을 누르면 연기 줄만 남는다', (await names()) === '연기학생', await names());
+  check('⑪ 거르는 중이면 «풀기» 칩이 보인다', await ev('!!document.querySelector(\'#tc-body .tc-st-chip[data-st=""]\')'));
+  await ev('document.querySelector(\'#tc-body .tc-st-chip[data-st="postponed"]\').click()');
+  await sleep(300);
+  check('⑪ 한 번 더 누르면 풀린다(6줄)', (await names()).split(',').length === 6, await names());
+  await ev('document.querySelector(\'#tc-body .tc-st-chip[data-st="early"]\').click()');
+  await sleep(300);
+  check('⑪ 예정 칩 → 예정 줄만', (await names()) === '장지웅', await names());
+  check('⑪ 거르는 중에도 다른 칩 개수는 그대로(진행중 4)', /live=.*진행중 4/.test(await ev('[...document.querySelectorAll("#tc-body .tc-st-chip")].map(e=>e.getAttribute("data-st")+"="+e.textContent.trim()).join("|")')));
+  await ev('document.querySelector(\'#tc-body .tc-st-chip[data-st=""]\').click()');
+  await sleep(300);
 
   /* 🌐 EN 라벨 — 마지막에 한 번 바꿔 확인한다(정적 라벨 정본은 adm-core 의 applyAdminLangDom). */
   await ev('(function(){ window.adminLang="en"; applyAdminLangDom(); document.dispatchEvent(new CustomEvent("mangoi:lang-changed")); })()');

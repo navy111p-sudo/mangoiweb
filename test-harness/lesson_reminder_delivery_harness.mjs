@@ -9,6 +9,7 @@ import { stripTypeScriptTypes } from 'node:module';
 import { DatabaseSync } from 'node:sqlite';
 import vm from 'node:vm';
 import { spawnSync } from 'node:child_process';
+import { d1ExecLikeProd } from './helpers/d1-exec-faithful.mjs';   // 운영 D1 처럼 줄마다 실행(2026-10-28)
 
 // run.mjs 는 각 하니스를 일반 node 로 실행한다. 필요한 플래그는 이 테스트 안에서만 켠다.
 if (typeof vm.SourceTextModule !== 'function') {
@@ -37,7 +38,7 @@ const contactModule = new vm.SyntheticModule(['phonesForStudent'], function () {
   this.setExport('phonesForStudent', async (_env, uid) => contacts[uid] || { parent: '', student: '' });
 }, { context: ctx });
 modules.set('notify-contacts', contactModule);
-for (const name of ['lesson-reminder', 'lesson-reminder-delivery', 'solapi-client', 'site-url', 'owner-sms-mute', 'class-start-date']) {
+for (const name of ['lesson-reminder', 'lesson-reminder-delivery', 'solapi-client', 'site-url', 'owner-sms-mute', 'class-start-date', 'class-postponed', 'holiday-closure']) {   // 🎌 holiday-closure (2026-10-09)
   const code = stripTypeScriptTypes(readFileSync(resolve(SRC, name + '.ts'), 'utf8'));
   modules.set(name, new vm.SourceTextModule(code, { context: ctx, identifier: name }));
 }
@@ -58,11 +59,14 @@ function fixture(count = 1) {
     contacts['fixture-' + i] = { parent: '01000000001', student: '01000000002' };
   }
   const checkSql = sql => { if (failingSql?.(sql)) throw Error('fixture storage failure'); };
+  // ⚠️ exec 는 운영 D1 처럼 «줄마다» 실행한다 — 예전엔 db.exec 그대로라 여러 줄 CREATE 를 받아 줘서,
+  //    발송 장부 표가 운영에 한 번도 안 생겨 리마인더가 9/20 부터 멈춘 것을 이 하니스가 못 봤다(2026-10-28).
+  const execLikeProd = d1ExecLikeProd(db);
   const env = {
     SOLAPI_API_KEY: 'fixture-key', SOLAPI_API_SECRET: 'fixture-secret', SOLAPI_FROM_PHONE: '0299999999',
     SESSION_STATE: { get: async () => null },
     DB: {
-      exec: async sql => { checkSql(sql); db.exec(sql); return {}; },
+      exec: async sql => { checkSql(sql); return execLikeProd(sql); },
       prepare: sql => {
         const bind = (...args) => ({
           first: async () => { checkSql(sql); return db.prepare(sql).get(...args) || null; },

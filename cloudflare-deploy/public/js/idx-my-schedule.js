@@ -59,8 +59,14 @@
   }
   /** 서버 schedules[] → 화면 줄 목록. 순수 함수(하니스가 오려 내 돌린다). */
   function buildRows(list, ko) {
+    // 홈 요약은 가장 가까운 수업일부터 7일만 표시한다. 전체 일정 API는 그대로 둔다.
+    var dates = list.map(function (s) { return s.next_date || s.scheduled_date || ''; })
+      .filter(function (d) { return /^\d{4}-\d{2}-\d{2}$/.test(d); }).sort();
+    var weekEnd = dates.length ? new Date(Date.parse(dates[0] + 'T00:00:00Z') + 7 * 86400000).toISOString().slice(0, 10) : '';
     var groups = {}, order = [];
     list.forEach(function (s) {
+      var date = s.next_date || s.scheduled_date || '';
+      if (weekEnd && date && date >= weekEnd) return;
       var days = (ko ? s.day_labels_ko : s.day_labels_en) || [];
       var teacher = s.teacher_name || '';
       // 일회성(scheduled_date) 은 날짜가 곧 «요일 칸» 이라 합치지 않는다

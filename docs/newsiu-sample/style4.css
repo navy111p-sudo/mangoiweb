@@ -1,0 +1,43 @@
+/* 4판 — 게임쇼 구성 · 한글 뜻 각주 */
+.ko4{font-weight:700;font-size:30px;color:#fff;background:var(--pink);display:inline-block;padding:8px 20px;border-radius:14px;transform:rotate(-2deg)}.ko4 b{color:var(--sun)}
+/* 한글 뜻 각주 — 작고 흐리게, 쪽 맨 아래 */
+.kfn{position:absolute;left:60px;right:200px;bottom:12px;font-family:'Noto Sans KR';font-size:15px;color:#7A8A90;z-index:6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kfn.dk{color:rgba(255,255,255,.55)}
+/* 게임 지도 */
+.k-map{background:var(--ink)}.k-map h2{color:#fff}.k-map h2 span{color:var(--mango)}.k-map .foot{color:#FFD28A}.k-map .foot b{color:var(--sun)}
+.path{display:flex;align-items:center;gap:10px;flex:1;min-height:0}
+.arr{font-style:normal;color:var(--mango);font-size:34px}
+.lv{position:relative;flex:1;height:100%;max-height:430px;border-radius:24px;overflow:hidden;background:#000}
+.lv.l1{transform:translateY(-18px) rotate(1.5deg)}.lv.l2{transform:translateY(14px) rotate(-1.5deg)}.lv.l3{border:5px solid var(--pink)}
+.lv img{width:100%;height:100%;object-fit:cover;opacity:.7}
+.lvb{position:absolute;inset:auto 0 0 0;padding:18px 18px 20px;background:linear-gradient(0deg,rgba(0,0,0,.9),rgba(0,0,0,0));color:#fff;display:flex;flex-direction:column;gap:2px}
+.lvb small{color:var(--sun);font-weight:700;letter-spacing:.1em;font-size:15px}.lvb strong{font-family:'Bricolage Grotesque';font-size:30px;line-height:1.05}.lvb em{font-style:normal;font-size:16px;color:#D9E4E8}
+.em4{position:absolute;top:-190px;left:16px;font-size:44px;background:var(--sun);width:72px;height:72px;border-radius:20px;display:flex;align-items:center;justify-content:center}
+.pt{position:absolute;top:14px;right:14px;background:var(--pink);color:#fff;border-radius:999px;padding:6px 12px;font-size:18px}
+/* 스탬프 */
+.stamp{position:absolute;right:120px;top:80px;z-index:6;background:var(--pink);color:#fff;font-weight:800;font-size:26px;padding:10px 20px;border-radius:14px;transform:rotate(8deg);box-shadow:0 8px 18px rgba(0,0,0,.25);border:3px dashed rgba(255,255,255,.7)}
+.stamp.boss{background:#6B2BD9}
+.det{position:absolute;right:60px;top:82px;background:var(--sun);border-radius:16px;padding:10px 18px;font-weight:800;font-size:24px;transform:rotate(3deg);display:flex;flex-direction:column;z-index:4}.det small{font-size:15px;font-weight:600}
+.good.blank{background:#EEF1F4;color:#9AA7AD}
+/* Are you a student 게임줄 */
+.game4.g-qa{position:absolute;left:60px;right:60px;bottom:168px;z-index:4;display:block;font-size:22px;background:rgba(255,255,255,.95)}
+/* 미니게임 상자 */
+.game4{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;background:#1B1440;color:#fff;border-radius:20px;padding:12px 18px}
+.game4 .gi{font-size:42px;width:64px;height:64px;border-radius:16px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center}
+.game4 small{font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--sun);font-weight:700}.game4 b{display:block;font-family:'Bricolage Grotesque';font-size:30px;line-height:1.05}
+.game4 p{font-size:19px;color:#DCD8F5}.game4 em{font-style:normal;font-weight:800;font-size:22px;background:var(--pink);border-radius:999px;padding:6px 12px;white-space:nowrap}
+.g-qa b{display:inline;font-family:inherit;font-size:inherit;color:var(--ink)}.g-qa{color:var(--ink)!important}.g-qa em{margin-left:8px}
+.k-q .qb{gap:14px}.qh{font-size:54px}.kw b{font-size:50px}.ans{font-size:30px;padding:14px 22px}
+/* 뜻 맞추기 */
+.k-mm{background:#FFF1E6}.k-mm h2 span{color:var(--pink)}
+.mm{display:grid;grid-template-columns:1fr 1fr;gap:120px;flex:1;min-height:0;padding:0 40px}
+.mm ol{list-style:none;display:grid;grid-template-rows:repeat(10,1fr);gap:7px}
+.mm li{background:#fff;border-radius:14px;display:flex;align-items:center;gap:12px;padding:0 16px;font-size:24px;font-weight:700;position:relative;box-shadow:0 3px 0 #F2C9A8}
+.mmR li{font-family:'Noto Sans KR';font-size:22px}
+.mm i{font-style:normal;width:30px;height:30px;border-radius:50%;background:var(--mango);color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;flex:none}.mmR i{background:var(--blue)}
+.dot{position:absolute;width:16px;height:16px;border-radius:50%;background:var(--ink);top:50%;margin-top:-8px}.mmL .dot{right:-8px}.mmR .dot{left:-8px}
+/* 마지막 점수 */
+.score{margin-top:16px;display:inline-flex;align-items:center;gap:16px;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.35);border-radius:18px;padding:10px 20px;color:#fff}.score span{font-size:18px;letter-spacing:.08em;text-transform:uppercase}.score b{font-family:'Bricolage Grotesque';font-size:36px;color:var(--sun)}
+.fn h1{font-size:76px}
+.game4.g-qa{bottom:auto;top:350px}
+.k-fin .fn{margin-top:0}.k-fin .fn h1{font-size:62px;margin:6px 0 10px}.k-fin .badge{width:108px;height:108px;font-size:36px}.k-fin .ex3{margin-top:8px}.k-fin .score{margin-top:10px}.k-fin .fn p{margin-top:10px}

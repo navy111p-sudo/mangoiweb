@@ -166,6 +166,7 @@ async function run(opts) {
     reply: { status: 200, json: { ok: true } },     // 서버 응답(호출마다 같은 값)
   }, opts || {});
 
+  if(!o.slot.moveVersions)o.slot.moveVersions=Object.fromEntries((o.slot.ids||[o.slot.id]).filter(Boolean).map(id=>[String(id),'initial-'+id]));
   const calls = [];          // 나간 요청
   const added = [];          // addSlot 호출
   const removed = [];        // SLOTS 에서 지운 키
@@ -201,7 +202,7 @@ async function run(opts) {
       return {
         ok: rep.status >= 200 && rep.status < 300,
         status: rep.status,
-        json: async () => { if (rep.json === undefined) throw new Error('not json'); return rep.json; },
+        json: async () => { if (rep.json === undefined) throw new Error('not json'); return rep.json&&rep.json.ok===true?{...rep.json,move_versions:Object.fromEntries((calls.at(-1).body.ids||[]).map(id=>[String(id),'committed-'+calls.length+'-'+id]))}:rep.json; },
       };
     },
   };
@@ -233,6 +234,7 @@ async function run(opts) {
     srcNm: '중국어 강선생님', dstNm: 'MAIMAI',
     movedTeacher: o.movedTeacher,
     srcData: { slot: o.slot },
+    unlockOnYes: !!o.unlockOnYes,
   };
   await sandbox.window.confirmMoveDo();
   /* ⚠️ 숫자를 «그때 값» 으로 담으면 되돌리기를 누른 뒤를 못 잰다 — 살아 있는 게터로 준다. */
@@ -251,7 +253,7 @@ sec('① 저장이 실제로 나가는가 (이 사고의 본체)');
   ok(r.calls.length === 1, '요청이 1건이 아니다 (' + r.calls.length + '건) — 드래그가 저장되지 않는다');
   const c = r.calls[0] || { url: '', method: '', body: {} };
   ok(c.method === 'PATCH', 'PATCH 가 아니다: ' + c.method);
-  ok(/\/api\/admin\/class-schedules\/11$/.test(c.url), '엉뚱한 주소로 보낸다: ' + c.url);
+  ok(/\/api\/admin\/class-schedules\/move$/.test(c.url), '엉뚱한 주소로 보낸다: ' + c.url);
   ok(c.body.start_time === '15:00', 'start_time 을 안 보낸다: ' + JSON.stringify(c.body));
   ok(r.rendered === 1 && r.srcGone, '저장 성공인데 화면을 안 옮겼다');
 }
@@ -298,8 +300,8 @@ sec('③ 반복 ↔ 일회성 — 보내는 칸이 갈리는가');
 sec('④ 그룹 수업 — 서버 행이 여럿이면 전부 옮기는가');
 {
   const g = await run({ slot: { id: 21, ids: [21, 22, 23], type: 'group', students: [{ uid: 'a' }, { uid: 'b' }, { uid: 'c' }], moveField: 'scheduled_date' } });
-  ok(g.calls.length === 3, '그룹인데 요청이 ' + g.calls.length + '건 — 한 명만 옮기면 수업이 쪼개진다');
-  const ids = g.calls.map(c => c.url.split('/').pop()).sort();
+  ok(g.calls.length === 1, '그룹은 한 번의 원자 요청이어야 한다: ' + g.calls.length);
+  const ids = (g.calls[0]?.body.ids||[]).slice().sort();
   ok(ids.join(',') === '21,22,23', '보낸 id 가 다르다: ' + ids.join(','));
 }
 
@@ -534,6 +536,12 @@ sec('⑩ 편집 잠금 — 잠기면 저장하지 않는가 / 켜면 저장하�
   const open = await run({});   // 기본은 편집 켬
   ok(open.calls.length === 1, '편집을 켰는데 저장이 안 나간다 — 잠금이 «전부 막기» 가 됐다');
 
+  /* 🔓 (2026-10-04) 잠긴 채로 끌어 와 모달이 «예, 편집 켜고 변경» 을 보였고 사람이 눌렀다 —
+     그때만 편집을 켜고 저장한다. 짝: 위 locked(문구를 안 본 «예»)는 여전히 막힌다. */
+  const unl = await run({ locked: true, unlockOnYes: true });
+  ok(unl.calls.length === 1, '«편집 켜고 변경» 을 눌렀는데 저장이 안 나간다 — 잠긴 채 끌면 영영 못 옮긴다');
+  ok(unl.sandbox.wsEditing() === true, '«편집 켜고 변경» 을 눌렀는데 편집이 안 켜졌다');
+
   /* 세 입구 모두 같은 저장 함수를 쓰므로 잠금도 한 곳에서 걸린다 — 실제로 돌려 확인한다. */
   for (const [name, src] of [['rscConfirm', RSC_SRC], ['confirmMove', CMOVE_SRC]]) {
     const bare = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
@@ -593,12 +601,34 @@ sec('⑪ 되돌리기 — 원래 «값» 을 서버에 다시 보내는가');
   await btn.fire('click');
   ok(r.calls.length === n0 + 1, '되돌리기를 눌렀는데 요청이 안 나간다 — 화면만 되돌리면 그게 이 사고다');
   const u = r.calls[r.calls.length - 1];
-  ok(u.method === 'PATCH' && /\/class-schedules\/11$/.test(u.url), '되돌리기가 엉뚱한 곳으로 간다: ' + u.url);
+  ok(u.method === 'PATCH' && /\/class-schedules\/move$/.test(u.url), '되돌리기가 엉뚱한 곳으로 간다: ' + u.url);
   ok(u.body.start_time === '14:20', '되돌리기가 «원래 시각» 을 안 보낸다: ' + JSON.stringify(u.body));
   ok(u.body.scheduled_date === '2026-09-11', '되돌리기가 «원래 날짜» 를 안 보낸다: ' + JSON.stringify(u.body));
   ok(u.body.teacher_id === '29', '강사를 바꿨는데 되돌리기가 «원래 강사» 를 안 보낸다 — 반쯤 되돌린 상태가 남는다');
+  ok(u.body.expected['11']==='committed-1-11','되돌리기는 커밋된 버전을 조건으로 보내야 한다');
+  ok(!u.body.source_date,'되돌리기는 새로 합류한 그룹의 다른 구성원을 옮기지 않는다');
   ok(r.reloaded >= 1, '되돌린 뒤 서버에서 다시 읽지 않는다 — 부분 실패를 화면이 감춘다');
   ok(r.undos.length === 1, '되돌리기가 또 되돌리기를 내놓는다 — 무한 왕복이 된다');
+}
+
+sec('⑪-1 저장 안내와 되돌리기 — 실제 높이에 맞춰 겹침 방지');
+{
+  const r = await run({});
+  const S = r.sandbox, undo = r.undos[0];
+  ok(undo.style.bottom === '78px', '일반 되돌리기 기본 위치가 바뀌었다');
+  S.window.innerHeight = 1000;
+  let boxes = [{ top: 840, height: 136 }, { top: 920, height: 56 }];
+  S.document.querySelectorAll = () => boxes.map(box => ({ getBoundingClientRect: () => box }));
+  S.wsPositionUndo();
+  ok(undo.style.bottom === '172px', '여러 줄 저장 안내 위 12px 여유가 없다');
+  boxes = [{ top: 720, height: 256 }];
+  S.wsPositionUndo();
+  ok(undo.style.bottom === '292px', '폭 변경으로 길어진 안내 높이를 다시 재지 않는다');
+  boxes = [];
+  S.wsPositionUndo();
+  ok(undo.style.bottom === '78px', '안내가 사라져도 기본 위치로 돌아오지 않는다');
+  S.wsUndoDismiss(); S.wsPositionUndo();
+  ok(r.calls.length === 1, '표시 위치 계산이 수업 저장 요청을 추가했다');
 }
 
 sec('⑪-2 되돌리기 — 자동 잠금 뒤에도 되는가 / 강사를 모르면 안 내놓는가');
@@ -768,14 +798,49 @@ sec('⑫ 드래그 자체가 안 끌리는가 — 잠금 판정을 «실제로 �
   }
 
   if (MM_SRC) {
+    /* 🔓 (2026-10-04 사장님 「드레그 해서도 문제없이」) 잠겨 있어도 끌기는 된다 — 대신
+       «잠긴 채 끌었다» 를 표시해 두어 놓을 때 확인 창이 «편집 켜고 변경» 을 묻게 한다.
+       ⚠️ 짝: 편집을 켠 채 끌면 그 표시가 «안» 붙는다(붙으면 매번 잠금 문구가 뜬다). */
     const L = await drag(true);
-    ok(L.dnd.active === false, '잠겨 있는데 드래그가 시작됐다');
-    ok(L.dnd.sourceEl === null && L.dnd.moved === true,
-      '잠금으로 막은 뒤 뒷정리를 안 했다 — moved 를 안 세우면 잠금 경고와 상세 모달이 함께 뜬다');
-    ok(L.toasts.some(t => /🔒/.test(t.msg)), '왜 안 끌리는지 말하지 않는다');
+    ok(L.dnd.active === true, '잠긴 채 끌었는데 드래그가 안 된다 — 「눌러도 아무 일도 안 일어난다」 그 상태다');
+    ok(L.dnd.locked === true, '잠긴 채 끌었는데 표시가 없다 — 확인 창이 «편집 켜고 변경» 을 못 묻는다');
+    ok(L.sb.wsEditing() === false, '끌기만 했는데 편집이 켜졌다 — «예» 를 누르기 전에 켜면 잠금이 아무것도 안 막는다');
 
     const O = await drag(false);
     ok(O.dnd.active === true, '편집을 켰는데도 드래그가 안 된다 — 잠금이 «전부 막기» 가 됐다');
+    ok(O.dnd.locked === false, '편집 중인데 «잠긴 채 끌었다» 로 표시했다');
+  }
+
+  /* 확인 창이 «잠긴 채» 열리면 그 사실을 말하고 ctx 에 붙잡아 두는가 (짝: 편집 중이면 안 붙인다) */
+  {
+    const SMC = sliceStmt(html, 'function showMoveConfirm(ctx){');
+    ok(SMC.length > 400, 'showMoveConfirm 을 오려 내지 못했다 (길이 ' + SMC.length + ')');
+    if (SMC) {
+      const mk = (locked) => {
+        const dom = mkDom(), clock = mkClock(), timers = mkTimers();
+        let opened = '';
+        const sb = { window: {}, console, currentLang: 'ko', document: dom.document, Date: clock.Date,
+          setInterval: timers.setInterval, clearInterval: timers.clearInterval,
+          setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout,
+          requestAnimationFrame: (f) => { f(); return 0; },
+          escapeHtml: (x) => String(x == null ? '' : x), showDndToast: () => {},
+          minLabel: (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'),
+          openModal: (h) => { opened = h; } };
+        vm.createContext(sb);
+        new vm.Script(LOCK_SRC + '\n' + SMC).runInContext(sb);
+        if (!locked) sb.wsSetEditing(true, { quiet: true });
+        const ctx = { srcData: { slot: { type: '1on1', students: [{ uid: 'jeong', name: '정우영' }] } },
+          srcCoords: { dateISO: '2026-10-06', startMin: 1160 }, dstCoords: { dateISO: '2026-10-06', startMin: 1140 },
+          movedTeacher: false, srcNm: 'A', dstNm: 'A' };
+        try { sb.showMoveConfirm(ctx); } catch (e) { return { err: String(e) }; }
+        return { ctx, opened };
+      };
+      const a = mk(true), b = mk(false);
+      ok(!a.err && a.ctx.unlockOnYes === true, '잠긴 채 열었는데 ctx.unlockOnYes 가 없다 ' + (a.err || ''));
+      ok(!a.err && /편집을 켜고 저장/.test(a.opened) && /🔒/.test(a.opened), '잠긴 채 열었는데 «편집을 켜고 저장» 을 말하지 않는다');
+      ok(!b.err && b.ctx.unlockOnYes === false, '편집 중인데 unlockOnYes 를 붙였다 ' + (b.err || ''));
+      ok(!b.err && !/편집을 켜고 저장/.test(b.opened) && !/🔒/.test(b.opened), '편집 중인데 잠금 문구를 띄웠다');
+    }
   }
 
   /* 대기 풀 배정(«수업을 새로 잡는» 길)도 같은 잠금을 받는가 */
@@ -816,7 +881,7 @@ sec('⑬ 변이시험 — 잠금·되돌리기를 되돌리면 실제로 FAIL �
     ['잠금 게이트 제거', t => t.replace(/if\(!opts\.undo && !wsEditing\(\)\) return \{ ok:false, reason:'locked', fails:\[\] \};/, '')],
     ['잠금 조건 뒤집기(항상 통과)', t => t.replace('if(!opts.undo && !wsEditing())', 'if(!opts.undo && false && !wsEditing())')],
     ['기본을 «편집 켬» 으로', t => t.replace('var wsEditUntil = 0;', 'var wsEditUntil = 8640000000000000;')],
-    ['되돌리기를 안 내놓기', t => t.replace('wsOfferUndo({ slot:slot, prev:prev, what:(opts.what||\'\') });', '')],
+    ['되돌리기를 안 내놓기', t => t.replace('if(slot.moveVersions)wsOfferUndo({ slot:JSON.parse(JSON.stringify(slot)), prev:Object.assign({},prev), what:(opts.what||\'\') });', '')],
     ['되돌리기도 잠금에 걸리게', t => t.replace('if(!opts.undo && !wsEditing())', 'if(!wsEditing())')],
     /* ⚠️ 이 변이는 «두 줄» 을 함께 되돌린다 — 되돌리기를 막는 것은 사실상
        «되돌리기 호출이 prev 를 안 넘긴다» 쪽이고, opts.undo 는 그 위의 한 겹이다.

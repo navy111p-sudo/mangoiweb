@@ -17,9 +17,11 @@ const ok = (name, cond, info) => { if (cond) { pass++; console.log('  ✅ ' + na
 console.log('A. 정본을 실제로 돌린다');
 const tmp = mkdtempSync(join(tmpdir(), 'cte-'));
 const fix = (s) => s.replace(/from '\.\/([\w-]+)'/g, "from './$1.ts'");
-for (const f of ['class-today-extras', 'no-show-truth', 'd1-chunk', 'student-schedule-summary', 'attendance-uid']) {
+for (const f of ['class-today-extras', 'no-show-truth', 'd1-chunk', 'student-schedule-summary', 'attendance-uid', 'teacher-room-presence']) {
   writeFileSync(join(tmp, f + '.ts'), fix(readFileSync(join(SRC, f + '.ts'), 'utf8')));
 }
+// Recording auth is exercised separately by teacher_room_presence_harness.cjs.
+writeFileSync(join(tmp, 'auth-admin.ts'), 'export async function getAdminActor() { throw new Error("unexpected auth in read-only enrichment"); }');
 // 요일 정본(api-admin.ts admDowMatches)을 «그대로» 오려 와 주입한다 — 하니스에 규칙을 베끼지 않는다.
 {
   const apiSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
@@ -69,6 +71,22 @@ out.e_today = pk.today && pk.today.id; out.e_last = pk.last && pk.last.id;
 const pk2 = X.pickEvals(evs, 'class-5-20260923', '2026-09-23', day);
 out.e_other_today = pk2.today; out.e_other_last = pk2.last && pk2.last.id;
 out.brief = X.briefEval(evs[1]);
+// ➕ (2026-10-28) 「지난 피드백 추가」 — 지난 수업 방 번호로 «오늘» 쓴 글은 지난 평가다(오늘 평가가 아니다)
+{
+  const late = { id: 7, room_id: 'class-9-20260921', created_at: S + 30*M, note_en: 'added later' };
+  const pk3 = X.pickEvals([late, ...evs], 'class-9-20260923', '2026-09-23', day);
+  out.e_late_last = pk3.last && pk3.last.id; out.e_late_today = pk3.today && pk3.today.id;
+  // 짝: 방 날짜가 오늘이거나 뒤면 지난 평가가 아니다
+  const same = { id: 8, room_id: 'class-4-20260923', created_at: S + 30*M };
+  const fut = { id: 9, room_id: 'class-9-20260925', created_at: S + 30*M };
+  const pk4 = X.pickEvals([same, fut, ...evs], 'class-9-20260923', '2026-09-23', day);
+  out.e_nolate_last = pk4.last && pk4.last.id;
+  // 수업일이 더 늦은 것이 먼저 — 더 옛 수업(9/19)의 글을 나중에 써도 9/21 의 글을 밀어내지 않는다
+  const older = { id: 10, room_id: 'class-9-20260919', created_at: S + 40*M };
+  const pk5 = X.pickEvals([older, late, ...evs], 'class-9-20260923', '2026-09-23', day);
+  out.e_order_last = pk5.last && pk5.last.id;
+  out.room_ymd = [X.roomYmd('class-9-20260921'), X.roomYmd('c24-77'), X.roomYmd('class-9-2026092'), X.roomYmd(null)];
+}
 // 로더 — 가짜 DB (질의문을 보고 답한다)
 const SQLS = [];
 const mkDb = (boom) => ({
@@ -87,10 +105,10 @@ const mkDb = (boom) => ({
       if (/FROM centers/.test(sql)) return [{ name: 'A학원', pt: 'B2B' }, { name: 'Z학원', pt: 'B2B' }, { name: 'Z학원', pt: 'B2C' }];
       if (/FROM students_erp/.test(sql)) return [{ user_id: 'kim', payment_type: null, shop_name: 'A학원' }, { user_id: 'park', payment_type: null, shop_name: 'A학원' }];
       if (/FROM class_schedules/.test(sql) && /day_of_week/.test(sql)) return [
-        { user_id: 'kim', schedule_kind: 'recurring', scheduled_date: null, day_of_week: '3' },
-        { user_id: 'kim', schedule_kind: 'recurring', scheduled_date: null, day_of_week: 'Fri' },
-        { user_id: 'kim', schedule_kind: 'one_off', scheduled_date: '2026-09-27', day_of_week: null },
-        { user_id: 'kim', schedule_kind: 'one_off', scheduled_date: '2026-10-01', day_of_week: '4' },
+        { id: 31, user_id: 'kim', schedule_kind: 'recurring', scheduled_date: null, day_of_week: '3', start_time: '15:20' },
+        { id: 32, user_id: 'kim', schedule_kind: 'recurring', scheduled_date: null, day_of_week: 'Fri', start_time: '16:00' },
+        { id: 33, user_id: 'kim', schedule_kind: 'one_off', scheduled_date: '2026-09-27', day_of_week: null },
+        { id: 34, user_id: 'kim', schedule_kind: 'one_off', scheduled_date: '2026-10-01', day_of_week: '4' },
         { user_id: 'park', schedule_kind: 'recurring', scheduled_date: null, day_of_week: '월,수' },
         { user_id: 'lee', schedule_kind: 'recurring', scheduled_date: null, day_of_week: 'Mon' },
       ];
@@ -143,6 +161,17 @@ SQLS.length = 0;
 const ss4 = mk();
 await X.enrichClassesToday({ DB: mkDb(null) }, ss4, '2026-09-23', S + 60*M, { dowMatches: admDowMatches });
 out.wk = ss4.map(s => ({ w: s.week_days, d: s.week_dates && s.week_dates[0] }));
+out.pcLoader = ss4.map(s => (s.prev_classes || null));
+// ➕ (2026-10-28) 지난 회차 — 요일당 1행(월·수·금이 서로 다른 예약 번호)이면 그날 «자기 행» 의 번호로 방을 만든다
+{
+  const rows = [{ id: 11, day_of_week: 'Mon', start_time: '15:00' }, { id: 12, day_of_week: 'Wed', start_time: '15:00' },
+                { id: 13, day_of_week: 'Fri', start_time: '17:00' }, { id: 20, scheduled_date: '2026-09-20', start_time: '10:00' },
+                { id: 21, scheduled_date: '2026-09-25' }, { day_of_week: 'Tue' }];
+  out.pc = X.recentClassesFor(rows, '2026-09-23', admDowMatches);
+  out.pcMax = X.recentClassesFor(rows, '2026-09-23', admDowMatches, 14, 2).length;
+  out.pcBad = X.recentClassesFor(rows, 'oops', admDowMatches);
+  out.pcTwo = X.recentClassesFor([{ id: 1, day_of_week: 'Mon', start_time: '09:00' }, { id: 2, day_of_week: 'Mon', start_time: '18:00' }], '2026-09-23', admDowMatches, 3);
+}
 out.wkNoInj = ss.map(s => s.week_days);
 out.wkQueriedNoInj = false;
 const ss5 = mk(); SQLS.length = 0;
@@ -177,6 +206,23 @@ if (o) {
   ok('평가: 같은 방 번호 = 오늘 평가', o.e_today === 3);
   ok('평가: 지난 평가 = 그 날짜 전 가장 최근', o.e_last === 2);
   ok('평가: 같은 날 «다른 방» 평가는 오늘 평가로 안 붙임(짝)', o.e_other_today === null && o.e_other_last === 2);
+  ok('평가: 지난 수업 방으로 «오늘» 쓴 글은 지난 평가(2026-10-28 지난 피드백 추가)', o.e_late_last === 7 && o.e_late_today === 3, [o.e_late_last, o.e_late_today]);
+  ok('평가: 방 날짜가 오늘·이후인 글은 지난 평가가 아니다(짝)', o.e_nolate_last === 2, o.e_nolate_last);
+  ok('평가: 더 옛 수업의 글을 나중에 써도 «가장 최근 수업일» 이 지난 평가', o.e_order_last === 7, o.e_order_last);
+  {
+    const pc = o.pc || [];
+    ok('지난 회차: 수요일 수업의 바로 전 = 월요일, 방은 «월요일 행» 번호(class-11)', pc[0] && pc[0].date === '2026-09-21' && pc[0].room_id === 'class-11-20260921' && pc[0].time === '15:00', pc[0]);
+    ok('지난 회차: 날짜 지정 행은 그 날짜로(class-20 · 9/20)', pc.some(x => x.room_id === 'class-20-20260920'), pc);
+    ok('지난 회차: 금요일은 금요일 행 번호(class-13)', pc.some(x => x.room_id === 'class-13-20260918'), pc);
+    ok('지난 회차: 오늘·이후 날짜는 없다(짝)', pc.every(x => x.date < '2026-09-23') && !pc.some(x => /20260925|20260923/.test(x.room_id)), pc);
+    ok('지난 회차: 예약 번호가 없는 행은 방을 지어내지 않는다', !pc.some(x => /undefined|NaN|class--/.test(x.room_id)));
+    ok('지난 회차: 가장 최근부터', pc.every((x, i) => i === 0 || pc[i - 1].date >= x.date));
+    ok('지난 회차: 상한을 지킨다 · 날짜가 이상하면 빈 목록', o.pcMax === 2 && Array.isArray(o.pcBad) && o.pcBad.length === 0);
+    ok('지난 회차: 같은 날 두 수업이면 둘 다(늦은 것부터)', (o.pcTwo || []).map(x => x.room_id).join() === 'class-2-20260921,class-1-20260921', o.pcTwo);
+    const kim = (o.pcLoader || [])[0] || [];
+    ok('로더: 학생 줄에 prev_classes 를 싣는다(예약 행 번호로)', kim.length > 0 && kim[0].room_id === 'class-32-20260918', kim);
+  }
+  ok('평가: roomYmd 는 결정론 방 번호만 날짜로 읽는다', JSON.stringify(o.room_ymd) === JSON.stringify(['2026-09-21', '', '', '']), o.room_ymd);
   ok('평가: 100점 만점 값은 max=100', o.brief.max === 100 && o.brief.score === 88);
   ok('지사·대리점(evals:false): 평가 내용이 응답에 없다', o.hid.today === null && o.hid.last === null, o.hid);
   ok('지사·대리점(evals:false): 평가 표를 «조회조차» 안 한다', o.hid.queried === false, o.hid);
@@ -222,11 +268,16 @@ ok('classes/today 는 평가를 연락처와 같은 판정(본사·내부직원�
    && /const _ctSeeContact = _ctScope\.type === 'hq' \|\| _ctScope\.type === 'none';/.test(api));
 ok('그 호출은 조건 없이 try 로 감싸여 있다(목록이 통째로 안 사라짐)', /\n[ \t]*try \{ await enrichClassesToday\(/.test(api));
 const adm = readFileSync(join(PUB, 'js', 'adm-today-classes.js'), 'utf8');
-const th = (adm.match(/'<th>'/g) || []).length;
+// 머리칸은 '<th>' 글자 또는 tcTh(...) 호출(2026-09-28 정렬 머리글) — 둘 다 «thead 안» 에서 센다.
+const thead = adm.slice(adm.indexOf("'<thead><tr>'"), adm.indexOf("'</tr></thead>"));
+const th = (thead.match(/'<th>'/g) || []).length + (thead.match(/\btcTh\(/g) || []).length;
 const tb = adm.slice(adm.indexOf("return '<tr>'"), adm.indexOf("'</tr>';", adm.indexOf("return '<tr>'")));
 const td = (tb.match(/'<td[ >]/g) || []).length;
 ok('관리자 표: th 수 = 한 줄의 td 수', th === td && th >= 15, { th, td });
-for (const k of ['s.class_date', 'xPay(s.pay_type)', 'xSched(s)', 'xTeacherEntry(s.teacher_entry)', 'xAttendance(s.attendance)', 'xEval(s.last_eval', 'xEval(s.today_eval']) {
+// ↕ (2026-09-28) 머리글 정렬 — 거른 «뒤» 의 줄을 정렬해 그리는가 · 날짜는 start_ts 숫자로 비교하는가
+ok('관리자 표: 그리는 줄이 tcSorted(rows) 를 지난다', /\+ tcSorted\(rows\)\.map\(/.test(adm));
+ok('관리자 표: 날짜 정렬은 글자가 아니라 start_ts', /case 'date': return isFinite\(ts\)/.test(adm));
+for (const k of ['s.class_date', 'xPay(s.pay_type)', 'xSched(s)', 'xTeacherConnection(s)', 'xAttendance(s.attendance)', 'xEval(s.last_eval', 'xEval(s.today_eval']) {
   ok('관리자 표가 ' + k + ' 를 그린다', tb.includes(k));
 }
 // 📅 수업 캘린더 칸 (C안) — xCal 을 오려 내 «실제로» 그려 본다
@@ -344,24 +395,25 @@ ok('강사 포털: 조건 없이 try 로 감싼다', /\n[ \t]*try \{ await enric
   }
 }
 ok('강사 포털: 배너(?only=next)는 건너뛴다', /if \(!onlyNext\) \{[\s\S]{0,700}enrichClassesToday/.test(tea));
-const th2 = readFileSync(join(PUB, 'teacher.html'), 'utf8');
-const fi = th2.indexOf('function extrasHtml(c){');
+const th2 = readFileSync(join(PUB, 'teacher.html'), 'utf8').replace(/\r\n/g, '\n');
+/* (2026-10-01) 두 번째 인자 wi(「✍ 지금 쓰기」 줄 번호)가 붙어도 찾는다 — 시그니처 «모양» 을 못 박지 않는다 */
+const fi = th2.search(/function extrasHtml\(c(?:,\s*\w+){0,2}\)\{/);   // (2026-10-26) 표 보기용 asParts 인자가 붙었다
 let body = '';
 if (fi > 0) { let d = 0, i = th2.indexOf('{', fi); const st = i; for (; i < th2.length; i++) { if (th2[i] === '{') d++; else if (th2[i] === '}') { d--; if (!d) break; } } body = th2.slice(st + 1, i); }
 ok('teacher.html extrasHtml 을 오려 냈다', body.length > 200);
 let run = null;
-try { run = new Function('T', 'esc', 'hhmm', 'c', body); } catch (e) { ok('extrasHtml 컴파일', false, e.message); }
+try { run = new Function('T', 'esc', 'hhmm', 'c', 'wi', 'asParts', body); } catch (e) { ok('extrasHtml 컴파일', false, e.message); }
 if (run) {
   const T = (en) => en, esc = (x) => String(x), hhmm = () => '14:07';
   const call = (c) => { try { return run(T, esc, hhmm, c); } catch (e) { return 'THROW ' + e.message; } };
   const h1 = call({ class_date: '2026-09-23', pay_type: 'B2C', sched_label_en: '2/wk',
     teacher_entry: { state: 'late', at: 1, late_min: 7 }, attendance: { state: 'absent' },
     last_eval: { date: '2026-09-20', score: 4, max: 5, text: 'Good' }, today_eval: null });
-  ok('teacher.html: 일곱 칸을 실제로 그린다', /2026-09-23/.test(h1) && /B2C/.test(h1) && /2\/wk/.test(h1) && /7 min late/.test(h1)
-     && /Absent/.test(h1) && /Last feedback/.test(h1) && /Today's feedback/.test(h1), h1);
+  ok('teacher.html: 요청한 정보만 표시하고 결제유형은 제외한다', /2026-09-23/.test(h1) && !/B2C/.test(h1) && /2\/wk/.test(h1) && /7 min late/.test(h1)
+     && /Absent/.test(h1) && /Last class feedback/.test(h1) && /Today's feedback/.test(h1), h1);
   ok('teacher.html: 옛 응답(칸 없음)에는 아무것도 안 그린다(짝)', call({ start_time: '14:00' }) === '');
   const h2 = call({ class_date: 'x', prev_lesson: { date: 'y' }, attendance: null });
-  ok('teacher.html: ↩ 지난 수업이 있으면 «지난 평가» 를 겹쳐 그리지 않는다', !/Last feedback/.test(h2) && /Today's feedback/.test(h2), h2);
+  ok('teacher.html: 지난 수업 요약이 있어도 피드백 동선은 유지한다', /Last class feedback/.test(h2) && /Today's feedback/.test(h2), h2);
   // 📅 이번 주 7칸 — 받으면 그리고, 못 받으면 줄 자체를 안 그린다(짝)
   const wd = ['2026-09-21','2026-09-22','2026-09-23','2026-09-24','2026-09-25','2026-09-26','2026-09-27'];
   const h3 = call({ class_date: '2026-09-23', attendance: null, week_days: [true,false,true,false,true,false,false], week_dates: wd });
@@ -378,8 +430,9 @@ if (run) {
 }
 ok('관리자 표: 숨김이면 «본사 전용»', /xEval\(s\.last_eval, s\.eval_hidden\)/.test(tb) && /xEval\(s\.today_eval, s\.eval_hidden\)/.test(tb) && /if \(hidden\) return xSmall\(T\('본사 전용'/.test(adm));
 ok('매니저 화면: 숨김이면 «본사 전용»', /if \(r\.eval_hidden\) return esc\(T\('HQ only', '본사 전용'\)\)/.test(mgr));
-ok('teacher.html 카드가 extrasHtml(c) 를 부른다', /\+\s+extrasHtml\(c\)\n/.test(th2));
+ok('teacher.html 카드가 extrasHtml(c) 를 부른다', /\+\s+extrasHtml\(c\b[^\n]*\)\n/.test(th2));
 ok('teacher.html 다시그리기 지문에 이번 주 7칸이 들어 있다', /sc\.week_days\.map\(/.test(th2));
 ok('teacher.html 다시그리기 지문에 출결·강사입장이 들어 있다', /sc\.attendance \? sc\.attendance\.state/.test(th2) && /sc\.teacher_entry \? sc\.teacher_entry\.state/.test(th2));
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
+

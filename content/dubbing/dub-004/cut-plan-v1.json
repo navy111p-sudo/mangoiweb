@@ -1,0 +1,682 @@
+{
+ "episode": "dub-004",
+ "basis": "timing/authoritative-timing-v1.json (handoff 2026-10-21 05:02 KST)",
+ "rule": "cuts only inside silence between lines (>=0.1s margin), nearest to 10/20/30s; no line moved, trimmed or sped up",
+ "status": "PLAN_ONLY_no_video_generated",
+ "scenes": [
+  {
+   "scene": 1,
+   "cuts": [
+    10.75,
+    18.63,
+    29.92
+   ],
+   "shots": [
+    {
+     "shot": "s1-c1",
+     "start": 0,
+     "end": 10.75,
+     "durationSec": 10.75,
+     "lines": [
+      {
+       "id": "s1-l1",
+       "character": "kai",
+       "start": 0.839,
+       "end": 2.694,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s1-l2",
+       "character": "emma",
+       "start": 6.55,
+       "end": 10.655,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      }
+     ]
+    },
+    {
+     "shot": "s1-c2",
+     "start": 10.75,
+     "end": 18.63,
+     "durationSec": 7.88,
+     "lines": [
+      {
+       "id": "s1-l3",
+       "character": "maya",
+       "start": 11.394,
+       "end": 13.559,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      },
+      {
+       "id": "s1-l4",
+       "character": "pip",
+       "start": 14.987,
+       "end": 17.437,
+       "coverage": "visible_synchronized_speaker"
+      }
+     ]
+    },
+    {
+     "shot": "s1-c3",
+     "start": 18.63,
+     "end": 29.92,
+     "durationSec": 11.29,
+     "lines": [
+      {
+       "id": "s1-l5",
+       "character": "momo",
+       "start": 18.726,
+       "end": 22.341,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s1-l6",
+       "character": "kai",
+       "start": 24.155,
+       "end": 25.81,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s1-l7",
+       "character": "emma",
+       "start": 26.894,
+       "end": 29.279,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      }
+     ]
+    },
+    {
+     "shot": "s1-c4",
+     "start": 29.92,
+     "end": 40,
+     "durationSec": 10.08,
+     "lines": [
+      {
+       "id": "s1-l8",
+       "character": "maya",
+       "start": 30.018,
+       "end": 31.813,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s1-l9",
+       "character": "pip",
+       "start": 33.447,
+       "end": 35.417,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s1-l10",
+       "character": "momo",
+       "start": 36.186,
+       "end": 38.271,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "scene": 2,
+   "cuts": [
+    10,
+    20,
+    30
+   ],
+   "shots": [
+    {
+     "shot": "s2-c1",
+     "start": 0,
+     "end": 10,
+     "durationSec": 10,
+     "lines": [
+      {
+       "id": "s2-l1",
+       "character": "emma",
+       "start": 1.132,
+       "end": 2.817,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s2-l2",
+       "character": "momo",
+       "start": 4.164,
+       "end": 6.704,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s2-l3",
+       "character": "kai",
+       "start": 8.196,
+       "end": 9.731,
+       "coverage": "visible_synchronized_speaker"
+      }
+     ]
+    },
+    {
+     "shot": "s2-c2",
+     "start": 10,
+     "end": 20,
+     "durationSec": 10,
+     "lines": [
+      {
+       "id": "s2-l4",
+       "character": "pip",
+       "start": 12.379,
+       "end": 15.079,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s2-l5",
+       "character": "maya",
+       "start": 16.411,
+       "end": 19.271,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      }
+     ]
+    },
+    {
+     "shot": "s2-c3",
+     "start": 20,
+     "end": 30,
+     "durationSec": 10,
+     "lines": [
+      {
+       "id": "s2-l6",
+       "character": "emma",
+       "start": 21.453,
+       "end": 23.194,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      },
+      {
+       "id": "s2-l7",
+       "character": "momo",
+       "start": 24.226,
+       "end": 26.206,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      },
+      {
+       "id": "s2-l8",
+       "character": "kai",
+       "start": 27.238,
+       "end": 29.188,
+       "coverage": "visible_synchronized_speaker"
+      }
+     ]
+    },
+    {
+     "shot": "s2-c4",
+     "start": 30,
+     "end": 40,
+     "durationSec": 10,
+     "lines": [
+      {
+       "id": "s2-l9",
+       "character": "pip",
+       "start": 31.42,
+       "end": 33.485,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      },
+      {
+       "id": "s2-l10",
+       "character": "maya",
+       "start": 34.517,
+       "end": 37.017,
+       "coverage": "visible_synchronized_speaker"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "scene": 3,
+   "cuts": [
+    9.56,
+    20.14,
+    30.52
+   ],
+   "shots": [
+    {
+     "shot": "s3-c1",
+     "start": 0,
+     "end": 9.56,
+     "durationSec": 9.56,
+     "lines": [
+      {
+       "id": "s3-l1",
+       "character": "momo",
+       "start": 0.645,
+       "end": 3.61,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s3-l2",
+       "character": "kai",
+       "start": 4.19,
+       "end": 5.54,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s3-l3",
+       "character": "emma",
+       "start": 6.735,
+       "end": 8.245,
+       "coverage": "visible_synchronized_speaker"
+      }
+     ]
+    },
+    {
+     "shot": "s3-c2",
+     "start": 9.56,
+     "end": 20.14,
+     "durationSec": 10.58,
+     "lines": [
+      {
+       "id": "s3-l4",
+       "character": "maya",
+       "start": 9.665,
+       "end": 14.325,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s3-l5",
+       "character": "pip",
+       "start": 15.21,
+       "end": 20.038,
+       "coverage": "visible_synchronized_speaker"
+      }
+     ]
+    },
+    {
+     "shot": "s3-c3",
+     "start": 20.14,
+     "end": 30.52,
+     "durationSec": 10.38,
+     "lines": [
+      {
+       "id": "s3-l6",
+       "character": "momo",
+       "start": 21.14,
+       "end": 23.875,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      },
+      {
+       "id": "s3-l7",
+       "character": "kai",
+       "start": 24.42,
+       "end": 27.855,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      },
+      {
+       "id": "s3-l8",
+       "character": "emma",
+       "start": 28.4,
+       "end": 30.42,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      }
+     ]
+    },
+    {
+     "shot": "s3-c4",
+     "start": 30.52,
+     "end": 40,
+     "durationSec": 9.48,
+     "lines": [
+      {
+       "id": "s3-l9",
+       "character": "maya",
+       "start": 31.35,
+       "end": 33.715,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      },
+      {
+       "id": "s3-l10",
+       "character": "pip",
+       "start": 34.26,
+       "end": 38.77,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "scene": 4,
+   "cuts": [
+    10.91,
+    20,
+    30.83
+   ],
+   "shots": [
+    {
+     "shot": "s4-c1",
+     "start": 0,
+     "end": 10.91,
+     "durationSec": 10.91,
+     "lines": [
+      {
+       "id": "s4-l1",
+       "character": "maya",
+       "start": 0.864,
+       "end": 3.179,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s4-l2",
+       "character": "momo",
+       "start": 4.628,
+       "end": 6.548,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s4-l3",
+       "character": "emma",
+       "start": 7.393,
+       "end": 10.808,
+       "coverage": "visible_synchronized_speaker"
+      }
+     ]
+    },
+    {
+     "shot": "s4-c2",
+     "start": 10.91,
+     "end": 20,
+     "durationSec": 9.09,
+     "lines": [
+      {
+       "id": "s4-l4",
+       "character": "kai",
+       "start": 12.887,
+       "end": 14.842,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s4-l5",
+       "character": "pip",
+       "start": 15.651,
+       "end": 18.356,
+       "coverage": "visible_synchronized_speaker"
+      }
+     ]
+    },
+    {
+     "shot": "s4-c3",
+     "start": 20,
+     "end": 30.83,
+     "durationSec": 10.83,
+     "lines": [
+      {
+       "id": "s4-l6",
+       "character": "maya",
+       "start": 20.145,
+       "end": 22.226,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s4-l7",
+       "character": "momo",
+       "start": 23.909,
+       "end": 27.184,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      },
+      {
+       "id": "s4-l8",
+       "character": "emma",
+       "start": 27.948,
+       "end": 30.733,
+       "coverage": "visible_synchronized_speaker"
+      }
+     ]
+    },
+    {
+     "shot": "s4-c4",
+     "start": 30.83,
+     "end": 40,
+     "durationSec": 9.17,
+     "lines": [
+      {
+       "id": "s4-l9",
+       "character": "kai",
+       "start": 32.442,
+       "end": 34.032,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s4-l10",
+       "character": "pip",
+       "start": 35.206,
+       "end": 37.586,
+       "coverage": "visible_synchronized_speaker"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "scene": 5,
+   "cuts": [
+    9.44,
+    20.84,
+    30
+   ],
+   "shots": [
+    {
+     "shot": "s5-c1",
+     "start": 0,
+     "end": 9.44,
+     "durationSec": 9.44,
+     "lines": [
+      {
+       "id": "s5-l1",
+       "character": "pip",
+       "start": 0.727,
+       "end": 2.657,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s5-l2",
+       "character": "maya",
+       "start": 3.353,
+       "end": 5.748,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s5-l3",
+       "character": "kai",
+       "start": 6.98,
+       "end": 8.405,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      }
+     ]
+    },
+    {
+     "shot": "s5-c2",
+     "start": 9.44,
+     "end": 20.84,
+     "durationSec": 11.4,
+     "lines": [
+      {
+       "id": "s5-l4",
+       "character": "emma",
+       "start": 9.544,
+       "end": 13.219,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      },
+      {
+       "id": "s5-l5",
+       "character": "momo",
+       "start": 13.846,
+       "end": 15.346,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      },
+      {
+       "id": "s5-l6",
+       "character": "pip",
+       "start": 16.486,
+       "end": 20.741,
+       "coverage": "visible_synchronized_speaker"
+      }
+     ]
+    },
+    {
+     "shot": "s5-c3",
+     "start": 20.84,
+     "end": 30,
+     "durationSec": 9.16,
+     "lines": [
+      {
+       "id": "s5-l7",
+       "character": "maya",
+       "start": 22.112,
+       "end": 26.652,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s5-l8",
+       "character": "kai",
+       "start": 27.739,
+       "end": 29.119,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      }
+     ]
+    },
+    {
+     "shot": "s5-c4",
+     "start": 30,
+     "end": 40,
+     "durationSec": 10,
+     "lines": [
+      {
+       "id": "s5-l9",
+       "character": "emma",
+       "start": 30.259,
+       "end": 34.934,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      },
+      {
+       "id": "s5-l10",
+       "character": "momo",
+       "start": 35.56,
+       "end": 37.81,
+       "coverage": "visible_synchronized_speaker"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "scene": 6,
+   "cuts": [
+    9.75,
+    20,
+    30
+   ],
+   "shots": [
+    {
+     "shot": "s6-c1",
+     "start": 0,
+     "end": 9.75,
+     "durationSec": 9.75,
+     "lines": [
+      {
+       "id": "s6-l1",
+       "character": "emma",
+       "start": 0.499,
+       "end": 2.709,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s6-l2",
+       "character": "kai",
+       "start": 3.899,
+       "end": 5.449,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s6-l3",
+       "character": "maya",
+       "start": 6.298,
+       "end": 8.368,
+       "coverage": "visible_synchronized_speaker"
+      }
+     ]
+    },
+    {
+     "shot": "s6-c2",
+     "start": 9.75,
+     "end": 20,
+     "durationSec": 10.25,
+     "lines": [
+      {
+       "id": "s6-l4",
+       "character": "momo",
+       "start": 9.854,
+       "end": 12.049,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s6-l5",
+       "character": "pip",
+       "start": 13.254,
+       "end": 16.089,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s6-l6",
+       "character": "emma",
+       "start": 16.81,
+       "end": 19.235,
+       "coverage": "visible_synchronized_speaker"
+      }
+     ]
+    },
+    {
+     "shot": "s6-c3",
+     "start": 20,
+     "end": 30,
+     "durationSec": 10,
+     "lines": [
+      {
+       "id": "s6-l7",
+       "character": "kai",
+       "start": 20.209,
+       "end": 23.774,
+       "coverage": "visible_synchronized_speaker"
+      },
+      {
+       "id": "s6-l8",
+       "character": "maya",
+       "start": 24.609,
+       "end": 29.554,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      }
+     ]
+    },
+    {
+     "shot": "s6-c4",
+     "start": 30,
+     "end": 40,
+     "durationSec": 10,
+     "lines": [
+      {
+       "id": "s6-l9",
+       "character": "momo",
+       "start": 30.11,
+       "end": 34.745,
+       "coverage": "motivated_action_cutaway_with_offscreen_voice"
+      },
+      {
+       "id": "s6-l10",
+       "character": "pip",
+       "start": 35.144,
+       "end": 38.574,
+       "coverage": "visible_synchronized_speaker"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "oldFixed10sConflictsResolved": 10,
+ "maxShotSec": 11.4
+}

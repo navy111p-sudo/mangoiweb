@@ -1,0 +1,311 @@
+{
+  "id": "s2-30",
+  "breaks": [
+    2,
+    3,
+    3,
+    5
+  ],
+  "key": {
+    "P": 3,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «등산객 가족이 구조 요청을 했지만, 전화가 꺼져 버렸다(문제)» 와 «진정한 영웅은 가장 힘든 폭풍 속에서도 다른 사람을 돕는다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (a family of hikers called for help, but their phone died) and the lesson (a true hero helps others, even in the hardest storm). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Max the rescue dog, Officer Kang, a family of hikers"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "A family was lost in a snowstorm, and their phone died."
+    },
+    {
+      "k": "Lesson",
+      "qko": "무엇을 배웠나요?",
+      "qen": "What is the lesson?",
+      "a": "A true hero helps others, even in a hard storm."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Max was a rescue ",
+      "ans": "dog",
+      "opts": [
+        "dog",
+        "cat",
+        "horse"
+      ]
+    },
+    {
+      "pre": " in the mountains. One night, a terrible ",
+      "ans": "snowstorm",
+      "opts": [
+        "snowstorm",
+        "sandstorm",
+        "rainbow"
+      ]
+    },
+    {
+      "pre": " hit, and a family of hikers needed help. Max used his ",
+      "ans": "nose",
+      "opts": [
+        "nose",
+        "eyes",
+        "map"
+      ]
+    },
+    {
+      "pre": " to find them. He dug in the snow and found them in a small ",
+      "ans": "cave",
+      "opts": [
+        "cave",
+        "car",
+        "tent"
+      ]
+    },
+    {
+      "pre": ". Max kept a little boy ",
+      "ans": "warm",
+      "opts": [
+        "warm",
+        "cold",
+        "hungry"
+      ]
+    },
+    {
+      "pre": ", and by morning everyone was safe.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "rescue",
+      "구조",
+      "Max was a <b>rescue</b> dog",
+      "saving people from danger"
+    ],
+    [
+      "snowstorm",
+      "눈보라",
+      "One night, a terrible <b>snowstorm</b> hit the mountain.",
+      "a storm with strong wind and a lot of snow"
+    ],
+    [
+      "hikers",
+      "등산객들",
+      "A family of <b>hikers</b> called for help",
+      "people who walk a long way in the mountains"
+    ],
+    [
+      "sniffed",
+      "냄새를 맡았다",
+      "Max lifted his nose and <b>sniffed</b> the wind.",
+      "smelled something by breathing in through the nose"
+    ],
+    [
+      "frightened",
+      "겁먹은",
+      "inside were the cold, <b>frightened</b> hikers!",
+      "very scared"
+    ],
+    [
+      "hero",
+      "영웅",
+      "A true <b>hero</b> helps others, even in the hardest storm.",
+      "a brave person who helps others"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why couldn't the hikers tell anyone where they were?",
+      "qko": "등산객들은 왜 자기들이 어디 있는지 알릴 수 없었나요?",
+      "opts": [
+        "Their phone died.",
+        "They did not want to be found.",
+        "Officer Kang was asleep."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "A family of hikers called for help, but their phone died.",
+        "Every winter, they helped people who were lost in the snow.",
+        "Officer Kang followed his barks through deep snow.",
+        "By morning, everyone was safe at the hospital."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "등산객 가족이 구조 요청을 했지만 «전화가 꺼져 버렸다»고 나와요. 그래서 어디 있는지 더 알릴 수 없었어요. 찾기 싫었다거나 경관님이 잠들었다는 말은 없어요.",
+        "The family called for help, but their phone died, so they could not say where they were. Nothing says they did not want to be found or that Officer Kang was asleep."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The story says, \"Officer Kang followed his barks through deep snow.\" What does \"followed his barks\" mean here?",
+      "qko": "\"Officer Kang followed his barks through deep snow.\"라는 문장이 있어요. 여기서 \"followed his barks\"는 무슨 뜻인가요?",
+      "opts": [
+        "went toward the sound of Max barking",
+        "barked loudly like Max",
+        "walked away from Max"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Suddenly, he ran into the darkness, barking loudly.",
+        "One night, a terrible snowstorm hit the mountain.",
+        "Max lay down next to the little boy to keep him warm.",
+        "Max was a rescue dog who lived in the mountains with Officer Kang."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "바로 앞에서 맥스가 크게 짖으며 어둠 속으로 달려갔어요. 눈보라 때문에 앞이 안 보이니, 경관님은 맥스가 짖는 «소리를 따라» 갔다는 뜻이에요.",
+        "Just before, Max ran into the darkness, barking loudly. Officer Kang could not see in the storm, so he went toward the sound of Max barking."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did Max find the hikers in the snowstorm?",
+      "qko": "맥스는 눈보라 속에서 어떻게 등산객들을 찾았나요?",
+      "opts": [
+        "He smelled the wind and dug in the snow to find the cave.",
+        "He saw their red tent from far away.",
+        "He heard their phone ringing."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Max lifted his nose and sniffed the wind.",
+        "One night, a terrible snowstorm hit the mountain.",
+        "Then Max stopped and started to dig.",
+        "By morning, everyone was safe at the hospital."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "맥스는 코를 들고 바람 냄새를 맡았고, 멈춰서 땅을 파기 시작했어요. 그 눈 아래 동굴에 등산객들이 있었어요. 두 문장을 이으면 답이 나와요.",
+        "Max lifted his nose and sniffed the wind, and then he stopped and started to dig. The hikers were in a cave under the snow. Put these two sentences together to find the answer."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Max trains a new puppy to become a rescue dog.",
+      "맥스가 새 강아지를 구조견으로 훈련시켜요.",
+      "Max's New Partner"
+    ],
+    [
+      "B",
+      "The little boy visits Max with a big bone as a thank-you gift.",
+      "어린 남자아이가 고맙다는 선물로 커다란 뼈다귀를 들고 맥스를 찾아와요.",
+      "A Treat for a Hero"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "src": "“I think <u>Max is a true hero</u> because <u>he saved the lost hikers</u>.”",
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "chips": [
+      {
+        "a": "firefighters are brave",
+        "b": "they help people in danger",
+        "label": "firefighters"
+      },
+      {
+        "a": "my dog is very smart",
+        "b": "he can open the door",
+        "label": "smart dog"
+      },
+      {
+        "a": "winter is fun",
+        "b": "we can make a snowman",
+        "label": "winter"
+      }
+    ],
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he helps people)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he helps people)"
+  },
+  "img": {
+    "style": "webtoon",
+    "cover": "On a snowy mountain at night, a big fluffy Saint Bernard dog with brown and white fur and a red rescue vest digs eagerly in deep snow and uncovers the entrance of a small cave where a family in warm winter coats looks out with relieved smiles, while a mountain rescue officer in a bright orange snow jacket, a black wool hat and snow goggles hurries up behind him holding a bright lantern.",
+    "scenes": {
+      "2": "In a swirling snowstorm at night on a mountain, a big fluffy Saint Bernard dog with brown and white fur and a red rescue vest lifts his nose high to sniff the wind, while a mountain rescue officer in a bright orange snow jacket, a black wool hat and snow goggles holds a lantern and follows close behind through deep snow.",
+      "3": "Inside a small snowy cave, a big fluffy Saint Bernard dog with brown and white fur and a red rescue vest lies down next to a little boy wrapped in a blanket to keep him warm, while the boy's parents smile and hug each other nearby."
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "2": "The dog sniffs the wind in a snowstorm as the officer follows.",
+    "3": "The dog lies next to a little boy to keep him warm.",
+    "cover": "A rescue dog digs in the snow and finds a family in a cave."
+  }
+}

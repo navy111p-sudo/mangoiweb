@@ -18,6 +18,8 @@
  */
 
 import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
+import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
+import { loadHolidayClosure, isHolidayClosedFor } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 import { sendPlainSms, getSolapiMode } from './solapi-client';
 import { deliverLessonReminder, ensureLessonReminderDeliveryTable, LESSON_REMINDER_FROM_PHONE } from './lesson-reminder-delivery';
 import { phonesForStudent } from './notify-contacts';  // 📞 학생·학부모 번호 판정 정본(복제 금지)
@@ -103,11 +105,12 @@ export async function runFeedbackReminderSweep(env: any, opts: { dry?: boolean }
   const pad = (n: number) => String(n).padStart(2, '0');
   const ymd = `${kY}${pad(kMo + 1)}${pad(kD)}`;
   const todayStr = `${kY}-${pad(kMo + 1)}-${pad(kD)}`;
+  const _holiday = await loadHolidayClosure(env.DB, todayStr);   // 🎌 던지지 않는다(fail-open)
 
   let rows: any[] = [];
   try {
     const rs = await env.DB.prepare(
-      `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, duration_min, teacher_id, teacher_name${startsOnSel(await ensureStartsOnColumn(env))}
+      `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, duration_min, status, teacher_id, teacher_name${startsOnSel(await ensureStartsOnColumn(env))}
        FROM class_schedules WHERE status != 'cancelled'`
     ).all();
     rows = rs.results || [];
@@ -123,6 +126,8 @@ export async function runFeedbackReminderSweep(env: any, opts: { dry?: boolean }
     else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow) && recurStartedOn(s, todayStr);
     if (!occurs) continue;
     seen.add(s.id);
+    if (isPostponedOccurrence(s)) continue;   // ⏸ 연기된 회차는 오늘 열리지 않는다(2026-10-01, class-postponed.ts)
+    if (isHolidayClosedFor(_holiday, s.teacher_id)) continue;   // 🎌 공휴일 휴강 — 문자·결석감지 안 함(중국어 수업 제외)
     const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
     if (!Number.isFinite(hh)) continue;
     const start_ts = Date.UTC(kY, kMo, kD, hh, mm || 0, 0) - KST;
@@ -257,12 +262,13 @@ export async function runLessonReminderSweep(env: any, opts: { dry?: boolean } =
   const pad = (n: number) => String(n).padStart(2, '0');
   const ymd = `${kY}${pad(kMo + 1)}${pad(kD)}`;
   const todayStr = `${kY}-${pad(kMo + 1)}-${pad(kD)}`;
+  const _holiday = await loadHolidayClosure(env.DB, todayStr);   // 🎌 던지지 않는다(fail-open)
 
   // 오늘 발생 예약 전체 (일회성=날짜 일치 / 반복=요일 일치) — absent-sweep 과 동일 규칙
   let rows: any[] = [];
   try {
     const rs = await env.DB.prepare(
-      `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, duration_min, teacher_id${startsOnSel(await ensureStartsOnColumn(env))}
+      `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, duration_min, status, teacher_id${startsOnSel(await ensureStartsOnColumn(env))}
        FROM class_schedules WHERE status != 'cancelled'`
     ).all();
     rows = rs.results || [];
@@ -279,6 +285,8 @@ export async function runLessonReminderSweep(env: any, opts: { dry?: boolean } =
     else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow) && recurStartedOn(s, todayStr);
     if (!occurs) continue;
     seen.add(s.id);
+    if (isPostponedOccurrence(s)) continue;   // ⏸ 연기된 회차는 오늘 열리지 않는다(2026-10-01, class-postponed.ts)
+    if (isHolidayClosedFor(_holiday, s.teacher_id)) continue;   // 🎌 공휴일 휴강 — 문자·결석감지 안 함(중국어 수업 제외)
     const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
     if (!Number.isFinite(hh)) continue;
     const start_ts = Date.UTC(kY, kMo, kD, hh, mm || 0, 0) - KST;

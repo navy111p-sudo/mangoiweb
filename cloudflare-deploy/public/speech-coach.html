@@ -63,6 +63,12 @@
   .ko-chip { margin-top: 14px; padding: 10px 14px; border-radius: 12px; font-size: 15px; line-height: 1.5;
     background: rgba(167,139,250,0.14); border: 1px solid rgba(167,139,250,0.4); color: #ddd6fe; white-space: normal; }
   .ko-chip.err { background: rgba(148,163,184,0.12); border-color: rgba(148,163,184,0.35); color: #cbd5e1; }
+  /* 🐢🐇 듣기 속도 (2026-10-12) — 웜업·A.i 친구와 같은 다섯 칸(0.5·0.65·0.8·1.0·1.25배) */
+  .sc-rate { margin: 12px auto 0; max-width: 380px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #c4b5fd; }
+  .sc-rate .sc-rate-name { white-space: nowrap; font-weight: 700; }
+  .sc-rate .sc-rate-side { font-size: 16px; line-height: 1; }
+  .sc-rate input[type=range] { flex: 1; min-width: 60px; accent-color: #a78bfa; height: 24px; cursor: pointer; }
+  .sc-rate .sc-rate-val { white-space: nowrap; min-width: 92px; text-align: center; padding: 3px 8px; border-radius: 999px; background: rgba(167,139,250,0.16); border: 1px solid rgba(167,139,250,0.4); color: #ede9fe; font-weight: 700; }
   .play-btn-hero { background: linear-gradient(135deg, rgba(167,139,250,0.28), rgba(139,92,246,0.16)); border-color: rgba(167,139,250,0.55); color: #ede9fe; box-shadow: 0 8px 20px -8px rgba(139,92,246,0.5); }
 
   .recorder { background: rgba(18,24,42,0.6); border: 1px solid rgba(139,92,246,0.18); border-radius: 18px; padding: 26px 22px; margin-bottom: 16px; text-align: center; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
@@ -93,6 +99,7 @@
   .wm-bad  { background: #7f1d1d; color: #fca5a5; }
   .wm-miss { background: #1e293b; color: #94a3b8; text-decoration: line-through; }
   .wordmap-hint { font-size: 10.5px; color: #94a3b8; text-align: center; margin-top: 9px; line-height: 1.5; }
+  .wordmap-phon { font-size: 12px; color: #e2e8f0; text-align: left; background: rgba(196,181,253,.10); border-radius: 9px; padding: 7px 9px; }  /* 🔍 «어느 소리가 약했나» (2026-10-18) */
   @media (max-width: 640px) { .wordmap { padding: 11px 9px; margin-bottom: 8px; } .wm { font-size: 14px; padding: 6px 9px; } }
   .feedback { padding: 14px; background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(59,130,246,0.08)); border-left: 4px solid #34d399; border-radius: 8px; margin-bottom: 10px; font-size: 13.5px; line-height: 1.6; }
   .suggestion { padding: 14px; background: linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.06)); border-left: 4px solid #fbbf24; border-radius: 8px; font-size: 13.5px; line-height: 1.6; }
@@ -205,6 +212,8 @@
     .target-text { font-size: 19px; }
     .target-input { font-size: 13px; padding: 8px 12px; margin-top: 8px; }
     .play-btn-hero { padding: 7px 14px; font-size: 12px; }
+    .sc-rate { margin-top: 8px; font-size: 11px; gap: 6px; }
+    .sc-rate .sc-rate-val { min-width: 78px; padding: 2px 6px; }
     .target-tip { font-size: 9.5px; margin-top: 6px; }
 
     .recorder { padding: 16px; margin-bottom: 8px; }
@@ -222,6 +231,7 @@
     body.m-showing-result .target-box .target-label,
     body.m-showing-result .target-box .target-input,
     body.m-showing-result .target-box .play-btn-hero,
+    body.m-showing-result .target-box .sc-rate,
     body.m-showing-result .target-box .target-tip { display: none; }
     body.m-showing-result .target-text { font-size: 13.5px; margin-top: 0; color: #cbd5e1; }
     body.m-showing-result .result { padding: 16px; }
@@ -308,17 +318,21 @@
     border-radius:12px;cursor:pointer;background:rgba(15,20,38,0.92);color:#ddd6fe;
     border:1px solid rgba(167,139,250,0.45);box-shadow:0 6px 18px -6px rgba(0,0,0,.6)}
   #sc-friend-btn:hover{background:rgba(139,92,246,0.3);color:#fff}
-  #sc-friend-menu{position:fixed;top:60px;right:12px;z-index:99998;width:214px;padding:11px;
+  #sc-friend-menu{position:fixed;top:60px;right:12px;z-index:99998;width:270px;max-width:calc(100vw - 24px);max-height:calc(100vh - 72px);max-height:calc(100dvh - 72px);overflow-y:auto;box-sizing:border-box;padding:12px;
     border-radius:14px;background:rgba(15,20,38,0.97);border:1px solid rgba(167,139,250,0.4);
     box-shadow:0 16px 40px -10px rgba(0,0,0,.75)}
   /* 🔴 작성자 CSS 가 display 를 정하면 브라우저 기본 [hidden]{display:none} 을 이긴다 —
         그래서 «숨겼는데 그대로 보이는» 사고가 난다. 여기서 못 박아 둔다. */
   #sc-friend-menu[hidden]{display:none!important}
-  #sc-friend-menu .scf-title{font-size:11.5px;font-weight:800;color:#a5b4cf;margin:0 2px 8px}
-  #sc-friend-menu button{display:block;width:100%;margin-bottom:6px;padding:9px 10px;
-    font-family:inherit;font-size:13.5px;font-weight:800;text-align:left;cursor:pointer;
+  #sc-friend-menu .scf-title{font-size:14px;font-weight:800;color:#a5b4cf;margin:0 2px 8px}
+  #sc-friend-menu button{display:flex;align-items:center;gap:14px;width:100%;margin-bottom:8px;padding:9px 10px;
+    font-family:inherit;font-size:18px;font-weight:800;text-align:left;cursor:pointer;
     border-radius:10px;border:1px solid rgba(167,139,250,0.28);
     background:rgba(139,92,246,0.10);color:#ddd6fe}
+  #sc-friend-menu .scf-photo{width:64px;height:64px;flex-shrink:0;object-fit:cover;object-position:center;
+    border-radius:50%;background:#e8e4f4;border:2px solid rgba(255,255,255,.7)}
+  #sc-friend-menu button:last-child{margin-bottom:0}
+  #sc-friend-menu button:focus-visible{outline:3px solid #c4b5fd;outline-offset:2px}
   #sc-friend-menu button:hover{background:rgba(139,92,246,0.28);color:#fff}
   #sc-friend-menu button.on{background:linear-gradient(135deg,#8b5cf6,#a78bfa);color:#150c2e;
     border-color:#a78bfa}
@@ -345,14 +359,90 @@
   @media (max-width: 640px) { #tavatar-wrap { --av-w: 150px; } }
   @media (max-width: 640px) and (max-height: 799px) { #tavatar-wrap { --av-w: 130px; } }
   @media (max-width: 640px) and (max-height: 700px) { #tavatar-wrap { --av-w: 104px; } }
+
+  /* 🖥 PC 한 화면 (2026-10-16 사장님 «한장에 스크롤 없이 모두 보이게, 글자는 그대로»).
+     글자는 한 글자도 빼지 않고 여백·크기만 줄인다. 녹음 칸은 [마이크 | 안내] 가로 한 줄.
+     결과를 볼 때(body.m-showing-result — 모든 폭에서 붙는다)는 녹음·추천 문장 칸 자리를
+     결과 카드가 쓰고 문장 카드는 한 줄로 접는다. 레벨 카드의 인라인 style 은 !important 로 덮는다.
+     얼굴 크기는 «남은 세로» 에 묶는다(제목·레벨줄 약 250px 를 뺀 높이의 80%).
+     긴 문장(SIU)·유닛 줄·결과 카드로 그래도 넘치면 파일 끝 스크립트가 --sc-fit(1→0.4)을
+     낮춰 얼굴·문장 글자·여백을 함께 줄인다(넘칠 때만 · 글자 내용은 그대로).
+     양옆은 60px 이상 비운다 — 왼쪽 가운데 «메뉴» 손잡이(x≈2~46)를 얼굴이 덮던 것(1024px 실측). */
+  @media (min-width: 1024px) {
+    body { padding-bottom: 0; }
+    .wrap { max-width: none; width: min(1120px, calc(100vw - 120px)); padding: 12px 0 10px; column-gap: 26px; min-height: 100vh; align-content: center; }
+    .brand { margin-bottom: 6px; }
+    .brand-eyebrow { margin-bottom: 4px; padding: 3px 12px; }
+    .brand-logo { font-size: max(22px, calc(30px * var(--sc-fit, 1))); }
+    .brand-sub { margin-top: 3px; }
+    .brand-rule { margin-top: 6px; }
+    #lang-curriculum-picker { margin: 0 0 calc(10px * var(--sc-fit, 1)) !important; }
+    #lang-curriculum-picker > div:first-child { margin-bottom: 6px !important; }
+    #lang-curriculum-picker a[href] { padding: calc(8px * var(--sc-fit, 1)) 10px !important; }
+    #tavatar-wrap { --av-w: min(330px, calc((100vh - 260px) * .8 * var(--sc-fit, 1))); margin: 0; gap: 6px; top: 12px; }
+    #unit-picker { margin-top: 6px !important; padding: calc(6px * var(--sc-fit, 1)) 10px !important; }
+    #unit-picker select { padding: 6px 10px !important; }
+    #unit-topic { margin-top: 4px !important; }
+    .target-box { padding: calc(14px * var(--sc-fit, 1)) 22px; margin-bottom: 8px; }
+    .target-text { font-size: max(17px, calc(26px * var(--sc-fit, 1))); margin-top: 8px; }
+    .target-input { margin-top: 8px; padding: 8px 14px; }
+    .target-box .play-btn { margin-top: 8px !important; padding: 8px 16px; }
+    .sc-rate { margin-top: 6px; }
+    .target-tip { margin-top: 4px; }
+    .step-nav { margin: 4px 0 2px; }
+    .step-progress { margin: 4px auto 2px; }
+    .preset { margin: 6px 0 8px; }
+    .recorder { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 10px 18px; margin-bottom: 8px; }
+    .rec-ring { padding: 6px; }
+    .rec-btn { width: calc(76px * var(--sc-fit, 1)); height: calc(76px * var(--sc-fit, 1)); font-size: 28px; }
+    .rec-status { margin-top: 0; text-align: left; font-size: 13px; }
+    body.m-showing-result .recorder, body.m-showing-result .preset { display: none; }
+    body.m-showing-result .step-progress { display: none; }
+    body.m-showing-result .target-box { padding: 8px 18px; }
+    body.m-showing-result .target-box .target-label,
+    body.m-showing-result .target-box .target-input,
+    body.m-showing-result .target-box .sc-rate,
+    body.m-showing-result .target-box .target-tip { display: none; }
+    body.m-showing-result .target-text { font-size: 18px; margin-top: 0; }
+    .result { padding: calc(14px * var(--sc-fit, 1)) 18px; }
+    /* 결과 카드는 PC 에서 두 칸으로(점수·단어별 발음·내 발화 | 피드백·제안·문법). 마크업은 그대로 두고
+       CSS 다단으로 나눈다 — 높이가 저절로 균형을 맞춘다. 등급 배너·단어별 발음(칩을 가로로)·버튼 줄은
+       두 칸을 가로지른다.
+       ⚠️ JS 가 #result 에 인라인 display:block 을 넣으므로 다단은 block 그대로 쓴다(flex 금지). */
+    body.m-showing-result #result { column-count: 2; column-gap: 14px; }
+    body.m-showing-result #result > * { break-inside: avoid; }
+    body.m-showing-result #sc-tier,
+    body.m-showing-result #wordmap { column-span: all; }
+    body.m-showing-result #result > .res-acts { column-span: all; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; margin-top: calc(10px * var(--sc-fit, 1)); }
+    body.m-showing-result #result > .res-acts > div { display: contents; }
+    body.m-showing-result #result > .res-acts button { margin: 0 !important; padding: 8px 16px !important; font-size: 14px !important; }
+    body.m-showing-result .score-note { margin-bottom: calc(8px * var(--sc-fit, 1)); }
+    body.m-showing-result .step-nav { margin: 2px 0; }
+    .scores { margin-bottom: calc(10px * var(--sc-fit, 1)); }
+    .transcript { padding: calc(12px * var(--sc-fit, 1)) 12px; margin-bottom: calc(10px * var(--sc-fit, 1)); }
+    .wordmap { padding: calc(14px * var(--sc-fit, 1)) 12px; margin-bottom: calc(14px * var(--sc-fit, 1)); }
+    .score-box { padding: calc(10px * var(--sc-fit, 1)) 6px; }
+    .score-num, .score-box-hero .score-num { font-size: max(20px, calc(27px * var(--sc-fit, 1))); }
+    .score-note { margin-bottom: 8px; }
+    .feedback, .suggestion, .grammar { padding: calc(10px * var(--sc-fit, 1)) 12px; }
+    .feedback { margin-bottom: calc(10px * var(--sc-fit, 1)); }
+    /* 단어별 발음 칩·안내도 fit 에 함께 묶는다(글자 내용은 그대로) — 짧은 PC 화면의 결과+단어지도 넘침(1366×768 실측 790px). */
+    .wordmap-title { margin-bottom: calc(10px * var(--sc-fit, 1)); }
+    .wm { padding: calc(7px * var(--sc-fit, 1)) calc(11px * var(--sc-fit, 1)); font-size: max(13px, calc(15px * var(--sc-fit, 1))); }
+    .wordmap-hint { margin-top: calc(9px * var(--sc-fit, 1)); }
+    body.m-showing-result .step-count { display: none; }
+  }
 </style>
 <script src="/js/game-track.js?v=4" defer></script>
 <!-- 🎤 Azure 발음평가 공용 서비스 계층(EN/CN 공유) — SDK 로드·토큰·VAD 트리밍·과금 집계 -->
-<script src="/js/speech-azure.js?v=1" defer></script>
+<script src="/js/speech-azure.js?v=2" defer></script>
+<script src="/js/phoneme-tips.js?v=2" defer></script><!-- 🔍 «어느 소리가 약했나» (2026-10-18) -->
 <!-- 👩‍🏫 공용 아바타 모듈. ⛔ /css/mango-avatar.css 는 «싣지 마세요» —
      이 화면은 아바타 크기·모양 CSS 를 이미 자기 <style> 안에 갖고 있고(150·260·118·92px),
      공용 CSS 가 뒤에 오면 같은 명시도에서 이겨 카드 크기가 136px 로 줄어듭니다. -->
-<script src="/js/mango-avatar.js?v=19" defer></script>
+<script src="/js/avatar-visemes.js?v=5" defer></script>
+<script src="/js/mango-avatar.js?v=41" defer></script>
+<script src="/js/speech-preferences.js?v=3"></script>
 <script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 </head>
 <body>
@@ -365,10 +455,10 @@
         data-ko-aria="AI 친구 고르기" data-en-aria="Choose your AI friend">&#9776;</button>
 <div id="sc-friend-menu" hidden role="menu" aria-label="AI 친구">
   <div class="scf-title">🎙️ <span data-ko="AI 친구 (목소리·얼굴)" data-en="AI friend (voice &amp; face)">AI 친구 (목소리·얼굴)</span></div>
-  <button type="button" role="menuitemradio" data-p="emma" onclick="scSetFriend('emma',true)">👩 Emma</button>
-  <button type="button" role="menuitemradio" data-p="lily" onclick="scSetFriend('lily',true)">👧 Lily</button>
-  <button type="button" role="menuitemradio" data-p="noah" onclick="scSetFriend('noah',true)">👦 Noah</button>
-  <button type="button" role="menuitemradio" data-p="jake" onclick="scSetFriend('jake',true)">🦸 Jake</button>
+  <button type="button" role="menuitemradio" data-p="emma" onclick="scSetFriend('emma',true)"><img class="scf-photo" src="/img/visemes/emma-v2-thumb.webp" alt="" width="64" height="64"><span>Emma</span></button>
+  <button type="button" role="menuitemradio" data-p="lily" onclick="scSetFriend('lily',true)"><img class="scf-photo" src="/img/friend-lily.webp" alt="" width="64" height="64"><span>Lily</span></button>
+  <button type="button" role="menuitemradio" data-p="noah" onclick="scSetFriend('noah',true)"><img class="scf-photo" src="/img/friend-noah.webp" alt="" width="64" height="64"><span>Noah</span></button>
+  <button type="button" role="menuitemradio" data-p="jake" onclick="scSetFriend('jake',true)"><img class="scf-photo" src="/img/friend-jake.webp" alt="" width="64" height="64"><span>Jake</span></button>
 </div>
 
 <!-- 🏠 홈 — 처음 화면으로. ← (back-nav.js, 직전 페이지)와 짝이다.
@@ -502,6 +592,14 @@
          ⚠️ 국기 이모지를 쓰지 말 것 — Win10 은 국기를 못 그려서 알파벳 두 글자로 나온다. -->
     <button onclick="toggleTargetMeaning()" id="mean-btn" class="play-btn" style="margin-top:14px;margin-left:8px">📖 <span data-ko="뜻 보기" data-en="Meaning">뜻 보기</span></button>
     <div class="ko-chip" id="mean-chip" style="display:none"></div>
+    <!-- 🐢🐇 듣기 속도 (2026-10-12 사장님) — 원어민 발음을 천천히/빠르게. 정본 표는 아래 SC_RATE_STEPS -->
+    <div class="sc-rate" id="sc-rate">
+      <span class="sc-rate-name"><span data-ko="🗣️ 듣기 속도" data-en="🗣️ Speed">🗣️ 듣기 속도</span></span>
+      <span class="sc-rate-side" aria-hidden="true">🐢</span>
+      <input id="sc-rate-slider" type="range" min="1" max="5" step="1" value="3" oninput="scSetRate(this.value)" aria-label="듣기 속도 / Listening speed" />
+      <span class="sc-rate-side" aria-hidden="true">🐇</span>
+      <span class="sc-rate-val" id="sc-rate-val">3 · 보통 (0.8배)</span>
+    </div>
     <div class="target-tip" data-ko="먼저 듣고, 똑같이 따라 말해보세요" data-en="Listen first, then repeat it the same way">먼저 듣고, 똑같이 따라 말해보세요</div>
   </div>
 
@@ -551,6 +649,8 @@
     <div class="suggestion" id="suggestion-text">-</div>
     <!-- 📝 문법 검사 — 직접 쓴 자유 문장일 때만 표시 (무료 LanguageTool). 2026-07-24 -->
     <div class="grammar" id="grammar-box" style="display:none"></div>
+    <!-- 버튼 두 줄을 묶는 상자 — PC 결과 화면에서만 한 줄로 편다(아래 CSS). 휴대폰은 예전 그대로 두 줄. -->
+    <div class="res-acts">
     <div style="text-align:center;margin-top:14px">
       <button onclick="resetUI()" class="play-btn" data-ko="🔄 다시 녹음" data-en="🔄 Try Again">🔄 다시 녹음</button>
       <button onclick="speakTarget()" class="play-btn" style="margin-left:8px" data-ko="🔊 모범 다시 듣기" data-en="🔊 Listen Again">🔊 모범 다시 듣기</button>
@@ -558,6 +658,7 @@
     </div>
     <div style="text-align:center;margin-top:10px">
       <button onclick="window.MangoFlow&&MangoFlow.open('speech')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:12px;padding:12px 24px;font-size:16px;font-weight:800;cursor:pointer" data-ko="🚀 다음 활동 고르기" data-en="🚀 Choose next activity">🚀 다음 활동 고르기</button>
+    </div>
     </div>
   </div>
 </div>
@@ -575,7 +676,7 @@ function setTarget(t) {
   try { closeTargetMeaning(); } catch(e){}
   window.isCustomTarget = false;         // 프리셋/커리큘럼 문장 = 문법이 이미 정답 → 문법검사 생략
   var idx = STEPS.indexOf(t);            // 프리셋/직접선택도 단계와 동기화
-  if (idx >= 0) { currentStep = idx; updateStepUI(); }
+  if (idx >= 0) { currentStep = idx; updateStepUI(); window.__scSayMode = false; }   // 단계 문장을 고르면 ?say= 모드 끝
   resetUI();
 }
 
@@ -741,6 +842,7 @@ function celebrate(msg){
   setTimeout(function(){ badge.style.opacity='0'; badge.style.transform='translate(-50%,-50%) scale(0.8)'; setTimeout(function(){ badge.remove(); }, 400); }, 2300);
 }
 function loadStep(i, speak){
+  window.__scSayMode = false;   // 단계로 돌아오면 ?say= 모드는 끝난다
   currentStep = ((i % STEPS.length) + STEPS.length) % STEPS.length;   // 순환(끝→처음)
   setTarget(STEPS[currentStep]);   // setTarget 내부에서 updateStepUI 동기화
   updateStepUI();
@@ -873,13 +975,29 @@ function markCourseCards(){
     });
   });
 }
+/* 📝 ?say= 딥링크 (2026-10-10) — «오늘의 A.i 학습» 의 «지난번에 틀린 문장» 카드가 고친 문장을 실어 보낸다.
+   ⚠️ 받은 문장이 있으면 코스 이어서 하기를 «건너뛴다» — selectCourse 가 나중에 단계 문장으로 덮어쓰기 때문.
+   ⛔ 영어(ASCII 인쇄가능)·160자 이하·글자 1개 이상만 받는다 — 아니면 예전처럼 코스로(지어내지 않음).
+   ⛔ 단계 저장(saveStep)은 안 한다 — 학생이 하던 코스 진도를 이 한 문장이 바꾸면 안 된다. */
+function scSayFromUrl(search){
+  var v = '';
+  try { v = String((new URLSearchParams(search)).get('say') || ''); } catch(e){ return ''; }
+  v = v.replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"').replace(/[\u2013\u2014]/g, '-').replace(/\u2026/g, '...');   // 활자 부호 → ASCII
+  v = v.replace(/\s+/g, ' ').trim();
+  if (!v || v.length > 160) return '';
+  if (!/^[\x20-\x7E]+$/.test(v)) return '';
+  if (!/[A-Za-z]/.test(v)) return '';
+  return v;
+}
 /* 이어서 하기 + ?course= 딥링크 (옛 pages.dev 링크의 course 값과 동일: phonics|bts|siu) */
 try {
+  var _qsSay = scSayFromUrl(location.search);
   var _qsCourse = (new URLSearchParams(location.search)).get('course');
   if (_qsCourse === 'siu-basic' || _qsCourse === 'siu-advance') _qsCourse = 'siu';
   var _savedPos = null;
   try { _savedPos = JSON.parse(localStorage.getItem('mangoi_speech_course_pos') || 'null'); } catch(e){}
-  if (_qsCourse && COURSES[_qsCourse]) selectCourse(_qsCourse);
+  if (_qsSay) { setTarget(_qsSay); window.__scSayMode = true; }
+  else if (_qsCourse && COURSES[_qsCourse]) selectCourse(_qsCourse);
   else if (_savedPos && COURSES[_savedPos.course]) selectCourse(_savedPos.course);
 } catch(e){}
 
@@ -899,7 +1017,7 @@ window.scPlayNativeOnce = function(){
       감시(avatar_image_frames_harness)가 세 화면을 대조한다. */
 const SC_PEOPLE = {
   emma: { speaker:'asteria', char:'emma', g:'female' },
-  jake: { speaker:'apollo',  char:'jake', g:'male'   },
+  jake: { speaker:'odysseus', char:'jake', g:'male'   },   // 2026-10-02 apollo → odysseus
   lily: { speaker:'thalia',  char:'lily', g:'female' },
   noah: { speaker:'aries',   char:'noah', g:'male'   },
 };
@@ -911,7 +1029,11 @@ function scSpeaker(){ return (SC_PEOPLE[scFriend] || SC_PEOPLE.emma).speaker; }
 function scGender(){ return (SC_PEOPLE[scFriend] || SC_PEOPLE.emma).g; }
 function scSyncFriendUI(){
   const box = document.getElementById('sc-friend-menu');
-  if (box) box.querySelectorAll('button[data-p]').forEach(b => b.classList.toggle('on', b.dataset.p === scFriend));
+  if (box) box.querySelectorAll('button[data-p]').forEach(b => {
+    const selected = b.dataset.p === scFriend;
+    b.classList.toggle('on', selected);
+    b.setAttribute('aria-checked', String(selected));
+  });
   try { window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter((SC_PEOPLE[scFriend]||SC_PEOPLE.emma).char); } catch(e){}
 }
 function scToggleFriends(e){
@@ -978,7 +1100,7 @@ function speakFallback(t, lang, _retried) {
     }
     u.voice = v;
     u.lang = pref === 'ko' ? 'ko-KR' : pref === 'zh' ? 'zh-CN' : 'en-US';
-    u.rate = SC_RATE_NORMAL;
+    u.rate = scLevelRate();   // 🐢🐇 고른 듣기 속도를 브라우저 음성에도
     // 👩‍🏫 아바타: 브라우저 음성은 분석 불가 → 단순 입 움직임(재생/정지)
     u.onstart = function(){ if (window.MangoAvatar) MangoAvatar.plainStart(); };
     u.onend   = function(){ if (window.MangoAvatar) MangoAvatar.plainStop(); };
@@ -1110,7 +1232,10 @@ function renderWordMap(words) {
   box.innerHTML =
     `<div class="wordmap-title">${en ? '🎯 Word-by-word pronunciation' : '🎯 단어별 발음'}</div>` +
     `<div class="wordmap-words">${chips}</div>` +
-    `<div class="wordmap-hint">${hint}<br>${en ? 'Tap a word to hear it.' : '단어를 누르면 원어민 발음을 들려줘요.'}</div>`;
+    `<div class="wordmap-hint">${hint}<br>${en ? 'Tap a word to hear it.' : '단어를 누르면 원어민 발음을 들려줘요.'}</div>` +
+    /* 🔍 (2026-10-18) «어느 소리가 약했나» 한 줄 — Azure 음소 점수에서 가장 약한 소리 하나와 혀·입 모양 팁.
+       표에 없는 소리·영어 아닌 단어·충분한 점수면 아무것도 안 그린다(js/phoneme-tips.js — 지어내지 않음). */
+    (window.MangoPhonemeTips ? (function(){ var l = MangoPhonemeTips.line(shown, en, esc); return l ? `<div class="wordmap-hint wordmap-phon">${l}</div>` : ''; })() : '');
   box.style.display = 'block';
   // 클릭은 상자 하나에만 건다(단어마다 걸면 다시 그릴 때마다 새는 자리가 생긴다)
   box.onclick = function (ev) {
@@ -1142,10 +1267,43 @@ function scTtsKey(t, lang) { return lang + '|' + (lang === 'en' ? scSpeaker() : 
    예전에는 서버 음성을 원음(1.0) 그대로, 브라우저 음성은 0.9 로 읽어 두 경로의 속도가 달랐다.
    ⚠️ 미리 만든 립싱크 영상(SAY_CLIPS)은 입모양과 짝이라 건드리지 않는다. */
 var SC_RATE_NORMAL = 0.8;
-function scApplyNormalRate(a) {
+/* 🎚️ 2026-10-02 사장님 «Jake·Noah 는 보통을 0.9배로» — 낮은 남자 목소리는 늘이면 갈라진다.
+   웜업(EN_MALE_MIN_RATE)·A.i 친구(MALE_MIN_RATE_AF)와 같은 값. 서버 영어 음성에만 건다(⛔ 중국어·한국어는 그대로). */
+var SC_MALE_MIN_RATE = 0.9;
+/* 🐢🐇 듣기 속도 다섯 칸 (2026-10-12 사장님 «발음연습도 말소리 속도 조절») —
+   ⛔ 웜업 RATE_STEPS · A.i 친구 RATE_STEPS_AF 와 «같은 다섯 값» 이어야 한다(화면마다 «보통» 이 달라지면 안 됨).
+   3 = 보통 = SC_RATE_NORMAL. 남자 영어 목소리는 웜업·A.i 친구처럼 0.9배보다 더 늘이지 않는다(갈라짐). */
+var SC_RATE_STEPS = { 1:0.5, 2:0.65, 3:0.8, 4:1.0, 5:1.25 };
+var SC_RATE_NAMES = { 1:'아주 느리게', 2:'느리게', 3:'보통', 4:'빠르게', 5:'아주 빠르게' };
+var SC_RATE_NAMES_EN = { 1:'Very slow', 2:'Slow', 3:'Normal', 4:'Fast', 5:'Very fast' };
+var scRateLevel = 3;
+function scLevelRate() { return (typeof SC_RATE_STEPS !== 'undefined' && SC_RATE_STEPS[scRateLevel]) || SC_RATE_NORMAL; }
+function scRateFor(lang) {
+  // ⚠️ 하니스가 이 함수만 오려 내 돌리므로 다른 함수를 부르지 않고 typeof 로 스스로 읽는다
+  var r = (typeof SC_RATE_STEPS !== 'undefined' && typeof scRateLevel !== 'undefined' && SC_RATE_STEPS[scRateLevel]) || SC_RATE_NORMAL;
+  return (lang === 'en' && scGender() === 'male' && r < SC_MALE_MIN_RATE) ? SC_MALE_MIN_RATE : r;
+}
+function scRenderRate() {
+  var v = document.getElementById('sc-rate-val'); if (!v) return;
+  var en = !!(window.getLang && window.getLang() === 'en');
+  v.textContent = scRateLevel + ' · ' + (en ? SC_RATE_NAMES_EN[scRateLevel] : SC_RATE_NAMES[scRateLevel]) + ' (' + String(SC_RATE_STEPS[scRateLevel]) + (en ? 'x)' : '배)');
+}
+var scRatePreference = null;
+function scSetRate(lv, persist) {
+  lv = parseInt(lv, 10); if (!(lv >= 1 && lv <= 5)) lv = 3;
+  scRateLevel = lv;
+  if (persist !== false && scRatePreference) { try { scRatePreference.set(lv); } catch (e) {} }
+  var s = document.getElementById('sc-rate-slider'); if (s && String(s.value) !== String(lv)) s.value = lv;
+  scRenderRate();
+  // 지금 읽는 중이면 그 자리에서 바로 바뀌게(다음 재생을 기다리지 않음)
+  try { if (ttsAudio && !ttsAudio.paused) scApplyNormalRate(ttsAudio, ttsAudio.__scLang || 'en'); } catch (e) {}
+}
+function scApplyNormalRate(a, lang) {
+  var r = scRateFor(lang);
+  try { a.__scLang = lang; } catch (e) {}
   try {
     a.preservesPitch = true; a.mozPreservesPitch = true; a.webkitPreservesPitch = true;   // 느려져도 목소리 높이는 그대로
-    a.defaultPlaybackRate = SC_RATE_NORMAL; a.playbackRate = SC_RATE_NORMAL;
+    a.defaultPlaybackRate = r; a.playbackRate = r;
   } catch (e) {}
 }
 async function scFetchTtsUrl(t, lang, tryNo) {
@@ -1189,7 +1347,7 @@ async function speakWord(w) {
     if (mine !== scTtsSeq) return;   // 그 사이 다음 문장이 시작됐다 — 물러난다
     if (!ttsAudio) { ttsAudio = new Audio(); ttsAudio.preload = 'auto'; if (window.MangoAvatar) MangoAvatar.attach(ttsAudio); }
     ttsAudio.src = url;
-    scApplyNormalRate(ttsAudio);   // src 를 바꾸면 배속이 1로 돌아가므로 매번 다시 건다
+    scApplyNormalRate(ttsAudio, lang);   // src 를 바꾸면 배속이 1로 돌아가므로 매번 다시 건다
     await ttsAudio.play();
   } catch (e) { if (mine === scTtsSeq) speakFallback(t, lang); }   // 두 번 다 안 되면 브라우저 음성으로
 }
@@ -1201,7 +1359,8 @@ async function speakTarget() {
   // 👩‍🏫 커리큘럼 문장이면 미리 만든 립싱크 클립을 재생(정확한 입모양+음성). 실패 시 아래 TTS 로 폴백.
   // ⚠️ SAY_CLIPS 는 Emma 얼굴·목소리로 미리 만든 립싱크 영상이다 — 다른 친구를 골랐는데 틀면
   //    «Jake 를 골랐는데 Emma 가 말한다» 가 된다(에러는 안 난다). Emma 일 때만 쓴다.
-  if (lang === 'en' && scFriend === 'emma' && window.MangoAvatar && MangoAvatar.playClip && SAY_CLIPS.hasOwnProperty(t)) {
+  // 🐢🐇 립싱크 클립은 «보통» 속도로 미리 만든 영상이라 속도를 못 바꾼다 — 다른 속도를 골랐으면 TTS 로 읽는다.
+  if (lang === 'en' && scRateLevel === 3 && scFriend === 'emma' && window.MangoAvatar && MangoAvatar.playClip && SAY_CLIPS.hasOwnProperty(t)) {
     try { await MangoAvatar.playClip(SAY_CLIPS[t]); return; }
     catch (e) { /* 클립 미배포/로드실패 → 기존 TTS 경로로 진행 */ }
   }
@@ -1216,10 +1375,23 @@ async function speakTarget() {
     // 👩‍🏫 아바타 립싱크: 매번 새 Audio 대신 영속 요소 재사용(MediaElementSource는 요소당 1회)
     if (!ttsAudio) { ttsAudio = new Audio(); ttsAudio.preload = 'auto'; if (window.MangoAvatar) MangoAvatar.attach(ttsAudio); }
     ttsAudio.src = url;
-    scApplyNormalRate(ttsAudio);   // src 를 바꾸면 배속이 1로 돌아가므로 매번 다시 건다
+    scApplyNormalRate(ttsAudio, lang);   // src 를 바꾸면 배속이 1로 돌아가므로 매번 다시 건다
     await ttsAudio.play();
   } catch (e) { if (mine === scTtsSeq) speakFallback(t, lang); } // 두 번 다 안 되면 브라우저 TTS 폴백
 }
+
+/* 🐢🐇 듣기 속도 시작 — 계정별 저장값을 불러온다(웜업 'warmup' · A.i 친구 'friend' 와 같은 통로, 이 화면은 'coach').
+   ⚠️ 이 줄들은 «실행» 되는 코드라 renderWordMap~speakWord 사이(하니스가 오려 내 돌리는 구간)에 두지 않는다. */
+try {
+  if (window.MangoiSpeechPreferences) {
+    scRatePreference = MangoiSpeechPreferences.create('coach', 3, function (lv) { scSetRate(lv, false); });
+    scRateLevel = scRatePreference.level;
+  }
+} catch (e) { scRatePreference = null; }
+function scRateInit() { scSetRate(scRateLevel, false); }
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scRateInit); else scRateInit();
+window.addEventListener('mangoi:lang-changed', scRenderRate);
+document.addEventListener('mangoi:lang-changed', scRenderRate);
 
 function resetUI() {
   document.getElementById('result').style.display = 'none';
@@ -1473,7 +1645,8 @@ async function processAudio(blob) {
     })();
     document.getElementById('result').style.display = 'block';
     document.body.classList.add('m-showing-result');   // 📱 녹음 버튼 자리에서 결과로 교체(모바일, 스크롤 없이)
-    try { markStepDone(currentStep); } catch(e){}   // 채점 완료 → 이 단계 완료 체크
+    // ⛔ ?say= 로 연 문장은 단계 문장이 아니다 — 말하지 않은 단계를 «완료» 로 찍으면 진도·포인트가 틀어진다
+    try { if (!window.__scSayMode) markStepDone(currentStep); } catch(e){}   // 채점 완료 → 이 단계 완료 체크
     document.getElementById('rec-status').textContent = '✅ 완료! 다시 녹음하려면 마이크 누르세요';
 
     // 📝 문법 검사 — 직접 쓴 자유 문장(영어)일 때만. 커리큘럼/프리셋 문장은 이미 정답이라 생략.
@@ -1675,7 +1848,28 @@ if (typeof window.speechSynthesis !== 'undefined') {
 })();
 </script>
 <script defer src="/js/mg-sidebar.js"></script>
-<script defer src="/js/flow.js?v=22"></script>
+<script defer src="/js/flow.js?v=23"></script>
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
+<script>
+/* 📏 PC 한 화면 맞춤 (2026-10-16) — 넘칠 때만 --sc-fit 을 1 → 0.4 로 조금씩 낮춘다.
+   ResizeObserver 로 «내용 칸» 크기가 바뀔 때만 다시 잰다(⛔ 상주 타이머·body class 감시 금지 —
+   홈을 멈춘 전력). 측정은 한 번의 콜백 안에서 동기로 끝나므로 화면이 깜빡이지 않는다.
+   0.6 에서도 넘치면 그때는 스크롤을 허용한다(글자를 더 줄이지 않는다). */
+(function(){
+  if (!window.ResizeObserver || !window.matchMedia) return;
+  var mq = matchMedia('(min-width: 1024px)'), de = document.documentElement, busy = false;
+  function fit(){
+    if (busy) return; busy = true;
+    try {
+      if (!mq.matches) { de.style.removeProperty('--sc-fit'); return; }
+      var f = 1; de.style.setProperty('--sc-fit', '1');
+      while (f > 0.4 && de.scrollHeight > innerHeight + 1) { f = Math.round((f - 0.04) * 100) / 100; de.style.setProperty('--sc-fit', String(f)); }
+    } finally { busy = false; }
+  }
+  var ro = new ResizeObserver(fit), wrap = document.querySelector('.wrap');
+  if (wrap) for (var i = 0; i < wrap.children.length; i++) ro.observe(wrap.children[i]);
+  addEventListener('resize', fit); fit();
+})();
+</script>
 </body>
 </html>

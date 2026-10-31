@@ -45,6 +45,8 @@ export type SchedRowLike = {
   user_id?: any;
   schedule_kind?: any;
   scheduled_date?: any;
+  /** 원부 번호(teachers.id) — 옛 행은 로그인 계정명이 들어 있기도 하다. */
+  teacher_id?: any;
 };
 
 export type SchedSummary = {
@@ -58,11 +60,44 @@ export type SchedSummary = {
   total: number;
   label_ko: string;
   label_en: string;
+  /** 👩‍🏫 (2026-10-07 매니저 요청) 지금 담당 강사 이름 — 매주 반복 + 앞으로 남은 일회성만(지난 수업 제외).
+   *  중복 제거, 처음 나온 순서. 이름을 «못 찾은» 번호는 넣지 않는다(지어내지 않음). */
+  teachers: string[];
 };
 
 export const EMPTY_SCHED_SUMMARY: SchedSummary = {
-  weekly: 0, upcoming: 0, past: 0, total: 0, label_ko: '—', label_en: '—',
+  weekly: 0, upcoming: 0, past: 0, total: 0, label_ko: '—', label_en: '—', teachers: [],
 };
+
+/** 강사 번호 → 이름. 정본 경로 둘뿐이다:
+ *   ① class_schedules.teacher_id = teachers.id (원부 번호)
+ *   ② 옛 행은 그 칸에 «로그인 계정명» 이 들어 있다 → teacher_account_links(username) → teachers.id
+ *  ⛔ 카페24 강사번호(9~196)와 섞지 않는다 — 겹치는 자리에서 남의 이름이 된다(CLAUDE.md 2장).
+ *  ⚠️ 실패하면 «아무것도 모름» 함수(빈 문자열)를 돌려준다 — 명부는 그대로 떠야 한다. */
+export async function loadTeacherNameOf(env: any): Promise<(tid: any) => string> {
+  const byId = new Map<string, string>();
+  const byAcct = new Map<string, string>();
+  try {
+    const rs = await env.DB.prepare(`SELECT id, name FROM teachers`).all();
+    for (const r of (rs?.results || [])) {
+      const nm = String(r?.name || '').trim();
+      if (nm) byId.set(String(r.id), nm);
+    }
+  } catch (e: any) { console.warn('[sched-summary] teachers:', e?.message || e); }
+  try {
+    const rs = await env.DB.prepare(`SELECT username, teacher_id FROM teacher_account_links`).all();
+    for (const r of (rs?.results || [])) {
+      const nm = byId.get(String(r?.teacher_id ?? ''));
+      const u = String(r?.username || '').trim().toLowerCase();
+      if (nm && u) byAcct.set(u, nm);
+    }
+  } catch { /* 표가 없을 수 있다 — ①만으로 간다 */ }
+  return (tid: any) => {
+    const k = String(tid ?? '').trim();
+    if (!k) return '';
+    return byId.get(k) || byAcct.get(k.toLowerCase()) || '';
+  };
+}
 
 /** KST 기준 오늘 (YYYY-MM-DD).
  *  ⚠️ UTC 로 재면 하루가 밀린다 — 저장된 scheduled_date 는 KST 날짜다. */
@@ -74,8 +109,15 @@ export function kstToday(nowMs: number = Date.now()): string {
 export function summarizeStudentSchedules(
   rows: SchedRowLike[] | null | undefined,
   todayYmd: string,
+  nameOf?: (tid: any) => string,
 ): SchedSummary {
   let weekly = 0, upcoming = 0, past = 0;
+  const teachers: string[] = [];
+  const addT = (r: SchedRowLike) => {
+    if (!nameOf) return;
+    const nm = nameOf(r?.teacher_id);
+    if (nm && teachers.indexOf(nm) < 0) teachers.push(nm);
+  };
   for (const r of rows || []) {
     /* ⚠️ 빈 값은 «반복» 으로 봅니다 — 표 DEFAULT 가 'recurring' 이고 읽는 쪽도
        `schedule_kind || 'recurring'`(api-mango.ts 두 곳)이라 저장소 관례가 그쪽입니다.
@@ -83,14 +125,14 @@ export function summarizeStudentSchedules(
           찍힙니다. 지금 INSERT 8곳은 전부 값을 명시하므로 실피해는 0이고 방향만 맞춥니다.
        ℹ️ 'dated'(수강신청 확정 회차행)는 날짜가 있으니 그대로 단건으로 셉니다. */
     const kind = String(r?.schedule_kind || 'recurring').toLowerCase();
-    if (kind === 'recurring') { weekly++; continue; }
+    if (kind === 'recurring') { weekly++; addT(r); continue; }
     // 일회성 — 날짜가 없으면 «언제인지 모름» 이므로 지난 것으로 세지 않는다.
     const d = String(r?.scheduled_date || '').slice(0, 10);
-    if (!d) { upcoming++; continue; }
-    if (d >= todayYmd) upcoming++; else past++;
+    if (!d) { upcoming++; addT(r); continue; }
+    if (d >= todayYmd) { upcoming++; addT(r); } else past++;
   }
   const total = weekly + upcoming + past;
-  return { weekly, upcoming, past, total, ...schedSummaryLabels(weekly, upcoming) };
+  return { weekly, upcoming, past, total, ...schedSummaryLabels(weekly, upcoming), teachers };
 }
 
 /** 라벨 — 두 화면이 같은 말을 하도록 여기서만 만든다. */
@@ -112,7 +154,7 @@ export async function loadSchedSummaryMap(env: any, nowMs: number = Date.now()):
   try {
     const today = kstToday(nowMs);
     const rs = await env.DB.prepare(
-      `SELECT user_id, schedule_kind, scheduled_date FROM class_schedules WHERE ${SCHED_SUMMARY_WHERE}`
+      `SELECT user_id, schedule_kind, scheduled_date, teacher_id FROM class_schedules WHERE ${SCHED_SUMMARY_WHERE}`
     ).all();
     const byUid = new Map<string, SchedRowLike[]>();
     for (const r of (rs?.results || [])) {
@@ -121,7 +163,8 @@ export async function loadSchedSummaryMap(env: any, nowMs: number = Date.now()):
       const arr = byUid.get(uid);
       if (arr) arr.push(r); else byUid.set(uid, [r]);
     }
-    for (const [uid, arr] of byUid) out.set(uid, summarizeStudentSchedules(arr, today));
+    const nameOf = await loadTeacherNameOf(env);
+    for (const [uid, arr] of byUid) out.set(uid, summarizeStudentSchedules(arr, today, nameOf));
   } catch (e: any) {
     console.warn('[sched-summary] map failed:', e?.message || e);
   }
@@ -132,10 +175,10 @@ export async function loadSchedSummaryMap(env: any, nowMs: number = Date.now()):
 export async function loadSchedSummaryOne(env: any, uid: string, nowMs: number = Date.now()): Promise<SchedSummary> {
   try {
     const rs = await env.DB.prepare(
-      `SELECT user_id, schedule_kind, scheduled_date FROM class_schedules
+      `SELECT user_id, schedule_kind, scheduled_date, teacher_id FROM class_schedules
        WHERE user_id = ? AND ${SCHED_SUMMARY_WHERE}`
     ).bind(uid).all();
-    return summarizeStudentSchedules(rs?.results || [], kstToday(nowMs));
+    return summarizeStudentSchedules(rs?.results || [], kstToday(nowMs), await loadTeacherNameOf(env));
   } catch (e: any) {
     console.warn('[sched-summary] one failed:', e?.message || e);
     return { ...EMPTY_SCHED_SUMMARY };

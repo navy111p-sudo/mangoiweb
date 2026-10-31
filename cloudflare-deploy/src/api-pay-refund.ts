@@ -60,6 +60,8 @@ import { sendPlainSms } from './solapi-client';
 import { kstToday, enrollRefundCalc, ENROLL_BASE_WEEKLY1 } from './enroll-ops';
 // 수업 길이 → 요금 배수는 class-policy 가 정본이다 (enroll-ops 도 여기서 가져다 쓴다 — 복사 금지)
 import { classLengthMultiplier } from './class-policy';
+import { AI_PASS_PLAN, AI_PASS_PKG_NAME, currentAiPassEnd, aiPassNextBilling } from './ai-pass';   // 🤖 A.i 이용권 환불 → 자동결제 청구일 재조정
+import { parseB2bOrder, revertB2bOnCancel } from './b2b-pay-guard';   // 🏢 대리점 청구서 취소 되돌리기 (2026-10-22)
 
 const TOSS_CANCEL_URL = (paymentKey: string) =>
   `https://api.tosspayments.com/v1/payments/${encodeURIComponent(paymentKey)}/cancel`;
@@ -441,7 +443,7 @@ export async function handleRefundApi(request: Request, url: URL, env: any): Pro
       `UPDATE payment_refunds SET status = 'done', pg_status = ?, pg_raw = ?, done_at = ? WHERE id = ?`
     ).bind(pgStatus || null, JSON.stringify(out).slice(0, 4000), Date.now(), refundId).run();
 
-    const done = await finishRefund(env, { orderId, refundId, amount, isFull, cancelClasses, preview: p, now: Date.now() });
+    const done = await finishRefund(env, { orderId, refundId, amount, isFull, cancelClasses, preview: p, now: Date.now(), pgOut: out });
     await notifyOwnerRefund(env, { orderId, amount, isFull, reason, who: g.username, student: p.student_name });
 
     return json({
@@ -467,6 +469,7 @@ export async function handleRefundApi(request: Request, url: URL, env: any): Pro
 async function finishRefund(env: any, a: {
   orderId: string; refundId: number; amount: number; isFull: boolean;
   cancelClasses: boolean; preview: RefundPreview; now: number;
+  pgOut?: any;   // 토스 취소 응답(취소 건마다 transactionKey) — 대리점 청구서 되돌리기가 쓴다. 장부 기록 모드는 없음
 }): Promise<{ cancelled_classes: number; warnings: string[] }> {
   const warnings: string[] = [];
   const totalRefunded = a.preview.already_refunded + a.amount;
@@ -499,6 +502,20 @@ async function finishRefund(env: any, a: {
     }
   }
 
+  /* 🏢 (2026-10-22) 대리점 청구서(MGB-·MGT-) — 아래 «주문번호가 든 수강 기록 전부 refunded» 를 그대로 쓰면
+     일부 환불에도 그 학원 학생 «전원» 의 이용권이 꺼지고, 청구서는 «결제됨» 그대로 남았다.
+     정본(revertB2bOnCancel)으로 보낸다 — 토스 취소 건마다 한 번만(웹훅이 뒤에 또 알려도 안 겹친다). */
+  if (parseB2bOrder(a.orderId)) {
+    if (a.pgOut) {
+      const rv = await revertB2bOnCancel(env, a.orderId, a.pgOut, 'app_refund', a.now);
+      warnings.push(...rv.warnings);
+      if (rv.applied.length) warnings.push('대리점 청구서 반영: ' + rv.applied.join(' · '));
+    } else {
+      warnings.push('대리점 청구서 결제는 «장부에만 기록» 으로 청구서를 되돌리지 않습니다 — 토스 취소 통지가 오면 자동으로 되돌아가고, 안 오면 본사가 청구서를 정리해 주세요.');
+    }
+    return { cancelled_classes: cancelled, warnings };
+  }
+
   try {
     await env.DB.prepare(
       `UPDATE enrollments SET status = 'refunded', updated_at = ? WHERE notes LIKE ?`
@@ -507,6 +524,22 @@ async function finishRefund(env: any, a: {
     // enrollments 표가 없거나 이 주문과 연결된 행이 없는 경우가 정상적으로 있다.
     // 그래도 «조용히» 넘기지는 않는다 — 수강이 살아 있는 채로 남으면 나중에 헷갈린다.
     console.warn('[refund] enrollments 갱신 건너뜀:', (e as any)?.message);
+  }
+
+  /* 🤖 (2026-09-29) A.i 이용권 주문을 환불했으면 그 학생의 A.i 자동결제 청구일을 «남은 이용권» 기준으로 다시 맞춘다.
+     남은 이용권이 없으면 자동결제를 멈춘다(next_billing_at=NULL) — 환불한 뒤 옛 청구일에 또 긁지 않게.
+     ⛔ 해지(cancelled)까지 하지는 않는다 — 카드 등록은 그대로 두고, 다시 켜는 것은 사람이 정한다. */
+  try {
+    const po: any = await env.DB.prepare(`SELECT program, uid FROM payment_orders WHERE order_id = ?`).bind(a.orderId).first();
+    if (po && String(po.program) === AI_PASS_PLAN && po.uid) {
+      const endAt = await currentAiPassEnd(env, String(po.uid), AI_PASS_PKG_NAME);
+      const r: any = await env.DB.prepare(
+        `UPDATE subscriptions SET next_billing_at = ?, updated_at = ? WHERE user_id = ? AND plan = ? AND status = 'active'`
+      ).bind(endAt && endAt > a.now ? aiPassNextBilling(endAt, a.now) : null, a.now, String(po.uid), AI_PASS_PLAN).run();
+      if (Number(r?.meta?.changes || 0) && !(endAt && endAt > a.now)) warnings.push('남은 A.i 이용권이 없어 A.i 자동결제를 멈췄습니다(카드 등록은 그대로).');
+    }
+  } catch (e) {
+    warnings.push('A.i 자동결제 청구일을 다시 맞추지 못했습니다: ' + String((e as any)?.message || e));
   }
 
   try {

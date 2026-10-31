@@ -6,7 +6,7 @@
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>💰 환불규정 — Mangoi</title>
+  <title>💰 환불규정 — mangoi.ai</title>
   <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0a1530" />
   <meta name="description" content="망고아이(Mangoi) 수강료 환불규정 안내 — 환불 기준표, 할인가 정산, 연기/결석, 레벨테스트·체험수업 규정" data-ko-content="망고아이(Mangoi) 수강료 환불규정 안내 — 환불 기준표, 할인가 정산, 연기/결석, 레벨테스트·체험수업 규정" data-en-content="Mangoi tuition refund policy — refund tiers, discounted-price settlement, postpone/absence, level test & trial lesson terms" />
@@ -92,6 +92,12 @@
       .intro { padding:15px 16px; }
       table.refund th, table.refund td { padding:11px 9px; font-size:12.5px; }
     }
+    /* PC 화면: 본문 760px·13px 이 1920 모니터에서 너무 작아(2026-10-09 사장님) 통째로 확대.
+       zoom 은 폭(max-width)까지 함께 키워 줄바꿈 비율이 그대로 유지됨. 오른쪽 안내 영상(190px)과
+       안 겹치게 화면 폭별로 단계를 둠. 폰(<1024px)은 그대로. */
+    @media (min-width:1024px) { .wrap, .top { zoom:1.1; } }
+    @media (min-width:1440px) { .wrap, .top { zoom:1.22; } }
+    @media (min-width:1700px) { .wrap, .top { zoom:1.35; } }
   </style>
 </head>
 <body>

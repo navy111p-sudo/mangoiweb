@@ -145,6 +145,24 @@ header {
 }
 .back-btn:active { transform: scale(0.92); background: var(--border); }
 .back-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+/* 🧭 위쪽 «뒤로 · 홈» (2026-10-06 사장님 지시) — 화면 셋 모두 같은 자리.
+   ⛔ 아이콘만 두지 않는다(폰에는 hover·title 이 없다) — 글자를 함께 그린다.
+   ⛔ «‹» 로 시작해야 back-nav.js 가 자기 떠 있는 ← 를 또 넣지 않는다(hasVisibleBack). */
+.nav-btn {
+  flex: 0 0 auto;
+  height: 36px; padding: 0 11px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 15px; font-weight: 800; line-height: 1.2; white-space: nowrap;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.nav-btn:active { background: var(--border); }
+.nav-btn:focus-visible { outline: 3px solid #0ea5e9; outline-offset: 2px; }
+header .header-title { padding: 0 8px; min-width: 0; }
 .header-title {
   flex: 1; text-align: center;
   font-weight: 800; font-size: 18.9px;
@@ -250,6 +268,15 @@ header {
   z-index: 1;
 }
 .segment[data-tab="teacher"] .seg-slider { transform: translateX(100%); }
+/* ⏩📅👨‍🏫 (2026-10-05 사장님 A안) 실제 수업 «연기» 는 탭 3개 — 매주 한 주씩 · 날짜로 · 교사로 */
+.segment .seg[data-tab="weekly"] { display: none; }
+.segment.seg3 .seg[data-tab="weekly"] { display: block; }
+.segment.seg3 .seg-slider { width: calc(33.333% - 2.67px); }
+.segment.seg3[data-tab="weekly"] .seg-slider { transform: translateX(0); }
+.segment.seg3[data-tab="time"] .seg-slider { transform: translateX(100%); }
+.segment.seg3[data-tab="teacher"] .seg-slider { transform: translateX(200%); }
+/* 탭 3개는 한 줄로 — 390px 폰에서 두 줄로 쪼개졌다(실측). .seg{font-size:17px!important} 를 이기려면 !important. */
+.segment.seg3 .seg { font-size: 14.5px !important; white-space: nowrap; padding-left: 2px; padding-right: 2px; letter-spacing: -0.6px; }
 .segment .seg {
   flex: 1;
   padding: 11px 6px;
@@ -412,6 +439,10 @@ header {
   box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
 }
 .hour-chip.booked:active { transform: none; }
+/* 📅 실제 시간표(2026-09-30): 초록 테두리 = 지금 선생님과 그대로 되는 칸 */
+.hour-chip.tf:not(.active):not(.disabled) { border-color: #16a34a; box-shadow: inset 0 0 0 1px #16a34a; }
+.dt-orig { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+.dt-orig .hour-chip { text-align:left; padding:10px 12px; }
 
 /* 📋 교사 스케줄 색상 범례 (흰색=가능 / 녹색=수업중) */
 .sch-legend {
@@ -517,6 +548,10 @@ header {
   display: block;
 }
 .teacher-card .t-info { flex: 1; min-width: 0; }
+/* 🔤 (2026-10-05 사장님) 사진이 없거나 안 열리면 이모지 대신 이름 첫 글자 동그라미.
+   ⛔ AI 로 얼굴을 지어내지 않는다 — 실제 선생님이 아닌 얼굴이 된다. 색은 이름마다 고정, 흰 글자 대비 4.5 이상. */
+.t-ini { width: 100%; height: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 800; font-size: 22px; line-height: 1; letter-spacing: 0; }
 .teacher-card .t-name {
   font-size: 17.7px; font-weight: 800; color: var(--text);
   display: flex; align-items: center; gap: 6px;
@@ -879,6 +914,14 @@ header {
 #screen-done .done-sub{font-size:14.8px;color:var(--text-mute);margin-bottom:20px;line-height:1.6}
 #screen-done .done-list{list-style:none;width:100%;max-width:360px;margin:0 0 24px;padding:0}
 #screen-done .done-list li{background:var(--bg-card);border:1px solid var(--border);border-left:4px solid var(--green);border-radius:10px;padding:11px 14px;margin-bottom:8px;font-size:15.3px;color:var(--text);text-align:left}
+#screen-done .done-list li.mv-li{line-height:1.55}
+#screen-done .mv-from{color:#667085;text-decoration:line-through}
+#screen-done .mv-arrow{color:#667085;font-weight:800}
+#screen-done .mv-to{color:#101828;font-weight:800}
+#screen-done .mv-tag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:99px;font-size:12px;font-weight:800;border:1px solid}
+#screen-done .mv-tag.ok{background:#dcfce7;color:#166534;border-color:#86efac}
+#screen-done .mv-tag.wait{background:#fef3c7;color:#92400e;border-color:#fcd34d}
+#screen-done .mv-tag.bad{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
 #screen-done .done-actions{display:flex;gap:10px;width:100%;max-width:360px}
 #screen-done .done-btn{flex:1;padding:14px 10px;border:0;border-radius:14px;background:var(--green);color:#04210f;font-weight:900;font-size:17.1px;cursor:pointer;transition:transform .12s}
 #screen-done .done-btn:active{transform:scale(0.97)}
@@ -1021,6 +1064,31 @@ header {
 .consult-fab .cf-ico{font-size:23px;line-height:1}
 .consult-fab .cf-txt{font-size:10px;font-weight:900;color:#3C1E1E;line-height:1}
 .consult-fab.gv-hidden{display:none}
+
+/* Readable light layout, shared PC/mobile controls. */
+:root[data-theme]{--text:#16332e;--text-dim:#526761;--text-mute:#526761;--border:#d8e5df;--bg-card:#fff;--bg-soft:#edf4ef;--bg:#f4f8f5;--indigo:#176a53;--indigo-deep:#176a53;--green:#14815c;--amber:#986000;--shadow-card:0 4px 16px #153d2410}
+body,#app,.screen{background:#f4f8f5!important;color:#16332e}
+header{background:#fff!important;border-bottom:1px solid #d8e5df}
+.main-card,.cur-lesson,.cart-box,.teacher-result,.tr-card{background:#fff!important;color:#16332e!important;border:1px solid #cbded3!important;box-shadow:0 4px 16px #153d2410!important}
+.main-card .mc-desc,.main-intro .sub{color:#526761!important;font-size:18px;line-height:1.65}
+.main-card .mc-label{color:#16332e!important;font-size:26px;text-shadow:none}
+.main-card .mc-cta{color:#176a53;font-size:18px;align-self:flex-start}
+.main-card{text-align:left;backdrop-filter:none;-webkit-backdrop-filter:none}
+.main-card.postpone{border-top:5px solid #14815c!important}
+.main-card.change{border-top:5px solid #3978cf!important}
+.section-label,.header-title{color:#16332e!important;font-size:21px}
+.hour-chip,.date-chip,.seg,.push-btn{font-size:17px!important;min-height:48px;background:#fff;color:#16332e;border-color:#aabfb3}
+.hour-chip.active,.date-chip.active{background:#d6f3e5!important;color:#125b3f!important;border:2px solid #14815c!important}
+.dt-orig{display:grid;grid-template-columns:1fr;max-height:360px;overflow:auto;gap:10px;padding:4px}
+.lp-col-left p,.lp-col-right p,.cart-box li{font-size:18px;line-height:1.7}
+.cart-box ol{max-height:360px;overflow:auto;padding-left:28px}
+#sticky-bar{background:#fff!important;color:#16332e;border-top:1px solid #cbded3}
+#confirm-btn{min-height:52px;font-size:18px}
+#detail-body{padding-bottom:130px}
+button:focus-visible{outline:3px solid #236ccd;outline-offset:3px}
+@media(min-width:1024px){.main-stage{display:grid;grid-template-columns:1fr 1fr;align-content:start;gap:24px;padding:40px}.main-intro{grid-column:1/-1;margin-bottom:16px}.main-card{height:330px}#app{max-width:1360px}.detail-body{gap:30px!important}.lp-col-left{padding:24px}.lp-col-right{padding:24px}.main-card{min-height:240px}.dt-orig{max-height:420px}}
+@media(max-width:600px){.lp-col-left,.lp-col-right{width:100%!important;padding:12px}.dt-orig{max-height:240px}.main-card .mc-label{font-size:23px}.main-card .mc-desc{font-size:17px}.cart-box ol{max-height:260px}}
+
 </style>
 </head>
 <body>
@@ -1029,8 +1097,9 @@ header {
   <!-- ━━━━━━━━━━ Step 1: 대메뉴 ━━━━━━━━━━ -->
   <section id="screen-main" class="screen active">
     <header>
-      <button class="back-btn" onclick="location.href='/'" title="홈으로" aria-label="홈으로">🏠</button>
+      <button type="button" class="nav-btn nav-back" id="nav-back-main" aria-label="뒤로"><span class="nav-t-back">‹ 뒤로</span></button>
       <div class="header-title">📅 수업 일정</div>
+      <button type="button" class="nav-btn nav-home" aria-label="홈으로"><span class="nav-t-home">🏠 홈</span></button>
     </header>
     <div class="main-stage">
       <div class="main-intro">
@@ -1043,7 +1112,7 @@ header {
           <div class="mc-icon">⏰</div>
           <div class="mc-label">수업 연기하기</div>
         </div>
-        <div class="mc-desc">이번 주 수업을 다음 주로 미루기.<br>수업 횟수는 그대로 보존됩니다.<br><span style="color:#fbbf24">시작 30분 전까지 무료 · 이후 유료</span></div>
+        <div class="mc-desc">이번 주 수업을 다음 주로 미루기.<br>수업 횟수는 그대로 보존됩니다.<br><span style="color:#986000">시작 30분 전까지 무료 · 이후 유료</span></div>
         <div class="mc-cta">시작하기 →</div>
       </button>
 
@@ -1052,7 +1121,7 @@ header {
           <div class="mc-icon">🔄</div>
           <div class="mc-label">수업 변경하기</div>
         </div>
-        <div class="mc-desc">원하는 다른 날짜·교사로<br>즉시 예약을 교체합니다.</div>
+        <div class="mc-desc">원하는 다른 날짜·교사로<br>변경을 신청합니다. 신청하면 바로 반영됩니다.</div>
         <div class="mc-cta">시작하기 →</div>
       </button>
     </div>
@@ -1061,12 +1130,14 @@ header {
   <!-- ━━━━━━━━━━ Step 2/3: 상세 ━━━━━━━━━━ -->
   <section id="screen-detail" class="screen">
     <header>
-      <button class="back-btn" id="btn-back">‹</button>
+      <button type="button" class="nav-btn nav-back" id="btn-back" aria-label="뒤로"><span class="nav-t-back">‹ 뒤로</span></button>
       <div class="header-title" id="detail-title">—</div>
+      <button type="button" class="nav-btn nav-home" aria-label="홈으로"><span class="nav-t-home">🏠 홈</span></button>
     </header>
 
     <div class="segment" id="segment" data-tab="time">
       <div class="seg-slider"></div>
+      <button class="seg"        data-tab="weekly"  id="seg-weekly"><span id="seg-weekly-label">⏩ 매주 한 주씩</span></button>
       <button class="seg active" data-tab="time"    id="seg-time"><span id="seg-time-label">🕐 시간으로</span></button>
       <button class="seg"        data-tab="teacher" id="seg-teacher"><span id="seg-teacher-label">👨‍🏫 교사로</span></button>
     </div>
@@ -1077,8 +1148,9 @@ header {
   <!-- ━━━━━━━━━━ Step 4: 완료 ━━━━━━━━━━ -->
   <section id="screen-done" class="screen">
     <header>
-      <button class="back-btn" disabled>‹</button>
+      <button type="button" class="nav-btn nav-back" id="nav-back-done" aria-label="뒤로"><span class="nav-t-back">‹ 뒤로</span></button>
       <div class="header-title">완료</div>
+      <button type="button" class="nav-btn nav-home" aria-label="홈으로"><span class="nav-t-home">🏠 홈</span></button>
     </header>
     <div class="done-wrap">
       <div class="done-ico">✅</div>
@@ -1203,40 +1275,57 @@ function __buildCurrentSchedule(){
 }
 let CURRENT_SCHEDULE = __buildCurrentSchedule();
 
-/* 🆕 (2026-07-14) 실제 로그인 학생의 진짜 수업으로 CURRENT_SCHEDULE 교체 (있을 때만).
-   → 실 수업이 로드되면 __MOB_REAL=true 로 표시하고, 확정 시 서버에 연기/변경을 실제 기록한다.
-   → 실 수업이 없으면(비로그인/데모) 데모 스케줄 유지 + 서버 저장 안 함(잡음 방지). */
+/* 🆕 (2026-07-14) 실제 로그인 학생의 진짜 수업으로 CURRENT_SCHEDULE 교체.
+   🔧 (2026-09-30 사장님 제보 — jeong 화면에 «없는 Karl 수업 2건») 원인 둘을 고쳤다.
+     ① 예전엔 /api/admin/class-schedules 를 불렀는데 그건 관리자 전용이라 학생은 늘 401 이었다
+        → 학생 홈 「내 수업」과 같은 학생용 API /api/class/schedule/mine 을 쓴다(다음 회차·강사 이름까지 준다).
+     ② 실패하면 예시(데모) 수업을 «📌 현재 수업» 이라고 말없이 그렸다 → 이제 상태를 갈라 말한다.
+        · 'real'  = 진짜 수업   · 'empty' = 로그인했는데 예약이 없음
+        · 'error' = 로그인했는데 못 불러옴   · 'demo' = 로그인 안 함(예시라고 밝힌다)
+   ⛔ 로그인한 학생에게 예시 수업을 «내 수업» 처럼 보여 주지 말 것 — 그것이 이 사고였다. */
 let __MOB_REAL = false;
-async function __loadRealCurrentSchedule(){
+let __MOB_STATE = 'loading';
+function __mobEn(){ try { return (window.getLang ? window.getLang() : localStorage.getItem('mangoi_lang')) === 'en'; } catch(e){ return false; } }
+function __mobT(ko, en){ return __mobEn() ? en : ko; }
+/* 로그인 정본은 칸 이름이 자리마다 다르다({uid} · {user_id}) — 둘 다 받는다(CLAUDE.md 2장). */
+function __mobMe(){
   try {
-    var u = null; try { u = JSON.parse(localStorage.getItem('mangoi_logged_user')||'null'); } catch(e){}
-    if (!u || !u.uid) return false;
-    var r = await fetch('/api/admin/class-schedules?user_id='+encodeURIComponent(u.uid), { credentials:'include', cache:'no-store' });
+    var u = JSON.parse(localStorage.getItem('mangoi_logged_user')||'null');
+    var id = u && (u.uid || u.user_id || u.id);
+    if (id) return { uid: String(id), name: (u.name && u.name !== id) ? String(u.name) : '' };
+    var alt = JSON.parse(localStorage.getItem('mango_user')||'null');
+    var id2 = alt && (alt.uid || alt.user_id || alt.id);
+    if (id2) return { uid: String(id2), name: (alt.name && alt.name !== id2) ? String(alt.name) : '' };
+  } catch(e){}
+  return null;
+}
+async function __loadRealCurrentSchedule(){
+  var u = __mobMe();
+  if (!u) { __MOB_STATE = 'demo'; return false; }
+  try {
+    var qs = 'user_id=' + encodeURIComponent(u.uid) + (u.name ? '&student_name=' + encodeURIComponent(u.name) : '');
+    var r = await fetch('/api/class/schedule/mine?' + qs, { credentials:'include', cache:'no-store' });
     var d = await r.json();
-    var items = (d && (d.items || d.rows)) || [];
-    if (!items.length) return false;
-    var dowMap = {sun:0,mon:1,tue:2,wed:3,thu:4,fri:5,sat:6};
-    function nextOccurrence(it){
-      if (it.scheduled_date) return String(it.scheduled_date).replace(/\//g,'-').slice(0,10);
-      var dow = it.day_of_week;
-      if (typeof dow === 'string' && dowMap[dow.toLowerCase()]!=null) dow = dowMap[dow.toLowerCase()];
-      dow = Number(dow); if (isNaN(dow)) return null;
-      var t = new Date(); t.setHours(0,0,0,0);
-      for (var i=0;i<14;i++){ var dd=new Date(t); dd.setDate(dd.getDate()+i); if (dd.getDay()===dow) return dd.toISOString().slice(0,10); }
-      return null;
-    }
-    var mapped = items.map(function(it){
-      var date = nextOccurrence(it);
+    /* ✅ «성공이라고 말했는가» 로 판정한다 — 404·401 본문에는 ok 칸이 없다(CLAUDE.md 2장). */
+    if (!r.ok || !d || d.ok !== true || !Array.isArray(d.schedules)) throw new Error('bad_response');
+    var mapped = d.schedules.map(function(it){
+      var date = it.next_date ? String(it.next_date).slice(0,10) : '';
       var hh = String(it.start_time||'').slice(0,5);
       if (!date || !hh) return null;
-      var tn = it.teacher_name || (TEACHERS[0]&&TEACHERS[0].name) || '강사';
-      var tobj = TEACHERS.find(function(x){ return x.name===tn; }) || TEACHERS[0] || {id:'t0',ico:'🇵🇭'};
-      return { teacherId: tobj.id, teacherName: tn, ico: tobj.ico, date: date, hour: hh, schedule_id: it.id||null };
+      var tn = it.teacher_name || '강사';
+      /* 이름이 «정확히» 같은 강사만 이어 붙인다 — 없으면 지어내지 않는다(국기도 비움). */
+      var tobj = TEACHERS.find(function(x){ return x.name === tn; }) || null;
+      return { teacherId: tobj ? tobj.id : ('real:' + tn), teacherName: tn, ico: tobj ? tobj.ico : '',
+               date: date, hour: hh, schedule_id: it.schedule_id || null, recurring: !it.scheduled_date };
     }).filter(Boolean);
-    if (!mapped.length) return false;
-    CURRENT_SCHEDULE = mapped; __MOB_REAL = true;
-    return true;
-  } catch(e){ return false; }
+    CURRENT_SCHEDULE = mapped;
+    __MOB_REAL = mapped.length > 0;
+    __MOB_STATE = mapped.length ? 'real' : 'empty';
+    return __MOB_REAL;
+  } catch(e){
+    CURRENT_SCHEDULE = []; __MOB_REAL = false; __MOB_STATE = 'error';
+    return false;
+  }
 }
 
 /* 🆕 유료/무료 판정 (연기만): 원 수업 30분 전보다 일찍=무료, 이내=유료. KST 기준. */
@@ -1249,27 +1338,60 @@ function __mobFee(origIso, origHour){
   } catch(e){ return { fee:'free', mins:null }; }
 }
 /* 🆕 확정 시 서버에 연기/변경 기록 + 유료/무료 태깅 + 관리자 알림. 실 수업일 때만. */
+/* 담은 일정 ↔ 원래 수업 짝짓기 — 자기 자리(origIdx)를 아는 것을 먼저, 나머지는 순서대로. 짝 없는 수업은 빼고 돌려준다. */
+function __mobPairs(sorted, origs, rest){
+  rest = rest.slice();
+  var out = [];
+  origs.forEach(function(o, i){
+    var nw = sorted.find(function(c){ return c.origIdx === i; }) || rest.shift() || null;
+    if (nw) out.push({ o: o, nw: nw, i: i });
+  });
+  return out;
+}
+function __mobPickedOrigs(){
+  var sorted = state.cart.slice().sort(function(a,b){ return (a.date+a.hour)<(b.date+b.hour)?-1:1; });
+  return __mobPairs(sorted, CURRENT_SCHEDULE.slice(), sorted.filter(function(c){ return c.origIdx == null; })).map(function(p){ return p.o; });
+}
 function __mobPersist(){
-  if (!__MOB_REAL) return;
-  try {
-    var u = {}; try { u = JSON.parse(localStorage.getItem('mangoi_logged_user')||'null') || {}; } catch(e){}
-    var sorted = state.cart.slice().sort(function(a,b){ return (a.date+a.hour)<(b.date+b.hour)?-1:1; });
-    var origs = CURRENT_SCHEDULE.slice();
-    for (var i=0;i<origs.length;i++){
-      var o = origs[i]; var nw = sorted[i] || null;
-      var f = __mobFee(o.date, o.hour);
-      var body = {
-        request_type: state.mode==='change'?'change':'postpone',
-        requester_role:'student', requester_name:u.name||'', student_name:u.name||'', student_uid:u.uid||'',
-        teacher_name: (nw&&nw.teacherName)||o.teacherName||'강사',
-        schedule_id: o.schedule_id||null,
-        orig_date:o.date, orig_time:o.hour,
-        new_date: nw?nw.date:null, new_time: nw?nw.hour:null,
-        fee_type: state.mode==='change'?null:f.fee, minutes_before: f.mins
-      };
-      fetch('/api/admin/schedule-requests',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).catch(function(){});
-    }
-  } catch(e){}
+  /* 🔧 (2026-09-30) «보냈는가» 를 돌려준다 — 예전엔 결과를 버리고 화면이 늘 «완료» 라고 했다.
+     🔧 (2026-09-30 2차) 저장 경로를 학생용 /api/class/schedule/request 로 — 옛 /api/admin/schedule-requests 는
+        관리자 전용이라 학생은 늘 401 이었다. 신원은 학생 토큰(mango_token)으로만 보낸다.
+        원래 일시·학생 이름·담당 강사는 서버가 수업표에서 읽는다(본문 값은 믿지 않음).
+     반환: null(보낼 대상 아님) · Promise<{ok, sent, total, error}> */
+  if (!__MOB_REAL) return null;
+  var tok = ''; try { tok = localStorage.getItem('mango_token') || ''; } catch(e){}
+  var sorted = state.cart.slice().sort(function(a,b){ return (a.date+a.hour)<(b.date+b.hour)?-1:1; });
+  var origs = CURRENT_SCHEDULE.slice();
+  /* 👨‍🏫 «교사로» 에서 고른 것은 자기 수업 자리(origIdx)를 안다 — 먼저 그 자리에 붙이고, 나머지는 예전처럼 순서대로. */
+  var rest = sorted.filter(function(c){ return c.origIdx == null; });
+  /* 🔧 (2026-10-01 jeong 제보 «하루만 미루려 했는데 4건 전부 요청됨») 장바구니에 담긴 수업만 보낸다.
+     예전엔 담은 것과 상관없이 현재 수업 «전부» 에 요청을 보냈다(새 일시가 없으면 «미정 연기» 로). */
+  var pairs = __mobPairs(sorted, origs, rest);
+  var jobs = pairs.map(function(pr){
+    var o = pr.o, nw = pr.nw;
+    var body = {
+      request_type: state.mode==='change'?'change':'postpone',
+      request_scope: nw && nw.requestScope || null,
+      expected_series_snapshot: nw && nw.seriesSnapshot || null,
+      schedule_id: o.schedule_id||null,
+      orig_date: o.date,
+      new_date: nw?nw.date:null, new_time: nw?nw.hour:null,
+      teacher_name: (nw&&nw.teacherName)||'',
+      teacher_id: (nw&&nw.realTeacherId)||null
+    };
+    var headers = {'Content-Type':'application/json'};
+    if (tok) headers['Authorization'] = 'Bearer ' + tok;
+    return fetch('/api/class/schedule/request',{method:'POST',credentials:'include',headers:headers,body:JSON.stringify(body)})
+      .then(function(r){ return r.json().then(function(j){ return { ok: !!(r.ok && j && j.ok === true), auto: !!(r.ok && j && j.ok === true && j.auto_applied), error: (j && j.error) || ('http_' + r.status) }; }, function(){ return { ok:false, error:'http_' + r.status }; }); })
+      .catch(function(){ return { ok:false, error:'network' }; });
+  });
+  return Promise.all(jobs).then(function(res){
+    var sent = res.filter(function(x){ return x.ok; }).length;
+    var firstErr = (res.find(function(x){ return !x.ok; }) || {}).error || null;
+    /* ⏩ (2026-10-06) 서버가 무료 연기를 바로 반영했는가 — auto = 반영된 건수 */
+    var auto = res.filter(function(x){ return x.ok && x.auto; }).length;
+    return { ok: sent === res.length && res.length > 0, sent: sent, total: res.length, auto: auto, error: firstErr, items: res };
+  });
 }
 window.__mobLastFee = null;
 
@@ -1285,7 +1407,8 @@ window.__mobLastFee = null;
   __buildSchedule();
   CURRENT_SCHEDULE = __buildCurrentSchedule();
   try { await __loadRealCurrentSchedule(); } catch(e){}   // 🆕 실 학생 수업으로 교체(있으면) → 서버 저장 활성화
-  try{ if (typeof state !== 'undefined' && !state.mode){ state.weeklyTarget = CURRENT_SCHEDULE.length; } }catch(e){}
+  /* 🔧 (2026-09-30) 불러오기 전에 화면에 들어갔어도 «담을 수» 를 실제 수업 수로 맞춘다(장바구니가 비어 있을 때만). */
+  try{ if (typeof state !== 'undefined' && (!state.mode || !state.cart.length)){ state.weeklyTarget = CURRENT_SCHEDULE.length; } }catch(e){}
   try{
     const sd = document.getElementById('screen-detail');
     if (sd && sd.classList.contains('active') && typeof renderBody === 'function'){ renderBody(); updateSticky(); }
@@ -1332,11 +1455,12 @@ function showToast(msg){
    Step 1 → 2 전환
    ════════════════════════════════════════════════════════════ */
 function _goMode(mode){
-  if (!mode) return;
+  if (!mode || state.saving) return;
   state.mode = mode;
-  state.tab = 'time';
+  state.tab = (mode === 'postpone' && __MOB_REAL) ? 'weekly' : 'time';
+  state.tabPicked = false;   /* 사람이 탭을 직접 눌렀나 — 안 눌렀으면 수업을 늦게 불러와도 기본(매주)으로 맞춘다 */
   state.weeklyTarget = CURRENT_SCHEDULE.length;
-  state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
+  state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null; state.dtOrig=null;
   state.cart = [];
   enterDetail();
 }
@@ -1353,42 +1477,101 @@ function updateSticky(){
   var bar = $('#sticky-bar'), summary = $('#sticky-summary'), btn = $('#confirm-btn');
   if (!bar || !summary || !btn) return;
   var v = VERB[state.mode] || '';
+  var weeklyCount = state.cart[0] && state.cart[0].seriesItems ? state.cart[0].seriesItems.length : 0;
   if (state.cart.length === 0) { bar.classList.remove('show'); return; }
-  var met = state.cart.length >= state.weeklyTarget;
+  /* 🔧 (2026-10-01) 실제 수업은 «고른 수업만» — 1개부터 완료할 수 있다(하루만 미루기). 예시 화면은 예전대로. */
+  var met = __MOB_REAL ? state.cart.length >= 1 : state.cart.length >= state.weeklyTarget;
   summary.innerHTML = '<span class="icon">🛒</span> <b>' + state.cart.length + ' / ' + state.weeklyTarget + '</b> 담음';
-  btn.textContent = met ? (v + ' 완료하기 ✓') : ('일정을 더 담아주세요 (' + state.cart.length + '/' + state.weeklyTarget + ')');
-  btn.disabled = !met;
+  btn.textContent = met ? (__MOB_REAL ? (__mobT(state.cart.length + '개 수업 ' + v + ' 요청하기 ✓', 'Send request for ' + state.cart.length + ' class(es) ✓')) : (v + ' 완료하기 ✓')) : ('일정을 더 담아주세요 (' + state.cart.length + '/' + state.weeklyTarget + ')');
+  if (weeklyCount) { summary.textContent = '총 ' + weeklyCount + '회 · 매주 한 주씩 연기'; btn.textContent = weeklyCount + '회 연기 요청하기'; }
+  btn.disabled = !met || !!state.saving;
   btn.classList.toggle('ready', met);
   bar.classList.add('show');
   if (!btn._confirmBound) { btn._confirmBound = true; btn.addEventListener('click', onConfirm); }
 }
 function onConfirm(){
-  if (state.cart.length === 0 || state.cart.length < state.weeklyTarget) return;
-  try { __mobPersist(); } catch(e){}   // 🆕 서버에 연기/변경 기록 + 유료/무료 태깅 + 관리자 알림(실 수업일 때만)
-  showCompletion();
+  if (state.saving) return;
+  if (state.cart.length === 0 || (!__MOB_REAL && state.cart.length < state.weeklyTarget)) return;
+  state.saving = true;
+  var p = null;
+  try { p = __mobPersist(); } catch(e){ p = Promise.resolve({ ok:false, sent:0, total:0 }); }
+  if (!p) { state.saving = false; showCompletion(null); return; }
+  var btn = document.getElementById('confirm-btn'); if (btn) btn.disabled = true;
+  p.then(function(res){ showCompletion(res); }, function(){ showCompletion({ ok:false, sent:0, total:0 }); })
+   .then(function(){ state.saving = false; if (btn) btn.disabled = false; });
 }
 
 /* ── 완료 화면 (요구사항 6) ── */
-function showCompletion(){
+function __doneDT(d, h){ return d ? (fmtMD(d) + '(' + fmtDOW(d) + ') ' + (h || '')) : __mobT('새 날짜 미정', 'new date TBD'); }
+/* 완료 화면용 «옮김» 목록 — [{teacher, from:{d,h}, to:{d,h}, st:'auto'|'pending'|'fail'|null}] */
+function __doneMoves(saved){
+  var sorted = state.cart.slice().sort(function(a,b){ return (a.date+a.hour) < (b.date+b.hour) ? -1 : 1; });
+  var head = sorted[0];
+  var res = saved && saved.items || [];
+  var stOf = function(r){ return !r ? null : (r.ok ? (r.auto ? 'auto' : 'pending') : 'fail'); };
+  if (head && head.seriesItems) {
+    /* ⏩ 매주 한 주씩 — 요청은 1건, 옮겨지는 수업은 여러 회 */
+    var st = stOf(res[0]);
+    return head.seriesItems.map(function(it){
+      return { teacher: head.teacherName, from: { d: it.from_date, h: it.from_time }, to: { d: it.to_date, h: it.to_time }, st: st };
+    });
+  }
+  var pairs = __mobPairs(sorted, CURRENT_SCHEDULE.slice(), sorted.filter(function(c){ return c.origIdx == null; }));
+  return pairs.map(function(pr, i){
+    return { teacher: (pr.nw && pr.nw.teacherName) || pr.o.teacherName, from: { d: pr.o.date, h: pr.o.hour },
+             to: { d: pr.nw && pr.nw.date, h: pr.nw && pr.nw.hour }, st: stOf(res[i]) };
+  });
+}
+function __doneMoveLi(m){
+  var tag = m.st === 'auto' ? ' <span class="mv-tag ok">' + __mobT('반영됨', 'Applied') + '</span>'
+          : m.st === 'pending' ? ' <span class="mv-tag wait">' + __mobT('확인 대기', 'Pending') + '</span>'
+          : m.st === 'fail' ? ' <span class="mv-tag bad">' + __mobT('저장 안 됨', 'Not saved') + '</span>' : '';
+  return '<li class="mv-li"><b>' + m.teacher + '</b>' + tag + '<br>'
+    + '<span class="mv-from">' + __doneDT(m.from.d, m.from.h) + '</span> <span class="mv-arrow">→</span> '
+    + '<span class="mv-to">' + __doneDT(m.to.d, m.to.h) + '</span></li>';
+}
+function showCompletion(saved){
   var v = VERB[state.mode] || '';
   var sorted = state.cart.slice().sort(function(a,b){ return (a.date+a.hour) < (b.date+b.hour) ? -1 : 1; });
-  var list = sorted.map(function(it){
-    return '<li>' + (it.ico||'') + ' <b>' + it.teacherName + '</b> · ' + fmtMD(it.date) + ' (' + fmtDOW(it.date) + ') ' + it.hour + '</li>';
-  }).join('');
-  var beforeList = CURRENT_SCHEDULE.map(function(c){
-    return (c.ico||'') + ' ' + c.teacherName + ' ' + fmtMD(c.date) + '(' + fmtDOW(c.date) + ') ' + c.hour;
-  }).join(' / ');
-  $('#done-title').textContent = '✅ ' + v + ' 완료되었습니다';
+  if (sorted[0] && sorted[0].seriesItems) { var head = sorted[0]; sorted = head.seriesItems.map(function(it){return {teacherName:head.teacherName, date:it.to_date, hour:it.to_time};}); }
+  /* 📅 (2026-10-06 사장님 「완료 화면에 옮겨진 날짜도 보이게」) «어느 수업이 어디로» 를 한 줄씩.
+     예전엔 «기존» 목록과 «새 일정» 목록을 따로 그려 어느 것이 어디로 갔는지 짝이 안 보였다
+     (그날 10/8 수업을 10/7 로 옮긴 것을 «10/7 연기» 로 오해). 짝은 저장과 «같은» __mobPairs 로 만든다. */
+  var moves = __doneMoves(saved);
+  var list = moves.map(function(m){ return __doneMoveLi(m); }).join('');
+  var beforeSrc = __MOB_REAL ? __mobPickedOrigs() : CURRENT_SCHEDULE;
+  /* 🔧 (2026-09-30) 저장 결과를 사실대로 말한다 — 요청은 «접수» 이지 확정이 아니다.
+     saved === null = 서버에 보내지 않는 경우(예시 수업) */
+  if (saved === null) $('#done-title').textContent = __mobT('ℹ️ 예시 화면이라 저장되지 않았어요', 'ℹ️ Sample only — nothing was saved');
+  else if (saved && saved.ok && saved.auto === saved.total) $('#done-title').textContent = __mobT('✅ ' + v + '됐어요 · 시간표에 바로 반영', '✅ Done — your timetable is updated');
+  else if (saved && saved.ok) $('#done-title').textContent = __mobT('✅ ' + v + ' 요청을 보냈어요', '✅ Request sent');
+  else $('#done-title').textContent = __mobT('⚠️ ' + v + ' 요청이 저장되지 않았어요', '⚠️ Your request was not saved');
   var feeNote = '';
   if (__MOB_REAL && state.mode==='postpone') {
     var paidN=0, freeN=0;
-    CURRENT_SCHEDULE.forEach(function(o){ var f=__mobFee(o.date,o.hour); if(f.fee==='paid')paidN++; else freeN++; });
+    beforeSrc.forEach(function(o){ var f=__mobFee(o.date,o.hour); if(f.fee==='paid')paidN++; else freeN++; });
     feeNote = '<br><span style="font-size:12px">'
       + (freeN?('<span style="color:#16a34a;font-weight:700">🆓 무료 '+freeN+'건</span> '):'')
       + (paidN?('<span style="color:#d97706;font-weight:700">💰 유료 '+paidN+'건</span>'):'')
       + '</span>';
   }
-  $('#done-sub').innerHTML = '기존: ' + beforeList + '<br>↓ 아래 일정으로 ' + v + '되었습니다' + feeNote;
+  var saveNote = '';
+  if (saved && !saved.ok) {
+    /* 사유를 사람 말로 — 「로그인」 은 사람이 스스로 고칠 수 있는 유일한 경우다. */
+    var why = saved.error === 'login_required'
+      ? __mobT('로그인이 만료됐어요. 홈에서 다시 로그인한 뒤 해 주세요.', 'Your login expired. Please sign in again from Home.')
+      : saved.error === 'already_pending'
+      ? __mobT('이 수업은 이미 요청을 보내 관리자 확인을 기다리는 중이에요. 다시 보내지 않아도 돼요.', 'A request for this class is already waiting for staff review.')
+      : saved.error === 'too_many_requests'
+      ? __mobT('오늘 요청이 너무 많아요. 카카오 상담으로 알려 주세요.', 'Too many requests today. Please contact us on KakaoTalk.')
+      : __mobT('수업은 아직 그대로이니 카카오 상담으로 알려 주세요.', 'Your classes are unchanged — please contact us on KakaoTalk.');
+    saveNote = '<br><span style="color:#d97706;font-weight:700">' + __mobT('서버에 저장되지 않았습니다', 'Not saved') + ' (' + saved.sent + '/' + saved.total + '). ' + why + '</span>';
+  }
+  else if (saved && saved.ok && saved.auto === saved.total) saveNote = '<br><span style="font-size:12px">' + __mobT('선생님·관리자 시간표에도 바로 반영됐어요.', 'Teacher and staff timetables are updated too.') + '</span>';
+  else if (saved && saved.ok && saved.auto) saveNote = '<br><span style="font-size:12px">' + __mobT(saved.auto + '건은 바로 반영됐고, 나머지 ' + (saved.total - saved.auto) + '건은 관리자가 확인한 뒤 반영됩니다.', saved.auto + ' applied now; the rest after staff review.') + '</span>';
+  else if (saved && saved.ok) saveNote = '<br><span style="font-size:12px">' + __mobT('관리자가 확인한 뒤 반영됩니다.', 'It will be applied after staff review.') + '</span>';
+  var _autoAll = !!(saved && saved.ok && saved.auto === saved.total);
+  $('#done-sub').innerHTML = (_autoAll ? __mobT('📅 아래처럼 옮겨졌어요', '📅 Moved as below') : __mobT('📅 옮길 날짜', '📅 Requested changes')) + feeNote + saveNote;
   $('#done-list').innerHTML = list;
   $('#sticky-bar').classList.remove('show'); // fix(2026-06-18): fixed 바 — 화면 이탈 시 직접 숨김
   $('#screen-detail').classList.remove('active');
@@ -1403,11 +1586,26 @@ function resetToMain(){
   $('#screen-main').classList.remove('exit-up'); $('#screen-main').classList.add('active');
 }
 
+/* ⏩ 탭 3개 맞추기 — «매주 한 주씩» 은 실제 수업 연기에서만 보인다(서버 일괄 연기 API 가 실제 수업만 받는다).
+   __MOB_REAL 은 늦게 정해지므로 그릴 때마다 다시 맞춘다. */
+function __segSync(){
+  var seg = document.getElementById('segment'); if (!seg) return;
+  var three = (state.mode === 'postpone' && __MOB_REAL);
+  if (!three && state.tab === 'weekly') state.tab = 'time';
+  /* 수업을 늦게 불러왔으면(__MOB_REAL 이 나중에 true) 기본 «매주» 로 — 사람이 고른 탭·담은 것은 건드리지 않는다. */
+  if (three && !state.tabPicked && state.tab !== 'weekly' && !state.cart.length) state.tab = 'weekly';
+  seg.classList.toggle('seg3', three);
+  seg.setAttribute('data-tab', state.tab);
+  $$('.seg').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === state.tab); });
+  var wl = document.getElementById('seg-weekly-label');
+  if (wl) wl.textContent = __mobT('⏩ 매주 한 주씩', '⏩ Weekly');
+}
 function enterDetail(){
+  $('#screen-done').classList.remove('active');
   const v = VERB[state.mode];
   $('#detail-title').textContent = `수업 ${v}하기`;
-  $('#seg-time-label').textContent    = `🕐 날짜로 ${v}`;
-  $('#seg-teacher-label').textContent = `👨‍🏫 교사로 ${v}`;
+  $('#seg-time-label').textContent    = state.mode === 'postpone' ? __mobT('📅 날짜로 연기', '📅 By date') : `🕐 날짜로 ${v}`;
+  $('#seg-teacher-label').textContent = state.mode === 'postpone' ? __mobT('👨‍🏫 교사로 연기', '👨‍🏫 By teacher') : `👨‍🏫 교사로 ${v}`;
   $('#segment').setAttribute('data-tab', state.tab);
   $$('.seg').forEach(s => s.classList.toggle('active', s.dataset.tab === state.tab));
   renderBody(); updateSticky();
@@ -1420,6 +1618,32 @@ $('#btn-back').addEventListener('click', () => {
   $('#screen-detail').classList.remove('active');
   $('#screen-main').classList.remove('exit-up'); $('#screen-main').classList.add('active');
 });
+/* 🧭 위쪽 «뒤로 · 홈» — 첫 화면의 뒤로는 앞 페이지(정본 mangoiGoBack — 카톡 링크로 바로 왔으면 홈),
+   상세의 뒤로는 기존 #btn-back(첫 화면으로), 완료의 뒤로는 «다시하기» 와 같다. */
+function __navGoHome(){
+  /* 담아 둔 것이 있으면 한 번 묻는다 — 홈으로 가면 사라진다. */
+  try {
+    if (state.cart && state.cart.length && $('#screen-detail').classList.contains('active')
+        && !window.confirm(__mobT('담아 둔 수업이 있어요. 저장하지 않고 홈으로 갈까요?', 'You have classes in your list. Go home without saving?'))) return;
+  } catch(e){}
+  location.href = '/';
+}
+function __navLabels(){
+  $$('.nav-t-back').forEach(function(el){ el.textContent = __mobT('‹ 뒤로', '‹ Back'); });
+  $$('.nav-t-home').forEach(function(el){ el.textContent = __mobT('🏠 홈', '🏠 Home'); });
+  $$('.nav-back').forEach(function(el){ el.setAttribute('aria-label', __mobT('뒤로', 'Back')); });
+  $$('.nav-home').forEach(function(el){ el.setAttribute('aria-label', __mobT('홈으로', 'Home')); });
+}
+(function(){
+  var b = $('#nav-back-main');
+  if (b) b.addEventListener('click', function(){ if (window.mangoiGoBack) window.mangoiGoBack('/'); else location.href = '/'; });
+  var bd = $('#nav-back-done'); if (bd) bd.addEventListener('click', resetToMain);
+  $$('.nav-home').forEach(function(el){ el.addEventListener('click', __navGoHome); });
+  __navLabels();
+  /* 🌐 언어 이벤트는 화면마다 발행처가 다르다(window·document) — 둘 다 듣는다. */
+  window.addEventListener('mangoi:lang-changed', __navLabels);
+  document.addEventListener('mangoi:lang-changed', __navLabels);
+})();
 (function(){
   var a = $('#done-again'); if (a) a.addEventListener('click', resetToMain);
   var h = $('#done-home');  if (h) h.addEventListener('click', function(){ location.href = '/'; });
@@ -1427,7 +1651,11 @@ $('#btn-back').addEventListener('click', () => {
 
 $$('.seg').forEach(s => {
   s.addEventListener('click', () => {
+    var prevTab = state.tab;
     state.tab = s.dataset.tab;
+    state.tabPicked = true;
+    /* 매주 일괄 연기(묶음)와 한 수업씩 담기는 섞지 않는다 — 넘나들면 장바구니를 비운다. */
+    if (prevTab !== state.tab && (prevTab === 'weekly' || state.tab === 'weekly')) state.cart = [];
     $('#segment').setAttribute('data-tab', state.tab);
     $$('.seg').forEach(b => b.classList.toggle('active', b === s));
     state.date=null; state.hour=null; state.teacher=null; state.expandedTeacher=null;
@@ -1451,39 +1679,59 @@ function addToCart(teacherId, date, hour){
 function removeFromCart(idx){ state.cart.splice(idx, 1); renderBody(); updateSticky(); }
 
 /* 한 수업씩 뒤로 밀기 (요구사항 3 / 기획 ①) — 전체 일정을 1주 뒤로 자동 이월 */
-function pushBackAll(){
-  state.cart = CURRENT_SCHEDULE.map(function(c){
-    var d = new Date(c.date + 'T00:00:00'); d.setDate(d.getDate() + 7);
-    var iso = d.toISOString().slice(0,10);
-    var keep = SCHEDULE[c.teacherId] && SCHEDULE[c.teacherId][iso] && SCHEDULE[c.teacherId][iso].indexOf(c.hour) !== -1;
-    var tId = c.teacherId, tName = c.teacherName, ico = c.ico;
-    if (!keep) {
-      var alt = TEACHERS.find(function(t){ return SCHEDULE[t.id][iso] && SCHEDULE[t.id][iso].indexOf(c.hour) !== -1; });
-      if (alt) { tId = alt.id; tName = alt.name; ico = alt.ico; }
-    }
-    return { teacherId: tId, teacherName: tName, ico: ico, date: iso, hour: c.hour };
-  });
-  state.weeklyTarget = CURRENT_SCHEDULE.length;
-  showToast('⏩ 전체 일정을 한 수업씩 뒤로 밀었어요');
-  renderBody(); updateSticky();
+async function pushBackAll(){
+  if (state.mode !== 'postpone' || state.saving || state.previewLoading) return;
+  var oi = state.dtOrig == null ? __dtFirstOpen() : state.dtOrig;
+  var c = CURRENT_SCHEDULE[oi];
+  if (!c) return;
+  if (!__MOB_REAL) { showToast('로그인 후 실제 수업을 선택해 주세요.'); return; }
+  state.previewLoading = true;
+  try {
+    var tok = localStorage.getItem('mango_token') || '';
+    var response = await fetch('/api/class/schedule/weekly-postpone?schedule_id=' + encodeURIComponent(c.schedule_id),
+      { credentials:'include', headers:tok ? {Authorization:'Bearer ' + tok} : {} });
+    var plan = await response.json();
+    if (!response.ok || !plan.ok) throw new Error(plan.error || 'lookup_failed');
+    /* 기다리는 사이 다른 탭으로 갔으면 버린다 — 날짜·교사 탭에 매주 묶음이 끼어들면 안 된다. */
+    if (state.mode !== 'postpone' || state.tab !== 'weekly' || state.dtOrig !== oi) return;
+    var first = plan.items.find(function(x){ return String(x.id) === String(c.schedule_id); });
+    if (!first) throw new Error('lookup_failed');
+    state.cart = [{ teacherId:c.teacherId, teacherName:c.teacherName, realTeacherId:null,
+      date:first.to_date, hour:first.to_time, origIdx:oi, requestScope:'weekly_postpone',
+      seriesSnapshot:plan.snapshot, seriesItems:plan.items }];
+    showToast(plan.count + '회 연기 전·후 일정을 확인해 주세요.');
+  } catch(e) {
+    showToast(e.message === 'weekly_row' || e.message === 'mirror_series'
+      ? '이 수업은 자동 연기 대상인지 확인이 필요합니다. 관리자에게 문의해 주세요.'
+      : '연기 일정을 확인하지 못했습니다. 새로고침 후 다시 시도해 주세요.');
+  } finally { state.previewLoading = false; renderBody(); updateSticky(); }
 }
 
 /* ════════════════════════════════════════════════════════════
    본문 렌더
    ════════════════════════════════════════════════════════════ */
 function renderCurrentLesson(){
+  /* 🔧 (2026-09-30) 진짜 수업이 아니면 그 사실을 먼저 말한다 — 예시를 «현재 수업» 으로 보이지 않게. */
+  if (__MOB_STATE === 'loading') return '<div class="cur-lesson"><div class="cl-tag">⏳ ' + __mobT('내 수업을 불러오는 중…', 'Loading your classes…') + '</div></div>';
+  if (__MOB_STATE === 'empty') return '<div class="cur-lesson"><div class="cl-tag">📌 ' + __mobT('현재 수업', 'Your classes') + '</div><div class="cl-item">' + __mobT('앞으로 예약된 수업이 없어요.', 'No upcoming classes.') + '</div></div>';
+  if (__MOB_STATE === 'error') return '<div class="cur-lesson"><div class="cl-tag">⚠️ ' + __mobT('수업을 불러오지 못했어요', 'Could not load your classes') + '</div><div class="cl-item">' + __mobT('잠시 뒤 다시 열어 주세요.', 'Please try again shortly.') + '</div></div>';
+  var tag = __MOB_STATE === 'demo'
+    ? '🧪 ' + __mobT('예시 수업 (로그인하면 내 수업이 보여요)', 'Sample classes (sign in to see yours)')
+    : '📌 ' + __mobT('현재 수업', 'Your classes');
   var items = CURRENT_SCHEDULE.map(function(c){
     return '<div class="cl-item">' + (c.ico||'') + ' <b>' + c.teacherName + '</b> 선생님 <span class="cl-meta">· ' + fmtMD(c.date) + ' (' + fmtDOW(c.date) + ') ' + c.hour + '</span></div>';
   }).join('');
-  return '<div class="cur-lesson"><div class="cl-tag">📌 현재 수업 (' + CURRENT_SCHEDULE.length + '회)</div>' + items + '</div>';
+  return '<div class="cur-lesson"><div class="cl-tag">' + tag + ' (' + CURRENT_SCHEDULE.length + __mobT('회', '') + ')</div>' + items + '</div>';
 }
 function renderWeekly(){
+  if (__MOB_REAL) return '';   /* 실제 수업은 «고른 수업만» 요청한다 — 담을 수를 맞출 필요가 없다. */
   var btns = '';
   for (var i=1;i<=5;i++) btns += '<button class="wk ' + (state.weeklyTarget===i?'active':'') + '" data-wk="' + i + '">주 ' + i + '회</button>';
   return '<div class="section-label">🎯 주간 횟수 · 담을 수업 수</div><div class="wk-tabs">' + btns + '</div>';
 }
 function renderPushBtn(){
   var v = VERB[state.mode] || '';
+  if (__MOB_REAL) return '<button class="push-btn" id="pushBtn">⏩ ' + __mobT('선택한 수업부터 매주 한 주씩 연기 일정 확인', 'Preview postponing the remaining weekly classes') + '</button>';
   return '<button class="push-btn" id="pushBtn">⏩ 전체 일정 한 수업씩 뒤로 밀기 (자동 ' + v + ')</button>';
 }
 function renderCartBox(){
@@ -1491,7 +1739,7 @@ function renderCartBox(){
   var inner;
   if (state.cart.length === 0) inner = '<div class="cart-empty">일정을 골라 장바구니에 담아주세요.</div>';
   else inner = state.cart.map(function(it, idx){
-    return '<div class="cart-item"><span>' + (it.ico||'') + ' ' + it.teacherName + ' · ' + fmtMD(it.date) + ' (' + fmtDOW(it.date) + ') ' + it.hour + '</span><button data-rm="' + idx + '">×</button></div>';
+    return '<div class="cart-item"><span>' + (it.ico||'') + ' ' + __ftEsc(it.teacherName) + ' · ' + fmtMD(it.date) + ' (' + fmtDOW(it.date) + ') ' + it.hour + '</span><button data-rm="' + idx + '">×</button></div>';
   }).join('');
   return '<div class="cart-box"><div class="cart-head">🛒 ' + v + ' 장바구니 <span class="cnt">' + state.cart.length + ' / ' + state.weeklyTarget + '</span></div>' + inner + '</div>';
 }
@@ -1516,19 +1764,38 @@ window.addEventListener('resize', lpPlaceSeg);
 
 function renderBody(){
   const body = $('#detail-body');
+  __segSync();
+  if (__MOB_REAL && state.mode === 'postpone' && state.tab === 'weekly') {
+    lpSegHome();
+    document.getElementById('segment').style.display = '';
+    if (state.dtOrig == null) state.dtOrig = __dtFirstOpen();
+    var chosen = CURRENT_SCHEDULE[state.dtOrig];
+    var choices = CURRENT_SCHEDULE.map(function(c,i){ return '<button type="button" class="hour-chip '+(i===state.dtOrig?'active':'')+'" data-dtsel="'+i+'">'+fmtMD(c.date)+' ('+fmtDOW(c.date)+') '+__ftEsc(c.hour)+' · '+__ftEsc(c.teacherName)+'</button>'; }).join('');
+    var preview = state.cart[0];
+    var details = preview && preview.seriesItems ? '<h3>연기 전 → 연기 후 · '+preview.seriesItems.length+'회</h3><ol>'+preview.seriesItems.map(function(it){return '<li>'+fmtMD(it.from_date)+' → <b>'+fmtMD(it.to_date)+'</b> · '+__ftEsc(it.to_time)+'</li>';}).join('')+'</ol>' : '<p>수업을 선택하고 다음 주 연기 일정을 확인하세요.</p>';
+    body.innerHTML = '<div class="lp-col-left"><div class="lp-seg-slot"></div><h2>수업 연기</h2><p>선택한 수업부터 같은 요일·시간·교사의 남은 수업을 한 주씩 미룹니다. 다른 요일과 총 수업 횟수는 그대로입니다.</p><div class="dt-orig">'+choices+'</div></div><div class="lp-col-right">'+renderPushBtn()+'<div class="cart-box">'+details+'<p>신청하면 바로 시간표에 반영됩니다. 다른 수업과 겹치면 관리자가 확인한 뒤 반영돼요.</p></div></div>';
+    attachHandlers(); lpPlaceSeg(); return;
+  }
+  document.getElementById('segment').style.display = '';
   lpSegHome(); // 본문 초기화 전, 탭(segment)을 안전한 위치로 회수
   var leftHtml = '<div class="lp-col-left"><div class="lp-seg-slot"></div>'
-               + renderCurrentLesson() + renderWeekly() + '</div>';
+               + (__MOB_REAL ? (state.mode === 'postpone'
+                   ? '<h2>수업 연기</h2><p>' + __mobT('연기할 수업 «하나» 를 고르고 원하는 날짜·시간 또는 선생님을 선택하세요. 고른 수업만 신청되고, 시간표에 바로 반영됩니다(매주 반복 수업은 고른 그 주만 바뀌어요 · 겹치는 시간은 관리자가 확인 후 반영).', 'Pick one class, then choose a new date/time or another teacher. Only the classes you pick change, and your timetable updates right away (a weekly class changes for that week only · clashes are checked by staff first).') + '</p>'
+                   : '<h2>수업 변경</h2><p>변경할 수업을 고르고 희망 날짜·시간·교사를 선택하세요. 시간표에 바로 반영됩니다(매주 반복 수업은 고른 그 주만 바뀌어요 · 겹치는 시간은 관리자가 확인 후 반영).</p>') : renderCurrentLesson()) + renderWeekly() + '</div>';
   var rightInner;
-  if (state.tab === 'time') rightInner = renderPushBtn() + renderTimeTab() + renderCartBox();
+  /* 실제 수업의 «매주 한 주씩» 은 자기 탭(weekly)이 있다 — 날짜 탭에는 예시 화면에서만 단추를 둔다. */
+  if (state.tab === 'time') rightInner = (state.mode === 'postpone' && !__MOB_REAL ? renderPushBtn() : '') + renderTimeTab() + renderCartBox();
   else rightInner = renderTeacherTab() + renderCartBox();
   body.innerHTML = leftHtml + '<div class="lp-col-right">' + rightInner + '</div>';
   attachHandlers();
   lpPlaceSeg(); // 데스크탑이면 탭을 좌측 칼럼 상단으로 이동
 }
 
-/* ── 시간 탭 — 링글 스타일: 가로 스크롤 날짜 + 시간 + 교사 필터 ── */
-function renderTimeTab(){
+/* ── 시간 탭 — 링글 스타일: 가로 스크롤 날짜 + 시간 + 교사 필터 ──
+   📅 (2026-09-30 사장님 「날짜로 연기 탭도 실제 시간표로 바꿔줘」) 로그인 학생은 renderTimeTabReal.
+   ⛔ 아래 Demo 는 해시로 지어낸 가짜 시간표(SCHEDULE) — 로그인 안 한 방문자의 예시 화면에만 쓴다. */
+function renderTimeTab(){ return __MOB_REAL ? renderTimeTabReal() : renderTimeTabDemo(); }
+function renderTimeTabDemo(){
   const dates = getNext14Dates();
   const dateHtml = dates.map(iso => `
     <button class="date-chip ${state.date===iso?'active':''} ${isWeekend(iso)?'weekend':''}" data-date="${iso}">
@@ -1604,11 +1871,31 @@ function renderTimeTab(){
 }
 
 /* 얼굴 사진(image_url) 있으면 사진, 없으면 국기 이모지 */
+/* 이름 → 첫 글자: «Teacher Ana» → A · «HT NESS» → N · «중국어 강선생님» → 강 */
+function __tIni(name){
+  var n = String(name || '').trim();
+  var m = n.match(/(\S)\s*선생님/); if (m) return m[1];
+  n = n.replace(/^(teacher|ht|t\.)\s+/i, '').trim();
+  return n ? n.charAt(0).toUpperCase() : '?';
+}
+var __T_INI_COLORS = ['#2563eb', '#7c3aed', '#0f766e', '#b45309', '#be123c', '#475467', '#047857', '#9333ea'];
+function __tIniHTML(name){
+  var key = String(name || ''), h = 0;
+  for (var i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return '<span class="t-ini" style="background:' + __T_INI_COLORS[h % __T_INI_COLORS.length] + '" aria-hidden="true">' + __ftEsc(__tIni(name)) + '</span>';
+}
+/* 사진이 안 열리면(onerror) 그 자리를 이니셜로 — 인라인 핸들러는 window 에서 이름을 찾으므로 최상위 함수. */
+function __tIniSwap(img){
+  try { var w = document.createElement('span'); w.innerHTML = __tIniHTML(img.getAttribute('data-ini') || ''); img.replaceWith(w.firstChild); } catch(e){}
+}
+function __tPhoto(src, name){
+  return '<img src="' + __ftEsc(src) + '" alt="" loading="lazy" data-ini="' + __ftEsc(name) + '" onerror="__tIniSwap(this)">';
+}
 function avatarHTML(t){
   if (t && t.image_url){
-    return '<img src="'+t.image_url+'" alt="'+(t.name||'')+'" loading="lazy" onerror="this.outerHTML=\''+(t.ico||'👨‍🏫')+'\'">';
+    return __tPhoto(t.image_url, t.name);
   }
-  return (t && t.ico) ? t.ico : '👨‍🏫';
+  return __tIniHTML(t && t.name);
 }
 function teacherCardHTML(t, active){
   return `
@@ -1625,8 +1912,214 @@ function teacherCardHTML(t, active){
     </div>`;
 }
 
-/* ── 교사 탭 — 민병철 스타일: 세로 피드 + 아코디언 ── */
+/* ── 👨‍🏫 교사 탭 (2026-09-30 사장님 「교사로 연기 버튼 누르면 그 시간대에 수업 가능한 교사들이 자동으로 나오게」) ──
+   실제 내 수업이 있으면: 수업마다 «그 날짜·시각 그대로» 수업 가능한 강사를 서버에서 받아 보여 준다
+   (/api/class/schedule/free-teachers — 판정은 관리자 승인과 같은 정본 moveCandidatesFor).
+   ⛔ 예전 목록은 해시로 지어낸 가짜 시간표(SCHEDULE)였다 — 로그인한 학생에게는 그것을 쓰지 않는다.
+   고르면 그 수업 자리(origIdx)에 담기고, 저장 때 원부 번호(teacher_id)로 보낸다(이름 짐작 없음). */
+var __FT = {};   // key → { st:'loading'|'ok'|'error', data }
+function __ftKey(o){ return String(o.schedule_id||'') + '|' + o.date + '|' + o.hour; }
+function __ftEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+function __ftLoad(o){
+  var k = __ftKey(o);
+  if (__FT[k]) return;
+  if (!o.schedule_id) { __FT[k] = { st:'error', err:'no_schedule' }; return; }
+  __FT[k] = { st:'loading' };
+  var tok = ''; try { tok = localStorage.getItem('mango_token') || ''; } catch(e){}
+  var headers = {}; if (tok) headers['Authorization'] = 'Bearer ' + tok;
+  var qs = 'schedule_id=' + encodeURIComponent(o.schedule_id) + '&date=' + encodeURIComponent(o.date) + '&time=' + encodeURIComponent(o.hour);
+  fetch('/api/class/schedule/free-teachers?' + qs, { credentials:'include', cache:'no-store', headers: headers })
+    .then(function(r){ return r.json().then(function(j){ return { r:r, j:j }; }, function(){ return { r:r, j:null }; }); })
+    .then(function(x){
+      /* ✅ «성공이라고 말했는가» 로 — 404·401 본문에는 ok 칸이 없다(CLAUDE.md 2장). */
+      if (x.r.ok && x.j && x.j.ok === true && Array.isArray(x.j.candidates)) __FT[k] = { st:'ok', data:x.j };
+      else __FT[k] = { st:'error', err:(x.j && x.j.error) || ('http_' + x.r.status) };
+    }, function(){ __FT[k] = { st:'error', err:'network' }; })
+    .then(function(){
+      try { if (document.getElementById('screen-detail').classList.contains('active')) { renderBody(); updateSticky(); } } catch(e){}
+    });
+}
+function __ftAvatar(c){
+  var nm = c && (c.display_name || c.name);
+  if (c && c.photo) return __tPhoto(c.photo, nm);
+  return __tIniHTML(nm);
+}
 function renderTeacherTab(){
+  if (!__MOB_REAL) return renderTeacherTabDemo();
+  var v = VERB[state.mode] || '';
+  var html = CURRENT_SCHEDULE.map(function(o, i){
+    __ftLoad(o);
+    var f = __FT[__ftKey(o)] || { st:'loading' };
+    var picked = state.cart.find(function(c){ return c.origIdx === i; }) || null;
+    var head = '<div class="section-label">📌 ' + fmtMD(o.date) + ' (' + fmtDOW(o.date) + ') ' + __ftEsc(o.hour)
+      + ' · ' + __mobT('지금 ', 'Now ') + '<b>' + __ftEsc(o.teacherName) + '</b></div>';
+    /* ℹ️ (2026-10-09) 매주 반복 수업은 «그 주 하루만» 바뀐다(recurring-one-week.ts) — 다른 주는 그대로라고 미리 말한다. */
+    if (o.recurring) head += '<div style="font-size:13px;color:var(--text-dim);margin:-4px 0 8px">'
+      + __mobT('🔁 매주 반복 수업 — 이 날 하루만 선생님이 바뀌고, 다른 주는 그대로예요.', '🔁 Weekly class — only this date changes teacher; other weeks stay the same.') + '</div>';
+    var body = '';
+    if (f.st === 'loading') {
+      body = '<div class="teacher-result"><div class="tr-title">⏳ ' + __mobT('이 시간에 수업 가능한 선생님을 찾는 중…', 'Finding teachers free at this time…') + '</div>'
+        + '<div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div></div>';
+    } else if (f.st === 'error') {
+      var why = f.err === 'login_required'
+        ? __mobT('로그인이 만료됐어요. 홈에서 다시 로그인해 주세요.', 'Your login expired. Please sign in again from Home.')
+        : __mobT('가능한 선생님을 불러오지 못했어요.', 'Could not load available teachers.');
+      body = '<div class="teacher-result"><div class="tr-title" style="color:#d97706;justify-content:center">⚠️ ' + why + '</div>'
+        + (f.err === 'login_required' ? '' : '<div style="text-align:center;margin-top:8px"><button type="button" class="hour-chip" data-ftretry="' + i + '">🔄 ' + __mobT('다시 불러오기', 'Try again') + '</button></div>')
+        + '</div>';
+    } else {
+      var d = f.data;
+      if (d.teacher_change_ok === false) {
+        body = '<div class="teacher-result"><div class="tr-title" style="color:var(--text-dim);justify-content:center">'
+          + __mobT('이 수업은 여기서 선생님을 바꿀 수 없어요. 카카오 상담으로 알려 주세요.', 'The teacher of this class cannot be changed here. Please contact us on KakaoTalk.') + '</div></div>';
+      } else if (!d.candidates.length) {
+        body = '<div class="teacher-result"><div class="tr-title" style="color:var(--text-dim);justify-content:center">😢 '
+          + __mobT('이 시간에 수업 가능한 다른 선생님이 없어요', 'No other teacher is free at this time') + '</div></div>';
+      } else {
+        body = '<div class="teacher-result"><div class="tr-title">✅ ' + __mobT('이 시간에 수업 가능한 선생님', 'Teachers free at this time')
+          + ' <span class="badge">' + d.candidates.length + (__mobEn() ? '' : '명') + '</span></div>'
+          + d.candidates.map(function(c){
+              var on = picked && picked.realTeacherId === c.id;
+              return '<div class="teacher-card ' + (on ? 'active' : '') + '" data-ftorig="' + i + '" data-ftid="' + __ftEsc(c.id) + '">'
+                + '<div class="t-avatar">' + __ftAvatar(c) + '</div>'
+                + '<div class="t-info"><div class="t-name">' + __ftEsc(c.display_name || c.name) + (on ? ' ✓' : '') + '</div>'
+                + '<div class="t-meta"><span>' + __mobT('같은 날짜·시간으로 ' + v, 'Same date & time') + '</span></div></div></div>';
+            }).join('')
+          + '</div>';
+      }
+    }
+    return head + body;
+  }).join('');
+  return '<div class="section-label">👨‍🏫 ' + __mobT('수업마다 그 시간에 수업 가능한 선생님이 나와요 · 눌러서 고르세요', 'For each class, teachers free at that time are listed · tap to choose') + '</div>' + html;
+}
+function __ftPick(origIdx, tid){
+  var o = CURRENT_SCHEDULE[origIdx]; if (!o) return;
+  var f = __FT[__ftKey(o)]; if (!f || f.st !== 'ok') return;
+  var c = (f.data.candidates || []).find(function(x){ return String(x.id) === String(tid); }); if (!c) return;
+  /* 같은 수업 자리는 하나만 — 다른 선생님을 누르면 바꿔 담고, 같은 선생님을 다시 누르면 뺀다. */
+  var prev = state.cart.findIndex(function(it){ return it.origIdx === origIdx; });
+  var same = prev >= 0 && state.cart[prev].realTeacherId === c.id;
+  if (prev >= 0) state.cart.splice(prev, 1);
+  if (!same) {
+    if (state.cart.length >= state.weeklyTarget) { showToast('⚠️ 주 ' + state.weeklyTarget + '회를 모두 담았어요'); renderBody(); updateSticky(); return; }
+    state.cart.push({ teacherId: 'ft:' + c.id, realTeacherId: c.id, teacherName: c.display_name || c.name, ico: '', date: o.date, hour: o.hour, origIdx: origIdx });
+  }
+  renderBody(); updateSticky();
+}
+
+/* ── 📅 날짜로 탭(실제) — 옮길 수업 고르기 → 날짜 → 시간칸(서버 판정) → 그 시각 가능한 선생님 ──
+   시간칸: /api/class/schedule/day-slots  (나에게 겹치는 수업·지난 시간 = 흐림, 지금 선생님 그대로 되면 초록 테두리)
+   선생님: /api/class/schedule/free-teachers (교사 탭과 같은 정본 moveCandidatesFor — 관리자 승인과 같은 판정)
+   ⛔ 여기서 겹침을 다시 계산하지 말 것 — 화면은 서버 답을 «그리기만» 한다. */
+var __DS = {};   // 'schedule_id|date' → { st, data, err }
+function __dsLoad(o, date){
+  var k = String(o.schedule_id||'') + '|' + date;
+  if (__DS[k]) return __DS[k];
+  if (!o.schedule_id) return (__DS[k] = { st:'error', err:'no_schedule' });
+  __DS[k] = { st:'loading' };
+  var tok = ''; try { tok = localStorage.getItem('mango_token') || ''; } catch(e){}
+  var headers = {}; if (tok) headers['Authorization'] = 'Bearer ' + tok;
+  fetch('/api/class/schedule/day-slots?schedule_id=' + encodeURIComponent(o.schedule_id) + '&date=' + encodeURIComponent(date), { credentials:'include', cache:'no-store', headers: headers })
+    .then(function(r){ return r.json().then(function(j){ return { r:r, j:j }; }, function(){ return { r:r, j:null }; }); })
+    .then(function(x){
+      /* ✅ «성공이라고 말했는가» 로 — 실패를 «칸 없음» 으로 위장하지 않는다. */
+      if (x.r.ok && x.j && x.j.ok === true && Array.isArray(x.j.slots)) __DS[k] = { st:'ok', data:x.j };
+      else __DS[k] = { st:'error', err:(x.j && x.j.error) || ('http_' + x.r.status) };
+    }, function(){ __DS[k] = { st:'error', err:'network' }; })
+    .then(function(){ try { if (document.getElementById('screen-detail').classList.contains('active')) { renderBody(); updateSticky(); } } catch(e){} });
+  return __DS[k];
+}
+function __dtFirstOpen(){
+  for (var i = 0; i < CURRENT_SCHEDULE.length; i++) if (!state.cart.some(function(c){ return c.origIdx === i; })) return i;
+  return 0;
+}
+function __dtErr(err){
+  return err === 'login_required'
+    ? __mobT('로그인이 만료됐어요. 홈에서 다시 로그인해 주세요.', 'Your login expired. Please sign in again from Home.')
+    : __mobT('시간표를 불러오지 못했어요.', 'Could not load the timetable.');
+}
+function renderTimeTabReal(){
+  var v = VERB[state.mode] || '';
+  if (state.dtOrig == null || !CURRENT_SCHEDULE[state.dtOrig]) state.dtOrig = __dtFirstOpen();
+  var oi = state.dtOrig, o = CURRENT_SCHEDULE[oi];
+  var origHtml = CURRENT_SCHEDULE.map(function(c, i){
+    var done = state.cart.some(function(it){ return it.origIdx === i; });
+    return '<button type="button" class="hour-chip ' + (i === oi ? 'active' : '') + '" data-dtsel="' + i + '">'
+      + (done ? '✓ ' : '📌 ') + fmtMD(c.date) + ' (' + fmtDOW(c.date) + ') ' + __ftEsc(c.hour) + ' · ' + __ftEsc(c.teacherName) + '</button>';
+  }).join('');
+  var html = '<div class="section-label">① ' + __mobT(v + '할 수업을 고르세요', 'Choose the class to move') + '</div><div class="dt-orig">' + origHtml + '</div>';
+  if (o && o.recurring) html += '<div style="font-size:13px;color:var(--text-dim);margin:-4px 0 8px">'
+    + __mobT('🔁 매주 반복 수업 — 이 날 하루만 옮겨지고, 다른 주는 그대로예요.', '🔁 Weekly class — only this date moves; other weeks stay the same.') + '</div>';
+  var dates = getNext14Dates();
+  html += '<div class="section-label">② ' + __mobT('날짜 선택 · 좌우로 밀어보세요', 'Choose a date') + '</div>'
+    + '<div class="date-scroller-wrap at-start" id="dateScrollerWrap"><button type="button" class="date-scroller-nav prev" id="dateScrollPrev" aria-label="이전 날짜">◀</button>'
+    + '<div class="date-scroller" id="dateScroller">' + dates.map(function(iso){
+        return '<button class="date-chip ' + (state.date === iso ? 'active' : '') + ' ' + (isWeekend(iso) ? 'weekend' : '') + '" data-date="' + iso + '"><div class="dc-dow">' + fmtDOW(iso) + '</div><div class="dc-day">' + fmtMD(iso) + '</div></button>';
+      }).join('') + '</div><button type="button" class="date-scroller-nav next" id="dateScrollNext" aria-label="다음 날짜">▶</button></div>';
+  if (!o || !state.date) return html + '<div style="padding:30px 10px;color:var(--text-dim);text-align:center;font-size:15.3px">👆 ' + __mobT('먼저 날짜를 선택해 주세요', 'Choose a date first') + '</div>';
+
+  var ds = __dsLoad(o, state.date);
+  html += '<div class="section-label">③ ' + __mobT('시간 선택', 'Choose a time') + '</div>';
+  if (ds.st === 'loading') return html + '<div class="teacher-result"><div class="tr-title">⏳ ' + __mobT('실제 시간표를 확인하는 중…', 'Checking the real timetable…') + '</div><div class="skeleton skeleton-card"></div></div>';
+  if (ds.st === 'error') return html + '<div class="teacher-result"><div class="tr-title" style="color:#d97706;justify-content:center">⚠️ ' + __dtErr(ds.err) + '</div>'
+    + (ds.err === 'login_required' ? '' : '<div style="text-align:center;margin-top:8px"><button type="button" class="hour-chip" data-dsretry="1">🔄 ' + __mobT('다시 불러오기', 'Try again') + '</button></div>') + '</div>';
+  var slot = null;
+  html += '<div class="hour-legend">'
+    + '<span class="lg-item"><span class="lg-swatch" style="border-color:#16a34a;box-shadow:inset 0 0 0 1px #16a34a"></span>' + __mobT('초록 테두리 = 지금 선생님 그대로 가능', 'Green border = your teacher is free') + '</span>'
+    + '<span class="lg-item"><span class="lg-swatch"></span>' + __mobT('테두리 없음 = 다른 선생님 확인', 'No border = check other teachers') + '</span>'
+    + '<span class="lg-item"><span class="lg-swatch off"></span><span class="lg-dim">' + __mobT('흐린 칸 = 내 다른 수업과 겹치거나 지난 시간', 'Dim = overlaps your other class or already passed') + '</span></span></div>'
+    + '<div style="font-size:12.5px;color:var(--text-dim);margin:-2px 0 8px">' + __mobT('ℹ️ 지금 시간표 기준이에요 — 신청할 때 한 번 더 확인해요.', 'ℹ️ Based on the current timetable — checked again when you submit.') + '</div>'
+    + '<div class="hour-grid">' + ds.data.slots.map(function(s){
+        var off = s.past || s.student_busy;
+        if (state.hour === s.t) slot = s;
+        return '<button class="hour-chip ' + (state.hour === s.t ? 'active' : '') + ' ' + (off ? 'disabled' : '') + ' ' + (s.teacher_free ? 'tf' : '') + ' ' + (s.t.slice(3) === '00' ? 'hour-mark' : '') + '" data-dthour="' + __ftEsc(s.t) + '"'
+          + (off ? ' aria-disabled="true" title="' + (s.past ? __mobT('지난 시간', 'Passed') : __mobT('내 다른 수업과 겹쳐요', 'Overlaps your other class')) + '"' : '') + '>' + __ftEsc(s.t) + '</button>';
+      }).join('') + '</div>';
+  if (!state.hour || !slot) return html;
+
+  /* ④ 그 시각에 가능한 선생님 — 지금 선생님(되면) + 다른 선생님(서버 판정) */
+  var key = { schedule_id: o.schedule_id, date: state.date, hour: state.hour };
+  __ftLoad(key);
+  var f = __FT[__ftKey(key)] || { st:'loading' };
+  var picked = state.cart.find(function(c){ return c.origIdx === oi; }) || null;
+  var isPick = function(id){ return !!picked && picked.date === state.date && picked.hour === state.hour && String(picked.realTeacherId || 'cur') === String(id); };
+  var cards = '';
+  if (slot.teacher_free) cards += '<div class="teacher-card ' + (isPick('cur') ? 'active' : '') + '" data-dtpick="cur">'
+    + '<div class="t-avatar">' + (f.st === 'ok' && f.data.current ? __ftAvatar(f.data.current) : __tIniHTML(o.teacherName)) + '</div>'
+    + '<div class="t-info"><div class="t-name">' + __ftEsc(o.teacherName) + (isPick('cur') ? ' ✓' : '') + '</div><div class="t-meta"><span>' + __mobT('지금 선생님 그대로', 'Same teacher') + '</span></div></div></div>';
+  if (f.st === 'loading') cards += '<div class="skeleton skeleton-card"></div>';
+  else if (f.st === 'error') cards += '<div class="tr-title" style="color:#d97706;justify-content:center">⚠️ ' + __mobT('다른 선생님을 불러오지 못했어요.', 'Could not load other teachers.') + '</div>';
+  else if (f.data.teacher_change_ok === false) cards += '<div style="font-size:13px;color:var(--text-dim);text-align:center;margin:6px 0">' + __mobT('이 수업은 날짜를 바꾸면 선생님은 바꿀 수 없어요(지금 선생님만 가능).', 'For this class, the teacher cannot change when the date changes.') + '</div>';
+  else cards += (f.data.candidates || []).map(function(c){
+      var on = isPick(c.id);
+      return '<div class="teacher-card ' + (on ? 'active' : '') + '" data-dtpick="' + __ftEsc(c.id) + '"><div class="t-avatar">' + __ftAvatar(c) + '</div>'
+        + '<div class="t-info"><div class="t-name">' + __ftEsc(c.display_name || c.name) + (on ? ' ✓' : '') + '</div><div class="t-meta"><span>' + __mobT('다른 선생님', 'Another teacher') + '</span></div></div></div>';
+    }).join('');
+  var n = (slot.teacher_free ? 1 : 0) + (f.st === 'ok' && f.data.teacher_change_ok !== false ? (f.data.candidates || []).length : 0);
+  if (!cards || (f.st === 'ok' && n === 0)) cards = '<div class="tr-title" style="color:var(--text-dim);justify-content:center">😢 ' + __mobT('이 시간에 가능한 선생님이 없어요', 'No teacher is free at this time') + '</div>';
+  return html + '<div class="teacher-result"><div class="tr-title">✅ ' + __mobT('이 시간에 가능한 선생님', 'Teachers free at this time')
+    + (f.st === 'ok' ? ' <span class="badge">' + n + (__mobEn() ? '' : '명') + '</span>' : '') + '</div>' + cards + '</div>';
+}
+function __dtPick(id){
+  var oi = state.dtOrig, o = CURRENT_SCHEDULE[oi]; if (!o || !state.date || !state.hour) return;
+  var item;
+  if (id === 'cur') item = { teacherId: o.teacherId, realTeacherId: null, teacherName: o.teacherName, ico: o.ico || '', date: state.date, hour: state.hour, origIdx: oi };
+  else {
+    var f = __FT[__ftKey({ schedule_id: o.schedule_id, date: state.date, hour: state.hour })];
+    var c = f && f.st === 'ok' && (f.data.candidates || []).find(function(x){ return String(x.id) === String(id); });
+    if (!c) return;
+    item = { teacherId: 'ft:' + c.id, realTeacherId: c.id, teacherName: c.display_name || c.name, ico: '', date: state.date, hour: state.hour, origIdx: oi };
+  }
+  /* 한 수업 자리는 하나만 — 다시 고르면 바꿔 담는다. */
+  state.cart = state.cart.filter(function(it){ return it.origIdx !== oi; });
+  state.cart.push(item);
+  showToast('✅ 담겼어요 (' + state.cart.length + '/' + state.weeklyTarget + ')');
+  state.dtOrig = __dtFirstOpen(); state.date = null; state.hour = null;
+  renderBody(); updateSticky();
+}
+
+/* ── 교사 탭(예시) — 로그인하지 않은 방문자용 예시 화면(가짜 시간표). ⛔ 실제 수업에는 쓰지 않는다. ── */
+function renderTeacherTabDemo(){
   const cards = TEACHERS.map(t => {
     const expanded = state.expandedTeacher === t.id;
     const dates = getNext14Dates();
@@ -1712,12 +2205,32 @@ function attachHandlers(){
     state.loading = true; renderBody();
     setTimeout(() => { state.loading = false; renderBody(); updateSticky(); }, 450);
   }));
+  // 📅 날짜로 탭(실제)
+  $$('#detail-body [data-dtsel]').forEach(el => el.addEventListener('click', () => {
+    if (state.saving) return; state.cart = (state.mode === 'postpone' && state.tab === 'weekly') ? [] : state.cart; state.dtOrig = Number(el.getAttribute('data-dtsel')); state.date = null; state.hour = null; renderBody(); updateSticky();
+  }));
+  $$('#detail-body .hour-chip[data-dthour]').forEach(el => el.addEventListener('click', () => {
+    if (el.classList.contains('disabled')) return;
+    state.hour = el.getAttribute('data-dthour'); renderBody(); updateSticky();
+  }));
+  $$('#detail-body [data-dsretry]').forEach(el => el.addEventListener('click', () => {
+    var o = CURRENT_SCHEDULE[state.dtOrig]; if (o) delete __DS[String(o.schedule_id||'') + '|' + state.date]; renderBody(); updateSticky();
+  }));
+  $$('#detail-body .teacher-card[data-dtpick]').forEach(el => el.addEventListener('click', () => { __dtPick(el.getAttribute('data-dtpick')); }));
   // 날짜로 탭: 가능한 교사 클릭 → 장바구니 담기
   $$('#detail-body .teacher-card[data-teacher]').forEach(el => el.addEventListener('click', () => {
     addToCart(el.getAttribute('data-teacher'), state.date, state.hour);
   }));
 
   // ── 교사로 탭 ──
+  // 👨‍🏫 실제 가능 강사 고르기(2026-09-30)
+  $$('#detail-body [data-ftretry]').forEach(el => el.addEventListener('click', () => {
+    var o = CURRENT_SCHEDULE[Number(el.getAttribute('data-ftretry'))]; if (!o) return;
+    delete __FT[__ftKey(o)]; renderBody(); updateSticky();
+  }));
+  $$('#detail-body .teacher-card[data-ftorig]').forEach(el => el.addEventListener('click', () => {
+    __ftPick(Number(el.getAttribute('data-ftorig')), el.getAttribute('data-ftid'));
+  }));
   // 카드 탭 → 시간 아코디언 펼침/접힘
   $$('#detail-body .teacher-card[data-expand]').forEach(el => el.addEventListener('click', (e) => {
     if (e.target.closest && e.target.closest('.hour-chip')) return;
@@ -1861,8 +2374,9 @@ function attachHandlers(){
 })();
 </script>
 <!-- BUILD:20260813015745 -->
-<script src="/js/i18n-sweep.js?v=22"></script>
+<script src="/js/i18n-sweep.js?v=23"></script>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>
 </html>
+

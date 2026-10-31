@@ -32,7 +32,7 @@ try {
 } finally {
   try { if (existsSync(OUT)) unlinkSync(OUT); } catch { /* 정리 실패 무시 */ }
 }
-const { verifyLegacyLmsLogin, provisionTeacherAccount, legacyLoginEnabled } = mod;
+const { verifyLegacyLmsLogin, provisionTeacherAccount, legacyLoginEnabled, legacyProvisionGate, lookupTeacherByLoginId } = mod;
 
 let pass = 0, fail = 0;
 const ok = (cond, label) => { if (cond) { pass++; console.log('  ✅ ' + label); } else { fail++; console.log('  ❌ ' + label); } };
@@ -138,6 +138,48 @@ const acctStmt = stmts.find(s => /INSERT INTO admin_account/i.test(s.sql));
 ok(!!acctStmt && acctStmt.binds.includes('SALT$deadbeef'), 'admin_account 에 해시 저장');
 ok(!!acctStmt && !acctStmt.binds.some(b => typeof b === 'string' && /^pw|password$/i.test(b)), '평문 비밀번호는 바인딩되지 않음');
 ok(stmts.some(s => /teacher_legacy_accounts/i.test(s.sql)), '이관 현황 테이블에 기록(관리자 확인용)');
+
+console.log('\n▶ 3-1. (2026-10-25) 강사 명부에 없는 LMS 회원(대리점·지사)은 강사로 만들지 않는다');
+//   사고: 대리점 아이디 masteraca 가 옛 LMS 통과 → scope_type='teacher' 계정 생성 → /teacher 로 감.
+ok(typeof legacyProvisionGate === 'function', '판정 정본 legacyProvisionGate 가 있음');
+ok(legacyProvisionGate({ name: 'Anna Cruz', matched: true }).allow === true, '명부에서 찾은 강사 → 허용 (짝: 진짜 강사는 그대로 들어온다)');
+let g = legacyProvisionGate({ name: 'masteraca', matched: false });
+ok(g.allow === false && g.reason === 'not_in_teacher_roster', '명부에 없음(대리점 등) → 거절 not_in_teacher_roster');
+g = legacyProvisionGate({ name: 'x', matched: false, lookup_failed: true });
+ok(g.allow === false && g.reason === 'roster_lookup_failed', '명부 조회 실패 → 거절 roster_lookup_failed (모르면 강사 권한 안 줌)');
+g = legacyProvisionGate({ name: 'x', matched: true, lookup_failed: true });
+ok(g.allow === false, 'matched 여도 조회 실패 표시가 있으면 거절');
+ok(legacyProvisionGate(null).allow === false && legacyProvisionGate(undefined).allow === false, 'info 없음 → 거절');
+ok(legacyProvisionGate({ name: 'x', matched: 'yes' }).allow === false, 'matched 가 true 가 아니면(truthy 문자열) 거절');
+
+// 명부 조회가 «실패» 하면 «못 찾음» 이 아니라 lookup_failed 로 돌아와야 한다(실제로 돌려 봄 — Neo4j 호출이 던지게)
+{
+  const saved = global.fetch;
+  global.fetch = async () => { throw new Error('neo4j down'); };
+  const li = await lookupTeacherByLoginId({ DB: null, NEO4J_QUERY_URL: 'https://neo4j.test/db/neo4j/query/v2', NEO4J_USER: 'u', NEO4J_PASSWORD: 'p' }, 'masteraca');
+  global.fetch = saved;
+  ok(li && li.matched === false && li.lookup_failed === true, '명부 조회 실패 → matched:false + lookup_failed:true');
+  ok(legacyProvisionGate(li).allow === false, '그 결과로는 강사 계정이 안 만들어짐');
+}
+
+// 정본(provisionTeacherAccount)도 스스로 막는다 — 부르는 쪽이 게이트를 빠뜨려도 쓰기 0건
+stmts.length = 0;
+let threw = false;
+try { await provisionTeacherAccount({ DB: dbStub }, 'masteraca', 'SALT$x', { name: 'masteraca', matched: false }); } catch { threw = true; }
+ok(threw && !stmts.some(s => /INSERT/i.test(s.sql) && !s.read), '명부 미매칭이면 provisionTeacherAccount 가 던지고 INSERT 0건');
+stmts.length = 0; threw = false;
+try { await provisionTeacherAccount({ DB: dbStub }, 'anna2', 'SALT$y', { name: 'Anna', matched: true }); } catch { threw = true; }
+ok(!threw && stmts.some(s => /INSERT INTO admin_scope/i.test(s.sql)), '명부 매칭이면 그대로 생성 (짝)');
+
+// 로그인 라우트가 게이트를 «만드는 줄보다 먼저» 부르고 그 결과로 돌아가는가
+{
+  const auth = readFileSync(resolve(root, 'cloudflare-deploy', 'src', 'auth-admin.ts'), 'utf8');
+  const iGate = auth.indexOf('const gate = legacyProvisionGate(info);');
+  const iProv = auth.indexOf('await provisionTeacherAccount(env as any, username');
+  ok(iGate > 0 && iProv > iGate, '로그인 라우트: 게이트 → 계정 생성 순서');
+  const between = auth.slice(iGate, iProv);
+  ok(/if \(!gate\.allow\) \{[\s\S]*?return json\(/.test(between), '로그인 라우트: 거절이면 계정을 만들기 전에 return');
+}
 
 console.log('\n▶ 4. 소스 가드 (구조가 되돌려지면 실패)');
 

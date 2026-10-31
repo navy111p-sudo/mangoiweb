@@ -18,7 +18,9 @@ function bodyAt(src, head) {
 const init = bodyAt(s, '(function initNewSchedule(){');
 const syncSrc = bodyAt(init, 'function syncKind(){');
 const saySrc = bodyAt(init, 'function say(html, color');
-ok(!!syncSrc && !!saySrc, '전제: syncKind·say 를 소스에서 오려 냈다');
+// 2026-10-07: 종류 선택지가 정규/보강/체험/레벨테스트가 되어 syncKind 가 정본 nsClassPick 을 부른다 — 함께 오려 넣는다
+const pickSrc = bodyAt(init, 'function nsClassPick(v){');
+ok(!!syncSrc && !!saySrc && !!pickSrc, '전제: syncKind·say 를 소스에서 오려 냈다');
 
 function el() {
   const a = {};
@@ -29,30 +31,30 @@ function el() {
 function run(fn) {
   const kindEl = el(), daysWrap = el(), dateWrap = el(), msgEl = el(), startWrap = el();
   let f;
-  try { f = new Function('kindEl', 'daysWrap', 'dateWrap', 'msgEl', 'startWrap', saySrc + '\n' + syncSrc + '\nreturn { say, syncKind };')(kindEl, daysWrap, dateWrap, msgEl, startWrap); }
+  try { f = new Function('kindEl', 'daysWrap', 'dateWrap', 'msgEl', 'startWrap', pickSrc + '\n' + saySrc + '\n' + syncSrc + '\nreturn { say, syncKind };')(kindEl, daysWrap, dateWrap, msgEl, startWrap); }
   catch (e) { return { err: e.message }; }
   try { fn(f, { kindEl, daysWrap, dateWrap, msgEl, startWrap }); } catch (e) { return { err: e.message }; }
   return { kindEl, daysWrap, dateWrap, msgEl, startWrap };
 }
 
 // ① 등록 결과(❌ 요일 없음) → 종류를 바꾸면 지워진다
-let r = run((f, d) => { f.say('❌ 반복 수업은 요일을 하나 이상 선택해 주세요.', '#ef4444', 'submit'); d.kindEl.value = 'one_off'; f.syncKind(); });
+let r = run((f, d) => { f.say('❌ 반복 수업은 요일을 하나 이상 선택해 주세요.', '#ef4444', 'submit'); d.kindEl.value = 'makeup'; f.syncKind(); });
 ok(!r.err && r.msgEl.innerHTML === '', '등록 결과 문구는 종류를 바꾸면 지워진다' + (r.err ? ' (' + r.err + ')' : ''));
 ok(!r.err && r.msgEl.getAttribute('data-src') === null, '지운 뒤 표식도 남지 않는다');
 // ② 짝: 강사 목록 폴백 안내는 남는다
-r = run((f, d) => { f.say('⚠️ 강사 목록을 못 받아 이름을 직접 입력합니다', '#fbbf24'); d.kindEl.value = 'one_off'; f.syncKind(); });
+r = run((f, d) => { f.say('⚠️ 강사 목록을 못 받아 이름을 직접 입력합니다', '#fbbf24'); d.kindEl.value = 'makeup'; f.syncKind(); });
 ok(!r.err && r.msgEl.innerHTML.includes('강사 목록을 못 받아'), '«등록 결과가 아닌» 안내는 종류를 바꿔도 남는다');
 // ③ 표식 없는 say 가 앞 표식을 지운다(폴백 안내가 등록 결과로 오인되지 않게)
-r = run((f, d) => { f.say('x', '#ef4444', 'submit'); f.say('⚠️ 강사 목록을 못 받아', '#fbbf24'); d.kindEl.value = 'one_off'; f.syncKind(); });
+r = run((f, d) => { f.say('x', '#ef4444', 'submit'); f.say('⚠️ 강사 목록을 못 받아', '#fbbf24'); d.kindEl.value = 'makeup'; f.syncKind(); });
 ok(!r.err && r.msgEl.innerHTML.includes('강사 목록을 못 받아'), '표식 없는 문구가 덮으면 앞 표식도 사라진다');
 // ④ 종류 전환 자체는 그대로
-r = run((f, d) => { d.kindEl.value = 'one_off'; f.syncKind(); });
+r = run((f, d) => { d.kindEl.value = 'makeup'; f.syncKind(); });
 ok(!r.err && r.daysWrap.style.display === 'none' && r.dateWrap.style.display === 'flex', 'One-off: 요일 숨김 · 날짜 보임(예전 그대로)');
-r = run((f, d) => { d.kindEl.value = 'recurring'; f.syncKind(); });
+r = run((f, d) => { d.kindEl.value = 'regular'; f.syncKind(); });
 ok(!r.err && r.daysWrap.style.display === 'flex' && r.dateWrap.style.display === 'none', 'Weekly: 요일 보임 · 날짜 숨김(예전 그대로)');
 // 📅 (2026-09-24) 시작일 칸은 매주 반복에서만 보인다 — 짝으로 본다(한쪽만 보면 «늘 보이기» 도 통과).
 ok(!r.err && r.startWrap.style.display === 'flex', 'Weekly: 시작일 칸이 보인다');
-r = run((f, d) => { d.kindEl.value = 'one_off'; f.syncKind(); });
+r = run((f, d) => { d.kindEl.value = 'makeup'; f.syncKind(); });
 ok(!r.err && r.startWrap.style.display === 'none', 'One-off: 시작일 칸은 숨긴다(날짜 칸이 그 역할)');
 
 // ⑤ 배선: submit 안의 say 는 전부 'submit' 표식을 단다

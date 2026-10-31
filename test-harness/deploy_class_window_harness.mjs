@@ -19,6 +19,8 @@
 //   ⑧ 우회 입력이 워크플로에 실제로 배선돼 있다
 //   ⑨ 종료코드 계약 — `--exit-on-hold` 면 보류=2, 없으면 «항상 0»(CI 가 죽으면 안 된다)
 //   ⑩ 로컬 `deploy.ps1` 도 같은 판정을 «불러서» 쓴다 (PowerShell 로 복제하지 않는다)
+//   ⑪ 「어느 회차가 깨웠나」를 기록한다 — REST 응답에 크론이 없어 이 줄 없이는
+//      «몰아 배포가 제 시각에 왔는가» 를 사후에 가릴 방법이 없다 (2026-10-16)
 //
 // ⚠️ ③을 «그 글자가 파일에 있나» 로 검사하면 안 된다 — 배포 요약 step 도 워커 주소를
 //    갖고 있어서 거짓 FAIL 이 난다. step 블록을 `- name:` 경계로 잘라 **그 안에서** 본다
@@ -68,14 +70,17 @@ console.log('\n── ① 수업 시간대 판정 (판정 모듈을 실제로 �
       ⚠️ 30일 롤링이라 합계는 날마다 바뀐다 — 숫자를 옮겨 적을 때 «잰 날짜» 를 함께 적을 것.
    ⛔ 그러니 이 표를 「21시가 피크니 되돌리자」의 근거로 쓰지 말 것 — 되돌리려면 지금
       테스트 수업이 실제로 몇 시인지 다시 재고 사장님께 확인해야 한다(class-window.mjs 머리말). */
+/* 🔄 2026-10-02 사장님 지시 「화목 오후12시부터 오후 3시까지만」 — 끝을 16:00 → 15:00 으로.
+   15:00~15:59 는 이제 «배포» 다(보호가 한 시간 줄었다 — 그 사실을 아래 줄로 박아 둔다). */
 const CASES = [
     ['화', '11:59', false], ['화', '12:00', true],  ['화', '13:59', true],
-    ['화', '14:00', true],  ['화', '15:59', true],  ['화', '16:00', false],
+    ['화', '14:00', true],  ['화', '14:59', true],  ['화', '15:00', false],
+    ['화', '15:59', false], ['화', '16:00', false],
     ['화', '02:00', false], ['화', '11:00', false],
     // 🔴 옛 창(14:00~23:00)에서는 막혔던 시각들 — 이제 «배포» 다. 보호가 줄어든 사실을
     //    검사로 박아 둔다. 21시대에 수업이 다시 생기면 이 줄이 먼저 눈에 띄어야 한다.
     ['화', '17:20', false], ['화', '21:20', false], ['화', '22:59', false],
-    ['목', '12:00', true],  ['목', '15:30', true],  ['목', '16:00', false], ['목', '19:30', false],
+    ['목', '12:00', true],  ['목', '14:30', true],  ['목', '15:30', false], ['목', '16:00', false], ['목', '19:30', false],
 ];
 for (const [day, hhmm, want] of CASES) {
     ok(`${day} ${hhmm} KST → ${want ? '보류' : '배포'}`, isClassWindow(atKst(hhmm, day)) === want);
@@ -173,7 +178,8 @@ ok('deploy.yml 의 step 을 읽어 냈다', blocks.length >= 10, `${blocks.lengt
 const outward = blocks.filter(b =>
     /uses:\s*cloudflare\/wrangler-action/.test(b.body) ||
     (/\bcurl\b/.test(b.body) && /workers\.dev/.test(b.body)));
-ok('배포·검증 step 을 찾았다 (wrangler 2 + 헬스체크 2 + TURN 1)', outward.length === 5,
+// 2026-10-01: A.i 상담사 워커(mangoi-ai-avatar-cf) 배포 step 이 더해져 wrangler 가 3개다 — 그것도 아래 루프가 보류 판정을 확인한다.
+ok('배포·검증 step 을 찾았다 (wrangler 3 + 헬스체크 2 + TURN 1)', outward.length === 6,
    outward.map(b => b.name).join(' / '));
 for (const b of outward) {
     ok(`「${b.name}」 이 보류 판정에 걸려 있다`, b.body.includes(HOLD_GATE));
@@ -310,9 +316,14 @@ console.log('\n── ⑨ 종료코드 계약 (node 를 실제로 띄워서) ─
      · deploy.ps1 — 보류면 «멈춰야» 하므로 종료코드 2 가 필요하다
      · deploy.yml — 판정 step 이 죽으면 뒤의 배포 게이트가 통째로 안 돈다. 항상 0 이어야 한다
    이 둘이 어긋나면 한쪽이 조용히 망가진다. */
+/* 🔴 SKIP_LIVE_PROBE: '1' — 이 절은 «종료코드 계약» 만 잰다. 실접속 판정은 진짜 D1 을 부르므로 빼야 한다.
+      2026-10-26 배포 토큰에 D1 읽기 권한이 생기자(사장님 결정 「실접속 판정 켜기」) 배포 게이트에서 이 검사가
+      진짜 D1 을 불렀고, NOW_ISO 가 과거(9/1)라 «그 뒤로 남아 있는 모든 미종료 출석 행» 이 «지금 접속 중» 으로
+      세어져 창 밖인데도 보류(2)가 나왔다(run 40320241430 — 배포가 통째로 막힘). 실접속 판정 자체는
+      deploy_class_guard_harness 가 가짜 fetch 로 잰다. */
 const runCli = (iso, args = [], env = {}) =>
     spawnSync(process.execPath, [CLI_PATH, ...args],
-        { env: { ...process.env, NOW_ISO: iso, GITHUB_OUTPUT: '', GITHUB_STEP_SUMMARY: '', ...env }, encoding: 'utf8' });
+        { env: { ...process.env, NOW_ISO: iso, GITHUB_OUTPUT: '', GITHUB_STEP_SUMMARY: '', SKIP_LIVE_PROBE: '1', ...env }, encoding: 'utf8' });
 
 const IN_WINDOW = '2026-09-01T05:00:00Z';   // 14:00 KST(화) — 새 창(12~16시) 안
 const OUT_WINDOW = '2026-09-01T16:30:00Z';  // 01:30 KST — 몰아 배포 시각
@@ -348,6 +359,45 @@ const psPush = PS1.indexOf('git commit');
 const psDeploy = PS1.indexOf('wrangler deploy');
 ok('게이트가 git commit·배포보다 앞에 있다',
    psGate > 0 && (psPush < 0 || psGate < psPush) && (psDeploy < 0 || psGate < psDeploy));
+
+console.log('\n── ⑪ 「어느 회차가 깨웠나」를 기록한다 (2026-10-16) ──');
+/* 🔴 GitHub REST 응답에 크론이 한 글자도 없어서, «02:05 회차가 왔는가» 를 사후에 가릴
+      방법이 없었다. 실측(09-26~10-16, schedule 실행 100건)으로 말할 수 있었던 것은
+      «하루 5.0건이 온다»(다섯 회차가 다 발화) 와 «02:05~04:20 KST 도착이 20일간 0건»
+      까지이고, «어느 회차가 몇 시에 왔나» 는 추론이었다. 이 줄이 그것을 사실로 바꾼다.
+   ⚠️ 「그 글자가 파일에 있나」로 묻지 않는다 — env 로 넘어가고, 그 값을 «쓰는가» 를 본다. */
+const judgeBlock = (blocks.find(b => b.name === '수업 시간대 배포 보류 판정') || { body: '' }).body;
+ok('판정 step 을 읽어 냈다', judgeBlock.length > 0);
+ok('판정 step 에 github.event.schedule 이 env 로 넘어간다',
+   /SCHEDULE_CRON:\s*\$\{\{\s*github\.event\.schedule\s*\}\}/.test(judgeBlock));
+ok('판정 step 이 그 값을 로그에 남긴다',
+   /run:[\s\S]*SCHEDULE_CRON/.test(judgeBlock.replace(/SCHEDULE_CRON:\s*\$\{\{[^}]*\}\}/, '')));
+ok('배포 요약도 그 값을 쓴다 (로그를 열지 않고 보이게)',
+   /SCHEDULE_CRON:\s*\$\{\{\s*github\.event\.schedule\s*\}\}/.test(summaryBlock)
+   && /\$SCHEDULE_CRON|\$\{SCHEDULE_CRON/.test(summaryBlock));
+/* ✅ 짝 — «schedule 이 아닐 때는 조용하다». 없으면 push 실행마다 빈 줄이 붙는다.
+   ⚠️ 「그 가드가 블록 어딘가에 있나」로 묻지 않는다 — 요약에 두 곳이 있어 한 곳만
+      풀어도 통과한다(변이시험에서 실제로 밟았다). 줄마다 «그 echo 가 가드 «안» 인가» 로. */
+{
+    const lines = summaryBlock.split('\n');
+    let guards = 0, open = false;
+    for (const l of lines) {
+        if (/-n\s+"\$SCHEDULE_CRON"/.test(l)) open = true;
+        else if (/^\s*(fi|else|elif)\b/.test(l)) open = false;
+        if (/echo .*SCHEDULE_CRON/.test(l)) guards += open ? 1 : -99;
+    }
+    ok('schedule 이 아니면 요약에 그 줄을 안 넣는다 (짝)', guards > 0, `${guards}`);
+}
+/* ⛔ 커밋 메시지와 같은 이유 — run: 안에서 ${{ }} 로 펼치면 셸 주입이다. env 로만.
+   ⚠️ 「run: 뒤 N자 안에 있나」로 묻지 않는다 — 앞 step 의 run: 이 걸려 거짓 FAIL 이 난다
+      (실제로 밟았다). 그 식이 **나오는 줄마다** env 대입인지 본다. */
+{
+    const bad = YML.split('\n')
+        .filter(l => /\$\{\{\s*github\.event\.schedule\s*\}\}/.test(l))
+        .filter(l => !/^\s*SCHEDULE_CRON:\s*\$\{\{\s*github\.event\.schedule\s*\}\}\s*$/.test(l));
+    ok('크론 값은 env 로만 넘긴다 (run: 안에서 펼치지 않는다 — 셸 주입 방지)',
+       bad.length === 0, bad.join(' / '));
+}
 
 console.log(`\n  ${fail ? '❌' : '🎉'} ${pass} PASS / ${fail} FAIL`);
 process.exit(fail ? 1 : 0);

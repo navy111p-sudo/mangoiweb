@@ -1,0 +1,80 @@
+name: Admin repairs offline browser
+
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-deploy/public/admin.html'
+      - 'cloudflare-deploy/public/teacher.html'
+      - 'cloudflare-deploy/public/admin/weekly-schedule.html'
+      - 'cloudflare-deploy/public/admin/health.html'
+      - 'cloudflare-deploy/public/js/adm-*.js'
+      - 'cloudflare-deploy/public/css/admin-*.css'
+      - 'cloudflare-deploy/public/css/adm-*.css'
+      - 'test-harness/manual/admin-repairs-offline-browser.*'
+      - '.github/workflows/admin-repairs-offline-browser.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          # Report/test the actual proposed head, rather than a synthetic merge.
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install pinned official browser tooling outside the checkout
+        env:
+          PW_DIR: ${{ runner.temp }}/admin-offline-pw
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/admin-offline-browsers
+        run: |
+          set -euo pipefail
+          npm install --prefix "$PW_DIR" --ignore-scripts --package-lock=false --no-audit --no-fund --registry=https://registry.npmjs.org playwright-core@1.63.0
+          node "$PW_DIR/node_modules/playwright-core/cli.js" install --with-deps chromium
+      - name: Run shipped UI in a loopback-only network namespace
+        env:
+          PW_DIR: ${{ runner.temp }}/admin-offline-pw
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/admin-offline-browsers
+        run: |
+          set -euo pipefail
+          OUTPUT="$RUNNER_TEMP/admin-offline-results"
+          HOME_DIR="$RUNNER_TEMP/admin-offline-home"
+          TEMP_DIR="$RUNNER_TEMP/admin-offline-tmp"
+          mkdir -p "$OUTPUT" "$HOME_DIR" "$TEMP_DIR"
+          NODE="$(command -v node)"
+          # No fallback: namespace setup or privilege dropping failure fails CI.
+          # Tool/browser installation is finished before entering this namespace.
+          sudo unshare --net -- /bin/bash -euo pipefail -c '
+            uid="$1"; gid="$2"; node="$3"; root="$4"; home="$5"; temp="$6"; pw="$7"; browsers="$8"; output="$9"
+            ip link set lo up
+            test "$(ip -o link show | wc -l)" -eq 1
+            ip link show dev lo >/dev/null
+            test -z "$(ip -4 route show default)"
+            test -z "$(ip -6 route show default)"
+            echo "Isolation verified: only lo; no IPv4/IPv6 default routes"
+            cd "$root"
+            exec setpriv --reuid="$uid" --regid="$gid" --clear-groups --bounding-set=-all --no-new-privs \
+              env -i PATH="$(dirname "$node"):/usr/bin:/bin" HOME="$home" TMPDIR="$temp" \
+              LANG=C.UTF-8 TZ=UTC PW_DIR="$pw" PLAYWRIGHT_BROWSERS_PATH="$browsers" \
+              OFFLINE_BROWSER_OUTPUT="$output" \
+              "$node" test-harness/manual/admin-repairs-offline-browser.mjs
+          ' offline-browser "$(id -u)" "$(id -g)" "$NODE" "$GITHUB_WORKSPACE" "$HOME_DIR" "$TEMP_DIR" "$PW_DIR" "$PLAYWRIGHT_BROWSERS_PATH" "$OUTPUT" \
+            2>&1 | tee "$OUTPUT/browser.log"
+          grep -Eq '^admin-repairs-offline-browser: PASS [1-9][0-9]* / FAIL 0 / SKIP 0$' "$OUTPUT/browser.log"
+      - name: Upload synthetic fixture logs and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-offline-browser-${{ github.event.pull_request.head.sha }}
+          path: |
+            ${{ runner.temp }}/admin-offline-results/*.json
+            ${{ runner.temp }}/admin-offline-results/*.log
+            ${{ runner.temp }}/admin-offline-results/*.png
+          retention-days: 7
+          if-no-files-found: warn

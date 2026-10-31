@@ -50,7 +50,7 @@
      *    아래에 두면 「중국어 복습퀴즈」 가 '복습퀴즈' 에 먼저 걸려 한국어 화면으로 가 버린다.
      * ⚠️ kws 에 맨 '중국어' 는 넣지 않는다 — 그건 중국어 발음 코치(ph157)의 몫이다. */
     { kws:['중국어 복습퀴즈','중국어복습퀴즈','중국어 복습','중국어복습','중국어 퀴즈','중국어퀴즈','중문 퀴즈','chinese quiz','chinese review quiz'], action: () => location.href='/review-quiz-cn.html', label:'🇨🇳 중국어 복습퀴즈' },
-    { kws:['복습퀴즈','복습 퀴즈','선생님 퀴즈','리뷰 퀴즈','review quiz'], action: () => location.href='/review-quiz.html', label:'🧠 복습퀴즈' },
+    { kws:['bts/siu 퀴즈','bts 퀴즈','siu 퀴즈','bts퀴즈','siu퀴즈','복습퀴즈','복습 퀴즈','선생님 퀴즈','리뷰 퀴즈','review quiz'], action: () => location.href='/review-quiz.html', label:'🧠 BTS/SIU 퀴즈' },
     { kws:['미니 퀴즈','미니퀴즈','퀴즈','단어 퀴즈','쪽지시험','quiz'], action: () => location.href='/micro-quiz.html', label:'🎯 AI 단어 퀴즈' },
     { kws:['mbti 매칭','mbti매칭','엠비티아이 매칭','강사 매칭','성향 매칭','mbti match'], action: () => location.href='/mbti.html', label:'🧠 MBTI 매칭' },
     { kws:['mbti 테스트','mbti테스트','엠비티아이 테스트','성향 테스트','성격 테스트','mbti test'], action: () => location.href='/mbti-test.html', label:'🧪 MBTI 테스트' },
@@ -339,8 +339,8 @@
       { label: '🎮 학생게임', action: () => location.href = '/student-games.html' },
       { label: '📖 단어장', action: () => location.href = '/vocab.html' },
       { label: '🗣 발음연습', action: () => location.href = '/speech-coach.html' },
-      { label: '🧠 복습퀴즈', action: () => location.href = '/review-quiz.html' },
-      { label: '🇨🇳 중국어 복습퀴즈', action: () => location.href = '/review-quiz-cn.html' },
+      { label: '🧠 BTS/SIU 퀴즈', action: () => location.href = '/review-quiz.html' },
+      { label: '🇨🇳 중국어퀴즈', action: () => location.href = '/review-quiz-cn.html' },
       { label: '📊 월간 성적표', action: () => location.href = '/report.html' },
       { label: '🎁 포인트 상점', action: () => { if (window.showPointsShop) window.showPointsShop(); } },
       { label: '💬 카카오 상담', action: () => { if (window.openInquiryModal) window.openInquiryModal(); } },

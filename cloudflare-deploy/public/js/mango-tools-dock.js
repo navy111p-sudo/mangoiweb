@@ -19,6 +19,12 @@
 
   // 열림 상태 기억 (클릭으로만 변경) — 기본 둘 다 닫힘
   var openState = { materials: false, write: false };
+  // 패널을 «어느 탭에서» 열었나 (2026-10-08 사장님 「탭 바꿨다 돌아오면 창 닫히게」)
+  var openedTab = null;
+  function activeTab() {
+    var t = document.querySelector('.tab-panel.active');
+    return t ? (t.id || null) : null;
+  }
 
   function setAttr(el, name, value) {
     value = String(value);
@@ -97,6 +103,39 @@
     if (bar.style.right !== 'auto') bar.style.right = 'auto';
   }
 
+  // ✕ (2026-10-08 사장님 「닫기 기능이 없음 — 필기도구·교재도구 모두에 닫기 표시」)
+  //   폰 세로에서는 패널이 화면 가운데를 덮는데(position:fixed) 닫는 길이 칩을 다시
+  //   누르는 것뿐이었고, 그 칩은 패널·☰ 기능 메뉴 뒤에 있어 찾을 수 없었다.
+  //   패널마다 맨 위에 «✕ 닫기» 를 넣는다. 보이기/숨기기는 CSS(열렸을 때만)가 맡는다.
+  //   도구바가 다시 그려져도 enforce 틱(1.2초)이 다시 넣는다.
+  function ensureClose(bar) {
+    try {
+      if (!bar || typeof bar.querySelector !== 'function' || typeof document.createElement !== 'function') return;
+      if (bar.querySelector(':scope > .mango-dock-close')) return;
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'mango-dock-close';
+      b.textContent = lang() === 'en' ? '✕ Close (닫기)' : '✕ 닫기 (Close)';
+      b.setAttribute('data-ko', '✕ 닫기 (Close)');
+      b.setAttribute('data-en', '✕ Close (닫기)');
+      b.setAttribute('aria-label', lang() === 'en' ? 'Close tools' : '도구 닫기');
+      b.addEventListener('click', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        window.mangoCloseToolDock();
+      });
+      bar.insertBefore(b, bar.firstChild);
+    } catch (_) {}
+  }
+
+  // 모든 도구 패널 닫기 (탭 전환·화면 모드 변경 없이 닫기만)
+  window.mangoCloseToolDock = function () {
+    openedTab = null;
+    openState.materials = false;
+    openState.write = false;
+    applyMaterialsState();
+    applyWriteState();
+  };
+
   // ── 교재도구 상태 반영 (항상 교재 탭의 pdf-controls) ──
   function applyMaterialsState() {
     var bar = pdfControls();
@@ -104,6 +143,7 @@
       setAttr(bar, 'data-mango-dock-open', openState.materials);
       var collapsed = bar.classList.contains('ph49-collapsed');
       if (openState.materials) {
+        ensureClose(bar);
         if (collapsed) bar.classList.remove('ph49-collapsed');
         positionDockEl(bar, 'materials');
       } else {
@@ -128,7 +168,7 @@
       }
       // 칠판 도구바는 접힘(ph49) 로직을 쓰지 않는다 — 내부 버튼 항상 노출
       if (wb.classList.contains('ph49-collapsed')) wb.classList.remove('ph49-collapsed');
-      if (wbShow) positionDockEl(wb, 'write');
+      if (wbShow) { ensureClose(wb); positionDockEl(wb, 'write'); }
     }
 
     // PDF 주석 도구바 — 필기도구가 열려 있고 '칠판이 아닌' 탭(=교재)일 때만 표시
@@ -137,6 +177,7 @@
       setAttr(anno, 'data-mango-dock-open', annoShow);
       var collapsed = anno.classList.contains('ph49-collapsed');
       if (annoShow) {
+        ensureClose(anno);
         if (collapsed) anno.classList.remove('ph49-collapsed');
         positionDockEl(anno, 'write');
       } else {
@@ -165,12 +206,39 @@
     openState.materials = false;
     openState.write = false;
     openState[which] = willOpen;
+    openedTab = willOpen ? activeTab() : null;
     applyMaterialsState();
     applyWriteState();
   };
 
+  // 🔁 탭을 바꾸면(교재↔칠판↔동영상↔게임…) 열려 있던 도구 창을 닫는다 — 돌아와도 닫힌 채.
+  //   예전엔 openState 가 남아 있어 교재 탭으로 돌아오면 창이 다시 튀어나와 화면을 덮었다.
+  //   ⚠️ 탭이 «실제로» 바뀌었을 때만(같은 탭으로 vcSwitchTab 을 다시 불러도 안 닫음).
+  //   ⛔ mangoToggleToolDock 안의 vcSwitchTab('pdf') 도 여기를 지나지만, 그 직후 새 상태를 정하므로 무해.
+  function closeIfTabChanged() {
+    if (!openState.materials && !openState.write) return;
+    var cur = activeTab();
+    if (openedTab && cur && cur !== openedTab) window.mangoCloseToolDock();
+  }
+  try {
+    var _origSwitch = window.vcSwitchTab;
+    if (typeof _origSwitch === 'function' && !_origSwitch.__dockTabWrapped) {
+      var wrapped = function () {
+        var r = _origSwitch.apply(this, arguments);
+        try { closeIfTabChanged(); } catch (_) {}
+        return r;
+      };
+      wrapped.__dockTabWrapped = true;
+      window.vcSwitchTab = wrapped;
+    }
+  } catch (_) {}
+
   // 동적 재렌더에도 클릭 없이는 열리지 않도록 상태 강제
   function enforce() {
+    try { closeIfTabChanged(); } catch (_) {}
+    ensureClose(pdfControls());
+    ensureClose(pdfAnnoBar());
+    ensureClose(wbToolbar());
     applyMaterialsState();
     applyWriteState();
   }

@@ -1,0 +1,49 @@
+/* 5판 — 말하기 중심 */
+.are{list-style:none;display:flex;flex-direction:column;gap:6px}
+.are li{display:grid;grid-template-columns:34px 76px 1fr;align-items:center;gap:10px;background:#fff;border-radius:14px;padding:8px 14px;font-size:23px;font-weight:600;line-height:1.2}
+.are i{font-style:normal;width:34px;height:34px;border-radius:10px;color:#fff;font-family:'Bricolage Grotesque';font-size:20px;display:flex;align-items:center;justify-content:center}
+.are li:nth-child(1) i{background:var(--blue)}.are li:nth-child(2) i{background:var(--mango)}.are li:nth-child(3) i{background:var(--mint)}
+.are small{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);font-weight:700}
+/* 2 규칙 */
+.k-rule{background:var(--ink)}.k-rule h2{color:#fff}.k-rule h2 span{color:var(--mango)}.k-rule .foot{color:#FFD28A}.k-rule .foot b{color:var(--sun)}
+.rw{display:grid;grid-template-columns:360px 1fr;gap:34px;flex:1;align-items:center}
+.rw small{display:block;font-weight:700;letter-spacing:.08em;font-size:16px;margin-bottom:10px}
+.bad1{background:#3A2330;border-radius:24px;padding:26px;color:#FFB3C5;font-size:28px;line-height:1.35;transform:rotate(-2deg)}.bad1 b{color:#fff;font-size:44px;text-decoration:line-through wavy var(--pink)}
+.good1{background:#D5F5E8;border-radius:24px;padding:22px 24px}.good1 small{color:#0B7A57}.good1 .are li{font-size:28px;padding:12px 16px}
+/* 네 차례 박스 */
+.yt{margin-top:10px;background:#FFF6D6;border:2px dashed #F2C77F;border-radius:14px;padding:10px 14px;font-size:19px;font-weight:700;line-height:1.35}.yt span{font-weight:500;color:var(--sub)}.yt b{color:var(--blue)}
+.yt.big{font-size:24px;padding:14px 18px}
+.k-sp .spb h3{font-size:30px}.k-sp .spb q{font-size:22px;margin-top:6px}
+/* 4 묻기 줄 */
+.chain{position:absolute;left:60px;right:60px;top:318px;z-index:4;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chain b{width:100%;color:#fff;font-size:21px;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+.chain span{background:rgba(255,255,255,.95);border-radius:999px;padding:8px 16px;font-size:22px;font-weight:700}
+/* 5 */
+.k-tbl .gr{flex:1}.k-tbl .yt.big{margin-top:0;font-size:21px}
+/* 6 바꿔 말하기 */
+.k-drill{background:#EAF2FF}.drw{display:grid;grid-template-columns:1fr 380px;gap:36px;flex:1}
+.dr{list-style:none;display:flex;flex-direction:column;gap:12px}
+.dr li{display:grid;grid-template-columns:44px 230px 1fr;align-items:center;gap:14px;background:#fff;border-radius:18px;padding:14px 18px;font-size:28px;font-weight:600}
+.dr i{font-style:normal;width:44px;height:44px;border-radius:50%;background:var(--blue);color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center}
+.dr b{color:var(--blue)}.dr span{color:var(--sub)}
+.drt p{font-size:24px;font-weight:700;margin-bottom:8px}.drt .topics span{background:#fff}.drt .topics span:nth-child(odd){background:var(--sun)}
+.pair{margin-top:26px;background:var(--ink);color:#fff;border-radius:16px;padding:14px 18px;font-size:22px;font-weight:600}.pair b{color:var(--sun)}
+/* 질문 쪽 */
+.kw.k5{padding:10px 18px}.kw.k5 b{font-size:40px}.kw.k5 p{font-size:19px;margin-top:0}.k-q .qh{font-size:46px}.k-q .qb{gap:10px}
+.model{background:#E8EEF2;border-radius:18px;padding:10px 12px}.model>small{display:block;font-size:14px;font-weight:700;letter-spacing:.04em;color:var(--sub);margin:0 0 6px 4px}
+.k-q .are li{font-size:21px;padding:6px 12px}
+.tm5{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.tm5 b{font-size:19px;color:var(--pink);margin-right:4px}
+.tm5 span{background:var(--sun);border-radius:999px;padding:6px 14px;font-size:18px;font-weight:700}
+.k-q1 .model{background:rgba(255,255,255,.14)}.k-q1 .model>small{color:#D9E4E8}.k-q1 .tm5 b{color:var(--sun)}
+/* 17 낱말 */
+.k-words{background:#FFF1E6}.k-words h2 span{color:var(--pink)}
+.wds{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:22px}.wds span{background:#fff;border-radius:16px;padding:12px 24px;font-family:'Bricolage Grotesque';font-weight:800;font-size:40px;box-shadow:0 4px 0 #F2C9A8}
+.wds span:nth-child(3n+1){transform:rotate(-2deg)}.wds span:nth-child(3n){transform:rotate(2deg)}
+.ww{display:flex;flex-direction:column;gap:14px}
+/* 18 인터뷰 */
+.iv{position:relative;z-index:3;max-width:720px;display:flex;flex-direction:column;gap:14px}
+.ivs{list-style:none;display:flex;flex-direction:column;gap:10px}.ivs li{display:flex;gap:14px;align-items:center;background:rgba(255,255,255,.95);border-radius:16px;padding:12px 18px;font-size:26px;font-weight:700}
+.ivs i{font-style:normal;width:40px;height:40px;border-radius:50%;background:var(--mango);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px}
+.rep{background:var(--sun);border-radius:18px;padding:14px 20px;font-size:25px;font-weight:600;line-height:1.4}.rep small{display:block;font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:#8A6400;font-weight:700}.rep b{color:#C21F4B}
+/* 19 */
+.chk{list-style:none;display:flex;flex-direction:column;gap:6px;font-size:24px;font-weight:600}.chk li{color:#D9F7EC}

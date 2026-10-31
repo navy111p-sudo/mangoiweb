@@ -558,7 +558,7 @@ await wiringSection();
                    get textContent() { return String(this.innerHTML).replace(/<[^>]*>/g, ''); } };
       const doc = { getElementById: (id) => (id === 'wusBookNow' ? el : null) };
       const f = new Function('document', 'isZh', '_btsVol', 'btsLessonNow',
-        `${escSrc || ''}\nvar BTS_BOOKS = ${btsSrc || '[]'};\nvar SIU_BOOKS = ${siuSrc || '[]'};\nvar SIU_ADV_BOOKS = ${advSrc || '[]'};
+        "/* 🌐 2026-10-03 — 화면 언어 헬퍼(wuT·wuEn·ageName)는 KO 로 돌린다. */ function wuEn(){return false} function wuT(k,e){return k} function ageName(a){return a?a.ko:''} " + `${escSrc || ''}\nvar BTS_BOOKS = ${btsSrc || '[]'};\nvar SIU_BOOKS = ${siuSrc || '[]'};\nvar SIU_ADV_BOOKS = ${advSrc || '[]'};
          ${allSrc || ''}\n${idSrc || ''}\n${titleSrc || ''}\n${bookOfSrc || ''}
          ${bnSrc}\nbtsRenderBookNow(); return { hidden: document.getElementById('wusBookNow').hidden,
            text: document.getElementById('wusBookNow').textContent };`);
@@ -752,7 +752,7 @@ if (Array.isArray(SIUB) && SIUB.length) {
       const f = new Function('BTS_BOOKS', 'SIU_BOOKS', 'SIU_ADV_BOOKS',
         'SIU_BAND_MIN', 'SIU_ADV_BAND_MIN', '_warmLevel', '_btsVol',
         'btsBandOf', 'escapeHtml', 'bookTitleOf',
-        `${listSrc}\nreturn btsListHtml();`);
+        "/* 🌐 2026-10-03 — 화면 언어 헬퍼(wuT·wuEn·ageName)는 KO 로 돌린다. */ function wuEn(){return false} function wuT(k,e){return k} function ageName(a){return a?a.ko:''} " + `${listSrc}\nreturn btsListHtml();`);
       return f(BOOKS, SIUB, ADVB, MIN, ADVMIN, band, vol === undefined ? 0 : vol, bandOf,
         (x) => String(x == null ? '' : x).replace(/[&<>"']/g, (c) =>
           ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])),

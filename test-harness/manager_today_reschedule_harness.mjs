@@ -80,7 +80,11 @@ ok('전제 — /decide 라우트를 잘라 냈다', decideBlk.length > 500, deci
 
 /* 그 안의 UPDATE 문 네 개(이동 미러/이동 일반/연기 미러/연기 일반)를 그대로 꺼낸다.
    ⛔ 하니스에 SQL 을 베껴 적지 말 것 — 소스가 바뀌면 그 복제가 조용히 낡는다. */
-const updSqls = (decideBlk.match(/`UPDATE class_schedules SET [^`]+`/g) || []).map((x) => x.slice(1, -1));
+/* ⚠️ (2026-09-30) 이동·연기 갈래만 센다 — 날짜(scheduled_date)나 상태(status)를 바꾸는 문장.
+      승인이 «고른 강사» 로 바꾸는 `SET teacher_id = ?` 는 다른 일이라 이 네 갈래에 넣지 않는다
+      (그 검사는 student_schedule_request_harness ②-3 이 decide 를 진짜 SQLite 로 돌려 본다). */
+const updSqls = (decideBlk.match(/`UPDATE class_schedules SET [^`]+`/g) || []).map((x) => x.slice(1, -1))
+  .filter((q) => /SET (scheduled_date|status)\b/.test(q));
 ok('이동·연기 UPDATE 를 네 갈래로 꺼냈다 (미러/일반 × 이동/연기)', updSqls.length === 4, updSqls.length);
 
 /* ⛔ 도장 값을 하니스에 베껴 적지 말 것 — 정본(c24-mirror.ts)에서 읽는다.
@@ -361,8 +365,18 @@ ok('못 읽으면 «연기(날짜 미정)» 로 떨어진다 (가장 덜 위험�
 const mCancelGate = blockFrom(MV_S, 'function mvCanCancel(r)').match(/return ([^;]+);/);
 ok('전제 — 취소 게이트를 찾았다', !!mCancelGate);
 if (mCancelGate) {
-  const h = new Function('_opt', 'r', 'return ' + mCancelGate[1] + ';');
+  /* 2026-10-08: 매주 수업은 «먼저 날짜별로 나눈 뒤» 취소한다 — 게이트가 mvWeekly 를 부른다.
+     mvWeekly 도 소스에서 오려 내 함께 넣는다(손으로 베끼지 않는다). */
+  const mWk = blockFrom(MV_S, 'function mvWeekly(r)').match(/return ([^;]+);/);
+  ok('전제 — mvWeekly 를 찾았다', !!mWk);
+  const mvWeeklyFn = mWk ? new Function('r', 'return ' + mWk[1] + ';') : (() => false);
+  const h0 = new Function('_opt', 'r', 'mvWeekly', 'return ' + mCancelGate[1] + ';');
+  const h = (o, r) => { try { return h0(o, r, mvWeeklyFn); } catch (e) { return 'ERR:' + e.message; } };
   ok('본사 + 날짜 지정 수업이면 취소를 준다', h({ canCancel: true }, { can_move: true }) === true);
+  ok('본사 + 매주 수업 + 나눌 수 있음(can_split) → 나눈 뒤 취소를 준다',
+     h({ canCancel: true }, { can_move: false, can_split: true, schedule_id: 7 }) === true);
+  ok('지사·대리점은 매주 수업에도 안 준다 (짝)',
+     h({ canCancel: false }, { can_move: false, can_split: true, schedule_id: 7 }) === false);
   ok('지사·대리점에는 안 준다 (DELETE 가 403) (짝)', h({ canCancel: false }, { can_move: true }) === false);
   ok('매주 반복에는 안 준다 (모든 주가 죽는다) (짝)', h({ canCancel: true }, { can_move: false }) === false);
   ok('«모름» 에도 안 준다 (막는 쪽으로 실패) (짝)', h({ canCancel: true }, {}) === false && h({}, { can_move: true }) === false);

@@ -1,0 +1,311 @@
+{
+  "id": "s4-26",
+  "breaks": [
+    4,
+    4,
+    5,
+    4
+  ],
+  "key": {
+    "P": 2,
+    "S": 13
+  },
+  "roleNames": {
+    "P": {
+      "ko": "개념",
+      "en": "concept"
+    },
+    "S": {
+      "ko": "해결책",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «인플레이션은 물건과 서비스 가격이 전반적으로 올라 같은 돈으로 전보다 덜 사게 되는 것이다(개념)» 와 «물가를 잡기 위해 한국은행 같은 중앙은행은 금리를 올릴 수 있다(해결책)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the concept (inflation is a general increase in prices, so the same money buys less) and the solution (central banks such as the Bank of Korea can raise interest rates to control it). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "What inflation is and why it happens"
+    },
+    {
+      "k": "Cause",
+      "qko": "물가가 오르는 주요 원인은 무엇인가요?",
+      "qen": "What are the main causes?",
+      "a": "People want to buy more than the economy makes, and the costs of making things rise"
+    },
+    {
+      "k": "Solution",
+      "qko": "인플레이션을 어떻게 잡나요?",
+      "qen": "How is inflation controlled?",
+      "a": "Central banks raise interest rates so people spend less"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Inflation is a general increase in prices, which means the same amount of money buys ",
+      "ans": "less",
+      "opts": [
+        "less",
+        "more",
+        "longer"
+      ]
+    },
+    {
+      "pre": ". It can happen when people want to buy more than the economy can ",
+      "ans": "produce",
+      "opts": [
+        "produce",
+        "forget",
+        "borrow"
+      ]
+    },
+    {
+      "pre": ", or when the cost of making things rises. A small amount of inflation is healthy, but high inflation causes pain when prices rise faster than ",
+      "ans": "wages",
+      "opts": [
+        "wages",
+        "holidays",
+        "trains"
+      ]
+    },
+    {
+      "pre": ". To control inflation, central banks can raise interest ",
+      "ans": "rates",
+      "opts": [
+        "rates",
+        "prizes",
+        "walls"
+      ]
+    },
+    {
+      "pre": ", which makes borrowing more ",
+      "ans": "expensive",
+      "opts": [
+        "expensive",
+        "cheap",
+        "fun"
+      ]
+    },
+    {
+      "pre": " and helps cool prices.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "index",
+      "지수",
+      "Economists usually measure it with a price <b>index</b>",
+      "a number that shows how prices or amounts change"
+    ],
+    [
+      "wages",
+      "임금, 월급",
+      "When prices rise faster than <b>wages</b>, families find it harder to pay for basic needs",
+      "the money people earn for their work"
+    ],
+    [
+      "unemployment",
+      "실업",
+      "raising rates too much can cause <b>unemployment</b>",
+      "the state of not having a job"
+    ],
+    [
+      "worthless",
+      "가치가 없는",
+      "prices can rise so fast that money becomes almost <b>worthless</b>",
+      "having no value at all"
+    ],
+    [
+      "deflation",
+      "디플레이션, 물가 하락",
+      "Surprisingly, falling prices, or <b>deflation</b>, can also be harmful",
+      "a fall in the general level of prices"
+    ],
+    [
+      "borrowing",
+      "돈을 빌리는 것",
+      "Higher rates make <b>borrowing</b> more expensive",
+      "taking money that you must pay back later"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why can high inflation make life hard for families?",
+      "qko": "높은 인플레이션은 왜 가족들의 생활을 힘들게 할 수 있나요?",
+      "opts": [
+        "Prices rise faster than wages, and savings lose value",
+        "Central banks take away their savings",
+        "Prices fall so fast that stores close"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "When prices rise faster than wages, families find it harder to pay for basic needs, and savings lose value.",
+        "A small amount of inflation, around 2 percent a year, is considered healthy by many central banks.",
+        "Surprisingly, falling prices, or deflation, can also be harmful, because people may delay spending and the economy can slow down.",
+        "Economists usually measure it with a price index, which tracks the cost of a typical basket of goods such as food, rent, and transportation."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "본문에 가격이 월급보다 빨리 오르면 가족들이 기본적인 필요를 감당하기 어려워지고 저축의 가치도 떨어진다고 나와요.",
+        "When prices rise faster than wages, families find it harder to pay for basic needs, and savings lose value."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what does \"a typical basket of goods\" mean?",
+      "qko": "글에서 «a typical basket of goods» 는 무슨 뜻인가요?",
+      "opts": [
+        "A set of common things people usually buy, like food, rent, and transportation",
+        "A real shopping basket full of fruit",
+        "The money a bank keeps in a safe"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Economists usually measure it with a price index, which tracks the cost of a typical basket of goods such as food, rent, and transportation.",
+        "More precisely, inflation is a general increase in the prices of goods and services, which means that the same amount of money buys less than before.",
+        "Printing too much money can also lead to inflation.",
+        "Higher rates make borrowing more expensive, so people and businesses spend less, which helps cool prices."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "여기서 «basket» 은 진짜 바구니가 아니라 사람들이 흔히 사는 것들의 묶음을 말해요. 같은 문장에서 음식, 집세, 교통비 같은 예를 들어요.",
+        "Here \"basket\" is not a real basket. It means a set of things people usually buy, such as food, rent, and transportation."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How can raising interest rates help cool prices?",
+      "qko": "금리를 올리면 어떻게 물가를 식히는 데 도움이 되나요?",
+      "opts": [
+        "Borrowing becomes more expensive, so people and businesses spend less",
+        "Banks print more money for everyone",
+        "Companies pass higher oil costs on to customers"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "To control inflation, central banks such as the Bank of Korea can raise interest rates.",
+        "Higher rates make borrowing more expensive, so people and businesses spend less, which helps cool prices.",
+        "Printing too much money can also lead to inflation.",
+        "First, when people and businesses want to buy more than the economy can produce, prices are pulled up."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "중앙은행은 물가를 잡으려고 금리를 올리고, 금리가 오르면 돈을 빌리기가 비싸져서 사람과 기업이 덜 쓰게 돼요. 그래서 물가가 식어요. 두 문장을 함께 봐야 해요.",
+        "Central banks raise interest rates to control inflation. Higher rates make borrowing more expensive, so people and businesses spend less, which cools prices."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "What happened when money lost its value in Germany in 1923?",
+      "1923년 독일에서 돈이 가치를 잃었을 때 무슨 일이 있었을까?",
+      "When Money Lost Its Value"
+    ],
+    [
+      "B",
+      "How does the Bank of Korea decide interest rates?",
+      "한국은행은 금리를 어떻게 정할까?",
+      "Inside the Central Bank"
+    ]
+  ],
+  "write": {
+    "pre": "If",
+    "mid": "we can",
+    "sep": ", ",
+    "slots": [
+      "cl",
+      "vp"
+    ],
+    "slotKo": [
+      "조건(만약 ~하면)",
+      "할 수 있는 일"
+    ],
+    "slotEn": [
+      "a condition",
+      "what we can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «어떤 조건 + 그때 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own condition and what we can do in English.",
+    "aria": [
+      "the condition",
+      "what we can do"
+    ],
+    "src": "“If <u>we understand how inflation works</u>, we can <u>make smarter choices about saving and spending</u>.”",
+    "chips": [
+      {
+        "a": "we compare prices before buying",
+        "b": "spend our allowance more wisely",
+        "label": "prices"
+      },
+      {
+        "a": "we save a little every week",
+        "b": "buy something we really need later",
+        "label": "saving"
+      },
+      {
+        "a": "we make a shopping list",
+        "b": "avoid buying things we do not need",
+        "label": "list"
+      }
+    ],
+    "moreKo": "한 걸음 더: «we can» 뒤에 «돈을 어떻게 더 현명하게 쓸 수 있는지» 를 구체적으로 써 보세요. (예: buy school supplies before prices go up)",
+    "moreEn": "One more step: after «we can», write exactly how we can use money more wisely. (e.g. buy school supplies before prices go up)"
+  },
+  "img": {
+    "style": "comic",
+    "cover": "A shopper in a supermarket aisle holding a shopping basket filled with bread, milk, vegetables, and fruit, looking closely at the shelves of food",
+    "scenes": {
+      "1": "A busy factory floor where workers in safety helmets operate large machines, with blue oil barrels stacked beside the loading door",
+      "3": "A group of bankers in dark suits seen from behind sitting around a long polished meeting table in a grand room with tall windows"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "Workers in a factory beside oil barrels",
+    "3": "Bankers meeting around a long table",
+    "cover": "A shopper holding a basket of groceries"
+  }
+}

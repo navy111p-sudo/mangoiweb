@@ -1,0 +1,311 @@
+{
+  "id": "s3-34",
+  "breaks": [
+    2,
+    3,
+    4,
+    4
+  ],
+  "key": {
+    "P": 5,
+    "S": 6
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "방법",
+      "en": "method"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «물곰의 가장 놀라운 능력은 환경이 아주 나빠져도 살아남는 것이다(주제)» 와 «사는 곳이 마르면 다리를 집어넣고 공처럼 몸을 말아 툰이 된다(방법)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (the tardigrade’s most amazing skill is surviving terrible conditions) and the method (when its home dries out, it pulls in its legs and curls up into a ball called a tun). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Tardigrades, tiny but very tough animals"
+    },
+    {
+      "k": "Key fact",
+      "qko": "물곰은 어떻게 살아남나요?",
+      "qen": "How do they survive?",
+      "a": "They curl up into a dry ball and wait"
+    },
+    {
+      "k": "Why it matters",
+      "qko": "과학자들은 왜 물곰을 연구하나요?",
+      "qen": "Why do scientists study them?",
+      "a": "To learn how to protect living cells"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Tardigrades are tiny animals with eight chubby ",
+      "ans": "legs",
+      "opts": [
+        "legs",
+        "wings",
+        "tails"
+      ]
+    },
+    {
+      "pre": ". They live almost everywhere, even in the ",
+      "ans": "moss",
+      "opts": [
+        "moss",
+        "clouds",
+        "lava"
+      ]
+    },
+    {
+      "pre": " in your neighborhood. When their home dries out, they curl up into a tun and can ",
+      "ans": "wait",
+      "opts": [
+        "wait",
+        "swim",
+        "eat"
+      ]
+    },
+    {
+      "pre": " for years. When water ",
+      "ans": "returns",
+      "opts": [
+        "returns",
+        "freezes",
+        "disappears"
+      ]
+    },
+    {
+      "pre": ", they wake up and walk away. Some even survived a trip into ",
+      "ans": "space",
+      "opts": [
+        "space",
+        "volcanoes",
+        "fire"
+      ]
+    },
+    {
+      "pre": " without any protection.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "microscope",
+      "현미경",
+      "look a bit like little bears under a <b>microscope</b>",
+      "a tool that makes very small things look bigger"
+    ],
+    [
+      "conditions",
+      "환경, 조건",
+      "surviving when <b>conditions</b> become terrible",
+      "the situation or surroundings that something lives in"
+    ],
+    [
+      "curl",
+      "몸을 둥글게 말다",
+      "they pull in their legs and <b>curl</b> up into a ball",
+      "to bend into a round shape"
+    ],
+    [
+      "protection",
+      "보호",
+      "without any <b>protection</b>",
+      "something that keeps you safe"
+    ],
+    [
+      "harsh",
+      "혹독한",
+      "long periods of <b>harsh</b> conditions can still kill them",
+      "very hard and unpleasant"
+    ],
+    [
+      "cells",
+      "세포",
+      "to learn how to protect living <b>cells</b>",
+      "the tiny parts that make up all living things"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "What happens to a tardigrade in a tun when water returns?",
+      "qko": "툰 상태의 물곰에게 물이 다시 생기면 어떻게 되나요?",
+      "opts": [
+        "It wakes up and walks away as if nothing happened",
+        "It curls up into an even smaller ball",
+        "It stays asleep forever"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "When water returns, they wake up and walk away as if nothing happened.",
+        "When their home dries out, they pull in their legs and curl up into a ball called a \"tun.\"",
+        "They live almost everywhere, from mountaintops to the deep sea, and even in the moss in your neighborhood.",
+        "Tardigrades are tiny animals, usually less than one millimeter long."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "물이 돌아오면 물곰은 깨어나서 아무 일도 없었던 것처럼 걸어간다고 했어요. 공처럼 몸을 마는 것은 사는 곳이 마를 때예요.",
+        "When water returns, tardigrades wake up and walk away as if nothing happened. They curl up when their home dries out."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In “they are not truly unbeatable,” what does “unbeatable” mean?",
+      "qko": "«they are not truly unbeatable» 에서 «unbeatable» 은 무슨 뜻인가요?",
+      "opts": [
+        "impossible for anything to defeat",
+        "too small to see",
+        "easy to find anywhere"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "However, they are not truly unbeatable, and long periods of harsh conditions can still kill them.",
+        "Some of them survived and later had healthy babies.",
+        "They have eight chubby legs and look a bit like little bears under a microscope.",
+        "Meet the tardigrade, also called the \"water bear.\""
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "같은 문장에서 «혹독한 환경이 오래 계속되면 물곰도 죽을 수 있다» 고 했어요. 그러니 «unbeatable» 은 «무엇에도 지지 않는» 이라는 뜻이고, 물곰도 완전히 그렇지는 않다는 거예요.",
+        "The same sentence says long periods of harsh conditions can still kill them. «Unbeatable» means impossible to defeat, and tardigrades are not truly like that."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How do we know that tardigrades can survive in space?",
+      "qko": "물곰이 우주에서도 살아남을 수 있다는 것을 어떻게 알 수 있나요?",
+      "opts": [
+        "Scientists sent them into space without protection, and some survived and later had healthy babies",
+        "Tardigrades built tiny shells to protect themselves in space",
+        "Tardigrades traveled to space by themselves"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "In 2007, scientists sent tardigrades into space without any protection.",
+        "Some of them survived and later had healthy babies.",
+        "What animal can survive being frozen, dried out, and even sent into space?",
+        "In this state, their bodies almost stop working, and they can wait for years."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "2007년에 과학자들이 아무 보호 장치 없이 물곰을 우주로 보냈고, 그중 일부가 살아남아 나중에 건강한 새끼까지 낳았어요. 두 문장을 이어야 해요.",
+        "In 2007, scientists sent tardigrades into space without protection, and some survived and later had healthy babies. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "What other tiny animals live in moss and soil?",
+      "이끼와 흙 속에는 또 어떤 작은 동물이 살까?",
+      "Tiny Life in the Moss"
+    ],
+    [
+      "B",
+      "How do microscopes help us see tiny living things?",
+      "현미경은 아주 작은 생물을 어떻게 보여 줄까?",
+      "The World Under a Microscope"
+    ]
+  ],
+  "write": {
+    "pre": "If",
+    "mid": "we can",
+    "sep": ", ",
+    "slots": [
+      "cl",
+      "vp"
+    ],
+    "src": "“If <u>we look at moss under a microscope</u>, we can <u>search for tiny tardigrades</u>.”",
+    "slotKo": [
+      "조건",
+      "할 수 있는 일"
+    ],
+    "slotEn": [
+      "the condition",
+      "what we can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «어떤 조건 + 그때 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write a condition and what we can do then in English.",
+    "chips": [
+      {
+        "a": "we plant seeds in spring",
+        "b": "pick flowers in summer",
+        "label": "seeds"
+      },
+      {
+        "a": "we get up early",
+        "b": "watch the sunrise together",
+        "label": "sunrise"
+      },
+      {
+        "a": "we use a magnifying glass",
+        "b": "see tiny bugs in the garden",
+        "label": "bugs"
+      }
+    ],
+    "aria": [
+      "what happens first",
+      "what we can do"
+    ],
+    "moreKo": "한 걸음 더: «If» 뒤에 «누가 + 무엇을 하는지» 를 넣어 조건을 분명하게 써 보세요. (예: If we keep the moss wet)",
+    "moreEn": "One more step: after «If», write who + what they do to make the condition clear. (e.g. If we keep the moss wet)"
+  },
+  "img": {
+    "style": "cg3d",
+    "cover": "A tardigrade seen through a microscope: a plump, see-through creature with eight stubby legs tipped with tiny claws, crawling along a bright green strand of moss",
+    "scenes": {
+      "1": "A close-up of soft green moss covered in tiny water drops, growing on an old stone wall beside a neighborhood sidewalk",
+      "2": "A microscope view of a dried tardigrade curled up into a tiny wrinkled barrel-shaped ball, resting on a dry brown piece of moss"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Wet green moss on an old stone wall",
+    "2": "A dried tardigrade curled up into a tiny ball",
+    "cover": "A tardigrade crawling on moss under a microscope"
+  }
+}

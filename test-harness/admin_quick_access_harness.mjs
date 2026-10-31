@@ -168,9 +168,16 @@ const win1 = runQa(dom1);
 const labels = labelsOf(dom1.box.innerHTML);
 /* 2026-08-30 「수업 관제탑」이 들어와 12개가 되었다(사장님 「바로바로 들어가서 볼 수 있게」).
    ⚠️ 결재함과 같은 href 칸이라 카드가 없다 — 아래 ④ 의 검사 대상이 하나 더 늘었다. */
-check(`항목이 12개 렌더된다 (실제: ${labels.length})`, labels.length === 12);
+/* 2026-10-07 「수강 종료 · 종료 후보」(매니저 요청 4)가 들어와 13개가 되었다. */
+check(`항목이 13개 렌더된다 (실제: ${labels.length})`, labels.length === 13);
 check(`첫 항목이 「결재함」이다 (실제: "${labels[0] || ''}")`, labels[0] === '결재함');
-check(`그 다음이 「오늘 수업」이다 (실제: "${labels[1] || ''}")`, /^오늘 수업/.test(labels[1] || ''));
+/* 🗼 (2026-10-21 사장님 「잘 보이는 곳에 — 관리자들이 잘 찾게」) 「수업 관제탑」이 결재함 다음에 «고정(pin)» 됐다.
+   ⚠️ 옛 기대(「결재함 다음이 오늘 수업」)는 검사가 헛돈 것이 아니라 **사람이 순서를 바꾼 것**이다 — 새 경계로 옮겨 적는다. */
+check(`그 다음이 「수업 관제탑」이다 — 고정 칸 (실제: "${labels[1] || ''}")`, labels[1] === '수업 관제탑 (전체 현황)');
+check(`그 다음이 「오늘 수업」이다 (실제: "${labels[2] || ''}")`, /^오늘 수업/.test(labels[2] || ''));
+check('고정(pin) 칸은 정확히 결재함·관제탑 둘이다 — 늘리면 «많이 쓴 순» 이 뜻을 잃는다',
+  (qa.match(/\bpin:\s*true/g) || []).length === 2
+  && /key:\s*'결재함'[\s\S]{0,120}?pin:\s*true/.test(qa) && /key:\s*'관제탑'[\s\S]{0,200}?pin:\s*true/.test(qa));
 ['출결 현황', '결제 · 미납', '평가서', '문의 · 신규상담'].forEach((l) =>
   check(`신규 항목이 들어 있다: ${l}`, labels.includes(l)));
 check('바로가기 대상 카드 9종이 admin.html 에 실제로 있다',
@@ -215,7 +222,7 @@ console.log('\n[ ④ 역할 권한으로 감춰진 카드는 «바로가기도»
   const ls = labelsOf(dom.box.innerHTML);
   check('권한 없는 「평가서」가 목록에서 빠진다', !ls.includes('평가서'));
   check('권한 없는 「결제 · 미납」이 목록에서 빠진다', !ls.includes('결제 · 미납'));
-  check(`나머지는 그대로 남는다 (실제: ${ls.length}개)`, ls.length === 10 && ls.includes('출결 현황'));
+  check(`나머지는 그대로 남는다 (실제: ${ls.length}개)`, ls.length === 11 && ls.includes('출결 현황'));
   /* 🪤 결재함은 «가리킬 카드» 가 없다 — 카드의 display 만 보고 판정하면 조용히 사라진다.
      결재는 지사·대리점도 올려야 하는 일이라 사라지면 안 된다. */
   check('카드가 없는 「결재함」은 권한 판정에서 빠지지 않는다', ls[0] === '결재함');
@@ -225,8 +232,8 @@ console.log('\n[ ④ 역할 권한으로 감춰진 카드는 «바로가기도»
   const dom = makeDom({ cardIds: ALL });
   ALL.forEach((id) => dom.cards[id].classList.add('ia6-hide'));
   runQa(dom);
-  check('.ia6-hide 는 권한 숨김이 아니다 — 12개가 그대로 남는다',
-    labelsOf(dom.box.innerHTML).length === 12);
+  check('.ia6-hide 는 권한 숨김이 아니다 — 13개가 그대로 남는다',
+    labelsOf(dom.box.innerHTML).length === 13);
 }
 {
   // 🔴 (2026-08-08 실측 회귀) 바깥 컨테이너 #legacy-cards 가 display:none 인 순간이 있다.
@@ -234,8 +241,8 @@ console.log('\n[ ④ 역할 권한으로 감춰진 카드는 «바로가기도»
   //    컨테이너의 display 는 «지금 무엇을 보여 주는가» 이지 «이 사람이 볼 수 있는가» 가 아니다.
   const dom = makeDom({ cardIds: ALL, containerHidden: true });
   runQa(dom);
-  check('바깥 컨테이너가 감춰져 있어도 12개가 그대로 남는다 (권한과 화면전환을 구분한다)',
-    labelsOf(dom.box.innerHTML).length === 12);
+  check('바깥 컨테이너가 감춰져 있어도 13개가 그대로 남는다 (권한과 화면전환을 구분한다)',
+    labelsOf(dom.box.innerHTML).length === 13);
 }
 
 console.log('\n[ ⑤ 🐞 data-ko 는 «span 에만» — 바깥 div 에 붙으면 아이콘이 지워진다 ]');
@@ -255,10 +262,12 @@ console.log('\n[ ⑥ 순서는 내 사용기록으로 정해지고, 동점이면
   /* 📌 결재함은 pin 이라 사용기록과 무관하게 맨 앞을 지킨다 — 결재는 «누가 답을 기다리는» 일이라
      덜 눌렀다는 이유로 뒤로 밀리면 안 된다. 순서 학습은 그 다음 칸부터 적용된다. */
   check(`「결재함」은 사용기록과 무관하게 맨 위를 지킨다 (실제: "${ls[0]}")`, ls[0] === '결재함');
-  check(`많이 쓴 「문의 · 신규상담」이 그 다음이다 (실제: "${ls[1]}")`, ls[1] === '문의 · 신규상담');
-  check(`그 다음이 「평가서」다 (실제: "${ls[2]}")`, ls[2] === '평가서');
+  /* 🗼 (2026-10-21) 관제탑도 고정 칸이라 결재함 바로 다음을 지킨다 — 사용기록은 그 다음부터. */
+  check(`고정 칸 「수업 관제탑」이 그 다음이다 (실제: "${ls[1]}")`, ls[1] === '수업 관제탑 (전체 현황)');
+  check(`많이 쓴 「문의 · 신규상담」이 그 다음이다 (실제: "${ls[2]}")`, ls[2] === '문의 · 신규상담');
+  check(`그 다음이 「평가서」다 (실제: "${ls[3]}")`, ls[3] === '평가서');
   check('기록 없는 나머지는 기본 순서를 그대로 지킨다 (동점 → 기본 순서)',
-    ls[3] === '오늘 수업' && ls[4] === '수업 관찰');
+    ls[4] === '오늘 수업' && ls[5] === '수업 관찰');
 }
 {
   // 30일이 지난 기록은 잊는다 — 안 그러면 반년 전 습관에 순서가 묶인다
@@ -266,7 +275,7 @@ console.log('\n[ ⑥ 순서는 내 사용기록으로 정해지고, 동점이면
   const dom = makeDom({ cardIds: ALL });
   runQa(dom, old);
   check('30일보다 오래된 기록은 순서에 영향을 주지 않는다',
-    labelsOf(dom.box.innerHTML)[1] === '오늘 수업');
+    labelsOf(dom.box.innerHTML)[2] === '오늘 수업');
 }
 {
   // 「기본 순서」로 고정하면 사용기록을 무시한다 — 아무도 순서에 갇히지 않게
@@ -277,14 +286,14 @@ console.log('\n[ ⑥ 순서는 내 사용기록으로 정해지고, 동점이면
   const dom = makeDom({ cardIds: ALL });
   runQa(dom, fixed);
   check('기본 순서 모드에서는 사용기록을 무시한다',
-    labelsOf(dom.box.innerHTML)[1] === '오늘 수업');
+    labelsOf(dom.box.innerHTML)[2] === '오늘 수업');
 }
 check('망가진 사용기록(JSON 아님)에도 죽지 않는다', (() => {
   try {
     const bad = memStore({ mangoi_qa_use: '{{{망가짐' });
     const dom = makeDom({ cardIds: ALL });
     runQa(dom, bad);
-    return labelsOf(dom.box.innerHTML).length === 12;
+    return labelsOf(dom.box.innerHTML).length === 13;
   } catch { return false; }
 })());
 

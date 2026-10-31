@@ -79,9 +79,30 @@ export interface RecTeacher {
    *   'none'     … 근거 없음 (대개 학생이 켠 공용방)
    */
   source: 'schedule' | 'account' | 'roster' | 'display' | 'none';
+  /**
+   * 근무지 — 🏠 재택('home') / 🏢 오피스('office') / 모름('').
+   * (2026-09-30 사장님 「교사이름 옆에 home 인지 office 인지 표시해 줄래?」)
+   * 근거는 강사 명부(teacher_profiles.group_name)이고 원부 번호(linked_teacher_id)로만 잇는다.
+   * 판정은 명부 화면의 «근무지» 배지(adm-core.js `_tpWorkplaceBadge`)와 같은 규칙 — `workplaceOf`.
+   * ⛔ 모르면 지어내지 않는다('' → 화면은 아무것도 안 그린다).
+   */
+  workplace: 'home' | 'office' | '';
 }
 
-const EMPTY: RecTeacher = { uid: '', name: '', source: 'none' };
+const EMPTY: RecTeacher = { uid: '', name: '', source: 'none', workplace: '' };
+
+/**
+ * 강사 명부의 group_name → 근무지. 명부 화면 배지(`_tpWorkplaceBadge`)와 **같은 규칙**:
+ *   'home' 이 들어 있으면 재택 · 'office' 나 'head'(Head Teacher) 가 들어 있으면 오피스 · 그 밖은 모름.
+ * ⚠️ 실측 값: 'Home-based' · 'Office Teacher' · 'Head Teacher' · '미국 오후반' · '중국어 강사' · NULL.
+ *    뒤의 셋은 재택/오피스를 말하지 않으므로 '' 로 둔다(추측 금지).
+ */
+export function workplaceOf(group: any): 'home' | 'office' | '' {
+  const g = String(group == null ? '' : group).toLowerCase();
+  if (g.indexOf('home') >= 0) return 'home';
+  if (g.indexOf('office') >= 0 || g.indexOf('head') >= 0) return 'office';
+  return '';
+}
 
 /** `class-1086-20260901` → 1086. 공용방(`mangoi-class`·`meet-*`)이면 null. */
 export function teacherScheduleIdFromRoom(roomId: any): number | null {
@@ -250,10 +271,12 @@ export async function resolveRecordingTeachers(
     }
 
     // ── ⑦ 행마다 조립 ──────────────────────────────────────────────
+    const rosterIdOfRow: string[] = rows.map(() => '');
     const fromRosterId = (rid: string, source: RecTeacher['source']): RecTeacher => ({
       uid: loginByRosterId.get(rid) || (linkByUsernameOfRoster(rid) || ''),
       name: nameByRosterId.get(rid) || '',
       source,
+      workplace: '',
     });
     function linkByUsernameOfRoster(rid: string): string {
       for (const [u, v] of linkByUsername) if (v.rosterId === rid) return u;
@@ -267,7 +290,7 @@ export async function resolveRecordingTeachers(
       if (raw) {
         if (/^\d+$/.test(raw)) {
           const t = fromRosterId(raw, 'schedule');
-          if (t.uid || t.name) { out[i] = t; return; }
+          if (t.uid || t.name) { out[i] = t; rosterIdOfRow[i] = raw; return; }
         } else {
           // 숫자가 아니면 «로그인 계정명이 그대로 들어간 행» (CLAUDE.md 경고, 오늘은 0건)
           const link = linkByUsername.get(raw);
@@ -275,7 +298,9 @@ export async function resolveRecordingTeachers(
             uid: raw,
             name: link ? (nameByRosterId.get(link.rosterId) || link.name || '') : '',
             source: 'schedule',
+            workplace: '',
           };
+          if (link) rosterIdOfRow[i] = link.rosterId;
           return;
         }
       }
@@ -291,7 +316,9 @@ export async function resolveRecordingTeachers(
           uid: suf,
           name: nameByRosterId.get(exact.rosterId) || exact.name || '',
           source: 'account',
+          workplace: '',
         };
+        rosterIdOfRow[i] = exact.rosterId;
         return;
       }
       const ci = uniqueCaseInsensitive(linkByUsername.keys(), suf);
@@ -301,7 +328,9 @@ export async function resolveRecordingTeachers(
           uid: ci,
           name: nameByRosterId.get(v.rosterId) || v.name || '',
           source: 'account',
+          workplace: '',
         };
+        rosterIdOfRow[i] = v.rosterId;
         return;
       }
 
@@ -309,12 +338,37 @@ export async function resolveRecordingTeachers(
       const byName = rosterIdByName.get(suf);
       if (byName && byName.length === 1) {
         const t = fromRosterId(byName[0], 'roster');
-        if (t.uid || t.name) { out[i] = t; return; }
+        if (t.uid || t.name) { out[i] = t; rosterIdOfRow[i] = byName[0]; return; }
       }
 
       // ④ 어디에도 못 이었다 — 이름만 참고로 남긴다(아이디는 «모름»).
-      out[i] = { uid: '', name: suf, source: 'display' };
+      out[i] = { uid: '', name: suf, source: 'display', workplace: '' };
     });
+
+    // ── ⑧ 근무지(재택/오피스) — 강사 명부를 원부 번호로 잇는다 ─────────
+    /* ⚠️ 이 조회만 실패해도 교사 이름·아이디는 살아야 한다 — 따로 감싼다(근무지만 '' 로). */
+    try {
+      const rids = Array.from(new Set(rosterIdOfRow.filter(r => /^\d+$/.test(r))));
+      if (rids.length) {
+        const prows = await selectInChunks<any>(
+          env.DB, rids,
+          ph => `SELECT linked_teacher_id, group_name FROM teacher_profiles
+                  WHERE CAST(linked_teacher_id AS TEXT) IN (${ph})
+                  ORDER BY id DESC`,
+        );
+        const wpByRid = new Map<string, 'home' | 'office' | ''>();
+        for (const p of prows) {
+          const k = String(p.linked_teacher_id);
+          const w = workplaceOf(p.group_name);
+          /* 한 원부에 프로필이 둘 이상이고 서로 다르면 «모름» — 아무거나 고르지 않는다. */
+          if (!wpByRid.has(k)) wpByRid.set(k, w);
+          else if (wpByRid.get(k) !== w) wpByRid.set(k, '');
+        }
+        rosterIdOfRow.forEach((rid, i) => { if (rid) out[i].workplace = wpByRid.get(rid) || ''; });
+      }
+    } catch (e: any) {
+      console.error('[recordings] 교사 근무지 조회 실패(이름·아이디는 그대로):', e?.message || e);
+    }
   } catch (e: any) {
     console.error('[recordings] 교사 칸 조회 실패(목록은 그대로 표시):', e?.message || e);
     return rows.map(() => ({ ...EMPTY }));

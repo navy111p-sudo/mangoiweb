@@ -19,7 +19,7 @@
 //
 // [모르면 모른다고 한다]
 //   조회에 실패하면 아무 이름도 지어내지 않는다. window.admIdentity() 가 null 을
-//   돌려주고, 화면은 «계정 확인 중…» 으로 남는다. 틀린 이름을 띄우는 것보다 낫다.
+//   돌려준다. 실패·8초 초과 시 중립적인 오류와 수동 재시도를 제공하며 이름을 지어내지 않는다.
 //
 // [자기 자신을 덮지 않기]
 //   admin_session 에는 개발용 역할 전환(ph115SwitchRole 등)이 쓴 값이 들어올 수
@@ -79,17 +79,72 @@
     try { document.dispatchEvent(new CustomEvent('mangoi:identity', { detail: id })); } catch (e) {}
   }
 
-  function load() {
-    // credentials:'include' 필수 — 관리자 세션은 admin_sessions 쿠키다(토큰 아님).
-    // CLAUDE.md 「로그인했는데 또 로그인하래요」 항목 참고.
-    fetch('/api/admin/me', { credentials: 'include' })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) {
-        if (!j || !j.ok || !j.user) return;    // 미로그인·실패 — 아무것도 지어내지 않는다
-        publish(normalize(j));
-      })
-      .catch(function () { /* 네트워크 실패도 마찬가지 — 조용히 모른 채로 둔다 */ });
+  var inFlight = null, controller = null, sequence = 0;
+  var statusBox = null, statusText = null, retryButton = null;
+  // Only identity keys are compared. Never copy a cookie/token into the UI or logs.
+  function sessionStamp() {
+    return JSON.stringify(['admin_session', 'mangoi_admin_session'].map(function (key) {
+      try { var value = JSON.parse(localStorage.getItem(key) || 'null'); return value ? String(value.uid || value.username || '') : null; }
+      catch (e) { return 'invalid'; }
+    }));
   }
+  var observedStamp = sessionStamp();
+  function showState(state) {
+    window.admIdentityState = state;
+    window.ADM_IDENTITY_PENDING = state === 'error' || state === 'timeout' ? '계정 확인 실패' : state === 'changed' ? '계정 다시 확인 필요' : '계정 확인 중…';
+    if (!statusBox && (state === 'loading' || state === 'ready')) return;
+    if (!statusBox) {
+      statusBox = document.createElement('div'); statusBox.id = 'adm-identity-status';
+      statusBox.setAttribute('role', 'status'); statusBox.setAttribute('aria-live', 'polite');
+      statusBox.style.cssText = 'position:fixed;bottom:18px;left:18px;z-index:10000;max-width:calc(100vw - 36px);padding:12px;border:1px solid #d97706;border-radius:8px;background:#fffbeb;color:#78350f;font-size:14px';
+      statusText = document.createElement('span'); retryButton = document.createElement('button');
+      retryButton.id = 'adm-identity-retry'; retryButton.type = 'button'; retryButton.textContent = '다시 확인';
+      retryButton.style.marginLeft = '10px'; retryButton.onclick = load;
+      statusBox.appendChild(statusText); statusBox.appendChild(retryButton); document.body.appendChild(statusBox);
+    }
+    statusBox.hidden = state === 'ready'; retryButton.disabled = state === 'loading';
+    statusText.textContent = state === 'loading' ? '계정 확인 중…' : state === 'timeout' ? '계정 확인 시간이 초과되었습니다.' : state === 'changed' ? '로그인 계정이 변경되었습니다. 다시 확인해 주세요.' : '계정을 확인하지 못했습니다. 로그인 상태를 확인하거나 다시 시도해 주세요.';
+  }
+  function sessionChanged() {
+    sequence++; observedStamp = sessionStamp();
+    if (controller) controller.abort();
+    controller = null; inFlight = null; cache = null;
+    window.__ADM_ME = null; showState('changed');
+  }
+  function load() {
+    if (inFlight) return inFlight; // A double click must not race two identities.
+    var attempt = ++sequence, stamp = sessionStamp(), timer;
+    var abort = typeof AbortController === 'function' ? new AbortController() : null;
+    controller = abort; showState('loading');
+    function isCurrent() {
+      if (attempt !== sequence) return false;
+      if (sessionStamp() !== stamp) { sessionChanged(); return false; }
+      return true;
+    }
+    // Promise.race bounds the state even if a fetch wrapper ignores AbortSignal.
+    var request = Promise.race([
+      Promise.resolve().then(function () {
+        return fetch('/api/admin/me', { credentials: 'include', cache: 'no-store', signal: abort ? abort.signal : undefined });
+      }).then(function (r) { if (!r.ok) throw new Error('identity_failed'); return r.json(); }),
+      new Promise(function (_, reject) {
+        timer = setTimeout(function () { reject(new Error('identity_timeout')); if (abort) abort.abort(); }, 8000);
+      })
+    ]).then(function (j) {
+      if (!isCurrent()) return;
+      if (!j || !j.ok || !j.user || typeof j.user.username !== 'string' || !j.user.username.trim()) throw new Error('identity_failed');
+      publish(normalize(j)); observedStamp = sessionStamp(); showState('ready');
+    }).catch(function (error) {
+      if (isCurrent()) showState(error && error.message === 'identity_timeout' ? 'timeout' : 'error');
+    }).finally(function () {
+      clearTimeout(timer);
+      if (inFlight === request) { inFlight = null; controller = null; }
+    });
+    inFlight = request; return request;
+  }
+  window.admRetryIdentity = load;
+  window.addEventListener('storage', function (event) {
+    if ((event.key === null || event.key === KEY || event.key === 'mangoi_admin_session') && sessionStamp() !== observedStamp) sessionChanged();
+  });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load);
   else load();

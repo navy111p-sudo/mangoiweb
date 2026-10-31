@@ -1,0 +1,1000 @@
+<!doctype html>
+<html lang="ko"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>그림책 표지 갤러리 · 망고아이</title>
+<meta name="description" content="180권의 영어 그림책 표지를 16가지 화풍별로 둘러보세요. 3D 애니메이션, 클레이, 브릭 블록, 고전 동화 애니메이션 등.">
+<link rel="stylesheet" href="/css/mangoi-han.css">
+<style>
+:root{color-scheme:light;--paper:#fbf8f2;--page:#fff;--ink:#23262f;--soft:#5b6170;--line:#e4dccd;--accent:#26733d}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif}
+.wrap{max-width:1440px;margin:auto;padding:24px clamp(16px,3vw,40px) 64px}.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.brand{display:flex;align-items:center;gap:12px;margin-right:auto}.brand img{width:48px;height:48px;object-fit:contain}h1{font-size:clamp(24px,3vw,36px);line-height:1.25;margin:0}.subtitle{margin:7px 0 0;color:var(--soft)}
+.nav,.lang{display:inline-flex;align-items:center;min-height:44px;padding:8px 16px;border:1px solid var(--line);border-radius:99px;background:var(--page);color:var(--ink);font:inherit;text-decoration:none;cursor:pointer}.nav:hover,.lang:hover{border-color:var(--accent)}a:focus-visible,button:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:4px}
+.controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:28px 0 8px;padding:16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.controls label{font-weight:600}.controls select{max-width:100%;min-height:44px;padding:8px 36px 8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--page);color:var(--ink);font:inherit}.result{margin-left:auto;color:var(--soft)}
+.style-group{margin-top:36px}.style-group h2{display:inline;margin:0;font-size:23px}.group-count{display:inline;margin-left:10px;color:var(--soft)}.cover-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:22px 18px;margin-top:16px}.book{display:block;min-width:0;color:inherit;text-decoration:none}.book img{display:block;width:100%;height:auto;aspect-ratio:1024/688;object-fit:cover;border-radius:12px;background:#eee8df;box-shadow:0 4px 12px #23262f0d}.book:hover h3{color:var(--accent);text-decoration:underline}.book-caption{padding:10px 2px}.book-id{font-size:12px;color:var(--soft)}.book h3{font-size:16px;margin:3px 0;overflow-wrap:anywhere}.english-title{font-size:13px;margin:0;color:var(--soft);overflow-wrap:anywhere}html[lang=en] .english-title{display:none}[hidden]{display:none!important}.foot{margin-top:48px;color:var(--soft);font-size:13px}
+@media(max-width:480px){.cover-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 12px}.brand{width:100%}.result{width:100%;margin-left:0}.controls select{flex:1;min-width:0}.style-group h2{font-size:20px}}
+</style><script defer src="/js/story-cover-gallery.js?v=1"></script>
+</head><body><main class="wrap">
+<header class="top"><div class="brand"><img src="/img/mango-char.png" width="48" height="48" alt="Mr. mango"><div><h1 data-ko="그림책 표지 갤러리" data-en="Picture-book cover gallery">그림책 표지 갤러리</h1><p class="subtitle" data-ko="180권 · 16가지 화풍" data-en="180 books · 16 art styles">180권 · 16가지 화풍</p></div></div>
+<a class="nav" href="/stories.html" data-ko="영어 독서" data-en="English Reading">영어 독서</a><a class="nav" href="/" data-ko="홈" data-en="Home">홈</a><button class="lang" id="galleryLang" type="button" aria-label="언어 전환 / Switch language">EN</button></header>
+<div class="controls"><label for="styleFilter" data-ko="화풍" data-en="Art style">화풍</label><select id="styleFilter"><option value="all" data-ko="모든 화풍" data-en="All art styles">모든 화풍</option><option value="cg3d" data-ko="3D 애니메이션 · 24권" data-en="3D animation · 24 books">3D 애니메이션 · 24권</option>
+<option value="fairytale" data-ko="고전 동화 애니메이션 · 8권" data-en="Classic fairy-tale animation · 8 books">고전 동화 애니메이션 · 8권</option>
+<option value="anime" data-ko="일본 애니메이션 · 17권" data-en="Anime · 17 books">일본 애니메이션 · 17권</option>
+<option value="brick" data-ko="브릭 블록 · 3권" data-en="Brick-built world · 3 books">브릭 블록 · 3권</option>
+<option value="clay" data-ko="클레이 인형 · 7권" data-en="Claymation · 7 books">클레이 인형 · 7권</option>
+<option value="felt" data-ko="펠트 인형 · 4권" data-en="Felt dolls · 4 books">펠트 인형 · 4권</option>
+<option value="crayon" data-ko="크레용 그림 · 4권" data-en="Crayon drawing · 4 books">크레용 그림 · 4권</option>
+<option value="papercut" data-ko="종이 공예 · 11권" data-en="Paper cut · 11 books">종이 공예 · 11권</option>
+<option value="comic" data-ko="만화책 · 13권" data-en="Comic book · 13 books">만화책 · 13권</option>
+<option value="webtoon" data-ko="웹툰 · 14권" data-en="Webtoon · 14 books">웹툰 · 14권</option>
+<option value="pixel" data-ko="픽셀 게임 · 2권" data-en="Pixel art · 2 books">픽셀 게임 · 2권</option>
+<option value="minhwa" data-ko="한국 민화 · 5권" data-en="Korean folk painting · 5 books">한국 민화 · 5권</option>
+<option value="editorial" data-ko="잡지 일러스트 · 9권" data-en="Editorial illustration · 9 books">잡지 일러스트 · 9권</option>
+<option value="vintage" data-ko="옛날 그림 · 16권" data-en="Vintage illustration · 16 books">옛날 그림 · 16권</option>
+<option value="flat" data-ko="굵은 선 카툰 · 11권" data-en="Bold cartoon · 11 books">굵은 선 카툰 · 11권</option>
+<option value="photo" data-ko="실사 · 32권" data-en="Photo-real · 32 books">실사 · 32권</option></select><span class="result" id="galleryResult" role="status" aria-live="polite">180권</span></div>
+<div id="coverGroups"><section class="style-group" data-style="cg3d" data-count="24" aria-labelledby="heading-cg3d">
+    <h2 id="heading-cg3d" data-ko="🎬 3D 애니메이션" data-en="🎬 3D animation">🎬 3D 애니메이션</h2>
+    <p class="group-count" data-ko="24권" data-en="24 books">24권</p>
+    <div class="cover-grid"><a class="book" href="/story-s1-07.html" data-book-id="s1-07">
+      <img src="/img/story/s1-07-cover.webp?v=2" width="1024" height="688" alt="Brave at the Dentist" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-07 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="치과에서 용감하게" data-en="Brave at the Dentist">치과에서 용감하게</h3><p class="english-title" lang="en">Brave at the Dentist</p></div>
+    </a>
+<a class="book" href="/story-s1-14.html" data-book-id="s1-14">
+      <img src="/img/story/s1-14-cover.webp?v=2" width="1024" height="688" alt="Rocket to the Moon" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-14 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="달까지 로켓 타고" data-en="Rocket to the Moon">달까지 로켓 타고</h3><p class="english-title" lang="en">Rocket to the Moon</p></div>
+    </a>
+<a class="book" href="/story-s1-16.html" data-book-id="s1-16">
+      <img src="/img/story/s1-16-cover.webp?v=2" width="1024" height="688" alt="My Robot Ate My Homework" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-16 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="로봇이 내 숙제를 먹었어" data-en="My Robot Ate My Homework">로봇이 내 숙제를 먹었어</h3><p class="english-title" lang="en">My Robot Ate My Homework</p></div>
+    </a>
+<a class="book" href="/story-s1-22.html" data-book-id="s1-22">
+      <img src="/img/story/s1-22-cover.webp?v=2" width="1024" height="688" alt="Lost on Planet Zog" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-22 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="조그 행성에서 길을 잃다" data-en="Lost on Planet Zog">조그 행성에서 길을 잃다</h3><p class="english-title" lang="en">Lost on Planet Zog</p></div>
+    </a>
+<a class="book" href="/story-s1-26.html" data-book-id="s1-26">
+      <img src="/img/story/s1-26-cover.webp?v=2" width="1024" height="688" alt="Mission to Mars" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-26 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="화성 탐사 작전" data-en="Mission to Mars">화성 탐사 작전</h3><p class="english-title" lang="en">Mission to Mars</p></div>
+    </a>
+<a class="book" href="/story-s1-48.html" data-book-id="s1-48">
+      <img src="/img/story/s1-48-cover.webp?v=2" width="1024" height="688" alt="Captain Kim and the Comet" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-48 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="김 선장과 혜성" data-en="Captain Kim and the Comet">김 선장과 혜성</h3><p class="english-title" lang="en">Captain Kim and the Comet</p></div>
+    </a>
+<a class="book" href="/story-s2-20.html" data-book-id="s2-20">
+      <img src="/img/story/s2-20-cover.webp?v=2" width="1024" height="688" alt="Space Station Emergency" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-20 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="우주 정거장 비상사태" data-en="Space Station Emergency">우주 정거장 비상사태</h3><p class="english-title" lang="en">Space Station Emergency</p></div>
+    </a>
+<a class="book" href="/story-s2-28.html" data-book-id="s2-28">
+      <img src="/img/story/s2-28-cover.webp?v=2" width="1024" height="688" alt="Dinosaur Island" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-28 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="공룡 섬" data-en="Dinosaur Island">공룡 섬</h3><p class="english-title" lang="en">Dinosaur Island</p></div>
+    </a>
+<a class="book" href="/story-s2-31.html" data-book-id="s2-31">
+      <img src="/img/story/s2-31-cover.webp?v=2" width="1024" height="688" alt="The Moon Base Mystery" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-31 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="달 기지 미스터리" data-en="The Moon Base Mystery">달 기지 미스터리</h3><p class="english-title" lang="en">The Moon Base Mystery</p></div>
+    </a>
+<a class="book" href="/story-s2-37.html" data-book-id="s2-37">
+      <img src="/img/story/s2-37-cover.webp?v=2" width="1024" height="688" alt="Journey Inside the Body" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-37 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="몸속 여행" data-en="Journey Inside the Body">몸속 여행</h3><p class="english-title" lang="en">Journey Inside the Body</p></div>
+    </a>
+<a class="book" href="/story-s2-42.html" data-book-id="s2-42">
+      <img src="/img/story/s2-42-cover.webp?v=2" width="1024" height="688" alt="The Black Hole Shortcut" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-42 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="블랙홀 지름길" data-en="The Black Hole Shortcut">블랙홀 지름길</h3><p class="english-title" lang="en">The Black Hole Shortcut</p></div>
+    </a>
+<a class="book" href="/story-s2-48.html" data-book-id="s2-48">
+      <img src="/img/story/s2-48-cover.webp?v=2" width="1024" height="688" alt="The Day the Aliens Came" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-48 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="외계인이 온 날" data-en="The Day the Aliens Came">외계인이 온 날</h3><p class="english-title" lang="en">The Day the Aliens Came</p></div>
+    </a>
+<a class="book" href="/story-s3-03.html" data-book-id="s3-03">
+      <img src="/img/story/s3-03-cover.webp?v=2" width="1024" height="688" alt="How Volcanoes Form" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-03 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="화산은 어떻게 만들어질까?" data-en="How Volcanoes Form">화산은 어떻게 만들어질까?</h3><p class="english-title" lang="en">How Volcanoes Form</p></div>
+    </a>
+<a class="book" href="/story-s3-18.html" data-book-id="s3-18">
+      <img src="/img/story/s3-18-cover.webp?v=2" width="1024" height="688" alt="Why Can&#39;t a Robot Fold Your T-Shirt?" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-18 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="로봇은 왜 티셔츠를 못 갤까?" data-en="Why Can&#39;t a Robot Fold Your T-Shirt?">로봇은 왜 티셔츠를 못 갤까?</h3><p class="english-title" lang="en">Why Can&#39;t a Robot Fold Your T-Shirt?</p></div>
+    </a>
+<a class="book" href="/story-s3-28.html" data-book-id="s3-28">
+      <img src="/img/story/s3-28-cover.webp?v=2" width="1024" height="688" alt="How Did the Dinosaurs Disappear?" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-28 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="공룡은 왜 사라졌을까?" data-en="How Did the Dinosaurs Disappear?">공룡은 왜 사라졌을까?</h3><p class="english-title" lang="en">How Did the Dinosaurs Disappear?</p></div>
+    </a>
+<a class="book" href="/story-s3-34.html" data-book-id="s3-34">
+      <img src="/img/story/s3-34-cover.webp?v=2" width="1024" height="688" alt="Tardigrades: The Toughest Animals" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-34 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="물곰, 가장 강한 동물" data-en="Tardigrades: The Toughest Animals">물곰, 가장 강한 동물</h3><p class="english-title" lang="en">Tardigrades: The Toughest Animals</p></div>
+    </a>
+<a class="book" href="/story-s4-03.html" data-book-id="s4-03">
+      <img src="/img/story/s4-03-cover.webp?v=2" width="1024" height="688" alt="How Vaccines Train the Body" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-03 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="백신은 어떻게 몸을 훈련시킬까" data-en="How Vaccines Train the Body">백신은 어떻게 몸을 훈련시킬까</h3><p class="english-title" lang="en">How Vaccines Train the Body</p></div>
+    </a>
+<a class="book" href="/story-s4-14.html" data-book-id="s4-14">
+      <img src="/img/story/s4-14-cover.webp?v=2" width="1024" height="688" alt="Is the Chatbot Really Thinking?" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-14 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="챗봇은 정말 생각할까?" data-en="Is the Chatbot Really Thinking?">챗봇은 정말 생각할까?</h3><p class="english-title" lang="en">Is the Chatbot Really Thinking?</p></div>
+    </a>
+<a class="book" href="/story-s4-17.html" data-book-id="s4-17">
+      <img src="/img/story/s4-17-cover.webp?v=2" width="1024" height="688" alt="The Tiny Partners Living Inside You" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-17 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="내 몸속의 작은 동반자들" data-en="The Tiny Partners Living Inside You">내 몸속의 작은 동반자들</h3><p class="english-title" lang="en">The Tiny Partners Living Inside You</p></div>
+    </a>
+<a class="book" href="/story-s4-21.html" data-book-id="s4-21">
+      <img src="/img/story/s4-21-cover.webp?v=2" width="1024" height="688" alt="Your Brain&#39;s Night Shift" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-21 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="뇌의 야간 근무" data-en="Your Brain&#39;s Night Shift">뇌의 야간 근무</h3><p class="english-title" lang="en">Your Brain&#39;s Night Shift</p></div>
+    </a>
+<a class="book" href="/story-s4-22.html" data-book-id="s4-22">
+      <img src="/img/story/s4-22-cover.webp?v=2" width="1024" height="688" alt="Editing the Code of Life" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-22 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="생명의 설계도를 고치다" data-en="Editing the Code of Life">생명의 설계도를 고치다</h3><p class="english-title" lang="en">Editing the Code of Life</p></div>
+    </a>
+<a class="book" href="/story-s4-32.html" data-book-id="s4-32">
+      <img src="/img/story/s4-32-cover.webp?v=2" width="1024" height="688" alt="Could We Bring Back Dinosaurs?" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-32 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="공룡을 되살릴 수 있을까?" data-en="Could We Bring Back Dinosaurs?">공룡을 되살릴 수 있을까?</h3><p class="english-title" lang="en">Could We Bring Back Dinosaurs?</p></div>
+    </a>
+<a class="book" href="/story-s4-34.html" data-book-id="s4-34">
+      <img src="/img/story/s4-34-cover.webp?v=2" width="1024" height="688" alt="Living on Mars: Dream or Plan?" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-34 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="화성 이주, 꿈일까 계획일까?" data-en="Living on Mars: Dream or Plan?">화성 이주, 꿈일까 계획일까?</h3><p class="english-title" lang="en">Living on Mars: Dream or Plan?</p></div>
+    </a>
+<a class="book" href="/story-s4-41.html" data-book-id="s4-41">
+      <img src="/img/story/s4-41-cover.webp?v=2" width="1024" height="688" alt="Self-Driving Cars and Trust" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-41 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="자율 주행차와 신뢰" data-en="Self-Driving Cars and Trust">자율 주행차와 신뢰</h3><p class="english-title" lang="en">Self-Driving Cars and Trust</p></div>
+    </a></div>
+  </section>
+<section class="style-group" data-style="fairytale" data-count="8" aria-labelledby="heading-fairytale">
+    <h2 id="heading-fairytale" data-ko="🏰 고전 동화 애니메이션" data-en="🏰 Classic fairy-tale animation">🏰 고전 동화 애니메이션</h2>
+    <p class="group-count" data-ko="8권" data-en="8 books">8권</p>
+    <div class="cover-grid"><a class="book" href="/story-s1-19.html" data-book-id="s1-19">
+      <img src="/img/story/s1-19-cover.webp?v=2" width="1024" height="688" alt="The Little Dragon Who Sneezed Fire" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-19 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="재채기로 불을 뿜은 아기 용" data-en="The Little Dragon Who Sneezed Fire">재채기로 불을 뿜은 아기 용</h3><p class="english-title" lang="en">The Little Dragon Who Sneezed Fire</p></div>
+    </a>
+<a class="book" href="/story-s1-30.html" data-book-id="s1-30">
+      <img src="/img/story/s1-30-cover.webp?v=2" width="1024" height="688" alt="The Mermaid&#39;s Lost Pearl" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-30 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="인어의 잃어버린 진주" data-en="The Mermaid&#39;s Lost Pearl">인어의 잃어버린 진주</h3><p class="english-title" lang="en">The Mermaid&#39;s Lost Pearl</p></div>
+    </a>
+<a class="book" href="/story-s1-39.html" data-book-id="s1-39">
+      <img src="/img/story/s1-39-cover.webp?v=2" width="1024" height="688" alt="The Giant&#39;s Shoe" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-39 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="거인의 신발" data-en="The Giant&#39;s Shoe">거인의 신발</h3><p class="english-title" lang="en">The Giant&#39;s Shoe</p></div>
+    </a>
+<a class="book" href="/story-s1-41.html" data-book-id="s1-41">
+      <img src="/img/story/s1-41-cover.webp?v=2" width="1024" height="688" alt="The Wizard&#39;s Mistake" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-41 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="꼬마 마법사의 실수" data-en="The Wizard&#39;s Mistake">꼬마 마법사의 실수</h3><p class="english-title" lang="en">The Wizard&#39;s Mistake</p></div>
+    </a>
+<a class="book" href="/story-s2-02.html" data-book-id="s2-02">
+      <img src="/img/story/s2-02-cover.webp?v=2" width="1024" height="688" alt="The Boy Who Cried Wolf" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-02 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="양치기 소년" data-en="The Boy Who Cried Wolf">양치기 소년</h3><p class="english-title" lang="en">The Boy Who Cried Wolf</p></div>
+    </a>
+<a class="book" href="/story-s2-10.html" data-book-id="s2-10">
+      <img src="/img/story/s2-10-cover.webp?v=2" width="1024" height="688" alt="Stone Soup" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-10 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="돌멩이 수프" data-en="Stone Soup">돌멩이 수프</h3><p class="english-title" lang="en">Stone Soup</p></div>
+    </a>
+<a class="book" href="/story-s2-29.html" data-book-id="s2-29">
+      <img src="/img/story/s2-29-cover.webp?v=2" width="1024" height="688" alt="The Mirror World" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-29 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="거울 속 세상" data-en="The Mirror World">거울 속 세상</h3><p class="english-title" lang="en">The Mirror World</p></div>
+    </a>
+<a class="book" href="/story-s2-43.html" data-book-id="s2-43">
+      <img src="/img/story/s2-43-cover.webp?v=2" width="1024" height="688" alt="The Dream Thief" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-43 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="꿈 도둑" data-en="The Dream Thief">꿈 도둑</h3><p class="english-title" lang="en">The Dream Thief</p></div>
+    </a></div>
+  </section>
+<section class="style-group" data-style="anime" data-count="17" aria-labelledby="heading-anime">
+    <h2 id="heading-anime" data-ko="🌸 일본 애니메이션" data-en="🌸 Anime">🌸 일본 애니메이션</h2>
+    <p class="group-count" data-ko="17권" data-en="17 books">17권</p>
+    <div class="cover-grid"><a class="book" href="/story-s1-21.html" data-book-id="s1-21">
+      <img src="/img/story/s1-21-cover.webp?v=2" width="1024" height="688" alt="The Talking Cat" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-21 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="말하는 고양이" data-en="The Talking Cat">말하는 고양이</h3><p class="english-title" lang="en">The Talking Cat</p></div>
+    </a>
+<a class="book" href="/story-s1-32.html" data-book-id="s1-32">
+      <img src="/img/story/s1-32-cover.webp?v=2" width="1024" height="688" alt="The Shrinking Potion" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-32 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="작아지는 물약" data-en="The Shrinking Potion">작아지는 물약</h3><p class="english-title" lang="en">The Shrinking Potion</p></div>
+    </a>
+<a class="book" href="/story-s1-35.html" data-book-id="s1-35">
+      <img src="/img/story/s1-35-cover.webp?v=2" width="1024" height="688" alt="The Ninja Cat" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-35 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="닌자 고양이" data-en="The Ninja Cat">닌자 고양이</h3><p class="english-title" lang="en">The Ninja Cat</p></div>
+    </a>
+<a class="book" href="/story-s1-47.html" data-book-id="s1-47">
+      <img src="/img/story/s1-47-cover.webp?v=2" width="1024" height="688" alt="The Dragon Egg Race" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-47 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="용 알 달리기 대회" data-en="The Dragon Egg Race">용 알 달리기 대회</h3><p class="english-title" lang="en">The Dragon Egg Race</p></div>
+    </a>
+<a class="book" href="/story-s2-03.html" data-book-id="s2-03">
+      <img src="/img/story/s2-03-cover.webp?v=2" width="1024" height="688" alt="One Team" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-03 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="하나의 팀" data-en="One Team">하나의 팀</h3><p class="english-title" lang="en">One Team</p></div>
+    </a>
+<a class="book" href="/story-s2-12.html" data-book-id="s2-12">
+      <img src="/img/story/s2-12-cover.webp?v=2" width="1024" height="688" alt="Juno&#39;s Song" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-12 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="주노의 노래" data-en="Juno&#39;s Song">주노의 노래</h3><p class="english-title" lang="en">Juno&#39;s Song</p></div>
+    </a>
+<a class="book" href="/story-s2-14.html" data-book-id="s2-14">
+      <img src="/img/story/s2-14-cover.webp?v=2" width="1024" height="688" alt="Escape from the Sinking Ship" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-14 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="침몰하는 배에서 탈출" data-en="Escape from the Sinking Ship">침몰하는 배에서 탈출</h3><p class="english-title" lang="en">Escape from the Sinking Ship</p></div>
+    </a>
+<a class="book" href="/story-s2-24.html" data-book-id="s2-24">
+      <img src="/img/story/s2-24-cover.webp?v=2" width="1024" height="688" alt="Lost in the Amazon" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-24 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="아마존에서 길을 잃다" data-en="Lost in the Amazon">아마존에서 길을 잃다</h3><p class="english-title" lang="en">Lost in the Amazon</p></div>
+    </a>
+<a class="book" href="/story-s2-33.html" data-book-id="s2-33">
+      <img src="/img/story/s2-33-cover.webp?v=2" width="1024" height="688" alt="The Girl Who Could Freeze Time" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-33 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="시간을 멈추는 소녀" data-en="The Girl Who Could Freeze Time">시간을 멈추는 소녀</h3><p class="english-title" lang="en">The Girl Who Could Freeze Time</p></div>
+    </a>
+<a class="book" href="/story-s2-35.html" data-book-id="s2-35">
+      <img src="/img/story/s2-35-cover.webp?v=2" width="1024" height="688" alt="Robot Soccer Championship" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-35 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="로봇 축구 대회" data-en="Robot Soccer Championship">로봇 축구 대회</h3><p class="english-title" lang="en">Robot Soccer Championship</p></div>
+    </a>
+<a class="book" href="/story-s2-38.html" data-book-id="s2-38">
+      <img src="/img/story/s2-38-cover.webp?v=2" width="1024" height="688" alt="The Desert Treasure" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-38 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="사막의 보물" data-en="The Desert Treasure">사막의 보물</h3><p class="english-title" lang="en">The Desert Treasure</p></div>
+    </a>
+<a class="book" href="/story-s2-41.html" data-book-id="s2-41">
+      <img src="/img/story/s2-41-cover.webp?v=2" width="1024" height="688" alt="Ninja School" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-41 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="닌자 학교" data-en="Ninja School">닌자 학교</h3><p class="english-title" lang="en">Ninja School</p></div>
+    </a>
+<a class="book" href="/story-s3-39.html" data-book-id="s3-39">
+      <img src="/img/story/s3-39-cover.webp?v=2" width="1024" height="688" alt="The Magic School 1: The Voice in the Fog" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-39 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="마법학교 1: 안개 속 목소리" data-en="The Magic School 1: The Voice in the Fog">마법학교 1: 안개 속 목소리</h3><p class="english-title" lang="en">The Magic School 1: The Voice in the Fog</p></div>
+    </a>
+<a class="book" href="/story-s3-40.html" data-book-id="s3-40">
+      <img src="/img/story/s3-40-cover.webp?v=2" width="1024" height="688" alt="The Magic School 2: The Thirteenth Bell" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-40 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="마법학교 2: 열세 번째 종소리" data-en="The Magic School 2: The Thirteenth Bell">마법학교 2: 열세 번째 종소리</h3><p class="english-title" lang="en">The Magic School 2: The Thirteenth Bell</p></div>
+    </a>
+<a class="book" href="/story-s3-41.html" data-book-id="s3-41">
+      <img src="/img/story/s3-41-cover.webp?v=2" width="1024" height="688" alt="The Magic School 3: The Lost Name" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-41 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="마법학교 3: 잃어버린 이름" data-en="The Magic School 3: The Lost Name">마법학교 3: 잃어버린 이름</h3><p class="english-title" lang="en">The Magic School 3: The Lost Name</p></div>
+    </a>
+<a class="book" href="/story-s3-42.html" data-book-id="s3-42">
+      <img src="/img/story/s3-42-cover.webp?v=2" width="1024" height="688" alt="The Magic School 4: The Last Train" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-42 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="마법학교 4: 마지막 기차" data-en="The Magic School 4: The Last Train">마법학교 4: 마지막 기차</h3><p class="english-title" lang="en">The Magic School 4: The Last Train</p></div>
+    </a>
+<a class="book" href="/story-s4-33.html" data-book-id="s4-33">
+      <img src="/img/story/s4-33-cover.webp?v=2" width="1024" height="688" alt="The Science of Dreams" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-33 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="꿈의 과학" data-en="The Science of Dreams">꿈의 과학</h3><p class="english-title" lang="en">The Science of Dreams</p></div>
+    </a></div>
+  </section>
+<section class="style-group" data-style="brick" data-count="3" aria-labelledby="heading-brick">
+    <h2 id="heading-brick" data-ko="🧱 브릭 블록" data-en="🧱 Brick-built world">🧱 브릭 블록</h2>
+    <p class="group-count" data-ko="3권" data-en="3 books">3권</p>
+    <div class="cover-grid"><a class="book" href="/story-s1-31.html" data-book-id="s1-31">
+      <img src="/img/story/s1-31-cover.webp?v=2" width="1024" height="688" alt="Robot Dog to the Rescue" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-31 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="로봇 강아지 출동" data-en="Robot Dog to the Rescue">로봇 강아지 출동</h3><p class="english-title" lang="en">Robot Dog to the Rescue</p></div>
+    </a>
+<a class="book" href="/story-s2-05.html" data-book-id="s2-05">
+      <img src="/img/story/s2-05-cover.webp?v=2" width="1024" height="688" alt="Bolt the Robot Helper" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-05 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="로봇 도우미 볼트" data-en="Bolt the Robot Helper">로봇 도우미 볼트</h3><p class="english-title" lang="en">Bolt the Robot Helper</p></div>
+    </a>
+<a class="book" href="/story-s2-13.html" data-book-id="s2-13">
+      <img src="/img/story/s2-13-cover.webp?v=2" width="1024" height="688" alt="The Signal from Space" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-13 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="우주에서 온 신호" data-en="The Signal from Space">우주에서 온 신호</h3><p class="english-title" lang="en">The Signal from Space</p></div>
+    </a></div>
+  </section>
+<section class="style-group" data-style="clay" data-count="7" aria-labelledby="heading-clay">
+    <h2 id="heading-clay" data-ko="🧱 클레이 인형" data-en="🧱 Claymation">🧱 클레이 인형</h2>
+    <p class="group-count" data-ko="7권" data-en="7 books">7권</p>
+    <div class="cover-grid"><a class="book" href="/story-s1-05.html" data-book-id="s1-05">
+      <img src="/img/story/s1-05-cover.webp?v=2" width="1024" height="688" alt="A Surprise for Mom" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-05 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="엄마를 위한 깜짝 선물" data-en="A Surprise for Mom">엄마를 위한 깜짝 선물</h3><p class="english-title" lang="en">A Surprise for Mom</p></div>
+    </a>
+<a class="book" href="/story-s1-09.html" data-book-id="s1-09">
+      <img src="/img/story/s1-09-cover.webp?v=2" width="1024" height="688" alt="Pancakes with Dad" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-09 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="아빠와 팬케이크 만들기" data-en="Pancakes with Dad">아빠와 팬케이크 만들기</h3><p class="english-title" lang="en">Pancakes with Dad</p></div>
+    </a>
+<a class="book" href="/story-s1-15.html" data-book-id="s1-15">
+      <img src="/img/story/s1-15-cover.webp?v=2" width="1024" height="688" alt="The Dinosaur Egg" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-15 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="공룡 알" data-en="The Dinosaur Egg">공룡 알</h3><p class="english-title" lang="en">The Dinosaur Egg</p></div>
+    </a>
+<a class="book" href="/story-s1-18.html" data-book-id="s1-18">
+      <img src="/img/story/s1-18-cover.webp?v=2" width="1024" height="688" alt="The Monster Under My Bed" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-18 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="침대 밑 괴물" data-en="The Monster Under My Bed">침대 밑 괴물</h3><p class="english-title" lang="en">The Monster Under My Bed</p></div>
+    </a>
+<a class="book" href="/story-s1-25.html" data-book-id="s1-25">
+      <img src="/img/story/s1-25-cover.webp?v=2" width="1024" height="688" alt="The Ghost Who Was Afraid of the Dark" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-25 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="어둠을 무서워한 유령" data-en="The Ghost Who Was Afraid of the Dark">어둠을 무서워한 유령</h3><p class="english-title" lang="en">The Ghost Who Was Afraid of the Dark</p></div>
+    </a>
+<a class="book" href="/story-s1-45.html" data-book-id="s1-45">
+      <img src="/img/story/s1-45-cover.webp?v=2" width="1024" height="688" alt="Dinosaurs Dance at Night" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-45 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="밤에 춤추는 공룡 뼈" data-en="Dinosaurs Dance at Night">밤에 춤추는 공룡 뼈</h3><p class="english-title" lang="en">Dinosaurs Dance at Night</p></div>
+    </a>
+<a class="book" href="/story-s2-01.html" data-book-id="s2-01">
+      <img src="/img/story/s2-01-cover.webp?v=2" width="1024" height="688" alt="The Ant and the Grasshopper" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-01 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="개미와 베짱이" data-en="The Ant and the Grasshopper">개미와 베짱이</h3><p class="english-title" lang="en">The Ant and the Grasshopper</p></div>
+    </a></div>
+  </section>
+<section class="style-group" data-style="felt" data-count="4" aria-labelledby="heading-felt">
+    <h2 id="heading-felt" data-ko="🧸 펠트 인형" data-en="🧸 Felt dolls">🧸 펠트 인형</h2>
+    <p class="group-count" data-ko="4권" data-en="4 books">4권</p>
+    <div class="cover-grid"><a class="book" href="/story-s1-01.html" data-book-id="s1-01">
+      <img src="/img/story/s1-01-cover.webp?v=2" width="1024" height="688" alt="Max Finds His Way Home" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-01 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="집을 찾아간 맥스" data-en="Max Finds His Way Home">집을 찾아간 맥스</h3><p class="english-title" lang="en">Max Finds His Way Home</p></div>
+    </a>
+<a class="book" href="/story-s1-08.html" data-book-id="s1-08">
+      <img src="/img/story/s1-08-cover.webp?v=2" width="1024" height="688" alt="The Cat in the Tree" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-08 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="나무 위의 고양이" data-en="The Cat in the Tree">나무 위의 고양이</h3><p class="english-title" lang="en">The Cat in the Tree</p></div>
+    </a>
+<a class="book" href="/story-s1-10.html" data-book-id="s1-10">
+      <img src="/img/story/s1-10-cover.webp?v=2" width="1024" height="688" alt="The Lost Mitten" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-10 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="잃어버린 벙어리장갑" data-en="The Lost Mitten">잃어버린 벙어리장갑</h3><p class="english-title" lang="en">The Lost Mitten</p></div>
+    </a>
+<a class="book" href="/story-s1-37.html" data-book-id="s1-37">
+      <img src="/img/story/s1-37-cover.webp?v=2" width="1024" height="688" alt="The Snow Monster" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-37 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="눈 괴물" data-en="The Snow Monster">눈 괴물</h3><p class="english-title" lang="en">The Snow Monster</p></div>
+    </a></div>
+  </section>
+<section class="style-group" data-style="crayon" data-count="4" aria-labelledby="heading-crayon">
+    <h2 id="heading-crayon" data-ko="🖍️ 크레용 그림" data-en="🖍️ Crayon drawing">🖍️ 크레용 그림</h2>
+    <p class="group-count" data-ko="4권" data-en="4 books">4권</p>
+    <div class="cover-grid"><a class="book" href="/story-s1-02.html" data-book-id="s1-02">
+      <img src="/img/story/s1-02-cover.webp?v=2" width="1024" height="688" alt="A Fun Rainy Day" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-02 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="재미있는 비 오는 날" data-en="A Fun Rainy Day">재미있는 비 오는 날</h3><p class="english-title" lang="en">A Fun Rainy Day</p></div>
+    </a>
+<a class="book" href="/story-s1-11.html" data-book-id="s1-11">
+      <img src="/img/story/s1-11-cover.webp?v=2" width="1024" height="688" alt="Hana&#39;s Flower" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-11 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="하나의 꽃" data-en="Hana&#39;s Flower">하나의 꽃</h3><p class="english-title" lang="en">Hana&#39;s Flower</p></div>
+    </a>
+<a class="book" href="/story-s1-23.html" data-book-id="s1-23">
+      <img src="/img/story/s1-23-cover.webp?v=2" width="1024" height="688" alt="The Magic Pencil" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-23 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="요술 연필" data-en="The Magic Pencil">요술 연필</h3><p class="english-title" lang="en">The Magic Pencil</p></div>
+    </a>
+<a class="book" href="/story-s2-39.html" data-book-id="s2-39">
+      <img src="/img/story/s2-39-cover.webp?v=2" width="1024" height="688" alt="Message in a Bottle" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-39 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="병 속의 편지" data-en="Message in a Bottle">병 속의 편지</h3><p class="english-title" lang="en">Message in a Bottle</p></div>
+    </a></div>
+  </section>
+<section class="style-group" data-style="papercut" data-count="11" aria-labelledby="heading-papercut">
+    <h2 id="heading-papercut" data-ko="✂️ 종이 공예" data-en="✂️ Paper cut">✂️ 종이 공예</h2>
+    <p class="group-count" data-ko="11권" data-en="11 books">11권</p>
+    <div class="cover-grid"><a class="book" href="/story-s1-04.html" data-book-id="s1-04">
+      <img src="/img/story/s1-04-cover.webp?v=2" width="1024" height="688" alt="Grandma&#39;s Garden" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-04 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="할머니의 텃밭" data-en="Grandma&#39;s Garden">할머니의 텃밭</h3><p class="english-title" lang="en">Grandma&#39;s Garden</p></div>
+    </a>
+<a class="book" href="/story-s1-12.html" data-book-id="s1-12">
+      <img src="/img/story/s1-12-cover.webp?v=2" width="1024" height="688" alt="Fireflies at Night" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-12 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="밤의 반딧불이" data-en="Fireflies at Night">밤의 반딧불이</h3><p class="english-title" lang="en">Fireflies at Night</p></div>
+    </a>
+<a class="book" href="/story-s1-40.html" data-book-id="s1-40">
+      <img src="/img/story/s1-40-cover.webp?v=2" width="1024" height="688" alt="The Whale in the Net" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-40 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="그물에 걸린 고래" data-en="The Whale in the Net">그물에 걸린 고래</h3><p class="english-title" lang="en">The Whale in the Net</p></div>
+    </a>
+<a class="book" href="/story-s1-42.html" data-book-id="s1-42">
+      <img src="/img/story/s1-42-cover.webp?v=2" width="1024" height="688" alt="The Jungle Rescue" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-42 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="정글 구출 작전" data-en="The Jungle Rescue">정글 구출 작전</h3><p class="english-title" lang="en">The Jungle Rescue</p></div>
+    </a>
+<a class="book" href="/story-s2-11.html" data-book-id="s2-11">
+      <img src="/img/story/s2-11-cover.webp?v=2" width="1024" height="688" alt="The Turtle on the Beach" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-11 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="바닷가의 거북" data-en="The Turtle on the Beach">바닷가의 거북</h3><p class="english-title" lang="en">The Turtle on the Beach</p></div>
+    </a>
+<a class="book" href="/story-s2-21.html" data-book-id="s2-21">
+      <img src="/img/story/s2-21-cover.webp?v=2" width="1024" height="688" alt="The Boy Who Talked to Whales" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-21 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="고래와 이야기한 소년" data-en="The Boy Who Talked to Whales">고래와 이야기한 소년</h3><p class="english-title" lang="en">The Boy Who Talked to Whales</p></div>
+    </a>
+<a class="book" href="/story-s2-27.html" data-book-id="s2-27">
+      <img src="/img/story/s2-27-cover.webp?v=2" width="1024" height="688" alt="Mission: Save the Coral Reef" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-27 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="산호초 구조 작전" data-en="Mission: Save the Coral Reef">산호초 구조 작전</h3><p class="english-title" lang="en">Mission: Save the Coral Reef</p></div>
+    </a>
+<a class="book" href="/story-s3-04.html" data-book-id="s3-04">
+      <img src="/img/story/s3-04-cover.webp?v=2" width="1024" height="688" alt="The Water Cycle" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-04 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="물의 순환" data-en="The Water Cycle">물의 순환</h3><p class="english-title" lang="en">The Water Cycle</p></div>
+    </a>
+<a class="book" href="/story-s3-17.html" data-book-id="s3-17">
+      <img src="/img/story/s3-17-cover.webp?v=2" width="1024" height="688" alt="When the Whole World Lights Up" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-17 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="온 세상이 빛나는 밤" data-en="When the Whole World Lights Up">온 세상이 빛나는 밤</h3><p class="english-title" lang="en">When the Whole World Lights Up</p></div>
+    </a>
+<a class="book" href="/story-s4-18.html" data-book-id="s4-18">
+      <img src="/img/story/s4-18-cover.webp?v=2" width="1024" height="688" alt="Does Your Language Shape Your Mind?" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-18 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="언어가 생각을 바꿀까?" data-en="Does Your Language Shape Your Mind?">언어가 생각을 바꿀까?</h3><p class="english-title" lang="en">Does Your Language Shape Your Mind?</p></div>
+    </a>
+<a class="book" href="/story-s4-40.html" data-book-id="s4-40">
+      <img src="/img/story/s4-40-cover.webp?v=2" width="1024" height="688" alt="Music and the Brain" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-40 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="음악과 뇌" data-en="Music and the Brain">음악과 뇌</h3><p class="english-title" lang="en">Music and the Brain</p></div>
+    </a></div>
+  </section>
+<section class="style-group" data-style="comic" data-count="13" aria-labelledby="heading-comic">
+    <h2 id="heading-comic" data-ko="💥 만화책" data-en="💥 Comic book">💥 만화책</h2>
+    <p class="group-count" data-ko="13권" data-en="13 books">13권</p>
+    <div class="cover-grid"><a class="book" href="/story-s1-20.html" data-book-id="s1-20">
+      <img src="/img/story/s1-20-cover.webp?v=2" width="1024" height="688" alt="Super Sam Saves the Day" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-20 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="슈퍼 샘이 해냈다" data-en="Super Sam Saves the Day">슈퍼 샘이 해냈다</h3><p class="english-title" lang="en">Super Sam Saves the Day</p></div>
+    </a>
+<a class="book" href="/story-s1-24.html" data-book-id="s1-24">
+      <img src="/img/story/s1-24-cover.webp?v=2" width="1024" height="688" alt="Pirate Pete and the Giant Octopus" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-24 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="해적 피트와 거대 문어" data-en="Pirate Pete and the Giant Octopus">해적 피트와 거대 문어</h3><p class="english-title" lang="en">Pirate Pete and the Giant Octopus</p></div>
+    </a>
+<a class="book" href="/story-s1-34.html" data-book-id="s1-34">
+      <img src="/img/story/s1-34-cover.webp?v=2" width="1024" height="688" alt="The Volcano Island" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-34 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="화산섬 탈출" data-en="The Volcano Island">화산섬 탈출</h3><p class="english-title" lang="en">The Volcano Island</p></div>
+    </a>
+<a class="book" href="/story-s1-44.html" data-book-id="s1-44">
+      <img src="/img/story/s1-44-cover.webp?v=2" width="1024" height="688" alt="Super Grandma" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-44 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="슈퍼 할머니" data-en="Super Grandma">슈퍼 할머니</h3><p class="english-title" lang="en">Super Grandma</p></div>
+    </a>
+<a class="book" href="/story-s2-07.html" data-book-id="s2-07">
+      <img src="/img/story/s2-07-cover.webp?v=2" width="1024" height="688" alt="The Volcano That Did Not Erupt" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-07 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="터지지 않은 화산" data-en="The Volcano That Did Not Erupt">터지지 않은 화산</h3><p class="english-title" lang="en">The Volcano That Did Not Erupt</p></div>
+    </a>
+<a class="book" href="/story-s2-16.html" data-book-id="s2-16">
+      <img src="/img/story/s2-16-cover.webp?v=2" width="1024" height="688" alt="Detective Mina and the Missing Diamond" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-16 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="탐정 미나와 사라진 다이아몬드" data-en="Detective Mina and the Missing Diamond">탐정 미나와 사라진 다이아몬드</h3><p class="english-title" lang="en">Detective Mina and the Missing Diamond</p></div>
+    </a>
+<a class="book" href="/story-s2-26.html" data-book-id="s2-26">
+      <img src="/img/story/s2-26-cover.webp?v=2" width="1024" height="688" alt="The Invisible Thief" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-26 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="보이지 않는 도둑" data-en="The Invisible Thief">보이지 않는 도둑</h3><p class="english-title" lang="en">The Invisible Thief</p></div>
+    </a>
+<a class="book" href="/story-s2-32.html" data-book-id="s2-32">
+      <img src="/img/story/s2-32-cover.webp?v=2" width="1024" height="688" alt="The Pirate&#39;s Riddle" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-32 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="해적의 수수께끼" data-en="The Pirate&#39;s Riddle">해적의 수수께끼</h3><p class="english-title" lang="en">The Pirate&#39;s Riddle</p></div>
+    </a>
+<a class="book" href="/story-s2-36.html" data-book-id="s2-36">
+      <img src="/img/story/s2-36-cover.webp?v=2" width="1024" height="688" alt="The Ghost Ship" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-36 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="유령선" data-en="The Ghost Ship">유령선</h3><p class="english-title" lang="en">The Ghost Ship</p></div>
+    </a>
+<a class="book" href="/story-s2-45.html" data-book-id="s2-45">
+      <img src="/img/story/s2-45-cover.webp?v=2" width="1024" height="688" alt="The Great Museum Heist" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-45 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="박물관 대도난 사건" data-en="The Great Museum Heist">박물관 대도난 사건</h3><p class="english-title" lang="en">The Great Museum Heist</p></div>
+    </a>
+<a class="book" href="/story-s3-10.html" data-book-id="s3-10">
+      <img src="/img/story/s3-10-cover.webp?v=2" width="1024" height="688" alt="The Ancient Olympic Games" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-10 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="고대 올림픽" data-en="The Ancient Olympic Games">고대 올림픽</h3><p class="english-title" lang="en">The Ancient Olympic Games</p></div>
+    </a>
+<a class="book" href="/story-s4-13.html" data-book-id="s4-13">
+      <img src="/img/story/s4-13-cover.webp?v=2" width="1024" height="688" alt="Why Your Brain Loves Bad Habits" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-13 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="뇌는 왜 나쁜 습관을 좋아할까" data-en="Why Your Brain Loves Bad Habits">뇌는 왜 나쁜 습관을 좋아할까</h3><p class="english-title" lang="en">Why Your Brain Loves Bad Habits</p></div>
+    </a>
+<a class="book" href="/story-s4-26.html" data-book-id="s4-26">
+      <img src="/img/story/s4-26-cover.webp?v=2" width="1024" height="688" alt="Why Is Everything Getting More Expensive?" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-26 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="왜 모든 게 비싸질까?" data-en="Why Is Everything Getting More Expensive?">왜 모든 게 비싸질까?</h3><p class="english-title" lang="en">Why Is Everything Getting More Expensive?</p></div>
+    </a></div>
+  </section>
+<section class="style-group" data-style="webtoon" data-count="14" aria-labelledby="heading-webtoon">
+    <h2 id="heading-webtoon" data-ko="📱 웹툰" data-en="📱 Webtoon">📱 웹툰</h2>
+    <p class="group-count" data-ko="14권" data-en="14 books">14권</p>
+    <div class="cover-grid"><a class="book" href="/story-s1-03.html" data-book-id="s1-03">
+      <img src="/img/story/s1-03-cover.webp?v=2" width="1024" height="688" alt="Jun&#39;s New Friend" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-03 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="준의 새 친구" data-en="Jun&#39;s New Friend">준의 새 친구</h3><p class="english-title" lang="en">Jun&#39;s New Friend</p></div>
+    </a>
+<a class="book" href="/story-s1-27.html" data-book-id="s1-27">
+      <img src="/img/story/s1-27-cover.webp?v=2" width="1024" height="688" alt="The Invisible Boy" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-27 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="투명 인간이 된 톰" data-en="The Invisible Boy">투명 인간이 된 톰</h3><p class="english-title" lang="en">The Invisible Boy</p></div>
+    </a>
+<a class="book" href="/story-s1-29.html" data-book-id="s1-29">
+      <img src="/img/story/s1-29-cover.webp?v=2" width="1024" height="688" alt="The Haunted House" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-29 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="귀신의 집" data-en="The Haunted House">귀신의 집</h3><p class="english-title" lang="en">The Haunted House</p></div>
+    </a>
+<a class="book" href="/story-s1-46.html" data-book-id="s1-46">
+      <img src="/img/story/s1-46-cover.webp?v=2" width="1024" height="688" alt="The Alien Who Loved Kimchi" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-46 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="김치를 사랑한 외계인" data-en="The Alien Who Loved Kimchi">김치를 사랑한 외계인</h3><p class="english-title" lang="en">The Alien Who Loved Kimchi</p></div>
+    </a>
+<a class="book" href="/story-s2-04.html" data-book-id="s2-04">
+      <img src="/img/story/s2-04-cover.webp?v=2" width="1024" height="688" alt="The New Kid" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-04 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="새로 온 아이" data-en="The New Kid">새로 온 아이</h3><p class="english-title" lang="en">The New Kid</p></div>
+    </a>
+<a class="book" href="/story-s2-15.html" data-book-id="s2-15">
+      <img src="/img/story/s2-15-cover.webp?v=2" width="1024" height="688" alt="The Robot That Learned to Lie" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-15 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="거짓말을 배운 로봇" data-en="The Robot That Learned to Lie">거짓말을 배운 로봇</h3><p class="english-title" lang="en">The Robot That Learned to Lie</p></div>
+    </a>
+<a class="book" href="/story-s2-22.html" data-book-id="s2-22">
+      <img src="/img/story/s2-22-cover.webp?v=2" width="1024" height="688" alt="The Haunted Library" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-22 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="유령 도서관" data-en="The Haunted Library">유령 도서관</h3><p class="english-title" lang="en">The Haunted Library</p></div>
+    </a>
+<a class="book" href="/story-s2-30.html" data-book-id="s2-30">
+      <img src="/img/story/s2-30-cover.webp?v=2" width="1024" height="688" alt="The Mountain Rescue Dog" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-30 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="산악 구조견" data-en="The Mountain Rescue Dog">산악 구조견</h3><p class="english-title" lang="en">The Mountain Rescue Dog</p></div>
+    </a>
+<a class="book" href="/story-s2-47.html" data-book-id="s2-47">
+      <img src="/img/story/s2-47-cover.webp?v=2" width="1024" height="688" alt="The Secret Door in the School" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-47 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="학교의 비밀 문" data-en="The Secret Door in the School">학교의 비밀 문</h3><p class="english-title" lang="en">The Secret Door in the School</p></div>
+    </a>
+<a class="book" href="/story-s3-12.html" data-book-id="s3-12">
+      <img src="/img/story/s3-12-cover.webp?v=2" width="1024" height="688" alt="Kimchi and Fermentation" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-12 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="김치와 발효" data-en="Kimchi and Fermentation">김치와 발효</h3><p class="english-title" lang="en">Kimchi and Fermentation</p></div>
+    </a>
+<a class="book" href="/story-s3-26.html" data-book-id="s3-26">
+      <img src="/img/story/s3-26-cover.webp?v=2" width="1024" height="688" alt="The Girl Who Saved a Beach" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-26 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="해변을 구한 소녀" data-en="The Girl Who Saved a Beach">해변을 구한 소녀</h3><p class="english-title" lang="en">The Girl Who Saved a Beach</p></div>
+    </a>
+<a class="book" href="/story-s4-10.html" data-book-id="s4-10">
+      <img src="/img/story/s4-10-cover.webp?v=2" width="1024" height="688" alt="Learning from Failure" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-10 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="실패에서 배우기" data-en="Learning from Failure">실패에서 배우기</h3><p class="english-title" lang="en">Learning from Failure</p></div>
+    </a>
+<a class="book" href="/story-s4-29.html" data-book-id="s4-29">
+      <img src="/img/story/s4-29-cover.webp?v=2" width="1024" height="688" alt="Don&#39;t Click Share Yet!" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-29 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="아직 공유하지 마세요!" data-en="Don&#39;t Click Share Yet!">아직 공유하지 마세요!</h3><p class="english-title" lang="en">Don&#39;t Click Share Yet!</p></div>
+    </a>
+<a class="book" href="/story-s4-39.html" data-book-id="s4-39">
+      <img src="/img/story/s4-39-cover.webp?v=2" width="1024" height="688" alt="Can Money Buy Happiness?" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-39 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="돈으로 행복을 살 수 있을까?" data-en="Can Money Buy Happiness?">돈으로 행복을 살 수 있을까?</h3><p class="english-title" lang="en">Can Money Buy Happiness?</p></div>
+    </a></div>
+  </section>
+<section class="style-group" data-style="pixel" data-count="2" aria-labelledby="heading-pixel">
+    <h2 id="heading-pixel" data-ko="👾 픽셀 게임" data-en="👾 Pixel art">👾 픽셀 게임</h2>
+    <p class="group-count" data-ko="2권" data-en="2 books">2권</p>
+    <div class="cover-grid"><a class="book" href="/story-s2-18.html" data-book-id="s2-18">
+      <img src="/img/story/s2-18-cover.webp?v=2" width="1024" height="688" alt="Trapped in the Video Game" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-18 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="게임 속에 갇히다" data-en="Trapped in the Video Game">게임 속에 갇히다</h3><p class="english-title" lang="en">Trapped in the Video Game</p></div>
+    </a>
+<a class="book" href="/story-s3-35.html" data-book-id="s3-35">
+      <img src="/img/story/s3-35-cover.webp?v=2" width="1024" height="688" alt="How Video Games Are Made" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-35 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="게임은 어떻게 만들어질까" data-en="How Video Games Are Made">게임은 어떻게 만들어질까</h3><p class="english-title" lang="en">How Video Games Are Made</p></div>
+    </a></div>
+  </section>
+<section class="style-group" data-style="minhwa" data-count="5" aria-labelledby="heading-minhwa">
+    <h2 id="heading-minhwa" data-ko="🐯 한국 민화" data-en="🐯 Korean folk painting">🐯 한국 민화</h2>
+    <p class="group-count" data-ko="5권" data-en="5 books">5권</p>
+    <div class="cover-grid"><a class="book" href="/story-s1-43.html" data-book-id="s1-43">
+      <img src="/img/story/s1-43-cover.webp?v=2" width="1024" height="688" alt="The Moon Rabbit" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-43 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="달토끼" data-en="The Moon Rabbit">달토끼</h3><p class="english-title" lang="en">The Moon Rabbit</p></div>
+    </a>
+<a class="book" href="/story-s2-09.html" data-book-id="s2-09">
+      <img src="/img/story/s2-09-cover.webp?v=2" width="1024" height="688" alt="The Honest Woodcutter" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-09 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="금도끼 은도끼" data-en="The Honest Woodcutter">금도끼 은도끼</h3><p class="english-title" lang="en">The Honest Woodcutter</p></div>
+    </a>
+<a class="book" href="/story-s2-17.html" data-book-id="s2-17">
+      <img src="/img/story/s2-17-cover.webp?v=2" width="1024" height="688" alt="The Last Dragon of Jeju" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-17 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="제주의 마지막 용" data-en="The Last Dragon of Jeju">제주의 마지막 용</h3><p class="english-title" lang="en">The Last Dragon of Jeju</p></div>
+    </a>
+<a class="book" href="/story-s2-46.html" data-book-id="s2-46">
+      <img src="/img/story/s2-46-cover.webp?v=2" width="1024" height="688" alt="The Tiger of Mount Baekdu" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-46 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="백두산 호랑이" data-en="The Tiger of Mount Baekdu">백두산 호랑이</h3><p class="english-title" lang="en">The Tiger of Mount Baekdu</p></div>
+    </a>
+<a class="book" href="/story-s3-05.html" data-book-id="s3-05">
+      <img src="/img/story/s3-05-cover.webp?v=2" width="1024" height="688" alt="King Sejong and Hangul" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-05 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="세종대왕과 한글" data-en="King Sejong and Hangul">세종대왕과 한글</h3><p class="english-title" lang="en">King Sejong and Hangul</p></div>
+    </a></div>
+  </section>
+<section class="style-group" data-style="editorial" data-count="9" aria-labelledby="heading-editorial">
+    <h2 id="heading-editorial" data-ko="📰 잡지 일러스트" data-en="📰 Editorial illustration">📰 잡지 일러스트</h2>
+    <p class="group-count" data-ko="9권" data-en="9 books">9권</p>
+    <div class="cover-grid"><a class="book" href="/story-s3-06.html" data-book-id="s3-06">
+      <img src="/img/story/s3-06-cover.webp?v=2" width="1024" height="688" alt="Sleep and Your Brain" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-06 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="잠과 뇌" data-en="Sleep and Your Brain">잠과 뇌</h3><p class="english-title" lang="en">Sleep and Your Brain</p></div>
+    </a>
+<a class="book" href="/story-s3-23.html" data-book-id="s3-23">
+      <img src="/img/story/s3-23-cover.webp?v=2" width="1024" height="688" alt="The Phone That Changed Everything" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-23 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="모든 것을 바꾼 휴대폰" data-en="The Phone That Changed Everything">모든 것을 바꾼 휴대폰</h3><p class="english-title" lang="en">The Phone That Changed Everything</p></div>
+    </a>
+<a class="book" href="/story-s4-01.html" data-book-id="s4-01">
+      <img src="/img/story/s4-01-cover.webp?v=2" width="1024" height="688" alt="Why Notifications Steal Our Focus" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-01 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="알림은 왜 우리의 집중력을 빼앗을까" data-en="Why Notifications Steal Our Focus">알림은 왜 우리의 집중력을 빼앗을까</h3><p class="english-title" lang="en">Why Notifications Steal Our Focus</p></div>
+    </a>
+<a class="book" href="/story-s4-05.html" data-book-id="s4-05">
+      <img src="/img/story/s4-05-cover.webp?v=2" width="1024" height="688" alt="What Sets the Price?" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-05 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="가격은 무엇이 정할까" data-en="What Sets the Price?">가격은 무엇이 정할까</h3><p class="english-title" lang="en">What Sets the Price?</p></div>
+    </a>
+<a class="book" href="/story-s4-06.html" data-book-id="s4-06">
+      <img src="/img/story/s4-06-cover.webp?v=2" width="1024" height="688" alt="Where AI Bias Comes From" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-06 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="인공지능의 편향은 어디서 올까" data-en="Where AI Bias Comes From">인공지능의 편향은 어디서 올까</h3><p class="english-title" lang="en">Where AI Bias Comes From</p></div>
+    </a>
+<a class="book" href="/story-s4-08.html" data-book-id="s4-08">
+      <img src="/img/story/s4-08-cover.webp?v=2" width="1024" height="688" alt="The Power of Belief: The Placebo Effect" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-08 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="믿음의 힘: 플라세보 효과" data-en="The Power of Belief: The Placebo Effect">믿음의 힘: 플라세보 효과</h3><p class="english-title" lang="en">The Power of Belief: The Placebo Effect</p></div>
+    </a>
+<a class="book" href="/story-s4-11.html" data-book-id="s4-11">
+      <img src="/img/story/s4-11-cover.webp?v=2" width="1024" height="688" alt="Why Endangered Languages Matter" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-11 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="사라져 가는 언어가 왜 중요할까" data-en="Why Endangered Languages Matter">사라져 가는 언어가 왜 중요할까</h3><p class="english-title" lang="en">Why Endangered Languages Matter</p></div>
+    </a>
+<a class="book" href="/story-s4-16.html" data-book-id="s4-16">
+      <img src="/img/story/s4-16-cover.webp?v=2" width="1024" height="688" alt="The Hidden Price of Every Choice" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-16 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="모든 선택에 숨은 가격" data-en="The Hidden Price of Every Choice">모든 선택에 숨은 가격</h3><p class="english-title" lang="en">The Hidden Price of Every Choice</p></div>
+    </a>
+<a class="book" href="/story-s4-37.html" data-book-id="s4-37">
+      <img src="/img/story/s4-37-cover.webp?v=2" width="1024" height="688" alt="How Pandemics Spread" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-37 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="전염병은 어떻게 퍼질까" data-en="How Pandemics Spread">전염병은 어떻게 퍼질까</h3><p class="english-title" lang="en">How Pandemics Spread</p></div>
+    </a></div>
+  </section>
+<section class="style-group" data-style="vintage" data-count="16" aria-labelledby="heading-vintage">
+    <h2 id="heading-vintage" data-ko="📜 옛날 그림" data-en="📜 Vintage illustration">📜 옛날 그림</h2>
+    <p class="group-count" data-ko="16권" data-en="16 books">16권</p>
+    <div class="cover-grid"><a class="book" href="/story-s1-17.html" data-book-id="s1-17">
+      <img src="/img/story/s1-17-cover.webp?v=2" width="1024" height="688" alt="The Secret Treasure Map" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-17 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="비밀 보물 지도" data-en="The Secret Treasure Map">비밀 보물 지도</h3><p class="english-title" lang="en">The Secret Treasure Map</p></div>
+    </a>
+<a class="book" href="/story-s1-36.html" data-book-id="s1-36">
+      <img src="/img/story/s1-36-cover.webp?v=2" width="1024" height="688" alt="The Time Machine" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-36 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="타임머신" data-en="The Time Machine">타임머신</h3><p class="english-title" lang="en">The Time Machine</p></div>
+    </a>
+<a class="book" href="/story-s2-08.html" data-book-id="s2-08">
+      <img src="/img/story/s2-08-cover.webp?v=2" width="1024" height="688" alt="Grandpa&#39;s Old Camera" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-08 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="할아버지의 오래된 카메라" data-en="Grandpa&#39;s Old Camera">할아버지의 오래된 카메라</h3><p class="english-title" lang="en">Grandpa&#39;s Old Camera</p></div>
+    </a>
+<a class="book" href="/story-s2-19.html" data-book-id="s2-19">
+      <img src="/img/story/s2-19-cover.webp?v=2" width="1024" height="688" alt="The Secret of the Pyramid" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-19 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="피라미드의 비밀" data-en="The Secret of the Pyramid">피라미드의 비밀</h3><p class="english-title" lang="en">The Secret of the Pyramid</p></div>
+    </a>
+<a class="book" href="/story-s2-23.html" data-book-id="s2-23">
+      <img src="/img/story/s2-23-cover.webp?v=2" width="1024" height="688" alt="The Time-Travel Watch" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-23 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="시간 여행 시계" data-en="The Time-Travel Watch">시간 여행 시계</h3><p class="english-title" lang="en">The Time-Travel Watch</p></div>
+    </a>
+<a class="book" href="/story-s3-09.html" data-book-id="s3-09">
+      <img src="/img/story/s3-09-cover.webp?v=2" width="1024" height="688" alt="The First Airplane Flight" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-09 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="최초의 비행기 비행" data-en="The First Airplane Flight">최초의 비행기 비행</h3><p class="english-title" lang="en">The First Airplane Flight</p></div>
+    </a>
+<a class="book" href="/story-s3-13.html" data-book-id="s3-13">
+      <img src="/img/story/s3-13-cover.webp?v=2" width="1024" height="688" alt="How a Fishing Net Became a Book" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-13 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="고기잡이 그물이 책이 되기까지" data-en="How a Fishing Net Became a Book">고기잡이 그물이 책이 되기까지</h3><p class="english-title" lang="en">How a Fishing Net Became a Book</p></div>
+    </a>
+<a class="book" href="/story-s3-16.html" data-book-id="s3-16">
+      <img src="/img/story/s3-16-cover.webp?v=2" width="1024" height="688" alt="The Doctor, the Milkmaid, and the Cow" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-16 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="의사와 우유 짜는 소녀와 소" data-en="The Doctor, the Milkmaid, and the Cow">의사와 우유 짜는 소녀와 소</h3><p class="english-title" lang="en">The Doctor, the Milkmaid, and the Cow</p></div>
+    </a>
+<a class="book" href="/story-s3-19.html" data-book-id="s3-19">
+      <img src="/img/story/s3-19-cover.webp?v=2" width="1024" height="688" alt="The Woman Who Solved the Butterfly Mystery" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-19 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="나비의 비밀을 푼 여인" data-en="The Woman Who Solved the Butterfly Mystery">나비의 비밀을 푼 여인</h3><p class="english-title" lang="en">The Woman Who Solved the Butterfly Mystery</p></div>
+    </a>
+<a class="book" href="/story-s3-21.html" data-book-id="s3-21">
+      <img src="/img/story/s3-21-cover.webp?v=2" width="1024" height="688" alt="The Doctor Who Followed the Blood" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-21 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="피의 길을 따라간 의사" data-en="The Doctor Who Followed the Blood">피의 길을 따라간 의사</h3><p class="english-title" lang="en">The Doctor Who Followed the Blood</p></div>
+    </a>
+<a class="book" href="/story-s3-22.html" data-book-id="s3-22">
+      <img src="/img/story/s3-22-cover.webp?v=2" width="1024" height="688" alt="The Wall That Took 2,000 Years" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-22 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="2,000년 동안 쌓은 성벽" data-en="The Wall That Took 2,000 Years">2,000년 동안 쌓은 성벽</h3><p class="english-title" lang="en">The Wall That Took 2,000 Years</p></div>
+    </a>
+<a class="book" href="/story-s3-32.html" data-book-id="s3-32">
+      <img src="/img/story/s3-32-cover.webp?v=2" width="1024" height="688" alt="Secrets of the Mummies" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-32 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="미라의 비밀" data-en="Secrets of the Mummies">미라의 비밀</h3><p class="english-title" lang="en">Secrets of the Mummies</p></div>
+    </a>
+<a class="book" href="/story-s4-04.html" data-book-id="s4-04">
+      <img src="/img/story/s4-04-cover.webp?v=2" width="1024" height="688" alt="The Press That Changed the World" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-04 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="세상을 바꾼 인쇄기" data-en="The Press That Changed the World">세상을 바꾼 인쇄기</h3><p class="english-title" lang="en">The Press That Changed the World</p></div>
+    </a>
+<a class="book" href="/story-s4-15.html" data-book-id="s4-15">
+      <img src="/img/story/s4-15-cover.webp?v=2" width="1024" height="688" alt="The Road That Connected the World" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-15 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="세계를 이은 길" data-en="The Road That Connected the World">세계를 이은 길</h3><p class="english-title" lang="en">The Road That Connected the World</p></div>
+    </a>
+<a class="book" href="/story-s4-27.html" data-book-id="s4-27">
+      <img src="/img/story/s4-27-cover.webp?v=2" width="1024" height="688" alt="The Age of Exploration: Two Sides of History" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-27 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="대항해 시대: 역사의 두 얼굴" data-en="The Age of Exploration: Two Sides of History">대항해 시대: 역사의 두 얼굴</h3><p class="english-title" lang="en">The Age of Exploration: Two Sides of History</p></div>
+    </a>
+<a class="book" href="/story-s4-28.html" data-book-id="s4-28">
+      <img src="/img/story/s4-28-cover.webp?v=2" width="1024" height="688" alt="The Mold That Saved Millions" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-28 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="수백만 명을 구한 곰팡이" data-en="The Mold That Saved Millions">수백만 명을 구한 곰팡이</h3><p class="english-title" lang="en">The Mold That Saved Millions</p></div>
+    </a></div>
+  </section>
+<section class="style-group" data-style="flat" data-count="11" aria-labelledby="heading-flat">
+    <h2 id="heading-flat" data-ko="✏️ 굵은 선 카툰" data-en="✏️ Bold cartoon">✏️ 굵은 선 카툰</h2>
+    <p class="group-count" data-ko="11권" data-en="11 books">11권</p>
+    <div class="cover-grid"><a class="book" href="/story-s1-06.html" data-book-id="s1-06">
+      <img src="/img/story/s1-06-cover.webp?v=2" width="1024" height="688" alt="Half a Sandwich" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-06 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="샌드위치 반쪽" data-en="Half a Sandwich">샌드위치 반쪽</h3><p class="english-title" lang="en">Half a Sandwich</p></div>
+    </a>
+<a class="book" href="/story-s1-13.html" data-book-id="s1-13">
+      <img src="/img/story/s1-13-cover.webp?v=2" width="1024" height="688" alt="The Alien in My Backyard" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-13 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="우리 집 마당의 외계인" data-en="The Alien in My Backyard">우리 집 마당의 외계인</h3><p class="english-title" lang="en">The Alien in My Backyard</p></div>
+    </a>
+<a class="book" href="/story-s1-28.html" data-book-id="s1-28">
+      <img src="/img/story/s1-28-cover.webp?v=2" width="1024" height="688" alt="T. rex Goes to School" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-28 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="학교에 온 티라노" data-en="T. rex Goes to School">학교에 온 티라노</h3><p class="english-title" lang="en">T. rex Goes to School</p></div>
+    </a>
+<a class="book" href="/story-s1-33.html" data-book-id="s1-33">
+      <img src="/img/story/s1-33-cover.webp?v=2" width="1024" height="688" alt="Space Pizza Delivery" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-33 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="우주 피자 배달" data-en="Space Pizza Delivery">우주 피자 배달</h3><p class="english-title" lang="en">Space Pizza Delivery</p></div>
+    </a>
+<a class="book" href="/story-s1-38.html" data-book-id="s1-38">
+      <img src="/img/story/s1-38-cover.webp?v=2" width="1024" height="688" alt="Alien at the Zoo" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s1-38 · <span data-ko="1단계" data-en="Step 1">1단계</span></span>
+      <h3 data-ko="동물원에 간 외계인" data-en="Alien at the Zoo">동물원에 간 외계인</h3><p class="english-title" lang="en">Alien at the Zoo</p></div>
+    </a>
+<a class="book" href="/story-s2-06.html" data-book-id="s2-06">
+      <img src="/img/story/s2-06-cover.webp?v=2" width="1024" height="688" alt="Lost in the Museum" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-06 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="박물관에서 길을 잃다" data-en="Lost in the Museum">박물관에서 길을 잃다</h3><p class="english-title" lang="en">Lost in the Museum</p></div>
+    </a>
+<a class="book" href="/story-s2-25.html" data-book-id="s2-25">
+      <img src="/img/story/s2-25-cover.webp?v=2" width="1024" height="688" alt="The Alien Exchange Student" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-25 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="외계인 전학생" data-en="The Alien Exchange Student">외계인 전학생</h3><p class="english-title" lang="en">The Alien Exchange Student</p></div>
+    </a>
+<a class="book" href="/story-s2-34.html" data-book-id="s2-34">
+      <img src="/img/story/s2-34-cover.webp?v=2" width="1024" height="688" alt="The Volcano Scientist" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-34 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="화산 과학자" data-en="The Volcano Scientist">화산 과학자</h3><p class="english-title" lang="en">The Volcano Scientist</p></div>
+    </a>
+<a class="book" href="/story-s2-40.html" data-book-id="s2-40">
+      <img src="/img/story/s2-40-cover.webp?v=2" width="1024" height="688" alt="The Weather Machine" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-40 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="날씨 기계" data-en="The Weather Machine">날씨 기계</h3><p class="english-title" lang="en">The Weather Machine</p></div>
+    </a>
+<a class="book" href="/story-s3-07.html" data-book-id="s3-07">
+      <img src="/img/story/s3-07-cover.webp?v=2" width="1024" height="688" alt="Recycling Plastic" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-07 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="플라스틱 재활용" data-en="Recycling Plastic">플라스틱 재활용</h3><p class="english-title" lang="en">Recycling Plastic</p></div>
+    </a>
+<a class="book" href="/story-s3-14.html" data-book-id="s3-14">
+      <img src="/img/story/s3-14-cover.webp?v=2" width="1024" height="688" alt="Can You Buy a Snack with a Chicken?" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-14 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="닭으로 과자를 살 수 있을까?" data-en="Can You Buy a Snack with a Chicken?">닭으로 과자를 살 수 있을까?</h3><p class="english-title" lang="en">Can You Buy a Snack with a Chicken?</p></div>
+    </a></div>
+  </section>
+<section class="style-group" data-style="photo" data-count="32" aria-labelledby="heading-photo">
+    <h2 id="heading-photo" data-ko="📷 실사" data-en="📷 Photo-real">📷 실사</h2>
+    <p class="group-count" data-ko="32권" data-en="32 books">32권</p>
+    <div class="cover-grid"><a class="book" href="/story-s2-44.html" data-book-id="s2-44">
+      <img src="/img/story/s2-44-cover.webp?v=2" width="1024" height="688" alt="The Last Tree on Mars" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s2-44 · <span data-ko="2단계" data-en="Step 2">2단계</span></span>
+      <h3 data-ko="화성의 마지막 나무" data-en="The Last Tree on Mars">화성의 마지막 나무</h3><p class="english-title" lang="en">The Last Tree on Mars</p></div>
+    </a>
+<a class="book" href="/story-s3-01.html" data-book-id="s3-01">
+      <img src="/img/story/s3-01-cover.webp?v=2" width="1024" height="688" alt="Why Leaves Change Color" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-01 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="나뭇잎은 왜 색이 변할까?" data-en="Why Leaves Change Color">나뭇잎은 왜 색이 변할까?</h3><p class="english-title" lang="en">Why Leaves Change Color</p></div>
+    </a>
+<a class="book" href="/story-s3-02.html" data-book-id="s3-02">
+      <img src="/img/story/s3-02-cover.webp?v=2" width="1024" height="688" alt="Honeybees and Flowers" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-02 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="꿀벌과 꽃" data-en="Honeybees and Flowers">꿀벌과 꽃</h3><p class="english-title" lang="en">Honeybees and Flowers</p></div>
+    </a>
+<a class="book" href="/story-s3-08.html" data-book-id="s3-08">
+      <img src="/img/story/s3-08-cover.webp?v=2" width="1024" height="688" alt="How Penguins Stay Warm" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-08 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="펭귄은 어떻게 따뜻하게 지낼까?" data-en="How Penguins Stay Warm">펭귄은 어떻게 따뜻하게 지낼까?</h3><p class="english-title" lang="en">How Penguins Stay Warm</p></div>
+    </a>
+<a class="book" href="/story-s3-11.html" data-book-id="s3-11">
+      <img src="/img/story/s3-11-cover.webp?v=2" width="1024" height="688" alt="The Changing Moon" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-11 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="모양이 바뀌는 달" data-en="The Changing Moon">모양이 바뀌는 달</h3><p class="english-title" lang="en">The Changing Moon</p></div>
+    </a>
+<a class="book" href="/story-s3-15.html" data-book-id="s3-15">
+      <img src="/img/story/s3-15-cover.webp?v=2" width="1024" height="688" alt="Surviving the Driest Places on Earth" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-15 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="지구에서 가장 메마른 곳에서 살아남기" data-en="Surviving the Driest Places on Earth">지구에서 가장 메마른 곳에서 살아남기</h3><p class="english-title" lang="en">Surviving the Driest Places on Earth</p></div>
+    </a>
+<a class="book" href="/story-s3-20.html" data-book-id="s3-20">
+      <img src="/img/story/s3-20-cover.webp?v=2" width="1024" height="688" alt="Water, Water Everywhere" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-20 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="사방이 물인데" data-en="Water, Water Everywhere">사방이 물인데</h3><p class="english-title" lang="en">Water, Water Everywhere</p></div>
+    </a>
+<a class="book" href="/story-s3-24.html" data-book-id="s3-24">
+      <img src="/img/story/s3-24-cover.webp?v=2" width="1024" height="688" alt="The Wolves of Yellowstone" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-24 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="옐로스톤의 늑대들" data-en="The Wolves of Yellowstone">옐로스톤의 늑대들</h3><p class="english-title" lang="en">The Wolves of Yellowstone</p></div>
+    </a>
+<a class="book" href="/story-s3-25.html" data-book-id="s3-25">
+      <img src="/img/story/s3-25-cover.webp?v=2" width="1024" height="688" alt="Alarm on the Way to the Moon" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-25 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="달에 내리기 직전의 경보" data-en="Alarm on the Way to the Moon">달에 내리기 직전의 경보</h3><p class="english-title" lang="en">Alarm on the Way to the Moon</p></div>
+    </a>
+<a class="book" href="/story-s3-27.html" data-book-id="s3-27">
+      <img src="/img/story/s3-27-cover.webp?v=2" width="1024" height="688" alt="Are We Alone in the Universe?" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-27 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="우주에 우리뿐일까?" data-en="Are We Alone in the Universe?">우주에 우리뿐일까?</h3><p class="english-title" lang="en">Are We Alone in the Universe?</p></div>
+    </a>
+<a class="book" href="/story-s3-29.html" data-book-id="s3-29">
+      <img src="/img/story/s3-29-cover.webp?v=2" width="1024" height="688" alt="The Deepest Place on Earth" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-29 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="지구에서 가장 깊은 곳" data-en="The Deepest Place on Earth">지구에서 가장 깊은 곳</h3><p class="english-title" lang="en">The Deepest Place on Earth</p></div>
+    </a>
+<a class="book" href="/story-s3-30.html" data-book-id="s3-30">
+      <img src="/img/story/s3-30-cover.webp?v=2" width="1024" height="688" alt="Animals That Glow in the Dark" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-30 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="어둠 속에서 빛나는 동물" data-en="Animals That Glow in the Dark">어둠 속에서 빛나는 동물</h3><p class="english-title" lang="en">Animals That Glow in the Dark</p></div>
+    </a>
+<a class="book" href="/story-s3-31.html" data-book-id="s3-31">
+      <img src="/img/story/s3-31-cover.webp?v=2" width="1024" height="688" alt="How Do Astronauts Live in Space?" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-31 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="우주 비행사는 어떻게 살까?" data-en="How Do Astronauts Live in Space?">우주 비행사는 어떻게 살까?</h3><p class="english-title" lang="en">How Do Astronauts Live in Space?</p></div>
+    </a>
+<a class="book" href="/story-s3-33.html" data-book-id="s3-33">
+      <img src="/img/story/s3-33-cover.webp?v=2" width="1024" height="688" alt="Lightning: Nature&#39;s Electricity" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-33 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="번개, 자연의 전기" data-en="Lightning: Nature&#39;s Electricity">번개, 자연의 전기</h3><p class="english-title" lang="en">Lightning: Nature&#39;s Electricity</p></div>
+    </a>
+<a class="book" href="/story-s3-36.html" data-book-id="s3-36">
+      <img src="/img/story/s3-36-cover.webp?v=2" width="1024" height="688" alt="The Secret Life of Octopuses" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-36 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="문어의 비밀스러운 삶" data-en="The Secret Life of Octopuses">문어의 비밀스러운 삶</h3><p class="english-title" lang="en">The Secret Life of Octopuses</p></div>
+    </a>
+<a class="book" href="/story-s3-37.html" data-book-id="s3-37">
+      <img src="/img/story/s3-37-cover.webp?v=2" width="1024" height="688" alt="Black Holes Explained" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-37 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="블랙홀 이야기" data-en="Black Holes Explained">블랙홀 이야기</h3><p class="english-title" lang="en">Black Holes Explained</p></div>
+    </a>
+<a class="book" href="/story-s3-38.html" data-book-id="s3-38">
+      <img src="/img/story/s3-38-cover.webp?v=2" width="1024" height="688" alt="Super Senses of Animals" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s3-38 · <span data-ko="3단계" data-en="Step 3">3단계</span></span>
+      <h3 data-ko="동물의 초감각" data-en="Super Senses of Animals">동물의 초감각</h3><p class="english-title" lang="en">Super Senses of Animals</p></div>
+    </a>
+<a class="book" href="/story-s4-02.html" data-book-id="s4-02">
+      <img src="/img/story/s4-02-cover.webp?v=2" width="1024" height="688" alt="The Greenhouse Effect: Helpful and Harmful" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-02 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="온실 효과: 이로움과 해로움" data-en="The Greenhouse Effect: Helpful and Harmful">온실 효과: 이로움과 해로움</h3><p class="english-title" lang="en">The Greenhouse Effect: Helpful and Harmful</p></div>
+    </a>
+<a class="book" href="/story-s4-07.html" data-book-id="s4-07">
+      <img src="/img/story/s4-07-cover.webp?v=2" width="1024" height="688" alt="Cooling Cities with Green Spaces" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-07 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="녹지로 도시를 식히기" data-en="Cooling Cities with Green Spaces">녹지로 도시를 식히기</h3><p class="english-title" lang="en">Cooling Cities with Green Spaces</p></div>
+    </a>
+<a class="book" href="/story-s4-09.html" data-book-id="s4-09">
+      <img src="/img/story/s4-09-cover.webp?v=2" width="1024" height="688" alt="Tiny Plastics, Big Problem" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-09 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="작은 플라스틱, 큰 문제" data-en="Tiny Plastics, Big Problem">작은 플라스틱, 큰 문제</h3><p class="english-title" lang="en">Tiny Plastics, Big Problem</p></div>
+    </a>
+<a class="book" href="/story-s4-12.html" data-book-id="s4-12">
+      <img src="/img/story/s4-12-cover.webp?v=2" width="1024" height="688" alt="Clean Energy and the Storage Challenge" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-12 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="청정에너지와 저장의 과제" data-en="Clean Energy and the Storage Challenge">청정에너지와 저장의 과제</h3><p class="english-title" lang="en">Clean Energy and the Storage Challenge</p></div>
+    </a>
+<a class="book" href="/story-s4-19.html" data-book-id="s4-19">
+      <img src="/img/story/s4-19-cover.webp?v=2" width="1024" height="688" alt="The Day Two Satellites Crashed" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-19 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="두 위성이 충돌한 날" data-en="The Day Two Satellites Crashed">두 위성이 충돌한 날</h3><p class="english-title" lang="en">The Day Two Satellites Crashed</p></div>
+    </a>
+<a class="book" href="/story-s4-20.html" data-book-id="s4-20">
+      <img src="/img/story/s4-20-cover.webp?v=2" width="1024" height="688" alt="The Real Price of Your Coffee" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-20 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="커피 한 잔의 진짜 가격" data-en="The Real Price of Your Coffee">커피 한 잔의 진짜 가격</h3><p class="english-title" lang="en">The Real Price of Your Coffee</p></div>
+    </a>
+<a class="book" href="/story-s4-23.html" data-book-id="s4-23">
+      <img src="/img/story/s4-23-cover.webp?v=2" width="1024" height="688" alt="The Comeback of the Electric Car" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-23 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="전기차의 귀환" data-en="The Comeback of the Electric Car">전기차의 귀환</h3><p class="english-title" lang="en">The Comeback of the Electric Car</p></div>
+    </a>
+<a class="book" href="/story-s4-24.html" data-book-id="s4-24">
+      <img src="/img/story/s4-24-cover.webp?v=2" width="1024" height="688" alt="A World Without Bees?" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-24 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="벌이 사라진 세상?" data-en="A World Without Bees?">벌이 사라진 세상?</h3><p class="english-title" lang="en">A World Without Bees?</p></div>
+    </a>
+<a class="book" href="/story-s4-25.html" data-book-id="s4-25">
+      <img src="/img/story/s4-25-cover.webp?v=2" width="1024" height="688" alt="The Thirsty Blue Planet" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-25 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="목마른 푸른 행성" data-en="The Thirsty Blue Planet">목마른 푸른 행성</h3><p class="english-title" lang="en">The Thirsty Blue Planet</p></div>
+    </a>
+<a class="book" href="/story-s4-30.html" data-book-id="s4-30">
+      <img src="/img/story/s4-30-cover.webp?v=2" width="1024" height="688" alt="Life on Mars?" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-30 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="화성에 생명이 있을까?" data-en="Life on Mars?">화성에 생명이 있을까?</h3><p class="english-title" lang="en">Life on Mars?</p></div>
+    </a>
+<a class="book" href="/story-s4-31.html" data-book-id="s4-31">
+      <img src="/img/story/s4-31-cover.webp?v=2" width="1024" height="688" alt="The Search for Alien Life" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-31 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="외계 생명체 탐사" data-en="The Search for Alien Life">외계 생명체 탐사</h3><p class="english-title" lang="en">The Search for Alien Life</p></div>
+    </a>
+<a class="book" href="/story-s4-35.html" data-book-id="s4-35">
+      <img src="/img/story/s4-35-cover.webp?v=2" width="1024" height="688" alt="Robots That Learn" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-35 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="스스로 배우는 로봇" data-en="Robots That Learn">스스로 배우는 로봇</h3><p class="english-title" lang="en">Robots That Learn</p></div>
+    </a>
+<a class="book" href="/story-s4-36.html" data-book-id="s4-36">
+      <img src="/img/story/s4-36-cover.webp?v=2" width="1024" height="688" alt="The Mystery of Dark Matter" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-36 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="암흑 물질의 수수께끼" data-en="The Mystery of Dark Matter">암흑 물질의 수수께끼</h3><p class="english-title" lang="en">The Mystery of Dark Matter</p></div>
+    </a>
+<a class="book" href="/story-s4-38.html" data-book-id="s4-38">
+      <img src="/img/story/s4-38-cover.webp?v=2" width="1024" height="688" alt="The Ocean&#39;s Twilight Zone" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-38 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="바다의 박명대" data-en="The Ocean&#39;s Twilight Zone">바다의 박명대</h3><p class="english-title" lang="en">The Ocean&#39;s Twilight Zone</p></div>
+    </a>
+<a class="book" href="/story-s4-42.html" data-book-id="s4-42">
+      <img src="/img/story/s4-42-cover.webp?v=2" width="1024" height="688" alt="Earth in 2100" loading="lazy" decoding="async">
+      <div class="book-caption"><span class="book-id">s4-42 · <span data-ko="4단계" data-en="Step 4">4단계</span></span>
+      <h3 data-ko="2100년의 지구" data-en="Earth in 2100">2100년의 지구</h3><p class="english-title" lang="en">Earth in 2100</p></div>
+    </a></div>
+  </section></div>
+<p class="foot" data-ko="표지를 누르면 그림책을 읽을 수 있어요." data-en="Select a cover to read the picture book.">표지를 누르면 그림책을 읽을 수 있어요.</p>
+</main></body></html>

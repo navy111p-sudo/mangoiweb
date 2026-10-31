@@ -91,9 +91,11 @@ const FIX_COMMON_RULES = [
 export const WARMUP_CORRECTION_RULE = [
   '[교정] 학생 문장에 영어 오류가 있으면 야단치지 말고 «먼저 반갑게 반응한 뒤 자연스럽게 되말해» 줘(recast).',
   '예: 학생 "I go to school yesterday" → "Oh, you went to school yesterday! What did you do there?"',
+  '⛔ 교정(fix)이 있으면 답장은 «반드시» 고친 문장을 따옴표로 먼저 말하고, 그 다음에 질문을 해. 질문을 먼저 하거나 고친 문장 없이 질문으로 넘어가면 안 돼. (서버도 같은 순서를 한 번 더 보장한다 — correctionLeadIn)',
   '한 번에 한 가지만 고쳐. 다만 «시제·동사꼴·주어동사 수일치·의문문 어순» 은 뜻이 통해도 «반드시» 고쳐 줘 — 그 넷은 그대로 두면 학생이 틀린 채로 굳는다(예: "I eat pizza yesterday" → "I ate pizza yesterday").',
-  '⛔ 그 넷이 아닌 사소한 것(관사 하나, 낱말 고르기)까지 매번 잡지는 마. 매번 잡히면 학생이 말문이 막힌다.',
-  '[출력형식] ⚠️ 이 규칙이 위 [형식] 보다 «우선» 한다 — 웜업 프롬프트의 [형식] 은 「평문으로만 써」 라고 말하지만, 그것은 아래 JSON 안의 "reply" 글에만 적용되는 규칙이야. 너는 반드시 아래 JSON 하나만 출력해. 설명·인사·코드펜스 없이 { 로 시작해 } 로 끝나야 해.',
+  '⛔ 그 넷이 아닌 사소한 것(관사 하나, 낱말 고르기)은 답장(reply)에서 따로 지적하지 말고 바른 말로 되말하기만 해 — 매번 지적받으면 학생이 말문이 막힌다.',
+  '✅ 하지만 "fix" 칸은 달라 — 학생 문장에 영어 오류가 «하나라도» 있으면 사소해도 반드시 "fix" 에 적어. 화면에 언제 보여 줄지는 서버가 정한다(연달아 띄우지 않는다). 오류가 있는데 "fix": null 로 두면 학생은 틀린 줄도 모른다.',
+  '[출력형식] ⚠️ 이 규칙이 위 [형식] 보다 «우선» 한다 — 말하기 프롬프트의 [형식] 은 「평문으로만 써」 라고 말하지만, 그것은 아래 JSON 안의 "reply" 글에만 적용되는 규칙이야. 너는 반드시 아래 JSON 하나만 출력해. 설명·인사·코드펜스 없이 { 로 시작해 } 로 끝나야 해.',
   fixJsonLine('<학생에게 할 영어 말 — 위 [길이]·[언어]·[형식] 규칙 그대로>'),
   ...FIX_COMMON_RULES,
 ].join('\n');
@@ -108,7 +110,7 @@ export const WARMUP_ZH_CORRECTION_RULE = [
   '예: 학생 "我去学校昨天" → "哦，你昨天去学校了！在那儿做什么了？"',
   '한 번에 한 가지만 고쳐. 다만 «어순(시간을 나타내는 말의 자리)·완료의 了 와 경험의 过·양사» 는 뜻이 통해도 «반드시» 고쳐 줘 — 그 셋은 그대로 두면 학생이 틀린 채로 굳는다(예: "一个书" → "一本书").',
   '⛔ 성조 표기나 발음은 지적하지 마 — 그건 다른 시간에 배운다. 학생이 한국어로만 말했으면 교정을 넣지 마.',
-  '[출력형식] ⚠️ 이 규칙이 위 [형식] 보다 «우선» 한다 — 웜업 프롬프트의 [형식] 은 「평문으로만 써」 라고 말하지만, 그것은 아래 JSON 안의 "reply" 글에만 적용되는 규칙이야. 너는 반드시 아래 JSON 하나만 출력해. 설명·인사·코드펜스 없이 { 로 시작해 } 로 끝나야 해.',
+  '[출력형식] ⚠️ 이 규칙이 위 [형식] 보다 «우선» 한다 — 말하기 프롬프트의 [형식] 은 「평문으로만 써」 라고 말하지만, 그것은 아래 JSON 안의 "reply" 글에만 적용되는 규칙이야. 너는 반드시 아래 JSON 하나만 출력해. 설명·인사·코드펜스 없이 { 로 시작해 } 로 끝나야 해.',
   fixJsonLine('<학생에게 할 중국어 말 — 위 [길이]·[언어]·[형식] 규칙 그대로>', '<고친 중국어(간체자)>'),
   ...FIX_COMMON_RULES,
 ].join('\n');
@@ -141,7 +143,7 @@ export const AI_FRIEND_CORRECTION_RULE = [
   'Everything the student reads is inside "reply". All the rules above apply to that text and to nothing else.',
   '⛔ NEVER put a Korean grammar tip inside "reply". The correction goes in "fix" only — the student sees it as its own card next to your message.',
   '"why_ko" must be Hangul only (no 한자, no Japanese): one short warm sentence a 10-year-old understands.',
-  'Fix at most ONE thing per turn. ALWAYS fix these four even when the meaning is perfectly clear — wrong tense, wrong verb form, subject-verb agreement, question word order. Example: "I eat pizza yesterday" MUST be fixed to "I ate pizza yesterday". Leaving them uncorrected is how a child learns the mistake by heart.',
+  'Fix at most ONE thing per turn. ALWAYS fix these four even when the meaning is perfectly clear — wrong tense, wrong verb form, subject-verb agreement, question word order. Example: "I eat pizza yesterday" MUST be fixed to "I ate pizza yesterday". Example: "I play soccer yesterday" MUST be fixed to "I played soccer yesterday" — even on the FIRST mistake. Leaving them uncorrected is how a child learns the mistake by heart.',
   'For anything smaller than those four (one missing article, a word choice you would phrase differently), set "fix": null and just keep chatting happily — being nagged every turn makes a child stop talking.',
   ...FIX_COMMON_RULES,
 ].join('\n');
@@ -240,8 +242,11 @@ export function parseWarmupOutput(raw: unknown): { reply: string; fix: any; json
 function normEn(s: unknown): string {
   return String(s == null ? '' : s)
     .toLowerCase()
-    .replace(/[\u2018\u2019\u02BC]/g, "'")   // 곱슬 아포스트로피 — 모델은 ’, 학생은 ' 를 쓴다
-    .replace(/[^a-z0-9' ]+/g, ' ')
+    /* 🔴 (2026-10-30) 아포스트로피는 «지운다» — 음성인식이 "I dont" 로 받아 적고 모델이
+       "I don't" 로 짚으면 «원문에 없다» 로 판정돼 진짜 교정이 조용히 버려졌다(정본을 돌려 재현).
+       곱슬(’)·곧은(') 모두. 비교 전용이라 화면에 보이는 글자는 안 바뀐다. */
+    .replace(/[\u2018\u2019\u02BC']/g, '')
+    .replace(/[^a-z0-9 ]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -351,7 +356,9 @@ export function verifyWarmupFix(
         철자 조각» 이 되지는 않는다 — 한자 한 글자는 그 자체로 낱말이다). */
   if (zhMode ? !nSaid.includes(nWas) : !(' ' + nSaid + ' ').includes(' ' + nWas + ' ')) return null;
   // 고친 것이 없으면 교정이 아니다
-  if (nWas === nNow) return null;
+  /* 🔴 2026-10-31 사장님 «Secret → secret» 같은 대소문자·구두점 교정이 버려졌다.
+     norm 은 대소문자·구두점을 지우므로 여기서 nWas===nNow 가 된다 — 그래서 «글자 자체가 같을 때» 만 버린다. */
+  if (nWas === nNow && was === now) return null;
   // 통째로 새 문장을 지어낸 경우(교정이 아니라 창작) 차단
   if (now.length > Math.max(60, said.length * 2.5)) return null;
   /* ⛔ 낱말 겹침만으로 자르지 않는다 — "I don't went" → "I didn't go" 처럼 «형태가 바뀌는»
@@ -392,6 +399,9 @@ export function verifyWarmupFix(
  *  ⚠️ 2026-09-09 부터 이 간격은 «작은 실수(minor)» 에만 걸린다. 뜻이 달라지는 오류는
  *     간격을 안 본다(decideWarmupFixShow 주석). 이 줄만 읽고 major 도 띄운다고 보지 말 것. */
 export const WARMUP_FIX_GAP_TURNS = 2;
+/** 작은 실수 중 «두 번째부터» 보여 줄 종류 — «틀림» 보다 «더 나은 말» 인 경우가 많은 것만.
+ *  ⛔ article·plural·other 등을 넣지 마세요 — 2026-10-30 「틀린 말을 안 고쳐 준다」 제보가 그 규칙이었습니다. */
+export const SECOND_TIME_TAGS: readonly string[] = ['word_choice'];
 /** 「따라 말해 볼까?」 는 이만큼 턴을 띄운다(제안서의 «3턴에 한 번»). */
 export const WARMUP_REPEAT_GAP_TURNS = 3;
 
@@ -399,7 +409,12 @@ export function decideWarmupFixShow(
   fix: WarmupFix | null,
   memoIn: WarmupFixMemo | null | undefined,
   turnCount: number,
+  opts?: { immediate?: boolean },
 ): { show: WarmupFix | null; memo: WarmupFixMemo } {
+  /* 🎯 (2026-10-31 사장님 「옛 규칙을 없애고 한번이라도 잘못하면 바로 교정, 집중교정에서는 그렇게」)
+     집중교정(immediate)은 «두 번째부터» 도 «연달아 막기» 도 없이 검증된 교정을 매번 보여 준다.
+     세는 것(memo)은 그대로 갱신한다. 그 밖의 모드는 아래 기존 게이트 그대로다. */
+  const immediate = !!(opts && opts.immediate);
   const memo: WarmupFixMemo = {
     tags: { ...((memoIn && memoIn.tags) || {}) },
     lastShownTurn: (memoIn && memoIn.lastShownTurn) || 0,
@@ -414,9 +429,17 @@ export function decideWarmupFixShow(
   const seen = (memo.tags![fix.tag] || 0) + 1;
   memo.tags![fix.tag] = seen;
 
-  // 뜻이 달라지는 오류는 바로, 작은 실수는 «같은 실수가 두 번째» 일 때만
-  const worth = fix.severity === 'major' || seen >= 2;
-  if (!worth) return { show: null, memo };
+  /* 🔴 (2026-10-30 사장님 「아직도 학생이 틀린말 했는데 교정을 해주지 않아」) 작은 실수도
+     «첫 번째» 에 보여 준다. 옛 코드는 「같은 실수가 두 번째일 때만」이라, 모델이 minor·other 로
+     준 실수(예: "I didn't anything yesterday" — 동사 빠짐)는 처음 한 번은 «원리상» 조용히
+     지나갔다(정본을 돌려 재현). 학생 화면에는 「틀렸는데 안 고쳐 줬다」로 보였다.
+     ✅ «매 턴 잡히면 말문이 막힌다» 는 그대로 지킨다 — 작은 실수는 아래 간격(2턴)이 막는다.
+        즉 작은 실수는 «연달아» 만 안 고치고, 첫 실수는 고친다.
+     ⛔ `seen >= 2` 조건을 되살리지 마세요 — 그게 이 제보였습니다. 세는 것(memo.tags)은
+        「따라 말하기」·통계가 쓰므로 그대로 둡니다.
+     ⚠️ 예외 하나 — word_choice(낱말 고르기)는 «틀림» 이 아니라 «더 나은 말» 인 경우가 많아
+        예전대로 «두 번째부터» 입니다(recent-mistakes.ts 가 같은 이유로 그 종류를 안 이어 받습니다). */
+  if (!immediate && fix.severity !== 'major' && SECOND_TIME_TAGS.includes(fix.tag) && seen < 2) return { show: null, memo };
 
   /* 🔴 간격 규칙은 «작은 실수» 에만 건다 (2026-09-09 사장님 「더 정밀하게 문법을 잘 체크해 줄 수 있어?」).
      옛 코드는 major 도 2턴을 띄웠다. 그래서 과거형 실수를 세 번 연달아 해도 한 번만 고쳐 줬고,
@@ -436,7 +459,7 @@ export function decideWarmupFixShow(
         옛 코드는 lastShownTurn 이 0 이라 turnCount 1 에서 1-0=1 < 2 로 «첫 교정» 이 원리상
         막혔다(정본을 돌려 실측). 학생의 맨 첫 마디는 절대 못 고쳐 주고 있었다. */
   const shownBefore = (memo.lastShownTurn || 0) > 0;
-  if (fix.severity !== 'major' && shownBefore
+  if (!immediate && fix.severity !== 'major' && shownBefore
       && turnCount - (memo.lastShownTurn || 0) < WARMUP_FIX_GAP_TURNS) {
     return { show: null, memo };
   }
@@ -464,4 +487,35 @@ export function warmupShouldOfferRepeat(
       && turnCount - (memo.lastRepeatTurn || 0) < WARMUP_REPEAT_GAP_TURNS) return false;
   memo.lastRepeatTurn = turnCount;
   return true;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ④ 「교정 먼저, 질문은 그다음」 — 순서를 글이 아니라 결정론으로 지킨다
+   2026-10-31 사장님 「무조건 질문부터 하지 못하게. 잘못된 표현을 바로 교정해 준 뒤 다음 질문」.
+   프롬프트에만 적으면 모델이 되말하기로 얼버무리고 질문으로 넘어간다(실측: "you went …
+   What did you do there?" — 고친 문장이 «말해지지» 않았다). 그래서 서버가 확인한다.
+   ───────────────────────────────────────────────────────────── */
+
+/**
+ * 교정 카드가 뜨는 턴이면, 답장의 «질문 앞부분(첫 ? 전)» 에 고친 문장이 없을 때 그 문장을 앞에 붙인다.
+ * - 이미 앞부분에 있으면(모델이 잘 지켰거나 집중교정 모드가 앞에 붙였으면) 아무것도 하지 않는다 → 중복 없음.
+ * - 답장을 지우거나 고쳐 쓰지 않는다. 앞에 한 문장을 붙일 뿐이다.
+ * - fix 가 없으면 원문 그대로다.
+ */
+export function correctionLeadIn(reply: string, fix: WarmupFix | null, lang: 'en' | 'zh' = 'en'): string {
+  const r = String(reply == null ? '' : reply).trim();
+  if (!fix || !r) return r;
+  const zhMode = lang === 'zh';
+  const norm = zhMode ? normZh : normEn;
+  const nNow = norm(fix.now);
+  if (!nNow) return r;
+
+  const q = r.search(/[?？]/);
+  const head = q >= 0 ? r.slice(0, q) : r;
+  if (norm(head).includes(nNow)) return r;   // 이미 질문보다 먼저 고친 문장이 있다
+
+  const now = String(fix.now).trim();
+  const said = /[.!?。！？]$/.test(now) ? now : now + (zhMode ? '。' : '.');   // 문장부호는 따옴표 «안» 에
+  const lead = zhMode ? `我们可以这样说："${said}"` : `Let's say it like this: "${said}"`;
+  return `${lead} ${r}`;
 }

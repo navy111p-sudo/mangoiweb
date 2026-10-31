@@ -34,6 +34,9 @@ export interface ToolSpec {
   url: string;
   /** 중국어 교재 학생에게는 이 주소로(있을 때만) */
   urlZh?: string;
+  /** 중국어 학생이면 이 이름을 씁니다(urlZh 와 짝 — 주소만 바꾸면 «BTS/SIU 퀴즈» 라고 말하며 중국어 화면으로 보냅니다). */
+  koZh?: string;
+  enZh?: string;
   icon: string;
   ko: string;
   en: string;
@@ -46,7 +49,7 @@ export interface ToolSpec {
 /** 도구 8종 + 단어장. ⚠️ url 은 실재하는 화면이어야 한다(하니스가 파일 존재를 대조한다). */
 export const TOOLS: Record<ToolKey, ToolSpec> = {
   warmup:   { key: 'warmup',   url: '/warmup.html',       icon: '🗣️', ko: 'A.i 말하기 연습', en: 'A.i Speaking Practice', minutes: 10 },
-  review:   { key: 'review',   url: '/review-quiz.html',  urlZh: '/review-quiz-cn.html', icon: '🧠', ko: '복습퀴즈', en: 'Review quiz', minutes: 10 },
+  review:   { key: 'review',   url: '/review-quiz.html',  urlZh: '/review-quiz-cn.html', icon: '🧠', ko: 'BTS/SIU 퀴즈', en: 'BTS/SIU quiz', koZh: '중국어퀴즈', enZh: 'Chinese quiz', minutes: 10 },
   friend:   { key: 'friend',   url: '/ai-friend.html',    icon: '🤖', ko: 'AI 친구 대화', en: 'Chat with AI friend', minutes: 7 },
   speech:   { key: 'speech',   url: '/speech-coach.html', urlZh: '/speech-coach-cn.html', icon: '🎤', ko: 'AI 음성코치', en: 'AI speech coach', minutes: 7 },
   micro:    { key: 'micro',    url: '/micro-quiz.html',   icon: '⚡', ko: 'AI 단어 퀴즈', en: 'AI word quiz', minutes: 5 },
@@ -240,7 +243,8 @@ export function bandFromLevelCell(level: any): number | null {
 
 function spec(key: ToolKey, zh?: boolean): { url: string; icon: string; ko: string; en: string; minutes: number } {
   const t = TOOLS[key];
-  return { url: (zh && t.urlZh) ? t.urlZh : t.url, icon: t.icon, ko: t.ko, en: t.en, minutes: t.minutes };
+  return { url: (zh && t.urlZh) ? t.urlZh : t.url, icon: t.icon,
+    ko: (zh && t.urlZh && t.koZh) ? t.koZh : t.ko, en: (zh && t.urlZh && t.enZh) ? t.enZh : t.en, minutes: t.minutes };
 }
 
 /** 밴드에 맞게 묶음을 다듬는다 — 글쓰기는 밴드 3 미만이면 AI 친구로.

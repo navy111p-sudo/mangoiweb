@@ -1,3 +1,7 @@
+import { dropCafe24SlotDuplicates } from './cafe24-slot-duplicates';
+import { WEEKLY_POSTPONE, prepareWeeklyPostpone } from './weekly-postpone';
+import { WEAK_WHERE, WEAK_ORDER, weakSince } from './weak-words';
+import { counselingRecipient, sendCounselingSms } from './counseling-send';
 // ═══════════════════════════════════════════════════════════════════════
 // 🛡️ api-admin.ts — 관리자 도메인 API (api-mango.ts 에서 분리)
 //   docs/REFACTOR_PLAN.md 1단계 · admin 1회차(2026-07-14) · 로직 무변경
@@ -10,11 +14,14 @@
 // ═══════════════════════════════════════════════════════════════════════
 import { loadHoldRanges, heldOnFor, attendedStudentRooms } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25)
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
+import { agencyLoginGate } from './agency-login-gate';        // 🔒 대리점 로그인 계정 만들기·바꾸기 = 본사 전용 판정 정본
 import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { praiseCountForRoom } from './point-policy';   // ⭐ 칭찬 횟수 정본(복제 금지)
 import { loadRevenue, loadCare, saveCare } from './forecast-dashboard';
+import { recordCareContact, lastContacts, CARE_CONTACT_ACTIONS, CARE_CONTACT_STATUSES } from './care-contact';   // 📞 이탈 케어 연락 기록 정본
 import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
-import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
+import { selectInChunks } from './d1-chunk';
+import { workplaceOf } from './recording-teacher';   // 🏠/🏢 강사 근무지 판정 정본(명부 group_name)   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { ensureRateOverrideTable } from './org-settlement';   // 💰 수수료·수강료 설정표 — DDL 정본은 그 파일 한 곳
 import { teacherPresenceByRoom } from './no-show-truth';
 import { enrichClassesToday } from './class-today-extras';   // 📋 오늘 수업 일곱 칸(날짜·강사입장·결제·일정·평가·출결)   // 🔎 「강사 미입장」이 오판인지 출석 기록과 대조
@@ -22,9 +29,12 @@ import { DEFAULT_CLASS_MINUTES, ALLOWED_CLASS_MINUTES, classTenMinUnits } from '
 /* 💰 (2026-08-26 사장님 지시) 「수업 시간 배수대로 수강료도 자동 계산」 — 곱하는 곳은 저장하는 순간 딱 한 번이다.
    규칙 정본은 src/enroll-fee.ts 하나뿐(두 곳에 두면 «두 번 곱하기» 로 40분이 4배가 된다). */
 import { computeMonthlyFee, weeklyCountFromDays } from './enroll-fee';
-import { priceForUid } from './enroll-ops';   // 🏪 대리점 주1회 단가 — 기준가가 없을 때만 쓴다
-import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
+import { priceForUid, enrollAdminHqOnly } from './enroll-ops';   // 🏪 대리점 주1회 단가 — 기준가가 없을 때만 쓴다
+import { prepareScheduleRequestGuards, commitScheduleRequestDecision } from './schedule-request-atomic';
+import { moveSchedulesAtomically, scheduleMoveVersion } from './class-schedule-move';
+import { findScheduleConflicts, findScheduleMoveConflicts, loadScheduleMoveFacts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { loadSchedSummaryMap, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약」 칸 정본 — erp-list 와 «같은» 값을 쓴다(복제 금지)
+import { attachRosterExtras } from './student-roster-extras';   // 💰📅 학생 목록 «최근 결제»·«다음 수업» 칸 정본(2026-10-13)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buildClassRenewalText, CLASS_RENEWAL_FROM_PHONE } from './solapi-client';
 /* 🔗 미연장 안내 문자에 넣는 «그 학생 전용» 1회용 연장 링크. 학부모 폰에 학생 로그인이
       없어도 열리게 하는 좁은 권한이다 — 로그인이 아니다(renew-link.ts 머리말 참고). */
@@ -35,29 +45,38 @@ import { probeImage, ocrGate } from './textbook-ocr';
 import { textbookPurgeGate } from './textbook-purge-gate';   // 🗑️ 교재 묶음 영구삭제 허용 판정 정본(라우트는 부르기만 한다)   // 🔬 교재 이미지에서 영어 본문을 뽑을 수 있는가 (시험 · 판정 정본)
 import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase, OPEN_BEFORE_MS } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
+import { ensureScheduleChangeRequestTable } from './student-schedule-request';
 import { enqueueNotification, sendPushToUser } from './api-notify';
+import { phonesForStudent, loadContactPhones } from './notify-contacts';   // 📣 (2026-10-07) 수업 안내 문자 — 받아 둔 번호 먼저 · ☎ (2026-10-27) 화면용 연락처 정본
 import { scopeFragments, studentScopeWhere, getScope, franchiseList, scopeStudentCond, scopeFranchiseCond, scopeCenterCond, canEditOrg } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗봇 «사실» 정본(학부모봇과 공유)
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
 import { KCP_TRANSFER_CYPHER_RE, KCP_REVENUE_CYPHER_RE } from './accounting-reports';  // 🧾 「케이씨피M」(운영자금 이체) = 매출 아님 / 「케이씨피」 = 매출 인정 — 판정 정본
 import { c24ExpenseDrop, C24_HANGUL_CYPHER_RE, C24_LETTER_CYPHER_RE } from './c24-expense-filter';  // 🧾 카페24 지출결의 중 «우리 것이 아닌» 건(한글 결재·특정 결재라인) 제외 — 판정 정본
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance, ensureCenterOverrideTables, ensureFranchiseOverrideTable } from './cafe24-sync';
-import { buildMangoiClassesNow, mergeClassesNow, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
+import { buildMangoiClassesNow, mergeClassesNow, dropMirroredCafe24, dropHolidayClosed, EXEMPT_BY_NAME, cafe24HolidayTeacher, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
+import { findRoomMismatches } from './room-mismatch';   // 🚨 «같은 수업인데 서로 다른 방» 감시(2026-10-07 delaware)
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
 import { sendPlainSms } from './solapi-client';
 import { sendEmail, emailLayout } from './email';
-import { writeClassAudit, listClassAudit } from './class-audit';   // 📜 수업 변경 이력(연기/삭제/종료)
+import { writeClassAudit, listClassAudit } from './class-audit';
+import { pickClassesToEnd, pickClassesToRestore, parseSavedIds } from './enroll-cancel-cascade';   // ✕ 신청 취소 → 남은 수업 종료 (정본)
+import { runScheduleSplit, kstToday, splitOriginsFromNotes, splitPastDay } from './schedule-split';
+import { oneWeekEligible, oneWeekMessage, prepareRecurringOneWeek, ONE_WEEK_FALLBACK, RECUR_WEEK_SOURCE_PREFIX } from './recurring-one-week';   // 🔁 반복 수업 «그 주 하루만»(2026-10-09)
+import { planEndMakeup, END_MAKEUP_MARK_SQL } from './end-makeup';   // ⏸ 연기보강(2026-10-02)   // 📅 매주 수업 → 날짜별 수업 나누기(2026-10-02)   // 📜 수업 변경 이력(연기/삭제/종료)
 import { TEACHER_STATUSES, canonTeacherStatus, isTeacherStatus, toTeacherListHidden, teacherVisibleSql } from './teacher-status';   // 🧑‍🏫 강사 상태(활동중·비활동·퇴사) + 명부 숨김 — 판정 정본
 import { resolveTeacherRegion, teacherRegionMatches } from './teacher-region';   // 🌏 강사 구분(필리핀·북미·중국) — 판정 정본
 import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결석 위험 자동 알림
 import { teacherIdsWithPush } from './teacher-push';              // 🔔 강사 웹푸시 구독 여부(연락처 연결 화면용, 2026-09-14)
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
-import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS, isOrgScopedRole } from './auth-admin';
+import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS, isOrgScopedRole, recordLogin } from './auth-admin';
+import { groupDirectClasses } from './enroll-direct';
+import { mergeDirectByIds, mergeDirectRows, UNMERGED_DIRECT_SQL } from './enroll-direct-merge';   // 🔀 직접 배정 → 신청서 (2026-09-30)   // 📅 수강신청 목록의 «직접 배정» 줄 (2026-09-29)
 import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
 import { teacherMoveDenyReason, moveFieldConflict } from './class-teacher-move';  // 수업 담당 강사 변경 게이트(정본)  // 승인자 기록(SR·FD)·강사 스코프 비교 · 대리점 로그인 계정 생성
-import { ensureRoomOverrideTable, validateOverrideInput, teacherOwnsSchedule, kstYmd } from './class-room-override';  // 🚪 「오늘은 이 방으로」 정본
+import { ensureRoomOverrideTable, validateOverrideInput, teacherOwnsSchedule, kstYmd, applyRoomOverrides } from './class-room-override';  // 🚪 「오늘은 이 방으로」 정본
 import { SITE_ORIGIN } from './site-url';   // 🔗 안내 링크 도메인 정본 (CLAUDE.md 0장)
 import { corpcardConfigured, runCorpCardSync, corpcardData, corpcardStatus, secretFp8, CODEF_SANDBOX_BASE } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
 import { barobillConfigured, baroMissing, runBarobillSync, baroCreds } from './barobill-sync';  // 💳 법인카드 바로빌 연동(2026-08-14 CODEF 월 80만원 → 월 3,300원)
@@ -75,8 +94,12 @@ import { attachRosterTracks, enrolledNowExpr, loadTrackSummary } from './student
 import { buildLeveltestReview, type LtBankItem } from './leveltest-review';    // 📘 틀린 문제 정답·해설 (정답이 새는 창을 좁히는 계약이 그 파일에 있다)
 import type { MangoEnv } from './api-mango';
 import { cleanAnalysis, cleanScore, foreignFields, parseAnalysisJson, recoverNextAction, KOREAN_ONLY_RETRY_NOTE, SUMMARY_UNAVAILABLE } from './ai-analysis-clean';   // 🧹 AI 학습 분석 — 한국어 아닌 글자 거르기·다음 액션 되살리기
-import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid } from './attendance-uid';   // 📌 attendance 를 학생 계정으로 찾는 정본
-import { ensureStartsOnColumn, startsOnSel, normStartsOn, kstYmdOfMs } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
+import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid, ATTENDANCE_ACCOUNT_KEY, ATTENDANCE_BY_UID_LIST, attUidListBinds } from './attendance-uid';   // 📌 attendance 를 학생 계정으로 찾는 정본
+import { ensureStartsOnColumn, startsOnSel, normStartsOn, kstYmdOfMs, recurSkippedOn, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
+import { isPostponedOccurrence, REACTIVATE_POSTPONED_SQL } from './class-postponed';
+import { loadHolidayClosure, isHolidayClosedFor, type HolidayClosure } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
+import { kstMonthBounds, kstMidnight, kstDateStr, activeBinds, activeCountSql, overdueSql, absentSql, classDaysSql, ATTENDED_ON_DATE_SQL, trendPct, briefingSanity, KPI_DEF_VERSION, OVERDUE_GRACE_DAYS, ABSENT_DAYS, ACTIVE_WINDOW_DAYS } from './kpi-active';   // 📊 경영 지표 분모·기간 정본(2026-10-13)
+import { diagnoseStudentDay } from './class-diagnose';   // 🔎 학생 하루 수업 진단(읽기 전용, 2026-10-01)   // ⏸ 연기된 회차 판정 정본(2026-10-01)
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
    컴파일을 안 돌리면 모르고 지나간다. 여기서 지운다. */
@@ -185,6 +208,7 @@ function hrGradeLabel(total: number | null): string | null {
 }
 
 let _payrollSchemaReady = false;
+let _enrSchemaReady = false;   // ⚡ /api/admin/enrollments 스키마 보강 — 인스턴스당 한 번
 async function ensurePayrollSchema(env: { DB: D1Database }): Promise<void> {
   if (_payrollSchemaReady) return;
   // teachers — 기존 호환 + 신규 컬럼
@@ -367,6 +391,20 @@ function normTeacherName(v: any): string {
       (실측: 665건 중 이름 665건 · 원부연결 590건. 못 이은 것은 「HT NESS」·「Wan」과
        사람이 아닌 「스케줄변경중」·「test teacher」다) */
 export type Cafe24TeacherInfo = { name: string | null; teacherId: string | null };
+
+/** 🎌 (2026-10-09) 휴강 예외 강사(원부 번호)의 «정규화된 이름» — 카페24 줄을 이름으로 알아보는 데 쓴다.
+ *  원부를 못 읽으면 빈 집합(이름 예외만 못 볼 뿐 — 「중국어」·chinese 글자 판정은 그대로). 던지지 않는다. */
+async function loadHolidayExemptNames(env: any, hols: Array<HolidayClosure | null | undefined>): Promise<Set<string>> {
+  const ids = new Set<string>();
+  for (const h of hols) if (h) for (const x of h.exempt) ids.add(x);
+  const names = new Set<string>();
+  if (!ids.size) return names;
+  try {
+    const er: any = await env.DB.prepare(`SELECT id, name FROM teachers`).all();
+    for (const t of ((er.results || []) as any[])) if (ids.has(String(t.id))) names.add(normTeacherName(t.name));
+  } catch { /* 원부 없음 */ }
+  return names;
+}
 
 async function loadCafe24TeacherMap(
   env: { DB: D1Database }, uids: (string | null | undefined)[],
@@ -803,9 +841,10 @@ export async function handleAdminApi(
     //     · 운영시간대 = 지금 잡혀 있는 정기수업들의 «가장 이른 시작 ~ 가장 늦은 종료»
     //       (수업이 하나도 없으면 06:00~23:00 으로만 대체)
     //     · 가능시간  = 7일 × 운영시간대 − 그 강사가 등록한 주간 근무불가(teacher_unavailability.kind='weekly')
-    //     · 배정시간  = 그 강사의 활성 정기수업 duration 합계
+    //     · 배정시간  = 지난 7일(KST, 오늘 제외)에 날짜가 잡힌 활성 수업 + 날짜 없는 옛 매주 반복 행의 duration 합계
     //     · 가동률    = 배정시간 ÷ 가능시간
-    //   ※ 일회성(one_off) 수업은 주간 반복 지표를 왜곡하므로 제외한다.
+    //   ※ 2026-09-30 변경 — 예전엔 «매주 반복(recurring)» 만 세서 카페24 미러(one_off)·수강신청(dated)
+    //     수업이 전부 빠져 명부가 전원 0% 였다. 지금은 날짜 기준으로 센다(아래 SELECT 주석).
     // ═══════════════════════════════════════════════════════════════════
     // ═══════════════════════════════════════════════════════════════════
     // 🎚️ GET /api/admin/stats/judgment-bands — 판단력 훈련 읽기 난이도 분포·적중도
@@ -876,13 +915,24 @@ export async function handleAdminApi(
           catch { return []; }
         };
 
+        // 지난 7일 = KST 오늘 -7일 ~ 어제 (오늘은 아직 안 끝난 수업이 섞여 제외)
+        const kstDay = (offset: number) => new Date(Date.now() + 9 * 3600e3 + offset * 86400e3).toISOString().slice(0, 10);
+        const winFrom = kstDay(-7), winTo = kstDay(-1);
+
         const [scheds, teachers, blocks] = await Promise.all([
           /* 🧹 (2026-08-30) LMS·시드 «자리표시» 행 제외 — 학생이 안 붙은 점유 행이라 진짜 수업이 아니다.
              같은 제외식이 schedule-conflict.ts·api-teacher.ts·churn-graph.ts·enroll-ops.ts 에도 있다
              (CLAUDE.md 2장 「주간 스케줄에서 어떤 요일만 수업이 안 들어감」). 다섯 곳의 문자열을 맞춰 둔다. */
-          safeAll(`SELECT teacher_id, day_of_week, start_time, duration_min FROM class_schedules
-                    WHERE status = 'active' AND schedule_kind = 'recurring' AND teacher_id IS NOT NULL AND teacher_id <> ''
-                      AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')`),
+          /* 📅 (2026-09-30 사장님 「지난 7일 기준으로」) 옛 판은 schedule_kind = 'recurring' «만» 셌는데,
+             지금 수업은 카페24 미러(one_off)·수강신청 확정(dated)이 «날짜마다 한 줄» 로 만든다
+             (운영 D1 실측 활성: one_off 2,832 · dated 406 · recurring 6) → 명부가 전원 0% 였다.
+             ⟹ «지난 7일(오늘 제외, KST)에 날짜가 잡힌 활성 수업» + «날짜 없는 옛 매주 반복 행» 을 센다.
+             ⛔ 날짜가 있으면 날짜가 이긴다(sessions/today 와 같은 규칙) — 요일로 한 번 더 세지 않는다. */
+          safeAll(`SELECT teacher_id, day_of_week, start_time, duration_min, scheduled_date FROM class_schedules
+                    WHERE status = 'active' AND teacher_id IS NOT NULL AND teacher_id <> ''
+                      AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')
+                      AND ( (scheduled_date >= ? AND scheduled_date <= ?)
+                         OR ((scheduled_date IS NULL OR scheduled_date = '') AND schedule_kind = 'recurring') )`, winFrom, winTo),
           safeAll(`SELECT id, name, COALESCE(active, 1) AS active FROM teachers`),
           safeAll(`SELECT teacher_id, day_of_week, start_time, end_time FROM teacher_unavailability WHERE kind = 'weekly'`),
         ]);
@@ -920,16 +970,31 @@ export async function handleAdminApi(
           ensure(String(t.id));
         }
 
+        /* 그룹 수업은 «학생마다 한 행» 이라 같은 강사·같은 날·같은 시각이 여러 줄이다 — 강사 시간은
+           한 번만 쓰이므로 그 칸 하나로 묶는다(가장 긴 길이). 안 묶으면 3명 그룹이 3배로 잡힌다. */
+        const slot = new Map<string, { id: string; dur: number; dows: number[] }>();
         for (const s of scheds) {
           const id = String(s.teacher_id);
           const dur = Number(s.duration_min) > 0 ? Number(s.duration_min) : DEFAULT_CLASS_MINUTES;
-          const a = ensure(id);
-          const dows = dowsOf(s.day_of_week);
-          // 반복 수업은 «요일당 1행» 이 원칙이지만, 한 행에 여러 요일이 담긴 과거 데이터도 있어 요일 수만큼 센다
-          const n = dows.length || 1;
-          a.assigned += dur * n;
+          const date = String(s.scheduled_date || '').trim();
+          let dows: number[]; let key: string;
+          if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            dows = [new Date(date + 'T00:00:00Z').getUTCDay()];
+            key = id + '|' + date + '|' + String(s.start_time || '');
+          } else {
+            // 날짜 없는 옛 매주 반복 행 — 한 행에 여러 요일이 담긴 과거 데이터도 있어 요일 수만큼 센다
+            dows = dowsOf(s.day_of_week);
+            key = id + '|w:' + dows.join(',') + '|' + String(s.start_time || '');
+          }
+          const prev = slot.get(key);
+          if (!prev || dur > prev.dur) slot.set(key, { id, dur, dows });
+        }
+        for (const v of slot.values()) {
+          const a = ensure(v.id);
+          const n = v.dows.length || 1;
+          a.assigned += v.dur * n;
           a.classes += n;
-          for (const d of dows) a.byDow[d] += dur;
+          for (const d of v.dows) a.byDow[d] += v.dur;
         }
 
         for (const b of blocks) {
@@ -971,7 +1036,7 @@ export async function handleAdminApi(
         const hhmm = (m: number) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
         return json({
           ok: true,
-          window: { open: hhmm(openMin), close: hhmm(closeMin), per_day_min: windowPerDay, days_per_week: 7 },
+          window: { open: hhmm(openMin), close: hhmm(closeMin), per_day_min: windowPerDay, days_per_week: 7, from: winFrom, to: winTo },
           summary: {
             teacher_count: rows.length,
             avg_utilization_pct: withUtil.length
@@ -983,8 +1048,8 @@ export async function handleAdminApi(
             observed_from_schedules: scheds.length > 0,
           },
           teachers: rows,
-          note: '가동률 = 주간 배정 수업시간 ÷ (운영시간대 7일 − 강사가 등록한 주간 근무불가). 일회성 수업과 LMS·시드 자리표시는 제외하고, 활성 강사는 수업이 없어도 0%로 함께 표시합니다.',
-          note_en: 'Utilization = weekly assigned class minutes ÷ (operating window × 7 days − the teacher\'s weekly unavailability). One-off classes and LMS/seed placeholders are excluded; active teachers with no class are listed at 0%.',
+          note: '가동률 = 지난 7일(' + winFrom + ' ~ ' + winTo + ', 오늘 제외) 잡혀 있던 수업시간 ÷ (운영시간대 7일 − 강사가 등록한 주간 근무불가). 취소된 수업과 LMS·시드 자리표시는 빼고, 같은 시각 그룹 수업은 한 번만 셉니다. 활성 강사는 수업이 없어도 0%로 함께 표시합니다.',
+          note_en: 'Utilization = class minutes scheduled in the last 7 days (' + winFrom + ' ~ ' + winTo + ', today excluded) ÷ (operating window × 7 days − the teacher\'s weekly unavailability). Cancelled classes and LMS/seed placeholders are excluded; a group class at the same time counts once; active teachers with no class are listed at 0%.',
         });
       } catch (e: any) {
         return json({ ok: false, error: 'utilization_failed', message: String(e?.message || e).slice(0, 300) }, 500);
@@ -1449,7 +1514,7 @@ export async function handleAdminApi(
 
       // ⚡ KV 캐시(180초) — 대시보드 진입마다 20여 개 D1 쿼리를 다시 돌지 않게.
       //   스코프(cond+binds)를 키에 포함해 지사/대리점 크로스테넌트 격리(retrisk 와 동일 원칙).
-      const _kpiKey = 'admkpi:' + (_erpScope || 'all') + '|' + _sb.join(',');
+      const _kpiKey = 'admkpi2:' + (_erpScope || 'all') + '|' + _sb.join(',');
       const _kpiHit = await admCacheHit(env, _kpiKey);
       if (_kpiHit) return _kpiHit;
 
@@ -1462,19 +1527,18 @@ export async function handleAdminApi(
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, scheduled_date TEXT, status TEXT, created_at INTEGER);`); } catch {}
 
       const now = Date.now();
-      // 이번 달 / 지난 달 기간
-      const d = new Date();
-      const thisMonthStart = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
-      const thisMonthEnd = new Date(d.getFullYear(), d.getMonth()+1, 1).getTime();
-      const lastMonthStart = new Date(d.getFullYear(), d.getMonth()-1, 1).getTime();
-      const lastMonthEnd = thisMonthStart;
+      // 📊 (2026-10-13) 기간은 KST 달력 기준. 비교는 «지난달 같은 날수» — 예전엔 이번 달 13일치를
+      //   지난달 한 달 전체와 비교해 매달 초 늘 빨간불(−80%)이었다. 정본 src/kpi-active.ts.
+      const _mb = kstMonthBounds(now);
+      const thisMonthStart = _mb.thisStart, thisMonthEnd = _mb.thisEnd;
+      const lastMonthStart = _mb.lastStart, lastMonthEnd = _mb.lastEnd, lastSameEnd = _mb.lastSameEnd;
       // 30일/7일
       const last30Start = now - 30*86400*1000;
       const last7Start = now - 7*86400*1000;
 
       const fetch1 = async (sql: string, ...binds: any[]): Promise<any> => {
         try { return await env.DB.prepare(sql).bind(...binds).first(); }
-        catch (e) { return {}; }
+        catch (e) { console.warn('[kpi] query failed', (e as any)?.message); return {}; }
       };
       const fetchAll = async (sql: string, ...binds: any[]): Promise<any[]> => {
         try { const rs = await env.DB.prepare(sql).bind(...binds).all(); return rs.results || []; }
@@ -1486,39 +1550,42 @@ export async function handleAdminApi(
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, endpoint TEXT NOT NULL UNIQUE, enabled INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`); } catch {}
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT, queued_at INTEGER NOT NULL, fetched_at INTEGER);`); } catch {}
 
-      // ⚡ 26-07-22 성능: 기존엔 아래 쿼리 20여 개를 전부 직렬 await 로 돌려(7일 매출은
-      //   루프로 7번 더) 대시보드 KPI 스피너가 수 초씩 돌았다.
-      //   → 독립 쿼리는 전부 Promise.all 병렬 + 7일 매출은 GROUP BY 1쿼리로 배칭.
-      //   fetch1/fetchAll 이 내부 try/catch 라 개별 실패는 기존과 동일하게 조용히 0 처리.
-      const cutoff35 = now - 35 * 86400 * 1000;
-      const day0 = new Date(); day0.setHours(0, 0, 0, 0);
-      const revBase = day0.getTime() - 6 * 86400000;   // 6일 전 자정(기존 루프의 첫 버킷)
+      // ⚡ 26-07-22 성능: 독립 쿼리는 전부 Promise.all 병렬 + 7일 매출은 GROUP BY 1쿼리로 배칭.
+      const cutoff35 = now - OVERDUE_GRACE_DAYS * 86400 * 1000;
+      const revBase = kstMidnight(now) - 6 * 86400000;   // KST 6일 전 자정(첫 버킷)
+      const _ab = activeBinds(now);
 
       const [
         studentTotal, studentNewThisMonth, studentNewLastMonth,
         revThisMonth, revLastMonth,
-        a1, a2, e1, o1, p1, c1, oc, i1, ps, pq, revBuckets
+        a1, a2, e1, o1, p1, c1, oc, i1, ps, pq, revBuckets,
+        rosterTotal, revLastSame, absentRow, a2full
       ] = await Promise.all([
-        fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE (status IN ('정상','활동','active') OR status IS NULL OR status = '')${_erpScope}`, ..._sb),
-        fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ?${_erpScope}`, thisMonthStart, ..._sb),
-        fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?${_erpScope}`, lastMonthStart, lastMonthEnd, ..._sb),
+        // «활동 학생» = 최근 30일 수업 예약·카페24 예약·실접속이 있는 학생 (명부 전체가 아님)
+        fetch1(activeCountSql(_erpScope), ..._ab, ..._sb),
+        fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?${_erpScope}`, thisMonthStart, now, ..._sb),
+        fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?${_erpScope}`, lastMonthStart, lastSameEnd, ..._sb),
         fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?${_uidScope}`, thisMonthStart, thisMonthEnd, ..._sb),
         fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?${_uidScope}`, lastMonthStart, lastMonthEnd, ..._sb),
-        fetch1(`SELECT COUNT(*) AS n FROM point_rule_log WHERE rule_code='attendance' AND triggered_at >= ? AND triggered_at < ?`, thisMonthStart, thisMonthEnd),
-        fetch1(`SELECT COUNT(*) AS n FROM point_rule_log WHERE rule_code='attendance' AND triggered_at >= ? AND triggered_at < ?`, lastMonthStart, lastMonthEnd),
+        // «수업 기록» 회수 = attendance (학생·날짜 한 번). 예전엔 «출석 포인트 지급 건수»(point_rule_log)였다.
+        fetch1(classDaysSql(_erpScope), thisMonthStart, now, ..._sb),
+        fetch1(classDaysSql(_erpScope), lastMonthStart, lastSameEnd, ..._sb),
         fetch1(`SELECT IFNULL(AVG(score_overall),0) AS avg, COUNT(*) AS n, IFNULL(SUM(parent_notified),0) AS notified FROM student_evaluations WHERE created_at >= ? AND created_at < ?`, thisMonthStart, thisMonthEnd),
         fetch1(`SELECT COUNT(*) AS n FROM payment_overdue_log WHERE status='sent' AND sent_at >= ? AND sent_at < ?`, thisMonthStart, thisMonthEnd),
         fetch1(`SELECT IFNULL(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END),0) AS earned, IFNULL(SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END),0) AS spent FROM point_transactions WHERE created_at >= ? AND created_at < ?`, thisMonthStart, thisMonthEnd),
         fetch1(`SELECT COUNT(*) AS n FROM chat_messages WHERE sent_at >= ? AND sent_at < ?`, thisMonthStart, thisMonthEnd),
-        fetch1(`SELECT COUNT(DISTINCT s.user_id) AS n FROM students_erp s
-                 WHERE (s.status IN ('정상','활동','active') OR s.status IS NULL OR s.status = '')
-                   AND s.user_id NOT IN (SELECT user_id FROM student_payments WHERE status='paid' AND paid_at >= ?)${_uidScope}`, cutoff35, ..._sb),
+        // «미납» = 결제 기록이 한 번이라도 있는 활동 학생 중 35일 넘게 결제 없음
+        fetch1(overdueSql(_erpScope), ..._ab, cutoff35, ..._sb),
         fetch1(`SELECT COUNT(*) AS n FROM inquiries WHERE created_at >= ?`, last30Start),
         fetch1(`SELECT COUNT(*) AS n FROM push_subscriptions WHERE enabled = 1`),
         fetch1(`SELECT COUNT(*) AS sent, IFNULL(SUM(CASE WHEN fetched_at IS NOT NULL THEN 1 ELSE 0 END),0) AS fetched FROM push_queue WHERE queued_at >= ? AND queued_at < ?`, thisMonthStart, thisMonthEnd),
         fetchAll(`SELECT CAST((paid_at - ?) / 86400000 AS INTEGER) AS d, IFNULL(SUM(amount_krw),0) AS sum
                    FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?${_uidScope} GROUP BY d`,
                  revBase, revBase, revBase + 7 * 86400000, ..._sb),
+        fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE (status IN ('정상','활동','active') OR status IS NULL OR status = '')${_erpScope}`, ..._sb),
+        fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?${_uidScope}`, lastMonthStart, lastSameEnd, ..._sb),
+        fetch1(absentSql(_erpScope), ..._ab, now - ABSENT_DAYS * 86400000, now, ..._sb),
+        fetch1(classDaysSql(_erpScope), lastMonthStart, lastMonthEnd, ..._sb),
       ]) as any[];
 
       const attendanceThisMonth = a1?.n || 0;
@@ -1530,7 +1597,8 @@ export async function handleAdminApi(
       const pointsEarnedThisMonth = p1?.earned || 0;
       const pointsSpentThisMonth = p1?.spent || 0;
       const chatMessagesThisMonth = c1?.n || 0;
-      const overdueCount = oc?.n || 0;
+      const overdueCount = oc?.overdue || 0;
+      const overduePaidEver = oc?.paid_ever || 0;
       const inquiryLast30 = i1?.n || 0;
 
       const pushKpi: any = { active_subs: 0, queued_this_month: 0, fetched_this_month: 0, delivery_rate: 0 };
@@ -1544,35 +1612,40 @@ export async function handleAdminApi(
       for (const r of (revBuckets || [])) bucketMap[Number(r.d)] = r.sum || 0;
       const dailyRev: any[] = [];
       for (let i = 0; i < 7; i++) {
-        dailyRev.push({ date: new Date(revBase + i * 86400000).toISOString().slice(5, 10), revenue: bucketMap[i] || 0 });
+        dailyRev.push({ date: kstDateStr(revBase + i * 86400000).slice(5, 10), revenue: bucketMap[i] || 0 });
       }
 
-      // 비율 계산
-      const trend = (cur: number, prev: number) => {
-        if (prev === 0) return cur > 0 ? 100 : 0;
-        return Math.round(((cur - prev) / prev) * 1000) / 10;  // 소수 1자리
-      };
+      // 비율 계산 — «지난달 같은 날수» 와 비교. 비교 대상이 0 이면 null(비교 불가) — 100% 로 지어내지 않는다.
+      const trend = trendPct;
 
       return admCachePut(env, _kpiKey, {
         ok: true,
         ts: now,
-        period: { this_month_start: thisMonthStart, this_month_end: thisMonthEnd, last_month_start: lastMonthStart },
+        period: { this_month_start: thisMonthStart, this_month_end: thisMonthEnd, last_month_start: lastMonthStart,
+                  last_month_same_end: lastSameEnd, elapsed_days: _mb.elapsedDays, compare: 'same_days' },
+        def_version: KPI_DEF_VERSION,
         kpi: {
           students: {
-            total: studentTotal?.n || 0,
+            total: studentTotal?.n || 0,          // «활동 학생»(최근 30일 수업이 있는 학생) — 명부 전체 아님
+            roster_total: rosterTotal?.n || 0,    // 명부(students_erp) 전체 — 참고용
+            active_window_days: ACTIVE_WINDOW_DAYS,
+            absent_14d: absentRow?.n || 0,        // 활동 학생 중 최근 14일 수업 기록 없음
             new_this_month: studentNewThisMonth?.n || 0,
             new_last_month: studentNewLastMonth?.n || 0,
             trend: trend(studentNewThisMonth?.n || 0, studentNewLastMonth?.n || 0),
           },
           revenue: {
             this_month: revThisMonth?.sum || 0,
-            last_month: revLastMonth?.sum || 0,
+            last_month: revLastMonth?.sum || 0,          // 지난달 한 달 전체(참고)
+            last_month_same: revLastSame?.sum || 0,      // 지난달 같은 날수 — 비교 기준
             this_month_count: revThisMonth?.n || 0,
-            trend: trend(revThisMonth?.sum || 0, revLastMonth?.sum || 0),
+            trend: trend(revThisMonth?.sum || 0, revLastSame?.sum || 0),
           },
           attendance: {
+            // «수업 기록» 회수(학생·날짜 한 번, 카페24 예약 포함) — 출석 포인트 건수가 아님
             this_month: attendanceThisMonth,
-            last_month: attendanceLastMonth,
+            last_month: attendanceLastMonth,             // 지난달 같은 날수
+            last_month_full: a2full?.n || 0,
             trend: trend(attendanceThisMonth, attendanceLastMonth),
           },
           evaluation: {
@@ -1581,7 +1654,8 @@ export async function handleAdminApi(
             notified: evalNotifiedThisMonth,
           },
           overdue: {
-            count: overdueCount,
+            count: overdueCount,           // 결제 기록이 있는 활동 학생 중 35일 넘게 결제 없음
+            paid_ever: overduePaidEver,    // 그 분모(결제 기록이 있는 활동 학생)
             notified_this_month: overdueNotifyThisMonth,
           },
           points: {
@@ -1745,6 +1819,7 @@ export async function handleAdminApi(
                   COALESCE(SUM(disconnect_count), 0) AS disconnect_sum,
                   AVG(CASE WHEN gaze_score IS NOT NULL THEN gaze_score END) AS avg_gaze,
                   COUNT(CASE WHEN gaze_score IS NOT NULL THEN 1 END) AS gaze_count,
+                  MIN(room_id) AS room_min, MAX(room_id) AS room_max,
                   MAX(joined_at) AS last_seen
            FROM attendance
            WHERE joined_at BETWEEN ? AND ?
@@ -1753,7 +1828,96 @@ export async function handleAdminApi(
            HAVING session_ms > 0 OR session_count > 0`
         ).bind(fromMs, toMs).all<any>();
 
-        const items = (rows.results || []).map(r => {
+        /* 👤 (2026-10-09) 학생 이름 — `user_id` 는 접속마다 새로 나는 기기 번호일 수 있어서
+           (CLAUDE.md 「출결만 통째로 0」) 계정(`account_uid`) → 로그인 이름(`username`) →
+           `user_id` 순으로 학생 명부(`students_erp.user_id`) **완전일치**로만 이름을 찾는다.
+           ⛔ 부분일치·대소문자 무시 금지(동명이인·Kim/kim). 못 찾으면 null(지어내지 않음).
+           조회가 실패해도 랭킹은 그대로 나가야 하므로 전부 fail-open. */
+        const _rkRows: any[] = rows.results || [];
+        const _rkAcct = new Map<string, string>();
+        try {
+          const ar = await env.DB.prepare(
+            `SELECT user_id, MAX(account_uid) AS account_uid FROM attendance
+              WHERE joined_at BETWEEN ? AND ? AND account_uid IS NOT NULL AND TRIM(account_uid) <> ''
+              GROUP BY user_id`
+          ).bind(fromMs, toMs).all<any>();
+          for (const a of (ar.results || [])) _rkAcct.set(String(a.user_id), String(a.account_uid).trim());
+        } catch (_) { /* account_uid 칸이 아직 없는 DB — 이름만 덜 붙는다 */ }
+        /* 🔗 (2026-10-09) 「임시번호」 행 — 시선 점수만 보내는 화면(mango-gaze)이 계정 없이
+           화상방 접속 번호(peer id)로 행을 만든다. 두 근거로 누구인지 찾는다:
+             ① vc_roster(room_id, peer_id) → 그 접속의 계정 (사실)
+             ② 방 번호 class-<예약id>-<날짜> → 그 예약의 학생 (추정 — 그 접속이 강사 화면일 수도 있음)
+           ②는 화면이 «예약 기준» 이라고 함께 말한다. 방이 둘 이상 섞인 행은 ②를 쓰지 않는다. */
+        const _rkRoom = (r: any): string => (r.room_min && r.room_min === r.room_max) ? String(r.room_min) : '';
+        const _rkRoster = new Map<string, { acct: string; name: string; role: string }>();
+        try {
+          const peers = Array.from(new Set(_rkRows.filter(r => _rkRoom(r)).map(r => String(r.user_id))));
+          const rr = await selectInChunks<any>(env.DB, peers,
+            ph => `SELECT room_id, peer_id, account_uid, name, role FROM vc_roster WHERE peer_id IN (${ph})`,
+            { swallowErrors: true });
+          for (const x of rr) _rkRoster.set(String(x.room_id) + '|' + String(x.peer_id),
+            { acct: String(x.account_uid || '').trim(), name: String(x.name || '').trim(), role: String(x.role || '') });
+        } catch (_) { /* 로스터 없이 */ }
+        const _rkRosterOf = (r: any) => _rkRoom(r) ? _rkRoster.get(_rkRoom(r) + '|' + String(r.user_id)) : undefined;
+        const _rkSched = new Map<number, { uid: string; name: string }>();
+        try {
+          const ids = Array.from(new Set(_rkRows.map(r => {
+            const m = /^class-(\d+)-\d{8}$/.exec(_rkRoom(r)); return m ? Number(m[1]) : 0;
+          }).filter(n => n > 0)));
+          const sr = await selectInChunks<any>(env.DB, ids,
+            ph => `SELECT id, user_id, student_name FROM class_schedules WHERE id IN (${ph})`,
+            { swallowErrors: true });
+          for (const x of sr) _rkSched.set(Number(x.id), { uid: String(x.user_id || '').trim(), name: String(x.student_name || '').trim() });
+        } catch (_) { /* 예약 없이 */ }
+        const _rkSchedOf = (r: any) => {
+          const m = /^class-(\d+)-\d{8}$/.exec(_rkRoom(r)); return m ? _rkSched.get(Number(m[1])) : undefined;
+        };
+        const _rkCands = (r: any): string[] => {
+          const out: string[] = [];
+          const ro = _rkRosterOf(r);
+          const sc = _rkSchedOf(r);
+          for (const v of [_rkAcct.get(String(r.user_id)), r.username, r.user_id, ro && ro.acct, sc && sc.uid]) {
+            const t = String(v == null ? '' : v).trim();
+            if (t && out.indexOf(t) < 0) out.push(t);
+          }
+          return out;
+        };
+        const _rkNames = new Map<string, string>();
+        try {
+          const keys = Array.from(new Set(_rkRows.flatMap(_rkCands)));
+          const nr = await selectInChunks<any>(env.DB, keys,
+            ph => `SELECT user_id, korean_name, student_name, english_name FROM students_erp WHERE user_id IN (${ph})`,
+            { swallowErrors: true });
+          for (const n of nr) {
+            const uid = String(n.user_id || '');
+            const nm = [n.korean_name, n.student_name, n.english_name]
+              .map(x => String(x == null ? '' : x).trim()).find(x => x && x !== uid);
+            if (uid && nm) _rkNames.set(uid, nm);
+          }
+        } catch (_) { /* 이름 없이 랭킹만 */ }
+        /* basis: 'account'(접속 기록의 계정) · 'roster'(화상방 접속 명단) · 'schedule'(그 방 예약 학생 — 추정) */
+        const _rkNameOf = (r: any): { name: string | null; uid: string | null; basis: string | null } => {
+          for (const v of [_rkAcct.get(String(r.user_id)), r.username, r.user_id]) {
+            const k = String(v == null ? '' : v).trim(); const nm = k && _rkNames.get(k);
+            if (nm) return { name: nm, uid: k, basis: 'account' };
+          }
+          const ro = _rkRosterOf(r);
+          if (ro && ro.acct) {
+            const nm = _rkNames.get(ro.acct);
+            if (nm) return { name: nm, uid: ro.acct, basis: 'roster' };
+            if (ro.name && ro.name !== ro.acct) return { name: ro.name, uid: ro.acct, basis: 'roster' };
+          }
+          /* 화상방 명단이 «강사» 라고 하면 예약 학생으로 추정하지 않는다 */
+          if (ro && /teacher|admin|observer/i.test(ro.role)) return { name: null, uid: null, basis: null };
+          const sc = _rkSchedOf(r);
+          if (sc && sc.uid) {
+            const nm = _rkNames.get(sc.uid) || (sc.name && sc.name !== sc.uid ? sc.name : '');
+            if (nm) return { name: nm, uid: sc.uid, basis: 'schedule' };
+          }
+          return { name: null, uid: null, basis: null };
+        };
+        const items = _rkRows.map(r => {
+          const _nm = _rkNameOf(r);
           const activeRatio = r.session_ms > 0 ? (r.active_ms / r.session_ms * 100) : 0;
           const avgGaze = r.avg_gaze != null ? Number(r.avg_gaze) : null;
           // 집중도 composite: 시선 50% + 발화 비율 40% - 끊김 페널티 10%
@@ -1770,6 +1934,9 @@ export async function handleAdminApi(
           return {
             user_id: r.user_id,
             username: r.username,
+            student_name: _nm.name,       // 학생 명부 이름(못 찾으면 null)
+            student_uid: _nm.uid,         // 그 이름을 찾은 계정
+            student_name_basis: _nm.basis, // account·roster·schedule(추정)
             session_count: r.session_count,
             active_ms: r.active_ms,
             session_ms: r.session_ms,
@@ -2177,6 +2344,26 @@ export async function handleAdminApi(
             AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')`
       ).all().catch(() => ({ results: [] }));
 
+      /* 💰 (2026-10-08) «날짜별로 나눈» 매주 줄 — 나누면 원본이 cancelled 가 되어 위 SELECT 에서 빠진다.
+         그러면 이미 가르친 «나눈 날 이전» 회차가 급여에서 사라진다. 그 회차만 «원래 id 그대로» 다시 센다
+         (노쇼·연기·지각·피드백이 전부 class-{원래id}-날짜 기준이라 새 id 로 만들면 상태가 끊긴다).
+         ⚠️ 못 읽으면 빈 목록 — 예전과 같은 결과(빠짐)로 떨어진다. */
+      let splitPast: any[] = [];
+      try {
+        const sk: any = await env.DB.prepare(
+          `SELECT notes, MIN(created_at) AS created_at FROM class_schedules
+            WHERE scheduled_date IS NOT NULL AND notes LIKE '%을 날짜별로 나눔%' GROUP BY notes`
+        ).all();
+        const origins = splitOriginsFromNotes((sk && sk.results) || []);
+        const sc: any = await env.DB.prepare(
+          `SELECT * FROM class_schedules WHERE status = 'cancelled' AND (scheduled_date IS NULL OR scheduled_date = '')
+              AND teacher_id IS NOT NULL AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')`
+        ).all();
+        for (const r of ((sc && sc.results) || [])) {
+          const day = splitPastDay(r, origins);
+          if (day) splitPast.push({ row: r, before: day });
+        }
+      } catch (e: any) { console.warn('[payroll] 나눈 매주 줄 조회 생략:', e?.message); }
       const DOW: any = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
       const dowOf = (v: any): number | null => {
         if (v == null || v === '') return null;
@@ -2201,11 +2388,34 @@ export async function handleAdminApi(
         if (dw == null) continue;
         for (let d = 1; d <= daysInMonth; d++) {
           if (new Date(Date.UTC(year, month - 1, d)).getUTCDay() === dw) {
-            instances.push({ ...row, _date: `${ymPrefix}-${String(d).padStart(2, '0')}`, _mins: mins });
+            const _ymd = `${ymPrefix}-${String(d).padStart(2, '0')}`;
+            /* ⏭ (2026-10-09) «그 주만 연기·변경» 한 날은 반복 줄로 세지 않는다 — 그 수업은
+               옮긴 하루짜리 줄(또는 '연기' 기록 줄)로 따로 잡힌다(recurring-one-week.ts). 두 번 세지 않게.
+               ⚠️ starts_on 은 여기서 일부러 안 본다 — 급여가 바뀌는 별건이다(사람이 정할 일). */
+            if (recurSkippedOn(row, _ymd)) continue;
+            instances.push({ ...row, _date: _ymd, _mins: mins });
           }
         }
       }
+      // 💰 나눈 매주 줄의 «나눈 날 이전» 회차 — 원래 id 그대로(위 splitPast 주석)
+      for (const sp of splitPast) {
+        const row = sp.row;
+        const mins = row.duration_min ?? row.duration_minutes ?? 30;
+        const dw = dowOf(row.day_of_week);
+        if (dw == null) continue;
+        for (let d = 1; d <= daysInMonth; d++) {
+          const ds = `${ymPrefix}-${String(d).padStart(2, '0')}`;
+          if (ds >= sp.before) break;
+          if (new Date(Date.UTC(year, month - 1, d)).getUTCDay() === dw) instances.push({ ...row, status: 'active', _date: ds, _mins: mins });   // 나누기 «전» 상태 그대로
+        }
+      }
       instances.sort((a, b) => (a._date + (a.start_time || '')).localeCompare(b._date + (b.start_time || '')));
+
+      /* 🎌 (2026-10-09) 공휴일 휴강 — 그날 열리지 않은 수업은 수업료 0(상태 'holiday'), 공제도 안 붙는다.
+         중국어 수업(예외 강사)·«이날은 수업함» 으로 연 날은 평소대로. 정본 src/holiday-closure.ts.
+         날짜당 한 번 조회(그 달 수업이 있는 날만). 던지지 않는다 — 못 읽으면 «휴강 아님»(예전과 같음). */
+      const holByDate: Record<string, HolidayClosure> = {};
+      for (const ds of new Set(instances.map((i: any) => String(i._date)))) holByDate[ds] = await loadHolidayClosure(env.DB, ds);
 
       // 이 달 노쇼·피드백 (KST 기준 월 범위 ms)
       const mStart = Date.parse(`${ymPrefix}-01T00:00:00+09:00`);
@@ -2364,6 +2574,7 @@ export async function handleAdminApi(
         const schedStatus = String(l.status || 'active').toLowerCase();
         let st = 'finish';
         if (schedStatus === 'postponed') st = 'postponed';
+        else if (isHolidayClosedFor(holByDate[dateStr], l.teacher_id)) st = 'holiday';   // 🎌 공휴일 휴강 — 지급 0
         else if (upcoming) st = 'upcoming';
         /* ⏸ 연속 결석 보류 기간 — 강사는 기다리지 않고 매니저에게 확인한다(사장님 결정: 0%).
            보류를 건 날(두 번째 결석) 수업은 기존 «학생 결석» 규칙 그대로다(구간이 그 «다음» 부터). */
@@ -2377,7 +2588,11 @@ export async function handleAdminApi(
         /* ⏸ 연기 수업의 지급률 — 「언제 연기했나」로 갈린다(위 earlyPostponePct 주석 참고).
            요청 기록이 없는 연기(관리자가 직접 상태만 바꾼 경우)는 판정할 근거가 없으므로
            기존 규칙(postponePct)을 그대로 쓴다. 모르는 것을 «사전 연기» 로 단정하지 않는다. */
-        const pReq = (st === 'postponed') ? (postponeReq[`${l.id}|${dateStr}`] || null) : null;
+        /* 🔁 (2026-10-09) 반복 수업 «그 주만» 연기는 요청이 «반복 줄» 번호로 남고 연기 기록은 새 줄이다
+           (source='recurring-week:<반복 줄 id>') — 그 번호로 한 번 더 찾는다. */
+        const _rwSrc = String(l.source || '');
+        const _rwParent = _rwSrc.indexOf(RECUR_WEEK_SOURCE_PREFIX) === 0 ? _rwSrc.slice(RECUR_WEEK_SOURCE_PREFIX.length) : '';
+        const pReq = (st === 'postponed') ? (postponeReq[`${l.id}|${dateStr}`] || (_rwParent ? postponeReq[`${_rwParent}|${dateStr}`] : null) || null) : null;
         const pFeeType: string | null = pReq ? (pReq.fee_type || null) : null;
         const pPct = (st === 'postponed')
           ? (pFeeType === 'free' ? earlyPostponePct : postponePct)
@@ -2433,6 +2648,8 @@ export async function handleAdminApi(
         if (st === 'upcoming') { agg.upcoming_count++; continue; }
         // ⏸ 보류 수업은 «수업 수·시간» 에 넣지 않는다 — 열리지 않은 수업이다(지급 0).
         if (st === 'absence_hold') { agg.hold_count = (agg.hold_count || 0) + 1; continue; }
+        // 🎌 공휴일 휴강도 «열리지 않은 수업» 이다 — 수업 수·시간·금액에 넣지 않는다.
+        if (st === 'holiday') { agg.holiday_count = (agg.holiday_count || 0) + 1; continue; }
         agg.lesson_count++;
         agg.total_minutes += mins;
         if (st === 'finish') agg.finish_count++;
@@ -2902,14 +3119,8 @@ export async function handleAdminApi(
     //   요청 row 자체가 변경 이력(기존 일시 → 새 일시, 누가, 언제)을 보존한다.
     // ═══════════════════════════════════════════════════════════════
 
-    const ensureScheduleRequestTable = async () => {
-      await env.DB.exec(`CREATE TABLE IF NOT EXISTS schedule_change_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, schedule_id INTEGER, request_type TEXT DEFAULT 'postpone', requester_role TEXT DEFAULT 'teacher', requester_name TEXT, requester_uid TEXT, teacher_name TEXT, student_name TEXT, orig_date TEXT, orig_time TEXT, new_date TEXT, new_time TEXT, fee_type TEXT, minutes_before INTEGER, reason TEXT, status TEXT DEFAULT 'pending', decided_by TEXT, decided_at INTEGER, decide_memo TEXT, created_at INTEGER NOT NULL)`);
-      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_scr_status ON schedule_change_requests(status, created_at)`); } catch {}
-      // 🆕 유료/무료 태깅(2026-07-14) — 기존 배포 DB 호환 컬럼 추가(멱등, 이미 있으면 무시)
-      for (const col of ["fee_type TEXT", "minutes_before INTEGER", "requester_uid TEXT"]) {
-        try { await env.DB.exec(`ALTER TABLE schedule_change_requests ADD COLUMN ${col}`); } catch {}
-      }
-    };
+    /* 표 정의 정본은 src/student-schedule-request.ts 한 곳(학생 경로도 같은 표를 쓴다). */
+    const ensureScheduleRequestTable = () => ensureScheduleChangeRequestTable(env);
 
     // ── POST /api/admin/schedule-requests — 연기/변경 요청 제출 (강사 마이페이지) ──
     //   body: { schedule_id?, request_type:'postpone'|'change', requester_name, teacher_name,
@@ -2918,6 +3129,22 @@ export async function handleAdminApi(
     if (method === 'POST' && path === '/api/admin/schedule-requests') {
       await ensureScheduleRequestTable();
       const body: any = await request.json().catch(() => ({}));
+      /* ⏸ (2026-10-02 사장님 제안) «연기보강» — 이 회차를 수업 끝 다음 수업일로 옮긴다.
+         날짜는 «서버가» 정한다(화면 값은 안 믿는다). preview:true 면 날짜만 돌려주고 아무것도 안 쓴다.
+         그 밖에는 «지정한 날짜로 연기»(change) 와 같은 길 — 아래 INSERT·/decide 를 그대로 탄다.
+         정본은 src/end-makeup.ts. */
+      let _endMk: string | null = null;
+      if (body && body.end_makeup === true) {
+        const _emId = parseInt(body.schedule_id, 10) || 0;
+        if (!_emId) return json({ ok: false, error: 'schedule_id_required' }, 400);
+        const _emPlan = await planEndMakeup(env, _emId).catch((e: any) => ({ ok: false, reason: 'lookup_failed:' + String(e?.message || e) } as any));
+        if (!_emPlan.ok) return json({ ok: false, error: 'end_makeup_' + _emPlan.reason }, 409);
+        if (body.preview === true) return json({ ok: true, preview: true, ..._emPlan });
+        body.request_type = 'change';
+        body.new_date = _emPlan.new_date;
+        body.new_time = _emPlan.new_time;
+        _endMk = _emPlan.label || '연기보강';
+      }
       const reqType = (body.request_type === 'change' || body.request_type === 'cancel') ? body.request_type : 'postpone';
       const teacherName = (body.teacher_name || body.requester_name || '').trim();
       if (!teacherName) return json({ ok: false, error: 'teacher_name_required' }, 400);
@@ -2945,9 +3172,11 @@ export async function handleAdminApi(
       let origTime = (body.orig_time || '').trim() || null;
       let studentName = (body.student_name || '').trim() || null;
       const scheduleId = parseInt(body.schedule_id, 10) || null;
+      let scheduleSnapshot: string | null = null;
       if (scheduleId) {
-        const cs: any = await env.DB.prepare(`SELECT scheduled_date, start_time, user_id, student_name FROM class_schedules WHERE id = ? LIMIT 1`).bind(scheduleId).first().catch(() => null);
+        const cs: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(scheduleId).first().catch(() => null);
         if (cs) {
+          scheduleSnapshot = scheduleMoveVersion(cs);
           origDate = String(cs.scheduled_date || origDate || '').replace(/\//g, '-').slice(0, 10) || origDate;
           origTime = cs.start_time || origTime;
           if (!studentName) studentName = cs.student_name || cs.user_id || null;
@@ -2976,12 +3205,12 @@ export async function handleAdminApi(
       }
       const requesterName2 = (body.requester_name || teacherName).trim();
       const r: any = await env.DB.prepare(
-        `INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_name, requester_uid, teacher_name, student_name, orig_date, orig_time, new_date, new_time, fee_type, minutes_before, reason, status, created_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending',?)`
+        `INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_name, requester_uid, teacher_name, student_name, orig_date, orig_time, new_date, new_time, fee_type, minutes_before, reason, status, created_at, schedule_snapshot, end_makeup)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending',?,?,?)`
       ).bind(
         scheduleId, reqType, requesterRole,
         requesterName2, requesterUid, teacherName, studentName,
-        origDate, origTime, newDate, newTime, feeType, minutesBefore, (body.reason || '').trim() || null, now
+        origDate, origTime, newDate, newTime, feeType, minutesBefore, (body.reason || '').trim() || null, now, scheduleSnapshot, _endMk
       ).run();
       // 🔔 실시간 알림 — 관리자 카톡(나에게 보내기=kakao_memo 큐). 대시보드 배지는 GET pending_count 로 별도 표시.
       try {
@@ -2996,7 +3225,7 @@ export async function handleAdminApi(
           channel: 'kakao_memo'
         });
       } catch (e: any) { console.warn('[schedule-requests] notify skipped:', e?.message || e); }
-      return json({ ok: true, id: r?.meta?.last_row_id || null, status: 'pending', fee_type: feeType, minutes_before: minutesBefore, created_at: now });
+      return json({ ok: true, id: r?.meta?.last_row_id || null, status: 'pending', fee_type: feeType, minutes_before: minutesBefore, created_at: now, ...(_endMk ? { end_makeup: _endMk, new_date: newDate, new_time: newTime } : {}) });
     }
 
     // ── GET /api/admin/schedule-requests?status=&teacher_name=&limit= — 요청 목록 ──
@@ -3082,17 +3311,41 @@ export async function handleAdminApi(
       if (row.status !== 'pending') return json({ ok: false, error: 'already_decided', status: row.status }, 409);
 
       const now = Date.now();
+      const mutations: any[] = [];
+      let guards: Awaited<ReturnType<typeof prepareScheduleRequestGuards>>;
+      const decisionScope = _sdC.cond ? {
+        sql: `EXISTS (SELECT 1 FROM class_schedules WHERE id = ? AND user_id IN (SELECT user_id FROM students_erp WHERE ${_sdC.cond}))`,
+        args: [row.schedule_id, ..._sdC.binds],
+      } : undefined;
+      try { guards = await prepareScheduleRequestGuards(env, row, undefined, decisionScope); }
+      catch { return json({ ok: false, error: 'request_lookup_failed' }, 503); }
       let applied: string | null = null;
-      let conflictInfo: any = null;   // 겹쳐서 자동 이동을 못 한 경우 사유(한/영)
+      let _oneWeekApplied = false;   // 🔁 반복 수업 «그 주 하루만» 으로 반영했나(이력 문구용)
+      let teacherChanged: { id: string; name: string | null } | null = null;   // 👨‍🏫 승인으로 담당 강사를 바꿨으면
       if (action === 'approved' && row.schedule_id) {
         try {
           // ⚠️ 운영 스케줄은 대부분 반복(매주, scheduled_date=NULL) — 반복 row 를 덮어쓰면
           //   그 주만이 아니라 모든 주가 바뀌므로, 날짜 지정 수업일 때만 자동 반영한다.
           //   반복 수업은 요청 기록만 영구 보존(applied='recorded') → 시간표에서 수동 조정.
+          await ensureStartsOnColumn(env);   // ⏭ skip_dates 칸이 «읽기 전» 에 있어야 guard 스냅샷이 맞는다
           const cs: any = await env.DB.prepare(
-            `SELECT id, scheduled_date, start_time, duration_min, user_id, teacher_id, source FROM class_schedules WHERE id = ? LIMIT 1`
-          ).bind(row.schedule_id).first().catch(() => null);
+            `SELECT * FROM class_schedules WHERE id = ? LIMIT 1`
+          ).bind(row.schedule_id).first();
+          if (!cs) return json({ ok: false, error: 'schedule_not_found' }, 409);
           const isDated = !!(cs && cs.scheduled_date);
+          /* 🔁 (2026-10-09) 반복 수업은 «그 주 하루만» 반영할 수 있으면 그렇게 한다(recurring-one-week.ts).
+             못 하는 사유가 «예전 요청이라 회차·스냅샷이 없음» 이면 예전처럼 기록만(recorded). */
+          const _oneWeekWhy: string | null = isDated ? 'not_recurring' : oneWeekEligible(row, cs, kstToday(now));
+          // Match direct atomic moves: a frozen clock / A→B→A must not revive a stale snapshot.
+          const scheduleUpdatedAt = Math.max(now, (Number(cs.updated_at) || 0) + 1);
+          // Old requests have no reliable teacher/status/version baseline. They may be
+          // rejected, but a dated approval needs a newly submitted server snapshot.
+          if (isDated && !row.schedule_snapshot) return json({ ok: false, error: 'request_snapshot_missing',
+            message: '이전 요청의 원래 수업 정보를 확인할 수 없습니다. 반려 후 새 요청을 접수해 주세요.', message_en: 'The original class snapshot is unavailable. Reject this request, then submit a fresh request.' }, 409);
+          if (row.schedule_snapshot && row.schedule_snapshot !== scheduleMoveVersion(cs)) return json({ ok: false, error: 'schedule_changed',
+            message: '요청 후 수업이 변경되었습니다. 반려 후 최신 시간표에서 다시 요청해 주세요.', message_en: 'The class changed after this request. Reject it, then submit a fresh request from the current timetable.' }, 409);
+          if (isDated && ['cancelled','ended','completed'].includes(String(cs.status || ''))) return json({ ok: false, error: 'schedule_not_movable' }, 409);
+          guards = await prepareScheduleRequestGuards(env, row, cs, decisionScope);
           /* 🔒 (2026-09-22) 「사람 손이 이긴다」 도장 — 미러가 우리 수정을 덮지 않게 한다.
              [잰 것 — 2026-09-22, c24-mirror.ts 의 planMirror 를 있는 그대로 돌림]
                · 시각만 옮김(같은 날) — 도장 없으면 'ok'(새로 만들기 시도) / 있으면 'diverged'(손 안 대고 알림) ✅
@@ -3119,50 +3372,125 @@ export async function handleAdminApi(
                 **notes(c24:<수업번호>)** 로 맞추면 날짜를 옮겨도 도장이 일한다. 미러의 심장을
                 고치는 일이라 여기서는 안 건드렸다. */
           const _isMirror = String((cs as any)?.source || '') === MIRROR_SOURCE;
-          if (isDated && row.new_date && row.new_time) {
+          /* 👨‍🏫 (2026-09-30) 학생이 «교사로 연기» 에서 고른 강사(new_teacher_id) — 승인이 «실제로» 바꾼다.
+             예전엔 이 경로에 teacher_id 를 바꾸는 코드가 한 줄도 없어서, 학생은 «선택됨» 을 보고 관리자는
+             «승인·이동됨» 을 보는데 수업은 원래 강사 그대로였다(함정 대조가 잡음 — 에러 없음).
+             🔒 게이트는 PATCH 담당 강사 변경과 같은 정본 teacherMoveDenyReason(본사만 · 강사 차단 · 모르면 막음).
+             ⛔ 막히거나 못 바꾸면 «옮기지도 않는다» — 강사를 바꾸려던 요청인데 시각만 바꾸고 «완료» 라 하면 거짓이다.
+             ⛔ 카페24 미러 수업을 «날짜를 바꾸면서» 강사까지 바꾸지 않는다(도장 → 옛 날짜에 유령. 위 🔴).
+             ℹ️ 반복 수업은 여전히 'recorded' — 한 줄이 «매주 전부» 라 그 주만 바꿀 방법이 없다. */
+          const _wantTid = String((row as any).new_teacher_id ?? '').trim();
+          let _swap = (isDated || !_oneWeekWhy) && !!(row.new_date && row.new_time) && /^\d+$/.test(_wantTid) && _wantTid !== String((cs as any)?.teacher_id ?? '');
+          let _swapBlock: { ko: string; en: string } | null = null;
+          let _swapName: string | null = null;
+          if (_swap) {
+            if (_isMirror && String(row.new_date || '') !== String((cs as any)?.scheduled_date || '')) {
+              _swapBlock = { ko: '카페24에서 온 수업은 날짜를 옮기면서 담당 강사까지 바꿀 수 없어요. 시간표에서 직접 조정해 주세요.', en: 'For Cafe24 classes the teacher cannot be changed together with a date change. Please adjust it in the timetable.' };
+            } else {
+              let _stScope: string | null = null;
+              try {
+                const _sr: any = await env.DB.prepare(`SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`).bind(_srdActor.username).first();
+                const _st = _sr ? String(_sr.scope_type ?? '').trim() : '';
+                _stScope = _st || null;              // 모르면 정본 게이트가 막는다
+              } catch { _stScope = null; }
+              const _deny = teacherMoveDenyReason({ ok: _srdActor.ok, isTeacher: _srdActor.isTeacher, scopeType: _stScope });
+              if (_deny) _swapBlock = { ko: _deny.message, en: 'Only head office can change the class teacher.' };
+              else {
+                const _tr: any = await env.DB.prepare(`SELECT name FROM teachers WHERE CAST(id AS TEXT) = ? AND COALESCE(active,1) = 1 LIMIT 1`).bind(_wantTid).first().catch(() => null);
+                if (!_tr) _swapBlock = { ko: '고른 강사를 찾지 못했어요(퇴사했거나 번호가 바뀜). 시간표에서 직접 조정해 주세요.', en: 'The chosen teacher was not found (left or changed). Please adjust it in the timetable.' };
+                else _swapName = String(_tr.name || '');
+              }
+            }
+            if (_swapBlock) _swap = false;
+          }
+          if (_swapBlock) {
+            return json({ ok: false, error: 'teacher_not_changed', applied: 'teacher_not_changed', message: _swapBlock.ko, message_en: _swapBlock.en }, 409);
+          } else if (row.request_scope === WEEKLY_POSTPONE) {
+            const weekly = await prepareWeeklyPostpone(env, row, cs, now);
+            if (!weekly.ok) return json({ ok: false, error: weekly.error, message: '연기할 전체 일정이 달라졌거나 가능한 시간이 아닙니다. 최신 시간표를 확인해 주세요.' }, 409);
+            mutations.push(...weekly.mutations);
+            applied = 'moved';
+          } else if (isDated && row.new_date && row.new_time) {
             // ⛔ (2026-08-04) 옮기기 전에 «그 자리가 비어 있는지» 확인한다.
             //   여기엔 겹침 검사가 없어서, 강사 요청을 승인하면 다른 수업과 겹쳐도 그대로 옮겨졌다.
-            //   겹치면 옮기지 않고 'conflict' 로 남긴다 — 승인 자체는 그대로 기록되므로
-            //   관리자가 시간표에서 자리를 보고 손으로 옮기면 된다. (조용히 겹치게 두는 것보다 낫다)
+            //   겹치거나 근무불가면 409 — 요청은 pending 으로 남아 반려·재접수가 가능하다.
+            const target = { ...cs, scheduled_date: String(row.new_date), start_time: String(row.new_time), teacher_id: _swap ? _wantTid : cs.teacher_id };
+            const targetTeacher: any = await env.DB.prepare(`SELECT name FROM teachers WHERE CAST(id AS TEXT) = ? LIMIT 1`).bind(String(target.teacher_id || '')).first();
+            const strictConflict = await findScheduleMoveConflicts(env, target, String(targetTeacher?.name || ''), [row.schedule_id]);
+            if (strictConflict) return json({ ok: false, ...strictConflict, message_en: strictConflict.error === 'teacher_unavailable' ? 'The teacher is unavailable or on leave at that time. Choose another teacher or time.' : strictConflict.error === 'conflict' ? 'The requested time overlaps another class. Choose another time.' : 'Availability could not be verified. Refresh and try again.' }, strictConflict.status);
             const conf = await findScheduleConflicts(env, {
               kind: 'one_off',
-              userId: cs.user_id, teacherId: cs.teacher_id,
+              userId: cs.user_id, teacherId: _swap ? _wantTid : cs.teacher_id,   // 👨‍🏫 바꿀 강사면 «그 강사» 가 비었는지
               schedDate: String(row.new_date), startTime: String(row.new_time),
               durationMin: Number(cs.duration_min) > 0 ? Number(cs.duration_min) : DEFAULT_CLASS_MINUTES,
               excludeId: row.schedule_id,
-            });
+            // Strict move validation above owns overlap semantics, including H:MM/HH:MM
+            // equivalence. Retain only this legacy helper's long-class capacity check.
+            }, { student: [], teacher: [] });
             if (conf.has) {
-              applied = 'conflict';
-              conflictInfo = { ko: conf.ko, en: conf.en, student: conf.student.length, teacher: conf.teacher.length };
+              return json({ ok: false, error: 'conflict', applied: 'conflict', conflict: { ko: conf.ko, en: conf.en, student: conf.student.length, teacher: conf.teacher.length }, message: conf.ko, message_en: conf.en }, 409);
             } else {
               /* ⛔ 날짜가 바뀌면 도장을 찍지 않는다 — 찍으면 옛 날짜에 유령이 되살아난다(위 🔴). */
               const _stampMove = _isMirror && String(row.new_date || '') === String((cs as any)?.scheduled_date || '');
-              await env.DB.prepare(
+              const _mv = env.DB.prepare(
                 _stampMove
                   ? `UPDATE class_schedules SET scheduled_date = ?, start_time = ?, source = '${MIRROR_SOURCE_MANUAL}', updated_at = ? WHERE id = ?`
                   : `UPDATE class_schedules SET scheduled_date = ?, start_time = ?, updated_at = ? WHERE id = ?`
-              ).bind(row.new_date, row.new_time, now, row.schedule_id).run();
+              ).bind(row.new_date, row.new_time, scheduleUpdatedAt, row.schedule_id);
+              /* 👨‍🏫 강사를 바꿀 때는 D1 batch(한 트랜잭션)로 «함께» — 둘로 따로 돌리면 한쪽만 남을 수 있다.
+                 ⚠️ 위 UPDATE 문장은 손대지 않는다 — 하니스 둘(manager_today_reschedule·schedule_move_room_sync)이
+                    그 글자를 오려 내 진짜 SQLite 로 돌린다. 강사를 안 바꾸는 승인은 예전과 같은 경로다. */
+              /* ⏸ (2026-10-01) 연기했던 회차를 새 날짜로 «다시 잡는» 것이면 열린 수업으로 되돌린다 —
+                 안 되돌리면 새 날짜에서도 'postponed' 라 오늘 수업·학생 입장에서 숨는다(class-postponed.ts).
+                 연기 상태가 아니면 그 문장은 0행이라 아무것도 안 바뀐다. 같은 batch(한 트랜잭션)로 묶는다. */
+              const _mvAll: any[] = [_mv];
+              if (_swap) _mvAll.push(env.DB.prepare(`UPDATE class_schedules SET teacher_id = ? WHERE id = ?`).bind(_wantTid, row.schedule_id));
+              if (String((cs as any)?.status || '') === 'postponed') _mvAll.push(env.DB.prepare(REACTIVATE_POSTPONED_SQL).bind(row.schedule_id));
+              /* ⏸ (2026-10-02) 연기보강이면 옮긴 줄에 이름을 붙인다 — 같은 batch(한 트랜잭션). */
+              if ((row as any).end_makeup) _mvAll.push(env.DB.prepare(END_MAKEUP_MARK_SQL).bind(String((row as any).end_makeup), row.schedule_id));
+              mutations.push(..._mvAll);
               applied = 'moved';
+              if (_swap) teacherChanged = { id: _wantTid, name: _swapName };
             }
           } else if (isDated) {
-            await env.DB.prepare(
+            mutations.push(env.DB.prepare(
               _isMirror
                 ? `UPDATE class_schedules SET status = 'postponed', source = '${MIRROR_SOURCE_MANUAL}', updated_at = ? WHERE id = ?`
                 : `UPDATE class_schedules SET status = 'postponed', updated_at = ? WHERE id = ?`
-            ).bind(now, row.schedule_id).run();
+            ).bind(scheduleUpdatedAt, row.schedule_id));
             applied = 'postponed';
+          } else if (_oneWeekWhy && ONE_WEEK_FALLBACK.includes(_oneWeekWhy)) {
+            applied = 'recorded';   // 옛 요청(회차 날짜·스냅샷 없음) — 예전처럼 기록만, 시간표에서 수동 조정
+          } else if (_oneWeekWhy) {
+            const _m = oneWeekMessage(_oneWeekWhy);
+            return json({ ok: false, error: _oneWeekWhy, message: _m.ko, message_en: _m.en }, 409);
           } else {
-            applied = 'recorded';
+            const _ow = await prepareRecurringOneWeek(env, row, cs, now, { teacherId: _swap ? _wantTid : null, actor: _srdActor.username || 'admin' });
+            if (!_ow.ok) {
+              const _m = (_ow.conflict && _ow.conflict.ko) ? { ko: _ow.conflict.ko, en: _ow.conflict.en || oneWeekMessage('conflict').en } : (_ow.conflict && _ow.conflict.message) ? { ko: _ow.conflict.message, en: oneWeekMessage(String(_ow.error)).en } : oneWeekMessage(String(_ow.error));
+              return json({ ok: false, error: _ow.error, applied: _ow.error === 'conflict' ? 'conflict' : undefined, message: _m.ko, message_en: _m.en }, _ow.status);
+            }
+            mutations.push(..._ow.mutations);
+            applied = _ow.applied;
+            _oneWeekApplied = true;
+            if (_swap && _ow.applied === 'moved') teacherChanged = { id: _wantTid, name: _swapName };
           }
-        } catch (e: any) { console.warn('[schedule-requests] apply err:', e?.message); }
+        } catch (e: any) { console.warn('[schedule-requests] apply err:', e?.message); return json({ ok: false, error: 'request_apply_failed' }, 503); }
       }
-      await env.DB.prepare(`UPDATE schedule_change_requests SET status = ?, decided_by = ?, decided_at = ?, decide_memo = ? WHERE id = ?`)
-        .bind(action, (body.decided_by || '관리자').trim(), now, (body.memo || '').trim() || null, id).run();
+      const decision = env.DB.prepare(`UPDATE schedule_change_requests SET status = ?, decided_by = ?, decided_at = ?, decide_memo = ? WHERE id = ? AND status = 'pending'`)
+        .bind(action, (body.decided_by || '관리자').trim(), now, (body.memo || '').trim() || null, id);
+      try { await commitScheduleRequestDecision(env, guards, mutations, decision); }
+      catch (e: any) {
+        const changed = /schedule_request_snapshot/.test(String(e?.message || e));
+        return json({ ok: false, error: changed ? 'request_or_schedule_changed' : 'request_apply_failed',
+          message: changed ? '확인 중 요청·수업 정보가 변경되었습니다. 새로고침해 주세요.' : '저장하지 못했습니다. 요청과 시간표를 새로고침한 뒤 다시 시도해 주세요.',
+          message_en: changed ? 'The request or class changed while checking. Refresh before trying again.' : 'Nothing was saved. Refresh the request and timetable, then try again.' }, changed ? 409 : 503);
+      }
       // 📜 승인으로 수업이 실제 이동/연기된 경우 변경 이력에 기록(거절은 미기록)
-      //   'conflict' = 승인은 했으나 그 자리가 겹쳐 «자동 이동을 하지 않은» 상태 → 이력에도 남기지 않는다
-      if (action === 'approved' && applied && applied !== 'conflict') {
+      //   충돌·저장 실패는 위에서 돌아가므로 성공한 결정만 이력에 남는다.
+      if (action === 'approved' && applied && applied !== 'conflict' && applied !== 'teacher_not_changed') {
         await writeClassAudit(env, {
-          action: applied === 'moved' ? 'reschedule' : 'postpone',
+          action: row.request_type === 'change' ? 'reschedule' : 'postpone',
           schedule_id: row.schedule_id,
           teacher_name: row.teacher_name || null,
           student_name: row.student_name || null,
@@ -3172,13 +3500,14 @@ export async function handleAdminApi(
           actor_role: 'admin',
           source: 'schedule-request',
           reason: row.reason || null,
-          detail: (row.new_date || row.new_time) ? `→ ${row.new_date || ''} ${row.new_time || ''}`.trim() : (applied === 'recorded' ? '반복수업 기록보존(수동조정 필요)' : null),
+          detail: [((row as any).end_makeup && applied === 'moved' ? String((row as any).end_makeup) : null),
+                   ((row.new_date || row.new_time) ? `→ ${row.new_date || ''} ${row.new_time || ''}`.trim() : (applied === 'recorded' ? '반복수업 기록보존(수동조정 필요)' : (_oneWeekApplied && applied === 'postponed' ? `반복수업 ${row.orig_date} 회차만 연기` : null))),
+                   (teacherChanged ? `담당 강사 → ${teacherChanged.name || ('#' + teacherChanged.id)}` : null)].filter(Boolean).join(' · ') || null,
         });
       }
       return json({
         ok: true, id, status: action, applied, decided_at: now,
-        // 겹쳐서 자동 이동을 못 했으면 화면이 그 사유를 그대로 보여줄 수 있게 함께 내려준다
-        ...(conflictInfo ? { conflict: conflictInfo, message: conflictInfo.ko, message_en: conflictInfo.en } : {}),
+        ...(teacherChanged ? { teacher_changed: teacherChanged } : {}),
       });
     }
 
@@ -3263,7 +3592,7 @@ export async function handleAdminApi(
       let rows: any = { results: [] };
       try {
         rows = await env.DB.prepare(
-          `SELECT cs.*, t.name AS t_name, se.level AS se_level, se.textbook AS se_textbook, se.shop_name AS se_shop
+          `SELECT cs.*, t.name AS t_name, se.level AS se_level, se.textbook AS se_textbook, se.shop_name AS se_shop, se.korean_name AS se_name
              FROM class_schedules cs
              LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
              LEFT JOIN students_erp se ON se.user_id = cs.user_id
@@ -3298,7 +3627,8 @@ export async function handleAdminApi(
       } catch (e: any) { console.warn('[classes/today] substitution overlay:', e?.message); }
 
       /* ☎️ (2026-09-07 매니저 요청 «Please include student Name, ID, contact number, Academy»)
-         연락처 — D1 에서 학생 번호가 실제로 남아 있는 표는 `student_retention` 하나뿐이다.
+         연락처 — D1 에서 학생 번호가 실제로 남아 있는 표는 `student_retention` 하나뿐이다
+         (+ 2026-09-10 부터 직원이 받아 둔 번호 `student_erp_override` — 정본 notify-contacts.ts loadContactPhones).
          📊 [재본 — 2026-09-07 운영 D1] `students_erp` 29,484행의 phone·parent_phone·student_phone 은
             **세 칸 전부 0건**이다(카페24 원본에 값이 없다 — CLAUDE.md 2장
             「학생 전화번호로 문자를 보내려는데 아무에게도 안 감」). 그래서 그 칸을 읽어 봐야
@@ -3310,9 +3640,9 @@ export async function handleAdminApi(
             ⇒ «없음» 이 정상이다. 화면은 그 이유를 말해야 한다(빈칸은 «고장» 으로 읽힌다).
          ⛔ 없는 번호를 다른 칸으로 «그럴듯하게» 채우지 않는다(CLAUDE.md 2장
             「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」).
-         🔒 이 맵은 전체를 받지만 **이미 스코프로 잘린 줄에만** 붙인다(아래 sessions.push) —
-            지사·대리점은 자기 범위 학생만 보므로 범위 밖 번호는 응답에 실리지 않는다.
-         ⚠️ 이 조회가 실패해도 목록은 그대로 띄어야 한다 — 연락처 칸만 비운다. */
+         🔒 번호는 **이미 스코프로 잘린 그날 목록의 학생만** 묻는다(아래 «목록 완성 뒤» 자리) —
+            범위 밖 번호가 응답에 실릴 길이 없다. (2026-10-27 전에는 이탈위험 2,000행 맵을 통째로 읽었다)
+         ⚠️ 이 조회가 실패해도 목록은 그대로 띄어야 한다 — 연락처 칸만 비우고 «확인 못 함» 이라고 말한다. */
       /* 🔒 연락처는 «본사·내부직원» 에게만 싣는다 — 이 API 는 `isAgencyAllowedApi` 에 올라 있어
          지사·대리점(manager.html)도 부른다. 지금까지 그 번호를 내주던 유일한 경로
          `/api/admin/retention` 은 **지사·대리점에게 403** 이었다. 즉 그냥 실으면
@@ -3321,25 +3651,16 @@ export async function handleAdminApi(
          ✅ 열려면 이 한 줄만 바꾸면 된다(범위 격리는 그대로라 자기 학생만 보인다).
          ℹ️ 학원(academy)·아이디는 그 청중이 이미 `/api/admin/students/erp-list` 로 보던 값이라 그대로 싣는다. */
       const _ctSeeContact = _ctScope.type === 'hq' || _ctScope.type === 'none';
-      const phoneMap = new Map<string, string>();
-      if (_ctSeeContact) {
-        try {
-          /* ⚠️ ORDER BY 없이 LIMIT 만 걸면 «어느 2000» 인지 정해지지 않고, 넘친 학생은
-             에러 없이 조용히 «—» 가 된다. 순서를 못 박고, 잘리면 로그로 말한다. */
-          const CONTACT_CAP = 2000;
-          const pr: any = await env.DB.prepare(
-            `SELECT user_id, phone FROM student_retention
-              WHERE phone IS NOT NULL AND TRIM(phone) <> ''
-              ORDER BY user_id LIMIT ?`
-          ).bind(CONTACT_CAP).all();
-          const got = (pr?.results as any[]) || [];
-          for (const r of got) {
-            const u = String(r.user_id || '').trim();
-            if (u) phoneMap.set(u, String(r.phone || '').trim());
-          }
-          if (got.length >= CONTACT_CAP) console.warn('[classes/today] contact map truncated at', CONTACT_CAP);
-        } catch (e: any) { console.warn('[classes/today] contact map:', e?.message); }
-      }
+      /* ☎ (2026-10-27 사장님 「매니저 화면도 직원이 넣은 번호 보이게 맞춰줘」) 번호는 정본 loadContactPhones
+         (notify-contacts.ts — 직원이 받아 둔 번호 → 명부 → 이탈위험 스냅샷)로, 강사 화면과 «같은 답» 을 준다.
+         예전엔 여기서 student_retention 2,000행을 통째로 읽어 맵을 만들었다 — 직원이 학생 상세·수강신청에서 넣은
+         번호(student_erp_override)는 강사 화면에만 보이고 이 화면엔 안 보였다.
+         ⚠️ 조회는 목록이 «다 만들어진 뒤» 아래에서 한다 — 스코프로 이미 잘린 그날 학생만 묻는다(범위 밖 번호가 응답에 실릴 길이 없다). */
+
+      /* 🎌 (2026-10-09 사장님 「매니저 오늘 수업도 휴강 반영」) 그날이 공휴일 휴강이면 수업 줄을 «지우지 않고»
+         상태를 'holiday' 로 바꾸고 입장을 닫는다 — 매니저는 «오늘 무엇이 쉬는지» 를 봐야 한다(지우면 «수업이 없어졌다» 로 읽힌다).
+         판정 정본 holiday-closure.ts(중국어 수업 = 예외 강사는 그대로 연다 · 조회 실패 = 휴강 아님). */
+      const _ctHol = await loadHolidayClosure(env.DB, dateStr);
 
       const sessions: any[] = [];
       for (const s of (rows.results || [])) {
@@ -3347,7 +3668,9 @@ export async function handleAdminApi(
         let occurs = false;
         if (s.scheduled_date) occurs = (String(s.scheduled_date).slice(0, 10) === dateStr);
         // ⚠️ Number() 로 비교하지 말 것 — 운영 값은 'Thu' 같은 문자열이라 NaN 이 된다(admDowMatches 주석 참고).
-        else if (s.day_of_week != null && s.day_of_week !== '') occurs = admDowMatches(s.day_of_week, kDow);
+        else if (s.day_of_week != null && s.day_of_week !== '') occurs = admDowMatches(s.day_of_week, kDow) && recurStartedOn(s, dateStr);
+        /* ⏭ (2026-10-09) 정본 recurStartedOn — «그 주만 빠진 날»·«시작일 전» 의 반복 줄은 오늘 목록에 안 뜬다
+           (학생 입장·강사 화면과 같은 답. 전에는 여기만 이 판정을 안 거쳐 시작 전 수업까지 «오늘 수업» 이었다). */
         if (!occurs) continue;
 
         const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
@@ -3361,10 +3684,17 @@ export async function handleAdminApi(
         else if (nowMs < start_ts) status = 'open';
         else if (nowMs <= close_at_ts) status = 'live';
         else status = 'ended';
+        /* ⏸ (2026-10-01) 연기된 회차 — 줄은 지우지 않고(지우면 «수업이 없어졌다» 로 읽힌다)
+           상태를 'postponed' 로, 입장은 닫는다. 정본 src/class-postponed.ts. */
+        const _postponed = isPostponedOccurrence(s);
+        if (_postponed) status = 'postponed';
 
         /* 🔄 대체강사가 배정된 회차면 화면에는 대체강사만 보인다 — 원래 강사 이름은
            substituted_from 에 남겨 「오늘 왜 다른 선생님이냐」 물었을 때 바로 답할 수 있게. */
         const sub = subOverlay.get(String(s.id));
+        // 🎌 휴강 — 그날 실제로 가르칠 강사(대체강사가 있으면 그쪽)로 판정한다. 연기가 먼저(연기는 이미 «안 열림»).
+        const _holOff = !_postponed && isHolidayClosedFor(_ctHol, sub ? sub.id : s.teacher_id);
+        if (_holOff) status = 'holiday';
         const origTeacherName = s.t_name || s.teacher_name || null;
 
         sessions.push({
@@ -3373,12 +3703,13 @@ export async function handleAdminApi(
           observable: true,
           room_id: `class-${s.id}-${ymd}`,
           student_uid: s.user_id || null,
-          student_name: s.student_name || null,
+          // 🏷 (2026-09-28) 이름 칸이 빈 행(학생 상세 화면 등록분)은 명부 이름으로 보충 — 주간 스케줄과 같은 규칙
+          student_name: s.student_name || s.se_name || null,
           /* 🏫☎️ (2026-09-07 매니저 요청) 학원(Academy)·연락처 — 수업에 안 들어오는 학생을
              그 자리에서 찾기 위해. 학원은 students_erp.shop_name(실측 29,079/29,484 = 98.6%),
-             연락처는 위 phoneMap. 모르면 null — 화면이 «—» 와 이유를 그린다. */
+             연락처는 아래 «목록이 다 만들어진 뒤» 정본으로 채운다. 모르면 null — 화면이 «—» 와 이유를 그린다. */
           academy: s.se_shop || null,
-          contact_phone: phoneMap.get(String(s.user_id || '')) || null,
+          contact_phone: null,
           /* 📚 (2026-08-25 보고서 ①) LMS 한 줄에 있던 「TEXTBOOK 배정 없음」 배지의 우리 쪽 대응.
              정본은 students_erp.textbook — 화상수업의 «배정 교재 자동 로드» 가 읽는 그 칸이다.
              비어 있으면 수업 전에 사람이 손써야 한다는 뜻이라, 강사·매니저가 먼저 봐야 한다. */
@@ -3392,7 +3723,10 @@ export async function handleAdminApi(
           start_time: s.start_time || null,
           duration_min: dur,
           start_ts, end_ts, status,
-          join_open: nowMs >= open_at_ts && nowMs <= close_at_ts,
+          join_open: !_postponed && !_holOff && nowMs >= open_at_ts && nowMs <= close_at_ts,
+          postponed: _postponed,
+          holiday: _holOff,
+          holiday_name: _holOff ? (_ctHol.name || null) : null,
           /* 🧪 (2026-08-06 마이마이 요청) "레벨테스트와 일반수업을 한 화면에서 보고 싶다".
              레벨테스트도 예약을 잡는 순간 class_schedules 의 일회성(one_off) 행이 되므로
              목록은 이미 하나다. 다만 **구분이 안 돼서** 따로 있는 것처럼 보였다.
@@ -3409,6 +3743,13 @@ export async function handleAdminApi(
              🔴 반복(매주) 수업에 «취소» 를 허용하면 **그 주만이 아니라 모든 주가 죽는다**
                 (class_schedules 한 행이 매주를 뜻하므로). 그래서 화면이 아예 안 준다. */
           can_move: !!s.scheduled_date,
+          /* 📅 (2026-10-08 매니저 「매니저는 그날만 연기할 수 있나? 아무 때나 연기하게 해줘」)
+             매주 반복 줄도 «날짜별로 나누기»(src/schedule-split.ts) 를 먼저 하면 그 날 하나만 옮길 수 있다.
+             연기·변경 창(js/class-move-modal.js)이 이 칸이 참일 때만 «나눈 뒤 처리» 를 준다.
+             ⛔ 나누기는 본사 전용(enrollAdminHqOnly)이라 지사·대리점에는 안 준다(«눌러도 403 나는 버튼» 금지).
+             ⛔ 카페24 미러 행은 나누지 않는다(미러가 다시 만든다 — planScheduleSplit 과 같은 판정). */
+          can_split: !s.scheduled_date && !String(s.source || '').startsWith('c24-mirror')
+            && (_ctScope.type === 'hq' || _ctScope.type === 'none'),
           is_level_test: /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || '')),
         });
       }
@@ -3432,9 +3773,33 @@ export async function handleAdminApi(
         ).bind(dateStr, ..._ctStu.binds).all();
         c24Rows = (rs.results || []) as any[];
       } catch (e: any) { console.warn('[classes/today] cafe24 rows:', e?.message); }
+      /* 🪞 (2026-10-20) 미러 줄이 있는 카페24 수업은 «복사본» 이라 뺀다 — 정본 dropMirroredCafe24(classes-now.ts).
+         날짜·상태를 안 가리고 그 수업번호의 미러 줄을 찾는다(옮겼거나 취소한 줄도 «망고아이가 정본»).
+         ⚠️ 청크 하나라도 실패하면 selectInChunks 가 던져 집합이 빈 채로 남는다 = 아무것도 안 뺀다
+            (예전처럼 두 줄 — 수업이 사라지는 쪽보다 낫다). */
+      let c24MirroredHidden = 0;
+      if (c24Rows.length) {
+        const _c24Ids = Array.from(new Set(c24Rows.map(r => String(r.room_id || '').replace(/^c24-/, '')).filter(Boolean)));
+        const _mirrored = new Set<string>();
+        try {
+          const mr = await selectInChunks<any>(env.DB, _c24Ids.map(id => 'c24:' + id),
+            (ph) => `SELECT notes FROM class_schedules WHERE source LIKE 'c24-mirror%' AND notes IN (${ph})`);
+          for (const m of mr) { const id = String(m.notes || '').replace(/^c24:/, ''); if (id) _mirrored.add(id); }
+        } catch (e: any) { console.warn('[classes/today] mirrored ids:', e?.message); }
+        const _drop = dropMirroredCafe24(c24Rows, _mirrored);
+        c24Rows = _drop.kept;
+        c24MirroredHidden = _drop.hidden;
+      }
+
+      // Separately registered Mangoi schedules (e.g. #6827) have no c24 mirror note.
+      // Hide only the exact student's LMS slot in this response; keep both stored records.
+      const c24SlotDuplicates = dropCafe24SlotDuplicates(c24Rows, sessions);
+      c24Rows = c24SlotDuplicates.kept;
 
       if (c24Rows.length) {
         const tmap = await loadCafe24TeacherMap(env as any, c24Rows.map(r => r.teacher_uid));
+        // 🎌 카페24 줄도 휴강 판정 — 강사 열쇠는 관제탑과 같은 정본(cafe24HolidayTeacher).
+        const _c24ExNames = _ctHol.closed ? await loadHolidayExemptNames(env, [_ctHol]) : new Set<string>();
         for (const r of c24Rows) {
           const start_ts = Number(r.joined_at) || 0;
           const end_ts = Number(r.left_at) || (start_ts + 30 * 60000);
@@ -3442,6 +3807,9 @@ export async function handleAdminApi(
           if (nowMs < start_ts) status = 'early';
           else if (nowMs <= end_ts + LATE_AFTER) status = 'live';
           else status = 'ended';
+          const _c24Key = _ctHol.closed ? cafe24HolidayTeacher(tmap.get(String(r.teacher_uid || '')), _c24ExNames, normTeacherName) : '';
+          const _c24Hol = _ctHol.closed && _c24Key !== EXEMPT_BY_NAME && isHolidayClosedFor(_ctHol, _c24Key);
+          if (_c24Hol) status = 'holiday';
           sessions.push({
             schedule_id: null,
             // 🗓 카페24 줄은 class_schedules 에 행이 아예 없다 — 여기서 옮길 방법이 없다(카페24가 정본).
@@ -3452,7 +3820,10 @@ export async function handleAdminApi(
             student_uid: r.user_id || null,
             student_name: r.stu_ko || r.username || r.stu_en || null,
             academy: r.se_shop || null,
-            contact_phone: phoneMap.get(String(r.user_id || '')) || null,
+            contact_phone: null,   // ☎ 아래에서 정본으로 채운다(망고아이 줄과 같은 자리)
+            /* 🕓 (2026-10-27) 끝 시각을 «안다» 는 표시 — 위 end_ts 는 left_at 이 없으면 «시작+30분» 으로 지어낸 값이다.
+               화면(adm-today-classes.js kstRange)은 false 면 시작만 그린다(지어낸 끝을 사실처럼 그리지 않게). */
+            end_known: !!Number(r.left_at),
             level: r.se_level || null,
             textbook: r.se_textbook || null,
             textbook_assigned: !!String(r.se_textbook || '').trim(),
@@ -3462,11 +3833,29 @@ export async function handleAdminApi(
             duration_min: Math.max(1, Math.round((end_ts - start_ts) / 60000)),
             start_ts, end_ts, status,
             join_open: false,
+            holiday: _c24Hol,
+            holiday_name: _c24Hol ? (_ctHol.name || null) : null,
             cafe24_status: r.status || null,
             schedule_kind: null,
             is_level_test: false,
           });
         }
+      }
+
+      // Join/observe and room-linked enrichment must use the student/teacher room for this date.
+      await applyRoomOverrides(env.DB, sessions.filter(s => s.source === 'mangoi'), ymd);
+
+      /* ☎ 연락처 — 본사·내부직원(_ctSeeContact)일 때만, 이미 스코프로 잘린 이 목록(두 갈래 모두)에만 붙인다.
+         정본이 «다 물어봤나»(complete)를 함께 주므로, 조회가 실패하면 화면이 «번호가 없다» 가 아니라
+         «확인하지 못했다» 고 말한다(contact_source='failed'). ⛔ 던지지 않는다 — 연락처 때문에 목록이 죽으면 안 된다. */
+      let _ctContactsOk = true;
+      if (_ctSeeContact && sessions.length) {
+        try {
+          const _cp = await loadContactPhones(env, sessions.map(x => x.student_uid));
+          _ctContactsOk = _cp.complete;
+          // 정본은 아이디를 trim 해서 묻고 그 키로 돌려준다 — 찾을 때도 trim(카페24 행에 뒤 공백이 붙은 아이디가 실재한다)
+          for (const x of sessions) x.contact_phone = _cp.phones.get(String(x.student_uid || '').trim()) || null;
+        } catch (e: any) { _ctContactsOk = false; console.warn('[classes/today] contacts:', e?.message); }
       }
 
       /* 📋 (2026-09-23 매니저 요청) 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결 — 정본 class-today-extras.ts.
@@ -3478,9 +3867,10 @@ export async function handleAdminApi(
       const c24Count = sessions.filter(x => x.source === 'cafe24').length;
       /* ☎️ 화면이 «왜 번호가 대부분 비어 있는지» 를 사람에게 말할 수 있도록 근거를 함께 준다.
          ⛔ 화면이 스스로 판정하게 두지 말 것 — 화면은 자기 역할도, 그 표의 성격도 모른다.
-           'retention' = 「이탈 위험(만료·휴면) 명단에 있는 학생만 번호가 있다」
+           'lookup'     = 「번호 원천(받아 둔 번호·명부·이탈위험 명단)에 다 물어봤다 — 없으면 정말 없다」(2026-10-27, 옛 'retention')
+           'failed'     = 「조회가 실패해 모른다」 — «없다» 와 같은 글자로 말하지 않게
            'restricted' = 「이 계정에는 연락처를 주지 않는다」(지사·대리점)  */
-      const contactSource = _ctSeeContact ? 'retention' : 'restricted';
+      const contactSource = !_ctSeeContact ? 'restricted' : (_ctContactsOk ? 'lookup' : 'failed');
       const res = json({
         ok: true,
         contact_source: contactSource,
@@ -3491,8 +3881,14 @@ export async function handleAdminApi(
         counts: {
           mangoi: sessions.length - c24Count,
           cafe24: c24Count,
+          // 🪞 미러 줄이 있어 뺀 카페24 «복사본» 수(위 dropMirroredCafe24) — 숫자가 줄어든 이유를 사람이 볼 수 있게
+          cafe24_mirrored_hidden: c24MirroredHidden,
+          cafe24_slot_duplicates_hidden: c24SlotDuplicates.hidden,
           joinable: sessions.filter(x => x.join_open).length,
+          holiday: sessions.filter(x => x.holiday).length,
         },
+        // 🎌 그날이 휴강일이면 이름과 쉬는 건수(화면이 머리 줄에 한 번 말한다). 평일이면 null.
+        holiday: _ctHol.closed ? { name: _ctHol.name || null, closed: sessions.filter(x => x.holiday).length } : null,
         level_test_count: sessions.filter(x => x.is_level_test).length,
       });
       /* 🔒 이제 이 응답에 학생 전화번호가 실린다 — 공유 캐시에 앉으면 한 사람 것이 남에게 나간다
@@ -5015,6 +5411,28 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         const _hide = ['rate_per_10min_php','fee_per_10min','bank_account','bank_name','salary','monthly_salary','monthly_salary_php','pay_php','account_no'];
         teacherRows = teacherRows.map(r => { const o = { ...r }; for (const k of _hide) delete o[k]; return o; });
       }
+      /* 🏠/🏢 (2026-10-07 사장님 「담당 강사 옆에 전체·홈·사무실 칸」) 근무지 — 화면이 거르는 데 쓴다.
+         ⚠️ 정본은 teachers.status 가 아니라 강사 명부 teacher_profiles.group_name 이다
+            (2026-10-07 D1 실측: CHAINE·KRYSTEL·WIN 은 status='office' 인데 명부는 Home-based,
+             LEN 은 반대 — 명부 화면·녹화 목록이 이미 group_name 으로 판정한다. 같은 규칙 workplaceOf).
+         ⛔ 원부 번호(linked_teacher_id)로만 잇고, 프로필이 둘 이상인데 서로 다르면 '' (모름) — 지어내지 않는다.
+         ⚠️ 이 조회가 실패해도 목록은 그대로 — workplace 만 '' 로 남는다(화면은 «전체» 에서만 보인다). */
+      try {
+        const _wpRs = await env.DB.prepare(
+          `SELECT linked_teacher_id, group_name FROM teacher_profiles WHERE linked_teacher_id IS NOT NULL ORDER BY id DESC`
+        ).all();
+        const _wpBy = new Map<string, 'home' | 'office' | ''>();
+        for (const p of ((_wpRs.results || []) as any[])) {
+          const k = String(p.linked_teacher_id);
+          const w = workplaceOf(p.group_name);
+          if (!_wpBy.has(k)) _wpBy.set(k, w);
+          else if (_wpBy.get(k) !== w) _wpBy.set(k, '');
+        }
+        teacherRows = teacherRows.map(r => ({ ...r, workplace: _wpBy.get(String(r.id)) || '' }));
+      } catch (e: any) {
+        console.error('[teachers] 근무지 조회 실패(목록은 그대로):', e?.message || e);
+        teacherRows = teacherRows.map(r => ({ ...r, workplace: '' }));
+      }
       // items/teachers/data 별칭 모두 제공(프론트 호환: weekly-schedule.html 등)
       return json({ ok: true, items: teacherRows, teachers: teacherRows, data: teacherRows });
     }
@@ -5984,7 +6402,12 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         //    예전엔 아래 기본값에 걸려 평범한 '1:1' 로 그려졌다 — 있어도 못 알아봤다.
         if (c === 'level_test' || c === 'leveltest' || c === '레벨테스트') return 'leveltest';
         if (c === 'group' || c === '1:2' || c === 'g' || c === '그룹') return 'group';
-        if (c === 'temp' || c === 'substitute' || c === '대체') return 'temp';
+        // 🟣 (2026-10-06 사장님) 보강수업(makeup)도 'temp' 칸으로 — 주간 스케줄의 «임시» 를 «보강» 으로 바꿨다
+        //    (2026-10-07 «보충» → «보강» 으로 이름 통일). 그 화면은 'temp' 로 만든 수업을 class_type='makeup' 으로
+        //    저장하는데(SLOT_TYPE_TO_CLASS_TYPE), 여기서 makeup 을 모르면 다시 읽을 때 '1on1'(정규)로 떨어졌다.
+        if (c === 'temp' || c === 'substitute' || c === '대체' || c === 'makeup' || c === '보충' || c === '보강') return 'temp';
+        // 🟢 (2026-10-07 사장님 «정규·보강·체험·레벨테스트로 통일») 체험수업이 기본값에 걸려 '1on1'(정규)로 그려졌다.
+        if (c === 'trial' || c === '체험') return 'trial';
         if (c === 'blocked' || c === 'off' || c === '휴무') return 'blocked';
         return '1on1';
       };
@@ -6013,12 +6436,32 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       let rows: any[] = [];
       try {
         const rs: any = await env.DB.prepare(
-          `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, notes, source FROM class_schedules WHERE (status IS NULL OR status='active')`
+          `SELECT * FROM class_schedules WHERE (status IS NULL OR status='active')`
         ).all();
         rows = rs.results || [];
       } catch (e: any) {
         return json({ ok: true, week: weekStartISO, count: 0, items: [], schedules: [], _err: String(e?.message || e) });
       }
+
+      /* 🏷 (2026-09-28) 이름 칸이 빈 수업은 명부(students_erp)에서 이름을 찾아 붙인다 — DB 는 안 고친다.
+         [왜] 학생 상세 화면에서 등록한 수업이 student_name=NULL 로 저장돼(STUDENT_NAME 미정의)
+              이 캘린더에 «20m» 만 있는 빈 카드로 보였다. 명부에도 이름이 없으면 아이디를 쓴다
+              (관리자 전용 화면 — 빈 카드는 «누구 수업인지 모르는 칸» 으로 읽힌다).
+         ⚠️ JOIN 으로 풀지 말 것 — 위 WHERE 의 status 가 students_erp 에도 있어 ambiguous 로
+            조회가 통째로 죽는다(CLAUDE.md 2장). 별도 조회라 실패해도 캘린더는 그대로 뜬다. */
+      const nameByUid = new Map<string, string>();
+      try {
+        const nr: any = await env.DB.prepare(
+          `SELECT user_id, korean_name FROM students_erp
+            WHERE user_id IN (SELECT user_id FROM class_schedules
+                               WHERE (status IS NULL OR status='active')
+                                 AND (student_name IS NULL OR TRIM(student_name)=''))`
+        ).all();
+        for (const x of (nr.results || [])) {
+          const nm = String(x.korean_name || '').trim();
+          if (x.user_id && nm) nameByUid.set(String(x.user_id), nm);
+        }
+      } catch { /* 이름 보충 실패가 캘린더 전체를 막지 않게 */ }
 
       /* 🗓️ (2026-08-24) 「코스 기간」이 시작일=종료일(그 날 하루)로 뜨는 문제.
          [왜] enroll-activate.ts 가 수강신청을 확정하면 6개월치 화·목 수업을
@@ -6053,7 +6496,10 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         if (r.teacher_id == null || r.teacher_id === '') continue;
         const tnum = Number(r.teacher_id);
         const teacher_id = Number.isFinite(tnum) ? tnum : r.teacher_id;
-        const students = r.student_name ? [{ name: r.student_name, uid: r.user_id || '' }] : [];
+        const _uidRaw = String(r.user_id || '').trim();
+        const _isPh = ['lms', 'type_seed'].includes(_uidRaw.toLowerCase());
+        const _nm = String(r.student_name || '').trim() || (_isPh ? '' : (nameByUid.get(_uidRaw) || _uidRaw));
+        const students = _nm ? [{ name: _nm, uid: _uidRaw }] : [];
         /* 🏷 (2026-08-11) 「이 칸이 진짜 망고아이 수업이냐」 를 캘린더가 알 수 있게 내려준다.
            실측(2026-08-11) 활성 667행 중 진짜 수업은 9행뿐이고, 나머지는 학생이 안 붙은 자리표시다:
              · user_id='lms'       518행 (source=lms_import_w26, notes='LMS 수업중')
@@ -6067,6 +6513,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         const origin = _uid === 'lms' ? 'lms' : (_uid === 'type_seed' ? 'sample' : 'class');
         const base = {
           id: r.id,                       // ← 드래그 이동 영구 저장(PATCH)에 필요
+          move_version: scheduleMoveVersion(r),
           teacher_id,
           hour: hourOf(r.start_time),
           start_time: r.start_time,
@@ -6335,9 +6782,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       binds.push(limit);
       // 1차: teachers JOIN 시도 (강사명 함께)
       const _soSel = startsOnSel(await ensureStartsOnColumn(env), 'cs');
-      const sqlWithJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.created_at${_soSel}, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
+      const sqlWithJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.notes, cs.created_at${_soSel}, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
       // 2차: JOIN 없이 (teachers 테이블 미존재 등에 대비)
-      const sqlNoJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.created_at${_soSel} FROM class_schedules cs WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
+      const sqlNoJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.notes, cs.created_at${_soSel} FROM class_schedules cs WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
       try {
         let rows;
         try {
@@ -6914,7 +7361,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         json({ ok: false, error, message: ko, message_en: en, ...extra }, code);
 
       // ── 학생 신원 (uid 우선, 없으면 이름으로 조회) ──
-      const studentName = String(body.student_name || '').trim();
+      let studentName = String(body.student_name || '').trim();
       let userId = String(body.user_id || '').trim();
       if (!userId && studentName) {
         try {
@@ -6932,6 +7379,29 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         } catch {}
       }
       if (!userId) return bad('student_not_found', '학생을 찾지 못했습니다. 이름을 확인하거나 user_id 를 함께 보내주세요.', 'Student not found. Check the name or send user_id as well.');
+      /* 🆔 (2026-09-29) «아이디만» 적은 줄(require_known_uid)은 명부에 있는지 확인 — 오타가 «아무도 안 오는 수업» 이 된다.
+         정확일치 우선, 없으면 대소문자만 다른 후보가 «하나» 일 때만 명부 표기로. 조회 실패는 막지 않음. */
+      if (body.require_known_uid) {
+        let found: string | null = null, looked = false;
+        try {
+          const rs = ((await env.DB.prepare(`SELECT user_id FROM students_erp WHERE user_id = ? COLLATE NOCASE LIMIT 3`).bind(userId).all<any>()).results || []).map((x: any) => String(x.user_id));
+          found = rs.includes(userId) ? userId : (rs.length === 1 ? rs[0] : null); looked = true;
+        } catch {}
+        if (looked && !found) return bad('student_not_found', `아이디 «${userId}» 를 학생 명부에서 찾지 못했습니다. 철자를 확인해 주세요.`, `Student ID «${userId}» not found. Check the spelling.`);
+        if (found) userId = found;
+      }
+      /* 🏷 (2026-09-28) 아이디만 오고 이름이 비었으면 명부에서 이름을 채운다.
+         [왜] 학생 상세 화면(admin/student.html)이 읽던 STUDENT_NAME 변수가 어디에도 정의돼 있지
+              않아 그 화면에서 등록한 수업은 전부 student_name=NULL 로 저장됐고, 이름 칸만 보는
+              주간 전체 스케줄에 «20m» 만 남는 빈 카드가 됐다(정예희 yahee · Zee·Krystel 실제로 밟음).
+         ✅ user_id **정확일치** 한 행에서만 읽는다(이름 짐작 없음). 못 읽으면 예전처럼 NULL. */
+      if (!studentName) {
+        try {
+          const nr = await env.DB.prepare(`SELECT korean_name FROM students_erp WHERE user_id = ? LIMIT 1`)
+            .bind(userId).first<any>();
+          if (nr && String(nr.korean_name || '').trim()) studentName = String(nr.korean_name).trim();
+        } catch {}
+      }
 
       // ── 강사 매칭 (teachers 테이블 기준. '선생님/쌤' 접미사 제거 후 부분일치) ──
       //   ⚠️ teacher_profiles 에만 있고 teachers 에 없는 강사는 여기서 안 잡힌다 →
@@ -7078,7 +7548,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       // ── 등록 (반복 수업은 요일당 1행 — sessions/today 가 요일 1개를 전제로 계산) ──
       const now = Date.now();
       let actorName = 'admin';
-      try { const a = await getAdminActor(request, env as any); if (a?.name) actorName = a.name; } catch {}
+      let mergeOk = false;   // 🔀 신청서 자동 연결은 본사만 — 강사·조직 계정·모름이면 admin_ui 로 남긴다(목록의 «합치기» 로 본사가 잇는다)
+      try { const a = await getAdminActor(request, env as any); if (a?.name) actorName = a.name; mergeOk = !!(a && a.ok && !a.isTeacher && !isOrgScopedRole(a.role)); } catch {}
       const created: any[] = [];
       const failed: any[] = [];
       const targets = kind === 'recurring'
@@ -7112,8 +7583,13 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         } catch {}
       }
 
+      /* 🔀 (2026-09-30 사장님 «배정 경로가 어떠하든 수강신청 목록에 같은 조건과 버튼») 방금 만든 수업을
+         신청서로 잇는다 — 같은 묶음(학생·강사·시각·길이)의 살아 있는 신청서가 있으면 거기에 붙인다.
+         ⚠️ 실패해도 수업 등록은 그대로다(목록의 «합치기» 로 다시 잇는다) — 던지지 않는 함수다. */
+      const enrollmentMerge = mergeOk ? await mergeDirectByIds(env, created.map((c: any) => Number(c.id))) : null;
+
       return json({
-        ok: true, created, failed,
+        ok: true, created, failed, enrollment_merge: enrollmentMerge,
         // force:true 로 겹침을 무릅쓰고 등록한 경우, 무엇과 겹쳤는지 그대로 돌려준다
         conflicts: conf.student, teacher_conflicts: conf.teacher,
         user_id: userId, student_name: studentName || null,
@@ -7158,6 +7634,83 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         return json({ ok: true, id, status: 'cancelled' });
       } catch (e: any) {
         return json({ ok: false, error: 'delete_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
+    /* 📅 POST /api/admin/class-schedules/:id  { action:'split', dry_run? } — 2026-10-02 사장님 지시
+       매주 수업 한 줄을 날짜별 수업으로 나눈다(수강 종료일까지, 없으면 12주). 그래야 «그날 하루만»
+       연기·변경이 된다. 정본은 src/schedule-split.ts. ⛔ dry_run 이 기본이다.
+       🔒 본사 전용(enrollAdminHqOnly) — 이 경로는 강사 차단 접두사에 없어 핸들러가 직접 막는다. */
+    if (method === 'POST' && /^\/api\/admin\/class-schedules\/\d+$/.test(path)) {
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      if (!id) return json({ ok: false, error: 'invalid_id' }, 400);
+      const deny = await enrollAdminHqOnly(request, env);
+      if (deny) return deny;
+      const body: any = await request.json().catch(() => ({}));
+      /* ↩ (2026-10-07 매니저 요청 4) { action:'restore' } — 잘못 «수업 종료» 한 수업을 되살린다.
+         학생 상세 「🗓️ 종료·연장」이 DELETE(=cancelled) 로 내린 행을 그 자리 그대로 active 로 돌린다.
+         ⛔ source 는 안 바꾼다 — DELETE 가 미러 행에 찍은 'c24-mirror:manual' 이 남아야 미러가 그 행을
+            «사람 손» 으로 보고 덮지도·두 벌 만들지도 않는다.
+         ⛔ 같은 학생·같은 날짜·같은 시각에 이미 살아 있는 수업이 있으면 되살리지 않는다(두 벌 방지).
+         ⛔ 지난 날짜는 되살리지 않는다(지난 수업을 «예정» 으로 만들면 결석 감지·급여가 엉킨다). */
+      if (body && body.action === 'restore') {
+        const actor = await getAdminActor(request, env as any);
+        const row: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(id).first().catch(() => null);
+        if (!row) return json({ ok: false, error: 'not_found' }, 404);
+        /* ⏸ (2026-10-29 매니저 «how to undo the postponement») 연기된 회차도 같은 길로 되돌린다 —
+           「⏸ 연기됨 — 새 날짜 미정」 줄의 「↩ 연기 취소」 버튼. 원래 날짜·시각 그대로 active 로.
+           아래 지난 날짜·중복 확인을 그대로 탄다(연기 사이에 그 자리에 다른 수업이 들어왔을 수 있다). */
+        const fromSt = String(row.status || '');
+        if (fromSt !== 'cancelled' && fromSt !== 'postponed') return json({ ok: false, error: 'not_cancelled', status: row.status || null }, 409);
+        if (fromSt === 'postponed') {
+          // Use the same conflict snapshots and atomic audit as an ordinary move.
+          // A stale/double restore must never revive a subsequently changed class.
+          const result = await moveSchedulesAtomically(env, actor, { ids: [id], patch: {} }, [row], { restorePostponed: true });
+          return json(result.ok ? { ...result, id, status: 'active', from: fromSt } : result, result.status);
+        }
+        const sd = String(row.scheduled_date || '').slice(0, 10);
+        const todayKst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(sd) && sd < todayKst) return json({ ok: false, error: 'past_date' }, 409);
+        /* ⛔ 날짜 없는 매주 반복 행은 여기서 되살리지 않는다 — 날짜·중복 확인을 할 수 없다(시간표에서 다시 등록). */
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(sd)) return json({ ok: false, error: 'weekly_row' }, 409);
+        /* ⚠️ 중복 확인을 못 하면 «없다» 로 넘기지 않는다(fail-closed) — 두 벌이 되는 쪽이 더 나쁘다.
+           학생 쪽(같은 학생·같은 시각)과 강사 쪽(같은 강사·같은 시각, LMS·시드 자리표시 제외)을 함께 본다. */
+        let dup: any = null;
+        try {
+          dup = await env.DB.prepare(
+            `SELECT id FROM class_schedules WHERE id <> ? AND scheduled_date = ? AND substr(start_time,1,5) = substr(?,1,5) AND status != 'cancelled'
+               AND (user_id = ? OR (? <> '' AND teacher_id = ? AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed'))) LIMIT 1`
+          ).bind(id, sd, String(row.start_time || ''), row.user_id, String(row.teacher_id || ''), String(row.teacher_id || '')).first();
+        } catch (e: any) { return json({ ok: false, error: 'lookup_failed' }, 409); }
+        if (dup) return json({ ok: false, error: 'slot_taken', other_id: dup.id }, 409);
+        const upd: any = await env.DB.prepare(`UPDATE class_schedules SET status='active', updated_at=? WHERE id=? AND status=?`).bind(Date.now(), id, fromSt).run();
+        if (!(upd && upd.meta && upd.meta.changes > 0)) return json({ ok: false, error: 'not_cancelled' }, 409);
+        await writeClassAudit(env, {
+          action: 'restore', schedule_id: id,
+          teacher_name: row.teacher_name || null, student_name: row.student_name || null,
+          lesson_date: sd || null, lesson_time: row.start_time || null,
+          actor: actor.name || actor.username || '관리자', actor_role: 'admin', source: 'ui',
+          reason: body.reason ? String(body.reason).slice(0, 300) : '수업 종료 되돌리기',
+        });
+        return json({ ok: true, id, status: 'active', from: fromSt });
+      }
+      if (!body || body.action !== 'split') return json({ ok: false, error: 'unknown_action' }, 400);
+      const dry = body.dry_run !== false;
+      const actor = await getAdminActor(request, env as any);
+      try {
+        /* 📅 (2026-10-08) focus_date — 「오늘 수업·학생 목록·캘린더」 의 연기·변경·취소 창이 매주 수업을
+           «그 날 하나만» 다루려고 먼저 나눌 때 보낸다. 응답 focus_id 가 그 날의 날짜 수업 id 다. */
+        const r = await runScheduleSplit(env, id, { dry, actor: actor.username || actor.name || 'admin', focusDate: body.focus_date != null ? String(body.focus_date) : null });
+        if (!dry && r.cancelled) {
+          await writeClassAudit(env, {
+            action: 'split', schedule_id: id,
+            actor: actor.name || actor.username || '관리자', actor_role: 'admin', source: 'ui',
+            detail: JSON.stringify({ from: r.plan.from, until: r.plan.until, made: r.made, existing: r.existing.length, skipped: r.skipped }),
+          });
+        }
+        return json({ ...r, dry_run: dry }, r.ok ? 200 : 409);
+      } catch (e: any) {
+        return json({ ok: false, error: 'split_failed', detail: String(e?.message || e) }, 500);
       }
     }
 
@@ -7306,6 +7859,49 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       }
     }
 
+    if (method === 'PATCH' && path === '/api/admin/class-schedules/move') {
+      const body: any = await request.json().catch(() => ({}));
+      const actor = await getAdminActor(request, env as any);
+      // Time-only moves retain the existing teacher path; reassignment is HQ-only.
+      if (actor.isTeacher && (body.patch || body).teacher_id != null) return json(forbiddenTeacherBody(actor, '담당 강사 변경은 강사 권한으로 할 수 없습니다.'), 403);
+      if (!body.expected) return json({ ok: false, error: 'schedule_version_required', message: '수업을 새로고침한 뒤 다시 시도해 주세요.' }, 400);
+      const result = await moveSchedulesAtomically(env, actor, body);
+      return json(result, result.status as any);
+    }
+
+    // Read-only replacement preview shares the exact server-side move validator.
+    if (method === 'GET' && path === '/api/admin/class-schedules/teacher-options') {
+      const ids = Array.from(new Set(String(url.searchParams.get('ids') || '').split(',').filter(x => /^\d+$/.test(x))));
+      if (!ids.length || ids.length > 50) return json({ ok: false, error: 'invalid_ids' }, 400);
+      try {
+        const actor = await getAdminActor(request, env as any);
+        const scope: any = await env.DB.prepare(`SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`).bind(actor.username).first();
+        const deny = teacherMoveDenyReason({ ok: actor.ok, isTeacher: actor.isTeacher, scopeType: scope?.scope_type || null });
+        if (deny) return json({ ok: false, ...deny }, deny.status as any);
+        const sources: any[] = [];
+        for (const id of ids) {
+          const row = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(id).first();
+          if (!row) return json({ ok: false, error: 'schedule_not_found' }, 404);
+          sources.push(row);
+        }
+        const teachers: any = await env.DB.prepare(`SELECT id, name FROM teachers`).all();
+        if (!teachers || teachers.success === false || !Array.isArray(teachers.results)) throw new Error('teacher_lookup_failed');
+        const facts = await loadScheduleMoveFacts(env);
+        const options: Record<string, any> = {};
+        for (const teacher of teachers.results) {
+          let blocked: any = null;
+          for (const row of sources) {
+            blocked = await findScheduleMoveConflicts(env, { ...row, teacher_id: String(teacher.id) }, String(teacher.name || ''), ids, facts);
+            if (blocked) break;
+          }
+          options[String(teacher.id)] = { available: !blocked, error: blocked?.error || null, message: blocked?.message || null };
+        }
+        return json({ ok: true, options });
+      } catch {
+        return json({ ok: false, error: 'availability_check_failed', message: '강사 가능 시간을 확인하지 못했습니다. 다시 시도해 주세요.' }, 503);
+      }
+    }
+
     // 🥭 Phase WS — PATCH/PUT /api/admin/class-schedules/:id (드래그 이동: 요일/시간/지속/날짜 수정)
     //   body: { day_of_week?, start_time?('HH:MM'), duration_min?, scheduled_date?('YYYY-MM-DD') }
     //   허용된 필드만 동적으로 UPDATE → 캘린더 드래그앤드롭 영구 저장에 사용.
@@ -7344,7 +7940,19 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       }
       // 📜 이동 전 정보(이력용) + 행위자 — 담당 강사 가드가 이 둘을 쓰므로 sets 검사보다 «앞» 이다.
       const _pchActor = await getAdminActor(request, env as any);
-      const _pchRow: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(id).first().catch(() => null);
+      let _pchRow: any;
+      try { _pchRow = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(id).first(); }
+      catch { return json({ ok: false, error: 'schedule_read_failed', message: '수업 정보를 읽지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 503); }
+      if (!_pchRow) return json({ ok: false, error: 'schedule_not_found', message: '수업을 찾을 수 없습니다.' }, 404);
+      // Reject malformed input rather than silently applying only the other fields.
+      if (body.start_time != null && !/^(?:[01]?\d|2[0-3]):[0-5]\d$/.test(String(body.start_time))
+        || body.duration_min != null && (!Number.isInteger(Number(body.duration_min)) || Number(body.duration_min) <= 0 || Number(body.duration_min) > 240)
+        || body.day_of_week != null && !normDow(body.day_of_week)
+        || body.scheduled_date != null && (!/^\d{4}-\d{2}-\d{2}$/.test(String(body.scheduled_date))
+          || !Number.isFinite(Date.parse(String(body.scheduled_date) + 'T00:00:00Z'))
+          || new Date(String(body.scheduled_date) + 'T00:00:00Z').toISOString().slice(0, 10) !== String(body.scheduled_date))) {
+        return json({ ok: false, error: 'invalid_schedule', message: '수업 날짜·시간·길이를 확인해 주세요.' }, 400);
+      }
 
       /* 🧑‍🏫 (2026-09-11) 담당 강사 변경 — 드래그로 «다른 강사 열» 에 놓았을 때.
        *
@@ -7422,11 +8030,26 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
              되고, 화면·급여·노쇼 판정이 전부 이름을 못 붙인다. 모르면 안 바꾼다.
              ⚠️ class_schedules.teacher_id 는 teachers.id 도메인이다(카페24 강사번호가 아니다
                 — CLAUDE.md 2장 「강사 번호가 세 벌」). 화면 목록도 /api/admin/teachers 의 id 다. */
-          const _trow: any = await env.DB.prepare(
+          let _trow: any;
+          try { _trow = await env.DB.prepare(
             `SELECT CAST(id AS TEXT) AS tid, name FROM teachers WHERE CAST(id AS TEXT) = ? LIMIT 1`
-          ).bind(_tid).first().catch(() => null);
+          ).bind(_tid).first(); }
+          catch { return json({ ok: false, error: 'teacher_lookup_failed', message: '강사 정보를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 503); }
           if (!_trow) {
             return json({ ok: false, error: 'teacher_not_found', message: '그 번호의 강사를 찾을 수 없습니다.' }, 400);
+          }
+          // Validate the effective destination, not just the unchanged source time.
+          // force=true is intentionally not an override for an unsafe reassignment.
+          try {
+            const destination = { ..._pchRow, teacher_id: _tid,
+              ...(body.scheduled_date != null ? { scheduled_date: String(body.scheduled_date) } : {}),
+              ...(body.day_of_week != null ? { day_of_week: normDow(body.day_of_week) } : {}),
+              ...(body.start_time != null ? { start_time: String(body.start_time) } : {}),
+              ...(body.duration_min != null ? { duration_min: Number(body.duration_min) } : {}) };
+            const conflict = await findScheduleMoveConflicts(env, destination, String(_trow.name || ''));
+            if (conflict) return json({ ok: false, ...conflict }, conflict.status as any);
+          } catch {
+            return json({ ok: false, error: 'availability_check_failed', message: '강사의 수업·휴가 정보를 확인하지 못해 변경하지 않았습니다. 잠시 후 다시 시도해 주세요.' }, 503);
           }
           sets.push('teacher_id = ?'); binds.push(_tid);
           /* ⛔ 상태를 `body` 에 끼워 넘기지 말 것 — body 는 request.json() 이라 클라이언트가
@@ -7448,35 +8071,23 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       if (_pchRow && String(_pchRow.source || '') === MIRROR_SOURCE) {
         sets.push('source = ?'); binds.push(MIRROR_SOURCE_MANUAL);
       }
+      /* ⏸ (2026-10-01) 연기했던 회차를 새 날짜·시각으로 «다시 잡으면» 열린 수업으로 되돌린다 —
+         안 되돌리면 옮긴 자리에서도 'postponed' 라 오늘 수업·학생 입장에서 숨는다(class-postponed.ts).
+         ⛔ 강사만 바꾸는 요청에는 손대지 않는다(다시 잡은 것이 아니다). */
+      if (isPostponedOccurrence(_pchRow) && sets.some((x) => x.startsWith('scheduled_date') || x.startsWith('start_time'))) {
+        sets.push(`status = 'active'`);
+      }
       sets.push('updated_at = ?'); binds.push(Date.now());
       binds.push(id);
-      try {
-        await env.DB.prepare(`UPDATE class_schedules SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
-        /* 📜 수업 변경 이력(이동/재조정) — 날짜·시간·요일 «또는 담당 강사» 가 바뀐 경우.
-           ⚠️ 강사 변경을 여기서 빼면 급여가 걸린 변경이 아무 데도 안 남는다. */
-        const _tchChanged = _tchToName != null;
-        if (body.scheduled_date != null || body.start_time != null || body.day_of_week != null || _tchChanged) {
-          const _newDate = body.scheduled_date != null ? String(body.scheduled_date) : (_pchRow ? _pchRow.scheduled_date : null);
-          const _newTime = body.start_time != null ? String(body.start_time) : (_pchRow ? _pchRow.start_time : null);
-          const _tchLine = _tchChanged
-            ? ` · 담당 강사 ${String(_tchFrom ?? '?')} → ${String(_tchToName)}`
-            : '';
-          await writeClassAudit(env, {
-            action: 'reschedule', schedule_id: id,
-            teacher_name: _pchRow ? (_pchRow.teacher_name || null) : null,
-            student_name: _pchRow ? (_pchRow.student_name || null) : null,
-            lesson_date: _pchRow ? (_pchRow.scheduled_date || null) : null,
-            lesson_time: _pchRow ? (_pchRow.start_time || null) : null,
-            actor: _pchActor.name || '관리자',
-            actor_role: _pchActor.isTeacher ? 'teacher' : 'admin',
-            source: 'ui',
-            detail: (`→ ${_newDate || ''} ${_newTime || ''}`.trim() + _tchLine).trim(),
-          });
-        }
-        return json({ ok: true, id, updated_fields: sets.length - 1 });
-      } catch (e: any) {
-        return json({ ok: false, error: 'update_failed', detail: String(e?.message || e) }, 500);
-      }
+      // Legacy single-row PATCH/PUT shares the same transactional write/validation path.
+      const validatedPatch: any = {};
+      sets.forEach((set, i) => {
+        const field = /^(teacher_id|scheduled_date|day_of_week|start_time|duration_min) = \?$/.exec(set);
+        if (field) validatedPatch[field[1]] = binds[i];
+      });
+      const result = await moveSchedulesAtomically(env, _pchActor, { ids: [id], patch: validatedPatch, expected: body.expected }, [_pchRow]);
+      return json({ ...result, id, ...(result.ok ? { updated_fields: sets.length - 1 } : {}) }, result.status as any);
+
     }
 
 
@@ -8069,8 +8680,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
            FROM game_progress WHERE user_id = ? AND last_seen >= ?`, uid, since);
       const gameWeak = await fetchAll(
         `SELECT item, ko, wrong_count FROM game_progress
-          WHERE user_id = ? AND wrong_count > 0 AND wrong_count >= correct_count
-          ORDER BY wrong_count DESC LIMIT 5`, uid);
+          WHERE user_id = ? AND ${WEAK_WHERE}
+          ORDER BY ${WEAK_ORDER} LIMIT 5`, uid, weakSince(Date.now()));  // 정본 src/weak-words.ts
       // 🎤 스피치코치 발음/정확도/유창성 평균 (최근 10회)
       const coachAgg: any = await fetch1(
         `SELECT COUNT(*) AS n, AVG(pronunciation_score) AS p, AVG(accuracy_score) AS a, AVG(fluency_score) AS f FROM (
@@ -8504,9 +9115,10 @@ ${chatSampleText}
         try {
           const cols: any = await env.DB.prepare(`PRAGMA table_info(students_erp)`).all();
           const colNames = ((cols.results || []) as any[]).map(c => c.name);
-          if (colNames.includes('student_name')) nameCol = 'student_name';
-          else if (colNames.includes('korean_name')) nameCol = 'korean_name';
-          else if (colNames.includes('name')) nameCol = 'name';
+          // ⚠️ 2026-10-09: 운영 D1 은 student_name 칸이 «있지만» 29,551명 중 12명만 채워져 있고 실제 이름은
+          //    korean_name(전원)에 있습니다. 한 칸만 고르면 이름이 비어 아이디로 떨어지므로, 있는 칸을 전부 COALESCE.
+          const _nc = ['student_name', 'korean_name', 'name'].filter(c => colNames.includes(c));
+          if (_nc.length) nameCol = 'COALESCE(' + _nc.map(c => `NULLIF(TRIM(${c}),'')`).join(', ') + ", '')";
           if (colNames.includes('parent_phone')) parentPhoneCol = 'parent_phone';
           if (colNames.includes('parent_name')) parentNameCol = 'parent_name';
         } catch {}
@@ -8526,19 +9138,78 @@ ${chatSampleText}
         const _swRisk = await studentScopeWhere(env, request);  // 🔒 지사/대리점 격리
 
         // ⚡ KV 캐시(scope 별 키, 180초) — 반복 열람 시 무거운 스캔 생략. 케어 발송 등 변경 후엔 자연 만료.
-        const _rrKey = 'retrisk:' + nameCol + ':' + ((_swRisk.cond || 'all') + '|' + (_swRisk.binds || []).join(','));
+        const _rrKey = 'retrisk3:' + nameCol + ':' + ((_swRisk.cond || 'all') + '|' + (_swRisk.binds || []).join(','));
+        /* 📞 (2026-10-13 케어 보드 2단계) «마지막 연락» 은 캐시 «밖» 에서 붙인다 — 정본 lastContacts.
+           캐시(180초) 안에 넣으면 방금 문자를 보내도 3분 동안 «연락 안 함» 으로 보여 또 보내게 된다.
+           ⚠️ 원천이 하나라도 실패하면 last_contact_ok=false — 화면은 그 줄을 아예 안 그린다
+              («연락 기록 없음» 으로 위장하면 또 연락하게 만든다). 목록 자체는 그대로 낸다. */
+        const _rrWithContact = async (body: string, hdr: Record<string, string>) => {
+          try {
+            const o = JSON.parse(body);
+            const list: any[] = Array.isArray(o.at_risk) ? o.at_risk : [];
+            const { map: m, failed } = await lastContacts(env.DB, list.map(x => x.user_id));
+            for (const x of list) { const c = m.get(String(x.user_id)); x.last_contact = c ? { at: c.at, via: c.via } : null; }
+            o.last_contact_ok = failed === 0;
+            return new Response(JSON.stringify(o), { status: 200, headers: { 'Content-Type': 'application/json', ...hdr } });
+          } catch (e: any) {
+            console.warn('[retention/risk] last_contact 실패:', e?.message);
+            return new Response(body, { status: 200, headers: { 'Content-Type': 'application/json', ...hdr } });
+          }
+        };
         try {
           const _hit = await env.SESSION_STATE.get(_rrKey);
-          if (_hit) return new Response(_hit, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } });
+          if (_hit) return await _rrWithContact(_hit, { 'X-Adm-Cache': 'hit' });
         } catch { /* 캐시 miss 무시 */ }
 
-        const studentsRs = await env.DB.prepare(
-          // ⚠️ status 값: 카페24 동기화가 영어 'active'/'inactive'로 적재(실측 28,641/722). 레거시 '정상'/'활동'도 함께 인정(하위호환).
-          //    (기존 '정상'만 필터하면 매칭 0건 → 학생 0명 early-return 으로 이탈위험이 조용히 빈 목록이 됨)
-          `SELECT ${selectCols} FROM students_erp WHERE (status IN ('정상','활동','active') OR status IS NULL OR status = '')${_swRisk.cond ? ' AND ' + _swRisk.cond : ''} LIMIT 500`
-        ).bind(..._swRisk.binds).all();
-        const students = (studentsRs.results || []) as any[];
-        if (!students.length) return json({ ok: true, count: 0, at_risk: [], schema: { name_col: nameCol } });
+        /* 🎯 (2026-10-13 이탈 케어 보드 1단계) 누구를 볼 것인가 — «최근 90일에 수업 흔적이 있는 학생».
+           🔴 그전에는 `… WHERE status 활성 LIMIT 500` 이라 명부 29,000명 중 «정렬 없이 아무» 500명만 봤습니다.
+              그래서 심각+주의+관찰 합(486)이 «위험 학생 수» 가 아니라 «그 500명 거의 전원» 이었고,
+              진짜 위험한 학생이 그 500명 밖이면 화면에 아예 안 나왔습니다(사장님 캡처 2026-10-13).
+           ✅ 후보 = ① 최근 90일 출석·예약 기록이 있는 계정(실접속은 account_uid, 카페24 씨앗은 user_id —
+              정본 ATTENDANCE_ACCOUNT_KEY) ② 카페24 이탈 스냅샷(student_retention — 만료·장기 미수강).
+              90일 넘게 흔적이 없는 학생은 «이탈 위험» 이 아니라 이미 떠난 학생이라 빼고, 그 수를 응답에 적습니다.
+           ✅ 상한(RISK_SCAN_MAX)을 넘으면 «가장 조용한 학생부터»(마지막 기록이 오래된 순) 보고 truncated 로 말합니다.
+              ⛔ 정렬 없는 LIMIT 으로 되돌리지 마세요. */
+        const RISK_SCAN_MAX = 1000;
+        await ensureAttendanceAccountUid(env);
+        const _lastSeen = new Map<string, number>();   // 계정 → 최근 90일 안 마지막 기록(ms). 0 = 스냅샷에만 있음
+        try {
+          const ar: any = await env.DB.prepare(
+            `SELECT ${ATTENDANCE_ACCOUNT_KEY} AS k, MAX(joined_at) AS j FROM attendance
+              WHERE joined_at >= ? AND joined_at <= ? AND COALESCE(role,'student') = 'student'
+              GROUP BY k`).bind(since90, now).all();
+          for (const r of (ar.results || [])) if (r.k) _lastSeen.set(String(r.k), Number(r.j) || 0);
+        } catch (e: any) { console.warn('[retention/risk] 후보(출석) 조회 실패:', e?.message); }
+        try {
+          const sr: any = await env.DB.prepare(`SELECT user_id FROM student_retention`).all();
+          for (const r of (sr.results || [])) if (r.user_id && !_lastSeen.has(String(r.user_id))) _lastSeen.set(String(r.user_id), 0);
+        } catch { /* 스냅샷 표가 없는 환경 — 출석 후보만 */ }
+
+        // ⚠️ status 값: 카페24 동기화가 영어 'active'/'inactive'로 적재. 레거시 '정상'/'활동'도 함께 인정(하위호환).
+        const _activeCond = `(status IN ('정상','활동','active') OR status IS NULL OR status = '')${_swRisk.cond ? ' AND ' + _swRisk.cond : ''}`;
+        let activeTotal: number | null = null;
+        try {
+          const ct: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE ${_activeCond}`).bind(..._swRisk.binds).first();
+          activeTotal = Number(ct?.n) || 0;
+        } catch { /* 표시용 — 못 세면 null */ }
+        let _cands: any[] = [];
+        if (_lastSeen.size) {
+          const sRs: any = await env.DB.prepare(
+            `SELECT ${selectCols} FROM students_erp WHERE user_id IN (SELECT value FROM json_each(?)) AND ${_activeCond}`
+          ).bind(JSON.stringify([..._lastSeen.keys()]), ..._swRisk.binds).all();
+          _cands = (sRs.results || []) as any[];
+        }
+        // 가장 조용한 학생부터(마지막 기록 오래된 순 · 스냅샷에만 있는 학생이 맨 앞) — 동점은 아이디로 고정
+        _cands.sort((a, b) => ((_lastSeen.get(a.user_id) || 0) - (_lastSeen.get(b.user_id) || 0)) || String(a.user_id).localeCompare(String(b.user_id)));
+        const students = _cands.slice(0, RISK_SCAN_MAX);
+        const scanMeta = {
+          active_total: activeTotal,          // 명부 활성 학생(스코프 안)
+          candidates: _cands.length,          // 그중 최근 90일 흔적 또는 이탈 스냅샷에 있는 학생
+          scanned: students.length,           // 실제로 점수를 매긴 학생
+          truncated: _cands.length > students.length,
+          window_days: 90,
+        };
+        if (!students.length) return json({ ok: true, count: 0, at_risk: [], scan: scanMeta, schema: { name_col: nameCol } });
 
         // ⚡ N+1 제거 — 학생당 반복 쿼리(≈8×N=수천건)를 그룹 쿼리 9개로 일괄 집계 후 메모리에서 점수 계산.
         //    점수 로직(S1~S10)·응답 형태는 원본과 100% 동일, 데이터 수집 방식만 변경.
@@ -8558,13 +9229,26 @@ ${chatSampleText}
           for (const r of rows) m.set(String(r[keyCol]), pick(r));
           return m;
         };
+        // 출석 전용 — 계정 목록을 JSON 하나로 넘기므로(json_each) 청크가 필요 없습니다. 실패하면 빈 Map(예전 swallow 동작과 같음).
+        const _attMap = async (sql: string, tail: any[]): Promise<Map<string, any>> => {
+          const m = new Map<string, any>();
+          try {
+            const rs: any = await env.DB.prepare(sql).bind(...attUidListBinds(_ids), ...tail).all();
+            for (const r of (rs.results || [])) if (r.k != null) m.set(String(r.k), _num(r.v));
+          } catch (e: any) { console.warn('[retention/risk] 출석 집계 실패:', e?.message); }
+          return m;
+        };
         try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, amount INTEGER, due_at INTEGER, paid_at INTEGER, status TEXT);`); } catch {}
 
         const [att30M, att60M, att90M, lastJoinM, evalM, payM, hwM, ptM, _trendRows, absentStreakM] = await Promise.all([
-          _groupMap(ph => `SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${ph}) AND joined_at >= ? GROUP BY user_id`, [since30], 'user_id', r => _num(r.d)),
-          _groupMap(ph => `SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${ph}) AND joined_at >= ? AND joined_at < ? GROUP BY user_id`, [since60, since30], 'user_id', r => _num(r.d)),
-          _groupMap(ph => `SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${ph}) AND joined_at >= ? AND joined_at < ? GROUP BY user_id`, [since90, since60], 'user_id', r => _num(r.d)),
-          _groupMap(ph => `SELECT user_id, MAX(joined_at) j FROM attendance WHERE user_id IN (${ph}) GROUP BY user_id`, [], 'user_id', r => _num(r.j)),
+          /* 📌 (2026-10-13) 출석 네 신호는 «계정» 으로 셉니다 — 정본 ATTENDANCE_BY_UID_LIST / ATTENDANCE_ACCOUNT_KEY.
+             🔴 그전에는 `attendance.user_id IN (계정들)` 이었는데 그 칸은 실접속에선 «기기 임시번호» 라
+                실제로 화상수업을 듣는 학생도 「30일 출석 0회 · 마지막 입장 수백 일 전」이 됐습니다.
+             ✅ 그리고 «지금 이후» 행(카페24가 미리 만드는 예약 씨앗)은 출석이 아니므로 joined_at <= now 로 자릅니다. */
+          _attMap(`SELECT ${ATTENDANCE_ACCOUNT_KEY} AS k, COUNT(DISTINCT date) AS v FROM attendance WHERE ${ATTENDANCE_BY_UID_LIST} AND joined_at >= ? AND joined_at <= ? GROUP BY k`, [since30, now]),
+          _attMap(`SELECT ${ATTENDANCE_ACCOUNT_KEY} AS k, COUNT(DISTINCT date) AS v FROM attendance WHERE ${ATTENDANCE_BY_UID_LIST} AND joined_at >= ? AND joined_at < ? GROUP BY k`, [since60, since30]),
+          _attMap(`SELECT ${ATTENDANCE_ACCOUNT_KEY} AS k, COUNT(DISTINCT date) AS v FROM attendance WHERE ${ATTENDANCE_BY_UID_LIST} AND joined_at >= ? AND joined_at < ? GROUP BY k`, [since90, since60]),
+          _attMap(`SELECT ${ATTENDANCE_ACCOUNT_KEY} AS k, MAX(joined_at) AS v FROM attendance WHERE ${ATTENDANCE_BY_UID_LIST} AND joined_at <= ? GROUP BY k`, [now]),
           _groupMap(ph => `SELECT student_uid, AVG(score_overall) a, COUNT(*) n FROM student_evaluations WHERE student_uid IN (${ph}) AND created_at >= ? GROUP BY student_uid`, [since60], 'student_uid', r => ({ a: _num(r.a), n: _num(r.n) })),
           _groupMap(ph => `SELECT user_id, MIN(due_at) earliest_due, SUM(amount) total FROM payments WHERE user_id IN (${ph}) AND (paid_at IS NULL OR paid_at = 0) AND due_at < ? GROUP BY user_id`, [now], 'user_id', r => ({ earliest_due: _num(r.earliest_due), total: _num(r.total) })),
           _groupMap(ph => `SELECT user_id, COUNT(*) n FROM homework_submissions WHERE user_id IN (${ph}) AND status = 'missed' AND created_at >= ? GROUP BY user_id`, [since30], 'user_id', r => _num(r.n)),
@@ -8576,23 +9260,25 @@ ${chatSampleText}
           /* 🚷 (2026-08-30 v4 제안서 17) 연속 결석 횟수 — 「3회 이상이면 위험도를 심각으로 올려 달라」.
              ⚠️ 「최근 30일 출석 0」(S2)과는 **다른 사실**이다. 수업이 원래 드문 학생은 S2 만으로는
                 안 걸리고, 반대로 방학처럼 수업 자체가 없던 기간은 «연속 결석» 이 아니다.
-             🧮 판정은 「장기 결석생」 화면(/api/admin/attendance/long-absent)과 **같은 식**이다 —
-                최신 수업일부터 거꾸로 세다가 출석(present)을 만나면 멈춘다. 두 화면이 다른 숫자를
-                말하면 그 자체가 사고이므로 식을 복제하지 말고 같은 모양을 유지할 것.
+             🧮 세는 방법(최신 수업일부터 거꾸로, present 를 만나면 멈춤)은 「장기 결석생」 화면
+                (/api/admin/attendance/long-absent)과 같다.
+             ⚠️ (2026-10-13) 단, 이제 «묶는 키» 가 다르다 — 여기는 계정(ATTENDANCE_ACCOUNT_KEY)으로
+                실접속 행과 카페24 씨앗을 한 줄로 잇고, long-absent 는 아직 a.user_id 로 묶고 기간 하한도
+                있다. 그래서 같은 학생이 두 화면에서 다른 숫자를 말할 수 있다. 맞출지는 사람이 정할 일.
+             ⚙️ 기간 하한이 없지만 풀스캔은 아니다 — 로컬 SQLite EXPLAIN QUERY PLAN 실측:
+                MULTI-INDEX OR (idx_attendance_account_date · idx_attendance_user_date). 운영 D1 은 미측정.
              ⚠️ 미래 예약(status='scheduled', joined_at 이 2030년까지 있다)을 결석으로 세지 않도록
                 date <= 오늘(KST) 로 자른다. */
-          _groupMap(
-            (ph) => `WITH ranked AS (
-                       SELECT user_id, date, status,
-                              ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY date DESC, id DESC) AS rn
+          // 🚷 연속 결석도 «계정» 으로 묶어 셉니다(위와 같은 이유). 실접속 행과 카페24 씨앗이 한 줄로 이어집니다.
+          _attMap(`WITH ranked AS (
+                       SELECT ${ATTENDANCE_ACCOUNT_KEY} AS k, date, status,
+                              ROW_NUMBER() OVER (PARTITION BY ${ATTENDANCE_ACCOUNT_KEY} ORDER BY date DESC, id DESC) AS rn
                          FROM attendance
-                        WHERE COALESCE(role,'student') = 'student' AND user_id IN (${ph})
+                        WHERE COALESCE(role,'student') = 'student' AND ${ATTENDANCE_BY_UID_LIST}
                           AND date IS NOT NULL AND date <= ?
                      )
-                     SELECT user_id,
-                            COALESCE(MIN(CASE WHEN status = 'present' THEN rn END) - 1, MAX(rn)) AS streak
-                       FROM ranked GROUP BY user_id`,
-            [today()], 'user_id', r => _num(r.streak)),
+                     SELECT k, COALESCE(MIN(CASE WHEN status = 'present' THEN rn END) - 1, MAX(rn)) AS v
+                       FROM ranked GROUP BY k`, [today()]),
         ]);
 
         // 평가 추세 — 최근3회 vs 직전3회 평균 (원본 recent3/prev3 동등)
@@ -8636,7 +9322,8 @@ ${chatSampleText}
           const signals: any = {};
 
           // S1: 마지막 입장 기준 (가장 강력한 신호)
-          if (daysSinceLastJoin >= 21)      { risk += 45; reasons.push(`📵 마지막 입장 ${daysSinceLastJoin}일 전`); signals.lastJoin = 'critical'; }
+          // ⚠️ 기록이 아예 없으면(999) «999일 전» 이라고 지어내지 않고 사실대로 적습니다.
+          if (daysSinceLastJoin >= 21)      { risk += 45; reasons.push(_lastJ ? `📵 마지막 입장 ${daysSinceLastJoin}일 전` : '📵 출석 기록 없음'); signals.lastJoin = 'critical'; }
           else if (daysSinceLastJoin >= 14) { risk += 35; reasons.push(`📵 마지막 입장 ${daysSinceLastJoin}일 전`); signals.lastJoin = 'high'; }
           else if (daysSinceLastJoin >= 7)  { risk += 18; reasons.push(`⏰ 최근 1주 미출석`); signals.lastJoin = 'medium'; }
 
@@ -8701,6 +9388,7 @@ ${chatSampleText}
             atRisk.push({
               user_id: s.user_id,
               student_name: s.student_name || s.user_id,
+              name_known: !!(s.student_name && s.student_name !== s.user_id),  // 화면 「학생이름」 칸: 이름이 없으면 아이디를 이름처럼 그리지 않기
               parent_name: s.parent_name || null,
               parent_phone: s.parent_phone || null,
               risk_score: Math.min(risk, 100),
@@ -8726,9 +9414,9 @@ ${chatSampleText}
         }
         // 위험도 내림차순
         atRisk.sort((a, b) => b.risk_score - a.risk_score);
-        const _rrPayload = JSON.stringify({ ok: true, count: atRisk.length, at_risk: atRisk, schema: { name_col: nameCol } });
+        const _rrPayload = JSON.stringify({ ok: true, count: atRisk.length, at_risk: atRisk, scan: scanMeta, schema: { name_col: nameCol } });
         try { await env.SESSION_STATE.put(_rrKey, _rrPayload, { expirationTtl: 180 }); } catch { /* 캐시 저장 실패 무시 */ }
-        return new Response(_rrPayload, { status: 200, headers: { 'Content-Type': 'application/json' } });
+        return await _rrWithContact(_rrPayload, {});
       } catch (e: any) {
         console.warn('[retention/risk] error:', e?.message);
         return json({ ok: false, error: e?.message || 'risk_failed' }, 500);
@@ -8787,6 +9475,44 @@ ${chatSampleText}
            ℹ️ 「장기 결석생」 화면의 퀵케어는 이 경로가 아니라 sms:·tel: 링크라 손대지 않았다
               (그쪽은 폰의 문자앱을 열어 줄 뿐이라 «보냈다» 고 말하지 않는다). */
         const _careTo = parentPhone || studentPhone || '';
+        /* 📣 (2026-10-07 매니저 요청 3) 'class_notice' — 「오늘 수업」 줄에서 «강사가 기술 문제로 못 하게 됐다» 같은
+           안내를 그 학생에게 바로 보낸다(카페24 「메시지 보내기」 PUSH+SMS 에 해당).
+           - 받는 곳 둘: ① 웹푸시(그 학생 계정이 알림을 켰을 때만) ② 문자(번호는 정본 phonesForStudent —
+             화면에서 받아 둔 번호(override)를 먼저 본다. 위 _careTo 는 명부만 봐서 그 번호를 못 본다).
+           - 🔒 돈이 나가고 우리 이름으로 나가는 문자라 강사·지사·대리점은 막는다(모르면 막는 쪽).
+           - ⚠️ «하나라도 닿았는가» 로 sent/failed 를 가른다 — 둘 다 0이면 «보냈다» 고 하지 않는다. */
+        if (actionType === 'class_notice') {
+          //    판정은 정본 enrollAdminHqOnly(스코프를 다시 읽고 못 읽으면 막음 — getAdminActor 의 fail-open 을 안 탄다).
+          const _cnDeny = await enrollAdminHqOnly(request, env);
+          if (_cnDeny) return _cnDeny;
+          if (!message) return json({ ok: false, error: 'empty_message' }, 400);
+          const _wantPush = b.push !== false, _wantSms = b.sms !== false;
+          const parts: string[] = [];
+          let reached = 0;
+          if (_wantPush) {
+            const pr: any = await sendPushToUser(env as any, uid, String(b.title || '망고아이 안내').slice(0, 60), message, '/', 'class-notice-' + now).catch((e: any) => ({ ok: false, error: e?.message }));
+            const n = Number(pr && pr.sent) || 0;
+            reached += n;
+            parts.push(n > 0 ? '푸시 ' + n + '대 전송' : (pr && pr.msg === 'no_subscriptions' ? '푸시: 이 학생은 알림을 켜지 않았습니다' : '푸시: 못 보냄'));
+          }
+          if (_wantSms) {
+            let to = '';
+            try { const ph = await phonesForStudent(env as any, uid); to = ph.parent || ph.student || ''; } catch {}
+            if (!to) to = _careTo;
+            if (!to || to.replace(/[^0-9]/g, '').length < 10) parts.push('문자: 보낼 번호가 없습니다');
+            else {
+              const r: any = await sendPlainSms(env as any, to, message, { subject: String(b.title || '망고아이 안내').slice(0, 30) });
+              if (r.ok && r.mode !== 'mock') { reached++; parts.push('문자 발송 → ' + maskPhoneForLog(to)); }
+              else if (r.ok) parts.push('문자: 테스트 모드라 실제로는 안 나갔습니다');
+              else parts.push('문자 실패: ' + (r.message || r.error || 'unknown'));
+            }
+          }
+          status = reached > 0 ? 'sent' : 'failed';
+          detail = parts.join(' · ');
+          await env.DB.prepare(`INSERT INTO retention_care_log (user_id, action_type, message, gift_type, event_id, status, error, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+            .bind(uid, actionType, message, '', '', status, status === 'failed' ? detail : null, now).run();
+          return json({ ok: true, status, detail, reached });
+        }
         if (actionType === 'kakao' || actionType === 'sms') {
           if (!message) { status = 'failed'; detail = '보낼 내용이 비어 있습니다.'; }
           else if (!_careTo) {
@@ -8850,7 +9576,20 @@ ${chatSampleText}
         await env.DB.prepare(`INSERT INTO retention_care_log (user_id, action_type, message, gift_type, event_id, status, error, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
           .bind(uid, actionType, message, giftType, eventId, status, status === 'failed' ? detail : null, now).run();
 
-        return json({ ok: true, status, detail });
+        /* 📞 (2026-10-13 케어 보드 2단계) 실제로 연락했으면 «한 곳» 에도 적는다 — 정본 care-contact.ts.
+           그래야 B(AI 매출·이탈 요약)·E(수강권 만료) 화면도 «연락함» 으로 보여 두 번 연락하지 않는다.
+           ⚠️ 연락으로 세는 것만(카톡·문자·전화 · sent/logged). 실패·테스트모드·포인트는 아니다.
+           🔒 강사·조직(지사·대리점) 계정은 적지 않는다 — 같은 표의 정식 경로(/api/admin/forecast/*)가 막는 계정이다.
+              작성자를 «모르면» 적지 않는다(모르면 막는 쪽). 연락 자체는 이미 끝났으니 응답은 그대로. */
+        const careWriterOk = (a: any) => !!(a && a.ok && a.username && !a.isTeacher && !isOrgScopedRole(a.role));
+        let careRecorded = false;
+        if ((CARE_CONTACT_ACTIONS as readonly string[]).includes(actionType) && (CARE_CONTACT_STATUSES as readonly string[]).includes(status)) {
+          let _a: any = null;
+          try { _a = await getAdminActor(request, env as any); } catch (e) { console.warn('[retention/care] 작성자 조회 실패 — 케어 기록 생략:', (e as any)?.message); }
+          if (careWriterOk(_a)) careRecorded = await recordCareContact(env as any, uid, _a.username, now);
+        }
+
+        return json({ ok: true, status, detail, care_recorded: careRecorded });
       } catch (e: any) {
         console.warn('[retention/care] error:', e?.message);
         return json({ ok: false, error: e?.message || 'care_failed' }, 500);
@@ -9586,6 +10325,33 @@ LIMIT $limit`;
           ORDER BY COALESCE(p.created_at,0) DESC, p._rid DESC`
       ).bind(...binds).all();
       const _piiStudents = applyPIIScope(rs.results || [], _ssw.scope);  // 🔒 권한별 PII 마스킹
+      /* 🗓️ (2026-10-13 사장님 «중요한 정보를 오른쪽에») 「수업 기록」 칸 — 위 CTE 의 sessions·last_seen 은
+         attendance.user_id(=접속마다 바뀌는 기기번호)로만 세서, 카페24에 없는 학생은 늘 0 이었다
+         (CLAUDE.md 「출결만 통째로 0」). 여기서 정본(account_uid OR user_id, 학생 키로 묶음)으로 «다시» 센다.
+         · 오늘 이후 날짜는 안 센다 — 카페24 씨앗은 «예약» 이라 미래 날짜가 섞여 있다(최근 수업이 미래가 되면 거짓).
+         · 바인드는 JSON 배열 하나(json_each) — D1 100개 한도와 무관.
+         ⚠️ 카페24 씨앗을 포함하므로 «출석» 이 아니라 «수업 기록» 이다(KPI 와 같은 말).
+         ⛔ 실패하면 위 CTE 값을 그대로 둔다(fail-open — 그 칸만 옛 값). */
+      try {
+        const _uids = (_piiStudents as any[]).map((x: any) => String(x?.user_id || '')).filter(Boolean);
+        if (_uids.length) {
+          await ensureAttendanceAccountUid(env as any);
+          const _today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+          const _ar = await env.DB.prepare(
+            `SELECT ${ATTENDANCE_ACCOUNT_KEY} AS uid, COUNT(*) AS n, MAX(date) AS last_d
+               FROM attendance
+              WHERE ${ATTENDANCE_BY_UID_LIST} AND date <= ?
+              GROUP BY uid`
+          ).bind(...attUidListBinds(_uids), _today).all();
+          const _am = new Map<string, any>();
+          for (const r of ((_ar as any).results || [])) _am.set(String(r.uid), r);
+          for (const _st of (_piiStudents as any[])) {
+            const r = _am.get(String(_st?.user_id || ''));
+            _st.sessions = r ? Number(r.n) || 0 : 0;
+            _st.last_seen = r ? (r.last_d || null) : null;
+          }
+        }
+      } catch (e) { console.warn('[students/unified] 수업 기록 다시 세기 실패(옛 값 유지):', (e as any)?.message || e); }
       /* 📘 (2026-09-21) 「예약」 칸 — erp-list 와 «같은» 정본을 여기에도 싣는다.
          2026-09-15 에 그 칸을 만들 때 erp-list 에만 실었는데, 학생 명부 표가 실제로
          부르는 것은 이쪽(unified)이라 **도입 이래 한 번도 값이 안 닿아** 늘 «—» 였다
@@ -9598,6 +10364,15 @@ LIMIT $limit`;
       for (const _st of (_piiStudents as any[])) {
         _st.sched = _schedMap.get(String(_st?.user_id || '').trim()) || { ...EMPTY_SCHED_SUMMARY };
       }
+      /* 💰📅 «최근 결제»·«다음 수업» (2026-10-13 사장님 지시) — 정본 student-roster-extras.ts.
+         ⛔ 실패해도 명부는 그대로(그 두 칸만 «—»). 요일 해석은 정본 admDowMatches 를 주입한다. */
+      /* 🔒 결제 금액은 강사에게 안 싣는다 — 같은 student_payments 를 보여 주는 /api/admin/payments 가
+         강사에게 막혀 있다(TEACHER_BLOCKED_PREFIXES «결제·정산»). 이 칸으로 그 차단을 비켜 가면 안 된다.
+         ⚠️ 신원을 못 읽으면 «안 싣는» 쪽으로 실패한다(돈 정보). */
+      let _rxWithPay = false;
+      try { _rxWithPay = !(await getAdminActor(request, env as any)).isTeacher; } catch { _rxWithPay = false; }
+      try { await attachRosterExtras(env as any, _piiStudents as any[], Date.now(), admDowMatches, { withPay: _rxWithPay }); }
+      catch (e: any) { console.warn('[students/unified] roster extras 실패(그 칸만 비움):', e?.message || e); }
       const _out: any = { ok: true, count: _piiStudents.length, students: _piiStudents, can_view_pii: canViewPII(_ssw.scope), hidden_only: _hiddenOnly };
       // 🎥🤖 트랙 — 조회가 실패해도 명부는 그대로 뜬다(그 칸만 «모름»). ⛔ 실패를 «AI만» 으로 그리지 말 것.
       if (_wantTrack) _out.track_ok = await attachRosterTracks(env as any, _piiStudents as any[]);
@@ -9636,7 +10411,7 @@ LIMIT $limit`;
         { key: 'friend',   ko: 'AI 영어친구',   table: 'ai_friend_chats',        col: 'student_uid', ts: 'created_at', extra: `role='user'` },
         { key: 'write',    ko: 'AI 글쓰기',     table: 'ai_writing_corrections', col: 'student_uid', ts: 'created_at' },
         { key: 'speech',   ko: '발음코칭',      table: 'voice_coaching',         col: 'student_uid', ts: 'created_at' },
-        { key: 'review',   ko: '복습퀴즈',      table: 'review_quiz_results',    col: 'user_id',     ts: 'created_at' },
+        { key: 'review',   ko: 'BTS/SIU·중국어퀴즈', table: 'review_quiz_results',    col: 'user_id',     ts: 'created_at' },
         { key: 'vocab',    ko: '단어장',        table: 'vocab_review_log',       col: 'user_id',     ts: 'reviewed_at' },
         { key: 'micro',    ko: 'AI 단어 퀴즈',  table: 'vocab_quizzes',          col: 'user_id',     ts: 'completed_at', extra: `completed=1` },
       ];
@@ -10621,6 +11396,114 @@ LIMIT $limit`;
         return json({ ok: false, error: 'forbidden_scope', scope: _cSc.type, message: '대리점 정보 수정은 본사만 할 수 있습니다.' }, 403);
       }
 
+      /* 🔑 (2026-10-28 사장님 「대리점 아이디와 정보를 넣어 달라」) 대리점 로그인 계정 — 등록(POST)·
+         ✏️ 수정(PATCH) 공용. 카페24에서 온 921곳은 등록 폼을 거치지 않아 계정을 붙일 자리가 없었다
+         (목록이 전부 «계정 없음»). 지사 판 createOrResetBranchLogin 을 본뜬 «대리점 판» 이다.
+         ⚠️ «검사(check)» 와 «쓰기(apply)» 를 나눈다 — 검사는 대리점 저장 «전» 에 해야
+            계정이 거절됐는데 대리점만 저장되는 반쪽 상태가 안 생긴다.
+         ⚠️ scope_value 는 centers.name 그대로(scopeCenterCond 가 이름 정확일치로 가른다).
+         ⛔ 같은 이름 대리점이 또 있으면 «새로 만들기» 는 막는다 — 그 계정이 남의 자료까지 본다.
+         🔑 «비밀번호 바꾸기(reset)» 는 그 아이디가 **이 대리점의 «저장 전» 이름(curName)** 에 붙어 있고
+            그 이름을 쓰는 대리점이 **이것 하나뿐** 일 때만. ⛔ «바꾸려는 새 이름» 으로 주인을 판정하면
+            A 를 B 의 이름으로 바꾸면서 B 의 아이디를 넣는 저장 한 번에 B 계정 비밀번호가 바뀐다
+            (2026-10-28 함정 대조가 재현 — 그래서 새 이름은 주인 판정에 안 쓴다).
+            이름이 겹치면 «어느 대리점 계정인지» 확정할 수 없어 바꾸지 않는다(지사 판과 같은 판단).
+         ⚠️ 반환은 단순 객체(판별 유니온 금지 — strictNullChecks:false 라 좁혀지지 않는다). */
+      type AgencyLoginCheck = { ok: boolean; mode?: 'create' | 'reset'; username?: string; error?: string; message?: string; status?: number };
+      const checkAgencyLogin = async (username: string, password: string, centerName: string,
+                                      selfId: number, curName: string): Promise<AgencyLoginCheck> => {
+        const u = username.trim();
+        if (!/^[a-zA-Z0-9_]{3,32}$/.test(u)) {
+          return { ok: false, error: 'bad_username', message: '아이디는 영문·숫자·밑줄(_)로 3~32자여야 합니다.', status: 400 };
+        }
+        if (password.length < 6) {
+          return { ok: false, error: 'too_short', message: '비밀번호는 6자 이상이어야 합니다.', status: 400 };
+        }
+        if (FULL_ACCESS_ACCOUNTS.has(u.toLowerCase())) {
+          return { ok: false, error: 'reserved_username', message: '이 아이디는 시스템 전체권한 계정이라 쓸 수 없습니다.', status: 403 };
+        }
+        // NOCASE — 로그인이 대소문자를 무시하므로(staff-create 와 같은 규칙) 여기만 구분하면
+        // Busan_Agency/busan_agency 두 벌이 생겨 «계정이 두 개» 사고가 재현된다.
+        const existing = await env.DB.prepare(`SELECT username FROM admin_account WHERE username = ? COLLATE NOCASE LIMIT 1`)
+          .bind(u).first<{ username: string }>();
+        if (existing) {
+          const sc = await env.DB.prepare(`SELECT scope_type, scope_value FROM admin_scope WHERE username = ? LIMIT 1`)
+            .bind(existing.username).first<{ scope_type: string; scope_value: string | null }>();
+          const isOwn = selfId > 0 && !!curName && !!sc && sc.scope_type === 'agency' && String(sc.scope_value || '') === curName;
+          if (!isOwn) {
+            return { ok: false, error: 'already_exists', message: '이미 있는 아이디입니다. 다른 아이디를 쓰세요.', status: 409 };
+          }
+          const shared = await env.DB.prepare(`SELECT COUNT(*) AS n FROM centers WHERE name = ?`).bind(curName).first<{ n: number }>();
+          if (Number(shared?.n || 0) !== 1) {
+            return { ok: false, error: 'shared_center_name',
+              message: `같은 이름("${curName}")의 대리점이 여러 곳이라 이 계정이 어느 대리점 것인지 확정할 수 없어 비밀번호를 바꾸지 않았습니다. ` +
+                       '대리점 이름을 구분되게 바꾼 뒤 다시 하거나 본사에 문의하세요.', status: 409 };
+          }
+          return { ok: true, mode: 'reset', username: existing.username };
+        }
+        // ⚠️ centers.name 은 유일하지 않다(CLAUDE.md 「가맹점 정산에서 특정 지사 매출이 통째로
+        //    안 잡힘」과 같은 뿌리). 이름이 같은 다른 대리점이 있으면 이 로그인이 그 자료까지 본다.
+        const nameDup = await env.DB.prepare(`SELECT id FROM centers WHERE name = ? AND id != ? LIMIT 1`)
+          .bind(centerName, selfId).first<{ id: number }>();
+        if (nameDup) {
+          return { ok: false, error: 'duplicate_center_name',
+            message: '이미 같은 이름의 대리점이 있어 로그인 계정을 만들 수 없습니다 — 이름으로 접근 범위를 가르기 때문에 ' +
+                     '다른 대리점 자료가 섞여 보일 수 있습니다. 대리점 이름을 구분되게 바꾸거나, ' +
+                     '로그인 계정 없이 먼저 등록한 뒤 본사에 문의하세요.', status: 409 };
+        }
+        return { ok: true, mode: 'create', username: u };
+      };
+      /* 쓰기. ⚠️ 만들기는 계정·범위 두 줄을 **batch(한 묶음)** 로 — 계정만 남고 범위가 빠지면 다음 요청에서
+         autoSeedOne 이 이름으로 범위를 짐작해 «none»(=직원) 이 될 수 있다(CLAUDE.md 「관리자 계정을 지웠는데
+         권한은 오히려 올라감」과 같은 모양). 바꾸기는 기존 «남의 비밀번호 재설정»(auth-admin.ts) 과 같이
+         그 계정의 세션을 전부 끊고 «누가 바꿨는지» 를 로그인 이력에 남긴다. */
+      const applyAgencyLogin = async (chk: AgencyLoginCheck, password: string, centerName: string,
+                                      audit: { by: string; ip: string; ua: string }): Promise<'created' | 'reset'> => {
+        const now = Date.now();
+        const hash = await hashPassword(password);
+        if (chk.mode === 'reset') {
+          await env.DB.prepare(`UPDATE admin_account SET password_hash = ?, updated_at = ? WHERE username = ?`)
+            .bind(hash, now, chk.username).run();
+          await env.DB.prepare(`DELETE FROM admin_sessions WHERE username = ?`).bind(chk.username).run().catch(() => {});
+          await recordLogin(env as any, chk.username, audit.ip, audit.ua, true, 'password_reset_by:' + audit.by).catch(() => {});
+          return 'reset';
+        }
+        await env.DB.batch([
+          env.DB.prepare(
+            `INSERT INTO admin_account (username, password_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
+          ).bind(chk.username, hash, centerName, now, now),
+          env.DB.prepare(
+            `INSERT INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES (?, 'agency', ?, ?)
+             ON CONFLICT(username) DO UPDATE SET scope_type = excluded.scope_type, scope_value = excluded.scope_value, updated_at = excluded.updated_at`
+          ).bind(chk.username, centerName, now),
+        ]);
+        return 'created';
+      };
+      /* 계정을 건드리는 요청이면 «누가» 를 먼저 확인한다 — 감사 기록에 쓰고, 강사는 여기서도 막는다
+         (index.ts 의 강사 차단 목록 한 곳에만 기대지 않는다 — CLAUDE.md 2장 쓰기 경로 가드 권고).
+         🔒 (2026-10-28 사장님 「본사 계정만 만들 수 있게 좁혀줘」) 판정 정본은 agency-login-gate.ts —
+            admin_scope 를 «삼키지 않고» 한 번 더 읽어 'hq' 일 때만(못 읽으면 막는다). 거절 응답(deny)도 여기서 만든다. */
+      type AgencyLoginActor = { ok: boolean; by: string; ip: string; ua: string; deny: Response | null };
+      const agencyLoginActor = async (): Promise<AgencyLoginActor> => {
+        const a = await getAdminActor(request, env as any);
+        let row: { scope_type: string } | null | undefined = undefined;
+        if (a.ok && !a.isTeacher && a.username) {
+          try {
+            row = (await env.DB.prepare(`SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`)
+              .bind(a.username).first<{ scope_type: string }>()) || null;
+          } catch (e) {
+            console.warn('[centers] agency login scope lookup failed', (e as any)?.message || e);
+            row = undefined;
+          }
+        }
+        const g = agencyLoginGate({ ok: !!a.ok, isTeacher: !!a.isTeacher, username: a.username || '' }, row, FULL_ACCESS_ACCOUNTS);
+        const deny = g.ok ? null
+          : g.error === 'forbidden_teacher' ? json(forbiddenTeacherBody(a, g.message), 403)
+          : json({ ok: false, error: g.error, message: g.message }, g.status as any);
+        return { ok: g.ok, by: a.username || '', ip: request.headers.get('cf-connecting-ip') || '',
+                 ua: request.headers.get('user-agent') || '', deny };
+      };
+
       if (method === 'PATCH') {
         /* ✏️ (2026-09-11 신설 — 사장님 제보 「대리점을 수정할 수 있는 메뉴가 없다」)
            대리점 이름·지사·국가·담당자·연락처·주소·결제유형을 한 번에 고치는 «부분 수정» —
@@ -10665,7 +11548,32 @@ LIMIT $limit`;
         if (has('manager')) { newManager = String(b.manager || '').trim() || null; sets.push('manager = ?'); binds.push(newManager); }
         if (has('country')) { sets.push('country = ?'); binds.push(String(b.country || '').trim() || null); }
         if (has('phone'))   { sets.push('phone = ?');   binds.push(String(b.phone   || '').trim() || null); }
-        if (!sets.length) return json({ ok: false, error: 'no_fields', message: '수정할 값이 없습니다.' }, 400);
+
+        /* 🔑 (2026-10-28) 로그인 계정 붙이기·비밀번호 바꾸기 — 비밀번호를 «넣었을 때만» 움직인다
+           (지사 PATCH 와 같은 규칙: 비워 두면 «바꾸지 않음»). 수정 폼이 아이디 칸을 지금 계정으로
+           미리 채우므로, 아이디만 있고 비밀번호가 비어 있으면 아무 일도 하지 않아야 한다.
+           ⚠️ 검사는 UPDATE «전» — 거절되면 대리점 정보도 저장하지 않는다(반쪽 저장 금지). */
+        const loginPw = String(b?.login_password || '');
+        const loginId = String(b?.login_username || '').trim();
+        let loginChk: AgencyLoginCheck | null = null;
+        let loginName = '';
+        let loginActor: AgencyLoginActor | null = null;
+        if (loginPw) {
+          if (!loginId) {
+            return json({ ok: false, error: 'login_username_required',
+              message: '비밀번호를 설정하려면 로그인 아이디를 먼저 입력하세요.' }, 400);
+          }
+          loginActor = await agencyLoginActor();
+          if (!loginActor.ok) return loginActor.deny;
+          const cur = before || await env.DB.prepare(`SELECT name FROM centers WHERE id = ?`).bind(cid).first<{ name: string }>();
+          if (!cur) return json({ ok: false, error: 'not_found', message: '대리점을 찾을 수 없습니다.' }, 404);
+          // 새 계정은 «저장 뒤» 이름으로 묶고(scope_value = centers.name), 비밀번호 바꾸기의 주인 판정은
+          // «저장 전» 이름으로만 한다(checkAgencyLogin 주석 — 새 이름으로 판정하면 남의 계정이 걸린다).
+          loginName = newName !== undefined ? newName : String(cur.name || '');
+          loginChk = await checkAgencyLogin(loginId, loginPw, loginName, cid, String(cur.name || ''));
+          if (!loginChk.ok) return json({ ok: false, error: loginChk.error, message: loginChk.message }, loginChk.status as any);
+        }
+        if (!sets.length && !loginChk) return json({ ok: false, error: 'no_fields', message: '수정할 값이 없습니다.' }, 400);
 
         /* 🔑 이 대리점에 로그인 계정이 있으면 admin_scope.scope_value 가 «옛 이름» 을 그대로
            들고 있다(scope.ts scopeCenterCond 는 id 가 아니라 이름으로 대리점을 가른다).
@@ -10753,12 +11661,75 @@ LIMIT $limit`;
           }
         }
 
+        // 🔑 대리점 정보가 저장된 «뒤» 에 계정을 쓴다(검사는 위에서 이미 통과).
+        const loginResult = loginChk ? await applyAgencyLogin(loginChk, loginPw, loginName, loginActor) : undefined;
+
         return json({
-          ok: true, id: cid, payment_type: ptOut,
+          ok: true, id: cid, payment_type: ptOut, login_result: loginResult,
           // ⚠️ 화면(saveCenter)이 이 값을 보고 「그 계정은 여전히 옛 이름 기준으로 학생을
           // 찾습니다」를 사람에게 알린다 — 서버가 자동으로 옮기지 않기로 한 것과 짝이다.
           login_account_note: linkedAccount ? { username: linkedAccount.username, old_name: before?.name } : undefined,
         });
+      }
+      /* 🔎 (2026-10-26 사장님 「카페24에서 학생 아이디 가져오듯 대리점 아이디도 가져와야」)
+         옛 LMS 화면은 대리점마다 «아이디»(엘리더잼영어 = ysyt00)를 보여 주는데, 야간 동기화의
+         :Center Cypher 는 id·branch_id·name·address·manager·active 여섯 칸뿐이다. 그 값이
+         :Center 의 어느 속성에 있는지, 아니면 이어진 다른 노드에 있는지 **추측으로 박기 전에**
+         실제 그래프를 읽어 보여 준다(지사 debug=cafe24_props 와 같은 방식).
+           ?debug=cafe24_props            → :Center 전체 속성 이름 + 예시 3건
+           ?debug=cafe24_props&name=엘리더잼 → 그 이름을 담은 :Center 의 속성 + 이어진 노드
+           ?debug=cafe24_props&find=ysyt00  → 그래프 전체에서 그 값을 «그대로» 가진 노드·속성
+         ⛔ 이 결과로 곧바로 centers 를 UPDATE 하지 않는다 — 칸을 확인한 뒤 동기화에 넣는다.
+         본사만(원본 그래프의 날 것 그대로). */
+      if (method === 'GET' && url.searchParams.get('debug') === 'cafe24_props') {
+        if (!canEditOrg(_cSc)) return json({ ok: false, error: 'forbidden_scope' }, 403);
+        // canEditOrg 는 'none'(교사)에도 true 다 — 원본 그래프(연락처 등)를 강사에게 열지 않는다.
+        const _dbgActor = await getAdminActor(request, env as any);
+        if (!_dbgActor.ok) return json({ ok: false, error: 'unauthorized' }, 401);
+        if (_dbgActor.isTeacher) return json(forbiddenTeacherBody(_dbgActor), 403);
+        try {
+          const nm = (url.searchParams.get('name') || '').trim();
+          const fv = (url.searchParams.get('find') || '').trim();
+          const pick = (rs: any, k: string) => rs.fields.indexOf(k);
+          const out: any = { ok: true };
+          const all = await runCypher(env, `MATCH (c:Center) RETURN properties(c) AS props`, {}, 'READ');
+          const ki = pick(all, 'props');
+          const keySet = new Set<string>(); const sample: any[] = [];
+          for (const row of all.values) {
+            const pr = row[ki] as Record<string, any> | null;
+            if (pr) Object.keys(pr).forEach(k => keySet.add(k));
+            if (pr && sample.length < 3) sample.push(pr);
+          }
+          out.center_count = all.values.length;
+          out.all_property_keys = Array.from(keySet).sort();
+          out.sample_rows = sample;
+          if (nm) {
+            const rs = await runCypher(env, `
+              MATCH (c:Center) WHERE c.name CONTAINS $nm
+              OPTIONAL MATCH (c)-[rel]-(x)
+              RETURN properties(c) AS center_props,
+                     collect(DISTINCT {rel_type: type(rel), other_labels: labels(x), other_props: properties(x)})[0..20] AS linked
+              LIMIT 5`, { nm }, 'READ');
+            out.by_name = rs.values.map((row: any[]) => ({
+              center_props: row[pick(rs, 'center_props')],
+              linked_nodes: (row[pick(rs, 'linked')] || []).filter((l: any) => l && l.rel_type),
+            }));
+          }
+          if (fv) {
+            if (!/^[A-Za-z0-9_.@-]{3,64}$/.test(fv)) return json({ ok: false, error: 'bad_find' }, 400);
+            const rs = await runCypher(env, `
+              MATCH (n) WHERE any(k IN keys(n) WHERE toString(n[k]) = $v)
+              RETURN labels(n) AS labels, [k IN keys(n) WHERE toString(n[k]) = $v] AS matched_keys, properties(n) AS props
+              LIMIT 10`, { v: fv }, 'READ');
+            out.find = rs.values.map((row: any[]) => ({
+              labels: row[pick(rs, 'labels')], matched_keys: row[pick(rs, 'matched_keys')], props: row[pick(rs, 'props')],
+            }));
+          }
+          return json(out);
+        } catch (e: any) {
+          if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
+          return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
+        }
       }
       if (method === 'GET') {
         const q = (url.searchParams.get('q') || '').trim();
@@ -10817,13 +11788,86 @@ LIMIT $limit`;
           : `c.*, f.name AS franchise_name,
              (SELECT o.tuition_krw FROM settlement_rate_override o
                WHERE o.scope_type='agency' AND o.scope_key = c.name) AS tuition_krw`;
+        /* ↕ (2026-10-28 사장님 「필터 올림·내림」) 머리글 정렬 — 50건씩 넘겨 보는 구조라 «이 페이지만»
+           정렬하면 거짓말이 된다(921건 전체 순서가 아니다). 그래서 서버 ORDER BY 로 한다.
+           ⛔ sort 값을 SQL 에 그대로 넣지 않는다 — 아래 표에 있는 열쇠만 받고 나머지는 «기본 순서».
+           빈 값(NULL·'')은 방향과 무관하게 언제나 맨 아래(강사 명부 정렬과 같은 규칙), 같으면 id 순.
+           🔒 로그인 아이디 정렬은 본사만 — 아이디 칸 자체가 본사에게만 실린다(아래 login_ids). */
+        const _txt = (col: string) => `NULLIF(TRIM(${col}), '')`;
+        const CT_SORT: Record<string, { expr: string; text: boolean; join?: string }> = {
+          id:       { expr: 'c.id', text: false },
+          franchise:{ expr: _txt('f.name'), text: true },
+          name:     { expr: _txt('c.name'), text: true },
+          payment:  { expr: `CASE WHEN c.payment_type IN ('B2B','B2C') THEN c.payment_type END`, text: false },
+          tuition:  { expr: `(SELECT o.tuition_krw FROM settlement_rate_override o WHERE o.scope_type='agency' AND o.scope_key = c.name)`, text: false },
+          country:  { expr: _txt('c.country'), text: true },
+          manager:  { expr: _txt('c.manager'), text: true },
+          phone:    { expr: _txt('c.phone'), text: true },
+          address:  { expr: _txt('c.address'), text: true },
+        };
+        if (canEditOrg(_cSc)) {
+          // ⚠️ 줄마다 도는 상관 서브쿼리로 쓰면 대리점 921줄 × admin_scope 전수 × 2번(IS NULL·값) 이라
+          //    계정이 늘수록 느려진다(2026-10-28 함정 대조 실측: scope 3,000행에 약 0.57초). 이름별로 «한 번»
+          //    묶은 표를 이 정렬일 때만 LEFT JOIN 한다(다른 정렬·건수 쿼리에는 안 붙는다).
+          CT_SORT.login = { expr: 'ct_login.login_min', text: true,
+            join: ` LEFT JOIN (SELECT s.scope_value AS shop, MIN(s.username) AS login_min FROM admin_scope s
+                                 JOIN admin_account a ON a.username = s.username
+                                WHERE s.scope_type = 'agency' GROUP BY s.scope_value) ct_login ON ct_login.shop = c.name` };
+        }
+        const _sortKey = String(url.searchParams.get('sort') || '');
+        const sortDef = Object.prototype.hasOwnProperty.call(CT_SORT, _sortKey) ? CT_SORT[_sortKey] : null;
+        const sortDir = String(url.searchParams.get('dir') || '').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+        const orderSql = sortDef
+          ? `(${sortDef.expr}) IS NULL, ${sortDef.expr}${sortDef.text ? ' COLLATE NOCASE' : ''} ${sortDir}, c.id ASC`
+          : `c.active DESC, c.name ASC`;
+        const sortJoin = (sortDef && sortDef.join) || '';
         const pageSql = limit === 0 ? '' : ` LIMIT ? OFFSET ?`;
         const pageBinds = limit === 0 ? listBinds : [...listBinds, limit, offset];
         const rs = await env.DB.prepare(
-          `SELECT ${cols} FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${listWhereSql} ORDER BY c.active DESC, c.name ASC${pageSql}`
+          `SELECT ${cols} FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${sortJoin}${listWhereSql} ORDER BY ${orderSql}${pageSql}`
         ).bind(...pageBinds).all();
-        return json({ ok: true, items: rs.results || [], total: pt ? counts[pt] : counts.all, counts, limit, offset,
-                      scope: { type: _cSc.type, label: _cSc.label }, can_edit: canEditOrg(_cSc) });
+        const _ctItems: any[] = (rs.results || []) as any[];
+        /* 🪪 (2026-10-26 사장님 「대리점 아이디가 안 나온다」) 대리점 로그인 계정은 centers 에
+           칸이 없고 admin_scope(scope_type='agency') 의 scope_value = 대리점 «이름» 으로만
+           이어진다(scopeCenterCond 가 name = ? 로 가르는 것과 같은 규칙 — 정확일치만, 추측 없음).
+           ⚠️ 이 줄이 그 이름을 쓰는 «모든» 대리점에 붙는 것은 사실 그대로다 — centers.name 이
+              유일하지 않아 그 계정은 같은 이름 대리점 자료를 함께 본다(login_shared 로 알린다).
+           ⚠️ 지워진 계정의 남은 scope 행은 admin_account 와 JOIN 해 뺀다.
+           🔒 계정명은 본사만(지사 login_id 와 같은 이유). 실패해도 목록은 그대로 — 칸만 «모름». */
+        if (!min && canEditOrg(_cSc) && _ctItems.length) {
+          try {
+            const names = Array.from(new Set(_ctItems.map((it: any) => String(it.name || '')).filter(Boolean)));
+            const namesJson = JSON.stringify(names);
+            const acc = await env.DB.prepare(
+              `SELECT s.scope_value AS shop, s.username FROM admin_scope s
+                 JOIN admin_account a ON a.username = s.username
+                WHERE s.scope_type = 'agency' AND s.scope_value IN (SELECT value FROM json_each(?))
+                ORDER BY s.username`
+            ).bind(namesJson).all();
+            const dup = await env.DB.prepare(
+              `SELECT name FROM centers WHERE name IN (SELECT value FROM json_each(?)) GROUP BY name HAVING COUNT(*) > 1`
+            ).bind(namesJson).all();
+            const byName = new Map<string, string[]>();
+            for (const r of (acc.results || []) as any[]) {
+              const k = String(r.shop || '');
+              if (!byName.has(k)) byName.set(k, []);
+              byName.get(k)!.push(String(r.username));
+            }
+            const dupSet = new Set(((dup.results || []) as any[]).map((r: any) => String(r.name)));
+            for (const it of _ctItems) {
+              it.login_ids = byName.get(String(it.name || '')) || [];
+              it.login_shared = dupSet.has(String(it.name || ''));
+            }
+          } catch (e: any) {
+            console.warn('[centers] login_ids lookup failed', e?.message || e);
+          }
+        }
+        return json({ ok: true, items: _ctItems, total: pt ? counts[pt] : counts.all, counts, limit, offset,
+                      // ↕ 서버가 «실제로 적용한» 정렬 — 모르는 열쇠는 버렸으니 화면은 이 값으로 화살표를 그린다.
+                      sort: sortDef ? { key: _sortKey, dir: sortDir === 'DESC' ? 'desc' : 'asc' } : null,
+                      scope: { type: _cSc.type, label: _cSc.label }, can_edit: canEditOrg(_cSc),
+                      // 🔒 로그인 계정 칸을 보여 줄지 — 저장 때와 «같은 판정»(본사만). 화면은 false 일 때만 감춘다.
+                      can_login: canEditOrg(_cSc) ? (await agencyLoginActor()).ok : false });
       }
       const b = await parseJsonBody(request);
       if (!b || !b.name) return invalidBody(['name']);
@@ -10838,61 +11882,27 @@ LIMIT $limit`;
          (scope.ts scopeCenterCond 가 id 가 아니라 «이름» 으로 대리점 계정을 가른다). */
       const loginUsername = String(b.login_username || '').trim();
       const loginPassword = String(b.login_password || '');
+      let loginChk: AgencyLoginCheck | null = null;
+      let loginActor: AgencyLoginActor | null = null;
       if (loginUsername || loginPassword) {
         if (!loginUsername || !loginPassword) {
           return json({ ok: false, error: 'login_fields_incomplete',
             message: '대리점 로그인 아이디와 비밀번호를 함께 입력하세요.' }, 400);
         }
-        if (!/^[a-zA-Z0-9_]{3,32}$/.test(loginUsername)) {
-          return json({ ok: false, error: 'bad_username',
-            message: '아이디는 영문·숫자·밑줄(_)로 3~32자여야 합니다.' }, 400);
-        }
-        if (loginPassword.length < 6) {
-          return json({ ok: false, error: 'too_short',
-            message: '비밀번호는 6자 이상이어야 합니다.' }, 400);
-        }
-        if (FULL_ACCESS_ACCOUNTS.has(loginUsername.toLowerCase())) {
-          return json({ ok: false, error: 'reserved_username',
-            message: '이 아이디는 시스템 전체권한 계정이라 쓸 수 없습니다.' }, 403);
-        }
-        // NOCASE — 로그인이 대소문자를 무시하므로(staff-create 와 같은 규칙) 여기만
-        // 구분하면 Busan_Agency/busan_agency 두 벌이 생겨 «계정이 두 개» 사고가 재현된다.
-        const dup = await env.DB.prepare(
-          `SELECT username FROM admin_account WHERE username = ? COLLATE NOCASE LIMIT 1`)
-          .bind(loginUsername).first<{ username: string }>();
-        if (dup) {
-          return json({ ok: false, error: 'already_exists',
-            message: '이미 있는 아이디입니다. 다른 아이디를 쓰세요.' }, 409);
-        }
-        // ⚠️ centers.name 은 유일하지 않다(CLAUDE.md 「가맹점 정산에서 특정 지사 매출이 통째로
-        //    안 잡힘」과 같은 뿌리). scope_value 를 이름으로 매칭하는 구조라, 이미 같은 이름의
-        //    대리점이 있으면 이 로그인이 «그 대리점 자료까지» 함께 보게 된다. 등록 자체는 막지
-        //    않고(대리점만 먼저 등록하는 기존 동작은 유지) 로그인 계정만 막는다.
-        const nameDup = await env.DB.prepare(`SELECT id FROM centers WHERE name = ? LIMIT 1`)
-          .bind(b.name).first<{ id: number }>();
-        if (nameDup) {
-          return json({ ok: false, error: 'duplicate_center_name',
-            message: '이미 같은 이름의 대리점이 있어 로그인 계정을 만들 수 없습니다 — 이름으로 접근 범위를 가르기 때문에 ' +
-                      '다른 대리점 자료가 섞여 보일 수 있습니다. 대리점 이름을 구분되게 바꾸거나, ' +
-                      '로그인 계정 없이 먼저 등록한 뒤 본사에 문의하세요.' }, 409);
-        }
+        // 🔑 검사 정본은 위 checkAgencyLogin(수정 화면과 공용). selfId=0 → 새 대리점이라
+        //    «이미 있는 아이디» 는 비밀번호 바꾸기 없이 그대로 거절, 같은 이름 대리점이 하나라도 있으면 거절.
+        //    거절되면 대리점도 만들지 않는다(예전과 같다 — 계정 없이 등록하려면 두 칸을 비우면 된다).
+        loginActor = await agencyLoginActor();
+        if (!loginActor.ok) return loginActor.deny;
+        loginChk = await checkAgencyLogin(loginUsername, loginPassword, String(b.name), 0, '');
+        if (!loginChk.ok) return json({ ok: false, error: loginChk.error, message: loginChk.message }, loginChk.status as any);
       }
 
       const r = await env.DB.prepare(
         `INSERT INTO centers (franchise_id, name, country, address, manager, payment_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(b.franchise_id || null, b.name, b.country || null, b.address || null, b.manager || null, _normPayType(b.payment_type), now, now).run();
 
-      let loginCreated = false;
-      if (loginUsername && loginPassword) {
-        await env.DB.prepare(
-          `INSERT INTO admin_account (username, password_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
-        ).bind(loginUsername, await hashPassword(loginPassword), b.name, now, now).run();
-        await env.DB.prepare(
-          `INSERT INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES (?, 'agency', ?, ?)
-           ON CONFLICT(username) DO UPDATE SET scope_type = excluded.scope_type, scope_value = excluded.scope_value, updated_at = excluded.updated_at`
-        ).bind(loginUsername, b.name, now).run();
-        loginCreated = true;
-      }
+      const loginCreated = loginChk ? (await applyAgencyLogin(loginChk, loginPassword, String(b.name), loginActor)) === 'created' : false;
 
       return json({ ok: true, id: r.meta.last_row_id, login_created: loginCreated });
     }
@@ -12039,10 +13049,18 @@ LIMIT $limit`;
               정답을 통째로 받는」 길을 막는다. 셋 중 하나라도 풀면 그 창이 넓어진다.
               ⛔ 여기서 bank 를 통째로 넘기지 말고 반드시 그 함수를 지나게 할 것.
          ⚠️ 실패해도 채점 결과는 그대로 돌려준다 — 해설을 못 만들었다고 점수까지 잃으면 안 된다. */
-      let review: any[] = [];
-      try { review = buildLeveltestReview(CEFR_BANK, answers); }
-      catch (e: any) { console.warn('[leveltest] review skip:', e && e.message); review = []; }
-      return json({ ok: true, ai_score, level, correct: correctCount, total: CEFR_BANK.length, breakdown, review, application_id: appId, placement, track: trackInfo.track });
+      /* 🔒 (2026-10-18 사장님 결정) 정답·해설은 «토큰으로 확인된 로그인 학생» 에게만 싣는다.
+         [왜] 이 경로는 무인증 공개라 «전부 0번» 본문 한 번으로 정답키가 100% 복원됐다(위 주석 · 2026-09-22 실측).
+         비로그인은 점수·레벨만 받고 review 칸이 아예 없다 → 화면은 «로그인하면 해설» 안내만 그린다.
+         ⚠️ 막힌 것은 «익명 1회 호출» 뿐이다 — 아이디만 알면 로그인되는 계정이 대부분이라 완전한 차단은 아니다
+            (근본 해결은 문항은행을 늘리는 것). ⛔ 본문 uid 로 폴백하지 말 것(위 placement 와 같은 이유). */
+      const reviewLocked = !authedUid;
+      let review: any[] | undefined = undefined;
+      if (!reviewLocked) {
+        try { review = buildLeveltestReview(CEFR_BANK, answers); }
+        catch (e: any) { console.warn('[leveltest] review skip:', e && e.message); review = []; }
+      }
+      return json({ ok: true, ai_score, level, correct: correctCount, total: CEFR_BANK.length, breakdown, review, review_locked: reviewLocked, application_id: appId, placement, track: trackInfo.track });
     }
 
     // ─── 수강신청 ─────────────────────────────────────────────────────────
@@ -12054,43 +13072,69 @@ LIMIT $limit`;
       const _act = await handleEnrollActivateApi(request, url, env, (_actor && _actor.username) || 'admin');
       if (_act) return _act;
     }
+    /* 🔀 PUT {action:'merge_direct', dry} — 아직 신청서가 없는 «직접 배정» 수업을 신청서로 합친다
+       (2026-09-30 사장님 — 배정 경로가 어떠하든 같은 조건과 버튼). 새 수업은 등록할 때 자동으로 이어지고,
+       이것은 그 전에 만든 수업을 한 번 잇는 버튼이다.
+       ⛔ 본사만(삭제와 같은 게이트 — canEditOrg 는 강사를 못 막는다). 모르는 action 은 거절한다.
+       ⚠️ dry 가 기본이다 — 화면이 건수를 보여 주고 사람이 확인한 뒤 dry:false 로 다시 부른다. */
+    if (method === 'PUT' && path === '/api/admin/enrollments') {
+      /* 정본 게이트 — 강사 거절 + admin_scope 재조회 + 모르면 막기(getAdminActor 는 조회 실패를 staff 로 삼킨다) */
+      const denyMerge = await enrollAdminHqOnly(request, env);
+      if (denyMerge) return denyMerge;
+      const b: any = await parseJsonBody(request).catch(() => null);
+      if (!b || b.action !== 'merge_direct') return json({ ok: false, error: 'unknown_action', allowed: ['merge_direct'] }, 400);
+      const dry = b.dry !== false;
+      /* 목록 GET 이 스키마를 보강하지만, 이 경로가 먼저 불려도 쓰는 칸이 있게(멱등 — 이미 있으면 실패를 삼킨다) */
+      if (!dry) for (const [c, t] of [['days_of_week', 'TEXT'], ['time', 'TEXT'], ['type', 'TEXT'], ['teacher_name', 'TEXT'], ['end_date', 'TEXT'], ['duration_min', 'INTEGER']]) {
+        try { await env.DB.exec(`ALTER TABLE enrollments ADD COLUMN ${c} ${t}`); } catch {}
+      }
+      const rs: any = await env.DB.prepare(UNMERGED_DIRECT_SQL).all();
+      const res = await mergeDirectRows(env, rs?.results || [], dry);
+      return json({ ok: res.failed.length === 0, dry, ...res });
+    }
     if ((method === 'GET' || method === 'POST') && path === '/api/admin/enrollments') {
-      await env.DB.exec(`CREATE TABLE IF NOT EXISTS enrollments (id INTEGER PRIMARY KEY AUTOINCREMENT, student_user_id TEXT, student_name TEXT NOT NULL, package TEXT, started_at INTEGER, ended_at INTEGER, monthly_fee_krw INTEGER, status TEXT DEFAULT 'pending', notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
-      // 🥭 Phase 37b — 누락 컬럼 자동 보강 (Phase 36 seed 가 사용하는 컬럼들)
-      const _addEnrCol2 = async (col: string, type: string) => {
-        try { await env.DB.exec(`ALTER TABLE enrollments ADD COLUMN ${col} ${type}`); } catch {}
-      };
-      await _addEnrCol2('days_of_week', 'TEXT');
-      await _addEnrCol2('time', 'TEXT');
-      await _addEnrCol2('class_size', 'TEXT');
-      await _addEnrCol2('type', 'TEXT');
-      await _addEnrCol2('teacher_name', 'TEXT');
-      await _addEnrCol2('end_date', 'TEXT');
-      // 🧑‍🏫 (2026-08-12) 등록 화면에서 «강사 이름 지정» 칸을 없애는 대신 남기는 값.
-      //   'schedule' = 요일·시간 우선 / 'teacher' = 강사 적합도 우선. 「▸ 처리」 단계가 읽는다.
-      await _addEnrCol2('assign_priority', 'TEXT');
-      // 🗓️ (2026-08-14) ⑥ 수업 기간(회차) — '1' | '3' | '6' | '12' | 'unlimited'.
-      //   숫자 개월이면 클라이언트가 시작일 + N개월을 end_date/ended_at 으로 같이 보내 온다.
-      //   TEXT 인 이유: 'unlimited' 를 0·NULL 로 눌러 두면 «안 고른 것» 과 구분이 안 된다.
-      await _addEnrCol2('duration_months', 'TEXT');
-      // ⏱ (2026-08-26 사장님 지시) 수업 시간(분) — 20/30/40 중 선택, 안 고르면 기본 20분.
-      //   enroll-activate.ts 의 buildEnrollPlan() 이 이 컬럼을 읽어 class_schedules.duration_min 을 정한다.
-      await _addEnrCol2('duration_min', 'INTEGER');
-      // 💰 (2026-08-26 사장님 지시) 곱하기 «전» 20분 기준가. `monthly_fee_krw` 는 «이미 곱해진 최종값» 이라
-      //   되돌아볼 근거가 사라진다 — 그래서 기준가를 따로 남긴다(감사·재계산용).
-      await _addEnrCol2('base_fee_krw', 'INTEGER');
-      // 그 기준가를 «사람이 적었는지 · 대리점 단가로 자동으로 세웠는지». 후자는 아무도 치지 않은
-      //   금액이라 확정 화면이 그렇게 말해 줘야 한다 — 추측하지 않도록 저장해 둔다.
-      await _addEnrCol2('fee_source', 'TEXT');
-      /* 📞 (2026-09-10 사장님 지시) 학부모 연락처 — 수업 전 안내문자가 «받는 사람» 이다.
-         [왜 이 칸이 생겼나] 리마인더 cron 은 살아 있는데(7일간 671건 감지) 발송이 0건이었다.
-           `students_erp` 의 번호 칸 네 개가 29,485행 전부 비어 있고, 카페24 원본에 번호가 없다
-           (2026-09-16 재실측: 29,512행 중 번호가 든 행 4행 — 전부 우리 화면이 넣은 것이다).
-         ⚠️ 여기 저장하는 것은 «이 신청서가 무슨 번호로 등록됐나» 라는 기록이다.
-            **실제로 문자가 읽는 곳은 `student_erp_override`** 다 — 아래 INSERT 뒤에서 함께 적는다.
-            그 표에 두는 이유: 카페24가 정본이라 그쪽이 번호를 주기 시작하면 `students_erp` 값은 덮인다.
-            (2026-09-15 수리로 «빈 값으로 매일 밤 덮는» 것은 멈췄지만, «카페24 값이 이긴다» 는 그대로다.) */
-      await _addEnrCol2('parent_phone', 'TEXT');
+      /* ⚡ (2026-09-29 사장님 «수강신청 목록 로딩이 느리다») 스키마 보강(CREATE + ALTER 13번)은
+         워커 인스턴스당 «한 번만». 예전엔 목록을 열 때마다 DB 왕복 14번을 먼저 했다(ALTER 는
+         이미 있는 칸이라 매번 실패하는 왕복). 실패는 삼키는 멱등 호출이라 플래그를 세워도 안전하다. */
+      if (!_enrSchemaReady) {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS enrollments (id INTEGER PRIMARY KEY AUTOINCREMENT, student_user_id TEXT, student_name TEXT NOT NULL, package TEXT, started_at INTEGER, ended_at INTEGER, monthly_fee_krw INTEGER, status TEXT DEFAULT 'pending', notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+        // 🥭 Phase 37b — 누락 컬럼 자동 보강 (Phase 36 seed 가 사용하는 컬럼들)
+        const _addEnrCol2 = async (col: string, type: string) => {
+          try { await env.DB.exec(`ALTER TABLE enrollments ADD COLUMN ${col} ${type}`); } catch {}
+        };
+        await _addEnrCol2('days_of_week', 'TEXT');
+        await _addEnrCol2('time', 'TEXT');
+        await _addEnrCol2('class_size', 'TEXT');
+        await _addEnrCol2('type', 'TEXT');
+        await _addEnrCol2('teacher_name', 'TEXT');
+        await _addEnrCol2('end_date', 'TEXT');
+        // 🧑‍🏫 (2026-08-12) 등록 화면에서 «강사 이름 지정» 칸을 없애는 대신 남기는 값.
+        //   'schedule' = 요일·시간 우선 / 'teacher' = 강사 적합도 우선. 「▸ 처리」 단계가 읽는다.
+        await _addEnrCol2('assign_priority', 'TEXT');
+        // 🗓️ (2026-08-14) ⑥ 수업 기간(회차) — '1' | '3' | '6' | '12' | 'unlimited'.
+        //   숫자 개월이면 클라이언트가 시작일 + N개월을 end_date/ended_at 으로 같이 보내 온다.
+        //   TEXT 인 이유: 'unlimited' 를 0·NULL 로 눌러 두면 «안 고른 것» 과 구분이 안 된다.
+        await _addEnrCol2('duration_months', 'TEXT');
+        // ⏱ (2026-08-26 사장님 지시) 수업 시간(분) — 20/30/40 중 선택, 안 고르면 기본 20분.
+        //   enroll-activate.ts 의 buildEnrollPlan() 이 이 컬럼을 읽어 class_schedules.duration_min 을 정한다.
+        await _addEnrCol2('duration_min', 'INTEGER');
+        // 💰 (2026-08-26 사장님 지시) 곱하기 «전» 20분 기준가. `monthly_fee_krw` 는 «이미 곱해진 최종값» 이라
+        //   되돌아볼 근거가 사라진다 — 그래서 기준가를 따로 남긴다(감사·재계산용).
+        await _addEnrCol2('base_fee_krw', 'INTEGER');
+        // 그 기준가를 «사람이 적었는지 · 대리점 단가로 자동으로 세웠는지». 후자는 아무도 치지 않은
+        //   금액이라 확정 화면이 그렇게 말해 줘야 한다 — 추측하지 않도록 저장해 둔다.
+        await _addEnrCol2('fee_source', 'TEXT');
+        /* 📞 (2026-09-10 사장님 지시) 학부모 연락처 — 수업 전 안내문자가 «받는 사람» 이다.
+           [왜 이 칸이 생겼나] 리마인더 cron 은 살아 있는데(7일간 671건 감지) 발송이 0건이었다.
+             `students_erp` 의 번호 칸 네 개가 29,485행 전부 비어 있고, 카페24 원본에 번호가 없다
+             (2026-09-16 재실측: 29,512행 중 번호가 든 행 4행 — 전부 우리 화면이 넣은 것이다).
+           ⚠️ 여기 저장하는 것은 «이 신청서가 무슨 번호로 등록됐나» 라는 기록이다.
+              **실제로 문자가 읽는 곳은 `student_erp_override`** 다 — 아래 INSERT 뒤에서 함께 적는다.
+              그 표에 두는 이유: 카페24가 정본이라 그쪽이 번호를 주기 시작하면 `students_erp` 값은 덮인다.
+              (2026-09-15 수리로 «빈 값으로 매일 밤 덮는» 것은 멈췄지만, «카페24 값이 이긴다» 는 그대로다.) */
+        await _addEnrCol2('parent_phone', 'TEXT');
+        _enrSchemaReady = true;
+      }
       if (method === 'GET') {
         // 🥭 Phase 37b — user_id 필터 추가 (학생별 스케줄 fetch)
         const statusF = url.searchParams.get('status');
@@ -12110,6 +13154,10 @@ LIMIT $limit`;
                 두 값이 갈렸을 때 화면이 옛 값을 보여 주면 「넣었는데 왜 안 가지」가 된다.
              ⚠️ IN 목록은 손으로 자르지 않는다(D1 바인드 100개 한도 — 공용 헬퍼가 센다).
              ⚠️ 실패해도 목록은 그대로 내려간다(번호 칸만 «모름» 이 된다). */
+          /* 👤 역할은 한 번만 묻는다(번호 칸·직접 배정 줄이 같이 쓴다). 못 물어보면 둘 다 «안 싣는» 쪽. */
+          let _enActor: any = null;
+          try { _enActor = await getAdminActor(request, env as any); }
+          catch (e: any) { console.warn('[enrollments] 역할 확인 실패 — 번호·직접배정 안 실음:', e?.message); }
           try {
             /* ⛔ **강사에게는 번호를 안 내려준다.** 이 경로는 `TEACHER_BLOCKED_PREFIXES` 에 없어
                강사도 통과하는데, 번호를 실으면 «남의 집 학부모 연락처가 한 화면에 모입니다»
@@ -12117,11 +13165,9 @@ LIMIT $limit`;
                ⚠️ 못 물어보면(조회 실패) **안 내려주는 쪽**으로 실패한다 — 번호 칸이 비는 것보다
                   모르는 사람에게 새는 쪽이 나쁘다. 화면은 그때 「문자 안 감」으로 보이는데,
                   그건 목록에서 고칠 수 없다는 뜻이라 본사 계정으로 다시 열면 제대로 보인다. */
-            let maySeePhones = false;
-            try {
-              const a = await getAdminActor(request, env as any);
-              maySeePhones = !!a && a.ok !== false && !a.isTeacher;
-            } catch (e: any) { console.warn('[enrollments] 역할 확인 실패 — 번호 안 실음:', e?.message); }
+            const a = _enActor;
+            let maySeePhones = false;   // 모르면(역할 조회 실패 = a 가 null) 안 싣는 쪽
+            if (a && a.ok !== false && !a.isTeacher) maySeePhones = true;
             const uids = maySeePhones ? items.map((r: any) => String(r.student_user_id || '')).filter(Boolean) : [];
             if (uids.length) {
               const pm = await loadOverridePhones(env as any, uids);
@@ -12133,7 +13179,24 @@ LIMIT $limit`;
               }
             }
           } catch (e: any) { console.warn('[enrollments] 번호 조회 실패:', e?.message); }
-          return json({ ok: true, items });
+          /* 📅 (2026-09-29 사장님 «주간 스케줄에서 배정한 수업이 수강신청 목록에 안 나온다»)
+             주간 스케줄·학생 상세의 «수업 등록» 은 class_schedules(source='admin_ui') 에만 쓰고
+             enrollments 에는 한 줄도 안 남긴다 — 그래서 이 목록에 원리상 안 떴다.
+             그 수업을 «직접 배정» 묶음으로 따로 실어 보낸다(화면이 신청서와 섞지 않고 그린다).
+             ⛔ enrollments 에 행을 만들어 «맞추지» 않는다 — 결제·확정 파이프라인이 그 행을 신청서로 읽는다.
+             ⛔ 본사만: 지사·대리점·강사에게는 안 싣는다(이 조회는 스코프로 자르지 않는다).
+             ⚠️ 상태 필터·학생 필터가 걸린 요청에는 안 싣는다(그 필터는 신청서의 상태다).
+             ⚠️ 지난 날짜(30일 전보다 이전)의 일회성 수업은 뺀다 — 목록이 끝없이 길어진다. 실패하면 목록은 그대로. */
+          let direct: any[] | undefined;
+          if (!statusF && !userIdF && _enActor && _enActor.ok !== false && !_enActor.isTeacher && !isOrgScopedRole(_enActor.role)) {
+            try {
+              /* 조건 정본은 enroll-direct-merge.ts 의 UNMERGED_DIRECT_SQL — «합치기» 가 잇는 것과 같은 행이어야
+                 버튼이 말한 건수와 실제로 합친 건수가 같다. */
+              const ds = await env.DB.prepare(UNMERGED_DIRECT_SQL).all<any>();
+              direct = groupDirectClasses(ds.results || []);
+            } catch (e: any) { console.warn('[enrollments] 직접 배정 조회 실패:', e?.message); }
+          }
+          return json({ ok: true, items, ...(direct ? { direct } : {}) });
         } catch (e: any) {
           return json({ ok: true, items: [], warning: String(e?.message || e) });
         }
@@ -12228,12 +13291,110 @@ LIMIT $limit`;
       const _pRaw = b && b.parent_phone !== undefined ? String(b.parent_phone ?? '').replace(/[^0-9]/g, '') : null;
       const _wantPhone = _pRaw !== null;
       if (!b || (!b.status && !_wantPhone)) return invalidBody(['status']);
+      let _stRes: any = {};
+      let _phoneSaved: any = null;
       if (b.status) {
         const allowed = new Set(['pending', 'confirmed', 'active', 'cancelled', 'expired']);
         if (!allowed.has(b.status)) return json({ ok: false, error: 'invalid_status', allowed: Array.from(allowed) }, 400);
-        await env.DB.prepare(`UPDATE enrollments SET status = ?, updated_at = ? WHERE id = ?`).bind(b.status, Date.now(), id).run();
+        /* ✕ (2026-10-08 사장님 지시) «취소» 하면 그 신청이 만든 수업도 함께 종료한다.
+           되돌리면(취소 → 다른 상태) 이번 취소가 내린 수업 중 아직 안 지난 것만 되살린다.
+           규칙 정본은 src/enroll-cancel-cascade.ts — 여기서 다시 판정하지 않는다. */
+        try { await env.DB.exec(`ALTER TABLE enrollments ADD COLUMN cancelled_class_ids TEXT`); } catch { /* 이미 있음 */ }
+        let prevRow: any = await env.DB.prepare(`SELECT status, student_name, cancelled_class_ids FROM enrollments WHERE id = ?`).bind(id).first().catch(() => null);
+        // 칸이 아직 없는 DB(ALTER 실패)에서 «없는 신청» 으로 오판하지 않게 한 번 더 — 되살리기 목록만 비게 된다
+        if (!prevRow) prevRow = await env.DB.prepare(`SELECT status, student_name FROM enrollments WHERE id = ?`).bind(id).first().catch(() => null);
+        if (!prevRow) return json({ ok: false, error: 'not_found' }, 404);
+        const prevStatus = String(prevRow.status || '');
+        const src = 'adm-enroll:' + id;
+        const now = Date.now();
+        /* ⛔ 취소(=수업 종료)·되살리기(=수업 다시 열기)는 둘 다 수업 행을 바꾼다 — 수업은 곧 급여라
+           본사 전용. 판정은 정본 enrollAdminHqOnly(스코프를 다시 읽고 못 읽으면 막음) — 여기서 복제하지 않는다.
+           이 경로는 TEACHER_BLOCKED_PREFIXES 에 없어 핸들러가 직접 막아야 한다. */
+        const _touchesClasses = (b.status === 'cancelled') !== (prevStatus === 'cancelled');
+        let _cActor: any = null;
+        if (_touchesClasses) {
+          const deny = await enrollAdminHqOnly(request, env);
+          if (deny) return deny;
+          try { _cActor = await getAdminActor(request, env as any); } catch {}
+        }
+        const _actorName = (_cActor && (_cActor.name || _cActor.username)) || '관리자';
+        if (b.status === 'cancelled' && prevStatus !== 'cancelled') {
+          /* ⚠️ 수업 목록을 못 읽으면 신청 상태도 안 바꾼다 — «취소됐는데 수업은 살아 있는» 상태를 만들지 않는다. */
+          let rows: any[];
+          try {
+            const rs = await env.DB.prepare(`SELECT id, scheduled_date, start_time, status FROM class_schedules WHERE source = ? AND status = 'active'`).bind(src).all();
+            rows = (rs.results || []) as any[];
+          } catch (e: any) {
+            return json({ ok: false, error: 'schedule_lookup_failed', detail: String(e?.message || e) }, 503);
+          }
+          const plan = pickClassesToEnd(rows, now);
+          /* 수업 UPDATE 한 문장(json_each — 바인드 1개, 건수 무관) + 신청 UPDATE 를 한 batch 로: 둘 다 되거나 둘 다 안 된다. */
+          const _ids = JSON.stringify(plan.end);
+          try {
+            await env.DB.batch([
+              env.DB.prepare(`UPDATE class_schedules SET status='cancelled', updated_at=? WHERE source = ? AND status = 'active' AND id IN (SELECT value FROM json_each(?))`).bind(now, src, _ids),
+              env.DB.prepare(`UPDATE enrollments SET status = ?, cancelled_class_ids = ?, updated_at = ? WHERE id = ?`).bind('cancelled', _ids, now, id),
+            ]);
+          } catch (e: any) {
+            return json({ ok: false, error: 'cancel_failed', message: '취소하지 못했습니다(수업·신청 모두 그대로입니다). 잠시 뒤 다시 눌러 주세요.', message_en: 'Could not cancel (classes and enrollment unchanged). Please try again.', detail: String(e?.message || e) }, 503);
+          }
+          if (plan.end.length) {
+            try {
+              await writeClassAudit(env, {
+                action: 'remove', student_name: prevRow.student_name || null,
+                actor: _actorName, actor_role: 'admin', source: 'enrollment',
+                reason: '수강신청 취소 → 남은 수업 종료',
+                detail: JSON.stringify({ enrollment_id: id, ended: plan.end, past_kept: plan.past }),
+              });
+            } catch {}
+          }
+          _stRes = { ended_classes: plan.end.length, weekly_left: plan.weekly, past_kept: plan.past };
+        } else {
+        await env.DB.prepare(`UPDATE enrollments SET status = ?, updated_at = ? WHERE id = ?`).bind(b.status, now, id).run();
+        }
+        if (prevStatus === 'cancelled' && b.status !== 'cancelled') {
+          /* ↩ 취소를 되돌림 — 이번 취소가 내린 수업만, 아직 안 지난 날짜 지정 수업만 되살린다.
+             같은 학생·같은 시각(또는 같은 강사·같은 시각)에 이미 살아 있는 수업이 있으면 건너뛴다(두 벌 방지, 못 물어보면 건너뜀). */
+          const saved = parseSavedIds(prevRow.cancelled_class_ids);
+          let restored = 0, skipped = 0, restoreFailed = false;
+          if (saved.length) {
+            try {
+              const rs = await env.DB.prepare(`SELECT id, user_id, teacher_id, scheduled_date, start_time, status FROM class_schedules WHERE source = ?`).bind(src).all();
+              const rows = (rs.results || []) as any[];
+              const pick = pickClassesToRestore(rows, saved, now);
+              skipped = pick.skipped;
+              for (const sid of pick.restore) {
+                const row = rows.find((r) => Number(r.id) === sid);
+                let dup: any = 'unknown';
+                try {
+                  dup = await env.DB.prepare(
+                    `SELECT id FROM class_schedules WHERE id <> ? AND scheduled_date = ? AND substr(start_time,1,5) = substr(?,1,5) AND status != 'cancelled'
+                       AND (user_id = ? OR (? <> '' AND teacher_id = ? AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed'))) LIMIT 1`
+                  ).bind(sid, String(row.scheduled_date || '').slice(0, 10), String(row.start_time || ''), row.user_id, String(row.teacher_id || ''), String(row.teacher_id || '')).first();
+                } catch {}
+                if (dup) { skipped++; continue; }
+                const upd: any = await env.DB.prepare(`UPDATE class_schedules SET status='active', updated_at=? WHERE id=? AND status='cancelled'`).bind(now, sid).run();
+                if (upd && upd.meta && upd.meta.changes > 0) restored++; else skipped++;
+              }
+              await env.DB.prepare(`UPDATE enrollments SET cancelled_class_ids = NULL WHERE id = ?`).bind(id).run();
+              if (restored) {
+                try {
+                  await writeClassAudit(env, {
+                    action: 'restore', student_name: prevRow.student_name || null,
+                    actor: _actorName, actor_role: 'admin', source: 'enrollment',
+                    reason: '수강신청 취소 되돌리기 → 수업 되살림',
+                    detail: JSON.stringify({ enrollment_id: id, restored, skipped }),
+                  });
+                } catch {}
+              }
+            } catch (e: any) {
+              console.warn('[enrollments] 취소 되돌리기 중 수업 복구 실패:', e?.message || e);
+              restoreFailed = true;
+            }
+          }
+          _stRes = restoreFailed ? { restore_failed: true, restored_classes: restored } : { restored_classes: restored, restore_skipped: skipped };
+        }
       }
-      let _phoneSaved: any = null;
       if (_wantPhone) {
         /* ⛔ **강사는 남의 «발송 번호» 를 바꿀 수 없다.** 이 경로는 `TEACHER_BLOCKED_PREFIXES` 에
            없어 강사도 닿는데, 여기서 바꾼 번호로 **실제 문자가 나갑니다**(돈이 나가고 우리 이름으로).
@@ -12277,7 +13438,7 @@ LIMIT $limit`;
           }
         }
       }
-      return json({ ok: true, id, status: b.status || null, phone_saved: _phoneSaved });
+      return json({ ok: true, id, status: b.status || null, phone_saved: _phoneSaved, ..._stRes });
     }
 
     /* 🗑️ DELETE — 수강신청 삭제 (2026-08-21, 사장님 지시: 수강신청 목록의 데모 항목 정리)
@@ -12903,6 +14064,14 @@ LIMIT $limit`;
 
     // ── ⑭ GET /api/admin/room-attendance?room_id=... — 강의실 출석/참가자 조회 ──
     if (method === 'GET' && path === '/api/admin/room-attendance') {
+      /* 🔎 (2026-10-01) ?uid=<학생>&date=YYYY-MM-DD — 그날 그 학생의 예약방·실제 접속·화상방 명단·회선/소리 기록을
+         한 번에(읽기 전용). 정본 src/class-diagnose.ts. 강사·지사·대리점은 막는다(학생 접속 기록 전체가 실린다). */
+      const diagUid = String(url.searchParams.get('uid') || '').trim();
+      if (diagUid) {
+        const _dgA = await getAdminActor(request, env as any);
+        if (!_dgA.ok || _dgA.isTeacher || isOrgScopedRole(_dgA.role)) return json(forbiddenTeacherBody(_dgA as any), 403);
+        return json(await diagnoseStudentDay(env, diagUid, url.searchParams.get('date')));
+      }
       const roomId = String(url.searchParams.get('room_id') || '').trim();
       if (!roomId) return json({ ok: false, error: 'room_id_required' }, 400);
       try {
@@ -12977,8 +14146,9 @@ LIMIT $limit`;
             const dup: any = await env.DB.prepare(
               `SELECT briefing_date, briefing_text, stats FROM daily_briefings WHERE briefing_date = ? ORDER BY created_at DESC LIMIT 1`
             ).bind(yesterdayStr).first();
-            if (dup) {
-              let st = null; try { st = dup.stats ? JSON.parse(dup.stats) : null; } catch {}
+            let st: any = null; try { st = dup && dup.stats ? JSON.parse(dup.stats) : null; } catch {}
+            // 📊 (2026-10-13) 옛 정의(명부 전체 분모)로 만든 브리핑은 다시 만든다 — 하루 한 번만 일어난다.
+            if (dup && st && st.def === KPI_DEF_VERSION) {
               return json({ ok: true, cached: true, briefing_text: dup.briefing_text, stats: st, briefing_date: dup.briefing_date });
             }
           } catch {}
@@ -12998,53 +14168,23 @@ LIMIT $limit`;
           newInquiry = r?.n || 0;
         } catch {}
 
-        // 3) 미납 «학생 수»
-        //   ⚠️ (2026-08-08 수정) 여기만 `payments` 라는 별개 표를 보고 있었다. 심지어 없으면 만들어서
-        //      거의 빈 표를 세고 있었다. 운영 KPI 대시보드(/api/admin/kpi/dashboard)는 `student_payments`
-        //      기준으로 «35일 넘게 결제 기록이 없는 활성 학생 수» 를 미납으로 센다.
-        //      같은 «미납» 이라는 말이 두 화면에서 다른 숫자였다 → KPI 쪽 정의로 통일한다.
-        let overdueCount = 0;
-        try {
-          const cutoff35 = now - 35 * 86400000;
-          const r: any = await env.DB.prepare(
-            `SELECT COUNT(DISTINCT s.user_id) AS n FROM students_erp s
-              WHERE (s.status IN ('정상','활동','active') OR s.status IS NULL OR s.status = '')
-                AND s.user_id NOT IN (SELECT user_id FROM student_payments WHERE status='paid' AND paid_at >= ?)`
-          ).bind(cutoff35).first();
-          overdueCount = r?.n || 0;
-        } catch {}
-
-        // 4) 2주 이상 결석한 학생 수
-        //   🔴 (2026-08-08 수정) 원래 쿼리는 `WHERE joined_at < (now-14일)` 이었다.
-        //      이건 «14일 전에 한 번이라도 출석한 적 있는 모든 사람» 이라, 그 뒤 매일 나와도 포함된다.
-        //      즉 사실상 전교생 수가 나왔다(화면에 2,809 로 찍히던 값). 주석은 «최근 14일간 결석» 이었지만
-        //      정작 그 조건이 쿼리에 없었다.
-        //      → 사람마다 «마지막 출석» 을 구한 뒤, 그게 14일보다 오래된 사람만 센다.
-        let atRiskCount = 0;
-        try {
-          const r: any = await env.DB.prepare(
-            `SELECT COUNT(*) AS n FROM (
-               SELECT user_id, MAX(joined_at) AS last_at
-                 FROM attendance
-                WHERE role = 'student' OR role IS NULL
-                GROUP BY user_id
-             ) WHERE last_at < ?`
-          ).bind(now - 14 * 86400000).first();
-          atRiskCount = r?.n || 0;
-        } catch {}
-
-        // 5) 출석률 (어제 기준 — 활성 학생 수 대비 출석한 학생 수)
-        //   분자는 `attendance.date`(KST 'YYYY-MM-DD') 기준. 위 KST 보정으로 이제 진짜 «어제» 를 본다.
-        //   분모(활성 학생)는 KPI 대시보드의 «활동 학생» 과 같은 조건을 그대로 쓴다 — 두 화면이 어긋나지 않게.
+        // 3)~5) 📊 (2026-10-13) 분모를 «활동 학생»(최근 30일 수업이 있는 학생)으로 바꿨다.
+        //   예전엔 students_erp 명부 전체(28,825명)라 미납 28,771명·출석률 0%(123/28825)가 나왔고,
+        //   AI 가 그 숫자를 사실처럼 «123명 중 28825명이 출석» 으로 읽었다. 정의는 src/kpi-active.ts 하나.
+        const _ab = activeBinds(now);
+        let activeStudents = 0, overdueCount = 0, overduePaidEver = 0, atRiskCount = 0, attendedYesterday = 0;
         let attendanceRate: number | null = null;
-        let attendedYesterday = 0, activeStudents = 0;
+        try { const r: any = await env.DB.prepare(activeCountSql()).bind(..._ab).first(); activeStudents = r?.n || 0; } catch (e: any) { console.warn('[briefing] active', e?.message); }
         try {
-          const att: any = await env.DB.prepare(`SELECT COUNT(DISTINCT user_id) AS n FROM attendance WHERE date = ?`).bind(yesterdayStr).first();
-          attendedYesterday = att?.n || 0;
-          const tot: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE status IN ('정상','활동','active') OR status IS NULL OR status = ''`).first();
-          activeStudents = tot?.n || 0;
+          const r: any = await env.DB.prepare(overdueSql()).bind(..._ab, now - OVERDUE_GRACE_DAYS * 86400000).first();
+          overdueCount = r?.overdue || 0; overduePaidEver = r?.paid_ever || 0;
+        } catch (e: any) { console.warn('[briefing] overdue', e?.message); }
+        try { const r: any = await env.DB.prepare(absentSql()).bind(..._ab, now - ABSENT_DAYS * 86400000, now).first(); atRiskCount = r?.n || 0; } catch (e: any) { console.warn('[briefing] absent', e?.message); }
+        try {
+          const r: any = await env.DB.prepare(ATTENDED_ON_DATE_SQL).bind(..._ab, yesterdayStr).first();
+          attendedYesterday = r?.n || 0;
           if (activeStudents > 0) attendanceRate = Math.round((attendedYesterday / activeStudents) * 100);
-        } catch {}
+        } catch (e: any) { console.warn('[briefing] attended', e?.message); }
 
         // 6) 최근 7일 평가 평균
         //   🔴 (2026-08-08 수정) 평가가 한 건도 없으면 AVG 가 NULL 인데 `|| 0` 으로 0 을 넣고 있었다.
@@ -13065,8 +14205,10 @@ LIMIT $limit`;
           generated_for_kst: kstTodayStr,
           new_enrollment: newEnroll,
           new_inquiry: newInquiry,
+          def: KPI_DEF_VERSION,                 // 이 정의가 아니면 같은 날짜 브리핑도 다시 만든다
           overdue_count: overdueCount,          // 미납 «학생 수» (KPI 대시보드와 같은 정의)
-          at_risk_count: atRiskCount,           // 마지막 출석이 14일 이전인 학생 수
+          overdue_paid_ever: overduePaidEver,   // 그 분모 — 결제 기록이 있는 활동 학생
+          at_risk_count: atRiskCount,           // 활동 학생 중 최근 14일 수업 기록 없음
           attendance_rate: attendanceRate,      // null = 산출 불가
           attended_yesterday: attendedYesterday,
           active_students: activeStudents,
@@ -13087,15 +14229,18 @@ LIMIT $limit`;
           : `- 최근 7일 평가 평균: ${recentEvalAvg}점 (${recentEvalCount}건)`;
         const attLine = (attendanceRate == null)
           ? `- 어제 출석률: 자료 없음`
-          : `- 어제 출석률: ${attendanceRate}% (${attendedYesterday}/${activeStudents}명)`;
+          : `- 어제 수업 기록이 있는 학생: ${attendedYesterday}명 (활동 학생 ${activeStudents}명 중 ${attendanceRate}%)`;
+        const sanity = briefingSanity({ active_students: activeStudents, overdue_count: overdueCount, at_risk_count: atRiskCount, attended_yesterday: attendedYesterday });
         let briefingText = '';
         try {
-          if (env.AI) {
+          // 숫자가 상식에 안 맞으면 AI 에 넘기지 않는다 — 틀린 숫자를 AI 가 차분한 문장으로 바꿔 «사실» 로 만든다.
+          if (env.AI && sanity.length === 0) {
             const prompt = `다음은 어제(${yesterdayStr}, 한국시간) 망고아이 학원의 운영 데이터입니다.\n\n`
               + `- 신규 등록: ${newEnroll}명\n`
               + `- 신규 상담: ${newInquiry}건\n`
-              + `- 미납 학생: ${overdueCount}명 (35일 넘게 결제 기록이 없는 활성 학생)\n`
-              + `- 2주 이상 결석한 학생: ${atRiskCount}명\n`
+              + `- 활동 학생(최근 30일 수업이 있는 학생): ${activeStudents}명\n`
+              + `- 미납 학생: ${overdueCount}명 (결제 기록이 있는 활동 학생 ${overduePaidEver}명 중 35일 넘게 결제 없음)\n`
+              + `- 최근 14일 수업 기록이 없는 활동 학생: ${atRiskCount}명\n`
               + `${attLine}\n`
               + `${evalLine}\n\n`
               + `원장님께 드리는 아침 브리핑을 5-7문장으로 따뜻하고 명료한 한국어 존댓말로 작성해 주세요.\n`
@@ -13117,13 +14262,14 @@ LIMIT $limit`;
           console.warn('[briefing] AI failed', aiErr?.message);
         }
         if (!briefingText) {
-          briefingText = `🌅 어제(${yesterdayStr}) 망고아이 브리핑입니다.\n`
+          briefingText = (sanity.length ? `⚠️ 숫자 확인이 필요해 AI 요약을 만들지 않았습니다: ${sanity.join(', ')}\n` : '')
+            + `🌅 어제(${yesterdayStr}) 망고아이 브리핑입니다.\n`
             + `신규 등록 ${newEnroll}명, 신규 상담 ${newInquiry}건이 접수되었습니다.\n`
             + (attendanceRate == null ? `어제 출석 자료는 아직 집계되지 않았습니다.\n`
-                                      : `어제 출석률은 ${attendanceRate}%(${attendedYesterday}/${activeStudents}명)입니다.\n`)
+                                      : `어제 수업 기록이 있는 학생은 ${attendedYesterday}명(활동 학생 ${activeStudents}명 중 ${attendanceRate}%)입니다.\n`)
             + (recentEvalAvg == null ? `최근 7일 안에 작성된 평가서는 없습니다.\n`
                                      : `최근 7일 평가 평균은 ${recentEvalAvg}점(${recentEvalCount}건)입니다.\n`)
-            + `미납 학생 ${overdueCount}명, 2주 이상 결석 ${atRiskCount}명에 대한 케어가 필요합니다.\n`
+            + `미납 학생 ${overdueCount}명(결제 기록 있는 ${overduePaidEver}명 중), 최근 14일 수업 기록 없는 학생 ${atRiskCount}명을 확인해 주세요.\n`
             + `오늘도 좋은 하루 되세요!`;
         }
 
@@ -13430,7 +14576,7 @@ LIMIT $limit`;
     // ═══════════════════════════════════════════════════════════════
     // 📈 Phase RCF — AI 매출/이탈 예측 (Revenue & Churn Forecast)
     // ═══════════════════════════════════════════════════════════════
-    if (path === '/api/admin/forecast/revenue' || path === '/api/admin/forecast/churn') {
+    if (path === '/api/admin/forecast/revenue' || path === '/api/admin/forecast/churn' || path === '/api/admin/forecast/message') {
       const actor = await getAdminActor(request, env as any);
       if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
       if (actor.isTeacher) return json({ ok: false, error: 'forbidden' }, 403);
@@ -13440,8 +14586,35 @@ LIMIT $limit`;
         status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
       });
       try {
-        if (method === 'GET') return reply(path.endsWith('/revenue')
-          ? await loadRevenue(env.DB, notSeedSql()) : await loadCare(env.DB, notSeedSql()));
+        if (path.endsWith('/message')) {
+          if (method === 'GET') {
+            const recipient = await counselingRecipient(env, String(url.searchParams.get('uid') || ''));
+            return reply(recipient ? { ok: true, recipient } : { ok: false, error: 'student_not_found' }, recipient ? 200 : 404);
+          }
+          if (method === 'POST') {
+            if (request.headers.get('Origin') !== url.origin) return reply({ ok: false, error: 'invalid_origin' }, 403);
+            return reply(await sendCounselingSms(env, await parseJsonBody(request), actor.username));
+          }
+          return reply({ ok: false, error: 'method_not_allowed' }, 405);
+        }
+        if (method === 'GET') {
+          if (path.endsWith('/revenue')) return reply(await loadRevenue(env.DB, notSeedSql()));
+          const _care: any = await loadCare(env.DB, notSeedSql());
+          /* 📞 (2026-10-13 케어 보드 2단계) «마지막 연락» 을 다섯 원천에서 읽어 덮는다 — 정본 lastContacts.
+             ⚠️ 이 칸은 «사례» 가 아니라 «학생» 의 마지막 연락이다(지난 사례의 연락도 보인다 — 또 연락하지 않게).
+             A(이탈 위험) 카드에서 보낸 문자·전화도 여기 «마지막 연락» 에 보인다. 더 최근 것만 덮는다. */
+          try {
+            const _rows: any[] = Array.isArray(_care.rows) ? _care.rows : [];
+            const { map: _m, failed: _f } = await lastContacts(env.DB, _rows.map(r => r.user_id));
+            _care.last_contact_ok = _f === 0;
+            for (const r of _rows) {
+              const c = _m.get(String(r.user_id));
+              if (c && !(Number(r.contacted_at) >= c.at)) r.contacted_at = c.at;
+              r.contact_via = c ? c.via : null;
+            }
+          } catch (e: any) { console.warn('[forecast] last_contact 실패:', e?.message); }
+          return reply(_care);
+        }
         // Churn care is saved explicitly; no message delivery or AI generation on page load.
         if (method === 'POST' && path.endsWith('/churn')) {
           if (request.headers.get('Origin') !== url.origin) return reply({ ok: false, error: 'invalid_origin' }, 403);
@@ -14115,7 +15288,7 @@ LIMIT $limit`;
       if (method === 'GET' && path === '/api/admin/billing/auto-renew-due') {
         const now = Date.now();
         const rs: any = await env.DB.prepare(
-          `SELECT id, user_id, student_name, amount, next_billing_at, fail_count
+          `SELECT id, user_id, student_name, plan, amount, next_billing_at, fail_count
            FROM subscriptions WHERE status='active' AND billing_key IS NOT NULL
            ORDER BY next_billing_at ASC LIMIT 200`
         ).all().catch(() => ({ results: [] }));
@@ -14616,15 +15789,19 @@ LIMIT $limit`;
         /* 실접속 행 — 오늘 «정말로 화상방에 붙은» 사람. 하루 수십 건이라 통째로 읽어도 가볍다.
            (`last_seen_at > 0` 이 카페24 씨앗과 실접속을 가르는 유일하게 확실한 표시다) */
         const liveRows = await (async () => {
-          try {
-            const r: any = await env.DB.prepare(
-              `SELECT user_id, username, room_id, joined_at, left_at, last_seen_at
-                 FROM attendance
-                WHERE joined_at >= ? AND last_seen_at IS NOT NULL AND last_seen_at > 0
-                LIMIT 500`
-            ).bind(now - SCAN_MS - AHEAD_MS).all();
-            return (r.results || []) as any[];
-          } catch { return [] as any[]; }
+          /* 🚨 (2026-10-07) account_uid 도 함께 뽑는다 — «서로 다른 방» 감시가 학생 «계정» 으로 잇는다
+             (user_id 는 기기 임시번호). 그 칸이 없는 옛 DB 에서는 예전 SELECT 로 떨어진다. */
+          const q = (cols: string) => env.DB.prepare(
+            `SELECT ${cols}
+               FROM attendance
+              WHERE joined_at >= ? AND last_seen_at IS NOT NULL AND last_seen_at > 0
+              LIMIT 500`
+          ).bind(now - SCAN_MS - AHEAD_MS).all();
+          try { const r: any = await q('user_id, username, account_uid, room_id, joined_at, left_at, last_seen_at'); return (r.results || []) as any[]; }
+          catch {
+            try { const r: any = await q('user_id, username, room_id, joined_at, left_at, last_seen_at'); return (r.results || []) as any[]; }
+            catch { return [] as any[]; }
+          }
         })();
         const normName = (v: any) => String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
         // 이름 → 실접속 행. 같은 이름이 둘 이상이면 «누구인지 모름» 이므로 잇지 않는다.
@@ -14683,7 +15860,7 @@ LIMIT $limit`;
           const _soSelCn = startsOnSel(await ensureStartsOnColumn(env), 'cs');
           const rs2: any = await env.DB.prepare(
             `SELECT cs.id, cs.user_id, cs.student_name, cs.class_type, cs.source, cs.notes,
-                    cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id${_soSelCn},
+                    cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.status, cs.teacher_id${_soSelCn},
                     t.name AS t_name, se.korean_name AS stu_ko, se.english_name AS stu_en
                FROM class_schedules cs
                LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
@@ -14691,7 +15868,8 @@ LIMIT $limit`;
               WHERE COALESCE(cs.status,'active') != 'cancelled'
                 ${stu.cond ? `AND (${stu.cond})` : ''}`
           ).bind(...stu.binds).all();
-          schedRows = (rs2.results || []) as any[];
+          // ⏸ (2026-10-01) 연기된 회차는 «지금 수업» 이 아니다 — 참관할 방에 아무도 안 온다(class-postponed.ts)
+          schedRows = ((rs2.results || []) as any[]).filter((r: any) => !isPostponedOccurrence(r));
         } catch (e: any) { console.warn('[classes-now] mangoi rows:', e?.message); }
 
         /* 🔄 그 날짜의 1회성 대체강사 — recurring 행의 teacher_id 는 원래 강사 그대로라
@@ -14715,7 +15893,48 @@ LIMIT $limit`;
           liveRows,
         });
 
-        const classes = mergeClassesNow(c24Classes as any, mgClasses);
+        // Resolve the same date-specific room as student/teacher schedule projections.
+        // Use each occurrence's KST date, including yesterday/tomorrow near midnight.
+        for (const ymd of new Set(mgClasses.map(c => kstYmd(c.start_ms)))) {
+          await applyRoomOverrides(env.DB, mgClasses.filter(c => kstYmd(c.start_ms) === ymd), ymd);
+        }
+        // Presence belongs to the resolved room, never the original class-* room.
+        for (const c of mgClasses) {
+          const hit = liveRows.find(lr => String(lr.room_id || '') === c.room_id && overlaps(lr, c.start_ms, c.end_ms));
+          c.connected = !!hit;
+          c.live_room = hit ? String(hit.room_id || '') : null;
+        }
+
+        /* 🎌 (2026-10-09) 공휴일 휴강 — 그날 열리지 않는 망고아이 수업은 «지금 수업» 이 아니다.
+           ⚠️ «합친 뒤» 에 뺀다: 먼저 빼면 그 수업의 카페24 짝(c24-<번호>)이 미러 짝을 잃고 되살아난다.
+           카페24에만 있는 줄은 강사 번호 체계가 달라 예외(중국어)를 가릴 수 없어 그대로 둔다. */
+        const _holBy: Record<string, HolidayClosure> = {};
+        for (const d of scanDates) _holBy[d] = await loadHolidayClosure(env.DB, d);
+        const _tOf = new Map<number, any>();
+        for (const r of schedRows) _tOf.set(Number(r.id), r.teacher_id);
+        /* 카페24 줄: 카페24 강사번호 → 원부 번호(loadCafe24TeacherMap — 이름이 유일하게 맞을 때만).
+           못 이으면 이름으로 «중국어 강사인가» 만 한 번 더 본다(예외 강사 원부 이름 정확일치 · 「중국어」·chinese 포함).
+           그래도 모르면 «예외 아님» = 휴강(망고아이의 «강사 미배정 = 휴강» 과 같은 규칙). */
+        const _c24Tid = new Map<string, any>();
+        if (Object.values(_holBy).some(h => h && h.closed)) {
+          const _exNames = await loadHolidayExemptNames(env, Object.values(_holBy));
+          for (const r of rows) {
+            _c24Tid.set(String(r.room_id), cafe24HolidayTeacher(tmap.get(String(r.teacher_uid || '')), _exNames, normTeacherName));
+          }
+        }
+        const _hol = dropHolidayClosed(mergeClassesNow(c24Classes as any, mgClasses),
+          (c: any) => c.source === 'cafe24' ? _c24Tid.get(String(c.room_id)) : _tOf.get(Number(c.schedule_id)), _holBy);
+        const classes = _hol.kept;
+        const _mgOpen = mgClasses.filter(c => classes.indexOf(c) >= 0);
+
+        /* 🚨 (2026-10-07) «같은 수업인데 서로 다른 방» — 학생은 다른 방에, 예약방에는 누군가 접속 중.
+           판정 정본 src/room-mismatch.ts. 실패해도 목록은 그대로 뜬다(빈 배열). */
+        let roomMismatch: any[] = [];
+        try {
+          const infoBySched = new Map<number, { uid: string; source: any }>();
+          for (const r of schedRows) infoBySched.set(Number(r.id), { uid: String(r.user_id || ''), source: r.source });
+          roomMismatch = findRoomMismatches(_mgOpen as any, liveRows, (id) => infoBySched.get(id) || null, now);
+        } catch (e: any) { console.warn('[classes-now] room mismatch:', e?.message); }
 
         return json({
           ok: true,
@@ -14728,8 +15947,11 @@ LIMIT $limit`;
             // 🏷 출처별 건수 — 「카페24가 0건」과 「수업이 0건」은 다른 사실이다
             mangoi: classes.filter(c => c.source === 'mangoi').length,
             cafe24: classes.filter(c => c.source === 'cafe24').length,
+            holiday_closed: _hol.closed,   // 🎌 공휴일 휴강으로 뺀 수업 수(망고아이+카페24)
           },
+          holiday: _hol.name ? { name: _hol.name, closed: _hol.closed, closed_cafe24: _hol.closed_c24 } : null,
           classes,
+          room_mismatch: roomMismatch,
         });
       } catch (e: any) {
         return json({ ok: false, error: 'classes_now_failed', detail: String(e?.message || e) }, 500);
@@ -16267,4 +17489,5 @@ LIMIT $limit`;
 
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
 }
+
 

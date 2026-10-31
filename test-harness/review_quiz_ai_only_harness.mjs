@@ -124,26 +124,31 @@ console.log('\n[ ③ 전체 메뉴 — 복습퀴즈 칸 감추기 ]');
     catch (e) { return 'ERR ' + e.message; }
   }
   const has = (r, n) => Array.isArray(r) && r.includes(n);
+  // 칸 이름은 소스에서 읽는다(2026-09-30 「복습퀴즈」→「BTS/SIU 퀴즈」·「중국어퀴즈」로 바뀜 — 이름을 적어 두면
+  // 다시 바뀌는 날 «안 보인다» 검사가 저절로 참이 되어 헛돈다).
+  const nameOf = url => ((arr.match(new RegExp("name:'([^']+)', url:'" + url.replace(/[.]/g, '[.]') + "'")) || [])[1] || '');
+  const REV = nameOf('/review-quiz.html'), REV_CN = nameOf('/review-quiz-cn.html');
+  check('전제: 두 퀴즈 칸의 이름을 표에서 읽었다', !!REV && !!REV_CN, [REV, REV_CN]);
   let r = run({ uid: 'kid1', cached: { uid: 'kid1', track: 'ai_only' } });
-  check('AI 전용 학생: 복습퀴즈가 안 보인다', Array.isArray(r) && !has(r, '복습퀴즈'), r);
-  check('AI 전용 학생: 중국어 복습퀴즈도 안 보인다', Array.isArray(r) && !has(r, '중국어 복습퀴즈'), r);
+  check('AI 전용 학생: 복습퀴즈가 안 보인다', Array.isArray(r) && !has(r, REV), r);
+  check('AI 전용 학생: 중국어 복습퀴즈도 안 보인다', Array.isArray(r) && !has(r, REV_CN), r);
   check('AI 전용 학생: 단어장은 그대로 보인다', has(r, '단어장'));
   if (Array.isArray(r)) check('AI 전용 학생: 단어장·AI 단어 퀴즈 다음 칸이 MBTI 매칭(복습퀴즈 자리가 당겨짐)',
     r[r.indexOf('AI 단어 퀴즈') + 1] === 'MBTI 매칭', r.slice(r.indexOf('단어장'), r.indexOf('단어장') + 3));
   r = run({ uid: 'kid1', cached: { uid: 'kid1', track: 'live_ai' } });
-  check('짝: 화상수업 학생은 복습퀴즈가 보인다', has(r, '복습퀴즈'), r);
+  check('짝: 화상수업 학생은 복습퀴즈가 보인다', has(r, REV), r);
   r = run({ uid: 'kid1', cached: { uid: 'kid1', track: 'unknown' } });
-  check('짝: 모름(unknown)이면 보인다', has(r, '복습퀴즈'), r);
+  check('짝: 모름(unknown)이면 보인다', has(r, REV), r);
   r = run({ uid: 'kid1' });
-  check('짝: 아직 답이 없으면(캐시 없음) 보인다', has(r, '복습퀴즈'), r);
+  check('짝: 아직 답이 없으면(캐시 없음) 보인다', has(r, REV), r);
   r = run({ uid: '' , cached: { uid: '', track: 'ai_only' } });
-  check('짝: 비로그인은 보인다', has(r, '복습퀴즈'), r);
+  check('짝: 비로그인은 보인다', has(r, REV), r);
   r = run({ uid: 'kid1', staff: true, cached: { uid: 'kid1', track: 'ai_only' } });
-  check('짝: 직원 세션이면 보인다', has(r, '복습퀴즈'), r);
+  check('짝: 직원 세션이면 보인다', has(r, REV), r);
   r = run({ uid: 'kid2', cached: { uid: 'kid1', track: 'ai_only' } });
-  check('짝: 다른 학생의 캐시로는 감추지 않는다', has(r, '복습퀴즈'), r);
+  check('짝: 다른 학생의 캐시로는 감추지 않는다', has(r, REV), r);
   r = run({ uid: 'kid1', cached: { uid: 'kid1', track: 'ai_only', age: 11 * 60 * 1000 } });
-  check('짝: 캐시가 10분을 넘으면 믿지 않는다(보인다)', has(r, '복습퀴즈'), r);
+  check('짝: 캐시가 10분을 넘으면 믿지 않는다(보인다)', has(r, REV), r);
 
   // 늦게 온 답 — 열린 그리드에서 그 칸만 뺀다
   const openBody = blockFrom(m, 'function openAllMenuOverlay()') || '';
@@ -154,7 +159,7 @@ console.log('\n[ ③ 전체 메뉴 — 복습퀴즈 칸 감추기 ]');
   check('fetch 는 «성공이라고 말했을 때만» 믿는다(d.ok === true)', /d\.ok !== true/.test(fetchFn));
   check('fetch 는 ai_only 일 때만 칸을 뺀다', /d\.track === 'ai_only' && onAiOnly/.test(fetchFn));
   check('중국어 복습퀴즈도 같은 규칙(liveOnly)이고 zh 규칙은 그대로다',
-    /name:'중국어 복습퀴즈'[^}]*zh:true[^}]*liveOnly:true/.test(arr));
+    /url:'\/review-quiz-cn\.html'[^}]*zh:true[^}]*liveOnly:true/.test(arr));
 }
 
 // ═══ ④ 캐시 번호 ═══
