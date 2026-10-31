@@ -274,7 +274,7 @@ console.log('\nB. 정본 실행 (node 타입 제거 — 컴파일 없이 진짜�
   writeFileSync(join(tmp, 'warmup-correction.ts'), fixImp(readFileSync(join(SRC, 'warmup-correction.ts'), 'utf8')));
   writeFileSync(join(tmp, 'english-only.ts'), fixImp(readFileSync(join(SRC, 'english-only.ts'), 'utf8')));
   const runner = `
-import { parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat } from './warmup-correction.ts';
+import { parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat, correctionLeadIn } from './warmup-correction.ts';
 const out = [];
 const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String(extra)]);
 
@@ -501,6 +501,24 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   t('B-32b 짝: 사소한 tag 는 모델이 준 minor 를 그대로 둔다', keep && keep.severity === 'minor', keep && keep.severity);
   const up2 = verifyWarmupFix({ was: 'a apple', now: 'an apple', why_ko: '모음 앞에는 an 이에요', tag: 'article', severity: 'major' }, 'I ate a apple');
   t('B-32c 모델이 major 라고 하면 어떤 tag 든 major (판정을 좁히지 않는다)', up2 && up2.severity === 'major', up2 && up2.severity);
+}
+
+// ── ⑤ correctionLeadIn — 「교정 먼저, 질문은 그다음」 (2026-10-31 사장님 지시) ──
+{
+  const F = { was: 'I go', now: 'I went', why_ko: '어제 일이라 과거형을 써요', tag: 'past_tense', severity: 'major' };
+  const bad = 'Oh, you went to school yesterday! What did you do there?';
+  const lead = correctionLeadIn(bad, F, 'en');
+  t('B-33 🔴 교정이 있으면 고친 문장이 질문보다 먼저 나온다 (사장님 화면 재현)',
+    lead.indexOf('I went') >= 0 && lead.indexOf('I went') < lead.indexOf('?'), lead);
+  t('B-33b 짝: 고친 문장을 따옴표 안에 말한다', lead.indexOf('"I went.') >= 0, lead);
+  const already = 'Great! I went to school yesterday. What did you do there?';
+  t('B-34 이미 질문보다 먼저 고친 문장이 있으면 중복으로 붙이지 않는다', correctionLeadIn(already, F, 'en') === already, correctionLeadIn(already, F, 'en'));
+  t('B-35 교정이 없으면 답장은 그대로다', correctionLeadIn(bad, null, 'en') === bad);
+  const out2 = correctionLeadIn('What did you do there? I went home.', F, 'en');
+  t('B-36 질문이 먼저 나오면 고친 문장을 질문 앞에 붙인다', out2.indexOf('I went') < out2.indexOf('?'), out2);
+  const zhF = { was: '我去学校昨天', now: '我昨天去了学校', why_ko: '시간 말은 앞에 와요', tag: 'word_order', severity: 'major' };
+  const zhOut = correctionLeadIn('哦，你昨天去学校了！在那儿做什么了？', zhF, 'zh');
+  t('B-37 중국어도 고친 문장이 질문보다 먼저 나온다', zhOut.indexOf('我昨天去了学校') >= 0 && zhOut.indexOf('我昨天去了学校') < zhOut.indexOf('？'), zhOut);
 }
 
 process.stdout.write('@@JSON@@' + JSON.stringify(out));
