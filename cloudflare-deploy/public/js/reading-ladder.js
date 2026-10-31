@@ -49,18 +49,48 @@
       if (w.length > 3 && /s$/.test(w) && !/ss$/.test(w)) return w.slice(0, -1);
       return w;
     },
-    checkSummary: function (text, keywords) {
-      var have = {};
-      RLCore.words(text).forEach(function (w) { have[RLCore.stem(w)] = 1; });
-      var hit = [], miss = [];
+    // ③ 은 «핵심문장 응용해서 쓰기» — 핵심 문장의 구조·시제는 두고 표시된 낱말 하나만 바꾼다(2026-10-22 main).
+    // 그래서 모범 문장은 «핵심 문장에서 그 낱말만 바꾼 것» 이고, 본문과 많이 겹치는 것 자체는 정상이다.
+    // 막는 것은 두 가지뿐(2026-10-20 사장님 「베껴쓰기 아닌가요?」):
+    //   'copy' — 본문 한 문장과 낱말이 COPY_RATIO 이상 겹치고, 모범 문장보다 그 본문 문장에 더 가까울 때
+    //            (= 표시된 낱말을 안 바꾸고 그대로 옮김. 모범 문장과 똑같이 가까우면(동점) 막지 않는다 —
+    //             다른 낱말로 바꾼 것도 «바꾼 것» 이다)
+    //   'list' — 힌트 낱말(+관사)만 늘어놓았을 때(«puppy smell home» 도 예전엔 만점이었다)
+    // ⛔ 통과 문턱을 올리지 않는다(1단계에 «핵심어 3개 전부» 를 강제하면 못 쓰는 학생이 갇힌다) — 막힌 학생은 «모범 문장 보기» 로 나간다.
+    COPY_RATIO: 0.8,
+    stemSet: function (text) {
+      var s = {};
+      RLCore.words(text).forEach(function (w) { s[RLCore.stem(w)] = 1; });
+      return s;
+    },
+    // 두 글의 낱말 겹침 — 짧은 쪽 기준이 아니라 «양쪽 모두에서» 겹친 비율의 작은 값(한쪽이 다른 쪽을 거의 다 담을 때만 높다).
+    overlap: function (a, b) {
+      var A = RLCore.stemSet(a), B = RLCore.stemSet(b), na = 0, nb = 0, both = 0, k;
+      for (k in A) { na++; if (B[k]) both++; }
+      for (k in B) nb++;
+      return na && nb ? Math.min(both / na, both / nb) : 0;
+    },
+    copiedFrom: function (text, sentences, model) {
+      var best = 0;
+      (sentences || []).forEach(function (s) { best = Math.max(best, RLCore.overlap(text, s)); });
+      return best >= RLCore.COPY_RATIO && best > (model ? RLCore.overlap(text, model) : 0);
+    },
+    checkSummary: function (text, keywords, src) {
+      var have = RLCore.stemSet(text);
+      var hit = [], miss = [], kwStem = {};
       (keywords || []).forEach(function (k) {
         var parts = RLCore.words(k);
+        parts.forEach(function (w) { kwStem[RLCore.stem(w)] = 1; });
         var ok = parts.length > 0 && parts.every(function (w) { return have[RLCore.stem(w)]; });
         (ok ? hit : miss).push(k);
       });
       var hasKorean = /[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(String(text || ''));
       var n = RLCore.words(text).length;
-      var verdict = hasKorean ? 'korean' : n < 3 ? 'short' : hit.length === (keywords || []).length ? 'great' : hit.length >= 2 ? 'good' : 'try';
+      var other = 0, w;
+      for (w in have) if (!kwStem[w] && !/^(a|an|the|and)$/.test(w)) other++;
+      var copied = !!(src && RLCore.copiedFrom(text, src.sentences, src.model));
+      var verdict = hasKorean ? 'korean' : n < 3 ? 'short' : copied ? 'copy' : (hit.length && !other) ? 'list' :
+        hit.length === (keywords || []).length ? 'great' : hit.length >= 2 ? 'good' : 'try';
       return { hit: hit, miss: miss, verdict: verdict, total: (keywords || []).length };
     },
     // 결정론적 섞기(같은 글은 같은 순서) — 보기 순서가 다시 그릴 때마다 바뀌면 «방금 고른 자리» 가 움직인다.
@@ -482,7 +512,9 @@
           good: T('좋아요! 핵심어 ' + res.hit.length + '개가 들어갔어요. 빠진 말: ', 'Good! ' + res.hit.length + ' key words are in. Missing: ') + res.miss.join(', '),
           try: T('핵심어가 조금 부족해요. 아래 힌트 낱말을 넣어 다시 써 볼까요?', 'A few key words are missing. Try again with the hint words.'),
           short: T('세 낱말 이상 영어로 써 주세요.', 'Please write at least three English words.'),
-          korean: T('영어로만 써 주세요.', 'Please write in English only.')
+          korean: T('영어로만 써 주세요.', 'Please write in English only.'),
+          copy: T('핵심 문장을 그대로 옮겼어요 — 표시된 낱말을 바꿔서 써 봐요', 'You copied the key sentence as-is — change the marked word.'),
+          list: T('힌트 낱말만 늘어놓았어요. 낱말을 이어서 문장으로 써 주세요. (누가 + 무엇을 했다)', 'You only listed the hint words. Please join them into a sentence.')
         }[res.verdict];
         fb = '<p class="rl-fb ' + (res.verdict === 'great' || res.verdict === 'good' ? 'ok' : 'no') + '">' + esc(msg) + '</p>';
       }
@@ -633,7 +665,7 @@
     if (act === 'sumcheck' && p) {
       var ta = document.getElementById('rlSum');
       var txt = ta ? ta.value : '';
-      var res = RLCore.checkSummary(txt, p.summary.keywords);
+      var res = RLCore.checkSummary(txt, p.summary.keywords, { sentences: p.sentences.map(function (s) { return s.en; }), model: p.summary.en });
       view.sumResult = res;
       var r = rec(p.id); r.sText = txt.slice(0, 300);
       if (res.verdict === 'great' || res.verdict === 'good') r.s = res.verdict;
