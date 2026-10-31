@@ -163,8 +163,9 @@ const CORR = readFileSync(join(SRC, 'warmup-correction.ts'), 'utf8');
      교정 축)가 생겼습니다. 인자 «개수» 를 못 박으면 정당한 확장에 빨간불이 나므로
      «그 두 값을 그 순서로 넘기는가» 까지만 묻습니다. 지켜야 할 것은 그대로입니다 —
      모델이 준 rawFix 가 검증을 «거치지 않고» 응답에 실리면 안 된다. */
+  // 2026-10-31: 과거형 규칙(rawFix || 보완)이 앞에 붙어도 «검증을 거치는 것» 은 같다
   check('A-4 검증을 «반드시» 지난다 — 모델이 준 fix 를 그대로 응답에 싣지 않는다',
-        /verifyWarmupFix\(\s*rawFix\s*,\s*studentInput\s*[,)]/.test(H) && !/fix:\s*rawFix/.test(H));
+        /verifyWarmupFix\(\s*(?:rawFix|rawFix\s*\|\|[^,]+?)\s*,\s*studentInput\s*[,)]/.test(H) && !/fix:\s*rawFix/.test(H));
 
   check('A-5 응답에 검증·게이트를 통과한 것만 싣는다', /fix:\s*showFix\s*,\s*repeat:\s*offerRepeat/.test(H));
 
@@ -206,6 +207,10 @@ console.log('\nA2. 정밀 교정 규칙 (두 화면이 같은 정본을 쓴다)'
 
   /* ⚠️ 짝 검사 — «전부 매 턴 고쳐» 로 넓히면 2026-09-03 원장님 제보(「정해진 문장 안에서만
      한다」)와 같은 뿌리로 되돌아간다. 두 규칙 모두 «그 넷이 아니면 넘어가» 를 함께 말해야 한다. */
+  /* 🔴 2026-10-30 — 「사소한 것은 잡지 마」 를 모델이 «fix 도 null» 로 읽으면 서버 게이트가 볼 것이 없다.
+     답장에서는 지적하지 않되 fix 칸은 언제나 적으라고 «갈라서» 말해야 한다(웜업 규칙). */
+  check('A2-4b 🔴 웜업 규칙이 «사소해도 fix 칸에는 반드시 적어» 라고 말한다',
+        /사소해도 반드시 "fix" 에 적어/.test(wRule));
   check('A2-4 짝: 그 넷이 아닌 사소한 것은 매번 잡지 말라고도 말한다',
         /사소한 것/.test(wRule) && /"fix": null/.test(aRule) && /smaller than those four/i.test(aRule));
 
@@ -270,7 +275,7 @@ console.log('\nB. 정본 실행 (node 타입 제거 — 컴파일 없이 진짜�
   writeFileSync(join(tmp, 'warmup-correction.ts'), fixImp(readFileSync(join(SRC, 'warmup-correction.ts'), 'utf8')));
   writeFileSync(join(tmp, 'english-only.ts'), fixImp(readFileSync(join(SRC, 'english-only.ts'), 'utf8')));
   const runner = `
-import { parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat } from './warmup-correction.ts';
+import { parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat, correctionLeadIn } from './warmup-correction.ts';
 const out = [];
 const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String(extra)]);
 
@@ -345,8 +350,13 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   t('B-8 🔴 was 가 학생 원문에 없으면 버린다 (지어낸 교정)',
     verifyWarmupFix({ was: 'I have a cat', now: 'I have two cats', why_ko: '복수야', tag: 'plural', severity: 'minor' }, said) === null);
 
-  t('B-9 was 와 now 가 같으면 교정이 아니다',
-    verifyWarmupFix({ was: 'I go to school', now: 'i go to school', why_ko: '같아', tag: 'other', severity: 'minor' }, said) === null);
+  t('B-9 was 와 now 가 글자까지 같으면 교정이 아니다',
+    verifyWarmupFix({ was: 'I go to school', now: 'I go to school', why_ko: '같아', tag: 'other', severity: 'minor' }, said) === null);
+  // 2026-10-31 짝: 대소문자·구두점만 바뀐 교정은 «고친 것» 이다 (집중교정 — "not Secret" → "not secret")
+  t('B-9b 대소문자만 바뀐 교정은 통과한다 (i → I)',
+    verifyWarmupFix({ was: 'i go to school', now: 'I go to school', why_ko: '문장 첫 글자는 대문자예요', tag: 'other', severity: 'minor' }, 'i go to school') !== null);
+  t('B-9c 구두점만 바뀐 교정은 통과한다 (마침표 추가)',
+    verifyWarmupFix({ was: 'I go to school', now: 'I go to school.', why_ko: '문장 끝에는 마침표를 찍어요', tag: 'other', severity: 'minor' }, 'I go to school') !== null);
 
   t('B-10 why_ko 가 비면 버린다',
     verifyWarmupFix({ was: 'I go', now: 'I went', why_ko: '', tag: 'past_tense', severity: 'minor' }, said) === null);
@@ -381,6 +391,12 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   t('B-17 짧은 문장의 진짜 교정도 통과한다 (게이트가 너무 조이면 기능이 안 뜬다)',
     !!verifyWarmupFix(mk('me hungry', 'I am hungry'), 'me hungry') &&
     !!verifyWarmupFix(mk('I like apple', 'I like apples'), 'I like apple'));
+  /* 🔴 2026-10-30 — 음성인식이 아포스트로피를 빼고 받아 적으면("I dont") 모델이 짚은 "I don't" 가
+     «원문에 없다» 로 판정돼 진짜 교정이 조용히 버려졌다. 짝: 아포스트로피만 같아도 지어낸 말은 여전히 막힌다. */
+  t('B-17b 🔴 아포스트로피 없이 받아 적어도(i dont) 교정은 통과한다',
+    !!verifyWarmupFix({ was: "I don't do", now: "I didn't do", why_ko: '어제라서 과거형', tag: 'past_tense', severity: 'major' }, 'i dont do anything yesterday'));
+  t('B-17c 짝: 학생이 안 한 말은 아포스트로피와 무관하게 여전히 막힌다',
+    verifyWarmupFix({ was: "I can't swim", now: "I couldn't swim", why_ko: '과거형', tag: 'past_tense', severity: 'major' }, 'i dont do anything yesterday') === null);
 }
 
 // ── ③ decideWarmupFixShow — «언제 보여 줄 것인가» ──
@@ -390,12 +406,17 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   const a = decideWarmupFixShow(F('major'), null, 5);
   t('B-18 뜻이 달라지는 오류(major)는 바로 보여 준다', !!a.show);
 
+  /* 🔴 2026-10-30 사장님 「아직도 학생이 틀린말 했는데 교정을 해주지 않아」 — 옛 규칙
+     「작은 실수는 두 번째부터」가 학생의 첫 실수를 원리상 지나치게 했다. 이제 «첫 번째» 에 보여 주고,
+     «매 턴 잡지 않기» 는 간격(B-22b)이 지킨다. ⛔ B-19 를 옛 기대(null)로 되돌리지 마세요. */
   const b = decideWarmupFixShow(F('minor', 'article'), null, 5);
-  t('B-19 작은 실수(minor)는 처음엔 안 보여 준다 — 매 턴 고치면 말문이 막힌다', b.show === null);
-  t('B-20 그래도 «틀린 것» 자체는 센다 (안 세면 두 번째가 영영 안 온다)', b.memo.tags.article === 1);
+  t('B-19 🔴 작은 실수(minor)도 «첫 번째» 에 보여 준다 (2026-10-30 제보)', !!b.show);
+  t('B-20 «틀린 것» 자체는 센다 (따라 말하기·통계가 쓴다)', b.memo.tags.article === 1);
 
   const c = decideWarmupFixShow(F('minor', 'article'), b.memo, 7);
-  t('B-21 같은 실수가 두 번째면 그때 보여 준다', !!c.show && c.memo.tags.article === 2);
+  t('B-21 간격(2턴)을 띄운 작은 실수도 보여 준다', !!c.show && c.memo.tags.article === 2);
+  const b2 = decideWarmupFixShow(F('minor', 'article'), b.memo, 6);
+  t('B-21b 짝: 방금 고쳐 준 바로 다음 턴의 작은 실수는 안 보여 준다 (말문 막힘 방지)', b2.show === null);
 
   /* 🔴 2026-09-09 사장님 「더 정밀하게 문법을 잘 체크해 줄 수 있어?」 —
      뜻이 달라지는 오류는 연달아 틀려도 «매번» 고쳐 준다. 옛 코드는 major 도 2턴을 띄워서,
@@ -414,8 +435,8 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   /* 🔴 첫 마디 — 옛 코드는 lastShownTurn 이 0 이라 (1 - 0 < 2) 로 turn 1 이 «원리상» 막혔다.
      학생이 처음 한 말은 절대 못 고쳐 주고 있었다(정본을 돌려 실측). */
   t('B-23b 🔴 학생의 «맨 첫 마디» 도 고쳐 준다 (turn 1)', !!decideWarmupFixShow(F('major'), null, 1).show);
-  t('B-23c 짝: 첫 마디여도 작은 실수는 처음엔 안 고친다 (조용한 규칙은 그대로)',
-    decideWarmupFixShow(F('minor', 'article'), null, 1).show === null);
+  t('B-23c 🔴 첫 마디의 작은 실수도 고쳐 준다 (2026-10-30 — 첫 실수를 지나치지 않는다)',
+    !!decideWarmupFixShow(F('minor', 'article'), null, 1).show);
 
   /* 🔴 «한 번도 안 보여줬으면 간격이 없다» 를 «홀로» 재는 자리.
      major 는 애초에 간격을 안 보므로 위 B-23b 로는 이 줄이 검사되지 않는다(변이시험 실측).
@@ -424,8 +445,8 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   {
     const m1 = decideWarmupFixShow(F('minor', 'article'), null, 1);
     const m2 = decideWarmupFixShow(F('minor', 'article'), m1.memo, 1);
-    t('B-23d 🔴 턴 수가 1 에 고정돼도 «두 번째» 작은 실수는 고쳐 준다 (아직 한 번도 안 보여줬으므로)',
-      m1.show === null && !!m2.show, JSON.stringify([!!m1.show, !!m2.show]));
+    t('B-23d 턴 수가 1 에 고정되면 첫 작은 실수는 고치고 «같은 턴 번호» 의 두 번째는 간격이 막는다',
+      !!m1.show && m2.show === null, JSON.stringify([!!m1.show, !!m2.show]));
   }
 
   const z = decideWarmupFixShow(null, c.memo, 20);
@@ -476,7 +497,8 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
     m2 = d.memo;
     shown2.push(!!d.show);
   }
-  t('B-31 🔴 짝: 관사(article)는 여전히 매 턴이 아니다', JSON.stringify(shown2) === '[false,true,false,true]', JSON.stringify(shown2));
+  /* 2026-10-30: 첫 실수부터 보여 주므로 [true,false,true,false] — «매 턴이 아니다» 는 그대로다. */
+  t('B-31 🔴 짝: 관사(article)는 첫 실수는 고치되 여전히 매 턴이 아니다', JSON.stringify(shown2) === '[true,false,true,false]', JSON.stringify(shown2));
 
   /* 🔴 severity 를 «우리가» 확정한다 — 모델이 minor 라 해도 그 넷은 major. */
   const up = verifyWarmupFix({ was: 'I go', now: 'I went', why_ko: '과거형이에요', tag: 'past_tense', severity: 'minor' }, 'I go to school yesterday');
@@ -485,6 +507,24 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   t('B-32b 짝: 사소한 tag 는 모델이 준 minor 를 그대로 둔다', keep && keep.severity === 'minor', keep && keep.severity);
   const up2 = verifyWarmupFix({ was: 'a apple', now: 'an apple', why_ko: '모음 앞에는 an 이에요', tag: 'article', severity: 'major' }, 'I ate a apple');
   t('B-32c 모델이 major 라고 하면 어떤 tag 든 major (판정을 좁히지 않는다)', up2 && up2.severity === 'major', up2 && up2.severity);
+}
+
+// ── ⑤ correctionLeadIn — 「교정 먼저, 질문은 그다음」 (2026-10-31 사장님 지시) ──
+{
+  const F = { was: 'I go', now: 'I went', why_ko: '어제 일이라 과거형을 써요', tag: 'past_tense', severity: 'major' };
+  const bad = 'Oh, you went to school yesterday! What did you do there?';
+  const lead = correctionLeadIn(bad, F, 'en');
+  t('B-33 🔴 교정이 있으면 고친 문장이 질문보다 먼저 나온다 (사장님 화면 재현)',
+    lead.indexOf('I went') >= 0 && lead.indexOf('I went') < lead.indexOf('?'), lead);
+  t('B-33b 짝: 고친 문장을 따옴표 안에 말한다', lead.indexOf('"I went.') >= 0, lead);
+  const already = 'Great! I went to school yesterday. What did you do there?';
+  t('B-34 이미 질문보다 먼저 고친 문장이 있으면 중복으로 붙이지 않는다', correctionLeadIn(already, F, 'en') === already, correctionLeadIn(already, F, 'en'));
+  t('B-35 교정이 없으면 답장은 그대로다', correctionLeadIn(bad, null, 'en') === bad);
+  const out2 = correctionLeadIn('What did you do there? I went home.', F, 'en');
+  t('B-36 질문이 먼저 나오면 고친 문장을 질문 앞에 붙인다', out2.indexOf('I went') < out2.indexOf('?'), out2);
+  const zhF = { was: '我去学校昨天', now: '我昨天去了学校', why_ko: '시간 말은 앞에 와요', tag: 'word_order', severity: 'major' };
+  const zhOut = correctionLeadIn('哦，你昨天去学校了！在那儿做什么了？', zhF, 'zh');
+  t('B-37 중국어도 고친 문장이 질문보다 먼저 나온다', zhOut.indexOf('我昨天去了学校') >= 0 && zhOut.indexOf('我昨天去了学校') < zhOut.indexOf('？'), zhOut);
 }
 
 process.stdout.write('@@JSON@@' + JSON.stringify(out));

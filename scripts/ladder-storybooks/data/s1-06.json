@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "flat",
     "cover": "Ben, a boy with red hair and a green sweater, hands half a sandwich and an apple to Sam, a boy with short black hair and an orange shirt, at a school lunch table; both boys are smiling.",
     "scenes": {
       "1": "At a school lunch table, Sam, a boy with short black hair and an orange shirt, looks sadly into his empty bag, and Ben, a boy with red hair and a green sweater, looks at him and holds out half of his sandwich and an apple.",
       "2": "Sam, a boy with short black hair and an orange shirt, smiles big while holding half a sandwich and an apple, sitting next to Ben, a boy with red hair and a green sweater; both friends eat together happily."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

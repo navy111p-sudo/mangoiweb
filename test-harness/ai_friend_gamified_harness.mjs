@@ -77,7 +77,7 @@ const init = await page.evaluate(() => ({
 check('HUD 레벨 렌더(lifetime 9 → Lv.1 새싹, XP 90%)', init.lvName.includes('Lv.1') && init.xpW === '90%', init.lvName + ' / ' + init.xpW);
 check('HUD 스트릭 🔥2', init.streak === '2', init.streak);
 check('HUD 오늘의 단어 amazing(놀라운)', init.wodEn === 'amazing' && init.wodKo.includes('놀라운'), init.wodEn + init.wodKo);
-check('빈 상태: 주제 모험 카드 8장', init.topicCards === 8, String(init.topicCards));
+check('빈 상태: 주제 모험 카드 10장', init.topicCards === 10, String(init.topicCards));
 check('빈 상태: 마스코트 + 퀵버튼 3개', init.hero && init.quickBtns === 3, 'hero=' + init.hero + ' quick=' + init.quickBtns);
 check('퀘스트 초기 0/5', init.qTalkN === '0/5', init.qTalkN);
 

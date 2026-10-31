@@ -1,0 +1,311 @@
+{
+  "id": "s2-28",
+  "breaks": [
+    3,
+    2,
+    3,
+    5
+  ],
+  "key": {
+    "P": 6,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «티라노사우루스가 둘을 향해 달려오고 있었다(문제)» 와 «때로는 가장 순한 친구가 가장 용감한 친구이기도 하다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (a T. rex was running toward them) and the lesson (sometimes the gentlest friend is also the bravest). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Jae, his sister Ara, a long-necked dinosaur"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "A T. rex ran toward Jae and Ara."
+    },
+    {
+      "k": "Lesson",
+      "qko": "무엇을 배웠나요?",
+      "qen": "What is the lesson?",
+      "a": "The gentlest friend can also be the bravest."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "A storm pushed Jae and Ara to a strange ",
+      "ans": "island",
+      "opts": [
+        "island",
+        "city",
+        "desert"
+      ]
+    },
+    {
+      "pre": ". They followed a gentle long-necked ",
+      "ans": "dinosaur",
+      "opts": [
+        "dinosaur",
+        "giraffe",
+        "elephant"
+      ]
+    },
+    {
+      "pre": " into the jungle. When a T. rex ran at them, they had nowhere to ",
+      "ans": "hide",
+      "opts": [
+        "hide",
+        "eat",
+        "swim"
+      ]
+    },
+    {
+      "pre": ". The gentle dinosaur swung its huge ",
+      "ans": "tail",
+      "opts": [
+        "tail",
+        "wing",
+        "nose"
+      ]
+    },
+    {
+      "pre": ", and the T. rex ran away. Then it carried them back to their ",
+      "ans": "boat",
+      "opts": [
+        "boat",
+        "house",
+        "school"
+      ]
+    },
+    {
+      "pre": " on the beach.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "island",
+      "섬",
+      "A storm pushed Jae and his sister Ara's boat to a strange <b>island</b>.",
+      "land with water all around it"
+    ],
+    [
+      "gentle",
+      "순한, 온화한",
+      "It was calm and <b>gentle</b>",
+      "kind and quiet, not rough"
+    ],
+    [
+      "roar",
+      "포효, 으르렁거림",
+      "Suddenly, they heard a loud <b>roar</b> behind them.",
+      "a very loud, deep sound that an animal makes"
+    ],
+    [
+      "swung",
+      "휘둘렀다",
+      "It <b>swung</b> its huge tail",
+      "moved something in a big curve"
+    ],
+    [
+      "lowered",
+      "낮췄다, 숙였다",
+      "The gentle giant <b>lowered</b> its head",
+      "moved something down"
+    ],
+    [
+      "bravest",
+      "가장 용감한",
+      "Sometimes the gentlest friend is also the <b>bravest</b>.",
+      "the most brave"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did the T. rex run away?",
+      "qko": "티라노사우루스는 왜 도망갔나요?",
+      "opts": [
+        "The long-necked dinosaur swung its huge tail.",
+        "The storm came back and scared it.",
+        "The children shouted very loudly."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "It swung its huge tail, and the T. rex ran away.",
+        "A storm pushed Jae and his sister Ara's boat to a strange island.",
+        "It was calm and gentle, so they followed it into the jungle.",
+        "It carried them back to their boat on the beach."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "목이 긴 공룡이 커다란 꼬리를 휘두르자 티라노는 도망갔어요. 폭풍이 다시 왔다거나 아이들이 소리쳤다는 말은 없어요.",
+        "The long-necked dinosaur swung its huge tail, and the T. rex ran away. Nothing says the storm came back or that the children shouted."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The story says, \"The gentle giant lowered its head.\" Who is \"the gentle giant\"?",
+      "qko": "\"The gentle giant lowered its head.\"라는 문장이 있어요. 여기서 \"the gentle giant\"는 누구인가요?",
+      "opts": [
+        "the long-necked dinosaur",
+        "the T. rex",
+        "Jae"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "It was calm and gentle, so they followed it into the jungle.",
+        "A T. rex was running toward them!",
+        "The trees were taller than buildings, and the ground shook with heavy steps.",
+        "\"Look!\" Ara whispered. \"A dinosaur!\""
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "앞에서 목이 긴 공룡이 «얌전하고 순했다»고 했어요. 나무 꼭대기의 잎을 먹을 만큼 아주 큰 공룡이니, \"순한 거인\"은 바로 목이 긴 공룡이에요.",
+        "Earlier, the long-necked dinosaur was «calm and gentle». It is huge, big enough to eat leaves from the top of a tree, so \"the gentle giant\" is the long-necked dinosaur."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why is the long-necked dinosaur both the gentlest and the bravest?",
+      "qko": "목이 긴 공룡은 왜 가장 순하면서도 가장 용감하다고 할 수 있나요?",
+      "opts": [
+        "It was calm and gentle, but it stepped in front of the T. rex to save the children.",
+        "It was the biggest animal on the island.",
+        "It ran away faster than the T. rex."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "It was calm and gentle, so they followed it into the jungle.",
+        "They ran, but there was nowhere to hide.",
+        "Then the long-necked dinosaur stepped between them and the T. rex.",
+        "It carried them back to their boat on the beach."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "공룡은 얌전하고 순했지만, 아이들과 티라노 사이를 막아서서 아이들을 지켰어요. 두 문장을 이으면 순하면서도 용감하다는 답이 나와요.",
+        "The dinosaur was calm and gentle, but it stepped between the children and the T. rex to protect them. Put these two sentences together to find the answer."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Jae and Ara come back with fruit for their gentle friend.",
+      "재와 아라가 순한 공룡 친구에게 줄 과일을 들고 다시 찾아가요.",
+      "A Gift for Our Giant"
+    ],
+    [
+      "B",
+      "Jae and Ara find a big dinosaur egg on the beach.",
+      "재와 아라가 바닷가에서 커다란 공룡 알을 발견해요.",
+      "The Mystery Egg"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“Let’s <u>be kind to gentle animals</u> so that <u>they can trust us</u>.”",
+    "slotKo": [
+      "함께 할 일",
+      "그러면 어떻게 되는지"
+    ],
+    "slotEn": [
+      "what to do together",
+      "what will happen"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그 목적» 으로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write something to do together and its purpose in English.",
+    "chips": [
+      {
+        "a": "walk the dog together",
+        "b": "he can get some exercise",
+        "label": "dog"
+      },
+      {
+        "a": "water the flowers",
+        "b": "they can grow tall",
+        "label": "flowers"
+      },
+      {
+        "a": "share our snacks",
+        "b": "everyone can have some",
+        "label": "snacks"
+      }
+    ],
+    "aria": [
+      "what to do",
+      "so that what happens"
+    ],
+    "moreKo": "한 걸음 더: «Let’s» 뒤에는 동사(be, help)를 바로 쓰고, «so that» 뒤에는 «누가 + 무엇을 할 수 있다» 를 쓰세요.",
+    "moreEn": "One more step: after «Let’s», write a verb (be, help). After «so that», write who + what they can do."
+  },
+  "img": {
+    "style": "cg3d",
+    "cover": "In a giant green jungle, a huge long-necked dinosaur with green skin, light yellow spots and kind brown eyes stands bravely in front of a nine-year-old Korean boy with short spiky black hair, an orange T-shirt and blue shorts and his older sister, a twelve-year-old Korean girl with a long black braid, a yellow T-shirt and green shorts, swinging its long tail toward a brown T. rex that turns around and runs away.",
+    "scenes": {
+      "1": "In a jungle with trees taller than buildings, a nine-year-old Korean boy with short spiky black hair, an orange T-shirt and blue shorts and his older sister, a twelve-year-old Korean girl with a long black braid, a yellow T-shirt and green shorts peek out from behind giant ferns at a huge long-necked dinosaur with green skin, light yellow spots and kind brown eyes, who is calmly eating leaves from the top of a very tall tree.",
+      "3": "On a sunny beach, a huge long-necked dinosaur with green skin, light yellow spots and kind brown eyes lowers its long neck next to a small wooden boat, while a nine-year-old Korean boy with short spiky black hair, an orange T-shirt and blue shorts and his older sister, a twelve-year-old Korean girl with a long black braid, a yellow T-shirt and green shorts slide down from its neck, laughing happily."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "Two children peek at a long-necked dinosaur eating leaves.",
+    "3": "The dinosaur brings the children back to their boat on the beach.",
+    "cover": "A gentle long-necked dinosaur protects two children from a T. rex."
+  }
+}

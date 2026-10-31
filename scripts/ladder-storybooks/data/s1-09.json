@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «but I can», add who you do it with. (e.g. but I can cook with Dad)"
   },
   "img": {
+    "style": "clay",
     "cover": "A girl with curly red hair in a purple apron and a man with a beard in a gray shirt stand in a kitchen and smile at a plate of pancakes.",
     "scenes": {
       "1": "A girl with curly red hair in a purple apron looks surprised next to spilled flour on a white, messy kitchen floor, while a man with a beard in a gray shirt laughs kindly.",
       "2": "A girl with curly red hair in a purple apron and a man with a beard in a gray shirt eat pancakes together at a clean kitchen table, with a broom leaning on the wall."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

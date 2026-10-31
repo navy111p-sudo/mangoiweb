@@ -1,0 +1,310 @@
+{
+  "id": "s1-21",
+  "breaks": [
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 0,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "놀라운 일",
+      "en": "surprise"
+    },
+    "S": {
+      "ko": "결말",
+      "en": "ending"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «고양이 미미가 말을 했다(놀라운 일)» 와 «그래서 화요일이 가장 좋아하는 날이 되었다(결말)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the surprise (my cat Mimi talks) and the ending (Tuesday is now my favorite day). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Me and my cat Mimi"
+    },
+    {
+      "k": "Surprise",
+      "qko": "어떤 놀라운 일이 있었나요?",
+      "qen": "What is the surprise?",
+      "a": "My cat Mimi can talk, but only on Tuesdays."
+    },
+    {
+      "k": "Ending",
+      "qko": "마지막에 어떻게 되나요?",
+      "qen": "What happens at the end?",
+      "a": "Tuesday becomes my favorite day."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "One morning, my cat Mimi starts to ",
+      "ans": "talk",
+      "opts": [
+        "talk",
+        "fly",
+        "swim"
+      ]
+    },
+    {
+      "pre": "! But she talks only on ",
+      "ans": "Tuesdays",
+      "opts": [
+        "Tuesdays",
+        "Sundays",
+        "Fridays"
+      ]
+    },
+    {
+      "pre": ". Mimi tells me many ",
+      "ans": "secrets",
+      "opts": [
+        "secrets",
+        "numbers",
+        "colors"
+      ]
+    },
+    {
+      "pre": ": the big dog next door is afraid of ",
+      "ans": "mice",
+      "opts": [
+        "mice",
+        "cats",
+        "birds"
+      ]
+    },
+    {
+      "pre": ", and Dad sings in the ",
+      "ans": "shower",
+      "opts": [
+        "shower",
+        "car",
+        "garden"
+      ]
+    },
+    {
+      "pre": ". Now Tuesday is my favorite day!",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "spoon",
+      "숟가락",
+      "I drop my <b>spoon</b>.",
+      "a small tool for eating soup or cereal"
+    ],
+    [
+      "only",
+      "~에만",
+      "\"But <b>only</b> on Tuesdays.\"",
+      "just one and no more"
+    ],
+    [
+      "secret",
+      "비밀",
+      "Mimi tells me many <b>secrets</b>.",
+      "something you tell only a few people"
+    ],
+    [
+      "afraid",
+      "무서워하는",
+      "The big dog next door is <b>afraid</b> of mice.",
+      "feeling scared"
+    ],
+    [
+      "laugh",
+      "웃다",
+      "I <b>laugh</b> and give her a fish.",
+      "to make a happy sound when something is funny"
+    ],
+    [
+      "favorite",
+      "가장 좋아하는",
+      "Now Tuesday is my <b>favorite</b> day, because my cat can talk!",
+      "liked more than all others"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why do I drop my spoon?",
+      "qko": "나는 왜 숟가락을 떨어뜨리나요?",
+      "opts": [
+        "My cat Mimi says, \"Good morning!\"",
+        "The spoon is too hot.",
+        "The big dog barks at me."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "One morning, my cat Mimi says, \"Good morning!\"",
+        "Mimi tells me many secrets.",
+        "Dad sings in the shower every night.",
+        "I laugh and give her a fish."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«One morning, my cat Mimi says, \"Good morning!\"» 고양이가 말을 해서 깜짝 놀라 숟가락을 떨어뜨려요.",
+        "My cat Mimi says, \"Good morning!\" I am so surprised that I drop my spoon."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"But only on Tuesdays.\" What does \"only\" mean here?",
+      "qko": "«But only on Tuesdays.» 에서 «only» 는 무슨 뜻일까요?",
+      "opts": [
+        "on Tuesdays and no other days",
+        "on every day of the week",
+        "never"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Now Tuesday is my favorite day, because my cat can talk!",
+        "I drop my spoon. \"You can talk?\"",
+        "Then Mimi says, \"Now give me more fish, please.\"",
+        "The big dog next door is afraid of mice."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«Now Tuesday is my favorite day, because my cat can talk!» 미미가 화요일에만 말을 해서 화요일이 제일 좋아요. «only» 는 «~에만» 이라는 뜻이에요.",
+        "Mimi talks only on Tuesdays, so Tuesday is my favorite day. \"Only\" means on that day and no other day."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "What secrets does Mimi tell me?",
+      "qko": "미미는 나에게 어떤 비밀을 말해 주나요?",
+      "opts": [
+        "The dog next door is afraid of mice, and Dad sings in the shower.",
+        "Mom hides cookies, and the dog can fly.",
+        "Mimi can swim, and Dad can dance."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "The big dog next door is afraid of mice.",
+        "Dad sings in the shower every night.",
+        "\"Yes,\" says Mimi. \"But only on Tuesdays.\"",
+        "Then Mimi says, \"Now give me more fish, please.\""
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "옆집 큰 개는 생쥐를 무서워하고(«The big dog next door is afraid of mice.»), 아빠는 밤마다 샤워하며 노래해요(«Dad sings in the shower every night.»). 두 문장을 이어야 알 수 있어요.",
+        "The big dog next door is afraid of mice, and Dad sings in the shower every night. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "On Wednesday, Mimi talks again and tells a new secret.",
+      "수요일에도 미미가 또 말을 하고 새 비밀을 알려 준다.",
+      "Mimi Talks on Wednesday"
+    ],
+    [
+      "B",
+      "I tell Dad that Mimi can talk, but Mimi only says, \"Meow.\"",
+      "아빠에게 미미가 말을 한다고 알려 주지만, 미미는 «야옹» 이라고만 한다.",
+      "Only Meow"
+    ]
+  ],
+  "write": {
+    "pre": "I want to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "하고 싶은 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what you want to do",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «하고 싶은 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you want to do and your reason in English.",
+    "aria": [
+      "what you want to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because my friend likes it)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because my friend likes it)",
+    "src": "“I want to <u>talk with my cat</u> because <u>she knows many secrets</u>.”",
+    "chips": [
+      {
+        "a": "play with my dog",
+        "b": "he is so funny",
+        "label": "dog"
+      },
+      {
+        "a": "visit the zoo",
+        "b": "I love animals",
+        "label": "zoo"
+      },
+      {
+        "a": "eat pizza",
+        "b": "it is my favorite food",
+        "label": "pizza"
+      }
+    ]
+  },
+  "img": {
+    "style": "anime",
+    "cover": "In a sunny kitchen in the morning, a chubby orange tabby cat with green eyes and a white chest sits on the breakfast table and opens her mouth wide as if talking, while a girl with a short black bob and a yellow headband in a blue striped shirt drops her spoon in surprise and a little splash of milk flies up from her cereal bowl.",
+    "scenes": {
+      "1": "In a cozy living room, a chubby orange tabby cat with green eyes and a white chest whispers into the ear of a girl with a short black bob and a yellow headband in a blue striped shirt, who giggles, while through the window a big brown dog next door jumps back in fright from a tiny gray mouse in the yard.",
+      "2": "In a sunny kitchen, a girl with a short black bob and a yellow headband in a blue striped shirt laughs and holds out a small fish to a chubby orange tabby cat with green eyes and a white chest, who stands up on her back legs with a happy, hungry face."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Mimi tells the girl a secret.",
+    "2": "The girl gives Mimi a fish.",
+    "cover": "Mimi says good morning, and the girl drops her spoon."
+  }
+}

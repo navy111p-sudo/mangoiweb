@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write who it helps and how. (e.g. because it protects my grandparents)"
   },
   "img": {
+    "style": "cg3d",
     "cover": "A nurse in gloves giving a vaccine shot in the upper arm of a teenage student in a bright, clean clinic room",
     "scenes": {
       "1": "A scientist in gloves holding a small glass vaccine vial beside a microscope on a laboratory bench",
       "3": "Parents and young children playing together on a sunny community playground in a park"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

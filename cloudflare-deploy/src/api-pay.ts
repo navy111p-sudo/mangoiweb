@@ -13,77 +13,21 @@
  *  실전 전환: 시크릿을 live_sk_* 로 바꾸고 프론트 클라이언트키도 live_ck_* 로 교체.
  */
 import { json, parseJsonBody } from './api-util';
+import { TOSS_CLIENT_KEY_DEFAULT, tossKeyRole, isTossKeyShaped, tossClientKey } from './toss-keys';   // 🔑 키 판정 정본
 import { checkAdminSession } from './auth-admin';
 import { sendPlainSms } from './solapi-client';
 import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnrollOrder, priceForUid, teacherRateFor, enrollQuoteCalc, ENROLL_WEEKLY, addDays, authUidOrAdminSession, renewStartDate, enrollTimeToMin } from './enroll-ops';
 import { authUidFromRequest } from './auth-token';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서 (사전고지 문자)
 import { handleRefundApi } from './api-pay-refund';   // 💸 환불 실행·기록 (2026-08-25 신설)
-import { activateB2bAiInvoicePayment } from './ai-billing';   // 🏢 대리점 AI 사용료 일괄결제 활성화 (MGB- 주문 전용, 2026-09-10)
+import { activateB2bAiInvoicePayment, mgbAmountNow } from './ai-billing';   // 🏢 대리점 AI 사용료 일괄결제 활성화 (MGB- 주문 전용, 2026-09-10)
 import { activateB2bTuitionPayment, handleB2bTuitionPublic } from './b2b-tuition-load';   // 🏫 B2B 화상수업 수업료 (MGT- 주문 · /api/pay/b2b/*, 2026-10-01)
+import { claimB2bInvoiceForConfirm, releaseB2bInvoiceClaim, revertB2bOnCancel, parseB2bOrder, findB2bDoublePaid, tossOrderProbe } from './b2b-pay-guard';   // 🔒 대리점 청구서 이중결제·취소 되돌리기 (2026-10-22)
 import { AI_PASS_PLAN, NOT_AI_PASS_PLAN_SQL, aiPassPeriod, aiPassNextBilling, currentAiPassEnd } from './ai-pass';
 import { phonesForStudent } from './notify-contacts';   // 📞 A.i 사전고지 번호 — 우리가 받아 둔 번호를 먼저 보는 정본   // 🤖 A.i 이용권 끝나는 날·매달 자동결제 (2026-09-29)
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
-/* 토스 클라이언트 키(공개)의 최후 폴백 = 토스 공식 테스트키(실제 청구 없음).
-   ✅ (2026-08-07) 프론트가 이제 GET /api/pay/config 로 이 값을 받아간다 —
-      idx-payment-modal.js 에 같은 값을 한 벌 더 두던 구조를 없앴다.
-      실결제 전환은 아래 두 시크릿 교체로 **끝난다**(코드 수정·재배포 없이 즉시 반영):
-        wrangler secret put TOSS_CLIENT_KEY   ← live_ck_...
-        wrangler secret put TOSS_SECRET_KEY   ← live_sk_...
-      한쪽만 바꾸면 /api/pay/config 가 key_mismatch:true 를 돌려주고 결제창에 경고가 뜬다. */
-const TOSS_CLIENT_KEY_DEFAULT = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
-
-/* 🛡️ (2026-08-07) 시크릿에 «키가 아닌 것»이 들어와도 결제창이 죽지 않게.
-   실제로 겪었다 — 키를 넣는 과정에서 엉뚱한 문자열이 TOSS_CLIENT_KEY 로 올라갔고,
-   그 값으로 window.TossPayments(...) 를 호출하면 결제창이 그대로 실패한다.
-   시크릿은 사람이 손으로 붙여넣는 값이라 «빈 값·명령어·따옴표 섞임»이 언제든 다시 생긴다.
-   → 모양이 토스 키가 아니면 무시하고 테스트키로 폴백한다. 잘못된 키로 여는 것보다
-     테스트 모드가 낫다(적어도 화면이 정직하게 「테스트 결제 모드」라고 말한다).
-   ⚠️ 검증은 «모양»만 본다. 키가 유효한지는 토스만 안다 — 그건 confirm 단계에서 걸러진다. */
-/* ⚠️ (2026-08-07 재수정) 처음엔 `^(test|live)_(ck|sk)_[A-Za-z0-9]{10,}$` 로 좁게 막았는데,
-   그러면 토스가 실제로 발급하는 다른 형태(결제위젯 키 `live_gck_...`, 중간 세그먼트가 더 있는
-   `test_gck_docs_xxxx` 등)까지 «가짜»로 판정해 버린다. 그건 훨씬 나쁜 사고다 —
-   tossMode()='disabled' 는 /api/pay/confirm 과 웹훅을 503 으로 막아 **진짜 결제를 죽인다**.
-   그래서 판정을 뒤집는다: «토스 키의 목록»을 맞히려 하지 말고, **명백한 쓰레기만** 걸러낸다.
-     · 공백이 있으면 키가 아니다 (붙여넣기 사고의 전형 — 명령어·문장이 통째로 들어온 경우)
-     · test_ / live_ 로 시작하지 않으면 키가 아니다
-     · 너무 짧으면 키가 아니다
-   역할(ck/sk) 구분은 두 번째 세그먼트에 'ck'/'sk' 가 들어있는지로 본다(gck·gsk 도 걸린다). */
-function tossKeyRole(v: unknown): 'ck' | 'sk' | null {
-  const s = String(v ?? '').trim();
-  /* ⚠️ (2026-08-07 3차) 길이 하한(20자)을 뺐다. 임의로 정한 숫자였는데, 접두사가 멀쩡한
-     실제 키 두 개를 «모양이 아니다»로 판정했다. 내가 모르는 길이의 키가 언제든 또 나온다.
-     남기는 건 «명백한 쓰레기»를 거르는 조건뿐: 공백 / test_·live_ 로 시작 안 함 / 접두사 비정상.
-     짧은 키는 토스가 거부한다 — 그 판정은 토스에게 맡긴다. */
-  if (!s || /\s/.test(s)) return null;
-  if (!/^(?:test|live)_/.test(s)) return null;
-  /* 🔴 (2026-08-07 4차) 실제로 «live_ck_...» 라는 **안내문의 자리표시자 글자**가 그대로 등록됐다.
-     접두사가 맞아서 전부 통과했고, mode 는 live·key_mismatch 는 false 로 «정상»이라 보고했다.
-     = 화면은 실결제라고 말하는데 토스에서만 조용히 전부 실패하는, 가장 나쁜 상태.
-     토스 키의 접두사 뒤는 영숫자(위젯키는 `_` 포함)뿐이다 — 점(...)이 들어갈 자리가 없다.
-     길이로 막지 않는 대신 «쓸 수 없는 문자»로 자리표시자를 잡는다. */
-  if (!/^(?:test|live)_[A-Za-z0-9_-]+$/.test(s)) return null;
-  const seg = s.split('_')[1] || '';
-  if (!/^[A-Za-z0-9]+$/.test(seg)) return null;
-  if (seg.includes('sk')) return 'sk';
-  if (seg.includes('ck')) return 'ck';
-  return null;
-}
-function isTossKeyShaped(v: unknown, kind: 'ck' | 'sk'): boolean {
-  return tossKeyRole(v) === kind;
-}
-
-/** 실제로 쓸 클라이언트 키 — 모양이 어긋나면 테스트키로 폴백 */
-function tossClientKey(env: any): { key: string; invalid: boolean } {
-  const raw = String(env.TOSS_CLIENT_KEY ?? '').trim();
-  if (!raw) return { key: TOSS_CLIENT_KEY_DEFAULT, invalid: false };      // 미설정 = 정상 폴백
-  if (!isTossKeyShaped(raw, 'ck')) {
-    console.warn('[pay] TOSS_CLIENT_KEY 모양이 토스 키가 아님 — 테스트키로 폴백');
-    return { key: TOSS_CLIENT_KEY_DEFAULT, invalid: true };               // 잘못 들어옴 = 폴백 + 신고
-  }
-  return { key: raw, invalid: false };
-}
+/* 🔑 토스 키 판정(테스트키 폴백·«키 모양» 검사)은 toss-keys.ts 가 정본 — 2026-10-21 옮김. */
 
 // ── 서버 가격표(정본). 프론트 PROG_INFO 와 동기화. 여기 없는 상품은 결제 불가(상담 유도) ──
 const PRICES: Record<string, { name: string; amount: number }> = {
@@ -709,6 +653,21 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
       return json({ ok: false, error: 'amount_mismatch', message: '결제 금액이 주문과 일치하지 않습니다.' }, 400);
     }
 
+    /* 🔒 (2026-10-22) 대리점 청구서(MGB-·MGT-)는 «주문» 이 아니라 «청구서» 단위로 한 번만 승인한다.
+       같은 청구서에 주문이 여럿 생길 수 있어서(탭 두 개·창 다시 열기·공개 링크와 /manager 동시) 예전에는
+       둘 다 토스 승인 = 카드가 두 번 긁혔다. 아래 토스 승인이 곧 실제 청구라 그 «앞» 에서 막는다.
+       막히면 토스 승인을 부르지 않으므로 돈은 안 나간다(인증만 된 결제는 토스가 스스로 만료시킨다).
+       ⛔ 이 검사를 토스 호출 뒤로 옮기지 말 것 — 그러면 이미 긁힌 뒤다. */
+    if (parseB2bOrder(orderId)) {
+      // ③ (2026-10-23) AI 컨텐츠는 «지금 명세로 다시 계산한 금액» 과 주문 금액이 같아야 승인한다(결제창을 연 뒤 체크를 바꾼 경우)
+      const gate = await claimB2bInvoiceForConfirm(env, orderId, amount, (oid) => tossOrderProbe(env, oid), Date.now(),
+        { mgbAmountNow: (id) => mgbAmountNow(env, id) });
+      if (!gate.ok) {
+        await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=? AND status NOT IN ('paid','await_deposit')`).bind(gate.error.slice(0, 100), orderId).run();
+        return json({ ok: false, error: gate.error, message: gate.message }, 409);
+      }
+    }
+
     // 토스 confirm 호출 (시크릿키 Basic 인증). 여기서 실제 승인이 완료된다.
     const auth = 'Basic ' + btoa(String(env.TOSS_SECRET_KEY) + ':');
     let tossRes: Response, tossJson: any;
@@ -791,6 +750,11 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     const msg = tossJson?.message || '결제 승인에 실패했습니다.';
     /* ⚠️ 이미 결제됐거나(다른 요청이 먼저 확정) 입금 대기인 주문은 failed 로 덮지 않는다 — 덮으면 돈은 나갔는데 장부만 실패가 된다. */
     const failRes: any = await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=? AND status NOT IN ('paid','await_deposit')`).bind(String(code).slice(0, 100), orderId).run();
+    // 토스가 «거절» 을 분명히 말한 경우만 대리점 청구서 선점을 놓는다 — 4xx + 에러코드가 있을 때뿐.
+    //   ⛔ 5xx·게이트웨이 오류·JSON 아닌 본문·ALREADY_PROCESSED 는 «승인됐을 수도» 있어 안 놓는다
+    //      (다음 결제가 토스 조회로 정말 안 나갔는지 확인한 뒤에만 넘겨받는다 — b2b-pay-guard.ts).
+    const tossDeclined = tossRes.status >= 400 && tossRes.status < 500 && !!tossJson?.code && tossJson.code !== 'ALREADY_PROCESSED_PAYMENT';
+    if (failRes?.meta?.changes && tossDeclined) await releaseB2bInvoiceClaim(env, orderId);
     if (!failRes?.meta?.changes) {
       const now: any = await env.DB.prepare(`SELECT status, amount FROM payment_orders WHERE order_id = ? LIMIT 1`).bind(orderId).first();
       if (now?.status === 'paid') return json({ ok: true, already: true, orderId, amount: now.amount, message: '이미 결제 완료된 주문입니다.' });
@@ -1009,6 +973,20 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
         console.warn('[api-pay] 웹훅 보완확정 알림 문자 실패:', (e as any)?.message, 'order=', orderId);
       }
       return json({ ok: true, confirmed: true });
+    }
+
+    /* 🔒 (2026-10-22) 대리점 청구서 결제가 취소되면 청구서·이용권·충전금도 함께 되돌린다.
+       멱등(취소 건마다 토스 transactionKey) — 부분 취소 뒤 전액 취소처럼 웹훅이 두 번 와도, 앱 환불이 먼저
+       되돌렸어도 한 번만 반영된다. 그래서 «이미 cancelled» 여도 이 갈래는 다시 탄다. */
+    const isB2b = !!parseB2bOrder(orderId);
+    if ((pay.status === 'CANCELED' || pay.status === 'PARTIAL_CANCELED') && isB2b) {
+      const rv = await revertB2bOnCancel(env, orderId, pay, 'toss_webhook');
+      // 앱에서 환불한 주문(refunded/partial_refunded)은 그 기록을 덮지 않는다
+      if (order.status !== 'cancelled' && order.status !== 'refunded' && order.status !== 'partial_refunded') {
+        await env.DB.prepare(`UPDATE payment_orders SET status='cancelled', fail_reason=? , raw=? WHERE order_id=?`)
+          .bind(String(pay.status), JSON.stringify(pay).slice(0, 4000), orderId).run();
+      }
+      return json({ ok: true, cancelled: true, b2b_reverted: rv.applied, b2b_warnings: rv.warnings });
     }
 
     if ((pay.status === 'CANCELED' || pay.status === 'PARTIAL_CANCELED') && order.status !== 'cancelled') {
@@ -1283,6 +1261,9 @@ async function tossOrderLookup(env: any, orderId: string): Promise<any | null> {
   } catch (_) { return null; }
 }
 
+/* 🔎 tossOrderProbe(tossOrderLookup 과 같되 404 «토스가 모름» 을 «못 물어봤다» 와 가름) —
+   정본은 b2b-pay-guard.ts 로 옮겼다(대리점 자동결제도 같은 것을 쓴다, 2026-10-23). */
+
 /** 💳→📚 수강 자동 활성화 (confirm·webhook 공용, 실패해도 결제 흐름에 영향 없음) */
 async function activateEnrollment(env: any, order: any, amount: number, when: number, orderId: string): Promise<void> {
   /* 🏢 (2026-09-10) B2B 대리점 청구서 결제 — 개인 1건 활성화가 아니라 청구서에 포함된
@@ -1399,6 +1380,11 @@ export async function runPaymentAudit(env: any, opts?: { sms?: boolean }): Promi
     out.newDup = r?.results || [];
   } catch (e) { out.newDupError = String((e as any)?.message || e); }
 
+  // B-2) 🏢 대리점 청구서 이중결제 (30일) — 위 B 는 uid 로 묶어서 uid 가 없는 대리점 주문(MGB-·MGT-)을 원리상 못 본다(2026-10-22)
+  try {
+    out.b2bDup = await findB2bDoublePaid(env, Date.now() - 30 * 86400 * 1000);
+  } catch (e) { out.b2bDup = []; out.b2bDupError = String((e as any)?.message || e); }
+
   // C) paid 인데 수강 연결 누락 (48시간)
   //    🏫 대리점 청구서(MGT- 수업료 · MGB- AI 사용료)는 수강을 만들지 않는 결제라 뺀다 — 안 빼면 «누락» 으로 잘못 센다(2026-10-01).
   try {
@@ -1421,8 +1407,8 @@ export async function runPaymentAudit(env: any, opts?: { sms?: boolean }): Promi
     out.stalePending = r?.n || 0;
   } catch (_) {}
 
-  const anomalies = (out.legacyDup.length || 0) + (out.newDup.length || 0) + (out.missingEnroll.length || 0);
-  out.summary = { anomalies, legacyDup: out.legacyDup.length, newDup: out.newDup.length, missingEnroll: out.missingEnroll.length, stalePending: out.stalePending };
+  const anomalies = (out.legacyDup.length || 0) + (out.newDup.length || 0) + (out.missingEnroll.length || 0) + (out.b2bDup.length || 0);
+  out.summary = { anomalies, legacyDup: out.legacyDup.length, newDup: out.newDup.length, missingEnroll: out.missingEnroll.length, b2bDup: out.b2bDup.length, stalePending: out.stalePending };
 
   // 이상 있을 때만 사장님 문자 (매일 "정상" 문자는 소음이라 안 보냄)
   if (opts?.sms && anomalies > 0) {
@@ -1433,6 +1419,7 @@ export async function runPaymentAudit(env: any, opts?: { sms?: boolean }): Promi
         if (out.legacyDup.length) lines.push(`·이중결제 의심 ${out.legacyDup.length}건(기존 결제창)`);
         if (out.newDup.length) lines.push(`·이중결제 의심 ${out.newDup.length}건(새 결제)`);
         if (out.missingEnroll.length) lines.push(`·수업연결 누락 ${out.missingEnroll.length}건`);
+        if (out.b2bDup.length) lines.push(`·대리점 청구서 이중결제 ${out.b2bDup.length}건`);
         lines.push(`관리자 결제센터에서 확인하세요`);
         await sendPlainSms(env, toPhone, lines.join('\n'));
         out.smsSent = true;

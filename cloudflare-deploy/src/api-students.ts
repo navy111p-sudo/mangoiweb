@@ -17,6 +17,7 @@ import { createHandoff, redeemHandoff, HANDOFF_TTL_SEC } from './class-entry-han
 import { isStudentHidden } from './student-override';   // 🧹 숨김 지정된 중복 계정은 로그인도 막는다
 import type { MangoEnv } from './api-mango';
 import { summarizeAttendance } from './attendance-truth';
+import { dropStudentCafe24Duplicates } from './student-cafe24-duplicates';
 import { ATTENDANCE_BY_UID, ATTENDANCE_BY_UID_NOCASE, attUidBinds } from './attendance-uid';
 import { readParentWarmup } from './warmup-parent';   // 👪 웜업 횟수·고쳐 준 표현(2026-10-02 P4)
 import { resolveStudentTrack } from './student-track';   // 🎯 화상수업 학생 / AI 전용 학생 판정 정본
@@ -632,7 +633,7 @@ ${MANGOI_KNOWLEDGE}`;
         /* 카페24 예약 씨앗 — joined_at 이 «예약 시각» 이다(2026-09-03 D1 실측). 카페24 수업은
            우리 방을 안 거치지만 «그날 학원 수업이 있다» 는 사실은 계획에 그대로 쓴다. */
         env.DB.prepare(
-          `SELECT date, joined_at FROM attendance
+          `SELECT user_id, date, joined_at FROM attendance
             WHERE user_id = ? AND room_id LIKE 'c24-%' AND date BETWEEN ? AND ? LIMIT 40`
         ).bind(exactUid, weekStartYmd, weekEndYmd).all<any>().catch(() => empty),
         env.DB.prepare(
@@ -685,7 +686,10 @@ ${MANGOI_KNOWLEDGE}`;
           if (String(r.scheduled_date) === k.ymd && r.start_time) { if (isHolidayClosedFor(_holiday, r.teacher_id)) _holidaySkipped++; else classes.push({ start: String(r.start_time).slice(0, 5), minutes: mins, source: 'mangoi' }); }
         }
       }
-      for (const r of (c24Rs?.results || [])) {
+      // Only real Mangoi classes already selected for today can suppress an LMS slot.
+      // Keep the schedules and stored attendance; parent attendance remains date-based.
+      const c24Visible = dropStudentCafe24Duplicates(exactUid, k.ymd, classes, c24Rs?.results || []);
+      for (const r of c24Visible.kept) {
         const j = Number(r.joined_at || 0);
         if (!j) continue;
         const kp = kstParts(j);

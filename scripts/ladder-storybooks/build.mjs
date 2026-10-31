@@ -1,4 +1,4 @@
-/* 📚 영어 독서 사다리 48편 → 그림 동화책 페이지 생성기 (2026-10-18 사장님 «이런 방식으로 모두 만들어줘»)
+/* 📚 영어 독서 사다리 전편(2026-10-18 48편 → 2026-10-19 176편) → 그림 동화책 페이지 생성기 (2026-10-18 사장님 «이런 방식으로 모두 만들어줘»)
    틀: cloudflare-deploy/public/story-birthday-cake.html (2권 — WRITE_PAT 로 일반화된 판). 그 파일은 손대지 않습니다.
    글: public/js/reading-ladder-data.js 의 sentences[].en «그대로» (단계별 수준 유지) · 활동 재료: scripts/ladder-storybooks/data/<id>.json
    결과: public/story-<id>.html (예: story-s1-01.html)
@@ -9,6 +9,8 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadLadder, validate, DATA_DIR } from './validate.mjs';
+import { STYLES } from './styles.mjs';
+import { buildGallery } from './gallery.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
@@ -116,10 +118,11 @@ function between(src, start, endMarker, to, what) {
 
 export function buildPage(tpl, p, d, no) {
   const st = STAGE[p.stage];
+  const art = STYLES[d.img.style];
   const S = p.sentences.map((x) => x.en);
   const info = p.genre === 'info';
   const title = p.title.en;
-  let h = tpl;
+  let h = tpl.replace(/\r\n/g, '\n');
   const nWords = S.join(' ').replace(/[^A-Za-z' ]/g, ' ').split(/\s+/).filter(Boolean).length;
   const what = info ? ['글', 'text'] : ['이야기', 'story'];
 
@@ -138,7 +141,8 @@ export function buildPage(tpl, p, d, no) {
   h = once(h, '<span data-ko="캐피 심화1 수준" data-en="Level: CAPPY Advanced 1">캐피 심화1 수준</span>',
     `<span data-ko="${st.grade[0]} · ${st.cefr}" data-en="${st.grade[1]} · ${st.cefr}">${st.grade[0]} · ${st.cefr}</span>`, 'level');
   h = once(h, '<figure class="pic cover"><img src="img/story/birthday-cake-cover.webp" alt="Mia and Ben give Grandma Rose a pancake tower while Biscuit the dog wags his tail" width="1024" height="688"></figure>',
-    `<figure class="pic cover"><img src="img/story/${p.id}-cover.webp" alt="${esc(d.alt.cover)}" width="1024" height="688"></figure>`, 'cover');
+    `<figure class="pic cover"><img src="img/story/${p.id}-cover.webp${d.img.ver?.cover ? '?v=' + d.img.ver.cover : ''}" alt="${esc(d.alt.cover)}" width="1024" height="688"></figure>`, 'cover');
+  h = once(h, '    <div class="meta">', `    <div class="meta">\n      <span class="art-style" data-style="${esc(d.img.style)}" data-ko="${esc(art.emoji + ' ' + art.ko)}" data-en="${esc(art.emoji + ' ' + art.en)}">${esc(art.emoji + ' ' + art.ko)}</span>`, 'art style badge');
 
   const rP = d.roleNames.P, rS = d.roleNames.S;
   const keyKo = `이 ${what[0]}에서 가장 중요한 문장 2개를 위 본문에서 눌러 고르세요. 하나는 «${rP.ko}», 하나는 «${rS.ko}» 입니다.`;
@@ -162,8 +166,10 @@ export function buildPage(tpl, p, d, no) {
   const sep = w.sep === ' ' ? ' ' : w.sep;
   h = once(h, '<p class="pat-frame">I think <span class="slot" data-ko="내 생각" data-en="my idea">내 생각</span> because <span class="slot" data-ko="그렇게 생각한 이유" data-en="my reason">그렇게 생각한 이유</span>.</p>',
     `<p class="pat-frame">${esc(w.pre)} <span class="slot" data-ko="${esc(w.slotKo[0])}" data-en="${esc(w.slotEn[0])}">${esc(w.slotKo[0])}</span>${sep === ' ' ? ' ' : esc(sep)}${esc(w.mid)} <span class="slot" data-ko="${esc(w.slotKo[1])}" data-en="${esc(w.slotEn[1])}">${esc(w.slotKo[1])}</span>.</p>`, 'pat-frame');
-  const chips = w.chips.map((c) => `      <button type="button" class="chip" data-a="${esc(c.a)}" data-b="${esc(c.b)}">${esc(c.label)}</button>`).join('\n');
-  h = between(h, '      <button type="button" class="chip" data-a="it will rain"', '>happy</button>', chips, 'chips');
+  // 예시 문장 — 2026-10-20 사장님 «예시 넣어 보기» 버튼을 뺐습니다(눌러 넣고 그대로 «완성하기» 하면 스스로 생각해 쓰지 않음).
+  //   화면에 버튼으로 그리지 않고, 철자 점검의 «아는 낱말» 목록(WRITE_EX)과 입력칸 회색 글씨(placeholder)에만 씁니다.
+  h = once(h, 'var WRITE_EX = [["it will rain","the sky is dark"],["my brother is hungry","he is looking in the fridge"],["Mom is happy","she is singing"]];',
+    `var WRITE_EX = ${J(w.chips.map((c) => [c.a, c.b]))};`, 'WRITE_EX');
   h = once(h, '<span class="wfix">I think</span>', `<span class="wfix">${esc(w.pre)}</span>`, 'wfix pre');
   h = once(h, 'placeholder="it will rain" aria-label="what you think"', `placeholder="${esc(w.chips[0].a)}" aria-label="${esc(w.aria[0])}"`, 'wa');
   h = once(h, '<span class="wfix">because</span>', `<span class="wfix">${sep === ' ' ? '' : esc(sep.trim())}${sep === ' ' ? '' : ' '}${esc(w.mid)}</span>`, 'wfix mid');
@@ -178,8 +184,8 @@ export function buildPage(tpl, p, d, no) {
   const noteKo = `이 ${what[0]}는 망고아이 «영어 독서» ${st.ko} 글입니다. 영어 독서 목록의 같은 글과 본문이 같고, 여기서는 그림책처럼 6가지 활동(읽고 듣기·핵심 문장·요점정리·낱말 게임·근거 찾기·바꿔 쓰기)으로 공부합니다.`;
   const noteEn = `This ${what[1]} is from Mangoi English Reading, ${st.en}. The text is the same as in the reading list; here you study it with 6 storybook activities.`;
   h = between(h, '  <p class="note rev" data-ko="원장님 의견 반영', '다음 편 투표는 보너스입니다.</p>', `  <p class="note rev" data-ko="${esc(noteKo)}" data-en="${esc(noteEn)}">${esc(noteKo)}</p>`, 'note rev');
-  const picKo = st.photo ? '사진은 이 글을 위해 Higgsfield AI 로 새로 만든 실사 이미지입니다(실제 촬영 사진이 아닙니다).' : '삽화는 이 이야기를 위해 Higgsfield AI 로 새로 그렸습니다.';
-  const picEn = st.photo ? 'The photo-style images were newly made for this text with Higgsfield AI (they are not real photographs).' : 'The illustrations were newly made for this story with Higgsfield AI.';
+  const picKo = art.photo ? '사진은 이 글을 위해 Higgsfield AI 로 새로 만든 실사 이미지입니다(실제 촬영 사진이 아닙니다).' : `삽화는 이 이야기를 위해 Higgsfield AI 로 새로 그린 ${art.ko} 화풍입니다.`;
+  const picEn = art.photo ? 'The photo-style images were newly made for this text with Higgsfield AI (they are not real photographs).' : `The illustrations were newly made for this story with Higgsfield AI in the ${art.en} style.`;
   h = between(h, '  <p class="note" data-ko="이 이야기는 망고아이가 새로 쓴 오리지널입니다.', 'with Higgsfield AI.">이 이야기는 망고아이가 새로 쓴 오리지널입니다. 다른 교재·동화책의 문장, 캐릭터, 그림은 쓰지 않았습니다. 삽화는 Higgsfield AI 로 이 이야기를 위해 새로 그렸습니다.</p>',
     `  <p class="note" data-ko="${esc(picKo)}" data-en="${esc(picEn)}">${esc(picKo)}</p>`, 'note pic');
 
@@ -209,7 +215,9 @@ export function buildPage(tpl, p, d, no) {
     '  var ENDS = [\n' + d.ends.map((x) => '    ' + J(x)).join(',\n') + '\n  ];';
   h = between(h, '  var STORY = [', "    [\"B\",\"Biscuit runs away with Grandma's new birthday hat.\",\"Biscuit 이 할머니의 새 생일 모자를 물고 도망가요.\",\"The Hat Thief\"]\n  ];", data, 'data block');
   const scenes = {};
-  Object.keys(d.img.scenes).forEach((pi) => { scenes[pi] = [`img/story/${p.id}-s${pi}.webp`, esc(d.alt[pi])]; });
+  // 그림을 같은 이름으로 갈아 끼우면 브라우저가 옛 그림을 7일 들고 있다(미디어 Cache-Control) — 데이터의 img.ver[장면] 으로 ?v= 를 붙인다(2026-10-19 s4-37).
+  const ver = d.img.ver || {};
+  Object.keys(d.img.scenes).forEach((pi) => { scenes[pi] = [`img/story/${p.id}-s${pi}.webp` + (ver[pi] ? `?v=${ver[pi]}` : ''), esc(d.alt[pi])]; });
   h = between(h, '  var SCENES = {"4":["img/story/birthday-cake-s4.webp"', ']};', `  var SCENES = ${J(scenes)};`, 'SCENES');
   h = once(h, "이야기의 «문제» 와 «해결» 을 말하는 문장을 찾아 바꿔 고른 뒤", `${what[0]}의 «${rP.ko}» 와 «${rS.ko}» 을 말하는 문장을 찾아 바꿔 고른 뒤`, 'key retry ko');
   h = once(h, "Find the sentences that tell the problem and the solution, change your pick", `Find the sentences that tell the ${rP.en} and the ${rS.en}, change your pick`, 'key retry en');
@@ -218,7 +226,8 @@ export function buildPage(tpl, p, d, no) {
   h = between(h, '        (cw.more ? \'<p>\' + t("한 걸음 더:', '(e.g. because he is smiling)") + \'</p>\' : \'\')',
     `        (cw.more ? '<p>' + t(${J(w.moreKo)},${J(w.moreEn)}) + '</p>' : '')`, 'cw.more');
   h = between(h, '  var TUNE = {"name":"Party Kitchen"', '};', `  var TUNE = ${J(makeTune(p.id, p.stage))};`, 'TUNE');
-  if (/Birthday|Biscuit|Grandma Rose|birthday-cake|Party Kitchen/.test(h)) throw new Error(p.id + ': 2권 흔적이 남음');
+  // 틀 흔적은 «틀 제목 전체» 로 본다 — 낱말 «Birthday» 하나로 보면 생일 이야기(s1-15·s3-17)를 틀 흔적으로 잘못 잡는다(2026-10-19).
+  if (/Missing Birthday Cake|Biscuit|Grandma Rose|birthday-cake|Party Kitchen/.test(h)) throw new Error(p.id + ': 2권 흔적이 남음');
   return h;
 }
 
@@ -240,4 +249,9 @@ if (process.argv[1] && process.argv[1].endsWith('build.mjs')) {
   }
   console.log(`만든 페이지 ${n}개` + (bad ? ` · 데이터 오류 ${bad}개` : ''));
   if (bad) process.exit(1);
+  const books = Object.fromEntries(files.map((id) => [id, JSON.parse(readFileSync(join(DATA_DIR, id + '.json'), 'utf8')).img.style]));
+  const styles = Object.fromEntries(Object.entries(STYLES).map(([key, value]) => [key, {ko: value.ko, en: value.en, emoji: value.emoji}]));
+  writeFileSync(join(PUB, 'js', 'reading-ladder-art.js'), '/* Generated from the picture-book style canon. */\nwindow.READING_LADDER_ART=' + J({books, styles}) + ';\n');
+  const galleryData = Object.fromEntries(files.map(id => [id, JSON.parse(readFileSync(join(DATA_DIR, id + '.json'), 'utf8'))]));
+  writeFileSync(join(PUB, 'story-cover-gallery.html'), buildGallery(L.passages, galleryData));
 }

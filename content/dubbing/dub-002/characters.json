@@ -1,0 +1,38 @@
+{
+  "maya": {
+    "name": {
+      "ko": "마야",
+      "en": "Maya"
+    },
+    "age": 9,
+    "appearance": "Black girl, dark skin, two natural puff buns, yellow space-explorer jacket and purple cargo pants",
+    "voice": "Amina (en), warm expressive native English"
+  },
+  "kai": {
+    "name": {
+      "ko": "카이",
+      "en": "Kai"
+    },
+    "age": 9,
+    "appearance": "Korean boy, black short neat hair, turquoise hoodie",
+    "voice": "Evan (en), young bright native English"
+  },
+  "emma": {
+    "name": {
+      "ko": "에마",
+      "en": "Emma"
+    },
+    "age": 9,
+    "appearance": "Western girl, shoulder-length wavy dark brown hair, coral-orange sweater",
+    "voice": "Abby (en), bright expressive native English"
+  },
+  "pip": {
+    "name": {
+      "ko": "핍",
+      "en": "Pip"
+    },
+    "age": 5,
+    "appearance": "Tiny lavender alien with two purple ball-tipped antennae, turquoise eyes and orange utility belt",
+    "voice": "Pixie (en), cheerful character English"
+  }
+}

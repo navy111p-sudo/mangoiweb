@@ -396,6 +396,12 @@ console.log('\n── ⑨ A.i 친구 — 단어장 약점을 «낱말 (뜻)» �
   const headSrc = hA >= 0 && paEnd > pa ? AI.slice(hA, paEnd + 3) : '';
   const names = ((AI.slice(Math.max(pa, 0)).match(/^const \[([^\]]+)\]/) || [])[1] || '').split(',').map((x) => x.trim()).filter(Boolean);
   check('전제: chat-friend 첫머리부터 병렬 조회까지 오려 냈다', headSrc.includes('authUidGlobal') && names.length >= 7, names);
+  // 정본 correctionModeOf(warmup-honest.ts) — chat-friend 첫머리가 쓰므로 샌드박스에도 «실제 소스» 를 주입한다
+  const WH = R('cloudflare-deploy/src/warmup-honest.ts', 'WARMUP_HONEST_SRC');
+  const cmStart = WH.indexOf('export const WARMUP_MODES');
+  const cmEnd = WH.indexOf('\n}\n', WH.indexOf('export function correctionModeOf')) + 3;
+  const cmSrc = stripTypeScriptTypes(WH.slice(cmStart, WH.indexOf('\n', WH.indexOf('export const WARMUP_DEFAULT_MODE'))) + '\n' + WH.slice(WH.indexOf('export function correctionModeOf'), cmEnd)).replace(/^export /gm, '');
+  const correctionModeOf = new Function(cmSrc + '\nreturn correctionModeOf;')();
   const VMARK = [{ word: 'apple', korean: '사과' }];
   async function runHead(authUid) {
     const calls = [];
@@ -403,12 +409,12 @@ console.log('\n── ⑨ A.i 친구 — 단어장 약점을 «낱말 (뜻)» �
     let out;
     try {
       // 함수로 «먼저» 감싼 뒤 타입을 지운다 — stripTypeScriptTypes 는 모듈로 읽어 맨 위 return 을 거절한다
-      const body = stripTypeScriptTypes('async function __h(request, url, env, ensureChatSchema, authUidGlobal, json, aiFriendNormalizeLevel, WEAK_WHERE, WEAK_ORDER, weakSince, loadActiveGoal, loadRecentMistakes, loadVocabWeakRows){\n' +
+      const body = stripTypeScriptTypes('async function __h(request, url, env, ensureChatSchema, authUidGlobal, json, aiFriendNormalizeLevel, WEAK_WHERE, WEAK_ORDER, weakSince, loadActiveGoal, loadRecentMistakes, loadVocabWeakRows, correctionModeOf){\n' +
         headSrc + '\nreturn { __reached: true, ' + names.join(', ') + ' }; }');
       const fn = new Function(body + '\nreturn __h;')();
       out = await fn({ json: async () => ({ uid: 'Kim01', msg: 'hi' }) }, new URL('https://mangoi.ai/api/ai/chat-friend'), { DB: fakeDb },
         async () => {}, async () => authUid, (o, st) => ({ __json: o, __status: st || 200 }), (l) => l,
-        'WW', 'WO', () => 0, async () => null, async () => ['RECENT'], async (...a) => { calls.push(a); return VMARK; });
+        'WW', 'WO', () => 0, async () => null, async () => ['RECENT'], async (...a) => { calls.push(a); return VMARK; }, correctionModeOf);
     } catch (e) { out = { __threw: e.message }; }
     return { out, calls, fakeDb };
   }

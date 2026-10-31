@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «If», write who + what they do. After «we can», start with a verb. (e.g. we can share our snacks)"
   },
   "img": {
+    "style": "fairytale",
     "cover": "In a small village square, a tired man with a gray hat and a long brown coat stirs a big black pot over a fire, while villagers gather around holding carrots, potatoes and onions.",
     "scenes": {
       "1": "Beside the big black pot over a fire, a woman hands a carrot to the tired man with a gray hat and a long brown coat, while a farmer carries potatoes and a small boy holds onions.",
       "2": "The whole village sits together at a long wooden table outside, eating bowls of soup and smiling, with the man in the gray hat and long brown coat among them and the big black pot nearby."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

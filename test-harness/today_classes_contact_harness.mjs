@@ -110,14 +110,18 @@ check('② 두 조회(망고아이·카페24) 모두 se.shop_name 을 뽑는다'
     (여기서 보는 것은 이 핸들러뿐이다. 다른 화면은 각자 사정이 있다.) */
 check('③ 연락처를 se.phone / se.parent_phone / se.student_phone 에서 읽지 않는다',
   !/se\.(parent_phone|student_phone|phone)\b/.test(HANDLER_NC));
-check('③-b 연락처 정본은 student_retention.phone 이다',
-  /FROM\s+student_retention[\s\S]{0,200}phone/.test(HANDLER_NC));
+/*  (2026-10-27 사장님 «매니저 화면도 직원이 넣은 번호 보이게») 번호는 강사 화면과 같은 정본 loadContactPhones
+    (받아 둔 번호 → 명부 → 이탈위험 스냅샷). 핸들러가 student_retention 을 직접 읽어 «자기만의 답» 을 만들지 않는다. */
+check('③-b 연락처 정본은 loadContactPhones(강사 화면과 같은 답)이다',
+  /await loadContactPhones\(env, sessions\.map\(x => x\.student_uid\)\)/.test(HANDLER_NC));
+check('③-c ⛔ 핸들러가 student_retention 을 따로 읽어 번호를 정하지 않는다(판정 복제 금지)',
+  !/FROM\s+student_retention/.test(HANDLER_NC));
 
 // ── ④ 연락처 조회 실패가 목록 전체를 멈추지 않는다 ──────────────────────
 /*  「try 안인가」를 중괄호 세기로 재면 객체 리터럴과 블록을 못 가른다(CLAUDE.md 2장).
     그래서 «그 조회 바로 뒤에 catch 가 오는가» 로 본다 — 조회를 try 밖으로 빼면 이 모양이 깨진다. */
-const retIdx = HANDLER_NC.indexOf('FROM student_retention');
-const afterRet = retIdx > 0 ? HANDLER_NC.slice(retIdx, retIdx + 700) : '';
+const retIdx = HANDLER_NC.indexOf('loadContactPhones(');
+const afterRet = retIdx > 0 ? HANDLER_NC.slice(retIdx, retIdx + 500) : '';
 check('④ 연락처 조회가 try/catch 로 감싸여 있다 (실패해도 목록은 뜬다)',
   retIdx > 0 && /catch\s*\(/.test(afterRet));
 
@@ -140,7 +144,7 @@ function renderOnce(sessions, opts = {}) {
     window: win, document: doc,
     localStorage: { getItem: () => null, setItem() {} },
     CustomEvent: class { constructor(t, o) { this.type = t; Object.assign(this, o); } },
-    fetch: async () => ({ ok: true, status: 200, json: async () => ({ ok: true, sessions, date: '2026-09-08', counts: {} }) }),
+    fetch: async () => ({ ok: true, status: 200, json: async () => ({ ok: true, sessions, date: '2026-09-08', counts: {}, contact_source: opts.contactSource }) }),
     console: { log() {}, warn() {}, error() {} },
     Date, Number, String, Math, JSON, Array, Object, RegExp, encodeURIComponent, decodeURIComponent, setTimeout,
   };
@@ -162,7 +166,7 @@ const SESSIONS = [
     start_ts: NOW + 900000, end_ts: NOW + 2700000, status: 'early', join_open: false, is_level_test: false },
 ];
 
-const html = await renderOnce(SESSIONS);
+const html = await renderOnce(SESSIONS, { contactSource: 'lookup' });
 const thN = (html.match(/<th[ >]/g) || []).length;   // 정렬 머리글은 <th class=… 모양이라 속성까지 받는다
 const trs = html.split('<tr>').slice(2);                       // thead 한 줄 제외
 const tdN = trs.map(r => (r.match(/<td[ >]/g) || []).length);
@@ -180,7 +184,16 @@ check('⑤-5 값이 없으면 «—» 로 둔다 (지어내지 않는다)', (htm
    즉 검사가 «폰에서 아무것도 안 보이는 상태» 를 정답으로 못 박고 있었다.
    ⇒ «화면에 보이는 글자» 로 말하는가로 바꾼다. */
 check('⑤-6 없는 «이유» 를 화면에 보이는 줄로 말한다 (title 은 폰에서 안 뜬다)',
-  /관리 대상|at-risk/.test(html) && !/title="[^"]*(전화번호가 저장돼 있지 않|no phone numbers)/.test(html));
+  /관리 대상|at-risk/.test(html) && /학생 상세|student profile/.test(html) && !/title="[^"]*(전화번호가 저장돼 있지 않|no phone numbers)/.test(html));
+{
+  /* (2026-10-27) «못 물어봤다» 와 «없다» 를 같은 글자로 말하지 않는다 — 서버가 'failed' 를 주면 확인 못 함 */
+  const hF = await renderOnce(SESSIONS, { contactSource: 'failed' });
+  check('⑤-6b 조회가 실패했으면(failed) «확인하지 못했다» 고 말하고 «명부에 없다» 고는 안 한다',
+    /확인하지 못했습니다|Could not check/.test(hF) && !/관리 대상|at-risk/.test(hF));
+  const hN = await renderOnce(SESSIONS, {});
+  check('⑤-6c (짝) 서버가 근거를 안 주면 안내를 안 그린다(화면이 스스로 지어내지 않는다)',
+    !/관리 대상|at-risk|확인하지 못했습니다/.test(hN));
+}
 check('⑤-7 그 안내는 «서버가 준 근거» 가 있을 때만 그린다 (화면이 스스로 판정하지 않는다)',
   /contact_source/.test(TCJS));
 
@@ -216,23 +229,50 @@ check('⑧ admin.html 이 adm-today-classes.js 를 ?v= 를 붙여 싣는다',
     지사·대리점도 부른다. 그냥 실으면 지사장·학원장이 처음으로 학생 번호를 보게 된다. */
 check('⑨-1 연락처를 본사·내부직원(hq/none)에게만 싣는다',
   /_ctSeeContact\s*=\s*_ctScope\.type\s*===\s*'hq'\s*\|\|\s*_ctScope\.type\s*===\s*'none'/.test(HANDLER_NC)
-  && /if\s*\(\s*_ctSeeContact\s*\)/.test(HANDLER_NC));
+  && /if\s*\(\s*_ctSeeContact\b/.test(HANDLER_NC));
 check('⑨-2 화면이 «왜 없는지» 를 스스로 판정하지 않게 근거를 서버가 준다 (contact_source)',
   /contact_source\s*:/.test(HANDLER_NC));
 /*  🔒 이제 이 응답에 전화번호가 실린다 — 공유 캐시에 앉으면 한 사람 것이 남에게 나간다. */
 check('⑨-3 전화번호가 실린 응답에 Cache-Control: private, no-store 를 붙인다',
   /Cache-Control'\s*,\s*'private,\s*no-store'/.test(HANDLER_NC));
-/*  ⚠️ ORDER BY 없이 LIMIT 만 걸면 «어느 2000» 인지 정해지지 않고 나머지는 조용히 «—» 가 된다. */
-check('⑨-4 연락처 조회에 ORDER BY 가 있다 (잘릴 때 «어느 것» 인지 정해진다)',
-  /FROM\s+student_retention[\s\S]{0,220}ORDER\s+BY/.test(HANDLER_NC));
-/*  🔒 phoneMap 은 스코프가 안 걸린 «전체» 맵이다 — 이미 잘린 sessions.push 두 곳에만 붙어야 한다.
-    다른 목록에 갖다 붙이는 순간 격리가 풀린다. */
-const phoneUses = (HANDLER_NC.match(/phoneMap\.get\(/g) || []).length;
-check('⑨-5 phoneMap 을 쓰는 곳이 스코프로 잘린 두 갈래뿐이다',
-  phoneUses === 2 && PUSHES.filter(b => /phoneMap\.get\(/.test(b)).length === 2);
+/*  (2026-10-27) 옛 «이탈위험 2,000행 맵(ORDER BY·LIMIT)» 은 없앴다 — 이제 «그날 목록의 학생만» 묻는다.
+    그래서 잘림(LIMIT)도, 범위 밖 번호가 맵에 들어올 길도 없다. 그 사실을 «실제로 돌려서» 본다. */
+{
+  const a = HANDLER.indexOf('let _ctContactsOk = true;');
+  // ⚠️ 게이트 모양이 바뀌어도 «죽지 않고» FAIL 로 센다 — 끝은 «다음 빈 줄 + 주석» 이 아니라 중괄호 짝으로
+  const ifAt = a > 0 ? HANDLER.indexOf('if (', a) : -1;
+  let d = 0, j = ifAt > 0 ? HANDLER.indexOf('{', ifAt) : -1;
+  if (j > 0) for (; j < HANDLER.length; j++) { if (HANDLER[j] === '{') d++; else if (HANDLER[j] === '}') { d--; if (d === 0) break; } }
+  const block = a > 0 && ifAt > a && j > ifAt ? HANDLER.slice(a, j + 1).replace(/: any/g, '') : '';
+  check('⑨-4 전제: 연락처 채우기 블록을 잘라 냈다', block.length > 100);
+  check('⑨-4b 연락처 채우기는 두 갈래 push «뒤» 에 있다(스코프로 잘린 목록이 다 만들어진 뒤)',
+    a > HANDLER.lastIndexOf('sessions.push({'));
+  const run = async (see, lcp) => {
+    const sessions = [{ student_uid: 'kid1', contact_phone: null }, { student_uid: 'kid2', contact_phone: null }, { student_uid: null, contact_phone: null }];
+    const asked = [];
+    const ctx = { _ctSeeContact: see, sessions, env: {}, console: { warn() {} },
+      loadContactPhones: async (env, uids) => { asked.push(...uids); return lcp(uids); } };
+    vm.createContext(ctx);
+    try { ctx.ok = await vm.runInContext('(async () => {' + block + '\n return _ctContactsOk; })()', ctx); }
+    catch (e) { ctx.ok = 'threw:' + e.message; }
+    return { ok: ctx.ok, sessions, asked };
+  };
+  const r1 = await run(true, async () => ({ phones: new Map([['kid1', '010-1111-2222']]), complete: true }));
+  check('⑨-5 본사: 그날 목록 학생만 묻고, 찾은 번호를 그 줄에 싣는다',
+    JSON.stringify(r1.asked) === '["kid1","kid2",null]' && r1.sessions[0].contact_phone === '010-1111-2222' && r1.sessions[1].contact_phone === null && r1.ok === true);
+  const r2 = await run(false, async () => ({ phones: new Map([['kid1', 'x']]), complete: true }));
+  check('⑨-5b (짝) 지사·대리점: 아예 묻지 않고 번호를 싣지 않는다', r2.asked.length === 0 && r2.sessions.every(x => x.contact_phone === null));
+  const r3 = await run(true, async () => ({ phones: new Map(), complete: false }));
+  const r4 = await run(true, async () => { throw new Error('boom'); });
+  check('⑨-5c 조회가 실패하면(complete=false·throw) «다 물어봤다» 가 거짓이 된다 — 목록은 그대로', r3.ok === false && r4.ok === false);
+  check('⑨-5d 응답 근거: 다 물어봤으면 lookup · 실패면 failed · 지사·대리점은 restricted',
+    /const contactSource = !_ctSeeContact \? 'restricted' : \(_ctContactsOk \? 'lookup' : 'failed'\);/.test(HANDLER_NC));
+  check('⑨-5e 두 갈래 push 는 번호를 직접 정하지 않는다(null — 채우기는 한 곳)',
+    PUSHES.every(b => /contact_phone:\s*null/.test(b)));
+}
 /*  ⑧ 두 화면이 같은 사실을 말하는가 */
 check('⑨-6 manager.html 도 «왜 없는지» 를 같은 근거(contact_source)로 말한다',
-  /contact_source/.test(MGR_NC));
+  /contact_source === 'lookup'/.test(MGR_NC) && /contact_source === 'failed'/.test(MGR_NC) && !/contact_source === 'retention'/.test(MGR_NC));
 
 console.log(`\n─────────────────────────────────────────────`);
 console.log(`  ✅ PASS ${PASS}    ⚠ FAIL ${FAIL}   (총 ${PASS + FAIL})`);

@@ -291,10 +291,16 @@
     ]
   },
   "img": {
+    "style": "photo",
     "cover": "A honeybee drinking nectar from a bright yellow flower in a sunny garden",
     "scenes": {
       "1": "Close-up of a honeybee on a flower with yellow pollen grains stuck to the fuzzy hairs on its body",
       "3": "An apple orchard in spring full of white blossoms, with wooden beehives standing between the trees"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

@@ -1,0 +1,311 @@
+{
+  "id": "s2-24",
+  "breaks": [
+    3,
+    3,
+    3,
+    4
+  ],
+  "key": {
+    "P": 4,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «엘리가 정글에 혼자 남았고, 해가 지고 있었다(문제)» 와 «침착하고 현명하게 행동한 덕분에 엘리는 구조될 수 있었다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (Ellie was alone in the jungle as the sun went down) and the solution (staying calm and smart helped Ellie get rescued). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Ellie, her guide Carlos"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Ellie got lost alone in the jungle."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "She stayed by the river and tied her red scarf to a high branch."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Ellie followed a pink river ",
+      "ans": "dolphin",
+      "opts": [
+        "dolphin",
+        "monkey",
+        "snake"
+      ]
+    },
+    {
+      "pre": " and got lost in the jungle. She was scared and ",
+      "ans": "cried",
+      "opts": [
+        "cried",
+        "slept",
+        "sang"
+      ]
+    },
+    {
+      "pre": ". Then she remembered to stay near the ",
+      "ans": "water",
+      "opts": [
+        "water",
+        "trees",
+        "road"
+      ]
+    },
+    {
+      "pre": ". She tied her red ",
+      "ans": "scarf",
+      "opts": [
+        "scarf",
+        "shoe",
+        "hat"
+      ]
+    },
+    {
+      "pre": " to a high branch, and Carlos saw it. She stayed calm and was ",
+      "ans": "rescued",
+      "opts": [
+        "rescued",
+        "lost",
+        "hidden"
+      ]
+    },
+    {
+      "pre": " at last.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "guide",
+      "안내인",
+      "Ellie and her <b>guide</b>, Carlos, took a boat down the Amazon.",
+      "a person who shows you the way"
+    ],
+    [
+      "advice",
+      "충고, 조언",
+      "Then she remembered Carlos's <b>advice</b>",
+      "words that tell you what you should do"
+    ],
+    [
+      "branch",
+      "나뭇가지",
+      "She tied her red scarf to a high <b>branch</b>.",
+      "a part of a tree that grows out from the trunk"
+    ],
+    [
+      "jungle",
+      "정글, 밀림",
+      "Ellie was alone in the <b>jungle</b>",
+      "a thick, wet forest in a hot place"
+    ],
+    [
+      "wiped",
+      "닦았다",
+      "She <b>wiped</b> her tears and sat by the river.",
+      "cleaned something away by rubbing it"
+    ],
+    [
+      "rescued",
+      "구조된",
+      "Staying calm and smart helped Ellie get <b>rescued</b>.",
+      "saved from danger"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did Ellie get lost?",
+      "qko": "엘리는 왜 길을 잃었나요?",
+      "opts": [
+        "She followed a dolphin away from the boat.",
+        "Carlos left her there on purpose.",
+        "A storm broke the boat."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Ellie and her guide, Carlos, took a boat down the Amazon.",
+        "When the boat stopped, she saw one and followed it.",
+        "She wiped her tears and sat by the river.",
+        "Ellie hugged him and laughed through her tears."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "배가 멈췄을 때 엘리는 돌고래를 보고 따라갔어요. 그래서 배에서 멀어졌어요. 카를로스가 일부러 두고 갔다거나 폭풍이 왔다는 말은 없어요.",
+        "When the boat stopped, Ellie saw a dolphin and followed it, so she went away from the boat. Nothing says Carlos left her on purpose or that a storm came."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The story says, \"Ellie hugged him and laughed through her tears.\" What does \"laughed through her tears\" mean here?",
+      "qko": "\"Ellie hugged him and laughed through her tears.\"라는 문장이 있어요. 여기서 \"laughed through her tears\"는 무슨 뜻인가요?",
+      "opts": [
+        "she was crying and laughing at the same time",
+        "she was laughing at Carlos",
+        "she stopped laughing and cried"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Hours later, she heard a motor. It was Carlos and the boat!",
+        "Ellie wanted to take a photo of a pink river dolphin.",
+        "But when she turned around, the boat was gone.",
+        "She tied her red scarf to a high branch."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "무서워서 울던 엘리가 드디어 카를로스와 배를 다시 만났어요. 아직 눈물이 남아 있는데 너무 기뻐서 웃은 거예요. 울면서 동시에 웃었다는 뜻이에요.",
+        "Ellie had been scared and crying, and then Carlos and the boat finally came. She still had tears, but she laughed because she was so happy. She cried and laughed at the same time."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did Carlos find Ellie?",
+      "qko": "카를로스는 어떻게 엘리를 찾았나요?",
+      "opts": [
+        "He saw her red scarf on a high branch from far away.",
+        "He heard her singing by the river.",
+        "A dolphin showed him the way."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "She tied her red scarf to a high branch.",
+        "Ellie was alone in the jungle, and the sun was going down.",
+        "\"I saw your red scarf from far away!\" he shouted.",
+        "Strange sounds came from the trees, and she cried."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "엘리는 빨간 스카프를 높은 나뭇가지에 묶었고, 카를로스는 «멀리서 네 빨간 스카프가 보였어!»라고 외쳤어요. 두 문장을 이으면 답이 나와요.",
+        "Ellie tied her red scarf to a high branch, and Carlos shouted, «I saw your red scarf from far away!» Put these two sentences together to find the answer."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Ellie finally takes a photo of a pink river dolphin.",
+      "엘리가 드디어 분홍 강돌고래 사진을 찍어요.",
+      "The Perfect Photo"
+    ],
+    [
+      "B",
+      "Ellie makes a safety poster for kids who visit the jungle.",
+      "엘리가 정글에 오는 아이들을 위한 안전 수칙 포스터를 만들어요.",
+      "Jungle Safety Tips"
+    ]
+  ],
+  "write": {
+    "pre": "We should",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“We should <u>stay near the water when we get lost</u> so that <u>people can find us</u>.”",
+    "slotKo": [
+      "해야 할 일",
+      "그러면 어떻게 되는지"
+    ],
+    "slotEn": [
+      "what we should do",
+      "what will happen"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «해야 할 일 + 그 목적» 으로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and its purpose in English.",
+    "chips": [
+      {
+        "a": "wear a hat in the sun",
+        "b": "we do not get too hot",
+        "label": "hat"
+      },
+      {
+        "a": "drink water after soccer",
+        "b": "our body stays strong",
+        "label": "water"
+      },
+      {
+        "a": "hold hands at the crosswalk",
+        "b": "everyone stays safe",
+        "label": "crosswalk"
+      }
+    ],
+    "aria": [
+      "what we should do",
+      "so that what happens"
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에는 «누가 + 무엇을 할 수 있다» 를 쓰세요. (예: so that we can see well)",
+    "moreEn": "One more step: after «so that», write who + what they can do. (e.g. so that we can see well)"
+  },
+  "img": {
+    "style": "anime",
+    "cover": "At sunset by a wide jungle river, a ten-year-old girl with curly blond hair, a light green safari shirt, khaki shorts and brown boots, with a camera around her neck waves both arms from the riverbank under a tall tree with a red scarf tied to a high branch, while a friendly man with a black mustache, a wide straw hat and a blue shirt steers a small motorboat toward her and waves back.",
+    "scenes": {
+      "1": "In the jungle as the sun goes down, a ten-year-old girl with curly blond hair, a light green safari shirt, khaki shorts and brown boots, with a camera around her neck stands alone by the river with a worried face, looking around at tall dark trees and colorful birds, next to an empty riverbank where the boat used to be.",
+      "2": "By the jungle river, a ten-year-old girl with curly blond hair, a light green safari shirt, khaki shorts and brown boots, with a camera around her neck stands on her tiptoes on a big flat rock and ties a red scarf to a high tree branch, with a calm and brave face."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "A girl stands alone by the jungle river as the sun goes down.",
+    "2": "The girl ties her red scarf to a high branch.",
+    "cover": "A girl waves from the riverbank as a man in a boat comes to get her."
+  }
+}

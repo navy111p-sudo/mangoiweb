@@ -9,7 +9,7 @@
 <script src="/js/mg-modal-policy.js?v=1"></script><!-- 🔒 팝업은 ✕ 로만 닫는다(배경 클릭 차단) — 정책 한 곳. 빼면 즉시 예전 동작(배경 닫힘)으로 복귀 (2026-08-07 QA #4) -->
 <script src="/js/media-guard.js?v=3"></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막(따라 말하기) -->
-<script src="/js/mangoi-voice-input.js?v=5"></script><!-- 🎤 음성인식 미지원 환경용 녹음+Whisper 전사 -->
+<script src="/js/mangoi-voice-input.js?v=6"></script><!-- 🎤 음성인식 미지원 환경용 녹음+Whisper 전사 -->
 <script src="/js/mangoi-speak-score.js?v=1"></script><!-- 🗣 따라 말하기 채점(기준 문장 단어 정렬) -->
 <!-- 🌐 EN 전역 번역 스위퍼 — 문서 맨 끝(29195줄)에서 head 로 이동(2026-07-22).
      끝에 두면 114KB 가 앞선 외부 스크립트 수십 개 뒤로 밀려, 영문 계정 강사가 들어와도
@@ -4695,6 +4695,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         <button class="mg-hl mg-s3" onclick="mgDrawerClose();location.href='/today.html';" data-ko="📅 오늘의 A.i 학습" data-en="📅 Today's AI Plan">📅 오늘의 A.i 학습</button>
         <button class="mg-hl mg-s3" onclick="mgDrawerClose();location.href='/ai-class.html';" data-ko="🎓 A.i 선생님 수업" data-en="🎓 A.i Teacher Class">🎓 A.i 선생님 수업</button>
         <button class="mg-hl mg-s3" onclick="mgDrawerClose();location.href='/stories.html';" data-ko="📚 영어 독서" data-en="📚 English Reading">📚 영어 독서</button>
+        <button class="mg-hl mg-s3" onclick="mgDrawerClose();location.href='/ai-dubbing.html';" data-ko="🎬 A.i영화더빙" data-en="🎬 A.i Movie Dubbing">🎬 A.i영화더빙</button>
         <button class="mg-hl mg-s3" onclick="mgDrawerClose();location.href='/warmup.html';" data-ko="🗣️ A.i 말하기 연습" data-en="🗣️ A.i Speaking Practice">🗣️ A.i 말하기 연습</button>
         <button class="mg-hl mg-s2" onclick="mgDrawerClose();location.href='/judgment.html';" data-ko="🧠 판단력 훈련" data-en="🧠 Decision Training">🧠 판단력 훈련</button>
         <button onclick="mgGo('speech')" data-ko="🎤 AI 음성코치" data-en="🎤 AI Voice Coach">🎤 AI 음성코치</button>
@@ -6009,10 +6010,13 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
               실제로 열어 주므로(«[open] .ai-quick{display:grid!important}») 더 낫다. ⛔ 되돌리지 말 것.
            ⛔ 「말하는 건 선생님과, 연습은 A.i 와」로 쓰지 말 것 — 역할을 갈라 버려
               «A.i 로는 말 못 한다»·«선생님은 연습을 안 봐준다» 로 읽힌다. 둘 다 되는 것이 사실이다.
-           ⚠️ 숫자 «8» 은 사이트 정본 표기와 맞춘 값이다 — src/today-plan.ts 의 TOOLS 는
-              항목이 9개지만 그 주석이 「도구 8종 + 단어장」이고, today.html·js/idx-allmenu.js 도
-              전부 「AI 학습도구 8종」이다. ⛔ 여기만 9 로 적지 말 것 — 전체메뉴와 홈이
-              서로 다른 말을 하게 된다. ⚠️ 손으로 적은 값이라 도구가 늘면 네 곳을 함께 고쳐야 한다.
+           ⚠️ 숫자 «11» 은 (2026-10-27 사장님 지시 — 8 → 11) 이 줄을 누르면 열리는
+              「AI와 친구하기」 카드 수다(아래 openAiFriendsOverlay 의 ITEMS — 중국어퀴즈는
+              중국어 학습자에게만 보이므로 뺀다). 사이드바 «AI 학습 도구» 목록에서
+              «오늘의 A.i 학습»(묶음 화면)을 뺀 수와 같다. ⚠️ 손으로 적은 값이라 ITEMS 를
+              늘리거나 줄이면 이 숫자도 함께 고칠 것.
+              ℹ️ today.html·src/today-plan.ts 주석의 「AI 학습도구 8종」은 «오늘의 학습 계획에
+              들어가는 도구» 수라 이 숫자와 다른 것이다(그쪽 계획은 이번에 안 바뀌었다).
            ⚠️ 마크업·CSS 뿐이라 첫 화면 예산(인라인 script + defer 없는 script src)에 0바이트다. -->
       <p class="home-slogan" data-ko="선생님과도, A.i 와도." data-en="With a teacher. With A.i.">선생님과도, A.i 와도.</p>
       <p id="home-tagline" class="home-tagline">
@@ -6025,7 +6029,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         </div>
         <div class="ht-track ht-ai">
           <span class="ht-when" data-ko="혼자서 · 아무 때나" data-en="On your own · anytime">혼자서 · 아무 때나</span>
-          <span class="ht-what"><b data-ko="8종" data-en="8">8종</b> <span data-ko="A.i 학습" data-en="A.i tools">A.i 학습</span></span>
+          <span class="ht-what"><b data-ko="11종" data-en="11">11종</b> <span data-ko="A.i 학습" data-en="A.i tools">A.i 학습</span></span>
         </div>
       </div>
     </div>
@@ -6240,7 +6244,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
       </details>
       <script defer src="/js/idx-about.js?v=10"></script>
       <!-- 🔗 (2026-09-21) 히어로 «두 트랙 줄» 을 눌러 그 카드로 — 마크업은 그대로 두고 밖에서 입힌다(defer = 첫 화면 예산 0바이트). -->
-      <script defer src="/js/idx-home-tracks.js?v=9"></script>
+      <script defer src="/js/idx-home-tracks.js?v=10"></script>
       <script>
       /* 🤖 AI와 친구하기 — AI 자기주도학습 모음 오버레이 (첫 화면 CTA)
          결제하기를 첫 화면에서 빼고 그 자리에 넣음. 결제는 사이드바/마이페이지에 있음. */
@@ -6253,6 +6257,13 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
           return '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#fbbf24" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+inner+'</svg>';
         }
         var ITEMS=[
+          // 2026-10-27 사장님 지시 — 사이드바 순서 그대로 3종 추가(홈 «11종» 과 짝)
+          {ic:aifSvg('<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/><line x1="22" y1="10" x2="22" y2="15"/>'),
+           ko:'A.i 선생님 수업', en:'A.i Teacher Class', dko:'A.i 선생님과 교재로 1:1 수업', den:'1:1 textbook class with an A.i teacher', url:'/ai-class.html'},
+          {ic:aifSvg('<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>'),
+           ko:'A.i 독서', en:'A.i Reading', dko:'그림 동화책으로 영어 독서', den:'English reading with picture books', url:'/stories.html'},
+          {ic:aifSvg('<path d="M4 11v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8H4z"/><path d="m4 11-.9-4.1a2 2 0 0 1 1.5-2.4L17 1.8a2 2 0 0 1 2.4 1.5l.7 3.1L4 11z"/><path d="m6.6 5.6 3.1 3.9"/><path d="m12.9 4.2 3.1 3.9"/>'),
+           ko:'A.i 영화더빙', en:'A.i Movie Dubbing', dko:'내 목소리로 만드는 영어 영화', den:'An English movie with your voice', url:'/ai-dubbing.html'},
           {ic:aifSvg('<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><circle cx="8.5" cy="11.5" r=".9" fill="#fbbf24" stroke="none"/><circle cx="12.5" cy="11.5" r=".9" fill="#fbbf24" stroke="none"/><circle cx="16.5" cy="11.5" r=".9" fill="#fbbf24" stroke="none"/>'),
            ko:'A.i 말하기 연습', en:'A.i Speaking Practice', dko:'A.i가 먼저 말을 걸어 주는 말하기 연습', den:'AI starts the talk — you practice speaking', url:'/warmup.html'},
           {ic:aifSvg('<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="8.5" y1="21" x2="15.5" y2="21"/>'),
@@ -9339,7 +9350,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 <!-- 26-08-12(4차): 18 → 19. 역할 판정에 관리자 콘솔 세션 추가 — IT 담당자가 재입장해도 스태프 유지. -->
 <!-- 26-08-13: 20 → 22. 절전 오판(카메라 꺼짐)·복구칩·프리페치·대기토스트 분리. ⚠ 21 은 병행 브랜치(화면공유 보드)가 사용 중 — 건너뛴다. -->
 <!-- 26-09-23: 61 → 62. 참관(ghost-observe) WebSocket 인증 — vcJoinAsObserver 가 tok(서명, ghost/start 발급)을 join-observe 에 실어 보낸다(video-call-room.ts 가 검증, 그전엔 방 번호만 알면 무인증 참관 가능했다). observe-denied 수신 시 room-full/force_end 와 같은 종료 경로(무한 재연결 방지). -->
-<script src="/js/idx-main.js?v=66"></script>
+<script src="/js/idx-main.js?v=71"></script>
 <!-- 📢 (2026-08-19) 관리자·참관자 귓속말 표시 — 강사만 쓰는 기능이라 defer.
      되돌리기: 이 줄만 지우면 된다(idx-main.js 의 위임 5줄은 무해하게 큐에만 쌓는다). -->
 <script src="/js/idx-whisper.js?v=3" defer></script>
@@ -11097,7 +11108,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
   }
 </style>
 
-<script defer src="/js/idx-payment-modal.js?v=15"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
+<script defer src="/js/idx-payment-modal.js?v=16"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
 <script>
 /* 💳 결제 딥링크: /?pay=1 → 결제 모달 자동 오픈 (사이드바·마이페이지에서 진입) */
 (function(){
@@ -11688,10 +11699,11 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
   </div>
 </div>
 
-<script src="/js/idx-x3.js?v=13"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x3.js?v=14"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
 <!-- 📑 교재 「페이지 창」 — 강사 전용이라 defer 로 뺐다(학생 첫 화면 blocking 예산 0KB).
      고치면 여기 ?v= 를 함께 올릴 것 — asset_version_harness 가 막는다. -->
 <script defer src="/js/idx-tb-preview.js?v=1"></script>
+<script defer src="/js/idx-vc-book-history.js?v=2"></script>
 
 <!-- 📸 Phase SNS — 성취 카드 자동 생성 (Canvas 1080x1080) + 🎁 Phase RF — 추천 코드 모달 -->
 <script>
@@ -12291,6 +12303,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
       card.onclick = handler;  // 직접 onclick 할당
       card.addEventListener('click', handler);
       card.addEventListener('touchend', function(e){
+        if (!(window.mgIsTap && mgIsTap(e))) return;  // 스크롤이면 무시(idx-tap-guard.js)
         e.preventDefault();
         handler(e);
       });
@@ -12909,7 +12922,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
   }
 </style>
 
-<script src="/js/idx-x5.js?v=2"></script><!-- 분할추출:idx-x5 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x5.js?v=3"></script><!-- 분할추출:idx-x5 (원복: 이 위치에 인라인) -->
 
 <!-- Phase 72 (2026-05-23) — 연기/변경 모달 톤 테마B (네이비+에메랄드) 적용 -->
 <style id="ph72-theme-b">
@@ -14985,7 +14998,7 @@ document.addEventListener('keydown', function(e){
 </script>
 
 <!-- fix v22 (2026-05-27) — 전체메뉴 버튼 capture-phase 핸들러 (다른 핸들러 우회) -->
-<script defer src="/js/idx-allmenu.js?v=20"></script>
+<script defer src="/js/idx-allmenu.js?v=22"></script>
 <!-- 📱 (2026-08-30 v4 제안서 05) 모바일은 다크 고정 + 상단 테마 칩 숨김. 사연은 그 파일 머리말에. -->
 <script defer src="/js/idx-theme-mobile.js?v=4"></script>
 
@@ -15642,36 +15655,11 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       // (다만 페이지 이동이 시작되면 다음 핸들러는 자동 무시됨)
     }
   }, false);
-
-  // ── touch 이벤트 지원 (iOS Safari 일부 환경에서 click 안 잡힐 때) ─────
-  var touchStartTarget = null;
-  document.addEventListener('touchstart', function(e){
-    var btn = e.target.closest('.ai-quick-btn, .cta-pay, .cta-enter');
-    touchStartTarget = btn || null;
-  }, { passive: true });
-  document.addEventListener('touchend', function(e){
-    if (!touchStartTarget) return;
-    var btn = e.target.closest('.ai-quick-btn, .cta-pay, .cta-enter');
-    if (btn === touchStartTarget) {
-      // touchend 후 50ms 안에 click 이 안 오면 강제 click 발생
-      var tgt = btn;
-      setTimeout(function(){
-        if (!tgt._ph166Clicked) {
-          try { tgt.click(); } catch(e){}
-        }
-      }, 50);
-      tgt._ph166Clicked = false;
-      tgt.addEventListener('click', function once(){
-        tgt._ph166Clicked = true;
-        tgt.removeEventListener('click', once);
-      }, { once: true });
-    }
-    touchStartTarget = null;
-  }, { passive: true });
-
-  console.log('[ph166] quick-btn rescue active — capture handler + z-index force + touch fallback');
+  // 터치 보충은 «탭일 때만» js/idx-tap-guard.js 로 옮김(2026-10-28 스크롤 오작동)
+  console.log('[ph166] quick-btn rescue active — capture handler + z-index force');
 })();
 </script>
+<script defer src="/js/idx-tap-guard.js?v=2"></script>
 
 <!-- ============================================================
      Phase 167 (2026-05-29) - Mobile student home design cleanup
@@ -16490,7 +16478,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script defer src="/js/idx-vc-roomcode.js?v=4"></script>
 <!-- 🧭 (2026-08-20 사장님 지시) 세로 수업화면 맨 윗줄을 «한 줄» 로 합침 — 첫 페인트에 필요 없어 defer -->
 <script defer src="/js/idx-vc-toprow.js?v=1"></script>
-<script defer src="/js/idx-vc-guide.js?v=3"></script><!-- ❓ 수업 입장 시 사용법 안내(2026-09-24) -->
+<script defer src="/js/idx-vc-guide.js?v=4"></script><!-- ❓ 수업 입장 시 사용법 안내(2026-09-24) -->
 <script defer src="/js/idx-home-opening.js?v=9"></script><!-- 홈 오프닝 사운드(웹오디오 합성, 음원 파일 0바이트) / defer 필수 — blocking 이면 첫 화면 예산 FAIL -->
 <style id="vc-teacher-first">
 /* 🧑‍🏫 (2026-07-14 사장님 지시) 학생 입장 시 '교사 얼굴이 맨 위 + 크게'.
@@ -16542,9 +16530,11 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
      탭바의 입구들이 x≥735 라 390px 화면 밖이었다(실측). 자세한 사연은 그 파일 머리말에.
      ⚠️ defer 필수 — index.html 의 첫 화면 blocking 예산 여유가 1,164바이트뿐이다(CLAUDE.md). -->
 <script defer src="/js/idx-vc-wait-actions.js?v=1"></script>
+<!-- 📤 (2026-10-20) 강사가 띄운 교재가 서버에 저장됐는지 확인·재전송 — 사연은 그 파일 머리말 -->
+<script defer src="/js/idx-vc-pdfshare-verify.js?v=1"></script>
 <!-- 👻 (2026-08-20) 「같은 사람이 두 명으로 보인다」 유령 타일 청소 — 서버 생존판정(A-1)과 짝인 화면쪽 즉효 완화책.
      ⚠️ idx-main.js 에 넣지 말 것: 849KB 에 학생 29,000명 전원이 첫 화면에서 받는 파일이고 예산 여유가 12KB 뿐이다(CLAUDE.md). -->
-<script src="/js/idx-vc-dupghost.js?v=5" defer></script>
+<script src="/js/idx-vc-dupghost.js?v=6" defer></script>
 <script src="/js/idx-vc-chat-history.js?v=3" defer></script>
 <!-- 🎓 (2026-08-23 사장님 지시) 로그인한 학생은 «수업 입장 로비» 를 보지 않는다.
      그 화면의 비밀번호는 검사되지 않고(vcJoinRoom 은 저장만 한다) 코드가 '0000' 을 대신 채운다 —
@@ -16571,12 +16561,12 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
      [왜] 그날 실측: 기록된 46건 전부가 TURN «중계», 볼 수 있는 35건 전부가 «TCP», UDP 0건.
           RTT 는 113~324ms 로 나쁘지 않은데 얼굴만 얼어붙었다 — TCP 는 늦은 조각을 못 버려서다.
      ⛔ 켜기 전 확인·되돌리는 길·«SFU 도 UDP 막히면 TCP 로 떨어진다» 는 한계는 그 파일 머리말에. -->
-<script defer src="/js/idx-vc-sfu.js?v=2"></script>
+<script defer src="/js/idx-vc-sfu.js?v=3"></script>
 <!-- 🔊 (2026-08-26 학생 제보) 안드로이드 볼륨키가 안 먹는 기기용 자체 출력 음량. 사연은 그 파일 머리말에. -->
 <script defer src="/js/idx-vc-outputvolume.js?v=4"></script>
 <!-- 🏢 사무실 모드 (2026-09-08) — 옆자리 교사 목소리가 학생에게 덜 들리게 내 마이크 입력을 가공한다.
      defer 라 첫 화면 예산에 안 들어간다. 설정 스위치는 js/vc-dock.js, 동작 정본은 이 파일 하나. -->
-<script defer src="/js/idx-vc-officemode.js?v=10"></script>
+<script defer src="/js/idx-vc-officemode.js?v=12"></script>
 <!-- 🧭 (2026-08-28) test.mangoi.co.kr 접속자에게 mangoi.ai 로 옮기라고 "안내"만 함(자동 리다이렉트 아님).
      이유는 그 파일 머리말 참고 — 패스키 무효화·앱 로그인 유실 방지. -->
 <script defer src="/js/idx-legacy-domain-notice.js?v=5"></script>

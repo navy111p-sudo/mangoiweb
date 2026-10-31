@@ -1,0 +1,310 @@
+{
+  "id": "s1-26",
+  "breaks": [
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 4,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "결말",
+      "en": "ending"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «큰 먼지 폭풍이 온다(문제)» 와 «레오가 무사하고 화성에 간 첫 사람이 된다(결말)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (a big dust storm comes) and the ending (Leo is safe and is the first person on Mars). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Astronaut Leo"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "A big dust storm comes, and Leo cannot see anything."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Leo follows the beep of his base and gets inside just in time."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Astronaut Leo flies to Mars. Mars is red, dusty, and very ",
+      "ans": "cold",
+      "opts": [
+        "cold",
+        "hot",
+        "wet"
+      ]
+    },
+    {
+      "pre": ". Leo drives a ",
+      "ans": "rover",
+      "opts": [
+        "rover",
+        "bus",
+        "boat"
+      ]
+    },
+    {
+      "pre": " over the rocks. Then a big dust ",
+      "ans": "storm",
+      "opts": [
+        "storm",
+        "party",
+        "show"
+      ]
+    },
+    {
+      "pre": " comes, and Leo cannot ",
+      "ans": "see",
+      "opts": [
+        "see",
+        "eat",
+        "sing"
+      ]
+    },
+    {
+      "pre": " anything. He follows the beep, beep of his ",
+      "ans": "base",
+      "opts": [
+        "base",
+        "dog",
+        "car"
+      ]
+    },
+    {
+      "pre": " and gets inside just in time. Leo is safe!",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "astronaut",
+      "우주 비행사",
+      "<b>Astronaut</b> Leo flies to Mars.",
+      "a person who travels into space"
+    ],
+    [
+      "trip",
+      "여행",
+      "The <b>trip</b> takes many months.",
+      "a journey from one place to another"
+    ],
+    [
+      "dusty",
+      "먼지투성이인",
+      "Mars is red and <b>dusty</b>, and it is very cold.",
+      "covered with dust (very small, dry dirt)"
+    ],
+    [
+      "rover",
+      "탐사차",
+      "Leo drives a <b>rover</b> over the rocks.",
+      "a car that drives on another planet"
+    ],
+    [
+      "storm",
+      "폭풍",
+      "Suddenly, a big dust <b>storm</b> comes!",
+      "very strong wind, sometimes with rain or dust"
+    ],
+    [
+      "base",
+      "기지",
+      "He follows the beep, beep of his <b>base</b>.",
+      "a safe home building for astronauts"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why can’t Leo see anything?",
+      "qko": "레오는 왜 아무것도 볼 수 없나요?",
+      "opts": [
+        "A big dust storm comes.",
+        "He closes his eyes to sleep.",
+        "He drives into a dark cave."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Suddenly, a big dust storm comes!",
+        "The trip takes many months.",
+        "Leo drives a rover over the rocks.",
+        "He gets inside just in time."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«Suddenly, a big dust storm comes!» 큰 먼지 폭풍이 불어와서 앞이 보이지 않아요.",
+        "A big dust storm comes, so Leo cannot see anything."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"He follows the beep, beep of his base.\" What is \"beep, beep\"?",
+      "qko": "«He follows the beep, beep of his base.» 에서 «beep, beep» 은 무엇일까요?",
+      "opts": [
+        "a sound that helps Leo find the way",
+        "a red rock on Mars",
+        "Leo’s lunch"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Leo cannot see anything.",
+        "Astronaut Leo flies to Mars.",
+        "Mars is red and dusty, and it is very cold.",
+        "Leo is safe, and he is the first person on Mars!"
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«Leo cannot see anything.» 레오는 앞이 안 보여서 «삐, 삐» 소리를 듣고 따라가요. «beep, beep» 은 기지로 가는 길을 알려 주는 소리예요.",
+        "Leo cannot see anything, so he follows a sound with his ears. \"Beep, beep\" is a sound that shows him the way to his base."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How does Leo get safe from the storm?",
+      "qko": "레오는 어떻게 폭풍을 피해 안전해지나요?",
+      "opts": [
+        "He follows the beep of his base and gets inside.",
+        "He drives his rover very fast to Earth.",
+        "He hides under a big red rock."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "He follows the beep, beep of his base.",
+        "He gets inside just in time.",
+        "Leo drives a rover over the rocks.",
+        "The trip takes many months."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "기지의 «삐, 삐» 소리를 따라가서(«He follows the beep, beep of his base.»), 아슬아슬하게 안으로 들어가요(«He gets inside just in time.»). 두 문장을 이어야 알 수 있어요.",
+        "He follows the beep, beep of his base, and he gets inside just in time. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Leo finds water under the red rocks of Mars.",
+      "레오가 화성의 붉은 바위 밑에서 물을 찾는다.",
+      "Water on Mars"
+    ],
+    [
+      "B",
+      "Leo flies back to Earth, and everyone cheers for him.",
+      "레오가 지구로 돌아오고, 모두가 그를 환영한다.",
+      "Welcome Home, Leo"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "before",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "함께 할 일",
+      "그보다 나중에 일어날 일"
+    ],
+    "slotEn": [
+      "what to do",
+      "what happens later"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그보다 나중에 일어날 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what to do together and what happens later in English.",
+    "aria": [
+      "what to do",
+      "what happens later"
+    ],
+    "moreKo": "한 걸음 더: «before» 뒤에 «누가 + 무엇을» 넣어 써 보세요. (예: before Dad comes home)",
+    "moreEn": "One more step: after «before», write who + what. (e.g. before Dad comes home)",
+    "src": "“Let’s <u>go inside</u> before <u>the storm comes</u>.”",
+    "chips": [
+      {
+        "a": "close the windows",
+        "b": "the rain starts",
+        "label": "rain"
+      },
+      {
+        "a": "put on our coats",
+        "b": "we go out in the snow",
+        "label": "snow"
+      },
+      {
+        "a": "fill our water bottles",
+        "b": "we start the hike",
+        "label": "hike"
+      }
+    ]
+  },
+  "img": {
+    "style": "cg3d",
+    "cover": "On red, rocky Mars, a young man with short brown hair in a white space suit with orange stripes and a clear round helmet hurries toward a round white dome base with a blinking green light as a huge swirling wall of red dust rolls in behind him, and the green light on the base blinks to guide him home.",
+    "scenes": {
+      "1": "On red, rocky Mars, a young man with short brown hair in a white space suit with orange stripes and a clear round helmet drives a six-wheeled silver rover over the rocks as a giant cloud of swirling red dust rushes toward him and fills the sky.",
+      "2": "At the open door of a round white dome base with a blinking green light, a young man with short brown hair in a white space suit with orange stripes and a clear round helmet jumps inside just in time and gives a happy thumbs up, while the red dust storm swirls behind him."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "A dust storm comes toward Leo’s rover.",
+    "2": "Leo gets inside his base just in time.",
+    "cover": "Leo hurries to his base before the dust storm."
+  }
+}

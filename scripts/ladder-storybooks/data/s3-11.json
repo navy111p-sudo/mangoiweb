@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «before», write what + what happens to make the time clear. (e.g. before the sun goes down)"
   },
   "img": {
+    "style": "photo",
     "cover": "A bright half moon in a clear dark night sky above a quiet hill with a few trees",
     "scenes": {
       "1": "A close view of the moon’s gray, cratered surface, with one side brightly lit by sunlight and the other side in shadow",
       "3": "A large bright full moon rising above a city skyline in the evening"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

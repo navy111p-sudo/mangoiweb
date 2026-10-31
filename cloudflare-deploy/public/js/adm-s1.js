@@ -6,6 +6,16 @@
   const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
   const $ = id => document.getElementById(id);
   const v = id => ($(id)?.value||'').trim();
+  /* 🔒 (2026-10-19 퍼즈로 발견) onclick="...decodeURIComponent('...')" 에 넣을 방 번호 인자.
+     encodeURIComponent 는 ' ( ) ! ~ * 를 «안» 인코딩한다 — 그중 작은따옴표 하나가
+     onclick 안의 '…' 문자열을 닫아 버려 그 줄의 👁·📋·🚪 버튼이 통째로 «눌러도 아무 일 없음»
+     (SyntaxError: missing ) after argument list)이 된다. 방 번호는 /api/active-rooms 의
+     ?roomId= 가 서버 검증 없이 그대로 흘러 들어오므로 ' 가 실재할 수 있다.
+     ⛔ XSS 로는 안 터진다(;·공백·,·연산자가 전부 %인코딩되고, 어트리뷰트는 "…" 라 "는 %22).
+        고치는 것은 «버튼이 죽는» 정확성 문제다.
+     ✅ ' → %27 로만 바꾼다. decodeURIComponent('%27')==="'" 라 방 번호는 원래대로 복원된다.
+        나머지 안 인코딩 문자(( ) ! ~ *)는 문자열 «안» 에서는 그냥 글자라 무해하다. */
+  const ridArg = (x) => encodeURIComponent(String(x == null ? '' : x)).replace(/'/g, '%27');
 
   // 👁 Ghost
   let _curObsId = null;
@@ -111,7 +121,7 @@
   function _ghRoomRow(rm, sched, en, isMeet){
     const names = (rm.users || []).map(function(u){ return esc(u.username); }).join(', ') || '-';
     const rid = esc(rm.roomId);
-    const ridAttr = encodeURIComponent(rm.roomId);
+    const ridAttr = ridArg(rm.roomId);
     /* 👤 한 명뿐이면 상대가 아직 안 들어온 상태 — 매니저가 가장 먼저 봐야 할 줄이라 표시.
        ⚠️ 회의방에서는 «혼자» 가 흔하고 끝나는 시각도 없어 노란불이 늘 켜져 있다.
           그래서 회의방에서는 색만 낮춘다 — 사실(혼자다)은 그대로 적는다. */
@@ -290,8 +300,8 @@
     return '<div style="margin-top:10px;border-top:1px dashed rgba(148,163,184,0.35);padding-top:8px">'
       + '<b style="font-size:12.5px;color:#94a3b8">' + (en ? '📅 Booked classes for this moment' : '📅 예약 기준 지금 수업') + '</b>'
       + '<div style="font-size:11.5px;color:#64748b;margin:2px 0 6px">'
-      + (en ? '«enrolment» classes have a Mango-i room, so you can observe even before anyone joins. «cafe24» classes do not go through a Mango-i room — «no connection record» is normal there.'
-            : '«수강신청» 수업은 망고아이 방이 있어 아무도 안 들어와도 참관할 수 있습니다. «카페24» 수업은 망고아이 방을 거치지 않아 참관 버튼이 없고, «접속 기록 없음» 이 정상입니다.')
+      + (en ? '«enrolment» classes have a Mango-i room, so you can observe (hidden) or enter (visible) even before anyone joins. «cafe24» classes do not go through a Mango-i room — «no connection record» is normal there.'
+            : '«수강신청» 수업은 망고아이 방이 있어 아무도 안 들어와도 참관(안 보임)·직접 입장(보임)할 수 있습니다. «카페24» 수업은 망고아이 방을 거치지 않아 버튼이 없고, «접속 기록 없음» 이 정상입니다.')
       + '</div>'
       + list.map(function(c){
           const ph = c.phase === 'soon' ? (en ? 'Starts soon' : '곧 시작')
@@ -301,8 +311,17 @@
              카페24 수업은 실제 접속이 잡혔을 때만 방이 생긴다(live_room). */
           const obsRoom = c.observable ? (c.room_id || '') : (c.live_room || '');
           const obsBtn = obsRoom
-            ? ' <button type="button" class="gh-act gh-act-quick" onclick="ghQuickObserve(decodeURIComponent(\'' + encodeURIComponent(obsRoom) + '\'))">'
+            ? ' <button type="button" class="gh-act gh-act-quick" onclick="ghQuickObserve(decodeURIComponent(\'' + ridArg(obsRoom) + '\'))">'
               + (en ? '👁 Observe now' : '👁 바로 참관') + '</button>'
+            : '';
+          /* 🚪 (2026-10-19 사장님 지시) 직접 입장(보임) — 위쪽 «화상방» 표와 같은 버튼·같은 함수.
+             그 표는 누가 접속해야 뜨므로, 아무도 없을 때(수업 시작 직전) 학생에게 보이며 들어갈 길이 없었다.
+             ⛔ 참관과 같은 방(obsRoom)일 때만 — 방이 없는 카페24 줄에 달면 빈 방 번호로 들어간다. */
+          const enterBtn = obsRoom
+            ? ' <button type="button" class="gh-act gh-act-enter" onclick="ghEnterRoom(decodeURIComponent(\'' + ridArg(obsRoom) + '\'))" '
+              + 'title="' + (en ? 'Join as a real participant — students see you (camera starts off)'
+                                 : '실제 참가자로 입장 — 학생에게 보입니다 (카메라는 꺼진 채로 시작)') + '">'
+              + (en ? '🚪 Enter (visible)' : '🚪 직접 입장(보임)') + '</button>'
             : '';
           const src = c.observable
             ? ' <span style="color:#c4b5fd;font-weight:700">' + (en ? 'enrolment' : '수강신청') + '</span>'
@@ -316,7 +335,7 @@
             + (c.connected
                 ? ' <span style="color:#86efac;font-weight:700">✅ ' + (en ? 'Connected' : '접속 확인') + '</span>'
                 : ' <span style="color:#fbbf24">' + (en ? 'No connection record' : '접속 기록 없음') + '</span>')
-            + obsBtn
+            + obsBtn + enterBtn
             + '</div>';
         }).join('')
       + '</div>';

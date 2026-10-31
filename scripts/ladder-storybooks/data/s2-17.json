@@ -1,0 +1,311 @@
+{
+  "id": "s2-17",
+  "breaks": [
+    3,
+    3,
+    3,
+    4
+  ],
+  "key": {
+    "P": 4,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «바다가 플라스틱으로 가득해 용이 숨을 쉴 수 없었다(문제)» 와 «함께 힘을 모으면 사랑하는 것을 지킬 수 있다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the sea was full of plastic, so the dragon could not breathe) and the lesson (working together, people can save what they love). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Jiho, an old dragon, the people of the town"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "The sea was full of plastic, and the dragon was very weak."
+    },
+    {
+      "k": "Lesson",
+      "qko": "무엇을 배웠나요?",
+      "qen": "What is the lesson?",
+      "a": "Working together, people can save what they love."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Jiho found a huge blue ",
+      "ans": "scale",
+      "opts": [
+        "scale",
+        "shell",
+        "stone"
+      ]
+    },
+    {
+      "pre": " on the beach and followed more scales to a sea ",
+      "ans": "cave",
+      "opts": [
+        "cave",
+        "house",
+        "ship"
+      ]
+    },
+    {
+      "pre": ". A tired old dragon said the sea was full of ",
+      "ans": "plastic",
+      "opts": [
+        "plastic",
+        "fish",
+        "gold"
+      ]
+    },
+    {
+      "pre": ". At first, nobody listened, but Jiho showed the town the scale, and everyone ",
+      "ans": "cleaned",
+      "opts": [
+        "cleaned",
+        "left",
+        "painted"
+      ]
+    },
+    {
+      "pre": " the beach. On the full moon, the dragon rose from the waves, ",
+      "ans": "strong",
+      "opts": [
+        "strong",
+        "sick",
+        "sad"
+      ]
+    },
+    {
+      "pre": " again.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "scale",
+      "비늘",
+      "until Jiho found a huge blue <b>scale</b> on the beach.",
+      "a small hard piece on the skin of a fish or a dragon"
+    ],
+    [
+      "cave",
+      "동굴",
+      "He followed more scales into a dark sea <b>cave</b>.",
+      "a big hole in a rock or a mountain"
+    ],
+    [
+      "plastic",
+      "플라스틱",
+      "\"The sea is full of <b>plastic</b>,\" the dragon said weakly.",
+      "a light material used to make bottles and bags"
+    ],
+    [
+      "breathe",
+      "숨 쉬다",
+      "\"I cannot <b>breathe</b>.\"",
+      "to take air in and out of your body"
+    ],
+    [
+      "disappear",
+      "사라지다",
+      "I will <b>disappear</b> forever.\"",
+      "to go away and not be seen again"
+    ],
+    [
+      "roared",
+      "크게 외쳤다",
+      "It flew around the island and <b>roared</b>, \"Thank you!\"",
+      "made a very loud, deep sound"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why could the dragon not breathe?",
+      "qko": "용은 왜 숨을 쉴 수 없었나요?",
+      "opts": [
+        "The sea was full of plastic.",
+        "The cave was too cold.",
+        "Jiho woke it up too early."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Inside, a tired old dragon lay on the rocks.",
+        "\"The sea is full of plastic,\" the dragon said weakly. \"I cannot breathe.\"",
+        "People in Jeju say a dragon once lived under Hallasan Mountain.",
+        "On the full moon, the dragon rose from the waves, strong again."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "용이 «바다가 플라스틱으로 가득해. 숨을 쉴 수가 없구나»라고 말했어요. 동굴이 추웠다거나 지호가 깨웠다는 말은 없어요.",
+        "The dragon said, «The sea is full of plastic. I cannot breathe.» Nothing says the cave was cold or that Jiho woke it up."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The story says, \"The full moon was only three days away.\" What does \"three days away\" mean here?",
+      "qko": "\"The full moon was only three days away.\"라는 문장이 있어요. 여기서 \"three days away\"는 무슨 뜻인가요?",
+      "opts": [
+        "it would come in only three days",
+        "it came three days ago",
+        "it was far away from Jeju"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "\"If the sea is not clean by the full moon, I will disappear forever.\"",
+        "Nobody believed it, until Jiho found a huge blue scale on the beach.",
+        "At first, nobody listened to him.",
+        "It flew around the island and roared, \"Thank you!\""
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "용은 보름달이 뜰 때까지 바다가 깨끗해져야 한다고 했어요. «three days away»는 보름달까지 사흘밖에 남지 않았다는 뜻이에요.",
+        "The dragon said the sea had to be clean by the full moon. «Three days away» means the full moon would come in only three days."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why did the town finally help Jiho?",
+      "qko": "마을 사람들은 왜 마침내 지호를 도왔나요?",
+      "opts": [
+        "Jiho showed them the dragon's blue scale.",
+        "The dragon flew into town to ask for help.",
+        "The town wanted to win a prize."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Then he showed them the blue scale.",
+        "Inside, a tired old dragon lay on the rocks.",
+        "Soon, the whole town cleaned the beach day and night.",
+        "It flew around the island and roared, \"Thank you!\""
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "처음에는 아무도 듣지 않았지만, 지호가 파란 비늘을 보여 주자 곧 마을 사람 모두가 바닷가를 청소했어요. 두 문장을 이으면 답이 나와요.",
+        "At first nobody listened, but after Jiho showed them the blue scale, the whole town soon cleaned the beach. Put these two sentences together to find the answer."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "The dragon gives Jiho a ride around Jeju Island.",
+      "용이 지호를 태우고 제주도를 한 바퀴 날아요.",
+      "A Ride on the Dragon"
+    ],
+    [
+      "B",
+      "Jiho starts a beach clean-up day every month.",
+      "지호가 매달 바닷가 청소의 날을 만들어요.",
+      "Clean Beach Day"
+    ]
+  ],
+  "write": {
+    "pre": "If",
+    "mid": "we can",
+    "sep": ", ",
+    "slots": [
+      "cl",
+      "vp"
+    ],
+    "src": "“If <u>we all work together</u>, we can <u>keep our beach clean</u>.”",
+    "slotKo": [
+      "모두가 하는 일",
+      "그러면 함께 할 수 있는 일"
+    ],
+    "slotEn": [
+      "what everyone does",
+      "what we can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «모두가 하는 일 + 그러면 함께 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what everyone does and what we can do together in English.",
+    "chips": [
+      {
+        "a": "everyone picks up one piece of trash",
+        "b": "make the park clean",
+        "label": "trash"
+      },
+      {
+        "a": "we save water",
+        "b": "help the earth",
+        "label": "water"
+      },
+      {
+        "a": "each student plants a seed",
+        "b": "grow a school garden",
+        "label": "garden"
+      }
+    ],
+    "aria": [
+      "what everyone does",
+      "what we can do"
+    ],
+    "moreKo": "한 걸음 더: «If» 뒤에는 «누가 + 무엇을 한다», «we can» 뒤에는 동사로 시작해 보세요. (예: we can save the sea animals)",
+    "moreEn": "One more step: after «If», write who + what they do. After «we can», start with a verb. (e.g. we can save the sea animals)"
+  },
+  "img": {
+    "style": "minhwa",
+    "cover": "Under a bright full moon, a huge old dragon with shiny blue scales, a long white beard and gentle golden eyes rises out of the sparkling waves and flies over Jeju Island, while a ten-year-old Korean boy with short wavy black hair, a blue-and-white striped T-shirt, yellow shorts and sandals and many smiling townspeople cheer and wave on a clean, empty beach.",
+    "scenes": {
+      "1": "Inside a dark sea cave, a huge old dragon with shiny blue scales, a long white beard and gentle golden eyes lies weakly on the rocks, tangled in plastic bottles, bags and old ropes, while a ten-year-old Korean boy with short wavy black hair, a blue-and-white striped T-shirt, yellow shorts and sandals kneels beside its big head with a worried face.",
+      "3": "On the beach at night, a ten-year-old Korean boy with short wavy black hair, a blue-and-white striped T-shirt, yellow shorts and sandals and the whole town, from grandmas to little kids, pick up plastic bottles and old fishing nets and fill big bags, while an almost-full moon shines over the sea."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "A boy finds a tired dragon in a sea cave full of plastic.",
+    "3": "A boy and the whole town clean the beach at night.",
+    "cover": "A blue dragon rises from the sea as a boy and the townspeople cheer."
+  }
+}

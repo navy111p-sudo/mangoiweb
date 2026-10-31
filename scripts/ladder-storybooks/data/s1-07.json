@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)"
   },
   "img": {
+    "style": "cg3d",
     "cover": "A girl with short black hair in a yellow shirt sits in a dentist chair and smiles, while a woman with long brown hair in a blue dress stands beside her and a smiling dentist in a white coat holds a small mirror.",
     "scenes": {
       "1": "In a dentist office, a woman with long brown hair in a blue dress holds the hand of a worried girl with short black hair in a yellow shirt, and the girl takes a deep breath.",
       "2": "A girl with short black hair in a yellow shirt sits in a dentist chair with a big proud smile and gives a thumbs up, while a smiling dentist in a white coat stands beside her."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

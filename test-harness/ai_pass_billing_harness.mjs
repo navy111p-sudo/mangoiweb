@@ -75,6 +75,9 @@ function compile(tsFn, deps) {
 const tmp = mkdtempSync(join(tmpdir(), 'aipass-'));
 writeFileSync(join(tmp, 'ai-pass.mjs'), stripTypeScriptTypes(AIP));
 const M = await import(pathToFileURL(join(tmp, 'ai-pass.mjs')).href);
+// 대리점 청구서 문지기(b2b-pay-guard.ts) — finishRefund 가 부른다. 정본을 그대로 주입한다(⛔ 스텁 금지 — 판정이 갈리면 못 본다)
+writeFileSync(join(tmp, 'b2b-pay-guard.mjs'), stripTypeScriptTypes(readFileSync(join(ROOT, 'cloudflare-deploy/src/b2b-pay-guard.ts'), 'utf8')));
+const G = await import(pathToFileURL(join(tmp, 'b2b-pay-guard.mjs')).href);
 
 // PRICES 는 소스에서 읽는다(⛔ 하니스에 금액을 베끼지 않는다)
 const pm = PAY.match(/const PRICES[^=]*=\s*(\{[\s\S]*?\n\});/);
@@ -279,7 +282,8 @@ try {
   const T_FIN = fnText(REF, 'finishRefund');
   ok('전제: finishRefund 를 오려 냈다', !!T_FIN);
   const fin = compile(T_FIN, { kstToday: () => '2026-09-29', AI_PASS_PLAN: M.AI_PASS_PLAN, AI_PASS_PKG_NAME: M.AI_PASS_PKG_NAME,
-    currentAiPassEnd: M.currentAiPassEnd, aiPassNextBilling: M.aiPassNextBilling });
+    currentAiPassEnd: M.currentAiPassEnd, aiPassNextBilling: M.aiPassNextBilling,
+    parseB2bOrder: G.parseB2bOrder, revertB2bOnCancel: G.revertB2bOnCancel });
   const mk = () => {
     const db = freshDb();
     db.exec(`ALTER TABLE payment_orders ADD COLUMN refunded_amount INTEGER; ALTER TABLE payment_orders ADD COLUMN refunded_at INTEGER;

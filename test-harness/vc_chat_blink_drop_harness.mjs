@@ -103,11 +103,11 @@ ok('attachStreamMonitor 중복 등록 방지(루프·AudioContext 누적)',
 ok('중복 판정 키에 오디오 트랙 id 포함(마이크 뒤늦게 복구되는 경우)',
    /const monKey = \(stream\.id \|\| ''\) \+ '\|' \+ \(_at0 \? _at0\.id : 'noaudio'\)/.test(IDX));
 ok('음량 분석 실패 시 AudioContext 를 닫는다(누수)',
-   /catch\(e\) \{[\s\S]{0,260}mon\.ctx\.close\(\); mon\.ctx = null;/.test(IDX));
+   /catch\(e\) \{[\s\S]{0,260}vcCloseAudioContext\(mon\.ctx\);\s*mon\.ctx = null;/.test(IDX));
 ok('마이크 진단 복구도 window.vcMicOn 을 맞춘다(독이 빨간 채 굳던 회귀)',
    /window\.vcMicOn = true;\s*\/\/ 🔴 \(2026-07-24 재점검\)/.test(IDX));
 ok('마이크 재획득 경로도 동일', /vcMicOn = true; window\.vcMicOn = true;/.test(IDX));
-ok('스트림이 바뀌면 옛 루프를 확실히 정리', /clearInterval\(box\.__vsMon\.iconInt\)/.test(IDX) && /__vsMon\.ctx && box\.__vsMon\.ctx\.close\(\)/.test(IDX));
+ok('스트림이 바뀌면 옛 루프를 확실히 정리', /clearInterval\(box\.__vsMon\.iconInt\)/.test(IDX) && /box\.__vsMon\.stop = true;\s*vcCloseAudioContext\(box\.__vsMon\.ctx\)/.test(IDX));
 ok('rAF 루프도 정지 플래그를 확인', /if \(mon\.stop \|\| !box\.isConnected\)/.test(IDX));
 
 // ── ③ 필리핀 강사 튕김 ─────────────────────────────────────────
