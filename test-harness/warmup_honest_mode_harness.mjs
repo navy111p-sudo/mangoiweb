@@ -85,13 +85,6 @@ for (let t = 0; t < 50; t++) {
   if (t === 49) ok('자유대화 무작위 50회 중 따라 말하기 0회', true);
 }
 
-console.log('⑤ 시범 학원(기능 플래그)');
-ok('강남캐피타운학원 → focused', H.pilotModeFor('강남캐피타운학원') === 'focused');
-ok('다른 학원 → null(예전 동작)', H.pilotModeFor('어느학원') === null);
-ok('빈 값 → null', H.pilotModeFor('') === null && H.pilotModeFor(null) === null);
-ok('부분일치로 켜지지 않음', H.pilotModeFor('강남캐피') === null && H.pilotModeFor('강남캐피타운학원 2') === null);
-ok('Object 원형 키로 켜지지 않음', H.pilotModeFor('toString') === null && H.pilotModeFor('constructor') === null);
-
 const mkEnv = (rows, { throwDb = false, kvInit = {} } = {}) => {
   const kv = new Map(Object.entries(kvInit)); let dbCalls = 0; const sqls = [];
   return {
@@ -107,6 +100,8 @@ const mkEnv = (rows, { throwDb = false, kvInit = {} } = {}) => {
     },
   };
 };
+
+console.log('⑤ 기본 모드 — 모든 학생·학원 = 집중교정 (2026-10-31)');
 {
   const e = mkEnv({ kim01: '강남캐피타운학원', lee01: '어느학원' });
   ok('시범 학원 학생 → { mode: focused }', (await H.resolveWarmupHonest(e.env, 's1', 'kim01'))?.mode === 'focused');
@@ -123,7 +118,7 @@ const mkEnv = (rows, { throwDb = false, kvInit = {} } = {}) => {
   ok('D1 이 던지면 기본 모드 focused(fail-open 도 기본 모드)', (await H.resolveWarmupHonest(t.env, 's6', 'kim01'))?.mode === 'focused');
   // 🎚️ 학생이 첫 화면에서 고른 모드 — 시범 판정보다 이기고, 모르는 값은 무시한다(짝)
   const c = mkEnv({ kim01: '강남캐피타운학원', lee01: '어느학원' });
-  ok('고른 모드(free_talk)가 시범 모드(focused)를 이긴다', (await H.resolveWarmupHonest(c.env, 'c1', 'kim01', { chosen: 'free_talk' }))?.mode === 'free_talk');
+  ok('고른 모드(free_talk)가 기본(focused)을 이긴다', (await H.resolveWarmupHonest(c.env, 'c1', 'kim01', { chosen: 'free_talk' }))?.mode === 'free_talk');
   ok('다른 학원 학생도 고르면 그 모드', (await H.resolveWarmupHonest(c.env, 'c2', 'lee01', { chosen: 'balanced' }))?.mode === 'balanced');
   ok('로그인 안 해도 고르면 그 모드(D1 안 읽음)', (await H.resolveWarmupHonest(c.env, 'c3', '', { chosen: 'focused' }))?.mode === 'focused');
   ok('모르는 값은 무시 → 다른 학원 학생은 기본 모드 focused', (await H.resolveWarmupHonest(c.env, 'c4', 'lee01', { chosen: 'strict' }))?.mode === 'focused');

@@ -356,7 +356,9 @@ export function verifyWarmupFix(
         철자 조각» 이 되지는 않는다 — 한자 한 글자는 그 자체로 낱말이다). */
   if (zhMode ? !nSaid.includes(nWas) : !(' ' + nSaid + ' ').includes(' ' + nWas + ' ')) return null;
   // 고친 것이 없으면 교정이 아니다
-  if (nWas === nNow) return null;
+  /* 🔴 2026-10-31 사장님 «Secret → secret» 같은 대소문자·구두점 교정이 버려졌다.
+     norm 은 대소문자·구두점을 지우므로 여기서 nWas===nNow 가 된다 — 그래서 «글자 자체가 같을 때» 만 버린다. */
+  if (nWas === nNow && was === now) return null;
   // 통째로 새 문장을 지어낸 경우(교정이 아니라 창작) 차단
   if (now.length > Math.max(60, said.length * 2.5)) return null;
   /* ⛔ 낱말 겹침만으로 자르지 않는다 — "I don't went" → "I didn't go" 처럼 «형태가 바뀌는»

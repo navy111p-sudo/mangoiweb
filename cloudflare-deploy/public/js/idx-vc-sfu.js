@@ -186,7 +186,7 @@
         tx.forEach(function (t) {
             var tr = t.sender && t.sender.track; if (!tr) return;
             if (tr.kind === 'video') S.myVideoTrack = tr.id;
-            if (tr.kind === 'audio') S.myAudioTrack = tr.id;
+            if (tr.kind === 'audio') { S.myAudioTrack = tr.id; S.pubAudioSender = t.sender; }
         });
         log('올리기 성공', S.sid, 'v=' + S.myVideoTrack);
         return true;
@@ -380,6 +380,26 @@
         if (now - newest > STALL_MS) fallback('sfu_stalled');
     }
 
+    /* 마이크 트랙이 바뀌면(장치 교체·사무실 모드 재시작) 발행 중인 오디오 sender 에 새 트랙을 끼운다.
+       트랙 이름(S.myAudioTrack)과 mid 는 그대로라 재협상이 없고, 상대의 구독도 끊기지 않는다.
+       이걸 빼면 예전 트랙(이미 죽은 것)이 계속 올라가 상대는 「소리가 안 들어온다」 상태가 된다. */
+    var audioSwapBusy = false;
+    function syncAudioSender() {
+        try {
+            var sender = S.pubAudioSender;
+            if (!sender || audioSwapBusy) return;
+            var st = myStream(); if (!st) return;
+            var a = (st.getAudioTracks() || [])[0];
+            if (!a || a.readyState !== 'live' || sender.track === a) return;
+            audioSwapBusy = true;
+            sender.replaceTrack(a).then(function () {
+                log('오디오 트랙 교체', a.id);
+            }, function (e) {
+                log('오디오 트랙 교체 실패', e && e.message);
+            }).then(function () { audioSwapBusy = false; });
+        } catch (_) { audioSwapBusy = false; }
+    }
+
     /* 카메라 트랙이 바뀌면(화면공유·가상배경·장치교체) 우리가 올린 것과 어긋난다 → 손을 뗀다.
        ⛔ 여기서 «다시 올리기» 를 하지 않는다 — 수업 중에 재협상을 반복하는 것이 더 위험하다. */
     function trackChanged() {
@@ -394,6 +414,7 @@
     /* ═══ 7) 한 바퀴 — 명단 올리고, 새 사람 끌어오고, 살아 있는지 본다 ══════════ */
     async function tick() {
         if (!inCall()) { fallback('left_call'); return; }
+        syncAudioSender();                                   // 마이크 교체는 끊지 않고 이어 붙인다
         if (trackChanged()) { fallback('local_track_changed'); return; }
         if (meshSenderChanged()) { fallback('mesh_sender_changed'); return; }   // 화면공유·가상배경 등
 
