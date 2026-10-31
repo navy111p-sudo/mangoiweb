@@ -268,12 +268,12 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
     const r = await post('/api/warmup/chat', { session_id: 'w' + d, student_input: 'I went camping with my brother.', difficulty: d || undefined });
     ok(r.status === 200 && has(r.sys, band) && ['beginner', 'intermediate', 'advanced'].filter((x) => x !== band).every((x) => !has(r.sys, x)), `웜업 난이도 ${d || '미지정'} → ${band} 규칙만 실린다`, r.status);
   }
-  replyText = 'Great try! Do you like cats?';
+  replyText = 'By the way, do you like cats?';
   await post('/api/warmup/chat', { session_id: 'w-op', student_input: 'Hello!', difficulty: 3 });
   replyText = 'So, is your cat big?';
   await post('/api/warmup/chat', { session_id: 'w-op', student_input: 'Yes.', difficulty: 3 });
   const r3 = await post('/api/warmup/chat', { session_id: 'w-op', student_input: 'No, it is small.', difficulty: 3 });
-  ok(/Your last replies started with "So,", "Great try!"\./.test(r3.sys), '웜업: 지난 답장들의 실제 시작 말을 지시에 싣는다(최근 것부터)', r3.sys.slice(-260));
+  ok(/Your last replies started with "So,", "By the way,"\./.test(r3.sys), '웜업: 지난 답장들의 실제 시작 말을 지시에 싣는다(최근 것부터)', r3.sys.slice(-260));
   const zh = await post('/api/warmup/chat', { session_id: 'w-zh', student_input: '你好', difficulty: 2, lang: 'zh' });
   ok(zh.status === 200 && zh.sys.length > 0 && !zh.sys.includes('[연결 표현]') && !zh.sys.includes('LINKING WORDS'), '(짝) 중국어 웜업에는 싣지 않는다', zh.status);
 }
