@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what they can do. (e.g. so that we can see well)"
   },
   "img": {
+    "style": "anime",
     "cover": "At sunset by a wide jungle river, a ten-year-old girl with curly blond hair, a light green safari shirt, khaki shorts and brown boots, with a camera around her neck waves both arms from the riverbank under a tall tree with a red scarf tied to a high branch, while a friendly man with a black mustache, a wide straw hat and a blue shirt steers a small motorboat toward her and waves back.",
     "scenes": {
       "1": "In the jungle as the sun goes down, a ten-year-old girl with curly blond hair, a light green safari shirt, khaki shorts and brown boots, with a camera around her neck stands alone by the river with a worried face, looking around at tall dark trees and colorful birds, next to an empty riverbank where the boat used to be.",
       "2": "By the jungle river, a ten-year-old girl with curly blond hair, a light green safari shirt, khaki shorts and brown boots, with a camera around her neck stands on her tiptoes on a big flat rock and ties a red scarf to a high tree branch, with a calm and brave face."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

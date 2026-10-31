@@ -117,6 +117,11 @@
     if (im.getAttribute('src') !== src) im.setAttribute('src', src);
     im.alt = ko ? (who === 'teacher' ? '선생님 수업화면 사용법' : '학생 수업화면 사용법')
                 : (who === 'teacher' ? 'Teacher class screen guide' : 'Student class screen guide');
+    var steps = ov.querySelector('.vg-steps');
+    steps.hidden = who !== 'teacher';
+    steps.innerHTML = ko
+      ? '<h3>수업 전 5단계 확인</h3><ol><li>마이크 장치에서 사용할 헤드셋을 고르고 학생에게 소리가 들리는지 확인하세요.</li><li>잡음 제거는 팬·키보드 소리를 줄입니다. 사무실 모드는 가까운 목소리를 통과시킵니다. 옆자리 말소리를 완전히 없애지는 못하므로 헤드셋 마이크를 입 가까이 두세요.</li><li>Krisp를 쓰려면 컴퓨터에서 먼저 실행한 뒤 마이크 목록에서 Krisp 가상 마이크를 선택하세요. 목록에 없다면 설치·실행 상태와 브라우저 마이크 권한을 확인하세요.</li><li>교재 라이브러리에서 책을 열고 ◀▶로 넘기세요. 다른 책을 열었으면 교재 도구 줄의 목록에서 이전 책으로 돌아갑니다. 필기는 이 탭을 유지하는 동안 파일별로 남습니다. 새로고침 전에 필요한 필기는 따로 보관하세요.</li><li>동영상과 가상배경을 함께 쓸 때 느리면 영상효과 품질을 자동 또는 하로 바꿔 비교하세요. 배경을 꺼도 느리면 영상 주소·발생 시각·사용 장치를 운영자에게 알려 주세요.</li></ol><a href="/teacher-training.html" target="_blank" rel="noopener">전체 강사 교육 매뉴얼 열기</a>'
+      : '<h3>Five checks before class</h3><ol><li>Select your headset in the microphone list and ask the student to confirm they can hear you.</li><li>Noise Removal reduces steady noise such as fans. Office Mode favors nearby speech; it cannot completely remove other teachers. Keep the headset microphone close to your mouth.</li><li>To use Krisp, run its desktop app first, then select the Krisp virtual microphone in the device list. If it is missing, check the app and browser microphone permission.</li><li>Open a book from the library and use ◀▶ to turn pages. After opening another book, use the book list in the textbook toolbar to return. Notes remain per file while this tab stays open. Save any notes you need before refreshing.</li><li>If video slows down with a virtual background, compare Auto or Low effects quality. If it still lags with the background off, report the video URL, time and device to support.</li></ol><a href="/teacher-training.html" target="_blank" rel="noopener">Open the full teacher training manual</a>';
     ov.querySelector('.vg-title').textContent = ko
       ? (who === 'teacher' ? '선생님 수업화면 사용법' : '학생 수업화면 사용법')
       : (who === 'teacher' ? 'Teacher class screen — how to use' : 'Student class screen — how to use');
@@ -162,7 +167,7 @@
           '<div class="vg-grp"><button type="button" class="vg-tab" data-lang="en">EN</button>' +
           '<button type="button" class="vg-tab" data-lang="ko">한국어</button></div>' +
           '<button type="button" class="vg-x">✕</button></div>' +
-        '<div class="vg-body"><img class="vg-img" alt="" width="2000" height="1006" decoding="async"></div>' +
+        '<div class="vg-body"><img class="vg-img" alt="" width="2000" height="1006" decoding="async"><div class="vg-steps" style="padding:16px 24px;background:#fff;color:#101828;font-size:14px;line-height:1.8"></div></div>' +
         '<div class="vg-foot"><label class="vg-off"><input type="checkbox" class="vg-offchk"><span class="vg-offtxt"></span></label>' +
         '<span class="vg-hint"></span><button type="button" class="vg-ok"></button></div>' +
       '</div>';

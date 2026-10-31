@@ -34,6 +34,27 @@
     var DUCK = opt.duck != null ? opt.duck : 0.35;            // 대사 동안 합성 음악 크기
     var now = kit.now || function () { return Date.now(); };
     var cur = null;
+    var rate = 1;
+
+    function setRate(value) {
+      value = Number(value);
+      if ([0.5, 0.75, 1, 1.25, 1.5, 2].indexOf(value) < 0) return;
+      var old = rate;
+      rate = value;
+      if (cur) {
+        cur.timers.forEach(function (t) {
+          if (t.id) { clearTimeout(t.id); t.id = null; t.left = Math.max(0, t.left - (now() - t.at)); }
+          t.left = t.left * old / rate;
+          if (!cur.paused) arm(cur, t);
+        });
+        cur.media.forEach(function (el) { try { el.playbackRate = rate; el.preservesPitch = true; } catch (e) {} });
+      }
+      return rate;
+    }
+    function seek(seconds) {
+      if (!cur || cur.aborted || !cur.seek || !isFinite(Number(seconds))) return false;
+      return cur.seek(Number(seconds));
+    }
 
     function snd() { try { return kit.sound ? kit.sound() : null; } catch (e) { return null; } }
     function duck(v) { var s = snd(); if (s) s.duck(v); }
@@ -48,7 +69,7 @@
     /* ── 멈출 수 있는 타이머·기다림 ───────────────────────────────────── */
     function arm(run, t) { t.at = now(); t.id = setTimeout(function () { t.id = null; drop(run.timers, t); t.fn(); }, t.left); }
     function ptimer(run, ms, fn) {
-      var t = { left: Math.max(0, ms), fn: fn, id: null, at: 0 };
+      var t = { left: Math.max(0, ms) / rate, fn: fn, id: null, at: 0 };
       run.timers.push(t);
       if (!run.paused) arm(run, t);
       return t;
@@ -88,6 +109,7 @@
       run.gates.splice(0).forEach(function (g) { try { g(); } catch (e) {} });
     }
     function playEl(run, el) {
+      try { el.playbackRate = rate; el.preservesPitch = true; } catch (e) {}
       if (run.media.indexOf(el) < 0) run.media.push(el);
       if (run.paused) return;
       try { var p = el.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {}
@@ -115,7 +137,7 @@
         var t = ptimer(run, maxMs, fin);
         run.synthOn = true;
         try {
-          var u = new U(text); u.lang = 'en-US'; u.rate = 0.95;
+          var u = new U(text); u.lang = 'en-US'; u.rate = 0.95 * rate;
           u.onend = function () { fin(); }; u.onerror = function () { fin(); };
           synth.speak(u);
         } catch (e) { fin(); }
@@ -123,10 +145,10 @@
       });
     }
     function speakerFor(ep, line) { return C.ttsSpeakerFor(ep, line.speaker); }
-    function speak(run, ep, line) {
+    function speak(run, ep, line, stale) {
       return guard(run, kit.tts(line.en, speakerFor(ep, line))).then(function (url) {
         return gate(run).then(function () {
-          if (cut(run)) return;
+          if (cut(run) || (stale && stale())) return;
           return url ? playClip(run, url, maxMsFor(line)) : speakDevice(run, line.en, maxMsFor(line));
         });
       });
@@ -143,25 +165,41 @@
       var v = kit.video();
       if (v) playEl(run, v);                    // 영상은 배경으로 돈다(소리는 정본 videoAudio 대로 — kit.prepVideo)
       fire(sc, 'start');
-      var i = 0;
+      var i = 0, revision = 0;
+      function publishLine(k) {
+        if (kit.onProgress) kit.onProgress({ current: k, duration: Math.max(0, sc.lines.length - 1),
+          seekable: sc.lines.length > 1, unit: 'line', count: sc.lines.length, rate: rate });
+      }
+      run.seek = function (position) {
+        i = Math.max(0, Math.min(sc.lines.length - 1, Math.floor(position)));
+        revision++;
+        run.media.slice().forEach(function (el) { if (el !== v) { try { el.pause(); } catch (e) {} } });
+        if (run.synthOn && kit.synth) { try { kit.synth.cancel(); } catch (e) {} }
+        wake(run);
+        publishLine(i);
+        return true;
+      };
+      publishLine(0);
       function next() {
         if (cut(run) || i >= sc.lines.length) return Promise.resolve();
-        var k = i++, line = sc.lines[k];
+        var k = i++, line = sc.lines[k], rev = revision;
         return gate(run).then(function () {
-          if (cut(run)) return;
+          if (cut(run) || rev !== revision) return;
+          publishLine(k);
           if (k === sc.lines.length - 1) prefetch(nextItem);   // 마지막 대사에서 다음 장면 목소리를 미리 받아 둔다
           fire(sc, 'line', k, 'before');
           kit.showLine(ep, line);
           duck(DUCK);
-          return speak(run, ep, line).then(function () {
+          return speak(run, ep, line, function () { return rev !== revision; }).then(function () {
             duck(1);
-            if (cut(run)) return;
+            if (cut(run) || rev !== revision) return;
             fire(sc, 'line', k, 'after');
             return sleep(run, GAP_MS);
           });
         }).then(next);
       }
       return next().then(function () {
+        run.seek = null;
         if (v) stopEl(run, v);
         if (cut(run)) return false;
         kit.clearLine();
@@ -198,14 +236,50 @@
         var limit = sc.durationSec || 0;
         var completed = false;
         return wait(run, function (fin) {
-          try { if (v) v.currentTime = 0; } catch (e) {}
-          tracks.forEach(function (t) { try { t.el.currentTime = 0; } catch (e) {} });
+          // Keep the original timeline for voices, captions and cues when skipping an embedded title.
+          var start = sc.playbackStartSec || 0;
+          try { if (v) v.currentTime = start; } catch (e) {}
+          tracks.forEach(function (t) { try { t.el.currentTime = start; } catch (e) {} });
           if (v && videoOk) playEl(run, v);
           tracks.forEach(function (t) { playEl(run, t.el); });
           var shown = -2, last = -1, lastAt = now();
           /* 목소리가 영상을 따라가게 — 영상이 받는 중(버퍼링)이면 같이 서고, 다시 움직이면 같은 시각에서 같이 출발(정본 core) */
-          var follow = C.clockFollower({ now: now }), els = tracks.map(function (tr) { return tr.el; });
+          var follow = C.clockFollower({ now: now, lines: sc.lines }), els = tracks.map(function (tr) { return tr.el; });
+          function endTime() {
+            var duration = clock && clock.duration;
+            return limit && isFinite(duration) && duration > 0 ? Math.min(limit, duration) : limit || (isFinite(duration) ? duration : 0);
+          }
+          function publish() {
+            if (kit.onProgress) kit.onProgress({ current: Math.max(0, ((clock && clock.currentTime) || start) - start),
+              duration: Math.max(0, endTime() - start), seekable: endTime() > start, rate: rate });
+          }
+          run.seek = function (seconds) {
+            var end = endTime();
+            if (!(end > start)) return false;
+            var target = Math.max(start, Math.min(end - 0.06, start + seconds));
+            try { if (clock) clock.currentTime = target; } catch (e) { return false; }
+            if (v && v !== clock) { try { v.currentTime = target; } catch (e) {} }
+            tracks.forEach(function (tr) { try { tr.el.currentTime = target; } catch (e) {} });
+            // Discard the follower's pre-seek stall state, including while paused.
+            follow = C.clockFollower({ now: now, lines: sc.lines });
+            cues.forEach(function (x, k) { fired[k] = x.at <= target; });
+            last = target; lastAt = now();
+            shown = C.lineIndexAt(sc.lines, target);
+            if (shown < 0) { kit.clearLine(); duck(1); }
+            else { kit.showLine(ep, sc.lines[shown]); duck(DUCK); }
+            if (!run.paused) {
+              if (v && videoOk) playEl(run, v);
+              tracks.forEach(function (tr) { playEl(run, tr.el); });
+            } else {
+              run.held = tracks.map(function (tr) { return tr.el; });
+              if (v && videoOk && run.held.indexOf(v) < 0) run.held.push(v);
+            }
+            publish();
+            return true;
+          };
+          publish();
           var timer = setInterval(function () {
+            publish();
             if (run.paused) { lastAt = now(); return; }
             var t = (clock && clock.currentTime) || 0;
             follow.step(t, els, clock);
@@ -221,6 +295,7 @@
             if ((clock && clock.ended) || (end && t >= end - 0.05)) { completed = true; fin(); }
           }, TICK_MS);
           return function () {
+            run.seek = null;
             clearInterval(timer);
             if (v) stopEl(run, v);
             dropTracks();
@@ -236,14 +311,18 @@
     /* ── 한 항목(= 에피소드 하나): 제목 카드 → 장면 ─────────────────────── */
     function playItem(run, items, idx) {
       var item = items[idx], ep = item.ep, sc = ep.scenes[item.scIdx], v = kit.video();
+      run.seek = null;
+      if (kit.onProgress) kit.onProgress({ current: 0, duration: 0, seekable: false, rate: rate });
       prefetch(item);
       if (v && kit.prepVideo) kit.prepVideo(v, sc);
       var s = snd();
       if (s) s.enterScene(ep.palette, sc.mood, !!sc.bgm);
-      kit.card(item);
+      var showTitle = !run.titleShown;
+      run.titleShown = true;
+      kit.card(showTitle ? item : null);
       sfx(item.first ? 'chime' : 'whoosh', 0.8);
       var vReady = v && kit.waitVideo ? guard(run, kit.waitVideo(v, VIDEO_MS)) : Promise.resolve(false);
-      return Promise.all([vReady, sleep(run, CARD_MS)]).then(function (r) {
+      return Promise.all([vReady, sleep(run, showTitle ? CARD_MS : 0)]).then(function (r) {
         kit.card(null);
         if (cut(run)) return false;
         var videoOk = !!r[0];
@@ -341,11 +420,12 @@
 
     function state() {
       var run = cur;
-      return run ? { running: true, paused: run.paused, idx: run.idx, total: run.total } : { running: false, paused: false, idx: -1, total: 0 };
+      return run ? { running: true, paused: run.paused, idx: run.idx, total: run.total, rate: rate } : { running: false, paused: false, idx: -1, total: 0, rate: rate };
     }
 
     return {
       start: start, stop: stop, pause: pause, resume: resume, togglePause: togglePause,
+      seek: seek, setRate: setRate,
       next: function () { jump('next'); }, prev: function () { jump('prev'); }, state: state,
     };
   }

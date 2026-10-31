@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)"
   },
   "img": {
+    "style": "anime",
     "cover": "In a moonlit kitchen, Momo, a fluffy gray cat with white paws and big green eyes, wears a black mask over her eyes and leaps high over the kitchen table in one silent jump, while a small brown mouse with big round ears runs toward the door holding a yellow piece of cheese.",
     "scenes": {
       "1": "At the kitchen door at night, Momo, a fluffy gray cat with white paws and big green eyes, wearing a black mask over her eyes, lands softly in front of a small brown mouse with big round ears, who stops in surprise with a yellow piece of cheese in its arms.",
       "2": "By the kitchen door at night, Momo, a fluffy gray cat with white paws and big green eyes, wearing a black mask over her eyes, sits next to a small brown mouse with big round ears, and they nibble pieces of yellow cheese together from a small plate, both looking happy."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

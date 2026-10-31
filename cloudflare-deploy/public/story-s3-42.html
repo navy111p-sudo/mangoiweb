@@ -106,6 +106,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
   <header>
     <h1>The Magic School 4: The Last Train</h1>
     <div class="meta">
+      <span class="art-style" data-style="anime" data-ko="🌸 일본 애니메이션" data-en="🌸 Anime">🌸 일본 애니메이션</span>
       <span>Step 3 · No. 42</span>
       <span data-ko="약 174단어" data-en="about 174 words">약 174단어</span>
       <span data-ko="15~20분" data-en="15–20 min">15~20분</span>
@@ -115,7 +116,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
 
   <div class="stampboard" id="stampBoard" aria-live="polite"></div>
 
-  <figure class="pic cover"><img src="img/story/s3-42-cover.webp" alt="A faceless conductor steps down from a green steam train with black windows on a foggy platform at midnight." width="1024" height="688"></figure>
+  <figure class="pic cover"><img src="img/story/s3-42-cover.webp?v=2" alt="A faceless conductor steps down from a green steam train with black windows on a foggy platform at midnight." width="1024" height="688"></figure>
 
   <section class="page story" id="story">
     <h2><span data-ko="① 읽고 듣기" data-en="① Read &amp; listen">① 읽고 듣기</span> <small id="ttsNote"></small></h2>
@@ -205,7 +206,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
   </section>
 
   <p class="note rev" data-ko="이 이야기는 망고아이 «영어 독서» 3단계 쉬운 지식 글 글입니다. 영어 독서 목록의 같은 글과 본문이 같고, 여기서는 그림책처럼 6가지 활동(읽고 듣기·핵심 문장·요점정리·낱말 게임·근거 찾기·바꿔 쓰기)으로 공부합니다." data-en="This story is from Mangoi English Reading, Step 3 Easy non-fiction. The text is the same as in the reading list; here you study it with 6 storybook activities.">이 이야기는 망고아이 «영어 독서» 3단계 쉬운 지식 글 글입니다. 영어 독서 목록의 같은 글과 본문이 같고, 여기서는 그림책처럼 6가지 활동(읽고 듣기·핵심 문장·요점정리·낱말 게임·근거 찾기·바꿔 쓰기)으로 공부합니다.</p>
-  <p class="note" data-ko="사진은 이 글을 위해 Higgsfield AI 로 새로 만든 실사 이미지입니다(실제 촬영 사진이 아닙니다)." data-en="The photo-style images were newly made for this text with Higgsfield AI (they are not real photographs).">사진은 이 글을 위해 Higgsfield AI 로 새로 만든 실사 이미지입니다(실제 촬영 사진이 아닙니다).</p>
+  <p class="note" data-ko="삽화는 이 이야기를 위해 Higgsfield AI 로 새로 그린 일본 애니메이션 화풍입니다." data-en="The illustrations were newly made for this story with Higgsfield AI in the Anime style.">삽화는 이 이야기를 위해 Higgsfield AI 로 새로 그린 일본 애니메이션 화풍입니다.</p>
 </div>
 
 <style>
@@ -236,6 +237,7 @@ select.wrong{background:var(--nobg);border-color:var(--no);color:var(--no)}
 .wfix-why{margin:0;padding-left:18px;font-family:var(--ko);font-size:14px;display:grid;gap:3px}
 .wfix-note{font-family:var(--ko);font-size:13px;color:var(--soft)}
 </style>
+<script src="/js/story-audio.js?v=1"></script>
 <script src="/js/story-kit.js?v=2"></script>
 <script defer src="/js/story-dict.js?v=1"></script>
 <script>
@@ -395,29 +397,14 @@ var StoryCore = (function(){
     applyLang();
   });
 
-  // ---- speech ----
-  var synth = window.speechSynthesis || null, voice = null, curUtter = null;
-  function pickVoice(){
-    if (!synth) return;
-    var v = synth.getVoices().filter(function(x){ return /^en(-|_)/i.test(x.lang); });
-    voice = v.find(function(x){ return /en-US/i.test(x.lang); }) || v[0] || null;
-  }
-  if (synth){ pickVoice(); synth.onvoiceschanged = pickVoice; }
-  else document.getElementById('ttsNote').textContent = '(이 브라우저는 소리 읽기를 지원하지 않아요)';
+  // ---- speech: server MP3 works without installed English voices ----
   function say(text, onend){
-    if (!synth) { if (onend) onend(); return; }
-    try {
-      var u = new SpeechSynthesisUtterance(text.replace(/[“”"]/g,''));
-      u.lang = 'en-US'; u.rate = (window.__ttsRate || 0.88); if (voice) u.voice = voice;
-      u.onend = function(){ if (onend) onend(); };
-      curUtter = u;   // 참조를 붙잡아 둬야 onend 가 옵니다(크롬은 참조 없는 소리 객체를 치움) — «끝까지 들었나» 가 onend 에 달림
-      synth.speak(u);
-    } catch(e){ if (onend) onend(); }
+    window.StoryAudio.speak(text, window.__ttsRate || 0.88, onend);
   }
-  function stop(){ playing = false; sumSeq = (sumSeq || 0) + 1; if (RT) RT.cancel(); try { if (synth) synth.cancel(); } catch(e){} try { spans.forEach(function(s){ s.classList.remove('reading'); }); } catch(e){} }   // 표시·번호를 먼저 내리고 멈춤 — 멈출 때 onend 가 곧바로 와도 다음 문장으로 안 넘어가고, 멈춘 문장은 «끝까지 들음» 으로 안 셈
+  function stop(){ playing = false; sumSeq = (sumSeq || 0) + 1; if (RT) RT.cancel(); window.StoryAudio.stop(); try { spans.forEach(function(s){ s.classList.remove('reading'); }); } catch(e){} }
 
   // ---- story ----
-  var SCENES = {"1":["img/story/s3-42-s1.webp","Four students hold hands and join their lights to break chains of fog around a silver boy."],"3":["img/story/s3-42-s3.webp","A kind old conductor checks two tickets as the headmistress and a silver boy board the train."]};
+  var SCENES = {"1":["img/story/s3-42-s1.webp?v=2","Four students hold hands and join their lights to break chains of fog around a silver boy."],"3":["img/story/s3-42-s3.webp?v=2","A kind old conductor checks two tickets as the headmistress and a silver boy board the train."]};
   var box = document.getElementById('text'), spans = [], picking = false, playing = false;
   STORY.forEach(function(par, pi){
     if (SCENES[pi]) { var f = document.createElement('figure'); f.className = 'scene'; f.innerHTML = '<img loading="lazy" width="1024" height="688" alt="' + SCENES[pi][1] + '" src="' + SCENES[pi][0] + '">'; box.appendChild(f); }
@@ -868,7 +855,7 @@ var StoryCore = (function(){
   var beatAcc = 0;  // 멜로디 진행(박 단위)
   function schedule(){
     if (!ctx) return;
-    var talk = false; try { talk = !!(window.speechSynthesis && speechSynthesis.speaking); } catch(e){}
+    var talk = false; try { talk = window.StoryAudio.isSpeaking(); } catch(e){}
     master.gain.setTargetAtTime(on ? (talk ? DUCK : VOL) : 0, ctx.currentTime, 0.25);
     while (nextT < ctx.currentTime + 0.4) {
       // 반주: 한 박마다

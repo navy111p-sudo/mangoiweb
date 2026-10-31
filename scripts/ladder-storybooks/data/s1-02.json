@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "crayon",
     "cover": "Lily, a girl with short black hair and a yellow sweater, and her older brother Sam, a boy with brown hair and a green shirt, sit inside a tent made of blankets over two chairs, reading a book with a flashlight, rain on the window behind them.",
     "scenes": {
       "1": "In the living room, Sam, a boy with brown hair and a green shirt, holds up a big blanket with a happy face, and Lily, a girl with short black hair and a yellow sweater, stands next to two chairs and watches.",
       "2": "Lily, a girl with short black hair and a yellow sweater, and Sam, a boy with brown hair and a green shirt, sit in the blanket tent eating cookies and laughing, a flashlight lying on a pillow."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

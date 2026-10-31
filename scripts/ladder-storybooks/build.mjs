@@ -9,6 +9,8 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadLadder, validate, DATA_DIR } from './validate.mjs';
+import { STYLES } from './styles.mjs';
+import { buildGallery } from './gallery.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
@@ -116,10 +118,11 @@ function between(src, start, endMarker, to, what) {
 
 export function buildPage(tpl, p, d, no) {
   const st = STAGE[p.stage];
+  const art = STYLES[d.img.style];
   const S = p.sentences.map((x) => x.en);
   const info = p.genre === 'info';
   const title = p.title.en;
-  let h = tpl;
+  let h = tpl.replace(/\r\n/g, '\n');
   const nWords = S.join(' ').replace(/[^A-Za-z' ]/g, ' ').split(/\s+/).filter(Boolean).length;
   const what = info ? ['글', 'text'] : ['이야기', 'story'];
 
@@ -138,7 +141,8 @@ export function buildPage(tpl, p, d, no) {
   h = once(h, '<span data-ko="캐피 심화1 수준" data-en="Level: CAPPY Advanced 1">캐피 심화1 수준</span>',
     `<span data-ko="${st.grade[0]} · ${st.cefr}" data-en="${st.grade[1]} · ${st.cefr}">${st.grade[0]} · ${st.cefr}</span>`, 'level');
   h = once(h, '<figure class="pic cover"><img src="img/story/birthday-cake-cover.webp" alt="Mia and Ben give Grandma Rose a pancake tower while Biscuit the dog wags his tail" width="1024" height="688"></figure>',
-    `<figure class="pic cover"><img src="img/story/${p.id}-cover.webp" alt="${esc(d.alt.cover)}" width="1024" height="688"></figure>`, 'cover');
+    `<figure class="pic cover"><img src="img/story/${p.id}-cover.webp${d.img.ver?.cover ? '?v=' + d.img.ver.cover : ''}" alt="${esc(d.alt.cover)}" width="1024" height="688"></figure>`, 'cover');
+  h = once(h, '    <div class="meta">', `    <div class="meta">\n      <span class="art-style" data-style="${esc(d.img.style)}" data-ko="${esc(art.emoji + ' ' + art.ko)}" data-en="${esc(art.emoji + ' ' + art.en)}">${esc(art.emoji + ' ' + art.ko)}</span>`, 'art style badge');
 
   const rP = d.roleNames.P, rS = d.roleNames.S;
   const keyKo = `이 ${what[0]}에서 가장 중요한 문장 2개를 위 본문에서 눌러 고르세요. 하나는 «${rP.ko}», 하나는 «${rS.ko}» 입니다.`;
@@ -180,8 +184,8 @@ export function buildPage(tpl, p, d, no) {
   const noteKo = `이 ${what[0]}는 망고아이 «영어 독서» ${st.ko} 글입니다. 영어 독서 목록의 같은 글과 본문이 같고, 여기서는 그림책처럼 6가지 활동(읽고 듣기·핵심 문장·요점정리·낱말 게임·근거 찾기·바꿔 쓰기)으로 공부합니다.`;
   const noteEn = `This ${what[1]} is from Mangoi English Reading, ${st.en}. The text is the same as in the reading list; here you study it with 6 storybook activities.`;
   h = between(h, '  <p class="note rev" data-ko="원장님 의견 반영', '다음 편 투표는 보너스입니다.</p>', `  <p class="note rev" data-ko="${esc(noteKo)}" data-en="${esc(noteEn)}">${esc(noteKo)}</p>`, 'note rev');
-  const picKo = st.photo ? '사진은 이 글을 위해 Higgsfield AI 로 새로 만든 실사 이미지입니다(실제 촬영 사진이 아닙니다).' : '삽화는 이 이야기를 위해 Higgsfield AI 로 새로 그렸습니다.';
-  const picEn = st.photo ? 'The photo-style images were newly made for this text with Higgsfield AI (they are not real photographs).' : 'The illustrations were newly made for this story with Higgsfield AI.';
+  const picKo = art.photo ? '사진은 이 글을 위해 Higgsfield AI 로 새로 만든 실사 이미지입니다(실제 촬영 사진이 아닙니다).' : `삽화는 이 이야기를 위해 Higgsfield AI 로 새로 그린 ${art.ko} 화풍입니다.`;
+  const picEn = art.photo ? 'The photo-style images were newly made for this text with Higgsfield AI (they are not real photographs).' : `The illustrations were newly made for this story with Higgsfield AI in the ${art.en} style.`;
   h = between(h, '  <p class="note" data-ko="이 이야기는 망고아이가 새로 쓴 오리지널입니다.', 'with Higgsfield AI.">이 이야기는 망고아이가 새로 쓴 오리지널입니다. 다른 교재·동화책의 문장, 캐릭터, 그림은 쓰지 않았습니다. 삽화는 Higgsfield AI 로 이 이야기를 위해 새로 그렸습니다.</p>',
     `  <p class="note" data-ko="${esc(picKo)}" data-en="${esc(picEn)}">${esc(picKo)}</p>`, 'note pic');
 
@@ -245,4 +249,9 @@ if (process.argv[1] && process.argv[1].endsWith('build.mjs')) {
   }
   console.log(`만든 페이지 ${n}개` + (bad ? ` · 데이터 오류 ${bad}개` : ''));
   if (bad) process.exit(1);
+  const books = Object.fromEntries(files.map((id) => [id, JSON.parse(readFileSync(join(DATA_DIR, id + '.json'), 'utf8')).img.style]));
+  const styles = Object.fromEntries(Object.entries(STYLES).map(([key, value]) => [key, {ko: value.ko, en: value.en, emoji: value.emoji}]));
+  writeFileSync(join(PUB, 'js', 'reading-ladder-art.js'), '/* Generated from the picture-book style canon. */\nwindow.READING_LADDER_ART=' + J({books, styles}) + ';\n');
+  const galleryData = Object.fromEntries(files.map(id => [id, JSON.parse(readFileSync(join(DATA_DIR, id + '.json'), 'utf8'))]));
+  writeFileSync(join(PUB, 'story-cover-gallery.html'), buildGallery(L.passages, galleryData));
 }

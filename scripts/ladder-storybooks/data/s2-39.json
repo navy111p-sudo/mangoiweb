@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «If», write who + what. After «we can», write a verb. (e.g. If we work hard, we can win the game)"
   },
   "img": {
+    "style": "crayon",
     "cover": "On a sunny beach in Busan, a girl with long black hair in two low pigtails and a yellow star hairpin in a sky-blue summer dress lifts a green bottle with a rolled-up paper inside out of the foamy waves, while far across the shining blue sea, a boy with short wavy brown hair in an orange T-shirt waves from a tiny island with palm trees.",
     "scenes": {
       "1": "In a small bedroom at night, a girl with long black hair in two low pigtails and a yellow star hairpin in a sky-blue summer dress sits at her desk with her chin in her hands and stares at a quiet computer, with a green bottle and a rolled-up paper next to the keyboard and the moon outside the window.",
       "3": "In a bright bedroom, a girl with long black hair in two low pigtails and a yellow star hairpin in a sky-blue summer dress laughs at her computer, where a boy with short wavy brown hair in an orange T-shirt waves on the screen and holds up a photo of two sea turtles on a sandy beach."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

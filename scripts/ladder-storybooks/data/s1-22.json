@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "cg3d",
     "cover": "Under a pink sky with two shining suns, a boy with short black hair in an orange space suit with a clear round helmet and a friendly purple alien with long floppy ears and a round smiley face ride on the back of a giant flying blue fish with big wavy fins, soaring over rolling pink hills toward a small silver spaceship.",
     "scenes": {
       "1": "On a rocky pink planet under a pink sky with two suns, a boy with short black hair in an orange space suit with a clear round helmet stands alone and nods, while a friendly purple alien with long floppy ears and a round smiley face leans down kindly toward him with a curious face.",
       "2": "Under a pink sky with two suns, a boy with short black hair in an orange space suit with a clear round helmet and a friendly purple alien with long floppy ears and a round smiley face land on a giant flying blue fish with big wavy fins next to a small silver spaceship, and Kai hugs the alien with a big smile."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

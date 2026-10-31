@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what they can do to make the purpose clear. (e.g. so that older people can travel safely)"
   },
   "img": {
+    "style": "cg3d",
     "cover": "A white self-driving car with a spinning sensor dome on its roof and small cameras on its sides driving along a city street at dusk, the driver's seat empty and a passenger relaxing in the back seat",
     "scenes": {
       "1": "Close-up of the roof of a self-driving car crowded with a round spinning laser sensor and several small black camera lenses, parked on a sunny street",
       "2": "A self-driving test car stopped on a snowy road where orange traffic cones and a worker in a bright safety vest block one lane, fresh snow covering the painted road lines"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

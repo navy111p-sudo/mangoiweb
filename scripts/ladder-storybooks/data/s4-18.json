@@ -292,10 +292,16 @@
     "moreEn": "One more step: after «because», write what you can newly learn or see. (e.g. because I can talk with people from other countries)"
   },
   "img": {
+    "style": "papercut",
     "cover": "A young girl standing in a sunlit school hallway, confidently pointing in one direction with her arm stretched out, while a surprised adult beside her looks where she points",
     "scenes": {
       "2": "A Korean high school student bowing politely to an older teacher in a school hallway, while two classmates nearby wave casually to each other",
       "3": "A teenage student at a desk video-chatting on a laptop with a smiling friend from another country, both waving at each other"
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
     }
   },
   "alt": {

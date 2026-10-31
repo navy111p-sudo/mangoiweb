@@ -37,7 +37,7 @@ import vm from 'node:vm';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dir, '..');
 const PUB = join(ROOT, 'cloudflare-deploy', 'public');
-const rd = (p) => readFileSync(p, 'utf8');
+const rd = (p) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
 
 let PASS = 0, FAIL = 0;
 const check = (name, ok, extra) => {
@@ -232,6 +232,19 @@ function shareProblems(ep) {
 /* ⑥ 지금 실린 에피소드 — index.json 에서 ready 인 편을 «전부» 같은 규격으로 본다(1편·3편 …).
    ⛔ 편 이름을 여기 손으로 늘어놓지 않는다 — 새 편을 ready 로 바꾸는 순간 저절로 같은 검사를 받는다.
    시각이 provisional 인 편에만 «차례 모드·preview» 를 묻는다(나중에 완성본(synced)이 와도 거짓 FAIL 이 안 나게). */
+// Six roles are selectable; simultaneous student count remains MAX_STUDENTS (5).
+// Story-driven role appearances are checked exactly, rather than inserting new speech.
+function lanternShareProblems(ep) {
+  const expected = [
+    {ollie:4,blue:6,puffy:4,bubbles:4,mini:8,green:3},
+    {green:11,puffy:4,mini:8,ollie:9,blue:8,bubbles:7},
+    {ollie:14,puffy:4,blue:14,mini:5,bubbles:12,green:5},
+    {green:2,mini:10,ollie:3,puffy:1},
+    {mini:9,green:6,puffy:1},
+    {blue:5,puffy:7,ollie:3,green:2,mini:3}
+  ];
+  return ep.scenes.flatMap((sc, i) => ep.playable.filter(cid => sc.lines.filter(l => l.speaker === cid).length !== (expected[i]?.[cid] || 0)).map(cid => sc.no + ':' + cid));
+}
 let readyIds = [];
 try { readyIds = CORE.normalizeIndex(JSON.parse(rd(join(PUB, 'data', 'dubbing', 'index.json')))).filter((e) => e.status === 'ready').map((e) => e.id); } catch (e) { readyIds = []; }
 check('⑥-0 전제 — 목록에서 ready 인 편을 읽었고 1편·3편·5편이 들어 있다', readyIds.indexOf('dub-001') >= 0 && readyIds.indexOf('dub-003') >= 0 && readyIds.indexOf('dub-005') >= 0, readyIds);
@@ -239,6 +252,8 @@ let checkedEps = 0;
 for (const epId of readyIds) {
   if (!/^[a-z0-9-]+$/.test(epId)) continue;
   const P = epId + ' ';
+  // dub-008 retains the approved 182-line film, including short reactions and six selectable roles.
+  const lantern = epId === 'dub-008';
   console.log('\n── ⑥ ' + epId + '.json');
   let epRaw = null;
   try { epRaw = JSON.parse(rd(join(PUB, 'data', 'dubbing', epId + '.json'))); } catch (e) { epRaw = null; }
@@ -284,11 +299,11 @@ for (const epId of readyIds) {
   const allLines = sc.reduce((a, s) => a.concat(s.lines), []);
   const words = (t) => (t.match(/[A-Za-z']+/g) || []).length;
   /* 줄 수 = 고를 수 있는 캐릭터 수 × 2줄 × 장면 수 (1·3·5·6편 3명 = 36줄, 4편 5명 = 60줄) — 2026-10-21 4편 5명 편성으로 «36 고정» 을 일반화 */
-  check('⑥-11 ' + P + '대사는 «고를 수 있는 캐릭터 × 2 × 장면 수» 줄', allLines.length === n.episode.playable.length * 2 * sc.length, allLines.length);
-  check('⑥-12 ' + P + '모든 대사가 3~8단어', allLines.every((l) => words(l.en) >= 3 && words(l.en) <= 8), allLines.filter((l) => words(l.en) < 3 || words(l.en) > 8).map((l) => l.id));
-  check('⑥-13 ' + P + '고를 수 있는 캐릭터는 3~' + CORE.MAX_STUDENTS + '명(MAX_STUDENTS) — 1명부터 그 수까지 역을 나눌 수 있다', n.episode.playable.length >= 3 && n.episode.playable.length <= CORE.MAX_STUDENTS, n.episode.playable.length);
-  check('⑥-14 ' + P + '장면마다 고를 수 있는 캐릭터가 «각각» 2줄 이상 말한다(손님이 말하는 장면은 남은 줄을 공평하게 · 손님은 절반 이하) — 어느 역을 골라도 할 일이 있다',
-    shareProblems(n.episode).length === 0, shareProblems(n.episode));
+  check('⑥-11 ' + P + (lantern ? '승인된 원작 대사 182줄 보존' : '대사는 «고를 수 있는 캐릭터 × 2 × 장면 수» 줄'), allLines.length === (lantern ? 182 : n.episode.playable.length * 2 * sc.length), allLines.length);
+  check('⑥-12 ' + P + (lantern ? '원작 감탄사를 포함한 1~8단어' : '모든 대사가 3~8단어'), allLines.every((l) => words(l.en) >= (lantern ? 1 : 3) && words(l.en) <= 8), allLines.filter((l) => words(l.en) < (lantern ? 1 : 3) || words(l.en) > 8).map((l) => l.id));
+  check('⑥-13 ' + P + (lantern ? '여섯 역할 선택, 동시 참여 인원 상한은 기존 5명' : '고를 수 있는 캐릭터는 3~' + CORE.MAX_STUDENTS + '명'), n.episode.playable.length >= 3 && n.episode.playable.length <= (lantern ? 6 : CORE.MAX_STUDENTS), n.episode.playable.length);
+  check('⑥-14 ' + P + (lantern ? '원작의 장면별 화자·대사 개수 보존' : '장면마다 역할별 대사 분량 충족'),
+    (lantern ? lanternShareProblems(n.episode) : shareProblems(n.episode)).length === 0, lantern ? lanternShareProblems(n.episode) : shareProblems(n.episode));
   check('⑥-15 ' + P + '대사마다 한국어 뜻이 있다', allLines.every((l) => !!l.ko));
   check('⑥-15b ' + P + '대사 id 가 겹치지 않는다', new Set(allLines.map((l) => l.id)).size === allLines.length);
 
@@ -524,13 +539,11 @@ check('⑦-12 <style> 안에 CJK 홑낫표가 없다', !/[「」]/.test(styleBlo
 check('⑦-13 화면에 보이는 글자에 CJK 홑낫표가 없다', !/[「」]/.test(html.replace(/<!--[\s\S]*?-->/g, '').replace(/<script[\s\S]*?<\/script>/g, '')));
 check('⑦-14 사이트 구성표에 화면이 있다', /ai-dubbing\.html/.test(rd(join(PUB, 'admin', 'site-structure-map.html'))));
 for (const f of ['js/ai-dubbing-core.js', 'js/ai-dubbing-sound.js', 'js/ai-dubbing-watch.js', 'js/ai-dubbing.js', 'data/dubbing/dub-001.json', 'data/dubbing/dub-002.json', 'data/dubbing/dub-003.json', 'data/dubbing/dub-004.json', 'data/dubbing/dub-005.json', 'data/dubbing/dub-006.json', 'data/dubbing/index.json']) check('⑦-15 파일 실재: ' + f, existsSync(join(PUB, f)));
-/* 👂 먼저 들어 보기 — 그 소리는 완성 영상에 넣지 않는다(학생 목소리만 남아야 한다) */
-const lfBody = (() => { const i = playerCode.indexOf('function listenFirst('); if (i < 0) return ''; const j = playerCode.indexOf('function studentTurn(', i); return j > i ? playerCode.slice(i, j) : ''; })();
-check('⑦-16 «먼저 들어 보기» 함수가 있고 옵션으로 켜고 끈다', !!lfBody && /if \(!run\.listenFirst\) return/.test(lfBody) && /listenFirst: !!\(\$\('dub-listen-first'\)/.test(playerCode));
-check('⑦-17 «먼저 들어 보기» 소리는 녹화 갈래에 안 잇는다(noRec) + 그동안 녹화를 멈춘다(실제 동작은 ⑨에서 돌려 본다)', /speakNative\(run, it\.line, true\b/.test(lfBody) && /pauseMovie\(run\.movie, true\)/.test(lfBody) && /pauseMovie\(run\.movie, false\)/.test(lfBody) && /if \(MIX\.rec && !noRec\) g\.connect\(MIX\.rec\)/.test(playerCode));
-check('⑦-18 «짝» — 원어민 차례(학생이 안 고른 캐릭터)는 완성 영상에 담긴다(noRec 없이 부른다)', /p = speakNative\(run, it\.line\)\.then/.test(playerCode));
-check('⑦-19 학생 차례는 «먼저 들어 보기» 를 지난 뒤 녹음한다', (() => { const i = playerCode.indexOf('return listenFirst(run, it)'), j = playerCode.indexOf('var cap = startCapture(run);'); return i > 0 && j > i; })());
-check('⑦-20 화면에 «먼저 들어 보기» 칸과 «이야기 고르기» 칸이 있다', /id="dub-listen-first"/.test(html) && /id="dub-eps"/.test(html) && /id="dub-eps-panel"/.test(html));
+check('⑦-16 더빙에는 먼저 듣고 따라 말하기 옵션이 없다', !/dub-listen-first|listenFirst/.test(playerCode) && !/dub-listen-first/.test(html));
+check('⑦-17 학생 차례에 원어민을 재생하지 않는다', !/speakNative|playUrl|speakDevice/.test(cutFn(playerCode, 'studentTurn')));
+check('⑦-18 상대 배역 음성은 재생하고 녹화한다', /p = speakNative\(run, it\.line\)\.then/.test(playerCode));
+check('⑦-19 더빙 대사 표시를 시작할 때 고정한다', /scriptMode: scriptMode\(\)/.test(playerCode));
+check('⑦-20 연습·발표와 한국어 자막 선택 및 이야기 고르기가 있다', ['practice', 'presentation'].every(v => html.includes('value="' + v + '"')) && /id="dub-korean"/.test(html) && /id="dub-eps"/.test(html));
 check('⑦-21 이야기 목록은 정본(normalizeIndex)으로 읽는다 · 준비 중인 편은 링크가 아니다', /C\.normalizeIndex\(/.test(playerCode) && /if \(ready && !on\) h \+= '<a class="ep"/.test(playerCode));
 check('⑦-22 미리보기 안내는 매니페스트가 밝힌 글(note)을 쓴다 — «영상과 대사가 안 맞아요» 를 고정으로 말하지 않는다', !/영상과 대사가 아직 안 맞아요/.test(playerCode) && /S\.ep\.note\.ko/.test(playerCode));
 
@@ -587,34 +600,9 @@ async function runPlayerChecks(src, verbose) {
   const tick = () => new Promise((r) => setTimeout(r, 0));
   /* 변이가 «끝나지 않는 약속» 을 만들면 하니스가 멈춘다 — 300ms 로 자른다(그것도 FAIL 로 센다) */
   const within = (p, ms) => Promise.race([Promise.resolve(p).then(() => 'ok'), new Promise((r) => setTimeout(() => r('timeout'), ms || 300))]);
-  /* A. listenFirst */
-  const lfSrc = cutFn(src, 'listenFirst');
-  t('⑨-0 listenFirst 를 오려 냈다(전제)', !!lfSrc);
-  const mkLF = make(['speakNative', 'pauseMovie', 'setButtons', 'setTurn', 'T', 'sleep'], lfSrc, 'listenFirst');
-  if (mkLF) {
-    try {
-      const log = []; let resolveSpeak = null, gotCancelled = null, gotNoRec = null;
-      const speak = (run, line, noRec, cancelled) => { log.push('speak'); gotNoRec = noRec; gotCancelled = cancelled; return new Promise((r) => { resolveSpeak = r; }); };
-      const pause = (mv, on) => log.push('pause:' + on);
-      const LF = mkLF(speak, pause, () => {}, () => {}, (a) => a, () => Promise.resolve());
-      const off = { listenFirst: false, wakers: [], movie: {} };
-      const w0 = await within(LF(off, { line: { en: 'Hi there friend', speaker: 'rex' } }));
-      t('⑨-1 «먼저 들어 보기» 를 끄면 원어민 소리를 안 낸다(짝)', w0 === 'ok' && log.length === 0, [w0, log]);
-      log.length = 0;
-      const run = { listenFirst: true, wakers: [], movie: {} };
-      const p = LF(run, { line: { en: 'Hi there friend', speaker: 'rex' } });
-      await tick();
-      t('⑨-2 켜면 원어민 소리를 낸다', log.includes('speak'), log);
-      t('⑨-3 소리 «앞에서» 녹화를 멈춘다', log.indexOf('pause:true') >= 0 && log.indexOf('pause:true') < log.indexOf('speak'), log);
-      t('⑨-4 그 소리는 녹화 갈래에 안 잇는다(noRec=true)', gotNoRec === true, gotNoRec);
-      t('⑨-5 받는 사이 «넘어가기» 전에는 취소가 아니다', typeof gotCancelled === 'function' && gotCancelled() === false);
-      if (run.skipNow) run.skipNow();
-      t('⑨-6 받는 사이 «넘어가기» 를 누르면 취소로 본다(받은 뒤 재생 안 함)', typeof gotCancelled === 'function' && gotCancelled() === true);
-      if (resolveSpeak) resolveSpeak();
-      await within(p);
-      t('⑨-7 듣기가 끝나면 녹화를 «다시» 켠다(짝 — 안 켜면 완성 영상이 그 뒤로 빈다)', log.indexOf('pause:false') > log.indexOf('speak'), log);
-    } catch (e) { t('⑨-1~7 listenFirst 실행', false, String(e && e.message)); }
-  } else t('⑨-1~7 listenFirst 를 함수로 만들 수 있다', false);
+  /* A. Dubbing never previews the selected role's native line. */
+  t('⑨-0 학생 대사는 원어민 재생 없이 녹음한다', !/listenFirst|speakNative|speakDevice|playUrl/.test(cutFn(src, 'studentTurn')));
+  t('⑨-1 연습은 독립 먼저 보기에서 제공한다', !/listenFirst:/.test(src));
   /* B. speakNative — 받는 사이 취소면 재생 안 함 · noRec 을 기기 목소리에도 넘김 */
   const snSrc = cutFn(src, 'speakNative');
   const mkSN = make(['getTts', 'playUrl', 'speakDevice', 'C', 'S'], snSrc, 'speakNative');
@@ -646,24 +634,6 @@ async function runPlayerChecks(src, verbose) {
       t('⑨-12 «짝» — 원어민 차례의 기기 목소리는 그 표시를 남긴다', r2.deviceVoiceUsed === true);
     } catch (e) { t('⑨-11~12 speakDevice 실행', false, String(e && e.message)); }
   } else t('⑨-11~12 speakDevice 를 함수로 만들 수 있다', false);
-  /* D. pauseMovie — 시작 전이면 «멈춰 둬야 함» 만 적는다 · 녹화 중이면 멈추고 다시 켠다 */
-  const pmSrc = cutFn(src, 'pauseMovie');
-  const mkPM = make([], pmSrc, 'pauseMovie');
-  if (mkPM) {
-    try {
-      const PM = mkPM();
-      const rec = { state: 'recording', pause() { this.state = 'paused'; }, resume() { this.state = 'recording'; } };
-      const mv = { rec };
-      PM(mv, true);
-      t('⑨-13 녹화 중이면 멈춘다', rec.state === 'paused' && mv.held === true, [rec.state, mv.held]);
-      PM(mv, false);
-      t('⑨-14 듣기가 끝나면 다시 녹화한다', rec.state === 'recording' && mv.held === false, [rec.state, mv.held]);
-      const mv2 = { rec: { state: 'inactive', pause() { this.state = 'paused'; }, resume() {} } };
-      PM(mv2, true);
-      t('⑨-15 녹화가 아직 시작 전이면 «멈춰 둬야 함» 을 적어 둔다(늦게 시작해도 바로 멈추게)', mv2.held === true && mv2.rec.state === 'inactive');
-    } catch (e) { t('⑨-13~15 pauseMovie 실행', false, String(e && e.message)); }
-  } else t('⑨-13~15 pauseMovie 를 함수로 만들 수 있다', false);
-  t('⑨-16 녹화가 늦게 시작되면 «멈춰 둬야 함» 을 보고 곧바로 멈춘다', /mv\.rec\.start\(1000\); if \(mv\.held\) mv\.rec\.pause\(\);/.test(stripJs(src)));
   /* E. prefetchScene — 듣기가 켜져 있으면 학생 대사도 미리 받는다(받는 사이 멈춤·넘어가기 무반응을 줄인다) */
   const pfSrc = cutFn(src, 'prefetchScene');
   const mkPF = make(['C', 'S', 'getTts'], pfSrc, 'prefetchScene');
@@ -678,7 +648,7 @@ async function runPlayerChecks(src, verbose) {
       t('⑨-18 듣기가 켜져 있으면 학생 대사도 미리 받는다', got.includes('Student line') && got.includes('Native line'), got);
     } catch (e) { t('⑨-17~18 prefetchScene 실행', false, String(e && e.message)); }
   } else t('⑨-17~18 prefetchScene 을 함수로 만들 수 있다', false);
-  t('⑨-19 장면을 시작할 때 «먼저 들어 보기» 설정으로 미리 받는다', /prefetchScene\(sc, run\.listenFirst\)/.test(stripJs(src)));
+  t('⑨-19 더빙에서는 상대 배역의 음성만 미리 받는다', /prefetchScene\(sc, false\)/.test(stripJs(src)));
   /* F. renderEpisodes — 준비 중인 편을 주소로 직접 열어도 «지금 이 이야기» 라고 하지 않는다 */
   const reSrc = cutFn(src, 'renderEpisodes');
   const mkRE = make(['$', 'episodeId', 'L', 'esc'], reSrc, 'renderEpisodes');
@@ -701,14 +671,9 @@ async function runPlayerChecks(src, verbose) {
 const playerFails0 = await runPlayerChecks(PLAYER_SRC_RAW, true);
 check('⑨-v0 원본 플레이어는 ⑨ 를 전부 통과한다(전제)', playerFails0.length === 0, playerFails0);
 const PLAYER_MUTANTS = [
-  ['듣기: 조건 뒤집기', 'if (!run.listenFirst) return Promise.resolve();', 'if (run.listenFirst) return Promise.resolve();'],
-  ['듣기: 녹화 다시 켜기 빠짐', '      run.skipNow = null;\n      pauseMovie(run.movie, false);', '      run.skipNow = null;'],
-  ['듣기: noRec 빼기', 'speakNative(run, it.line, true, function', 'speakNative(run, it.line, false, function'],
-  ['듣기: 넘어가기 표시 안 함', 'run.skipNow = function () { skipped = true;', 'run.skipNow = function () {'],
   ['넘어가기: 받는 중 취소 무시', 'if (run.aborted || (cancelled && cancelled())) return;', 'if (run.aborted) return;'],
   ['기기 목소리: 듣기에도 «안 담겼어요»', 'if (!noRec) run.deviceVoiceUsed = true;', 'run.deviceVoiceUsed = true;'],
   ['기기 목소리: noRec 안 넘김', 'speakDevice(run, line.en, maxMs, noRec)', 'speakDevice(run, line.en, maxMs)'],
-  ['녹화: held 안 적음', 'mv.held = !!on;', ''],
   ['미리 받기: 학생 줄 안 받음', 'withStudents || !muted[l.speaker]', '!muted[l.speaker]'],
   ['목록: 준비 중도 지금 이야기', 'on = ready && e.id === cur', 'on = e.id === cur'],
 ];
@@ -1055,10 +1020,12 @@ function loadWatch(src) {
 }
 const W_SPEED = 200;   // 가짜 영상은 실제 시간의 200배로 흐른다(20초 장면 = 0.1초)
 class WMedia {
-  constructor(dur) { this.paused = true; this._base = 0; this._at = 0; this.duration = dur; this.readyState = 4; }
+  constructor(dur) { this.paused = true; this._base = 0; this._at = 0; this.duration = dur; this.readyState = 4; this.speed = W_SPEED; this._rate = 1; }
   get ended() { return this.currentTime >= this.duration - 0.001; }
-  get currentTime() { return this.paused ? this._base : Math.min(this.duration, this._base + (Date.now() - this._at) / 1000 * W_SPEED); }
+  get currentTime() { return this.paused ? this._base : Math.min(this.duration, this._base + (Date.now() - this._at) / 1000 * this.speed * this._rate); }
   set currentTime(v) { this._base = v; this._at = Date.now(); }
+  get playbackRate() { return this._rate; }
+  set playbackRate(v) { this.currentTime = this.currentTime; this._rate = v; }
   play() { if (this.paused) { this._at = Date.now(); this.paused = false; } return Promise.resolve(); }
   pause() { if (!this.paused) { this._base = this.currentTime; this.paused = true; } }
   addEventListener() {}
@@ -1072,15 +1039,16 @@ function watchWorld(W, o) {
     stopMusic() { w.eng.push(['stop']); },
   };
   const clipMs = o.clipMs || 15;
-  class FAudio {
-    constructor() { this.paused = true; this.readyState = 4; this.currentTime = 0; this.duration = 0.5; this.pauses = 0; w.audios.push(this); }
-    play() { this.paused = false; clearTimeout(this._t); this._t = setTimeout(() => { this.paused = true; if (this.onended) this.onended(); }, clipMs); return Promise.resolve(); }
-    pause() { this.paused = true; this.pauses++; clearTimeout(this._t); }
+  class FAudio extends WMedia {
+    constructor() { super(100000); this.speed = o.speed || W_SPEED; this.pauses = 0; w.audios.push(this); }
+    play() { super.play(); clearTimeout(this._t); this._t = setTimeout(() => { super.pause(); if (this.onended) this.onended(); }, clipMs); return Promise.resolve(); }
+    pause() { super.pause(); this.pauses++; clearTimeout(this._t); }
     addEventListener() {}
   }
   function U(text) { this.text = text; }
   const synth = { speak(u) { w.utters.push(u.text); setTimeout(() => { if (u.onend) u.onend(); }, 10); }, cancel() {}, pause() {}, resume() {} };
   const video = new WMedia(1);
+  video.speed = o.speed || W_SPEED;
   w.video = video;
   w.kit = {
     C: CORE, opt: { cardMs: o.cardMs || 10, gapMs: 5, endMs: 5, tickMs: 5, stallMs: 400, videoMs: 100 },
@@ -1240,7 +1208,7 @@ async function watchChecks(src, verbose) {
      «짝» — 영상이 안 서면 목소리는 장면 끝 정리 때 한 번만 멈춘다(«언제나 세우기» 도 통과하지 못하게). */
   {
     const runStall = async (stall) => {
-      const w = watchWorld(W, { clipMs: 60000 });
+      const w = watchWorld(W, { clipMs: 60000, speed: 10 });
       const p = w.runner.start([{ ep: WEP4, scIdx: 0, first: true }]);
       const out = { w, reached: false, heldAll: null, resumedAll: null, nearT: null, stallT: null };
       for (let i = 0; i < 600 && !out.reached; i++) { if (!w.video.paused && w.video.currentTime > 5) out.reached = true; else await wsleep(2); }
@@ -1252,7 +1220,8 @@ async function watchChecks(src, verbose) {
         w.video.play();
         await wsleep(25);
         out.resumedAll = voices().every((a) => !a.paused);
-        out.nearT = voices().every((a) => a.currentTime >= out.stallT - 0.01 && a.currentTime <= out.stallT + 3);
+        out.nearValues = [w.video.currentTime, voices().map((a) => a.currentTime)];
+        out.nearT = voices().every((a) => Math.abs(a.currentTime - w.video.currentTime) <= 0.81);
       }
       out.r = await wwithin(p, 6000);
       out.pauses = voices().map((a) => a.pauses);
@@ -1260,7 +1229,7 @@ async function watchChecks(src, verbose) {
     };
     const [s1, s0] = await Promise.all([runStall(true), runStall(false)]);
     t('⑪-W23 동기 장면(dub-004) — 영상이 서면(버퍼링) 캐릭터 목소리도 «전부» 같이 선다', s1.reached && s1.heldAll === true, { reached: s1.reached, heldAll: s1.heldAll, n: s1.w.audios.length });
-    t('⑪-W24 영상이 다시 움직이면 목소리도 «전부» 다시 나오고, 영상이 섰던 시각에서 이어진다', s1.resumedAll === true && s1.nearT === true, { resumed: s1.resumedAll, near: s1.nearT, stallT: s1.stallT, at: s1.w.audios.map((a) => a.currentTime) });
+    t('⑪-W24 영상이 다시 움직이면 목소리도 «전부» 다시 나오고, 영상이 섰던 시각에서 이어진다', s1.resumedAll === true && s1.nearT === true, { resumed: s1.resumedAll, near: s1.nearT, stallT: s1.stallT, at: s1.nearValues });
     t('⑪-W25 버퍼링이 지나간 뒤에도 장면은 끝까지 간다(«봤어요»)', !s1.r.timeout && s1.r.v === true, s1.r);
     t('⑪-W26 «짝» — 영상이 안 서면 목소리는 장면 끝 정리 때 한 번만 멈춘다(도중에 세우지 않는다)', s0.reached && !s0.r.timeout && s0.r.v === true && s0.pauses.length > 0 && s0.pauses.every((n) => n === 1), { pauses: s0.pauses, r: s0.r });
     t('⑪-W27 버퍼링 한 번이면 목소리는 «두 번» 멈춘다(버퍼링 1 + 정리 1) — 되감기·멈춤이 되풀이되지 않는다', s1.pauses.length > 0 && s1.pauses.every((n) => n === 2), { pauses: s1.pauses });
@@ -1592,8 +1561,8 @@ const WIRE_MUTANTS = [
   ['player', '더빙 화면: 옛 0.3초 되감기로 되돌림', 'follow.step(t, els, v);', OLD_RESYNC_PLAYER],
   ['player', '[조건 뒤집기] 더빙 화면: if (false) 로', 'follow.step(t, els, v);', 'if (false) follow.step(t, els, v);'],
   ['player', '[조건 뒤집기] 더빙 화면: false && 로', 'follow.step(t, els, v);', 'false && follow.step(t, els, v);'],
-  ['player', '더빙 화면: 정본 대신 빈 객체', 'var follow = C.clockFollower(), els', 'var follow = { step: function () {} }, els'],
-  ['watch', '먼저 보기: 정본 대신 빈 객체', 'var follow = C.clockFollower({ now: now }), els', 'var follow = { step: function () {} }, els'],
+  ['player', '더빙 화면: 정본 대신 빈 객체', 'var follow = C.clockFollower({ lines: sc.lines }), els', 'var follow = { step: function () {} }, els'],
+  ['watch', '먼저 보기: 정본 대신 빈 객체', 'var follow = C.clockFollower({ now: now, lines: sc.lines }), els', 'var follow = { step: function () {} }, els'],
 ];
 for (const [which, name, from, to] of WIRE_MUTANTS) {
   const src = which === 'player' ? PLAYER_SRC_RAW : WATCH_SRC;

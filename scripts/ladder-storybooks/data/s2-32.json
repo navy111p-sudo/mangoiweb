@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because they solved it together)"
   },
   "img": {
+    "style": "comic",
     "cover": "In a sunny old town square, a boy with curly brown hair in a yellow T-shirt and blue shorts points up and shouts at a big old clock with a round white face, two black hands, and dots instead of numbers on a tall stone tower, while a girl with two long red braids in a green striped dress holds an old green bottle and looks up in surprise, and pigeons fly away from the ringing bell.",
     "scenes": {
       "1": "On a sandy beach with gentle waves, a girl with two long red braids in a green striped dress and a boy with curly brown hair in a yellow T-shirt and blue shorts sit next to an old green bottle and a rolled-up yellow paper and scratch their heads, with thought bubbles above them showing a silly green monster and a boxy silver robot.",
       "3": "Inside a dusty clock tower full of big turning gears, a boy with curly brown hair in a yellow T-shirt and blue shorts and a girl with two long red braids in a green striped dress kneel and open a small wooden box that holds only a folded paper, and both of them are laughing."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

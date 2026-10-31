@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «so that», write who + what happens. (e.g. so that the birds are safe)"
   },
   "img": {
+    "style": "papercut",
     "cover": "On a sunny beach near some rocks, a girl with short black hair, a red cap and a blue T-shirt kneels beside a small sea turtle, with a tall man with glasses and a white shirt beside her and waves behind them.",
     "scenes": {
       "1": "On the sand, the tall man with glasses and a white shirt carefully holds a small sea turtle while the girl with short black hair, a red cap and a blue T-shirt cuts a plastic bag and a fishing net away from its legs with small scissors.",
       "2": "On the beach, the girl with short black hair, a red cap and a blue T-shirt and the tall man with glasses and a white shirt pick up plastic bottles, cups and bags and put them into large trash bags."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

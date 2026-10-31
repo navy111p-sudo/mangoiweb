@@ -291,10 +291,16 @@
     "moreEn": "One more step: start both blanks with an action word. (e.g. visit a planetarium, read a space book)"
   },
   "img": {
+    "style": "photo",
     "cover": "A black hole in space: a perfectly black circle surrounded by a bright, glowing ring of swirling orange and yellow hot gas, with stars scattered across the dark background",
     "scenes": {
       "1": "A giant glowing red star in space, far bigger than the Sun, surrounded by drifting clouds of gas against a field of distant stars",
       "2": "Several huge radio telescope dishes on a high, dry mountain plateau at night, all pointing at the same spot in a sky full of stars"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

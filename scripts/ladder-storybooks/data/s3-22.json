@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», use a fact from the text to make your reason clear. (e.g. because it is over 20,000 kilometers long)"
   },
   "img": {
+    "style": "vintage",
     "cover": "The Great Wall of China winding along steep green mountain ridges into the distance, with square stone watchtowers on the peaks under a clear blue sky",
     "scenes": {
       "1": "A stone watchtower on a misty mountain ridge with a tall column of gray smoke rising from a fire on its flat top",
       "2": "Earth seen from high in space, showing brown mountains and green valleys under thin white swirls of cloud"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "clay",
     "cover": "In a dark bedroom, a boy with short spiky red hair in green dinosaur pajamas lies on the floor and shines a flashlight under his bed, where a fluffy gray kitten with big yellow eyes and white paws blinks in the bright light with a long striped sock in its paws.",
     "scenes": {
       "1": "In a dark bedroom, a boy with short spiky red hair in green dinosaur pajamas kneels by his bed holding a flashlight, looking nervous but brave, as two big round glowing eyes shine back at him from the shadow under the bed.",
       "2": "Sitting on the bedroom floor, a boy with short spiky red hair in green dinosaur pajamas laughs and holds a fluffy gray kitten with big yellow eyes and white paws, which tugs playfully at a long striped sock."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

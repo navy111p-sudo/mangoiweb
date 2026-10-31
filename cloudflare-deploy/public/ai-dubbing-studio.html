@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>A.i 더빙동영상</title>
+<title>키키와 토토 더빙 — mangoi.ai</title>
 <meta name="description" content="A.i 더빙동영상(🎬 A.i영화더빙 메뉴 안) · 영상 속 캐릭터 대사를 내가 직접 더빙하는 영어 말하기 연습 · 10편">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -55,7 +55,7 @@ body {
   padding-block: 18px 32px;
 }
 button { font: inherit; color: inherit; cursor: pointer; }
-button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button:focus-visible, input:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 
 /* ---------- Header ---------- */
 .top { max-width: 1180px; margin: 0 auto 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
@@ -64,6 +64,21 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 .lang { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); padding: 3px; }
 .lang button { border: 0; background: none; padding: 5px 14px; border-radius: 999px; font-weight: 800; font-size: 13px; letter-spacing: .04em; color: var(--muted); }
 .lang button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
+/* A short, linked route through the existing role, recording and movie controls. */
+.studio-guide { max-width: 1180px; margin: 0 auto 18px; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.studio-guide a { display: flex; align-items: center; gap: 12px; height: 100%; min-height: 86px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); color: var(--ink); text-decoration: none; }
+.studio-guide a:hover { border-color: var(--accent); background: var(--bg); }
+.studio-step { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 32px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 16px; font-weight: 800; }
+.studio-guide strong { display: block; font-size: 16px; line-height: 1.45; }
+.studio-guide small { display: block; margin-top: 3px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+#studio-setup, #studio-script, #studio-movie { scroll-margin-top: 20px; }
+.studio-options { border-top: 1px solid var(--line); padding-top: 12px; }
+.studio-options summary { min-height: 44px; padding-block: 10px; cursor: pointer; color: var(--muted); font-size: 14px; font-weight: 800; }
+.studio-options[open] summary { margin-bottom: 10px; }
+.studio-options .field + .field { margin-top: 16px; }
+.studio-play-help { padding: 11px 14px; border-left: 3px solid var(--accent); background: var(--surface); border-radius: 0 10px 10px 0; }
+.studio-movie-actions .btn.primary { flex: 1 1 180px; }
 
 /* ---------- Main grid ---------- */
 .grid { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 18px; align-items: start; }
@@ -123,17 +138,17 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 .panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: grid; gap: 14px; }
 .field { display: grid; gap: 7px; }
-.label { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.label { font-size: 14px; font-weight: 800; color: var(--muted); }
 .seg { display: flex; flex-wrap: wrap; gap: 6px; }
 .seg button { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 7px 12px; font-weight: 700; font-size: 14px; }
 .seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .seg.roles button[aria-pressed="true"] { background: var(--mine); border-color: var(--mine); color: var(--surface); }
-.help { margin: 0; font-size: 13px; color: var(--muted); }
+.help { margin: 0; font-size: 14px; line-height: 1.65; color: var(--muted); }
 .checks { display: grid; gap: 8px; }
 .checks label { display: flex; gap: 9px; align-items: center; font-size: 14px; cursor: pointer; }
 .checks input { width: 18px; height: 18px; accent-color: var(--accent); }
 
-.cue-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.cue-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .cue-head h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 20px; }
 .cue-head span { font: 500 12px var(--font-mono); color: var(--muted); }
 .cues { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 460px; overflow-y: auto; }
@@ -154,7 +169,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 .chip-btn.solid { background: var(--mine); color: var(--surface); }
 .chip-btn .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .cue-rec { grid-column: 2; display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
-.cue-rec button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 700; }
+.cue-rec button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 12px; font-size: 14px; font-weight: 700; }
 .cue-rec button.has { color: var(--accent); border-color: var(--accent); }
 .meter { height: 8px; background: var(--bg); border-radius: 99px; overflow: hidden; }
 .meter span { display: block; height: 100%; width: 0; background: var(--mine); border-radius: 99px; transition: width .3s; }
@@ -164,6 +179,21 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 .btn.danger { color: var(--rec); border-color: var(--rec); background: transparent; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .status { font-size: 13px; color: var(--muted); margin: 0; min-height: 1.2em; }
+.studio-save { border-color: var(--accent); }
+.studio-save .row .btn { min-height: 44px; text-decoration: none; display: inline-flex; align-items: center; }
+.studio-save .status[data-state="saved"] { color: var(--accent); }
+.studio-save .status[data-state="error"] { color: var(--rec); }
+.btn, .tbtn, .seg button, .chip-btn, .cue-rec button, .lang button, .done-btn { min-height: 44px; }
+.status { line-height: 1.65; font-size: 14px; }
+@media (max-width: 600px) {
+  .studio-guide { grid-template-columns: minmax(0, 1fr); gap: 7px; }
+  .studio-guide a { min-height: 66px; padding: 10px 12px; }
+  .studio-guide strong { font-size: 15px; }
+  .studio-guide small { margin-top: 1px; }
+  .studio-save .row .btn { flex: 1 1 140px; justify-content: center; }
+  .brand h1 { font-size: 25px; }
+  .cue-rec button { padding-inline: 10px; }
+}
 .recbar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; padding: 5px 6px 5px 12px; border-radius: 999px; background: rgba(224,68,74,.92); color: #fff; font-weight: 800; font-size: 13px; white-space: nowrap; }
 .recbar button { border: 0; border-radius: 999px; padding: 4px 10px; background: #fff; color: #16252C; font-weight: 800; font-size: 12px; }
 body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { pointer-events: none; opacity: .5; }
@@ -191,14 +221,20 @@ body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { 
 
 <header class="top">
   <div class="brand">
-    <h1 data-i18n="title">A.i 더빙동영상</h1>
-    <p data-i18n="sub">상대 대사는 들리고, 내 대사 차례엔 소리가 꺼져요</p>
+    <h1 data-i18n="title">키키와 토토 더빙</h1>
+    <p data-i18n="sub">캐릭터를 고르고, 내 목소리로 영어 영화를 만들어요.</p>
   </div>
   <div class="lang" role="group" aria-label="Language">
     <button type="button" id="lang-ko" data-lang="ko">KO</button>
     <button type="button" id="lang-en" data-lang="en">EN</button>
   </div>
 </header>
+
+<ol class="studio-guide" aria-label="더빙하는 순서" data-i18n-aria="guideLabel">
+  <li><a href="#studio-setup"><span class="studio-step" aria-hidden="true">1</span><span><strong data-i18n="guideRole">역할 고르기</strong><small data-i18n="guideRoleHelp">내가 연기할 캐릭터를 골라요.</small></span></a></li>
+  <li><a href="#studio-script"><span class="studio-step" aria-hidden="true">2</span><span><strong data-i18n="guideRecord">대사 녹음하기</strong><small data-i18n="guideRecordHelp">내 대사 옆 ‘녹음하기’를 눌러요.</small></span></a></li>
+  <li><a href="#studio-movie"><span class="studio-step" aria-hidden="true">3</span><span><strong data-i18n="guideMovie">내 영상 만들기</strong><small data-i18n="guideMovieHelp">녹음한 목소리를 영상에 넣어요.</small></span></a></li>
+</ol>
 
 <main class="grid">
   <section class="stage-col">
@@ -233,10 +269,9 @@ body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { 
       <p class="cap-ko" id="cap-ko"></p>
       <div class="cap-actions" id="cap-actions" hidden>
         <button type="button" class="chip-btn solid" id="btn-rec"><i class="dot"></i><span id="btn-rec-label"></span></button>
-        <button type="button" class="chip-btn" id="btn-myplay" data-i18n="myVoice">내 목소리</button>
+        <button type="button" class="chip-btn" id="btn-myplay" data-i18n="myVoice">내 목소리 듣기</button>
       </div>
     </div>
-    <input type="file" id="rec-input" accept="audio/*" capture="user" hidden>
 
     <div class="transport">
       <button type="button" class="tbtn" id="btn-restart" data-i18n-aria="restart"><svg viewBox="0 0 24 24"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg></button>
@@ -246,18 +281,32 @@ body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { 
       <button type="button" class="tbtn" id="btn-repeat"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg><span data-i18n="repeat">이 대사 다시</span></button>
       <span class="counter" id="counter"></span>
     </div>
+    <p class="help studio-play-help" data-i18n="playHelp">먼저 재생해서 들어보세요. 내 목소리를 저장하려면 대사 옆 ‘녹음하기’를 눌러요.</p>
     <p class="notice" id="notice" hidden></p>
+    <section class="card studio-save" aria-label="연습 보관">
+      <div class="cue-head"><h2 data-i18n="continueTitle">저장한 연습과 내 영상</h2></div>
+      <p class="help" data-i18n="continueHelp">전에 녹음한 대사를 불러와 나머지를 이어서 녹음해요.</p>
+      <div class="row">
+        <button type="button" class="btn" id="btn-resume" data-i18n="resumePractice">하던 연습 계속하기</button>
+        <button type="button" class="btn" id="btn-save-practice" data-i18n="savePractice">여기까지 저장하기</button>
+        <a class="btn" href="/ai-dubbing.html?library=movies" data-i18n="myWorks">내 영상 보기</a>
+      </div>
+      <p class="status" id="studio-save-status" role="status" aria-live="polite"></p>
+      <button type="button" class="btn" id="btn-movie-retry" data-i18n="retryMovie" hidden>완성 영상 다시 저장</button>
+      <button type="button" class="btn" id="btn-conversation" data-i18n="conversation" disabled>이 문장으로 AI 친구와 대화하기</button>
+    </section>
   </section>
 
   <aside class="panel">
-    <div class="card">
+    <div class="card" id="studio-setup">
+      <div class="cue-head"><h2 data-i18n="setupTitle">1. 이야기와 역할 고르기</h2></div>
       <div class="field">
-        <span class="label" data-i18n="episode">에피소드</span>
+        <span class="label" data-i18n="episode">어떤 이야기로 할까요?</span>
         <div class="seg" id="seg-ep"></div>
         <p class="help" id="ep-help"></p>
       </div>
       <div class="field">
-        <span class="label" data-i18n="role">내 역할</span>
+        <span class="label" data-i18n="role">누구의 목소리가 될까요?</span>
         <div class="seg roles" id="seg-role"></div>
         <div class="row">
           <button type="button" class="btn" id="btn-rotate" data-i18n="rotate">↻ 역할 돌아가며 바꾸기</button>
@@ -265,38 +314,50 @@ body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { 
         <p class="help" data-i18n="roleHelp"></p>
       </div>
       <div class="field">
-        <span class="label" data-i18n="mode">모드</span>
+        <span class="label" data-i18n="mode">어떻게 연습할까요?</span>
         <div class="seg" id="seg-mode"></div>
         <p class="help" id="mode-help"></p>
       </div>
-      <div class="field">
-        <span class="label" data-i18n="speed">속도</span>
-        <div class="seg" id="seg-speed"></div>
-      </div>
-      <div class="field">
-        <span class="label" data-i18n="options">옵션</span>
-        <div class="checks">
-          <label><input type="checkbox" id="opt-bgm"><span data-i18n="bgm">배경음악</span></label>
-          <label><input type="checkbox" id="opt-ko"><span data-i18n="subKo">한국어 해석 보기</span></label>
-          <label><input type="checkbox" id="opt-hide"><span data-i18n="hideMine">내 대사 가리기 (암기 연습)</span></label>
-          <label><input type="checkbox" id="opt-echo"><span data-i18n="echo">연습 모드: 내 대사 듣고 따라 말하기</span></label>
-          <label><input type="checkbox" id="opt-auto"><span data-i18n="autoNext">내 차례 시간이 끝나면 자동으로 넘기기</span></label>
+      <details class="studio-options">
+        <summary data-i18n="moreOptions">속도·자막·배경음악 조절</summary>
+        <div class="field">
+          <span class="label" data-i18n="speed">말하는 속도</span>
+          <div class="seg" id="seg-speed"></div>
         </div>
-      </div>
+        <div class="field">
+          <span class="label" data-i18n="options">소리와 자막 설정</span>
+          <div class="checks">
+            <label><input type="checkbox" id="opt-bgm"><span data-i18n="bgm">배경음악</span></label>
+            <label><input type="checkbox" id="opt-ko"><span data-i18n="subKo">한국어 해석 보기</span></label>
+            <label><input type="checkbox" id="opt-hide"><span data-i18n="hideMine">내 대사 가리기 (암기 연습)</span></label>
+            <label><input type="checkbox" id="opt-echo"><span data-i18n="echo">따라 말하기 전에 내 대사 먼저 듣기</span></label>
+            <label><input type="checkbox" id="opt-auto"><span data-i18n="autoNext">내 차례 시간이 끝나면 자동으로 넘기기</span></label>
+          </div>
+        </div>
+      </details>
     </div>
 
-    <div class="card">
+    <div class="card" id="studio-script">
       <div class="cue-head">
-        <h2 data-i18n="recTitle">내 녹음</h2>
+        <h2 data-i18n="cueSheet">2. 내 대사 녹음하기</h2>
+        <span id="cue-meta"></span>
+      </div>
+      <p class="help" data-i18n="recordGuide">‘내 대사’ 표시를 찾아 녹음해 보세요. 말을 마치면 같은 버튼의 ‘녹음 완료’를 눌러요.</p>
+      <ol class="cues" id="cues"></ol>
+    </div>
+
+    <div class="card" id="studio-movie">
+      <div class="cue-head">
+        <h2 data-i18n="recTitle">3. 내 영상 만들기</h2>
         <span id="rec-count"></span>
       </div>
       <div class="meter"><span id="rec-fill"></span></div>
       <p class="help" data-i18n="recHelp"></p>
-      <div class="row">
-        <button type="button" class="btn primary" id="btn-review" data-i18n="reviewPlay">내 더빙 감상</button>
-        <button type="button" class="btn" id="btn-export" data-i18n="exportVideo" hidden>더빙 영상 저장</button>
-        <button type="button" class="btn danger" id="btn-clear" data-i18n="clearAll">녹음 지우기</button>
+      <div class="row studio-movie-actions">
+        <button type="button" class="btn" id="btn-review" data-i18n="reviewPlay">녹음 먼저 들어보기</button>
+        <button type="button" class="btn primary" id="btn-export" data-i18n="exportVideo" hidden>내 영상 만들고 저장하기</button>
       </div>
+      <div class="row"><button type="button" class="btn danger" id="btn-clear" data-i18n="clearAll">이 이야기 녹음 모두 지우기</button></div>
       <div class="row" id="clear-confirm" hidden>
         <span class="status" data-i18n="clearAsk"></span>
         <button type="button" class="btn danger" id="btn-clear-yes" data-i18n="clearYes">지우기</button>
@@ -305,18 +366,13 @@ body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { 
       <p class="status" id="rec-status" aria-live="polite"></p>
     </div>
 
-    <div class="card">
-      <div class="cue-head">
-        <h2 data-i18n="cueSheet">대본</h2>
-        <span id="cue-meta"></span>
-      </div>
-      <ol class="cues" id="cues"></ol>
-    </div>
   </aside>
 </main>
 
 <p class="foot" data-i18n="sample">모든 캐릭터와 대본은 자체 제작입니다.</p>
 
+<script src="/js/ai-dubbing-library.js?v=4"></script>
+<script src="/js/ai-dubbing-practice.js?v=1"></script>
 <script>
 /* =========================================================
    1. DATA — 캐릭터 & 에피소드 (오리지널 콘텐츠)
@@ -576,15 +632,21 @@ const EPISODES = [
    ========================================================= */
 const T = {
   ko: {
-    title: 'A.i 더빙동영상', sub: '상대 대사는 들리고, 내 대사 차례엔 소리가 꺼져요',
-    episode: '에피소드', role: '내 역할', mode: '모드', speed: '속도', options: '옵션',
-    practice: '연습', dub: '더빙',
-    helpPractice: '모든 대사가 소리로 나와요. 내 대사를 듣고 따라 연습해요.',
+    title: '키키와 토토 더빙', sub: '캐릭터를 고르고, 내 목소리로 영어 영화를 만들어요.',
+    guideLabel: '더빙하는 순서', guideRole: '역할 고르기', guideRoleHelp: '내가 연기할 캐릭터를 골라요.',
+    guideRecord: '대사 녹음하기', guideRecordHelp: '내 대사 옆 ‘녹음하기’를 눌러요.',
+    guideMovie: '내 영상 만들기', guideMovieHelp: '녹음한 목소리를 영상에 넣어요.',
+    setupTitle: '1. 이야기와 역할 고르기', moreOptions: '속도·자막·배경음악 조절',
+    playHelp: '먼저 재생해서 들어보세요. 내 목소리를 저장하려면 대사 옆 ‘녹음하기’를 눌러요.',
+    recordGuide: '‘내 대사’ 표시를 찾아 녹음해 보세요. 말을 마치면 같은 버튼의 ‘녹음 완료’를 눌러요.',
+    episode: '어떤 이야기로 할까요?', role: '누구의 목소리가 될까요?', mode: '어떻게 연습할까요?', speed: '말하는 속도', options: '소리와 자막 설정',
+    practice: '듣고 따라 말하기', dub: '직접 더빙하기',
+    helpPractice: '처음이라면 먼저 대사를 듣고 따라 말해보세요. 모든 캐릭터의 목소리가 나와요.',
     helpDub: '상대 대사만 나와요. 내 대사 차례엔 음소거되고 내가 직접 말해요.',
     subKo: '한국어 해석 보기', hideMine: '내 대사 가리기 (암기 연습)',
-    echo: '연습 모드: 내 대사 듣고 따라 말하기', autoNext: '내 차례 시간이 끝나면 자동으로 넘기기',
+    echo: '따라 말하기 전에 내 대사 먼저 듣기', autoNext: '내 차례 시간이 끝나면 자동으로 넘기기',
     play: '재생', pause: '일시정지', restart: '처음부터', prev: '이전 대사', next: '다음 대사', repeat: '이 대사 다시',
-    cueSheet: '대본', myLine: '내 대사', me: '나',
+    cueSheet: '2. 내 대사 녹음하기', myLine: '내 대사', me: '나',
     yourTurn: '내 차례! 말하세요', echoTurn: '따라 말해보세요', done: '다 말했어요',
     finishTitle: '더빙 완료!', finishBody: (n) => `내 대사 ${n}개를 해냈어요. 박수 짝짝짝!`,
     again: '다시 하기', changeRole: '역할 바꾸기',
@@ -594,26 +656,52 @@ const T = {
     lines: (n, m) => `${n}줄 · 내 대사 ${m}줄`,
     sample: '모든 캐릭터와 대본은 자체 제작이고, 영상과 캐릭터 음성은 Higgsfield AI로 만들었어요. 저작권 걱정 없이 수업에 쓸 수 있습니다.',
     bgm: '배경음악 (대사 나올 땐 작게)', series: '키키와 토토 시리즈',
-    rotate: '↻ 역할 돌아가며 바꾸기', roleHelp: '친구끼리 발표할 때는 두 명 이상을 고르세요. 고른 역할은 모두 음소거되고 나머지만 원어민 목소리로 나와요.',
-    review: '내 더빙', helpReview: '상대 대사는 원래 목소리로, 내 대사는 내가 녹음한 목소리로 이어서 들려줘요.',
-    recTitle: '내 녹음', recCount: (n, m) => `${n} / ${m}개 녹음`,
-    recHelp: '내 대사에서 "녹음하기"를 누르세요. 휴대폰은 녹음 앱이 열리고, 컴퓨터는 녹음 파일을 고르면 돼요. 녹음은 이 기기에만 저장돼요.',
-    record: '녹음하기', reRecord: '다시 녹음', myVoice: '내 목소리', reviewPlay: '내 더빙 감상', exportVideo: '더빙 영상 저장',
-    clearAll: '녹음 지우기', clearAsk: '이 에피소드의 녹음을 모두 지울까요?', clearYes: '지우기', cancel: '취소',
+    rotate: '↻ 역할 돌아가며 바꾸기', roleHelp: '혼자라면 캐릭터 한 명을 고르세요. 친구와 함께라면 여러 명을 고를 수 있어요.',
+    review: '내 녹음으로 보기', helpReview: '상대 대사는 원래 목소리로, 내 대사는 내가 녹음한 목소리로 이어서 들려줘요.',
+    recTitle: '3. 내 영상 만들기', recCount: (n, m) => `${n} / ${m}개 녹음`,
+    recHelp: '먼저 내 목소리를 들어보고, 마음에 들면 영상으로 저장해요. 로그인하면 내 계정에도 보관해요. 저장 완료 표시를 확인해 주세요.',
+    stopRecording: '녹음 완료', micWaiting: '마이크 연결 중…',
+    micRecording: '녹음 중입니다. 말을 마치면 녹음 완료를 누르세요.',
+    micUnsupported: '마이크 녹음을 지원하는 최신 브라우저에서 HTTPS 주소로 열어 주세요.',
+    micDenied: '마이크 권한을 허용한 뒤 다시 녹음하기를 눌러 주세요.',
+    micMissing: '마이크를 찾을 수 없어요. 연결을 확인해 주세요.',
+    micFailed: '녹음하지 못했어요. 마이크를 확인하고 다시 시도해 주세요.',
+    record: '녹음하기', reRecord: '다시 녹음', myVoice: '내 목소리 듣기', reviewPlay: '녹음 먼저 들어보기', exportVideo: '내 영상 만들고 저장하기',
+    clearAll: '이 이야기 녹음 모두 지우기', clearAsk: '이 에피소드의 녹음을 모두 지울까요?', clearYes: '지우기', cancel: '취소',
     exporting: '더빙 영상 만드는 중', exportReady: '영상이 준비됐어요.', exportSaved: '영상을 내려받았어요. 다운로드 폴더를 확인하세요.',
     exportDeclined: '저장을 취소했어요.', exportFail: '이 기기에서는 영상 저장을 할 수 없어요.', exportCanceled: '영상 만들기를 멈췄어요.',
     recSaved: '녹음을 저장했어요.', recBad: '소리 파일을 열 수 없어요. 다른 파일로 다시 해 주세요.', cleared: '녹음을 모두 지웠어요.',
+    continueTitle: '저장한 연습과 내 영상', continueHelp: '전에 녹음한 대사를 불러와 나머지를 이어서 녹음해요.',
+    resumePractice: '하던 연습 계속하기', savePractice: '여기까지 저장하기', myWorks: '내 영상 보기',
+    conversation: '이 문장으로 AI 친구와 대화하기', retryMovie: '완성 영상 다시 저장',
+    savingAccount: '계정에 저장하는 중이에요…', savedAccount: '계정에 저장했어요. 다른 기기에서도 이어할 수 있어요.',
+    guestPractice: '로그인하면 계정에 보관할 수 있어요. 지금은 이 기기의 녹음을 이어서 연습해요.',
+    savedDevice: '이 기기에 연습을 저장했어요.', recMemory: '기기에 저장하지 못했어요. 이 창을 닫기 전에 녹음을 내려받아 주세요.',
+    localKept: '이 기기의 녹음은 그대로 남아 있어요.', loadingPractice: '저장된 대사와 녹음을 불러오는 중이에요…',
+    resumedPractice: '연습을 불러왔어요. 이 기기에서 새로 녹음한 대사는 그대로 두었어요.',
+    noPractice: '아직 저장된 연습이 없어요. 대사를 녹음하거나 ‘여기까지 저장하기’를 눌러 주세요.',
+    partialResume: '일부 녹음을 불러오지 못했어요. 연결을 확인한 뒤 다시 불러와 주세요.',
+    practiceUnavailable: '회화 연습을 열지 못했어요. 잠시 후 다시 눌러 주세요.',
+    movieSaved: '영상을 내 계정에 저장했어요. ‘내 영상 보기’에서 다시 볼 수 있어요.', downloadVoice: '녹음 내려받기',
+    practiceDeleted: '연습 기록과 대사 녹음을 삭제했어요. 새로 녹음해서 시작할 수 있어요.',
+    deletingPractice: '연습 기록과 대사 녹음을 삭제하는 중이에요…', practiceDeleteFailed: '이 기기의 연습을 모두 삭제하지 못했어요. 보관함에서 삭제를 다시 눌러 주세요.',
   },
   en: {
-    title: 'A.i Dubbing Video', sub: 'Hear the other parts. Your lines go silent so you can speak.',
-    episode: 'Episode', role: 'My role', mode: 'Mode', speed: 'Speed', options: 'Options',
-    practice: 'Practice', dub: 'Dub',
-    helpPractice: 'Every line is read aloud. Listen to your lines and repeat them.',
+    title: 'Kiki & Toto Dubbing', sub: 'Pick a character and make an English movie with your voice.',
+    guideLabel: 'How to make your dub', guideRole: 'Pick a role', guideRoleHelp: 'Choose the character you want to play.',
+    guideRecord: 'Record your lines', guideRecordHelp: 'Tap Record beside your lines.',
+    guideMovie: 'Make your movie', guideMovieHelp: 'Add your recorded voice to the video.',
+    setupTitle: '1. Pick a story and role', moreOptions: 'Speed, subtitles and music',
+    playHelp: 'Press Play to listen first. To save your voice, tap Record beside a line.',
+    recordGuide: 'Find MY LINE and tap Record. When you finish speaking, tap Finish recording on the same button.',
+    episode: 'Which story?', role: 'Who will you play?', mode: 'How will you practise?', speed: 'Speaking speed', options: 'Sound and subtitles',
+    practice: 'Listen and repeat', dub: 'Speak my part',
+    helpPractice: 'New here? Listen and repeat first. You will hear every character’s voice.',
     helpDub: 'Only the other parts are read aloud. Your lines are muted and you speak them.',
     subKo: 'Show Korean translation', hideMine: 'Hide my lines (memory practice)',
-    echo: 'Practice mode: repeat after my line', autoNext: 'Move on automatically when my time is up',
+    echo: 'Hear my line before repeating it', autoNext: 'Move on automatically when my time is up',
     play: 'Play', pause: 'Pause', restart: 'Start over', prev: 'Previous line', next: 'Next line', repeat: 'Repeat line',
-    cueSheet: 'Script', myLine: 'MY LINE', me: 'ME',
+    cueSheet: '2. Record your lines', myLine: 'MY LINE', me: 'ME',
     yourTurn: 'Your turn! Speak now', echoTurn: 'Now you say it', done: "I'm done",
     finishTitle: 'Dub complete!', finishBody: (n) => `You performed ${n} lines. Great job!`,
     again: 'Play again', changeRole: 'Change role',
@@ -623,15 +711,35 @@ const T = {
     lines: (n, m) => `${n} lines · ${m} mine`,
     sample: 'All characters and scripts are our own, with video and character voices made in Higgsfield AI, so classes can use them freely.',
     bgm: 'Background music (softer during lines)', series: 'Kiki & Toto series',
-    rotate: '↻ Rotate roles', roleHelp: 'For a group performance, pick two or more roles. Every picked role is muted, and only the rest use native-speaker voices.',
-    review: 'My dub', helpReview: 'Plays the other parts in their voices and your lines in your recorded voice.',
-    recTitle: 'My recordings', recCount: (n, m) => `${n} / ${m} recorded`,
-    recHelp: 'Tap "Record" on your lines. Phones open the voice recorder; on a computer, choose a recorded file. Recordings stay on this device.',
-    record: 'Record', reRecord: 'Record again', myVoice: 'My voice', reviewPlay: 'Play my dub', exportVideo: 'Save dub video',
-    clearAll: 'Clear recordings', clearAsk: 'Delete all recordings for this episode?', clearYes: 'Delete', cancel: 'Cancel',
+    rotate: '↻ Rotate roles', roleHelp: 'On your own? Choose one character. With friends? You can choose more than one.',
+    review: 'Play my recordings', helpReview: 'Plays the other parts in their voices and your lines in your recorded voice.',
+    recTitle: '3. Make your movie', recCount: (n, m) => `${n} / ${m} recorded`,
+    recHelp: 'Listen to your voice first, then save it as a movie. When signed in, it also saves to your account. Check the saved status.',
+    stopRecording: 'Finish recording', micWaiting: 'Connecting microphone…',
+    micRecording: 'Recording. Tap Finish recording when you are done.',
+    micUnsupported: 'Open this HTTPS page in a current browser supporting microphone recording.',
+    micDenied: 'Allow microphone access, then tap Record again.',
+    micMissing: 'No microphone found. Check your connection.',
+    micFailed: 'Recording failed. Check your microphone and try again.',
+    record: 'Record', reRecord: 'Record again', myVoice: 'Hear my voice', reviewPlay: 'Listen to my recordings', exportVideo: 'Make and save my movie',
+    clearAll: 'Delete this story’s recordings', clearAsk: 'Delete all recordings for this episode?', clearYes: 'Delete', cancel: 'Cancel',
     exporting: 'Making your dub video', exportReady: 'Your video is ready.', exportSaved: 'Downloaded. Check your Downloads folder.',
     exportDeclined: 'Save canceled.', exportFail: 'This device can’t save videos.', exportCanceled: 'Stopped making the video.',
     recSaved: 'Recording saved.', recBad: 'That sound file can’t be played. Try another file.', cleared: 'All recordings deleted.',
+    continueTitle: 'Saved practice and movies', continueHelp: 'Load your recorded lines and continue recording the rest.',
+    resumePractice: 'Continue my practice', savePractice: 'Save my progress', myWorks: 'My videos',
+    conversation: 'Chat with my AI friend using these lines', retryMovie: 'Retry saving the movie',
+    savingAccount: 'Saving to your account…', savedAccount: 'Saved to your account. You can continue on another device.',
+    guestPractice: 'Sign in to save to your account. You can continue recordings on this device now.',
+    savedDevice: 'Practice saved on this device.', recMemory: 'Could not save on this device. Download your recording before closing this page.',
+    localKept: 'Your recordings remain on this device.', loadingPractice: 'Loading your saved lines and recordings…',
+    resumedPractice: 'Practice loaded. New recordings on this device were kept.',
+    noPractice: 'No saved practice yet. Record a line or tap Save my progress.',
+    partialResume: 'Some recordings could not be loaded. Check your connection and load again.',
+    practiceUnavailable: 'Could not open the conversation. Please try again.',
+    movieSaved: 'Your movie is saved to your account. Open My videos to watch it again.', downloadVoice: 'Download recording',
+    practiceDeleted: 'Practice and line recordings deleted. You can start a new recording.',
+    deletingPractice: 'Deleting the practice and line recordings…', practiceDeleteFailed: 'Could not finish removing this device’s practice. Open Saved practice and retry deleting it.',
   },
 };
 
@@ -664,11 +772,12 @@ function epFromQuery(search) {
   const id = m[1].toLowerCase();
   return EPISODES.findIndex((e) => e.id === id);
 }
-function savePrefs() {
+function savePrefs(checkpoint = true) {
   try {
     const { lang, ep, mode, speed, subKo, hideMine, echo, autoNext, bgm } = state;
     localStorage.setItem(STORE_KEY, JSON.stringify({ lang, ep, mode, speed, subKo, hideMine, echo, autoNext, bgm, roles: [...state.roles] }));
   } catch (e) { /* 무시 */ }
+  if (checkpoint) checkpointStudio();
 }
 
 const t = (k) => T[state.lang][k];
@@ -882,9 +991,14 @@ function voiceFor(who) {
 /* =========================================================
    6. RECORDINGS — 학생 녹음 (기기 녹음 앱/파일 → 이 기기 IndexedDB 저장)
    ========================================================= */
-const recs = new Map(); // "에피소드:대사번호" → { blob, url, audio }
+const DubLibrary = window.MangoiDubLibrary || null;
+let studioIdentity = DubLibrary ? DubLibrary.identity() : 'guest';
+let studioReady = false, studioLoading = false;
+const recs = new Map(); // Current account only: "episode:line" → { blob, url, audio }
 const recKey = (i) => `${episode().id}:${i}`;
-const recFor = (i) => recs.get(recKey(i));
+const recFor = (i) => sameStudioAccount(studioIdentity) ? recs.get(recKey(i)) : undefined;
+const localRecKey = (key, owner = studioIdentity) => `${encodeURIComponent(owner)}|${key}`;
+const sameStudioAccount = (owner) => owner === studioIdentity && (!DubLibrary || DubLibrary.identity() === owner);
 
 let dbPromise = null;
 function openDB() {
@@ -900,34 +1014,71 @@ function openDB() {
 }
 async function dbWrite(fn) {
   const db = await openDB();
-  if (!db) return;
-  try { fn(db.transaction('recs', 'readwrite').objectStore('recs')); } catch (e) { /* 저장 불가: 메모리에만 유지 */ }
+  if (!db) return false;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction('recs', 'readwrite');
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = tx.onabort = () => resolve(false);
+      fn(tx.objectStore('recs'));
+    } catch (e) { resolve(false); }
+  });
 }
 async function loadRecs() {
+  const owner = studioIdentity;
+  const revisions = new Map(EPISODES.map((ep) => [ep.id, studioRevision(ep.id)]));
   const db = await openDB();
   if (!db) return;
-  try {
-    const store = db.transaction('recs', 'readonly').objectStore('recs');
-    const keys = store.getAllKeys(), vals = store.getAll();
-    vals.onsuccess = () => { keys.result.forEach((k, j) => setRec(k, vals.result[j])); renderRecUI(); renderCues(); };
-  } catch (e) { /* 무시 */ }
+  await new Promise((resolve) => {
+    try {
+      const tx = db.transaction('recs', 'readonly'), store = tx.objectStore('recs');
+      const keys = store.getAllKeys(), vals = store.getAll();
+      tx.onerror = tx.onabort = () => resolve();
+      tx.oncomplete = () => {
+        if (sameStudioAccount(owner)) {
+          // Legacy device recordings have no owner. Never attach or upload them to a signed-in account.
+          if (owner === 'guest') keys.result.forEach((key, j) => {
+            const epId = String(key).split(':')[0];
+            if (/^[a-z0-9-]+:\d+$/.test(String(key)) && vals.result[j] instanceof Blob && studioRevision(epId) === revisions.get(epId)) setRec(key, vals.result[j]);
+          });
+          const prefix = localRecKey('', owner);
+          keys.result.forEach((key, j) => {
+            if (!String(key).startsWith(prefix)) return;
+            const recordKey = String(key).slice(prefix.length), value = vals.result[j];
+            const blob = value instanceof Blob ? value : value?.blob;
+            if (!(blob instanceof Blob)) return;
+            const [epId, lineNo] = recordKey.split(':'), line = EPISODES.find((e) => e.id === epId)?.lines[Number(lineNo)];
+            if (studioRevision(epId) !== revisions.get(epId)) return;
+            if (value.en && (!line || line.en !== value.en || line.who !== value.speaker)) return;
+            setRec(recordKey, blob, value instanceof Blob ? {} : value);
+            if (value.pending) pendingStudioEdits.set(recordKey, { blob, localSaved: true });
+          });
+        }
+        resolve();
+      };
+    } catch (e) { resolve(); }
+  });
 }
 
-function setRec(key, blob) {
+function setRec(key, blob, metadata = {}) {
   const old = recs.get(key);
-  if (old) URL.revokeObjectURL(old.url);
+  if (old) { old.audio.pause(); URL.revokeObjectURL(old.url); }
   const url = URL.createObjectURL(blob);
   const audio = new Audio(url);
   audio.preload = 'auto';
-  recs.set(key, { blob, url, audio });
+  recs.set(key, { blob, url, audio, audioId: metadata.audioId || null, pending: Boolean(metadata.pending) });
+}
+function localRecValue(key, recording) {
+  const [epId, lineNo] = key.split(':'), line = EPISODES.find((e) => e.id === epId)?.lines[Number(lineNo)];
+  return { blob: recording.blob, audioId: recording.audioId || null, pending: Boolean(recording.pending), en: line?.en || '', speaker: line?.who || '' };
 }
 function deleteRec(key) {
   const r = recs.get(key);
-  if (!r) return;
-  r.audio.pause();
-  URL.revokeObjectURL(r.url);
+  if (r) { r.audio.pause(); URL.revokeObjectURL(r.url); }
   recs.delete(key);
-  dbWrite((s) => s.delete(key));
+  const owner = studioIdentity;
+  dbWrite((s) => { s.delete(localRecKey(key, owner)); if (owner === 'guest') s.delete(key); });
+  pendingStudioEdits.set(key, { deleted: true });
 }
 function canPlay(blob) {
   return new Promise((resolve) => {
@@ -936,30 +1087,95 @@ function canPlay(blob) {
     const done = (ok) => { URL.revokeObjectURL(url); resolve(ok); };
     a.onloadedmetadata = () => done(true);
     a.onerror = () => done(false);
-    setTimeout(() => done(true), 4000);
+    setTimeout(() => done(false), 4000);
   });
 }
 
-let pendingRecIdx = null;
-function pickRecording(i) {
-  pendingRecIdx = i;
-  const input = $('rec-input');
-  input.value = '';
-  input.click();
+// Each session owns its destination key, including while permission is pending.
+let micSession = null;
+function recordingLabel(i) {
+  if (micSession && micSession.key === recKey(i)) {
+    return t(micSession.recorder ? 'stopRecording' : 'micWaiting');
+  }
+  return t(recFor(i) ? 'reRecord' : 'record');
 }
-async function onRecordingPicked() {
-  const file = $('rec-input').files?.[0];
-  const i = pendingRecIdx;
-  pendingRecIdx = null;
-  if (!file || i == null) return;
-  if (!(await canPlay(file))) { setStatus(t('recBad')); return; }
-  const key = recKey(i);
-  setRec(key, file);
-  dbWrite((s) => s.put(file, key));
-  setStatus(t('recSaved'));
-  renderRecUI(); renderCues(); renderCurrent();
+function stopMicRecording(discard = false) {
+  const session = micSession;
+  if (!session) return;
+  session.discard = session.discard || discard;
+  if (!session.stopping && session.recorder && session.recorder.state !== 'inactive') {
+    session.stopping = true;
+    session.recorder.stop();
+  } else if (!session.recorder) micSession = null;
+  if (discard) micSession = null;
+  // stop() flushes asynchronously. Keep the input alive until recorder.onstop
+  // releases it, so short recordings cannot lose their final audio packets.
+  if (session.stream && !session.stopping) session.stream.getTracks().forEach(track => track.stop());
 }
+async function pickRecording(i) {
+  if (!studioReady || studioLoading || studioDeleting.has(episode().id)) return;
+  if (micSession) { stopMicRecording(); renderRecUI(); renderCues(); return; }
+  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    setStatus(t('micUnsupported')); return;
+  }
+  pause();
+  state.idx = i;
+  const session = { key: recKey(i), owner: studioIdentity, revision: studioRevision(episode().id), recorder: null, stream: null, discard: false };
+  micSession = session;
+  setStatus(t('micWaiting')); renderCurrent(); renderCues();
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (micSession !== session || session.discard) {
+      stream.getTracks().forEach(track => track.stop()); return;
+    }
+    session.stream = stream;
+    const recorder = new MediaRecorder(stream);
+    session.recorder = recorder;
+    const chunks = [];
+    recorder.ondataavailable = event => { if (event.data?.size) chunks.push(event.data); };
+    recorder.onerror = () => {
+      session.discard = true;
+      stopMicRecording();
+      if (micSession === session) micSession = null;
+      setStatus(t('micFailed')); renderRecUI(); renderCues();
+    };
+    recorder.onstop = async () => {
+      stream.getTracks().forEach(track => track.stop());
+      if (micSession === session) micSession = null;
+      const validSession = () => !session.discard && sameStudioRevision(session.owner, session.key.split(':')[0], session.revision);
+      if (validSession()) {
+        const blob = new Blob(chunks, { type: recorder.mimeType || chunks[0]?.type || 'audio/webm' });
+        const playable = blob.size && await canPlay(blob);
+        if (!validSession()) return;
+        if (playable) {
+          setRec(session.key, blob, { pending: true });
+          const edit = { blob, localSaved: false };
+          pendingStudioEdits.set(session.key, edit);
+          const value = localRecValue(session.key, recs.get(session.key));
+          const localSaved = await dbWrite(store => { if (validSession()) store.put(value, localRecKey(session.key, session.owner)); });
+          edit.localSaved = localSaved;
+          if (!validSession()) return;
+          setStatus(t(localSaved ? 'recSaved' : 'recMemory'));
+          checkpointStudio();
+          scheduleStudioSave(session.key.split(':')[0], true);
+        } else setStatus(t('micFailed'));
+      }
+      renderRecUI(); renderCues();
+    };
+    recorder.start();
+    setStatus(t('micRecording')); renderRecUI(); renderCues();
+  } catch (error) {
+    if (session.stream) session.stream.getTracks().forEach(track => track.stop());
+    if (micSession !== session) return;
+    micSession = null;
+    setStatus(t(error.name === 'NotAllowedError' ? 'micDenied' : error.name === 'NotFoundError' ? 'micMissing' : 'micFailed'));
+    renderRecUI(); renderCues();
+  }
+}
+window.addEventListener('pagehide', () => stopMicRecording(true));
 function playMyVoice(i) {
+  if (!sameStudioAccount(studioIdentity)) return;
+  stopMicRecording();
   const r = recFor(i);
   if (!r) return;
   pause();
@@ -968,6 +1184,308 @@ function playMyVoice(i) {
   r.audio.play().catch(() => setStatus(t('recBad')));
 }
 function setStatus(msg) { $('rec-status').textContent = msg; }
+
+/* Account drafts use immutable audio takes. Commit the new manifest before
+ * removing an old take, so a failed upload cannot erase another recorded line. */
+const pendingStudioEdits = new Map(), studioBases = new Map(), studioDrafts = new Map();
+const studioTimers = new Map(), studioJobs = new Map(), studioCheckpoints = new Map(), studioRevisions = new Map(), studioDeleting = new Map();
+const studioRevision = (epId) => studioRevisions.get(epId) || 0;
+const sameStudioRevision = (owner, epId, revision) => sameStudioAccount(owner) && studioRevision(epId) === revision;
+let studioStatus = { key: '' }, movieRetry = null;
+const studioDraftId = (epId) => `studio-${epId}`;
+const checkpointKey = (epId, owner = studioIdentity) => `dubstudio.checkpoint.v2:${encodeURIComponent(owner)}:${epId}`;
+function studioResumeFromQuery(search, epId) {
+  const match = /[?&]resume=([A-Za-z0-9_-]{1,80})(?:[&#]|$)/.exec(String(search || ''));
+  return Boolean(match && match[1] === studioDraftId(epId));
+}
+let studioResumeRequested = studioResumeFromQuery(location.search, episode().id);
+function readStudioCheckpoint(epId) {
+  const key = checkpointKey(epId);
+  if (studioCheckpoints.has(key)) return studioCheckpoints.get(key);
+  try {
+    const snapshot = JSON.parse(localStorage.getItem(key) || 'null');
+    return snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot) ? snapshot : null;
+  } catch (_) { return null; }
+}
+function checkpointStudio(saveRemote = true) {
+  if (!studioReady || studioLoading || studioDeleting.has(episode().id) || !sameStudioAccount(studioIdentity)) return false;
+  const { idx, mode, speed, subKo, hideMine, echo, autoNext, bgm } = state;
+  const deletedLines = [...pendingStudioEdits].filter(([key, edit]) => key.startsWith(`${episode().id}:`) && edit.deleted).map(([key]) => Number(key.split(':')[1]));
+  const snapshot = { version: 1, idx, mode, speed, subKo, hideMine, echo, autoNext, bgm, roles: [...state.roles], deletedLines, updatedAt: Date.now() };
+  let localSaved = false;
+  studioCheckpoints.set(checkpointKey(episode().id), snapshot);
+  try { localStorage.setItem(checkpointKey(episode().id), JSON.stringify(snapshot)); localSaved = true; } catch (_) { /* Still allow an account save when browser storage is unavailable. */ }
+  if (saveRemote) scheduleStudioSave(episode().id);
+  return localSaved;
+}
+function setStudioStatus(key, error) {
+  studioStatus = { key, error };
+  renderStudioStorage();
+}
+function renderStudioStorage() {
+  const box = $('studio-save-status');
+  if (!box) return;
+  const memoryOnly = studioStatus.error?.localSaved === false || [...pendingStudioEdits.values()].some((e) => e.blob && e.localSaved === false);
+  box.textContent = studioStatus.error && DubLibrary
+    ? `${DubLibrary.errorText(studioStatus.error, state.lang === 'en')} ${t(memoryOnly ? 'recMemory' : 'localKept')}`
+    : t(studioStatus.key || (studioIdentity === 'guest' ? 'guestPractice' : 'continueHelp'));
+  box.dataset.state = studioStatus.error ? 'error' : studioStatus.key === 'savedAccount' || studioStatus.key === 'movieSaved' ? 'saved' : '';
+  $('btn-resume').disabled = !studioReady || studioLoading || studioDeleting.has(episode().id) || studioJobs.has(episode().id) || Boolean(micSession) || exp.active;
+  $('btn-save-practice').disabled = !studioReady || studioLoading || studioDeleting.has(episode().id) || studioJobs.has(episode().id) || Boolean(micSession) || exp.active;
+  $('btn-movie-retry').hidden = !movieRetry;
+  $('btn-conversation').disabled = !studioReady || studioLoading || Boolean(micSession) || exp.active || !lines().some((line, i) => isMine(line) && recFor(i));
+}
+function scheduleStudioSave(epId, immediate = false) {
+  clearTimeout(studioTimers.get(epId));
+  if (studioDeleting.has(epId)) return;
+  if (!studioReady || !DubLibrary || !DubLibrary.hasAccount()) {
+    if (studioReady) setStudioStatus('guestPractice');
+    return;
+  }
+  const owner = studioIdentity, revision = studioRevision(epId);
+  const begin = () => {
+    studioTimers.delete(epId);
+    if (!sameStudioRevision(owner, epId, revision)) return;
+    const task = (studioJobs.get(epId) || Promise.resolve()).catch(() => {}).then(() => {
+      if (sameStudioRevision(owner, epId, revision)) return persistStudio(epId, owner);
+    });
+    studioJobs.set(epId, task);
+    renderStudioStorage();
+    task.finally(() => { if (studioJobs.get(epId) === task) { studioJobs.delete(epId); renderStudioStorage(); } }).catch(() => {});
+  };
+  if (immediate) begin(); else studioTimers.set(epId, setTimeout(begin, 800));
+}
+function validStudioRefs(draft, ep) {
+  const refs = draft?.state?.recordings;
+  if (!Array.isArray(refs)) return [];
+  return refs.filter((r) => r && Number.isInteger(r.line) && ep.lines[r.line] && r.en === ep.lines[r.line].en
+    && r.speaker === ep.lines[r.line].who && /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(r.audioId));
+}
+async function persistStudio(epId, owner) {
+  if (!sameStudioAccount(owner)) return;
+  const ep = EPISODES.find((item) => item.id === epId), id = studioDraftId(epId);
+  const revision = studioRevision(epId), valid = () => sameStudioRevision(owner, epId, revision);
+  const snapshot = readStudioCheckpoint(epId);
+  if (!ep || !snapshot) return;
+  const edits = [...pendingStudioEdits].filter(([key]) => key.startsWith(`${epId}:`));
+  setStudioStatus('savingAccount');
+  try {
+    if (!studioBases.has(epId)) {
+      try {
+        const found = await DubLibrary.getDraft(id);
+        if (!valid()) return;
+        studioBases.set(epId, found.draft);
+      } catch (e) {
+        if (!valid()) return;
+        if (e.status === 404) studioBases.set(epId, null); else throw e;
+      }
+    }
+    if (!valid()) return;
+    const oldRefs = validStudioRefs(studioBases.get(epId), ep), refs = new Map(oldRefs.map((r) => [r.line, r]));
+    for (const [key, edit] of edits) {
+      if (!valid()) return;
+      const line = Number(key.split(':')[1]);
+      if (!ep.lines[line]) continue;
+      if (edit.deleted) { refs.delete(line); continue; }
+      const audioId = `line-${line}-${DubLibrary.newId()}`;
+      await DubLibrary.uploadAudio(id, audioId, edit.blob);
+      if (!valid()) return;
+      refs.set(line, { line, audioId, en: ep.lines[line].en, speaker: ep.lines[line].who });
+    }
+    const saved = await DubLibrary.saveDraft(id, {
+      engine: 'studio', episodeId: epId, title: ep.title[state.lang],
+      state: { ...snapshot, deletedLines: [], recordings: [...refs.values()] },
+    });
+    if (!valid()) return;
+    studioBases.set(epId, saved.draft); studioDrafts.set(epId, saved.draft);
+    edits.forEach(([key, edit]) => {
+      if (pendingStudioEdits.get(key) !== edit) return;
+      pendingStudioEdits.delete(key);
+      const local = recs.get(key);
+      if (local && local.blob === edit.blob) {
+        local.audioId = refs.get(Number(key.split(':')[1]))?.audioId || null; local.pending = false;
+        const value = localRecValue(key, local);
+        dbWrite((s) => { if (valid()) s.put(value, localRecKey(key, owner)); });
+      }
+    });
+    const localCheckpoint = readStudioCheckpoint(epId);
+    if (localCheckpoint) {
+      localCheckpoint.deletedLines = [...pendingStudioEdits].filter(([key, edit]) => key.startsWith(`${epId}:`) && edit.deleted).map(([key]) => Number(key.split(':')[1]));
+      try { localStorage.setItem(checkpointKey(epId), JSON.stringify(localCheckpoint)); } catch (_) {}
+    }
+    // Only obsolete take IDs from a confirmed manifest can be removed.
+    const liveIds = new Set([...refs.values()].map((r) => r.audioId));
+    oldRefs.forEach((r) => { if (!liveIds.has(r.audioId) && valid()) DubLibrary.removeAudio(id, r.audioId).catch(() => {}); });
+    if (episode().id === epId) setStudioStatus([...pendingStudioEdits.keys()].some((key) => key.startsWith(`${epId}:`)) ? 'savingAccount' : 'savedAccount');
+  } catch (e) {
+    if (valid()) setStudioStatus('', e);
+  }
+}
+async function resumeStudio() {
+  if (!studioReady || studioLoading || studioDeleting.has(episode().id) || studioJobs.has(episode().id) || micSession || exp.active) return;
+  pause();
+  const ep = episode(), owner = studioIdentity, id = studioDraftId(ep.id);
+  const revision = studioRevision(ep.id), valid = () => sameStudioRevision(owner, ep.id, revision);
+  clearTimeout(studioTimers.get(ep.id)); studioTimers.delete(ep.id);
+  studioLoading = true; setStudioStatus('loadingPractice');
+  let draft = null, problem = null, missing = 0;
+  try {
+    if (DubLibrary && DubLibrary.hasAccount()) {
+      try {
+        const result = await DubLibrary.getDraft(id);
+        if (!valid()) return;
+        draft = result.draft;
+      } catch (e) {
+        if (!valid()) return;
+        if (e.status !== 404) problem = e;
+      }
+    }
+    if (!valid()) return;
+    if (draft && (draft.engine !== 'studio' || draft.episodeId !== ep.id)) { draft = null; problem = new Error('invalid_draft'); }
+    if (!problem) studioBases.set(ep.id, draft);
+    const local = readStudioCheckpoint(ep.id);
+    const prefs = local && (!draft || local.updatedAt > (draft.state?.updatedAt || 0)) ? local : draft?.state;
+    if (draft) {
+      const refs = validStudioRefs(draft, ep);
+      const keptLines = new Set(refs.map((ref) => `${ep.id}:${ref.line}`));
+      // A deletion confirmed on another device also removes its old local cache.
+      // A new local take has its own pending edit and is always kept.
+      recs.forEach((recording, key) => {
+        if (!key.startsWith(`${ep.id}:`) || !recording.audioId || keptLines.has(key) || pendingStudioEdits.has(key)) return;
+        recording.audio.pause(); URL.revokeObjectURL(recording.url); recs.delete(key);
+        dbWrite((store) => store.delete(localRecKey(key, owner)));
+      });
+      await Promise.all(refs.map(async (ref) => {
+        const key = `${ep.id}:${ref.line}`;
+        if (recs.get(key)?.audioId === ref.audioId || pendingStudioEdits.has(key)) return;
+        try {
+          const blob = await DubLibrary.getAudio(id, ref.audioId);
+          if (!valid() || pendingStudioEdits.has(key)) return;
+          setRec(key, blob, { audioId: ref.audioId });
+          const value = localRecValue(key, recs.get(key));
+          await dbWrite((s) => { if (valid()) s.put(value, localRecKey(key, owner)); });
+        } catch (_) { missing++; }
+      }));
+      if (!valid()) return;
+      studioDrafts.set(ep.id, draft);
+    }
+    if (!valid() || episode().id !== ep.id) return;
+    if (prefs) {
+      if (['practice', 'dub', 'review'].includes(prefs.mode)) state.mode = prefs.mode;
+      if ([0.7, 0.85, 1].includes(prefs.speed)) state.speed = prefs.speed;
+      for (const key of ['subKo', 'hideMine', 'echo', 'autoNext', 'bgm']) if (typeof prefs[key] === 'boolean') state[key] = prefs[key];
+      if (Array.isArray(prefs.roles)) state.roles = new Set(prefs.roles.filter((r) => castOf(ep).includes(r)));
+      fitRoles();
+      state.idx = Number.isInteger(prefs.idx) ? Math.min(ep.lines.length - 1, Math.max(0, prefs.idx)) : 0;
+      state.finished = false;
+      savePrefs(false);
+    }
+    setStudioStatus(missing ? 'partialResume' : prefs || [...recs.keys()].some((key) => key.startsWith(`${ep.id}:`)) ? 'resumedPractice' : 'noPractice', problem);
+  } finally {
+    if (valid()) { studioLoading = false; renderAll(); }
+  }
+}
+async function saveStudioMovie(blob, meta, owner = studioIdentity) {
+  if (!DubLibrary || !sameStudioAccount(owner)) return;
+  const attempt = { blob, meta, owner };
+  movieRetry = attempt; setStudioStatus('savingAccount');
+  try {
+    await DubLibrary.saveMovie(blob, meta);
+    if (!sameStudioAccount(owner) || movieRetry !== attempt) return;
+    movieRetry = null; setStudioStatus('movieSaved');
+  } catch (e) {
+    if (!sameStudioAccount(owner) || movieRetry !== attempt) return;
+    if (e.clientId) meta.clientId = e.clientId;
+    setStudioStatus('', e);
+  }
+}
+function openStudioConversation() {
+  const recorded = lines().filter((line, i) => isMine(line) && recFor(i));
+  if (!recorded.length) return;
+  const result = window.MangoiDubPractice?.open({
+    episodeId: episode().id, title: episode().title,
+    lines: recorded.map((line) => ({ en: line.en, ko: line.ko, speaker: line.who })),
+  });
+  if (!result?.ok) setStudioStatus('practiceUnavailable');
+}
+async function initStudioStorage() {
+  const owner = studioIdentity;
+  await loadRecs();
+  if (!sameStudioAccount(owner)) return;
+  EPISODES.forEach((ep) => {
+    const deleted = readStudioCheckpoint(ep.id)?.deletedLines;
+    if (Array.isArray(deleted)) deleted.filter((i) => Number.isInteger(i) && ep.lines[i]).forEach((i) => {
+      const key = `${ep.id}:${i}`, recording = recs.get(key);
+      if (recording) { recording.audio.pause(); URL.revokeObjectURL(recording.url); recs.delete(key); }
+      pendingStudioEdits.set(key, { deleted: true });
+    });
+  });
+  studioReady = true; renderRecUI(); renderCues();
+  if (studioResumeRequested) {
+    studioResumeRequested = false;
+    await resumeStudio();
+    if (!sameStudioAccount(owner)) return;
+  }
+  if (DubLibrary && DubLibrary.hasAccount()) {
+    try {
+      const revisions = new Map(EPISODES.map((ep) => [ep.id, studioRevision(ep.id)]));
+      const result = await DubLibrary.listDrafts();
+      if (!sameStudioAccount(owner)) return;
+      result.drafts.filter((d) => d.engine === 'studio' && studioRevision(d.episodeId) === revisions.get(d.episodeId)).forEach((d) => studioDrafts.set(d.episodeId, d));
+      renderStudioStorage();
+      new Set([...pendingStudioEdits.keys()].map((key) => key.split(':')[0])).forEach((epId) => scheduleStudioSave(epId));
+    } catch (e) { if (sameStudioAccount(owner)) setStudioStatus('', e); }
+  }
+}
+function forgetDeletedStudioDraft(detail) {
+  if (!detail || detail.owner !== studioIdentity || !sameStudioAccount(detail.owner)) return;
+  const ep = EPISODES.find((item) => studioDraftId(item.id) === detail.draftId);
+  if (!ep) return;
+  if (detail.phase === 'deleted' || detail.phase === 'failed') {
+    if (!studioDeleting.has(ep.id)) {
+      // A suspended tab may see only the final notice when it becomes active.
+      if (detail.phase === 'deleted') forgetDeletedStudioDraft({ owner: detail.owner, draftId: detail.draftId });
+      return;
+    }
+    if (studioDeleting.get(ep.id) !== detail.nonce) return;
+    studioDeleting.delete(ep.id);
+    if (episode().id === ep.id) { setStudioStatus(detail.phase === 'deleted' ? 'practiceDeleted' : 'practiceDeleteFailed'); renderAll(); }
+    return;
+  }
+  if (detail.phase === 'deleting') studioDeleting.set(ep.id, detail.nonce);
+  studioRevisions.set(ep.id, studioRevision(ep.id) + 1);
+  clearTimeout(studioTimers.get(ep.id)); studioTimers.delete(ep.id); studioJobs.delete(ep.id);
+  if (micSession?.key.startsWith(`${ep.id}:`)) stopMicRecording(true);
+  if (episode().id === ep.id) pause();
+  recs.forEach((recording, key) => {
+    if (!key.startsWith(`${ep.id}:`)) return;
+    recording.audio.pause(); URL.revokeObjectURL(recording.url); recs.delete(key);
+  });
+  [...pendingStudioEdits.keys()].forEach((key) => { if (key.startsWith(`${ep.id}:`)) pendingStudioEdits.delete(key); });
+  studioBases.delete(ep.id); studioDrafts.delete(ep.id); studioCheckpoints.delete(checkpointKey(ep.id));
+  try { localStorage.removeItem(checkpointKey(ep.id)); } catch (_) {}
+  if (episode().id === ep.id) {
+    studioLoading = false; state.idx = 0; state.finished = false; $('finish').hidden = true;
+    setStatus(''); setStudioStatus(detail.phase === 'deleting' ? 'deletingPractice' : 'practiceDeleted'); renderAll();
+  }
+}
+window.addEventListener('mangoi:dubbing-draft-deleted', (event) => forgetDeletedStudioDraft(event.detail));
+window.addEventListener('storage', (event) => {
+  if (event.key !== 'mangoi:dubbing-draft-deleted' || !event.newValue) return;
+  try { forgetDeletedStudioDraft(JSON.parse(event.newValue)); } catch (_) {}
+});
+if (DubLibrary) DubLibrary.onAccountChange((owner) => {
+  stopMicRecording(true); pause();
+  recs.forEach((r) => URL.revokeObjectURL(r.url)); recs.clear();
+  studioIdentity = owner; studioReady = false; studioLoading = false;
+  studioTimers.forEach(clearTimeout); studioTimers.clear(); studioJobs.clear();
+  pendingStudioEdits.clear(); studioBases.clear(); studioDrafts.clear(); studioCheckpoints.clear(); studioDeleting.clear();
+  EPISODES.forEach((ep) => studioRevisions.set(ep.id, studioRevision(ep.id) + 1));
+  studioResumeRequested = false;
+  movieRetry = null; studioStatus = { key: '' }; setStatus('');
+  state.idx = 0; state.finished = false; $('finish').hidden = true;
+  renderAll(); initStudioStorage();
+});
 
 /* =========================================================
    7. MUSIC — 자체 작곡 배경음악 (브라우저에서 실시간 연주, 저작권 없음)
@@ -1143,6 +1661,7 @@ function runLine(i) {
   stopAll();
   const run = runId;
   state.idx = i;
+  checkpointStudio();
   state.finished = false;
   $('finish').hidden = true;
   renderCurrent();
@@ -1170,6 +1689,7 @@ function advance(run) {
   else finishEpisode();
 }
 function play() {
+  stopMicRecording();
   if (!state.roles.size) return;
   if (state.finished) state.idx = 0;
   state.playing = true; state.single = false;
@@ -1185,8 +1705,10 @@ function pause() {
   renderTransport();
 }
 function jump(i, keepPlaying = state.playing) {
+  stopMicRecording();
   const n = lines().length;
   state.idx = Math.max(0, Math.min(n - 1, i));
+  checkpointStudio();
   state.finished = false;
   $('finish').hidden = true;
   if (keepPlaying) { state.playing = true; state.single = false; runLine(state.idx); }
@@ -1194,6 +1716,7 @@ function jump(i, keepPlaying = state.playing) {
   renderTransport();
 }
 function repeatLine() {
+  stopMicRecording();
   if (!state.roles.size) return;
   state.playing = true; state.single = true;
   runLine(state.idx);
@@ -1206,7 +1729,11 @@ function finishEpisode() {
   const mineCount = lines().filter(isMine).length;
   $('finish-body').textContent = t('finishBody')(mineCount);
   $('finish').hidden = false;
-  if (exp.active) setTimeout(() => finishExport(true), 600); // 마지막 소리 꼬리까지 담기
+  if (exp.active) {
+    const recorder = exp.recorder;
+    setTimeout(() => { if (exp.active && exp.recorder === recorder) finishExport(true); }, 600); // 마지막 소리 꼬리까지 담기
+  }
+  checkpointStudio();
   renderTransport();
 }
 
@@ -1239,32 +1766,55 @@ function pickMime() {
 }
 
 function startExport() {
+  if (exp.active) return;
+  if (micSession) { setStatus(t('micRecording')); return; }
   if (!canExport()) { setStatus(t('exportFail')); return; }
   const ctx = audioCtx();
   ctx.resume();
   exp.dest = ctx.createMediaStreamDestination();
   MIX.bus.connect(exp.dest);
   exp.active = true; // routeToMixer가 연결하도록 먼저 켬
+  exp.meta = { engine: 'studio', episodeId: episode().id, title: episode().title[state.lang], interrupted: false,
+    clientId: DubLibrary ? DubLibrary.newId() : undefined };
+  exp.startedAt = Date.now();
+  exp.owner = studioIdentity;
   lines().forEach((_, i) => { const a = audioFor(i); if (a) routeToMixer(a); const r = recFor(i); if (r) routeToMixer(r.audio); });
 
   const canvas = $('export-canvas');
   lines().forEach((_, i) => stillImage(stillFor(i))); // 장면 그림 미리 불러오기
+  exp.stream = null;
   try {
     const stream = canvas.captureStream(30);
+    exp.stream = stream;
     exp.dest.stream.getAudioTracks().forEach((tk) => stream.addTrack(tk));
     const mime = pickMime();
     exp.recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
     exp.mime = exp.recorder.mimeType || mime || 'video/webm';
-  } catch (e) { exp.active = false; MIX.bus.disconnect(exp.dest); setStatus(t('exportFail')); return; }
-  exp.chunks = [];
-  exp.recorder.ondataavailable = (e) => { if (e.data.size) exp.chunks.push(e.data); };
+  } catch (e) {
+    exp.active = false;
+    exp.stream?.getTracks().forEach((track) => track.stop());
+    exp.dest.stream.getAudioTracks().forEach((track) => track.stop());
+    MIX.bus.disconnect(exp.dest); setStatus(t('exportFail')); return;
+  }
+  const chunks = [];
+  exp.chunks = chunks;
+  exp.recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  const recorder = exp.recorder;
+  recorder.onerror = () => {
+    if (!exp.active || exp.recorder !== recorder) return;
+    state.playing = false; stopAll(); stopMusic();
+    finishExport(false, true); renderTransport();
+  };
   document.body.classList.add('exporting');
   $('recbar').hidden = false;
   setStatus('');
-  drawFrame();
-  exp.recorder.start(1000);
-  state.mode = 'review'; savePrefs(); renderSettings();
+  // The canvas is captured immediately, before play() renders the first line.
+  // Reset the caption before drawing so a selected recording cannot leak in.
   state.idx = 0; state.finished = false;
+  drawFrame();
+  try { recorder.start(1000); }
+  catch (e) { recorder.onerror(); return; }
+  state.mode = 'review'; savePrefs(); renderSettings();
   play();
 }
 
@@ -1298,29 +1848,47 @@ function drawCaption(g, W, H) {
   g.fillText(text, x + 20, y + h / 2 + 1);
 }
 
-function finishExport(save) {
+function finishExport(save, failed = false) {
   if (!exp.active) return;
+  const dest = exp.dest, rec = exp.recorder, chunks = exp.chunks, mime = exp.mime;
+  const stream = exp.stream;
+  const releaseTracks = () => (stream?.getTracks() || []).forEach((track) => track.stop());
+  const owner = exp.owner, meta = { ...exp.meta, durationMs: Date.now() - exp.startedAt };
   exp.active = false;
   cancelAnimationFrame(exp.raf);
   document.body.classList.remove('exporting');
   $('recbar').hidden = true;
-  setTimeout(() => { try { MIX.bus.disconnect(exp.dest); } catch (e) { /* 무시 */ } }, 1500); // 팡파르 꼬리까지
-  const rec = exp.recorder;
+  // 이전 작업의 정리가 곧바로 시작한 새 작업의 소리까지 끊지 않게 목적지를 붙잡는다.
+  setTimeout(() => { releaseTracks(); try { MIX.bus.disconnect(dest); } catch (e) { /* 무시 */ } }, 1500);
+  const showStatus = (msg) => { if (sameStudioAccount(owner) && exp.recorder === rec && !exp.active) setStatus(msg); };
+  if (failed) showStatus(t('exportFail'));
+  let stopped = false;
   rec.onstop = async () => {
-    if (!save) { setStatus(t('exportCanceled')); return; }
-    const blob = new Blob(exp.chunks, { type: exp.mime });
-    const ext = exp.mime.includes('mp4') ? 'mp4' : 'webm';
-    setStatus(t('exportReady'));
+    if (stopped) return;
+    stopped = true;
+    releaseTracks();
+    if (!sameStudioAccount(owner)) return;
+    if (failed) { showStatus(t('exportFail')); return; }
+    if (!save) { showStatus(t('exportCanceled')); return; }
+    const blob = new Blob(chunks, { type: mime });
+    const ext = mime.includes('mp4') ? 'mp4' : 'webm';
+    showStatus(t('exportReady'));
     try {
-      await downloads.save({ filename: `dub-${episode().id}-${new Date().toISOString().slice(0, 10)}.${ext}`, data: blob });
-      setStatus(t('exportSaved'));
+      await downloads.save({ filename: `dub-${meta.episodeId}-${new Date().toISOString().slice(0, 10)}.${ext}`, data: blob });
+      showStatus(t('exportSaved'));
     } catch (e) {
-      setStatus(e?.code === 'declined' ? t('exportDeclined') : t('exportFail'));
+      showStatus(e?.code === 'declined' ? t('exportDeclined') : t('exportFail'));
     }
+    if (blob.size) saveStudioMovie(blob, meta, owner);
   };
-  if (rec.state !== 'inactive') rec.stop();
+  if (rec.state === 'inactive') { if (!save || failed) rec.onstop(); }
+  else {
+    try { rec.stop(); }
+    catch (e) { rec.onstop(); }
+  }
 }
 function resetEpisode() {
+  stopMicRecording(true);
   state.playing = false; state.finished = false; state.idx = 0;
   stopAll();
   stopMusic();
@@ -1412,11 +1980,18 @@ function cueRecButtons(i) {
   const add = (label, cls, fn) => {
     const b = document.createElement('button');
     b.type = 'button'; b.textContent = label; if (cls) b.className = cls;
+    b.disabled = studioDeleting.has(episode().id) || Boolean(micSession && micSession.key !== recKey(i));
     b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
     box.appendChild(b);
   };
-  add((has ? '● ' : '🎤 ') + t(has ? 'reRecord' : 'record'), has ? 'has' : '', () => pickRecording(i));
-  if (has) add('▶ ' + t('myVoice'), 'has', () => playMyVoice(i));
+  add((has ? '● ' : '🎤 ') + recordingLabel(i), has ? 'has' : '', () => pickRecording(i));
+  if (has) {
+    add('▶ ' + t('myVoice'), 'has', () => playMyVoice(i));
+    add(t('downloadVoice'), '', () => {
+      const recording = recFor(i);
+      if (recording) downloads.save({ filename: `dub-${episode().id}-line-${i + 1}.${recording.blob.type.includes('mp4') ? 'm4a' : recording.blob.type.includes('ogg') ? 'ogg' : 'webm'}`, data: recording.blob });
+    });
+  }
   return box;
 }
 
@@ -1433,9 +2008,11 @@ function renderRecUI() {
   $('cap-actions').hidden = !showCap;
   if (showCap) {
     const has = Boolean(recFor(state.idx));
-    $('btn-rec-label').textContent = t(has ? 'reRecord' : 'record');
+    $('btn-rec-label').textContent = recordingLabel(state.idx);
+    $('btn-rec').disabled = !studioReady || studioLoading || studioDeleting.has(episode().id) || Boolean(micSession && micSession.key !== recKey(state.idx));
     $('btn-myplay').hidden = !has;
   }
+  renderStudioStorage();
 }
 
 function renderCurrent() {
@@ -1508,7 +2085,6 @@ $('btn-rotate').addEventListener('click', () => {
 });
 
 /* 녹음 */
-$('rec-input').addEventListener('change', onRecordingPicked);
 $('btn-rec').addEventListener('click', () => pickRecording(state.idx));
 $('btn-myplay').addEventListener('click', () => playMyVoice(state.idx));
 $('btn-review').addEventListener('click', () => {
@@ -1517,12 +2093,28 @@ $('btn-review').addEventListener('click', () => {
 });
 $('btn-export').addEventListener('click', startExport);
 $('btn-export-cancel').addEventListener('click', pause);
+$('btn-resume').addEventListener('click', resumeStudio);
+$('btn-save-practice').addEventListener('click', () => {
+  const localSaved = checkpointStudio(false);
+  lines().forEach((_, i) => {
+    const key = recKey(i), recording = recFor(i);
+    if (recording && (!recording.audioId || recording.pending) && !pendingStudioEdits.has(key)) pendingStudioEdits.set(key, { blob: recording.blob, localSaved: true });
+  });
+  if (DubLibrary && DubLibrary.hasAccount()) scheduleStudioSave(episode().id, true);
+  else setStudioStatus(localSaved ? 'savedDevice' : 'recMemory');
+});
+$('btn-movie-retry').addEventListener('click', () => {
+  if (movieRetry && sameStudioAccount(movieRetry.owner)) saveStudioMovie(movieRetry.blob, movieRetry.meta);
+});
+$('btn-conversation').addEventListener('click', openStudioConversation);
 $('btn-clear').addEventListener('click', () => { $('clear-confirm').hidden = false; });
 $('btn-clear-no').addEventListener('click', () => { $('clear-confirm').hidden = true; });
 $('btn-clear-yes').addEventListener('click', () => {
+  stopMicRecording(true);
   lines().forEach((_, i) => deleteRec(recKey(i)));
   $('clear-confirm').hidden = true;
   setStatus(t('cleared'));
+  checkpointStudio();
   renderRecUI(); renderCues(); renderCurrent();
 });
 
@@ -1558,7 +2150,12 @@ document.addEventListener('keydown', (e) => {
 });
 
 renderAll();
-loadRecs();
+initStudioStorage();
+window.addEventListener('beforeunload', (event) => {
+  if (micSession || exp.active || [...pendingStudioEdits.values()].some((edit) => edit.blob && edit.localSaved === false)) {
+    event.preventDefault(); event.returnValue = '';
+  }
+});
 </script>
 </body>
 </html>

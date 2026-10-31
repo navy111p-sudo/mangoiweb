@@ -60,8 +60,8 @@ window.READING_LADDER = {
    "color": "#862e9c",
    "cefr": "B1+/B2",
    "name": {
-    "ko": "고1 지식 글",
-    "en": "High-school non-fiction"
+    "ko": "비문학",
+    "en": "Non-fiction"
    },
    "grade": {
     "ko": "중3~고1",
@@ -165,13 +165,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "길 잃은 강아지가 냄새를 따라 집을 찾아간다.",
-    "en": "A lost puppy follows a smell to find home.",
+    "ko": "벤은 냄새를 따라 집까지 쭉 간다.",
+    "en": "Ben follows the smell all the way home.",
     "keywords": [
-     "puppy",
-     "smell",
-     "home"
-    ]
+     "Ben",
+     "follows",
+     "smell"
+    ],
+    "change": {
+     "from": "Max",
+     "to": "Ben",
+     "koFrom": "맥스는",
+     "koTo": "벤은"
+    }
    }
   },
   {
@@ -265,13 +271,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "비 오는 날에도 집 안에서 재미있게 놀 수 있다.",
-    "en": "Rainy days can be fun inside the house.",
+    "ko": "릴리가 말한다. \"눈 오는 날도 재미있을 수 있구나!\"",
+    "en": "Lily says, \"Snowy days can be fun too!\"",
     "keywords": [
-     "rainy",
-     "fun",
-     "inside"
-    ]
+     "Snowy days",
+     "lily",
+     "says"
+    ],
+    "change": {
+     "from": "Rainy days",
+     "to": "Snowy days",
+     "koFrom": "비 오는 날도",
+     "koTo": "눈 오는 날도"
+    }
    }
   },
   {
@@ -365,13 +377,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "준은 새 학교에서 새 친구를 사귄다.",
-    "en": "Jun makes a new friend at his new school.",
+    "ko": "이제 준에게는 새 친구가 생겼고, 캠프가 즐겁다.",
+    "en": "Now Jun has a new friend, and camp is fun.",
     "keywords": [
-     "friend",
-     "new",
-     "school"
-    ]
+     "camp",
+     "jun",
+     "new"
+    ],
+    "change": {
+     "from": "school",
+     "to": "camp",
+     "koFrom": "학교가",
+     "koTo": "캠프가"
+    }
    }
   },
   {
@@ -465,13 +483,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "톰은 할머니의 텃밭에서 기른 채소가 가장 맛있다고 생각한다.",
-    "en": "Tom thinks vegetables from Grandma's garden taste best.",
+    "ko": "톰은 농장에서 난 음식이 가장 맛있다고 생각한다.",
+    "en": "Tom thinks food from the farm tastes the best.",
     "keywords": [
-     "vegetables",
-     "garden",
-     "taste"
-    ]
+     "farm",
+     "tom",
+     "thinks"
+    ],
+    "change": {
+     "from": "garden",
+     "to": "farm",
+     "koFrom": "텃밭에서",
+     "koTo": "농장에서"
+    }
    }
   },
   {
@@ -565,13 +589,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "미나와 아빠는 깜짝 생일 파티로 엄마를 기쁘게 한다.",
-    "en": "Mina and Dad make Mom happy with a birthday surprise.",
+    "ko": "아빠는 웃으면서 기쁨의 눈물을 흘린다.",
+    "en": "Dad laughs and cries happy tears.",
     "keywords": [
-     "Mom",
-     "happy",
-     "surprise"
-    ]
+     "Dad",
+     "laughs",
+     "cries"
+    ],
+    "change": {
+     "from": "Mom",
+     "to": "Dad",
+     "koFrom": "엄마는",
+     "koTo": "아빠는"
+    }
    }
   },
   {
@@ -665,13 +695,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "친구와 음식을 나누면 모두가 행복해진다.",
-    "en": "Sharing food with a friend makes everyone happy.",
+    "ko": "도움은 두 친구 모두를 기분 좋게 만든다.",
+    "en": "Helping makes both friends feel good.",
     "keywords": [
-     "sharing",
-     "friend",
-     "happy"
-    ]
+     "Helping",
+     "makes",
+     "both"
+    ],
+    "change": {
+     "from": "Sharing",
+     "to": "Helping",
+     "koFrom": "나눔은",
+     "koTo": "도움은"
+    }
    }
   },
   {
@@ -765,13 +801,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "엘라는 치과에서 용기를 내고 뿌듯해한다.",
-    "en": "Ella is brave at the dentist and feels proud.",
+    "ko": "미나는 자기가 용감해서 뿌듯하다.",
+    "en": "Mina feels proud because she is brave.",
     "keywords": [
-     "brave",
-     "dentist",
+     "Mina",
+     "feels",
      "proud"
-    ]
+    ],
+    "change": {
+     "from": "Ella",
+     "to": "Mina",
+     "koFrom": "엘라는",
+     "koTo": "미나는"
+    }
    }
   },
   {
@@ -865,13 +907,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "아이들은 도움을 받아 나무 위의 고양이를 구한다.",
-    "en": "The children get help and save the cat in the tree.",
+    "ko": "아빠는 사다리를 가져와서 조심스럽게 강아지를 내려 준다.",
+    "en": "Dad brings a ladder and carefully gets the puppy.",
     "keywords": [
-     "children",
-     "save",
-     "cat"
-    ]
+     "puppy",
+     "dad",
+     "brings"
+    ],
+    "change": {
+     "from": "cat",
+     "to": "puppy",
+     "koFrom": "고양이를",
+     "koTo": "강아지를"
+    }
    }
   },
   {
@@ -965,13 +1013,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "작은 실수는 함께 치우면 괜찮다.",
-    "en": "Small mistakes are okay when we clean up together.",
+    "ko": "쿠키는 아주 맛있고, 릴리는 작은 실수는 괜찮다는 것을 배운다.",
+    "en": "The cookies taste great, and Lily learns that small mistakes are okay.",
     "keywords": [
-     "mistakes",
-     "clean",
-     "together"
-    ]
+     "cookies",
+     "taste",
+     "great"
+    ],
+    "change": {
+     "from": "pancakes",
+     "to": "cookies",
+     "koFrom": "팬케이크는",
+     "koTo": "쿠키는"
+    }
    }
   },
   {
@@ -1065,13 +1119,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "샘은 열심히 찾아서 잃어버린 장갑을 찾는다.",
-    "en": "Sam looks hard and finds his lost mitten.",
+    "ko": "그것은 샘의 목도리이고, 샘은 아주 기쁘다!",
+    "en": "It is his scarf, and Sam is very happy!",
     "keywords": [
-     "finds",
-     "lost",
-     "mitten"
-    ]
+     "scarf",
+     "sam",
+     "very"
+    ],
+    "change": {
+     "from": "mitten",
+     "to": "scarf",
+     "koFrom": "장갑이고",
+     "koTo": "목도리이고"
+    }
    }
   },
   {
@@ -1165,13 +1225,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "참고 기다리면 작은 씨앗이 꽃으로 자란다.",
-    "en": "With patience, a little seed grows into a flower.",
+    "ko": "미나는 포기하고 싶지만, 엄마가 말한다. \"기다려 보렴.\"",
+    "en": "Mina wants to give up, but Mom says, \"Wait and see.\"",
     "keywords": [
-     "patience",
-     "seed",
-     "flower"
-    ]
+     "Mina",
+     "wants",
+     "give"
+    ],
+    "change": {
+     "from": "Hana",
+     "to": "Mina",
+     "koFrom": "하나는",
+     "koTo": "미나는"
+    }
    }
   },
   {
@@ -1265,13 +1331,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "톰과 릴리는 반딧불이를 잡았다가 자유롭게 놓아준다.",
-    "en": "Tom and Lily catch fireflies and let them go free.",
+    "ko": "톰이 상자를 열자, 반딧불이들이 별을 향해 날아오른다.",
+    "en": "Tom opens the box, and the fireflies fly up to the stars.",
     "keywords": [
-     "catch",
-     "fireflies",
-     "free"
-    ]
+     "box",
+     "tom",
+     "opens"
+    ],
+    "change": {
+     "from": "jar",
+     "to": "box",
+     "koFrom": "병을",
+     "koTo": "상자를"
+    }
    }
   },
   {
@@ -1377,13 +1449,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "나는 작은 외계인이 우주선을 고치도록 도왔다.",
-    "en": "I helped a little alien fix his spaceship.",
+    "ko": "내가 강아지가 집에 가도록 도와주었다!",
+    "en": "I helped an puppy go home!",
     "keywords": [
+     "puppy",
      "helped",
-     "alien",
-     "spaceship"
-    ]
+     "home"
+    ],
+    "change": {
+     "from": "alien",
+     "to": "puppy",
+     "koFrom": "외계인이",
+     "koTo": "강아지가"
+    }
    }
   },
   {
@@ -1489,13 +1567,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "미나는 달에 갔다가 무사히 돌아왔다.",
-    "en": "Mina went to the Moon and came back safely.",
+    "ko": "미나의 화성 여행은 멋진 모험이다!",
+    "en": "Her trip to the Mars is a great adventure!",
     "keywords": [
-     "mina",
-     "moon",
-     "safely"
-    ]
+     "Mars",
+     "trip",
+     "great"
+    ],
+    "change": {
+     "from": "Moon",
+     "to": "Mars",
+     "koFrom": "달 여행은",
+     "koTo": "화성 여행은"
+    }
    }
   },
   {
@@ -1601,13 +1685,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "제이가 찾은 알에서 아기 공룡이 나왔다.",
-    "en": "A baby dinosaur came out of the egg Jay found.",
+    "ko": "제이의 알 덕분에 마을에서 가장 큰 친구가 생겼다!",
+    "en": "Jay's egg gave him the biggest friend in village!",
     "keywords": [
-     "dinosaur",
-     "egg",
-     "jay"
-    ]
+     "village",
+     "jay's",
+     "egg"
+    ],
+    "change": {
+     "from": "town",
+     "to": "village",
+     "koFrom": "동네에서",
+     "koTo": "마을에서"
+    }
    }
   },
   {
@@ -1713,13 +1803,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "로봇 삐프가 숙제를 먹었지만 이제는 나를 돕는다.",
-    "en": "My robot Beep ate my homework, but now he helps me.",
+    "ko": "내 로봇이 샌드위치를 먹어 버렸다!",
+    "en": "My robot ate my sandwich!",
     "keywords": [
+     "sandwich",
      "robot",
-     "homework",
-     "helps"
-    ]
+     "ate"
+    ],
+    "change": {
+     "from": "homework",
+     "to": "sandwich",
+     "koFrom": "숙제를",
+     "koTo": "샌드위치를"
+    }
    }
   },
   {
@@ -1821,13 +1917,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "할아버지의 보물 지도는 노라에게 가족이 진짜 보물이라는 것을 알려 주었다.",
-    "en": "Grandpa's treasure map showed Nora that family is the real treasure.",
+    "ko": "쪽지에는 \"진짜 보물은 우정이란다. 사랑하는 할아버지가.\"라고 적혀 있다.",
+    "en": "The note says, \"The real treasure is friendship. Love, Grandpa.\"",
     "keywords": [
-     "map",
-     "family",
-     "treasure"
-    ]
+     "friendship",
+     "note",
+     "says"
+    ],
+    "change": {
+     "from": "family",
+     "to": "friendship",
+     "koFrom": "가족이란다",
+     "koTo": "우정이란다"
+    }
    }
   },
   {
@@ -1933,13 +2035,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "침대 밑 소리는 괴물이 아니라 우리 아기 고양이였다.",
-    "en": "The noise under my bed was my kitten, not a monster.",
+    "ko": "무서운 괴물은 그냥 우리 개였다!",
+    "en": "The scary monster was just my dog!",
     "keywords": [
-     "noise",
-     "kitten",
+     "dog",
+     "scary",
      "monster"
-    ]
+    ],
+    "change": {
+     "from": "cat",
+     "to": "dog",
+     "koFrom": "고양이였다",
+     "koTo": "개였다"
+    }
    }
   },
   {
@@ -2045,13 +2153,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "드라고는 재채기로 불을 뿜어서 마을을 구했다.",
-    "en": "Drago sneezed fire and saved the village.",
+    "ko": "작은 토끼도 영웅이 될 수 있다.",
+    "en": "Even a little rabbit can be a hero.",
     "keywords": [
-     "drago",
-     "fire",
-     "village"
-    ]
+     "rabbit",
+     "even",
+     "little"
+    ],
+    "change": {
+     "from": "dragon",
+     "to": "rabbit",
+     "koFrom": "용도",
+     "koTo": "토끼도"
+    }
    }
   },
   {
@@ -2157,13 +2271,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "샘은 초능력 없이도 아기 고양이를 구했다.",
-    "en": "Sam saved a kitten without any superpowers.",
+    "ko": "다른 사람을 돕는 데 마법은 필요 없다.",
+    "en": "You do not need magic to help others.",
     "keywords": [
-     "sam",
-     "kitten",
-     "superpowers"
-    ]
+     "magic",
+     "need",
+     "help"
+    ],
+    "change": {
+     "from": "superpowers",
+     "to": "magic",
+     "koFrom": "초능력은",
+     "koTo": "마법은"
+    }
    }
   },
   {
@@ -2265,13 +2385,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "우리 고양이 미미는 말을 할 수 있지만 화요일에만 한다.",
-    "en": "My cat Mimi can talk, but only on Tuesdays.",
+    "ko": "이제 금요일이 제일 좋다. 고양이가 말을 하니까!",
+    "en": "Now Friday is my favorite day, because my cat can talk!",
     "keywords": [
-     "cat",
-     "talk",
-     "tuesdays"
-    ]
+     "Friday",
+     "favorite",
+     "day"
+    ],
+    "change": {
+     "from": "Tuesday",
+     "to": "Friday",
+     "koFrom": "화요일이",
+     "koTo": "금요일이"
+    }
    }
   },
   {
@@ -2373,13 +2499,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "친절한 외계인이 카이가 우주선을 찾도록 도와주었다.",
-    "en": "A kind alien helped Kai find his spaceship.",
+    "ko": "벤은 무사하고, 외계인 친구도 생겼다.",
+    "en": "Ben is safe, and he has a new alien friend.",
     "keywords": [
-     "alien",
-     "kai",
-     "spaceship"
-    ]
+     "Ben",
+     "safe",
+     "new"
+    ],
+    "change": {
+     "from": "Kai",
+     "to": "Ben",
+     "koFrom": "카이는",
+     "koTo": "벤은"
+    }
    }
   },
   {
@@ -2481,13 +2613,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "엘라의 요술 연필은 그림을 진짜로 만든다.",
-    "en": "Ella's magic pencil makes her drawings come to life.",
+    "ko": "엘라가 물감으로 그리는 것은 모두 진짜가 된다!",
+    "en": "Everything she paints comes to life!",
     "keywords": [
-     "magic",
-     "pencil",
-     "drawings"
-    ]
+     "paints",
+     "everything",
+     "comes"
+    ],
+    "change": {
+     "from": "draws",
+     "to": "paints",
+     "koFrom": "그리는 것은",
+     "koTo": "물감으로 그리는 것은"
+    }
    }
   },
   {
@@ -2589,13 +2727,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "피트가 배고픈 문어에게 친절하게 대하자 문어가 배를 놓아주었다.",
-    "en": "Pete was kind to the hungry octopus, so it let the ship go.",
+    "ko": "친절이 말다툼보다 낫다.",
+    "en": "Being kind is better than arguing.",
     "keywords": [
+     "arguing",
      "kind",
-     "octopus",
-     "ship"
-    ]
+     "better"
+    ],
+    "change": {
+     "from": "fighting",
+     "to": "arguing",
+     "koFrom": "싸움보다",
+     "koTo": "말다툼보다"
+    }
    }
   },
   {
@@ -2701,13 +2845,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "부는 반딧불이 친구들과 함께라서 어둠이 무섭지 않았다.",
-    "en": "Boo was not scared of the dark with his firefly friends.",
+    "ko": "가족이 있으면 어둠도 그렇게 무섭지 않다.",
+    "en": "The dark is not so scary with family.",
     "keywords": [
+     "family",
      "dark",
-     "firefly",
-     "friends"
-    ]
+     "scary"
+    ],
+    "change": {
+     "from": "friends",
+     "to": "family",
+     "koFrom": "친구가",
+     "koTo": "가족이"
+    }
    }
   },
   {
@@ -2809,13 +2959,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "레오는 화성을 탐험하고 모래 폭풍 속에서도 무사했다.",
-    "en": "Leo explored Mars and stayed safe in a dust storm.",
+    "ko": "레오는 무사하고, 금성에 간 첫 번째 사람이다!",
+    "en": "Leo is safe, and he is the first person on Venus!",
     "keywords": [
-     "mars",
-     "storm",
+     "Venus",
+     "leo",
      "safe"
-    ]
+    ],
+    "change": {
+     "from": "Mars",
+     "to": "Venus",
+     "koFrom": "화성에",
+     "koTo": "금성에"
+    }
    }
   },
   {
@@ -2921,13 +3077,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "톰은 투명 인간이 되어 보고, 눈에 보이는 것이 더 좋다는 것을 알았다.",
-    "en": "Tom was invisible and learned that being seen is better.",
+    "ko": "사랑하는 사람들이 나를 목소리를 들어 주는 것이 최고다!",
+    "en": "Being heard by the people you love is the best!",
     "keywords": [
-     "tom",
-     "invisible",
-     "seen"
-    ]
+     "heard",
+     "people",
+     "love"
+    ],
+    "change": {
+     "from": "seen",
+     "to": "heard",
+     "koFrom": "봐 주는",
+     "koTo": "목소리를 들어 주는"
+    }
    }
   },
   {
@@ -3029,13 +3191,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "티라노사우루스가 우리 학교에 와서 친구가 되었다.",
-    "en": "A T. rex came to our school and became our friend.",
+    "ko": "이제 로봇은 최고의 반 친구이다!",
+    "en": "Now the robot is the best classmate ever!",
     "keywords": [
-     "rex",
-     "school",
-     "friend"
-    ]
+     "robot",
+     "best",
+     "classmate"
+    ],
+    "change": {
+     "from": "T. rex",
+     "to": "robot",
+     "koFrom": "티라노는",
+     "koTo": "로봇은"
+    }
    }
   },
   {
@@ -3141,13 +3309,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "귀신의 집은 사실 나의 깜짝 생일 파티였다.",
-    "en": "The haunted house was really my surprise birthday party.",
+    "ko": "귀신의 성은 나를 위한 깜짝 생일 파티였다!",
+    "en": "The haunted castle was my secret birthday party!",
     "keywords": [
+     "castle",
      "haunted",
-     "surprise",
-     "party"
-    ]
+     "secret"
+    ],
+    "change": {
+     "from": "house",
+     "to": "castle",
+     "koFrom": "집은",
+     "koTo": "성은"
+    }
    }
   },
   {
@@ -3249,13 +3423,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "릴리가 진주를 찾아서 인어가 집에 갈 수 있었다.",
-    "en": "Lily found the pearl, so the mermaid could go home.",
+    "ko": "미나가 진주를 찾아 주자 인어는 집으로 헤엄쳐 간다.",
+    "en": "Mina helps the mermaid get her pearl back, and the mermaid swims home.",
     "keywords": [
-     "lily",
-     "pearl",
+     "Mina",
+     "helps",
      "mermaid"
-    ]
+    ],
+    "change": {
+     "from": "Lily",
+     "to": "Mina",
+     "koFrom": "릴리가",
+     "koTo": "미나가"
+    }
    }
   },
   {
@@ -3357,13 +3537,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "로봇 강아지 스파키가 길 잃은 동생을 찾았다.",
-    "en": "My robot dog Sparky found my lost brother.",
+    "ko": "스파키가 여동생을 찾았다. 진짜 영웅이다!",
+    "en": "Sparky found my sister. He is a real hero!",
     "keywords": [
-     "robot",
-     "found",
-     "brother"
-    ]
+     "sister",
+     "sparky",
+     "found"
+    ],
+    "change": {
+     "from": "brother",
+     "to": "sister",
+     "koFrom": "동생을",
+     "koTo": "여동생을"
+    }
    }
   },
   {
@@ -3469,13 +3655,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "맥스는 물약을 마시고 개미만큼 작아졌다.",
-    "en": "Max became as small as an ant after drinking a potion.",
+    "ko": "휙! 맥스가 벌만큼 작아졌다!",
+    "en": "Whoosh! He is as small as an bee!",
     "keywords": [
-     "small",
-     "ant",
-     "potion"
-    ]
+     "bee",
+     "whoosh",
+     "small"
+    ],
+    "change": {
+     "from": "ant",
+     "to": "bee",
+     "koFrom": "개미만큼",
+     "koTo": "벌만큼"
+    }
    }
   },
   {
@@ -3577,13 +3769,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "로사가 먼 행성에 피자를 배달했고, 외계인들이 정말 좋아했다.",
-    "en": "Rosa delivered pizza to a far planet, and the aliens loved it.",
+    "ko": "\"지구 빵이 우주 최고야!\"",
+    "en": "\"Earth bread is the best in the universe!\"",
     "keywords": [
-     "pizza",
-     "planet",
-     "aliens"
-    ]
+     "bread",
+     "earth",
+     "best"
+    ],
+    "change": {
+     "from": "pizza",
+     "to": "bread",
+     "koFrom": "피자가",
+     "koTo": "빵이"
+    }
    }
   },
   {
@@ -3689,13 +3887,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "아리와 아빠는 아슬아슬하게 화산에서 도망쳤다.",
-    "en": "Ari and Dad ran away from a volcano just in time.",
+    "ko": "아리와 아빠는 아슬아슬하게 동굴에서 빠져나왔다!",
+    "en": "Ari and Dad escaped the cave just in time!",
     "keywords": [
-     "ran",
-     "volcano",
-     "time"
-    ]
+     "cave",
+     "ari",
+     "dad"
+    ],
+    "change": {
+     "from": "volcano",
+     "to": "cave",
+     "koFrom": "화산에서",
+     "koTo": "동굴에서"
+    }
    }
   },
   {
@@ -3801,13 +4005,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "모모는 낮에는 졸린 고양이, 밤에는 닌자다.",
-    "en": "Momo is a sleepy cat by day and a ninja by night.",
+    "ko": "모모는 닌자 개다!",
+    "en": "Momo is a ninja dog!",
     "keywords": [
-     "cat",
-     "day",
+     "dog",
+     "momo",
      "ninja"
-    ]
+    ],
+    "change": {
+     "from": "cat",
+     "to": "dog",
+     "koFrom": "고양이다",
+     "koTo": "개다"
+    }
    }
   },
   {
@@ -3909,13 +4119,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "하나는 타임머신을 타고 미래에 갔다.",
-    "en": "Hana went to the future in a time machine.",
+    "ko": "하나의 과거 여행은 놀라운 일투성이다!",
+    "en": "Hana's trip to the past is full of surprises!",
     "keywords": [
-     "future",
-     "time",
-     "machine"
-    ]
+     "past",
+     "hana's",
+     "trip"
+    ],
+    "change": {
+     "from": "future",
+     "to": "past",
+     "koFrom": "미래 여행은",
+     "koTo": "과거 여행은"
+    }
    }
   },
   {
@@ -4017,13 +4233,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "다정한 눈 괴물이 민호가 가족을 찾도록 도와주었다.",
-    "en": "A friendly snow monster helped Minho find his family.",
+    "ko": "숲속 괴물은 무섭지 않고 다정했다!",
+    "en": "The forest monster was kind, not scary!",
     "keywords": [
-     "monster",
-     "helped",
-     "family"
-    ]
+     "forest monster",
+     "kind",
+     "scary"
+    ],
+    "change": {
+     "from": "snow monster",
+     "to": "forest monster",
+     "koFrom": "눈 괴물은",
+     "koTo": "숲속 괴물은"
+    }
    }
   },
   {
@@ -4125,13 +4347,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "외계인 지프는 동물원에 온 사람들이 웃긴 동물이라고 생각했다.",
-    "en": "Zip the alien thought the people at the zoo were funny animals.",
+    "ko": "외계인에게는 사람이 가장 신기한 생명체이다!",
+    "en": "To an alien, people are the strangest creatures of all!",
     "keywords": [
+     "creatures",
      "alien",
-     "zoo",
-     "animals"
-    ]
+     "people"
+    ],
+    "change": {
+     "from": "animals",
+     "to": "creatures",
+     "koFrom": "동물이다",
+     "koTo": "생명체이다"
+    }
    }
   },
   {
@@ -4233,13 +4461,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "아이들이 거인에게 신발을 돌려주었다.",
-    "en": "The kids helped the giant get his shoe back.",
+    "ko": "무서운 거인은 그냥 모자를 찾고 있었다!",
+    "en": "The scary giant was just looking for his hat!",
     "keywords": [
-     "kids",
-     "giant",
-     "shoe"
-    ]
+     "hat",
+     "scary",
+     "giant"
+    ],
+    "change": {
+     "from": "shoe",
+     "to": "hat",
+     "koFrom": "신발을",
+     "koTo": "모자를"
+    }
    }
   },
   {
@@ -4341,13 +4575,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "유리는 그물을 잘라 아기 고래를 구했다.",
-    "en": "Yuri cut the net and saved the baby whale.",
+    "ko": "미나가 아기 고래를 구했고, 고래들이 고맙다고 인사했다.",
+    "en": "Mina saved the baby whale, and the whales said thank you.",
     "keywords": [
-     "net",
+     "Mina",
      "saved",
-     "whale"
-    ]
+     "baby"
+    ],
+    "change": {
+     "from": "Yuri",
+     "to": "Mina",
+     "koFrom": "유리가",
+     "koTo": "미나가"
+    }
    }
   },
   {
@@ -4453,13 +4693,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "핀은 마법 실수를 했지만 꼼꼼하게 바로잡았다.",
-    "en": "Finn made a magic mistake, but he fixed it carefully.",
+    "ko": "핀은 불을 조심해서 써야 한다는 것을 배운다.",
+    "en": "Finn learns to be careful with fire.",
     "keywords": [
-     "magic",
-     "mistake",
-     "fixed"
-    ]
+     "fire",
+     "finn",
+     "learns"
+    ],
+    "change": {
+     "from": "magic",
+     "to": "fire",
+     "koFrom": "마법을",
+     "koTo": "불을"
+    }
    }
   },
   {
@@ -4561,13 +4807,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "말하는 앵무새가 타라를 캠프로 데려다주었다.",
-    "en": "A talking parrot led Tara back to her camp.",
+    "ko": "똑똑한 원숭이가 타라가 돌아오도록 도와주었다.",
+    "en": "A clever monkey helped Tara find her way back.",
     "keywords": [
-     "parrot",
-     "tara",
-     "camp"
-    ]
+     "monkey",
+     "clever",
+     "helped"
+    ],
+    "change": {
+     "from": "parrot",
+     "to": "monkey",
+     "koFrom": "앵무새가",
+     "koTo": "원숭이가"
+    }
    }
   },
   {
@@ -4669,13 +4921,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "지우는 달토끼를 만나 함께 떡을 먹었다.",
-    "en": "Jiwoo met the Moon rabbit and ate rice cakes with it.",
+    "ko": "갑자기 갈색 토끼가 달빛을 타고 내려온다!",
+    "en": "Suddenly, a brown rabbit jumps down on a moonbeam!",
     "keywords": [
-     "rabbit",
-     "rice",
-     "cakes"
-    ]
+     "brown",
+     "suddenly",
+     "rabbit"
+    ],
+    "change": {
+     "from": "white",
+     "to": "brown",
+     "koFrom": "하얀",
+     "koTo": "갈색"
+    }
    }
   },
   {
@@ -4781,13 +5039,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "우리 할머니는 몰래 날아올라 고양이를 구했다.",
-    "en": "My grandma secretly flew up and saved our cat.",
+    "ko": "우리 할아버지는 비밀 슈퍼히어로다!",
+    "en": "My grandpa is a secret superhero!",
     "keywords": [
-     "grandma",
-     "saved",
-     "cat"
-    ]
+     "grandpa",
+     "secret",
+     "superhero"
+    ],
+    "change": {
+     "from": "grandma",
+     "to": "grandpa",
+     "koFrom": "할머니는",
+     "koTo": "할아버지는"
+    }
    }
   },
   {
@@ -4893,13 +5157,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "밤에 박물관에서 공룡 뼈들이 나와 함께 춤을 추었다.",
-    "en": "The dinosaur bones danced with me at the museum at night.",
+    "ko": "커다란 박물관 장난감들이 움직인다!",
+    "en": "The big museum toys are moving!",
     "keywords": [
-     "dinosaur",
-     "danced",
-     "museum"
-    ]
+     "museum toys",
+     "big",
+     "moving"
+    ],
+    "change": {
+     "from": "dinosaur bones",
+     "to": "museum toys",
+     "koFrom": "공룡 뼈가",
+     "koTo": "박물관 장난감들이"
+    }
    }
   },
   {
@@ -5001,13 +5271,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "외계인 글롭은 김치를 먹어 보고 정말 좋아했다.",
-    "en": "Glorp the alien tried kimchi and loved it.",
+    "ko": "이제 피자는 글롭이 우주에서 제일 좋아하는 음식이다!",
+    "en": "Now pizza is his favorite food in the universe!",
     "keywords": [
-     "alien",
-     "kimchi",
-     "loved"
-    ]
+     "pizza",
+     "favorite",
+     "food"
+    ],
+    "change": {
+     "from": "kimchi",
+     "to": "pizza",
+     "koFrom": "김치는",
+     "koTo": "피자는"
+    }
    }
   },
   {
@@ -5109,13 +5385,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "아기 용이 벤을 태우고 성까지 날아가서 벤이 경주에서 이겼다.",
-    "en": "Ben won the race because his baby dragon flew him to the castle.",
+    "ko": "벤은 새 로봇 친구와 함께 경주에서 이긴다!",
+    "en": "Ben wins the race with his new robot friend!",
     "keywords": [
-     "race",
-     "dragon",
-     "castle"
-    ]
+     "robot",
+     "ben",
+     "wins"
+    ],
+    "change": {
+     "from": "dragon",
+     "to": "robot",
+     "koFrom": "용 친구와",
+     "koTo": "로봇 친구와"
+    }
    }
   },
   {
@@ -5217,13 +5499,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "김 선장은 혜성을 밀어내서 지구를 구했다.",
-    "en": "Captain Kim pushed the comet away and saved Earth.",
+    "ko": "김 선장이 달을 구했다!",
+    "en": "Captain Kim saved the Moon!",
     "keywords": [
-     "comet",
-     "saved",
-     "earth"
-    ]
+     "Moon",
+     "captain",
+     "kim"
+    ],
+    "change": {
+     "from": "Earth",
+     "to": "Moon",
+     "koFrom": "지구를",
+     "koTo": "달을"
+    }
    }
   },
   {
@@ -5329,13 +5617,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "미래를 위해 미리 준비하는 것이 현명하다.",
-    "en": "It is wise to prepare for the future ahead of time.",
+    "ko": "개미는 빵을 조금 나누어 주었고, 베짱이는 미래를 위해 준비하는 것이 현명하다는 것을 배웠어요.",
+    "en": "The ant shared some bread, and the grasshopper learned that it is wise to prepare for the future.",
     "keywords": [
-     "wise",
-     "prepare",
-     "future"
-    ]
+     "bread",
+     "ant",
+     "shared"
+    ],
+    "change": {
+     "from": "food",
+     "to": "bread",
+     "koFrom": "음식을",
+     "koTo": "빵을"
+    }
    }
   },
   {
@@ -5441,13 +5735,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "거짓말을 하면 진실을 말할 때도 사람들이 믿어 주지 않는다.",
-    "en": "If you tell lies, people will not believe your truth.",
+    "ko": "벤은 거짓말을 하면 진실을 말할 때조차 사람들이 믿어 주지 않는다는 것을 배웠어요.",
+    "en": "Ben learned that when you tell lies, people will not believe you even when you tell the truth.",
     "keywords": [
-     "lies",
-     "believe",
-     "truth"
-    ]
+     "Ben",
+     "learned",
+     "when"
+    ],
+    "change": {
+     "from": "Leo",
+     "to": "Ben",
+     "koFrom": "레오는",
+     "koTo": "벤은"
+    }
    }
   },
   {
@@ -5553,13 +5853,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "혼자 빛나는 것보다 팀으로 함께 협력하는 것이 더 중요하다.",
-    "en": "Working together as a team matters more than playing alone.",
+    "ko": "그들은 함께 협력하는 것이 혼자 리더가 되는 것보다 더 중요하다는 것을 깨달았어요.",
+    "en": "They understood that working together is more important than being a leader.",
     "keywords": [
-     "together",
-     "team",
-     "alone"
-    ]
+     "leader",
+     "understood",
+     "working"
+    ],
+    "change": {
+     "from": "star",
+     "to": "leader",
+     "koFrom": "스타가",
+     "koTo": "리더가"
+    }
    }
   },
   {
@@ -5665,13 +5971,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "새로운 곳에서는 새로운 일에 도전하면 친구를 사귈 수 있다.",
-    "en": "In a new place, trying new things can help you make friends.",
+    "ko": "곧 민호는 친구가 많이 생겼고, 새로운 것에 도전하면 낯선 곳도 편안해질 수 있다는 것을 배웠어요.",
+    "en": "Soon Minho had many friends, and he learned that trying something new can help you feel at home.",
     "keywords": [
-     "place",
-     "trying",
-     "friends"
-    ]
+     "Minho",
+     "soon",
+     "many"
+    ],
+    "change": {
+     "from": "Jiho",
+     "to": "Minho",
+     "koFrom": "지호는",
+     "koTo": "민호는"
+    }
    }
   },
   {
@@ -5777,13 +6089,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "말은 다르게 이해될 수 있으므로 지시는 분명하게 해야 한다.",
-    "en": "Instructions must be clear because words can be understood differently.",
+    "ko": "유나는 말은 여러 가지로 이해될 수 있으니 좋은 설명은 분명해야 한다는 것을 배웠어요.",
+    "en": "She learned that good explanations must be clear, because words can be understood in different ways.",
     "keywords": [
-     "instructions",
-     "clear",
-     "words"
-    ]
+     "explanations",
+     "learned",
+     "good"
+    ],
+    "change": {
+     "from": "instructions",
+     "to": "explanations",
+     "koFrom": "지시는",
+     "koTo": "설명은"
+    }
    }
   },
   {
@@ -5889,13 +6207,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "길을 잃었을 때는 침착하게 도움을 요청하는 것이 가장 좋다.",
-    "en": "When you are lost, stay calm and ask for help.",
+    "ko": "미나는 침착하게 도움을 요청하는 것이 문제를 해결하는 가장 좋은 방법이라는 것을 배웠어요.",
+    "en": "Mina learned that staying calm and asking for help is the best way to solve a problem.",
     "keywords": [
-     "lost",
-     "calm",
-     "help"
-    ]
+     "Mina",
+     "learned",
+     "staying"
+    ],
+    "change": {
+     "from": "Hana",
+     "to": "Mina",
+     "koFrom": "하나는",
+     "koTo": "미나는"
+    }
    }
   },
   {
@@ -6001,13 +6325,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "실수는 실패가 아니라 배우고 더 나아질 수 있는 기회이다.",
-    "en": "Mistakes are not failures but chances to learn and improve.",
+    "ko": "지호는 실수는 실패가 아니라 배우고 더 잘할 수 있는 기회라는 것을 배웠어요.",
+    "en": "Jiho learned that mistakes are not failures but chances to learn and do better.",
     "keywords": [
-     "mistakes",
-     "failures",
-     "chances"
-    ]
+     "Jiho",
+     "learned",
+     "mistakes"
+    ],
+    "change": {
+     "from": "Minho",
+     "to": "Jiho",
+     "koFrom": "민호는",
+     "koTo": "지호는"
+    }
    }
   },
   {
@@ -6113,13 +6443,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "사진은 가족의 추억을 간직하게 해 주고 가족을 더 가깝게 만든다.",
-    "en": "Photos keep family memories alive and bring families closer.",
+    "ko": "아라는 이야기가 가족의 추억을 살아 있게 해 주고 우리를 더 가깝게 만들어 준다는 것을 알게 되었어요.",
+    "en": "She understood that stories keep our family memories alive and bring us closer.",
     "keywords": [
-     "photos",
-     "memories",
-     "closer"
-    ]
+     "stories",
+     "understood",
+     "keep"
+    ],
+    "change": {
+     "from": "photos",
+     "to": "stories",
+     "koFrom": "사진이",
+     "koTo": "이야기가"
+    }
    }
   },
   {
@@ -6229,13 +6565,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "정직함은 언제나 가장 좋은 선택이다.",
-    "en": "Being honest is always the best choice you can make.",
+    "ko": "이 이야기는 친절함이 언제나 가장 좋은 선택이라는 것을 가르쳐 줘요.",
+    "en": "The story teaches us that kindness is always the best choice.",
     "keywords": [
-     "honest",
-     "best",
-     "choice"
-    ]
+     "kindness",
+     "story",
+     "teaches"
+    ],
+    "change": {
+     "from": "honesty",
+     "to": "kindness",
+     "koFrom": "정직함이",
+     "koTo": "친절함이"
+    }
    }
   },
   {
@@ -6341,13 +6683,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "모두가 조금씩 나누면 모두가 먹을 만큼 충분한 음식이 생긴다.",
-    "en": "When everyone shares a little, there is enough food for all.",
+    "ko": "사람들은 모두가 조금씩 기르면 모두에게 충분하다는 것을 배웠어요.",
+    "en": "They learned that when everyone grows a little, there is enough for all.",
     "keywords": [
-     "everyone",
-     "shares",
-     "enough"
-    ]
+     "grows",
+     "learned",
+     "when"
+    ],
+    "change": {
+     "from": "shares",
+     "to": "grows",
+     "koFrom": "나누면",
+     "koTo": "기르면"
+    }
    }
   },
   {
@@ -6453,13 +6801,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "작은 행동으로도 바다 동물을 플라스틱 쓰레기로부터 지킬 수 있다.",
-    "en": "Even small actions can protect sea animals from plastic trash.",
+    "ko": "지수는 플라스틱을 줍는 것 같은 작은 행동이 숲속 동물을 지킬 수 있다는 것을 배웠어요.",
+    "en": "Jisu learned that small actions, like picking up plastic, can protect forest animals.",
     "keywords": [
-     "actions",
-     "protect",
-     "plastic"
-    ]
+     "forest animals",
+     "jisu",
+     "learned"
+    ],
+    "change": {
+     "from": "sea animals",
+     "to": "forest animals",
+     "koFrom": "바다 동물을",
+     "koTo": "숲속 동물을"
+    }
    }
   },
   {
@@ -6565,13 +6919,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "용기란 무서울 때에도 무언가를 해내는 것이다.",
-    "en": "Courage means doing something even when you feel scared.",
+    "ko": "미나는 용기란 무서울 때에도 무언가를 해내는 것이라는 것을 배웠어요.",
+    "en": "Mina learned that courage means doing something even when you feel scared.",
     "keywords": [
-     "courage",
-     "doing",
-     "scared"
-    ]
+     "Mina",
+     "learned",
+     "courage"
+    ],
+    "change": {
+     "from": "Juno",
+     "to": "Mina",
+     "koFrom": "주노는",
+     "koTo": "미나는"
+    }
    }
   },
   {
@@ -6689,13 +7049,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "주노와 아라는 라디오로 외로운 외계인과 친구가 되었다.",
-    "en": "Juno and Ara made friends with a lonely alien through their radio.",
+    "ko": "친구는 생각지도 못한 상황에서 만날 수 있다.",
+    "en": "A friend can be found in the most surprising situations.",
     "keywords": [
-     "friends",
-     "lonely",
-     "alien"
-    ]
+     "situations",
+     "friend",
+     "found"
+    ],
+    "change": {
+     "from": "places",
+     "to": "situations",
+     "koFrom": "곳에서",
+     "koTo": "상황에서"
+    }
    }
   },
   {
@@ -6813,13 +7179,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "소민이는 침착하게 모두를 침몰하는 배 밖으로 이끌었다.",
-    "en": "Somin stayed calm and led everyone out of the sinking ship.",
+    "ko": "미나가 침착했기 때문에 모두가 탈출할 수 있었다.",
+    "en": "Because Mina stayed calm, she helped everyone escape.",
     "keywords": [
-     "calm",
-     "sinking",
-     "ship"
-    ]
+     "Mina",
+     "because",
+     "stayed"
+    ],
+    "change": {
+     "from": "Somin",
+     "to": "Mina",
+     "koFrom": "소민이가",
+     "koTo": "미나가"
+    }
    }
   },
   {
@@ -6937,13 +7309,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "맥스는 친절하게 정직한 것이 거짓말보다 낫다는 것을 배웠다.",
-    "en": "Max learned that being honest in a kind way is better than lying.",
+    "ko": "벤은 친절한 정직이 달콤한 거짓말보다 낫다는 것을 배웠다.",
+    "en": "Ben learned that kind honesty is better than a sweet lie.",
     "keywords": [
-     "honest",
-     "kind",
-     "lying"
-    ]
+     "Ben",
+     "learned",
+     "kind"
+    ],
+    "change": {
+     "from": "Max",
+     "to": "Ben",
+     "koFrom": "맥스는",
+     "koTo": "벤은"
+    }
    }
   },
   {
@@ -7061,13 +7439,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "미나는 작은 단서를 찾아 사라진 다이아몬드를 찾아냈다.",
-    "en": "Mina found the missing diamond by noticing small clues.",
+    "ko": "하나는 작은 것까지 잘 살펴서 사건을 해결했다.",
+    "en": "Hana solved the case because she noticed small details.",
     "keywords": [
-     "diamond",
-     "small",
-     "clues"
-    ]
+     "Hana",
+     "solved",
+     "case"
+    ],
+    "change": {
+     "from": "Mina",
+     "to": "Hana",
+     "koFrom": "미나는",
+     "koTo": "하나는"
+    }
    }
   },
   {
@@ -7185,13 +7569,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "지호와 마을 사람들은 바다를 청소해서 용을 구했다.",
-    "en": "Jiho and his town saved the dragon by cleaning the sea.",
+    "ko": "함께 힘을 모으면 학생들은 사랑하는 것을 지킬 수 있다.",
+    "en": "Working together, students can save what they love.",
     "keywords": [
-     "saved",
-     "dragon",
-     "sea"
-    ]
+     "students",
+     "working",
+     "together"
+    ],
+    "change": {
+     "from": "people",
+     "to": "students",
+     "koFrom": "사랑하는 것을",
+     "koTo": "학생들은 사랑하는 것을"
+    }
    }
   },
   {
@@ -7309,13 +7699,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "댄은 침착하게 잘 생각해서 비디오 게임에서 빠져나왔다.",
-    "en": "Dan escaped the video game by staying calm and thinking carefully.",
+    "ko": "댄은 탁자에서 깨어났다. 침착한 마음이 가장 큰 힘이었다.",
+    "en": "He woke up at his table. A calm mind was his best power.",
     "keywords": [
-     "escaped",
-     "calm",
-     "thinking"
-    ]
+     "table",
+     "woke",
+     "calm"
+    ],
+    "change": {
+     "from": "desk",
+     "to": "table",
+     "koFrom": "책상에서",
+     "koTo": "탁자에서"
+    }
    }
   },
   {
@@ -7433,13 +7829,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "레오는 벽에 있는 그림을 이용해 피라미드에서 탈출했다.",
-    "en": "Leo used the pictures on the walls to escape from the pyramid.",
+    "ko": "신중하게 생각한 덕분에 벤은 비밀 출구를 찾았다.",
+    "en": "Careful thinking helped Ben find the secret way out.",
     "keywords": [
-     "pictures",
-     "walls",
-     "pyramid"
-    ]
+     "Ben",
+     "careful",
+     "thinking"
+    ],
+    "change": {
+     "from": "Leo",
+     "to": "Ben",
+     "koFrom": "레오는",
+     "koTo": "벤은"
+    }
    }
   },
   {
@@ -7557,13 +7959,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "유나는 물방울로 구멍을 찾아 우주 정거장을 구했다.",
-    "en": "Yuna used water drops to find the hole and saved the space station.",
+    "ko": "똑똑한 아이디어가 마을을 구했다.",
+    "en": "A smart idea saved the village.",
     "keywords": [
-     "water",
-     "hole",
-     "station"
-    ]
+     "village",
+     "smart",
+     "idea"
+    ],
+    "change": {
+     "from": "space station",
+     "to": "village",
+     "koFrom": "우주 정거장을",
+     "koTo": "마을을"
+    }
    }
   },
   {
@@ -7681,13 +8089,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "태오는 고래에게서 폭풍 소식을 듣고 마을을 구했다.",
-    "en": "Taeo learned about the storm from a whale and saved his village.",
+    "ko": "수줍은 소녀가 용기 내어 목소리를 내고 마을을 구했다.",
+    "en": "A shy girl found his voice and saved his village.",
     "keywords": [
-     "storm",
-     "whale",
-     "village"
-    ]
+     "girl",
+     "shy",
+     "found"
+    ],
+    "change": {
+     "from": "boy",
+     "to": "girl",
+     "koFrom": "소년이",
+     "koTo": "소녀가"
+    }
    }
   },
   {
@@ -7805,13 +8219,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "도서관 유령은 사실 글 읽기를 연습하던 최 할아버지였다.",
-    "en": "The library ghost was really Mr. Choi practicing his reading.",
+    "ko": "무서운 수수께끼의 정체는 배우고 싶었던 한 여성이었다.",
+    "en": "The scary mystery was really a woman who wanted to learn.",
     "keywords": [
-     "ghost",
-     "practicing",
-     "reading"
-    ]
+     "woman",
+     "scary",
+     "mystery"
+    ],
+    "change": {
+     "from": "man",
+     "to": "woman",
+     "koFrom": "사람이었다",
+     "koTo": "여성이었다"
+    }
    }
   },
   {
@@ -7929,13 +8349,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "하윤이는 1443년으로 가서 세종대왕이 한글을 만드는 것을 보았다.",
-    "en": "Hayun traveled to 1443 and saw King Sejong creating Hangeul.",
+    "ko": "그 책은 모두를 위해 사랑으로 만든 선물이었다.",
+    "en": "The book was a gift made with love for everyone.",
     "keywords": [
-     "king",
-     "sejong",
-     "hangeul"
-    ]
+     "The book",
+     "gift",
+     "made"
+    ],
+    "change": {
+     "from": "Hangeul",
+     "to": "The book",
+     "koFrom": "한글은",
+     "koTo": "그 책은"
+    }
    }
   },
   {
@@ -8053,13 +8479,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "엘리는 강가에 머물며 스카프를 이용해 구조되었다.",
-    "en": "Ellie stayed by the river and used her scarf to get rescued.",
+    "ko": "침착하고 현명하게 행동한 덕분에 미나는 구조될 수 있었다.",
+    "en": "Staying calm and smart helped Mina get rescued.",
     "keywords": [
-     "river",
-     "scarf",
-     "rescued"
-    ]
+     "Mina",
+     "staying",
+     "calm"
+    ],
+    "change": {
+     "from": "Ellie",
+     "to": "Mina",
+     "koFrom": "엘리는",
+     "koTo": "미나는"
+    }
    }
   },
   {
@@ -8177,13 +8609,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "자라는 남들과 달랐지만, 반 친구들을 도와주고 친구가 되었다.",
-    "en": "Zara was different, but she helped the class and made friends.",
+    "ko": "때로는 조용한 친구가 가장 밝게 빛나는 친구이다.",
+    "en": "Sometimes the friend who is quiet is the one who shines brightest.",
     "keywords": [
-     "different",
-     "helped",
-     "friends"
-    ]
+     "quiet",
+     "sometimes",
+     "friend"
+    ],
+    "change": {
+     "from": "different",
+     "to": "quiet",
+     "koFrom": "나와 다른",
+     "koTo": "조용한"
+    }
    }
   },
   {
@@ -8305,13 +8743,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "민준이는 단서를 따라가서 다람쥐가 쿠키를 가져간다는 것을 알아냈다.",
-    "en": "Minjun followed the clues and found that a squirrel was taking the cookies.",
+    "ko": "보이지 않는 도둑은 배고픈 토끼였고, 꼼꼼한 단서가 사건을 해결했다.",
+    "en": "The invisible thief was just a hungry rabbit, and careful clues solved the case.",
     "keywords": [
-     "clues",
-     "squirrel",
-     "cookies"
-    ]
+     "rabbit",
+     "invisible",
+     "thief"
+    ],
+    "change": {
+     "from": "squirrel",
+     "to": "rabbit",
+     "koFrom": "다람쥐였고",
+     "koTo": "토끼였고"
+    }
    }
   },
   {
@@ -8429,13 +8873,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "미나는 바다거북을 구하고 바다를 지키는 동아리를 만들었다.",
-    "en": "Mina saved a sea turtle and started a club to protect the ocean.",
+    "ko": "단 한 사람도 숲을 지키는 작전을 시작할 수 있다.",
+    "en": "Even one person can start a mission to protect the forest.",
     "keywords": [
-     "turtle",
-     "club",
-     "ocean"
-    ]
+     "forest",
+     "even",
+     "one"
+    ],
+    "change": {
+     "from": "ocean",
+     "to": "forest",
+     "koFrom": "바다를",
+     "koTo": "숲을"
+    }
    }
   },
   {
@@ -8553,13 +9003,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "순한 목이 긴 공룡이 재와 아라를 티라노사우루스로부터 구해 주었다.",
-    "en": "A gentle long-necked dinosaur saved Jae and Ara from a T. rex.",
+    "ko": "때로는 가장 조용한 친구가 가장 용감한 친구이기도 하다.",
+    "en": "Sometimes the quietest friend is also the bravest.",
     "keywords": [
-     "gentle",
-     "dinosaur",
-     "saved"
-    ]
+     "quietest",
+     "sometimes",
+     "friend"
+    ],
+    "change": {
+     "from": "gentlest",
+     "to": "quietest",
+     "koFrom": "가장 순한",
+     "koTo": "가장 조용한"
+    }
    }
   },
   {
@@ -8677,13 +9133,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "루시는 거울 속 세상에 갔다가 더 용감해져서 돌아왔다.",
-    "en": "Lucy went into a mirror world and came back braver.",
+    "ko": "그날부터 미나는 거울 속 친구처럼 더 용감해졌다.",
+    "en": "From that day on, Mina was braver, just like her mirror friend.",
     "keywords": [
-     "mirror",
-     "world",
-     "braver"
-    ]
+     "Mina",
+     "from",
+     "day"
+    ],
+    "change": {
+     "from": "Lucy",
+     "to": "Mina",
+     "koFrom": "루시는",
+     "koTo": "미나는"
+    }
    }
   },
   {
@@ -8801,13 +9263,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "구조견 맥스가 눈보라 속에서 길 잃은 등산객들을 찾아냈다.",
-    "en": "Max the rescue dog found the lost hikers in the snowstorm.",
+    "ko": "진정한 영웅은 가장 힘든 겨울에도 다른 사람을 돕는다.",
+    "en": "A true hero helps others, even in the hardest winter.",
     "keywords": [
-     "rescue",
-     "dog",
-     "hikers"
-    ]
+     "winter",
+     "true",
+     "hero"
+    ],
+    "change": {
+     "from": "storm",
+     "to": "winter",
+     "koFrom": "폭풍 속에서도",
+     "koTo": "겨울에도"
+    }
    }
   },
   {
@@ -8929,13 +9397,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "하나가 달 기지의 구멍을 찾아 모두의 공기를 지켰다.",
-    "en": "Hana found a hole in the Moon base and saved everyone's air.",
+    "ko": "꼼꼼히 살피면 아주 어려운 문제도 해결할 수 있다.",
+    "en": "Paying close attention can solve even the hardest problems.",
     "keywords": [
-     "hole",
-     "moon",
-     "air"
-    ]
+     "hardest",
+     "paying",
+     "close"
+    ],
+    "change": {
+     "from": "biggest",
+     "to": "hardest",
+     "koFrom": "아주 큰",
+     "koTo": "아주 어려운"
+    }
    }
   },
   {
@@ -9057,13 +9531,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "레오와 다나는 수수께끼를 풀고 함께한 모험이 진짜 보물이라는 것을 알았다.",
-    "en": "Leo and Dana solved the riddle and learned that their adventure was the real treasure.",
+    "ko": "편지에는 \"진짜 보물은 여동생과 함께한 모험이다.\"라고 쓰여 있었다.",
+    "en": "The letter said, \"The real treasure is the adventure you shared with a sister.\"",
     "keywords": [
-     "riddle",
-     "adventure",
-     "treasure"
-    ]
+     "sister",
+     "letter",
+     "said"
+    ],
+    "change": {
+     "from": "friend",
+     "to": "sister",
+     "koFrom": "친구와",
+     "koTo": "여동생과"
+    }
    }
   },
   {
@@ -9185,13 +9665,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "소라는 마법 시계로 속임수를 썼지만, 정직이 더 낫다는 것을 배웠다.",
-    "en": "Sora used a magic watch to cheat, but she learned that honesty is better.",
+    "ko": "소라는 정직한 연습이 어떤 마법 지름길보다 낫다는 것을 배웠다.",
+    "en": "She learned that honest practice is better than any magic shortcut.",
     "keywords": [
-     "watch",
-     "cheat",
-     "honesty"
-    ]
+     "practice",
+     "learned",
+     "honest"
+    ],
+    "change": {
+     "from": "work",
+     "to": "practice",
+     "koFrom": "노력이",
+     "koTo": "연습이"
+    }
    }
   },
   {
@@ -9309,13 +9795,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "윤 박사는 과학으로 마을에 경고해서 모두를 구했다.",
-    "en": "Dr. Yoon used science to warn the village, and everyone was saved.",
+    "ko": "이장이 박사에게 고마워했다. \"증거를 믿은 당신이 옳았어요.\"",
+    "en": "The leader thanked her. \"You were right to trust the evidence.\"",
     "keywords": [
-     "science",
-     "village",
-     "saved"
-    ]
+     "evidence",
+     "leader",
+     "thanked"
+    ],
+    "change": {
+     "from": "science",
+     "to": "evidence",
+     "koFrom": "과학을",
+     "koTo": "증거를"
+    }
    }
   },
   {
@@ -9437,13 +9929,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "지호네 팀은 똑똑한 협동으로 로봇 축구 결승에서 이겼다.",
-    "en": "Jiho's team won the robot soccer final with smart teamwork.",
+    "ko": "팀은 똑똑한 협동이 힘도 이길 수 있다는 것을 배웠다.",
+    "en": "They learned that smart teamwork can beat strength.",
     "keywords": [
-     "team",
-     "robot",
-     "teamwork"
-    ]
+     "strength",
+     "learned",
+     "smart"
+    ],
+    "change": {
+     "from": "size and speed",
+     "to": "strength",
+     "koFrom": "크기와 속도도",
+     "koTo": "힘도"
+    }
    }
   },
   {
@@ -9565,13 +10063,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "유령선에는 유령이 아니라 리나가 구한 외로운 고양이가 있었다.",
-    "en": "The ghost ship had no ghost, only a lonely cat that Rina saved.",
+    "ko": "때로는 우리가 무서워하는 동물이 사실은 도움을 기다리고 있다.",
+    "en": "Sometimes the animals we fear are just waiting for help.",
     "keywords": [
-     "ghost",
-     "cat",
-     "saved"
-    ]
+     "animals",
+     "sometimes",
+     "fear"
+    ],
+    "change": {
+     "from": "things",
+     "to": "animals",
+     "koFrom": "것이 사실은",
+     "koTo": "동물이 사실은"
+    }
    }
   },
   {
@@ -9689,13 +10193,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "미나와 준은 혈관 속을 여행하며 우리 몸이 세균과 싸우는 법을 알게 되었다.",
-    "en": "Mina and Joon traveled through blood and learned how our bodies fight germs.",
+    "ko": "\"우리 몸은 우리를 건강하게 지키려고 매 순간 세균과 싸워.\" 하나가 말했다.",
+    "en": "\"Our bodies fight germs every second to keep us healthy,\" said Hana.",
     "keywords": [
-     "blood",
+     "Hana",
      "bodies",
-     "germs"
-    ]
+     "fight"
+    ],
+    "change": {
+     "from": "Mina",
+     "to": "Hana",
+     "koFrom": "미나가",
+     "koTo": "하나가"
+    }
    }
   },
   {
@@ -9813,13 +10323,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "사미는 금 대신 물을 찾고, 물이 진짜 보물이라는 것을 배웠다.",
-    "en": "Sami found water instead of gold and learned that water is the real treasure.",
+    "ko": "할아버지가 웃었다. \"산에서는 물이 진짜 황금이란다.\"",
+    "en": "Grandpa laughed. \"In the mountains, water is the real gold.\"",
     "keywords": [
-     "water",
-     "gold",
-     "treasure"
-    ]
+     "mountains",
+     "grandpa",
+     "laughed"
+    ],
+    "change": {
+     "from": "desert",
+     "to": "mountains",
+     "koFrom": "사막에서는",
+     "koTo": "산에서는"
+    }
    }
   },
   {
@@ -9937,13 +10453,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "병 속 편지 덕분에 유나와 레오는 바다 건너 친구가 되었다.",
-    "en": "A letter in a bottle made Yuna and Leo friends across the sea.",
+    "ko": "작은 편지 한 통이 바다 건너 큰 우정을 실어 날랐다.",
+    "en": "A small letter carried a big friendship across the sea.",
     "keywords": [
-     "bottle",
-     "friends",
-     "sea"
-    ]
+     "letter",
+     "small",
+     "carried"
+    ],
+    "change": {
+     "from": "bottle",
+     "to": "letter",
+     "koFrom": "병 하나가",
+     "koTo": "편지 한 통이"
+    }
    }
   },
   {
@@ -10061,13 +10583,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "지수의 기계가 눈을 너무 많이 만들어서, 지수는 먼저 시험해 봐야 한다는 것을 배웠다.",
-    "en": "Jisu's machine made too much snow, so she learned to test her work first.",
+    "ko": "미나는 1등을 하지 못했지만, 발명품을 보여 주기 전에 꼼꼼히 시험해야 한다는 것을 배웠다.",
+    "en": "Mina did not win first prize, but she learned to test her inventions carefully before showing them.",
     "keywords": [
-     "machine",
-     "snow",
-     "test"
-    ]
+     "Mina",
+     "win",
+     "first"
+    ],
+    "change": {
+     "from": "Jisu",
+     "to": "Mina",
+     "koFrom": "지수는",
+     "koTo": "미나는"
+    }
    }
   },
   {
@@ -10185,13 +10713,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "켄지는 눈과 머리를 써서 잃어버린 두루마리를 찾았다.",
-    "en": "Kenji found the lost scroll by using his eyes and his mind.",
+    "ko": "\"훌륭한 탐정은 근육만이 아니라 눈과 머리를 쓰는 법이다.\"",
+    "en": "\"A great detective uses his eyes and his mind, not only his muscles.\"",
     "keywords": [
-     "scroll",
-     "eyes",
-     "mind"
-    ]
+     "detective",
+     "great",
+     "uses"
+    ],
+    "change": {
+     "from": "ninja",
+     "to": "detective",
+     "koFrom": "닌자는",
+     "koTo": "탐정은"
+    }
    }
   },
   {
@@ -10305,13 +10839,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "아리아와 핍은 블랙홀 지름길을 이용해 아픈 마을을 구했다.",
-    "en": "Aria and Pip used a black hole shortcut and saved the sick town.",
+    "ko": "\"용감한 선택에는 똑똑한 팀워크가 필요해.\" 미나가 말하자 핍의 불빛이 기쁘게 깜빡였다.",
+    "en": "\"Brave choices need smart teamwork,\" said Mina, and Pip's lights blinked happily.",
     "keywords": [
-     "black",
-     "shortcut",
-     "town"
-    ]
+     "Mina",
+     "brave",
+     "choices"
+    ],
+    "change": {
+     "from": "Aria",
+     "to": "Mina",
+     "koFrom": "아리아가",
+     "koTo": "미나가"
+    }
    }
   },
   {
@@ -10429,13 +10969,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "하나는 외로운 꿈 도둑에게 그림을 나눠 주었고, 둘 다 행복해졌다.",
-    "en": "Hana shared her drawings with the lonely dream thief, and they both became happy.",
+    "ko": "도움이 둘 모두를 행복하게 만들었다.",
+    "en": "Helping made both of them happy.",
     "keywords": [
-     "shared",
-     "drawings",
-     "happy"
-    ]
+     "Helping",
+     "made",
+     "both"
+    ],
+    "change": {
+     "from": "Sharing",
+     "to": "Helping",
+     "koFrom": "나눔이",
+     "koTo": "도움이"
+    }
    }
   },
   {
@@ -10549,13 +11095,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "모두가 물 한 컵씩 아껴서 함께 마지막 나무를 살렸다.",
-    "en": "Everyone saved a cup of water, and together they saved the last tree.",
+    "ko": "벤은 많은 사람이 작은 일을 함께하면 큰 것을 지킬 수 있다는 것을 배웠다.",
+    "en": "Ben learned that when many people do a small thing, they can save something big.",
     "keywords": [
-     "water",
-     "saved",
-     "tree"
-    ]
+     "Ben",
+     "learned",
+     "when"
+    ],
+    "change": {
+     "from": "Leo",
+     "to": "Ben",
+     "koFrom": "레오는",
+     "koTo": "벤은"
+    }
    }
   },
   {
@@ -10669,13 +11221,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "민호는 단서를 따라가서 고양이가 다이아몬드를 가져갔다는 것을 알아냈다.",
-    "en": "Minho followed the clues and found that a cat took the diamond.",
+    "ko": "지호가 웃었다. \"훌륭한 탐정은 첫 짐작이 아니라 단서를 따라가요.\"",
+    "en": "Jiho smiled. \"Good detectives follow the clues, not their first guess.\"",
     "keywords": [
-     "clues",
-     "cat",
-     "diamond"
-    ]
+     "Jiho",
+     "smiled",
+     "good"
+    ],
+    "change": {
+     "from": "Minho",
+     "to": "Jiho",
+     "koFrom": "민호가",
+     "koTo": "지호가"
+    }
    }
   },
   {
@@ -10789,13 +11347,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "준은 용기를 잃지 않았고, 호랑이 발자국이 그들을 안전한 곳으로 이끌었다.",
-    "en": "Jun stayed brave, and the tiger's tracks led them to safety.",
+    "ko": "준의 인내심과 호랑이가 남긴 길이 두 사람을 구했다.",
+    "en": "Jun's patience and the tiger's path saved them both.",
     "keywords": [
-     "brave",
-     "tracks",
-     "safety"
-    ]
+     "patience",
+     "jun's",
+     "tiger's"
+    ],
+    "change": {
+     "from": "courage",
+     "to": "patience",
+     "koFrom": "준의 용기와",
+     "koTo": "준의 인내심과"
+    }
    }
   },
   {
@@ -10913,13 +11477,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "서연이는 이야기를 끝맺어서 마법 도서관을 구했다.",
-    "en": "Seo-yeon saved a magic library by finishing a story.",
+    "ko": "이제 서연이는 매주 조금씩 글을 쓴다. 모든 이야기에는 끝맺어 줄 누군가가 필요하기 때문이다.",
+    "en": "Now Seo-yeon writes a little every week, because every story needs someone to finish it.",
     "keywords": [
-     "saved",
-     "library",
-     "story"
-    ]
+     "week",
+     "seo",
+     "yeon"
+    ],
+    "change": {
+     "from": "day",
+     "to": "week",
+     "koFrom": "매일",
+     "koTo": "매주"
+    }
    }
   },
   {
@@ -11037,13 +11607,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "아이들은 음악과 그림으로 외계인과 이야기하고 친구가 되었다.",
-    "en": "The kids talked to the aliens with music and pictures and became friends.",
+    "ko": "말이 통하지 않을 때도 몸짓은 마음을 전할 수 있다.",
+    "en": "Gestures can speak when words cannot.",
     "keywords": [
-     "aliens",
-     "music",
-     "friends"
-    ]
+     "Gestures",
+     "speak",
+     "when"
+    ],
+    "change": {
+     "from": "Music and pictures",
+     "to": "Gestures",
+     "koFrom": "음악과 그림은",
+     "koTo": "몸짓은"
+    }
    }
   },
   {
@@ -11149,13 +11725,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "가을에 나무가 엽록소를 만들지 않으면 잎에 숨어 있던 색깔이 드러난다.",
-    "en": "In autumn, trees stop making chlorophyll, so the hidden leaf colors appear.",
+    "ko": "이런 색깔이 나타나는 것은 식물이 잎 속의 초록색 물질인 엽록소를 더 이상 만들지 않기 때문이다.",
+    "en": "These colors appear because plants stop making chlorophyll, the green material in their leaves.",
     "keywords": [
-     "autumn",
-     "chlorophyll",
-     "colors"
-    ]
+     "plants",
+     "colors",
+     "appear"
+    ],
+    "change": {
+     "from": "trees",
+     "to": "plants",
+     "koFrom": "나무가",
+     "koTo": "식물이"
+    }
    }
   },
   {
@@ -11261,13 +11843,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "꿀벌은 꽃가루를 옮겨 식물이 씨앗과 열매를 맺도록 돕는다.",
-    "en": "Honeybees carry pollen between flowers and help plants make seeds and fruit.",
+    "ko": "꿀벌은 꽃가루를 이 꽃에서 저 꽃으로 옮겨 일부 식물이 씨앗과 열매를 맺도록 돕는다.",
+    "en": "They help some plants make seeds and fruit by carrying pollen from one flower to another.",
     "keywords": [
-     "pollen",
-     "seeds",
-     "fruit"
-    ]
+     "some",
+     "help",
+     "plants"
+    ],
+    "change": {
+     "from": "many",
+     "to": "some",
+     "koFrom": "많은 식물이",
+     "koTo": "일부 식물이"
+    }
    }
   },
   {
@@ -11373,13 +11961,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "화산은 땅속 깊은 곳의 마그마가 지표로 올라와 쌓이면서 만들어진다.",
-    "en": "Volcanoes form when magma rises from deep underground and builds up on the surface.",
+    "ko": "화산은 지구 내부의 녹은 암석이 표면까지 밀고 올라올 때 만들어진다.",
+    "en": "Volcanoes form when melted rock from inside Earth pushes its way up to the surface.",
     "keywords": [
-     "Volcanoes",
-     "magma",
-     "surface"
-    ]
+     "inside Earth",
+     "volcanoes",
+     "form"
+    ],
+    "change": {
+     "from": "deep underground",
+     "to": "inside Earth",
+     "koFrom": "땅속 깊은 곳의",
+     "koTo": "지구 내부의"
+    }
    }
   },
   {
@@ -11485,13 +12079,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "물은 증발, 응결, 강수를 거치며 지구에서 끊임없이 순환한다.",
-    "en": "Water on Earth moves in a cycle through evaporation, condensation, and precipitation.",
+    "ko": "지구의 물은 물의 순환이라고 불리는 끝없는 여행을 하며 끊임없이 움직이고 있다.",
+    "en": "The water on Earth is constantly moving in a never-ending journey called the water cycle.",
     "keywords": [
-     "cycle",
-     "evaporation",
-     "precipitation"
-    ]
+     "constantly",
+     "water",
+     "earth"
+    ],
+    "change": {
+     "from": "always",
+     "to": "constantly",
+     "koFrom": "늘 움직이고",
+     "koTo": "끊임없이 움직이고"
+    }
    }
   },
   {
@@ -11597,13 +12197,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "세종대왕은 백성들이 쉽게 글을 읽고 쓸 수 있도록 한글을 만들었다.",
-    "en": "King Sejong created Hangul so that ordinary people could easily read and write.",
+    "ko": "한글은 일반 백성들이 읽고 쓸 수 있도록 돕기 위해 세종대왕이 만들었다.",
+    "en": "It was created by King Sejong the Great to help common people read and write.",
     "keywords": [
-     "Sejong",
-     "Hangul",
-     "ordinary"
-    ]
+     "common",
+     "created",
+     "king"
+    ],
+    "change": {
+     "from": "ordinary",
+     "to": "common",
+     "koFrom": "평범한 백성들이",
+     "koTo": "일반 백성들이"
+    }
    }
   },
   {
@@ -11709,13 +12315,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "잠은 뇌가 기억을 저장하고 노폐물을 청소하도록 도와서 중요하다.",
-    "en": "Sleep is important because it helps the brain store memories and clean out waste.",
+    "ko": "충분히 자는 것은 몸이 잘 작동하도록 돕기 때문에 중요하다.",
+    "en": "Getting enough sleep is important because it helps your body work well.",
     "keywords": [
-     "Sleep",
-     "brain",
-     "memories"
-    ]
+     "body",
+     "getting",
+     "enough"
+    ],
+    "change": {
+     "from": "brain",
+     "to": "body",
+     "koFrom": "뇌가",
+     "koTo": "몸이"
+    }
    }
   },
   {
@@ -11821,13 +12433,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "플라스틱은 분류, 세척, 녹이기를 거쳐 재활용되지만 여러 문제 때문에 어렵다.",
-    "en": "Plastic is recycled through sorting, washing, and melting, but many problems make it difficult.",
+    "ko": "종이 재활용은 간단해 보이지만, 실제로는 길고 어려운 과정이다.",
+    "en": "Recycling paper sounds simple, but it is actually a long and difficult process.",
     "keywords": [
-     "Plastic",
-     "recycled",
-     "difficult"
-    ]
+     "paper",
+     "recycling",
+     "sounds"
+    ],
+    "change": {
+     "from": "plastic",
+     "to": "paper",
+     "koFrom": "플라스틱 재활용은",
+     "koTo": "종이 재활용은"
+    }
    }
   },
   {
@@ -11933,13 +12551,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "펭귄은 두꺼운 지방, 촘촘한 깃털, 서로 모이는 행동으로 추위를 이겨낸다.",
-    "en": "Penguins survive the cold with thick fat, tight feathers, and huddling together.",
+    "ko": "펭귄은 몸에 몇 가지 특별한 특징이 있어서 추운 날씨를 견딜 수 있다.",
+    "en": "They can survive cold weather because their bodies have several special features.",
     "keywords": [
-     "Penguins",
-     "fat",
-     "feathers"
-    ]
+     "cold weather",
+     "survive",
+     "because"
+    ],
+    "change": {
+     "from": "the cold",
+     "to": "cold weather",
+     "koFrom": "추위를",
+     "koTo": "추운 날씨를"
+    }
    }
   },
   {
@@ -12045,13 +12669,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "라이트 형제는 오랜 연구 끝에 1903년 최초로 동력 비행기 비행에 성공했다.",
-    "en": "After years of testing, the Wright brothers made the first powered airplane flight in 1903.",
+    "ko": "오빌 라이트와 윌버 라이트는 최초로 조종 가능한 동력 비행기 비행에 성공했다.",
+    "en": "Orville and Wilbur Wright made the first controlled powered airplane flight.",
     "keywords": [
-     "Wright",
-     "airplane",
-     "flight"
-    ]
+     "controlled",
+     "orville",
+     "wilbur"
+    ],
+    "change": {
+     "from": "successful",
+     "to": "controlled",
+     "koFrom": "최초로 동력",
+     "koTo": "최초로 조종 가능한 동력"
+    }
    }
   },
   {
@@ -12157,13 +12787,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "고대 올림픽은 약 3,000년 전 그리스에서 제우스를 위해 열린 운동 경기 축제였다.",
-    "en": "The ancient Olympic Games were a Greek sports festival held for the god Zeus.",
+    "ko": "최초의 올림픽 경기는 약 3,000년 전 고대 그리스에서 제우스 신을 위한 축제로 열렸다.",
+    "en": "The first Olympic Games were held in ancient Greece nearly 3,000 years ago as a festival for the god Zeus.",
     "keywords": [
-     "ancient",
-     "Greek",
-     "festival"
-    ]
+     "nearly",
+     "first",
+     "olympic"
+    ],
+    "change": {
+     "from": "almost",
+     "to": "nearly",
+     "koFrom": "거의 3,000년",
+     "koTo": "약 3,000년"
+    }
    }
   },
   {
@@ -12269,13 +12905,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "달의 모양은 우리가 볼 수 있는 달의 밝은 면의 양에 따라 달라 보인다.",
-    "en": "The moon's phases change depending on how much of its bright side we see.",
+    "ko": "위상이라고 불리는 이 변하는 모양은 햇빛을 받는 달의 면을 우리가 얼마나 볼 수 있는지에 따라 달라진다.",
+    "en": "These changing shapes, called phases, depend on how much of the moon's sunlit side we can see.",
     "keywords": [
-     "phases",
-     "bright",
-     "side"
-    ]
+     "changing",
+     "shapes",
+     "called"
+    ],
+    "change": {
+     "from": "different",
+     "to": "changing",
+     "koFrom": "다양한 모양은",
+     "koTo": "변하는 모양은"
+    }
    }
   },
   {
@@ -12381,13 +13023,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "김치는 발효를 통해 특별한 맛을 얻고 오래 보관할 수 있다.",
-    "en": "Kimchi gets its special taste and can be kept long through fermentation.",
+    "ko": "김치는 인기 있는 한국 음식이며, 그 특별한 맛은 발효라는 자연적인 과정에서 나온다.",
+    "en": "Kimchi is a popular Korean food, and its special taste comes from a natural process called fermentation.",
     "keywords": [
-     "Kimchi",
-     "taste",
-     "fermentation"
-    ]
+     "popular",
+     "kimchi",
+     "korean"
+    ],
+    "change": {
+     "from": "famous",
+     "to": "popular",
+     "koFrom": "유명한 한국",
+     "koTo": "인기 있는 한국"
+    }
    }
   },
   {
@@ -12505,13 +13153,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "채륜의 종이는 전 세계로 퍼져 사람들이 지식을 나누도록 도왔다.",
-    "en": "Cai Lun's paper spread around the world and helped people share knowledge.",
+    "ko": "채륜의 단순한 발명은 생각이 온 세상에 퍼지도록 도왔다.",
+    "en": "Cai Lun's simple invention helped ideas spread to the whole world.",
     "keywords": [
-     "paper",
-     "knowledge",
-     "world"
-    ]
+     "ideas",
+     "cai",
+     "lun's"
+    ],
+    "change": {
+     "from": "knowledge",
+     "to": "ideas",
+     "koFrom": "지식이",
+     "koTo": "생각이"
+    }
    }
   },
   {
@@ -12629,13 +13283,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "돈은 여러 번 바뀌었지만 언제나 믿음 덕분에 쓰인다.",
-    "en": "Money has changed many times, but it always works because of trust.",
+    "ko": "닭에서 디지털 결제까지, 돈은 언제나 한 가지 위에 세워져 왔다. 바로 믿음이다.",
+    "en": "From chickens to digital payments, money has always been built on one thing: trust.",
     "keywords": [
-     "money",
-     "changed",
-     "trust"
-    ]
+     "digital payments",
+     "from",
+     "chickens"
+    ],
+    "change": {
+     "from": "phone payments",
+     "to": "digital payments",
+     "koFrom": "휴대폰 결제까지",
+     "koTo": "디지털 결제까지"
+    }
    }
   },
   {
@@ -12749,13 +13409,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "사막의 동식물은 적은 물로 살아가도록 영리하게 적응한다.",
-    "en": "Desert plants and animals adapt in clever ways to live with little water.",
+    "ko": "사막은 지구 땅의 약 3분의 1을 덮고 있고, 놀랍게 적응해 살아남은 생명으로 가득하다.",
+    "en": "Deserts cover about one third of Earth's land and are full of life that adapted in remarkable ways to survive.",
     "keywords": [
-     "desert",
-     "adapt",
-     "water"
-    ]
+     "remarkable",
+     "deserts",
+     "cover"
+    ],
+    "change": {
+     "from": "clever",
+     "to": "remarkable",
+     "koFrom": "영리하게 적응해",
+     "koTo": "놀랍게 적응해"
+    }
    }
   },
   {
@@ -12869,13 +13535,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "에드워드 제너는 천연두에서 사람들을 지키려고 최초의 백신을 만들었다.",
-    "en": "Edward Jenner made the first vaccine to protect people from smallpox.",
+    "ko": "백신은 병균이 우리를 매우 아프게 하기 전에 몸이 싸우도록 훈련시킨다.",
+    "en": "Vaccines train our bodies to fight germs before they can make us very ill.",
     "keywords": [
-     "jenner",
-     "vaccine",
-     "smallpox"
-    ]
+     "very",
+     "vaccines",
+     "train"
+    ],
+    "change": {
+     "from": "seriously",
+     "to": "very",
+     "koFrom": "심하게 아프게",
+     "koTo": "매우 아프게"
+    }
    }
   },
   {
@@ -12989,13 +13661,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "세계의 빛 축제들은 희망이라는 메시지를 함께 나눈다.",
-    "en": "Festivals of light around the world share a message of hope.",
+    "ko": "풍습은 달라도 빛의 축제들은 모두 한 가지 메시지를 나눈다. 가장 어두운 때에도 친절함은 빛날 수 있다는 것이다.",
+    "en": "Although their customs are different, festivals of light all share one message: kindness can shine even in the darkest times.",
     "keywords": [
-     "festivals",
-     "light",
-     "hope"
-    ]
+     "kindness",
+     "although",
+     "customs"
+    ],
+    "change": {
+     "from": "hope",
+     "to": "kindness",
+     "koFrom": "희망은",
+     "koTo": "친절함은"
+    }
    }
   },
   {
@@ -13113,13 +13791,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "가정용 로봇은 지금도 우리를 돕고, 앞으로 더 많은 일을 배울 것이다.",
-    "en": "Home robots help us today and will learn to do even more.",
+    "ko": "가정용 로봇은 이미 우리를 돕고 있고, 사람에게 \"쉬운\" 기술을 배워 갈수록 우리 삶에서 더 중요한 역할을 할 것이다.",
+    "en": "Home robots already help us, and as they learn the \"easy\" human skills, they will play a greater role in our lives.",
     "keywords": [
-     "robots",
-     "help",
-     "learn"
-    ]
+     "greater",
+     "home",
+     "robots"
+    ],
+    "change": {
+     "from": "bigger",
+     "to": "greater",
+     "koFrom": "더 큰 역할을",
+     "koTo": "더 중요한 역할을"
+    }
    }
   },
   {
@@ -13241,13 +13925,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "마리아 메리안은 나비가 네 단계를 거치며 모습이 바뀐다는 것을 발견했다.",
-    "en": "Maria Merian discovered that butterflies change through four stages.",
+    "ko": "메리안의 끈기 있는 관찰 덕분에 나비는 진흙에서 생기는 것이 아니라 놀라운 변화를 차례로 거치며 자란다는 사실이 밝혀졌다.",
+    "en": "Her patient observation helped prove that every butterfly grows through a series of amazing changes, not out of mud.",
     "keywords": [
-     "butterflies",
-     "four",
-     "stages"
-    ]
+     "patient",
+     "observation",
+     "helped"
+    ],
+    "change": {
+     "from": "careful",
+     "to": "patient",
+     "koFrom": "꼼꼼한 관찰",
+     "koTo": "끈기 있는 관찰"
+    }
    }
   },
   {
@@ -13369,13 +14059,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "물이 증발할 때 암석에서 온 소금이 남기 때문에 바다는 짜다.",
-    "en": "The ocean is salty because salt from rocks stays there when water evaporates.",
+    "ko": "결국 강이 끊임없이 소금을 실어 오지만 바다를 떠나는 것은 물뿐이라서 바다가 짠 것이다.",
+    "en": "So the ocean is salty because rivers continue bringing salt in, but only water leaves.",
     "keywords": [
+     "continue bringing",
      "ocean",
-     "salty",
-     "evaporates"
-    ]
+     "salty"
+    ],
+    "change": {
+     "from": "keep bringing",
+     "to": "continue bringing",
+     "koFrom": "계속 소금을",
+     "koTo": "끊임없이 소금을"
+    }
    }
   },
   {
@@ -13493,13 +14189,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "윌리엄 하비는 심장이 피를 몸속에서 빙글빙글 돌게 한다는 것을 알아냈다.",
-    "en": "William Harvey found that the heart pumps blood around the body in a circle.",
+    "ko": "하비 덕분에 우리는 심장이 같은 피를 끝없이 여행시키는 강력한 펌프라는 것을 알게 됐다.",
+    "en": "Thanks to Harvey, we know the heart is a powerful pump that sends the same blood on an endless journey.",
     "keywords": [
-     "heart",
-     "blood",
-     "circle"
-    ]
+     "powerful",
+     "thanks",
+     "harvey"
+    ],
+    "change": {
+     "from": "tireless",
+     "to": "powerful",
+     "koFrom": "지칠 줄 모르는 펌프",
+     "koTo": "강력한 펌프"
+    }
    }
   },
   {
@@ -13621,13 +14323,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "만리장성은 중국을 침략에서 지키려고 여러 세기에 걸쳐 지어졌다.",
-    "en": "The Great Wall was built over many centuries to protect China from attacks.",
+    "ko": "만리장성은 사람들이 집을 지키려고 수백 년 동안 힘을 모았다는 것을 보여 준다.",
+    "en": "It shows how people worked together for many centuries to protect their homes.",
     "keywords": [
-     "wall",
-     "protect",
-     "china"
-    ]
+     "homes",
+     "shows",
+     "how"
+    ],
+    "change": {
+     "from": "country",
+     "to": "homes",
+     "koFrom": "나라를",
+     "koTo": "집을"
+    }
    }
   },
   {
@@ -13741,13 +14449,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "스마트폰은 강력하지만, 건강하게 사용해야 한다.",
-    "en": "Smartphones are powerful, but we should use them in healthy ways.",
+    "ko": "컴퓨터은 강력한 도구이지만, 컴퓨터에 휘둘리지 말고 우리가 잘 다뤄야 한다.",
+    "en": "A computer is a powerful tool, but we should control it instead of letting it control us.",
     "keywords": [
-     "smartphones",
+     "computer",
      "powerful",
-     "healthy"
-    ]
+     "tool"
+    ],
+    "change": {
+     "from": "smartphone",
+     "to": "computer",
+     "koFrom": "스마트폰",
+     "koTo": "컴퓨터"
+    }
    }
   },
   {
@@ -13865,13 +14579,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "늑대가 옐로스톤에 돌아오자 먹이 사슬 전체가 바뀌었다.",
-    "en": "When wolves returned to Yellowstone, the whole food chain changed.",
+    "ko": "그 숲은 먹이 사슬 속 모든 생물이, 꼭대기에 있는 동물까지도, 서로에게 기대어 산다는 것을 보여 준다.",
+    "en": "The forest shows that every living thing in a food chain depends on the others, even the ones at the top.",
     "keywords": [
-     "wolves",
-     "food",
-     "chain"
-    ]
+     "The forest",
+     "shows",
+     "every"
+    ],
+    "change": {
+     "from": "Yellowstone",
+     "to": "The forest",
+     "koFrom": "옐로스톤은",
+     "koTo": "그 숲은"
+    }
    }
   },
   {
@@ -13989,13 +14709,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "1969년, 아폴로 11호 우주 비행사들은 처음으로 달 위를 걸은 사람이 되었다.",
-    "en": "In 1969, Apollo 11 astronauts became the first people to walk on the Moon.",
+    "ko": "달 착륙은 협동과 굳은 의지가 있으면 인간이 불가능해 보였던 곳에도 갈 수 있다는 것을 보여 주었다.",
+    "en": "The Moon landing showed that, with teamwork and determination, humans can reach places that once seemed impossible.",
     "keywords": [
-     "apollo",
+     "determination",
      "moon",
-     "walk"
-    ]
+     "landing"
+    ],
+    "change": {
+     "from": "courage",
+     "to": "determination",
+     "koFrom": "용기가",
+     "koTo": "굳은 의지가"
+    }
    }
   },
   {
@@ -14109,13 +14835,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "틸리는 쓰나미의 경고 신호를 알고 있어서 많은 사람을 구했다.",
-    "en": "Tilly saved many people because she knew the warning signs of a tsunami.",
+    "ko": "틸리처럼, 위급한 일이 생기기 전에 이 방법을 연습해 두면 나와 다른 사람을 지킬 수 있다.",
+    "en": "Like Tilly, you can protect yourself and others by practicing these steps before an emergency happens.",
     "keywords": [
-     "tilly",
-     "tsunami",
-     "warning"
-    ]
+     "practicing",
+     "like",
+     "tilly"
+    ],
+    "change": {
+     "from": "learning",
+     "to": "practicing",
+     "koFrom": "익혀 두면",
+     "koTo": "연습해 두면"
+    }
    }
   },
   {
@@ -14237,13 +14969,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "과학자들은 아직도 지구 밖의 생명을 찾고 있다.",
-    "en": "Scientists are still searching for life beyond Earth.",
+    "ko": "우리가 우주에 혼자인지는 아직 모르지만, 연구자들은 계속 답을 찾고 있다.",
+    "en": "We do not know yet whether we are alone, but researchers keep looking for the answer.",
     "keywords": [
-     "scientists",
-     "searching",
-     "life"
-    ]
+     "researchers",
+     "know",
+     "yet"
+    ],
+    "change": {
+     "from": "scientists",
+     "to": "researchers",
+     "koFrom": "과학자들은",
+     "koTo": "연구자들은"
+    }
    }
   },
   {
@@ -14373,13 +15111,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "거대한 소행성 때문에 대부분의 공룡이 사라졌다.",
-    "en": "A huge asteroid caused most dinosaurs to disappear.",
+    "ko": "대부분의 과학자들은 우주에서 날아온 아주 커다란 바위가 이 재앙을 일으켰다고 생각한다.",
+    "en": "Most scientists agree that a massive rock from space caused the disaster.",
     "keywords": [
-     "asteroid",
-     "dinosaurs",
-     "disappear"
-    ]
+     "massive",
+     "most",
+     "scientists"
+    ],
+    "change": {
+     "from": "huge",
+     "to": "massive",
+     "koFrom": "거대한 바위가",
+     "koTo": "아주 커다란 바위가"
+    }
    }
   },
   {
@@ -14505,13 +15249,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "마리아나 해구는 아주 깊지만, 그곳에도 생물이 산다.",
-    "en": "The Mariana Trench is very deep, but some creatures live there.",
+    "ko": "열대 우림은 우리 지구에 아직도 많은 수수께끼가 남아 있다는 것을 알려 준다.",
+    "en": "The rainforest reminds us that our own planet still holds many mysteries.",
     "keywords": [
-     "trench",
-     "deep",
-     "creatures"
-    ]
+     "rainforest",
+     "reminds",
+     "own"
+    ],
+    "change": {
+     "from": "deep sea",
+     "to": "rainforest",
+     "koFrom": "깊은 바다는",
+     "koTo": "열대 우림은"
+    }
    }
   },
   {
@@ -14641,13 +15391,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "많은 동물이 스스로 내는 빛을 이용해 살아남는다.",
-    "en": "Many animals use their own light to survive.",
+    "ko": "알고 보니 소리는 많은 생물에게 강력한 생존 도구다.",
+    "en": "Sound, it turns out, is a powerful survival tool for many living things.",
     "keywords": [
-     "animals",
-     "light",
-     "survive"
-    ]
+     "Sound",
+     "turns",
+     "out"
+    ],
+    "change": {
+     "from": "Light",
+     "to": "Sound",
+     "koFrom": "빛은",
+     "koTo": "소리는"
+    }
    }
   },
   {
@@ -14769,13 +15525,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "우주 비행사는 우주에서 특별한 방법으로 먹고, 자고, 운동해야 한다.",
-    "en": "Astronauts must eat, sleep, and exercise in special ways in space.",
+    "ko": "수중 생활은 신나지만, 꼼꼼한 계획과 노력이 필요하다.",
+    "en": "Life underwater is exciting, but it requires careful planning and hard work.",
     "keywords": [
-     "astronauts",
-     "sleep",
-     "exercise"
-    ]
+     "underwater",
+     "life",
+     "exciting"
+    ],
+    "change": {
+     "from": "in space",
+     "to": "underwater",
+     "koFrom": "우주 생활은",
+     "koTo": "수중 생활은"
+    }
    }
   },
   {
@@ -14901,13 +15663,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "미라는 과학자들이 오래전 사람들에 대해 알도록 도와준다.",
-    "en": "Mummies help scientists learn about people who lived long ago.",
+    "ko": "고대의 뼈는 옛사람들이 어떻게 살았고, 무엇을 먹었고, 어떤 병을 앓았는지까지 알려 준다.",
+    "en": "Ancient bones help us learn how people lived, what they ate, and even what illnesses they had.",
     "keywords": [
-     "mummies",
-     "scientists",
+     "Ancient bones",
+     "help",
      "learn"
-    ]
+    ],
+    "change": {
+     "from": "Mummies",
+     "to": "Ancient bones",
+     "koFrom": "미라는",
+     "koTo": "고대의 뼈는"
+    }
    }
   },
   {
@@ -15025,13 +15793,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "번개는 강력한 전기이므로 폭풍이 칠 때 조심해야 한다.",
-    "en": "Lightning is powerful electricity, so we must be careful during storms.",
+    "ko": "화산은 보기에 아름답지만, 언제나 조심해야 한다.",
+    "en": "A volcano is beautiful to watch, but it should always be respected.",
     "keywords": [
-     "lightning",
-     "electricity",
-     "careful"
-    ]
+     "A volcano",
+     "beautiful",
+     "watch"
+    ],
+    "change": {
+     "from": "Lightning",
+     "to": "A volcano",
+     "koFrom": "번개는",
+     "koTo": "화산은"
+    }
    }
   },
   {
@@ -15149,13 +15923,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "물곰은 아주 나쁜 환경에서도 살아남는 작은 동물이다.",
-    "en": "Tardigrades are tiny animals that can survive terrible conditions.",
+    "ko": "물곰의 가장 놀라운 능력은 환경이 혹독해져도 살아남는 것이다.",
+    "en": "Their most amazing skill is surviving when conditions become harsh.",
     "keywords": [
-     "tardigrades",
-     "tiny",
-     "survive"
-    ]
+     "harsh",
+     "most",
+     "amazing"
+    ],
+    "change": {
+     "from": "terrible",
+     "to": "harsh",
+     "koFrom": "아주 나빠져도",
+     "koTo": "혹독해져도"
+    }
    }
   },
   {
@@ -15277,13 +16057,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "서로 다른 재능을 가진 많은 사람이 함께 비디오 게임을 만든다.",
-    "en": "Many people with different skills work together to make a video game.",
+    "ko": "큰 애니메이션 영화는 보통 수백 명이 함께하는 팀이 만든다.",
+    "en": "A big animated film is usually made by a team that can include hundreds of people.",
     "keywords": [
-     "people",
-     "together",
-     "game"
-    ]
+     "animated film",
+     "big",
+     "usually"
+    ],
+    "change": {
+     "from": "video game",
+     "to": "animated film",
+     "koFrom": "비디오 게임은",
+     "koTo": "애니메이션 영화는"
+    }
    }
   },
   {
@@ -15409,13 +16195,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "문어는 아주 똑똑하고 몸 색깔을 바꿔 숨을 수 있다.",
-    "en": "Octopuses are very smart and can hide by changing color.",
+    "ko": "돌고래는 지능이 우리와 아주 다른 모습일 수도 있다는 것을 보여 준다.",
+    "en": "Dolphins show us that intelligence can look very different from our own.",
     "keywords": [
-     "octopuses",
-     "smart",
-     "color"
-    ]
+     "Dolphins",
+     "show",
+     "intelligence"
+    ],
+    "change": {
+     "from": "Octopuses",
+     "to": "Dolphins",
+     "koFrom": "문어는",
+     "koTo": "돌고래는"
+    }
    }
   },
   {
@@ -15537,13 +16329,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "블랙홀의 중력은 너무 강해서 빛도 빠져나올 수 없다.",
-    "en": "A black hole's gravity is so strong that light cannot escape from it.",
+    "ko": "먼지를 포함해 너무 가까이 간 것은 무엇이든 빨려 들어가 다시는 나오지 못한다.",
+    "en": "Anything that gets too close, including dust, is pulled in and can never come out.",
     "keywords": [
-     "gravity",
-     "strong",
-     "light"
-    ]
+     "dust",
+     "anything",
+     "gets"
+    ],
+    "change": {
+     "from": "light",
+     "to": "dust",
+     "koFrom": "빛을 포함해",
+     "koTo": "먼지를 포함해"
+    }
    }
   },
   {
@@ -15661,13 +16459,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "박쥐와 개 같은 동물은 살아가는 데 도움이 되는 특별한 감각을 가졌다.",
-    "en": "Animals like bats and dogs have special senses that help them live.",
+    "ko": "모든 동물의 감각은 그 동물이 사는 방식에 잘 맞춰져 있다.",
+    "en": "Every animal's senses are well suited to the way it lives.",
     "keywords": [
-     "animals",
-     "special",
-     "senses"
-    ]
+     "well",
+     "every",
+     "animal's"
+    ],
+    "change": {
+     "from": "perfectly",
+     "to": "well",
+     "koFrom": "꼭 알맞게",
+     "koTo": "잘"
+    }
    }
   },
   {
@@ -15781,13 +16585,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "친구들은 안개 속 낯선 목소리 대신 진실에 빛나는 등불을 따라가 무사히 학교에 도착했다.",
-    "en": "The friends followed their lanterns instead of the strange voice and safely reached the school.",
+    "ko": "\"용감한 지도자는 아무 목소리나 따라가지 않는단다. 진실을 따라가지.\" 교장 선생님이 미소 지으며 말했다.",
+    "en": "\"Brave leaders do not follow every voice; they follow the truth,\" she said with a smile.",
     "keywords": [
-     "voice",
-     "lanterns",
-     "school"
-    ]
+     "leaders",
+     "brave",
+     "follow"
+    ],
+    "change": {
+     "from": "students",
+     "to": "leaders",
+     "koFrom": "학생은",
+     "koTo": "지도자는"
+    }
    }
   },
   {
@@ -15901,13 +16711,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "친구들은 함께 무서운 계단을 내려가 두려움에 맞섰고, 소리의 정체가 갇힌 고양이라는 것을 알아냈다.",
-    "en": "The friends faced their fear together and found that the scary sound was a trapped cat.",
+    "ko": "다음 날 아침, 교장 선생님이 미소 지으며 말했다. \"두려움은 주의 깊게 살펴보면 작아지는 경우가 많단다.\"",
+    "en": "The next morning, the headmistress smiled and said, \"Fear often becomes small when you look at it carefully.\"",
     "keywords": [
-     "fear",
-     "together",
-     "cat"
-    ]
+     "carefully",
+     "next",
+     "morning"
+    ],
+    "change": {
+     "from": "closely",
+     "to": "carefully",
+     "koFrom": "가까이 들여다보면",
+     "koTo": "주의 깊게 살펴보면"
+    }
    }
   },
   {
@@ -16021,13 +16837,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "친구들은 무서운 그림자가 외로운 옛 학생이라는 것을 이해하고, 잃어버린 이름을 찾아 주어 그를 구했다.",
-    "en": "The friends understood that the scary shadow was a lonely old student and saved him by finding his lost name.",
+    "ko": "벤은 마침내 깨달았다. 무서운 것도 때로는 그것을 이해해 줄 만큼 용감한 누군가가 필요할 뿐이라는 것을.",
+    "en": "Ben understood at last: scary things sometimes only need someone brave enough to understand them.",
     "keywords": [
-     "shadow",
-     "lonely",
-     "name"
-    ]
+     "Ben",
+     "understood",
+     "last"
+    ],
+    "change": {
+     "from": "Theo",
+     "to": "Ben",
+     "koFrom": "테오는",
+     "koTo": "벤은"
+    }
    }
   },
   {
@@ -16141,13 +16963,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "친구들은 빛을 모아 엘릭을 안개에게서 구했고, 교장 선생님은 100년 전 약속대로 엘릭과 함께 기차에 올랐다.",
-    "en": "The friends saved Elric from the fog, and the headmistress kept her promise and rode the train with him.",
+    "ko": "\"나는 100년 전에 이 기차를 놓쳤단다.\" 교장 선생님이 말했다. \"하지만 다짐을 지키기에 너무 늦은 때란 없지.\"",
+    "en": "\"I missed this train a hundred years ago,\" she said, \"but it is never too late to keep a commitment.\"",
     "keywords": [
-     "Elric",
-     "train",
-     "promise"
-    ]
+     "commitment",
+     "missed",
+     "train"
+    ],
+    "change": {
+     "from": "promise",
+     "to": "commitment",
+     "koFrom": "약속을 지키기에",
+     "koTo": "다짐을 지키기에"
+    }
    }
   },
   {
@@ -16261,13 +17089,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "알림은 집중력을 떨어뜨리므로 불필요한 알림을 줄여 주의력을 지켜야 한다.",
-    "en": "Notifications reduce our focus, so we should cut unnecessary alerts to protect our attention.",
+    "ko": "그러나 주의력에 관한 연구에 따르면 방해는 우리가 깊이 집중하는 능력을 조용히 떨어뜨린다.",
+    "en": "However, research on attention suggests that interruptions quietly reduce our ability to focus deeply.",
     "keywords": [
-     "notifications",
-     "focus",
-     "attention"
-    ]
+     "interruptions",
+     "however",
+     "research"
+    ],
+    "change": {
+     "from": "notifications",
+     "to": "interruptions",
+     "koFrom": "알림은",
+     "koTo": "방해는"
+    }
    }
   },
   {
@@ -16381,13 +17215,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "인간 활동이 자연적인 온실 효과를 지나치게 강화해 기후 변화를 일으키고 있다.",
-    "en": "Human activity is making the natural greenhouse effect too strong, which causes climate change.",
+    "ko": "온실 효과는 지구를 생명이 살 수 있을 만큼 따뜻하게 유지해 주는 자연적인 과정이지만, 인간의 활동이 그것을 점점 더 강하게 만들고 있다.",
+    "en": "The greenhouse effect is a natural process that keeps Earth warm enough for life, but human activity is making it increasingly stronger.",
     "keywords": [
+     "increasingly",
      "greenhouse",
-     "activity",
-     "climate"
-    ]
+     "effect"
+    ],
+    "change": {
+     "from": "dangerously",
+     "to": "increasingly",
+     "koFrom": "위험할 정도로 강하게",
+     "koTo": "점점 더 강하게"
+    }
    }
   },
   {
@@ -16501,13 +17341,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "백신은 면역 체계가 안전하게 연습하게 하여 실제 병균에 대비하도록 한다.",
-    "en": "Vaccines let the immune system practice safely so it is ready for real germs.",
+    "ko": "백신은 진짜 감염이 일어나기 전에 면역 체계에 안전하게 연습할 기회를 줌으로써 작용한다.",
+    "en": "Vaccines work by giving the immune system a safe chance to practice before a actual infection happens.",
     "keywords": [
+     "actual",
      "vaccines",
-     "immune",
-     "germs"
-    ]
+     "work"
+    ],
+    "change": {
+     "from": "real",
+     "to": "actual",
+     "koFrom": "실제 감염이",
+     "koTo": "진짜 감염이"
+    }
    }
   },
   {
@@ -16621,13 +17467,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "인쇄기는 지식이 만들어지고 공유되는 방식을 바꾸어 사회를 변화시켰다.",
-    "en": "The printing press changed society by transforming how knowledge was created and shared.",
+    "ko": "따라서 인터넷은 단순한 새 기계를 훨씬 넘어서는 것이었으며, 지식이 만들어지고 공유되고 통제되는 방식을 바꾸어 놓았다.",
+    "en": "Thus, the internet was far more than a new machine; it changed how knowledge was created, shared, and controlled.",
     "keywords": [
-     "printing",
-     "society",
-     "knowledge"
-    ]
+     "internet",
+     "thus",
+     "far"
+    ],
+    "change": {
+     "from": "printing press",
+     "to": "internet",
+     "koFrom": "인쇄기는",
+     "koTo": "인터넷은"
+    }
    }
   },
   {
@@ -16741,13 +17593,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "가격은 주로 공급과 수요의 균형에 따라 변한다.",
-    "en": "Prices mainly change according to the balance between supply and demand.",
+    "ko": "시장 경제에서 가격은 주로 공급과 수요의 균형에 의해 정해진다.",
+    "en": "In a market economy, prices are mainly set by the balance between supply and demand.",
     "keywords": [
-     "prices",
-     "supply",
-     "demand"
-    ]
+     "mainly",
+     "market",
+     "economy"
+    ],
+    "change": {
+     "from": "largely",
+     "to": "mainly",
+     "koFrom": "대체로",
+     "koTo": "주로"
+    }
    }
   },
   {
@@ -16857,13 +17715,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "인공지능의 편향은 기계 자체가 아니라 불공정함이 담긴 학습 데이터에서 비롯된다.",
-    "en": "AI bias comes not from the machine itself but from unfair data it learns from.",
+    "ko": "다시 말해, 인공지능의 편향은 흔히 기계 자체가 아니라 그것이 학습한 데이터에서 비롯된다.",
+    "en": "In other words, bias in AI often comes not from the machine itself but from the data it is trained on.",
     "keywords": [
-     "bias",
-     "machine",
-     "data"
-    ]
+     "often",
+     "other",
+     "words"
+    ],
+    "change": {
+     "from": "usually",
+     "to": "often",
+     "koFrom": "대개",
+     "koTo": "흔히"
+    }
    }
   },
   {
@@ -16981,13 +17845,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "녹지를 늘리는 것은 도시의 열섬 현상을 줄이는 효과적인 방법이다.",
-    "en": "Increasing green spaces is an effective way to reduce the heat island effect in cities.",
+    "ko": "따라서 나무를 심는 것은 도시가 열섬 효과에 맞서는 가장 효과적인 방법 중 하나이다.",
+    "en": "Therefore, planting trees is one of the most effective ways for cities to fight the heat island effect.",
     "keywords": [
-     "green",
-     "heat",
-     "cities"
-    ]
+     "planting trees",
+     "therefore",
+     "one"
+    ],
+    "change": {
+     "from": "expanding green spaces",
+     "to": "planting trees",
+     "koFrom": "녹지를 넓히는 것은",
+     "koTo": "나무를 심는 것은"
+    }
    }
   },
   {
@@ -17097,13 +17967,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "마음은 몸이 느끼는 방식에 영향을 줄 수 있지만 진짜 약을 대신할 수는 없다.",
-    "en": "The mind can affect how the body feels, but it cannot replace real medicine.",
+    "ko": "그렇다면 플라세보 효과가 보여 주는 것은, 마음이 몸의 느낌에 영향을 줄 수는 있지만 효과적인 약을 대신할 수는 없다는 사실이다.",
+    "en": "What the placebo effect reveals, then, is that the mind can influence how the body feels, though it cannot replace effective medicine.",
     "keywords": [
-     "mind",
-     "body",
-     "medicine"
-    ]
+     "effective",
+     "what",
+     "placebo"
+    ],
+    "change": {
+     "from": "real",
+     "to": "effective",
+     "koFrom": "진짜 약을",
+     "koTo": "효과적인 약을"
+    }
    }
   },
   {
@@ -17217,13 +18093,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "바다로 흘러든 플라스틱이 미세플라스틱이 되어 해양 생물을 위협하므로 플라스틱 유입을 막아야 한다.",
-    "en": "Microplastics threaten marine life, so we must stop plastic from reaching the ocean.",
+    "ko": "이 플라스틱의 상당 부분은 사라지지 않고 미세플라스틱이라는 아주 작은 조각으로 부서지며, 이는 해양 생물에게 심각한 위협이 되고 있다.",
+    "en": "Much of this plastic does not disappear but breaks into tiny pieces called microplastics, which pose a serious threat to marine life.",
     "keywords": [
-     "microplastics",
-     "marine",
-     "ocean"
-    ]
+     "serious",
+     "much",
+     "plastic"
+    ],
+    "change": {
+     "from": "growing",
+     "to": "serious",
+     "koFrom": "점점 커지는 위협이",
+     "koTo": "심각한 위협이"
+    }
    }
   },
   {
@@ -17337,13 +18219,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "실수와 실패는 배움에 꼭 필요하며 성장의 기회가 된다.",
-    "en": "Mistakes and failures are a necessary part of learning and help us grow.",
+    "ko": "그러나 기술 발달에 관한 연구는 실수가 발전하는 데 꼭 필요한 부분이라는 것을 보여 준다.",
+    "en": "However, research on skill development suggests that mistakes are a necessary part of getting better.",
     "keywords": [
-     "mistakes",
-     "failures",
-     "learning"
-    ]
+     "skill development",
+     "however",
+     "research"
+    ],
+    "change": {
+     "from": "learning",
+     "to": "skill development",
+     "koFrom": "학습에 관한",
+     "koTo": "기술 발달에 관한"
+    }
    }
   },
   {
@@ -17457,13 +18345,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "사라져 가는 언어를 지키는 것은 인류의 지식과 문화적 다양성을 지키는 일이다.",
-    "en": "Protecting endangered languages means protecting human knowledge and cultural diversity.",
+    "ko": "따라서 사라져 가는 언어를 보호하는 것은 인류의 지식과 문화적 다양성을 보호하는 일이다.",
+    "en": "Protecting disappearing languages, therefore, means protecting human knowledge and cultural diversity.",
     "keywords": [
-     "languages",
-     "knowledge",
-     "diversity"
-    ]
+     "disappearing",
+     "protecting",
+     "languages"
+    ],
+    "change": {
+     "from": "endangered",
+     "to": "disappearing",
+     "koFrom": "사라질 위기의",
+     "koTo": "사라져 가는"
+    }
    }
   },
   {
@@ -17577,13 +18471,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "태양광과 풍력은 깨끗하지만 공급이 들쭉날쭉하므로 전력 저장 기술이 핵심이다.",
-    "en": "Solar and wind power are clean but variable, so energy storage is the key.",
+    "ko": "이런 이유로 재생 에너지에 의존하기 위한 핵심은 전기를 저장하고 공급의 균형을 맞추는 방법을 찾는 것이다.",
+    "en": "For this reason, the key to relying on renewable energy is finding ways to store electricity and balance supply.",
     "keywords": [
-     "solar",
-     "wind",
-     "storage"
-    ]
+     "electricity",
+     "reason",
+     "key"
+    ],
+    "change": {
+     "from": "power",
+     "to": "electricity",
+     "koFrom": "전력을 저장하고",
+     "koTo": "전기를 저장하고"
+    }
    }
   },
   {
@@ -17721,13 +18621,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "습관의 신호, 반복 행동, 보상을 다시 설계하면 습관을 바꿀 수 있다.",
-    "en": "We can change habits by redesigning their cues, routines, and rewards.",
+    "ko": "결국 감정이 어떻게 작동하는지 이해하면 의지력만으로는 결코 얻을 수 없는 통제력을 갖게 된다.",
+    "en": "In the end, understanding how emotions work gives us more control than willpower alone ever could.",
     "keywords": [
-     "habits",
-     "cues",
-     "rewards"
-    ]
+     "emotions",
+     "end",
+     "understanding"
+    ],
+    "change": {
+     "from": "habits",
+     "to": "emotions",
+     "koFrom": "습관이",
+     "koTo": "감정이"
+    }
    }
   },
   {
@@ -17865,13 +18771,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "사람처럼 말하는 기계라도 진짜로 이해하는 것은 아닐 수 있다.",
-    "en": "A machine that talks like a human may still not truly understand.",
+    "ko": "그 결과, 대화 시험을 통과하는 것은 진짜 이해가 아니라 설득력 있는 흉내를 보여 주는 것일 수도 있다.",
+    "en": "As a result, passing a conversation test might show convincing imitation rather than real understanding.",
     "keywords": [
-     "machine",
-     "human",
-     "understand"
-    ]
+     "convincing",
+     "result",
+     "passing"
+    ],
+    "change": {
+     "from": "clever",
+     "to": "convincing",
+     "koFrom": "영리한 흉내를",
+     "koTo": "설득력 있는 흉내를"
+    }
    }
   },
   {
@@ -18013,13 +18925,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "실크로드는 문화 사이에 물건뿐 아니라 생각과 종교도 전했다.",
-    "en": "The Silk Road carried ideas and religions as well as goods between cultures.",
+    "ko": "무역의 역사는 문화 간 교류가 좋든 나쁘든 언제나 인류 역사를 만들어 왔다는 것을 보여 준다.",
+    "en": "The history of trade shows that exchange between cultures has always shaped human history, for better and for worse.",
     "keywords": [
-     "ideas",
-     "religions",
-     "goods"
-    ]
+     "history of trade",
+     "shows",
+     "exchange"
+    ],
+    "change": {
+     "from": "Silk Road",
+     "to": "history of trade",
+     "koFrom": "실크로드는",
+     "koTo": "무역의 역사는"
+    }
    }
   },
   {
@@ -18161,13 +19079,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "기회비용은 우리가 포기하는 가장 좋은 선택의 가치이다.",
-    "en": "Opportunity cost is the value of the best choice we give up.",
+    "ko": "장기 목표를 생각하면 우리가 정말 무엇을 포기하는지 알아차리고 더 현명한 선택을 할 수 있다.",
+    "en": "Thinking about long-term goals helps us notice what we are really giving up and make wiser choices.",
     "keywords": [
-     "opportunity",
-     "cost",
-     "choice"
-    ]
+     "long-term goals",
+     "thinking",
+     "about"
+    ],
+    "change": {
+     "from": "opportunity cost",
+     "to": "long-term goals",
+     "koFrom": "기회비용을",
+     "koTo": "장기 목표를"
+    }
    }
   },
   {
@@ -18317,13 +19241,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "대부분의 세균은 우리를 도우므로 항생제를 조심해서 써야 한다.",
-    "en": "Most bacteria help us, so we should use antibiotics carefully.",
+    "ko": "세균은 단순히 친구도 적도 아니다. 대부분은 우리가 없이는 살 수 없는 협력자이다.",
+    "en": "Bacteria are neither simply friends nor foes; most are allies we cannot live without.",
     "keywords": [
+     "allies",
      "bacteria",
-     "antibiotics",
-     "carefully"
-    ]
+     "neither"
+    ],
+    "change": {
+     "from": "partners",
+     "to": "allies",
+     "koFrom": "동반자이다",
+     "koTo": "협력자이다"
+    }
    }
   },
   {
@@ -18469,13 +19399,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "우리가 쓰는 언어는 우리가 무엇에 주의를 기울이는지에 영향을 줄 수 있다.",
-    "en": "The language we speak can influence what we pay attention to.",
+    "ko": "분명해 보이는 것은 언어가 마음을 가두는 감옥이 아니라 주의를 향하게 하는 도구라는 점이다.",
+    "en": "What seems clear is that language is a tool that directs attention rather than a prison that traps the mind.",
     "keywords": [
-     "language",
-     "influence",
-     "attention"
-    ]
+     "directs",
+     "what",
+     "seems"
+    ],
+    "change": {
+     "from": "guides",
+     "to": "directs",
+     "koFrom": "주의를 이끄는",
+     "koTo": "주의를 향하게 하는"
+    }
    }
   },
   {
@@ -18617,13 +19553,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "우주 쓰레기는 위험하므로 궤도를 청소할 규칙과 새로운 기술이 필요하다.",
-    "en": "Space junk is dangerous, so we need rules and new technology to clean up orbit.",
+    "ko": "우주는 끝없이 느껴지지만, 지구 주변 공간은 우리가 깨끗하게 지키는 것이 바람직한 공동 자원이다.",
+    "en": "Space feels endless, but the area around Earth is a shared resource that we should keep clean.",
     "keywords": [
-     "junk",
-     "dangerous",
-     "orbit"
-    ]
+     "should",
+     "space",
+     "feels"
+    ],
+    "change": {
+     "from": "must",
+     "to": "should",
+     "koFrom": "지켜야 할",
+     "koTo": "지키는 것이 바람직한"
+    }
    }
   },
   {
@@ -18757,13 +19699,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "공정 무역은 한계가 있지만 커피 농부에게 더 공정한 가격을 주려고 한다.",
-    "en": "Fair trade tries to give coffee farmers a fairer price, though it has limits.",
+    "ko": "공정 무역이 정답의 전부는 아니지만, 소비자로서 우리의 매일의 선택이 멀리 있는 사람들의 삶과 연결되어 있음을 보여 준다.",
+    "en": "Fair trade is not the whole answer, but it shows that our daily choices as consumers are connected to the lives of people far away.",
     "keywords": [
+     "daily",
      "fair",
-     "farmers",
-     "price"
-    ]
+     "trade"
+    ],
+    "change": {
+     "from": "everyday",
+     "to": "daily",
+     "koFrom": "일상적인 선택이",
+     "koTo": "매일의 선택이"
+    }
    }
   },
   {
@@ -18905,13 +19853,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "공부한 뒤 충분히 자면 배운 것을 더 잘 기억할 수 있다.",
-    "en": "Getting enough sleep after studying helps us remember what we learned.",
+    "ko": "잠은 공부의 반대가 아니라, 배움의 필수 단계이다.",
+    "en": "Sleep is not the opposite of studying; it is the essential step of learning.",
     "keywords": [
+     "essential",
      "sleep",
-     "studying",
-     "remember"
-    ]
+     "opposite"
+    ],
+    "change": {
+     "from": "final",
+     "to": "essential",
+     "koFrom": "마지막 단계이다",
+     "koTo": "필수 단계이다"
+    }
    }
   },
   {
@@ -19049,13 +20003,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "유전자 편집은 강력하기 때문에 안전하게 쓰려면 분명한 규칙이 필요하다.",
-    "en": "Gene editing is powerful, so we need clear rules to use it safely.",
+    "ko": "유전자 편집은 병을 고칠 수 있는 유망한 도구이지만, 분명한 윤리 규칙에 따라 신중하게 써야 한다.",
+    "en": "Gene editing is a promising tool that could cure diseases, but it must be used carefully and with clear ethical rules.",
     "keywords": [
+     "promising",
      "gene",
-     "editing",
-     "rules"
-    ]
+     "editing"
+    ],
+    "change": {
+     "from": "powerful",
+     "to": "promising",
+     "koFrom": "강력한 도구이지만",
+     "koTo": "유망한 도구이지만"
+    }
    }
   },
   {
@@ -19193,13 +20153,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "전기차는 좋은 출발이지만, 깨끗한 에너지도 함께 필요하다.",
-    "en": "Electric cars are a good step, but we also need clean energy.",
+    "ko": "전기 버스는 더 깨끗한 교통으로 가는 중요한 한 걸음이지만, 더 큰 계획의 일부일 때 가장 효과가 크다.",
+    "en": "Electric buses are an important step toward cleaner transport, but they work best as part of a bigger plan.",
     "keywords": [
-     "electric",
-     "cars",
-     "energy"
-    ]
+     "Electric buses",
+     "important",
+     "step"
+    ],
+    "change": {
+     "from": "Electric cars",
+     "to": "Electric buses",
+     "koFrom": "전기차는",
+     "koTo": "전기 버스는"
+    }
    }
   },
   {
@@ -19341,13 +20307,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "벌은 많은 작물이 자라도록 도우니, 벌을 지키면 우리의 음식도 지킬 수 있다.",
-    "en": "Bees help many crops grow, so protecting them protects our food.",
+    "ko": "꽃가루 매개자를 지키는 일은 곤충을 살리는 것만이 아니라, 우리 식탁의 음식을 지키는 일이다.",
+    "en": "Protecting pollinators is not only about saving insects; it is about protecting the food on our tables.",
     "keywords": [
-     "bees",
-     "crops",
-     "food"
-    ]
+     "pollinators",
+     "protecting",
+     "only"
+    ],
+    "change": {
+     "from": "bees",
+     "to": "pollinators",
+     "koFrom": "벌을 지키는",
+     "koTo": "꽃가루 매개자를 지키는"
+    }
    }
   },
   {
@@ -19481,13 +20453,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "기후 변화로 물이 부족해지니 물을 현명하게 써야 한다.",
-    "en": "Climate change makes water scarce, so we must use water wisely.",
+    "ko": "수질 오염은 심각하고 점점 커지는 문제이지만, 똑똑한 기술과 아껴 쓰는 습관으로 이 소중한 자원을 지킬 수 있다.",
+    "en": "Water pollution is a serious and growing challenge, but smart technology and careful use can help protect this precious resource.",
     "keywords": [
-     "climate",
-     "water",
-     "wisely"
-    ]
+     "Water pollution",
+     "serious",
+     "growing"
+    ],
+    "change": {
+     "from": "Water scarcity",
+     "to": "Water pollution",
+     "koFrom": "물 부족은",
+     "koTo": "수질 오염은"
+    }
    }
   },
   {
@@ -19621,13 +20599,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "인플레이션은 물가가 올라서 같은 돈으로 덜 살 수 있게 되는 것이다.",
-    "en": "Inflation means prices rise, so the same money buys less.",
+    "ko": "더 정확히 말하면 인플레이션은 생활용품 가격이 전반적으로 오르는 것으로, 같은 돈으로 예전보다 적게 살 수 있게 된다는 뜻이다.",
+    "en": "More precisely, inflation is a general increase in the prices of everyday goods, which means that the same amount of money buys less than before.",
     "keywords": [
-     "inflation",
-     "prices",
-     "money"
-    ]
+     "everyday goods",
+     "more",
+     "precisely"
+    ],
+    "change": {
+     "from": "goods and services",
+     "to": "everyday goods",
+     "koFrom": "상품과 서비스 가격이",
+     "koTo": "생활용품 가격이"
+    }
    }
   },
   {
@@ -19761,13 +20745,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "유럽의 탐험은 세계를 이어 주었지만, 많은 사람에게 피해도 주었다.",
-    "en": "European exploration connected the world, but it also harmed many people.",
+    "ko": "산업 혁명은 세계를 영원히 바꿔 놓았고, 새로운 연결과 함께 큰 고통도 가져왔다.",
+    "en": "The Industrial Revolution changed the world forever, bringing new connections but also great suffering.",
     "keywords": [
-     "exploration",
-     "connected",
-     "harmed"
-    ]
+     "Industrial Revolution",
+     "changed",
+     "world"
+    ],
+    "change": {
+     "from": "Age of Exploration",
+     "to": "Industrial Revolution",
+     "koFrom": "대항해 시대는",
+     "koTo": "산업 혁명은"
+    }
    }
   },
   {
@@ -19917,13 +20907,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "항생제가 계속 효과가 있도록 신중하게 써야 한다.",
-    "en": "We must use antibiotics carefully so that they keep working.",
+    "ko": "의약품은 소중한 도구이고, 그것을 현명하게 쓰는 것은 모두의 책임이다.",
+    "en": "Medicines are precious tools, and using them wisely is everyone's responsibility.",
     "keywords": [
-     "antibiotics",
-     "carefully",
-     "working"
-    ]
+     "Medicines",
+     "precious",
+     "tools"
+    ],
+    "change": {
+     "from": "Antibiotics",
+     "to": "Medicines",
+     "koFrom": "항생제는",
+     "koTo": "의약품은"
+    }
    }
   },
   {
@@ -20069,13 +21065,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "정보를 믿거나 공유하기 전에 꼼꼼히 확인해야 한다.",
-    "en": "We should check information carefully before we believe or share it.",
+    "ko": "정보가 넘쳐 나는 세상에서 가장 중요한 능력은 정보를 빨리 찾는 것이 아니라 꼼꼼하게 판단하는 것이다.",
+    "en": "In a world full of information, the most important skill is not finding information quickly but judging it carefully.",
     "keywords": [
-     "check",
      "information",
-     "share"
-    ]
+     "world",
+     "full"
+    ],
+    "change": {
+     "from": "news",
+     "to": "information",
+     "koFrom": "뉴스를",
+     "koTo": "정보를"
+    }
    }
   },
   {
@@ -20213,13 +21215,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "화성은 한때 생명이 살 수 있었을지도 모르지만, 아직 증거는 없다.",
-    "en": "Mars may once have been able to support life, but there is no proof yet.",
+    "ko": "오늘날 우리는 화성에 숲이 없다는 것을 알지만, 생명이 있느냐는 질문의 답은 아직 나오지 않았다.",
+    "en": "Today, we know there are no forests on Mars, but the question of life is still open.",
     "keywords": [
-     "mars",
-     "life",
-     "proof"
-    ]
+     "forests",
+     "today",
+     "know"
+    ],
+    "change": {
+     "from": "cities",
+     "to": "forests",
+     "koFrom": "도시가",
+     "koTo": "숲이"
+    }
    }
   },
   {
@@ -20369,13 +21377,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "과학자들은 외계 생명체를 신중하게 찾고 있지만, 아직 증거를 찾지 못했다.",
-    "en": "Scientists are searching for alien life carefully, but they have not found proof yet.",
+    "ko": "하지만 더 좋은 관측 장비와 우주 탐사 덕분에, 이 탐사는 그 어느 때보다 진지하고 흥미진진해졌다.",
+    "en": "However, with better instruments and space missions, the search is more serious and more exciting than ever before.",
     "keywords": [
-     "alien",
-     "life",
-     "proof"
-    ]
+     "instruments",
+     "however",
+     "better"
+    ],
+    "change": {
+     "from": "telescopes",
+     "to": "instruments",
+     "koFrom": "망원경과",
+     "koTo": "관측 장비와"
+    }
    }
   },
   {
@@ -20521,13 +21535,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "진짜 공룡은 돌아올 수 없지만, 더 최근의 종을 되살리는 일은 논란이 있다.",
-    "en": "Real dinosaurs cannot come back, but bringing back newer species is debated.",
+    "ko": "정리하면, 고대 공룡을 되살리는 것은 거의 확실히 불가능하고, 최근에 멸종한 동물을 되살리는 것은 가능할 수도 있지만 논란이 매우 크다.",
+    "en": "In short, bringing back ancient dinosaurs is almost certainly impossible, while bringing back recently extinct animals remains possible but highly debated.",
     "keywords": [
-     "dinosaurs",
-     "species",
-     "debated"
-    ]
+     "ancient dinosaurs",
+     "short",
+     "bringing"
+    ],
+    "change": {
+     "from": "real dinosaurs",
+     "to": "ancient dinosaurs",
+     "koFrom": "진짜 공룡을",
+     "koTo": "고대 공룡을"
+    }
    }
   },
   {
@@ -20673,13 +21693,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "꿈에 대한 이론은 여러 가지이지만, 과학자들은 아직 답을 찾고 있다.",
-    "en": "There are several theories about dreams, but scientists are still searching for the answer.",
+    "ko": "연구자들에게 아직 하나의 최종 답은 없지만, 많은 것을 알아냈다.",
+    "en": "Researchers still do not have one final answer, yet they have learned a great deal.",
     "keywords": [
-     "theories",
-     "dreams",
-     "answer"
-    ]
+     "Researchers",
+     "still",
+     "one"
+    ],
+    "change": {
+     "from": "Scientists",
+     "to": "Researchers",
+     "koFrom": "과학자들에게",
+     "koTo": "연구자들에게"
+    }
    }
   },
   {
@@ -20813,13 +21839,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "화성에서 사는 것은 가능할 수도 있지만, 매우 어렵다.",
-    "en": "Living on Mars might be possible, but it is extremely difficult.",
+    "ko": "결국 달에서 사는 것은 더 이상 순수한 상상만은 아니지만, 여전히 엄청난 과학적·윤리적 도전이다.",
+    "en": "In the end, living on the Moon is no longer pure fantasy, but it remains an enormous scientific and ethical challenge.",
     "keywords": [
-     "living",
-     "mars",
-     "difficult"
-    ]
+     "the Moon",
+     "end",
+     "living"
+    ],
+    "change": {
+     "from": "Mars",
+     "to": "the Moon",
+     "koFrom": "화성에서",
+     "koTo": "달에서"
+    }
    }
   },
   {
@@ -20965,13 +21997,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "학습하는 로봇은 데이터로 나아지지만, 사람이 잘 지켜봐야 한다.",
-    "en": "Learning robots improve with data, but people must watch them carefully.",
+    "ko": "인공지능 시스템은 강력한 도구이지만, 사람이 그 쓰임에 책임을 질 때 가장 잘 작동한다.",
+    "en": "AI systems are powerful tools, but they work best when people remain responsible for how they are used.",
     "keywords": [
-     "robots",
-     "data",
-     "carefully"
-    ]
+     "AI systems",
+     "powerful",
+     "tools"
+    ],
+    "change": {
+     "from": "Robots that learn",
+     "to": "AI systems",
+     "koFrom": "스스로 배우는 로봇은",
+     "koTo": "인공지능 시스템은"
+    }
    }
   },
   {
@@ -21109,13 +22147,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "암흑 물질은 볼 수 없지만, 그 중력이 존재를 보여 준다.",
-    "en": "Dark matter cannot be seen, but its gravity shows that it exists.",
+    "ko": "암흑 에너지의 수수께끼는 우리가 많은 것을 알게 되었는데도, 우주의 상당 부분이 여전히 미지의 영역이라는 것을 보여 준다.",
+    "en": "The mystery of dark energy shows that, despite all our knowledge, much of the universe is still unknown.",
     "keywords": [
-     "matter",
-     "gravity",
-     "exists"
-    ]
+     "dark energy",
+     "mystery",
+     "shows"
+    ],
+    "change": {
+     "from": "dark matter",
+     "to": "dark energy",
+     "koFrom": "암흑 물질의",
+     "koTo": "암흑 에너지의"
+    }
    }
   },
   {
@@ -21261,13 +22305,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "병이 퍼지는 방식을 알면 그 속도를 늦출 수 있다.",
-    "en": "Knowing how diseases spread helps us slow them down.",
+    "ko": "감염이 어떻게 퍼지는지 이해하면, 나와 다른 사람을 함께 지키는 현명한 선택을 할 수 있다.",
+    "en": "Understanding how infections spread helps people make wise choices that protect both themselves and others.",
     "keywords": [
-     "diseases",
-     "spread",
-     "slow"
-    ]
+     "infections",
+     "understanding",
+     "how"
+    ],
+    "change": {
+     "from": "diseases",
+     "to": "infections",
+     "koFrom": "병이 어떻게",
+     "koTo": "감염이 어떻게"
+    }
    }
   },
   {
@@ -21409,13 +22459,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "바다의 박명대는 생명으로 가득하고 기후 조절을 돕는다.",
-    "en": "The ocean's twilight zone is full of life and helps to control the climate.",
+    "ko": "심해를 보호하는 일은 바다 생물뿐 아니라 지구의 미래에도 중요할지 모른다.",
+    "en": "Protecting the deep sea may be important not only for ocean life but also for the future of our planet.",
     "keywords": [
-     "twilight",
-     "life",
-     "climate"
-    ]
+     "deep sea",
+     "protecting",
+     "important"
+    ],
+    "change": {
+     "from": "twilight zone",
+     "to": "deep sea",
+     "koFrom": "박명대를",
+     "koTo": "심해를"
+    }
    }
   },
   {
@@ -21557,13 +22613,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "돈은 행복에 도움이 될 수 있지만, 전부는 아니다.",
-    "en": "Money can help us be happy, but it is not everything.",
+    "ko": "결론적으로, 돈은 특히 기본적인 필요를 채워 줌으로써 어느 정도의 안락함을 살 수 있지만, 그것이 전부는 아니다.",
+    "en": "In conclusion, money can buy a certain amount of comfort, especially by meeting basic needs, but it is not the whole story.",
     "keywords": [
-     "money",
-     "happy",
-     "everything"
-    ]
+     "comfort",
+     "conclusion",
+     "money"
+    ],
+    "change": {
+     "from": "happiness",
+     "to": "comfort",
+     "koFrom": "행복을",
+     "koTo": "안락함을"
+    }
    }
   },
   {
@@ -21705,13 +22767,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "음악은 감정과 기억에 영향을 주지만, 마법처럼 우리를 똑똑하게 만들지는 않는다.",
-    "en": "Music affects our feelings and memories, but it does not magically make us smarter.",
+    "ko": "정리하면, 그림 그리기는 똑똑해지는 마법 같은 지름길은 아니지만, 뇌 전체를 쓰고 감정과 기억을 건드리는 풍부한 활동이다.",
+    "en": "In short, painting is not a magic shortcut to intelligence, but it is a rich activity that engages the whole brain and touches our emotions and memories.",
     "keywords": [
-     "music",
-     "memories",
-     "smarter"
-    ]
+     "painting",
+     "short",
+     "magic"
+    ],
+    "change": {
+     "from": "music",
+     "to": "painting",
+     "koFrom": "음악은",
+     "koTo": "그림 그리기는"
+    }
    }
   },
   {
@@ -21857,13 +22925,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "자율 주행차는 사람들이 널리 쓰기 전에 안전하고 믿을 수 있어야 한다.",
-    "en": "Self-driving cars must be safe and trusted before people use them widely.",
+    "ko": "결국 배달 로봇은 기술이 안전하다는 것이 증명되고 사람들이 그것을 믿게 될 때에만 성공할 수 있다.",
+    "en": "In the end, delivery robots will only succeed if the technology proves safe and people come to trust it.",
     "keywords": [
-     "cars",
-     "safe",
-     "trusted"
-    ]
+     "delivery robots",
+     "end",
+     "only"
+    ],
+    "change": {
+     "from": "self-driving cars",
+     "to": "delivery robots",
+     "koFrom": "자율 주행차는",
+     "koTo": "배달 로봇은"
+    }
    }
   },
   {
@@ -22009,13 +23083,19 @@ window.READING_LADDER = {
     }
    ],
    "summary": {
-    "ko": "2100년의 기후는 우리가 오늘 하는 선택에 달려 있다.",
-    "en": "The climate in 2100 will depend on the choices we make today.",
+    "ko": "그것은 앞으로 몇 년 동안 사람들이 내리는 선택에 크게 달려 있다.",
+    "en": "It will depend largely on the choices people make in the coming years.",
     "keywords": [
-     "climate",
-     "choices",
-     "today"
-    ]
+     "years",
+     "depend",
+     "largely"
+    ],
+    "change": {
+     "from": "decades",
+     "to": "years",
+     "koFrom": "수십 년 동안",
+     "koTo": "몇 년 동안"
+    }
    }
   }
  ]

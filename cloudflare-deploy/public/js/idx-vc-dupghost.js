@@ -228,28 +228,9 @@
 
   try { setInterval(sweep, TICK_MS); } catch (e) {}
 
-  /* 🚪 (2026-08-20) 떠날 때 한 번 더 «나갑니다» 를 보낸다 — 유령이 생기는 것을 애초에 줄인다.
-     [왜] 지금은 나가기 버튼(vcLeaveRoom)에서만 leave-room 을 보낸다. 그런데 실제 사고 기록을 보면
-       25분간 7번 들어온 세션 중 2건은 **퇴장 기록조차 없었다** — 버튼을 안 누르고 뒤로가기·주소이동·
-       탭닫기로 떠난 것이다. 그 경우 서버는 소켓이 실제로 끊길 때까지 그 사람을 방에 앉혀 둔다.
-     [무엇] pagehide 는 뒤로가기·주소이동·탭닫기·앱전환에서 발화한다. 소켓이 아직 살아 있으면
-       그 자리에서 정상 퇴장으로 처리돼 상대 화면의 타일이 즉시 사라진다.
-     ⚠️ 소켓이 이미 죽어 있으면 이 신호도 못 간다 — 그때를 위한 것이 서버측 생존 판정(A-1)이다.
-       둘은 짝이고, 어느 하나로 대체되지 않는다. */
-  try {
-    window.addEventListener('pagehide', function (e) {
-      try {
-        /* 🔴 e.persisted === true 는 «페이지가 살아 있는 채로 뒤로 물러난 것»(bfcache) 이다.
-           앱 전환·화면잠금에서도 이 형태로 뜨는 브라우저가 있는데, 그때 leave-room 을 보내면
-           서버가 reason='left' 로 방송하고 → index.html 의 vcRemovePeer 후킹이 10초 뒤
-           **학생 화면에 「수업이 끝났어요」를 띄운다.** 교사가 폰을 잠깐 내려놓은 것뿐인데 수업이 끝난다.
-           (CLAUDE.md: dropped 로는 종료하지 않지만 **left 로는 종료한다** — 그래서 left 는 함부로 못 보낸다)
-           진짜로 문서가 헐리는 경우(persisted=false)에만 보낸다. */
-        if (e && e.persisted) return;
-        if (!document.body || !document.body.classList.contains('vc-in-call')) return;
-        var c = window.vcConn;
-        if (c && typeof c.send === 'function') c.send({ type: 'leave-room', data: {} });
-      } catch (e2) {}
-    });
-  } catch (e) {}
+  /* Transport/page lifecycle events do not express a decision to end class.
+     Do not send leave-room from pagehide, even with persisted=false: a reload
+     or mobile page suspension can be temporary. Server socket cleanup handles
+     stale peers as dropped; vcLeaveRoom owns the explicit leave-room message.
+     The existing WebSocket/ICE reconnect path remains active after a drop. */
 })();

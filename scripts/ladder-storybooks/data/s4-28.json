@@ -292,10 +292,16 @@
     "moreEn": "One more step: after «because», write who or what + what happens to make your reason clear. (e.g. because germs can spread to my family)"
   },
   "img": {
+    "style": "vintage",
     "cover": "A round glass petri dish held up against a bright window in an old laboratory, a fuzzy blue-green mold colony growing in the middle and a clear empty ring around it where the small cream-colored bacteria spots have vanished, glass bottles and stacked dishes on the wooden bench behind",
     "scenes": {
       "1": "A gloved hand holding a lab dish covered with a smooth cream-colored layer of bacteria and dotted with small round white paper discs, wide clear rings around some discs while the bacteria grow right up to the edge of others",
       "3": "A pharmacist in a white coat at a pharmacy counter handing a small plain white box of tablets to a teenager and explaining how to take them, shelves of plain medicine boxes behind them"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

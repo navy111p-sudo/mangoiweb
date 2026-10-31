@@ -292,10 +292,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because friends help each other)"
   },
   "img": {
+    "style": "anime",
     "cover": "Four students walk past a green steam train toward a dark castle on a hill at midnight.",
     "scenes": {
       "1": "Two students hold glowing glass lanterns as cold fog rises from the lake.",
       "3": "A girl with a blue bird on her shoulder lifts a glowing staff in the fog."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

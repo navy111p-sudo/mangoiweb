@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «I want to», write a verb (write, read, keep). After «because», write who + what."
   },
   "img": {
+    "style": "webtoon",
     "cover": "In a big library floating among white clouds, a girl with a long black braid and a purple headband in a yellow raincoat kneels on the floor and writes quickly in an open book with a pencil, while books with plain colorful covers fly around like birds, an old brown owl with round glasses watches from a tall shelf, and the floor near her breaks apart into floating blank pages.",
     "scenes": {
       "1": "a girl with a long black braid and a purple headband in a yellow raincoat steps through a small open blue door into a huge library floating in the sky, where books with plain colorful covers fly around like birds and an old brown owl with round glasses sits on a tall lamp.",
       "3": "In the library floating in the sky, a shining golden floor comes back under the feet of a girl with a long black braid and a purple headband in a yellow raincoat, who hugs a closed book with a plain cover, while an old brown owl with round glasses bows to her."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

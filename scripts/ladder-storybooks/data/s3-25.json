@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because astronauts are brave)"
   },
   "img": {
+    "style": "photo",
     "cover": "A spider-legged lunar landing craft wrapped in gold foil resting on the gray, dusty surface of the Moon, with a black sky and the blue Earth hanging above the horizon",
     "scenes": {
       "1": "Inside a cramped spacecraft cabin with rows of plain switches, round dials, and small warning lights glowing amber",
       "3": "Close view of an astronaut’s ridged white boot pressing a deep footprint into fine gray Moon dust"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

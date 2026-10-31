@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «If», write who + what. After «we can», write a verb. (e.g. If it snows, we can make a snowman)"
   },
   "img": {
+    "style": "webtoon",
     "cover": "A boy with short brown hair in a green hoodie and a girl with two braids sit at a table in an art room, laughing together over a comic book and drawing paper.",
     "scenes": {
       "1": "In a school hallway, a boy with short brown hair in a green hoodie looks at a poster with pictures of pencils and paintbrushes on the wall, holding his sketchbook close.",
       "2": "In an art room, a girl with two braids shows her comic book to the boy with short brown hair in a green hoodie, and both of them are smiling."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

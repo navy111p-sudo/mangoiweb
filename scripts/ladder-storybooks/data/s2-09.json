@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because people can trust you)"
   },
   "img": {
+    "style": "minhwa",
     "cover": "By a deep blue river in the mountains, an old man with a long white beard and flowing white robes rises from the water holding a golden axe and a silver axe, while a thin woodcutter with a short black beard, old patched gray clothes and a straw hat kneels on the riverbank.",
     "scenes": {
       "1": "The old man with a long white beard and flowing white robes stands above the river water holding out a shiny golden axe, and the thin woodcutter with a short black beard, patched gray clothes and a straw hat shakes his head.",
       "2": "On the riverbank, the thin woodcutter with a short black beard, patched gray clothes and a straw hat smiles while holding an old iron axe, as the old man with a long white beard and white robes hands him a golden axe and a silver axe too."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

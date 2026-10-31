@@ -3,7 +3,7 @@
  * ════════════════════════════════════════════════════════════════════════
  *  무엇을 지키나
  *   ① 사장님 공급가 제안서 5안(71↑ 4,500 · 51~70 5,500 · 21~50 6,500 · 20↓ 7,500원/명)
- *   ② 최소 20명분 청구 · 구간 경계 보정(인원이 늘면 청구액이 «절대 줄지 않는다» — 0~2,000명 전수)
+ *   ② 최소 청구 없음(2026-10-26 폐지 — 3명이면 22,500원) · 구간 경계 보정(인원이 늘면 청구액이 «절대 줄지 않는다» — 0~2,000명 전수)
  *   ③ 지사 커미션 40% + 본사 몫 = 총액
  *   ④ 청구서는 «생성 시점 규칙» 으로 계산(price_rule 스냅샷) · 옛 청구서(NULL)는 rate×인원 그대로
  *   ⑤ 화상반 학생은 청구 인원에서 뺀다(이중 청구 방지) — LIVE_UIDS_SQL 을 «진짜 SQLite» 에 돌린다
@@ -84,13 +84,20 @@ function stripComments(t) {
 const P = await import(pathToFileURL(PRICE_FILE).href + '?t=' + Date.now());
 const billSrc = readFileSync(BILL_FILE, 'utf8');
 const billCode = stripComments(billSrc);
+/* (2026-10-23) ③ 명단 쓰기에 «결제 승인 중이 아닐 때만» 조건이 붙었다 — 그 조각은 정본(b2b-pay-guard.ts)에서 «읽어» 주입한다(베끼지 않음).
+   조건이 보는 ai_billing_invoices 는 시험 DB 에 «선점 없음» 행만 둔다 → 예전 동작 그대로 재는 것. */
+const guardSrc = readFileSync(join(BILL_FILE, '..', 'b2b-pay-guard.ts'), 'utf8');
+const UNCLAIMED_SQL = (guardSrc.match(/export const MGB_UNCLAIMED_SQL = `([^`]+)`;/) || [])[1] || '';
+const UNCLAIMED_DDL = `CREATE TABLE IF NOT EXISTS ai_billing_invoices (id INTEGER PRIMARY KEY, confirming_order TEXT, confirming_at INTEGER);
+  INSERT OR IGNORE INTO ai_billing_invoices (id) VALUES (1), (2);`;
+const unclaimedBinds = (id) => [id, Date.now() - 5 * 60 * 1000];
 
 console.log('════════ 💰 학원 A.i 공급가(인원 구간) 하니스 ════════');
 
 /* ══ ① 5안 경계값 ═══════════════════════════════════════════════════════ */
 sec('[①] 5안 구간 단가 · 경계값 (사장님 공급가 제안서)');
 {
-  const expect = { 1: 150000, 5: 150000, 20: 150000, 21: 150000, 23: 150000, 24: 156000, 50: 325000,
+  const expect = { 1: 7500, 3: 22500, 5: 37500, 19: 142500, 20: 150000, 21: 150000, 23: 150000, 24: 156000, 50: 325000,
     51: 325000, 60: 330000, 70: 385000, 71: 385000, 86: 387000, 100: 450000, 200: 900000 };
   for (const [n, t] of Object.entries(expect)) {
     const got = P.aiPrice(Number(n)).total;
@@ -124,15 +131,15 @@ sec('[②] 인원이 늘면 청구액이 절대 줄지 않는다 (0~2,000명 전
   check('예외 단가도 역전 0건', badC == null);
 }
 
-/* ══ ③ 최소 20명분 ═════════════════════════════════════════════════════ */
-sec('[③] 최소 20명분 청구');
+/* ══ ③ 최소 청구 폐지 (2026-10-26 사장님 «20명 미만이면 한 명당 7,500원») ══ */
+sec('[③] 최소 청구 없음 — 인원 × 단가');
 {
-  const p5 = P.aiPrice(5);
-  check('5명 → 청구 인원 20', p5.billable === 20 && p5.count === 5 && p5.min_applied === true);
-  check('20명 → 최소 청구 표시 없음', P.aiPrice(20).min_applied === false);
-  check('설명 글자에 «최소 20명분»', /최소 20명분/.test(P.aiPriceNote(p5).ko) && /minimum 20/.test(P.aiPriceNote(p5).en));
-  check('예외 단가도 최소 20명분 (5명 × 5,000 → 100,000)', P.aiPrice(5, 5000).total === 100000);
-  check('상수 AI_MIN_BILLABLE = 20', P.AI_MIN_BILLABLE === 20);
+  const p3 = P.aiPrice(3);
+  check('3명 → 22,500 (청구 인원 3 · 최소 청구 표시 없음)', p3.total === 22500 && p3.billable === 3 && p3.min_applied === false, JSON.stringify(p3));
+  check('설명 글자에 «최소 …명분» 이 없다', !/최소/.test(P.aiPriceNote(p3).ko) && !/minimum/.test(P.aiPriceNote(p3).en));
+  check('예외 단가도 인원만큼 (5명 × 5,000 → 25,000)', P.aiPrice(5, 5000).total === 25000);
+  check('상수 AI_MIN_BILLABLE = 0', P.AI_MIN_BILLABLE === 0);
+  check('(짝) 규칙에 min 을 주면 엔진은 여전히 최소 청구를 한다(옛 낸 청구서 재계산용)', P.aiPrice(5, null, { tiers: P.currentAiPriceRule().tiers, min: 20, pct: 40 }).total === 150000);
 }
 
 /* ══ ④ 지사 커미션 40% ══════════════════════════════════════════════════ */
@@ -155,7 +162,7 @@ sec('[⑤] 학원 예외 단가 · parseAiPriceRule');
   check('예외 단가 80명 × 3,000 = 240,000 (custom)', c.total === 240000 && c.basis === 'custom');
   check('예외 단가 0/null 이면 구간 단가', P.aiPrice(80, 0).basis === 'tier' && P.aiPrice(80, null).basis === 'tier');
   const rt = P.parseAiPriceRule(JSON.stringify(P.currentAiPriceRule()));
-  check('규칙 JSON 왕복', !!rt && rt.tiers.length === 4 && rt.min === 20 && rt.pct === 40);
+  check('규칙 JSON 왕복', !!rt && rt.tiers.length === 4 && rt.min === 0 && rt.pct === 40);
   check('1명부터 못 덮는 규칙은 거절(null)', P.parseAiPriceRule({ tiers: [{ min: 10, rate: 5000 }], min: 0, pct: 40 }) === null);
   check('깨진 JSON 은 null (던지지 않는다)', P.parseAiPriceRule('{oops') === null && P.parseAiPriceRule(null) === null);
   const old = { tiers: [{ min: 51, rate: 5000 }, { min: 1, rate: 8000 }], min: 10, pct: 30 };
@@ -180,7 +187,15 @@ let invoiceAmount = null;
   if (invoiceAmount) {
     const rule = JSON.stringify(P.currentAiPriceRule());
     check('새 청구서(규칙 스냅샷·예외 없음) 30명 → 195,000', call({ rate_krw: 0, price_rule: rule }, 30).total === 195000);
-    check('새 청구서 5명 → 최소 20명분 150,000', call({ rate_krw: 0, price_rule: rule }, 5).total === 150000);
+    check('새 청구서 5명 → 37,500 (최소 청구 없음)', call({ rate_krw: 0, price_rule: rule }, 5).total === 37500);
+    const min20 = JSON.stringify({ ...P.currentAiPriceRule(), min: 20 });
+    check('옛 스냅샷(min 20)인 «안 낸» 청구서 3명 → 22,500 (최소 청구를 안 씀)', call({ rate_krw: 0, price_rule: min20, status: 'draft' }, 3).total === 22500);
+    check('(짝) status 가 비어 있어도 낸 것이 아니면 22,500', call({ rate_krw: 0, price_rule: min20 }, 3).total === 22500);
+    /* (2026-10-26 ptagency 실사고 «1명 결제했는데 150,000원이라고 나와») 결제는 draft 상한으로 7,500원이 나갔는데
+       paid 만 스냅샷(min 20)을 써서 «150,000원 결제 완료» 라고 말했다 — 이제 낸 청구서도 같은 상한. */
+    check('이미 «낸» 청구서도 실제 결제와 같은 식: 1명 → 7,500 (150,000 아님)', call({ rate_krw: 0, price_rule: min20, status: 'paid' }, 1).total === 7500);
+    check('(짝) 낸 청구서 3명 → 22,500', call({ rate_krw: 0, price_rule: min20, status: 'paid' }, 3).total === 22500);
+    check('(짝) 상한은 «내리기» 만 — 스냅샷 min 이 지금보다 작으면 그대로', call({ rate_krw: 0, price_rule: JSON.stringify({ ...P.currentAiPriceRule(), min: 0 }), status: 'paid' }, 2).total === 15000);
     check('새 청구서 + 예외 단가 3,000 × 80 → 240,000', call({ rate_krw: 3000, price_rule: rule }, 80).total === 240000);
     const oldRule = JSON.stringify({ tiers: [{ min: 1, rate: 9000 }], min: 0, pct: 40 });
     check('스냅샷 규칙이 «지금 표» 를 이긴다 (10명 × 9,000)', call({ rate_krw: 0, price_rule: oldRule }, 10).total === 90000);
@@ -313,7 +328,9 @@ sec('[⑨] 배선 — 청구서·이력·결제·미리보기가 같은 정본�
   check('invoiceAmount 호출이 셋 이상 (/invoice · /history · checkout)', count(/(?<!function )invoiceAmount\(/g) >= 3);
   check('(짝) invoiceAmount 선언은 정확히 하나 (복제 없음)', count(/function invoiceAmount\(/g) === 1);
   const chk = billCode.slice(billCode.indexOf("p === 'invoice/checkout'"));
-  check('결제 금액 = invoiceAmount(...).total', /const amount = invoiceAmount\([^)]*\)\.total/.test(chk));
+  // ➕ (2026-10-26) 추가 결제 — checkout 은 문지기와 «같은 함수»(mgbAmountNow → aiOwedAmount → invoiceAmount)로 금액을 정한다
+  check('결제 금액 = mgbAmountNow (문지기와 같은 정본)', /const amount = await mgbAmountNow\(env, invoiceId\)/.test(chk));
+  check('(짝) mgbAmountNow 가 aiOwedAmount 로, aiOwedAmount 가 invoiceAmount 로 잰다', /aiOwedAmount\(inv, c\.paid, c\.unpaid\)/.test(fnDecl(billCode, 'mgbAmountNow')) && /invoiceAmount\(inv, paid \+ unpaid\)/.test(fnDecl(billCode, 'aiOwedAmount')));
   check('청구서 INSERT 가 price_rule 을 스냅샷', /INSERT INTO ai_billing_invoices[^`]*price_rule/.test(billCode) && /JSON\.stringify\(currentAiPriceRule\(\)\)/.test(billCode));
   check('price_rule 칸을 지연 ALTER 로 만든다', /ALTER TABLE ai_billing_invoices ADD COLUMN price_rule/.test(billCode));
   const gen = fnDecl(billCode, 'generateOrRefreshInvoice');
@@ -376,13 +393,14 @@ sec('[⑩] 자동 분류 + 학원 확인 — 명세 줄 track·user_set');
   }
   if (DatabaseSync) {
     try {
-      syncFn = new Function('planItemTrackSync', stripTypeScriptTypes(fnDecl(billSrc, 'syncItemTracks')) + '\nreturn syncItemTracks;')(plan);
+      syncFn = new Function('planItemTrackSync', 'MGB_UNCLAIMED_SQL', 'mgbUnclaimedBinds', '_paidColOk', stripTypeScriptTypes(fnDecl(billSrc, 'syncItemTracks')) + '\nreturn syncItemTracks;')(plan, UNCLAIMED_SQL, unclaimedBinds, false);
     } catch (e) { check('syncItemTracks 실행 준비', false, e.message); }
     check('syncItemTracks 를 오려 냈다 (전제)', typeof syncFn === 'function');
     const d = new DatabaseSync(':memory:');
     d.exec(`CREATE TABLE ai_billing_invoice_items (id INTEGER PRIMARY KEY AUTOINCREMENT, invoice_id INTEGER NOT NULL, student_user_id TEXT NOT NULL,
       student_name TEXT, included INTEGER NOT NULL DEFAULT 1, added_manually INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL,
       track TEXT, user_set INTEGER NOT NULL DEFAULT 0, UNIQUE(invoice_id, student_user_id))`);
+    d.exec(UNCLAIMED_DDL);
     const ins = d.prepare('INSERT INTO ai_billing_invoice_items (invoice_id,student_user_id,student_name,included,created_at,track,user_set) VALUES (1,?,?,?,0,?,?)');
     ins.run('ai1', 'A1', 1, 'ai', 0);        // 계속 A.i반
     ins.run('turnlive', 'T', 1, 'ai', 0);    // A.i반 → 화상반이 됨 → 자동 제외
@@ -408,6 +426,16 @@ sec('[⑩] 자동 분류 + 학원 확인 — 명세 줄 track·user_set');
     check('신청 안 한 학원생은 «체크 해제된 줄»(none) 로 보인다', row('idle1').included === 0 && row('idle1').track === 'none', JSON.stringify(row('idle1')));
     check('옛 규칙으로 들어간 미신청 학생은 자동 제외된다', row('wasai').included === 0 && row('wasai').track === 'none', JSON.stringify(row('wasai')));
     check('결과 숫자: 새로 보인 화상반 1 · 신청 안 함 1 · 자동 제외 2', res && res.live_listed === 1 && res.idle_listed === 1 && res.auto_excluded === 2, JSON.stringify(res));
+    /* (2026-10-23) ③ 결제 «승인 중» 인 청구서는 자동 동기화도 체크를 안 바꾼다(낸 돈과 열린 학생 수가 갈리지 않게) · 선점이 낡으면 바꾼다(짝) */
+    d.prepare("INSERT INTO ai_billing_invoice_items (invoice_id,student_user_id,student_name,included,created_at,track,user_set) VALUES (2,'tl2','T2',1,0,'ai',0)").run();
+    d.prepare('UPDATE ai_billing_invoices SET confirming_order=?, confirming_at=? WHERE id=2').run('MGB-2-HOLD-a', Date.now());
+    const tl2 = () => d.prepare("SELECT included FROM ai_billing_invoice_items WHERE invoice_id=2 AND student_user_id='tl2'").get()?.included;
+    try { await syncFn(env, 2, [{ user_id: 'tl2', name: 'T2' }], [], new Set(['tl2']), 0, 0, []); } catch (e) { check('승인 중 동기화 실행', false, e.message); }
+    check('③ 결제 승인 중이면 자동 동기화가 체크를 안 바꾼다', tl2() === 1, tl2());
+    d.prepare('UPDATE ai_billing_invoices SET confirming_at=? WHERE id=2').run(Date.now() - 10 * 60 * 1000);
+    try { await syncFn(env, 2, [{ user_id: 'tl2', name: 'T2' }], [], new Set(['tl2']), 0, 0, []); } catch (e) { check('낡은 선점 동기화 실행', false, e.message); }
+    check('③ (짝) 선점이 5분 넘게 낡았으면 자동 동기화가 바꾼다', tl2() === 0, tl2());
+    check('③ (전제) 승인 중 조건을 정본에서 읽었다', UNCLAIMED_SQL.includes('confirming_order'));
     const bad = { DB: { prepare: () => { throw new Error('no such column: track'); }, batch: async () => [] } };
     let r7; try { r7 = await syncFn(bad, 1, liveRows, aiRows, live, 0, 0, idleRows); } catch (e) { r7 = 'threw'; }
     check('칸이 없는 DB 에서도 던지지 않는다 (옛 동작으로 남음)', r7 !== 'threw' && r7.auto_excluded === 0, JSON.stringify(r7));
@@ -530,8 +558,8 @@ sec('[⑫] AI 컨텐츠 결제 — 명세에 있는 학생만 · 선결제 마�
 {
   let setFn = null;
   try {
-    setFn = new Function('safe', stripTypeScriptTypes(fnDecl(billSrc, 'setItemsIncluded')) + '\nreturn setItemsIncluded;')(
-      async (fn, fb) => { try { return await fn(); } catch { return fb; } });
+    setFn = new Function('safe', 'ensureB2bClaimColumns', 'MGB_UNCLAIMED_SQL', 'mgbUnclaimedBinds', '_paidColOk', stripTypeScriptTypes(fnDecl(billSrc, 'setItemsIncluded')) + '\nreturn setItemsIncluded;')(
+      async (fn, fb) => { try { return await fn(); } catch { return fb; } }, async () => {}, UNCLAIMED_SQL, unclaimedBinds, false);
   } catch (e) { check('setItemsIncluded 실행 준비', false, e.message); }
   check('setItemsIncluded 를 오려 냈다 (전제)', typeof setFn === 'function');
   if (setFn && DatabaseSync) {
@@ -540,6 +568,7 @@ sec('[⑫] AI 컨텐츠 결제 — 명세에 있는 학생만 · 선결제 마�
       student_name TEXT, included INTEGER NOT NULL DEFAULT 1, added_manually INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL,
       track TEXT, user_set INTEGER NOT NULL DEFAULT 0, UNIQUE(invoice_id, student_user_id));
       CREATE TABLE ai_billing_optin (uid_lc TEXT PRIMARY KEY, user_id TEXT NOT NULL, shop_name TEXT, created_at INTEGER NOT NULL, created_by TEXT);`);
+    d.exec(UNCLAIMED_DDL);
     const ins = d.prepare('INSERT INTO ai_billing_invoice_items (invoice_id,student_user_id,student_name,included,created_at,track,user_set) VALUES (?,?,?,?,0,?,0)');
     ins.run(1, 'Kid1', 'K1', 0, 'none'); ins.run(1, 'kid2', 'K2', 0, 'none'); ins.run(1, 'vid', 'V', 0, 'live');
     ins.run(2, 'other', 'O', 1, 'ai');   // 다른 학원 청구서의 학생
@@ -582,16 +611,92 @@ sec('[⑫] AI 컨텐츠 결제 — 명세에 있는 학생만 · 선결제 마�
     check('KST 기준 — UTC 로는 31일 14:30 이어도 «오늘 마감»(0)', k.days_left === 0, JSON.stringify(k));
   }
   const invGet = billCode.slice(billCode.indexOf("p === 'invoice' && method === 'GET'"), billCode.indexOf("p === 'invoice/generate'"));
-  check('배선: /invoice 응답 셋 모두 마감(...due)을 싣는다', (invGet.match(/\.\.\.due/g) || []).length === 3);
+  // (2026-10-23) 꺼짐 갈래는 «안 낸 달» 이 필요 없어 ...prepayDue(month) 를 직접 싣는다 — 셋 다 마감을 싣는지는 그대로 본다
+  check('배선: /invoice 응답 셋 모두 마감(...due)을 싣는다', (invGet.match(/\.\.\.(due\b|prepayDue\(month\)\s*\})/g) || []).length === 3);
   // 화면 — 마감은 서버 값을 그린다 · 결제 금액을 화면이 계산하지 않는다 · 돈 화면 캐시 없음
   const mgr = stripComments(readFileSync(join(PUB, 'manager.html'), 'utf8'));
   const due2 = fnDecl(mgr, 'aibDueBar');
   check('manager.html: 마감 띠는 서버의 due_date·days_left 를 그린다 (Date 계산 없음)', /j\.due_date/.test(due2) && /j\.days_left/.test(due2) && !/new Date\(/.test(due2));
   const load = mgr.slice(mgr.indexOf('window.loadAiBill = function'), mgr.indexOf('window.aiBillGenerate'));
-  check('manager.html: AI 컨텐츠 결제는 localStorage 캐시 키를 쓰지 않는다', /get\('\/api\/admin\/ai-billing\/invoice'\)/.test(load) && /get\('\/api\/admin\/ai-billing\/history'\)/.test(load));
+  check('manager.html: AI 컨텐츠 결제는 localStorage 캐시 키를 쓰지 않는다', /get\('\/api\/admin\/ai-billing\/invoice'( \+ |\))/.test(load) && /get\('\/api\/admin\/ai-billing\/history'\)/.test(load));
   const bulk = mgr.slice(mgr.indexOf('window.aiBillBulk = function'), mgr.indexOf('window.aiBillFilter'));
   check('manager.html: 일괄 선택은 invoice/items 를 한 번 부르고 먼저 묻는다', /\/api\/admin\/ai-billing\/invoice\/items/.test(bulk) && /window\.confirm\(/.test(bulk));
   check('manager.html: 메뉴 이름 — «화상영어 수업료 결제» · «AI 컨텐츠 결제»', /data-ko="화상영어 수업료 결제"/.test(mgr) && /data-ko="AI 컨텐츠 결제"/.test(mgr) && !/data-ko="AI 사용료 청구서"/.test(mgr) && !/data-ko="수업료 결제"/.test(mgr));
+}
+
+/* ══ ⑬ 테스트 대리점 예외 (2026-10-25) — 전체 스위치가 꺼져 있어도 «그 대리점만» 열린다 ══
+   판정·조회를 오려 내 실제로 돌린다. «열린다» 와 «남은 안 열린다»·«못 읽으면 안 열린다» 를 짝으로 본다. */
+sec('[⑬] 테스트 대리점 예외 — 그 대리점만 열리고, cron 은 그대로');
+{
+  let openFor = null, enabledFor = null;
+  try {
+    openFor = new Function(stripTypeScriptTypes(fnDecl(billSrc, 'aiBillingOpenFor').replace(/^export\s+/, '')) + '\nreturn aiBillingOpenFor;')();
+    const accM = billSrc.match(/export const AI_BILLING_TEST_ACCOUNTS[^=]*=\s*(\[[^\]]*\])/);
+    const accounts = accM ? JSON.parse(accM[1].replace(/'/g, '"')) : null;
+    check('예외 계정 목록을 소스에서 읽었다 (ptagency 포함)', Array.isArray(accounts) && accounts.includes('ptagency'), accM && accM[1]);
+    enabledFor = (globalOn, dbFn) => new Function('AI_BILLING_TEST_ACCOUNTS', 'billingEnabled', 'aiBillingOpenFor',
+      stripTypeScriptTypes(fnDecl(billSrc, 'aiBillingTestShops')) + '\n' + stripTypeScriptTypes(fnDecl(billSrc, 'billingEnabledFor').replace(/^export\s+/, '')) + '\nreturn billingEnabledFor;'
+    )(accounts || [], async () => globalOn, openFor);
+  } catch (e) { check('판정 함수를 오려 냈다', false, String(e && e.message || e)); }
+  if (openFor) {
+    const T = new Set(['결제 테스트 대리점']);
+    check('스위치 꺼짐 + 예외 대리점 → 열림', openFor(false, T, '결제 테스트 대리점') === true);
+    check('(짝) 스위치 꺼짐 + 다른 대리점 → 닫힘', openFor(false, T, '망고아이 강남 대리점') === false);
+    check('(짝) 스위치 꺼짐 + 빈 이름 → 닫힘', openFor(false, new Set(['']), '') === false);
+    check('스위치 켜짐이면 누구나 열림(예전 동작)', openFor(true, new Set(), '망고아이 강남 대리점') === true);
+  }
+  if (enabledFor) {
+    let lastSql = '', lastBinds = [];
+    const db = (rows, throws) => ({ prepare(sql) { lastSql = sql; return { bind(...b) { lastBinds = b; return { async all() { if (throws) throw new Error('D1 down'); return { results: rows }; } }; } }; } });
+    const run = async (globalOn, rows, throws, shop) => { try { return await enabledFor(globalOn)({ DB: db(rows, throws) }, shop); } catch (e) { return 'THREW:' + e.message; } };
+    check('예외 계정의 대리점(admin_scope) → 열림', await run(false, [{ scope_value: '결제 테스트 대리점' }], false, '결제 테스트 대리점') === true);
+    check('조회는 agency 스코프·계정 아이디(소문자)로만', /scope_type = 'agency'/.test(lastSql) && /LOWER\(username\)/.test(lastSql) && lastBinds.includes('ptagency'), lastSql + ' ' + JSON.stringify(lastBinds));
+    check('(짝) 다른 대리점 → 닫힘', await run(false, [{ scope_value: '결제 테스트 대리점' }], false, '망고아이 강남 대리점') === false);
+    check('(짝) 조회 실패 → 닫힘(던지지 않음)', await run(false, [], true, '결제 테스트 대리점') === false);
+    check('(짝) 계정이 대리점이 아니면(행 없음) → 닫힘', await run(false, [], false, '결제 테스트 대리점') === false);
+    check('스위치 켜짐 → 조회 없이 열림', await run(true, [], true, '아무 대리점') === true);
+  }
+  // 배선 — 학원 화면이 타는 세 갈래는 예외를 보고, 월 cron·HQ 스위치는 전체 스위치만 본다
+  const seg = (a, b) => billCode.slice(billCode.indexOf(a), billCode.indexOf(b));
+  check('배선: GET /invoice 는 billingEnabledFor(env, shopName)', /billingEnabledFor\(env, shopName\)/.test(seg("p === 'invoice' && method === 'GET'", "p === 'invoice/generate'")));
+  check('배선: invoice/generate 는 billingEnabledFor(env, shopName)', /billingEnabledFor\(env, shopName\)/.test(seg("p === 'invoice/generate'", "p === 'invoice/item'")));
+  check('배선: invoice/checkout 는 billingEnabledFor(env, inv.shop_name)', /billingEnabledFor\(env, inv\.shop_name\)/.test(seg("p === 'invoice/checkout'", 'const amount = invoiceAmount')));
+  const mon2 = stripComments(fnDecl(billSrc, 'generateMonthlyAiInvoices'));
+  check('(짝) 월 cron 은 예외를 보지 않는다 — 전체 스위치만', /billingEnabled\(env\)/.test(mon2) && !/billingEnabledFor|AI_BILLING_TEST/.test(mon2));
+}
+
+
+// ── ⑭ (2026-10-25) 빈 DB 에서 표가 실제로 생기는가 · 청구서 조회 실패가 internal_error 로 던지지 않는가 ──
+console.log('\n⑭ ensureSchema 실제 실행 · GET /invoice 조회 가드');
+{
+  let mkEnsure = null;
+  try {
+    const decl = fnDecl(billSrc, 'ensureSchema');
+    mkEnsure = () => new Function('safe', 'let _ensured = false;\n' + stripTypeScriptTypes(decl) + '\nreturn ensureSchema;')(async (f, fb) => { try { return await f(); } catch { return fb; } });
+  } catch (e) { check('전제: ensureSchema 를 오려 냈다', false, e.message); }
+  if (mkEnsure && DatabaseSync) {
+    const envOf = (d, failIdx = -1) => { let n = 0; return { DB: {
+      prepare: (sql) => ({ run: async () => { const i = n++; if (/^\s*CREATE/i.test(sql) && i === failIdx) throw new Error('boom'); d.exec(sql); return {}; }, bind: () => ({ run: async () => {} }) }),
+      exec: async (sql) => { throw new Error('multi-line exec not supported'); },
+    } }; };
+    const tables = (d) => d.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name);
+    const d1 = new DatabaseSync(':memory:');
+    const ens = mkEnsure();
+    try { await ens(envOf(d1)); } catch (e) { check('ensureSchema 가 던지지 않는다', false, e.message); }
+    const t = tables(d1);
+    check('빈 DB 에 청구서·명세·메타·신청 표가 생긴다(exec 를 못 써도)', ['ai_billing_invoices','ai_billing_invoice_items','ai_billing_meta','ai_billing_optin','agency_ai_rate'].every(x => t.includes(x)), t.join(','));
+    check('price_rule·track·user_set 칸이 붙는다', ['price_rule'].every(c => d1.prepare("PRAGMA table_info(ai_billing_invoices)").all().some(r => r.name === c)) && ['track','user_set'].every(c => d1.prepare("PRAGMA table_info(ai_billing_invoice_items)").all().some(r => r.name === c)));
+    // 핵심 표가 실패하면 다음 호출이 다시 시도한다(_ensured 를 세우지 않는다)
+    const d2 = new DatabaseSync(':memory:');
+    const ens2 = mkEnsure();
+    await ens2(envOf(d2, 1));
+    check('(짝) 청구서 표 생성이 실패하면 그 표는 없다', !tables(d2).includes('ai_billing_invoices'));
+    await ens2(envOf(d2));
+    check('(짝) 다음 요청이 다시 시도해 표가 생긴다', tables(d2).includes('ai_billing_invoices'));
+  }
+  const g = billCode.slice(billCode.indexOf("p === 'invoice' && method === 'GET'"), billCode.indexOf("p === 'invoice/generate'"));
+  check('GET /invoice 의 청구서 조회는 .catch 로 감싸져 있다(던지면 internal_error)', /FROM ai_billing_invoices WHERE shop_name = \? AND billing_month = \?`\s*\)\.bind\(shopName, month\)\.first<any>\(\)\.catch/.test(g));
+  check('조회 실패는 «무엇이 실패했는지» 를 말하는 503', /invoice_lookup_failed/.test(g) && /, 503\)/.test(g));
 }
 
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);

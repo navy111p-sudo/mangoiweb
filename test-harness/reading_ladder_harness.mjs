@@ -56,6 +56,15 @@ bulk('문장마다 영어·우리말이 다 있다', P, (p) => p.sentences.every
 bulk('영어 칸은 ASCII 만(한글·둥근따옴표 없음)', P, (p) => [p.title.en, p.bg.en, p.summary.en, ...p.sentences.map((s) => s.en), ...p.main.options.map((o) => o.en), ...p.words.map((w) => w.en)].every((x) => ASCII.test(x)) || 'non-ascii');
 bulk('오늘의 낱말 3개가 본문에 글자 그대로 있다', P, (p) => p.words.every((w) => hasWord(p.sentences.map((s) => s.en).join(' '), w.en)) || p.words.map((w) => w.en).join(','));
 bulk('핵심어 3개가 모범 문장에 들어 있다', P, (p) => p.summary.keywords.every((k) => hasWord(p.summary.en, k)) || p.summary.keywords.join(','));
+bulk('영작은 핵심문장에서 한 표현만 교체한다', P, (p) => {
+  const c = p.summary.change, src = p.sentences[p.key];
+  if (!c || !c.from || !c.to || c.from === c.to || !c.koFrom || !c.koTo || c.koFrom === c.koTo) return '교체 정보 없음';
+  if (src.en.split(c.from).length !== 2 || !src.ko.includes(c.koFrom)) return '원문에 교체 표현이 없거나 여러 번 있음';
+  if (p.summary.en !== src.en.replace(c.from, c.to)) return '다른 구조·표현도 바뀜';
+  if (p.summary.ko !== src.ko.split(c.koFrom).join(c.koTo)) return '우리말 문제 불일치';
+  return hasWord(p.summary.en, c.to) && p.summary.keywords.includes(c.to) || '바꿀 표현이 힌트에서 빠짐';
+});
+ok(JS_SRC.includes('핵심문장 응용해서 쓰기') && JS_SRC.includes('Keep the sentence structure and tense.') && JS_SRC.includes('p.summary.change.from') && JS_SRC.includes('p.summary.change.to'), '영작 안내는 구조·시제 유지와 바꿀 표현을 한국어·영어로 보여 준다');
 bulk('보기 4개가 서로 다르다', P, (p) => new Set(p.main.options.map((o) => o.en.toLowerCase())).size === 4 || 'dup');
 const avg = (n) => { const l = P.filter((p) => p.stage === n); return l.reduce((a, p) => a + wc(p), 0) / (l.length || 1); };
 const A = [1, 2, 3, 4].map(avg);
@@ -158,7 +167,7 @@ if (C) {
 }
 
 console.log('\n③ 배선');
-ok(/<script src="\/js\/reading-ladder-data\.js\?v=\d+"><\/script>\s*<script src="\/js\/reading-ladder\.js\?v=\d+"><\/script>/.test(HTML), 'stories.html 이 데이터 → 엔진 순서로 싣는다');
+ok(/<script src="\/js\/reading-ladder-data\.js\?v=\d+"><\/script>\s*<script src="\/js\/reading-ladder-art\.js\?v=\d+"><\/script>\s*<script src="\/js\/story-audio\.js\?v=\d+"><\/script>\s*<script src="\/js\/reading-ladder\.js\?v=\d+"><\/script>/.test(HTML), 'stories.html 이 데이터 → 화풍 → 서버 음성 → 엔진 순서로 싣는다');
 ok(/window\.__storyLang\s*=/.test(HTML) && /window\.__storyBooksHtml\s*=/.test(HTML), 'stories.html 이 언어·그림 동화책 목록을 넘겨 준다');
 ok(/dispatchEvent\(new Event\('story:lang'\)\)/.test(HTML) && /addEventListener\('story:lang'/.test(JS_SRC), '언어를 바꾸면 사다리도 다시 그린다');
 ok((JS_SRC.match(/data-act="stage" data-stage="/g) || []).length >= 3 && /if \(act === 'stage'\)/.test(JS_SRC), '단계 계단·단계 드롭다운·«올라가기» 가 모두 data-act="stage" 로 눌린다(빠지면 무동작)');
@@ -337,6 +346,10 @@ if (C && P.length) {
   // ── 읽기 ↔ 목록 ──
   e2.click({ 'data-act': 'open', 'data-id': s1[6] });
   ok(!e2.htmlClass.has('rl-browse') && !/class="rl-split"/.test(e2.html()) && /data-act="key" data-i="/.test(e2.html()), '«읽기 시작» → 읽기 화면(한 장 배치를 풀고 핵심 문장 고르기가 나온다)');
+  const exercise = P.find((p) => p.id === s1[6]);
+  e2.click({ 'data-act': 'key', 'data-i': String(exercise.key) });
+  e2.click({ 'data-act': 'main', 'data-o': String(exercise.main.answer) });
+  ok(e2.html().includes('핵심문장 응용해서 쓰기') && e2.html().includes(exercise.summary.change.from + ' → ' + exercise.summary.change.to) && e2.html().includes(exercise.summary.ko), '핵심·중심내용을 고르면 한 요소 바꾸기 영작과 우리말 문제가 실제로 그려진다');
   e2.click({ 'data-act': 'list' });
   ok(e2.htmlClass.has('rl-browse') && e2.detail() === titleOf(s1[6]), '목록으로 돌아오면 읽던 글이 그대로 골라져 있다');
 
@@ -403,11 +416,11 @@ console.log('\n⑤ 큰 PC 화면 zoom 단계(2026-10-19 「글자가 너무 작�
 }
 
 // 🇰🇷 중심 내용 보기에는 우리말 해석을 붙이지 않는다(2026-10-21 사장님 — 아이들이 영어 대신 해석만 읽음).
-//    본문 문장의 «해석 보기» 토글(s.ko)은 그대로 둔다(짝).
+//    2026-10-22: 본문 해석 토글도 제거한다.
 {
   const code = JS_SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
   ok(!/esc\(o\.ko\)/.test(code), '중심 내용 보기(본 읽기·반복 연습)에 우리말 해석(o.ko)을 그리지 않는다');
-  ok(/view\.showKo \? '<span class="rl-ko">' \+ esc\(s\.ko\)/.test(code), '(짝) 본문 문장의 «해석 보기» 는 그대로 남아 있다');
+  ok(!/showKo|data-act="ko"|esc\(s\.ko\)/.test(code), '본문 읽기와 반복 연습에 해석 버튼·본문 해석이 없다');
 }
 
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);

@@ -46,8 +46,9 @@ const fix = (tag) => ({ was: 'x', now: 'y', why_ko: 'z', tag, severity: 'minor' 
 const first = (tag, h) => G.decideWarmupFixShow(fix(tag), M.carryRepeatTags(null, h), 1).show;
 check('최근에 고쳐 준 관사 → 새 대화 첫 관사 실수부터 바로 고친다', !!first('article', hist));
 check('전치사도(AI 친구 기록에서 이어 받음)', !!first('preposition', hist));
-check('짝: 기록이 없으면 예전대로 첫 번째는 안 고친다', !first('article', {}) && !first('article', null));
-check('짝: 14일 밖(복수)은 이어 받지 않는다', !first('plural', hist));
+/* 2026-10-30 — 작은 실수는 이제 기록이 없어도 «첫 번째» 에 고친다(warmup-correction.ts). 이어 받기는 word_choice 를 «여전히» 안 연다. */
+check('2026-10-30: 기록이 없어도 첫 관사 실수를 고친다', !!first('article', {}) && !!first('article', null));
+check('짝: 14일 밖(복수)은 이어 받지 않는다 — 메모에 안 얹는다', !(M.carryRepeatTags(null, hist).tags || {}).plural);
 check('짝: word_choice 는 기록이 있어도 이어 받지 않는다(매번 교정 방지)', !first('word_choice', hist));
 check('목록은 관사·복수·전치사 셋', JSON.stringify([...M.KOREAN_REPEAT_TAGS]) === '["article","plural","preposition"]');
 
@@ -62,7 +63,7 @@ check('이미 센 값을 줄이지 않는다', M.carryRepeatTags({ tags: { artic
 // 배선: AI 친구가 게이트 «앞» 에서 이어 받는가 · 큰 실수에는 조회하지 않는가
 {
   const a = AI.indexOf('memoIn = carryRepeatTags(memoIn, await loadRecentFixTags(env.DB, uid, Date.now()))');
-  const g = AI.indexOf('const decided = decideWarmupFixShow(verified, memoIn, turnNo);');
+  const g = AI.indexOf('const decided = decideWarmupFixShow(verified, memoIn, turnNo');
   check('AI 친구: 게이트를 부르기 «전» 에 이어 받는다', a > 0 && g > a && g - a < 300, [a, g]);
   const line = AI.slice(AI.lastIndexOf('\n', a), a);
   check('AI 친구: 작은 실수일 때만 조회한다', /if \(verified && verified\.severity !== 'major'\)/.test(line), line);

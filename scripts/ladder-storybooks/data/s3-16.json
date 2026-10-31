@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what they can do to make the result clear. (e.g. so that we can stay healthy)"
   },
   "img": {
+    "style": "vintage",
     "cover": "A young woman in an 18th-century dress and white cap milking a brown-and-white cow on a wooden stool inside an old English barn, with a tin pail and soft hay around them",
     "scenes": {
       "2": "An 18th-century country doctor in a long coat seen from the side, studying small glass jars by candlelight at a wooden desk in a cozy cottage room",
       "3": "A scientist in a white coat and blue gloves, seen from the side, holding up a small plain glass vaccine vial in a bright modern laboratory with trays of vials behind"
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
     }
   },
   "alt": {

@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «before», write who + what. (e.g. before we run away)"
   },
   "img": {
+    "style": "comic",
     "cover": "In the dark bottom of an old wooden ship full of dusty barrels, a young woman captain with a long dark braid in a blue coat with gold buttons and a captain's hat slowly lifts a glowing lamp, and its warm light shows a small skinny gray kitten with big green eyes sitting in the corner and meowing up at her.",
     "scenes": {
       "1": "On a foggy night sea, a young woman captain with a long dark braid in a blue coat with gold buttons and a captain's hat rows a small wooden boat toward a dark old ship with torn sails and no lights, while sailors on a bigger ship behind her peek over the rail with nervous faces.",
       "3": "On the sunny deck of a big ship, a young woman captain with a long dark braid in a blue coat with gold buttons and a captain's hat kneels and gives a bowl of warm milk to a small skinny gray kitten with big green eyes, while smiling sailors crowd around to watch it drink."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

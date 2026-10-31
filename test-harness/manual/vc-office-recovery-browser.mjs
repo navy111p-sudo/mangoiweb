@@ -16,6 +16,11 @@ import { fileURLToPath } from 'node:url';
 
 const { chromium, exe } = requireBrowser();
 const source = await readFile(process.env.OFFICE_SOURCE || fileURLToPath(new URL('../../cloudflare-deploy/public/js/idx-vc-officemode.js', import.meta.url)), 'utf8');
+const main = await readFile(process.env.MAIN_SOURCE || fileURLToPath(new URL('../../cloudflare-deploy/public/js/idx-main.js', import.meta.url)), 'utf8');
+const noiseStart = main.indexOf('window.vcSetNoiseSuppression = async function(on)');
+assert(noiseStart >= 0, 'shipping noise control exists');
+const controls = main.slice(noiseStart, main.indexOf('/** 🌫', noiseStart))
+  + "\nwindow.vcSavedMicId = function(){return localStorage.getItem('mangoi_vc_mic_id') || '';};";
 const temp = await mkdtemp(join(tmpdir(), 'vc-office-audio-'));
 const micFile = join(temp, 'microphone.wav');
 const samples = 48000 * 4, wave = Buffer.alloc(44 + samples * 2);
@@ -31,8 +36,8 @@ for (let i = 0; i < samples; i++) {
 }
 await writeFile(micFile, wave);
 const server = createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': req.url === '/office.js' ? 'text/javascript' : 'text/html', 'Cache-Control': 'no-store' });
-  res.end(req.url === '/office.js' ? source : '<!doctype html><html><body>Local office audio recovery fixture</body></html>');
+  res.writeHead(200, { 'Content-Type': /\/(office|controls)\.js$/.test(req.url) ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(req.url === '/office.js' ? source : req.url === '/controls.js' ? controls : '<!doctype html><html><body>Local office audio recovery fixture</body></html>');
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -61,7 +66,7 @@ try {
     window.showView = () => {};
     localStorage.setItem('mangoi_vc_office', '1');
     localStorage.setItem('mangoi_vc_mic_id', 'saved-device-preference');
-    await new Promise((resolve, reject) => { const script = document.createElement('script'); script.src = '/office.js'; script.onload = resolve; script.onerror = reject; document.head.append(script); });
+    for (const url of ['/controls.js', '/office.js']) await new Promise((resolve, reject) => { const script = document.createElement('script'); script.src = url; script.onload = resolve; script.onerror = reject; document.head.append(script); });
     document.body.classList.add('vc-in-call');
     const measurements = [];
     for (const state of ['suspended', 'interrupted', 'closed']) for (const muted of [false, true]) {
@@ -142,6 +147,13 @@ try {
       check(!remoteAudio.paused && remoteAudio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && remoteAudio.currentTime > 0,
         state + ': remote media element is playing', await diagnostics());
       check(await window.vcSetOfficeMode(true), state + ': office mode enables');
+      await Promise.all([window.vcSetNoiseSuppression(false), window.vcSetNoiseSuppression(true), window.vcSetNoiseSuppression(false)]);
+      check(localStorage.getItem('mangoi_vc_noise') === '0', state + ': rapid noise controls preserve the last request');
+      check(window.vcOfficeModeOn(), state + ': rapid noise controls preserve office mode');
+      await window.vcSetOfficeMode(false);
+      check(media.getAudioTracks()[0].getSettings().deviceId === selected, state + ': rapid controls preserve the selected physical mic');
+      check(media.getAudioTracks()[0].getSettings().noiseSuppression === false, state + ': native microphone noise preference is off');
+      await window.vcSetOfficeMode(true);
       const processed = media.getAudioTracks()[0], context = window.__officeContexts.at(-1);
       await waitFor(() => sender.track === processed, 'sender did not receive processed audio');
       const before = await waitAudio(analyser, true, state + ': remote peer actually decodes office audio');

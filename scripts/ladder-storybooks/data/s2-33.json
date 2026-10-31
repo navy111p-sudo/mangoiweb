@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «but I can», write a verb + when. (e.g. but I can practice every day)"
   },
   "img": {
+    "style": "anime",
     "cover": "In a sunny school garden, a girl with a short black bob and a red hairband in a navy school uniform with a yellow backpack holds up a shiny silver watch and grins, while three birds hang still in the air above her, a soccer ball floats in the middle of a kick, and her classmates stand frozen like statues in the middle of running and laughing.",
     "scenes": {
       "1": "In a classroom where every student sits frozen like a statue in the middle of a laugh, a girl with a short black bob and a red hairband in a navy school uniform with a yellow backpack tiptoes to the teacher's desk and sneaks three extra chocolate cookies from a big glass jar, holding a shiny silver watch in her other hand.",
       "3": "In the green school garden, a girl with a short black bob and a red hairband in a navy school uniform with a yellow backpack pats the soil over a small hole where a shiny silver watch is half buried, while birds fly again in the blue sky and her classmates run toward her, waving and smiling."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

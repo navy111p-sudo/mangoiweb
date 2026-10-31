@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "clay",
     "cover": "Mina, a girl with two braids and a pink dress, and Dad, a man with glasses and a blue shirt, hold a birthday cake in a living room full of balloons, while Mom, a woman with long brown hair and a gray coat, smiles with happy tears at the door.",
     "scenes": {
       "1": "In the kitchen, Dad, a man with glasses and a blue shirt, takes a cake out of the oven while Mina, a girl with two braids and a pink dress, draws a big red heart on a card at the table.",
       "2": "Mom, a woman with long brown hair and a gray coat, opens the front door, and Mina, a girl with two braids and a pink dress, and Dad, a man with glasses and a blue shirt, jump with their arms up among balloons; Mom laughs with happy tears."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

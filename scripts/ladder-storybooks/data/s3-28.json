@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because birds are living dinosaurs)"
   },
   "img": {
+    "style": "cg3d",
     "cover": "A huge glowing asteroid streaking down through an orange sky toward a prehistoric coastline, while a herd of long-necked dinosaurs stands among tall ferns near the water",
     "scenes": {
       "2": "A prehistoric forest of ferns and palm-like trees under a thick, dark gray sky full of dust, with the Sun only a faint pale circle and the plants drooping and turning brown",
       "3": "A pigeon standing on a flat rock next to a fossil dinosaur footprint pressed into the stone, both showing the same three-toed shape"
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
     }
   },
   "alt": {

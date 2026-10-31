@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «Let’s», write a verb (be, help). After «so that», write who + what they can do."
   },
   "img": {
+    "style": "cg3d",
     "cover": "In a giant green jungle, a huge long-necked dinosaur with green skin, light yellow spots and kind brown eyes stands bravely in front of a nine-year-old Korean boy with short spiky black hair, an orange T-shirt and blue shorts and his older sister, a twelve-year-old Korean girl with a long black braid, a yellow T-shirt and green shorts, swinging its long tail toward a brown T. rex that turns around and runs away.",
     "scenes": {
       "1": "In a jungle with trees taller than buildings, a nine-year-old Korean boy with short spiky black hair, an orange T-shirt and blue shorts and his older sister, a twelve-year-old Korean girl with a long black braid, a yellow T-shirt and green shorts peek out from behind giant ferns at a huge long-necked dinosaur with green skin, light yellow spots and kind brown eyes, who is calmly eating leaves from the top of a very tall tree.",
       "3": "On a sunny beach, a huge long-necked dinosaur with green skin, light yellow spots and kind brown eyes lowers its long neck next to a small wooden boat, while a nine-year-old Korean boy with short spiky black hair, an orange T-shirt and blue shorts and his older sister, a twelve-year-old Korean girl with a long black braid, a yellow T-shirt and green shorts slide down from its neck, laughing happily."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

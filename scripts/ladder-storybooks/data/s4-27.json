@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write whose story we should hear and why. (e.g. because every side has its own story)"
   },
   "img": {
+    "style": "vintage",
     "cover": "Three fifteenth-century wooden sailing ships with large square sails crossing a vast deep-blue ocean under towering clouds",
     "scenes": {
       "1": "An antique brass magnetic compass resting on the wooden rail of an old sailing ship, coiled ropes and the open sea behind it",
       "2": "A wooden sailing ship anchored off a quiet tropical island at sunset, with palm trees and the thatched-roof homes of the people who already lived there along the shore"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

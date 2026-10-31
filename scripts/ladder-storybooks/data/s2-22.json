@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «It is important to», write a verb (help, read). After «because», write who + what."
   },
   "img": {
+    "style": "webtoon",
     "cover": "In a dark old school library at midnight, a ten-year-old Korean boy with short straight black hair, a red-and-white baseball jacket and jeans shines a flashlight from behind a wooden desk and finds an old janitor with white hair, a gray work uniform and gentle wrinkled eyes sitting on the floor between tall bookshelves, holding an open picture book full of big colorful animal pictures and smiling in surprise.",
     "scenes": {
       "1": "At midnight in the dark school library, a ten-year-old Korean boy with short straight black hair, a red-and-white baseball jacket and jeans hides behind a wooden desk holding a flashlight, his eyes wide, as a small round light moves between the tall bookshelves and a book falls to the floor.",
       "3": "On a sunny afternoon in the school library, a ten-year-old Korean boy with short straight black hair, a red-and-white baseball jacket and jeans and an old janitor with white hair, a gray work uniform and gentle wrinkled eyes sit side by side at a wooden table, looking at a big picture book with only colorful pictures of animals, both smiling warmly."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

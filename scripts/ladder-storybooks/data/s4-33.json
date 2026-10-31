@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «If», write who + what; after «we can», start with a base verb. (e.g. If we turn off screens early, we can sleep more deeply)"
   },
   "img": {
+    "style": "anime",
     "cover": "A teenager sleeping peacefully on their side in a dim bedroom, soft blue moonlight falling across the pillow and blanket from a half-open window",
     "scenes": {
       "1": "A sleep laboratory at night where a person sleeps in a bed with thin sensor wires taped to the forehead and beside the eyes, while through a glass window a researcher watches wavy brain-wave lines moving across several monitors",
       "3": "A tired student slumped over a desk late at night under a single desk lamp, head resting on a pile of open textbooks and a half-empty mug beside them, while a neatly made bed waits untouched in the dark corner of the room"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

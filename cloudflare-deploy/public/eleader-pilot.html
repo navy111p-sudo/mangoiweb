@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>엘리더잼 · 말하기 전용관 시범판</title>
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2"><link rel="stylesheet" href="/css/mango-avatar.css?v=3"><link rel="stylesheet" href="/css/eleader-pilot.css?v=1">
+<script src="/js/mango-avatar.js?v=41" defer></script><script src="/js/mangoi-voice-input.js?v=6" defer></script><script src="/js/eleader-speaking.js?v=1" defer></script><script src="/js/eleader-turn.js?v=1" defer></script><script src="/js/eleader-trial20-client.js?v=1" defer></script><script src="/js/eleader-trial20-browser.js?v=1" defer></script><script src="/js/eleader-trial20-ui.js?v=2" defer></script><script src="/js/eleader-pilot.js?v=7" defer></script></head>
+<body><header><a href="/student.html"><img src="/img/mango-char.png" alt="망고아이" width="44"> MANGO I</a><span>학원 맞춤 말하기 · 시범판</span></header>
+<main><p class="eyebrow">ELEADER JAM · L1 PILOT</p><h1 id="academyName">엘리더잼 말하기 전용관</h1>
+<p class="intro">한 단어부터, 나만의 한 문장까지.</p>
+<aside class="notice" id="stagedNotice"><span id="curriculumNotice">독창적으로 작성한 3유닛 · 60문항 시범판입니다. 전체 22유닛·440문항은 미완성입니다.</span><br>현재는 비활성 코드 배포 단계입니다. 학습·기록·음성·AI 기능은 사용할 수 없으며, 별도 검증과 활성화 배포가 필요합니다. 발음 평가는 제공하지 않습니다.</aside>
+<p id="status" role="status" aria-live="polite">로그인 및 학원 배정을 확인하고 있어요.</p>
+<aside id="trialNotice" class="notice" hidden role="status"></aside>
+<nav><button id="reload" type="button">배정·기록 새로고침</button><a href="/warmup.html">A.i 말하기로 돌아가기</a><a href="/student.html">학생 로그인</a><a href="/admin/login.html">원장 로그인</a></nav>
+<section id="student" hidden><h2>오늘의 말하기</h2><section id="ownerTrial" hidden></section><div id="units" class="units"></div><div class="lesson" id="lesson" hidden>
+<div class="teacher"><div id="tavatar-wrap"><div id="tavatar-ring"><canvas id="tavatar-canvas" width="320" height="400" aria-label="Emma 기존 아바타"></canvas><video id="tavatar-video" muted loop playsinline preload="none" disablepictureinpicture></video></div></div><strong>Emma</strong><p>기존 아바타 표시<br>음성·AI는 아래 승인 상태를 확인해 주세요.</p></div>
+<div class="exercise"><p id="position" class="eyebrow"></p><h2 id="question" lang="en"></h2><button id="hintButton">한글 힌트 보기</button><p id="hint" hidden></p>
+<div class="voice"><button id="listen">기기 음성으로 듣기</button><button id="stop">재생 취소</button><p id="voiceStatus" role="status">기기 내장 영어 음성만 사용해요. 이 버튼은 Emma 음성이 아닙니다.</p></div>
+<label for="answer">먼저 말해 보고, 짧게 적어 보세요 (입력 내용은 저장하지 않아요)</label><input id="answer" maxlength="120" autocomplete="off" placeholder="예: rabbits"><button id="expand">문장으로 늘려 보기</button><p id="expansion" class="expansion" aria-live="polite"></p>
+<section aria-label="승인 후 음성 AI 연결"><h3>Emma와 말하기 · 연결 v2</h3><p id="liveStatus" role="status">실제 호출은 기본 비활성입니다.</p><p id="policyNotice"></p><label><input type="checkbox" id="liveConfirm">위 처리 안내를 확인했고, 이번 기기에서 음성·AI 기능을 직접 사용하겠습니다.</label><div><button id="recordLive" type="button">마이크로 답하기</button><button id="finishRecording" type="button">녹음 끝내고 받아쓰기</button><button id="chatLive" type="button">입력한 답을 AI에게 보내기</button><button id="emmaRead" type="button">Emma 목소리로 듣기</button><button id="cancelLive" type="button">녹음·요청·재생 취소</button></div><p id="liveReply" aria-live="polite"></p><p>녹음은 전사 처리에만 사용하고 서버 파일로 저장하지 않습니다. 취소 전에 이미 전송된 처리는 회수할 수 없습니다.</p></section>
+<button id="complete" class="primary">이 문장 연습 완료</button><button id="repeatQuestion">질문 다시 보기</button><p id="turnStatus" aria-live="polite"></p><button id="next">다음 질문</button><p>완료 표시는 스스로 연습한 기록이며, 실력·발음 점수가 아닙니다.</p></div></div><h2>나의 연습 기록</h2><div id="history"></div></section>
+<section id="director" hidden><h2>원장 관리</h2><p>기존 계정과 연결된 이 학원 학생만 표시됩니다. 학생 등록 기능은 없습니다.</p>
+<form id="settings"><label>학원 표시 이름 <input id="settingName" maxlength="60" required></label><label><input id="enabled" type="checkbox">학생 연습 허용</label><button class="primary">설정 저장</button></form>
+<h3>유닛 배정</h3><form id="assign"><label>학생 <select id="students"></select></label><label>유닛 <select id="assignUnit"></select></label><label><input type="checkbox" id="assigned" checked>배정 (해제해도 기존 기록 유지)</label><button class="primary">배정 저장</button></form>
+<h3>배정 및 학습 결과</h3><p>문항별 완료 여부만 저장합니다. 답변 원문·녹음은 저장하지 않습니다.</p><div id="report"></div></section>
+</main><footer>망고아이 × 엘리더잼 · 검토용 시범판 / 운영 미배포</footer></body></html>

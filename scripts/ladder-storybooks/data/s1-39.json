@@ -290,10 +290,16 @@
     "moreEn": "One more step: start both blanks with an action word. (e.g. play soccer, draw a picture)"
   },
   "img": {
+    "style": "fairytale",
     "cover": "In a sunny park, a giant with messy brown hair, a big round nose, blue overalls and a yellow T-shirt stands tall in two huge red sneakers and smiles, as a girl with two orange pigtails in a pink dress and a boy with short black hair in a green T-shirt ride on his shoulders, laughing and waving.",
     "scenes": {
       "1": "At the edge of a park, a giant with messy brown hair, a big round nose, blue overalls and a yellow T-shirt hops on one foot with one red sneaker and one white sock, looking sad, while a girl with two orange pigtails in a pink dress and a boy with short black hair in a green T-shirt peek out from behind a huge red sneaker as big as a bus.",
       "2": "On the grass of the park, a girl with two orange pigtails in a pink dress, a boy with short black hair in a green T-shirt and other kids push a huge red sneaker as big as a bus toward a giant with messy brown hair, a big round nose, blue overalls and a yellow T-shirt, who sits on the ground with one white sock and smiles."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

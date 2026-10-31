@@ -20,8 +20,9 @@ import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnroll
 import { authUidFromRequest } from './auth-token';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서 (사전고지 문자)
 import { handleRefundApi } from './api-pay-refund';   // 💸 환불 실행·기록 (2026-08-25 신설)
-import { activateB2bAiInvoicePayment } from './ai-billing';   // 🏢 대리점 AI 사용료 일괄결제 활성화 (MGB- 주문 전용, 2026-09-10)
+import { activateB2bAiInvoicePayment, mgbAmountNow } from './ai-billing';   // 🏢 대리점 AI 사용료 일괄결제 활성화 (MGB- 주문 전용, 2026-09-10)
 import { activateB2bTuitionPayment, handleB2bTuitionPublic } from './b2b-tuition-load';   // 🏫 B2B 화상수업 수업료 (MGT- 주문 · /api/pay/b2b/*, 2026-10-01)
+import { claimB2bInvoiceForConfirm, releaseB2bInvoiceClaim, revertB2bOnCancel, parseB2bOrder, findB2bDoublePaid, tossOrderProbe } from './b2b-pay-guard';   // 🔒 대리점 청구서 이중결제·취소 되돌리기 (2026-10-22)
 import { AI_PASS_PLAN, NOT_AI_PASS_PLAN_SQL, aiPassPeriod, aiPassNextBilling, currentAiPassEnd } from './ai-pass';
 import { phonesForStudent } from './notify-contacts';   // 📞 A.i 사전고지 번호 — 우리가 받아 둔 번호를 먼저 보는 정본   // 🤖 A.i 이용권 끝나는 날·매달 자동결제 (2026-09-29)
 
@@ -652,6 +653,21 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
       return json({ ok: false, error: 'amount_mismatch', message: '결제 금액이 주문과 일치하지 않습니다.' }, 400);
     }
 
+    /* 🔒 (2026-10-22) 대리점 청구서(MGB-·MGT-)는 «주문» 이 아니라 «청구서» 단위로 한 번만 승인한다.
+       같은 청구서에 주문이 여럿 생길 수 있어서(탭 두 개·창 다시 열기·공개 링크와 /manager 동시) 예전에는
+       둘 다 토스 승인 = 카드가 두 번 긁혔다. 아래 토스 승인이 곧 실제 청구라 그 «앞» 에서 막는다.
+       막히면 토스 승인을 부르지 않으므로 돈은 안 나간다(인증만 된 결제는 토스가 스스로 만료시킨다).
+       ⛔ 이 검사를 토스 호출 뒤로 옮기지 말 것 — 그러면 이미 긁힌 뒤다. */
+    if (parseB2bOrder(orderId)) {
+      // ③ (2026-10-23) AI 컨텐츠는 «지금 명세로 다시 계산한 금액» 과 주문 금액이 같아야 승인한다(결제창을 연 뒤 체크를 바꾼 경우)
+      const gate = await claimB2bInvoiceForConfirm(env, orderId, amount, (oid) => tossOrderProbe(env, oid), Date.now(),
+        { mgbAmountNow: (id) => mgbAmountNow(env, id) });
+      if (!gate.ok) {
+        await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=? AND status NOT IN ('paid','await_deposit')`).bind(gate.error.slice(0, 100), orderId).run();
+        return json({ ok: false, error: gate.error, message: gate.message }, 409);
+      }
+    }
+
     // 토스 confirm 호출 (시크릿키 Basic 인증). 여기서 실제 승인이 완료된다.
     const auth = 'Basic ' + btoa(String(env.TOSS_SECRET_KEY) + ':');
     let tossRes: Response, tossJson: any;
@@ -734,6 +750,11 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     const msg = tossJson?.message || '결제 승인에 실패했습니다.';
     /* ⚠️ 이미 결제됐거나(다른 요청이 먼저 확정) 입금 대기인 주문은 failed 로 덮지 않는다 — 덮으면 돈은 나갔는데 장부만 실패가 된다. */
     const failRes: any = await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=? AND status NOT IN ('paid','await_deposit')`).bind(String(code).slice(0, 100), orderId).run();
+    // 토스가 «거절» 을 분명히 말한 경우만 대리점 청구서 선점을 놓는다 — 4xx + 에러코드가 있을 때뿐.
+    //   ⛔ 5xx·게이트웨이 오류·JSON 아닌 본문·ALREADY_PROCESSED 는 «승인됐을 수도» 있어 안 놓는다
+    //      (다음 결제가 토스 조회로 정말 안 나갔는지 확인한 뒤에만 넘겨받는다 — b2b-pay-guard.ts).
+    const tossDeclined = tossRes.status >= 400 && tossRes.status < 500 && !!tossJson?.code && tossJson.code !== 'ALREADY_PROCESSED_PAYMENT';
+    if (failRes?.meta?.changes && tossDeclined) await releaseB2bInvoiceClaim(env, orderId);
     if (!failRes?.meta?.changes) {
       const now: any = await env.DB.prepare(`SELECT status, amount FROM payment_orders WHERE order_id = ? LIMIT 1`).bind(orderId).first();
       if (now?.status === 'paid') return json({ ok: true, already: true, orderId, amount: now.amount, message: '이미 결제 완료된 주문입니다.' });
@@ -952,6 +973,20 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
         console.warn('[api-pay] 웹훅 보완확정 알림 문자 실패:', (e as any)?.message, 'order=', orderId);
       }
       return json({ ok: true, confirmed: true });
+    }
+
+    /* 🔒 (2026-10-22) 대리점 청구서 결제가 취소되면 청구서·이용권·충전금도 함께 되돌린다.
+       멱등(취소 건마다 토스 transactionKey) — 부분 취소 뒤 전액 취소처럼 웹훅이 두 번 와도, 앱 환불이 먼저
+       되돌렸어도 한 번만 반영된다. 그래서 «이미 cancelled» 여도 이 갈래는 다시 탄다. */
+    const isB2b = !!parseB2bOrder(orderId);
+    if ((pay.status === 'CANCELED' || pay.status === 'PARTIAL_CANCELED') && isB2b) {
+      const rv = await revertB2bOnCancel(env, orderId, pay, 'toss_webhook');
+      // 앱에서 환불한 주문(refunded/partial_refunded)은 그 기록을 덮지 않는다
+      if (order.status !== 'cancelled' && order.status !== 'refunded' && order.status !== 'partial_refunded') {
+        await env.DB.prepare(`UPDATE payment_orders SET status='cancelled', fail_reason=? , raw=? WHERE order_id=?`)
+          .bind(String(pay.status), JSON.stringify(pay).slice(0, 4000), orderId).run();
+      }
+      return json({ ok: true, cancelled: true, b2b_reverted: rv.applied, b2b_warnings: rv.warnings });
     }
 
     if ((pay.status === 'CANCELED' || pay.status === 'PARTIAL_CANCELED') && order.status !== 'cancelled') {
@@ -1226,6 +1261,9 @@ async function tossOrderLookup(env: any, orderId: string): Promise<any | null> {
   } catch (_) { return null; }
 }
 
+/* 🔎 tossOrderProbe(tossOrderLookup 과 같되 404 «토스가 모름» 을 «못 물어봤다» 와 가름) —
+   정본은 b2b-pay-guard.ts 로 옮겼다(대리점 자동결제도 같은 것을 쓴다, 2026-10-23). */
+
 /** 💳→📚 수강 자동 활성화 (confirm·webhook 공용, 실패해도 결제 흐름에 영향 없음) */
 async function activateEnrollment(env: any, order: any, amount: number, when: number, orderId: string): Promise<void> {
   /* 🏢 (2026-09-10) B2B 대리점 청구서 결제 — 개인 1건 활성화가 아니라 청구서에 포함된
@@ -1342,6 +1380,11 @@ export async function runPaymentAudit(env: any, opts?: { sms?: boolean }): Promi
     out.newDup = r?.results || [];
   } catch (e) { out.newDupError = String((e as any)?.message || e); }
 
+  // B-2) 🏢 대리점 청구서 이중결제 (30일) — 위 B 는 uid 로 묶어서 uid 가 없는 대리점 주문(MGB-·MGT-)을 원리상 못 본다(2026-10-22)
+  try {
+    out.b2bDup = await findB2bDoublePaid(env, Date.now() - 30 * 86400 * 1000);
+  } catch (e) { out.b2bDup = []; out.b2bDupError = String((e as any)?.message || e); }
+
   // C) paid 인데 수강 연결 누락 (48시간)
   //    🏫 대리점 청구서(MGT- 수업료 · MGB- AI 사용료)는 수강을 만들지 않는 결제라 뺀다 — 안 빼면 «누락» 으로 잘못 센다(2026-10-01).
   try {
@@ -1364,8 +1407,8 @@ export async function runPaymentAudit(env: any, opts?: { sms?: boolean }): Promi
     out.stalePending = r?.n || 0;
   } catch (_) {}
 
-  const anomalies = (out.legacyDup.length || 0) + (out.newDup.length || 0) + (out.missingEnroll.length || 0);
-  out.summary = { anomalies, legacyDup: out.legacyDup.length, newDup: out.newDup.length, missingEnroll: out.missingEnroll.length, stalePending: out.stalePending };
+  const anomalies = (out.legacyDup.length || 0) + (out.newDup.length || 0) + (out.missingEnroll.length || 0) + (out.b2bDup.length || 0);
+  out.summary = { anomalies, legacyDup: out.legacyDup.length, newDup: out.newDup.length, missingEnroll: out.missingEnroll.length, b2bDup: out.b2bDup.length, stalePending: out.stalePending };
 
   // 이상 있을 때만 사장님 문자 (매일 "정상" 문자는 소음이라 안 보냄)
   if (opts?.sms && anomalies > 0) {
@@ -1376,6 +1419,7 @@ export async function runPaymentAudit(env: any, opts?: { sms?: boolean }): Promi
         if (out.legacyDup.length) lines.push(`·이중결제 의심 ${out.legacyDup.length}건(기존 결제창)`);
         if (out.newDup.length) lines.push(`·이중결제 의심 ${out.newDup.length}건(새 결제)`);
         if (out.missingEnroll.length) lines.push(`·수업연결 누락 ${out.missingEnroll.length}건`);
+        if (out.b2bDup.length) lines.push(`·대리점 청구서 이중결제 ${out.b2bDup.length}건`);
         lines.push(`관리자 결제센터에서 확인하세요`);
         await sendPlainSms(env, toPhone, lines.join('\n'));
         out.smsSent = true;
