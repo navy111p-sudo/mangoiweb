@@ -21,7 +21,9 @@ import { generateSecret, otpauthURI, verifyTOTP } from './totp';
 import { sendPlainSms } from './solapi-client';
 import { sendEmail, getEmailMode, emailLayout } from './email';
 import { authUidFromRequest } from './auth-token';   // 🔐 소유자 검증(단방향 의존: auth-admin → auth-token)
-import { legacyLoginEnabled, verifyLegacyLmsLogin, lookupTeacherByLoginId, provisionTeacherAccount } from './legacy-teacher-auth';
+import { legacyLoginEnabled, verifyLegacyLmsLogin, lookupTeacherByLoginId, provisionTeacherAccount, legacyProvisionGate } from './legacy-teacher-auth';
+import { dailySeenPlan, noteDailySeen } from './teacher-login-times';
+import { handleTeacherLoginList } from './teacher-login-list';   // 🔐 강사 첫 접속·로그인 시각(2026-10-30)
 
 export interface AuthEnv {
   DB: D1Database;
@@ -177,6 +179,46 @@ const SESSION_COOKIE = 'mango_admin_session';
 const SESSION_DEFAULT_MS = 7 * 24 * 3600 * 1000;       // 7일
 const SESSION_REMEMBER_MS = 30 * 24 * 3600 * 1000;     // 30일
 
+/* ⏰ (2026-10-28) 로그인이 «수업 시각에» 풀리지 않게 — 두 가지를 함께 한다.
+   [왜] 만료가 «로그인한 시각 + 30일» 이라, 수업 직전에 로그인하는 강사는 30일 뒤 «바로 그 수업 시각»
+        에 풀렸다. 실측: 중국어 강선생님(`hq_t_kang`) 세션이 2026-10-22 19:22:07 에 만료 — 그날
+        19:20 수업 2분 뒤였고, 다음 날(10/23) 수업 직전 19:21 에 다시 로그인해야 했다.
+   ① 만료 시각을 «그 다음 새벽 4시(KST)» 로 미룬다 — 📊 [잰 것 — 2026-10-28 운영 D1] 활성 예약의
+      시작 시각은 06:00~23:xx 뿐이고 00~05시는 0건이다(`class_schedules.status='active'`).
+   ② 쓰는 동안은 안 풀린다 — 남은 기간이 처음 기간의 절반 아래로 내려오면 처음 기간만큼 다시 늘리고
+      쿠키도 새 만료로 다시 내려준다(`/api/admin/me` 응답에서 — 강사·관리자·매니저·지사 화면이 열릴
+      때마다 부른다). 7일 로그인은 7일, 30일 로그인은 30일 단위 그대로다(`admin_sessions.ttl_ms`).
+   ⚠️ 로그아웃·비밀번호 변경·세션 강제 종료는 그대로 «바로» 끊는다(행을 지운다 — 늘릴 행이 없다).
+   ⚠️ 판정 정본은 아래 두 순수 함수 — 하니스가 실제로 돌린다(`admin_session_renew_harness.mjs`). */
+const SESSION_NIGHT_HOUR_KST = 4;
+
+/** atMs 이후 처음 오는 새벽 4시(KST). atMs 가 정확히 그 시각이면 그대로. */
+export function nightAlignedExpiry(atMs: number): number {
+  const KST = 9 * 3600 * 1000;
+  const k = new Date(atMs + KST);
+  let t = Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate(), SESSION_NIGHT_HOUR_KST, 0, 0) - KST;
+  if (t < atMs) t += 24 * 3600 * 1000;
+  return t;
+}
+
+/**
+ * 이 세션을 지금 늘릴까 — 늘린다면 새 만료와 그 기간.
+ *   · 이미 만료된 세션은 늘리지 않는다(되살리지 않는다)
+ *   · 기간(ttl)은 저장된 `ttl_ms` 가 정본. 없으면(이 변경 전 세션) «만료 − 생성» 으로 7일/30일을 가린다
+ *     — 그 세션들은 한 번도 늘어난 적이 없어 그 차이가 처음 기간 그대로다.
+ *   · 남은 기간이 기간의 절반 이상이면 늘리지 않는다(요청마다 쓰지 않는다)
+ */
+export function sessionRenewalPlan(
+  nowMs: number, createdAt: number, expiresAt: number, ttlMs?: number | null,
+): { renew: boolean; ttl: number; expiresAt: number } {
+  const stored = Number(ttlMs) || 0;
+  const ttl = stored > 0 ? stored
+    : ((Number(expiresAt) - Number(createdAt)) > SESSION_DEFAULT_MS + 24 * 3600 * 1000 ? SESSION_REMEMBER_MS : SESSION_DEFAULT_MS);
+  const left = Number(expiresAt) - nowMs;
+  if (!(left > 0) || left >= ttl / 2) return { renew: false, ttl, expiresAt: Number(expiresAt) };
+  return { renew: true, ttl, expiresAt: nightAlignedExpiry(nowMs + ttl) };
+}
+
 // ────────────────────────────────────────────────────────────
 // 🔐 비밀번호 해싱 (SHA-256 + 16 byte salt)
 // ────────────────────────────────────────────────────────────
@@ -312,6 +354,10 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
     //   그동안은 이름 글자·아이디 접두사로 추측했는데, 이름 칸이 비거나 직함이 섞이면
     //   계속 틀렸다(`Maimai (본사 매니저)` 사고). 국적은 사람이 바뀌지 않는 사실이라 안 흔들린다.
     `ALTER TABLE admin_account ADD COLUMN nationality TEXT`,
+    // ⏰ (2026-10-28) 세션의 «처음 기간»(7일/30일) — 쓰는 동안 같은 단위로 늘리는 데 쓴다(sessionRenewalPlan).
+    //   ⚠️ 이 칸은 «늘리기» 에서만 읽는다 — checkAdminSession 의 판정 SELECT 에는 넣지 않는다
+    //      (ALTER 가 어떤 이유로든 안 돼도 로그인 판정은 그대로여야 한다).
+    `ALTER TABLE admin_sessions ADD COLUMN ttl_ms INTEGER`,
   ];
   for (const sql of stmts) {
     try { await env.DB.prepare(sql).run(); }
@@ -472,18 +518,50 @@ export async function checkAdminSession(request: Request, env: AuthEnv): Promise
   try {
     await ensureAuthSchema(env);
     const row = await env.DB.prepare(
-      `SELECT username, expires_at FROM admin_sessions WHERE token = ? LIMIT 1`
-    ).bind(token).first<{ username: string; expires_at: number }>();
+      `SELECT username, expires_at, last_seen_at FROM admin_sessions WHERE token = ? LIMIT 1`
+    ).bind(token).first<{ username: string; expires_at: number; last_seen_at: number }>();
     if (!row) return { ok: false };
-    if (row.expires_at < Date.now()) return { ok: false };
+    const now = Date.now();
+    if (row.expires_at < now) return { ok: false };
     // 마지막 활동 시각 갱신 (실패해도 무시)
-    env.DB.prepare(
+    // 🔐 (2026-10-30) 이 세션이 «오늘(KST) 처음» 쓰이는 순간이면 그 시각을 먼저 적는다 — 강사 «첫 접속» 시각.
+    //    적기를 «먼저» 하는 이유: 갱신이 먼저 끝나고 적기가 잘리면 다음 요청은 이미 «오늘» 이라 영영 못 적는다.
+    //    noteDailySeen 은 던지지 않는다. 정본 teacher-login-times.ts.
+    const touch = () => env.DB.prepare(
       `UPDATE admin_sessions SET last_seen_at = ? WHERE token = ?`
-    ).bind(Date.now(), token).run().catch(() => {});
+    ).bind(now, token).run();
+    const seenPlan = dailySeenPlan(Number(row.last_seen_at), now);
+    (seenPlan ? noteDailySeen(env.DB, row.username, seenPlan).then(touch) : touch()).catch(() => {});
     return { ok: true, username: row.username, token, expiresAt: row.expires_at };
   } catch (e) {
     console.warn('[auth-admin] checkAdminSession err:', (e as any)?.message);
     return { ok: false };
+  }
+}
+
+/**
+ * ⏰ 쓰는 동안은 로그인이 안 풀리게 — 늘릴 때가 됐으면 DB 만료를 늘리고 «다시 내려줄 쿠키» 를 돌려준다.
+ *   반환: Set-Cookie 값(늘렸을 때만) 또는 null. 근거는 위 sessionRenewalPlan 머리말.
+ *   ⚠️ 던지지 않고, 실패하면 null — 늘리지 못해도 이 요청의 로그인 판정은 이미 끝났고 그대로다.
+ *   ⚠️ 쿠키도 반드시 함께 — 브라우저 쿠키(Max-Age)가 먼저 사라지면 DB 만 늘려 봐야 소용없다.
+ */
+export async function renewAdminSessionCookie(env: AuthEnv, sess: SessionInfo, nowMs: number = Date.now()): Promise<string | null> {
+  if (!sess?.ok || !sess.token) return null;
+  try {
+    const row = await env.DB.prepare(
+      `SELECT created_at, expires_at, ttl_ms FROM admin_sessions WHERE token = ? LIMIT 1`
+    ).bind(sess.token).first<{ created_at: number; expires_at: number; ttl_ms: number | null }>();
+    if (!row) return null;
+    const plan = sessionRenewalPlan(nowMs, Number(row.created_at), Number(row.expires_at), row.ttl_ms);
+    if (!plan.renew) return null;
+    const r = await env.DB.prepare(
+      `UPDATE admin_sessions SET expires_at = ?, ttl_ms = ? WHERE token = ? AND expires_at < ?`
+    ).bind(plan.expiresAt, plan.ttl, sess.token, plan.expiresAt).run();
+    if (!((r as any)?.meta?.changes > 0)) return null;
+    return setSessionCookieHeader(sess.token, Math.ceil((plan.expiresAt - nowMs) / 1000));
+  } catch (e) {
+    console.warn('[auth-admin] session renew skipped:', (e as any)?.message);
+    return null;
   }
 }
 
@@ -584,11 +662,16 @@ export async function issueAdminSession(
   const ua = opts.ua || '';
   const now = Date.now();
   const ttl = remember ? SESSION_REMEMBER_MS : SESSION_DEFAULT_MS;
+  const expiresAt = nightAlignedExpiry(now + ttl);   // ⏰ 수업 시각이 아니라 새벽 4시(KST)에 풀린다
   const token = randomToken(32);
   await env.DB.prepare(
     `INSERT INTO admin_sessions (token, username, ip, user_agent, created_at, expires_at, last_seen_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).bind(token, acctUser, ip, ua, now, now + ttl, now).run();
+  ).bind(token, acctUser, ip, ua, now, expiresAt, now).run();
+  // ⏰ 처음 기간을 따로 적어 둔다(늘릴 때 같은 단위로). ⚠️ INSERT 와 나눈 이유 — 이 칸이 없어도 로그인은 돼야 한다.
+  try {
+    await env.DB.prepare(`UPDATE admin_sessions SET ttl_ms = ? WHERE token = ?`).bind(ttl, token).run();
+  } catch (e) { console.warn('[auth-admin] session ttl_ms:', (e as any)?.message); }
 
   // 🔔 로그인 알림(2026-07-10): 이 계정+IP 조합의 '이전 성공 로그인'이 하나도 없으면
   //   = 낯선 기기/장소에서의 첫 로그인 → 사장님 폰(OWNER_ALERT_PHONE)으로 문자.
@@ -691,7 +774,7 @@ export async function issueAdminSession(
     {
       /* 🔤 (2026-08-24) 화면에는 **DB 에 적힌 그대로의 아이디**를 돌려준다 —
          입력한 대소문자를 그대로 주면 화면·저장값이 계정과 어긋난 채로 남는다. */
-      ok: true, username: acctUser, expires_at: now + ttl, redirect: '/admin.html',
+      ok: true, username: acctUser, expires_at: expiresAt, redirect: '/admin.html',
       home_path: homePath,   // 🏠 화면은 next 가 없을 때 이 값으로 간다
       name: acctName || acctUser,
       server_role: rr.role, role_label: rr.roleLabel, is_teacher: isTeacher,
@@ -703,7 +786,7 @@ export async function issueAdminSession(
       pref_lang: prefLang, nationality: acctNationality || null,
     },
     200,
-    { 'Set-Cookie': setSessionCookieHeader(token, Math.floor(ttl / 1000)) }
+    { 'Set-Cookie': setSessionCookieHeader(token, Math.ceil((expiresAt - now) / 1000)) }
   );
 }
 
@@ -819,6 +902,20 @@ export async function handleAdminAuthApi(
         }
         // 카페24 강사 명부에서 실제 이름을 찾아 계정에 심는다(마이페이지 급여·평가가 이름 매칭).
         const info = await lookupTeacherByLoginId(env as any, username);
+        /* 🚧 (2026-10-25) 옛 LMS 는 대리점·지사 계정도 받는다 — 강사 명부에서 찾은 아이디만 강사로 만든다.
+           (대리점 masteraca 가 강사 계정으로 생성돼 /teacher 로 가던 사고. 정본 legacyProvisionGate) */
+        const gate = legacyProvisionGate(info);
+        if (!gate.allow) {
+          await recordLogin(env, username, ip, ua, false, 'legacy_' + gate.reason);
+          if (gate.reason === 'roster_lookup_failed') {
+            return json({ ok: false, error: 'roster_lookup_failed',
+              message: '강사 명부를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+              message_en: 'Could not check the teacher roster. Please try again in a moment.' }, 503);
+          }
+          return json({ ok: false, error: 'not_teacher_account',
+            message: '이 아이디는 강사 명부에 없습니다. 대리점·지사 계정은 본사에 관리자 계정 발급을 요청해 주세요.',
+            message_en: 'This ID is not in the teacher roster. Branch/agency accounts must be issued by HQ.' }, 403);
+        }
         const newHash = await hashPassword(password);
         try {
           await provisionTeacherAccount(env as any, username, newHash, info);
@@ -1091,9 +1188,13 @@ export async function handleAdminAuthApi(
       } catch (e) {
         console.warn('[auth-admin] /me scope err:', (e as any)?.message);
       }
+      // ⏰ (2026-10-28) 쓰는 동안은 로그인이 안 풀리게 — 늘릴 때가 됐으면 쿠키를 새 만료로 다시 내려준다.
+      //    강사·관리자·매니저·지사 화면이 열릴 때마다 이 경로를 부르므로 여기 한 곳이면 된다.
+      const renewCookie = await renewAdminSessionCookie(env, sess);
       // 👥 본인에게 «다른 계정» 이 있으면 알려 준다(SAME_PERSON_ACCOUNTS 주석 참고).
       //    인증을 통과한 뒤라 본인에게만 보인다. 없으면 null 이라 화면은 아무것도 안 그린다.
-      return json({ ok: true, user: row || null, role, roleLabel, scope, also_account: otherAccountOf(me) });
+      return json({ ok: true, user: row || null, role, roleLabel, scope, also_account: otherAccountOf(me) },
+        200, renewCookie ? { 'Set-Cookie': renewCookie } : {});
     }
 
     // ── 프로필 업데이트 ──
@@ -1482,6 +1583,16 @@ export async function handleAdminAuthApi(
       return json({ ok: true, enabled: false });
     }
 
+    // ── 🔐 강사 로그인·접속 시각 (2026-10-30 매니저 제안) — 본사 전용. 판정 정본 teacher-login-times.ts · 게이트 teacher-login-list.ts ──
+    //    ⚠️ 새 경로를 만들지 않고 이미 등록된 이 경로의 쿼리로 얹는다(src/index.ts 게이트 3곳 회피).
+    //    강사는 index.ts TEACHER_BLOCKED_PREFIXES 가 막고, 핸들러 안에서 admin_scope 를 다시 읽어 강사·지사·대리점을 한 번 더 막는다.
+    if (path === '/api/admin/login-history' && method === 'GET' && url.searchParams.get('scope') === 'teachers') {
+      return await handleTeacherLoginList(request, url, env, {
+        actorOf: getAdminActor,
+        roleOf: (st, u, n) => resolveRole(st, u, n).role,
+      });
+    }
+
     // ── 로그인 이력 (최근 10건) ──
     if (path === '/api/admin/login-history' && method === 'GET') {
       const rs = await env.DB.prepare(
@@ -1532,7 +1643,8 @@ export async function handleAdminAuthApi(
   }
 }
 
-async function recordLogin(
+// (2026-10-28) export — 대리점 계정 비밀번호 바꾸기(api-admin.ts applyAgencyLogin)도 같은 감사 기록을 남긴다.
+export async function recordLogin(
   env: AuthEnv, username: string, ip: string, ua: string, success: boolean, reason: string | null
 ): Promise<void> {
   try {

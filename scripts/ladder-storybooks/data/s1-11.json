@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because my mom likes flowers)"
   },
   "img": {
+    "style": "crayon",
     "cover": "A girl with a short black bob in a green dress smiles at a yellow flower growing in a small brown pot on a sunny windowsill.",
     "scenes": {
       "1": "A girl with a short black bob in a green dress looks sadly at a small brown pot with only dirt in it, while a woman with a ponytail in a white shirt puts a hand on her shoulder.",
       "2": "A girl with a short black bob in a green dress smiles at a small brown pot where a pretty yellow flower is opening above green leaves."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

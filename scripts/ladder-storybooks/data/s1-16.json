@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "cg3d",
     "cover": "At night in a cozy bedroom lit by moonlight, a small round silver robot with a square head, blue light-up eyes and short springy arms tiptoes to the desk and happily munches on a sheet of white paper, while a girl with two puffy pigtails and round red glasses in purple star pajamas sleeps in bed with a smile.",
     "scenes": {
       "1": "In a bright bedroom in the morning, a small round silver robot with a square head, blue light-up eyes and short springy arms burps and a little crumpled piece of white paper pops out of its mouth, while a girl with two puffy pigtails and round red glasses in purple star pajamas holds an empty folder and stares with her mouth wide open.",
       "2": "At a desk by the window, a girl with two puffy pigtails and round red glasses in purple star pajamas smiles and writes in an open notebook, while a small round silver robot with a square head, blue light-up eyes and short springy arms, with a shiny new green chip on its chest, holds out a pencil to help her."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

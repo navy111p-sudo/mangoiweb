@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «before», write who + what. (e.g. before Dad comes home)"
   },
   "img": {
+    "style": "felt",
     "cover": "A small orange cat sits on a high branch of a tall tree, while a girl with two ponytails in a pink shirt and a boy with short hair in a green shirt look up and point at it.",
     "scenes": {
       "1": "A girl with two ponytails in a pink shirt and a boy with short hair in a green shirt stretch their arms up under a tall tree but cannot reach a small orange cat on a high branch.",
       "2": "A man with glasses in a blue sweater stands on a ladder against a tall tree and holds a small orange cat, while a girl with two ponytails in a pink shirt and a boy with short hair in a green shirt smile below."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

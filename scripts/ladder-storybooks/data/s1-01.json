@@ -290,15 +290,21 @@
     ]
   },
   "img": {
+    "style": "felt",
     "cover": "Max, a small brown puppy with floppy ears and a blue collar, walks on a path toward a house with warm lit windows in the evening, a red ball lying behind him.",
     "scenes": {
       "1": "Max, a small brown puppy with floppy ears and a blue collar, stands alone on an unfamiliar street with his nose up in the air, sniffing, a red ball at his feet.",
-      "2": "Max, a small brown puppy with floppy ears and a blue collar, runs to the door of his house, where his mother, father and a young girl kneel down to hug him."
+      "2": "Close-up at the open front doorway of the house: the young girl kneels and wraps both arms around Max, the small brown puppy with floppy ears and a blue collar, holding him gently against her chest. Her mother and father kneel close beside them, smiling with relief and touching the puppy. The hug and happy faces fill most of the frame; no wide landscape."
+    },
+    "ver": {
+      "1": 2,
+      "2": 2,
+      "cover": 2
     }
   },
   "alt": {
     "1": "Max sniffs a good smell in the air.",
-    "2": "Max's family hugs him at home.",
+    "2": "A girl hugs Max the puppy at the front door while her parents kneel beside them.",
     "cover": "Max the puppy walks toward his home."
   }
 }

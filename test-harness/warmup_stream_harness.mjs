@@ -93,7 +93,8 @@ if (ts) {
     js = js.replace(/from\s+'\.\/([\w-]+)'/g, "from './$1.mjs'");
     writeFileSync(join(dir, out), js);
   };
-  for (const n of ['stream-json-text', 'reply-sanity', 'ai-friends', 'warmup-empathy']) tr(join(SRC_DIR, n + '.ts'), n + '.mjs');
+  // 🧩 reply-questions(2026-10-28 «조각 질문» 미리듣기 차단)도 warmup-stream 이 부른다
+  for (const n of ['stream-json-text', 'reply-sanity', 'reply-questions', 'ai-friends', 'warmup-empathy']) tr(join(SRC_DIR, n + '.ts'), n + '.mjs');
   tr(STREAM_TS, 'warmup-stream.mjs');
   try { M = await import(pathToFileURL(join(dir, 'warmup-stream.mjs')).href); }
   catch (e) { ok('서버 모듈을 import 했다', false, String(e && e.message)); }
@@ -199,8 +200,9 @@ ok('전제: 핸들러 몸통을 오려 냈다', hBody.length > 2000);
 const lm = /const live = ([^;]+);/.exec(hBody);
 ok('전제: live 를 만드는 식을 찾았다', !!lm);
 if (lm) {
-  const ev = (sseSend) => attempt('live 식', () => new Function('sseSend', 'createWarmupLive', 'ctxLang', 'sanityCap', 'ctxFriend', 'studentInput',
-    'return ' + lm[1])(sseSend, () => 'LIVE', 'en', 0, 'Emma', 'hi'));
+  // 🔁 (2026-10-28) 미리듣기에 «이미 물은 질문» 판정도 넘긴다 — 기억(qmem)이 없으면 undefined(예전 그대로). 검사는 reply_fragment_question 6-2.
+  const ev = (sseSend) => attempt('live 식', () => new Function('sseSend', 'createWarmupLive', 'ctxLang', 'sanityCap', 'ctxFriend', 'studentInput', 'fragQ',
+    'qmem', 'repeatedQuestions', 'latT0', 'FRAG_RETRY_BUDGET_MS', 'honest', 'return ' + lm[1])(sseSend, () => 'LIVE', 'en', 0, 'Emma', 'hi', false, null, () => [], Date.now(), 9000, null));
   ok('스트림을 원하면 live 를 만든다', ev(() => {}) === 'LIVE');
   ok('(짝) 원하지 않으면 live 는 null — 예전 경로 그대로', ev(null) === null);
 }
@@ -260,6 +262,7 @@ function sandbox() {
       if(live){ _mixIdx=(_mixIdx+1)%4; _speakLive(live, 'aura', function(){ DONE++; }, PLAY); } }
     function addMsg(t, who){ C.addMsg.push({ t:t, who:who, quiet:_addMsgQuiet }); if(who==='ai' && !_addMsgQuiet) speak(t); }
     function showFixCard(){ C.fix++; } function showAnswerChips(){ C.chips++; }
+    function wuApplyGrade(){}   // 🎯 (2026-10-29) 정직한 칭찬 — 등급이 없는 응답에서는 아무것도 안 함(검사는 warmup_honest_mode_harness ⑧)
   `;
   const body = names.map(n => parts[n]).join('\n');
   const api = `return { get seq(){return _speakSeq;}, get done(){return DONE;}, get mix(){return _mixIdx;}, setMix:function(v){_mixIdx=v;},

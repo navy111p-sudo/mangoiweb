@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «I want to», write a verb (read, go, help). After «because», write who + what."
   },
   "img": {
+    "style": "fairytale",
     "cover": "A young boy with short black hair and a brown vest stands on a green hill among white sheep, shouting with his hands around his mouth, with a small village below.",
     "scenes": {
       "1": "Villagers holding sticks run up a green hill, while the young boy with short black hair and a brown vest laughs among calm white sheep.",
       "2": "In the evening, a gray wolf comes out of the dark forest toward the sheep; the young boy with short black hair and a brown vest shouts, but the path from the village is empty."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

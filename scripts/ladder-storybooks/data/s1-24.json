@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "comic",
     "cover": "On the blue sea, a giant pink octopus with big round eyes and long curly arms wraps its long arms around a wooden pirate ship with white sails, and a man with a curly black beard, a red bandana, a blue and white striped shirt and a gold earring stands at the front of the ship smiling and holding out a big sack of fish to it.",
     "scenes": {
       "1": "On the deck of a wooden pirate ship with white sails, a few funny cartoon pirates in striped shirts peek out from behind wooden barrels with surprised faces, while a friendly man with a curly black beard, a red bandana, a blue and white striped shirt and a gold earring calmly looks up at a giant pink octopus with big round eyes and long curly arms, which has droopy eyes and a sad, hungry look on its face.",
       "2": "On the sunny blue sea, a man with a curly black beard, a red bandana, a blue and white striped shirt and a gold earring hands a big sack of fish to a giant pink octopus with big round eyes and long curly arms, which smiles happily and lets go of a wooden pirate ship with white sails as the pirates cheer."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

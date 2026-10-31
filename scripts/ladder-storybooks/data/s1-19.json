@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "fairytale",
     "cover": "On a snowy night in a little village of small stone houses, a little round orange dragon with tiny wings, a cream belly and two small horns sneezes a big burst of orange fire from his nose into a round stone fire pit, while villagers in warm coats and knit hats jump up and cheer.",
     "scenes": {
       "1": "On a cold snowy night in a little village of small stone houses, villagers in warm coats and knit hats shiver around a dark, cold stone fire pit, while a little round orange dragon with tiny wings, a cream belly and two small horns sniffs a small open jar of black pepper and scrunches up his face, about to sneeze.",
       "2": "In a snowy village at night, a warm orange fire blazes in the round stone fire pit, and villagers in warm coats and knit hats smile, clap and hug a little round orange dragon with tiny wings, a cream belly and two small horns, who grins proudly."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

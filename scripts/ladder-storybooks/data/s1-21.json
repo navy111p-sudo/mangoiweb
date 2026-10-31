@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "anime",
     "cover": "In a sunny kitchen in the morning, a chubby orange tabby cat with green eyes and a white chest sits on the breakfast table and opens her mouth wide as if talking, while a girl with a short black bob and a yellow headband in a blue striped shirt drops her spoon in surprise and a little splash of milk flies up from her cereal bowl.",
     "scenes": {
       "1": "In a cozy living room, a chubby orange tabby cat with green eyes and a white chest whispers into the ear of a girl with a short black bob and a yellow headband in a blue striped shirt, who giggles, while through the window a big brown dog next door jumps back in fright from a tiny gray mouse in the yard.",
       "2": "In a sunny kitchen, a girl with a short black bob and a yellow headband in a blue striped shirt laughs and holds out a small fish to a chubby orange tabby cat with green eyes and a white chest, who stands up on her back legs with a happy, hungry face."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

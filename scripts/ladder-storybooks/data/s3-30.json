@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «before», write what + what happens to make the time clear. (e.g. before the lights go out)"
   },
   "img": {
+    "style": "photo",
     "cover": "Dark sea water at night sparkling with thousands of tiny glowing blue specks that swirl around a diver’s gloved hand",
     "scenes": {
       "1": "Fireflies glowing yellow-green above tall grass at the edge of a forest on a summer night, with a cluster of softly glowing green mushrooms on a mossy log in front",
       "2": "A deep-sea anglerfish with a wide mouth and a small glowing lure hanging in front of its head, floating in pitch-black water as a tiny fish swims toward the light"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

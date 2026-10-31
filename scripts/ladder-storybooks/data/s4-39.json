@@ -292,10 +292,16 @@
     "moreEn": "One more step: after «because», write what + what it is like to make your reason clear. (e.g. because good memories last a long time)"
   },
   "img": {
+    "style": "webtoon",
     "cover": "An open hand holding a few shiny coins in the foreground, and behind it, softly out of focus, a group of friends laughing together on a picnic blanket in a sunny park",
     "scenes": {
       "1": "A family of four unpacking fresh vegetables, bread, and rice from shopping bags onto a small kitchen table in a simple apartment, the parents smiling with relief and the children helping",
       "2": "A group of teenage friends hiking together on a rocky mountain trail at sunrise, laughing as they reach a viewpoint above a sea of clouds"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what happens. (e.g. so that everyone is safe)"
   },
   "img": {
+    "style": "flat",
     "cover": "On a safe green hill far away, a woman with a short gray bob and round glasses in an orange vest over a white lab coat stands with a tall man with a white beard in a brown hat and many families with backpacks, and they all watch a huge gray cloud of ash burst from a big mountain while glowing orange lava flows down toward a small empty village of red-roofed houses.",
     "scenes": {
       "1": "In a small wooden lab at the foot of a big quiet mountain, a woman with a short gray bob and round glasses in an orange vest over a white lab coat leans close to a machine whose screen shows a jumpy zigzag line, while a cup of tea on the table shakes a little.",
       "2": "In the middle of a small village with red-roofed houses, a woman with a short gray bob and round glasses in an orange vest over a white lab coat holds up a big chart full of zigzag lines to a tall man with a white beard in a brown hat, who looks at it with wide eyes, while families with backpacks and suitcases walk away down the road."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

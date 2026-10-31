@@ -10,12 +10,13 @@
  * ⛔ 검사를 「그 함수가 있는가」로 되돌리지 말 것 — 함수도 값도 «있는데» 답만 틀린 것이
  *    이 저장소가 반복해서 밟은 모양이다.
  */
+import { fileURLToPath } from 'node:url';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 
-const ROOT = new URL('..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const SRC = join(ROOT, 'cloudflare-deploy/src');
 const PUB = join(ROOT, 'cloudflare-deploy/public');
 

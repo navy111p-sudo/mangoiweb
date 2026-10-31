@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because my friends like it)"
   },
   "img": {
+    "style": "vintage",
     "cover": "Hana, a girl with two short black braids, a red hair clip, a yellow raincoat and blue boots, steps out of a round silver time machine with blinking lights into a bright future city, where cars fly between tall glass towers and a school floats in the sky above a green park.",
     "scenes": {
       "1": "In a green park of the future, Hana, a girl with two short black braids, a red hair clip, a yellow raincoat and blue boots, stares with her mouth open at shiny robots walking happy dogs on leashes, while kids wave from the windows of a school floating in the air and cars fly overhead.",
       "2": "On a sunny path in the future park, an old woman with silver hair in two short braids, a red hat and a yellow coat bends down, smiles and holds the hand of Hana, a girl with two short black braids, a red hair clip, a yellow raincoat and blue boots, who looks up at her with big surprised eyes."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

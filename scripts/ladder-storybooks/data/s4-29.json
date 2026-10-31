@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what to make the result clear. (e.g. so that my friends get the right information)"
   },
   "img": {
+    "style": "webtoon",
     "cover": "Close-up of a teenager's hand holding a smartphone on a crowded subway train, thumb paused just above the glowing screen, while behind them a row of passengers all stare down at their own lit-up phones",
     "scenes": {
       "1": "A busy city square at night where dozens of people stand still looking at their glowing phones, several with wide eyes and hands over their mouths in surprise, one woman turning her screen toward a friend",
       "2": "A teenager sitting at a desk with a smartphone in one hand and a laptop open beside it, leaning forward with a thoughtful frown to compare two similar blurry photos on the two screens, a notebook and pen ready on the desk"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

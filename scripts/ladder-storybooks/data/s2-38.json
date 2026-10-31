@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what they can do. (e.g. so that we can drink)"
   },
   "img": {
+    "style": "anime",
     "cover": "In the golden desert, a boy with short curly black hair in a white tunic and a blue head scarf pushes open a heavy stone door half buried in the sand, and cool light shines on a round stone well full of sparkling water inside, while an old man with a long white beard in a brown robe and a straw hat leans forward in surprise beside two resting camels.",
     "scenes": {
       "1": "In a wild orange sandstorm, a boy with short curly black hair in a white tunic and a blue head scarf and an old man with a long white beard in a brown robe and a straw hat huddle behind a huge rock with two camels lying down beside them, while sand swirls all around.",
       "3": "In a cool, shady stone room, a boy with short curly black hair in a white tunic and a blue head scarf fills a water bottle at a round stone well while an old man with a long white beard in a brown robe and a straw hat laughs and drinks from a cup, with more bottles lined up on the floor."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

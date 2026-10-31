@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «before», write who + what. (e.g. before Dad comes home)"
   },
   "img": {
+    "style": "flat",
     "cover": "On a purple planet with pink rocks, Rosa, a girl with two curly black puffs of hair, a red pilot jacket and silver space boots, holds out a steaming pizza box to a family of round, yellow aliens with two big eyes and little antennae standing in a round doorway, with a small round red spaceship parked behind her and a ringed planet in the starry sky.",
     "scenes": {
       "1": "Rosa, a girl with two curly black puffs of hair, a red pilot jacket and silver space boots, sits in a small round red spaceship flying around the bright rings of Saturn, the gray Moon behind her, and a pizza box with warm steam rising sits buckled into the seat next to her.",
       "2": "Inside a round house on Planet Blip, a family of round, yellow aliens with two big eyes and little antennae jump high in the air with happy faces, holding pizza slices, while Rosa, a girl with two curly black puffs of hair, a red pilot jacket and silver space boots, laughs and holds a big bag of shining coins, a small round red spaceship seen through the window."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

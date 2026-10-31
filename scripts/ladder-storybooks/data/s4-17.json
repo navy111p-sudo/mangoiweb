@@ -292,10 +292,16 @@
     "moreEn": "One more step: after «so that», write who or what and what happens. (e.g. so that our medicine still works next year)"
   },
   "img": {
+    "style": "cg3d",
     "cover": "A highly magnified view of countless tiny rod-shaped and round bacteria clustered together on a soft, folded gut surface, in natural pink and purple tones",
     "scenes": {
       "2": "A Korean kitchen table with an earthenware jar of bright red kimchi, a bowl of plain white yogurt, and a wedge of cheese on a wooden board, lit by morning sunlight",
       "3": "A doctor in a white coat at a clinic desk holding up a single small strip of pills while a young patient and a parent listen carefully"
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
     }
   },
   "alt": {

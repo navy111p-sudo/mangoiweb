@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who or what + what happens to make the result clear. (e.g. so that everyone is treated fairly)"
   },
   "img": {
+    "style": "photo",
     "cover": "A white robotic arm with a two-fingered gripper gently lifting a ripe peach from a bin of mixed fruit on a laboratory table, small cameras on stands pointed at it and a few dropped fruits lying around the bin",
     "scenes": {
       "1": "A long factory line of identical orange robotic arms welding the metal frames of cars in perfect unison, bright sparks flying under the hall lights",
       "2": "A large computer monitor filled with a grid of hundreds of small photos of cats, dogs, rabbits, and foxes, a person's hand resting on the mouse in front of it"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

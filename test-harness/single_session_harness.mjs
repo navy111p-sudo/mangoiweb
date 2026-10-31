@@ -198,6 +198,34 @@ ok(typeof A.singleSessionOn === 'function', 'singleSessionOn 킬 스위치 로�
   ok((await A.inspectSession(tokU, envC)).state === 'kicked', '⑦ 대소문자가 달라도 kicked 로 잡는다');
 }
 
+// Malformed claims must fail in both authentication and diagnostics.
+{
+  const encode = value => Buffer.from(value).toString('base64url');
+  async function signedClaims(claims) {
+    const payload = encode(JSON.stringify(claims));
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(SECRET.ROOM_JWT_SECRET),
+      { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload));
+    return payload + '.' + encode(Buffer.from(sig));
+  }
+  const future = Date.now() + 60000;
+  for (const claims of [
+    { uid: 'student' }, { uid: 'student', exp: 0 },
+    { uid: 'student', exp: 'tomorrow' }, { uid: 'student', exp: String(future) },
+    { uid: 'student', exp: null }, { uid: {}, exp: future },
+    { uid: ['student'], exp: future }, { uid: ' ', exp: future },
+    { uid: 'student', exp: future, sid: {} },
+  ]) {
+    const tok = await signedClaims(claims);
+    ok(await A.verifyUidToken(tok, SECRET) === null, '⑧ malformed claims rejected: ' + JSON.stringify(claims));
+    const state = await A.inspectSession(tok, SECRET);
+    ok(state.state === 'invalid' && state.uid === null, '⑧ diagnostics agree without exposing uid');
+  }
+  const valid = await A.signUidToken('student', SECRET);
+  ok(await A.verifyUidToken(valid + '.extra', SECRET) === null, '⑧ extra token segment rejected');
+  ok((await A.inspectSession(valid + '.extra', SECRET)).state === 'invalid', '⑧ extra segment diagnostics agree');
+}
+
 console.log('─'.repeat(66));
 console.log(`  PASS ${pass}    ⚠ FAIL ${fail}`);
 console.log('═'.repeat(66));

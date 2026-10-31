@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what they can do. (e.g. so that we can be friends)"
   },
   "img": {
+    "style": "cg3d",
     "cover": "On a sunny school playground beside a silver round spaceship, a quiet girl with a short black bob and round glasses in a pink cardigan plays a recorder while three tall glowing green aliens with long thin arms and big round black eyes sway and hum with their eyes half closed, and smiling kids draw a big sun, a round Earth, and a smiling face with colorful chalk on the ground.",
     "scenes": {
       "1": "On the school playground, a silver round spaceship flashes bright red lights and small stones bounce on the shaking ground, while three tall glowing green aliens with long thin arms and big round black eyes stand still, the teachers freeze in surprise, and a quiet girl with a short black bob and round glasses in a pink cardigan peeks out from behind a slide holding her recorder.",
       "3": "On the school playground, a silver round spaceship glows soft blue, and three tall glowing green aliens with long thin arms and big round black eyes hand a shining round stone to a quiet girl with a short black bob and round glasses in a pink cardigan next to a chalk drawing of a planet with three moons, while the kids and teachers cheer."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

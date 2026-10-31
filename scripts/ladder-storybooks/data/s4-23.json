@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «If», write who changes what; after «we can», start with a base verb. (e.g. If we take the bus, we can reduce traffic)"
   },
   "img": {
+    "style": "photo",
     "cover": "A modern electric car plugged into a charging station on a quiet city street at dusk, the charging cable glowing softly, green trees and a bike lane nearby",
     "scenes": {
       "1": "A cutaway electric car on a showroom floor, showing the flat battery pack spread under the floor and a compact electric motor between the rear wheels",
       "2": "A huge open-pit mine with terraced rock walls, large dump trucks hauling ore along a winding dirt road under a dusty sky"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

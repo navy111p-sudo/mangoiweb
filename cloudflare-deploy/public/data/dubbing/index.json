@@ -2,10 +2,12 @@
   "_comment": "A.i영화더빙 이야기 목록 — 화면(js/ai-dubbing.js)이 «이야기 고르기» 칸을 그린다. 편 이름은 화면 맨 위 포스터의 6칸과 같다. status: ready(열 수 있음) | coming(준비 중, 안 눌림). 새 편을 열 때 data/dubbing/<id>.json 을 먼저 올리고 여기서 ready 로 바꾼다.",
   "episodes": [
     { "id": "dub-001", "no": 1, "title": { "ko": "신나는 모험의 시작!", "en": "The Adventure Begins!" }, "status": "ready", "poster": "/media/dubbing/dub-001/scene-1.jpg" },
-    { "id": "dub-002", "no": 2, "title": { "ko": "예상치 못한 위기!", "en": "An Unexpected Danger!" }, "status": "coming" },
+    { "id": "dub-002", "no": 2, "title": { "ko": "예상치 못한 위기!", "en": "An Unexpected Danger!" }, "status": "ready", "poster": "/media/dubbing/dub-002/scene-1.jpg" },
     { "id": "dub-003", "no": 3, "title": { "ko": "친구들과 함께하는 모험!", "en": "Adventure with Friends!" }, "status": "ready", "poster": "/media/dubbing/dub-003/scene-1.jpg" },
-    { "id": "dub-004", "no": 4, "title": { "ko": "뜻밖의 반전!", "en": "A Surprise Twist!" }, "status": "coming" },
-    { "id": "dub-005", "no": 5, "title": { "ko": "최후의 대결!", "en": "The Final Battle!" }, "status": "coming" },
-    { "id": "dub-006", "no": 6, "title": { "ko": "감동의 해피엔딩!", "en": "A Happy Ending!" }, "status": "coming" }
+    { "id": "dub-004", "no": 4, "title": { "ko": "뜻밖의 반전!", "en": "A Surprise Twist!" }, "status": "ready", "poster": "/media/dubbing/dub-004/scene-1.jpg" },
+    { "id": "dub-005", "no": 5, "title": { "ko": "최후의 대결!", "en": "The Final Battle!" }, "status": "ready", "poster": "/media/dubbing/dub-005/scene-1.jpg" },
+    { "id": "dub-006", "no": 6, "title": { "ko": "감동의 해피엔딩!", "en": "A Happy Ending!" }, "status": "ready", "poster": "/media/dubbing/dub-006/scene-1.jpg" },
+    { "id": "dub-007", "no": 7, "title": { "ko": "별 너머에서 온 친구", "en": "A Friend Beyond the Stars" }, "status": "ready", "poster": "/media/dubbing/dub-007/scene-1.jpg" },
+    { "id": "dub-008", "no": 8, "title": { "ko": "사라진 무지개 등불", "en": "The Missing Rainbow Lantern" }, "status": "ready", "poster": "/media/dubbing/dub-008/scene-1.jpg" }
   ]
 }

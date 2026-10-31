@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what they can do. (e.g. so that we can save energy)"
   },
   "img": {
+    "style": "flat",
     "cover": "Workers in safety vests sorting used plastic bottles on a moving conveyor belt inside a recycling center",
     "scenes": {
       "1": "A recycling truck collecting blue bins full of used plastic bottles and containers on a neighborhood street",
       "2": "A pile of dirty plastic food containers with leftover food and stuck paper labels next to a recycling bin"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

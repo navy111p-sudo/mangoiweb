@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «before», write who + what. (e.g. before the bell rings)"
   },
   "img": {
+    "style": "cg3d",
     "cover": "Inside a space station lit by a flashing red light, a young Korean woman astronaut with a short black ponytail and a white space suit with red stripes floats beside a line of shiny water drops drifting toward a tiny hole in the white wall, while two other astronauts in white space suits watch with hopeful faces.",
     "scenes": {
       "1": "In a space station hallway lit by a flashing red light, a young Korean woman astronaut with a short black ponytail and a white space suit with red stripes and two other astronauts in white space suits search behind panels and under tables with worried faces, while the blue Earth shines through a round window.",
       "3": "A young Korean woman astronaut with a short black ponytail and a white space suit with red stripes presses a piece of silver tape over the tiny hole in the wall, and two other astronauts in white space suits float around her, cheering with their arms in the air."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

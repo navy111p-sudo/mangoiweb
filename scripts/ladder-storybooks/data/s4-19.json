@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who it helps and how. (e.g. so that everyone can use the playground)"
   },
   "img": {
+    "style": "photo",
     "cover": "Planet Earth seen from space at night with glowing city lights, a working satellite with blue solar panels in the foreground, and many small pieces of broken metal debris floating around it",
     "scenes": {
       "1": "A used rocket stage and a dead satellite with cracked solar panels drifting slowly above the curved blue edge of the Earth",
       "3": "A robotic spacecraft opening a large net to capture a tumbling piece of an old satellite high above the Earth"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who can do what. (e.g. so that we can make friends from other countries)"
   },
   "img": {
+    "style": "vintage",
     "cover": "A long camel caravan crossing golden sand dunes at sunset, the camels loaded with bundles of colorful silk cloth and wooden chests, travelers in long robes and head wraps walking beside them",
     "scenes": {
       "1": "A busy market in an ancient desert oasis city with mud-brick walls and palm trees, merchants trading rolls of colorful silk, glass bottles, silver plates, and open sacks of spices under cloth awnings, camels resting nearby",
       "2": "A traveling monk in simple robes walking beside a merchant caravan of camels on a rocky mountain path, with ancient cave temples carved into the cliff behind them"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

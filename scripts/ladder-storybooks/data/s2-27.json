@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «Let’s», write a verb (pick, clean). After «so that», write who + what they can do."
   },
   "img": {
+    "style": "papercut",
     "cover": "Under the clear blue sea, an eleven-year-old Korean girl with a black ponytail, a purple wetsuit, a yellow diving mask and blue flippers and her uncle, a tall man with a short black beard, a black wetsuit and an orange air tank gently pull apart a large green fishing net with their hands, setting free a big sea turtle that swims up toward the sunlight above a colorful coral reef.",
     "scenes": {
       "1": "Underwater, an eleven-year-old Korean girl with a black ponytail, a purple wetsuit, a yellow diving mask and blue flippers and her uncle, a tall man with a short black beard, a black wetsuit and an orange air tank float above a coral reef that has turned pale white, with only a few small fish nearby, and her uncle points at the white coral with a worried look.",
       "3": "On a small boat on a sunny sea, an eleven-year-old Korean girl with a black ponytail, a purple wetsuit, a yellow diving mask and blue flippers, sitting with her diving mask pushed up on her head, draws a picture of a clean beach in her notebook, while her uncle, a tall man with a short black beard, a black wetsuit and an orange air tank smiles at her and a happy sea turtle swims beside the boat."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)"
   },
   "img": {
+    "style": "felt",
     "cover": "On a snowy mountain at dusk, a huge fluffy white snow monster with soft round fur, small kind black eyes and a gentle smile walks down between snowy pine trees, carefully carrying Minho, a boy with short black hair, a red ski jacket, a blue knitted hat and orange goggles on his forehead, in its big arms, and Minho holds his skis and looks up at it in wonder.",
     "scenes": {
       "1": "In a dark snowy forest, Minho, a boy with short black hair, a red ski jacket, a blue knitted hat and orange goggles on his forehead, squeezes his eyes shut next to giant footprints in the snow, as a huge fluffy white snow monster with soft round fur, small kind black eyes and a gentle smile steps out from behind the pine trees.",
       "2": "At the bottom of the snowy mountain near a warmly lit cabin, a huge fluffy white snow monster with soft round fur, small kind black eyes and a gentle smile gently sets down Minho, a boy with short black hair, a red ski jacket, a blue knitted hat and orange goggles on his forehead, and his mom and dad run toward him with open arms."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

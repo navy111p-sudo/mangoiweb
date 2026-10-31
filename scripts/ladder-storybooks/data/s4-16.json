@@ -292,10 +292,16 @@
     "moreEn": "One more step: after «we can», write exactly what we gain instead. (e.g. save 10,000 won for a new book)"
   },
   "img": {
+    "style": "editorial",
     "cover": "A teenager sitting on a bed on a sunny Saturday afternoon, looking thoughtfully at three things laid out in front of them: two blank paper movie tickets, an open textbook with a notebook, and a folded work apron",
     "scenes": {
       "1": "An hourglass with sand running down standing on a wooden desk beside an empty piggy bank and a single red apple, lit by soft afternoon light",
       "3": "A dark movie theater where one bored teenager slumps in a red velvet seat yawning and holding an empty popcorn bucket, while other people watch the glowing screen"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

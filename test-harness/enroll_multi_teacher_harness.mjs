@@ -112,11 +112,14 @@ ok(/pointer-events\s*:\s*none\s*!important/.test(dimCss), '손도 뗀다(pointer
 console.log('\n════════ 4부. _mtbClassifyCombo — 실제로 돌려 빈/미완성/유효 판정 ════════');
 const tbTimeToPartsSrc = fnAt(core, 'function _tbTimeToParts(t)');
 const classifySrc = fnAt(core, 'function _mtbClassifyCombo(teacher, days, timeRaw)');
+// 🕐 (2026-10-30) 두 함수가 시간 글자를 _enNormTimeText 로 먼저 다듬는다('7:40 PM' → '19:40') — 그 정본도 함께 오려 넣는다
+const normTimeSrc = fnAt(core, 'function _enNormTimeText(raw)');
+ok(!!normTimeSrc, '_enNormTimeText 를 찾았다');
 ok(!!tbTimeToPartsSrc, '_tbTimeToParts 를 찾았다');
 ok(!!classifySrc, '_mtbClassifyCombo 를 찾았다');
 let classify = null;
 try {
-  classify = new Function(tbTimeToPartsSrc + '\n' + classifySrc + '\nreturn _mtbClassifyCombo;')();
+  classify = new Function(normTimeSrc + '\n' + tbTimeToPartsSrc + '\n' + classifySrc + '\nreturn _mtbClassifyCombo;')();
 } catch (e) { ok(false, '_mtbClassifyCombo 를 실제로 컴파일했다: ' + e.message); }
 
 if (classify) {
@@ -181,7 +184,7 @@ function makeRow(v) {
 function runRead(rows) {
   const document = { querySelectorAll(sel) { return sel === '#en-multi-rows tr' ? rows : []; } };
   const addMonthsFn = new Function(addMonthsSrc + '\nreturn _enAddMonths;')();
-  const readFn = new Function('document', '_enAddMonths', readSrc + '\nreturn _readEnrollmentRows;')(document, addMonthsFn);
+  const readFn = new Function('document', '_enAddMonths', normTimeSrc + '\n' + readSrc + '\nreturn _readEnrollmentRows;')(document, addMonthsFn);
   return readFn();
 }
 

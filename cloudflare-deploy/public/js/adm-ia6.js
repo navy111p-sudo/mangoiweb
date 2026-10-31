@@ -126,14 +126,10 @@
         { ko: '오늘 수업', en: "Today's classes", cards: ['card-students-mgmt', 'card-active-rooms', 'card-room-invite'], openSub: 'sm-today-classes',
           tip: '🚪 오늘 전체 · 🔴 진행 중 · 🎥 화상방 접속 — 한 화면에서 탭으로 갈라 봅니다',
           tipEn: '🚪 All of today · 🔴 in class · 🎥 in a room - one screen, three tabs' },
-        { ko: '출결',       en: 'Attendance',      cards: ['card-attendance-status', 'card-auto-attendance', 'card-class-attendance'] },
-        /* 🚷 (2026-08-13 수정요청 #05) 「담당자가 클릭 한 번으로」 가 요구사항이라 「출결」 안에
-           끼워 넣지 않고 자기 항목을 준다. 출결 항목은 카드 3장을 한 화면에 펴 놓기 때문에,
-           거기 넣으면 장기 결석생 표를 보려고 아래로 스크롤해야 한다(그게 이 카드의 요점이 아니다). */
-        { ko: '장기 결석생', en: 'Long absent',     cards: ['card-long-absent'],
-          tip: '🚨 연속 결석이 쌓인 학생 — 연락할 순서대로', tipEn: '🚨 Students with the longest absence streaks' },
-        { ko: '수업 관찰',  en: 'Observe class',   cards: ['card-admin-ghost', 'card-admin-whisper'] },
-        /* 🗼 (2026-08-30 사장님 「하나하나 입력하지 않고 바로바로」) — 전체 수업을 한 표로 보고
+        /* 🗼 (2026-10-21 사장님 「잘 보이는 곳에 — 관리자들이 잘 찾게」) 「오늘 수업」 바로 아래로 올리고 영어 이름을
+           «Class Monitor» 로 — 필리핀 직원이 BODA 에서 쓰던 «관찰 화면» 을 여기서 찾는다(예전 5번째 · «Control tower»).
+           ⛔ 다시 아래로 내리지 말 것 · ⛔ hideFrom 을 넓히지 말 것(아래 주석).
+           (2026-08-30 사장님 「하나하나 입력하지 않고 바로바로」) — 전체 수업을 한 표로 보고
            줄마다 참관·입장·종료까지 하는 별도 화면. 별도 페이지라 href 다(「수업 길이 변경」과 같은 꼴).
            🔐 (2026-09-09) 강사에게는 감춘다 — 이 화면의 **뼈대**(목록·알림·참관·회선)가 강사 차단이라
               눌러도 빈 표만 나온다(src/index.ts TEACHER_BLOCKED_PREFIXES 의
@@ -148,10 +144,17 @@
               ⛔ 「참관만 403」이 아닙니다 — 조직 계정에게 열린 것은 **`classes-now` 하나뿐**이고
                  `alerts`·`ghost/start`·`live-classes`·`room/`·`vc/quality` 는 전부 forbidden_scope 입니다.
                  그래도 «목록은 되므로» 감추지 않습니다(되는 것을 메뉴에서 빼는 쪽이 더 나쁩니다). */
-        { ko: '수업 관제탑', en: 'Control tower', href: '/admin/monitor-wall.html',
+        { ko: '수업 관제탑', en: 'Class Monitor', href: '/admin/monitor-wall.html',
           hideFrom: ['teacher'],
           tip: '🗼 지금 열린 수업을 한 표로 — 참관·입장·종료·순회 참관',
           tipEn: '🗼 Every live class in one table - observe, enter, end, rotate' },
+        { ko: '출결',       en: 'Attendance',      cards: ['card-attendance-status', 'card-auto-attendance', 'card-class-attendance'] },
+        /* 🚷 (2026-08-13 수정요청 #05) 「담당자가 클릭 한 번으로」 가 요구사항이라 「출결」 안에
+           끼워 넣지 않고 자기 항목을 준다. 출결 항목은 카드 3장을 한 화면에 펴 놓기 때문에,
+           거기 넣으면 장기 결석생 표를 보려고 아래로 스크롤해야 한다(그게 이 카드의 요점이 아니다). */
+        { ko: '장기 결석생', en: 'Long absent',     cards: ['card-long-absent'],
+          tip: '🚨 연속 결석이 쌓인 학생 — 연락할 순서대로', tipEn: '🚨 Students with the longest absence streaks' },
+        { ko: '수업 관찰',  en: 'Observe class',   cards: ['card-admin-ghost', 'card-admin-whisper'] },
         { ko: '연기·변경',  en: 'Reschedule',      cards: ['card-schedule-requests'],
           tip: '📅 수업 연기·시간 변경 요청 처리', tipEn: '📅 Handle postpone / time-change requests' },
         /* 🐞 (2026-08-13 수정요청 #04) 「문의·버그」 한 항목이 신규상담 카드와 버그 카드를

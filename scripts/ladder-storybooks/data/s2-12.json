@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «but I can», write a verb + when. (e.g. but I can try again tomorrow)"
   },
   "img": {
+    "style": "anime",
     "cover": "On a school stage with a red curtain, a boy with curly brown hair and a blue shirt sings into a microphone, while families sit in the seats watching.",
     "scenes": {
       "1": "In an empty classroom after school, the boy with curly brown hair and a blue shirt sings beside a piano while a woman with short hair and a pink cardigan plays and smiles at him.",
       "2": "On the school stage with a red curtain, the boy with curly brown hair and a blue shirt sings with his eyes bright, while his smiling family sits in the front row and the audience claps."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

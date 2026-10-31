@@ -231,7 +231,8 @@ if (sIdx >= 0) {
   }
 
   // 배선 — 주간표·앞으로 7일 push 안에서 «그 함수를 쓰는가»
-  const wIdx = api.indexOf('weekDays[wi].items.push(');
+  // 2026-10-27: 주간·월간이 같은 줄 모양을 쓰도록 calendarItemOf 로 뺐다 — 그 함수 몸통을 본다.
+  const wIdx = api.indexOf('const calendarItemOf = ');
   const uIdx = api.indexOf('upcoming.push(');
   const wBody = wIdx >= 0 ? braceBody(api, wIdx) : '';
   const uBody = uIdx >= 0 ? braceBody(api, uIdx) : '';

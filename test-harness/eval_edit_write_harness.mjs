@@ -180,11 +180,11 @@ ok('C-9 저장 성공은 «ok === true» 로 가른다', /x\.st === 200 && x\.d 
 /* ── D. 강사 「✍ 지금 쓰기」 ───────────────────────────────── */
 console.log('\n[D] 강사 화면 「✍ 지금 쓰기」');
 {
-  const i = TCH.indexOf('  function extrasHtml(c, wi){');
+  const i = TCH.indexOf('  function extrasHtml(c, wi, asParts){');   // (2026-10-26) 표 보기용 asParts 인자
   const src = i > 0 ? braceFrom(TCH, i) : '';
   ok('D-0 전제: extrasHtml(c, wi) 를 오려 냈다', src.length > 200);
   let f = null;
-  try { f = new Function('esc', 'T', 'hhmm', 'EN', 'function x(c, wi)' + src + ' return x;')(
+  try { f = new Function('esc', 'T', 'hhmm', 'EN', 'function x(c, wi, asParts)' + src + ' return x;')(
     (s) => String(s == null ? '' : s).replace(/</g, '&lt;'), (en) => en, () => '09:00', () => true); }
   catch (e) { ok('D-0b 만들 수 있다', false, e.message); }
   if (f) {
@@ -194,6 +194,12 @@ console.log('\n[D] 강사 화면 「✍ 지금 쓰기」');
     ok('D-3 이미 쓴 수업이면 안 준다', !/data-eval=/.test(f({ ...base, eval_written: true }, 4)));
     ok('D-4 오늘 평가가 있으면 안 준다', !/data-eval=/.test(f({ ...base, today_eval: { id: 1, text: 'x' } }, 4)));
     ok('D-5 연기된 수업이면 안 준다', !/data-eval=/.test(f({ ...base, class_state: 'postponed' }, 4)));
+    ok('D-8 지난 수업 요약이 있어도 지난 피드백을 연다', /data-evq="12"/.test(f({ ...base, last_eval: { id: 12 }, prev_lesson: { date: '2026-09-30' } }, 4)));
+    ok('D-9 지난 평가 요약 조회가 없어도 실제 지난 일지 ID를 쓴다', /data-evq="13"/.test(f({ ...base, prev_lesson: { eval_id: 13, date: '2026-09-30' } }, 4)));
+    ok('D-10 오늘 평가 요약이 없어도 저장된 일지 ID를 연다', /data-evq="14"/.test(f({ ...base, eval_written: true, eval_id: 14 }, 4)));
+    ok('D-11 오늘·지난 평가를 각각 연다', [15,16].every(id => f({ ...base, today_eval: { id: 15 }, last_eval: { id: 16 } }, 4).includes('data-evq="' + id + '"')));
+    ok('D-12 저장된 피드백에 보기/수정 동선을 표시한다', f({ ...base, today_eval: { id: 15 } }, 4).includes('View / Edit'));
+
   }
   ok('D-6 부르는 쪽이 «시작했거나 끝났을 때만» 번호를 넘긴다', /extrasHtml\(c, \(live \|\| done\) \? i : -1\)/.test(TCH));
   ok('D-7 그 버튼은 기존 일지 창 배선(data-eval → openEval)을 쓴다', /querySelectorAll\('\[data-eval\]'\)[\s\S]{0,200}openEval/.test(TCH));

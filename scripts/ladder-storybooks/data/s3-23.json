@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what they can do to make the result clear. (e.g. so that we can talk more at dinner)"
   },
   "img": {
+    "style": "editorial",
     "cover": "A modern smartphone with a dark screen lying on a wooden table beside an old rotary telephone and a chunky flip phone, showing how phones have changed",
     "scenes": {
       "1": "A girl holding a smartphone and waving happily during a video call with her smiling grandmother, whose face fills the phone screen",
       "2": "A family sitting at a dinner table with plates of food while two of them stare at glowing phones instead of talking"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {
