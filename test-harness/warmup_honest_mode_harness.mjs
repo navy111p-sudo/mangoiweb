@@ -85,13 +85,6 @@ for (let t = 0; t < 50; t++) {
   if (t === 49) ok('자유대화 무작위 50회 중 따라 말하기 0회', true);
 }
 
-console.log('⑤ 시범 학원(기능 플래그)');
-ok('강남캐피타운학원 → focused', H.pilotModeFor('강남캐피타운학원') === 'focused');
-ok('다른 학원 → null(예전 동작)', H.pilotModeFor('어느학원') === null);
-ok('빈 값 → null', H.pilotModeFor('') === null && H.pilotModeFor(null) === null);
-ok('부분일치로 켜지지 않음', H.pilotModeFor('강남캐피') === null && H.pilotModeFor('강남캐피타운학원 2') === null);
-ok('Object 원형 키로 켜지지 않음', H.pilotModeFor('toString') === null && H.pilotModeFor('constructor') === null);
-
 const mkEnv = (rows, { throwDb = false, kvInit = {} } = {}) => {
   const kv = new Map(Object.entries(kvInit)); let dbCalls = 0; const sqls = [];
   return {
@@ -107,30 +100,25 @@ const mkEnv = (rows, { throwDb = false, kvInit = {} } = {}) => {
     },
   };
 };
+
+console.log('⑤ 기본 모드 — 모든 학생·학원 = 집중교정 (2026-10-31)');
 {
   const e = mkEnv({ kim01: '강남캐피타운학원', lee01: '어느학원' });
-  ok('시범 학원 학생 → { mode: focused }', (await H.resolveWarmupHonest(e.env, 's1', 'kim01'))?.mode === 'focused');
-  ok('다른 학원 학생 → null', (await H.resolveWarmupHonest(e.env, 's1', 'lee01')) === null);
-  ok('명부에 없는 학생 → null', (await H.resolveWarmupHonest(e.env, 's1', 'nobody')) === null);
-  ok('조회는 user_id 로 좁힌다', e.sqls.every((s) => /WHERE user_id = \?/.test(s)));
-  const before = e.calls();
-  ok('같은 세션 두 번째는 KV 캐시(DB 안 부름)', (await H.resolveWarmupHonest(e.env, 's1', 'kim01'))?.mode === 'focused' && e.calls() === before);
-  ok('중국어 대화 → null', (await H.resolveWarmupHonest(e.env, 's2', 'kim01', { lang: 'zh' })) === null);
-  ok('엘리더잼 통로 → null', (await H.resolveWarmupHonest(e.env, 's3', 'kim01', { eleader: true })) === null);
-  ok('아이디 없음 → null', (await H.resolveWarmupHonest(e.env, 's4', '')) === null);
-  ok('대소문자만 다른 아이디도 찾음(정확일치 먼저)', (await H.resolveWarmupHonest(e.env, 's5', 'KIM01'))?.mode === 'focused');
+  ok('고르지 않은 학생 → focused (학원 무관)', (await H.resolveWarmupHonest(e.env, 's1', 'kim01'))?.mode === 'focused');
+  ok('다른 학원 학생도 focused', (await H.resolveWarmupHonest(e.env, 's2', 'lee01'))?.mode === 'focused');
+  ok('명부에 없는 학생도 focused', (await H.resolveWarmupHonest(e.env, 's3', 'nobody'))?.mode === 'focused');
+  ok('아이디 없어도 focused', (await H.resolveWarmupHonest(e.env, 's4', ''))?.mode === 'focused');
+  ok('기본 모드는 D1 을 읽지 않는다(학원 조회 없음)', e.calls() === 0);
   const t = mkEnv({}, { throwDb: true });
-  ok('D1 이 던지면 null(예전 동작 — fail-open)', (await H.resolveWarmupHonest(t.env, 's6', 'kim01')) === null);
-  // 🎚️ 학생이 첫 화면에서 고른 모드 — 시범 판정보다 이기고, 모르는 값은 무시한다(짝)
+  ok('D1 이 던져도 focused(판정에 D1 을 안 씀)', (await H.resolveWarmupHonest(t.env, 's5', 'kim01'))?.mode === 'focused');
   const c = mkEnv({ kim01: '강남캐피타운학원', lee01: '어느학원' });
-  ok('고른 모드(free_talk)가 시범 모드(focused)를 이긴다', (await H.resolveWarmupHonest(c.env, 'c1', 'kim01', { chosen: 'free_talk' }))?.mode === 'free_talk');
+  ok('고른 모드(free_talk)가 기본(focused)을 이긴다', (await H.resolveWarmupHonest(c.env, 'c1', 'kim01', { chosen: 'free_talk' }))?.mode === 'free_talk');
   ok('다른 학원 학생도 고르면 그 모드', (await H.resolveWarmupHonest(c.env, 'c2', 'lee01', { chosen: 'balanced' }))?.mode === 'balanced');
-  ok('로그인 안 해도 고르면 그 모드(D1 안 읽음)', (await H.resolveWarmupHonest(c.env, 'c3', '', { chosen: 'focused' }))?.mode === 'focused');
-  ok('모르는 값은 무시 → 다른 학원 학생은 예전대로 null', (await H.resolveWarmupHonest(c.env, 'c4', 'lee01', { chosen: 'strict' })) === null);
-  ok('모르는 값은 무시 → 시범 학생은 시범 모드', (await H.resolveWarmupHonest(c.env, 'c5', 'kim01', { chosen: 'x' }))?.mode === 'focused');
-  ok('문자열이 아니면 무시', (await H.resolveWarmupHonest(c.env, 'c6', 'lee01', { chosen: ['focused'] })) === null);
-  ok('골라도 중국어 대화 → null', (await H.resolveWarmupHonest(c.env, 'c7', 'kim01', { lang: 'zh', chosen: 'focused' })) === null);
-  ok('골라도 엘리더잼 → null', (await H.resolveWarmupHonest(c.env, 'c8', 'kim01', { eleader: true, chosen: 'focused' })) === null);
+  ok('로그인 안 해도 고르면 그 모드', (await H.resolveWarmupHonest(c.env, 'c3', '', { chosen: 'focused' }))?.mode === 'focused');
+  ok('모르는 값은 무시 → 기본(focused)', (await H.resolveWarmupHonest(c.env, 'c4', 'lee01', { chosen: 'strict' }))?.mode === 'focused');
+  ok('문자열이 아니면 무시 → 기본(focused)', (await H.resolveWarmupHonest(c.env, 'c6', 'lee01', { chosen: ['focused'] }))?.mode === 'focused');
+  ok('중국어 대화 → null(예전 동작)', (await H.resolveWarmupHonest(c.env, 'c7', 'kim01', { lang: 'zh', chosen: 'focused' })) === null);
+  ok('엘리더잼 → null(예전 동작)', (await H.resolveWarmupHonest(c.env, 'c8', 'kim01', { eleader: true, chosen: 'focused' })) === null);
 }
 
 console.log('⑥ 프롬프트(warmupHonestRule)');

@@ -349,8 +349,13 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   t('B-8 🔴 was 가 학생 원문에 없으면 버린다 (지어낸 교정)',
     verifyWarmupFix({ was: 'I have a cat', now: 'I have two cats', why_ko: '복수야', tag: 'plural', severity: 'minor' }, said) === null);
 
-  t('B-9 was 와 now 가 같으면 교정이 아니다',
-    verifyWarmupFix({ was: 'I go to school', now: 'i go to school', why_ko: '같아', tag: 'other', severity: 'minor' }, said) === null);
+  t('B-9 was 와 now 가 글자까지 같으면 교정이 아니다',
+    verifyWarmupFix({ was: 'I go to school', now: 'I go to school', why_ko: '같아', tag: 'other', severity: 'minor' }, said) === null);
+  // 2026-10-31 짝: 대소문자·구두점만 바뀐 교정은 «고친 것» 이다 (집중교정 — "not Secret" → "not secret")
+  t('B-9b 대소문자만 바뀐 교정은 통과한다 (i → I)',
+    verifyWarmupFix({ was: 'i go to school', now: 'I go to school', why_ko: '문장 첫 글자는 대문자예요', tag: 'other', severity: 'minor' }, 'i go to school') !== null);
+  t('B-9c 구두점만 바뀐 교정은 통과한다 (마침표 추가)',
+    verifyWarmupFix({ was: 'I go to school', now: 'I go to school.', why_ko: '문장 끝에는 마침표를 찍어요', tag: 'other', severity: 'minor' }, 'I go to school') !== null);
 
   t('B-10 why_ko 가 비면 버린다',
     verifyWarmupFix({ was: 'I go', now: 'I went', why_ko: '', tag: 'past_tense', severity: 'minor' }, said) === null);

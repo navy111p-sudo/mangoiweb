@@ -14,11 +14,8 @@
  *     · 화면은 grade==='perfect' 일 때만 콤보·팡파레를 올린다(warmup.html)
  *     · 교정 모드(자유대화·균형·집중교정)에 따라 교정 카드·따라 말하기를 정한다
  *
- * [시범 운영] 기능 플래그 = WARMUP_MODE_PILOT(학원 이름 → 모드). 여기 없는 학원·학생은
- *   resolveWarmupHonest 가 null 을 돌려주고, 부르는 쪽은 «고치기 전과 한 글자도 다르지 않게» 돈다.
- *   제안서 6단계 «시범 운영: 강남캐피 지점 집중교정 → 피드백» 그대로다.
- *   ⚠️ 학원·반별로 고르는 관리 화면(제안서 6-③)은 아직 없다 — 다음 단계. 그때까지는 이 표 한 곳을 고친다.
- *   ⚠️ 웜업에는 «반» 개념이 없다(학생 단위로 돈다). 단위는 학원(students_erp.shop_name)이다.
+ * [기본 모드] 2026-10-31 사장님 «모든 학생 모든 학원» — 고르지 않은 학생은 집중교정이다(resolveWarmupHonest).
+ *   중국어 대화·엘리더잼 통로는 예전 동작 그대로(null)다.
  *
  * ⛔ 이 모듈의 함수는 어떤 입력에도 던지지 않는다 — 웜업 대화 한가운데서 불린다.
  * ⛔ «모르면 perfect» 로 떨어뜨리지 않는다 — 등급을 못 읽으면 partial(팡파레 없음, 칭찬 말머리 뗌).
@@ -36,20 +33,6 @@ export type WarmupGrade = 'perfect' | 'partial' | 'incomplete';
 export const WARMUP_MODES: readonly WarmupMode[] = ['free_talk', 'balanced', 'focused'];
 export const WARMUP_GRADES: readonly WarmupGrade[] = ['perfect', 'partial', 'incomplete'];
 
-/** 🚩 시범 운영 학원 → 교정 모드. 이름은 students_erp.shop_name «그대로»(정확일치). */
-export const WARMUP_MODE_PILOT: Readonly<Record<string, WarmupMode>> = {
-  '강남캐피타운학원': 'focused',
-};
-
-/** 학원 이름 → 모드. 표에 없으면 null(= 예전 동작). */
-export function pilotModeFor(shopName: unknown): WarmupMode | null {
-  try {
-    const k = String(shopName == null ? '' : shopName).trim();
-    if (!k) return null;
-    return Object.prototype.hasOwnProperty.call(WARMUP_MODE_PILOT, k) ? WARMUP_MODE_PILOT[k] : null;
-  } catch { return null; }
-}
-
 /**
  * 이 학생에게 «정직한 칭찬 + 교정 모드» 를 켤지. 켜면 { mode }, 아니면 null.
  * ⚠️ user_id 는 화면이 보내는 값이지만, 남의 아이디를 보내 봐야 «그 학원 모드로 자기 대화가 돈다» 뿐이라
@@ -62,32 +45,14 @@ export async function resolveWarmupHonest(
   try {
     if (opts.lang === 'zh' || opts.eleader) return null;
     /* 🎚️ 학생이 첫 화면에서 «직접 고른» 모드가 이긴다(2026-10-29 사장님 «3가지 옵션을 처음페이지에»).
-       화면은 사람이 고른 경우에만 correction_mode 를 보낸다 — 안 고르면 아래 시범 학원 판정(예전 그대로).
+       화면은 사람이 고른 경우에만 correction_mode 를 보낸다 — 안 고르면 아래 기본 모드(집중교정).
        ⛔ 모르는 값은 무시한다(지어내지 않음). 로그인하지 않아도 고를 수 있다(D1 을 안 읽음). */
     const c = typeof opts.chosen === 'string' ? opts.chosen.trim() : '';
     if (c && (WARMUP_MODES as readonly string[]).includes(c)) return { mode: c as WarmupMode };
-    if (!userId) return null;
-    if (!Object.keys(WARMUP_MODE_PILOT).length) return null;
-    const kv = env && env.SESSION_STATE;
-    const ckey = 'warmuphonest:' + sessionId + ':' + userId;
-    let shop: string | null = null;
-    try { if (kv) { const v = await kv.get(ckey); if (v != null) shop = String(v); } } catch {}
-    if (shop == null) {
-      if (!env || !env.DB) return null;
-      /* 정확일치 먼저 — 대소문자만 다른 계정(Kim/kim)이 실재한다(CLAUDE.md 2장). */
-      let row: any = await env.DB.prepare('SELECT shop_name FROM students_erp WHERE user_id = ? LIMIT 1').bind(userId).first();
-      if (!row) {
-        row = await env.DB.prepare('SELECT shop_name FROM students_erp WHERE user_id = ? COLLATE NOCASE ORDER BY user_id LIMIT 1').bind(userId).first();
-      }
-      shop = String((row && row.shop_name) || '');
-      try { if (kv) await kv.put(ckey, shop, { expirationTtl: 1800 }); } catch (e: any) { console.warn('[warmup-honest] cache put failed:', e?.message || e); }
-    }
-    const mode = pilotModeFor(shop);
-    return mode ? { mode } : null;
-  } catch (e: any) {
-    console.warn('[warmup-honest] resolve skipped:', e?.message || e);
-    return null;
-  }
+    /* 🎯 2026-10-31 사장님 「모든 학생 모든 학원에 적용」 — 고르지 않으면 «집중교정» 이 기본이다.
+       (학원·아이디와 무관. 중국어·엘리더잼은 위에서 이미 제외된다.) */
+    return { mode: 'focused' };
+  } catch { return null; }
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -102,7 +67,7 @@ const MODE_LINES: Record<WarmupMode, string> = {
   balanced:
     '[교정 모드: 균형] 기본은 바른 문장으로 자연스럽게 되받아 말하기(recast). 같은 실수가 되풀이되면 고친 문장을 또박또박 말해 주고 한 번 따라 말해 보자고 해.',
   focused:
-    '[교정 모드: 집중교정] 이 모드에서는 「한 번에 한 가지만 고쳐」 규칙을 적용하지 마 — 학생 문장의 오류를 하나도 빠뜨리지 말고 전부 고쳐. 아래를 한 문장씩 점검해: ① 문장 첫 글자 대문자 ② 문장 가운데 낱말의 불필요한 대문자(예: "not Secret" → "not secret") ③ 고유명사 대문자 ④ 끝 마침표·물음표 ⑤ 관사 a/an/the ⑥ 복수형 ⑦ 전치사 ⑧ 낱말 고르기 ⑨ 시제·동사꼴·주어동사 일치·의문문 어순. 하나라도 틀렸으면 fix 는 null 이 아니어야 하고, fix 의 now 에는 학생 문장 전체를 위 항목을 모두 고친 완성 문장으로 적어(was 는 학생이 실제로 말한 문장 전체). 한 카드에 모두 담을 수 있게 — 「사소하니 넘어가」는 이 모드에서 금지다. grade 가 perfect 가 아니면 ① 무엇을 고칠지 아주 짧게 말하고 ② 고친 문장을 또박또박 들려준 뒤 ③ "Can you say it with me?" 처럼 따라 말해 보자고 해. 이때 다음 질문은 하지 마 — 학생이 따라 말한 뒤에 이어가.',
+    '[교정 모드: 집중교정] 이 모드에서는 「한 번에 한 가지만 고쳐」 규칙을 적용하지 마 — 학생 문장의 오류를 하나도 빠뜨리지 말고 전부 고쳐. 아래 문법 항목을 한 문장씩 빠짐없이 점검해(어느 것도 생략 금지): ① 대소문자 — 문장 첫 글자, 문장 가운데 불필요한 대문자(not Secret→not secret), 고유명사 ② 구두점 — 마침표·물음표·쉼표·따옴표 ③ 관사 a/an/the(없어야 할 곳 포함) ④ 명사 — 가산·불가산, 단수·복수형, 소유격 어포스트로피-s ⑤ 대명사 — 주격·목적격·소유격, 재귀대명사, 관계대명사 who/which/that/whom/whose ⑥ 동사 — 시제(현재·과거·현재완료·과거진행 등), 동사꼴, 주어와 동사의 수 일치, 조동사(can·will·should 등)와 뒤 동사원형, 수동태, 명령문 ⑦ 준동사 — 동명사(-ing 명사)와 to부정사, 그 쓰임 구별 ⑧ 형용사·부사 — 형용사 자리, 부사 자리, 비교급·최상급 ⑨ 전치사 — 시간·장소 전치사 선택(in/on/at), 전치사 뒤 동명사 ⑩ 접속사·관계부사 — and/but/because/so/when/if 등의 선택과 어순, 관계부사 where/when/why ⑪ 의문문·부정문 어순(do/does/did, be동사 도치) ⑫ 낱말 고르기(의미는 통하지만 어색한 낱말). 하나라도 틀렸으면 fix 는 null 이 아니어야 하고, fix 의 now 에는 학생 문장 전체를 위 항목을 모두 고친 완성 문장으로 적어(was 는 학생이 실제로 말한 문장 전체). 한 카드에 모두 담을 수 있게 — 「사소하니 넘어가」는 이 모드에서 금지다. grade 가 perfect 가 아니면 ① 무엇을 고칠지 아주 짧게 말하고 ② 고친 문장을 또박또박 들려준 뒤 ③ "Can you say it with me?" 처럼 따라 말해 보자고 해. 이때 다음 질문은 하지 마 — 학생이 따라 말한 뒤에 이어가.',
 };
 
 export function warmupHonestRule(mode: WarmupMode): string {
