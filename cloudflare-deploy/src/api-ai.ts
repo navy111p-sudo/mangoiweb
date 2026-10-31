@@ -33,6 +33,7 @@ import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
          decideWarmupFixShow, warmupShouldOfferRepeat, isRfRejection } from './warmup-correction';
 import type { MangoEnv } from './api-mango';
 import { recordAiFailure } from './ai-failure-log';
+import { correctionModeOf, gateFixForMode } from './warmup-honest';   // 🎚️ A.i 친구 교정 모드(자유대화·균형·집중교정, 기본 집중교정)
 import { handleClassAsk } from './class-ask';   // ✋ A.i 선생님 수업 — 학생 질문 즉답(2026-10-08)
 import { connectorRule, connectorPromptBlock, linkBandForFriendLevel } from './conversation-connectors';   // 🔗 연결 표현 정본(2026-10-28 · 세 화면 공용)
 import { handleStoryApi } from './story-correct';   // 📖 동화책 바꿔 쓰기 AI 한 번 더 보기·기록(2026-10-13)
@@ -662,7 +663,8 @@ Student text: """${text}"""`;
       const uid = String(b.uid || '').trim();
       const msg = String(b.msg || '').trim();
       /* 🎯 집중교정이면 옛 게이트(두 번째부터·연달아 막기)를 건너뛰고 검증된 교정을 매번 보여 준다(2026-10-31). */
-      const immediateFix = String(b.correction_mode || '') === 'focused';
+      const friendMode = correctionModeOf(b.correction_mode);   // 🎚️ 값이 없으면 집중교정
+      const immediateFix = friendMode === 'focused';
       /* 🪜 여덟 칸으로 넓히면서, 학생 브라우저에 남아 있는 옛 키(A1…C1)도 그대로 받습니다.
          ⛔ 정규화를 빼면 옛 값이 «모르는 값» 이 되어 조용히 기본값으로 떨어집니다 —
             학생이 고른 레벨이 리셋된 것처럼 보입니다. */
@@ -1268,10 +1270,13 @@ ${AI_FRIEND_CORRECTION_RULE}`;
           //    작은 실수일 때만 조회한다 — 큰 실수는 원래 바로 고친다.
           if (verified && verified.severity !== 'major') memoIn = carryRepeatTags(memoIn, await loadRecentFixTags(env.DB, uid, Date.now()));
           const decided = decideWarmupFixShow(verified, memoIn, turnNo, { immediate: immediateFix });
-          showFix = decided.show;
+          // 🎚️ 모드별 게이트 — 자유대화는 따라 말하기 없음, 집중교정은 검증된 교정을 매번(warmup-honest gateFixForMode).
+          showFix = gateFixForMode(friendMode, verified, decided.show, false).show;
           // 🔁 보여 준 교정은 남겨 다음 대화에서 다시 쓰게 한다(KV 메모는 6시간 «간격» 만 기억). 던지지 않는다.
           if (showFix) await logAiFriendFix(env.DB, uid, showFix, Date.now());
           offerRepeat = warmupShouldOfferRepeat(decided.show, decided.memo, turnNo);
+          if (friendMode === 'free_talk') offerRepeat = false;
+          else if (friendMode === 'focused') offerRepeat = !!showFix;
           try {
             if ((env as any).SESSION_STATE) {
               await (env as any).SESSION_STATE.put(mkey, JSON.stringify(decided.memo), { expirationTtl: 6 * 3600 });

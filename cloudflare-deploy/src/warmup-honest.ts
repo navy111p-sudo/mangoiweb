@@ -214,6 +214,16 @@ export function gateFixForMode(
  */
 export const FOCUSED_FIX_REPEATS = 3;
 
+/**
+ * A.i 친구용 교정 모드 판정 (2026-10-31 사장님 「A.i친구도 말하기처럼 자유대화·균형·집중교정 선택」).
+ *   · 값이 없거나 모르는 값이면 «집중교정» 이 기본이다 — 사장님 지시(모든 학생의 기본은 집중교정).
+ *   · 말하기(웜업)는 안 고르면 예전 동작을 유지하므로 이 함수를 쓰지 않는다(warmup 은 pilotModeFor 사용).
+ */
+export function correctionModeOf(raw: unknown): WarmupMode {
+  const s = String(raw == null ? '' : raw).trim();
+  return (WARMUP_MODES as readonly string[]).includes(s) ? (s as WarmupMode) : WARMUP_DEFAULT_MODE;
+}
+
 export function ensureFocusedFixSpoken(
   reply: string, mode: WarmupMode, grade: WarmupGrade | null, fix: WarmupFix | null,
 ): string {
