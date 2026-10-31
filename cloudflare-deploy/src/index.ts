@@ -85,6 +85,7 @@ import { churnContagionRouter, runContagionGraphSync } from './churn-contagion';
 import { nightlyCafe24Refresh } from './cafe24-sync';  // 🔄 카페24→D1 야간 자동 새로고침
 import { handleSpaceMonsterApi } from './api-space-monster';  // 🛸 Space Monster Hunter 게임 API
 import { logWarmupFix } from './warmup-parent';            // 📝 학부모 화면용 «고쳐 준 표현» 기록 (2026-10-02 P4)
+import { logWarmupFixTrace, type WarmupFixTraceReason } from './warmup-fix-trace';   // 🔎 교정 판정 사유 기록 (2026-10-31)
 import { authUidFromRequest } from './auth-token';          //    ↑ 본인 확인용(토큰 uid == 요청 user_id 일 때만 기록)
 import { retiredDomainResponse } from './retired-domain';    // 🚫 폐지 주소(test.mangoi.co.kr) → 안내문만 (2026-10-16)
 import { handleDubbingApi, isPrivateDubbingKey } from './api-dubbing'; // 🎬 계정별 더빙 작품·이어하기 (기존 녹화와 분리)
@@ -4396,7 +4397,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     sys += '\n' + (ctxLang === 'zh' ? WARMUP_ZH_CORRECTION_RULE : WARMUP_CORRECTION_RULE);
     /* 🎯 (2026-10-29 사장님 «제안서대로») 학생이 고른 교정 모드, 없으면 시범 학원만 «평가 등급 + 정직한 칭찬 + 교정 모드». 정본 src/warmup-honest.ts.
        ⛔ null 이면 아래 어디에서도 동작이 바뀌지 않는다(예전과 같음). 던지지 않는다. */
-    const honest = await resolveWarmupHonest(env, sessionId, ctxUserId, { lang: ctxLang, eleader: hasEleaderExpansion(request), chosen: body && body.correction_mode });
+    const honest = await resolveWarmupHonest(env, sessionId, ctxUserId, { lang: ctxLang, chosen: body && body.correction_mode });
     if (honest) sys += '\n' + warmupHonestRule(honest.mode);
     sys += '\n' + warmupGuidanceRule(body, ctxLang);
     if (hasEleaderExpansion(request)) sys += ELEADER_EXPANSION_RULE;
@@ -4696,6 +4697,9 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
           그래서 통으로 try/catch 이고, 실패하면 fix 없이(=고치기 전과 똑같이) 내려간다. */
     let showFix: any = null;
     let offerRepeat = false;
+    /* 🔎 판정 사유 — 턴마다 한 줄 D1 에 남긴다(정본 src/warmup-fix-trace.ts). 학생 발화는 싣지 않는다. */
+    let traceReason: WarmupFixTraceReason = 'fix_missing';
+    let traceTag = '';
     try {
       /* 🀄 «뜻이 달라지는 축» 은 언어마다 다르다(중국어엔 시제·수일치가 없다).
          안 넘기면 영어 표 — 기존 동작은 한 글자도 안 바뀐다. 정본 src/warmup-correction.ts */
@@ -4706,6 +4710,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         ctxLang === 'zh' ? { majorTags: ZH_MEANING_CHANGING_TAGS, lang: 'zh' as const } : undefined);
       /* 🔎 (2026-10-31 제안서 B) 교정이 «왜» 안 떴는지 Workers 로그에 남긴다 — 학생 발화·교정 문장은 싣지 않는다. */
       if (!verified) console.warn('[warmup-fix] no card:', rawFix ? 'fix-rejected' : 'fix-missing', 'lang=' + ctxLang);
+      traceReason = verified ? 'shown' : (rawFix ? 'fix_rejected' : 'fix_missing');
       if (verified) {
         const mkey = 'warmupfix:' + sessionId;
         let memoIn: any = null;
@@ -4715,6 +4720,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         } catch {}
         const decided = decideWarmupFixShow(verified, memoIn, turnCount, { immediate: !!honest && honest.mode === 'focused' });
         showFix = decided.show;
+        traceTag = verified.tag;
+        if (!showFix) traceReason = 'held_gap';   // 검증은 통과 — 턴 간격 규칙이 이번 턴을 미뤘다
         /* 📝 학부모 화면 «AI가 고쳐 준 표현» 기록 (2026-10-02 파일럿 후속 P4 — 정본 src/warmup-parent.ts)
            ⛔ ctxUserId 는 화면이 보내는 값이라 그대로 믿으면 남의 아이 학부모 화면에 글자를 심을 수 있다 —
               서명 토큰 uid(또는 같은 이름의 관리자 세션)가 그 아이디와 «정확히» 같을 때만 기록한다.
@@ -4733,6 +4740,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         }
         offerRepeat = warmupShouldOfferRepeat(decided.show, decided.memo, turnCount);
         if (honest) { const g = gateFixForMode(honest.mode, verified, showFix, offerRepeat); showFix = g.show; offerRepeat = g.repeat; }   // 🎯 교정 모드
+        if (traceReason === 'shown' && !showFix) traceReason = 'mode_hidden';   // 🎯 보여줄 것이 있었는데 모드가 가렸다
         // 히스토리와 같은 6시간 — 세션이 끝나면 함께 사라진다(발화를 저장하는 것이 아니다)
         try {
           if (env.SESSION_STATE) await env.SESSION_STATE.put(mkey, JSON.stringify(decided.memo), { expirationTtl: 6 * 3600 });
@@ -4745,6 +4753,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     } catch (e: any) {
       console.warn('[warmup] fix gate skipped:', e?.message || e);
     }
+    // 🔎 판정 사유 한 줄 — 실패해도 대화는 계속된다(정본은 던지지 않는다).
+    await logWarmupFixTrace(env, { userId: ctxUserId, sessionId, lang: ctxLang, mode: honest ? honest.mode : '', reason: traceReason, tag: traceTag });
 
     /* 🧭 (2026-10-31 사장님 「무조건 교정 후에 질문」) 교정 카드가 뜨는 턴이면, 답장은 고친 문장이 «질문보다 먼저»
        말해진 뒤에 질문으로 간다. 순서는 프롬프트에만 맡기지 않고 correctionLeadIn 이 보장한다.

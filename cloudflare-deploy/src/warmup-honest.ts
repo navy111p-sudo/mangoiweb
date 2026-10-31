@@ -64,10 +64,12 @@ export function pilotModeFor(shopName: unknown): WarmupMode | null {
  * ⚠️ 학원·학원 설정 조회는 세션당 5분에 한 번(KV 캐시). 실패하면 null — 예전 동작으로 떨어진다(fail-open).
  */
 export async function resolveWarmupHonest(
-  env: any, sessionId: string, userId: string, opts: { lang?: string; eleader?: boolean; chosen?: unknown } = {},
+  env: any, sessionId: string, userId: string, opts: { lang?: string; chosen?: unknown } = {},
 ): Promise<{ mode: WarmupMode } | null> {
   try {
-    if (opts.lang === 'zh' || opts.eleader) return null;
+    /* ⛔ 중국어만 뺀다. 엘리더잼(L1)도 이제 같은 교정을 받는다(2026-10-31 사장님 «엘리더잼도 켠다»).
+       예전엔 eleader 학생을 여기서 null 로 막아, 엘리더잼에서는 교정 카드와 3번 반복이 한 번도 안 떴다. */
+    if (opts.lang === 'zh') return null;
     /* 🎚️ 학생이 첫 화면에서 «직접 고른» 모드가 이긴다(2026-10-29 사장님 «3가지 옵션을 처음페이지에»).
        화면은 사람이 고른 경우에만 correction_mode 를 보낸다 — 안 고르면 아래 기본 모드(집중교정).
        ⛔ 모르는 값은 무시한다(지어내지 않음). 로그인하지 않아도 고를 수 있다(D1 을 안 읽음). */
