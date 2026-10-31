@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what to make the result clear. (e.g. so that our town stays cooler)"
   },
   "img": {
+    "style": "photo",
     "cover": "A melting glacier flowing down between rocky mountains into a grey lake, with streams of meltwater running over the ice under a bright sun",
     "scenes": {
       "1": "Sunlight shining through scattered clouds onto green fields, a small village, and a calm sea, seen from a hilltop",
       "2": "Thick smoke rising from the tall chimneys of a coal power plant beside a hillside of freshly cut tree stumps"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

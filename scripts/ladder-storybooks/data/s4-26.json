@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «we can», write exactly how we can use money more wisely. (e.g. buy school supplies before prices go up)"
   },
   "img": {
+    "style": "comic",
     "cover": "A shopper in a supermarket aisle holding a shopping basket filled with bread, milk, vegetables, and fruit, looking closely at the shelves of food",
     "scenes": {
       "1": "A busy factory floor where workers in safety helmets operate large machines, with blue oil barrels stacked beside the loading door",
       "3": "A group of bankers in dark suits seen from behind sitting around a long polished meeting table in a grand room with tall windows"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

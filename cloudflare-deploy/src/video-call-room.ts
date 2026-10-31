@@ -577,9 +577,9 @@ export class VideoCallRoom {
 
   async webSocketClose(ws: WebSocket, code: number, reason: string): Promise<void> {
     const att = this.attOf(ws);
-    // code 1000(정상 종료) = 사용자가 나가기 버튼 등으로 의도적으로 닫음 → 'left'
-    // 그 외(1001/1005/1006/4001…) = 네트워크 끊김·탭 전환·재연결 교체 → 'dropped'
-    //   클라이언트는 'dropped' 를 받으면 곧바로 수업 종료로 처리하지 않고 재연결을 기다린다.
+    // A transport close (including code 1000) does not prove user intent.
+    // Only the explicit leave-room message above may broadcast reason='left'.
+    // Refresh, page suspension and socket replacement must stay recoverable.
     // 🇵🇭 (2026-07-24) close code 를 반드시 남긴다. 예전엔 이걸 안 찍어서
     //   "필리핀 강사가 왜 튕겼는가"를 사후에 구분할 방법이 전혀 없었다.
     //   1006=비정상 종료(회선), 1001=탭/앱 종료, 4001=재접속 교체, 4002=클라이언트 pong 무응답 판정.
@@ -589,7 +589,7 @@ export class VideoCallRoom {
     try {
       console.log(`[VideoChat][close] room=${this.roomId || '-'} uid=${att?.userId || '-'} role=${att?.role || '-'} code=${code} reason=${reason || '-'}`);
     } catch {}
-    if (att && att.joined) this.handleLeaveRoom(att.userId, ws, att.username, code === 1000 ? 'left' : 'dropped');
+    if (att && att.joined) this.handleLeaveRoom(att.userId, ws, att.username, 'dropped');
     try { ws.close(code, reason); } catch {}
   }
 

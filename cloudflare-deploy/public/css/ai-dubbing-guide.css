@@ -1,0 +1,101 @@
+/* ❓ A.i영화더빙 사용방법 안내창 — js/ai-dubbing-guide.js 가 그린다 (2026-10-26)
+   · 초등학생도 누르기 쉽게: 글자 17px 이상, 버튼 높이 52px 이상, 손가락 칸 44px 이상
+   · z-index 100002 = 공용 홈/EN 칩(99999)·드로어(100000) 위
+   · 이 파일을 고치면 ai-dubbing.html 의 ?v= 를 올린다 */
+
+/* 위쪽 «❓ 사용방법» — 소개 카드 첫 줄(메뉴 버튼 옆). 상단바 오른쪽은 공용 홈/EN 칩 자리라 폰에서 제목과 겹친다 */
+.dub-intro-tools{display:flex;flex:none;align-items:center;gap:8px}
+.dub-guide-open{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:6px 14px;border:1px solid rgba(245,184,61,.7);border-radius:10px;
+  background:rgba(245,184,61,.14);color:#ffe2a6;font:inherit;font-size:14px;font-weight:800;white-space:nowrap;cursor:pointer}
+.dub-guide-open:hover{background:rgba(245,184,61,.24)}
+.dub-guide-open:focus-visible{outline:3px solid #f7bd47;outline-offset:3px}
+
+.dg-ov{position:fixed;inset:0;z-index:100002;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(3,6,12,.8)}
+.dg-ov[hidden]{display:none!important}
+.dg-box{display:flex;flex-direction:column;width:100%;max-width:560px;max-height:calc(100vh - 24px);max-height:calc(100svh - 24px);overflow:hidden;
+  border:2px solid rgba(245,184,61,.6);border-radius:20px;background:#161c28;color:#e8ecf3;box-shadow:0 18px 50px rgba(0,0,0,.6);
+  font-family:MangoiHanSC,'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;line-height:1.55}
+.dg-head{display:grid;grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"k lang x" "t t t";align-items:center;gap:2px 8px;padding:12px 12px 10px 18px;border-bottom:1px solid #2a3344}
+.dg-kicker{grid-area:k;margin:0;font-size:13px;font-weight:800;color:#f5b83d}
+.dg-title{grid-area:t;margin:0;font-size:22px;font-weight:900;line-height:1.35;word-break:keep-all;outline:none}
+.dg-lang{grid-area:lang;min-height:44px;padding:0 12px;border:1px solid #3b4659;border-radius:12px;background:#121826;color:#e8ecf3;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
+.dg-x{grid-area:x;width:48px;height:48px;border:1px solid #3b4659;border-radius:12px;background:#121826;color:#fff;font:inherit;font-size:22px;line-height:1;cursor:pointer}
+.dg-lang[hidden]{display:none!important}
+
+.dg-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0;padding:10px 12px;list-style:none;border-bottom:1px solid #2a3344}
+.dg-tab{display:flex;align-items:center;gap:6px;width:100%;min-height:48px;padding:6px 8px;border:2px solid #2a3344;border-radius:12px;background:#121826;
+  color:#b4bdcc;font:inherit;font-size:13.5px;font-weight:800;line-height:1.3;text-align:left;word-break:keep-all;cursor:pointer}
+.dg-tab b{flex:none;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#2a3344;color:#fff;font-size:14px}
+.dg-tab[aria-current="step"]{border-color:#f5b83d;background:rgba(245,184,61,.12);color:#fff}
+.dg-tab[aria-current="step"] b{background:#ff2d6f}
+
+.dg-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:14px 18px 6px}
+.dg-fig{margin:12px 0 0;text-align:center}
+/* 그림은 화면 높이의 42% 까지만 — 글과 그림이 한 화면에 같이 보이게(가로는 비율대로 줄어든다) */
+.dg-pic{display:inline-block;max-width:100%;width:auto;height:auto;max-height:min(42vh,440px);max-height:min(42svh,440px);border-radius:12px;border:1px solid #2a3344;background:#0b1018;vertical-align:top}
+.dg-step-title{display:flex;align-items:center;gap:10px;margin:0 0 8px;font-size:21px;font-weight:900;line-height:1.35;color:#f5b83d;word-break:keep-all}
+.dg-step-title b{flex:none;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#ff2d6f;color:#fff;font-size:18px}
+.dg-points{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.dg-points li{display:flex;align-items:flex-start;gap:10px;font-size:17px;line-height:1.6;word-break:keep-all}
+.dg-points i{flex:none;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin-top:1px;border-radius:50%;border:2px solid #fff;background:#ff2d6f;color:#fff;font-style:normal;font-size:15px;font-weight:900}
+.dg-tip{margin:12px 0 6px;padding:10px 12px;border-radius:12px;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.4);font-size:15.5px;line-height:1.6;color:#d1fae5;word-break:keep-all}
+
+.dg-foot{display:flex;flex-direction:column;gap:4px;padding:10px 16px 10px;border-top:1px solid #2a3344}
+.dg-nav{display:grid;grid-template-columns:1fr 1.6fr;gap:10px}
+.dg-nav button{min-height:54px;border-radius:14px;font:inherit;font-size:18px;font-weight:900;cursor:pointer}
+.dg-prev{border:1px solid #3b4659;background:#121826;color:#e8ecf3}
+.dg-prev:disabled{opacity:.38;cursor:default}
+.dg-next{border:0;background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#1a1200}
+.dg-next.dg-go{background:linear-gradient(135deg,#34d399,#6ee7b7);color:#06281b}
+.dg-hide{min-height:44px;padding:6px 10px;border:0;border-radius:10px;background:transparent;color:#b4bdcc;font:inherit;font-size:15px;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.dg-again{margin:4px 0 6px;font-size:13px;line-height:1.5;color:#9aa4b5;text-align:center;word-break:keep-all}
+.dg-box button:focus-visible{outline:3px solid #f7bd47;outline-offset:2px}
+
+/* 🔊 음성 안내 — js/ai-dubbing-guide-voice.js (2026-10-26). 창 안 버튼(듣기↔끄기) + 창을 닫고 이어 들을 때 아래 «끄기» 막대 */
+.dg-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px 10px}
+.dg-voice{min-height:44px;padding:6px 16px;border:2px solid rgba(245,184,61,.8);border-radius:999px;background:rgba(245,184,61,.16);color:#ffe2a6;
+  font:inherit;font-size:15.5px;font-weight:900;white-space:nowrap;cursor:pointer}
+.dg-voice:hover{background:rgba(245,184,61,.26)}
+.dg-voice.dgv-on{border-color:#ff6b8f;background:rgba(255,45,111,.18);color:#ffd6e0}
+/* 폭은 «내용만큼» + 화면 안 — left:50%+translate 만 두면 폭이 화면 절반으로 줄어 글자가 쪼개진다(CLAUDE.md 2장)
+   z-index 99990 = 공용 ☰ 드로어(100000)·그 덮개(99999) «아래» — 드로어를 열면 메뉴가 막대에 안 가린다. 동기화 알림(10000)·시트(70) 위 */
+.dgv-bar{position:fixed;left:20px;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:99990;display:flex;align-items:center;gap:10px;
+  box-sizing:border-box;width:max-content;max-width:calc(100vw - 24px);padding:6px 6px 6px 16px;border:2px solid rgba(245,184,61,.75);border-radius:999px;
+  background:#161c28;color:#e8ecf3;box-shadow:0 10px 30px rgba(0,0,0,.55);
+  font-family:MangoiHanSC,'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:15px;font-weight:800;line-height:1.3}
+.dgv-bar[hidden]{display:none!important}
+.dgv-now{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dgv-off{flex:none;min-height:44px;padding:0 18px;border:0;border-radius:999px;background:linear-gradient(135deg,#ff2d6f,#ff6b8f);color:#fff;
+  font:inherit;font-size:15.5px;font-weight:900;cursor:pointer}
+.dg-voice:focus-visible,.dgv-off:focus-visible{outline:3px solid #f7bd47;outline-offset:2px}
+/* 폰(≤860px): 화면 아래 고정 바(.mbar) 위로.
+   역할 고르기 시트(화면 높이 88%)가 열리면 «■ 끄기» 버튼만 남겨 맨 위 머리줄의 빈자리(← 와 🏠·🌐 칩 사이)로 —
+   시트 버튼도, 공용 칩도 가리지 않는다(320~430px 실측: ← 8~42px · 칩은 오른쪽 끝에서 135px) */
+@media(max-width:860px){
+  .dgv-bar{left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  body.dub-sheet-open .dgv-bar{left:50px;transform:none;top:calc(4px + env(safe-area-inset-top,0px));bottom:auto;max-width:calc(100vw - 190px);padding:1px;border-width:1px}
+  body.dub-sheet-open .dgv-now{display:none}
+  /* 동기화 알림(#dub-sync-notification, 아래 96px)이 떠 있을 때도 같은 자리로 — 알림의 «다시 동기화» 버튼을 가리지 않게.
+     :has() 를 모르는 옛 브라우저는 이 규칙만 버린다(위 시트 규칙과 따로 둔 이유) */
+  body:has(#dub-sync-notification:not([hidden])) .dgv-bar{left:50px;transform:none;top:calc(4px + env(safe-area-inset-top,0px));bottom:auto;max-width:calc(100vw - 190px);padding:1px;border-width:1px}
+  body:has(#dub-sync-notification:not([hidden])) .dgv-now{display:none}
+}
+
+@media(max-width:480px){
+  .dg-ov{padding:8px}
+  .dg-box{max-height:calc(100vh - 16px);max-height:calc(100svh - 16px);border-radius:18px}
+  /* 폰: 머리줄을 한 줄로(제목 + 🌐 + ✕) — 글·그림 자리를 넓힌다. 창 이름은 aria-labelledby 의 제목이 말한다 */
+  .dg-head{grid-template-areas:"t lang x";padding:8px 8px 8px 14px}
+  .dg-kicker{display:none}
+  .dg-title{font-size:20px}
+  .dg-pic{max-height:min(34vh,440px);max-height:min(34svh,440px)}
+  .dg-tabs{padding:8px 10px}
+  .dg-tab{flex-direction:column;align-items:flex-start;gap:3px;font-size:12.5px}
+  .dg-body{padding:12px 14px 4px}
+  .dg-foot{padding:8px 12px 8px}
+  .dg-points li{font-size:16.5px}
+}
+@media(prefers-reduced-motion:no-preference){
+  .dg-ov:not([hidden]) .dg-box{animation:dg-in .18s ease-out}
+  @keyframes dg-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+}

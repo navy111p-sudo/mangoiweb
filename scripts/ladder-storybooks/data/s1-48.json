@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)"
   },
   "img": {
+    "style": "cg3d",
     "cover": "In dark space full of stars, a sleek red-and-white rocket with round windows gently pushes against the side of a huge glowing blue-white icy comet with a long shining tail, and Captain Kim, a woman with a short black bob, wearing a white space suit with orange stripes, holds the controls with a brave smile behind the front window.",
     "scenes": {
       "1": "In dark space, a sleek red-and-white rocket with round windows zooms close to a huge glowing blue-white icy comet with a long shining tail, and Captain Kim, a woman with a short black bob, wearing a white space suit with orange stripes, looks out the round window with wide eyes at the bright ice.",
       "2": "Far out in space, a huge glowing blue-white icy comet with a long shining tail turns away and flies past the blue planet Earth, while a sleek red-and-white rocket with round windows floats nearby and Captain Kim, a woman with a short black bob, wearing a white space suit with orange stripes, cheers with both arms up behind the window."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

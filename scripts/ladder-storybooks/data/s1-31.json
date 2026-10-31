@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)"
   },
   "img": {
+    "style": "brick",
     "cover": "In a sunny park, Sparky, a shiny silver robot dog with round blue glowing eyes, short metal legs and a red collar, leaps out from between tall trees toward a pond, where a little boy with curly brown hair in a green striped shirt sits on the grass and turns around with a big surprised smile, while a girl with a long black ponytail in a purple jacket runs behind, holding a blue baseball cap.",
     "scenes": {
       "1": "In a big park with benches and bushes, a girl with a long black ponytail in a purple jacket kneels down and holds a blue baseball cap up to the nose of Sparky, a shiny silver robot dog with round blue glowing eyes, short metal legs and a red collar, while an old man with white hair and glasses looks under a bench with a worried face.",
       "2": "By a pond with lily pads, Sparky, a shiny silver robot dog with round blue glowing eyes, short metal legs and a red collar, stands proudly as a little boy with curly brown hair in a green striped shirt hugs him, and a girl with a long black ponytail in a purple jacket runs out of the trees with open arms."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

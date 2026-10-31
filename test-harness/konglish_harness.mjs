@@ -71,10 +71,13 @@ if (K) {
 {
   check('AI 친구가 모듈을 불러온다', /import \{ konglishFix, konglishPromptLine \} from '\.\/konglish'/.test(AI));
   const m = AI.match(/const verified = (.+);\n/);
-  check('모델 교정이 «먼저», 표는 그 뒤(||)', !!m && /^verifyWarmupFix\(rawFix, msg\)\s*\|\|\s*konglishFix\(msg\)$/.test(m[1].trim()), m && m[1]);
+  check('모델 교정이 «먼저», 표는 그 뒤(||)', !!m && /^verifyWarmupFix\(rawFix, msg\)\s*\|\|\s*(verifyWarmupFix\(backfillPastTenseFix\(msg\), msg\)\s*\|\|\s*)?konglishFix\(msg\)$/.test(m[1].trim()), m && m[1]);
   // 그 식을 실제로 평가 — 모델 교정이 있으면 표를 안 쓴다 / 없으면 표를 쓴다
+  // 2026-10-31: 과거형 보완(tense-backfill)이 식에 끼었다 — 정본을 실제로 불러 넘긴다
+  const TB_SRC = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/src/tense-backfill.ts'), 'utf8');
+  const backfillPastTenseFix = new Function(stripTypeScriptTypes(TB_SRC).replace(/^export\s+/gm, '') + '\nreturn backfillPastTenseFix;')();
   if (m) {
-    const ev = (model) => new Function('verifyWarmupFix', 'konglishFix', 'rawFix', 'msg', 'return ' + m[1])(() => model, K ? K.konglishFix : () => null, null, 'I lost my handphone.');
+    const ev = (model) => new Function('verifyWarmupFix', 'konglishFix', 'backfillPastTenseFix', 'rawFix', 'msg', 'return ' + m[1])(() => model, K ? K.konglishFix : () => null, backfillPastTenseFix, null, 'I lost my handphone.');
     const mine = { was: 'go', now: 'went', tag: 'past_tense', severity: 'major', why_ko: 'x' };
     check('식 실행: 모델 교정이 있으면 그것', ev(mine) === mine);
     const r = ev(null);

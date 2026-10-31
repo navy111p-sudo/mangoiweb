@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)"
   },
   "img": {
+    "style": "anime",
     "cover": "Above a dirt road full of running children holding eggs, a small purple baby dragon with big round eyes, tiny gold horns and little light-blue wings flaps hard and carries Ben, a boy with messy red hair and freckles, wearing a green tunic and brown boots, through the air toward a big stone castle, and Ben laughs with his arms wide open.",
     "scenes": {
       "1": "On a road to the castle, Ben, a boy with messy red hair and freckles, wearing a green tunic and brown boots, stops running and stares at the cracked egg in his hands, as a small purple baby dragon with big round eyes, tiny gold horns and little light-blue wings pops its head out of the shell.",
       "2": "In front of a big stone castle gate, a small purple baby dragon with big round eyes, tiny gold horns and little light-blue wings lands with Ben, a boy with messy red hair and freckles, wearing a green tunic and brown boots, and Ben hugs the dragon as the other children arrive behind them and clap."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

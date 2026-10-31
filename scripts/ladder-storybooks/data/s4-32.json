@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what they can do to make the purpose clear. (e.g. so that bees can find enough flowers)"
   },
   "img": {
+    "style": "cg3d",
     "cover": "A towering fossil skeleton of a huge meat-eating dinosaur in a bright museum hall, its long jaws open and tail stretched out, while a teenager stands far below looking up at it",
     "scenes": {
       "1": "A scientist in a white coat, face mask, and gloves using a tiny drill to collect powder from a brown fossil bone in a clean laboratory, small empty plastic tubes waiting in a rack beside it",
       "2": "A small herd of shaggy, reddish-brown elephants with long curved tusks and thick woolly coats walking through deep snow on a wide, windy tundra under a pale sky"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

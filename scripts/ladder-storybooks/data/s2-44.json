@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «If», write who + what. After «we can», write a verb. (e.g. If we help each other, we can finish fast)"
   },
   "img": {
+    "style": "photo",
     "cover": "Inside a glass dome city on red Mars, a boy with short orange hair in a silver jumpsuit with a blue collar pours a cup of water onto a small apple tree with brown and green leaves, while a long line of smiling families holds cups behind him and a tall thin green gardener robot with a watering can arm watches from the side.",
     "scenes": {
       "1": "In a metal park under a glass dome on Mars, a boy with short orange hair in a silver jumpsuit with a blue collar gently touches the dry brown leaves of a small apple tree with a sad face, while a tall thin green gardener robot with a watering can arm stands next to a broken water machine that puffs gray steam.",
       "3": "In the park under the glass dome on Mars, the small apple tree is green again with one tiny white flower, while a boy with short orange hair in a silver jumpsuit with a blue collar cheers with both arms up, families clap, and a tall thin green gardener robot with a watering can arm waves its watering can arm."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

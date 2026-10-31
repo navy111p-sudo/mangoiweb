@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because my friends like it)"
   },
   "img": {
+    "style": "flat",
     "cover": "At a sunny zoo, Zip, a small green alien with three round eyes, two bendy antennae and a silver suit, stands on a low stone wall and points a silver camera at a crowd of people holding up phones, while an elephant behind the fence and a brown monkey with a big grin on a tree branch watch and laugh.",
     "scenes": {
       "1": "Near the lion and elephant area of a zoo, Zip, a small green alien with three round eyes, two bendy antennae and a silver suit, tilts his head and stares in wonder at a big group of people holding up phones and cameras.",
       "2": "Beside a tall tree at the zoo, a brown monkey with a big grin hangs from a branch, laughing and pointing at a crowd of people, while Zip, a small green alien with three round eyes, two bendy antennae and a silver suit, listens with his three round eyes wide open in surprise."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

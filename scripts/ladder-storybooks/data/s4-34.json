@@ -292,10 +292,16 @@
     "moreEn": "One more step: after «because», write what + what it is like to make your reason clear. (e.g. because clean air is hard to replace)"
   },
   "img": {
+    "style": "cg3d",
     "cover": "A pinkish-orange sky over a frozen red desert on Mars, a small, pale, distant Sun low on the horizon, and a cluster of white dome-shaped shelters half-buried in red soil",
     "scenes": {
       "1": "An astronaut in a bulky white spacesuit with a gold-tinted helmet visor standing alone on a dusty red Martian plain, thin white frost on the rocks around the boots and a faint small Sun in the hazy sky",
       "2": "A low, rounded shelter covered with a thick layer of red Martian soil, its round metal hatch open, while nearby a robotic digger scoops chunks of white water ice out of a shallow pit"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

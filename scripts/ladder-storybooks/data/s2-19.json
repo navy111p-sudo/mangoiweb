@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «before», write who + what. (e.g. before the sun goes down)"
   },
   "img": {
+    "style": "vintage",
     "cover": "In a narrow stone tunnel inside a pyramid, a ten-year-old boy with curly red hair, a khaki explorer shirt with many pockets, brown shorts and a small blue backpack pushes a wall stone carved with a round sun, and a door slides open with bright desert sunlight pouring in, while his aunt, a tall woman with a long dark braid, a wide sun hat and a light green jacket holds a dim flashlight and smiles.",
     "scenes": {
       "1": "A ten-year-old boy with curly red hair, a khaki explorer shirt with many pockets, brown shorts and a small blue backpack and his aunt, a tall woman with a long dark braid, a wide sun hat and a light green jacket walk down a narrow stone tunnel inside a pyramid with a weak flashlight, as a heavy stone door slides shut behind them in a cloud of dust.",
       "2": "By the dim light of a flashlight, a ten-year-old boy with curly red hair, a khaki explorer shirt with many pockets, brown shorts and a small blue backpack looks closely at wall paintings that all show a bird flying toward a round yellow sun, with no writing on the walls, while his aunt, a tall woman with a long dark braid, a wide sun hat and a light green jacket leans in to look too."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

@@ -290,10 +290,16 @@
     "moreEn": "One more step: after «before», write who + what. (e.g. before Dad comes home)"
   },
   "img": {
+    "style": "fairytale",
     "cover": "In a stone classroom with shelves of glass potion bottles, Finn, a young boy with messy red hair, freckles, a blue robe with yellow stars and a short wooden wand, covers his mouth in shock as purple sparkles swirl around a big green frog wearing round glasses and a purple pointy hat on the teacher's chair, while a small frog on the desk watches.",
     "scenes": {
       "1": "On a wooden desk in a stone classroom, a big green frog wearing round glasses and a purple pointy hat stands up and points a webbed finger at Finn, a young boy with messy red hair, freckles, a blue robe with yellow stars and a short wooden wand, who looks worried and scratches his head.",
       "2": "In the stone classroom, Finn, a young boy with messy red hair, freckles, a blue robe with yellow stars and a short wooden wand, holds open a big old spell book and waves his wand, and golden sparkles turn the frog back into his teacher, a tall woman with a long white braid, round glasses and a purple pointy hat, who smiles at him."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

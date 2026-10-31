@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because books became cheap for everyone)"
   },
   "img": {
+    "style": "vintage",
     "cover": "Worn-out rope fishing nets, strips of tree bark, and old cloth soaking in a large wooden tub, next to a neat stack of fresh handmade paper sheets in an old courtyard",
     "scenes": {
       "1": "A worker in ancient Chinese robes pressing a thin layer of wet mashed fibers flat on a wooden board, with finished sheets of paper drying in the sun behind him",
       "2": "Thick cream-colored sheets of Korean hanji paper stacked in a traditional workshop, beside bundles of peeled mulberry bark and a tub of water"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

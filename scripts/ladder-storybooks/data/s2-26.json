@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «It is important to», write a verb (look, check). After «because», write who + what."
   },
   "img": {
+    "style": "comic",
     "cover": "At night in a school kitchen, a ten-year-old Korean boy with short black hair, round glasses, a blue cap worn backward and a brown vest with many pockets jumps out from behind a big fridge and shines a flashlight on a small brown squirrel with a big fluffy tail, who holds a round cookie on the counter next to a glass cookie jar, with a slightly open window behind it.",
     "scenes": {
       "1": "In a school kitchen in the daytime, a ten-year-old Korean boy with short black hair, round glasses, a blue cap worn backward and a brown vest with many pockets leans close to a windowsill with a magnifying glass and looks at tiny cookie crumbs, while a small acorn shell lies next to a glass cookie jar on the counter.",
       "3": "In the bright school kitchen, a small brown squirrel with a big fluffy tail jumps out of a small open window holding a cookie, while a smiling school cook with a white apron and a white chef's hat laughs with her hands on her cheeks and a ten-year-old Korean boy with short black hair, round glasses, a blue cap worn backward and a brown vest with many pockets grins beside her."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

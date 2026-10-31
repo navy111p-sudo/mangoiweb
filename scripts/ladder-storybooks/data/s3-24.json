@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «If», write who + what they do to make the condition clear. (e.g. If we plant more trees)"
   },
   "img": {
+    "style": "photo",
     "cover": "A pack of gray wolves walking in a line through deep snow in a wide Yellowstone valley, with pine trees and snowy mountains behind them",
     "scenes": {
       "1": "A large herd of elk grazing beside a winding river in a wide grassy valley, with only short, bare stumps of young trees along the bank",
       "3": "A beaver swimming near its dam of sticks and mud in a calm stream lined with tall green willow trees, with a small bird perched on a branch"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «so that», write who + what happens. (e.g. so that we stay safe)"
   },
   "img": {
+    "style": "flat",
     "cover": "Inside a big museum hall, a girl with shoulder-length black hair and a pink backpack talks to a smiling woman in a blue uniform who holds a small radio.",
     "scenes": {
       "1": "A girl with shoulder-length black hair and a pink backpack stands alone beside a glass case with a golden crown, looking around a big quiet museum hall with a worried face.",
       "3": "In a museum hall, a woman teacher with glasses hugs the girl with shoulder-length black hair and a pink backpack, while a woman in a blue uniform with a small radio smiles nearby."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

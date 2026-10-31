@@ -104,7 +104,7 @@
                  옛 방식으로 남아 있었다. 정본 함수를 쓰면 렌더와 «320%» 라벨까지 함께 갱신된다.
               ⛔ window.pdfZoom 으로 되돌리지 말 것 — 조용히 아무 일도 안 하게 된다. */
         if (typeof window.pdfSetZoom === 'function') window.pdfSetZoom(1);
-        await window.pdfLoad(url, kind);
+        if (await window.pdfLoad(url, kind) === false) return; // A newer selection won while this file loaded.
         console.log('[ph247] pdfLoad OK');
       } else {
         console.warn('[ph247] pdfLoad missing, fallback');

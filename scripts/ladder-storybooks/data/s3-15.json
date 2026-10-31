@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «If», write who + what they do to make the condition clear. (e.g. If we drink enough water)"
   },
   "img": {
+    "style": "photo",
     "cover": "Golden sand dunes of the Sahara Desert under a blazing sun, with a line of camels crossing a high ridge and long shadows on the rippled sand",
     "scenes": {
       "2": "A small sandy-colored fennec fox with huge pointed ears peeking out of its burrow in the sand at dusk",
       "3": "A vast white frozen landscape in Antarctica with flat sheets of ice, low snowy hills, and a few penguins under a pale sky"
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
     }
   },
   "alt": {

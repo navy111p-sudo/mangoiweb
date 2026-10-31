@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «I want to», write a verb (meet, visit). After «because», write who + what."
   },
   "img": {
+    "style": "vintage",
     "cover": "In a candlelit palace room long ago, a nine-year-old Korean girl with long straight black hair, a pink hairband and a light blue sweater stands beside a low wooden desk holding a glowing old gold watch, while a kind man with a short black beard, a long red royal robe with a round gold dragon pattern on the chest and a black royal hat smiles at her and holds a brush over a sheet of blank paper.",
     "scenes": {
       "1": "In a quiet palace room at night, a nine-year-old Korean girl with long straight black hair, a pink hairband and a light blue sweater peeks out from behind a painted wooden screen at a kind man with a short black beard, a long red royal robe with a round gold dragon pattern on the chest and a black royal hat, who sits at a low desk with stacks of blank paper and rubs his tired eyes by the light of a single candle.",
       "3": "Back in her cozy bedroom at night, a nine-year-old Korean girl with long straight black hair, a pink hairband and a light blue sweater sits at her desk with a pencil and a closed notebook, smiling softly, while the old gold watch lies beside her desk lamp."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «If», write who + what. After «we can», write a verb. (e.g. If we pass the ball, we can score a goal)"
   },
   "img": {
+    "style": "anime",
     "cover": "On a small green robot soccer field in a school gym, a small round white robot with one green light eye and little black wheels sits in the middle and passes a ball to two other little robots, while a huge shiny red robot spins in confused circles, and a boy with spiky black hair and black glasses in a blue team T-shirt jumps and cheers behind the field.",
     "scenes": {
       "1": "On a small green robot soccer field, a small round white robot with one green light eye and little black wheels tilts to one side with one of its wheels lying beside it, while a boy with spiky black hair and black glasses in a blue team T-shirt and his teammates kneel next to it with worried faces and a huge shiny red robot stands tall nearby.",
       "3": "In a school gym with colorful streamers, a boy with spiky black hair and black glasses in a blue team T-shirt lifts a big gold trophy with his teammates, while a small round white robot with one green light eye and little black wheels sits proudly on the table beside them and a huge shiny red robot claps its big metal hands."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
     }
   },
   "alt": {

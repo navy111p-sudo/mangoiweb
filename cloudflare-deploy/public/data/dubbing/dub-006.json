@@ -8,6 +8,7 @@
  "level": 1,
  "status": "final",
  "timing": "synced",
+ "palette": "cinematic",
  "note": {
   "ko": "캐릭터 목소리는 영상의 입모양에 맞춰 만든 AI 음성이에요 · 위스커스 선장은 고를 수 없는 손님 역이에요",
   "en": "Character voices are AI voices made to match the mouths in the video · Captain Whiskers is a guest role you cannot pick"
@@ -68,6 +69,13 @@
    "durationSec": 20.04,
    "videoAudio": "mute",
    "bgm": "/media/dubbing/dub-006/scene-1-bgm.mp3",
+   "sfx": [
+    {"at": "start", "name": "whoosh", "gain": 0.7},
+    {"line": 2, "name": "sparkle", "gain": 0.7},
+    {"line": 4, "name": "magic", "gain": 0.7},
+    {"line": 5, "name": "whoosh", "gain": 0.8},
+    {"line": 6, "name": "zap", "gain": 0.6}
+   ],
    "voices": {
     "zibi": "/media/dubbing/dub-006/scene-1-zibi.mp3",
     "hana": "/media/dubbing/dub-006/scene-1-hana.mp3",
@@ -148,6 +156,13 @@
    "durationSec": 20.04,
    "videoAudio": "mute",
    "bgm": "/media/dubbing/dub-006/scene-2-bgm.mp3",
+   "sfx": [
+    {"at": "start", "name": "engine", "gain": 0.6},
+    {"line": 2, "name": "rocket", "gain": 0.7},
+    {"line": 3, "name": "thunder", "gain": 0.8},
+    {"line": 4, "name": "swing", "gain": 0.7},
+    {"line": 5, "name": "boing", "gain": 0.5}
+   ],
    "voices": {
     "mateo": "/media/dubbing/dub-006/scene-2-mateo.mp3",
     "zibi": "/media/dubbing/dub-006/scene-2-zibi.mp3",
@@ -228,6 +243,13 @@
    "durationSec": 20.04,
    "videoAudio": "mute",
    "bgm": "/media/dubbing/dub-006/scene-3-bgm.mp3",
+   "sfx": [
+    {"line": 1, "name": "beep", "gain": 0.6},
+    {"line": 3, "name": "crack", "gain": 0.8},
+    {"line": 3, "when": "after", "name": "crash", "gain": 0.7},
+    {"line": 4, "name": "boing", "gain": 0.7},
+    {"line": 6, "name": "heartbeat", "gain": 0.7}
+   ],
    "voices": {
     "zibi": "/media/dubbing/dub-006/scene-3-zibi.mp3",
     "mateo": "/media/dubbing/dub-006/scene-3-mateo.mp3",
@@ -308,6 +330,13 @@
    "durationSec": 20.04,
    "videoAudio": "mute",
    "bgm": "/media/dubbing/dub-006/scene-4-bgm.mp3",
+   "sfx": [
+    {"line": 1, "name": "purr", "gain": 0.6},
+    {"line": 3, "name": "whoosh", "gain": 0.7},
+    {"line": 4, "name": "zap", "gain": 0.7},
+    {"line": 5, "name": "crack", "gain": 0.8},
+    {"line": 6, "name": "rumble", "gain": 0.7}
+   ],
    "voices": {
     "whiskers": "/media/dubbing/dub-006/scene-4-whiskers.mp3",
     "hana": "/media/dubbing/dub-006/scene-4-hana.mp3",
@@ -389,6 +418,14 @@
    "durationSec": 20.04,
    "videoAudio": "mute",
    "bgm": "/media/dubbing/dub-006/scene-5-bgm.mp3",
+   "sfx": [
+    {"at": "start", "name": "rumble", "gain": 0.7},
+    {"line": 1, "when": "after", "name": "crash", "gain": 0.6},
+    {"line": 4, "name": "magic", "gain": 0.7},
+    {"line": 5, "when": "after", "name": "powerup", "gain": 0.8},
+    {"line": 6, "name": "sparkle", "gain": 0.8},
+    {"line": 6, "when": "after", "name": "cheer", "gain": 0.8}
+   ],
    "voices": {
     "zibi": "/media/dubbing/dub-006/scene-5-zibi.mp3",
     "whiskers": "/media/dubbing/dub-006/scene-5-whiskers.mp3",
@@ -470,6 +507,13 @@
    "durationSec": 20.04,
    "videoAudio": "mute",
    "bgm": "/media/dubbing/dub-006/scene-6-bgm.mp3",
+   "sfx": [
+    {"at": "start", "name": "pop", "gain": 0.7},
+    {"line": 1, "when": "after", "name": "sparkle", "gain": 0.7},
+    {"line": 3, "when": "after", "name": "cheer", "gain": 0.7},
+    {"line": 5, "name": "purr", "gain": 0.6},
+    {"line": 6, "when": "after", "name": "tada", "gain": 0.9}
+   ],
    "voices": {
     "hana": "/media/dubbing/dub-006/scene-6-hana.mp3",
     "whiskers": "/media/dubbing/dub-006/scene-6-whiskers.mp3",

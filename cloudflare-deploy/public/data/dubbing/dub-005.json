@@ -1,18 +1,28 @@
 {
-  "_comment": "A.i영화더빙 dub-005 (5편). 연동 규격: docs/A.i영화더빙_화면연동_설명서.md. 등장인물 = 지호(한국 남자아이)·프리야(인도 여자아이)·볼트(꼬마 로봇)가 대사를 맡고, 아마라(나이지리아계 여자아이)와 맥스(은색 경주 로봇)는 영상에만 나오고 대사는 없음 — 고를 수 있는 역은 3명이어야 해서(하니스 ⑥-13·⑥-14). 영상 = 장면마다 AI 로 만든 움직이는 클립 1개(20~25초, 1280x720 H.264, 소리 없음)를 우리 서버(/media/dubbing/dub-005/)에 둠. 바꿀 때는 같은 이름의 mp4 를 갈아 끼우되 ?v= 를 붙이세요(미디어 7일 캐시). 대사 36줄 = 장면 6 × 캐릭터 3 × 2줄, 3~8단어. 입 모양 시각은 없음 → timing=provisional(차례 모드, 영상은 소리 없이 되풀이). 원어민 음성 파일은 아직 없어 캐릭터별 AI 목소리(TTS)로 낸다.",
+  "_comment": "A.i영화더빙 dub-005 (5편 «최후의 대결!» — 꼬마 로봇 볼트의 경주). 연동 규격: docs/A.i영화더빙_화면연동_설명서.md 6-1c절. Claude 아티팩트 5편(입모양을 맞춘 AI 영상 + 캐릭터 목소리)의 «원래 대본·대사 시각» 을 그대로 옮긴 것 — 2026-10-21 복원. 그 전 판은 대사를 지호·프리야에게 몰아 주고 시각을 버려(차례 모드) 영상 속 아마라가 입을 움직일 때 지호 목소리(남자 TTS)가 나왔다(사장님 제보 «목소리가 안 어울리고 말과 입이 안 맞는다»). 영상은 이 대본으로 만든 것이라 대본을 바꾸면 입모양이 깨진다 — 대사·화자·시각을 고치려면 영상부터 다시 만들 것. 등장인물 = 아마라(나이지리아계 여자아이)·지호(한국 남자아이)·프리야(인도 여자아이) — 학생이 고르는 역, 볼트(꼬마 로봇)·맥스(은색 경주 로봇)는 «손님» 이라 고를 수 없고 늘 원래 목소리로 나온다(장면마다 아이들 몫이 공평하게 남는지는 하니스 ⑥-14 가 본다). timing=synced, 장면마다 말하는 캐릭터 전원의 음성 파일(scene-N-<캐릭터>.mp3 — 장면 길이와 같음·0초=영상 0초·말 안 하는 구간은 무음, 모노 48kHz 192kbps, 약 -16 LUFS)이 있어 «동기 + 음성 파일» 모드로 돈다. 음성 파일은 아티팩트의 대사별 음성(voice/s<장면>-l<줄>.mp3)을 대사 start 시각에 놓아 만든 것. 영상·음성은 우리 서버 /media/dubbing/dub-005/ — 갈아 끼울 때는 ?v= 를 붙이세요(미디어 7일 캐시).",
   "id": "dub-005",
   "title": {
     "en": "The Final Battle! — Bolt's Big Race",
     "ko": "최후의 대결! — 꼬마 로봇 볼트의 경주"
   },
   "level": 1,
-  "status": "preview",
-  "timing": "provisional",
+  "status": "final",
+  "timing": "synced",
+  "palette": "robot",
   "note": {
-    "ko": "원어민 목소리는 임시 AI 음성이에요 · 대사는 장면 순서대로 차례차례 나와요",
-    "en": "Native voices are temporary AI voices · lines come one by one in scene order"
+    "ko": "캐릭터 목소리는 영상의 입모양에 맞춰 만든 AI 음성이에요 · 볼트와 맥스는 고를 수 없는 손님 역이에요",
+    "en": "Character voices are AI voices made to match the mouths in the video · Bolt and Max are guest roles you cannot pick"
   },
   "characters": {
+    "amara": {
+      "id": "amara",
+      "name": {
+        "en": "Amara",
+        "ko": "아마라"
+      },
+      "emoji": "👧🏾",
+      "ttsSpeaker": "amalthea"
+    },
     "jiho": {
       "id": "jiho",
       "name": {
@@ -39,12 +49,21 @@
       },
       "emoji": "🤖",
       "ttsSpeaker": "luna"
+    },
+    "max": {
+      "id": "max",
+      "name": {
+        "en": "Max",
+        "ko": "맥스"
+      },
+      "emoji": "🏁",
+      "ttsSpeaker": "orion"
     }
   },
   "playable": [
+    "amara",
     "jiho",
-    "priya",
-    "bolt"
+    "priya"
   ],
   "scenes": [
     {
@@ -54,59 +73,96 @@
         "en": "A Box in the Science Room"
       },
       "arc": "ki",
+      "mood": "mystery",
+      "sfx": [
+        {
+          "line": 2,
+          "when": "after",
+          "name": "creak"
+        },
+        {
+          "line": 3,
+          "name": "powerup"
+        },
+        {
+          "line": 3,
+          "mood": "bright"
+        },
+        {
+          "line": 4,
+          "name": "sparkle"
+        }
+      ],
       "video": "/media/dubbing/dub-005/scene-1.mp4",
       "poster": "/media/dubbing/dub-005/scene-1.jpg",
       "durationSec": 20.42,
       "videoAudio": "mute",
       "bgm": null,
-      "voices": {},
+      "voices": {
+        "amara": "/media/dubbing/dub-005/scene-1-amara.mp3",
+        "jiho": "/media/dubbing/dub-005/scene-1-jiho.mp3",
+        "bolt": "/media/dubbing/dub-005/scene-1-bolt.mp3",
+        "priya": "/media/dubbing/dub-005/scene-1-priya.mp3"
+      },
       "lines": [
         {
           "id": "s1-l1",
-          "speaker": "jiho",
+          "speaker": "amara",
           "en": "What's in this big box?",
           "ko": "이 큰 상자 안에 뭐가 있지?",
-          "emotion": "curious",
+          "emotion": "surprised",
+          "start": 0.74,
+          "end": 2.5,
           "scored": true
         },
         {
           "id": "s1-l2",
-          "speaker": "priya",
+          "speaker": "jiho",
           "en": "Let's open it slowly.",
           "ko": "천천히 열어 보자.",
           "emotion": "calm",
+          "start": 3.32,
+          "end": 5.31,
           "scored": true
         },
         {
           "id": "s1-l3",
           "speaker": "bolt",
-          "en": "Beep! Boop! Hello there!",
-          "ko": "삐! 뿝! 안녕!",
-          "emotion": "cheerful",
+          "en": "Beep! Boop! Hello?",
+          "ko": "삐! 뿝! 안녕?",
+          "emotion": "surprised",
+          "start": 6.13,
+          "end": 9.9,
           "scored": true
         },
         {
           "id": "s1-l4",
           "speaker": "priya",
-          "en": "Wow! It's a little robot!",
-          "ko": "와! 작은 로봇이야!",
+          "en": "It's a little robot!",
+          "ko": "작은 로봇이야!",
           "emotion": "surprised",
+          "start": 10.8,
+          "end": 12.46,
           "scored": true
         },
         {
           "id": "s1-l5",
-          "speaker": "jiho",
+          "speaker": "amara",
           "en": "Hi! What's your name?",
           "ko": "안녕! 네 이름은 뭐야?",
-          "emotion": "friendly",
+          "emotion": "happy",
+          "start": 13.53,
+          "end": 15.6,
           "scored": true
         },
         {
           "id": "s1-l6",
           "speaker": "bolt",
-          "en": "My name? I don't know.",
-          "ko": "내 이름? 나는 몰라.",
+          "en": "Name? I... don't know.",
+          "ko": "이름? 나... 몰라.",
           "emotion": "sad",
+          "start": 16.67,
+          "end": 19.9,
           "scored": true
         }
       ]
@@ -118,12 +174,39 @@
         "en": "Learning Words"
       },
       "arc": "seung",
+      "mood": "bright",
+      "sfx": [
+        {
+          "line": 2,
+          "when": "after",
+          "name": "beep"
+        },
+        {
+          "line": 4,
+          "when": "after",
+          "name": "boing"
+        },
+        {
+          "line": 6,
+          "name": "whoosh"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "sparkle"
+        }
+      ],
       "video": "/media/dubbing/dub-005/scene-2.mp4",
       "poster": "/media/dubbing/dub-005/scene-2.jpg",
       "durationSec": 20.42,
       "videoAudio": "mute",
       "bgm": null,
-      "voices": {},
+      "voices": {
+        "priya": "/media/dubbing/dub-005/scene-2-priya.mp3",
+        "bolt": "/media/dubbing/dub-005/scene-2-bolt.mp3",
+        "jiho": "/media/dubbing/dub-005/scene-2-jiho.mp3",
+        "amara": "/media/dubbing/dub-005/scene-2-amara.mp3"
+      },
       "lines": [
         {
           "id": "s2-l1",
@@ -131,6 +214,8 @@
           "en": "This is an apple. Say apple!",
           "ko": "이건 사과야. 사과라고 해 봐!",
           "emotion": "happy",
+          "start": 0.3,
+          "end": 3.37,
           "scored": true
         },
         {
@@ -138,7 +223,9 @@
           "speaker": "bolt",
           "en": "Ap-ple! A red apple!",
           "ko": "사-과! 빨간 사과!",
-          "emotion": "proud",
+          "emotion": "happy",
+          "start": 3.67,
+          "end": 6.06,
           "scored": true
         },
         {
@@ -147,6 +234,8 @@
           "en": "Good job! And this is a ball.",
           "ko": "잘했어! 그리고 이건 공이야.",
           "emotion": "happy",
+          "start": 6.36,
+          "end": 9.9,
           "scored": true
         },
         {
@@ -154,23 +243,29 @@
           "speaker": "bolt",
           "en": "Ball! Can I eat it?",
           "ko": "공! 먹어도 돼?",
-          "emotion": "curious",
+          "emotion": "surprised",
+          "start": 10.31,
+          "end": 12.65,
           "scored": true
         },
         {
           "id": "s2-l5",
-          "speaker": "priya",
-          "en": "No, no! You throw a ball!",
-          "ko": "아니, 아니! 공은 던지는 거야!",
-          "emotion": "laughing",
+          "speaker": "amara",
+          "en": "No! Ha ha! You throw a ball!",
+          "ko": "아니! 하하! 공은 던지는 거야!",
+          "emotion": "happy",
+          "start": 12.96,
+          "end": 16.63,
           "scored": true
         },
         {
           "id": "s2-l6",
-          "speaker": "jiho",
-          "en": "Here, catch! You learn so fast!",
-          "ko": "자, 받아! 정말 빨리 배우는구나!",
-          "emotion": "proud",
+          "speaker": "bolt",
+          "en": "Throw! Whee! This is fun!",
+          "ko": "던지기! 야호! 재밌다!",
+          "emotion": "happy",
+          "start": 16.94,
+          "end": 19.9,
           "scored": true
         }
       ]
@@ -182,27 +277,57 @@
         "en": "Too Many Names"
       },
       "arc": "seung",
+      "mood": "warm",
+      "sfx": [
+        {
+          "line": 2,
+          "name": "sparkle"
+        },
+        {
+          "line": 3,
+          "when": "after",
+          "name": "beep"
+        },
+        {
+          "line": 5,
+          "name": "squeak"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "chime"
+        }
+      ],
       "video": "/media/dubbing/dub-005/scene-3.mp4",
       "poster": "/media/dubbing/dub-005/scene-3.jpg",
       "durationSec": 20.79,
       "videoAudio": "mute",
       "bgm": null,
-      "voices": {},
+      "voices": {
+        "jiho": "/media/dubbing/dub-005/scene-3-jiho.mp3",
+        "priya": "/media/dubbing/dub-005/scene-3-priya.mp3",
+        "bolt": "/media/dubbing/dub-005/scene-3-bolt.mp3",
+        "amara": "/media/dubbing/dub-005/scene-3-amara.mp3"
+      },
       "lines": [
         {
           "id": "s3-l1",
-          "speaker": "priya",
+          "speaker": "jiho",
           "en": "Let's find a name for you!",
-          "ko": "너한테 어울리는 이름을 찾아 보자!",
-          "emotion": "excited",
+          "ko": "너한테 어울리는 이름을 찾자!",
+          "emotion": "happy",
+          "start": 0.8,
+          "end": 2.77,
           "scored": true
         },
         {
           "id": "s3-l2",
-          "speaker": "jiho",
-          "en": "How about Star? Like my picture!",
-          "ko": "스타는 어때? 내 그림처럼!",
+          "speaker": "priya",
+          "en": "How about Sparky?",
+          "ko": "스파키는 어때?",
           "emotion": "happy",
+          "start": 3.92,
+          "end": 5.45,
           "scored": true
         },
         {
@@ -211,30 +336,38 @@
           "en": "Hmm... no, thank you.",
           "ko": "음... 아니, 괜찮아.",
           "emotion": "calm",
+          "start": 6.6,
+          "end": 9.9,
           "scored": true
         },
         {
           "id": "s3-l4",
-          "speaker": "priya",
-          "en": "How about Cloudy? Look!",
-          "ko": "클라우디는 어때? 이것 봐!",
-          "emotion": "hopeful",
+          "speaker": "amara",
+          "en": "How about Mr. Beep?",
+          "ko": "미스터 삡은 어때?",
+          "emotion": "happy",
+          "start": 10.2,
+          "end": 13.48,
           "scored": true
         },
         {
           "id": "s3-l5",
           "speaker": "bolt",
           "en": "Beep... I don't like it.",
-          "ko": "삐... 그건 마음에 안 들어.",
+          "ko": "삐... 그건 싫어.",
           "emotion": "sad",
+          "start": 13.63,
+          "end": 17.35,
           "scored": true
         },
         {
           "id": "s3-l6",
           "speaker": "jiho",
           "en": "Don't worry. We will find one!",
-          "ko": "걱정 마. 우리가 꼭 찾아 줄게!",
-          "emotion": "kind",
+          "ko": "걱정 마. 우리가 찾아 줄게!",
+          "emotion": "calm",
+          "start": 17.5,
+          "end": 20.28,
           "scored": true
         }
       ]
@@ -246,51 +379,93 @@
         "en": "The Robot Race Challenge"
       },
       "arc": "jeon",
+      "mood": "tense",
+      "sfx": [
+        {
+          "line": 1,
+          "name": "stomp"
+        },
+        {
+          "line": 2,
+          "when": "after",
+          "name": "engine"
+        },
+        {
+          "line": 5,
+          "name": "heartbeat"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "whoosh"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "mood": "action"
+        }
+      ],
       "video": "/media/dubbing/dub-005/scene-4.mp4",
       "poster": "/media/dubbing/dub-005/scene-4.jpg",
       "durationSec": 21.58,
       "videoAudio": "mute",
       "bgm": null,
-      "voices": {},
+      "voices": {
+        "amara": "/media/dubbing/dub-005/scene-4-amara.mp3",
+        "max": "/media/dubbing/dub-005/scene-4-max.mp3",
+        "jiho": "/media/dubbing/dub-005/scene-4-jiho.mp3",
+        "bolt": "/media/dubbing/dub-005/scene-4-bolt.mp3",
+        "priya": "/media/dubbing/dub-005/scene-4-priya.mp3"
+      },
       "lines": [
         {
           "id": "s4-l1",
-          "speaker": "priya",
+          "speaker": "amara",
           "en": "Look! A big robot is coming!",
           "ko": "봐! 큰 로봇이 오고 있어!",
           "emotion": "surprised",
+          "start": 0.2,
+          "end": 3.45,
           "scored": true
         },
         {
           "id": "s4-l2",
-          "speaker": "jiho",
-          "en": "That's Max, the fastest robot in town!",
-          "ko": "맥스야, 이 동네에서 제일 빠른 로봇!",
-          "emotion": "amazed",
+          "speaker": "max",
+          "en": "I'm Max. I'm the fastest robot in town!",
+          "ko": "난 맥스야. 이 동네에서 제일 빠른 로봇이지!",
+          "emotion": "happy",
+          "start": 3.6,
+          "end": 7.06,
           "scored": true
         },
         {
           "id": "s4-l3",
-          "speaker": "bolt",
-          "en": "He wants to race me?",
-          "ko": "나랑 경주하고 싶대?",
-          "emotion": "nervous",
+          "speaker": "jiho",
+          "en": "Our little robot is fast, too!",
+          "ko": "우리 꼬마 로봇도 빨라!",
+          "emotion": "calm",
+          "start": 7.21,
+          "end": 10.18,
           "scored": true
         },
         {
           "id": "s4-l4",
-          "speaker": "jiho",
-          "en": "You can do it. You're fast, too!",
-          "ko": "넌 할 수 있어. 너도 빠르잖아!",
-          "emotion": "brave",
+          "speaker": "max",
+          "en": "Then let's have a race!",
+          "ko": "그럼 경주하자!",
+          "emotion": "happy",
+          "start": 10.33,
+          "end": 14.18,
           "scored": true
         },
         {
           "id": "s4-l5",
           "speaker": "bolt",
-          "en": "Beep... I'm a little scared.",
-          "ko": "삐... 조금 무서워.",
+          "en": "A race? Beep... I'm a little scared.",
+          "ko": "경주? 삐... 조금 무서워.",
           "emotion": "scared",
+          "start": 14.33,
+          "end": 17.69,
           "scored": true
         },
         {
@@ -298,7 +473,9 @@
           "speaker": "priya",
           "en": "We're with you! Ready, set, go!",
           "ko": "우리가 함께야! 준비, 땅!",
-          "emotion": "excited",
+          "emotion": "calm",
+          "start": 17.84,
+          "end": 21.09,
           "scored": true
         }
       ]
@@ -310,35 +487,79 @@
         "en": "The Final Race"
       },
       "arc": "jeon",
+      "mood": "action",
+      "sfx": [
+        {
+          "at": "start",
+          "name": "engine"
+        },
+        {
+          "line": 4,
+          "when": "after",
+          "name": "powerup"
+        },
+        {
+          "line": 5,
+          "name": "thunder",
+          "gain": 0.8
+        },
+        {
+          "line": 5,
+          "when": "after",
+          "name": "zap"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "tada"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "mood": "triumph"
+        }
+      ],
       "video": "/media/dubbing/dub-005/scene-5.mp4",
       "poster": "/media/dubbing/dub-005/scene-5.jpg",
       "durationSec": 24.54,
       "videoAudio": "mute",
       "bgm": null,
-      "voices": {},
+      "voices": {
+        "max": "/media/dubbing/dub-005/scene-5-max.mp3",
+        "jiho": "/media/dubbing/dub-005/scene-5-jiho.mp3",
+        "amara": "/media/dubbing/dub-005/scene-5-amara.mp3",
+        "bolt": "/media/dubbing/dub-005/scene-5-bolt.mp3",
+        "priya": "/media/dubbing/dub-005/scene-5-priya.mp3"
+      },
       "lines": [
         {
           "id": "s5-l1",
-          "speaker": "jiho",
-          "en": "Oh no! Max is in first place!",
-          "ko": "이런! 맥스가 1등이야!",
-          "emotion": "worried",
+          "speaker": "max",
+          "en": "Ha! I'm in first place!",
+          "ko": "하! 내가 1등이야!",
+          "emotion": "happy",
+          "start": 0.2,
+          "end": 3.48,
           "scored": true
         },
         {
           "id": "s5-l2",
-          "speaker": "bolt",
-          "en": "Beep... I'm too slow!",
-          "ko": "삐... 난 너무 느려!",
-          "emotion": "sad",
+          "speaker": "jiho",
+          "en": "Oh no! Our robot is slowing down!",
+          "ko": "이런! 우리 로봇이 느려지고 있어!",
+          "emotion": "scared",
+          "start": 3.63,
+          "end": 7.69,
           "scored": true
         },
         {
           "id": "s5-l3",
-          "speaker": "priya",
-          "en": "Come on, little robot! Don't give up!",
-          "ko": "힘내, 꼬마 로봇아! 포기하지 마!",
-          "emotion": "cheering",
+          "speaker": "amara",
+          "en": "Come on, little robot! You can do it!",
+          "ko": "힘내, 꼬마 로봇아! 넌 할 수 있어!",
+          "emotion": "calm",
+          "start": 7.84,
+          "end": 12.55,
           "scored": true
         },
         {
@@ -346,7 +567,9 @@
           "speaker": "bolt",
           "en": "Beep! Power... one hundred percent!",
           "ko": "삐! 전원... 100퍼센트!",
-          "emotion": "excited",
+          "emotion": "happy",
+          "start": 12.7,
+          "end": 15.8,
           "scored": true
         },
         {
@@ -354,7 +577,9 @@
           "speaker": "jiho",
           "en": "Look! A lightning bolt is glowing!",
           "ko": "봐! 번개 모양이 빛나!",
-          "emotion": "amazed",
+          "emotion": "surprised",
+          "start": 15.95,
+          "end": 21.52,
           "scored": true
         },
         {
@@ -362,7 +587,9 @@
           "speaker": "priya",
           "en": "That's it! Your name is Bolt!",
           "ko": "바로 그거야! 네 이름은 볼트야!",
-          "emotion": "joyful",
+          "emotion": "happy",
+          "start": 21.67,
+          "end": 24.04,
           "scored": true
         }
       ]
@@ -374,59 +601,97 @@
         "en": "My Name Is Bolt!"
       },
       "arc": "gyeol",
+      "mood": "triumph",
+      "sfx": [
+        {
+          "line": 1,
+          "name": "sparkle"
+        },
+        {
+          "line": 2,
+          "when": "after",
+          "name": "cheer"
+        },
+        {
+          "line": 5,
+          "when": "after",
+          "name": "clap"
+        },
+        {
+          "at": "end",
+          "name": "fanfare"
+        }
+      ],
       "video": "/media/dubbing/dub-005/scene-6.mp4",
       "poster": "/media/dubbing/dub-005/scene-6.jpg",
       "durationSec": 20.42,
       "videoAudio": "mute",
       "bgm": null,
-      "voices": {},
+      "voices": {
+        "bolt": "/media/dubbing/dub-005/scene-6-bolt.mp3",
+        "amara": "/media/dubbing/dub-005/scene-6-amara.mp3",
+        "jiho": "/media/dubbing/dub-005/scene-6-jiho.mp3",
+        "priya": "/media/dubbing/dub-005/scene-6-priya.mp3"
+      },
       "lines": [
         {
           "id": "s6-l1",
           "speaker": "bolt",
-          "en": "Bolt? I love that name!",
-          "ko": "볼트? 그 이름 정말 좋아!",
+          "en": "Bolt? I love it!",
+          "ko": "볼트? 정말 좋아!",
           "emotion": "happy",
+          "start": 0.75,
+          "end": 2.82,
           "scored": true
         },
         {
           "id": "s6-l2",
-          "speaker": "jiho",
+          "speaker": "amara",
           "en": "You won the race, Bolt! Hooray!",
           "ko": "경주에서 이겼어, 볼트! 만세!",
-          "emotion": "joyful",
+          "emotion": "happy",
+          "start": 3.65,
+          "end": 6.11,
           "scored": true
         },
         {
           "id": "s6-l3",
-          "speaker": "priya",
-          "en": "Will you stay with us?",
-          "ko": "우리랑 같이 있을래?",
-          "emotion": "hopeful",
+          "speaker": "bolt",
+          "en": "Hello, everyone! My name is Bolt!",
+          "ko": "안녕, 여러분! 내 이름은 볼트야!",
+          "emotion": "happy",
+          "start": 6.94,
+          "end": 9.9,
           "scored": true
         },
         {
           "id": "s6-l4",
-          "speaker": "bolt",
-          "en": "Yes! You are my best friends.",
-          "ko": "응! 너희는 내 가장 친한 친구야.",
-          "emotion": "warm",
+          "speaker": "jiho",
+          "en": "Will you stay with us?",
+          "ko": "우리랑 같이 있을래?",
+          "emotion": "calm",
+          "start": 10.2,
+          "end": 14.39,
           "scored": true
         },
         {
           "id": "s6-l5",
-          "speaker": "jiho",
-          "en": "Everyone, meet our friend Bolt!",
-          "ko": "얘들아, 우리 친구 볼트를 소개할게!",
-          "emotion": "proud",
+          "speaker": "bolt",
+          "en": "Yes! You are my best friends.",
+          "ko": "응! 너희는 내 가장 친한 친구야.",
+          "emotion": "happy",
+          "start": 14.55,
+          "end": 17.62,
           "scored": true
         },
         {
           "id": "s6-l6",
           "speaker": "priya",
-          "en": "Friends make us strong!",
-          "ko": "친구가 있으면 힘이 나!",
+          "en": "Friends are the best power!",
+          "ko": "친구가 최고의 힘이야!",
           "emotion": "happy",
+          "start": 17.77,
+          "end": 19.9,
           "scored": true
         }
       ]

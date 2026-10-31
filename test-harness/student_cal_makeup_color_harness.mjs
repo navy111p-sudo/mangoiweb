@@ -17,7 +17,7 @@ function funcAt(text, name) {
 const tl = funcAt(src, 'teacherLabel');
 ok('전제: 강사 이름 정본 teacherLabel 을 오려 냈다', tl.length > 200);
 let f = null;
-try { f = new Function('function mgsSrcLabel(){return ""};function esc(s){return String(s==null?"":s).replace(/[&<>"\']/g,function(c){return "&#"+c.charCodeAt(0)+";";});};' + tl + ';' + src.slice(a, src.indexOf('\n', b)) + ';return {mgsSchCls,mgsSchInner,mgsAiColors};')(); } catch (e) { console.log('  오려 낸 블록 실행 실패:', e.message); }
+try { f = new Function('var MangoiClassDisplay={range:function(){return "21:10";}};function mgsRecordHtml(){return "";}function mgsSrcLabel(){return ""};function esc(s){return String(s==null?"":s).replace(/[&<>"\']/g,function(c){return "&#"+c.charCodeAt(0)+";";});};' + tl + ';' + src.slice(a, src.indexOf('\n', b)) + ';return {mgsSchCls,mgsSchInner,mgsAiColors};')(); } catch (e) { console.log('  오려 낸 블록 실행 실패:', e.message); }
 ok('전제: 판정 함수를 실제로 돌릴 수 있다', !!f);
 const run = (t) => { try { const c = f.mgsAiColors({ class_type: t }); return { cls: f.mgsSchCls({ class_type: t }), name: c.name, inner: f.mgsSchInner({ class_type: t }, c, '21:10') }; } catch (e) { return { cls: '', name: '', inner: '' }; } };
 const m = run('makeup');

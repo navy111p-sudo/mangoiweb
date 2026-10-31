@@ -292,10 +292,16 @@
     "moreEn": "One more step: after «If», write who + what; after «we can», start with a base verb. (e.g. If we sing together, we can feel closer to each other)"
   },
   "img": {
+    "style": "papercut",
     "cover": "A volunteer lying in a large white brain scanner wearing headphones, while in the control room a researcher watches colorful brain images with glowing patches on a computer screen",
     "scenes": {
       "2": "An elderly woman in a care home armchair smiling and singing along as a young music therapist plays an acoustic guitar beside her",
       "3": "A teenager practicing the violin in a bright room, eyes focused on the strings and fingers pressed carefully on the neck, an empty music stand nearby"
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
     }
   },
   "alt": {

@@ -291,10 +291,16 @@
     "moreEn": "One more step: after «It is important to», write a verb (stay, help, wear). After «because», write who + what."
   },
   "img": {
+    "style": "minhwa",
     "cover": "In a snowy pine forest on a mountain, a boy with short spiky black hair in a red puffy winter jacket and a yellow knit hat stands with his arms spread wide in front of a tall man with a short black beard in a green winter jacket and a gray backpack, who sits in the snow, while a huge tiger with orange fur and bright yellow eyes stands calmly between the trees and looks quietly at the boy.",
     "scenes": {
       "2": "On the snowy mountain, a huge tiger with orange fur and bright yellow eyes walks slowly away down the hill and leaves a line of deep footprints, while a boy with short spiky black hair in a red puffy winter jacket and a yellow knit hat and a tall man with a short black beard in a green winter jacket and a gray backpack watch it go from the snow.",
       "3": "At dusk on the snowy mountain, a boy with short spiky black hair in a red puffy winter jacket and a yellow knit hat helps a tall man with a short black beard in a green winter jacket and a gray backpack walk step by step in a line of big tiger footprints toward a small wooden cabin with warm yellow lights in the windows."
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
     }
   },
   "alt": {

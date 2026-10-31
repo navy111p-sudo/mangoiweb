@@ -290,10 +290,16 @@
     ]
   },
   "img": {
+    "style": "comic",
     "cover": "In a sunny park, a boy with short blond hair in a blue T-shirt, jeans and a red cape stands on a wooden ladder leaning against a big green tree and gently holds a small white kitten with a black spot on one ear, while a little girl with black pigtails in a pink dress claps and jumps for joy below.",
     "scenes": {
       "1": "In a sunny park, a little girl with black pigtails in a pink dress cries under a big green tree and points up at a small white kitten with a black spot on one ear sitting on a high branch, while a boy with short blond hair in a blue T-shirt, jeans and a red cape taps his chin with a bright, thinking face.",
       "2": "In a sunny park, a boy with short blond hair in a blue T-shirt, jeans and a red cape climbs down a wooden ladder with a small white kitten with a black spot on one ear in his arms, and a little girl with black pigtails in a pink dress reaches up with a big happy smile."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
     }
   },
   "alt": {

@@ -71,6 +71,10 @@
 //       「그날은 창으로 막지 않는다」가 지금의 결정이다.
 //    ⛔ 이 사실을 «수업이 없다» 로 바꿔 적지 말 것. 나중에 이 줄을 읽고 «그럼 안전하겠네» 로
 //       넘어가면, 수요일에 수업이 끊긴 이유를 아무도 못 찾는다.
+//    📌 **2026-10-26 사장님 결정: 「실접속 판정 켜기」** — 아래 «잠들어 있다» 문단은 그 전 기록이다.
+//       ⚠️ 코드 쪽은 준비돼 있고(probeLiveClass·decideHold), 남은 것은 **Cloudflare 토큰에 권한 추가(사람)** 뿐이다.
+//       ⛔ 배포 로그에서 403 줄이 사라진 것을 확인하기 전에는 «켜졌다» 로 적지 말 것(CLAUDE.md 2장 «고쳤다고 적혔는데»).
+//       ⚠️ 켜지면 «사람이 있으면 보류» 라 월·수·금에도 보류가 생긴다 — 그게 이번 결정의 뜻이다.
 //    🔴 **아래 «실접속 판정»(reason: live-class)은 지금 «잠들어 있다» — 이 창이 전부다.**
 //       그 판정은 요일·시각과 무관하게 «지금 화상방에 사람이 있으면» 보류하도록 짜여 있지만,
 //       **CI 토큰에 D1 읽기 권한이 없어 매번 `http-403` 으로 통과한다**(2026-09-02 실측 —
@@ -261,6 +265,35 @@ export async function probeLiveClass({
 }
 
 /**
+ * 실접속 조회 결과를 사람에게 어떻게 알릴지 정한다(문구 정본 — CLI 가 이것만 부른다).
+ * 📌 2026-10-26 사장님 결정: 「실접속 판정 켜기」. 그래서 `http-403` 은 더 이상 «꺼 둔 상태» 가 아니라
+ *    **«켜기로 했는데 토큰 권한이 아직 없다»** 는 뜻이다 — ⚠️ 로 두되 «무엇을 하면 풀리는지» 를 말한다
+ *    (예전 문구는 매 배포마다 「그 수업은 끊깁니다」만 남겨 원인도 해결책도 안 보였다).
+ * ⛔ 403 «외» 의 실패(타임아웃·5xx·모양 다름·자격증명 없음)는 원래 문구 그대로 — 진짜 「모름」이다.
+ * ⚠️ 정책을 바꾸는 함수가 아니다 — 막지 않는 것(fail-open)은 decideHold 가 그대로 정한다.
+ * @returns {null | {level:'warn', line:string, summary:string}}
+ */
+export function probeNotice(error) {
+    if (!error || error === 'skipped') return null;
+    if (error === 'http-403') {
+        return {
+            level: 'warn',
+            line: '⚠️ 실접속 확인 실패(http-403) — 배포 토큰에 D1 읽기 권한이 없습니다. '
+                + 'Cloudflare › API 토큰(GitHub secret CLOUDFLARE_API_TOKEN)에 «Account · D1 · Read» 를 추가하면 풀립니다. '
+                + '그때까지는 시간대 판정만으로 진행합니다(막지 않음).',
+            summary: '> ⚠️ 화상방 실접속 판정이 **아직 안 켜졌습니다**(`http-403` — 배포 토큰에 D1 읽기 권한 없음). '
+                + 'Cloudflare 대시보드 › My Profile › API Tokens 에서 이 저장소의 `CLOUDFLARE_API_TOKEN` 토큰에 '
+                + '**Account · D1 · Read** 를 추가하세요. 다음 배포부터 이 줄이 사라지고 «지금 화상방 N명» 이 찍힙니다.\n\n',
+        };
+    }
+    return {
+        level: 'warn',
+        line: `⚠️ 실접속 확인 실패(${error}) — 막지 않고 진행합니다. 지금 수업이 있었다면 그 수업은 끊깁니다.`,
+        summary: `> ⚠️ 화상방 실접속을 확인하지 못했습니다(\`${error}\`). 시간대 판정만으로 진행합니다.\n\n`,
+    };
+}
+
+/**
  * 배포를 보류할지 판정한다.
  * ⚠️ 우회를 «먼저» 본다 — 급한 수정은 언제든 나가야 한다.
  * @returns {{hold:boolean, reason:string, why:string, kst:string}}
@@ -327,13 +360,11 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
     });
 
     console.log(`${d.kst} → hold=${d.hold} (${d.reason}) — ${d.why}`);
-    if (probe.error && probe.error !== 'skipped') {
-        /* ⛔ 조용히 넘기지 않는다 — 「수업 없음」이 아니라 「모름」이다. */
-        console.log(`⚠️ 실접속 확인 실패(${probe.error}) — 막지 않고 진행합니다. 지금 수업이 있었다면 그 수업은 끊깁니다.`);
-        if (process.env.GITHUB_STEP_SUMMARY) {
-            appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-                `> ⚠️ 화상방 실접속을 확인하지 못했습니다(\`${probe.error}\`). 시간대 판정만으로 진행합니다.\n\n`);
-        }
+    /* ⛔ 조용히 넘기지 않는다 — 「수업 없음」이 아니라 「모름」(또는 «꺼 둠») 이다. 문구 정본은 probeNotice. */
+    const notice = probeNotice(probe.error);
+    if (notice) {
+        console.log(notice.line);
+        if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, notice.summary);
     }
 
 
@@ -375,7 +406,7 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
                 '### ✅ 배포 시간대 확인',
                 '',
                 `- 지금: **${d.kst}** — ${d.why} (수업 시간대는 ${CLASS_WINDOW_KST.daysLabel} ${CLASS_WINDOW_KST.start}~${CLASS_WINDOW_KST.end} KST)`,
-                `- 화상방 실접속: ${probe.ok ? `**${probe.live}명**` : '확인 안 함/못 함'}`,
+                `- 화상방 실접속: ${probe.ok ? `**${probe.live}명**` : (probe.error === 'http-403' ? '못 함(토큰에 D1 읽기 권한 없음 — 위 안내)' : '확인 안 함/못 함')}`,
             ];
         appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n\n');
     }
