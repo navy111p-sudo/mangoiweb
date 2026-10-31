@@ -227,6 +227,15 @@ function runClient(env, srcOverride) {
 }
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+// Wait for the actual transition while simulating a healthy incoming video stream.
+async function waitForMeshCut(env) {
+  const deadline = Date.now() + 1000;
+  while (!env.window.__vcSfu.meshCut && env.window.__vcSfu.state !== 'fallback' && Date.now() < deadline) {
+    env.bumpFrames();
+    await sleep(10);
+  }
+}
+
 /* 타이밍만 줄인 사본 — «논리» 는 그대로 두고 주기·문턱만 짧게 해서 실제로 돌린다.
    ⛔ 논리를 바꾸지 말 것. 그리고 원본 상수가 사람이 쓸 만한 값인지는 아래 ⑯이 따로 본다. */
 function fastSrc() {
@@ -413,7 +422,7 @@ await (async () => {
   await sleep(120);
   env.fireTracks(2);
   env.bumpFrames();
-  await sleep(120);
+  await waitForMeshCut(env);
   ok(env.window.__vcSfu.meshCut === true, '먼저 SFU 가 켜졌다(mesh 영상 송신 꺼짐)');
   const cutCount = env.params.length;
   /* 화면공유·가상배경·장치교체 — 카메라 트랙이 «바뀌면» 우리가 올린 것과 어긋난다 */
@@ -626,7 +635,7 @@ await (async () => {
   const env = makeEnv({ peers: [{ peer_id: 'u_them', session_id: 'sess-them-xxxxxxxx', audio_track: 'their-a', video_track: 'their-v', name: 'Farrah' }] });
   const w = runClient(env, fastSrc());
   w.vcCreatePeer('u_them', 'Farrah');
-  await sleep(120); env.fireTracks(2); env.bumpFrames(); await sleep(120);
+  await sleep(120); env.fireTracks(2); env.bumpFrames(); await waitForMeshCut(env);
   ok(env.window.__vcSfu.meshCut === true, '먼저 SFU 가 켜졌다');
   /* idx-main.js 의 화면공유가 하는 것과 같은 모양 — sender.replaceTrack(새 트랙) */
   env.meshPc.getSenders().forEach(s => { if (s.track && s.track.kind === 'video') s.replaceTrack({ kind: 'video', id: 'screen-1', readyState: 'live' }); });
