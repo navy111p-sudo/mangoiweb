@@ -378,6 +378,33 @@ if (C && P.length) {
   const up = e2.key('ArrowUp', e2.itemEl(s1[0]));
   ok(e2.detail() === titleOf(s1[0]) && up.prevented === 0, '첫 줄에서 ↑ 는 그대로(페이지 스크롤을 막지 않음 — 짝)');
 
+  // ── ④-ko 우리말 해석을 안 보인다(2026-10-20 사장님 「해석을 바로 볼 수 있으면 안 된다」) ──
+  // 읽기 화면 본문·② 보기·반복 연습 보기 어디에도 문장/보기의 우리말이 그려지지 않는다 · 영어는 그대로(짝).
+  {
+    const escH = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const koLeak = (html, p) => p.sentences.map((s) => s.ko).concat(p.main.options.map((o) => o.ko)).filter((k) => k && html.indexOf(escH(k)) >= 0);
+    for (const n of [1, 3]) {
+      const pk = P.find((x) => x.stage === n);
+      const ek = makeEnv({ store: { [RL_KEY]: JSON.stringify({ stage: n, prog: { [pk.id]: { k: 'ok' } } }) } });
+      ek.click({ 'data-act': 'open', 'data-id': pk.id });
+      const h = ek.html();
+      ok(/data-act="main" data-o="/.test(h) && pk.main.options.every((o) => h.indexOf(escH(o.en)) >= 0) && pk.sentences.every((s) => h.indexOf(escH(s.en)) >= 0),
+        `${n}단계 읽기 화면: 본문 영어·② 보기 영어는 그대로 그린다(짝)`);
+      ok(!/data-act="ko"/.test(h) && !/rl-ko/.test(h) && koLeak(h, pk).length === 0,
+        `${n}단계 읽기 화면: «해석 보기» 버튼이 없고 본문·② 보기에 우리말 해석이 없다` + (koLeak(h, pk)[0] ? ' — ' + koLeak(h, pk)[0] : ''));
+      ek.click({ 'data-act': 'ko' });
+      ok(ek.html() === h, `${n}단계: 옛 «ko» 조작이 와도 아무것도 바뀌지 않는다`);
+      ek.click({ 'data-act': 'list' }); ek.click({ 'data-act': 'drill' });
+      const dp = P.find((x) => ek.html().indexOf('<h2>' + escH(x.title.en) + '</h2>') >= 0);
+      ok(!!dp && /data-act="dmain" data-o="/.test(ek.html()) && dp.main.options.every((o) => ek.html().indexOf(escH(o.en)) >= 0),
+        `${n}단계 반복 연습: 보기 영어는 그대로 그린다(짝)`);
+      ok(!!dp && !/data-act="ko"/.test(ek.html()) && !/rl-ko/.test(ek.html()) && koLeak(ek.html(), dp).length === 0,
+        `${n}단계 반복 연습: «해석 보기» 버튼·보기 우리말이 없다`);
+      ok(ek.errors.length === 0, `${n}단계 해석 검사 중 오류 없음` + (ek.errors[0] ? ' — ' + ek.errors[0] : ''));
+    }
+    ok(!/\.rl-ko\{/.test(HTML), 'stories.html 에 쓰이지 않는 .rl-ko 규칙이 남지 않았다');
+  }
+
   // ── EN ──
   const en = makeEnv({ lang: 'en' });
   ok(en.errors.length === 0 && /Step 1/.test(en.html()) && !/[가-힣]/.test(en.html().replace(/<[^>]*>/g, ' ')), 'EN 이면 «보이는» 글자가 전부 영어(우리말 제목 줄을 안 그린다 · 속성값 주제 키는 셈에서 뺌)');
