@@ -172,10 +172,11 @@ const DB = { prepare(sql) {
   catch { const z = { all: async () => ({ results: [] }), first: async () => null, run: async () => ({ meta: { changes: 0 } }) }; return { ...z, bind: () => z }; }
 }, exec: d1ExecLikeProd(raw), batch: async ss => Promise.all(ss.map(s => s.run())) };
 const cache = new Map();
+let routeFix = fix;
 const env = { DB, ROOM_JWT_SECRET: 'focused-local-fixture-only',
   SESSION_STATE: { get: async k => cache.get(k) ?? null, put: async (k, v) => cache.set(k, String(v)), list: async () => ({ keys: [] }) },
   AI: { run: async (_model, opts) => {
-    const response = JSON.stringify({ reply: question, fix: { ...fix, why_ko: '어제라서 과거형', tag: 'past_tense', severity: 'major' }, grade: 'partial' });
+    const response = JSON.stringify({ reply: question, fix: { ...routeFix, why_ko: '어제라서 과거형', tag: 'past_tense', severity: 'major' }, grade: 'partial' });
     if (!opts.stream) return { response };
     return new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('data: ' + JSON.stringify({ response }) + '\n\ndata: [DONE]\n\n')); c.close(); } });
   } } };
@@ -204,5 +205,13 @@ for (const kind of ['avatar', 'friend']) for (const stream of [0, 1]) {
     if (kind === 'friend') assert.equal(raw.prepare("SELECT content FROM ai_friend_chats WHERE student_uid=? AND role='assistant'").get(uid)?.content, final);
   });
 }
+routeFix = { was: 'What you do? I go park yesterday.', now: 'What did you do? I went to the park yesterday.' };
+const complex = await (await post('/api/warmup/chat', { session_id: 'focused-complex', student_input: routeFix.was,
+  correction_mode: 'focused', difficulty: 3 })).json();
+check('avatar correction containing an internal question is still spoken exactly three times', () => {
+  assert.equal(complex.fix?.now, routeFix.now);
+  assert.equal(complex.ai_response, H.ensureFocusedFixSpoken(question, 'focused', 'partial', routeFix));
+  assert.equal(complex.ai_response.split(routeFix.now).length - 1, 3);
+});
 raw.close();
 console.log(`PASS ${pass} / FAIL 0`);

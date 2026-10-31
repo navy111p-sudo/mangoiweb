@@ -4759,7 +4759,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     /* 🧭 (2026-10-31 사장님 「무조건 교정 후에 질문」) 교정 카드가 뜨는 턴이면, 답장은 고친 문장이 «질문보다 먼저»
        말해진 뒤에 질문으로 간다. 순서는 프롬프트에만 맡기지 않고 correctionLeadIn 이 보장한다.
        ⚠️ 히스토리 저장은 이 보정 «뒤» 에 한다 — 학생이 본 문장과 모델이 다음 턴에 읽는 문장을 같게 두기 위해서다. */
-    if (showFix) aiText = correctionLeadIn(aiText, showFix, ctxLang === 'zh' ? 'zh' : 'en');
+    // Focused speech is already canonical; an internal '?' must not add a fourth copy.
+    if (showFix && honest?.mode !== 'focused') aiText = correctionLeadIn(aiText, showFix, ctxLang === 'zh' ? 'zh' : 'en');
 
     // ── 히스토리 갱신(최근 N턴만) + 6시간 TTL 저장 ──
     try {
