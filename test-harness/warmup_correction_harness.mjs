@@ -163,8 +163,9 @@ const CORR = readFileSync(join(SRC, 'warmup-correction.ts'), 'utf8');
      교정 축)가 생겼습니다. 인자 «개수» 를 못 박으면 정당한 확장에 빨간불이 나므로
      «그 두 값을 그 순서로 넘기는가» 까지만 묻습니다. 지켜야 할 것은 그대로입니다 —
      모델이 준 rawFix 가 검증을 «거치지 않고» 응답에 실리면 안 된다. */
+  // 2026-10-31: 과거형 규칙(rawFix || 보완)이 앞에 붙어도 «검증을 거치는 것» 은 같다
   check('A-4 검증을 «반드시» 지난다 — 모델이 준 fix 를 그대로 응답에 싣지 않는다',
-        /verifyWarmupFix\(\s*rawFix\s*,\s*studentInput\s*[,)]/.test(H) && !/fix:\s*rawFix/.test(H));
+        /verifyWarmupFix\(\s*(?:rawFix|rawFix\s*\|\|[^,]+?)\s*,\s*studentInput\s*[,)]/.test(H) && !/fix:\s*rawFix/.test(H));
 
   check('A-5 응답에 검증·게이트를 통과한 것만 싣는다', /fix:\s*showFix\s*,\s*repeat:\s*offerRepeat/.test(H));
 
