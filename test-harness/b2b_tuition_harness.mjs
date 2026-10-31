@@ -302,7 +302,10 @@ if (!sqlite) {
   const bad2 = await call('view', 'GET', null, "' OR 1=1 --");
   ok(bad2.res.status === 404, '토큰 모양이 아니면 DB 를 묻기 전에 거절');
   raw.prepare(`INSERT INTO b2b_tuition_students (shop_name, uid, excluded, reason, updated_at) VALUES (?, 'abc123', 1, '내부메모-원장님과통화', 1)`).run(SHOP);
-  const v = await call('view');
+  // 화면 스냅샷은 실제 시계(KST 오늘의 달)를 본다 — 픽스처(NOW=10월 8일) 기준으로 고정해야 달이 바뀌어도 같은 답이 나온다
+  const realNowV = Date.now; Date.now = () => NOW;
+  let v;
+  try { v = await call('view'); } finally { Date.now = realNowV; }
   {
     const vsx = JSON.stringify(v.body);
     ok(!/내부메모-원장님과통화/.test(vsx) && /청구 제외/.test(vsx), '공개 화면에는 «제외 사유» 원문 대신 «청구 제외» 만', vsx.match(/내부메모[^"]*/));
