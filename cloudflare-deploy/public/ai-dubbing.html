@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
-<link rel="stylesheet" href="/css/ai-dubbing-home.css?v=14">
+<link rel="stylesheet" href="/css/ai-dubbing-home.css?v=15">
 <link rel="stylesheet" href="/css/ai-dubbing-guide.css?v=3">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>🎬 A.i영화더빙 — mangoi.ai</title>
@@ -362,6 +362,11 @@
       <span class="dub-eyebrow" data-ko="처음이라면 여기부터" data-en="New here? Start here">처음이라면 여기부터</span>
       <h2 id="dub-home-title" data-ko="짧은 한 장면으로 시작해요" data-en="Start with one short scene">짧은 한 장면으로 시작해요</h2>
     </div>
+    <div class="dub-home-selects">
+      <label><span data-ko="작품" data-en="Film">작품</span><select id="dub-home-film" disabled aria-label="작품 / Film"></select></label>
+      <label><span data-ko="에피소드" data-en="Episode">에피소드</span><select id="dub-home-scene" disabled aria-label="에피소드 / Episode"></select></label>
+      <label><span data-ko="학습 모드" data-en="Learning mode">학습 모드</span><select id="dub-home-mode"><option value="practice" data-ko="자막 보며 연습" data-en="Practise with subtitles">자막 보며 연습</option><option value="presentation" data-ko="자막 없이 발표" data-en="Perform without subtitles">자막 없이 발표</option></select></label>
+    </div>
     <div class="dub-home-actions">
       <button type="button" class="dub-home-action primary" id="dub-quick-start" disabled>
         <span class="dub-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M8 5v14l11-7z"/></svg></span>
@@ -370,14 +375,14 @@
       <button type="button" class="dub-home-action resume" id="dub-quick-resume"><span class="dub-action-copy"><b data-ko="하던 연습 계속하기" data-en="Continue practising">하던 연습 계속하기</b><small data-ko="녹음하던 곳부터 이어 해요" data-en="Pick up your saved practice">녹음하던 곳부터 이어 해요</small></span><span class="dub-action-arrow" aria-hidden="true">→</span></button>
       <button type="button" class="dub-home-action library" id="dub-quick-library"><span class="dub-action-copy"><b data-ko="내 영상 보기" data-en="My videos">내 영상 보기</b><small data-ko="다시 보고, 파일로 받아요" data-en="Watch and download your videos">다시 보고, 파일로 받아요</small></span><span class="dub-action-arrow" aria-hidden="true">→</span></button>
     </div>
-    <div class="dub-how">
+    <details class="dub-how dub-accordion"><summary data-ko="처음이라면? 사용 방법" data-en="New here? How it works">처음이라면? 사용 방법</summary>
       <p class="dub-how-label" data-ko="이 순서로 연습하면 쉬워요" data-en="An easy way to practise">이 순서로 연습하면 쉬워요</p>
       <ol class="dub-steps"><li><b>1</b><span data-ko="영상 먼저 보기" data-en="Watch the scene">영상 먼저 보기</span></li><li><b>2</b><span data-ko="내 목소리로 더빙" data-en="Record your voice">내 목소리로 더빙</span></li><li><b>3</b><span data-ko="내 영상 다시 보기" data-en="Watch your video">내 영상 다시 보기</span></li></ol>
-    </div>
+    </details>
   </section>
 
   <section class="panel" id="dub-use-guide" aria-labelledby="dub-use-guide-title">
-    <details class="dub-explain">
+    <details class="dub-explain dub-accordion">
     <summary id="dub-use-guide-title" data-ko="친구들과 함께 더빙하는 방법 · 저장 안내" data-en="Record with friends · Saving guide">친구들과 함께 더빙하는 방법 · 저장 안내</summary>
     <p class="hint" data-ko="한 컴퓨터와 마이크를 함께 사용해요. 아래 순서대로 연습하고 발표해 보세요." data-en="Share one computer and microphone. Follow these steps to practise and present.">한 컴퓨터와 마이크를 함께 사용해요. 아래 순서대로 연습하고 발표해 보세요.</p>
     <ol class="dub-use-steps">
@@ -396,8 +401,9 @@
     </details>
   </section>
 
-  <section class="panel dub-library" id="dub-library" aria-labelledby="dub-library-title" hidden>
-    <div class="dub-library-heading"><h2 id="dub-library-title" data-ko="내 영상과 연습" data-en="My videos and practice">내 영상과 연습</h2><button type="button" class="btn" id="dub-library-close"><span data-ko="닫기" data-en="Close">닫기</span></button></div>
+  <section class="panel dub-library" id="dub-library" aria-labelledby="dub-library-title">
+    <details id="dub-library-fold" class="dub-accordion"><summary id="dub-library-title" data-ko="내 작품 보관함" data-en="My work library">내 작품 보관함</summary>
+    <div class="dub-library-heading"><h2 data-ko="내 영상과 연습" data-en="My videos and practice">내 영상과 연습</h2><button type="button" class="btn" id="dub-library-close"><span data-ko="닫기" data-en="Close">닫기</span></button></div>
     <div class="dub-library-tabs"><button type="button" class="btn" data-library-view="movies" aria-pressed="true"><span data-ko="내 영상" data-en="My videos">내 영상</span></button><button type="button" class="btn" data-library-view="drafts" aria-pressed="false"><span data-ko="이어할 연습" data-en="Saved practice">이어할 연습</span></button><button type="button" class="btn" id="dub-library-refresh"><span data-ko="새로고침" data-en="Refresh">새로고침</span></button></div>
     <div class="dub-library-filters" id="dub-library-filters">
       <label for="dub-library-search"><span data-ko="모둠 이름 검색" data-en="Search group names">모둠 이름 검색</span><input type="search" id="dub-library-search" maxlength="60" autocomplete="off" placeholder="예: 1모둠, 무지개" data-ko-placeholder="예: 1모둠, 무지개" data-en-placeholder="e.g. Group 1, Rainbow" aria-describedby="dub-library-filter-help"></label>
@@ -416,6 +422,7 @@
     <div class="dub-library-bulk" id="dub-library-bulk" hidden></div>
     <div class="dub-library-items" id="dub-library-items"></div>
     <details class="dub-explain dub-storage-info"><summary data-ko="영상은 어디에 저장되나요?" data-en="Where are my videos saved?">영상은 어디에 저장되나요?</summary><p class="hint" data-ko="‘내 계정에 저장됨’이라고 표시된 영상은 로그인한 다른 기기에서도 볼 수 있어요. ‘이 기기에만 저장됨’은 지금 쓰는 브라우저에만 남아 있어요. 계정당 영상 20개·연습 12개, 영상 하나당 64MB까지 보관해요." data-en="Videos marked ‘Saved to my account’ are available on your other signed-in devices. ‘Saved on this device only’ means the video stays in this browser. Each account can keep 20 videos and 12 practices, with up to 64 MB per video.">‘내 계정에 저장됨’이라고 표시된 영상은 로그인한 다른 기기에서도 볼 수 있어요. ‘이 기기에만 저장됨’은 지금 쓰는 브라우저에만 남아 있어요. 계정당 영상 20개·연습 12개, 영상 하나당 64MB까지 보관해요.</p></details>
+    </details>
   </section>
 
   <div class="dub-browse-heading"><h2 data-ko="다른 영상도 골라볼까요?" data-en="Choose another video">다른 영상도 골라볼까요?</h2><p class="hint" data-ko="아래에서 이야기를 고르고, 보고 싶은 장면을 눌러요." data-en="Choose a story below, then pick a scene.">아래에서 이야기를 고르고, 보고 싶은 장면을 눌러요.</p></div>
@@ -638,9 +645,9 @@
 <script defer src="/js/ai-dubbing-library.js?v=4"></script>
 <script defer src="/js/ai-dubbing-practice.js?v=1"></script>
 <script defer src="/vendor/jszip/jszip.min.js?v=3.10.1"></script>
-<script defer src="/js/ai-dubbing-home.js?v=22"></script>
+<script defer src="/js/ai-dubbing-home.js?v=23"></script>
 <script defer src="/js/ai-dubbing-intro.js?v=1"></script>
-<script defer src="/js/ai-dubbing.js?v=24"></script>
+<script defer src="/js/ai-dubbing.js?v=25"></script>
 <script defer src="/js/ai-dubbing-guide-voice.js?v=3"></script>
 <script defer src="/js/ai-dubbing-guide.js?v=3"></script>
 <aside id="dub-sync-notification" class="dub-sync-notification" role="status" aria-live="polite" hidden>

@@ -163,3 +163,29 @@ body .top{padding-right:158px}
 .dub-sync-notification button{flex:none}
 
 .dub-sync-notification-content{flex:1;min-width:0}.dub-sync-notification-content>span{display:block}.dub-sync-notification-content p{margin:6px 0;font-size:13px}.dub-sync-notification-content progress{display:block;width:100%;height:10px;accent-color:#39c79b;margin:10px 0}.dub-sync-notification-content progress[hidden],.dub-sync-notification-content button[hidden]{display:none}.dub-sync-notification-content button{white-space:normal;text-align:center;min-height:44px;max-width:100%}
+
+/* Compact selection and progressive disclosure. Native controls retain keyboard support. */
+body .wrap{max-width:1120px}
+.dub-home-selects{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.dub-home-selects label{display:grid;gap:8px;font-size:15px;font-weight:700;min-width:0}
+.dub-home-selects select{width:100%;min-height:52px;padding:10px 14px;border:1px solid #657792;border-radius:12px;background:#172338;color:#f3f6ff;font:inherit;text-overflow:ellipsis}
+.dub-home-selects select:focus-visible{outline:3px solid #f7bd47;outline-offset:3px}
+.wrap .dub-home{border-color:#b88d38}
+.dub-home-actions{grid-template-columns:1.3fr 1fr 1fr;grid-template-rows:auto}
+.dub-home-action.primary{grid-row:auto;padding:18px}
+.dub-home-action.primary b{font-size:21px}
+.dub-action-icon{width:44px;height:44px}
+.dub-accordion>summary{display:flex;align-items:center;justify-content:space-between;gap:16px;list-style:none;cursor:pointer;min-height:48px;font-size:17px;font-weight:800;color:#edf3ff;padding:8px 0}
+.dub-accordion>summary::-webkit-details-marker{display:none}
+.dub-accordion>summary::after{content:'⌄';color:#f7bd47;font-size:24px;flex:none}
+.dub-accordion[open]>summary::after{content:'⌃'}
+.dub-accordion>summary:focus-visible{outline:3px solid #f7bd47;outline-offset:4px;border-radius:6px}
+.dub-accordion[open]>summary{margin-bottom:14px}
+#dub-use-guide>.dub-explain{border:0;padding:0}
+.dub-library-heading{margin:12px 0}
+@media(max-width:680px){
+ .dub-home-selects{grid-template-columns:1fr;gap:12px}
+ .dub-home-actions{grid-template-columns:1fr 1fr}
+ .dub-home-action.primary{grid-column:1/-1;min-height:100px}
+ .dub-accordion>summary{font-size:16px}
+}

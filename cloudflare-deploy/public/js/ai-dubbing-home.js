@@ -1139,7 +1139,17 @@
   function render() {
     var b = $('dub-quick-start'), note = $('dub-quick-detail'), ep = adapter && adapter.episode();
     if (!b) return;
-    var i = ep ? shortScene(ep) : -1;
+    var picker = $('dub-home-scene');
+    if (picker && ep && picker.getAttribute('data-episode') !== ep.id) {
+      picker.replaceChildren();
+      ep.scenes.forEach(function (sc, index) {
+        var option = node('option', '', 'EP. ' + sc.no + ' · ' + pair(sc.label));
+        option.value = String(index); option.disabled = !sc.video || !sc.lines.length; picker.append(option);
+      });
+      picker.value = String(shortScene(ep)); picker.setAttribute('data-episode', ep.id);
+    }
+    if (picker) picker.disabled = !ep || adapter.busy();
+    var i = ep ? (picker ? Number(picker.value) : shortScene(ep)) : -1;
     b.disabled = !ep || i < 0 || adapter.busy();
     if ($('dub-library-start')) $('dub-library-start').disabled = b.disabled;
     if (note && ep) {
@@ -1159,14 +1169,16 @@
   }
   function startShort() {
     if (!adapter || !adapter.episode() || adapter.busy()) return;
-    var i = shortScene(adapter.episode());
-    if (i >= 0) adapter.shortStart(i);
+    var picker = $('dub-home-scene');
+    var i = picker ? Number(picker.value) : shortScene(adapter.episode());
+    if (i >= 0) adapter.shortStart(i, $('dub-home-mode') ? $('dub-home-mode').value : 'practice');
   }
   function openLibrary(nextView) {
     if (adapter && adapter.busy()) return;
     view = nextView === 'drafts' ? 'drafts' : 'movies';
     var panel = $('dub-library'); if (!panel) return;
     panel.hidden = false;
+    if ($('dub-library-fold')) $('dub-library-fold').open = true;
     Array.prototype.forEach.call(panel.querySelectorAll('[data-library-view]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-library-view') === view)); });
     panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return refresh();
@@ -1349,15 +1361,19 @@
     if ($('dub-library-refresh')) $('dub-library-refresh').addEventListener('click', refresh);
     if ($('dub-library-search')) $('dub-library-search').addEventListener('input', drawCatalogue);
     if ($('dub-library-layout')) $('dub-library-layout').addEventListener('change', drawCatalogue);
-    if ($('dub-library-close')) $('dub-library-close').addEventListener('click', function () { $('dub-library').hidden = true; ++generation; catalogue = null; clearItems(); });
+    if ($('dub-library-close')) $('dub-library-close').addEventListener('click', function () { if ($('dub-library-fold')) $('dub-library-fold').open = false; else $('dub-library').hidden = true; ++generation; catalogue = null; clearItems(); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-library-view]'), function (b) { b.addEventListener('click', function () { openLibrary(b.getAttribute('data-library-view')); }); });
     L.onAccountChange(function () { ++reconnectEpoch; reconnectTask = null; syncNoticeState = null; if ($('dub-sync-notification')) $('dub-sync-notification').hidden = true; ++generation; catalogue = null; clearItems(); if ($('dub-library-search')) $('dub-library-search').value = ''; status(t('계정이 바뀌었어요. 내 보관함을 다시 열어 주세요.', 'Your account changed. Reopen your library.')); adapter.accountChanged(); });
-    window.addEventListener('mangoi:lang-changed', function () { render(); if ($('dub-library') && !$('dub-library').hidden) refresh(); });
+    window.addEventListener('mangoi:lang-changed', function () { render(); if ($('dub-library') && !$('dub-library').hidden && (!$('dub-library-fold') || $('dub-library-fold').open)) refresh(); });
     if ($('dub-sync-notification-retry')) $('dub-sync-notification-retry').addEventListener('click', retrySyncNotice);
     if ($('dub-sync-notification-close')) $('dub-sync-notification-close').addEventListener('click', function () { $('dub-sync-notification').hidden = true; });
     window.addEventListener('online', syncConnectionsWhenOnline);
     window.addEventListener('pageshow', function (event) { if (event.persisted) return syncConnectionsWhenOnline(); });
     window.addEventListener('pagehide', function () { ++reconnectEpoch; reconnectTask = null; syncNoticeState = null; if ($('dub-sync-notification')) $('dub-sync-notification').hidden = true; if (catalogue && catalogue.upload && catalogue.upload.connecting) { var u = catalogue.upload; saveConnections(catalogue, u); u.connectionEpoch++; u.stopped = true; u.busy = false; u.connecting = false; } if (uploadJob) { uploadJob.state.stopped = true; rememberUpload(uploadJob.catalogue, uploadJob.state); } downloadPauses.slice().forEach(function (pause) { pause(); }); releaseUrls(); });
+    if ($('dub-home-scene')) $('dub-home-scene').addEventListener('change', render);
+    if ($('dub-library-fold')) $('dub-library-fold').addEventListener('toggle', function () {
+      if (this.open) refresh(); else { ++generation; catalogue = null; clearItems(); }
+    });
     render();
     syncConnectionsWhenOnline();
   }

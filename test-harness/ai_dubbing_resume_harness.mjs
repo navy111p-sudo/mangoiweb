@@ -29,6 +29,8 @@ const fixture={id:'fixture',title:{ko:'모험',en:'Adventure'},status:'final',no
   {no:2,label:{ko:'짧은 장면',en:'Short scene'},video:'/two.mp4',durationSec:30,lines:[{id:'b',speaker:'mina',en:'Thank you!',ko:'고마워!'}]},
   {no:3,label:{ko:'마지막 장면',en:'Last scene'},video:'/three.mp4',durationSec:45,lines:[{id:'c',speaker:'jun',en:'Let us go!',ko:'가자!'}]},
 ]};
+// 보관함 «닫힘» = 옛 화면은 section hidden, 접이식(#dub-library-fold) 화면은 접힘 / closed = hidden section or collapsed fold
+const libraryClosed=x=>x.el('dub-library').hidden===true||x.el('dub-library-fold').open===false;
 function world(sharedData){
   const els=new Map(),data=sharedData||new Map(),listeners=[],events=new Map();
   const el=id=>{if(!els.has(id)){const e=new El();e.id=id;e.root=true;els.set(id,e);}return els.get(id);};
@@ -901,7 +903,7 @@ test('closed library reconnect syncs persisted results in batches, resumes only 
   const {x,server}=await crossUploadFixture();server.offline=true;const picker=originalPicker(x);picker.files=Array.from({length:60},(_,i)=>namedOriginal(new Blob([]),'닫힌 보관함 '+i+'.webm'));await picker.fire('change');for(let i=0;i<10;i++)await tick();await x.el('dub-library-close').fire('click');
   server.offline=false;const save=x.lib.saveUpload;let calls=0,sent=[];x.lib.saveUpload=async(job,owner)=>{if(job.connections){sent.push(structuredClone(job.connections));if(++calls===2)throw Error('offline');}return save(job,owner);};
   x.el('dub-sync-notification').hidden=true;await x.online();assert.equal(x.el('dub-sync-notification').hidden,false);assert.match(x.el('dub-sync-notification-text').textContent,/동기화에 실패/);assert.equal(sent.length,2);const ack=new Set(sent[0].rows.map(r=>r.key));sent=[];
-  await Promise.all([x.online(),x.online()]);assert.equal(sent.reduce((n,h)=>n+h.rows.length,0),35);assert.ok(sent.every(h=>h.rows.every(r=>!ack.has(r.key))));assert.equal(x.el('dub-library').hidden,true);assert.equal(x.el('dub-sync-notification').hidden,false);assert.match(x.el('dub-sync-notification-text').textContent,/남은 기록의 계정 동기화를 완료/);assert.equal(x.uploadCalls.length,0);
+  await Promise.all([x.online(),x.online()]);assert.equal(sent.reduce((n,h)=>n+h.rows.length,0),35);assert.ok(sent.every(h=>h.rows.every(r=>!ack.has(r.key))));assert.ok(libraryClosed(x));assert.equal(x.el('dub-sync-notification').hidden,false);assert.match(x.el('dub-sync-notification-text').textContent,/남은 기록의 계정 동기화를 완료/);assert.equal(x.uploadCalls.length,0);
   await x.el('dub-sync-notification-close').fire('click');assert.equal(x.el('dub-sync-notification').hidden,true);await x.ctx.MangoiDubHome.openLibrary('movies');assert.match(connectionList(x).textContent,/60 \/ 60개 완료/);
 });
 test('closed background sync cannot continue or show a notice after account changes, pagehide or cloud deletion',async()=>{
@@ -916,7 +918,7 @@ test('closed background sync cannot continue or show a notice after account chan
 test('closing during foreground reconnect hands remaining results to background without reopening the library',async()=>{
   const {x,server}=await crossUploadFixture();server.offline=true;const picker=originalPicker(x);picker.files=[namedOriginal(new Blob([]),'인계 원본.webm')];await picker.fire('change');for(let i=0;i<10;i++)await tick();server.offline=false;
   const list=x.lib.listUploads,hold=deferred();let calls=0;x.lib.listUploads=async()=>{if(++calls===1)await hold.promise;return list();};const task=x.online();await until(()=>calls===1);await x.el('dub-library-close').fire('click');hold.resolve();await task;
-  assert.equal(x.el('dub-library').hidden,true);assert.equal(x.el('dub-sync-notification').hidden,false);assert.ok(server.jobs[0].connections.rows.some(r=>r.name==='인계 원본.webm'));assert.equal(x.uploadCalls.length,0);
+  assert.ok(libraryClosed(x));assert.equal(x.el('dub-sync-notification').hidden,false);assert.ok(server.jobs[0].connections.rows.some(r=>r.name==='인계 원본.webm'));assert.equal(x.uploadCalls.length,0);
 });
 
 test('a fresh online app syncs remembered results before opening the library and does not repeat its completion notice',async()=>{
