@@ -31,9 +31,9 @@ const ok = (name, cond, extra) => {
 /* ── 정본 불러오기 (타입만 벗긴다) ── */
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wuhonest-'));
 const HONEST_SRC = process.env.HONEST_SRC || path.join(SRC, 'warmup-honest.ts');
-for (const [from, to] of [[path.join(SRC, 'warmup-empathy.ts'), 'warmup-empathy.mjs'], [HONEST_SRC, 'warmup-honest.mjs']]) {
+for (const [from, to] of [[path.join(SRC, 'warmup-empathy.ts'), 'warmup-empathy.mjs'], [path.join(SRC, 'warmup-shop-mode.ts'), 'warmup-shop-mode.mjs'], [HONEST_SRC, 'warmup-honest.mjs']]) {
   let js = stripTypeScriptTypes(fs.readFileSync(from, 'utf8'));
-  js = js.replace(/from '\.\/warmup-empathy'/g, "from './warmup-empathy.mjs'");
+  js = js.replace(/from '\.\/warmup-empathy'/g, "from './warmup-empathy.mjs'").replace(/from '\.\/warmup-shop-mode'/g, "from './warmup-shop-mode.mjs'");   // 🎚️ 2026-10-31 원장님 학원 설정
   fs.writeFileSync(path.join(tmp, to), js);
 }
 const H = await import(pathToFileURL(path.join(tmp, 'warmup-honest.mjs')).href);
@@ -112,7 +112,7 @@ const mkEnv = (rows, { throwDb = false, kvInit = {} } = {}) => {
   ok('시범 학원 학생 → { mode: focused }', (await H.resolveWarmupHonest(e.env, 's1', 'kim01'))?.mode === 'focused');
   ok('다른 학원 학생 → null', (await H.resolveWarmupHonest(e.env, 's1', 'lee01')) === null);
   ok('명부에 없는 학생 → null', (await H.resolveWarmupHonest(e.env, 's1', 'nobody')) === null);
-  ok('조회는 user_id 로 좁힌다', e.sqls.every((s) => /WHERE user_id = \?/.test(s)));
+  ok('학생 조회는 user_id 로 좁힌다', e.sqls.filter((s) => /FROM students_erp/.test(s)).length > 0 && e.sqls.filter((s) => /FROM students_erp/.test(s)).every((s) => /WHERE user_id = \?/.test(s)));   // 2026-10-31: 원장님 설정 표(warmup_shop_mode)는 학원 이름으로 읽는다
   const before = e.calls();
   ok('같은 세션 두 번째는 KV 캐시(DB 안 부름)', (await H.resolveWarmupHonest(e.env, 's1', 'kim01'))?.mode === 'focused' && e.calls() === before);
   ok('중국어 대화 → null', (await H.resolveWarmupHonest(e.env, 's2', 'kim01', { lang: 'zh' })) === null);
