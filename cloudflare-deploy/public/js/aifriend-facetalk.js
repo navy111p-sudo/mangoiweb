@@ -40,16 +40,16 @@
      ⚠️ 이 파일은 defer 라 화면의 인라인 스크립트가 먼저 돈다. speakText 는 그 스크립트의
         최상위 함수 선언이라 window 속성과 «같은 바인딩» 이다 — 여기서 갈아 끼우면 화면 안의
         맨이름 호출(stmSpeak·sendMsg)도 이 감싼 판을 부른다. */
-  var pending = 0, lastSpeakEnd = 0, spokeThisTurn = false;
+  var pending = 0, lastSpeakEnd = 0, spokeThisTurn = false, speechEpoch = 0;
   (function wrapSpeak() {
     if (typeof window.speakText !== 'function' || window.speakText.__ftk) return;
     var orig = window.speakText;
     var wrapped = function (text, btn, row, onDone) {
-      var fired = false;
+      var fired = false, epoch = speechEpoch;
       pending++; spokeThisTurn = true;
       var fin = function () {
         if (fired) return; fired = true;
-        pending = Math.max(0, pending - 1); lastSpeakEnd = Date.now();
+        if (epoch === speechEpoch) { pending = Math.max(0, pending - 1); lastSpeakEnd = Date.now(); }
         if (typeof onDone === 'function') { try { onDone(); } catch (e) {} }
       };
       /* 원본이 조용히 돌아가 버리는 경우(빈 글·⚠️ 줄·TTS 없음)에도 세기가 영영 안 남도록 */
@@ -59,6 +59,16 @@
     };
     wrapped.__ftk = true;
     window.speakText = wrapped;
+  })();
+  // TTS.stop() deliberately does not call onend. Clear canceled speech immediately,
+  // and ignore its late completion when a newer greeting is already playing.
+  (function wrapStop() {
+    var orig = window.stopSpeakingNow;
+    if (typeof orig !== 'function') return;
+    window.stopSpeakingNow = function () {
+      speechEpoch++; pending = 0; lastSpeakEnd = Date.now();
+      return orig.apply(this, arguments);
+    };
   })();
   function avatarSpeaking() {
     var w = document.getElementById('tavatar-wrap');
@@ -279,6 +289,7 @@
     var heard = false, errReason = '';
     var said = await MangoiVoice.record({
       lang: 'en',
+      silenceMs: 1500, // Faster hands-free turn end; retain the 700ms speaker echo guard.
       onState: function (s, info) {
         if (my !== turnSeq) return;
         if (s === 'speaking') { heard = true; root.classList.add('heard'); if (open && noteEl.textContent) clearHelp(); }
