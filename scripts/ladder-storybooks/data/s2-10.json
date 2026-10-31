@@ -1,0 +1,310 @@
+{
+  "id": "s2-10",
+  "breaks": [
+    3,
+    4,
+    3
+  ],
+  "key": {
+    "P": 1,
+    "S": 6
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «마을 사람들이 나눌 음식이 없다고 한 것(문제)» 과 «모두가 냄비에 무언가를 넣은 것(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the villagers said they had no food to share) and the solution (everyone put something into the pot). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "A tired traveler, the villagers"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "The villagers said they had no food to share."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Everyone put a little food into the stone soup."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "A hungry ",
+      "ans": "traveler",
+      "opts": [
+        "traveler",
+        "king",
+        "doctor"
+      ]
+    },
+    {
+      "pre": " came to a small village. The villagers said they had no ",
+      "ans": "food",
+      "opts": [
+        "food",
+        "toys",
+        "shoes"
+      ]
+    },
+    {
+      "pre": " to share. So he put a smooth ",
+      "ans": "stone",
+      "opts": [
+        "stone",
+        "apple",
+        "coin"
+      ]
+    },
+    {
+      "pre": " in a pot of water. Then each villager added something, like carrots and ",
+      "ans": "potatoes",
+      "opts": [
+        "potatoes",
+        "rocks",
+        "books"
+      ]
+    },
+    {
+      "pre": ". Together they made a big ",
+      "ans": "feast",
+      "opts": [
+        "feast",
+        "fight",
+        "mess"
+      ]
+    },
+    {
+      "pre": ", and there was enough for all.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "traveler",
+      "나그네, 여행자",
+      "A tired <b>traveler</b> came to a small village with an empty pot.",
+      "a person who goes on a trip"
+    ],
+    [
+      "villagers",
+      "마을 사람들",
+      "He was hungry, but the <b>villagers</b> said they had no food to share.",
+      "people who live in a village"
+    ],
+    [
+      "share",
+      "나누다",
+      "the villagers said they had no food to <b>share</b>",
+      "to give part of what you have to others"
+    ],
+    [
+      "smooth",
+      "매끈한",
+      "So he filled his pot with water and put a <b>smooth</b> stone inside.",
+      "flat and even, not rough"
+    ],
+    [
+      "curious",
+      "호기심 많은",
+      "A <b>curious</b> woman brought a carrot from her garden.",
+      "wanting to know or see something"
+    ],
+    [
+      "feast",
+      "잔치",
+      "Nobody had much alone, but together they made a big <b>feast</b>.",
+      "a large, special meal"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did the curious woman bring a carrot?",
+      "qko": "호기심 많은 여자는 왜 당근을 가져왔나요?",
+      "opts": [
+        "The traveler said a carrot would make the soup better.",
+        "She wanted to eat the stone.",
+        "The traveler paid her money."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "So he filled his pot with water and put a smooth stone inside.",
+        "\"I am making stone soup,\" he said. \"It is delicious, but a carrot would make it better.\"",
+        "A curious woman brought a carrot from her garden.",
+        "He was hungry, but the villagers said they had no food to share."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "나그네가 당근이 있으면 수프가 더 맛있어진다고 말했어요. 그래서 여자가 당근을 가져왔어요.",
+        "The traveler said a carrot would make the soup better, so the woman brought one."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In this story, what does \"feast\" mean?",
+      "qko": "이 이야기에서 «feast» 는 무슨 뜻인가요?",
+      "opts": [
+        "a big meal that many people eat together",
+        "a small snack for one person",
+        "a long walk in the village"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "The soup smelled wonderful, and the whole village sat down to eat together.",
+        "A tired traveler came to a small village with an empty pot.",
+        "Then a farmer added some potatoes, and a boy brought onions.",
+        "So he filled his pot with water and put a smooth stone inside."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "마을 사람 모두가 함께 앉아 수프를 먹었어요. 그러니 여럿이 함께 먹는 큰 식사라는 뜻이에요.",
+        "The whole village sat down to eat together, so a feast is a big meal for many people."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did the village have enough food, even though they said they had none?",
+      "qko": "마을 사람들은 음식이 없다고 했는데, 어떻게 모두가 먹을 만큼 생겼나요?",
+      "opts": [
+        "Each person gave a little, and together it was a lot.",
+        "The stone turned into food.",
+        "The traveler bought food in another town."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "So he filled his pot with water and put a smooth stone inside.",
+        "Soon, everyone in the village put something into the pot.",
+        "Nobody had much alone, but together they made a big feast.",
+        "A tired traveler came to a small village with an empty pot."
+      ],
+      "ev": [
+        1,
+        2
+      ],
+      "why": [
+        "모두가 냄비에 무언가를 넣었고, 혼자서는 적었지만 함께 모으니 큰 잔치가 되었어요. 두 문장을 이으면 알 수 있어요.",
+        "Everyone put something into the pot. Nobody had much alone, but together they made a big feast."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "The traveler visits another village with his stone.",
+      "나그네가 돌을 들고 다른 마을에 가요.",
+      "Stone Soup Again"
+    ],
+    [
+      "B",
+      "The villagers plan a sharing party every month.",
+      "마을 사람들이 달마다 나눔 잔치를 열기로 해요.",
+      "The Sharing Party"
+    ]
+  ],
+  "write": {
+    "pre": "If",
+    "mid": "we can",
+    "sep": ", ",
+    "slots": [
+      "cl",
+      "vp"
+    ],
+    "src": "“If <u>everyone brings one thing</u>, we can <u>have a big party</u>.”",
+    "slotKo": [
+      "모두가 하는 일",
+      "그러면 함께 할 수 있는 일"
+    ],
+    "slotEn": [
+      "what everyone does",
+      "what we can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «모두가 하는 일 + 그러면 함께 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what everyone does and what we can do together in English.",
+    "chips": [
+      {
+        "a": "we all clean up",
+        "b": "finish quickly",
+        "label": "clean up"
+      },
+      {
+        "a": "each friend brings a book",
+        "b": "make a class library",
+        "label": "books"
+      },
+      {
+        "a": "we work together",
+        "b": "build a tall tower",
+        "label": "tower"
+      }
+    ],
+    "aria": [
+      "what everyone does",
+      "what we can do"
+    ],
+    "moreKo": "한 걸음 더: «If» 뒤에는 «누가 + 무엇을 한다», «we can» 뒤에는 동사로 시작해 보세요. (예: we can share our snacks)",
+    "moreEn": "One more step: after «If», write who + what they do. After «we can», start with a verb. (e.g. we can share our snacks)"
+  },
+  "img": {
+    "style": "fairytale",
+    "cover": "In a small village square, a tired man with a gray hat and a long brown coat stirs a big black pot over a fire, while villagers gather around holding carrots, potatoes and onions.",
+    "scenes": {
+      "1": "Beside the big black pot over a fire, a woman hands a carrot to the tired man with a gray hat and a long brown coat, while a farmer carries potatoes and a small boy holds onions.",
+      "2": "The whole village sits together at a long wooden table outside, eating bowls of soup and smiling, with the man in the gray hat and long brown coat among them and the big black pot nearby."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "A woman, a farmer and a boy bring food for the soup.",
+    "2": "The whole village eats soup together at a long table.",
+    "cover": "Villagers gather around the traveler's big pot of soup."
+  }
+}

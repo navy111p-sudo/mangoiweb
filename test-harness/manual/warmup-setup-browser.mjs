@@ -57,6 +57,10 @@ const check = (name, cond, extra = '') => {
 
 const browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbox'] });
 
+/* 2026-10-18 — 1100px 이상(높이 620 이상) PC 는 «3단계 카드(B안)» 로 바뀌어 연령·수준 버튼이 숨고
+   드롭다운이 대신합니다(사장님 선택). 아래 1~9절은 «버튼 배치» 를 재므로 그 배치가 그대로인 1024px 에서 잽니다.
+   PC 배치는 맨 끝 «B안» 절이 따로 잽니다. ⛔ TAB_W 를 1100 이상으로 올리지 마세요(숨은 버튼을 눌러 30초 타임아웃). */
+const TAB_W = 1024;
 async function openWarmup(width, height, url = '/warmup.html') {
   // ⚠️ isMobile 은 켜지 않는다 — 폭만 좁히면 되는 검사에서 좌표가 어긋난다(CLAUDE.md 2장)
   const ctx = await browser.newContext({ viewport: { width, height } });
@@ -69,7 +73,7 @@ async function openWarmup(width, height, url = '/warmup.html') {
 
 console.log('\n[ 1. 열자마자 — 고르기 화면이 먼저 뜨고, 대화는 아직 시작 안 됐다 ]');
 {
-  const { ctx, page } = await openWarmup(1280, 900);
+  const { ctx, page } = await openWarmup(TAB_W, 900);
   const seen = await page.evaluate(() => {
     const el = document.getElementById('wuSetup');
     const r = el.getBoundingClientRect();
@@ -97,7 +101,7 @@ console.log('\n[ 1. 열자마자 — 고르기 화면이 먼저 뜨고, 대화�
 
 console.log('\n[ 2. 골라서 시작 — 고른 값이 그대로 서버 요청에 실린다 ]');
 {
-  const { ctx, page } = await openWarmup(1280, 900);
+  const { ctx, page } = await openWarmup(TAB_W, 900);
   const sent = [];
   page.on('request', (r) => {
     if (r.url().includes('/api/warmup/chat')) { try { sent.push(JSON.parse(r.postData() || '{}')); } catch { sent.push({}); } }
@@ -137,7 +141,7 @@ console.log('\n[ 2. 골라서 시작 — 고른 값이 그대로 서버 요청�
 
 console.log('\n[ 3. 🎯 내 수준 찾기 — 3번 눌러 끝나고, 서버를 부르지 않는다 ]');
 {
-  const { ctx, page } = await openWarmup(1280, 900);
+  const { ctx, page } = await openWarmup(TAB_W, 900);
   apiHits = [];
   await page.click('#wusFind');
   await page.waitForTimeout(200);
@@ -176,7 +180,7 @@ console.log('\n[ 3. 🎯 내 수준 찾기 — 3번 눌러 끝나고, 서버를 
 
 console.log('\n[ 4. 대화 중 ⋮ 로 다시 고르기 — 대화를 새로 시작하지 않는다 ]');
 {
-  const { ctx, page } = await openWarmup(1280, 900);
+  const { ctx, page } = await openWarmup(TAB_W, 900);
   await page.click('#wusStart');
   await page.waitForTimeout(1000);
   const before = await page.evaluate(() => document.querySelectorAll('#log .msg.ai').length);
@@ -226,7 +230,7 @@ console.log('\n[ 5. 휴대폰 폭(390) — 넘치지 않고 글자가 쪼개지�
 
 console.log('\n[ 6. ?setup=0 — 수업 흐름에서 곧바로 대화 ]');
 {
-  const { ctx, page } = await openWarmup(1280, 900, '/warmup.html?setup=0');
+  const { ctx, page } = await openWarmup(TAB_W, 900, '/warmup.html?setup=0');
   await page.waitForTimeout(1000);
   const r = await page.evaluate(() => ({
     hidden: document.getElementById('wuSetup').hidden,
@@ -310,7 +314,7 @@ console.log('\n[ 7. ⬅️🏠 나가는 길 — 설정 화면이 상단바를 �
 console.log('\n[ 8. ⬅️ 뒤로 — 어디에서 왔느냐에 따라 돌아갈 곳이 다르다 ]');
 {
   // ① 수준 찾기 중 → 목록으로 (그만두는 길이 아래 버튼 말고도 위에 있다)
-  const { ctx, page } = await openWarmup(1280, 900);
+  const { ctx, page } = await openWarmup(TAB_W, 900);
   await page.click('#wusFind');
   await page.waitForTimeout(200);
   await page.click('#wusNavBack');
@@ -340,11 +344,64 @@ console.log('\n[ 8. ⬅️ 뒤로 — 어디에서 왔느냐에 따라 돌아갈
 }
 {
   // ③ 밖에서 바로 들어온 첫 화면 → 홈으로 (history 가 없으면 아무 데도 못 가는 것이 제일 나쁘다)
-  const { ctx, page } = await openWarmup(1280, 900);
+  const { ctx, page } = await openWarmup(TAB_W, 900);
   await page.click('#wusNavBack');
   await page.waitForTimeout(600);
   const url = new URL(page.url());
   check('바로 들어온 첫 화면에서 누르면 홈으로 나간다', url.pathname === '/', page.url());
+  await ctx.close();
+}
+
+console.log('\n[ B안. PC(1920×945) — 3단계 카드 · 드롭다운이 기존 선택을 그대로 바꾼다 · 좁히면 원래 배치 ]');
+{
+  const { ctx, page } = await openWarmup(1920, 945);
+  const sent = [];
+  page.on('request', (r) => {
+    if (r.url().includes('/api/warmup/chat')) { try { sent.push(JSON.parse(r.postData() || '{}')); } catch { sent.push({}); } }
+  });
+  const lay = await page.evaluate(() => {
+    const pc = document.getElementById('wusPc3'), s = document.getElementById('wuSetup');
+    const vis = (id) => { const e = document.getElementById(id); return !!e && getComputedStyle(e).display !== 'none'; };
+    return { pc: !!pc && !pc.hidden && getComputedStyle(pc).display !== 'none',
+      cards: pc ? pc.querySelectorAll('.wus-pcc').length : 0,
+      ageSel: vis('wusAgeSel'), lvlSel: vis('wusLevelSel'), agesHidden: !vis('wusAges'), lvlsHidden: !vis('wusLevels'),
+      fits: s.scrollHeight <= s.clientHeight + 1, sh: s.scrollHeight, ch: s.clientHeight };
+  });
+  check('PC 에서 3단계 카드가 보인다(카드 3장)', lay.pc && lay.cards === 3, JSON.stringify(lay));
+  check('연령·수준은 드롭다운으로 바뀐다(버튼 줄은 숨김)', lay.ageSel && lay.lvlSel && lay.agesHidden && lay.lvlsHidden, JSON.stringify(lay));
+  check('스크롤 없이 한 화면에 들어간다', lay.fits, lay.sh + '/' + lay.ch);
+  await page.selectOption('#wusAgeSel', 'adult');
+  await page.selectOption('#wusLevelSel', '6');
+  const marked = await page.evaluate(() => ({
+    age: !!document.querySelector('#wusAges [data-age="adult"].on'),
+    lvl: !!document.querySelector('#wusLevels [data-lvl="6"].on'),
+    note: (document.getElementById('wusLevelNote') || {}).textContent || '',
+  }));
+  check('드롭다운으로 고르면 기존 버튼 선택도 바뀐다(짝)', marked.age && marked.lvl, JSON.stringify(marked));
+  check('수준 설명 줄이 채워진다', marked.note.trim().length > 0, marked.note);
+  await page.click('#wusStart');
+  await page.waitForTimeout(1200);
+  const saved = await page.evaluate(() => [localStorage.getItem('mangoi_warmup_age'), localStorage.getItem('mangoi_warmup_level'),
+    document.getElementById('wuSetup').hidden]);
+  check('PC 에서 시작하면 설정이 닫히고 고른 값이 저장된다', saved[0] === 'adult' && saved[1] === '6' && saved[2] === true, saved.join('/'));
+  await page.fill('#inp', 'Hello!');
+  await page.click('#sendBtn');
+  await page.waitForTimeout(1200);
+  const last = sent[sent.length - 1] || {};
+  check('PC 에서 고른 연령·수준이 서버 요청에 실린다', last.age_group === 'adult' && last.difficulty === 6, JSON.stringify(last).slice(0, 200));
+  await ctx.close();
+}
+{
+  const { ctx, page } = await openWarmup(1920, 945);
+  await page.setViewportSize({ width: 900, height: 945 });
+  await page.waitForTimeout(400);
+  const back = await page.evaluate(() => {
+    const pc = document.getElementById('wusPc3');
+    return { pcHidden: !pc || pc.hidden || getComputedStyle(pc).display === 'none',
+      agesVis: getComputedStyle(document.getElementById('wusAges')).display !== 'none',
+      inCard: !!document.querySelector('#wusPc3 #wusGLang, #wusPc3 #wusGAge') };
+  });
+  check('좁히면 카드가 사라지고 원래 버튼 배치로 돌아온다', back.pcHidden && back.agesVis && !back.inCard, JSON.stringify(back));
   await ctx.close();
 }
 

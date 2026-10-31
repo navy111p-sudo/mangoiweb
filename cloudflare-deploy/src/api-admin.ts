@@ -1,4 +1,6 @@
+import { dropCafe24SlotDuplicates } from './cafe24-slot-duplicates';
 import { WEEKLY_POSTPONE, prepareWeeklyPostpone } from './weekly-postpone';
+import { WEAK_WHERE, WEAK_ORDER, weakSince } from './weak-words';
 import { counselingRecipient, sendCounselingSms } from './counseling-send';
 // ═══════════════════════════════════════════════════════════════════════
 // 🛡️ api-admin.ts — 관리자 도메인 API (api-mango.ts 에서 분리)
@@ -12,6 +14,7 @@ import { counselingRecipient, sendCounselingSms } from './counseling-send';
 // ═══════════════════════════════════════════════════════════════════════
 import { loadHoldRanges, heldOnFor, attendedStudentRooms } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25)
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
+import { agencyLoginGate } from './agency-login-gate';        // 🔒 대리점 로그인 계정 만들기·바꾸기 = 본사 전용 판정 정본
 import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { praiseCountForRoom } from './point-policy';   // ⭐ 칭찬 횟수 정본(복제 금지)
 import { loadRevenue, loadCare, saveCare } from './forecast-dashboard';
@@ -44,14 +47,14 @@ import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap,
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { ensureScheduleChangeRequestTable } from './student-schedule-request';
 import { enqueueNotification, sendPushToUser } from './api-notify';
-import { phonesForStudent } from './notify-contacts';   // 📣 (2026-10-07) 수업 안내 문자 — 받아 둔 번호 먼저
+import { phonesForStudent, loadContactPhones } from './notify-contacts';   // 📣 (2026-10-07) 수업 안내 문자 — 받아 둔 번호 먼저 · ☎ (2026-10-27) 화면용 연락처 정본
 import { scopeFragments, studentScopeWhere, getScope, franchiseList, scopeStudentCond, scopeFranchiseCond, scopeCenterCond, canEditOrg } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗봇 «사실» 정본(학부모봇과 공유)
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
 import { KCP_TRANSFER_CYPHER_RE, KCP_REVENUE_CYPHER_RE } from './accounting-reports';  // 🧾 「케이씨피M」(운영자금 이체) = 매출 아님 / 「케이씨피」 = 매출 인정 — 판정 정본
 import { c24ExpenseDrop, C24_HANGUL_CYPHER_RE, C24_LETTER_CYPHER_RE } from './c24-expense-filter';  // 🧾 카페24 지출결의 중 «우리 것이 아닌» 건(한글 결재·특정 결재라인) 제외 — 판정 정본
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance, ensureCenterOverrideTables, ensureFranchiseOverrideTable } from './cafe24-sync';
-import { buildMangoiClassesNow, mergeClassesNow, dropHolidayClosed, EXEMPT_BY_NAME, cafe24HolidayTeacher, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
+import { buildMangoiClassesNow, mergeClassesNow, dropMirroredCafe24, dropHolidayClosed, EXEMPT_BY_NAME, cafe24HolidayTeacher, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
 import { findRoomMismatches } from './room-mismatch';   // 🚨 «같은 수업인데 서로 다른 방» 감시(2026-10-07 delaware)
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
@@ -68,7 +71,7 @@ import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결�
 import { teacherIdsWithPush } from './teacher-push';              // 🔔 강사 웹푸시 구독 여부(연락처 연결 화면용, 2026-09-14)
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
-import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS, isOrgScopedRole } from './auth-admin';
+import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS, isOrgScopedRole, recordLogin } from './auth-admin';
 import { groupDirectClasses } from './enroll-direct';
 import { mergeDirectByIds, mergeDirectRows, UNMERGED_DIRECT_SQL } from './enroll-direct-merge';   // 🔀 직접 배정 → 신청서 (2026-09-30)   // 📅 수강신청 목록의 «직접 배정» 줄 (2026-09-29)
 import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
@@ -3624,7 +3627,8 @@ export async function handleAdminApi(
       } catch (e: any) { console.warn('[classes/today] substitution overlay:', e?.message); }
 
       /* ☎️ (2026-09-07 매니저 요청 «Please include student Name, ID, contact number, Academy»)
-         연락처 — D1 에서 학생 번호가 실제로 남아 있는 표는 `student_retention` 하나뿐이다.
+         연락처 — D1 에서 학생 번호가 실제로 남아 있는 표는 `student_retention` 하나뿐이다
+         (+ 2026-09-10 부터 직원이 받아 둔 번호 `student_erp_override` — 정본 notify-contacts.ts loadContactPhones).
          📊 [재본 — 2026-09-07 운영 D1] `students_erp` 29,484행의 phone·parent_phone·student_phone 은
             **세 칸 전부 0건**이다(카페24 원본에 값이 없다 — CLAUDE.md 2장
             「학생 전화번호로 문자를 보내려는데 아무에게도 안 감」). 그래서 그 칸을 읽어 봐야
@@ -3636,9 +3640,9 @@ export async function handleAdminApi(
             ⇒ «없음» 이 정상이다. 화면은 그 이유를 말해야 한다(빈칸은 «고장» 으로 읽힌다).
          ⛔ 없는 번호를 다른 칸으로 «그럴듯하게» 채우지 않는다(CLAUDE.md 2장
             「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」).
-         🔒 이 맵은 전체를 받지만 **이미 스코프로 잘린 줄에만** 붙인다(아래 sessions.push) —
-            지사·대리점은 자기 범위 학생만 보므로 범위 밖 번호는 응답에 실리지 않는다.
-         ⚠️ 이 조회가 실패해도 목록은 그대로 띄어야 한다 — 연락처 칸만 비운다. */
+         🔒 번호는 **이미 스코프로 잘린 그날 목록의 학생만** 묻는다(아래 «목록 완성 뒤» 자리) —
+            범위 밖 번호가 응답에 실릴 길이 없다. (2026-10-27 전에는 이탈위험 2,000행 맵을 통째로 읽었다)
+         ⚠️ 이 조회가 실패해도 목록은 그대로 띄어야 한다 — 연락처 칸만 비우고 «확인 못 함» 이라고 말한다. */
       /* 🔒 연락처는 «본사·내부직원» 에게만 싣는다 — 이 API 는 `isAgencyAllowedApi` 에 올라 있어
          지사·대리점(manager.html)도 부른다. 지금까지 그 번호를 내주던 유일한 경로
          `/api/admin/retention` 은 **지사·대리점에게 403** 이었다. 즉 그냥 실으면
@@ -3647,25 +3651,11 @@ export async function handleAdminApi(
          ✅ 열려면 이 한 줄만 바꾸면 된다(범위 격리는 그대로라 자기 학생만 보인다).
          ℹ️ 학원(academy)·아이디는 그 청중이 이미 `/api/admin/students/erp-list` 로 보던 값이라 그대로 싣는다. */
       const _ctSeeContact = _ctScope.type === 'hq' || _ctScope.type === 'none';
-      const phoneMap = new Map<string, string>();
-      if (_ctSeeContact) {
-        try {
-          /* ⚠️ ORDER BY 없이 LIMIT 만 걸면 «어느 2000» 인지 정해지지 않고, 넘친 학생은
-             에러 없이 조용히 «—» 가 된다. 순서를 못 박고, 잘리면 로그로 말한다. */
-          const CONTACT_CAP = 2000;
-          const pr: any = await env.DB.prepare(
-            `SELECT user_id, phone FROM student_retention
-              WHERE phone IS NOT NULL AND TRIM(phone) <> ''
-              ORDER BY user_id LIMIT ?`
-          ).bind(CONTACT_CAP).all();
-          const got = (pr?.results as any[]) || [];
-          for (const r of got) {
-            const u = String(r.user_id || '').trim();
-            if (u) phoneMap.set(u, String(r.phone || '').trim());
-          }
-          if (got.length >= CONTACT_CAP) console.warn('[classes/today] contact map truncated at', CONTACT_CAP);
-        } catch (e: any) { console.warn('[classes/today] contact map:', e?.message); }
-      }
+      /* ☎ (2026-10-27 사장님 「매니저 화면도 직원이 넣은 번호 보이게 맞춰줘」) 번호는 정본 loadContactPhones
+         (notify-contacts.ts — 직원이 받아 둔 번호 → 명부 → 이탈위험 스냅샷)로, 강사 화면과 «같은 답» 을 준다.
+         예전엔 여기서 student_retention 2,000행을 통째로 읽어 맵을 만들었다 — 직원이 학생 상세·수강신청에서 넣은
+         번호(student_erp_override)는 강사 화면에만 보이고 이 화면엔 안 보였다.
+         ⚠️ 조회는 목록이 «다 만들어진 뒤» 아래에서 한다 — 스코프로 이미 잘린 그날 학생만 묻는다(범위 밖 번호가 응답에 실릴 길이 없다). */
 
       /* 🎌 (2026-10-09 사장님 「매니저 오늘 수업도 휴강 반영」) 그날이 공휴일 휴강이면 수업 줄을 «지우지 않고»
          상태를 'holiday' 로 바꾸고 입장을 닫는다 — 매니저는 «오늘 무엇이 쉬는지» 를 봐야 한다(지우면 «수업이 없어졌다» 로 읽힌다).
@@ -3717,9 +3707,9 @@ export async function handleAdminApi(
           student_name: s.student_name || s.se_name || null,
           /* 🏫☎️ (2026-09-07 매니저 요청) 학원(Academy)·연락처 — 수업에 안 들어오는 학생을
              그 자리에서 찾기 위해. 학원은 students_erp.shop_name(실측 29,079/29,484 = 98.6%),
-             연락처는 위 phoneMap. 모르면 null — 화면이 «—» 와 이유를 그린다. */
+             연락처는 아래 «목록이 다 만들어진 뒤» 정본으로 채운다. 모르면 null — 화면이 «—» 와 이유를 그린다. */
           academy: s.se_shop || null,
-          contact_phone: phoneMap.get(String(s.user_id || '')) || null,
+          contact_phone: null,
           /* 📚 (2026-08-25 보고서 ①) LMS 한 줄에 있던 「TEXTBOOK 배정 없음」 배지의 우리 쪽 대응.
              정본은 students_erp.textbook — 화상수업의 «배정 교재 자동 로드» 가 읽는 그 칸이다.
              비어 있으면 수업 전에 사람이 손써야 한다는 뜻이라, 강사·매니저가 먼저 봐야 한다. */
@@ -3783,6 +3773,28 @@ export async function handleAdminApi(
         ).bind(dateStr, ..._ctStu.binds).all();
         c24Rows = (rs.results || []) as any[];
       } catch (e: any) { console.warn('[classes/today] cafe24 rows:', e?.message); }
+      /* 🪞 (2026-10-20) 미러 줄이 있는 카페24 수업은 «복사본» 이라 뺀다 — 정본 dropMirroredCafe24(classes-now.ts).
+         날짜·상태를 안 가리고 그 수업번호의 미러 줄을 찾는다(옮겼거나 취소한 줄도 «망고아이가 정본»).
+         ⚠️ 청크 하나라도 실패하면 selectInChunks 가 던져 집합이 빈 채로 남는다 = 아무것도 안 뺀다
+            (예전처럼 두 줄 — 수업이 사라지는 쪽보다 낫다). */
+      let c24MirroredHidden = 0;
+      if (c24Rows.length) {
+        const _c24Ids = Array.from(new Set(c24Rows.map(r => String(r.room_id || '').replace(/^c24-/, '')).filter(Boolean)));
+        const _mirrored = new Set<string>();
+        try {
+          const mr = await selectInChunks<any>(env.DB, _c24Ids.map(id => 'c24:' + id),
+            (ph) => `SELECT notes FROM class_schedules WHERE source LIKE 'c24-mirror%' AND notes IN (${ph})`);
+          for (const m of mr) { const id = String(m.notes || '').replace(/^c24:/, ''); if (id) _mirrored.add(id); }
+        } catch (e: any) { console.warn('[classes/today] mirrored ids:', e?.message); }
+        const _drop = dropMirroredCafe24(c24Rows, _mirrored);
+        c24Rows = _drop.kept;
+        c24MirroredHidden = _drop.hidden;
+      }
+
+      // Separately registered Mangoi schedules (e.g. #6827) have no c24 mirror note.
+      // Hide only the exact student's LMS slot in this response; keep both stored records.
+      const c24SlotDuplicates = dropCafe24SlotDuplicates(c24Rows, sessions);
+      c24Rows = c24SlotDuplicates.kept;
 
       if (c24Rows.length) {
         const tmap = await loadCafe24TeacherMap(env as any, c24Rows.map(r => r.teacher_uid));
@@ -3808,7 +3820,10 @@ export async function handleAdminApi(
             student_uid: r.user_id || null,
             student_name: r.stu_ko || r.username || r.stu_en || null,
             academy: r.se_shop || null,
-            contact_phone: phoneMap.get(String(r.user_id || '')) || null,
+            contact_phone: null,   // ☎ 아래에서 정본으로 채운다(망고아이 줄과 같은 자리)
+            /* 🕓 (2026-10-27) 끝 시각을 «안다» 는 표시 — 위 end_ts 는 left_at 이 없으면 «시작+30분» 으로 지어낸 값이다.
+               화면(adm-today-classes.js kstRange)은 false 면 시작만 그린다(지어낸 끝을 사실처럼 그리지 않게). */
+            end_known: !!Number(r.left_at),
             level: r.se_level || null,
             textbook: r.se_textbook || null,
             textbook_assigned: !!String(r.se_textbook || '').trim(),
@@ -3830,6 +3845,19 @@ export async function handleAdminApi(
       // Join/observe and room-linked enrichment must use the student/teacher room for this date.
       await applyRoomOverrides(env.DB, sessions.filter(s => s.source === 'mangoi'), ymd);
 
+      /* ☎ 연락처 — 본사·내부직원(_ctSeeContact)일 때만, 이미 스코프로 잘린 이 목록(두 갈래 모두)에만 붙인다.
+         정본이 «다 물어봤나»(complete)를 함께 주므로, 조회가 실패하면 화면이 «번호가 없다» 가 아니라
+         «확인하지 못했다» 고 말한다(contact_source='failed'). ⛔ 던지지 않는다 — 연락처 때문에 목록이 죽으면 안 된다. */
+      let _ctContactsOk = true;
+      if (_ctSeeContact && sessions.length) {
+        try {
+          const _cp = await loadContactPhones(env, sessions.map(x => x.student_uid));
+          _ctContactsOk = _cp.complete;
+          // 정본은 아이디를 trim 해서 묻고 그 키로 돌려준다 — 찾을 때도 trim(카페24 행에 뒤 공백이 붙은 아이디가 실재한다)
+          for (const x of sessions) x.contact_phone = _cp.phones.get(String(x.student_uid || '').trim()) || null;
+        } catch (e: any) { _ctContactsOk = false; console.warn('[classes/today] contacts:', e?.message); }
+      }
+
       /* 📋 (2026-09-23 매니저 요청) 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결 — 정본 class-today-extras.ts.
          절대 던지지 않는다(실패하면 그 칸만 null → 화면 «—»). */
       /* 🔒 (2026-09-23 사장님 지시) 평가 내용은 본사·내부직원에게만 — 지사·대리점(manager.html)에는 안 싣는다.
@@ -3839,9 +3867,10 @@ export async function handleAdminApi(
       const c24Count = sessions.filter(x => x.source === 'cafe24').length;
       /* ☎️ 화면이 «왜 번호가 대부분 비어 있는지» 를 사람에게 말할 수 있도록 근거를 함께 준다.
          ⛔ 화면이 스스로 판정하게 두지 말 것 — 화면은 자기 역할도, 그 표의 성격도 모른다.
-           'retention' = 「이탈 위험(만료·휴면) 명단에 있는 학생만 번호가 있다」
+           'lookup'     = 「번호 원천(받아 둔 번호·명부·이탈위험 명단)에 다 물어봤다 — 없으면 정말 없다」(2026-10-27, 옛 'retention')
+           'failed'     = 「조회가 실패해 모른다」 — «없다» 와 같은 글자로 말하지 않게
            'restricted' = 「이 계정에는 연락처를 주지 않는다」(지사·대리점)  */
-      const contactSource = _ctSeeContact ? 'retention' : 'restricted';
+      const contactSource = !_ctSeeContact ? 'restricted' : (_ctContactsOk ? 'lookup' : 'failed');
       const res = json({
         ok: true,
         contact_source: contactSource,
@@ -3852,6 +3881,9 @@ export async function handleAdminApi(
         counts: {
           mangoi: sessions.length - c24Count,
           cafe24: c24Count,
+          // 🪞 미러 줄이 있어 뺀 카페24 «복사본» 수(위 dropMirroredCafe24) — 숫자가 줄어든 이유를 사람이 볼 수 있게
+          cafe24_mirrored_hidden: c24MirroredHidden,
+          cafe24_slot_duplicates_hidden: c24SlotDuplicates.hidden,
           joinable: sessions.filter(x => x.join_open).length,
           holiday: sessions.filter(x => x.holiday).length,
         },
@@ -7625,7 +7657,17 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         const actor = await getAdminActor(request, env as any);
         const row: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(id).first().catch(() => null);
         if (!row) return json({ ok: false, error: 'not_found' }, 404);
-        if (String(row.status || '') !== 'cancelled') return json({ ok: false, error: 'not_cancelled', status: row.status || null }, 409);
+        /* ⏸ (2026-10-29 매니저 «how to undo the postponement») 연기된 회차도 같은 길로 되돌린다 —
+           「⏸ 연기됨 — 새 날짜 미정」 줄의 「↩ 연기 취소」 버튼. 원래 날짜·시각 그대로 active 로.
+           아래 지난 날짜·중복 확인을 그대로 탄다(연기 사이에 그 자리에 다른 수업이 들어왔을 수 있다). */
+        const fromSt = String(row.status || '');
+        if (fromSt !== 'cancelled' && fromSt !== 'postponed') return json({ ok: false, error: 'not_cancelled', status: row.status || null }, 409);
+        if (fromSt === 'postponed') {
+          // Use the same conflict snapshots and atomic audit as an ordinary move.
+          // A stale/double restore must never revive a subsequently changed class.
+          const result = await moveSchedulesAtomically(env, actor, { ids: [id], patch: {} }, [row], { restorePostponed: true });
+          return json(result.ok ? { ...result, id, status: 'active', from: fromSt } : result, result.status);
+        }
         const sd = String(row.scheduled_date || '').slice(0, 10);
         const todayKst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
         if (/^\d{4}-\d{2}-\d{2}$/.test(sd) && sd < todayKst) return json({ ok: false, error: 'past_date' }, 409);
@@ -7641,7 +7683,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           ).bind(id, sd, String(row.start_time || ''), row.user_id, String(row.teacher_id || ''), String(row.teacher_id || '')).first();
         } catch (e: any) { return json({ ok: false, error: 'lookup_failed' }, 409); }
         if (dup) return json({ ok: false, error: 'slot_taken', other_id: dup.id }, 409);
-        const upd: any = await env.DB.prepare(`UPDATE class_schedules SET status='active', updated_at=? WHERE id=? AND status='cancelled'`).bind(Date.now(), id).run();
+        const upd: any = await env.DB.prepare(`UPDATE class_schedules SET status='active', updated_at=? WHERE id=? AND status=?`).bind(Date.now(), id, fromSt).run();
         if (!(upd && upd.meta && upd.meta.changes > 0)) return json({ ok: false, error: 'not_cancelled' }, 409);
         await writeClassAudit(env, {
           action: 'restore', schedule_id: id,
@@ -7650,7 +7692,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           actor: actor.name || actor.username || '관리자', actor_role: 'admin', source: 'ui',
           reason: body.reason ? String(body.reason).slice(0, 300) : '수업 종료 되돌리기',
         });
-        return json({ ok: true, id, status: 'active' });
+        return json({ ok: true, id, status: 'active', from: fromSt });
       }
       if (!body || body.action !== 'split') return json({ ok: false, error: 'unknown_action' }, 400);
       const dry = body.dry_run !== false;
@@ -8638,8 +8680,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
            FROM game_progress WHERE user_id = ? AND last_seen >= ?`, uid, since);
       const gameWeak = await fetchAll(
         `SELECT item, ko, wrong_count FROM game_progress
-          WHERE user_id = ? AND wrong_count > 0 AND wrong_count >= correct_count
-          ORDER BY wrong_count DESC LIMIT 5`, uid);
+          WHERE user_id = ? AND ${WEAK_WHERE}
+          ORDER BY ${WEAK_ORDER} LIMIT 5`, uid, weakSince(Date.now()));  // 정본 src/weak-words.ts
       // 🎤 스피치코치 발음/정확도/유창성 평균 (최근 10회)
       const coachAgg: any = await fetch1(
         `SELECT COUNT(*) AS n, AVG(pronunciation_score) AS p, AVG(accuracy_score) AS a, AVG(fluency_score) AS f FROM (
@@ -11354,6 +11396,114 @@ LIMIT $limit`;
         return json({ ok: false, error: 'forbidden_scope', scope: _cSc.type, message: '대리점 정보 수정은 본사만 할 수 있습니다.' }, 403);
       }
 
+      /* 🔑 (2026-10-28 사장님 「대리점 아이디와 정보를 넣어 달라」) 대리점 로그인 계정 — 등록(POST)·
+         ✏️ 수정(PATCH) 공용. 카페24에서 온 921곳은 등록 폼을 거치지 않아 계정을 붙일 자리가 없었다
+         (목록이 전부 «계정 없음»). 지사 판 createOrResetBranchLogin 을 본뜬 «대리점 판» 이다.
+         ⚠️ «검사(check)» 와 «쓰기(apply)» 를 나눈다 — 검사는 대리점 저장 «전» 에 해야
+            계정이 거절됐는데 대리점만 저장되는 반쪽 상태가 안 생긴다.
+         ⚠️ scope_value 는 centers.name 그대로(scopeCenterCond 가 이름 정확일치로 가른다).
+         ⛔ 같은 이름 대리점이 또 있으면 «새로 만들기» 는 막는다 — 그 계정이 남의 자료까지 본다.
+         🔑 «비밀번호 바꾸기(reset)» 는 그 아이디가 **이 대리점의 «저장 전» 이름(curName)** 에 붙어 있고
+            그 이름을 쓰는 대리점이 **이것 하나뿐** 일 때만. ⛔ «바꾸려는 새 이름» 으로 주인을 판정하면
+            A 를 B 의 이름으로 바꾸면서 B 의 아이디를 넣는 저장 한 번에 B 계정 비밀번호가 바뀐다
+            (2026-10-28 함정 대조가 재현 — 그래서 새 이름은 주인 판정에 안 쓴다).
+            이름이 겹치면 «어느 대리점 계정인지» 확정할 수 없어 바꾸지 않는다(지사 판과 같은 판단).
+         ⚠️ 반환은 단순 객체(판별 유니온 금지 — strictNullChecks:false 라 좁혀지지 않는다). */
+      type AgencyLoginCheck = { ok: boolean; mode?: 'create' | 'reset'; username?: string; error?: string; message?: string; status?: number };
+      const checkAgencyLogin = async (username: string, password: string, centerName: string,
+                                      selfId: number, curName: string): Promise<AgencyLoginCheck> => {
+        const u = username.trim();
+        if (!/^[a-zA-Z0-9_]{3,32}$/.test(u)) {
+          return { ok: false, error: 'bad_username', message: '아이디는 영문·숫자·밑줄(_)로 3~32자여야 합니다.', status: 400 };
+        }
+        if (password.length < 6) {
+          return { ok: false, error: 'too_short', message: '비밀번호는 6자 이상이어야 합니다.', status: 400 };
+        }
+        if (FULL_ACCESS_ACCOUNTS.has(u.toLowerCase())) {
+          return { ok: false, error: 'reserved_username', message: '이 아이디는 시스템 전체권한 계정이라 쓸 수 없습니다.', status: 403 };
+        }
+        // NOCASE — 로그인이 대소문자를 무시하므로(staff-create 와 같은 규칙) 여기만 구분하면
+        // Busan_Agency/busan_agency 두 벌이 생겨 «계정이 두 개» 사고가 재현된다.
+        const existing = await env.DB.prepare(`SELECT username FROM admin_account WHERE username = ? COLLATE NOCASE LIMIT 1`)
+          .bind(u).first<{ username: string }>();
+        if (existing) {
+          const sc = await env.DB.prepare(`SELECT scope_type, scope_value FROM admin_scope WHERE username = ? LIMIT 1`)
+            .bind(existing.username).first<{ scope_type: string; scope_value: string | null }>();
+          const isOwn = selfId > 0 && !!curName && !!sc && sc.scope_type === 'agency' && String(sc.scope_value || '') === curName;
+          if (!isOwn) {
+            return { ok: false, error: 'already_exists', message: '이미 있는 아이디입니다. 다른 아이디를 쓰세요.', status: 409 };
+          }
+          const shared = await env.DB.prepare(`SELECT COUNT(*) AS n FROM centers WHERE name = ?`).bind(curName).first<{ n: number }>();
+          if (Number(shared?.n || 0) !== 1) {
+            return { ok: false, error: 'shared_center_name',
+              message: `같은 이름("${curName}")의 대리점이 여러 곳이라 이 계정이 어느 대리점 것인지 확정할 수 없어 비밀번호를 바꾸지 않았습니다. ` +
+                       '대리점 이름을 구분되게 바꾼 뒤 다시 하거나 본사에 문의하세요.', status: 409 };
+          }
+          return { ok: true, mode: 'reset', username: existing.username };
+        }
+        // ⚠️ centers.name 은 유일하지 않다(CLAUDE.md 「가맹점 정산에서 특정 지사 매출이 통째로
+        //    안 잡힘」과 같은 뿌리). 이름이 같은 다른 대리점이 있으면 이 로그인이 그 자료까지 본다.
+        const nameDup = await env.DB.prepare(`SELECT id FROM centers WHERE name = ? AND id != ? LIMIT 1`)
+          .bind(centerName, selfId).first<{ id: number }>();
+        if (nameDup) {
+          return { ok: false, error: 'duplicate_center_name',
+            message: '이미 같은 이름의 대리점이 있어 로그인 계정을 만들 수 없습니다 — 이름으로 접근 범위를 가르기 때문에 ' +
+                     '다른 대리점 자료가 섞여 보일 수 있습니다. 대리점 이름을 구분되게 바꾸거나, ' +
+                     '로그인 계정 없이 먼저 등록한 뒤 본사에 문의하세요.', status: 409 };
+        }
+        return { ok: true, mode: 'create', username: u };
+      };
+      /* 쓰기. ⚠️ 만들기는 계정·범위 두 줄을 **batch(한 묶음)** 로 — 계정만 남고 범위가 빠지면 다음 요청에서
+         autoSeedOne 이 이름으로 범위를 짐작해 «none»(=직원) 이 될 수 있다(CLAUDE.md 「관리자 계정을 지웠는데
+         권한은 오히려 올라감」과 같은 모양). 바꾸기는 기존 «남의 비밀번호 재설정»(auth-admin.ts) 과 같이
+         그 계정의 세션을 전부 끊고 «누가 바꿨는지» 를 로그인 이력에 남긴다. */
+      const applyAgencyLogin = async (chk: AgencyLoginCheck, password: string, centerName: string,
+                                      audit: { by: string; ip: string; ua: string }): Promise<'created' | 'reset'> => {
+        const now = Date.now();
+        const hash = await hashPassword(password);
+        if (chk.mode === 'reset') {
+          await env.DB.prepare(`UPDATE admin_account SET password_hash = ?, updated_at = ? WHERE username = ?`)
+            .bind(hash, now, chk.username).run();
+          await env.DB.prepare(`DELETE FROM admin_sessions WHERE username = ?`).bind(chk.username).run().catch(() => {});
+          await recordLogin(env as any, chk.username, audit.ip, audit.ua, true, 'password_reset_by:' + audit.by).catch(() => {});
+          return 'reset';
+        }
+        await env.DB.batch([
+          env.DB.prepare(
+            `INSERT INTO admin_account (username, password_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
+          ).bind(chk.username, hash, centerName, now, now),
+          env.DB.prepare(
+            `INSERT INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES (?, 'agency', ?, ?)
+             ON CONFLICT(username) DO UPDATE SET scope_type = excluded.scope_type, scope_value = excluded.scope_value, updated_at = excluded.updated_at`
+          ).bind(chk.username, centerName, now),
+        ]);
+        return 'created';
+      };
+      /* 계정을 건드리는 요청이면 «누가» 를 먼저 확인한다 — 감사 기록에 쓰고, 강사는 여기서도 막는다
+         (index.ts 의 강사 차단 목록 한 곳에만 기대지 않는다 — CLAUDE.md 2장 쓰기 경로 가드 권고).
+         🔒 (2026-10-28 사장님 「본사 계정만 만들 수 있게 좁혀줘」) 판정 정본은 agency-login-gate.ts —
+            admin_scope 를 «삼키지 않고» 한 번 더 읽어 'hq' 일 때만(못 읽으면 막는다). 거절 응답(deny)도 여기서 만든다. */
+      type AgencyLoginActor = { ok: boolean; by: string; ip: string; ua: string; deny: Response | null };
+      const agencyLoginActor = async (): Promise<AgencyLoginActor> => {
+        const a = await getAdminActor(request, env as any);
+        let row: { scope_type: string } | null | undefined = undefined;
+        if (a.ok && !a.isTeacher && a.username) {
+          try {
+            row = (await env.DB.prepare(`SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`)
+              .bind(a.username).first<{ scope_type: string }>()) || null;
+          } catch (e) {
+            console.warn('[centers] agency login scope lookup failed', (e as any)?.message || e);
+            row = undefined;
+          }
+        }
+        const g = agencyLoginGate({ ok: !!a.ok, isTeacher: !!a.isTeacher, username: a.username || '' }, row, FULL_ACCESS_ACCOUNTS);
+        const deny = g.ok ? null
+          : g.error === 'forbidden_teacher' ? json(forbiddenTeacherBody(a, g.message), 403)
+          : json({ ok: false, error: g.error, message: g.message }, g.status as any);
+        return { ok: g.ok, by: a.username || '', ip: request.headers.get('cf-connecting-ip') || '',
+                 ua: request.headers.get('user-agent') || '', deny };
+      };
+
       if (method === 'PATCH') {
         /* ✏️ (2026-09-11 신설 — 사장님 제보 「대리점을 수정할 수 있는 메뉴가 없다」)
            대리점 이름·지사·국가·담당자·연락처·주소·결제유형을 한 번에 고치는 «부분 수정» —
@@ -11398,7 +11548,32 @@ LIMIT $limit`;
         if (has('manager')) { newManager = String(b.manager || '').trim() || null; sets.push('manager = ?'); binds.push(newManager); }
         if (has('country')) { sets.push('country = ?'); binds.push(String(b.country || '').trim() || null); }
         if (has('phone'))   { sets.push('phone = ?');   binds.push(String(b.phone   || '').trim() || null); }
-        if (!sets.length) return json({ ok: false, error: 'no_fields', message: '수정할 값이 없습니다.' }, 400);
+
+        /* 🔑 (2026-10-28) 로그인 계정 붙이기·비밀번호 바꾸기 — 비밀번호를 «넣었을 때만» 움직인다
+           (지사 PATCH 와 같은 규칙: 비워 두면 «바꾸지 않음»). 수정 폼이 아이디 칸을 지금 계정으로
+           미리 채우므로, 아이디만 있고 비밀번호가 비어 있으면 아무 일도 하지 않아야 한다.
+           ⚠️ 검사는 UPDATE «전» — 거절되면 대리점 정보도 저장하지 않는다(반쪽 저장 금지). */
+        const loginPw = String(b?.login_password || '');
+        const loginId = String(b?.login_username || '').trim();
+        let loginChk: AgencyLoginCheck | null = null;
+        let loginName = '';
+        let loginActor: AgencyLoginActor | null = null;
+        if (loginPw) {
+          if (!loginId) {
+            return json({ ok: false, error: 'login_username_required',
+              message: '비밀번호를 설정하려면 로그인 아이디를 먼저 입력하세요.' }, 400);
+          }
+          loginActor = await agencyLoginActor();
+          if (!loginActor.ok) return loginActor.deny;
+          const cur = before || await env.DB.prepare(`SELECT name FROM centers WHERE id = ?`).bind(cid).first<{ name: string }>();
+          if (!cur) return json({ ok: false, error: 'not_found', message: '대리점을 찾을 수 없습니다.' }, 404);
+          // 새 계정은 «저장 뒤» 이름으로 묶고(scope_value = centers.name), 비밀번호 바꾸기의 주인 판정은
+          // «저장 전» 이름으로만 한다(checkAgencyLogin 주석 — 새 이름으로 판정하면 남의 계정이 걸린다).
+          loginName = newName !== undefined ? newName : String(cur.name || '');
+          loginChk = await checkAgencyLogin(loginId, loginPw, loginName, cid, String(cur.name || ''));
+          if (!loginChk.ok) return json({ ok: false, error: loginChk.error, message: loginChk.message }, loginChk.status as any);
+        }
+        if (!sets.length && !loginChk) return json({ ok: false, error: 'no_fields', message: '수정할 값이 없습니다.' }, 400);
 
         /* 🔑 이 대리점에 로그인 계정이 있으면 admin_scope.scope_value 가 «옛 이름» 을 그대로
            들고 있다(scope.ts scopeCenterCond 는 id 가 아니라 이름으로 대리점을 가른다).
@@ -11486,12 +11661,75 @@ LIMIT $limit`;
           }
         }
 
+        // 🔑 대리점 정보가 저장된 «뒤» 에 계정을 쓴다(검사는 위에서 이미 통과).
+        const loginResult = loginChk ? await applyAgencyLogin(loginChk, loginPw, loginName, loginActor) : undefined;
+
         return json({
-          ok: true, id: cid, payment_type: ptOut,
+          ok: true, id: cid, payment_type: ptOut, login_result: loginResult,
           // ⚠️ 화면(saveCenter)이 이 값을 보고 「그 계정은 여전히 옛 이름 기준으로 학생을
           // 찾습니다」를 사람에게 알린다 — 서버가 자동으로 옮기지 않기로 한 것과 짝이다.
           login_account_note: linkedAccount ? { username: linkedAccount.username, old_name: before?.name } : undefined,
         });
+      }
+      /* 🔎 (2026-10-26 사장님 「카페24에서 학생 아이디 가져오듯 대리점 아이디도 가져와야」)
+         옛 LMS 화면은 대리점마다 «아이디»(엘리더잼영어 = ysyt00)를 보여 주는데, 야간 동기화의
+         :Center Cypher 는 id·branch_id·name·address·manager·active 여섯 칸뿐이다. 그 값이
+         :Center 의 어느 속성에 있는지, 아니면 이어진 다른 노드에 있는지 **추측으로 박기 전에**
+         실제 그래프를 읽어 보여 준다(지사 debug=cafe24_props 와 같은 방식).
+           ?debug=cafe24_props            → :Center 전체 속성 이름 + 예시 3건
+           ?debug=cafe24_props&name=엘리더잼 → 그 이름을 담은 :Center 의 속성 + 이어진 노드
+           ?debug=cafe24_props&find=ysyt00  → 그래프 전체에서 그 값을 «그대로» 가진 노드·속성
+         ⛔ 이 결과로 곧바로 centers 를 UPDATE 하지 않는다 — 칸을 확인한 뒤 동기화에 넣는다.
+         본사만(원본 그래프의 날 것 그대로). */
+      if (method === 'GET' && url.searchParams.get('debug') === 'cafe24_props') {
+        if (!canEditOrg(_cSc)) return json({ ok: false, error: 'forbidden_scope' }, 403);
+        // canEditOrg 는 'none'(교사)에도 true 다 — 원본 그래프(연락처 등)를 강사에게 열지 않는다.
+        const _dbgActor = await getAdminActor(request, env as any);
+        if (!_dbgActor.ok) return json({ ok: false, error: 'unauthorized' }, 401);
+        if (_dbgActor.isTeacher) return json(forbiddenTeacherBody(_dbgActor), 403);
+        try {
+          const nm = (url.searchParams.get('name') || '').trim();
+          const fv = (url.searchParams.get('find') || '').trim();
+          const pick = (rs: any, k: string) => rs.fields.indexOf(k);
+          const out: any = { ok: true };
+          const all = await runCypher(env, `MATCH (c:Center) RETURN properties(c) AS props`, {}, 'READ');
+          const ki = pick(all, 'props');
+          const keySet = new Set<string>(); const sample: any[] = [];
+          for (const row of all.values) {
+            const pr = row[ki] as Record<string, any> | null;
+            if (pr) Object.keys(pr).forEach(k => keySet.add(k));
+            if (pr && sample.length < 3) sample.push(pr);
+          }
+          out.center_count = all.values.length;
+          out.all_property_keys = Array.from(keySet).sort();
+          out.sample_rows = sample;
+          if (nm) {
+            const rs = await runCypher(env, `
+              MATCH (c:Center) WHERE c.name CONTAINS $nm
+              OPTIONAL MATCH (c)-[rel]-(x)
+              RETURN properties(c) AS center_props,
+                     collect(DISTINCT {rel_type: type(rel), other_labels: labels(x), other_props: properties(x)})[0..20] AS linked
+              LIMIT 5`, { nm }, 'READ');
+            out.by_name = rs.values.map((row: any[]) => ({
+              center_props: row[pick(rs, 'center_props')],
+              linked_nodes: (row[pick(rs, 'linked')] || []).filter((l: any) => l && l.rel_type),
+            }));
+          }
+          if (fv) {
+            if (!/^[A-Za-z0-9_.@-]{3,64}$/.test(fv)) return json({ ok: false, error: 'bad_find' }, 400);
+            const rs = await runCypher(env, `
+              MATCH (n) WHERE any(k IN keys(n) WHERE toString(n[k]) = $v)
+              RETURN labels(n) AS labels, [k IN keys(n) WHERE toString(n[k]) = $v] AS matched_keys, properties(n) AS props
+              LIMIT 10`, { v: fv }, 'READ');
+            out.find = rs.values.map((row: any[]) => ({
+              labels: row[pick(rs, 'labels')], matched_keys: row[pick(rs, 'matched_keys')], props: row[pick(rs, 'props')],
+            }));
+          }
+          return json(out);
+        } catch (e: any) {
+          if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
+          return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
+        }
       }
       if (method === 'GET') {
         const q = (url.searchParams.get('q') || '').trim();
@@ -11550,13 +11788,86 @@ LIMIT $limit`;
           : `c.*, f.name AS franchise_name,
              (SELECT o.tuition_krw FROM settlement_rate_override o
                WHERE o.scope_type='agency' AND o.scope_key = c.name) AS tuition_krw`;
+        /* ↕ (2026-10-28 사장님 「필터 올림·내림」) 머리글 정렬 — 50건씩 넘겨 보는 구조라 «이 페이지만»
+           정렬하면 거짓말이 된다(921건 전체 순서가 아니다). 그래서 서버 ORDER BY 로 한다.
+           ⛔ sort 값을 SQL 에 그대로 넣지 않는다 — 아래 표에 있는 열쇠만 받고 나머지는 «기본 순서».
+           빈 값(NULL·'')은 방향과 무관하게 언제나 맨 아래(강사 명부 정렬과 같은 규칙), 같으면 id 순.
+           🔒 로그인 아이디 정렬은 본사만 — 아이디 칸 자체가 본사에게만 실린다(아래 login_ids). */
+        const _txt = (col: string) => `NULLIF(TRIM(${col}), '')`;
+        const CT_SORT: Record<string, { expr: string; text: boolean; join?: string }> = {
+          id:       { expr: 'c.id', text: false },
+          franchise:{ expr: _txt('f.name'), text: true },
+          name:     { expr: _txt('c.name'), text: true },
+          payment:  { expr: `CASE WHEN c.payment_type IN ('B2B','B2C') THEN c.payment_type END`, text: false },
+          tuition:  { expr: `(SELECT o.tuition_krw FROM settlement_rate_override o WHERE o.scope_type='agency' AND o.scope_key = c.name)`, text: false },
+          country:  { expr: _txt('c.country'), text: true },
+          manager:  { expr: _txt('c.manager'), text: true },
+          phone:    { expr: _txt('c.phone'), text: true },
+          address:  { expr: _txt('c.address'), text: true },
+        };
+        if (canEditOrg(_cSc)) {
+          // ⚠️ 줄마다 도는 상관 서브쿼리로 쓰면 대리점 921줄 × admin_scope 전수 × 2번(IS NULL·값) 이라
+          //    계정이 늘수록 느려진다(2026-10-28 함정 대조 실측: scope 3,000행에 약 0.57초). 이름별로 «한 번»
+          //    묶은 표를 이 정렬일 때만 LEFT JOIN 한다(다른 정렬·건수 쿼리에는 안 붙는다).
+          CT_SORT.login = { expr: 'ct_login.login_min', text: true,
+            join: ` LEFT JOIN (SELECT s.scope_value AS shop, MIN(s.username) AS login_min FROM admin_scope s
+                                 JOIN admin_account a ON a.username = s.username
+                                WHERE s.scope_type = 'agency' GROUP BY s.scope_value) ct_login ON ct_login.shop = c.name` };
+        }
+        const _sortKey = String(url.searchParams.get('sort') || '');
+        const sortDef = Object.prototype.hasOwnProperty.call(CT_SORT, _sortKey) ? CT_SORT[_sortKey] : null;
+        const sortDir = String(url.searchParams.get('dir') || '').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+        const orderSql = sortDef
+          ? `(${sortDef.expr}) IS NULL, ${sortDef.expr}${sortDef.text ? ' COLLATE NOCASE' : ''} ${sortDir}, c.id ASC`
+          : `c.active DESC, c.name ASC`;
+        const sortJoin = (sortDef && sortDef.join) || '';
         const pageSql = limit === 0 ? '' : ` LIMIT ? OFFSET ?`;
         const pageBinds = limit === 0 ? listBinds : [...listBinds, limit, offset];
         const rs = await env.DB.prepare(
-          `SELECT ${cols} FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${listWhereSql} ORDER BY c.active DESC, c.name ASC${pageSql}`
+          `SELECT ${cols} FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${sortJoin}${listWhereSql} ORDER BY ${orderSql}${pageSql}`
         ).bind(...pageBinds).all();
-        return json({ ok: true, items: rs.results || [], total: pt ? counts[pt] : counts.all, counts, limit, offset,
-                      scope: { type: _cSc.type, label: _cSc.label }, can_edit: canEditOrg(_cSc) });
+        const _ctItems: any[] = (rs.results || []) as any[];
+        /* 🪪 (2026-10-26 사장님 「대리점 아이디가 안 나온다」) 대리점 로그인 계정은 centers 에
+           칸이 없고 admin_scope(scope_type='agency') 의 scope_value = 대리점 «이름» 으로만
+           이어진다(scopeCenterCond 가 name = ? 로 가르는 것과 같은 규칙 — 정확일치만, 추측 없음).
+           ⚠️ 이 줄이 그 이름을 쓰는 «모든» 대리점에 붙는 것은 사실 그대로다 — centers.name 이
+              유일하지 않아 그 계정은 같은 이름 대리점 자료를 함께 본다(login_shared 로 알린다).
+           ⚠️ 지워진 계정의 남은 scope 행은 admin_account 와 JOIN 해 뺀다.
+           🔒 계정명은 본사만(지사 login_id 와 같은 이유). 실패해도 목록은 그대로 — 칸만 «모름». */
+        if (!min && canEditOrg(_cSc) && _ctItems.length) {
+          try {
+            const names = Array.from(new Set(_ctItems.map((it: any) => String(it.name || '')).filter(Boolean)));
+            const namesJson = JSON.stringify(names);
+            const acc = await env.DB.prepare(
+              `SELECT s.scope_value AS shop, s.username FROM admin_scope s
+                 JOIN admin_account a ON a.username = s.username
+                WHERE s.scope_type = 'agency' AND s.scope_value IN (SELECT value FROM json_each(?))
+                ORDER BY s.username`
+            ).bind(namesJson).all();
+            const dup = await env.DB.prepare(
+              `SELECT name FROM centers WHERE name IN (SELECT value FROM json_each(?)) GROUP BY name HAVING COUNT(*) > 1`
+            ).bind(namesJson).all();
+            const byName = new Map<string, string[]>();
+            for (const r of (acc.results || []) as any[]) {
+              const k = String(r.shop || '');
+              if (!byName.has(k)) byName.set(k, []);
+              byName.get(k)!.push(String(r.username));
+            }
+            const dupSet = new Set(((dup.results || []) as any[]).map((r: any) => String(r.name)));
+            for (const it of _ctItems) {
+              it.login_ids = byName.get(String(it.name || '')) || [];
+              it.login_shared = dupSet.has(String(it.name || ''));
+            }
+          } catch (e: any) {
+            console.warn('[centers] login_ids lookup failed', e?.message || e);
+          }
+        }
+        return json({ ok: true, items: _ctItems, total: pt ? counts[pt] : counts.all, counts, limit, offset,
+                      // ↕ 서버가 «실제로 적용한» 정렬 — 모르는 열쇠는 버렸으니 화면은 이 값으로 화살표를 그린다.
+                      sort: sortDef ? { key: _sortKey, dir: sortDir === 'DESC' ? 'desc' : 'asc' } : null,
+                      scope: { type: _cSc.type, label: _cSc.label }, can_edit: canEditOrg(_cSc),
+                      // 🔒 로그인 계정 칸을 보여 줄지 — 저장 때와 «같은 판정»(본사만). 화면은 false 일 때만 감춘다.
+                      can_login: canEditOrg(_cSc) ? (await agencyLoginActor()).ok : false });
       }
       const b = await parseJsonBody(request);
       if (!b || !b.name) return invalidBody(['name']);
@@ -11571,61 +11882,27 @@ LIMIT $limit`;
          (scope.ts scopeCenterCond 가 id 가 아니라 «이름» 으로 대리점 계정을 가른다). */
       const loginUsername = String(b.login_username || '').trim();
       const loginPassword = String(b.login_password || '');
+      let loginChk: AgencyLoginCheck | null = null;
+      let loginActor: AgencyLoginActor | null = null;
       if (loginUsername || loginPassword) {
         if (!loginUsername || !loginPassword) {
           return json({ ok: false, error: 'login_fields_incomplete',
             message: '대리점 로그인 아이디와 비밀번호를 함께 입력하세요.' }, 400);
         }
-        if (!/^[a-zA-Z0-9_]{3,32}$/.test(loginUsername)) {
-          return json({ ok: false, error: 'bad_username',
-            message: '아이디는 영문·숫자·밑줄(_)로 3~32자여야 합니다.' }, 400);
-        }
-        if (loginPassword.length < 6) {
-          return json({ ok: false, error: 'too_short',
-            message: '비밀번호는 6자 이상이어야 합니다.' }, 400);
-        }
-        if (FULL_ACCESS_ACCOUNTS.has(loginUsername.toLowerCase())) {
-          return json({ ok: false, error: 'reserved_username',
-            message: '이 아이디는 시스템 전체권한 계정이라 쓸 수 없습니다.' }, 403);
-        }
-        // NOCASE — 로그인이 대소문자를 무시하므로(staff-create 와 같은 규칙) 여기만
-        // 구분하면 Busan_Agency/busan_agency 두 벌이 생겨 «계정이 두 개» 사고가 재현된다.
-        const dup = await env.DB.prepare(
-          `SELECT username FROM admin_account WHERE username = ? COLLATE NOCASE LIMIT 1`)
-          .bind(loginUsername).first<{ username: string }>();
-        if (dup) {
-          return json({ ok: false, error: 'already_exists',
-            message: '이미 있는 아이디입니다. 다른 아이디를 쓰세요.' }, 409);
-        }
-        // ⚠️ centers.name 은 유일하지 않다(CLAUDE.md 「가맹점 정산에서 특정 지사 매출이 통째로
-        //    안 잡힘」과 같은 뿌리). scope_value 를 이름으로 매칭하는 구조라, 이미 같은 이름의
-        //    대리점이 있으면 이 로그인이 «그 대리점 자료까지» 함께 보게 된다. 등록 자체는 막지
-        //    않고(대리점만 먼저 등록하는 기존 동작은 유지) 로그인 계정만 막는다.
-        const nameDup = await env.DB.prepare(`SELECT id FROM centers WHERE name = ? LIMIT 1`)
-          .bind(b.name).first<{ id: number }>();
-        if (nameDup) {
-          return json({ ok: false, error: 'duplicate_center_name',
-            message: '이미 같은 이름의 대리점이 있어 로그인 계정을 만들 수 없습니다 — 이름으로 접근 범위를 가르기 때문에 ' +
-                      '다른 대리점 자료가 섞여 보일 수 있습니다. 대리점 이름을 구분되게 바꾸거나, ' +
-                      '로그인 계정 없이 먼저 등록한 뒤 본사에 문의하세요.' }, 409);
-        }
+        // 🔑 검사 정본은 위 checkAgencyLogin(수정 화면과 공용). selfId=0 → 새 대리점이라
+        //    «이미 있는 아이디» 는 비밀번호 바꾸기 없이 그대로 거절, 같은 이름 대리점이 하나라도 있으면 거절.
+        //    거절되면 대리점도 만들지 않는다(예전과 같다 — 계정 없이 등록하려면 두 칸을 비우면 된다).
+        loginActor = await agencyLoginActor();
+        if (!loginActor.ok) return loginActor.deny;
+        loginChk = await checkAgencyLogin(loginUsername, loginPassword, String(b.name), 0, '');
+        if (!loginChk.ok) return json({ ok: false, error: loginChk.error, message: loginChk.message }, loginChk.status as any);
       }
 
       const r = await env.DB.prepare(
         `INSERT INTO centers (franchise_id, name, country, address, manager, payment_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(b.franchise_id || null, b.name, b.country || null, b.address || null, b.manager || null, _normPayType(b.payment_type), now, now).run();
 
-      let loginCreated = false;
-      if (loginUsername && loginPassword) {
-        await env.DB.prepare(
-          `INSERT INTO admin_account (username, password_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
-        ).bind(loginUsername, await hashPassword(loginPassword), b.name, now, now).run();
-        await env.DB.prepare(
-          `INSERT INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES (?, 'agency', ?, ?)
-           ON CONFLICT(username) DO UPDATE SET scope_type = excluded.scope_type, scope_value = excluded.scope_value, updated_at = excluded.updated_at`
-        ).bind(loginUsername, b.name, now).run();
-        loginCreated = true;
-      }
+      const loginCreated = loginChk ? (await applyAgencyLogin(loginChk, loginPassword, String(b.name), loginActor)) === 'created' : false;
 
       return json({ ok: true, id: r.meta.last_row_id, login_created: loginCreated });
     }
@@ -12772,10 +13049,18 @@ LIMIT $limit`;
               정답을 통째로 받는」 길을 막는다. 셋 중 하나라도 풀면 그 창이 넓어진다.
               ⛔ 여기서 bank 를 통째로 넘기지 말고 반드시 그 함수를 지나게 할 것.
          ⚠️ 실패해도 채점 결과는 그대로 돌려준다 — 해설을 못 만들었다고 점수까지 잃으면 안 된다. */
-      let review: any[] = [];
-      try { review = buildLeveltestReview(CEFR_BANK, answers); }
-      catch (e: any) { console.warn('[leveltest] review skip:', e && e.message); review = []; }
-      return json({ ok: true, ai_score, level, correct: correctCount, total: CEFR_BANK.length, breakdown, review, application_id: appId, placement, track: trackInfo.track });
+      /* 🔒 (2026-10-18 사장님 결정) 정답·해설은 «토큰으로 확인된 로그인 학생» 에게만 싣는다.
+         [왜] 이 경로는 무인증 공개라 «전부 0번» 본문 한 번으로 정답키가 100% 복원됐다(위 주석 · 2026-09-22 실측).
+         비로그인은 점수·레벨만 받고 review 칸이 아예 없다 → 화면은 «로그인하면 해설» 안내만 그린다.
+         ⚠️ 막힌 것은 «익명 1회 호출» 뿐이다 — 아이디만 알면 로그인되는 계정이 대부분이라 완전한 차단은 아니다
+            (근본 해결은 문항은행을 늘리는 것). ⛔ 본문 uid 로 폴백하지 말 것(위 placement 와 같은 이유). */
+      const reviewLocked = !authedUid;
+      let review: any[] | undefined = undefined;
+      if (!reviewLocked) {
+        try { review = buildLeveltestReview(CEFR_BANK, answers); }
+        catch (e: any) { console.warn('[leveltest] review skip:', e && e.message); review = []; }
+      }
+      return json({ ok: true, ai_score, level, correct: correctCount, total: CEFR_BANK.length, breakdown, review, review_locked: reviewLocked, application_id: appId, placement, track: trackInfo.track });
     }
 
     // ─── 수강신청 ─────────────────────────────────────────────────────────

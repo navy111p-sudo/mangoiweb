@@ -5,7 +5,7 @@
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <link rel="stylesheet" href="/css/warmup-photo-icons.css?v=1">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes,viewport-fit=cover" />
-<title>🗣️ A.i 말하기 연습 — Mangoi</title>
+<title>🗣️ A.i 말하기 연습 — mangoi.ai</title>
 <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
 <meta name="theme-color" content="#0a1530" />
 <!--
@@ -340,6 +340,13 @@
   .wus-now{background:var(--accent);color:#04283a;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800}
   .wus-desc{margin-top:4px;font-size:14px;color:var(--text2);line-height:1.5}
   .wus-list{display:flex;flex-direction:column;gap:8px}
+  .wus-cmodes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .wus-cmodes .wus-card{padding:11px 10px}
+  .wus-cmodes .wus-name{font-size:15.5px}
+  .wus-cmodes .wus-desc{font-size:12.5px;line-height:1.4}
+  .wus-cm-short{display:none}
+  .wus-cmode-tag{font-size:11.5px;font-weight:800;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:0 7px}
+  @media (max-width:560px){ .wus-cmodes{grid-template-columns:1fr} }
   /* 📘💬 두 갈래로 시작 — «교재로» / «자유 대화로» (2026-09-16 · 시안 3안)
      ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요 — subtitle_meaning_harness 가 <style> 안
         홑낫표를 «한자 폰트(983KB)를 받는 화면» 으로 셉니다(CLAUDE.md 2장, 실제로 밟았습니다).
@@ -369,6 +376,7 @@
   .wus-bts-topic{color:#7dd3fc}
   #wusBooksSec[hidden]{display:none!important}
   #wusTwoSec[hidden]{display:none!important}
+  #wusGMode[hidden]{display:none!important}
   #wusLessonSec[hidden]{display:none!important}
   .wus-lsn-row{display:flex;align-items:center;gap:8px;margin-top:9px}
   .wus-lsn-row[hidden]{display:none!important}
@@ -452,6 +460,109 @@
     .wus-cta{font-size:16px;padding:14px}
     .wus-booknow{bottom:53px;font-size:13px;padding:10px 12px}
     .wus-two-nm{font-size:14px} .wus-two-ds{font-size:11.5px} .wus-twoc{padding:12px 8px}
+  }
+  /* 🖥️ PC 3단계 카드 (B안 · 2026-10-18). 폰·좁은 창은 아래 규칙이 하나도 안 걸린다.
+     ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요(한자 폰트 하니스). */
+  .wus-pcsel,.wus-pcnote{display:none}
+  .wus-pc3[hidden]{display:none!important}
+  @media (min-width:1100px) and (min-height:620px){
+    .wu-setup{padding:16px 28px 22px}
+    .wus-nav{margin:-16px -28px 12px;padding:9px 28px}
+    .wus-nav-in,.wus-box{max-width:1480px}
+    .wus-navbtn{font-size:15.5px;padding:9px 16px}
+    .wus-title{font-size:30px;margin:4px 0 4px}
+    .wus-title .mango-inline{width:46px;height:auto}
+    .wus-lead{font-size:15px;color:var(--text2)}
+    .wus-lead br{display:none}
+    .wus-lead>span+br+span::before{content:' '}
+    .aidiff-chip,.howto-chip{font-size:14px!important}
+    /* 머리 — 설명 문장은 접고(카드가 대신 말한다) 도움말 칩은 제목 줄 오른쪽에 */
+    .wus-lead{display:none}
+    #wusMain>div[style*="text-align:center"]{display:flex;justify-content:flex-end;gap:8px;margin:-50px 0 0 auto;width:max-content;max-width:60%}
+    .wus-pc3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin-top:22px}
+    .wus-pcc .wus-now{position:absolute;top:8px;right:8px;margin:0}
+    #wusPcB1 .wus-card,#wusPcB3 .wus-twoc{position:relative}
+    .wus-pcc{background:rgba(10,20,48,.55);border:1px solid rgba(148,163,184,.22);border-radius:24px;
+      padding:22px 24px 22px;box-shadow:0 18px 40px -22px rgba(0,0,0,.7);min-width:0}
+    .wus-pch{display:flex;align-items:center;gap:11px;font-size:23px;font-weight:900;letter-spacing:-.3px;margin-bottom:16px}
+    .wus-pcn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:36px;height:36px;
+      border-radius:50%;background:var(--accent);color:#04283a;font-size:18px;font-weight:900}
+    .wus-pcb .wus-hint{display:none}
+    .wus-pcb .wus-sub{font-size:15px;font-weight:800;color:var(--text2);margin:16px 0 7px}
+    #wusPcB1 #wusGLang>.wus-sub,#wusPcB3 #wusTwoSec>.wus-sub{display:none}
+    #wusPcB2 #wusGAge>.wus-sub{margin-top:0}
+    /* 🎚️ 교정 방식 — 2번 카드는 이미 가장 길어서 1번 카드에 «한 줄» 로 둔다.
+       실측(2026-10-29): 1번 카드의 남는 높이가 1440×900 에서 약 47px(zoom 전)뿐이라 제목 줄을 접고
+       «교정 [자유대화][균형][집중교정]» 한 줄로 만든다. ⛔ 제목·설명을 되살리면 PC 한 화면이 깨진다. */
+    #wusPcB1 #wusGMode{display:flex;align-items:center;gap:8px;margin-top:10px}
+    #wusPcB1 #wusGMode[hidden]{display:none!important}
+    #wusPcB1 #wusGMode>.wus-sub{display:none}
+    #wusPcB1 .wus-cm-short{display:inline;flex:0 0 auto;font-size:14px;font-weight:800;color:var(--text2);white-space:nowrap}
+    #wusPcB1 .wus-cmodes{flex:1 1 auto;min-width:0;gap:6px}
+    #wusPcB1 .wus-cmodes .wus-desc,#wusPcB1 .wus-cmodes .wus-cmode-tag,#wusPcB1 .wus-cmodes .wus-now,#wusPcB1 .wus-cmodes .wu-photo-icon{display:none}
+    #wusPcB1 .wus-cmodes .wus-card{text-align:center;padding:7px 2px}
+    #wusPcB1 .wus-cmodes .wus-name{justify-content:center;font-size:14px;line-height:1.2;flex-wrap:nowrap;white-space:nowrap}
+    /* 1 · 언어 — 큰 타일 */
+    #wusPcB1 #wusLangs{grid-template-columns:1fr 1fr;gap:12px}
+    #wusPcB1 #wusLangs .wus-card{text-align:center;padding:16px 10px;border-width:2px;border-radius:18px}
+    #wusPcB1 #wusLangs .wus-name{flex-direction:column;justify-content:center;gap:8px;font-size:19px}
+    #wusPcB1 #wusLangs .wu-photo-icon{width:42px;height:42px;margin:0}
+    #wusPcB1 #wusLangs .wus-desc{display:none}
+    /* 1 · 말하는 방법 — 두 칸 */
+    #wusPcB1 #wusTalkBtns{grid-template-columns:1fr 1fr;gap:8px}
+    #wusPcB1 #wusTalkBtns .wus-card{text-align:center;padding:14px 8px}
+    #wusPcB1 #wusTalkBtns .wus-name{justify-content:center;font-size:16px}
+    #wusPcB1 #wusTalkBtns .wus-desc{display:none}
+    /* 2 · 나이대·수준 — 드롭다운 */
+    #wusPcB2 #wusAges,#wusPcB2 #wusLevels{display:none}
+    #wusPcB2 .wus-pcsel{display:block;width:100%;appearance:none;-webkit-appearance:none;cursor:pointer;
+      font-family:inherit;font-size:18px;font-weight:800;color:#f8fafc;border-radius:14px;padding:12px 44px 12px 16px;
+      border:1px solid rgba(148,163,184,.4);
+      background:#0f1c3f url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%237dd3fc' stroke-width='2' fill='none'/%3E%3C/svg%3E") no-repeat right 16px center}
+    #wusPcB2 .wus-pcsel:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
+    #wusPcB2 .wus-pcsel option{background:#0f1c3f;color:#f8fafc}
+    #wusPcB2 .wus-pcnote{display:block;margin-top:6px;font-size:14px;line-height:1.45;color:var(--text2)}
+    #wusPcB2 .wus-find{margin:14px 0 0;padding:10px 14px}
+    #wusPcB2 .wus-find .wus-name{font-size:16px}
+    #wusPcB2 .wus-find .wus-desc{font-size:13.5px}
+    /* 3 · 무엇을 — 큰 타일 + 교재 목록은 카드 안에서만 굴린다 */
+    #wusPcB3 .wus-two{gap:12px}
+    #wusPcB3 .wus-twoc{padding:16px 10px;border-width:2px;border-radius:18px}
+    #wusPcB3 .wus-two-nm{font-size:19px;margin-top:6px}
+    #wusPcB3 .wus-two-ds{font-size:13.5px}
+    #wuSetup #wusPcB3 .wus-two-ic .wu-photo-icon{width:64px;height:64px}
+    #wusPcB3 #wusBooksSec{margin-top:14px;max-height:calc(100vh - 760px);min-height:130px;overflow-y:auto;padding-right:4px}
+    #wusPcB3 #wusBooksSec .wus-item{padding:8px 12px;border-radius:12px}
+    #wusPcB3 #wusBooksSec .wus-name{font-size:15px}
+    #wusPcB3 #wusBooksSec .wus-desc{font-size:12.5px;margin-top:1px}
+    #wusPcB3 #wusBooksSec .wus-list{gap:6px}
+    #wusPcB3 .wus-two-ds{line-height:1.35}
+    /* 교재 목록이 펼쳐지면 두 타일의 그림을 접어 목록에 자리를 준다 */
+    #wusPcB3:has(#wusBooksSec:not([hidden])) .wus-two-ic{display:none}
+    #wusPcB3:has(#wusBooksSec:not([hidden])) .wus-twoc{padding:12px 10px}
+    /* 시작 — 가운데 큰 초록 버튼 */
+    .wus-ctabar{position:static;max-width:760px;margin:20px auto 0;padding:0;background:none}
+    .wus-ctabar .wus-booknow{display:none!important}
+    .wus-ctabar .wus-cta{padding:18px;font-size:23px;border-radius:18px;
+      background:linear-gradient(135deg,#22c55e,#16a34a);box-shadow:0 14px 30px -10px rgba(22,163,74,.85)}
+    .wus-ctabar .wus-hint2{font-size:14px;margin-top:10px;color:#93c5fd}
+  }
+  @media (min-width:1100px) and (min-height:620px) and (max-height:820px){
+    .wus-lead{display:none}
+    .wus-pc3{margin-top:14px} .wus-pcc{padding:18px 20px} .wus-pch{margin-bottom:12px;font-size:21px}
+    #wusPcB1 #wusLangs .wus-card,#wusPcB3 .wus-twoc{padding:13px 8px}
+    #wuSetup #wusPcB3 .wus-two-ic .wu-photo-icon{width:48px;height:48px}
+    .wus-pcb .wus-sub{margin:12px 0 6px}
+    .wus-ctabar{margin-top:12px} .wus-ctabar .wus-cta{padding:14px;font-size:21px}
+    .wus-pc3{margin-top:10px} .wus-pcc{padding:16px 18px}
+    #wusPcB3 #wusBooksSec{max-height:120px;min-height:0}
+    #wusPcB1 #wusLangs .wu-photo-icon{width:34px;height:34px}
+    #wusPcB1 #wusTalkBtns .wus-card{padding:10px 8px}
+    #wusPcB2 .wus-pcsel{padding:10px 44px 10px 14px;font-size:17px}
+    #wusPcB2 .wus-find{margin-top:10px;padding:8px 12px}
+    .wus-pcn{width:32px;height:32px;font-size:16px}
+    .wus-title{font-size:26px;margin:0}
+    .wus-ctabar .wus-hint2{margin-top:6px}
   }
   /* 🧑‍🎓 ⋮ 메뉴 안 «연령대» 버튼 — 목소리 버튼과 같은 모양(2열) */
   .age-btns{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
@@ -542,9 +653,11 @@
   }
 </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
-<script src="/js/avatar-visemes.js?v=4" defer></script>
-<script src="/js/mango-avatar.js?v=26" defer></script>
+<script src="/js/avatar-visemes.js?v=5" defer></script>
+<script src="/js/mango-avatar.js?v=41" defer></script>
 <script src="/js/game-track.js?v=4" defer></script>
+<script src="/js/eleader-entry.js?v=2" defer></script>
+<script src="/js/eleader-l1.js?v=6" defer></script>
 <script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 </head>
 <body>
@@ -565,6 +678,7 @@
     </div>
     <div class="wus-box">
       <div id="wusMain">
+        <section id="eleaderEntry" hidden aria-label="내 학원 맞춤 문항 연습" aria-live="polite"></section>
         <div class="wus-title"><img src="/img/mango-char.png" class="mango-inline" alt="망고"> <span data-ko="말하기 연습 설정" data-en="Speaking practice setup">말하기 연습 설정</span></div>
         <div class="wus-lead"><span data-ko="먼저 누가 · 어느 수준으로 이야기할지 정해요." data-en="First, choose who is practicing and at what level.">먼저 누가 · 어느 수준으로 이야기할지 정해요.</span><br><span data-ko="대화 중에도 오른쪽 위 ⋮ 에서 언제든 바꿀 수 있어요." data-en="You can change this anytime from ⋮ at the top right.">대화 중에도 오른쪽 위 ⋮ 에서 언제든 바꿀 수 있어요.</span></div>
         <!-- 💡 「A.i말하기와 A.i친구하기 차이」 (2026-09-26 사장님) — 안내창 본체는 js/ai-diff.js 한 곳 -->
@@ -576,9 +690,12 @@
              ⚠️ 이 줄을 맨 위에 두는 이유: 아래 두 축(수준 설명·수준 찾기)의 «뜻» 이 언어에 따라
                 달라진다(영어는 낱말 수, 중국어는 글자 수). 언어를 나중에 고르게 하면 방금 읽은
                 설명이 말없이 바뀐다. -->
+        <span id="wusPcHome" hidden></span>
+        <div id="wusGLang">
         <div class="wus-sub" data-ko="🗣️ 무슨 말로 이야기할까요?" data-en="🗣️ Which language will you speak?">🗣️ 무슨 말로 이야기할까요?</div>
         <div class="wus-hint" data-ko="고른 언어로 AI 가 말하고, 마이크도 그 말을 듣습니다." data-en="The AI speaks in this language, and the mic listens for it.">고른 언어로 AI 가 말하고, 마이크도 그 말을 듣습니다.</div>
         <div class="wus-grid" id="wusLangs"></div>
+        </div>
 
         <!-- 📘💬 두 갈래로 시작 (2026-09-16 · 시안 3안, 사장님 선택)
              [왜] 교재 칸이 수준 목록 «아래» 라 실측 top 이 PC 1380px · 폰 1577px 로 첫 화면 밖이었다.
@@ -608,17 +725,44 @@
           </div>
         </div>
 
+        <div id="wusGAge">
         <div class="wus-sub" data-ko="🧑‍🎓 누가 연습하나요?" data-en="🧑‍🎓 Who is practicing?">🧑‍🎓 누가 연습하나요?</div>
         <div class="wus-hint" data-ko="고른 나이대에 맞춰 이야기 소재와 말투가 달라져요. (영어 수준과는 별개예요)" data-en="Topics and tone follow the age group you pick. (Separate from English level.)">고른 나이대에 맞춰 이야기 소재와 말투가 달라져요. (영어 수준과는 별개예요)</div>
         <div class="wus-grid" id="wusAges"></div>
+        <!-- 🖥️ PC(B안) 전용 드롭다운 — 고르면 위 숨은 버튼을 «대신 눌러» 기존 처리 그대로 탄다 -->
+        <select id="wusAgeSel" class="wus-pcsel" aria-label="나이대"></select>
+        <div class="wus-pcnote" id="wusAgeNote"></div>
+        </div>
 
+        <div id="wusGLevel">
         <div class="wus-sub" data-ko="🎚️ 대화 수준" data-en="🎚️ Conversation level">🎚️ 대화 수준</div>
         <div class="wus-hint" data-ko="고른 수준에 맞춰 AI가 쓰는 단어와 문장 길이가 달라져요." data-en="The AI's words and sentence length follow the level you pick.">고른 수준에 맞춰 AI가 쓰는 단어와 문장 길이가 달라져요.</div>
+        <select id="wusLevelSel" class="wus-pcsel" aria-label="대화 수준"></select>
+        <div class="wus-pcnote" id="wusLevelNote"></div>
         <button type="button" class="wus-find" id="wusFind">
           <span class="wus-name" data-ko="🎯 내 수준 찾아줄까요?" data-en="🎯 Find my level?">🎯 내 수준 찾아줄까요?</span>
           <span class="wus-desc" data-ko="영어 문장 3개만 보면 끝나요. (약 30초)" data-en="Just look at 3 English sentences. (About 30 seconds)">영어 문장 3개만 보면 끝나요. (약 30초)</span>
         </button>
         <div class="wus-list" id="wusLevels"></div>
+        </div>
+
+        <!-- 🎚️ 교정 방식(2026-10-29 사장님 «3가지 옵션을 처음페이지에, 선택할 수 있게»).
+             고른 경우에만 서버에 보낸다(correction_mode) — 안 고르면 예전 그대로. 정본 판정은 src/warmup-honest.ts. -->
+        <div id="wusGMode">
+        <div class="wus-sub" data-ko="🎚️ 틀린 말은 어떻게 고쳐 줄까요?" data-en="🎚️ How should mistakes be corrected?">🎚️ 틀린 말은 어떻게 고쳐 줄까요?</div>
+        <div class="wus-hint" data-ko="잘했을 때만 칭찬하고, 고칠 때는 고른 방식대로 도와줘요." data-en="Praise only when it's right; corrections follow the way you pick.">잘했을 때만 칭찬하고, 고칠 때는 고른 방식대로 도와줘요.</div>
+        <span class="wus-cm-short" data-ko="교정" data-en="Fix">교정</span>
+        <div class="wus-cmodes" id="wusCModes"></div>
+        </div>
+
+        <!-- 🖥️ PC 3단계 카드(B안, 2026-10-18 사장님 «PC 에서 스크롤 없이 한 화면»).
+             넓은 화면에서만 wusPcLayout() 이 위 묶음들을 이 카드 안으로 «옮기고», 좁아지면 원래 자리로 되돌린다.
+             ⛔ 폰 화면 순서를 바꾸지 않으려고 마크업은 그대로 두고 옮기기만 한다. -->
+        <div class="wus-pc3" id="wusPc3" hidden>
+          <div class="wus-pcc"><div class="wus-pch"><span class="wus-pcn">1</span><span data-ko="무슨 말로?" data-en="Which language?">무슨 말로?</span></div><div class="wus-pcb" id="wusPcB1"></div></div>
+          <div class="wus-pcc"><div class="wus-pch"><span class="wus-pcn">2</span><span data-ko="누가, 어느 수준?" data-en="Who, and what level?">누가, 어느 수준?</span></div><div class="wus-pcb" id="wusPcB2"></div></div>
+          <div class="wus-pcc"><div class="wus-pch"><span class="wus-pcn">3</span><span data-ko="무엇을 이야기할까?" data-en="What to talk about?">무엇을 이야기할까?</span></div><div class="wus-pcb" id="wusPcB3"></div></div>
+        </div>
 
 
         <div class="wus-ctabar">
@@ -849,6 +993,7 @@
 </dialog>
 <script src="/js/warmup-guide.js?v=8"></script>
 <script src="/js/speech-preferences.js?v=3"></script>
+<script src="/js/speech-rate-request.js?v=1"></script>
 <script>
 /* ── 1. URL 파라미터 / 저장값에서 설정 읽기 ─────────────────────── */
 var Q = new URLSearchParams(location.search);
@@ -893,6 +1038,7 @@ function wuToggleUiLang(){
 window.addEventListener('storage', function(ev){ if(ev && ev.key === 'mangoi_lang') wuApplyLang(); });
 // Every async warmup operation belongs to a generation. Leaving never restarts the mic.
 var _warmPaused=false, _warmEpoch=0, _warmControllers=[], _fixRepeatTimers=[], _warmMicCancel=null, _warmVoiceEpoch=0;
+var _repeatTarget=null;   // 🎤 «따라 말해 보기» 로 연 마이크의 목표 문장 — 다음 sendMsg 한 번이 채점에 쓴다(js/repeat-score.js)
 function warmupFetch(url, options){
   if(_warmPaused) return Promise.reject(new Error('warmup paused'));
   var c=new AbortController(); _warmControllers.push(c);
@@ -912,6 +1058,7 @@ function pauseWarmup(){
   if(_warmMicCancel){_warmMicCancel();_warmMicCancel=null;}
   _warmVoiceEpoch++;
   _fixRepeatTimers.splice(0).forEach(clearInterval);
+  _repeatTarget=null;
   _micStopWanted=true;_micBase='';_micSess='';
   if(_recog){_recog.onstart=null;_recog.onresult=null;_recog.onend=null;_recog.onerror=null;try{_recog.abort();}catch(e){}}
   try{window.MangoiVoice&&MangoiVoice.cancel();}catch(e){}
@@ -1046,6 +1193,7 @@ function addMsg(text, who){
      ⚠️ 아이콘은 브랜드 캐릭터 그대로 둔다 — 얼굴은 왼쪽 큰 카드에 이미 있고, 여기까지
         사람 얼굴을 넣으면 말풍선마다 사진이 붙어 시끄러워진다. */
   var friendLabel = _friendLabelNow();
+  var msgWho = null; if(who==='ai'){ try{ msgWho = _voicePerson(); }catch(e){} }   // 🔁 다시 듣기용 — 이 말을 한 사람
   var whoHtml = who==='ai'
       ? '<span class="who"><img class="who-ava" src="/img/mango-char.png" alt="' + friendLabel + '">' + friendLabel + '</span>'
       : who==='me' ? '<span class="who"><img class="who-ava me" src="/img/me-avatar.svg" alt="나">나</span>' : '';
@@ -1061,6 +1209,7 @@ function addMsg(text, who){
     var rb = document.createElement('button');
     rb.className = 'replay-btn'; rb.type = 'button';
     rb.textContent = '🔊 다시 듣기';
+    rb.__who = msgWho;   // 🔁 다시 듣기는 이 사람 목소리로 (speak 이 btn.__who 를 읽는다)
     rb.onclick = function(){ speak(text, rb); };
     d.appendChild(document.createElement('br'));
     d.appendChild(rb);
@@ -1259,7 +1408,16 @@ function applyVoiceFace(){
   try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(m.char); }catch(e){}
 }
 // ⚠️ 브라우저 폴백 보이스 고르기(pickVoice)가 'male'|'female' 을 기대하므로 그 약속은 유지한다.
-function _voiceGender(){ return (VOICE_MODES[_voicePerson()] || VOICE_MODES.emma).g; }
+function _voiceGender(){ return (VOICE_MODES[_replayWho || _voicePerson()] || VOICE_MODES.emma).g; }
+/* 🔁 «다시 듣기» 는 그 말풍선을 «말한 사람» 의 목소리·얼굴로 읽는다 (2026-10-17 사장님 제보
+   「Lily 와 Noah 목소리가 처음과 다르게 변해」).
+   [왜] 예전에는 다시 듣기도 nextSpeaker() 를 탔다 — Noah 가 한 말을 Lily 로 바꾼 뒤 다시 들으면
+        Lily 목소리로, 「번갈아」면 «다음 차례» 의 목소리로 읽고 차례까지 넘겼다. 얼굴도 그 사람으로 바뀌어
+        말풍선 이름(Emma)과 얼굴(남자)이 어긋났다.
+   ⚠️ 이 값은 «그 다시 듣기 한 번» 동안만 산다 — 이름표·서버 프롬프트(_voicePerson)는 건드리지 않는다.
+   ⛔ 언어가 다른 사람(영어 말풍선을 중국어 화면에서 다시 듣기)이면 쓰지 않고 예전 경로로 간다. */
+var _replayWho = null;
+function _replayFits(p){ return !!(p && VOICE_MODES[p] && p !== 'mix' && !!VOICE_MODES[p].zh === isZh()); }
 function nextSpeaker(){
   var p = _voicePerson();
   applyVoiceFace();                                                        // 얼굴도 그 사람으로
@@ -1436,14 +1594,13 @@ function setRate(lv, persist){
 }
 setRate(_rateLevel, false);   // Restore this account’s selected speed without writing the default.
 /* 🐢 (2026-07-23) "천천히 말해줘" 라고 말하거나 쓰면 듣기 속도를 실제로 한 칸 낮춘다.
-   그동안은 슬라이더로만 바뀌어서, 부탁해도 같은 속도로 계속 읽어줬다. */
+   그동안은 슬라이더로만 바뀌어서, 부탁해도 같은 속도로 계속 읽어줬다.
+   🐇 (2026-10-28) «부탁» 인지는 공용 판정(js/speech-rate-request.js)이 정한다 — 낱말 하나로 보면 「A snail is slow.」·
+   「빠르게 달려요」(대답)에도 슬라이더가 움직였다. 그 파일을 못 읽었으면 속도를 그대로 둔다. */
 function maybeAdjustRate(text){
-  var t = String(text||'');
-  var slower = /(천천히|느리게|너무\s*빠르|못\s*알아|알아듣기)/.test(t)
-            || /\b(slow(ly| down)?|too fast|more slowly|speak slower)\b/i.test(t);
-  var faster = /(빠르게|더\s*빨리)/.test(t) || /\b(faster|speed up)\b/i.test(t);
-  if(slower) setRate(Math.max(1, _rateLevel - 1));
-  else if(faster) setRate(Math.min(5, _rateLevel + 1));
+  var want = window.MangoiRateRequest ? window.MangoiRateRequest.judge(String(text||'')) : '';
+  if(want === 'slower') setRate(Math.max(1, _rateLevel - 1));
+  else if(want === 'faster') setRate(Math.min(5, _rateLevel + 1));
 }
 
 /* 📊 대화 난이도: 1(기초) ~ 8(최고) → 서버로 difficulty 전달, AI가 눈높이 맞춤 */
@@ -1814,6 +1971,36 @@ function setAge(id, announce){
    ══════════════════════════════════════════════════════════════════ */
 var _warmStarted = false;      // 첫 인사가 이미 나갔는가(= 대화가 시작됐는가)
 function setupEl(){ return document.getElementById('wuSetup'); }
+/* 🎚️ 교정 방식 — 제안서(2026-10-29)의 세 모드. id 는 서버 WARMUP_MODES 와 짝(src/warmup-honest.ts).
+   ⛔ 고르지 않았으면 '' 로 둔다(서버에 안 보냄 = 예전 동작). «기본» 을 저장해 두지 않는다 —
+      저장하면 «아직 안 정함» 과 «사람이 골랐음» 이 같아져 나중에 기본을 바꿀 수 없다. */
+var CMODE_CATALOG = [
+  { id:'free_talk', ic:'💬', ko:'자유대화', en:'Free talk', d:'흐름을 끊지 않고 바른 문장을 자연스럽게 들려줘요. 저학년·초급·흥미 위주에 좋아요.', de:'Keeps the flow and simply models the right sentence. Good for young or beginner learners.' },
+  { id:'balanced',  ic:'⚖️', ko:'균형', en:'Balanced', d:'핵심 표현이나 되풀이되는 실수만 따라 말해요. 대부분의 수업에 맞아요.', de:'Repeat-after-me only for key phrases or repeated mistakes. Fits most classes.', },
+  { id:'focused',   ic:'🎯', ko:'집중교정', en:'Focused', d:'틀릴 때마다 바른 문장을 듣고 따라 말해요. 정확도·시험 대비에 좋아요.', de:'Every mistake: hear the right sentence and say it back. Good for accuracy and tests.' , dflt:true }
+];
+var WU_CMODE_KEY = 'mangoi_warmup_correction';
+var _wuCorrMode = '';
+try{
+  var _cm0 = String(localStorage.getItem(WU_CMODE_KEY) || '').trim();
+  for(var _ci=0;_ci<CMODE_CATALOG.length;_ci++) if(CMODE_CATALOG[_ci].id===_cm0) _wuCorrMode = _cm0;
+}catch(e){}
+function setCorrMode(id){
+  var ok=false; for(var i=0;i<CMODE_CATALOG.length;i++) if(CMODE_CATALOG[i].id===id) ok=true;
+  if(!ok) return false;
+  _wuCorrMode = id;
+  try{ localStorage.setItem(WU_CMODE_KEY, id); }catch(e){}
+  return true;
+}
+function cmodesHtml(){
+  return CMODE_CATALOG.map(function(m){
+    var on = (m.id === _wuCorrMode);
+    return '<button type="button" class="wus-card'+(on?' on':'')+'" data-cmode="'+m.id+'" aria-pressed="'+(on?'true':'false')+'" title="'+wuT(m.d, m.de)+'">'
+      + '<span class="wus-name">'+m.ic+' '+wuT(m.ko, m.en)
+      + (on ? '<span class="wus-now">'+wuT('지금','Now')+'</span>' : ((m.dflt && !_wuCorrMode) ? '<span class="wus-cmode-tag">'+wuT('기본','Default')+'</span>' : ''))
+      + '</span><span class="wus-desc">'+wuT(m.d, m.de)+'</span></button>';
+  }).join('');
+}
 function renderSetup(){
   var box = setupEl(); if(!box || box.hidden) return;
   var langs = document.getElementById('wusLangs');
@@ -1839,6 +2026,11 @@ function renderSetup(){
         + '<span class="wus-desc">'+ageDesc(a)+'</span></button>';
     }).join('');
   }
+  /* 🎚️ 교정 방식 — 중국어 대화에는 아직 적용되지 않으므로(서버가 zh 를 건너뜀) 섹션째 감춘다. */
+  var cms = document.getElementById('wusCModes');
+  if(cms) cms.innerHTML = cmodesHtml();
+  var gmode = document.getElementById('wusGMode');
+  if(gmode) gmode.hidden = isZh();
   var lv = document.getElementById('wusLevels');
   if(lv){
     lv.innerHTML = LEVEL_CATALOG.map(function(b){
@@ -1864,6 +2056,8 @@ function renderSetup(){
   /* 🔒 «펼친 순간» 의 수준으로 정렬한다 — 넘기지 않으면 수준을 고를 때마다 위쪽이 흔들린다. */
   if(bks && !isZh()) bks.innerHTML = btsListHtml(btsSortLevel(), true);
   renderTwoWay();
+  wusPcSync();          // 🖥️ PC 드롭다운 값·설명을 지금 상태로
+  wusPcLayout();        // 🖥️ PC 면 3단계 카드로 옮긴다(자동 말하기 칸이 늦게 생겨도 여기서 따라옴)
   btsRenderBookNow();   // 📘 시작 버튼 위 «지금 교재» 줄 — 언어 전환·첫 그리기에서 함께
   var cta = document.getElementById('wusStart');
   if(cta) cta.textContent = _warmStarted ? wuT('✅ 이 설정으로 계속하기', '✅ Continue with these settings') : wuT('🚀 이 설정으로 말하기 연습 시작하기', '🚀 Start speaking practice');
@@ -1944,11 +2138,57 @@ function setupGoBack(){
 function closeSetup(){
   var box = setupEl(); if(box) box.hidden = true;
 }
+/* 🖥️ PC 3단계 카드(B안, 2026-10-18) — 넓은 화면에서만 설정 묶음을 카드 안으로 옮긴다.
+   ⛔ 마크업 순서를 바꾸지 않는다 — 폰 화면은 예전 순서 그대로여야 한다(교재 칸이 언어 바로 다음, 2026-09-16).
+   ⛔ 판정·저장을 새로 만들지 않는다 — 드롭다운은 숨은 버튼을 «대신 눌러» 기존 위임 처리를 그대로 탄다.
+   ⛔ 상주 타이머·MutationObserver 를 두지 않는다 — renderSetup·창 크기 변화 때만 맞춘다. */
+var WUS_PC_MQ = (window.matchMedia ? window.matchMedia('(min-width:1100px) and (min-height:620px)') : null);
+function wusPcOn(){ return !!(WUS_PC_MQ && WUS_PC_MQ.matches); }
+function wusPcLayout(){
+  var pc3 = document.getElementById('wusPc3'), home = document.getElementById('wusPcHome');
+  if(!pc3 || !home) return;
+  var g = function(id){ return document.getElementById(id); };
+  var talk = g('wusTalkSec'), cta = document.querySelector('#wuSetup .wus-ctabar');
+  var plan = [['wusPcB1',['wusGLang','wusTalkSec','wusGMode']],['wusPcB2',['wusGAge','wusGLevel']],['wusPcB3',['wusTwoSec','wusBooksSec']]];
+  if(wusPcOn()){
+    pc3.hidden = false;
+    plan.forEach(function(c){ var box = g(c[0]); c[1].forEach(function(id){ var el = g(id); if(box && el && el.parentNode !== box) box.appendChild(el); }); });
+  } else {
+    pc3.hidden = true;
+    ['wusGLang','wusTwoSec','wusBooksSec','wusGAge','wusGLevel','wusGMode'].forEach(function(id){ var el = g(id); if(el && pc3.contains(el)) home.parentNode.insertBefore(el, home); });
+    if(talk && cta && pc3.contains(talk)) cta.parentNode.insertBefore(talk, cta);
+  }
+}
+function wusPcSync(){
+  var as = document.getElementById('wusAgeSel'), ls = document.getElementById('wusLevelSel');
+  var esc = function(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;'); };
+  if(as){
+    as.innerHTML = AGE_CATALOG.map(function(a){ return '<option value="'+a.id+'"'+(a.id===_warmAge?' selected':'')+'>'+esc(ageName(a))+'</option>'; }).join('');
+    as.setAttribute('aria-label', wuT('나이대','Age group'));
+    var an = document.getElementById('wusAgeNote'); if(an) an.textContent = ageDesc(ageInfo(_warmAge));
+  }
+  if(ls){
+    var cur = null;
+    ls.innerHTML = LEVEL_CATALOG.map(function(b){ if(b.n === _warmLevel) cur = b;
+      return '<option value="'+b.n+'"'+(b.n===_warmLevel?' selected':'')+'>'+esc(wuT(b.ko, b.en||b.ko)+' · '+b.cefr+'  ('+b.lv+')')+'</option>'; }).join('');
+    ls.setAttribute('aria-label', wuT('대화 수준','Conversation level'));
+    var ln = document.getElementById('wusLevelNote');
+    if(ln) ln.textContent = cur ? (isZh() ? (cur.dz||cur.d) : wuT(cur.d, cur.de||cur.d)) : '';
+  }
+}
+(function wirePcSelects(){
+  var press = function(sel){ var b = document.querySelector(sel); if(b) b.click(); };
+  var as = document.getElementById('wusAgeSel'), ls = document.getElementById('wusLevelSel');
+  if(as) as.addEventListener('change', function(){ press('#wusAges [data-age="'+as.value+'"]'); wusPcSync(); });
+  if(ls) ls.addEventListener('change', function(){ press('#wusLevels [data-lvl="'+ls.value+'"]'); });
+  if(WUS_PC_MQ){ var on = function(){ wusPcLayout(); }; if(WUS_PC_MQ.addEventListener) WUS_PC_MQ.addEventListener('change', on); else if(WUS_PC_MQ.addListener) WUS_PC_MQ.addListener(on); }
+  document.addEventListener('DOMContentLoaded', function(){ wusPcLayout(); });
+})();
 /* 목록은 다시 그려지므로 «위임» 으로 한 번만 배선한다(그릴 때마다 리스너를 달면 새는 자리) */
 (function wireSetup(){
   var box = setupEl(); if(!box) return;
   box.addEventListener('click', function(e){
-    var t = e.target.closest ? e.target.closest('[data-age],[data-lvl],[data-lang],[data-bts],[data-jump],[data-way]') : null;
+    var t = e.target.closest ? e.target.closest('[data-age],[data-lvl],[data-lang],[data-bts],[data-jump],[data-way],[data-cmode]') : null;
     if(!t || !box.contains(t)) return;
     /* 🀄 언어를 바꾸면 수준 설명(낱말 수 ↔ 글자 수)과 «수준 찾기» 표시가 함께 달라진다 —
           그래서 여기서는 return 하지 않고 아래 renderSetup() 까지 내려간다. */
@@ -1968,6 +2208,7 @@ function closeSetup(){
       if(t.getAttribute('data-way') === 'book') btsOpenBooks(true); else btsCloseBooks();
       return;
     }
+    if(t.getAttribute('data-cmode')) { setCorrMode(t.getAttribute('data-cmode')); renderSetup(); return; }
     if(t.getAttribute('data-lang')) { setWarmLang(t.getAttribute('data-lang'), false); renderSetup(); return; }
     if(t.getAttribute('data-age')) { setAge(t.getAttribute('data-age'), false); return; }
     /* 📘 교재 고르기 — 0 이면 «교재 없이 자유 대화»(예전 동작)로 되돌린다.
@@ -2631,6 +2872,7 @@ function _zhDeepen(u){
 var _speakSeq=0;
 function _stopSpeak(){
   _speakSeq++;
+  try{ if(_replayWho){ _replayWho=null; applyVoiceFace(); } }catch(e){}   // 🔁 다시 듣기를 끊으면 얼굴도 원래대로
   try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
   try{ if(_ttsAudio){ _ttsAudio.onended=null; _ttsAudio.onerror=null; _ttsAudio.pause(); } }catch(e){}
   try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){}   // 👩‍🏫 아바타 입 멈춤
@@ -2713,6 +2955,15 @@ function _ttsSpeak(text, spk, key, btn, seq, done, play, tryNo){
     })
     .then(function(o){
       if(seq!==_speakSeq) return;                 // 그 사이 다음 말이 시작됐다 — 물러난다
+      /* 🔁 서버가 «다른 화자» 로 대체해 왔으면(Aura-2 일시 실패 → Aura-1) 첫 번째는 재생하지 않고
+         한 번 더 묻는다 (2026-10-17 「Lily·Noah 목소리가 처음과 다르게 변해」).
+         [왜] 첫 문장 먼저 읽기·스트리밍 미리받기로 TTS 요청이 «동시에» 여러 개 나가면서
+              한 문장만 대체 목소리가 섞여 «중간에 다른 사람» 처럼 들렸다.
+         ⛔ 두 번째도 대체면 그대로 읽는다 — 소리가 아예 안 나는 것이 더 나쁘다. */
+      if(o.got && o.got!==spk && tryNo===0){
+        setTimeout(function(){ if(seq===_speakSeq) _ttsSpeak(text, spk, key, btn, seq, done, play, 1); }, 400);
+        return;
+      }
       var u=URL.createObjectURL(o.blob);
       // 서버가 다른 화자로 대체했으면 캐시하지 않는다(캐시하면 그 문장이 그 목소리로 굳는다).
       // 헤더가 없으면(옛 배포) 판정하지 않고 예전처럼 캐시한다 — 모르는 것을 단정하지 않는다.
@@ -2778,10 +3029,22 @@ function _ttsPrefetch(text, spk){
       if(!r.ok || ct.indexOf('audio')<0) return null;
       var got=''; try{ got=String(r.headers.get('X-TTS-Speaker')||'').toLowerCase(); }catch(e){}
       var eng=''; try{ eng=String(r.headers.get('X-TTS-Engine')||'').toLowerCase(); }catch(e){}
-      return r.blob().then(function(b){ return { u:URL.createObjectURL(b), got:got, eng:eng }; });
+      return r.blob().then(function(b){
+        var u=URL.createObjectURL(b);
+        /* ⚡ (2026-10-20 「대답을 더 빠르게」) 받는 즉시 입모양 분석을 시작해 둔다 — 앞 조각이 재생되는 동안 끝나
+           차례가 오면 정확한 입모양으로 곧바로 읽는다. ⛔ 중국어 남자(굵게 굽는 판)는 재생 소리가 달라 건너뛴다. */
+        try{ if(!_zhMaleWanted() && window.AvatarVisemes && AvatarVisemes.prepare) AvatarVisemes.prepare(u); }catch(e4){}
+        return { u:u, got:got, eng:eng };
+      });
     })
     .catch(function(){ return null; });
 }
+/* ⚡ (2026-10-20) 입모양 분석기(모델 37.8MB, 기기에 한 번 받으면 1년 캐시)를 화면이 열릴 때 미리 켠다 —
+   연령·수준을 고르는 동안 준비돼 첫 인사부터 정확한 입모양이 나오게. 재생은 이것을 기다리지 않는다
+   (mango-avatar.js v20 — 분석은 250ms 까지만 기다림). 이미 켜져 있으면 아무 일도 안 한다. */
+window.addEventListener('load', function(){
+  setTimeout(function(){ try{ window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); }catch(e){} }, 1000);
+});
 /* 🎙️ 영어 «남자» 목소리(Jake·Noah)는 너무 늘이지 않는다 (2026-10-02 피드백 「제이크랑 노아는 보이스가 어색함」).
    «보통» 이 0.8배라 브라우저가 소리를 늘여 재생하는데, 이 늘이기는 낮은 남자 목소리에서 «뚜벅뚜벅» 끊김이
    크게 난다(RATE_STEPS 주석의 그 맞바꿈). 그래서 남자는 0.9배보다 더 늘이지 않고, 모자란 느림은
@@ -2818,7 +3081,7 @@ function _speakChunks(chunks, spk, btn, done, play){
     if(pend[i]){
       pend[i].then(function(o){
         if(seq!==_speakSeq) return;
-        if(!o){ viaTts(); return; }
+        if(!o || (o.got && o.got!==spk)){ viaTts(); return; }   // 🔁 대체 목소리는 미리받기로 재생하지 않고 다시 묻는다
         if(!o.got || o.got===spk){ _ttsCache[k]=o.u; _ttsEng[k]=o.eng; }   // 남의 목소리는 캐시 안 함(_ttsSpeak 과 같은 규칙)
         play(o.u, o.eng, next, c);
       });
@@ -2873,6 +3136,7 @@ function speak(text, btn){
   text=_speechText(text); if(!text){ if(btn) btn.classList.remove('playing'); return; }
   _lastAiSpeak=text;
   _stopSpeak();
+  _replayWho = (btn && btn.__who && typeof _replayFits==='function' && _replayFits(btn.__who)) ? btn.__who : null;   // 🔁 _stopSpeak 이 비운 뒤에 세운다
   if(btn) _latCur=null;   // ⏱ 다시 듣기는 «대화 차례» 가 아니다 — 재지 않는다
   var _atSeq=_speakSeq; _autoHook('aiStart');   // ✨ AI 가 말하는 동안에는 자동으로 듣지 않는다
   if(btn) btn.classList.add('playing');
@@ -2885,6 +3149,8 @@ function speak(text, btn){
      이제 plainStart() 는 실제 재생이 막 시작되는 시점(아래 play() 안, _synthSpeak 안)
      에서만 부른다 — 워치독이 재는 무음 시간이 실제 재생 이후로만 좁혀진다. */
   var done=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){}
+    /* 🔁 다시 듣기가 끝나면 얼굴을 «지금 고른 친구» 로 되돌린다 — 그 사이 다른 말이 시작됐으면 손대지 않는다 */
+    if(btn && _replayWho && _atSeq===_speakSeq){ _replayWho=null; try{ applyVoiceFace(); }catch(e){} }
     /* ✨ «끝까지 읽은» 대화 차례의 낭독만 알린다 — 다시 듣기(btn)·중간에 끊긴 낭독(_speakSeq 가 오름)은 제외 */
     if(!btn && _atSeq===_speakSeq) _autoHook('aiDone'); };
   /* ⚡ onEnd — 문장 나눠 읽기(아래 _speakChunks)에서 «이 조각이 끝나면 다음 조각» 을 넘긴다. 없으면 예전 done. */
@@ -2928,7 +3194,12 @@ function speak(text, btn){
     _zhDeepen(u).then(function(bu){ if(mySeq===_speakSeq) play0(bu, true, onEnd, say); },
                       function(){ if(mySeq!==_speakSeq) return; play0(u, false, onEnd, say); _zhDeepFailedOnce(); });
   };
-  var spk = nextSpeaker();                     // 🎙️ 선택된 목소리(번갈아 모드면 네 명 교대)
+  /* 🎙️ 선택된 목소리(번갈아 모드면 네 명 교대). 🔁 다시 듣기는 «그 말을 한 사람» — 차례를 넘기지 않는다. */
+  var spk;
+  if(_replayWho){
+    spk = VOICE_MODES[_replayWho].speaker;
+    try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(VOICE_MODES[_replayWho].char); }catch(e){}
+  } else spk = nextSpeaker();
   /* 🀄 중국어 «남자» 는 서버로 낼 수 없다 — 서버 zh 갈래는 구글 만다린 «한 목소리»(여성)이고
      speaker 를 아예 안 본다(src/api-games.ts 의 /api/voice/tts).
      그래서 ① 기기에 진짜 중국어 «남자» 음성이 있으면 그것으로 읽고(가장 자연스러움)
@@ -2990,7 +3261,7 @@ function _speakLive(L, spk, done, play){
     if(p){
       p.then(function(o){
         if(seq!==_speakSeq) return;
-        if(!o){ viaTts(); return; }
+        if(!o || (o.got && o.got!==spk)){ viaTts(); return; }   // 🔁 대체 목소리는 미리받기로 재생하지 않고 다시 묻는다
         if(!o.got || o.got===spk){ _ttsCache[k]=o.u; _ttsEng[k]=o.eng; }
         play(o.u, o.eng, next, c);
       });
@@ -3101,6 +3372,7 @@ async function _stmTurn(r, epoch, typing, lt0, ls){
   }
   if(d.cut) addMsg('답변이 중간에 끊겼어요. 이어서 말해 주세요.', 'sys');
   showFixCard(d.fix, d.repeat);
+  wuApplyGrade(d);
   showAnswerChips(d.answer_chips, d.speaking_help);
   return 'done';
 }
@@ -3608,6 +3880,7 @@ function withCtx(body){
   //       이름을 물으면 다른 이름을 댄다(2026-08-31 사장님 제보).
   //    「번갈아」면 _voicePerson() 이 그 턴의 사람을 준다 — 목소리와 같은 사람이 된다.
   try{ body.friend = _voicePerson(); }catch(e){}
+  if(_wuCorrMode) body.correction_mode = _wuCorrMode;   // 🎚️ 사람이 고른 교정 방식만(안 골랐으면 안 보냄)
 
   if(WCTX.textbook) body.textbook = WCTX.textbook;
   if(WCTX.level) body.level = WCTX.level;
@@ -3777,6 +4050,22 @@ function newWarmupChat(){
    학생이 한 마디 보낼 때마다 콤보가 쌓이고, 고비마다 축하가 터진다.
    ══════════════════════════════════════════════════════════════════ */
 var _combo = 0;
+/* 🎯 (2026-10-29) 서버가 grade 를 주는 학생(시범 학원 — src/warmup-honest.ts)이면 true.
+   그때부터 콤보·팡파레는 «보낸 횟수» 가 아니라 «완벽한 문장» 만 센다. grade 가 안 오면 예전 그대로. */
+var _wuGraded = false, _wuSendBumped = false;
+function wuApplyGrade(d){
+  try{
+    if(!d || !d.grade) return;                   // 등급이 없으면(시범 밖) 아무것도 안 바꾼다
+    if(!_wuGraded){
+      _wuGraded = true;
+      /* 첫 답을 받기 전에는 등급이 오는지 몰라 보낼 때 한 번 올렸다 — 그것을 되돌린다 */
+      if(_wuSendBumped && _combo>0){ _combo--; var n=document.getElementById('comboN'); if(n) n.textContent=_combo;
+        var chip=document.getElementById('comboChip'); if(chip && _combo<2) chip.style.display='none'; }
+    }
+    _wuSendBumped = false;
+    if(d.grade==='perfect'){ bumpCombo(); if(!COMBO_MILESTONES[_combo]) fanfare(); }   // 고비가 아니어도 짧은 팡파레(고비면 bumpCombo 가 이미 울림)
+  }catch(e){}
+}
 var COMBO_MILESTONES = {
   3:'🔥 3콤보! 대화에 불이 붙었어요!',
   5:'⚡ 5콤보! 영어가 술술 나오는데요?',
@@ -3974,6 +4263,7 @@ function fixSpeakThenMic(btn, text){
   var openMic = function(){
     if(opened || _warmPaused || epoch!==_warmEpoch)return; opened = true;
     btn.disabled = false;
+    _repeatTarget = { text: text, epoch: epoch, at: Date.now() };   // 🎤 다음에 보내는 말을 이 문장과 맞춰 본다
     try{
       if(typeof _recognizing !== 'undefined' && _recognizing) return;   // 이미 듣는 중
       if(typeof toggleMic === 'function') toggleMic();
@@ -4135,7 +4425,17 @@ async function sendMsg(){
   _autoHook('sent');
   ansCardClear();                           // 💬 내가 말했으니 이전 «대답 보기» 는 걷는다
   fixCardClear();                           // ✏️ 이전 «교정 카드» 도 함께 걷는다
-  bumpCombo();                              // 🔥 한 마디마다 콤보 적립 + 고비마다 축하
+  /* 🎤 «따라 말해 보기» 뒤에 보낸 말이면 낱말 단위로 채점해 보여 준다(js/repeat-score.js). 90초가 지났거나 다른 화면이면 안 잰다. */
+  var _rt=_repeatTarget; _repeatTarget=null;
+  if(_rt && _rt.epoch===epoch && Date.now()-_rt.at<90000 && window.MangoRepeatScore){
+    try{ var _rc=MangoRepeatScore.render(_rt.text, text, function(b){ fixSpeakThenMic(b, _rt.text); }); if(_rc) log.appendChild(_rc);
+      /* 🎯 교정 성공 = 보상 — 고친 문장을 다시 말해 «완벽» 이면 콤보·팡파레(등급을 받는 학생만) */
+      if(_rc && _wuGraded && _rc.getAttribute('data-grade')==='great'){ bumpCombo(); confettiBurst(); fanfare(); }
+    }catch(e){}
+  }
+  /* 🔥 한 마디마다 콤보 적립 + 고비마다 축하. 🎯 단, 서버가 «등급» 을 주는 학생(시범 학원)은 보낼 때가 아니라
+     «완벽한 문장일 때·따라 말하기에 성공했을 때» 만 올린다(wuApplyGrade — 제안서 «팡파레는 맞게 말했을 때만»). */
+  _wuSendBumped=false; if(!_wuGraded){ bumpCombo(); _wuSendBumped=true; }
   sending = true; document.getElementById('sendBtn').disabled = true;
   document.getElementById('wgState').textContent='AI 친구가 답변을 준비하고 있어요…';
 
@@ -4163,7 +4463,9 @@ async function sendMsg(){
     if(!r.ok){
       var errTxt = '';
       try{ var ej = await r.json(); errTxt = ej.detail || ''; }catch(e){}
-      addMsg('답변을 받아오지 못했어요. 잠시 후 다시 시도해 주세요.', 'sys');
+      /* 📗 엘리더잼 통로(js/eleader-l1.js)가 사유(하루 횟수·로그인)를 이미 말했으면 겹쳐 쓰지 않는다
+         (2026-10-28 원장님 화면: «횟수를 다 썼어요» 와 이 줄이 함께 떠 «고장» 으로 읽혔다). */
+      if(!r.__eleaderNoted) addMsg(wuT('답변을 받아오지 못했어요. 잠시 후 다시 시도해 주세요.', 'No reply yet. Please try again shortly.'), 'sys');
     } else {
       var d = await r.json();
       if(_warmPaused || epoch!==_warmEpoch)return;
@@ -4171,6 +4473,7 @@ async function sendMsg(){
       _latCur={ t0:_lt0, t1:Date.now(), wait:(_ls?_ls.wait:null), tStop:(_ls?_ls.at:null) };   // ⏱ 첫 소리가 나면 _latMark 가 닫는다
       addMsg(d.ai_response || '(응답이 비어 있어요)', 'ai');
       showFixCard(d.fix, d.repeat);         // ✏️ 서버가 «검증해서» 준 교정만 그린다(없으면 아무것도 안 그림)
+      wuApplyGrade(d);                      // 🎯 등급이 «완벽» 일 때만 콤보·팡파레
       showAnswerChips(d.answer_chips,d.speaking_help);      // 💬 서버가 만든 «대답 보기»(못 만들면 빈 배열)
     }
   }catch(e){
@@ -4360,7 +4663,7 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
   .talk-switch .ts-lbl{ display:none; }
 }
 </style>
-<script defer src="/js/mangoi-voice-input.js?v=5"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
+<script defer src="/js/mangoi-voice-input.js?v=6"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/voice-has-speech.js?v=1"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
 <script defer src="/js/ai-diff.js?v=2"></script>
 <script defer src="/js/warmup-howto.js?v=5"></script><!-- 📘 A.i말하기 사용방법 쉽게 알기 안내창 (2026-10-03) --><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
@@ -4368,10 +4671,11 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 <script defer src="/js/flow.js?v=23"></script>
 <!-- BUILD:20260813015745 -->
 <script src="/js/ux-track.js?v=1" defer></script>
+<script src="/js/repeat-score.js?v=1" defer></script><!-- 🎤 «따라 말해 보기» 채점 (2026-10-18) -->
 <script src="/js/warmup-auto-talk.js?v=7" defer></script><!-- ✨ 자동 말하기(베타) — 기본은 버튼 모드 -->
 <script src="/js/warmup-facetalk.js?v=2" defer></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 자동 말하기 엔진을 켜고 모양만 바꿈) -->
 <script src="/js/warmup-touch-bar.js?v=1" defer></script><!-- 📱 터치 기기 전용 아래 3칸 바(도움·말하기·글쓰기) — 2026-09-26 시안 4 -->
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
-<script defer src="/js/warmup-photo-icons.js?v=2"></script>
+<script defer src="/js/warmup-photo-icons.js?v=5"></script>
 </body>
 </html>

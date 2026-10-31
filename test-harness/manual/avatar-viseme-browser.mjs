@@ -14,7 +14,24 @@ const server=http.createServer((req,res)=>{
   res.setHeader('Content-Type','text/html');res.end(`<div id="tavatar-wrap"></div><div id="tavatar-ring"></div><canvas id="tavatar-canvas"></canvas><video id="tavatar-video"></video>
   <script src="/js/avatar-visemes.js"></script>
   <script>window.__mgAvatarWant='lily';window.AvatarVisemes.prepare=()=>Promise.resolve(${JSON.stringify(cues)});
-  const draw=CanvasRenderingContext2D.prototype.drawImage;CanvasRenderingContext2D.prototype.drawImage=function(im,...a){if(im.src&&im.src.includes('-mouths.webp')){window.pose=Math.round(a[0]/a[2])+Math.round(a[1]/a[3])*3;window.lastSprite='anchor';}if(im.src&&im.src.includes('-transitions.webp')){window.transitionSeen=true;window.lastSprite='transition';window.transitionTile=Math.round(a[0]/a[2])+Math.round(a[1]/a[3])*18;}return draw.call(this,im,...a)};</script><script src="/js/mango-avatar.js"></script>`);return;
+  const draw=CanvasRenderingContext2D.prototype.drawImage;
+  CanvasRenderingContext2D.prototype.drawImage=function(im,...a){
+   const anchor=im.src&&im.src.includes('-mouths.webp');
+   if(anchor){
+    window.pose=Math.round(a[0]/a[2])+Math.round(a[1]/a[3])*3;window.lastSprite='anchor';
+    // Test-only negative control: draw G instead of H, so observing H must fail.
+    if(window.cueWatch&&window.suppressH&&window.pose===8){a[0]=a[2];window.pose=7;window.suppressedH++;}
+   }
+   if(im.src&&im.src.includes('-transitions.webp')){window.transitionSeen=true;window.lastSprite='transition';window.transitionTile=Math.round(a[0]/a[2])+Math.round(a[1]/a[3])*18;}
+   const result=draw.call(this,im,...a);
+   // Retain a completed anchor draw only inside the requested playback cue interval.
+   const audio=window.a,time=audio&&audio.currentTime;
+   const watch=window.cueWatch;
+   if(watch&&anchor&&window.pose===watch.pose&&audio&&!audio.paused&&!audio.ended&&time>=watch.from&&time<watch.to){
+    watch.seen={time,rate:audio.playbackRate,pose:window.pose};
+   }
+   return result;
+  };</script><script src="/js/mango-avatar.js"></script>`);return;
  }
  try{const f=join(root,new URL(req.url,'http://local').pathname);res.setHeader('Content-Type',extname(f)==='.js'?'text/javascript':extname(f)==='.webp'?'image/webp':'image/png');res.end(readFileSync(f));}catch{res.statusCode=404;res.end();}
 });
@@ -24,7 +41,7 @@ let pass=0;
 try{
  const page=await browser.newPage();let errors=[];page.on('pageerror',e=>errors.push(e.message));
  let releaseAtlas,heldResolve,delayFirstAtlas=true;const held=new Promise(r=>heldResolve=r);
- await page.route('**/img/visemes/lily-mouths.webp',async route=>{
+ await page.route('**/img/visemes/lily-mouths.webp*',async route=>{
   if(delayFirstAtlas){delayFirstAtlas=false;await new Promise(resolve=>{releaseAtlas=resolve;heldResolve();});}
   await route.continue();
  });
@@ -34,6 +51,15 @@ try{
  assert.equal(await page.evaluate(()=>window.assetsPrepared),false,'speech preparation waits for delayed mouth textures');
  releaseAtlas();await page.waitForFunction(()=>window.assetsPrepared);
  console.log('PASS: delayed mouth atlas gates speech preparation');
+ async function playCue(pose,from,to,time){
+  await page.evaluate(async cue=>{a.pause();window.cueWatch={...cue,seen:null};a.currentTime=cue.time;await a.play();},{pose,from,to,time});
+ }
+ async function observedCue(timeout=30000){
+  await page.waitForFunction(()=>!!window.cueWatch?.seen,{},{timeout}).catch(async error=>{
+   console.error('FAIL: cue observation',await page.evaluate(()=>({watch:window.cueWatch,time:a.currentTime,paused:a.paused,ended:a.ended,seeking:a.seeking,ready:a.readyState,pose:window.pose,sprite:window.lastSprite})),errors);throw error;
+  });
+  await page.evaluate(()=>window.cueWatch=null);
+ }
  for(const width of [390,1280])for(const character of ['lily','noah','emma'])for(const rate of [.7,1,1.3]){
   await page.setViewportSize({width,height:800});
   await page.evaluate(async({character,rate})=>{
@@ -47,23 +73,33 @@ try{
    }
    // Match the production playback contract: decode the selected actor's assets
    // before starting a short cue window (CI runners can decode slower than local).
-   a.pause();await MangoAvatar.prepare(a);a.currentTime=.65;a.playbackRate=rate;await a.play();
+   a.pause();await MangoAvatar.prepare(a);window.cueWatch={pose:6,from:.6,to:1,seen:null};a.currentTime=.65;a.playbackRate=rate;await a.play();
   },{character,rate});
-  await page.waitForFunction(()=>window.pose===6&&window.lastSprite==='anchor',{},{timeout:5000}).catch(async error=>{
-   console.error('FAIL: anchor',character,rate,width,await page.evaluate(()=>({time:a.currentTime,paused:a.paused,ended:a.ended,seeking:a.seeking,ready:a.readyState,pose:window.pose,sprite:window.lastSprite,images:[...document.images].map(i=>({src:i.src,ready:i.complete}))})),errors);throw error;
-  }); // F at .6-1 seconds, regardless of rate.
+  await observedCue(5000); // F at .6-1 seconds, regardless of rate.
   await page.evaluate(()=>a.pause());await page.waitForFunction(()=>window.pose===0&&window.lastSprite==='anchor');
-  await page.evaluate(async()=>{a.currentTime=.35;await a.play();});
-  await page.waitForFunction(()=>window.pose===4);
+  await playCue(4,.3,.6,.35);await observedCue();
   await page.evaluate(()=>MangoAvatar.plainStop());assert.equal(await page.evaluate(()=>window.pose),0);
-  await page.evaluate(async()=>{a.pause();a.currentTime=1.4;await a.play();});
-  await page.waitForFunction(()=>window.pose===7);
-  await page.evaluate(async()=>{a.pause();a.currentTime=1.7;await a.play();});
-  await page.waitForFunction(()=>window.pose===8);
+  await playCue(7,1.3,1.6,1.4);await observedCue();
+  await playCue(8,1.6,2,1.7);await observedCue();
   await page.evaluate(async()=>{a.pause();window.transitionSeen=false;a.currentTime=.5;await a.play();});
   await page.waitForFunction(()=>window.transitionSeen,{},{timeout:5000});
   assert((await page.evaluate(()=>window.transitionTile))<288,'real canvas used a valid inbetween');
   await page.evaluate(()=>a.pause());pass++;console.log('PASS:',character,rate,width,'anchors + optical-flow transitions');
  }
- assert.deepEqual(errors,[]);console.log(`avatar-viseme-browser: PASS ${pass} / FAIL 0`);
+ // Delayed observation must retain a real H draw even after the audio closes the mouth.
+ await playCue(8,1.6,2,1.7);
+ await page.waitForFunction(()=>a.ended);
+ await page.waitForFunction(()=>window.pose===0);
+ assert.equal(await page.evaluate(()=>window.cueWatch?.seen?.pose),8,'H was drawn before delayed observation');
+ console.log('PASS: delayed H observation retains real cue evidence after audio ends');
+ // A prior successful playback cannot satisfy a new playback whose H is actually missing.
+ await page.evaluate(()=>{window.suppressH=true;window.suppressedH=0;});
+ await playCue(8,1.6,2,1.7);
+ await page.waitForFunction(()=>a.ended);
+ assert.ok(await page.evaluate(()=>window.suppressedH>0),'negative control actually substituted a rendered H tile');
+ await assert.rejects(page.waitForFunction(()=>!!window.cueWatch?.seen,{},{timeout:500}),/Timeout/);
+ assert.equal(await page.evaluate(()=>window.cueWatch.seen),null,'missing H cannot reuse an earlier observation');
+ await page.evaluate(()=>{window.cueWatch=null;window.suppressH=false;});
+ console.log('PASS: missing-H negative control fails observation; no stale evidence');
+ assert.deepEqual(errors,[]);console.log(`avatar-viseme-browser: PASS ${pass} / FAIL 0 (plus delayed and missing-H controls)`);
 }finally{await browser.close();await new Promise(r=>server.close(r));}

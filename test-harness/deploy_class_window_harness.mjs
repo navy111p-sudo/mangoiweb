@@ -316,9 +316,14 @@ console.log('\n── ⑨ 종료코드 계약 (node 를 실제로 띄워서) ─
      · deploy.ps1 — 보류면 «멈춰야» 하므로 종료코드 2 가 필요하다
      · deploy.yml — 판정 step 이 죽으면 뒤의 배포 게이트가 통째로 안 돈다. 항상 0 이어야 한다
    이 둘이 어긋나면 한쪽이 조용히 망가진다. */
+/* 🔴 SKIP_LIVE_PROBE: '1' — 이 절은 «종료코드 계약» 만 잰다. 실접속 판정은 진짜 D1 을 부르므로 빼야 한다.
+      2026-10-26 배포 토큰에 D1 읽기 권한이 생기자(사장님 결정 「실접속 판정 켜기」) 배포 게이트에서 이 검사가
+      진짜 D1 을 불렀고, NOW_ISO 가 과거(9/1)라 «그 뒤로 남아 있는 모든 미종료 출석 행» 이 «지금 접속 중» 으로
+      세어져 창 밖인데도 보류(2)가 나왔다(run 40320241430 — 배포가 통째로 막힘). 실접속 판정 자체는
+      deploy_class_guard_harness 가 가짜 fetch 로 잰다. */
 const runCli = (iso, args = [], env = {}) =>
     spawnSync(process.execPath, [CLI_PATH, ...args],
-        { env: { ...process.env, NOW_ISO: iso, GITHUB_OUTPUT: '', GITHUB_STEP_SUMMARY: '', ...env }, encoding: 'utf8' });
+        { env: { ...process.env, NOW_ISO: iso, GITHUB_OUTPUT: '', GITHUB_STEP_SUMMARY: '', SKIP_LIVE_PROBE: '1', ...env }, encoding: 'utf8' });
 
 const IN_WINDOW = '2026-09-01T05:00:00Z';   // 14:00 KST(화) — 새 창(12~16시) 안
 const OUT_WINDOW = '2026-09-01T16:30:00Z';  // 01:30 KST — 몰아 배포 시각

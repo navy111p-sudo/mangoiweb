@@ -1,0 +1,586 @@
+{
+  "_comment": "A.i영화더빙 dub-003 (3편). 연동 규격: docs/A.i영화더빙_화면연동_설명서.md. 등장인물 = 민호(한국 남자아이)·자라(흑인 여자아이)·코코(원숭이), 재규어 자야는 대사 없음 — 편마다 다양한 인종의 아이들(2026-10-19 사장님). 영상 = 장면 그림 12장(장면당 2장)을 시작·끝 프레임으로 Kling 3.0 이 움직인 클립 18개(장면마다 10초+15초+15초, 끊김 없이 이어지게 끝 프레임=다음 시작 프레임)를 이어 붙여 장면마다 약 40초(우리 서버 /media/dubbing/dub-003/, 소리 없음, 2026-10-20 ?v=2 로 교체 — 출처는 content/dubbing/dub-003/video-sources.json). 다시 갈아 끼우면 ?v= 번호를 반드시 올리세요(?v= 붙은 주소는 1년 immutable). 대사 36줄 = 장면 6 × 캐릭터 3 × 2줄, 3~8단어. 입 모양 시각은 없음 → timing=provisional(차례 모드). 원어민 음성 파일은 아직 없어 캐릭터별 AI 목소리(TTS)로 낸다.",
+  "id": "dub-003",
+  "title": {
+    "en": "Adventure with Friends! — Jaya the Jungle Jaguar",
+    "ko": "친구들과 함께하는 모험! — 정글의 재규어 자야"
+  },
+  "level": 1,
+  "status": "preview",
+  "timing": "provisional",
+  "palette": "jungle",
+  "note": {
+    "ko": "원어민 목소리는 임시 AI 음성이에요 · 대사는 장면 순서대로 차례차례 나와요",
+    "en": "Native voices are temporary AI voices · lines come one by one in scene order"
+  },
+  "characters": {
+    "minho": {
+      "id": "minho",
+      "name": {
+        "en": "Minho",
+        "ko": "민호"
+      },
+      "emoji": "👦",
+      "ttsSpeaker": "hermes"
+    },
+    "zara": {
+      "id": "zara",
+      "name": {
+        "en": "Zara",
+        "ko": "자라"
+      },
+      "emoji": "👧",
+      "ttsSpeaker": "andromeda"
+    },
+    "coco": {
+      "id": "coco",
+      "name": {
+        "en": "Coco",
+        "ko": "코코"
+      },
+      "emoji": "🐒",
+      "ttsSpeaker": "aurora"
+    }
+  },
+  "playable": [
+    "minho",
+    "zara",
+    "coco"
+  ],
+  "scenes": [
+    {
+      "no": 1,
+      "label": {
+        "ko": "정글에 왔어요",
+        "en": "Into the Jungle"
+      },
+      "arc": "ki",
+      "mood": "bright",
+      "sfx": [
+        {
+          "at": "start",
+          "name": "birds"
+        },
+        {
+          "line": 2,
+          "when": "after",
+          "name": "birds"
+        },
+        {
+          "line": 3,
+          "name": "squeak"
+        },
+        {
+          "line": 5,
+          "when": "after",
+          "name": "rustle"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "whoosh"
+        }
+      ],
+      "video": "/media/dubbing/dub-003/scene-1.mp4?v=2",
+      "poster": "/media/dubbing/dub-003/scene-1.jpg",
+      "durationSec": 40,
+      "videoAudio": "mute",
+      "bgm": null,
+      "voices": {},
+      "lines": [
+        {
+          "id": "s1-l1",
+          "speaker": "minho",
+          "en": "Wow! Look at this big jungle!",
+          "ko": "와! 이 큰 정글 좀 봐!",
+          "emotion": "excited",
+          "scored": true
+        },
+        {
+          "id": "s1-l2",
+          "speaker": "zara",
+          "en": "I can hear so many birds!",
+          "ko": "새소리가 정말 많이 들려!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s1-l3",
+          "speaker": "coco",
+          "en": "Hello! I'm Coco the monkey!",
+          "ko": "안녕! 나는 원숭이 코코야!",
+          "emotion": "playful",
+          "scored": true
+        },
+        {
+          "id": "s1-l4",
+          "speaker": "minho",
+          "en": "Hey! That's my explorer hat!",
+          "ko": "야! 그건 내 탐험 모자야!",
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s1-l5",
+          "speaker": "coco",
+          "en": "Catch me if you can!",
+          "ko": "잡을 수 있으면 잡아 봐!",
+          "emotion": "teasing",
+          "scored": true
+        },
+        {
+          "id": "s1-l6",
+          "speaker": "zara",
+          "en": "Come on, let's follow Coco!",
+          "ko": "어서, 코코를 따라가자!",
+          "emotion": "excited",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 2,
+      "label": {
+        "ko": "넝쿨 타고 휙!",
+        "en": "Swinging on Vines"
+      },
+      "arc": "seung",
+      "mood": "bright",
+      "sfx": [
+        {
+          "line": 1,
+          "name": "rustle"
+        },
+        {
+          "line": 4,
+          "when": "after",
+          "name": "swing"
+        },
+        {
+          "line": 5,
+          "name": "whoosh"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "clap"
+        }
+      ],
+      "video": "/media/dubbing/dub-003/scene-2.mp4?v=2",
+      "poster": "/media/dubbing/dub-003/scene-2.jpg",
+      "durationSec": 40,
+      "videoAudio": "mute",
+      "bgm": null,
+      "voices": {},
+      "lines": [
+        {
+          "id": "s2-l1",
+          "speaker": "coco",
+          "en": "Grab a vine and hold on tight!",
+          "ko": "넝쿨을 잡고 꽉 매달려!",
+          "emotion": "cheerful",
+          "scored": true
+        },
+        {
+          "id": "s2-l2",
+          "speaker": "zara",
+          "en": "It's so high! I'm a little scared.",
+          "ko": "너무 높아! 조금 무서워.",
+          "emotion": "worried",
+          "scored": true
+        },
+        {
+          "id": "s2-l3",
+          "speaker": "minho",
+          "en": "Don't worry. We can do it together.",
+          "ko": "걱정 마. 우리 함께 할 수 있어.",
+          "emotion": "brave",
+          "scored": true
+        },
+        {
+          "id": "s2-l4",
+          "speaker": "coco",
+          "en": "One, two, three, swing!",
+          "ko": "하나, 둘, 셋, 휙!",
+          "emotion": "excited",
+          "scored": true
+        },
+        {
+          "id": "s2-l5",
+          "speaker": "zara",
+          "en": "Whee! I'm flying over the river!",
+          "ko": "우와! 강 위를 날고 있어!",
+          "emotion": "joyful",
+          "scored": true
+        },
+        {
+          "id": "s2-l6",
+          "speaker": "minho",
+          "en": "We did it! That was so fun!",
+          "ko": "해냈다! 정말 재미있었어!",
+          "emotion": "proud",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 3,
+      "label": {
+        "ko": "커다란 재규어",
+        "en": "The Big Jaguar"
+      },
+      "arc": "seung",
+      "mood": "mystery",
+      "sfx": [
+        {
+          "line": 1,
+          "name": "rustle"
+        },
+        {
+          "line": 2,
+          "name": "roar"
+        },
+        {
+          "line": 2,
+          "mood": "tense"
+        },
+        {
+          "line": 3,
+          "mood": "sad"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "chime"
+        }
+      ],
+      "video": "/media/dubbing/dub-003/scene-3.mp4?v=2",
+      "poster": "/media/dubbing/dub-003/scene-3.jpg",
+      "durationSec": 40,
+      "videoAudio": "mute",
+      "bgm": null,
+      "voices": {},
+      "lines": [
+        {
+          "id": "s3-l1",
+          "speaker": "zara",
+          "en": "Shh! Something is in the bushes.",
+          "ko": "쉿! 덤불 속에 뭔가 있어.",
+          "emotion": "nervous",
+          "scored": true
+        },
+        {
+          "id": "s3-l2",
+          "speaker": "minho",
+          "en": "It's a big jaguar! Run!",
+          "ko": "커다란 재규어야! 도망쳐!",
+          "emotion": "scared",
+          "scored": true
+        },
+        {
+          "id": "s3-l3",
+          "speaker": "coco",
+          "en": "Wait! She looks sad, not angry.",
+          "ko": "잠깐! 화난 게 아니라 슬퍼 보여.",
+          "emotion": "gentle",
+          "scored": true
+        },
+        {
+          "id": "s3-l4",
+          "speaker": "zara",
+          "en": "Look! Her paw is hurt.",
+          "ko": "봐! 발이 다쳤어.",
+          "emotion": "concerned",
+          "scored": true
+        },
+        {
+          "id": "s3-l5",
+          "speaker": "minho",
+          "en": "Poor jaguar. Can we help her?",
+          "ko": "불쌍한 재규어. 우리가 도와줄 수 있을까?",
+          "emotion": "caring",
+          "scored": true
+        },
+        {
+          "id": "s3-l6",
+          "speaker": "coco",
+          "en": "Yes! Let's help her together.",
+          "ko": "응! 함께 도와주자.",
+          "emotion": "determined",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 4,
+      "label": {
+        "ko": "가시를 빼 줘요",
+        "en": "Helping Jaya"
+      },
+      "arc": "jeon",
+      "mood": "calm",
+      "sfx": [
+        {
+          "line": 3,
+          "name": "drumroll",
+          "gain": 0.7
+        },
+        {
+          "line": 3,
+          "when": "after",
+          "name": "pop"
+        },
+        {
+          "line": 4,
+          "when": "after",
+          "name": "clap"
+        },
+        {
+          "line": 5,
+          "name": "purr"
+        }
+      ],
+      "video": "/media/dubbing/dub-003/scene-4.mp4?v=2",
+      "poster": "/media/dubbing/dub-003/scene-4.jpg",
+      "durationSec": 40,
+      "videoAudio": "mute",
+      "bgm": null,
+      "voices": {},
+      "lines": [
+        {
+          "id": "s4-l1",
+          "speaker": "coco",
+          "en": "There is a thorn in her paw.",
+          "ko": "발에 가시가 박혀 있어.",
+          "emotion": "careful",
+          "scored": true
+        },
+        {
+          "id": "s4-l2",
+          "speaker": "minho",
+          "en": "I will hold her paw gently.",
+          "ko": "내가 발을 살살 잡을게.",
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s4-l3",
+          "speaker": "zara",
+          "en": "Okay. One, two, three, out!",
+          "ko": "좋아. 하나, 둘, 셋, 쏙!",
+          "emotion": "focused",
+          "scored": true
+        },
+        {
+          "id": "s4-l4",
+          "speaker": "coco",
+          "en": "Great job! The thorn is gone!",
+          "ko": "잘했어! 가시가 빠졌어!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s4-l5",
+          "speaker": "minho",
+          "en": "Listen! She is purring now.",
+          "ko": "들어 봐! 이제 가르랑거려.",
+          "emotion": "amazed",
+          "scored": true
+        },
+        {
+          "id": "s4-l6",
+          "speaker": "zara",
+          "en": "Let's call her Jaya!",
+          "ko": "이 친구를 자야라고 부르자!",
+          "emotion": "happy",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 5,
+      "label": {
+        "ko": "끊어진 다리",
+        "en": "The Broken Bridge"
+      },
+      "arc": "jeon",
+      "mood": "tense",
+      "sfx": [
+        {
+          "at": "start",
+          "name": "creak"
+        },
+        {
+          "line": 1,
+          "name": "crash"
+        },
+        {
+          "line": 2,
+          "name": "waves",
+          "gain": 0.7
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "whoosh"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "roar",
+          "gain": 0.6
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "mood": "triumph"
+        }
+      ],
+      "video": "/media/dubbing/dub-003/scene-5.mp4?v=2",
+      "poster": "/media/dubbing/dub-003/scene-5.jpg",
+      "durationSec": 40,
+      "videoAudio": "mute",
+      "bgm": null,
+      "voices": {},
+      "lines": [
+        {
+          "id": "s5-l1",
+          "speaker": "minho",
+          "en": "Oh no! The bridge is broken!",
+          "ko": "이런! 다리가 끊어졌어!",
+          "emotion": "worried",
+          "scored": true
+        },
+        {
+          "id": "s5-l2",
+          "speaker": "zara",
+          "en": "How can we cross the waterfall?",
+          "ko": "폭포를 어떻게 건너지?",
+          "emotion": "worried",
+          "scored": true
+        },
+        {
+          "id": "s5-l3",
+          "speaker": "coco",
+          "en": "Jaya can jump very far!",
+          "ko": "자야는 아주 멀리 뛸 수 있어!",
+          "emotion": "excited",
+          "scored": true
+        },
+        {
+          "id": "s5-l4",
+          "speaker": "minho",
+          "en": "Can we ride on your back?",
+          "ko": "네 등에 타도 될까?",
+          "emotion": "hopeful",
+          "scored": true
+        },
+        {
+          "id": "s5-l5",
+          "speaker": "zara",
+          "en": "Hold on tight, everyone!",
+          "ko": "모두 꽉 잡아!",
+          "emotion": "brave",
+          "scored": true
+        },
+        {
+          "id": "s5-l6",
+          "speaker": "coco",
+          "en": "Jump, Jaya, jump!",
+          "ko": "뛰어, 자야, 뛰어!",
+          "emotion": "excited",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 6,
+      "label": {
+        "ko": "우리는 친구!",
+        "en": "Friends Forever"
+      },
+      "arc": "gyeol",
+      "mood": "triumph",
+      "sfx": [
+        {
+          "line": 1,
+          "name": "sparkle"
+        },
+        {
+          "line": 2,
+          "name": "pop"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "clap"
+        },
+        {
+          "line": 6,
+          "when": "after",
+          "name": "cheer"
+        },
+        {
+          "at": "end",
+          "name": "fanfare"
+        }
+      ],
+      "video": "/media/dubbing/dub-003/scene-6.mp4?v=2",
+      "poster": "/media/dubbing/dub-003/scene-6.jpg",
+      "durationSec": 40,
+      "videoAudio": "mute",
+      "bgm": null,
+      "voices": {},
+      "lines": [
+        {
+          "id": "s6-l1",
+          "speaker": "zara",
+          "en": "Look! A rainbow over the waterfall!",
+          "ko": "봐! 폭포 위에 무지개야!",
+          "emotion": "amazed",
+          "scored": true
+        },
+        {
+          "id": "s6-l2",
+          "speaker": "coco",
+          "en": "Here is your hat, Minho!",
+          "ko": "여기 네 모자야, 민호!",
+          "emotion": "kind",
+          "scored": true
+        },
+        {
+          "id": "s6-l3",
+          "speaker": "minho",
+          "en": "Thank you, Coco! You're a good friend.",
+          "ko": "고마워, 코코! 넌 좋은 친구야.",
+          "emotion": "warm",
+          "scored": true
+        },
+        {
+          "id": "s6-l4",
+          "speaker": "zara",
+          "en": "Thank you too, Jaya!",
+          "ko": "자야, 너도 고마워!",
+          "emotion": "grateful",
+          "scored": true
+        },
+        {
+          "id": "s6-l5",
+          "speaker": "coco",
+          "en": "Friends help each other!",
+          "ko": "친구는 서로 돕는 거야!",
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s6-l6",
+          "speaker": "minho",
+          "en": "Best adventure ever! High five!",
+          "ko": "최고의 모험이야! 하이파이브!",
+          "emotion": "joyful",
+          "scored": true
+        }
+      ]
+    }
+  ]
+}

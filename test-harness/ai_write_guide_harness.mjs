@@ -55,10 +55,14 @@ const spanKo = id => { const at = html.indexOf('id="' + id + '"'); return at < 0
 ok(/<span class="pic-badge">[^<]*<span data-ko="STEP 1 · [^"]*" data-en="STEP 1 · /.test(html), 'STEP 1 → 오늘의 그림 배지에도 STEP 1 이 있다(한/영)');
 ok(/data-ko="STEP 2 · 브레인스토밍[^"]*" data-en="STEP 2 · Brainstorming/.test(spanKo('goCard')), 'STEP 2 → 브레인스토밍 칸 제목이 STEP 2 다(한/영)');
 ok(/<label for="text" class="draft-label" data-ko="[^"]*STEP 3 · [^"]*" data-en="[^"]*STEP 3 · /.test(html), 'STEP 3 → 글쓰기 칸 제목이 STEP 3 이다(한/영)');
-// 짝: 글감 세 곳에 ①②③ 을 다시 붙이면 «② 오늘의 글감 = 2단계» 로 읽힌다
-const pickNote = (html.match(/<div class="pick-note" id="pickNote">([\s\S]*?)<\/div>/) || [])[1] || '';
-const topicLbl = (html.match(/<div class="topic-row" id="topicRow">\s*<span[^>]*>/) || [''])[0];
-ok(pickNote.length > 0 && !/[①②③]/.test(pickNote) && !/[①②③]/.test(topicLbl) && !/'[①②③] 🧠/.test(html), '짝: 글감 고르는 곳(그림·글감·내 경험)에는 ①②③ 번호가 없다 — 단계 번호와 안 겹친다');
+// 짝: 글감 고르는 곳에 ①②③ 을 다시 붙이면 «② 오늘의 글감 = 2단계» 로 읽힌다
+// 📅 (2026-10-19 사장님 지시 «글감은 한 곳에서») 고르는 곳이 셋(그림 · 🎲 글감 칩 · «셋 중 하나만» 안내)에서
+//    «🎬 장면·글감 선택» 목록 하나로 합쳐졌다 — 옛 #pickNote·#topicRow 는 지웠으므로 «그 목록과 묶음 이름» 에 번호가 없는지 묻는다.
+//    ⛔ 옛 id 로 되돌리지 말 것. «지워졌다» 도 짝으로 본다(되살아나면 고르는 곳이 다시 여러 군데가 된다).
+const groupsSrc = (html.match(/const AW_GROUPS = \[([\s\S]*?)\];/) || [])[1] || '';
+const pickerRow = (html.match(/<div class="topic-row scene-picker">[\s\S]*?<\/div>/) || [''])[0];
+ok(groupsSrc.length > 0 && pickerRow.length > 0 && !/[①②③]/.test(groupsSrc) && !/[①②③]/.test(pickerRow) && !/'[①②③] 🧠/.test(html), '짝: 글감 고르는 곳(장면·글감 선택 하나 · 목록 묶음 이름)에는 ①②③ 번호가 없다 — 단계 번호와 안 겹친다');
+ok(!html.includes('id="pickNote"') && !html.includes('id="topicRow"') && (html.match(/id="picChoice"/g) || []).length === 1, '짝: 글감 고르는 곳은 하나다(옛 «셋 중 하나만» 안내·글감 칩 줄이 되살아나지 않았다)');
 ok(!/data-ko="[①②③] 오늘의 그림/.test(html), '짝: 그림 배지가 «① 오늘의 그림» 으로 돌아가지 않았다');
 ok(steps.every(s => /^<span data-ko=/.test(s.inner.trim())), 'data-ko/data-en 은 버튼이 아니라 «글자만 담은 span» 에 단다');
 ok(!/<button[^>]*data-ko=/.test(nav), '짝: 버튼 자신에는 data-ko 를 달지 않는다(i18n 엔진이 본문을 갈아끼움)');

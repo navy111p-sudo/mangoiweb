@@ -1,0 +1,230 @@
+{
+ "schema": 1,
+ "sourceRev": "8e2321d",
+ "params": {
+  "scale": 0.9,
+  "plateau": 0.55,
+  "frameQuality": 89,
+  "lipRedThr": 70
+ },
+ "actors": {
+  "lily": {
+   "rect": [
+    250,
+    294,
+    144,
+    122
+   ],
+   "oldRect": [
+    250,
+    294,
+    144,
+    122
+   ],
+   "centre": [
+    328,
+    361
+   ],
+   "radius": [
+    62,
+    50
+   ],
+   "files": {
+    "img/lily-closed.webp": {
+     "sourceSha256": "f606f823bf129a5c2057a972b100acdc172a37d9521a77f54211569969334eb9",
+     "sha256": "66103f2c8c854a27de462e0ffb37d419b040e2a0c751e7d33c90b549439cd496",
+     "bytes": 68004,
+     "outsideMaxChangePreEncode": 0.0,
+     "lipWidthBefore": 64,
+     "lipWidthAfter": 58
+    },
+    "img/lily-mid.webp": {
+     "sourceSha256": "111113190944d338159b460f509347d862a9cee136dbd503aa62268efb19f9a7",
+     "sha256": "654484acf026feb1f30d9b80aee2fe66c7447ce1ae53e9d0ee94ab8245384da2",
+     "bytes": 63600,
+     "outsideMaxChangePreEncode": 0.0,
+     "lipWidthBefore": 51,
+     "lipWidthAfter": 47
+    },
+    "img/lily-wide.webp": {
+     "sourceSha256": "ef9a5172bb70ecc024083d2d29460e8b2881120c5ebdac8106153a86992c8a5a",
+     "sha256": "0a0d70bd84ba237f2078aee19bbff2d5a5b6feeffbf1b48e2162f5bd35a11298",
+     "bytes": 64554,
+     "outsideMaxChangePreEncode": 0.0,
+     "lipWidthBefore": 65,
+     "lipWidthAfter": 59
+    },
+    "img/visemes/lily-mouths.webp": {
+     "sourceSha256": "b07a435dbab2d55c5db61084f531816b35bd16f7e37dab0cd47fafb611381bc8",
+     "sha256": "d1b25cc9cafcf83462f793d1667627a194978eeaa2ad512ed594091d27cddaf2",
+     "bytes": 114590,
+     "tiles": [
+      {
+       "pose": "X",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 66,
+       "lipWidthAfter": 60
+      },
+      {
+       "pose": "A",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 32,
+       "lipWidthAfter": 29
+      },
+      {
+       "pose": "B",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 73,
+       "lipWidthAfter": 66
+      },
+      {
+       "pose": "C",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 83,
+       "lipWidthAfter": 75
+      },
+      {
+       "pose": "D",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 78,
+       "lipWidthAfter": 71
+      },
+      {
+       "pose": "E",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 52,
+       "lipWidthAfter": 50
+      },
+      {
+       "pose": "F",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 48,
+       "lipWidthAfter": 44
+      },
+      {
+       "pose": "G",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 66,
+       "lipWidthAfter": 62
+      },
+      {
+       "pose": "H",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 58,
+       "lipWidthAfter": 55
+      }
+     ]
+    }
+   }
+  },
+  "noah": {
+   "rect": [
+    214,
+    364,
+    214,
+    130
+   ],
+   "oldRect": [
+    244,
+    364,
+    154,
+    130
+   ],
+   "centre": [
+    321,
+    434
+   ],
+   "radius": [
+    105,
+    58
+   ],
+   "files": {
+    "img/noah-closed.webp": {
+     "sourceSha256": "c0d0776b2af7119b9842232e9413aae272dd6f0f12f763c90284b2a47d7ed023",
+     "sha256": "6975567ccb27c189e75cfc89ec1c4b58c9f4fa3f7e0bd4332b460075502443ca",
+     "bytes": 47618,
+     "outsideMaxChangePreEncode": 0.0,
+     "lipWidthBefore": 80,
+     "lipWidthAfter": 73
+    },
+    "img/noah-mid.webp": {
+     "sourceSha256": "455f4a0dbe6f42b95f7dd8b6e3d0a9198027d249bad2a7828e0d3b95bd597bab",
+     "sha256": "77f885543ee69f14c170883c84ba9f44c00131060db7b38a1783916acd2e4f09",
+     "bytes": 45148,
+     "outsideMaxChangePreEncode": 0.0,
+     "lipWidthBefore": 80,
+     "lipWidthAfter": 72
+    },
+    "img/noah-wide.webp": {
+     "sourceSha256": "8446a1e559e142b01dd7e92e7a015838d3d7af22b9f6ecb5edc2c0c39c0a32bc",
+     "sha256": "f7acfc04b6e26321d8dfca10653af490ca93fcd4c0d3bd41dc00c8572b7724f9",
+     "bytes": 46068,
+     "outsideMaxChangePreEncode": 0.0,
+     "lipWidthBefore": 94,
+     "lipWidthAfter": 84
+    },
+    "img/visemes/noah-mouths.webp": {
+     "sourceSha256": "d7ae60076efc63ac76c01db44be266faa3abe836f3e645d3d53261add38f2e5e",
+     "sha256": "fc4264612655ba745929d2b6031037cdd63649e754edad2647f7100f0976c092",
+     "bytes": 152992,
+     "tiles": [
+      {
+       "pose": "X",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 101,
+       "lipWidthAfter": 92
+      },
+      {
+       "pose": "A",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 96,
+       "lipWidthAfter": 89
+      },
+      {
+       "pose": "B",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 110,
+       "lipWidthAfter": 98
+      },
+      {
+       "pose": "C",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 111,
+       "lipWidthAfter": 100
+      },
+      {
+       "pose": "D",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 108,
+       "lipWidthAfter": 98
+      },
+      {
+       "pose": "E",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 75,
+       "lipWidthAfter": 71
+      },
+      {
+       "pose": "F",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 86,
+       "lipWidthAfter": 80
+      },
+      {
+       "pose": "G",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 0,
+       "lipWidthAfter": 0
+      },
+      {
+       "pose": "H",
+       "borderMaxChange": 0.0,
+       "lipWidthBefore": 0,
+       "lipWidthAfter": 0
+      }
+     ]
+    }
+   }
+  }
+ }
+}

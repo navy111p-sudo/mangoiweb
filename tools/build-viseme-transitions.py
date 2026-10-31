@@ -5,10 +5,15 @@
 These are transitional shapes, NOT 297 independently recognized phonemes.
 Bidirectional optical flow aligns lip texture before blending. Alpha is blended
 in premultiplied space, avoiding a dark fringe around the transparent patch.
+
+Usage: build-viseme-transitions.py [actor ...]  (default: every actor). Naming
+actors rebuilds only those sheets; the other entries of transitions.json are
+kept, so a lily/noah retouch does not re-encode emma.
 """
 from pathlib import Path
 import hashlib
 import json
+import sys
 import cv2
 import numpy as np
 from PIL import Image
@@ -16,7 +21,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'cloudflare-deploy/public/img/visemes'
 ACTORS = {'lily': (144, 122, 'lily-mouths.webp'),
-          'noah': (154, 130, 'noah-mouths.webp'),
+          'noah': (214, 130, 'noah-mouths.webp'),
           'emma': (146, 126, 'emma-v2-mouths.webp')}
 STEPS, COLS = 4, 18
 
@@ -45,10 +50,17 @@ def warp_pair(a, b):
         yield np.clip(np.rint(mixed*255), 0, 255).astype(np.uint8)
 
 
-def main():
+def main(names):
+    unknown = [n for n in names if n not in ACTORS]
+    if unknown:
+        sys.exit(f'unknown actor: {unknown}')
+    old = OUT/'transitions.json'
+    kept = json.loads(old.read_text()).get('actors', {}) if names and old.exists() else {}
     report = {'schema': 1, 'anchors': 'XABCDEFGH', 'steps': STEPS,
-              'columns': COLS, 'shapesPerActor': 297, 'actors': {}}
+              'columns': COLS, 'shapesPerActor': 297, 'actors': kept}
     for actor, (w, h, source) in ACTORS.items():
+        if names and actor not in names:
+            continue
         im = np.array(Image.open(OUT/source).convert('RGBA'))
         poses = [im[(i//3)*h:(i//3+1)*h, (i%3)*w:(i%3+1)*w].copy()
                  for i in range(9)]
@@ -66,8 +78,9 @@ def main():
             'transitionShapes': len(tiles), 'bytes': target.stat().st_size,
             'sourceSha256': hashlib.sha256((OUT/source).read_bytes()).hexdigest()}
         print(actor, len(tiles)+9, 'shapes,', target.stat().st_size, 'bytes')
+    report['actors'] = {a: report['actors'][a] for a in ACTORS if a in report['actors']}
     (OUT/'transitions.json').write_text(json.dumps(report, indent=2)+'\n')
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])

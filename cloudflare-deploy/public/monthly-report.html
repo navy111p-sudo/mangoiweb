@@ -275,7 +275,7 @@
       html += '<div class="card"><h3>📈 '+t('평가 점수 추이','Score Trend')+'</h3>'+svgTrend(items)+'</div>';
       if((vo.sessions||0)>0){
         html += '<div class="card"><h3>🎤 '+t('발음 영역별','Pronunciation')+'</h3>'+
-          pronRow(t('정확도','Accuracy'),vo.avg_accuracy)+pronRow(t('발음','Pron.'),vo.avg_pronunciation)+pronRow(t('유창성','Fluency'),vo.avg_fluency)+'</div>';
+          pronRow(t('정확도','Accuracy'),vo.avg_accuracy)+pronRow(t('발음','Pron.'),vo.avg_pronunciation)+pronRow(t('유창성','Fluency'),vo.avg_fluency)+paceLine(vo)+'</div>';
       }
       if(jd){
         html += '<div class="card"><h3>🧠 '+t('판단력 성장','Decision-making')+' <span class="ai-tag">AI</span></h3>'+
@@ -317,6 +317,15 @@
     html += '<div class="muted-note">'+t('이 레포트는 망고아이 학습 데이터를 바탕으로 자동 생성되었습니다.','Auto-generated from Mangoi learning data.')+'</div>';
     html += '</div></div>';
     document.getElementById('root').innerHTML = html;
+  }
+  /* 🗣️ 따라 읽기 말속도(2026-10-18) — 서버가 표본이 모자라면 null 을 준다 → 그때는 아무것도 안 그린다(지어내지 않음).
+     ⛔ «WPM(대화 속도)» 이라 부르지 말 것 — 짧은 문장을 따라 읽는 속도라 앞뒤 쉼이 빠져 높게 나온다. */
+  function paceLine(vo){
+    var w=Number(vo&&vo.pace_wpm); if(!(w>0)) return '';
+    var p=Number(vo.prev_pace_wpm), diff='';
+    if(p>0){ var dd=w-p; diff=' <span style="color:'+(dd>=0?'#047857':'#b45309')+';font-weight:700">('+t('지난 기간 ','prev. ')+p+' → '+w+', '+(dd>=0?'+':'')+dd+')</span>'; }
+    return '<div class="pace-row" style="margin-top:8px;font-size:13px;color:#334155">🗣️ <b>'+t('따라 읽기 말속도','Read-aloud pace')+'</b>: '+(lang==='ko'?'분당 <b>'+w+'</b>낱말':'<b>'+w+'</b> words/min')+diff+
+      '<div style="font-size:11.5px;color:#64748b;margin-top:2px">'+t('AI 발음 코칭 '+(vo.pace_samples||0)+'문장 가운뎃값 · 짧은 문장을 따라 읽는 속도라 대화 속도보다 빠르게 나옵니다','Median of '+(vo.pace_samples||0)+' AI speech-coach sentences · read-aloud speed of short sentences, faster than conversation')+'</div></div>';
   }
   function pronRow(lab,v){ v=Number(v)||0; return '<div class="pron-row"><span class="lab">'+lab+'</span><div class="bar"><i style="width:'+Math.max(0,Math.min(100,v))+'%"></i></div><span class="pct">'+v+t('점','')+'</span></div>'; }
 

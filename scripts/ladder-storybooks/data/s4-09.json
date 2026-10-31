@@ -1,0 +1,311 @@
+{
+  "id": "s4-09",
+  "breaks": [
+    2,
+    3,
+    4,
+    3
+  ],
+  "key": {
+    "P": 1,
+    "S": 10
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결책",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «플라스틱이 미세플라스틱이 되어 해양 생물을 위협한다(문제)» 와 «처음부터 플라스틱이 바다에 가지 않게 막는 것(해결책)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (microplastics threaten marine life) and the solution (stop plastic from reaching the ocean in the first place). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Problem",
+      "qko": "어떤 문제가 있나요?",
+      "qen": "What is the problem?",
+      "a": "Microplastics are a growing threat to marine life"
+    },
+    {
+      "k": "Sources",
+      "qko": "미세플라스틱은 어디서 생기나요?",
+      "qen": "Where do microplastics come from?",
+      "a": "Broken bottles and bags, and fibers from synthetic clothes"
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결할 수 있나요?",
+      "qen": "How can it be solved?",
+      "a": "Stop plastic from reaching the ocean"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Plastic in the ocean breaks into tiny ",
+      "ans": "pieces",
+      "opts": [
+        "pieces",
+        "bubbles",
+        "shells"
+      ]
+    },
+    {
+      "pre": " called microplastics. Some are broken down from bottles by sunlight and ",
+      "ans": "waves",
+      "opts": [
+        "waves",
+        "ice",
+        "fire"
+      ]
+    },
+    {
+      "pre": ", and others are fibers from washing synthetic ",
+      "ans": "clothes",
+      "opts": [
+        "clothes",
+        "dishes",
+        "cars"
+      ]
+    },
+    {
+      "pre": ". Sea animals often mistake them for ",
+      "ans": "food",
+      "opts": [
+        "food",
+        "rocks",
+        "friends"
+      ]
+    },
+    {
+      "pre": ", and the particles move up the food ",
+      "ans": "chain",
+      "opts": [
+        "chain",
+        "table",
+        "line"
+      ]
+    },
+    {
+      "pre": ". The best solution is to stop plastic from reaching the ocean.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "marine",
+      "해양의, 바다의",
+      "which pose a growing threat to <b>marine</b> life",
+      "living in or connected with the sea"
+    ],
+    [
+      "defined",
+      "정의된",
+      "Microplastics are usually <b>defined</b> as pieces smaller than five millimeters.",
+      "described exactly by its meaning"
+    ],
+    [
+      "synthetic",
+      "합성의",
+      "fibers released when <b>synthetic</b> clothes are washed",
+      "made by people, not found in nature"
+    ],
+    [
+      "digestion",
+      "소화",
+      "Eating plastic can harm their <b>digestion</b> and growth",
+      "the way the body breaks down food"
+    ],
+    [
+      "particles",
+      "입자",
+      "These <b>particles</b> can also move up the food chain",
+      "very small pieces of something"
+    ],
+    [
+      "single-use",
+      "일회용의",
+      "Using less <b>single-use</b> plastic",
+      "made to be used once and then thrown away"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why are microplastics almost impossible to remove from the water?",
+      "qko": "왜 미세플라스틱은 물에서 없애기가 거의 불가능할까요?",
+      "opts": [
+        "because they are so small",
+        "because they sink to the deepest trench",
+        "because they melt in salt water"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Some come from larger items, such as bottles and bags, that are broken down by sunlight and waves.",
+        "Scientists have found microplastics in seafood and in sea salt, raising questions about effects on human health.",
+        "Because they are so small, microplastics are almost impossible to remove from the water.",
+        "Every year, millions of tons of plastic waste enter the ocean."
+      ],
+      "ev": [
+        2
+      ],
+      "why": [
+        "미세플라스틱이 너무 작기 때문에 물에서 없애기가 거의 불가능하다고 했어요.",
+        "The text says that because they are so small, microplastics are almost impossible to remove."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "What does \"move up the food chain\" mean in the text?",
+      "qko": "글에서 «move up the food chain» 은 무슨 뜻인가요?",
+      "opts": [
+        "pass from small animals into the larger animals that eat them",
+        "float up from the sea floor to the surface",
+        "get cleaned out of the water by plankton"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "These particles can also move up the food chain, as small animals are eaten by larger ones.",
+        "Fish, shellfish, and even plankton often mistake them for food.",
+        "Microplastics are usually defined as pieces smaller than five millimeters.",
+        "Using less single-use plastic and improving waste management are important first steps."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "같은 문장에서 작은 동물이 큰 동물에게 먹히면서 입자가 옮겨 간다고 설명해요.",
+        "The same sentence explains it: small animals are eaten by larger ones, so the particles pass upward."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why is stopping plastic from reaching the ocean the most effective solution?",
+      "qko": "왜 플라스틱이 바다에 가지 않게 막는 것이 가장 효과적인 해결책일까요?",
+      "opts": [
+        "Cleaning up microplastics later is extremely difficult.",
+        "Plastic disappears quickly once it is in the ocean.",
+        "Fish are not harmed when they eat plastic."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Since cleaning them up is so difficult, the most effective solution is to stop plastic from reaching the ocean in the first place.",
+        "Much of this plastic does not disappear but breaks into tiny pieces called microplastics, which pose a growing threat to marine life.",
+        "Because they are so small, microplastics are almost impossible to remove from the water.",
+        "Others are tiny from the start, including fibers released when synthetic clothes are washed."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "미세플라스틱은 너무 작아 치우기가 거의 불가능하므로, 처음부터 바다에 가지 않게 막는 것이 가장 좋다고 했어요.",
+        "Microplastics are almost impossible to remove, so the best solution is to keep plastic out of the ocean in the first place."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Find out how scientists track plastic floating across the ocean.",
+      "과학자들이 바다를 떠다니는 플라스틱을 어떻게 추적하는지 알아봐요.",
+      "Following the Plastic"
+    ],
+    [
+      "B",
+      "Learn which everyday items can replace single-use plastic.",
+      "일회용 플라스틱을 대신할 생활 물건을 알아봐요.",
+      "Life Without Single-Use Plastic"
+    ]
+  ],
+  "write": {
+    "pre": "We should",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“We should <u>carry our own water bottles</u> so that <u>less plastic reaches the ocean</u>.”",
+    "slotKo": [
+      "우리가 할 일",
+      "그 결과"
+    ],
+    "slotEn": [
+      "what we should do",
+      "the result"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «우리가 할 일 + 그러면 생기는 좋은 결과» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and the good result in English.",
+    "chips": [
+      {
+        "a": "bring cloth bags to the store",
+        "b": "we use fewer plastic bags",
+        "label": "bags"
+      },
+      {
+        "a": "sort our trash at school",
+        "b": "more plastic gets recycled",
+        "label": "recycling"
+      },
+      {
+        "a": "say no to plastic straws",
+        "b": "fewer straws end up on beaches",
+        "label": "straws"
+      }
+    ],
+    "aria": [
+      "what we should do",
+      "the result"
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에 «누가/무엇이 + 어떻게 된다» 를 넣어 결과를 분명하게 써 보세요. (예: so that the beach stays clean)",
+    "moreEn": "One more step: after «so that», write who or what + what happens to make the result clear. (e.g. so that the beach stays clean)"
+  },
+  "img": {
+    "style": "photo",
+    "cover": "A close-up of a hand holding wet beach sand mixed with many tiny colorful plastic fragments.",
+    "scenes": {
+      "1": "An old faded plastic bottle and a torn plastic bag lying on the shoreline as small waves wash over them.",
+      "3": "A steel reusable water bottle and a cloth shopping bag on a kitchen counter next to fresh fruit."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "An old plastic bottle and bag in the waves",
+    "3": "A reusable bottle and cloth bag on a counter",
+    "cover": "Tiny plastic pieces mixed with beach sand"
+  }
+}

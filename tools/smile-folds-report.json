@@ -1,0 +1,298 @@
+{
+ "schema": 1,
+ "sourceRev": "22a0ae9",
+ "params": {
+  "darkThr": 4.0,
+  "brightThr": 4.0,
+  "minArea": 14,
+  "grow": 2,
+  "hfSigma": 1.0,
+  "hfClip": 3.0,
+  "iters": 1200,
+  "sameTol": 4,
+  "frameOpen": 2,
+  "frameBand": 5,
+  "frameQuality": 89,
+  "darkPlaceholder": 0.2
+ },
+ "actors": {
+  "lily": {
+   "rect": [
+    250,
+    294,
+    144,
+    122
+   ],
+   "window": [
+    226,
+    270,
+    196,
+    170
+   ],
+   "files": {
+    "img/lily-closed.webp": {
+     "sourceSha256": "534c624b5bc5e35a16336376dccd7d3afb45ba149e1f027225b67e5084c6f3bb",
+     "sha256": "f606f823bf129a5c2057a972b100acdc172a37d9521a77f54211569969334eb9",
+     "bytes": 68774,
+     "maskPx": 1975,
+     "energyBefore": 11157.1,
+     "energyAfter": 2690.9,
+     "outsideMaxChangePreEncode": 0.0,
+     "outsideMeanChangeEncoded": 1.135
+    },
+    "img/lily-mid.webp": {
+     "sourceSha256": "e68e7976b8dfa298e4e7291afdf628263e861289b3832c7805d1f25f1d24329e",
+     "sha256": "111113190944d338159b460f509347d862a9cee136dbd503aa62268efb19f9a7",
+     "bytes": 64126,
+     "maskPx": 970,
+     "energyBefore": 4039.3,
+     "energyAfter": 2439.9,
+     "outsideMaxChangePreEncode": 0.0,
+     "outsideMeanChangeEncoded": 1.135
+    },
+    "img/lily-wide.webp": {
+     "sourceSha256": "757d262b1a772df3aa631fead384fe403fdf8f0329291911cdbb745670eeb363",
+     "sha256": "ef9a5172bb70ecc024083d2d29460e8b2881120c5ebdac8106153a86992c8a5a",
+     "bytes": 65434,
+     "maskPx": 1718,
+     "energyBefore": 10193.3,
+     "energyAfter": 1898.2,
+     "outsideMaxChangePreEncode": 0.0,
+     "outsideMeanChangeEncoded": 1.179
+    },
+    "img/visemes/lily-mouths.webp": {
+     "sourceSha256": "04f04716765f832929092a0404d489c460753135537d3866932d7c082608e3a4",
+     "sha256": "b07a435dbab2d55c5db61084f531816b35bd16f7e37dab0cd47fafb611381bc8",
+     "bytes": 125208,
+     "tiles": [
+      {
+       "pose": "X",
+       "framePx": 6539,
+       "fixedPx": 5972,
+       "maskPx": 1280,
+       "energyBefore": 4520.6,
+       "energyAfter": 1092.4,
+       "seamBefore": 2.3,
+       "seamAfter": 1.06
+      },
+      {
+       "pose": "A",
+       "framePx": 6647,
+       "fixedPx": 6029,
+       "maskPx": 1184,
+       "energyBefore": 4282.2,
+       "energyAfter": 1074.0,
+       "seamBefore": 2.3,
+       "seamAfter": 1.06
+      },
+      {
+       "pose": "B",
+       "framePx": 6872,
+       "fixedPx": 6279,
+       "maskPx": 1087,
+       "energyBefore": 4038.4,
+       "energyAfter": 1215.8,
+       "seamBefore": 2.3,
+       "seamAfter": 1.06
+      },
+      {
+       "pose": "C",
+       "framePx": 6791,
+       "fixedPx": 6065,
+       "maskPx": 1441,
+       "energyBefore": 7556.5,
+       "energyAfter": 1671.0,
+       "seamBefore": 2.3,
+       "seamAfter": 1.06
+      },
+      {
+       "pose": "D",
+       "framePx": 6619,
+       "fixedPx": 5931,
+       "maskPx": 1432,
+       "energyBefore": 8718.7,
+       "energyAfter": 1634.4,
+       "seamBefore": 2.3,
+       "seamAfter": 1.06
+      },
+      {
+       "pose": "E",
+       "framePx": 6763,
+       "fixedPx": 6123,
+       "maskPx": 1209,
+       "energyBefore": 4420.5,
+       "energyAfter": 1092.1,
+       "seamBefore": 2.3,
+       "seamAfter": 1.06
+      },
+      {
+       "pose": "F",
+       "framePx": 6410,
+       "fixedPx": 5806,
+       "maskPx": 1326,
+       "energyBefore": 5097.2,
+       "energyAfter": 1198.6,
+       "seamBefore": 2.3,
+       "seamAfter": 1.06
+      },
+      {
+       "pose": "G",
+       "framePx": 7023,
+       "fixedPx": 6452,
+       "maskPx": 999,
+       "energyBefore": 3171.8,
+       "energyAfter": 904.1,
+       "seamBefore": 2.3,
+       "seamAfter": 1.06
+      },
+      {
+       "pose": "H",
+       "framePx": 6621,
+       "fixedPx": 6049,
+       "maskPx": 1171,
+       "energyBefore": 3343.0,
+       "energyAfter": 769.2,
+       "seamBefore": 2.3,
+       "seamAfter": 1.06
+      }
+     ]
+    }
+   }
+  },
+  "noah": {
+   "rect": [
+    244,
+    364,
+    154,
+    130
+   ],
+   "window": [
+    208,
+    338,
+    230,
+    180
+   ],
+   "files": {
+    "img/noah-closed.webp": {
+     "sourceSha256": "12f1b14b523822e4340795aa7dadb4ba6e8787fe9a869cd184f56ea3a999b3e7",
+     "sha256": "c0d0776b2af7119b9842232e9413aae272dd6f0f12f763c90284b2a47d7ed023",
+     "bytes": 48146,
+     "maskPx": 2605,
+     "energyBefore": 17713.8,
+     "energyAfter": 2223.9,
+     "outsideMaxChangePreEncode": 0.0,
+     "outsideMeanChangeEncoded": 1.045
+    },
+    "img/noah-mid.webp": {
+     "sourceSha256": "e99caad992f1e053234c8822f17863dd073fa7bd96d84b31734662b8d6ee42dd",
+     "sha256": "455f4a0dbe6f42b95f7dd8b6e3d0a9198027d249bad2a7828e0d3b95bd597bab",
+     "bytes": 45732,
+     "maskPx": 1738,
+     "energyBefore": 8637.7,
+     "energyAfter": 1846.8,
+     "outsideMaxChangePreEncode": 0.0,
+     "outsideMeanChangeEncoded": 1.106
+    },
+    "img/noah-wide.webp": {
+     "sourceSha256": "cac659b175e8acc234f74e60115e0223c1f28a81ed892fe24324107e1fdcb56f",
+     "sha256": "8446a1e559e142b01dd7e92e7a015838d3d7af22b9f6ecb5edc2c0c39c0a32bc",
+     "bytes": 47428,
+     "maskPx": 2445,
+     "energyBefore": 14023.7,
+     "energyAfter": 1618.5,
+     "outsideMaxChangePreEncode": 0.0,
+     "outsideMeanChangeEncoded": 1.165
+    },
+    "img/visemes/noah-mouths.webp": {
+     "sourceSha256": "3144db671b3a1d3c031b19b73ec8c46efefd0a5460c62dae2d5764de67cd56f3",
+     "sha256": "d7ae60076efc63ac76c01db44be266faa3abe836f3e645d3d53261add38f2e5e",
+     "bytes": 124946,
+     "tiles": [
+      {
+       "pose": "X",
+       "framePx": 7036,
+       "fixedPx": 5988,
+       "maskPx": 1121,
+       "energyBefore": 17149.7,
+       "energyAfter": 2533.9,
+       "seamBefore": 6.8,
+       "seamAfter": 1.71
+      },
+      {
+       "pose": "A",
+       "framePx": 6919,
+       "fixedPx": 5863,
+       "maskPx": 1133,
+       "energyBefore": 17301.5,
+       "energyAfter": 2961.0,
+       "seamBefore": 6.8,
+       "seamAfter": 1.71
+      },
+      {
+       "pose": "B",
+       "framePx": 7036,
+       "fixedPx": 5985,
+       "maskPx": 1150,
+       "energyBefore": 17350.3,
+       "energyAfter": 2838.9,
+       "seamBefore": 6.8,
+       "seamAfter": 1.71
+      },
+      {
+       "pose": "C",
+       "framePx": 6957,
+       "fixedPx": 5881,
+       "maskPx": 1130,
+       "energyBefore": 17229.9,
+       "energyAfter": 2524.5,
+       "seamBefore": 6.8,
+       "seamAfter": 1.71
+      },
+      {
+       "pose": "D",
+       "framePx": 6872,
+       "fixedPx": 5782,
+       "maskPx": 1083,
+       "energyBefore": 17415.2,
+       "energyAfter": 2558.4,
+       "seamBefore": 6.8,
+       "seamAfter": 1.71
+      },
+      {
+       "pose": "E",
+       "framePx": 6792,
+       "fixedPx": 5755,
+       "maskPx": 1137,
+       "energyBefore": 17257.4,
+       "energyAfter": 3068.4,
+       "seamBefore": 6.8,
+       "seamAfter": 1.71
+      },
+      {
+       "pose": "F",
+       "framePx": 6736,
+       "fixedPx": 5703,
+       "maskPx": 1097,
+       "energyBefore": 17227.6,
+       "energyAfter": 3039.7,
+       "seamBefore": 6.8,
+       "seamAfter": 1.71
+      },
+      {
+       "pose": "G",
+       "framePx": 5821,
+       "fixedPx": 4903,
+       "skipped": "dark_placeholder"
+      },
+      {
+       "pose": "H",
+       "framePx": 5821,
+       "fixedPx": 4903,
+       "skipped": "dark_placeholder"
+      }
+     ]
+    }
+   }
+  }
+ }
+}

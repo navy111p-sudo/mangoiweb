@@ -30,6 +30,11 @@ export interface D1ChunkOpts {
    *   false — 실패를 그대로 올림(기본). 정산·이관처럼 조용히 비면 안 되는 곳.
    */
   swallowErrors?: boolean;
+  /**
+   * swallowErrors 로 «건너뛴» 청크가 있으면 불린다(2026-10-28). 건너뛰기는 그대로 하고 «다 물어보지 못했다»
+   * 는 사실만 부르는 쪽에 알린다 — 받은 청크는 쓰되 «없다» 와 «못 물어봤다» 를 가르고 싶을 때.
+   */
+  onChunkError?: (e: unknown) => void;
 }
 
 /**
@@ -73,6 +78,7 @@ export async function selectInChunks<R = any>(
       for (const r of ((rs?.results as R[]) || [])) out.push(r);
     } catch (e) {
       if (!opts.swallowErrors) throw e;
+      try { opts.onChunkError?.(e); } catch { /* 알림이 던져도 계속한다 */ }
     }
   }
   return out;
@@ -100,6 +106,7 @@ export async function runInChunks(
       changed += Number(r?.meta?.changes || 0);
     } catch (e) {
       if (!opts.swallowErrors) throw e;
+      try { opts.onChunkError?.(e); } catch { /* 알림이 던져도 계속한다 */ }
     }
   }
   return changed;

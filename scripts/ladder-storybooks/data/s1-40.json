@@ -1,0 +1,310 @@
+{
+  "id": "s1-40",
+  "breaks": [
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 3,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «아기 고래가 낡은 그물에 걸렸다(문제)» 와 «유리가 아기 고래를 구했다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the baby whale is stuck in an old net) and the solution (Yuri saves the baby whale). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Captain Yuri, a baby whale, and its mother"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "A baby whale is stuck in an old fishing net."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Yuri cuts the net, and the baby whale swims to its mother."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Captain Yuri is diving in the deep blue ",
+      "ans": "sea",
+      "opts": [
+        "sea",
+        "sky",
+        "forest"
+      ]
+    },
+    {
+      "pre": ". She finds a baby ",
+      "ans": "whale",
+      "opts": [
+        "whale",
+        "shark",
+        "turtle"
+      ]
+    },
+    {
+      "pre": " stuck in an old fishing ",
+      "ans": "net",
+      "opts": [
+        "net",
+        "box",
+        "boat"
+      ]
+    },
+    {
+      "pre": ". Yuri ",
+      "ans": "cuts",
+      "opts": [
+        "cuts",
+        "eats",
+        "paints"
+      ]
+    },
+    {
+      "pre": " the net, and the whale swims to its ",
+      "ans": "mother",
+      "opts": [
+        "mother",
+        "teacher",
+        "friend"
+      ]
+    },
+    {
+      "pre": ". The whales jump out of the water to say thank you!",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "diving",
+      "잠수하기",
+      "Captain Yuri is <b>diving</b> in the deep blue sea.",
+      "swimming down under the water"
+    ],
+    [
+      "whale",
+      "고래",
+      "It is a baby <b>whale</b>!",
+      "a very big animal that lives in the sea"
+    ],
+    [
+      "stuck",
+      "걸린",
+      "The whale is <b>stuck</b> in an old fishing net.",
+      "not able to move or get out"
+    ],
+    [
+      "net",
+      "그물",
+      "Yuri cuts the <b>net</b>, little by little.",
+      "a big web of strings for catching fish"
+    ],
+    [
+      "free",
+      "풀려난",
+      "The whale is <b>free</b>!",
+      "able to move and go anywhere"
+    ],
+    [
+      "saved",
+      "구했다",
+      "Yuri <b>saved</b> the baby whale",
+      "helped someone get out of danger"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does the baby whale sing a sad song?",
+      "qko": "아기 고래는 왜 슬픈 노래를 부르나요?",
+      "opts": [
+        "It is stuck in an old fishing net.",
+        "It is hungry for fish.",
+        "It wants to play with Yuri."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "The whale is stuck in an old fishing net.",
+        "Captain Yuri is diving in the deep blue sea.",
+        "It swims to its mother.",
+        "The two whales jump out of the water. Splash!"
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "아기 고래가 낡은 그물에 걸려 있어요. 그래서 슬픈 노래를 불러요.",
+        "The baby whale is stuck in an old fishing net, so it sings a sad song."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"The whale is free!\" What does \"free\" mean here?",
+      "qko": "여기서 «free» 는 무슨 뜻일까요?",
+      "opts": [
+        "It does not cost any money.",
+        "It is very tired and sleepy.",
+        "It can swim away from the net."
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "She hears a sad, low song.",
+        "Captain Yuri is diving in the deep blue sea.",
+        "It is a baby whale!",
+        "It swims to its mother."
+      ],
+      "ev": [
+        3
+      ],
+      "why": [
+        "그물에서 풀려난 고래가 엄마에게 헤엄쳐 가요. 여기서 «free» 는 갇혀 있지 않고 마음대로 움직일 수 있다는 뜻이에요.",
+        "The whale swims to its mother. Here, \"free\" means it can move and swim away from the net."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How do the whales say thank you to Yuri?",
+      "qko": "고래들은 유리에게 어떻게 고맙다고 인사하나요?",
+      "opts": [
+        "They give Yuri a big fish.",
+        "They jump out of the water together.",
+        "They sing a sad, low song."
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "She hears a sad, low song.",
+        "The two whales jump out of the water. Splash!",
+        "Yuri saved the baby whale, and the whales said thank you.",
+        "Yuri cuts the net, little by little."
+      ],
+      "ev": [
+        1,
+        2
+      ],
+      "why": [
+        "두 고래가 물 위로 뛰어오르는 것이 바로 고맙다는 인사였어요. 두 문장을 이어야 알 수 있어요.",
+        "The two whales jump out of the water, and that is how they say thank you. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Yuri and her friends clean old nets out of the sea.",
+      "유리와 친구들이 바다에서 낡은 그물을 치운다.",
+      "Cleaning the Sea"
+    ],
+    [
+      "B",
+      "The baby whale comes back to visit Yuri's boat.",
+      "아기 고래가 유리의 배를 찾아 다시 놀러 온다.",
+      "The Whale Comes Back"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "before",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“Let’s <u>clean up the old nets</u> before <u>more whales get stuck</u>.”",
+    "slotKo": [
+      "함께 할 일",
+      "그보다 나중에 일어날 일"
+    ],
+    "slotEn": [
+      "what to do",
+      "what happens later"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그보다 나중에 일어날 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what to do together and what happens later in English.",
+    "chips": [
+      {
+        "a": "pick up the trash",
+        "b": "we go home",
+        "label": "trash"
+      },
+      {
+        "a": "feed the fish",
+        "b": "we go to school",
+        "label": "fish"
+      },
+      {
+        "a": "water the flowers",
+        "b": "the sun goes down",
+        "label": "flowers"
+      }
+    ],
+    "aria": [
+      "what to do",
+      "what happens later"
+    ],
+    "moreKo": "한 걸음 더: «before» 뒤에 «누가 + 무엇을» 넣어 써 보세요. (예: before Dad comes home)",
+    "moreEn": "One more step: after «before», write who + what. (e.g. before Dad comes home)"
+  },
+  "img": {
+    "style": "papercut",
+    "cover": "In bright blue water full of sunbeams, Captain Yuri, a woman with a short black bob, a bright yellow diving suit and round blue goggles, floats with open arms as a small gray baby whale with a white belly, free from an old green fishing net drifting away below, swims happily around her, and a huge gray mother whale swims close.",
+    "scenes": {
+      "1": "Under the water, a small gray baby whale with a white belly is caught in an old green fishing net with sad eyes, and Captain Yuri, a woman with a short black bob, a bright yellow diving suit and round blue goggles, swims up holding a pair of rescue scissors and begins to snip the net piece by piece.",
+      "2": "On the sunny sea, a huge gray mother whale and a small gray baby whale with a white belly leap out of the water side by side with a big splash, as Captain Yuri, a woman with a short black bob, a bright yellow diving suit and round blue goggles, waves happily from a small white boat."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Yuri cuts the net around the baby whale.",
+    "2": "The two whales jump out of the sea near Yuri's boat.",
+    "cover": "Captain Yuri swims with the free baby whale and its mother."
+  }
+}

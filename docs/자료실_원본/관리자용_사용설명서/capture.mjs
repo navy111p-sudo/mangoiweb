@@ -5,10 +5,8 @@
 //   배포되는 그 파일(public/)을 그대로 띄우고 /api/* 만 «시험용 가짜 데이터» 로 대신한다.
 //   ⚠️ 실제 학생 정보를 쓰지 말 것 — 이 자료는 /library/ 밑이라 누구나 받을 수 있다.
 //   ⚠️ 표가 비거나 숫자가 예시인 것은 스텁이라서다 — 진짜 버그로 읽지 말 것.
-import { createRequire } from 'node:module';
 import { mkdirSync } from 'node:fs';
-const req = createRequire('/opt/node22/lib/node_modules/playwright/package.json');
-const { chromium } = req('playwright');
+import { launchChromium } from '../_공용/pdf-helpers.mjs';
 const BASE = process.env.BASE || 'http://127.0.0.1:8977';
 const OUT = process.argv[2];
 const ONLY = process.argv[3] ? new Set(process.argv[3].split(',')) : null;
@@ -128,7 +126,7 @@ function stub(state) {
   };
 }
 
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const browser = await launchChromium();
 async function ctxFor(lang, state = {}, vp = { width: 1440, height: 900 }) {
   const ctx = await browser.newContext({ viewport: vp, deviceScaleFactor: 1 });
   await ctx.addInitScript((lang) => { try {

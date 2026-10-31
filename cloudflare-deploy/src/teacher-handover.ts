@@ -223,19 +223,32 @@ export async function loadHandovers(db: any, uids: string[], nowMs: number, dayS
     warmOk = true;
   } catch { warmRows = []; }
 
+  // ── ① 카드 재료(A.i 친구 교정 — 2026-10-18 ⑧) ──
+  //   표는 첫 교정 때 생긴다 — «no such table» 은 «0건» 으로 알고 숫자를 말한다.
+  //   그 밖의 실패는 «모름»(afOk=false) — 다른 두 재료와 같은 규칙(한쪽만 읽고 숫자를 말하지 않는다).
+  let afRows: any[] = [], afOk = true;
+  try {
+    afRows = await selectInChunks<any>(db, list,
+      (ph) => perStudent(`SELECT user_id, was, fixed, created_at,
+                      ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn
+                 FROM ai_friend_fix_log WHERE user_id IN (${ph}) AND created_at >= ?`, PER_STUDENT_WARMUP),
+      { tail: [fixSince] });
+  } catch (e: any) { afRows = []; afOk = /no such table/i.test(String(e && e.message || e)); }
+
   // ⛔ 오늘 리포트는 «지난» 목표가 아니다 — 목표 후보에서는 오늘 이전만.
   const repBy = _group(goalRepRows, 'student_uid');
   const fixRepBy = _group(fixReportRows, 'student_uid');
   const evBy = _group(evalRows, 'suid');
   const warmBy = _group(warmRows, 'user_id');
+  const afBy = _group(afRows, 'user_id');
 
   // 카드를 먼저 골라 두고, 연습 기록은 카드가 있는 학생만 한 번에 읽는다.
   const cardsBy = new Map<string, FixCard[]>();
   const withCards: string[] = [];
   let oldest = nowMs;
   for (const u of list) {
-    // ① 과 같은 입력 크기(리포트 5건·웜업 30건)로 자른다 — 같은 카드를 말하게.
-    const cards = pickFixCards((fixRepBy.get(u) || []).slice(0, 5), (warmBy.get(u) || []).slice(0, 30));
+    // ① 과 같은 입력 크기(리포트 5건·웜업 30건·A.i 친구 30건)로 자른다 — 같은 카드를 말하게.
+    const cards = pickFixCards((fixRepBy.get(u) || []).slice(0, 5), (warmBy.get(u) || []).slice(0, 30), (afBy.get(u) || []).slice(0, 30));
     cardsBy.set(u, cards);
     if (cards.length) { withCards.push(u); for (const c of cards) if (c.at && c.at < oldest) oldest = c.at; }
   }
@@ -270,7 +283,7 @@ export async function loadHandovers(db: any, uids: string[], nowMs: number, dayS
     const cards = cardsBy.get(u) || [];
     // 카드 재료 «둘 다» 를 읽었을 때만 숫자를 말한다 — 한쪽만 읽고 «1장» 이라 하면 거짓이다(PR #1507 리뷰).
     // 연습 기록만 못 읽었어도 «모름»(연습 0으로 위장하지 않는다).
-    const fixKnown = reportOk && warmOk && (!cards.length || practiceOk);
+    const fixKnown = reportOk && warmOk && afOk && (!cards.length || practiceOk);
     const h: Handover = { goal, fix: fixKnown ? summarizeFix(cards) : null, story: storyBy ? summarizeStory(storyBy.get(u) || []) : null };
     if (handoverWorthShowing(h)) out.set(u, h);
   }

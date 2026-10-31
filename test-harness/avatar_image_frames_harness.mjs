@@ -76,7 +76,7 @@ if (CH) {
        ⚠️ fallback 이 있다고 이 검사를 빼면 안 된다 — fallback 은 «런타임 사고» 대비이고
           이 검사는 «커밋에 파일을 빠뜨리는 것» 을 막는다. 둘은 다른 방어다. */
     for (const t of ['closed', 'medium', 'wide']) {
-      const rel = String(c.frames[t] || '').replace(/^\//, '');
+      const rel = String(c.frames[t] || '').replace(/^\//, '').replace(/\?.*$/, '');  // ?v= is a cache key, not a file
       const abs = join(PUB, rel);
       const st = statSafe(abs);
       ok(!!st, `${k}: ${t} 그림 파일이 저장소에 있다 (${rel})`,
@@ -88,7 +88,7 @@ if (CH) {
   }
 
   /* ③ 성인 얼굴 보존 — 폴백이자 playClip(teacher-say-*) 클립의 짝 */
-  ok(vidChars.includes(CH.emma.frames ? 'emma_classic' : 'emma') && vidChars.includes('jake'),
+  ok(vidChars.includes(CH.emma.frames ? 'emma_classic' : 'emma') && vidChars.includes(CH.jake.frames ? 'jake_classic' : 'jake'),
     '성인 얼굴(emma·jake)이 영상 캐릭터로 그대로 남아 있다',
     '⛔ 지우지 말 것 — Lily·Noah 의 폴백이고, playClip 의 립싱크 클립이 Emma 얼굴과 짝이다');
   ok(typeof (CH[CH.emma.frames ? 'emma_classic' : 'emma'] || {}).poses?.closed === 'number',

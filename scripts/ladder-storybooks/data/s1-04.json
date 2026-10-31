@@ -1,0 +1,310 @@
+{
+  "id": "s1-04",
+  "breaks": [
+    2,
+    3,
+    2
+  ],
+  "key": {
+    "P": 2,
+    "S": 6
+  },
+  "roleNames": {
+    "P": {
+      "ko": "하는 일",
+      "en": "action"
+    },
+    "S": {
+      "ko": "마음",
+      "en": "feeling"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «둘이 아침에 함께 식물에 물을 준다(하는 일)» 와 «톰은 텃밭 음식이 가장 맛있다고 생각한다(마음)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the action (they water the plants together) and the feeling (Tom thinks garden food tastes the best). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Tom and Grandma"
+    },
+    {
+      "k": "Where",
+      "qko": "어디에서 일어나나요?",
+      "qen": "Where does it happen?",
+      "a": "In Grandma's big vegetable garden"
+    },
+    {
+      "k": "Feeling",
+      "qko": "톰은 어떻게 생각하나요?",
+      "qen": "How does Tom feel?",
+      "a": "He thinks food from the garden tastes the best."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Tom visits Grandma every ",
+      "ans": "summer",
+      "opts": [
+        "summer",
+        "winter",
+        "week"
+      ]
+    },
+    {
+      "pre": ". They ",
+      "ans": "water",
+      "opts": [
+        "water",
+        "paint",
+        "sell"
+      ]
+    },
+    {
+      "pre": " the plants together. Tom pulls out ",
+      "ans": "weeds",
+      "opts": [
+        "weeds",
+        "flowers",
+        "trees"
+      ]
+    },
+    {
+      "pre": ", and Grandma picks ",
+      "ans": "tomatoes",
+      "opts": [
+        "tomatoes",
+        "apples",
+        "bananas"
+      ]
+    },
+    {
+      "pre": ". At night, she cooks ",
+      "ans": "soup",
+      "opts": [
+        "soup",
+        "cake",
+        "pizza"
+      ]
+    },
+    {
+      "pre": " with the fresh vegetables. Tom thinks garden food tastes the best.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "garden",
+      "텃밭",
+      "Grandma has a big vegetable <b>garden</b>.",
+      "a place where people grow plants"
+    ],
+    [
+      "vegetable",
+      "채소",
+      "Grandma has a big <b>vegetable</b> garden.",
+      "a plant you can eat, like a carrot"
+    ],
+    [
+      "water",
+      "물을 주다",
+      "They <b>water</b> the plants together in the morning.",
+      "to give water to plants"
+    ],
+    [
+      "weeds",
+      "잡초",
+      "Tom pulls out <b>weeds</b>, and Grandma picks tomatoes.",
+      "plants that grow where you do not want them"
+    ],
+    [
+      "fresh",
+      "신선한",
+      "At night, Grandma cooks soup with the <b>fresh</b> vegetables.",
+      "new and just picked"
+    ],
+    [
+      "taste",
+      "맛이 나다",
+      "Tom thinks food from the garden <b>tastes</b> the best.",
+      "to be good or bad when you eat it"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Grandma has a big vegetable garden. What can she do because of it?",
+      "qko": "할머니에게는 큰 채소밭이 있어요. 그 덕분에 할머니는 무엇을 할 수 있나요?",
+      "opts": [
+        "She cooks soup with fresh vegetables.",
+        "She buys vegetables at the store.",
+        "She sells tomatoes in the city."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "At night, Grandma cooks soup with the fresh vegetables.",
+        "Tom visits her every summer.",
+        "The carrots are orange, and the beans are long.",
+        "They water the plants together in the morning."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "할머니는 텃밭에서 난 신선한 채소로 수프를 끓여요.",
+        "She cooks soup with the fresh vegetables from her garden."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"They water the plants.\" What does \"water\" mean here?",
+      "qko": "«They water the plants» 에서 «water» 는 무슨 뜻일까요?",
+      "opts": [
+        "give water to the plants",
+        "drink water",
+        "swim in the water"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "They water the plants together in the morning.",
+        "At night, Grandma cooks soup with the fresh vegetables.",
+        "Tom visits her every summer.",
+        "Tom thinks food from the garden tastes the best."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "여기서 «water» 는 «물» 이 아니라 «물을 주다» 예요. 식물에게 물을 줘요.",
+        "Here \"water\" means to give water to the plants."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "What do Tom and Grandma do in the garden?",
+      "qko": "톰과 할머니는 텃밭에서 무엇을 하나요?",
+      "opts": [
+        "They water plants, pull weeds, and pick tomatoes.",
+        "They plant trees and build a fence.",
+        "They play soccer and run."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "They water the plants together in the morning.",
+        "Tom pulls out weeds, and Grandma picks tomatoes.",
+        "Tom thinks food from the garden tastes the best.",
+        "Grandma has a big vegetable garden."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "둘은 식물에 물을 주고, 톰은 잡초를 뽑고, 할머니는 토마토를 따요. 두 문장을 이어야 알 수 있어요.",
+        "They water the plants, Tom pulls weeds, and Grandma picks tomatoes. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Tom plants his own seeds at home.",
+      "톰이 집에서 자기 씨앗을 심는다.",
+      "Tom's Own Garden"
+    ],
+    [
+      "B",
+      "Grandma teaches Tom how to cook soup.",
+      "할머니가 톰에게 수프 끓이는 법을 알려 준다.",
+      "Cooking with Grandma"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he is smiling)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)",
+    "src": "“I think <u>garden food is the best</u> because <u>it is fresh</u>.”",
+    "chips": [
+      {
+        "a": "carrots are good",
+        "b": "they are sweet",
+        "label": "carrots"
+      },
+      {
+        "a": "Grandma is happy",
+        "b": "she is singing",
+        "label": "Grandma"
+      },
+      {
+        "a": "my dog is tired",
+        "b": "he is sleeping",
+        "label": "dog"
+      }
+    ]
+  },
+  "img": {
+    "style": "papercut",
+    "cover": "Tom, a boy with curly brown hair, a straw hat and blue overalls, and Grandma, a woman with gray hair in a bun and a green apron, stand together in a big vegetable garden with tomato plants, carrots and bean vines.",
+    "scenes": {
+      "1": "In the morning garden, Tom, a boy with curly brown hair, a straw hat and blue overalls, waters plants with a watering can while Grandma, a woman with gray hair in a bun and a green apron, picks red tomatoes into a basket; orange carrots and long green beans grow nearby.",
+      "2": "At night in a warm kitchen, Grandma, a woman with gray hair in a bun and a green apron, serves bowls of vegetable soup, and Tom, a boy with curly brown hair and blue overalls, eats a spoonful with a happy face."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Tom waters the plants while Grandma picks tomatoes.",
+    "2": "Tom eats Grandma's vegetable soup.",
+    "cover": "Tom and Grandma in her vegetable garden."
+  }
+}

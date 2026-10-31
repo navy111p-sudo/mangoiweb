@@ -1,0 +1,312 @@
+{
+  "id": "s4-13",
+  "breaks": [
+    3,
+    6,
+    3,
+    6
+  ],
+  "key": {
+    "P": 3,
+    "S": 16
+  },
+  "roleNames": {
+    "P": {
+      "ko": "원리",
+      "en": "principle"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «습관은 신호·반복 행동·보상, 세 부분으로 된 고리다(원리)» 와 «습관의 원리를 이해하는 것이 의지력보다 더 큰 힘이 된다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the principle (a habit is a loop of a cue, a routine, and a reward) and the conclusion (understanding how habits work gives us more control than willpower alone). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Why bad habits are so hard to break"
+    },
+    {
+      "k": "Key fact",
+      "qko": "습관은 어떤 세 부분으로 이루어지나요?",
+      "qen": "What three parts make up a habit?",
+      "a": "A cue, a routine, and a reward"
+    },
+    {
+      "k": "Solution",
+      "qko": "습관을 바꾸는 더 똑똑한 방법은 무엇인가요?",
+      "qen": "What is a smarter way to change a habit?",
+      "a": "Change the loop instead of relying on willpower"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Many of our daily actions are driven by ",
+      "ans": "habit",
+      "opts": [
+        "habit",
+        "luck",
+        "money"
+      ]
+    },
+    {
+      "pre": " rather than careful decisions. A habit is a loop of a cue, a routine, and a ",
+      "ans": "reward",
+      "opts": [
+        "reward",
+        "warning",
+        "rule"
+      ]
+    },
+    {
+      "pre": ". Over time, the action becomes almost ",
+      "ans": "automatic",
+      "opts": [
+        "automatic",
+        "impossible",
+        "boring"
+      ]
+    },
+    {
+      "pre": ", so bad habits keep running. Simply trying harder often fails because ",
+      "ans": "willpower",
+      "opts": [
+        "willpower",
+        "homework",
+        "music"
+      ]
+    },
+    {
+      "pre": " gets tired. A smarter approach is to change the ",
+      "ans": "loop",
+      "opts": [
+        "loop",
+        "school",
+        "weather"
+      ]
+    },
+    {
+      "pre": " itself, for example by removing the cue.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "cue",
+      "신호",
+      "The <b>cue</b> is a trigger, such as a notification sound or the feeling of boredom.",
+      "a signal that starts a habit"
+    ],
+    [
+      "routine",
+      "반복하는 행동",
+      "The <b>routine</b> is the behavior itself, like opening an app.",
+      "something you do in the same way again and again"
+    ],
+    [
+      "automatic",
+      "자동적인",
+      "so the action becomes almost <b>automatic</b>",
+      "happening without thinking about it"
+    ],
+    [
+      "willpower",
+      "의지력",
+      "<b>Willpower</b> gets tired, especially at the end of a long day.",
+      "the strength of mind to control what you do"
+    ],
+    [
+      "approach",
+      "방법, 접근법",
+      "A smarter <b>approach</b> is to change the loop itself.",
+      "a way of dealing with a problem"
+    ],
+    [
+      "replace",
+      "바꾸다, 대신하다",
+      "keep the cue and the reward but <b>replace</b> the routine",
+      "to put something new in the place of something else"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why is simply trying harder often not enough to break a habit?",
+      "qko": "왜 그냥 더 애쓰는 것만으로는 습관을 고치기 어려울까요?",
+      "opts": [
+        "Because willpower gets tired, especially at the end of a long day",
+        "Because the cue disappears when we try harder",
+        "Because good habits always beat bad habits"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Willpower gets tired, especially at the end of a long day.",
+        "This saves mental energy, which is useful for good habits such as brushing your teeth.",
+        "Making a good habit very small and easy at first also helps, because small wins build the loop.",
+        "The cue is a trigger, such as a notification sound or the feeling of boredom."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "본문에 «Willpower gets tired, especially at the end of a long day» 라고 나와요. 의지력은 쉽게 지치기 때문에 더 애쓰는 것만으로는 부족해요.",
+        "The text says willpower gets tired, especially at the end of a long day, so trying harder is often not enough."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what does the word \"loop\" mean?",
+      "qko": "글에서 «loop(고리)» 는 무슨 뜻인가요?",
+      "opts": [
+        "A cycle of cue, routine, and reward that repeats again and again",
+        "A rule that teachers give students about phones",
+        "A part of the brain that controls our feelings"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Many researchers describe a habit as a loop with three parts: a cue, a routine, and a reward.",
+        "The reward is the pleasant feeling that follows, which teaches the brain to repeat the loop next time.",
+        "A smarter approach is to change the loop itself.",
+        "The answer lies in habits, the actions we repeat so often that we barely think about them."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "습관을 신호·반복 행동·보상의 세 부분으로 된 고리라고 하고, 보상이 뇌에게 그 고리를 다음에도 반복하라고 가르친다고 해요. 계속 되풀이되는 순환이라는 뜻이에요.",
+        "A habit is a loop of a cue, a routine, and a reward, and the reward teaches the brain to repeat the loop. So a loop is a cycle that repeats."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "According to the text, how can you change a habit of scrolling on your phone?",
+      "qko": "글에 따르면, 휴대폰을 계속 넘겨 보는 습관을 어떻게 바꿀 수 있나요?",
+      "opts": [
+        "Remove the cue, or replace the routine with something better",
+        "Try harder and use more willpower late at night",
+        "Wait until the basal ganglia stops working"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "For example, you can remove the cue by leaving your phone in another room while you study.",
+        "You can also keep the cue and the reward but replace the routine, such as stretching instead of scrolling when you feel bored.",
+        "Willpower gets tired, especially at the end of a long day.",
+        "Over time, a part of the brain called the basal ganglia takes over, so the action becomes almost automatic."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "휴대폰을 다른 방에 두어 신호를 없애거나, 지루할 때 스크롤 대신 스트레칭을 하는 식으로 반복 행동을 바꾸라고 해요. 두 문장을 함께 봐야 해요.",
+        "You can remove the cue by leaving your phone in another room, or replace the routine, such as stretching instead of scrolling. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How do top athletes build strong daily habits?",
+      "최고의 운동선수들은 어떻게 좋은 습관을 만들까?",
+      "Habits of Champions"
+    ],
+    [
+      "B",
+      "What does the basal ganglia do in our brain?",
+      "뇌 속 기저핵은 어떤 일을 할까?",
+      "The Brain on Autopilot"
+    ]
+  ],
+  "write": {
+    "pre": "If",
+    "mid": "we can",
+    "sep": ", ",
+    "slots": [
+      "cl",
+      "vp"
+    ],
+    "slotKo": [
+      "조건(만약 ~하면)",
+      "할 수 있는 일"
+    ],
+    "slotEn": [
+      "a condition",
+      "what we can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «습관의 고리를 바꾸는 조건 + 그때 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own condition and what we can do in English.",
+    "aria": [
+      "the condition",
+      "what we can do"
+    ],
+    "src": "“If <u>we leave our phones in another room</u>, we can <u>study without scrolling</u>.”",
+    "chips": [
+      {
+        "a": "we put our snacks out of sight",
+        "b": "eat fewer sweets",
+        "label": "snacks"
+      },
+      {
+        "a": "we lay out our running shoes at night",
+        "b": "exercise every morning",
+        "label": "exercise"
+      },
+      {
+        "a": "we start with just five minutes a day",
+        "b": "build a reading habit",
+        "label": "reading"
+      }
+    ],
+    "moreKo": "한 걸음 더: «If» 뒤에 «신호를 없애거나 바꾸는 방법» 을 쓰면 습관 고리를 바꾸는 문장이 돼요. (예: If we turn off game alerts, we can sleep earlier)",
+    "moreEn": "One more step: after «If», write a way to remove or change a cue. (e.g. If we turn off game alerts, we can sleep earlier)"
+  },
+  "img": {
+    "style": "comic",
+    "cover": "A teenager sitting at a study desk late at night under a warm desk lamp, an open textbook and notebook in front of them, thumb scrolling on a glowing smartphone, the dark room behind them",
+    "scenes": {
+      "1": "A close-up of a smartphone lighting up with a notification glow on a wooden desk while a hand holding a pencil reaches toward it, an open notebook beside it",
+      "3": "A smartphone resting face-down in a basket on a hallway shelf, while in the next room a student stands beside a desk stretching both arms above their head"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "A hand reaching for a lit-up phone on a desk",
+    "3": "A phone left in another room while a student stretches",
+    "cover": "A student scrolling a phone at a desk at night"
+  }
+}

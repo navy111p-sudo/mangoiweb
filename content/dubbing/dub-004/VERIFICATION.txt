@@ -1,0 +1,9 @@
+2026-10-20 resumed / base main 98beaf2ec / EP02 PR head 5b5bd5f67
+PASS existing dubbing harness 186/186; asset versions 282/282
+PASS 5 roles, 60 lines, 6 scenes, 240 planned sec, 1860 role assignments
+PASS Chromium 5-role selection/persistence and EP04/EP03 direct-start selected card/summary
+Microphone only simulated pending->denied; NO real recording/scoring/export test.
+NO generation, spend, external media upload, push, PR, merge or deploy.
+EP02 voice history and current Inworld catalog strings checked; 25 source WAV references retained.
+Latest user image libfile_b6494c0eacb48191bc6cc32ff6033cf3 pixels checked by parent/media agent, not here.
+Public EP04 remains coming and no public manifest exists.

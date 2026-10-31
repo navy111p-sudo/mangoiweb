@@ -3,7 +3,7 @@ import { chunkBinds, placeholders } from './d1-chunk';
 /** Admin-only compatibility projection. Never backfill identities, dates or scores.
  * Keep this separate from score normalization: roster duplicates must not multiply statistics.
  */
-async function evaluationColumns(db: D1Database, table: string): Promise<Set<string>> {
+export async function evaluationColumns(db: D1Database, table: string): Promise<Set<string>> {
   const result = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
   if ((result as any).success === false || !Array.isArray(result.results)) throw new Error('evaluation_schema_unavailable');
   return new Set(result.results.map(row => row.name));
