@@ -4261,14 +4261,14 @@ function _pronRoundNote(card, text, round){
   var old = card.querySelector('.rep-btn');
   if(round >= 3){
     var done = document.createElement('div'); done.className = 'rep-note';
-    done.textContent = wuT('3번 따라 말했어요. 이제 계속 이야기해요!', '3 rounds done. Let\'s keep talking!');
+    _fixLabel(done, '3번 따라 말했어요. 이제 계속 이야기해요!', '3 rounds done. Let\'s keep talking!');
     card.appendChild(done);
     if(old) old.remove();
     return;
   }
   if(!old){
     var b = document.createElement('button'); b.type = 'button'; b.className = 'rep-btn';
-    b.textContent = wuT('🎤 다시 따라 말하기 (' + (round+1) + '/3)', '🎤 Say it again (' + (round+1) + '/3)');
+    _fixLabel(b, '🎤 다시 따라 말하기 (' + (round+1) + '/3)', '🎤 Say it again (' + (round+1) + '/3)');
     b.onclick = function(){ fixSpeakThenMic(b, text, round+1, true); };
     card.appendChild(b);
   }
