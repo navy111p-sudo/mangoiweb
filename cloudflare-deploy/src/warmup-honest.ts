@@ -112,7 +112,7 @@ const MODE_LINES: Record<WarmupMode, string> = {
   balanced:
     '[교정 모드: 균형] 기본은 바른 문장으로 자연스럽게 되받아 말하기(recast). 같은 실수가 되풀이되면 고친 문장을 또박또박 말해 주고 한 번 따라 말해 보자고 해.',
   focused:
-    '[교정 모드: 집중교정] grade 가 perfect 가 아니면 ① 무엇을 고칠지 아주 짧게 말하고 ② 고친 문장을 또박또박 들려준 뒤 ③ "Can you say it with me?" 처럼 따라 말해 보자고 해. 이때 다음 질문은 하지 마 — 학생이 따라 말한 뒤에 이어가.',
+    '[교정 모드: 집중교정] 작은 것(관사·복수·전치사·낱말 고르기 포함)도 빠짐없이 전부 고쳐 — 「사소하니 넘어가」는 이 모드에서 금지다. 한 카드에 모두 담을 수 있게 fix 의 now 에는 학생 문장 전체의 오류를 전부 고친 완성 문장을 적어. grade 가 perfect 가 아니면 ① 무엇을 고칠지 아주 짧게 말하고 ② 고친 문장을 또박또박 들려준 뒤 ③ "Can you say it with me?" 처럼 따라 말해 보자고 해. 이때 다음 질문은 하지 마 — 학생이 따라 말한 뒤에 이어가.',
 };
 
 export function warmupHonestRule(mode: WarmupMode): string {

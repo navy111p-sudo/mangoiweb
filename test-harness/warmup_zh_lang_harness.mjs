@@ -140,8 +140,9 @@ check('영어 축과 «합치지» 않았다',
   !/MEANING_CHANGING_TAGS\s*=\s*\[[^\]]*ZH_MEANING/.test(strip(CORR)));
 check('검증기가 축을 받아서 판정한다',
   /function verifyWarmupFix\([\s\S]{0,200}majorTags/.test(CORR));
+// 2026-10-31: 과거형 보완 항과 🀄 주석이 끼어 호출이 길어졌다 — 축이 «같은 호출 안» 에 있는가로 본다
 check('서버가 중국어일 때 그 축을 넘긴다',
-  /verifyWarmupFix\([\s\S]{0,120}ZH_MEANING_CHANGING_TAGS/.test(IDXC));
+  /verifyWarmupFix\([\s\S]{0,320}ZH_MEANING_CHANGING_TAGS/.test(IDXC));
 /* ⚠️ 중국어에는 «낱말 수» 상한이 성립하지 않는다(띄어쓰기가 없다) — 0 으로 꺼야 한다.
    안 끄면 한자 한 덩어리가 «1낱말» 로 세어져 상한이 아무 일도 안 하거나, 반대로 통째로 버린다. */
 check('중국어에는 낱말 수 상한을 걸지 않는다',
