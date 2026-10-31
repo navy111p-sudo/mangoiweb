@@ -28,6 +28,7 @@ import { stripAddedKorean, hasAddedKorean } from './reply-korean';              
 import { parseJsonBody } from './api-util';
 /* ✏️ «교정 카드» 판정 정본 — 웜업과 «같은 한 벌» 을 쓴다 (2026-09-09 사장님 「A.i 친구도 똑같이」).
    ⛔ 파일 이름이 warmup 이라고 복제해 오지 말 것. 판정이 두 벌이 되면 한쪽만 고쳐진다. */
+import { backfillPastTenseFix } from './tense-backfill';
 import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
          decideWarmupFixShow, warmupShouldOfferRepeat, isRfRejection } from './warmup-correction';
 import type { MangoEnv } from './api-mango';
@@ -660,6 +661,8 @@ Student text: """${text}"""`;
       const b: any = await request.json().catch(() => ({}));
       const uid = String(b.uid || '').trim();
       const msg = String(b.msg || '').trim();
+      /* 🎯 집중교정이면 옛 게이트(두 번째부터·연달아 막기)를 건너뛰고 검증된 교정을 매번 보여 준다(2026-10-31). */
+      const immediateFix = String(b.correction_mode || '') === 'focused';
       /* 🪜 여덟 칸으로 넓히면서, 학생 브라우저에 남아 있는 옛 키(A1…C1)도 그대로 받습니다.
          ⛔ 정규화를 빼면 옛 값이 «모르는 값» 이 되어 조용히 기본값으로 떨어집니다 —
             학생이 고른 레벨이 리셋된 것처럼 보입니다. */
@@ -1233,7 +1236,7 @@ ${AI_FRIEND_CORRECTION_RULE}`;
       try {
         /* 🇰🇷 모델이 고친 것이 없으면(뜻이 통해 넘어간 경우) 콩글리시 표로 한 번 더 본다.
            ⛔ 모델의 교정이 있으면 그것이 먼저다 — 표는 «모델이 놓친 것» 만 받는다. */
-        const verified = verifyWarmupFix(rawFix, msg) || konglishFix(msg);
+        const verified = verifyWarmupFix(rawFix, msg) || verifyWarmupFix(backfillPastTenseFix(msg), msg) || konglishFix(msg);
         /* ⚠️ 프롬프트가 「그 넷은 반드시 고쳐」로 바뀌면서 fix 생성이 잦아집니다 — 그러면
            «모델은 줬는데 우리가 버렸다» 가 주요 실패 모양이 됩니다(지어낸 교정·한글 섞임·
            낱말 안 겹침…). 평문·빈 응답에는 이미 로그가 있는데 이것만 없었습니다.
@@ -1264,7 +1267,7 @@ ${AI_FRIEND_CORRECTION_RULE}`;
           // 🇰🇷 최근 14일에 이미 고쳐 준 관사·복수·전치사는 «한 번 센 것» 으로 이어 받는다(정본 recent-mistakes.ts).
           //    작은 실수일 때만 조회한다 — 큰 실수는 원래 바로 고친다.
           if (verified && verified.severity !== 'major') memoIn = carryRepeatTags(memoIn, await loadRecentFixTags(env.DB, uid, Date.now()));
-          const decided = decideWarmupFixShow(verified, memoIn, turnNo);
+          const decided = decideWarmupFixShow(verified, memoIn, turnNo, { immediate: immediateFix });
           showFix = decided.show;
           // 🔁 보여 준 교정은 남겨 다음 대화에서 다시 쓰게 한다(KV 메모는 6시간 «간격» 만 기억). 던지지 않는다.
           if (showFix) await logAiFriendFix(env.DB, uid, showFix, Date.now());

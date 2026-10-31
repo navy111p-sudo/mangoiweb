@@ -142,7 +142,7 @@ export const AI_FRIEND_CORRECTION_RULE = [
   'Everything the student reads is inside "reply". All the rules above apply to that text and to nothing else.',
   '⛔ NEVER put a Korean grammar tip inside "reply". The correction goes in "fix" only — the student sees it as its own card next to your message.',
   '"why_ko" must be Hangul only (no 한자, no Japanese): one short warm sentence a 10-year-old understands.',
-  'Fix at most ONE thing per turn. ALWAYS fix these four even when the meaning is perfectly clear — wrong tense, wrong verb form, subject-verb agreement, question word order. Example: "I eat pizza yesterday" MUST be fixed to "I ate pizza yesterday". Leaving them uncorrected is how a child learns the mistake by heart.',
+  'Fix at most ONE thing per turn. ALWAYS fix these four even when the meaning is perfectly clear — wrong tense, wrong verb form, subject-verb agreement, question word order. Example: "I eat pizza yesterday" MUST be fixed to "I ate pizza yesterday". Example: "I play soccer yesterday" MUST be fixed to "I played soccer yesterday" — even on the FIRST mistake. Leaving them uncorrected is how a child learns the mistake by heart.',
   'For anything smaller than those four (one missing article, a word choice you would phrase differently), set "fix": null and just keep chatting happily — being nagged every turn makes a child stop talking.',
   ...FIX_COMMON_RULES,
 ].join('\n');
@@ -406,7 +406,12 @@ export function decideWarmupFixShow(
   fix: WarmupFix | null,
   memoIn: WarmupFixMemo | null | undefined,
   turnCount: number,
+  opts?: { immediate?: boolean },
 ): { show: WarmupFix | null; memo: WarmupFixMemo } {
+  /* 🎯 (2026-10-31 사장님 「옛 규칙을 없애고 한번이라도 잘못하면 바로 교정, 집중교정에서는 그렇게」)
+     집중교정(immediate)은 «두 번째부터» 도 «연달아 막기» 도 없이 검증된 교정을 매번 보여 준다.
+     세는 것(memo)은 그대로 갱신한다. 그 밖의 모드는 아래 기존 게이트 그대로다. */
+  const immediate = !!(opts && opts.immediate);
   const memo: WarmupFixMemo = {
     tags: { ...((memoIn && memoIn.tags) || {}) },
     lastShownTurn: (memoIn && memoIn.lastShownTurn) || 0,
@@ -431,7 +436,7 @@ export function decideWarmupFixShow(
         「따라 말하기」·통계가 쓰므로 그대로 둡니다.
      ⚠️ 예외 하나 — word_choice(낱말 고르기)는 «틀림» 이 아니라 «더 나은 말» 인 경우가 많아
         예전대로 «두 번째부터» 입니다(recent-mistakes.ts 가 같은 이유로 그 종류를 안 이어 받습니다). */
-  if (fix.severity !== 'major' && SECOND_TIME_TAGS.includes(fix.tag) && seen < 2) return { show: null, memo };
+  if (!immediate && fix.severity !== 'major' && SECOND_TIME_TAGS.includes(fix.tag) && seen < 2) return { show: null, memo };
 
   /* 🔴 간격 규칙은 «작은 실수» 에만 건다 (2026-09-09 사장님 「더 정밀하게 문법을 잘 체크해 줄 수 있어?」).
      옛 코드는 major 도 2턴을 띄웠다. 그래서 과거형 실수를 세 번 연달아 해도 한 번만 고쳐 줬고,
@@ -451,7 +456,7 @@ export function decideWarmupFixShow(
         옛 코드는 lastShownTurn 이 0 이라 turnCount 1 에서 1-0=1 < 2 로 «첫 교정» 이 원리상
         막혔다(정본을 돌려 실측). 학생의 맨 첫 마디는 절대 못 고쳐 주고 있었다. */
   const shownBefore = (memo.lastShownTurn || 0) > 0;
-  if (fix.severity !== 'major' && shownBefore
+  if (!immediate && fix.severity !== 'major' && shownBefore
       && turnCount - (memo.lastShownTurn || 0) < WARMUP_FIX_GAP_TURNS) {
     return { show: null, memo };
   }

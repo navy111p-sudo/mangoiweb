@@ -64,6 +64,7 @@ import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmu
 import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // 🧑‍🎓 웜업 연령대(소재·말투 축)
 import { logWarmupSessionStart, markWarmupFirstReply, warmupShouldMarkFirstReply } from './warmup-log';  // 📊 웜업 «몇 단계로 쓰는가» 기록
 import { warmupAnswerChips } from './warmup-answers';                    // 💬 웜업 «이렇게 대답해 보세요» 보기 칩
+import { backfillPastTenseFix } from './tense-backfill';
 import { WARMUP_CORRECTION_RULE, WARMUP_ZH_CORRECTION_RULE, ZH_MEANING_CHANGING_TAGS, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
 import { resolveWarmupHonest, warmupHonestRule, parseWarmupGrade, finalizeWarmupGrade, applyHonestPraise, gateFixForMode, ensureFocusedFixSpoken } from './warmup-honest';  // 🎯 정직한 칭찬 + 교정 모드(2026-10-29 시범 — 정본 그 파일)
 import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
@@ -4705,10 +4706,13 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     try {
       /* 🀄 «뜻이 달라지는 축» 은 언어마다 다르다(중국어엔 시제·수일치가 없다).
          안 넘기면 영어 표 — 기존 동작은 한 글자도 안 바뀐다. 정본 src/warmup-correction.ts */
-      const verified = verifyWarmupFix(rawFix, studentInput,
+      /* ✏️ 과거형 보완 (2026-10-31) — 모델이 fix 를 비워 보낸 영어 턴에만 규칙으로 채운다(tense-backfill.ts). */
+      const verified = verifyWarmupFix(rawFix || (ctxLang === 'zh' ? null : backfillPastTenseFix(studentInput)), studentInput,
         /* 🀄 lang 을 빼면 검증기가 «영어 문장인가» 로 재서 **중국어 교정이 100% 버려집니다**
            (isEnglishText 가 한자를 떨어뜨리고 normEn 이 빈 문자열을 만듭니다 — 에러 없음). */
         ctxLang === 'zh' ? { majorTags: ZH_MEANING_CHANGING_TAGS, lang: 'zh' as const } : undefined);
+      /* 🔎 (2026-10-31 제안서 B) 교정이 «왜» 안 떴는지 Workers 로그에 남긴다 — 학생 발화·교정 문장은 싣지 않는다. */
+      if (!verified) console.warn('[warmup-fix] no card:', rawFix ? 'fix-rejected' : 'fix-missing', 'lang=' + ctxLang);
       if (verified) {
         const mkey = 'warmupfix:' + sessionId;
         let memoIn: any = null;
@@ -4716,7 +4720,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
           const rawMemo = env.SESSION_STATE ? await env.SESSION_STATE.get(mkey) : null;
           if (rawMemo != null) memoIn = JSON.parse(rawMemo);
         } catch {}
-        const decided = decideWarmupFixShow(verified, memoIn, turnCount);
+        const decided = decideWarmupFixShow(verified, memoIn, turnCount, { immediate: !!honest && honest.mode === 'focused' });
         showFix = decided.show;
         /* 📝 학부모 화면 «AI가 고쳐 준 표현» 기록 (2026-10-02 파일럿 후속 P4 — 정본 src/warmup-parent.ts)
            ⛔ ctxUserId 는 화면이 보내는 값이라 그대로 믿으면 남의 아이 학부모 화면에 글자를 심을 수 있다 —
