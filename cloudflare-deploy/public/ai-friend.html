@@ -1091,6 +1091,7 @@
     }
 
     function appendMsg(role, content, hasFix) {
+      if (role === 'ai') _lastAiText = String(content || '');
       const chat = document.getElementById('chat');
       if (role === 'user') {
         const m = document.createElement('div');
@@ -1171,6 +1172,79 @@
     function _fixLabel(el, ko, en) {
       el.setAttribute('data-ko', ko); el.setAttribute('data-en', en);
       el.textContent = isEn() ? en : ko;
+    }
+    /* 🎯 발음 교정 도우미 (2026-11-01) */
+    const PRON_STOP = new Set(['you','your','the','are','is','it','this','that','what','how','why','who','where','when','did','do','does','can','will','and','for','with','not','yes','ok','okay','say','see','like','have','has','got','about','from','into','just','really','was']);
+    function pronTargetFromAi(text) {
+      const t = String(text || '').trim();
+      if (!/\?\s*$/.test(t)) return '';
+      const words = t.replace(/\?\s*$/, '').match(/[A-Za-z]{2,20}/g) || [];
+      for (let i = words.length - 1; i >= 0; i--) {
+        const w = words[i].toLowerCase();
+        if (!PRON_STOP.has(w)) return w;
+      }
+      return '';
+    }
+    function pronTargetOk(t) { return typeof t === 'string' && /^[A-Za-z]{2,20}$/.test(t); }
+    function pronEncodeWav(pcm, rate) {
+      const n = pcm.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+      const ws = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+      ws(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); ws(8, 'WAVE'); ws(12, 'fmt ');
+      v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+      ws(36, 'data'); v.setUint32(40, n * 2, true);
+      for (let i = 0; i < n; i++) { const x = Math.max(-1, Math.min(1, pcm[i])); v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7FFF, true); }
+      return new Uint8Array(buf);
+    }
+    function pronToB64(bytes) {
+      let bin = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      return btoa(bin);
+    }
+    /* 녹음(webm 등) → 16kHz mono WAV base64. 실패·11초 초과는 null — 교정만 건너뛴다. */
+    async function pronPayload(blob, target) {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        if (!AC || !OAC || !blob || !target) return null;
+        const dec = new AC();
+        let buf;
+        try { buf = await dec.decodeAudioData(await blob.arrayBuffer()); }
+        finally { try { dec.close(); } catch (e) {} }
+        if (!buf || buf.duration > 11) return null;
+        const off = new OAC(1, Math.max(1, Math.ceil(buf.duration * 16000)), 16000);
+        const src = off.createBufferSource(); src.buffer = buf; src.connect(off.destination); src.start(0);
+        const pcm = (await off.startRendering()).getChannelData(0);
+        const b64 = pronToB64(pronEncodeWav(pcm, 16000));
+        return b64.length > 500000 ? null : { audio_b64: b64, target: target };
+      } catch (e) { return null; }
+    }
+    /* 낱말을 n번 들려준다 — 끝날 때마다 다음 번 */
+    function sayThrice(word, n) {
+      let i = 0;
+      const next = function () { if (i++ < n) speakText(word, null, null, next); };
+      next();
+    }
+    /* 발음 교정 카드 — 틀린 낱말과 올바른 발음 3번 */
+    function showPronFix(pf) {
+      const chat = document.getElementById('chat');
+      if (!chat || !pf || !pronTargetOk(pf.word)) return;
+      const card = document.createElement('div');
+      card.className = 'fix-card pron-fix-card';
+      const t = document.createElement('div'); t.className = 'fix-title';
+      _fixLabel(t, '🔊 이렇게 발음해 보세요', '🔊 Say it like this');
+      card.appendChild(t);
+      const w = document.createElement('div'); w.className = 'fix-now';
+      w.textContent = String(pf.word);
+      card.appendChild(w);
+      const again = document.createElement('button');
+      again.type = 'button'; again.className = 'fix-speak';
+      _fixLabel(again, '🔊 다시 듣기', '🔊 Listen again');
+      again.onclick = function () { sayThrice(pf.word, pf.say_times || 3); };
+      card.appendChild(again);
+      chat.appendChild(card);
+      chat.scrollTop = chat.scrollHeight;
+      sayThrice(pf.word, pf.say_times || 3);
     }
     function showFixCard(fix, offerRepeat) {
       fixCardClear();
@@ -1396,6 +1470,8 @@
        문제도 없다(MediaRecorder는 멈추기 전까지 안 끊김). 실시간 자막은 사라지고 "녹음→전사"
        로 UX가 바뀌지만(사장님 승인), 그만큼 정답률이 오른다. */
     let _recognizing = false, _pendingVoice = false;
+    let _lastRecBlob = null, _lastAiText = '';   // 🎯 발음 교정용 — 방금 녹음 파일 / AI 마지막 말
+
     function updateMicUI() {
       const b = document.getElementById('micBtn'); if (!b) return;
       b.classList.toggle('recording', _recognizing);
@@ -1479,6 +1555,7 @@
         if (v === true) heard = true;
       }
       if (auto && !heard) said = '';
+      _lastRecBlob = said ? recBlob : null;   // 🎯 발음 교정에 쓸 녹음(음성으로 보낸 턴만)
       if (said) {
         micHint(null);
         const input = document.getElementById('msgInput');
@@ -1713,6 +1790,13 @@
         } }
       sndPop();
       appendTyping();
+      /* 🎯 집중교정 + 음성 턴이면 기준 낱말 발음을 WAV 로 함께 보낸다(서버가 Azure 로 판정). */
+      let pronBody = null;
+      if (wasVoice && currentCorr === 'focused' && _lastRecBlob) {
+        const tgt = pronTargetFromAi(_lastAiText);
+        if (tgt) pronBody = await pronPayload(_lastRecBlob, tgt);
+      }
+      _lastRecBlob = null;
       try {
         const r = await fetch('/api/ai/chat-friend', {
           method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
@@ -1722,6 +1806,7 @@
           body: JSON.stringify({ uid: auth.uid, msg, level: currentLevel, persona: currentPersona,
                                  friend: personNow(),
                                  correction_mode: currentCorr,   // 🎚️ 교정 방식 (서버 기본값 = 집중교정)
+                                 pron: pronBody,                 // 🎯 발음 교정용 WAV + 기준 낱말(없으면 null)
                                  topic: currentTopic ? currentTopic.id : '', via: wasVoice ? 'voice' : 'text',
                                  sub: currentSub,     // 🎧 자막을 끄고 대화하면 서버가 덤 1P (하루 5회)
                                  stream: 1 })         // 📡 A-1 — 문장이 끝날 때마다 먼저 읽습니다
@@ -1757,6 +1842,7 @@
           /* ✏️ 서버가 «검증해서» 준 교정만 그린다(없으면 아무것도 안 그림).
              ⚠️ appendMsg 뒤에 부른다 — 카드는 그 답변 «아래» 에 붙어야 한다. */
           showFixCard(d.fix, d.repeat);
+          if (d.pron_fix) showPronFix(d.pron_fix);   // 🎯 기준 낱말을 틀리게 발음 → 3번 들려주기
           applyGam(d.gam, wasVoice);
           /* 🔊 새 답변 자동 재생 — 마지막 스피커 버튼에 재생 표시.
              📡 (A-1) 스트리밍으로 이미 읽었으면 다시 읽지 않습니다. 단 서버가 재시도를 돌려
