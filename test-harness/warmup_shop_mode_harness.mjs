@@ -88,7 +88,7 @@ console.log('② 판정 순서(resolveWarmupHonest) — 학생 선택 → 원장
   ok('시범 학원도 원장님 설정이 이긴다 → balanced', JSON.stringify(await r('s5', 'kid_b')) === '{"mode":"balanced"}');
   ok('대소문자만 다른 아이디(KIM)도 학원을 찾는다', JSON.stringify(await r('s6', 'KIM')) === '{"mode":"focused"}');
   ok('중국어 대화에는 안 쓴다', (await r('s7', 'kid_a', { lang: 'zh' })) === null);
-  ok('엘리더잼에는 안 쓴다', (await r('s8', 'kid_a', { eleader: true })) === null);
+  ok('엘리더잼에도 학원 설정이 따른다(2026-10-31)', (await r('s8', 'kid_a', { eleader: true })) !== null);
   ok('아이디 없으면 기본 모드 focused', (await r('s9', ''))?.mode === 'focused');
   // 캐시 — 같은 세션은 5분 동안 같은 답, 다른 세션은 새로 읽는다
   await S.setShopMode(env, '해피학원', 'free_talk', 'owner');

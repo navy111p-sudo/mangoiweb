@@ -111,7 +111,7 @@ console.log('⑤ 기본 모드 — 모든 학생·학원 = 집중교정 (2026-10
   const before = e.calls();
   ok('같은 세션 두 번째는 KV 캐시(DB 안 부름)', (await H.resolveWarmupHonest(e.env, 's1', 'kim01'))?.mode === 'focused' && e.calls() === before);
   ok('중국어 대화 → null', (await H.resolveWarmupHonest(e.env, 's2', 'kim01', { lang: 'zh' })) === null);
-  ok('엘리더잼 통로 → null', (await H.resolveWarmupHonest(e.env, 's3', 'kim01', { eleader: true })) === null);
+  ok('엘리더잼 통로도 기본 모드 focused(2026-10-31: 엘리더잼도 교정을 켠다)', (await H.resolveWarmupHonest(e.env, 's3', 'kim01', { eleader: true }))?.mode === 'focused');
   ok('아이디 없음 → 기본 모드 focused', (await H.resolveWarmupHonest(e.env, 's4', ''))?.mode === 'focused');
   ok('대소문자만 다른 아이디도 찾음(정확일치 먼저)', (await H.resolveWarmupHonest(e.env, 's5', 'KIM01'))?.mode === 'focused');
   const t = mkEnv({}, { throwDb: true });
@@ -125,7 +125,7 @@ console.log('⑤ 기본 모드 — 모든 학생·학원 = 집중교정 (2026-10
   ok('모르는 값은 무시 → 시범 학생은 시범 모드', (await H.resolveWarmupHonest(c.env, 'c5', 'kim01', { chosen: 'x' }))?.mode === 'focused');
   ok('문자열이 아니면 무시 → 기본 모드 focused', (await H.resolveWarmupHonest(c.env, 'c6', 'lee01', { chosen: ['focused'] }))?.mode === 'focused');
   ok('골라도 중국어 대화 → null', (await H.resolveWarmupHonest(c.env, 'c7', 'kim01', { lang: 'zh', chosen: 'focused' })) === null);
-  ok('골라도 엘리더잼 → null', (await H.resolveWarmupHonest(c.env, 'c8', 'kim01', { eleader: true, chosen: 'focused' })) === null);
+  ok('골라도 엘리더잼 → 고른 모드(focused)', (await H.resolveWarmupHonest(c.env, 'c8', 'kim01', { eleader: true, chosen: 'focused' }))?.mode === 'focused');
 }
 
 console.log('⑥ 프롬프트(warmupHonestRule)');
