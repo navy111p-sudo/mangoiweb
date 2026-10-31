@@ -82,25 +82,25 @@ console.log('② 판정 순서(resolveWarmupHonest) — 학생 선택 → 원장
   const r = (sid, uid, o) => H.resolveWarmupHonest(env, sid, uid, o || {});
   ok('원장님이 정한 학원 학생 → focused', JSON.stringify(await r('s1', 'kid_a')) === '{"mode":"focused"}');
   ok('학생이 직접 고르면 그것이 이긴다', JSON.stringify(await r('s2', 'kid_a', { chosen: 'free_talk' })) === '{"mode":"free_talk"}');
-  ok('정하지 않은 학원 → null(예전 동작)', (await r('s3', 'kid_c')) === null);
+  ok('정하지 않은 학원 → 기본 모드 focused', (await r('s3', 'kid_c'))?.mode === 'focused');
   ok('시범 학원(설정 없음) → 시범 표 focused', JSON.stringify(await r('s4', 'kid_b')) === '{"mode":"focused"}');
   await S.setShopMode(env, '강남캐피타운학원', 'balanced', 'owner');
   ok('시범 학원도 원장님 설정이 이긴다 → balanced', JSON.stringify(await r('s5', 'kid_b')) === '{"mode":"balanced"}');
   ok('대소문자만 다른 아이디(KIM)도 학원을 찾는다', JSON.stringify(await r('s6', 'KIM')) === '{"mode":"focused"}');
   ok('중국어 대화에는 안 쓴다', (await r('s7', 'kid_a', { lang: 'zh' })) === null);
   ok('엘리더잼에는 안 쓴다', (await r('s8', 'kid_a', { eleader: true })) === null);
-  ok('아이디 없으면 null', (await r('s9', '')) === null);
+  ok('아이디 없으면 기본 모드 focused', (await r('s9', ''))?.mode === 'focused');
   // 캐시 — 같은 세션은 5분 동안 같은 답, 다른 세션은 새로 읽는다
   await S.setShopMode(env, '해피학원', 'free_talk', 'owner');
   ok('같은 세션은 캐시(아직 focused)', JSON.stringify(await r('s1', 'kid_a')) === '{"mode":"focused"}');
   ok('새 세션은 바뀐 값(free_talk)', JSON.stringify(await r('s10', 'kid_a')) === '{"mode":"free_talk"}');
   const cached = kv.m.get('warmuphonest2:s3:kid_c');
-  ok('«설정 없음» 도 캐시한다(매 턴 D1 안 읽음)', cached && JSON.parse(cached).m === '', cached);
+  ok('«설정 없음» 도 캐시한다(매 턴 D1 안 읽음) — 기본 모드로 채워 저장', cached && JSON.parse(cached).m === 'focused', cached);
   ok('캐시 TTL 은 이 파일 안에서 300초', /expirationTtl: 300/.test(fs.readFileSync(HONEST_SRC, 'utf8')));
   // 설정 표를 못 읽으면 → 시범 표로 (fail-open)
   const broken = { DB: { prepare(sql) { if (/warmup_shop_mode/.test(sql)) throw new Error('no such table'); return mkD1(db).prepare(sql); } }, SESSION_STATE: mkKV() };
   ok('설정 표가 고장나도 시범 학원은 시범 표대로', JSON.stringify(await H.resolveWarmupHonest(broken, 'b1', 'kid_b', {})) === '{"mode":"focused"}');
-  ok('설정 표가 고장나면 일반 학원은 null', (await H.resolveWarmupHonest(broken, 'b2', 'kid_a', {})) === null);
+  ok('설정 표가 고장나도 일반 학원은 기본 모드 focused', (await H.resolveWarmupHonest(broken, 'b2', 'kid_a', {}))?.mode === 'focused');
 }
 
 console.log('③ API(warmup-shop-mode-api.ts) — 대리점은 자기 학원만, 지사는 보기만, 본사는 전부');
