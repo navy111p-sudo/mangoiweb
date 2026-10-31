@@ -58,7 +58,8 @@ import { enrolledCond } from './exec-summary';
 import { hiddenExcludeCond } from './student-override';   // 🙈 명부에서 숨긴 계정은 «청구 인원» 에서도 뺀다
 import { sendPlainSms } from './solapi-client';
 import { ensureB2bClaimColumns, MGB_UNCLAIMED_SQL, mgbUnclaimedBinds, mgbClaimedNow } from './b2b-pay-guard';   // ③ 결제 승인 중엔 명세를 못 바꾸게 (2026-10-23)
-import { tuitionAdminRouter } from './b2b-tuition-load';   // 🏫 B2B 화상수업 수업료(충전금·월 청구) — 같은 접두사 아래 tuition/* 로 위임 (2026-10-01)
+import { tuitionAdminRouter } from './b2b-tuition-load';
+import { correctionModeRouter } from './warmup-shop-mode-api';   // 🎚️ 학원별 A.i 말하기 교정 방식 — correction-mode 로 위임 (2026-10-31)   // 🏫 B2B 화상수업 수업료(충전금·월 청구) — 같은 접두사 아래 tuition/* 로 위임 (2026-10-01)
 import { aiPrice, aiPriceNote, currentAiPriceRule, parseAiPriceRule, type AiPrice, type AiPriceRule } from './ai-billing-price';   // 💰 학원 공급가 정본(인원 구간·지사 40% · 최소 청구 2026-10-26 폐지) — 2026-09-24
 
 interface Env { DB: D1Database; [k: string]: any }
@@ -872,6 +873,10 @@ export async function aiBillingRouter(request: Request, env: Env): Promise<Respo
      이 접두사는 src/index.ts 의 인증 게이트·라우팅·강사 차단·대리점 허용목록에 이미 전부 등록돼 있어
      공동 금지구역을 고치지 않고 새 기능을 붙인다. 스코프 판정·본사 게이트는 위임 받은 쪽(b2b-tuition-load.ts)이 한다. */
   if (p === 'tuition' || p.startsWith('tuition/')) return tuitionAdminRouter(request, env, p.replace(/^tuition\/?/, ''));
+  /* 🎚️ (2026-10-31 사장님 「원장님 관리 화면에서 학원별 교정 방식 지정」) — /api/admin/ai-billing/correction-mode
+     tuition 과 같은 이유로 이 접두사 아래에 붙였다(인증·강사 차단·대리점 허용이 이미 걸려 있어 src/index.ts 를 안 고친다).
+     판정·저장은 warmup-shop-mode-api.ts 가 한다. */
+  if (p === 'correction-mode') return correctionModeRouter(request, env);
   await ensureSchema(env);
   const scope = await safe(async () => await getScope(env, request), { type: 'none', value: null, label: '권한 없음' } as Scope);
 

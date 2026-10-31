@@ -1976,8 +1976,8 @@ function setupEl(){ return document.getElementById('wuSetup'); }
       저장하면 «아직 안 정함» 과 «사람이 골랐음» 이 같아져 나중에 기본을 바꿀 수 없다. */
 var CMODE_CATALOG = [
   { id:'free_talk', ic:'💬', ko:'자유대화', en:'Free talk', d:'흐름을 끊지 않고 바른 문장을 자연스럽게 들려줘요. 저학년·초급·흥미 위주에 좋아요.', de:'Keeps the flow and simply models the right sentence. Good for young or beginner learners.' },
-  { id:'balanced',  ic:'⚖️', ko:'균형', en:'Balanced', d:'핵심 표현이나 되풀이되는 실수만 따라 말해요. 대부분의 수업에 맞아요.', de:'Repeat-after-me only for key phrases or repeated mistakes. Fits most classes.', dflt:true },
-  { id:'focused',   ic:'🎯', ko:'집중교정', en:'Focused', d:'틀릴 때마다 바른 문장을 듣고 따라 말해요. 정확도·시험 대비에 좋아요.', de:'Every mistake: hear the right sentence and say it back. Good for accuracy and tests.' }
+  { id:'balanced',  ic:'⚖️', ko:'균형', en:'Balanced', d:'핵심 표현이나 되풀이되는 실수만 따라 말해요. 대부분의 수업에 맞아요.', de:'Repeat-after-me only for key phrases or repeated mistakes. Fits most classes.', },
+  { id:'focused',   ic:'🎯', ko:'집중교정', en:'Focused', d:'틀릴 때마다 바른 문장을 듣고 따라 말해요. 정확도·시험 대비에 좋아요.', de:'Every mistake: hear the right sentence and say it back. Good for accuracy and tests.' , dflt:true }
 ];
 var WU_CMODE_KEY = 'mangoi_warmup_correction';
 var _wuCorrMode = '';

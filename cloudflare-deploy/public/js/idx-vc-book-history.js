@@ -26,11 +26,12 @@
       select.style.cssText = 'max-width:220px;min-width:0;padding:4px;border-radius:6px;color:#0f172a;background:#fff';
       info.parentElement.appendChild(select);
       select.addEventListener('change', async function () {
+        resetForRoom();
         if (typeof window.vcCanControlTextbook === 'function' && !window.vcCanControlTextbook()) { render(); return; }
         var entry = books.get(select.value);
-        if (!entry) return;
-        var page = entry.page;
+        if (!entry) { render(); return; }
         rememberPage();
+        var page = entry.page;
         window._libSequence = entry.sequence;
         window._libSeqIdx = entry.index;
         select.disabled = true;
@@ -54,9 +55,12 @@
   }
   window.selectFromTextbookLibrary = async function (id, url, kind, name) {
     resetForRoom();
+    var selectionRoom = room;
     rememberPage();
     var sequence = window._libSequence || [], index = window._libSeqIdx || 0;
     var result = await original.apply(this, arguments);
+    resetForRoom();
+    if (room !== selectionRoom) { render(); return result; }
     if (!same(window._vcCurrentPdfUrl, url)) return result;
     var match = String(name || '').match(/^\[([^\]]+)\]/);
     var key = match ? match[1] : String(url);

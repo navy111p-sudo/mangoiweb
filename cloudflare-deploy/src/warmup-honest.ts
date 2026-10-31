@@ -14,8 +14,13 @@
  *     · 화면은 grade==='perfect' 일 때만 콤보·팡파레를 올린다(warmup.html)
  *     · 교정 모드(자유대화·균형·집중교정)에 따라 교정 카드·따라 말하기를 정한다
  *
- * [기본 모드] 2026-10-31 사장님 «모든 학생 모든 학원» — 고르지 않은 학생은 집중교정이다(resolveWarmupHonest).
- *   중국어 대화·엘리더잼 통로는 예전 동작 그대로(null)다.
+ * [기본 모드] 2026-10-31 사장님 지시 — 모든 학원·모든 학생의 기본은 집중교정(WARMUP_DEFAULT_MODE).
+ *   학생이 고른 모드 → 원장님 설정 → 시범 표 → 기본 모드 순서다. 중국어·엘리더 예시 계약만 여전히 null 이다.
+ *   [시범 운영 이력] WARMUP_MODE_PILOT(학원 이름 → 모드)은 그 전에 쓰던 기능 플래그다.
+ *   제안서 6단계 «시범 운영: 강남캐피 지점 집중교정 → 피드백» 그대로다.
+ *   ✅ 2026-10-31 — 원장님이 관리 화면(manager.html «A.i 말하기 교정 방식»)에서 학원별로 정한다(warmup-shop-mode.ts).
+ *      판정 순서: 학생이 고른 모드 → 원장님 설정 → 이 시범 표 → 없음.
+ *   ⚠️ 웜업에는 «반» 개념이 없다(학생 단위로 돈다). 단위는 학원(students_erp.shop_name)이다.
  *
  * ⛔ 이 모듈의 함수는 어떤 입력에도 던지지 않는다 — 웜업 대화 한가운데서 불린다.
  * ⛔ «모르면 perfect» 로 떨어뜨리지 않는다 — 등급을 못 읽으면 partial(팡파레 없음, 칭찬 말머리 뗌).
@@ -26,6 +31,7 @@
 
 import { stripCheerLead } from './warmup-empathy';
 import type { WarmupFix } from './warmup-correction';
+import { getShopMode } from './warmup-shop-mode';   // 🎚️ 원장님이 관리 화면에서 정한 학원별 모드(2026-10-31)
 
 export type WarmupMode = 'free_talk' | 'balanced' | 'focused';
 export type WarmupGrade = 'perfect' | 'partial' | 'incomplete';
@@ -33,11 +39,29 @@ export type WarmupGrade = 'perfect' | 'partial' | 'incomplete';
 export const WARMUP_MODES: readonly WarmupMode[] = ['free_talk', 'balanced', 'focused'];
 export const WARMUP_GRADES: readonly WarmupGrade[] = ['perfect', 'partial', 'incomplete'];
 
+/** 🚩 시범 운영 학원 → 교정 모드. 이름은 students_erp.shop_name «그대로»(정확일치). */
+export const WARMUP_MODE_PILOT: Readonly<Record<string, WarmupMode>> = {
+  '강남캐피타운학원': 'focused',
+};
+
+/** 🎯 기본 교정 모드 — 학생이 고르지 않았고 원장님 설정·시범 표에도 없으면 이 모드다.
+ *  (2026-10-31 사장님 «집중교정을 모든 학원·모든 학생에게») 중국어와 엘리더 예시 계약은 여전히 제외한다. */
+export const WARMUP_DEFAULT_MODE: WarmupMode = 'focused';
+
+/** 학원 이름 → 모드. 표에 없으면 null(= 기본 모드로 떨어진다는 뜻은 아님 — 호출부가 WARMUP_DEFAULT_MODE 를 쓴다). */
+export function pilotModeFor(shopName: unknown): WarmupMode | null {
+  try {
+    const k = String(shopName == null ? '' : shopName).trim();
+    if (!k) return null;
+    return Object.prototype.hasOwnProperty.call(WARMUP_MODE_PILOT, k) ? WARMUP_MODE_PILOT[k] : null;
+  } catch { return null; }
+}
+
 /**
  * 이 학생에게 «정직한 칭찬 + 교정 모드» 를 켤지. 켜면 { mode }, 아니면 null.
  * ⚠️ user_id 는 화면이 보내는 값이지만, 남의 아이디를 보내 봐야 «그 학원 모드로 자기 대화가 돈다» 뿐이라
  *    본인 확인은 걸지 않는다(남의 데이터를 읽거나 쓰지 않는다).
- * ⚠️ 학원 조회는 세션당 한 번(KV 30분 캐시). 실패하면 null — 예전 동작으로 떨어진다(fail-open).
+ * ⚠️ 학원·학원 설정 조회는 세션당 5분에 한 번(KV 캐시). 실패하면 null — 예전 동작으로 떨어진다(fail-open).
  */
 export async function resolveWarmupHonest(
   env: any, sessionId: string, userId: string, opts: { lang?: string; eleader?: boolean; chosen?: unknown } = {},
@@ -49,10 +73,37 @@ export async function resolveWarmupHonest(
        ⛔ 모르는 값은 무시한다(지어내지 않음). 로그인하지 않아도 고를 수 있다(D1 을 안 읽음). */
     const c = typeof opts.chosen === 'string' ? opts.chosen.trim() : '';
     if (c && (WARMUP_MODES as readonly string[]).includes(c)) return { mode: c as WarmupMode };
-    /* 🎯 2026-10-31 사장님 「모든 학생 모든 학원에 적용」 — 고르지 않으면 «집중교정» 이 기본이다.
-       (학원·아이디와 무관. 중국어·엘리더잼은 위에서 이미 제외된다.) */
-    return { mode: 'focused' };
-  } catch { return null; }
+    if (!userId) return { mode: WARMUP_DEFAULT_MODE };   // 로그인하지 않은 학생도 기본 모드
+    /* 🎚️ 학원 → (원장님 설정 ‖ 시범 표). 세션당 KV 5분 캐시 — 원장님이 바꾸면 길어야 5분 뒤 반영된다.
+       ⚠️ 캐시 값은 {s: 학원, m: 모드|''} JSON. 옛 키(학원 이름만)와 섞이지 않게 접두사를 바꿨다. */
+    const kv = env && env.SESSION_STATE;
+    const ckey = 'warmuphonest2:' + sessionId + ':' + userId;
+    try {
+      if (kv) {
+        const v = await kv.get(ckey);
+        if (v != null) {
+          const c2 = JSON.parse(String(v));
+          const m2 = c2 && c2.m;
+          return { mode: (WARMUP_MODES as readonly string[]).includes(m2) ? (m2 as WarmupMode) : WARMUP_DEFAULT_MODE };
+        }
+      }
+    } catch {}
+    if (!env || !env.DB) return { mode: WARMUP_DEFAULT_MODE };
+    /* 정확일치 먼저 — 대소문자만 다른 계정(Kim/kim)이 실재한다(CLAUDE.md 2장). */
+    let row: any = await env.DB.prepare('SELECT shop_name FROM students_erp WHERE user_id = ? LIMIT 1').bind(userId).first();
+    if (!row) {
+      row = await env.DB.prepare('SELECT shop_name FROM students_erp WHERE user_id = ? COLLATE NOCASE ORDER BY user_id LIMIT 1').bind(userId).first();
+    }
+    const shop = String((row && row.shop_name) || '');
+    const set = shop ? await getShopMode(env, shop) : null;   // 던지지 않음 — 못 읽으면 null(시범 표·기본 모드로)
+    const mode: WarmupMode = (set && (WARMUP_MODES as readonly string[]).includes(set))
+      ? (set as WarmupMode) : (pilotModeFor(shop) || WARMUP_DEFAULT_MODE);
+    try { if (kv) await kv.put(ckey, JSON.stringify({ s: shop, m: mode }), { expirationTtl: 300 }); } catch (e: any) { console.warn('[warmup-honest] cache put failed:', e?.message || e); }
+    return { mode };
+  } catch (e: any) {
+    console.warn('[warmup-honest] resolve skipped:', e?.message || e);
+    return { mode: WARMUP_DEFAULT_MODE };
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────
