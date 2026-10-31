@@ -91,6 +91,7 @@ const FIX_COMMON_RULES = [
 export const WARMUP_CORRECTION_RULE = [
   '[교정] 학생 문장에 영어 오류가 있으면 야단치지 말고 «먼저 반갑게 반응한 뒤 자연스럽게 되말해» 줘(recast).',
   '예: 학생 "I go to school yesterday" → "Oh, you went to school yesterday! What did you do there?"',
+  '⛔ 교정(fix)이 있으면 답장은 «반드시» 고친 문장을 따옴표로 먼저 말하고, 그 다음에 질문을 해. 질문을 먼저 하거나 고친 문장 없이 질문으로 넘어가면 안 돼. (서버도 같은 순서를 한 번 더 보장한다 — correctionLeadIn)',
   '한 번에 한 가지만 고쳐. 다만 «시제·동사꼴·주어동사 수일치·의문문 어순» 은 뜻이 통해도 «반드시» 고쳐 줘 — 그 넷은 그대로 두면 학생이 틀린 채로 굳는다(예: "I eat pizza yesterday" → "I ate pizza yesterday").',
   '⛔ 그 넷이 아닌 사소한 것(관사 하나, 낱말 고르기)은 답장(reply)에서 따로 지적하지 말고 바른 말로 되말하기만 해 — 매번 지적받으면 학생이 말문이 막힌다.',
   '✅ 하지만 "fix" 칸은 달라 — 학생 문장에 영어 오류가 «하나라도» 있으면 사소해도 반드시 "fix" 에 적어. 화면에 언제 보여 줄지는 서버가 정한다(연달아 띄우지 않는다). 오류가 있는데 "fix": null 로 두면 학생은 틀린 줄도 모른다.',
@@ -479,4 +480,35 @@ export function warmupShouldOfferRepeat(
       && turnCount - (memo.lastRepeatTurn || 0) < WARMUP_REPEAT_GAP_TURNS) return false;
   memo.lastRepeatTurn = turnCount;
   return true;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ④ 「교정 먼저, 질문은 그다음」 — 순서를 글이 아니라 결정론으로 지킨다
+   2026-10-31 사장님 「무조건 질문부터 하지 못하게. 잘못된 표현을 바로 교정해 준 뒤 다음 질문」.
+   프롬프트에만 적으면 모델이 되말하기로 얼버무리고 질문으로 넘어간다(실측: "you went …
+   What did you do there?" — 고친 문장이 «말해지지» 않았다). 그래서 서버가 확인한다.
+   ───────────────────────────────────────────────────────────── */
+
+/**
+ * 교정 카드가 뜨는 턴이면, 답장의 «질문 앞부분(첫 ? 전)» 에 고친 문장이 없을 때 그 문장을 앞에 붙인다.
+ * - 이미 앞부분에 있으면(모델이 잘 지켰거나 집중교정 모드가 앞에 붙였으면) 아무것도 하지 않는다 → 중복 없음.
+ * - 답장을 지우거나 고쳐 쓰지 않는다. 앞에 한 문장을 붙일 뿐이다.
+ * - fix 가 없으면 원문 그대로다.
+ */
+export function correctionLeadIn(reply: string, fix: WarmupFix | null, lang: 'en' | 'zh' = 'en'): string {
+  const r = String(reply == null ? '' : reply).trim();
+  if (!fix || !r) return r;
+  const zhMode = lang === 'zh';
+  const norm = zhMode ? normZh : normEn;
+  const nNow = norm(fix.now);
+  if (!nNow) return r;
+
+  const q = r.search(/[?？]/);
+  const head = q >= 0 ? r.slice(0, q) : r;
+  if (norm(head).includes(nNow)) return r;   // 이미 질문보다 먼저 고친 문장이 있다
+
+  const now = String(fix.now).trim();
+  const said = /[.!?。！？]$/.test(now) ? now : now + (zhMode ? '。' : '.');   // 문장부호는 따옴표 «안» 에
+  const lead = zhMode ? `我们可以这样说："${said}"` : `Let's say it like this: "${said}"`;
+  return `${lead} ${r}`;
 }
