@@ -4243,27 +4243,47 @@ function showFixCard(fix, offerRepeat){
 
   /* 🎤 따라 말하기 — 되말해 주기만 하면 아이는 흘려 듣는다. 이 한 바퀴가 «웜업» 을 «수업» 으로
      바꾼다(제안서 P1-b). 서버가 «3턴에 한 번» 만 offerRepeat 을 켠다. */
-  if(offerRepeat){
+  /* 🔁 발음 교정(tag=pronunciation)은 «따라 말하기» 를 늘 켠다 — 3번 따라 말할 때까지 이어진다(fixSpeakThenMic 의 round). */
+  var _pron = fix.tag === 'pronunciation';
+  if(offerRepeat || _pron){
     var say = document.createElement('button');
     say.type = 'button'; say.className = 'fix-btn';
     _fixLabel(say, '🎤 따라 말해 보기', '🎤 Say it with me');
-    say.onclick = function(){ fixSpeakThenMic(say, String(fix.now)); };
+    say.onclick = function(){ fixSpeakThenMic(say, String(fix.now), 1, _pron); };
     acts.appendChild(say);
   }
   card.appendChild(acts);
   log.appendChild(card); log.scrollTop = log.scrollHeight;
+}
+/* 🔁 발음 교정 3회 루프 — 아바타가 바른 낱말을 들려주고 아이가 따라 말한다. 3번째까지 끝나면 더 권하지 않는다.
+   ⛔ 「완벽」이어도 3번은 채운다(사장님 「3회 반복」). 점수 카드의 재시도 버튼이 없으면 여기서 붙인다. */
+function _pronRoundNote(card, text, round){
+  var old = card.querySelector('.rep-btn');
+  if(round >= 3){
+    var done = document.createElement('div'); done.className = 'rep-note';
+    done.textContent = wuT('3번 따라 말했어요. 이제 계속 이야기해요!', '3 rounds done. Let\'s keep talking!');
+    card.appendChild(done);
+    if(old) old.remove();
+    return;
+  }
+  if(!old){
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'rep-btn';
+    b.textContent = wuT('🎤 다시 따라 말하기 (' + (round+1) + '/3)', '🎤 Say it again (' + (round+1) + '/3)');
+    b.onclick = function(){ fixSpeakThenMic(b, text, round+1, true); };
+    card.appendChild(b);
+  }
 }
 /* 문장을 들려준 «뒤에» 마이크를 연다.
    speak() 는 끝났음을 알려 주는 콜백이 밖으로 없지만, 재생이 끝나면 넘긴 버튼에서
    'playing' 클래스를 떼는 계약이 이미 있다 — 그것을 신호로 쓴다.
    ⚠️ 소리가 꺼져 있으면(_speechOn=false) 그 클래스가 아예 안 붙으므로 곧바로 마이크가 열린다(맞는 동작).
    ⚠️ 15초 안전망 — 신호를 놓쳐도 버튼이 영영 잠기지 않게 한다. */
-function fixSpeakThenMic(btn, text){
+function fixSpeakThenMic(btn, text, round, pron){
   var opened = false, epoch=_warmEpoch;
   var openMic = function(){
     if(opened || _warmPaused || epoch!==_warmEpoch)return; opened = true;
     btn.disabled = false;
-    _repeatTarget = { text: text, epoch: epoch, at: Date.now() };   // 🎤 다음에 보내는 말을 이 문장과 맞춰 본다
+    _repeatTarget = { text: text, epoch: epoch, at: Date.now(), round: round||1, pron: !!pron };   // 🎤 다음에 보내는 말을 이 문장과 맞춰 본다
     try{
       if(typeof _recognizing !== 'undefined' && _recognizing) return;   // 이미 듣는 중
       if(typeof toggleMic === 'function') toggleMic();
@@ -4428,7 +4448,10 @@ async function sendMsg(){
   /* 🎤 «따라 말해 보기» 뒤에 보낸 말이면 낱말 단위로 채점해 보여 준다(js/repeat-score.js). 90초가 지났거나 다른 화면이면 안 잰다. */
   var _rt=_repeatTarget; _repeatTarget=null;
   if(_rt && _rt.epoch===epoch && Date.now()-_rt.at<90000 && window.MangoRepeatScore){
-    try{ var _rc=MangoRepeatScore.render(_rt.text, text, function(b){ fixSpeakThenMic(b, _rt.text); }); if(_rc) log.appendChild(_rc);
+    try{ var _rn=_rt.round||1, _pr=!!_rt.pron;
+      var _rc=MangoRepeatScore.render(_rt.text, text, function(b){ fixSpeakThenMic(b, _rt.text, _rn+1, _pr); });
+      if(_rc && _pr){ _pronRoundNote(_rc, _rt.text, _rn); }
+      if(_rc) log.appendChild(_rc);
       /* 🎯 교정 성공 = 보상 — 고친 문장을 다시 말해 «완벽» 이면 콤보·팡파레(등급을 받는 학생만) */
       if(_rc && _wuGraded && _rc.getAttribute('data-grade')==='great'){ bumpCombo(); confettiBurst(); fanfare(); }
     }catch(e){}

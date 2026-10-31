@@ -565,7 +565,7 @@ console.log('\nC. 화면 배선 (warmup.html)');
   check('C-4-0 값을 만드는 블록을 잘라 냈다 (전제)', mkBody.length > 120, mkBody.length + '자');
   check('C-4 was/now 를 담는 칸에는 data-ko/data-en 을 안 단다',
         mkBody.length > 120 && !/data-ko|data-en|_fixLabel\(\s*v\b/.test(mkBody) && /v\.textContent\s*=\s*val;/.test(mkBody));
-  check('C-5 따라 말하기는 서버가 켜 줄 때만 그린다', /if\(offerRepeat\)\{/.test(fixBlock));
+  check('C-5 따라 말하기는 서버가 켜 줄 때 · 또는 발음 교정일 때만 그린다', /if\(offerRepeat\s*\|\|\s*_pron\)\{/.test(fixBlock) && /tag === 'pronunciation'/.test(fixBlock));
   check('C-6 소리가 끝난 뒤 마이크를 연다 (안전망 포함)',
         /function fixSpeakThenMic/.test(W) && /classList\.contains\('playing'\)/.test(W) && /15000/.test(W));
   check('C-7 교정 카드 색이 «대답 보기»(초록)·«질문 추천»(노랑)과 다르다',

@@ -30,7 +30,7 @@ import { isEnglishText } from './english-only';
 /** 교정 종류 — 화면이 색·아이콘을 고르는 데 쓰고, 같은 실수가 되풀이되는지 세는 열쇠이기도 하다. */
 export const WARMUP_FIX_TAGS = [
   'past_tense', 'verb_form', 'article', 'plural', 'preposition',
-  'word_order', 'subject_verb', 'word_choice', 'question_form', 'other',
+  'word_order', 'subject_verb', 'word_choice', 'question_form', 'pronunciation', 'other',
 ] as const;
 
 /** 뜻이 달라지는 교정 — 그대로 두면 학생이 틀린 채로 굳는다. 모델이 minor 라 해도 major 로 본다.
@@ -77,7 +77,7 @@ export type WarmupFixMemo = {
 function fixJsonLine(replyDesc: string, nowDesc = '<고친 영어>'): string {
   return '{"reply":"' + replyDesc + '","fix":{"was":"<학생이 실제로 쓴 틀린 부분 그대로>",'
     + '"now":"' + nowDesc + '","why_ko":"<왜 고쳤는지 한국어 한 문장, 다정한 반말>",'
-    + '"tag":"past_tense|verb_form|article|plural|preposition|word_order|subject_verb|word_choice|question_form|other",'
+    + '"tag":"past_tense|verb_form|article|plural|preposition|word_order|subject_verb|word_choice|question_form|pronunciation|other",'
     + '"severity":"major|minor"}}';
 }
 
@@ -94,6 +94,7 @@ export const WARMUP_CORRECTION_RULE = [
   '⛔ 교정(fix)이 있으면 답장은 «반드시» 고친 문장을 따옴표로 먼저 말하고, 그 다음에 질문을 해. 질문을 먼저 하거나 고친 문장 없이 질문으로 넘어가면 안 돼. (서버도 같은 순서를 한 번 더 보장한다 — correctionLeadIn)',
   '한 번에 한 가지만 고쳐. 다만 «시제·동사꼴·주어동사 수일치·의문문 어순» 은 뜻이 통해도 «반드시» 고쳐 줘 — 그 넷은 그대로 두면 학생이 틀린 채로 굳는다(예: "I eat pizza yesterday" → "I ate pizza yesterday").',
   '⛔ 그 넷이 아닌 사소한 것(관사 하나, 낱말 고르기)은 답장(reply)에서 따로 지적하지 말고 바른 말로 되말하기만 해 — 매번 지적받으면 학생이 말문이 막힌다.',
+  '[발음] 네가 방금 물은 낱말을 학생이 잘못 발음해 엉뚱한 낱말로 들린 것 같으면(예: 네 질문 "Do you like bugs?" → 학생 "I don\'t like pok"), "tag" 를 "pronunciation" 으로 하고 "was" 에는 학생이 쓴 그 낱말 하나만, "now" 에는 바른 낱말 하나만 적고, "severity" 는 "major" 로 해. 답장은 바른 낱말을 따옴표로 먼저 들려주고 질문을 이어 가.',
   '✅ 하지만 "fix" 칸은 달라 — 학생 문장에 영어 오류가 «하나라도» 있으면 사소해도 반드시 "fix" 에 적어. 화면에 언제 보여 줄지는 서버가 정한다(연달아 띄우지 않는다). 오류가 있는데 "fix": null 로 두면 학생은 틀린 줄도 모른다.',
   '[출력형식] ⚠️ 이 규칙이 위 [형식] 보다 «우선» 한다 — 말하기 프롬프트의 [형식] 은 「평문으로만 써」 라고 말하지만, 그것은 아래 JSON 안의 "reply" 글에만 적용되는 규칙이야. 너는 반드시 아래 JSON 하나만 출력해. 설명·인사·코드펜스 없이 { 로 시작해 } 로 끝나야 해.',
   fixJsonLine('<학생에게 할 영어 말 — 위 [길이]·[언어]·[형식] 규칙 그대로>'),
