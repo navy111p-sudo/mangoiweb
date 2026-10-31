@@ -95,10 +95,10 @@ check('friend canonical correction is applied before persistence', () => {
 });
 
 const uiFunctions = ['stmRead', 'stmSpeak', 'stmReset', 'sayThrice', 'sendMsg'].map(n => named(inline, n)).join('\n');
-async function uiTurn(mode, stream, { sound = true, pron = false, replaced = false } = {}) {
+async function uiTurn(mode, stream, { sound = true, pron = false, replaced = false, unavailable = false } = {}) {
   const said = [], events = [], payloads = [];
   const response = { ok: true, reply: mode === 'focused' ? final : question,
-    fix: mode === 'focused' ? fix : null, repeat: true, replaced,
+    fix: mode === 'focused' ? fix : null, repeat: true, replaced, ai_unavailable: unavailable,
     ...(pron ? { pron_fix: { word: 'park', say_times: 3 } } : {}) };
   const input = { value: fix.was, focus() {}, dispatchEvent() {} };
   const button = { disabled: false };
@@ -106,14 +106,16 @@ async function uiTurn(mode, stream, { sound = true, pron = false, replaced = fal
   const doc = { getElementById: id => id === 'msgInput' ? input : id === 'sendBtn' ? button : {},
     querySelector: () => null, querySelectorAll: s => s === '.ai-row' ? [row] : [] };
   const chunks = [{ t: question }, { done: 1, ...response }].map(o => 'data: ' + JSON.stringify(o) + '\n\n');
+  const auto = { begin: () => 1, on: () => false, settled: () => events.push('settled') };
   const ctx = vm.createContext({ console, TextDecoder, TextEncoder, Promise, Date, Event: class {},
     document: doc, currentCorr: mode, currentLevel: 'beginner', currentPersona: 'friendly', currentTopic: null,
     currentSub: 'on', currentVoice: 'emma', _ttsLangSet: false, _pendingVoice: false, _lastRecBlob: null,
     _lastAiText: '', _repeatTarget: null, _stmGen: 0, _stmChain: Promise.resolve(), _stmSpoke: false, _stmRow: null,
-    window: {}, setTimeout: () => 0, isSoundOn: () => sound,
+    window: { FriendAutoTalk: auto }, FriendAutoTalk: auto, setTimeout: () => 0, isSoundOn: () => sound, isEn: () => false,
     maybeAdjustRate() {}, getAuth: async () => ({ uid: 'test', token: 'fake' }), fixCardClear() {},
     appendMsg: (who, text) => { if (who === 'ai') row._speakBody = text; }, appendTyping() {}, removeTyping() {},
-    sndPop() {}, personNow: () => 'emma', applyGam() {}, showFixCard() {},
+    sndPop() {}, personNow: () => 'emma', applyGam() {}, showFixCard: () => events.push('fix-card'),
+    appendNotice: () => events.push('notice'),
     showPronFix: (_pf, auto) => { assert.equal(auto, false); events.push('pron-card'); },
     stmShow: () => events.push('preview'),
     speakText: (text, _btn, _row, done) => { said.push(text); events.push('speech'); Promise.resolve().then(done); },
@@ -145,6 +147,13 @@ check('mute is respected', () => assert.deepEqual(muted.said, []));
 const pron = await uiTurn('focused', true, { pron: true });
 check('pronunciation cannot interrupt grammar correction and completes three times afterward', () => {
   assert.deepEqual(pron.said, [final, 'park', 'park', 'park']);
+  assert.equal(pron.events.at(-1), 'settled');
+});
+const unavailable = await uiTurn('focused', true, { unavailable: true });
+check('failed AI replies stay silent notices, without correction cards', () => {
+  assert.deepEqual(unavailable.said, []);
+  assert.ok(unavailable.events.includes('notice'));
+  assert.ok(!unavailable.events.includes('fix-card'));
 });
 
 // Real Worker routes with an in-memory D1 and a deterministic model, never the live service.
