@@ -353,6 +353,29 @@ test('failed studio device cleanup reports failure and keeps a fallback entry fo
   assert.equal(device.rows.size,0);assert.equal(await w.api.getLocalDraft('studio-picnic'),null);
 });
 
+test('download progress uses authenticated private routes and sends no media payloads',async()=>{
+  const w=world(alice),job={id:'abc-job',requested:[0],parts:[]};
+  await w.api.listDownloads();await w.api.saveDownload(job,'student:alice');await w.api.deleteDownload(job.id,'student:alice');
+  assert.deepEqual(w.calls.map(c=>[c.url,c.opts.method||'GET']),[['/api/dubbing/downloads','GET'],['/api/dubbing/downloads/abc-job','PUT'],['/api/dubbing/downloads/abc-job','DELETE']]);
+  assert.deepEqual(JSON.parse(w.calls[1].opts.body),job);
+  for(const c of w.calls){assert.equal(c.opts.headers.get('X-Dubbing-Actor'),'student%3Aalice');assert.match(c.opts.headers.get('Authorization'),/^Bearer /);assert.equal(c.opts.cache,'no-store');}
+});
+test('progress saves are pinned to their original owner and late cross-account history is rejected',async()=>{
+  const w=world(alice),late=deferred();w.handler=()=>late.promise;
+  const pending=w.api.listDownloads();await tick();w.student('Bob');late.resolve(json({ok:true,downloads:[{id:'private-alice'}]}));
+  await assert.rejects(pending,e=>e.code==='account_changed');
+  const before=w.calls.length;await assert.rejects(w.api.saveDownload({id:'abc-job'},'student:alice'),e=>e.code==='account_changed');
+  await assert.rejects(w.api.deleteDownload('abc-job','student:alice'),e=>e.code==='account_changed');assert.equal(w.calls.length,before);
+});
+
+test('upload progress routes are private, owner pinned and contain metadata only',async()=>{
+  const w=world(alice),job={id:'abc-upload',entries:[{id:'movie-id',sha256:'a'.repeat(64)}]};
+  await w.api.listUploads();await w.api.saveUpload(job,'student:alice');await w.api.deleteUpload(job.id,'student:alice');
+  assert.deepEqual(w.calls.map(c=>[c.url,c.opts.method||'GET']),[['/api/dubbing/uploads','GET'],['/api/dubbing/uploads/abc-upload','PUT'],['/api/dubbing/uploads/abc-upload','DELETE']]);
+  assert.deepEqual(JSON.parse(w.calls[1].opts.body),job);for(const c of w.calls){assert.equal(c.opts.headers.get('X-Dubbing-Actor'),'student%3Aalice');assert.equal(c.opts.cache,'no-store');}
+  w.student('Bob');const before=w.calls.length;await assert.rejects(w.api.saveUpload(job,'student:alice'),e=>e.code==='account_changed');await assert.rejects(w.api.deleteUpload(job.id,'student:alice'),e=>e.code==='account_changed');assert.equal(w.calls.length,before);
+});
+
 let failures=0;
 for(const {name,fn} of checks) {
   try {await fn();console.log('✅ '+name);} catch(e) {failures++;console.error('❌ '+name+'\n   '+e.message);}

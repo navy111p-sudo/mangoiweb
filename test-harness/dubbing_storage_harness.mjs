@@ -129,6 +129,92 @@ async function expectError(label, response, status, error) {
 try {
   console.log('🎬 Private dubbing storage: local workerd + local R2');
   const bucket = await mf.getR2Bucket('RECORDINGS');
+  const downloadId = Date.now().toString(36) + '-checkpoint';
+  const checkpoint = {
+    version: 1, owner: 'student:learner-a', id: downloadId, limit: 512 * 1024 * 1024,
+    title: '무지개 모둠', filename: 'mangoi-무지개_모둠.zip', updatedAt: Date.now(), requested: [],
+    parts: [0, 1, 2].map(i => [{ id: 'video-' + i, title: '무지개 모둠 · 에피소드 1', size: 300 * 1024 * 1024, mime: 'video/mp4', createdAt: '', name: '무지개 모둠', path: '001_무지개_모둠/00' + (i + 1) + '_mangoi-video.mp4' }]),
+  };
+  const downloadPath = '/api/dubbing/downloads/' + downloadId;
+  const downloadPut = value => ({ method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) });
+  await expectError('anonymous progress is denied', await call('/api/dubbing/downloads', {}, {}), 401, 'auth_required');
+  await expectError('progress actor cannot override authenticated owner', await call(downloadPath, downloadPut({ ...checkpoint, owner: 'student:learner-b' })), 400, 'invalid_download');
+  await expectError('cross-origin progress mutation is denied', await call(downloadPath, { ...downloadPut(checkpoint), headers: { 'Content-Type': 'application/json', Origin: 'https://evil.example' } }), 403, 'origin_forbidden');
+  ck('checkpoint create succeeds', (await call(downloadPath, downloadPut(checkpoint))).status, 200);
+  let history = (await json(await call('/api/dubbing/downloads'))).body;
+  ck('fresh device sees authenticated account history', history.downloads.length, 1);
+  ck('checkpoint response is private and uncached', (await call('/api/dubbing/downloads')).headers.get('Cache-Control'), 'private, no-store');
+  ck('another student cannot list account history', (await json(await call('/api/dubbing/downloads', {}, B))).body.downloads, []);
+  ck('staff history stays separate from student history', (await json(await call('/api/dubbing/downloads', {}, staff('learner-a')))).body.downloads, []);
+  const updates = await Promise.all([0, 1, 2].map(i => call(downloadPath, downloadPut({ ...checkpoint, requested: [i] }))));
+  ck('concurrent devices save all updates', updates.map(r => r.status), [200, 200, 200]);
+  history = (await json(await call('/api/dubbing/downloads'))).body;
+  ck('concurrent device progress is a monotonic union', history.downloads[0].requested, [0, 1, 2]);
+  await call(downloadPath, downloadPut(checkpoint));
+  ck('stale offline progress cannot reset newer requests', (await json(await call('/api/dubbing/downloads'))).body.downloads[0].requested, [0, 1, 2]);
+  await expectError('manifest cannot be silently replaced', await call(downloadPath, downloadPut({ ...checkpoint, filename: 'mangoi-changed.zip' })), 409, 'download_changed');
+  for (const patch of [
+    { requested: [0, 0] }, { requested: [3] },
+    { parts: [[{ ...checkpoint.parts[0][0], path: '../escape.mp4' }]] },
+    { parts: [[{ ...checkpoint.parts[0][0], size: 512 * 1024 * 1024 }]] },
+    { parts: [[checkpoint.parts[0][0], checkpoint.parts[0][0]]] },
+  ]) await expectError('invalid or unsafe checkpoint is rejected', await call(downloadPath, downloadPut({ ...checkpoint, ...patch })), 400, 'invalid_download');
+  ck('progress storage is outside media quota prefix', (await bucket.list({ prefix: 'dubbing-private/download-progress/v1/' })).objects.length, 1);
+  ck('progress delete succeeds', (await call(downloadPath, { method: 'DELETE' })).status, 200);
+  history = (await json(await call('/api/dubbing/downloads'))).body;
+  ck('deletion propagates to other devices', [history.downloads.length, history.removed.includes(downloadId)], [0, true]);
+  await expectError('late device cannot resurrect deleted history', await call(downloadPath, downloadPut(checkpoint)), 410, 'download_deleted');
+  const staleId = (Date.now() - 31 * 86400000).toString(36) + '-old';
+  await expectError('expired offline creates cannot resurrect pruned tombstones', await call('/api/dubbing/downloads/' + staleId, downloadPut({ ...checkpoint, id: staleId })), 409, 'download_expired');
+  for (let i = 0; i < 10; i++) {
+    const job = { ...checkpoint, id: Date.now().toString(36) + '-limit-' + i };
+    ck('bounded history slot ' + i, (await call('/api/dubbing/downloads/' + job.id, downloadPut(job))).status, 200);
+  }
+  const excess = { ...checkpoint, id: Date.now().toString(36) + '-excess' };
+  await expectError('history limit preserves all unfinished jobs', await call('/api/dubbing/downloads/' + excess.id, downloadPut(excess)), 409, 'download_count_limit');
+
+
+
+  const uploadId = Date.now().toString(36) + '-upload', uploadPath = '/api/dubbing/uploads/' + uploadId;
+  const uploadJob = {version:1,owner:'student:learner-a',id:uploadId,updatedAt:Date.now(),entries:[0,1].map(i=>({id:'original-'+i,title:'모둠 '+i,size:16,mime:'video/webm',engine:'main',episodeId:'film1',state:'pending',error:'',sha256:String(i).repeat(64),durationMs:2000,interrupted:false}))};
+  await expectError('anonymous upload progress is denied',await call('/api/dubbing/uploads',{},{}),401,'auth_required');
+  await expectError('upload actor cannot override authenticated owner',await call(uploadPath,downloadPut({...uploadJob,owner:'student:learner-b'})),400,'invalid_upload');
+  ck('upload checkpoint creation succeeds',(await call(uploadPath,downloadPut(uploadJob))).status,200);
+  ck('independent browser sees account upload queue',(await json(await call('/api/dubbing/uploads'))).body.uploads[0].entries.length,2);
+  ck('another student cannot see upload queue',(await json(await call('/api/dubbing/uploads',{},B))).body.uploads,[]);
+  ck('upload queue is private and uncached',(await call('/api/dubbing/uploads')).headers.get('Cache-Control'),'private, no-store');
+  const progressUpdates=await Promise.all([0,1].map(i=>call(uploadPath,downloadPut({...uploadJob,entries:uploadJob.entries.map((e,n)=>({...e,state:n===i?'saved':'missing',error:'device-specific error'}))}))));
+  ck('concurrent upload progress commits safely',progressUpdates.map(r=>r.status),[200,200]);
+  await call(uploadPath,downloadPut(uploadJob));
+  let uploads=(await json(await call('/api/dubbing/uploads'))).body.uploads;
+  ck('stale device cannot rewind completed uploads',uploads[0].entries.map(e=>e.state),['saved','saved']);
+  ck('device-specific errors never leak into other browsers',uploads[0].entries.map(e=>e.error),['','']);
+  for(const patch of [{size:17},{sha256:'f'.repeat(64)},{title:'different'}])await expectError('immutable upload original cannot be replaced',await call(uploadPath,downloadPut({...uploadJob,entries:[{...uploadJob.entries[0],...patch}]})),409,'upload_changed');
+  for(const patch of [{id:'../escape'},{sha256:'not-a-hash'},{size:-1},{durationMs:Infinity}])await expectError('unsafe upload metadata is refused',await call(uploadPath,downloadPut({...uploadJob,entries:[{...uploadJob.entries[0],...patch}]})),400,'invalid_upload');
+  ck('upload progress does not consume media quota prefix',(await bucket.list({prefix:'dubbing-private/upload-progress/v1/'})).objects.length,1);
+  const resultRow=(key,code='content',seq=1)=>({key,seq,name:key+'.webm',code,movieIds:[],sha256:'a'.repeat(64)});
+  const fileHistory=(rows,removed=[])=>({version:1,rows,removed});
+  ck('file results save alongside the authenticated upload job',(await call(uploadPath,downloadPut({...uploadJob,connections:fileHistory([resultRow('file-a')])}))).status,200);
+  ck('another account cannot read private filenames',(await json(await call('/api/dubbing/uploads',{},B))).body.uploads,[]);
+  ck('fresh device restores file name and reason',(await json(await call('/api/dubbing/uploads'))).body.uploads[0].connections.rows[0].name,'file-a.webm');
+  const resultUpdates=await Promise.all(['file-b','file-c'].map(key=>call(uploadPath,downloadPut({...uploadJob,connections:fileHistory([resultRow(key)])}))));
+  ck('independent device results merge atomically',resultUpdates.map(r=>r.status),[200,200]);
+  ck('concurrent file results are all retained',(await json(await call('/api/dubbing/uploads'))).body.uploads[0].connections.rows.length,3);
+  await call(uploadPath,downloadPut({...uploadJob,connections:fileHistory([resultRow('file-a','connected',2)])}));
+  await call(uploadPath,downloadPut({...uploadJob,connections:fileHistory([resultRow('file-a')])}));
+  ck('stale attempt snapshots cannot rewind newer results',(await json(await call('/api/dubbing/uploads'))).body.uploads[0].connections.rows.find(r=>r.key==='file-a').code,'connected');
+  await call(uploadPath,downloadPut({...uploadJob,connections:fileHistory([resultRow('replacement')],['file-a'])}));
+  await call(uploadPath,downloadPut({...uploadJob,connections:fileHistory([resultRow('file-a','connected',100)])}));
+  ck('replacement tombstone prevents old device resurrection',(await json(await call('/api/dubbing/uploads'))).body.uploads[0].connections.rows.some(r=>r.key==='file-a'),false);
+  await expectError('same revision with conflicting data is refused',await call(uploadPath,downloadPut({...uploadJob,connections:fileHistory([resultRow('file-b','read')])})),409,'connections_changed');
+  for(const row of [{...resultRow('bad'),key:'../escape'},{...resultRow('bad'),seq:0},{...resultRow('bad'),code:'unknown'},{...resultRow('bad'),movieIds:['foreign-movie']},{...resultRow('bad'),sha256:'bad'}])await expectError('unsafe file-result metadata is rejected',await call(uploadPath,downloadPut({...uploadJob,connections:fileHistory([row])})),400,'invalid_connections');
+  await call(uploadPath,downloadPut(uploadJob));
+  ck('older clients cannot erase account file results',(await json(await call('/api/dubbing/uploads'))).body.uploads[0].connections.rows.length,3);
+  ck('upload checkpoint delete succeeds',(await call(uploadPath,{method:'DELETE'})).status,200);
+  ck('deletion is visible across devices',(await json(await call('/api/dubbing/uploads'))).body.removed.includes(uploadId),true);
+  await expectError('offline device cannot resurrect removed upload queue',await call(uploadPath,downloadPut(uploadJob)),410,'upload_deleted');
+  const oldUploadId=(Date.now()-31*86400000).toString(36)+'-upload-old';
+  await expectError('expired upload queue cannot evade tombstones',await call('/api/dubbing/uploads/'+oldUploadId,downloadPut({...uploadJob,id:oldUploadId})),409,'upload_expired');
 
   await expectError('anonymous request is denied', await call('/api/dubbing/movies', {}, {}), 401, 'auth_required');
   await expectError('uid and query token are not authentication', await call('/api/dubbing/movies?uid=learner-a&token=' + uidToken('learner-a'), {}, {}), 401, 'auth_required');

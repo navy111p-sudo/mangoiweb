@@ -26,6 +26,11 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+/* 시계 고정 (2026-10-31) — 화면 계산은 Date.now() 를 기본값으로 써서 실제 날짜가 지나면
+   픽스처(2026-10 수업)의 «지난 수업/예정» 판정이 바뀌었다. 검사 전체가 같은 날(KST 2026-10-08 정오)을
+   보도록 고정한다. 픽스처가 이 날을 기준으로 짜여 있다. */
+const FROZEN_NOW = Date.parse('2026-10-08T03:00:00Z');
+Date.now = () => FROZEN_NOW;
 const SRC_DIR = process.env.B2B_SRC_DIR || path.join(ROOT, 'cloudflare-deploy', 'src');
 const PUB = path.join(ROOT, 'cloudflare-deploy', 'public');
 
@@ -302,7 +307,10 @@ if (!sqlite) {
   const bad2 = await call('view', 'GET', null, "' OR 1=1 --");
   ok(bad2.res.status === 404, '토큰 모양이 아니면 DB 를 묻기 전에 거절');
   raw.prepare(`INSERT INTO b2b_tuition_students (shop_name, uid, excluded, reason, updated_at) VALUES (?, 'abc123', 1, '내부메모-원장님과통화', 1)`).run(SHOP);
-  const v = await call('view');
+  /* 2026-10-31: 공개 화면의 «이번 달» 은 실제 시각(Date.now)으로 정해진다. 픽스처는 10/8 기준이라
+     실행 날짜가 10월 말을 넘으면 같은 데이터를 다른 달로 본다 — 조회 동안만 시계를 픽스처 시각에 맞춘다. */
+  const _realNow = Date.now; Date.now = () => NOW.valueOf();
+  let v; try { v = await call('view'); } finally { Date.now = _realNow; }
   {
     const vsx = JSON.stringify(v.body);
     ok(!/내부메모-원장님과통화/.test(vsx) && /청구 제외/.test(vsx), '공개 화면에는 «제외 사유» 원문 대신 «청구 제외» 만', vsx.match(/내부메모[^"]*/));

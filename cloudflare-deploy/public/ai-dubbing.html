@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
-<link rel="stylesheet" href="/css/ai-dubbing-home.css?v=3">
+<link rel="stylesheet" href="/css/ai-dubbing-home.css?v=15">
+<link rel="stylesheet" href="/css/ai-dubbing-guide.css?v=3">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>🎬 A.i영화더빙 — mangoi.ai</title>
 <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
@@ -19,7 +20,7 @@
   ⚠️ 매니페스트를 못 읽으면 아래 «준비 중» 칸이 그대로 남는다(눌러도 아무 데도 안 가게 — 없는 영상으로 보내지 않는다).
 
   🧭 배치 (2026-10-20 사장님 「두 장르가 한 화면에서 잘 보이게」 → 시안 4종 중 B안)
-  소개 카드 → 장르 카드 2개(모험 3D 애니 7편 × 에피소드 6 · 키키와 토토 10편) → 왼쪽 «작품·에피소드 고르기» / 오른쪽 «누가 연기할까요?».
+  소개 카드 → 장르 카드 2개(모험 3D 애니 8편 × 에피소드 6 · 키키와 토토 10편) → 왼쪽 «작품·에피소드 고르기» / 오른쪽 «누가 연기할까요?».
   폰(860px 이하)은 한 줄로 쌓고, 출연 설정은 아래 고정 바 → 바텀시트로 연다.
   ⛔ 키키와 토토는 전용 스튜디오(/ai-dubbing-studio.html?ep=<id>)에서 더빙한다 — 여기서는 «고르기» 만 한다(재생 기능을 두 벌 만들지 않는다).
 -->
@@ -85,7 +86,7 @@
   .notice.err{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.5)}
   .notice.err b{color:var(--red)}
 
-  /* « 1. 작품 고르기 » — 7편 */
+  /* « 1. 작품 고르기 » — 8편 */
   .eps{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:10px}
   .ep{position:relative;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;aspect-ratio:3/4;padding:9px;border-radius:14px;
     border:1px solid var(--line);background:#121826;background-size:cover;background-position:center;color:var(--text);text-decoration:none;overflow:hidden}
@@ -174,6 +175,8 @@
   /* « 플레이어 » */
   .stage{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;border:1px solid var(--line)}
   .stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+  .dub-intro-cover{position:absolute;inset:0;background:#000;pointer-events:none}
+  .dub-intro-cover img{width:100%;height:100%;object-fit:contain}
   .sub{position:absolute;left:4%;right:4%;bottom:4%;padding:8px 12px;border-radius:12px;background:rgba(5,8,14,.78);text-align:center}
   .sub .who{display:block;font-size:13px;font-weight:800;color:var(--gold)}
   .sub .en{display:block;font-size:clamp(16px,3.2vw,26px);font-weight:900;line-height:1.3}
@@ -308,6 +311,28 @@
   .dub-save-callout p{margin:5px 0 0}
   @media(max-width:860px){.dub-use-steps{grid-template-columns:1fr}.dub-save-callout{padding:14px}.dub-save-callout strong{font-size:17px}}
   @media (prefers-reduced-motion:reduce){ #dub-side,#dub-side.open{transition:none} }
+  .watch-controls{position:absolute;inset:auto 0 0;padding:24px 14px 8px;background:linear-gradient(transparent,rgba(0,0,0,.88));z-index:6;color:#fff}
+  .stage.is-watching .sub{bottom:82px}
+  .watch-seek{display:block;width:100%;height:18px;margin:0;cursor:pointer;accent-color:#ff1744;background:transparent;appearance:none;-webkit-appearance:none}
+  .watch-seek::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:linear-gradient(to right,#ff1744 var(--played,0%),#ffffff55 var(--played,0%))}
+  .watch-seek::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:12px;height:12px;margin-top:-4px;border-radius:50%;background:#ff1744}
+  .watch-seek::-moz-range-track{height:4px;border-radius:2px;background:#ffffff55}
+  .watch-seek::-moz-range-progress{height:4px;background:#ff1744}
+  .watch-seek::-moz-range-thumb{width:12px;height:12px;border:0;border-radius:50%;background:#ff1744}
+  .watch-seek:disabled{opacity:.4;cursor:default}
+  .watch-controls-row{display:flex;align-items:center;gap:12px;min-height:36px}
+  .watch-controls button,.watch-settings summary{border:0;background:transparent;color:#fff;font:inherit;cursor:pointer;padding:7px;min-width:36px;min-height:36px}
+  .watch-controls output{font-size:12px;font-variant-numeric:tabular-nums}
+  .watch-settings{margin-left:auto;position:relative}
+  .watch-settings summary{list-style:none;white-space:nowrap}
+  .watch-settings summary::-webkit-details-marker{display:none}
+  .watch-settings fieldset{position:absolute;right:0;bottom:44px;width:158px;margin:0;padding:10px;border:1px solid #3b4050;border-radius:12px;background:rgba(17,20,27,.97);box-shadow:0 8px 30px #0008}
+  .watch-settings legend{font-size:13px;font-weight:700;background:#11141b;border-radius:6px;padding:4px 8px}
+  .watch-settings label{display:flex;align-items:center;gap:10px;padding:7px;border-radius:6px;font-size:13px;cursor:pointer}
+  .watch-settings label:hover{background:#ffffff18}
+  .watch-settings input{accent-color:#ff1744}
+  .watch-controls :focus-visible{outline:2px solid #fff;outline-offset:2px}
+  @media(max-width:480px){.watch-controls{padding:14px 8px 4px}.stage.is-watching .sub{bottom:72px}.watch-settings fieldset{bottom:38px;width:220px;display:grid;grid-template-columns:repeat(3,1fr);padding:6px}.watch-settings label{padding:5px 2px;font-size:11px;gap:3px}.watch-settings legend{font-size:11px;padding:2px 6px}}
 </style>
 </head>
 <body>
@@ -319,7 +344,11 @@
     <div>
       <div class="dub-intro-top">
         <p class="hero-brand">mangoi.ai · <span data-ko="재미가 의지를 이깁니다!" data-en="Fun beats willpower!">재미가 의지를 이깁니다!</span></p>
+        <!-- ❓ 사용방법 다시 열기 — 안내창은 js/ai-dubbing-guide.js (오늘 숨김과 상관없이 언제나 연다) -->
+        <div class="dub-intro-tools">
+        <button type="button" class="dub-guide-open" id="dub-guide-open" aria-haspopup="dialog" aria-controls="dub-guide"><span aria-hidden="true">❓</span><span data-ko="사용방법" data-en="How to use">사용방법</span></button>
         <button type="button" class="dub-mobile-menu" id="dub-menu" aria-controls="mg-drawer" data-ko-aria="전체 메뉴 열기" data-en-aria="Open the main menu" aria-label="전체 메뉴 열기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span data-ko="메뉴" data-en="Menu">메뉴</span></button>
+        </div>
       </div>
       <h2 class="hero-h"><span data-ko="내 목소리로 만드는 영어 영화" data-en="An English movie with your voice">내 목소리로 만드는 영어 영화</span></h2>
       <p class="intro"><span data-ko="캐릭터를 골라 영어 대사를 녹음해 보세요." data-en="Choose a character and record the English lines.">캐릭터를 골라 영어 대사를 녹음해 보세요.</span></p>
@@ -376,6 +405,11 @@
     <details id="dub-library-fold" class="dub-accordion"><summary id="dub-library-title" data-ko="내 작품 보관함" data-en="My work library">내 작품 보관함</summary>
     <div class="dub-library-heading"><h2 data-ko="내 영상과 연습" data-en="My videos and practice">내 영상과 연습</h2><button type="button" class="btn" id="dub-library-close"><span data-ko="닫기" data-en="Close">닫기</span></button></div>
     <div class="dub-library-tabs"><button type="button" class="btn" data-library-view="movies" aria-pressed="true"><span data-ko="내 영상" data-en="My videos">내 영상</span></button><button type="button" class="btn" data-library-view="drafts" aria-pressed="false"><span data-ko="이어할 연습" data-en="Saved practice">이어할 연습</span></button><button type="button" class="btn" id="dub-library-refresh"><span data-ko="새로고침" data-en="Refresh">새로고침</span></button></div>
+    <div class="dub-library-filters" id="dub-library-filters">
+      <label for="dub-library-search"><span data-ko="모둠 이름 검색" data-en="Search group names">모둠 이름 검색</span><input type="search" id="dub-library-search" maxlength="60" autocomplete="off" placeholder="예: 1모둠, 무지개" data-ko-placeholder="예: 1모둠, 무지개" data-en-placeholder="e.g. Group 1, Rainbow" aria-describedby="dub-library-filter-help"></label>
+      <label for="dub-library-layout"><span data-ko="보기 방식" data-en="View">보기 방식</span><select id="dub-library-layout"><option value="all" data-ko="전체 목록" data-en="All videos">전체 목록</option><option value="groups" data-ko="모둠별 보기" data-en="Group by name">모둠별 보기</option></select></label>
+      <p id="dub-library-filter-help" data-ko="모둠 이름의 일부만 입력해도 찾아요. ‘모둠별 보기’를 선택하면 같은 모둠 영상을 모아 보고 ‘모두 내려받기 (ZIP)’로 한 번에 저장할 수 있어요." data-en="Type part of a group name to search. Choose Group by name to see each group’s videos together and save them with Download all (ZIP).">모둠 이름의 일부만 입력해도 찾아요. ‘모둠별 보기’를 선택하면 같은 모둠 영상을 모아 보고 ‘모두 내려받기 (ZIP)’로 한 번에 저장할 수 있어요.</p>
+    </div>
     <p class="dub-library-status" id="dub-library-status" role="status" aria-live="polite"></p>
     <div class="dub-library-empty" id="dub-library-empty" hidden>
       <svg class="dub-empty-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="6" y="10" width="36" height="28" rx="6"/><path d="m20 17 11 7-11 7z"/></svg>
@@ -383,6 +417,9 @@
       <p data-ko="짧은 한 장면부터 연습해 볼까요?" data-en="Try recording one short scene.">짧은 한 장면부터 연습해 볼까요?</p>
       <button type="button" class="btn go" id="dub-library-start" disabled><span data-ko="짧은 더빙 시작" data-en="Record a short scene">짧은 더빙 시작</span></button>
     </div>
+    <div class="dub-library-upload" id="dub-library-upload" hidden></div>
+    <div class="dub-library-downloads" id="dub-library-downloads" hidden></div>
+    <div class="dub-library-bulk" id="dub-library-bulk" hidden></div>
     <div class="dub-library-items" id="dub-library-items"></div>
     <details class="dub-explain dub-storage-info"><summary data-ko="영상은 어디에 저장되나요?" data-en="Where are my videos saved?">영상은 어디에 저장되나요?</summary><p class="hint" data-ko="‘내 계정에 저장됨’이라고 표시된 영상은 로그인한 다른 기기에서도 볼 수 있어요. ‘이 기기에만 저장됨’은 지금 쓰는 브라우저에만 남아 있어요. 계정당 영상 20개·연습 12개, 영상 하나당 64MB까지 보관해요." data-en="Videos marked ‘Saved to my account’ are available on your other signed-in devices. ‘Saved on this device only’ means the video stays in this browser. Each account can keep 20 videos and 12 practices, with up to 64 MB per video.">‘내 계정에 저장됨’이라고 표시된 영상은 로그인한 다른 기기에서도 볼 수 있어요. ‘이 기기에만 저장됨’은 지금 쓰는 브라우저에만 남아 있어요. 계정당 영상 20개·연습 12개, 영상 하나당 64MB까지 보관해요.</p></details>
     </details>
@@ -393,9 +430,9 @@
   <section class="genres" id="dub-genres" aria-label="장르 고르기">
     <button type="button" class="genre adv" data-genre="adv" aria-pressed="true" aria-controls="dub-adv">
       <span class="g-ic" aria-hidden="true">🦖</span>
-      <span class="g-tx"><b data-ko="모험 3D 애니" data-en="3D Adventure">모험 3D 애니</b><span class="g-sub" data-ko="3D 애니메이션 7편 · 작품마다 에피소드 6개" data-en="7 animated films · 6 episodes each">3D 애니메이션 7편 · 작품마다 에피소드 6개</span></span>
-      <span class="g-num"><b>7</b><small data-ko="편 × 에피소드 6" data-en="films × 6 episodes">편 × 에피소드 6</small></span>
-      <span class="g-mini" id="dub-g-adv-mini" aria-hidden="true"><span class="mn">1</span><span class="mn">2</span><span class="mn">3</span><span class="mn">4</span><span class="mn">5</span><span class="mn">6</span><span class="mn">7</span></span>
+      <span class="g-tx"><b data-ko="모험 3D 애니" data-en="3D Adventure">모험 3D 애니</b><span class="g-sub" data-ko="3D 애니메이션 8편 · 작품마다 에피소드 6개" data-en="8 animated films · 6 episodes each">3D 애니메이션 8편 · 작품마다 에피소드 6개</span></span>
+      <span class="g-num"><b>8</b><small data-ko="편 × 에피소드 6" data-en="films × 6 episodes">편 × 에피소드 6</small></span>
+      <span class="g-mini" id="dub-g-adv-mini" aria-hidden="true"><span class="mn">1</span><span class="mn">2</span><span class="mn">3</span><span class="mn">4</span><span class="mn">5</span><span class="mn">6</span><span class="mn">7</span><span class="mn">8</span></span>
       <span class="g-sel" data-ko="선택됨" data-en="Selected">선택됨</span>
     </button>
     <button type="button" class="genre kt" data-genre="kt" aria-pressed="false" aria-controls="dub-kt">
@@ -415,6 +452,24 @@
       <div class="turn" id="dub-turn" hidden></div>
       <div class="tcard" id="dub-tcard" hidden><span class="tc-k" id="dub-tc-k"></span><b class="tc-t" id="dub-tc-t"></b><span class="tc-s" id="dub-tc-s"></span></div>
       <div class="sub" id="dub-sub" hidden><span class="who" id="dub-sub-who"></span><span class="en" id="dub-sub-en"></span><span class="ko" id="dub-sub-ko"></span></div>
+      <div class="watch-controls" id="dub-w-controls" hidden>
+        <input id="dub-w-seek" class="watch-seek" type="range" min="0" max="0" value="0" step="0.1" aria-label="재생 위치 / Playback position" disabled>
+        <div class="watch-controls-row">
+          <button type="button" id="dub-w-toggle" aria-label="재생 / 일시정지" title="재생 / 일시정지">❚❚</button>
+          <output id="dub-w-time" aria-live="off">0:00 / 0:00</output>
+          <details id="dub-w-settings" class="watch-settings">
+            <summary aria-label="재생 속도 / Playback speed"><span aria-hidden="true">⚙</span> <span id="dub-w-rate-label">1×</span></summary>
+            <fieldset><legend data-ko="재생 속도" data-en="Playback speed">재생 속도</legend>
+              <label><input type="radio" name="watch-rate" value="0.5"> 0.5×</label>
+              <label><input type="radio" name="watch-rate" value="0.75"> 0.75×</label>
+              <label><input type="radio" name="watch-rate" value="1" checked> <span data-ko="보통 (1×)" data-en="Normal (1×)">보통 (1×)</span></label>
+              <label><input type="radio" name="watch-rate" value="1.25"> 1.25×</label>
+              <label><input type="radio" name="watch-rate" value="1.5"> 1.5×</label>
+              <label><input type="radio" name="watch-rate" value="2"> 2×</label>
+            </fieldset>
+          </details>
+        </div>
+      </div>
     </div>
     <div class="meter" id="dub-meter-wrap" aria-hidden="true"><i id="dub-meter"></i></div>
     <div class="row" id="dub-d-row">
@@ -468,7 +523,7 @@
       <section class="panel" id="dub-eps-panel" aria-label="이야기 고르기" hidden>
         <div>
           <h2><span data-ko="이야기 고르기" data-en="Choose a story">이야기 고르기</span></h2>
-          <p class="hint"><span data-ko="3D 애니메이션 7편 — 작품마다 에피소드 6개가 있어요." data-en="7 animated films — each has 6 episodes.">3D 애니메이션 7편 — 작품마다 에피소드 6개가 있어요.</span></p>
+          <p class="hint"><span data-ko="3D 애니메이션 8편 — 작품마다 에피소드 6개가 있어요." data-en="8 animated films — each has 6 episodes.">3D 애니메이션 8편 — 작품마다 에피소드 6개가 있어요.</span></p>
         </div>
         <div class="eps" id="dub-eps"></div>
       </section>
@@ -584,12 +639,25 @@
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script defer src="/js/speech-azure.js?v=2"></script>
-<script defer src="/js/ai-dubbing-core.js?v=4"></script>
+<script defer src="/js/ai-dubbing-core.js?v=7"></script>
 <script defer src="/js/ai-dubbing-sound.js?v=2"></script>
-<script defer src="/js/ai-dubbing-watch.js?v=3"></script>
-<script defer src="/js/ai-dubbing-library.js?v=2"></script>
+<script defer src="/js/ai-dubbing-watch.js?v=7"></script>
+<script defer src="/js/ai-dubbing-library.js?v=4"></script>
 <script defer src="/js/ai-dubbing-practice.js?v=1"></script>
-<script defer src="/js/ai-dubbing-home.js?v=4"></script>
-<script defer src="/js/ai-dubbing.js?v=17"></script>
+<script defer src="/vendor/jszip/jszip.min.js?v=3.10.1"></script>
+<script defer src="/js/ai-dubbing-home.js?v=23"></script>
+<script defer src="/js/ai-dubbing-intro.js?v=1"></script>
+<script defer src="/js/ai-dubbing.js?v=25"></script>
+<script defer src="/js/ai-dubbing-guide-voice.js?v=3"></script>
+<script defer src="/js/ai-dubbing-guide.js?v=3"></script>
+<aside id="dub-sync-notification" class="dub-sync-notification" role="status" aria-live="polite" hidden>
+  <div class="dub-sync-notification-content">
+    <span id="dub-sync-notification-text"></span>
+    <p id="dub-sync-notification-counts" hidden></p>
+    <progress id="dub-sync-notification-progress" aria-label="계정 자동 동기화 진행 상황" hidden></progress>
+    <button id="dub-sync-notification-retry" type="button" class="btn" data-ko="남은 기록 다시 동기화" data-en="Retry remaining records" hidden>남은 기록 다시 동기화</button>
+  </div>
+  <button id="dub-sync-notification-close" type="button" class="btn" aria-label="알림 닫기" data-ko="닫기" data-en="Close">닫기</button>
+</aside>
 </body>
 </html>

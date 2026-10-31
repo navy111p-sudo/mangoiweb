@@ -1843,8 +1843,14 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
          FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
         WHERE cs.id = ? LIMIT 1`
     ).bind(scheduleId).first();
-    if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
+    if (!row) return json({ ok: false, error: 'schedule_not_found' }, 404);
     { const d = await subScopeDenied(env, request, actor.role, row.user_id); if (d) return d; }
+    if (row.status === 'postponed') return json({ ok: false, error: 'schedule_postponed',
+      message: '연기된 수업입니다. 먼저 연기 취소 또는 새 날짜로 재예약한 뒤 앞으로 계속 변경해 주세요.',
+      message_en: 'This class is postponed. Restore it or rebook it to a new date first, then choose Change from now on.' }, 409);
+    if (row.status !== 'active') return json({ ok: false, error: 'schedule_not_movable',
+      message: '취소되거나 종료된 수업은 변경할 수 없습니다. 최신 시간표에서 열린 수업을 선택해 주세요.',
+      message_en: 'Cancelled or completed classes cannot be moved. Refresh the timetable and select an open class.' }, 409);
     return json(await moveCandidatesFor(env, row, date, time, { dayCount: true }));
   }
 
@@ -1888,9 +1894,15 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
          FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
         WHERE cs.id = ? LIMIT 1`
     ).bind(scheduleId).first();
-    if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
+    if (!row) return json({ ok: false, error: 'schedule_not_found' }, 404);
     if (['lms', 'type_seed'].includes(String(row.user_id || '').toLowerCase())) return json({ ok: false, error: 'placeholder_row' }, 400);
     { const d = await subScopeDenied(env, request, actor.role, row.user_id); if (d) return d; }
+    if (row.status === 'postponed') return json({ ok: false, error: 'schedule_postponed',
+      message: '연기된 수업입니다. 먼저 연기 취소 또는 새 날짜로 재예약한 뒤 앞으로 계속 변경해 주세요.',
+      message_en: 'This class is postponed. Restore it or rebook it to a new date first, then choose Change from now on.' }, 409);
+    if (row.status !== 'active') return json({ ok: false, error: 'schedule_not_movable',
+      message: '취소되거나 종료된 수업은 변경할 수 없습니다. 최신 시간표에서 열린 수업을 선택해 주세요.',
+      message_en: 'Cancelled or completed classes cannot be moved. Refresh the timetable and select an open class.' }, 409);
 
     /* 담당 강사 변경 — 같은 강사면 «안 바꿈». 바꾸면 본사 전용 + 실재하는 강사만. */
     const curTid = row.teacher_id != null ? String(row.teacher_id) : '';

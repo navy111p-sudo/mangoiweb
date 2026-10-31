@@ -7,6 +7,7 @@
 //   만드는 법 (리포 루트에서)
 //     1) cd cloudflare-deploy/public && python3 -m http.server 8977        (다른 창)
 //     2) node "docs/자료실_원본/관리자용_사용설명서/capture.mjs" <캡처폴더>   (LANGS=ko,en)
+//        + node "docs/자료실_원본/AI컨텐츠_결제안내/capture.mjs" <같은 캡처폴더>   ← 10장 «AI 컨텐츠 결제» 그림(p2-menu …)
 //          → 실제 화면 파일을 띄우고 API 만 «설명용 가짜 데이터» 로 대신해 찍는다.
 //          ⛔ 실제 학생 정보를 쓰지 말 것 — /library/ 밑이라 누구나 받는다(저장소도 공개).
 //     3) node "docs/자료실_원본/관리자용_사용설명서/build.mjs" <캡처폴더> <출력폴더>
@@ -14,12 +15,12 @@
 //          PPTX·XLSX 는 make_office.py(python-pptx·openpyxl)가 같은 글(content.mjs)로 만든다.
 //
 //   ⛔ 글은 content.mjs 하나가 정본 — 여기서 문구를 다시 적지 말 것(세 형식이 서로 다른 말을 하게 된다).
-import { createRequire } from 'node:module';
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { T } from './content.mjs';
+import { launchChromium, fontCss } from '../_공용/pdf-helpers.mjs';   // 글꼴 심기·브라우저 띄우기는 결제 안내서와 함께 쓴다
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CAP = resolve(process.argv[2] || 'cap');
@@ -33,7 +34,7 @@ for (const lang of Object.keys(T)) for (const ch of T[lang].chapters) for (const
 }
 if (missing.length) { console.error('그림이 없습니다:\n' + missing.join('\n')); process.exit(1); }
 
-function html(lang, fontCss) {
+function html(lang, css) {
   const t = T[lang];
   const img = n => 'file://' + join(CAP, `${lang}-${n}.jpg`);
   const toc = t.chapters.map((c, i) => `<li><b>${i + 1}.</b> ${c.title}</li>`).join('');
@@ -42,7 +43,7 @@ ${c.steps.map((s, j) => `<div class="step"><h3><span class="num">${i + 1}-${j + 
 <ul>${s.p.map(x => `<li>${x}</li>`).join('')}</ul><img class="shot" src="${img(s.img)}"></div>`).join('\n')}</section>`).join('\n');
   const faq = t.faq.map(([q, a]) => `<div class="qa"><div class="q">Q. ${q}</div><div class="a">${a}</div></div>`).join('');
   return `<!doctype html><html lang="${t.htmlLang}"><head><meta charset="utf-8"><title>${t.title}</title>
-<style>${fontCss}
+<style>${css}
 @page{size:A4;margin:13mm 12mm 14mm}
 *{box-sizing:border-box}
 body{margin:0;font-family:'Noto Sans KR','Noto Color Emoji',sans-serif;color:#1f2937;font-size:10.8pt;line-height:1.55}
@@ -73,30 +74,11 @@ ${body}
 </body></html>`;
 }
 
-async function fontCss(text) {
-  // 굵기마다 따로 받는다 — text= 와 여러 굵기를 한 번에 주면 400 이 난다(CLAUDE.md 2장).
-  let css = '';
-  for (const w of [400, 700, 800]) {
-    const url = 'https://fonts.googleapis.com/css2?family=' + encodeURIComponent('Noto Sans KR') + ':wght@' + w + '&text=' + encodeURIComponent(text);
-    const c = execFileSync('curl', ['-sS', '-A', 'Mozilla/5.0 Chrome/120', url]).toString();
-    if (!/@font-face/.test(c)) throw new Error('글꼴을 못 받았습니다(' + w + '): ' + c.slice(0, 200));
-    let out = c;
-    for (const m of c.matchAll(/url\((https:[^)]+)\)/g)) {
-      const b = execFileSync('curl', ['-sS', m[1]]);
-      out = out.replace(m[1], 'data:font/woff2;base64,' + b.toString('base64'));
-    }
-    css += out + '\n';
-  }
-  return css;
-}
-
-const req = createRequire('/opt/node22/lib/node_modules/playwright/package.json');
-const { chromium } = req('playwright');
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const browser = await launchChromium();
 for (const lang of Object.keys(T)) {
   const plain = html(lang, '').replace(/<[^>]+>/g, '');
   const chars = [...new Set(plain + '0123456789?')].join('');
-  const doc = html(lang, await fontCss(chars));
+  const doc = html(lang, fontCss(chars));
   const tmp = join(OUT, `_${lang}.html`);
   writeFileSync(tmp, doc);
   const page = await browser.newPage();

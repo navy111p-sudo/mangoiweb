@@ -14,7 +14,8 @@ function el(id) {
   });
   return elements.get(id);
 }
-const document = { getElementById: el, querySelectorAll: () => [], body: el('body') };
+const document = { getElementById: el, querySelectorAll: () => [], body: el('body'),
+  events: {}, addEventListener(k, f) { this.events[k] = f; } };
 const context = { document, console, setTimeout, clearTimeout, URL, location: { search: '' } };
 context.window = context;
 vm.createContext(context);

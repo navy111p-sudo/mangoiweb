@@ -139,14 +139,12 @@ check('7일로 끊는다 (무한정 쌓이지 않게)', /UPCOMING_DAYS \* dayMs/
 check('⛔ 반복 수업은 안 넣는다 (넣으면 그 강사 시간표로 가득 찬다)',
   /if \(!s\.scheduled_date\) continue;/.test(tapi));
 check('레벨테스트 표시가 함께 실린다', /is_level_test: classKindOf\(s\) === 'level_test',[\s\S]{0,120}?\}\);\s*\n\s*continue;/.test(tapi));
-check('화면에 «다가오는 수업» 카드가 있다', /id="c-upcoming"/.test(thtml));
-check('그리는 함수가 있다', /function renderUpcoming\(list\)/.test(thtml));
-check('실제로 «불린다» (정의만 하면 화면은 그대로다)', /renderUpcoming\(d\.upcoming \|\| \[\]\)/.test(thtml));
-check('언어를 바꿔도 다시 그린다', /renderUpcoming\(DATA\.upcoming \|\| \[\]\)/.test(thtml));
-check('건이 없으면 카드째 숨긴다 (빈 카드 금지)',
-  /if \(!list\.length\)\{ card\.hidden = true; return; \}/.test(thtml));
-check('여기엔 입장 버튼을 주지 않는다 (그날이 아니면 방이 없다)',
-  !/renderUpcoming[\s\S]{0,2200}?cls-act/.test(thtml));
+/* 📅 (2026-10-26 강사 제안) 화면의 «다가오는 수업 (7일)» 카드는 뺐다 — 강사는 근무 전 매일 일정을
+   확인하므로 오늘 수업만 보이면 된다. 다른 날은 합친 카드의 날짜 드롭다운·주간 전체 보기에서 본다.
+   서버 upcoming 은 «수업 연기 · 변경 요청» 카드가 계속 쓰므로 위 서버 검사는 그대로 둔다. */
+check('⛔ 화면에 «다가오는 수업» 카드가 없다 (강사 제안으로 삭제)', !/id="c-upcoming"/.test(thtml));
+check('⛔ 그리는 함수·호출이 남아 있지 않다', !/renderUpcoming\(/.test(thtml));
+check('연기·변경 요청 카드는 여전히 DATA.upcoming 을 읽는다', /DATA && DATA\.upcoming/.test(thtml));
 
 console.log('\n[ ⑥-3 강사도 «내 주간 스케줄» 을 본다 ]');
 /* 사장님 지적: "미리 교사의 스케줄에 올라와 있어야 하지 않나". 확인해 보니 강사에게
@@ -155,12 +153,15 @@ console.log('\n[ ⑥-3 강사도 «내 주간 스케줄» 을 본다 ]');
 check('서버가 week 를 내려준다', /week: \{\s*\n\s*start: weekDates\[0\], end: weekDates\[6\]/.test(tapi));
 check('?week= 로 주를 옮길 수 있다', /url\.searchParams\.get\('week'\)/.test(tapi));
 check('어느 날짜를 주든 그 주 «월요일» 로 맞춘다', /const mondayOf = \(ms: number\)/.test(tapi));
-check('반복 수업도 넣는다 (여기는 «내 시간표» 다)', /dowMatches\(s\.day_of_week, weekDays\[wi\]\.dow\)/.test(tapi));
-check('일회성 수업도 넣는다', /String\(s\.scheduled_date\)\.slice\(0, 10\) === weekDays\[wi\]\.date/.test(tapi));
+// 2026-10-27 월간 보기 추가 — 주간·월간이 «같은 판정»(hitsOn)·«같은 줄 모양»(calendarItemOf)을 쓰도록 함수로 뺐다.
+check('반복 수업도 넣는다 (여기는 «내 시간표» 다)', /dowMatches\(s\.day_of_week, dow\) && recurStartedOn\(s, date\)/.test(tapi));
+check('일회성 수업도 넣는다', /String\(s\.scheduled_date\)\.slice\(0, 10\) === date/.test(tapi));
+check('주간이 그 판정·줄 모양을 실제로 쓴다',
+  /for \(const day of weekDays\) if \(hitsOn\(s, day\.date, day\.dow\)\) day\.items\.push\(calendarItemOf\(s, day\.date, _postponed\)\)/.test(tapi));
 check('🔑 D1 을 다시 조회하지 않는다 (같은 rows 를 펼치기만)',
   /같은 rows 를 요일로 펼치기만/.test(tapi));
-const weekPushStart = tapi.indexOf('weekDays[wi].items.push({');
-const weekPush = tapi.slice(weekPushStart, tapi.indexOf('\n        });', weekPushStart));
+const weekPushStart = tapi.indexOf('const calendarItemOf = ');
+const weekPush = weekPushStart < 0 ? '' : tapi.slice(weekPushStart, tapi.indexOf('\n    };', weekPushStart));
 check('레벨테스트 표시가 주간에도 실린다', /is_level_test:/.test(weekPush));
 check('오늘 칸을 표시한다', /is_today: date === todayStr/.test(tapi));
 check('화면에 «내 주간 스케줄» 카드가 있다', /id="c-week"/.test(thtml));

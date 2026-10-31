@@ -61,7 +61,7 @@ chk('대표=선생님 박스', d1.primaryId === 'vc-video-t1', d1.primaryId);
 chk('선생님 박스 표시', d1.teacher !== 'none', d1.teacher);
 chk('학생1 박스 숨김', d1.s1 === 'none', d1.s1);
 chk('학생2 박스 숨김', d1.s2 === 'none', d1.s2);
-chk('내 박스 기본 숨김 유지', d1.local === 'none', d1.local);
+chk('현재 정책: 내 얼굴도 표시', d1.local !== 'none' && d1.local !== 'MISSING', d1.local);
 
 // 시나리오 2: 선생님 퇴장 → 첫 학생이 대표 승격
 const d2 = await page.evaluate(() => {

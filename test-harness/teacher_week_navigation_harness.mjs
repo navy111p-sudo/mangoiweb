@@ -19,7 +19,7 @@ function fn(name) {
   if (a < 0 || b < 0) throw new Error('Missing function: ' + name);
   return source.slice(a, b);
 }
-const weekCode = between('  var WK_OFFSET = 0;', '\n  /* 📅 다가오는 수업');
+const weekCode = between('  var WK_OFFSET = 0;', '\n  /* 📅 (2026-10-26 강사 제안) «다가오는 수업');
 const languageCode = between("  document.getElementById('lang').onclick =", '\n  // 새로고침을 직접');
 const visibilityCode = between("  document.addEventListener('visibilitychange'", "\n  window.addEventListener('online'", source.indexOf("  function scheduleAutoRefresh("));
 function environment(instant = '2026-10-04T15:05:00Z', cache = null) {
@@ -41,9 +41,9 @@ function environment(instant = '2026-10-04T15:05:00Z', cache = null) {
   };
   class FixedDate extends Date { constructor(...args) { super(...(args.length ? args : [clock])); } static now() { return clock; } }
   const ui = { Date: FixedDate, console: { warn() {} }, DATA: null, SKEW: 0, CK: 'portal', LANG: 'en', langPickedByUser: false,
-    IS_MGR: false, lastSig: null, AR_MIN: 45000, AR_MAX: 300000, arDelay: 45000, arTimer: null, knownRooms: null, newCount: 0,
+    IS_MGR: false, lastSig: null, reportPendingCount: 0, AR_MIN: 45000, AR_MAX: 300000, arDelay: 45000, arTimer: null, knownRooms: null, newCount: 0,
     localStorage: { getItem: k => cacheStore.get(k) || null, setItem: (k,v) => cacheStore.set(k,v) },
-    document: { hidden: false, getElementById: element, addEventListener: (k,cb) => listeners[k] = cb },
+    document: { hidden: false, getElementById: element, querySelector: () => null, addEventListener: (k,cb) => listeners[k] = cb },
     navigator: { onLine: true }, location: {},
     window: { addEventListener: (k,cb) => listeners[k] = cb },
     MangoiClassDisplay: { range: it => it.start_time },
@@ -52,11 +52,15 @@ function environment(instant = '2026-10-04T15:05:00Z', cache = null) {
     renderAlsoAccount() {}, renderClasses() {}, renderUpcoming() {}, renderNotices() {}, renderResources() {}, renderManager() {}, paintClassCount() {}, paintNewBadge() {},
     scheduleAutoRefresh(ms) { ui.nextRefresh = ms; },
     EN: () => ui.LANG !== 'ko', T: (en,ko) => ui.LANG === 'ko' ? ko : en, esc: x => String(x ?? ''),
-    stuLabelHtml: it => it.student_name, stuName: it => it.student_name || '', stuUid: it => it.student_uid || '', kindPill: () => ''
+    stuLabelHtml: it => it.student_name, stuLabelText: it => it.student_name, stuName: it => it.student_name || '', stuUid: it => it.student_uid || '', kindPill: () => '',
+    // 2026-10-26: 첫 보기가 표가 되어 날짜 보기가 classTableHtml 을 부른다 — 실제 페이지에는 전역으로 있다. 학생 이름만 그려 아래 label 검사가 그대로 뜻을 갖게 한다.
+    classTableHtml: list => '<table>' + list.map(c => '<tr>' + (c.student_name || '') + '</tr>').join('') + '</table>', stPill: () => '', weekRecordHtml: () => ''
   };
   vm.createContext(ui);
   vm.runInContext([fn('now'), fn('todayKST'), fn('paintCached'), fn('saveCache'), fn('load'), fn('setStale'), fn('render'),
-    fn('portalRows'), fn('portalContact'), fn('portalAcademies'), weekCode, fn('classKeys'), fn('autoRefreshTick'), languageCode, visibilityCode].join('\n'), ui);
+    fn('portalRows'), fn('portalContact'), fn('portalAcademies'), weekCode, fn('classKeys'), fn('autoRefreshTick'), languageCode, visibilityCode,
+    // 2026-10-28: 날짜 목록의 «월» 선택이 월 달력의 달 이름·달 이동(moLabel·moShift)을 같이 쓴다 — 실제 페이지에서는 같은 스코프에 있다.
+    fn('moShift'), fn('moLabel')].join('\n'), ui);
   return { ui, element, requests, cacheStore, listeners, setClock: iso => clock = Date.parse(iso) };
 }
 function week(start, label = start) {
@@ -124,7 +128,7 @@ try {
       e.element('wk-date').value = '2026-11-18'; e.element('wk-date').dispatch('change');
       check('date change requests corresponding Monday', selectedRequest(e,4,'2026-11-16'));
       await respond(e,4,'2026-11-16','far');
-      check('far week leaves three shortcut buttons unselected', shown(e,'2026-11-16','far') && ['wk-prev','wk-this','wk-next'].every(id => !e.element(id).classList.contains('on')));
+      check('far week keeps picked day and leaves shortcut buttons unselected', e.element('wk-date').value === '2026-11-18' && e.element('wk-range').textContent.startsWith('(2026-11-16 ~ ') && e.element('week').innerHTML.includes('far') && ['wk-prev','wk-this','wk-next'].every(id => !e.element(id).classList.contains('on')));
       e.element('wk-date').value = '2026-10-01'; e.element('wk-go').dispatch('click');
       check('Go button uses picked date', selectedRequest(e,5,'2026-09-28'));
     }

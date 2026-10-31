@@ -329,6 +329,94 @@ if (process.env.SMRS_CHILD === '1') {
   ok('5d group undo restores all three rows',undoGroup.status===200&&undoGroup.body.count===3,JSON.stringify(undoGroup));
   for(let i=0;i<groupIds.length;i++)await both('5e undone group member '+i,groupIds[i],['group_a','group_b','group_c'][i],'tok_alpha','tok_beta',{present:true,time:'21:00'});
 
+  // Synthetic manager restore -> permanent 19:40, using actual API handlers and SQL.
+  const { handleEnrollApi } = await imp('enroll-ops.ts');
+  const enrollCall = async (body, cookie = 'tok_admin') => {
+    const request = req('POST', '/api/pay/enroll/admin/series-move', { cookie, body });
+    const response = await handleEnrollApi(request, new URL(request.url), env);
+    return { status: response.status, body: await response.json() };
+  };
+  const getRow = id => ({ ...sq.prepare('SELECT * FROM class_schedules WHERE id=?').get(id) });
+  setNow(TODAY, '06:00');
+  const restoreId = mkClass('stu_a', 'dated', null, TODAY, '07:40', '1');
+  ins("UPDATE class_schedules SET status='postponed',source='restore-series' WHERE id=?", restoreId);
+  const futureIds = [restoreId];
+  for (const date of ['2026-10-06','2026-10-13']) {
+    const id = mkClass('stu_a','dated',null,date,'07:40','1');
+    ins("UPDATE class_schedules SET source='restore-series' WHERE id=?",id);futureIds.push(id);
+  }
+  // Leave an attended historical class in the same enrollment; no operation may touch it.
+  const historical = mkClass('stu_a','dated',null,'2026-09-22','07:40','1');
+  ins("UPDATE class_schedules SET source='restore-series',status='completed' WHERE id=?",historical);
+  const historicalBefore=JSON.stringify(getRow(historical));
+  ins(`INSERT INTO admin_account(username,password_hash,name,created_at,updated_at) VALUES ('scoped_manager','x','Scoped Manager',?,?)`,T0,T0);
+  ins(`INSERT INTO admin_scope(username,scope_type,scope_value,updated_at) VALUES ('scoped_manager','agency','owned-shop',?)`,T0);
+  ins(`INSERT INTO admin_sessions(token,username,created_at,expires_at,last_seen_at) VALUES ('tok_scoped','scoped_manager',?,?,?)`,T0,FAR,T0);
+  if (!sq.prepare('PRAGMA table_info(students_erp)').all().some(c=>c.name==='shop_name')) sq.exec('ALTER TABLE students_erp ADD COLUMN shop_name TEXT');
+  ins("UPDATE students_erp SET shop_name='owned-shop' WHERE user_id='stu_a'");
+  sq.exec(cutCreate(adminSrc, 'attendance', 'room_id TEXT NOT NULL'));
+  ins(`INSERT INTO attendance(room_id,user_id,role,joined_at,status,date) VALUES (?,?, 'student',?, 'present',?)`, `class-${historical}-20260922`, 'stu_a', T0, '2026-09-22');
+  const attendanceBefore=JSON.stringify(sq.prepare('SELECT * FROM attendance ORDER BY id').all());
+  const erpBefore=JSON.stringify(sq.prepare('SELECT * FROM students_erp ORDER BY user_id').all());
+  const totalBefore=Number(sq.prepare('SELECT count(*) n FROM class_schedules').get().n);
+  let permanentPreview=await enrollCall({schedule_id:restoreId,new_date:TODAY,new_time:'19:40'});
+  ok('6a postponed permanent preview gives actionable recovery',permanentPreview.status===409&&permanentPreview.body.error==='schedule_postponed',JSON.stringify(permanentPreview));
+  const ownPreview=await enrollCall({schedule_id:restoreId,new_date:TODAY,new_time:'19:40'},'tok_scoped');
+  const outsidePreview=await enrollCall({schedule_id:C,new_date:TODAY,new_time:'19:40'},'tok_scoped');
+  const scopedRestore=await callAdmin('POST',`/api/admin/class-schedules/${restoreId}`,{cookie:'tok_scoped',body:{action:'restore'}});
+  ok('6a scope: own postponed class gets recovery guidance',ownPreview.status===409&&ownPreview.body.error==='schedule_postponed',JSON.stringify(ownPreview));
+  ok('6a scope: other student is forbidden before status disclosure',outsidePreview.status===403&&outsidePreview.body.error==='forbidden_scope',JSON.stringify(outsidePreview));
+  ok('6a scope: manager restore stays HQ-only',scopedRestore.status===403&&getRow(restoreId).status==='postponed',JSON.stringify(scopedRestore));
+  let restored=await callAdmin('POST',`/api/admin/class-schedules/${restoreId}`,{cookie:'tok_alpha',body:{action:'restore'}});
+  ok('6b teacher cannot restore',restored.status===403,JSON.stringify(restored));
+  restored=await callAdmin('POST',`/api/admin/class-schedules/${restoreId}`,{cookie:'tok_admin',body:{action:'restore'}});
+  ok('6c HQ restores same dated row at 07:40',restored.status===200&&getRow(restoreId).status==='active'&&getRow(restoreId).start_time==='07:40',JSON.stringify(restored));
+  const repeated=await callAdmin('POST',`/api/admin/class-schedules/${restoreId}`,{cookie:'tok_admin',body:{action:'restore'}});
+  ok('6d repeat restore is rejected',repeated.status===409&&repeated.body.error==='not_cancelled',JSON.stringify(repeated));
+  permanentPreview=await enrollCall({schedule_id:restoreId,new_date:TODAY,new_time:'19:40'});
+  ok('6e permanent preview includes three enrollment occurrences',permanentPreview.body.ok===true&&permanentPreview.body.items.length===3&&permanentPreview.body.items.every(it=>it.from_time==='07:40'&&it.to_time==='19:40'),JSON.stringify(permanentPreview));
+  const permanentApply=await enrollCall({schedule_id:restoreId,new_date:TODAY,new_time:'19:40',apply:true});
+  ok('6f permanent apply moves all three to 19:40',permanentApply.body.ok===true&&permanentApply.body.moved===3&&futureIds.every(id=>getRow(id).start_time==='19:40'),JSON.stringify(permanentApply));
+  const repeatApply=await enrollCall({schedule_id:restoreId,new_date:TODAY,new_time:'19:40',apply:true});
+  ok('6g repeated permanent apply does not duplicate',repeatApply.body.error==='no_change'&&Number(sq.prepare('SELECT count(*) n FROM class_schedules').get().n)===totalBefore,JSON.stringify(repeatApply));
+  await both('6h restored permanent evening class',restoreId,'stu_a','tok_alpha','tok_beta',{present:true,time:'19:40'});
+  const managerView=await callAdmin('GET',`/api/admin/classes/today?date=${TODAY}`,{cookie:'tok_admin'});
+  const managerRow=(managerView.body.sessions||[]).find(s=>Number(s.schedule_id)===restoreId);
+  ok('6i manager shows evening row as active',!!managerRow&&!managerRow.postponed&&hm(managerRow.start_ts)==='19:40',JSON.stringify(managerRow));
+  ok('6j history, attendance and ERP credit fields remain unchanged',JSON.stringify(getRow(historical))===historicalBefore&&JSON.stringify(sq.prepare('SELECT * FROM attendance ORDER BY id').all())===attendanceBefore&&JSON.stringify(sq.prepare('SELECT * FROM students_erp ORDER BY user_id').all())===erpBefore);
+  ok('6k no source/destination duplication, all IDs retained',futureIds.every(id=>getRow(id).id===id)&&Number(sq.prepare('SELECT count(*) n FROM class_schedules').get().n)===totalBefore);
+
+  // A date-specific postponement moves the original ID; restore must not create an old source.
+  const movedId=mkClass('stu_b','dated',null,'2026-10-07','07:40','2');
+  const requestMade=await callAdmin('POST','/api/admin/schedule-requests',{cookie:'tok_admin',body:{schedule_id:movedId,teacher_name:'BETA',student_name:'Synthetic Student B',request_type:'postpone',orig_date:'2026-10-07',orig_time:'07:40',new_date:'2026-10-08',new_time:'07:40',reason:'synthetic AM/PM correction'}});
+  const requestDecided=await callAdmin('POST','/api/admin/schedule-requests/decide',{cookie:'tok_admin',body:{id:requestMade.body.id,action:'approve'}});
+  ok('7a dated postponement moves same ID active',requestDecided.body.ok===true&&getRow(movedId).scheduled_date==='2026-10-08'&&getRow(movedId).status==='active',JSON.stringify({requestMade,requestDecided}));
+  const wrongRestore=await callAdmin('POST',`/api/admin/class-schedules/${movedId}`,{cookie:'tok_admin',body:{action:'restore'}});
+  ok('7b moved active target cannot be restored into duplicate source',wrongRestore.status===409&&wrongRestore.body.error==='not_cancelled'&&getRow(movedId).scheduled_date==='2026-10-08',JSON.stringify(wrongRestore));
+  const movedTime=await enrollCall({schedule_id:movedId,new_date:'2026-10-08',new_time:'19:40',apply:true});
+  ok('7c moved active target can correct 07:40 to 19:40 permanently',movedTime.body.ok===true&&getRow(movedId).start_time==='19:40',JSON.stringify(movedTime));
+  const pastId=mkClass('past_synthetic','dated',null,'2026-09-28','07:40','2');
+  ins("UPDATE class_schedules SET status='postponed' WHERE id=?",pastId);
+  const pastRestore=await callAdmin('POST',`/api/admin/class-schedules/${pastId}`,{cookie:'tok_admin',body:{action:'restore'}});
+  ok('7d past original cannot be restored',pastRestore.status===409&&pastRestore.body.error==='past_date'&&getRow(pastId).status==='postponed',JSON.stringify(pastRestore));
+  const pastRebook=await callAdmin('POST','/api/admin/schedule-requests',{cookie:'tok_admin',body:{schedule_id:pastId,teacher_name:'BETA',student_name:'Past Synthetic',request_type:'postpone',orig_date:'2026-09-28',orig_time:'07:40',new_date:'2026-10-09',new_time:'19:40',reason:'synthetic rebook after invalid original time'}});
+  const pastDecision=await callAdmin('POST','/api/admin/schedule-requests/decide',{cookie:'tok_admin',body:{id:pastRebook.body.id,action:'approve'}});
+  ok('7e past unheld original can use existing rebook path',pastDecision.body.ok===true&&getRow(pastId).scheduled_date==='2026-10-09'&&getRow(pastId).start_time==='19:40'&&getRow(pastId).status==='active',JSON.stringify({pastRebook,pastDecision}));
+
+  // Fuzz real API restore guards at distinct times, preserving counts and credits.
+  for(let i=0;i<100;i++){
+    const hh=String(7+Math.floor(i/3)%14).padStart(2,'0'),mm=['00','20','40'][i%3];
+    const id=mkClass('synthetic_'+i,'dated',null,'2026-11-03',hh+':'+mm,'2');
+    ins("UPDATE class_schedules SET status='postponed',source=? WHERE id=?",'fuzz:'+i,id);
+    const count=Number(sq.prepare('SELECT count(*) n FROM class_schedules').get().n);
+    const restore=await callAdmin('POST',`/api/admin/class-schedules/${id}`,{cookie:'tok_admin',body:{action:'restore'}});
+    // Remove the fixture after testing, so shared teacher slots do not accumulate.
+    ok('8 restore variant '+i,restore.status===200&&getRow(id).start_time===hh+':'+mm&&Number(sq.prepare('SELECT count(*) n FROM class_schedules').get().n)===count,JSON.stringify(restore));
+    const again=await callAdmin('POST',`/api/admin/class-schedules/${id}`,{cookie:'tok_admin',body:{action:'restore'}});
+    ok('8 repeat variant '+i,again.status===409&&getRow(id).status==='active',JSON.stringify(again));
+    ins('DELETE FROM class_schedules WHERE id=?',id);
+  }
+
   process.stdout.write('\n@@RESULTS@@' + JSON.stringify({ results, warns: warns.slice(0, 5) }) + '\n');
   process.exit(0);
 }
@@ -350,11 +438,11 @@ writeFileSync(join(tmp, 'reg.mjs'), `import { register } from 'node:module'; reg
 
 function runChild(srcDir) {
   const r = spawnSync(process.execPath,
-    ['--experimental-strip-types', '--no-warnings', '--import', join(tmp, 'reg.mjs'), SELF],
+    ['--experimental-strip-types', '--no-warnings', '--import', pathToFileURL(join(tmp, 'reg.mjs')).href, SELF],
     { encoding: 'utf8', env: { ...process.env, SMRS_CHILD: '1', SMRS_SRC: srcDir }, maxBuffer: 64 * 1024 * 1024, timeout: 180000 });
   const out = r.stdout || '';
   const i = out.lastIndexOf('@@RESULTS@@');
-  if (i < 0) return { crashed: true, err: ((r.stderr || '') + out).split('\n').filter(Boolean).slice(-6).join('\n') };
+  if (i < 0) return { crashed: true, err: ((r.stderr || '') + out).split('\n').filter(Boolean).slice(-22).join('\n') };
   return JSON.parse(out.slice(i + '@@RESULTS@@'.length).trim().split('\n')[0]);
 }
 
@@ -394,7 +482,7 @@ if (!base.crashed) {
     const dir = join(tmp, 'mut-' + Math.random().toString(36).slice(2));
     cpSync(REAL_SRC, dir, { recursive: true });
     const f = join(dir, m.file);
-    const s = readFileSync(f, 'utf8');
+    const s = readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
     if (!s.includes(m.from)) { fail++; console.log('  FAIL ' + m.name + ' — 치환 앵커를 못 찾음(변이가 한 번도 안 돎)'); continue; }
     writeFileSync(f, s.replace(m.from, m.to));
     const r = runChild(dir);

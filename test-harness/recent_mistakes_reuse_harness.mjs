@@ -128,7 +128,8 @@ const mc = (cf.match(/const (\w+) = recentMistakesPromptLine\(/) || [])[1];
 check('그 결과를 시스템 프롬프트 첫 줄에 넣는다', !!mc && sysLine.includes('${' + mc + '}'), sysLine.slice(0, 200));
 check('기초 단계 여부를 lvSpec.plain 으로 넘긴다', /recentMistakesPromptLine\([^)]*lvSpec\.plain/.test(cf));
 const logAt = cf.indexOf('logAiFriendFix(');
-const showAt = cf.indexOf('showFix = decided.show;');
+// showFix 대입은 모드 게이트를 거친다(gateFixForMode(…, decided.show, …)) — 글자가 아니라 «decided 로 정한 뒤» 를 본다.
+const showAt = cf.search(/showFix = [^;]*decided\.show/);
 check('보여 준 교정을 기록한다(showFix 를 정한 뒤)', logAt > showAt && showAt > 0);
 check('기록은 showFix 가 있을 때만', /if \(showFix\) await logAiFriendFix\(env\.DB, uid, showFix,/.test(cf));
 check('warmup_fix_log 에 섞어 적지 않는다', !/INSERT[^`]*warmup_fix_log/.test(strip(SRC)));

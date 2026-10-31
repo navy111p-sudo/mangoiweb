@@ -252,21 +252,84 @@
     return '<div style="font-size:11px;color:#475569;min-width:130px;max-width:220px;line-height:1.45">' + inner + '</div>';
   }
 
+  /* ✏️➕ (2026-10-28 매니저·강사 제안 «오늘·지난 피드백 칸에 고치기·추가 버튼») 칸 아래 버튼 하나.
+     · 글이 있으면 「✏️ 고치기」 — 보기를 건너뛰고 곧장 고치기 창(허락은 서버 evalEditAllowed, 안 되면 보기 + 이유).
+     · 없으면 「➕ 추가」 — 공용 쓰기 창(js/eval-quick-view.js create). 오늘 칸은 수업이 «시작된 뒤» 에만
+       (teacher.html 「✍ 피드백 작성」과 같은 이유 — 수업 전에 쓴 일지는 거짓이 된다). 지난 칸은 서버가 준
+       «지난 회차» 목록(prev_classes)에서 고르게 한다 — 목록이 없으면 버튼도 없다.
+     ⛔ 카페24 줄·학생 아이디 없는 줄·본사 전용(지사·대리점)에는 주지 않는다 — 붙일 방이 없거나, 누구 것인지
+        모르거나, 볼 권한부터 없다.
+     ⚠️ xEval 과 따로 둔다 — xEval 은 정렬값(tcSortVal)에도 쓰여, 버튼 글자가 섞이면 «빈 칸은 맨 뒤» 정렬이 깨진다.
+     ⚠️ <button> 금지(전역 인디고 알약) · 색은 클래스로(css/admin-inline-c.css 맨 끝 #sm-today-classes span.tc-evq-act).
+     ⚠️ 속성 이름은 data-evq-fix / data-evq-new — 공용 창 안의 버튼이 data-evq-edit 를 쓴다(겹치면 위임 클릭이 그것까지 잡는다). */
+  function xEvalAct(s, which) {
+    if (!s || s.eval_hidden || s.source === 'cafe24') return '';
+    var e = which === 'last' ? s.last_eval : s.today_eval;
+    if (e && e.id) {
+      return '<span class="tc-evq-act" role="button" tabindex="0" data-evq-fix="' + esc(e.id) + '">'
+        + esc(T('✏️ 고치기', '✏️ Edit')) + '</span>';
+    }
+    if (e) return '';   /* 글은 있는데 번호가 없다(옛 응답) — 두 번째 글이 생기지 않게 «추가» 를 주지 않는다 */
+    if (!String(s.student_uid || '').trim()) return '';
+    if (which === 'today' && !(s.status === 'live' || s.status === 'ended')) return '';
+    /* 지난 = 서버가 예약표로 계산한 «지난 회차»(prev_classes)가 있을 때만 — 방 번호를 화면에서 지어내지 않는다 */
+    if (which === 'last' && !(Array.isArray(s.prev_classes) && s.prev_classes.length)) return '';
+    return '<span class="tc-evq-act tc-evq-add" role="button" tabindex="0" data-evq-new="' + which + '"'
+      + ' data-room="' + esc(s.room_id) + '" data-uid="' + esc(s.student_uid) + '">'
+      + esc(which === 'last' ? T('➕ 지난 피드백 추가', '➕ Add last') : T('➕ 오늘 피드백 추가', '➕ Add today')) + '</span>';
+  }
+
   /* 📝 평가 전문 보기 — 공용 창(js/eval-quick-view.js)을 «처음 누를 때» 만 불러온다. */
-  function evqOpen(id) {
-    var go = function () { if (window.mgEvalQuick) window.mgEvalQuick(id, { en: isEn() }); };
+  function evqLoad(go) {
     if (window.mgEvalQuick) return go();
     var sc = document.createElement('script');
-    sc.src = '/js/eval-quick-view.js?v=2';
+    sc.src = '/js/eval-quick-view.js?v=3';
     sc.onload = go;
     sc.onerror = function () { alert(T('전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.', 'Could not load the viewer — please tap again.')); };
     document.head.appendChild(sc);
   }
+  /* 고치거나 쓴 뒤에는 표를 다시 불러 칸이 바로 바뀌게 한다(창은 body 에 따로 떠 있어 다시 그려도 안 닫힌다). */
+  function evqSaved() { try { window.tcLoadToday(); } catch (e) {} }
+  function evqOpen(id, edit) {
+    evqLoad(function () { if (window.mgEvalQuick) window.mgEvalQuick(id, { en: isEn(), edit: !!edit, onSaved: evqSaved }); });
+  }
+  function evqNew(el) {
+    var room = el.getAttribute('data-room') || '', uid = el.getAttribute('data-uid') || '', s = null;
+    for (var i = 0; i < _rows.length; i++) {
+      if (String(_rows[i].room_id || '') === room && String(_rows[i].student_uid || '') === uid) { s = _rows[i]; break; }
+    }
+    if (!s) return;
+    evqLoad(function () {
+      if (!window.mgEvalQuick || typeof window.mgEvalQuick.create !== 'function') {
+        alert(T('쓰기 창이 옛 판입니다 — 새로고침 후 다시 눌러 주세요.', 'The writing window is out of date — please refresh and tap again.'));
+        return;
+      }
+      window.mgEvalQuick.create({
+        which: el.getAttribute('data-evq-new') === 'last' ? 'last' : 'today',
+        student_uid: s.student_uid, student_name: s.student_name, teacher_name: s.teacher_name,
+        room_id: s.room_id, class_date: s.class_date, prev_classes: s.prev_classes
+      }, { en: isEn(), onSaved: evqSaved });
+    });
+  }
+  function evqAct(ev) {
+    var t = ev.target && ev.target.closest ? ev.target : null;
+    if (!t) return false;
+    var fx = t.closest('[data-evq-fix]');
+    if (fx) { ev.preventDefault(); evqOpen(fx.getAttribute('data-evq-fix'), true); return true; }
+    var nw = t.closest('[data-evq-new]');
+    if (nw) { ev.preventDefault(); evqNew(nw); return true; }
+    return false;
+  }
   document.addEventListener('click', function (ev) {
+    if (evqAct(ev)) return;
     var a = ev.target && ev.target.closest ? ev.target.closest('[data-evq]') : null;
     if (!a) return;
     ev.preventDefault();
     evqOpen(a.getAttribute('data-evq'));
+  });
+  /* role="button" 이라 키보드도 받는다(Enter·Space) — 안 그러면 마우스 전용이 된다. */
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' || ev.key === ' ') evqAct(ev);
   });
 
   function badge(status) {
@@ -292,6 +355,28 @@
         hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul'
       });
     } catch (e) { return '-'; }
+  }
+
+  /* 🕓 (2026-10-27 매니저 제안 «시작·끝을 한국 시간으로, 24시간제 말고») 시간 칸 = 「4:00pm – 4:20pm」.
+     ⚠️ 표 «시간 칸» 전용이다 — 강사 입장·출결 시각(위 hhmm)은 그대로 둔다(다른 칸이라 바꿔 달라는 요청이 없었다).
+     ⚠️ 벽시계는 toLocaleTimeString 을 다시 파싱하지 않고 «+9시간 뒤 UTC 시·분» 으로 곧장 센다
+        (아래 LATE_FROM_HOUR 주석과 같은 이유 — 로케일 문자열은 판정·조립의 근거가 못 된다).
+     ⚠️ 모양은 강사·매니저 화면의 MangoiClassDisplay.time(12시간제)과 같다 — 같은 수업이 화면마다 다르게 읽히지 않게.
+     끝 시각이 없거나 시작보다 앞이면 시작만 그린다(지어내지 않는다). 날을 넘기면 « (+1d)».
+     ⚠️ 카페24 줄은 서버가 left_at 이 없을 때 끝을 «시작+30분» 으로 채운다 → end_known === false 면 시작만. */
+  function kst12(ts) {
+    var d = new Date(Number(ts) + 9 * 3600 * 1000);
+    if (isNaN(d.getTime())) return '';
+    var h = d.getUTCHours(), m = d.getUTCMinutes();
+    return (h % 12 || 12) + ':' + ('0' + m).slice(-2) + (h < 12 ? 'am' : 'pm');
+  }
+  function kstRange(s) {
+    var a = kst12(s && s.start_ts);
+    if (!a) return '-';
+    if (!(s.end_ts > s.start_ts) || s.end_known === false) return a;
+    var dayA = Math.floor((Number(s.start_ts) + 9 * 3600 * 1000) / 86400000);
+    var dayB = Math.floor((Number(s.end_ts) + 9 * 3600 * 1000) / 86400000);
+    return a + ' – ' + kst12(s.end_ts) + (dayB > dayA ? ' (+1d)' : '');
   }
 
   /* 🌙 (2026-09-08 사장님 요청) 「23시 이후」 거르기 — 늦은 밤 수업만 따로 본다.
@@ -627,7 +712,7 @@
       + 'style="cursor:pointer;user-select:none;white-space:nowrap' + (on ? ';color:#1d4ed8' : '') + '">'
       + label + '<span aria-hidden="true" style="margin-left:3px;font-size:10px;opacity:' + (on ? '1' : '.4') + '">' + ar + '</span></th>';
   }
-  var _contactSrc = '';   // 서버가 준 연락처 근거('retention' | 'restricted')
+  var _contactSrc = '';   // 서버가 준 연락처 근거('lookup' | 'failed' | 'restricted') — 2026-10-27 전에는 'retention'
   var _holiday = null;    // 🎌 서버가 준 휴강일 정보 {name, closed} — 평일이면 null
 
   /* 🔎 (2026-09-01 사장님 요청) 「카페24 수업」과 「우리가 새로 넣은 수업」 가르기 + 검색.
@@ -844,10 +929,17 @@
       return T('☎ 연락처는 본사 계정에서만 보입니다.',
                'Contact numbers are visible to HQ accounts only.');
     }
-    return T('☎ 연락처 ' + missing + '/' + total + '건이 «—» 입니다 — 학생 명부에는 번호가 저장돼 있지 않고, '
-           + '«관리 대상(만료·휴면)» 명단에 오른 학생만 번호가 있습니다.',
-             '☎ ' + missing + ' of ' + total + ' have no number — the student roster stores no phone numbers; '
-           + 'only students on the at-risk (expiring/inactive) list have one.');
+    /* ☎ (2026-10-27) 조회가 실패했으면 «없다» 가 아니라 «확인 못 함» — 같은 글자로 말하지 않는다 */
+    if (_contactSrc === 'failed') {
+      return T('☎ 지금 연락처를 확인하지 못했습니다 — 잠시 뒤 새로고침해 주세요.',
+               '☎ Could not check contact numbers right now — please refresh in a moment.');
+    }
+    if (_contactSrc !== 'lookup') return '';
+    /* 문구는 강사 화면(teacher.html contactNoteHtml)·manager.html 과 같은 말 — 번호 원천도 같은 정본(loadContactPhones) */
+    return T('☎ 연락처 ' + missing + '/' + total + '건이 «—» 입니다 — 학생 명부에는 번호가 거의 없어, '
+           + '주로 «관리 대상(만료·휴면)» 학생이나 직원이 학생 상세에 넣은 번호만 보입니다.',
+             '☎ ' + missing + ' of ' + total + ' have no number — the student roster has almost no phone numbers; '
+           + 'mostly only at-risk (expiring/inactive) students or numbers saved by staff in the student profile show here.');
   }
 
   /* 📚 (2026-09-08 사장님 요청) «교재 미배정» 이 몇 건인지 목록 위에서 한 번 말하고,
@@ -1043,7 +1135,7 @@
       + '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse">'
       + '<thead><tr>'
       +   tcTh('date', '날짜', 'Date')
-      +   tcTh('time', '시간', 'Time')
+      +   tcTh('time', '시간 (한국)', 'Time (KST)')
       +   tcTh('status', '상태', 'Status')
       +   tcTh('student', '학생 / 액션', 'Student / Action')
       /* (2026-09-29 매니저 요청 «move teacher's names near the student's name») 강사 칸을 학생 바로 옆으로.
@@ -1102,6 +1194,25 @@
                 + 'style="cursor:pointer;display:inline-block;white-space:nowrap;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
                 + 'background:#eaf0fb;color:#1d4ed8;border:1px solid #bfd3f5">'
                 + T('📅 새 날짜로', '📅 Rebook') + '</span>';
+            }
+            /* ↩ (2026-10-29 매니저 «how to undo the postponement… add a restore button») 연기를 없던 일로 —
+               원래 날짜·시각 그대로 다시 «열린 수업». 서버 정본은 POST /api/admin/class-schedules/:id
+               { action:'restore' }(본사 전용 · 지난 날짜·같은 자리 다른 수업이 있으면 거절하고 그 사유를 말한다).
+               ⛔ <button> 대신 span[role=button] — 카드 안 전역 button 규칙이 파란 알약으로 덮는다. */
+            /* ↩ (2026-10-30) 원래 시각이 이미 시작했으면 서버가 언제나 past_date 로 거절한다(class-schedule-move.ts —
+               시작·출석한 수업 되돌리기 금지). «눌러 보면 거절되는 버튼» 대신 그 사실을 글자로 말하고 «📅 새 날짜로» 만 남긴다.
+               start_ts 를 모르면 예전처럼 보여 준다(서버가 최종 판정). */
+            var rsStarted = Number(s.start_ts) > 0 && Number(s.start_ts) <= Date.now();
+            if (s.schedule_id && rsStarted) {
+              act += '<span style="display:inline-block;margin-left:4px;color:#475467;font-size:11px">'
+                + T('원래 시각이 지나 되돌릴 수 없음 — 새 날짜로 잡으세요', 'Original time has passed — rebook to a new date') + '</span>';
+            } else if (s.schedule_id) {
+              act += '<span class="tc-restore-pin" role="button" tabindex="0" data-sid="' + esc(s.schedule_id) + '" '
+                + 'data-name="' + esc(s.student_name || s.student_uid || '') + '" data-when="' + esc(Number(s.start_ts) > 0 ? new Date(Number(s.start_ts) + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ') : (s.start_time || '')) + '" '
+                + 'title="' + T('연기를 취소하고 원래 날짜·시각으로 되돌립니다', 'Undo the postponement — back to the original date and time') + '" '
+                + 'style="cursor:pointer;display:inline-block;white-space:nowrap;margin-left:4px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
+                + 'background:#fff7ed;color:#b45309;border:1px solid #fcd9a8">'
+                + T('↩ 연기 취소', '↩ Restore') + '</span>';
             }
           } else {
             act = s.join_open
@@ -1225,7 +1336,7 @@
           }
           return '<tr>'
             + '<td style="white-space:nowrap;font-size:11.5px">' + esc(s.class_date || '') + '</td>'
-            + '<td style="white-space:nowrap">' + hhmm(s.start_ts) + '</td>'
+            + '<td style="white-space:nowrap" title="KST">' + esc(kstRange(s)) + '</td>'
             + '<td>' + badge(s.status) + '</td>'
             + '<td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>' + esc(s.student_name || s.student_uid || '-') + '</b>' + kindTag + act + '</div>'
               /* 🆔 아이디 — 이름이 같은 학생이 실재해서(동명이인) 매니저가 확정하려면 필요하다.
@@ -1242,8 +1353,8 @@
             + '<td>' + xSched(s) + '</td>'
             + '<td>' + xTeacherConnection(s) + '</td>'
             + '<td>' + xAttendance(s.attendance) + '</td>'
-            + '<td>' + xEval(s.last_eval, s.eval_hidden) + '</td>'
-            + '<td>' + xEval(s.today_eval, s.eval_hidden) + '</td>'
+            + '<td>' + xEval(s.last_eval, s.eval_hidden) + xEvalAct(s, 'last') + '</td>'
+            + '<td>' + xEval(s.today_eval, s.eval_hidden) + xEvalAct(s, 'today') + '</td>'
             + '<td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + levelTag + bookTag + '</div></td>'
             + '<td><code style="font-size:11px;color:#6b7280">' + esc(s.room_id) + '</code>'
             +   (isC24 ? ' <span style="font-size:10px;color:#92400e;font-weight:800">LMS</span>' : '') + '</td>'
@@ -1329,6 +1440,16 @@
         });
       })(mss[si2]);
     }
+    var rss = box.querySelectorAll('.tc-restore-pin');
+    for (var ri = 0; ri < rss.length; ri++) {
+      (function (el) {
+        var go = function (ev) { if (ev) ev.preventDefault(); tcRestorePostponed(el); };
+        el.addEventListener('click', go);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') go(ev);
+        });
+      })(rss[ri]);
+    }
     var mvs = box.querySelectorAll('.tc-move-pin');
     for (var mi = 0; mi < mvs.length; mi++) {
       (function (el) {
@@ -1364,6 +1485,43 @@
     announceCounts(rows.length);
   }
 
+  /* ↩ 연기 취소 — 서버가 «왜 안 되는지» 를 말하면 그 사유를 사람 말로 보여 준다(조용히 실패하지 않는다). */
+  async function tcRestorePostponed(el) {
+    if (!el || el._busy) return;
+    var sid = el.getAttribute('data-sid');
+    var who = el.getAttribute('data-name') || '';
+    var when = el.getAttribute('data-when') || '';
+    if (!confirm(T('연기를 취소할까요?\n\n' + who + ' · ' + when + '\n\n· 원래 날짜·시각 그대로 다시 열린 수업이 됩니다.',
+                   'Undo this postponement?\n\n' + who + ' · ' + when + '\n\n· The class goes back to its original date and time.'))) return;
+    el._busy = true;
+    var old = el.textContent;
+    el.textContent = T('되돌리는 중…', 'Restoring…');
+    var j = null, httpOk = false;
+    try {
+      var r = await fetch('/api/admin/class-schedules/' + encodeURIComponent(sid), {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restore', reason: '연기 취소 (오늘 수업 화면)' })
+      });
+      httpOk = r.ok;
+      j = await r.json().catch(function () { return null; });
+    } catch (e) { j = null; }
+    el._busy = false;
+    if (httpOk && j && j.ok === true) {
+      try { window.tcLoadToday(); } catch (e) {}
+      return;
+    }
+    el.textContent = old;
+    var err = j && j.error;
+    var why = err === 'slot_taken' ? T('그 시각에 이미 다른 수업이 잡혀 있습니다. 「📅 새 날짜로」로 다른 시각을 고르세요.', 'Another class already uses that time slot. Use «📅 Rebook» to pick another time.')
+      : err === 'past_date' ? T('원래 시각이 이미 시작했거나 지난 수업은 되돌릴 수 없습니다. 「📅 새 날짜로」로 다시 잡아 주세요.', 'This class\'s original time has already started or passed, so it cannot be restored. Use «📅 Rebook» to pick a new date.')
+      : err === 'weekly_row' ? T('매주 반복 수업은 시간표에서 고쳐 주세요.', 'Weekly classes must be fixed in the timetable.')
+      : err === 'not_cancelled' ? T('이미 연기 상태가 아닙니다. 목록을 새로고침합니다.', 'This class is no longer postponed. Refreshing the list.')
+      : (j && (j.message || j.error)) ? String(j.message || j.error)
+      : T('되돌리지 못했습니다. 잠시 후 다시 시도해 주세요.', 'Could not restore. Please try again shortly.');
+    alert('↩ ' + why);
+    if (err === 'not_cancelled') { try { window.tcLoadToday(); } catch (e) {} }
+  }
+
   window.tcLoadToday = async function () {
     var box = $('tc-body');
     if (!box) return;
@@ -1397,7 +1555,7 @@
         throw new Error((d && d.error) || 'load_failed');
       }
       /* ☎️ 연락처 근거는 서버 말을 그대로 받는다(모르면 빈 값 → 안내를 안 그린다) */
-      _contactSrc = (d.contact_source === 'retention' || d.contact_source === 'restricted') ? d.contact_source : '';
+      _contactSrc = (d.contact_source === 'lookup' || d.contact_source === 'failed' || d.contact_source === 'restricted') ? d.contact_source : '';
       /* 🎌 휴강일 정보도 서버 말 그대로(평일이면 null) */
       _holiday = (d.holiday && typeof d.holiday === 'object') ? d.holiday : null;
       /* 지금 들어갈 수 있는 수업을 맨 위로 — 급할 때 위만 보면 되도록 */

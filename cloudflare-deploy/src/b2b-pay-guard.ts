@@ -101,8 +101,11 @@ export async function claimB2bInvoiceForConfirm(env: Env, orderId: string, amoun
     if (!inv) return deny('invoice_not_found', '청구서를 찾을 수 없습니다. 본사에 문의해 주세요.');
     const sib = await paidSiblings(env, ref, orderId);
     if (ref.kind === 'MGB') {
-      if (inv.status === 'paid' || sib.n > 0) return deny('invoice_already_paid', '이 청구서는 이미 결제되었습니다. 결제가 두 번 되지 않도록 이번 결제는 진행하지 않았습니다.');
-      if (inv.status !== 'draft') return deny('invoice_not_payable', '지금은 결제할 수 없는 청구서입니다.');
+      /* ➕ (2026-10-26) 낸 청구서(paid)도 «새로 체크한 학생» 몫은 추가로 낼 수 있다. «이미 낸 것을 또 내는» 막음은
+         아래 금액 재계산(mgbAmountNow)이 한다 — 더 낼 돈이 0 이면 invoice_already_paid, 앞 결제가 어느 학생에게도
+         안 붙었으면(활성화 실패) null → 막음. 금액 함수가 없으면(옛 호출) 예전처럼 paid·승인된 형제가 있으면 막는다. */
+      if (!opts.mgbAmountNow && (inv.status === 'paid' || sib.n > 0)) return deny('invoice_already_paid', '이 청구서는 이미 결제되었습니다. 결제가 두 번 되지 않도록 이번 결제는 진행하지 않았습니다.');
+      if (inv.status !== 'draft' && inv.status !== 'paid') return deny('invoice_not_payable', '지금은 결제할 수 없는 청구서입니다.');
     } else {
       if (inv.status !== 'issued' && inv.status !== 'partial') return deny('invoice_not_payable', inv.status === 'paid' ? '이 청구서는 이미 결제되었습니다. 결제가 두 번 되지 않도록 이번 결제는 진행하지 않았습니다.' : '본사가 거둔 청구서라 결제할 수 없습니다. 새 청구서를 확인해 주세요.');
       // 낸 돈 = 청구서에 적힌 것과 «승인된 주문 합» 중 큰 쪽(활성화가 실패해 paid_krw 가 안 올라간 경우까지 덮는다)
@@ -136,7 +139,7 @@ export async function claimB2bInvoiceForConfirm(env: Env, orderId: string, amoun
     }
     // 선점 — 쥔 사람이 없거나, 나거나, 위에서 넘겨받아도 된다고 판정한 그 주문일 때만
     //   + 청구서 상태·남은 금액도 «쓰는 순간» DB 가 한 번 더 본다(읽은 뒤 그 사이 다른 결제가 확정됐을 수 있다)
-    const stateCond = ref.kind === 'MGB' ? `status = 'draft'` : `status IN ('issued','partial') AND due_krw - paid_krw >= ?`;
+    const stateCond = ref.kind === 'MGB' ? `status IN ('draft','paid')` : `status IN ('issued','partial') AND due_krw - paid_krw >= ?`;
     const binds: any[] = [orderId, now, ref.invoiceId, orderId, holder || orderId];
     if (ref.kind === 'MGT') binds.push(Math.round(Number(amount)));
     const r: any = await env.DB.prepare(
@@ -152,6 +155,10 @@ export async function claimB2bInvoiceForConfirm(env: Env, orderId: string, amoun
     if (ref.kind === 'MGB') {
       let want: number | null = null;
       try { want = opts.mgbAmountNow ? await opts.mgbAmountNow(ref.invoiceId) : null; } catch (_) { want = null; }
+      if (want === 0) {
+        await releaseB2bInvoiceClaim(env, orderId);
+        return deny('invoice_already_paid', '이 청구서는 이미 결제되었습니다(더 낼 학생이 없습니다). 결제가 두 번 되지 않도록 이번 결제는 진행하지 않았습니다.');
+      }
       if (want == null || Math.round(Number(want)) !== Math.round(Number(amount))) {
         await releaseB2bInvoiceClaim(env, orderId);
         return deny(want == null ? 'invoice_check_failed' : 'invoice_amount_changed', want == null
@@ -322,13 +329,31 @@ export async function revertB2bOnCancel(env: Env, orderId: string, pay: any, sou
       }
       if (fresh.length) {
         try {
-          // 전액 취소 — 그 주문이 «청구서의» 주문일 때만 청구서를 되돌린다(중복 결제분을 취소한 경우 청구서는 그대로)
-          const u: any = await env.DB.prepare(
-            `UPDATE ai_billing_invoices SET status = 'draft', paid_at = NULL, order_id = NULL, confirming_order = NULL, confirming_at = NULL
-              WHERE id = ? AND status = 'paid' AND order_id = ?`
-          ).bind(ref.invoiceId, orderId).run();
+          /* ➕ (2026-10-26) 학생 줄마다 «어느 주문이 냈나»(paid_order_id) — 이 주문이 낸 학생만 «안 냄» 으로 되돌린다
+             (체크는 그대로 = «골랐지만 아직 안 낸 학생»). 다른 주문(처음 결제·다른 추가 결제)이 낸 학생은 그대로다.
+             칸이 없는 DB 면 예전 동작(청구서 주문일 때만 통째로 draft). */
+          let unmarked = 0, hasCol = true;
+          try {
+            const um: any = await env.DB.prepare(`UPDATE ai_billing_invoice_items SET paid_order_id = NULL WHERE invoice_id = ? AND paid_order_id = ?`).bind(ref.invoiceId, orderId).run();
+            unmarked = Number(um?.meta?.changes || 0);
+          } catch (_) { hasCol = false; }
+          if (unmarked > 0) res.applied.push(`결제 학생 ${unmarked}명 미결제로`);
+          // 남은 «낸 학생» 이 없으면 청구서를 미결제로, 있으면 청구서는 결제됨 그대로(대표 주문번호만 남은 쪽으로)
+          const u: any = await env.DB.prepare(hasCol
+            ? `UPDATE ai_billing_invoices SET status = 'draft', paid_at = NULL, order_id = NULL, confirming_order = NULL, confirming_at = NULL
+                WHERE id = ? AND status = 'paid' AND (order_id = ? OR ? > 0)
+                  AND NOT EXISTS (SELECT 1 FROM ai_billing_invoice_items x WHERE x.invoice_id = ? AND x.paid_order_id IS NOT NULL)`
+            : `UPDATE ai_billing_invoices SET status = 'draft', paid_at = NULL, order_id = NULL, confirming_order = NULL, confirming_at = NULL
+                WHERE id = ? AND status = 'paid' AND order_id = ?`
+          ).bind(...(hasCol ? [ref.invoiceId, orderId, unmarked, ref.invoiceId] : [ref.invoiceId, orderId])).run();
           if (Number(u?.meta?.changes || 0) > 0) res.applied.push('청구서를 미결제로 되돌림');
-          else await env.DB.prepare(`UPDATE ai_billing_invoices SET confirming_order = NULL, confirming_at = NULL WHERE id = ? AND confirming_order = ?`).bind(ref.invoiceId, orderId).run();
+          else {
+            if (hasCol) await env.DB.prepare(
+              `UPDATE ai_billing_invoices SET order_id = (SELECT x.paid_order_id FROM ai_billing_invoice_items x WHERE x.invoice_id = ? AND x.paid_order_id IS NOT NULL LIMIT 1)
+                WHERE id = ? AND status = 'paid' AND order_id = ?`
+            ).bind(ref.invoiceId, ref.invoiceId, orderId).run();
+            await env.DB.prepare(`UPDATE ai_billing_invoices SET confirming_order = NULL, confirming_at = NULL WHERE id = ? AND confirming_order = ?`).bind(ref.invoiceId, orderId).run();
+          }
           // 그 주문으로 만든 수강 기록만(주문번호가 notes 에 박혀 있다). ⚠️ instr — LIKE 패턴 한도 회피
           const e: any = await env.DB.prepare(
             `UPDATE enrollments SET status = 'refunded', updated_at = ? WHERE instr(notes, ?) > 0 AND status = 'active'`
@@ -368,7 +393,22 @@ export async function findB2bDoublePaid(env: Env, sinceMs: number): Promise<any[
   }
   const out: any[] = [];
   for (const x of g.values()) {
-    if (x.kind === 'MGB' && x.orders.length >= 2) out.push(x);
+    if (x.kind === 'MGB' && x.orders.length >= 2) {
+      /* ➕ (2026-10-26) 추가 결제가 생겨 «한 청구서에 승인 주문 둘 이상» 이 정상이 됐다 — 주문마다 학생 줄에
+         «낸 주문» 으로 붙어 있으면 정상, 하나라도 안 붙었으면(=덮은 학생 없이 돈만 받음) 이중 결제로 본다.
+         옛 결제분(표시 전)은 청구서 대표 주문번호로 인정한다. 못 읽으면 예전처럼 알린다(놓치는 쪽보다 낫다). */
+      let orphan = true;
+      try {
+        const marks: any[] = ((await env.DB.prepare(
+          `SELECT DISTINCT paid_order_id AS o FROM ai_billing_invoice_items WHERE invoice_id = ? AND paid_order_id IS NOT NULL`
+        ).bind(x.invoice_id).all())?.results || []) as any[];
+        const inv: any = await env.DB.prepare(`SELECT order_id FROM ai_billing_invoices WHERE id = ?`).bind(x.invoice_id).first();
+        const used = new Set<string>(marks.map(m => String(m.o)));
+        if (inv && inv.order_id) used.add(String(inv.order_id));
+        orphan = x.orders.some(o => !used.has(o));
+      } catch (_) { orphan = true; }
+      if (orphan) out.push(x);
+    }
     if (x.kind === 'MGT' && x.orders.length >= 2) {
       const inv: any = await env.DB.prepare(`SELECT due_krw FROM b2b_tuition_invoices WHERE id = ?`).bind(x.invoice_id).first().catch(() => null);
       if (inv && x.total > Number(inv.due_krw || 0)) out.push({ ...x, due_krw: Number(inv.due_krw) });

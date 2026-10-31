@@ -6,6 +6,7 @@
 import { json } from './api-util';
 import { ensureEvaluationScoreSchema, readAdminEvaluationScores, validEvaluationScores } from './evaluation-scores';
 import { projectAdminEvaluationRecords } from './evaluation-records';
+import { normalizeEvalAttendance, normalizeStudentLevel } from './eval-attendance';   // 🗓 일지의 출결·레벨 칸
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession, resolveOwnerScope, getAdminActor, isOrgScopedRole } from './auth-admin';  // 🔐 공용 소유자 판정
@@ -26,8 +27,9 @@ export async function handleLessonsApi(
     //   대상 지정: 전체(all) / 특정 학원(academy) / 특정 학생들(students)
     //   학원 선택 후 그 학원 소속 학생을 다중 선택해 출제할 수 있음.
     // ═══════════════════════════════════════════════════════════════
+    // ⚠️ (2026-10-28) prepare().run() — D1 exec() 는 줄마다 따로 실행해 여러 줄 CREATE 가 죽는다(이 표가 운영에 없던 이유).
     const ensureHomeworkTables = async () => {
-      await env.DB.exec(`CREATE TABLE IF NOT EXISTS homework (
+      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS homework (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
         description TEXT,
@@ -42,8 +44,8 @@ export async function handleLessonsApi(
         active INTEGER DEFAULT 1,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
-      );`);
-      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_homework_created ON homework(created_at DESC);`); } catch {}
+      )`).run();
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_homework_created ON homework(created_at DESC);`); } catch (e) { console.warn('[homework] index', (e as any)?.message); }
     };
 
     // ── POST /api/admin/homework/save — 관리자: 숙제 출제(생성/수정) ──
@@ -138,6 +140,8 @@ export async function handleLessonsApi(
           ['note_en','TEXT'],['note_ko','TEXT'],['note_chips','TEXT'],
           // ✏️ (2026-10-01 매니저 요청 «open and edit … today's feedback») 수정 이력 — 누가·언제·고치기 전 글
           ['edited_by','TEXT'],['edited_at','INTEGER'],['edit_history','TEXT'],
+          // 🗓 (2026-10-27 사장님 요청 4번) 강사가 확인한 수업 출결(attended/late/absent) · 저장 순간의 학생 레벨 — 정본 eval-attendance.ts
+          ['attendance_status','TEXT'],['student_level','TEXT'],
         ];
         for (const [col, typ] of want) {
           if (!have.has(col)) { try { await env.DB.exec(`ALTER TABLE student_evaluations ADD COLUMN ${col} ${typ}`); } catch {} }
@@ -296,11 +300,22 @@ export async function handleLessonsApi(
         }
       }
 
+      /* 🗓 (2026-10-27 사장님 요청 4번) 수업 출결·학생 레벨 — 정본 eval-attendance.ts 머리말 참고.
+         출결은 강사가 일지 창에서 확인한 값(목록 밖이면 null). 레벨은 본문을 안 믿고 학생 원부에서 직접 읽는다.
+         레벨을 못 읽어도(칸 없음·DB 흔들림) 일지 저장은 막지 않는다 — 그 칸만 null. */
+      const attendanceStatus = normalizeEvalAttendance(body.attendance_status);
+      let studentLevel: string | null = null;
+      try {
+        const lv: any = await env.DB.prepare(`SELECT level FROM students_erp WHERE user_id = ? LIMIT 1`).bind(body.student_uid).first();
+        studentLevel = normalizeStudentLevel(lv?.level);
+      } catch {}
+
       const ins = await env.DB.prepare(
         `INSERT INTO student_evaluations (user_id, eval_at, student_uid, student_name, teacher_uid, teacher_name, room_id, lesson_title, lesson_date,
           score_participation, score_comprehension, score_homework, score_attitude, score_speaking, score_overall,
-          strengths, improvements, next_goals, teacher_comment, note_en, note_ko, note_chips, created_at, updated_at, evaluation_source, score_scale)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+          strengths, improvements, next_goals, teacher_comment, note_en, note_ko, note_chips, created_at, updated_at, evaluation_source, score_scale,
+          attendance_status, student_level)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
       ).bind(
         body.student_uid, now,
         body.student_uid, body.student_name || null,
@@ -313,7 +328,8 @@ export async function handleLessonsApi(
         body.strengths || null, body.improvements || null,
         body.next_goals || null, body.teacher_comment || null,
         noteEn, noteKo, noteChips,
-        now, now, evaluationSource, scoreScale
+        now, now, evaluationSource, scoreScale,
+        attendanceStatus, studentLevel
       ).run();
       const evalId = ins?.meta?.last_row_id;
 
