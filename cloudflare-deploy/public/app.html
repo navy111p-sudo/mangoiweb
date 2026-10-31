@@ -2,9 +2,10 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>망고아이 앱 설치 — Mangoi</title>
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>망고아이 앱 설치 — mangoi.ai</title>
 <meta name="description" content="망고아이 안드로이드 앱을 설치하세요. 버튼 한 번이면 됩니다.">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -82,7 +83,7 @@
 <body>
   <div class="wrap">
     <div class="hero">
-      <img src="/img/mango-char.png" alt="망고아이">
+      <img src="/img/mango-char.png" alt="망고아이" loading="lazy" decoding="async">
       <h1>망고아이 앱 설치</h1>
       <div class="sub">버튼 한 번이면 설치 끝! 🥭</div>
     </div>
@@ -97,7 +98,7 @@
     <div class="card qr-card">
       <h2>📷 다른 폰으로 설치하려면</h2>
       <p>이 QR을 휴대폰 카메라로 찍으면 이 페이지가 열려요</p>
-      <img src="/downloads/mangoi-app-qr.png" alt="망고아이 앱 설치 QR코드">
+      <img src="/downloads/mangoi-app-qr.png" alt="망고아이 앱 설치 QR코드" loading="lazy" decoding="async">
     </div>
 
     <div class="card steps">
@@ -119,8 +120,13 @@
         아이폰은 위 설치 파일을 쓰지 않아요. 대신 <b>홈 화면에 추가</b>하면 앱과 똑같이
         아이콘이 생기고 <b>주소창 없는 전체화면</b>으로 열립니다.
       </p>
+      <!-- ⚠️ 2026-08-18 — 여기 적힌 주소가 옛 주소(test.mangoi.co.kr)였다.
+           앱 시작 URL 을 mangoi.ai 로 옮겼는데 이 안내만 그대로여서, 아이폰 사용자를
+           옛 오리진으로 보내고 있었다. «홈 화면에 추가» 는 그 오리진에 **고정**되므로
+           한 번 잘못 추가하면 로그인·패스키가 갈린 채로 굳는다(지우고 다시 추가해야 함).
+           도메인을 옮길 때 «문구 속 주소» 를 같이 훑을 것. -->
       <ol>
-        <li><b>사파리(Safari)</b>로 <b>test.mangoi.co.kr</b> 에 접속하세요. (크롬 말고 사파리여야 해요)</li>
+        <li><b>사파리(Safari)</b>로 <b>mangoi.ai</b> 에 접속하세요. (크롬 말고 사파리여야 해요)</li>
         <li>화면 아래 가운데 <b>공유 버튼</b>(네모에 화살표 ↑ 모양)을 누르세요.</li>
         <li>메뉴를 내려서 <b>“홈 화면에 추가”</b>를 누르고 <b>추가</b>를 누르세요.</li>
         <li>홈 화면에 생긴 <b>망고아이 아이콘</b>으로 들어가면 끝! 수업·게임 모두 그대로 됩니다.</li>
@@ -131,8 +137,8 @@
       </div>
     </div>
 
-    <div class="foot">Mangoi · test.mangoi.co.kr</div>
+    <div class="foot">Mangoi · mangoi.ai</div>
   </div>
-<!-- BUILD:20260813001216 -->
+<!-- BUILD:20260813015745 -->
 </body>
 </html>

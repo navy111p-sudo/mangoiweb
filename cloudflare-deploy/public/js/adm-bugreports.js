@@ -15,7 +15,27 @@
   const CAT_LABEL_KO = { bug:'🐛 버그', improve:'💡 개선', etc:'💬 기타', unknown:'❓' };
   const CAT_LABEL_EN = { bug:'🐛 Bug', improve:'💡 Improve', etc:'💬 Other', unknown:'❓' };
   const CAT_LABEL = (c) => (_isEn()?CAT_LABEL_EN:CAT_LABEL_KO)[c] || (c||'');
-  const ROLE_LABEL = (r) => ({ teacher:_isEn()?'Teacher':'교사', admin:_isEn()?'Admin':'관리자', student:_isEn()?'Student':'학생' }[r] || (r||'-'));
+  const ROLE_LABEL = (r) => ({ teacher:_isEn()?'Teacher':'교사', admin:_isEn()?'Admin':'관리자', student:_isEn()?'Student':'학생',
+                               branch:_isEn()?'Branch':'지사', agency:_isEn()?'Agency':'대리점', franchise:_isEn()?'Franchise HQ':'지사본사' }[r] || (r||'-'));
+
+  /* 🪪 신고자 칸 — «무엇을 이름으로 보여 줄까» (2026-09-13)
+       판정 정본은 서버(`api-admin.ts` bugReporterView)다 — 목록 행에 `reporter_shown`·`reporter_via`
+       (name/uid/url) 로 실려 온다. 서버가 2026-09-13 부터 세션으로 uid·name 을 채우지만 그 «전» 에
+       쌓인 행은 둘 다 NULL 이라(실측 4건) 서버가 page_url 의 `vc_name` 으로 떨어뜨리고 via:'url' 을
+       준다 — «주소에 적힌 표기» 이지 계정이 아니므로 화면은 «주소에서» 라고 함께 적는다.
+       ⛔ 여기서 URL 을 다시 파싱하지 않는다(정본이 두 벌이 되면 manager.html 과 갈린다).
+       ⛔ D1 을 UPDATE 로 «채우지» 않는다 — 읽을 때만 보탠다. */
+  function brReporterOf(b){
+    b = b || {};
+    const uid = String(b.reporter_uid || '').trim();
+    const shown = String(b.reporter_shown || b.reporter_name || uid || '').trim() || '-';
+    const via = String(b.reporter_via || '');
+    const sub = ROLE_LABEL(b.reporter_role)
+      + (uid && uid !== shown ? (' · ' + uid) : '')
+      + (via === 'url' ? (' · ' + (_isEn() ? 'from page URL' : '주소에서')) : '');
+    return { shown, sub, via };
+  }
+  window.brReporterOf = brReporterOf;
 
   window.brLoad = async function(){
     const el = document.getElementById('br-list');
@@ -56,7 +76,7 @@
           const pagePath = (function(){ try { return new URL(pageUrl).pathname + (new URL(pageUrl).hash||''); } catch(e){ return pageUrl; } })();
           return `<tr style="border-bottom:1px solid #e5e7eb">
             <td style="padding:9px 12px;white-space:nowrap"><span style="color:${c};font-weight:800;font-size:11.5px">${STATUS_LABEL(st)}</span></td>
-            <td style="padding:9px 12px"><b>${esc(b.reporter_name||'-')}</b><br><span style="font-size:11px;color:#6b7280">${esc(ROLE_LABEL(b.reporter_role))}${b.reporter_uid?(' · '+esc(b.reporter_uid)):''}</span></td>
+            <td style="padding:9px 12px">${(function(){ const rp = brReporterOf(b); return `<b>${esc(rp.shown)}</b><br><span style="font-size:11px;color:#6b7280">${esc(rp.sub)}</span>`; })()}</td>
             <td style="padding:9px 12px;white-space:nowrap;font-size:11.5px">${CAT_LABEL(b.category||'bug')}</td>
             <td style="padding:9px 12px;font-size:12px;color:#111827;max-width:320px">${esc((b.message||'')).replace(/\n/g,'<br>')}${pageUrl?`<br><span style="font-size:10.5px;color:#9ca3af" title="${esc(pageUrl)}">📍 ${esc(pagePath.slice(0,60))}</span>`:''}</td>
             <td style="padding:9px 12px;font-size:11.5px;color:#9ca3af;white-space:nowrap">${fmtDate(b.created_at)}</td>

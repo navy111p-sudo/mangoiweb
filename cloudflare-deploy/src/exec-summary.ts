@@ -15,6 +15,7 @@
  */
 
 import { sendKakaoAlimtalk } from './solapi-client';
+import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
 import { franchiseInClause } from './d1-chunk';   // 🔒 지사 목록 IN 조각 (D1 바인드 한도 처리 포함)
 import { type Scope, getScope, franchiseList } from './scope';   // 🔒 스코프 판정은 scope.ts 한 곳에서만
 
@@ -73,7 +74,11 @@ const scopeFor = (env: Env, request: Request) =>
  *   그래서 판정을 **여기 한 곳**으로 모은다. 새 조회를 붙일 때 이 함수를 쓰면 같은 실수가 안 난다.
  *   NULL·빈 문자열도 재원으로 본다(수기 등록분이 status 없이 들어오는 경우가 있다).
  */
-function activeCond(alias = ''): string {
+/* ⚠️ export — 이 판정을 다른 파일이 또 잘못 베낄 위험을 없애려고 내보낸다.
+ *   ai-billing.ts(B2B AI 사용료 청구 — 2026-09-10)가 「재원 학생」을 셀 때 이걸 그대로 쓴다.
+ *   복사해서 새로 짜지 말 것 — 위 «단독 비교하면 0건» 사고가 그대로 재현된다.
+ */
+export function activeCond(alias = ''): string {
   const col = (alias ? alias + '.' : '') + 'status';
   return `(${col} IN ('정상','활동','active') OR ${col} IS NULL OR ${col} = '')`;
 }
@@ -89,7 +94,7 @@ function inactiveCond(alias = ''): string { return `NOT ${activeCond(alias)}`; }
  *   🕘 `date('now','+9 hours')` = KST 오늘. 바인드를 늘리지 않으려고 인라인으로 쓴다
  *      (호출부마다 바인드 순서를 맞추다 틀리는 것이 더 위험하다).
  */
-function enrolledCond(alias = ''): string {
+export function enrolledCond(alias = ''): string {
   const p = alias ? alias + '.' : '';
   return `(${p}end_date IS NULL OR ${p}end_date = '' OR ${p}end_date >= date('now','+9 hours'))`
        + ` AND ${activeCond(alias)}`;
@@ -115,7 +120,7 @@ function stuCond(scope: Scope): { clause: string; binds: any[] } {
 async function income(env: Env, a: number, b: number, scope: Scope) {
   return safe(async () => {
     const c = stuCond(scope);
-    let sql = `SELECT COALESCE(SUM(amount_krw),0) s, COUNT(*) c FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<?`;
+    let sql = `SELECT COALESCE(SUM(amount_krw),0) s, COUNT(*) c FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at>=? AND paid_at<?`;
     const binds: any[] = [a, b];
     if (c.clause) { sql += ` AND user_id IN (SELECT user_id FROM students_erp WHERE ${c.clause})`; binds.push(...c.binds); }
     const r = await env.DB.prepare(sql).bind(...binds).first<{ s: number; c: number }>();
@@ -191,7 +196,7 @@ async function series(env: Env, url: URL, scope: Scope): Promise<Response> {
 
   const incRows = await safe(async () => (await env.DB.prepare(
     `SELECT strftime('%Y-%m-%d', datetime((paid_at/1000)+32400,'unixepoch')) d, COALESCE(SUM(amount_krw),0) s, COUNT(*) c
-     FROM student_payments WHERE status='paid' AND paid_at>=?` + inWhere + ` GROUP BY d`).bind(startMs, ...c.binds).all()).results as any[], []);
+     FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at>=?` + inWhere + ` GROUP BY d`).bind(startMs, ...c.binds).all()).results as any[], []);
   // 비용: 본사만
   let expRows: any[] = [], payRows: any[] = [];
   if (costVisible(scope)) {
@@ -250,7 +255,7 @@ async function detail(env: Env, url: URL, scope: Scope): Promise<Response> {
   const payments = await safe(async () => (await env.DB.prepare(
     `SELECT sp.id, sp.amount_krw, sp.paid_at, sp.method, COALESCE(se.korean_name, sp.user_id) AS student_name
      FROM student_payments sp LEFT JOIN students_erp se ON se.user_id = sp.user_id
-     WHERE sp.status='paid' AND sp.paid_at>=? AND sp.paid_at<?` + inWhere + ` ORDER BY sp.paid_at DESC LIMIT 200`).bind(a, b, ...c.binds).all()).results as any[], []);
+     WHERE sp.status='paid' AND ${notSeedSql('sp')} AND sp.paid_at>=? AND sp.paid_at<?` + inWhere + ` ORDER BY sp.paid_at DESC LIMIT 200`).bind(a, b, ...c.binds).all()).results as any[], []);
 
   let expenses: any[] = [], payroll: any = { s: 0, c: 0 };
   if (costVisible(scope)) {
@@ -349,7 +354,7 @@ async function breakdown(env: Env, url: URL, scope: Scope): Promise<Response> {
   // 결제수단 비중 (이번달, 스코프 반영)
   const methods = await safe(async () => (await env.DB.prepare(
     `SELECT COALESCE(method,'기타') method, COUNT(*) c, COALESCE(SUM(amount_krw),0) s
-     FROM student_payments WHERE status='paid' AND paid_at>=?` + inPay + ` GROUP BY method ORDER BY s DESC`
+     FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at>=?` + inPay + ` GROUP BY method ORDER BY s DESC`
   ).bind(monStart, ...c.binds).all()).results as any[], []);
 
   // 재원 상태 분포 (정상/휴원/퇴원 등)
@@ -369,7 +374,7 @@ async function breakdown(env: Env, url: URL, scope: Scope): Promise<Response> {
   const active = await activeTotal(env, scope);
   const paidStudents = await safe(async () => {
     const r = await env.DB.prepare(
-      `SELECT COUNT(DISTINCT user_id) c FROM student_payments WHERE status='paid' AND paid_at>=?` + inPay
+      `SELECT COUNT(DISTINCT user_id) c FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at>=?` + inPay
     ).bind(monStart, ...c.binds).first<{ c: number }>();
     return r?.c || 0;
   }, 0);

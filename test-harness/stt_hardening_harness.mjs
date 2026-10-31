@@ -232,14 +232,21 @@ console.log('\n▶ student-game-grammar-pizza.html — 말이 끝나야 채점�
     const els = {}; const $ = (id) => (els[id] || (els[id] = fakeEl()));
     const timers = []; let scored = [];
     const sandbox = {
-      $, GLANG: 'en', speakCount: 0, listening: false, recognition: new SR(),
+      $, GLANG: 'en', speakCount: 0, listening: false, recognition: null, SR,
+      missionActive: true, listenCount: 1, _pzTtsBusy: false, _pzMissionSeq: 1,
+      _pzUseRecording: false, _pzCancelListen: null, _pzStopListen: null,
+      _pzStop: () => {}, _pzButtons: () => {}, _pzCanRecord: () => false,
+      langOf: () => 'en-US',
+      /* 💯 (2026-08-13) 원샷 통과 도입으로 이 블록이 쓰는 전역이 늘었다.
+         PERFECT_SC = 즉시 통과 기준 정확도, speakAttempts = 이 문장 말하기 시도 횟수. */
+      PERFECT_SC: 0.98, speakAttempts: 0,
       sentenceText: () => 'I like blue cars',
       matchScore: (said, t) => {
         const a = String(said).toLowerCase().split(/\s+/), b = String(t).toLowerCase().split(/\s+/);
         return b.filter(w => a.includes(w)).length / b.length;
       },
       speak: () => {}, toast: () => {},
-      speakSuccess: () => scored.push('success'),
+      speakSuccess: (sc) => scored.push(sc >= 0.98 ? 'perfect' : 'success'),
       setTimeout: (cb, ms) => { timers.push({ cb, ms }); return timers.length; },
       clearTimeout: (id) => { if (timers[id - 1]) timers[id - 1] = { cb(){}, ms: 0 }; },
       console,
@@ -249,24 +256,28 @@ console.log('\n▶ student-game-grammar-pizza.html — 말이 끝나야 채점�
     vm.runInContext(readFileSync(join(PUB, 'js', 'mangoi-stt.js'), 'utf8'), sandbox);
     vm.runInContext(html.slice(s, e), sandbox);
 
-    const rec = sandbox.recognition;
-    /* 인식기 설정은 이 블록 밖(전역 초기화)에 있으므로 원문으로 확인한다.
+    /* 시도마다 인식기를 생성하므로 실제 생성된 객체의 설정도 확인한다.
        ⚠️ 객체 속성으로 볼 때는 반드시 === true 로 — !== false 면 설정을 안 해도(undefined) 통과한다.
           실제로 이 함정 때문에 "continuous 를 켰다"고 잘못 통과한 적이 있다(2026-07-23). */
     check('브라우저 자동종료를 끔(continuous=true)', /recognition\.continuous\s*=\s*true/.test(html));
     check('중간 결과도 받음(interimResults=true)', /recognition\.interimResults\s*=\s*true/.test(html));
     $('btn-speak').onclick();
+    const rec = sandbox.recognition;
     check('보호막 적용됨', rec.__mangoiHardened === true);
+    check('실제 인식기는 연속·중간결과를 켬', rec.continuous === true && rec.interimResults === true);
     rec.emit('I like', true);
     check('조각만 들렸을 때는 채점하지 않음', scored.length === 0, JSON.stringify(scored));
     rec.browserEnd();                                  // 안드로이드가 세션을 닫음
     check('끊겨도 계속 듣는 중', rec.running === true);
     rec.emit('blue cars', true);                       // 새 세션에서 이어 말함(앞부분은 브라우저가 안 준다)
     check('세션이 끊겨도 앞에서 말한 것과 합쳐져 정답 처리',
-          scored.length === 1 && scored[0] === 'success', JSON.stringify(scored));
+          scored.length === 1 && scored[0] === 'perfect', JSON.stringify(scored));
+    /* 💯 완전히 일치했으니 원샷 통과 경로여야 한다 — 시도 횟수가 1회로 잡혀야
+       missionComplete(perfect=true) 로 퍼펙트 보너스가 붙는다 */
+    check('첫 시도 100점이면 원샷 통과로 집계', sandbox.speakAttempts === 1, String(sandbox.speakAttempts));
 
     // 틀린 문장을 말하고 조용해지면(=stop) 그때 오답 안내
-    scored = []; sandbox.listening = false;
+    scored = []; sandbox.listening = false; sandbox.speakAttempts = 0;
     $('btn-speak').onclick();
     const rec2 = sandbox.recognition;
     rec2.emit('I like red bikes', true);

@@ -18,7 +18,7 @@
 //      → 대표 카드를 `scrollIntoView` 로 올린다.
 //   🪤 그 스크롤을 **rAF 로 하면 안 된다** — 백그라운드/숨은 탭에서 rAF 는 아예 안 돈다(실측 0회).
 //      타이머는 돈다. (CLAUDE.md 의 «백그라운드 탭에서 rAF 가 멈춘다» 와 같은 함정)
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -78,6 +78,225 @@ console.log('\n[ ⑥ 캐시 — 고친 js 가 실제로 내려가야 한다 ]');
   const m = html.match(/adm-ia6\.js\?v=(\d+)/);
   check(`admin.html 이 adm-ia6.js 를 버전과 함께 부른다 (?v=${m ? m[1] : '없음'})`, !!m);
   check('버전이 3 이상 (이번 수정 반영 — ?v= 를 안 올리면 옛 파일이 캐시에서 나온다)', !!m && Number(m[1]) >= 3);
+}
+
+/* 🐞 (2026-08-13 수정요청 #04) 버그·문의 화면에 «신규상담 → 등록 전환» 이 같이 떴다.
+   원인은 GROUPS 의 한 항목이 두 카드를 함께 맡고 있던 것 하나뿐이다(다른 코드는 정상).
+   항목을 둘로 쪼개 고쳤으니, 「다시 한 칸으로 묶으면 신고가 되돌아온다」를 여기서 막는다.
+   ⚠️ 「card-inquiry-mgmt 를 통째로 지운다」로 고치는 것도 막는다 — 그러면 요구사항 2
+      (신규상담 기능은 다른 화면에서 그대로 유지)를 어기고 메뉴에서 아예 사라진다. */
+console.log('\n[ ⑦ 버그 화면과 신규상담 화면은 따로다 (2026-08-13 #04) ]');
+{
+  const start = ia6.indexOf('var GROUPS = [');
+  const end = ia6.indexOf('\n  ];', start);
+  const G = start >= 0 && end > start ? eval(ia6.slice(start + 'var GROUPS = '.length, end + 4)) : [];
+  const items = G.flatMap(g => g.items.map(it => ({ key: g.key + ':' + it.ko, cards: it.cards || [] })));
+  const owners = (id) => items.filter(it => it.cards.indexOf(id) >= 0);
+  const inq = owners('card-inquiry-mgmt'), bug = owners('card-bug-reports');
+
+  check('GROUPS 를 읽어냈다 (아래 검사의 전제)', items.length > 0);
+  check('💌 신규상담 카드를 맡은 항목이 있다 — 없으면 메뉴에서 사라진다', inq.length > 0);
+  check('🐞 버그 카드를 맡은 항목이 있다', bug.length > 0);
+  check('🔴 둘을 같은 항목이 맡지 않는다 — 같이 맡으면 한 화면에 함께 뜬다',
+    !items.some(it => it.cards.indexOf('card-inquiry-mgmt') >= 0 && it.cards.indexOf('card-bug-reports') >= 0));
+  check('🐞 버그 카드가 «대표 카드(cards[0])» 다 — 점프·딥링크가 제 항목을 찾는다',
+    bug.some(it => it.cards[0] === 'card-bug-reports'));
+}
+
+/* 🔁 항목 이름이 곧 localStorage 키다. 이름을 바꿔 놓고 이사를 안 시키면
+   쓰던 사람이 다음 접속에 「오늘의 수업」으로 튄다 — «메뉴가 없어졌다» 신고가 된다. */
+console.log('\n[ ⑧ 이름이 바뀐 항목은 옛 키를 새 키로 옮긴다 ]');
+check('RENAMED 이사표가 있다', /var RENAMED = \{/.test(ia6));
+check('옛 「문의·버그」 키를 잇는다', /'today:문의·버그'\s*:\s*'today:신규상담'/.test(ia6));
+check('옮긴 값을 localStorage 에 다시 적는다 (다음 접속에도 유지)',
+  /RENAMED\[want\][\s\S]{0,220}?localStorage\.setItem\(LS_KEY, want\)/.test(ia6));
+
+/* 🔝 (2026-08-15 사장님) 「사이드바 메뉴를 눌러도 그 화면이 맨 위에 안 오고 경영지표 KPI 가 위에 남는다」
+   원인은 «문서가 짧아서 더 못 내려가는» 것이었다(브라우저 실측: 스크롤 끝까지 갔는데 카드 top 380px).
+   ⚠️ 여기서 막는 되돌림 세 가지 —
+      ① 「머리(KPI)를 감추면 되지」 → 안 된다. 위쪽 X px 을 감추면 문서 높이도 X 만큼 줄어 차이가 그대로다.
+      ② 꼬리 여백을 #legacy-cards «안»에 붙이기 → 그 컨테이너 밖 카드(결제·시간표·수업일지·숙제)에는 소용없다.
+      ③ 시한·손떼기 없이 계속 맨 위로 되돌리기 → 「읽고 있는데 화면이 되돌아간다」가 된다. */
+console.log('\n[ ⑨ 고른 화면이 «맨 위»에 오게 — 꼬리 여백 (2026-08-15) ]');
+check('꼬리 여백 요소를 만든다 (ia6-tail)', /TAIL_ID\s*=\s*'ia6-tail'/.test(ia6));
+check('🔴 body 맨 끝에 붙인다 — 컨테이너 안에 붙이면 그 밖의 카드엔 소용없다',
+  /document\.body\.appendChild\(t\)/.test(ia6) && !/root\(\)\.appendChild\(t\)/.test(ia6));
+check('여백은 «모자란 만큼만» 계산한다 (문서높이·화면높이로)',
+  /scrollHeight/.test(ia6) && /window\.innerHeight/.test(ia6));
+check('한 화면을 넘게는 넣지 않는다 (끝없는 빈 화면 방지)',
+  /gap\s*>\s*window\.innerHeight\)\s*gap\s*=\s*window\.innerHeight/.test(ia6));
+{
+  // 주석에는 «실측 1.3배» 처럼 설명으로 나오므로 «실행되는 줄» 만 골라서 본다.
+  const code = ia6.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  check('zoom 배율을 «재서» 맞춘다 — 배율을 코드에 박아 넣지 않는다',
+    /ratio\s*=\s*css\s*\/\s*shown/.test(ia6) && !/[*/]\s*1\.\d/.test(code));
+}
+check('전체 보기에서는 여백을 0 으로 되돌린다', /showAll[\s\S]{0,400}?style\.height\s*=\s*'0px'/.test(ia6));
+check('스크롤을 올리기 «전»에 여백부터 만든다 (순서가 바뀌면 올라갈 자리가 없다)',
+  /fitTail\(\)[\s\S]{0,220}?lead\.scrollIntoView/.test(ia6));
+check('자리가 잡힐 때까지 잠깐 따라간다 (한 번 보정으로는 부족 — 늦게 그려지는 표가 밀어낸다)',
+  /alignTop/.test(ia6) && /setTimeout\(toLeadAgain/.test(ia6));
+check('🔴 시한이 있다 — 없으면 영영 스크롤을 못 하게 된다', /Date\.now\(\)\s*\+\s*\d{3,}/.test(ia6));
+check('🔴 사람이 스크롤하면 즉시 손을 뗀다 (wheel·touch·key)',
+  /addEventListener\('wheel', release/.test(ia6) &&
+  /addEventListener\('touchstart', release/.test(ia6) &&
+  /addEventListener\('keydown', release/.test(ia6));
+check('다른 곳으로 가려는 점프에는 양보한다 (⚡자주 쓰는 기능의 하위 항목 이동이 취소되지 않게)',
+  /this\s*!==\s*alignLead\s*&&/.test(ia6) && /alignRelease\(\)/.test(ia6));
+/* 🔴 (2026-08-19) 「눌러도 안 열린다」 회귀 감시 —
+   openSub 항목은 카드 «안의 칸» 이 목적지인데, adm-s11(ph97)이 같은 클릭에서 50ms 뒤
+   **그 칸이 든 카드** 를 따로 scrollIntoView 한다. 조상으로 오는 그 스크롤에 양보하면
+   칸은 open 인데 화면은 카드 맨 위에 머문다(실측 1440×900: 칸 제목줄 top 1492px = 화면 밖).
+   조상은 «다른 곳» 이 아니라 «같은 목적지의 거친 판» 이므로 양보하지 않는다.
+   ⛔ 이 조건을 지우면 사이드바 「매출 대시보드」가 다시 «눌러도 안 열리는» 상태로 돌아간다. */
+check('🔴 조상으로 오는 스크롤에는 양보하지 않는다 (ph97 이 카드를 끌어당겨도 칸을 놓치지 않게)',
+  /!this\.contains\(alignLead\)/.test(ia6));
+check('openSub 항목은 «연 칸» 을 맨 위로 맞춘다 (칸이 12개인 회계 카드에서 화면 밖이었다)',
+  /var openedSub = openSubSection\(it\)/.test(ia6) && /if \(openedSub\) alignTop\(openedSub\)/.test(ia6));
+check('🪤 여기서도 rAF 를 쓰지 않는다', !/requestAnimationFrame/.test(ia6));
+
+/* 📐 (2026-08-15 사장님) 「사이드바에서 시스템(=경영·설정)이 안 보인다」
+   원인 셋: ⓐ 메뉴 6그룹 위에 «메뉴가 아닌 것»이 636px 쌓여 있어 첫 화면(441px)에 한 줄도 안 들어왔다,
+           ⓑ 옛 「시스템」은 2026-08-08 개편에서 「경영·설정」으로 이름이 바뀌어 맨 아래 있었다,
+           ⓒ 옛 메뉴 전체로 가는 「전체 보기」가 adm-q10(ph118)의 «빈 그룹 숨김»에 걸려 아예 안 보였다.
+   ⚠️ 되돌림 방지 — 순서를 되돌리거나(메뉴가 다시 아래로), 이름을 지우거나, ph118 예외를 빼면 여기서 걸린다. */
+console.log('\n[ ⑩ 메뉴가 사이드바 첫 화면에 · 🗺 메뉴 지도 (2026-08-15) ]');
+check('메뉴 위에 있던 것들을 메뉴 «아래»로 내린다 (liftGroupsUp)', /function liftGroupsUp/.test(ia6));
+check('내리는 대상이 그대로다 (음성 안내·AI 운영비서·사용법 안내·⚡자주 쓰는 기능)',
+  /'ph85-voice-toggle', 'ph85-ai-asst', 'ph85-howto', 'ph161-quick'/.test(ia6));
+check('🔴 지우지 않고 «옮기기»만 한다 (있던 것이 없어지면 그것도 신고다)',
+  !/removeChild|\.remove\(\)/.test(ia6) && /insertBefore|appendChild/.test(ia6));
+check('사이드바를 세울 때 자동으로 부른다', /liftGroupsUp\(bar\);/.test(ia6));
+check('그룹 줄 높이를 낮춰 6그룹이 첫 화면에 들어오게 한다',
+  /ph85-group\[data-ia6\][^']*margin-bottom:4px/.test(ia6) &&
+  /ph85-head\{padding-top:5px !important;padding-bottom:5px !important\}/.test(ia6));
+check('🔴 글자 크기는 건드리지 않는다 (「글씨가 작아졌다」 방지)', !/font-size/.test(ia6));
+check('「전체 보기」를 「메뉴 지도」로 부른다', /data-ko="메뉴 지도" data-en="Menu map"/.test(ia6));
+/* 🏷 사람들이 찾는 이름은 「시스템」이다(같은 신고 두 번). 「경영·설정」으로 되돌리면 여기서 걸린다.
+   ⚠️ 그룹 이름은 localStorage 키가 아니다(키는 key='ops'). 그래서 이사표 없이 바꿔도 안전하다. */
+check('여섯 번째 그룹 이름이 「시스템 / System」이다', /key: 'ops', ko: '시스템', en: 'System'/.test(ia6));
+check('그룹 이름을 바꿔도 «마지막으로 보던 항목» 키는 그대로다 (키는 group.key 로 만든다)',
+  /g\.key \+ ':' \+ it\.ko/.test(ia6) && !/g\.ko \+ ':'/.test(ia6));
+check('쉬운말 툴팁(GRP)의 「시스템」 설명이 지금 내용과 맞다',
+  /"시스템": "경영 지표·공지 발송·자료실·직원 권한·데이터 보관/.test(html));
+/* 🗺 「사이트 구조도」 항목의 역사 —
+     2026-08-15 옛 사이드바 「시스템」 그룹에만 있었는데 ia6 가 그 그룹을 통째로 감춰서
+       **아무도 볼 수 없었다**. 그래서 새 사이드바에도 자리를 줬다.
+     2026-08-16 사장님: «어차피 메뉴판 맨 위 「메뉴 지도」와 같은 거야» — 실제로 같은 페이지로
+       갔다. 같은 곳으로 가는 문이 둘이면 «둘이 다른 건가?» 를 매번 생각하게 만든다. 뺐다.
+   그래서 이 검사가 지키는 것이 뒤집힌다 — 「있어야 한다」 → 「중복이면 안 된다」.
+   다만 **원래 지키려던 것은 그대로다**: 지도로 가는 길이 화면에 하나는 있어야 한다.
+   그 길이 맨 위 「메뉴 지도」이고, 그건 아래 ⑪ 에서 따로 검사한다. */
+{
+  const start = ia6.indexOf('var GROUPS = [');
+  const end = ia6.indexOf('\n  ];', start);
+  const body = start >= 0 && end > start ? ia6.slice(start, end) : '';
+  check('시스템 그룹에 「사이트 구조도」 항목이 없다 (맨 위 「메뉴 지도」와 중복 — 되살리지 말 것)',
+    body.length > 100 && !/ko:\s*'사이트 구조도'/.test(body));
+}
+check('지도 페이지는 그대로 있다 (「메뉴 지도」가 여는 곳)',
+  existsSync(resolve(__dir, '../cloudflare-deploy/public/admin/site-structure-map.html')));
+check('옛 목차 파일도 남아 있다 (지도로 넘기는 문 — 옛 링크·즐겨찾기가 404 가 되면 안 된다)',
+  existsSync(resolve(__dir, '../cloudflare-deploy/public/admin/site-structure.html')));
+check('옛 사이드바에도 중복 항목이 없다 (ia6 가 못 뜨는 날 되살아나면 안 된다)',
+  !/location\.href='\/admin\/site-structure\.html'/.test(html));
+
+/* 🗺 (2026-08-15 사장님) 「메뉴 지도 아무리 눌러도 안 보여, 조직도와 페이지가」
+   옛 동작(showAll)은 감춘 카드를 다시 보이게 할 뿐이라 **화면에 아무 변화가 없었다** —
+   지금 보는 자리는 그대로고 카드는 화면 «아래»에 늘어날 뿐이다. 그래서 진짜 지도를 연다.
+   그리고 「무엇이 들어 있는지 음성이 안 나온다」 → 안내 음성도 넣었다.
+   🐢 (2026-08-17 사장님) 「메뉴 지도 누르면 지도가 빨리 나오지 않아」
+     그 음성을 «다 읽고 나서 이동» 으로 붙인 것이 원인이었다. 안내문이 95자라 구글 TTS 로
+     12~14초가 되고, adm-r15 의 9초 안전장치가 먼저 터져 **누르면 9초 뒤에야** 이동이 시작됐다.
+     그 9초 동안 화면에 아무 표시도 없어 «먹통» 으로 보였다.
+     → 순서를 뒤집었다. 지도는 곧바로 열고, 안내는 «도착한 지도 페이지» 가 읽는다.
+   ⛔ 아래 검사는 그 되돌림(=9초 먹통)을 막는다. openMenuMap 이 다시 낭독을 기다리면 FAIL 이다. */
+console.log('\n[ ⑪ 「메뉴 지도」는 곧바로 열리고, 안내는 도착한 쪽이 읽는다 (2026-08-15 · 08-17 즉시 이동) ]');
+{
+  const r15 = rd('../cloudflare-deploy/public/js/adm-r15.js');
+  const smap = rd('../cloudflare-deploy/public/admin/site-structure-map.html');
+  const openBody = (ia6.match(/function openMenuMap\(\)\s*\{[\s\S]*?\n  \}/) || [''])[0];
+  check('🔴 눌러도 티가 안 나던 showAll 이 아니라 지도 페이지로 간다',
+    /MAP_HREF = '\/admin\/site-structure-map\.html'/.test(ia6) &&
+    /function openMenuMap/.test(ia6) && !/'__all'[\s\S]{0,120}?showAll\(\)/.test(ia6));
+  check('그 지도 문서가 실제로 있다',
+    existsSync(resolve(__dir, '../cloudflare-deploy/public/admin/site-structure-map.html')));
+  check('🐢 누르면 곧바로 연다 — 낭독이 끝날 때까지 기다리지 않는다 (9초 먹통 재발 방지)',
+    !!openBody && /location\.href = mapUrl\(\)/.test(openBody) && !/admVoiceSay/.test(openBody));
+  check('🔴 음성이 꺼져 있든 켜져 있든, 소리가 안 나도 반드시 열린다 (조건 없이 이동)',
+    !!openBody && !/if \(!speaking\)/.test(openBody) && !/onDone|go\(\)/.test(openBody));
+  check('지도 주소에 ?speak=1 을 실어 보낸다 (도착한 쪽이 «읽어도 되는 이동» 임을 아는 표시)',
+    /'\?here=' \+ encodeURIComponent\(location\.pathname\) \+ '&speak=1'/.test(ia6));
+  check('무엇이 들어 있는지 읽어 준다 — 문장은 도착한 지도 페이지가 갖는다 (한국어·영어 둘 다)',
+    /손님, 학생, 부모님, 선생님, 운영자/.test(smap) &&
+    /guests, students, parents, teachers and operators/.test(smap) &&
+    !/menuMapSpeech/.test(ia6));
+  check('🔴 지도 페이지는 speak=1 일 때만 읽는다 (링크·북마크로 그냥 열어 본 사람에게 소리가 나면 안 된다)',
+    /\[\?&\]speak=1/.test(smap) && /\.test\(location\.search\)\) return;/.test(smap));
+  check('🔴 지도 페이지도 «같은» 음성 스위치를 본다 (ph85VoiceOn — 별도 설정을 만들면 안 된다)',
+    /ph85VoiceOn/.test(smap) && /if \(!voiceOn\(\)\) return;/.test(smap));
+  check('자동재생이 막히면 조용히 삼키지 않고 「안내 듣기」 버튼을 띄운다',
+    /offerButton/.test(smap) && /안내 듣기/.test(smap));
+  check('🪤 재생은 fetch→blob→play (audio.src 직접 스트리밍은 일부 환경서 무음 stall)',
+    /createObjectURL/.test(smap) && /api\/tts-free/.test(smap));
+  check('다 읽었으면 주소에서 speak 를 지운다 (새로고침마다 다시 읽지 않게)',
+    /history\.replaceState/.test(smap));
+  check('adm-r15: 다 읽으면 알려 주는 창구는 그대로 열려 있다 (admVoiceSay 공용 API)',
+    /window\.admVoiceSay = function\(text, onDone\)/.test(r15));
+  check('🔴 onDone 은 어떤 경우에도 한 번은 불린다 (안전장치 타이머)',
+    /if \(onDone\) setTimeout\(done, \d{4}\)/.test(r15) && /if \(!text \|\| !isOn\(\)\)\{ done\(\); return false; \}/.test(r15));
+  check('오디오·브라우저음성 어느 쪽으로 나가도 끝을 잡는다',
+    /a\.onended = function\(\)\{[^}]*done\(\)/.test(r15) && /u\.onend = onDone; u\.onerror = onDone;/.test(r15));
+  check('음성 안내가 「메뉴 지도」를 두 번 읽지 않는다 (도착한 지도 페이지가 읽으므로 r15 는 건너뛴다)',
+    /data-ia6-head'\) === '__all'\) return;/.test(r15));
+  const mv = html.match(/adm-r15\.js\?v=(\d+)/);
+  check(`admin.html 의 adm-r15.js 버전이 4 이상 (?v=${mv ? mv[1] : '없음'})`, !!mv && Number(mv[1]) >= 4);
+}
+
+/* 🔊 (2026-08-15 사장님) 「음성 켜짐과 꺼짐이 사이드바에서 이렇게 큰 자리를 차지하지 않아도 될 것 같아」
+   메뉴 한 줄(48px)을 통째로 쓰던 토글을 아래 도크의 세 번째 칸(🩺진단 · 🌐EN 옆)으로 옮겼다.
+   업계 관행도 «켜기/끄기 스위치는 도구 줄의 작은 자리»다(구글 접근성·워드·엣지·유튜브 자막).
+   ⚠️ 여기서 막는 되돌림 —
+      ① 계정 카드(#ph115-user)는 런타임에 #ph162-lang 뒤로 끼어든다. «한 번 붙이고 끝»으로 두면
+         버튼이 셋째 줄로 밀려 도크가 12px 높아지고 「메뉴 지도」가 가려진다(실측으로 밟음).
+      ② className 통째 대입 → 도크에서 얻은 .ph162-pill 이 지워져 한 번 누르면 모양이 무너진다.
+      ③ 아이콘만 남기기 → 컴퓨터가 익숙하지 않은 직원이 지금 상태를 알 수 없다. 글자를 함께 둔다. */
+console.log('\n[ ⑫ 음성 안내 토글을 아래 도크로 (2026-08-15) ]');
+{
+  const r15 = rd('../cloudflare-deploy/public/js/adm-r15.js');
+  check('도크에 자리를 잡는 함수가 있다 (placeToggle)', /function placeToggle\(btn\)/.test(r15));
+  check('🔴 계정 카드 «앞»에 넣는다 — 뒤에 넣으면 셋째 줄로 밀린다',
+    /var ref = \(user && user\.parentNode === dock\) \? user : lang\.nextSibling;/.test(r15));
+  check('🔴 재시도마다 자리를 다시 잡는다 (계정 카드가 나중에 끼어들기 때문)',
+    /if \(made\) \{ placeToggle\(made\); return; \}/.test(r15));
+  check('도크를 2칸 → 3칸으로 (줄 수는 그대로)',
+    /has-voice\{grid-template-columns:1fr 1fr 1fr !important\}/.test(r15) &&
+    /dock\.classList\.add\('has-voice'\)/.test(r15));
+  check('🔴 className 을 통째로 대입하지 않는다 (.ph162-pill 이 지워진다)',
+    /classList\.toggle\('off', !on\)/.test(r15) && !/btn\.className = on \? '' : 'off'/.test(r15));
+  check('상태를 «글자»로 보여 준다 (아이콘만 두지 않는다)',
+    /'음성 ' \+ \(on \? '켜짐' : '꺼짐'\)/.test(r15) && /'Voice ' \+ \(on \? 'on' : 'off'\)/.test(r15));
+  check('마우스를 올리면 «누르면 어떻게 되는지» 를 알려 준다',
+    /누르면 끕니다/.test(r15) && /누르면 켭니다/.test(r15) && /btn\.title =/.test(r15));
+  check('스크린리더용 상태도 준다 (aria-pressed)', /setAttribute\('aria-pressed'/.test(r15));
+  check('🪤 이모지 대신 SVG 를 쓴다 (Win10 두부 방지 · 도크 톤 일치)',
+    /var SPK_ON  = '<svg/.test(r15) && !/\(on \? '🔊' : '🔇'\)/.test(r15));
+  check('도크가 없는 옛 화면에서는 예전 자리로 되돌아간다 (버튼이 사라지지 않게)',
+    /if \(placeToggle\(btn\)\) return;[\s\S]{0,220}?ph85-search-wrap/.test(r15));
+  check('id 는 그대로 둔다 — 이 id 를 보는 곳이 셋 있다', /btn\.id = 'ph85-voice-toggle'/.test(r15));
+  const mv2 = html.match(/adm-r15\.js\?v=(\d+)/);
+  check(`admin.html 의 adm-r15.js 버전이 5 이상 (?v=${mv2 ? mv2[1] : '없음'})`, !!mv2 && Number(mv2[1]) >= 5);
+}
+check('🔴 라벨에 이모지를 넣지 않는다 — 왼쪽 SVG 와 «아이콘 두 개»가 된다',
+  !/data-ko="[^"]*[\u{1F300}-\u{1FAFF}]/u.test(ia6));
+{
+  const q10 = rd('../cloudflare-deploy/public/js/adm-q10.js');
+  check('adm-q10(ph118): 하위 항목이 «원래 없는» 그룹은 빈 그룹으로 보지 않는다',
+    /if \(!subs\.length\) \{ g\.classList\.remove\('ph118-empty'\); return; \}/.test(q10));
+  check('그 규칙 자체는 살아 있다 (권한으로 다 감춰진 그룹은 여전히 숨김)',
+    /if \(visible === 0\) g\.classList\.add\('ph118-empty'\)/.test(q10));
+  const mq = html.match(/adm-q10\.js\?v=(\d+)/);
+  check(`admin.html 의 adm-q10.js 버전이 8 이상 (?v=${mq ? mq[1] : '없음'})`, !!mq && Number(mq[1]) >= 8);
 }
 
 console.log(`\n─────────────────────────────────────────────`);

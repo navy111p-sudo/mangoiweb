@@ -2,9 +2,9 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5" />
-  <title>🧠 복습퀴즈 — Mangoi</title>
+  <title>🧠 BTS/SIU 퀴즈 — mangoi.ai</title>
   <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0a1530" />
   <script src="/js/mango-i18n.js" defer></script>
@@ -83,8 +83,12 @@
     .rq-chip.score { color:var(--gold); }
     .rq-chip.combo { color:#fb7185; background:rgba(251,113,133,0.12); border-color:rgba(251,113,133,0.3); }
     .rq-chip.combo.hot { animation:comboPop .4s ease-out; }
+    /* 🔊 이 버튼은 «효과음»(정답·오답 삐 소리) 전용이다. 듣기 문항의 음성과 무관한데
+       아이콘만 있어서 «퀴즈 소리»로 오해를 샀다(2026-08-21 사장님 지적) → 글자를 함께 보여 준다. */
     .rq-mute { margin-left:auto; cursor:pointer; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12);
-      border-radius:99px; width:34px; height:34px; font-size:15px; color:var(--text); }
+      border-radius:99px; min-width:34px; height:34px; padding:0 11px; font-size:12px; font-weight:700;
+      color:var(--text); white-space:nowrap; display:inline-flex; align-items:center; gap:5px; }
+    .rq-mute .rq-mute-ico { font-size:15px; }
     @keyframes comboPop { 0%{transform:scale(1)} 40%{transform:scale(1.35)} 100%{transform:scale(1)} }
 
     /* ━━━ 어드벤처 진행 트랙 (망고가 전진) ━━━ */
@@ -148,6 +152,13 @@
       .top h1 { font-size:26px; }
       .top a  { font-size:20px; }
       .wrap { zoom:1.25; }
+      /* 2026-10-03 — 밝은 배경 위에서는 어두운 배경용 글자색(연한 금색·연회색)이 안 읽혀 PC 에서만 밝은 색으로 */
+      .intro { background:#ffffff; border-color:rgba(180,83,9,0.35); box-shadow:0 4px 14px rgba(15,23,42,0.10); }
+      .intro h2 { color:#b45309; }
+      .intro p { color:#334155; }
+      .intro p b { color:#0f172a; }
+      .rq-next-hint { color:#1e293b !important; font-weight:700; }
+      .rq-cn-link { color:#7f1d1d !important; background:#fff1f2 !important; }
     }
     @media (min-width:1200px) {
       .top h1 { font-size:32px; }
@@ -165,25 +176,41 @@
       .result-score { font-size:46px; }
     }
   </style>
-<script src="/js/game-track.js?v=3" defer></script>
+<script src="/js/game-track.js?v=4" defer></script>
 </head>
 <body>
   <div class="top">
-    <a href="/">← <span data-ko="홈" data-en="Home">홈</span></a>
-    <h1>🧠 <span data-ko="복습퀴즈" data-en="Review Quiz">복습퀴즈</span></h1>
+    <!-- ⬅ 화살표는 «직전 페이지» 로 (2026-09-01 사장님 지시 「화살표는 뒤로가기로 고쳐줘」).
+         📜 그전에는 이 화살표가 `href="/"` 라 «홈» 이었고, 우상단 공용 [🏠 홈] 과 합쳐 홈이
+            두 개인데 정작 «뒤로» 가 없었다. 2026-08-03 지시: ← 는 직전 페이지, 홈은 처음 화면.
+         ⚠️ 판정(히스토리 → 같은 오리진 referrer → 홈)은 복제하지 않고 back-nav.js 의 정본을
+            부른다. 그 파일이 아직 안 왔거나(defer) 캐시에 옛 사본이 있으면 `href="/"` 가
+            폴백이라 «홈으로는 간다» — 무반응이 되지 않는다.
+         ℹ️ 홈으로 가는 문은 우상단 공용 바 [🏠 홈](mango-i18n.js)이 이미 넣어 준다. -->
+    <a href="/" onclick="if(window.mangoiGoBack){event.preventDefault();window.mangoiGoBack();}">← <span data-ko="뒤로" data-en="Back">뒤로</span></a>
+    <h1>🧠 <span data-ko="BTS/SIU 퀴즈" data-en="BTS/SIU Quiz">BTS/SIU 퀴즈</span></h1>
   </div>
   <div class="wrap">
     <div id="listView">
       <div class="intro">
-        <h2 data-ko="🧠 선생님이 내주신 복습퀴즈" data-en="🧠 Review quizzes from your teacher">🧠 선생님이 내주신 복습퀴즈</h2>
+        <h2 data-ko="🧠 선생님이 내주신 BTS/SIU 퀴즈" data-en="🧠 BTS/SIU quizzes from your teacher">🧠 선생님이 내주신 BTS/SIU 퀴즈</h2>
         <p data-ko="📚 수업에서 배운 내용을 퀴즈로 복습해요. 풀고 나면 점수와 해설이 바로 나와요!" data-en="📚 Review what you learned in class. Get your score & explanations instantly!">📚 수업에서 배운 내용을 퀴즈로 복습해요. 풀고 나면 <b>점수와 해설</b>이 바로 나와요!</p>
       </div>
       <div id="quizList"><div class="empty-box" data-ko="⏳ 퀴즈를 불러오는 중…" data-en="⏳ Loading quizzes…">⏳ 퀴즈를 불러오는 중…</div></div>
 
+      <!-- 🇨🇳 중국어판으로 건너가기 (2026-08-17) — speech-coach.html 이 중국어 코치로 보내는 방식과 같다.
+           이 목록은 lang=en 으로 걸러 오므로 중국어 퀴즈는 여기 안 나온다. 갈 길을 만들어 둔다. -->
+      <div style="text-align:center;margin-top:16px">
+        <a href="/review-quiz-cn.html" class="rq-cn-link"
+           style="display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border-radius:12px;text-decoration:none;font-weight:700;font-size:14px;font-family:inherit;color:var(--text);background:linear-gradient(135deg,rgba(220,38,38,.22),rgba(245,158,11,.12));border:1px solid rgba(220,38,38,.55)">
+          🇨🇳 <span data-ko="중국어퀴즈" data-en="Chinese Quiz">중국어퀴즈</span>
+        </a>
+      </div>
+
       <!-- 🚀 퀴즈를 안 풀고도 바로 다른 곳으로 이동 (수업입장·AI 웜업·학생게임·녹화·나가기) -->
       <div style="text-align:center;margin-top:22px">
-        <div style="font-size:13px;color:var(--text2);margin-bottom:10px" data-ko="다른 활동으로 이동할까요?" data-en="Move to another activity?">다른 활동으로 이동할까요?</div>
-        <button onclick="window.MangoFlow&&MangoFlow.open('quiz')" style="display:inline-flex;align-items:center;gap:8px;padding:14px 30px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px -4px rgba(56,189,248,.5);font-family:inherit" data-ko="🚀 다음으로 이동 (수업·웜업·게임·나가기)" data-en="🚀 Go next (Class·Warm-up·Games·Exit)">🚀 다음으로 이동 (수업·웜업·게임·나가기)</button>
+        <div class="rq-next-hint" style="font-size:13px;color:var(--text2);margin-bottom:10px" data-ko="다른 활동으로 이동할까요?" data-en="Move to another activity?">다른 활동으로 이동할까요?</div>
+        <button onclick="window.MangoFlow&&MangoFlow.open('quiz')" style="display:inline-flex;align-items:center;gap:8px;padding:14px 30px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px -4px rgba(56,189,248,.5);font-family:inherit" data-ko="🚀 다음으로 이동 (수업·말하기 연습·게임·나가기)" data-en="🚀 Go next (Class·Speaking·Games·Exit)">🚀 다음으로 이동 (수업·말하기 연습·게임·나가기)</button>
       </div>
     </div>
     <div id="playView" style="display:none"></div>
@@ -228,7 +255,9 @@
     function sfxCorrect(combo){ var b=[523.25,659.25,783.99]; if(combo>=3) b.push(1046.5); if(combo>=5) b.push(1318.5); beep(b,0.15,'triangle',0.2); }
     function sfxWrong(){ beep([196,155.56],0.22,'sawtooth',0.11); }
     function sfxWin(){ beep([523.25,659.25,783.99,1046.5,1318.5],0.2,'triangle',0.22); }
-    window.toggleMute = function(btn){ SFX.muted=!SFX.muted; try{ localStorage.setItem('rq_muted', SFX.muted?'1':'0'); }catch(e){} if(btn) btn.textContent=SFX.muted?'🔇':'🔊'; if(!SFX.muted) beep([659.25],0.1,'triangle',0.15); };
+    window.toggleMute = function(btn){ SFX.muted=!SFX.muted; try{ localStorage.setItem('rq_muted', SFX.muted?'1':'0'); }catch(e){}
+      if(btn){ var _i=btn.querySelector('.rq-mute-ico'); if(_i) _i.textContent=SFX.muted?'🔇':'🔊'; else btn.textContent=SFX.muted?'🔇':'🔊'; }
+      if(!SFX.muted) beep([659.25],0.1,'triangle',0.15); };
 
     // ━━━ 🥭 망고 응원 대사 ━━━
     var CHEER_OK   = { ko:['정답이야! 🎉','완벽해! 🌟','대단한데?! 👏','바로 그거야! 🔥','천재인가 봐! 🧠','최고야! 😆'], en:["Correct! 🎉","Perfect! 🌟","Awesome! 👏","That's it! 🔥","Genius! 🧠","The best! 😆"] };
@@ -277,11 +306,42 @@
       if(resp.correct){ var sc=document.querySelector('.rq-chip.score'); if(sc){ var r=sc.getBoundingClientRect(); floatPop('+10', r.left+r.width/2, r.top); } }
     }
 
+    /* 🈶 (2026-08-26) 「중국어 수업 끝났는데 왜 영어가 나와?」 — 사장님 제보.
+       이 화면은 lang=en 하드코딩이라 «구조적으로» 영어만 나온다. 중국어는 /review-quiz-cn.html
+       이라는 «다른 페이지» 인데, 그리로 가는 길이 목록 **맨 아래** 에만 있어 아무도 못 찾았다
+       (퀴즈가 여러 개면 스크롤 밖이다 — 「띄웠다」와 「보인다」는 다르다).
+       → 마지막으로 중국어를 본 학생에게는 **맨 위** 에도 같은 길을 놓는다.
+       ⛔ 자동으로 넘기지는 않는다 — 영어 퀴즈를 풀러 온 학생을 납치하게 된다.
+       ⚠️ 판정 키는 수업 화면(idx-x8.js·idx-vc-mobilefix.js ⑩)이 쓰는 바로 그 칸이다. */
+    function zhHintTop() {
+      var last = '';
+      try { last = localStorage.getItem('mangoi_review_lang') || localStorage.getItem('mangoi_game_lang') || ''; } catch(e){}
+      if (last !== 'zh') return;
+      if (document.getElementById('rq-zh-top')) return;
+      var box = document.getElementById('quizList');
+      if (!box || !box.parentNode) return;
+      var a = document.createElement('a');
+      a.id = 'rq-zh-top';
+      a.href = '/review-quiz-cn.html';
+      a.setAttribute('style', 'display:flex;align-items:center;gap:9px;margin:0 0 14px;padding:13px 16px;'
+        + 'border-radius:12px;text-decoration:none;font-weight:800;font-size:14.5px;font-family:inherit;'
+        + 'color:var(--text);background:linear-gradient(135deg,rgba(220,38,38,.22),rgba(245,158,11,.12));'
+        + 'border:1px solid rgba(220,38,38,.55);line-height:1.35');
+      a.innerHTML = '<span style="font-size:20px;flex:0 0 auto">\uD83C\uDDE8\uD83C\uDDF3</span><span>'
+        + (isEn() ? 'You were studying Chinese \u2014 open the Chinese review quiz'
+                  : '\uC911\uAD6D\uC5B4 \uC218\uC5C5\uC744 \uB4E4\uC73C\uC168\uB124\uC694 \u2014 \uC911\uAD6D\uC5B4 \uBCF5\uC2B5\uD034\uC988\uB85C \uAC00\uAE30')
+        + '</span>';
+      box.parentNode.insertBefore(a, box);
+    }
+
     // ───── 목록 ─────
     async function loadList() {
       var box = document.getElementById('quizList');
       try {
-        var r = await fetch('/api/review-quiz/list?user_id=' + encodeURIComponent(ME.uid) + '&token=' + encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })())).then(function(x){ return x.json(); });
+        zhHintTop();
+        // 🈶 lang=en — 중국어 퀴즈는 /review-quiz-cn.html 쪽 몫이다. 안 붙이면 여기에 섞여 나온다.
+        //    서버는 en 을 「lang='en' 또는 예전 NULL 행」으로 읽는다(하위호환).
+        var r = await fetch('/api/review-quiz/list?user_id=' + encodeURIComponent(ME.uid) + '&token=' + encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })()) + '&lang=en').then(function(x){ return x.json(); });
         if (!r.ok) throw new Error(r.error||'load_fail');
         if (!r.quizzes.length) {
           box.innerHTML = '<div class="empty-box">📭 ' + (isEn() ? 'No quizzes yet. Your teacher will add some soon!' : '아직 등록된 퀴즈가 없어요.<br>선생님이 곧 퀴즈를 올려주실 거예요!') + '</div>';
@@ -337,7 +397,7 @@
       var hud = '<div class="rq-hud">'
         + '<span class="rq-chip score">⭐ ' + (state.correctCount*10) + (isEn()?'':'점') + '</span>'
         + (comboOn ? '<span class="rq-chip combo' + (animate?' hot':'') + '">🔥 ' + state.combo + (isEn()?' combo':' 콤보') + '</span>' : '')
-        + '<button class="rq-mute" type="button" onclick="toggleMute(this)" title="' + (isEn()?'Sound on/off':'소리 켜기/끄기') + '">' + (SFX.muted?'🔇':'🔊') + '</button>'
+        + '<button class="rq-mute" type="button" onclick="toggleMute(this)" aria-label="' + (isEn()?'Sound effects on/off':'효과음 켜기 끄기') + '" title="' + (isEn()?'Sound effects (right/wrong chime) — the listening audio is the «🔊 Play audio» button inside the question':'효과음(정답·오답 소리) 켜기·끄기 — 듣기 문항의 음성은 문제 안의 «🔊 음성 듣기» 버튼입니다') + '"><span class="rq-mute-ico">' + (SFX.muted?'🔇':'🔊') + '</span>' + (isEn()?'SFX':'효과음') + '</button>'
         + '</div>';
 
       // ── 어드벤처 트랙: 망고가 골(🏁)을 향해 전진 ──
@@ -626,7 +686,7 @@
 
     loadList();
   </script>
-<!-- BUILD:20260813001216 -->
+<!-- BUILD:20260813015745 -->
 <!-- ━━━ 복습퀴즈 선생님 영상 메시지 팝업 (1회만 표시) ━━━ -->
 <div id="rq-video-pop" style="display:none;position:fixed;top:64px;right:14px;z-index:99998;width:220px;background:rgba(13,20,40,0.97);border:1px solid rgba(251,191,36,0.45);border-radius:18px;box-shadow:0 14px 40px -6px rgba(0,0,0,0.6);overflow:hidden;font-family:MangoiHanSC,'Noto Sans KR',-apple-system,sans-serif;backdrop-filter:blur(8px)">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px 6px;border-bottom:1px solid rgba(255,255,255,0.08)">
@@ -676,6 +736,7 @@
 </script>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
-<script defer src="/js/flow.js?v=13"></script>
+<script defer src="/js/flow.js?v=23"></script>
+<script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 </body>
 </html>

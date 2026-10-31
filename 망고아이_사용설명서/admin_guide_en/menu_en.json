@@ -1,0 +1,490 @@
+[
+  {
+    "icon": "📝",
+    "ko": "평가서 통합",
+    "en": "Evaluations",
+    "subs": [
+      {
+        "ko": "평가서 작성",
+        "en": "Write Evaluation",
+        "card": "card-eval-mgmt"
+      },
+      {
+        "ko": "일괄 평가",
+        "en": "Bulk Evaluation",
+        "card": "card-bulk-eval"
+      },
+      {
+        "ko": "AI 수업 리포트",
+        "en": "AI Lesson Report",
+        "card": "card-ai-lesson-report"
+      },
+      {
+        "ko": "AI 초안",
+        "en": "AI Draft",
+        "card": "card-ai-eval-draft"
+      },
+      {
+        "ko": "월별 리포트",
+        "en": "Monthly Report",
+        "card": "card-monthly-report"
+      },
+      {
+        "ko": "📊 비교 리포트",
+        "en": "📊 Comparison Report",
+        "card": "card-comparison-report"
+      }
+    ]
+  },
+  {
+    "icon": "📢",
+    "ko": "알림 센터",
+    "en": "Notification Center",
+    "subs": [
+      {
+        "ko": "웹 푸시",
+        "en": "Web Push",
+        "card": "card-webpush-mgmt"
+      },
+      {
+        "ko": "카카오 알림",
+        "en": "Kakao Alerts",
+        "card": "card-kakao-mgmt"
+      },
+      {
+        "ko": "📢 공지 스튜디오",
+        "en": "📢 Notice Studio",
+        "card": "card-poster-maker"
+      },
+      {
+        "ko": "📢 팝업 게시",
+        "en": "📢 Popup Posting",
+        "card": "card-popups-mgmt"
+      },
+      {
+        "ko": "이벤트 알림",
+        "en": "Event Alerts",
+        "card": "card-notifications"
+      },
+      {
+        "ko": "📌 공지사항 ⭐신규",
+        "en": "📌 Notices ⭐NEW",
+        "card": "card-notice-board"
+      }
+    ]
+  },
+  {
+    "icon": "👨‍🏫",
+    "ko": "강사 통합",
+    "en": "Teachers",
+    "subs": [
+      {
+        "ko": "강사 관리",
+        "en": "Teacher Management",
+        "card": "card-teacher-mgmt"
+      },
+      {
+        "ko": "자동 급여",
+        "en": "Auto Payroll",
+        "card": "card-payroll-auto"
+      },
+      {
+        "ko": "📅 연기·변경 요청 ⭐신규",
+        "en": "📅 Reschedule Requests ⭐NEW",
+        "card": "card-schedule-requests"
+      },
+      {
+        "ko": "🐞 버그·피드백 접수함 ⭐신규",
+        "en": "🐞 Bug & Feedback Inbox ⭐NEW",
+        "card": "card-bug-reports"
+      },
+      {
+        "ko": "📜 수업 변경 이력 ⭐신규",
+        "en": "📜 Class Change History ⭐NEW",
+        "card": "card-class-audit"
+      },
+      {
+        "ko": "⭐ 학생 수업 평가",
+        "en": "⭐ Student Class Ratings",
+        "card": "card-class-ratings"
+      },
+      {
+        "ko": "급여 관리",
+        "en": "Payroll",
+        "card": "card-payroll"
+      },
+      {
+        "ko": "MBTI",
+        "en": "MBTI",
+        "card": "card-mbti-mgmt"
+      },
+      {
+        "ko": "칭찬 통계",
+        "en": "Praise Stats",
+        "card": "card-praise-stats"
+      },
+      {
+        "ko": "👁 강사 슈퍼바이저",
+        "en": "👁 Teacher Supervisor",
+        "card": "card-supervisor"
+      },
+      {
+        "ko": "📨 방 초대 관리",
+        "en": "📨 Room Invite Management",
+        "card": "card-room-invite"
+      },
+      {
+        "ko": "🗓 시간표 ⭐신규",
+        "en": "🗓 Timetable ⭐NEW",
+        "card": "card-timetable"
+      },
+      {
+        "ko": "📝 수업 일지 ⭐신규",
+        "en": "📝 Lesson Log ⭐NEW",
+        "card": "card-lesson-log"
+      },
+      {
+        "ko": "📋 보고서 양식",
+        "en": "📋 Report Forms",
+        "card": "card-report-forms"
+      }
+    ]
+  },
+  {
+    "icon": "📊",
+    "ko": "통계 / KPI",
+    "en": "Stats / KPI",
+    "subs": [
+      {
+        "ko": "KPI 대시보드",
+        "en": "KPI Dashboard",
+        "card": "card-kpi-dashboard"
+      },
+      {
+        "ko": "일별 차트",
+        "en": "Daily Charts",
+        "card": "card-daily-charts"
+      },
+      {
+        "ko": "랭킹",
+        "en": "Rankings",
+        "card": "card-rankings"
+      },
+      {
+        "ko": "이탈 위험",
+        "en": "Churn Risk",
+        "card": "card-retention-risk"
+      },
+      {
+        "ko": "🗑 보관기간 파기",
+        "en": "🗑 Retention Purge",
+        "card": "card-retention"
+      },
+      {
+        "ko": "🔴 실시간 수업 (활성 룸)",
+        "en": "🔴 Live Classes (Active Rooms)",
+        "card": "card-active-rooms"
+      },
+      {
+        "ko": "📈 월별 NPS",
+        "en": "📈 Monthly NPS",
+        "card": "card-nps-monthly"
+      },
+      {
+        "ko": "🔮 AI 예측",
+        "en": "🔮 AI Forecast",
+        "card": "card-ai-forecast"
+      },
+      {
+        "ko": "🎙 음성 통계",
+        "en": "🎙 Voice Stats",
+        "card": "card-voice-stats"
+      }
+    ]
+  },
+  {
+    "icon": "💰",
+    "ko": "회계 / 포인트",
+    "en": "Accounting / Points",
+    "subs": [
+      {
+        "ko": "회계 관리",
+        "en": "Accounting Management",
+        "card": "card-accounting-mgmt"
+      },
+      {
+        "ko": "🏢 BtoB 결제관리",
+        "en": "🏢 B2B Payments",
+        "card": "card-payments-b2b"
+      },
+      {
+        "ko": "👨‍👩‍👧 BtoC 결제관리",
+        "en": "👨‍👩‍👧 B2C Payments",
+        "card": "card-payments-b2c"
+      },
+      {
+        "ko": "🔄 정기 결제",
+        "en": "🔄 Recurring Billing",
+        "card": "card-recurring-billing"
+      },
+      {
+        "ko": "💸 자동 수금",
+        "en": "💸 Auto Collection",
+        "card": "card-auto-dunning"
+      },
+      {
+        "ko": "📊 정산 통계",
+        "en": "📊 Settlement Stats",
+        "card": "card-settlement-stats"
+      },
+      {
+        "ko": "포인트 관리",
+        "en": "Points Management",
+        "card": "card-points-mgmt"
+      },
+      {
+        "ko": "🏢 Capitown Settlement ⭐New",
+        "en": "🏢 Capitown Settlement ⭐New",
+        "card": null
+      }
+    ]
+  },
+  {
+    "icon": "👥",
+    "ko": "학생 / 학부모",
+    "en": "Students / Parents",
+    "subs": [
+      {
+        "ko": "📅 학원 전체 스케줄",
+        "en": "📅 Academy Full Schedule",
+        "card": "sm-all-schedules"
+      },
+      {
+        "ko": "학생 관리",
+        "en": "Student Management",
+        "card": "card-students-mgmt"
+      },
+      {
+        "ko": "📊 학원별 학생 수업현황",
+        "en": "📊 Student Class Status by Academy",
+        "card": "card-school-attendance-stats"
+      },
+      {
+        "ko": "👨‍👩‍👧‍👦 가족 관리",
+        "en": "👨‍👩‍👧‍👦 Family Management",
+        "card": "card-family-mgmt"
+      },
+      {
+        "ko": "문의 관리",
+        "en": "Inquiry Management",
+        "card": "card-inquiry-mgmt"
+      },
+      {
+        "ko": "등록 관리",
+        "en": "Enrollment Management",
+        "card": "card-enrollments"
+      },
+      {
+        "ko": "뱃지 관리",
+        "en": "Badge Management",
+        "card": "card-badges-mgmt"
+      },
+      {
+        "ko": "커뮤니티",
+        "en": "Community",
+        "card": "card-community"
+      },
+      {
+        "ko": "📅 상담 예약",
+        "en": "📅 Counseling Booking",
+        "card": "card-counseling-booking"
+      },
+      {
+        "ko": "📰 학부모 요약",
+        "en": "📰 Parent Digest",
+        "card": "card-parent-digest"
+      },
+      {
+        "ko": "🤖 학부모 FAQ봇",
+        "en": "🤖 Parent FAQ Bot",
+        "card": "card-parent-faq-bot"
+      },
+      {
+        "ko": "🎁 친구 추천",
+        "en": "🎁 Refer a Friend",
+        "card": "card-referral"
+      },
+      {
+        "ko": "🎓 졸업생 커뮤니티",
+        "en": "🎓 Alumni Community",
+        "card": "card-alumni"
+      },
+      {
+        "ko": "📷 사진/영상 갤러리 ⭐신규",
+        "en": "📷 Photo/Video Gallery ⭐NEW",
+        "card": "card-gallery"
+      }
+    ]
+  },
+  {
+    "icon": "📚",
+    "ko": "교육 / 콘텐츠",
+    "en": "Education / Content",
+    "subs": [
+      {
+        "ko": "🧠 Review Quiz",
+        "en": "🧠 Review Quiz",
+        "card": "card-review-quiz"
+      },
+      {
+        "ko": "교재 콘텐츠",
+        "en": "Textbook Content",
+        "card": "card-textbooks"
+      },
+      {
+        "ko": "📖 마이크로러닝",
+        "en": "📖 Microlearning",
+        "card": "card-microlearn"
+      },
+      {
+        "ko": "🎯 미니 토익",
+        "en": "🎯 Mini TOEIC",
+        "card": "card-mini-toeic"
+      },
+      {
+        "ko": "🗣 발음 교정",
+        "en": "🗣 Pronunciation",
+        "card": "card-pronunciation"
+      },
+      {
+        "ko": "🎬 영상 사전",
+        "en": "🎬 Video Dictionary",
+        "card": "card-video-dict"
+      },
+      {
+        "ko": "🎙 음성 일기",
+        "en": "🎙 Voice Diary",
+        "card": "card-voice-diary"
+      },
+      {
+        "ko": "📊 레벨테스트",
+        "en": "📊 Level Test",
+        "card": "card-level-tests"
+      },
+      {
+        "ko": "⚔ 영어 배틀",
+        "en": "⚔ English Battle",
+        "card": "card-battle-mgmt"
+      },
+      {
+        "ko": "💾 녹화 보관",
+        "en": "💾 Recording Storage",
+        "card": "card-recording-storage"
+      },
+      {
+        "ko": "📚 숙제 관리 ⭐신규",
+        "en": "📚 Homework ⭐NEW",
+        "card": "card-homework"
+      }
+    ]
+  },
+  {
+    "icon": "📚",
+    "ko": "자료실",
+    "en": "Library",
+    "subs": [
+      {
+        "ko": "📕 관리자 자료실",
+        "en": "📕 Admin Library",
+        "card": "card-lib-admin"
+      },
+      {
+        "ko": "👨‍🏫 강사 자료실",
+        "en": "👨‍🏫 Teacher Library",
+        "card": "card-lib-teacher"
+      },
+      {
+        "ko": "🏢 지사 자료실",
+        "en": "🏢 Branch Library",
+        "card": "card-lib-branch"
+      },
+      {
+        "ko": "🏬 대리점 자료실",
+        "en": "🏬 Agency Library",
+        "card": "card-lib-agency"
+      },
+      {
+        "ko": "🎒 학생·학부모 자료실",
+        "en": "🎒 Student·Parent Library",
+        "card": "card-lib-student"
+      }
+    ]
+  },
+  {
+    "icon": "⚙",
+    "ko": "시스템",
+    "en": "System",
+    "subs": [
+      {
+        "ko": "📅 캘린더 관리",
+        "en": "📅 Calendar Management",
+        "card": "card-calendar"
+      },
+      {
+        "ko": "권한 관리",
+        "en": "Permissions",
+        "card": "card-permissions"
+      },
+      {
+        "ko": "가맹점",
+        "en": "Franchises",
+        "card": "card-franchises"
+      },
+      {
+        "ko": "센터",
+        "en": "Centers",
+        "card": "card-centers"
+      },
+      {
+        "ko": "데이터 추출",
+        "en": "Data Export",
+        "card": "card-data-export"
+      },
+      {
+        "ko": "🔔 관리자 알림",
+        "en": "🔔 Admin Alerts",
+        "card": "card-admin-alerts"
+      },
+      {
+        "ko": "👻 Ghost View",
+        "en": "👻 Ghost View",
+        "card": "card-admin-ghost"
+      },
+      {
+        "ko": "💬 귓속말",
+        "en": "💬 Whisper",
+        "card": "card-admin-whisper"
+      },
+      {
+        "ko": "📋 출결 상태",
+        "en": "📋 Attendance Status",
+        "card": "card-attendance-status"
+      },
+      {
+        "ko": "📷 QR 출결",
+        "en": "📷 QR Attendance",
+        "card": "card-auto-attendance"
+      },
+      {
+        "ko": "📝 수업 출결",
+        "en": "📝 Class Attendance",
+        "card": "card-class-attendance"
+      },
+      {
+        "ko": "📋 보고서 양식",
+        "en": "📋 Report Forms",
+        "card": "card-report-forms"
+      }
+    ]
+  }
+]

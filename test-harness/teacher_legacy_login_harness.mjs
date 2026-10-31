@@ -32,7 +32,7 @@ try {
 } finally {
   try { if (existsSync(OUT)) unlinkSync(OUT); } catch { /* 정리 실패 무시 */ }
 }
-const { verifyLegacyLmsLogin, provisionTeacherAccount, legacyLoginEnabled } = mod;
+const { verifyLegacyLmsLogin, provisionTeacherAccount, legacyLoginEnabled, legacyProvisionGate, lookupTeacherByLoginId } = mod;
 
 let pass = 0, fail = 0;
 const ok = (cond, label) => { if (cond) { pass++; console.log('  ✅ ' + label); } else { fail++; console.log('  ❌ ' + label); } };
@@ -119,7 +119,16 @@ console.log('\n▶ 3. 계정 자동 생성 — 강사 권한 고정 · 평문 �
 const stmts = [];
 const dbStub = {
   exec: async (sql) => { stmts.push({ sql, binds: [] }); },
-  prepare: (sql) => ({ bind: (...b) => ({ run: async () => { stmts.push({ sql, binds: b }); } }) }),
+  /* 🔤 (2026-08-24) 가짜 D1 도 first()/all() 을 갖춰야 한다 — 진짜 D1 에는 있는데
+     여기에만 없으면, 조회를 한 줄 더한 것만으로 «TypeError 로 하니스가 죽는다»
+     (실제로 그렇게 밟았다). 읽기는 «없음» 으로 답한다: 이 검사는 «새로 만드는» 쪽만 본다. */
+  prepare: (sql) => ({
+    bind: (...b) => ({
+      run: async () => { stmts.push({ sql, binds: b }); },
+      first: async () => { stmts.push({ sql, binds: b, read: true }); return null; },
+      all: async () => { stmts.push({ sql, binds: b, read: true }); return { results: [] }; },
+    }),
+  }),
 };
 await provisionTeacherAccount({ DB: dbStub }, 'anna.cruz@example.com', 'SALT$deadbeef', { name: 'Anna Cruz', teacher_id: '77', matched: true });
 const scopeStmt = stmts.find(s => /INSERT INTO admin_scope/i.test(s.sql));
@@ -130,6 +139,48 @@ ok(!!acctStmt && acctStmt.binds.includes('SALT$deadbeef'), 'admin_account 에 �
 ok(!!acctStmt && !acctStmt.binds.some(b => typeof b === 'string' && /^pw|password$/i.test(b)), '평문 비밀번호는 바인딩되지 않음');
 ok(stmts.some(s => /teacher_legacy_accounts/i.test(s.sql)), '이관 현황 테이블에 기록(관리자 확인용)');
 
+console.log('\n▶ 3-1. (2026-10-25) 강사 명부에 없는 LMS 회원(대리점·지사)은 강사로 만들지 않는다');
+//   사고: 대리점 아이디 masteraca 가 옛 LMS 통과 → scope_type='teacher' 계정 생성 → /teacher 로 감.
+ok(typeof legacyProvisionGate === 'function', '판정 정본 legacyProvisionGate 가 있음');
+ok(legacyProvisionGate({ name: 'Anna Cruz', matched: true }).allow === true, '명부에서 찾은 강사 → 허용 (짝: 진짜 강사는 그대로 들어온다)');
+let g = legacyProvisionGate({ name: 'masteraca', matched: false });
+ok(g.allow === false && g.reason === 'not_in_teacher_roster', '명부에 없음(대리점 등) → 거절 not_in_teacher_roster');
+g = legacyProvisionGate({ name: 'x', matched: false, lookup_failed: true });
+ok(g.allow === false && g.reason === 'roster_lookup_failed', '명부 조회 실패 → 거절 roster_lookup_failed (모르면 강사 권한 안 줌)');
+g = legacyProvisionGate({ name: 'x', matched: true, lookup_failed: true });
+ok(g.allow === false, 'matched 여도 조회 실패 표시가 있으면 거절');
+ok(legacyProvisionGate(null).allow === false && legacyProvisionGate(undefined).allow === false, 'info 없음 → 거절');
+ok(legacyProvisionGate({ name: 'x', matched: 'yes' }).allow === false, 'matched 가 true 가 아니면(truthy 문자열) 거절');
+
+// 명부 조회가 «실패» 하면 «못 찾음» 이 아니라 lookup_failed 로 돌아와야 한다(실제로 돌려 봄 — Neo4j 호출이 던지게)
+{
+  const saved = global.fetch;
+  global.fetch = async () => { throw new Error('neo4j down'); };
+  const li = await lookupTeacherByLoginId({ DB: null, NEO4J_QUERY_URL: 'https://neo4j.test/db/neo4j/query/v2', NEO4J_USER: 'u', NEO4J_PASSWORD: 'p' }, 'masteraca');
+  global.fetch = saved;
+  ok(li && li.matched === false && li.lookup_failed === true, '명부 조회 실패 → matched:false + lookup_failed:true');
+  ok(legacyProvisionGate(li).allow === false, '그 결과로는 강사 계정이 안 만들어짐');
+}
+
+// 정본(provisionTeacherAccount)도 스스로 막는다 — 부르는 쪽이 게이트를 빠뜨려도 쓰기 0건
+stmts.length = 0;
+let threw = false;
+try { await provisionTeacherAccount({ DB: dbStub }, 'masteraca', 'SALT$x', { name: 'masteraca', matched: false }); } catch { threw = true; }
+ok(threw && !stmts.some(s => /INSERT/i.test(s.sql) && !s.read), '명부 미매칭이면 provisionTeacherAccount 가 던지고 INSERT 0건');
+stmts.length = 0; threw = false;
+try { await provisionTeacherAccount({ DB: dbStub }, 'anna2', 'SALT$y', { name: 'Anna', matched: true }); } catch { threw = true; }
+ok(!threw && stmts.some(s => /INSERT INTO admin_scope/i.test(s.sql)), '명부 매칭이면 그대로 생성 (짝)');
+
+// 로그인 라우트가 게이트를 «만드는 줄보다 먼저» 부르고 그 결과로 돌아가는가
+{
+  const auth = readFileSync(resolve(root, 'cloudflare-deploy', 'src', 'auth-admin.ts'), 'utf8');
+  const iGate = auth.indexOf('const gate = legacyProvisionGate(info);');
+  const iProv = auth.indexOf('await provisionTeacherAccount(env as any, username');
+  ok(iGate > 0 && iProv > iGate, '로그인 라우트: 게이트 → 계정 생성 순서');
+  const between = auth.slice(iGate, iProv);
+  ok(/if \(!gate\.allow\) \{[\s\S]*?return json\(/.test(between), '로그인 라우트: 거절이면 계정을 만들기 전에 return');
+}
+
 console.log('\n▶ 4. 소스 가드 (구조가 되돌려지면 실패)');
 
 const SRC = allSrc();
@@ -137,7 +188,16 @@ ok(/scopeType === 'teacher'\)\s*return \{ role: 'teacher'/.test(SRC),
    "resolveRole 이 scope_type='teacher' 를 교사로 판정");
 ok(/if \(!row\) \{[\s\S]{0,400}?legacyLoginEnabled/.test(SRC),
    '계정이 없을 때(!row)만 옛 LMS 폴백 진입');
-ok(/} else \{[\s\S]{0,200}?verifyPassword\(password, row\.password_hash\)[\s\S]{0,200}?wrong_password/.test(SRC),
+/* ⚠️ (2026-08-24) 「뜻」으로 검사한다 — 예전엔 `} else { … verifyPassword(password, row.password_hash) … }`
+   라는 **한 덩어리 모양**을 못 박아 뒀다. 아이디 대소문자 무시를 넣으면서 검증이
+   «후보 루프» 로 옮겨 가자, 보장은 그대로인데 검사만 깨졌다.
+   지켜야 하는 것은 둘뿐이다:
+     ① 비번을 **새 시스템 해시**로 검증한다(옛 LMS 비번으로 우회 불가)
+     ② 계정이 있는데 비번이 틀리면 **401 로 끝난다** — 옛 LMS 로 폴백하지 않는다
+        (폴백하면 새 시스템에서 비번을 바꾼 의미가 사라지고, 계정이 또 생길 수도 있다) */
+ok(/verifyPassword\(password, c\.password_hash\)/.test(SRC),
+   '계정 후보의 비번을 새 시스템 해시로 검증한다');
+ok(/if \(!row && candRows\.length\)[\s\S]{0,300}?'wrong_password'[\s\S]{0,200}?401\)/.test(SRC),
    '계정이 있으면 새 시스템 비번만 검증(옛 비번으로 우회 불가)');
 ok(/hashPassword\(password\)[\s\S]{0,200}?provisionTeacherAccount/.test(SRC),
    '자동 생성 시 새 방식으로 해시한 뒤 저장');
@@ -153,11 +213,24 @@ const IDX = readPageSource('index.html');   // 분해 대응
 //   강사(아이디가 capi… 로 시작할 수 있음)가 캐피타운 정산 화면으로 새어 나간다.
 //   주석이 사이에 들어가도 깨지지 않도록 '순서'만 본다.
 {
-  const iDest = IDX.indexOf("var dest = '/admin.html';");
+  /* (2026-08-20) 첫 화면 판정의 «정본» 이 서버(auth-admin.ts 의 home_path)로 옮겨졌다.
+     ⚠️ 글자 `var dest = '/admin.html';` 을 그대로 찾던 옛 검사는 서버 값을 얹는 순간 깨졌다.
+        깨진 것은 «보호» 가 아니라 «찾는 글자» 다 — 지켜야 할 것은 순서뿐이니 순서만 본다. */
+  const iDest = IDX.search(/var dest = .*'\/admin\.html'/);
   const iTeacher = IDX.indexOf("String(role).indexOf('teacher') >= 0", iDest);
   const iCapi = IDX.indexOf("uid.indexOf('capi') === 0", iDest);
   ok(iDest >= 0 && iTeacher > iDest && iCapi > iTeacher,
-     '홈 로그인: 교사 판정이 아이디 접두사(capi…)보다 먼저');
+     '홈 로그인(폴백): 교사 판정이 아이디 접두사(capi…)보다 먼저');
+
+  /* 🏠 서버가 정하는 쪽도 같은 순서를 지켜야 한다. isTeacher 를 먼저 거르지 않으면
+        capi… 아이디를 가진 옛 LMS 강사가 매니저 포털로 새어 나간다. 화면 폴백만 지키면
+        정작 «정본» 이 뚫린 채로 통과한다. */
+  const AUTH = readFileSync(resolve(root, 'cloudflare-deploy', 'src', 'auth-admin.ts'), 'utf8');
+  const iHome = AUTH.indexOf('const homePath =');
+  const iIsT  = AUTH.indexOf('isTeacher ?', iHome);
+  const iRole = AUTH.indexOf("rr.role === 'branch'", iHome);
+  ok(iHome >= 0 && iIsT > iHome && iRole > iIsT,
+     '서버 home_path: 교사 판정이 역할 판정보다 먼저');
   ok(/indexOf\('teacher'\) >= 0\) dest = '\/teacher'/.test(IDX),
      '홈 로그인: 교사는 초경량 강사 포털(/teacher)로 이동');
 }

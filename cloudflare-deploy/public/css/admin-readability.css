@@ -29,7 +29,15 @@
 :root {
   /* MangoiHanSC 가 «맨 앞» 이어야 한다. 뒤에 두면 한글 글꼴(Pretendard·맑은 고딕)에
      한자 정자체가 들어 있어서 공통 한자(我·的)를 먼저 그려 한 단어에 두 글꼴이 섞인다.
-     unicode-range 로 한자 영역만 잡으므로 한글·영문·숫자는 아래 목록 그대로다. */
+     ⛔ (2026-08-16) 여기서 MangoiHanSC 를 뺐다가 되돌렸다 — hanzi_font_harness 가 잡는다.
+        (같은 사고가 세 번 재발해서 만든 가드이고, 관리자도 2026-08-04 사장님 지시로 통일 대상)
+     📌 다만 옛 주석의 «unicode-range 로 한자 영역만 잡으므로 한글·영문·숫자는 그대로다» 는
+        **사실과 다르다.** mangoi-han.css 의 범위에는 한자뿐 아니라 U+3000-303F
+        (CJK 문장부호 「」『』、。)와 U+FF00-FFEF(전각)도 들어 있다. 관리자 도움말이
+        「 」 를 즐겨 쓰므로 **한자가 한 글자도 없는 화면에서도 983KB 를 받는다**
+        (실측 2026-08-16: 페이지 열고 1.8초에 요청. 관리자 하위 페이지 13개는 한자가 0개인데도 받는다).
+        아끼려면 이 목록이 아니라 mangoi-han.css 의 unicode-range 에서 문장부호·전각을 빼야 한다.
+        그 파일은 학생 게임과 함께 쓰는 다른 담당 영역이라 합의 후에 손댈 일이다. */
   --mg-font-sans: MangoiHanSC, 'Pretendard Variable', Pretendard, 'Noto Sans KR',
     -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
     'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;

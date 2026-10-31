@@ -114,15 +114,17 @@
           if (session.canceled) return finish('');
           var blob = new Blob(chunks, { type: (chunks[0] && chunks[0].type) || 'audio/webm' });
           if (!blob.size || blob.size < 1200) { onState('error', { reason: 'no_audio' }); return finish(''); }
+          if (typeof opts.onAudio === 'function') { try { opts.onAudio(blob); } catch (e) {} }
           onState('thinking', {});
-          // 실제 녹음 형식에 맞는 파일 이름으로 보낸다 (iOS = mp4/m4a, 그 외 = webm)
           var bt = String(blob.type || pickedMime || '');
           var ext = /mp4|aac|m4a/i.test(bt) ? 'm4a' : (/ogg/i.test(bt) ? 'ogg' : 'webm');
           var fd = new FormData();
           fd.append('audio', blob, 'speech.' + ext);
           if (opts.lang) fd.append('lang', opts.lang);
-          fetch('/api/voice/transcribe', { method: 'POST', body: fd })
-            .then(function (r) { return r.ok ? r.json() : null; })
+          var upload = typeof opts.transcribe === 'function'
+            ? Promise.resolve().then(function(){ if(session.canceled)return null; return opts.transcribe(fd); })
+            : fetch('/api/voice/transcribe', { method: 'POST', body: fd }).then(function (r) { return r.ok ? r.json() : null; });
+          upload
             .then(function (d) {
               if (session.canceled) return finish('');
               if (!d || !d.ok) { onState('error', { reason: 'server' }); return finish(''); }

@@ -39,8 +39,13 @@
   var HALF_LIFE = 7;                     // 가중치 반감기(일)
   var KEEP_DAYS = 30;                    // 이보다 오래된 기록은 잊는다
 
+  /* 🌐 언어 판정 — 정본은 window.adminLang (adm-lang-boot.js 가 정하고, adm-core.js 의
+     `var adminLang` 이 같은 바인딩이라 KO/EN 토글까지 따라온다. 저장 키는 mangoi_lang).
+     ⚠️ 예전엔 localStorage 'adminLang' 을 읽었는데 그 키는 **아무도 저장하지 않는 죽은 키**라
+        EN 스태프에게도 늘 한국어였다(2026-08-27 수리). ⛔ 그 키에 쓰는 방식으로 되살리지 말 것. */
   function isEn() {
-    try { return localStorage.getItem('adminLang') === 'en'; } catch (e) { return false; }
+    if (window.adminLang === 'en' || window.adminLang === 'ko') return window.adminLang === 'en';
+    try { return (localStorage.getItem('mangoi_lang') || '') === 'en'; } catch (e) { return false; }
   }
 
   /* ── 기본 순서 10개 ──────────────────────────────────────────────────────
@@ -48,7 +53,34 @@
      card = 이동할 카드 id (= ia6 항목의 cards[0])
      sub  = 그 안에서 추가로 펼쳐 내려갈 요소 id (없으면 null) */
   var ITEMS = [
-    { key: '오늘수업',   ko: '오늘 수업 (바로 입장)',   en: "Today's classes (join)",
+    /* 🧾 결재함 — **이 표의 첫 칸**. 다른 항목과 달리 이 화면의 카드가 아니라 딴 페이지로 간다.
+       [왜 여기 넣었나] 2026-08-20 까지는 이 표 «위» 에 초록 줄이 따로 떠 있었다. 급히 만든
+          입구라 표 밖에 있어 어색했고, 사이드바에도 결재함이 생기면서 입구가 셋이 됐다.
+          표 안으로 들여 하나 줄인다.
+       ⚠️ card 가 없으므로 usable()·roleHidden() 이 판정할 대상이 없다 — href 항목은 그대로 통과시킨다.
+       ⚠️ 순서 학습(freezeOrder)이 이 칸을 아래로 밀지 않도록 pin 을 준다. 결재는 «누가 답을
+          기다리는» 일이라 덜 눌렀다는 이유로 뒤로 가면 안 된다. */
+    { key: '결재함', ko: '결재함', en: 'Approvals',
+      card: null, sub: null, href: '/work', pin: true,
+      /* 🔐 (2026-09-24) 결재는 본사·강사 전용이다(서버 api-approval.ts 가 지사·대리점을 403).
+         지사 계정에 이 칸이 보이면 «누를 수는 있는데 들어갈 수 없는» 버튼이 된다 — 사이드바
+         결재함(adm-ia6.js)과 **같은 목록**으로 감춘다. 역할을 모르면 감추지 않는다(fail-open). */
+      hideFrom: ['franchise', 'branch', 'agency'],
+      ico: '<path d="M3 13h4l2 3h6l2-3h4"/><path d="M5.5 5h13l2.5 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/>' },
+
+    /* 🗼 (2026-10-21 사장님 「잘 보이는 곳에 — 관리자들이 잘 찾게」) 결재함 바로 다음 + pin — 덜 눌렀다고 뒤로 밀리지 않는다.
+       ⚠️ key '관제탑' 은 그대로(사용기록이 그 키로 쌓여 있다). 영어 이름만 «Class Monitor» 로(사이드바와 같은 말).
+       (2026-08-30) 수업 관제탑 — 지금 열린 수업을 한 표로 보고 그 자리에서 참관·입장·종료.
+       ⚠️ 결재함과 같은 href 항목이다(card 가 없으므로 usable()·roleHidden() 판정 대상이 아니다).
+          강사·지사에게도 칸이 보이지만 화면 쪽이 스스로 막는다(monitor-wall 머리말 참고). */
+    { key: '관제탑',     ko: '수업 관제탑 (전체 현황)', en: 'Class Monitor (all live classes)',
+      card: null, sub: null, href: '/admin/monitor-wall.html', pin: true,
+      ico: '<path d="M12 2v20"/><path d="M5 22l7-9 7 9"/><path d="M7 8h10"/><circle cx="12" cy="5" r="2"/>' },
+
+    /* 🚪 (2026-09-01 B안) 이름을 사이드바·카드와 «같은 말» 로 맞춘다.
+       ⚠️ key 는 '오늘수업' 그대로 둔다 — 사용기록(mangoi_qa_use)이 그 키로 쌓여 있어서
+          바꾸면 사람이 쌓아 둔 순서가 통째로 초기화된다. */
+    { key: '오늘수업',   ko: '오늘 수업',   en: "Today's classes",
       card: 'card-students-mgmt', sub: 'sm-today-classes',
       ico: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>' },
 
@@ -56,9 +88,22 @@
       card: 'card-admin-ghost', sub: null,
       ico: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>' },
 
-    { key: '수업종료연장', ko: '수업 종료 / 연장', en: 'End / extend classes',
+    /* ⚠️ (2026-10-07 매니저 요청 4) 이 칸은 «지금 열려 있는 화상방» 을 끝내거나 늘리는 카드다.
+       「End / extend classes」라는 이름 때문에 «수강을 끝내는 곳» 으로 읽혀, 수업이 없는 시간에 열면
+       빈 화면만 나와 «아무것도 안 된다» 로 보였다 → 이름에 «화상방» 을 밝히고(key 는 사용기록 때문에 그대로),
+       수강 종료는 아래 새 칸(수강 운영 › 종료 후보 · 학생 상세 › 종료·연장)으로 보낸다. */
+    { key: '수업종료연장', ko: '진행 중 화상수업 종료 / 연장', en: 'End / extend a live video class',
       card: 'card-active-rooms', sub: null,
       ico: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
+
+    /* 🗓️ (2026-10-07 매니저 요청 4) 수강 종료 — 카페24 «수업종료대상 / 종료완료» 에 해당하는 곳.
+       종료가 가까운 학생 명단(수강 운영 › 종료 후보)으로 바로 간다. 한 학생을 끝내거나 잘못 끝낸 것을
+       되돌리는 일은 그 학생 상세의 「🗓️ 종료·연장」 탭에서 한다.
+       🔒 수강 운영은 본사 전용(enrollAdminHqOnly) — 강사·지사·대리점에는 «들어갈 수 없는 버튼» 이 되므로 감춘다. */
+    { key: '수강종료', ko: '수강 종료 · 종료 후보', en: 'Course end · ending soon',
+      card: null, sub: null, href: '/enroll-ops.html#ending',
+      hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+      ico: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="15" x2="15" y2="15"/>' },
 
     /* 신규 — 30일 4,834건으로 데이터량 1위인데 지금까지 두 번 눌러야 닿았다 */
     { key: '출결현황',   ko: '출결 현황', en: 'Attendance',
@@ -132,9 +177,15 @@
   function freezeOrder() {
     if (mode() === 'fixed') { ORDER = ITEMS.slice(); return; }
     var use = loadUse(), t = dayNo();
+    /* 📌 pin 항목은 «자동 정렬» 에서도 맨 앞에 고정한다.
+       결재는 누가 답을 기다리는 일이라, 덜 눌렀다는 이유로 아래로 밀리면 안 된다.
+       (이 표는 많이 누른 순으로 스스로 재배치된다 — 그 규칙에서만 예외를 둔다) */
     ORDER = ITEMS
       .map(function (it, i) { return { it: it, i: i, s: scoreOf(use[it.key], t) }; })
-      .sort(function (a, b) { return (b.s - a.s) || (a.i - b.i); })   // 동점 → 기본 순서
+      .sort(function (a, b) {
+        var ap = a.it.pin ? 1 : 0, bp = b.it.pin ? 1 : 0;
+        return (bp - ap) || (b.s - a.s) || (a.i - b.i);   // 고정 → 많이 쓴 순 → 기본 순서
+      })
       .map(function (x) { return x.it; });
   }
 
@@ -151,16 +202,41 @@
         조상을 훑되 **menu-card 만** 본다(카드가 카드를 품는 구조가 실제로 있다 — ia6 주석 참고).
      ⚠️ ia6 의 카드 필터는 class(.ia6-hide) 라 인라인을 안 건드리지만, 과거에 인라인으로
         건드린 코드가 있었으므로 방어적으로 한 번 더 제외한다. */
+  /* 🔐 카드 숨김 판정 — **규칙 정본은 adm-core.js 의 `window.mangoiCardHidden`** 이다.
+     아래는 그것이 없을 때만 도는 안전장치다(하니스 단독 실행 · adm-core 로드 실패).
+     ⚠️ 규칙을 여기서 «늘리지» 마세요. 새 숨김 방식이 생기면 정본만 고치고,
+        정본이 있는 정상 경로에서는 이 줄이 아예 실행되지 않습니다. */
+  function _cardHidden(el) {
+    if (window.mangoiCardHidden) return window.mangoiCardHidden(el);
+    if (!el) return true;
+    if (el.classList && (el.classList.contains('rbac-hide') ||
+                         el.classList.contains('ph118-card-hidden'))) return true;
+    return !!(el.style && el.style.display === 'none');
+  }
+
   function roleHidden(el) {
     for (var n = el; n && n !== document.body; n = n.parentElement) {
       if (n.tagName !== 'DETAILS') continue;
       if (!n.classList || !n.classList.contains('menu-card')) continue;
-      if (n.style && n.style.display === 'none' && !n.classList.contains('ia6-hide')) return true;
+      // 🔐 (2026-08-18) 역할 숨김이 인라인 display → «.rbac-hide» 클래스로 바뀌었다.
+      //   위 주석의 «인라인에만 건다» 전제가 이때 깨졌으니 같이 읽는다(옛 인라인도 계속 인정).
+      //   판정 정본은 adm-core.js 의 window.mangoiCardHidden 이다(세 가지 숨김을 한 곳에서 본다).
+      //   ⚠️ 단 «.ia6-hide 는 권한이 아니다» 라는 위 예외는 여기서 계속 지킨다 —
+      //      화면 전환으로 감춘 카드를 «권한 없음» 으로 읽으면 바로가기가 통째로 비워진다.
+      if (n.classList && n.classList.contains('ia6-hide')) continue;
+      if (_cardHidden(n)) return true;
     }
     return false;
   }
 
   function usable(it) {
+    if (it.hideFrom && it.hideFrom.length) {
+      var myRole = '';
+      try { myRole = (window.__ADM_ME && window.__ADM_ME.role) ? String(window.__ADM_ME.role) : ''; } catch (e2) {}
+      if (myRole && it.hideFrom.indexOf(myRole) >= 0) return false;
+    }
+    // 🔗 딴 페이지로 가는 항목은 이 화면의 카드를 안 쓴다 — 카드로 판정하면 «항상 없음» 이 된다.
+    if (it.href) return true;
     var el = document.getElementById(it.card);
     return !!el && !roleHidden(el);
   }
@@ -204,9 +280,16 @@
         → 우리가 감춤을 되돌리지 않는다(인라인 style 로는 !important 를 못 이긴다).
           대신 **그 항목의 사이드바 버튼을 대신 눌러 준다.** ia6 자신의 로직이 그대로 돈다.
         버튼은 한글 이름이 아니라 data-card 로 찾는다 — 항목 이름이 바뀌어도 안 깨지게. */
+  /* 🔴 (2026-09-01) 같은 카드를 가리키는 항목이 둘 이상일 수 있다 — querySelector 는
+     **첫 매치**라 DOM 에서 앞선 그룹이 그 카드를 통째로 가져간다. `openSub`(data-ia6-sub)이
+     달린 항목은 카드 «안의 한 칸» 을 가리키는 **잎**이지 그 카드의 주인이 아니므로 뒤로 미룬다.
+     실측: 「오늘 수업」이 card-students-mgmt 를 가리키게 되자 ⚡「학생 목록」이 «오늘 수업» 칸으로
+           끌려가 학생 명부가 화면 위로 밀려났다(카드 top −546).
+     ⚠️ 같은 판정이 js/adm-ia6.js 의 ia6OwnerBtn 에도 있다 — 한쪽만 고치면 그쪽만 옛 동작이다. */
   function ia6Btn(cardId) {
     try {
-      return document.querySelector('#ph85-sidebar [data-ia6-item][data-card="' + cardId + '"]');
+      var q = '#ph85-sidebar [data-ia6-item][data-card="' + cardId + '"]';
+      return document.querySelector(q + ':not([data-ia6-sub])') || document.querySelector(q);
     } catch (e) { return null; }
   }
 
@@ -370,6 +453,7 @@
     saveUse(use);
     track(key);
 
+    if (it.href) { location.href = it.href; return; }   // 딴 페이지(결재함)
     window.ph161Go(it.card, it.sub);
   }
 
@@ -405,6 +489,8 @@
        두 번만 다시 확인한다. 바뀐 게 없으면 render() 가 DOM 을 건드리지 않고 즉시 빠진다. */
     setTimeout(render, 800);
     setTimeout(render, 2200);
+    /* 🔐 신원은 늦게 온다 — 오면 역할 금지목록을 다시 본다. ⚠️ 그 이벤트는 document 에서 발행된다. */
+    document.addEventListener('mangoi:identity', function () { render(); });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

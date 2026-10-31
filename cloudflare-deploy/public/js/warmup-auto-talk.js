@@ -1,0 +1,382 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   warmup-auto-talk.js — A.i 말하기 연습 «자동 말하기 (베타)» (2026-09-24)
+   EN: Hands-free turn taking for /warmup.html. After the AI finishes speaking,
+       the mic opens by itself; when the student stops talking it closes and sends.
+   KO: 🎤 를 누르지 않아도 «AI 말이 끝나면» 마이크가 저절로 열리고, 학생 말이 끝나면
+       저절로 닫혀 전송된다. 기존 🎤 버튼 모드는 한 글자도 안 바뀐다(기본값도 버튼 모드).
+
+   무엇을 «새로» 하나 / what is new
+   - 켜는 시점만 새로 정한다. 듣고 · 말 끝을 판단하고 · 보내는 일은 «기존 코드 그대로»
+     (warmup.html 의 toggleMic / micViaWhisper — 침묵 타이머·문장 끝 판단·Whisper 폴백).
+     ⛔ 여기서 음성인식을 새로 만들지 않는다 — 판정이 두 벌이 되면 한쪽만 고쳐진다.
+   - 안드로이드는 녹음+Whisper 경로(micViaWhisper)로 연다 — 브라우저 음성인식은 켤 때마다
+     «삐» 소리가 나서 자동으로 켜면 매 턴 삐 소리가 난다(2026-09-24 사장님 결정).
+     그 경로는 getUserMedia 에 echoCancellation·noiseSuppression·autoGainControl 이 켜져 있다.
+
+   AI 목소리를 학생 말로 받아 적지 않게 / echo guard
+   - AI 가 «말하는 동안» 에는 절대 열지 않는다(끼어들기 없음 — 2026-09-24 결정).
+   - AI 말이 «끝나고» ARM_DELAY_MS 뒤에 연다(스피커 잔향이 가라앉을 시간).
+   - 열려 있는데 AI 가 다시 말을 시작하면(다시 듣기 등) 그 듣기를 «보내지 않고» 닫는다.
+   - 중간에 끊긴 낭독(학생이 멈춤·글 입력)으로는 열지 않는다 — warmup.html 이 «끝까지 읽은
+     낭독» 에서만 aiDone 을 보낸다(_speakSeq 비교).
+
+   ⛔ 화상수업 안(iframe)에서는 베타 동안 «꺼 둔다» — 진짜 선생님 목소리(WebRTC)가 스피커로
+      나오는데 브라우저 음성인식에는 에코 제거를 걸 방법이 없다. 선생님 발화 신호를 받으려면
+      공동 금지구역(index.html·idx-main.js) 수정이 필요해 별건이다(2026-09-24 결정).
+   ⛔ 저장값은 «사람이 고른 것» 만 쓴다 — 기본(버튼 모드)을 미리 써 넣지 않는다.
+   ⛔ 상주 타이머·MutationObserver 없음 — 타이머는 «열기 대기 한 번» 뿐이다.
+   ═══════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  if (window.WarmupAutoTalk) return;
+
+  var KEY = 'mangoi_warmup_talk_mode';   // 'auto' | 'button' — 사람이 고를 때만 쓴다
+  var ARM_DELAY_MS = 600;                // AI 말이 끝난 뒤 이만큼 기다렸다 연다(잔향)
+  var MISS_SETTLE_MS = 900;              // 듣기가 끝난 뒤 «Whisper 한 번 더» 가 이어지는지 기다림
+  var MISS_LIMIT = 2;                    // 아무 말 없이 연속 N번이면 쉰다
+
+  var EMBEDDED = (function () { try { return window.parent !== window; } catch (e) { return true; } })();
+  var ANDROID = /Android/i.test(navigator.userAgent || '');
+
+  var S = {
+    armTimer: null, missTimer: null,
+    session: false,   // 지금 열린 듣기가 «자동» 으로 연 것인가
+    gotSend: false,   // 그 듣기(또는 이어지는 Whisper 재시도)에서 전송이 일어났나
+    misses: 0, resting: false, opening: false,
+    phase: ''         // '' | listen | speak | check | done
+  };
+
+  function readMode() { try { return localStorage.getItem(KEY) === 'auto' ? 'auto' : 'button'; } catch (e) { return 'button'; } }
+  function isOn() { return !EMBEDDED && readMode() === 'auto'; }
+  function g(name) { try { return window[name]; } catch (e) { return undefined; } }
+
+  /* ── 상태 표시 — 어린 학생용 네 가지뿐 ───────────────────────── */
+  var PHASE_TXT = {
+    listen: { ko: '👂 듣는 중', en: '👂 Listening' },
+    speak:  { ko: '🗣️ 말하는 중', en: '🗣️ Speaking' },
+    check:  { ko: '🤖 AI 확인 중', en: '🤖 AI checking' },
+    done:   { ko: '✅ 완료', en: '✅ Done' }
+  };
+  function uiEn() { try { return (typeof window.getLang === 'function' ? window.getLang() : localStorage.getItem('mangoi_lang')) === 'en'; } catch (e) { return false; } }
+  function pill() {
+    var p = document.getElementById('autoTalkPill');
+    if (p) return p;
+    var st = document.getElementById('wgState');
+    if (!st || !st.parentNode) return null;
+    p = document.createElement('div');
+    p.id = 'autoTalkPill'; p.className = 'autotalk-pill';
+    p.setAttribute('role', 'status'); p.setAttribute('aria-live', 'polite');
+    p.hidden = true;
+    st.parentNode.insertBefore(p, st);
+    return p;
+  }
+  function setPhase(ph) {
+    S.phase = ph || '';
+    var p = pill(); if (!p) return;
+    if (!isOn() || !S.phase || !PHASE_TXT[S.phase]) { p.hidden = true; return; }
+    var t = PHASE_TXT[S.phase];
+    p.hidden = false;
+    p.setAttribute('data-phase', S.phase);
+    p.innerHTML = '<span class="at-tag">' + (uiEn() ? 'Auto · beta' : '자동 · 베타') + '</span> '
+      + '<span class="at-txt">' + (uiEn() ? t.en : t.ko) + '</span>';
+  }
+
+  function note(msg) { try { var st = document.getElementById('wgState'); if (st) st.textContent = msg; } catch (e) {} }
+
+  /* ── 열 수 있는 때인가 ─────────────────────────────────────── */
+  /* 🔧 (2026-10-03 「제이크·노아는 자동으로 안 돼」) 예전에는 true/false 만 돌려줘서, AI 말이 끝난 «그 한 순간»
+     에 막히면 아무 말 없이 영영 안 열렸다. 실측(헤드리스): ⋮ 메뉴에서 친구를 바꾸고 메뉴를 열어 둔 채 대화하면
+     그 뒤로 마이크가 «한 번도» 안 켜진다 — 친구 이름과 무관하다(사장님이 메뉴에서 고른 친구가 Jake·Noah 였다).
+     이제 «왜 못 여는지» 를 돌려주고, 잠깐 기다리면 풀리는 이유는 다시 해 보고, 메뉴는 화면이 말한다. */
+  function blockReason() {
+    if (!isOn()) return 'off';
+    if (S.resting) return 'resting';
+    if (document.hidden) return 'hidden';
+    if (g('_warmPaused')) return 'paused';
+    if (g('sending')) return 'busy';
+    if (g('_recognizing') || g('_whisperOn')) return 'listening';
+    if (!g('_audioUnlocked')) return 'locked';          // 한 번도 안 눌렀으면 브라우저가 마이크를 막는다
+    var su = document.getElementById('wuSetup'); if (su && !su.hidden) return 'setup';
+    var mp = document.getElementById('menuPanel'); if (mp && mp.classList.contains('open')) return 'menu';   // ⋮ 설정을 고르는 중
+    var inp = document.getElementById('inp');
+    if (inp && (document.activeElement === inp || String(inp.value || '').trim())) return 'typing';   // 글로 쓰는 중
+    var au = g('_ttsAudio'); if (au && !au.paused && !au.ended) return 'busy';                       // 아직 말하는 중
+    try { if (window.speechSynthesis && window.speechSynthesis.speaking) return 'busy'; } catch (e) {}
+    return '';
+  }
+  function canOpen() { return !blockReason(); }
+  function clearArm() { if (S.armTimer) { clearTimeout(S.armTimer); S.armTimer = null; } }
+  /* busy = 곧 풀리는 이유(답 받는 중·소리가 막 끝나는 중) — 그 «한 순간» 에 걸려 영영 안 열리지 않게 몇 번 더 본다.
+     ⛔ 끝없이 돌지 않는다(RETRY_MAX) — 상주 타이머 금지. 그 사이 aiStart·press·글 입력이 오면 clearArm 이 끊는다. */
+  var RETRY_MS = 500, RETRY_MAX = 12;
+  function arm(tries) {
+    clearArm();
+    if (!isOn() || S.resting) return;
+    tries = tries || 0;
+    S.armTimer = setTimeout(function () {
+      S.armTimer = null;
+      var why = blockReason();
+      if (why) {
+        if (why === 'busy' && tries < RETRY_MAX) { arm(tries + 1); return; }
+        if (why === 'menu') menuNote();
+        if (S.phase === 'done') setPhase('');
+        return;
+      }
+      S.opening = true; S.session = true; S.gotSend = false;
+      try {
+        if (ANDROID && typeof window.micViaWhisper === 'function') window.micViaWhisper();
+        else if (typeof window.toggleMic === 'function') window.toggleMic();
+      } catch (e) { S.session = false; }
+      S.opening = false;
+    }, tries ? RETRY_MS : ARM_DELAY_MS);
+  }
+  /* ⋮ 메뉴가 열려 있어 못 열었다 — 조용히 넘어가면 «자동이 고장났다» 로 읽힌다. 닫으면 hookMenuClose 가 연다. */
+  function menuNote() {
+    note(uiEn() ? 'Auto talk: close the ⋮ menu and the mic will turn on.'
+                : '자동 말하기: ⋮ 설정 창을 닫으면 마이크가 저절로 켜져요.');
+  }
+
+  function rest() {
+    S.resting = true; S.misses = 0; clearArm(); setPhase('');
+    note(uiEn() ? 'Auto talk is resting — tap 🎤 to start again.'
+                : '자동 말하기가 잠깐 쉬어요 — 🎤 를 누르면 다시 시작해요.');
+  }
+  function wake() { S.resting = false; S.misses = 0; }
+
+  /* ── warmup.html 이 보내는 신호 ─────────────────────────────── */
+  function on(ev, a) {
+    switch (ev) {
+      case 'aiStart':             // AI 가 말을 시작함 — 열 예정이면 취소, 열려 있으면 조용히 닫기
+        clearArm();
+        if (isOn() && S.session && (g('_recognizing') || g('_whisperOn'))) {
+          S.session = false;
+          try { if (typeof window._micAbortQuiet === 'function') window._micAbortQuiet(); } catch (e) {}
+        }
+        break;
+      case 'aiDone':              // AI 가 «끝까지» 말함 → 잠시 뒤 연다
+        arm();
+        break;
+      case 'press':               // 사람이 🎤 를 직접 누름(자동이 연 것이 아니면)
+        if (!S.opening) { clearArm(); wake(); S.session = false; setPhase(''); }
+        break;
+      case 'mic':                 // setMicState(on)
+        if (a) {
+          if (S.missTimer) { clearTimeout(S.missTimer); S.missTimer = null; }
+          if (S.session && S.phase !== 'speak') setPhase('listen');   // 브라우저가 세션을 다시 켤 때 «말하는 중» 을 되돌리지 않는다
+        } else if (S.session) {
+          if (S.missTimer) clearTimeout(S.missTimer);
+          S.missTimer = setTimeout(function () {
+            S.missTimer = null;
+            if (g('_recognizing') || g('_whisperOn')) return;   // Whisper 재시도가 이어짐
+            var sent = S.gotSend; S.session = false;
+            if (sent) return;
+            setPhase('');
+            if (++S.misses >= MISS_LIMIT) rest();
+          }, MISS_SETTLE_MS);
+        }
+        break;
+      case 'phase':               // 'speak' | 'check' — 듣는 중 세부
+        if (S.session && isOn()) setPhase(a);
+        break;
+      case 'sent':                // 학생 말이 전송됨(말로든 글로든)
+        S.gotSend = true; S.misses = 0; clearArm();
+        if (isOn()) setPhase('check');
+        break;
+      case 'reply':               // AI 답이 도착함(곧 낭독 시작)
+        if (isOn()) setPhase('done');
+        break;
+      case 'settled':             // 전송 흐름이 끝남 — 답을 못 받았으면 표시를 걷는다
+        if (S.phase === 'check') setPhase('');
+        break;
+    }
+  }
+
+  /* ── 모드 고르기 ───────────────────────────────────────────── */
+  function setMode(mode) {
+    try { localStorage.setItem(KEY, mode === 'auto' ? 'auto' : 'button'); } catch (e) {}
+    wake(); clearArm();
+    if (mode !== 'auto') setPhase('');
+    paint();
+    // 고른 «그 순간» 이 조용하면 바로 연다 — 전에는 다음 AI 말이 끝날 때까지 가만히 있었다(2026-09-24 제보).
+    // ⋮ 메뉴 안에서 고르면 메뉴가 열려 있어 canOpen 이 막고, 메뉴를 닫는 순간 아래 hookMenuClose 가 다시 연다.
+    if (mode === 'auto') arm();
+  }
+  /* ⋮ 메뉴를 닫으면 — 열려 있는 동안 막아 둔 자동 듣기를 다시 건다(닫기 경로 전부가 closeMenu 한 곳을 지난다). */
+  function hookMenuClose() {
+    var orig = window.closeMenu;
+    if (typeof orig !== 'function' || orig.__autoTalk) return;
+    var wrapped = function () {
+      var mp = document.getElementById('menuPanel');
+      var wasOpen = !!(mp && mp.classList.contains('open'));
+      var r = orig.apply(this, arguments);
+      if (wasOpen && isOn()) arm();
+      return r;
+    };
+    wrapped.__autoTalk = true;
+    window.closeMenu = wrapped;
+  }
+  /* 🔧 (2026-10-03 「아바타를 바꾸면 자동이 안 되는 경우」) ⋮ «연령·수준·교재 다시 고르기» 화면 —
+     실측: 그 화면을 열면 자동으로 열려 있던 듣기가 «화면 뒤에서» 계속 돌고, «계속하기» 로 닫아도
+     AI 가 새로 말하지 않으므로(aiDone 없음) 그 뒤로 마이크가 영영 안 켜졌다.
+     ✅ 열 때: 자동으로 연 듣기만 «보내지 않고» 닫는다(사람이 연 듣기는 건드리지 않는다).
+     ✅ 닫을 때: 열려 있다 닫혔으면 다시 건다. ⛔ 닫혀 있던 것을 또 닫는 호출로는 안 건다. */
+  function hookSetup() {
+    var oo = window.openSetup;
+    if (typeof oo === 'function' && !oo.__autoTalk) {
+      var wo = function () {
+        clearArm();
+        if (isOn() && S.session && (g('_recognizing') || g('_whisperOn'))) {
+          S.session = false; setPhase('');
+          try { if (typeof window._micAbortQuiet === 'function') window._micAbortQuiet(); } catch (e) {}
+        }
+        return oo.apply(this, arguments);
+      };
+      wo.__autoTalk = true; window.openSetup = wo;
+    }
+    var oc = window.closeSetup;
+    if (typeof oc === 'function' && !oc.__autoTalk) {
+      var wc = function () {
+        var su = document.getElementById('wuSetup');
+        var wasOpen = !!(su && !su.hidden);
+        var r = oc.apply(this, arguments);
+        /* ⚠️ 첫 시작(_warmStarted 가 아직 거짓)에는 걸지 않는다 — 곧 첫 인사가 나오고 그 끝(aiDone)에서 연다.
+           여기서 걸면 인사 «전에» 마이크가 잠깐 열렸다 닫힌다(안드로이드는 삐 소리). */
+        if (wasOpen && isOn() && g('_warmStarted')) arm();
+        return r;
+      };
+      wc.__autoTalk = true; window.closeSetup = wc;
+    }
+  }
+  function btnsHtml(cls) {
+    var auto = readMode() === 'auto', en = uiEn();
+    var now = '<span class="wus-now">' + (en ? 'Now' : '지금') + '</span>';
+    return '<button type="button" class="' + cls + (auto ? '' : ' on') + '" data-talk="button">'
+      + '<span class="wus-name">' + (en ? '🎤 Talk with the mic button' : '🎤 버튼으로 말하기') + (auto ? '' : now) + '</span>'
+      + '<span class="wus-desc">' + (en ? 'Tap the mic to talk (default)' : '마이크를 눌러서 말해요 (기본)') + '</span></button>'
+      + '<button type="button" class="' + cls + (auto ? ' on' : '') + '" data-talk="auto">'
+      + '<span class="wus-name">' + (en ? '✨ Talk automatically' : '✨ 자동으로 말하기') + ' <span class="at-beta">' + (en ? 'beta' : '베타') + '</span>' + (auto ? now : '') + '</span>'
+      + '<span class="wus-desc">' + (en ? 'The mic turns on by itself after the AI speaks · works better with earphones' : 'AI 말이 끝나면 마이크가 저절로 켜져요 · 이어폰을 쓰면 더 정확해요') + '</span></button>';
+  }
+  function paint() {
+    var a = document.getElementById('wusTalkBtns'); if (a) a.innerHTML = btnsHtml('wus-card');
+    var b = document.getElementById('menuTalkBtns');
+    if (b) {
+      var auto = readMode() === 'auto';
+      var en2 = uiEn();
+      b.innerHTML = '<button type="button" data-talk="button"' + (auto ? '' : ' class="on"') + '>' + (en2 ? '🎤 Button' : '🎤 버튼') + '</button>'
+                  + '<button type="button" data-talk="auto"' + (auto ? ' class="on"' : '') + '>' + (en2 ? '✨ Auto (beta)' : '✨ 자동 (베타)') + '</button>';
+      var v = document.getElementById('talkVal'); if (v) v.textContent = auto ? (en2 ? 'Auto (beta)' : '자동 (베타)') : (en2 ? 'Button' : '버튼');
+    }
+    // 입력칸 바로 위 «말하는 방법» 스위치(2026-09-24 사장님 「햄버거 안 뿐만 아니라 잘 보이는 곳에」).
+    // 학생이 🎤 를 누르는 바로 그 자리라 «지금 어느 방법인지» 를 늘 보고, 한 번에 바꾼다.
+    var c = document.getElementById('talkSwitch');
+    if (c) {
+      var au = readMode() === 'auto', en = uiEn();
+      c.innerHTML = '<span class="ts-lbl">' + (en ? 'How to talk' : '말하는 방법') + '</span>'
+        + '<button type="button" data-talk="button" aria-pressed="' + (au ? 'false' : 'true') + '"' + (au ? '' : ' class="on"') + '>'
+        + (en ? '🎤 Tap mic' : '🎤 버튼으로') + '</button>'
+        + '<button type="button" data-talk="auto" aria-pressed="' + (au ? 'true' : 'false') + '"' + (au ? ' class="on"' : '') + '>'
+        + (en ? '✨ Auto' : '✨ 자동으로') + ' <span class="at-beta">' + (en ? 'beta' : '베타') + '</span></button>';
+    }
+  }
+  function bindPick(el, fromMenu) {
+    el.addEventListener('click', function (e) {
+      var t = e.target && e.target.closest ? e.target.closest('[data-talk]') : null;
+      if (!t) return;
+      var m = t.getAttribute('data-talk');
+      setMode(m);
+      // ⋮ 메뉴에서 «자동» 을 고르면 메뉴를 닫는다 — 열린 채로 두면 canOpen 이 막아 «눌렀는데 안 켜진다» 가 된다
+      // (2026-09-24 두 번째 제보: 고른 뒤 메뉴를 열어 둔 채 기다림). 닫히면 hookMenuClose 가 켠다.
+      if (fromMenu && m === 'auto') { try { if (typeof window.closeMenu === 'function') window.closeMenu(); } catch (e2) {} }
+    });
+  }
+  /* 모양 — 이 파일 안에 둔다(warmup.html 은 연결 지점만 바뀐다). 어두운 화면 기준 색. */
+  function mountCss() {
+    if (document.getElementById('autotalk-css')) return;
+    var st = document.createElement('style'); st.id = 'autotalk-css';
+    st.textContent =
+      '.autotalk-pill{display:flex;align-items:center;justify-content:center;gap:8px;margin:0 auto 6px;'
+      + 'padding:6px 14px;border-radius:999px;font-weight:800;font-size:15px;line-height:1.3;white-space:nowrap;'
+      + 'width:max-content;max-width:100%;background:rgba(56,189,248,.16);border:1px solid rgba(56,189,248,.55);color:#e0f2fe}'
+      + '.autotalk-pill[hidden]{display:none!important}'
+      + '.autotalk-pill[data-phase="speak"]{background:rgba(52,211,153,.18);border-color:rgba(52,211,153,.6);color:#d1fae5}'
+      + '.autotalk-pill[data-phase="check"]{background:rgba(251,191,36,.16);border-color:rgba(251,191,36,.6);color:#fef3c7}'
+      + '.autotalk-pill[data-phase="done"]{background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.45);color:#d1fae5}'
+      + '.autotalk-pill .at-tag{font-size:11px;font-weight:700;opacity:.8}'
+      + '.at-beta{display:inline-block;margin-left:4px;padding:0 6px;border-radius:6px;font-size:11px;'
+      + 'background:#f59e0b;color:#1f2937;vertical-align:middle}'
+      + '#wusTalkSec{margin-top:6px}'
+      + '#menuTalkBtns{grid-template-columns:1fr 1fr}'
+      + '.talk-switch{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;margin:0 auto 6px}'
+      + '.talk-switch .ts-lbl{font-size:12.5px;font-weight:700;color:#cbd5e1}'
+      + '.talk-switch button{min-height:34px;padding:5px 12px;border-radius:999px;font-size:13.5px;font-weight:800;'
+      + 'cursor:pointer;white-space:nowrap;background:rgba(255,255,255,.06);border:1px solid rgba(148,163,184,.45);color:#e2e8f0}'
+      + '.talk-switch button.on{background:#0ea5e9;border-color:#38bdf8;color:#fff;box-shadow:0 0 0 2px rgba(56,189,248,.25)}'
+      + '.talk-switch button:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}';
+    document.head.appendChild(st);
+  }
+  function mountUi() {
+    if (EMBEDDED) return;
+    mountCss();   // 수업 안에서는 고르는 칸도 안 보인다(베타 동안 꺼 둠)
+    var cta = document.querySelector('#wuSetup .wus-ctabar');
+    if (cta && !document.getElementById('wusTalkSec')) {
+      var sec = document.createElement('div');
+      sec.id = 'wusTalkSec';
+      /* 🌐 2026-10-03 — 제목·안내는 data-ko/data-en 으로(warmup.html 의 wuApplyStatic 이 따라 바꾼다) */
+      sec.innerHTML = '<div class="wus-sub" data-ko="🎤 어떻게 말할까요?" data-en="🎤 How will you talk?">' + (uiEn() ? '🎤 How will you talk?' : '🎤 어떻게 말할까요?') + '</div>'
+        + '<div class="wus-hint" data-ko="자동으로 고르면 AI 말이 끝난 뒤 마이크가 저절로 켜지고, 말을 멈추면 저절로 보내져요." data-en="With Auto, the mic turns on after the AI finishes and sends when you stop talking.">'
+        + (uiEn() ? 'With Auto, the mic turns on after the AI finishes and sends when you stop talking.' : '자동으로 고르면 AI 말이 끝난 뒤 마이크가 저절로 켜지고, 말을 멈추면 저절로 보내져요.') + '</div>'
+        + '<div class="wus-grid" id="wusTalkBtns"></div>';
+      cta.parentNode.insertBefore(sec, cta);
+      bindPick(document.getElementById('wusTalkBtns'));
+    }
+    var scroll = document.querySelector('#menuPanel .menu-scroll');
+    if (scroll && !document.getElementById('menuTalkGroup')) {
+      var grp = document.createElement('div');
+      grp.id = 'menuTalkGroup'; grp.className = 'menu-group';
+      grp.innerHTML = '<div class="menu-label"><span data-ko="🎤 말하는 방법" data-en="🎤 How to talk">' + (uiEn() ? '🎤 How to talk' : '🎤 말하는 방법') + '</span><span class="ls-now" id="talkVal"></span></div>'
+        + '<div class="voice-btns" id="menuTalkBtns" role="radiogroup" aria-label="말하는 방법"></div>';
+      scroll.insertBefore(grp, scroll.firstChild);
+      bindPick(document.getElementById('menuTalkBtns'), true);
+    }
+    var st = document.getElementById('wgState');
+    if (st && st.parentNode && !document.getElementById('talkSwitch')) {
+      var sw = document.createElement('div');
+      sw.id = 'talkSwitch'; sw.className = 'talk-switch';
+      sw.setAttribute('role', 'group'); sw.setAttribute('aria-label', '말하는 방법');
+      st.parentNode.insertBefore(sw, st);
+      bindPick(sw);
+    }
+    var relang = function () { paint(); if (S.phase) setPhase(S.phase); };
+    try { window.addEventListener('mangoi:lang-changed', relang); document.addEventListener('mangoi:lang-changed', relang); } catch (e) {}
+    var inp = document.getElementById('inp');
+    if (inp) {
+      inp.addEventListener('focus', clearArm);
+      inp.addEventListener('input', clearArm);
+    }
+    hookMenuClose();
+    hookSetup();
+    /* 🔧 (2026-10-03) 자동 모드에서 ⋮ 메뉴로 친구(목소리)를 바꾸면 메뉴를 닫는다 — 바꾸자마자 그 친구가 인사하고,
+       메뉴가 열린 채면 그 인사가 끝나도 마이크가 안 켜졌다(사장님 제보: Jake·Noah 를 고른 뒤 자동이 멈춤).
+       ⛔ 버튼 모드에서는 예전 그대로(여러 칸을 이어서 고를 수 있게) 둔다. */
+    ['voiceBtns', 'voiceBtnsZh'].forEach(function (id) {
+      var vb = document.getElementById(id);
+      if (!vb) return;
+      vb.addEventListener('click', function (e) {
+        var t = e.target && e.target.closest ? e.target.closest('[data-v]') : null;
+        if (!t || !isOn()) return;
+        var mp = document.getElementById('menuPanel');
+        if (mp && mp.classList.contains('open')) { try { if (typeof window.closeMenu === 'function') window.closeMenu(); } catch (e2) {} }
+      });
+    });
+    paint();
+  }
+
+  window.WarmupAutoTalk = {
+    on: on, isOn: isOn, setMode: setMode, mode: readMode,
+    arm: arm,   // 😊 얼굴 대화(js/warmup-facetalk.js)가 «못 들음» 뒤 다시 열 때 — 못 들은 횟수(misses)는 그대로 세어 두 번이면 쉰다
+    _state: S, _cfg: { ARM_DELAY_MS: ARM_DELAY_MS, MISS_LIMIT: MISS_LIMIT, EMBEDDED: EMBEDDED, ANDROID: ANDROID }
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountUi);
+  else mountUi();
+})();

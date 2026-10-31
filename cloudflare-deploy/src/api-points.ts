@@ -7,11 +7,16 @@
 import { json, today } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession, getAdminActor, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
+import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook } from './giftishow-client';
 import type { MangoEnv } from './api-mango';
+import { isPrivateDubbingKey } from './api-dubbing';
 // 🪙 포인트 정책 정본(2026-08-07 사장님 승인 7가지) — 금액·상한·유효기간·교환최소는 여기 한 곳에서만 정한다
-import { POINT_POLICY, checkEarnAllowed, syncApprovedRuleAmounts } from './point-policy';
-import { runJudgmentAnalysis, exportJudgmentEnvelopes, markJudgmentMigrated, getGrowthReport, runGrowthSnapshot, generatePersonalizedScenario, evaluateJudgmentAnswer, sha256hex } from './api-judgment';  // 🧠 판단력 엔진(2단계 Mode A) + Mode B 이관 + 3단계(성장·시나리오·훈련채점)
+import { POINT_POLICY, checkEarnAllowed, syncApprovedRuleAmounts, praiseCountForRoom } from './point-policy';
+/* 🍯 맛보기 상한 판정 정본 — 라우트는 «부르기만» 한다(하니스가 그 함수를 실제로 돌린다) */
+import { SAMPLE_SCENARIO_CAP, sampleScenarioAllowed } from './judgment-sample-gate';
+import { runJudgmentAnalysis, exportJudgmentEnvelopes, markJudgmentMigrated, getGrowthReport, runGrowthSnapshot, generatePersonalizedScenario, evaluateJudgmentAnswer, sha256hex, getReadingBandFor } from './api-judgment';
+import { bandCatalog } from './judgment-level';  // 🏷️ 난이도 범주 목록의 단일 출처 — 화면에 하드코딩하지 않습니다  // 🧠 판단력 엔진(2단계 Mode A) + Mode B 이관 + 3단계(성장·시나리오·훈련채점)
 
 /**
  * 🎁 기프트 카탈로그 기본 상품 시드 (멱등 — 이미 있으면 건너뜀).
@@ -22,13 +27,14 @@ export async function seedGiftCatalog(env: { DB: D1Database }): Promise<number> 
   const now = Date.now();
   const seeds: Array<[string, string, string, number, number, number, string, string]> = [
     ['🥭 망고아이','수업료 전환 (5,000원)','tuition',5000,5000,5,'모은 포인트로 다음 수업료 즉시 차감','/img/Mangoi_Character.png'],
-    ['메가커피','아메리카노 (ICE)','cafe',1500,1500,10,'가성비 1위, 시원한 한 잔','/img/gifts/megacoffee.svg'],
-    ['배스킨라빈스','파인트 (1개)','cafe',9800,9800,20,'취향대로 골라먹는 31','/img/gifts/baskinrobbins.svg'],
-    ['배달의민족','e쿠폰 5,000원','food',5000,5000,25,'배달 음식 주문 시 즉시 차감','/img/gifts/baemin.svg'],
-    ['CGV','영화 1매 (전 지점)','movie',14000,14000,40,'평일 일반관 1회 사용','/img/gifts/cgv.svg'],
-    ['교보문고','도서상품권 5,000원','book',5000,5000,50,'온/오프라인 사용 가능','/img/gifts/kyobo.svg'],
-    ['컬쳐랜드','문화상품권 5,000원','voucher',5000,5000,55,'쿠팡·게임·도서·OTT 등 어디든','/img/gifts/cultureland.svg'],
-    ['GS25','편의점 금액권 5,000원','voucher',5000,5000,60,'전국 GS25에서 사용','/img/gifts/gs25.svg'],
+    ['메가커피','아메리카노 (ICE)','cafe',1500,1500,10,'가성비 1위, 시원한 한 잔','/img/gifts/megacoffee-photo.webp'],
+    ['배스킨라빈스','파인트 (1개)','cafe',9800,9800,20,'취향대로 골라먹는 31','/img/gifts/baskinrobbins-photo.webp'],
+    ['배달의민족','e쿠폰 5,000원','food',5000,5000,25,'배달 음식 주문 시 즉시 차감','/img/gifts/baemin-photo.webp'],
+    ['CGV','영화 1매 (전 지점)','movie',14000,14000,40,'평일 일반관 1회 사용','/img/gifts/cgv-photo.webp'],
+    ['교보문고','도서상품권 5,000원','book',5000,5000,50,'온/오프라인 사용 가능','/img/gifts/kyobo-photo.webp'],
+    ['컬쳐랜드','문화상품권 5,000원','voucher',5000,5000,55,'쿠팡·게임·도서·OTT 등 어디든','/img/gifts/cultureland-photo.webp'],
+    ['쿠팡','모바일 상품권 5,000원','voucher',5000,5000,57,'로켓배송·생활용품·간식까지 쿠팡에서 사용','/img/gifts/coupang-photo.webp'],
+    ['GS25','편의점 금액권 5,000원','voucher',5000,5000,60,'전국 GS25에서 사용','/img/gifts/gs25-5000-photo.webp'],
   ];
   let n = 0;
   for (const [brand, name, cat, fv, pp, sort, desc, thumb] of seeds) {
@@ -120,9 +126,9 @@ export async function handlePointsApi(
   const denyTeacher = async (): Promise<Response | null> => {
     const a = await getAdminActor(request, env as any);
     if (!a.isTeacher) return null;
-    return json({ ok: false, error: 'forbidden_teacher',
-      message: '강사 권한으로는 변경할 수 없습니다.',
-      message_en: 'This change is not available with a teacher account.' }, 403);
+    return json(forbiddenTeacherBody(a,
+      '강사 권한으로는 변경할 수 없습니다.',
+      'This change is not available with a teacher account.'), 403);
   };
 
     // ═══════════════════════════════════════════════════════════════
@@ -148,6 +154,34 @@ export async function handlePointsApi(
       await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES ('teacher_praise_point','선생님 칭찬 포인트',1,1,100,1,'실시간 수업 중 선생님이 잘한 답변에 즉석 지급',?) ON CONFLICT(code) DO UPDATE SET cooldown_sec=1, daily_cap=100, enabled=1`).bind(now).run();
       const rule: any = await env.DB.prepare(`SELECT * FROM point_rules WHERE code='teacher_praise_point' AND enabled=1`).first();
       const amount = rule?.amount || 1;
+      /* ⚛ (2026-09-01) 상한 검사는 반드시 아래 «멱등 claim» 보다 **앞** 이어야 한다.
+         뒤에 두면 막힌 별이 claim 을 먹고, 짝이 되는 다른 경로(강사 award-praise / 학생
+         earn-by-rule 이 별 하나에 둘 다 뜁니다)가 { ok:true, already:true, amount:5 } 를 받아
+         **화면에만** 포인트가 생긴다 — 실제 적립은 0이다.
+         ⚠️ 전에는 상한이 «100회» 라 사실상 닿지 않아 티가 안 났다. 지금은 5점×20번이면 닿는다. */
+      // 일일 한도 (KST 자정 기준) — 규칙별 «횟수» 상한
+      if (rule?.daily_cap) {
+        const KST_OFF = 9 * 3600 * 1000;
+        const todayMs = Math.floor((now + KST_OFF) / 86400000) * 86400000 - KST_OFF;
+        const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE user_id=? AND rule_code='teacher_praise_point' AND triggered_at>=?`).bind(accountUid, todayMs).first();
+        if ((cnt?.c || 0) >= rule.daily_cap) return { ok: false, error: 'daily_cap_reached', cap: rule.daily_cap };
+      }
+      /* 🪙 (2026-09-01) 하루 전체 상한(100점)도 함께 본다 — 정본은 checkEarnAllowed 하나다.
+         [왜] 규칙표의 daily_cap 은 «점수» 가 아니라 **«횟수»** 다. 칭찬 금액이 1점 → 5점으로
+           바뀌었는데(POINT_POLICY.EARN.praise, syncApprovedRuleAmounts 가 금액만 맞춘다)
+           횟수 상한 100 은 그대로여서 이 규칙 하나로 **하루 500점**이 나갈 수 있었다.
+           1포인트 = 1원이고(gift_catalog: 3,000원 상품권 = 3,000점) 이 경로는 강사가 누른다.
+         [잰 것 2026-09-01] 실제 하루 최대 적립은 80점이라 **아직 넘긴 적은 없다**(6/4 시드 제외).
+           즉 지금 새고 있는 게 아니라, 금액을 한 번 더 올리면 조용히 5배로 나가는 상태였다.
+         ⛔ 깎아서 주지 않고 막는다 — 반쪽 적립은 «왜 5점만 들어왔지?» 라는 더 큰 혼란이 된다. */
+      const praiseAllow = await checkEarnAllowed(env, accountUid, 'teacher_praise_point', amount);
+      if (!praiseAllow.ok) {
+        /* ⚠️ 강사 화면(js/idx-main.js)은 'daily_cap_reached' 만 알고, 모르는 값은
+           「전달 실패 :(」 로 그린다 — 한도인데 고장으로 읽혀 강사가 계속 다시 누른다.
+           그래서 화면이 아는 코드로 돌려주고, 자세한 사유는 따로 싣는다.
+           (첫 화면 예산이 빠듯한 blocking 파일을 안 건드리는 쪽이기도 하다.) */
+        return { ok: false, error: 'daily_cap_reached', detail: praiseAllow.error, cap: praiseAllow.cap, used: praiseAllow.used };
+      }
       // ⚛ 멱등 claim — awardId 있을 때만. 이미 적립됐으면 그대로 성공 반환(중복 적립 안 함).
       if (opts.awardId) {
         const claim = await env.DB.prepare(`INSERT OR IGNORE INTO point_awards (award_id, user_id, room_id, credited_at) VALUES (?,?,?,?)`)
@@ -156,13 +190,6 @@ export async function handlePointsApi(
           const b: any = await env.DB.prepare(`SELECT balance FROM student_points WHERE user_id=?`).bind(accountUid).first();
           return { ok: true, already: true, amount, newBalance: b?.balance ?? null };
         }
-      }
-      // 일일 한도 (KST 자정 기준)
-      if (rule?.daily_cap) {
-        const KST_OFF = 9 * 3600 * 1000;
-        const todayMs = Math.floor((now + KST_OFF) / 86400000) * 86400000 - KST_OFF;
-        const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE user_id=? AND rule_code='teacher_praise_point' AND triggered_at>=?`).bind(accountUid, todayMs).first();
-        if ((cnt?.c || 0) >= rule.daily_cap) return { ok: false, error: 'daily_cap_reached', cap: rule.daily_cap };
       }
       const r = await applyPointTransaction(env, {
         userId: accountUid, studentName: opts.studentName || undefined, type: 'earn',
@@ -292,6 +319,12 @@ export async function handlePointsApi(
       if (ruleCode === 'rescue_sentence') {
         await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES ('rescue_sentence','구조선 문장 완성',5,0,30,1,'망고 구조선 게임에서 단어를 순서대로 구조해 문장을 완성하면 지급(하루 30점까지)',?) ON CONFLICT(code) DO NOTHING`).bind(Date.now()).run();
       }
+      // 📖 A.i 동화책 한 편 완주 — 한 편의 활동 6가지(읽기·핵심문장·요점·낱말·근거찾기·바꿔쓰기)를
+      //   모두 마치면 지급. 10점 · 하루 2번까지 · 게임·퀴즈 묶음(하루 30점)과 전체 상한(100점)을 함께 지난다.
+      //   ⚠️ 화면(/story-red-umbrella.html)의 STORY_POINTS 와 금액이 같아야 합니다 — story_red_umbrella_harness 가 대조.
+      if (ruleCode === 'story_read') {
+        await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES ('story_read','A.i 동화책 한 편 완주',10,0,2,1,'동화책 한 편의 활동 6가지를 모두 마치면 지급(하루 2번까지)',?) ON CONFLICT(code) DO NOTHING`).bind(Date.now()).run();
+      }
       const rule: any = await env.DB.prepare(`SELECT * FROM point_rules WHERE code=? AND enabled=1`).bind(ruleCode).first();
       if (!rule) return json({ ok: false, error: 'rule_not_found_or_disabled', code: ruleCode }, 404);
       // 쿨다운 검사
@@ -384,7 +417,45 @@ export async function handlePointsApi(
         //   교사 세션이 없어 여기서 막혀도 칭찬 포인트는 그 경로로 정상 적립됨(이중경로·멱등).
         const apAdmin = await checkAdminSession(request, env as any);
         if (!apAdmin.ok) return json({ ok: false, error: 'auth_required', message: '교사만 별점을 줄 수 있습니다.' }, 401);
-        const rr: any = await env.DB.prepare(`SELECT account_uid, name, role FROM vc_roster WHERE room_id=? AND peer_id=? LIMIT 1`).bind(room, targetPeerId).first();
+        let rr: any = await env.DB.prepare(`SELECT account_uid, name, role FROM vc_roster WHERE room_id=? AND peer_id=? LIMIT 1`).bind(room, targetPeerId).first();
+        /* 🪪 (2026-09-10) 번호가 «죽었을 때만» 이름으로 한 번 더 찾는다.
+           [왜] 화상방 번호(peer id)는 접속할 때마다 새로 발급된다. 학생이 재연결하면
+             선생님 화면의 옛 타일 번호는 그 자리에서 죽고, 그 별은 서버에서도 화면에서도
+             아무 데도 안 간다 — 그런데 지금까지 «아무 말 없이» 사라졌다.
+             2026-09-10 실측: 한 화면이 2분 15초마다 새 번호로 다시 들어오고 있었다.
+           ⛔ 이름만으로 사람을 정하지 않는다 — 같은 방 로스터 안에서 «완전일치» 하고
+              후보 계정이 «정확히 하나» 일 때만 받는다. 동명이인이면 안 붙인다
+              (CLAUDE.md 2장 「남의 이름이 뜸」 — 모르는 것보다 틀린 게 나쁘다).
+           ⛔ 부분일치·대소문자 무시로 넓히지 말 것. 학생 이름은 겹치는 것이 실재한다.
+           ⚠️ 이 경로는 위에서 교사 쿠키 세션을 이미 확인했다. 본문의 이름은 «그 방에
+              이미 등록된 사람» 을 고르는 데만 쓰이고, 없는 계정을 만들어내지 못한다. */
+        if (!rr?.account_uid) {
+          const tName = String(body.target_name || '').trim();
+          if (tName) {
+            /* 🪤 «후보가 몇 명인가» 는 반드시 **GROUP BY 로 계정을 세어** 판정한다.
+               [실제로 밟을 뻔한 함정] 처음에는 최근 행 20개를 가져와 Set 으로 셌는데,
+                 vc_roster 는 PRIMARY KEY(room_id, peer_id) 라 **재접속 한 번 = 행 한 개**다.
+                 2026-09-10 실측: 한 방의 한 학생이 31행(mangoi-class · jeong).
+                 그러면 오래된 동명이인 행이 LIMIT 에 잘려 나가 «후보가 하나» 가 참이 되고,
+                 막으려던 바로 그 일(남의 계정에 별이 붙는 것)이 일어난다.
+               ⛔ LIMIT 을 키워서 풀지 말 것 — 재접속이 잦을수록 행이 늘어 언젠가 또 넘는다.
+               ✅ LIMIT 2 는 «계정» 을 세는 것이라 안전하다: 1이면 유일, 2면 그 자리에서 거절. */
+            const cand = await env.DB.prepare(
+              `SELECT account_uid FROM vc_roster
+                WHERE room_id=? AND name=? AND account_uid IS NOT NULL AND TRIM(account_uid)<>''
+                GROUP BY account_uid LIMIT 2`
+            ).bind(room, tName).all();
+            const rows = (cand?.results || []) as any[];
+            /* 계정이 «정확히 하나» 일 때만. 동명이인이면 붙이지 않는다
+               (CLAUDE.md 2장 「남의 이름이 뜸」 — 모르는 것보다 틀린 게 나쁘다). */
+            if (rows.length === 1) {
+              rr = await env.DB.prepare(
+                `SELECT account_uid, name, role FROM vc_roster
+                  WHERE room_id=? AND account_uid=? ORDER BY updated_at DESC LIMIT 1`
+              ).bind(room, String(rows[0].account_uid)).first();
+            }
+          }
+        }
         if (!rr?.account_uid) return json({ ok: false, error: 'account_not_registered' }, 200);
         if (rr.role && rr.role !== 'student') return json({ ok: false, error: 'target_not_student' }, 200);
         const res: any = await creditPraisePoint({ accountUid: rr.account_uid, studentName: rr.name, awardId, room, fromName });
@@ -424,14 +495,24 @@ export async function handlePointsApi(
       if (!roomId || !studentUid) return json({ ok: false, error: 'room_id_and_student_uid_required' }, 400);
       if (!Number.isInteger(score) || score < 1 || score > 7) return json({ ok: false, error: 'score_must_be_1_to_7' }, 400);
 
-      // 강사 이름: 클라이언트가 못 넘기면 attendance 에서 그 방의 강사 조회
-      let teacherName = (body.teacher_name || '').trim();
-      if (!teacherName) {
-        try {
-          const t: any = await env.DB.prepare(`SELECT username FROM attendance WHERE room_id=? AND role='teacher' AND username IS NOT NULL ORDER BY joined_at DESC LIMIT 1`).bind(roomId).first();
-          if (t?.username) teacherName = String(t.username);
-        } catch { /* attendance 없으면 빈 값 허용 */ }
-      }
+      /* 👤 강사 이름은 **서버가 그 방의 출석 기록에서** 정한다 (2026-08-28).
+         [왜 바꿨나] 예전엔 body.teacher_name 을 그대로 믿고, 비었을 때만 조회했다.
+         이 경로에는 인증이 없어서(호출자가 index.html — 공동 금지구역이라 토큰을 못 싣는다)
+         누구나 «아무 강사 이름 + 1점» 을 반복해 그 강사의 평점을 무너뜨릴 수 있었다.
+         그 평점은 관리자 품질 대시보드가 그대로 읽는 숫자다.
+         이제 방 기록으로만 정하므로, 이름을 지어내도 그 방에 실제로 있던 강사에게만 붙는다.
+         ⚠️ 근거가 `attendance.role='teacher'` 하나로 좁아졌다 — CLAUDE.md 2장이 경고하는
+            값이다(클라이언트가 보내는 값 + 「먼저 들어온 학생이 강사 역할을 받는」 전례).
+            그 전례가 걸리면 학생 이름이 평점에 붙을 수 있다. 그래도 «아무 강사나 지목해
+            평점을 무너뜨리는 것» 보다는 반경이 훨씬 작아 이쪽을 택했다. 모르면 빈 값이다.
+         ⚠️ 남은 것: 이 경로는 여전히 무인증이라 «있는 방에 대한» 평점 자체는 위조할 수
+            있고 10P 도 적립된다. 막으려면 화면이 토큰을 실어야 하는데 그 화면(index.html)이
+            공동 금지구역 + 첫화면 예산이 빠듯해 별건으로 남긴다(작업기록 참고). */
+      let teacherName = '';
+      try {
+        const t: any = await env.DB.prepare(`SELECT username FROM attendance WHERE room_id=? AND role='teacher' AND username IS NOT NULL ORDER BY joined_at DESC LIMIT 1`).bind(roomId).first();
+        if (t?.username) teacherName = String(t.username);
+      } catch { /* attendance 없으면 빈 값 허용 — 모르면 안 붙인다 */ }
 
       const tags = Array.isArray(body.tags) ? body.tags.map((t: any) => String(t)).slice(0, 12) : [];
       const feedback = String(body.feedback || '').slice(0, 1000).trim();
@@ -454,7 +535,10 @@ export async function handlePointsApi(
         if (rule) {
           const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
           const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE user_id=? AND rule_code='class_rating' AND triggered_at>=?`).bind(studentUid, startOfDay.getTime()).first();
-          if (!rule.daily_cap || (cnt?.c || 0) < rule.daily_cap) {
+          // 🪙 (2026-09-01) 하루 전체 상한(100점)도 함께 본다 — 정본 checkEarnAllowed
+          const rateAllow = await checkEarnAllowed(env, studentUid, 'class_rating', Number(rule.amount) || 0);
+          if (!rateAllow.ok) { /* 넘치면 평가는 그대로 저장하고 포인트만 건너뛴다 */ }
+          else if (!rule.daily_cap || (cnt?.c || 0) < rule.daily_cap) {
             const r = await applyPointTransaction(env, { userId: studentUid, studentName: body.student_name, type: 'earn', amount: rule.amount, reason: rule.label, ruleCode: 'class_rating', meta: { room_id: roomId, score } });
             await env.DB.prepare(`INSERT INTO point_rule_log (user_id, rule_code, amount, triggered_at, txn_id, meta) VALUES (?,?,?,?,?,?)`)
               .bind(studentUid, 'class_rating', rule.amount, now, r.txnId, JSON.stringify({ room_id: roomId })).run();
@@ -511,8 +595,8 @@ export async function handlePointsApi(
           if (tActive + sActive > 0) talkRatio = Math.round((tActive / (tActive + sActive)) * 100);
         }
         if (praiseCount === null) {
-          const p: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE rule_code='teacher_praise_point' AND meta LIKE ?`).bind('%"room_id":"' + roomId + '"%').first();
-          praiseCount = Number(p?.c) || 0;
+          // ⭐ 칭찬 횟수는 정본 하나로 — point-policy.ts 의 praiseCountForRoom 주석 참고
+          praiseCount = await praiseCountForRoom(env, roomId);
         }
         const r: any = await env.DB.prepare(`SELECT score, feedback FROM class_ratings WHERE room_id=? ORDER BY created_at DESC LIMIT 1`).bind(roomId).first();
         if (r) { studentScore = Number(r.score) || null; studentNote = String(r.feedback || '').slice(0, 400); }
@@ -523,7 +607,7 @@ export async function handlePointsApi(
         try {
           const ai0 = (env as any).AI;
           let audioBuf: ArrayBuffer | null = null;
-          if (b.recording_id && (env as any).RECORDINGS) {
+          if (b.recording_id && !isPrivateDubbingKey(String(b.recording_id)) && (env as any).RECORDINGS) {
             const obj: any = await (env as any).RECORDINGS.get(String(b.recording_id));
             if (obj) audioBuf = await obj.arrayBuffer();
           } else if (b.recording_url) {
@@ -728,6 +812,27 @@ Return STRICT JSON only, in BOTH Korean and English:
     if (method === 'GET' && path === '/api/judgment/growth') {
       const uid = (url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      /* 🔐 (2026-08-28) 위 머리말이 「본인(토큰) 또는 관리자(세션)만. IDOR 차단」이라고
+         적어 두었는데 **실제로는 아무 검사도 없었다** — 무인증 GET 으로 남의 아이를
+         레이더 5축·판단력 지수·취약 유형까지 그대로 읽을 수 있었다(실측 확인).
+         게스트(guest_*)는 종전대로 통과한다 — resolveOwnerScope 가 그렇게 판정한다. */
+      if ((await resolveOwnerScope(request, url, env as any, uid)) === 'deny') {
+        return json({ ok: false, error: 'auth_required' }, 401);
+      }
+      // ⚡ only=band — 성장 리포트(D1 여러 번)를 건너뛰고 «이 학생이 난이도를 정한 적 있나» 만 KV 1회로 답합니다.
+      //   🎬 학생 화면의 첫 진입 설정 카드가 이 답을 기다립니다. 시나리오 요청으로 알아내려 하면
+      //      LLM 생성(운영 실측 평균 11초)을 기다려야 해서 «첫 화면이 안 뜨는» 것이 됩니다.
+      //   ⚠️ 새 경로를 만들지 않고 이미 열려 있는 GET 에 얹습니다 — src/index.ts 는 공동 금지구역입니다.
+      if ((url.searchParams.get('only') || '') === 'band') {
+        try {
+          const b = await getReadingBandFor(env, uid);
+          // ⚠️ has_band=false 는 «판단력 훈련을 한 번도 안 했다» 는 뜻입니다.
+          //    없는 값을 기본값으로 채워 내려보내면 화면이 «이미 정해 뒀다» 로 오해합니다.
+          return json({ ok: true, has_band: !!b, band_catalog: bandCatalog(), ...(b ? {
+            reading_band: b.band, reading_band_label: b.lv, band_mode: b.mode, band_src: b.src, age_group: b.age_group,
+          } : {}) });
+        } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
+      }
       try {
         const report = await getGrowthReport(env, uid);
         return json({ ok: true, ...report });
@@ -739,12 +844,47 @@ Return STRICT JSON only, in BOTH Korean and English:
       const body: any = await request.json().catch(() => ({}));
       const uid = (body.uid || url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      // 🔐 (2026-08-28) 남의 아이디로 LLM 생성을 돌리고 그 학생 기록에 얹는 것을 막는다(위 growth 와 같은 이유).
+      const jScope = await resolveOwnerScope(request, url, env as any, uid, body);
+      if (jScope === 'deny') {
+        return json({ ok: false, error: 'auth_required' }, 401);
+      }
+      /* ═══ 🍯 맛보기(로그인 없이) 남용 가드 — 게스트에게만 (2026-09-05) ═══
+         이 경로는 요청 한 번에 LLM 을 한 번 돌린다(위 주석의 운영 실측 평균 11초).
+         게스트는 예전부터 통과했지만 화면이 막고 있어 실제 호출이 0건이었다
+         (D1 실측 judgment_events 194행 중 게스트 0행). 그 화면을 여는 김에 상한을 건다.
+         ⛔ 상한을 «부르는 쪽»(화면)에 두지 않는다 — 본문 한 줄로 깨진다(CLAUDE.md 「비용이
+            나가는 API」). 정본인 여기가 든다.
+         ⚠️ 로그인한 학생에게는 한 글자도 안 걸린다 — 그들의 동작은 그대로다.
+         ⚠️ KV 가 안 되면 «막지 않는» 쪽으로 실패한다. 그러면 고치기 전(게스트가 이미 통과하던
+            상태)과 같아질 뿐이고, 맛보기가 통째로 죽는 것보다 낫다.
+            같은 파일의 judg:ic:rl 가드와 같은 방식(best-effort, 레이스 허용).
+         ⚠️ 세는 자리는 «생성 앞» 이다 — 뒤에 두면 실패한 요청이 안 세여 재시도로 빠져나간다. */
+      if (jScope === 'guest') {
+        const kvS = (env as any).SESSION_STATE as KVNamespace | undefined;
+        try {
+          if (kvS) {
+            // KST 하루 단위(자정 리셋) — 사람이 「오늘 몇 문제」로 이해하는 눈금과 같게
+            const ymd = new Date(Date.now() + 32400000).toISOString().slice(0, 10);
+            const key = `judg:sample:${uid}:${ymd}`;
+            const n = parseInt((await kvS.get(key)) || '0', 10) || 0;
+            if (!sampleScenarioAllowed(n)) {
+              /* 화면이 이것을 «고장» 이 아니라 «맛보기 한도» 로 말해야 한다 —
+                 200 으로 돌려주는 것은 그 화면이 ok===false 를 읽어 안내를 그리기 때문이다. */
+              return json({ ok: false, error: 'sample_limit', limit: SAMPLE_SCENARIO_CAP }, 200);
+            }
+            await kvS.put(key, String(n + 1), { expirationTtl: 172800 });
+          }
+        } catch { /* KV 실패 → 막지 않는다(위 설명) */ }
+      }
       try {
         // focus_misconception — 학생이 "이 유형 더 연습하기"를 누른 경우. 사전에 없는 코드는 생성기가 무시합니다.
         // 읽기 난이도 조작 두 가지 — 새 API 경로를 만들지 않으려고 이 요청에 실어 받습니다
         //   (src/index.ts 는 금지구역). 생성기가 값을 다시 검증하므로 여기서는 형만 맞춥니다.
         //     band_nudge — "너무 어려워요(-1) / 너무 쉬워요(+1)". ±1 로만 해석돼 한 밴드 이상 안 움직임
         //     set_band   — 학생이 목록에서 직접 고른 범주(1~8). 범위 밖 값은 생성기가 무시
+        //     age_group  — 누구를 위한 문제인가('child'/'adult', 2026-08-24). 같은 이유로 이 요청에 실어 받음
+        //       ⚠️ 이 줄을 빠뜨리면 화면의 「성인」 토글이 조용히 무동작합니다 — 에러도 없이 계속 아이 문제가 나갑니다.
         const sc = await generatePersonalizedScenario(
           env, uid, body.lang || 'en', (body.textbook || '').toString().trim() || undefined,
           (body.focus_misconception || '').toString().trim().slice(0, 40) || null,
@@ -753,7 +893,8 @@ Return STRICT JSON only, in BOTH Korean and English:
           { nudge: Math.sign(Number(body.band_nudge) || 0), setBand: Number(body.set_band) || 0,
             mode: (body.band_mode || '').toString().trim() || null,
             probeBand: Number(body.probe_band) || 0,
-            src: (body.band_src || '').toString().trim() || null });
+            src: (body.band_src || '').toString().trim() || null,
+            ageGroup: (body.age_group || '').toString().trim() || null });
         return json(sc, 200);
       } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
     }
@@ -765,6 +906,11 @@ Return STRICT JSON only, in BOTH Korean and English:
       const body: any = await request.json().catch(() => ({}));
       const uid = (body.uid || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      /* 🔐 (2026-08-28) 남의 아이디로 오답을 밀어 넣어 그 학생의 판단력 지수를 떨어뜨리는 것을 막는다
+         — 그 지수는 학부모에게 나가는 주간 문자에 실린다(api-students 위클리 다이제스트). */
+      if ((await resolveOwnerScope(request, url, env as any, uid, body)) === 'deny') {
+        return json({ ok: false, error: 'auth_required' }, 401);
+      }
       if (!Array.isArray(body.options) || body.options.length < 2) return json({ ok: false, error: 'options_required' }, 400);
       if (!Number.isInteger(body.chosen_index)) return json({ ok: false, error: 'chosen_index_required' }, 400);
       try {
@@ -1037,11 +1183,44 @@ Return STRICT JSON only, in BOTH Korean and English:
     if (method === 'GET' && path === '/api/points/leaderboard') {
       await ensurePointTables(env);
       const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '10', 10) || 10, 1), 50);
+      const meUid = (url.searchParams.get('uid') || '').trim();
+      /* ⛔ 게스트(guest*)는 순위에서 뺀다 — 맛보기로 들어온 익명 이용자가 위를 차지하면
+         진짜 학생의 동기 장치가 죽는다. 2026-09-05 D1 실측: student_points 94행 중 4행이 게스트.
+         ⚠️ 패턴은 `guest%` 다 — 미로그인 uid 기본값이 밑줄 없는 `guest` 라(auth-admin.ts)
+            `guest_%` 로 좁히면 그것이 그대로 샌다. */
       const rs = await env.DB.prepare(
-        `SELECT user_id, student_name, lifetime_earned FROM student_points ORDER BY lifetime_earned DESC, updated_at DESC LIMIT ?`
+        `SELECT user_id, student_name, lifetime_earned FROM student_points
+          WHERE LOWER(COALESCE(user_id,'')) NOT LIKE 'guest%'
+          ORDER BY lifetime_earned DESC, updated_at DESC LIMIT ?`
       ).bind(limit).all();
-      // user_id 는 본인 하이라이트용으로만 필요 → 그대로 두되 balance 등 민감 필드는 제외.
-      return json({ ok: true, rows: rs.results || [] });
+      /* 🔴 (2026-08-28) user_id 를 더는 내려주지 않는다.
+         [왜] 학생 로그인은 «비밀번호가 설정된 경우만» 검사하는데(api-students.ts) 실측상
+              비밀번호가 있는 학생이 0명이다 → **아이디를 아는 것이 곧 로그인**이다.
+              그런데 이 공개 엔드포인트가 아이디를 이름과 함께 최대 50개 내주고 있었다
+              (무인증 GET 실측으로 확인). 그 아이디로 판단력 기록 조회까지 이어졌다.
+         [본인 표시] 「(나)」 하이라이트에만 쓰이던 값이라 서버가 판정해 `me` 로만 준다 —
+              단어왕 리더보드(/api/vocab/leaderboard)도 같은 방식이다 —
+              ⚠️ 다만 그것은 2026-09-05 에야 고쳤다. 이 주석은 그전까지 «이미 그 방식» 이라고
+                 적혀 있었지만 사실이 아니었고, 그 문장 때문에 아무도 다시 안 봤다.
+         ⛔ user_id 를 되살리지 말 것. 이름이 없을 때 아이디로 폴백하지도 말 것. */
+      /* 🔴 (2026-09-05) 이름 칸이 «아이디 그 자체» 인 행이 실재한다 — D1 실측 94행 중 **18행**
+         (`jeong`·`lee`·`kang`·`Lee`·`lemuel`…). 카페24에 이름이 없는 계정은 명부에 아이디로
+         찍히기 때문이다(CLAUDE.md 2장). ⟹ user_id 를 응답에서 뺐어도 **그 이름으로 아이디가
+         그대로 나간다.** 이름이 아이디와 같으면 «이름 없음» 으로 준다.
+         ⚠️ 대소문자를 무시해서 견주지 말 것 — `Lee`/`lee` 는 별개 계정이라 한쪽만 가려지면
+            나머지 한쪽이 그대로 샌다. 여기서는 «같은 글자면 아이디» 이므로 정확일치가 맞다.
+         ⚠️ 「(나)」 판정도 정확일치다 — 대소문자만 다른 별개 행이 실재해 무시하면 남의 줄에
+            「(나)」가 붙는다(로그인·lookup·set-password 네 곳과 같은 규칙). */
+      const rows = ((rs.results || []) as any[]).map((r) => {
+        const uidStr = String(r.user_id || '');
+        const nm = String(r.student_name || '').trim();
+        return {
+          student_name: (nm && nm !== uidStr) ? nm : null,
+          lifetime_earned: Number(r.lifetime_earned) || 0,
+          me: !!meUid && uidStr === meUid,
+        };
+      });
+      return json({ ok: true, rows });
     }
 
     // ── GET /api/admin/gifts/catalog — 관리자 카탈로그 (전체) ──
@@ -1238,6 +1417,11 @@ Return STRICT JSON only, in BOTH Korean and English:
     //   body: { status: 'sent'|'delivered'|'failed'|'refunded', coupon_code?, error_message? }
     //   refunded 일 때는 포인트 환불도 자동 처리
     if (method === 'POST' && /^\/api\/admin\/gifts\/redemptions\/\d+\/mark$/.test(path)) {
+      /* 🔐 (2026-08-28) 본사만 — 이 경로가 «환불» 을 일으킨다(아래 refunded 분기).
+         같은 파일의 포인트 지급·규칙·카탈로그는 전부 denyTeacher 로 막혀 있는데
+         («포인트는 기프티콘으로 교환된다» 는 같은 이유) 정작 환불을 하는 여기만 빠져 있었다.
+         `/api/admin/gifts/` 는 TEACHER_BLOCKED_PREFIXES 에도 없어 강사가 그대로 닿는다. */
+      const _dt = await denyTeacher(); if (_dt) return _dt;
       await ensurePointTables(env);
       const id = parseInt(path.split('/')[5] || '0', 10);
       if (!id) return json({ ok: false, error: 'invalid_id' }, 400);
@@ -1385,9 +1569,23 @@ Return STRICT JSON only, in BOTH Korean and English:
       //  D1(SQLite) 은 쓰기를 직렬화하므로, 두 요청이 동시에 와도 UPDATE ... WHERE txn_refund_id IS NULL 은
       //  한 번만 changes=1 이 되어 정확히 한 번만 환불된다.
       if (ev.status === 'failed' && !red.txn_refund_id) {
+        /* 🔐 (2026-08-28) 환불 대상 «상태» 를 좁힌다.
+           [왜] 이 웹훅에는 서명 검증이 없다(공개 경로 + parseWebhook 은 형만 본다).
+                누구나 {bizTrId, status:'failed'} 를 보내면 환불이 돌았고, 교환 id 는
+                작은 정수라 훑기도 쉽다.
+           [무엇을 막았나] 관리자가 «전달됨(delivered)» 으로 표시한 건과 이미 환불된 건.
+                즉 사람이 «학생이 받았다» 고 확인한 교환은 이 경로로 되돌릴 수 없다.
+           ⚠️ 'sent'(발송 성공·쿠폰코드까지 받은 상태)는 **여전히 환불 가능하다** —
+                그 뒤에 진짜 실패 콜백이 오는 정상 흐름이 있어 막으면 진짜 환불이 멈춘다.
+                그러니 이 한 줄로 위조 콜백이 다 막히는 것은 아니다(과장해 적지 말 것).
+           ⚠️ 근본 해결은 서명 검증이다 — 공급사 콜백 규격·시크릿이 필요해 사람이 정한다.
+              (그때 이 조건은 그대로 둘 것 — 두 방어는 서로를 대신하지 않는다) */
         const claim = await env.DB.prepare(
-          `UPDATE gift_redemptions SET status='refunded', refunded_at=? WHERE id=? AND txn_refund_id IS NULL AND status!='refunded'`
+          `UPDATE gift_redemptions SET status='refunded', refunded_at=? WHERE id=? AND txn_refund_id IS NULL AND status IN ('pending','sent','failed')`
         ).bind(now, redId).run();
+        if (!claim?.meta?.changes) {
+          console.warn('[gift-webhook] 환불 안 함 — 이미 전달·환불된 교환입니다:', redId, red.status);
+        }
         if (claim?.meta?.changes) {   // 이 요청이 환불 슬롯을 차지했을 때만 실제 포인트 환불
           try {
             const refundTxn = await applyPointTransaction(env, {

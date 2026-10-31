@@ -62,6 +62,40 @@
           node.textContent = isEn ? en : ko;
         }
 
+        /* 🪜 (2026-09-14, 사장님 B안) «AI 진단 완료 · C2» 의 C2 를 사람이 읽게 — 6칸 게이지.
+           [왜] 약어만 내보내서 「C2 가 도대체 뭐야」(사장님). 이름·칸 수·눈금 글자는 전부
+                서버 정본(/api/leveltest/my 의 level_display ← cefrDisplay)이 내려주고 여기서는
+                **그리기만** 한다. ⛔ 이 파일에 CEFR 이름표·글자 배열을 적지 말 것(두 벌이 되면 어긋난다).
+           ⚠️ load() 가 60초마다 다시 돈다 — 매 렌더 첫머리에서 setGauge(null) 로 지우고 그 갈래에서만 다시 그린다.
+              안 지우면 «AI 진단» 카드가 «예약 카드» 로 바뀐 뒤에도 게이지가 남는다.
+           ⚠️ 게이지는 data-ko/data-en 이 «없는» 형제 요소다 — i18n 엔진이 textContent 를 갈아끼우는 것은
+              [data-ko] 요소뿐이라 여기엔 안 닿는다(자식이 있는 요소에 data-ko 를 달면 자식이 사라진다). */
+        var GAUGE_ID = 'hero-lt-gauge';
+        var GAUGE_CSS = '#hero-lt .lt-gauge{display:block;max-width:320px;margin:8px auto 4px}'
+          + '#hero-lt .lt-gauge-bars{display:flex;gap:4px}'
+          + '#hero-lt .lt-gauge-bars i{flex:1;height:8px;border-radius:99px;background:rgba(255,255,255,.14);display:block}'
+          + '#hero-lt .lt-gauge-bars i.on{background:linear-gradient(90deg,#fde68a,#f59e0b)}'
+          + '#hero-lt .lt-gauge-lbl{display:flex;justify-content:space-between;margin-top:3px;font-size:10.5px;font-weight:700;color:rgba(255,255,255,.55);font-variant-numeric:tabular-nums}'
+          + '#hero-lt .lt-gauge-lbl span.on{color:#fde68a}';
+        function setGauge(disp){
+          var old = document.getElementById(GAUGE_ID);
+          if (old && old.parentNode) old.parentNode.removeChild(old);
+          if (!disp || !disp.ladder || !disp.ladder.length) return;
+          if (!document.getElementById('hero-lt-gauge-css')) {
+            var st = document.createElement('style'); st.id = 'hero-lt-gauge-css'; st.textContent = GAUGE_CSS;
+            document.head.appendChild(st);
+          }
+          var g = document.createElement('div'); g.id = GAUGE_ID; g.className = 'lt-gauge';
+          var bars = document.createElement('div'); bars.className = 'lt-gauge-bars';
+          var lbl = document.createElement('div'); lbl.className = 'lt-gauge-lbl';
+          for (var i = 0; i < disp.ladder.length; i++) {
+            var b = document.createElement('i'); if (i < disp.step) b.className = 'on'; bars.appendChild(b);
+            var sp = document.createElement('span'); sp.textContent = disp.ladder[i]; if (i + 1 === disp.step) sp.className = 'on'; lbl.appendChild(sp);
+          }
+          g.appendChild(bars); g.appendChild(lbl);
+          el.insertBefore(g, subEl);
+        }
+
         /* 🙋 회원 경로 — 티켓이 없을 때만 쓴다(티켓 쪽이 «지금 입장하기» 까지 알려주므로 더 낫다).
            ⚠️ 여기서는 join_open 을 모른다. 모르는 것을 아는 척해 초록 입장 카드를 만들면
               눌렀을 때 들어갈 곳이 없다 — 상태와 «마이페이지에서 보기» 만 말한다.
@@ -71,6 +105,7 @@
           fetch('/api/leveltest/my?uid=' + encodeURIComponent(myUid) + '&token=' + encodeURIComponent(myToken), { cache:'no-store' })
             .then(function(r){ return r.json(); })
             .then(function(d){
+              setGauge(null);
               var items = (d && d.ok && d.items) ? d.items : [];
               items = items.filter(function(a){ return a && a.status !== 'cancelled'; });
               if (!items.length) { el.hidden = true; return; }
@@ -98,6 +133,30 @@
                 if (!withResult) { el.hidden = true; return; }
                 el.classList.remove('is-open');
                 el.href = '/parent.html?uid=' + encodeURIComponent(myUid);
+                /* 🤖 (2026-09-14) «AI 자가 진단» 만 돌린 행 — 신청서가 아니다.
+                   /api/leveltest/diagnose 는 pending 신청이 없으면 source='ai-diagnosis' 로
+                   날짜 없는 행을 새로 만든다. 그 행을 신청처럼 그리면 「일정 협의 중 /
+                   테스트 완료」 가 되어 «신청한 적 없는데 협의 중» 이라는 거짓말이 된다
+                   (2026-09-14 사장님 화면, D1 id 24). 사실대로 «AI 진단 완료 · 레벨» 로 적는다.
+                   ⚠️ 판정은 서버가 준 source 로 — 날짜가 없다는 것만으로 짐작하지 않는다. */
+                if (withResult.source === 'ai-diagnosis' && !withResult.desired_date) {
+                  var lv = String(withResult.final_level || '');
+                  /* 🪜 (2026-09-14) 서버가 이름·게이지 재료를 주면 그것으로, 없으면(옛 서버·모르는 값) 원문 그대로.
+                     ⛔ 여기서 이름을 지어내지 않는다 — «최상급» 같은 이름은 BAND_SPECS 의 것이고 서버가 고른다. */
+                  var disp = withResult.level_display;
+                  if (disp && disp.ko && disp.en && disp.ladder && disp.ladder.length) {
+                    put(whenEl, 'AI 진단 완료 · ' + disp.ko, 'AI diagnosis done · ' + disp.en);
+                    setGauge(disp);
+                    var stepKo = disp.step > 0 ? disp.cefr + ' · ' + disp.of + '단계 중 ' + disp.step + '단계' : disp.ladder[0] + ' 미만';
+                    var stepEn = disp.step > 0 ? disp.cefr + ' · step ' + disp.step + ' of ' + disp.of : 'Below ' + disp.ladder[0];
+                    put(subEl, stepKo + ' · 결과 보기 →', stepEn + ' · See result →');
+                  } else {
+                    put(whenEl, 'AI 진단 완료 · ' + lv, 'AI diagnosis done · ' + lv);
+                    put(subEl, '결과 보기 →', 'See result →');
+                  }
+                  el.hidden = false;
+                  return;
+                }
                 put(whenEl, label(withResult.desired_date, withResult.desired_time, false),
                             label(withResult.desired_date, withResult.desired_time, true));
                 put(subEl, '테스트 완료 — 결과 보기 →', 'Test completed — see result →');
@@ -138,6 +197,7 @@
           fetch('/api/leveltest/ticket?k=' + encodeURIComponent(k), { cache:'no-store' })
             .then(function(r){ return r.json(); })
             .then(function(d){
+              setGauge(null);
               if (!d || !d.ok || !d.ticket) {
                 // 만료·무효 — 죽은 카드를 홈에 남기지 않는다.
                 // 단 회원이면 서버에 본인 신청을 다시 물어본다(티켓만 죽었을 뿐 신청은 살아 있다).

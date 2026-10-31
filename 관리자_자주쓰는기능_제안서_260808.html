@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>제안서 — 관리자 「⚡ 자주 쓰는 기능」 재정렬·자가학습 (2026-08-08)</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#f1f5f9;color:#1f2937;
+       font-family:"Malgun Gothic","맑은 고딕",-apple-system,Segoe UI,Roboto,sans-serif;
+       font-size:14.5px;line-height:1.7}
+  .page{max-width:940px;margin:0 auto;background:#fff;padding:34px 40px 70px;
+        box-shadow:0 0 30px -14px rgba(15,23,42,.3)}
+  @media(max-width:700px){.page{padding:22px 16px 50px}}
+  h1{font-size:24px;margin:0 0 6px;letter-spacing:-.5px}
+  .meta{color:#64748b;font-size:13px;margin:0 0 26px;padding-bottom:16px;border-bottom:2px solid #f1f5f9}
+  h2{font-size:17.5px;margin:34px 0 10px;padding-left:11px;border-left:4px solid #c2410c;letter-spacing:-.3px}
+  h3{font-size:14.5px;margin:20px 0 7px;color:#0f172a}
+  p{margin:8px 0}
+  ul,ol{margin:8px 0;padding-left:22px}
+  li{margin:4px 0}
+  code{background:rgba(99,102,241,.10);color:#5b21b6;padding:1px 5px;border-radius:4px;font-size:12.5px}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13px}
+  th,td{border:1px solid #e2e8f0;padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:#f8fafc;font-weight:800;color:#334155;font-size:12.5px}
+  td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  tr.hi td{background:#fff7ed}
+  .box{border-radius:10px;padding:13px 16px;margin:14px 0;font-size:13.5px}
+  .box.warn{background:#fffbeb;border-left:4px solid #f59e0b;color:#78350f}
+  .box.ok{background:#f0fdf4;border-left:4px solid #16a34a;color:#14532d}
+  .box.info{background:#eff6ff;border-left:4px solid #3b82f6;color:#1e3a8a}
+  .box.stop{background:#fef2f2;border-left:4px solid #dc2626;color:#7f1d1d}
+  .box b{font-weight:800}
+  .pill{display:inline-block;font-size:10.5px;font-weight:900;letter-spacing:.3px;
+        padding:2px 7px;border-radius:999px;vertical-align:1px}
+  .pill.new{background:#c2410c;color:#fff}
+  .pill.keep{background:#e2e8f0;color:#475569}
+  .kpi{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+  .kpi div{flex:1;min-width:130px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 13px}
+  .kpi b{display:block;font-size:21px;color:#c2410c;line-height:1.2;font-variant-numeric:tabular-nums}
+  .kpi span{font-size:11.5px;color:#64748b}
+  .en{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px;margin-top:34px;
+      font-size:13px;line-height:1.65}
+  .en h3{margin-top:0;color:#c2410c}
+  .foot{margin-top:34px;padding-top:14px;border-top:2px solid #f1f5f9;color:#94a3b8;font-size:12px}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>관리자 「⚡ 자주 쓰는 기능」 — 순서 재정렬 + 스스로 배우는 바로가기</h1>
+<p class="meta">2026-08-08 · 대상 파일 <code>public/js/adm-quick-access.js</code> 1개 · 서버·DB 변경 없음 ·
+  <b>되돌리기 = 파일 1개 교체</b></p>
+
+<h2>0. 세 줄 요약</h2>
+<ol>
+  <li>지금 6개는 <b>2026-07-23 매니저가 말로 부른 순서</b> 그대로입니다. 그 뒤로 검증된 적이 없습니다.</li>
+  <li>운영 데이터 + <b>경쟁사 조사</b>로 다시 매기면 순서가 바뀌고, <b>빠져 있는 것 4개</b>(출결 · <b>결제/미납</b> · 평가서 · 문의)가 드러납니다.
+      이 중 <b>결제/미납은 경쟁사 조사가 아니었으면 못 찾았습니다</b> — 3장.</li>
+  <li>진짜 해법은 제가 순서를 정하는 게 아니라 <b>화면이 사람마다 스스로 배우게</b> 하는 것입니다. 클릭을 브라우저에 쌓아 다음 접속 때 위로 올립니다 — 서버 비용 0원.
+      <b>글로벌 경쟁사(TutorCruncher)도 같은 결론에 도달했습니다.</b></li>
+</ol>
+
+<h2>1. 먼저 인정할 것 — 지금은 「측정」이 아니라 「추정」입니다</h2>
+<div class="box stop">
+  <b>관리자 화면에는 클릭 계측이 없습니다.</b> 확인 결과 <code>ux_events</code> 테이블은 학생 화면만 받고
+  있습니다(<code>pv:index</code> 2,664 · <code>home:ai-friends</code> 420 …). 관리자 메뉴 클릭은 <b>단 한 건도</b> 없습니다.
+  <br>그래서 아래 순위는 <b>「직원이 몇 번 눌렀나」가 아니라 「그 화면에서 처리해야 할 일이 얼마나 쌓였나」</b>로
+  대신 잰 값입니다. 방향은 맞지만 정답은 아닙니다. 그래서 3장에서 <b>진짜 측정을 켜는 방법</b>을 같이 냅니다.
+</div>
+
+<h3>실제로 뽑은 숫자 (운영 D1 · SELECT 만 조회)</h3>
+<table>
+  <thead><tr><th>업무 (해당 화면)</th><th class="n">최근 30일</th><th class="n">최근 90일</th><th>읽는 법</th></tr></thead>
+  <tbody>
+    <tr class="hi"><td><b>출결</b> — 출결 현황</td><td class="n">4,834</td><td class="n">13,624</td><td>하루 평균 <b>161건</b>. 압도적 1위</td></tr>
+    <tr class="hi"><td><b>수업 분석</b> — 오늘 수업/수업 관찰</td><td class="n">2,072</td><td class="n">—</td><td>수업 1건마다 1행. 매일 발생</td></tr>
+    <tr><td><b>녹화</b> — 녹화 관리</td><td class="n">882</td><td class="n">1,483</td><td>자동 생성. 직원이 여는 일은 드묾</td></tr>
+    <tr><td><b>수업 편성</b> — 시간표</td><td class="n">8</td><td class="n">666</td><td>몰아서 짜고 한동안 안 만짐</td></tr>
+    <tr class="hi"><td><b>평가서</b> — 평가서 통합</td><td class="n">—</td><td class="n">104</td><td>월 ~35건. 사람이 직접 씀</td></tr>
+    <tr><td><b>월간 리포트</b></td><td class="n">—</td><td class="n">53</td><td>월 1회 집중</td></tr>
+    <tr><td><b>수강신청</b> — 수강신청/등록</td><td class="n">2</td><td class="n">52</td><td>건수는 적지만 <b>매출 직결</b></td></tr>
+    <tr><td><b>구독/결제</b></td><td class="n">—</td><td class="n">50 / 30</td><td>정기결제 갱신</td></tr>
+    <tr class="hi"><td><b>레벨테스트 신청</b></td><td class="n">14</td><td class="n">14</td><td>14건 <b>전부 최근 30일</b> — 지금 늘고 있음</td></tr>
+    <tr><td><b>급여</b></td><td class="n">—</td><td class="n">28</td><td>월 1회</td></tr>
+    <tr class="hi"><td><b>수업 별점</b> — 강사 평가</td><td class="n">24</td><td class="n">36</td><td>새 기능, 빠르게 증가</td></tr>
+    <tr><td><b>상담 기록</b></td><td class="n">—</td><td class="n">18</td><td></td></tr>
+    <tr class="hi"><td><b>문의(신규 리드)</b></td><td class="n">1</td><td class="n">13</td><td>건수는 최소, <b>놓치면 매출 손실</b></td></tr>
+    <tr><td><b>노쇼</b></td><td class="n">11</td><td class="n">11</td><td>새 감지 기능</td></tr>
+    <tr><td><b>연기·변경 요청</b></td><td class="n">0</td><td class="n">0</td><td><b>0건</b> — 아래 별도 설명</td></tr>
+    <tr><td><b>상담 예약 · 기간연장 · 팝업</b></td><td class="n">0</td><td class="n">0</td><td>사실상 안 씀</td></tr>
+  </tbody>
+</table>
+
+<div class="box warn">
+  <b>함정 하나 — 큰 숫자에 속지 말 것.</b> <code>student_payments</code> 는 90일 11,395건으로 1위처럼 보이지만
+  <b>11,188건이 2026-08-08 하루에 한꺼번에</b> 들어왔습니다. 카페24 동기화가 쓴 것이지 직원이 누른 게 아닙니다.
+  그래서 순위에서 뺐습니다.
+</div>
+<div class="box info">
+  <b>함정 둘 — 0건이 「필요 없다」는 뜻은 아닙니다.</b> 「연기·변경 요청」이 90일 0건인 것은
+  <b>강사가 그 창구를 안 쓰고 있다</b>는 신호일 수 있습니다(카톡으로 말하고 관리자가 손으로 옮기는 중).
+  그래서 「없애자」가 아니라 <b>「자주 쓰는 기능에서는 빼고, 왜 0건인지는 따로 확인」</b>으로 둡니다.
+</div>
+
+<h2>2. 제안하는 기본 순서 — 6개 → 10개</h2>
+<p>순서 기준: ① 매일 하는가 ② 안 하면 오늘 사고가 나는가 ③ 지금 몇 번 눌러야 닿는가.</p>
+
+<table>
+  <thead><tr><th style="width:34px">#</th><th>항목</th><th>연결 카드</th><th>근거</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><b>오늘 수업 (바로 입장)</b> <span class="pill keep">유지</span></td><td><code>card-students-mgmt</code> ▸ 오늘 수업</td><td>매일 첫 화면. 수업 분석 2,072건/30일</td></tr>
+    <tr><td>2</td><td><b>수업 관찰</b> <span class="pill keep">유지</span></td><td><code>card-admin-ghost</code></td><td>품질 점검 · 필리핀 강사 실시간 확인</td></tr>
+    <tr><td>3</td><td><b>수업 종료 / 연장</b> <span class="pill keep">유지</span></td><td><code>card-active-rooms</code></td><td>수업 중에만 쓸 수 있음 = 시간 압박 최상위</td></tr>
+    <tr class="hi"><td>4</td><td><b>출결 현황</b> <span class="pill new">신규</span></td><td><code>card-attendance-status</code></td><td><b>4,834건/30일 — 데이터량 1위인데 지금은 「오늘」 그룹 안으로 2번 눌러야 닿음</b></td></tr>
+    <tr><td>5</td><td><b>학생 목록 (대리점·학원)</b> <span class="pill keep">유지</span></td><td><code>card-students-mgmt</code></td><td>모든 업무의 출발점(조회형)</td></tr>
+    <tr><td>6</td><td><b>수강신청 / 등록</b> <span class="pill keep">유지</span></td><td><code>card-enrollments</code></td><td>매출 직결. 건수는 적어도 지연이 곧 손실</td></tr>
+    <tr class="hi"><td>7</td><td><b>결제 · 미납</b> <span class="pill new">신규</span></td><td><code>card-payments-b2c</code> · <code>card-auto-dunning</code></td><td><b>미납 독촉이 매일 17건씩 자동 발송 중</b>(90일 934건) · 미납 119건. <b>경쟁사 5곳 전원이 첫 화면에 둠</b> — 3장 참조</td></tr>
+    <tr><td>8</td><td><b>레벨테스트</b> <span class="pill keep">유지</span></td><td><code>card-level-tests</code></td><td>사장님 08-08 지시로 추가. 14건 전부 최근 유입(대기 5건)</td></tr>
+    <tr class="hi"><td>9</td><td><b>평가서</b> <span class="pill new">신규</span></td><td><code>card-eval-mgmt</code></td><td>104건/90일 · 사람이 직접 쓰는 작업 중 최대</td></tr>
+    <tr class="hi"><td>10</td><td><b>문의 · 신규상담</b> <span class="pill new">신규</span></td><td><code>card-inquiry-mgmt</code></td><td>13건 <b>전부 «미처리(new)» 상태로 남아 있음</b> — 지금 새 나가는 중</td></tr>
+  </tbody>
+</table>
+
+<div class="box warn">
+  <b>10개는 제가 처음에 그은 한계(9개)를 하나 넘습니다.</b> 「결제·미납」이 6장의 경쟁사 조사로 뒤늦게 들어왔기 때문입니다.
+  세로 높이가 실제로 버티는지는 <b>1366×768 노트북에서 한 번 눈으로 확인</b>해야 합니다.
+  안 맞으면 <b>10번(문의)을 빼는 대신 「오늘 ▸ 알림함」에 배지로</b> 돌립니다 — 목록을 더 늘리지는 않습니다.
+  (자동 정렬이 켜지면 각자 안 쓰는 항목은 아래로 내려가므로, 실제로 눈에 들어오는 건 사람마다 상위 5~6개입니다.)
+</div>
+
+<h3>넣을까 고민했지만 뺀 것</h3>
+<ul>
+  <li><b>녹화 관리</b> — 882건/30일이지만 <b>자동 생성</b>입니다. 직원이 여는 빈도와 무관합니다.</li>
+  <li><b>강사 명부 · 시간표</b> — 자주 보지만 <b>급하지 않습니다</b>. 자주 쓰는 기능은 「급할 때 목록」입니다(2026-07-23 매니저 원문).</li>
+  <li><b>급여 · 회계</b> — 월 1회 집중형. 그날만 쓰는 것을 매일 위에 두면 나머지 29일이 손해입니다.</li>
+  <li><b>수업 별점</b> — 증가 중이라 <b>다음 분기 재검토 대상</b>으로 남깁니다.</li>
+  <li><b>학부모 소통 · 알림</b> — 경쟁사는 전원 첫 화면에 두지만 <b>우리는 지금 거의 안 쓰고 있습니다</b>
+      (알림톡 90일 <b>0건</b> · 학부모 챗 30일 2건 · 다이제스트 30건). 자주 쓰는 기능에 올릴 근거가 없습니다.
+      <b>다만 이건 별개의 문제로 따로 보고합니다</b> — 3장 참조.</li>
+</ul>
+
+<h2>3. 경쟁사는 무엇을 첫 화면에 두는가</h2>
+<p>「우리 데이터가 없으면 남의 답안을 보면 되지 않나」 — 맞는 말씀이라 실제로 조사했습니다.
+  <b>그리고 이 조사가 제 제안을 하나 뒤집었습니다.</b></p>
+
+<h3>국내 학원관리 5개 제품 — 첫 화면이 놀랍도록 똑같습니다</h3>
+<table>
+  <thead><tr><th>제품</th><th>첫 화면(홈)에 두는 것</th></tr></thead>
+  <tbody>
+    <tr><td><b>클래스업</b></td><td>「오늘의 학원」 = <b>출결 현황 → 수납 완료/미납 → 알림</b> · 실시간 출결 · AI 오늘의 브리핑</td></tr>
+    <tr><td><b>에듀허브</b></td><td><b>출결관리</b> → 데스크(전화·상담 기록) → 학생관리 → 채점</td></tr>
+    <tr><td><b>온하이</b></td><td><b>출결 · 수납 · 청구서 자동화</b> (제품 한 줄 소개가 이 셋)</td></tr>
+    <tr><td><b>통통통 · 랠리즈</b></td><td><b>출결 · 수납 · 상담 · 학부모 알림</b> 통합 관리</td></tr>
+  </tbody>
+</table>
+<p><b>수렴하는 순서: 출결 → 수납/미납 → 상담 → 학부모 알림.</b> 5곳이 따로 그렸는데 같은 답이 나왔다는 건 우연이 아닙니다.</p>
+
+<div class="box ok">
+  <b>이 조사로 바뀐 것 — 「결제·미납」을 넣었습니다(#7).</b>
+  제 업무량 계산에서는 결제가 낮게 나와 뺐었습니다(정기결제라 월 1회로 보였음).
+  경쟁사가 전원 첫 화면에 두길래 <b>다시 파 봤더니</b> — <code>dunning_log</code> 에
+  <b>미납 독촉이 매일 17건씩 꾸준히</b> 나가고 있었습니다(90일 934건 · 벌크 아님, 일자별 확인 완료).
+  미납 상태 결제 건도 <b>119건</b>. <b>제가 놓친 상시 업무였고, 경쟁사 덕분에 찾았습니다.</b>
+</div>
+
+<h3>가장 쓸모 있었던 발견 — 「모두에게 맞는 한 줄」은 아무도 못 찾았습니다</h3>
+<div class="box info">
+  글로벌 튜터링 관리 SaaS <b>TutorCruncher</b> 는 대시보드를 다시 만들면서
+  <b>고정 순서를 포기하고 「관리자마다 직접 패널을 짜는」 방식으로 갔습니다</b> —
+  “all our users will have the ability to create their own custom displays to
+  monitor the information most important to them”.
+  재설계 이유는 “our daily TutorCruncher admins want more hands on features”,
+  그리고 <b>재무 지표는 첫 화면에서 빼서</b> Analytics 로 옮겼습니다.
+  <br><br>
+  즉 <b>우리보다 훨씬 많은 고객을 가진 회사도 정답 순서를 못 정해서 개인화로 갔습니다.</b>
+  4장의 「2층 = 개인 학습」이 제 아이디어가 아니라 <b>업계가 이미 도달한 답</b>이라는 뜻입니다.
+</div>
+
+<h3>다만 — 경쟁사 답안을 그대로 베끼면 안 되는 이유 3가지</h3>
+<ol>
+  <li><b>업종이 다릅니다.</b> 저 5곳은 <b>오프라인 학원</b> 도구입니다. 그들의 1위 「출결」은
+    <b>키오스크에 카드를 찍는</b> 화면입니다. 우리 출결은 화상 접속으로 <b>자동 기록</b>됩니다(30일 4,834행).
+    같은 이름이지만 저쪽은 「찍는 화면」, 우리는 「확인하는 화면」입니다 — 그래서 우리 순위에서는 1위가 아니라 4위입니다.</li>
+  <li><b>마케팅 페이지는 클릭 빈도가 아닙니다.</b> 첫 화면에 둔 것은 <b>데모에서 잘 팔리는 것</b>이지
+    직원이 제일 많이 누르는 것이라는 보장이 없습니다. 방향 참고용이지 근거는 아닙니다.</li>
+  <li><b>정작 제일 궁금한 곳이 안 보입니다.</b> 우리와 업종이 같은
+    <b>링글 · 튜터링 · Engoo · Cambly · 51Talk · Preply</b> 는 <b>운영자 화면이 전부 비공개</b>입니다.
+    공개된 건 학생·강사 화면뿐입니다. 화상 1:1 특유의 <b>수업 관찰 · 종료/연장 · 노쇼</b> 는
+    <b>어느 경쟁사에서도 확인할 수 없었습니다</b> — 이 셋은 우리 데이터로만 판단해야 합니다.</li>
+</ol>
+
+<div class="box warn">
+  <b>덤으로 나온 별개의 발견 — 「학부모 소통」이 우리만 비어 있습니다.</b>
+  경쟁사 5곳 전원이 <b>학부모 알림</b>을 첫 화면에 두는데, 우리는
+  <b>알림톡 90일 0건</b> · 학부모 챗 30일 2건 · 다이제스트 30건입니다.
+  기능은 있는데(<code>alimtalk_log</code> · <code>card-parent-digest</code>) 안 돌고 있습니다.
+  <b>이건 「자주 쓰는 기능」 문제가 아니라 별도로 확인이 필요한 사안</b>이라 여기서는 목록에 넣지 않고 보고만 드립니다.
+</div>
+
+<h2>4. 진짜 해법 — 화면이 사람마다 스스로 배우게</h2>
+<p>지금 20명 넘는 직원이 <b>서로 다른 역할</b>로 관리자 화면을 씁니다(최근 30일 로그인 기준):</p>
+<div class="kpi">
+  <div><b>22일</b><span>본사 admin — 거의 매일</span></div>
+  <div><b>16일</b><span>hq_t_kang — 강사 겸직</span></div>
+  <div><b>10일</b><span>mgr_maimai · mgr_melca — 매니저</span></div>
+  <div><b>6일</b><span>branch_busan — 지사</span></div>
+  <div><b>4일</b><span>agency_gn001 — 대리점</span></div>
+</div>
+<p>지사 담당에게 「평가서」가 1순위일 리 없고, 강사 겸직에게 「수강신청」이 1순위일 리 없습니다.
+  <b>한 줄의 정답 순서는 존재하지 않습니다.</b> 그래서 3층으로 만듭니다.</p>
+
+<table>
+  <thead><tr><th style="width:60px">층</th><th>하는 일</th><th>어디에 저장</th><th>비용</th></tr></thead>
+  <tbody>
+    <tr><td><b>1층</b></td><td><b>기본 순서</b> — 위 9개. 처음 쓰는 사람·기록 없는 사람이 보는 순서</td><td>코드 안</td><td>0</td></tr>
+    <tr><td><b>2층</b></td><td><b>개인 학습</b> — 내가 누른 만큼 위로. 최근 것에 가중치(반감기 7일), 30일 지나면 잊음</td><td><code>localStorage</code> (내 브라우저)</td><td>0 · 서버 왕복 없음</td></tr>
+    <tr><td><b>3층</b></td><td><b>조직 집계</b> — 전 직원 클릭을 모아 「기본 순서」를 <b>다음에는 추정이 아니라 측정으로</b> 다시 정함</td><td>기존 <code>ux_events</code></td><td>클릭당 1행 · 하루 수백 행</td></tr>
+  </tbody>
+</table>
+
+<div class="box ok">
+  <b>3층은 새로 만들 게 없습니다.</b> 수집 창구 <code>POST /api/games/ux-track</code>, 집계
+  <code>GET /api/admin/ux/stats</code>, 뷰어 <code>/ux-stats.html</code> 이 <b>이미 다 있습니다</b>
+  (지금은 학생 화면만 보냄). 관리자 사이드바에서 <code>adm:출결현황</code> 같은 키를 같이 쏘기만 하면
+  <b>API·테이블 추가 0개</b>로 조직 전체 순위가 보입니다. 2주 뒤 이 제안서의 순서는 근거로 검증되거나 교정됩니다.
+</div>
+
+<h3>순서가 흔들려서 손이 헷갈리는 문제 — 이렇게 막습니다</h3>
+<ul>
+  <li><b>재정렬은 페이지를 열 때 한 번만.</b> 작업 중에 버튼이 움직이지 않습니다.</li>
+  <li><b>기록이 없는 항목은 기본 순서를 지킵니다.</b> 동점이면 항상 기본 순서가 이깁니다.</li>
+  <li><b>머리글에 <code>자동 / 기본</code> 토글.</b> 「원래대로」를 한 번에 되돌릴 수 있습니다.</li>
+  <li><b>9개 안에서만 움직입니다.</b> 목록에 없던 항목이 갑자기 나타나지 않습니다.</li>
+</ul>
+
+<h2>5. 같이 고치는 작은 결함 하나</h2>
+<div class="box warn">
+  현재 코드는 <code>getElementById(카드)</code> 로 <b>존재</b>만 확인하고 목록에 그립니다
+  (원문 주석: “죽은 바로가기는 신뢰를 깎는다”). 그런데 <b>역할별 숨김은 카드를 지우지 않고
+  <code>style.display='none'</code> 으로 감춥니다.</b> 그래서 지사·대리점 계정에는
+  <b>자기 권한으로 열 수 없는 카드의 바로가기가 그대로 보입니다.</b>
+  → 존재 여부가 아니라 <b>실제로 보이는지</b>까지 확인해서 거릅니다. 원래 의도대로 만드는 것입니다.
+</div>
+
+<h2>6. 작업 범위 · 위험</h2>
+<table>
+  <thead><tr><th>항목</th><th>내용</th></tr></thead>
+  <tbody>
+    <tr><td>바꾸는 파일</td><td><code>public/js/adm-quick-access.js</code> <b>1개</b> (약 8KB → 12KB)</td></tr>
+    <tr><td>안 바꾸는 것</td><td><code>admin.html</code> · <code>adm-ia6.js</code> · CSS · 서버 코드 · DB 스키마 — 전부 그대로</td></tr>
+    <tr><td>3층까지 할 경우</td><td>위 파일에 <code>fetch('/api/games/ux-track')</code> 호출 한 곳 추가. 서버 변경 없음</td></tr>
+    <tr><td>되돌리기</td><td>파일 1개를 이전 버전으로 되돌리면 끝. 배포 1회</td></tr>
+    <tr><td>공동작업 충돌</td><td>없음 — <code>admin.html</code>(1.3MB)을 건드리지 않으므로 B 담당 작업과 겹치지 않음</td></tr>
+    <tr><td>검증</td><td><code>npx tsc --noEmit</code>(해당 없음 · JS) · <code>node test-harness/run.mjs --fast</code> · 9개 항목 전수 클릭 · 역할 3종(본사·지사·대리점) 확인</td></tr>
+  </tbody>
+</table>
+
+<div class="box stop">
+  <b>깨지기 쉬운 곳 — 반드시 지킬 것.</b>
+  <ul style="margin:6px 0 0">
+    <li>항목의 class 는 <b><code>.ph161-q</code> 그대로</b> 둡니다. 아이보리 테마의 글자색
+      <code>!important</code> 규칙이 이 이름에 걸려 있어서, 바꾸면 <b>멜카 매니저가 08-04에 고쳐 달라던
+      「노란 글씨」로 되돌아갑니다.</b></li>
+    <li>라벨에 <b>이모지를 넣지 않습니다</b> — 왼쪽에 SVG 아이콘을 따로 그려서 아이콘이 2개로 보입니다(08-08 사장님 지적).</li>
+    <li>이동은 <b>ia6 사이드바 버튼을 대신 눌러 주는</b> 기존 방식을 그대로 씁니다. 직접 <code>scrollIntoView</code> 하면
+      ia6 가 감춰 둔 카드로 가서 <b>「눌러도 반응 없음」</b>이 재발합니다(08-08에 이미 한 번 겪음).</li>
+  </ul>
+</div>
+
+<h2>7. 권하는 진행 순서</h2>
+<ol>
+  <li><b>지금</b> — 1층(10개 재정렬) + 5장(권한 없는 바로가기 숨김). 눈에 보이는 개선이 바로 나옵니다.</li>
+  <li><b>같이</b> — 3층 계측 한 줄. 지금 안 켜면 2주 뒤에도 여전히 추정입니다.</li>
+  <li><b>2주 뒤</b> — <code>/ux-stats.html</code> 로 실제 순위를 보고 기본 순서를 <b>측정값으로</b> 교체.</li>
+  <li><b>그다음</b> — 2층(개인 학습) 켜기. 조직 순서가 확정된 뒤에 개인화하는 편이 안전합니다.</li>
+</ol>
+<p>1·2번은 오늘 안에 끝나는 분량입니다. 승인만 주시면 진행하겠습니다.</p>
+
+<div class="en">
+  <h3>English summary (for manager staff)</h3>
+  <p><b>What.</b> The admin sidebar's “Quick access” list has been fixed at 6 items since 2026-07-23, in the order a
+     manager named them out loud. It has never been checked against reality.</p>
+  <p><b>Finding.</b> There is <b>no click tracking on the admin page at all</b> — <code>ux_events</code> only receives
+     student-side events. So we ranked by workload instead: attendance leads by far (4,834 rows in 30 days), followed by
+     lesson analysis (2,072), evaluations (104 in 90 days) and level-test applications (14, all within the last 30 days).
+     Caution: <code>student_payments</code> looks huge (11,395) but 11,188 of those arrived in a single bulk sync on
+     2026-08-08 — not staff work.</p>
+  <p><b>Competitor check.</b> We also looked at what competitors put on their first screen. Five Korean academy-management
+     products (클래스업, 에듀허브, 온하이, 통통통, 랠리즈) converge on the same order:
+     <b>attendance → payments/overdue → consultation → parent notifications</b>. That check changed our proposal: we had
+     dropped payments as “monthly”, but on re-inspection <b>overdue reminders go out 17 per day, every day</b>
+     (934 in 90 days) with <b>119 unpaid records</b> — a standing task we had missed. Caveats: those products are for
+     <b>offline academies</b> (their “attendance” is a kiosk check-in, ours is recorded automatically), marketing pages
+     show what demos well rather than what staff click, and our closest competitors — Ringle, Engoo, Cambly, 51Talk,
+     Preply — <b>keep their admin panels private</b>, so class observation / end-extend / no-show can only be judged from
+     our own data. One finding was decisive: <b>TutorCruncher gave up on a fixed order</b> and let each admin build their
+     own dashboard — the same conclusion as our layer 2 below.</p>
+  <p><b>Proposal.</b> Go from 6 to <b>10 items</b>, adding <b>Attendance</b>, <b>Payments &amp; overdue</b>,
+     <b>Evaluations</b> and <b>Inquiries</b>, and re-order by how often the work actually occurs. Then let the list <b>learn per person</b>: clicks are stored in
+     the user's own browser (<code>localStorage</code>, 7-day half-life, forgotten after 30 days) and the list re-sorts
+     <b>once per page load</b> — never while you are working. A <code>auto / default</code> toggle in the header turns
+     learning off.</p>
+  <p><b>Why per person.</b> Over 20 accounts use this page in different roles — head office, branch, agency, teaching
+     staff. There is no single correct order for all of them.</p>
+  <p><b>Cost.</b> One file (<code>adm-quick-access.js</code>). No server change, no database change, no new API — the
+     tracking endpoint and stats viewer already exist. Rollback is a single file revert.</p>
+</div>
+
+<p class="foot">망고아이 · 2026-08-08 · 근거 수치는 운영 D1(mango-db) 조회 결과(SELECT 전용). 샘플 화면: 관리자_자주쓰는기능_샘플_260808.html</p>
+
+</div>
+</body>
+</html>

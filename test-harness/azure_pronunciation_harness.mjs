@@ -226,17 +226,41 @@ ok('⛔ 모범 문장(target)을 발화로 둔갑시키지 않는다',
     return { el, fn };
   };
 
+  /* 🎉 격려 문구는 «여러 개를 돌려 쓴다»(2026-09-03 — 매번 같은 말이 나오던 것을 고쳤다).
+     ⛔ 그래서 한 문구를 «글자 그대로» 못 박지 않는다 — 가짓수를 늘릴 때마다 FAIL 나고,
+        보장은 오히려 세졌는데 검사만 깨지는 그 함정에 빠진다.
+     ✅ 대신 여러 번 돌려 «나오는 문구 전부» 가 ① 칭찬·희망 톤이고 ② 낙담시키는 말이 없고
+        ③ 실제로 가짓수가 둘 이상인지를 본다. 옛 검사보다 강한 보장이다. */
+  const many = (words, n = 40) => {
+    const outs = [];
+    for (let i = 0; i < n; i++) { const q = mk(); q.fn(words); outs.push(q.el.innerHTML); }
+    return outs;
+  };
+
   // ① 잘한 경우 — 격려로 끝난다
+  const WORDS_GOOD = [{ word: 'I', accuracy: 95 }, { word: 'love', accuracy: 92 }, { word: 'Mangoi', accuracy: 88 }];
   let t = mk();
-  t.fn([{ word: 'I', accuracy: 95 }, { word: 'love', accuracy: 92 }, { word: 'Mangoi', accuracy: 88 }]);
-  ok('전부 잘하면 «아주 잘했어요»', t.el.style.display === 'block' && /잘했어요/.test(t.el.innerHTML));
-  ok('  낙담시키는 말이 없다', !/틀렸|못했|나빠|실패/.test(t.el.innerHTML));
+  t.fn(WORDS_GOOD);
+  ok('전부 잘하면 격려로 끝난다', t.el.style.display === 'block' && /잘했어요|완벽|깨끗|훌륭/.test(t.el.innerHTML));
+  {
+    const outs = many(WORDS_GOOD);
+    ok('  칭찬 문구가 «전부» 격려다(돌려 써도)', outs.every((h) => /잘했어요|완벽|깨끗|훌륭/.test(h)));
+    ok('  낙담시키는 말이 없다', outs.every((h) => !/틀렸|못했|나빠|실패/.test(h)));
+    ok('  같은 말만 나오지 않는다(가짓수 2 이상)', new Set(outs).size >= 2, new Set(outs).size);
+  }
 
   // ② 한 단어가 나쁜 경우 — «그 하나»만 짚고, 희망 톤을 유지한다
+  const WORDS_BAD = [{ word: 'I', accuracy: 95 }, { word: 'studying', accuracy: 41 }, { word: 'English', accuracy: 88 }];
   t = mk();
-  t.fn([{ word: 'I', accuracy: 95 }, { word: 'studying', accuracy: 41 }, { word: 'English', accuracy: 88 }]);
+  t.fn(WORDS_BAD);
   ok('가장 아쉬운 단어 하나만 짚는다', /studying<\/b>/.test(t.el.innerHTML) && !/English<\/b>/.test(t.el.innerHTML));
-  ok('  희망 톤을 유지한다 («거의 다 왔어요»)', /거의 다 왔어요/.test(t.el.innerHTML));
+  {
+    const outs = many(WORDS_BAD);
+    ok('  희망 톤을 «전부» 유지한다', outs.every((h) => /거의|한 번 더|다시 해볼까요|아깝다|어려웠나/.test(h)));
+    ok('  낙담시키는 말이 없다', outs.every((h) => !/틀렸|못했|나빠|실패/.test(h)));
+    ok('  짚는 단어는 늘 그 하나다', outs.every((h) => /studying<\/b>/.test(h) && !/English<\/b>/.test(h)));
+    ok('  같은 말만 나오지 않는다(가짓수 2 이상)', new Set(outs).size >= 2, new Set(outs).size);
+  }
   ok('  점수대로 색이 갈린다 (좋음/다시)', /wm-good/.test(t.el.innerHTML) && /wm-bad/.test(t.el.innerHTML));
 
   // ③ 빠뜨린 단어 · 없는 말 덧붙임

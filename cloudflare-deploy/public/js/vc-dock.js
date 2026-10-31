@@ -17,7 +17,9 @@
     chat:'<path d="M21 11.5a8 8 0 0 1-11.5 7.2L4 20l1.3-4.3A8 8 0 1 1 21 11.5z"/>',
     consult:'<path d="M4 4.5h16a1.2 1.2 0 0 1 1.2 1.2v9a1.2 1.2 0 0 1-1.2 1.2h-9.2L6 20.5v-4.6H4a1.2 1.2 0 0 1-1.2-1.2v-9A1.2 1.2 0 0 1 4 4.5Z"/>',
     settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
-    leave:'<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M9 16l4-4-4-4"/><line x1="13" y1="12" x2="3" y2="12"/>'
+    leave:'<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M9 16l4-4-4-4"/><line x1="13" y1="12" x2="3" y2="12"/>',
+    /* ☰ 기능 (2026-08-20) — 세로 휴대폰에서만 쓰는 «모든 기능·게임» 메뉴 */
+    func:'<line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/>'
   };
   /* 아이콘 22 → 26 (2026-07-22, 강사 피드백 #7 "설정 옵션이 너무 작다") */
   function svg(p){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="26" height="26" aria-hidden="true">'+p+'</svg>'; }
@@ -41,7 +43,16 @@
     '#vc-dock button:active{transform:scale(.95);}',
     '#vc-dock button.active{background:#3b82f6;color:#fff;}#vc-dock button.active .lbl{color:#dbe7ff;}',
     '#vc-dock button.off{background:#ef4444;color:#fff;}#vc-dock button.off .lbl{color:#ffe0e0;}',
-    '#vc-dock button.leave{background:rgba(239,68,68,.18);color:#ff9a9a;}#vc-dock button.leave .lbl{color:#ffb4b4;}',
+    /* 🔴 (2026-09-02) `!important` 가 필요한 이유 — 아래 나가기 버튼에 `ctrl-btn danger` 를 함께
+       달면서(825행 참고) `css/vc-refresh.css:29` 의
+         `body.vc-in-call .ctrl-btn.danger{background:rgba(239,68,68,.96)!important;color:#fff!important;
+          border-radius:14px!important;box-shadow:0 6px 16px rgba(239,68,68,.38)}`
+       가 함께 걸린다. 작성자 !important 라 특이성이 더 높은 이 규칙도 그냥은 진다
+       (브라우저 실측 2026-09-02: 연빨강 .18 → 진빨강 .96 · 글자 #ff9a9a → #fff · 모서리 13 → 14px).
+       그 규칙은 «옛 상단바 ✕» 를 위한 것이고 독 버튼까지 바꾸라는 지시가 아니었으므로 되돌린다.
+       ⚠️ 크기(width·height)는 `#vc-dock button`(1,0,1)가 이미 이겨서 안 바뀐다 — 실측 확인. */
+    '#vc-dock button.leave{background:rgba(239,68,68,.18)!important;color:#ff9a9a!important;',
+    '  border-radius:13px!important;box-shadow:none!important;}#vc-dock button.leave .lbl{color:#ffb4b4;}',
     /* 🔔 (2026-07-24) 채팅 안읽음 배지 — 상단 툴바 배지는 모바일(≤640px)에서 숨겨져 있어
        학생이 채팅 온 것을 알 방법이 없었다. 독 버튼 위에 빨간 배지를 띄운다.
        ⚠️ 깜빡임(pulse)은 '자동으로 열지 못한 상황'에서만 켠다 — 늘 깜빡이면 금방 무시하게 된다. */
@@ -53,7 +64,7 @@
     '#vc-dock .dock-badge.pulse{animation:vcDockBadgePulse 1.1s ease-in-out infinite;}',
     '@keyframes vcDockBadgePulse{0%,100%{transform:scale(1);}50%{transform:scale(1.28);}}',
     /* 백그라운드 탭·저전력에서 애니메이션이 멈춰도 배지 자체는 보이도록 opacity 는 건드리지 않는다 */
-    '#vc-dock button.leave:hover{background:#ef4444;color:#fff;}',
+    '#vc-dock button.leave:hover{background:#ef4444!important;color:#fff!important;}',
     '/* 화면공유 아이콘 강조 — 라인 아이콘이라 stroke를 굵게+밝게 */',
     '#vc-dock-share svg{stroke-width:2.5;color:#fff;}',
     '/* 이름 먼저 표시용 힌트(가로에서 라벨 숨김일 때 도크 위로 잠깐) */',
@@ -198,7 +209,9 @@
     '  body.vc-in-call #vc-dock-handle{display:none !important;}', /* 옛 문고리 → ⋯ 버튼으로 대체 */
     '  /* ★ (2026-07-14) 독이 열리면 좌우 플로팅 버튼(☰ 기능 / ↺ 캐시)을 독 위로 올려 겹침 방지 —',
     '     독 폭이 96vw 라 양끝 버튼(right:10/left:16, bottom 58~92px)이 열린 독(50~120px 대역)과 정확히 겹치던 문제 */',
-    '  body.vc-in-call.vc-dock-open .vc-phero-ctrl{bottom:calc(env(safe-area-inset-bottom,0px) + 132px) !important;}',
+    '  /* 🥭 (2026-08-20 제보 ③) ☰기능 은 «올리지» 않고 «감춘다» — 독 안에 같은 버튼이 있고,',
+    '     132px 로 올린 자리가 정확히 「잠시만 기다려 주세요」 안내문 한가운데였다(실측 t=580). */',
+    '  body.vc-in-call.vc-dock-open .vc-phero-ctrl{display:none !important;}',
     '  body.vc-in-call.vc-dock-open #ph52-cache-fab, body.vc-in-call.vc-dock-open .ph52-cache-fab{bottom:calc(env(safe-area-inset-bottom,0px) + 132px) !important;}',
     '}',
     '/* ★ (2026-07-23 사장님) PC: 하단 독이 내 얼굴(PIP)을 가린다 → 문고리로 접었다 폈다.',
@@ -229,6 +242,20 @@
     '@media (max-width:1024px){',
     '  body.vc-in-call.vc-dock-open #vc-dock-size{display:inline-flex;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);left:14px;}',
     '  body.vc-in-call.vc-dock-open.vc-dock-top #vc-dock-size{top:calc(var(--vcdock-top,140px) + 60px);bottom:auto;left:50%;transform:translateX(-50%);}',
+    '}',
+    /* ☰ 기능 (2026-08-20 사장님 지시 ③) — 세로 휴대폰에서만 «화면공유» 자리를 «기능» 이 대신한다.
+       ・왜 — 세로에서 ☰기능 은 가장 자주 누르는 버튼인데 화면 한가운데 떠 있어 안내문을 가렸다.
+              독 안으로 들여보내면 «떠 있는 버튼» 이 하나 줄고, 자리도 정해진다.
+       ・화면공유는 사라지지 않는다 — ☰ 기능 메뉴 안으로 들어간다(idx-vc-screenmode.js).
+       ⛔ PC·가로에는 ☰ 기능 메뉴 자체가 없다. 그쪽에서 화면공유를 감추면 쓸 방법이 없어지므로
+          «세로 + 좁은 화면» 에서만 바꾼다. 버튼 개수는 양쪽 다 7개 그대로다(줄 넘침 없음). */
+    /* ⚠️ 선택자를 «#vc-dock #vc-dock-func» 로 쓴다 — 위의 «#vc-dock button{display:flex}» 가
+       특정성(1,0,1)이 더 높아 «#vc-dock-func»(1,0,0) 하나로는 못 이긴다.
+       실제로 밟았다: PC·가로에서 화면공유와 기능이 «둘 다» 나와 버튼이 8개가 됐다(실측). */
+    '#vc-dock #vc-dock-func{display:none;}',
+    '@media (max-width:1024px) and (orientation:portrait){',
+    '  #vc-dock #vc-dock-share{display:none !important;}',
+    '  #vc-dock #vc-dock-func{display:flex !important;}',
     '}'
   ].join('\n');
 
@@ -589,8 +616,31 @@
             '<div class="sg-note" id="sg-mic-note" data-ko="누르고 3초간 말해 보세요" data-en="Press, then speak for 3s">누르고 3초간 말해 보세요</div>' +
           '</div></div>' +
         '<div class="sg-row"><label data-ko="스피커" data-en="Speaker">스피커</label><button class="sg-test" data-act="spk" data-ko="🔔 소리 확인" data-en="🔔 Play sound">🔔 소리 확인</button></div>' +
+        /* 🔊 (2026-08-26 학생 제보) 안드로이드에서 하드웨어 볼륨키가 "통화" 스트림을 움직이는데
+           실제 출력은 "미디어" 스트림을 따라가는 기기(특히 삼성)가 있어, 버튼을 눌러도 소리가 안 커졌다.
+           OS 가 어느 스트림을 쓸지는 웹페이지가 정할 수 없어서(브라우저에 그 API가 없음) 스트림 자체를
+           "하나로 통일"할 수는 없다 — 대신 OS 스트림과 무관하게 항상 먹는 자체 음량을 하나 둔다.
+           ⛔ 상한이 100% 면 이 제보를 못 푼다 — element.volume 은 1 이 «지금 소리» 라 «작게» 만 된다.
+              그래서 300% 까지 두고, 100% 를 넘는 구간은 idx-vc-outputvolume.js 가 WebAudio 로 실제 증폭한다.
+           ⚠️ 값(%)을 «글자로» 함께 보여준다 — 슬라이더만 있으면 지금 몇 %인지 알 수 없고,
+              «100% 가 원래 소리» 라는 것도 안 보인다. */
+        '<div class="sg-row"><label data-ko="출력 음량" data-en="Output volume">출력 음량</label>' +
+          '<span style="display:flex;align-items:center;gap:8px;min-width:0">' +
+            '<input type="range" id="sg-out-vol" min="10" max="300" step="10" value="100" style="flex:1;min-width:96px">' +
+            '<b id="sg-out-vol-num" style="color:#e6edf6;font-size:13px;min-width:44px;text-align:right">100%</b>' +
+          '</span></div>' +
         '<div class="sg-row"><label data-ko="카메라" data-en="Camera">카메라</label><select id="sg-cam-dev"><option data-ko="기본 카메라" data-en="Default camera">기본 카메라</option></select></div>' +
         '<div class="sg-row"><label data-ko="잡음 제거" data-en="Noise removal">잡음 제거</label><div class="sg-sw on" data-act="noise"></div></div>' +
+        /* 🏢 (2026-09-08 사장님 요청) 사무실 모드 — 옆자리 교사 목소리가 학생에게 덜 들리게 한다.
+           ⚠️ 바로 위 「잡음 제거」와 «다른 것» 이다: 그 엔진은 에어컨·키보드 같은 «일정한 잡음» 만
+              지우고 «사람 목소리» 는 원리상 못 지운다(그래서 켜 두어도 옆자리 소리가 그대로 갔다).
+              이쪽은 자동 게인을 끄고 «가까운 소리만» 통과시킨다.
+           동작 정본은 js/idx-vc-officemode.js 하나다 — 그 파일이 없으면 call() 이 조용히 아무 일도
+           안 하므로(=오늘과 같음) 여기서 따로 방어하지 않는다. */
+        '<div class="sg-row"><label data-ko="사무실 모드" data-en="Office mode">사무실 모드</label><div class="sg-sw" data-act="office"></div></div>' +
+        /* ⚠️ 설명은 «별도 요소» 로 둔다 — 라벨 안에 자식으로 넣으면 i18n 엔진이 label 의 textContent 를
+           통째로 갈아끼울 때 함께 사라진다(CLAUDE.md 「JS 로 그린 라벨」). */
+        '<div class="sg-row" data-office-note="1" style="padding-top:0;margin-top:-6px"><div class="sg-note" style="text-align:left;max-width:none" data-ko="옆자리 목소리를 줄입니다 · 헤드셋과 함께 쓰면 가장 좋습니다" data-en="Reduces nearby voices · works best with a headset">옆자리 목소리를 줄입니다 · 헤드셋과 함께 쓰면 가장 좋습니다</div></div>' +
       '</div>' +
       '<div class="sg-group">' +
         '<div class="sg-gtitle" data-ko="영상 · 녹화" data-en="Video · Recording">영상 · 녹화</div>' +
@@ -606,6 +656,16 @@
         '<div class="sg-row"><label data-ko="언어" data-en="Language">언어</label><div class="sg-seg" id="sg-lang"><button data-l="ko">한국어</button><button data-l="en">EN</button></div></div>' +
         '<div class="sg-row"><label data-ko="테마" data-en="Theme">테마</label><div class="sg-seg" id="sg-theme"><button data-t="light" data-ko="라이트" data-en="Light">라이트</button><button data-t="dark" data-ko="다크" data-en="Dark">다크</button></div></div>' +
         '<div class="sg-row"><label data-ko="전체화면" data-en="Fullscreen">전체화면</label><div class="sg-sw" data-act="full"></div></div>' +
+      '</div>' +
+      /* 🛠 (2026-09-01) 도움받기 — 바로 위 «장치» 그룹에 마이크 테스트·소리 확인이 있다.
+         스스로 확인해 봤는데도 안 되면 여기서 사람에게 넘어간다.
+         ⛔ 독에 8번째 버튼으로 만들지 말 것 — 독은 폭이 꽉 차 있어 좁은 폰에서 줄이 넘친다.
+         ⚠️ 수업 «중» 에 원격지원을 시작하면 프로그램을 깔고 코드를 주고받느라 수업이 더 끊긴다.
+            그래서 눈에 띄는 자리가 아니라 이 조용한 뒷자리에 둔다(2026-09-01 사장님 확인). */
+      '<div class="sg-group" style="margin-bottom:2px;">' +
+        '<div class="sg-gtitle" data-ko="도움받기" data-en="Get help">도움받기</div>' +
+        '<div class="sg-row"><label data-ko="계속 안 될 때" data-en="Still not working">계속 안 될 때</label>' +
+          '<button class="sg-test" data-act="remotehelp" data-ko="🛠 원격 도움받기" data-en="🛠 Remote help">🛠 원격 도움받기</button></div>' +
       '</div>';
     setPop.addEventListener('click', function(e){ e.stopPropagation(); });
 
@@ -618,7 +678,34 @@
     camDev.onchange = function(){ call('vcSetCamDevice', camDev.value); };
     setPop.querySelector('[data-act="mic"]').onclick = micTest;
     setPop.querySelector('[data-act="spk"]').onclick = beep;
+    var outVol = setPop.querySelector('#sg-out-vol');
+    if (outVol) outVol.oninput = function(){
+      /* ⚠️ 증폭은 «사용자 제스처» 안에서 켜져야 AudioContext 가 resume 된다 —
+         그래서 여기서 바로 부른다(나중에 몰아서 부르면 자동재생 정책에 막힌다). */
+      call('vcSetOutputVolume', outVol.value / 100);
+      var n = setPop.querySelector('#sg-out-vol-num');
+      if (n) n.textContent = outVol.value + '%';
+    };
     setPop.querySelector('[data-act="noise"]').onclick = function(){ this.classList.toggle('on'); call('vcSetNoiseSuppression', this.classList.contains('on')); };
+    /* 🏢 사무실 모드 — 스위치를 «누르는 순간» 부른다: AudioContext 는 사용자 제스처 안에서만
+       resume 되기 때문이다(자동재생 정책. 위 출력 음량과 같은 사정).
+       ⚠️ 정본은 못 켰을 때 스스로 «켜기 전» 으로 되돌리고 false 를 준다 — 그때 스위치도 되돌려야
+          «켜졌다고 말하는데 아무 일도 안 하는» 상태가 안 남는다. */
+    var offSw = setPop.querySelector('[data-act="office"]');
+    if (offSw) offSw.onclick = function(){
+      var want = !this.classList.contains('on');
+      var self = this;
+      self.classList.toggle('on', want);
+      try {
+        var r = call('vcSetOfficeMode', want);
+        /* ⛔ 정본 파일이 안 실렸으면(404·옛 캐시) call() 이 undefined 를 준다 — 그때 그냥 두면
+           «켜졌다고 말하는데 아무 일도 안 하는» 상태가 된다(스위치가 없는 것보다 나쁘다). */
+        if (typeof r === 'undefined') { self.classList.toggle('on', !want); }
+        else if (r && typeof r.then === 'function') r.then(function(ok){
+          if (want && ok === false) self.classList.remove('on');
+        }).catch(function(){ self.classList.toggle('on', !want); });
+      } catch(e){ self.classList.toggle('on', !want); }
+    };
     // 영상·녹화
     setPop.querySelectorAll('#sg-quality button').forEach(function(b){
       b.onclick = function(){ setPop.querySelectorAll('#sg-quality button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); call('vcSetQuality', b.getAttribute('data-q')); };
@@ -632,6 +719,18 @@
       b.onclick = function(){ setTheme(b.getAttribute('data-t')==='light'); setTimeout(refreshSettings, 20); };
     });
     setPop.querySelector('[data-act="full"]').onclick = function(){ toggleFullscreen(); setTimeout(refreshSettings, 80); };
+    /* 🛠 도움받기 — 모달을 여는 함수가 없으면 그 줄을 아예 감춘다.
+       ⚠️ «보이는데 눌러도 아무 일 없는 버튼» 이 이 저장소가 반복해서 밟은 함정이다. */
+    (function(){
+      var rh = setPop.querySelector('[data-act="remotehelp"]');
+      if (!rh) return;
+      if (typeof window.openRemoteSupportModal !== 'function') {
+        var row = rh.closest ? rh.closest('.sg-group') : null;
+        if (row) row.style.display = 'none';
+        return;
+      }
+      rh.onclick = function(){ closeSettings(); window.openRemoteSupportModal(); };
+    })();
 
     document.body.appendChild(setPop);
     // 현재 언어(EN/KO)를 즉시 반영 — MutationObserver 폴백 없이도 바로 번역
@@ -654,9 +753,45 @@
       var n = setPop.querySelector('[data-act="noise"]');
       if (n) n.classList.toggle('on', (localStorage.getItem('mangoi_vc_noise') !== '0'));
     } catch(_){}
+    /* 🏢 사무실 모드도 «지금 실제 상태» 를 보여준다. 정본이 살아 있으면 그쪽 값을 먼저 묻는다 —
+       켜려다 실패해 저절로 꺼진 경우 localStorage 만 보면 «켜짐» 으로 거짓말한다. */
+    try {
+      var o = setPop.querySelector('[data-act="office"]');
+      if (o) o.classList.toggle('on', (typeof window.vcOfficeModeOn === 'function')
+        ? !!window.vcOfficeModeOn()
+        : (localStorage.getItem('mangoi_vc_office') === '1'));
+    } catch(_){}
+    /* 🎭 «선생님 + 관리자 로그인» (2026-09-08 「선생님만」 → 2026-09-09 「사장님 계정도」) —
+       학생 화면에서는 이 줄이 아예 안 보인다.
+       ⚠️ «열 때마다» 다시 판정하는 것이 핵심이다: 역할은 입장 뒤에 확정될 수 있어서,
+          한 번 감추고 끝내면 역할이 늦게 온 강사에게 영영 안 보인다(다시 열면 보인다).
+       ⛔ `el.hidden` 으로 감추지 않는다 — `.sg-row{display:flex}` 가 브라우저 기본
+          `[hidden]{display:none}` 을 이겨서 그대로 보인다(CLAUDE.md 「el.hidden 인데 그대로 보임」).
+       판정 정본은 js/idx-vc-officemode.js 의 vcOfficeModeAllowed 하나뿐이다 —
+       그 파일이 없으면(404·옛 캐시) 줄을 감춘다(지시가 «막아줘» 이므로 그쪽이 맞는 실패 방향). */
+    try {
+      var offAllowed = (typeof window.vcOfficeModeAllowed === 'function') && !!window.vcOfficeModeAllowed();
+      var offSw2 = setPop.querySelector('[data-act="office"]');
+      var offRow = offSw2 && offSw2.closest('.sg-row');
+      var offNote = setPop.querySelector('[data-office-note="1"]');
+      [offRow, offNote].forEach(function(el){
+        if (!el) return;
+        if (offAllowed) el.style.removeProperty('display');
+        else el.style.setProperty('display', 'none', 'important');
+      });
+    } catch(_){}
     try {
       var b = setPop.querySelector('[data-act="blur"]');
       if (b) b.classList.toggle('on', !!(window.vcBg && window.vcBg.mode === 'blur'));
+    } catch(_){}
+    // 🔊 저장된 출력 음량을 보여준다(idx-vc-outputvolume.js 가 아직 안 붙었으면 100%로 둔다)
+    try {
+      var ov = setPop.querySelector('#sg-out-vol');
+      if (ov) {
+        ov.value = Math.round((typeof window.vcSavedOutputVolume === 'function' ? window.vcSavedOutputVolume() : 1) * 100);
+        var ovn = setPop.querySelector('#sg-out-vol-num');
+        if (ovn) ovn.textContent = ov.value + '%';
+      }
     } catch(_){}
   }
   // 설정 팝업 위치 — 도크 위, 화면 중앙 정렬 + 양옆 8px 안으로 클램프(모든 폰 폭에서 안 잘림)
@@ -708,7 +843,7 @@
     dock = document.createElement('div'); dock.id = 'vc-dock';
     // 🌐 (2026-07-25) 독 라벨을 data-ko/data-en 으로 고정 — '설정'·'화면공유'는 i18n 사전에 없어
     //   sweep 타이밍에 따라 라벨이 오락가락하던 문제를 없앤다(항상 현재 언어를 따름).
-    var LBL_EN = {'마이크':'Microphone','카메라':'Camera','화면공유':'Screen sharing','채팅':'Chat','상담':'Consult','설정':'Settings','나가기':'Exit'};
+    var LBL_EN = {'마이크':'Microphone','카메라':'Camera','화면공유':'Screen sharing','채팅':'Chat','상담':'Consult','설정':'Settings','나가기':'Exit','기능':'Menu'};
     function mk(id, label, icon, cls, tip){
       var b = document.createElement('button'); b.id = 'vc-dock-' + id; if (cls) b.className = cls;
       if (tip) b.title = tip;
@@ -719,6 +854,11 @@
     btnMic = mk('mic','마이크','mic',null,'마이크 켜기/끄기');
     btnCam = mk('cam','카메라','cam',null,'카메라 켜기/끄기');
     var bShare = mk('share','화면공유','share',null,'화면공유 — 내 화면·파일을 학생에게 보여주기');
+    /* ☰ 기능 (2026-08-20 사장님 지시 ③) — 세로 휴대폰에서만 «화면공유» 자리를 대신한다.
+       화면공유는 ☰ 기능 메뉴 안으로 들어간다(사장님이 그렇게 고르셨다).
+       ⚠️ PC·가로에는 ☰ 기능 메뉴 자체가 없으므로 그쪽 독은 지금까지처럼 «화면공유» 를 쓴다
+          — 그래서 버튼을 둘 다 만들어 두고 아래 CSS 로 화면 방향에 따라 하나만 보여 준다. */
+    var bFunc = mk('func','기능','func',null,'기능·게임 메뉴 열기 (칠판·교재·화면공유·게임)');
     var bChat = mk('chat','채팅','chat',null,'채팅 창 열기/닫기');
     // 🔔 (2026-07-24) 안읽음 배지 부착 — 값 갱신은 window.vcDockChatBadge(n, pulse)
     try {
@@ -728,21 +868,126 @@
     } catch(_){}
     var bConsult = mk('consult','상담','consult',null,'카카오톡 상담 연결');
     bSet = mk('settings','설정','settings',null,'설정 — 장치·화질·언어·테마');
-    var bLeave = mk('leave','나가기','leave','leave','수업에서 나가기');
+    /* 🔴 (2026-09-02) 「나가기」를 수업 종료 흐름(평가 ⭐ → 복습퀴즈 🧠)에 잇는 표식.
+       [무엇이 문제였나] index.html 의 종료 방아쇠(4325행 isExitBtnEl)는 나가기 버튼을
+         `a#vc-exit-btn-v34, a#vc-exit-btn-v33, #vc-exit-btn-v32, button.ctrl-btn.danger, a.ctrl-btn.danger`
+         로 찾는데, 독이 그리는 이 버튼은 id 가 `vc-dock-leave` · class 가 `leave` 라
+         **한 셀렉터에도 안 걸렸다.** 게다가 이 파일 위쪽 CSS(106행)가 옛 버튼(#vc-exit-btn-v34)을
+         display:none 으로 숨긴다 → 독이 켜진 화면에서 「나가기」를 누르면 아래 onclick 이
+         곧바로 vcLeaveRoom() 을 불러 **평가·복습퀴즈가 통째로 건너뛰어졌다.**
+       [실측 2026-09-02] 평가가 남은 수업 5건은 전부 «강사 퇴장 후 10초» 방아쇠(4408행)로
+         뜬 것이었고(강사→학생 퇴장 간격 12초 · 3분36초 · 4분20초 · 5분19초),
+         학생이 먼저 나간 class-849-20260902(간격 3초)만 class_ratings 에 한 줄도 없었다.
+       [고침] 그 셀렉터가 알아보는 표식 `ctrl-btn danger` 를 함께 단다. 판정·순서·중복방지는
+         전부 index.html 의 기존 코드 그대로다 — 여기서 흐름을 다시 만들지 않는다.
+       ⚠️ 크기는 안 바뀐다 — `#vc-dock button`(1,0,1)가 `.ctrl-btn`(0,1,0)를 이긴다
+         (width·height·display·font-size·flex-direction 을 전부 독이 명시한다. 실측 확인:
+          PC 70x62 · 폰 38x44 로 고침 전후 동일).
+       🔴 다만 «색·모서리·그림자» 는 `css/vc-refresh.css:29` 의 작성자 !important 가 이겨서
+         실제로 바뀌었다 — 위 CSS 블록(46행)에서 !important 로 되돌려 두었다. 그 줄을 지우면
+         나가기 버튼이 진빨강+흰글자로 변한다(사장님이 지시하지 않은 시각 변경).
+       ⚠️ 강사도 안전하다 — 학생은 평가 방아쇠(index.html:4325)가, 강사·관찰자·관리자는
+         v35(4601행)가 먼저 삼켜 __mangoLeaveClassSPA() → vcLeaveRoom() 으로 간다(지금 이 onclick 과 동등).
+         셋 다 v29(14907)·v32(15050)·v34(15161)의 location.replace 보다 «먼저» 등록돼 있어 홈으로 안 튕긴다.
+       ⛔ 이 클래스를 빼면 그 순간 평가·복습퀴즈가 다시 통째로 사라진다. */
+    var bLeave = mk('leave','나가기','leave','leave ctrl-btn danger','수업에서 나가기');
 
     btnMic.onclick = function(){ if(isCL())showHint('마이크'); closeSettings(); call('vcToggleMic'); setTimeout(sync, 60); };
     btnCam.onclick = function(){ if(isCL())showHint('카메라'); closeSettings(); call('vcToggleCam'); setTimeout(sync, 60); };
     bShare.onclick = function(){ if(isCL())showHint('화면공유'); closeSettings(); call('vcFolderOpen','screen'); };
+    bFunc.onclick = function(){ closeSettings(); call('vcTogglePheroMenu'); };
     bChat.onclick = function(){ if(isCL())showHint('채팅'); closeSettings(); window.vcDockChatBadge(0); openDelayed(function(){ call('vcToggleChat'); }); };
     // 외부 링크: 지연 없이 즉시(팝업차단 방지) · 채널 «홈» — /chat 은 비로그인 PC 를 로그인 화면으로 튕긴다
     bConsult.onclick = function(){ if(isCL())showHint('상담'); closeSettings();
       if (window.openKakao) return window.openKakao();
       var u='https://pf.kakao.com/_xlqnSxd';
-      if(!window.open(u,'_blank','noopener')) location.href=u; };   // 새 창이 막히면 같은 창으로
+      var _w=null; try{ _w=window.open(u,'_blank'); }catch(e){}
+      if(_w){ try{ _w.opener=null; }catch(e){} } else location.href=u; };   // 새 창이 «진짜로» 막히면 같은 창으로
     bSet.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); if(isCL())showHint('설정'); openDelayed(toggleSettings); };
     bLeave.onclick = function(){ if(isCL())showHint('나가기'); closeSettings(); call('vcLeaveRoom'); };
 
-    [btnMic, btnCam, bShare, bChat, bConsult, bSet, bLeave].forEach(function(b){ dock.appendChild(b); });
+    /* 🚪 (2026-09-15) 「나가기가 되지 않아」 — 눌러도 «아무 일도 안 일어나는» 상태의 안전망.
+       [무엇이 문제였나] index.html 의 학생 종료 방아쇠(4341행)는 `STATE.triggered` 가 참이면
+         나가기 이벤트를 **영구히 삼킨다**(preventDefault + stopPropagation + stopImmediatePropagation).
+         그 값은 한 번 참이 되면 되돌리는 코드가 저장소 어디에도 없다. 그래서 종료 흐름이
+         «화면을 안 떠나고» 끝나는 경로를 한 번이라도 지나면 그 뒤로 나가기가 영영 안 먹는다.
+         🔬 브라우저 실측(2026-09-15, 이 컨테이너): 나가기 → 평가 ⭐ 제출 → 복습퀴즈 「예」 →
+            goReviewQuiz() 가 복습퀴즈 «탭» 으로 보내고 수업 화면에 그대로 남는다(방을 안 나간다) →
+            다시 나가기 → **무반응**(vc-in-call 이 계속 true). 몇 번을 눌러도 같다.
+         같은 모양이 하나 더 있다: 평가를 이미 한 세션에서 vcReviewQuizPrompt 가 모달도 안 띄우고
+         `return true`(STATE.done) 를 주면 fallbackExit 이 안 불려 «조용히 아무 일도 안 일어난다».
+       [왜 여기서 고치나] 그 가드는 IIFE 안의 지역 변수라 밖에서 풀 수 없고, index.html 은
+         공동 금지구역이자 첫 화면 예산 여유가 8바이트다(CLAUDE.md 2장). 이 파일은 defer 라 예산 밖이다.
+       [어떻게] 나가기에서 «손을 뗀 것»(pointerup·mouseup)은 그 방아쇠가 잡지 않는 이벤트라
+         (그쪽은 pointerdown·touchstart·touchend·mousedown·click 만 잡는다) 버튼까지 정상 전파된다.
+         그 뒤 잠깐 기다려 보고 **화면이 그대로면** 직접 내보낸다.
+       ⛔ 평가·복습퀴즈를 건너뛰게 만들지 않는다 — 그 모달이 하나라도 떠 있으면 손을 뗀다.
+          둘 다 클릭과 «같은 틱» 에 동기로 붙는다(실측: 첫 나가기 600ms 뒤 평가 모달 존재 true).
+       ⛔ 강사·관찰자·관리자도 안전하다 — v35 가 SPA 종료해 vc-in-call 이 떨어지므로 여기서 손을 뗀다.
+       ⚠️ 이 안전망이 도는 것 자체가 «가드가 굳었다» 는 뜻이라 콘솔에 한 줄 남긴다(조용히 고치지 않는다).
+       ⚠️ 키보드 Enter 로 누르면 pointerup 이 없어 여기 안 걸린다 — 그 경로는 여전히 삼켜진다(알고 둔다).
+       감시: test-harness/manual/class-end-flow-browser.mjs ③절 */
+    /* 🖐 «쓸어넘기다 버튼 위에서 손을 뗀 것» 을 나가기로 오해하지 않는다.
+       [왜 필요한가] `pointerup` 은 «그 요소에서 시작하지 않은» 포인터에도 옵니다 —
+         마우스로 교재를 끌다가 커서가 독까지 내려와 나가기 위에서 버튼을 놓으면 그것도 pointerup 입니다.
+         브라우저는 그 경우 `click` 을 «안» 내므로 **예전에는 아무 일도 안 일어났는데**,
+         안전망을 그냥 달면 수업이 끊깁니다.
+       [어떻게 가르나 — «시간» 이 아니라 «짝» 으로] 이 창 버블 리스너에는
+         **«나가기 버튼에서 시작한 pointerdown» 이 안 옵니다** — 그 방아쇠(index.html:4338)가
+         캡처에서 stopImmediatePropagation 으로 삼키기 때문입니다(그게 이 안전망이 필요한 이유이기도 합니다).
+         ⟹ **기록이 남아 있고 그 짝(pointerId)이 지금 올라온 것과 같으면** 딴 데서 시작해 쓸려 온 것이고,
+            **기록이 없으면** 그 down 이 삼켜진 것 = 나가기에서 시작한 것입니다.
+       ⛔ 처음에는 «2초 안에 딴 데서 시작했으면 스와이프» 라는 **시간 창**으로 짰는데,
+          **2초보다 느리게 끄는 드래그**가 그대로 빠져나가 수업이 끊깁니다(함정 대조가 실제로 잡음).
+       ⚠️ 한 번 쓴 기록은 반드시 지웁니다 — 마우스는 pointerId 가 늘 같아서, 안 지우면 예전 기록이
+          남아 «나가기에서 시작한 것» 까지 스와이프로 오판해 안전망이 통째로 죽습니다.
+       ⛔ `mouseup` 은 **일부러 안 씁니다** — 손가락 터치 뒤에 브라우저가 «흉내내서» 보내는
+          mouse 이벤트는 «놓은 자리»(= 나가기 버튼) 에서 나는데 그 짝이 되는 mousedown 은 삼켜져서,
+          받으면 **쓸어넘긴 것을 나가기로 오해**합니다. Pointer 이벤트가 없는 아주 옛 브라우저에서는
+          이 안전망이 없을 뿐이고 «고치기 전» 과 같습니다(그쪽으로 실패하는 것이 맞는 방향).
+       ⚠️ 터치는 pointerup 이 «시작한 요소» 로 갑니다(암묵 포인터 캡처) — 그래서 교재에서 시작한
+          스와이프는 이 버튼 리스너가 **애초에 안 불립니다**. 위 판정은 마우스 쪽 방어입니다.
+       ⚠️ 가드가 굳지 않은 «정상» 일 때·강사일 때는 나가기 down 도 여기 옵니다 — 그때는
+          onLeave 가 참이라 안전망이 걸리지만, 평가 모달이 떠 있거나(학생) 이미 나갔으므로(강사)
+          아래 700ms 검사가 손을 뗍니다(무해). */
+    var downId = null, downOnLeave = false;
+    function pid(e){ try { return (e && e.pointerId !== undefined) ? ('p' + e.pointerId) : 'p?'; } catch(_){ return 'p?'; } }
+    window.addEventListener('pointerdown', function(e){
+      try {
+        downId = pid(e);
+        downOnLeave = !!(e.target && e.target.closest && e.target.closest('#vc-dock-leave'));
+      } catch(_){ downId = null; downOnLeave = false; }
+    }, false);
+    /* 한 번 쓴 기록은 버린다. ⚠️ 버튼(대상 단계)이 창 버블보다 «먼저» 도므로 아래 armLeaveFallback 이
+       이 줄보다 앞서 읽습니다 — 순서를 바꾸면 그 판정이 통째로 헛돕니다.
+       ⚠️ pointercancel 도 함께 — 안 지우면 «놓지 않은 채 취소된» 기록이 남아 다음 진짜 나가기를 삼킵니다. */
+    function clearDown(){ downId = null; downOnLeave = false; }
+    /* ⚠️ 이 둘은 window 의 «버블» 단계입니다 — 누군가 pointerup 을 캡처에서
+       stopPropagation 하면 기록이 안 지워져 안전망이 조용히 죽습니다
+       (2026-09-15 실측: 저장소 전체에 그런 코드 0건. 새로 만들 때 이 줄을 떠올릴 것). */
+    window.addEventListener('pointerup', clearDown, false);
+    window.addEventListener('pointercancel', clearDown, false);
+
+    var leaveFbT = null;
+    function armLeaveFallback(e){
+      /* 짝이 되는 down 을 «우리가 봤다» + 그것이 나가기가 아니었다 = 쓸어넘긴 것 → 나가기 의도가 아니다 */
+      if (downId && downId === pid(e) && !downOnLeave) return;
+      if (leaveFbT) clearTimeout(leaveFbT);
+      leaveFbT = setTimeout(function(){
+        leaveFbT = null;
+        try {
+          if (!document.body || !document.body.classList.contains('vc-in-call')) return;   // 이미 나갔다 = 정상
+          if (document.getElementById('vc-rate-modal')) return;      // 평가 ⭐ 가 떠 있다 = 정상 흐름
+          if (document.getElementById('vc-rq-end-modal')) return;    // 복습퀴즈 🧠 안내가 떠 있다 = 정상 흐름
+          console.warn('[vc-dock] 나가기를 눌렀는데 아무 일도 일어나지 않았습니다 — 안전망으로 수업을 종료합니다');
+          if (typeof window.__mangoLeaveClassSPA === 'function') window.__mangoLeaveClassSPA();
+          else if (typeof window.vcLeaveRoom === 'function') window.vcLeaveRoom();
+        } catch(_){}
+      }, 700);
+    }
+    bLeave.addEventListener('pointerup', armLeaveFallback);
+
+    [btnMic, btnCam, bShare, bFunc, bChat, bConsult, bSet, bLeave].forEach(function(b){ dock.appendChild(b); });
     document.body.appendChild(dock);
 
     // 🥭 (2026-06-28) 문고리(핸들) — 휴대폰 가로에서 도크를 아래로 접었다/폈다 (카메라 얼굴 가림 해소)

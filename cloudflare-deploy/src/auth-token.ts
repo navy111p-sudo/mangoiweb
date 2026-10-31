@@ -2,17 +2,15 @@
 // 🔐 UID 서명 토큰 검증 — 모듈 레벨 공용 (IDOR 방지 표준 도구)
 //   로그인(/api/student/login 등) 시 signUidToken 으로 발급한 mango_token 의
 //   uid 가 요청 uid 와 일치하는지 확인. 개인정보 엔드포인트는 이걸로 소유자 검증.
-//   시크릿은 방 JWT 와 동일한 ROOM_JWT_SECRET 재사용(없으면 개발용 폴백).
+//   시크릿은 방 JWT 와 동일한 ROOM_JWT_SECRET 재사용(미설정 시 발급·검증 거부).
 //   ⚠️ api-mango.ts 내부에도 동일 로직의 클로저(authUidFromRequest)가 있으나,
 //      그건 함수 중간(7600줄대)에 정의돼 그 앞 핸들러에선 못 씀 → 이 모듈로 어디서나 사용.
 // ═══════════════════════════════════════════════════════════════════════
 
-// ⚠️ 반드시 wrangler secret 로 ROOM_JWT_SECRET 설정. 폴백은 공개값(BUILD_STAMP)이 아닌 강한 상수로
-//   두어(2026-07-12 보안), 시크릿 미설정 시에도 토큰을 추측·위조할 수 없게 한다.
-//   ⚠️ 이 상수는 api-mango.ts(2곳)·signaling-room.ts 의 폴백과 반드시 동일해야 토큰이 상호검증된다.
-const UID_SECRET_FALLBACK = 'mgi-fb-d0895a3a232c5ef0f0950c6128a04a5311ec69ba142cb4a86a8d334e33c56f30';
+import { requireRoomJwtSecret } from './room-jwt-secret';
+
 function uidTokenSecret(env: any): string {
-  return (env && env.ROOM_JWT_SECRET) || UID_SECRET_FALLBACK;
+  return requireRoomJwtSecret(env);
 }
 
 function b64uToBytes(s: string): Uint8Array {
@@ -76,6 +74,27 @@ export async function signUidToken(uid: string, env: any, ttlMs = 30 * 86400 * 1
   return payload + '.' + b64uFromBytes(new Uint8Array(sig));
 }
 
+type UidClaims = { uid: string; exp: number; sid?: string };
+
+/** Authentication and session diagnostics share signature and claim validation. */
+async function readUidClaims(token: string, env: any): Promise<UidClaims | null> {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 2) return null;
+  const [payload, sig] = parts;
+  if (!payload || !sig) return null;
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(uidTokenSecret(env)), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+  const ok = await crypto.subtle.verify('HMAC', key, b64uToBytes(sig) as any, enc.encode(payload));
+  if (!ok) return null;
+  const p = JSON.parse(new TextDecoder().decode(b64uToBytes(payload)));
+  // Every issued uid token has a string uid and a finite millisecond expiry.
+  // Legacy tokens lack sid only; they still contain uid and exp.
+  if (!p || typeof p.uid !== 'string' || !p.uid.trim() ||
+      typeof p.exp !== 'number' || !Number.isFinite(p.exp) || p.exp <= 0 ||
+      (p.sid !== undefined && typeof p.sid !== 'string')) return null;
+  return p;
+}
+
 /**
  * 서명 토큰을 검증해 uid 반환(위조·만료 시 null).
  * 🔒 SINGLE_SESSION='on' 이고 토큰에 sid 가 있으면 **KV 의 최신 sid 와 대조**해,
@@ -83,15 +102,8 @@ export async function signUidToken(uid: string, env: any, ttlMs = 30 * 86400 * 1
  */
 export async function verifyUidToken(token: string, env: any): Promise<string | null> {
   try {
-    const [payload, sig] = String(token || '').split('.');
-    if (!payload || !sig) return null;
-    const enc = new TextEncoder();
-    const key = await crypto.subtle.importKey('raw', enc.encode(uidTokenSecret(env)), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
-    const ok = await crypto.subtle.verify('HMAC', key, b64uToBytes(sig) as any, enc.encode(payload));
-    if (!ok) return null;
-    const p = JSON.parse(new TextDecoder().decode(b64uToBytes(payload)));
-    if (!p.uid || (p.exp && p.exp < Date.now())) return null;
-
+    const p = await readUidClaims(token, env);
+    if (!p || p.exp <= Date.now()) return null;
     // ── 동시접속 1세션 대조 ──
     //   p.sid 가 없으면 = 이 기능 이전에 발급된 토큰 → 건드리지 않는다(하위호환).
     //   KV 에 기록이 없으면(만료·미기록) 통과 — 인프라 사고로 전원이 튕기는 쪽이 훨씬 나쁘다.
@@ -115,16 +127,10 @@ export async function verifyUidToken(token: string, env: any): Promise<string | 
  */
 export async function inspectSession(token: string, env: any): Promise<{ state: string; uid: string | null }> {
   try {
-    const [payload, sig] = String(token || '').split('.');
-    if (!payload || !sig) return { state: 'invalid', uid: null };
-    const enc = new TextEncoder();
-    const key = await crypto.subtle.importKey('raw', enc.encode(uidTokenSecret(env)), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
-    const ok = await crypto.subtle.verify('HMAC', key, b64uToBytes(sig) as any, enc.encode(payload));
-    if (!ok) return { state: 'invalid', uid: null };
-    const p = JSON.parse(new TextDecoder().decode(b64uToBytes(payload)));
-    if (!p.uid) return { state: 'invalid', uid: null };
-    const uid = String(p.uid);
-    if (p.exp && p.exp < Date.now()) return { state: 'expired', uid };
+    const p = await readUidClaims(token, env);
+    if (!p) return { state: 'invalid', uid: null };
+    const uid = p.uid;
+    if (p.exp <= Date.now()) return { state: 'expired', uid };
     if (!p.sid) return { state: 'legacy', uid };
     if (!singleSessionOn(env)) return { state: 'off', uid };
     if (!env?.SESSION_STATE) return { state: 'active', uid };   // fail-open 과 같은 판단
@@ -133,6 +139,122 @@ export async function inspectSession(token: string, env: any): Promise<{ state: 
     if (!cur) return { state: 'active', uid };                  // 기록 없음 = fail-open
     return { state: cur === p.sid ? 'active' : 'kicked', uid };
   } catch { return { state: 'invalid', uid: null }; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 📼 녹화 다운로드 서명 (2026-08-13) — «휴대폰에서 ⬇저장을 눌러도 저장이 안 돼요»
+//
+//   왜 필요한가 — 교사·관리자는 admin_sessions **쿠키로만** 인증된다(학생과 달리 재생
+//   URL 에 mango_token 이 없다). 페이지 안 재생(fetch·<video>)은 쿠키가 실려 통과하지만,
+//   카톡 인앱 브라우저·안드로이드 WebView 는 ⬇저장(다운로드)을 **별도 다운로드 관리자에
+//   위임하면서 쿠키를 떨어뜨린다** → /api/recording/play 가 401 → 눌러도 조용히 실패.
+//   그래서 목록 API 가 재생 URL 에 «그 녹화 1건 전용» 서명(&sig=)을 동봉해,
+//   쿠키를 못 싣는 다운로드 에이전트도 인증되게 한다.
+//
+//   권한이 넓어지는 지점이 없다 —
+//     · 서명은 /api/student/recordings 가 **자기 인증(토큰 or 관리자 세션)을 통과한 뒤에만** 발급
+//     · 대상은 녹화 id 하나뿐(계정 토큰이 아니다 — 학생 URL 의 mango_token 보다 오히려 좁다)
+//     · TTL 6시간(목록·팝업은 열 때마다 새로 받아 오므로 충분), 만료·위조는 verify 에서 탈락
+// ═══════════════════════════════════════════════════════════════════════
+
+const REC_DL_TTL_MS = 6 * 3600 * 1000;
+
+function recDlKey(env: any, usage: 'sign' | 'verify'): Promise<CryptoKey> {
+  const enc = new TextEncoder();
+  return crypto.subtle.importKey('raw', enc.encode(uidTokenSecret(env)), { name: 'HMAC', hash: 'SHA-256' }, false, [usage]);
+}
+
+/** 녹화 1건 전용 다운로드 서명 발급 — 반환 형식은 "만료ms.서명(b64url)" */
+export async function signRecDlSig(recId: number, env: any, ttlMs = REC_DL_TTL_MS): Promise<string> {
+  const exp = Date.now() + ttlMs;
+  const key = await recDlKey(env, 'sign');
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('recdl:' + recId + ':' + exp));
+  return exp + '.' + b64uFromBytes(new Uint8Array(mac));
+}
+
+/** 다운로드 서명 검증 — recId 불일치·만료·위조 모두 false */
+export async function verifyRecDlSig(recId: number, sig: string, env: any): Promise<boolean> {
+  try {
+    const [expStr, mac] = String(sig || '').split('.');
+    const exp = parseInt(expStr, 10);
+    if (!Number.isFinite(exp) || exp < Date.now() || !mac) return false;
+    const key = await recDlKey(env, 'verify');
+    return await crypto.subtle.verify('HMAC', key, b64uToBytes(mac) as any, new TextEncoder().encode('recdl:' + recId + ':' + exp));
+  } catch { return false; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 🖼 «내 주제»·초안 글감 그림 서명 (2026-10-26) — 비공개 그림이 로그인 없이 열리던 구멍 수리
+//   학생은 쿠키가 아니라 토큰(Bearer)이라 <img> 가 인증을 못 싣는다 → 목록 API 가 «본인에게만»
+//   그 그림 한 장(글감 id + 판) 전용 단기 서명을 붙여 준다. recdl 과 같은 «단일 자원 HMAC» 패턴.
+//   ⛔ 공개(published) 그림에는 안 붙인다(공개 캐시 그대로).
+// ═══════════════════════════════════════════════════════════════════════
+
+const WT_IMG_TTL_MS = 6 * 3600 * 1000;
+
+/** 글감 그림 1장 전용 서명 — "만료ms.서명(b64url)" */
+export async function signWtImgSig(topicId: number, ver: number, env: any, ttlMs = WT_IMG_TTL_MS): Promise<string> {
+  const exp = Date.now() + ttlMs;
+  const key = await recDlKey(env, 'sign');
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('wtimg:' + topicId + ':' + ver + ':' + exp));
+  return exp + '.' + b64uFromBytes(new Uint8Array(mac));
+}
+
+/** 글감 그림 서명 검증 — id·판 불일치·만료·위조·빈 값 모두 false(막는 쪽으로 실패) */
+export async function verifyWtImgSig(topicId: number, ver: number, sig: string, env: any): Promise<boolean> {
+  try {
+    const [expStr, mac] = String(sig || '').split('.');
+    const exp = parseInt(expStr, 10);
+    if (!Number.isFinite(exp) || exp < Date.now() || !mac) return false;
+    const key = await recDlKey(env, 'verify');
+    return await crypto.subtle.verify('HMAC', key, b64uToBytes(mac) as any, new TextEncoder().encode('wtimg:' + topicId + ':' + ver + ':' + exp));
+  } catch { return false; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 👁 고스트 참관 서명 (2026-09-23) — «/?observe=roomId 에 인증이 전혀 없다」구멍 수리
+//
+//   왜 필요한가 — video-call-room.ts 의 handleJoinObserve 는 WebSocket join-observe
+//   메시지의 role 을 그대로 믿는다(클라이언트 신고값). 즉 방 번호(class-{예약id}-{날짜} 처럼
+//   결정론적이라 추측 가능)만 알면 로그인조차 없이 누구나 수업을 몰래 볼 수 있었다.
+//   /api/admin/ghost/start 는 감사 로그만 남기고 참관 자체를 막지 못했다(fire-and-forget,
+//   실패해도 탭은 그대로 열림).
+//
+//   구조 — signRecDlSig 와 동일한 «단일 자원 전용 HMAC» 패턴. ghost/start 가 (이미
+//   isAgencyAllowedApi·TEACHER_BLOCKED_PREFIXES 로 본사/관리자만 걸러진 뒤) 서명을
+//   함께 돌려주고, 화면은 그 서명을 ?observe=roomId&tok=... 에 실어 연다.
+//   WebSocket 이 열리면 join-observe 페이로드에 실어 보내고, DO 가 이 파일로 검증한다.
+//
+//   TTL 30분 — 「session_state 8-③ TTL 단축」류 무한 링크를 피하면서(6시간짜리 recdl 과
+//   같은 성격), 재연결(createWebSocket 은 vc-in-call 이면 무기한 재시도)에서 같은 클로저의
+//   토큰을 다시 보내도 짧은 순단·순회 참관 dwell(15~20초) 안에서는 넉넉하다.
+//   ⚠️ 서명 자체는 방 번호에만 묶인다 — 「누가」 열었는지는 감사로그(admin_observations)가 맡는다.
+// ═══════════════════════════════════════════════════════════════════════
+
+const GHOST_OBSERVE_TTL_MS = 30 * 60 * 1000;
+
+function ghostObsKey(env: any, usage: 'sign' | 'verify'): Promise<CryptoKey> {
+  const enc = new TextEncoder();
+  return crypto.subtle.importKey('raw', enc.encode(uidTokenSecret(env)), { name: 'HMAC', hash: 'SHA-256' }, false, [usage]);
+}
+
+/** 방 1개 전용 참관 서명 발급 — 반환 형식은 "만료ms.서명(b64url)" (signRecDlSig 와 동일 형식) */
+export async function signGhostObserveSig(roomId: string, env: any, ttlMs = GHOST_OBSERVE_TTL_MS): Promise<string> {
+  const exp = Date.now() + ttlMs;
+  const key = await ghostObsKey(env, 'sign');
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('ghostobs:' + roomId + ':' + exp));
+  return exp + '.' + b64uFromBytes(new Uint8Array(mac));
+}
+
+/** 참관 서명 검증 — roomId 불일치·만료·위조·빈 값 모두 false(= 막는 쪽으로 실패) */
+export async function verifyGhostObserveSig(roomId: string, sig: string, env: any): Promise<boolean> {
+  try {
+    const [expStr, mac] = String(sig || '').split('.');
+    const exp = parseInt(expStr, 10);
+    if (!roomId || !Number.isFinite(exp) || exp < Date.now() || !mac) return false;
+    const key = await ghostObsKey(env, 'verify');
+    return await crypto.subtle.verify('HMAC', key, b64uToBytes(mac) as any, new TextEncoder().encode('ghostobs:' + roomId + ':' + exp));
+  } catch { return false; }
 }
 
 /**

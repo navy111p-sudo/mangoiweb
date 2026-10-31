@@ -4,7 +4,14 @@
 // ═══════════════════════════════════════════════════════════════
 (function(){
   const fmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
-  const fmtP = (n) => '₱ ' + fmt(n);   // 강사 수업료 단위: 필리핀 페소
+  /* 강사 수업료 단위: 필리핀 페소. 💱 「원화로 보기」(2026-09-25)를 켜면 최신 환율로 바꿔 «보여 주기만» 한다
+     — 계산·저장·CSV·지급 처리는 전부 ₱ 그대로다(조정 금액 입력칸도 ₱). 환율 정본은 src/fx-rate.ts. */
+  let _prKrw = false;      // 원화로 보는 중인가
+  let _prFx = null;        // { rate, source, rate_time, stale } — 서버가 준 것만(지어내지 않음)
+  let _prLastD = null;     // 마지막 계산 응답 — 원화 전환 때 다시 계산하지 않고 다시 그리기만
+  const fmtP = (n) => (_prKrw && _prFx && _prFx.rate > 0)
+    ? '₩ ' + fmt(Math.round((Number(n)||0) * _prFx.rate))
+    : '₱ ' + fmt(n);
   const fmtDate = (ms) => ms ? new Date(ms).toLocaleDateString('ko-KR') : '-';
   const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
   let _prRows = [];
@@ -12,6 +19,75 @@
   let _prRules = [];
   let _prDetailTid = 0, _prDetailName = '';   // 📋 상세표 재로딩(지각분 저장 후)용
   let _prLevels = [];   // 🎖 강사 등급(요율) 목록
+  /* 🔃 급여표 정렬·필터 (2026-09-25) — «보여 주는 순서·줄» 만 바꾼다. _prRows 자체는 그대로라
+     조정 금액 입력(prRowAdjust(i))·저장·CSV 는 원래 번호(i)를 계속 쓴다. 다시 계산해도 상태는 남는다. */
+  let _prSort = { key: '', dir: 1 };               // dir 1=오름차순 · -1=내림차순
+  let _prFilt = { q: '', teacher: '', level: '', status: '', flag: '', src: '' };
+  let _prBodyRender = null;                        // 표 몸통만 다시 그리기(입력 포커스 유지)
+  const _prSortVal = {
+    teacher: r => String(r.korean_name || r.english_name || ''),
+    level:   r => r.unlinked_profile ? null : (Number(r.rate_per_20min) || (Number(r.fee_per_10min)||0)*2),
+    classes: r => Number(r.lesson_count) || 0,
+    mins:    r => Number(r.total_minutes) || 0,
+    rate:    r => Number(r.fee_per_10min) || 0,
+    calc:    r => Number(r.calculated_amount) || 0,
+    ded:     r => Number(r.deduction_total) || 0,
+    fin:     r => Number(r.final_amount ?? r.calculated_amount) || 0,
+    adj:     r => (r.adjusted_amount == null || r.adjusted_amount === '' || isNaN(r.adjusted_amount)) ? null : Number(r.adjusted_amount),
+    status:  r => r.status === 'paid' ? 1 : 0
+  };
+  function prViewRows(){
+    const q = _prFilt.q.trim().toLowerCase();
+    let v = _prRows.map((r, i) => ({ r, i })).filter(({ r }) => {
+      if (q && !(String(r.korean_name||'') + ' ' + String(r.english_name||'')).toLowerCase().includes(q)) return false;
+      if (_prFilt.teacher && String(r.teacher_id) !== _prFilt.teacher) return false;
+      if (_prFilt.level === '__none' && r.level_code) return false;
+      if (_prFilt.level && _prFilt.level !== '__none' && r.level_code !== _prFilt.level) return false;
+      if (_prFilt.src === 'cafe24' && r.amount_source !== 'cafe24') return false;
+      if (_prFilt.src === 'sys' && r.amount_source === 'cafe24') return false;
+      if (_prFilt.status === 'paid' && r.status !== 'paid') return false;
+      if (_prFilt.status === 'pending' && r.status === 'paid') return false;
+      if (_prFilt.status === 'unsaved' && r.payroll_id) return false;
+      if (_prFilt.flag === 'ded' && !((r.deduction_total||0) > 0)) return false;
+      if (_prFilt.flag === 'norate' && !(r.rate_missing && (r.lesson_count||0) > 0)) return false;
+      if (_prFilt.flag === 'unlinked' && !r.unlinked_profile) return false;
+      if (_prFilt.flag === 'adj' && _prSortVal.adj(r) == null) return false;
+      if (_prFilt.flag === 'nolesson' && (r.lesson_count||0) > 0) return false;
+      return true;
+    });
+    const f = _prSortVal[_prSort.key];
+    if (f) {
+      const d = _prSort.dir;
+      v.sort((A, B) => {
+        const a = f(A.r), b = f(B.r);
+        if (a == null && b == null) return A.i - B.i;
+        if (a == null) return 1;            // 값 없음은 방향과 무관하게 맨 아래
+        if (b == null) return -1;
+        const c = (typeof a === 'string') ? a.localeCompare(b, 'ko') : (a - b);
+        return c ? c * d : A.i - B.i;       // 같으면 원래 순서
+      });
+    }
+    return v;
+  }
+  window.prSortBy = function(key){
+    if (!_prSortVal[key]) return;
+    if (_prSort.key === key) {
+      if (_prSort.dir === 1) _prSort.dir = -1;
+      else _prSort = { key: '', dir: 1 };   // 세 번째 클릭 = 정렬 해제(원래 순서)
+    } else _prSort = { key, dir: 1 };
+    if (_prBodyRender) _prBodyRender();
+  };
+  window.prFilter = function(field, val){
+    if (!(field in _prFilt)) return;
+    _prFilt[field] = String(val == null ? '' : val);
+    if (_prBodyRender) _prBodyRender();
+  };
+  window.prFilterReset = function(){
+    _prFilt = { q: '', teacher: '', level: '', status: '', flag: '', src: '' };
+    _prSort = { key: '', dir: 1 };
+    ['pr-f-q','pr-f-teacher','pr-f-level','pr-f-status','pr-f-flag','pr-f-src'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+    if (_prBodyRender) _prBodyRender();
+  };
 
   function initYearSelect() {
     const sel = document.getElementById('pr-year');
@@ -33,7 +109,9 @@
     const M = {
       finish:          ['✅ 수업 완료', '✅ Finished',   '#dcfce7', '#166534'],
       student_absent:  ['🙅 학생 결석', '🙅 Absent',     '#fee2e2', '#991b1b'],
+      absence_hold:    ['⏸ 연속결석 보류', '⏸ On hold',  '#fce9e5', '#9b2a1a'],   // 2026-09-25 — 지급 0%
       teacher_no_show: ['⚠️ 강사 미입장', '⚠️ No-show',  '#ffedd5', '#9a3412'],
+      holiday:         ['🎌 공휴일 휴강', '🎌 Holiday',   '#f1f5f9', '#475569'],   // 2026-10-09 — 지급 0
       upcoming:        ['⏳ 예정', '⏳ Upcoming',        '#f1f5f9', '#475569'],
     };
     const m = M[st] || M.finish;
@@ -278,9 +356,16 @@
     const tbody = document.getElementById('pr-table');
     tbody.innerHTML = `<div style="padding:20px;color:#6b7280;text-align:center">${isEn?'Calculating…':'계산 중…'}</div>`;
     try {
-      const r = await fetch(`/api/admin/payroll/calculate?year=${year}&month=${month}`);
-      const d = await r.json();
-      if (!d.ok) throw new Error(d.error || (isEn?'Calculation failed':'계산 실패'));
+      let d;
+      if (window.__prReuse && _prLastD && _prLastD.__y === year && _prLastD.__m === month) {
+        d = _prLastD;   // 💱 통화만 바꿀 때 — 다시 계산하지 않는다(입력한 조정 금액도 그대로 남는다)
+      } else {
+        const r = await fetch(`/api/admin/payroll/calculate?year=${year}&month=${month}`);
+        d = await r.json();
+        if (!d.ok) throw new Error(d.error || (isEn?'Calculation failed':'계산 실패'));
+        d.__y = year; d.__m = month; _prLastD = d;
+      }
+      window.__prReuse = false;
       _prRows = d.rows || [];
       _prLevels = d.levels || [];
       // 🎭🔐 유효 역할(실제 로그인 또는 미리보기) 반영 — 강사=본인 급여만, 지사/대리점/학부모/학생=차단.
@@ -297,6 +382,7 @@
         return;
       }
       const _prTeacherView = _prEffRole === 'hq_teacher';
+      prFxBar(_prTeacherView);
       if (_prTeacherView) {
         const _prOwnNm = (typeof window._effectiveOwnName === 'function') ? window._effectiveOwnName() : '';
         _prRows = _prRows.filter(r => window._payrollIsOwnRow(r, { name: _prOwnNm }));
@@ -314,6 +400,15 @@
         summaryHtml = (isEn
           ? `👨‍🏫 Teacher Mode — your payslip only · ${year}-${String(month).padStart(2,'0')} · Classes <b>${fmt(_tl)}</b> · Deduction <b style="color:#dc2626">− ${fmtP(_td)}</b> · Final <b style="color:#d97706">${fmtP(_tf)}</b>`
           : `👨‍🏫 강사 모드 — 본인 급여만 · ${year}년 ${month}월 · 수업 <b>${fmt(_tl)}</b>회 · 공제 <b style="color:#dc2626">− ${fmtP(_td)}</b> · 실지급 <b style="color:#d97706">${fmtP(_tf)}</b>`);
+      }
+      /* 📦 카페24에는 있는데 명부와 이름이 안 이어진 강사 — 조용히 빠지면 «급여를 못 받은»
+         사람이 생긴다. 관리자에게만, 있을 때만 한 줄 띄운다(강사 본인 뷰에는 안 띄운다). */
+      const _un = (d.c24_unmatched || []);
+      if (!_prTeacherView && _un.length) {
+        const names = _un.map(u => esc(u.teacher_name || '?')).join(', ');
+        summaryHtml += isEn
+          ? `<div style="margin-top:6px;font-size:11.5px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px 9px">⚠ <b>${_un.length}</b> teacher(s) in the Cafe24 payroll could not be matched to a profile by name: ${names}</div>`
+          : `<div style="margin-top:6px;font-size:11.5px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px 9px">⚠ 카페24 급여에는 있는데 <b>이름으로 명부와 못 이은</b> 강사 <b>${_un.length}</b>명: ${names} <span style="color:#92400e">— 실제 강사라면 명부 이름을 카페24와 맞춰 주세요</span></div>`;
       }
       document.getElementById('pr-summary').innerHTML = summaryHtml;
       const saveBtn = document.getElementById('pr-save-btn');
@@ -334,17 +429,31 @@
       // 컬럼 헤더 + 셀 라벨 i18n
       const H = isEn ? {
         teacher:'Teacher', level:'Level (rate)', classes:'Classes', mins:'Total Min', rate:'Rate/10m',
-        calc:'Lesson Fee', ded:'Deduction', fin:'Final Pay', adj:'Adjusted', status:'Status', actions:'Actions',
+        calc:'Lesson Fee', ded:'Deduction', fin:'Final Pay', adj:(_prKrw?'Adjusted (₱)':'Adjusted'), status:'Status', actions:'Actions',
         paid:'Paid', pending:'Pending', cancel:'Cancel', markPaid:'✅ Mark Paid', detail:'📋 Detail',
         saveFirst:'Save first', minutes:' min', absent:' absent'
       } : {
         teacher:'강사', level:'등급(요율)', classes:'수업', mins:'총 분', rate:'10분 단가',
-        calc:'수업료', ded:'공제', fin:'실지급액', adj:'조정 금액', status:'상태', actions:'조작',
+        calc:'수업료', ded:'공제', fin:'실지급액', adj:(_prKrw?'조정 금액 (₱)':'조정 금액'), status:'상태', actions:'조작',
         paid:'지급', pending:'대기', cancel:'취소', markPaid:'✅ 지급 완료', detail:'📋 상세',
         saveFirst:'먼저 저장', minutes:'분', absent:'결석'
       };
       // 🎖 등급 선택 셀 — 관리자만 변경 가능(강사 뷰는 읽기전용). 등급 미지정 시 요율만 표시.
       const _lvlLabel = (code) => { const x = _prLevels.find(v=>v.code===code); return x ? (isEn ? x.label_en : x.label_ko) : ''; };
+      /* 📦 이 줄의 숫자가 카페24에서 온 것이면 표시한다 (2026-08-18).
+         D1 예약표에 수업이 없어서 카페24 월간 집계로 채운 줄이다. 공제는 붙지 않는다
+         — 그 값에는 수업별 피드백·지각 판정 근거가 없기 때문. 「상세」를 눌러도
+         수업 목록은 비어 있는 것이 정상이라, 그 사실을 배지에 적어 둔다. */
+      const c24Badge = (r) => {
+        if (r.amount_source !== 'cafe24') return '';
+        const mins = r.c24_minutes_real === false
+          ? (isEn ? ' · minutes estimated (×20m)' : ' · 분은 ×20분 환산')
+          : '';
+        const t = isEn
+          ? 'From the Cafe24 monthly payroll sync (no per-lesson records in this system)' + mins
+          : '카페24 월간 급여 동기화 값 (이 시스템엔 수업별 기록이 없습니다)' + mins;
+        return `<br><span title="${esc(t)}" style="font-size:10px;color:#0f766e;background:#ecfdf5;border:1px solid #99f6e4;border-radius:10px;padding:0 6px;font-weight:700">${isEn?'Cafe24':'카페24'}</span>`;
+      };
       const levelCellMain = (r) => {
         // 프로필 미연결 강사(원부 teachers 에만 있는 행) — 등급을 지정할 프로필이 없다.
         // 관리자 「강사 사진 연결」에서 프로필을 이으면 다음 계산부터 단가·등급이 붙는다.
@@ -360,24 +469,69 @@
         }
         const opts = `<option value=""${cur?'':' selected'}>${isEn?'— none —':'— 미지정 —'}</option>` +
           _prLevels.map(v=>`<option value="${esc(v.code)}"${v.code===cur?' selected':''}>${esc(isEn?v.label_en:v.label_ko)} (₱${fmt(v.rate_per_20min)})</option>`).join('');
-        return `<select onchange="prSetLevel(${r.teacher_id}, this.value)" style="max-width:150px;padding:4px 6px;font-size:11.5px;border:1px solid #d1d5db;border-radius:5px">${opts}</select><br>${rateTxt}`;
+        /* 🎖 단가가 하나도 없는데(개별 단가 X · 등급 X) 이 달에 수업이 있는 강사 —
+           수업료가 전부 0 으로 계산되고 있다는 뜻이다. 셀렉트를 붉게 해 단가부터 넣게 유도.
+           수업이 0회면 조용히 둔다(전 강사를 붉게 칠하면 아무도 안 본다). */
+        const needRate = r.rate_missing && (r.lesson_count||0) > 0;
+        const selStyle = needRate
+          ? 'max-width:150px;padding:4px 6px;font-size:11.5px;border:2px solid #dc2626;border-radius:5px;background:#fef2f2'
+          : 'max-width:150px;padding:4px 6px;font-size:11.5px;border:1px solid #d1d5db;border-radius:5px';
+        const warn = needRate
+          ? `<br><span style="font-size:10px;color:#dc2626;font-weight:700">${isEn?'⚠ No rate — fees calc as 0':'⚠ 단가 미지정 — 수업료가 0으로 계산 중'}</span>`
+          : '';
+        return `<select onchange="prSetLevel(${r.teacher_id}, this.value)" style="${selStyle}">${opts}</select><br>${rateTxt}${warn}`;
       };
-      tbody.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden">
+      /* 🔃 정렬 머리글 — 누를 때마다 오름차순 ▲ → 내림차순 ▼ → 해제 */
+      const thS = (key, label, align) => `<th onclick="prSortBy('${key}')" data-prs="${key}" title="${isEn?'Click: ascending → descending → off':'클릭: 오름차순 → 내림차순 → 해제'}" style="text-align:${align};padding:10px 12px;color:#78350f;cursor:pointer;user-select:none;white-space:nowrap">${label}<span class="pr-s-arrow" style="margin-left:4px;font-size:10px;color:#b45309">↕</span></th>`;
+      const flagOpts = isEn
+        ? [['','All'],['ded','Has deduction'],['norate','No rate set'],['unlinked','No linked profile'],['adj','Adjusted'],['nolesson','0 classes']]
+        : [['','전체'],['ded','공제 있음'],['norate','단가 미지정'],['unlinked','프로필 미연결'],['adj','조정 금액 입력'],['nolesson','수업 0회']];
+      const statusOpts = isEn
+        ? [['','All status'],['pending','Pending'],['paid','Paid'],['unsaved','Not saved yet']]
+        : [['','상태 전체'],['pending','대기'],['paid','지급'],['unsaved','미저장']];
+      // 🧑‍🏫 강사 드롭다운 — 이 달 계산에 나온 강사만(이름순). 값은 teacher_id(이름은 동명이인이 있을 수 있다)
+      if (_prFilt.teacher && !_prRows.some(r => String(r.teacher_id) === _prFilt.teacher)) _prFilt.teacher = '';
+      const teacherOpts = [['', isEn ? 'All teachers' : '강사 전체']].concat(
+        _prRows.slice().sort((a,b) => String(a.korean_name||'').localeCompare(String(b.korean_name||''), 'ko'))
+          .map(r => [String(r.teacher_id), (r.korean_name||'-') + (r.english_name ? ' (' + r.english_name + ')' : '')]));
+      const levelOpts = [['', isEn ? 'All levels' : '등급 전체'], ['__none', isEn ? '— none —' : '— 미지정 —']].concat(
+        _prLevels.map(v => [String(v.code), (isEn ? v.label_en : v.label_ko) + ' (₱' + fmt(v.rate_per_20min) + ')']));
+      const srcOpts = isEn
+        ? [['','All sources'],['sys','This system'],['cafe24','Cafe24 sync']]
+        : [['','출처 전체'],['sys','이 시스템 수업기록'],['cafe24','카페24 동기화']];
+      const optHtml = (arr, cur) => arr.map(([v,t]) => `<option value="${esc(v)}"${v===cur?' selected':''}>${esc(t)}</option>`).join('');
+      const filterBar = _prTeacherView ? '' : `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px">
+          <input id="pr-f-q" type="search" value="${esc(_prFilt.q)}" oninput="prFilter('q', this.value)" placeholder="${isEn?'🔍 Search teacher name':'🔍 강사 이름 검색'}" style="flex:1 1 180px;min-width:150px;padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#101828" />
+          <select id="pr-f-teacher" onchange="prFilter('teacher', this.value)" title="${isEn?'Teacher':'강사'}" style="padding:6px 8px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#101828;max-width:220px">${optHtml(teacherOpts, _prFilt.teacher)}</select>
+          <select id="pr-f-level" onchange="prFilter('level', this.value)" title="${isEn?'Level':'등급'}" style="padding:6px 8px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#101828;max-width:200px">${optHtml(levelOpts, _prFilt.level)}</select>
+          <select id="pr-f-status" onchange="prFilter('status', this.value)" style="padding:6px 8px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#101828">${optHtml(statusOpts, _prFilt.status)}</select>
+          <select id="pr-f-flag" onchange="prFilter('flag', this.value)" style="padding:6px 8px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#101828">${optHtml(flagOpts, _prFilt.flag)}</select>
+          <select id="pr-f-src" onchange="prFilter('src', this.value)" style="padding:6px 8px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#101828">${optHtml(srcOpts, _prFilt.src)}</select>
+          <button type="button" onclick="prFilterReset()" style="padding:6px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#344054;cursor:pointer">${isEn?'Reset':'초기화'}</button>
+          <span id="pr-f-count" style="font-size:12px;color:#475467"></span>
+        </div>`;
+      tbody.innerHTML = filterBar + `<table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden">
         <thead style="background:linear-gradient(135deg,#fef3c7,#fde68a)"><tr>
-          <th style="text-align:left;padding:10px 12px;color:#78350f">${H.teacher}</th>
-          <th style="text-align:left;padding:10px 12px;color:#78350f">${H.level}</th>
-          <th style="text-align:center;padding:10px 12px;color:#78350f">${H.classes}</th>
-          <th style="text-align:right;padding:10px 12px;color:#78350f">${H.mins}</th>
-          <th style="text-align:right;padding:10px 12px;color:#78350f">${H.rate}</th>
-          <th style="text-align:right;padding:10px 12px;color:#78350f">${H.calc}</th>
-          <th style="text-align:right;padding:10px 12px;color:#78350f">${H.ded}</th>
-          <th style="text-align:right;padding:10px 12px;color:#78350f">${H.fin}</th>
-          <th style="text-align:right;padding:10px 12px;color:#78350f">${H.adj}</th>
-          <th style="text-align:center;padding:10px 12px;color:#78350f">${H.status}</th>
+          ${thS('teacher', H.teacher, 'left')}
+          ${thS('level', H.level, 'left')}
+          ${thS('classes', H.classes, 'center')}
+          ${thS('mins', H.mins, 'right')}
+          ${thS('rate', H.rate, 'right')}
+          ${thS('calc', H.calc, 'right')}
+          ${thS('ded', H.ded, 'right')}
+          ${thS('fin', H.fin, 'right')}
+          ${thS('adj', H.adj, 'right')}
+          ${thS('status', H.status, 'center')}
           <th style="text-align:center;padding:10px 12px;color:#78350f">${H.actions}</th>
         </tr></thead>
-        <tbody>${_prRows.map((r, i) => {
+        <tbody id="pr-tbody"></tbody>
+      </table>`;
+      const rowHtml = (r, i) => {
           const fin = r.final_amount ?? r.calculated_amount;
+          // 단가가 없어서 0 이 된 금액은 «0원 지급» 이 아니라 «아직 계산할 수 없음» 이다
+          const finCell = (r.rate_missing && (r.lesson_count||0) > 0)
+            ? `<span style="color:#dc2626;font-size:11px;font-weight:700">${isEn?'⚠ set rate first':'⚠ 단가 미지정'}</span>`
+            : fmtP(fin);
           const subCnt = [];
           if (r.absent_count) subCnt.push(`🙅 ${r.absent_count}`);
           if (r.no_feedback_count) subCnt.push(`📝 ${r.no_feedback_count}`);
@@ -385,12 +539,12 @@
           <tr style="border-bottom:1px solid #e5e7eb">
             <td style="padding:9px 12px"><b>${esc(r.korean_name||'-')}</b>${r.english_name?'<br><span style="font-size:11px;color:#9ca3af">'+esc(r.english_name)+'</span>':''}</td>
             <td style="padding:9px 12px">${levelCellMain(r)}</td>
-            <td style="padding:9px 12px;text-align:center;font-weight:700">${fmt(r.lesson_count)}${subCnt.length?'<br><span style="font-size:10px;color:#dc2626">'+subCnt.join(' ')+'</span>':''}</td>
+            <td style="padding:9px 12px;text-align:center;font-weight:700">${fmt(r.lesson_count)}${c24Badge(r)}${subCnt.length?'<br><span style="font-size:10px;color:#dc2626">'+subCnt.join(' ')+'</span>':''}</td>
             <td style="padding:9px 12px;text-align:right;color:#6b7280">${fmt(r.total_minutes)}${H.minutes}</td>
             <td style="padding:9px 12px;text-align:right;color:#6b7280">${fmtP(r.fee_per_10min)}</td>
             <td style="padding:9px 12px;text-align:right;color:#6b7280">${fmtP(r.calculated_amount)}</td>
             <td style="padding:9px 12px;text-align:right;font-weight:700;color:${(r.deduction_total||0)>0?'#dc2626':'#9ca3af'}">${(r.deduction_total||0)>0?'− '+fmtP(r.deduction_total):'—'}</td>
-            <td style="padding:9px 12px;text-align:right;font-weight:800;color:#d97706">${fmtP(fin)}</td>
+            <td style="padding:9px 12px;text-align:right;font-weight:800;color:#d97706">${finCell}</td>
             <td style="padding:8px 10px;text-align:right">
               <input type="number" value="${r.adjusted_amount ?? ''}" placeholder="${fmt(fin)}"
                      onchange="prRowAdjust(${i}, this.value)"
@@ -409,11 +563,84 @@
                     : `<button onclick="prMarkPaid(${r.payroll_id},${fin})" style="padding:5px 10px;font-size:11px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:5px;cursor:pointer;font-weight:700">${H.markPaid}</button>`)
                 : `<span style="font-size:10.5px;color:#9ca3af">${H.saveFirst}</span>`}
             </td>
-          </tr>`;}).join('')}</tbody>
-      </table>`;
+          </tr>`;};
+      _prBodyRender = function(){
+        const tb = document.getElementById('pr-tbody');
+        if (!tb) return;
+        const view = prViewRows();
+        tb.innerHTML = view.length
+          ? view.map(({ r, i }) => rowHtml(r, i)).join('')
+          : `<tr><td colspan="11" style="padding:26px;text-align:center;color:#6b7280">${isEn?'No teachers match the filter.':'조건에 맞는 강사가 없습니다.'}</td></tr>`;
+        document.querySelectorAll('#pr-table th[data-prs]').forEach(th => {
+          const on = th.getAttribute('data-prs') === _prSort.key;
+          const a = th.querySelector('.pr-s-arrow');
+          if (a) { a.textContent = on ? (_prSort.dir === 1 ? '▲' : '▼') : '↕'; a.style.color = on ? '#b45309' : '#c2a36b'; }
+          th.style.background = on ? '#fde68a' : '';
+        });
+        const cnt = document.getElementById('pr-f-count');
+        if (cnt) cnt.textContent = isEn ? `Showing ${view.length} / ${_prRows.length}` : `${_prRows.length}명 중 ${view.length}명 표시`;
+      };
+      _prBodyRender();
     } catch(e) {
       tbody.innerHTML = '<div style="padding:20px;color:#ef4444">계산 실패: '+esc(e.message)+'</div>';
     }
+  };
+
+  /* 💱 환율 줄 + 원화 전환 버튼 — 강사 화면에는 안 그린다(강사는 이 API 가 막혀 있고 급여는 ₱ 로 받는다) */
+  function prFxText(isEn){
+    if (!_prFx) return isEn ? '💱 Loading exchange rate…' : '💱 환율 불러오는 중…';
+    if (_prFx.error) return isEn ? '💱 Could not load the exchange rate — amounts stay in ₱' : '💱 환율을 불러오지 못했습니다 — 금액은 ₱ 그대로 보여 드려요';
+    const r = Number(_prFx.rate).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
+    // source 는 서버 정본(getTodayFx)이 준 그대로 — 오늘 받은 값인지 옛 값인지 화면이 말한다
+    const SRC = isEn
+      ? { live: 'today’s rate', last: '⚠ last fetched rate (live lookup failed)', payroll: '⚠ rate saved on the payroll screen (live lookup failed)' }
+      : { live: '오늘 환율', last: '⚠ 지난번에 받은 환율(지금은 못 받음)', payroll: '⚠ 급여 화면에 저장된 환율(지금은 못 받음)' };
+    const why = SRC[_prFx.source] || esc(_prFx.source || '');
+    const d = _prFx.date ? ' · ' + esc(_prFx.date) : '';
+    return (isEn ? `💱 1 PHP = <b>${r}</b> KRW` : `💱 1페소 = <b>${r}</b>원`)
+      + `<span style="color:#667085"> · ${why}${d}${_prFx.source === 'payroll' ? '' : ' · open.er-api.com'}</span>`;
+  }
+  function prFxPaint(){
+    const isEn = (window.adminLang === 'en');
+    const el = document.getElementById('pr-fx');
+    if (el) el.innerHTML = prFxText(isEn);
+    const b = document.getElementById('pr-krw-btn');
+    if (b) {
+      const ko = _prKrw ? '₱ 페소로 보기' : '₩ 원화로 보기';
+      const en = _prKrw ? '₱ Show in Peso' : '₩ Show in KRW';
+      b.setAttribute('data-ko', ko); b.setAttribute('data-en', en);
+      b.textContent = isEn ? en : ko;
+      b.style.background = _prKrw ? '#1e40af' : '#fff';
+      b.style.color = _prKrw ? '#fff' : '#1e40af';
+    }
+  }
+  async function prFxLoad(){
+    try {
+      const r = await fetch('/api/admin/reports/fx-rate', { cache: 'no-store' });
+      const d = await r.json().catch(() => null);
+      _prFx = (d && d.ok === true && Number(d.rate) > 0) ? d : { error: (d && d.error) || ('http-' + r.status) };
+    } catch (e) { _prFx = { error: String(e && e.message || e) }; }
+    prFxPaint();
+    return !_prFx.error;
+  }
+  function prFxBar(teacherView){
+    const wrap = document.getElementById('pr-fx-wrap');
+    if (!wrap) return;
+    if (teacherView) { wrap.style.display = 'none'; if (_prKrw) _prKrw = false; return; }
+    wrap.style.display = 'flex';
+    if (!_prFx || _prFx.error) prFxLoad(); else prFxPaint();
+  }
+  window.prToggleKrw = async function(){
+    const isEn = (window.adminLang === 'en');
+    if (!_prKrw && (!_prFx || _prFx.error)) {
+      const ok = await prFxLoad();
+      if (!ok) { alert(isEn ? 'Could not load the exchange rate. Please try again shortly.' : '환율을 불러오지 못했습니다. 잠시 뒤 다시 눌러 주세요.'); return; }
+    }
+    _prKrw = !_prKrw;
+    prFxPaint();
+    if (_prLastD) { window.__prReuse = true; window.prCalculate(); }
+    const dt = document.getElementById('pr-detail');
+    if (dt && dt.innerHTML && _prDetailTid) window.prShowDetail(_prDetailTid, _prDetailName);
   };
 
   window.prRowAdjust = function(idx, val){

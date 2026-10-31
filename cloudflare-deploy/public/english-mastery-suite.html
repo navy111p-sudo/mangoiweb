@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>English Mastery Suite — Mangoi 화상영어</title>
+<title>English Mastery Suite — mangoi.ai 화상영어</title>
 <!--
   ============================================================================
    English Mastery Learning Suite  (single-file: HTML + CSS + Vanilla JS)
@@ -474,7 +475,8 @@
 <script src="/js/mangoi-speak-score.js?v=1"></script>
 <script src="/js/mangoi-pron-tags.js?v=1"></script>
 <script src="/js/mangoi-memory.js?v=1"></script>
-<script src="/js/i18n-sweep.js?v=22" defer></script>
+<script src="/js/i18n-sweep.js?v=23" defer></script>
+<script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 </head>
 <body>
 <div id="app">
@@ -637,7 +639,10 @@
      0) 설정 & 공유 상태
   ========================================================================= */
   var CONFIDENCE_THRESHOLD = 0.70;   // 정확도 필터: 이 값 "초과"여야 성공
-  var SPEAK_TARGET = 3;              // 3회 말하기 성공해야 완료
+  var SPEAK_TARGET = 3;              // 3회 말하기 성공해야 완료 (100점이면 1회로 통과)
+  /* 💯 (2026-08-13 원장님 제안) 첫 시도에서 정확도 100점이면 남은 반복을 건너뛰고 즉시 통과.
+     고정 3회는 잘하는 학생에게 '횟수 채우기'가 되어 발음 집중도를 오히려 떨어뜨렸다. */
+  var SPEAK_PERFECT = 0.98, SPEAK_PERFECT_BONUS = 200;
   var SPEAK_POINTS = 100;           // 말하기 1회 성공 시 점수(회당 라이브로 가산)
   var COMBO_WINDOW = 2500;
 
@@ -1073,6 +1078,7 @@
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
   var recog=null, recogActive=false;
   var speakCount=0, speakAwarded=0, onMissionDone=null, onSpeakSuccess=null, audioPlayed=false;
+  var _speakTries=0;   // 💯 이 문장에서 말하기를 시도한 횟수(원샷 판정용)
 
   var speakOverlay=$('#speakOverlay'), micBtn=$('#micBtn'), starsEl=$('#stars'),
       missionStatus=$('#missionStatus'), speakTextEl=$('#speakText'), speakKoEl=$('#speakKo');
@@ -1082,6 +1088,7 @@
   }
   function startMission(done, onScore){
     onMissionDone = done; onSpeakSuccess = onScore || null; speakCount=0; speakAwarded=0; audioPlayed=false;
+    _speakTries=0;
     speakTextEl.firstChild.nodeValue = targetSentence;
     speakKoEl.textContent = KO[targetSentence] || '';
     speakTextEl.classList.remove('show-ko');   // 새 문장은 다시 중국어/영어만 (탭하면 한국어 뜻)
@@ -1228,6 +1235,18 @@
     var line = '들린 말: <span class="heard">"'+ (heard||'…') +'"</span><br>정확도 <span class="conf '+(matched?'ok':'no')+'">'+confPct+'%</span>';
 
     if(pass){
+      _speakTries++;
+      /* 🏆 원샷 원킬 — 첫 시도 100점이면 3회를 채우지 않고 바로 통과 + 퍼펙트 보너스 */
+      if((_fishGrade ? _fishGrade.accuracy : (matched?1:0)) >= SPEAK_PERFECT && _speakTries<=1 && speakCount===0){
+        speakCount = SPEAK_TARGET; renderStars();
+        _fishSaveShadow(confPct);
+        if(onSpeakSuccess) onSpeakSuccess(SPEAK_PERFECT_BONUS);
+        missionStatus.innerHTML = line + '<br>🏆 <b>퍼펙트! 첫 시도 100점!</b> 바로 통과 <b>+'+(SPEAK_POINTS*SPEAK_TARGET+SPEAK_PERFECT_BONUS)+'점</b>';
+        micBtn.disabled=true; micBtn.classList.remove('listening'); micBtn.innerHTML='🏆 원샷 통과!';
+        toast('🏆 원샷 원킬! +'+(SPEAK_POINTS*SPEAK_TARGET+SPEAK_PERFECT_BONUS)+'점', 'good');
+        setTimeout(finishMission, 1100);
+        return;
+      }
       speakCount++; renderStars(); awardSpeak();            // ★ 말할 때마다 +점수
       _fishSaveShadow(confPct);                             // 🎤 발음 점수 서버 적립
       if(speakCount>=SPEAK_TARGET){
@@ -1240,6 +1259,7 @@
         toast('👍 +'+SPEAK_POINTS+'점! '+speakCount+'/'+SPEAK_TARGET, 'good');
       }
     } else {
+      _speakTries++;
       // Fail State: confidence 미달 또는 문장 불일치 → 카운트 미증가
       // 「다시 해보세요」만 주면 뭘 바꿔야 할지 모른 채 같은 말을 반복한다 → 처방 한 줄
       var fix = _fishDiag || (_fishGrade && _fishGrade.tip) || '';
@@ -1296,8 +1316,9 @@
     if(!speakKoEl.textContent){
       var s = targetSentence;
       speakKoEl.textContent = '…';
+      // 🗣️ mode:'learn' — 학생이 읽는 «뜻» 이라 의역(2026-08-31). 낱말 팝업은 사전 뜻이라 기본 경로 그대로.
       fetch('/api/translate', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ texts:[s], target:'ko' }) })
+        body: JSON.stringify({ texts:[s], target:'ko', mode:'learn' }) })
         .then(function(r){ return r.json(); })
         .then(function(d){
           var t = d && d.map && d.map[s];
@@ -1704,7 +1725,7 @@
     r.items.forEach(function(it){
       var el=document.createElement('button');
       el.className='fish'+(it.isTarget?'':' distractor')+(it.golden?' golden':'');
-      el.innerHTML='<img class="face" alt="" draggable="false" src="'+FISH_SRC(FISHES[Math.floor(Math.random()*FISHES.length)])+'"><span class="word">'+it.word+'</span>';
+      el.innerHTML='<img class="face" alt="" draggable="false" src="'+FISH_SRC(FISHES[Math.floor(Math.random()*FISHES.length)])+'" loading="lazy" decoding="async"><span class="word">'+it.word+'</span>';
       var dir = Math.random()<0.5?1:-1;
       var sp = fishCfg().speed;
       // ⚡ base 속도(스폰 시 고정) — 루프에서 spdMult() 를 매 프레임 곱함 → 속도 변경 즉시 반영, 상위 속도일수록 빨리빨리 헤엄
@@ -1835,7 +1856,7 @@
     var fw=FI.field.clientWidth, fh=FI.field.clientHeight;
     var dir=Math.random()<0.5?1:-1;
     var el=document.createElement('div'); el.className='shark'+(dir>0?' flip':'');
-    el.innerHTML='<img class="face" alt="" draggable="false" src="'+FISH_SRC('shark')+'">';
+    el.innerHTML='<img class="face" alt="" draggable="false" src="'+FISH_SRC('shark')+'" loading="lazy" decoding="async">';
     var sh={ el:el, x: dir>0? -90 : fw+90, y:rand(120, Math.max(170, fh-150)), vx:dir*rand(130,190)*spdMult() };   // ⚡ 속도(난이도) 반영
     el.style.left=sh.x+'px'; el.style.top=sh.y+'px';
     FI.field.appendChild(el); FI.sharks.push(sh);
@@ -2142,7 +2163,7 @@
 })();
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
-<script defer src="/js/flow.js?v=13"></script>
-<!-- BUILD:20260813001216 -->
+<script defer src="/js/flow.js?v=23"></script>
+<!-- BUILD:20260813015745 -->
 </body>
 </html>

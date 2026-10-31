@@ -29,9 +29,15 @@
  *   runWarmupGraphSync(env)                        : D1 → Neo4j ETL (멱등 MERGE)
  *   getWeakSentences(env, studentId, textbook, n)  : 취약 문장 (오늘 교재 우선 정렬)
  *   warmupGraphRouter(request, env)                : /api/admin/warmup-graph/*
+ *   («영어만» 게이트는 src/english-only.ts 가 정본 — 웜업·게임이 함께 쓴다)
+ *
+ * ⚠️ 이 표(review_quizzes)는 영어 전용이 아니다 — 중국어 교재 「다락원」이 함께 들어 있다.
+ *    그래서 «영어 문장 추출» 은 라틴 글자 유무가 아니라 아래 두 게이트로 판정한다.
  */
 
 import { runCypher, Neo4jNotConfiguredError, type TeacherMatchEnv } from './teacher-match';
+// «영어만» 게이트 — 판정 정본은 english-only.ts 한 곳뿐이다(규칙을 여기에 복사하지 말 것)
+import { isEnglishText, isEnglishQuestion } from './english-only';
 
 export type WarmupGraphEnv = TeacherMatchEnv;
 
@@ -88,15 +94,17 @@ ORDER BY inToday DESC, w.count DESC, w.last_at DESC
 LIMIT $limit
 `;
 
+
 /** review_quizzes.questions JSON 에서 영어 문장 추출 (index.ts warmupLessonContext 와 동일 기준) */
 function extractSentences(questionsJson: unknown): string[] {
   let qs: any[] = [];
   try { qs = JSON.parse(String(questionsJson || '[]')) || []; } catch {}
   const out: string[] = [];
   for (const q of qs) {
+    if (!isEnglishQuestion(q)) continue;   // 중국어·일본어 문항은 통째로 건너뛴다
     for (const c of [q?.audio_text, q?.answer_text, q?.target]) {
       const s = String(c || '').trim();
-      if (s && /[a-zA-Z]/.test(s) && s.length <= 80 && !out.includes(s)) out.push(s);
+      if (isEnglishText(s) && !out.includes(s)) out.push(s);
     }
   }
   return out;
@@ -127,6 +135,7 @@ function regradeWrongs(row: { user_id: string; answers: string; created_at: numb
   const out: WrongEvent[] = [];
   for (let i = 0; i < Math.min(qs.length, ans.length); i++) {
     const q = qs[i]; const a = ans[i];
+    if (!isEnglishQuestion(q)) continue;   // 중국어·일본어 문항은 취약문장으로 세지 않는다
     const type = q?.type || 'choice';
     let wrong = false; let text = '';
     if (type === 'choice' || type === 'listen') {
@@ -139,22 +148,35 @@ function regradeWrongs(row: { user_id: string; answers: string; created_at: numb
       wrong = type === 'write' ? !(normText(said) === normText(q.answer_text) || acc >= 0.85) : acc < 0.6;
       text = String(q.answer_text || '').trim();
     }
-    if (wrong && text && /[a-zA-Z]/.test(text) && text.length <= 80) {
+    if (wrong && isEnglishText(text)) {
       out.push({ student_id: row.user_id, text, textbook: quiz.textbook, at: row.created_at });
     }
   }
   return out;
 }
 
-/** 신규 데이터 — 제출 시 저장된 채점 detail(JSON)에서 오답 문장 추출 */
-function detailWrongs(row: { user_id: string; detail: string; created_at: number }, textbook: string): WrongEvent[] {
+/** 신규 데이터 — 제출 시 저장된 채점 detail(JSON)에서 오답 문장 추출
+ *  ⚠️ 문항 게이트를 걸려면 «원본 문항» 이 필요하다 — detail 행에는 정답 문자열만 남고
+ *     지문·선택지가 없어서, 성조부호 없는 병음(accept:['caochang'])은 글자 게이트만으로는
+ *     못 거른다. 그래서 quizQuestions(그 퀴즈의 questions JSON)를 함께 받아
+ *     `d.idx` 로 원본 문항을 찾아 ②를 적용한다. idx 가 없으면 문항 게이트는 건너뛰고
+ *     글자 게이트만 태운다 — «막지 못하는 것» 보다 «지금 되는 것을 깨는 것» 이 나쁘다. */
+function detailWrongs(
+  row: { user_id: string; detail: string; created_at: number },
+  textbook: string,
+  quizQuestions?: string | null,
+): WrongEvent[] {
   let ds: any[] = [];
   try { ds = JSON.parse(row.detail) || []; } catch {}
+  let qs: any[] = [];
+  try { qs = JSON.parse(String(quizQuestions || '[]')) || []; } catch {}
   const out: WrongEvent[] = [];
   for (const d of ds) {
     if (d?.correct) continue;
+    const q = Number.isInteger(d?.idx) ? qs[d.idx] : undefined;
+    if (q !== undefined && !isEnglishQuestion(q)) continue;   // 중국어·일본어 문항이면 통째로 건너뛴다
     const text = String(d?.answer_text || d?.audio_text || '').trim();
-    if (text && /[a-zA-Z]/.test(text) && text.length <= 80) {
+    if (isEnglishText(text)) {
       out.push({ student_id: row.user_id, text, textbook, at: row.created_at });
     }
   }
@@ -210,7 +232,7 @@ export async function runWarmupGraphSync(
       const quiz = quizById.get(Number(r.quiz_id));
       if (!quiz || !r.user_id) continue;
       resultsScanned++;
-      if (r.detail) events.push(...detailWrongs({ user_id: r.user_id, detail: r.detail, created_at: r.created_at }, quiz.textbook));
+      if (r.detail) events.push(...detailWrongs({ user_id: r.user_id, detail: r.detail, created_at: r.created_at }, quiz.textbook, quiz.questions));
       else events.push(...regradeWrongs({ user_id: r.user_id, answers: r.answers, created_at: r.created_at }, quiz));
     }
   } catch (e: any) {
@@ -269,10 +291,16 @@ export async function getWeakSentences(
 ): Promise<WeakSentence[]> {
   if (!studentId) return [];
   const safeLimit = Number.isInteger(limit) ? Math.min(Math.max(limit, 1), 20) : 5;
+  /* «영어만» 을 읽을 때 한 번 더 거른다 — 그래프에 이미 적재된 옛 데이터 때문이다.
+   *   위 ETL 게이트는 «앞으로 들어올 것» 만 막는다. 이미 들어간 병음(cāochǎng 등)은
+   *   MERGE 라 사라지지 않으므로, 여기서 걸러야 화면이 오늘 바로 깨끗해진다.
+   *   ⚠️ 그래서 Cypher LIMIT 은 «넉넉히» 받아 온다 — 요청한 5건이 전부 중국어면
+   *      거르고 나서 0건이 되어, 영어 취약문장이 있는 학생까지 빈손이 된다. */
+  const fetchLimit = Math.min(safeLimit * 4, 40);
   const { fields, values } = await runCypher(env, WEAK_SENTENCES_QUERY, {
     studentId,
     textbook: textbook || '',
-    limit: safeLimit,
+    limit: fetchLimit,
   });
   const fText = fields.indexOf('text');
   const fCnt = fields.indexOf('wrongCount');
@@ -281,7 +309,7 @@ export async function getWeakSentences(
     text: String(row[fText] || ''),
     wrongCount: toNum(row[fCnt]),
     inTodayTextbook: !!row[fIn],
-  })).filter((w) => w.text);
+  })).filter((w) => isEnglishText(w.text)).slice(0, safeLimit);
 }
 
 // ── 공통 JSON 응답 헬퍼 (프로젝트 라우터 컨벤션과 동일) ───────────────────────

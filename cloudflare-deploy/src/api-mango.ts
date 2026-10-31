@@ -1,3 +1,13 @@
+import type { EleaderEngines } from './eleader-engines';
+import { recordTeacherRoomPresence } from './teacher-room-presence';
+import { attachCalendarRecords } from './calendar-records';
+import { WEEKLY_POSTPONE, readWeeklyPostponePlan } from './weekly-postpone';
+import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg, holidayEntryAlert } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
+import { autoApproveStudentPostpone } from './student-auto-postpone';  // ⏩ 학생 무료 연기 자동 승인(2026-10-06)
+import { requireRoomJwtSecret } from './room-jwt-secret';
+import { ensureStudentEvaluationDetailSchema, readStudentAdminEvaluations } from './evaluation-records';
+import { ensureEvaluationScoreSchema, validEvaluationScores } from './evaluation-scores';
+import { hasForeignGloss, KOREAN_GLOSS_RULE } from './korean-vocab';
 /**
  * api-mango.ts - v3 명세서 신규 API
  *  - 출석 자동 감지 / 발화시간(VAD) 기록
@@ -9,10 +19,21 @@
 
 // ※ ai-command / cafe24-sync 라우트는 다른 모듈로 옮겨졌다. 여기 남아 있던 import 는
 //   실제로 한 번도 쓰이지 않는 껍데기라 제거했다(런타임 동작 변화 없음).
+import { forbiddenTeacherBody } from './forbidden-teacher';
+import { buildPhoneGaps } from './phone-gaps';   // 📵 번호 없는 학생 목록(2026-10-28)
+import { pickCurrentSession } from './class-current-pick';
 import { runCypher } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 명부
 import { studentScopeWhere, getScope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
-import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
+import { checkAdminSession, resolveOwnerScope, getAdminActor, isOrgScopedRole } from './auth-admin';
+import { buildStudentLedger, loadLeaves, ensureStudentLeaveTable } from './session-ledger-load';   // 📒 회차 원장
+import { validateLeave, LEAVE_ERROR_TEXT } from './session-ledger';   // 📒 휴원 규칙(정본)
+import { enrollAdminHqOnly, moveCandidatesFor, daySlotsFor } from './enroll-ops';   // 🙈 학생 숨김은 본사 전용 — 강사·지사·대리점 차단 + 스코프 재조회(모르면 막음)
+import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
+import { signRecDlSig } from './auth-token';  // 📼 녹화 1건 전용 다운로드 서명 (쿠키 못 싣는 모바일 다운로드용)
+import { siteUrl } from './site-url';  // 사람에게 보내는 링크의 정본 주소(mangoi.ai)
+import { runBranchAiHelp } from './branch-ai-help';  // 🤖 지사 화면 통합 검색 AI 도우미(testbranch 만, 2026-10-14)
+import { entryWindow, canEnterNow, enterBlockedMsg, nextStartAfter } from './class-entry-window';  // 🚪 「문을 열어 줄 것인가」 정본 («수업 시간인가» 와 별개)
 import { applyPIIScope, canViewPII, maskRecordPII, isMaskedValue } from './pii-mask';  // 🔒 PII 권한별 마스킹
 import { type GiftishowEnv } from './giftishow-client';  // (MangoEnv 가 상속하는 타입만 사용)
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
@@ -33,10 +54,44 @@ import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token'
 import { sendPlainSms, type SolapiEnv } from './solapi-client';
 import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEnv 가 상속하는 타입만 사용
 import { broadcastWebPush } from './web-push';
+import { ipToNet, asLabel } from './net-prefix';
+import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid } from './attendance-uid';
+import { loadRoomTeacherNames } from './room-teacher';   // 👩‍🏫 방 번호 → 담당 강사 이름(정본)
+import { recordHostRoomNamespace } from './room-split-guard';   // 🚪 도메인–워커 배치 기록(방 갈림 감시)
+import { peelLearnLead, joinLearnLead, curatedLearnMeaning, LEARN_GLOSS_HINT } from './learn-phrase-ko';  // 🗣️ 「뜻 보기」 칭찬 상투구 한국어 정본 (Good job! ≠ 훌륭한 직업)
+
+/* 🔎 «학생 상세» 가 students_erp 에서 한 학생을 찾는 조건 — 정본 한 벌.
+   ⚠️ 2026-09-14 실사고(yahee): 옛 조건이 `student_id OR login_id OR username` 뿐이라 **`user_id`(PK) 를 안 봤다.**
+   카페24 동기화 행(29,494)은 세 칸이 user_id 와 같아 우연히 걸렸지만, 관리자 「학생 등록」으로 만든 행은
+   student_id·login_id 가 NULL 이고 username 이 한글 이름이라 **어느 조건에도 안 걸려** 카드가 전부 «—» 였고,
+   같은 조건을 쓰는 수정(UPDATE)·수강 연장도 0행 갱신으로 조용히 안 먹었다(에러 없음).
+   ⛔ 아래 다섯 자리에 조건을 각각 다시 적지 말 것 — 한 곳만 고쳐지는 사고가 그대로 재현된다.
+   감시: test-harness/student_erp_lookup_harness.mjs (이 조각을 오려 내 진짜 SQLite 에 돌린다). */
+const ERP_BY_UID = `(user_id = ? OR student_id = ? OR login_id = ? OR username = ?)`;
+const erpUidBinds = (uid: string): string[] => [uid, uid, uid, uid];
+import { hiddenExcludeCond, ensureStudentOverrideTable, getOverridePhones, setOverridePhones, getOverrideOrg, setOverrideOrgField, getStudentHiddenInfo, setStudentHidden } from './student-override';   // 🧹 중복 학생계정 숨김·이름 고정(카페24 덮어쓰기 방지) + 📞 전화번호 보관(GET 표시·notify-contacts.ts 도 씀) + 🏢 가맹점·소속 보관(카페24 야간 동기화가 못 건드리는 자리)
+import { diagnoseRecording } from './recording-diagnosis';   // 🩺 녹화 진단 정본(규칙 판정 — AI 아님)
+import { resolveRecordingStudents } from './recording-students';   // 🎓 녹화 목록 「학생」 칸 정본(계정 완전일치로만 판정)
+import { resolveRecordingTeachers } from './recording-teacher';    // 🧑‍🏫 녹화 목록 「교사」·「아이디」 칸 정본(같은 규칙)
+import { sfuProxy, sfuConfigured, SFU_OPS, SFU_SESSION_RE } from './realtime-sfu';  // 📡 Realtime SFU 자격증명 경계 (C안 1단계 — 시크릿 없으면 꺼짐)
+import { recordingDupGate, REC_DUP_LIVE_WINDOW_MS } from './recording-dup-guard';  // 🎥 같은 방 «동시 녹화» 방지 정본 (실패하면 «찍는 쪽» 으로)
+import { ensureStartsOnColumn, startsOnSel, recurStartedOn, normStartsOn, recurSkippedOn, normSkipDates } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
+import { applyRoomOverrides } from './class-room-override';       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
+import { scheduleMoveVersion } from './class-schedule-move';
+import { studentRequestGate, ensureScheduleChangeRequestTable } from './student-schedule-request';  // 📅 학생 연기·변경 요청 판정 정본
+import { loadSchedSummaryMap, loadSchedSummaryOne, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약 수업」 칸 정본 (students_erp 의 수강 칸은 카페24가 정본이라 늘 «—» 였다)       // 🚪 「오늘은 이 방으로」 — 예약 한 건을 하루만 회의방으로 돌린다
+import { isPostponedOccurrence } from './class-postponed';  // ⏸ 연기된 회차 판정 정본(2026-10-01)
+import { resolveStudentTwins, pickTwinSessions } from './student-alias';  // 👥 카페24 쌍둥이 계정(X ↔ mangoai_X) — 학생 «내 수업» 찾기(2026-10-02 lby01)
+import { isUsableKoMeaning, stripJamoRuns } from './learn-meaning-check';  // 🧹 «뜻» 카드에 'ㅋㅋㅋㅋ' 가 나가지 않게(2026-10-02)
+import { handleWriteTopicsApi } from './write-topics';  // ✏️ 선생님 글감(AI 영작 «오늘의 글감» — 2026-10-19)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
+  ROOM_JWT_SECRET?: string;
   SESSION_STATE: KVNamespace;
+  // 📼 수업 녹화 파일 저장소 — 런타임엔 wrangler.toml 로 이미 묶여 있는데 «타입 선언만»
+  //   없었다. /api/recordings/stop 이 «실물이 있는가» 를 직접 확인하려면 필요하다(2026-08-26).
+  RECORDINGS?: R2Bucket;
   // 📧 이메일(Resend) — 레벨테스트 신규신청 관리자 알림 + 교사 배정 알림
   //   RESEND_API_KEY, RESEND_FROM, LEVELTEST_ADMIN_EMAIL (email.ts / EmailEnv)
   // 🎯 레벨테스트 신청자 확정 알림톡 템플릿(선택) — 미설정 시 문자(SMS) 폴백
@@ -120,11 +175,36 @@ async function ensureSchemaOnce(key: string, run: () => Promise<void>): Promise<
   catch { /* 다음 요청에서 다시 시도 — 일부러 빗장을 걸지 않는다 */ }
 }
 
+/* 📡 SFU 를 켤 수 있는 방인가 — «그 수업의 사람» 인지 본다. (2026-09-04)
+   [왜 필요한가] 위 sfu-peers 주석 참고. 소유권 기록만으로는 아무나 아무 방으로 세션을 만든다.
+   [규칙] · `class-{예약id}-{YYYYMMDD}` 예약방 → 관리자·강사 세션은 통과, 학생은 그 예약의 학생일 때만
+          · 그 밖의 방(공용 연습방 `mangoi-class`·`demo-*`·`meet-*`) → 통과.
+            그 방들은 mesh 도 누구나 들어가므로 SFU 만 좁히면 «되던 것» 이 깨진다.
+   ⛔ 못 찾으면 **막는다**(false). verify-room 은 수업을 막지 않으려고 fail-open 이지만,
+      여기서 막히는 것은 SFU 하나뿐이라 반대 방향이 맞다.
+   ⚠️ 대소문자는 정확일치 먼저 — `Kim`/`kim` 처럼 대소문자만 다른 계정이 실재한다(CLAUDE.md 2장). */
+async function sfuRoomAllowed(env: any, room: string, ident: { uid: string; kind: 'admin' | 'student' }): Promise<boolean> {
+  const m = /^class-(\d+)-\d{8}$/.exec(room);
+  if (!m) return true;                       // 예약방이 아니면 mesh 와 같은 문턱
+  if (ident.kind === 'admin') return true;    // 강사·본사 — 참관·수업이 이 경로로 온다
+  try {
+    /* ⚠️ `.first<any>()` 로 쓰지 말 것 — env 가 any 라 prepare 체인이 «타입 없는 호출» 이고,
+       거기에 타입인자를 주면 TS2347 로 컴파일이 깨진다(CI 게이트 ①이 실제로 잡았다). */
+    const row = await env.DB.prepare(`SELECT user_id FROM class_schedules WHERE id = ?`).bind(Number(m[1])).first() as any;
+    if (!row) return false;
+    const mine = String(ident.uid || '');
+    const owner = String(row.user_id || '');
+    if (!owner || !mine) return false;
+    return owner === mine || owner.toLowerCase() === mine.toLowerCase();
+  } catch { return false; }                   // 조회 실패 = 모름 = 막는다(SFU 만 안 켜진다)
+}
+
 export async function handleMangoApi(
   request: Request,
   url: URL,
   env: MangoEnv,
-  ctx?: ExecutionContext   // 🧠 판단력 비동기 분석(waitUntil) 전달용 — 선택적(하위호환)
+  ctx?: ExecutionContext,   // 🧠 판단력 비동기 분석(waitUntil) 전달용 — 선택적(하위호환)
+  eleaderEngines?: EleaderEngines
 ): Promise<Response | null> {
   const path = url.pathname;
   const method = request.method;
@@ -132,18 +212,112 @@ export async function handleMangoApi(
   // (sendPushToUser → api-notify.ts 로 승격 — admin 5회차)
 
   try {
+    // ===== ✏️ 선생님 글감 — 경로 판정·권한·비용 게이트는 전부 write-topics.ts 정본 (2026-10-19) =====
+    if (path === '/api/class/write-topics' || path.startsWith('/api/class/write-topics/')) {
+      const rWt = await handleWriteTopicsApi(request, url, env as any);
+      if (rWt) return rWt;
+    }
     // ===== 📶 화상수업 회선품질 로깅 (fire-and-forget, 통화 경로와 무관) — 강사별 인터넷 품질 파악 =====
     if (path === '/api/vc/quality-log' && method === 'POST') {
       try {
         const b: any = await request.json().catch(() => null);
         if (!b || !b.uid) return json({ ok: true });   // 로깅은 실패해도 무관 → 조용히 무시
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_quality (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, room TEXT, uid TEXT, name TEXT, role TEXT, avg_loss REAL, max_loss REAL, avg_rtt REAL, aao INTEGER, samples INTEGER)`);
-        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+        await ensureSchemaOnce('vc_quality', async () => {
+          await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_quality (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, room TEXT, uid TEXT, name TEXT, role TEXT, avg_loss REAL, max_loss REAL, avg_rtt REAL, aao INTEGER, samples INTEGER)`);
+          /* 📶 (2026-08-26) novideo — «영상 표본이 아예 없던 4초 틱» 의 수(카메라 끔·영상 죽음).
+             예전엔 그런 사람의 기록이 **통째로 안 남았다**(js/idx-vc-qlog.js 머리말) — 8/26 하루
+             예상 ~2,900건 중 실제 25건. 「끊긴다」 제보를 숫자로 확인할 방법이 없던 이유다.
+             ⚠️ CREATE 문에는 넣지 않는다 — 같은 표를 만드는 CREATE 가 api-admin.ts:582 에
+                «한 벌 더» 있고, IF NOT EXISTS 는 먼저 실행된 쪽이 이긴다. 두 벌의 모양이
+                갈리면 새 DB(개발용·복구본)에서 어느 쪽이 이겼느냐로 결과가 달라진다
+                (schema_drift_harness 가 그래서 FAIL 을 낸다). 그러니 ALTER 로만 붙인다 —
+                `attendance.host` 와 같은 방식이다. 이미 있으면 예외가 나는데 그게 정상이라 삼킨다. ⚠️ 이 ALTER 는 **첫 로그가 들어와야** 돈다 — 배포 직후
+                SQL 을 돌리면 `no such column: novideo` 가 나오지만 배포 실패가 아니다
+                (CLAUDE.md 2장 `attendance.host` 와 같은 사정). */
+          try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN novideo INTEGER DEFAULT 0`); } catch {}
+          /* 📥 (2026-09-01 class-1015 「화면이 흐리고 소리가 끊긴다」) «받는 쪽» 지표.
+             그전까지 이 표는 sender.getStats() 만 담았다 = «내가 보내는 것» 뿐이었다.
+             그런데 제보는 전부 «내가 받는 화면·소리» 였고, 그 숫자가 아예 없어서
+             매번 추측으로 끝났다(js/idx-vc-qlog.js 머리말 [원인 ②]).
+               · rx_loss/rx_aloss — 받은 영상·오디오 손실률(%)
+               · rx_conceal       — 소리가 끊겨 브라우저가 «메꾼» 비율(%). 「소리 끊김」의 직접 지표
+               · rx_freeze        — 받은 영상이 멈춘 횟수
+               · p95_loss         — 보내는 쪽 손실의 상위 5%. 평균이 가리는 스파이크를 남긴다
+               · peers            — 그 1분 동안 동시에 붙어 있던 상대 수(유령 연결 판별)
+             ⚠️ «모름» 은 -1 이다. 0 으로 적으면 «표본이 없는 사람» 이 «제일 좋은 사람» 이 된다.
+             ⚠️ CREATE 문에는 넣지 않는다 — 같은 표를 만드는 CREATE 가 api-admin.ts 에 한 벌 더
+                있고 IF NOT EXISTS 는 먼저 실행된 쪽이 이긴다(위 novideo 주석과 같은 사정). */
+          for (const c of ['rx_loss REAL DEFAULT -1', 'rx_aloss REAL DEFAULT -1', 'rx_conceal REAL DEFAULT -1',
+                           'rx_freeze INTEGER DEFAULT 0', 'p95_loss REAL DEFAULT 0', 'peers INTEGER DEFAULT 0']) {
+            try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
+          }
+          /* 🛰 (2026-09-03 class-1016·meet-123 Farrah) «어떤 길로 갔는가» — 중계(TURN)/직접(P2P).
+             RTT 1초가 2분 뒤 60ms 로 떨어졌는데 경로가 바뀐 것인지 회선이 풀린 것인지 가릴 칸이 없었다.
+               · path        — 'relay' | 'direct' | 'mixed' | ''(모름). ⛔ 모름을 direct 로 적지 않는다
+               · relay_ticks — 그 1분에 «중계» 였던 4초 틱 수 · path_ticks — 경로를 «안» 틱 수
+               · turn        — 내 쪽이 중계일 때 그 TURN 서버(host:port proto). Cloudflare 인지 무료 폴백인지가 여기서 갈린다
+             ⚠️ 역시 ALTER 로만 붙인다(위 주석과 같은 사정). 첫 로그가 들어와야 칸이 생긴다. */
+          for (const c of ["path TEXT DEFAULT ''", "turn TEXT DEFAULT ''", 'relay_ticks INTEGER DEFAULT 0', 'path_ticks INTEGER DEFAULT 0']) {
+            try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
+          }
+          /* 🌐 (2026-09-03 필리핀 사무실 회선) net·isp·country — «어느 인터넷 회선인가».
+             [왜] 강사 약 10명이 사무실 공인 IP 하나를 나눠 쓰는데, 이 표는 사람(uid)별이라
+                «그 회선이 매일 몇 시에 막히는가» 를 볼 수 없었다. 통신사에 항의할 근거가 그 표다.
+             ⛔ IP 를 통째로 남기지 않는다 — 이 표에는 학생(다수가 미성년자) 기록도 함께 쌓인다.
+                묶는 데 필요한 것은 네트워크 부분뿐이라 /24(IPv4)·/48(IPv6)로 자른다(src/net-prefix.ts).
+             ⚠️ CREATE 문에는 넣지 않는다 — 위 novideo·rx_* 와 같은 사정(CREATE 가 두 벌이다). */
+          for (const c of ['net TEXT', 'isp TEXT', 'country TEXT']) {
+            try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
+          }
+          /* 🔈 (2026-10-08 class-4586 「선생님 목소리가 수업 내내 안 들렸다」) 소리 «크기».
+             손실 0% 로 패킷이 왔는데 안 들렸다 — 크기가 0 이었는지(보낸 쪽) 재생을 못 했는지(받은 쪽) 가를 칸이 없었다.
+               · rx_alevel / tx_alevel — 받은/보낸 소리의 상위 10% 세기(dBFS, 음수). 모르면 NULL
+               · office      — 사무실 모드 켜짐 1 / 꺼짐 0 / 모름 NULL
+               · gate_closed — «소리가 있던» 시간 중 게이트가 닫혀 있던 %(=말하는데 잘렸나, NULL=모름·꺼짐) · mic_db — 게이트 «앞» 마이크 세기
+             ⛔ dB 칸의 «모름» 을 -1 로 적지 않는다(-1dBFS 는 «아주 큰 소리» 다). ALTER 로만 붙이는 이유는 위와 같다. */
+          for (const c of ['rx_alevel REAL', 'tx_alevel REAL', 'office INTEGER', 'gate_closed REAL', 'mic_db REAL']) {
+            try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN ${c}`); } catch {}
+          }
+        });
+        /* ⚠️ rx_* 는 «모름» 이 -1 이라 `Number(x) || 0` 을 쓰면 안 된다 — 모름이 0(=완벽)으로 뒤집힌다.
+           화면에서 정확히 그 형태의 사고가 났었다(CLAUDE.md 2장 「영상이 죽은 사람이 회선이 제일 좋은 사람으로」). */
+        const num = (v: any, dflt: number) => { const n = Number(v); return Number.isFinite(n) ? n : dflt; };
+        /* «모름» 이 NULL 인 칸 — null·빈값·숫자 아님은 NULL, 숫자는 [lo, hi] 로 자른다(무인증 본문이다). */
+        const nn = (v: any, lo: number, hi: number): number | null => {
+          if (v === null || v === undefined || v === '') return null;
+          const n = Number(v); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : null;
+        };
+        const officeV = (b.office === 1 || b.office === 0) ? b.office : null;
+        /* 🛰 path 는 «아는 값» 만 받는다(모르는 문자열은 빈 값 = 모름). turn 은 서버 주소 한 줄이라 글자를 좁히고 길이를 자른다
+           — 이 경로는 무인증이라 본문이 곧 남의 손이다(관리자 화면에 그대로 그려진다). */
+        const PATHS = ['relay', 'direct', 'mixed'];
+        const pathV = PATHS.indexOf(String(b.path || '')) >= 0 ? String(b.path) : '';
+        const turnV = String(b.turn || '').replace(/[^A-Za-z0-9.:\-_ ]/g, '').slice(0, 96);
+        /* 🌐 회선 식별 — 서버가 «본» 값만 쓴다. ⛔ 본문(b)에서 받지 않는다(위조 가능).
+           ⚠️ request.cf 는 로컬 개발·테스트에서 없다. 없으면 빈 값이고 그게 정상이다. */
+        const _cf: any = (request as any).cf || {};
+        const _net = ipToNet(request.headers.get('CF-Connecting-IP') || '');
+        const _isp = asLabel(_cf.asn, _cf.asOrganization);
+        const _cc = String(_cf.country || '').slice(0, 2);
+        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo, rx_loss, rx_aloss, rx_conceal, rx_freeze, p95_loss, peers, path, turn, relay_ticks, path_ticks, net, isp, country, rx_alevel, tx_alevel, office, gate_closed, mic_db) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
           .bind(Date.now(), String(b.room || ''), String(b.uid), String(b.name || ''), String(b.role || ''),
-            Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0).run();
-        if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch {} }  // 30일 지난 것 가끔 정리
+            Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0,
+            Number(b.novideo) || 0,
+            num(b.rx_loss, -1), num(b.rx_aloss, -1), num(b.rx_conceal, -1),
+            num(b.rx_freeze, 0), num(b.p95_loss, 0), num(b.peers, 0),
+            pathV, turnV, Math.max(0, num(b.relay_ticks, 0)), Math.max(0, num(b.path_ticks, 0)),
+            _net, _isp, _cc,
+            nn(b.rx_alevel, -127, 0), nn(b.tx_alevel, -127, 0), officeV, nn(b.gate_closed, 0, 100), nn(b.mic_db, -127, 0)).run();
+        if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch (e) { console.warn('[vc-quality-log] 30일 정리 실패', (e as any)?.message); } }  /* 30일 지난 것 가끔 정리. ⚠️ 2026-09-03 부터 접속 회선(net·isp·country)도 담기므로
+     이 정리가 조용히 실패하면 그 기록이 계속 쌓인다. 📌 이 표는 승인받은 파기 정본(src/retention.ts)에
+     **없다** — 정본에 등록할지는 사람이 정할 일이다(작업기록 6장). */
         return json({ ok: true });
-      } catch { return json({ ok: true }); }
+      } catch (e) {
+        /* 로깅은 실패해도 수업과 무관하니 200 을 돌려주지만, 쓰기가 실패한 «사실» 은 남긴다 — 칸이 늘 때마다
+           INSERT 가 조용히 죽어도 아무도 모르는 것이 이 표의 반복 사고였다(silent_catch_harness). */
+        console.warn('[vc-quality-log] 기록 실패', (e as any)?.message);
+        return json({ ok: true });
+      }
     }
 
     // ===== 🛠️ 진단 + 테이블 부트스트랩 =====
@@ -248,14 +422,36 @@ export async function handleMangoApi(
       //   등록 이름으로 조회하는 것도 본인으로 인정한다. (student_name 이 NULL 인 이관
       //   데이터가 많아 korean_name·english_name·username 까지 본인 이름으로 본다)
       const recAuthUid = await authUidGlobal(request, url, env);
-      if (!recAuthUid) {
+      /* 🧑‍🏫 (2026-08-13, 필리핀 IT매니저 Karl «Double Login Issue»)
+         [사고] 이미 «Teacher Win» 으로 로그인한 강사가 메뉴 → 「녹화 보기」를 누르면
+                로그인 창이 한 번 더 떴다. 교사·본사·지사 로그인은 admin_sessions 쿠키만
+                만들고 학생용 mango_token 은 만들지 않는데(idx-user-session.js 116줄 참고),
+                이 «목록» 엔드포인트만 토큰을 요구했기 때문이다.
+         [근거] 같은 녹화의 «재생» 은 이미 관리자 세션을 받는다(recordings-r2.ts 367줄).
+                목록만 안 받아서 생긴 한쪽짜리 게이트였고, 관리자 세션 보유자는 이미
+                /api/recordings/list-recent 로 전체 녹화를 열람할 수 있다 — 권한이 넓어지는
+                지점은 없고, 재생 쪽과 판정을 맞추는 것뿐이다.
+         ⚠️ 학생 신분(mangoi_logged_user)을 만들어 주는 방식으로 풀지 말 것 —
+            교사 계정으로 학생 전용 기능이 열린다. 여기서 조회 권한만 인정한다. */
+      const recAdminSess = recAuthUid ? { ok: false } : await checkAdminSession(request, env as any);
+      if (!recAuthUid && !recAdminSess.ok) {
         return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 녹화만 조회할 수 있습니다.' }, 401);
       }
+      /* 🔒 (2026-09-22) 지사·대리점 세션은 여기서 «관리자» 로 인정하지 않는다.
+         이 목록은 ?uid= 를 믿고 LIKE 로 찾은 뒤 녹화마다 &sig= 서명 재생 URL 을 발급하므로,
+         조직 세션이 통과하면 /api/recording/play 의 조직 차단을 그 서명으로 비켜 간다.
+         조직이거나 «모르면» 403. 강사·본사는 그대로. 정본 src/org-scope-guard.ts */
+      if (!recAuthUid && recAdminSess.ok) {
+        const _srActor = await getAdminActor(request, env as any);
+        const _srDeny = orgScopeDenyResponse(orgScopeVerdict(await readScopeType(env, _srActor.username), _srActor.role));
+        if (_srDeny) return _srDeny;
+      }
       // 재생 URL 에 동봉할 원본 토큰 (authUidGlobal 과 동일한 우선순위: Bearer > ?token=)
+      //   관리자·교사 세션으로 들어온 요청은 토큰이 없다 → 빈 문자열. 재생은 쿠키로 통과한다.
       const recPlayHdr = request.headers.get('Authorization') || '';
       const recPlayTok = recPlayHdr.startsWith('Bearer ') ? recPlayHdr.slice(7).trim()
         : String(url.searchParams.get('token') || '').trim();
-      if (recAuthUid !== uid) {
+      if (recAuthUid && recAuthUid !== uid) {
         let recOwnNames: string[] = [];
         try {
           const s: any = await env.DB.prepare(`SELECT student_name, korean_name, english_name, username FROM students_erp WHERE user_id = ?`).bind(recAuthUid).first();
@@ -288,7 +484,7 @@ export async function handleMangoApi(
             LIMIT ?`
         ).bind(likePattern, likePattern, uid, uid, limit).all();
         const raw = (rs.results || []) as any[];
-        const rows = raw.map((r: any) => {
+        const rows = await Promise.all(raw.map(async (r: any) => {
           const startMs = r.started_at || 0;
           const date = startMs ? new Date(startMs).toISOString().slice(0,10) : '-';
           const durSec = r.duration_ms ? Math.round(r.duration_ms / 1000) : 0;
@@ -299,13 +495,19 @@ export async function handleMangoApi(
           // 🎬 재생 URL — 인증 게이트가 있는 /api/recording/play?id= 로 발급 (2026-07-20).
           //   과거엔 공개 blob 키 URL 을 그대로 줬는데, 키를 아는 누구나 재생 가능한 통로라
           //   서명 토큰을 동봉한 play 엔드포인트로 교체(소유권은 서버가 재검증).
-          //   이 핸들러는 토큰 없으면 위에서 401 이므로 recPlayTok 은 항상 존재.
+          //   학생은 요청에 들고 온 mango_token 을 그대로 되돌려 준다(recPlayTok).
+          //   📼 교사·관리자 세션(쿠키 인증)은 토큰이 없다 — 그대로 두면 카톡 인앱 브라우저·
+          //   안드로이드 WebView 가 ⬇저장(다운로드)을 쿠키 없는 다운로드 관리자에 위임할 때
+          //   401 로 조용히 실패한다(«휴대폰 저장 안 됨», 2026-08-13). 그래서 이 녹화 1건
+          //   전용 단기 서명(&sig=)을 동봉한다 — 발급은 이 핸들러의 인증을 통과한 뒤에만,
+          //   범위는 id 하나뿐이라 권한이 넓어지는 지점이 없다(auth-token.ts signRecDlSig).
           let playUrl = '';
           if (r.file_url && /^https?:\/\//.test(String(r.file_url))) {
             playUrl = String(r.file_url);         // 외부 http(s) 녹화는 그대로
           } else if (r.file_url || r.filename) {
             playUrl = '/api/recording/play?id=' + r.id
-              + (recPlayTok ? '&token=' + encodeURIComponent(recPlayTok) : '');
+              + (recPlayTok ? '&token=' + encodeURIComponent(recPlayTok)
+                            : '&sig=' + encodeURIComponent(await signRecDlSig(r.id, env)));
           }
           // 🔴 2026-08-04: 업로드가 실패한 녹화는 DB status 가 'completed' 여도 R2 에 실물이
           //   없다(storage 로만 구분됨). 재생 URL 을 주면 학생이 눌렀을 때 404 → "재생할 수
@@ -325,7 +527,7 @@ export async function handleMangoApi(
             storage: storageStr,
             failed,
           };
-        });
+        }));
         return json({ ok: true, rows, recordings: rows, count: rows.length });
       } catch (e: any) {
         return json({ ok: true, rows: [], count: 0, _err: String(e?.message || e) });
@@ -390,6 +592,31 @@ export async function handleMangoApi(
       }
     }
 
+    // 📵 번호 없는 학생 — 다음 N일 수업이 있는데 «수업 전 안내 문자» 가 갈 번호가 없는 학생 (2026-10-28)
+    //   GET /api/admin/student/phone-gaps?days=7  (본사·내부직원 전용 — 학생 연락처 목록이라 강사·지사·대리점은 막는다)
+    //   판정·이유는 src/phone-gaps.ts. 저장은 기존 PATCH /api/admin/student/:uid/contact 를 그대로 쓴다.
+    //   ⚠️ 이 줄은 아래 «/api/admin/student/:uid» GET 정규식보다 «앞» 이어야 한다(뒤면 uid='phone-gaps' 로 잡힌다).
+    if (method === 'GET' && path === '/api/admin/student/phone-gaps') {
+      const actor = await getAdminActor(request, env as any);
+      if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+      if (actor.isTeacher) return json(forbiddenTeacherBody(actor,
+        '강사 권한으로는 학생 연락처 목록을 볼 수 없습니다.',
+        'Teachers cannot view the student contact list.'), 403);
+      // 🔒 지사·대리점 차단은 «근거를 다시 읽고, 못 읽으면 막는» 정본 게이트로 — actor.role 은 스코프 조회가
+      //    흔들리면 'staff' 로 떨어져 통과한다(CLAUDE.md 2장). 이 목록은 학생 아이디(=사실상 비밀번호)·이름 목록이다.
+      if (isOrgScopedRole(actor.role)) return json({ ok: false, error: 'forbidden_scope' }, 403);
+      //    ⚠️ 정본 판정은 강사 스코프('teacher')를 «hq» 로 통과시킨다(그 파일 범위 밖) — 위 isTeacher 가
+      //       이름·스코프를 못 읽은 날에도 막히게 다시 읽은 근거로 한 번 더 본다.
+      const _pgScope = await readScopeType(env, actor.username);
+      if (_pgScope === 'teacher') return json(forbiddenTeacherBody(actor,
+        '강사 권한으로는 학생 연락처 목록을 볼 수 없습니다.',
+        'Teachers cannot view the student contact list.'), 403);
+      const _pgDeny = orgScopeDenyResponse(orgScopeVerdict(_pgScope, actor.role));
+      if (_pgDeny) return _pgDeny;
+      const r = await buildPhoneGaps(env as any, { days: Number(url.searchParams.get('days')) });
+      return json(r, r.ok ? 200 : 503);
+    }
+
     // ===== 👨‍🏫 공개 강사 목록 (학생 홈페이지 강사진 미리보기용) =====
     if (path === '/api/teacher-profiles' && method === 'GET') {
       try {
@@ -431,20 +658,57 @@ export async function handleMangoApi(
     //   자격증명이 아예 없는 요청은 통과 → 결석률 100% 버그 방어 설계(무인증도 출석 인정)를 절대 안 깬다.
     //   교사=관리자 세션 쿠키(checkAdminSession, role 무관 통과)·학생=mango_token 이면 본인은 항상 OK.
     //   반환값: true = 진행 허용, false = 명백한 위조(거부해야 함).
-    const _attnSoftAuthOk = async (claimedUid: string, body: any): Promise<boolean> => {
+    //
+    //   🔴 (2026-09-04) claimedAccountUid 는 반드시 «계정 아이디» 여야 한다 — 출석 호출부는 account_uid.
+    //     [무슨 일이 있었나] 출석 두 호출부(join·checkin)가 b.user_id 를 넘기고 있었다. 그런데
+    //       mango-attendance.js 의 user_id 는 계정이 아니라 **기기 식별자(`u_`+난수) 또는 DO 임시번호**이고
+    //       (아래 join INSERT 옆 주석·그 파일 accountUid 주석), 계정은 account_uid 로 «따로» 실린다.
+    //       로그인해서 mango_token 을 실은 학생은 토큰 uid(jye46712) ≠ user_id(u_j4cs5c65bp) → **항상 403
+    //       uid_mismatch**. 통과하는 사람은 «토큰 없는 요청(비로그인·토큰 없는 계정)» 과 «교사(관리자 세션)» 뿐이었다.
+    //     [잰 것 — 2026-09-03 운영 D1] attendance.account_uid 가 남은 계정은 전 기간 4개(jeong·student·
+    //       delaware·Lee — 관리자 jeong 외 셋은 «계정은 있는데 토큰은 없던» 로그인으로 보인다[추론]).
+    //       최근 7일 vc_quality 에 잡힌 로그인 학생 11명 중 출석에 account_uid 가 남은 사람은 관리자
+    //       jeong 하나. 그날 학생 출석 22행 중 19행은 이름·host·account_uid 가 전부 빈 행
+    //       (/api/gaze-score 의 «행이 없으면 만든다» 폴백이 만든 것).
+    //     [왜 아무도 몰랐나] 함수도 조건도 «있고» 틀린 것은 «무엇과 비교하는가» 뿐이라 문자열 하니스가
+    //       전부 초록이었다. 2026-07-19 라이브 검증(보안_PII_감사.md 「본인토큰 200」)은 user_id 칸에
+    //       계정을 넣어 보낸 것으로 보인다[추론 — 그 문서에 payload 가 없고, 옛 코드에서 200 이 나오려면
+    //       그럴 수밖에 없다]. 실제 클라이언트는 그렇게 보내지 않는다(7/19 당시 클라이언트도 user_id=state.userId).
+    //     [규칙] 토큰이 있으면 «토큰 uid === 계정 아이디» 일 때만 통과. 계정 아이디가 비어 있으면(옛
+    //       클라이언트·비로그인) 지금처럼 통과 — account_uid 칸에는 아무것도 안 적히므로 «계정 칸 위조» 는
+    //       성립하지 않고, 7/19 의 «자격증명 없는 요청은 통과» 취지(결석률 100% 버그 방어)도 지켜진다.
+    //       ⚠️ 다만 user_id 를 계정으로 읽는 곳이 실재한다(api-students.ts 학부모 대시보드·api-games.ts·
+    //       api-reports.ts·learning-insights.ts 의 `attendance WHERE user_id = ?`). 토큰 보유자가 account_uid 를
+    //       비우고 user_id 에 남의 계정 문자열을 넣는 것은 막지 않는데, 그건 **익명 요청이 원래부터 할 수
+    //       있던 일**이라 7/19 가 의도적으로 남긴 한계와 같은 수준이다(옛 게이트보다 나빠지지 않는다).
+    //     [consents 호출부는 그대로 b.user_id] — mango-consent.js 는 user_id 칸에 «계정»(getCurrentUser 의
+    //       uid)을 실어 보내므로 뜻이 같다(그 파일 83·192행). 그 표의 user_id 가 곧 계정 칸이다.
+    //     감시: test-harness/attendance_soft_auth_harness.mjs — 이 함수와 호출부의 인자식을 소스에서
+    //       오려 내 가짜 요청으로 **실제로 돌린다**(옛 인자 b.user_id 로 되돌리면 실제 FAIL).
+    const _attnSoftAuthOk = async (claimedAccountUid: string, body: any): Promise<boolean> => {
       try {
         const _adm = await checkAdminSession(request, env as any);
         if (_adm.ok) return true;                          // 교사/관리자 세션 → 허용(대상 uid 무관)
         const _tok = await authUidGlobal(request, url, env, body);
         if (!_tok) return true;                             // 자격증명 없음 → 기존대로 허용(회귀 0)
-        return _tok === String(claimedUid || '').trim();   // 토큰 있음 → 본인일 때만 허용, 남이면 위조 거부
+        const _claimed = String(claimedAccountUid || '').trim();
+        if (!_claimed) return true;                         // 계정을 안 적는 요청 → 남의 계정에 적힐 것이 없다(옛 클라·비로그인)
+        return _tok === _claimed;                           // 토큰 있음 → 본인 계정일 때만 허용, 남의 계정이면 위조 거부
       } catch { return true; }                              // 검증 중 오류는 출석을 막지 않음(보수적)
     };
 
     if (path === '/api/attendance/join' && method === 'POST') {
       const b = await parseJsonBody(request);
       if (!b || !b.room_id || !b.user_id) return invalidBody(['room_id', 'user_id']);
-      if (!(await _attnSoftAuthOk(b.user_id, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      /* 🚪 이 요청을 «받은 워커» 가 자기 DO 네임스페이스 지문을 이 도메인 이름으로 적어 둔다.
+         두 워커는 D1·KV 를 공유하지만 DO 만 갈리므로, 도메인이 서로 다른 워커에 붙으면
+         같은 방 번호로도 서로 못 만난다(2026-08-19·08-25·08-27·09-01 네 번 사고).
+         15분 감시견(checkRoomSplit)이 이 값을 대조해 갈렸으면 사장님께 문자를 보낸다.
+         ⚠️ 네트워크 호출 0회(순수 계산)이고, 절대 던지지 않는다 — 출석 기록을 막으면 안 된다. */
+      try { await recordHostRoomNamespace(env as any, request.headers.get('Host')); } catch {}
+      // 🔐 비교 대상은 «계정»(account_uid) — user_id 는 기기 식별자라 토큰과 영영 안 맞는다(2026-09-04, 헬퍼 주석).
+      if (!(await _attnSoftAuthOk(b.account_uid, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      await recordTeacherRoomPresence(env, request, b, 'join');
       const now = Date.now();
       const date = today(now);
       // 📣 오늘 처음 보는 (room_id, date) 조합이면 "수업 시작" 알림 큐에 적재
@@ -463,9 +727,9 @@ export async function handleMangoApi(
            녹화 동의가 계정에 이어지지 못했다.
            ⚠️ user_id 는 그대로 둔다 — 출석·발화시간 집계가 그 값에 이어져 있다. 새 칸만 더한다. */
         res = await env.DB.prepare(
-          `INSERT INTO attendance (room_id, user_id, account_uid, username, role, joined_at, status, date, last_seen_at)
-           VALUES (?, ?, ?, ?, ?, ?, 'present', ?, ?)`
-        ).bind(b.room_id, b.user_id, b.account_uid || null, b.username || null, b.role || 'student', now, date, now).run();
+          `INSERT INTO attendance (room_id, user_id, account_uid, username, role, joined_at, status, date, last_seen_at, host)
+           VALUES (?, ?, ?, ?, ?, ?, 'present', ?, ?, ?)`
+        ).bind(b.room_id, b.user_id, b.account_uid || null, b.username || null, b.role || 'student', now, date, now, request.headers.get('Host') || null).run();
       } catch {
         // 컬럼이 아직 없는 배포본 → 한 번 만들어 두고 아래 기존 경로로 처리(다음 입장부터 채워진다)
         try {
@@ -475,6 +739,7 @@ export async function handleMangoApi(
           const m = String(e?.message || e);
           if (!/duplicate column/i.test(m)) console.warn('[attendance] account_uid 컬럼 추가 실패:', m);
         }
+        try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN host TEXT`); } catch {} // 이미 있으면 무시
         // 아직 checkin 이 한 번도 안 돌아 컬럼이 없는 배포본 대비 폴백(다음 checkin 이 ALTER 로 보강)
         res = await env.DB.prepare(
           `INSERT INTO attendance (room_id, user_id, username, role, joined_at, status, date)
@@ -573,8 +838,10 @@ export async function handleMangoApi(
       if (!ID_RE.test(userId) || !ID_RE.test(roomId)) {
         return invalidBody(['room_id', 'user_id']);
       }
-      // 🔐 소프트 인증(위 join 과 동일): 자격증명 있는데 남의 uid 면 위조 거부, 없으면 통과(결석버그 방어 유지).
-      if (!(await _attnSoftAuthOk(userId, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      // 🔐 소프트 인증(위 join 과 동일): 자격증명 있는데 남의 «계정» 이면 위조 거부, 없으면 통과(결석버그 방어 유지).
+      //    ⛔ userId(=b.user_id) 를 넘기지 말 것 — 기기 식별자라 로그인 학생이 전부 403 이 된다(2026-09-04, 헬퍼 주석).
+      if (!(await _attnSoftAuthOk(b.account_uid, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      await recordTeacherRoomPresence(env, request, b, 'heartbeat');
       const role = (b.role === 'teacher') ? 'teacher' : 'student';
 
       // 입장 시각: 클라이언트가 보낸 timestamp(ms 또는 ISO 문자열)를 신뢰하되,
@@ -608,8 +875,19 @@ export async function handleMangoApi(
       //   ⚠️ 클라이언트가 보내는 값(total_session_ms)은 오프라인 동안에도 계속 누적되므로 신뢰할 수 없다.
       //      그래서 클라이언트 시각이 아니라 반드시 '서버 시각'을 쓴다. D1 쓰기는 늘지 않는다(기존 UPDATE 에 컬럼만 추가).
       try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN last_seen_at INTEGER`); } catch {} // 이미 있으면 무시
+      /* 🌐 (2026-08-25) host — 이 요청이 어느 도메인으로 들어왔는지.
+         [왜 필요한가] 이 저장소는 워커를 두 벌(webrtc-unified-platform · -prod) 배포하고,
+         Durable Object 네임스페이스는 스크립트마다 갈린다(wrangler.toml 주석 참고).
+         화상수업 WS 는 location.host 로 방을 정하므로, 같은 room_id 로 들어와도
+         서로 다른 도메인이면 서로 다른 «방»(DO)에 앉는다 — 그런데 D1(이 표 포함)은
+         두 워커가 같은 id 를 공유해서 attendance 만 보면 «둘 다 같은 방에 있었다» 로
+         보인다(2026-08-19 강선생님 건, CLAUDE.md 2장 「같은 방 번호인데 서로 안 보이고…」).
+         host 를 남겨 두면 다음에 같은 사고가 나도 SQL 한 줄로 확인된다:
+           SELECT user_id, role, host FROM attendance WHERE room_id=? — host 가 갈리면 그게 원인이다. */
+      try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN host TEXT`); } catch {} // 이미 있으면 무시
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_attendance_user_date ON attendance(user_id, date)`); } catch {}
       });
+      const reqHost = request.headers.get('Host') || null;
 
       // ── 3) 오늘 수업 스케줄 조회(class_schedules) ── 입장이 "수업 시간 내" 인지 판정
       //    스케줄이 없으면 막지 않고 출석 인정(보수적 기본값 = true). → 버그 재발 방지 우선.
@@ -640,7 +918,7 @@ export async function handleMangoApi(
         };
         const rs: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE user_id = ?`).bind(userId).all();
         const rows = (rs?.results || []).filter((r: any) => String(r.status || 'active').toLowerCase() === 'active');
-        const cands = rows.filter((r: any) => (r.scheduled_date === date) || (!r.scheduled_date && dayMatches(r.day_of_week)));
+        const cands = rows.filter((r: any) => (r.scheduled_date === date) || (!r.scheduled_date && dayMatches(r.day_of_week) && recurStartedOn(r, date)));
         if (cands.length) {
           const picked = cands.find((s: any) => within(s)) || cands[0];
           scheduleId = (picked.id != null) ? Number(picked.id) : null;
@@ -669,22 +947,23 @@ export async function handleMangoApi(
                     attended_at = COALESCE(attended_at, ?),
                     role     = COALESCE(role, ?),
                     username = COALESCE(username, ?),
-                    last_seen_at = ?
+                    last_seen_at = ?,
+                    host = COALESCE(host, ?)
               WHERE id = ?`
-          ).bind(now, role, b.username || null, srvNow, existing.id).run();
+          ).bind(now, role, b.username || null, srvNow, reqHost, existing.id).run();
           recovered = (existing.status === 'absent');
         } else {
           // 수업 시간 밖 입장 → status 는 건드리지 않고 attended_at 만 보강
           await env.DB.prepare(
-            `UPDATE attendance SET attended_at = COALESCE(attended_at, ?), last_seen_at = ? WHERE id = ?`
-          ).bind(now, srvNow, existing.id).run();
+            `UPDATE attendance SET attended_at = COALESCE(attended_at, ?), last_seen_at = ?, host = COALESCE(host, ?) WHERE id = ?`
+          ).bind(now, srvNow, reqHost, existing.id).run();
         }
         attendanceId = Number(existing.id);
       } else {
         const ins = await env.DB.prepare(
-          `INSERT INTO attendance (room_id, user_id, username, role, joined_at, attended_at, status, date, last_seen_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        ).bind(roomId, userId, b.username || null, role, now, now, withinClass ? 'attended' : 'present', date, srvNow).run();
+          `INSERT INTO attendance (room_id, user_id, username, role, joined_at, attended_at, status, date, last_seen_at, host)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(roomId, userId, b.username || null, role, now, now, withinClass ? 'attended' : 'present', date, srvNow, reqHost).run();
         attendanceId = Number(ins.meta.last_row_id);
       }
 
@@ -736,6 +1015,7 @@ export async function handleMangoApi(
     if (path === '/api/attendance/leave' && method === 'POST') {
       const b = await parseJsonBody(request);
       if (!b || !b.room_id || !b.user_id) return invalidBody(['room_id', 'user_id']);
+      await recordTeacherRoomPresence(env, request, b, 'leave');
       const now = Date.now();
       // 가장 최근 미종료 row 업데이트
       // 📡 M1 — 정상 퇴장이면 left_at 과 last_seen_at 이 같아진다.
@@ -803,6 +1083,7 @@ export async function handleMangoApi(
     if (path === '/api/speaking-time' && method === 'POST') {
       const b = await parseJsonBody(request);
       if (!b || !b.room_id || !b.user_id) return invalidBody(['room_id', 'user_id']);
+      await recordTeacherRoomPresence(env, request, b, 'heartbeat');
       const now = Date.now();
       // 📡 M1 — 이 엔드포인트가 서버 시각 하트비트의 본체다(클라이언트가 30초마다 호출).
       //   total_active_ms / total_session_ms 는 클라이언트가 자체 누적한 값이라
@@ -1060,23 +1341,29 @@ export async function handleMangoApi(
       const days = parseInt(url.searchParams.get('days') || '7', 10);
       const since = Date.now() - days * 24 * 3600 * 1000;
 
+      /* 🗓️ (2026-08-15) 예약 행 제외 — attendance 에는 아직 안 한 «예약» 수업이
+         status='scheduled' + 미래 joined_at 으로 미리 들어 있다(2030년까지!).
+         joined_at >= since 는 미래 방향으로도 통과라, 출석 차트 x축이 2030 까지
+         늘어지고(현장 제보) 총 세션·평균 접속률(active 0%가 평균을 깎음)도 오염됐다.
+         실제로 일어난 출석만 센다 — 예약이 실제 출석으로 바뀌면 status 가 바뀌어 포함된다. */
+      const NOT_SCHEDULED = `COALESCE(status,'') <> 'scheduled'`;
       const [attTotal, attByDay, disconnectStats, emergencyCount, rewardCount, topSpeakers] = await Promise.all([
-        env.DB.prepare(`SELECT COUNT(*) AS c FROM attendance WHERE joined_at >= ?`).bind(since).first(),
+        env.DB.prepare(`SELECT COUNT(*) AS c FROM attendance WHERE joined_at >= ? AND ${NOT_SCHEDULED}`).bind(since).first(),
         env.DB.prepare(
           `SELECT date, COUNT(DISTINCT user_id) AS unique_users, COUNT(*) AS sessions
-           FROM attendance WHERE joined_at >= ? GROUP BY date ORDER BY date DESC`
+           FROM attendance WHERE joined_at >= ? AND ${NOT_SCHEDULED} GROUP BY date ORDER BY date DESC`
         ).bind(since).all(),
         env.DB.prepare(
           `SELECT COUNT(*) AS total_sessions,
                   SUM(disconnect_count) AS total_disconnects,
                   AVG(CASE WHEN total_session_ms > 0 THEN (total_active_ms*100.0/total_session_ms) ELSE 0 END) AS avg_active_pct
-           FROM attendance WHERE joined_at >= ?`
+           FROM attendance WHERE joined_at >= ? AND ${NOT_SCHEDULED}`
         ).bind(since).first(),
         env.DB.prepare(`SELECT COUNT(*) AS c, event_type FROM emergency_events WHERE triggered_at >= ? GROUP BY event_type`).bind(since).all(),
         env.DB.prepare(`SELECT COUNT(*) AS c, type FROM rewards WHERE issued_at >= ? GROUP BY type`).bind(since).all(),
         env.DB.prepare(
           `SELECT user_id, username, SUM(total_active_ms) AS active_ms, SUM(total_session_ms) AS session_ms
-           FROM attendance WHERE joined_at >= ? AND total_session_ms > 0
+           FROM attendance WHERE joined_at >= ? AND ${NOT_SCHEDULED} AND total_session_ms > 0
            GROUP BY user_id ORDER BY active_ms DESC LIMIT 10`
         ).bind(since).all()
       ]);
@@ -1210,7 +1497,16 @@ export async function handleMangoApi(
         const ms = Date.parse(dateTo + 'T23:59:59+09:00');
         if (!isNaN(ms)) { where.push('r.started_at <= ?'); binds.push(ms); }
       }
-      if (statusF && statusF !== 'all') { where.push('r.status = ?'); binds.push(statusF); }
+      /* 🔴 2026-08-28 — CSV 가 화면 목록과 «다른 말» 을 하고 있었다. 위 /api/recordings 는
+         0초 부산물과 «목록에서 내린» 행을 기본에서 감추는데 여기엔 그 규칙이 없어서,
+         화면 「총 626건」인데 CSV 는 2,022행이 나왔다(어느 쪽이 맞는지 알 수 없게 된다).
+         ⛔ 규칙을 여기에 새로 쓰지 말고 «같은 문장» 을 쓸 것 — 어긋나면 그대로 사고다. */
+      const statusFNorm = statusF === 'ended' ? 'completed' : statusF;
+      if (statusFNorm && statusFNorm !== 'all') { where.push('r.status = ?'); binds.push(statusFNorm); }
+      if (!statusFNorm || statusFNorm === 'all') {
+        where.push("NOT (r.status = 'aborted' AND COALESCE(r.size_bytes, 0) = 0)");
+        where.push("r.status != 'deleted'");
+      }
       const whereSQL = where.length ? 'WHERE ' + where.join(' AND ') : '';
       const sql = `SELECT r.id, r.room_id, r.teacher_id, r.teacher_name, r.started_at, r.ended_at,
                           r.duration_ms, r.size_bytes, r.status, r.storage,
@@ -1308,7 +1604,7 @@ export async function handleMangoApi(
     // ═══════════════════════════════════════════════════════════════
     if (path.startsWith('/api/ai/') || path === '/api/admin/ai-command'
         || path === '/api/student/ai-command' || path === '/api/admin/ai-action') {
-      const rAi = await handleAiApi(request, url, env);
+      const rAi = await handleAiApi(request, url, env, eleaderEngines);
       if (rAi) return rAi;
     }
     if (path.startsWith('/api/push/') || path.startsWith('/api/admin/push/')
@@ -1357,6 +1653,16 @@ export async function handleMangoApi(
         || path.startsWith('/api/family/') || path.startsWith('/api/nps/')
         || path.startsWith('/api/subscription/')
         || path.startsWith('/api/textbook-files') || path.startsWith('/api/admin/textbook-files')
+        /* 🙈 (2026-09-07) 교재 라이브러리 숨김 — **2026-08-13 신설 이래 줄곧 404 였다.**
+           index.ts 의 인증 게이트(①, 5787행)와 라우팅 허용목록(②, 1274행)에는 있었는데
+           이 위임 가드(③)에만 빠져 handleAdminApi 까지 못 갔다. 바로 위 textbook-files 는
+           startsWith 로 걸리지만 «textbook-hidden-books» 는 그 접두사에도 /api/admin/textbooks
+           에도 안 걸린다(문자열 전수 대조로 확인 — 108개 중 걸리는 것 0건).
+           ⚠️ 화면에서는 «고장» 으로 안 보였다 — 404 본문 {error:'Not Found'} 에 ok 칸이 없어
+              업로더(/textbook-uploader.html)의 숨김 상자는 「목록을 불러오지 못했습니다」로만 떴다.
+           📜 teacher-contacts(8/13)·finance-cafe24(8/15)·classes/today(7/23→8/25)·vc/(8/27)와
+              **같은 원인의 다섯 번째**다. 새 /api/admin/* 경로는 반드시 관문 셋을 다 등록할 것. */
+        || path === '/api/admin/textbook-hidden-books'
         || path.startsWith('/api/recordings/')
         || path.startsWith('/api/mango-videos') || path.startsWith('/api/admin/mango-videos')
         || path.startsWith('/api/admin/franchises') || path.startsWith('/api/admin/centers')
@@ -1365,17 +1671,61 @@ export async function handleMangoApi(
         || path.startsWith('/api/admin/textbooks') || path === '/api/lesson-video'
         || path.startsWith('/api/get-lesson-video/') || path.startsWith('/api/admin/mango-videos')
         || path.startsWith('/api/admin/students/') || path.startsWith('/api/admin/selfscore/')
+        // 🤖 (2026-09-16) AI 학습도구 8종 사용 학생 목록 — 핸들러는 api-admin.ts 에 있다.
+        //    ⚠️ 안 적으면 handleAdminApi 까지 못 가서 404(위 여러 줄과 같은 함정).
+        || path.startsWith('/api/admin/ai-usage')
         || path === '/api/admin/attendance/import-cafe24' || path === '/api/admin/attendance/today' || path === '/api/admin/payments/import-cafe24'
+        // 🚷 (2026-08-13 수정요청 #05) 장기 결석생 — 핸들러는 api-admin.ts 에 있다.
+        //    ⚠️ 여기 안 적으면 handleAdminApi 까지 못 가서 **404** 다. 바로 위 teacher-contacts 가
+        //       그렇게 통째로 먹통이었다(8/13 기록). 새 /api/admin/* 경로는 여기도 반드시 추가할 것.
+        //    ℹ️ index.ts isAgencyAllowedApi 에는 «일부러» 넣지 않았다 — 이 화면(admin.html)은
+        //       본사 전용이고, 지사·대리점 계정은 index.ts 가 /admin/exec 로 돌려보낸다.
+        //       (그래도 쿼리 자체에는 scopeFragments 격리를 걸어 뒀다. 나중에 열어도 안 샌다.)
+        || path === '/api/admin/attendance/long-absent'
+        // 📊 (2026-08-19) 학원별 학생 수업현황(SLP 출석 통계) — 핸들러는 api-admin.ts 에 있다.
+        //    안 적으면 handleAdminApi 까지 못 가서 404 (바로 위 long-absent 와 같은 함정).
+        || path === '/api/admin/attendance/school-stats'
         || path === '/api/admin/payments/cafe24-diag'
         || path === '/api/admin/absent-sweep/run'
         || path === '/api/admin/lesson-reminder/run'
         || path.startsWith('/api/admin/referrals') || path.startsWith('/api/admin/counseling/')
         || path.startsWith('/api/admin/teacher-links')
+        // 📇 (2026-08-13) 강사 «연락처» 연결 — 핸들러(api-admin.ts)와 index.ts 게이트는 8/7부터
+        //    있었는데 이 위임 가드에만 빠져 있어 라이브에서 GET/POST 전부 404 였다.
+        //    (「🔗 강사 연결」 화면·프로필 연결 API 가 통째로 먹통이던 원인)
+        || path.startsWith('/api/admin/teacher-contacts')
+        // 📶 (2026-08-27) 화상 회선품질·강제 릴레이 — teacher-contacts 와 똑같이 «핸들러와
+        //    index.ts 게이트는 있는데 이 위임 가드에만 빠져» GET/POST 전부 404 였다.
+        || path.startsWith('/api/admin/vc/')
+        // 💳 (2026-08-13) 법인카드 CODEF 연동
+        || path.startsWith('/api/admin/corpcard/')
+        // 🏦 (2026-08-14) 신한은행 계좌 입출금 — 바로빌 계좌조회
+        || path.startsWith('/api/admin/bankacct/')
         // 학생·학부모측 창구(관리자 표의 반대쪽 반쪽). 인증게이트는 index.ts 에 등록돼 있다.
         || path.startsWith('/api/referral/') || path.startsWith('/api/counseling/')
         || path === '/api/admin/attendance/qr-gen' || path === '/api/attendance/check-in'
         // 🎮 (2026-08-11 삭제) /api/battle/leaderboard·history 위임 가드 제거 — 영어 배틀 기능째 삭제.
+        // 💰 (2026-08-15) 카페24 회계 실데이터(장부·급여·지출·세금·예치금·손익요약)
+        //    핸들러(api-admin.ts)와 index.ts 인증게이트에는 있었는데 이 위임 가드에만 빠져 있어서
+        //    /api/admin/finance-cafe24/{summary,ledger,payroll,expenses,tax,deposits} 가
+        //    전부 index.ts 끝단 404({error:'Not Found'}) 로 떨어졌다 → 화면에 «집계 실패: Not Found»,
+        //    «불러오기 실패: Not Found». teacher-contacts(8/13)·teacher-hr-analysis 와 같은 원인.
+        || path.startsWith('/api/admin/finance-cafe24/')
         || path === '/api/admin/org/import-cafe24' || path === '/api/admin/staff/graph-list'
+        || path === '/api/admin/org/hq'   // 🏯 본사 관리 (2026-08-18) — 여기 없으면 handleAdminApi 까지 못 가서 404
+        // 🗓 (2026-08-19) 지난 수업에서 일정 만들기 — 미리보기/적용. 같은 이유로 여기에도 등록해야 한다
+        || path.startsWith('/api/admin/schedule-seed/')
+        // 👥 (2026-08-19) 진행 중인 수업의 강사·학생 이름 — 여기 없으면 handleAdminApi 까지 못 가서 404
+        //     (teacher-contacts·finance-cafe24 가 같은 이유로 통째로 먹통이던 이력이 있다)
+        || path === '/api/admin/live-classes'
+        // 🔴 (2026-08-20) 예약 기준 지금 수업 현황 — 여기 없으면 handleAdminApi 까지 못 가서 404
+        || path === '/api/admin/classes-now'
+        /* 📅 (2026-08-25) 오늘 수업 전체(매니저 «바로 입장» 카드) — **2026-07-23 신설 이래 줄곧 404 였다.**
+           index.ts 라우팅 목록(②)에는 있었지만 이 위임 가드(③)에 없어서 handleAdminApi 까지 못 갔다.
+           ⚠️ 화면에서는 «고장» 으로 안 보였다 — 404 본문 {error:'Not Found'} 에는 `ok` 칸이 없어
+              `if (d.ok === false)` 검사를 통과하고, `d.sessions || []` 가 빈 배열이 되어
+              **「오늘 예정된 수업이 없습니다」라는 정상 문구**로 그려졌다(8/25 매니저 보고서 ②의 정체). */
+        || path === '/api/admin/classes/today'
         || path === '/api/admin/teachers/graph-list' || path === '/api/admin/books/graph-list'
         || path === '/api/admin/level-tests' || path.startsWith('/api/admin/leveltest/')
         || path.startsWith('/api/admin/retention/')
@@ -1399,7 +1749,8 @@ export async function handleMangoApi(
         || path.startsWith('/api/admin/stats/') || path.startsWith('/api/admin/kpi/')
         || path.startsWith('/api/admin/payroll/') || path.startsWith('/api/admin/schedule-requests')
         || path.startsWith('/api/admin/feedback-drafts')) {
-      const rAdmin = await handleAdminApi(request, url, env);
+      // ctx 를 넘긴다 — 교재 /raw 가 엣지 캐시 쓰기(waitUntil)에 쓴다 (2026-08-13)
+      const rAdmin = await handleAdminApi(request, url, env, ctx);
       if (rAdmin) return rAdmin;
     }
 
@@ -1407,15 +1758,31 @@ export async function handleMangoApi(
     // ════════════════════════════════════════════════════════════
     // 🔎 통합 실시간 검색 — 학생(ERP 명부) + 교사 이름을 DB 에서 즉시 조회
     //   GET /api/admin/omnisearch?q=  → {ok, results:[{type,name,sub,uid,url}]}
+    // 🤖 (2026-10-14) 지사 화면 통합 검색의 AI 도우미 — 이미 등록된 경로의 «비어 있던 POST» 를 쓴다
+    //   (src/index.ts 3관문·지사 허용목록에 이미 있어 그 파일을 안 건드린다 — CLAUDE.md 2장 「새 API 추가」).
+    //   ⛔ action 이 모르는 값이면 거절한다(나중에 이 경로에 다른 뜻을 넣을 때 비용 요청이 조용히 흘러들지 않게).
+    //   계정 게이트(testbranch 만)·하루 상한·모델·폴백은 정본 branch-ai-help.ts 한 곳.
+    if (method === 'POST' && path === '/api/admin/omnisearch') {
+      const body: any = await parseJsonBody(request);
+      if (!body || body.action !== 'ai_help') return json({ ok: false, error: 'unknown_action' }, 400);
+      const actor = await getAdminActor(request, env as any);
+      if (!actor.ok) return json({ ok: false, error: 'unauthorized' }, 401);
+      if (actor.isTeacher) return json(forbiddenTeacherBody(actor), 403);
+      const r = await runBranchAiHelp(env as any, actor.username, body);
+      return json(r.body, r.status);
+    }
     if (method === 'GET' && path === '/api/admin/omnisearch') {
       const q = (url.searchParams.get('q') || '').trim();
       if (!q) return json({ ok: true, results: [] });
       const like = '%' + q.replace(/[%_]/g, '') + '%';
       const results: any[] = [];
       try {
+        // 🧹 (2026-08-20) 숨김 지정한 중복 계정은 통합검색에도 안 나온다 — 명부와 답이 갈리면 안 된다.
+        const _omniHide = await hiddenExcludeCond(env as any);
         const rs = await env.DB.prepare(
           `SELECT user_id, username, korean_name, english_name FROM students_erp
-           WHERE korean_name LIKE ? OR english_name LIKE ? OR username LIKE ? OR user_id LIKE ?
+           WHERE (korean_name LIKE ? OR english_name LIKE ? OR username LIKE ? OR user_id LIKE ?)
+           ${_omniHide ? 'AND ' + _omniHide : ''}
            LIMIT 25`
         ).bind(like, like, like, like).all();
         for (const r of ((rs.results as any[]) || [])) {
@@ -1481,6 +1848,10 @@ export async function handleMangoApi(
        *   남의 방으로 들어갈 수 있었다.
        *   · 강사 실사례: teachers 'FAR'(id 22, 담당 35건) 가 'HT FARRAH'(id 3) 안에 들어 있어
        *     FARRAH 로 조회하면 FAR 의 수업 35건이 함께 나왔다(부분일치 양방향).
+       *     📌 (2026-09-08 사장님 확인) **그 둘은 실은 같은 사람이다** — id 3 은 퇴사 행이고
+       *        지금 활성 수업 0건·계정 연결 0건이다. 그래도 **이 구조는 그대로 둔다**:
+       *        여기서 막는 것은 그 쌍만이 아니라 «부분일치 일반» 이고, 아래 학생 동명이인
+       *        (김민서 71명·김민준 56명)이 그 규칙의 진짜 이유다.
        *   · 학생: 동명이인이 실제로 많다(김민서 71명·김민준 56명). 지금 사고가 안 난 것은
        *     예약이 걸린 663명 중 이름이 겹치는 쌍이 «아직» 없어서일 뿐이다.
        *
@@ -1508,17 +1879,53 @@ export async function handleMangoApi(
             ).bind(nameParam, nameParam, nameParam, nameParam).all<any>();
             const all = (rs.results || []).filter((x: any) => x.tid);
             const exact = all.filter((x: any) => Number(x.exact) === 1);
-            // 이름이 정확히 일치하는 강사가 있으면 부분일치분은 버린다(FAR ⊂ HT FARRAH 오염 차단)
+            // 이름이 정확히 일치하는 강사가 있으면 부분일치분은 버린다(동명이인·부분일치 오염 차단)
             for (const x of (exact.length ? exact : all)) { condsName.push('cs.teacher_id = ?'); bindsName.push(x.tid); }
           } catch {}
         }
       } else {
-        if (userId) { condsUid.push('cs.user_id = ?'); bindsUid.push(userId); }
+        if (userId) {
+          condsUid.push('cs.user_id = ?'); bindsUid.push(userId);
+          /* 🔤 (2026-08-27) 예약 행의 아이디는 표기가 어긋난 채 들어오기도 한다 — 실측: 같은 학생의
+             예약이 'Jjy2323'(수강신청 확정)과 'jjy2323' 두 표기로 나란히 존재했다. 로그인으로 확정된
+             uid 를 NOCASE 로 넓히는 것은 학생 로그인의 대소문자 무시 결정(2026-08-26 사장님)을 따르는
+             확장이다. ⚠️ 전제: 대소문자만 다른 두 계정이 «다른 사람»인 사례는 실측상 아직 없다
+             (Kim/kim·Lee/lee 전부 동일인 — CLAUDE.md 2장). 그런 사례가 생기면 이 줄부터 다시 보라. */
+          condsUid.push('LOWER(cs.user_id) = LOWER(?)'); bindsUid.push(userId);
+          /* 👥 (2026-10-02 lby01) 카페24 미러가 예약을 쌍둥이 계정(mangoai_X)으로 만들면 여기서 빠지고,
+             다른 수업이 하나라도 잡히면 아래 이름 폴백도 안 돌아 그 수업만 조용히 사라졌다.
+             이름까지 같은 쌍둥이만 함께 찾는다 — 정본 src/student-alias.ts(실패하면 예전 동작). */
+          for (const tw of await resolveStudentTwins(env.DB, userId)) { condsUid.push('cs.user_id = ?'); bindsUid.push(tw); }
+        }
         if (nameParam) {
           condsName.push('cs.student_name = ?'); bindsName.push(nameParam);
+          /* 🔑 (2026-08-27 실사고 — heyst 김사랑 · ubckt01 조연희) 로비 입력칸은 «아이디» 를 묻는데
+             («아이디·비밀번호만 입력하면…»), 이 폴백은 이름 칸(korean_name·username)만 대조했다.
+             그래서 비로그인 학생이 아이디를 치면 예약이 있어도 항상 「오늘 예약된 수업이 없어요」
+             → 공용방 폴백으로 흘러 강사와 영영 못 만났다(둘 다 그날 밤 수업 불성립).
+             아이디로도 찾는다 — 규칙은 학생 로그인과 동일(CLAUDE.md 2장 대소문자 항목):
+             ① 정확일치 우선 ② 대소문자만 다른 후보는 정확히 1건일 때만. 모르면 안 붙인다. */
           try {
-            const rs = await env.DB.prepare(`SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`).bind(nameParam, nameParam).all<any>();
-            for (const x of (rs.results || [])) { if (x.uid) { condsName.push('cs.user_id = ?'); bindsName.push(x.uid); } }
+            const rs2 = await env.DB.prepare(
+              `SELECT user_id, (user_id = ?) AS exact FROM students_erp WHERE user_id = ? COLLATE NOCASE OR login_id = ? COLLATE NOCASE`
+            ).bind(nameParam, nameParam, nameParam).all<any>();
+            const cand = (rs2.results || []).filter((x: any) => x.user_id);
+            const ex = cand.filter((x: any) => Number(x.exact) === 1);
+            const pick = ex.length ? ex : (cand.length === 1 ? cand : []);
+            // 예약 행 쪽 표기 어긋남(위 'Jjy2323' 실측)도 함께 구제 — 이미 계정 1건으로 확정된 뒤라 안전
+            for (const x of pick) { condsName.push('LOWER(cs.user_id) = LOWER(?)'); bindsName.push(x.user_id); }
+          } catch {}
+          /* ⚠️ 아래 «이름 → 계정» 구제는 2026-08-27 까지 없는 컬럼('stu_' || id)을 참조해
+             조용히 죽어 있었다(no such column: id → catch 가 삼킴) — 이름 구제의 실체는
+             cs.student_name 한 줄뿐이었다. SQL 을 고치되, 동명이인이 실재하므로(김민서 71명·
+             김민준 56명) **이름이 정확히 한 계정으로만 떨어질 때만** 잇는다. 둘 이상이면 남의
+             수업에 들어갈 수 있어 안 붙인다(cs.student_name 직접 일치는 기존대로 유지). */
+          try {
+            const rs = await env.DB.prepare(
+              `SELECT COALESCE(user_id, login_id) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`
+            ).bind(nameParam, nameParam).all<any>();
+            const uids = Array.from(new Set((rs.results || []).map((x: any) => x.uid).filter(Boolean)));
+            if (uids.length === 1) { condsName.push('LOWER(cs.user_id) = LOWER(?)'); bindsName.push(uids[0]); }
           } catch {}
         }
       }
@@ -1565,11 +1972,16 @@ export async function handleMangoApi(
       const LATE_AFTER = 15 * 60 * 1000;  // 종료 15분 후까지 지각 입장 허용
 
       /** 조건 한 벌로 «오늘 발생하는» 수업 목록을 만든다. 2단계 조회(ID → 이름)에서 두 번 쓰인다. */
+      /* 🎌 (2026-10-09 한글날 벨 사고) 공휴일 휴강 — 중국어 수업(예외 강사)만 연다. 정본 src/holiday-closure.ts
+         ⚠️ 던지지 않는다(fail-open). 휴강 수업은 연기 회차처럼 아예 안 보낸다 → 홈 벨·자동입장이 저절로 멈춘다. */
+      const holiday = await loadHolidayClosure(env.DB, todayStr);
+      let holidaySkipped = 0;
       const runPass = async (conds: string[], binds: any[]): Promise<any[]> => {
         if (!conds.length) return [];
         const whereSql = `cs.status != 'cancelled' AND (${conds.join(' OR ')})`;
-        const sqlJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${whereSql}`;
-        const sqlNoJoin = `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status FROM class_schedules cs WHERE ${whereSql}`;
+        const _soSelT = startsOnSel(await ensureStartsOnColumn(env), 'cs');
+        const sqlJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source${_soSelT}, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${whereSql}`;
+        const sqlNoJoin = `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, source${_soSelT} FROM class_schedules cs WHERE ${whereSql}`;
         let rows: any;
         try { rows = await env.DB.prepare(sqlJoin).bind(...binds).all<any>(); }
         catch { rows = await env.DB.prepare(sqlNoJoin).bind(...binds).all<any>(); }
@@ -1581,9 +1993,13 @@ export async function handleMangoApi(
           // 오늘 발생하는 수업인가? (일회성=날짜 일치 / 반복=요일 일치)
           let occurs = false;
           if (s.scheduled_date) occurs = (s.scheduled_date === todayStr);
-          else if (s.day_of_week != null && s.day_of_week !== '') occurs = dowMatches(s.day_of_week, kDow);
+          else if (s.day_of_week != null && s.day_of_week !== '') occurs = dowMatches(s.day_of_week, kDow) && recurStartedOn(s, todayStr);
           if (!occurs) continue;
           seen.add(s.id);
+          /* ⏸ (2026-10-01) 연기된 회차는 오늘 열리지 않는다 — 학생을 그 방으로 보내지 않는다.
+             예전엔 status != 'cancelled' 만 봐서 연기한 수업에도 입장이 열렸다. 정본 src/class-postponed.ts. */
+          if (isPostponedOccurrence(s)) continue;
+          if (isHolidayClosedFor(holiday, s.teacher_id)) { holidaySkipped++; continue; }   // 🎌 공휴일 휴강
           const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
           const start_ts = Date.UTC(kY, kMo, kD, hh, mm, 0) - KST; // KST 벽시계 → UTC ms
           const dur = Number(s.duration_min) || 30;
@@ -1608,6 +2024,7 @@ export async function handleMangoApi(
             start_ts, end_ts, open_at_ts, close_at_ts,
             duration_min: dur, status, join_open,
             starts_in_ms: start_ts - now,
+            source: s.source || null,   // 겹친 쌍둥이 예약의 «정본» 판정용 — 응답 전에 뗀다
           });
         }
         return out;
@@ -1621,12 +2038,51 @@ export async function handleMangoApi(
         sessions = await runPass(condsName, bindsName);
         if (sessions.length) matchedBy = 'name';
       }
+      /* 👥 (2026-10-06 delaware · 2026-10-07 개정) 쌍둥이 계정 예약이 시간이 겹치면 «정본» 쪽만 남긴다 —
+         로그인한 계정이 아니라 예약 출처로 고른다(카페24 미러 자동 행이 진다). 정본 student-alias.ts */
+      if (!isTeacher && matchedBy === 'uid') {
+        const tp = pickTwinSessions(sessions, userId);
+        sessions = tp.sessions;
+        if (tp.ambiguous) console.warn('[twin-pick] 정본 판정 불가 — 로그인 계정 쪽으로 입장', userId, tp.dropped.map((x: any) => x.schedule_id).join(','));
+      }
+      for (const s3 of sessions) delete (s3 as any).source;   // 내부 판정용 칸 — 화면에 안 보낸다
       sessions.sort((a, b) => a.start_ts - b.start_ts);
+
+      /* 🚪 「오늘은 이 방으로」 — 선생님·관리자가 지정해 둔 회의방이 있으면 room_id 를 갈아 끼운다.
+         학생 화면은 이 답을 그대로 쓰므로(js/idx-main.js 「빈 방코드 → 오늘 예약 방으로 자동 교정」)
+         **학생이 하는 일은 평소와 똑같다.** 정본·주의사항은 src/class-room-override.ts.
+         ⚠️ 이 호출은 던지지 않는다(fail-open) — 지정이 안 걸리면 예약방 그대로다. */
+      await applyRoomOverrides(env.DB, sessions, ymd);
+
+      /* 🚪 「문을 열어 줄 것인가」 — «지금이 수업 시간인가»(join_open)와 **다른 질문**이다.
+         (2026-09-11 마이마이 제보 「나가면 다시 못 들어온다」) 강사 포털은 2026-08-07 부터 하루 종일
+         열려 있는데 이 API 만 종료+15분에 닫혀, 수업에서 나간 강사가 홈에서 다시 못 들어왔다.
+         ⛔ close_at_ts 는 손대지 않는다 — 상태 라벨·카운트다운·「지금 진행 중인 수업」이 거기 걸려 있다.
+         규칙·근거는 src/class-entry-window.ts 한 곳에 있다. */
+      {
+        const dayStartTs = Date.UTC(kY, kMo, kD, 0, 0, 0) - KST;
+        const starts = sessions.map((x: any) => x.start_ts);
+        for (const s2 of sessions) {
+          const w = entryWindow({
+            isTeacher,
+            dayStartTs,
+            openAtTs: s2.open_at_ts,
+            endTs: s2.end_ts,
+            nextStartTs: nextStartAfter(starts, s2.start_ts),
+          });
+          s2.enter_from_ts = w.from;
+          s2.enter_until_ts = w.until;
+          s2.can_enter = canEnterNow(w, now);
+          // 막을 때 보여 줄 문구를 **서버가** 만든다 — 한/영 병기 + 첫 화면 예산(여유 70바이트) 보호.
+          if (!s2.can_enter) s2.enter_msg = enterBlockedMsg(w, now);
+        }
+      }
 
       // 자동 입장 대상(current): 지금 입장 가능한 것 우선(진행중/열림), 없으면 가장 가까운 예정 수업
       let current: any = null;
       const joinable = sessions.filter(x => x.join_open);
-      if (joinable.length) current = joinable.sort((a, b) => Math.abs(a.start_ts - now) - Math.abs(b.start_ts - now))[0];
+      // 🚪 (2026-09-30) 겹친 수업에서 답이 뒤집히지 않게 «이미 시작한 수업 먼저» — 정본 src/class-current-pick.ts
+      if (joinable.length) current = pickCurrentSession(joinable, now);
       else { const up = sessions.filter(x => x.status === 'early'); if (up.length) current = up[0]; }
 
       /* 🚪 student_gate — 학생을 공용방으로 흘려보내지 않는 기능의 on/off 를 «서버가» 알려 준다.
@@ -1634,8 +2090,762 @@ export async function handleMangoApi(
          입장을 누르는 바로 그 지점에서 호출되므로, 여기에 실어 보내는 것이 가장 확실하다.
          ⛔ 기본 'off' — 지금 켜면 실제 학생 예약이 6건뿐이라 대다수가 입장 불가가 된다(wrangler.toml 주석 참고). */
       const studentGate = ((env as any).VC_STUDENT_ROOM_GATE === 'on') ? 'on' : 'off';
+
+      /* 🔁 net_relay — 이 수업은 «중계(TURN) 강제» 로 붙을지를 서버가 알려 준다.
+         위 student_gate 와 같은 사정이다(정적 화면은 설정을 직접 못 읽는다) + 이 API 는
+         학생·교사 «양쪽» 이 입장 직전에 부르므로 두 사람이 같은 정책을 받는다.
+
+         [왜 필요한가] 지금은 직접(P2P) 연결이 **실패해야** 릴레이로 넘어간다(idx-main.js createPeer).
+         그런데 중국 회선은 «연결은 되는데 패킷만 흘리는» 경우가 많아 그 조건에 안 걸린다.
+         2026-08-21 중국어 수업(class-851)에서 강사 영상이 AAO 로 통째로 꺼졌다.
+
+         [왜 이름이 아니라 번호인가] 강사 번호는 세 갈래라 이름으로 이으면 남의 것이 붙는다
+         (CLAUDE.md 2장). 여기 teacher_id 는 class_schedules ↔ teachers.id 한 도메인이라
+         어긋날 수 없다. 게다가 위 sqlNoJoin 경로에는 teacher_name 이 아예 없다. */
+      let netRelay = false;
+      const relayTid = String((current && current.teacher_id) || '').trim();
+      if (relayTid) {
+        try {
+          await ensureSchemaOnce('vc_relay_force', async () => {
+            await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_relay_force (teacher_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, note TEXT, updated_at INTEGER, updated_by TEXT)`);
+          });
+          const rrow = await env.DB.prepare(`SELECT enabled FROM vc_relay_force WHERE teacher_id = ?`).bind(relayTid).first<any>();
+          /* ⛔ Cloudflare TURN 이 설정돼 있을 때만 켠다. 없으면 /api/ice-servers 가 대체 목록으로
+             **무료 공개 TURN(openrelay.metered.ca)** 을 내려주는데, 거기로 «강제» 릴레이하면
+             직접 연결보다 나빠질 수 있다. 회선을 살리려다 더 망가뜨리는 교환은 하지 않는다. */
+          const hasCfTurn = !!((env as any).TURN_KEY_ID && (env as any).TURN_KEY_API_TOKEN);
+          netRelay = hasCfTurn && !!(rrow && Number(rrow.enabled) === 1);
+        } catch { netRelay = false; }   // 표가 없거나 조회 실패 = 평소대로(직접 연결). 수업을 막지 않는다.
+      }
+
       // matched_by: 'uid'=계정 ID 로 찾음(가장 안전) · 'name'=이름 폴백(계정 연결 어긋남 → 운영에서 고쳐야 할 대상)
-      return json({ ok: true, now, today: todayStr, role: isTeacher ? 'teacher' : 'student', sessions, current, matched_by: matchedBy, student_gate: studentGate });
+      // 🎌 holiday: 오늘 휴강으로 가린 수업이 있을 때만 싣는다(화면이 안내 한 줄을 그린다). 이름·문구는 서버가 만든다.
+      const holidayInfo = (holiday.closed && holidaySkipped > 0)
+        ? { name: holiday.name, closed_count: holidaySkipped, msg: holidayClosedMsg(holiday.name), alert: holidayEntryAlert(holiday.name) } : null;
+      return json({ ok: true, now, today: todayStr, role: isTeacher ? 'teacher' : 'student', sessions, current, matched_by: matchedBy, student_gate: studentGate, net_relay: netRelay, holiday: holidayInfo });
+    }
+
+    // 🥭 (2026-08-24) GET /api/class/schedule/mine — 학생 홈 화면 "내 수업" 위젯.
+    //   [왜] 위 /sessions/today 는 "오늘" 만 본다. 학생이 홈에서 "무슨 요일 몇 시에 수업이
+    //        있는지"를 미리 알 방법이 아예 없었다(내일부터 수업인 학생은 "오늘 예약 없음"만 봄).
+    //   [무엇] 입장 판정과는 무관한 **읽기 전용 안내**다. class_schedules 를 그대로 보여주고,
+    //        반복 요일은 "다음에 오는 날짜"까지 계산해 준다. 방 조회·입장 로직은 건드리지 않는다.
+    //   ⚠️ 요일 파서(dowList)는 /sessions/today 의 dowMatches 와 반드시 같은 표기를 인식해야
+    //      한다 — 한쪽만 알아듣는 표기가 있으면 "화면엔 있는데 입장은 안 되는" 어긋남이 생긴다.
+    /* ═══════════════════════════════════════════════════════════════════════
+       🛠 원격 수리·점검 PIN (2026-08-30, v4 제안서 07)
+       ───────────────────────────────────────────────────────────────────────
+       [무엇] 관리자·강사가 6자리 PIN 을 만들고, 학생이 그 PIN 을 자기 화면에 넣으면
+         «원격 지원을 허용했다» 는 사실이 서버에 남는다. 그 다음 실제 화면 제어는
+         **Quick Assist / Chrome 원격 데스크톱**(index.html 의 원격 지원 안내)이 한다.
+       ⛔ 우리가 화면을 직접 제어하지 않는다 — 그런 코드를 만들지 말 것. 브라우저에는 «남의 기기를
+          조작하는» API 가 아예 없다(보안상 일부러 없다). 실제 조작은 Quick Assist·Chrome 원격
+          데스크톱이 하고, 우리는 ① «누가 언제 허락했는가» 를 남기고 ② 직원이 만든 **접속 코드를
+          학생 화면까지 날라다 준다**. 그 둘이 이 기능의 전부다.
+          (허락 기록이 없으면 「누가 내 컴퓨터를 봤나」에 답할 수가 없다.)
+
+       📞 (2026-09-01 사장님 지시 «직원이 원격으로 들어가서 수리») 왜 코드를 날라다 주나 —
+          Quick Assist 는 **도우미(직원)가 6자리 보안코드를 만들고 학생이 그것을 입력**하는 구조다.
+          그 코드를 전화로 불러 주고 받아 적게 하는 것이 이 흐름에서 제일 자주 깨지는 자리였다
+          (아이 · 한국어를 못 읽는 필리핀 강사). 직원이 붙여넣으면 학생 화면에 크게 뜬다.
+       ⚠️ 학생 쪽 조회는 PIN 이 아니라 claim 때 받은 **세션 토큰**으로 한다 — PIN(6자리)으로
+          조회를 열면 그 경로로 번호를 무제한 찍어 볼 수 있다(claim 의 5회 제한을 우회한다).
+
+       [왜 /api/class/ 밑인가] 이 접두사는 src/index.ts 라우팅에 **이미** 올라와 있어
+         공동 금지구역을 한 줄도 안 건드린다. 대신 라우팅과 인증은 다른 것이므로
+         발급 경로는 **핸들러 안에서 관리자 세션을 직접 확인**한다
+         (CLAUDE.md 2장 「라우팅 허용목록에 올렸으니 인증도 된 것」).
+
+       ⚠️ 학생 쪽(claim)은 로그인 없이도 눌러야 한다 — 컴퓨터가 고장 나서 부르는 자리다.
+          그래서 무인증이지만 ① 6자리 · ② 10분 만료 · ③ 시도 5회 제한 · ④ 1회용으로 좁힌다.
+       ⛔ 응답에 학생 이름·연락처를 넣지 말 것 — 무인증 경로다. «맞다/틀리다» 까지만 말한다.
+       ═══════════════════════════════════════════════════════════════════════ */
+    /* 표는 이미 운영에 있으므로 CREATE 만으로는 새 칸이 안 생긴다 — 지연 ALTER 로 붙인다
+       (attendance.host·vc_quality.novideo 와 같은 방식). ⚠️ 읽는 쪽보다 «먼저» 돌아야 하므로
+       세 경로가 전부 이 함수를 부른다. 키를 v2 로 바꿔 배포 뒤 한 번은 반드시 돌게 한다. */
+    const ensureRemoteSupportSchema = async () => {
+      await ensureSchemaOnce('remote_support_pins_v2', async () => {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS remote_support_pins (pin TEXT PRIMARY KEY, student_uid TEXT, student_name TEXT, issued_by TEXT, issued_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, attempts INTEGER DEFAULT 0, claimed_at INTEGER)`);
+        for (const col of ['session TEXT', 'helper_code TEXT', 'helper_tool TEXT', 'helper_at INTEGER',
+                           'student_code TEXT', 'student_tool TEXT', 'student_code_at INTEGER']) {
+          try { await env.DB.exec(`ALTER TABLE remote_support_pins ADD COLUMN ${col}`); } catch { /* 이미 있음 */ }
+        }
+      });
+    };
+
+    if (path === '/api/class/remote-support/issue' && method === 'POST') {
+      const rsSess: any = await checkAdminSession(request, env as any);
+      if (!rsSess || !rsSess.ok) return json({ ok: false, error: 'admin_session_required' }, 401);
+      await ensureRemoteSupportSchema();
+      const rsBody: any = await request.json().catch(() => ({}));
+      const now = Date.now();
+      const TTL_MS = 10 * 60 * 1000;
+
+      /* 🔢 6자리 — 예측 가능한 Math.random 대신 crypto 로 뽑는다. 앞자리 0 도 허용한다
+         (000123 을 버리면 후보가 줄고, 사람에게 읽어 주는 데는 아무 문제가 없다). */
+      let pin = '';
+      for (let i = 0; i < 6; i++) {
+        const b = new Uint32Array(1); crypto.getRandomValues(b);
+        pin += String(b[0] % 10);
+      }
+      try {
+        // 만료된 옛 PIN 은 그때그때 치운다 — 따로 도는 청소 작업을 만들지 않는다
+        await env.DB.prepare(`DELETE FROM remote_support_pins WHERE expires_at < ?`).bind(now).run();
+        await env.DB.prepare(
+          `INSERT OR REPLACE INTO remote_support_pins (pin, student_uid, student_name, issued_by, issued_at, expires_at, attempts, claimed_at)
+           VALUES (?,?,?,?,?,?,0,NULL)`
+        ).bind(pin, String(rsBody.student_uid || '').trim() || null, String(rsBody.student_name || '').trim() || null,
+                String(rsSess.username || rsSess.uid || 'admin'), now, now + TTL_MS).run();
+      } catch (e: any) {
+        return json({ ok: false, error: 'issue_failed', message: String(e?.message || e).slice(0, 200) }, 500);
+      }
+      return json({ ok: true, pin, expires_at: now + TTL_MS, ttl_sec: Math.round(TTL_MS / 1000) });
+    }
+
+    if (path === '/api/class/remote-support/claim' && method === 'POST') {
+      await ensureRemoteSupportSchema();
+      const rcBody: any = await request.json().catch(() => ({}));
+      const rcPin = String(rcBody.pin || '').replace(/\D/g, '');
+      if (rcPin.length !== 6) return json({ ok: false, error: 'bad_pin' }, 400);
+      let row: any = null;
+      try {
+        row = await env.DB.prepare(`SELECT pin, student_uid, expires_at, attempts, claimed_at FROM remote_support_pins WHERE pin = ?`).bind(rcPin).first();
+      } catch {
+        /* 표가 아직 없다 = 아무도 PIN 을 만든 적이 없다. «틀렸다» 로 답한다(내부 사정을 알리지 않는다) */
+        return json({ ok: false, error: 'not_found' }, 404);
+      }
+      const now2 = Date.now();
+      if (!row) return json({ ok: false, error: 'not_found' }, 404);
+      if (Number(row.attempts) >= 5) return json({ ok: false, error: 'too_many_attempts' }, 429);
+      if (Number(row.expires_at) < now2) return json({ ok: false, error: 'expired' }, 410);
+      if (row.claimed_at) return json({ ok: false, error: 'already_used' }, 409);
+
+      /* 학생 아이디를 함께 보냈으면 «발급할 때 지정한 학생» 과 맞는지 본다.
+         ⚠️ 지정 없이 발급했으면(현장에서 이름을 모를 때) 이 검사는 건너뛴다 —
+            그때는 PIN 을 «읽어 준 사람» 이 곧 확인 절차다. */
+      const rcUid = String(rcBody.user_id || '').trim();
+      if (row.student_uid && rcUid && String(row.student_uid).toLowerCase() !== rcUid.toLowerCase()) {
+        try { await env.DB.prepare(`UPDATE remote_support_pins SET attempts = attempts + 1 WHERE pin = ?`).bind(rcPin).run(); } catch {}
+        return json({ ok: false, error: 'uid_mismatch' }, 403);
+      }
+      /* 🎫 세션 토큰 — 이 뒤로 학생 화면은 PIN 이 아니라 이것으로 조회한다(머리말 ⚠️ 참고). */
+      const rcSession = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+        .map((b) => b.toString(16).padStart(2, '0')).join('');
+      try {
+        await env.DB.prepare(`UPDATE remote_support_pins SET claimed_at = ?, attempts = attempts + 1, session = ? WHERE pin = ?`).bind(now2, rcSession, rcPin).run();
+      } catch (e: any) {
+        /* 🔴 «허락했다» 는 기록을 못 남기면 이 기능의 존재 이유가 사라진다 — 조용히 넘기지 않는다.
+           그렇다고 학생을 막지도 않는다(컴퓨터가 고장 나서 부르는 자리다). 로그로 남기고 통과.
+           ⚠️ 다만 이때는 세션이 저장되지 않았으므로 코드 받기도 안 된다 — 학생 화면이
+              «기다리는 중» 에서 안 넘어가는 것이 조용히 틀린 코드를 보여 주는 것보다 낫다. */
+        console.warn('[remote-support] claim 기록 실패:', (e as any)?.message);
+      }
+      return json({ ok: true, claimed_at: now2, session: rcSession, expires_at: Number(row.expires_at) });
+    }
+
+    /* 📮 직원 → 학생 : 접속 코드 보내기 (관리자 세션 필요)
+       ⛔ 라우팅과 인증은 다른 것이다 — /api/class/ 는 라우팅만 열려 있으므로 여기서 직접 확인한다. */
+    if (path === '/api/class/remote-support/helper-code' && method === 'POST') {
+      const hcSess: any = await checkAdminSession(request, env as any);
+      if (!hcSess || !hcSess.ok) return json({ ok: false, error: 'admin_session_required' }, 401);
+      await ensureRemoteSupportSchema();
+      const hcBody: any = await request.json().catch(() => ({}));
+      const hcPin = String(hcBody.pin || '').replace(/\D/g, '');
+      /* 숫자만 받는다. Quick Assist 6자리 · Chrome 원격 데스크톱 12자리 · AnyDesk 9~10자리를 덮는다.
+         ⛔ 자유 문자열로 받지 말 것 — 이 값은 학생 화면에 그대로 그려진다. */
+      const hcCode = String(hcBody.code || '').replace(/\D/g, '');
+      const hcTool = ['quickassist', 'chromeremote', 'anydesk'].includes(String(hcBody.tool || ''))
+        ? String(hcBody.tool) : 'quickassist';
+      if (hcPin.length !== 6) return json({ ok: false, error: 'bad_pin' }, 400);
+      if (hcCode.length < 4 || hcCode.length > 12) return json({ ok: false, error: 'bad_code' }, 400);
+      let hcRow: any = null;
+      try {
+        hcRow = await env.DB.prepare(`SELECT pin, expires_at, claimed_at FROM remote_support_pins WHERE pin = ?`).bind(hcPin).first();
+      } catch { return json({ ok: false, error: 'not_found' }, 404); }
+      if (!hcRow) return json({ ok: false, error: 'not_found' }, 404);
+      if (Number(hcRow.expires_at) < Date.now()) return json({ ok: false, error: 'expired' }, 410);
+      /* ⚠️ 학생이 아직 번호를 안 넣었으면 보낼 곳이 없다 — «보냈다» 고 답하면 직원이 기다리기만 한다. */
+      if (!hcRow.claimed_at) return json({ ok: false, error: 'not_claimed' }, 409);
+      try {
+        await env.DB.prepare(`UPDATE remote_support_pins SET helper_code = ?, helper_tool = ?, helper_at = ? WHERE pin = ?`)
+          .bind(hcCode, hcTool, Date.now(), hcPin).run();
+      } catch (e: any) {
+        return json({ ok: false, error: 'save_failed', message: String(e?.message || e).slice(0, 200) }, 500);
+      }
+      return json({ ok: true, sent_at: Date.now() });
+    }
+
+    /* 👀 직원 화면이 «학생이 번호를 넣었나» 를 본다 (관리자 세션 필요).
+       이게 없으면 직원은 전화로 계속 물어봐야 한다. */
+    if (path === '/api/class/remote-support/pin-status' && method === 'GET') {
+      const psSess: any = await checkAdminSession(request, env as any);
+      if (!psSess || !psSess.ok) return json({ ok: false, error: 'admin_session_required' }, 401);
+      await ensureRemoteSupportSchema();
+      const psPin = String(url.searchParams.get('pin') || '').replace(/\D/g, '');
+      if (psPin.length !== 6) return json({ ok: false, error: 'bad_pin' }, 400);
+      let psRow: any = null;
+      try {
+        psRow = await env.DB.prepare(`SELECT claimed_at, expires_at, helper_at, student_code, student_tool, student_code_at FROM remote_support_pins WHERE pin = ?`).bind(psPin).first();
+      } catch { return json({ ok: false, error: 'not_found' }, 404); }
+      if (!psRow) return json({ ok: false, error: 'not_found' }, 404);
+      return json({ ok: true, claimed: !!psRow.claimed_at, claimed_at: Number(psRow.claimed_at) || null,
+                    code_sent: !!psRow.helper_at, expires_at: Number(psRow.expires_at) || null,
+                    /* ⬅️ 반대 방향 — 모바일(AnyDesk 등)은 «학생이 번호를 만들고 직원이 접속» 한다 */
+                    student_code: psRow.student_code || null, student_tool: psRow.student_tool || null,
+                    student_code_at: Number(psRow.student_code_at) || null });
+    }
+
+    /* ⬅️ 학생 → 직원 : 내 접속 번호 알려주기 (무인증, 세션 토큰 필요)
+       [왜 반대 방향이 필요한가] Quick Assist 는 «직원이 코드를 만들고 학생이 입력» 이지만,
+         **모바일에서 쓰는 도구(AnyDesk 등)는 정반대**다 — 학생 기기가 9~10자리 ID 를 갖고 있고
+         직원이 그 번호로 «접속» 한다. 사장님 지시가 «모바일에도 들어가서 수리» 라 이 방향이 있어야
+         폰을 덮는다. 지금까지는 그 번호를 카톡으로 불러 주게 안내하고 있었다.
+       ⛔ PIN 이 아니라 세션 토큰으로 받는다 — PIN 으로 열면 6자리를 찍어 볼 수 있다.
+       ⛔ 자유 문자열 금지 — 이 값은 직원 화면에 그대로 그려진다. 숫자만 받는다. */
+    if (path === '/api/class/remote-support/student-code' && method === 'POST') {
+      await ensureRemoteSupportSchema();
+      const scBody: any = await request.json().catch(() => ({}));
+      const scSession = String(scBody.session || '').trim();
+      const scCode = String(scBody.code || '').replace(/\D/g, '');
+      const scTool = ['anydesk', 'quickassist', 'chromeremote'].includes(String(scBody.tool || ''))
+        ? String(scBody.tool) : 'anydesk';
+      if (!/^[0-9a-f]{32}$/.test(scSession)) return json({ ok: false, error: 'bad_session' }, 400);
+      if (scCode.length < 4 || scCode.length > 12) return json({ ok: false, error: 'bad_code' }, 400);
+      let scRow: any = null;
+      try {
+        scRow = await env.DB.prepare(`SELECT pin, expires_at FROM remote_support_pins WHERE session = ?`).bind(scSession).first();
+      } catch { return json({ ok: false, error: 'not_found' }, 404); }
+      if (!scRow) return json({ ok: false, error: 'not_found' }, 404);
+      if (Number(scRow.expires_at) < Date.now()) return json({ ok: false, error: 'expired' }, 410);
+      try {
+        await env.DB.prepare(`UPDATE remote_support_pins SET student_code = ?, student_tool = ?, student_code_at = ? WHERE session = ?`)
+          .bind(scCode, scTool, Date.now(), scSession).run();
+      } catch (e: any) {
+        return json({ ok: false, error: 'save_failed', message: String(e?.message || e).slice(0, 200) }, 500);
+      }
+      return json({ ok: true, sent_at: Date.now() });
+    }
+
+    /* 📥 학생 화면이 «직원이 코드를 보냈나» 를 본다 — 무인증이지만 세션 토큰이 있어야 한다.
+       ⛔ PIN 으로 조회할 수 있게 만들지 말 것(6자리를 찍어 볼 수 있게 된다 — 머리말 ⚠️). */
+    if (path === '/api/class/remote-support/status' && method === 'GET') {
+      await ensureRemoteSupportSchema();
+      const stSession = String(url.searchParams.get('session') || '').trim();
+      if (!/^[0-9a-f]{32}$/.test(stSession)) return json({ ok: false, error: 'bad_session' }, 400);
+      let stRow: any = null;
+      try {
+        stRow = await env.DB.prepare(`SELECT expires_at, helper_code, helper_tool, helper_at FROM remote_support_pins WHERE session = ?`).bind(stSession).first();
+      } catch { return json({ ok: false, error: 'not_found' }, 404); }
+      if (!stRow) return json({ ok: false, error: 'not_found' }, 404);
+      if (Number(stRow.expires_at) < Date.now()) return json({ ok: false, error: 'expired' }, 410);
+      return json({ ok: true, code: stRow.helper_code || null, tool: stRow.helper_tool || null,
+                    sent_at: Number(stRow.helper_at) || null, expires_at: Number(stRow.expires_at) || null });
+    }
+
+    if (method === 'GET' && path === '/api/class/schedule/mine') {
+      await ensureSchemaOnce('class_schedules', async () => {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`);
+      });
+      const msUserId = (url.searchParams.get('user_id') || '').trim();
+      const msName = (url.searchParams.get('student_name') || '').trim();
+      if (!msUserId && !msName) return json({ ok: false, error: 'identity_required', schedules: [] }, 400);
+
+      const DOW_LABEL_KO = ['일', '월', '화', '수', '목', '금', '토'];
+      const DOW_LABEL_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const MS_DOW_MAP: Record<string, number> = {
+        sun: 0, sunday: 0, '일': 0, '일요일': 0, mon: 1, monday: 1, '월': 1, '월요일': 1,
+        tue: 2, tuesday: 2, '화': 2, '화요일': 2, wed: 3, wednesday: 3, '수': 3, '수요일': 3,
+        thu: 4, thursday: 4, '목': 4, '목요일': 4, fri: 5, friday: 5, '금': 5, '금요일': 5,
+        sat: 6, saturday: 6, '토': 6, '토요일': 6,
+      };
+      const dowList = (raw: any): number[] => {
+        const out: number[] = [];
+        for (const p of String(raw ?? '').split(/[,\s/·]+/)) {
+          const q = p.trim();
+          if (!q) continue;
+          if (/^\d+$/.test(q)) { const n = Number(q); if (n >= 0 && n <= 6) out.push(n); continue; }
+          const v = MS_DOW_MAP[q.toLowerCase()];
+          if (v != null) out.push(v);
+        }
+        return out;
+      };
+
+      const runMsPass = async (cond: string, bind: string): Promise<any[]> => {
+        const _soSelM = startsOnSel(await ensureStartsOnColumn(env), 'cs');
+        const sqlJoin = `SELECT cs.id, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.class_type, cs.status${_soSelM}, t.name AS teacher_name
+                          FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id
+                          WHERE cs.status != 'cancelled' AND ${cond}`;
+        const sqlNoJoin = `SELECT id, day_of_week, scheduled_date, start_time, duration_min, class_type, status${startsOnSel(await ensureStartsOnColumn(env))} FROM class_schedules WHERE status != 'cancelled' AND ${cond}`;
+        /* ⏸ (2026-10-01) 연기된 회차는 «내 수업» 카드에도 안 올린다 — 입장(sessions/today)이 그 수업을 빼므로,
+           카드에만 남으면 눌렀을 때 공용방으로 흘러간다(두 화면이 다른 답). 정본 class-postponed.ts */
+        let _ms: any[];
+        try { _ms = (await env.DB.prepare(sqlJoin).bind(bind).all<any>()).results || []; }
+        catch { _ms = (await env.DB.prepare(sqlNoJoin).bind(bind).all<any>()).results || []; }
+        return _ms.filter((r: any) => !isPostponedOccurrence(r));
+      };
+
+      let msRows: any[] = [];
+      let msMatchedBy: 'uid' | 'name' | 'none' = 'none';
+      if (msUserId) {
+        /* 👥 (2026-10-02 lby01) 쌍둥이 계정(mangoai_X)의 예약도 «내 수업» — sessions/today 와 같은 정본 */
+        const msTwins = await resolveStudentTwins(env.DB, msUserId);
+        for (const id of [msUserId, ...msTwins]) msRows = msRows.concat(await runMsPass('cs.user_id = ?', id));
+        if (msRows.length) msMatchedBy = 'uid';
+      }
+      if (!msRows.length && msName) { msRows = await runMsPass('cs.student_name = ?', msName); if (msRows.length) msMatchedBy = 'name'; }
+
+      const msNow = Date.now();
+      const MS_KST = 9 * 3600 * 1000;
+      const msK = new Date(msNow + MS_KST);
+      const msKY = msK.getUTCFullYear(), msKMo = msK.getUTCMonth(), msKD = msK.getUTCDate(), msKDow = msK.getUTCDay();
+      const msPad = (n: number) => String(n).padStart(2, '0');
+
+      const schedules = msRows.map((r: any) => {
+        const dows = r.scheduled_date ? [] : dowList(r.day_of_week);
+        const [hh, mm] = String(r.start_time || '00:00').split(':').map((x: string) => Number(x));
+        let nextDate: string | null = null;
+        let nextStartTs: number | null = null;
+        /* 📅 (2026-09-21) «이미 끝난 날짜 지정 수업» 표시 — 아래 filter 가 쓴다.
+           ⚠️ 날짜 형식이 맞을 때만 «지났다» 로 본다 — 모르면 남기는 쪽으로 실패한다
+              (수업이 조용히 사라지는 것이 더 나쁘다). 실측 2026-09-21 기준 깨진 날짜 0건. */
+        let pastOnce = false;
+        if (r.scheduled_date) {
+          const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(r.scheduled_date));
+          if (dm) {
+            const sTs = Date.UTC(Number(dm[1]), Number(dm[2]) - 1, Number(dm[3]), hh, mm, 0) - MS_KST;
+            const graceMs = (Number(r.duration_min) || 30) * 60000 + 15 * 60000;
+            if (sTs + graceMs >= msNow) { nextDate = r.scheduled_date; nextStartTs = sTs; }
+            else pastOnce = true;
+          }
+        } else if (dows.length) {
+          let bestDelta = 8;
+          for (const d of dows) {
+            let delta = (d - msKDow + 7) % 7;
+            if (delta === 0) {
+              const todayStartTs = Date.UTC(msKY, msKMo, msKD, hh, mm, 0) - MS_KST;
+              const graceMs = (Number(r.duration_min) || 30) * 60000 + 15 * 60000;
+              if (msNow > todayStartTs + graceMs) delta = 7;   // 오늘 수업은 이미 끝났다 → 다음 주로
+            }
+            if (delta < bestDelta) bestDelta = delta;
+          }
+          const nd = new Date(msNow + MS_KST + bestDelta * 86400000);
+          const ny = nd.getUTCFullYear(), nmo = nd.getUTCMonth(), nda = nd.getUTCDate();
+          nextStartTs = Date.UTC(ny, nmo, nda, hh, mm, 0) - MS_KST;
+          nextDate = `${ny}-${msPad(nmo + 1)}-${msPad(nda)}`;
+          /* 📅 (2026-09-24) 시작일이 아직 안 왔으면 «시작일 이후 첫 회차» 로 민다. */
+          const so = normStartsOn(r.starts_on);
+          if (so && so > nextDate) {
+            const [sy, smo, sda] = so.split('-').map(Number);
+            for (let k = 0; k < 7; k++) {
+              const cd = new Date(Date.UTC(sy, smo - 1, sda + k));
+              if (dows.includes(cd.getUTCDay())) {
+                nextDate = `${cd.getUTCFullYear()}-${msPad(cd.getUTCMonth() + 1)}-${msPad(cd.getUTCDate())}`;
+                nextStartTs = Date.UTC(cd.getUTCFullYear(), cd.getUTCMonth(), cd.getUTCDate(), hh, mm, 0) - MS_KST;
+                break;
+              }
+            }
+          }
+          /* ⏭ (2026-10-09) «그 주만 연기·변경» 으로 빠진 날이면 그다음 회차로 민다(옮긴 수업은 하루짜리 줄로 따로 온다).
+             ⛔ 끝없이 돌지 않게 상한(60일) — 넘으면 마지막으로 본 날을 그대로 둔다(수업을 지우지 않는다). */
+          for (let guard = 0; guard < 60 && recurSkippedOn(r, nextDate); guard++) {
+            const [cy, cmo, cda] = nextDate.split('-').map(Number);
+            for (let k = 1; k <= 7; k++) {
+              const cd = new Date(Date.UTC(cy, cmo - 1, cda + k));
+              if (dows.includes(cd.getUTCDay())) {
+                nextDate = `${cd.getUTCFullYear()}-${msPad(cd.getUTCMonth() + 1)}-${msPad(cd.getUTCDate())}`;
+                nextStartTs = Date.UTC(cd.getUTCFullYear(), cd.getUTCMonth(), cd.getUTCDate(), hh, mm, 0) - MS_KST;
+                break;
+              }
+            }
+          }
+        }
+        return {
+          schedule_id: r.id,
+          starts_on: normStartsOn(r.starts_on),
+          skip_dates: r.scheduled_date ? [] : normSkipDates(r.skip_dates),   // ⏭ 그 주만 빠진 날(화면이 «이번 주 쉼» 을 그린다)
+          day_labels_ko: dows.map(d => DOW_LABEL_KO[d]),
+          day_labels_en: dows.map(d => DOW_LABEL_EN[d]),
+          scheduled_date: r.scheduled_date || null,
+          start_time: r.start_time,
+          duration_min: r.duration_min,
+          class_type: r.class_type,
+          teacher_name: r.teacher_name || null,
+          next_date: nextDate,
+          next_start_ts: nextStartTs,
+          _past: pastOnce,   // ⬇️ 바로 아래 filter 전용 — 응답에는 안 나간다
+        };
+      }).filter((s: any) => {
+        if (!s.day_labels_ko.length && !s.scheduled_date) return false;
+        /* 📅 (2026-09-21 사장님 지시) 이미 끝난 «날짜 지정» 수업은 빼고 준다.
+           제보: 홈 「내 수업」 카드가 9/14 에 끝난 하루짜리 수업을 계속 보여 줌.
+           서버가 status != 'cancelled' 만 보고 지난 날짜를 안 걸렀다
+           (실측 2026-09-21: 지난 날짜인데 활성인 행 1,808건 · 학생 495명).
+           ⚠️ 반복 수업은 next 가 늘 있어 이 조건에 안 걸린다.
+           ⛔ 여기서 날짜를 다시 재지 말 것 — 위 pastOnce 한 곳이 정본이다.
+           ℹ️ 소비자는 둘(홈 카드 js/idx-my-schedule.js · 주간 표 my-schedule.html)이고
+              둘 다 같은 사고였다 — 그래서 화면이 아니라 서버에서 거른다. */
+        if (s._past) return false;
+        return true;
+      }).map(({ _past, ...rest }: any) => rest)
+        .sort((a: any, b: any) => (a.next_start_ts == null ? Infinity : a.next_start_ts) - (b.next_start_ts == null ? Infinity : b.next_start_ts));
+
+      return json({ ok: true, matched_by: msMatchedBy, schedules });
+    }
+
+    /* 📅 (2026-09-30) POST /api/class/schedule/request — 학생이 직접 내는 연기·변경 요청.
+       [왜] 학생 화면이 관리자 전용 /api/admin/schedule-requests 로 보내 늘 401 이었다.
+       판정 정본은 src/student-schedule-request.ts 의 studentRequestGate — 여기선 «부르기만» 한다.
+       ⛔ 본문의 uid·학생 이름·원래 일시를 믿지 않는다 — 토큰과 class_schedules 가 정본.
+       ⛔ 여기서 수업을 옮기지 않는다 — 접수만. 승인은 관리자 /decide 가 한다. */
+    /* 👨‍🏫 (2026-09-30 사장님) «교사로 연기» — 그 수업의 날짜·시각에 «실제로» 수업 가능한 강사만.
+       전에는 화면이 해시로 지어낸 가짜 시간표로 «가능한 교사» 를 그렸다(누가 되는지 아무도 몰랐다).
+       ✅ 판정은 관리자 move-candidates 와 같은 정본 moveCandidatesFor(enroll-ops.ts) — 승인(/decide)이 쓰는
+          findScheduleConflicts 그대로다. 승인(/decide)도 고른 강사(new_teacher_id) 기준으로 같은 검사를 다시 한다.
+       🔒 학생 토큰으로만, «내 수업» 일 때만. 읽기 전용 — 강사를 바꾸지 않는다(요청은 /request, 승인은 관리자).
+       ⛔ 다른 학생 정보는 싣지 않는다 — 강사 이름·사진·«몇 명이 안 되는지» 까지만. */
+    /* 👨‍🏫 free-teachers = 그 시각에 수업 가능한 강사 · 📅 day-slots = 그 날짜의 시간칸(나·지금 선생님 되나)
+       (2026-09-30) — 두 경로가 «내 수업인가» 검사를 한 벌로 쓴다(검사가 갈리지 않게). */
+    if (method === 'GET' && (path === '/api/class/schedule/free-teachers' || path === '/api/class/schedule/day-slots')) {
+      const isSlots = path === '/api/class/schedule/day-slots';
+      let tokUid: string | null = null;
+      try { tokUid = await authUidGlobal(request, url, env); } catch { tokUid = null; }
+      if (!tokUid) return json({ ok: false, error: 'login_required' }, 401);
+      const scheduleId = parseInt(url.searchParams.get('schedule_id') || '', 10) || 0;
+      const date = String(url.searchParams.get('date') || '').trim().slice(0, 10);
+      const time = String(url.searchParams.get('time') || '').trim().slice(0, 5);
+      if (!scheduleId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || (!isSlots && !/^\d{2}:\d{2}$/.test(time))) return json({ ok: false, error: 'bad_params' }, 400);
+      const todayKst = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+      if (date < todayKst) return json({ ok: false, error: 'past_date' }, 400);
+      /* 요청 경로(/request)와 같은 90일 창 — 먼 날짜로 무거운 조회를 부르지 못하게. */
+      if (date > new Date(Date.parse(todayKst + 'T00:00:00Z') + 90 * 864e5).toISOString().slice(0, 10)) return json({ ok: false, error: 'date_out_of_range' }, 400);
+      const row: any = await env.DB.prepare(
+        `SELECT cs.id, cs.user_id, cs.scheduled_date, COALESCE(cs.duration_min,20) AS dm, cs.teacher_id, cs.status, cs.source,
+                t.name AS teacher_name
+           FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
+          WHERE cs.id = ? LIMIT 1`
+      ).bind(scheduleId).first().catch(() => undefined);
+      /* 조회 실패(undefined)는 «없음» 이 아니라 «모름» — 404 로 말하지 않는다. */
+      if (row === undefined) return json({ ok: false, error: 'lookup_failed' }, 500);
+      if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
+      /* 정확일치 — 대소문자만 다른 계정이 실재한다(Kim/kim). studentRequestGate 와 같은 규칙. */
+      if (String(row.user_id || '') !== tokUid) return json({ ok: false, error: 'not_your_class' }, 403);
+      if (isSlots) {
+        let d: any;
+        try { d = await daySlotsFor(env, row, date); }
+        catch (e: any) { console.warn('[class/schedule/day-slots]', e?.message || e); return json({ ok: false, error: 'lookup_failed' }, 500); }
+        return json({ ok: true, date, duration_min: d.duration_min, slots: d.slots });
+      }
+      let r: any;
+      try { r = await moveCandidatesFor(env, row, date, time); }
+      catch (e: any) { console.warn('[class/schedule/free-teachers]', e?.message || e); return json({ ok: false, error: 'lookup_failed' }, 500); }
+      const pick = (t: any) => ({ id: t.id, name: t.name, display_name: t.display_name, photo: t.photo });
+      return json({
+        ok: true, date, time, duration_min: r.duration_min,
+        current: r.current ? pick(r.current) : null,
+        candidates: (r.candidates || []).map(pick),
+        busy_count: r.busy_count, teacher_change_ok: r.teacher_change_ok,
+      });
+    }
+
+    if (method === 'GET' && path === '/api/class/schedule/weekly-postpone') {
+      const uid = await authUidGlobal(request, url, env);
+      if (!uid) return json({ ok: false, error: 'login_required' }, 401);
+      const sid = Number(url.searchParams.get('schedule_id'));
+      if (!Number.isInteger(sid) || sid <= 0) return json({ ok: false, error: 'bad_params' }, 400);
+      const anchor: any = await env.DB.prepare('SELECT * FROM class_schedules WHERE id = ?').bind(sid).first();
+      if (!anchor || String(anchor.user_id) !== uid) return json({ ok: false, error: 'schedule_not_found' }, 404);
+      const plan = await readWeeklyPostponePlan(env, anchor);
+      if (!plan.ok) return json({ ok: false, error: plan.error }, 409);
+      return json({ ok: true, items: plan.items, snapshot: plan.snapshot, count: plan.items.length });
+    }
+
+    if (method === 'POST' && path === '/api/class/schedule/request') {
+      const body: any = await request.json().catch(() => ({}));
+      let tokUid: string | null = null;
+      try { tokUid = await authUidGlobal(request, url, env, body); } catch { tokUid = null; }
+      if (!tokUid) return json({ ok: false, error: 'login_required' }, 401);
+      await ensureScheduleChangeRequestTable(env);
+      const scheduleId = parseInt(body.schedule_id, 10) || null;
+      const cs: any = scheduleId
+        ? await env.DB.prepare(`SELECT cs.*, t.name AS teacher_name
+                                  FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id
+                                 WHERE cs.id = ? LIMIT 1`).bind(scheduleId).first().catch(() => null)
+        : null;
+      const reqType = String(body.request_type || 'postpone');
+      const s10 = (v: any) => { const x = String(v || '').trim(); return x ? x : null; };
+      const newDate = s10(body.new_date) ? String(body.new_date).trim().replace(/\//g, '-').slice(0, 10) : null;
+      const newTime = s10(body.new_time) ? String(body.new_time).trim().slice(0, 5) : null;
+      const bodyOrigDate = s10(body.orig_date) ? String(body.orig_date).trim().replace(/\//g, '-').slice(0, 10) : null;
+      const nowMs = Date.now();
+      const todayKst = new Date(nowMs + 9 * 3600 * 1000).toISOString().slice(0, 10);
+      let recent: number | null = null;
+      try {
+        const rc: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM schedule_change_requests WHERE requester_uid = ? AND requester_role = 'student' AND created_at > ?`)
+          .bind(tokUid, nowMs - 86400000).first();
+        recent = rc && rc.n != null ? Number(rc.n) : null;
+      } catch { recent = null; }
+      /* 같은 수업·같은 회차에 이미 대기 중인 요청이 있으면 또 받지 않는다(2026-10-01 대기 8건 중복). */
+      let pendingDup: boolean | null = null;
+      let pendingDupId: number | null = null;   // ⏩ 대기 중인 그 요청 — 자동 승인을 한 번 더 시도한다
+      try {
+        const dupOrig = cs && cs.scheduled_date ? String(cs.scheduled_date).replace(/\//g, '-').slice(0, 10) : bodyOrigDate;
+        if (cs && dupOrig) {
+          const dr: any = await env.DB.prepare(`SELECT id FROM schedule_change_requests WHERE schedule_id = ? AND orig_date = ? AND requester_uid = ? AND status = 'pending' LIMIT 1`)
+            .bind(cs.id, dupOrig, tokUid).first();
+          pendingDup = !!dr;
+          pendingDupId = dr && dr.id ? Number(dr.id) : null;
+        }
+      } catch { pendingDup = null; }
+      const gate = studentRequestGate({
+        tokUid, schedule: cs, requestType: reqType, origDate: bodyOrigDate,
+        newDate, newTime, todayKst, recentCount: recent, pendingDup,
+      });
+      if (!gate.ok) {
+        /* ⏩ (2026-10-06) 이미 대기 중인 같은 요청이 «자동 승인 대상» 이면 지금 반영한다 —
+           자동 승인이 생기기 전에 접수돼 대기로 남은 요청이 다시 보내도 영영 안 풀리던 것을 막는다. */
+        if (gate.error === 'already_pending' && pendingDupId) {
+          const ap = await autoApproveStudentPostpone(env, pendingDupId);
+          if (ap.applied) return json({ ok: true, id: pendingDupId, status: 'approved', auto_applied: ap.applied });
+        }
+        return json({ ok: false, error: gate.error }, gate.status);
+      }
+
+      const origDate = cs.scheduled_date ? String(cs.scheduled_date).replace(/\//g, '-').slice(0, 10) : bodyOrigDate;
+      const origTime = String(cs.start_time || '').slice(0, 5) || null;
+      const schedTeacher = String(cs.teacher_name || '').trim() || '강사';
+      /* 👨‍🏫 고른 강사(«교사로 연기») — ⛔ teacher_name 은 «담당 강사» 그대로 둔다.
+         그 칸은 관리자 알림·변경 이력(decide 의 writeClassAudit)이 «누가 그 수업 담당인가» 로 읽는다 —
+         희망 강사로 덮으면 수업을 하지도 않은 강사 이름이 이력에 남는다(2026-09-30 함정 대조).
+         희망 강사는 new_teacher_id(원부 번호)와 사유 «희망 강사: …» 로 따로 남기고,
+         실제로 바꾸는 것은 관리자 승인(/decide)이다.
+         원부 번호가 오면 그것으로, 아니면 이름 완전일치(대소문자 무시)·유일할 때만 번호를 잇는다. */
+      const teacherName = schedTeacher;
+      let wishNote = '';
+      let newTeacherId: string | null = null;
+      const wish = String(body.teacher_name || '').trim().slice(0, 60);
+      const wishId = parseInt(body.teacher_id, 10) || 0;
+      if (wishId) {
+        const tr: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE id = ? AND COALESCE(active,1) = 1 LIMIT 1`).bind(wishId).first().catch(() => null);
+        if (tr && tr.name) { newTeacherId = String(tr.id); wishNote = `희망 강사: ${tr.name}`; }
+      }
+      if (!newTeacherId && wish && wish !== schedTeacher) {
+        const hit: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE name = ? COLLATE NOCASE AND COALESCE(active,1) = 1 LIMIT 2`)
+          .bind(wish).all().catch(() => null);
+        const rows = (hit && hit.results) || [];
+        if (rows.length === 1) { newTeacherId = String(rows[0].id); wishNote = `희망 강사: ${rows[0].name}`; }
+        else wishNote = `희망 강사: ${wish}`;
+      }
+      /* 담당 강사와 같은 사람을 «골랐다» 면 바꿀 것이 없다. */
+      if (newTeacherId && cs.teacher_id != null && String(cs.teacher_id) === newTeacherId) { newTeacherId = null; wishNote = ''; }
+      let minutesBefore: number | null = null;
+      let feeType: string | null = null;
+      if (reqType !== 'change' && origDate && origTime) {
+        const startKst = Date.parse(`${origDate}T${origTime}:00+09:00`);
+        if (!isNaN(startKst)) { minutesBefore = Math.round((startKst - nowMs) / 60000); feeType = minutesBefore > 30 ? 'free' : 'paid'; }
+      }
+      let seriesSnapshot: string | null = null;
+      const requestScope = body.request_scope == null ? null : String(body.request_scope);
+      if (requestScope && requestScope !== WEEKLY_POSTPONE) return json({ ok: false, error: 'invalid_request_scope' }, 400);
+      if (requestScope === WEEKLY_POSTPONE) {
+        if (reqType !== 'postpone' || newTeacherId) return json({ ok: false, error: 'invalid_weekly_postpone' }, 400);
+        const series = await readWeeklyPostponePlan(env, cs);
+        if (!series.ok) return json({ ok: false, error: series.error }, 409);
+        const target = series.items.find(it => String(it.id) === String(cs.id));
+        if (!target || target.to_date !== newDate || target.to_time !== newTime) return json({ ok: false, error: 'invalid_weekly_postpone' }, 400);
+        if (body.expected_series_snapshot !== series.snapshot) return json({ ok: false, error: 'series_changed' }, 409);
+        seriesSnapshot = series.snapshot;
+      }
+      const studentName = String(cs.student_name || '').trim() || tokUid;
+      const reason = [String(body.reason || '').trim().slice(0, 300), wishNote].filter(Boolean).join(' · ') || null;
+      const ins: any = await env.DB.prepare(
+        `INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_name, requester_uid, teacher_name, student_name, orig_date, orig_time, new_date, new_time, fee_type, minutes_before, reason, status, created_at, new_teacher_id, schedule_snapshot, request_scope, series_snapshot)
+         SELECT ?,?,'student',?,?,?,?,?,?,?,?,?,?,?,'pending',?,?,?,?,?
+          WHERE NOT EXISTS (SELECT 1 FROM schedule_change_requests WHERE schedule_id = ? AND orig_date = ? AND requester_uid = ? AND status = 'pending')`
+      ).bind(cs.id, reqType, studentName, tokUid, teacherName, studentName, origDate, origTime, newDate, newTime, feeType, minutesBefore, reason, nowMs, newTeacherId, scheduleMoveVersion(cs), requestScope, seriesSnapshot, cs.id, origDate, tokUid).run();
+      // One SQLite statement arbitrates concurrent submissions, including legacy duplicates.
+      if (!ins?.success || ins?.meta?.changes !== 1) {
+        if (ins?.success && ins?.meta?.changes === 0) return json({ ok: false, error: 'already_pending' }, 409);
+        return json({ ok: false, error: 'request_save_failed' }, 503);
+      }
+      /* ⏩ (2026-10-06 「자동 연기되게」 → 2026-10-07 「승인 없이 즉시」) 학생의 연기·변경은 접수 즉시 승인 — 조건은 student-auto-postpone.ts.
+         안 되면(반복 수업·겹침·강사 불가 등) 예전처럼 «대기» 로 남아 관리자가 승인한다. */
+      const reqId: number | null = ins?.meta?.last_row_id ? Number(ins.meta.last_row_id) : null;
+      const auto = await autoApproveStudentPostpone(env, reqId);
+      try {
+        const typeKo = reqType === 'change' ? '변경' : '연기';
+        const feeKo = feeType === 'paid' ? '💰유료' : feeType === 'free' ? '🆓무료' : '';
+        await enqueueNotification(env, {
+          type: 'schedule_request',
+          title: `📅 수업 ${typeKo} ${auto.applied ? '자동 반영' : '요청'} ${feeKo}`.trim(),
+          body: `${studentName} 님(학생 직접) · 강사 ${teacherName}${wishNote ? ` · ${wishNote}` : ''} · 원수업 ${origDate || ''} ${origTime || ''}${newDate ? ` → ${newDate} ${newTime || ''}` : ''}. ${auto.applied ? '시간표에 자동 반영됐습니다.' : '자동으로 옮기지 못했습니다(반복 수업·겹침 등) — 관리자 페이지에서 확인하세요.'}`,
+          meta: { request_id: ins?.meta?.last_row_id || null, request_type: reqType, requester_role: 'student', new_teacher_id: newTeacherId, fee_type: feeType, minutes_before: minutesBefore, student_name: studentName, teacher_name: teacherName },
+          channel: 'kakao_memo',
+        });
+      } catch (e: any) { console.warn('[class/schedule/request] notify skipped:', e?.message || e); }
+      return json({ ok: true, id: reqId, status: auto.applied ? 'approved' : 'pending', auto_applied: auto.applied, auto_reason: auto.reason, fee_type: feeType, minutes_before: minutesBefore });
+    }
+
+    /* ═══ 📡 /api/class/sfu/* — Realtime SFU 자격증명 경계 (2026-09-02, C안 1단계) ═══
+       [무엇] 참관 팬아웃을 서버(SFU)가 하게 만들려면 브라우저가 SFU 를 불러야 하는데,
+              앱 시크릿을 브라우저에 주면 안 된다. 그래서 워커가 신원·방을 확인하고 대신 부른다.
+       [지금 상태] ⛔ REALTIME_APP_ID · REALTIME_APP_TOKEN 시크릿이 없으면
+              { ok:true, enabled:false } 만 돌려주고 **바깥으로 요청을 한 번도 보내지 않는다.**
+              즉 켜기 전까지 서비스 동작은 그대로다. 브라우저 쪽 코드는 아직 없다(검증 불가).
+       [왜 /api/class/ 밑인가] 이 접두사는 src/index.ts 라우팅 허용목록에 **이미** 있다
+              (1271행 startsWith). 공동 금지구역을 한 줄도 안 고쳐도 된다.
+       ⚠️ 인증은 라우팅과 다른 것이다 — 여기서 «직접» 확인한다(CLAUDE.md 2장). */
+    if (method === 'POST' && path.startsWith('/api/class/sfu/')) {
+      const op = path.slice('/api/class/sfu/'.length);
+      const appId = (env as any).REALTIME_APP_ID as string | undefined;
+      const appToken = (env as any).REALTIME_APP_TOKEN as string | undefined;
+      /* ⚠️ 시크릿 검사를 여기서 «먼저» 하지 않는다 — 미로그인 호출자가 { enabled:false } 로
+         인프라 상태를 알아내지 못하게, 신원 확인 뒤 sfuProxy 안에서 판정한다(모듈 ①②). */
+      if (!Object.prototype.hasOwnProperty.call(SFU_OPS, op)) {
+        return json({ ok: false, enabled: true, error: 'unknown_op' }, 400);
+      }
+      const body = await request.json().catch(() => null) as any;
+      if (!body) return json({ ok: false, enabled: true, error: 'invalid_body' }, 400);
+
+      /* 신원 — 학생 토큰(mango_token) 또는 관리자 세션 쿠키. 둘 다 없으면 401.
+         ⛔ 본문에 적힌 uid 를 믿지 않는다(CLAUDE.md 2장 「본문 값을 그대로 쓰는 API」). */
+      let identity: { uid: string; kind: 'admin' | 'student' } | null = null;
+      try {
+        const tokUid = await authUidGlobal(request, new URL(request.url), env as any, body);
+        if (tokUid) identity = { uid: String(tokUid), kind: 'student' };
+      } catch {}
+      if (!identity) {
+        try {
+          const a = await checkAdminSession(request, env as any);
+          if (a && (a as any).ok && (a as any).username) identity = { uid: String((a as any).username), kind: 'admin' };
+        } catch {}
+      }
+
+      /* 🔒 방 소속 — sfuProxy 에 닿기 «전» 에 본다(위 sfuRoomAllowed 주석). */
+      if (identity && !(await sfuRoomAllowed(env as any, String(body.room_id || ''), identity))) {
+        return json({ ok: false, enabled: true, error: 'not_your_room' }, 403);
+      }
+      const r = await sfuProxy(
+        {
+          appId, appToken,
+          kv: (env as any).SESSION_STATE || null,
+          fetchImpl: (u, init) => fetch(u, init) as any,
+          identity,
+        },
+        op,
+        String(body.room_id || ''),
+        body.session_id ? String(body.session_id) : null,
+        body.payload,
+      );
+      return json(r.body, r.status);
+    }
+
+    /* ═══ 📡 POST /api/class/sfu-peers — SFU 참가자 명단(신호) (2026-09-04, C안 2단계) ═══
+       [무엇] SFU 는 «누가 같은 방인가» 를 모릅니다(Cloudflare 문서: 「It does not define rooms,
+              participants, roles, or presence for your application」). 그래서 내가 만든
+              세션 id 와 트랙 이름을 여기에 적어 두고, 같은 방의 남의 것을 받아 갑니다.
+       [왜 화상방 DO 가 아니라 여기인가] 그 신호를 WebSocket 으로 보내려면 `src/video-call-room.ts`
+              에 case 를 하나 더해야 하는데 거기는 공동 금지구역입니다(모르는 type 은 그냥 버려집니다).
+              D1 한 표로 하면 금지구역을 한 줄도 안 건드리고, 덤으로 «강하게 일관» 합니다
+              (KV 는 읽기-수정-쓰기 경합에서 한쪽 announce 가 조용히 사라질 수 있습니다).
+       [왜 /api/class/ 밑인가] 그 접두사는 라우팅 허용목록에 **이미** 있습니다(src/index.ts).
+       ⚠️ 인증은 라우팅과 다른 것이라 여기서 «직접» 봅니다(CLAUDE.md 2장).
+       🔴 [게이트가 «둘» 인 이유 — 하나만으로는 남의 수업이 열립니다]
+          `sfu:sess:<sid>` 소유권 기록만 보면 «내가 만든 세션인가» 까지만 지켜집니다. 그런데
+          `session-new` 는 방 번호가 비었는지만 보므로(realtime-sfu.ts ④) **아무나 아무 방으로
+          세션을 만들 수 있습니다.** 방 번호는 `class-{예약id}-{YYYYMMDD}` 로 결정론적이고,
+          학생 비밀번호는 29,417명 중 0명이 설정돼 있습니다(CLAUDE.md 2장) — 즉 소유권 검사
+          «하나만» 두면 로그인만 하면 남의 수업 세션 id·트랙 이름을 받아 그 반의 영상·소리를
+          끌어갈 수 있습니다(미성년자 수업입니다). 그래서 `sfuRoomAllowed()` 를 함께 봅니다.
+          ⚠️ 여기는 **막는 쪽으로 실패**합니다 — 막혀도 수업은 mesh 로 그대로 돌아가고
+             SFU 만 안 켜지므로, verify-room 의 fail-open 과 균형이 다릅니다. */
+    if (method === 'POST' && path === '/api/class/sfu-peers') {
+      const b = await request.json().catch(() => null) as any;
+      if (!b) return json({ ok: false, error: 'invalid_body' }, 400);
+
+      /* 신원 — 학생 토큰 또는 관리자 세션. ⛔ 본문의 uid 를 신원으로 믿지 않습니다. */
+      let ident: { uid: string; kind: 'admin' | 'student' } | null = null;
+      try {
+        const t = await authUidGlobal(request, new URL(request.url), env as any, b);
+        if (t) ident = { uid: String(t), kind: 'student' };
+      } catch {}
+      if (!ident) {
+        try {
+          const a = await checkAdminSession(request, env as any);
+          if (a && (a as any).ok && (a as any).username) ident = { uid: String((a as any).username), kind: 'admin' };
+        } catch {}
+      }
+      if (!ident) return json({ ok: false, error: 'unauthorized' }, 401);
+
+      /* 시크릿이 없으면 «꺼짐» — 표를 만들지도, 아무것도 적지도 않습니다. 화면은 그대로 mesh 로 갑니다. */
+      if (!sfuConfigured({ appId: (env as any).REALTIME_APP_ID, appToken: (env as any).REALTIME_APP_TOKEN })) {
+        return json({ ok: true, enabled: false, reason: 'no_secrets', peers: [] });
+      }
+
+      const room = String(b.room_id || '').trim();
+      if (!room || room.length > 120) return json({ ok: false, enabled: true, error: 'room_required' }, 400);
+      const sid = String(b.session_id || '').trim();
+      if (!SFU_SESSION_RE.test(sid)) return json({ ok: false, enabled: true, error: 'bad_session_id' }, 400);
+
+      /* ⛔ «내가 이 방에 만든 세션» 이어야 합니다 — 아니면 남의 수업 명단을 들여다볼 수 있습니다. */
+      const kv = (env as any).SESSION_STATE;
+      if (!kv) return json({ ok: false, enabled: true, error: 'owner_store_unavailable' }, 503);
+      let own: any = null;
+      try { own = JSON.parse((await kv.get(`sfu:sess:${sid}`)) || 'null'); } catch { own = null; }
+      if (!own || own.uid !== ident.uid || own.room !== room) {
+        return json({ ok: false, enabled: true, error: 'not_your_session' }, 403);
+      }
+      if (!(await sfuRoomAllowed(env as any, room, ident))) {
+        return json({ ok: false, enabled: true, error: 'not_your_room' }, 403);
+      }
+
+      await ensureSchemaOnce('sfu_peers', async () => {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS sfu_peers (room_id TEXT NOT NULL, peer_id TEXT NOT NULL, session_id TEXT, audio_track TEXT, video_track TEXT, name TEXT, role TEXT, account_uid TEXT, updated_at INTEGER, PRIMARY KEY (room_id, peer_id))`);
+      });
+
+      /* peer_id = 화상방(DO)이 접속마다 새로 발급하는 임시 번호입니다 — 계정이 아닙니다.
+         타일을 맞추는 데만 쓰므로 본문에서 받되, 길이·글자를 좁힙니다(그대로 화면에 그려집니다). */
+      const peerId = String(b.peer_id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+      if (!peerId) return json({ ok: false, enabled: true, error: 'peer_id_required' }, 400);
+      const now = Date.now();
+
+      if (b.leave) {
+        try { await env.DB.prepare(`DELETE FROM sfu_peers WHERE room_id = ? AND peer_id = ?`).bind(room, peerId).run(); } catch {}
+        return json({ ok: true, enabled: true, peers: [] });
+      }
+
+      const cut = (v: any, n: number) => String(v == null ? '' : v).slice(0, n);
+      try {
+        await env.DB.prepare(
+          `INSERT INTO sfu_peers (room_id, peer_id, session_id, audio_track, video_track, name, role, account_uid, updated_at)
+           VALUES (?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(room_id, peer_id) DO UPDATE SET
+             session_id = excluded.session_id, audio_track = excluded.audio_track,
+             video_track = excluded.video_track, name = excluded.name, role = excluded.role,
+             account_uid = excluded.account_uid, updated_at = excluded.updated_at`
+        ).bind(room, peerId, sid, cut(b.audio_track, 128), cut(b.video_track, 128),
+               cut(b.name, 60), cut(b.role, 20), ident.uid, now).run();
+      } catch (e: any) {
+        console.error('[sfu-peers] 명단 기록 실패', e && e.message);
+        return json({ ok: false, enabled: true, error: 'announce_failed' }, 500);
+      }
+
+      /* 나 말고, «최근 40초 안에» 알린 사람만. 탭이 죽어 남은 줄이 유령으로 보이지 않게. */
+      let peers: any[] = [];
+      try {
+        const rs = await env.DB.prepare(
+          `SELECT peer_id, session_id, audio_track, video_track, name, role
+             FROM sfu_peers WHERE room_id = ? AND peer_id <> ? AND updated_at > ? LIMIT 12`
+        ).bind(room, peerId, now - 40000).all();
+        peers = (rs.results || []) as any[];
+      } catch (e: any) { console.warn('[sfu-peers] 명단 조회 실패', e && e.message); }
+
+      /* 오래된 줄 가끔 정리(30분). ⚠️ 조용히 실패하면 표가 계속 자랍니다 — 로그로 남깁니다. */
+      if (Math.random() < 0.05) {
+        try { await env.DB.prepare(`DELETE FROM sfu_peers WHERE updated_at < ?`).bind(now - 1800000).run(); }
+        catch (e: any) { console.warn('[sfu-peers] 오래된 줄 정리 실패', e && e.message); }
+      }
+
+      return json({ ok: true, enabled: true, peers });
     }
 
     // 🥭 Phase RM 3단계 — GET /api/class/verify-room
@@ -1649,9 +2859,19 @@ export async function handleMangoApi(
       const userId = (url.searchParams.get('user_id') || '').trim();
       const nameParam = (url.searchParams.get('student_name') || '').trim();
       const role = (url.searchParams.get('role') || 'student').trim().toLowerCase();
-      const m = /^class-(\d+)-\d{8}$/.exec(roomId);
+      const m = /^class-(\d+)-(\d{8})$/.exec(roomId);
       if (!m) return json({ ok: true, authorized: true, reason: 'not_managed_room' }); // 예약제 방이 아니면 게이트 안 함
-      if (role === 'admin' || role === 'observer') return json({ ok: true, authorized: true, reason: 'privileged' });
+      /* 🔓 (2026-08-26 사장님 지시) 예전에는 admin 도 여기서 함께 빠졌다. 그런데 그 조기 통과가
+         「이 예약의 학생이면 역할을 내린다」 교정을 **admin 에서만 통째로 건너뛰게** 만들었다 —
+         resolved_role 이 없으니 클라이언트가 내릴 근거를 못 받는다. 사장님(jeong)은 학생 세션 없이
+         관리자 폴백으로 로그인해 입장 역할이 admin 으로 잡히는데(idx-main.js 「else if (_admUid)」),
+         그래서 학생 자리로 들어가도 수업 내내 «스태프» 인 채였다(실측 10분 — 얼굴 크기가 뒤집히고
+         화면공유·교재 넘김 권한까지 열렸다). 이제 admin 도 조회를 거쳐 **역할만 사실대로 알려 준다.**
+         ⛔ 그렇다고 «막지» 는 않는다 — 관리자는 어느 방이든 들어갈 수 있어야 한다(아래 authorized 참고).
+         ℹ️ 참관(observer)은 그대로 조기 통과다. 참관은 vcJoinAsObserver 라는 별도 경로라 이 API 를
+            애초에 부르지 않지만, 다른 경로가 role=observer 를 보내도 안전하도록 남겨 둔다. */
+      const isAdminRole = (role === 'admin');
+      if (role === 'observer') return json({ ok: true, authorized: true, reason: 'privileged' });
       if (!userId && !nameParam) return json({ ok: true, authorized: 'unknown', reason: 'no_identity' }); // 신원 불명 → 통과
       const schedId = Number(m[1]);
       let row: any = null;
@@ -1674,10 +2894,15 @@ export async function handleMangoApi(
       if (userId) {
         if (String(row.user_id) === userId) { ok = true; resolvedRole = 'student'; }       // 학생 uid 일치
         if (!ok && String(row.teacher_id || '') === userId) { ok = true; resolvedRole = 'teacher'; }  // 교사 uid == teacher_id
+        /* 👥 (2026-10-02) 예약이 쌍둥이 계정(mangoai_X)에 붙어 있으면 «이 예약의 학생» 이다 — 정본 student-alias.ts */
+        if (!ok && row.user_id && (await resolveStudentTwins(env.DB, userId)).includes(String(row.user_id))) { ok = true; resolvedRole = 'student'; }
         if (!ok) {
           // 이름 기반 학생 uid 병합(동명/키 다양성 대비)
           try {
-            const rs = await env.DB.prepare(`SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`).bind(row.student_name || '', row.student_name || '').all<any>();
+            /* ⚠️ (2026-08-27) 여기 있던 ('stu_' || id) 는 students_erp 에 없는 컬럼이라
+               `no such column: id` 로 죽었고 catch 가 삼켰다 — 이 폴백 자체가 무동작이었다.
+               동명이인이 여럿이어도 아래는 «내 uid 와 같은가» 만 보므로 넓혀도 안전하다. */
+            const rs = await env.DB.prepare(`SELECT COALESCE(user_id, login_id) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`).bind(row.student_name || '', row.student_name || '').all<any>();
             for (const x of (rs.results || [])) { if (String(x.uid) === userId) { ok = true; resolvedRole = 'student'; break; } }
           } catch {}
         }
@@ -1708,17 +2933,109 @@ export async function handleMangoApi(
              (resolvedRole 은 클라이언트에서 내림 전용이므로 null 로 두면 아무 일도 안 일어난다) */
         }
       }
+      /* 🔐 (2026-08-26 실사고) — teacher/portal(자기 목록)엔 뜨는 수업인데 verify-room 은
+         "담당 강사가 아니다" 로 경고한다. 원인: teacher/portal(api-teacher.ts)은 로그인 세션으로
+         계정→강사원부를 ① teacher_account_links 수동 연결 ② class_schedules.teacher_id 에
+         **로그인 계정명이 그대로 들어간 행**(teachers 원부에 이름이 없는 계정, mangoi_0XX 류)
+         ③ teachers.name 낱말경계 일치 — 셋 중 하나로 확정하는데, 이 게이트는 위에서 ③(그것도
+         nameParam 문자열 비교)만 본다. joinClass()(teacher.html)도 user_id 를 안 보내
+         userId 매칭 경로 자체가 안 걸린다 → ①·② 로만 배정된 강사는 매번 이 경고를 본다.
+         verify-room 호출은 credentials:'include' 라 admin_sessions 쿠키가 이미 와 있다
+         (교사가 다른 탭에서 로그인한 상태라면). 있으면 teacher/portal 과 **같은 두 경로**로
+         한 번 더 확인한다 — 신원이 «더 명확해지는» 쪽으로만 넓히고, 세션이 없거나 그래도
+         못 찾으면 그대로 기존 폴백(경고만, 입장은 막지 않음)으로 이어진다. */
+      if (!ok) {
+        try {
+          const sess = await checkAdminSession(request, env as any);
+          if (sess.ok && sess.username) {
+            /* 🔑 강사 판정이 «먼저» 다 — 강사로 확정되면 아래 학생 판정으로 내려가지 않는다. */
+            if (/teacher/.test(role)) {
+              if (String(row.teacher_id || '') === sess.username) { ok = true; resolvedRole = 'teacher'; }
+              if (!ok) {
+                const link = await env.DB.prepare(
+                  `SELECT teacher_id FROM teacher_account_links WHERE username = ? COLLATE NOCASE LIMIT 1`
+                ).bind(sess.username).first<any>().catch(() => null);
+                if (link && link.teacher_id && String(row.teacher_id || '') === String(link.teacher_id)) {
+                  ok = true; resolvedRole = 'teacher';
+                }
+              }
+            }
+            /* 🎓 (2026-08-26) 이 예약의 «학생» 인가 — 관리자 세션만 있는 계정은 user_id 를 못 보낸다.
+               홈 통합 로그인의 관리자 폴백(idx-user-session.js tryAdminLoginFallback)은
+               `mangoi_admin_session` 만 만들고 학생 세션(`mangoi_logged_user`)은 만들지 않는다.
+               그래서 getCurrentUser() 가 null 이라 위쪽 userId 경로가 통째로 비어 있었다.
+               쿠키는 이미 와 있으므로(credentials:'include') 그 아이디로 예약의 학생과 대조한다.
+               ⚠️ 대소문자는 무시한다 — students_erp.user_id 는 BINARY 라 `Kim`/`kim` 이 둘 다
+                  실재하고(2026-08-26 실측), 아이디 대소문자는 로그인 쪽도 이미 무시한다.
+               ⛔ 이름으로는 붙이지 않는다 — 여기서 틀리면 «남의 수업에서 학생이 되는» 것이라
+                  아이디 완전일치(대소문자만 무시)에서 멈춘다. */
+            if (!ok) {
+              const su = String(sess.username);
+              const ru = String(row.user_id || '');
+              if (ru && (ru === su || ru.toLowerCase() === su.toLowerCase())) { ok = true; resolvedRole = 'student'; }
+            }
+          }
+        } catch { /* 세션 확인 실패해도 기존 폴백으로 이어진다 — 수업은 막지 않는다 */ }
+      }
       /* 🎭 학생 이름으로만 붙었는데 «강사» 를 주장하는 경우 = 이번 신고의 그림 그대로다.
          (공용 PC 에 남아 있던 낡은 teacher 를 물려받은 학생) → resolvedRole 이 'student' 로 남아
          클라이언트가 스스로 역할을 내린다. 그래도 **입장은 막지 않는다**(1원칙 유지). */
       // 🔒 (2026-07-28) 교사는 차단하지 않는다 — "수업을 방해하지 않는다"가 이 게이트의 1원칙이다.
       //   담당 지정이 어긋나 있어도 수업은 열려야 한다(어긋남 자체는 운영에서 흔하다).
       //   클라이언트는 authorized === false 일 때만 막으므로, 'unknown' 을 주면 경고만 띄우고 통과한다.
-      //   ※ 이 게이트는 보안 경계가 아니다 — role 은 클라이언트가 보내는 값이고 admin/observer 는 이미 무조건 통과다.
+      //   ※ 이 게이트는 보안 경계가 아니다 — role 은 클라이언트가 보내는 값이고 admin·observer 는 무조건 통과다
+      //     (2026-08-26 부터 admin 은 «통과하되 역할은 사실대로» 로 바뀌었다. 막고 안 막고는 그대로).
       //   ※ role 표기가 경로마다 다르다 — 마이페이지 입장 버튼은 'teacher', 홈 통합로그인 폴백은 'hq_teacher'
       //     를 쓴다(index.html tryAdminLoginFallback). 정확히 'teacher' 만 보면 안전장치가 새 경로에서 빠진다.
+      /* 🔄 (2026-08-28) 이 날짜에 1회성 대체강사가 배정돼 있으면 그 강사도 "담당 강사" 로 인정한다.
+         'recurring' 행은 정본 teacher_id 를 그대로 두므로(다음 회차 자동복귀를 위해 —
+         enroll-ops.ts 의 (m-2)/(m-3) 참고) 위의 모든 검사는 여전히 "원래 강사" 기준이라
+         대체강사는 매번 이 경고를 본다. 'dated' 행(수강신청 자동생성)은 teacher_id 를
+         그 자리에서 바로 바꾸므로 이미 위에서 잡힌다 — 여기는 recurring 오버레이 전용. */
+      if (!ok && /teacher/.test(role) && m[2]) {
+        try {
+          const subDate = m[2].slice(0, 4) + '-' + m[2].slice(4, 6) + '-' + m[2].slice(6, 8);
+          const sub = await env.DB.prepare(
+            `SELECT cs2.substitute_teacher_id, t2.name AS sub_name FROM class_substitutions cs2
+               LEFT JOIN teachers t2 ON CAST(t2.id AS TEXT) = CAST(cs2.substitute_teacher_id AS TEXT)
+              WHERE cs2.schedule_id = ? AND cs2.sub_date = ? AND cs2.status = 'active' LIMIT 1`
+          ).bind(schedId, subDate).first<any>();
+          if (sub && sub.substitute_teacher_id) {
+            const subId = String(sub.substitute_teacher_id);
+            if (userId && userId === subId) { ok = true; resolvedRole = 'teacher'; }
+            if (!ok && nameParam) {
+              const stripRolePrefix = (s: string) => String(s || '').replace(/^\s*(?:교사|강사|선생님|Teacher|Tutor)\s+/i, '').trim();
+              const subName = String(sub.sub_name || '');
+              const hit = (a: string, b: string) => !!a && !!b && (a === b || a.includes(b) || b.includes(a));
+              /* ⚠️ (2026-08-28 trap-check 지적) 이름 부분일치는 위(1991행 근처)의 원래 교사
+                 매칭과 같은 이유로 resolvedRole 을 올리지 않는다 — 짧은 이름이면 우연히
+                 걸릴 수 있어 "강사로 올리는" 근거로 쓰면 안 된다. ok 만 세워 입장은
+                 허용하되, 화면이 역할을 스스로 내리는 데는 이 값을 쓰지 않는다. */
+              if (hit(subName, nameParam) || hit(subName, stripRolePrefix(nameParam))) { ok = true; }
+            }
+            if (!ok) {
+              const sess2 = await checkAdminSession(request, env as any).catch(() => null);
+              if (sess2 && (sess2 as any).ok && (sess2 as any).username) {
+                const su2 = String((sess2 as any).username);
+                if (su2 === subId) { ok = true; resolvedRole = 'teacher'; }
+                if (!ok) {
+                  const link = await env.DB.prepare(
+                    `SELECT teacher_id FROM teacher_account_links WHERE username = ? COLLATE NOCASE LIMIT 1`
+                  ).bind(su2).first<any>().catch(() => null);
+                  if (link && link.teacher_id && String(link.teacher_id) === subId) { ok = true; resolvedRole = 'teacher'; }
+                }
+              }
+            }
+          }
+        } catch { /* 실패해도 기존 폴백(경고만, 입장은 안 막음)으로 이어진다 */ }
+      }
       if (!ok && /teacher/.test(role)) {
         return json({ ok: true, authorized: 'unknown', reason: 'teacher_not_assigned', owner_name: row.student_name || null, teacher_name: row.teacher_name || null, resolved_role: resolvedRole });
+      }
+      /* 🔓 관리자는 어느 방이든 통과다(예전 조기 통과와 «막고 안 막고» 는 100% 동일).
+         달라진 것은 resolved_role 을 **함께 준다**는 것뿐이고, 클라이언트는 그 값을 내리는 데만 쓴다. */
+      if (isAdminRole) {
+        return json({ ok: true, authorized: true, reason: ok ? 'match' : 'privileged', owner_name: row.student_name || null, resolved_role: resolvedRole });
       }
       return json({ ok: true, authorized: ok, owner_name: row.student_name || null, reason: ok ? 'match' : 'mismatch', resolved_role: resolvedRole });
     }
@@ -1828,6 +3145,14 @@ ${numbered}`;
       //   ⚠️ 새 경로를 만들지 않고 이 엔드포인트에 모드만 더한 이유: index.ts 게이트가
       //      path === '/api/translate' **정확 일치**라, 새 경로는 등록 없이는 404 가 된다.
       const chatMode = b.mode === 'chat';
+      // 🗣️ (2026-08-24) mode='learn' — 학생 화면의 «뜻 보기» 전용(웜업·AI친구·음성코치·게임). AI 튜터의 영어 문장을
+      //   학생이 이해하도록 한국어로 «의역» 한다. 모드 없는 기본 경로(m2m100)가
+      //   "Let's warm up before class" 를 「수업 전에 따뜻하게하자」로 직역한 제보가 출발점.
+      //   대상 언어가 ko 가 아니면 결과 검증(hasHangul)에서 걸러져 m2m100 으로 넘어간다.
+      //   🔴 (2026-08-31) 「Good job!」 → 「훌륭한 직업!」 제보 — 뿌리가 둘이었다.
+      //      ① ai-friend.html 이 이 모드를 «안 쓰고» 있었다(웜업만 고쳐져 있었다) → 화면 쪽 수리.
+      //      ② 모드를 켜도 확률이라, 말머리 칭찬 상투구는 src/learn-phrase-ko.ts 로 «결정론» 처리한다.
+      const learnMode = b.mode === 'learn';
 
       /* ═══════════════════════════════════════════════════════════════════════
          📝 mode='note' — 수업 일지 전용 (2026-08-10)
@@ -1944,10 +3269,43 @@ ${numbered}`;
         return json({ ok: true, en: outEn, ko: outKo, ...(noteDebug ? { _debug: dbgNote } : {}) });
       }
 
+      /* 🚩 mode='learn_report' — 학생이 «뜻이 이상해요» 를 눌렀을 때 그 문장·뜻을 적어 둔다(2026-10-02 피드백 1번).
+         ⚠️ 새 경로를 안 만든 이유는 위 chat 모드와 같다(index.ts 허용목록이 정확일치).
+         ⚠️ 무인증 공개 경로라 «적기만» 한다 — 캐시를 지우거나 번역을 바꾸지 않는다(사람이 보고 고친다).
+         ⚠️ 길이 300자 · 같은 (문장, 뜻) 은 한 줄 · 하루 500줄 상한(전체 공유 — IP 별 상한은 없다) — 넘으면 stored:false.
+         ⛔ 이 표를 화면에 그릴 때는 반드시 이스케이프 — text·meaning 은 아무나 넣을 수 있는 값이다(저장형 XSS).
+         지금은 읽는 화면이 없다 — SELECT text, meaning, count FROM learn_meaning_reports ORDER BY count DESC. */
+      if (b.mode === 'learn_report') {
+        const rText = String(b.text || '').trim().slice(0, 300);
+        const rMean = String(b.meaning || '').trim().slice(0, 300);
+        const rPage = String(b.page || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 30);
+        if (!rText || !rMean) return json({ ok: false, error: 'missing' }, 400);
+        let stored = false;
+        try {
+          if (!(globalThis as any).__learnReportTable) await env.DB.prepare(`CREATE TABLE IF NOT EXISTS learn_meaning_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL, meaning TEXT NOT NULL,
+            page TEXT, count INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL, last_at INTEGER NOT NULL,
+            UNIQUE(text, meaning))`).run();
+          (globalThis as any).__learnReportTable = true;   // 같은 워커 인스턴스에선 표 만들기를 한 번만
+          const now = Date.now();
+          const day: any = await env.DB.prepare('SELECT COUNT(*) AS n FROM learn_meaning_reports WHERE last_at > ?')
+            .bind(now - 86400000).first();
+          if (Number(day && day.n) < 500) {
+            await env.DB.prepare(`INSERT INTO learn_meaning_reports (text, meaning, page, count, created_at, last_at)
+              VALUES (?, ?, ?, 1, ?, ?) ON CONFLICT(text, meaning) DO UPDATE SET count = count + 1, last_at = excluded.last_at`)
+              .bind(rText, rMean, rPage, now, now).run();
+            stored = true;
+          }
+        } catch (e) { console.warn('[learn_report] store failed', String(e)); }
+        return json({ ok: true, stored });
+      }
+
       //   ⚠️ 채팅 캐시 접두사에 번호를 붙인다. 프롬프트를 고치면 반드시 올릴 것 —
       //      안 올리면 옛 프롬프트로 만든 번역이 180일 동안 그대로 나온다.
       //      trc2: 존댓말 고정 / trc3: 어미 중첩 금지(프롬프트) / trc4: 어미 중첩 코드 교정(2026-07-29).
-      const cacheKey = (t: string) => (chatMode ? 'trc4:' : 'tr:') + target + ':' + t;
+      //      trl1: learn 모드 첫 프롬프트(2026-08-24) — 접두사가 달라 기존 tr:/trc4: 캐시(직역)와 안 섞인다.
+      //      trl2: learn 모드 «말머리 상투구 결정론 + 직역금지 예시»(2026-08-31) — 「훌륭한 직업!」이 담긴 trl1 캐시와 안 섞인다.
+      const cacheKey = (t: string) => (learnMode ? 'trl2:' : chatMode ? 'trc4:' : 'tr:') + target + ':' + t;
       let texts: string[] = Array.isArray(b.texts) ? b.texts.map((t: any) => String(t || '')).filter((t: string) => t.trim()) : [];
       texts = Array.from(new Set(texts)).slice(0, 50);
       if (!texts.length) return json({ ok: true, map: {} });
@@ -1962,12 +3320,14 @@ ${numbered}`;
         // 이미 목표 언어면 번역 불필요
         //   zh 판정은 '한글이 없고 한자가 있으면 중국어'. 한자를 섞어 쓴 한국어는 한글이 있으니 걸러진다.
         const already = (target === 'en') ? !isKo && !hasHan(t)
-                      : (target === 'ko') ? isKo
+                      : (target === 'ko') ? (isKo && !hasForeignGloss(t))
                       : (!isKo && hasHan(t));
         if (already) { map[t] = t; continue; }
         let cached: string | null = null;
         if (kv) { try { cached = await kv.get(cacheKey(t)); } catch {} }
-        if (cached != null) map[t] = cached; else need.push(t);
+        // 🧹 learn 모드는 저장된 뜻도 다시 본다 — 'ㅋㅋㅋㅋ' 처럼 이미 굳은 값은 버리고 새로 번역한다(learn-meaning-check.ts).
+        if (cached != null && !(target === 'ko' && hasForeignGloss(cached))
+            && !(learnMode && target === 'ko' && !isUsableKoMeaning(cached, t))) map[t] = cached; else need.push(t);
       }
       const dbg: any = { ai: !!ai, need: need.length, raw: null, err: null };
       // 번역 전용 모델 m2m100 (LLM 프롬프트보다 안정적). 텍스트별 번역.
@@ -1977,10 +3337,23 @@ ${numbered}`;
       const tgtLang = target === 'en' ? 'english' : (target === 'zh' ? 'chinese' : 'korean');
       // 💬 채팅 모드 — 언어모델로 한 문장씩. 실패하면 아래 m2m100 이 그대로 받아준다.
       const LANG_NAME: Record<string, string> = { en: 'English', ko: 'Korean', zh: 'Simplified Chinese' };
+      // 🗣️ learn 모드 프롬프트 — 「뜻 보기」는 «영어가 무슨 뜻인지» 를 학생에게 알려 주는 카드다.
+      //   직역이 아니라 의역을 시키고(warm up ≠ 따뜻하게), 학생이 읽는 글이라 친근한 해요체로 고정한다.
+      const learnSys = 'You translate what an AI English tutor or an English practice app said, '
+        + 'so a young Korean student (elementary or middle school) can understand what the English means. '
+        + 'Give the MEANING in natural, friendly Korean — a free translation, never word-for-word. '
+        + 'Cheers, greetings and set phrases must be translated as what a Korean teacher would actually say, '
+        + 'NOT by translating each word: ' + LEARN_GLOSS_HINT + ' '
+        + 'Reply with ONLY the Korean. No quotes, no notes, no romanization, no explanation. '
+        + 'Use friendly polite 해요체 (해요 / 볼까요? / 어때요?). Never 반말, never stiff formal 합니다체. '
+        + 'Never translate a question as 「~습니까?」 — a child reads this. Use 「~예요?」 / 「~해요?」. '
+        + 'Never write 「당신」 for "you" — Korean drops it. "Do you have a pet?" is 「반려동물 키워요?」, not 「당신은 애완동물이 있습니까?」. '
+        + 'Keep names, numbers, quoted titles and emoji exactly as they are. '
+        + 'Never stack endings — 해요요, 습니다요 are not Korean.';
       async function chatTranslate(t: string): Promise<string> {
         const from = srcOf(t) === 'korean' ? 'Korean' : (srcOf(t) === 'chinese' ? 'Simplified Chinese' : 'English');
         const to = LANG_NAME[target] || 'English';
-        const sys = 'You translate one chat message at a time for a live online English class. '
+        const chatSys = 'You translate one chat message at a time for a live online English class. '
           + 'Speakers are Korean office staff and Filipino or Chinese teachers talking about lessons, '
           + 'homework, schedules and students. Reply with ONLY the translated message. '
           + 'No quotes, no notes, no romanization, no explanation. '
@@ -1998,8 +3371,10 @@ ${numbered}`;
           + 'When the target language is Chinese, use polite 您 rather than 你 when addressing a person.';
         const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
           messages: [
-            { role: 'system', content: sys },
-            { role: 'user', content: `Translate this ${from} chat message into ${to}:\n${t}` },
+            { role: 'system', content: (learnMode ? learnSys : chatSys) + (target === 'ko' ? ' ' + KOREAN_GLOSS_RULE : '') },
+            { role: 'user', content: learnMode
+                ? `Translate this ${from} message into natural ${to} (free translation of the meaning):\n${t}`
+                : `Translate this ${from} chat message into ${to}:\n${t}` },
           ],
           max_tokens: 300,
         });
@@ -2008,7 +3383,9 @@ ${numbered}`;
         out = out.replace(/^```[a-zA-Z]*\s*|\s*```$/g, '').trim();
         out = out.replace(/^(translation|번역)\s*[:：]\s*/i, '').trim();
         if (out.length > 1 && /^["'“”「『]/.test(out) && /["'“”」』]$/.test(out)) out = out.slice(1, -1).trim();
-        out = out.split(/\r?\n/)[0].trim();          // 여러 줄로 떠들면 첫 줄만
+        // 여러 줄로 떠들면 — 채팅은 첫 줄만(한 메시지 = 한 줄), learn 은 여러 문장짜리
+        // 말풍선이 있어 첫 줄만 취하면 뜻이 잘린다 → 한 줄로 이어 붙인다.
+        out = learnMode ? out.replace(/\s*\r?\n\s*/g, ' ').trim() : out.split(/\r?\n/)[0].trim();
         /* 어미 중첩 교정 — 프롬프트로 금지해도 모델이 "죄송합니다요" 를 계속 만든다.
            존댓말을 시켰더니 이미 존댓말인 -습니다/-습니까 뒤에 요를 한 번 더 붙인다.
            확률에 맡기지 말고 여기서 확정적으로 떼어낸다. */
@@ -2019,30 +3396,90 @@ ${numbered}`;
         }
         // 목표 언어가 아니면(그대로 되뇌었거나 엉뚱한 언어) 실패로 본다 → m2m100 으로 넘긴다
         if (!out || out === t) return '';
-        if (target === 'ko' && !hasHangul(out)) return '';
+        if (target === 'ko' && (!hasHangul(out) || hasForeignGloss(out))) return '';
         if (target === 'zh' && !hasHan(out)) return '';
         if (target === 'en' && (hasHangul(out) || hasHan(out))) return '';
         return out;
       }
 
+      /* ⏱ (2026-09-01) 여러 문장을 «동시에» 번역한다 — 순차로는 배치 호출이 못 쓴다.
+         [왜] 우주몬스터 게임은 게임 시작을 막고 한 번에 최대 50문장을 물어보는데, 이 루프가
+              문장마다 모델을 하나씩 기다렸다. 그래서 그 화면만 「뜻」 의역(mode:'learn')을
+              못 켜고 직역으로 남아 «같은 영어가 화면마다 다른 한국어» 가 되고 있었다.
+         [무엇을 바꿨나] 호출 «횟수» 는 그대로다. 바뀐 것은 «동시에 몇 개를 기다리는가» 뿐이다.
+         ⛔ 상한을 크게 올리지 말 것 — Workers AI 는 뉴런이 소진되면 429 를 주고, 이 루프는
+            실패를 재시도하지 않고 원문으로 떨어뜨린다(그러면 그 문장은 게임에서 빠진다).
+         ℹ️ 각 반복은 서로 독립이다 — `map` 은 문장마다 다른 키에 쓰고, KV 키도 문장마다 다르다.
+            `dbg` 만 마지막 것이 남는데 그건 ?debug=1 전용이라 무해하다. */
+      const TRANSLATE_CONCURRENCY = 4;
       if (need.length && ai) {
-        for (const t of need) {
+        const queue = need.slice();
+        const runOne = async (t: string) => {
           try {
-            let out = '';
-            if (chatMode) {
-              try { out = await chatTranslate(t); }
-              catch (e: any) { dbg.err = 'chat:' + String(e?.message || e); }
+            /* 🗣️ learn 모드 — 말머리 칭찬 상투구는 «모델에게 맡기지 않고» 여기서 떼어 낸다.
+               「Good job!」을 m2m100 이 「훌륭한 직업!」으로 옮긴 제보(2026-08-31)가 출발점이고,
+               언어모델로 바꿔도 확률이라 자주 나오는 상투구는 결정론으로 못 박는다.
+               정본 표: src/learn-phrase-ko.ts. 종결부호가 없으면 떼지 않으므로
+               「Good job on your sentence」 같은 진짜 문장은 그대로 통째로 번역된다. */
+            /* 고정 인사말은 손으로 다듬은 의역이 정본이다(learn-phrase-ko.ts).
+               ⛔ 이 판정을 화면 쪽에 다시 만들지 말 것 — 2026-09-01 에 warmup.html 의
+                  같은 정규식(curatedMeaning)을 지우고 여기 한 곳으로 모았다. */
+            if (learnMode && target === 'ko') {
+              const greet = curatedLearnMeaning(t);
+              if (greet) {
+                map[t] = greet;
+                if (kv) { try { await kv.put(cacheKey(t), greet, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
+                return;   // 이 문장은 여기서 끝 — 번역을 부르지 않는다
+              }
             }
-            if (!out) {
-              const resp: any = await ai.run('@cf/meta/m2m100-1.2b', { text: t, source_lang: srcOf(t), target_lang: tgtLang });
-              if (dbg.raw == null) dbg.raw = JSON.stringify(resp).slice(0, 300);
-              out = (resp && typeof resp.translated_text === 'string' && resp.translated_text.trim()) ? String(resp.translated_text) : t;
+            const lead = (learnMode && target === 'ko') ? peelLearnLead(t) : { leadKo: '', rest: t };
+            const src = lead.rest;
+            /* 남은 것이 이모지·부호뿐이면 번역하지 않는다 — 모델에 넣어 봐야 엉뚱한 글자가 돌아온다.
+               ⚠️ 말머리를 «실제로 뗀» 경우에만 이 지름길을 쓴다. 조건을 넓히면 기본·chat 경로까지
+                  바뀌어, 이 글자범위에 없는 언어(가나·키릴 등)가 번역 없이 원문 그대로 나간다. */
+            const needsMt = !lead.leadKo || /[A-Za-z\u3131-\uD79D\u4E00-\u9FFF]/.test(src);
+            let out = '';
+            /* 🔴 번역이 «실제로» 나왔는가 — 캐시(180일) 판정에 쓴다.
+               예전에는 실패하면 out = t(원문)라서 `out !== t` 가 거짓이 되어 저절로 캐시를 비켜 갔다.
+               말머리를 떼면 실패해도 「잘했어요! Do you have a pet animal?」처럼 t 와 «달라져서»
+               그 반쪽짜리가 180일 굳는다. 같은 사고 전례: 폴백 음성을 «요청 화자» 키로 캐시해
+               그 문장이 영원히 다른 목소리가 됐던 건(CLAUDE.md 2장). 실패는 캐시하지 않는다. */
+            let mtOk = true;
+            if (!needsMt) {
+              out = joinLearnLead(lead.leadKo, src);
+            } else {
+              let mt = '';
+              if (chatMode || learnMode) {
+                try { mt = await chatTranslate(src); }
+                catch (e: any) { dbg.err = 'chat:' + String(e?.message || e); }
+              }
+              if (!mt) {
+                const resp: any = await ai.run('@cf/meta/m2m100-1.2b', { text: src, source_lang: srcOf(src), target_lang: tgtLang });
+                if (dbg.raw == null) dbg.raw = JSON.stringify(resp).slice(0, 300);
+                mt = (resp && typeof resp.translated_text === 'string' && resp.translated_text.trim()) ? String(resp.translated_text) : '';
+              }
+              if (target === 'ko' && hasForeignGloss(mt)) mt = '';
+              // 🧹 learn 모드: 자모 반복을 걷어내고, 완성 음절이 없으면 «번역 실패» 로 본다(저장도 안 함).
+              if (learnMode && target === 'ko' && mt) { mt = stripJamoRuns(mt); if (!isUsableKoMeaning(mt, src)) mt = ''; }
+              mtOk = !!mt;
+              // 번역이 없으면 원문(src)을 그대로 붙여 둔다 — 뗀 말머리만이라도 보여 주는 편이 낫다.
+              // 다만 «다음에 다시 시도» 할 수 있게 캐시는 하지 않는다(mtOk=false).
+              out = joinLearnLead(lead.leadKo, mt || src);
             }
             map[t] = out;
-            if (kv && out && out !== t) { try { await kv.put(cacheKey(t), out, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
+            if (kv && mtOk && out && out !== t) { try { await kv.put(cacheKey(t), out, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
           } catch (e: any) { dbg.err = String(e?.message || e); map[t] = t; }
-        }
+        };
+        await Promise.all(
+          Array.from({ length: Math.min(TRANSLATE_CONCURRENCY, queue.length) }, async () => {
+            for (;;) { const t = queue.shift(); if (t === undefined) return; await runOne(t); }
+          }),
+        );
       } else if (need.length) { for (const c of need) map[c] = c; }
+      // Failed translations must not expose mixed-script source text as a Korean meaning.
+      if (target === 'ko') for (const t of texts) {
+        if (hasForeignGloss(map[t])) map[t] = '뜻을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
+      }
       if (url.searchParams.get('debug') === '1') return json({ ok: true, map, _debug: dbg });
       return json({ ok: true, map });
     }
@@ -2277,8 +3714,14 @@ ${numbered}`;
       try {
         // rowid 는 모든 SQLite 테이블에 항상 존재 — id 컬럼 없는 스키마에서도 동작
         const _swErp = await studentScopeWhere(env, request);  // 🔒 지사/대리점 격리
+        /* 🧹 (2026-08-20) 숨김 지정한 중복 계정 제외 — students_erp 는 카페24가 정본이라
+           지워도 밤에 되살아난다. 그래서 «읽을 때» 거른다(정본: src/student-override.ts).
+           ⚠️ 이 handler 는 어떤 에러든 삼켜 빈 배열을 돌려준다. 표가 없을 때 조건절이
+              붙으면 `no such table` 로 **명부 전체가 사라진 것처럼** 보이므로,
+              hiddenExcludeCond 는 그럴 때 빈 문자열을 준다(fail-open). 그 성질에 기대고 있다. */
+        const _erpConds = [_swErp.cond, await hiddenExcludeCond(env as any)].filter(Boolean);
         const rs = await env.DB.prepare(
-          `SELECT rowid AS _rowid, * FROM students_erp ${_swErp.cond ? 'WHERE ' + _swErp.cond + ' ' : ''}ORDER BY rowid DESC LIMIT ?`
+          `SELECT rowid AS _rowid, * FROM students_erp ${_erpConds.length ? 'WHERE ' + _erpConds.join(' AND ') + ' ' : ''}ORDER BY rowid DESC LIMIT ?`
         ).bind(..._swErp.binds, lim).all<any>();
         const items = (rs.results || []).map(r => {
           // id 컬럼이 없으면 rowid 를 id 로 사용 (프론트 호환)
@@ -2289,6 +3732,15 @@ ${numbered}`;
           return r;
         });
         const _piiItems = applyPIIScope(items, _swErp.scope);  // 🔒 권한별 PII 마스킹(hq/none=원본, 지사/대리점=마스킹)
+        /* 📘 (2026-09-15) 「예약」 칸 — `students_erp` 의 수강 칸(signup_date·end_date·
+           classes_per_week·payment_type)은 **카페24가 정본**이라, 관리자 화면에서 수업을
+           넣어도(그건 class_schedules 에만 쓴다) 이 목록은 늘 «—» 였다.
+           ⚠️ 기존 칸을 이 값으로 «채우지» 않는다 — 뜻이 다르다(정본 머리말 참고).
+           ⚠️ 실패하면 빈 Map → 그 칸만 «—» 이고 명부는 그대로 뜬다(fail-open). */
+        const _schedMap = await loadSchedSummaryMap(env as any);
+        for (const _it of (_piiItems as any[])) {
+          _it.sched = _schedMap.get(String(_it?.user_id || '').trim()) || { ...EMPTY_SCHED_SUMMARY };
+        }
         return json({ ok: true, items: _piiItems, can_view_pii: canViewPII(_swErp.scope) });
       } catch (e: any) {
         // 어떤 에러든 빈 배열로 graceful — UI 가 "데이터 없음" 으로 표시
@@ -2491,6 +3943,7 @@ ${numbered}`;
     if (/^\/api\/admin\/student\/[^\/]+$/.test(path) && method === 'GET') {
       const userId = decodeURIComponent(path.replace('/api/admin/student/', ''));
       if (!userId) return invalidBody(['user_id(path)']);
+      await ensureAttendanceAccountUid(env as any);   // 출석을 «계정» 으로도 찾기 위한 칸·인덱스 보장(멱등)
       const days = Math.max(1, Math.min(365, parseInt(url.searchParams.get('days') || '30', 10)));
       const since = Date.now() - days * 24 * 3600 * 1000;
 
@@ -2500,8 +3953,8 @@ ${numbered}`;
           `SELECT user_id, COALESCE(MAX(username), user_id) AS username, COALESCE(MAX(role), 'student') AS role,
                   MIN(joined_at) AS first_seen, MAX(joined_at) AS last_seen,
                   COUNT(*) AS total_sessions_all_time
-           FROM attendance WHERE user_id = ?`
-        ).bind(userId).first(),
+           FROM attendance WHERE ${ATTENDANCE_BY_UID}`
+        ).bind(...attUidBinds(userId)).first(),
         // 요약: 기간 내 집계
         env.DB.prepare(
           `SELECT COUNT(*) AS session_count,
@@ -2510,8 +3963,8 @@ ${numbered}`;
                   COALESCE(SUM(disconnect_count), 0) AS disconnect_sum,
                   AVG(CASE WHEN gaze_score IS NOT NULL THEN gaze_score END) AS avg_gaze_score,
                   COUNT(CASE WHEN gaze_score IS NOT NULL THEN 1 END) AS gaze_score_count
-           FROM attendance WHERE user_id = ? AND joined_at >= ?`
-        ).bind(userId, since).first(),
+           FROM attendance WHERE ${ATTENDANCE_BY_UID} AND joined_at >= ?`
+        ).bind(...attUidBinds(userId), since).first(),
         // 일자별 (차트용)
         env.DB.prepare(
           `SELECT date,
@@ -2519,17 +3972,17 @@ ${numbered}`;
                   COALESCE(SUM(total_session_ms), 0) AS total_session_ms,
                   COALESCE(SUM(total_active_ms), 0)  AS total_active_ms,
                   AVG(CASE WHEN gaze_score IS NOT NULL THEN gaze_score END) AS avg_gaze_score
-           FROM attendance WHERE user_id = ? AND joined_at >= ?
+           FROM attendance WHERE ${ATTENDANCE_BY_UID} AND joined_at >= ?
            GROUP BY date ORDER BY date ASC`
-        ).bind(userId, since).all(),
+        ).bind(...attUidBinds(userId), since).all(),
         // 세션 리스트 (최근순)
         env.DB.prepare(
           `SELECT id, room_id, joined_at, left_at, status, date,
                   total_session_ms, total_active_ms, disconnect_count,
                   gaze_score, gaze_samples, gaze_forward_samples
-           FROM attendance WHERE user_id = ? AND joined_at >= ?
+           FROM attendance WHERE ${ATTENDANCE_BY_UID} AND joined_at >= ?
            ORDER BY joined_at DESC LIMIT 200`
-        ).bind(userId, since).all()
+        ).bind(...attUidBinds(userId), since).all()
       ]);
 
       if (!profileRow || !(profileRow as any).user_id) {
@@ -2577,27 +4030,89 @@ ${numbered}`;
       try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN address TEXT;`); } catch {}
       try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN birth_date TEXT;`); } catch {}
       try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN notes TEXT;`); } catch {}
+      // password_hash — api-students.ts 의 ensureLoginTable() 과 동일한 안전망(이미 있으면 무시)
+      try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN password_hash TEXT;`); } catch {}
     };
+
+    /* 📒 (2026-10-01) 회차 원장 · 학생 휴원 — 정본 src/session-ledger.ts
+         GET  /api/admin/student/:uid/session-ledger?month=YYYY-MM
+         GET  /api/admin/student/:uid/leaves
+         POST /api/admin/student/:uid/leaves               { start_date, end_date, reason }
+         POST /api/admin/student/:uid/leaves/:id/cancel
+       ⚠️ 쓰기는 강사·조직 계정을 막는다(조직 계정은 /api/admin/student/ 자체가 isAgencyAllowedApi 밖이라
+          index.ts 에서 이미 403 이지만, 그 목록이 넓어지는 날을 위해 여기서도 한 번 더). */
+    {
+      const ml = path.match(/^\/api\/admin\/student\/([^\/]+)\/session-ledger$/);
+      if (ml && method === 'GET') {
+        const uidL = decodeURIComponent(ml[1]);
+        let ym = String(url.searchParams.get('month') || '');
+        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)) ym = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+        await ensureAttendanceAccountUid(env as any);   // 출석을 «계정» 으로도 찾기 위한 칸·인덱스 보장(멱등)
+        const out: any = await buildStudentLedger(env as any, uidL, ym);
+        if (out.ok && url.searchParams.get('calendar') === '1') {
+          for (const it of out.items || []) it.student_uid = uidL;
+          await attachCalendarRecords(env, out.items || []);
+        }
+        return json(out, out.ok ? 200 : 500);
+      }
+      const mv = path.match(/^\/api\/admin\/student\/([^\/]+)\/leaves$/);
+      const mc = path.match(/^\/api\/admin\/student\/([^\/]+)\/leaves\/(\d+)\/cancel$/);
+      if ((mv && (method === 'GET' || method === 'POST')) || (mc && method === 'POST')) {
+        const uidV = decodeURIComponent((mv || mc)![1]);
+        if (method === 'GET') {
+          const rows = await loadLeaves(env as any, uidV);
+          if (rows === null) return json({ ok: false, error: 'leaves_read_failed' }, 500);
+          return json({ ok: true, items: rows });
+        }
+        // 🔐 본사만 — getAdminActor().role 은 스코프 조회 실패를 삼켜 조직 계정을 staff 로 줄 수 있어
+        //    (fail-open), admin_scope 를 다시 읽어 «모르면 막는» 정본 게이트를 쓴다.
+        const deny = await enrollAdminHqOnly(request, env as any);
+        if (deny) return deny;
+        const actor = await getAdminActor(request, env as any);
+        await ensureStudentLeaveTable(env as any);
+        const by = String(actor.username || actor.name || 'admin');
+        if (mc) {
+          const r: any = await env.DB.prepare(
+            `UPDATE student_leaves SET status='cancelled', cancelled_by=?, cancelled_at=? WHERE id=? AND student_uid=? AND status='active'`
+          ).bind(by, Date.now(), parseInt(mc[2], 10), uidV).run();
+          if (!(r?.meta?.changes > 0)) return json({ ok: false, error: 'not_found_or_already_cancelled' }, 404);
+          return json({ ok: true });
+        }
+        const body: any = await request.json().catch(() => ({}));
+        const req = { start_date: String(body.start_date || '').slice(0, 10), end_date: String(body.end_date || '').slice(0, 10) };
+        const existing = await loadLeaves(env as any, uidV);
+        // 기존 휴원을 못 읽었으면 «1년 3번»·«겹침» 을 확인할 수 없다 → 막는 쪽으로(규칙을 모르고 통과시키지 않는다).
+        if (existing === null) return json({ ok: false, error: 'leaves_read_failed' }, 500);
+        const bad = validateLeave(req, existing, Date.now());
+        if (bad) return json({ ok: false, error: bad, message_ko: LEAVE_ERROR_TEXT[bad].ko, message_en: LEAVE_ERROR_TEXT[bad].en }, 400);
+        const reason = String(body.reason || '').slice(0, 200) || null;
+        const ins: any = await env.DB.prepare(
+          `INSERT INTO student_leaves (student_uid, start_date, end_date, reason, status, created_by, created_at) VALUES (?, ?, ?, ?, 'active', ?, ?)`
+        ).bind(uidV, req.start_date, req.end_date, reason, by, Date.now()).run();
+        return json({ ok: true, id: ins?.meta?.last_row_id ?? null });
+      }
+    }
 
     // /api/admin/student/:uid/full — 한 번에 모든 탭 데이터 적재 (Promise.allSettled)
     {
       const m = path.match(/^\/api\/admin\/student\/([^\/]+)\/full$/);
       if (m && method === 'GET') {
         await ensureStudentDetailSchema();
+        await ensureAttendanceAccountUid(env as any);   // 출석을 «계정» 으로도 찾기 위한 칸·인덱스 보장(멱등)
         const uid = decodeURIComponent(m[1]);
         const days = Math.max(1, Math.min(365, parseInt(url.searchParams.get('days') || '30', 10)));
         const since = Date.now() - days * 24 * 3600 * 1000;
 
         const queries = await Promise.allSettled([
           // 1. erp 정보 (학생 마스터)
-          env.DB.prepare(`SELECT * FROM students_erp WHERE student_id = ? OR login_id = ? OR username = ? LIMIT 1`).bind(uid, uid, uid).first(),
+          env.DB.prepare(`SELECT * FROM students_erp WHERE ${ERP_BY_UID} LIMIT 1`).bind(...erpUidBinds(uid)).first(),
           // 2. 출석 프로필 + 요약
           env.DB.prepare(
             `SELECT user_id, COALESCE(MAX(username), user_id) AS username, COALESCE(MAX(role),'student') AS role,
                     MIN(joined_at) AS first_seen, MAX(joined_at) AS last_seen,
                     COUNT(*) AS total_sessions_all_time
-             FROM attendance WHERE user_id = ?`
-          ).bind(uid).first(),
+             FROM attendance WHERE ${ATTENDANCE_BY_UID}`
+          ).bind(...attUidBinds(uid)).first(),
           env.DB.prepare(
             `SELECT COUNT(*) AS session_count,
                     COALESCE(SUM(total_session_ms),0) AS total_session_ms,
@@ -2606,31 +4121,31 @@ ${numbered}`;
                     AVG(CASE WHEN gaze_score IS NOT NULL THEN gaze_score END) AS avg_gaze_score,
                     COUNT(CASE WHEN gaze_score IS NOT NULL THEN 1 END) AS gaze_score_count,
                     COUNT(DISTINCT date) AS active_days
-             FROM attendance WHERE user_id = ? AND joined_at >= ?`
-          ).bind(uid, since).first(),
+             FROM attendance WHERE ${ATTENDANCE_BY_UID} AND joined_at >= ?`
+          ).bind(...attUidBinds(uid), since).first(),
           // 3. 일자별 (차트)
           env.DB.prepare(
             `SELECT date, COUNT(*) AS session_count,
                     COALESCE(SUM(total_session_ms),0) AS total_session_ms,
                     COALESCE(SUM(total_active_ms),0)  AS total_active_ms,
                     AVG(CASE WHEN gaze_score IS NOT NULL THEN gaze_score END) AS avg_gaze_score
-             FROM attendance WHERE user_id = ? AND joined_at >= ?
+             FROM attendance WHERE ${ATTENDANCE_BY_UID} AND joined_at >= ?
              GROUP BY date ORDER BY date ASC`
-          ).bind(uid, since).all(),
+          ).bind(...attUidBinds(uid), since).all(),
           // 4. 세션 (최근 200건)
           env.DB.prepare(
             `SELECT id, room_id, joined_at, left_at, status, date,
                     total_session_ms, total_active_ms, disconnect_count,
                     gaze_score, gaze_samples, gaze_forward_samples
-             FROM attendance WHERE user_id = ? AND joined_at >= ?
+             FROM attendance WHERE ${ATTENDANCE_BY_UID} AND joined_at >= ?
              ORDER BY joined_at DESC LIMIT 200`
-          ).bind(uid, since).all(),
+          ).bind(...attUidBinds(uid), since).all(),
           // 5. 수강 이력
           env.DB.prepare(`SELECT * FROM enrollments WHERE student_user_id = ? ORDER BY created_at DESC LIMIT 50`).bind(uid).all(),
           // 6. 수업료 결제
           env.DB.prepare(`SELECT * FROM student_payments WHERE user_id = ? ORDER BY paid_at DESC LIMIT 50`).bind(uid).all(),
           // 7. 평가서
-          env.DB.prepare(`SELECT * FROM student_evaluations WHERE user_id = ? ORDER BY eval_at DESC LIMIT 50`).bind(uid).all(),
+          readStudentAdminEvaluations(env.DB, uid, 50),
           // 8. 교사 피드백
           env.DB.prepare(`SELECT * FROM teacher_feedbacks WHERE user_id = ? ORDER BY class_at DESC LIMIT 50`).bind(uid).all(),
           // 9. 상담 내역
@@ -2665,6 +4180,27 @@ ${numbered}`;
 
         const _fullScope = await getScope(env as any, request);  // 🔒 PII 열람 권한 판정
         const _erpRow: any = pick(0);
+        /* 📞 (2026-09-15) students_erp 의 전화번호 칸은 카페24가 정본이라 매일 밤 03:00 KST
+           동기화가 덮는다(student-override.ts 머리말 — 9/10 파일럿테스트 학생 번호가 그렇게
+           사라진 사고와 같은 뿌리). 화면이 보여주는 값은 «문자 발송이 실제로 읽는 값» 이어야
+           하므로 phonesForStudent(notify-contacts.ts)와 같은 우선순위로 덮어 보여준다 —
+           override 에 있으면 그 값, 없으면 students_erp 값(예전과 동일). fail-open. */
+        if (_erpRow) {
+          try {
+            const _ovPhones = await getOverridePhones(env as any, String(_erpRow.user_id || uid));
+            if (_ovPhones.parent) _erpRow.parent_phone = _ovPhones.parent;
+            if (_ovPhones.student) _erpRow.student_phone = _ovPhones.student;
+          } catch { /* fail-open — 명부 값 그대로 보여준다 */ }
+          /* 🏢 (2026-09-15) 가맹점·소속도 같은 이유로 같은 자리에서 덮어 보여준다 — students_erp.franchise/
+             shop_name 은 카페24가 정본이라 매일 밤 덮인다. applyStudentErpOverrides() 가 동기화 직후
+             다시 입히지만, 그 재적용과 이 화면 사이의 짧은 창(또는 재적용 실패)에도 화면은 방금
+             저장한 값을 보여줘야 한다 — override 에 있으면 그 값, 없으면 students_erp 값(예전과 동일). */
+          try {
+            const _ovOrg = await getOverrideOrg(env as any, String(_erpRow.user_id || uid));
+            if (_ovOrg.franchise) _erpRow.franchise = _ovOrg.franchise;
+            if (_ovOrg.shop_name) _erpRow.shop_name = _ovOrg.shop_name;
+          } catch { /* fail-open — 명부 값 그대로 보여준다 */ }
+        }
         const _fullErpPII = (_erpRow && !canViewPII(_fullScope)) ? maskRecordPII(_erpRow) : _erpRow;
 
         // 🎓 카페24 성적(그래프DB) — 월말평가(상세 코멘트5)·일별·교재퀴즈·레벨테스트·포인트. Neo4j 미연결 시 조용히 빈배열.
@@ -2721,16 +4257,33 @@ ${numbered}`;
           console.warn('[student/full] cafe24 성적 조회 실패:', e?.message || e);
         }
 
+        // 📘 (2026-09-15) 「예약 수업」 — 목록과 «같은 정본» 을 쓴다(화면마다 답이 다르면 안 된다)
+        const _fullSched = await loadSchedSummaryOne(env as any, uid);
+
+        /* 👩‍🏫 (2026-10-08) 접속 기록에 «그 수업의 담당 강사» — 방 번호(class-{예약id}-{날짜})로 정본에서 되찾는다.
+           ⛔ attendance.teacher_name 은 안 쓴다(남의 이름이 들어간 전례). 예약방이 아니면 null(모름). */
+        const _fullSessions: any[] = pickList(4);
+        try {
+          const _roomT = await loadRoomTeacherNames(env as any, _fullSessions.map((x: any) => x?.room_id));
+          for (const _s of _fullSessions) _s.teacher_name = _roomT(_s?.room_id) || null;
+        } catch { /* 이름 없이 간다 */ }
+
         return json({
           ok: true,
           user_id: uid,
           period_days: days,
+          sched: _fullSched,
           erp: _fullErpPII,
+          /* 🙈 (2026-09-24) 숨김 상태 — null 이면 «모름»(화면은 버튼을 안 그린다). */
+          hidden_info: _erpRow ? await getStudentHiddenInfo(env as any, String(_erpRow.user_id || uid)) : null,
+          /* 🙈 숨기기 버튼을 그려도 되는가 — 서버 게이트(enrollAdminHqOnly)와 같은 뜻의 «대략» 판정.
+             최종 판정은 POST 가 다시 한다(여기가 틀려도 뚫리지 않는다). 모르면 false = 버튼을 안 그린다. */
+          can_hide: await (async () => { try { const a = await getAdminActor(request, env as any); return !!(a.ok && !a.isTeacher && !isOrgScopedRole(a.role)); } catch { return false; } })(),
           can_view_pii: canViewPII(_fullScope),
           profile: pick(1),
           summary: pick(2) || {},
           by_day: pickList(3),
-          sessions: pickList(4),
+          sessions: _fullSessions,
           enrollments: pickList(5),
           payments: pickList(6),
           evaluations: pickList(7),
@@ -2788,20 +4341,23 @@ ${numbered}`;
         await ensureStudentDetailSchema();
         const uid = decodeURIComponent(m[1]);
         if (method === 'GET') {
-          const rs = await env.DB.prepare(
-            `SELECT * FROM student_evaluations WHERE user_id = ? ORDER BY eval_at DESC LIMIT 100`
-          ).bind(uid).all();
+          const rs = await readStudentAdminEvaluations(env.DB, uid, 100);
           return json({ ok: true, items: rs.results || [] });
         }
         if (method === 'POST') {
           const b = await parseJsonBody(request);
           if (!b) return invalidBody(['eval_type or score_total']);
+          if (!validEvaluationScores([b.score_speaking, b.score_listening, b.score_reading, b.score_writing, b.score_total], 100)) {
+            return json({ ok: false, error: 'scores_must_be_0_to_100' }, 400);
+          }
+          await ensureStudentEvaluationDetailSchema(env.DB);
+          await ensureEvaluationScoreSchema(env.DB);
           const now = Date.now();
           const r = await env.DB.prepare(
-            `INSERT INTO student_evaluations (user_id, eval_at, eval_type, level, score_speaking, score_listening, score_reading, score_writing, score_total, evaluator, comment, next_goal, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            `INSERT INTO student_evaluations (user_id, student_uid, eval_at, eval_type, level, score_speaking, score_listening, score_reading, score_writing, score_total, evaluator, comment, next_goal, created_at, updated_at, evaluation_source, score_scale)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
-            uid,
+            uid, uid,
             b.eval_at || now,
             b.eval_type || 'monthly',
             b.level || null,
@@ -2813,7 +4369,7 @@ ${numbered}`;
             b.evaluator || null,
             b.comment || null,
             b.next_goal || null,
-            now
+            now, now, 'student_detail', 100
           ).run();
           return json({ ok: true, id: r.meta.last_row_id });
         }
@@ -2906,10 +4462,46 @@ ${numbered}`;
       }
     }
 
+    /* 🙈 (2026-09-24 사장님 「숨김 버튼 만들어줘」) 학생을 명부에서 숨기기 / 되살리기.
+       POST /api/admin/student/:uid/hide   body: { hidden: true|false, reason?: string }
+       ⛔ 지우지 않는다 — student_erp_override.hidden 한 칸만 바꾼다(정본 setStudentHidden).
+          카페24 학생을 DELETE 하면 오늘 밤 되살아나고 붙은 기록만 주인을 잃는다(CLAUDE.md 2장).
+       🔒 본사 전용 — 강사·지사·대리점은 403. 게이트는 enrollAdminHqOnly 정본을 그대로 쓴다
+          (getAdminActor().role 하나만 보면 D1 이 흔들릴 때 조직 계정이 staff 로 새어 들어온다).
+       ℹ️ 새 라우팅 줄은 필요 없다 — src/index.ts 가 `/api/admin/student/` 접두사를 통째로 넘긴다. */
+    {
+      const m = path.match(/^\/api\/admin\/student\/([^\/]+)\/hide$/);
+      if (m && method === 'POST') {
+        const deny = await enrollAdminHqOnly(request, env);
+        if (deny) return deny;
+        const actor = await getAdminActor(request, env as any);
+        const uid = decodeURIComponent(m[1]);
+        const b = await parseJsonBody(request);
+        if (!b || typeof b.hidden !== 'boolean') return invalidBody(['hidden (true|false)']);
+        await ensureStudentDetailSchema();
+        /* 진짜 user_id 로 적어야 명부 거르기(user_id NOT IN …)가 걸린다 — 아이디 대소문자·
+           student_id/login_id 로 들어와도 ERP_BY_UID 정본으로 찾는다. 없는 학생은 404. */
+        const row = await env.DB.prepare(
+          `SELECT user_id FROM students_erp WHERE ${ERP_BY_UID} LIMIT 1`
+        ).bind(...erpUidBinds(uid)).first<{ user_id: string }>().catch(() => null);
+        if (!row || !row.user_id) return json({ ok: false, error: 'student_not_found', user_id: uid }, 404);
+        const r = await setStudentHidden(env as any, String(row.user_id), b.hidden, actor.username || 'admin', b.reason);
+        if (!r.ok) return json({ ok: false, error: 'save_failed', detail: r.reason }, 500);
+        const info = await getStudentHiddenInfo(env as any, String(row.user_id));
+        return json({ ok: true, user_id: row.user_id, hidden: b.hidden, hidden_info: info });
+      }
+    }
+
     // /api/admin/student/:uid/contact (PATCH — students_erp 업데이트)
     {
       const m = path.match(/^\/api\/admin\/student\/([^\/]+)\/contact$/);
       if (m && method === 'PATCH') {
+        // Student contact/password edits must reject teacher sessions before any DB writes.
+        const actor = await getAdminActor(request, env as any);
+        if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+        if (actor.isTeacher) return json(forbiddenTeacherBody(actor,
+          '강사 권한으로는 학생 정보를 수정할 수 없습니다.',
+          'Teachers cannot edit student contact details or passwords.'), 403);
         await ensureStudentDetailSchema();
         const uid = decodeURIComponent(m[1]);
         const b = await parseJsonBody(request);
@@ -2921,7 +4513,31 @@ ${numbered}`;
           if (b[k] === undefined) continue;
           // 🔒 마스킹된 표시값(*) 저장 차단 — 마스킹 문자열을 그대로 저장해 원본을 덮어쓰는 손상 방지
           if (PII_GUARD.has(k) && isMaskedValue(b[k])) { skippedMasked.push(k); continue; }
-          sets.push(`${k} = ?`); vals.push(b[k]);
+          /* 📞 (2026-09-16) 번호 칸의 «빈 문자열» 은 «지우겠다» 는 «뜻» 이지 저장할 «값» 이 아니다.
+             students_erp 에는 지금까지와 똑같이 NULL 을 쓴다 — 29,485행짜리 표에 새 값 모양('')을
+             들이지 않는다(읽는 자리가 `IS NOT NULL` 만 보면 그런 날 갈린다).
+             «지우겠다» 는 아래 _ovStu/_ovPar 가 override 쪽으로 따로 들고 간다. */
+          const _isPhoneCol = (k === 'student_phone' || k === 'parent_phone' || k === 'teacher_phone');
+          sets.push(`${k} = ?`); vals.push((_isPhoneCol && b[k] === '') ? null : b[k]);
+        }
+        // 🥭 학생 이름 — korean_name·username 을 «함께» 고친다(이 페이지 왼쪽 카드는 username 만 읽는다).
+        //   빈 문자열이면 손대지 않는다 — 이름을 NULL 로 지우면 화면 전체가 uid 로 떨어진다.
+        let nameChanged = false;
+        const newName = (typeof b.korean_name === 'string') ? b.korean_name.trim() : '';
+        if (newName) {
+          sets.push('korean_name = ?'); vals.push(newName);
+          sets.push('username = ?'); vals.push(newName);
+          nameChanged = true;
+        }
+        // 새 비밀번호 — students_erp.password_hash, api-students.ts hashPwd() 와 동일한 해시(SHA-256 + 고정 salt)
+        let passwordChanged = false;
+        if (typeof b.new_password === 'string' && b.new_password.length > 0) {
+          if (b.new_password.length < 4) return json({ ok: false, error: 'weak_password', message: '비밀번호는 4자 이상이어야 합니다.' }, 400);
+          const enc = new TextEncoder().encode(b.new_password + '|mangoi-salt-2026');
+          const buf = await crypto.subtle.digest('SHA-256', enc);
+          const ph = Array.from(new Uint8Array(buf)).map(x => x.toString(16).padStart(2, '0')).join('');
+          sets.push('password_hash = ?'); vals.push(ph);
+          passwordChanged = true;
         }
         if (sets.length === 0) {
           return skippedMasked.length
@@ -2929,12 +4545,144 @@ ${numbered}`;
             : json({ ok: false, error: 'nothing_to_update' }, 400);
         }
         sets.push('updated_at = ?'); vals.push(Date.now());
-        // student_id 우선, 없으면 login_id, 없으면 username 으로 매칭
-        vals.push(uid, uid, uid);
-        await env.DB.prepare(
-          `UPDATE students_erp SET ${sets.join(', ')} WHERE student_id = ? OR login_id = ? OR username = ?`
+        /* 🔑 override 에 쓸 진짜 user_id 는 «UPDATE 앞» 에서 구한다.
+           이름을 바꾸면 SET 에 `username = ?` 가 들어가는데, 그 행이 세 갈래 중
+           «username = uid» 로만 매칭됐다면 UPDATE 뒤에는 같은 키로 다시 찾을 수 없다
+           → realUid 가 null → override 미기록 → 야간 동기화가 이름을 되돌린다
+           (이 블록이 막으려던 바로 그 사고). 에러가 안 나서 조용히 재현된다.
+           📞 전화번호·🏢 가맹점·소속도 override 에 적으려면 «진짜 user_id» 가 필요하다.
+           `_ovTouch`·`_orgTouch` 는 마스킹에 안 걸린 칸이 하나라도 «문자열로» 왔는가
+           (= 사람이 실제로 고쳤는가) — null 은 빈 문자열과 다르다. 🔴 (trap-check, 2026-09-15)
+           이 화면(admin/student.html)의 폼(`phoneOut`)은 «원래 비어 있던 칸» 을 `null` 로,
+           «값이 있었는데 사람이 비운 칸» 만 `''` 로 보낸다(2026-09-16 부터. 그전에는 둘 다
+           `value || null` 이라 `''` 가 아예 안 왔다) — 그래서 반드시 `typeof === 'string'` 로
+           걸러야 한다. `String(v ?? '').trim()` 으로 null 까지 '' 로 뭉개면 «안 건드린 칸» 이
+           «지우려는 칸» 으로 오판된다(식을 오려 내 실제 payload 로 돌려 확인). */
+        const _ovStu = (typeof b.student_phone === 'string' && !isMaskedValue(b.student_phone)) ? String(b.student_phone).trim() : undefined;
+        const _ovPar = (typeof b.parent_phone  === 'string' && !isMaskedValue(b.parent_phone))  ? String(b.parent_phone).trim()  : undefined;
+        const _ovTouch = (_ovStu !== undefined || _ovPar !== undefined);
+        const _ovFran = (typeof b.franchise === 'string') ? String(b.franchise).trim() : undefined;
+        const _ovShop = (typeof b.shop_name === 'string') ? String(b.shop_name).trim() : undefined;
+        const _orgTouch = (_ovFran !== undefined || _ovShop !== undefined);
+        const preRow = (nameChanged || _ovTouch || _orgTouch) ? await env.DB.prepare(
+          `SELECT user_id FROM students_erp WHERE ${ERP_BY_UID} LIMIT 1`
+        ).bind(...erpUidBinds(uid)).first<{ user_id: string }>().catch(() => null) : null;
+        // 매칭 조건은 ERP_BY_UID 정본 하나 (user_id 를 빠뜨려 수동 등록 학생이 0행 갱신되던 사고 — 2026-09-14)
+        vals.push(...erpUidBinds(uid));
+        const _upd: any = await env.DB.prepare(
+          `UPDATE students_erp SET ${sets.join(', ')} WHERE ${ERP_BY_UID}`
         ).bind(...vals).run();
-        return json({ ok: true, updated_fields: sets.length - 1, skipped_masked: skippedMasked });
+        /* 📋 (2026-10-28) 명부 행이 «실제로» 바뀌었나 — 화면이 phone_kept:false 의 두 원인
+           (직원 입력 칸 쓰기 실패 · 이 아이디로 명부 행을 못 찾음 = 아무것도 안 적힘)을 가르려고 싣는다.
+           모르면(meta 없음) null — «안 적혔다» 로 지어내지 않는다. */
+        const rosterUpdated: boolean | null = (_upd && _upd.meta && typeof _upd.meta.changes === 'number') ? _upd.meta.changes > 0 : null;
+        // 🧹 이름을 바꿨으면 student_erp_override 에도 적어 둔다 — 안 그러면 카페24 야간
+        //   동기화(03:00 KST)가 하룻밤 만에 원래 이름으로 되돌린다(CLAUDE.md 2장 「학생 이름·
+        //   계정을 D1 에서 고치거나 지웠는데 다음날 원복됨」). 실제 매칭 키는 user_id 라
+        //   student_id/login_id/username 중 무엇으로 찾아왔든 진짜 user_id 를 먼저 구한다.
+        //   ⚠️ fail-open — 여기서 실패해도 오늘 화면은 이미 바뀌었으니 저장 자체는 성공으로 둔다.
+        if (nameChanged) {
+          try {
+            const realUid = preRow && preRow.user_id;
+            if (realUid && await ensureStudentOverrideTable(env as any)) {
+              const now = Date.now();
+              await env.DB.prepare(
+                `INSERT INTO student_erp_override (user_id, korean_name, created_at, updated_at)
+                 VALUES (?, ?, ?, ?)
+                 ON CONFLICT(user_id) DO UPDATE SET korean_name = excluded.korean_name, updated_at = excluded.updated_at`
+              ).bind(realUid, newName, now, now).run();
+            }
+          } catch { /* 이름 고정 실패 — 오늘은 바뀌고 내일 밤 되돌아갈 뿐, 저장 자체는 막지 않는다 */ }
+        }
+        /* 📞 (2026-09-15) 번호는 `student_erp_override` 에도 «함께» 적는다.
+           ⛔ students_erp 에만 쓰면 매일 밤 03:00 KST 카페24 UPSERT 가 parent_phone·
+              student_phone·phone 을 덮어 **하룻밤이면 사라진다**(cafe24-sync.ts 의 SET 목록).
+              실측 선례: 8월에 리마인더 문자가 나갔던 체험계정 lt15·lt16·lt18 이 그렇게 번호를 잃었고,
+              그래서 7일간 671건의 수업을 정확히 찾고도 한 통도 못 보냈다(2026-09-10).
+           ✅ 수업 전 안내문자가 읽는 정본은 notify-contacts.ts 의 `phonesForStudent` 이고
+              그것이 이 표를 «먼저» 본다 — 여기 적어야 실제로 문자가 간다.
+           ✅ **«빈 칸으로 지우기» 가 2026-09-16 에 닿았다.** 이 자리에는 그전까지
+              「지금은 닿지 않는다 · 사람이 정할 일」이라고 적혀 있었다(#993). 먼저였던 전제는
+              「폼이 override 번호를 보여주는 것」이었고 그것이 #996 에서 들어왔다(GET /full 이
+              getOverridePhones 로 덮어 보여준다) — 그래서 이제 이 갈래를 열 수 있었다.
+           ✅ 화면(`public/admin/student.html` 의 `phoneOut`)은 «원래 비어 있던 칸» 은 여전히
+              `null` 로 보내고(= 이 칸을 안 건드림), «값이 있었는데 사람이 비운 칸» 만 빈 문자열로
+              보낸다 — 그래서 아래 `del`/`clear` 갈래는 «사람이 지우려 했을 때» 만 돈다.
+           ⛔ 이것을 「`null` 도 지우기로 받기」로 넓히지 말 것 — override 읽기가 실패해(fail-open)
+              칸이 빈 채로 뜨는 날 «학교만» 고쳐 저장하는 것만으로 어제 넣은 번호가 지워진다
+              (그 갈림은 화면이 «로드 때 값» 을 기억해서 내며, 서버는 null/'' 만 보고 판정한다).
+           🔴 **«지웠다» 가 «문자가 안 간다» 는 아니다 — 학생 쪽은 폴백이 «세 겹» 이다.**
+              `phonesForStudent`(notify-contacts.ts)가 `ovStudent || student_phone || **phone**`
+              순으로 읽는데 이 PATCH 의 `allowed` 에는 **`phone` 칸이 없다.** 게다가 카페24 야간
+              동기화가 학생 번호를 `student_phone` «과» `phone` **두 칸에** 넣는다(cafe24-sync.ts
+              의 `sPhone, sPhone`) ⟹ override 를 지우고 `student_phone` 을 NULL 로 만들어도
+              `phone` 이 남아 **문자가 계속 간다**(그 칸이 채워진 학생에게만. 실측 기록은
+              cafe24-sync.ts 의 「phone 9개」이고 오늘 값은 D1 로 확인할 것).
+              ⚠️ 학부모 쪽은 폴백이 `ovParent || parent_phone` 둘뿐이라 지우기가 그대로 먹는다 —
+                 **학생·학부모가 비대칭이다.** 그래서 화면 문구는 «문자가 안 갑니다» 라고
+                 단정하지 않고 «남은 번호가 있으면 그 번호로 갑니다» 라고만 말한다.
+              ⛔ `phone` 을 `allowed` 에 넣어 풀려 하지 말 것 — 카페24 정본 칸이라 그날 밤 다시
+                 채워진다(정본을 카페24에서 고쳐야 하는 별건. 사람이 정할 일).
+           ⚠️ 마스킹된 표시값(***)은 위 PII_GUARD 에서 이미 걸러져 여기 안 온다.
+           ⚠️ 실패해도 저장 자체는 막지 않는다 — 대신 «조용히» 넘기지 않고 `phone_kept` 로
+              응답에 실어 화면이 사람에게 말하게 한다. */
+        let phoneKept: boolean | null = null;
+        if (_ovTouch) {
+          phoneKept = false;
+          try {
+            const realUid = preRow && preRow.user_id;
+            if (realUid) {
+              const put: any = {}, del: any = {};
+              if (_ovStu !== undefined) { if (_ovStu) put.student = _ovStu; else del.student = ''; }
+              if (_ovPar !== undefined) { if (_ovPar) put.parent  = _ovPar;  else del.parent  = ''; }
+              let okAll = true;
+              if (put.student !== undefined || put.parent !== undefined) {
+                const r1 = await setOverridePhones(env as any, String(realUid), put, 'admin-edit');
+                if (!r1.ok) okAll = false;
+              }
+              if (del.student !== undefined || del.parent !== undefined) {
+                const r2 = await setOverridePhones(env as any, String(realUid), { ...del, clear: true }, 'admin-edit');
+                if (!r2.ok) okAll = false;
+              }
+              phoneKept = okAll;
+            }
+          } catch (e: any) {
+            console.warn('[student/contact] 번호 보관 실패:', e?.message || e);
+            phoneKept = false;
+          }
+        }
+        /* 🏢 (2026-09-15) 가맹점·소속도 같은 이유로 student_erp_override 에 함께 적는다(위 phoneKept
+           와 같은 사정 — cafe24-sync.ts 의 UPSERT 가 `franchise = excluded.franchise`,
+           `shop_name = excluded.shop_name` 으로 **무조건** 덮는다. 전화번호와 달리 COALESCE 보호조차
+           없다). 정본은 setOverrideOrgField — franchise·shop_name 은 **서로 다른 필드**라 한 번에
+           한 필드씩만 받는다(setOverridePhones 의 교차오염을 원천적으로 피하려고 시그니처 자체가
+           그렇게 돼 있다 — CLAUDE.md 「지정 값을 저장하는 setter 에 두 필드를 한 번에 넘기고…」).
+           빈 문자열은 그 자체로 «지운다» 는 뜻이라(함수 docstring) phones 같은 별도 clear 플래그가
+           필요 없다. ⚠️ 실패해도 저장 자체는 막지 않는다 — org_kept 로 응답에 실어 화면이 사람에게
+           말하게 한다. */
+        let orgKept: boolean | null = null;
+        if (_orgTouch) {
+          orgKept = false;
+          try {
+            const realUid = preRow && preRow.user_id;
+            if (realUid) {
+              let okAll = true;
+              if (_ovFran !== undefined) {
+                const r1 = await setOverrideOrgField(env as any, String(realUid), 'franchise', _ovFran, 'admin-edit');
+                if (!r1.ok) okAll = false;
+              }
+              if (_ovShop !== undefined) {
+                const r2 = await setOverrideOrgField(env as any, String(realUid), 'shop_name', _ovShop, 'admin-edit');
+                if (!r2.ok) okAll = false;
+              }
+              orgKept = okAll;
+            }
+          } catch (e: any) {
+            console.warn('[student/contact] 가맹점·소속 보관 실패:', e?.message || e);
+            orgKept = false;
+          }
+        }
+        return json({ ok: true, updated_fields: sets.length - 1 - (nameChanged ? 1 : 0), skipped_masked: skippedMasked, password_changed: passwordChanged, name_changed: nameChanged, phone_kept: phoneKept, org_kept: orgKept, roster_updated: rosterUpdated });
       }
     }
 
@@ -2954,8 +4702,8 @@ ${numbered}`;
 
         // 현재 end_date 조회
         const cur = await env.DB.prepare(
-          `SELECT end_date FROM students_erp WHERE student_id = ? OR login_id = ? OR username = ? LIMIT 1`
-        ).bind(uid, uid, uid).first<{ end_date: string }>();
+          `SELECT end_date FROM students_erp WHERE ${ERP_BY_UID} LIMIT 1`
+        ).bind(...erpUidBinds(uid)).first<{ end_date: string }>();
 
         // 새 종료일 계산
         let newEnd: string;
@@ -2977,8 +4725,8 @@ ${numbered}`;
         // students_erp.end_date 갱신
         await env.DB.prepare(
           `UPDATE students_erp SET end_date = ?, updated_at = ?
-           WHERE student_id = ? OR login_id = ? OR username = ?`
-        ).bind(newEnd, Date.now(), uid, uid, uid).run();
+           WHERE ${ERP_BY_UID}`
+        ).bind(newEnd, Date.now(), ...erpUidBinds(uid)).run();
 
         // enrollments 도 함께 연장 (활성 행 1개) — KST 기준 종료시각 ms
         const newEndMs = new Date(newEnd + 'T23:59:59+09:00').getTime();
@@ -3056,6 +4804,59 @@ ${numbered}`;
         }
         await (env as any).SESSION_STATE?.put?.(rkey, String(cur + 1), { expirationTtl: 7200 });
       } catch { /* KV 장애로 정상 수업이 막히면 안 되므로 통과 */ }
+
+      /* 🎥 (2026-09-08 사장님 「왜 자꾸 동시에 두번씩 녹화가 되는 거지?」)
+         같은 방을 «두 기기가 각각» 찍고 있으면 두 번째를 거절한다. 두 파일은 내용이 같고,
+         한 벌이 실시간 영상과 같은 CPU·업로드 회선을 나눠 쓴다(파일 머리말: recording-dup-guard.ts).
+
+         ⚠️ 「가장 수업에 덜 지장있게」(같은 날 지시) — 이 게이트는 **막는 쪽으로 실패하지 않는다.**
+            조회가 실패하면(표가 없다·D1 이 흔들린다) rows 가 null 이라 정본이 그냥 통과시킨다.
+            잃을 것이 «수업 녹화 그 자체» 라, 두 벌보다 0벌이 나쁘기 때문이다.
+         ⚠️ 「살아 있는가」는 recording_parts.created_at 으로 잰다 — recordings 에는 그 시각 칸이
+            없고, 새 칸을 지연 ALTER 로 붙이면 없는 DB 에서 조회가 통째로 죽는다(CLAUDE.md 함정).
+         ⛔ LEFT JOIN 으로 바꾸지 말 것 — 파트가 여럿이면 행이 늘어 «같은 녹화» 가 여러 번 걸린다.
+         ⚠️ 200 으로 돌려준다 — 화면이 «실패» 로 오인해 재시도 폭주하지 않게(consent_required 선례). */
+      /* ⚠️ room_id 가 비면 이 게이트를 건너뛴다 — 빈 값('')끼리 «같은 방» 으로 묶여
+            서로 다른 수업이 서로를 막는다(클라이언트는 vcRoomId 가 미정의면 '' 를 보낸다). */
+      if (String(b.room_id || '').trim()) try {
+        let dupRows: any[] | null = null;
+        try {
+          const rs = await env.DB.prepare(
+            `SELECT r.id AS id, r.teacher_name AS teacher_name,
+                    COALESCE((SELECT MAX(p.created_at) FROM recording_parts p
+                               WHERE p.recording_id = r.id), r.started_at) AS alive_at
+               FROM recordings r
+              WHERE r.room_id = ? AND r.status = 'recording'
+              ORDER BY r.started_at DESC
+              LIMIT 10`
+          ).bind(String(b.room_id || '')).all();
+          dupRows = (rs.results || []) as any[];
+        } catch (e: any) {
+          // 표가 아직 없거나 D1 이 흔들렸다 = «모른다» → 막지 않는다
+          console.error('[recordings] 동시녹화 조회 실패(통과시킴):', e?.message || e);
+          dupRows = null;
+        }
+        const gate = recordingDupGate({ rows: dupRows, now, windowMs: REC_DUP_LIVE_WINDOW_MS });
+        if (gate.block) {
+          console.log(`[recordings] 동시 녹화 거절 room=${b.room_id} holder=${gate.holderId}`);
+          /* ⛔ «누가 찍고 있는지» 를 응답에 싣지 않는다 — 그 값(recordings.teacher_name)은
+                화면의 아이디 입력칸(index.html `#vc-name-input`, autocomplete="username")에서 온
+                **학생 로그인 아이디**일 수 있다(9/8 실측: 그 칸에 `ysyt01`·`mby1` 이 그대로 찍혔다).
+                이 경로는 무인증이고 room_id 는 `class-{예약id}-{YYYYMMDD}` 로 열거 가능해서,
+                수업 시간대 내내 «그 방 학생의 아이디» 를 아무나 받아 가는 통로가 된다.
+                이 서비스에서 아이디는 곧 비밀번호다(password_hash 가 설정된 학생 0명 — CLAUDE.md 2장).
+             ✅ 사람에게는 「다른 기기에서 녹화 중」 하나면 충분하고, 화면은 이름 없이도 그린다. */
+          return json({
+            ok: false,
+            error: 'already_recording',
+            retry_after_ms: REC_DUP_LIVE_WINDOW_MS,
+            message: '이 수업은 다른 기기에서 이미 녹화하고 있습니다.'
+          }, 200);
+        }
+      } catch (e: any) {
+        console.error('[recordings] 동시녹화 판정 예외(통과시킴):', e?.message || e);
+      }
+
       const participantIds = (b.participant_ids || []) as string[];
       const participantNames = (b.participant_names || []) as string[];
 
@@ -3088,7 +4889,8 @@ ${numbered}`;
          [무엇을 근거로 채우나] `attendance.last_seen_at`.
                 이 값은 클라이언트가 30초마다 부르는 /api/speaking-time 이 **서버 도착 시각으로**
                 찍는다(클라 값으로 대체되지 않는다). 그래서 위조도 과다계상도 안 된다.
-                user_id 역시 mango_token 과 다르면 거부되므로(_attnSoftAuthOk) 남의 계정을 못 적는다.
+                account_uid 역시 mango_token 과 다르면 거부되므로(_attnSoftAuthOk) 남의 계정을 못 적는다
+                (⚠️ 2026-09-04 정정 — 전에는 «user_id» 라고 적혀 있었는데 그 칸은 기기 식별자다).
          [왜 «겹침»이 아니라 «지금 살아 있음» 인가] left_at 은 자주 안 닫힌다 —
                 공용방 학생 1,583행 중 272행이 left_at 없음이고, 세션 길이 최대치가 15일이었다.
                 그걸로 시간겹침을 재면 무관한 학생까지 걸린다(느슨한 창으로 재 봤을 때 1,359건 중
@@ -3169,14 +4971,39 @@ ${numbered}`;
         }, 200);   // 200 — 수업 화면이 «실패» 로 오인해 재시도 폭주하지 않도록(본문으로 판단)
       }
 
-      // 녹화 보관기간 = 3개월 (2026-08-06 사장님 결정. 그 전 값은 30일이었다)
-      // ⚠️ 이 값은 «앞으로 만들어질» 녹화에만 적용된다. 이미 있는 행의 expires_at 은
-      //    그대로 둔다 — 학부모가 동의한 시점의 기간보다 더 오래 갖고 있게 되면
-      //    보관기간을 늘리는 것이 곧 동의 범위를 넘는 일이 되기 때문.
-      const RETENTION_MS = 90 * 24 * 3600 * 1000; // 3개월
+      // 녹화 보관기간 = 6개월 (2026-09-02 사장님 결정. 그 전 3개월 · 더 전 30일)
+      /* ⚠️ 이 값은 «앞으로 만들어질» 녹화에만 적용된다. 이미 있는 행의 expires_at 은
+            그대로 둔다 — 학부모가 동의한 시점의 기간보다 더 오래 갖고 있게 되면
+            보관기간을 늘리는 것이 곧 동의 범위를 넘는 일이 되기 때문.
+            (recordings.expires_at 을 UPDATE 하는 코드는 저장소에 0곳이다 — 그렇게 지킨다)
+
+         📅 2026-09-02 사장님 결정으로 3개월 → **6개월**.
+            먼저 동의 화면(js/mango-consent.js)의 안내 문구를 6개월로 바꾸고 이 값을 올렸다.
+            ⛔ 기존 2,098행은 «3개월» 이라 안내받고 동의한 것이므로 소급하지 않는다.
+               그래서 한동안 3개월짜리와 6개월짜리가 섞여 있다 — 화면 문구에서 숫자를 뺀 이유다.
+
+         🔴 다만 «6개월 안내를 본 사람의 녹화만 180일» 이 되는 것은 **아니다.**
+            mangoConsentEnsure() 는 동의 행이 이미 있으면 그 자리에서 돌아가고
+            CONSENT_VERSION 을 비교하지 않는다(저장만 하고 읽는 곳이 없다).
+            ⟹ 예전에 3개월로 안내받고 동의한 학생의 **앞으로 찍힐** 녹화에도 180일이 붙는다.
+               그 사람은 6개월 문구를 볼 기회가 없다.
+            이 틈을 닫으려면 CONSENT_VERSION 비교를 넣어 다시 묻게 해야 하는데,
+            학생 29,000명에게 동의를 다시 받는 일이라 **사람이 정할 문제**다(2026-09-02 미결).
+            ⛔ 그때까지 이 자리를 「동의 범위 안이다」로 적지 마세요 — 과거 데이터에 대해서만 참이다.
+
+         📌 2026-09-02 이전 옛 30일 행 1,483건을 90일로 맞춘 적이 있는데(파기를 켜던 날),
+            그건 «늘린» 것이 아니라 동의 문구가 이미 3개월이었던 것에 **맞춘** 것이다. */
+      const RETENTION_MS = 180 * 24 * 3600 * 1000; // 6개월
       const res = await env.DB.prepare(
-        `INSERT INTO recordings (room_id, teacher_id, teacher_name, filename, participant_ids, participant_names, consented_user_ids, started_at, expires_at, storage)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'local')`
+        /* 🎥 (2026-09-08) status 를 «명시» 한다 — 예전엔 컬럼 목록에서 빼고 DEFAULT 에 기댔는데,
+              그 기본값이 두 벌이라 환경에 따라 갈렸다: schema.sql:83 은 DEFAULT 'recording' 인데
+              런타임 `CREATE TABLE IF NOT EXISTS recordings` 3곳(api-mango 2 · index.ts 1)에는 없다.
+              DEFAULT 가 없는 DB 에서는 status 가 NULL 이라
+                ① 파트 업로드가 통째로 거절되고(recordings-r2.ts 의 `status !== 'recording'`)
+                ② 동시녹화 게이트가 영원히 0행을 봐서 «넣었는데 한 번도 안 도는» 상태가 된다.
+              값은 운영 DB 의 DEFAULT 와 같으므로 기존 동작은 바뀌지 않는다. */
+        `INSERT INTO recordings (room_id, teacher_id, teacher_name, filename, participant_ids, participant_names, consented_user_ids, started_at, expires_at, storage, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'local', 'recording')`
       ).bind(
         b.room_id, b.teacher_id, b.teacher_name || null,
         b.filename || `rec_${b.room_id}_${now}.webm`,
@@ -3200,19 +5027,155 @@ ${numbered}`;
     if (path === '/api/recordings/stop' && method === 'POST') {
       const b = await request.json() as any;
       const now = Date.now();
+
+      // Capture has stopped; preserve upload eligibility while the final chunks drain.
+      if (b.finalize_pending === true) {
+        await env.DB.prepare(
+          `UPDATE recordings SET ended_at = COALESCE(ended_at, ?)
+            WHERE id = ? AND status = 'recording' AND file_url IS ?`
+        ).bind(now, b.recording_id, b.recording_key || null).run();
+        return json({ ok: true, finalize_pending: true });
+      }
+
+      /* 🔴 2026-08-26: 예전엔 R2 업로드가 됐든 안 됐든 **무조건 'completed'** 로 적었다.
+         그래서 클라우드에 한 조각도 안 올라간 녹화가 목록에 초록색 「완료 · 2.1MB」로 떴다
+         (그 용량은 브라우저가 잰 «로컬» 값이다). 8/25 에 1,692건이 전부 「완료」인데
+         「⚠️ 영상 없음」이던 화면의 절반이 이것이었다 — 화면이 «저장됐다» 고 말해 버리니
+         아무도 «안 올라갔다» 는 것을 알 수 없었다.
+         → 적기 전에 **실물이 있는지 서버가 직접 확인**한다. 클라이언트 말만 믿지 않는다. */
+      const cur = await env.DB.prepare(
+        `SELECT file_url, status, size_bytes, duration_ms FROM recordings WHERE id = ?`
+      ).bind(b.recording_id).first<{ file_url: string | null; status: string | null; size_bytes: number | null; duration_ms: number | null }>();
+
+      // 실물 확인은 «진짜 R2 키» 일 때만. 'CLIENT_ERR:'·'DEBUG:' 는 옛 클라이언트가 오류
+      // 메시지를 이 칸에 적어 둔 것이라 키가 아니다(video-call/js/recorder.js `_callStop`).
+      const curKey = String(cur?.file_url || '');
+      const looksLikeKey = !!curKey && !curKey.startsWith('CLIENT_ERR:') && !curKey.startsWith('DEBUG:');
+      let partialAvailable = false;
+      let headProven = false;    // 실물을 «봤다» — 이때만 완료로 올려준다(자가복구 포함)
+      let headChecked = false;   // 조회가 성립했는가 — 예외면 판단을 보류한다
+      const recBucket = (env as any).RECORDINGS as R2Bucket | undefined;
+      if (looksLikeKey && recBucket) {
+        try {
+          const object = await recBucket.head(curKey);
+          partialAvailable = object?.customMetadata?.recoveredFrom === 'snapshot';
+          headProven = !!object && !partialAvailable;
+          headChecked = true;
+        } catch { headChecked = false; }
+      }
+
+      /* ⚠️ 강등은 «없다고 밝혀졌을 때» 만 한다. 조회를 못 했으면 예전 동작(완료)을 유지한다 —
+         이 경로는 수업이 끝날 때마다 도는 곳이라, 막는 쪽이 아니라 통과시키는 쪽으로 실패해야
+         멀쩡한 녹화가 무더기로 «실패» 로 찍히지 않는다. */
+      // A late stop must not replace the clip's unknown duration with class duration.
+      if (partialAvailable && cur?.status === 'completed') {
+        return json({ ok: true, status: 'completed', storage: 'r2_snapshot', cloud_verified: true });
+      }
+      const provenMissing = headChecked && !headProven;
+      const clientSaysFailed = b.r2_success === false;   // 새 클라이언트만 보낸다(옛 것은 undefined)
+      /* 🔢 본문 값은 «숫자로 강제» 해서만 쓴다 — 아래 SQL 의 MAX() 보호가 숫자일 때만
+         성립하기 때문이다(자세한 이유는 UPDATE 문 위 주석). */
+      const stopDurMs = Math.max(0, Number(b.duration_ms) || 0);
+      const stopSizeB = Math.max(0, Number(b.size_bytes) || 0);
+
+      /* 🔴 (2026-09-02) «없던 일(aborted)» 판정은 클라이언트가 보낸 값만으로 하면 안 된다.
+         탭을 닫고 나가면 onstop 이 안 돌아 이 요청은 duration 0 · size 0 으로 온다.
+         그런데 그 사이 조각 업로드가 이미 size_bytes 를 적어 뒀을 수 있다(recordings-r2.ts
+         «업로드 중 size_bytes 갱신»). 그걸 안 보면 **진짜 찍힌 수업이 «없던 일» 로 분류되고**
+         목록이 «aborted + size 0» 을 통째로 감추므로 화면에서 사라진다.
+         → DB 에 이미 적힌 값도 함께 본다. 하나라도 0 보다 크면 «없던 일» 이 아니다. */
+      const recordedBytes = Math.max(stopSizeB, Number(cur?.size_bytes) || 0);
+      const recordedMs = Math.max(stopDurMs, Number(cur?.duration_ms) || 0);
+      const nothingRecorded = !(recordedMs > 0) && !(recordedBytes > 0);
+      let fallbackStatus = (provenMissing || clientSaysFailed)
+        ? (nothingRecorded ? 'aborted' : 'upload_failed')   // 1초도 안 찍힌 건 «실패» 가 아니라 «없던 일»
+        : 'completed';
+
+      // Failed completion remains retryable while any recovery source survives.
+      if (!headProven && curKey.startsWith('rec/') && cur?.status === 'recording') {
+        try {
+          const part = await env.DB.prepare(`SELECT 1 AS n FROM recording_parts WHERE recording_id = ? LIMIT 1`)
+            .bind(b.recording_id).first();
+          const snapshot = recBucket ? await recBucket.head(curKey + '.snap') : null;
+          if (part || snapshot || partialAvailable || !headChecked) fallbackStatus = 'recording';
+        } catch { fallbackStatus = 'recording'; }
+      }
+
+      /* ⚠️ duration_ms·size_bytes 를 «덮어쓰지» 않는다(MAX) — 이 요청이 0 으로 와도
+         조각 업로드가 이미 적어 둔 값을 지우면 위 판정이 다음번에 또 뒤집힌다.
+         🔴 그런데 그 보호는 **바인드가 «숫자» 일 때만** 성립한다. SQLite 의 스칼라 MAX() 는
+            타입 우선순위(TEXT > 숫자)로 비교하므로 문자열 "0" 하나면 613000 을 0 으로 지운다
+            (2026-09-02 node:sqlite 로 실측). 이 엔드포인트는 소유권 검사가 없는 공개 POST 라
+            본문이 무엇이든 올 수 있다 → **Number 로 강제**한다(형제 파일 recordings-r2.ts 와 같은 방식).
+         ⛔ `b.duration_ms || 0` 로 되돌리지 말 것 — "0" 은 truthy 라 그대로 통과한다. */
       await env.DB.prepare(
         `UPDATE recordings
-            SET ended_at = ?, duration_ms = ?, size_bytes = ?,
-                status = CASE WHEN status IN ('upload_failed','deleted') THEN status ELSE 'completed' END,
+            SET ended_at = ?, duration_ms = MAX(COALESCE(duration_ms, 0), ?), size_bytes = MAX(COALESCE(size_bytes, 0), ?),
+                status = CASE
+                  WHEN status = 'deleted'       THEN status
+                  WHEN ? = 1                    THEN 'completed'
+                  WHEN status = 'upload_failed' THEN status
+                  ELSE ?
+                END,
                 file_url = COALESCE(?, file_url), storage = COALESCE(?, storage)
           WHERE id = ?`
-      ).bind(now, b.duration_ms || 0, b.size_bytes || 0, b.file_url || null, b.storage || null, b.recording_id).run();
+      ).bind(now, stopDurMs, stopSizeB,
+             headProven ? 1 : 0, fallbackStatus,
+             curKey.startsWith('rec/') ? null : (b.file_url || null),
+             curKey.startsWith('rec/') ? null : (b.storage || null), b.recording_id).run();
       const after = await env.DB.prepare(`SELECT status, storage FROM recordings WHERE id = ?`)
         .bind(b.recording_id).first<{ status: string | null; storage: string | null }>();
-      return json({ ok: true, ended_at: now, status: after?.status || null, storage: after?.storage || null });
+      return json({
+        ok: true, ended_at: now,
+        status: after?.status || null, storage: after?.storage || null,
+        cloud_verified: headProven,          // 화면·진단이 «정말 올라갔나» 를 알 수 있게 함께 준다
+      });
     }
 
     if (path === '/api/recordings' && method === 'GET') {
+      /* 🩺 녹화 진단 (2026-09-29 사장님 «녹화된 것을 AI 가 스스로 확인해 잘 진행됐는지·문제점을»)
+         `?diagnose=<녹화 id>` — 이 경로는 이미 로그인 게이트(isAdminPath)를 지나므로
+         src/index.ts(공동 금지구역)를 한 줄도 안 건드린다. 판정 정본은 src/recording-diagnosis.ts.
+         ⚠️ 두 조회는 각각 실패할 수 있다 — 실패하면 «없음» 이 아니라 «못 읽음» 으로 넘긴다(null).
+            빈 배열로 떨어뜨리면 «기록 없음» 과 «못 물어봄» 이 같은 글자가 된다. */
+      const _diagId = url.searchParams.get('diagnose');
+      if (_diagId !== null) {
+        const rid = parseInt(_diagId, 10);
+        if (!Number.isFinite(rid) || rid <= 0) return json({ ok: false, error: 'bad_id' }, 400);
+        const rec: any = await env.DB.prepare(
+          `SELECT id, room_id, started_at, ended_at, duration_ms, status, storage, participant_names
+             FROM recordings WHERE id = ?`).bind(rid).first();
+        if (!rec) return json({ ok: false, error: 'not_found' }, 404);
+        const st = Number(rec.started_at) || 0;
+        const endMs = Number(rec.ended_at) || (Number(rec.duration_ms) ? st + Number(rec.duration_ms) : st + 3 * 3600000);
+        const wFrom = st - 60000, wTo = endMs + 60000;
+        let joins: any[] | null = null, quality: any[] | null = null;
+        const lookupFailed: string[] = [];
+        try {
+          const r1 = await env.DB.prepare(
+            /* 겹침 조건 — 녹화 «전» 에 먼저 들어와 있던 사람(보통 강사)도 넣어야 그 사람의
+               재입장이 «늦은 입장» 으로 뒤바뀌지 않는다. 6시간 전까지만(풀스캔 방지).
+               ⚠️ left_at 이 NULL 인 행은 «아직 있다» 가 아니다 — 끊겨서 leave 를 못 보낸 옛 세션이
+                  흔하다(mangoi-class 처럼 재사용되는 방이면 남의 수업 행). 그래서 NULL 이면
+                  «창 안에 들어왔거나 창 안에서 하트비트(last_seen_at, 서버 시각)가 찍힌» 것만 받는다. */
+            `SELECT username, account_uid, user_id, role, joined_at, left_at, total_active_ms, total_session_ms
+               FROM attendance WHERE room_id = ? AND joined_at BETWEEN ? AND ?
+                AND (left_at >= ? OR (left_at IS NULL AND (joined_at >= ? OR last_seen_at >= ?)))
+              ORDER BY joined_at LIMIT 500`).bind(rec.room_id, wFrom - 6 * 3600000, wTo, wFrom, wFrom, wFrom).all();
+          joins = (r1.results || []) as any[];
+        } catch (e: any) { lookupFailed.push('attendance'); console.warn('[rec-diagnose] attendance', e?.message); }
+        try {
+          const r2 = await env.DB.prepare(
+            /* 보고 한 줄은 «앞 1분» 요약이라 wTo(=끝+1분)까지면 겹치는 것은 다 들어온다.
+               그 뒤는 녹화가 끝난 뒤를 잰 것이라 넣지 않는다. */
+            `SELECT * FROM vc_quality WHERE room = ? AND ts BETWEEN ? AND ? ORDER BY ts LIMIT 2000`
+          ).bind(rec.room_id, wFrom, wTo).all();
+          quality = (r2.results || []) as any[];
+        } catch (e: any) { lookupFailed.push('vc_quality'); console.warn('[rec-diagnose] vc_quality', e?.message); }
+        /* 못 읽은 것은 null 로 넘긴다 — 정본이 «없음» 과 «못 읽음» 을 갈라 말한다. */
+        const d = diagnoseRecording(rec, joins, quality);
+        return json({ ok: true, id: rid, lookup_failed: lookupFailed, ...d });
+      }
       // 녹화 목록 조회 — D1 의 recordings 메타데이터 + (참여도 점수) 함께 반환.
       // 참여도 점수는 attendance 테이블의 talk-time 비율로 도출한다.
       //   speaking_score : (총 활성 발화시간 / 총 세션시간) × 100
@@ -3229,7 +5192,7 @@ ${numbered}`;
       const qSearch   = (url.searchParams.get('q') || '').trim();           // 방ID / 교사명 / 교사ID LIKE
       const dateFrom  = url.searchParams.get('date_from');                  // YYYY-MM-DD (KST 기준 00:00)
       const dateTo    = url.searchParams.get('date_to');                    // YYYY-MM-DD (KST 기준 23:59:59)
-      const status    = url.searchParams.get('status');                     // ended | recording | aborted | deleted | all
+      const status    = url.searchParams.get('status');                     // completed | upload_failed | recording | aborted | deleted | all  ('ended' 는 옛 이름 — completed 로 정규화)
       const limit     = Math.max(1,  Math.min(200, parseInt(url.searchParams.get('limit')  || '50', 10)));
       const offset    = Math.max(0,                parseInt(url.searchParams.get('offset') || '0',  10));
 
@@ -3239,9 +5202,36 @@ ${numbered}`;
       if (teacherId) { whereParts.push('r.teacher_id = ?'); whereBinds.push(teacherId); }
       if (roomId)    { whereParts.push('r.room_id = ?');    whereBinds.push(roomId); }
       if (qSearch) {
-        whereParts.push("(r.room_id LIKE ? OR COALESCE(r.teacher_name,'') LIKE ? OR COALESCE(r.teacher_id,'') LIKE ?)");
+        /* 🎓 2026-09-01 — 「학생」 칸을 만들면서 검색도 함께 넓힌다.
+           안 넓히면 화면에 학생 이름이 보이는데 그 이름으로 검색하면 0건이 나온다
+           (「검색했는데 아무것도 없다」로 읽힌다 — CLAUDE.md 2장 「전용 검색창」 항목과 같은 뿌리).
+           ⚠️ participant_names·participant_ids 에는 교사 표시이름과 임시 접속번호도 섞여 있어
+              여기 검색은 «학생만» 이 아니라 «그 방에 적힌 것 전부» 다. 화면 칸(학생)보다 넓게
+              걸리는 것이 정상이고, 좁게 걸리는 것보다 낫다(못 찾는 것이 더 나쁘다). */
+        /* 🧑‍🏫 2026-09-04 — 「교사」·「아이디」 칸을 «예약에 배정된 강사» 로 바꾸면서 검색도 넓힌다.
+           그 칸의 값(예: 방 class-1079 의 교사 「KRYSTEL」·아이디 「mangoi_169」)은 recordings
+           어느 칸에도 없다 — 안 넓히면 **화면에 보이는 이름으로 검색하면 0건**이 나온다.
+           ⚠️ `cs.id` 는 PK 라 상관 서브쿼리라도 한 건 조회다. 방 번호에서 예약 id 를 떼는 식은
+              `class-1079-20260903` → `1079` (SUBSTR 7 부터 다음 «-» 앞까지). */
+        whereParts.push(
+          "(r.room_id LIKE ? OR COALESCE(r.teacher_name,'') LIKE ? OR COALESCE(r.teacher_id,'') LIKE ?"
+          + " OR COALESCE(r.participant_names,'') LIKE ? OR COALESCE(r.participant_ids,'') LIKE ?"
+          + " OR EXISTS (SELECT 1 FROM class_schedules cs"
+          + "             WHERE r.room_id LIKE 'class-%'"
+          + "               AND cs.id = CAST(SUBSTR(r.room_id, 7, INSTR(SUBSTR(r.room_id, 7), '-') - 1) AS INTEGER)"
+          + "               AND (EXISTS (SELECT 1 FROM teachers t"
+          + "                             WHERE CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)"
+          + "                               AND COALESCE(t.name,'') LIKE ?)"
+          + "                 OR EXISTS (SELECT 1 FROM teacher_account_links tal"
+          + "                             WHERE CAST(tal.teacher_id AS TEXT) = CAST(cs.teacher_id AS TEXT)"
+          + "                               AND COALESCE(tal.username,'') LIKE ?)"
+          /* 🎓 2026-09-14 — 「학생」 칸의 첫 근거는 예약표(cs.user_id·cs.student_name,
+             src/recording-students.ts)인데 여기 검색은 participant_* 만 봐서, 동의 안 한
+             학생은 화면에 이름이 보이는데 그 이름으로 검색하면 0건이었다. */
+          + "                 OR COALESCE(cs.student_name,'') LIKE ?"
+          + "                 OR COALESCE(cs.user_id,'') LIKE ?)))");
         const p = `%${qSearch}%`;
-        whereBinds.push(p, p, p);
+        whereBinds.push(p, p, p, p, p, p, p, p, p);
       }
       if (dateFrom) {
         const ms = Date.parse(dateFrom + 'T00:00:00+09:00');
@@ -3251,9 +5241,16 @@ ${numbered}`;
         const ms = Date.parse(dateTo + 'T23:59:59+09:00');
         if (!isNaN(ms)) { whereParts.push('r.started_at <= ?'); whereBinds.push(ms); }
       }
-      if (status && status !== 'all') {
+      /* 🔤 상태값 정규화 (2026-08-28) — 화면 필터 「종료」의 value 가 'ended' 인데
+         D1 에 실제로 들어가는 값은 'completed' 다(운영 실측: completed·deleted·aborted·
+         upload_failed·recording 다섯 뿐, 'ended' 행은 **0건**). 그래서 「종료」를 고르면
+         조건이 `r.status='ended'` 가 되어 **에러 없이 늘 0건**이었다.
+         ⚠️ 화면 option value 만 바꾸면 옛 북마크·옛 캐시가 그대로 0건을 본다 —
+            서버가 두 이름을 같은 것으로 받아 준다. */
+      const statusNorm = status === 'ended' ? 'completed' : status;
+      if (statusNorm && statusNorm !== 'all') {
         whereParts.push('r.status = ?');
-        whereBinds.push(status);
+        whereBinds.push(statusNorm);
       }
       /* 🧹 (2026-08-05) 0초짜리 «부산물» 행은 기본 목록에서 감춘다.
          [무엇인가] R2 멀티파트는 마지막이 아닌 파트가 «5MiB 고정» 이라, 그만큼 안 모이면
@@ -3264,8 +5261,23 @@ ${numbered}`;
          [왜 감추나] 진짜 봐야 할 것은 「저장 실패」와 「준비중」이다. 0초 행이 목록을 채우면
            강사·관리자가 그 둘을 못 찾는다. 실제 수업 영상이 아니므로 숨겨도 잃는 것이 없다.
          ⚠️ 지우지 않는다. 감추기만 한다 — ?status=aborted 로 부르면 그대로 다 보인다(원인 추적용). */
-      if (!status || status === 'all') {
+      /* 🗑️ (2026-08-28 사장님 승인 — 「이거 영상 없는 이유가 뭐야?」 제보의 조치 ①)
+         «삭제됨» 도 기본 목록에서 감춘다 — 위 0초 행과 같은 이유.
+         [무엇인가] 보관기간 3개월이 지나면 `retention.ts` 가 그 행을 status='deleted' 로
+           내린다. 그러면 관리자 화면이 그 행마다 「⚠ 영상 없음」을 붙인다.
+         ⚠️ **«파일이 지워졌다» 는 뜻이 아니다.** `retention.ts:50` 이 명시한다 —
+            그 단계는 D1 표시만 바꾸고 **R2 실물은 그대로 두며**, 고아 청소기가 그 key 를
+            «살아있는 파일» 로 보고 보호한다. 실제 파기는 아직 켜지 않은 별건이다.
+            그러니 이 행을 두고 «지웠다» 고 단정하지 말 것 — 화면 문구도 그렇게 쓰지 않는다.
+         [얼마나] 2026-08-28 운영 실측 — 목록 1,862건 중 **1,236건(66%)이 이것**이었고
+           **1,236건 전부 만료일이 지나 있었다**(고장이 아니라 정상 정리분).
+         [왜 감추나] 진짜 봐야 할 「저장 실패 76건」이 그 66% 에 파묻혀 안 보였다.
+           사장님이 「영상 없는 이유가 뭐냐」고 물으신 화면이 정확히 이 상태였다.
+         ⛔ 지우지 않는다. 감추기만 한다 — ?status=deleted 로 부르면 그대로 다 보이고
+            복원 버튼도 그대로다(0초 행과 같은 방식). */
+      if (!statusNorm || statusNorm === 'all') {
         whereParts.push("NOT (r.status = 'aborted' AND COALESCE(r.size_bytes, 0) = 0)");
+        whereParts.push("r.status != 'deleted'");
       }
       const whereSQL = whereParts.length ? ('WHERE ' + whereParts.join(' AND ')) : 'WHERE 1=1';
 
@@ -3276,9 +5288,25 @@ ${numbered}`;
         : await countStmt.first<{ total: number }>();
       const total = countRow?.total || 0;
 
+      /* ⚠️ `r.participant_ids` 는 화면이 그리는 칸이 아니라 **학생 칸 판정의 첫 번째 근거**다
+            (src/recording-students.ts ①). 2026-09-01 에 이 SELECT 목록에서 빠져 있어
+            `resolveRecordingStudents()` 의 `parseIdList(r.participant_ids)` 가 **늘 빈 배열**이었고,
+            그 근거 하나가 «에러 없이» 죽어 있었다(학생 칸이 그래도 채워진 것은 나머지 세
+            근거 — 예약·consented_user_ids·teacher_name — 덕분이라 아무도 못 알아챘다).
+         📊 [되살려도 오늘 화면은 그대로다 — D1 전수 실측 2026-09-04]
+            `recordings` **2,122행 전수**에서 학생 칸이 «늘어나는» 행 **0건**이었다.
+            participant_ids 안의 실재 학생 계정 244개가 **전부** 이미 다른 근거로 잡힌다.
+            구조적으로 그렇다 — `/api/recordings/start` 가 `consented_user_ids` 를
+            «participant_ids 중 동의한 사람» 으로 계산해 넣고, 동의 안 한 학생은 그 아래
+            「동의 없으면 녹화 금지」 게이트가 막는다. ⟹ 두 칸이 사실상 겹친다.
+            그러니 이 수리는 «화면을 바꾸는 것» 이 아니라 **«정본이 읽겠다고 선언한 칸을
+            서버가 실제로 준다» 는 계약을 되돌리는 것**이다. 그 게이트나 동의 정책이 바뀌는
+            날(또는 consents 조회가 실패해 consented 가 비는 날) 이 근거가 실제로 일한다.
+         ⛔ 판정에 쓰는 칸을 SELECT 에서 빼지 말 것. 빼도 화면이 «고장» 으로 보이지 않는다.
+            감시: test-harness/recording_student_column_harness.mjs A절. */
       let q = `SELECT r.id, r.room_id, r.teacher_id, r.teacher_name, r.filename, r.file_url,
                       r.size_bytes, r.duration_ms,
-                      r.participant_names, r.consented_user_ids,
+                      r.participant_names, r.participant_ids, r.consented_user_ids,
                       r.started_at, r.ended_at, r.status, r.storage, r.expires_at,
                       /* 시선 점수 — 해당 녹화 시간대의 attendance.gaze_score 평균
                          window = [started_at - 30s, ended_at 또는 started_at + duration + 30s] */
@@ -3351,8 +5379,82 @@ ${numbered}`;
       const listBinds = [...whereBinds, limit, offset];
       const rs = await env.DB.prepare(q).bind(...listBinds).all();
 
+      /* 📼 저장·링크 URL 동봉 (2026-09-01 사장님 «카카오에 저장도 안돼»)
+         [무엇이 문제였나] 관리자 목록의 ⬇저장이 `/api/recordings/blob/<키>` + <a download> 였다.
+           그 통로는 Range 를 그대로 존중해 **206** 을 돌려주는데, 갤럭시 일부 기기가
+           저장 요청에 `Range: bytes=0-` 를 끼워 넣는다 → 안드로이드 DownloadManager 가
+           사유 없이 «다운로드에 실패했습니다» 만 반복한다. 이건 2026-08-15 에 이미 진단돼
+           `/api/recording/play?…&dl=1` 쪽에만 고쳐져 있었고(=Range 무시·200 전체 본문 +
+           Content-Disposition), 강사 화면(flow.js)은 그것을 쓰는데 **관리자 목록만** 옛
+           통로에 남아 있었다.
+         [왜 화면이 아니라 서버가 URL 을 만드나] 화면은 «그 녹화가 정말 재생되는가» 를 모른다.
+           play 엔드포인트는 file_url/filename 으로 키를 풀고 status·storage·만료까지 보고
+           404 를 낸다. 같은 판정을 여기서 한 번 해서, 풀리지 않으면 아예 안 준다 —
+           화면은 그때만 옛 blob 통로로 폴백한다(지금 되는 것을 잃지 않는다).
+         [sig 를 왜 동봉하나] 교사·관리자는 쿠키로만 인증되는데 카톡 인앱 브라우저·안드로이드
+           WebView 는 저장을 쿠키 없는 다운로드 관리자에 위임한다(2026-08-13 «휴대폰 저장 안 됨»).
+           범위가 녹화 id 하나뿐인 단기 서명이라 권한이 넓어지는 지점이 없다
+           (발급 방식·근거는 /api/student/recordings 와 똑같다 — auth-token.ts signRecDlSig).
+         ⚠️ 이 API 는 **로그인 전용**이다 — `index.ts` 의 `isAdminPath()` 에 `/api/recordings` GET 이
+            등록돼 있어 무인증으로는 못 부른다(`isAdminOnlyApi` 라는 함수는 이 저장소에 없다).
+            ⚠️ 다만 «관리자 전용» 은 아니다 — 경로가 `/api/admin/` 접두사가 아니라서 강사 차단
+            (`TEACHER_BLOCKED_PREFIXES`)도 스코프 차단(`forbidden_scope`)도 안 걸린다.
+            «서명은 인증을 통과한 뒤에만 발급된다» 는 전제가 여기에 걸려 있다 — 공개로 열지 말 것.
+         감시: test-harness/recording_download_link_harness.mjs */
+      const _nowMs = Date.now();
+      /* 🎓 「학생」 칸 (2026-09-01 사장님 «여기에 학생 목록도 넣어줄 수 있어?»)
+         [왜 서버가 푸나] 「교사」 칸에는 방을 먼저 켠 사람이 찍혀 학생 계정이 그대로 올라온다
+           (실측: heyst·cys01·mby1…). 누가 학생인지는 예약(class_schedules)과 학생 명부
+           (students_erp)를 봐야 알 수 있고, 그건 화면이 못 하는 일이다.
+         ⛔ participant_names 를 그대로 쓰지 말 것 — 임시 접속번호가 섞여 있다.
+         판정 정본·근거는 src/recording-students.ts. 실패해도 목록은 그대로 뜬다(빈 배열). */
+      /* 🧑‍🏫 「교사」·「아이디」 칸 (2026-09-04 사장님 «교사 이름에 아이디가 나와»)
+         [왜 서버가 푸나] 이 표의 `teacher_name` 은 «방을 먼저 켠 사람» 이고 `teacher_id` 는
+           **DO 임시번호**(`u_…`, 실측 99.2%)다 — 둘 다 교사도 아이디도 아니다. 진짜 교사는
+           예약(class_schedules)→원부(teachers)→계정(teacher_account_links)을 타야 나온다.
+         판정 정본·근거는 src/recording-teacher.ts. 실패해도 목록은 그대로 뜬다(빈 값). */
+      const _recRows = ((rs.results || []) as any[]);
+      const _recStudents = await resolveRecordingStudents(env as any, _recRows);
+      const _recTeachers = await resolveRecordingTeachers(env as any, _recRows);
+      const _recItems = await Promise.all(_recRows.map(async (_raw: any, _si: number) => {
+        /* ⛔ `participant_ids` 는 «판정 근거» 라서 SELECT 로 받지만 **응답에는 싣지 않는다**.
+              그 배열은 곧 «누가 이 녹화를 재생할 수 있는가» 목록이고(recordings-r2.ts —
+              `mango_token uid ∈ participant_ids` 면 재생 허용), 이 API 는 `/api/admin/` 접두사가
+              **아니라서** 강사·지사·대리점 세션도 그대로 받는다(index.ts 의 스코프·강사 차단은
+              그 접두사에만 걸린다). 화면은 이 칸을 안 쓰므로 여기서 끊는다 — 판정에 필요한 것과
+              화면에 보내는 것은 다르다. */
+        const { participant_ids: _pidForResolverOnly, ...row } = _raw;
+        const students = _recStudents[_si] || [];
+        const teacher  = _recTeachers[_si] || { uid: '', name: '', source: 'none', workplace: '' };
+        // /api/recording/play 와 **같은** 판정 — 여기서 통과 못 하면 그 엔드포인트도 404 다.
+        let key = String(row.file_url || '');
+        if (!key && row.filename) {
+          const fn = String(row.filename);
+          key = (fn.startsWith('rec/') || fn.startsWith('recordings/')) ? fn : 'recordings/' + fn;
+        }
+        const st = String(row.storage || '');
+        const playable = !!key && !/^https?:\/\//.test(key)
+          && row.status !== 'deleted' && row.status !== 'upload_failed'
+          && st !== 'r2_failed' && st !== 'error' && st !== 'debug'
+          && !(row.expires_at && Number(row.expires_at) < _nowMs);
+        if (!playable) return { ...row, students, teacher };
+        const sig = await signRecDlSig(row.id, env);
+        const qs = '?id=' + row.id + '&sig=' + encodeURIComponent(sig);
+        return {
+          ...row,
+          students,
+          teacher,
+          // 저장 — Range 무시·200 전체 본문 + Content-Disposition (갤럭시 다운로드 실패 방지)
+          dl_url: '/api/recording/play' + qs + '&dl=1',
+          // 링크 — 사람에게 보내는 주소는 정본 도메인으로(SITE_ORIGIN, CLAUDE.md 0장)
+          share_url: siteUrl('/api/recording/play' + qs),
+          // 서명은 "만료ms.서명" 형식 — TTL 을 또 적지 않고 그 값을 그대로 읽는다(두 벌이면 어긋난다)
+          share_expires_at: parseInt(String(sig).split('.')[0], 10) || 0,
+        };
+      }));
+
       // 응답 본문은 배열 그대로 유지 (하위 호환성). 페이지네이션 메타는 헤더로 전달.
-      return new Response(JSON.stringify(rs.results || []), {
+      return new Response(JSON.stringify(_recItems), {
         status: 200,
         headers: {
           'Content-Type': 'application/json',
@@ -3386,7 +5488,10 @@ ${numbered}`;
          눌러 녹화를 켤 수 있고, 반대로 남의 동의를 «철회» 시켜 수업 녹화를 끌 수도 있다.
          출석과 같은 규칙을 쓴다(_attnSoftAuthOk): 자격증명이 있는데 그게 다른 uid 를
          가리킬 때만 거부한다. 자격증명이 아예 없는 요청은 예전처럼 통과시킨다 —
-         여기서 조이면 로그인 없이 들어온 학생이 동의를 «남길 수조차» 없어진다. */
+         여기서 조이면 로그인 없이 들어온 학생이 동의를 «남길 수조차» 없어진다.
+         ℹ️ 여기의 user_id 는 «계정» 이다(mango-consent.js 가 getCurrentUser 의 uid 를 그 칸에 싣는다) —
+            출석의 user_id(기기 식별자)와 이름만 같고 뜻이 다르다. 그래서 출석 호출부는 account_uid 를
+            넘기고 여기는 user_id 를 넘긴다(2026-09-04, 헬퍼 주석). */
       if (!(await _attnSoftAuthOk(b.user_id, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
       const now = Date.now();
       const ip = request.headers.get('cf-connecting-ip') || '';
@@ -3399,7 +5504,27 @@ ${numbered}`;
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         b.user_id, b.username || null, b.role || 'student', b.consent_version || 'v1.0',
-        b.recording ? 1 : 0, b.voice_analysis ? 1 : 0, b.attendance ? 1 : 0, b.reward ? 1 : 0, b.kakao ? 1 : 0,
+        /* 🔐 (2026-09-01) 「안 물어봤다」와 「거절했다」를 갈라 적는다.
+           그 전에는 둘 다 **0** 이었다. 그런데 동의 화면(js/mango-consent.js)은 recording·attendance
+           만 묻고 voice_analysis·reward·kakao 는 **키 자체를 안 보낸다** → 그 셋은 구조적으로 늘 0.
+           [잰 것] 2026-09-01 D1: consents 11행 — 녹화 7 · 출석 7 · **음성분석 0 · 보상 0 · 카카오 0**.
+           그 0 을 읽는 쪽들이 「거절」로 읽고 있었다:
+             · admin/student.html 이 빨간 «미동의» 배지를 띄워 **묻지도 않은 것을 거절했다고** 직원에게 말했다
+             · retention.ts 가 그 값으로 kakao_ids 를 파기한다(매일 밤 도는 크론이다).
+           [거기서 내린 판단 — 측정 아님] 카카오를 연결한 학생이 수업에 한 번 들어가 동의를 남기는
+             순간(동의는 입장 때 자동으로 남는다) 그날 밤 연결이 지워졌을 것이다.
+             ⚠️ 「지금까지 지워진 적이 없다」는 **증명할 수 없다** — 지워지면 흔적이 안 남는다.
+                2026-09-01 현재 kakao_ids(50행)와 consents(11행) 사이에 겹치는 계정이 없다는 것까지가 잰 것이다.
+           ⛔ 없는 값을 0 으로 채우지 말 것 — 이 저장소가 가장 오래 속은 방식이다(규칙서 2장).
+           ⚠️ 화면이 그 항목을 묻기 시작해도 **이미 동의 행이 있는 사람에게는 다시 안 묻는다** —
+              js/mango-consent.js 의 askedBefore() 가 행이 있으면 즉시 반환하고 consent_version 을
+              비교하지 않는다. 그 사람들의 칸은 계속 NULL 로 남는다(다시 묻게 하려면 그쪽을 함께 고쳐야 한다). */
+        b.recording ? 1 : 0,
+        /* «== null» 은 undefined 와 명시적 null 을 함께 잡는다 — 둘 다 «모름» 이다. */
+        b.voice_analysis == null ? null : (b.voice_analysis ? 1 : 0),
+        b.attendance ? 1 : 0,
+        b.reward == null ? null : (b.reward ? 1 : 0),
+        b.kakao == null ? null : (b.kakao ? 1 : 0),
         b.guardian_required ? 1 : 0, b.guardian_status || (b.guardian_required ? 'pending' : 'not_required'), b.guardian_contact || null,
         ip, ua, now, JSON.stringify(b)
       ).run();
@@ -3422,7 +5547,7 @@ ${numbered}`;
     if (path === '/api/consents/withdraw' && method === 'POST') {
       const b = await request.json() as any;
       if (!b || !b.user_id) return invalidBody(['user_id']);
-      // 🔐 철회도 본인만 — 남의 동의를 철회시키면 그 학생 수업의 녹화가 꺼진다(위와 같은 규칙).
+      // 🔐 철회도 본인만 — 남의 동의를 철회시키면 그 학생 수업의 녹화가 꺼진다(위와 같은 규칙. user_id = 계정).
       if (!(await _attnSoftAuthOk(b.user_id, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
       const now = Date.now();
       await env.DB.prepare(
@@ -3460,12 +5585,7 @@ ${numbered}`;
     // ── JWT 유틸 (Web Crypto API, HS256) ──
     const b64urlEnc = (s: string) => btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const b64urlDec = (s: string) => atob(s.replace(/-/g, '+').replace(/_/g, '/'));
-    const getRoomSecret = (): string => {
-      // 우선 secret(ROOM_JWT_SECRET) → 없으면 강한 상수 폴백(공개 BUILD_STAMP 사용 금지, 2026-07-12 보안)
-      // ⚠️ 운영 환경에서는 반드시 `npx wrangler secret put ROOM_JWT_SECRET --env production` 으로 설정
-      //   폴백 상수는 auth-token.ts / api-mango 8713 / signaling-room.ts 와 동일해야 방JWT 상호검증됨.
-      return (env as any).ROOM_JWT_SECRET || 'mgi-fb-d0895a3a232c5ef0f0950c6128a04a5311ec69ba142cb4a86a8d334e33c56f30';
-    };
+    const getRoomSecret = (): string => requireRoomJwtSecret(env);
 
     const signRoomJWT = async (payload: any): Promise<string> => {
       const enc = new TextEncoder();
@@ -3774,3 +5894,6 @@ ${numbered}`;
     return json({ ok: false, error: e?.message || 'mango_api_unhandled' }, 500);
   }
 }
+
+
+

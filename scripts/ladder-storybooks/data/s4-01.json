@@ -1,0 +1,312 @@
+{
+  "id": "s4-01",
+  "breaks": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 3,
+    "S": 10
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주장",
+      "en": "claim"
+    },
+    "S": {
+      "ko": "해결책",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «알림이 깊이 집중하는 능력을 조용히 떨어뜨린다(주장)» 와 «필요 없는 알림을 끄거나 휴대폰을 다른 방에 두면 집중을 지킬 수 있다(해결책)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the claim (notifications quietly reduce our ability to focus deeply) and the solution (turning off non-essential alerts or keeping the phone in another room). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Phone notifications and our focus"
+    },
+    {
+      "k": "Claim",
+      "qko": "글쓴이의 주장은 무엇인가요?",
+      "qen": "What does the writer claim?",
+      "a": "Notifications quietly reduce our ability to focus deeply"
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결하자고 하나요?",
+      "qen": "What solution is given?",
+      "a": "Turn off non-essential alerts or keep the phone in another room"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Many people check their phones because of ",
+      "ans": "notifications",
+      "opts": [
+        "notifications",
+        "homework",
+        "advertisements"
+      ]
+    },
+    {
+      "pre": ". Each alert seems ",
+      "ans": "harmless",
+      "opts": [
+        "harmless",
+        "exciting",
+        "expensive"
+      ]
+    },
+    {
+      "pre": ", but after we switch tasks, our brain needs ",
+      "ans": "time",
+      "opts": [
+        "time",
+        "money",
+        "sleep"
+      ]
+    },
+    {
+      "pre": " to return fully. This lingering distraction is called attention ",
+      "ans": "residue",
+      "opts": [
+        "residue",
+        "reward",
+        "rest"
+      ]
+    },
+    {
+      "pre": ". Turning off non-essential notifications can protect our ",
+      "ans": "concentration",
+      "opts": [
+        "concentration",
+        "battery",
+        "friendships"
+      ]
+    },
+    {
+      "pre": ", because our attention is limited.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "concentration",
+      "집중",
+      "Keeping the phone in another room can protect long periods of <b>concentration</b>.",
+      "the act of giving all your attention to one thing"
+    ],
+    [
+      "interruptions",
+      "방해, 중단",
+      "Over a day, these small <b>interruptions</b> add up.",
+      "things that stop you in the middle of what you are doing"
+    ],
+    [
+      "residue",
+      "잔여물, 남은 것",
+      "Psychologists call this lingering distraction 'attention <b>residue</b>.'",
+      "a small part that stays behind after the rest is gone"
+    ],
+    [
+      "triggered",
+      "유발된, 촉발된",
+      "Most of these checks are <b>triggered</b> by notifications.",
+      "made to happen or started by something"
+    ],
+    [
+      "harmless",
+      "해롭지 않은",
+      "Each alert seems <b>harmless</b>.",
+      "not able to hurt or cause damage"
+    ],
+    [
+      "urgent",
+      "급한, 긴급한",
+      "Many notifications are built to feel <b>urgent</b>.",
+      "needing attention right away"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why can even an alert we choose to ignore pull part of our mind away?",
+      "qko": "왜 무시하기로 한 알림조차 우리 마음의 일부를 끌어갈 수 있나요?",
+      "opts": [
+        "Because the phone gets louder each time",
+        "Because we start wondering what the alert says",
+        "Because app designers turn off the screen"
+      ],
+      "ans": 1,
+      "evs": [
+        "Each alert seems harmless, since it takes only a second to glance at the screen.",
+        "Even an alert we choose to ignore can pull part of our mind away, because we start wondering what it says.",
+        "Fortunately, the solution is simple.",
+        "Most of these checks are triggered by notifications: a buzz, a sound, or a red badge on an app icon."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "본문에 «we start wondering what it says» 라고 나와요. 무엇이라고 쓰여 있는지 궁금해지기 때문에 마음이 끌려가요.",
+        "The text says we start wondering what the alert says, so part of our mind is pulled away."
+      ],
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what does 'attention residue' mean?",
+      "qko": "글에서 'attention residue(주의 잔여물)' 는 무슨 뜻인가요?",
+      "opts": [
+        "Part of our mind still stays on the earlier distraction",
+        "A red badge that stays on an app icon",
+        "The total number of alerts in one day"
+      ],
+      "ans": 0,
+      "evs": [
+        "When we switch from a task to a message, our brain needs time to return fully to what we were doing.",
+        "Psychologists call this lingering distraction 'attention residue.'",
+        "Most of these checks are triggered by notifications: a buzz, a sound, or a red badge on an app icon.",
+        "Our attention is limited, so it is worth deciding for ourselves where it goes."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "메시지로 옮겨 갔다가 원래 일로 완전히 돌아오는 데 시간이 걸린다고 하고, 그 «남아 있는 산만함» 을 attention residue 라고 불러요.",
+        "The brain needs time to return fully to the task, and this lingering distraction is called attention residue."
+      ],
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why does the writer say we should decide for ourselves where our attention goes?",
+      "qko": "글쓴이는 왜 우리의 주의를 어디에 쓸지 스스로 정해야 한다고 말하나요?",
+      "opts": [
+        "Because attention is limited and apps are designed to pull it back",
+        "Because phones break easily if they are used too often",
+        "Because research shows notifications improve memory"
+      ],
+      "ans": 0,
+      "evs": [
+        "App designers know this, and many notifications are built to feel urgent so that users return to the app.",
+        "Our attention is limited, so it is worth deciding for ourselves where it goes.",
+        "Many people check their phones dozens of times a day, often without thinking about it.",
+        "Fortunately, the solution is simple."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "앱 알림은 사용자가 앱으로 돌아오도록 급하게 느껴지게 만들어지고, 우리의 주의는 한정되어 있어요. 두 단서를 합치면 스스로 정해야 하는 이유가 나와요.",
+        "Apps build alerts to feel urgent so users return, and our attention is limited. Together these explain why we should choose for ourselves."
+      ],
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How do app designers make alerts feel urgent?",
+      "앱 디자이너는 어떻게 알림을 급하게 느껴지게 만들까?",
+      "The Design of Urgency"
+    ],
+    [
+      "B",
+      "Can a focus mode help students study better?",
+      "집중 모드는 학생들의 공부에 도움이 될까?",
+      "Focus Mode and Study"
+    ]
+  ],
+  "write": {
+    "pre": "If",
+    "mid": "we can",
+    "sep": ", ",
+    "slots": [
+      "cl",
+      "vp"
+    ],
+    "src": "“If <u>we keep our phones in another room</u>, we can <u>focus on reading for longer</u>.”",
+    "slotKo": [
+      "조건(만약 ~하면)",
+      "할 수 있는 일"
+    ],
+    "slotEn": [
+      "a condition",
+      "what we can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «어떤 조건 + 그때 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own condition and what we can do in English.",
+    "chips": [
+      {
+        "a": "we turn off game alerts",
+        "b": "finish homework faster",
+        "label": "alerts"
+      },
+      {
+        "a": "we study without a phone for 30 minutes",
+        "b": "remember more",
+        "label": "study"
+      },
+      {
+        "a": "we put our phones away at dinner",
+        "b": "talk more with our family",
+        "label": "dinner"
+      }
+    ],
+    "aria": [
+      "the condition",
+      "what we can do"
+    ],
+    "moreKo": "한 걸음 더: «we can» 뒤에 «동사 + 무엇을» 쓰고, 시간이나 횟수를 더해 보세요. (예: focus on reading for an hour)",
+    "moreEn": "One more step: after «we can», write a verb + what, and add a time or number. (e.g. focus on reading for an hour)"
+  },
+  "img": {
+    "style": "editorial",
+    "cover": "A teenager studying at a wooden desk with open paper books, glancing at a smartphone that is lighting up beside the notebook, its screen a plain blank glow",
+    "scenes": {
+      "1": "A student at a desk turning away from a half-finished page of handwritten math work to pick up a buzzing smartphone, pencil still in hand",
+      "3": "A smartphone resting face-down in a basket on a hallway shelf, while in the next room a student reads a paper book alone at a quiet desk"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "A student stops studying to pick up a phone",
+    "3": "A phone left in another room while a student reads",
+    "cover": "A student at a desk looking at a lit-up phone"
+  }
+}

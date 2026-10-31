@@ -13,22 +13,67 @@
   // 🖼 아이콘 = 실사 사진(/img/menu/*.webp, Higgsfield 생성 · build-allmenu-icons.py 로 재생성).
   //    emoji 는 지우지 말 것 — 사진 로드 실패 시 되돌아갈 폴백이다(아래 '아이콘 폴백' 배선 참고).
   var ALLMENU_ITEMS = [
-    {emoji:'🛠', img:'/img/menu/admin.webp', name:'관리자 페이지', url:'/admin.html'},
+    /* 🛠 (2026-08-30 v4 제안서 04) 「관리자 페이지」와 「관리자 로그인」이 전체 메뉴에
+       두 칸으로 갈려 있어 «어느 쪽을 눌러야 하나» 가 매번 헷갈렸다. 한 칸으로 합치고,
+       세션이 있으면 대시보드로 · 없으면 로그인으로 **동적으로** 갈린다(아래 smartAdminUrl).
+       ⛔ 두 칸으로 되돌리지 말 것 — 이 파일 아래 wire 로직과 짝이다. */
+    {emoji:'🛠', img:'/img/menu/admin.webp', name:'관리자 포털', url:'/admin.html', adminPortal:true, staff:true},
     {emoji:'👤', img:'/img/menu/mypage.webp', name:'마이페이지', url:'/parent.html'},
-    {emoji:'👨‍🎓', img:'/img/menu/students.webp', name:'학생 관리', url:'/admin.html#card-students-mgmt'},
-    {emoji:'📅', img:'/img/menu/schedule.webp', name:'내 주간 스케줄', url:'/admin/weekly-schedule.html?role=student'},
-    {emoji:'📞', img:'/img/menu/contact.webp', name:'고객센터', url:'/contact.html'},
+    {emoji:'👨‍🎓', img:'/img/menu/students.webp', name:'학생 관리', url:'/admin.html#card-students-mgmt', staff:true},
+    /* 📅 (2026-08-30 v4 제안서 01) 예전 주소는 /admin/weekly-schedule.html?role=student 였다.
+       그런데 src/index.ts 의 isAdminPath 는 «/admin/ 으로 시작하면 무조건 인증» 이라
+       **학생은 관리자 로그인 화면으로 튕겼다.** 학생 전용 읽기 화면으로 바꾼다.
+       ⛔ /admin/ 밑으로 되돌리지 말 것 — 그 순간 같은 사고가 그대로 재현된다. */
+    {emoji:'📅', img:'/img/menu/schedule.webp', name:'내 주간 스케줄', url:'/my-schedule.html'},
+    {emoji:'💬', img:'/img/menu/contact.webp', name:'카카오 상담', url:'https://pf.kakao.com/_xlqnSxd'},  // 2026-08-14 피드백 ⑤: 문의 페이지 폐지 → 카카오 채널 하나로
+    /* 🛠 (2026-09-01 신설 → 2026-09-03 «별도» 로 옮김) 원격 도움받기 타일은 여기 없다.
+       스무 칸짜리 그리드에 섞여 있어서, 정작 «컴퓨터가 안 될 때» 그것을 찾는 사람이 못 봤다.
+       사장님 지시로 그리드 «위» 에 전폭 강조 카드로 따로 뺐다(아래 renderRemoteHelpCard).
+       ⛔ 여기에 같은 항목을 되살리지 말 것 — 한 화면에 같은 것이 둘이 된다.
+          그 카드가 href·data-remote-help·모달 배선을 그대로 들고 있다. */
     {emoji:'📚', img:'/img/menu/curriculum.webp', name:'커리큘럼', url:'/curriculum.html'},
     {emoji:'📖', img:'/img/menu/lessons.webp', name:'수업 자료', url:'/lessons.html'},
-    {emoji:'📝', img:'/img/menu/eval.webp', name:'평가서', url:'/eval.html'},
-    {emoji:'📊', img:'/img/menu/report.webp', name:'리포트', url:'/report.html'},
+    /* 📝📊 (2026-09-04 사장님 지시) 옛 이름은 «평가서»·«리포트» 였다. 둘 다 «성적 종이» 라는 뜻이라
+       이름만으로는 차이를 알 수 없어 「이거 같은 거야 다른 거야」가 매번 나왔다.
+       «기간» 을 이름 맨 앞으로 빼서 나란히 놓였을 때 낱장(오늘)과 합본(월간)이 한눈에 갈리게 한다.
+       ⚠️ 이 둘은 서로 다른 화면이다 — 수업일지(/eval.html)는 강사가 수업마다 쓰는 낱장이고,
+          성적표(/report.html)는 그 낱장들 + 출석·음성코칭·결제를 한 달치로 묶은 합본이다.
+       ⛔ 옛 이름으로 되돌리지 말 것 — 홈 검색(js/idx-ai-home.js)이 「평가서」·「리포트」 같은
+          옛 낱말도 함께 찾아 주므로, 그 말로 찾던 사람은 이름을 바꿔도 그대로 찾을 수 있다. */
+    {emoji:'📝', img:'/img/menu/eval.webp', name:'오늘 수업일지', en:"Today's Lesson Note", url:'/eval.html'},
+    {emoji:'📊', img:'/img/menu/report.webp', name:'월간 성적표', en:'Monthly Report Card', url:'/report.html'},
+    /* 📅 (2026-09-03) 오늘의 A.i 학습 — AI 도구 8종을 «오늘 할 순서» 로 이어 주는 화면. img 는 일부러 비운다
+       (전용 사진이 없고, 위 렌더는 img 가 비면 emoji 로 그린다 — 없는 파일을 적으면 열 때마다 404). */
+    {emoji:'📅', img:'', name:'오늘의 A.i 학습', url:'/today.html'},
+    /* 🎓 (2026-10-08 사장님 「메뉴에도 연결해줘」) A.i 선생님 수업 — 전용 사진이 없어 img 는 비운다(emoji 로 그림). */
+    {emoji:'🎓', img:'', name:'A.i 선생님 수업', en:'A.i Teacher Class', url:'/ai-class.html'},
     {emoji:'🤖', img:'/img/menu/ai-friend.webp', name:'AI 친구', url:'/ai-friend.html'},
     {emoji:'✍', img:'/img/menu/ai-write.webp', name:'AI 작문', url:'/ai-write.html'},
     {emoji:'🗣', img:'/img/menu/speech.webp', name:'영어 발음 코치', url:'/speech-coach.html'},
     {emoji:'🇨🇳', img:'/img/menu/speech-cn.webp', name:'중국어 발음 코치', url:'/speech-coach-cn.html'},
-    {emoji:'📚', img:'/img/menu/uploader.webp', name:'교재 업로더', url:'/textbook-uploader.html'},
+    {emoji:'📚', img:'/img/menu/uploader.webp', name:'교재 업로더', url:'/textbook-uploader.html', staff:true},
     {emoji:'📖', img:'/img/menu/vocab.webp', name:'단어장', url:'/vocab.html'},
-    {emoji:'🎯', img:'/img/menu/quiz.webp', name:'미니 퀴즈', url:'/micro-quiz.html'},
+    {emoji:'🎯', img:'/img/menu/quiz.webp', name:'AI 단어 퀴즈', url:'/micro-quiz.html'},
+    /* 🧠 2026-08-17 — 복습퀴즈 두 종을 전체메뉴에 추가. 여기 없어서 전체메뉴로는 갈 수 없었다.
+     *   img 를 **일부러 비운다** — 전용 사진이 아직 없다. 위 렌더는 img 가 비면 emoji 로 그리므로
+     *   404 요청 없이 깔끔하게 나온다(없는 파일을 적으면 열 때마다 404 가 난다).
+     *   ⛔ quiz.webp 를 돌려쓰지 말 것 — 바로 위 「AI 단어 퀴즈」와 그림이 같아져 구분이 안 된다.
+     *   사진이 생기면 build-allmenu-icons.py 로 만들어 여기에 경로만 채우면 된다. */
+    /* 🎯 (2026-09-23) liveOnly — AI 학습만 하는 학생(활성 예약 0건)에게는 감춘다(아래 mangoiTrackHide).
+     *   복습퀴즈는 «수업에서 배운 내용» 을 묻는데 그 학생에게는 수업이 없어 목록이 빈다.
+     *   감추면 바로 뒤의 단어장·AI 단어 퀴즈가 한 칸씩 앞으로 온다. 주소로는 그대로 열린다. */
+    {emoji:'🧠', img:'', name:'BTS/SIU 퀴즈', url:'/review-quiz.html', liveOnly:true},
+    /* zh:true — 중국어 수강생에게만 보이는 타일(아래 mangoiZhLearner 참고).
+     *   2026-08-24 학원장 검수 «영어 앱인데 중국어 퀴즈가 왜 있나» — 기능을 없애는 게 아니라
+     *   볼 사람에게만 보여주는 것. 페이지 자체(/review-quiz-cn.html)와 AI 명령 검색은 그대로 열린다. */
+    /* 🎯 liveOnly — 중국어 복습퀴즈도 «수업(다락원) 진도» 를 묻는 것이라 같은 규칙(2026-09-23). */
+    {emoji:'🇨🇳', img:'', name:'중국어퀴즈', url:'/review-quiz-cn.html', zh:true, liveOnly:true},
+    /* ⛔ 「레벨 테스트」 타일을 여기 되살리지 마세요 (2026-08-26 사장님 지시로 뺐습니다).
+     *   2026-08-24 검수 «처음엔 있었는데 다시 못 찾겠다» 대응으로 넣었던 타일인데,
+     *   판단력 훈련이 **첫 진입에 설정 카드**를 띄우게 되면서(PR #512) 그 카드의
+     *   「🎯 내 레벨을 찾아 주세요」가 같은 자리를 대신합니다 — 타일과 카드가 «같은 것 둘»이었습니다.
+     *   ✅ 입구는 그대로 셋 남아 있습니다: 첫 설정 카드 ③ · 문제 화면 「레벨 다시 재기」 ·
+     *      주소로 직접 여는 /judgment.html?placement=1 (judgment.html 이 계속 읽습니다). */
     {emoji:'🧠', img:'/img/menu/mbti.webp', name:'MBTI 매칭', url:'/mbti.html'},
     {emoji:'🧪', img:'/img/menu/mbti-test.webp', name:'MBTI 테스트', url:'/mbti-test.html'},
     {emoji:'🔥', img:'/img/menu/streak.webp', name:'연속 출석', url:'/streak.html'},
@@ -36,11 +81,99 @@
     {emoji:'📝', img:'/img/menu/booking.webp', name:'수업 신청', url:'/lesson-booking-demo.html'},
     {emoji:'📅', img:'/img/menu/postpone.webp', name:'수업 연기·변경', url:'/lesson-postpone-demo.html'},
     {emoji:'👨‍👩‍👧', img:'/img/menu/parent.webp', name:'학부모 페이지', url:'/parent.html'},
-    {emoji:'🩺', img:'/img/menu/health.webp', name:'시스템 진단', url:'/admin/health.html'},
-    {emoji:'👀', img:'/img/menu/observe.webp', name:'수업 관찰', url:'/admin/ghost-view.html'},
-    {emoji:'🔐', img:'/img/menu/login.webp', name:'관리자 로그인', url:'/admin/login'}
+    {emoji:'🩺', img:'/img/menu/health.webp', name:'시스템 진단', url:'/admin/health.html', staff:true},
+    {emoji:'👀', img:'/img/menu/observe.webp', name:'수업 관찰', url:'/admin/ghost-view.html', staff:true}
   ];
   var ALLMENU_EMO_CSS = 'font-size:42px;line-height:1;filter:drop-shadow(0 2px 5px rgba(0,0,0,0.45))';
+
+  /* 🇨🇳 중국어 수강생 판별 (2026-08-24 학원장 검수) — 서버에는 «이 학생이 중국어 수업을
+   *   듣는다» 는 구조화된 칸이 없다(수업·교재에 언어 컬럼 없음). 그래서 화면 쪽 신호 둘로 본다:
+   *     ① UI 언어가 중국어(mangoi_lang='zh') — 중국어권 사용자
+   *     ② 중국어 복습퀴즈 화면을 연 적 있음(mangoi_zh_learner=1 — review-quiz-cn.html 이 기록)
+   *   둘 다 아니면 중국어 메뉴를 감춘다. 직접 주소·AI 명령 검색(idx-ai-home.js)으로는 여전히
+   *   열리고, 한 번 열면 ②가 남아 그 뒤로는 메뉴에도 보인다.
+   *   ⚠️ localStorage 접근이 막히면 «보이는 쪽» — 수강생이 기능을 잃는 쪽이 더 나쁘다. */
+  /* 👤 (2026-08-30 v4 제안서 03) 「학생·학부모에게 불필요한 관리자성 메뉴를 없애 달라」.
+   *   전체 메뉴에는 관리자 전용 화면 타일이 섞여 있었다 — 관리자 포털·학생 관리·시스템 진단·
+   *   수업 관찰·교재 업로더. 학생이 눌러도 로그인 게이트에 막혀 «되지도 않는 칸» 이었다.
+   *   ⚠️ 판정은 «관리자 세션이 있는가» 하나로만 한다(mangoi_admin_session — 교사·본사·지사가
+   *      로그인하면 만들어지는 키). 학생 로그인은 이 키를 만들지 않는다(CLAUDE.md 2장
+   *      「로그인 세션이 두 갈래」).
+   *   ⚠️ localStorage 가 막히면 «보이는 쪽» 으로 실패한다 — 직원이 기능을 잃는 쪽이 더 나쁘고,
+   *      실제 접근은 서버 게이트가 어차피 막는다. 이건 «정돈» 이지 «보안» 이 아니다.
+   *   ⛔ 화면에서 감췄다고 서버 게이트를 느슨하게 하지 말 것. */
+  function mangoiIsStaff(){
+    try{ return !!localStorage.getItem('mangoi_admin_session'); }catch(e){ return true; }
+  }
+
+  /* 🌐 이 오버레이는 열 때 글자를 «그려서» 만든다 — 그리는 순간의 언어를 봐야 한다.
+   *   ⚠️ index.html 은 i18n 엔진이 둘이라 인라인 전역 currentLang 을 직접 읽으면 안 된다.
+   *      나중에 로드되는 js/mango-i18n.js 가 getLang() 을 덮어쓰므로 그것이 정본(CLAUDE.md 2장).
+   *   ⚠️ 그리고 나서 라벨에 data-ko/data-en 도 함께 달아 둔다 — 메뉴를 열어 둔 채로
+   *      🌐 를 눌러도 두 엔진 중 어느 쪽이 훑든 따라오게. */
+  function allmenuIsEn(){
+    try{ if(typeof window.getLang === 'function') return String(window.getLang()||'').toLowerCase().indexOf('en') === 0; }catch(e){}
+    try{ return (localStorage.getItem('mangoi_lang')||'') === 'en'; }catch(e){}
+    return false;
+  }
+
+  /* 🎯 (2026-09-23) «AI 학습만 하는 학생인가» — 판정은 서버 정본(src/student-track.ts)이고
+   *   여기는 /api/student/today?track=1 로 «묻기만» 한다.
+   *   ⚠️ 'ai_only' 일 때만 감춘다. 비로그인·직원·조회 실패·'unknown' 은 전부 «보이는 쪽» —
+   *      수업 학생의 메뉴에서 복습퀴즈가 사라지는 쪽이 훨씬 나쁘다.
+   *   ⚠️ 메뉴는 «동기» 로 그려지므로 답이 늦게 오면 열린 그리드에서 그 칸만 뺀다.
+   *      같은 탭에서는 10분 캐시(sessionStorage)라 두 번째부터는 처음부터 안 그린다. */
+  var TRACK_KEY = 'mangoi_track_v1', TRACK_MS = 10 * 60 * 1000;
+  function _trackUid(){
+    try{
+      var u = window.getCurrentUser ? window.getCurrentUser() : null;
+      return u ? String(u.uid || u.user_id || u.id || '') : '';
+    }catch(e){ return ''; }
+  }
+  function mangoiTrackCached(uid){
+    try{
+      var o = JSON.parse(sessionStorage.getItem(TRACK_KEY) || 'null');
+      if (o && o.uid === uid && (Date.now() - (o.t || 0)) < TRACK_MS) return String(o.track || '');
+    }catch(e){}
+    return '';
+  }
+  function mangoiTrackHide(){
+    var uid = _trackUid();
+    return !!uid && !mangoiIsStaff() && mangoiTrackCached(uid) === 'ai_only';
+  }
+  function mangoiTrackFetch(onAiOnly){
+    var uid = _trackUid();
+    if (!uid || mangoiIsStaff() || mangoiTrackCached(uid)) return;
+    var tok = '';
+    try { tok = localStorage.getItem('mango_token') || ''; } catch (e) {}
+    fetch('/api/student/today?track=1&uid=' + encodeURIComponent(uid) + '&token=' + encodeURIComponent(tok),
+          { credentials: 'include' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        /* «성공이라고 말했는가» 로 본다 — 종단 404 본문에는 ok 칸이 없다(CLAUDE.md 「새 API 추가」). */
+        if (!d || d.ok !== true || !d.track) return;
+        try { sessionStorage.setItem(TRACK_KEY, JSON.stringify({ uid: uid, track: d.track, t: Date.now() })); } catch (e) {}
+        if (d.track === 'ai_only' && onAiOnly) onAiOnly();
+      })
+      .catch(function(){ /* 모르면 보이는 그대로 */ });
+  }
+
+  function mangoiZhLearner(){
+    try{
+      if((localStorage.getItem('mangoi_lang')||'')==='zh') return true;
+      return localStorage.getItem('mangoi_zh_learner')==='1';
+    }catch(e){ return true; }
+  }
+  /* index.html 에 박혀 있는 중국어 퀴즈 버튼들(드로어·AI홈 퀵버튼·AI와 친구하기 목록)도 같이 가린다.
+   *   index.html 은 공동 금지구역 + 첫 화면 예산(여유 194B)이라 거기에 코드를 넣지 않고 여기서 처리. */
+  function hideZhStaticEntries(root){
+    if(mangoiZhLearner()) return;
+    var els = (root||document).querySelectorAll('[data-go="review-quiz-cn"], button[onclick*="review-quiz-cn"]');
+    for(var i=0;i<els.length;i++) els[i].style.display='none';
+  }
+  // 스크롤·스와이프의 touchend 로는 아무것도 실행하지 않는다 — 판정 정본은 js/idx-tap-guard.js 의 mgIsTap.
+  // 그 파일이 없는 페이지에서는 touchend 를 건너뛰고 브라우저의 click 이 처리한다.
+  function _isTap(e){ return !!(window.mgIsTap && window.mgIsTap(e)); }
   function _allmenuEsc(ev){ if (ev.key === 'Escape' || ev.keyCode === 27) closeAllMenuOverlay(); }
   function closeAllMenuOverlay(){
     var ov = document.getElementById('mangoi-allmenu');
@@ -58,7 +191,7 @@
     ov.setAttribute('style', 'position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;z-index:2147483600;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;background:radial-gradient(ellipse at center,rgba(8,11,24,0.75) 0%,rgba(5,7,16,0.95) 100%),#050714;font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif;animation:mgAmFade .28s ease;');
 
     // ✨ 반짝이는 별 필드 (디자인 디테일)
-    var sf = '<style>@keyframes mgAmFade{from{opacity:0}to{opacity:1}}@keyframes mgAmRise{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}@keyframes mgamTwinkle{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:1;transform:scale(1.5)}}@media(max-width:560px){#mgam-grid{grid-template-columns:repeat(3,1fr)!important}}</style>'
+    var sf = '<style>@keyframes mgAmFade{from{opacity:0}to{opacity:1}}@keyframes mgAmRise{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}@keyframes mgamTwinkle{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:1;transform:scale(1.5)}}@media(max-width:560px){#mgam-grid{grid-template-columns:repeat(3,1fr)!important}}@keyframes mgamRemoteGlow{0%,100%{box-shadow:0 14px 34px -14px rgba(245,158,11,.60),inset 0 1px 0 rgba(255,255,255,.18),0 0 0 0 rgba(245,158,11,.34)}50%{box-shadow:0 14px 34px -14px rgba(245,158,11,.72),inset 0 1px 0 rgba(255,255,255,.18),0 0 0 9px rgba(245,158,11,0)}}#mgam-remote:hover{transform:translateY(-2px);border-color:rgba(251,191,36,.95)}#mgam-remote:active{transform:translateY(0)}@media(max-width:560px){#mgam-remote{padding:16px 15px!important;gap:13px!important}#mgam-remote .mgam-rh-ico{font-size:34px!important}#mgam-remote .mgam-rh-t{font-size:18px!important}#mgam-remote .mgam-rh-s{font-size:12.5px!important}#mgam-remote .mgam-rh-go{font-size:0!important;padding:9px 11px!important}#mgam-remote .mgam-rh-go::after{content:"\\2192";font-size:19px;font-weight:800}}</style>'
 ;
     sf += '<div id="mgam-stars" style="position:absolute;inset:0;pointer-events:none;z-index:1;overflow:hidden">';
     for (var i=0;i<46;i++){
@@ -85,8 +218,51 @@
 
     // 카드 그리드 (스크롤 영역)
     h += '<div style="overflow-y:auto;-webkit-overflow-scrolling:touch;padding:22px;flex:1 1 auto">';
+
+    /* 🛠 (2026-09-03 사장님 지시 «가장 먼저 · 별도 · 강조») 원격 도움받기.
+       · 왜 그리드에서 뺐나 — 스무 칸 사이에 같은 크기로 섞여 있어서, 정작 컴퓨터가 안 될 때
+         그것을 찾는 사람이 못 봤다(2026-09-01 에도 «입구는 있는데 아무도 못 찾는» 사고가 있었다).
+       · href 는 폴백이다 — 평소엔 아래 wire 가 가로채 그 자리에서 모달만 열고,
+         자바스크립트가 죽어도 그 주소로 가면 모달이 열린다(idx-remote-support.js 의 rsFromUrl).
+         ⛔ '#' 으로 두지 말 것 — 실패 시 «눌러도 아무 일도 없음» 이 된다.
+       · data-remote-help 는 아래 모달 배선과 짝이다. 이름을 바꾸면 조용히 href 로 페이지가 넘어간다.
+       ⚠️ 글자를 담은 span 에만 data-ko/data-en 을 단다 — 아이콘(🛠)이나 이 <a> 자신에 달면
+          i18n 엔진이 textContent 를 통째로 갈아끼워 카드 속이 문장 하나로 뭉개진다(CLAUDE.md 2장).
+       ⚠️ 부제는 flex 아이템이 아니라 «흐르는 글» 이어야 한다(block) — flex 로 감싸면 좁은 폰에서
+          낱글자로 쪼개진다(CLAUDE.md 2장 「짧은 라벨에 display:flex」). */
+    var _en = allmenuIsEn();
+    var _rhT = _en ? 'Remote help'  : '원격 도움받기';
+    var _rhS = _en ? 'PC or phone trouble? Our staff will help.'
+                   : '컴퓨터·휴대폰이 안 될 때 — 직원이 도와드립니다';
+    var _rhG = _en ? 'Get help now' : '지금 도움받기';
+    h += '<a href="/?menu=remote" id="mgam-remote" data-remote-help="1"'
+      + ' style="display:flex;align-items:center;gap:16px;margin:0 0 20px;padding:19px 20px;'
+      + 'background:linear-gradient(135deg,rgba(245,158,11,0.30),rgba(180,83,9,0.20) 55%,rgba(8,10,20,0.70));'
+      + 'border:2px solid rgba(251,191,36,0.78);border-radius:18px;color:#FFF7ED;text-decoration:none;'
+      + 'box-shadow:0 14px 34px -14px rgba(245,158,11,.60),inset 0 1px 0 rgba(255,255,255,.18);'
+      + 'animation:mgamRemoteGlow 2.6s ease-in-out infinite;transition:transform .15s,border-color .15s;'
+      + '-webkit-tap-highlight-color:rgba(245,158,11,0.35)">'
+      +   '<span class="mgam-rh-ico" aria-hidden="true" style="flex:0 0 auto;font-size:42px;line-height:1;filter:drop-shadow(0 2px 6px rgba(0,0,0,.55))">🛠</span>'
+      +   '<span style="flex:1 1 auto;min-width:0">'
+      +     '<span class="mgam-rh-t" data-ko="원격 도움받기" data-en="Remote help"'
+      +       ' style="display:block;font-size:21px;font-weight:800;letter-spacing:.2px;word-break:keep-all;text-shadow:0 1px 6px rgba(0,0,0,.6)">' + _rhT + '</span>'
+      +     '<span class="mgam-rh-s" data-ko="컴퓨터·휴대폰이 안 될 때 — 직원이 도와드립니다"'
+      +       ' data-en="PC or phone trouble? Our staff will help."'
+      +       ' style="display:block;margin-top:4px;font-size:13.5px;font-weight:600;line-height:1.45;word-break:keep-all;color:#FDE68A;text-shadow:0 1px 5px rgba(0,0,0,.6)">' + _rhS + '</span>'
+      +   '</span>'
+      +   '<span class="mgam-rh-go" data-ko="지금 도움받기 →" data-en="Get help now →"'
+      +     ' style="flex:0 0 auto;padding:9px 14px;border-radius:11px;background:rgba(251,191,36,0.95);color:#1F1300;'
+      +     'font-size:14px;font-weight:800;white-space:nowrap">' + _rhG + ' \u2192</span>'
+      + '</a>';
+
     h += '<div id="mgam-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(157px,1fr));gap:18px">';
+    var _zhOk = mangoiZhLearner();
+    var _staff = mangoiIsStaff();
+    var _aiOnly = mangoiTrackHide();
     ALLMENU_ITEMS.forEach(function(m){
+      if(m.liveOnly && _aiOnly) return; // 🎯 AI 학습만 하는 학생에게는 복습퀴즈를 감춘다(2026-09-23)
+      if(m.zh && !_zhOk) return;   // 🇨🇳 중국어 타일은 중국어 수강생에게만
+      if(m.staff && !_staff) return; // 🛠 관리자 전용 타일은 직원에게만 (v4 제안서 03)
       // 실사 아이콘 64x64. width/height 속성은 로딩 중 레이아웃 흔들림 방지용이고,
       // 실제 크기는 CSS 가 확정한다(속성이 CSS 를 이기는 사고를 피하려고 둘 다 명시).
       var ico = m.img
@@ -94,13 +270,25 @@
         : '<span style="' + ALLMENU_EMO_CSS + '">' + m.emoji + '</span>';
       // justify-content 는 center 가 아니라 flex-start — 라벨이 2줄로 접히는 카드('내 주간 스케줄' 등)만
       // 세로 중앙정렬 때문에 아이콘이 아래로 밀려 한 줄 안에서 아이콘 높이가 들쭉날쭉해진다.
-      h += '<a href="' + m.url + '" class="mgam-card" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:9px;padding:25px 11px;background:linear-gradient(160deg,rgba(255,255,255,0.10),rgba(6,9,18,0.64));border:1px solid rgba(255,255,255,0.16);border-radius:18px;color:#F8FAFC;text-decoration:none;min-height:146px;text-align:center;font-size:18px;font-weight:600;line-height:1.3;text-shadow:0 1px 5px rgba(0,0,0,0.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:transform .15s,background .15s,border-color .15s;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
-        + ico + '<span>' + m.name + '</span></a>';
+      /* 🌐 라벨은 글자만 담은 span 이므로 data-ko/data-en 을 여기 단다(아이콘 · <a> 자신에 달면
+         두 i18n 엔진이 textContent 를 통째로 갈아끼워 사진이 사라진다 — CLAUDE.md 2장).
+         en 을 안 적은 타일은 지금처럼 한국어 그대로 — 속성을 안 달아 엔진이 건드리지 않는다. */
+      var lbl = m.en
+        ? '<span data-ko="' + m.name + '" data-en="' + m.en + '">' + (allmenuIsEn() ? m.en : m.name) + '</span>'
+        : '<span>' + m.name + '</span>';
+      h += '<a href="' + m.url + '"' + (m.liveOnly ? ' data-live-only="1"' : '') + (m.adminPortal ? ' data-admin-portal="1"' : '') + (m.remoteHelp ? ' data-remote-help="1"' : '') + ' class="mgam-card" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:9px;padding:25px 11px;background:linear-gradient(160deg,rgba(255,255,255,0.10),rgba(6,9,18,0.64));border:1px solid rgba(255,255,255,0.16);border-radius:18px;color:#F8FAFC;text-decoration:none;min-height:146px;text-align:center;font-size:18px;font-weight:600;line-height:1.3;text-shadow:0 1px 5px rgba(0,0,0,0.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:transform .15s,background .15s,border-color .15s;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
+        + ico + lbl + '</a>';
     });
     h += '</div></div>';
     h += '</div>';
     ov.innerHTML = h;
     document.body.appendChild(ov);
+    /* 🎯 답이 늦게 오면 열린 그리드에서 그 칸만 뺀다(닫혀 있으면 다음에 열 때 캐시로 안 그린다). */
+    mangoiTrackFetch(function(){
+      var ovNow = document.getElementById('mangoi-allmenu');
+      if (!ovNow) return;
+      ovNow.querySelectorAll('a[data-live-only]').forEach(function(a){ if (a.parentNode) a.parentNode.removeChild(a); });
+    });
     document.body.style.overflow = 'hidden';
 
     // 🎬 우상단 안내 동영상 — 전체메뉴 열 때 음성+영상 자동재생(1회만), 클릭하면 즉시 사라짐
@@ -159,6 +347,41 @@
       if (im.complete && !im.naturalWidth) toEmoji();
     });
 
+    /* 🔐 (2026-08-30 v4 제안서 04) 「관리자 포털」 동적 분기.
+       · 세션이 살아 있으면  → /admin.html (대시보드)
+       · 없으면              → /admin/login?next=/admin.html (로그인 화면)
+       ⚠️ 판정은 «성공이라고 말했는가» 로 한다 — 종단 404 본문에는 ok 칸이 아예 없어서
+          `d.ok === false` 로 거르면 그냥 통과한다(CLAUDE.md 2장).
+       ⚠️ 조회가 실패하면 **기존 동작 그대로**(/admin.html) 둔다. 서버가 미인증이면 어차피
+          로그인으로 보내 주므로, 통신이 흔들렸다고 로그인 화면으로 몰지 않는다. */
+    ov.querySelectorAll('a[data-admin-portal]').forEach(function(a){
+      a.addEventListener('click', function(ev){
+        ev.preventDefault();
+        var go = function(u){ location.href = u; };
+        var t = setTimeout(function(){ t = 0; go('/admin.html'); }, 1500);   // 느린 회선 안전망
+        fetch('/api/admin/me', { credentials: 'include' })
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(d){
+            if (!t) return; clearTimeout(t); t = 0;
+            go((d && d.ok === true) ? '/admin.html' : '/admin/login?next=%2Fadmin.html');
+          })
+          .catch(function(){ if (!t) return; clearTimeout(t); t = 0; go('/admin.html'); });
+      });
+    });
+
+    /* 🛠 (2026-09-01) 원격 도움받기 — 페이지를 떠나지 않고 그 자리에서 모달로 열고,
+       메뉴 오버레이는 닫는다(모달이 메뉴 위에 쌓이면 닫는 버튼이 헷갈린다).
+       ⚠️ 모달을 여는 함수가 없으면 가로채지 않는다 — href 가 그대로 살아 /?menu=remote 로
+          간다. «눌렀는데 아무 일도 없음» 이 제일 나쁘다. */
+    ov.querySelectorAll('a[data-remote-help]').forEach(function(a){
+      a.addEventListener('click', function(ev){
+        if (typeof window.openRemoteSupportModal !== 'function') return;   // href 폴백
+        ev.preventDefault();
+        closeAllMenuOverlay();
+        window.openRemoteSupportModal();
+      });
+    });
+
     // 호버 효과 (마우스 환경)
     ov.querySelectorAll('.mgam-card').forEach(function(c){
       c.addEventListener('mouseenter', function(){ c.style.transform='translateY(-3px)'; c.style.background='linear-gradient(160deg,rgba(147,197,253,0.32),rgba(30,58,95,0.62))'; c.style.borderColor='rgba(96,165,250,0.6)'; });
@@ -167,9 +390,10 @@
 
     function _closeFromEvent(ev){ ev.preventDefault(); ev.stopPropagation(); closeAllMenuOverlay(); }
     var x = document.getElementById('mangoi-allmenu-x');
-    if (x) { x.addEventListener('click', _closeFromEvent); x.addEventListener('touchend', _closeFromEvent); }
+    if (x) { x.addEventListener('click', _closeFromEvent); x.addEventListener('touchend', function(ev){ if (_isTap(ev)) _closeFromEvent(ev); }); }
     ov.addEventListener('click', function(ev){ if (ev.target === ov) closeAllMenuOverlay(); });
-    ov.addEventListener('touchend', function(ev){ if (ev.target === ov) { ev.preventDefault(); closeAllMenuOverlay(); } });
+    // 메뉴를 스크롤하다 빈 곳에서 손을 떼도 닫히지 않게 — «탭» 일 때만 닫는다
+    ov.addEventListener('touchend', function(ev){ if (ev.target === ov && _isTap(ev)) { ev.preventDefault(); closeAllMenuOverlay(); } });
     document.addEventListener('keydown', _allmenuEsc);
     console.log('[allmenu] 열림(overlay v4 우주글래스) — ' + ALLMENU_ITEMS.length + '개');
   }
@@ -178,6 +402,8 @@
   // === capture-phase 트리거 (click + touchend) + 디바운스 ===
   //   fix (2026-06-01 v3) — 휴대폰에서 한 번 탭 시 터치+클릭 이벤트가 2번 발생해
   //   토글이 열림→닫힘으로 즉시 닫히던 문제: 600ms 디바운스로 1회만 동작.
+  //   fix (2026-10-28) — touchend 는 «탭» 일 때만 받는다(_isTap). 버튼 위에서 스크롤만 해도
+  //   메뉴가 열리던 문제(터치 target 은 손가락이 움직여도 처음 닿은 버튼 그대로).
   var _allmenuLastTrigger = 0;
   function allmenuTrigger(e){
     if (!e || !e.target || typeof e.target.closest !== 'function') return;
@@ -187,6 +413,7 @@
       if (clicked && clicked.textContent.indexOf('전체메뉴') >= 0) btn = clicked;
     }
     if (!btn) return;
+    if (e.type === 'touchend' && !_isTap(e)) return;
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
@@ -209,6 +436,160 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', buildPanelV22);
   else buildPanelV22();
   setTimeout(buildPanelV22, 500);
+
+  // 🇨🇳 중국어 메뉴 가리기 실행 (2026-08-24) —
+  //   · 정적 버튼(드로어·AI홈 퀵버튼)은 지금 바로 (이 스크립트는 defer 라 DOM 이 준비돼 있다)
+  //   · 「AI와 친구하기」 목록(#ai-friends-ov)은 처음 열 때 만들어지므로, body 에 «붙는 순간»
+  //     한 번 가리고 감시를 끝낸다. ⚠️ body «childList» 감시다 — class 감시는 홈 전체를
+  //     멎게 한 전력이 있으니 절대 금지(CLAUDE.md 2장). childList 는 CLAUDE.md 가 허용한 방식.
+  hideZhStaticEntries();
+  if (!mangoiZhLearner()) {
+    try {
+      var _zhMo = new MutationObserver(function(){
+        var ov = document.getElementById('ai-friends-ov');
+        if (ov) { hideZhStaticEntries(ov); _zhMo.disconnect(); }
+      });
+      _zhMo.observe(document.body, { childList: true });
+    } catch(e){}
+  }
+
+  /* 🏠 주소로 바로 열기 — /?menu=all-menu   (2026-09-14)
+     [왜] 공용 사이드바(js/mg-sidebar.js)는 «주소로만» 옮겨 갈 수 있는데(mgGo → location.href),
+          «전체메뉴»는 홈에서만 도는 «함수»(openAllMenuOverlay)라 줄 주소가 없었다. 그래서
+          공용 주소표에 '/' 라고 적혀 있었고, 홈 밖 25개 화면에서 누르면 «홈으로 가기만 하고
+          오버레이는 아무도 안 여는» 죽은 버튼이었다(2026-09-14 사장님 제보).
+     ⛔ 주소 없이 목록에 넣지 말 것(CLAUDE.md 2장) — 이 줄이 그 함정의 수리다.
+        되돌리려면 mg-sidebar.js 의 'all-menu' 주소도 함께 되돌려야 한다(짝).
+     ⚠️ 이 파일은 defer 라 여기서는 DOM 이 준비돼 있다 — 기다리는 타이머가 필요 없다.
+        (상주 setInterval 은 홈을 통째로 멎게 한 전력이 있다)
+     ⚠️ menu «만» 지운다 — pathname 으로 통째로 갈아치우면 index.html 이 수업으로
+        되돌아올 때 쓰는 ?room= 과 다른 쿼리·해시까지 조용히 잃는다.
+     ℹ️ 선례: js/idx-remote-support.js 의 ?menu=remote · index.html 의 ?menu=aitools */
+  try {
+    var _amQ = new URLSearchParams(location.search);
+    if (_amQ.get('menu') === 'all-menu') {
+      openAllMenuOverlay();
+      try {
+        _amQ.delete('menu');
+        var _amS = _amQ.toString();
+        history.replaceState(null, '', location.pathname + (_amS ? '?' + _amS : '') + location.hash);
+      } catch (_e2) {}
+    }
+  } catch (_e1) {}
+
+  /* 💡 「A.i말하기와 A.i친구하기 차이」 — 학생 안내 (2026-09-26 사장님 지시)
+     [왜] 「AI와 친구하기」 목록에 비슷해 보이는 두 카드(A.i 말하기 연습 · AI 친구)가 나란히 있는데
+          무엇이 다른지 화면 어디에도 없었다. 두 카드 안에 작은 «차이 보기» 칩을 달고,
+          누르면 10대 눈높이의 비교 안내가 뜬다.
+     [어디] 그 목록은 index.html 인라인(공동 금지구역)이 «처음 열 때» 만든다 → 여기(defer)에서
+          body «childList» 로 붙는 순간을 한 번 보고 칩을 단다(class 감시는 금지 — CLAUDE.md 2장).
+     ⛔ 칩을 <button> 으로 만들지 말 것 — 카드가 이미 <button> 이라 파서가 바깥 버튼을 닫아
+        카드가 무너진다. span[role=button] + 이벤트 전파 차단으로 «카드 이동» 을 막는다.
+     ⛔ 칩에 달린 data-ko/data-en 은 «글자만 든» span 에만 — 아이콘·자식이 있으면 사라진다.
+     ⚠️ 내용(사실)은 warmup.html · ai-friend.html 기준 — 기능이 바뀌면 이 문구도 함께. */
+  /* 안내창 본체(문구·모양)는 js/ai-diff.js 한 곳 — 누를 때 한 번만 불러온다(첫 화면 무게 0). */
+  var AIDIFF_SRC = '/js/ai-diff.js?v=1';
+  var AIDIFF_CHIP = { ko: '💡 A.i말하기와 A.i친구하기 차이', en: '💡 Speaking vs. Friend: what\'s different?' };
+  function aidiffStyle(){
+    if (document.getElementById('aidiff-chip-style')) return;
+    var st = document.createElement('style'); st.id = 'aidiff-chip-style';
+    st.textContent =
+      '#ai-friends-ov .aif-tx>span.aif-diff{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:99px;'
+     +'background:rgba(251,191,36,.16);border:1px solid rgba(251,191,36,.55);color:#fde68a;font-size:12.5px;font-weight:700;line-height:1.35;cursor:pointer}'
+     +'#ai-friends-ov .aif-tx>span.aif-diff:hover,#ai-friends-ov .aif-tx>span.aif-diff:focus-visible{background:rgba(251,191,36,.3);outline:none}';
+    document.head.appendChild(st);
+  }
+  var _adLoading = null;
+  function aidiffOpen(){
+    if (window.mgOpenAiDiff) { window.mgOpenAiDiff(); return; }
+    if (!_adLoading) {
+      _adLoading = new Promise(function(res, rej){
+        var sc = document.createElement('script'); sc.src = AIDIFF_SRC;
+        sc.onload = res; sc.onerror = function(){ _adLoading = null; rej(); };
+        document.head.appendChild(sc);
+      });
+    }
+    _adLoading.then(function(){ if (window.mgOpenAiDiff) window.mgOpenAiDiff(); }, function(){});
+  }
+
+  function aidiffDecorate(ov){
+    if (!ov || ov.__aidiff) return;
+    ov.__aidiff = true;
+    aidiffStyle();
+    var items = ov.querySelectorAll('.aif-item');
+    for (var i = 0; i < items.length; i++) {
+      var oc = items[i].getAttribute('onclick') || '';
+      if (oc.indexOf('/warmup.html') < 0 && oc.indexOf('/ai-friend.html') < 0) continue;
+      var tx = items[i].querySelector('.aif-tx');
+      if (!tx || tx.querySelector('.aif-diff')) continue;
+      var chip = document.createElement('span');
+      chip.className = 'aif-diff';
+      chip.setAttribute('role', 'button');
+      chip.setAttribute('tabindex', '0');
+      chip.setAttribute('data-ko', AIDIFF_CHIP.ko);
+      chip.setAttribute('data-en', AIDIFF_CHIP.en);
+      chip.textContent = allmenuIsEn() ? AIDIFF_CHIP.en : AIDIFF_CHIP.ko;
+      /* 카드(<button onclick=이동>)까지 올라가지 않게 — 여기서 끊는다 */
+      chip.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); aidiffOpen(); });
+      chip.addEventListener('keydown', function(e){
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); aidiffOpen(); }
+      });
+      tx.appendChild(chip);
+    }
+  }
+  /* 📖 「A.i학습 사용설명서」 입구 (2026-10-28 사장님 지시)
+     [왜] 처음 망고아이 AI 도구를 접하는 학원(원장님·선생님)이 11가지를 «어떻게 쓰는지» 볼 곳이 없었다.
+     [어디] 목록 제목 아래(.aif-head)에 여는 단추 하나만 단다. 카드(<button>) 밖이라 진짜 <a> 로 둔다.
+     ⛔ 설명서 문구를 여기 복사하지 말 것 — 본문은 /ai-guide.html 한 곳만 고친다.
+     ⛔ data-ko/data-en 은 «글자만 든» span 에만 — 아이콘 span 이 함께 지워진다(CLAUDE.md 2장). */
+  var GUIDE_URL = '/ai-guide.html';
+  var GUIDE_LABEL = { ko: 'A.i학습 사용설명서', en: 'A.i Learning Guide' };
+  function guideStyle(){
+    if (document.getElementById('aif-guide-style')) return;
+    var st = document.createElement('style'); st.id = 'aif-guide-style';
+    st.textContent =
+      '#ai-friends-ov .aif-guide{display:inline-flex;align-items:center;gap:7px;margin-top:16px;padding:10px 20px;border-radius:99px;'
+     +'background:linear-gradient(135deg,#fde68a,#fbbf24 55%,#f59e0b);color:#1a1a1a;font-size:15.5px;font-weight:900;line-height:1.2;'
+     +'text-decoration:none;box-shadow:0 8px 20px -8px rgba(245,158,11,.75)}'
+     +'#ai-friends-ov .aif-guide:hover,#ai-friends-ov .aif-guide:focus-visible{background:#fde68a;outline:none}'
+     +'@media(max-width:560px){#ai-friends-ov .aif-guide{font-size:14px;padding:9px 16px;margin-top:12px}}';
+    document.head.appendChild(st);
+  }
+  function guideDecorate(ov){
+    var head = ov && ov.querySelector('.aif-head');
+    if (!head || head.querySelector('.aif-guide')) return;
+    guideStyle();
+    var a = document.createElement('a');
+    a.className = 'aif-guide';
+    a.href = GUIDE_URL;
+    var ic = document.createElement('span');
+    ic.setAttribute('aria-hidden', 'true');
+    ic.textContent = '📖';
+    var tx = document.createElement('span');
+    tx.setAttribute('data-ko', GUIDE_LABEL.ko);
+    tx.setAttribute('data-en', GUIDE_LABEL.en);
+    tx.textContent = allmenuIsEn() ? GUIDE_LABEL.en : GUIDE_LABEL.ko;
+    a.appendChild(ic);
+    a.appendChild(tx);
+    head.appendChild(a);
+  }
+
+  /* 목록이 body 에 «붙는 순간» 한 번에 꾸민다 — 감시자는 하나만(class 감시 금지, CLAUDE.md 2장) */
+  function aifDecorate(ov){
+    aidiffDecorate(ov);
+    guideDecorate(ov);
+  }
+  var _adNow = document.getElementById('ai-friends-ov');
+  if (_adNow) aifDecorate(_adNow);
+  else {
+    try {
+      var _adMo = new MutationObserver(function(){
+        var ov = document.getElementById('ai-friends-ov');
+        if (ov) { aifDecorate(ov); _adMo.disconnect(); }
+      });
+      _adMo.observe(document.body, { childList: true });
+    } catch(e){}
+  }
 
   console.log('[v22] 전체메뉴 capture-phase 핸들러 + 패널 즉시 생성 활성');
 })();

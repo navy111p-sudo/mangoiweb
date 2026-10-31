@@ -79,7 +79,7 @@ console.log('\n▶ 2. 학생 목록 — 대리점·학원 필터');
   check('목록 로드 후 드롭다운 채움', /smFillAgencyFilter\(\)/.test(admCore));
   check('필터가 렌더에 실제로 걸림', /_smAgency[\s\S]{0,400}shop_name/.test(admCore));
   check('CSV 다운로드도 같은 필터 적용',
-        /smExportStudentsCsv[\s\S]{0,900}_smAgency/.test(admCore),
+        /smExportStudentsCsv[\s\S]{0,900}smLearningRows\(\)/.test(admCore) && /renderStudentTable\(\)[\s\S]{0,900}smLearningRows\(\)/.test(admCore) && /function smLearningRows\(\)[\s\S]{0,600}_smAgency[\s\S]{0,600}shop_name/.test(admCore),
         '화면과 CSV 결과가 달라지면 안 됨');
   check('선택 즉시 반영(change 바인딩)', admCore.includes("getElementById('sm-agency-filter')"));
 }

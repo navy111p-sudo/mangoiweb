@@ -1,0 +1,592 @@
+<meta charset="utf-8">
+<title>관리자 메뉴 간소화 · 경량화 제안서 — 망고아이 (2026-08-08)</title>
+<style>
+  :root{
+    --ink:#1f2937; --ink2:#4b5563; --mute:#6b7280; --faint:#9ca3af;
+    --line:#e5e7eb; --paper:#fffdf8; --card:#fff;
+    --lav:#eef1fc; --lav2:#e3e8fa; --lavink:#3b4a8c;
+    --amber:#f59e0b; --orange:#ea580c; --red:#dc2626; --purple:#a855f7; --blue:#3b82f6; --green:#10b981;
+    --warm:#7c2d12;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+       font-family:"Malgun Gothic","맑은 고딕",system-ui,-apple-system,sans-serif;
+       font-size:14px;line-height:1.65}
+  .wrap{max-width:1140px;margin:0 auto;padding:28px 20px 90px}
+
+  h1{font-size:25px;font-weight:900;margin:0 0 6px;letter-spacing:-.4px}
+  h2{font-size:18px;font-weight:900;margin:40px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line);letter-spacing:-.3px}
+  h3{font-size:14.5px;font-weight:800;margin:24px 0 8px;color:var(--warm)}
+  h4{font-size:13.5px;font-weight:800;margin:16px 0 6px;color:var(--lavink)}
+  p{margin:8px 0}
+  .sub{color:var(--mute);font-size:13px;margin:0 0 20px}
+  .en{color:var(--faint);font-weight:600;font-size:.86em}
+
+  .verdict{background:#fffbeb;border:1px solid #f2d68a;border-radius:12px;padding:16px 18px;margin:18px 0 8px}
+  .verdict b{color:#92400e}
+  .danger{background:#fdf4f4;border:1px solid #f0c3c3;border-radius:12px;padding:16px 18px;margin:16px 0}
+  .danger b{color:#9f1239}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0 6px;background:var(--card)}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--lav);color:var(--lavink);font-weight:800;font-size:12.5px}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  td.c{text-align:center}
+  .good{color:#047857;font-weight:800}
+  .bad{color:var(--red);font-weight:800}
+  .dim{color:var(--faint)}
+  code{background:#f3f4f6;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px;
+       font-family:Consolas,"D2Coding",monospace}
+  pre{background:#111827;color:#e5e7eb;border-radius:10px;padding:12px 14px;overflow-x:auto;font-size:12px;
+      font-family:Consolas,"D2Coding",monospace;line-height:1.6;margin:8px 0}
+  pre .cm{color:#93c5fd} pre .er{color:#fca5a5;font-weight:700} pre .ok{color:#86efac;font-weight:700}
+
+  .note{background:#f7f9fd;border:1px solid #d9e2f2;border-radius:10px;padding:12px 14px;margin:12px 0;font-size:13px}
+  .warn{background:#fdf4f4;border-color:#f0c3c3}
+  .okbox{background:#f2faf5;border-color:#cfe9da}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:16px 0}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .kpi .n{font-size:23px;font-weight:900;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+  .kpi .l{font-size:11.5px;color:var(--mute);font-weight:700;margin-top:2px}
+  .kpi .d{font-size:11px;color:var(--faint);margin-top:4px}
+  .kpi.r .n{color:var(--red)} .kpi.g .n{color:#047857} .kpi.b .n{color:var(--lavink)}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}
+  @media(max-width:820px){.cols{grid-template-columns:1fr}}
+
+  .sbdemo{background:#111827;border-radius:12px;padding:10px;font-size:12px;color:#e5e7eb;
+          font-family:"Malgun Gothic","맑은 고딕",sans-serif;line-height:1.45;max-height:520px;overflow:auto}
+  .sbdemo .g{padding:6px 8px;margin:2px 0;border-radius:6px;background:rgba(251,191,36,.14);color:#fcd34d;font-weight:800}
+  .sbdemo .s{padding:3px 8px 3px 22px;color:#cbd5e1}
+  .sbdemo .sh{padding:6px 8px 2px 14px;color:#fbbf24;font-size:10.5px;font-weight:800;opacity:.7}
+  .sbdemo .tag{float:right;color:#94a3b8;font-size:10.5px}
+
+  .bar{height:12px;background:#eef1f6;border-radius:99px;overflow:hidden;margin:4px 0}
+  .bar i{display:block;height:100%;border-radius:99px}
+
+  ul{margin:6px 0 6px 20px;padding:0} li{margin:4px 0}
+  .lead{font-size:15px}
+  .tocbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin:16px 0;font-size:13px}
+  .tocbox a{color:var(--lavink);text-decoration:none;font-weight:700}
+  .tocbox a:hover{text-decoration:underline}
+  .phase{border-left:4px solid var(--amber);background:var(--card);border-radius:0 12px 12px 0;padding:14px 16px;margin:14px 0;border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .phase.p2{border-left-color:var(--blue)} .phase.p3{border-left-color:var(--purple)}
+  .phase h4{margin-top:0}
+  hr{border:0;border-top:1px solid var(--line);margin:34px 0}
+  .foot{color:var(--faint);font-size:12px;margin-top:40px}
+</style>
+
+<div class="wrap">
+
+<h1>관리자 페이지 메뉴 간소화 · 경량화 제안서</h1>
+<p class="sub">대상 <code>test.mangoi.co.kr/admin.html</code> · 2026-08-08 · 모든 수치는 저장소 현재 코드를 직접 세어 얻은 <b>실측값</b>입니다(추정 아님)</p>
+
+<div class="verdict">
+  <p class="lead" style="margin-top:0"><b>한 줄 결론</b> — 메뉴가 많은 게 문제가 아니라, <b>「카드 하나 = 메뉴 하나 = 파일 하나」</b>로 5년치 기능이 1:1로 쌓인 것이 문제입니다.
+  그래서 <b>화면이 87줄</b>이 되고 동시에 <b>3.6MB</b>가 됩니다. 둘은 같은 원인의 두 얼굴이라 <b>같이 고쳐야 같이 해결됩니다.</b></p>
+  <p style="margin-bottom:0">제안: <b>9그룹 87항목 → 6그룹 36항목</b>(−59%), <b>카드 91개 → 36개</b>, <b>부팅 3.63MB → 목표 0.6MB대</b>.
+  근거는 이미 이 저장소에 있습니다 — 같은 방식으로 만든 <code>/manager</code> 포털이 <b>934KB·19초 → 10KB·0.43초</b>로 검증됐습니다.</p>
+</div>
+
+<div class="tocbox">
+  <b>목차</b> &nbsp;
+  <a href="#now">1. 지금 상태(실측)</a> ·
+  <a href="#p1">2. 문제① 개수</a> ·
+  <a href="#p2">3. 문제② 이름</a> ·
+  <a href="#p3">4. 문제③ 우선순위</a> ·
+  <a href="#p4">5. 문제④ 무게</a> ·
+  <a href="#why">6. 왜 지금까지 못 줄였나</a> ·
+  <a href="#bench">7. 경쟁사에서 얻을 점·버릴 점</a> ·
+  <a href="#ia">8. 제안 구조(전체 매핑)</a> ·
+  <a href="#naming">9. 이름 규칙</a> ·
+  <a href="#light">10. 경량화 3단계</a> ·
+  <a href="#dont">11. 하면 안 되는 것</a> ·
+  <a href="#verify">12. 검증·리스크</a> ·
+  <a href="#now30">13. 오늘 30분</a>
+</div>
+
+<hr>
+
+<h2 id="now">1. 지금 상태 — 세어 본 숫자</h2>
+
+<div class="kpis">
+  <div class="kpi r"><div class="n">87</div><div class="l">사이드바 하위 항목</div><div class="d">9개 그룹 안</div></div>
+  <div class="kpi r"><div class="n">91</div><div class="l">카드(메뉴 화면)</div><div class="d">한 페이지에 전부</div></div>
+  <div class="kpi r"><div class="n">210</div><div class="l">접이식 블록 &lt;details&gt;</div><div class="d">최대 4단 중첩</div></div>
+  <div class="kpi r"><div class="n">3.63 MB</div><div class="l">첫 화면 전송량</div><div class="d">API 응답 제외</div></div>
+  <div class="kpi r"><div class="n">98</div><div class="l">파일 요청</div><div class="d">JS 92 · CSS 5 · HTML 1</div></div>
+  <div class="kpi r"><div class="n">19~21초</div><div class="l">필리핀 흉내회선 로딩</div><div class="d">/teacher 는 0.83초</div></div>
+</div>
+
+<h3>1-1. 메뉴 구조</h3>
+<table>
+  <tr><th>그룹</th><th class="num">하위 항목</th><th>비고</th></tr>
+  <tr><td>평가서 통합</td><td class="num">6</td><td></td></tr>
+  <tr><td>알림 센터</td><td class="num">6</td><td></td></tr>
+  <tr><td><b>강사 통합</b></td><td class="num bad">17</td><td>안에 소제목 4개를 더 넣어서 버티는 중 (사실상 3단)</td></tr>
+  <tr><td>통계 / KPI</td><td class="num">9</td><td></td></tr>
+  <tr><td>회계 / 포인트</td><td class="num">7</td><td></td></tr>
+  <tr><td><b>학생 / 학부모</b></td><td class="num bad">13</td><td></td></tr>
+  <tr><td><b>교육 / 콘텐츠</b></td><td class="num bad">11</td><td></td></tr>
+  <tr><td>자료실</td><td class="num">5</td><td>5개가 「누가 보느냐」만 다른 같은 화면</td></tr>
+  <tr><td><b>시스템</b></td><td class="num bad">13</td><td>성격이 다른 것들이 「기타」로 모임</td></tr>
+  <tr><th>합계</th><th class="num">87</th><th>9개 중 4개 그룹이 통념(7±2)을 넘음</th></tr>
+</table>
+
+<h3>1-2. 깊이 — 클릭해서 들어가는 층</h3>
+<p>사이드바에서 그룹(1층) → 항목(2층)까지 간 뒤, <b>카드 안에서 다시 접이식이 3층 더</b> 있습니다.</p>
+<table>
+  <tr><th>층</th><th class="num">개수</th><th>정체</th></tr>
+  <tr><td>1층 — 카드 본체</td><td class="num">77</td><td><code>&lt;details class="menu-card"&gt;</code></td></tr>
+  <tr><td>2층 — 카드 안 섹션</td><td class="num">99</td><td>탭이어야 할 것이 접이식으로 되어 있음</td></tr>
+  <tr><td>3층</td><td class="num">33</td><td class="bad">여기부터는 존재 자체를 아무도 모름</td></tr>
+  <tr><td>4층</td><td class="num">1</td><td class="bad"></td></tr>
+  <tr><th>합계</th><th class="num">210</th><th>제목표(&lt;summary&gt;) 184개</th></tr>
+</table>
+
+<h3>1-3. 화면에 놓인 조작 도구</h3>
+<p>버튼 <b>440</b>개 · 입력칸 <b>304</b>개 · 선택상자 <b>117</b>개 · 표 <b>68</b>개 · 인라인 <code>onclick</code> <b>468</b>개.
+전부 <b>동시에</b> 한 페이지에 존재합니다(접혀 있을 뿐 브라우저는 다 만들어 둡니다).</p>
+
+<hr>
+
+<h2 id="p1">2. 문제① — 사이드 메뉴가 너무 많다</h2>
+
+<p>「많다」를 숫자로 두 가지로 나눠야 고칠 수 있습니다.</p>
+
+<h3>① 겹치는 것이 많다 — 합치면 없어지는 항목</h3>
+<table>
+  <tr><th>지금</th><th class="num">개수</th><th>실제로는</th><th class="num">→</th></tr>
+  <tr><td>관리자 / 강사 / 지사 / 대리점 / 학생·학부모 <b>자료실</b></td><td class="num">5</td><td>같은 화면, 보는 사람만 다름 → 탭 1개</td><td class="num good">1</td></tr>
+  <tr><td>평가서 작성 · 일괄 평가 · AI 수업 리포트 · AI 초안 · 월별 리포트 · 비교 리포트</td><td class="num">6</td><td>모두 「평가서」 한 가지 일의 단계</td><td class="num good">1</td></tr>
+  <tr><td>웹 푸시 · 카카오 알림 · 공지 스튜디오 · 팝업 게시 · 이벤트 알림 · 공지사항</td><td class="num">6</td><td>모두 「보낸다」 한 가지 일</td><td class="num good">1</td></tr>
+  <tr><td>출결 상태 · QR 출결 · 수업 출결</td><td class="num">3</td><td>같은 출결의 세 입력경로</td><td class="num good">1</td></tr>
+  <tr><td>BtoB · BtoC · 정기 결제 · 자동 수금</td><td class="num">4</td><td>결제 한 화면의 탭</td><td class="num good">1</td></tr>
+  <tr><td>자동 급여 · 급여 관리</td><td class="num">2</td><td>같은 급여</td><td class="num good">1</td></tr>
+  <tr><td>커뮤니티 · 졸업생 커뮤니티</td><td class="num">2</td><td>같은 커뮤니티</td><td class="num good">1</td></tr>
+  <tr><td>KPI 대시보드 · 일별 차트 · 랭킹 · 월별 NPS</td><td class="num">4</td><td>같은 대시보드의 기간·지표 전환</td><td class="num good">1</td></tr>
+  <tr><td>수업 관찰 · 귓속말</td><td class="num">2</td><td>관찰 중에 쓰는 기능</td><td class="num good">1</td></tr>
+  <tr><td>연기·변경 요청 · 연기 수업 현황</td><td class="num">2</td><td>신청과 결과</td><td class="num good">1</td></tr>
+</table>
+
+<h3>② 아예 못 가는 것 — 지우면 없어지는 항목</h3>
+<p>페이지에는 카드가 <b>91개</b> 있는데, 사이드바가 가리키는 것은 <b>84개</b>뿐입니다.
+아래 <b>12개</b>는 화면에 만들어지고 코드까지 내려받지만 <b>메뉴에서 갈 방법이 없습니다.</b></p>
+<div class="note warn">
+<code>card-dashboard</code> · <code>card-daily-briefing</code> · <code>card-ai-insights</code> · <code>card-leveltest</code>(<span class="dim">현행 메뉴는 <code>card-level-tests</code> — 이름이 비슷한 별개 카드 2벌</span>) ·
+<code>card-selfscore</code> · <code>card-ops-modules</code> · <code>card-no-shows</code> · <code>card-monthly-ai-report</code> ·
+<code>card-auto-schedule</code> · <code>card-teacher-contact</code> · <code>card-lesson-insight</code> · <code>card-classroom-test</code>
+</div>
+
+<h3>③ 이름만 두 개인 것</h3>
+<div class="danger">
+<b>같은 카드가 서로 다른 이름으로 두 군데 있습니다.</b><br>
+「강사 통합 → 🌙 근무·휴식·휴가 관리」와 「시스템 → 📅 캘린더 관리」는 <b>둘 다 <code>card-calendar</code></b> 로 갑니다.
+직원 입장에서는 <b>다른 기능 두 개</b>로 보입니다.
+</div>
+
+<hr>
+
+<h2 id="p2">3. 문제② — 이름이 많고 길고 규칙이 없다</h2>
+
+<div class="kpis">
+  <div class="kpi r"><div class="n">56 / 87</div><div class="l">이모지가 붙은 항목</div><div class="d">64% — 없는 것과 섞여 있음</div></div>
+  <div class="kpi r"><div class="n">13</div><div class="l">「⭐신규」 뱃지</div><div class="d">만료 규칙 없음 = 영구</div></div>
+  <div class="kpi r"><div class="n">15</div><div class="l">「~관리」로 끝나는 이름</div><div class="d">전부 관리 화면인데 15개만 붙음</div></div>
+  <div class="kpi b"><div class="n">14자</div><div class="l">가장 긴 이름</div><div class="d">평균 6.8자</div></div>
+</div>
+
+<h3>규칙이 세 가지가 섞여 있습니다</h3>
+<table>
+  <tr><th>방식</th><th>예</th><th>문제</th></tr>
+  <tr><td>일(동사) 기준</td><td>평가서 <b>작성</b>, 복습퀴즈 <b>출제</b>, 데이터 <b>추출</b></td><td class="good">좋음 — 무엇을 하는지 보임</td></tr>
+  <tr><td>대상(명사) 기준</td><td>강사 <b>관리</b>, 학생 <b>관리</b>, 뱃지 <b>관리</b></td><td>「관리」는 정보가 0. 뒤 두 글자를 지워도 뜻이 같음</td></tr>
+  <tr><td>내부 용어 그대로</td><td>MBTI · NPS · 카페24 명부 · 실시간 수업 (활성 룸)</td><td class="bad">신입·필리핀 강사가 못 읽음. 「활성 룸」은 우리 개발 용어</td></tr>
+</table>
+
+<div class="note warn">
+<b>⚠️ 이름을 고칠 때 반드시 같이 해야 하는 일</b> — 이 저장소의 다국어 사전은 <b>문자열 전체 일치</b> 방식입니다.
+라벨에서 <b>이모지만 떼어도 영어 번역이 통째로 깨집니다.</b> 이름 정리는 <code>data-ko</code>/<code>data-en</code> 두 벌과
+i18n 사전을 <b>한 커밋에서 같이</b> 바꿔야 합니다.
+</div>
+
+<hr>
+
+<h2 id="p3">4. 문제③ — 중요·보통·거의 안 씀의 구분이 없다</h2>
+
+<p>지금은 <b>87개가 전부 같은 크기·같은 색·같은 위치</b>입니다. 매일 20번 쓰는 「출결」과 1년에 한 번 쓰는 「보관기간 파기」가 동급입니다.</p>
+
+<h3>이미 만들어 둔 답이 세 개 있는데 서로 모릅니다</h3>
+<table>
+  <tr><th>이미 있는 것</th><th>파일</th><th>지금 한계</th></tr>
+  <tr><td>⚡ 자주 쓰는 기능 5개 고정</td><td><code>adm-quick-access.js</code></td><td>매니저 인터뷰로 <b>손으로 정한 5개</b>. 다른 직군엔 안 맞음</td></tr>
+  <tr><td>📌 핀 + 🕘 최근 사용 6개</td><td><code>adm-quickmenu.js</code></td><td><b>localStorage 뿐</b> — 각자 브라우저에만 남고 회사는 아무 것도 모름</td></tr>
+  <tr><td>🔍 메뉴 검색창</td><td><code>#ph85-search</code></td><td>사이드바를 <b>열어야</b> 보이고, <b>단축키가 없음</b></td></tr>
+</table>
+
+<div class="danger">
+<b>가장 큰 공백 — 「무엇이 중요한지」를 정할 데이터가 회사에 없습니다.</b><br>
+메뉴 클릭이 서버에 <b>한 번도 기록된 적이 없습니다.</b> 최근 사용 6개는 각자 브라우저의 <code>localStorage</code>에만 남습니다.
+그래서 지금의 우선순위는 전부 <b>인터뷰와 감</b>입니다. 아래 5줄이면 오늘부터 사실이 쌓입니다.
+</div>
+<pre><span class="cm">// 사이드바 클릭 한 줄 기록 — 서버 1개 · 클라 5줄</span>
+document.addEventListener('click', function (e) {
+  var s = e.target.closest('.ph85-sub'); if (!s) return;
+  navigator.sendBeacon('/api/admin/menu-hit',
+    JSON.stringify({ card: s.dataset.card, ko: s.dataset.ko }));   <span class="ok">// 개인정보 없음 · 실패해도 무해</span>
+});</pre>
+<p>2주면 <b>「실제로 안 눌리는 메뉴」</b>가 드러납니다. 그때는 이 제안서의 배치가 아니라 <b>측정값</b>으로 3층을 나눕니다.</p>
+
+<hr>
+
+<h2 id="p4">5. 문제④ — 무게 (경량·빠른 관리자)</h2>
+
+<h3>5-1. 첫 화면에 무엇이 오는가</h3>
+<table>
+  <tr><th>덩어리</th><th class="num">크기</th><th class="num">파일</th><th>메모</th></tr>
+  <tr><td>admin.html</td><td class="num">1,010 KB</td><td class="num">1</td><td>12,167줄. 인라인 &lt;script&gt; 89블록 263KB 포함</td></tr>
+  <tr><td>JS — 부팅 즉시 실행</td><td class="num bad">1,900 KB</td><td class="num bad">73</td><td><code>adm-core.js</code> 685KB · <code>i18n-sweep.js</code> 199KB</td></tr>
+  <tr><td>JS — 카드 열 때 지연</td><td class="num good">222 KB</td><td class="num">19</td><td>이미 적용된 지연로딩(<code>adm-lazy.js</code>)</td></tr>
+  <tr><td>CSS</td><td class="num">498 KB</td><td class="num">5</td><td><code>admin-inline-c.css</code> <b>405KB</b> 한 장</td></tr>
+  <tr><th>첫 화면 합계</th><th class="num bad">3,630 KB</th><th class="num bad">98</th><th>API 응답은 여기 포함 안 됨</th></tr>
+</table>
+<p><code>defer</code>가 붙은 스크립트는 <b>92개 중 1개</b>, <code>async</code>는 <b>0개</b>입니다. 즉 73개가 순서대로 줄을 서서 실행됩니다.</p>
+
+<h3>5-2. 가장 큰 낭비 — 아무도 안 볼 것을 모두가 받는다</h3>
+<p>역할별로 <b>실제 보이는 카드 수</b>를 정책(<code>CARD_POLICY</code>)대로 계산했습니다. 숨기는 방식은 <code>display:none</code> 한 줄 — <b>안 보일 뿐 다 받습니다.</b></p>
+<table>
+  <tr><th>역할</th><th class="num">보이는 카드</th><th>받는 용량</th><th></th></tr>
+  <tr><td>본사 경영진</td><td class="num">91 / 91</td><td class="num">3.63 MB</td><td><div class="bar"><i style="width:100%;background:#dc2626"></i></div></td></tr>
+  <tr><td>본사 관리자</td><td class="num">89 / 91</td><td class="num">3.63 MB</td><td><div class="bar"><i style="width:98%;background:#dc2626"></i></div></td></tr>
+  <tr><td>본사 교사</td><td class="num">85 / 91</td><td class="num">3.63 MB</td><td><div class="bar"><i style="width:93%;background:#ea580c"></i></div></td></tr>
+  <tr><td><b>지사</b></td><td class="num bad">14 / 91</td><td class="num bad">3.63 MB</td><td><div class="bar"><i style="width:15%;background:#f59e0b"></i></div><span class="dim" style="font-size:11.5px">85%를 못 쓸 것을 받는다</span></td></tr>
+  <tr><td><b>대리점</b></td><td class="num bad">10 / 91</td><td class="num bad">3.63 MB</td><td><div class="bar"><i style="width:11%;background:#f59e0b"></i></div><span class="dim" style="font-size:11.5px">89%를 못 쓸 것을 받는다</span></td></tr>
+</table>
+
+<div class="okbox note">
+<b>이미 증명된 해법이 저장소에 있습니다.</b> 지사·대리점용 <code>/manager</code> 경량 포털은 <b>10KB · 0.43초</b>로 동작합니다(같은 회선에서 admin.html은 19~21초).
+서버 허용목록(<code>isAgencyAllowedApi</code>)이 25개뿐이라 <b>메뉴를 추측하지 않고 서버가 정하게</b> 만든 결과입니다.
+<b>지사·대리점은 admin.html 을 열 이유가 처음부터 없습니다.</b>
+</div>
+
+<hr>
+
+<h2 id="why">6. 왜 지금까지 못 줄였나 — 전제를 검증했습니다</h2>
+
+<p>메뉴를 합치지 않은 이유가 코드 주석에 적혀 있습니다(<code>adm-quickmenu.js</code>).</p>
+<blockquote style="border-left:3px solid var(--line);margin:10px 0;padding:4px 14px;color:var(--ink2)">
+「겉보기에 중복인 카드들(자료실 5개, 리포트 5개 …)은 사실 역할별 접근권한을 따로 들고 있다.<br>
+즉 이 시스템에서는 <b>카드 하나 = 권한 단위</b>다. 합치면 권한 경계가 무너진다.」
+</blockquote>
+
+<p>세어 봤습니다. <b>이 말은 91개 중 27개에만 해당합니다.</b> 나머지 <b>64개는 권한 정책에 등록조차 되어 있지 않아</b> 전부 「본사 전용」이라는 <b>같은 한 칸</b>에 들어 있습니다.</p>
+
+<table>
+  <tr><th>합치려던 묶음</th><th>각 카드의 권한</th><th>판정</th></tr>
+  <tr><td>자료실 5개</td><td>5개 <b>모두 미등록 → 본사 전용</b></td><td class="good">✅ 합쳐도 권한 안 무너짐</td></tr>
+  <tr><td>출결 3개</td><td>3개 모두 미등록 → 본사 전용</td><td class="good">✅ 안전</td></tr>
+  <tr><td>평가서 6개</td><td>6개 모두 미등록 → 본사 전용</td><td class="good">✅ 안전</td></tr>
+  <tr><td>알림 6개</td><td>5개 미등록 + <code>card-notifications</code>만 <b>mgrOrUp</b></td><td>⚠️ 탭 1개만 권한 조건부</td></tr>
+  <tr><td>결제 5개</td><td>4개 미등록 + <code>card-accounting-mgmt</code>만 <b>mgrOrUp</b></td><td>⚠️ 탭 1개만 권한 조건부</td></tr>
+</table>
+
+<div class="verdict">
+<b>결론</b> — 「합치면 위험하다」는 <b>27개 카드에는 참, 64개에는 거짓</b>이었습니다.
+그리고 참인 27개도 <b>카드를 나눌 필요는 없고 탭에 권한을 걸면 됩니다.</b>
+지금 구조가 오히려 위험합니다 — <b>정책 미등록 64개는 「본사 전용」으로 조용히 떨어지므로,
+새 카드를 만들 때 정책을 안 적으면 아무도 모르게 지사·대리점에서 사라집니다.</b>
+</div>
+
+<hr>
+
+<h2 id="bench">7. 다른 회사에서 얻을 점 · 버릴 점</h2>
+
+<h3>얻을 점</h3>
+<table>
+  <tr><th>회사 / 기준</th><th>그들이 하는 것</th><th>우리가 가져올 것</th></tr>
+  <tr><td><b>Stripe</b> (2024 대시보드 개편)</td>
+      <td>사이드바 링크 수를 <b>줄이고</b>, <b>업무 흐름 순서</b>로 재배치. 핀 고정·최근 방문 바로가기 제공.
+          라벨을 <b>「데이터 이름」이 아니라 「하는 일」</b>로.</td>
+      <td>핀·최근은 <b>우리도 이미 있음</b>(<code>adm-quickmenu.js</code>). 없는 것은 <b>「하는 일」 라벨링</b>과 <b>링크 줄이기</b> 두 가지.</td></tr>
+  <tr><td><b>Shopify</b></td>
+      <td>최상위 메뉴 <b>7개 이하</b> 권장. 5~7이 실무 적정선.</td>
+      <td>우리 9그룹 → <b>6그룹</b>.</td></tr>
+  <tr><td><b>GitLab (Pajamas)</b></td>
+      <td>사이드바는 <b>2단까지만. 3단은 만들지 않는다.</b> 항목당 아이콘 1개, 이름 <b>1~2단어</b>.</td>
+      <td>우리는 사이드바 2단 + 카드 안 3단이 사실상 5단. <b>3단 이하 금지</b>를 규칙으로.</td></tr>
+  <tr><td><b>Linear · Notion · GitHub</b></td>
+      <td><b>Cmd/Ctrl+K 커맨드 팔레트</b>가 사실상 기본. 어디서든 눌러 바로 이동·실행.</td>
+      <td>검색창은 있으나 사이드바 안에 갇혀 있고 단축키가 없음. <b><code>Ctrl+K</code> 전역 단축키 + 최근·핀 우선 노출</b>(추가 코드 ~40줄).</td></tr>
+  <tr><td><b>Nielsen Norman Group</b></td>
+      <td><b>넓고 얕게</b>(broad &amp; shallow). 이름은 짧고 기억 가능하게.</td>
+      <td>「깊게 숨기기」로 개수를 줄이면 실패합니다. <b>합쳐서 줄여야</b> 합니다.</td></tr>
+</table>
+
+<h3>버릴 점 — 큰 회사들이 실제로 겪은 실패</h3>
+<table>
+  <tr><th>남의 단점</th><th>증상</th><th>우리에게 이미 있는 징후</th></tr>
+  <tr><td><b>Salesforce / SAP 식 「설정 안의 설정」</b></td><td>깊이로 개수를 감춤 → 검색 없이는 영원히 못 찾음</td><td class="bad">우리 3단 33개 · 4단 1개가 정확히 이 상태</td></tr>
+  <tr><td><b>AWS 콘솔 식 「전부 나열」</b></td><td>서비스 200개를 평면 나열 → 신입은 시작조차 못 함</td><td class="bad">87개 평면 나열 + 우선순위 없음</td></tr>
+  <tr><td><b>Notion 식 「검색이 곧 메뉴」</b></td><td>이름을 <b>이미 아는 사람</b>만 빠름. 신입은 무엇이 있는지 모름</td><td>우리 직원엔 파트타임·필리핀 강사 포함 → <b>검색만으로 대체하면 안 됨</b>. 6개 고정 메뉴와 <b>병행</b></td></tr>
+  <tr><td><b>「⭐NEW」 뱃지 방치</b></td><td>몇 달 지난 것도 NEW → 뱃지가 의미를 잃음</td><td class="bad">13개가 만료 규칙 없이 영구 표시 중</td></tr>
+  <tr><td><b>대시보드 첫 화면에 전부 렌더</b></td><td>열지도 않은 위젯이 로딩을 잡아먹음</td><td class="good">이 건은 이미 고침 — 접힌 대시보드 API 10→2, 차트 9→0</td></tr>
+</table>
+
+<hr>
+
+<h2 id="ia">8. 제안 구조 — 9그룹 87항목 → 6그룹 36항목</h2>
+
+<p>기준은 <b>「누가 언제 하는 일인가」</b>입니다. 부서(회계·강사) 기준과 시점(오늘·이번달) 기준을 섞지 않았습니다.</p>
+
+<div class="cols">
+  <div>
+    <h4>지금 (9그룹 · 87항목 · 최대 17)</h4>
+    <div class="sbdemo">
+      <div class="g">📄 평가서 통합 <span class="tag">6</span></div>
+      <div class="g">🔔 알림 센터 <span class="tag">6</span></div>
+      <div class="g">👨‍🏫 강사 통합 <span class="tag">17</span></div>
+      <div class="sh">👤 강사 정보</div>
+      <div class="s">강사 관리 / MBTI</div>
+      <div class="sh">💰 급여</div>
+      <div class="s">자동 급여 / 급여 관리</div>
+      <div class="sh">📅 수업 · 요청</div>
+      <div class="s">🌙 근무·휴식·휴가 관리</div>
+      <div class="s">🗓 시간표 ⭐신규</div>
+      <div class="s">📝 수업 일지 ⭐신규</div>
+      <div class="s">🔗 강사 계정 연결 ⭐신규</div>
+      <div class="s">📅 연기·변경 요청 ⭐신규</div>
+      <div class="s">⏸ 연기 수업 현황 ⭐신규</div>
+      <div class="s">📨 방 초대 관리</div>
+      <div class="s">📶 강사 회선품질 ⭐신규</div>
+      <div class="sh">⭐ 평가 · 점검</div>
+      <div class="s">⭐ 학생 수업 평가 / 칭찬 통계</div>
+      <div class="s">👁 강사 슈퍼바이저</div>
+      <div class="s">📜 수업 변경 이력 ⭐신규</div>
+      <div class="s">📋 보고서 양식</div>
+      <div class="g">📊 통계 / KPI <span class="tag">9</span></div>
+      <div class="g">💰 회계 / 포인트 <span class="tag">7</span></div>
+      <div class="g">👨‍👩‍👧 학생 / 학부모 <span class="tag">13</span></div>
+      <div class="g">📚 교육 / 콘텐츠 <span class="tag">11</span></div>
+      <div class="g">📕 자료실 <span class="tag">5</span></div>
+      <div class="g">⚙️ 시스템 <span class="tag">13</span></div>
+    </div>
+  </div>
+  <div>
+    <h4>제안 (6그룹 · 36항목 · 최대 7)</h4>
+    <div class="sbdemo">
+      <div class="sh">⚡ 자주 쓰는 기능 (핀 + 최근, 자동)</div>
+      <div class="s">— 사람마다 다름 · 클릭 기록으로 자동 —</div>
+      <div class="g">오늘 <span class="tag">7</span></div>
+      <div class="s">오늘의 수업</div><div class="s">출결</div><div class="s">수업 관찰</div>
+      <div class="s">연기·변경</div><div class="s">방 초대</div><div class="s">문의·버그</div><div class="s">알림함</div>
+      <div class="g">학생 <span class="tag">6</span></div>
+      <div class="s">학생 명부</div><div class="s">수강신청</div><div class="s">레벨테스트</div>
+      <div class="s">상담 예약</div><div class="s">학부모 소통</div><div class="s">커뮤니티·리워드</div>
+      <div class="g">강사 <span class="tag">6</span></div>
+      <div class="s">강사 명부</div><div class="s">시간표·근무</div><div class="s">수업 일지</div>
+      <div class="s">급여</div><div class="s">강사 평가</div><div class="s">품질·이력</div>
+      <div class="g">수업·콘텐츠 <span class="tag">6</span></div>
+      <div class="s">평가서</div><div class="s">교재</div><div class="s">학습 콘텐츠</div><!-- 17→6 -->
+      <div class="s">숙제</div><div class="s">녹화</div><div class="s">학습 분석</div>
+      <div class="g">정산·매출 <span class="tag">5</span></div>
+      <div class="s">회계</div><div class="s">결제</div><div class="s">포인트</div>
+      <div class="s">지사 정산</div><div class="s">가맹점·센터</div>
+      <div class="g">경영·설정 <span class="tag">6</span></div>
+      <div class="s">경영 지표</div><div class="s">이탈·예측</div><div class="s">공지 발송</div>
+      <div class="s">자료실</div><div class="s">직원·권한</div><div class="s">데이터·보관</div>
+    </div>
+  </div>
+</div>
+
+<h3>8-1. 전체 매핑 — 87개가 어디로 가는가 (누락 없음)</h3>
+
+<h4>1) 오늘 <span class="dim">— 지금 이 순간 벌어지는 일. 매니저가 하루 20번 여는 곳</span> &nbsp;<b>13 → 7</b></h4>
+<table>
+  <tr><th style="width:26%">새 이름 <span class="en">EN</span></th><th>합치는 현재 메뉴</th><th class="num">→</th></tr>
+  <tr><td>오늘의 수업 <span class="en">Today's classes</span></td><td>🔴 실시간 수업 (활성 룸)</td><td class="num">1→1</td></tr>
+  <tr><td>출결 <span class="en">Attendance</span></td><td>📋 출결 상태 · 📷 QR 출결 · 📝 수업 출결 <span class="dim">(탭 3개)</span></td><td class="num good">3→1</td></tr>
+  <tr><td>수업 관찰 <span class="en">Observe class</span></td><td>👀 수업 관찰 · 💬 귓속말 <span class="dim">(관찰 화면 안 버튼으로)</span></td><td class="num good">2→1</td></tr>
+  <tr><td>연기·변경 <span class="en">Reschedule</span></td><td>📅 연기·변경 요청 · ⏸ 연기 수업 현황 <span class="dim">(신청/현황 탭)</span></td><td class="num good">2→1</td></tr>
+  <tr><td>방 초대 <span class="en">Room invites</span></td><td>📨 방 초대 관리</td><td class="num">1→1</td></tr>
+  <tr><td>문의·버그 <span class="en">Inbox</span></td><td>문의 관리 · 🐞 버그·피드백 접수함 <span class="dim">(같은 「들어온 것」)</span></td><td class="num good">2→1</td></tr>
+  <tr><td>알림함 <span class="en">Alerts</span></td><td>🔔 관리자 알림 · 이벤트 알림</td><td class="num good">2→1</td></tr>
+</table>
+
+<h4>2) 학생 &nbsp;<b>12 → 6</b></h4>
+<table>
+  <tr><th style="width:26%">새 이름</th><th>합치는 현재 메뉴</th><th class="num">→</th></tr>
+  <tr><td>학생 명부 <span class="en">Students</span></td><td>학생 관리 · 📊 학원별 학생 수업현황 · 👨‍👩‍👧‍👦 가족 관리 <span class="dim">(명부/학원별/가족 탭)</span></td><td class="num good">3→1</td></tr>
+  <tr><td>수강신청 <span class="en">Enrollment</span></td><td>등록 관리</td><td class="num">1→1</td></tr>
+  <tr><td>레벨테스트 <span class="en">Level test</span></td><td>📊 레벨테스트 <span class="dim">(+ 고아 카드 <code>card-leveltest</code> 정리)</span></td><td class="num">1→1</td></tr>
+  <tr><td>상담 예약 <span class="en">Counseling</span></td><td>📅 상담 예약</td><td class="num">1→1</td></tr>
+  <tr><td>학부모 소통 <span class="en">Parents</span></td><td>📰 학부모 요약 · 🤖 학부모 FAQ봇</td><td class="num good">2→1</td></tr>
+  <tr><td>커뮤니티·리워드 <span class="en">Community</span></td><td>커뮤니티 · 🎓 졸업생 커뮤니티 · 🎁 친구 추천 · 뱃지 관리</td><td class="num good">4→1</td></tr>
+</table>
+
+<h4>3) 강사 &nbsp;<b>15 → 6</b> <span class="dim">(「강사 통합」 17개 중 방 초대·연기는 「오늘」로 이동)</span></h4>
+<table>
+  <tr><th style="width:26%">새 이름</th><th>합치는 현재 메뉴</th><th class="num">→</th></tr>
+  <tr><td>강사 명부 <span class="en">Teachers</span></td><td>강사 관리 · MBTI · 🔗 강사 계정 연결 <span class="dim">(+ 고아 <code>card-teacher-contact</code> 흡수)</span></td><td class="num good">3→1</td></tr>
+  <tr><td>시간표·근무 <span class="en">Schedule</span></td><td>🗓 시간표 · 🌙 근무·휴식·휴가 · 📅 캘린더 관리 <span class="dim">(뒤 둘은 <b>같은 카드 중복</b>)</span></td><td class="num good">3→1</td></tr>
+  <tr><td>수업 일지 <span class="en">Lesson log</span></td><td>📝 수업 일지</td><td class="num">1→1</td></tr>
+  <tr><td>급여 <span class="en">Payroll</span></td><td>자동 급여 · 급여 관리 <span class="dim">(자동/수동 탭)</span></td><td class="num good">2→1</td></tr>
+  <tr><td>강사 평가 <span class="en">Teacher review</span></td><td>⭐ 학생 수업 평가 · 칭찬 통계 · 👁 강사 슈퍼바이저</td><td class="num good">3→1</td></tr>
+  <tr><td>품질·이력 <span class="en">Quality &amp; audit</span></td><td>📶 강사 회선품질 · 📜 수업 변경 이력 · 📋 보고서 양식</td><td class="num good">3→1</td></tr>
+</table>
+
+<h4>4) 수업·콘텐츠 &nbsp;<b>17 → 6</b> <span class="dim">(「통계/KPI」의 🎙 음성 통계를 여기로 이동)</span></h4>
+<table>
+  <tr><th style="width:26%">새 이름</th><th>합치는 현재 메뉴</th><th class="num">→</th></tr>
+  <tr><td>평가서 <span class="en">Evaluations</span></td><td>평가서 작성 · 일괄 평가 · AI 수업 리포트 · AI 초안 · 월별 리포트 · 📊 비교 리포트 <span class="dim">(작성/일괄/AI/기간비교 탭)</span></td><td class="num good">6→1</td></tr>
+  <tr><td>교재 <span class="en">Textbooks</span></td><td>교재 콘텐츠 · 🎬 영상 사전</td><td class="num good">2→1</td></tr>
+  <tr><td>학습 콘텐츠 <span class="en">Learning content</span></td><td>🧠 복습퀴즈 출제 · 📖 마이크로러닝 · 🎯 미니 토익 · 🗣 발음 교정 · 🎙 음성 일기</td><td class="num good">5→1</td></tr>
+  <tr><td>숙제 <span class="en">Homework</span></td><td>📚 숙제 관리</td><td class="num">1→1</td></tr>
+  <tr><td>녹화 <span class="en">Recordings</span></td><td>💾 녹화 보관</td><td class="num">1→1</td></tr>
+  <tr><td>학습 분석 <span class="en">Learning analytics</span></td><td>🎮 게임 학습 분석 <span class="dim">(+ 🎙 음성 통계 흡수)</span></td><td class="num good">2→1</td></tr>
+</table>
+
+<h4>5) 정산·매출 &nbsp;<b>9 → 5</b></h4>
+<table>
+  <tr><th style="width:26%">새 이름</th><th>합치는 현재 메뉴</th><th class="num">→</th></tr>
+  <tr><td>회계 <span class="en">Accounting</span></td><td>회계 관리</td><td class="num">1→1</td></tr>
+  <tr><td>결제 <span class="en">Payments</span></td><td>🏢 BtoB · 👨‍👩‍👧 BtoC · 🔄 정기 결제 · 💸 자동 수금 <span class="dim">(탭 4개)</span></td><td class="num good">4→1</td></tr>
+  <tr><td>포인트 <span class="en">Points</span></td><td>포인트 관리</td><td class="num">1→1</td></tr>
+  <tr><td>지사 정산 <span class="en">Settlement</span></td><td>🏢 캐피타운 정산</td><td class="num">1→1</td></tr>
+  <tr><td>가맹점·센터 <span class="en">Franchises</span></td><td>가맹점 · 센터</td><td class="num good">2→1</td></tr>
+</table>
+
+<h4>6) 경영·설정 <span class="dim">— 자주 안 열지만 반드시 있어야 하는 것. 사이드바 <b>맨 아래 접어 둠</b></span> &nbsp;<b>21 → 6</b></h4>
+<table>
+  <tr><th style="width:26%">새 이름</th><th>합치는 현재 메뉴</th><th class="num">→</th></tr>
+  <tr><td>경영 지표 <span class="en">Dashboard</span></td><td>KPI 대시보드 · 일별 차트 · 랭킹 · 📈 월별 NPS <span class="dim">(기간·지표 전환)</span></td><td class="num good">4→1</td></tr>
+  <tr><td>이탈·예측 <span class="en">Retention</span></td><td>이탈 위험 · 🔮 AI 예측</td><td class="num good">2→1</td></tr>
+  <tr><td>공지 발송 <span class="en">Announcements</span></td><td>웹 푸시 · 카카오 알림 · 📢 공지 스튜디오 · 📢 팝업 게시 · 📌 공지사항 <span class="dim">(만들기/보내기/이력)</span></td><td class="num good">5→1</td></tr>
+  <tr><td>자료실 <span class="en">Library</span></td><td>관리자 · 강사 · 지사 · 대리점 · 학생·학부모 자료실 <span class="dim">(<b>탭 5개 + 탭별 권한</b>)</span></td><td class="num good">5→1</td></tr>
+  <tr><td>직원·권한 <span class="en">Staff &amp; roles</span></td><td>권한 관리 · 🗂 카페24 명부</td><td class="num good">2→1</td></tr>
+  <tr><td>데이터·보관 <span class="en">Data</span></td><td>데이터 추출 · 🗑 보관기간 파기 · 📷 사진/영상 갤러리</td><td class="num good">3→1</td></tr>
+</table>
+
+<div class="okbox note">
+<b>합계 검산</b> — 13+12+15+17+9+21 = <b>87</b>(현재 전량) → 7+6+6+6+5+6 = <b>36</b>. <b>기능은 하나도 없어지지 않습니다.</b>
+없어지는 것은 <b>「찾아 들어가는 입구」</b>뿐입니다. 여기에 <b>메뉴에서 못 가던 고아 카드 12개</b>를 정리하면 카드 91 → 36.
+</div>
+
+<hr>
+
+<h2 id="naming">9. 이름 규칙 — 앞으로 새 메뉴를 만들 때</h2>
+<table>
+  <tr><th>규칙</th><th>이유</th><th>지금 위반</th></tr>
+  <tr><td><b>이모지는 그룹에만.</b> 하위 항목은 글자만</td><td>56/87만 붙어 있어 오히려 시선이 튐. Win10 두부 위험도 감소</td><td class="bad">56개</td></tr>
+  <tr><td><b>「~관리」 금지</b> — 전부 관리 화면이다</td><td>정보량 0. 이름만 2자 길어짐</td><td class="bad">15개</td></tr>
+  <tr><td><b>6자 이내 · 1~2단어</b></td><td>사이드바 접힘 상태에서 잘리지 않음(NN/g·GitLab 기준)</td><td>최장 14자</td></tr>
+  <tr><td><b>「⭐신규」는 30일 자동 만료</b></td><td>영구 뱃지는 뱃지가 아님</td><td class="bad">13개 무기한</td></tr>
+  <tr><td><b>내부 용어 금지</b>(활성 룸·카페24 명부)</td><td>신입·필리핀 강사가 못 읽음</td><td>3개 이상</td></tr>
+  <tr><td><b>같은 화면에 이름 두 개 금지</b></td><td>다른 기능으로 오인</td><td class="bad"><code>card-calendar</code></td></tr>
+  <tr><td><b>한/영 동시 작성 + i18n 사전 같은 커밋</b></td><td>사전이 문자열 전체 일치라, 이모지만 떼도 번역이 깨짐</td><td>—</td></tr>
+</table>
+
+<hr>
+
+<h2 id="light">10. 경량화 — 3단계 로드맵</h2>
+
+<div class="phase">
+<h4>1단계 · 위험 0 · 반나절 <span class="dim">— 구조를 안 건드리고 지금 당장 되는 것</span></h4>
+<table>
+  <tr><th>할 일</th><th class="num">줄어드는 양</th><th>왜 안전한가</th></tr>
+  <tr><td>고아 카드 12개 삭제</td><td class="num">HTML ~60KB</td><td>메뉴에서 갈 방법이 없음 = 아무도 안 씀</td></tr>
+  <tr><td><code>i18n-sweep.js</code> 199KB → <b>영어일 때만</b> 로드</td><td class="num good">199 KB</td><td>한국어 사용자에겐 지금도 무용지물</td></tr>
+  <tr><td><code>admin-inline-c.css</code> 405KB → 첫화면/나머지 분할</td><td class="num">~300 KB 지연</td><td>CSS는 카드 열 때 붙여도 됨</td></tr>
+  <tr><td>부팅 스크립트 73개에 <code>defer</code></td><td class="num">체감 大</td><td>지금 <code>defer</code>는 92개 중 1개뿐. 실행 순서만 유지하면 안전</td></tr>
+  <tr><td>메뉴 클릭 기록 5줄 추가</td><td class="num">+0.2 KB</td><td>2주 뒤 3단계 배치의 <b>근거</b>가 됨</td></tr>
+  <tr><th>1단계 합계</th><th class="num good">3.63 → 약 2.9 MB</th><th>화면은 <b>하나도 안 바뀜</b></th></tr>
+</table>
+</div>
+
+<div class="phase p2">
+<h4>2단계 · 위험 낮음 · 2~3일 <span class="dim">— 지사·대리점을 admin.html 에서 내보낸다</span></h4>
+<p>지사(14/91)·대리점(10/91)은 <b>이미 만들어진 <code>/manager</code> 경량 포털</b>로 착지시킵니다.
+로그인 역할 판정 로직이 <b>세 곳에 복제</b>되어 있으므로(<code>index.html</code>·<code>admin/login.html</code>·사용자 메뉴) <b>세 곳 모두</b> 고쳐야 합니다.</p>
+<table>
+  <tr><th>대상</th><th>지금</th><th>2단계 후</th></tr>
+  <tr><td>지사·대리점</td><td class="bad">3.63 MB · 19~21초</td><td class="good">10 KB · 0.43초 <span class="dim">(측정 완료된 수치)</span></td></tr>
+  <tr><td>본사</td><td>3.63 MB</td><td>2.9 MB (1단계 효과)</td></tr>
+</table>
+</div>
+
+<div class="phase p3">
+<h4>3단계 · 본 작업 · 1~2주 <span class="dim">— 87 → 36 통합과 페이지 분할을 <b>같이</b></span></h4>
+<p>여기가 핵심입니다. <b>메뉴 통합과 경량화는 같은 작업입니다.</b> 카드 6묶음으로 합치면, 그 6묶음이 그대로 <b>6개 페이지</b>가 됩니다.</p>
+<ul>
+  <li><b>페이지 분할</b> — <code>/admin/today</code> · <code>/admin/students</code> · <code>/admin/teachers</code> · <code>/admin/lessons</code> · <code>/admin/finance</code> · <code>/admin/settings</code></li>
+  <li>공유 껍데기(사이드바·인증·언어) 1벌 + 페이지별 알맹이. 한 페이지가 <b>카드 5~7개</b>만 들고 있으면 됩니다.</li>
+  <li>사이드바는 6줄이라 어느 페이지에서든 <b>즉시 그려짐</b>(지금은 87줄 인덱싱).</li>
+  <li><code>Ctrl+K</code> 전역 팔레트로 <b>페이지가 나뉘어도 이동은 더 빨라집니다</b>(Linear·GitHub 방식).</li>
+</ul>
+<table>
+  <tr><th>항목</th><th class="num">지금</th><th class="num">3단계 목표</th></tr>
+  <tr><td>첫 화면 전송량</td><td class="num bad">3,630 KB</td><td class="num good">600~800 KB</td></tr>
+  <tr><td>파일 요청</td><td class="num bad">98</td><td class="num good">15~20</td></tr>
+  <tr><td>DOM 카드</td><td class="num bad">91</td><td class="num good">5~7 (그 페이지 것만)</td></tr>
+  <tr><td>사이드바 항목</td><td class="num bad">87</td><td class="num good">36</td></tr>
+  <tr><td>최대 메뉴 깊이</td><td class="num bad">5</td><td class="num good">2 (+카드 안 탭)</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2 id="dont">11. 하면 안 되는 것 — 이미 시도해서 막힌 길</h2>
+<div class="danger">
+<ul style="margin:0">
+  <li><b>카드 91개를 &lt;template&gt;으로 지연 렌더 ⛔</b> — 시도했고 막혔습니다. <b>90개가 부팅 JS 가 <code>getElementById</code> 로 찾는 요소를 품고 있습니다</b>(호출 319곳). 지연시키면 조용히 죽습니다.
+      <b>그래서 정답은 「나중에 그리기」가 아니라 「그 페이지에 없기」</b>입니다 → 3단계 페이지 분할.</li>
+  <li><b>지연로딩 대상을 40개로 확대 ⛔</b> — 안전하게 미룰 수 있는 것은 <b>이미 19개 전부 뽑혔습니다.</b> 남은 것은 전역 참조가 있어 미루면 깨집니다.</li>
+  <li><b>메뉴를 「더 깊게」 숨겨서 개수 줄이기 ⛔</b> — 지금 3단 33개가 이미 그 결과입니다. 넓고 얕게가 원칙입니다.</li>
+  <li><b>hover 확대(scale/translate) 부활 ⛔</b> — 「정신없다」고 의도적으로 제거했습니다. hover 강조는 <b>색만</b>.</li>
+  <li><b>라벨 일괄 치환을 PowerShell 로 ⛔</b> — UTF-8 이 깨집니다. 일괄 수정은 node <code>readFileSync(f,'utf8')</code> 로만.</li>
+  <li><b>Unicode 13 이상 이모지 ⛔</b> — Win10 에서 두부(□)로 보입니다.</li>
+</ul>
+</div>
+
+<hr>
+
+<h2 id="verify">12. 검증 · 리스크 · 되돌리기</h2>
+<table>
+  <tr><th>리스크</th><th>대비</th></tr>
+  <tr><td><b>합친 탭에서 권한이 새는 것</b> — 가장 큰 위험</td>
+      <td>탭 단위 권한 검사를 <b>서버에서</b> 한 번 더. 지금 <code>display:none</code> 은 화면 가리기일 뿐입니다.
+          동시에 <b>정책 미등록 64개를 전부 명시 등록</b>해 「안 적으면 본사 전용」이라는 조용한 기본값을 없앱니다.</td></tr>
+  <tr><td>직원이 익숙한 메뉴를 못 찾음</td>
+      <td>3단계 배포 후 2주간 <b>옛 이름 → 새 위치 안내</b>를 검색 결과에 노출(옛 이름으로 검색해도 찾아짐).</td></tr>
+  <tr><td>다른 담당자 작업과 충돌</td>
+      <td><code>admin.html</code>(1MB)은 공동 편집 시 충돌 해결이 사실상 불가. <b>A 담당 단독 · 짧은 브랜치 · 단계별 배포.</b></td></tr>
+  <tr><td>「배포됐는데 옛 화면」</td>
+      <td>정적 자산 스탬프만 보고 판단하지 않고 <b>API 를 실제로 찔러</b> 확인.</td></tr>
+</table>
+<p><b>단계마다 검증</b>: ① <code>node node_modules/typescript/bin/tsc --noEmit</code> ② <code>node test-harness/run.mjs --fast</code> ③ 실제 브라우저 ④ 흉내 회선(지연 350ms·400KB/s)에서 로딩 시간 재측정 — <b>「고쳤습니다」가 아니라 「몇 초에서 몇 초가 됐습니다」로 보고합니다.</b></p>
+
+<hr>
+
+<h2 id="now30">13. 오늘 바로 할 수 있는 것 (30분, 화면 변화 0)</h2>
+<table>
+  <tr><th class="c">#</th><th>작업</th><th>효과</th><th>위험</th></tr>
+  <tr><td class="c">1</td><td><code>card-calendar</code> 중복 메뉴 중 「📅 캘린더 관리」 삭제</td><td>혼동 하나 제거</td><td class="good">없음</td></tr>
+  <tr><td class="c">2</td><td>고아 카드 12개 삭제</td><td>~60KB · DOM 12개</td><td class="good">없음(도달 불가)</td></tr>
+  <tr><td class="c">3</td><td>메뉴 클릭 기록 5줄 + 서버 1개</td><td><b>2주 뒤 근거 확보</b></td><td class="good">없음</td></tr>
+  <tr><td class="c">4</td><td><code>i18n-sweep.js</code> 영어일 때만 로드</td><td class="good">−199KB</td><td>낮음</td></tr>
+  <tr><td class="c">5</td><td>「⭐신규」 13개에 30일 만료</td><td>뱃지가 다시 의미를 가짐</td><td class="good">없음</td></tr>
+</table>
+
+<div class="verdict">
+<b>결정이 필요한 것은 하나입니다</b> — 위 <b>6그룹 36항목 배치</b>로 갈지, 아니면 <b>2주간 클릭을 먼저 재고</b> 측정값으로 배치를 정할지.<br>
+1·2단계(경량화·지사 분리·고아 정리)는 <b>어느 쪽을 고르셔도 그대로 진행</b>할 수 있습니다.
+</div>
+
+<p class="foot">
+근거 — 모든 수치는 <code>cloudflare-deploy/public/admin.html</code>(1,034,493 B) · <code>js/*.js</code> 92개 · <code>js/adm-core.js</code>의 <code>CARD_POLICY</code>를 직접 파싱해 산출.
+회선 수치는 지연 350ms·400KB/s 흉내 서버 실측(2026-08-08).<br>
+외부 참고 — Stripe 대시보드 개편(2024, 링크 축소·업무흐름 재배치·핀/최근) · Shopify 최상위 7개 이하 권장 · GitLab Pajamas 사이드바 2단 원칙 ·
+Linear/Notion/GitHub 커맨드 팔레트 · Nielsen Norman Group 넓고 얕은 구조.
+</p>
+
+</div>

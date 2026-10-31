@@ -118,13 +118,48 @@ check('"다시 말해줘"', aiFriendIsMetaAsk('다시 말해줘') === true);
 check('"Can you speak slowly?"', aiFriendIsMetaAsk('Can you speak slowly?') === true);
 check('"You talk too fast"', aiFriendIsMetaAsk('You talk too fast') === true);
 check('"Say that again please"', aiFriendIsMetaAsk('Say that again please') === true);
+check('"What?" (그 말만 한 되묻기)', aiFriendIsMetaAsk('What?') === true);
+check('"huh" / "뭐라고?" / "네?"', aiFriendIsMetaAsk('huh') === true && aiFriendIsMetaAsk('뭐라고?') === true && aiFriendIsMetaAsk('네?') === true);
+check('문장 속 what·물음표 없는 «네» 는 오탐 없음', aiFriendIsMetaAsk('What about you?') === false && aiFriendIsMetaAsk('What is your name?') === false && aiFriendIsMetaAsk('네') === false);
 check('일반 대화는 오탐 없음(1)', aiFriendIsMetaAsk('I like blue cars') === false);
 check('일반 대화는 오탐 없음(2)', aiFriendIsMetaAsk('My dog is very cute') === false);
 
 /* ══ 4. 재생성·힌트 배선이 실제로 붙어 있는가 (원문 확인) ══ */
 console.log('\n▶ chat-friend 배선 확인');
 check('반복이면 1회 재생성한다', /aiFriendIsRepeat\(reply, history\)/.test(ts));
-check('재생성은 temperature 를 올린다', /temperature:\s*0\.95/.test(ts));
+/* ⚠️ «temperature: 0.95» 라는 «식 모양» 을 글자 그대로 못 박으면, 호출을 공용 헬퍼로
+   묶는 무해한 정리(2026-09-09 runFriend)에 빨간불이 난다 — 보장은 그대로인데 검사만 깨진다.
+   물어야 할 것은 «그 글자가 있는가» 가 아니라 **«재생성이 첫 호출보다 뜨거운가»** 다.
+   그래서 두 호출의 temperature 를 소스에서 «읽어» 비교한다. */
+/* ⚠️ 인자를 정규식으로 세지 않는다 — 호출 안에 messages.concat([...]) 처럼 괄호가 들어 있어
+   `[^)]*` 류는 그 자리에서 끊긴다(실제로 NaN 이 나왔다). **괄호 짝으로** 잘라 마지막 인자를 읽는다. */
+function _lastArgAt(src, callIdx) {
+  const open = src.indexOf('(', callIdx);
+  if (open < 0) return NaN;
+  let d = 0, i = open, lastComma = -1;
+  for (; i < src.length; i++) {
+    const c = src[i];
+    if (c === '(' || c === '[' || c === '{') d++;
+    else if (c === ')' || c === ']' || c === '}') { d--; if (d === 0) break; }
+    else if (c === ',' && d === 1) lastComma = i;
+  }
+  if (d !== 0 || lastComma < 0) return NaN;
+  return Number(src.slice(lastComma + 1, i).trim());
+}
+const _temps = (() => {
+  const firstIdx = ts.indexOf('runFriend(m, messages');
+  const rIdx = ts.indexOf('aiFriendIsRepeat(reply, history)');
+  const retryIdx = rIdx > 0 ? ts.indexOf('runFriend(', rIdx) : -1;
+  return {
+    first: firstIdx >= 0 ? _lastArgAt(ts, firstIdx) : NaN,
+    retry: retryIdx >= 0 ? _lastArgAt(ts, retryIdx) : NaN,
+  };
+})();
+check('두 호출의 temperature 를 소스에서 읽어 냈다 (전제)',
+  Number.isFinite(_temps.first) && Number.isFinite(_temps.retry),
+  '첫 ' + _temps.first + ' · 재생성 ' + _temps.retry);
+check('재생성은 temperature 를 올린다', _temps.retry > _temps.first,
+  '첫 ' + _temps.first + ' → 재생성 ' + _temps.retry);
 check('잘린 발화·속도 요청 힌트를 모델에 전달', /cutHint/.test(ts) && /metaHint/.test(ts));
 check('DB 에는 원문 msg 만 저장(힌트 섞이지 않음)',
       /VALUES \(\?,\?,\?,\?,\?\)`\)\.bind\(uid, 'user', msg, level, now\)/.test(ts));
@@ -134,9 +169,22 @@ check('프롬프트에 속도 요청 응대 규칙', /asks you to slow down/.tes
 // 2026-07-29 제보 — 되묻기가 연달아 나오면 학생이 포기한다
 check('두 번 연속 되묻기 금지 배선', /aiFriendJustAskedAgain\(history\)/.test(ts));
 check('프롬프트에도 연속 되묻기 금지', /NEVER ask twice in a row/.test(ts));
-// 2026-07-29 제보 — "영화 주제로 들어왔는데 동물 얘기를 물어봤어요"
+/* 🗺 주제 규칙 — 방향이 «반대» 인 제보 둘을 동시에 지켜야 한다. 한쪽만 보면 다른 쪽이 재발한다.
+     2026-07-29 「영화 주제로 들어왔는데 동물 얘기를 물어봤어요」
+       → AI 가 «스스로» 딴 주제로 갈아타면 안 된다.
+     2026-09-03 「대화가 매끄럽게 이어지지 않고, 정해진 문장 안에서만 하는 느낌」(벨잉글리시 원장님)
+       → 학생이 꺼낸 얘기는 «따라가야» 한다. 옛 문구는 금지 세 겹이라 이쪽이 통째로 막혔다.
+   ⛔ 옛 문구(Stay on THIS topic / Do NOT switch)로 되돌리지 말 것.
+   ⚠️ 검사를 «그 영어 문장이 있는가» 로 쓰면 문구만 다듬어도 FAIL 난다 — 그래서 topicCtx 블록을
+      잘라 내 «무엇을 시키는가» 로 묻는다. */
 check('주제(topic)를 요청에서 받는다', /b\.topic/.test(ts));
-check('주제를 시스템 프롬프트에 고정', /Stay on THIS topic for the whole chat/.test(ts));
+const topicCtxSrc = (ts.match(/const topicCtx = topic[\s\S]*?: '';/) || [''])[0];
+check('주제를 시스템 프롬프트에 싣는다', /\$\{topic\}/.test(topicCtxSrc), topicCtxSrc.slice(0, 80));
+check('학생이 다른 얘기를 꺼내면 따라간다', /FOLLOW THE STUDENT/i.test(topicCtxSrc));
+check('AI 가 스스로 갈아타지는 않는다(대화가 멈췄을 때만 주제로 되돌아간다)',
+  /Only steer back/i.test(topicCtxSrc));
+check('옛 «주제 감옥» 문구로 되돌아가지 않았다',
+  !/Stay on THIS topic|Do NOT switch to another subject/.test(topicCtxSrc));
 check('재미난 사실 예시에서 animals 고정 제거', !/fun facts kids enjoy \(animals/.test(ts));
 
 /* ══ 5. 한자 섞임 정리 (2026-07-27 사장님 신고 "한국말 팁에 중국어") ══ */

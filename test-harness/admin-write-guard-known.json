@@ -7,6 +7,7 @@
     "POST /api/admin/calendar/events",
     "POST /api/admin/calendar/seed-holidays",
     "POST /api/admin/chat/cleanup",
+    "POST /api/admin/class-schedules",
     "POST /api/admin/class-schedules/seed-demo",
     "POST /api/admin/counseling/cancel",
     "POST /api/admin/counseling/slot/open",

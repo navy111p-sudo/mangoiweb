@@ -7,8 +7,10 @@
 //       우리는 반대로 — 기본은 직접 말하기, **막혔을 때만** 도움 칩.
 //
 //   이 하니스가 고정하는 것:
-//     ① 있지도 않은 얼굴로 캐릭터를 늘리지 않는다. 아바타는 실제로 female/male 둘뿐이다.
+//     ① 있지도 않은 얼굴로 캐릭터를 늘리지 않는다.
 //        이름만 다른 같은 얼굴은 «고른 느낌» 이 아니라 «속은 느낌» 이 된다.
+//        (2026-08-31) 사장님 지시로 친구가 둘 → 넷이 되었다: emma·jake(성인, 기존)
+//        + lily·noah(19세, 새 얼굴). 얼굴이 진짜로 넷이므로 이 규칙은 그대로 지켜진다.
 //     ② 저장 키를 새로 만들지 않는다(mangoi_aifriend_voice 재사용) — 새 키를 만들면 지금까지
 //        고른 목소리가 한 번 리셋된다.
 //     ③ 도움 칩은 **눌러야만** 열린다. 늘 떠 있으면 «고르는 학습» 이 되어 자유 발화가 죽는다.
@@ -18,7 +20,7 @@
 //     ⑦ 도움 칩은 서버를 부르지 않는다(비용 0·오프라인 동작).
 //
 //   실행: node test-harness/ai_friend_character_help_harness.mjs
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync, statSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -48,10 +50,17 @@ if (fm) FRIENDS = eval(fm[1]);
 // 아바타가 실제로 그릴 수 있는 얼굴 목록
 const chars = [...avatarJs.matchAll(/^\s{4}(\w+):\s*\{/gm)].map((m) => m[1]);
 const faceSet = new Set(chars.length ? chars : ['female', 'male']);
-check(`아바타가 가진 얼굴은 ${[...faceSet].join('/')} 뿐이다(전제 확인)`, faceSet.has('female') && faceSet.has('male'));
-check('친구는 3개 — 얼굴 2개 + 번갈아 1개', FRIENDS.length === 3, FRIENDS.map((f) => f.v));
-check('친구의 v 값이 기존 목소리 값과 완전히 같다(설정이 리셋되지 않게)',
-  FRIENDS.map((f) => f.v).sort().join() === 'female,male,mix', FRIENDS.map((f) => f.v));
+check(`아바타가 가진 얼굴은 ${[...faceSet].join('/')} 이다(전제 확인)`,
+  ['emma', 'jake', 'lily', 'noah'].every((k) => faceSet.has(k)), [...faceSet]);
+check('친구는 5개 — 얼굴 4개 + 번갈아 1개', FRIENDS.length === 5, FRIENDS.map((f) => f.v));
+// ⚠️ v 값이 바뀌면 저장된 설정이 한 번 리셋된다 — 그래서 «옛 값을 이어받는 코드» 를 함께 못 박는다.
+//    (옛 값: female·male → 지금: emma·jake)
+check('친구의 v 값이 네 사람 + 번갈아다',
+  FRIENDS.map((f) => f.v).sort().join() === 'emma,jake,lily,mix,noah', FRIENDS.map((f) => f.v));
+check('옛 저장값(female·male)을 이어받는다 — 지금까지 고른 친구가 리셋되지 않게',
+  /v === 'female'\) v = 'emma'/.test(aif) && /v === 'male'\) v = 'jake'/.test(aif));
+check('친구마다 얼굴이 서로 다르다(이름만 다른 같은 얼굴 금지)',
+  new Set(FRIENDS.filter((f) => f.v !== 'mix').map((f) => f.v)).size === FRIENDS.length - 1);
 check('없는 얼굴로 캐릭터를 늘리지 않았다',
   FRIENDS.every((f) => f.v === 'mix' || faceSet.has(f.v)));
 check('친구마다 이름·설명·기본 말투·인사말이 다 있다',
@@ -63,6 +72,30 @@ check('기본 말투가 실제 존재하는 페르소나다',
 check('저장 키를 새로 만들지 않고 기존 mangoi_aifriend_voice 를 쓴다',
   /setItem\('mangoi_aifriend_voice', currentVoice\)/.test(aif) && !/mangoi_aifriend_friend/.test(aif));
 
+/* ①-1 (2026-09-03) 카드 얼굴 썸네일 — 이모지 대신 아바타 교사 얼굴(사장님 지시).
+   ⚠️ 화면은 그림이 404 면 이모지로 «조용히» 되돌아간다(폴백). 그래서 «그림 파일이 저장소에 실제로 있는가» 는
+      이 검사만이 지킨다 — 아바타 그림을 표만 고치고 파일을 커밋에 안 담아 며칠간 폴백이 돌았던 전례
+      (CLAUDE.md 2장 「아바타 얼굴을 새로 바꿨는데 화면엔 옛날 얼굴 그대로」)와 같은 구멍이다. */
+console.log('\n[ ①-1 카드 얼굴 썸네일 — 표가 가리키는 그림이 실제로 있는가 ]');
+const PUB = join(ROOT, 'cloudflare-deploy', 'public');
+const withFace = FRIENDS.filter((f) => f.v !== 'mix');
+check('네 사람 모두 face(얼굴 썸네일 경로)가 있고 「번갈아」는 없다',
+  withFace.every((f) => typeof f.face === 'string' && f.face.startsWith('/img/')) && !FRIENDS.find((f) => f.v === 'mix').face,
+  FRIENDS.map((f) => [f.v, f.face]));
+check('face 가 가리키는 파일이 저장소에 실제로 있다(폴백에만 기대지 않는다)',
+  withFace.every((f) => existsSync(join(PUB, f.face))),
+  withFace.filter((f) => !existsSync(join(PUB, f.face))).map((f) => f.face));
+check('썸네일이 가볍다(장당 40KB 이하 — 원본 240~280KB 를 그대로 쓰지 않았다)',
+  withFace.every((f) => existsSync(join(PUB, f.face)) && statSync(join(PUB, f.face)).size <= 40 * 1024),
+  withFace.map((f) => [f.face, existsSync(join(PUB, f.face)) ? statSync(join(PUB, f.face)).size : null]));
+check('얼굴이 서로 다른 파일이다(같은 그림에 이름만 다르게 금지)',
+  new Set(withFace.map((f) => f.face)).size === withFace.length);
+check('카드가 face 를 <img class="f-face"> 로 그리고, 404 면 숨겨 둔 이모지를 되살린다',
+  /<img class="f-face" src="' \+ f\.face/.test(aif) && /onerror="this\.hidden=true;this\.nextSibling\.hidden=false"/.test(aif)
+  && /<span class="f-emoji" hidden>/.test(aif));
+check('이모지 폴백은 그대로 남아 있다(face 가 없을 때 빈 칸이 되지 않게)',
+  FRIENDS.every((f) => typeof f.emoji === 'string' && f.emoji.length > 0));
+
 console.log('\n[ ①-2 «고른 느낌» 이 실제로 남는가 ]');
 check('헤더에 고른 친구 이름이 뜬다', /id="friendName"/.test(aif) && /function syncFriendName/.test(aif));
 check('헤더 이름을 누르면 다시 고를 수 있다', /onclick="showFriendPicker\(\)"/.test(aif));
@@ -72,8 +105,43 @@ check('첫 화면(빈 화면)에서 친구를 먼저 고르게 한다',
   /오늘은 누구랑 이야기할까요\?/.test(aif) && aif.indexOf('friendCards()') < aif.indexOf('모험 주제를 골라볼까요?'));
 check('고르면 지금 고른 카드에 표시가 옮겨간다(정적 카드도)',
   /friend-card\[data-v\][\s\S]{0,120}classList\.toggle\('on'/.test(aif));
+/* ⚠️ 「식 모양」을 글자 그대로 못 박지 말 것 — 2026-09-10 에 «인사 중복»(누를 때마다 쌓임)을
+      고치느라 이 블록이 여러 줄이 되자, 보장은 오히려 세졌는데 이 검사만 빨간불이 났다
+      (CLAUDE.md 「하니스가 «객체 모양» 을 정규식으로 못 박아 두어」).
+      물어야 할 것은 «인사를 붙이는가»·«소리를 켠 사람에게만 읽어 주는가» 다. */
+const greetBlock = (() => {
+  const i = aif.search(/if\s*\(\s*greet\s*\)\s*\{/);
+  if (i < 0) return '';
+  const st = aif.indexOf('{', i);
+  let d = 0;
+  for (let k = st; k < aif.length; k++) {
+    if (aif[k] === '{') d++;
+    else if (aif[k] === '}') { d--; if (d === 0) return aif.slice(st, k + 1); }
+  }
+  return '';
+})();
+check('«고르면 인사» 블록을 찾았다', greetBlock.length > 0);
 check('고르면 그 친구가 자기 목소리로 인사한다(귀로도 확인)',
-  /if \(greet\) \{ appendMsg\('ai', f\.hi\); if \(isSoundOn\(\)\) speakText/.test(aif));
+  /appendMsg\(\s*'ai'\s*,\s*f\.hi\s*\)/.test(greetBlock)
+  && /isSoundOn\(\)[\s\S]{0,60}speakText\(/.test(greetBlock));
+/* 🧹 (2026-09-10) 인사는 «한 번에 하나» — 전에는 카드를 누를 때마다 덧붙어 같은 인사가 쌓였다
+      (사장님 화면 실측 2줄). ⚠️ 여기서 재는 것은 «그렇게 짜여 있는가» 까지다.
+      «정말 안 쌓이는가» 는 브라우저로만 볼 수 있다:
+        test-harness/manual/ai-friend-greet-rate-browser.mjs (사람이 부릅니다) */
+check('인사를 «맨 끝 것만» 갈아끼운다(눌러도 안 쌓인다)',
+  /friendGreet/.test(greetBlock) && /lastElementChild/.test(greetBlock) && /\.remove\(\)/.test(greetBlock));
+/* ⛔ 이 부정 검사를 «이름»(friendGreet)이나 «한 가지 모양»(querySelectorAll)으로 물으면 놓친다 —
+      2026-09-10 변이시험 실측: 속성 형태 `[data-friend-greet]` 로 바꾸거나
+      `[...chatEl.children].filter(…).forEach(x=>x.remove())` 로 쓰면 둘 다 통과했다.
+      ✅ 그래서 «지우는 대상이 무엇인가» 로 묻는다 — 블록 안의 모든 `.remove(` 가
+         «맨 끝»(lastElementChild)을 지우는 것이어야 한다.
+      ⚠️ 한계: `const last = chatEl.lastElementChild; … last.remove();` 처럼 둘을 멀리
+         떼어 놓으면 거짓 FAIL 이 난다. 그때는 이 검사를 느슨하게 하지 말고 붙여 쓰거나,
+         «정말 안 쌓이는가» 를 브라우저 하니스로 확인하고 여기 근거를 적을 것. */
+const removals = [...greetBlock.matchAll(/\.remove\(/g)].map((m) => m.index);
+check('지우는 것이 «맨 끝» 하나뿐이다(앞의 진짜 대화는 안 건드린다)',
+  removals.length > 0 && removals.every((i) => /lastElementChild/.test(greetBlock.slice(Math.max(0, i - 120), i))),
+  removals.map((i) => greetBlock.slice(Math.max(0, i - 60), i + 9)));
 check('고르면 얼굴도 같이 바뀐다', /setFriend[\s\S]{0,700}?syncAvatarToVoice\(\)/.test(aif));
 
 /* ═══════════════════════════════════════════════════════════
@@ -154,8 +222,21 @@ console.log('\n[ ③ 🎧 자막 덤 — 끈 쪽에 덤이지 켠 쪽에 벌점�
 check('화면이 지금 자막 단계를 서버로 보낸다', /sub: currentSub/.test(aif));
 check('서버가 blur/off 일 때만 덤을 준다',
   /const wantListen = \['blur', 'off'\]\.includes\(String\(b\.sub \|\| ''\)\)/.test(apiAi));
+/* ⚠️ (2026-09-01) 이 부정 검사는 **주석을 벗긴 사본**으로 해야 한다 — 원본으로 보면
+   근처 주석에 적힌 날짜(2026-09-01)의 «빼기+숫자» 가 걸려 거짓 FAIL 이 난다. 실제로 그렇게 났다.
+   규칙서 2장 「부정 검사는 반드시 주석을 벗겨 낸 사본으로 판정하세요」. */
+const apiAiCode = (() => {
+  const OPEN = String.fromCharCode(47, 42), CLOSE = String.fromCharCode(42, 47), LINE = String.fromCharCode(47, 47);
+  let inBlk = false;
+  return apiAi.split(/\r?\n/).filter((raw) => {
+    const t = raw.trim();
+    if (inBlk) { if (t.includes(CLOSE)) inBlk = false; return false; }
+    if (t.startsWith(OPEN)) { if (!t.includes(CLOSE)) inBlk = true; return false; }
+    return !t.startsWith(LINE);
+  }).join('\n');
+})();
 check('«on»(자막 켬)에는 감점이 없다 — 코드에 감점 자체가 없다',
-  !/ai_friend_listen[\s\S]{0,200}?-\d/.test(apiAi) && !/penalt/i.test(apiAi));
+  !/ai_friend_listen[\s\S]{0,200}?-\d/.test(apiAiCode) && !/penalt/i.test(apiAiCode));
 check('하루 5회로 묶여 있다(무한 적립 방지)', /wantListen && listenUsed < 5/.test(apiAi));
 check('덤은 1P 다(과보상 방지)', /logAward\('ai_friend_listen', 1,/.test(apiAi));
 check('안 쓸 땐 조회조차 안 한다(불필요한 D1 읽기 방지)',

@@ -29,6 +29,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PUB = process.env.MANGOI_PUB || join(ROOT, 'cloudflare-deploy', 'public');
 const js = readFileSync(join(PUB, 'js', 'idx-main.js'), 'utf8');
 const x3 = readFileSync(join(PUB, 'js', 'idx-x3.js'), 'utf8');
+const html = readFileSync(join(PUB, 'index.html'), 'utf8');
 
 let pass = 0, fail = 0;
 const failures = [];
@@ -51,6 +52,34 @@ console.log('▶ ⑥ 학생에게 강사 칩(자물쇠)이 보이지 않는가')
 const role = body(js, 'function vcIsTeacherRole()', 'window.vcIsStaffNow');
 check('vcIsTeacherRole 을 찾았다', role.length > 300);
 
+/* 재발 방지 핵심: 역할 별칭을 여러 곳의 정규식으로 복사하지 않고 한 함수에서만 정한다. */
+const normalizeSrc = body(js, 'window.vcNormalizeClassRole = function(raw)', '\n\nfunction vcIsTeacherRole()');
+let normalizeRole = null;
+try {
+  const win = {};
+  Function('window', normalizeSrc + '\n; return window.vcNormalizeClassRole;')(win);
+  normalizeRole = win.vcNormalizeClassRole;
+} catch (_) {}
+check('역할 정규화 단일 정본을 실행할 수 있다', typeof normalizeRole === 'function');
+if (normalizeRole) {
+  const teacherAliases = ['teacher', 'Teacher', ' tutor ', 'instructor', '교사', '강사',
+                          'hq_teacher', 'head-teacher', 'english_teacher', 'chinese_teacher',
+                          'foreign_teacher', 'native_teacher'];
+  teacherAliases.forEach(v => check('강사 별칭 → teacher: ' + v, normalizeRole(v) === 'teacher'));
+  ['admin', 'hq', 'hq_admin'].forEach(v =>
+    check('관리자 별칭 → admin: ' + v, normalizeRole(v) === 'admin'));
+  ['student', 'observer'].forEach(v =>
+    check('낮은 권한 유지: ' + v, normalizeRole(v) === v));
+  ['student_teacher', 'teacher_assistant', 'not_a_teacher', 'instructor_student', '', null, undefined]
+    .forEach(v => check('부분 문자열로 강사 승격 금지: ' + String(v), normalizeRole(v) === ''));
+}
+check('입장 역할 판정이 단일 정본을 호출한다',
+      /_normalizedRole\s*=\s*window\.vcNormalizeClassRole\s*\?\s*window\.vcNormalizeClassRole\(_rr\)/.test(js),
+      'join-room 앞에서 별도 정규식을 쓰면 다음 별칭 추가 때 다시 갈라진다');
+check('강사 별칭 정규식 복사본이 남아 있지 않다',
+      !/teacher\|tutor\|instructor\|교사\|강사/.test(js),
+      '복사된 역할 목록은 한쪽만 수정되는 재발 원인이다');
+
 /* 실제로 돌려 본다 — 정규식으로 «그 줄이 있나» 만 보면 순서가 틀려도 통과한다.
    (이름 추측이 위쪽에 남아 있으면 새 가드보다 먼저 return true 를 해 버린다) */
 if (role.length > 300) {
@@ -63,6 +92,7 @@ if (role.length > 300) {
       MangoV3: null,
     };
     g.window.vcRoleStored = g.vcRoleStored;
+    g.window.vcNormalizeClassRole = normalizeRole;
     g.window.MangoV3 = null;
     g.window.vcMyRole = opts.myRole || '';
     g.window.__vcRoleFromUrl = !!opts.fromUrl;
@@ -82,6 +112,11 @@ if (role.length > 300) {
   check('④  진짜 강사는 그대로 강사다 (계정 역할)',
         run({ user: { role: 'teacher' }, name: 'Melca' }) === true,
         '내리기만 해야지, 진짜 강사를 막으면 수업이 멈춘다');
+  check('④-1 중국어 강사 instructor 역할도 강사다',
+        run({ user: { role: 'instructor' }, name: '강선생님' }) === true,
+        '화면 이름은 교사여도 계정 역할 별칭을 놓치면 교재 공유가 서버에서 거절된다');
+  check('④-2 한국어 교사 역할값도 강사다',
+        run({ user: { role: '교사' }, name: '강선생님' }) === true);
   check('⑤  역할이 «아무것도 없을» 때는 예전처럼 이름으로 백업 판정한다',
         run({ name: '교사 홍길동' }) === true,
         '관리자 임베드·데모 입장(로그인 없음)이 이 길로 들어온다');
@@ -100,6 +135,10 @@ check('거절할 때 이유를 말해 준다 (한/영)',
       /Only the teacher can change the textbook/.test(js),
       '조용히 무시하면 학생 눈에는 고장난 버튼이 된다');
 check('잔소리 도배 방지 (4초에 한 번)', /__vcTbDenyAt[\s\S]{0,120}4000/.test(js));
+check('입장 직전 역할 정규화도 instructor·교사 별칭을 teacher 로 바꾼다',
+      /_normalizedRole === 'teacher'/.test(js) && normalizeRole &&
+      normalizeRole('instructor') === 'teacher' && normalizeRole('교사') === 'teacher',
+      '화면 권한과 WebSocket join-room 역할이 같은 정본을 써야 한다');
 
 const GATED = [
   ['업로드 버튼',        'function triggerUpload(kind) {'],
@@ -155,6 +194,26 @@ check('역할이 확정되는 곳에서 함께 불린다',
 check('◀▶·확대·다운로드는 숨기지 않는다',
       !/pdfPrevPage|pdfNextPage|pdfZoom|vcDownloadCurrentTextbook/.test(rend),
       '학생이 자기 화면에서 쓰는 기능이다');
+
+/* 🔴 (2026-08-28 사장님 제보 「라이브러리랑 업로드가 안 되는 거야?」)
+   위 네 검사는 **버튼 숨김이 통째로 죽어 있는 동안에도 전부 초록이었다.**
+   숨기는 «대상» 도 «호출 시점» 도 다 맞았고, 틀린 것은 «어떻게 숨기는가» 하나뿐이었다:
+     b.style.display = 'none'   ← 인라인
+     .pdf-controls > button { display: inline-flex !important }   ← 작성자 !important 가 이김
+   브라우저 실측(getComputedStyle): 인라인엔 display:none 이 들어가 있는데 계산값은 flex.
+   그래서 학생 화면에 📁교재 업로드·📎파일 업로드·📚라이브러리·공유 중지가 그대로 보였고,
+   누르면 동작 게이트가 거절해 「보이는데 안 눌리는 버튼」이 됐다.
+   ⚠️ 두 줄은 **짝**이다 — 아래 ②가 FAIL 이면 ①의 important 가 더는 필요 없을 수도 있으니
+      «지우기» 전에 브라우저에서 계산값을 다시 재라. */
+check('① 숨김을 setProperty(…, "important") 로 한다',
+      /setProperty\(\s*'display'\s*,\s*'none'\s*,\s*'important'\s*\)/.test(rend),
+      "인라인 b.style.display='none' 은 작성자 !important 에 져서 아무 효과가 없다");
+check('① 되돌릴 때는 removeProperty 로 푼다',
+      /removeProperty\(\s*'display'\s*\)/.test(rend),
+      "important 로 박아 둔 값은 style.display='' 로 안 지워진다");
+check('② index.html 의 .pdf-controls > button 이 display 를 !important 로 정한다',
+      /\.pdf-controls > button[^{]*\{[^}]*display:\s*inline-flex\s*!important/.test(html),
+      '이 규칙이 ①의 이유다 — 사라졌으면 ① 주석과 함께 다시 판단할 것');
 
 console.log('\n──────────────────────────────────────────');
 console.log(`  ✅ PASS ${pass}    ❌ FAIL ${fail}`);

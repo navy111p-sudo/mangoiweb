@@ -12,6 +12,7 @@
 (function () {
   var _roster = [];
   var _accounts = [];
+  var _tlkShowLeft = false;  // 「퇴사 강사도 보기」 체크 상태 (render 가 매번 다시 읽는다)
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -20,6 +21,16 @@
   }
   function isEn() { return !!(window.adminLang && window.adminLang !== 'ko'); }
   function T(ko, en) { return isEn() ? en : ko; }
+
+  /* 🚪 «퇴사(비활성) 강사인가» — 이 파일의 판정은 여기 한 곳뿐이다.
+     ⚠️ 모르면 «재직» 으로 둔다. 숨기는 쪽으로 실패하면 멀쩡한 강사가 목록에서 조용히 사라져
+        연결 자체를 못 하게 된다. `Number(null) === 0` 이 참이라 null 검사가 먼저여야 한다.
+     ⚠️ 같은 판정이 `adm-teacher-links.js` 의 `tlIsLeft()` 에도 있다 — 두 화면이 서로를
+        import 하지 않으므로 복제한다(이 저장소의 `enroll-ops.ts` 선례와 같은 방식).
+        한쪽만 고치면 «화면마다 답이 다른» 사고가 되므로, 브라우저 검사가 둘을 함께 잰다. */
+  function tlkIsLeft(r) {
+    return !!r && r.active != null && Number(r.active) === 0;
+  }
 
   // 상태 한 줄 설명 — 관리자가 «왜 연결해야 하는지»를 바로 알게.
   var STATUS = {
@@ -33,19 +44,55 @@
     var out = '<option value="">' + T('— 선택 —', '— select —') + '</option>';
     for (var i = 0; i < _roster.length; i++) {
       var r = _roster[i];
-      out += '<option value="' + esc(r.id) + '"' + (String(r.id) === String(selected || '') ? ' selected' : '') +
-        '>' + esc(r.name) + ' (#' + esc(r.id) + ')</option>';
+      var mine = String(r.id) === String(selected || '');
+      var left = tlkIsLeft(r);
+      /* 🚪 (2026-09-09) 퇴사 강사는 기본으로 목록에서 뺀다 — 잘못 이으면 출근·급여가 갈린다.
+         ⛔ 이미 고른 사람(mine)은 «절대» 숨기지 않는다 — 숨기면 그 줄이 「연결 안 됨」으로
+            보여 사람이 멀쩡한 연결을 다시 만들려 든다.
+         ✅ 되돌릴 길은 화면에 둔다 — 「퇴사 강사도 보기」 체크박스(#tlk-show-left). */
+      if (left && !mine && !_tlkShowLeft) continue;
+      out += '<option value="' + esc(r.id) + '"' + (mine ? ' selected' : '') +
+        '>' + esc(r.name) + ' (#' + esc(r.id) + ')' + (left ? ' (' + T('퇴사', 'left') + ')' : '') + '</option>';
     }
     return out;
+  }
+
+  /* 🔌 체크박스 배선 — 인라인 `oninput` 이 아니라 위임 리스너로 단다.
+     왜 — 이 파일은 «카드를 펼칠 때» 늦게 실려서(lazy), 인라인이 부르는 이름이 아직 없을 수
+     있다. 그러면 콘솔에만 ReferenceError 가 나고 화면은 멀쩡해 보인다(CLAUDE.md 2장
+     「인라인 onclick·onchange 가 부르는 이름」). 위임은 표를 다시 그려도 살아남는 이득도 있다. */
+  document.addEventListener('change', function (e) {
+    var t = e && e.target;
+    if (t && t.id === 'tlk-show-left') render();
+  });
+
+
+  /* 🌐 EN/KO 토글 — 이 표의 라벨은 JS 가 그리므로 `data-ko`/`data-en` 루프가 못 고친다.
+     ⚠️ 관리자 화면의 그 이벤트는 `document` 에서 발행되고(`adm-core.js` 의 toggleAdminLang)
+        `CustomEvent` 기본이 `bubbles:false` 라 window 로 «올라가지 않는다» — window 에만 달면
+        영원히 침묵한다(CLAUDE.md 2장). 화면마다 발행처가 달라 «양쪽에 다» 단다(중복 호출은
+        다시 그리기뿐이라 무해). */
+  ['mangoi:lang-changed'].forEach(function (ev) {
+    document.addEventListener(ev, function () { if (_accounts.length) render(); });
+    window.addEventListener(ev, function () { if (_accounts.length) render(); });
+  });
+
+  /* ↕ 줄 순서 — 급한 것부터 위로: 연결 안 됨 → 헷갈림 → 자동매칭 → 연결됨.
+     ⛔ `order[st] || 9` 로 쓰지 마세요 — 첫 칸이 **0** 이라 falsy 로 떨어져 9 가 되고,
+        정확히 그 반대로 「연결 안 됨」이 맨 아래로 가는데 **에러는 안 납니다**
+        (1・2・3 은 truthy 라 멀쩡해 보여 더 헷갈립니다). 모르는 상태만 9 입니다.
+     감시는 `teacher_link_left_hidden_harness` ⑧절 · `manual/teacher-links-left-hidden-browser.mjs` ⑧-6. */
+  var TLK_ORDER = { unlinked: 0, ambiguous: 1, auto: 2, linked: 3 };
+  function tlkRank(st) {
+    return Object.prototype.hasOwnProperty.call(TLK_ORDER, st) ? TLK_ORDER[st] : 9;
   }
 
   function render() {
     var host = document.getElementById('tlk-table');
     if (!host) return;
-    // 급한 것부터 위로 — 연결 안 됨 → 헷갈림 → 자동매칭 → 연결됨
-    var order = { unlinked: 0, ambiguous: 1, auto: 2, linked: 3 };
+    _tlkShowLeft = !!(document.getElementById('tlk-show-left') || {}).checked;
     var rows = _accounts.slice().sort(function (a, b) {
-      var d = (order[a.status] || 9) - (order[b.status] || 9);
+      var d = tlkRank(a.status) - tlkRank(b.status);
       return d !== 0 ? d : String(a.username).localeCompare(String(b.username));
     });
 

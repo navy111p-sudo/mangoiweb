@@ -18,11 +18,12 @@ const rd = (p) => { try {
   // 분해 대응: public/*.html 은 «그 페이지가 로드하는 스크립트까지» 읽는다
   const m = /public\/([\w.-]+\.html)$/.exec(p);
   if (m) return readPageSource(m[1]);
-  return readFileSync(resolve(__dir, p), 'utf8');
+  return readFileSync(resolve(__dir, p), 'utf8').replace(/\r\n/g, '\n');
 } catch { return ''; } };
 
 const tapi   = rd('../cloudflare-deploy/src/api-teacher.ts');
 const mapi   = rd('../cloudflare-deploy/src/api-mango.ts');
+const cew    = rd('../cloudflare-deploy/src/class-entry-window.ts');  // 🚪 입장 시간창 정본 (2026-09-11)
 const aapi   = rd('../cloudflare-deploy/src/api-admin.ts');
 const thtml  = rd('../cloudflare-deploy/public/teacher.html');
 const mypage = rd('../cloudflare-deploy/public/admin/mypage.html');
@@ -55,8 +56,17 @@ console.log('\n[ ②  수업료 — 「언제 연기했나」로 금액이 갈�
 check('연기 지급률이 요청 시점 판정(fee_type)을 읽는다', /pFeeType === 'free'/.test(aapi));
 check('🔴 판정 근거가 없는 연기는 기존 규칙 그대로 (모르는 것을 «사전 연기» 로 단정하지 않는다)',
   /pFeeType === 'free' \? earlyPostponePct : postponePct/.test(aapi));
-check('🔴 새 규칙은 꺼진 채로 들어온다 (켜는 순간 급여가 바뀌므로 사람이 정한다)',
-  /'postponed_early_pay_percent'[\s\S]{0,200}'policy_percent',0,0,/.test(aapi));
+/* ⚠️ (2026-08-13) 이 검사는 원래 «꺼진 채로 들어온다» 였다 — 코드가 급여를 조용히 바꾸지
+   못하게 막는 규칙이었다. 오늘 **사장님이 「30분전 연기는 0으로」 결정**하셨으므로
+   규칙 자체가 바뀌었다. 이제 검사할 것은 «꺼짐» 이 아니라 다음 셋이다:
+     ① 켜진 채로 들어온다(0%, enabled=1)  ② 이미 배포된 DB 도 1회 마이그레이션으로 켠다
+     ③ 되돌리는 길이 남아 있다(관리자가 끄면 예전 계산으로 복귀) */
+check('🔴 사전 연기 0% 규칙이 «켜진 채로» 들어온다 (2026-08-13 사장님 결정)',
+  /'postponed_early_pay_percent'[\s\S]{0,200}'policy_percent',0,1,/.test(aapi));
+check('🔴 이미 배포된 DB 도 1회 마이그레이션으로 켠다 (INSERT OR IGNORE 는 기존 행을 안 건드린다)',
+  /early_postpone_on_260813[\s\S]{0,400}UPDATE payroll_deduction_rules SET enabled = 1[\s\S]{0,120}postponed_early_pay_percent/.test(aapi));
+check('🔴 되돌리는 길이 있다 (관리자가 끄면 예전 지급률로 복귀)',
+  /earlyPostponeOn[\s\S]{0,200}: postponePct;/.test(aapi));
 check('규칙이 꺼져 있으면 기존 지급률과 같다', /earlyPostponeOn[\s\S]{0,200}: postponePct;/.test(aapi));
 check('강사 화면이 «왜 이 금액인지» 를 한 줄로 설명한다', /postpone_fee_type/.test(mypage));
 check('요청 기록은 마지막 승인만 쓴다 (여러 번 요청했을 때)',
@@ -72,23 +82,54 @@ check('그 창이 그날 00:00~24:00 이다',
   && /enterUntilTs = enterFromTs \+ 86400000 - 1/.test(tapi));
 check('🔴 «수업 시간인가»(join_open)와 «들어갈 수 있나»(can_enter)를 섞지 않는다',
   /join_open: now >= open_at_ts/.test(tapi) && /can_enter: now >= enterFromTs/.test(tapi));
-check('🔴 학생 입장 창은 건드리지 않았다 (29,000명 전체의 입장 시각)',
-  /OPEN_BEFORE/.test(mapi) && !/enter_from_ts/.test(mapi));
+/* 🔴 (2026-09-11 갱신 — 옛 단정을 버린 이유를 날짜와 함께 남긴다)
+   여기 있던 검사는 「api-mango.ts 에 enter_from_ts 가 **없다**」였다. 2026-08-07 당시에는
+   그것이 곧 「학생 쪽을 안 건드렸다」였기 때문이다.
+   그런데 그 단정이 이번 사고의 한쪽 원인이 됐다 — 강사 포털만 하루 종일 열리고 홈 화면은
+   종료+15분에 닫혀, 수업에서 나간 강사가 다시 못 들어왔다(class-2332-20260911 실측).
+   사장님 지시로 홈 화면도 «문» 을 따로 내려주게 했으므로(src/class-entry-window.ts)
+   api-mango.ts 에도 enter_from_ts 가 생긴다. 이제 지켜야 할 것은 그 «글자의 부재» 가 아니라
+   **학생이 잃는 것이 없다**는 사실이다. 그 셋을 대신 못 박는다.
+   ⛔ 이 셋 중 하나라도 빼면 29,000명의 입장 시각이 조용히 바뀔 수 있다. */
+check('🔴 학생이 «여는» 시각은 그대로다 (OPEN_BEFORE 10분 · 29,000명 전체)',
+  /const OPEN_BEFORE = 10 \* 60 \* 1000;/.test(mapi));
+check('🔴 학생 창은 그 여는 시각에서 시작한다 (강사처럼 하루 종일이 아니다)',
+  /from: i\.openAtTs/.test(cew) && /if \(i\.isTeacher\)/.test(cew));
+check('🔴 학생 창이 지금(종료+15분)보다 짧아지지 않는다 — 바닥이 있다',
+  /ENTER_FLOOR_MS = 15 \* 60 \* 1000/.test(cew)
+  && /Math\.max\(i\.endTs \+ ENTER_FLOOR_MS/.test(cew));
 check('시작 전에는 [미리 입장] 이 눌린다 (비활성 «N분 뒤 입장» 이 아니다)',
   /btn-early[\s\S]{0,400}data-join/.test(thtml));
 check('끝난 수업도 [다시 입장] 이 된다 (연장·마무리)', /btn-reenter/.test(thtml));
 check('🔴 옛 응답(캐시)에는 없는 권한을 지어내지 않는다',
   /c\.enter_from_ts != null && c\.enter_until_ts != null[\s\S]{0,160}: open;/.test(thtml));
-check('평가하기 버튼은 그대로 남는다 (재입장이 평가를 대체하지 않는다)',
-  /btn-reenter[\s\S]{0,400}data-eval/.test(thtml));
+/* (2026-08-27 마이마이 8/26 ①) 계약 갱신: 끝난 수업에는 일지 버튼이 «반드시 하나» 붙는다 —
+   안 썼으면 [일지 쓰기](data-eval), 이미 썼으면 [일지 ✓ 보기](data-evview).
+   옛 계약(항상 data-eval)은 «쓴 일지가 화면에 안 보인다» 는 제보의 원인이라 뒤집었다.
+   재입장이 일지를 대체하지 않는다는 원래 의도는 그대로다(버튼이 항상 공존). */
+check('일지 버튼은 그대로 남는다 (재입장이 일지를 대체하지 않는다 — 쓰기 또는 보기)',
+  /btn-reenter[\s\S]{0,1200}data-eval(view)?=/.test(thtml)
+  && /data-evview/.test(thtml) && /data-eval="/.test(thtml));
+check('✍ 이미 쓴 수업은 «일지 ✓ 보기» 로 바뀐다 (쓴 것이 화면에 보인다)',
+  /c\.eval_written[\s\S]{0,300}data-evview/.test(thtml) && /openEvalView/.test(thtml));
 
 console.log('\n[ ⑥  주간 스케줄을 날짜로 바로 이동 ]');
 /* "Add quick option for years, months and dates — the new teacher's page just Prev and Next." */
 check('날짜 입력칸이 있다 (폰에서는 OS 달력 = 연·월·일 한 번에)', /id="wk-date"/.test(thtml));
 check('고르면 바로 이동한다 (버튼을 또 눌러야 하지 않는다)',
   /wk-date[\s\S]{0,400}addEventListener\('change'[\s\S]{0,80}loadWeekOf/.test(thtml));
-check('🔴 날짜를 로컬 자정으로 읽는다 (UTC 로 읽으면 필리핀·한국에서 하루씩 밀린다)',
-  /new Date\(dateStr \+ 'T00:00:00'\)/.test(thtml));
+// 2026-10-04: 로컬 자정은 KST 월요일·미국 DST에서 서버 주와 달랐다.
+// 문자열 모양 대신 날짜 정본을 실행한다. 실제 클릭/TZ/응답 역전은 teacher_week_navigation_harness가 지킨다.
+{
+  const a = thtml.indexOf('  function weekOfDate('), b = thtml.indexOf('\n  function ', a + 1);
+  let datesOK = false;
+  try {
+    const monday = new Function(thtml.slice(a,b) + '\nreturn weekOfDate;')();
+    datesOK = monday('2026-10-04') === '2026-09-28' && monday('2026-10-05') === '2026-10-05'
+      && monday('2026-03-08') === '2026-03-02' && monday('2026-02-31') === null;
+  } catch (_) {}
+  check('🔴 날짜를 단말 시간대와 무관한 KST 달력의 월요일로 맞춘다', datesOK);
+}
 check('먼 주로 뛰면 [이전/다음] 에 불을 켜 두지 않는다 (지금 어디인지 거짓말 금지)',
   /off === -1 \? 'wk-prev' : \(off === 1 \? 'wk-next' : ''\)/.test(thtml));
 
@@ -99,8 +140,16 @@ check('파일 시퀀스와 PDF 내부 쪽을 둘 다 보여준다',
   /data-seq=/.test(idx) && /data-page=/.test(idx));
 check('🔴 이동은 기존 함수만 쓴다 (학생 화면과 어긋나는 두 번째 경로 금지)',
   /_pdfGoSeqFile\(f\)/.test(idx) && /pdfGoToPage\(n\);[\s\S]{0,120}_pdfBroadcastPage/.test(idx));
-check('시퀀스가 없으면 서버에서 다시 만든다 (새 기기·재접속에서도 목록이 나온다)',
-  /pdfTogglePageList[\s\S]{0,1800}pdfEnsureSequence\(\)/.test(idx));
+/* ⚠️ (2026-08-13) 이 검사도 «거리(1800자)» 로 보고 있었다 — 바로 아래 주석이 경고한
+   그 함정이다. 창 크기 조절(마이마이 8/13 ②)이 붙어 글자 수가 늘자 **규칙은 그대로인데
+   검사만 깨졌다.** 아래 ⑦ 검사들처럼 «그 함수 안에 있는가» 로 바꾼다. */
+{
+  const _s2 = idx.indexOf('async function pdfTogglePageList');
+  const _e2 = idx.indexOf('window.pdfTogglePageList =', _s2);
+  const _fn2 = (_s2 >= 0 && _e2 > _s2) ? idx.slice(_s2, _e2) : '';
+  check('시퀀스가 없으면 서버에서 다시 만든다 (새 기기·재접속에서도 목록이 나온다)',
+    /pdfEnsureSequence\(\)/.test(_fn2));
+}
 /* ⚠️ (2026-08-11) 예전엔 «pdfTogglePageList 뒤 4000자 안에» 로 봤다. 그런데 그 함수에
    기능(④ 목록에서 빼기)이 붙자 거리가 늘어 **규칙은 그대로인데 검사만 깨졌다.**
    거리가 아니라 «그 함수 안에 있는가» 로 본다 — 거리는 규칙이 아니다. */

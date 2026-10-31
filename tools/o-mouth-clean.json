@@ -1,0 +1,9 @@
+{
+ "note": "Lily·Noah «오» 입모양(E·F) 정리 — 입가 주름을 줄이고, 갈아 끼운 타원 안 피부색을 원본 얼굴에 맞춘다(Noah 의 붉은 사각 얼룩). Noah G·H 는 생성 실패로 검은 타원이라 B·C 로 대신한다. tools/clean-o-mouths.py 가 읽는다.",
+ "sourceRev": "f4ef7ac",
+ "params": {"poses": "EF", "lipK": 11, "tipMargin": 4, "baseLipMargin": 10, "ellipseThr": 4, "colorSigma": 10, "colorFeather": 12, "smoothSigma": 6, "grainSigma": 1.5, "grainClip": 5, "lipMargin": 3, "lipFade": 6, "ringOut": 45, "ringFade": 12, "noseGap": 16, "noseFade": 8, "borderKeep": 2, "borderFade": 8},
+ "actors": {
+  "lily": {"rect": [250, 294, 144, 122], "substitute": {}},
+  "noah": {"rect": [214, 364, 214, 130], "substitute": {"G": "B", "H": "C"}}
+ }
+}

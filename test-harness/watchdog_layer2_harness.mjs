@@ -421,7 +421,15 @@ check('스크립트가 키를 자기 안에 담고 있지 않다(설정 파일�
 // ⑨ 회전이 끝난 옛 키가 되살아나면 안 된다 (실제로 한 브랜치에서 되살아나 있었다)
 check('wrangler.toml 에 옛 PAYROLL_INGEST_KEY 값이 없다', !toml.includes('9c4f7a2e15b83d6079e1c4a8f2b5d3e6'));
 check('wrangler.toml 에 옛 UPTIME_HOOK_KEY 값이 없다', !toml.includes('74d3de23b5d488a03a6ea10c7bb48c4632e3'));
-check('uptime 검증부가 새 키만 인정한다', /keyMatchesAny\(given, \(env as any\)\.UPTIME_HOOK_KEY_NEW\)/.test(uptimeSrc));
+/* ⚠️ 이 검사는 «식 모양» 을 글자 그대로 못 박고 있었습니다 — 그래서 2026-09-09 에 시험용 칸
+   (`UPTIME_HOOK_KEY_TEST`)을 «더하는» 변경에서, 보장은 그대로인데 검사만 빨간불이 났습니다.
+   ✅ 물어야 할 것은 «후보가 몇 개인가» 가 아니라 **«회전이 끝난 옛 키가 되살아났는가»** 입니다.
+      (칸을 더하는 것 자체가 안전한 이유는 `uptime_hook_key_harness` 가 따로 못 박습니다.) */
+const upGate = (uptimeSrc.match(/keyMatchesAny\(given,[\s\S]*?\n/) || [''])[0];
+check('uptime 검증부가 «회전 전» 옛 키 이름을 안 쓴다',
+  !!upGate && /UPTIME_HOOK_KEY_/.test(upGate) && !/UPTIME_HOOK_KEY(?![_A-Z])/.test(upGate));
+check('uptime 검증부에 열쇠 값을 «글자로» 박아 두지 않았다',
+  !!upGate && !/['"][0-9a-zA-Z_-]{12,}['"]/.test(upGate));
 
 // ⑩ 이모지 — Win10 두부 방지(Unicode 13+ 금지). 스크립트/코드에 쓴 것만 본다.
 const newEmoji = /[\u{1FA70}-\u{1FAFF}\u{1FBA0}-\u{1FBFF}]/u;

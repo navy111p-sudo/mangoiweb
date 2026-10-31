@@ -13,10 +13,17 @@
  *   - 추후 Anthropic Claude 등으로 교체 시 callLLM() 함수 한 곳만 수정
  */
 import { writeClassAudit } from './class-audit';   // 📜 수업 변경 이력(AI 명령 취소/연기/이동)
-import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(영어·중국어 공통)
+import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
+import { siteUrl, SITE_HOSTS } from './site-url';  // 🔗 사람에게 나가는 링크는 한 곳에서
+import { DEFAULT_CLASS_MINUTES, ALLOWED_CLASS_MINUTES } from './class-policy';  // 기본 20분 · 고를 수 있는 길이
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 
 const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+
+/* 🔗 발음 코치는 «새 탭 외부 URL» 로 나가므로 절대 주소가 필요하다(adm-core.js 가
+      new URL(external_url).hostname 을 그린다). 주소는 site-url.ts 한 곳에서 온다 —
+      프롬프트 예시와 아래 화이트리스트가 **서로 어긋나면 링크가 통째로 버려진다**. */
+const SPEECH_COACH_URL = siteUrl('/speech-coach.html');
 
 // ──────────────────────────────────────────────────────────
 // 시스템 프롬프트 — Few-shot 예시 중심으로 재작성 (Phase 21e)
@@ -37,7 +44,7 @@ Schema (one of these exactly):
 
 Allowed navigate URLs (same-tab): /admin.html, /admin/students.html, /admin/student.html?uid=ID, /admin/health.html, /admin/mypage.html, /admin/weekly-schedule.html (전체/주간/강사 스케줄·시간표 — 강사명 있으면 /admin/weekly-schedule.html?q=이름), /admin/all-schedules.html
 
-Allowed external_url (new tab): https://test.mangoi.co.kr/speech-coach.html (발음교정·발음 연습)
+Allowed external_url (new tab): ${SPEECH_COACH_URL} (발음교정·발음 연습)
 
 Allowed menu_id (scroll to card on /admin.html). Match Korean OR English keywords:
 - card-daily-charts    (일자별 차트·매출·학생수·탈락·증가 | daily charts, revenue chart, growth)
@@ -60,6 +67,7 @@ Allowed menu_id (scroll to card on /admin.html). Match Korean OR English keyword
 - card-admin-alerts    (실시간 이상감지·이상 알림 | real-time anomaly alerts, monitoring)
 - card-admin-ghost     (라이브 참관·고스트뷰 | live observation, ghost view)
 - card-auto-dunning    (미납 자동 알림·독촉 | overdue/unpaid auto alert, dunning)
+- card-accounting-mgmt (회계관리·정산·수강료 미연장 자동 알림·미수금 | accounting, settlement, non-renewal auto-notify, receivables)
 - card-points-mgmt     (포인트 관리 | points management)
 - card-badges-mgmt     (뱃지 관리 | badge management)
 - card-calendar        (캘린더·휴가·공휴일 | calendar, holidays, leave)
@@ -166,10 +174,10 @@ User: "시스템 상태"
 Output: {"intent":"navigate","url":"/admin/health.html","answer":"시스템 상태 페이지로 이동합니다."}
 
 User: "발음 교정 열어줘"
-Output: {"intent":"navigate","external_url":"https://test.mangoi.co.kr/speech-coach.html","answer":"발음 교정 도구를 새 탭에서 엽니다."}
+Output: {"intent":"navigate","external_url":"${SPEECH_COACH_URL}","answer":"발음 교정 도구를 새 탭에서 엽니다."}
 
 User: "발음 연습"
-Output: {"intent":"navigate","external_url":"https://test.mangoi.co.kr/speech-coach.html","answer":"발음 연습 도구를 새 탭에서 엽니다."}
+Output: {"intent":"navigate","external_url":"${SPEECH_COACH_URL}","answer":"발음 연습 도구를 새 탭에서 엽니다."}
 
 User: "성적표 보여줘"
 Output: {"intent":"navigate","menu_id":"card-eval-mgmt","answer":"학생 평가서(성적표) 카드로 이동합니다."}
@@ -208,10 +216,10 @@ User: "학생 랭킹"
 Output: {"intent":"navigate","menu_id":"card-rankings","answer":"학생 랭킹 카드로 이동합니다."}
 
 User: "전체 스케줄 보여줘"
-Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"학원 전체 스케줄 페이지로 이동합니다."}
+Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"전체 스케줄 페이지로 이동합니다."}
 
 User: "학원 전체 일정"
-Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"학원 전체 스케줄 페이지로 이동합니다."}
+Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"전체 스케줄 페이지로 이동합니다."}
 
 User: "전체학생 스케줄 열어줘"
 Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"학원 전체 학생 스케줄 페이지로 이동합니다."}
@@ -220,7 +228,7 @@ User: "전체 학생 스케줄 보여줘"
 Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"학원 전체 학생 스케줄 페이지로 이동합니다."}
 
 User: "전교생 스케줄"
-Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"학원 전체 스케줄 페이지로 이동합니다."}
+Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"전체 스케줄 페이지로 이동합니다."}
 
 User: "show all student schedules"
 Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"Opening the academy-wide student schedule page."}
@@ -283,7 +291,7 @@ User: "open overdue payment alerts"
 Output: {"intent":"navigate","menu_id":"card-auto-dunning","answer":"Opening the overdue payment auto-alert card."}
 
 User: "open pronunciation practice"
-Output: {"intent":"navigate","external_url":"https://test.mangoi.co.kr/speech-coach.html","answer":"Opening the pronunciation practice tool in a new tab."}
+Output: {"intent":"navigate","external_url":"${SPEECH_COACH_URL}","answer":"Opening the pronunciation practice tool in a new tab."}
 
 User: "what is the review quiz?"
 Output: {"intent":"answer","answer":"The Review Quiz lets you create quizzes that students solve and get auto-graded for revision."}
@@ -392,6 +400,10 @@ const CARD_ROUTES: Array<{ re: RegExp; menu_id?: string; url?: string; external_
   { re: /(평가서|성적표|성적\s*관리|평가\s*관리|report\s*card|evaluation|grades?)/i, menu_id: 'card-eval-mgmt', ko: '학생 평가서(성적표) 카드로 이동합니다.', en: 'Opening the student evaluations card.' },
   // ── 결제/정산/회계 (정기결제·미납 → 일반결제 순) ──
   { re: /(정기결제|자동결제|자동\s*결제|구독|recurring|subscription)/i, menu_id: 'card-recurring-billing', ko: '정기결제 자동화 카드로 이동합니다.', en: 'Opening the recurring billing card.' },
+  /* 🔁 (2026-08-18) «미연장» 은 회계관리 ▸ 수강료 미연장 자동 알림이다(B2C 선불 구조).
+        «미납» 은 종전대로 미납 자동 추적 카드. 둘은 다른 화면이라 순서를 지켜야 한다 —
+        미연장 규칙이 먼저 와야 「미연장」 이 아래 미납 규칙에 먼저 잡히지 않는다. */
+  { re: /(미연장|연장\s*안내|수강\s*연장|재등록|renewal|non-?renewal)/i, menu_id: 'card-accounting-mgmt', ko: '회계관리 ▸ 수강료 미연장 자동 알림으로 이동합니다.', en: 'Opening Accounting ▸ non-renewal auto-notify.' },
   { re: /(미납|독촉|미수금|dunning|overdue)/i, menu_id: 'card-auto-dunning', ko: '미납 자동 알림(독촉) 카드로 이동합니다.', en: 'Opening the overdue payment auto-alert card.' },
   { re: /(결제\s*관리|결제관리|수강료|학원비|납부|tuition|payment|\bfee\b)/i, menu_id: 'card-payments-b2c', ko: '결제관리 카드로 이동합니다.', en: 'Opening the payments card.' },
   { re: /(강사\s*급여|급여|payroll|salary)/i, menu_id: 'card-payroll', ko: '강사 급여 카드로 이동합니다.', en: 'Opening the teacher payroll card.' },
@@ -421,7 +433,7 @@ const CARD_ROUTES: Array<{ re: RegExp; menu_id?: string; url?: string; external_
   { re: /(레벨\s*테스트|레벨테스트|level\s*test)/i, menu_id: 'card-level-tests', ko: '레벨 테스트 카드로 이동합니다.', en: 'Opening the level test card.' },
   { re: /(복습\s*퀴즈|퀴즈|review\s*quiz|ai\s*quiz)/i, menu_id: 'card-review-quiz', ko: '복습퀴즈 카드로 이동합니다.', en: 'Opening the review quiz card.' },
   { re: /(교재\s*콘텐츠|교재|textbook)/i, menu_id: 'card-textbooks', ko: '교재 콘텐츠 카드로 이동합니다.', en: 'Opening the textbook content card.' },
-  { re: /(발음\s*교정|발음\s*연습|pronunciation)/i, external_url: 'https://test.mangoi.co.kr/speech-coach.html', ko: '발음 교정 도구를 새 탭에서 엽니다.', en: 'Opening the pronunciation practice tool in a new tab.' },
+  { re: /(발음\s*교정|발음\s*연습|pronunciation)/i, external_url: SPEECH_COACH_URL, ko: '발음 교정 도구를 새 탭에서 엽니다.', en: 'Opening the pronunciation practice tool in a new tab.' },
   // ── 조직/상담/기타 ──
   // 🏢 조직 = 본사 › 지사 › 대리점(학원). 아래 두 줄의 «순서»가 중요하다:
   //    «대리점 자료실»처럼 자료실이 붙은 말이 조직 카드로 새지 않도록 자료실을 먼저 잡는다.
@@ -590,7 +602,7 @@ async function runTool(
       const [rev, att, act, sign] = await Promise.all([
         safe(() => env.DB.prepare(`SELECT COALESCE(SUM(amount_krw),0) AS revenue, COUNT(*) AS cnt
                         FROM student_payments
-                        WHERE status='paid' AND paid_at IS NOT NULL AND paid_at >= ? AND paid_at < ?`)
+                        WHERE status='paid' AND paid_at IS NOT NULL AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?`)
           .bind(startMs, endMs).first<any>(), { revenue: 0, cnt: 0 } as any),
         safe(() => env.DB.prepare(`SELECT COUNT(DISTINCT user_id) AS attended
                         FROM attendance WHERE date = ?`).bind(todayKst).first<any>(),
@@ -652,7 +664,7 @@ async function runTool(
       else if (period === 'year') groupExpr = `substr(${kstDate},1,4)`;
       const rows = await env.DB.prepare(
         `SELECT ${groupExpr} AS label, SUM(amount_krw) AS revenue
-         FROM student_payments WHERE status='paid' AND paid_at IS NOT NULL
+         FROM student_payments WHERE status='paid' AND paid_at IS NOT NULL AND ${notSeedSql()}
          GROUP BY ${groupExpr} ORDER BY label DESC LIMIT 12`
       ).all<any>();
       return { period, items: rows.results || [] };
@@ -746,7 +758,7 @@ export async function processAiCommand(
       const eu = String(aiResponse.external_url);
       // (2026-08-10) 발음 연습이 /speech-coach.html 로 통합 — 정본 도메인만 허용
       //   (adm-core.js 가 new URL(external_url).hostname 을 그리므로 절대 URL 이어야 한다)
-      const allowedHosts = ['test.mangoi.co.kr'];
+      const allowedHosts = SITE_HOSTS;   // 정본 + 아직 살아 있는 옛 커스텀 도메인
       try {
         const u = new URL(eu);
         if (u.protocol === 'https:' && allowedHosts.includes(u.hostname)) {
@@ -941,7 +953,8 @@ export async function executeAction(
       const note = String(args?.note || '').slice(0, 500);
       if (!userId) return { ok: false, error: 'user_id_required' };
       // intervention_logs 테이블 자동 생성 (스키마 누락 환경 대비)
-      await env.DB.exec(
+      //   ⚠️ (2026-10-28) prepare().run() — D1 exec() 는 줄마다 따로 실행해 여러 줄 CREATE 가 죽는다(이 표가 운영에 없던 이유).
+      await env.DB.prepare(
         `CREATE TABLE IF NOT EXISTS intervention_logs (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           user_id TEXT NOT NULL,
@@ -950,7 +963,7 @@ export async function executeAction(
           created_by TEXT,
           created_at INTEGER NOT NULL
         )`
-      );
+      ).run();
       await env.DB.prepare(
         `INSERT INTO intervention_logs (user_id, note, source, created_by, created_at)
          VALUES (?, ?, 'ai-command', ?, ?)`
@@ -1210,7 +1223,8 @@ export async function executeAction(
       const startTime = String(hh).padStart(2, '0') + ':' + String(mi).padStart(2, '0');
       const startMin = hh * 60 + mi;
 
-      const durationMin = [20, 30, 40].includes(Number(args?.duration_min)) ? Number(args.duration_min) : DEFAULT_CLASS_MINUTES;
+      // ⚠️ 길이 목록을 여기 복사해 두면 class-policy 와 어긋난다 — 반드시 import 로
+      const durationMin = ALLOWED_CLASS_MINUTES.includes(Number(args?.duration_min)) ? Number(args.duration_min) : DEFAULT_CLASS_MINUTES;
       const classType = ['regular','trial','level_test'].includes(String(args?.class_type)) ? String(args.class_type) : 'regular';
       const teacherNameIn = String(args?.teacher_name || '').trim().slice(0, 50);
 
@@ -1602,7 +1616,7 @@ export const STUDENT_ROUTES: StudentRoute[] = [
   { kws: ['월간리포트', '월간 리포트', 'monthly report'], url: '/monthly-report.html', label: '📈 월간 리포트' },
   // 📖 학습 기능
   { kws: ['단어장', '단어 장', '내 단어장', '어휘장', '어휘', '단어', 'vocab', 'vocabulary', 'word list'], url: '/vocab.html', label: '📖 단어장' },
-  { kws: ['복습퀴즈', '복습 퀴즈', '선생님 퀴즈', '리뷰 퀴즈', '복습', 'review quiz'], url: '/review-quiz.html', label: '🧠 복습퀴즈' },
+  { kws: ['bts/siu 퀴즈', 'bts 퀴즈', 'siu 퀴즈', '복습퀴즈', '복습 퀴즈', '선생님 퀴즈', '리뷰 퀴즈', '복습', 'review quiz'], url: '/review-quiz.html', label: '🧠 BTS/SIU 퀴즈' },
   { kws: ['미니퀴즈', '미니 퀴즈', '단어퀴즈', '단어 퀴즈', '쪽지시험', '퀴즈', 'quiz'], url: '/micro-quiz.html', label: '🎯 미니 퀴즈' },
   { kws: ['연속출석', '연속 출석', '출석체크', '출석 체크', '스트릭', '데일리 출석', '출석', 'streak', 'attendance'], url: '/streak.html', label: '🔥 연속 출석' },
   { kws: ['칭찬스티커', '칭찬 스티커', '칭찬', '스티커', '선생님 칭찬', 'praise', 'sticker'], url: '/teacher-praise.html', label: '🌟 칭찬 스티커' },
@@ -1618,7 +1632,7 @@ export const STUDENT_ROUTES: StudentRoute[] = [
   { kws: ['mbti매칭', 'mbti 매칭', '엠비티아이 매칭', '강사매칭', '강사 매칭', '성향매칭', '성향 매칭', 'mbti match'], url: '/mbti.html', label: '🧠 MBTI 매칭' },
   { kws: ['mbti테스트', 'mbti 테스트', '엠비티아이 테스트', '성향테스트', '성격테스트', '성격 테스트', 'mbti test', 'mbti'], url: '/mbti-test.html', label: '🧪 MBTI 테스트' },
   // 📅 스케줄 / 수업신청
-  { kws: ['주간스케줄', '주간 스케줄', '내스케줄', '내 스케줄', '스케줄', '시간표', '주간시간표', '수업일정', '수업 일정', '일정표', 'schedule', 'timetable'], url: '/admin/weekly-schedule.html?role=student', label: '📅 내 주간 스케줄' },
+  { kws: ['주간스케줄', '주간 스케줄', '내스케줄', '내 스케줄', '스케줄', '시간표', '주간시간표', '수업일정', '수업 일정', '일정표', 'schedule', 'timetable'], url: '/my-schedule.html', label: '📅 내 주간 스케줄' },
   { kws: ['수업신청', '수업 신청', '수강신청', '수강 신청', '예약하기', '시간선택', '교사선택', 'book', 'booking'], url: '/lesson-booking-demo.html', label: '📝 수업 신청' },
   // 🎥 수업입장 (SPA view)
   { kws: ['수업입장', '수업 입장', '수업시작', '수업 시작', '강의실', '들어가기', '입장', '공부시작', '공부 시작', '화상수업', '화상통화', '화상 통화', '클래스', '방 들어가기', 'class'], view: 'view-videocall-lobby', label: '🎥 수업 입장' },

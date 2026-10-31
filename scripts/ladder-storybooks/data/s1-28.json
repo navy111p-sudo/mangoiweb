@@ -1,0 +1,310 @@
+{
+  "id": "s1-28",
+  "breaks": [
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 0,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "놀라운 일",
+      "en": "surprise"
+    },
+    "S": {
+      "ko": "결말",
+      "en": "ending"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «티라노사우루스가 우리 학교에 온다(놀라운 일)» 와 «이제 그 공룡은 최고의 반 친구다(결말)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the surprise (a T. rex comes to our school) and the ending (now the T. rex is the best classmate ever). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Our class and a big T. rex"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "The T. rex’s arms are too short to hold a pencil."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "We help him write with his tail."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "One day, a T. rex comes to our ",
+      "ans": "school",
+      "opts": [
+        "school",
+        "house",
+        "zoo"
+      ]
+    },
+    {
+      "pre": ". He sits down in the classroom because he wants to ",
+      "ans": "learn",
+      "opts": [
+        "learn",
+        "sleep",
+        "swim"
+      ]
+    },
+    {
+      "pre": ". His arms are too ",
+      "ans": "short",
+      "opts": [
+        "short",
+        "long",
+        "strong"
+      ]
+    },
+    {
+      "pre": " to hold a pencil, so he writes with his ",
+      "ans": "tail",
+      "opts": [
+        "tail",
+        "nose",
+        "foot"
+      ]
+    },
+    {
+      "pre": ". At lunch, he eats twenty ",
+      "ans": "sandwiches",
+      "opts": [
+        "sandwiches",
+        "apples",
+        "pizzas"
+      ]
+    },
+    {
+      "pre": ". Now he is the best classmate ever!",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "scream",
+      "소리 지르다",
+      "Everyone <b>screams</b> and runs.",
+      "to shout in a loud, high voice"
+    ],
+    [
+      "classroom",
+      "교실",
+      "But the T. rex just sits down in the <b>classroom</b>.",
+      "a room in a school where you learn"
+    ],
+    [
+      "learn",
+      "배우다",
+      "He wants to <b>learn</b>!",
+      "to come to know something new"
+    ],
+    [
+      "tail",
+      "꼬리",
+      "So we help him write with his <b>tail</b>.",
+      "the long part at the back of an animal"
+    ],
+    [
+      "recess",
+      "쉬는 시간",
+      "At <b>recess</b>, he gives us rides on his back.",
+      "a short break to play at school"
+    ],
+    [
+      "classmate",
+      "반 친구",
+      "Now the T. rex is the best <b>classmate</b> ever!",
+      "a friend in the same class"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does the T. rex write with his tail?",
+      "qko": "티라노사우루스는 왜 꼬리로 글씨를 쓰나요?",
+      "opts": [
+        "His arms are too short to hold a pencil.",
+        "His tail is his favorite pencil.",
+        "The teacher tells him to."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "His arms are too short to hold a pencil.",
+        "But the T. rex just sits down in the classroom.",
+        "At lunch, he eats twenty sandwiches.",
+        "At recess, he gives us rides on his back."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«His arms are too short to hold a pencil.» 팔이 너무 짧아서 연필을 쥘 수 없어요. 그래서 꼬리로 써요.",
+        "His arms are too short to hold a pencil, so he writes with his tail."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Everyone screams and runs.\" What does \"screams\" mean here?",
+      "qko": "«Everyone screams and runs.» 에서 «screams» 는 무슨 뜻일까요?",
+      "opts": [
+        "shouts loudly because of fear",
+        "sings a happy song",
+        "talks very quietly"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "One day, a T. rex comes to our school!",
+        "He wants to learn!",
+        "So we help him write with his tail.",
+        "Now the T. rex is the best classmate ever!"
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«One day, a T. rex comes to our school!» 커다란 공룡이 갑자기 나타나서 모두 깜짝 놀라요. 그래서 «screams» 는 무서워서 크게 소리 지른다는 뜻이에요.",
+        "A big T. rex suddenly comes to school, so everyone is scared. \"Screams\" means shouts loudly because of fear."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why is the T. rex the best classmate ever?",
+      "qko": "티라노사우루스는 왜 최고의 반 친구인가요?",
+      "opts": [
+        "He wants to learn with us, and he gives us rides on his back.",
+        "He eats all of our lunch.",
+        "He scares the other classes."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "At recess, he gives us rides on his back.",
+        "He wants to learn!",
+        "Everyone screams and runs.",
+        "At lunch, he eats twenty sandwiches."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "쉬는 시간에 우리를 등에 태워 주고(«At recess, he gives us rides on his back.»), 우리 교실에서 함께 배우고 싶어 해요(«He wants to learn!»). 두 문장을 이어야 알 수 있어요.",
+        "He gives us rides on his back at recess, and he wants to learn in our class. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "The T. rex brings his baby brother to school.",
+      "티라노사우루스가 아기 동생을 학교에 데려온다.",
+      "A Baby Dinosaur at School"
+    ],
+    [
+      "B",
+      "Our class goes on a field trip on the T. rex’s back.",
+      "우리 반이 티라노사우루스의 등을 타고 현장 학습을 간다.",
+      "The Dinosaur Field Trip"
+    ]
+  ],
+  "write": {
+    "pre": "I want to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "하고 싶은 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what you want to do",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «하고 싶은 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you want to do and your reason in English.",
+    "aria": [
+      "what you want to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because my friend likes it)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because my friend likes it)",
+    "src": "“I want to <u>ride on a T. rex</u> because <u>it looks fun</u>.”",
+    "chips": [
+      {
+        "a": "go to the zoo",
+        "b": "I like animals",
+        "label": "zoo"
+      },
+      {
+        "a": "learn to swim",
+        "b": "I want to swim in the sea",
+        "label": "swim"
+      },
+      {
+        "a": "eat lunch with my friends",
+        "b": "it is fun to talk",
+        "label": "lunch"
+      }
+    ]
+  },
+  "img": {
+    "style": "flat",
+    "cover": "On a sunny school playground at recess, a big friendly green T. rex with tiny short arms and a wide happy smile gives a girl with two curly puffballs of hair in an orange T-shirt and jean overalls and three laughing classmates a ride on his back, while other kids cheer and wave.",
+    "scenes": {
+      "1": "In a bright classroom, a big friendly green T. rex with tiny short arms and a wide happy smile sits on the floor among small desks and holds a big pencil with the tip of his tail, while a girl with two curly puffballs of hair in an orange T-shirt and jean overalls helps guide the pencil across a giant sheet of paper, making a big wobbly line.",
+      "2": "In a sunny school lunchroom, a big friendly green T. rex with tiny short arms and a wide happy smile happily munches a tall stack of sandwiches at a long table, while a girl with two curly puffballs of hair in an orange T-shirt and jean overalls and her classmates laugh and count them on their fingers."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "The kids help the T. rex write with his tail.",
+    "2": "The T. rex eats a big stack of sandwiches.",
+    "cover": "The T. rex gives the kids rides at recess."
+  }
+}

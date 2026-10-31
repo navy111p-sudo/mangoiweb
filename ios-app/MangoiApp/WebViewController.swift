@@ -1,14 +1,18 @@
 import UIKit
 import WebKit
 
-/// 망고아이 웹앱(test.mangoi.co.kr)을 감싸는 단일 화면.
+/// 망고아이 웹앱(mangoi.ai)을 감싸는 단일 화면.
 ///
 /// 안드로이드 `MainActivity.java` 와 같은 역할이며, 거기서 겪고 고쳤던 문제들을
 /// iOS 방식으로 그대로 이식했다. 대응표는 ios-app/README.md 참조.
 final class WebViewController: UIViewController {
 
-    /// 웹앱 주소 — 안드로이드와 동일
-    private static let startURL = "https://test.mangoi.co.kr/"
+    /// 웹앱 주소 — 안드로이드와 동일 (2026-08-17 test.mangoi.co.kr → mangoi.ai)
+    ///
+    /// ⚠️ 이 값은 앱 바이너리에 박힌다. 이미 깔린 앱은 새 빌드가 퍼질 때까지 옛 주소를 계속 본다.
+    ///    옛 도메인을 먼저 죽이면 그 사람들 앱이 흰 화면이 된다.
+    /// ⚠️ 오리진이 바뀌므로 이 버전을 처음 켠 사람은 한 번 로그아웃된다(학생 로그인 = localStorage).
+    private static let startURL = "https://mangoi.ai/"
 
     private var webView: WKWebView!
     private let tts = TtsBridge()
@@ -185,8 +189,17 @@ extension WebViewController: WKUIDelegate {
                  initiatedByFrame frame: WKFrameInfo,
                  type: WKMediaCaptureType,
                  decisionHandler: @escaping (WKPermissionDecision) -> Void) {
-        // 우리 도메인에서 온 요청만 허용한다
-        if origin.host.hasSuffix("mangoi.co.kr") || origin.host.hasSuffix("mango-i.com") {
+        /* 우리 도메인에서 온 요청만 허용한다.
+         *
+         * ⚠️ 2026-08-17 — 여기에 mangoi.ai 가 없어서, 시작 주소만 옮기면 **화상수업 카메라·마이크가
+         *    자동 승인되지 않고 매번 확인창이 뜨는** 상태가 될 뻔했다. 시작 URL 을 바꿀 때 같이 봐야 하는 곳이다.
+         * ⚠️ 죽은 도메인 mango-i.com 은 뺐다 — 등록조차 안 된 주소다(NXDOMAIN 실측).
+         * ⚠️ hasSuffix 만 쓰면 «evil-mangoi.ai» 같은 남의 도메인도 통과한다.
+         *    정확히 일치하거나 «.» 로 시작하는 하위도메인만 우리 것으로 본다.
+         */
+        let host = origin.host
+        func isOurs(_ domain: String) -> Bool { host == domain || host.hasSuffix("." + domain) }
+        if isOurs("mangoi.ai") || isOurs("mangoi.co.kr") {
             decisionHandler(.grant)
         } else {
             decisionHandler(.prompt)

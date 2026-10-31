@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>화상수업 화면 흐림·소리 끊김 진단 보고 — class-1015 (2026-09-01)</title>
+<style>
+/* « 화면용은 높이를 열어 둡니다 — docs/ 의 옛 인쇄용 문서가 height:297mm + overflow:hidden
+     으로 아래를 잘라 먹던 사고가 있었습니다(CLAUDE.md 2장). 인쇄는 @page 로만 맞춥니다. » */
+*{box-sizing:border-box}
+body{margin:0;background:#eef1f5;font-family:"Malgun Gothic","맑은 고딕",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#101828}
+.page{width:210mm;min-height:297mm;margin:12px auto;background:#fff;padding:8mm 11mm 6mm;box-shadow:0 2px 18px rgba(16,24,40,.13)}
+h1{font-size:14.6pt;margin:0 0 2px;letter-spacing:-.4px}
+.sub{font-size:7.9pt;color:#667085;margin:0 0 6px;line-height:1.45}
+.sub b{color:#344054}
+h2{font-size:9.5pt;margin:6px 0 3px;padding-left:6px;border-left:3px solid #b45309;letter-spacing:-.2px}
+p,li,td,th{font-size:8pt;line-height:1.31}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:6px 0 2px}
+.kpi{background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:5px 5px;text-align:center}
+.kpi.bad{background:#fef2f2;border-color:#fca5a5}
+.kpi .v{font-size:11.4pt;font-weight:800;color:#b45309;line-height:1.1}
+.kpi.bad .v{color:#b91c1c}
+.kpi .l{font-size:6.7pt;color:#475467;margin-top:2px;line-height:1.3}
+table{width:100%;border-collapse:collapse;margin:3px 0}
+th,td{border:1px solid #e4e7ec;padding:2.5px 5px;vertical-align:top}
+th{background:#f8fafc;font-weight:700;text-align:left;font-size:7.6pt;color:#344054}
+td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cause{margin:0;padding:0;list-style:none}
+.cause li{border:1px solid #e4e7ec;border-left:3px solid #94a3b8;border-radius:5px;padding:3px 8px;margin-bottom:3px;background:#fcfcfd}
+.cause li.root{border-left-color:#b91c1c;background:#fef7f7}
+.cause b.t{display:block;font-size:8.4pt;margin-bottom:1px}
+.cause .m{color:#475467}
+.tag{display:inline-block;font-size:7pt;font-weight:800;padding:1px 6px;border-radius:20px;background:#e0e7ff;color:#3730a3;vertical-align:1.5px;margin-right:5px}
+.tag.r{background:#fee2e2;color:#991b1b}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.step th{background:#eef2ff}
+.step td:first-child{white-space:nowrap;font-weight:700}
+.note{background:#f8fafc;border:1px solid #e4e7ec;border-radius:5px;padding:5px 8px;font-size:7.6pt;color:#475467;margin-top:5px;line-height:1.4}
+.note b{color:#101828}
+.foot{margin-top:7px;border-top:1px solid #e4e7ec;padding-top:5px;font-size:6.9pt;color:#98a2b3;display:flex;justify-content:space-between}
+.ok{color:#047857;font-weight:700}
+.no{color:#b91c1c;font-weight:700}
+@page{size:A4;margin:10mm}
+@media print{body{background:#fff}.page{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>화상수업 «화면이 흐리고 소리가 끊긴다» — 원인 진단과 수리 제안</h1>
+  <p class="sub">
+    대상 수업 <b>class-1015-20260901</b> (2026-09-01 14:00 KST · 강사 Teacher&nbsp;Farrah · 학생 ysyt01 유세영) &nbsp;|&nbsp;
+    근거 = 운영 D1 <b>vc_quality</b> 실측 20분(60초 요약 20건) · <b>attendance</b> 4건 · <b>recordings</b> 3건 &nbsp;|&nbsp;
+    작성 2026-09-01
+  </p>
+
+  <div class="kpis">
+    <div class="kpi bad"><div class="v">17 / 20</div><div class="l">최대 손실 16% 넘은 분<br>(최악 <b>60.6%</b>)</div></div>
+    <div class="kpi"><div class="v">1.9%</div><div class="l">평균 손실<br>= 화면엔 «정상»</div></div>
+    <div class="kpi bad"><div class="v">52~210</div><div class="l">RTT ms 요동<br>(평균 133)</div></div>
+    <div class="kpi bad"><div class="v">0회</div><div class="l">음성전용 구제(AAO)<br>발동 횟수</div></div>
+    <div class="kpi bad"><div class="v">0건</div><div class="l">강사 회선 측정<br>(개설 이래 전 기간)</div></div>
+  </div>
+
+  <h2>1. 실제로 잰 것 — 20분 동안 무슨 일이 있었나</h2>
+  <table>
+    <tr><th style="width:19%">구간(KST)</th><th style="width:15%">평균 손실</th><th style="width:17%">최대 손실</th><th style="width:14%">RTT</th><th>화면에서 이렇게 보입니다</th></tr>
+    <tr><td>14:01~14:03 <b>앞부분</b></td><td class="n">2.0 ~ 2.5%</td><td class="n">17.3 ~ 23.8%</td><td class="n">91~204ms</td><td>깨짐·끊김. 제보의 «처음»과 일치</td></tr>
+    <tr><td>14:04~14:14 <b>중간</b></td><td class="n">0.4 ~ 2.3%</td><td class="n">10.8 ~ 26.9%</td><td class="n">52~204ms</td><td>손실 스파이크 사이에 <b class="ok">잠깐 맑아지는 구간</b>이 생김</td></tr>
+    <tr><td>14:15~14:21 <b>뒷부분</b></td><td class="n">0 ~ 6.6%</td><td class="n">최악 <b>60.6%</b></td><td class="n">82~210ms</td><td>가장 심함. 14:19:48 <b class="no">강사 접속 끊김 → 8초 뒤 재입장</b></td></tr>
+  </table>
+  <p style="margin:3px 0 0;font-size:8.2pt;color:#475467">
+    <b>판단(추론):</b> 손실이 20분 내내 <b>1분에 한 번꼴로 20%대까지 치솟았다</b> 내려오기를 반복했습니다.
+    「중간에 잠깐 잘 나왔다」는 회선이 좋아진 것이 아니라 <b>스파이크와 스파이크 사이</b>였습니다.
+    또 같은 시간대 <b>학생 표본 수가 정상(15틱)의 두 배인 30~33</b> — 학생이 <b>동시에 두 연결로</b> 영상을 올리고 있었다는 뜻이고, 방에 강사 한 명뿐이었으므로 한쪽은 <b>강사의 끊긴 옛 연결(유령)</b>로 보입니다.
+    <span style="color:#98a2b3">← 이 줄은 측정이 아니라 추론이며, 아래 1단계 계측으로 확정해야 합니다.</span>
+    </p>
+
+  <h2>2. 원인 — 네 가지가 겹쳤습니다</h2>
+  <ul class="cause">
+    <li><b class="t"><span class="tag">① 회선</span>평균이 사고를 가리고 있습니다</b>
+      <span class="m">1분 평균은 1.9% 라 어느 화면에서도 «양호»로 보입니다. 사람이 실제로 겪는 것은 그 안의 <b>4초짜리 20~27% 스파이크</b>입니다. 지금 관리자 화면은 평균만 보여 줍니다.</span></li>
+    <li><b class="t"><span class="tag">② 코드</span>화질 자동조절이 «진동»합니다</b>
+      <span class="m">나빠지면 4초마다 한 단계씩 내려가 최저까지 <b>16초</b>, 좋아지면 <b>12초</b> 만에 다시 올라옵니다. 스파이크가 1분마다 오니 <b>내려가다 올라오기를 반복</b>합니다 — 이것이 「흐렸다 잠깐 좋았다 다시 흐림」의 정체입니다.</span></li>
+    <li><b class="t"><span class="tag">③ 코드</span>마지막 구제장치(음성전용 모드)가 한 번도 안 걸렸습니다</b>
+      <span class="m">「오디오 손실 12% 가 3틱 연속」이라는 조건인데, 이번 수업 20분 전부 <b>발동 0회</b>였습니다. 소리 끊김을 막아 줄 장치가 문턱이 너무 높아 놀고 있었습니다.</span></li>
+    <li class="root"><b class="t"><span class="tag r">④ 근본</span>고칠 수가 없었습니다 — 우리에게 «눈»이 없습니다</b>
+      <span class="m">
+        <b>(a) 강사 회선은 개설 이래 단 1건도 측정된 적이 없습니다.</b> vc_quality 742건이 <b>전부 학생</b>(8명)이고 강사는 0건입니다.
+        원인은 로그가 학생 전용 로그인키로 아이디를 만드는데 <b>강사는 쿠키 세션이라 아이디가 비고, 서버가 그 로그를 조용히 버리기</b> 때문입니다.
+        관리자 메뉴의 「📶 강사 회선품질」 화면은 <b>이름만 강사이고 강사 데이터가 0건</b>입니다.<br>
+        <b>(b) «받는 쪽»을 아무도 재지 않습니다.</b> 지금 코드는 «내가 보내는 영상»만 잽니다. 그런데 이번 제보는 100% «<b>내가 받는 화면과 소리</b>» 이야기입니다 — 그 숫자가 데이터에 아예 없습니다.
+      </span></li>
+  </ul>
+
+  <div class="note">
+    <b>참고 — 화면 숫자 오해 정정.</b> 녹화 목록의 <b>91.6 / 82.4 / 87.0%</b> 는 회선 품질이 아니라 <b>시선 점수·말하기 점수·총 참여도</b>(학생 참여도)입니다.
+    옆의 <b>「✅ 정상」</b> 배지도 <b>파일이 저장에 성공했다</b>는 뜻이지 화질·음질이 정상이라는 뜻이 아닙니다. 이번 수업 녹화가 3개로 쪼개진 것(21분 / 1분32초 / 중단)은 <b>강사 재접속</b> 때문입니다.
+  </div>
+
+  <h2>3. 수리 제안 — 3단계</h2>
+  <table class="step">
+    <tr><th style="width:15%">단계</th><th style="width:47%">무엇을</th><th>왜 / 결과</th></tr>
+    <tr>
+      <td>1단계 <span style="color:#047857">✅적용</span><br><span style="font-weight:400;color:#667085">통화 경로<br>안 건드림</span></td>
+      <td>① <b>강사 로그 아이디 폴백</b>(관리자 세션에서 아이디를 가져오게) — 3줄<br>
+          ② <b>«받는 쪽» 계측 추가</b> — 수신 손실·지터·<b>영상 멈춘 횟수</b>·<b>소리 메워진 비율</b><br>
+          ③ 평균 옆에 <b>상위 5% 손실(p95)</b> 함께 기록·표시</td>
+      <td>다음 수업부터 <b>「누구 회선이, 어느 방향으로 나쁜가」가 숫자로 나옵니다.</b><br>
+          지금은 이것이 없어서 매번 추측으로 끝났습니다. <b>이 단계가 사실상 이번 문제의 핵심</b>입니다.</td>
+    </tr>
+    <tr>
+      <td>2단계 <span style="color:#047857">✅적용</span><br><span style="font-weight:400;color:#667085">사장님 지시<br>2026-09-01</span></td>
+      <td>④ 화질 회복 조건을 <b>12초 → 30초 연속 양호</b>로 (스파이크 직후 홀드) — 진동 제거<br>
+          ⑤ 음성전용 구제 문턱을 <b>실측에 맞게 낮춤</b>(오디오 8%·2틱, 영상 스파이크 지속도 조건에 포함)<br>
+          ⑥ <b>유령 연결 정리</b> 강화 — 강사 재접속 때 남는 옛 연결 차단</td>
+      <td>「깨졌다 맑아졌다」가 사라지고, 회선이 무너져도 <b>소리는 살아남습니다</b>.<br>
+          <span style="color:#b91c1c">⚠️ 수업 화면 코드라 사고 반경이 큽니다 — 1단계 숫자로 근거를 확인한 뒤 진행하는 것이 안전합니다.</span></td>
+    </tr>
+    <tr>
+      <td>3단계 <span style="color:#047857">⑦완료</span><br><span style="font-weight:400;color:#667085">⑧은 사람이</span></td>
+      <td>⑦ <b>중계서버 상태</b> — <b style="color:#047857">✅ 확인 완료</b>: 배포 로그(run #2886, 12:02:40 UTC)에서 기본·production <b>두 워커 모두 <code style="font-size:7.6pt;background:#f1f5f9;padding:1px 3px;border-radius:3px">kv-cache (cache) → 정상</code></b><br>
+          ⑧ <b>강사 Farrah 회선 점검</b> — <b>유선 연결</b> / 5GHz Wi-Fi / 동시 업로드 사용 중단</td>
+      <td><b>중계서버는 이 사고의 원인이 아닙니다</b> — 무료 폴백이 아니었고 키를 새로 넣을 일도 없습니다.<br>
+          <span style="color:#98a2b3">※ 잰 시각은 배포 직후입니다 — 그 수업 시각(9/1 14:00 KST)의 값은 아닙니다.</span></td>
+    </tr>
+  </table>
+
+  <div class="note">
+    <b>지금 상태 — 배포까지 끝났습니다.</b> 1·2단계 코드가 <b>2026-09-01 배포 완료</b>(PR #689 · CI 112초 · 배포 run #2886, 2분 24초). 검증: 전용 검사 38건 통과 — 옛 문턱으로 되돌리면 진동이 <b>38회</b>, 지금은 <b>4회</b>. 회귀 하니스 249건 통과. 중계서버도 <b>정상으로 확인</b>됐으니 남은 것은 <b>⑧ 강사 회선 점검</b>뿐입니다. <b>다음 수업 한 번</b>이면 「📶 강사 회선품질」 화면에 <b>강사 줄</b>과 <b>«받는 쪽» 숫자</b>가 처음으로 남습니다 — 그때 원인이 강사 회선인지 학생 회선인지 <b>숫자로 확정</b>됩니다.</div>
+
+  <div class="foot">
+    <span>망고아이 · 화상수업 품질 진단 — class-1015-20260901</span>
+    <span>근거: 운영 D1 vc_quality / attendance / recordings 실측 (2026-09-01)</span>
+  </div>
+
+</div>
+</body>
+</html>

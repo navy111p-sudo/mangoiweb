@@ -159,7 +159,11 @@ console.log('\n[ I. 배선 — 정답지가 서버에서 오는가 (클라이언
   check('라우트가 sid 를 채점 함수로 넘긴다', /sid: body\.sid/.test(pts));
   check('화면이 sid 를 함께 전송한다', /sid:scenario\.sid/.test(html));
   check('선택지별 점수·난이도도 함께 전송한다', /option_scores:scenario\.option_scores/.test(html) && /difficulty:scenario\.difficulty/.test(html));
-  check('다음 문제 프리페치가 살아 있다', /function prefetchNext\(\)/.test(html) && /prefetchNext\(\);/.test(html));
+  // ⚠️ 인자 유무까지 못 박으면 «뜻은 멀쩡한데 검사만 깨지는» 함정을 밟습니다(CLAUDE.md 2장 «객체 모양» 항목).
+  //    2026-08-26 에 첫 설정 카드가 prefetchNext(ageGroup) 로 나이대를 넘기면서 실제로 밟았습니다.
+  //    여기서 지키려는 뜻은 «미리 만들어 두는 구조가 살아 있는가» 하나입니다 — 정의 + 실제 호출.
+  check('다음 문제 프리페치가 살아 있다',
+    /function prefetchNext\(/.test(html) && (html.match(/\bprefetchNext\(/g) || []).length >= 2);
   check('오답 등급별 배너가 있다', /function bannerText\(/.test(html));
   check('성장 화면에 이번 판단·지수 변화를 보여준다', /delta_index/.test(html) && /이번 판단/.test(html));
   check('옛 이분법 채점(100:45)이 채점 경로에서 사라졌다', !/isOptimal \? 100 : \(correctIdx/.test(src));

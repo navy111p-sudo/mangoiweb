@@ -1,0 +1,310 @@
+{
+  "id": "s1-36",
+  "breaks": [
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 2,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "사건",
+      "en": "event"
+    },
+    "S": {
+      "ko": "결말",
+      "en": "ending"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «하나가 2100년으로 간다(사건)» 와 «미래 여행은 놀라운 일투성이다(결말)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the event (Hana goes to the year 2100) and the ending (her trip to the future is full of surprises). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Hana, Grandpa, and an old woman in a red hat"
+    },
+    {
+      "k": "Event",
+      "qko": "무슨 일이 일어나나요?",
+      "qen": "What happens?",
+      "a": "Hana pushes the red button and goes to the year 2100."
+    },
+    {
+      "k": "Ending",
+      "qko": "마지막에 어떻게 되나요?",
+      "qen": "What happens at the end?",
+      "a": "An old woman says she is Hana, and the trip is full of surprises."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Grandpa builds a time ",
+      "ans": "machine",
+      "opts": [
+        "machine",
+        "house",
+        "boat"
+      ]
+    },
+    {
+      "pre": ". Hana pushes the red ",
+      "ans": "button",
+      "opts": [
+        "button",
+        "door",
+        "cup"
+      ]
+    },
+    {
+      "pre": " and goes to the year 2100. Cars fly in the ",
+      "ans": "sky",
+      "opts": [
+        "sky",
+        "sea",
+        "box"
+      ]
+    },
+    {
+      "pre": ", and robots walk ",
+      "ans": "dogs",
+      "opts": [
+        "dogs",
+        "cats",
+        "horses"
+      ]
+    },
+    {
+      "pre": ". An old woman says, \"I am you!\" Hana's trip to the ",
+      "ans": "future",
+      "opts": [
+        "future",
+        "past",
+        "beach"
+      ]
+    },
+    {
+      "pre": " is full of surprises!",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "machine",
+      "기계",
+      "Grandpa builds a time <b>machine</b> in the garage.",
+      "a thing that does work for people"
+    ],
+    [
+      "button",
+      "버튼",
+      "Hana pushes the big red <b>button</b>.",
+      "a small thing you push to make something work"
+    ],
+    [
+      "robots",
+      "로봇들",
+      "<b>Robots</b> walk dogs in the park.",
+      "machines that can move and do jobs"
+    ],
+    [
+      "floating",
+      "떠다니는",
+      "Kids learn in a <b>floating</b> school.",
+      "staying up in the air without falling"
+    ],
+    [
+      "future",
+      "미래",
+      "Hana's trip to the <b>future</b>",
+      "the time that comes after now"
+    ],
+    [
+      "surprises",
+      "놀라운 일",
+      "is full of <b>surprises</b>!",
+      "things you do not expect"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why is Hana suddenly in the year 2100?",
+      "qko": "하나는 왜 갑자기 2100년에 와 있나요?",
+      "opts": [
+        "She pushes the button on the time machine.",
+        "She falls asleep in the park.",
+        "She reads a book about robots."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Hana pushes the big red button.",
+        "Cars fly in the sky.",
+        "Kids learn in a floating school.",
+        "Then Hana sees an old woman in a red hat."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "하나가 타임머신의 커다란 빨간 단추를 눌러요. 그러자 번쩍! 2100년으로 가요.",
+        "Hana pushes the big red button on the time machine. Then, flash, she is in 2100."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The old woman says, \"I am you!\" What does she mean?",
+      "qko": "할머니가 «내가 바로 너란다!» 라고 해요. 무슨 뜻일까요?",
+      "opts": [
+        "She is Hana's teacher.",
+        "She is a robot.",
+        "She is Hana, all grown old in the future."
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Robots walk dogs in the park.",
+        "Grandpa builds a time machine in the garage.",
+        "Hana pushes the big red button.",
+        "Flash! She is in the year 2100!"
+      ],
+      "ev": [
+        3
+      ],
+      "why": [
+        "하나는 2100년, 먼 미래에 와 있어요. 그래서 그 할머니는 나이 든 미래의 하나라는 뜻이에요.",
+        "Hana is in the year 2100, far in the future. So the old woman is Hana, all grown old."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "What surprises does Hana see in the future?",
+      "qko": "하나는 미래에서 어떤 놀라운 것들을 보나요?",
+      "opts": [
+        "big dinosaurs and a volcano",
+        "flying cars and a floating school",
+        "a snowy mountain and a ski trip"
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Grandpa builds a time machine in the garage.",
+        "Cars fly in the sky.",
+        "Kids learn in a floating school.",
+        "Hana pushes the big red button."
+      ],
+      "ev": [
+        1,
+        2
+      ],
+      "why": [
+        "자동차가 하늘을 날고, 아이들은 떠다니는 학교에서 공부해요. 두 문장을 이어야 알 수 있어요.",
+        "Cars fly in the sky, and kids learn in a floating school. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Old Hana shows young Hana her future house.",
+      "할머니가 된 하나가 어린 하나에게 미래의 집을 보여 준다.",
+      "My Future House"
+    ],
+    [
+      "B",
+      "Hana pushes the button again and visits the dinosaurs.",
+      "하나가 단추를 다시 눌러 공룡 시대에 간다.",
+      "Back to the Dinosaurs"
+    ]
+  ],
+  "write": {
+    "pre": "I want to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“I want to <u>visit the future</u> because <u>I want to see flying cars</u>.”",
+    "slotKo": [
+      "하고 싶은 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what you want to do",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «하고 싶은 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you want to do and your reason in English.",
+    "chips": [
+      {
+        "a": "ride a robot",
+        "b": "it looks fun",
+        "label": "robot"
+      },
+      {
+        "a": "go to space",
+        "b": "I like stars",
+        "label": "space"
+      },
+      {
+        "a": "meet my grandma",
+        "b": "she tells funny stories",
+        "label": "grandma"
+      }
+    ],
+    "aria": [
+      "what you want to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because my friends like it)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because my friends like it)"
+  },
+  "img": {
+    "style": "vintage",
+    "cover": "Hana, a girl with two short black braids, a red hair clip, a yellow raincoat and blue boots, steps out of a round silver time machine with blinking lights into a bright future city, where cars fly between tall glass towers and a school floats in the sky above a green park.",
+    "scenes": {
+      "1": "In a green park of the future, Hana, a girl with two short black braids, a red hair clip, a yellow raincoat and blue boots, stares with her mouth open at shiny robots walking happy dogs on leashes, while kids wave from the windows of a school floating in the air and cars fly overhead.",
+      "2": "On a sunny path in the future park, an old woman with silver hair in two short braids, a red hat and a yellow coat bends down, smiles and holds the hand of Hana, a girl with two short black braids, a red hair clip, a yellow raincoat and blue boots, who looks up at her with big surprised eyes."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Robots walk dogs near a floating school.",
+    "2": "An old woman in a red hat smiles at Hana.",
+    "cover": "Hana steps out of the time machine into a future city."
+  }
+}

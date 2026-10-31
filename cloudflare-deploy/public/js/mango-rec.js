@@ -15,6 +15,16 @@
  
   let isRecording = false;
   let _recStartInFlight = false; // 녹화 초기화(DB insert + R2 create) 진행 중 가드
+  function sendRecordingEndHint(beacon) {
+    if (!recordingId) return;
+    const body = JSON.stringify({ recording_id: recordingId, recording_key: r2Key, finalize_pending: true });
+    try {
+      if (beacon && navigator.sendBeacon && navigator.sendBeacon('/api/recordings/stop',
+          new Blob([body], { type: 'application/json' }))) return;
+    } catch (_) {}
+    fetch('/api/recordings/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body, keepalive: true }).catch(() => {});
+  }
   let mediaRecorder = null;
   let recordedChunks = [];
   let recordingId = null;
@@ -22,7 +32,18 @@
   let composeCanvas = null;
   let composeCtx = null;
   let composeRafId = null;
-  let composeTickAt = 0;        // 마지막으로 «실제로 그린» 시각 — rAF 정지 감지용
+  /* 마지막으로 **rAF 가 돈** 시각 — rAF 정지 감지용(keepAlive 가 이 값을 본다).
+     ⚠️ 2026-09-06 부터 «그리기를 건너뛴» 프레임에도 갱신한다 — 이 값의 뜻은 «그렸다» 가
+        아니라 «rAF 가 살아 있다» 이다. 안 갱신하면 keepAlive(700ms)가 «멎었다» 로 오판해
+        오히려 두 번 그린다. «실제로 그린» 시각은 아래 composeDrawAt 이다. */
+  let composeTickAt = 0;
+  let composeDrawAt = 0;        // 목표 fps 제한용 — 마지막으로 «캔버스에 그린» 시각
+  /* 🪶 녹화 fps. 수업 화면은 «교재 + 얼굴» 이라 움직임이 적어 10fps 로 충분하다.
+     해상도를 낮추는 대신 이쪽을 낮춘 이유: 해상도를 내리면 **교재 글자**를 잃는데,
+     fps 는 공간 화질을 한 픽셀도 안 건드리면서 CPU 를 선형으로 줄인다.
+     ⛔ 올릴 거면 필리핀·중국 강사 회선의 업로드부터 재 볼 것. */
+  const REC_FPS = 10;
+  const FRAME_MS = 1000 / REC_FPS;
   let composeKeepAlive = null;  // rAF 가 멎었을 때 대신 그리는 타이머
   // 📉 녹화 정체 감시 — 데이터가 사실상 안 쌓이면 선생님께 눈에 보이게 알린다
   let recTotalBytes = 0, stallBytesMark = 0, stallTimer = null, isStalled = false;
@@ -30,8 +51,84 @@
   const STALL_WINDOW_MS = 30000, STALL_MIN_BYTES = 300 * 1024;
   let audioCtx = null;
   let audioDest = null;
+  let mixedTrackIds = null;    // 믹서에 이미 연결한 오디오 트랙 id — 재스캔 중복 방지
+  let audioRescanTimer = null; // 녹화 중에만 도는 오디오 트랙 재스캔 (stopRecording 이 끈다)
   let recBadge = null;
   let isAutoMode = false;  // 자동 녹화 모드 여부
+  /* ⛔ 서버가 «학생 미동의(consent_required)» 로 녹화를 거절한 상태.
+     서버는 이걸 일부러 HTTP 200 + ok:false 로 준다(재시도 폭주 방지, api-mango.ts 참고).
+     그래서 예외도 안 나고 배지는 그냥 «눌러서 시작» 으로 되돌아갔는데 — 몇 번을 눌러도
+     절대 성공할 수 없는 상태라, 강사에게는 「녹화 버튼 고장」 으로 보였다
+     (2026-08-27 Teacher Shas 제보 — class-971, 학생이 동의 팝업을 거부한 수업).
+     → 이 플래그가 켜지면 배지가 «왜 안 되는지» 를 글자로 말한다. 탭하면 재시도는 그대로
+     된다(학생이 뒤늦게 동의하면 그때부터는 성공한다). */
+  let consentBlocked = false;
+
+  /* 🎥 (2026-09-08 사장님 「왜 자꾸 동시에 두번씩 녹화가 되는 거지?」)
+     서버가 «이 방은 다른 기기가 이미 찍고 있다»(already_recording) 로 거절한 상태.
+     consent 와 같은 이유로 HTTP 200 + ok:false 로 온다(재시도 폭주 방지).
+
+     ⚠️ 「가장 수업에 덜 지장있게」(같은 날 지시) — 여기서 «영영 포기» 하면 안 된다.
+        상대 기기가 신호 없이 죽으면 그 방 녹화가 통째로 사라진다. 그래서 이 상태는
+        **자동으로 다시 시도한다**(startRetryAt). 서버 쪽 «살아있음» 창이 3분이므로
+        상대가 죽었으면 늦어도 그 안에 이 기기가 이어받는다. */
+  let dupBlocked = false;
+
+  /* ⏱ 다음 «자동» 시작을 시도할 시각. 시작이 실패하면(미동의·중복·서버 오류 무엇이든)
+     이 값을 미뤄 두고 그때까지는 3초 폴링이 서버를 두드리지 않는다.
+     ⛔ 0 으로 두면 폴링이 3초마다 /api/recordings/start 를 부른다(수업 20분이면 400회).
+     ✅ 반대로 «한 번 실패하면 끝» 으로 두지도 않는다 — 학생이 뒤늦게 동의하거나 상대 기기가
+        죽었을 때 이 기기가 이어받아야 하기 때문이다. 사람이 배지를 누르면 이 값과 무관하게
+        즉시 시도한다. */
+  let startRetryAt = 0;
+  const START_RETRY_MS = 60 * 1000;
+
+  /* 👁 참관(Ghost) 중에는 녹화하지 않는다 (2026-08-26 사장님 지시)
+     ─────────────────────────────────────────────────────────────────────
+     참관자는 «투명 유령» 이다 — 서버(video-call-room.ts handleJoinObserve)가 인원수·
+     입퇴장 방송 어디에도 안 넣고, 미디어도 한 트랙도 안 보낸다. 그런데 자동녹화는
+     «수업 화면에 들어왔는가»(body.vc-in-call)만 보고 돌아서 참관자도 함께 녹화를 켰다.
+     실측(2026-08-26 사장님 화면): `class-943` 에 「관찰자」 이름으로 시작된 녹화 두 건이
+     30분 넘게 「● 녹화중」 으로 남아 있었다 — 참관자가 창을 닫을 때 종료 신호가 안 가서
+     크론이 12시간 뒤에야 정리한다. 같은 수업을 두세 벌 찍는 셈이라 저장 비용도 는다.
+     ⚠️ 판정 근거는 vc-observe-guard.js 의 observing() 과 «같은 것» 을 쓴다. 이름(「관찰자」)
+        으로 가르지 않는다 — 그건 사람이 바꿀 수 있는 표시일 뿐이다. */
+  /* 🇵🇭 (2026-09-02 사장님 지시 「필리핀 선생님의 음성과 화면에 모든 걸 집중」)
+     강사 브라우저는 «자동» 녹화를 하지 않는다.
+
+     왜 — 그전에는 수업에 들어온 «모든 사람» 이 각자 녹화했다. D1 실측(최근 2주, class-* 방):
+       class-1008 교사 224.5MB/24.3분 + 학생 265MB/27.6분 · class-988 교사 235.2MB/26.0분 + 학생 210MB/22.5분
+       class-967 교사 191.9MB/23.1분 + 학생 218.8MB/23.1분 · class-1070 교사 166.7MB/26.7분 + 학생 246.3MB/26.6분
+     두 파일은 **내용이 같다**(둘 다 화면 전체를 합성해 찍는다). 그런데 그 한 벌이 강사 노트북에서
+       · 1920×1080 @15fps 소프트웨어 VP8 인코딩 · 지정 2.5Mbps (CPU — WebRTC 영상 인코더와 같은 CPU 를 쓴다)
+       · 약 200MB/24분 ≈ 1.1Mbps 를 **수업 중에** R2 로 업로드 (5MB 조각 = 36초마다 몰아 쏨)
+     를 하고 있었다. 학생에게 보내는 실시간 영상이 최대 1.2Mbps 이니 녹화가 강사 업로드를 거의 두 배로 만든다.
+     필리핀 회선에서는 그 5MB 버스트마다 실시간 영상·소리가 뒤로 밀린다.
+
+     ⚠️ «그것 때문이다» 를 직접 재지는 못했다 — 상관이지 증명이 아니다(9/1 저녁 실측 freeze 140~165회).
+     ⛔ 막지는 않는다 — 상단 배지를 누르면 강사도 손으로 시작할 수 있다(안전판).
+     ⚠️ 그래서 **강사끼리만 있는 방은 자동 녹화가 0개**가 된다(사장님 시험 수업 class-849 등).
+        판정이 «모르면 false» 로 떨어지므로(vcIsTeacherRole) 학생은 언제나 찍는다 = 안전한 방향의 실패.
+     ⚠️ 정본 vcIsTeacherRole 에는 **이미 이름 휴리스틱이 있다** — 로그인이 아예 없을 때만
+        (idx-main.js `if (_u0) return false;` 뒤) 표시이름의 교사/강사/선생님/teacher/tutor 를 본다.
+        즉 비로그인으로 들어온 사람의 이름에 그 낱말이 있으면 그 사람은 자동 녹화를 안 한다.
+        ⛔ 그 휴리스틱을 «로그인한 사람» 에게까지 넓히지 말 것 — 아이디에 teacher 가 든
+           학생의 녹화가 통째로 사라진다(그 파일 주석이 같은 이유로 이미 막아 두었다). */
+  function isStaffSkipRecording() {
+    try {
+      if (window.__mangoRecStaffAuto === true) return false;   // 되돌리는 스위치(콘솔에서 켤 수 있다)
+      return (typeof window.vcIsTeacherRole === 'function') ? !!window.vcIsTeacherRole() : false;
+    } catch (_) { return false; }                               // 모르면 «찍는다» 쪽으로 실패한다
+  }
+
+  function isObserverNow() {
+    try {
+      if (window._vcObserverMode === true) return true;
+      if (typeof vcIsObserver !== 'undefined' && vcIsObserver === true) return true;
+      if (document.body && document.body.classList.contains('vc-observer')) return true;
+    } catch (_) { /* 아직 선언 전이면 참관이 아니다 */ }
+    return false;
+  }
 
   // 🌐 강사 다수가 필리핀이라 이 배지의 모든 문구는 한/영 두 벌을 갖는다.
   function isEn() {
@@ -54,6 +151,23 @@
   let r2CompleteSent = false;
   let chunkBuffer = [];
   let chunkBufferSize = 0;
+  // 🛟 스냅샷 — «아직 조각이 하나도 안 올라간» 구간의 안전망 (2026-08-25)
+  //   R2 는 비마지막 파트가 5MiB 이상이어야 해서, 그 전에는 서버에 아무것도 없다.
+  //   ⚠️ 2026-09-02 에 비트레이트를 2.5 → 1.2Mbps 로 내리면서 그 구간이 «~17초 → 약 35초» 로 늘었다
+  //      (5MiB ÷ 약 150KB/s). 그래서 SNAP_EVERY_MS 도 30초 → 12초로 함께 줄였다 — 안 줄이면
+  //      스냅샷이 9초 한 번뿐이라 최악 손실이 ~7초 → ~22초가 된다.
+  //   ⛔ 비트레이트를 다시 바꿀 때는 이 두 상수를 함께 보라(rec_teacher_skip_harness ⑥).
+  //   그 사이 탭이 닫히면 abort 가 나가고 영상이 통째로 사라졌다(2026-08-25 실측 6건).
+  //   → 그 구간 동안만 «지금까지의 버퍼 전체» 를 통짜 파일로 한 번씩 올려 둔다.
+  //   서버는 `<키>.snap` 에 저장하고, multipart 가 끝나면(complete) 지운다.
+  let snapNextAt = 0;      // 다음 스냅샷 예정 시각(ms)
+  let snapCount = 0;       // 이번 녹화에서 올린 스냅샷 수
+  let snapInFlight = false;
+  const SNAP_FIRST_MS = 9000;    // 첫 스냅샷 — 파트가 생기기 한참 전
+  const SNAP_EVERY_MS = 12000;   // 그 뒤 12초마다 — 첫 파트가 생기기까지 «47초»(2026-09-06 에
+                                 // 0.9Mbps 로 내려 35 → 47초)를 네 번 덮는다. 정본은 하니스 ⑦절이
+                                 // 비트레이트를 «읽어» 재계산한다 — 여기 숫자는 그 결과를 옮겨 적은 것.
+  const SNAP_MAX = 15;
   // 🔴 2026-08-04: R2 는 «마지막 파트를 뺀 나머지 파트가 1바이트도 틀리지 않고 같은 크기»가
   //   아니면 completeMultipartUpload 를 통째로 거부한다(오류 10048). 예전엔 «5MB 넘으면
   //   모아둔 걸 통째로» 올려서 파트 크기가 제각각이었고, 비마지막 파트가 2개 이상 되는
@@ -216,15 +330,25 @@
  
   function startCanvasCompose() {
     composeCanvas = document.createElement('canvas');
-    composeCanvas.width = 1920;
-    composeCanvas.height = 1080;
-    composeCtx = composeCanvas.getContext('2d');
+    /* 🇵🇭 (2026-09-02 사장님 결정) 1920×1080 → 1280×720, 2.5Mbps → 1.2Mbps.
+       픽셀 수가 55% 줄어 소프트웨어 VP8 인코딩 CPU 와 업로드가 함께 내려간다.
+       그 CPU·업로드는 WebRTC 실시간 영상과 «같은» 것을 나눠 쓴다 — 특히 필리핀 강사 회선.
+       ⚠️ 칸 «폭·높이» 는 width/height 에 비례하지만, 글꼴(13~20px)·탭바 32px·REC 배지(190×32)·
+          미니플레이어(240×135)는 **고정 픽셀**이다 — 해상도를 낮추면 그만큼 상대적으로 커진다.
+          1280×720 에서는 전부 캔버스 안에 들어가고 겹치지 않는 것을 확인했다(산술).
+          ⛔ 더 낮출 거면 그 고정값들부터 다시 재라 — «전부 비례» 가 아니다.
+       ⛔ 다시 1080p 로 올릴 거면 강사 쪽 업로드부터 재 보고 올릴 것. */
+    composeCanvas.width = 1280;
+    composeCanvas.height = 720;
+    // 🪶 alpha:false — 이 캔버스는 매 프레임 fillRect 로 전체를 불투명하게 칠하므로
+    //    투명 채널이 필요 없다. 합성 비용이 준다(브라우저가 뒤를 섞지 않아도 된다).
+    composeCtx = composeCanvas.getContext('2d', { alpha: false });
  
     // 레이아웃 상수: 좌측(비디오) 30%, 우측(콘텐츠) 70%
-    const VID_W = Math.floor(composeCanvas.width * 0.3);   // 576px
+    const VID_W = Math.floor(composeCanvas.width * 0.3);   // 384px (1280 기준)
     const CONTENT_X = VID_W;
-    const CONTENT_W = composeCanvas.width - VID_W;          // 1344px
-    const H = composeCanvas.height;                          // 1080px
+    const CONTENT_W = composeCanvas.width - VID_W;          // 896px
+    const H = composeCanvas.height;                          // 720px
  
     function getActiveTab() {
       // 현재 활성 탭 판별
@@ -385,6 +509,26 @@
     }
  
     function draw() {
+      /* 🪶 (2026-09-05 사장님 지시 «최대한 가볍게») 그리기를 목표 fps 로 제한한다.
+         [무엇이 낭비였나] 이 함수는 requestAnimationFrame 으로 도니 **화면 주사율(보통 60fps)**
+           로 그리는데, 아래 captureStream 은 그중 일부만 가져간다. 즉 그린 것의 3/4 이상을
+           **그리자마자 버리고 있었다.** 그 CPU 는 WebRTC 실시간 영상과 «같은» 것을 나눠 쓴다.
+         [왜 rAF 를 그대로 두나] 아래 2026-08-05 실장애 주석 참고 — 탭이 숨으면 rAF 가 멎어
+           캔버스가 얼어붙고 녹화가 빈 껍데기가 된다. 그래서 구조(rAF + keepAlive)는 건드리지
+           않고 «그릴 차례가 아니면 건너뛰기» 만 넣는다.
+         ⚠️ 건너뛸 때도 composeTickAt 을 갱신해야 한다 — 안 그러면 아래 keepAlive(700ms)가
+            «rAF 가 멎었다» 로 오판해 오히려 두 번 그린다.
+         ℹ️ 백그라운드에서는 keepAlive 가 약 1초에 한 번 부르는데, 그 간격이 FRAME_MS 보다
+            훨씬 크므로 이 가드에 걸리지 않는다(= 예전과 같이 계속 그린다). */
+      const _now = Date.now();
+      if (_now - composeDrawAt < FRAME_MS - 2) {
+        composeTickAt = _now;
+        if (composeRafId) cancelAnimationFrame(composeRafId);
+        composeRafId = requestAnimationFrame(draw);
+        return;
+      }
+      composeDrawAt = _now;
+
       const ctx = composeCtx;
       // 배경
       ctx.fillStyle = '#0f172a';
@@ -467,19 +611,49 @@
         try { draw(); } catch (_) {}
       }
     }, 500);
-    return composeCanvas.captureStream(15);
+    /* 🪶 그리기와 «같은» 값이라 버리는 프레임이 «거의» 없다.
+       ⚠️ «없다» 고 단정하지 말 것 — captureStream 의 캡처 시계는 우리 그리기와 위상이 맞지
+          않아 같은 화면을 두 번 담거나 한 장을 건너뛸 수 있다(이 환경에서는 못 쟀다). */
+    return composeCanvas.captureStream(REC_FPS);
   }
  
+  // 트랙 하나를 믹서에 연결 — 이미 연결한 트랙(id 기준)·끝난 트랙은 건너뛴다.
+  // 죽은 트랙에 연결된 옛 소스는 무음만 내보내므로 굳이 끊지 않는다(끊을 API 추적이 더 위험).
+  function mixTrackIn(item) {
+    if (!audioCtx || !audioDest || !item || !item.track) return;
+    if (item.track.readyState === 'ended') return;
+    if (mixedTrackIds && mixedTrackIds.has(item.track.id)) return;
+    try {
+      const src = audioCtx.createMediaStreamSource(item.stream);
+      src.connect(audioDest);
+      if (mixedTrackIds) mixedTrackIds.add(item.track.id);
+    } catch (e) { console.warn('오디오 믹스 실패', e); }
+  }
+
   function startAudioMix() {
     const AC = window.AudioContext || window.webkitAudioContext;
     audioCtx = new AC();
     audioDest = audioCtx.createMediaStreamDestination();
-    collectAudioTracks().forEach(({ stream }) => {
-      try {
-        const src = audioCtx.createMediaStreamSource(stream);
-        src.connect(audioDest);
-      } catch (e) { console.warn('오디오 믹스 실패', e); }
-    });
+    mixedTrackIds = new Set();
+    collectAudioTracks().forEach(mixTrackIn);
+    // 🔴 (2026-08-27 사장님 제보 — «학생 목소리가 안 담겼고, 5분쯤부터는 전부 무음»)
+    //   예전엔 여기서 «녹화 시작 순간에 있는 트랙» 만 한 번 연결하고 끝이었다. 그런데
+    //   ① 자동녹화는 수업 화면에 들어가는 «순간» 시작된다 — 상대가 아직 안 들어왔으면
+    //      (녹화 행의 「참가자 1명」이 그 증거) 상대 목소리는 영영 안 담긴다.
+    //   ② 수업 중 끊겼다 재연결되면 WebRTC 피어가 새로 만들어져 «새 오디오 트랙» 이
+    //      생기는데, 믹서는 옛(죽은) 트랙만 물고 있어 그 시점부터 무음이 된다.
+    //   영상은 collectVideos() 가 매 프레임 DOM 을 다시 읽어 저절로 복구되는데 오디오만
+    //   한 번짜리였던 것 — 그래서 «영상만 나오는» 녹화가 됐다.
+    //   → 녹화 중에만 3초마다 다시 훑어 «아직 연결 안 된 트랙» 만 이어 붙인다.
+    //   ⛔ body class MutationObserver·상주 인터벌로 바꾸지 말 것(CLAUDE.md 2장 — 홈 정지 전력).
+    //      이 인터벌은 녹화 동안만 살고 stopRecording 이 끈다.
+    if (audioRescanTimer) clearInterval(audioRescanTimer);
+    audioRescanTimer = setInterval(() => {
+      if (!audioCtx || !audioDest) return;
+      // 자동재생 정책에 걸려 컨텍스트가 잠들면 믹스 출력이 통째로 무음이 된다 — 깨운다
+      try { if (audioCtx.state === 'suspended') audioCtx.resume(); } catch (_) {}
+      try { collectAudioTracks().forEach(mixTrackIn); } catch (_) {}
+    }, 3000);
     return audioDest.stream;
   }
  
@@ -537,6 +711,25 @@
   // 배지 툴팁 — 세 가지 상태(꺼짐 / 정체 / 정상)를 한 곳에서 결정한다.
   function recTitle() {
     const en = isEn();
+    if (!isRecording && consentBlocked) {
+      return en
+        ? '⛔ Recording is blocked — the student (or parent) has not agreed to recording. It starts once they accept the consent popup. Tap to retry.'
+        : '⛔ 학생(학부모)이 촬영 동의를 하지 않아 녹화할 수 없습니다. 학생이 동의 팝업을 수락하면 시작됩니다 — 눌러서 다시 시도';
+    }
+    if (!isRecording && dupBlocked) {
+      /* ⛔ «누가 찍고 있는지» 는 서버가 주지 않는다(그 이름이 학생 로그인 아이디일 수 있어
+            무인증 응답에서 뺐다 — api-mango.ts 의 그 자리 주석 참고). 여기서도 묻지 않는다. */
+      return en
+        ? 'Another device is already recording this class. Two copies would have the same content'
+          + ' and would slow the class down, so this device is waiting. Tap to try again.'
+        : '이 수업은 다른 기기에서 이미 녹화하고 있습니다.'
+          + ' 두 벌은 내용이 같고 수업만 느려지므로 여기서는 기다립니다 — 눌러서 다시 시도';
+    }
+    if (!isRecording && isStaffSkipRecording()) {
+      return en
+        ? 'This device does not auto-record — it would compete with your live video and audio. The class is recorded on the student side. Tap only if you really need a copy from here.'
+        : '이 기기는 자동 녹화를 하지 않습니다 — 녹화가 실시간 영상·소리와 같은 회선과 CPU 를 나눠 쓰기 때문입니다. 수업은 학생 기기에서 녹화됩니다. 꼭 여기서도 남겨야 할 때만 눌러 주세요.';
+    }
     if (!isRecording) return en ? 'Recording is OFF — tap to start again' : '녹화가 꺼져 있습니다 — 눌러서 다시 시작';
     if (isStalled)    return en ? '⚠ Nothing is being recorded — bring this class window to the front'
                                 : '⚠ 녹화가 기록되지 않고 있습니다 — 이 수업 창을 화면 앞으로 두세요';
@@ -569,11 +762,27 @@
     if (!recBadge) return;
     const en = isEn();
     recBadge.classList.toggle('mango-rec-off', !isRecording);
+    // ⛔ 미동의 차단은 «꺼짐» 의 하위 상태 — mango-rec-off 는 그대로 두고 색·글자만 바꾼다.
+    //    사유를 title 에만 두면 폰에서는 영영 안 보인다(툴팁은 마우스 전용) — 본문 글자로 쓴다.
+    recBadge.classList.toggle('mango-rec-consent', !isRecording && consentBlocked);
     const timeEl = recBadge.querySelector('.mango-rec-time-text');
     const stopEl = recBadge.querySelector('.mango-rec-stop');
     if (!isRecording) {
       recBadge.classList.remove('mango-rec-expanded');
-      if (timeEl) timeEl.textContent = en ? 'REC OFF · Tap to start' : '녹화 꺼짐 · 눌러서 시작';
+      /* 🇵🇭 강사 기기는 «일부러» 안 찍는다 — 그 사유를 본문 글자로 말한다.
+         ⛔ 여기서 '눌러서 시작' 이라고만 쓰면, 이 PR 이 걷어낸 CPU·업로드 부하를
+            화면이 다시 켜라고 «권유» 하는 꼴이 된다(함정 대조 지적).
+         ⛔ 「학생이 녹화 중」 이라고 단정하지 않는다 — 이 기기에서 확인할 수 없다.
+            말할 수 있는 사실은 «이 기기는 안 찍는다» 와 «왜» 까지다. */
+      /* 🎥 «다른 기기가 찍는 중» 도 본문 글자로 말한다 — 툴팁은 폰에서 영영 안 보인다.
+            ⛔ 여기서 «눌러서 시작» 이라고만 쓰면 강사가 눌러 두 벌을 다시 만든다. */
+      if (timeEl) timeEl.textContent = consentBlocked
+        ? (en ? '⛔ No student consent — REC blocked' : '⛔ 녹화불가 · 학생 미동의')
+        : dupBlocked
+          ? (en ? '⏸ Other device is recording' : '⏸ 다른 기기가 녹화 중')
+        : isStaffSkipRecording()
+          ? (en ? '📵 REC off · saving bandwidth' : '📵 녹화 안 함 · 회선 보호')
+          : (en ? 'REC OFF · Tap to start' : '녹화 꺼짐 · 눌러서 시작');
       if (stopEl) stopEl.textContent = '▶';
     } else {
       if (stopEl) stopEl.textContent = '⏹';
@@ -609,12 +818,15 @@
       // ── 꺼짐 → 켜기 ──────────────────────────────────────────────
       if (!isRecording) {
         if (_recStartInFlight) return;
+        startRetryAt = 0;   // 👆 사람이 누른 것은 «지금 하겠다» 는 뜻 — 대기시간을 건너뛴다
         if (timeEl) timeEl.textContent = en ? 'Starting…' : '시작 중…';
         recBadge.style.pointerEvents = 'none';
         try {
           await startRecording({ auto: true });
         } catch (e) {
           console.warn('[mango-rec] 수동 재시작 예외:', e);
+          dupBlocked = false;                              // 사유가 통신 오류면 그렇게 보이게 둔다
+          startRetryAt = Date.now() + START_RETRY_MS;
         }
         // 실패했으면 다시 «눌러서 시작» 으로 되돌린다 (성공하면 startRecording 이 칠했다)
         if (!isRecording) paintRecBadge();
@@ -675,7 +887,12 @@
           '#mango-rec-badge.mango-rec-off .mango-rec-stop{display:inline !important;font-size:13px;}' +
           // 툴바 REC 버튼도 모바일에서는 컴팩트
           '#mango-rec-btn{padding:4px 8px !important;font-size:14px !important;min-width:auto !important;}' +
-        '}'
+        '}',
+        // ⛔ «학생 미동의로 차단» — 꺼짐(회색)과 구별되는 진한 빨강.
+        //    ⚠️ 반드시 시트 맨 끝: .mango-rec-off 의 background !important(위 + 모바일 미디어쿼리)와
+        //    특정성이 겹치므로 «뒤에 온 것» 이어야 이긴다. 이중 클래스로 특정성도 한 칸 올려 둔다.
+        '#mango-rec-badge.mango-rec-off.mango-rec-consent{background:#991b1b !important;box-shadow:0 0 0 3px rgba(220,38,38,.25) !important;}',
+        '#mango-rec-badge.mango-rec-off.mango-rec-consent .mango-rec-dot{animation:none;background:#fecaca;}'
       ].join('\n');
       document.head.appendChild(s);
     }
@@ -709,6 +926,34 @@
       chunkBufferSize = rest.size;
       enqueuePart(part);
     }
+  }
+
+  // 🛟 스냅샷 보내기 — 조각이 아직 하나도 안 올라간 동안에만.
+  //   ⚠️ 버퍼를 비우지 않는다. 이건 «사본» 이고, 정본은 여전히 multipart 다.
+  function maybeSnapshot() {
+    if (!r2InitDone || !r2Key) return;
+    if (r2PartNumber > 0) return;          // 조각이 하나라도 올라갔으면 안전망이 필요 없다
+    if (snapInFlight || snapCount >= SNAP_MAX) return;
+    if (chunkBufferSize <= 0) return;
+    const now = Date.now();
+    if (!snapNextAt) snapNextAt = (startedAt || now) + SNAP_FIRST_MS;
+    if (now < snapNextAt) return;
+    snapInFlight = true;
+    snapNextAt = now + SNAP_EVERY_MS;
+    const body = new Blob(chunkBuffer, { type: 'video/webm' });
+    const key = r2Key;
+    fetch('/api/recordings/upload/snapshot?key=' + encodeURIComponent(key),
+          { method: 'PUT', body: body })
+      .then(function (res) {
+        if (res.ok) {
+          snapCount += 1;
+          console.log('[mango-rec] 스냅샷 저장:', snapCount, (body.size / 1048576).toFixed(2) + 'MB');
+        } else {
+          console.warn('[mango-rec] 스냅샷 실패:', res.status);
+        }
+      })
+      .catch(function (err) { console.warn('[mango-rec] 스냅샷 에러:', err); })
+      .then(function () { snapInFlight = false; });
   }
 
   // 남은 버퍼를 마지막 파트로 (마지막 파트만 PART_SIZE 미만 허용)
@@ -764,9 +1009,18 @@
     if (r2Parts.length > 0 && r2Key && r2UploadId) {
       r2Parts.sort((a, b) => a.partNumber - b.partNumber);
       r2CompleteSent = true;   // beforeunload 쪽 중복 전송 차단
-      try {
+      /* 🔁 (2026-09-02) 한 번 더 물어본다.
+         서버는 complete 가 실패해도 head() 로 실물을 확인해 «있으면 성공» 으로 자가복구한다
+         (recordings-r2.ts 2026-08-04 주석). 그런데 multipart 완료 직후 잠깐 안 보이는 구간이
+         있어서 서버 안의 300ms 재시도로 못 덮는 경우가 있다 — 그때 클라이언트가 한 번만 더
+         물어보면 그 자리에서 «완료» 로 돌아온다.
+         ⚠️ 서버는 이 재요청에 안전하다: 이미 completed 면 (a) 가드가 그대로 성공을 돌려주고,
+            upload_failed 면 일부러 통과시켜 자가복구를 노린다.
+         ⛔ 무한 재시도는 하지 않는다 — 이 경로는 수업이 끝날 때마다 도는 자리다. */
+      const sendComplete = async () => {
         const res = await fetch('/api/recordings/upload/complete', {
           method: 'POST',
+          keepalive: true,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             recording_id: recordingId,
@@ -777,12 +1031,30 @@
             size_bytes: r2TotalBytes
           })
         }).then(r => r.json());
+        return res;
+      };
+      let res = null;
+      try {
+        res = await sendComplete();
         console.log('[mango-rec] R2 complete:', res);
-        return res.ok;
       } catch (err) {
         console.error('[mango-rec] R2 complete 에러:', err);
-        return false;
       }
+      /* ⏱ 이 재시도는 «수업 나가기» 를 그만큼 늦춘다 — stopRecording() 의 Promise 를
+         vcLeaveRoom() 이 기다린다(idx-main.js). 그래서 ① 서버 안 재시도(300ms)를 덮을 만큼만
+         짧게 잡고(900ms) ② 페이지가 이미 숨겨졌으면(탭 닫힘·앱 전환) 건너뛴다 —
+         그 경우는 beforeunload 비콘 경로가 맡는다. */
+      if ((!res || !res.ok) && document.visibilityState !== 'hidden') {
+        await new Promise(r => setTimeout(r, 900));
+        try {
+          res = await sendComplete();
+          console.log('[mango-rec] R2 complete 재시도:', res);
+        } catch (err2) {
+          console.error('[mango-rec] R2 complete 재시도 에러:', err2);
+          return false;
+        }
+      }
+      return !!(res && res.ok);
     }
     return false;
   }
@@ -798,6 +1070,9 @@
     r2CompleteSent = false;   // 새 녹화에서는 다시 beforeunload 안전망이 살아나야 한다
     chunkBuffer = [];
     chunkBufferSize = 0;
+    snapNextAt = 0;
+    snapCount = 0;
+    snapInFlight = false;
   }
  
   function onBeforeUnload() {
@@ -824,6 +1099,10 @@
         } catch (_) {}
       }
     } else {
+      // 조각이 하나도 없다 = 아직 5MiB 를 못 채운 «짧은 녹화».
+      // ⛔ 예전엔 이 abort 로 녹화가 통째로 사라졌다. 지금은 서버가 abort 를 받으면
+      //    `<키>.snap` 스냅샷을 진짜 키로 되살린다(recordings-r2.ts promoteSnapshot).
+      //    그러니 abort 는 그대로 보내야 한다 — 이게 «되살려라» 신호를 겸한다.
       try {
         navigator.sendBeacon('/api/recordings/upload/abort',
           new Blob([JSON.stringify({ recording_id: recordingId, key: r2Key, upload_id: r2UploadId })], { type: 'application/json' })
@@ -837,6 +1116,15 @@
   // auto: true면 자동 녹화 (팝업/alert 없이 진행)
   async function startRecording(opts) {
     const auto = opts && opts.auto;
+    // 👁 참관자는 녹화하지 않는다 — 버튼·자동·그 밖의 어떤 경로든 여기를 지난다
+    if (isObserverNow()) {
+      console.log('[mango-rec] 참관 중 — 녹화하지 않습니다');
+      if (!auto) {
+        try { alert(isEn() ? '👁 Observing — recording is off while you observe.'
+                           : '👁 참관 중에는 녹화하지 않습니다.'); } catch (_) {}
+      }
+      return;
+    }
     // 재진입 방지: isRecording은 MediaRecorder.start() 이후에야 true가 되므로,
     // 그 사이(DB INSERT/R2 create 대기 중)에 두 번째 호출이 들어오면 중복 DB 행이 생김.
     // _recStartInFlight 를 시작 시점에 즉시 세팅해 race를 차단한다.
@@ -862,10 +1150,26 @@
     });
  
     if (!startRes?.ok) {
-      if (!auto) alert('녹화 시작 실패');
+      consentBlocked = (startRes?.error === 'consent_required');
+      /* 🎥 «다른 기기가 이미 찍고 있다» — 실패가 아니라 «정상적으로 양보한» 상태다.
+         그래서 경고창을 띄우지 않는다(강사가 손으로 눌렀을 때도 조용히 사유만 배지에 남긴다). */
+      dupBlocked = (startRes?.error === 'already_recording');
+      // ⏱ 어떤 사유든 곧바로 다시 두드리지 않는다. 다만 «영영 포기» 도 아니다(위 주석 참고).
+      startRetryAt = Date.now() + START_RETRY_MS;
+      if (!auto && dupBlocked) {
+        console.log('[mango-rec] 다른 기기가 이미 녹화 중 — 시작하지 않습니다');
+      } else if (!auto) {
+        alert(consentBlocked
+          ? (isEn()
+              ? '⛔ Recording is blocked: the student (or parent) has not agreed to recording.\nIt will work once they accept the consent popup on their screen.'
+              : '⛔ 학생(학부모)이 촬영 동의를 하지 않아 녹화를 시작할 수 없습니다.\n학생 화면의 동의 팝업을 수락하면 녹화할 수 있습니다.')
+          : '녹화 시작 실패');
+      }
       console.warn('[mango-rec] 녹화 시작 실패:', startRes);
       return;
     }
+    consentBlocked = false;
+    dupBlocked = false; startRetryAt = 0;
     // 자동 녹화 시 동의 팝업 건너뜀 (수업 녹화는 필수이므로)
     if (!auto) {
       const nonConsented = startRes.non_consented || [];
@@ -931,7 +1235,15 @@
  
     let mime = 'video/webm;codecs=vp8,opus';
     if (!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm';
-    mediaRecorder = new MediaRecorder(combined, { mimeType: mime, videoBitsPerSecond: 2_500_000 });
+    mediaRecorder = new MediaRecorder(combined, { mimeType: mime, videoBitsPerSecond: 900_000 });
+    /* 🪶 (2026-09-05) 1.2Mbps → 0.9Mbps. fps 를 15 → 10 으로 낮췄으므로 **프레임당** 비트는
+       오히려 늘어(80kb → 90kb) 정지 화면(교재) 화질은 유지된다. 업로드만 25% 준다.
+       ⚠️ 오디오는 건드리지 않는다(기본값) — 소리는 수업의 핵심이다.
+       ⚠️ 첫 5MiB 파트가 생기기까지가 길어진다 — 영상만 세면 35초 → **47초**(오디오까지 세면
+          실제로는 31초 → 41초). 하니스 ⑦절은 «영상만» 으로 보수적으로 재므로 47초가 정본이다.
+          스냅샷 창(9초 + 12초 × 14 = **177초**까지, SNAP_MAX 15장)이 충분히 덮는다.
+       ⛔ 여기를 더 내릴 거면 SNAP_EVERY_MS 도 함께 보라 — 그 구간이 스냅샷 2회 밑으로 내려가면
+          탭이 일찍 닫힌 수업이 통째로 사라진다(⑦절이 FAIL 낸다). */
  
     mediaRecorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
@@ -939,6 +1251,10 @@
         recordedChunks.push(e.data);
         // R2에도 버퍼링
         bufferChunk(e.data);
+        // 🛟 조각이 아직 하나도 안 올라간 구간이면 스냅샷 한 장.
+        //   ⚠️ bufferChunk 안에서 부르지 말 것 — rec_multipart_uniform_harness 가 그 함수만
+        //      떼어내 실제로 돌리기 때문에 «파트 크기 균일» 검사가 통째로 깨진다.
+        maybeSnapshot();
       }
     };
     startStallWatch();
@@ -975,7 +1291,11 @@
         await M.api('/api/recordings/stop', {
           recording_id: recordingId,
           duration_ms: duration,
-          size_bytes: blob.size
+          size_bytes: blob.size,
+          // 🔴 2026-08-26: 이 한 줄이 없어서 서버가 «업로드가 됐는지» 를 알 방법이 없었고,
+          //   클라우드에 아무것도 없는 녹화까지 「완료」로 적혔다. 서버는 이 값과 별개로
+          //   실물(head)도 확인하지만, create 부터 실패해 키조차 없는 경우는 이것만이 단서다.
+          r2_success: !!r2Success
         });
       } catch (e) { console.warn('[mango-rec] DB stop 에러:', e); }
  
@@ -1002,6 +1322,9 @@
     showRecBadge();
     updateRecButton();
     window.addEventListener('beforeunload', onBeforeUnload);
+    } catch (err) {
+      if (recordingId && !isRecording) sendRecordingEndHint(false);
+      throw err;
     } finally {
       // 성공/실패와 무관하게 in-flight 플래그 해제 — 다음 시도가 가능해야 함
       _recStartInFlight = false;
@@ -1014,10 +1337,14 @@
   function stopRecording() {
     if (!isRecording) return Promise.resolve({ success: false, reason: 'not-recording' });
     isRecording = false;
+    sendRecordingEndHint(false);
     if (composeRafId) cancelAnimationFrame(composeRafId);
     if (composeKeepAlive) clearInterval(composeKeepAlive);
     composeKeepAlive = null;
     stopStallWatch();
+    if (audioRescanTimer) clearInterval(audioRescanTimer);
+    audioRescanTimer = null;
+    mixedTrackIds = null;
     if (audioCtx) try { audioCtx.close(); } catch (_) {}
     audioCtx = null;
     audioDest = null;
@@ -1106,7 +1433,12 @@
       var _isDemoRoom = false;
       try { _isDemoRoom = /^demo-\d+$/i.test(String(typeof vcRoomId !== 'undefined' ? vcRoomId : '')); } catch (_) {}
       // 수업 뷰에 있고, 아직 녹화 안 했으면 자동 시작
-      if (inCall && !_isDemoRoom && !isRecording && !autoRecStarted && !autoRecPending) {
+      var _observing = isObserverNow();   // 👁 참관 중이면 자동녹화도, «켜는 배지» 도 없다
+      var _staffSkip = isStaffSkipRecording();
+      /* ⏱ startRetryAt — 앞선 시도가 실패했으면 그 시각까지 기다린다(위 선언부 주석).
+         ⛔ 이 조건을 빼면 3초 폴링이 서버 /api/recordings/start 를 계속 두드린다. */
+      if (inCall && !_isDemoRoom && !_observing && !_staffSkip && !isRecording && !autoRecStarted && !autoRecPending
+          && Date.now() >= startRetryAt) {
         autoRecPending = true;
         // 미디어 스트림 안정화를 위해 3초 대기 후 시작
         setTimeout(async () => {
@@ -1121,20 +1453,35 @@
             } catch (e) {
               console.warn('[mango-rec] 자동 녹화 시작 실패:', e);
               autoRecStarted = false; // 실패 시엔 다음 폴링 때 재시도 가능하게 되돌림
+              /* 🎥 (2026-09-08 함정 대조) 예외(429 속도제한·통신 오류)로 끝나면 startRecording 이
+                 startRetryAt 을 못 건다 → 3초 폴링이 그대로 다시 두드린다. 여기서 대신 건다.
+                 ⛔ dupBlocked 는 함께 푼다 — 실제 사유가 통신 오류인데 배지가 계속
+                    「다른 기기가 녹화 중」이라고 말하면 그건 거짓말이다. */
+              dupBlocked = false;
+              startRetryAt = Date.now() + START_RETRY_MS;
             }
+            /* 🎥 (2026-09-08) 서버가 «미동의»·«다른 기기가 녹화 중» 으로 거절하면 startRecording 은
+               예외를 던지지 않고 조용히 돌아온다. 그때 autoRecStarted 가 true 로 남으면 이 기기는
+               **그 수업 내내 다시 시도하지 않는다** — 상대 기기가 죽어도 이어받지 못한다.
+               ⟹ 시작하지 못했으면 되돌린다. 폭주는 startRetryAt(60초)가 막는다. */
+            if (!isRecording) autoRecStarted = false;
           }
         }, 3000);
       }
 
       // 🔴 녹화가 꺼져 있는 동안에도 «다시 켜는 버튼»은 항상 보여야 한다.
       //   (수동 중지 후 · 자동 시작이 실패한 뒤 둘 다 해당 — 예전엔 어느 쪽도 버튼이 없었다)
-      if (inCall && !isRecording && !autoRecPending && !_recStartInFlight) showRecBadge();
+      if (inCall && !_observing && !isRecording && !autoRecPending && !_recStartInFlight) showRecBadge();
     }
 
     // 수업에서 나갔으면 자동녹화 플래그 리셋
     if (!inCall && autoRecStarted) {
       autoRecStarted = false;
     }
+    // 미동의 차단도 방을 나가면 푼다 — 다음 수업(다른 학생)까지 끌고 가면 멀쩡한 방에 ⛔ 가 뜬다
+    if (!inCall && consentBlocked) consentBlocked = false;
+    // 🎥 «다른 기기가 녹화 중» 도 같은 이유로 방을 나가면 푼다(다음 수업까지 끌고 가면 안 된다)
+    if (!inCall && (dupBlocked || startRetryAt)) { dupBlocked = false; startRetryAt = 0; }
   }, 2000);
  
   // vcLeaveRoom 후킹 — 나가기 버튼 클릭 시 자동으로 녹화 종료
@@ -1171,6 +1518,13 @@
     }
   });
  
+  // pagehide confirms departure; cancelling beforeunload must not mark capture stopped.
+  window.addEventListener('pagehide', (event) => {
+    if (event.persisted) return;
+    sendRecordingEndHint(true);
+    if (isRecording) onBeforeUnload();
+  });
+
   M.startRecording = startRecording;
   M.stopRecording = stopRecording;
 })();

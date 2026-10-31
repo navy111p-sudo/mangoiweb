@@ -36,7 +36,7 @@ npx wrangler@latest deployments list --env production
 
 | 증상 | 확인 |
 |---|---|
-| 상대가 안 보임/연결 안 됨 | TURN 시크릿(`TURN_KEY_ID/TOKEN`) → wrangler tail로 `/api/turn-config` 에러 확인 |
+| 상대가 안 보임/연결 안 됨 · 「자꾸 튕겨요」 | 🔴 **`curl -sI https://mangoi.ai/api/turn-config \| grep -i x-turn-source` 부터.** `public-fallback` 이면 모든 수업이 무료 공개 TURN 으로 릴레이됩니다(아무 에러 없이 영상만 안 나옴 — 2026-08-26 실사고). **`X-Turn-Detail` 을 함께 보세요** — `no-secrets`(키 등록) · `cf-http-401/403`(키 **재발급**) · `cf-http-429`(사용량 한도) · `cf-fetch-error`(CF 장애, 기다림). ⛔ `no-secrets` 가 아니면 키를 새로 넣지 마세요. 조치는 [ENVIRONMENT.md 「TURN 경로 확인」](ENVIRONMENT.md#-turn-경로-확인-2026-08-26-추가) (2026-08-26 07:40 기준 `kv-cache`=정상. 그날 하루 안에 값이 바뀌었고 원인은 미확인 — 그 문서의 관측 표 참고) |
 | "남의 방" 들어가짐/차단됨 | 예약 기반 room_id + verify-room 로직 (`api-mango.ts`) — 예약 시간과 시간게이트 확인 |
 | 새로고침 후 연결 실패 | ICE 후보 큐잉 회귀 여부 — 루트의 `test-harness.html`로 회귀 테스트 |
 | 진단 페이지 죽음 | SignalingRoom DO를 지웠는지 확인 (VideoCallRoom과 별개, 둘 다 필요) |
@@ -44,8 +44,8 @@ npx wrangler@latest deployments list --env production
 ## 음성(TTS)이 무음
 
 1. Workers AI가 429(한도 초과)를 뱉으면 그 에러 응답이 오디오로 흘러가 무음이 됨 — 가드가 있으니, 재발 시 `/api/voice/tts` 쪽 ok+audio 검증 로직 확인
-2. 사이드바 안내/AI비서 목소리(`/api/ops-tts`)는 Typecast — 크레딧 소진 시 Google TTS 폴백으로 넘어가는지 확인
-3. Typecast 시크릿은 `mangoi-ai-avatar-cf` 워커에 있음
+2. 사이드바 안내/AI비서 목소리(`/api/ops-tts`)는 **Azure Speech**(2026-10-26 Typecast 에서 전환) — 실패 시 Google TTS 폴백으로 넘어가는지 확인. 응답 헤더 `X-TTS-Provider` 가 `azure`(새로 만듦)·`r2-cache`(저장본) 중 하나여야 정상
+3. Azure 시크릿(`AZURE_SPEECH_KEY`·`AZURE_SPEECH_REGION`)은 `mangoi-ai-avatar-cf` 워커에 있어야 함 — 없으면 `/api/tts` 가 503 `no_tts_key`(→ 구글 음성으로 떨어짐). 이번 달 사용량: `https://mangoi-ai-avatar-cf.navy111p.workers.dev/api/tts/usage`
 
 ## admin 페이지 문제
 
@@ -95,3 +95,20 @@ npx wrangler d1 execute mango-db --remote --command "SELECT * FROM student_point
 2. `wrangler tail --env production` 켜고 재현
 3. 에러가 시크릿/설정이면 → [ENVIRONMENT.md](ENVIRONMENT.md)
 4. 코드 버그면 → 해당 파일 위치 메모해서 개발자(또는 AI)에게 전달: "이 파일 몇 줄 근처, 이 에러"
+
+## 앱(APK)에서 녹화 «⬇저장» 이 안 될 때
+
+2026-08-14~15 실사고. 증상별로 원인이 다 다르니 순서대로 확인.
+
+1. **눌러도 아무 반응이 없다** → 앱이 v1.x. 앱에 다운로드 장치(DownloadListener)가 없어
+   조용히 버려진다. 앱을 껐다 켜서 업데이트 안내를 수락(또는 `/downloads/mangoi.apk` 재설치).
+2. **«다운로드를 시작했어요» 토스트 후 파일이 없고, 알림창에 «다운로드에 실패했습니다»** →
+   앱이 v2.0~2.1. 시스템 DownloadManager 가 사유 없이 실패하는 문제 — v2.2 에서
+   앱이 직접 받는 방식(HttpURLConnection→MediaStore)으로 교체했다. 업데이트로 해결.
+3. **v2.2 에서 «저장 실패» 대화상자** → 원인 문구가 그대로 찍힌다(서버 응답 코드 등).
+   «서버 응답 401/404» 면 인증·만료 문제로 서버 쪽(recordings-r2.ts)을 볼 것.
+   «서버 응답 206» 은 기기·중간망이 요청에 Range 를 끼워 넣어 생긴다 — 서버는 dl=1 에서
+   Range 를 무시하고(#133), 앱 v2.3 부터는 206 도 정상 수신한다. v2.3 으로 업데이트.
+   대화상자의 [브라우저로 받기] 는 어느 경우에도 동작하는 폴백이다(URL 에 서명 동봉).
+- 웹(브라우저·카톡 인앱)의 저장 폴백은 `public/js/flow.js` (MangoiApp UA 마커 감지),
+  다운로드 서명은 `src/auth-token.ts` `signRecDlSig` 참조.

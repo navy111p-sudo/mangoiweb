@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ko" translate="no" class="notranslate">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="google" content="notranslate">
+<meta name="theme-color" content="#b45309">
+<title>망고아이 경량 관리자 (샘플)</title>
+<style>
+/* ── 단일 파일, 외부 의존성 0 · 저사양/저회선 대비 경량 ────────────── */
+:root{
+  --page:#f1f5f9; --card:#ffffff; --ink:#1f2937; --muted:#64748b; --line:#e5e9f0;
+  --amber:#b45309; --amber-2:#c2410c; --amber-bg:#fff7ed;
+  --blue:#2563eb; --blue-bg:#eff6ff; --green:#16a34a; --green-bg:#f0fdf4;
+  --red:#dc2626; --red-bg:#fef2f2; --slate:#0f172a; --shadow:0 8px 24px -18px rgba(15,23,42,.5);
+  --tap:48px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--page);color:var(--ink);
+  font-family:"Malgun Gothic","맑은 고딕",-apple-system,"Segoe UI",Roboto,system-ui,sans-serif;
+  font-size:15px;line-height:1.55;-webkit-text-size-adjust:100%;padding-bottom:72px}
+.en{display:none}
+html[data-lang="en"] .ko{display:none}
+html[data-lang="en"] .en{display:revert}
+.wrap{max-width:560px;margin:0 auto;padding:0 12px}
+
+/* 상단바 */
+.appbar{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,#fff,#fbfdff);
+  border-bottom:1px solid var(--line);padding:10px 12px;display:flex;align-items:center;gap:8px}
+.appbar .brand{font-weight:900;color:var(--amber);font-size:15px;white-space:nowrap}
+.appbar .sp{flex:1}
+.chip{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:6px 10px;font-size:12px;
+  font-weight:800;color:#334155;cursor:pointer;min-height:36px}
+.chip.on{background:var(--amber);border-color:var(--amber);color:#fff}
+.net{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:800;color:var(--green)}
+.net .dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+.net.off{color:var(--red)} .net.off .dot{background:var(--red)}
+
+/* 오프라인 배너 */
+.offbanner{display:none;background:var(--red-bg);color:var(--red);border:1px solid #fecaca;
+  border-radius:10px;padding:8px 12px;margin:10px 0;font-size:13px;font-weight:700}
+body.isoff .offbanner{display:block}
+
+/* 역할/인사 */
+.hello{margin:12px 2px 6px}
+.hello h1{font-size:19px;margin:0;letter-spacing:-.3px;color:var(--slate)}
+.hello p{margin:2px 0 0;color:var(--muted);font-size:12.5px}
+
+/* 검색 */
+.search{display:flex;gap:8px;margin:10px 0}
+.search input{flex:1;min-height:var(--tap);border:1px solid #cbd5e1;border-radius:12px;
+  padding:0 14px;font-size:15px;background:#fff}
+.search button{min-height:var(--tap);border:none;background:var(--amber);color:#fff;
+  border-radius:12px;padding:0 16px;font-weight:800;font-size:14px;cursor:pointer}
+
+/* 섹션 라벨 */
+.seclbl{font-size:12px;font-weight:900;letter-spacing:.5px;color:var(--amber-2);
+  text-transform:uppercase;margin:18px 4px 8px;display:flex;align-items:center;gap:6px}
+
+/* 자주 쓰는 기능 그리드 (큰 터치 타깃) */
+.quick{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.qbtn{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 8px;
+  text-align:center;cursor:pointer;box-shadow:var(--shadow);min-height:84px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  transition:border-color .12s,background .12s}
+.qbtn:active{background:var(--amber-bg)}
+.qbtn .ic{font-size:24px;line-height:1}
+.qbtn .lb{font-size:12px;font-weight:800;color:#334155}
+.qbtn .badge{position:relative;top:-2px;font-size:10px;font-weight:900;color:#fff;
+  background:var(--red);border-radius:999px;padding:1px 6px;margin-left:2px}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:8px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
+.kpi .t{font-size:12px;color:var(--muted)}
+.kpi .n{font-size:22px;font-weight:900;color:var(--slate);letter-spacing:-.5px;margin-top:2px}
+.kpi .d{font-size:11.5px;font-weight:800;margin-top:2px}
+.kpi .d.up{color:var(--green)} .kpi .d.down{color:var(--red)}
+
+/* 접이식 섹션 (지연로딩) */
+.acc{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:10px 0;
+  box-shadow:var(--shadow);overflow:hidden}
+.acc>summary{list-style:none;cursor:pointer;padding:14px 16px;min-height:var(--tap);
+  display:flex;align-items:center;gap:10px;font-weight:800;color:var(--slate);font-size:14.5px}
+.acc>summary::-webkit-details-marker{display:none}
+.acc>summary .arw{margin-left:auto;color:var(--muted);transition:transform .15s}
+.acc[open]>summary .arw{transform:rotate(90deg)}
+.acc .body{padding:0 16px 14px;border-top:1px solid var(--line)}
+.acc .hint{color:var(--muted);font-size:12.5px;padding:12px 0}
+
+/* 스켈레톤 */
+.skel{height:14px;border-radius:6px;margin:9px 0;
+  background:linear-gradient(90deg,#eef2f7 25%,#e2e8f0 37%,#eef2f7 63%);
+  background-size:400% 100%;animation:sh 1.2s ease infinite}
+@keyframes sh{0%{background-position:100% 0}100%{background-position:0 0}}
+@media (prefers-reduced-motion: reduce){.skel{animation:none}}
+
+/* 리스트 행(카드형) */
+.row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:none}
+.row .av{width:34px;height:34px;border-radius:10px;background:var(--amber-bg);color:var(--amber-2);
+  display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex-shrink:0}
+.row .main{flex:1;min-width:0}
+.row .main b{font-size:13.5px;color:var(--slate)}
+.row .main small{display:block;color:var(--muted);font-size:11.5px}
+.row .act{border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:6px 10px;
+  font-size:12px;font-weight:800;color:#334155;cursor:pointer;min-height:36px;white-space:nowrap}
+.row .act.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:4px;
+  box-shadow:0 0 0 0 rgba(22,163,74,.6);animation:pl 1.6s infinite}
+@keyframes pl{0%{box-shadow:0 0 0 0 rgba(22,163,74,.5)}70%{box-shadow:0 0 0 7px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
+.warn{border-left:3px solid var(--red);padding-left:8px}
+
+.retry{display:inline-flex;align-items:center;gap:6px;border:1px solid #cbd5e1;background:#fff;
+  border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:800;color:#334155;cursor:pointer;margin-top:6px}
+
+/* 하단 탭바 (모바일) */
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid var(--line);
+  display:flex;max-width:560px;margin:0 auto;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+.tabbar button{flex:1;background:none;border:none;cursor:pointer;padding:6px 2px;min-height:56px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:10.5px;font-weight:800}
+.tabbar button .ic{font-size:20px}
+.tabbar button.on{color:var(--amber-2)}
+
+/* 토스트 */
+.toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%) translateY(20px);
+  background:var(--slate);color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:700;
+  opacity:0;pointer-events:none;transition:.2s;z-index:50;max-width:90%;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* 데스크톱에서 살짝 넓게 */
+@media(min-width:600px){.quick{grid-template-columns:repeat(6,1fr)}}
+.note{font-size:11.5px;color:var(--muted);text-align:center;margin:20px 4px 8px}
+</style>
+</head>
+<body>
+
+<!-- 상단바 -->
+<div class="appbar">
+  <span class="brand">🥭 MANGOI</span>
+  <span class="sp"></span>
+  <button class="chip" id="roleBtn" onclick="toggleRole()"><span class="ko">👩‍🏫 교사</span><span class="en">👩‍🏫 Teacher</span></button>
+  <button class="chip on" id="lbko" onclick="setLang('ko')">한</button>
+  <button class="chip" id="lben" onclick="setLang('en')">EN</button>
+</div>
+
+<div class="wrap">
+  <span class="net" id="netInd" onclick="toggleNet()" title="데모: 클릭해 오프라인 전환">
+    <span class="dot"></span><span class="ko">온라인</span><span class="en">Online</span>
+  </span>
+
+  <div class="offbanner">
+    ⚠️ <span class="ko">오프라인입니다. 마지막으로 불러온 정보를 보여드립니다. 회선이 돌아오면 자동으로 새로고침됩니다.</span>
+    <span class="en">You are offline. Showing the last loaded data. It will refresh automatically when the connection returns.</span>
+  </div>
+
+  <div class="hello">
+    <h1 id="helloName"><span class="ko">안녕하세요, Maria 선생님 👋</span><span class="en">Hello, Teacher Maria 👋</span></h1>
+    <p id="helloSub"><span class="ko">오늘 수업 4개 · 다음 수업 14:00</span><span class="en">4 classes today · next at 14:00</span></p>
+  </div>
+
+  <!-- 검색 -->
+  <div class="search">
+    <input id="q" placeholder="🔎 학생·수업·강사 검색 / Search students, classes…">
+    <button onclick="doSearch()"><span class="ko">찾기</span><span class="en">Find</span></button>
+  </div>
+
+  <!-- 자주 쓰는 기능 -->
+  <div class="seclbl">⭐ <span class="ko">자주 쓰는 기능</span><span class="en">Quick Access</span></div>
+  <div class="quick" id="quick"></div>
+
+  <!-- 오늘 요약 KPI -->
+  <div class="seclbl">📊 <span class="ko">오늘 요약</span><span class="en">Today</span></div>
+  <div class="kpis" id="kpis"></div>
+
+  <!-- 접이식 섹션들 (지연로딩) -->
+  <div class="seclbl">🗂 <span class="ko">상세 (펼치면 불러옵니다)</span><span class="en">Details (loads on expand)</span></div>
+  <div id="sections"></div>
+
+  <p class="note">
+    <span class="ko">이 화면은 <b>단일 HTML · 외부 라이브러리 0</b>으로 만든 경량 샘플입니다. 상단 「한/EN·교사/매니저·온라인」 버튼을 눌러 동작을 확인해 보세요.</span>
+    <span class="en">This is a lightweight sample built as a <b>single HTML file with zero external libraries</b>. Try the 한/EN, Teacher/Manager and Online toggles at the top.</span>
+  </p>
+</div>
+
+<!-- 하단 탭바 -->
+<div class="tabbar" id="tabbar"></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ══════════════════════════════════════════════════════════════════
+   경량 관리자 샘플 — 상태는 메모리에만(로컬스토리지 언어만 저장).
+   실제 연동 시 loadSection() 안의 setTimeout(가짜 지연)을 fetch로 교체.
+   ══════════════════════════════════════════════════════════════════ */
+var STATE = { lang:'ko', role:'teacher', offline:false };
+
+/* ── i18n 헬퍼(키 기반: 확장 안정적) ─────────────────────────── */
+function t(ko,en){ return STATE.lang==='en' ? en : ko; }
+
+/* ── 역할별 데이터(데모용 목업) ───────────────────────────────── */
+var DATA = {
+  teacher:{
+    hello:[ '안녕하세요, Maria 선생님 👋', 'Hello, Teacher Maria 👋' ],
+    sub:[ '오늘 수업 4개 · 다음 수업 14:00', '4 classes today · next at 14:00' ],
+    quick:[
+      {ic:'🎥', ko:'수업 입장', en:'Enter class', badge:'', act:()=>toast(t('수업방으로 이동합니다','Opening class room'))},
+      {ic:'📝', ko:'수업일지', en:'Class log', badge:'2', act:()=>toast(t('작성할 일지 2건','2 logs to write'))},
+      {ic:'📅', ko:'내 시간표', en:'My schedule', badge:''},
+      {ic:'🔁', ko:'연기·변경', en:'Postpone', badge:'1'},
+      {ic:'⭐', ko:'학생 평가', en:'Rate student', badge:''},
+      {ic:'🆘', ko:'IT 장애신고', en:'Report issue', badge:''}
+    ],
+    kpis:[
+      {t:['오늘 수업','Classes today'], n:'4', d:['2개 완료','2 done'], up:true},
+      {t:['출석 대기','Awaiting'], n:'2', d:['14:00 · 16:00','14:00 · 16:00'], up:true},
+      {t:['이번 주 수업','This week'], n:'21', d:['+3 vs 지난주','+3 vs last wk'], up:true},
+      {t:['평균 별점','Avg rating'], n:'4.8', d:['최근 30일','last 30d'], up:true}
+    ],
+    sections:[
+      {id:'today', title:['오늘 수업 일정','Today\'s classes'], loader:'classes'},
+      {id:'logs', title:['작성할 수업일지','Pending class logs'], loader:'logs'},
+      {id:'pay', title:['이번 달 급여(예상)','This month payroll (est.)'], loader:'pay'}
+    ]
+  },
+  manager:{
+    hello:[ '안녕하세요, Manager Ana 👋', 'Hello, Manager Ana 👋' ],
+    sub:[ 'Cavite 지사 · 강사 18명 · 재원 320명', 'Cavite branch · 18 tutors · 320 students' ],
+    quick:[
+      {ic:'🟢', ko:'진행중 수업', en:'Live classes', badge:'3'},
+      {ic:'🔁', ko:'연기 요청', en:'Postpone req.', badge:'5'},
+      {ic:'🧾', ko:'정산', en:'Settlement', badge:''},
+      {ic:'👩‍🏫', ko:'강사 가동률', en:'Tutor load', badge:''},
+      {ic:'🧍', ko:'대기자', en:'Waitlist', badge:'7'},
+      {ic:'🆘', ko:'장애 신고', en:'Incidents', badge:'1'}
+    ],
+    kpis:[
+      {t:['오늘 매출','Revenue today'], n:'₱ 48,200', d:['+6% vs 어제','+6% vs yest.'], up:true},
+      {t:['출석률','Attendance'], n:'92%', d:['결석 8%','absent 8%'], up:true},
+      {t:['신규 등록','New signups'], n:'5', d:['이번 주 19','19 this wk'], up:true},
+      {t:['진행중 수업','Live now'], n:'3', d:['1건 주의','1 needs attn'], up:false}
+    ],
+    sections:[
+      {id:'live', title:['지금 진행 중인 수업','Live classes now'], loader:'live'},
+      {id:'postpone', title:['수업 연기·변경 요청','Postpone / change requests'], loader:'postpone'},
+      {id:'waitlist', title:['대기자 명단','Waitlist'], loader:'waitlist'}
+    ]
+  }
+};
+
+/* ── 렌더 ─────────────────────────────────────────────────────── */
+function render(){
+  var d = DATA[STATE.role];
+  // 인사
+  document.getElementById('helloName').innerHTML =
+    '<span class="ko">'+d.hello[0]+'</span><span class="en">'+d.hello[1]+'</span>';
+  document.getElementById('helloSub').innerHTML =
+    '<span class="ko">'+d.sub[0]+'</span><span class="en">'+d.sub[1]+'</span>';
+  // 역할 버튼
+  document.getElementById('roleBtn').innerHTML = STATE.role==='teacher'
+    ? '<span class="ko">👩‍🏫 교사</span><span class="en">👩‍🏫 Teacher</span>'
+    : '<span class="ko">🧑‍💼 매니저</span><span class="en">🧑‍💼 Manager</span>';
+  // 자주 쓰는 기능
+  var q = document.getElementById('quick'); q.innerHTML='';
+  d.quick.forEach(function(it){
+    var b=document.createElement('button'); b.className='qbtn';
+    b.innerHTML='<span class="ic">'+it.ic+'</span><span class="lb">'
+      +'<span class="ko">'+it.ko+'</span><span class="en">'+it.en+'</span>'
+      +(it.badge?'<span class="badge">'+it.badge+'</span>':'')+'</span>';
+    b.onclick = it.act || function(){ toast(t(it.ko+' 열기','Open '+it.en)); };
+    q.appendChild(b);
+  });
+  // KPI
+  var k=document.getElementById('kpis'); k.innerHTML='';
+  d.kpis.forEach(function(it){
+    var c=document.createElement('div'); c.className='kpi';
+    c.innerHTML='<div class="t"><span class="ko">'+it.t[0]+'</span><span class="en">'+it.t[1]+'</span></div>'
+      +'<div class="n">'+it.n+'</div>'
+      +'<div class="d '+(it.up?'up':'down')+'">'+(it.up?'▲ ':'▼ ')
+      +'<span class="ko">'+it.d[0]+'</span><span class="en">'+it.d[1]+'</span></div>';
+    k.appendChild(c);
+  });
+  // 접이식 섹션
+  var s=document.getElementById('sections'); s.innerHTML='';
+  d.sections.forEach(function(it){
+    var det=document.createElement('details'); det.className='acc';
+    det.innerHTML='<summary>📂 <span class="ko">'+it.title[0]+'</span><span class="en">'+it.title[1]+'</span>'
+      +'<span class="arw">▸</span></summary><div class="body"><div class="hint">'
+      +'<span class="ko">펼치면 불러옵니다.</span><span class="en">Loads when expanded.</span></div></div>';
+    det.addEventListener('toggle', function(){
+      if(det.open){ loadSection(det.querySelector('.body'), it.loader); }
+    });
+    s.appendChild(det);
+  });
+  // 탭바
+  renderTabs();
+}
+
+/* ── 지연로딩 시뮬레이션 (실제로는 fetch 로 교체) ───────────────── */
+function loadSection(body, kind){
+  if(body.dataset.loaded==='1') return;
+  if(STATE.offline){
+    body.innerHTML='<div class="hint">📴 <span class="ko">오프라인이라 불러올 수 없습니다.</span><span class="en">Cannot load while offline.</span></div>'
+      +'<button class="retry" onclick="retry(this)">🔄 <span class="ko">다시 시도</span><span class="en">Retry</span></button>';
+    return;
+  }
+  // 스켈레톤
+  body.innerHTML='<div class="skel" style="width:80%"></div><div class="skel" style="width:95%"></div><div class="skel" style="width:70%"></div>';
+  setTimeout(function(){
+    body.innerHTML = MOCK[kind] ? MOCK[kind]() : '<div class="hint">—</div>';
+    body.dataset.loaded='1';
+    applyLangTo(body);
+  }, 650); // 가짜 네트워크 지연
+}
+function retry(btn){
+  var body=btn.closest('.body'); body.dataset.loaded='';
+  var det=body.closest('details');
+  var d=DATA[STATE.role]; var it=d.sections.filter(function(x){return true;});
+  // 로더 종류 다시 찾기
+  loadSectionByBody(body);
+}
+function loadSectionByBody(body){
+  var det=body.closest('details'); var idx=[].indexOf.call(document.querySelectorAll('#sections details'),det);
+  var it=DATA[STATE.role].sections[idx]; if(it) loadSection(body, it.loader);
+}
+
+/* ── 목업 콘텐츠 ─────────────────────────────────────────────── */
+function rowsHTML(rows){
+  return rows.map(function(r){
+    return '<div class="row '+(r.warn?'warn':'')+'"><div class="av">'+r.av+'</div>'
+      +'<div class="main"><b>'+r.title+'</b><small>'+r.sub+'</small></div>'
+      +'<button class="act '+(r.pri?'pri':'')+'" onclick="toast(\''+r.toast+'\')">'+r.btn+'</button></div>';
+  }).join('');
+}
+var MOCK = {
+  classes:function(){ return rowsHTML([
+    {av:'JU', title:t('Junho · Level 3','Junho · Level 3'), sub:t('14:00 · 25분 · Unit 7','14:00 · 25min · Unit 7'), btn:t('입장','Enter'), pri:true, toast:t('수업 입장','Entering class')},
+    {av:'SO', title:t('Sohee · Level 2','Sohee · Level 2'), sub:t('16:00 · 25분 · Unit 4','16:00 · 25min · Unit 4'), btn:t('준비','Prep'), toast:t('교재 열기','Open material')},
+    {av:'MI', title:t('Minjae · Level 4','Minjae · Level 4'), sub:t('18:00 · 50분 · Debate','18:00 · 50min · Debate'), btn:t('준비','Prep'), toast:t('교재 열기','Open material')}
+  ]); },
+  logs:function(){ return rowsHTML([
+    {av:'JU', title:t('Junho 수업일지','Junho class log'), sub:t('오늘 13:30 종료 · 미작성','ended 13:30 · not written'), btn:t('작성','Write'), pri:true, warn:true, toast:t('일지 작성','Writing log')},
+    {av:'YE', title:t('Yena 수업일지','Yena class log'), sub:t('어제 · 미작성','yesterday · not written'), btn:t('작성','Write'), pri:true, warn:true, toast:t('일지 작성','Writing log')}
+  ]); },
+  pay:function(){ return '<div class="row"><div class="av">₱</div><div class="main"><b>'
+    +t('예상 급여 ₱ 32,400','Est. payroll ₱ 32,400')+'</b><small>'
+    +t('완료 수업 81개 · 8월 1~8일','81 classes · Aug 1–8')+'</small></div>'
+    +'<button class="act" onclick="toast(\''+t('상세 보기','View detail')+'\')">'+t('상세','Detail')+'</button></div>'; },
+  live:function(){ return rowsHTML([
+    {av:'③', title:'<span class="live"></span>'+t('Tutor Grace · Junho','Tutor Grace · Junho'), sub:t('진행 22분 · 정상','22min · healthy'), btn:t('참관','Watch'), toast:t('참관 모드','Ghost view')},
+    {av:'⚠', title:'<span class="live"></span>'+t('Tutor Liza · Minji','Tutor Liza · Minji'), sub:t('오디오 20초 침묵 · 주의','20s silence · attention'), btn:t('개입','Assist'), pri:true, warn:true, toast:t('즉시 개입','Assisting')},
+    {av:'③', title:'<span class="live"></span>'+t('Tutor Rose · Daniel','Tutor Rose · Daniel'), sub:t('진행 5분 · 정상','5min · healthy'), btn:t('참관','Watch'), toast:t('참관 모드','Ghost view')}
+  ]); },
+  postpone:function(){ return rowsHTML([
+    {av:'PO', title:t('Sohee 수업 연기','Sohee postpone'), sub:t('8/9 16:00 → 8/11 · 사유: 가족행사','8/9→8/11 · family event'), btn:t('승인','Approve'), pri:true, toast:t('승인 완료','Approved')},
+    {av:'PO', title:t('Junho 강사 변경','Junho tutor change'), sub:t('Grace → Rose 요청','Grace → Rose'), btn:t('검토','Review'), toast:t('검토 열기','Reviewing')}
+  ]); },
+  waitlist:function(){ return rowsHTML([
+    {av:'7', title:t('대기자 7명','7 on waitlist'), sub:t('Level 2·3 오후시간 선호','Level 2–3 · afternoon'), btn:t('배정','Assign'), pri:true, toast:t('배정 화면','Assign screen')}
+  ]); }
+};
+
+/* ── 탭바 ─────────────────────────────────────────────────────── */
+function renderTabs(){
+  var tabs = STATE.role==='teacher'
+    ? [['🏠','홈','Home'],['📅','시간표','Schedule'],['📝','일지','Logs'],['👤','내정보','Profile']]
+    : [['🏠','홈','Home'],['🟢','수업','Live'],['🧾','정산','Finance'],['👤','내정보','Profile']];
+  var bar=document.getElementById('tabbar'); bar.innerHTML='';
+  tabs.forEach(function(x,i){
+    var b=document.createElement('button'); if(i===0) b.className='on';
+    b.innerHTML='<span class="ic">'+x[0]+'</span><span><span class="ko">'+x[1]+'</span><span class="en">'+x[2]+'</span></span>';
+    b.onclick=function(){ [].forEach.call(bar.children,function(c){c.classList.remove('on');}); b.classList.add('on');
+      if(i!==0) toast(t(x[1]+' (데모)', x[2]+' (demo)')); window.scrollTo({top:0,behavior:'smooth'}); };
+    bar.appendChild(b);
+  });
+}
+
+/* ── 언어/역할/네트워크 토글 ──────────────────────────────────── */
+function setLang(l){
+  STATE.lang=l; document.documentElement.setAttribute('data-lang',l); document.documentElement.lang=l;
+  document.getElementById('lbko').classList.toggle('on', l==='ko');
+  document.getElementById('lben').classList.toggle('on', l==='en');
+  try{ localStorage.setItem('mangoi_sample_lang', l); }catch(e){}
+  render(); // 언어 바뀌면 목업 텍스트도 갱신
+}
+function applyLangTo(el){ /* data-lang은 CSS로 처리되어 별도 작업 불필요 */ }
+function toggleRole(){ STATE.role = STATE.role==='teacher' ? 'manager' : 'teacher'; render();
+  toast(STATE.role==='teacher'? t('교사 화면','Teacher view') : t('매니저 화면','Manager view')); }
+function toggleNet(){
+  STATE.offline=!STATE.offline; document.body.classList.toggle('isoff', STATE.offline);
+  var n=document.getElementById('netInd'); n.classList.toggle('off', STATE.offline);
+  n.querySelector('.ko').textContent = STATE.offline?'오프라인':'온라인';
+  n.querySelector('.en').textContent = STATE.offline?'Offline':'Online';
+  toast(STATE.offline? t('오프라인 모드 (데모)','Offline mode (demo)') : t('온라인 복귀','Back online'));
+}
+function doSearch(){
+  var v=document.getElementById('q').value.trim();
+  toast(v? t('“'+v+'” 검색 (데모)','Searching “'+v+'” (demo)') : t('검색어를 입력하세요','Type a keyword'));
+}
+
+/* ── 토스트 ───────────────────────────────────────────────────── */
+var _tmr=null;
+function toast(msg){
+  var el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show');
+  clearTimeout(_tmr); _tmr=setTimeout(function(){ el.classList.remove('show'); },1600);
+}
+
+/* ── 부팅 ─────────────────────────────────────────────────────── */
+(function(){
+  var l='ko'; try{ l=localStorage.getItem('mangoi_sample_lang')||'ko'; }catch(e){}
+  STATE.lang=l; document.documentElement.setAttribute('data-lang',l); document.documentElement.lang=l;
+  document.getElementById('lbko').classList.toggle('on', l==='ko');
+  document.getElementById('lben').classList.toggle('on', l==='en');
+  render();
+})();
+</script>
+</body>
+</html>

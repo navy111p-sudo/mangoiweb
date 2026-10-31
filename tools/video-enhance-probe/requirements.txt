@@ -1,0 +1,31 @@
+# 망고아이 화질 계측기 / mangoi video-frame enhancement probe
+#
+# ⚠️ 이것은 «계측·실험» 전용입니다. 운영(cloudflare-deploy/)과 아무 관계가 없고
+#    requirements.txt(리포 루트, FastAPI 백엔드)와도 별개입니다.
+# ⚠️ Measurement rig only. Unrelated to cloudflare-deploy/ and to the repo-root
+#    requirements.txt (the FastAPI backend).
+#
+# 설치 / install:
+#   python -m venv .venv && source .venv/bin/activate
+#   pip install -r requirements.txt
+#   # CUDA 를 쓰려면 torch 를 자기 CUDA 버전에 맞춰 따로 받으세요:
+#   # For CUDA, install torch matching your CUDA build first:
+#   #   pip install torch --index-url https://download.pytorch.org/whl/cu121
+
+# --- 항상 필요 / always -----------------------------------------------------
+opencv-python>=4.8            # FaceDetectorYN(YuNet)이 4.8 부터 있습니다
+numpy>=1.24,<2.0              # basicsr 이 numpy 2.x 에서 깨집니다 — 1.x 로 고정
+huggingface_hub>=0.23         # 가중치 내려받기 / weight download
+
+# --- AI 모델을 쓸 때만 / only for the AI models -----------------------------
+# --model none, --model cv-sharpen 만 쓸 거면 아래는 필요 없습니다.
+torch>=2.0
+torchvision>=0.15,<0.17        # ⚠️ 0.17+ 은 basicsr 이 import 에서 터집니다(README §6)
+basicsr>=1.4.2                # ⚠️ 아래 «basicsr 호환» 주의 / see README
+facexlib>=0.3.0
+gfpgan>=1.3.8                 # --model gfpgan
+realesrgan>=0.3.0             # --model realesrgan
+
+# --model codeformer 는 pip 패키지가 없습니다. 저장소를 받아 PYTHONPATH 에 넣으세요:
+#   git clone https://github.com/sczhou/CodeFormer
+#   export PYTHONPATH=$PWD/CodeFormer:$PYTHONPATH

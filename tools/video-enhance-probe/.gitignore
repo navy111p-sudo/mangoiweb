@@ -1,0 +1,29 @@
+# 🔴 이 규칙의 목적은 «편의» 가 아니라 «학생 얼굴이 깃에 올라가는 것을 막는 것» 입니다.
+# 🔴 This exists to keep student faces out of git, not for tidiness.
+#
+# 이 도구가 만드는 비교 영상·스크린샷에는 사람 얼굴이 그대로 들어갑니다.
+# 학생 29,000명 대부분이 미성년자이고, 녹화는 촬영 동의와 보관기간 약속 위에 있습니다.
+# ⛔ 아래 규칙을 «필요하니까» 하고 풀지 마세요. 정말 공유해야 하면 사람이 판단하고
+#    얼굴을 가린 뒤 docs/ 로 옮기세요.
+
+# 결과물 / outputs — 얼굴이 들어갑니다
+*.mp4
+*.avi
+*.mov
+*.webm
+*.png
+*.jpg
+*.jpeg
+probe_*
+
+# 가중치 / model weights (수백 MB)
+*.pth
+*.onnx
+*.bin
+*.safetensors
+
+# 파이썬 / python
+.venv/
+venv/
+__pycache__/
+*.py[cod]

@@ -1,0 +1,488 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import zlib from 'node:zlib';
+import crypto from 'node:crypto';
+import {createRequire} from 'node:module';
+import * as EV from '../scripts/scene-picture-evidence.mjs';
+import {wordPlanFiles} from '../scripts/scene-picture-evidence.mjs';
+const require=createRequire(import.meta.url),D=require('../cloudflare-deploy/public/js/scene-curriculum.js');
+const root=new URL('../cloudflare-deploy/public/',import.meta.url);
+let checks=0;const ok=(v,m)=>{assert.ok(v,m);checks++;},eq=(a,b,m)=>{assert.deepEqual(a,b,m);checks++;};
+eq(D.normalize('  APPLE！ '),'apple');eq(D.normalize('She’s here.'),"she's here");
+ok(D.normalize('She is not here.')!==D.normalize('She is here.'));
+eq(D.blank('A cat catches another cat.','cat'),'A _____ catches another _____.');
+eq(D.blank("It isn't his cat.","isn't"),'It _____ his cat.');
+const original=[1,2,3];D.shuffle(original,()=>.5);eq(original,[1,2,3]);
+class El{
+ constructor(tag='div'){this.tag=tag;this.hidden=false;this.disabled=false;this._value='';this.textContent='';this.attrs={};this.handlers={};this.children=[];this.paused=true;this.style={};this.complete=false;}
+ get options(){return this.children;}get value(){return this._value;}set value(v){this._value=String(v);}
+ addEventListener(n,f){(this.handlers[n]??=[]).push(f);}dispatch(n,extra={}){for(const f of this.handlers[n]||[])f.call(this,{preventDefault(){},...extra});if(this['on'+n])this['on'+n]();}
+ setAttribute(k,v){this.attrs[k]=v;}getAttribute(k){return this.attrs[k]||null;}removeAttribute(k){delete this.attrs[k];}get src(){return this.attrs.src||'';}set src(v){this.attrs.src=v;}
+ replaceChildren(){this.children=[];if(this.tag==='select')this.value='';}append(...els){for(const e of els){this.children.push(e);if(this.tag==='select'&&this.children.length===1)this.value=e.value;}}
+ pause(){this.paused=true;}load(){}play(){this.paused=false;return Promise.resolve();}focus(){}getClientRects(){return [{}];}
+}
+const html=fs.readFileSync(new URL('student-game-scene-quest.html',root),'utf8');
+const source=fs.readFileSync(new URL('js/scene-curriculum.js',root),'utf8');
+function app(){
+ const els=Object.fromEntries([...html.matchAll(/<([a-z][a-z0-9]*)\b[^>]*\bid="([^"]+)"/g)].map(m=>[m[2],new El(m[1])]));els['cq-series'].value='bts';els['cq-mode'].value='words';
+ const events={},requests=[],posted=[],timers=new Map();let timerId=0;
+ const document={documentElement:{lang:'ko'},hidden:false,getElementById:id=>els[id],createElement:t=>new El(t),createTextNode:s=>({textContent:s}),addEventListener:(n,f)=>events[n]=f};
+ const window={parent:{postMessage:(m,o)=>posted.push({m,o})},addEventListener(){},speechSynthesis:{cancel(){},speak(){}}};
+ const math=Object.create(Math);math.random=()=>.999;
+ const fetch=(url,options)=>new Promise((resolve,reject)=>{const r={url,options,resolve,reject,done:false};requests.push(r);options.signal.addEventListener('abort',()=>{r.aborted=true;const e=Error('aborted');e.name='AbortError';reject(e);});});
+ vm.runInNewContext(source,{window,document,fetch,AbortController,Math:math,Map,Set,location:{origin:'https://mangoi.test'},SpeechSynthesisUtterance:function(){},setTimeout:(fn,ms)=>{timers.set(++timerId,{fn,ms});return timerId;},clearTimeout:id=>timers.delete(id)});
+ return {els,events,requests,posted,timers,document,click:id=>els['cq-'+id].dispatch('click'),change:(id,value)=>{els['cq-'+id].value=value;els['cq-'+id].dispatch('change');},respond:(suffix,data)=>{const r=requests.findLast(r=>!r.done&&r.url.endsWith(suffix));assert.ok(r,'request '+suffix);r.done=true;r.resolve({ok:true,json:async()=>data});},answer:s=>{els['cq-answer'].value=s;els['cq-answer-form'].dispatch('submit');}};
+}
+const manifest={wordForms:4546,wordPictureForms:95,cardOnlyForms:4451,clips:43,books:[{id:'bts-01',series:'bts',label:'BTS 1',title:'School'},{id:'bts-02',series:'bts',label:'BTS 2',title:'Colors'},{id:'siu-basic-01',series:'siu-basic',label:'SIU Basic 1',title:'Talk'}]};
+/* ⚠️ pic:1 = «그 사진의 설명이 이 낱말을 가리킨다»(근거 있음). 2026-09-21 2차 수리부터 화면이 사진을
+   거는 줄은 이것뿐이라, 표시를 빼면 이 fixture 의 낱말이 전부 그림카드가 되어 사진 관련 절이 헛돕니다. */
+const one={id:'bts-01',label:'BTS 1',words:[{word:'apple',scene:'a',sourceIndex:1,bookExample:'I have an apple.',pic:1},{word:'pencil',scene:'p',sourceIndex:11,bookExample:'This is a pencil.',pic:1}],clips:[{scene:'v',sourceIndex:1}],scenes:{a:{text:'An apple is red.',source:'BTS 1 · #1',image:'https://images.example.test/apple.webp'},p:{text:'This is a pencil.',source:'BTS 1 · #2',image:'https://images.example.test/pencil.webp'},v:{text:'He kicks the ball.',source:'BTS 1 · #3',image:'https://images.example.test/ball.webp',video:'https://images.example.test/ball.mp4'}}};
+const two={id:'bts-02',label:'BTS 2',words:[{word:'green',scene:'g',bookExample:'The balloon is green.',pic:1}],clips:[],scenes:{g:{text:'The balloon is green.',source:'BTS 2 · #1',image:'https://images.example.test/green.webp'}}};
+const flush=()=>new Promise(setImmediate);
+async function ready(){const a=app();eq(a.requests.length,0,'no curriculum data loaded before the user opens it');a.click('open');await flush();eq(a.requests.length,1);a.respond('manifest.json',manifest);await flush();eq(a.requests.length,2,'fetch only one selected book');a.respond('bts-01.json',one);await flush();return a;}
+const a=await ready();ok(!a.els['cq-card'].hidden);eq(a.els['cq-target'].textContent,'apple');eq(a.els['cq-video'].src,'','no eager video load');eq(a.els['cq-items'].children.length,2);
+a.click('quiz');ok(a.els['cq-book-example'].textContent.includes('_____'),'the selected book example does not leak quiz answers');a.answer('wrong');ok(!a.els['cq-answer'].disabled);a.answer('APPLE!');ok(a.els['cq-answer'].disabled);const points=a.els['cq-count'].textContent;a.answer('apple');eq(a.els['cq-count'].textContent,points,'double submit does not award again');a.click('next');a.click('reveal');a.answer('pencil');a.click('next');ok(!a.els['cq-result'].hidden);eq(a.posted.length,1);a.click('next');eq(a.posted.length,1,'completion is idempotent');
+a.els['cq-result'].children.find(x=>x.tag==='button').dispatch('click');a.answer('apple');a.click('next');a.answer('pencil');a.click('next');eq(a.posted.length,1,'review does not post a second completion');
+const scoped=await ready();scoped.change('lesson','1');eq(scoped.els['cq-target'].textContent,'pencil','section filter uses source position');eq(scoped.els['cq-items'].children.length,1);scoped.change('mode','videos');ok(scoped.els['cq-card'].hidden,'empty section does not silently use another lesson');scoped.change('lesson','all');scoped.change('level','starter');scoped.click('quiz');ok(scoped.els['cq-example'].textContent.includes('_____'),'starter sentence task uses a word blank');ok(scoped.els['cq-feedback'].textContent.startsWith('k'),'starter gets an initial-letter prompt');scoped.answer('kicks');ok(scoped.els['cq-answer'].disabled,'starter grades the missing word');scoped.change('difficulty','challenge');scoped.click('quiz');ok(!scoped.els['cq-example'].textContent.includes('kicks'),'challenge hides sentence answer');scoped.answer('kicks');ok(!scoped.els['cq-answer'].disabled,'full-sentence mode rejects a single word');scoped.answer('He kicks the ball.');ok(scoped.els['cq-answer'].disabled,'full-sentence answer passes');scoped.change('level','growing');scoped.change('difficulty','auto');scoped.click('quiz');ok(scoped.els['cq-example'].textContent.includes('k____'),'standard sentence mode exposes initial letters');
+const media=await ready();media.change('mode','videos');eq(media.requests.length,2,'mode switch reuses the selected book');eq(media.els['cq-video'].src,'');media.click('watch');await flush();ok(media.els['cq-video'].src.endsWith('.mp4'));media.document.hidden=true;media.events.visibilitychange();ok(media.els['cq-video'].paused);eq(media.els['cq-video'].src,'','hidden page releases the video source');
+media.document.hidden=false;media.click('watch');media.click('close');await flush();ok(media.els['cq-video'].paused);eq(media.els['cq-video'].src,'');ok(media.els.curriculum.hidden);
+const stalled=await ready();stalled.change('mode','videos');let resolvePlay;stalled.els['cq-video'].play=()=>new Promise(resolve=>{resolvePlay=resolve;});stalled.click('watch');for(const timer of [...stalled.timers.values()])if(timer.ms===15000)timer.fn();ok(stalled.els['cq-video'].hidden,'stalled clip falls back to the picture');ok(!stalled.els['cq-watch'].disabled,'stalled clip can be retried');eq(stalled.els['cq-video'].src,'');resolvePlay();await flush();ok(stalled.els['cq-video'].hidden,'late play cannot reopen the timed-out clip');
+const offline=await ready();offline.change('mode','videos');offline.els['cq-video'].play=()=>Promise.reject(Error('offline'));offline.click('watch');await flush();ok(offline.els['cq-video'].hidden);ok(offline.els['cq-media-status'].textContent.includes('재생하지 못'));
+offline.change('mode','words');offline.els['cq-image'].dispatch('error');ok(!offline.els['cq-retry-image'].hidden);offline.click('quiz');offline.answer('apple');ok(offline.els['cq-answer'].disabled,'image failure does not block learning');
+const race=await ready();race.change('book','bts-02');await flush();const old=race.requests.at(-1);race.change('book','bts-01');await flush();ok(old.aborted);eq(race.els['cq-target'].textContent,'apple');old.resolve({ok:true,json:async()=>two});await flush();eq(race.els['cq-target'].textContent,'apple','late response cannot replace the latest selected book');
+race.change('book','bts-02');await flush();for(const timer of [...race.timers.values()])if(timer.ms===15000)timer.fn();await flush();ok(!race.els['cq-retry'].hidden,'timeout exposes a retry button');race.click('retry');await flush();race.respond('bts-02.json',two);await flush();eq(race.els['cq-target'].textContent,'green');
+ok(!/speech-data-(?:bts|siu)/.test(html),'page never eagerly loads all three curricula');
+ok(/id="cq-video"[^>]*preload="none"/.test(html));ok(!/id="cq-video"[^>]*autoplay/.test(html));
+const dir=new URL('data/scene-curriculum/v1/',root),live=JSON.parse(fs.readFileSync(new URL('manifest.json',dir),'utf8'));
+eq(live.books.length,85);ok(live.wordForms>4400);ok(live.clips>=40);
+/* 📁 payload 가 가리키는 «우리 경로» 그림·영상이 저장소에 실제로 있는가.
+   🔴 CLAUDE.md: 「새 그림은 «표에 등록» 만 하고 파일을 커밋에 안 담으면 조용히 폴백합니다」
+      (2026-08-31 Lily 얼굴이 며칠 동안 옛 얼굴로 돌던 사고). 2026-09-21 에 클립 1,010개를
+      한꺼번에 담았으므로 «등록은 됐는데 파일이 빠진» 것을 여기서 잡습니다.
+   ⛔ 외부 주소(http…)는 여기서 못 봅니다 — 그건 사람이 브라우저로 봐야 합니다. */
+{let n=0;const missing=[];
+ for(const f of fs.readdirSync(dir)){
+  if(f==='manifest.json'||!f.endsWith('.json'))continue;
+  const book=JSON.parse(fs.readFileSync(new URL(f,dir),'utf8'));
+  for(const sc of Object.values(book.scenes||{}))for(const u of [sc.image,sc.video]){
+   if(!u||!u.startsWith('/'))continue;n++;
+   if(!fs.existsSync(new URL('.'+u,root))&&missing.length<8)missing.push(f+' '+u);}}
+ ok(n>1000,'payload 가 우리 경로 그림·영상을 충분히 가리킨다 ('+n+')');
+ ok(missing.length===0,'payload 가 가리키는 파일이 저장소에 실재한다 ('+(missing.join(' · ')||'빠진 것 없음')+')');}
+/* 🔴 2026-09-21 — 여기 있던 「word forms 의 97% 가 verified picture」 단정을 버렸습니다.
+   그 숫자는 «그림을 붙인 개수» 였을 뿐 «그 낱말을 보여 주는가» 를 한 번도 재지 않았고,
+   실측으로 그림을 붙인 39,762줄 중 38,475줄(96.8%)이 그 낱말과 무관했습니다(「nice」 ← 가방 사진).
+   그래서 «몇 %가 그림을 가졌나» 대신 «그림이라고 말한 것마다 근거가 있는가» 를 봅니다. */
+const sourceBooks=new Map();
+for(const [series,file,name] of [['bts','speech-data-bts.js','BTS_SENTENCES'],['siu-basic','speech-data-siu-basic.js','SIU_BASIC_SENTENCES'],['siu-advance','speech-data-siu-advance.js','SIU_ADVANCE_SENTENCES']]){
+ const code=fs.readFileSync(new URL('js/'+file,root),'utf8');const actual=JSON.parse(vm.runInNewContext(code+'\nJSON.stringify('+name+')'));
+ Object.values(actual).forEach((b,i)=>sourceBooks.set(series+'-'+String(i+1).padStart(2,'0'),b.sentences));
+}
+const plan=name=>JSON.parse(fs.readFileSync(new URL('../../docs/scene-curriculum-media/'+name,root),'utf8'));
+const scenePlan=plan('scene-plan.json'),assetPlan=plan('asset-plan.json'),clipPlan=plan('clip-plan.json'),contextPlan=plan('context-images.json').images;
+/* 🖼 2026-09-21 사장님 지시(그림문자 카드를 실사 사진으로) — 낱말마다 «그 낱말을 그린» 사진 한 장.
+   ⛔ 빌드가 만든 payload 를 되짚지 않고 «여기서 다시» 고릅니다 — 되짚기만 하면 근거 게이트를
+      «항상 참» 으로 열어도 전부 초록입니다(2026-09-21 함정 대조 실측).
+   ⚠️ 표에 있어도 그림 파일이 없으면 세지 않습니다 — 표만 늘리고 그림을 커밋에 안 담으면
+      조용히 빈 그림이 됩니다(2026-08-31 Lily 얼굴). */
+const wordImageDir=new URL('img/scene-words/',root);
+/* 표가 여러 파일입니다 — 목록 규칙의 정본은 scene-picture-evidence.mjs 의 wordPlanFiles 하나이고
+   빌드도 같은 함수를 씁니다. ⛔ 여기에 파일 이름을 손으로 적지 마세요(한쪽만 늘어나면
+   「빌드는 붙이는데 검사는 모르는」 상태가 되고 둘 다 조용합니다). */
+const planNames=wordPlanFiles(fs.readdirSync(new URL('../../docs/scene-curriculum-media/',root)));
+const wordImagePlan=planNames.flatMap(plan);
+const wordAssets=[],wordFile=new Map();
+/* 🚫 빌드와 같이 excluded-media.json 을 낱말 사진에도 겁니다(2026-09-24 와인 진열대 사진 19249). */
+const excludedWordImages=new Set(plan('excluded-media.json'));
+for(const it of wordImagePlan){const p=new URL(it.index+'.webp',wordImageDir);if(excludedWordImages.has('word-image:'+it.index)||!fs.existsSync(p))continue;
+ wordAssets.push({id:'w'+it.index,index:it.index,word:it.word,prompt:it.prompt,scenes:[]});wordFile.set(it.index,fs.statSync(p).size);}
+ok(wordAssets.length>0,'낱말 사진 표가 가리키는 그림이 저장소에 실재한다 ('+wordAssets.length+'/'+wordImagePlan.length+')');
+/* 🖼 표가 여러 파일이라 «빌드와 검사가 같은 집합을 보는가» 를 짝으로 못 박습니다.
+   ⛔ 「그 함수가 있는가」로 묻지 마세요 — 빌드가 부르지 않고 한 파일만 읽어도 통과합니다.
+   ⚠️ 그리고 «표가 둘 이상인가» 를 전제로 둡니다 — 하나뿐이면 아래 검사가 조용히 뜻을 잃습니다. */
+ok(planNames.length>=2,'낱말 사진 표가 여러 파일이다 ('+planNames.join(' · ')+')');
+{
+ const buildSrc=fs.readFileSync(new URL('../../scripts/build-scene-curriculum.mjs',root),'utf8');
+ const bare=buildSrc.replace(/\/\*[\s\S]*?\*\//g,'').replace(/^[ \t]*\/\/.*$/gm,'');
+ /* ⚠️ 주석 제거가 코드를 먹으면 아래 «없어야 한다» 가 거짓으로 통과합니다(CLAUDE.md 2장). */
+ ok(bare.length>buildSrc.length*0.4,'주석을 벗겨 낸 사본이 코드를 통째로 먹지 않았다');
+ ok(/wordPlanFiles\s*\(/.test(bare),'빌드가 표 목록 정본(wordPlanFiles)을 실제로 부른다');
+ ok(!/['"]word-image-plan[^'"]*\.json['"]/.test(bare),'빌드가 표 파일 이름을 손으로 적지 않는다');
+ ok(!planNames.includes('word-image-pending.json'),'표가 아닌 파일(word-image-pending.json)은 안 걸린다');
+}
+const stopWords=new Set(plan('stopwords.json').concat(['ken','karen','tom','nelly','poko','leon',"leon's"]));
+const {describe,shell:shellSet,depicts}=EV.pictureEvidence({assets:assetPlan.concat(wordAssets),clips:clipPlan,sceneText:new Map(scenePlan.map(r=>[r.id,r.text])),stopWords});
+/* 🖼 「설명이 그 낱말을 가리킬 때만」 — 껍데기 낱말(natural·clear·soft…)은 여기서 떨어집니다. */
+/* 🖼 2026-09-21 사장님 지시(「그림문자 없애고 힉스필드 실사 이미지들로만」) — 빌드가 사진 한 장을
+   «그 설명이 실제로 보여 주는» 모든 낱말에 붙입니다. 여기서도 같은 규칙으로 다시 골라 맞춰 봅니다.
+   ⛔ 근거 기준(depicts)은 한 글자도 안 바뀝니다 — 바뀐 것은 «한 사진이 몇 낱말에 닿는가» 뿐입니다.
+   ✅ ownPass = «그 낱말을 그리려고 만든 사진» 이 자기 낱말을 통과한 것. 옛 경계(「사진 대부분이
+      근거를 통과한다」·「껍데기는 거부된다」)는 그 자리에서 그대로 지켜집니다 — 확장 때문에
+      저절로 커지는 wordSceneOf 로 재면 그 두 검사가 뜻을 잃습니다. */
+const vocabAll=new Set();
+for(const list of sourceBooks.values())for(const t of list)for(const w of EV.tokens(t))if(!stopWords.has(w))vocabAll.add(w);
+const wordSceneOf=new Map(),wordSceneBytes=new Map(),ownPass=new Set();
+{const best=new Map();
+ const consider=(w,rank,index)=>{const cur=best.get(w);
+  if(cur&&(cur.rank<rank||(cur.rank===rank&&cur.index<=index)))return;
+  best.set(w,{rank,index});};
+ for(const it of wordImagePlan){if(!wordFile.has(it.index))continue;const key='word-image:'+it.index;
+  if(depicts(it.word,key)){ownPass.add(it.word);consider(it.word,0,it.index);}
+  for(const w of vocabAll)if(w!==it.word&&depicts(w,key))consider(w,1,it.index);}
+ for(const [w,v] of best){wordSceneOf.set(w,'w'+v.index);wordSceneBytes.set('w'+v.index,wordFile.get(v.index));}}
+ok(ownPass.size>wordAssets.length*0.9,'낱말 사진 대부분이 «자기 낱말» 근거를 통과한다 ('+ownPass.size+'/'+wordAssets.length+')');
+ok(wordSceneOf.size>ownPass.size,'한 사진이 «함께 보여 주는» 다른 낱말에도 붙는다 ('+wordSceneOf.size+' > '+ownPass.size+')');
+/* 🧱 2026-09-24 경계가 바뀌었습니다(사장님 「그림카드를 실사로 반드시 바꿔줘」) — 옛 검사는 «껍데기 낱말은
+   사진이 있어도 안 붙는다(0이면 게이트가 열린 것)» 였는데, 이제 «그 낱말을 그리려고 만든 전용 사진»
+   (plan 의 word 가 그 낱말 + 설명에 두 번 이상)에서만 붙습니다. 그래서 새 경계를 «짝으로» 봅니다:
+   ① 껍데기 낱말이 자기 전용 사진에는 붙는다 ② **남의 사진에는 하나도 안 붙는다**(= natural 이 모든 그림에 붙는 사고 방지)
+   ③ 설명에 «한 번»(틀이 넣는 것)만 있으면 전용 사진이어도 안 붙는다. */
+{const shellNow=EV.shellTokens(assetPlan.concat(wordAssets).map(x=>x.prompt));
+ const shellPlanned=wordImagePlan.filter(it=>wordFile.has(it.index)&&shellNow.has(it.word));
+ ok(shellPlanned.length>0,'전제: 껍데기 낱말의 전용 사진이 표에 있다 ('+shellPlanned.length+')');
+ for(const it of shellPlanned)ok(depicts(it.word,'word-image:'+it.index),'껍데기 낱말도 «자기 전용 사진» 에는 붙는다: '+it.word+' ← '+it.index);
+ const allKeys=[...assetPlan.map(a=>'word-image:'+a.index),...wordAssets.map(a=>'word-image:'+a.index),...clipPlan.flatMap(c=>['clip-image:'+c.index,'video:'+c.index])];
+ const own=new Map(wordAssets.map(a=>['word-image:'+a.index,a.word]));
+ /* ⚠️ 예외가 «새로» 붙인 것만 봅니다 — photograph 처럼 변형형(photographs)으로 원래 붙던 것은 이 변경과 무관합니다.
+    그래서 word 칸을 뗀(= 예외가 꺼진) 판정과 나란히 돌려 «달라진 것» 을 셉니다. */
+ const noOwn=EV.pictureEvidence({assets:assetPlan.concat(wordAssets.map(({word,...a})=>a)),clips:clipPlan,sceneText:new Map(scenePlan.map(r=>[r.id,r.text])),stopWords});
+ for(const w of shellNow){const leak=allKeys.filter(k=>own.get(k)!==w&&depicts(w,k)&&!noOwn.depicts(w,k));
+  ok(leak.length===0,'껍데기 낱말 예외가 남의 사진에는 안 붙는다: '+w+' ('+leak.length+'장)');}
+ ok(shellPlanned.some(it=>!noOwn.depicts(it.word,'word-image:'+it.index)),'전제: 예외를 끄면 전용 사진도 안 붙는다(= 예외가 실제로 일한다)');
+ const once=EV.pictureEvidence({assets:[...assetPlan,{id:'wX',index:99999999,word:'natural',prompt:'Natural candid photograph. A tall green pine tree beside a quiet mountain lake at sunrise. Clear recognizable subjects, realistic textures and soft daylight. No text or logos.',scenes:[]},...wordAssets],clips:clipPlan,sceneText:new Map(scenePlan.map(r=>[r.id,r.text])),stopWords});
+ ok(!once.depicts('natural','word-image:99999999'),'설명에 틀의 «한 번» 만 있으면 전용 사진이어도 안 붙는다');}
+/* 🧱 «한 낱말이 그림 거의 전부를 가리킨다» 면 그것은 근거가 아니라 새어 나온 틀이다.
+   🔴 2026-09-21 에 이 모양으로 두 번 샜습니다 — ⓐ 틀 꼬리(light·setting·writing·subtitles)가
+      prompt 를 타고 들어와 클립 «전부» 에 붙었고 ⓑ variants() 가 없는 어미를 잘라 만든 기능어
+      (thing→the · ones→on · toes→to)가 설명마다 있어 「thing」이 클립 77.6% 에 붙었습니다(549편 기준).
+      둘 다 «껍데기 80%» 게이트를 비켜 갔습니다(꼬리는 80%에 못 미치고, 기능어는 낱말 쪽에서 생깁니다).
+   ✅ 그래서 «결과» 로 묻습니다 — 교재 낱말 중 어느 하나도 그림의 절반을 넘게 가리키면 안 됩니다.
+   ⛔ 낱말 목록을 손으로 적어 빼지 마세요(틀이 바뀌면 낡습니다) · 문턱을 올려서 풀지 마세요.
+   ⚠️ 흔한 사물 낱말(hand·hands·handed)은 원래 여러 그림에 나옵니다 — 실측 최대가 26.0%(549편 · hand 143개)라
+      절반(50%)은 «정상» 과 «샘» 사이에 넉넉히 떨어져 있습니다.
+   ⛔ 이 두 숫자는 «클립 549편» 기준입니다 — 클립이 늘면 그대로 낡습니다(44편일 때 적은 95.5%·20.5% 가
+      그렇게 거짓이 됐습니다). 문턱을 손볼지 판단하기 전에 반드시 다시 재세요. */
+{const allWords=new Set();
+ for(const list of sourceBooks.values())for(const t of list)for(const w of EV.tokens(t))if(!stopWords.has(w))allWords.add(w);
+ /* ⛔ 여기서 토큰을 «다시 걸러» 세지 마세요 — 그러면 모듈이 무엇을 근거로 삼든 하니스는 제 기준만 봅니다.
+    2026-09-21 실측: 그렇게 썼더니 모듈에서 기능어 거르기를 통째로 지워도 486,407건이 전부 초록이었습니다.
+    ✅ 반드시 정본 depicts() 에 «물어서» 셉니다. */
+ const keys=clipPlan.map(c=>'clip-image:'+c.index).filter(k=>describe.get(k));
+ ok(keys.length>=20,'설명이 있는 클립이 충분하다 — 적으면 아래 비율 검사가 뜻을 잃는다 ('+keys.length+')');
+ let worst=['',0];
+ for(const w of allWords){let n=0;
+  for(const k of keys)if(depicts(w,k))n++;
+  if(n>worst[1])worst=[w,n];}
+ const pct=100*worst[1]/Math.max(1,keys.length);
+ ok(pct<50,'어느 교재 낱말도 클립 그림의 절반을 넘게 가리키지 않는다 — 넘으면 틀이 근거로 샌 것 (최대 '+worst[0]+' '+worst[1]+'/'+keys.length+' = '+pct.toFixed(1)+'%)');
+ ok(worst[1]>0,'그래도 가리키는 낱말이 있다 — 0이면 근거가 통째로 죽은 것');}
+/* 🔢 클립 매체 번호가 «이미 임자가 있는 자리» 를 뺏지 않는가.
+   🔴 2026-09-21 실측: 새로 받은 505편을 6001.. 로 매기니 6007 이 겹쳤다 — 그 자리는 clip-plan 5007
+      (「The dog has four legs.」)이 reuseClip 으로 쓰던 «네 다리 강아지 재촬영» 매체였고, 덮어쓰자
+      bts-03·08·18·24 의 「dog」 사진이 사라져 그림문자 카드로 내려갔다(카드 줄 14 → 25).
+   ⚠️ 구조만으로는 «정당한 재사용»(5014 → 5028, 문장은 다르지만 같은 바닷가 영상)과 구분할 수 없다.
+      가를 수 있는 것은 하나뿐 — 「clip-plan 에 임자 행이 없는 reuseClip 자리」는 그 한 편을 위해
+      따로 찍어 둔 매체이므로, 다른 클립이 그 번호를 «자기 번호» 로 쓰면 안 된다.
+   ⛔ 이 검사를 지우고 번호를 손으로 맞추지 마세요 — 덮어써도 에러가 안 나고 그림만 조용히 바뀝니다. */
+{const dup=clipPlan.map(c=>c.index).filter((v,i,a)=>a.indexOf(v)!==i);
+ ok(dup.length===0,'클립 번호가 겹치지 않는다 ('+(dup.join(',')||'0건')+')');
+ /* 묶음은 천 단위로 매긴다(5xxx 1차 · 6007 재촬영 · 7xxx 2차). reuseClip 은 «같은 묶음 안» 을
+    가리키거나 «임자가 없는 전용 자리» 를 가리킨다 — 다른 묶음의 클립이 그 자리를 «자기 번호» 로
+    쓰고 있으면 그 자리를 뺏은 것이다.
+    ⛔ 「임자가 없는 자리만 예약» 으로 쓰면 스스로 무력해집니다 — 뺏기는 순간 임자가 생겨
+       예약 목록에서 빠지기 때문입니다(2026-09-21 에 실제로 그렇게 짰다가 변이가 안 잡혔습니다). */
+ const block=n=>Math.floor(n/1000);
+ const owner=new Map(clipPlan.map(c=>[c.index,c]));
+ const stolen=[];
+ const reuseRows=clipPlan.filter(c=>c.reuseClip);
+ /* 전제 — reuseClip 행이 0이면 아래 두 검사가 «조용히 공회전» 합니다(뜻을 잃은 채 초록). */
+ ok(reuseRows.length>0,'reuseClip 을 쓰는 클립이 있다 — 0이면 아래 검사가 뜻을 잃는다');
+ for(const c of reuseRows){
+  const t=owner.get(c.reuseClip);
+  if(t&&block(t.index)!==block(c.index))stolen.push(c.index+'→'+c.reuseClip);}
+ ok(stolen.length===0,'reuseClip 이 가리키는 자리를 다른 묶음의 클립이 뺏지 않았다 ('+(stolen.join(',')||'0건')+')');
+ /* 🔒 위 검사는 «이미 뺏긴 뒤» 를 봅니다 — 같은 천 단위 안에서 뺏으면 «정당한 재사용» 과 구분되지 않아
+    원리상 못 잡습니다(2026-09-21 함정 대조가 실측으로 지적). 그래서 규약 자체를 기계가 강제합니다:
+    «임자 없는 전용 자리» 는 클립 번호가 하나도 없는 천 단위에 둔다. 그러면 새 묶음이 그 천 단위로
+    들어오는 «순간» 빨간불이라, 뺏긴 뒤가 아니라 뺏기 전에 걸립니다.
+    ⛔ 전용 자리를 클립이 쓰는 천 단위 «안» 에 두지 마세요 — 그 자리를 지켜 줄 방법이 사라집니다.
+    ⛔ 이 검사를 지우고 「새 묶음은 빈 천 단위에서」를 사람 기억에 맡기지 마세요(그렇게 한 번 밟았습니다). */
+ {const usedBlocks=new Set(clipPlan.map(c=>block(c.index)));
+  const bad=reuseRows.filter(c=>!owner.has(c.reuseClip)&&usedBlocks.has(block(c.reuseClip)))
+   .map(c=>c.reuseClip+'(클립이 쓰는 천 단위 '+block(c.reuseClip)+'xxx)');
+  ok(bad.length===0,'전용 재사용 자리는 클립이 쓰지 않는 천 단위에 있다 — 새 묶음이 뺏을 수 없게 ('+(bad.join(',')||'0건')+')');}}
+const assetIndexOf=new Map(assetPlan.map(a=>[a.id,a.index]));
+const mediaKey=new Map();
+for(const row of scenePlan){const index=assetIndexOf.get(row.asset);mediaKey.set(row.id,contextPlan[index]||('word-image:'+index));}
+for(const c of clipPlan)mediaKey.set(c.id,'clip-image:'+(c.reuseClip||c.index));
+for(const sid of wordSceneOf.values())mediaKey.set(sid,'word-image:'+sid.slice(1));
+/* 🔁 빌드가 고른 것을 «여기서 다시 골라» 맞춰 본다 — 안 그러면 이미 만들어진 payload 를 같은 모듈로
+   되짚기만 해서, 근거 게이트를 «항상 참» 으로 열어도 전부 초록이 됩니다(2026-09-21 함정 대조 실측).
+   ⛔ 그래서 «붙인다» 와 «안 붙일 때는 정말 근거가 없다» 를 짝으로 봅니다. */
+const mediaLookup=new Set();
+{const excluded=new Set(plan('excluded-media.json'));
+ for(const m of plan('optimized-media.json')){const key=(m.kind||'word-image')+':'+m.index;if(m.url&&m.uploaded&&!excluded.has(key))mediaLookup.add(key);}}
+const noCardWords=new Set(plan('no-card-words.json'));
+/* 🚫 예문으로 안 쓰는 문장(술 예문) — 빌드와 같은 파일을 읽어 «다시 고르기» 에서도 뺍니다. */
+const noExampleText=new Set(plan('no-example-sentences.json'));
+const contentWords=text=>EV.vocabWords(text,stopWords).filter(w=>!noCardWords.has(w));
+const sceneHasImage=new Map(),sceneOwnText=new Map();
+for(const row of scenePlan){sceneOwnText.set(row.id,row.text);sceneHasImage.set(row.id,mediaLookup.has(mediaKey.get(row.id)));}
+for(const c of clipPlan){if(!mediaLookup.has('video:'+(c.reuseClip||c.index)))continue;sceneOwnText.set(c.id,c.text);sceneHasImage.set(c.id,mediaLookup.has(mediaKey.get(c.id)));}
+const depictPool=new Map();
+for(const [sid,text] of sceneOwnText){if(!sceneHasImage.get(sid))continue;
+ for(const w of contentWords(text)){if(!depicts(w,mediaKey.get(sid)))continue;if(!depictPool.has(w))depictPool.set(w,[]);depictPool.get(w).push(sid);}}
+ok(depictPool.size>0&&depictPool.size<600,'근거 있는 낱말은 소수여야 한다 — 갑자기 많아지면 게이트가 열린 것 ('+depictPool.size+')');
+/* ⚠️ «문장 그림» 과 «낱말 사진» 을 갈라서 셉니다 — 낱말 사진은 처음부터 설명이라 섞으면
+   「대부분이 틀이다」가 저절로 깨져, 정작 지키려던 메아리 게이트를 아무도 안 보게 됩니다. */
+{const sentenceKeys=new Set(assetPlan.map(x=>'word-image:'+x.index));
+ ok([...describe].filter(([k,t])=>sentenceKeys.has(k)&&t.trim()).length<assetPlan.length/2,
+  '문장 그림 설명 대부분은 문장을 옮겨 적은 틀이다 — 그것을 근거로 되돌리면 이 검사가 먼저 빨간불이 된다');
+ const wordKeys=wordAssets.map(x=>'word-image:'+x.index);
+ ok(wordKeys.filter(k=>(describe.get(k)||'').trim()).length>wordKeys.length*0.9,
+  '낱말 사진 설명은 메아리가 아니라 진짜 설명이다 — 「짝」 검사(앞줄만 있으면 전부 버려도 통과)');}
+eq(live.wordPictureForms+live.cardOnlyForms,live.wordForms,
+ '낱말 형태를 «낱말 그림 / 그림카드» 둘로 갈라서 센다');
+/* 🔴 2026-09-21 2차 — 「상황 그림만」 갈래가 사라졌습니다(사장님: 근거 없는 실사 사진을 붙이지 않는다).
+   ⛔ contextOnlyForms 를 되살리지 마세요 — 그 칸이 있으면 그 갈래를 다시 만들게 됩니다. */
+ok(!('contextOnlyForms' in live)&&!('contextPictureRows' in live),
+ '옛 «예문 상황 그림» 칸이 manifest 에 되살아나지 않았다');
+/* 🔴 2026-09-21 — 여기 있던 「근거 있는 낱말 그림은 소수다(절반 미만)」 단정을 버립니다.
+   사장님 지시로 사진을 «최대한» 붙이게 되어 그 비율이 뜻을 잃었습니다(실측 48.7% → 62%).
+   ⛔ 그냥 느슨하게 푼 것이 아닙니다 — 그 검사가 지키려던 것은 «근거 게이트가 죽어서 아무 사진이나
+      붙는 것» 이므로, 비율 대신 게이트를 «직접» 잽니다:
+      ① 아직 «전부» 는 아니다 ② 게이트를 끄면 실제로 더 붙는다(= 게이트가 일하고 있다)
+      ③ 붙은 줄은 전부 근거가 있다(아래 낱말 루프의 depicts 검사 — 짝). */
+/* 🔁 2026-09-24 ① 을 바꿉니다 — 사장님 「그림카드를 실사로 반드시 바꿔줘」로 남은 3낱말(natural·soft·non)까지
+   전용 사진이 붙어 «전부» 가 정답이 됐습니다. 게이트가 살아 있는지는 ②(게이트를 끄면 실제로 더 붙는다)와
+   ③(붙은 줄은 전부 근거가 있다)가 그대로 봅니다. ⛔ ② 를 지우지 마세요 — 이제 그것이 유일한 «게이트 생존» 신호입니다. */
+ok(live.wordPictureForms>0&&live.wordPictureForms<=live.wordForms,
+ '낱말 그림 수가 낱말 형태 수를 넘지 않는다');
+/* 🎨 2026-09-22 — 「그림문자 카드가 늘지 않는다」. 사장님 지시는 「그림문자 없애줘」이므로
+   카드가 늘어난다는 것은 곧 «사진이 사라졌다» 는 뜻입니다.
+   🔴 이 검사가 없어서 오늘 실제로 놓쳤습니다 — 낱말 사진 399장의 프롬프트를 다시 쓰자,
+      그 사진에 «빌려 붙어» 있던 낱말 14개(dog's·touches·skateboard·shovel·joke·entertaining·
+      treats·prizes·theme·electronics·canopy·north·historic·nails)가 근거를 잃고 카드로
+      내려갔습니다. 기존 검사들은 「근거가 있는데 카드면 FAIL」만 보므로(아래 낱말 루프)
+      «근거가 통째로 사라진» 이 경우를 원리상 못 봅니다. 잡아 준 것은 manifest 대조뿐이었습니다.
+   ⚠️ 숫자는 «상한·하한» 이지 «정답» 이 아닙니다 — 교재 문장을 더해 새 낱말이 들어오면
+      정당하게 카드가 늘 수 있습니다. 그때는 사진을 만들거나, 이 숫자를 올리며 «왜» 를 적으세요.
+   ✅ 짝으로 둡니다 — 카드 상한만 두면 «사진을 통째로 빼고 카드도 안 그리기» 가 통과합니다. */
+/* 🖼 2026-09-24 25 → 38 → 25 — 와인 진열대 사진(19249)을 빼 「selection」 13줄이 잠시 카드였다가,
+   교재 예문(participant selection)대로 새 사진(21407 — 임상연구 참여자 선정)을 만들어 되돌렸습니다. */
+/* 2026-09-24 사장님 「그림카드를 실사로 반드시 바꿔줘」 — 껍데기 낱말 예외(natural·soft·clear)와 non 전용 사진으로 25 → 0. */
+ok(live.cardRows<=0,'그림문자 카드 줄이 0이다 — 늘었다면 사진이 사라진 것 ('+live.cardRows+' ≤ 0, 2026-09-24 실측)');
+/* 🔤 2026-09-23 4543 → 4536 — «사진이 사라진» 것이 아니라 낱말 7개(p·e·j·r·k·x·c)가 «낱말이 아니라서» 빠졌습니다
+   (「P.E.」·「J.R.R.」 점 약어 · K-pop·X-rays·Vitamin C 의 한 글자 조각. 사장님 「PE가 따로 글자가 나와」).
+   ⛔ 다시 4543 으로 올리지 마세요 — 그 7개를 되살려야 통과합니다. */
+/* 🚫 2026-09-23 4536 → 4533 — 사장님 「술 카드 3개는 빼줘」(bts-20 alcohol·beer·wine, no-card-words.json).
+   ⛔ 다시 4536 으로 올리지 마세요 — 술 카드를 되살려야 통과합니다. */
+/* 🚫 2026-09-24 4533 → 4531 — 사장님 「술 예문도 빼줘」(BTS 20 #59~64, no-example-sentences.json).
+   빠진 둘: cocktails(지시) · california(그 와인 예문에만 있던 낱말). selection 은 새 사진(21407)으로 되찾았습니다.
+   ⛔ 다시 4533 으로 올리지 마세요. */
+ok(live.wordPictureForms>=4531,'낱말 사진이 붙은 낱말이 줄지 않았다 ('+live.wordPictureForms+' ≥ 4531, 2026-09-24 실측)');
+/* 🚫 카드 제외 낱말은 어느 교재에도 카드로 없다 ↔ 다른 예문에도 나오는 낱말(restaurant)은 그대로 있다(짝).
+   짝이 없으면 «그 교재를 통째로 빼기» 도 통과합니다.
+   (2026-09-24 부터 술 예문 자체를 빼서, 그 예문에만 있던 california 는 «없는 것» 이 맞습니다.) */
+{const b20=JSON.parse(fs.readFileSync(new URL('bts-20.json',dir),'utf8')),ws=new Set(b20.words.map(w=>w.word));
+ ok(noCardWords.size>=3,'카드 제외 목록을 읽었다(전제)');
+ for(const f of fs.readdirSync(dir).filter(f=>/^(bts|siu).*\.json$/.test(f))){const b=JSON.parse(fs.readFileSync(new URL(f,dir),'utf8'));
+  for(const w of b.words)ok(!noCardWords.has(w.word),'카드 제외 낱말이 카드로 나오지 않는다: '+f+' / '+w.word);}
+ ok(ws.has('restaurant'),'다른 예문에도 있는 낱말 카드는 그대로 있다(restaurant)');}
+/* 🚫 예문 제외 문장(술 예문)은 어느 교재의 예문·장면·영상에도 없다 ↔ 같은 교재(BTS 20)의 다른 예문은 그대로 있다(짝).
+   ⛔ 원본 speech-data-bts.js 는 그대로여야 합니다(발음 코칭 등 다른 화면이 씁니다) — 그것도 함께 봅니다. */
+{const noEx=plan('no-example-sentences.json'),norm=t=>String(t||'').trim();
+ ok(noEx.length>=6,'예문 제외 목록을 읽었다(전제)');
+ const idOf=t=>crypto.createHash('sha256').update(t).digest('hex').slice(0,12);
+ const exIds=new Set(noEx.map(idOf)),exText=new Set(noEx.map(norm));
+ for(const f of fs.readdirSync(dir).filter(f=>/^(bts|siu).*\.json$/.test(f))){const b=JSON.parse(fs.readFileSync(new URL(f,dir),'utf8'));
+  for(const t of (b.examples||[]))ok(!exText.has(norm(t)),'예문 제외 문장이 예문으로 나오지 않는다: '+f+' / '+t);
+  for(const [sid,sc] of Object.entries(b.scenes||{}))ok(!exIds.has(sid)&&!exText.has(norm(sc&&sc.text)),'예문 제외 문장이 장면으로 나오지 않는다: '+f+' / '+sid);
+  for(const c of (b.clips||[]))ok(!exIds.has(c.scene),'예문 제외 문장이 영상으로 나오지 않는다: '+f+' / '+c.scene);}
+ const b20=JSON.parse(fs.readFileSync(new URL('bts-20.json',dir),'utf8'));
+ ok((b20.examples||[]).length>=20&&b20.clips.length>0,'BTS 20 의 다른 예문·영상은 그대로 있다('+(b20.examples||[]).length+'·'+b20.clips.length+')');
+ const orig=fs.readFileSync(new URL('js/speech-data-bts.js',root),'utf8');
+ for(const f of fs.readdirSync(dir).filter(f=>/^(bts|siu).*\.json$/.test(f))){const t=fs.readFileSync(new URL(f,dir),'utf8');
+  ok(!/"source":"BTS 20 · #(59|6[0-4])"/.test(t),'술 예문(BTS 20 #59~64)을 출처로 한 장면이 없다: '+f);
+  ok(!t.includes('"w19249"'),'와인 진열대 사진(19249)이 어느 교재에도 없다: '+f);}
+ ok(!fs.readFileSync(new URL('data/word-pictures.json',root),'utf8').includes('"w19249"'),'와인 진열대 사진이 낱말 그림표에도 없다');
+ ok(noEx.every(t=>orig.includes(t)),'원본 speech-data-bts.js 에는 그 문장이 그대로 있다(다른 화면용)');}
+/* 🔤 한 글자 «낱말» 이 없다 — 「P.E.」 가 p·e 로 쪼개져 「e」 카드에 체육 사진이 붙던 사고(2026-09-23).
+   짝: 두 글자 낱말(tv)은 그대로 남는다 — 없으면 «짧은 낱말을 통째로 빼기» 도 통과합니다. */
+{let one=[],tv=0;for(const f of fs.readdirSync(dir))if(/^(bts|siu)-.*\.json$/.test(f)){const b=JSON.parse(fs.readFileSync(new URL(f,dir),"utf8"));for(const w of b.words){if(w.word.length<2)one.push(f+':'+w.word);if(w.word==='tv')tv++;}}
+ ok(one.length===0,'한 글자 낱말이 없다 ('+one.slice(0,5).join(', ')+')');
+ ok(tv>0,'두 글자 낱말(tv)은 그대로 남는다 ('+tv+')');
+ ok(JSON.stringify(EV.vocabWords('We play games in P.E. class.',new Set(['we','in'])))===JSON.stringify(['play','games','class']),'「P.E.」 는 낱말로 세지 않는다');
+ ok(!EV.vocabWords('K-pop and X-rays',new Set(['and'])).some(w=>w.length<2),'한 글자 조각(K-pop 의 k)은 낱말로 세지 않는다');}
+/* 🔠 고유명사는 예문 모양대로(「English」) — 2026-09-23 사장님 캡처에 「english」. 함수를 소스에서 오려 내 실제로 돌립니다.
+   짝: 문장 첫머리 대문자(「School ends…」)는 소문자 그대로 — 없으면 «전부 대문자로» 도 통과합니다. */
+{const src=fs.readFileSync(new URL('../cloudflare-deploy/public/js/scene-curriculum.js',import.meta.url),'utf8');
+ const i=src.indexOf('function shownWord');ok(i>0,'shownWord 가 있다');let d=0,j=src.indexOf('{',i);for(;j<src.length;j++){if(src[j]==='{')d++;if(src[j]==='}'&&--d===0)break;}
+ let EX='';let f=null;try{f=new Function('example','return '+src.slice(i,j+1))(()=>EX);}catch(e){}
+ const run=(w,e)=>{EX=e;try{return f({word:w});}catch(e){return 'ERR';}};
+ ok(!!f&&run('english','We have English class tomorrow.')==='English','문장 한가운데 대문자 낱말은 그 모양으로 보인다');
+ ok(!!f&&run('school','School ends at three thirty.')==='school','문장 첫머리 대문자는 근거가 아니다');
+ ok(!!f&&run('class','We have English class tomorrow.')==='class','보통 낱말은 그대로');
+ ok(/set\('target'[^;]*shownWord\(item\)/.test(src),'카드 제목이 shownWord 를 쓴다');}
+/* 🧱 2026-09-22 — 여기 있던 「게이트를 끄면 «더 많은 낱말»이 붙는다」 단정을 버립니다.
+   사진이 낱말을 거의 다 덮어(4,546 중 4,543) «낱말 수» 로는 차이가 0 입니다 — 포화되어
+   그 검사가 뜻을 잃었습니다(실측 4527 → 4527). ⛔ 느슬하게 푸는 것이 아니라, 그 검사가
+   지키려던 것(«기능어를 근거에서 빼는 게이트가 살아 있는가»)을 **사진 수**로 직접 재서 새 경계로 옮깁니다.
+   반례는 손으로 적지 않고 **자동 생성**합니다 — variants() 가 기능어를 만드는 교재 낱말
+   (thing→the · ones→on · toes→to · used→us). 2026-09-21 사고가 바로 그것이었습니다. */
+{const loose=EV.pictureEvidence({assets:assetPlan.concat(wordAssets),clips:clipPlan,
+  sceneText:new Map(scenePlan.map(r=>[r.id,r.text])),stopWords:new Set()});
+ const trap=[...vocabAll].filter(w=>!stopWords.has(w)&&[...EV.variants(w)].some(v=>stopWords.has(v)));
+ ok(trap.length>0,'전제: variants 가 기능어를 만드는 교재 낱말이 있다 ('+trap.length+'개)');
+ let strictN=0,looseN=0,fnHit=0;
+ for(const w of trap)for(const it of wordImagePlan){if(!wordFile.has(it.index))continue;
+  if(depicts(w,'word-image:'+it.index))strictN++;
+  if(loose.depicts(w,'word-image:'+it.index))looseN++;}
+ ok(looseN>strictN,'기능어를 빼는 게이트가 실제로 거르고 있다 — 끄면 그 낱말들이 훨씬 많은 사진에 붙는다 ('+strictN+' → '+looseN+')');
+ /* ⛔ 「기능어 자신은 절대 안 잡힌다」로 물지 마세요 — 사실이 아니고 결함도 아닙니다.
+    variants() 가 만드는 다른 형태(use→used·using 류)는 기능어가 아니라 설명에 있을 수 있고,
+    그러면 그 사진이 정말 그것을 보여 줍니다(실측 27개). 게이트는 위 짝(strict→loose)이 재고 있습니다. */
+ void fnHit;}
+/* 🎨 2026-09-21 사장님 지시(모든 낱말에 그림) — 여기 있던 「맞는 그림이 없으면 붙이지 않는다 ·
+   전부 붙었다면 게이트가 죽은 것」 단정을 버립니다. 그 검사가 지키던 것은 «근거 없는 사진을 붙이지 않는다»
+   였는데, 지금은 그 자리를 «우리가 그린 낱말 그림카드» 가 채웁니다(남의 문장 사진을 빌려 오지 않습니다).
+   ⛔ 느슨하게 풀지 말고 새 경계로 옮겨 적습니다 —
+      ① 사진을 «낱말 그림» 이라고 부르는 줄은 여전히 근거가 있어야 하고 소수여야 한다
+      ② 사진이 없는 줄은 카드로 채워진다(빈 상자 0줄)
+      ③ 카드는 사진인 척하지 않는다(그 줄에는 image 가 없다) */
+const seen=new Set(),pictures=new Set(),claimed={word:0,card:0};let cardExact=0;let wordPhotoRows=0;let ownFirstRows=0;
+/* 🖼 「그 교재 안에 그림 있는 예문이 있으면 그것을 예문으로 고른다」를 여기서 다시 계산해 맞춰 본다.
+   ⛔ 「그림만 빌려 오기」와 다릅니다 — 예문 자체를 바꿔 그림과 예문이 언제나 짝입니다. */
+const imagedText=new Set();for(const [sid,text] of sceneOwnText)if(sceneHasImage.get(sid))imagedText.add(text);
+for(const entry of live.books){
+ const bytes=fs.readFileSync(new URL(entry.id+'.json',dir));ok(bytes.length<350000,entry.id+' payload');ok(zlib.gzipSync(bytes).length<80000,entry.id+' gzip budget');const b=JSON.parse(bytes);eq(b.id,entry.id);eq(b.words.length,entry.words);ok(b.clips.length>0,entry.id+' has a sentence clip');
+ const sentences=sourceBooks.get(b.id),owned=new Set(sentences);
+ /* 📖 2026-09-22 — 교재 예문을 «한 번만» 싣는가. 줄마다 복사하면 숙어가 긴 교재가 payload 상한을 넘습니다
+    (실측 siu-advance-20 이 422,077B → 이 수리로 227,183B). 그 되돌림을 여기서 막습니다.
+    ⛔ 「examples 가 있는가」로만 묻지 마세요 — 그것만으로는 «있으면서 줄에도 복사하는» 판이 통과합니다. */
+ {const ex=b.examples;
+  if(ex!==undefined){
+   ok(Array.isArray(ex),entry.id+' examples 는 배열이다');
+   eq(new Set(ex).size,ex.length,entry.id+' 같은 예문을 두 번 싣지 않는다');
+   ok(ex.every(t=>typeof t==='string'&&t.trim()),entry.id+' 빈 예문이 없다');
+   for(const w of b.words)if(typeof w.ex==='number')ok(w.ex>=0&&w.ex<ex.length,entry.id+' ex 번호가 실재한다: '+w.word);
+   /* 아무도 안 가리키는 예문을 싣지 않는다(용량 낭비 + 죽은 칸). */
+   const used=new Set(b.words.map(w=>w.ex).filter(i=>typeof i==='number'));
+   eq(used.size,ex.length,entry.id+' 아무도 안 가리키는 예문이 없다');}
+  /* 🔴 짝 — 그 교재의 예문이 줄마다 인라인으로 다시 실리지 않는다(빌드 산출물 기준). */
+  eq(b.words.filter(w=>w.bookExample!==undefined).length,0,entry.id+' 낱말 줄에 예문을 인라인으로 복사하지 않는다');
+  /* 🔴 짝 — 그래도 모든 줄은 예문을 «가지고» 있다(전부 지워서 통과하는 것을 막는다). */
+  for(const w of b.words)ok(typeof w.ex==='number'||(b.scenes[w.scene]||{}).text,entry.id+' 예문이 어디엔가 있다: '+w.word);}
+ const sentenceOf=new Map();for(const t of sentences)if(!noExampleText.has(t))for(const cw of contentWords(t)){if(!sentenceOf.has(cw))sentenceOf.set(cw,[]);sentenceOf.get(cw).push(t);}
+ for(const w of b.words){
+  seen.add(w.word);const s=b.scenes[w.scene];ok(s,'scene exists');
+  /* 화면이 보여 주는 예문 = examples[ex] ?? bookExample ?? 그림 문장 (화면 example() 과 같은 순서).
+     ⚠️ ex 는 0 일 수 있으니 «있는가» 를 typeof 로 본다. */
+  const shown=(Array.isArray(b.examples)&&typeof w.ex==='number'&&b.examples[w.ex])||w.bookExample||s.text;
+  eq(sentences[w.sourceIndex-1],shown,'example matches the existing course source');
+  ok((shown.toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[]).includes(w.word),'word belongs to the shown example');
+  /* ⛔ 남의 교재 문장은 payload 에 실리지 않는다 — BTS 1 학생에게 SIU ADVANCE 문장이 가던 길. */
+  if(s.text)ok(owned.has(s.text),'a shipped sentence belongs to this book');
+  if(w.pic){
+   claimed.word++;pictures.add(w.word);
+   ok(s.image,'a word picture has a picture');
+   ok(depicts(w.word,mediaKey.get(w.scene)),'「낱말 그림」이라고 말하려면 그 그림의 설명이 그 낱말을 가리켜야 한다: '+w.word);
+  }else{claimed.card++;
+   /* 🔴 2026-09-21 «2차» — 근거가 없는 줄에는 payload 에 사진 «주소 자체가» 없어야 합니다.
+      옛 빌드는 그 예문의 사진을 실어 두고 화면이 「낱말 뜻 그림은 아니에요」라고 말하게 했는데,
+      아이는 그 글자보다 사진을 먼저 봅니다(사장님: 「전혀 상관관계가 없는데 … 이렇게 되면 문제야」).
+      ⛔ 이 줄을 지우고 「화면에서 안 그리면 된다」로 풀지 마세요 — 주소가 남아 있으면 다음 사람이
+         「있으니 쓰자」로 되살립니다. 안 실으면 샐 자리가 없습니다. */
+   ok(!s.image,'근거 없는 낱말 줄에는 사진 주소가 payload 에 실리지 않는다: '+w.word);
+   /* 🎨 사진이 없는 줄 — 화면이 그리는 낱말 그림카드가 붙는다. 여기서는 «사진인 척하지 않는가» 와
+      «카드에 그릴 그림문자가 실제로 나오는가» 를 본다(그림문자 정본은 화면 파일 한 곳). */
+   ok(s.text===shown,'그림카드 줄에서도 예문은 그 교재의 예문이다: '+w.word);
+   const art=D.pictogram(w.word);
+   ok(art&&art.icon&&art.icon.length>0,'그림카드에 그릴 그림문자가 반드시 나온다: '+w.word);
+   /* 🎨 남은 카드 줄은 «사진을 안 만든 낱말»(고유명사)이거나 «껍데기 낱말» 뿐이다.
+      ⛔ 사진이 있는데 카드로 남겨 두면 여기서 빨간불이 난다. */
+   ok(!wordSceneOf.has(w.word),'사진이 있는 낱말을 카드로 남겨 두지 않는다: '+w.word);
+   if(art.exact)cardExact++;}
+  /* 🔁 빌드의 선택을 다시 계산해 맞춘다 — pic 은 «근거 있는 후보가 있었는가» 와 정확히 같아야 한다. */
+  /* 🖼 빌드 규칙을 그대로 다시 씁니다 — ① 문장 그림에 근거가 있으면 그것 ② 없으면 그 낱말만 그린 사진.
+     🔴 2026-09-21 2차 — ②에 걸려 있던 «예문에 그림이 없을 때만» 조건을 뺐습니다. 그 조건 때문에
+        근거 있는 낱말 사진이 근거 «없는» 예문 사진에 지고 있었습니다(실측 12,246줄).
+     ⛔ 그 조건을 되살리지 마세요 — 근거 있는 사진이 근거 없는 사진에 지는 순서가 됩니다. */
+  /* 🖼 2026-09-23 사장님 「단어들과 실사 이미지가 매칭이 안 되는 것들 모아서 다시 고쳐줘」 —
+     «그 낱말을 그리려고 만든 전용 사진»(ownPass)이 있으면 그것이 문장 장면 사진보다 먼저입니다
+     (morning ← 헬스장 장면이던 것). 빌드와 같은 순서로 다시 계산합니다.
+     ⛔ 문장 장면을 앞에 두는 옛 순서로 되돌리지 마세요 — 아래 「전용 사진을 골랐다」가 빨간불이 됩니다. */
+  const ownFirst=ownPass.has(w.word)&&wordSceneOf.has(w.word);
+  const byWordPhoto=ownFirst||(!depictPool.has(w.word)&&wordSceneOf.has(w.word));
+  if(ownFirst){ownFirstRows++;eq(w.scene,wordSceneOf.get(w.word),'전용 사진이 있으면 그 사진을 먼저 고른다: '+w.word);}
+  eq(!!w.pic,depictPool.has(w.word)||byWordPhoto,'낱말 그림 여부가 근거 재계산과 같아야 한다: '+w.word);
+  if(w.pic&&depictPool.has(w.word)&&!ownFirst)ok(depictPool.get(w.word).includes(w.scene),'고른 그림이 근거 있는 후보 가운데 하나다: '+w.word);
+  if(byWordPhoto){wordPhotoRows++;
+   eq(w.scene,wordSceneOf.get(w.word),'그 낱말의 사진을 골랐다: '+w.word);
+   ok(!s.text,'낱말 사진에는 문장이 실리지 않는다(남의 교재 문장이 새는 길): '+w.word);
+   ok(s.image==='/img/scene-words/'+String(w.scene).slice(1)+'.webp','낱말 사진은 우리 저장소 주소다: '+s.image);
+   eq(s.imageBytes,wordSceneBytes.get(w.scene),'낱말 사진 크기가 실제 파일과 같다: '+w.word);}
+  else ok(!String(w.scene).startsWith('w'),'낱말 사진은 «그림이 없던 자리» 에만 붙는다: '+b.id+' / '+w.word);
+  if(s.image){ok(s.imageBytes<=80000,'picture budget');ok(/^(https:\/\/|\/img\/)/.test(s.image),'picture is https or our own asset path: '+s.image);}
+  /* 🎨 빈 상자가 없다 — 사진(낱말·상황)이거나 우리가 그린 카드이거나 둘 중 하나다. */
+  ok(!!s.image||!!D.pictogram(w.word).icon,'모든 낱말 줄에 그림이 붙는다: '+b.id+' / '+w.word);
+  const spots=sentenceOf.get(w.word)||[];
+  if(spots.some(t=>imagedText.has(t)))ok(imagedText.has(shown),'그 교재에 그림 있는 예문이 있으면 그것을 고른다: '+b.id+' / '+w.word);
+ }
+ for(const c of b.clips){const s=b.scenes[c.scene];eq(sentences[c.sourceIndex-1],s.text,'clip matches the selected book');ok(s.video&&s.image);ok(s.videoBytes<=900000,'clip budget');ok(s.duration>0&&s.duration<=6.2,'short clip');}
+ eq(b.words.filter(w=>w.pic).length,entry.wordPictures,entry.id+' word-picture count');
+}
+eq(seen.size,live.wordForms);
+eq(claimed.word,live.wordPictureRows,'manifest 의 낱말 그림 줄 수가 실제와 같다');
+eq(claimed.card,live.cardRows,'manifest 의 그림카드 줄 수가 실제와 같다');
+/* 🔁 2026-09-24 — 카드 줄이 0 이 되어(사장님 「그림카드를 실사로 반드시」) «카드 갈래가 살아 있는가» 를
+   payload 로는 잴 수 없습니다. 그 갈래는 이제 «사진이 사라졌을 때의 안전망» 이고, 화면 쪽 그리기는
+   scene_curriculum_ui_harness(그림카드 검사)가 가짜 줄로 봅니다. 카드 줄 수 대조는 바로 위 eq 가 합니다. */
+eq(cardExact,live.cardPictogramRows,'manifest 의 «뜻에 맞는 그림문자» 줄 수가 실제와 같다');
+/* ⛔ 목표치가 아니라 «바닥» 입니다 — 표를 비우거나 stem 을 죽이면 여기서 먼저 빨간불이 납니다.
+   숫자를 올리려고 갈래 그림문자를 exact 로 바꾸지 마세요(그게 「갈래를 뜻으로 읽게 두는」 함정입니다). */
+/* 🎨 2026-09-21 — 카드 줄이 5,171 → 14 로 줄어 «카드 줄의 절반» 은 표본이 너무 작아졌습니다
+   (남은 14줄은 고유명사 7 + 껍데기 낱말 7 이라 비율이 곧 반반입니다).
+   ⛔ 느슨하게 풀지 말고 그 검사가 «정말 지키던 것»(그림문자 표가 살아 있는가)으로 옮겨 적습니다 —
+      표를 비우거나 stem 을 죽이면 4,546 낱말 전체에서 먼저 빨간불이 납니다. */
+{const exactForms=[...seen].filter(w=>D.pictogram(w).exact).length;
+ ok(exactForms>seen.size*0.4,'그림문자 표가 낱말 형태의 40% 넘게를 뜻으로 맞힌다 ('+exactForms+'/'+seen.size+')');}
+ok(wordPhotoRows>1000,'낱말 사진이 실제로 붙은 줄이 많다 — 0에 가까우면 배선이 죽은 것 ('+wordPhotoRows+')');
+ok(ownFirstRows>30000,'전용 사진이 있는 낱말은 그 사진을 먼저 쓴다 — 줄 수가 크게 줄면 순서가 되돌아간 것 ('+ownFirstRows+')');
+/* 🔴 2026-09-21 2차 — 「카드로 남은 줄은 아주 적다」는 «예문 사진으로 빈자리를 메우던» 시절의 경계입니다.
+   그 사진을 걷어내면 카드가 절반이 되므로 그 단정은 더는 참이 아닙니다.
+   ⛔ 느슨하게 풀지 말고 그 검사가 «정말 지키던 것»(낱말 사진 배선이 살아 있는가)으로 옮겨 적습니다 —
+      순서를 옛날로 되돌리면 근거 있는 줄이 7,210(18%)으로 떨어져 여기서 먼저 빨간불이 납니다. */
+ok(claimed.word>(claimed.word+claimed.card)*0.4,
+ '근거 있는 낱말 사진이 낱말 줄의 40% 넘게 붙는다 — 아래로 떨어지면 선택 순서가 되돌아간 것 ('+claimed.word+'/'+(claimed.word+claimed.card)+')');
+/* ⚠️ 짝 — 위만 두면 «전부 사진» 으로 만드는 엉터리 수리(근거 게이트 무력화)도 통과합니다. */
+/* 🔁 2026-09-24 — «근거 없는 낱말이 남아 있다» 는 이제 참이 아닙니다(전 낱말에 전용·근거 사진). 게이트 생존은
+   바로 아래 루프의 «붙은 줄마다 depicts 가 참» 과 «게이트를 끄면 더 붙는다»(loose) 가 봅니다. */
+ok(claimed.word+claimed.card===live.wordRows,'낱말 줄 = 사진 줄 + 카드 줄');
+eq(pictures.size,live.wordPictureForms,'사진이 붙은 낱말 형태 수');
+eq(seen.size-pictures.size,live.cardOnlyForms,'나머지 낱말 형태는 모두 그림카드를 받는다');
+/* 🔤 그림문자는 단일 코드포인트만 — Unicode 13 이상은 Win10 에서 두부(□)가 되고 ZWJ 조합은 쪼개집니다.
+   ⚠️ U+1FA70 위쪽은 대부분 Unicode 13+ 라 통째로 막고, 12.0 인 🩺(1FA7A)·🪁(1FA81) 둘만 엽니다. */
+const icons=[...new Set(Object.values(D.PICTO))];
+ok(icons.length>60,'그림문자 표가 비어 있지 않다 ('+icons.length+')');
+for(const icon of icons){
+ const points=[...icon];
+ ok(points.length<=2&&(points.length===1||points[1]==='\uFE0F'),'그림문자는 단일 코드포인트다: '+JSON.stringify(icon));
+ ok(!icon.includes('\u200d'),'ZWJ 조합 그림문자를 쓰지 않는다: '+JSON.stringify(icon));
+ const cp=points[0].codePointAt(0);
+ ok(cp<0x1FA70||cp===0x1FA7A||cp===0x1FA81,'Unicode 13 이상 이모지를 쓰지 않는다: '+JSON.stringify(icon)+' U+'+cp.toString(16));
+}
+ok(D.pictogram('rice').exact&&D.pictogram('books').exact&&D.pictogram('grandmother').exact,'변형형도 기본형으로 되돌려 찾는다');
+/* 🎨 2026-09-21 2차 — 새로 더한 그림문자 표가 «실제로 실렸는가». 표만 만들어 두고 loader 목록에서
+   빠뜨리면 그 낱말들이 조용히 «갈래만» 으로 떨어집니다(변이시험에서 실제로 안 잡히던 구멍).
+   ⛔ 낱말을 여기 베껴 적지 마세요 — 소스에서 읽습니다(표가 늘면 저절로 함께 검사됩니다). */
+{const src=fs.readFileSync(new URL('../cloudflare-deploy/public/js/scene-curriculum.js',import.meta.url),'utf8');
+ const at=src.indexOf('var PICTO_EXTRA={');ok(at>0,'새 그림문자 표를 소스에서 찾았다 — 못 찾으면 아래 검사가 뜻을 잃는다');
+ const body=src.slice(at,src.indexOf('\n  };',at));
+ const words=[...body.matchAll(/'([a-z][a-z' ]*)'/g)].flatMap(m=>m[1].split(' ')).filter(Boolean);
+ ok(words.length>100,'그 표에서 낱말을 실제로 읽어 왔다 ('+words.length+') — 0이면 검사가 조용히 공회전한다');
+ const missed=words.filter(w=>!D.pictogram(w).exact);
+ eq(missed.length,0,'새로 더한 그림문자가 실제로 실린다: '+missed.slice(0,8).join(' '));}
+ok(!D.pictogram('zzqwx').exact&&D.pictogram('zzqwx').icon,'모르는 낱말도 카드는 나온다 — 다만 «뜻에 맞는 그림» 이라고 말하지 않는다');
+console.log('PASS scene curriculum: '+checks+' assertions (그림 근거 게이트, 예문 출처, payload budgets, grading, request races, cancellation, media fallback; 브라우저·레이아웃 검사는 없음)');

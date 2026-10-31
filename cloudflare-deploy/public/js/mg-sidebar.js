@@ -15,8 +15,12 @@
 
   // 메뉴 코드 → 이동 URL (index.html URLS 맵과 일치)
   var URLS = {
-    'about':'/', 'all-menu':'/', 'home':'/',
-    'leveltest':'/?menu=leveltest',   // 2026-08-07: 신청서 통일 — 옛 /level-test.html 폐지, 홈 모달로
+    'about':'/', 'home':'/',
+    /* 🏠 «전체메뉴»는 홈에서만 도는 함수(openAllMenuOverlay)라 줄 주소가 없어 오래도록
+       '/' 였다 — 눌러도 «홈으로 가기만 하고» 오버레이는 아무도 안 열었다(2026-09-14 수리).
+       ⛔ '/' 로 되돌리지 말 것. 받는 쪽은 js/idx-allmenu.js 의 ?menu=all-menu 절(짝). */
+    'all-menu':'/?menu=all-menu',
+    'leveltest':'/level-start.html',   // 2026-09-22: 아이용 입구(카드 3장). 그 안 «선생님+로봇» 카드가 /?menu=leveltest 홈 신청 모달로 이어짐
 
     'admin':'/admin.html',
     'mypage':'/parent.html',
@@ -26,13 +30,28 @@
     'speech':'/speech-coach.html',
     'lesson-change':'/lesson-postpone-demo.html',
     'refund':'/refund.html',
-    'inquiry':'/contact.html',
+    'inquiry':'https://pf.kakao.com/_xlqnSxd',            // 2026-08-14 피드백 ⑤: 문의/신규상담 페이지 폐지 → 카카오 채널
     'precheck':'/precheck.html',
     'booking':'/lesson-booking-demo.html',
     'faq':'/faq.html',
     'warmup':'/warmup.html',
     'student-game':'/student-games.html',
-    'review-quiz':'/review-quiz.html'
+    'review-quiz':'/review-quiz.html',
+    'review-quiz-cn':'/review-quiz-cn.html',  // 🇨🇳 중국어 복습퀴즈 (2026-08-17 연결)
+
+    /* 🤖 2026-09-12 — AI 학습 도구 7개를 홈 드로어에서 옮겨 왔다.
+       그동안 이 목록에 없어서, 홈 밖 25개 화면에서는 사이드바를 열어도 이 도구들로
+       갈 길이 아예 없었다(AI 글쓰기 화면에서 «AI 글쓰기»조차 안 보였다).
+       ⚠️ 주소는 지어내지 말고 index.html 의 #mg-drawer 에서 그대로 가져올 것. */
+    'today':'/today.html',
+    'ai-class':'/ai-class.html',   // 🎓 2026-10-08 사장님 「메뉴에도 연결해줘」 — 홈 드로어와 같은 자리(오늘의 A.i 학습 바로 아래)
+    'stories':'/stories.html',   // 📚 2026-10-13 영어 독서(A.i 동화책 4권 목록) — 홈 드로어와 같은 자리(A.i 선생님 수업 바로 아래)
+    'ai-dubbing':'/ai-dubbing.html',   // 🎬 2026-10-20 A.i영화더빙 — 홈 드로어와 같은 자리(영어 독서 바로 아래)
+    'judgment':'/judgment.html',
+    'ai-friend':'/ai-friend.html',
+    'ai-write':'/ai-write.html',
+    'micro-quiz':'/micro-quiz.html',
+    'vocab':'/vocab.html'
   };
 
   // 🗂 [2026-07-27] 대분류 묶음 (직원 피드백 #5)
@@ -45,7 +64,9 @@
   var GROUPS = [
     { ko:'우리 아이 학습', en:'My Child',      go:['mypage','report','lesson-change'] },
     { ko:'수업',          en:'Classes',        go:['booking','precheck','warmup','leveltest'] },
-    { ko:'학습 도구',     en:'Learning Tools', go:['student-game','review-quiz','speech','points-shop'] },
+    /* 2026-09-12 — 홈 드로어의 «AI 학습 도구» 차례를 그대로 따른다.
+       ⛔ 웜업(warmup)은 옮기지 않았다 — 아래 «수업» 그룹에 그대로 둔다(배치 변경 최소화). */
+    { ko:'학습 도구',     en:'Learning Tools', go:['today','ai-class','stories','ai-dubbing','judgment','speech','ai-friend','ai-write','review-quiz','review-quiz-cn','micro-quiz','vocab','student-game','points-shop'] },
     { ko:'결제 · 문의',   en:'Billing & Help', go:['payment','refund','inquiry','faq'] }
   ];
   // 그룹에 넣지 않고 맨 위/맨 아래에 그대로 두는 것 (성격이 달라 분류가 어색한 항목)
@@ -61,26 +82,48 @@
     { go:'payment',     cls:'mg-hl mg-s2', ko:'💳 결제하기',         en:'💳 Payment' },
     { go:'report',      cls:'mg-s1',       ko:'📋 평가표(성적표)',    en:'📋 Report Card' },
     { go:'points-shop', cls:'',            ko:'🎁 포인트상점',       en:'🎁 Point Shop' },
-    { go:'speech',      cls:'',            ko:'🎤 단계별 발음',       en:'🎤 Curriculum Pronunciation' },
+    { go:'speech',      cls:'',            ko:'🎤 AI 음성코치',       en:'🎤 AI Voice Coach' },
     { go:'lesson-change',cls:'',           ko:'📅 연기/변경',        en:'📅 Postpone/Change' },
     { go:'refund',      cls:'',            ko:'💰 환불규정',         en:'💰 Refund Policy' },
-    { go:'inquiry',     cls:'mg-hl mg-s2', ko:'💬 신규상담',         en:'💬 New Inquiry' },
+    { go:'inquiry',     cls:'mg-hl mg-s2', ko:'💬 카카오 상담',      en:'💬 KakaoTalk Chat' },  // 2026-09-12 홈과 이름 통일(가는 곳은 그대로 카카오 채널)
     { go:'precheck',    cls:'mg-s1',       ko:'🎥 수업 진단',        en:'🎥 PreCheck' },
     { go:'booking',     cls:'mg-s2',       ko:'📝 수업 신청',        en:'📝 Book Class' },
     { go:'faq',         cls:'mg-hl mg-s2', ko:'❓ 자주 묻는 질문',    en:'❓ FAQ' },
-    { go:'warmup',      cls:'mg-hl mg-s3', ko:'🗣️ 수업 전 AI 웜업',   en:'🗣️ Pre-class AI Warm-up' },
+    { go:'warmup',      cls:'mg-hl mg-s3', ko:'🗣️ A.i 말하기 연습',   en:'🗣️ A.i Speaking Practice' },
     { go:'student-game',cls:'mg-hl mg-s2', ko:'🎮 학생게임',         en:'🎮 Student Game' },
-    { go:'review-quiz', cls:'',            ko:'🧠 복습퀴즈',         en:'🧠 Review Quiz' },
+    { go:'review-quiz', cls:'',            ko:'🧠 BTS/SIU 퀴즈',      en:'🧠 BTS/SIU Quiz' },
+    /* 🤖 2026-09-12 추가 — 라벨·별점(cls)은 홈 드로어(index.html #mg-drawer)와 «같은 값»이어야 한다.
+       한쪽만 고치면 화면마다 다른 이름이 뜬다. */
+    { go:'today',       cls:'mg-hl mg-s3', ko:'📅 오늘의 A.i 학습',   en:'📅 Today\'s AI Plan' },
+    { go:'ai-class',    cls:'mg-hl mg-s3', ko:'🎓 A.i 선생님 수업',   en:'🎓 A.i Teacher Class' },
+    { go:'stories',     cls:'mg-hl mg-s3', ko:'📚 영어 독서',        en:'📚 English Reading' },
+    { go:'ai-dubbing',  cls:'mg-hl mg-s3', ko:'🎬 A.i영화더빙',      en:'🎬 A.i Movie Dubbing' },
+    { go:'judgment',    cls:'mg-hl mg-s2', ko:'🧠 판단력 훈련',       en:'🧠 Decision Training' },
+    { go:'ai-friend',   cls:'',            ko:'🤖 AI 친구 대화',      en:'🤖 AI Friend Chat' },
+    { go:'ai-write',    cls:'',            ko:'✍️ AI 글쓰기',         en:'✍️ AI Writing' },
+    { go:'micro-quiz',  cls:'',            ko:'⚡ AI 단어 퀴즈',      en:'⚡ AI Vocab Quiz' },
+    { go:'review-quiz-cn', cls:'',         ko:'🇨🇳 중국어퀴즈',   en:'🇨🇳 Chinese Quiz' },
+    { go:'vocab',       cls:'',            ko:'📖 단어장',            en:'📖 Vocabulary' },
     { go:'all-menu',    cls:'mg-s3',       ko:'🏠 전체메뉴',         en:'🏠 All Menu' }
   ];
 
   // ---- CSS (index.html 인라인과 동일 + hover 확대 효과) ----
+  /* 🔑 배경은 «94~97% 그라디언트» — 투명 22% 로 되돌리지 말 것 (2026-08-22).
+     backdrop-filter 가 안 되는 브라우저(카톡 인앱·구형 WebView·저전력)에서는 흐림이 통째로
+     무시돼 얇은 색 한 겹만 남고 뒤 화면이 다 비친다. 어둡게 하는 힘은 배경에 직접 굽는다.
+     ⚠️ index.html 인라인 드로어에 같은 줄이 한 벌 더 있다 — 둘 다 고쳐야 한다. */
   var css = ''
-    + '#mg-drawer{position:fixed;top:0;left:0;height:100%;width:250px;max-width:80vw;background:rgba(11,16,32,0.22);-webkit-backdrop-filter:blur(10px) saturate(130%);backdrop-filter:blur(10px) saturate(130%);box-shadow:6px 0 24px rgba(0,0,0,.3);transform:translateX(-100%);transition:transform .3s ease-in-out;z-index:100000;display:flex;flex-direction:column;font-family:MangoiHanSC,\'Noto Sans KR\',-apple-system,BlinkMacSystemFont,sans-serif;border-right:1px solid rgba(251,191,36,.25)}'
+    + '#mg-drawer{position:fixed;top:0;left:0;height:100%;width:250px;max-width:80vw;background:linear-gradient(180deg,rgba(12,18,38,0.94),rgba(6,10,22,0.97));-webkit-backdrop-filter:blur(14px) saturate(135%);backdrop-filter:blur(14px) saturate(135%);box-shadow:6px 0 24px rgba(0,0,0,.3);transform:translateX(-100%);transition:transform .3s ease-in-out;z-index:100000;display:flex;flex-direction:column;font-family:MangoiHanSC,\'Noto Sans KR\',-apple-system,BlinkMacSystemFont,sans-serif;border-right:1px solid rgba(251,191,36,.25)}'
     + '#mg-drawer.open{transform:translateX(0)}'
     + '#mg-drawer-overlay{position:fixed;inset:0;background:rgba(2,6,18,.55);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);opacity:0;visibility:hidden;transition:opacity .3s;z-index:99999}'
     + '#mg-drawer-overlay.open{opacity:1;visibility:visible}'
-    + '.mg-drawer-head{display:flex;align-items:center;justify-content:space-between;padding:18px 16px 12px;border-bottom:1px solid rgba(255,255,255,.08)}'
+    + '.mg-drawer-head{display:flex;align-items:center;justify-content:flex-start;padding:18px 16px 12px;border-bottom:1px solid rgba(255,255,255,.08)}'
+    /* ⚠️ space-between 을 쓰지 않는다 — 자식이 늘거나 줄 때 라벨이 밀린다(CLAUDE.md 2장 «hover 때 글자가 움직임»).
+       오른쪽 정렬은 margin-left:auto 로 한다. */
+    + '.mg-head-btns{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}'
+    + '.mg-drawer-lang{display:flex;align-items:center;gap:5px;height:34px;padding:0 12px;border-radius:99px;background:rgba(251,191,36,.13);border:1px solid rgba(251,191,36,.45);color:#fbbf24;font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.4px;cursor:pointer;flex-shrink:0;transition:background .2s ease,border-color .2s ease}'
+    + '.mg-drawer-lang:hover{background:rgba(251,191,36,.26);border-color:rgba(251,191,36,.85)}'
+    + '.mg-drawer-lang:active{background:rgba(251,191,36,.34)}'
     + '.mg-drawer-logo{font-size:18px;font-weight:800;color:#fbbf24;letter-spacing:.3px}'
     + '.mg-drawer-x{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#e2e8f0;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .25s ease,background .2s ease,color .2s ease,border-color .2s ease}'
     + '.mg-drawer-x:hover{background:rgba(251,191,36,.18);color:#fbbf24;border-color:rgba(251,191,36,.55);transform:rotate(90deg)}'
@@ -111,6 +154,54 @@
     + '@keyframes mgTabGlow{0%,100%{box-shadow:0 0 12px rgba(251,191,36,.75),0 0 26px rgba(245,158,11,.45);border-color:rgba(251,191,36,.85)}50%{box-shadow:0 0 26px rgba(255,214,90,1),0 0 52px rgba(251,191,36,.9),0 0 72px rgba(251,191,36,.5);border-color:#ffe07a}}'
     + '#mg-drawer-tab{opacity:0;animation:mgTabFadeIn .9s ease-out 1.2s forwards, mgTabGlow 2.8s ease-in-out 2.1s infinite}'
     + '@media (prefers-reduced-motion: reduce){#mg-drawer-tab{animation:none !important;opacity:1 !important;box-shadow:0 0 16px rgba(251,191,36,.85),0 0 30px rgba(251,191,36,.5) !important;border-color:rgba(251,191,36,.95) !important}}';
+
+  /* 🌐 언어 — 이 사이드바는 «스스로» 번역한다 (2026-08-21)
+     ═══════════════════════════════════════════════════════════════════
+     [증상] 마이마이: 「사이드바에 영어 번역을 넣어 줄 수 있나요?」
+     [실측] 번역은 **처음부터 다 있었다** — 아래 ITEMS/GROUPS 의 en: 필드가
+        data-ko/data-en 으로 DOM 에 그대로 박힌다. 그런데 그걸 «적용» 하는 것은
+        공용 i18n 엔진(js/mango-i18n.js)이고, inject() 끝에서 window.applyLang 을
+        부를 뿐이라 **그 엔진이 없는 페이지에서는 아무 일도 안 일어난다.**
+        이 사이드바를 쓰는 25개 화면 중 9개에 엔진이 없고, 하필 마이마이가 온종일 쓰는
+        textbook-viewer.html · textbook-uploader.html 이 둘 다 거기에 있었다.
+     📏 [잰 것 — 2026-09-13] 세는 법: `grep -rl '<script[^>]*src=...mg-sidebar.js' --include=*.html` → 25개, 그중 같은 방식으로 mango-i18n.js 가 «없는» 것 9개.
+        ⛔ 주석에 적힌 파일 이름까지 세지 말 것 — 주석만 있고 <script> 는 없는
+        화면이 실재한다(textbook-viewer.html). 세다가 실제로 한 번 틀렸다.
+     [고침] 엔진에 기대지 않고 드로어 «안» 만 직접 번역한다. 엔진이 있으면 그대로 두고
+        (중복 적용은 무해 — 같은 값을 다시 쓴다) 없으면 이 함수가 대신한다.
+     ⚠️ 언어 판정은 반드시 getLang() 을 거친다(CLAUDE.md 2장 «언어 판정»).
+        인라인 currentLang 을 직접 읽으면 🌐 를 눌러도 안 따라온다.
+     ⚠️ 공통 키는 mangoi_lang 이다. mango_lang 은 구버전 키라 쓰지 않는다. */
+  function mgLang(){
+    try { return window.getLang ? window.getLang() : (localStorage.getItem('mangoi_lang') || 'ko'); }
+    catch(e){ return 'ko'; }
+  }
+  // 공용 엔진과 «같은» 우선순위: 그 언어 → en → ko
+  function mgPick(el, lang, sfx){
+    var v = el.getAttribute('data-' + lang + sfx);
+    if (v !== null) return v;
+    if (lang !== 'en'){ v = el.getAttribute('data-en' + sfx); if (v !== null) return v; }
+    if (lang !== 'ko'){ v = el.getAttribute('data-ko' + sfx); if (v !== null) return v; }
+    return null;
+  }
+  function mgApplyLang(){
+    var root = document.getElementById('mg-drawer');
+    if (!root) return;
+    var lg = mgLang();
+    root.querySelectorAll('[data-ko],[data-en]').forEach(function(el){
+      var t = mgPick(el, lg, ''); if (t !== null) el.textContent = t;
+    });
+    root.querySelectorAll('[data-ko-title],[data-en-title]').forEach(function(el){
+      var t = mgPick(el, lg, '-title'); if (t !== null) el.title = t;
+    });
+    // ⚠️ querySelectorAll 은 root 자신을 포함하지 않는다 — aside 의 aria-label 을 따로 챙긴다
+    [root].concat(Array.prototype.slice.call(root.querySelectorAll('[data-ko-aria],[data-en-aria]')))
+      .forEach(function(el){
+        var a = mgPick(el, lg, '-aria'); if (a !== null) el.setAttribute('aria-label', a);
+      });
+    var cap = root.querySelector('.mg-lang-cap');
+    if (cap) cap.textContent = (lg === 'ko') ? 'EN' : 'KO';   // «다음» 언어를 보여 준다
+  }
 
   // ---- 마크업 ----
   function btnHtml(it){
@@ -166,7 +257,12 @@
     aside.innerHTML = ''
       + '<div class="mg-drawer-head">'
       +   '<span class="mg-drawer-logo" onclick="mgDrawerClose();location.href=\'/\';" style="cursor:pointer" title="홈으로" data-ko-title="홈으로" data-en-title="Home" role="link" tabindex="0" onkeydown="if(event.key===\'Enter\'){mgDrawerClose();location.href=\'/\';}"><img src="/img/mango-ufo.png" alt="" style="height:24px;width:auto;vertical-align:middle;margin-right:5px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))"> Mangoi</span>'
-      +   '<button class="mg-drawer-x" onclick="mgDrawerClose()" aria-label="닫기" data-ko-aria="닫기" data-en-aria="Close">✕</button>'
+      +   '<div class="mg-head-btns">'
+      +     '<button class="mg-drawer-lang" onclick="mgToggleLang()" aria-label="언어 전환" data-ko-aria="언어 전환" data-en-aria="Switch language" title="한국어 / English" data-ko-title="한국어 / English" data-en-title="Korean / English">'
+      +       '<span aria-hidden="true">🌐</span><span class="lang-label-sync mg-lang-cap">EN</span>'
+      +     '</button>'
+      +     '<button class="mg-drawer-x" onclick="mgDrawerClose()" aria-label="닫기" data-ko-aria="닫기" data-en-aria="Close">✕</button>'
+      +   '</div>'
       + '</div>'
       + '<nav class="mg-drawer-nav">' + buildNav() + '</nav>'
       + '<button id="mg-drawer-tab" onclick="mgDrawerToggle()" aria-label="메뉴 열기" data-ko-aria="메뉴 열기" data-en-aria="Open menu" aria-expanded="false" aria-controls="mg-drawer">'
@@ -177,8 +273,10 @@
     document.body.appendChild(overlay);
     document.body.appendChild(aside);
 
-    // 언어 재적용(mango-i18n.js 로드돼 있으면)
+    // 언어 재적용(mango-i18n.js 로드돼 있으면 화면 전체를)
     try { if (window.applyLang) window.applyLang(); else if (window.mangoApplyI18n) window.mangoApplyI18n(); } catch(e){}
+    // …그리고 엔진이 있든 없든 드로어 안은 «항상» 우리가 맞춘다(위 머리말 참고)
+    try { mgApplyLang(); } catch(e){}
 
     // "열림" 탭 fade-in 은 세션당 1회만
     try {
@@ -221,6 +319,34 @@
     var d=document.getElementById('mg-drawer'), o=document.getElementById('mg-drawer-overlay');
     if(d)d.classList.remove('open'); if(o)o.classList.remove('open'); mgSetLabel(false);
   };
+  /* 🌐 언어 전환 — 엔진이 있으면 그쪽에 맡기고, 없으면 사이드바가 스스로 한다.
+     ⛔ 엔진이 있는 페이지에서 우리가 직접 localStorage 를 건드리면 화면 본문과 사이드바의
+        언어가 갈린다(엔진의 currentLang 은 그대로이므로). 반드시 위임이 먼저다. */
+  window.mgToggleLang = function(){
+    var delegated = false;
+    try {
+      if (typeof window.toggleLang === 'function'){ window.toggleLang(); delegated = true; }
+    } catch(e){ delegated = false; }
+
+    if (!delegated){
+      // 공용 엔진이 없는 화면(교재 뷰어·업로더 등) — 여기서만 우리가 직접 바꾼다
+      var next = (mgLang() === 'ko') ? 'en' : 'ko';
+      try { localStorage.setItem('mangoi_lang', next); } catch(e){}
+      try { document.documentElement.lang = next; } catch(e){}
+      try { window.dispatchEvent(new CustomEvent('mangoi:lang-changed', { detail:{ lang: next } })); } catch(e){}
+    }
+
+    try { mgApplyLang(); } catch(e){}
+    var d = document.getElementById('mg-drawer');
+    try { mgSetLabel(!!(d && d.classList.contains('open'))); } catch(e){}
+  };
+
+  /* 화면 어딘가의 🌐 로 언어가 바뀌면 사이드바도 따라간다.
+     (엔진이 setLang 끝에서 이 이벤트를 쏜다 — CLAUDE.md 2장 «JS 로 그린 라벨») */
+  window.addEventListener('mangoi:lang-changed', function(){
+    try { mgApplyLang(); } catch(e){}
+  });
+
   // 다른 페이지에서는 해당 기능 URL 로 이동
   window.mgGo = function(go){
     var url = URLS[go] || '/';

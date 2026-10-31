@@ -4,10 +4,15 @@
 //   포함: Phase HW(숙제) + E1~E4(평가서) + BE(일괄평가) + CAL(캘린더·공휴일, 13차)
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
+import { ensureEvaluationScoreSchema, readAdminEvaluationScores, validEvaluationScores } from './evaluation-scores';
+import { projectAdminEvaluationRecords } from './evaluation-records';
+import { normalizeEvalAttendance, normalizeStudentLevel } from './eval-attendance';   // 🗓 일지의 출결·레벨 칸
+import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 import { authUidFromRequest as authUidGlobal } from './auth-token';
-import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
+import { checkAdminSession, resolveOwnerScope, getAdminActor, isOrgScopedRole } from './auth-admin';  // 🔐 공용 소유자 판정
 import { sendPushToUser } from './api-notify';
 import type { MangoEnv } from './api-mango';
+import { isPrivateDubbingKey } from './api-dubbing';
 
 export async function handleLessonsApi(
   request: Request,
@@ -22,8 +27,9 @@ export async function handleLessonsApi(
     //   대상 지정: 전체(all) / 특정 학원(academy) / 특정 학생들(students)
     //   학원 선택 후 그 학원 소속 학생을 다중 선택해 출제할 수 있음.
     // ═══════════════════════════════════════════════════════════════
+    // ⚠️ (2026-10-28) prepare().run() — D1 exec() 는 줄마다 따로 실행해 여러 줄 CREATE 가 죽는다(이 표가 운영에 없던 이유).
     const ensureHomeworkTables = async () => {
-      await env.DB.exec(`CREATE TABLE IF NOT EXISTS homework (
+      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS homework (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
         description TEXT,
@@ -38,8 +44,8 @@ export async function handleLessonsApi(
         active INTEGER DEFAULT 1,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
-      );`);
-      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_homework_created ON homework(created_at DESC);`); } catch {}
+      )`).run();
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_homework_created ON homework(created_at DESC);`); } catch (e) { console.warn('[homework] index', (e as any)?.message); }
     };
 
     // ── POST /api/admin/homework/save — 관리자: 숙제 출제(생성/수정) ──
@@ -117,6 +123,7 @@ export async function handleLessonsApi(
         const info: any = await env.DB.prepare(`PRAGMA table_info(student_evaluations)`).all();
         const have = new Set(((info && info.results) || []).map((r: any) => String(r.name)));
         const want: Array<[string, string]> = [
+          ['user_id','TEXT'],['eval_at','INTEGER'],
           ['student_uid','TEXT'],['student_name','TEXT'],['teacher_uid','TEXT'],['teacher_name','TEXT'],
           ['room_id','TEXT'],['lesson_title','TEXT'],['lesson_date','TEXT'],
           ['score_participation','INTEGER'],['score_comprehension','INTEGER'],['score_homework','INTEGER'],
@@ -131,6 +138,10 @@ export async function handleLessonsApi(
           ['notify_pending','INTEGER'],['notify_phone','TEXT'],
           // 📝 (2026-08-10 Phase 1) 수업 일지 본문 — 강사가 쓴 영어 / 학부모에게 나간 한국어 / 원탭 칩
           ['note_en','TEXT'],['note_ko','TEXT'],['note_chips','TEXT'],
+          // ✏️ (2026-10-01 매니저 요청 «open and edit … today's feedback») 수정 이력 — 누가·언제·고치기 전 글
+          ['edited_by','TEXT'],['edited_at','INTEGER'],['edit_history','TEXT'],
+          // 🗓 (2026-10-27 사장님 요청 4번) 강사가 확인한 수업 출결(attended/late/absent) · 저장 순간의 학생 레벨 — 정본 eval-attendance.ts
+          ['attendance_status','TEXT'],['student_level','TEXT'],
         ];
         for (const [col, typ] of want) {
           if (!have.has(col)) { try { await env.DB.exec(`ALTER TABLE student_evaluations ADD COLUMN ${col} ${typ}`); } catch {} }
@@ -138,6 +149,10 @@ export async function handleLessonsApi(
       } catch {}
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_eval_student ON student_evaluations(student_uid, created_at DESC);`); } catch {}
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_eval_teacher ON student_evaluations(teacher_uid, created_at DESC);`); } catch {}
+      // 🌱 (2026-08-24) 수업평가 밴드(새싹/자람/열매) — students_erp 는 다른 테이블이지만
+      //   /api/eval/create 가 유일한 기록 경로라 같은 게이트에서 함께 보장한다.
+      //   학년(grade) 자동 배정이 불가능해서(CLAUDE.md 2장 실측) 강사가 수동으로 태그한다.
+      try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN eval_band TEXT`); } catch {}
     };
 
     /* ═══════════════════════════════════════════════════════════════════════
@@ -178,7 +193,7 @@ export async function handleLessonsApi(
         const bodyKo = String(noteKo || '').trim();
         if (bodyKo) {
           const { sendPlainSms } = await import('./solapi-client');
-          const url = `https://test.mangoi.co.kr/eval.html?id=${evalId}`;
+          const url = siteUrl('/eval.html?id=' + evalId);
           const msg = `[망고아이] ${studentName || ''} 학생의 오늘 수업 일지가 도착했어요\n`
             + `"${bodyKo.slice(0, 300)}"\n${url}`;
           const r = await sendPlainSms(env as any, phone, msg);
@@ -188,7 +203,7 @@ export async function handleLessonsApi(
               CLAUDE.md 머리에 운영 주소로 적혀 있어서 그대로 썼다가 «죽은 링크가 학부모에게 나가는» 사고가 될 뻔했다.
               이 저장소에서 학부모에게 실제로 나가는 문자들(absent-sweep.ts:189, enroll-ops.ts:516,
               api-retention.ts:61)이 모두 쓰는 주소가 정본이다. */
-        const evalUrl = `https://test.mangoi.co.kr/eval.html?id=${evalId}`;
+        const evalUrl = siteUrl('/eval.html?id=' + evalId);
         const { sendKakaoAlimtalk } = await import('./solapi-client');
         const r = await sendKakaoAlimtalk(env as any, {
           templateCode: (env as any).SOLAPI_TEMPLATE_CHAT_SUMMARY || '',
@@ -225,13 +240,37 @@ export async function handleLessonsApi(
     };
 
     // ── POST /api/eval/create — 강사가 평가서 작성 ──
-    if (method === 'POST' && path === '/api/eval/create') {
+    if (method === 'POST' && (path === '/api/eval/create' || path === '/api/eval/manual-create' || path === '/api/eval/draft-create')) {
+      /* 🔐 (2026-08-28) 강사·관리자 세션 필수.
+         [무엇이 뚫려 있었나] 이 경로에는 인증이 **한 줄도 없었다** — `isAdminPath` 는
+         `/api/eval/…` 를 안 잡고(이 파일의 DELETE 만 2026-07-19 자가점검으로 막혔다),
+         라우팅 허용목록은 «인증» 이 아니다. 무인증 POST 가 핸들러 본문까지 닿는 것을
+         라이브에서 확인했다(401 이 아니라 이 아래 400 이 돌아왔다).
+         그래서 아이디만 알면 서버가 **학부모 번호를 직접 찾아** 공격자가 쓴 문구로
+         문자를 보냈다(발송 비용·망고아이 이름으로 나가는 메시지·가짜 평가 기록).
+         [왜 이 게이트가 안전한가] 실제 호출자 셋이 전부 같은 출처 + 관리자 쿠키다 —
+         teacher.html(credentials:'same-origin')·adm-q1.js·adm-r6.js(fetch 기본값 same-origin).
+         ⚠️ teacher.html 의 오프라인 큐는 ok 가 아니면 큐에 남긴다 — 세션이 끊긴 동안
+            일지가 사라지지 않고, 다시 로그인하면 그대로 올라간다. */
+      const _ev = await checkAdminSession(request, env as any);
+      if (!_ev.ok) return json({ ok: false, error: 'auth_required' }, 401);
       await ensureEvalTable();
+      await ensureEvaluationScoreSchema(env.DB);
       const body: any = await request.json().catch(() => ({}));
       if (!body.student_uid) return json({ ok: false, error: 'student_uid_required' }, 400);
       const now = Date.now();
-      // 평가 점수 평균으로 종합 점수 자동 계산
-      const scores = [body.score_participation, body.score_comprehension, body.score_homework, body.score_attitude, body.score_speaking]
+      // Separate route for the admin AI-draft form (0–10). Source/scale are server-owned.
+      const draftScore = path === '/api/eval/draft-create';
+      // Old open tabs/offline queues used /create for BOTH 5- and 10-point forms.
+      // Keep accepting their evaluations, but never guess their denominator.
+      const legacyScore = path === '/api/eval/create';
+      const scoreScale = legacyScore ? null : draftScore ? 10 : 5;
+      const evaluationSource = legacyScore ? 'legacy_unclassified' : draftScore ? 'teacher_ai_draft' : 'teacher_manual';
+      const scoreInputs = [body.score_participation, body.score_comprehension, body.score_homework, body.score_attitude, body.score_speaking];
+      if (!validEvaluationScores(scoreInputs, scoreScale ?? 10, draftScore || legacyScore ? 0 : 1)) {
+        return json({ ok: false, error: draftScore || legacyScore ? 'scores_must_be_0_to_10' : 'scores_must_be_1_to_5' }, 400);
+      }
+      const scores = scoreInputs
         .filter(v => v != null && !isNaN(v))
         .map(v => Number(v));
       const overall = scores.length > 0
@@ -261,26 +300,48 @@ export async function handleLessonsApi(
         }
       }
 
+      /* 🗓 (2026-10-27 사장님 요청 4번) 수업 출결·학생 레벨 — 정본 eval-attendance.ts 머리말 참고.
+         출결은 강사가 일지 창에서 확인한 값(목록 밖이면 null). 레벨은 본문을 안 믿고 학생 원부에서 직접 읽는다.
+         레벨을 못 읽어도(칸 없음·DB 흔들림) 일지 저장은 막지 않는다 — 그 칸만 null. */
+      const attendanceStatus = normalizeEvalAttendance(body.attendance_status);
+      let studentLevel: string | null = null;
+      try {
+        const lv: any = await env.DB.prepare(`SELECT level FROM students_erp WHERE user_id = ? LIMIT 1`).bind(body.student_uid).first();
+        studentLevel = normalizeStudentLevel(lv?.level);
+      } catch {}
+
       const ins = await env.DB.prepare(
         `INSERT INTO student_evaluations (user_id, eval_at, student_uid, student_name, teacher_uid, teacher_name, room_id, lesson_title, lesson_date,
           score_participation, score_comprehension, score_homework, score_attitude, score_speaking, score_overall,
-          strengths, improvements, next_goals, teacher_comment, note_en, note_ko, note_chips, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+          strengths, improvements, next_goals, teacher_comment, note_en, note_ko, note_chips, created_at, updated_at, evaluation_source, score_scale,
+          attendance_status, student_level)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
       ).bind(
         body.student_uid, now,
         body.student_uid, body.student_name || null,
         body.teacher_uid || null, body.teacher_name || null,
         body.room_id || null, body.lesson_title || null,
         body.lesson_date || new Date().toISOString().slice(0,10),
-        body.score_participation || null, body.score_comprehension || null,
-        body.score_homework || null, body.score_attitude || null,
-        body.score_speaking || null, overall,
+        body.score_participation ?? null, body.score_comprehension ?? null,
+        body.score_homework ?? null, body.score_attitude ?? null,
+        body.score_speaking ?? null, overall,
         body.strengths || null, body.improvements || null,
         body.next_goals || null, body.teacher_comment || null,
         noteEn, noteKo, noteChips,
-        now, now
+        now, now, evaluationSource, scoreScale,
+        attendanceStatus, studentLevel
       ).run();
       const evalId = ins?.meta?.last_row_id;
+
+      /* 🌱 (2026-08-24) 밴드 태그 — 강사가 이번 일지에서 새싹/자람/열매를 골랐으면
+         그 학생의 students_erp 행에 저장해 다음 수업부터 이어진다. 화이트리스트만
+         받는다(모르는 값은 조용히 버림 — CLAUDE.md 「서버가 아는 값 목록」 함정과 같은 방어).
+         평가 저장 자체를 막을 이유는 아니라 실패해도 무시한다. */
+      if (body.student_uid && ['sprout', 'grow', 'fruit'].includes(String(body.band || ''))) {
+        await env.DB.prepare(
+          `UPDATE students_erp SET eval_band = ? WHERE user_id = ? OR login_id = ?`
+        ).bind(String(body.band), body.student_uid, body.student_uid).run().catch(() => {});
+      }
 
       /* 📲 학부모 발송 (2026-08-09 개편)
          · 번호가 body 에 실려 오면 그대로 쓰고(기존 호출부 호환),
@@ -317,14 +378,18 @@ export async function handleLessonsApi(
       await flushPendingEvalNotifies();
       // 🆕 Web Push 도 함께 (학생/학부모 user_id 가 있으면)
       const pushTitle = `📝 ${body.student_name || '학생'}님의 평가서 도착!`;
-      const pushBody = `종합 점수 ${overall}/10. 자세히 보기 클릭`;
+      // 별점 기본값이 없어져(2026-08-24 1단계) 아무것도 안 고르면 overall 이 null 이다 —
+      // 그때는 점수 문구를 아예 빼고, 만점 표기도 서버가 정한 입력 척도로 맞춘다.
+      const pushBody = overall != null ? `종합 점수 ${overall}${scoreScale == null ? ' (척도 확인 필요)' : '/' + scoreScale}. 자세히 보기 클릭` : '자세히 보기 클릭';
       const pushUrl = `/eval.html?id=${evalId}`;
       const pushTag = `eval-${evalId}`;
       const pushResults: any[] = [];
       if (body.student_uid) pushResults.push({ role: 'student', ...(await sendPushToUser(env, body.student_uid, pushTitle, pushBody, pushUrl, pushTag)) });
       if (body.parent_uid) pushResults.push({ role: 'parent', ...(await sendPushToUser(env, body.parent_uid, pushTitle, pushBody, pushUrl, pushTag)) });
       // 🎮 배지는 parent.html / mypage 에서 페이지 로드 시 /api/badges/check 호출로 자동 갱신
-      return json({ ok: true, id: evalId, overall, notify: notifyResult, push: pushResults });
+      return json({ ok: true, id: evalId, overall, evaluation_source: evaluationSource, score_scale: scoreScale,
+        ...(legacyScore ? { warning: 'score_scale_unknown_refresh_required', message: '평가서는 저장했습니다. 점수 척도를 확인하려면 화면을 새로고침해 주세요. 이 점수는 평균에서 제외됩니다.' } : {}),
+        notify: notifyResult, push: pushResults });
     }
 
     // ── GET /api/eval/list?uid=X&role=student|parent|teacher — 평가서 목록 ──
@@ -357,14 +422,67 @@ export async function handleLessonsApi(
       const row: any = await env.DB.prepare(`SELECT * FROM student_evaluations WHERE id=?`).bind(id).first();
       if (!row) return json({ ok: false, error: 'not_found' }, 404);
       // 🔐 [PII] 본인 평가 또는 관리자만 — 평가서(교사코멘트·신원) 정수 id 열거 IDOR 차단. [공용 헬퍼, strict=게스트 미허용]
-      if (!['admin', 'self'].includes(await resolveOwnerScope(request, url, env as any, String(row.student_uid || '')))) {
+      const evScope = await resolveOwnerScope(request, url, env as any, String(row.student_uid || ''));
+      if (!['admin', 'self'].includes(evScope)) {
         return json({ ok: false, error: 'auth_required' }, 401);
       }
-      // 학부모가 본 적 없으면 view 기록
-      if (!row.viewed_by_parent) {
+      // 학부모(서명토큰 = self)가 본 적 없으면 view 기록.
+      // ⚠️ 강사·관리자 세션(admin)의 확인 열람까지 찍으면 «학부모 열람함» 신호가
+      //    거짓이 된다 — 강사 포털 «내가 쓴 일지» 카드가 이 칸을 그대로 보여준다.
+      if (evScope === 'self' && !row.viewed_by_parent) {
         await env.DB.prepare(`UPDATE student_evaluations SET viewed_by_parent=1, viewed_at=? WHERE id=?`).bind(Date.now(), id).run();
       }
-      return json({ ok: true, eval: row });
+      // ✏️ (2026-10-01) 화면이 «고치기» 버튼을 줄지 — 판정은 서버가 한다(evalEditAllowed). 학부모(self)에겐 언제나 false.
+      let can_edit = false;
+      if (evScope === 'admin') {
+        try { can_edit = evalEditAllowed(await getAdminActor(request, env as any), row); } catch { can_edit = false; }
+      }
+      return json({ ok: true, eval: row, can_edit });
+    }
+
+    // ── PATCH /api/eval/:id — 평가(1분 수업일지) 글 고치기 (2026-10-01 매니저 요청) ──
+    //   ⚠️ 라우팅 허용목록의 /^\/api\/eval\/\d+$/ 는 메서드를 안 가린다 — src/index.ts 를 안 고치고 붙는다.
+    //   고치는 칸은 «글» 뿐(note_en·note_ko·teacher_comment). 점수는 안 고친다(eval_band·공제 판정이 걸려 있다).
+    //   ⛔ 학부모에게 문자를 «다시» 보내지 않는다 — 이미 받은 문자는 되돌릴 수 없고, eval.html 만 새 글을 보여 준다.
+    //      그래서 응답에 parent_notified 를 실어 화면이 그 사실을 말하게 한다.
+    if (method === 'PATCH' && /^\/api\/eval\/\d+$/.test(path)) {
+      const actor = await getAdminActor(request, env as any);
+      if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+      await ensureEvalTable();
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      const row: any = await env.DB.prepare(`SELECT * FROM student_evaluations WHERE id=?`).bind(id).first();
+      if (!row) return json({ ok: false, error: 'not_found' }, 404);
+      if (!evalEditAllowed(actor, row)) {
+        return json({ ok: false, error: actor.isTeacher ? 'not_your_eval' : 'forbidden_scope' }, 403);
+      }
+      const body: any = await request.json().catch(() => ({}));
+      const pick = (k: string) => Object.prototype.hasOwnProperty.call(body, k)
+        ? (String(body[k] == null ? '' : body[k]).trim().slice(0, 2000) || null) : undefined;
+      const next: Record<string, string | null> = {};
+      for (const k of ['note_en', 'note_ko', 'teacher_comment']) { const v = pick(k); if (v !== undefined) next[k] = v; }
+      const keys = Object.keys(next);
+      if (!keys.length) return json({ ok: false, error: 'nothing_to_update' }, 400);
+      // 학부모가 읽는 칸 — 만들 때와 같은 «한국어인가» 검사(만들 때 서버가 정본이었던 것을 고칠 때도 지킨다)
+      if (next.note_ko) {
+        const hangul = (next.note_ko.match(/[가-힣]/g) || []).length;
+        if (hangul < next.note_ko.length * 0.3) {
+          return json({ ok: false, error: 'note_not_korean',
+            message: '학부모에게 보이는 칸이 한국어가 아닙니다.', message_en: 'The parent-facing text is not Korean.' }, 400);
+        }
+      }
+      const now = Date.now();
+      // 고치기 전 글을 남긴다(최근 10번) — 덮어쓴 글이 사라지지 않게.
+      let hist: any[] = [];
+      try { const h = JSON.parse(String(row.edit_history || '[]')); if (Array.isArray(h)) hist = h; } catch {}
+      const prev: Record<string, any> = { at: now, by: actor.username };
+      for (const k of keys) prev[k] = row[k] == null ? null : row[k];
+      hist.push(prev);
+      hist = hist.slice(-10);
+      const sets = keys.map(k => `${k} = ?`).join(', ');
+      await env.DB.prepare(
+        `UPDATE student_evaluations SET ${sets}, edited_by = ?, edited_at = ?, edit_history = ?, updated_at = ? WHERE id = ?`
+      ).bind(...keys.map(k => next[k]), actor.username, now, JSON.stringify(hist), now, id).run();
+      return json({ ok: true, id, updated: keys, parent_notified: Number(row.parent_notified) === 1 });
     }
 
     // ── DELETE /api/eval/:id — 평가서 삭제 (강사/관리자) ──
@@ -383,20 +501,11 @@ export async function handleLessonsApi(
     // ── GET /api/admin/eval/list — 관리자: 전체 평가서 목록 + 통계 ──
     if (method === 'GET' && path === '/api/admin/eval/list') {
       await ensureEvalTable();
-      const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get('limit') || '100', 10)));
-      const rs = await env.DB.prepare(
-        `SELECT * FROM student_evaluations ORDER BY created_at DESC LIMIT ?`
-      ).bind(limit).all();
-      // 통계 계산
+      const requestedLimit = Number.parseInt(url.searchParams.get('limit') || '100', 10);
+      const limit = Number.isFinite(requestedLimit) ? Math.min(500, Math.max(1, requestedLimit)) : 100;
       const month_start = new Date(); month_start.setDate(1); month_start.setHours(0,0,0,0);
-      const stats: any = await env.DB.prepare(
-        `SELECT COUNT(*) AS total, AVG(score_overall) AS avg_score,
-                SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS this_month,
-                SUM(parent_notified) AS notified,
-                SUM(viewed_by_parent) AS viewed
-           FROM student_evaluations`
-      ).bind(month_start.getTime()).first();
-      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [], stats });
+      const { rows, stats } = await readAdminEvaluationScores(env.DB, limit, month_start.getTime());
+      return json({ ok: true, count: rows.length, rows: await projectAdminEvaluationRecords(env.DB, rows), stats });
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -410,13 +519,22 @@ export async function handleLessonsApi(
     // ── POST /api/eval/bulk-create — N명에게 한꺼번에 평가서 작성 ──
     //   body: { teacher_uid, teacher_name, lesson_date, lesson_title, common: {...공통항목}, students: [{ student_uid, student_name, scores: {...}, comments }] }
     if (method === 'POST' && path === '/api/eval/bulk-create') {
-      const ensureEval = async () => {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, teacher_uid TEXT, teacher_name TEXT, room_id TEXT, lesson_title TEXT, lesson_date TEXT, score_participation INTEGER, score_comprehension INTEGER, score_homework INTEGER, score_attitude INTEGER, score_speaking INTEGER, score_overall INTEGER, strengths TEXT, improvements TEXT, next_goals TEXT, teacher_comment TEXT, parent_notified INTEGER DEFAULT 0, parent_notified_at INTEGER, viewed_by_parent INTEGER DEFAULT 0, viewed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
-      };
-      await ensureEval();
+      // 🔐 (2026-08-28) /api/eval/create 와 같은 구멍 — 호출자는 관리자 콘솔(adm-r3.js) 하나뿐이다.
+      const _bk = await checkAdminSession(request, env as any);
+      if (!_bk.ok) return json({ ok: false, error: 'auth_required' }, 401);
+      await ensureEvalTable();
+      await ensureEvaluationScoreSchema(env.DB);
       const body: any = await request.json().catch(() => ({}));
       const students = Array.isArray(body.students) ? body.students : [];
       if (!students.length) return json({ ok: false, error: 'no_students' }, 400);
+      /* ⚠️ 건수 상한 — 아래 루프가 학생 1명당 INSERT 를 하나씩 «순차로» await 한다.
+         상한이 없으면 큰 배열 하나로 Worker 의 subrequest·CPU 한도를 넘겨 중간에 죽고,
+         그때까지 들어간 행만 남는다(실패는 failed[] 로 삼켜져 응답은 ok:true 였다).
+         한 반 인원을 훨씬 넘는 값으로 잡는다 — 정상 사용을 막지 않는 선. */
+      if (students.length > 60) {
+        return json({ ok: false, error: 'too_many_students',
+          message: '한 번에 60명까지만 작성할 수 있습니다. 나눠서 저장해 주세요.' }, 400);
+      }
       const common = body.common || {};
       const now = Date.now();
       const created: any[] = [];
@@ -424,13 +542,16 @@ export async function handleLessonsApi(
       for (const s of students) {
         try {
           const sc = s.scores || {};
-          const scores = [sc.participation, sc.comprehension, sc.homework, sc.attitude, sc.speaking]
+          // adm-r3.js explicitly offers 0–10, unlike the single-evaluation form.
+          const scoreInputs = [sc.participation, sc.comprehension, sc.homework, sc.attitude, sc.speaking];
+          if (!validEvaluationScores(scoreInputs, 10)) throw new Error('scores_must_be_0_to_10');
+          const scores = scoreInputs
             .filter(v => v != null && !isNaN(v)).map(Number);
           const overall = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
           const ins = await env.DB.prepare(
-            `INSERT INTO student_evaluations (student_uid, student_name, teacher_uid, teacher_name, lesson_title, lesson_date, score_participation, score_comprehension, score_homework, score_attitude, score_speaking, score_overall, strengths, improvements, next_goals, teacher_comment, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+            `INSERT INTO student_evaluations (user_id, eval_at, student_uid, student_name, teacher_uid, teacher_name, lesson_title, lesson_date, score_participation, score_comprehension, score_homework, score_attitude, score_speaking, score_overall, strengths, improvements, next_goals, teacher_comment, created_at, updated_at, evaluation_source, score_scale) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
           ).bind(
-            s.student_uid, s.student_name || null,
+            s.student_uid, now, s.student_uid, s.student_name || null,
             body.teacher_uid || null, body.teacher_name || null,
             body.lesson_title || null, body.lesson_date || null,
             sc.participation ?? null, sc.comprehension ?? null, sc.homework ?? null, sc.attitude ?? null, sc.speaking ?? null,
@@ -439,7 +560,7 @@ export async function handleLessonsApi(
             s.improvements || common.improvements || null,
             s.next_goals || common.next_goals || null,
             s.teacher_comment || common.teacher_comment || null,
-            now, now
+            now, now, 'teacher_bulk', 10
           ).run();
           created.push({ student_uid: s.student_uid, id: ins?.meta?.last_row_id, overall });
         } catch (e: any) {
@@ -585,6 +706,12 @@ export async function handleLessonsApi(
     //   body: { recording_id?, recording_url?, audio_base64?, student_uid, student_name?,
     //           teacher_uid?, teacher_name?, lesson_title?, lesson_date?, auto_save?=true }
     if (method === 'POST' && path === '/api/eval/ai-lesson-report') {
+      /* 🔐 (2026-08-28) 조회 두 경로(/list, /:id)는 2026-07-10 PII 감사로 잠갔는데
+         **정작 일을 하는 POST 는 빠져 있었다.** 무인증으로 Whisper 전사 + 70B 모델 호출을
+         무제한 돌릴 수 있었고(호출마다 비용), 아무 학생 아이디로 «AI 가 쓴 평가» 행을
+         그 학생 기록에 남길 수 있었다. 호출자는 관리자 콘솔·참관 화면뿐이라 세션이 있다. */
+      const _ai = await checkAdminSession(request, env as any);
+      if (!_ai.ok) return json({ ok: false, error: 'auth_required' }, 401);
       await ensureAiLessonReportSchema();
       const b: any = await request.json().catch(() => ({}));
       const studentUid = String(b.student_uid || '').trim();
@@ -603,7 +730,7 @@ export async function handleLessonsApi(
         // R2 에서 녹음 파일 가져오기
         let audioBuf: ArrayBuffer | null = null;
         try {
-          if (b.recording_id && (env as any).RECORDINGS) {
+          if (b.recording_id && !isPrivateDubbingKey(String(b.recording_id)) && (env as any).RECORDINGS) {
             const obj: any = await (env as any).RECORDINGS.get(b.recording_id);
             if (obj) audioBuf = await obj.arrayBuffer();
           } else if (b.recording_url) {
@@ -795,7 +922,8 @@ Limit: max 5 grammar_errors, max 5 alternatives, max 10 word_freq. Be specific a
       parsed.next_goals     = deHanjaList(parsed.next_goals, []);
 
       // 3) 결과 정규화 + DB 저장
-      const overallScore = Math.max(0, Math.min(100, Number(parsed.overall_score || 75)));
+      const aiScore = Number(parsed.overall_score ?? 75);
+      const overallScore = Number.isFinite(aiScore) ? Math.max(0, Math.min(100, aiScore)) : 75;
       const summaryKo = String(parsed.summary_ko || '학생의 영어 발화를 분석했습니다.');
       const grammarErrors = Array.isArray(parsed.grammar_errors) ? parsed.grammar_errors.slice(0, 8) : [];
       const alternatives = Array.isArray(parsed.alternatives) ? parsed.alternatives.slice(0, 8) : [];
@@ -812,16 +940,17 @@ Limit: max 5 grammar_errors, max 5 alternatives, max 10 word_freq. Be specific a
       let evaluationId: number | null = null;
       if (b.auto_save !== false) {
         try {
-          await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, teacher_uid TEXT, teacher_name TEXT, room_id TEXT, lesson_title TEXT, lesson_date TEXT, score_participation INTEGER, score_comprehension INTEGER, score_homework INTEGER, score_attitude INTEGER, score_speaking INTEGER, score_overall INTEGER, strengths TEXT, improvements TEXT, next_goals TEXT, teacher_comment TEXT, parent_notified INTEGER DEFAULT 0, parent_notified_at INTEGER, viewed_by_parent INTEGER DEFAULT 0, viewed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+          await ensureEvalTable();
+          await ensureEvaluationScoreSchema(env.DB);
           const r: any = await env.DB.prepare(
-            `INSERT INTO student_evaluations (student_uid, student_name, teacher_uid, teacher_name, lesson_title, lesson_date, score_overall, score_speaking, strengths, improvements, next_goals, teacher_comment, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+            `INSERT INTO student_evaluations (user_id, eval_at, student_uid, student_name, teacher_uid, teacher_name, lesson_title, lesson_date, score_overall, score_speaking, strengths, improvements, next_goals, teacher_comment, created_at, updated_at, evaluation_source, score_scale) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
           ).bind(
-            studentUid, studentName, String(b.teacher_uid || '').trim() || null, String(b.teacher_name || '').trim() || null,
+            studentUid, now, studentUid, studentName, String(b.teacher_uid || '').trim() || null, String(b.teacher_name || '').trim() || null,
             lessonTitle || null, String(b.lesson_date || '').trim() || new Date(now).toISOString().slice(0,10),
             overallScore, overallScore,
             strengthsArr.join('\n'), weaknessesArr.join('\n'), nextGoalsArr.join('\n'),
             summaryKo + (grammarErrors.length ? '\n\n[🤖 AI 자동 분석] 문법교정 ' + grammarErrors.length + '건, 대안표현 ' + alternatives.length + '건 발견. 상세 리포트는 AI 학습 리포트 메뉴에서 확인하세요.' : ''),
-            now, now
+            now, now, 'ai_lesson_report', 100
           ).run();
           evaluationId = r.meta?.last_row_id || null;
         } catch (e: any) { console.error('[ai-lesson-report] save eval:', e?.message); }
@@ -883,4 +1012,26 @@ Limit: max 5 grammar_errors, max 5 alternatives, max 10 word_freq. Be specific a
     // ═══════════════════════════════════════════════════════════════
 
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
+}
+
+/** ✏️ (2026-10-01) 이 평가 글을 «고칠 수 있는가».
+ *  · 지사·대리점(조직 계정) → 아니오 — 그 계정에는 평가가 애초에 «본사 전용» 으로 가려진다.
+ *  · 강사 → 자기가 쓴 것만(teacher_uid = 로그인 아이디, 대소문자 무시 완전일치).
+ *  · 그 밖의 본사 계정(매니저·관리자) → 예.
+ *  ⚠️ 세션·아이디를 못 확인하면 아니오.
+ *  ⚠️ 알고 둔 한계: getAdminActor 는 스코프 조회가 흔들리면 조직 계정을 'staff' 로 돌려준다(CLAUDE.md 2장).
+ *     고치는 대상이 «글» 이고 고치기 전 글을 edit_history 에 남기므로 재조회 게이트까지는 두지 않았다. */
+export function evalEditAllowed(
+  actor: { ok?: boolean; username?: string; role?: string; isTeacher?: boolean } | null | undefined,
+  row: { teacher_uid?: string | null } | null | undefined,
+): boolean {
+  if (!actor || actor.ok !== true || !row) return false;
+  const me = String(actor.username || '').trim().toLowerCase();
+  if (!me) return false;
+  if (isOrgScopedRole(actor.role)) return false;
+  if (actor.isTeacher) {
+    const owner = String(row.teacher_uid || '').trim().toLowerCase();
+    return !!owner && owner === me;
+  }
+  return true;
 }

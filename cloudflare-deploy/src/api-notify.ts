@@ -8,6 +8,9 @@ import type { MangoEnv } from './api-mango';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession } from './auth-admin';
 import { writeClassAudit, ensureClassAuditTable } from './class-audit';  // 📜 수업 종료(end) 이력
+import { resolveNotifyPhones, partiesForRoom } from './notify-contacts';  // 📵 받는 사람은 서버가 정한다
+import { pushToTeacher } from './teacher-push';   // 🔔 원부 강사 → 계정 → 구독 (정본, 2026-09-14)
+import { teacherLiveInRoom } from './no-show-truth';  // 🔔 강사가 이미 방에 있으면 「미입장」 알림을 안 보낸다
 import { checkSolapiBalance, getSolapiMode, sendKakaoAlimtalk, sendChatSummaryAlert, sendLessonEndAlert, sendLessonStartAlert, sendMentionAlert } from './solapi-client';
 
 let _notifSchemaReady = false;
@@ -124,6 +127,13 @@ export async function handleNotifyApi(
       await ensureChatTable();
       const roomId = (url.searchParams.get('room_id') || '').trim();
       const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get('limit') || '200', 10)));
+      // ⏱ (2026-08-25) since = 이 시각(ms) «이후» 만. 「이전 대화 보기」 버튼이 보내는 값.
+      //   ⚠️ 방 이름이 두 종류라 기간을 서버가 못 정한다 — class-{예약id}-{YYYYMMDD} 는 날짜로
+      //   이미 갈리지만 기본방 'mangoi-class' 는 고정이라 여러 수업이 한 방을 돌려 쓴다.
+      //   그래서 «얼마나 거슬러 볼지» 는 부르는 쪽이 정하고, 여기서는 그 경계만 지킨다.
+      //   안 보내면 예전대로 전체(최근 limit 개) — 관리자 조회·기존 호출이 그대로 돌아야 한다.
+      const sinceRaw = parseInt(url.searchParams.get('since') || '0', 10);
+      const since = Number.isFinite(sinceRaw) && sinceRaw > 0 ? sinceRaw : 0;
       if (!roomId) return json({ ok: false, error: 'room_id_required' }, 400);
       // 🔐 [사생활] 이 수업 참여자만 채팅 조회 — 관리자/교사(쿠키세션) OR 방 로스터에 등록된 학생(토큰).
       //   방ID(class-{id}-{날짜})는 추측 가능 → 무인증/비참여자의 수업 채팅 열람 차단 (2026-07-11)
@@ -143,10 +153,10 @@ export async function handleNotifyApi(
       const rs = await env.DB.prepare(
         `SELECT id, sender_uid, sender_name, sender_role, message, sent_at
            FROM chat_messages
-          WHERE room_id = ?
+          WHERE room_id = ? AND sent_at >= ?
           ORDER BY sent_at DESC
           LIMIT ?`
-      ).bind(roomId, limit).all();
+      ).bind(roomId, since, limit).all();
       // 오래된 → 최근 순으로 reverse (클라이언트 렌더 편의)
       const rows = (rs.results || []).reverse();
       return json({ ok: true, count: rows.length, rows });
@@ -251,7 +261,8 @@ export async function handleNotifyApi(
     }
 
     // ── POST /api/notify/lesson-started — 수업 시작 알림 (카카오 + Web Push) ──
-    //   body: { room_id, student_name, student_phone, lesson_title, teacher_name, parent_phone?, student_uid?, parent_uid? }
+    //   body: { room_id, student_name, lesson_title, teacher_name, student_uid?, parent_uid? }
+    //   ⛔ 전화번호는 본문에서 받지 않는다(서버가 계정으로 찾는다) — notify-contacts.ts
     if (method === 'POST' && path === '/api/notify/lesson-started') {
       const body: any = await request.json().catch(() => ({}));
       const studentName = body.student_name || '학생';
@@ -259,11 +270,13 @@ export async function handleNotifyApi(
       const teacherName = body.teacher_name || '강사';
       // 학부모 컴플레인 #1 대응(2026-07-22): 학생 번호 '우선' 1건 발송 → 학부모+학생 모두 발송.
       //   같은 번호가 두 필드에 들어온 경우 중복 발송 방지.
+      /* 📵 (2026-09-01) 번호는 «본문» 이 아니라 계정으로 서버가 찾는다 — 정본 notify-contacts.ts.
+         그 전에는 아무나 아무 번호를 넣어 우리 이름으로 문자를 보낼 수 있었다(인증 없음).
+         ⛔ 못 찾았다고 본문 값으로 되돌아가지 말 것 — 구멍이 그대로다. */
+      const _ph = await resolveNotifyPhones(env, { studentUid: body.student_uid, parentUid: body.parent_uid });
       const phones: { role: string; phone: string }[] = [];
-      if (body.parent_phone) phones.push({ role: 'parent', phone: String(body.parent_phone) });
-      if (body.student_phone && String(body.student_phone) !== String(body.parent_phone || '')) {
-        phones.push({ role: 'student', phone: String(body.student_phone) });
-      }
+      if (_ph.parent) phones.push({ role: 'parent', phone: _ph.parent });
+      if (_ph.student) phones.push({ role: 'student', phone: _ph.student });
       let kakaoResult: any = { skipped: true };
       if (phones.length) {
         const sends: any[] = [];
@@ -285,17 +298,26 @@ export async function handleNotifyApi(
     }
 
     // ── POST /api/notify/lesson-ended — 수업 종료 알림 (학생/학부모/강사 일괄) ──
-    //   body: { room_id, student_name, student_phone?, parent_phone?, teacher_phone?, lesson_title, duration_minutes, message_count? }
+    //   body: { room_id, student_name, lesson_title, duration_minutes, message_count?, student_uid?, parent_uid?, teacher_uid? }
+    //   ⛔ 전화번호는 본문에서 받지 않는다 — notify-contacts.ts
     if (method === 'POST' && path === '/api/notify/lesson-ended') {
       const body: any = await request.json().catch(() => ({}));
       const lessonTitle = body.lesson_title || '영어 수업';
       const studentName = body.student_name || '학생';
       const duration = (body.duration_minutes || 0) + '분';
       const msgCount = body.message_count || 0;
+      // 📵 번호는 서버가 계정으로 찾는다(위 lesson-started 와 같은 이유) — notify-contacts.ts
+      /* ⚠️ 강사 번호는 «계정» 이 아니라 예약이 가리키는 **원부 번호**(teachers.id)로 찾는다 —
+         계정으로 이으면 겹치는 구간에서 남의 번호가 걸린다(규칙서 2장 「강사 번호가 세 갈래」). */
+      const _lp = await partiesForRoom(env, String(body.room_id || ''), body.schedule_id);
+      const _ph = await resolveNotifyPhones(env, {
+        studentUid: _lp?.studentUid || body.student_uid,
+        parentUid: body.parent_uid, teacherId: _lp?.teacherId,
+      });
       const targets: any[] = [];
-      if (body.student_phone) targets.push({ role: 'student', phone: body.student_phone });
-      if (body.parent_phone)  targets.push({ role: 'parent',  phone: body.parent_phone });
-      if (body.teacher_phone) targets.push({ role: 'teacher', phone: body.teacher_phone });
+      if (_ph.student) targets.push({ role: 'student', phone: _ph.student });
+      if (_ph.parent)  targets.push({ role: 'parent',  phone: _ph.parent });
+      if (_ph.teacher) targets.push({ role: 'teacher', phone: _ph.teacher });
       const results: any[] = [];
       for (const t of targets) {
         const r = await sendLessonEndAlert(env, t.phone, { studentName, lessonTitle, duration, messagesCount: msgCount });
@@ -344,7 +366,8 @@ export async function handleNotifyApi(
     }
 
     // ── POST /api/notify/chat-summary — 채팅 요약 알림 ──
-    //   body: { room_id, student_name, student_phone?, parent_phone?, lesson_title }
+    //   body: { room_id, student_name, lesson_title, student_uid?, parent_uid? }
+    //   ⛔ 전화번호는 본문에서 받지 않는다 — notify-contacts.ts
     //   채팅 메시지 수를 D1 에서 자동 집계 → 알림톡 1건 발송
     if (method === 'POST' && path === '/api/notify/chat-summary') {
       const body: any = await request.json().catch(() => ({}));
@@ -360,9 +383,11 @@ export async function handleNotifyApi(
       const summaryUrl = `https://webrtc-unified-platform-prod.navy111p.workers.dev/admin/chat-summary.html?room=${encodeURIComponent(roomId)}`;
       const studentName = body.student_name || '학생';
       const lessonTitle = body.lesson_title || '영어 수업';
+      // 📵 번호는 서버가 계정으로 찾는다 — notify-contacts.ts
+      const _ph = await resolveNotifyPhones(env, { studentUid: body.student_uid, parentUid: body.parent_uid });
       const targets: string[] = [];
-      if (body.student_phone) targets.push(body.student_phone);
-      if (body.parent_phone)  targets.push(body.parent_phone);
+      if (_ph.student) targets.push(_ph.student);
+      if (_ph.parent)  targets.push(_ph.parent);
       const results: any[] = [];
       for (const phone of targets) {
         const r = await sendChatSummaryAlert(env, phone, { studentName, lessonTitle, messageCount, summaryUrl });
@@ -374,7 +399,8 @@ export async function handleNotifyApi(
     // ── POST /api/notify/no-show — 상대 미입장(노쇼) 알림 (Web Push + 조건부 알림톡 + 기록) ──
     //   Phase RM 2단계: 방에 먼저 온 사람이 일정시간(기본 5분) 대기해도 상대가 안 오면 클라이언트가 1회 호출.
     //   body: { room_id, schedule_id?, waiting_for:'teacher'|'student', student_name?, teacher_name?, lesson_title?,
-    //           student_uid?, teacher_uid?, student_phone?, parent_phone?, teacher_phone?, waited_minutes? }
+    //           student_uid?, teacher_uid?, waited_minutes? }
+    //   ⛔ 전화번호도 강사·학생 «이름» 도 본문에서 받지 않는다 — 이름에는 급여가 걸려 있다
     if (method === 'POST' && path === '/api/notify/no-show') {
       const body: any = await request.json().catch(() => ({}));
       const roomId = (body.room_id || '').trim();
@@ -387,26 +413,69 @@ export async function handleNotifyApi(
         if (dup) return json({ ok: true, deduped: true });
       } catch {}
 
-      const studentName = body.student_name || '학생';
-      const teacherName = body.teacher_name || '강사';
+      /* 🔴 (2026-09-01) 이름을 «본문» 에서 받지 않는다 — 이 값에 급여가 걸려 있다.
+         읽는 쪽(no-show-truth.ts)이 이 이름을 출석부와 맞춰 «오판» 인지 가리는데, 급여는
+         present === true 일 때만 되돌린다 ⟹ **이름이 틀리면 들어와 수업한 강사에게 0원이 나간다.**
+         인증이 없으므로 그때까지는 누구나 남의 수업에 엉뚱한 이름으로 노쇼를 심을 수 있었다.
+         ⚠️ 반드시 «기록하는 순간» 에 푼다 — 나중에 읽을 때 풀면 역사를 덮어쓴다
+            (실측: class-895 는 그 뒤 취소되고 강사가 HANNAH → HT FARRAH 로 바뀌어 있다).
+         ⚠️ 예약행이 지워져 못 푸는 경우가 있어(실측 38건 중 2건) 그때만 본문으로 되돌아간다. */
+      const _parties = await partiesForRoom(env, roomId, body.schedule_id);
+      const studentName = _parties?.studentName || body.student_name || '학생';
+      const teacherName = _parties?.teacherName || body.teacher_name || '강사';
       const lessonTitle = body.lesson_title || '영어 수업';
-      const waited = Number(body.waited_minutes) || 5;
+      /* (2026-09-04) 0 은 0 이다 — 학생 입장 «즉시» 호출(reason:'student_entered', waited_minutes:0)이
+         `|| 5` 에 걸려 「5분째 기다리고 있어요」로 나갔다. 기다린 적이 없는데 5분이라고 적혔다. */
+      const _wRaw = Number(body.waited_minutes);
+      const waited = (Number.isFinite(_wRaw) && _wRaw >= 0) ? Math.round(_wRaw) : 5;
       const missingUid = waitingFor === 'teacher' ? (body.teacher_uid || '') : (body.student_uid || '');
       const roomUrl = `${new URL(request.url).origin}/?go=videocall`;
+
+      /* 🔔 (2026-09-04) 강사가 «지금» 그 방에 있으면 강사에게 알림을 보내지 않는다.
+         [실사고 2026-09-03 class-1079] Krystel 이 21:13:26 부터 방에 있었는데 학생 화면이
+           21:20:34 에 「강사 미입장」을 신고해 푸시가 나갔다 — 학생 쪽 소켓·카메라가 아직
+           안 열려 «내 화면에 안 보였을» 뿐이다. 판정은 no-show-truth 의 정본(이름 일치 ·
+           role 안 믿음 · 모르면 false)을 그대로 쓴다.
+         ⛔ 기록(class_no_show)은 그대로 남긴다 — 학생이 못 본 것은 사실이고, 읽는 쪽이
+            같은 함수로 «오판» 표시를 붙인다. 막는 것은 «알림» 뿐이다. */
+      let teacherLive = false;
+      if (waitingFor === 'teacher') {
+        try { teacherLive = await teacherLiveInRoom(env.DB, roomId, teacherName, studentName); } catch { teacherLive = false; }
+      }
 
       // 1) Web Push — 안 온 사람에게 '빨리 입장하세요' (구독 없으면 자동 스킵)
       let push: any = { skipped: true };
       const pushTitle = waitingFor === 'teacher' ? '⏰ 학생이 기다리고 있어요' : '⏰ 강사님이 기다리고 있어요';
       const pushBody = waitingFor === 'teacher'
-        ? `${studentName} 학생이 '${lessonTitle}' 방에서 ${waited}분째 기다리고 있어요. 지금 입장해 주세요.`
+        ? (waited > 0
+            ? `${studentName} 학생이 '${lessonTitle}' 방에서 ${waited}분째 기다리고 있어요. 지금 입장해 주세요.`
+            : `${studentName} 학생이 '${lessonTitle}' 방에 들어왔어요. 지금 입장해 주세요.`)
         : `${teacherName} 강사님이 '${lessonTitle}' 방에서 기다리고 있어요. 지금 입장하세요.`;
-      if (missingUid) push = await sendPushToUser(env, missingUid, pushTitle, pushBody, roomUrl, `no-show-${roomId}`);
+      if (teacherLive) push = { skipped: true, reason: 'teacher_present' };
+      else if (waitingFor === 'teacher') {
+        /* 🔔 (2026-09-14) 강사는 «본문의 teacher_uid» 만 믿지 않는다 — 그 값은 학생 화면이 보내는 것이라
+           비어 있을 수 있고(잰 것은 아니다 — 구조상 그렇다), 예약이 가리키는 **원부 강사**(teachers.id)에 이어진
+           계정 전부에 보낸다. 본문 uid 는 «덤» 으로 합친다(중복은 한 번만). 정본 teacher-push.ts.
+           ⚠️ `ok` 는 «실제로 나갔는가»(sent > 0) — 아래 기록의 notified_push 가 그것을 읽는다. 정본의 ok 는
+              «던지지 않았다» 는 뜻이라 spread 를 «먼저» 두고 ok 로 덮는다(반대로 두면 구독이 없어도 1 로
+              기록된다 — 함정 대조가 실제로 잡음). */
+        const pr = await pushToTeacher(env, _parties?.teacherId, pushTitle, pushBody, roomUrl, `no-show-${roomId}`,
+                                       missingUid ? [missingUid] : []);
+        push = { ...pr, ok: pr.sent > 0 };
+      }
+      else if (missingUid) push = await sendPushToUser(env, missingUid, pushTitle, pushBody, roomUrl, `no-show-${roomId}`);
 
       // 2) 알림톡 — 전용 템플릿(SOLAPI_TEMPLATE_NO_SHOW)이 등록돼 있을 때만 발송(없으면 정직하게 스킵)
       let kakao: any = { skipped: true, reason: 'no_template' };
       const noShowTpl = (env as any).SOLAPI_TEMPLATE_NO_SHOW;
-      const targetPhone = waitingFor === 'teacher' ? body.teacher_phone : (body.student_phone || body.parent_phone);
-      if (noShowTpl && targetPhone) {
+      // 📵 번호도 서버가 찾는다 — notify-contacts.ts
+      const _nsPh = await resolveNotifyPhones(env, {
+        studentUid: _parties?.studentUid || body.student_uid,
+        parentUid: body.parent_uid, teacherId: _parties?.teacherId,
+      });
+      const targetPhone = waitingFor === 'teacher' ? _nsPh.teacher : (_nsPh.student || _nsPh.parent);
+      if (teacherLive) kakao = { skipped: true, reason: 'teacher_present' };
+      else if (noShowTpl && targetPhone) {
         kakao = await sendKakaoAlimtalk(env, {
           templateCode: noShowTpl,
           recipientPhone: targetPhone,
@@ -423,19 +492,22 @@ export async function handleNotifyApi(
           .bind(roomId, body.schedule_id || null, waitingFor, missingUid || null, studentName, teacherName, lessonTitle, waited, (push && push.ok) ? 1 : 0, (kakao && kakao.ok) ? 1 : 0, Date.now()).run();
       } catch (e: any) { console.warn('[no-show] log insert skipped:', e?.message); }
 
-      return json({ ok: true, waiting_for: waitingFor, push, kakao });
+      return json({ ok: true, waiting_for: waitingFor, teacher_present: teacherLive, push, kakao });
     }
 
     // ── POST /api/notify/mention — @멘션 즉시 푸시 알림 (카카오 + Web Push) ──
-    //   body: { mentioned_student_name, mentioned_phone, teacher_name, message_excerpt, room_url?, mentioned_uid? }
+    //   body: { mentioned_student_name, teacher_name, message_excerpt, room_url?, mentioned_uid? }
+    //   ⛔ 전화번호는 본문에서 받지 않는다 — notify-contacts.ts
     if (method === 'POST' && path === '/api/notify/mention') {
       const body: any = await request.json().catch(() => ({}));
       const studentName = body.mentioned_student_name || '학생';
       const teacherName = body.teacher_name || '강사';
       const messageExcerpt = body.message_excerpt || '';
+      // 📵 번호는 서버가 계정으로 찾는다 — notify-contacts.ts
+      const _mPh = await resolveNotifyPhones(env, { studentUid: body.mentioned_uid });
       let kakaoResult: any = { skipped: true };
-      if (body.mentioned_phone) {
-        kakaoResult = await sendMentionAlert(env, body.mentioned_phone, { studentName, teacherName, messageExcerpt, roomUrl: body.room_url });
+      if (_mPh.student || _mPh.parent) {
+        kakaoResult = await sendMentionAlert(env, _mPh.student || _mPh.parent, { studentName, teacherName, messageExcerpt, roomUrl: body.room_url });
       }
       // 🆕 Web Push 도 함께
       let pushResult: any = { skipped: true };

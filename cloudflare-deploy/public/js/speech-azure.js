@@ -164,6 +164,10 @@
                 word: String(w.Word || ''),
                 accuracy: n(w.PronunciationAssessment && w.PronunciationAssessment.AccuracyScore),
                 errorType: (w.PronunciationAssessment && w.PronunciationAssessment.ErrorType) || undefined,
+                /* 🔍 (2026-10-18) 음소 점수도 남긴다 — «어느 소리가 약했나» 를 말해 주려고(js/phoneme-tips.js). 없으면 빈 배열 */
+                phonemes: (Array.isArray(w.Phonemes) ? w.Phonemes : []).slice(0, 20).map(function (p) {
+                  return { p: String((p && p.Phoneme) || ''), acc: n(p && p.PronunciationAssessment && p.PronunciationAssessment.AccuracyScore) };
+                }),
               };
             }),
           };

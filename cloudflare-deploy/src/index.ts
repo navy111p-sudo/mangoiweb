@@ -1,3 +1,12 @@
+import { eleaderStagedResponse } from './eleader-release';
+import { ELEADER_EXPANSION_RULE, markEleaderExpansion, hasEleaderExpansion } from './eleader-expansion';
+import { ephemeralEleaderEnv } from './eleader-engines';
+import { handleGamesApi } from './api-games';
+import { handleSeedShares } from './seed-shares';
+import { handleSpeechPreferences } from './speech-preferences';
+import { loadRecentMistakes, recentMistakesPromptLine } from './recent-mistakes';   // 🔁 최근 교정 다시 쓰기(2026-10-18)
+import { loadVocabWeakRows, loadWeakWordsForWarmup, weakWordsPromptLine, weakWordsCallerOk, mergeWeakFirst, VOCAB_WEAK_GAME_MAX } from './vocab-weak';   // 🔁 틀린 낱말 다시 쓰기(2026-10-18)
+import { readableKoreanVocabulary, hasForeignGloss } from './korean-vocab';
 /**
  * index.ts - Main Worker entry point
  * Handles routing, API endpoints, and WebSocket upgrades
@@ -6,8 +15,11 @@
 import { SignalingRoom } from './signaling-room';
 import { VideoCallRoom } from './video-call-room';
 import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
+import { forbiddenTeacherBody } from './forbidden-teacher';   // 🪪 「강사 권한으로는 …」 문구 정본(계정 이름 포함) — 복제 금지
 import { handleMangoApi } from './api-mango';
+import { handleDurationQueue } from './duration-change-queue';   // 📅 수업 길이 변경 신청함(월 1회 일괄 반영)
 import { wrapDbDdlOnce } from './db-ddl-once';                              // ⚡ 같은 DDL 은 격리당 한 번만
+import { beginNightlyRun, markNightlyStep, endNightlyRun } from './nightly-run';  // 🌙 야간 배치가 어디까지 갔나
 import { runMonthlyReports } from './api-reports';  // 20차 이동
 import { reconcileAllStreaks } from './api-games';  // 3차 이동(2026-07-14)
 import { handlePayApi, runPaymentAudit, runAutoRenewChargeSweep } from './api-pay';
@@ -20,34 +32,63 @@ import { runLessonInsightSweep } from './lesson-insight';   // 🎥 수업 종�
 import { runLessonReminderSweep, runFeedbackReminderSweep } from './lesson-reminder';
 import { runLeveltestReminderSweep, runLeveltestDayBeforeSweep, runLeveltestHourBeforeSweep } from './leveltest-ticket';   // 🎟️ 레벨테스트 T-10 «확인+입장» 링크
 import { handleTraitsApi } from './api-traits';
+import { resolveFriendName, wrongSelfName, askedOwnName } from './ai-friends';   // 🧑 AI 친구 이름 정본 + «다른 이름으로 소개했나» 판정
 import { getDuplicatePayments, resolveDuplicate } from './api-refund-audit';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
 import { purgeExpired } from './retention';
 import { purgeOrphanedRecordings } from './recordings-cleanup';
 import { handleLivekit, ensureLivekitSchema } from './livekit-bridge';
 import { handleRecordingUpload as handleR2MultipartUpload, runRecordingFinalizeSweep } from './recordings-r2';
-import { handleAdminAuthApi, checkAdminSession, getAdminActor, PH_MANAGERS } from './auth-admin';
+import { handleAdminAuthApi, checkAdminSession, getAdminActor, isOrgScopedRole, PH_MANAGERS } from './auth-admin';
+import { orgScopeVerdict, readScopeType, orgScopeDenyResponse } from './org-scope-guard';
 import { handleTeacherApi } from './api-teacher';   // 🇵🇭 강사 전용 초경량 포털 (1요청 집계)
 import { handleApprovalApi } from './api-approval'; // 🧾 결재(기안·지출·문서)
+import { handleSalesHrApi } from './api-sales-hr';   // 🚗 영업담당자 실적·인사평가·보상
 import { handleOutageApi } from './api-outage';     // ⚡ 정전·인터넷 장애 신고
 import { handleMenuHitApi } from './api-menuhit';   // 📏 관리자 메뉴 클릭 계측(«무엇이 안 눌리는가»)
 import { reportsRouter } from './accounting-reports';
 import { settlementRouter } from './org-settlement';
+import { aiBillingRouter, generateMonthlyAiInvoices } from './ai-billing';   // 🏢 B2B 대리점 AI 사용료 월 청구 (2026-09-10)
 import { capitownRouter } from './api-capitown';
 import { realtimeRouter, runFinanceSnapshot } from './accounting-realtime';
 import { modulesRouter } from './modules-ext';
 import { execRouter } from './exec-summary';
-import { getScope } from './scope';
+import { getScope, scopeStudentCond, type Scope } from './scope';
+import { selectInChunks } from './d1-chunk';
 import { learningRouter, runLearningSnapshot } from './learning-insights';
 import { runAbsenceSweep } from './churn-graph';
 import { marketingRouter } from './marketing-studio';
 import { teacherMatchRouter, runTeacherGraphSync } from './teacher-match';
+import { warmupGuidanceRule, parseSpeakingHelp } from './warmup-guidance';
 import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmup-graph';
+import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // 🧑‍🎓 웜업 연령대(소재·말투 축)
+import { logWarmupSessionStart, markWarmupFirstReply, warmupShouldMarkFirstReply } from './warmup-log';  // 📊 웜업 «몇 단계로 쓰는가» 기록
+import { warmupAnswerChips } from './warmup-answers';                    // 💬 웜업 «이렇게 대답해 보세요» 보기 칩
+import { backfillPastTenseFix } from './tense-backfill';
+import { WARMUP_CORRECTION_RULE, WARMUP_ZH_CORRECTION_RULE, ZH_MEANING_CHANGING_TAGS, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat, correctionLeadIn } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
+import { resolveWarmupHonest, warmupHonestRule, parseWarmupGrade, finalizeWarmupGrade, applyHonestPraise, gateFixForMode, ensureFocusedFixSpoken } from './warmup-honest';  // 🎯 정직한 칭찬 + 교정 모드(2026-10-29 시범 — 정본 그 파일)
+import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
+import { fragmentQuestions, fragmentQuestionHint, checksFragmentQuestions, fullQuestionRule, FRAG_RETRY_BUDGET_MS } from './reply-questions';   // 🧩 기초 단계 «조각 질문»(like space?) 막기
+import { questionMemory, askedQuestionsLine, ASKED_LINE_HEAD, repeatedQuestions, retryRepeatedQuestion } from './question-memory';   // 🔁 같은 질문 두 번 금지(말만 바꾼 것·반대말 포함)
+import { connectorPromptBlock, linkBandForStep } from './conversation-connectors';   // 🔗 연결 표현(2026-10-28 · 세 화면 공용 정본)
+import { normalizeWarmupLang, warmupZhSystem, WARMUP_ZH_LEVELS, zhWarmupSentences, zhStudentByTeacher,
+         warmupZhAnswerChips, WARMUP_ZH_FALLBACK_QUESTIONS, WARMUP_ZH_QUESTION_LANG } from './warmup-zh';  // 🀄 중국어 대화 정본(2026-09-13) — 영어 규칙은 한 글자도 안 건드린다
+import { applyEmpathyGuard, WARMUP_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)
+import { warmupChatEntry, createWarmupLive, readWarmupAiStream } from './warmup-stream';  // 📡 P2 웜업 문장 단위 스트리밍(옵트인 — 2026-10-02)
+import { recordAiLatency } from './ai-latency-log';                     // ⏱ «학생이 얼마나 기다리는가» — 웜업도 같은 표에(feature='warmup')
+// «영어만» 게이트 — review_quizzes 는 영어 전용 표가 아니다(중국어 교재 「다락원」이 함께 들어 있다).
+// 라틴 글자 유무로 판정하면 병음이 그대로 통과한다. 정본은 english-only.ts 한 곳뿐.
+import { isEnglishText, isEnglishQuestion } from './english-only';
 import { decisionGraphRouter, runDecisionGraphSync } from './decision-graph';  // 🧠 판단 경로 그래프(3단계)
 import { runGrowthSnapshot } from './api-judgment';                            // 📈 판단력 성장 스냅샷(3단계)
 import { churnContagionRouter, runContagionGraphSync } from './churn-contagion';
 import { nightlyCafe24Refresh } from './cafe24-sync';  // 🔄 카페24→D1 야간 자동 새로고침
 import { handleSpaceMonsterApi } from './api-space-monster';  // 🛸 Space Monster Hunter 게임 API
+import { logWarmupFix } from './warmup-parent';            // 📝 학부모 화면용 «고쳐 준 표현» 기록 (2026-10-02 P4)
+import { logWarmupFixTrace, type WarmupFixTraceReason } from './warmup-fix-trace';   // 🔎 교정 판정 사유 기록 (2026-10-31)
+import { authUidFromRequest } from './auth-token';          //    ↑ 본인 확인용(토큰 uid == 요청 user_id 일 때만 기록)
+import { retiredDomainResponse } from './retired-domain';    // 🚫 폐지 주소(test.mangoi.co.kr) → 안내문만 (2026-10-16)
+import { handleDubbingApi, isPrivateDubbingKey } from './api-dubbing'; // 🎬 계정별 더빙 작품·이어하기 (기존 녹화와 분리)
 
 interface Env {
   SIGNALING_ROOM: DurableObjectNamespace;
@@ -118,38 +159,53 @@ function applySecurityHeaders(resp: Response): Response {
 
 // 🏷️ HTML 전용 ETag — Cloudflare Assets 는 .js/.css 에는 ETag 를 주지만 HTML 에는 주지 않는다.
 //   그래서 index.html(약 430KB 압축)이 수업 시작마다 통째로 다시 내려가고 있었다.
-//   deploy.ps1 이 배포마다 모든 HTML 에 BUILD 스탬프를 새로 찍으므로, BUILD_STAMP 는
-//   'HTML 이 바뀌었는가'와 정확히 일치하는 검증자다 → 안전하게 304 를 줄 수 있다.
 //   반환값이 있으면 그대로 응답(304), null 이면 호출부가 정상 200 을 이어서 만든다.
+//
+// 🔴 (2026-09-15 수정) — 예전엔 검증자가 BUILD_STAMP(전체 배포 시각) 하나뿐이었다.
+//   '배포마다 모든 HTML 스탬프를 새로 찍으니 BUILD_STAMP 가 곧 HTML 변경 여부'라고
+//   여겼는데, 그 전제가 틀렸다 — BUILD_STAMP 는 '그 파일이 바뀌었는가'가 아니라
+//   '사이트 어딘가가 배포됐는가'다. 이 저장소는 하루에도 여러 번 배포되므로, admin.html
+//   을 한 글자도 안 고친 배포에도 그 화면 전체가 매번 처음부터 다시 내려가고 있었다
+//   (「작업할 때마다 로딩이 심해서 시간이 든다」 제보의 원인). 지금은 Cloudflare Assets 가
+//   워커 안에서 실어 주는 **파일별** ETag(아래 headers.get('ETag') — 바로 밑 주석대로
+//   이 시점에는 아직 살아 있다)를 검증 기준으로 쓴다 — 같은 내용이면 배포가 몇 번이든
+//   그 파일의 ETag 는 그대로라 304 가 나간다. BUILD_STAMP 는 native ETag 를 못 구했을
+//   때만 쓰는 폴백(예전 동작 그대로 — 안전망일 뿐 주력 경로가 아니다).
 function htmlEtag304(request: Request, path: string, env: Env, headers: Headers): Response | null {
   if (!path.endsWith('.html')) return null;
   const stamp = env.BUILD_STAMP;
-  if (!stamp) return null;
+  // 🆕 (2026-09-15) CF Assets 가 실어 준 파일별 ETag 우선(없으면 stamp 폴백) — 위 설명 참고.
+  const nativeTag = (headers.get('ETag') || '').replace(/^W\//, '').replace(/^"|"$/g, '');
+  const basis = nativeTag || stamp;
+  if (!basis) return null;
   // ⚠️ 기존의 `headers.has('ETag')` 조기반환 제거(26-07-22) — Assets 가 워커 안에서는
   //   HTML 에도 ETag 를 실어 주는데 CF 가 밖으로 나갈 때 떼는 경우, 이 가드에 걸려
   //   우리 검증자(ETag+Last-Modified)를 한 번도 못 싣고 있었다. 항상 덮어쓴다.
-  const tag = `W/"b-${stamp}"`;
+  const tag = `W/"b-${basis}"`;
   headers.set('ETag', tag);
   // 🆕 Last-Modified 폴백(26-07-22) — 실측 결과 CF 가 text/html 응답의 ETag 를 떼어
   //   브라우저에 안 닿는다(= If-None-Match 가 영영 안 옴 = 1.3MB HTML 매번 전체 다운로드).
   //   같은 검증자(빌드 스탬프 시각)를 Last-Modified 로도 실어 보내고, 브라우저가
   //   If-Modified-Since 를 보내오면 스탬프와 비교해 304(본문 0바이트)로 응답한다.
   //   Last-Modified 가 마저 잘려도 동작은 기존과 동일(무해).
+  //   ⚠️ (2026-09-15) 이 값은 여전히 stamp(배포 시각) 기준 — 주력 검증은 위 ETag 비교다.
   let lastMod = '';
-  if (/^\d{14}$/.test(stamp)) {
-    // BUILD_STAMP = KST(yyyymmddHHMMSS) → UTC 로 변환해 HTTP 날짜 생성
-    const t = Date.UTC(+stamp.slice(0, 4), +stamp.slice(4, 6) - 1, +stamp.slice(6, 8),
-                       +stamp.slice(8, 10), +stamp.slice(10, 12), +stamp.slice(12, 14)) - 9 * 3600 * 1000;
-    lastMod = new Date(t).toUTCString();
-  } else {
-    // 실제 wrangler.toml 의 BUILD_STAMP 는 ISO("2026-07-22T00:59:14Z") — Date.parse 로 처리
-    const t = Date.parse(stamp);
-    if (!isNaN(t)) lastMod = new Date(t).toUTCString();
+  if (stamp) {
+    if (/^\d{14}$/.test(stamp)) {
+      // BUILD_STAMP = KST(yyyymmddHHMMSS) → UTC 로 변환해 HTTP 날짜 생성
+      const t = Date.UTC(+stamp.slice(0, 4), +stamp.slice(4, 6) - 1, +stamp.slice(6, 8),
+                         +stamp.slice(8, 10), +stamp.slice(10, 12), +stamp.slice(12, 14)) - 9 * 3600 * 1000;
+      lastMod = new Date(t).toUTCString();
+    } else {
+      // 실제 wrangler.toml 의 BUILD_STAMP 는 ISO("2026-07-22T00:59:14Z") — Date.parse 로 처리
+      const t = Date.parse(stamp);
+      if (!isNaN(t)) lastMod = new Date(t).toUTCString();
+    }
   }
   if (lastMod) headers.set('Last-Modified', lastMod);
   // If-None-Match 는 콤마 목록일 수 있고 약한 검증자 접두사(W/)가 붙을 수 있다.
   const inm = request.headers.get('If-None-Match') || '';
-  const matched = inm.split(',').some((t) => t.trim().replace(/^W\//, '') === `"b-${stamp}"`);
+  const matched = inm.split(',').some((t) => t.trim().replace(/^W\//, '') === `"b-${basis}"`);
   if (matched) return new Response(null, { status: 304, headers });
   // HTTP 스펙: If-None-Match 가 있으면 If-Modified-Since 는 무시해야 한다 → !inm 가드
   const ims = request.headers.get('If-Modified-Since') || '';
@@ -164,6 +220,8 @@ const worker = {
   // 얇은 래퍼: 실제 처리는 handle()이 하고, 여기서 보안 헤더만 씌운다.
   //   this 바인딩에 의존하지 않도록 worker.handle 로 명시 참조(진입점 안정성).
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const staged = eleaderStagedResponse(request);
+    if (staged) return applySecurityHeaders(staged);
     // ⚡ (2026-08-09) 같은 DDL 을 이 격리에서 한 번만 D1 으로 보낸다.
     //   이 저장소는 표를 요청 처리 도중 만든다(CREATE TABLE IF NOT EXISTS 가 핸들러 첫 줄마다).
     //   실측: DDL 411건 중 392건이 «요청마다» 나갈 수 있었다. 표가 이미 있어도 왕복은 그대로다.
@@ -186,6 +244,10 @@ const worker = {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    // 🚫 폐지된 옛 주소(test.mangoi.co.kr)는 사이트를 아예 안 보여 준다 — src/retired-domain.ts
+    const retired = retiredDomainResponse(url);
+    if (retired) return retired;
+
     // CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, {
@@ -194,6 +256,60 @@ const worker = {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type, X-Room-Id, X-Filename, X-Recording-Id, X-Duration-Ms, X-Size-Bytes, Authorization'
+        }
+      });
+    }
+
+    /* 🔗 정본 호스트로 모은다 — www.mangoi.ai → mangoi.ai (2026-08-17)
+     *
+     * [왜]
+     *   www 를 추가로 붙이면서 «같은 사이트» 가 브라우저에겐 **두 사이트**가 됐다.
+     *   오리진이 갈리면 아래가 전부 따로 논다:
+     *     · 교사·본사·지사 세션 쿠키 — Domain= 이 없는 호스트 전용 쿠키(auth-admin.ts)
+     *     · 학생·학부모 로그인 — localStorage 의 mangoi_logged_user·mango_token
+     *     · 언어 설정 mangoi_lang, 패스키 rpId, 뒤로가기의 «같은 사이트» 판정
+     *   쿠키는 Domain 을 넓히면 되지만 **localStorage 는 오리진별로 갈리는 게 웹 표준이라
+     *   공유할 방법이 아예 없다.** 그래서 «주소를 하나로 모으는» 것이 유일한 완전 해결책이다.
+     *   이걸 안 하면 CLAUDE.md 의 「로그인했는데 또 로그인하래요」가 그대로 재현된다.
+     *
+     * [주의]
+     *   ⛔ test.mangoi.co.kr 은 절대 건드리지 않는다 — 앱 시작 URL·스모크 테스트·워치독이
+     *      그 주소를 붙박이로 쓴다. workers.dev·localhost 도 그대로 둔다(개발·진단용).
+     *   ⛔ WebSocket 업그레이드는 리다이렉트하지 않는다 — 화상수업이 끊긴다.
+     *   · OPTIONS(프리플라이트)는 위에서 이미 답했으므로 여기까지 오지 않는다.
+     *   · GET/HEAD 는 301, 나머지는 308 을 쓴다. POST 를 301 로 보내면 클라이언트가
+     *     GET 으로 바꾸면서 **본문을 버린다**(308 은 메서드와 본문을 지킨다).
+     */
+    if (url.hostname === 'www.mangoi.ai'
+        && (request.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') {
+      const canonical = new URL(url.toString());
+      canonical.hostname = 'mangoi.ai';
+      const permanent = request.method === 'GET' || request.method === 'HEAD';
+      return Response.redirect(canonical.toString(), permanent ? 301 : 308);
+    }
+
+    if (path === '/api/seed-shares' || path.startsWith('/api/seed-shares/') || path.startsWith('/s/')) return handleSeedShares(request, env);
+
+    if (path === '/api/student/speech-preferences') return handleSpeechPreferences(request, env);
+
+    // This handler authenticates BOTH students and staff and derives its own
+    // account namespace. Do not route it through the admin-only classroom gate.
+    if (path === '/api/dubbing' || path.startsWith('/api/dubbing/')) return handleDubbingApi(request, env);
+
+    // 💬 문의·신규상담 페이지 폐지 → 카카오톡 실시간 상담으로 통합 (2026-08-14 피드백 ⑤)
+    //   public/contact.html 을 지웠다. 그런데 이 주소는 검색엔진에 색인돼 있고, 카톡·문자로
+    //   돌던 옛 링크도 살아 있다. 그냥 지우면 그 사람들이 404 를 본다 — 상담하러 온 사람이다.
+    //   그래서 워커가 여기서 카카오 채널로 넘긴다. 301(영구)이라 색인도 함께 정리된다.
+    //   ⚠️ `/chat` 을 붙이지 말 것 — pf.kakao.com/<id>/chat 은 비로그인 PC 를 카카오 로그인
+    //      화면으로 튕긴다. 채널 «홈» 은 로그인 없이 열리고 그 안에 채팅·챗봇·전화가 다 있다.
+    //   ⚠️ 관리자 「💌 신규상담 관리」와 /api/student/inquiry 는 그대로다 — 이미 들어와 있는
+    //      문의를 계속 봐야 한다. 없앤 것은 «새로 접수받는 창구» 뿐이다.
+    if (path === '/contact.html' || path === '/contact' || path === '/inquiry' || path === '/inquiry.html') {
+      return new Response(null, {
+        status: 301,
+        headers: {
+          Location: 'https://pf.kakao.com/_xlqnSxd',
+          'Cache-Control': 'public, max-age=3600'
         }
       });
     }
@@ -262,7 +378,10 @@ const worker = {
         if (path === '/admin' || path === '/admin/' || path === '/admin.html'
             || path.startsWith('/admin/')
             || path === '/teacher' || path === '/teacher/' || path === '/teacher.html'
-            || path === '/manager' || path === '/manager/' || path === '/manager.html') {
+            || path === '/manager' || path === '/manager/' || path === '/manager.html'
+            || path === '/branch' || path === '/branch/' || path === '/branch.html'
+            || path === '/work' || path === '/work/' || path === '/work.html'
+            || path === '/sales' || path === '/sales/' || path === '/sales.html') {
           const next = encodeURIComponent(path + url.search);
           return Response.redirect(new URL(`/admin/login?next=${next}`, request.url).toString(), 302);
         }
@@ -287,6 +406,17 @@ const worker = {
       if (sess.ok) {
         const _mp = await managerPortalRedirect(request, url, path, env);
         if (_mp) return _mp;
+      }
+
+      // 🔒 (2026-09-22) 녹화(미성년자 수업 영상) 관리자 API — 본사 전용.
+      //   `/api/recordings/*` 는 `/api/admin/` 밖이라 아래 스코프 차단을 비켜 가고 핸들러도
+      //   스코프를 안 걸어, 지사·대리점 계정이 다른 지사 학생 영상 목록·링크를 받을 수 있었다.
+      //   여기 오는 것은 isAdminPath 가 관리자 전용으로 적은 녹화 경로뿐이다(학생 업로드 경로는 안 옴).
+      //   조직인지 «모르면» 도 막는다 — 정본 src/org-scope-guard.ts.
+      if (sess.ok && path.startsWith('/api/recordings')) {
+        const _recActor = await getAdminActor(request, env as any);
+        const _recDeny = orgScopeDenyResponse(orgScopeVerdict(await readScopeType(env, _recActor.username), _recActor.role));
+        if (_recDeny) return _recDeny;
       }
 
       // 🏪 대리점/지사(비-본사) 제한 뷰 — 본사 전용 콘솔/ API 차단, 자기 대시보드로 유도
@@ -325,6 +455,8 @@ const worker = {
             // ── 회사 전체 재무·경영 (2026-07-12 최초) ──
             '/api/admin/reports/', '/api/admin/exec/', '/api/admin/realtime/',
             '/api/admin/settlement/', '/api/admin/capitown/', '/api/admin/accounting',
+            // 🏢 B2B 대리점 AI 사용료 — 대리점별 단가·청구·결제 내역(돈). 강사에게 열 이유가 없다.
+            '/api/admin/ai-billing/',
             // ── 결제·정산·구독 (student_payments · refunds · recurring_billing · auto_dunning) ──
             '/api/admin/payments', '/api/admin/duplicate-payments',
             '/api/admin/subscription', '/api/admin/subscriptions', '/api/admin/dunning',
@@ -333,6 +465,20 @@ const worker = {
             // ── 강사 연락처 (2026-08-07) — 동료의 전화·이메일·카톡ID 가 한 화면에 모인다.
             //    수업 배정과 달리 «남의 개인 연락처» 라 교사에게는 열지 않는다. 본사/매니저만.
             '/api/admin/teacher-contacts',
+            // ── 💬 강사 카카오ID 명부 + 단체 전달 (2026-08-13) — 동료 전원의 카톡ID·전화번호가
+            //    한 화면에 모이고, 여기서 전체에게 문자·카톡을 뿌릴 수 있다. 본사/매니저만.
+            //    (핸들러 첫머리에서도 한 번 더 막지만, URL 직접 호출까지 여기서 끊는다)
+            '/api/admin/teachers/kakao',
+            // ── 🚗 영업담당자 인사평가·보상 (2026-08-18) — 남의 급여·성과급·평가 등급이 담긴다.
+            //    거래처 학원장 연락처도 함께 들어 있어 강사에게는 열지 않는다.
+            '/api/admin/sales/',
+            // ── 💳 법인카드 사용내역 (2026-08-13) — 회사 지출 내역. 본사/매니저만.
+            '/api/admin/corpcard/',
+            // ── 🏦 신한은행 계좌 입출금 (2026-08-14) — 회사 계좌 원장. 본사/매니저만.
+            '/api/admin/bankacct/',
+            // ── 🙈 교재 라이브러리 숨김 (2026-08-13) — 한 강사가 체크하면 **전 강사의 교재가 사라진다.**
+            //    반경이 회사 전체라 강사에게는 열지 않는다(읽기 목록도 같은 경로라 함께 막힌다).
+            '/api/admin/textbook-hidden-books',
             // ── 계정·권한·감사 (permissions · audit_log) ──
             '/api/admin/permissions', '/api/admin/audit-logs', '/api/admin/login-history',
             '/api/admin/staff', '/api/admin/sessions', '/api/admin/2fa',
@@ -341,6 +487,21 @@ const worker = {
             '/api/admin/push', '/api/admin/popups', '/api/admin/posters',
             // ── 운영 감시·데이터 반출 (card-admin-ghost · card-admin-alerts · card-data-export) ──
             '/api/admin/ghost', '/api/admin/alerts', '/api/admin/export',
+            // ── 🔴 지금 수업 현황 (2026-08-20) — 전사 학생 이름·강사 배정이 한 화면에 모인다.
+            //    강사는 자기 수업만 보면 되고 그것은 teacher.html 이 이미 준다. 핸들러도 403 을
+            //    내지만(이중 방어), URL 직접 호출은 여기서 끊는다.
+            '/api/admin/classes-now',
+            // ── 📶 화상 회선품질·강제 릴레이 (2026-08-27, 관문 등록과 동시) — quality 는
+            //    전사 강사·학생 이름+회선 지표 200행이 한 응답에 담긴다(classes-now 와 같은 사유).
+            //    relay 는 핸들러가 강사를 403 으로 막지만 URL 직접 호출은 여기서 끊는다.
+            '/api/admin/vc/',
+            // ── 📅 (2026-08-25) 오늘 전체 수업 목록 — 위와 같은 사유(전사 학생 이름·강사 배정).
+            //    카페24 예약까지 합쳐 주게 되면서 한 화면에 모이는 양이 더 늘었다.
+            //    핸들러도 403 을 내지만(이중 방어), URL 직접 호출은 여기서 끊는다.
+            '/api/admin/classes/today',
+            // ── 🤖 AI 학습도구 사용 학생 (2026-09-16) — 전사 학생 이름·소속이 도구 사용 이력과
+            //    함께 한 화면에 모인다(classes-now 와 같은 사유). 강사는 자기 반 학생만 봐야 한다.
+            '/api/admin/ai-usage',
             // ── 🌅 아침 브리핑 (2026-08-08) — 전사 매출·미납 학생 수·2주+ 결석·출석률 요약이 한 문장에 담긴다.
             //    지금까지 이 목록에도, 화면 권한 매트릭스(adm-q10.js PERMS)에도 없어서 강사에게 그대로 열려 있었다.
             //    (PERMS 는 «목록에 있는 카드만» 가리는 방식이라, 등록 안 된 카드는 아무에게도 안 가려진다)
@@ -351,17 +512,38 @@ const worker = {
             // ── 가족·리퍼럴 (card-family-mgmt · card-referral) ──
             '/api/admin/family', '/api/admin/families', '/api/admin/referrals',
             // ── 결재(기안·지출) — 회사 지출 내역. 핸들러도 막지만 여기에도 이중으로 둔다 ──
+            //    ⚠️ 아래 _TEACHER_APPROVAL_OK 로 «긴급·고객불만» 경로만 예외로 연다.
             '/api/approval',
           ];
-          const _teacherBlocked = TEACHER_BLOCKED_PREFIXES.some(p => path.startsWith(p));
+          /* 🧾 (2026-08-16) 강사에게 열어 주는 결재 경로 — 여기 적힌 것만 통과한다.
+           *   왜 여는가: 사고·학부모 항의는 **현장의 강사가 가장 먼저 안다.** 그걸 매니저에게
+           *   따로 연락해서 대신 올리게 하면 그 시간만큼 늦는다.
+           *   ⚠️ 여는 것은 «올리기»와 «내 결재함»뿐이다. 분류 제한(긴급·고객불만만)과
+           *      열람 제한은 approval-policy 의 canSubmit()·canView() 가 판정한다 —
+           *      즉 강사가 /home 을 불러도 남의 지출 결재는 응답에 담기지 않는다.
+           *   ⛔ 결재(decide)·위임(delegate)·목록(requests GET)은 여전히 막힌다. */
+          const _TEACHER_APPROVAL_OK = (p: string, m: string): boolean => {
+            if (p === '/api/approval/home' && m === 'GET') return true;
+            if (p === '/api/approval/requests' && m === 'POST') return true;   // 올리기(분류는 핸들러가 제한)
+            if (p === '/api/approval/voice' && m === 'POST') return true;      // 말로 올리기
+            if (/^\/api\/approval\/requests\/\d+\/file$/.test(p) && m === 'GET') return true;  // 본인 첨부(핸들러가 재확인)
+            return false;
+          };
+          const _teacherBlocked = TEACHER_BLOCKED_PREFIXES.some(p => path.startsWith(p))
+                               && !_TEACHER_APPROVAL_OK(path, request.method);
           if (_teacherBlocked) {
             const _actor = await getAdminActor(request, env as any);
             if (_actor.isTeacher) {
-              return new Response(JSON.stringify({
-                ok: false, error: 'forbidden_teacher',
-                message: '강사 권한으로는 볼 수 없는 정보입니다.',
-                message_en: 'This information is not available with a teacher account.'
-              }), { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+              /* 🪪 «지금 누구로 들어와 있는가» 를 함께 말한다 — 2026-09-10 사장님이 이 문구만 보고
+                 서버 설정을 의심하셨다. 실제로는 그 브라우저가 강선생님 세션을 들고 있었고
+                 (세션 쿠키는 브라우저당 한 개라 뒤에 한 로그인이 앞을 덮는다) 계정 한 줄이면
+                 5초에 끝났을 일이다. 문구 정본은 src/forbidden-teacher.ts 하나. */
+              /* ⚠️ 기본 문구에 기대지 않고 «이 자리의 말» 을 넘긴다 — 고치기 전 문구 그대로다.
+                 (기본값은 삭제·저장 자리까지 함께 쓰므로 «보다/쓰다» 를 안 가리는 말이다) */
+              return new Response(JSON.stringify(forbiddenTeacherBody(_actor,
+                '강사 권한으로는 볼 수 없는 정보입니다.',
+                'This information is not available with a teacher account.')),
+                { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
             }
           }
         }
@@ -437,7 +619,10 @@ const worker = {
     //   - POST /api/warmup/chat     {session_id, student_input, lesson_topic?, user_id?, textbook?, level?, lesson_no?}
     //   - GET  /api/warmup/context  ?user_id=&textbook=&level=&lesson=  → 오늘 배울 교재/문장 (students_erp + review_quizzes)
     if (path === '/api/warmup/chat' && request.method === 'POST') {
-      return handleWarmupChat(request, env);
+      /* 📡 P2 (2026-10-02 사장님 승인) — 본문에 stream:1 이 있을 때만 SSE 로 문장을 먼저 흘린다.
+         없으면 warmupChatEntry 가 아래 핸들러 응답을 «그대로» 돌려준다(옛 화면은 한 바이트도 안 바뀜).
+         정본·안전문(gate)·done 계약은 src/warmup-stream.ts 머리말. */
+      return warmupChatEntry(request, (req, send) => handleWarmupChat(req, env, send));
     }
     if (path === '/api/warmup/context' && request.method === 'GET') {
       return handleWarmupContext(request, env);
@@ -529,10 +714,11 @@ const worker = {
     }
 
     // 🩺 /admin/health 페이지가 호출하는 서버측 자가진단 API
-    //   - D1/R2/KV 바인딩 실제 호출 + 시크릿 presence + BUILD_STAMP 리턴
-    //   - Basic Auth 미들웨어 뒤에 걸려 있음 (isAdminPath 참조)
+    //   - mode=passive: 바인딩/시크릿 존재 여부 + BUILD_STAMP만, 진단 쿼리 없음
+    //   - 기본 동작은 기존 SELECT 1 진단 유지. 관리자 세션/스코프 게이트 뒤 (isAdminPath 참조)
     if (path === '/api/admin/health-check') {
-      // Inline admin health probe — no separate handler module needed.
+      // Keep the same authentication/authorization for both modes. Auth still reads D1 and records session activity.
+      const passive = url.searchParams.get('mode') === 'passive';
       const probe: any = {
         ok: true,
         ts: new Date().toISOString(),
@@ -547,10 +733,29 @@ const worker = {
       try { probe.bindings.AI = !!(env as any)?.AI; } catch {}
       try { probe.bindings.SIGNALING_ROOM = !!(env as any)?.SIGNALING_ROOM; } catch {}
       try { probe.bindings.VIDEO_CALL_ROOM = !!(env as any)?.VIDEO_CALL_ROOM; } catch {}
-      const secretKeys = ['VAPID_PUBLIC_KEY','VAPID_PRIVATE_KEY','VAPID_SUBJECT','KAKAO_API_KEY','KAKAO_TEMPLATE_ID','SOLAPI_API_KEY','SOLAPI_API_SECRET','SOLAPI_SENDER','GIFTISHOW_AUTH_CODE','GIFTISHOW_AUTH_TOKEN'];
+      /* 🔑 여기 이름은 **코드가 실제로 읽는 env 이름과 글자 그대로 같아야 한다.**
+         2026-08-18 실측: 10개 중 5개(KAKAO_API_KEY·KAKAO_TEMPLATE_ID·SOLAPI_SENDER·
+         GIFTISHOW_AUTH_CODE·GIFTISHOW_AUTH_TOKEN)가 이 줄에만 있고 코드 어디서도 안 쓰는
+         «유령 이름» 이었다. 그래서 등록을 제대로 해 둬도 영원히 false 로 나왔다 —
+         웹푸시가 안 되는 원인을 찾다가 SOLAPI_SENDER: false 를 보고 「문자 발송도 죽었구나」로
+         읽을 뻔했다. 실제로는 그런 변수가 없었을 뿐이고, 진짜 발신번호(SOLAPI_FROM_PHONE)는
+         이 목록이 아예 묻지도 않고 있었다.
+         ⚠️ 점검 도구가 거짓을 말하면 없는 문제를 쫓게 된다. 코드 버그보다 비싸다.
+         ℹ️ 이 값(secrets_present)을 그리는 화면은 없다 — /api/admin/health-check 의 JSON 을
+            직접 열어서 본다(admin/health.html 은 이 필드를 렌더링하지 않는다).
+         감시: test-harness/secret_names_harness.mjs 가 «코드가 안 쓰는 이름» 을 FAIL 낸다. */
+      const secretKeys = [
+        'VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_SUBJECT',   // 🔔 웹푸시
+        'SOLAPI_API_KEY', 'SOLAPI_API_SECRET',                       // 💬 문자·알림톡
+        'SOLAPI_FROM_PHONE',                                         //    발신번호 (구 SOLAPI_SENDER — 그런 이름은 없었다)
+        'SOLAPI_PFID',                                               //    카카오 채널 ID
+        'KAKAO_CLIENT_ID', 'KAKAO_CLIENT_SECRET',                    // 🔑 카카오 소셜로그인
+        'GIFTISHOW_API_KEY', 'GIFTISHOW_USER_ID',                    // 🎁 기프티콘
+      ];
       for (const k of secretKeys) probe.secrets_present[k] = !!(env as any)?.[k];
+      if (passive) probe.mode = 'passive';
       try {
-        if ((env as any)?.DB) {
+        if (!passive && (env as any)?.DB) {
           const r: any = await (env as any).DB.prepare('SELECT 1 AS one').first();
           probe.db_query_ok = r?.one === 1;
         }
@@ -592,9 +797,24 @@ const worker = {
       return await handleFileShareDownload(path, env);
     }
 
-    // 보관기간 자동 파기: 수동 실행/상태 조회
+    /* 보관기간 자동 파기: 수동 실행/상태 조회
+       ⛔ 2026-09-02 부터 이 경로는 R2 영상 파일을 «실제로» 지운다 — 되돌릴 수 없다.
+          그전에는 D1 에 표시만 해서 되돌릴 수 있었기에 게이트가 «로그인했는가» 뿐이었는데,
+          그 상태로 실삭제를 켜면 **강사·지사·대리점 계정이 전체 녹화를 파기**할 수 있다.
+          스코프 차단(forbidden_scope)과 TEACHER_BLOCKED_PREFIXES 는 `/api/admin/` 접두사에만
+          걸려서 이 경로에는 오지 않는다(2장 「관리자 API 를 만들었는데 지사·대리점이 그대로 씁니다」).
+       ⛔ canEditOrg() 로 막지 말 것 — 그 함수는 'none'(내부직원·**교사**)에 true 라 강사를 못 막는다.
+          두 가드를 «따로» 둔다: 강사(isTeacher) · 조직 계정(isOrgScopedRole).
+       ✅ `?dry_run=1` 이면 아무것도 지우지 않고 건수만 센다. 켜기 전 확인용이며
+          `retention.ts` 주석이 요구하는 «dryRun 선행» 을 실제로 부를 수 있는 유일한 통로다. */
     if (path === '/api/retention/run' && request.method === 'POST') {
-      const result = await purgeExpired(env);
+      const _retActor = await getAdminActor(request, env as any);
+      if (!_retActor.ok || _retActor.isTeacher || isOrgScopedRole(_retActor.role)) {
+        return new Response(JSON.stringify({ ok: false, error: 'forbidden' }), {
+          status: 403, headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      const result = await purgeExpired(env, { dryRun: url.searchParams.get('dry_run') === '1' });
       return new Response(JSON.stringify(result), {
         status: 200, headers: { 'Content-Type': 'application/json' }
       });
@@ -608,7 +828,7 @@ const worker = {
 
     // 활성 방 목록 (관리자용)
     if (path === '/api/active-rooms' && request.method === 'GET') {
-      return await handleActiveRooms(env);
+      return await handleActiveRooms(env, request);
     }
 
     // 특정 방 상태 조회 (관리자용)
@@ -729,6 +949,7 @@ const worker = {
       try {
         if (!env.RECORDINGS) return new Response(JSON.stringify({ ok:false, error:'R2 not configured' }), { headers:{'Content-Type':'application/json'} });
         const k = url.searchParams.get('key') || '';
+        if (isPrivateDubbingKey(k)) return new Response('Not found', { status: 404 });
         if (!k) {
           // 🎬 두 prefix 모두 검사: rec/ (multipart 자동녹화) + recordings/ (옛날 단일 업로드)
           const [recList, recordingsList] = await Promise.all([
@@ -752,6 +973,59 @@ const worker = {
       }
     }
 
+    /* 📊 저장소 상태 — 화면 KPI 타일용 «진짜» 숫자 (2026-08-26 신설)
+       예전 타일 4개(12.4GB · 156파일 · 248MB · ₩4,820)는 HTML 에 박아 둔 **예시 숫자**였고,
+       옆의 「🔄 새로고침」이 부르는 window.refreshStorageStats 는 저장소 어디에도 없었다.
+       ⚠️ KV 호출수·월 청구액은 Worker 안에서 알 수 없다(Cloudflare 계정 API 영역).
+          그래서 그 두 칸은 «지어내지 않고» 뺐고, 대신 이 화면에서 실제로 궁금한 값
+          — 저장 실패 건수와 곧 만료될 건수 — 를 준다. */
+    if (path === '/api/recordings/storage-stats' && request.method === 'GET') {
+      try {
+        const out: any = { ok: true, r2: null, d1: null };
+        if (env.RECORDINGS) {
+          /* ⚠️ 버킷 전체를 세면 «녹화 파일» 이 아닌 것까지 들어간다 — 2026-08-26 실측에서
+             이 타일이 17.8GB · 15,084 파일로 떴는데 그 대부분이 화상수업 교재(`pdfs/`)였다.
+             제목이 「R2 저장소 (녹화 파일)」인데 교재를 세면 그것도 거짓말이다.
+             → REC_LIST_PREFIXES 만 센다(위 주석 참고). 덤으로 훨씬 싸고 잘리지도 않는다. */
+          let files = 0, bytes = 0, snaps = 0, truncated = false;
+          for (const prefix of REC_LIST_PREFIXES) {
+            let cursor: string | undefined = undefined;
+            for (let page = 0; page < REC_LIST_MAX_PAGES; page++) {
+              const listed: any = await env.RECORDINGS.list({ prefix, limit: 1000, cursor });
+              for (const o of (listed.objects || [])) {
+                if (String(o.key).endsWith('.snap')) { snaps++; continue; }   // 안전망 사본은 «파일» 로 안 센다
+                files++; bytes += (o.size || 0);
+              }
+              cursor = listed.truncated ? (listed.cursor as string) : undefined;
+              if (!cursor) break;
+              if (page === REC_LIST_MAX_PAGES - 1) truncated = true;
+            }
+          }
+          out.r2 = { files, bytes, snapshots: snaps, truncated };
+        }
+        try {
+          const now = Date.now();
+          const r = await env.DB.prepare(
+            `SELECT COUNT(*) AS total,
+                    SUM(CASE WHEN status = 'completed'     THEN 1 ELSE 0 END) AS completed,
+                    SUM(CASE WHEN status = 'upload_failed' THEN 1 ELSE 0 END) AS failed,
+                    SUM(CASE WHEN status = 'recording'     THEN 1 ELSE 0 END) AS recording,
+                    SUM(CASE WHEN expires_at IS NOT NULL AND expires_at > ? AND expires_at < ? THEN 1 ELSE 0 END) AS expiring
+               FROM recordings
+              WHERE COALESCE(status, '') != 'deleted'`
+          ).bind(now, now + 30 * 24 * 3600 * 1000).first<any>();
+          out.d1 = {
+            total: Number(r?.total || 0), completed: Number(r?.completed || 0),
+            failed: Number(r?.failed || 0), recording: Number(r?.recording || 0),
+            expiring30d: Number(r?.expiring || 0),
+          };
+        } catch (e: any) { out.d1 = { error: String(e?.message || e) }; }
+        return new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: e?.message }), { headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+
     // R2 녹화 저장소 연결 테스트
     if (path === '/api/recordings/test-r2' && request.method === 'GET') {
       try {
@@ -761,11 +1035,27 @@ const worker = {
         const obj = await env.RECORDINGS.get(testKey);
         const text = obj ? await obj.text() : null;
         await env.RECORDINGS.delete(testKey);
-        // 녹화 파일 목록도 확인
-        const recList = await env.RECORDINGS.list({ prefix: 'recordings/', limit: 10 });
+        /* 🔴 2026-08-26: 여기가 'recordings/' **한 접두사만** 보고 있었다.
+           그런데 실제 자동녹화는 전부 'rec/' 에 쌓인다(recordings-r2.ts 의 create).
+           그래서 파일이 멀쩡히 있어도 이 진단은 늘 「녹화 파일 0개」라고 답했고,
+           「저장소가 비었나 보다」로 읽혔다. 두 접두사를 함께 센다. */
+        const [recList, legacyList] = await Promise.all([
+          env.RECORDINGS.list({ prefix: 'rec/', limit: 1000 }),
+          env.RECORDINGS.list({ prefix: 'recordings/', limit: 1000 }),
+        ]);
+        // `.snap` 은 짧은 녹화 안전망의 «사본» 이라 파일 수에서 뺀다(recordings-r2.ts)
+        const recObjs = (recList.objects || []).filter(o => !String(o.key).endsWith('.snap'));
+        const legacyObjs = legacyList.objects || [];
+        const sample = [...recObjs, ...legacyObjs]
+          .sort((x: any, y: any) => new Date(y.uploaded).getTime() - new Date(x.uploaded).getTime())
+          .slice(0, 5)
+          .map(o => ({ key: o.key, size: o.size, uploaded: o.uploaded }));
         return new Response(JSON.stringify({
           ok: true, bucket: 'connected', testWrite: !!text, testContent: text,
-          recordingFiles: recList.objects.map(o => ({ key: o.key, size: o.size, uploaded: o.uploaded }))
+          rec:    { prefix: 'rec/',        count: recObjs.length,    truncated: !!recList.truncated },
+          legacy: { prefix: 'recordings/', count: legacyObjs.length, truncated: !!legacyList.truncated },
+          // 옛 화면(캐시된 admin.html)이 이 이름으로 읽으므로 남겨 둔다 — 이제 두 접두사를 합친 표본이다
+          recordingFiles: sample
         }), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
       } catch (e: any) {
         return new Response(JSON.stringify({ ok: false, error: e?.message }), { headers: { 'Content-Type': 'application/json' } });
@@ -908,6 +1198,14 @@ const worker = {
         path === '/api/admin/profile' ||
         path === '/api/admin/change-password' ||
         path === '/api/admin/staff-password-reset' ||
+        // ➕ 직원 계정 생성 (2026-08-18) — 게이트는 handleAdminAuthApi 안에서 경영진·본사로 한 번 더.
+        path === '/api/admin/staff-create' ||
+        // 🔑 비밀번호 찾기(셀프 재설정) — 로그인 전에 부르는 API 라 isAuthPublicPath 에도 등록돼 있다.
+        path === '/api/admin/password-reset/request' ||
+        path === '/api/admin/password-reset/confirm' ||
+        // 📇 복구 연락처 채우기(본사가 대신) — 인증 필요. 게이트는 handleAdminAuthApi 안에서 hq·staff 로 한 번 더.
+        path === '/api/admin/contacts-missing' ||
+        path === '/api/admin/staff-contact' ||
         path === '/api/admin/login-history' ||
         path === '/api/admin/sessions' ||
         path === '/api/admin/sessions/revoke' ||
@@ -932,6 +1230,15 @@ const worker = {
     if (path.startsWith('/api/outage/')) {
       const oRes = await handleOutageApi(request, url, env as any);
       if (oRes) return oRes;
+    }
+
+    // 🚗 영업담당자 실적·인사평가·보상 (2026-08-18)
+    //   인증은 위 미들웨어(/api/admin/* DEFAULT-DENY)가 이미 걸었고,
+    //   역할 게이트(본사 또는 담당자 본인)는 핸들러 안에서 한 번 더 본다.
+    //   ⚠️ 이 등록을 빼면 CF Assets 로 흘러가 POST 가 405 가 된다(게이트 주석 참고).
+    if (path.startsWith('/api/admin/sales/')) {
+      const sRes = await handleSalesHrApi(request, url, env as any);
+      if (sRes) return sRes;
     }
 
     // 📏 관리자 메뉴 클릭 계측 — 메뉴를 87개에서 줄이려면 «안 눌리는 메뉴» 를 알아야 한다.
@@ -966,6 +1273,16 @@ const worker = {
         path === '/api/admin/ai-action' ||
         path === '/api/admin/class-schedules' ||
         path === '/api/admin/class-schedules/seed-demo' ||
+        path === '/api/admin/class-schedules/teacher-options' ||
+        path === '/api/admin/class-schedules/move' ||
+        /* 🧹 (2026-08-24) LMS·시드 자리표시 일괄 정리.
+           ⚠️ 이 목록은 «허용목록» 이다 — 인증 게이트(isAdminPath)가 `/api/admin/` 을
+              통째로 default-deny 하는 것과 **다른 것**이다. 인증은 통과하는데 여기 없으면
+              라우팅이 안 돼 핸들러까지 못 가고 «Not Found» 가 된다.
+              실제로 그렇게 밟았다: 화면 버튼이 「⚠️ 건수를 확인하지 못했습니다: Not Found」.
+           ⚠️ `/api/admin/class-schedules` 는 **정확일치**로만 올라와 있어(위 두 줄),
+              하위 경로를 새로 만들면 매번 여기에 한 줄을 더해야 한다. */
+        path === '/api/admin/class-schedules/purge-placeholders' ||
         // 🚫 강사 근무불가(휴가·휴식시간) — 강사 피드백(2026-07-24), /api/admin/class-schedules 등록 시 자동 차단에 사용
         path === '/api/admin/teacher-unavailability' ||
         /^\/api\/admin\/teacher-unavailability\/\d+$/.test(path) ||
@@ -984,6 +1301,8 @@ const worker = {
         // 🔗 (2026-08-08) 강사 ↔ 로그인 아이디 연결. 근태 계산의 전제라 화면 하나가 통째로 여기 걸린다.
         //   api-mango 게이트는 startsWith('/api/admin/teachers') 라 이미 통과 — 여기만 등록하면 된다.
         path === '/api/admin/teachers/links' ||
+        // 💬 (2026-08-13) 강사 카카오ID 명부 + 강사에게 메시지 전달(문자 자동발송 + 카톡 붙여넣기 전달)
+        path.startsWith('/api/admin/teachers/kakao') ||
         path === '/api/admin/teacher-hours' ||
         path === '/api/admin/teacher-classes' ||
         path === '/api/admin/teacher-evaluation' ||
@@ -994,6 +1313,8 @@ const worker = {
         path.startsWith('/api/admin/schedule-requests') ||
         // 📜 수업 변경 이력(연기/삭제/종료) 조회·기록
         path === '/api/admin/class-audit' ||
+        // 📅 (2026-08-17) 수업 «길이 변경» 신청함 — 신청은 상시, 반영은 월 1회
+        path.startsWith('/api/admin/duration-requests') ||
         // ⏸ 연기 수업 통합 조회(매니저 화면) — 요청+감사로그를 합쳐 유료/무료·연기시각까지 (2026-07-23)
         path === '/api/admin/postponed-classes' ||
         // 📅 오늘 수업 전체(매니저용) — 강사 미입장 시 매니저가 바로 대신 입장 (2026-07-23)
@@ -1004,6 +1325,13 @@ const worker = {
         path === '/api/admin/payroll/rates' ||
         path === '/api/admin/payroll/finalize' ||
         path === '/api/admin/payroll/seed-demo' ||
+        // 🏯 (2026-08-18) 본사 관리 — 「시스템 › 조직 관리 › 본사 관리」 목록·등록·수정·삭제.
+        //    '/api/admin/org' 접두사라 TEACHER_BLOCKED_PREFIXES 에 이미 걸려 강사에게는 닫힌다.
+        path === '/api/admin/org/hq' ||
+        /* 🗓 (2026-08-19) 지난 수업(attendance)에서 주간 일정을 만드는 도구.
+           preview 는 읽기만, apply 는 «사람이 화면에서 고른 것» 만 만든다.
+           ⚠️ 본사 전용 — 핸들러가 canEditOrg() 로 한 번 더 막는다. */
+        path.startsWith('/api/admin/schedule-seed/') ||
         path === '/api/admin/franchises' ||
         path === '/api/admin/centers' ||
         path === '/api/admin/level-tests' ||
@@ -1018,6 +1346,21 @@ const worker = {
         // 📚 Phase 39 — 교재 파일 라이브러리 + 망고아이 비디오
         path === '/api/admin/textbook-files' ||
         /^\/api\/admin\/textbook-files\/\d+$/.test(path) ||
+        // 🔍✏️ (2026-08-19) 교재 중복 진단(읽기 전용) · 묶음 일괄 이름변경(본사 전용, dry_run 기본)
+        //     ⚠️ 위 정규식은 /\d+$/ 라 이 두 경로를 안 잡는다 — 반드시 따로 적어야 인증을 거친다.
+        path === '/api/admin/textbook-files/dup-report' ||
+        path === '/api/admin/textbook-files/rebook' ||
+        // 👥 (2026-08-19) 진행 중인 방 번호 → 강사·학생 이름. 핸들러가 스코프로 잘라서 준다.
+        path === '/api/admin/live-classes' ||
+        // 🔴 (2026-08-20) 예약 기준 «지금 진행 중이어야 할 수업». 핸들러가 스코프로 자르고 강사는 막는다.
+        path === '/api/admin/classes-now' ||
+        // 📶 (2026-08-27) 화상 회선품질 조회(admin.html 「회선 품질」 패널)·강제 릴레이 지정(vc_relay_force).
+        //    핸들러(api-admin.ts)는 각각 7/19·8/21 부터 있었는데 이 목록과 api-mango 위임 가드에
+        //    빠져 있어 «조용한 404» 였다 — 중국 회선 강제 릴레이 기능이 켤 방법이 없는 죽은 코드였음.
+        path === '/api/admin/vc/quality' ||
+        path === '/api/admin/vc/relay' ||
+        // 🙈 (2026-08-13) 라이브러리에서 숨길 교재 묶음 (관리자가 고른다)
+        path === '/api/admin/textbook-hidden-books' ||
         path === '/api/textbook-files' ||
         /^\/api\/textbook-files\/\d+(\/raw)?$/.test(path) ||
         path === '/api/admin/mango-videos' ||
@@ -1079,8 +1422,13 @@ const worker = {
         path === '/api/admin/students/erp-list' ||
         path === '/api/admin/students/erp' ||
         path === '/api/admin/students/erp-seed' ||
+        // 🤖 (2026-09-16) AI 학습도구 8종 사용 학생 목록 — 판단력훈련·웜업·AI영어친구·AI글쓰기·
+        //    발음코칭·복습퀴즈·단어장·AI단어퀴즈. 정본은 src/api-admin.ts, 위임은 api-mango.ts.
+        path === '/api/admin/ai-usage/students' ||
         // 📚 교재 일괄 배정 (학생관리 카드)
         path === '/api/admin/students/bulk-assign-textbook' ||
+        // ➕ 학생 수동 등록 (학생관리 카드 「학생 등록」 버튼)
+        path === '/api/admin/students/create' ||
         path === '/api/community/posts' ||
         path === '/api/teacher-profiles' ||
         path === '/api/_bootstrap' ||
@@ -1115,6 +1463,8 @@ const worker = {
         path === '/api/chat/cleanup' ||
         // 📝 Phase E1-E4 평가서
         path === '/api/eval/create' ||
+        path === '/api/eval/draft-create' ||
+        path === '/api/eval/manual-create' ||
         path === '/api/eval/list' ||
         /^\/api\/eval\/\d+$/.test(path) ||
         path === '/api/admin/eval/list' ||
@@ -1168,6 +1518,7 @@ const worker = {
         // 📈 Phase RCF — AI 매출/이탈 예측
         path === '/api/admin/forecast/revenue' ||
         path === '/api/admin/forecast/churn' ||
+        path === '/api/admin/forecast/message' ||
         // 📚 Phase VOC 단어장
         path === '/api/vocab/add' ||
         path === '/api/vocab/extract' ||
@@ -1198,6 +1549,7 @@ const worker = {
         path === '/api/streak/status' ||
         path === '/api/streak/leaderboard' ||
         // ✍️ Phase AW AI 영작 첨삭
+        path.startsWith('/api/ai/eleader/') || // opt-in pilot; handler enforces membership
         path === '/api/ai/write-correct' ||
         path === '/api/ai/write-history' ||
         path === '/api/ai/write-stats' ||
@@ -1207,6 +1559,7 @@ const worker = {
         path === '/api/ai/chat-history' ||
         path === '/api/ai/chat-clear' ||
         path === '/api/ai/chat-guest-token' ||
+        path === '/api/ai/class-ask' ||        // ✋ A.i 선생님 수업 질문 즉답(2026-10-08 사장님 승인)
         // 📅 Phase WD 부모 위클리 다이제스트
         path === '/api/parent/digest/preview' ||
         path === '/api/parent/digest/send-one' ||
@@ -1250,6 +1603,7 @@ const worker = {
         //   (핸들러 안에서 uid 일치를 검사한다. api-students.ts 참고)
         path === '/api/student/focus-history' ||
         path === '/api/student/full' ||
+        path === '/api/student/today' ||        // 📅 «오늘의 A.i 학습» — 본인 토큰/관리자 세션 (핸들러 안 resolveOwnerScope, api-students.ts)
         // 🔐 Phase LOGIN 통합 로그인
         path === '/api/student/login' ||
         // 🔒 (2026-08-08) 세션 상태 조회 — 401 을 받았을 때 «왜» 인지 화면에 알려주기 위한 것.
@@ -1306,6 +1660,13 @@ const worker = {
         path === '/api/admin/subscription/cron-check' ||
         // 🔗 강사 계정 ↔ 강사 원부 연결 (이름 추측 대신 사람이 정한 정답표)
         path === '/api/admin/teacher-links' ||
+        // 📇 강사 원부 ↔ 프로필(연락처) 연결 — 핸들러는 8/7부터 있었는데 이 게이트와
+        //    api-mango 위임 가드 «둘 다» 등록이 빠져 라이브 404 였다(2026-08-13 수리)
+        path === '/api/admin/teacher-contacts' ||
+        // 💳 법인카드 CODEF 연동 (corpcard-sync.ts) — 게이트+위임가드+강사차단 3종 세트
+        path.startsWith('/api/admin/corpcard/') ||
+        // 🏦 신한은행 계좌 입출금 (bankacct-sync.ts) — 같은 3종 세트 (2026-08-14)
+        path.startsWith('/api/admin/bankacct/') ||
         // 🎁 Phase RF — 추천 친구 보상
         path === '/api/referral/my-code' ||
         path === '/api/referral/use' ||
@@ -1328,6 +1689,16 @@ const worker = {
         path === '/api/attendance/check-in' ||
         path === '/api/admin/attendance/today' ||
         path === '/api/admin/attendance/qr-history' ||
+        // 🚷 (2026-08-13 수정요청 #05) 장기 결석생 — 핸들러는 api-admin.ts.
+        //    ⚠️ 여기 + api-mango.ts 위임 가드 «둘 다» 등록해야 동작한다(CLAUDE.md 함정).
+        //       test-harness/mango_gate_harness.mjs 가 이 등록 누락을 배포 게이트에서 잡는다.
+        //    ℹ️ isAgencyAllowedApi 에는 넣지 않았다 — 이 화면은 본사 전용이고
+        //       지사·대리점 계정은 위쪽에서 /admin/exec 로 돌아간다.
+        path === '/api/admin/attendance/long-absent' ||
+        // 📊 (2026-08-19) 학원별 학생 수업현황(SLP 출석 통계) — 핸들러는 api-admin.ts.
+        //    ⚠️ 여기 + api-mango.ts 위임 가드 «둘 다» 등록해야 동작한다(CLAUDE.md 함정).
+        //    지사·대리점도 보는 화면이라 isAgencyAllowedApi 에도 등록했다(핸들러가 scopeStudentCond 로 자기 범위만 자름).
+        path === '/api/admin/attendance/school-stats' ||
         // 📺📖 (2026-08-10 삭제) 비디오 자막·AI 사전 게이트 등록 5종 제거.
         //    전부 핸들러가 없어 라이브 404/미구현이었다(반쪽 배선):
         //      /api/admin/video/subtitle-upload · /api/video/subtitle · /api/admin/video/subtitles
@@ -1456,6 +1827,21 @@ const worker = {
           if (res) return res;
         }
 
+        // 📅 (2026-08-17) 수업 «길이 변경» 신청함 — 신청은 상시, 반영은 월 1회.
+        //   ⚠️ 여기 등록하지 않으면 라우팅이 안 붙어 404 다(CLAUDE.md 의 «새 API 추가» 함정).
+        {
+          const dq = await handleDurationQueue(request, env as any, path, request.method);
+          if (dq) return dq;
+        }
+
+        if (path.startsWith('/api/ai/eleader/')) {
+          const pilotRes = await handleMangoApi(request, url, env, ctx, {
+            chat: r => handleWarmupChat(markEleaderExpansion(r), ephemeralEleaderEnv(env)),
+            voice: r => handleGamesApi(r, new URL(r.url), ephemeralEleaderEnv(env)),
+            warm: r => warmupChatEntry(r, (req, send) => handleWarmupChat(req, env, send)),
+          });
+          if (pilotRes) return pilotRes;
+        }
         const res = await handleMangoApi(request, url, env, ctx);
         if (res) return res;
       } catch (e: any) {
@@ -1635,7 +2021,7 @@ const worker = {
       try {
         const actor = await getAdminActor(request, env as any);
         if (actor.isTeacher) {
-          return new Response(JSON.stringify({ ok: false, error: 'forbidden_teacher', message: '강사는 급여 환율을 변경할 수 없습니다.' }),
+          return new Response(JSON.stringify(forbiddenTeacherBody(actor, '강사는 급여 환율을 변경할 수 없습니다.')),
             { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
         }
         const b: any = await request.json().catch(() => ({}));
@@ -1654,7 +2040,7 @@ const worker = {
       try {
         const actor = await getAdminActor(request, env as any);
         if (actor.isTeacher) {
-          return new Response(JSON.stringify({ ok: false, error: 'forbidden_teacher', message: '강사는 지급 상태를 변경할 수 없습니다.' }),
+          return new Response(JSON.stringify(forbiddenTeacherBody(actor, '강사는 지급 상태를 변경할 수 없습니다.')),
             { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
         }
         const b: any = await request.json().catch(() => ({}));
@@ -1670,6 +2056,17 @@ const worker = {
     // 🧾 /admin/teacher-payroll — 강사 급여 자동 대시보드 페이지 (관리자 전용)
     if (path === '/admin/teacher-payroll' || path === '/admin/teacher-payroll/') {
       const r = new Request(new URL('/admin/teacher-payroll.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
+    }
+
+    // 🚗 /sales — 영업 전용 휴대폰 화면 (2026-08-18)
+    //   ⚠️ 확장자 없는 주소는 **여기서 한 줄로 직접 이어 줘야** 한다.
+    //      [assets] 가 html_handling="none" 이라 /sales → /sales.html 자동 연결이 없다.
+    //      2026-08-18 실제로 밟음: 인증 게이트(isAdminPath)에만 등록하고 이 줄을 빠뜨려
+    //      /sales 가 아무 데도 안 걸리고 **홈 화면(index.html)이 떴다.**
+    //      게이트는 통과했으니 «권한 문제» 로 보이지도 않아 원인 찾기가 더 어렵다.
+    if (path === '/sales' || path === '/sales/') {
+      const r = new Request(new URL('/sales.html' + url.search, request.url).toString(), request);
       return env.ASSETS.fetch(r);
     }
 
@@ -1693,6 +2090,12 @@ const worker = {
     //   기존 reports/franchise 의 "균등분배 추정"을 정확 정산으로 대체. scope 격리.
     if (path.startsWith('/api/admin/settlement/') || path === '/api/admin/settlement') {
       return settlementRouter(request, env);
+    }
+
+    // 🏢 B2B(대리점) AI 사용료 월 청구 (2026-09-10 신설)
+    //   /api/admin/ai-billing/{rate|invoice|invoice/generate|invoice/item|invoice/checkout|history}
+    if (path.startsWith('/api/admin/ai-billing/') || path === '/api/admin/ai-billing') {
+      return aiBillingRouter(request, env as any);
     }
 
     // 🏢 캐피타운 프랜차이즈 정산 (2026-07-22) — 경영진·캐피타운 본사=전체, capi_* 지사=자기 지사만
@@ -1927,6 +2330,40 @@ const worker = {
       return new Response(mResp.body, { status: mResp.status, headers: mHeaders });
     }
 
+    // 🏢 /branch — 지사장 전용(2026-09-23). /manager 와 같은 이유로 확장자 없는 주소를 직접 잇고 ETag 를 붙인다.
+    if (path === '/branch' || path === '/branch/') {
+      const r = new Request(new URL('/branch.html' + url.search, request.url).toString(), request);
+      const bResp = await env.ASSETS.fetch(r);
+      const bHeaders = new Headers(bResp.headers);
+      bHeaders.set('Cache-Control', 'no-cache');
+      const bNotMod = htmlEtag304(request, '/branch.html', env, bHeaders);
+      if (bNotMod) return bNotMod;
+      return new Response(bResp.body, { status: bResp.status, headers: bHeaders });
+    }
+
+    /* 🧾 /work — 결재 전용 초경량 화면 (2026-08-16 신설)
+     *
+     * 왜 — 결재 API 는 2026-08-05 부터 있었는데, 화면이 **강사 포털(192KB) 안**에 있었다.
+     *      강사는 그 카드가 403 이라 못 보고, 정작 결재를 가장 많이 올리는 필리핀 매니저의
+     *      전용 화면(manager.html)에는 결재가 **한 줄도 없었다**. 매니저는 결재 한 건 올리려고
+     *      자기 경량 화면을 나가 10배 무거운 페이지를 받아야 했다 — 「경로가 복잡하다」의 실체.
+     *
+     * ⚠️ /teacher · /manager 와 같은 이유로 ETag/304 를 직접 붙인다.
+     *    확장자가 없는 경로라 아래 «정적자산» 블록에 들어가지 못해, 안 붙이면 열 때마다
+     *    통째로 다시 내려간다(필리핀 회선에서 이게 체감 지연이 된다).
+     * ⚠️ 이 한 쌍(/teacher·/manager)을 놓쳐서 2026-08-09 에 매니저가 홈으로 튕긴 사고가 있었다.
+     *    새 경량 화면을 추가할 땐 반드시 여기에도 블록을 만들 것.
+     */
+    if (path === '/work' || path === '/work/') {
+      const r = new Request(new URL('/work.html' + url.search, request.url).toString(), request);
+      const wResp = await env.ASSETS.fetch(r);
+      const wHeaders = new Headers(wResp.headers);
+      wHeaders.set('Cache-Control', 'no-cache');   // 캐시 금지가 아니라 '쓰기 전 재검증'
+      const wNotMod = htmlEtag304(request, '/work.html', env, wHeaders);
+      if (wNotMod) return wNotMod;
+      return new Response(wResp.body, { status: wResp.status, headers: wHeaders });
+    }
+
     // Static assets (실제 파일 확장자가 있는 요청)
     if (path.match(/\.\w+$/)) {
       const assetResp = await env.ASSETS.fetch(request);
@@ -1958,6 +2395,27 @@ const worker = {
         const notMod = htmlEtag304(request, path, env, assetHeaders);
         if (notMod) return notMod;
         return new Response(assetResp.body, { status: assetResp.status, headers: assetHeaders });
+      }
+      // 🖼️ (2026-08-14 피드백 ②) 이미지·폰트·소리·영상에는 캐시 지시가 «아예 없었다».
+      //   js/css 는 위에서 immutable 로 챙겼는데 그림은 빠져 있어서, CF Assets 기본값
+      //   (max-age=0, must-revalidate)이 그대로 나갔다 — 즉 페이지를 옮길 때마다 그림
+      //   한 장 한 장을 서버에 다시 물어본다. 홈 한 화면에만 그림이 수십 장이고,
+      //   필리핀·지방 저속 회선에서는 이 왕복이 그대로 «버퍼링» 으로 보인다.
+      //   · 파일명에 해시·버전이 있거나 ?v= 가 붙은 요청 → 1년 immutable (재검증 0회)
+      //   · 그 외 → 7일 캐시 + stale-while-revalidate (다음 요청은 즉시 그리고 뒤에서 갱신)
+      //   ⚠️ 그림을 «같은 이름으로» 교체하면 최대 7일간 옛 그림이 남는다. 내용이 바뀌면
+      //      파일명을 바꾸거나 ?v= 를 올릴 것(js/css 와 같은 규칙).
+      if (/\.(png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|otf|mp3|m4a|ogg|wav|mp4|webm|glb|gltf)$/i.test(path)) {
+        const mediaHeaders = new Headers(assetResp.headers);
+        //   폰트는 언제나 1년 — 글자 모양이 «같은 이름으로» 바뀌는 일은 없다.
+        //   (css/mangoi-han.css 주석이 이미 «한 번 받으면 1년간 캐시된다» 고 약속하고 있는데,
+        //    정작 그 헤더를 아무도 안 붙이고 있었다. 983KB 짜리 한자 폰트다.)
+        const _isFont = /\.(woff2?|ttf|otf)$/i.test(path);
+        const _mVersioned = /(^|&)v=/.test(url.search.replace(/^\?/, '')) || /[.-][0-9a-f]{8,}\./i.test(path);
+        mediaHeaders.set('Cache-Control', (_isFont || _mVersioned)
+          ? 'public, max-age=31536000, immutable'
+          : 'public, max-age=604800, stale-while-revalidate=86400');
+        return new Response(assetResp.body, { status: assetResp.status, headers: mediaHeaders });
       }
       return assetResp;
     }
@@ -1997,6 +2455,17 @@ const worker = {
     const hour = date.getUTCHours();
     // KST 기준 요일 (UTC + 9시간) — Friday = 5
     const kstDay = new Date(event.scheduledTime + 9 * 3600 * 1000).getUTCDay();
+    // 🕐 «어느 cron 이 울렸나» — 야간 작업을 시(hour)로 가르면 안 된다 (2026-08-28 수리)
+    //   wrangler.toml 의 crons 에는 15분마다 도는 감시견 트리거가 함께 들어 있다.
+    //   그래서 `hour === 18` 같은 조건은 그 시간대에 «네 번»(정각·15·30·45분) 참이 되고,
+    //   정각에는 전용 cron 이 **별도 호출**로 한 번 더 들어와 같은 작업이 «동시에» 돈다
+    //   → 하루 5회 실행 + 정각 동시 2회. 그 결과가 문자 이중 발송·이중 청구다.
+    //   이 파일은 이미 그 사실을 알고 있었다 — 아래 법인카드 블록 한 곳만
+    //   `cron === '0 0 * * *'` 로 걸러 두고 나머지 여섯 곳이 hour 비교로 남아 있었다.
+    //   ⚠️ 새 야간 작업은 반드시 cronIs() 로 가를 것. hour 비교를 다시 쓰지 말 것.
+    const cronIs = (spec: string) => String((event as any).cron || '') === spec;
+    // 감시견(15분) 트리거인가 — 정각 전용 cron 과 구분해야 하는 곳에서만 쓴다
+    const isWatchdogTick = !!String((event as any).cron || '').startsWith('*');
 
     ctx.waitUntil((async () => {
       // 🐕 사이트 자체 감시견 — 매 cron(특히 */15분)마다 사이트 확인, 죽으면 관리자 문자.
@@ -2008,6 +2477,78 @@ const worker = {
         console.error('[watchdog] error', err);
       }
 
+      // 💳 법인카드(신한) 자동 동기화 — CODEF 키가 등록돼 있을 때만.
+      //   cron 은 계정 한도 5/5 라 새로 못 늘려서, 기존 "0 0 * * *"(09:00 KST 일일)에 얹는다.
+      //   event.cron 정확 일치로 거른다 — 같은 시각에 15분 cron 도 울리므로 hour 비교는 이중 실행.
+      if ((event as any).cron === '0 0 * * *') {
+        try {
+          /* 🔀 (2026-08-14) 바로빌 키가 있으면 바로빌이 정본 — CODEF 는 바로빌이 없을 때만.
+             예전엔 cron 이 CODEF 만 돌려서, 바로빌로 옮긴 뒤에도 ①바로빌 데이터가 자동으로
+             안 들어오고 ②매일 아침 CODEF 실패(CF-00017)가 last_sync_result 를 덮었다.
+             바로빌 수집(매일 04:00 KST)보다 늦은 09:00 KST 라 시각은 그대로 좋다. */
+          const { corpcardConfigured, runCorpCardSync } = await import('./corpcard-sync');
+          const { barobillConfigured, runBarobillSync } = await import('./barobill-sync');
+          if (barobillConfigured(env)) {
+            const bb = await runBarobillSync(env as any);
+            console.log('[barobill-sync]', JSON.stringify(bb).slice(0, 500));
+          } else if (corpcardConfigured(env)) {
+            const cc = await runCorpCardSync(env as any);
+            console.log('[corpcard-sync]', JSON.stringify(cc).slice(0, 500));
+          }
+        } catch (err) {
+          console.error('[corpcard-sync] error', err);
+        }
+        // 📊 주간 결재 요약 — 월요일 아침(09:00 KST)에 경영진에게 한 번.
+        //   페널티를 «벌점»이 아니라 «가시성»으로 두기로 한 설계의 마지막 조각이다.
+        //   숨겨진 지연은 아무도 고치지 않지만, 드러난 지연은 대부분 스스로 해결된다.
+        if (kstDay === 1) {
+          try {
+            const { runApprovalWeeklyReport } = await import('./api-approval');
+            const wr = await runApprovalWeeklyReport(env as any);
+            if (wr && wr.total > 0) console.log('[approval-weekly]', JSON.stringify(wr));
+          } catch (err) {
+            console.error('[approval-weekly] error', err);
+          }
+        }
+
+        // 📰 영업 주간 보고 — 월요일 아침(09:00 KST)에 한 번.
+        //   사람이 보고서를 쓰지 않는다. 숫자는 서버가 세고, 활동이 0인 주는 아예 보내지 않는다
+        //   (빈 보고서가 매주 오면 아무도 안 읽게 되고, 그러면 진짜 보고서도 같이 묻힌다).
+        if (kstDay === 1) {
+          try {
+            const { runSalesWeeklyReport } = await import('./api-sales-hr');
+            const sw = await runSalesWeeklyReport(env as any);
+            if (sw && sw.sent > 0) console.log('[sales-weekly]', JSON.stringify(sw));
+          } catch (err) {
+            console.error('[sales-weekly] error', err);
+          }
+        }
+
+        // 🔁 영업 계약의 «3개월 유지» 자동 판정 (2026-08-18)
+        //   왜 cron 인가 — 사람이 화면에서 버튼을 눌러야만 성과급 2차(50%)가 나가면,
+        //   바쁜 달에는 담당자 월급이 밀린다. 제도가 사람의 부지런함에 기대면 언젠가 깨진다.
+        //   학생 명부·수업 기록으로 기계가 판정할 수 있는 건 기계가 하고, 사람은 애매한 것만 본다.
+        //   ⚠️ cron 한도 5/5 라 새로 못 만든다 — 기존 일일(09:00 KST)에 얹는다.
+        try {
+          const { runSalesRetentionSweep } = await import('./api-sales-hr');
+          const sr = await runSalesRetentionSweep(env as any);
+          if (sr && sr.checked > 0) console.log('[sales-retention]', JSON.stringify(sr));
+        } catch (err) {
+          console.error('[sales-retention] error', err);
+        }
+
+        // 🏦 신한은행 계좌 입출금 — 계좌번호 시크릿이 등록돼 있을 때만 (2026-08-14)
+        try {
+          const { bankConfigured, runBankSync } = await import('./bankacct-sync');
+          if (bankConfigured(env)) {
+            const bk = await runBankSync(env as any);
+            console.log('[bankacct-sync]', JSON.stringify(bk).slice(0, 500));
+          }
+        } catch (err) {
+          console.error('[bankacct-sync] error', err);
+        }
+      }
+
       // 🛟 버려진 녹화 자동 마무리 — 매 15분: 브라우저가 complete 를 못 보내고 죽어
       //   조각만 R2에 붕 떠 있는 녹화를, 서버가 파트 장부(recording_parts)를 보고 대신 마무리.
       //   15분 이상 새 파트가 없는 status='recording' 만 건드린다(진행 중 수업은 안 건드림).
@@ -2017,6 +2558,18 @@ const worker = {
         if (rf && (rf.finalized > 0 || rf.failed > 0)) console.log('[rec-finalize]', JSON.stringify(rf));
       } catch (err) {
         console.error('[rec-finalize] error', err);
+      }
+
+      // 🧾 결재 마감 관리 — 매 15분: 시한을 넘긴 결재를 재알림하고, 이틀을 더 넘기면
+      //   경영진 결재함으로 승격한다(원 결재자에게도 알린다).
+      //   ⚠️ cron 은 계정 한도 5/5 로 꽉 차서 새로 못 만든다(wrangler.toml 주석) — 기존 15분에 얹는다.
+      //   재알림은 건당 하루 1회로 제한된다(approval_requests.warned_at) — 도배 방지.
+      try {
+        const { runApprovalSlaSweep } = await import('./api-approval');
+        const ap = await runApprovalSlaSweep(env as any);
+        if (ap && (ap.warned > 0 || ap.escalated > 0)) console.log('[approval-sla]', JSON.stringify(ap));
+      } catch (err) {
+        console.error('[approval-sla] error', err);
       }
 
       // 📣 수업 전 리마인더 — 매 15분: 시작 15~45분 전 수업을 찾아 학부모+학생에게 문자.
@@ -2063,8 +2616,12 @@ const worker = {
         console.error('[leveltest-hourbefore] error', err);
       }
 
-      // 🚨 결석 위험 자동 알림 — 매 15분: 시작 10분+ 경과했는데 학생 미입장 수업 감지 → 문자.
-      //   기본 = 안전 모드(운영자 문자 + 기록만). 학부모 발송은 KV 'absent_alert_parent_send'='on' 일 때만.
+      // 🚨 결석 위험 자동 알림 — 매 15분: 시작 10분+ 경과했는데 학생 미입장 수업 감지.
+      //   기본 = 안전 모드(기록 + 담당 강사 알림). 사람에게 나가는 문자 «둘 다» 기본 OFF 이고
+      //   KV(SESSION_STATE) 스위치로만 켠다 — 운영자 'absent_alert_owner_send',
+      //   학부모 'absent_alert_parent_send' (각각 'on').
+      //   ⚠️ 운영자 요약 문자는 2026-09-06 사장님 지시로 껐다(수업마다 문자가 계속 왔다).
+      //      감지·class_no_show 기록·강사 알림은 그대로 — 관리자 › 노쇼 리포트에서 다 보인다.
       try {
         const ab = await runAbsentStudentSweep(env as any);
         if (ab && (ab.alerted > 0 || !ab.ok)) console.log('[absent-sweep]', JSON.stringify(ab));
@@ -2083,7 +2640,7 @@ const worker = {
       }
 
       // 📨 수강권 만료·휴면 자동 연락 (KST 10:00 = UTC 01:00) — 설정에서 켰을 때만 발송(기본 OFF, 하루 상한·재발송갭 안전장치 내장).
-      if (hour === 1) {
+      if (cronIs('0 1 * * *')) {
         try {
           const rs = await runRetentionAutoSend(env as any);
           console.log('[retention-autosend] cron ran', JSON.stringify(rs));
@@ -2125,7 +2682,8 @@ const worker = {
 
       // 🎌 공휴일 자동 연기 (KST 06:00 = UTC 21:00) — 부장님 답변 23번: 새벽 6시에 그날 수업을 자동 연기.
       //   확인답변 ⑤: 그 회차를 맨 뒤로 밀어 종료일이 늦어짐(회차 수 보존). 공휴일이 없으면 아무 일도 안 함.
-      if (hour === 21) {
+      // 이 작업만은 전용 cron 이 없다 — 15분 트리거를 타고 그 시간대에만 돈다(종전 동작 그대로).
+      if (isWatchdogTick && hour === 21) {
         try {
           const hs = await runHolidayShiftSweep(env as any);
           if (hs && (hs.moved > 0 || !hs.ok)) console.log('[holiday-shift]', JSON.stringify({ ok: hs.ok, holidays: hs.holidays, moved: hs.moved, failed: hs.failed }));
@@ -2134,14 +2692,42 @@ const worker = {
         }
       }
 
+      /* 🪞 카페24 → 망고아이 시간표 미러 «좁은 창» (오늘~+2일) — 2026-08-31 사장님 지시
+         카페24 예약은 당일에도 채워진다(실측: Ana 의 8/31 11건 대 9월 이후 4건).
+         하루 한 번만 돌면 그날 오후에 들어온 수업을 놓치므로 15분 트리거를 함께 탄다.
+         ⛔ 새 cron 을 못 만든다 — 계정 한도 5/5 가 이미 꽉 찼다(wrangler.toml).
+         ⛔ hour 비교를 쓰지 않는다. isWatchdogTick 하나로만 가른다.
+         ✅ 끄는 스위치는 c24_mirror_config.mode='off' 하나 — 그러면 카페24를 부르지도 않는다.
+         ⚠️ runMirrorSweep 은 스스로 예외를 삼킨다(감시견을 같이 죽이면 안 된다). */
+      if (isWatchdogTick) {
+        try {
+          const [{ runMirrorSweep }, { runCypher }] = await Promise.all([
+            import('./c24-mirror'), import('./teacher-match'),
+          ]);
+          const mr = await runMirrorSweep(env as any, runCypher as any, { days: 2, label: 'watchdog' });
+          if (!mr.skipped) console.log('[c24-mirror] watchdog', JSON.stringify(mr));
+        } catch (err) {
+          console.error('[c24-mirror] watchdog error', err);
+        }
+      }
+
       // ── UTC 18:00 — retention purge
-      if (hour === 18) {
+      if (cronIs('0 18 * * *')) {
+        /* 🌙 (2026-08-31) 이 블록은 «하나의 순차 체인» 이라, CPU·subrequest 한도를 넘기면
+           격리가 통째로 종료되고 그 뒤 작업들은 **아무 로그도 없이** 안 돈다(try/catch 가 못 본다).
+           그래서 «어디까지 갔는지» 를 D1(corpcard_meta)에 남긴다. 기록만 하고 작업 순서·내용은
+           바꾸지 않는다 — 어느 작업이 오래 걸리는지 먼저 알아야 무엇을 뗄지 정할 수 있고,
+           지금은 «블록 전체가 몇 분인가» 를 아무도 모른다(그것을 재려고 넣은 기록이다).
+           ⚠️ 표시(markNightlyStep)는 try…catch «밖» 이어야 한다. catch 안에 넣으면 뜻이 뒤집혀
+              «그 작업이 에러를 던졌다» 가 되고 정상적인 밤에는 기록이 한 줄도 안 남는다. */
+        const _nightly = await beginNightlyRun(env as any, '0 18 * * *').catch(() => null);
         try {
           const result = await purgeExpired(env);
           console.log('[retention] purged', JSON.stringify(result));
         } catch (err) {
           console.error('[retention] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'retention');
 
         // 🔄 카페24 → D1 야간 자동 새로고침 (KST 03:00)
         //   서버 cron(KST 02:00)이 MySQL→Neo4j 를 갱신한 뒤, 여기서 Neo4j→D1 을 갱신.
@@ -2152,6 +2738,22 @@ const worker = {
         } catch (err) {
           console.error('[cafe24-sync] nightly error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'cafe24-sync');
+
+        /* 🪞 카페24 → 망고아이 시간표 미러 «넓은 창» (오늘~+14일)
+           위 좁은 창(15분)이 당일치를 따라잡고, 여기서 멀리 있는 예약까지 맞춘다.
+           동기화 «뒤» 에 두는 이유: 이 미러는 Neo4j 를 직접 읽지만, 학생 계정 확인은
+           D1(students_erp)을 보므로 그날 새로 들어온 학생이 먼저 채워져 있어야 한다. */
+        try {
+          const [{ runMirrorSweep }, { runCypher }] = await Promise.all([
+            import('./c24-mirror'), import('./teacher-match'),
+          ]);
+          const mr = await runMirrorSweep(env as any, runCypher as any, { days: 14, label: 'nightly' });
+          console.log('[c24-mirror] nightly', JSON.stringify(mr));
+        } catch (err) {
+          console.error('[c24-mirror] nightly error', err);
+        }
+        await markNightlyStep(env as any, _nightly, 'c24-mirror');
 
         // 🔍 결제 대사(장부 맞추기) — 동기화 직후 최신 데이터로 이중결제·수업연결 누락 점검.
         //   이상 발견 시에만 사장님 SMS (정상일 땐 조용).
@@ -2161,6 +2763,7 @@ const worker = {
         } catch (err) {
           console.error('[pay-audit] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'pay-audit');
 
         // 🧹 R2 고아 파일 청소 (KST 03:00) — D1 메타 없는 R2 객체 자동 삭제
         //   매일 돌려도 안전: 50% 안전장치 + 24h grace 로 in-flight 보호.
@@ -2177,6 +2780,7 @@ const worker = {
         } catch (err) {
           console.error('[recordings-cleanup] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'recordings-cleanup');
 
         // 🌅 Daily briefing (KST 03:00)
         try {
@@ -2187,6 +2791,7 @@ const worker = {
         } catch (err) {
           console.error('[daily-briefing] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'daily-briefing');
 
         // 💰 Auto dunning (KST 03:00)
         try {
@@ -2197,6 +2802,7 @@ const worker = {
         } catch (err) {
           console.error('[auto-dunning] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'auto-dunning');
 
         // 💸 재무 스냅샷 — 어제·오늘분 일일 스냅샷 자동 저장 (KST 03:00)
         //   전일 마감 + 당일 초기값을 finance_snapshots 에 upsert. 실패해도 다른 cron 무영향.
@@ -2211,17 +2817,23 @@ const worker = {
         } catch (err) {
           console.error('[finance-snapshot] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'finance-snapshot');
 
-        // 🎓 학습 인사이트 — 당월 위험도 스냅샷 자동 저장 (KST 03:00)
-        //   learning_trend_snapshots 에 당월 코호트 위험도 upsert. 실패해도 무영향.
-        try {
-          const kstNow = new Date(event.scheduledTime + 9 * 3600 * 1000);
-          const period = kstNow.toISOString().slice(0, 7);
-          const rl = await runLearningSnapshot(env as any, period);
-          console.log('[learning-snapshot] cron ran', JSON.stringify(rl));
-        } catch (err) {
-          console.error('[learning-snapshot] error', err);
-        }
+        /* 🎓 학습 인사이트 스냅샷은 **여기 없습니다** — 2026-09-04 에 `0 0 * * *`(KST 09:00)로 옮겼습니다.
+           ⚠️ 되돌리기 전에 읽으세요.
+           [잰 값] `corpcard_meta` 의 `nightly:0 18 * * *:last_ok` 를 사흘 연속 조회:
+              09-01 8분 48초(527,969ms) · 09-02 10분 07초(606,993ms) · 09-03 12분 27초(746,707ms).
+              그중 learning-snapshot 이 144,928 → 168,660 → **203,845ms**(전체의 27%).
+           [판단] 세 점이 같은 방향이고 상한 15분까지 2분 33초였다. 넘으면 격리가 죽고
+              **꼬리부터 조용히 잘린다** — 먼저 잘리는 것은 decision-graph-sync·growth-snapshot·
+              auto-schedule 이다. ⚠️ 미러는 3번째라 «가장 늦게까지 안전한 축» 이지만,
+              체인이 더 늘면 그 절단점이 앞으로 당겨져 결국 미러까지 닿는다.
+              (처음 이 주석에 「미러가 3번째라 함께 잘립니다」라고 적었다가 고쳤다 —
+               심각도를 부풀린 문장이 규칙서에 박히면 다음 사람이 엉뚱한 것을 고친다.)
+           ℹ️ 순서 의존은 «없다» 가 아니라 «좋아졌다» — 이 작업은 attendance·students_erp·
+              student_evaluations·voice_coaching 과 ai_student_analysis·churn-graph 를 읽는데,
+              옮긴 자리(KST 09:00)는 이 블록의 카페24 동기화(KST 03:00) **6시간 뒤**라
+              같은 날 갱신된 자료를 봅니다. */
 
         // 🚨 이탈위험 — 어제 결석 감지 + 케어 대상 집계 (KST 03:00)
         //   감지는 항상 수행. 학부모 알림톡 발송은 게이트(AUTO_ALIMTALK='on' + SOLAPI_TEMPLATE_ABSENCE)
@@ -2235,6 +2847,7 @@ const worker = {
         } catch (err) {
           console.error('[absence-sweep] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'absence-sweep');
 
         // 🔥 Streak 일괄 정합화 (KST 03:00) — 출결(attendance) 기준 단일 권위로
         //   student_streaks 의 current/longest 를 동기화(gems 보존). gaps-and-islands
@@ -2246,6 +2859,7 @@ const worker = {
         } catch (err) {
           console.error('[streak-reconcile] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'streak-reconcile');
 
         // 🎯 강사 매칭 그래프 동기화 (KST 03:00) — D1(teacher_mbti·students_erp) → Neo4j Aura
         //   Neo4j 미설정(NEO4J_QUERY_URL 없음)이면 조용히 건너뜀. 멱등 MERGE 라 반복 안전.
@@ -2256,6 +2870,7 @@ const worker = {
           } catch (err) {
             console.error('[teacher-match-sync] error', err);
           }
+          await markNightlyStep(env as any, _nightly, 'teacher-match-sync');
         }
 
         // 🗣️ 웜업 개인화 그래프 동기화 (KST 03:00) — D1(students_erp·review_quizzes·review_quiz_results) → Neo4j Aura
@@ -2267,6 +2882,7 @@ const worker = {
           } catch (err) {
             console.error('[warmup-graph-sync] error', err);
           }
+          await markNightlyStep(env as any, _nightly, 'warmup-graph-sync');
         }
 
         // 🕸 이탈 전염 그래프 동기화 (KST 03:00) — D1(students_erp·family_members·attendance) → Neo4j Aura
@@ -2278,6 +2894,7 @@ const worker = {
           } catch (err) {
             console.error('[churn-contagion-sync] error', err);
           }
+          await markNightlyStep(env as any, _nightly, 'churn-contagion-sync');
         }
 
         // 🧠 판단 경로 그래프 동기화 (KST 03:00) — D1(judgment_events·judgment_analysis) → Neo4j Aura
@@ -2289,6 +2906,7 @@ const worker = {
           } catch (err) {
             console.error('[decision-graph-sync] error', err);
           }
+          await markNightlyStep(env as any, _nightly, 'decision-graph-sync');
         }
 
         // 📈 판단력 성장 스냅샷 (KST 03:00) — 이번 달 이벤트가 있는 학생의 5축 지수·delta 재계산(순수 D1)
@@ -2298,6 +2916,7 @@ const worker = {
         } catch (err) {
           console.error('[growth-snapshot] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'growth-snapshot');
 
         // 📅 Weekly schedule auto-generation — every Sunday only (KST Monday 03:00)
         // KST 일요일에 cron 이 돌면 ScheduledEvent 의 UTC 18:00 이 KST 03:00 인데
@@ -2314,10 +2933,18 @@ const worker = {
         } catch (err) {
           console.error('[auto-schedule] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'auto-schedule');
+        await endNightlyRun(env as any, _nightly);
       }
 
       // ── UTC 00:00 (KST 09:00) — 정기결제 자동 청구 cron (Phase RB)
-      if (hour === 0) {
+      if (cronIs('0 0 * * *')) {
+        /* 🌙 (2026-09-04) 이 블록도 «어디까지 갔는지» 를 남깁니다 — `0 18` 과 같은 방식.
+           learning-snapshot 을 여기로 옮기면서 함께 넣었습니다. 재지 않는 곳으로 3분 24초짜리
+           작업을 옮기면, 고치려던 «조용히 잘리는» 문제를 자리만 바꿔 되살리는 셈입니다.
+           ⚠️ markNightlyStep 은 try…catch «밖» 이어야 합니다 — 안에 넣으면 뜻이 뒤집혀
+              «그 작업이 에러를 던졌다» 가 되고 정상적인 날엔 기록이 한 줄도 안 남습니다. */
+        const _morning = await beginNightlyRun(env as any, '0 0 * * *').catch(() => null);
         try {
           const subUrl = new URL('https://internal.local/api/admin/subscription/cron-check');
           const subReq = new Request(subUrl.toString(), { method: 'POST' });
@@ -2326,6 +2953,7 @@ const worker = {
         } catch (err) {
           console.error('[recurring-billing] error', err);
         }
+        await markNightlyStep(env as any, _morning, 'recurring-billing');
 
         // 📊 경영 브리핑 알림톡 (KST 09:00) — 수신자에게 학생수·매출·비용 발송
         try {
@@ -2336,10 +2964,31 @@ const worker = {
         } catch (err) {
           console.error('[exec-briefing] error', err);
         }
+        await markNightlyStep(env as any, _morning, 'exec-briefing');
+
+        /* 🎓 학습 인사이트 — 당월 위험도 스냅샷 (KST 09:00 · 2026-09-04 에 `0 18` 에서 옮겨옴)
+           learning_trend_snapshots 에 당월 코호트 위험도 upsert. 실패해도 무영향.
+           ⚠️ 옮긴 이유는 `0 18` 블록의 그 자리 주석에 적혀 있습니다(체인이 15분 상한에 근접).
+           ℹ️ 읽는 것은 attendance·students_erp·student_evaluations·voice_coaching 과
+              ai_student_analysis·churn-graph 이고(정본 `buildSegments`),
+              카페24 동기화(KST 03:00) 6시간 뒤라 같은 날 갱신분을 봅니다.
+           ⛔ 이 블록의 순서(billing → briefing → snapshot)를 바꾸지 마세요 — 잘려도
+              «돈이 나가는 쪽» 이 아니라 꼬리가 잘리도록 일부러 이렇게 두었습니다.
+           ⚠️ period 는 여기서도 KST 로 계산합니다 — 매월 1일에 «당월» 이 되어야 합니다. */
+        try {
+          const kstNow = new Date(event.scheduledTime + 9 * 3600 * 1000);
+          const period = kstNow.toISOString().slice(0, 7);
+          const rl = await runLearningSnapshot(env as any, period);
+          console.log('[learning-snapshot] cron ran', JSON.stringify(rl));
+        } catch (err) {
+          console.error('[learning-snapshot] error', err);
+        }
+        await markNightlyStep(env as any, _morning, 'learning-snapshot');
+        await endNightlyRun(env as any, _morning);
       }
 
       // ── UTC 01:00 + day===1 KST (KST 1일 10:00) — 월간 NPS 자동 발송 (Phase NPS)
-      if (hour === 1) {
+      if (cronIs('0 1 * * *')) {
         const kstDate = new Date(event.scheduledTime + 9 * 3600 * 1000);
         if (kstDate.getUTCDate() === 1) {
           try {
@@ -2361,11 +3010,21 @@ const worker = {
           } catch (err) {
             console.error('[monthly-report] error', err);
           }
+          // 🏢 B2B 대리점 AI 사용료 — 매월 1일 KST, «다음 달» 청구서를 자동 생성/보강한다
+          //   (사장님 지시: 자동 생성 + 생성 내역 열람 + 인원 추가/제외는 사람이 조정).
+          //   실패해도 무영향 — 대리점 담당자가 manager.html 에서 「청구서 만들기」로
+          //   언제든 같은 함수를 다시 부를 수 있다(멱등, 덮어쓰지 않고 더하기만 한다).
+          try {
+            const r = await generateMonthlyAiInvoices(env as any);
+            console.log('[ai-billing-monthly] cron ran', JSON.stringify(r));
+          } catch (err) {
+            console.error('[ai-billing-monthly] error', err);
+          }
         }
       }
 
       // ── UTC 10:00 (KST 19:00) — 일일 streak/참여 푸시
-      if (hour === 10) {
+      if (cronIs('0 10 * * *')) {
         try {
           await sendDailyStreakPush(env);
         } catch (err) {
@@ -2558,25 +3217,94 @@ async function handleLearnStreakComplete(request: Request, env: Env): Promise<Re
  *    대화 문맥: session_id 별 최근 N턴을 KV(SESSION_STATE, 'warmup:' prefix)에 6시간 보관.
  * ════════════════════════════════════════════════════════════════════════ */
 const WARMUP_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
-const WARMUP_SYSTEM = "너는 망고아이의 AI 대화 친구 '망고(Mango)'야. 밝고 장난기 많은 단짝 친구처럼 신나게 리액션하고, 답변에 어울리는 이모지를 1~2개 섞어줘. 학생의 레벨에 맞춰 최대 2문장 이내로 친절하게 질문해줘. 학생이 대답을 잘하면 'Wow!', 'Awesome!' 처럼 크게 기뻐하며 칭찬해주고, 가끔은 재미있는 방식으로 질문해줘 — 예: 'Would you rather ~?' 양자택일, '만약 ~라면?' 상상 질문, 스무고개(Guess what I'm thinking of!), 좋아하는 것 맞히기. 같은 패턴을 연속으로 반복하지 말고 대화가 게임처럼 흥미진진하게 이어지게 해줘. 만약 학생이 한국어로 '이걸 영어로 어떻게 해?'라고 물어보면 자연스러운 영어 문장으로 교정해주고 영어로 다시 말하도록 유도해줘.";
-const WARMUP_MAX_TURNS = 12;   // 저장할 최근 대화(사용자/AI) 최대 개수
+/* 🗣️ (2026-08-17) 웜업 프롬프트 정비 — 「웜업이 엉뚱한 말을 한다」 제보 후속.
+ *   프런트(public/warmup.html)가 실제로 어떻게 동작하는지에 맞춰 규칙을 «명시» 했다. 근거 4가지:
+ *
+ *   ① speak() 는 서버 TTS 를 `{ lang:'en' }` «고정» 으로 부르고, 서버 TTS 가 실패했을 때의
+ *      브라우저 폴백도 영어 보이스만 고른다(_scoreVoice 가 비영어에 -120, en 이 하나도 없으면
+ *      아예 재생 포기). 그런데 예전 프롬프트는 처음부터 끝까지 한국어로만 쓰여 있고
+ *      «영어로 답하라» 는 문장이 한 줄도 없었다 → 모델이 한국어로 답하는 일이 잦고,
+ *      그 한국어를 영어 목소리가 읽어 소리가 뭉개진다.
+ *      (CLAUDE.md 2장: "Cloudflare발 구글 TTS(한국어·중국어)는 깨진 음성. 서버 TTS는 영어만 정상")
+ *   ② _speechText() 는 괄호 안 내용을 «읽지 않고 버린다». 그래서 한국어 도움말을 괄호에 넣으면
+ *      자막에는 보이고 음성은 영어만 나간다 — 그 구조를 그대로 규칙으로 적었다.
+ *   ③ renderMsg() 는 escapeHtml 만 한다(마크다운 렌더링 없음) → `**굵게**` 의 별표가 자막에
+ *      그대로 보인다. 그래서 평문만 쓰게 했다.
+ *   ④ 학생 발화는 «음성인식» 을 거쳐 오므로 깨져서 들어올 수 있다. 그걸 그대로 진지하게 받아
+ *      엉뚱한 대답을 만들지 않도록 처리 규칙을 넣었다.
+ *
+ *   ⚠️ 규칙을 더 넣을 때 위 4가지와 어긋나게 쓰지 말 것. 특히 «괄호 = 자막 전용» 은
+ *      _speechText() 의 동작이라, 거기를 고치면 이 프롬프트도 같이 고쳐야 한다.
+ *   ⚠️ 프롬프트가 길어진 만큼 매 요청 토큰이 조금 늘어난다(체감 지연은 교재 조회 캐시로 상쇄).
+ *      새 규칙은 «실제로 겪은 증상» 이 있을 때만 추가할 것. */
+/* 🧑 친구 이름은 학생이 고른다(Emma·Jake·Lily·Noah). 이 프롬프트는 그 이름을 «값» 으로 받는다 —
+   예전에는 '망고(Mango)' 로 하드코딩돼 있어서, 화면이 "Hi! I'm Lily." 라고 인사해 놓고
+   학생이 이름을 물으면 AI 가 다른 이름을 대는 어긋남이 있었다(2026-08-31 사장님 제보).
+   ⛔ 화면이 보낸 문자열을 그대로 끼우지 말 것 — 정본 표(src/ai-friends.ts)를 거친 이름만 넣는다. */
+const warmupSystem = (friendName: string) => [
+  `너는 망고아이의 AI 대화 친구 '${friendName}' 야. 수업 전에 학생의 입을 풀어 주는 영어 말하기 상대야. 밝고 장난기 많은 단짝 친구처럼 신나게 리액션해줘.`,
+  `[이름] 학생이 이름을 물으면 반드시 '${friendName}' 라고 답해. 다른 이름을 지어내지 마.`,
+  "[언어] 네 대사는 반드시 영어로 말해. 한국어가 꼭 필요하면 영어 문장 뒤 «괄호 안» 에만 짧게 덧붙여 — 괄호 안은 음성으로 읽히지 않고 자막에만 보인다. 괄호 밖에 한국어를 쓰면 영어 목소리가 그대로 읽어서 소리가 뭉개진다.",
+  "[길이] 한 번에 2문장을 넘기지 마. 그리고 질문은 «한 번에 하나만» 해 — 두세 개를 몰아 묻지 마.",
+  "[형식] 사람이 말하듯 평문으로만 써. 마크다운(**, *, #, 목록)·'Mango:' 같은 이름표·(웃으며) 같은 지문은 쓰지 마. 이모지는 1~2개까지.",
+  "[칭찬] 학생이 잘 대답하면 크게 기뻐하며 칭찬한 뒤 다음 질문으로 이어가줘. 칭찬 말은 «직전 두 번과 다른 것» 으로 골라 써 — Wow!, Awesome!, Nice one!, That's great!, Yes!, Perfect!, Cool!, You got it!, Well said!, I love that!, Amazing!, Haha nice! 처럼 돌려 쓰고 같은 말을 연달아 반복하지 마.",
+  /* 💛 (2026-09-09 사장님 지시 B안) 바로 위 [칭찬] 규칙의 «짝». 이것만으로는 안 지켜지므로
+     서버가 답장에서 칭찬 말머리를 한 번 더 떼어 낸다 — 정본 src/warmup-empathy.ts */
+  WARMUP_EMPATHY_RULE,
+  "[막혔을 때] 학생이 'I don't know' 나 '몰라요' 라고 하거나 한국어로만 답하면 그냥 넘어가지 마. ① 학생이 따라 말할 수 있는 짧은 영어 예시 문장을 하나 주고 ② 더 쉬운 질문으로 다시 물어봐.",
+  "[영어로 어떻게 말해요?] 학생이 한국어로 '이거 영어로 어떻게 해?' 라고 물으면 자연스러운 영어 문장을 알려주고, 그 문장을 소리 내어 말해 보도록 이끌어줘.",
+  "[잘 못 알아들었을 때] 학생의 말은 음성인식을 거쳐 오기 때문에 글자가 깨지거나 엉뚱한 단어로 바뀌어 올 수 있어. 뜻이 통하지 않으면 아무 말이나 지어내지 말고, 문맥상 가장 그럴듯한 뜻으로 받아 주거나 'Sorry, I didn't catch that — can you say it again?' 처럼 «한 번만» 짧게 되물어.",
+  "[재미] 가끔 재미있는 방식으로 물어봐 — 'Would you rather ~?' 양자택일, '만약 ~라면?' 상상 질문, 스무고개(Guess what I'm thinking of!), 좋아하는 것 맞히기. 같은 방식을 연속으로 반복하지 말고 대화가 게임처럼 이어지게 해줘.",
+  "[주제] 학생 또래가 편하게 말할 수 있는 일상 주제로 이어가. 아래에 오늘의 주제나 교재 정보가 주어지면 그것과 이어지도록 물어봐.",
+].join('\n');
+/* 🔢 한 답장의 토큰 상한. 200 이던 것을 320 으로 올렸다(2026-09-08) —
+   교정 카드가 붙으면서 같은 예산에 «JSON 껍데기 + 토큰이 비싼 한국어 설명(why_ko)» 이
+   함께 들어간다. 잘리면 교정이 통째로 사라지고(파서가 안전하게 버린다) 본문도 문장 중간에서
+   끊긴다. ⚠️ 지연·비용은 «실제로 생성한 만큼» 만 늘어난다(상한은 «넘지 마라» 이지 «채워라» 가 아님).
+   ⚠️ 「보통 답장이 몇 토큰인가」는 재지 않았다 — 재려면 배포 뒤 Workers 로그를 보아야 한다. */
+const WARMUP_MAX_TOKENS = 320;
+const WARMUP_HELP_TOKENS = 120; // Bounded help fields in the same response.
+const WARMUP_MAX_TURNS = 20;   // 저장할 최근 대화(사용자/AI) 최대 개수
+/* 🔴 2026-09-03 — 12(=6턴)에서 20(=10턴)으로 넓혔다. 벨잉글리시 원장님 제보
+   「대화가 매끄럽게 이어지지 않는다」의 한 갈래 — 조금만 길어지면 앞 얘기를 잊는다.
+   AI 영어친구(ai_friend_chats LIMIT 20)와 «같은 폭» 으로 맞췄다. */
 // 📊 대화 난이도 8단계(1 기초 ~ 8 최고) — 프론트 warmup.html 레벨 슬라이더와 1:1 대응.
 //    각 단계별 어휘·문법·문장 길이 가이드를 시스템 프롬프트에 주입해 AI가 눈높이를 맞춘다.
+/* 🪜 여덟 칸 — 화면 warmup.html 의 LEVEL_CATALOG, 그리고 AI 영어친구
+     (src/ai-friend-level.ts 의 AI_FRIEND_LEVELS)와 «같은 눈금» 이다.
+     이름·교재 Lv 구간의 정본은 판단력 훈련 judgment-level.ts 의 BAND_SPECS 이고,
+     단어 수는 여기가 정본이다 — 세 파일이 같은 말을 해야 한다(하니스가 대조).
+     ⛔ 눈금을 «한 칸 밀어» 쉽게 만들려고 하지 마세요. 2026-08-31 에 실제로 그렇게 했다가
+        되돌렸습니다 — 저장된 mangoi_warmup_level 이 그대로인 채 «뜻» 만 바뀌어
+        레벨 5 학생이 말없이 한 단계 쉬운 대화를 받고, 같은 밴드 이름(중급)을
+        판단력 훈련과 웜업이 서로 다른 단어 수로 부르게 됩니다.
+        낮은 단계를 쉽게 하는 길은 «길이» 가 아니라 «열린 질문을 없애는 것» 입니다(아래 1·2번).
+     ⚠️ 한국어 도움말은 «괄호 안» 이라고 못박는다 — 위 [언어] 규칙과 어긋나면 모델이 괄호 밖에
+        한국어를 쓰고, 그걸 영어 TTS 가 읽어 소리가 뭉개진다(레벨 1이 가장 자주 걸리는 자리다). */
 const WARMUP_LEVELS: Record<number, string> = {
-  1: "레벨 1(기초): 아주 쉬운 기초 단어만 쓰고, 현재시제로 한 번에 3~5단어의 짧은 문장만 말해줘. 학생이 어려워하면 더 쉽게 바꿔주고 한국어로 살짝 도와줘도 돼.",
-  2: "레벨 2(초급): 기초 일상 단어, 현재시제 위주로 5~7단어의 짧고 쉬운 문장으로 말해줘.",
-  3: "레벨 3(초급+): 익숙한 일상 표현과 현재/현재진행 시제로 7~9단어 정도의 문장을 써줘.",
-  4: "레벨 4(초중급): 과거시제와 and/but/because 같은 간단한 접속사를 섞어 9~12단어 문장으로 말해줘.",
-  5: "레벨 5(중급): 다양한 시제와 이유·비교 표현을 쓰고, 필요하면 두 문장까지 자연스럽게 이어서 말해줘.",
-  6: "레벨 6(중상급): 조건·가정·의견 표현과 쉬운 관용구를 조금씩 섞어 자연스럽게 대화해줘.",
-  7: "레벨 7(상급): 원어민이 실제로 쓰는 구동사·연결어·표현을 활용해 좀 더 깊이 있는 후속 질문을 해줘.",
-  8: "레벨 8(최고): 유창한 원어민 수준으로 관용구·뉘앙스·추상적 주제까지 다루며 도전적인 질문으로 대화를 이끌어줘.",
+  1: "레벨 1(첫걸음·A1): 아주 쉬운 기초 단어만 쓰고, 현재시제로 한 번에 3~5단어의 짧은 문장만 말해줘. 질문은 학생이 'Yes.' 'No.' 로 답할 수 있는 것만 해 — wh- 질문이나 'or' 질문은 하지 마. 학생이 어려워하면 더 쉽게 바꿔주고, 한국어 도움말이 필요하면 영어 문장 뒤 괄호 안에 짧게만 덧붙여.",
+  2: "레벨 2(기초·A2): 기초 일상 단어, 현재시제 위주로 5~7단어의 짧고 쉬운 문장으로 말해줘. 질문은 Yes/No 이거나, 고를 말이 질문 안에 들어 있는 양자택일로 해줘(학생이 네 말을 그대로 따라 답할 수 있게).",
+  3: "레벨 3(초급·A2+): 익숙한 일상 표현과 현재/현재진행 시제로 7~9단어 정도의 문장을 써줘.",
+  4: "레벨 4(초중급·B1): 과거시제와 and/but/because 같은 간단한 접속사를 섞어 9~12단어 문장으로 말해줘.",
+  5: "레벨 5(중급·B1+): 다양한 시제와 이유·비교 표현을 12~15단어 문장으로 쓰고, 필요하면 두 문장까지 자연스럽게 이어서 말해줘.",
+  6: "레벨 6(중고급·B2): 조건·가정·관계절과 쉬운 관용구를 조금씩 섞어 15~18단어 문장으로 자연스럽게 대화해줘.",
+  7: "레벨 7(고급·B2+): 원어민이 실제로 쓰는 구동사·연결어·관용표현을 활용해 18~22단어 문장으로 좀 더 깊이 있는 후속 질문을 해줘.",
+  8: "레벨 8(최상급·C1): 유창한 원어민 수준으로 관용구·뉘앙스·추상적 주제까지 다루며 도전적인 질문으로 대화를 이끌어줘.",
 };
+
+
+/* 🧯 레벨별 «한 문장 단어 상한» — 무너진 출력 판정(replyIsSane)의 길이 안전망에만 쓴다.
+   ⚠️ AI 영어친구(src/ai-friend-level.ts 의 AI_FRIEND_LEVELS S1~S8)와 «같은 눈금» 이다.
+      여기서 import 하지 않는 이유는 위 WARMUP_LEVELS 문자열이 이미 그 숫자를 들고 있어서,
+      두 곳이 어긋나면 하니스가 문자열에서 읽어 대조하기 때문이다(reply_sanity_harness).
+   ⚠️ 이 값은 «버릴 기준» 이 아니다 — replyTooLongFor 가 두 배 + 6낱말로 넉넉히 잡는다.
+      문법을 지키다 한두 낱말 넘는 것을 버리면 안 된다(PR #626 「문법이 길이에 진다」). */
+const WARMUP_WORD_CAP: Record<number, number> = { 1: 5, 2: 7, 3: 9, 4: 12, 5: 15, 6: 18, 7: 22, 8: 0 };
 
 /* 오늘 배울 교재 컨텍스트 — students_erp(학생 배정 교재/레벨) + review_quizzes(그 교재의 실제 영어 문장)
  * textbook/level 을 직접 넘기면 그 값을 우선, 없으면 user_id 로 학생 명부에서 조회.
  * 문장 샘플은 해당 교재(→레벨) 복습퀴즈 은행의 audio_text/answer_text 에서 추출. */
-async function warmupLessonContext(env: Env, o: { userId?: string; textbook?: string; level?: string; lessonNo?: number | null }) {
+async function warmupLessonContext(env: Env, o: { userId?: string; textbook?: string; level?: string; lessonNo?: number | null; lang?: string }) {
   let textbook = String(o.textbook || '').trim();
   let level = String(o.level || '').trim();
   const lessonNo = (Number(o.lessonNo) > 0) ? Number(o.lessonNo) : null;
@@ -2592,6 +3320,14 @@ async function warmupLessonContext(env: Env, o: { userId?: string; textbook?: st
     } catch {}
   }
   const sentences: string[] = [];
+  /* 🀄 중국어 갈래(2026-09-13) — 소재를 zh_vocab·zh_passage 에서 읽는다.
+     ⛔ 아래 영어 경로로 내려보내지 말 것: isEnglishQuestion·isEnglishText 게이트가
+        중국어 문장을 통째로 걸러 소재가 늘 0개가 된다(그 게이트는 영어 화면에 병음이
+        섞이는 것을 막는 것이라 그대로 둔다). 정본 src/warmup-zh.ts */
+  if (String(o.lang || '') === 'zh') {
+    const zs = await zhWarmupSentences(env as any, { textbook, lessonNo });
+    return { textbook, level, lesson_no: lessonNo, student_name: studentName, sentences: zs };
+  }
   try {
     if (textbook || level) {
       const tries: Array<{ sql: string; binds: any[] }> = [];
@@ -2603,9 +3339,10 @@ async function warmupLessonContext(env: Env, o: { userId?: string; textbook?: st
         for (const row of (((rs.results as any[]) || []))) {
           let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
           for (const q of qs) {
+            if (!isEnglishQuestion(q)) continue;   // 중국어·일본어 문항은 영어 웜업 프롬프트에 넣지 않는다
             for (const c of [q.audio_text, q.answer_text, q.target]) {
               const s = String(c || '').trim();
-              if (s && /[a-zA-Z]/.test(s) && s.length <= 80 && !sentences.includes(s)) sentences.push(s);
+              if (isEnglishText(s) && !sentences.includes(s)) sentences.push(s);
             }
           }
         }
@@ -2616,23 +3353,88 @@ async function warmupLessonContext(env: Env, o: { userId?: string; textbook?: st
   return { textbook, level, lesson_no: lessonNo, student_name: studentName, sentences: sentences.slice(0, 8) };
 }
 
+/* 🚀 (2026-08-17) 위 조회의 세션당 1회 + KV 30분 캐시 래퍼.
+ *   [왜] handleWarmupChat 은 학생이 «한 마디 할 때마다» warmupLessonContext() 를 불렀고,
+ *        그 안에서 D1 을 최대 3번(students_erp 1 + review_quizzes 2) «순차» 조회한다.
+ *        오늘 배울 교재·문장은 대화 중에 바뀌지 않는데도 매 발화마다 다시 물어본 것이라,
+ *        모델을 부르기도 전에 그 왕복 지연이 매번 그대로 얹혔다
+ *        (2026-08-17 사장님 제보 「반응이 테스트보다 느리다」의 서버 쪽 몫).
+ *   [방식] 바로 아래 getWeakSentences(Neo4j)가 이미 쓰는 것과 «똑같은» 패턴 —
+ *        SESSION_STATE 에 30분. 새 규칙을 만들지 않는다.
+ *   ⚠️ 캐시 키에 입력값(user/textbook/level/lesson)을 함께 넣는다. ?textbook 을 바꿔 다시
+ *      들어온 같은 세션에 옛 교재를 물려주면 그거야말로 «엉뚱한 말» 이 된다.
+ *   ⚠️ 결과가 비어도(교재 미배정 학생) 그대로 캐시한다 — 오히려 그 경우가 D1 3번을
+ *      «다» 도는 가장 느린 경로다. 캐시에서 빼면 제일 느린 쪽만 안 고쳐진다.
+ *   ⚠️ KV 장애·미바인딩이면 조용히 원래대로(직접 조회) 동작한다 — 웜업이 멈추면 안 된다. */
+type WarmupLessonCtx = Awaited<ReturnType<typeof warmupLessonContext>>;
+async function warmupLessonContextCached(
+  env: Env,
+  sessionId: string,
+  o: { userId?: string; textbook?: string; level?: string; lessonNo?: number | null; lang?: string },
+): Promise<WarmupLessonCtx> {
+  /* ⚠️ lang 이 키에 들어가야 한다 — 안 넣으면 같은 세션에서 언어를 바꿨을 때
+        앞 언어의 소재가 캐시에서 그대로 나온다(중국어 대화에 영어 문장이 섞인다). */
+  const sig = [o.userId || '', o.textbook || '', o.level || '', o.lessonNo || 0, o.lang || 'en'].join('|');
+  const ckey = 'warmupctx:' + String(sessionId || 'noses').slice(0, 120) + ':' + sig.slice(0, 260);
+  if (env.SESSION_STATE) {
+    try {
+      const raw = await env.SESSION_STATE.get(ckey);
+      if (raw != null) return JSON.parse(raw) as WarmupLessonCtx;
+    } catch {}
+  }
+  const lc = await warmupLessonContext(env, o);
+  try { if (env.SESSION_STATE) await env.SESSION_STATE.put(ckey, JSON.stringify(lc), { expirationTtl: 1800 }); } catch {}
+  return lc;
+}
+
 /* GET /api/warmup/context — 웜업 페이지가 첫 화면에서 '오늘 교재'를 표시할 때 사용 */
 async function handleWarmupContext(request: Request, env: Env): Promise<Response> {
   try {
     const u = new URL(request.url);
     const userId = (u.searchParams.get('user_id') || '').trim();
+    const ctxLang = normalizeWarmupLang(u.searchParams.get('lang'));
+    /* 🀄 hint=1 — 설정 화면이 «기본 언어를 무엇으로 켤까» 만 물어볼 때 (2026-09-13).
+       ⚠️ 여기서 끝내는 이유는 셋이다: ① 세션 시작 기록(logWarmupSessionStart)은 «설정을 닫은 뒤»
+          한 번만 남아야 한다 ② 교재 조회·Neo4j 취약문장은 이 물음에 필요 없다 ③ 그래서 이 갈래는
+          D1 을 한 줄(zhStudentByTeacher)만 읽는다.
+       ⚠️ 새 파라미터라 기존 호출자는 이 갈래로 오지 않는다(옛 화면은 예전과 똑같이 동작). */
+    if (u.searchParams.get('hint') === '1') {
+      let hintLang = 'en';
+      try { if (await zhStudentByTeacher(env as any, userId)) hintLang = 'zh'; } catch {}
+      return new Response(JSON.stringify({ ok: true, suggest_lang: hintLang }), { status: 200, headers: _MS_JSON });
+    }
     const ctx = await warmupLessonContext(env, {
       userId,
       textbook: (u.searchParams.get('textbook') || '').trim(),
       level: (u.searchParams.get('level') || '').trim(),
       lessonNo: parseInt(u.searchParams.get('lesson') || '0', 10) || null,
+      lang: ctxLang,
+    });
+    // 📊 세션 시작 기록 — 설정 화면을 «닫은 뒤» 오는 호출이라 여기 diff/age 가 학생이 고른 값이다.
+    //    이 한 줄이 「낮은 단계 학생이 실제로 몇 단계로 쓰는가」와 「입을 뗐는가」의 분모다.
+    //    실패는 조용히 삼킨다(src/warmup-log.ts) — 기록 때문에 웜업이 멈추면 안 된다.
+    await logWarmupSessionStart(env, {
+      sessionId: (u.searchParams.get('session_id') || '').trim(),
+      userId,
+      difficulty: parseInt(u.searchParams.get('diff') || '0', 10),
+      ageGroup: normalizeWarmupAge(u.searchParams.get('age')),
+      textbook: ctx.textbook,
+      level: ctx.level,
+      lang: ctxLang,     // 🀄 「중국어로 몇 명이 쓰는가」를 셀 수 있게 (2026-09-13)
     });
     // 🕸️ 개인화(Neo4j): 자주 틀린 문장 — 미설정/장애 시 빈 배열 (페이지 로드당 1회 호출이라 캐시 불필요)
     let weak: Array<{ text: string; wrongCount: number; inTodayTextbook: boolean }> = [];
     if (userId && env.NEO4J_QUERY_URL) {
       try { weak = await getWeakSentences(env as any, userId, ctx.textbook || '', 5); } catch {}
     }
-    return new Response(JSON.stringify({ ok: true, ...ctx, weak_sentences: weak }), { status: 200, headers: _MS_JSON });
+    /* 🀄 기본 언어 힌트(2026-09-13) — 중국어 강사 수업이 잡힌 학생이면 'zh'.
+       ⚠️ «힌트» 일 뿐이다: 최종 결정은 화면에서 학생이 고른 값이고, 서버는 대화 요청에
+          실려 온 lang 을 그대로 따른다. 못 읽으면 'en'(영어) 쪽으로 실패한다.
+       ⚠️ 학생 명부의 교재 칸으로는 못 가린다 — 29,492행 전부 비어 있다(2026-09-13 실측).
+       ℹ️ 이 조회는 페이지 로드당 1회다(대화 발화마다가 아니다). */
+    let suggestLang = 'en';
+    try { if (await zhStudentByTeacher(env as any, userId)) suggestLang = 'zh'; } catch {}
+    return new Response(JSON.stringify({ ok: true, ...ctx, weak_sentences: weak, suggest_lang: suggestLang }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
@@ -2668,11 +3470,14 @@ async function handleGamesVocab(request: Request, env: Env): Promise<Response> {
     const seenEn = new Set<string>();
     const pushSentence = (en: any, ko: string) => {
       const s = String(en || '').trim();
-      if (!s || !/[a-zA-Z]/.test(s) || s.length > 90) return;
+      /* 여기가 「cāochǎng 이 영어 게임에 섞이던」 자리다 — 옛 판정 `/[a-zA-Z]/` 는
+         「라틴 글자가 한 자라도 있으면 영어」라 병음을 그대로 통과시켰다.
+         ⛔ 낱말 수 하한으로 풀지 말 것 — 영어 정답이 한 낱말인 문항이 많다(BTS 2 → 'red'). */
+      if (!isEnglishText(s, 90)) return;
       const key = s.toLowerCase();
       if (seenEn.has(key)) return;
       seenEn.add(key);
-      sentences.push({ en: s, ko });
+      sentences.push({ en: s, ko: hasForeignGloss(ko) ? '' : ko });
     };
     const koFromPrompt = (q: any): string => {
       // "다음 뜻의 영어 문장을 쓰세요: 나는 망고를 좋아해요." → 콜론 뒤 한국어만 채택
@@ -2686,12 +3491,22 @@ async function handleGamesVocab(request: Request, env: Env): Promise<Response> {
       if (textbook || level) {
         const tries: Array<{ sql: string; binds: any[] }> = [];
         if (textbook) tries.push({ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER(textbook)=LOWER(?) ORDER BY id DESC LIMIT 4`, binds: [textbook] });
-        if (level) tries.push({ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER(level)=LOWER(?) ORDER BY id DESC LIMIT 4`, binds: [level] });
+        /* ⚠️ 레벨 폴백에는 «교재에 안 묶인» 문제은행만 쓴다 — 웜업(warmupLessonContext)과 같은 조건.
+           [왜] review_quizzes 는 영어 전용 표가 아니다. 이 조건이 없으면 「그 레벨의 아무 교재나」가
+                걸려서, 예컨대 level='Lv 3' 인 활성 퀴즈는 2026-08-26 실측 기준 «전부 중국어 교재
+                「다락원」» 이라 영어 게임이 순수 병음만 받게 된다(위 게이트가 막지만, 애초에
+                엉뚱한 교재를 긁어 오는 것 자체가 틀렸다).
+           ⚠️ 그래서 이 폴백은 «교재 없는 공용 문제은행» 이 생기기 전까지 항상 0건이다
+              (실측: 활성 퀴즈 29건이 전부 교재가 붙어 있어 «교재 없음» 0건). 웜업도 같은 상태다.
+              0건이면 게임은 내장 기본 어휘로 폴백한다 — 조용히 잘못된 교재를 주는 것보다 낫다.
+           ⛔ 「그래도 뭐라도 주자」고 이 조건을 빼지 말 것. 2026-08-26 사장님 지시로 맞춘 것이다. */
+        if (level) tries.push({ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER(level)=LOWER(?) AND (textbook IS NULL OR textbook='') ORDER BY id DESC LIMIT 4`, binds: [level] });
         for (const t of tries) {
           const rs = await env.DB.prepare(t.sql).bind(...t.binds).all();
           for (const row of (((rs.results as any[]) || []))) {
             let qs: any[] = []; try { qs = JSON.parse((row as any).questions) || []; } catch {}
             for (const q of qs) {
+              if (!isEnglishQuestion(q)) continue;   // 중국어·일본어 문항은 통째로 건너뛴다
               const ko = koFromPrompt(q?.q);
               pushSentence(q?.answer_text || q?.audio_text || q?.target, ko);
             }
@@ -2705,12 +3520,18 @@ async function handleGamesVocab(request: Request, env: Env): Promise<Response> {
     const words: Array<{ en: string; ko: string }> = [];
     try {
       if (userId) {
+        /* 🔁 (2026-10-18) 단어장에서 틀린 낱말을 «먼저» 담는다 — 정본 src/vocab-weak.ts.
+           [왜] 단어가 30개를 넘으면 오래전에 넣은 약점 낱말이 «최근 30개» 밖으로 밀린다(구조상 — 오늘 대상 학생은 10~17개라 아직 해당 없음).
+           ⚠️ 개수는 /api/games/weak 의 vocab_weak 와 같은 VOCAB_WEAK_GAME_MAX — 허브가 그 낱말을 이 목록에서 찾는다. */
+        const weakRows = await loadVocabWeakRows(env.DB, userId, Date.now(), VOCAB_WEAK_GAME_MAX);
         const rs = await env.DB.prepare(`SELECT word, korean FROM vocabulary WHERE user_id = ? ORDER BY id DESC LIMIT 30`).bind(userId).all();
+        const vrows = mergeWeakFirst<any>(weakRows, ((rs.results as any[]) || []), 38, (r: any) => String(r.word || '').trim());
         const seenW = new Set<string>();
-        for (const row of (((rs.results as any[]) || []))) {
+        for (const row of await readableKoreanVocabulary(vrows, env.AI)) {
           const en = String((row as any).word || '').trim();
           const ko = String((row as any).korean || '').trim();
-          if (!en || !ko || !/[a-zA-Z]/.test(en) || en.length > 30) continue;
+          // 단어장에 병음·한자를 적어 둔 학생이 있어도 «영어» 게임에는 내보내지 않는다
+          if (!ko || !isEnglishText(en, 30)) continue;
           const key = en.toLowerCase();
           if (seenW.has(key)) continue;
           seenW.add(key);
@@ -2808,6 +3629,34 @@ async function handleGamesLessons(request: Request, env: Env): Promise<Response>
       return { course: s, seq: 0, title: '', key: s };
     }
 
+    /* 영어 코스 목록에서 «중국어 교재» 를 빼기 위한 이름표.
+       [왜] 아래 코스 목록은 review_quizzes 를 통째로 훑는데 그 표에는 중국어 교재
+            「다락원」이 함께 들어 있다(그 표는 영어 전용이 아니다). 그래서 영어 게임의
+            코스 고르기에 중국어 교재가 한 칸 섞여 나오고, 골라도 레슨이 0개다 —
+            그 교재에서 라틴 글자로 된 값은 전부 «한 낱말 병음» 이라 아래 w.length<2 에
+            걸린다(2026-08-26 D1 실측: 활성 문항 178개 중 라틴 글자 14개, 두 낱말 이상 0개).
+       ⚠️ count 는 «퀴즈 건수» 가 아니라 «그 코스로 묶이는 distinct textbook 문자열 수» 다
+            (아래 cc.count = cc.keys.length). 다락원은 문자열이 하나라 count=1 이고,
+            같은 날 실측 기준 1위는 BTS 1(001~008 = 8)이라 «기본 코스» 가 되지는 않았다.
+            ⛔ 이 줄을 「기본 코스가 다락원이었다」로 되돌리지 말 것 — 한 번 그렇게 적었다가
+               정정했다. 심각도를 부풀리면 다음 사람이 엉뚱한 것을 고친다.
+       [판정] 「zh_vocab 에 있는 교재 = 중국어 코스」 — 중국어 게임이 이미 그 표를
+            정본으로 쓰고 있어서(/api/games/zh-vocab · zh-passage · 아래 glang==='zh' 갈래)
+            새 규칙을 만들지 않아도 된다.
+       ⚠️ active=1 을 «일부러» 안 건다 — 여기서 하는 일은 «빼기» 라, 비활성 중국어 교재까지
+          넓게 잡는 쪽이 안전하다(좁게 잡으면 중국어가 영어 목록으로 새어 든다).
+       ⚠️ 실패해도 영어 목록이 멈추면 안 된다 — 표가 없으면 빈 집합으로 두고 그냥 진행한다. */
+    const zhCourses = new Set<string>();
+    if (glang !== 'zh') {
+      try {
+        const zr = await env.DB.prepare(`SELECT DISTINCT textbook FROM zh_vocab WHERE textbook IS NOT NULL AND textbook != '' LIMIT 200`).all();
+        for (const r of (((zr.results as any[]) || []))) {
+          const t = String((r as any).textbook || '').trim().toLowerCase();
+          if (t) zhCourses.add(t);
+        }
+      } catch {}
+    }
+
     // ── 코스(교재) 목록 ──
     const courseMap = new Map<string, { course: string; count: number; keys: Array<{ key: string; seq: number; title: string }> }>();
     try {
@@ -2817,7 +3666,13 @@ async function handleGamesLessons(request: Request, env: Env): Promise<Response>
       } else {
         const rs = await env.DB.prepare(`SELECT textbook FROM review_quizzes WHERE active=1 AND textbook IS NOT NULL AND textbook!='' GROUP BY textbook ORDER BY textbook ASC LIMIT 500`).all();
         for (const r of (((rs.results as any[]) || []))) {
-          const p = parseEn(String((r as any).textbook || '')); if (!p.key) continue;
+          const rawTb = String((r as any).textbook || '').trim();
+          const p = parseEn(rawTb); if (!p.key) continue;
+          /* 중국어 교재는 영어 코스 목록에서 뺀다. 원문과 «파싱된 코스명» 을 둘 다 본다 —
+             정확일치만 보면 나중에 중국어 퀴즈가 「다락원 001」처럼 과 번호를 달고 들어오는
+             순간 에러 없이 필터가 통째로 헛돈다(CLAUDE.md 「헬퍼에 행을 넘겼는데 아무 일도
+             안 일어남」과 같은 모양). */
+          if (zhCourses.has(rawTb.toLowerCase()) || zhCourses.has(p.course.trim().toLowerCase())) continue;
           if (!courseMap.has(p.course)) courseMap.set(p.course, { course: p.course, count: 0, keys: [] });
           const cc = courseMap.get(p.course)!; cc.keys.push({ key: p.key, seq: p.seq, title: p.title }); cc.count = cc.keys.length;
         }
@@ -2861,8 +3716,9 @@ async function handleGamesLessons(request: Request, env: Env): Promise<Response>
           for (const r of rows) {
             let qs: any[] = []; try { qs = JSON.parse((r as any).questions) || []; } catch {}
             for (const q of qs) {
+              if (!isEnglishQuestion(q)) continue;   // 중국어·일본어 문항은 통째로 건너뛴다
               const en = String(q?.answer_text || q?.audio_text || q?.target || '').trim();
-              if (!en || !/[a-zA-Z]/.test(en) || en.length > 90) continue;
+              if (!isEnglishText(en, 90)) continue;
               const t = String(q?.q || ''); const ci = Math.max(t.lastIndexOf(':'), t.lastIndexOf('：')); const tail = ci >= 0 ? t.slice(ci + 1).trim() : '';
               const ko = (/[가-힣]/.test(tail) && tail.length >= 2 && tail.length <= 60) ? tail : '';
               const w = en.replace(/[.,!?;:"]/g, '').split(/\s+/).filter(Boolean); if (w.length < 2) continue;
@@ -3182,6 +4038,13 @@ async function handleUxTrack(request: Request, env: Env): Promise<Response> {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
 }
+/** 🔁 (2026-10-18) 단어장 약점을 읽어도 되는 «본인» 인가 — 토큰 uid 또는 같은 이름의 관리자 세션(정확일치, 정본 weakWordsCallerOk).
+ *  웜업·/api/games/weak 가 함께 쓴다(⛔ 한 곳에 판정을 다시 적지 말 것). 확인 중 무엇이 실패해도 false — 던지지 않는다. */
+async function vocabWeakCallerVerified(request: Request, env: Env, uid: string, body?: any): Promise<boolean> {
+  if (!uid) return false;
+  try { if (weakWordsCallerOk(uid, await authUidFromRequest(request, new URL(request.url), env, body), null)) return true; } catch {}
+  try { const ses: any = await checkAdminSession(request, env as any); return weakWordsCallerOk(uid, null, ses && ses.ok ? ses.username : null); } catch { return false; }
+}
 async function handleGamesWeak(request: Request, env: Env): Promise<Response> {
   try {
     const u = new URL(request.url);
@@ -3200,7 +4063,18 @@ async function handleGamesWeak(request: Request, env: Env): Promise<Response> {
       item: r.item, ko: r.ko || '', wrong: r.wrong_count || 0, correct: r.correct_count || 0,
       pron_best: r.pron_best || 0, pron_count: r.pron_count || 0
     }));
-    return new Response(JSON.stringify({ ok: true, lang, weak }), { status: 200, headers: _MS_JSON });
+    /* 🔁 (2026-10-18) 단어장에서 틀린 낱말 — 정본 src/vocab-weak.ts. 게임 허브가 «자기 단어 목록에 있는 것만» 복습 큐에 넣는다.
+       ⛔ weak 배열에 섞지 않는다 — 교사용 게임 리포트(game-report.html)가 그 배열을 «게임에서 틀린 단어» 로 그린다.
+       ⛔ 본인 확인이 될 때만 싣는다 — 이 경로는 user_id 만으로 답하는데, 단어장의 «틀린 기록» 은
+          /api/vocab/list 에서도 본인에게만 보인다(gateVocabOwner). 모르면 빈 배열(게임은 예전처럼 돈다).
+       ⚠️ 낱말 글자는 /api/games/vocab 과 «같은 다듬기»(trim · 영어 30자)여야 허브가 정확일치로 찾는다. */
+    let vocabWeak: Array<{ item: string }> = [];
+    if (lang === 'en' && await vocabWeakCallerVerified(request, env, userId)) {
+      vocabWeak = mergeWeakFirst<string>(
+        (await loadVocabWeakRows(env.DB, userId, Date.now(), VOCAB_WEAK_GAME_MAX)).map((r) => String(r.word || '').trim()).filter((w) => isEnglishText(w, 30)),
+        [], VOCAB_WEAK_GAME_MAX, (w) => w).map((item) => ({ item }));
+    }
+    return new Response(JSON.stringify({ ok: true, lang, weak, vocab_weak: vocabWeak }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
@@ -3317,7 +4191,36 @@ async function handleGamesRecommend(request: Request, env: Env): Promise<Respons
       advanced:      ['최고예요! 이제 더 어려운 도전을 해 볼까요? 🏆', 'Amazing! Ready for a harder challenge? 🏆'],
     };
     const m = MSG[focus] || MSG.keep_going;
-    const out = JSON.stringify({ ok: true, lang, status, focus, accuracy, pron, attempts, weak, message_ko: m[0], message_en: m[1] });
+
+    /* ⑥ 🎫 레벨테스트 «통과» 여부 — 게임 허브의 단계별 해금을 한 번에 여는 두 번째 열쇠
+       ────────────────────────────────────────────────────────────────
+       왜 여기에 얹었나: 게임 허브(student-games.html)는 이미 이 응답 하나를 받아
+         잠금 판정(_questApplyServer)에 쓰고 있다. 새 엔드포인트를 만들면 라우팅·인증
+         게이트에 또 등록해야 하고(CLAUDE.md 2장 «새 API 추가»), 허브가 요청을 한 번 더
+         보낸다. 같은 학생·같은 캐시(10분)에 실어 보내는 편이 실수할 자리가 적다.
+       판정 근거: 상담·예약 단계가 아니라 **결과가 확정된 것**만 통과로 본다.
+         · final_level 이 채워졌다 = 강사·본사가 레벨을 확정했다(관리자 화면의 «결과 확정»).
+         · status='done' = 레벨테스트 일정이 끝난 것으로 표시됐다.
+       ⛔ status='confirmed'(일정만 잡힘)를 통과로 세지 말 것 — 신청만 하고 안 본 학생까지
+          게임이 전부 열린다. 그러면 「레벨테스트로 바로 열기」가 «신청 버튼»이 되어 버린다.
+       표가 없는 계정(레벨테스트를 아예 안 만든 환경)에서는 조용히 false 로 둔다. */
+    let leveltestPassed = false;
+    let leveltestLevel: string | null = null;
+    try {
+      const lt: any = await env.DB.prepare(
+        `SELECT final_level, status FROM leveltest_applications
+          WHERE student_uid = ?
+            AND ( (final_level IS NOT NULL AND TRIM(final_level) <> '') OR status = 'done' )
+          ORDER BY updated_at DESC LIMIT 1`
+      ).bind(userId).first();
+      if (lt) {
+        leveltestPassed = true;
+        const lv = String(lt.final_level || '').trim();
+        leveltestLevel = lv || null;
+      }
+    } catch {}
+
+    const out = JSON.stringify({ ok: true, lang, status, focus, accuracy, pron, attempts, weak, message_ko: m[0], message_en: m[1], leveltest_passed: leveltestPassed, leveltest_level: leveltestLevel });
     try { if (env.SESSION_STATE) await env.SESSION_STATE.put(ckey, out, { expirationTtl: 600 }); } catch {}
     return new Response(out, { status: 200, headers: _MS_JSON });
   } catch (e: any) {
@@ -3325,7 +4228,11 @@ async function handleGamesRecommend(request: Request, env: Env): Promise<Respons
   }
 }
 
-async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
+async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) => void) | null = null): Promise<Response> {
+  /* ⏱ 지연 기록(feature='warmup') — 정본 ai-latency-log.ts. 학생 발화·답변은 싣지 않는다(길이만).
+     📡 sseSend 가 있으면(P2) 첫 모델 호출의 문장을 먼저 흘린다 — 없으면 예전과 똑같다. */
+  const latT0 = Date.now();
+  let latModelMs = 0, latTries = 0;
   try {
     let body: any = {};
     try { body = await request.json(); } catch {}
@@ -3339,6 +4246,18 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     // 📊 대화 난이도(1 기초 ~ 8 최고) — 프론트 레벨 슬라이더 값. 범위 밖이면 0(미지정).
     const rawDiff = Math.floor(Number(body && body.difficulty));
     const ctxDifficulty = (rawDiff >= 1 && rawDiff <= 8) ? rawDiff : 0;
+    // 🧑‍🎓 연령대(kid/child/teen/adult) — 난이도와 «독립» 인 축. 소재·말투만 바꾼다(src/warmup-audience.ts).
+    //    모르는 값·미지정이면 기본값(child)이 되므로 옛 화면의 요청도 지금과 똑같이 동작한다.
+    const ctxAge = normalizeWarmupAge(body && body.age_group);
+    /* 🀄 대화 언어(2026-09-13) — 화면이 보낸 값만 따른다. 판정 정본 src/warmup-zh.ts.
+       ⚠️ 모르는 값·미지정은 'en' 이므로 옛 화면의 요청은 지금과 똑같이 동작한다. */
+    const ctxLang = normalizeWarmupLang(body && body.lang);
+    // 🚀 kickoff — 화면이 «학생 대신» AI 에게 첫 인사를 시키는 합성 발화(교재 연동 경로)다.
+    //    학생이 한 말이 아니므로 「입을 뗐다」로 세면 안 된다(src/warmup-log.ts 주석 참고).
+    const ctxKickoff = !!(body && body.kickoff);
+    // 🧑 학생이 고른 AI 친구 이름 — 정본 표를 거쳐 «아는 이름» 으로만 바꾼다(프롬프트 주입 차단).
+    //    「번갈아」는 화면이 «그 턴에 말할 사람» 을 보낸다. 안 보내면 예전처럼 'Mango'.
+    const ctxFriend = resolveFriendName(body && body.friend);
 
     // ── 입력 검증(Pydantic 대응) ──
     if (!sessionId) {
@@ -3358,20 +4277,49 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
       const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(hkey) : null;
       if (raw) history = JSON.parse(raw);
     } catch {}
+    /* 🔁 (2026-10-28 사장님 「일반 A.i 말하기에도 같은 질문 금지 적용해줘」) 이 대화에서 «이미 물은 질문 → 학생 답».
+       정본 src/question-memory.ts(엘리더잼과 같은 판정). 영어만 — 중국어는 낱말을 못 뽑아 null 이고 예전 그대로다. */
+    const qmem = ctxLang === 'zh' ? null : questionMemory(history, studentInput);
+
+    // 📊 웜업 기록(src/warmup-log.ts) — 세션당 INSERT 1 + 조건부 UPDATE 최대 2. 발화마다 쓰지 않는다.
+    //   ① 첫 턴의 INSERT 는 «안전망» 이다. 로그인 학생은 /api/warmup/context 에서 이미 잡히고,
+    //      비로그인·교재 미배정 세션만 여기서 처음 기록된다(INSERT OR IGNORE 라 겹쳐도 무해).
+    //   ② 「입을 뗐다」 판정은 히스토리가 비었는지로 하면 «틀린다» — kickoff 합성 발화가 이미
+    //      user 로 저장돼 있기 때문이다. 판정은 순수 함수 하나에 모아 두고 하니스가 직접 돌린다.
+    if (history.length === 0) {
+      await logWarmupSessionStart(env, {
+        sessionId, userId: ctxUserId, difficulty: ctxDifficulty, ageGroup: ctxAge,
+        textbook: ctxTextbook, level: ctxLevel,
+      });
+    }
+    if (warmupShouldMarkFirstReply(history, ctxKickoff)) await markWarmupFirstReply(env, sessionId);
 
     // ── 시스템 프롬프트(주제 + 오늘 배울 교재 반영) + 히스토리 + 이번 발화로 messages 구성 ──
-    let sys = WARMUP_SYSTEM;
-    if (ctxDifficulty) sys += ` [난이도] ${WARMUP_LEVELS[ctxDifficulty]}`;
+    let sys = ctxLang === 'zh' ? warmupZhSystem(ctxFriend) : warmupSystem(ctxFriend);
+    sys += ' ' + warmupAgeLine(ctxAge);
+    if (ctxDifficulty) sys += ` [난이도] ${(ctxLang === 'zh' ? WARMUP_ZH_LEVELS : WARMUP_LEVELS)[ctxDifficulty]}`;
+    /* 🧩 (2026-10-28 사장님 「like space? 이런 식으로 나오지 말게」) 기초 단계는 «단어 수» 지시 때문에 모델이
+       질문의 앞부분(do you)을 떼어 낸다 — 문법이 먼저라고 예문으로 못 박는다. 정본·이유는 src/reply-questions.ts. */
+    if (checksFragmentQuestions(ctxDifficulty, ctxLang)) sys += ' ' + fullQuestionRule(ctxDifficulty);
     if (lessonTopic) sys += ` 오늘의 대화 주제는 '${lessonTopic}' 이야.`;
     // 🗓️ 오늘 배울 교재 연동: 학생 배정 교재(students_erp) + 그 교재의 실제 문장(review_quizzes)으로 워밍업 질문
     if (ctxUserId || ctxTextbook || ctxLevel) {
       try {
-        const lc = await warmupLessonContext(env, { userId: ctxUserId, textbook: ctxTextbook, level: ctxLevel, lessonNo: ctxLessonNo });
+        // 세션당 1회만 D1 을 본다(30분 캐시) — 매 발화마다 재조회하던 것이 지연의 한 축이었다
+        const lc = await warmupLessonContextCached(env, sessionId, { userId: ctxUserId, textbook: ctxTextbook, level: ctxLevel, lessonNo: ctxLessonNo, lang: ctxLang });
         if (lc.textbook || lc.level || lc.sentences.length) {
           if (lc.student_name) sys += ` 학생 이름은 '${lc.student_name}' 이야.`;
           sys += ` [오늘 수업 정보] 학생이 오늘 수업에서 배울 교재: '${lc.textbook || '미지정'}'${lc.level ? ` (레벨 ${lc.level})` : ''}${lc.lesson_no ? `, Lesson ${lc.lesson_no}` : ''}.`;
-          if (lc.sentences.length) sys += ` 오늘 배울 핵심 영어 문장 예시: ${lc.sentences.map((s) => `"${s}"`).join(' / ')}.`;
-          sys += " 웜업 방식: 이 교재 내용(위 문장들의 단어·표현·주제)을 활용해서 아주 쉬운 영어 질문을 한 번에 하나만 물어봐. 학생이 답하면 1문장으로 칭찬하거나 자연스럽게 교정해 주고, 이어서 교재와 관련된 다음 질문을 해줘.";
+          /* 🀄 교재 소재를 «감싸는 말» 도 언어를 타야 한다 (2026-09-13).
+         🔴 이 두 줄은 `warmupZhSystem()` 의 「[언어] 반드시 중국어 간체자로 말해」 **뒤에** 붙는다.
+            더 뒤에 있고 더 구체적인 지시가 이기므로, 영어 고정으로 두면 중국어 대화에
+            「아주 쉬운 **영어** 질문을 물어봐」가 그대로 들어간다(CLAUDE.md 2장 「한 화면이 정반대를 말한다」). */
+          if (lc.sentences.length) sys += ctxLang === 'zh'
+            ? ` 오늘 배울 핵심 중국어 표현 예시: ${lc.sentences.map((s) => `"${s}"`).join(' / ')}.`
+            : ` 오늘 배울 핵심 영어 문장 예시: ${lc.sentences.map((s) => `"${s}"`).join(' / ')}.`;
+          sys += ctxLang === 'zh'
+            ? " 말하기 방식: 이 교재 내용(위 표현들의 단어·주제)을 활용해서 아주 쉬운 중국어(간체자) 질문을 한 번에 하나만 물어봐. 학생이 답하면 1문장으로 칭찬하거나 자연스럽게 교정해 주고, 이어서 교재와 관련된 다음 질문을 해줘."
+            : " 말하기 방식: 이 교재 내용(위 문장들의 단어·표현·주제)을 활용해서 아주 쉬운 영어 질문을 한 번에 하나만 물어봐. 학생이 답하면 1문장으로 칭찬하거나 자연스럽게 교정해 주고, 이어서 교재와 관련된 다음 질문을 해줘.";
         }
         // 🕸️ 개인화(Neo4j): 이 학생이 복습퀴즈에서 자주 틀린 문장 → 우선 복습 질문.
         //    Aura 는 외부 HTTP 라 세션당 1회만 조회하고 KV 에 30분 캐시(매 메시지 호출 방지).
@@ -3390,51 +4338,428 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
           }
           if (weak.length) {
             const list = weak.map((w) => `"${w.text}"(${w.wrongCount}회 틀림${w.inTodayTextbook ? '·오늘 교재' : ''})`).join(' / ');
-            sys += ` [개인화] 이 학생이 복습퀴즈에서 자주 틀린 문장: ${list}. 웜업 질문을 만들 때 이 표현들을 우선으로 자연스럽게 섞어서 다시 연습시켜줘. 단, 틀렸다는 사실은 언급하지 말고 격려하는 톤을 유지해.`;
+            sys += ` [개인화] 이 학생이 복습퀴즈에서 자주 틀린 문장: ${list}. 말하기 질문을 만들 때 이 표현들을 우선으로 자연스럽게 섞어서 다시 연습시켜줘. 단, 틀렸다는 사실은 언급하지 말고 격려하는 톤을 유지해.`;
           }
         }
       } catch {}
     }
+    /* 🔁 (2026-10-18 개선안 1순위 ② · 사장님 승인 «웜업 쪽도 붙여줘») 최근 교정받은 표현을 다시 써 볼 기회.
+       정본 src/recent-mistakes.ts(AI 친구와 같은 함수) — 영어 대화만, 세션당 1회 조회 후 KV 30분 캐시.
+       ⛔ 던지지 않는다(실패하면 그냥 안 붙는다). 기초(1~2단계·미지정)는 1개만.
+       🔐 (2026-10-19 · 사장님 승인) user_id 는 화면이 보내는 값이라, 본인 확인(약점 낱말과 같은 vocabWeakCallerVerified)을
+          «캐시를 읽기 전에» 매번 한다 — 남의 아이디를 보내 그 학생의 교정 문장이 프롬프트에 실리지 않게. 확인이 안 되면 그냥 안 붙는다. */
+    if (ctxUserId && ctxLang !== 'zh') {
+      try {
+        if (await vocabWeakCallerVerified(request, env, ctxUserId, body)) {
+          const rkey = 'warmupmistake:' + sessionId + ':' + ctxUserId;
+          let past: any[] | null = null;
+          try { const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(rkey) : null; if (raw != null) past = JSON.parse(raw); } catch {}
+          if (!Array.isArray(past)) {
+            past = await loadRecentMistakes(env.DB, ctxUserId, Date.now());
+            try { if (env.SESSION_STATE) await env.SESSION_STATE.put(rkey, JSON.stringify(past), { expirationTtl: 1800 }); } catch {}
+          }
+          const line = recentMistakesPromptLine(past, ctxDifficulty <= 2);
+          if (line) sys += line;
+        }
+      } catch (e: any) { console.warn('[warmup] recent mistakes skipped:', e?.message || e); }
+    }
+    /* 🔁 (2026-10-18 · 사장님 승인 «약점 낱말 넣기») 단어장·게임에서 틀린 낱말을 대화에 «가끔 하나만» 섞어 쓰게.
+       정본 src/vocab-weak.ts — 영어 대화만, 조회 결과는 KV 30분 캐시. 기초(1~2단계·미지정)는 1개만.
+       ⛔ user_id 는 화면이 보내는 값이다 — 본인 확인을 «캐시를 읽기 전에» 매번 한다(캐시만 맞추면 남의 낱말이 붙지 않게).
+       ⛔ 던지지 않는다(실패하면 그냥 안 붙는다). */
+    if (ctxUserId && ctxLang !== 'zh') {
+      try {
+        if (await vocabWeakCallerVerified(request, env, ctxUserId, body)) {
+          const vkey = 'warmupweakword:' + sessionId + ':' + ctxUserId;
+          let words: any[] | null = null;
+          try { const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(vkey) : null; if (raw != null) words = JSON.parse(raw); } catch {}
+          if (!Array.isArray(words)) {
+            words = await loadWeakWordsForWarmup(env.DB, ctxUserId, Date.now());
+            try { if (env.SESSION_STATE) await env.SESSION_STATE.put(vkey, JSON.stringify(words), { expirationTtl: 1800 }); } catch {}
+          }
+          const wline = weakWordsPromptLine(words, ctxDifficulty <= 2);
+          if (wline) sys += wline;
+        }
+      } catch (e: any) { console.warn('[warmup] weak words skipped:', e?.message || e); }
+    }
     // 🔁 반복 방지: 직전에 했던 질문/문장을 그대로 다시 묻는 문제(한 문장 반복) 차단
     sys += ' [중요] 이전 대화에서 이미 했던 질문이나 문장을 그대로 반복하지 마. 매번 새로운 표현과 다른 각도의 질문으로 대화를 이어가.';
+    // 🔁 이미 물은 질문 목록 — 엘리더잼은 lesson_topic 에 같은 머리말로 이미 실어 보내므로 두 번 싣지 않는다.
+    if (qmem && !lessonTopic.includes(ASKED_LINE_HEAD)) sys += ' ' + askedQuestionsLine(qmem);
+    /* 🔗 (2026-10-28 사장님 지시) 연결 표현 규칙 + 최근 답장과 다른 말로 시작하기 — 정본 src/conversation-connectors.ts(부르기만).
+       ⛔ 중국어 대화·엘리더잼 예시형 계약(형식 고정 «You could say: …»)에는 싣지 않는다. 던지지 않는다(못 만들면 빈 문자열). */
+    if (ctxLang !== 'zh' && !hasEleaderExpansion(request)) sys += '\n[연결 표현]\n' + connectorPromptBlock(linkBandForStep(ctxDifficulty), history);
+    /* ✏️ 교정 카드 (2026-09-08) — 답장과 «같은 한 번의 호출» 에서 JSON 으로 함께 받는다.
+       따로 부르면 왕복이 하나 더 붙어 한 턴이 두 배가 된다. 판정 정본은 src/warmup-correction.ts.
+       ⚠️ 이 절이 출력 형식을 평문 → JSON 으로 바꾸므로, 아래 모든 추출 자리는 반드시
+          takeWarmupReply() 를 지나야 한다. 안 지나면 무너진출력·이름·반복 게이트가
+          중괄호 덩어리를 보고 «무너졌다» 로 판정해 대화가 통째로 안전문구로 떨어진다. */
+    sys += '\n' + (ctxLang === 'zh' ? WARMUP_ZH_CORRECTION_RULE : WARMUP_CORRECTION_RULE);
+    /* 🎯 (2026-10-29 사장님 «제안서대로») 학생이 고른 교정 모드, 없으면 시범 학원만 «평가 등급 + 정직한 칭찬 + 교정 모드». 정본 src/warmup-honest.ts.
+       ⛔ null 이면 아래 어디에서도 동작이 바뀌지 않는다(예전과 같음). 던지지 않는다. */
+    const honest = await resolveWarmupHonest(env, sessionId, ctxUserId, { lang: ctxLang, chosen: body && body.correction_mode });
+    if (honest) sys += '\n' + warmupHonestRule(honest.mode);
+    sys += '\n' + warmupGuidanceRule(body, ctxLang);
+    if (hasEleaderExpansion(request)) sys += ELEADER_EXPANSION_RULE;
+    /* 🏷️ 첫 턴에는 «화면 인사» 를 모델 문맥에 넣어 준다 (2026-09-01).
+       ⚠️ 이 파일은 공동 금지구역이다 — 2026-08-31 사장님이 「진행해」로 승인하신 «AI 가 자기
+          이름을 못 지키는» 그 버그의 연장이고, 변경은 이 조립 1줄 + 주석뿐이다.
+       화면 인사(BEGINNER_GREETINGS)는 "Hi! I'm Lily." 인데 그것은 «화면에서만» 그려지고
+       히스토리에는 안 들어간다. 그래서 모델은 자기가 이름을 말한 적이 없는 상태에서
+       첫 답을 만들고, 학생이 이름을 물으면 그 자리에서 지어낸다(사장님 「계속 루이라고 말해」).
+       ⚠️ «학생이 본 문장 그대로» 인 것은 fallbackGreeting 경로뿐이다. 교재가 잡힌 학생은
+          kickoff 로 들어와 그 인사를 화면에서 «본 적이 없고», 7·8단계 인사는 모양이 다르다
+          ("{name} here."). 즉 어느 경로에서나 같은 것은 «이름» 이고 문장은 아니다 —
+          여기서 필요한 것도 이름이므로 그대로 두지만, 단정해 적지 않는다.
+       ⚠️ 첫 턴에만 넣는다. 둘째 턴부터는 진짜 히스토리에 이름이 이미 들어 있다. */
     const messages = [{ role: 'system', content: sys }]
-      .concat(history)
+      .concat(history.length ? history : [{ role: 'assistant', content: `Hi! I'm ${ctxFriend}.` }])
       .concat([{ role: 'user', content: studentInput }]);
 
     // ── Workers AI 호출 ──
     let aiText = '';
+    /* ✏️ 모델 출력은 이제 JSON({reply,fix}) 이다. 아래 다섯 자리(첫 호출·빈응답 재시도·
+       무너짐 재시도·이름 재시도·반복 재시도)가 «전부» 이 한 곳을 지나야 한다.
+       ⛔ 새 재시도를 추가할 때 이것을 빼먹으면 그 경로만 조용히 중괄호를 내보낸다.
+       fix 는 «마지막으로 본 것» 을 남긴다 — 다시 뽑았으면 그 답의 교정이 맞다.
+       파싱이 깨지면 fix 는 null 이고 reply 만 살아난다 = 고치기 전과 같은 동작. */
+    let rawFix: any = null;
+    let stagedFix: any = null;
+    let rawHelp: any = null, stagedHelp: any = null;
+    let rawGrade: any = null, stagedGrade: any = null;   // 🎯 시범 학원만 쓴다(warmup-honest.ts)
+    /* ⚠️ 이 파일은 공동 금지구역이다(CLAUDE.md 4-2) — 2026-09-08 사장님
+       「테스트 했는데 이전과 달라진게 없는데」(교정 카드 미표시) 제보를 고치는 회귀 수리라
+       범위를 이 핸들러 안으로 한정했다. 다른 두 WARMUP_MODEL 호출(3662·4456행)은 안 건드린다
+       — 특히 4456 은 JSON «배열» 을 기대하므로 json_object 를 켜면 깨진다.
+       🔴 (2026-09-08) 교정 카드가 «한 번도 안 뜬» 원인 둘 — 사장님 실사용 제보로 잡았다.
+       ① JSON 을 «말로만» 시켰다. 이 저장소는 같은 모델(llama-3.3-70b-fp8-fast)에
+          response_format(json_object) 을 이미 여덟 곳에서 쓰고 있었는데(2026-09-08 실측) 여기만 안 썼다.
+       ② 프롬프트가 자기모순이었다 — [형식] 「평문으로만 써」 가 [출력형식] JSON 과 정면으로
+          부딪혀, 모델이 평문을 돌려주면 파서는 «교정 없음» 으로 안전하게 떨어졌다.
+          실패 방향은 안전했지만 «조용해서» 아무도 못 봤다(그게 이 저장소가 가장 자주 속는 모양).
+       ⚠️ 그래서 이제 «평문이 왔다» 를 로그로 남긴다 — 다시 조용해지지 않게. */
+    let warmupPlain = 0;
+    let warmupEmpty = 0;
+    let warmupRF = true;   // response_format 을 거부하는 모델이면 한 번 끄고 다시(선례: api-sales-hr.ts)
+    const warmupAIOpts = (msgs: any[], temperature: number): any => {
+      const o: any = { messages: msgs, max_tokens: WARMUP_MAX_TOKENS + (body.guided === 1 ? WARMUP_HELP_TOKENS : 0), temperature };
+      if (warmupRF) o.response_format = { type: 'json_object' };
+      return o;
+    };
+    /* ⛔ 재시도는 «제약(response_format)이 원인일 때» 만 한다 — CLAUDE.md 2장
+       「제약이 거부될 때 «원래 인자로 다시 부르는» 폴백을 둘 때」.
+       ⚠️ `if (!warmupRF) throw` 로만 가르면 «이미 껐나» 를 물을 뿐이라, 첫 호출의
+          429(뉴런 소진)·타임아웃·5xx 가 전부 이 분기로 들어온다. 그러면 ① 무관한
+          일시 장애 한 번에 warmupRF 가 꺼져 그 요청의 남은 네 경로가 JSON 모드를
+          잃고(= 지금 고치는 그 회귀가 되살아남) ② 로그가 틀린 진단을 남기고
+          ③ 429 에 쓸모없는 재시도가 붙는다(같은 장 목소리 폴백: 「429 는 제외 — 답이 같습니다」). */
+    const isRfRejection = (e: any): boolean => {
+      const m = String((e && (e.message || e.name)) || e || '');
+      if (/\b(429|5\d\d)\b|rate.?limit|quota|capacity|exceed|timeout|timed out|abort|network|fetch failed/i.test(m)) return false;
+      return /response_format|json_object|json schema|unsupported|not supported|unrecognized|invalid|\b400\b/i.test(m);
+    };
+    /* ⚠️ 모델을 부르는 곳은 «여기 하나» 다 — 폴백을 첫 호출에만 두면 나머지 네 경로가
+       그 보호를 못 받고, 「AI 호출 수 == 추출 수」 짝도 어긋난다(하니스가 잡았다). */
+    /* 📡 live(P2) 는 «첫 호출» 에만 넘긴다 — 재시도까지 흘리면 이미 보낸 문장과 새 답이 뒤섞인다
+       (그때는 done 의 replaced:1 로 화면이 정본을 다시 읽는다). 스트림이 안 되면(모델·계정이
+       지원 안 함·중간에 끊김) 같은 호출을 «예전 방식» 으로 다시 해 이득만 잃는다. */
+    const runWarmup = async (msgs: any[], temperature: number, live: any = null): Promise<any> => {
+      const mT0 = Date.now();   // ⏱ 실패한 호출도 센다(그 시간도 학생은 기다린다) — finally 인 이유
+      latTries++;
+      try {
+        if (live) {
+          try {
+            const st: any = await env.AI.run(WARMUP_MODEL, { ...warmupAIOpts(msgs, temperature), stream: true });
+            if (!st || typeof st.getReader !== 'function') return st;
+            return { response: await readWarmupAiStream(st, ctxLang, (sen: string) => { live.push(sen); }) };
+          } catch (se: any) {
+            console.warn('[warmup] stream call failed, falling back:', se?.message || se);
+            latTries++;
+          }
+        }
+        return await env.AI.run(WARMUP_MODEL, warmupAIOpts(msgs, temperature));
+      } catch (rfErr: any) {
+        if (!warmupRF || !isRfRejection(rfErr)) throw rfErr;   // 제약 탓이 아니면 그대로 위로 올린다
+        console.warn('[warmup] response_format rejected, retrying without:', rfErr?.message || rfErr);
+        warmupRF = false;
+        latTries++;
+        return await env.AI.run(WARMUP_MODEL, warmupAIOpts(msgs, temperature));
+      } finally {
+        latModelMs += Date.now() - mT0;
+      }
+    };
+    const takeWarmupReply = (r: any): string => {
+      /* ⚠️ `r.result` 를 그대로 넘기면 안 된다 — 그건 «응답 객체»(`{response: …}`)라
+         정본이 문자열로 굳히면 "[object Object]" 가 된다. 저장소의 다른 다섯 곳이 전부
+         `r?.response ?? r?.result?.response` 로 읽는다(2026-09-08 실사고로 맞춤). */
+      const parsed = parseWarmupOutput(r?.response ?? r?.result?.response ?? '');
+      stagedFix = parsed.fix;
+      stagedGrade = parseWarmupGrade(r?.response ?? r?.result?.response ?? '');
+      stagedHelp = body.guided === 1 ? parseSpeakingHelp(r?.response ?? r?.result?.response ?? '', ctxLang) : null;
+      /* ⚠️ «빈 응답» 과 «평문이 왔다» 는 다른 사실이다 — 한 숫자로 뭉치면 그 로그를
+         보러 온 사람이 「프롬프트가 안 먹는다」로 읽고 엉뚱한 곳을 고친다.
+         빈 응답은 이 저장소가 이미 아는 별개 현상이고 바로 아래에서 재시도한다. */
+      if (!parsed.reply) warmupEmpty++;
+      else if (!parsed.json) warmupPlain++;
+      return parsed.reply;
+    };
+    /* ⚠️ 교정은 «그 답장을 실제로 채택했을 때만» 확정한다.
+       재시도 답장은 거절될 수 있는데(이름·반복 검사), 파싱하자마자 rawFix 를 덮으면
+       화면의 답장은 옛것인데 교정 카드만 새 답장의 것이 되어 서로 어긋난다. */
+    const commitFix = () => { rawFix = stagedFix; rawHelp = stagedHelp; rawGrade = stagedGrade; };
+    /* ⏱ 지연 기록 — ⛔ 학생 발화·답변은 한 글자도 싣지 않는다(길이만). ⛔ 기록이 대화를 막으면 안 된다
+       (통째로 try/catch). level 은 AI 친구와 같은 눈금(1단계 = S1 — CLAUDE.md «레벨은 한 눈금»). */
+    const logWarmupLatency = async (replyText: string, ok: number): Promise<void> => {
+      try {
+        await recordAiLatency(env, {
+          feature: 'warmup',
+          model: WARMUP_MODEL,
+          ms: Date.now() - latT0,
+          model_ms: latModelMs,
+          tries: latTries,
+          chars: String(replyText || '').length,
+          level: ctxDifficulty ? 'S' + ctxDifficulty : undefined,
+          rf: warmupRF ? 1 : 0,
+          ok,
+        });
+      } catch (e: any) {
+        console.error('[warmup] recordAiLatency failed:', e?.message || e);
+      }
+    };
+    /* ⚠️ 중국어는 0(끔) — 아래 «무너진 출력 차단» 주석 참고. 📡 P2 의 «먼저 막는 문» 도 같은 값을 써야
+       해서 첫 호출 «앞» 으로 끌어올렸다(값·식은 그대로다). */
+    const sanityCap = ctxLang === 'zh' ? 0 : (WARMUP_WORD_CAP[ctxDifficulty] || 0);
+    const fragQ = checksFragmentQuestions(ctxDifficulty, ctxLang);   // 🧩 기초 단계(영어 1~3)만 «조각 질문» 을 본다
+    /* 📡 P2 — 흘려보낼 문장을 «내보내기 직전» 에 같은 정본 판정(replyRejectReason·wrongSelfName)에 건다.
+       걸리면 그 자리에서 미리보기를 멈춘다. 정본·이유는 src/warmup-stream.ts 머리말.
+       🔁 이미 물은 질문(repeatOf)도 멈추되, 시간 예산을 넘긴 턴은 다시 안 뽑으니 멈추지도 않는다. */
+    const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput, fragQ, honest: !!honest,
+      repeatOf: qmem ? (sen) => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS && repeatedQuestions(sen, qmem).length > 0 : undefined }) : null;
     try {
-      const result: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.7 });
-      aiText = (result && (result.response || result.result || '')).toString().trim();
+      const result: any = await runWarmup(messages, 0.7, live);
+      aiText = takeWarmupReply(result); commitFix();
       // 🔁 (2026-07-27) Workers AI 가 드물게 빈 응답을 준다 — 이걸 그대로 두면 아래
       //    "Let's try again" 문구가 나가서, 학생은 자기가 잘 말했는데도 AI가 못 알아들은
       //    것으로 오해한다(직원 확인 사례: 정상적인 영어 문장에도 발생). 진짜 이해 실패가
       //    아니라 API 호출 자체의 실패이므로, 한 번 더 시도해 본다.
       if (!aiText) {
         try {
-          const retryEmpty: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.8 });
-          aiText = (retryEmpty && (retryEmpty.response || retryEmpty.result || '')).toString().trim();
+          const retryEmpty: any = await runWarmup(messages, 0.8);
+          aiText = takeWarmupReply(retryEmpty); commitFix();
+        } catch {}
+      }
+      /* 🧯 무너진 출력 차단 (2026-08-31 사장님 화면 실사고 — 1단계인데 200토큰짜리 낱말 죽이
+             그대로 나갔다. 「뜻」 버튼이 그 한국어 번역까지 나란히 그렸다).
+         여기까지 «출력을 보는 단계» 가 한 곳도 없었다 — 재시도 조건이 «비었나»·«직전과 같나» 둘뿐이라
+         모델이 무너지면 그게 학생 화면으로 직행했다. 판정 정본은 src/reply-sanity.ts.
+         ⚠️ 느슨한 쪽으로 실패한다 — 멀쩡한 답을 버리면 대화가 그 자리에서 끊기고, 그건 학생에게
+            깨진 문장 하나보다 나쁘다. 그래서 «누가 봐도 무너진» 것만 잡는다(거짓경보 0 을 하니스가 못 박는다).
+         ⛔ 문장을 고쳐 쓰지 않는다 — 다시 뽑게만 한다. 아이가 따라 읽을 문장을 코드가 지어내면 안 된다. */
+      /* ⚠️ 중국어는 0(끔) — replyRejectReason 의 길이 판정이 «낱말 수» 인데 중국어 문장은
+            공백이 없어 늘 1~2낱말로 세어져 상한에 원리상 안 걸린다. 잘못된 단위로 재느니
+            안 재는 편이 낫다(길이 외 판정은 그대로 돈다). 글자 기준 상한은
+            src/warmup-zh.ts 의 WARMUP_ZH_CHAR_CAP 에 적어 두었다 — 쓰려면 별건.
+         (sanityCap 선언은 📡 P2 로 첫 호출 «앞» 으로 옮겼다 — 값은 그대로) */
+      let broke = aiText ? replyRejectReason(aiText, sanityCap) : '';
+      if (broke) {
+        /* ⚠️ 본문을 로그에 남기지 않는다 — 학생 이름·대화 내용이 섞입니다.
+           원인 추적에는 «무슨 이유로, 얼마나 길게» 면 충분합니다. */
+        console.warn('[warmup] broken reply:', broke, 'len=' + aiText.length, 'lv=' + ctxDifficulty);
+        try {
+          /* ⚠️ 온도를 «낮추지» 않는다 — 같은 프롬프트에서 낮은 온도는 오히려 같은 방향으로
+             다시 무너지기 쉽습니다. 이 파일의 다른 재시도도 올리는 쪽입니다(빈 응답 0.8·반복 0.95). */
+          const fresh: any = await runWarmup(messages, 0.8);
+          const freshText = takeWarmupReply(fresh);
+          // 다시 뽑은 것이 «멀쩡할 때만» 받는다 — 둘 다 무너졌으면 아래 안전 문장으로 간다
+          if (freshText && !replyRejectReason(freshText, sanityCap)) { aiText = freshText; broke = ''; commitFix(); }
+        } catch {}
+        if (broke) aiText = '';   // 아래 «잠깐의 딸꾹질» 문구가 받아 준다
+      }
+      /* 🏷️ 이름을 어기면 다시 뽑는다 (2026-08-31 사장님 지시).
+         프롬프트에 「너는 ${ctxFriend} 야」가 이미 들어가는데도 모델이 가끔 어긴다 —
+         제보가 두 번 왔고 그때마다 «다른» 이름이었다(루이 → 로이). 즉 매번 지어내는 것이라
+         화면 이름을 바꿔 맞추는 것은 움직이는 과녁을 쫓는 일이다.
+         ⛔ 이름만 갈아 끼우지 않는다 — 뒤따르는 말과 앞뒤가 안 맞을 수 있다. 다시 뽑게만 한다.
+         ⚠️ 두 번째도 어기면 «그냥 내보낸다» — 이름 한 번 틀린 것이 대화가 끊기는 것보다 낫다. */
+      const badName = aiText ? wrongSelfName(aiText, ctxFriend, { askedName: askedOwnName(studentInput) }) : '';
+      if (badName) {
+        console.warn('[warmup] wrong self-name:', badName, 'expected=' + ctxFriend);
+        try {
+          const again: any = await runWarmup(messages.concat([
+            { role: 'assistant', content: aiText },
+            { role: 'user', content: `(You said your name is ${badName}, but your name is ${ctxFriend}. Say it again correctly.)` },
+          ]), 0.7);
+          const againText = takeWarmupReply(again);
+          if (againText && !wrongSelfName(againText, ctxFriend) && !replyRejectReason(againText, sanityCap)) {
+            aiText = againText; commitFix();
+          }
+        } catch {}
+      }
+      /* 🧩 «조각 질문» 이면 한 번 다시 뽑는다 (2026-10-28 사장님 「like space? 이런 식으로 나오지 말게」).
+         1단계 «3~5단어» 와 접속사 지시가 겹치면 모델이 do you 를 떼어 「By the way, like space?」 를 만든다.
+         ⛔ 문장을 고쳐 쓰지 않는다 — 다시 뽑게만 한다(아이가 따라 읽을 문장을 코드가 지어내면 안 된다).
+         ⚠️ 다시 뽑은 것이 «조각이 더 적고» 다른 검사도 통과할 때만 받는다 — 아니면 원래 답을 그대로 둔다
+            (조각 하나보다 대화가 끊기는 것이 더 나쁘다). 판정 정본은 src/reply-questions.ts. */
+      const frag = fragQ && aiText ? fragmentQuestions(aiText) : [];
+      if (frag.length && Date.now() - latT0 > FRAG_RETRY_BUDGET_MS) {
+        console.warn('[warmup] fragment question kept (time budget)', 'lv=' + ctxDifficulty);   // ⏱ 이미 오래 기다렸다 — 원래 답을 둔다
+      } else if (frag.length) {
+        console.warn('[warmup] fragment question x' + frag.length, 'lv=' + ctxDifficulty);
+        try {
+          const whole: any = await runWarmup(messages.concat([
+            { role: 'assistant', content: aiText },
+            { role: 'user', content: fragmentQuestionHint(frag, ctxDifficulty) },
+          ]), 0.7);
+          const wholeText = takeWarmupReply(whole);
+          if (wholeText && fragmentQuestions(wholeText).length < frag.length && !replyRejectReason(wholeText, sanityCap)
+              && !wrongSelfName(wholeText, ctxFriend, { askedName: askedOwnName(studentInput) })) {
+            aiText = wholeText; commitFix();
+          }
         } catch {}
       }
       // 🔁 그래도 직전 AI 발화와 (거의) 같은 문장이 나오면 1회 재생성 — temperature 를 올리고 명시적으로 지시
-      if (aiText && warmupIsRepeat(aiText, history)) {
-        const retry: any = await env.AI.run(WARMUP_MODEL, {
-          messages: messages.concat([
-            { role: 'assistant', content: aiText },
-            { role: 'user', content: '(방금 질문은 이미 했던 거야. 완전히 다른 새로운 질문 하나로 다시 물어봐 줘!)' },
-          ]),
-          max_tokens: 200, temperature: 0.95,
-        });
-        const retryText = (retry && (retry.response || retry.result || '')).toString().trim();
-        if (retryText && !warmupIsRepeat(retryText, history)) aiText = retryText;
-      }
+      /* 🔁 (2026-10-28) «말만 바꾼 같은 질문»(big↔small · 방금 들은 white 되묻기)도 잡는다 — 판정·순서 정본 src/question-memory.ts.
+         ⚠️ 그쪽은 시간 예산(FRAG_RETRY_BUDGET_MS) 안에서만, 최대 두 번 다시 뽑는다(한 턴에 호출이 여럿 이어질 수 있다).
+         ⚠️ 다시 뽑은 것이 «같은 질문이 없거나 줄었고» 다른 검사도 통과할 때만 받는다 — 아니면 원래 답(대화를 끊지 않는다).
+         ⚠️ 던지지 않는다 — 예전엔 여기서 던지면 멀쩡한 턴이 통째로 502 였다. */
+      const rr = await retryRepeatedQuestion({
+        text: aiText, textRepeat: !!aiText && warmupIsRepeat(aiText, history),
+        repeatsOf: (t) => repeatedQuestions(t, qmem),
+        inBudget: () => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS,
+        ask: async (extra) => takeWarmupReply(await runWarmup(messages.concat(extra), 0.95)),
+        acceptable: (t) => !warmupIsRepeat(t, history) && !replyRejectReason(t, sanityCap)
+          && !wrongSelfName(t, ctxFriend, { askedName: askedOwnName(studentInput) })
+          && (!fragQ || fragmentQuestions(t).length <= fragmentQuestions(aiText).length),   // 🧩 조각 질문을 되살리지 않게
+        onAccept: () => commitFix(),
+        genericHint: '(방금 질문은 이미 했던 거야. 완전히 다른 새로운 질문 하나로 다시 물어봐 줘!)',
+      });
+      if (rr.tries) console.warn('[warmup] repeat retry', 'tries=' + rr.tries, 'left=' + rr.left, 'lv=' + ctxDifficulty, rr.error || '');
+      aiText = rr.text;
     } catch (e: any) {
+      await logWarmupLatency('', 0);   // ⏱ 실패한 턴의 지연도 «사실» 이라 남긴다(ok=0)
       return new Response(JSON.stringify({ detail: 'AI 응답 생성 실패: ' + String(e?.message || e) }), { status: 502, headers: _MS_JSON });
     }
     // (2026-07-27) 문구 변경: "Let's try again"은 "네가 잘못 말했다"로 읽혀서 학생이
     // 자기 탓으로 오해하기 쉽다 — 위 재시도로도 안 되는 진짜 드문 경우이므로, AI 쪽 잠깐의
     // 딸꾹질임을 알리는 톤으로 바꾼다(학생향 문구는 항상 희망적/격려 톤 유지).
-    if (!aiText) aiText = "Oops, I got a little confused there! Can you tell me one more time? 😊";
+    if (warmupPlain) {
+      /* ⚠️ 이 줄이 없으면 「모델이 JSON 을 안 준다」가 영영 안 보입니다 — 대화는 멀쩡하고
+         교정 카드만 조용히 안 뜨기 때문입니다(2026-09-08 실사고가 정확히 그 모양). */
+      console.warn('[warmup] model returned plain text (no JSON) x' + warmupPlain + ' rf=' + warmupRF);
+    }
+    if (warmupEmpty) console.warn('[warmup] model returned empty x' + warmupEmpty);
+    const modelOk = !!aiText;   // ⏱ 모델이 답을 만들었나 — 아래 안전 문구로 떨어지면 0
+    if (!aiText) {
+      aiText = "Oops, I got a little confused there! Can you tell me one more time? 😊";
+      /* ⚠️ 답장을 버렸으면 그 출력에서 뽑은 교정도 함께 버린다 — 안 그러면 AI 가
+         「못 알아들었어」라고 말하는 바로 밑에 「내가 말한 것 → 이렇게」 카드가 붙는다. */
+      rawFix = null; rawHelp = null; rawGrade = null;
+    }
+
+    /* 💛 (2026-09-09) 학생이 「학교 싫어」라고 한 턴에는 답장 앞머리의 칭찬 상투구를 떼어 낸다.
+       [왜 여기인가] 히스토리에 «저장하기 전» 이라, 학생이 본 문장과 모델이 다음 턴에 보는 문장이
+       같아진다. 뒤에 두면 화면과 기억이 어긋나 모델이 「내가 방금 칭찬했지」로 이어 간다.
+       ⛔ 말을 지어내지 않는다 — 떼기만 하고, 뗄 것이 없거나 다 떼면 원문 그대로다.
+       ⚠️ 판정에 넣는 것은 «학생 발화»(studentInput)다. AI 답장을 넣으면 정반대가 된다. */
+    aiText = applyEmpathyGuard(studentInput, aiText) || aiText;   // 빈 값이 오면 «고치기 전» 그대로
+    /* 🎯 시범 학원 — 모델 등급을 믿지 않고 확인한 뒤, 완벽이 아니면 칭찬 말머리를 뗀다(히스토리 저장 «전»).
+       ⚠️ 교정 검증은 아래 카드 게이트와 «같은 함수» 다 — 카드와 음성이 같은 판정에서 나온다. */
+    let honestGrade: any = null;
+    if (honest) {
+      try {
+        /* ⚠️ 카드(아래 verified)와 «같은» 교정을 말해야 한다 — 카드는 모델 교정이 없으면 과거형 규칙을 쓰는데
+           여기서 모델 교정만 보면 카드는 뜨고 3번 반복은 안 되는 엇갈림이 생긴다(2026-10-31 사장님 화면). */
+        const vfix = verifyWarmupFix(rawFix || backfillPastTenseFix(studentInput), studentInput, undefined);
+        honestGrade = finalizeWarmupGrade(modelOk ? rawGrade : null, vfix, studentInput);
+        aiText = applyHonestPraise(aiText, honestGrade) || aiText;
+        // 🎯 집중교정 — 고친 문장을 아바타가 소리 내어 말하게 한다(검증된 교정만, 히스토리 저장 전)
+        aiText = ensureFocusedFixSpoken(aiText, honest.mode, honestGrade, vfix);
+      } catch (e: any) { honestGrade = 'partial'; console.warn('[warmup-honest] grade skipped:', e?.message || e); }
+    }
+
+    /* 🔢 (2026-10-18) «몇 번째 턴인가» 는 단조 증가해야 한다 — 히스토리는 WARMUP_MAX_TURNS 로 잘려
+       history 로만 세면 21에 붙어 교정 게이트(turnCount - lastShownTurn)가 영영 0 이 된다.
+       세션별 카운터를 KV 에 두고, 없거나 못 읽으면 예전 계산 그대로(fail-open). */
+    let turnCount = Math.floor(history.length / 2) + 1;
+    try {
+      if (env.SESSION_STATE) {
+        const tkey = 'warmupturn:' + sessionId;
+        const prev = Number(await env.SESSION_STATE.get(tkey));
+        if (Number.isFinite(prev) && prev > 0) turnCount = Math.max(turnCount, prev + 1);
+        await env.SESSION_STATE.put(tkey, String(turnCount), { expirationTtl: 6 * 3600 });
+      }
+    } catch (e: any) { console.warn('[warmup] turn counter skipped:', e?.message || e); }
+
+    /* ✏️ 교정 카드 (2026-09-08) — 모델이 준 fix 를 «믿지 않고» 검증한 뒤, 보여 줄지까지 정한다.
+       ⛔ 매 턴 고치지 않는다. 2026-09-03 AI 영어친구에서 「주제를 벗어나지 마」를 세 겹으로
+          넣었다가 「정해진 문장 안에서만 한다」는 현장 제보를 받고 되돌린 전례가 있다.
+       ⚠️ 이 블록은 절대 던지면 안 된다 — 여기서 던지면 멀쩡한 대화가 통째로 500 이 된다.
+          그래서 통으로 try/catch 이고, 실패하면 fix 없이(=고치기 전과 똑같이) 내려간다. */
+    let showFix: any = null;
+    let offerRepeat = false;
+    /* 🔎 판정 사유 — 턴마다 한 줄 D1 에 남긴다(정본 src/warmup-fix-trace.ts). 학생 발화는 싣지 않는다. */
+    let traceReason: WarmupFixTraceReason = 'fix_missing';
+    let traceTag = '';
+    try {
+      /* 🀄 «뜻이 달라지는 축» 은 언어마다 다르다(중국어엔 시제·수일치가 없다).
+         안 넘기면 영어 표 — 기존 동작은 한 글자도 안 바뀐다. 정본 src/warmup-correction.ts */
+      /* ✏️ 과거형 보완 (2026-10-31) — 모델이 fix 를 비워 보낸 영어 턴에만 규칙으로 채운다(tense-backfill.ts). */
+      const verified = verifyWarmupFix(rawFix || (ctxLang === 'zh' ? null : backfillPastTenseFix(studentInput)), studentInput,
+        /* 🀄 lang 을 빼면 검증기가 «영어 문장인가» 로 재서 **중국어 교정이 100% 버려집니다**
+           (isEnglishText 가 한자를 떨어뜨리고 normEn 이 빈 문자열을 만듭니다 — 에러 없음). */
+        ctxLang === 'zh' ? { majorTags: ZH_MEANING_CHANGING_TAGS, lang: 'zh' as const } : undefined);
+      /* 🔎 (2026-10-31 제안서 B) 교정이 «왜» 안 떴는지 Workers 로그에 남긴다 — 학생 발화·교정 문장은 싣지 않는다. */
+      if (!verified) console.warn('[warmup-fix] no card:', rawFix ? 'fix-rejected' : 'fix-missing', 'lang=' + ctxLang);
+      traceReason = verified ? 'shown' : (rawFix ? 'fix_rejected' : 'fix_missing');
+      if (verified) {
+        const mkey = 'warmupfix:' + sessionId;
+        let memoIn: any = null;
+        try {
+          const rawMemo = env.SESSION_STATE ? await env.SESSION_STATE.get(mkey) : null;
+          if (rawMemo != null) memoIn = JSON.parse(rawMemo);
+        } catch {}
+        const decided = decideWarmupFixShow(verified, memoIn, turnCount, { immediate: !!honest && honest.mode === 'focused' });
+        showFix = decided.show;
+        traceTag = verified.tag;
+        if (!showFix) traceReason = 'held_gap';   // 검증은 통과 — 턴 간격 규칙이 이번 턴을 미뤘다
+        /* 📝 학부모 화면 «AI가 고쳐 준 표현» 기록 (2026-10-02 파일럿 후속 P4 — 정본 src/warmup-parent.ts)
+           ⛔ ctxUserId 는 화면이 보내는 값이라 그대로 믿으면 남의 아이 학부모 화면에 글자를 심을 수 있다 —
+              서명 토큰 uid(또는 같은 이름의 관리자 세션)가 그 아이디와 «정확히» 같을 때만 기록한다.
+           ⚠️ 기록 실패는 대화를 멈추지 않는다(logWarmupFix 자체도 던지지 않는다). */
+        if (showFix && ctxUserId) {
+          try {
+            let mine = false;
+            const tokUid = await authUidFromRequest(request, new URL(request.url), env, body);
+            if (tokUid && tokUid === ctxUserId) mine = true;
+            else {
+              const ses: any = await checkAdminSession(request, env as any);
+              if (ses && ses.ok && ses.username === ctxUserId) mine = true;
+            }
+            if (mine) await logWarmupFix(env, { sessionId, userId: ctxUserId, fix: showFix, lang: ctxLang });
+          } catch (e: any) { console.warn('[warmup-fix-log]', e?.message || e); }
+        }
+        offerRepeat = warmupShouldOfferRepeat(decided.show, decided.memo, turnCount);
+        if (honest) { const g = gateFixForMode(honest.mode, verified, showFix, offerRepeat); showFix = g.show; offerRepeat = g.repeat; }   // 🎯 교정 모드
+        if (traceReason === 'shown' && !showFix) traceReason = 'mode_hidden';   // 🎯 보여줄 것이 있었는데 모드가 가렸다
+        // 히스토리와 같은 6시간 — 세션이 끝나면 함께 사라진다(발화를 저장하는 것이 아니다)
+        try {
+          if (env.SESSION_STATE) await env.SESSION_STATE.put(mkey, JSON.stringify(decided.memo), { expirationTtl: 6 * 3600 });
+        } catch (e: any) {
+          /* 이게 조용히 실패하면 «연달아 교정하지 않기»·«두 번째부터 보여주기» 가 통째로
+             풀려 매 턴 교정이 뜬다 — 그런데 화면은 멀쩡해 보인다. 반드시 한 줄 남긴다. */
+          console.warn('[warmup] fix memo save failed:', e?.message || e);
+        }
+      }
+    } catch (e: any) {
+      console.warn('[warmup] fix gate skipped:', e?.message || e);
+    }
+    // 🔎 판정 사유 한 줄 — 실패해도 대화는 계속된다(정본은 던지지 않는다).
+    await logWarmupFixTrace(env, { userId: ctxUserId, sessionId, lang: ctxLang, mode: honest ? honest.mode : '', reason: traceReason, tag: traceTag });
+
+    /* 🧭 (2026-10-31 사장님 「무조건 교정 후에 질문」) 교정 카드가 뜨는 턴이면, 답장은 고친 문장이 «질문보다 먼저»
+       말해진 뒤에 질문으로 간다. 순서는 프롬프트에만 맡기지 않고 correctionLeadIn 이 보장한다.
+       ⚠️ 히스토리 저장은 이 보정 «뒤» 에 한다 — 학생이 본 문장과 모델이 다음 턴에 읽는 문장을 같게 두기 위해서다. */
+    if (showFix) aiText = correctionLeadIn(aiText, showFix, ctxLang === 'zh' ? 'zh' : 'en');
 
     // ── 히스토리 갱신(최근 N턴만) + 6시간 TTL 저장 ──
     try {
@@ -3445,9 +4770,22 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
       if (env.SESSION_STATE) await env.SESSION_STATE.put(hkey, JSON.stringify(updated), { expirationTtl: 6 * 3600 });
     } catch {}
 
-    const turnCount = Math.floor(history.length / 2) + 1;
-    return new Response(JSON.stringify({ session_id: sessionId, ai_response: aiText, turn_count: turnCount }),
-      { status: 200, headers: _MS_JSON });
+    await logWarmupLatency(aiText, modelOk ? 1 : 0);
+
+    // 💬 「어떻게 대답하면 되나」 보기 칩 — AI 질문에서 «결정론적으로» 유도한다(src/warmup-answers.ts).
+    //    LLM 을 한 번 더 부르지 않으므로 응답이 느려지지 않고, 못 만들면 빈 배열이라 화면이 아무것도 안 그린다.
+    return new Response(JSON.stringify({
+      session_id: sessionId, ai_response: aiText, turn_count: turnCount,
+      /* 💬 «대답 보기» — 언어마다 정본이 다르다.
+         ⛔ 영어 정본을 중국어에 쓰지 말 것: 1·2단계에서 영어 «막혔을 때» 칩이 조건 없이 붙어
+            중국어를 고른 학생에게 영어 보기가 그대로 뜬다(src/warmup-zh.ts 의 주석 참고). */
+      answer_chips: ctxLang === 'zh' ? warmupZhAnswerChips(aiText, ctxDifficulty) : warmupAnswerChips(aiText, ctxDifficulty),
+      fix: showFix, repeat: offerRepeat, speaking_help: rawHelp,
+      ...(honest ? { grade: honestGrade || 'partial', correction_mode: honest.mode } : {}),   // 🎯 시범 학원만 — 화면이 팡파레를 이 값으로 정한다
+      /* 📡 P2 — 스트리밍 요청일 때만 싣는다(옛 응답 모양은 그대로). 흘려보낸 것과 최종본이 다르면
+         replaced:1 → 화면이 읽던 것을 멈추고 정본을 처음부터 읽는다. halted 는 «이유 코드» 뿐이다. */
+      ...(live ? { replaced: live.replacedBy(aiText), streamed: live.sent(), ...(live.halted() ? { halted: live.halted() } : {}) } : {}),
+    }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ detail: 'warmup_failed: ' + String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
@@ -3495,6 +4833,8 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     const lessonNo = Number(body.lesson_no) > 0 ? Number(body.lesson_no) : null;
     const rawDiff = Math.floor(Number(body.difficulty));
     const difficulty = (rawDiff >= 1 && rawDiff <= 8) ? rawDiff : 0;
+    const ageGroup = normalizeWarmupAge(body.age_group);   // 🧑‍🎓 대화와 같은 연령대 축(소재·말투)
+    const qLang = normalizeWarmupLang(body.lang);          // 🀄 대화와 같은 언어 축 (모르면 영어)
     const rawCount = Math.floor(Number(body.count));
     const count = (rawCount >= 1 && rawCount <= 5) ? rawCount : 3;
 
@@ -3510,7 +4850,10 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
           await env.SESSION_STATE.put(hkey, JSON.stringify(history), { expirationTtl: 6 * 3600 });
         } catch {}
       }
-      return new Response(JSON.stringify({ ok: true, picked: pick }), { status: 200, headers: _MS_JSON });
+      // 고른 질문도 곧바로 AI 발화가 되므로 «대답 보기» 를 같이 내려준다(대화 응답과 같은 규칙).
+      return new Response(JSON.stringify({ ok: true, picked: pick,
+          answer_chips: qLang === 'zh' ? warmupZhAnswerChips(pick, difficulty) : warmupAnswerChips(pick, difficulty) }),
+        { status: 200, headers: _MS_JSON });
     }
 
     if (!env.AI) {
@@ -3519,7 +4862,12 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
 
     // ── 학생 컨텍스트 (배정 교재/레벨/오늘 문장) ──
     let lc = { textbook: reqTextbook, level: reqLevel, lesson_no: lessonNo, student_name: '', sentences: [] as string[] };
-    try { lc = await warmupLessonContext(env, { userId, textbook: reqTextbook, level: reqLevel, lessonNo }); } catch {}
+    // 채팅과 같은 캐시를 공유한다 — 같은 세션이면 추가 질문 생성 때 D1 을 다시 보지 않는다
+    /* 🀄 lang 을 빼면 캐시 키가 «|en» 이 되어 **영어 교재 문장**(isEnglishQuestion 게이트를 지난
+       review_quizzes)을 읽고, 그것이 아래 「오늘 배울 핵심 문장」으로 중국어 질문 프롬프트에
+       들어간다. 대화(handleWarmupChat)는 넘기는데 여기만 빠져 있었다 — CLAUDE.md 2장
+       「같은 배정을 두 API 가 서로 다른 방식으로 확인」·「한 곳만 고치면 반쪽」. */
+    try { lc = await warmupLessonContextCached(env, sessionId, { userId, textbook: reqTextbook, level: reqLevel, lessonNo, lang: qLang }); } catch {}
 
     // ── 반복 방지: 이 세션에서 이미 생성/사용한 질문 목록 (KV, 6시간) ──
     const qkey = sessionId ? ('warmupq:' + sessionId) : '';
@@ -3527,15 +4875,26 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     if (qkey && env.SESSION_STATE) {
       try { const raw = await env.SESSION_STATE.get(qkey); if (raw) recentQs = JSON.parse(raw) || []; } catch {}
     }
+    /* 🔁 (2026-10-28) 「질문 골라 보기」 도 대화에서 이미 물은 질문(말만 바꾼 것·반대말 포함)은 내놓지 않는다 —
+       고른 질문은 곧바로 AI 발화가 되기 때문이다. 정본 src/question-memory.ts. 영어만, 기록을 못 읽으면 예전 그대로. */
+    let qmem: ReturnType<typeof questionMemory> = null;
+    if (sessionId && qLang !== 'zh' && env.SESSION_STATE) {
+      try { const raw = await env.SESSION_STATE.get('warmup:' + sessionId); if (raw) qmem = questionMemory(JSON.parse(raw)); } catch {}
+    }
 
     // ── 프롬프트 (전문 화상영어 AI 조교 — 사장님 사양 이식) ──
-    const levelDesc = difficulty ? WARMUP_LEVELS[difficulty] : (lc.level ? `학생 레벨: ${lc.level}` : '');
-    let prompt = `당신은 전문 화상영어 AI 조교입니다. 수업 전 워밍업에서 학생에게 물어볼 영어 질문을 만듭니다.\n`;
+    const levelDesc = difficulty ? (qLang === 'zh' ? WARMUP_ZH_LEVELS[difficulty] : WARMUP_LEVELS[difficulty])
+                                 : (lc.level ? `학생 레벨: ${lc.level}` : '');
+    let prompt = qLang === 'zh'
+      ? `당신은 전문 화상 중국어 AI 조교입니다. 수업 전 말하기에서 학생에게 물어볼 중국어(간체자) 질문을 만듭니다.\n`
+      : `당신은 전문 화상영어 AI 조교입니다. 수업 전 말하기에서 학생에게 물어볼 영어 질문을 만듭니다.\n`;
     if (levelDesc) prompt += `- 학생 수준: ${levelDesc}\n`;
+    prompt += `- ${warmupAgeLine(ageGroup)}\n`;
     if (lc.textbook) prompt += `- 교재 이름: '${lc.textbook}'${lc.lesson_no ? ` (Lesson ${lc.lesson_no})` : ''}\n`;
     if (topic) prompt += `- 오늘의 주제: '${topic}'\n`;
     if (lc.sentences.length) prompt += `- 오늘 배울 핵심 문장: ${lc.sentences.slice(0, 6).map((s) => `"${s}"`).join(' / ')}\n`;
     if (recentQs.length) prompt += `- 이미 사용한 질문(절대 반복 금지): ${recentQs.slice(-12).map((q) => `"${q}"`).join(' / ')}\n`;
+    if (qmem) prompt += `- ${askedQuestionsLine(qmem)}\n`;
     // 🕸️ 개인화(Neo4j): 이 학생이 복습퀴즈에서 자주 틀린 문장 → 그 표현·문형을 다시 쓰게 만드는 질문 우선.
     //    채팅(handleWarmupChat)과 동일하게 세션당 1회 조회 + KV 30분 캐시, 장애 시 조용히 생략.
     if (userId && env.NEO4J_QUERY_URL) {
@@ -3555,7 +4914,7 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
         prompt += `  → 이 표현들의 단어·문형을 학생이 대답에서 자연스럽게 다시 쓰게 만드는 질문을 1~2개 포함하세요(틀렸다는 언급은 금지).\n`;
       }
     }
-    prompt += `하나의 문장만 반복되는 것을 방지하기 위해, 학생의 수준에 맞는 자연스럽고 서로 다른 유형의 추가 질문(Follow-up Questions) ${count}가지를 영어로 생성하세요. `;
+    prompt += `하나의 문장만 반복되는 것을 방지하기 위해, 학생의 수준에 맞는 자연스럽고 서로 다른 유형의 추가 질문(Follow-up Questions) ${count}가지를 ${qLang === 'zh' ? WARMUP_ZH_QUESTION_LANG : '영어로'} 생성하세요. `;
     prompt += `각 질문은 한 문장으로 짧게, 서로 다른 각도(경험 묻기, 양자택일, 상상 질문 등)로 만드세요. `;
     prompt += `결과는 반드시 JSON 문자열 배열만 반환하세요. 예: ["...", "...", "..."]`;
 
@@ -3599,13 +4958,29 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
       console.error('[warmup-questions] AI error:', dbgErr);
     }
 
+    /* 🧯 무너진 질문 차단 (2026-08-31) — 웜업 대화와 «같은 사고» 가 여기서도 성립한다.
+       같은 모델·같은 온도로 만드는데 검증이 「5~200자 + ? 로 끝남」 뿐이라,
+       200자짜리 낱말 죽이 ? 로 끝나면 그대로 학생 화면의 질문 칩이 된다.
+       ⚠️ 길이 상한은 넘기지 않는다(0) — 이 칩은 «AI 가 물어볼 질문» 이라 레벨별 단어 수를
+          이미 프롬프트가 정하고, 여기서 또 자르면 멀쩡한 질문이 사라진다. 무너진 모양만 본다.
+       ✅ 전부 걸러져 비면 아래 WARMUP_FALLBACK_QUESTIONS 가 받아 준다(화면이 안 빈다). */
+    const brokenQs = questions.filter((q) => replyRejectReason(q));
+    if (brokenQs.length) console.warn('[warmup-questions] dropped', brokenQs.length, 'broken:',
+      brokenQs.map((q) => replyRejectReason(q)).join(','));
+    questions = questions.filter((q) => !replyRejectReason(q));
+
     // 반복 제거(기존 사용분과 정규화 비교) + 개수 보정
     const seen = new Set(recentQs.map(warmupNormSent));
-    questions = questions.filter((q) => !seen.has(warmupNormSent(q))).slice(0, count);
+    questions = questions.filter((q) => !seen.has(warmupNormSent(q)) && !repeatedQuestions(q, qmem).length).slice(0, count);
     if (!questions.length) {
       // AI 실패/전부 중복 → 레벨대별 준비 질문에서 미사용분 채움 (화면이 비지 않게)
       const band = difficulty >= 6 ? 'high' : difficulty >= 4 ? 'mid' : 'low';
-      questions = WARMUP_FALLBACK_QUESTIONS[band].filter((q) => !seen.has(warmupNormSent(q))).slice(0, count);
+      /* ⚠️ 안전망도 «고른 말» 로 준다 — 영어 목록을 그대로 쓰면 중국어 대화에 영어 질문이
+            세 개 뜬다. 모델이 실패했을 때만 오는 갈래라 조용히 새기 쉽다. */
+      const bank = qLang === 'zh' ? WARMUP_ZH_FALLBACK_QUESTIONS : WARMUP_FALLBACK_QUESTIONS;
+      questions = bank[band].filter((q) => !seen.has(warmupNormSent(q)) && !repeatedQuestions(q, qmem).length).slice(0, count);
+      // 🔁 다 걸러졌으면 «보여 줬던» 질문이라도 다시 준다 — 단 이미 물은 질문(qmem)은 끝까지 뺀다(빈 칩이 반복 질문보다 낫다)
+      if (!questions.length) questions = bank[band].filter((q) => !repeatedQuestions(q, qmem).length).slice(0, count);
     }
 
     // 사용 질문 목록 갱신 (최근 30개, 6시간)
@@ -3637,20 +5012,40 @@ const TURN_CACHE_KEY = 'turn:ice-servers:v1';       // 1시간 캐시(정상 경
 const TURN_LKG_KEY = 'turn:ice-servers:last-good';  // 마지막 성공분(24시간, 장애 시 구명줄)
 
 async function handleTurnConfig(env: Env): Promise<Response> {
+  /* 📶 X-Turn-Detail — «왜 그 경로였나» (2026-08-26 사장님 지시로 추가).
+   *
+   *  [왜 필요했나] X-Turn-Source 하나로는 `public-fallback` 이 **서로 완전히 다른 세 가지**를
+   *  뭉뚱그린다 — ① 시크릿이 없다 ② CF API 가 거절했다(403·429·한도초과) ③ 연결조차 안 됐다.
+   *  해야 할 일이 각각 «키 등록»·«계정 확인»·«장애 대기» 로 다른데 화면에 나오는 글자는 똑같다.
+   *  그래서 2026-08-26 에 반나절을 잘못 짚었다 — 「시크릿이 없다」고 단정하고 사장님께 키 발급을
+   *  안내했는데, 대시보드 실측 결과 **워커 두 벌 모두 등록돼 있었다.** 진짜 원인은
+   *  「시크릿은 있는데 24시간 넘게 발급이 한 번도 성공하지 못했다」였다.
+   *  이유는 console.error 로 남고 있었지만 `wrangler tail` 을 켜고 있어야만 보였다.
+   *
+   *  ⛔ 값에 자격증명·CF 응답 «본문» 을 넣지 말 것. 이 API 는 **로그인 없이 누구나** 부른다
+   *     (`Access-Control-Allow-Origin: *`). 상태 «코드» 까지만 싣는다.
+   *  ⚠️ 이 헤더는 진단용이라 없어도 수업은 그대로 된다. 값이 늘어날 수 있으니 읽는 쪽은
+   *     «모르는 값» 을 만나면 그냥 표시만 하고 판정하지 말 것(deploy.yml·watchdog 이 그렇게 한다).
+   */
+  let detail = 'unknown';
   const J = (body: any, cached: string) => new Response(JSON.stringify(body), {
     status: 200,
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'X-Turn-Source': cached }
+    headers: {
+      'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*',
+      'X-Turn-Source': cached, 'X-Turn-Detail': detail
+    }
   });
 
   // 0) 캐시 우선 — 외부 API 호출 없이 즉시 응답
   if (env.SESSION_STATE) {
     try {
       const hit = await env.SESSION_STATE.get(TURN_CACHE_KEY, 'json');
-      if (hit && (hit as any).iceServers) return J(hit, 'kv-cache');
+      if (hit && (hit as any).iceServers) { detail = 'cache'; return J(hit, 'kv-cache'); }
     } catch {}
   }
 
   // Cloudflare TURN 키가 설정되어 있으면 동적 자격증명 생성
+  detail = 'no-secrets';   // 아래 if 에 못 들어가면 이 값 그대로 나간다 = «키가 없다»
   if (env.TURN_KEY_ID && env.TURN_KEY_API_TOKEN) {
     try {
       const cfResp = await fetch(
@@ -3677,10 +5072,14 @@ async function handleTurnConfig(env: Env): Promise<Response> {
           try { await env.SESSION_STATE.put(TURN_CACHE_KEY, JSON.stringify(payload), { expirationTtl: 3600 }); } catch {}
           try { await env.SESSION_STATE.put(TURN_LKG_KEY, JSON.stringify(payload), { expirationTtl: 86400 }); } catch {}
         }
+        detail = 'ok';
         return J(payload, 'cloudflare');
       }
+      // ⛔ 본문(cfResp.text())은 로그에만. 헤더에는 상태 «코드» 만 싣는다(위 주석).
+      detail = 'cf-http-' + cfResp.status;
       console.error('Cloudflare TURN API error:', cfResp.status, await cfResp.text());
     } catch (err) {
+      detail = 'cf-fetch-error';
       console.error('Cloudflare TURN fetch error:', err);
     }
   }
@@ -3691,7 +5090,7 @@ async function handleTurnConfig(env: Env): Promise<Response> {
     try {
       const lkg = await env.SESSION_STATE.get(TURN_LKG_KEY, 'json');
       if (lkg && (lkg as any).iceServers) {
-        console.warn('[turn-config] Cloudflare TURN 실패 → 마지막 성공 자격증명으로 응답');
+        console.warn('[turn-config] Cloudflare TURN 실패(' + detail + ') → 마지막 성공 자격증명으로 응답');
         return J(lkg, 'last-known-good');
       }
     } catch {}
@@ -3699,7 +5098,7 @@ async function handleTurnConfig(env: Env): Promise<Response> {
 
   // 2) 최후의 수단: 정적 STUN + 공개 TURN 서버들
   //    ⚠️ 여기까지 왔다는 것은 «수업 품질이 무너지고 있다» 는 뜻이다. 로그로 남긴다.
-  console.error('[turn-config] ⚠️ 공개 무료 TURN 폴백 사용 — 동시 수업이 많으면 영상이 끊긴다');
+  console.error('[turn-config] ⚠️ 공개 무료 TURN 폴백 사용(' + detail + ') — 동시 수업이 많으면 영상이 끊긴다');
   const response = {
     iceServers: [
       { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
@@ -3710,7 +5109,10 @@ async function handleTurnConfig(env: Env): Promise<Response> {
       { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
     ]
   };
-  // X-Turn-Source 헤더로 어느 경로였는지 밖에서 확인할 수 있다(curl 로 즉시 진단 가능).
+  // X-Turn-Source 로 «어느 경로였나», X-Turn-Detail 로 «왜 그랬나» 를 밖에서 바로 볼 수 있다.
+  //   curl -sI https://mangoi.ai/api/turn-config | grep -i '^x-turn-'
+  //   → public-fallback 인데 detail 이 no-secrets 면 키 등록, cf-http-403 이면 키 무효,
+  //     cf-http-429 면 사용량 한도, cf-fetch-error 면 CF 쪽 장애다.
   return J(response, 'public-fallback');
 }
 
@@ -4176,10 +5578,26 @@ async function handleVideoCallWebSocket(request: Request, url: URL, env: Env, ct
 
     // 활성 방 목록에 등록 — fire-and-forget 이지만 worker 가 응답 후
     // 종료되어 KV put 이 드롭되지 않도록 ctx.waitUntil 로 보존
+    /* ⏱ TTL 2시간 (2026-08-20 — 그 전에는 600초였다)
+       ═══════════════════════════════════════════════════════════════════════
+       [무엇이 문제였나] 이 키는 **WebSocket 이 붙는 순간에만** 쓰이고 수업이
+          진행되는 동안 갱신되지 않는다. TTL 이 10분이라 **10분 넘게 안정적으로
+          연결된 수업은 관리자 「실시간 수업 현황」 표에서 사라졌다.**
+          하필 그 표가 «수업 종료 / 연장»·«Ghost 참관» 의 입구라, 정작 손봐야 할
+          수업일수록 목록에 없었다. 실측(2026-08-19 `meet-123`): 19:58~22:04
+          2시간 6분 수업인데 마지막 접속이 20:00:51 — 그 뒤 약 1시간 53분간
+          화면에는 «진행 중인 수업 없음» 이었다.
+       [왜 TTL 만 늘려도 되나] 아래 handleActiveRooms 가 방마다 Durable Object 에
+          `/status` 를 물어 **인원 0이면 그 자리에서 KV 키를 지운다.** 즉 TTL 은
+          «정답» 이 아니라 «후보 목록» 의 안전망일 뿐이고, 유령 방은 다음 조회
+          (관리자 화면 15초 주기)에서 곧바로 정리된다.
+       ⛔ 하트비트마다 KV 를 다시 쓰는 방식은 일부러 택하지 않았다 — 화상수업
+          Durable Object 를 건드려야 하는데(CLAUDE.md 4-2 공동 금지구역) 사고
+          반경 대비 이득이 없다. 숫자 하나가 가장 안전하다. */
     const kvPut = env.SESSION_STATE.put(`active-room:${roomId}`, JSON.stringify({
       roomId,
       lastActivity: Date.now()
-    }), { expirationTtl: 600 }).catch(() => {});
+    }), { expirationTtl: 7200 }).catch(() => {});
     if (ctx && typeof ctx.waitUntil === 'function') {
       ctx.waitUntil(kvPut);
     }
@@ -4191,7 +5609,43 @@ async function handleVideoCallWebSocket(request: Request, url: URL, env: Env, ct
   }
 }
 
-async function handleActiveRooms(env: Env): Promise<Response> {
+/** 🔒 (2026-09-23) 지사·대리점 스코핑 — «지금 수업(실시간)」 카드에서 발견.
+ *  이 API 는 `/api/admin/` 밖이라(`/api/active-rooms`) `src/index.ts` 의 org-scope
+ *  차단(`isAgencyAllowedApi`)이 애초에 안 걸린다 — 어제(2026-09-22) manager.html→admin.html
+ *  전환 작업 중 지사 계정으로 실제 화면을 열어 보다가 «전국 실시간 수업 참가자 이름이
+ *  그대로 보인다」는 것을 발견했다(어제 고친 student-rankings·recordings 와 같은 급의
+ *  기존 결함 — 이번 전환 작업이 새로 연 것이 아니라 원래 열려 있었다).
+ *
+ *  방(room) 자체에는 franchise 개념이 없다(Durable Object 상태에 그런 칸이 없음) —
+ *  그래서 room_id 로 «그 방이 어느 예약 수업인지» 를 역산해서만 스코프를 걸 수 있다.
+ *  결정론적 방 번호 규칙(CLAUDE.md) — `class-{scheduleId}-{YYYYMMDD}` — 을 역으로 풀어
+ *  `class_schedules.id` 를 뽑고, 그 예약의 학생이 호출자 소속인지 students_erp 로 확인한다.
+ *
+ *  ⛔ 모르면(=class-* 모양이 아니거나 스케줄을 못 찾으면) 지사·대리점에게는 **보여 주지 않는다**
+ *     — 회의방(meet-*)·연습방(demo-*)·공용방(mangoi-class)·카페24 미러방(c24-*)은 소속을
+ *     증명할 방법이 없다(CLAUDE.md 「모르면 막는 쪽으로 실패」). 본사(hq)·내부직원(none)은
+ *     그대로 전체를 본다 — 이 필터는 org-scoped 일 때만 켜진다. */
+function _activeRoomScheduleId(roomId: string): number | null {
+  const m = /^class-(\d+)-\d{8}$/.exec(String(roomId || ''));
+  return m ? parseInt(m[1], 10) : null;
+}
+async function _filterActiveRoomsByScope(env: Env, rooms: any[], scope: Scope): Promise<any[]> {
+  const withSchedId = rooms.map(r => ({ room: r, schedId: _activeRoomScheduleId(r && r.roomId) }));
+  const ids = Array.from(new Set(withSchedId.filter(x => x.schedId != null).map(x => x.schedId as number)));
+  if (!ids.length) return [];
+  const c = scopeStudentCond(scope, 'se');
+  if (!c.cond) return [];   // 조건이 비면(스코프 미상) 아무것도 안 보여준다
+  const rows = await selectInChunks<{ id: number }>(
+    env.DB, ids,
+    (ph) => `SELECT cs.id AS id FROM class_schedules cs JOIN students_erp se ON se.user_id = cs.user_id
+              WHERE cs.id IN (${ph}) AND (${c.cond})`,
+    { lead: [], tail: c.binds, swallowErrors: false },
+  );
+  const allowed = new Set(rows.map(r => Number(r.id)));
+  return withSchedId.filter(x => x.schedId != null && allowed.has(x.schedId)).map(x => x.room);
+}
+
+async function handleActiveRooms(env: Env, request: Request): Promise<Response> {
   try {
     // KV 바인딩이 없는 경우 빈 배열로 안전 반환
     if (!env.SESSION_STATE) {
@@ -4238,7 +5692,13 @@ async function handleActiveRooms(env: Env): Promise<Response> {
     if (staleKeys.length) {
       await Promise.all(staleKeys.map((k) => env.SESSION_STATE.delete(k).catch(() => {})));
     }
-    const rooms: any[] = settled.filter((r) => r.status).map((r) => r.status);
+    let rooms: any[] = settled.filter((r) => r.status).map((r) => r.status);
+
+    // 🔒 지사·대리점 스코핑 — 위 함수 머리말 참고. 본사(hq)·내부직원(none)·강사는 그대로 전체를 본다.
+    const _arScope = await getScope(env, request);
+    if (isOrgScopedRole(_arScope.type)) {
+      rooms = await _filterActiveRoomsByScope(env, rooms, _arScope);
+    }
 
     return new Response(JSON.stringify(rooms), {
       status: 200,
@@ -4486,23 +5946,68 @@ async function handleRecordingUpload(request: Request, env: Env): Promise<Respon
   }
 }
 
+// 🔴 2026-08-25 — 여기서 «있는 녹화가 없다고» 나왔다.
+//   R2 list 는 한 번에 최대 1000개다. 예전엔 커서 없이 딱 한 번만 불렀는데,
+//   버킷 객체가 1000개를 넘으면 **키 사전순 앞 1000개만** 온다.
+//   그런데 실제 녹화 키는 `rec/...` 라 `class-...`·`mangoi-...` 같은 옛 키들보다 뒤로 밀린다.
+//   → 파일이 멀쩡히 있어도 관리자 화면(js/adm-core.js)이 짝을 못 찾아 **전부 「⚠️ 영상 없음」**.
+//   ⚠️ 게다가 «잘렸다» 는 신호가 없어서 «파일이 없다» 와 «목록에 없다» 가 구분되지 않았다.
+//   ✅ 커서로 끝까지 훑고, 그래도 못 다 읽으면 truncated 로 **정직하게** 알린다.
+const REC_LIST_MAX_PAGES = 20;    // 접두사당 최대 20,000개 — 워커 시간·메모리 상한
+
+/* 🔴 2026-08-26(2차) — **이 R2 버킷은 녹화 전용이 아니다.** 여럿이 나눠 쓴다:
+     · `rec/`          자동녹화 multipart (recordings-r2.ts)        ← 녹화
+     · `recordings/`   옛 단일 업로드 (handleRecordingComplete)      ← 녹화
+     · `pdfs/`         화상수업 교재 파일 (아래 /api/video-call/pdf) ← 녹화 아님
+     · `popup-media/`  홈 팝업 이미지·영상 (api-admin.ts)            ← 녹화 아님
+     · `_test/`        진단 버튼이 만들었다 지우는 임시 파일          ← 녹화 아님
+   커서를 넣어 «끝까지» 읽게 고치자(1차 수정) 교재 파일이 전부 딸려 나와, 관리자 녹화 목록에
+   「⚠ 기록 없음(고아)」이 **15,046줄** 찍혔다(2026-08-26 사장님 화면 실측 — 총 15,096건 중).
+   ▶재생 버튼까지 붙어 JPG 를 동영상으로 틀려고 한다.
+   → 버킷 전체를 훑지 말고 **녹화 접두사 두 개만** 훑는다. 싸고, 정확하고, 잘릴 일도 없다.
+   ⚠️ D1 `recordings.file_url` 이 가리키는 키는 이 둘뿐이다(옛 `/blob/upload` 경로는
+      `{방번호}/{날짜}/…` 를 만들지만 **D1 에 아무것도 안 쓰고** 부르는 화면도 없다).
+      혹시 그런 키를 확인해야 하면 `?prefix=` 로 지정해 부를 수 있다. */
+const REC_LIST_PREFIXES = ['rec/', 'recordings/'];
+
 async function handleRecordingList(request: Request, env: Env): Promise<Response> {
   try {
-    if (!env.RECORDINGS) return recordingJson({ items: [] });
+    if (!env.RECORDINGS) return recordingJson({ items: [], count: 0, truncated: false });
     const url = new URL(request.url);
-    const prefix = url.searchParams.get('prefix') || undefined;
-    const listed = await env.RECORDINGS.list({ prefix, limit: 1000 });
-    const items = listed.objects.map(o => ({
-      key: o.key,
-      size: o.size,
-      uploaded: o.uploaded,
-      url: `/api/recordings/blob/${encodeURIComponent(o.key)}`,
-      originalName: (o.customMetadata && o.customMetadata.originalName) || o.key.split('/').pop()
-    }));
-    return recordingJson({ items });
+    const only = url.searchParams.get('prefix');
+    const prefixes = only ? [only] : REC_LIST_PREFIXES;
+    const items: any[] = [];
+    let truncated = false;
+    for (const prefix of prefixes) {
+      let cursor: string | undefined = undefined;
+      for (let page = 0; page < REC_LIST_MAX_PAGES; page++) {
+        const listed: any = await env.RECORDINGS.list({ prefix, limit: 1000, cursor });
+        for (const o of (listed.objects || [])) {
+          // An explicit ?prefix= may cover the entire shared bucket. Private
+          // learner works are accessible only through their own authenticated API.
+          if (isPrivateDubbingKey(o.key)) continue;
+          // 🛟 `<키>.snap` 은 짧은 녹화 안전망의 «사본» 이라 목록에 내보내지 않는다.
+          //   내보내면 관리자 화면에 「⚠ 기록 없음(고아)」 로 한 줄씩 더 뜬다(recordings-r2.ts 참고).
+          if (String(o.key).endsWith('.snap')) continue;
+          items.push({
+            key: o.key,
+            size: o.size,
+            uploaded: o.uploaded,
+            url: `/api/recordings/blob/${encodeURIComponent(o.key)}`,
+            originalName: (o.customMetadata && o.customMetadata.originalName) || String(o.key).split('/').pop()
+          });
+        }
+        // ⚠️ 판별 유니온을 좁히지 않는다 — 이 저장소는 tsconfig 가 strict:false 라
+        //    listed.cursor 직접 접근이 TS2339 로 막힌다(CLAUDE.md 2장 함정).
+        cursor = listed.truncated ? (listed.cursor as string) : undefined;
+        if (!cursor) break;
+        if (page === REC_LIST_MAX_PAGES - 1) truncated = true;
+      }
+    }
+    return recordingJson({ items, count: items.length, truncated });
   } catch (err: any) {
     console.error('[recording] list error:', err);
-    return recordingJson({ error: err?.message || 'List failed', items: [] }, 500);
+    return recordingJson({ error: err?.message || 'List failed', items: [], count: 0, truncated: false }, 500);
   }
 }
 
@@ -4512,6 +6017,7 @@ async function handleRecordingDownload(path: string, request: Request, env: Env)
     const rawKey = path.replace('/api/recordings/blob/', '');
     const key = decodeURIComponent(rawKey);
     if (!key) return recordingJson({ error: 'No key provided' }, 400);
+    if (isPrivateDubbingKey(key)) return recordingJson({ error: 'Not found' }, 404);
 
     const rangeHeader = request.headers.get('range');
     let range: { offset: number; length?: number } | undefined;
@@ -4571,6 +6077,7 @@ async function handleRecordingDelete(path: string, env: Env): Promise<Response> 
     const rawKey = path.replace('/api/recordings/blob/', '');
     const key = decodeURIComponent(rawKey);
     if (!key) return recordingJson({ error: 'No key provided' }, 400);
+    if (isPrivateDubbingKey(key)) return recordingJson({ error: 'Not found' }, 404);
     await env.RECORDINGS.delete(key);
     return recordingJson({ success: true, key });
   } catch (err: any) {
@@ -4668,8 +6175,9 @@ async function managerPortalRedirect(
   request: Request, url: URL, path: string, env: Env
 ): Promise<Response | null> {
   const isManagerPage = (path === '/manager' || path === '/manager/' || path === '/manager.html');
+  const isBranchPage  = (path === '/branch' || path === '/branch/' || path === '/branch.html');
   const isAdminHome   = (path === '/admin' || path === '/admin/' || path === '/admin.html');
-  if (!isManagerPage && !isAdminHome) return null;
+  if (!isManagerPage && !isAdminHome && !isBranchPage) return null;
   if (url.searchParams.get('full') === '1') return null;      // 탈출구
 
   let sc: { type: string };
@@ -4680,6 +6188,17 @@ async function managerPortalRedirect(
     return null;                                              // 판정 실패 → 기존 동작 유지
   }
   const isOrg = (sc.type === 'agency' || sc.type === 'branch' || sc.type === 'franchise');
+
+  /* 🏢 (2026-09-23 사장님 지시) 지사장(scope=branch)은 /manager 가 아니라 /branch 를 쓴다.
+     /manager 는 대리점·지사본사·필리핀 매니저가 그대로 쓴다 — 거기 화면을 바꾸지 않으려고 화면을 나눴다.
+     ⚠️ 권한은 그대로다(두 화면이 같은 API 를 부른다). 착지 화면만 갈린다. ?full=1 탈출구는 위에서 그대로. */
+  if (sc.type === 'branch' && (isAdminHome || isManagerPage)) {
+    return Response.redirect(new URL('/branch', request.url).toString(), 302);
+  }
+  // 지사장이 아닌 조직 계정(대리점·지사본사)이 /branch 를 열었다 → 자기 화면(/manager)으로
+  if (isBranchPage && isOrg && sc.type !== 'branch') {
+    return Response.redirect(new URL('/manager', request.url).toString(), 302);
+  }
 
   // 지사·대리점이 관리자 첫 화면을 열었다 → 경량 포털로
   if (isOrg && isAdminHome) {
@@ -4707,7 +6226,7 @@ async function managerPortalRedirect(
   // 조직 계정이 아닌 사람이 /manager 를 열었다 → 각자의 화면으로 돌려보낸다.
   //   본사(hq·staff)는 그대로 통과시킨다 — 강사 포털과 같은 이유로, 같은 정보를
   //   가볍게 보는 창을 하나 더 갖는 것뿐이다(권한 변화 없음).
-  if (isManagerPage && !isOrg) {
+  if ((isManagerPage || isBranchPage) && !isOrg) {
     let actor: { ok: boolean; isTeacher: boolean; role: string };
     try {
       actor = await getAdminActor(request, env as any);
@@ -4748,6 +6267,19 @@ function isAdminPath(path: string, method: string): boolean {
   //      여기(isAdminPath)와, 미인증 시 로그인으로 보내는 리다이렉트 목록.
   //      한쪽만 하면 인증은 걸리는데 'API 취급' 이 되어 화면에 JSON 원문이 뜬다(2026-08-02 실사고).
   if (path === '/manager' || path === '/manager/' || path === '/manager.html') return true;
+  // 🏢 지사장 전용 화면 (2026-09-23 사장님 지시) — /manager 와 같은 규칙. 역할 분기는 managerPortalRedirect().
+  if (path === '/branch' || path === '/branch/' || path === '/branch.html') return true;
+
+  // 🧾 결재 전용 초경량 화면 (2026-08-16) — 회사 지출 내역이 담긴다. 로그인 필수.
+  //   위 두 포털과 같은 규칙이다. 역할 분기는 하지 않는다 —
+  //   강사는 긴급·고객불만만 올릴 수 있고, 그 판정은 /api/approval/* 핸들러가 분류별로 한다.
+  if (path === '/work' || path === '/work/' || path === '/work.html') return true;
+
+  // 🚗 영업 전용 휴대폰 화면 (2026-08-18) — 거래처 학원장 연락처와 본인 성과급이 담긴다.
+  //   로그인 필수. 역할 게이트(본사 또는 담당자 본인)는 /api/admin/sales/* 핸들러가 한 번 더 본다.
+  //   ⚠️ 위 «미인증 리다이렉트 목록» 에도 함께 등록했다 — 한쪽만 하면 인증은 걸리는데
+  //      'API 취급' 이 되어 화면에 JSON 원문이 뜬다(2026-08-02 실사고).
+  if (path === '/sales' || path === '/sales/' || path === '/sales.html') return true;
 
   //   ⚠️ `/api/teacher/` 전체를 잠그지 말 것. 이미 있는 `/api/teacher/praise`(수업 중 실시간 칭찬)
   //      `/api/teacher/my-ratings` 등이 함께 걸린다 — 수업 경로를 건드리는 변경이 된다.
@@ -4853,6 +6385,8 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/students/merge-duplicates') return true;
   // 💼 강사 급여·평가 (Phase 8) — 관리자 전용
   if (path === '/api/admin/teachers' || /^\/api\/admin\/teachers\/\d+$/.test(path)) return true;
+  // 💬 강사 카카오ID 명부 + 전달 — 강사 연락처가 나가는 경로라 반드시 인증 뒤 (2026-08-13)
+  if (path.startsWith('/api/admin/teachers/kakao')) return true;
   // 🥭 Phase 34 — 강사 정보 (Teacher Profiles)
   if (path === '/api/admin/teacher-profiles' || path === '/api/admin/teacher-profiles/import' || /^\/api\/admin\/teacher-profiles\/\d+$/.test(path)) return true;
   if (path === '/api/admin/teacher-hours') return true;          // (deprecated, 호환성)
@@ -4861,6 +6395,8 @@ function isAdminPath(path: string, method: string): boolean {
   if (path.startsWith('/api/admin/payroll/')) return true;
   // 🏢 Phase 9 — 추가 메뉴 6종
   if (path === '/api/admin/franchises') return true;
+  if (path === '/api/admin/org/hq') return true;                 // 🏯 본사 관리(법인정보) — 반드시 인증 뒤
+  if (path.startsWith('/api/admin/schedule-seed/')) return true; // 🗓 지난 수업 → 일정 만들기 — 반드시 인증 뒤(본사 전용)
   if (path === '/api/admin/centers') return true;
   if (path === '/api/admin/level-tests') return true;
   if (path === '/api/admin/enrollments' || /^\/api\/admin\/enrollments\/\d+(\/(plan|activate))?$/.test(path)) return true;
@@ -4868,6 +6404,14 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/textbooks') return true;
   // 📚 Phase 39 — 교재 파일 라이브러리 (관리자 전용 업로드/관리)
   if (path === '/api/admin/textbook-files' || /^\/api\/admin\/textbook-files\/\d+$/.test(path)) return true;
+  // 🔍✏️ (2026-08-19) 중복 진단 · 묶음 일괄 이름변경 — 위 정규식(\d+)에 안 걸리므로 따로 적는다
+  if (path === '/api/admin/textbook-files/dup-report' || path === '/api/admin/textbook-files/rebook') return true;
+  // 👥 (2026-08-19) 진행 중인 수업의 강사·학생 이름 — 반드시 인증 뒤
+  if (path === '/api/admin/live-classes') return true;
+  // 🔴 (2026-08-20) 예약 기준 지금 수업 현황 — 학생 이름이 나가므로 반드시 인증 뒤
+  if (path === '/api/admin/classes-now') return true;
+  // 🙈 (2026-08-13) 라이브러리 숨김 목록 — 관리자 전용
+  if (path === '/api/admin/textbook-hidden-books') return true;
   // 🎬 Phase 39 — 망고아이 비디오 관리 (관리자 전용)
   if (path === '/api/admin/mango-videos' || /^\/api\/admin\/mango-videos\/\d+$/.test(path)) return true;
   if (path === '/api/admin/students/list') return true;
@@ -4884,6 +6428,8 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/attendance/import-cafe24') return true; // 📅 카페24 출석 이관(쓰기) — 반드시 인증 뒤
   if (path === '/api/admin/payments/import-cafe24') return true; // 💰 카페24 결제 이관(쓰기) — 반드시 인증 뒤
   if (path === '/api/admin/students/erp-list' || path === '/api/admin/students/erp' || path === '/api/admin/students/erp-seed') return true;
+  // 🤖 (2026-09-16) AI 학습도구 사용 학생 목록 — 인증 필수(내용은 TEACHER_BLOCKED_PREFIXES 로도 이중 차단)
+  if (path === '/api/admin/ai-usage/students') return true;
   // 📚 Phase HW — 숙제 관리 (출제/목록/삭제) — 관리자 전용
   if (path.startsWith('/api/admin/homework/')) return true;
   // 🔁 Streak 일괄 정합화 수동 트리거 — HQ 관리자 전용 (agency 허용목록에 없어 403)
@@ -4892,6 +6438,9 @@ function isAdminPath(path: string, method: string): boolean {
   if (path.startsWith('/api/admin/reports/')) return true;
   // 🏢 조직 정산 트리 (org-settlement) — 관리자 전용 (인증 필수)
   if (path.startsWith('/api/admin/settlement/') || path === '/api/admin/settlement') return true;
+  // 🏢 B2B 대리점 AI 사용료 월 청구 (2026-09-10) — 관리자 전용 (인증 필수). 대리점 자기 몫만
+  //   보게 자르는 것은 ai-billing.ts 핸들러 안(scopeStudentCond)이다 — 여기는 열기만 한다.
+  if (path.startsWith('/api/admin/ai-billing/') || path === '/api/admin/ai-billing') return true;
   // 🔒 [PII 감사 2026-07-10] 대량 개인정보 덤프 엔드포인트 — 관리자 전용으로 잠금.
   //   (감사에서 무인증 전체명단 유출 확인 + 학생/강사 프론트가 호출 안 함 → 안전하게 게이트)
   //   나머지 per-user IDOR 은 프론트 토큰 연동이 필요해 별도 계획(docs/보안_PII_감사.md)으로 진행.
@@ -4936,6 +6485,7 @@ function isAdminPath(path: string, method: string): boolean {
   if (path.startsWith('/api/retention/')) return true;
   // R2 연결 테스트 — 관리자만
   if (path === '/api/recordings/test-r2') return true;
+  if (path === '/api/recordings/storage-stats') return true;   // 저장소 KPI (건수·용량) — 관리자만
   // 녹화 목록·다운로드·DB삭제·R2삭제 는 관리자만.
   // 학생 클라이언트 자동 호출인 /start, /stop, /upload, /stream, /complete, /blob/upload 는 열어둠.
   if (path === '/api/recordings' && method === 'GET') return true;
@@ -4988,13 +6538,94 @@ function isAgencyAllowedApi(path: string): boolean {
     // 🏢 정산 트리(org-settlement)는 자체 scopedRootId()로 agency/branch를 자기 노드로,
     //   franchise는 설계상 HQ 진입 후 합산으로 이미 격리하므로 공통 허용목록에 포함.
     '/api/admin/settlement/',
+    // 🏢 B2B 대리점 AI 사용료 (2026-09-10) — 대리점 담당자가 manager.html 에서 자기 청구서를
+    //   보고 결제해야 하므로 반드시 열어야 한다. 핸들러(ai-billing.ts)가 scopeStudentCond·
+    //   shopAllowed() 로 자기 대리점(agency=shop_name 일치)·자기 지사(branch) 몫만 자르고,
+    //   단가 변경(POST rate)은 그 안에서 scope.type==='hq' 로 한 번 더 막는다.
+    '/api/admin/ai-billing/',
     // 🏢 캐피타운 정산 — 핸들러가 계정별(경영진·capitown=전체 / capi_* 지사=자기 지사만) 자체 격리(2026-07-22)
     '/api/admin/capitown/',
     // 🎮 전 게임 통합 분석 (2026-08-08) — 집계 숫자만 나가고 실명·연락처가 응답에 없다.
     '/api/admin/game-insights',
+    // 🤖 (2026-09-16) AI 학습도구 사용 학생 — 핸들러가 studentScopeWhere() 로 자기 소속
+    //   학생만 자르므로(2장 「관리자 API 를 만들었는데 지사·대리점이 그대로 씁니다」 참고,
+    //   scopeStudentCond 를 실제로 지나는지 확인함) 지사·대리점도 자기 학생 몫만 본다.
+    '/api/admin/ai-usage/',
     // 📏 메뉴 클릭 계측 (2026-08-08) — 지사·대리점이 «무엇을 쓰는지» 가 오히려 가장 궁금하다.
     //   저장하는 것은 (날짜·카드id·역할·경로) 카운터뿐이고, 개인을 식별할 값이 응답에도 저장에도 없다.
     '/api/admin/menu-hit',
+    /* 🗓 수업 연기·변경 요청 (2026-08-17 사장님) — «학부모·학생도 하고 학원장님도 한다».
+         그동안 이 경로가 막혀 있어 지사·대리점은 매니저 화면에서 처리할 수 없었다.
+       ⚠️ 여는 조건이 하나 있다 — **핸들러가 스코프로 격리한 뒤에만** 연다.
+          api-admin.ts 의 GET 목록은 class_schedules → students_erp 로 자기 학생 요청만 돌려주고,
+          POST /decide 도 같은 조건으로 다시 확인한다(id 만 알면 남의 요청을 승인하던 것을 막음).
+          이 줄만 지우고 핸들러 격리를 빼면 **다른 대리점 학생 이름이 새어 나간다.** */
+    '/api/admin/schedule-requests',
+    /* 🏢 조직 명부 (2026-08-18 사장님 수정요청 #03·#04) — 「영업사원·지사장·학원장이 보기 쉽게」.
+         그동안 조직 관리 화면은 지사장이 열어도 이 두 경로가 여기 없어 403 → **빈 표**만 떴고,
+         학원장에게는 카드 등급('branch')이 걸려 화면 자체가 안 보였다. 둘 다 이번에 연다.
+       ⚠️ 여는 조건은 하나 — **핸들러가 스코프로 자른 뒤에만** 연다. api-admin.ts 의
+          두 핸들러는 scopeFranchiseCond()/scopeCenterCond()(src/scope.ts)로
+          지사 = 자기 지사, 대리점(학원) = 자기 한 칸까지 잘라서 내려주고,
+          등록·수정·대표지사 지정은 canEditOrg() 로 본사만 허용한다(403).
+          그 조건절을 빼고 이 두 줄만 남기면 **전국 지사 241건·대리점 921건이 통째로 샌다.**
+          org_scope_harness.mjs 가 «열림» 과 «잘림» 을 함께 감시한다. */
+    '/api/admin/franchises',
+    '/api/admin/centers',
+    /* 📊 (2026-08-19) 학원별 학생 수업현황 — 지사장·학원장도 «자기 지사·자기 학원» 출석 통계를 봐야 한다.
+       핸들러(api-admin.ts)가 scopeStudentCond() 로 이미 자기 범위만 잘라서 주므로 여기 열어도 안 샌다. */
+    '/api/admin/attendance/school-stats',
+    /* 🔴 (2026-08-20) 예약 기준 지금 수업 현황 — 지사장·학원장도 «우리 학원 수업이 지금
+       돌고 있나» 를 봐야 한다. 핸들러가 scopeStudentCond() 로 자기 범위 학생의 수업만
+       잘라서 주고(범위 밖은 목록·건수 양쪽에서 빠진다), 강사에게는 아예 닫혀 있다. */
+    '/api/admin/classes-now',
+    /* 📅 (2026-08-25) 오늘 전체 수업 — manager.html 은 지사장·학원장도 쓴다. 「우리 학원 수업이
+       오늘 몇 건인가」는 그들이 봐야 하는 것이고, 핸들러가 scopeStudentCond() 로 자기 범위
+       학생의 수업만 잘라서 준다(범위 밖은 목록·건수 양쪽에서 빠진다). 강사에게는 위에서 닫았다. */
+    '/api/admin/classes/today',
+    /* 🧑‍🏫 (2026-09-23) 본사관리자 레이아웃 그대로 열기 — 지사 세미나 시연용(admin.html?full=1).
+       강사관리 카드(CARD_POLICY 'branch' 등급, adm-core.js)가 이 접두사를 쓴다.
+       ⚠️ 접두사가 넓다 — `/api/admin/teachers/*` 전부(links·graph-list·kakao/* 포함)가 걸린다.
+       그래서 여기 열기 «전에» 각 하위 경로를 실제로 확인·수리했다:
+         · GET  /api/admin/teachers            — api-admin.ts 가 급여단가·계좌 칸을
+           isOrgScopedRole 에도 가린다(원래 isTeacher 만 가렸음, 이번에 넓힘).
+         · POST /api/admin/teachers,
+           PATCH /api/admin/teachers/:id       — 강사 등록·급여단가 수정은 여전히 본사만
+           (핸들러 안에서 isOrgScopedRole 이면 403 — «회계관리 제외» 그대로 지킴).
+         · GET/POST /api/admin/teachers/links  — 조회는 열고, 계정↔강사 연결(쓰기)은
+           본사만(핸들러 안에서 403 — 남의 강사 근태가 뒤틀리는 걸 막음).
+         · GET  /api/admin/teachers/graph-list — 시급(pay_per_time)을 isOrgScopedRole 에
+           가림(캐시 오염 없이 응답 직전에만 가리도록 별도 처리, 위 함수 내부 주석 참고).
+         · /api/admin/teachers/kakao/*         — «강사 문자·카카오 발송 도구» 라 이 접두사와
+           무관하게 통째로 막아 뒀다(teacher-kakao.ts 안에서 isOrgScopedRole 이면 403).
+           여기서 이 서브패스를 따로 빼려 하지 말 것 — 핸들러 쪽이 이미 막고 있다. */
+    '/api/admin/teachers',
+    // 🧑‍💼 (2026-09-23) 직원 명부 — 급여 없이 이름·이메일·소개·상태만(위 강사관리 카드 안의 하위 패널).
+    '/api/admin/staff/graph-list',
+    // 📚 (2026-09-23) 교재 명부 — 개인정보 없음(교재명·메모·상태뿐).
+    '/api/admin/books/graph-list',
+    /* 📝 (2026-09-23) 레벨테스트 신청 현황 — 여기 열기 «전에» api-admin.ts 를 고쳤다:
+         GET  — student_uid 로 students_erp 조인해 스코프를 건다(uid 없는 체험 리드는
+                지사·대리점에겐 안 보인다 — 소속 증명 불가라 막는 쪽으로 실패).
+         POST — action=create_schedule(수업 예약 생성)·link_student(class_schedules.user_id
+                재작성)·link_candidates(전화번호로 전국 학생 조회) 전부 실제 수업 생성·
+                계정 재배선·전국 조회라 위험이 크다 → isOrgScopedRole 이면 통째로 403.
+         DELETE — 이미 본사만(2026-08-21).
+       ⛔ 정확일치 문자열이다(끝에 슬래시 없음) — `/api/admin/leveltest/overview` 는 Neo4j
+          집계라 franchise 축이 없어 스코프를 걸 방법이 없다. 그건 이 줄과 별개로 여전히 막혀
+          있다(문자열이 안 겹치므로 이 줄을 prefix 로 넓히지만 않으면 자동으로 안전하다). */
+    '/api/admin/leveltest/applications',
+    /* 📌 (2026-09-23) 커뮤니티 게시글 — 회사 전체가 보는 공지 게시판이라 애초에 franchise 축이
+       없다(PII 없음: title/body/author/pinned 뿐). 삭제(DELETE) 라우트 자체가 없어 최악이
+       «잘못된 글을 올림» 인데 본사가 바로 고칠 수 있다 — 쓰기 위험이 낮아 GET/POST/PATCH
+       그대로 연다. */
+    '/api/admin/community-posts',
+    /* 📅 (2026-09-23) 캘린더(공휴일·교사 휴가) 쓰기 — api-lessons.ts 주석이 이미 「모든 관리자」
+       라고 못 박아 둔 기능이다. calendar_events 도 franchise 축이 없는 회사 전체 캘린더고
+       (조회는 애초에 무인증 공개 /api/calendar/events), PII 없음(휴가 사유 note 뿐).
+       calPost() 는 외부 알림이 아니라 위에서 연 community_posts 에 적는 것뿐이다. */
+    '/api/admin/calendar/events',
+    '/api/admin/calendar/seed-holidays',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }
@@ -5029,6 +6660,11 @@ function isAuthPublicPath(path: string): boolean {
   if (path === '/admin/login' || path === '/admin/login/' || path === '/admin/login.html') return true;
   if (path === '/api/admin/login') return true;
   if (path === '/api/admin/logout') return true;
+  // 🔑 비밀번호 찾기 — 비번을 잊은 사람은 당연히 로그인 상태가 아니다. 인증 게이트를 우회해야 한다.
+  //   ⚠️ 우회 = 무방비가 아니다. handleAdminAuthApi 안에서 계정당 1시간 3회·IP 1시간 10회·
+  //      코드 10분·검증 5회로 조이고, 응답은 아이디 존재 여부를 흘리지 않는다.
+  if (path === '/api/admin/password-reset/request') return true;
+  if (path === '/api/admin/password-reset/confirm') return true;
   return false;
 }
 

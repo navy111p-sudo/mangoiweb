@@ -79,16 +79,21 @@ check('students_erp 에서 학부모/학생 번호를 찾는다',
 check('🔑 notify_parent === true 일 때만 서버가 번호를 찾는다 (관리자 저장이 문자로 새지 않게)',
   /body\.notify_parent === true/.test(SRC));
 check('강사 화면이 notify_parent 를 보낸다', /notify_parent:\s*true/.test(TEACHER));
-check('강사 화면은 전화번호를 보내지 않는다 (PII 는 화면이 다루지 않는다)',
-  !/parent_phone/.test(TEACHER) && !/student_phone/.test(TEACHER));
+check('강사 평가 저장 본문에는 전화번호를 보내지 않는다 (문자 수신자는 서버가 조회)',
+  !/parent_phone|student_phone/.test(TEACHER.slice(TEACHER.indexOf('var payload = {'), TEACHER.indexOf('notify_parent: true'))));
 check('⚠ 관리자 화면(adm-q1)은 notify_parent 를 보내지 않는다', ADM_Q1.length > 0 && !/notify_parent/.test(ADM_Q1));
 check('⚠ 관리자 화면(adm-r6)은 notify_parent 를 보내지 않는다', ADM_R6.length > 0 && !/notify_parent/.test(ADM_R6));
 check('문자 본문은 한국어 고정 템플릿 + 링크 (강사가 쓴 영어를 그대로 보내지 않는다)',
   /fallbackSmsText: `\[망고아이\]/.test(SRC) && /평가서가 도착했어요/.test(SRC));
 /* 🔴 죽은 링크 방지 — `mango-i.com` 은 등록조차 안 된 도메인이다(NXDOMAIN 실측 2026-08-09).
-      CLAUDE.md 머리에 운영 주소로 적혀 있어 한 번 밟았다. 학부모에게 나가는 링크라 되돌아가면 안 된다. */
-check('🔑 평가서 링크가 살아 있는 도메인을 쓴다 (test.mangoi.co.kr)',
-  /const evalUrl = `https:\/\/test\.mangoi\.co\.kr\/eval\.html\?id=\$\{evalId\}`/.test(SRC));
+      CLAUDE.md 머리에 운영 주소로 적혀 있어 한 번 밟았다. 학부모에게 나가는 링크라 되돌아가면 안 된다.
+      (2026-08-17) 주소를 손으로 적는 것 자체를 그만뒀다 — site-url.ts 의 siteUrl() 한 곳에서 온다.
+      그래서 «어느 도메인인가» 가 아니라 «손으로 안 적었는가» 를 본다. 도메인 자체는
+      outgoing_link_domain_harness.mjs 가 지킨다. */
+check('🔑 평가서 링크를 손으로 적지 않는다 (siteUrl 한 곳에서 온다)',
+  /const evalUrl = siteUrl\('\/eval\.html\?id=' \+ evalId\)/.test(SRC));
+check('🔑 평가서 링크에 https:// 를 직접 박아 넣지 않는다',
+  !/evalUrl\s*=\s*[`'"]https:\/\//.test(SRC));
 check('⚠ 학부모 문자에 mango-i.com 이 들어가지 않는다',
   !/mango-i\.com[^`'"]*eval/.test(SRC));
 
@@ -186,8 +191,16 @@ if (typeof preflight === 'function') {
 }
 
 console.log('\n[7] 강사 화면 — 가볍게·안 멈추게');
-check('낙관적 저장 — 누르면 즉시 닫는다', /btn\.disabled = true;\s*\n\s*close\(\);/.test(TEACHER));
-check('실패하면 큐에 넣는다', /\.catch\(function\(\)\{ qPush\(payload\); \}\)/.test(TEACHER));
+// A send click must not hide an unconfirmed save. The browser matrix executes
+// failure/retry against this production handler at every width/language/theme.
+const logSend = TEACHER.slice(TEACHER.indexOf("mask.querySelector('#ev-ok').onclick"), TEACHER.indexOf('  function openEvalView('));
+const logFetch = logSend.indexOf("fetch('/api/eval/manual-create'");
+const logSuccess = logSend.indexOf('c.eval_written = true');
+check('서버 저장 확인 후 닫는다 — 전송 중에는 초안을 유지', logFetch > 0 && logSuccess > logFetch &&
+  !/close\(\)/.test(logSend.slice(0,logFetch)) && logSend.indexOf('close();',logSuccess) > logSuccess);
+check('저장 실패 시 자동 재전송 대신 초안과 재시도 버튼을 유지',
+  /\.catch\(function\(\)\{\s*logSaving = false;\s*btn.disabled = false;/.test(logSend) &&
+  logSend.includes('Your draft is still here') && !logSend.includes('qPush(payload)'));
 check('다시 열 때 자동 재시도한다', /if \(!document\.hidden\) qFlush\(\);/.test(TEACHER));
 check('⚠ 외부 리소스 0개 계약 유지 (script src·link 없음)',
   !/<script[^>]+src=/i.test(TEACHER) && !/<link[^>]+rel=["']?stylesheet/i.test(TEACHER));

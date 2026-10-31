@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>강사별 열 캘린더 세 갈래</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+:root{
+  --bg:#f7f6f2; --card:#ffffff; --ink:#101828; --ink2:#475467; --mute:#667085;
+  --line:#e4e7ec; --grid:#eceef3; --grid2:#f6f7fa; --accent:#b45309; --accent-bg:#fff4e5;
+  --today:#eef4ff; --head:#f2f4f7; --sel:#101828; --sel-ink:#ffffff;
+  --c-1on1:#bcaef0; --c-group:#f4abce; --c-temp:#8cc3f0; --c-lt:#a7ddd4; --c-c24:#dbeafe; --c24-line:#2563eb;
+  --ev-ink:#1e293b; --bad:#b91c1c; --bad-bg:#fee2e2; --heat:#7c3aed;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f172a; --card:#1e293b; --ink:#e2e8f0; --ink2:#cbd5e1; --mute:#94a3b8;
+    --line:#334155; --grid:#2b3a52; --grid2:#243248; --accent:#f59e0b; --accent-bg:#3b2a12;
+    --today:#1e2f4f; --head:#243248; --sel:#e2e8f0; --sel-ink:#0f172a; --bad:#fca5a5; --bad-bg:#4c1d1d; --heat:#a78bfa;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f172a; --card:#1e293b; --ink:#e2e8f0; --ink2:#cbd5e1; --mute:#94a3b8;
+  --line:#334155; --grid:#2b3a52; --grid2:#243248; --accent:#f59e0b; --accent-bg:#3b2a12;
+  --today:#1e2f4f; --head:#243248; --sel:#e2e8f0; --sel-ink:#0f172a; --bad:#fca5a5; --bad-bg:#4c1d1d; --heat:#a78bfa;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:14px;line-height:1.55}
+.mono{font-family:"IBM Plex Mono","Menlo",monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 22px 60px}
+header h1{font-size:24px;font-weight:900;margin:0 0 6px;letter-spacing:-.01em;text-wrap:balance}
+header p{margin:0;color:var(--ink2);max-width:70ch}
+.why{margin:18px 0 26px;padding:12px 16px;border-left:4px solid var(--accent);background:var(--accent-bg);border-radius:0 8px 8px 0;font-size:13px}
+.why b{color:var(--accent)}
+.sample{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 18px 14px;margin-bottom:26px}
+.sample-head{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px}
+.sample-head .no{flex:0 0 auto;min-width:44px;height:34px;padding:0 8px;border-radius:8px;background:var(--ink);color:var(--card);font-weight:900;display:flex;align-items:center;justify-content:center;font-size:14px}
+.sample-head h2{margin:0;font-size:17px;font-weight:900}
+.sample-head .en{color:var(--mute);font-weight:500;font-size:13px;margin-left:6px}
+.sample-head p{margin:2px 0 0;color:var(--ink2);font-size:13px;max-width:78ch}
+.sample-head .meta{flex:1 1 320px}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid var(--line);color:var(--ink2);margin-right:4px;vertical-align:2px}
+.pill.rec{background:var(--accent);border-color:var(--accent);color:#fff}
+.pros{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin:10px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--ink2)}
+.pros li::before{content:"+ ";font-weight:900;color:#15803d}
+.pros li.con::before{content:"− ";color:var(--bad)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--mute);margin-top:10px;align-items:center}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px;border:1px solid rgba(15,23,42,.14)}
+.cal{border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:560px;background:var(--card);position:relative}
+.ev{position:absolute;border-radius:5px;padding:2px 5px;color:var(--ev-ink);overflow:hidden;font-size:10.5px;line-height:1.25;border:1px solid rgba(15,23,42,.14);box-shadow:0 1px 3px rgba(15,23,42,.14);background:var(--c-1on1)}
+.ev.t-group{background:var(--c-group)} .ev.t-temp{background:var(--c-temp)} .ev.t-lt{background:var(--c-lt)}
+.ev.c24{background-color:var(--c-c24);background-image:repeating-linear-gradient(45deg,transparent,transparent 6px,rgba(15,23,42,.07) 6px,rgba(15,23,42,.07) 12px);border:1.5px dashed var(--c24-line);box-shadow:none}
+.ev .tm{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev .nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev .ty{font-size:9px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev .tg{float:right;margin-left:3px;padding:0 3px;border-radius:3px;background:#1d4ed8;color:#fff;font-size:8px;font-weight:800;line-height:12px}
+.ev.dup{outline:2px solid var(--bad);outline-offset:-1px}
+.hourlabel{font-size:10px;color:var(--mute);text-align:right;padding:2px 6px 0 0;border-top:1px solid var(--grid)}
+.gut{border-right:1px solid var(--line);background:var(--card);position:sticky;left:0;z-index:3}
+.col{position:relative;border-left:1px solid var(--grid);background-image:linear-gradient(to bottom,var(--grid) 1px,transparent 1px);background-repeat:repeat-y}
+.col.today{background-color:var(--today)}
+.col.daysep{border-left:2px solid var(--line)}
+.dayhead{text-align:center;font-weight:800;font-size:12px;padding:5px 2px 3px;border-left:2px solid var(--line);background:var(--head);position:sticky;top:0;z-index:5;white-space:nowrap;overflow:hidden}
+.dayhead small{display:block;font-weight:500;color:var(--mute);font-size:10px}
+.dayhead.today{background:var(--today)}
+.dayhead .cnt{font-size:10px;font-weight:700;color:var(--ink2)}
+.subhead{font-size:10.5px;font-weight:700;color:var(--ink2);text-align:center;padding:3px 2px;border-left:1px solid var(--grid);background:var(--head);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:sticky;top:44px;z-index:4;border-bottom:1px solid var(--line)}
+.subhead.daysep{border-left:2px solid var(--line)}
+.subhead small{display:block;font-weight:500;color:var(--mute);font-size:9px}
+.corner{background:var(--head);position:sticky;top:0;left:0;z-index:7;border-right:1px solid var(--line)}
+/* B-1 아코디언 */
+.grid-1{display:grid;min-width:100%}
+.fold{position:sticky;top:0;z-index:5;background:var(--head);border-left:2px solid var(--line);cursor:pointer;text-align:center;padding:5px 0 3px;font-weight:800;font-size:12px;user-select:none}
+.fold small{display:block;font-weight:500;color:var(--mute);font-size:9.5px}
+.fold:hover{background:var(--today)}
+.foldbody{position:relative;border-left:2px solid var(--line);cursor:pointer;background:var(--grid2)}
+.foldbody:hover{background:var(--today)}
+.foldbody .vlabel{position:absolute;left:0;right:0;top:8px;text-align:center;font-size:10px;font-weight:700;color:var(--mute);writing-mode:vertical-rl;letter-spacing:.06em}
+.dayhead.open{background:var(--sel);color:var(--sel-ink)} .dayhead.open small,.dayhead.open .cnt{color:var(--sel-ink);opacity:.8}
+/* B-2 컴팩트 */
+.grid-2{display:grid;min-width:max-content}
+.vhead{position:sticky;top:44px;z-index:4;background:var(--head);border-left:1px solid var(--grid);border-bottom:1px solid var(--line);height:62px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px}
+.vhead.daysep{border-left:2px solid var(--line)}
+.vhead span{writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px;font-weight:700;color:var(--ink2);white-space:nowrap}
+.ev.mini{padding:1px 2px;font-size:9px;line-height:1.1;border-radius:3px}
+.ev.mini .tm{font-weight:800}
+.minimap{display:flex;height:22px;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-bottom:8px;position:relative;background:var(--grid2);font-size:10px;font-weight:700;color:var(--ink2)}
+.minimap .seg{display:flex;align-items:center;justify-content:center;border-left:1px solid var(--line);white-space:nowrap;overflow:hidden}
+.minimap .seg.today{background:var(--today)}
+.minimap .win{position:absolute;top:0;bottom:0;border:2px solid var(--accent);background:rgba(180,83,9,.10);pointer-events:none;border-radius:4px}
+/* B-3 하루 크게 */
+.tabs{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;align-items:center}
+.tabs button{border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.tabs button.on{background:var(--sel);color:var(--sel-ink);border-color:var(--sel)}
+.tabs button small{display:block;font-weight:500;font-size:9.5px;opacity:.8}
+.tabs button:focus-visible,.fold:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tabs .note{margin-left:auto;font-size:11.5px;color:var(--mute)}
+.grid-3{display:grid;min-width:100%}
+.thead{position:sticky;top:0;z-index:5;background:var(--head);border-left:1px solid var(--grid);border-bottom:1px solid var(--line);padding:5px 4px 4px;text-align:center}
+.thead b{display:block;font-size:12px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thead small{display:block;font-size:10px;color:var(--mute);font-weight:500;white-space:nowrap}
+.thead .load{height:4px;border-radius:2px;background:var(--grid);margin-top:4px;overflow:hidden}
+.thead .load i{display:block;height:100%;background:var(--heat)}
+.thead.dup{background:var(--bad-bg)} .thead.dup b{color:var(--bad)}
+.gap{position:absolute;left:3px;right:3px;border:1px dashed rgba(15,23,42,.18);border-radius:4px;font-size:9px;color:var(--mute);display:flex;align-items:center;justify-content:center;pointer-events:none}
+.summary{margin-top:6px;border-top:1px solid var(--line);padding-top:16px}
+.summary h2{font-size:17px;margin:0 0 10px}
+table.cmp{border-collapse:collapse;width:100%;font-size:12.5px}
+.cmp th,.cmp td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+.cmp th{background:var(--head);font-weight:800}
+.cmp td:first-child{font-weight:800;white-space:nowrap}
+footer{margin-top:22px;color:var(--mute);font-size:12px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+<header>
+  <h1>강사별 열 캘린더 — B안을 세 갈래로</h1>
+  <p>고르신 B안(요일 안에 강사별 세로 열)은 «강사 한 사람의 수업은 자기 열에만 놓인다»는 구조라 겹칠 수 없는 대신, 강사 18~25명 × 5일이면 화면이 넓어지는 것이 유일한 약점이었습니다. 아래 세 가지는 그 «넓어짐» 을 각각 다른 방법으로 다룹니다. 예시 데이터는 강사 18명 · 하루 40여 수업으로, 캡처 화면과 같은 밀도입니다(실제 D1 값 아님).</p>
+</header>
+
+<div class="why">
+  <b>세 갈래의 차이는 «넓이를 어디서 줄이나» 하나입니다.</b> B-1 은 «요일» 을 접고, B-2 는 «열» 을 좁히고, B-3 은 «하루만» 보여 줍니다. 카드 색·글자·카페24 점선·이중배정 표시는 셋 다 같습니다. 예시로 넣어 둔 이중배정(수 20:40 FAR 두 건)이 셋 모두에서 빨간 테두리로 잡히는지 보시면 됩니다.
+</div>
+
+<!-- ───── B-1 ───── -->
+<section class="sample" id="s1">
+  <div class="sample-head">
+    <div class="no">B-1</div>
+    <div class="meta">
+      <h2>한 요일만 펼치고 나머지는 접기 <span class="en">Accordion week — one day open, six folded</span> <span class="pill rec">추천</span> <span class="pill">주간이 한 화면</span></h2>
+      <p>오늘(또는 누른 요일)만 강사별 열로 넓게 펼치고, 나머지 요일은 좁은 띠로 접습니다. 접힌 띠에도 «그 시간대에 수업이 몇 개인지» 가 보라색 농도로 남아 있어 주간 흐름은 잃지 않고, 띠를 누르면 그 요일이 펼쳐집니다. 가로 스크롤이 없어 화면 하나에 주간 전체가 들어옵니다.</p>
+      <ul class="pros">
+        <li>가로 스크롤 없음 — 사장님 화면(1920px)에서는 강사 18명 열이 그대로 다 들어감</li>
+        <li>접힌 요일도 «언제 몰리는지» 가 보여 주간 감각이 남음</li>
+        <li class="con">두 요일을 «나란히» 비교하려면 번갈아 눌러야 함</li>
+        <li class="con">드래그로 다른 요일에 옮기려면 접힌 띠 위에 놓는 규칙이 필요 (놓으면 그 요일로, 강사는 유지)</li>
+      </ul>
+    </div>
+  </div>
+  <div class="cal" id="cal1"></div>
+  <div class="legend"><i style="background:var(--c-1on1)"></i>1:1 <i style="background:var(--c-group)"></i>그룹 <i style="background:var(--c-temp)"></i>대체 <i style="background:var(--c-lt)"></i>레벨테스트 <i style="background:var(--c-c24);border:1px dashed var(--c24-line)"></i>카페24(보기 전용) <i style="background:var(--heat);opacity:.6"></i>접힌 요일의 수업 밀도 <span style="margin-left:auto">요일 머리글이나 띠를 누르면 그 요일이 펼쳐집니다</span></div>
+</section>
+
+<!-- ───── B-2 ───── -->
+<section class="sample" id="s2">
+  <div class="sample-head">
+    <div class="no">B-2</div>
+    <div class="meta">
+      <h2>주간 전체를 좁은 열로 — 이름은 세로쓰기 <span class="en">Compact week — narrow columns, vertical names, minimap</span> <span class="pill">주간 비교용</span></h2>
+      <p>B안 그대로 주간 전체를 그리되 강사 열을 34px 로 좁히고 이름을 세로로 세워 폭을 절반 이하로 줄입니다. 카드에는 시각만 적고 학생·유형은 마우스를 올리면 나옵니다. 그래도 화면보다 넓으므로 시간 눈금은 왼쪽에 고정하고, 위에 «지금 어디를 보고 있나» 미니맵을 둡니다. 수업이 없는 토·일 열은 그리지 않습니다.</p>
+      <ul class="pros">
+        <li>주간 5일 × 강사 열이 «한 표» 에 다 있어 요일끼리 나란히 비교 가능</li>
+        <li>열이 색 막대처럼 읽혀 «어느 강사가 어느 요일에 비는지» 가 한눈에 보임</li>
+        <li class="con">카드에 학생 이름이 없음 — 툴팁·클릭으로 봐야 함</li>
+        <li class="con">1920px 화면에서도 좌우 스크롤이 남음 (예시 18명 기준 약 2,300px)</li>
+      </ul>
+    </div>
+  </div>
+  <div class="minimap" id="map2"></div>
+  <div class="cal" id="cal2"></div>
+  <div class="legend"><span>열 머리글 = 강사(세로) · 카드 = 시작 시각 · 자세한 내용은 카드에 마우스를 올리면 나옵니다 · 위 미니맵의 주황 창 = 지금 보이는 범위</span></div>
+</section>
+
+<!-- ───── B-3 ───── -->
+<section class="sample" id="s3">
+  <div class="sample-head">
+    <div class="no">B-3</div>
+    <div class="meta">
+      <h2>하루를 크게 — 강사 열 넓게 + 빈 시간 표시 <span class="en">Day view — wide teacher columns with gaps and load</span> <span class="pill">배정·관제용</span></h2>
+      <p>요일 탭으로 하루를 고르고, 그날 수업이 있는 강사만 넓은 열로 폅니다. 열 머리글에 «몇 회 · 몇 분 · 첫 수업~끝 수업» 과 부하 막대를 적고, 수업 사이 30분 이상 비는 자리는 «빈 30분» 점선 칸으로 그려 대체 배정 자리가 바로 보이게 합니다. 카드는 시각 · 학생 · 유형 세 줄이 잘리지 않고 다 읽힙니다.</p>
+      <ul class="pros">
+        <li>글자가 안 잘림 — 카드 세 줄(시각·학생·유형)이 지금 화면 그대로</li>
+        <li>«빈 시간» 과 «부하» 가 머리글에 있어 대체강사 고를 때 바로 씀</li>
+        <li class="con">한 번에 하루만 — 주간은 탭을 눌러 봐야 함</li>
+        <li class="con">수업이 없는 강사는 열이 없음 (탭 옆에 «수업 없는 강사 N명» 으로만 알림)</li>
+      </ul>
+    </div>
+  </div>
+  <div class="tabs" id="tabs3"></div>
+  <div class="cal" id="cal3"></div>
+  <div class="legend"><span>빨간 머리글·테두리 = 같은 강사에게 같은 시각 수업이 둘 (예시 FAR 수요일 20:40) · 점선 칸 = 수업 사이 30분 이상 빈 자리</span></div>
+</section>
+
+<section class="summary">
+  <h2>한눈에 비교</h2>
+  <div style="overflow-x:auto">
+  <table class="cmp">
+    <tr><th></th><th>B-1 요일 접기</th><th>B-2 컴팩트 주간</th><th>B-3 하루 크게</th></tr>
+    <tr><td>한 번에 보이는 범위</td><td>주간 (한 요일만 상세)</td><td>주간 전체 상세</td><td>하루</td></tr>
+    <tr><td>가로 스크롤</td><td>없음</td><td>있음 (미니맵으로 보완)</td><td>없음</td></tr>
+    <tr><td>카드 글자</td><td>시각 · 강사·학생 (2줄)</td><td>시각만 (툴팁)</td><td>시각 · 학생 · 유형 (3줄)</td></tr>
+    <tr><td>빈 시간 찾기</td><td>펼친 요일에서</td><td>색 막대 빈 곳으로</td><td>점선 칸으로 바로</td></tr>
+    <tr><td>드래그 이동</td><td>같은 요일은 그대로 · 다른 요일은 띠에 놓기</td><td>열이 좁아 어려움 → 모달</td><td>같은 날 안에서 그대로</td></tr>
+    <tr><td>속도 (그리는 카드 수)</td><td id="n1">—</td><td id="n2">—</td><td id="n3">—</td></tr>
+    <tr><td>빠르게 동작하는 이유</td><td colspan="3">셋 다 <b>한 번 그리고 끝</b>입니다 — 카드는 절대배치라 스크롤·마우스 올림에 JS 가 돌지 않고, 요일을 바꿀 때만 다시 그립니다. 접힌 요일의 밀도(B-1)는 요소 수십 개가 아니라 그라데이션 한 장이고, 강사별 열 나누기는 «같은 강사 안에서만» 계산하므로 강사 25명·수업 250개에도 1ms 안팎입니다. 지금 화면의 카드 그리기 코드(<span class="mono">ph54EventCard</span>)를 그대로 쓰고 <span class="mono">left/width</span> 만 덧붙이는 구조라 별도 라이브러리가 없습니다.</td></tr>
+    <tr><td>고치는 범위</td><td>렌더 재작성 + 접힘 상태 1개</td><td>렌더 재작성 + 미니맵</td><td>렌더 재작성 + 요일 탭</td></tr>
+    <tr><td>추천</td><td colspan="3"><b>B-1 을 기본</b>으로 두는 것을 권합니다. 지금 화면의 «주간 통합» 이라는 뜻을 지키면서 겹침과 가로 스크롤이 함께 사라집니다. B-3 의 «빈 시간 점선 칸·머리글 부하 막대» 는 B-1 의 펼친 요일에도 그대로 넣을 수 있어 둘을 합칠 수 있습니다. B-2 는 «요일끼리 나란히 비교» 가 꼭 필요할 때만 고를 만합니다.</td></tr>
+  </table>
+  </div>
+</section>
+
+<footer>예시 데이터: 강사 18명 · 학생 16명 · 수업 20/30/40분 · 월·화는 카페24 점선(보기 전용) · 수 09/02 «오늘». 색·글자 규칙은 <span class="mono">admin-inline-c.css .ph54-ev</span> 와 <span class="mono">PH54_TYPE_COLOR</span> 를 그대로 따랐습니다.</footer>
+</div>
+
+<script>
+(function(){
+  var T = ['Zee','Far','Belle','Kaye','Krystel','Ana','Shas','Hannah','Melca','Maimai','Ness','Rica','Len','Cindy','Joy','Grace','Sid','Kes'];
+  var S = ['허윤아','김선우','최윤서','김사랑','장지웅','한채아','이서준','박지호','정우영','조연희','이하늘','강민준','윤서아','오지우','임도윤','서예은'];
+  var DAYS = ['월','화','수','목','금','토','일'], DATES = ['08/31','09/01','09/02','09/03','09/04','09/05','09/06'];
+  var TYPE_KO = {'1on1':'1:1','group':'그룹','temp':'대체','lt':'레벨테스트'};
+  var TODAY = 2, START = 14*60, END = 24*60, PXH = 56, bodyH = (END-START)/60*PXH;
+  var seed = 20260902; function rnd(){ seed = (seed*1103515245 + 12345) & 0x7fffffff; return seed/0x7fffffff; }
+  function pick(a){ return a[Math.floor(rnd()*a.length)]; }
+  var TYPES = ['1on1','1on1','1on1','1on1','1on1','group','temp','lt'];
+  var ev = [];
+  for (var d=0; d<5; d++){
+    T.forEach(function(t, ti){
+      var n = Math.floor(rnd()*4.6), used = [];   // 0~4회
+      for (var k=0; k<n; k++){
+        var st = START + Math.floor(rnd()*((END-40-START)/10))*10;
+        var du = pick([20,20,20,30,40]);
+        if (used.some(function(u){ return st < u[1] && st+du > u[0]; })) continue;
+        used.push([st, st+du]);
+        ev.push({ day:d, t:t, ti:ti, s:pick(S), st:st, du:du, type:pick(TYPES), c24:(d<2) });
+      }
+    });
+  }
+  ev = ev.filter(function(e){ return !(e.day===2 && e.t==='Far' && e.st < 21*60+20 && e.st+e.du > 20*60+40); });
+  ev.push({day:2,t:'Far',ti:1,s:'허윤아',st:20*60+40,du:20,type:'1on1',c24:false});
+  ev.push({day:2,t:'Far',ti:1,s:'한채아',st:20*60+40,du:30,type:'1on1',c24:false});
+  ev.sort(function(a,b){ return a.day-b.day || a.st-b.st || a.du-b.du || a.ti-b.ti; });
+  ev.forEach(function(a){ a.dup = ev.some(function(b){ return b!==a && b.day===a.day && b.t===a.t && a.st<b.st+b.du && b.st<a.st+a.du; }); });
+
+  function pad(n){ return n<10?'0'+n:''+n; }
+  function hm(m){ return pad(Math.floor(m/60))+':'+pad(m%60); }
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  function typeCls(e){ return e.c24 ? 'c24' : (e.type==='1on1' ? '' : 't-'+e.type); }
+  function tip(e){ return hm(e.st)+'~'+hm(e.st+e.du)+' · '+e.du+'분 · '+e.t+' · '+e.s+' · '+(e.c24?'카페24(보기 전용)':TYPE_KO[e.type]); }
+  function lanes(list){   // 같은 강사 열 안 이중배정만 반으로 나눠 둘 다 보이게
+    list = list.slice().sort(function(a,b){ return a.st-b.st || b.du-a.du; });
+    var laneEnd = [];
+    list.forEach(function(e){ var l=0; while (l<laneEnd.length && laneEnd[l]>e.st) l++; laneEnd[l]=e.st+e.du; e.lane=l; });
+    var n = laneEnd.length; list.forEach(function(e){ e.lanes = n; });
+    return list;
+  }
+  function card(e, lines, cls){
+    var top = (e.st-START)/60*PXH, h = Math.max(e.du/60*PXH, 20);
+    var w = 100/e.lanes, left = e.lane*w;
+    var html = '<div class="ev '+typeCls(e)+(e.dup?' dup':'')+(cls?' '+cls:'')+'" style="top:'+top+'px;height:'+h+'px;left:calc('+left+'% + 2px);width:calc('+w+'% - 4px)" title="'+esc(tip(e))+'">';
+    if (lines===1) html += '<div class="tm mono">'+hm(e.st)+'</div>';
+    else if (lines===2) html += '<div class="tm mono">'+hm(e.st)+' · '+e.du+'분'+(e.c24?'<span class="tg">C24</span>':'')+'</div><div class="nm">'+esc(e.t)+' · '+esc(e.s)+'</div>';
+    else html += '<div class="tm mono">'+hm(e.st)+' · '+e.du+'분'+(e.c24?'<span class="tg">카페24</span>':'')+'</div><div class="nm">'+esc(e.s)+'</div><div class="ty">'+(e.c24?'카페24에만 있음':TYPE_KO[e.type])+(e.dup?' · ⚠ 겹침':'')+'</div>';
+    return html+'</div>';
+  }
+  function gutter(){
+    var g = '<div class="gut">';
+    for (var h=START/60; h<END/60; h++) g += '<div class="hourlabel mono" style="height:'+PXH+'px">'+pad(h)+':00</div>';
+    return g+'</div>';
+  }
+  function teachersOn(d){ return T.filter(function(t){ return ev.some(function(e){ return e.day===d && e.t===t; }); }); }
+  function colStyle(){ return 'style="height:'+bodyH+'px;background-size:100% '+PXH+'px"'; }
+  function teacherCol(d, t, lines, extra){
+    var mine = lanes(ev.filter(function(e){ return e.day===d && e.t===t; }));
+    var h = '<div class="col'+(extra||'')+(d===TODAY?' today':'')+'" '+colStyle()+'>';
+    mine.forEach(function(e){ h += card(e, lines); });
+    return h + '</div>';
+  }
+  function dayCount(d){ return ev.filter(function(e){ return e.day===d; }).length; }
+
+  // ── B-1 아코디언 ──
+  var open1 = TODAY;
+  function render1(){
+    var cols = '52px', groups = [];
+    for (var d=0; d<7; d++){
+      var ts = teachersOn(d); groups.push(ts);
+      cols += (d===open1) ? (ts.length ? ' repeat('+ts.length+',minmax(64px,1fr))' : ' minmax(120px,1fr)') : ' 40px';
+    }
+    var h = '<div class="grid-1" style="grid-template-columns:'+cols+'"><div class="corner" style="grid-row:1/3"></div>';
+    groups.forEach(function(ts,d){
+      if (d===open1) h += '<div class="dayhead open" style="grid-column:span '+Math.max(1,ts.length)+'" data-d="'+d+'" role="button" tabindex="0">'+DAYS[d]+' '+DATES[d]+' <span class="cnt">· 수업 '+dayCount(d)+'개 · 강사 '+ts.length+'명</span><small>펼침 — 강사별 열</small></div>';
+      else h += '<div class="fold" data-d="'+d+'" role="button" tabindex="0">'+DAYS[d]+'<small>'+DATES[d].slice(3)+'</small></div>';
+    });
+    groups.forEach(function(ts,d){
+      if (d!==open1){ h += '<div class="subhead daysep" style="color:var(--mute)">'+(dayCount(d)||'—')+'</div>'; return; }
+      if (!ts.length){ h += '<div class="subhead daysep">수업 없음</div>'; return; }
+      ts.forEach(function(t,i){ var n = ev.filter(function(e){ return e.day===d && e.t===t; }).length; h += '<div class="subhead'+(i===0?' daysep':'')+'" title="'+t+'">'+t+'<small>'+n+'회</small></div>'; });
+    });
+    h += gutter();
+    groups.forEach(function(ts,d){
+      if (d!==open1){
+        /* 접힌 요일의 밀도는 div 수십 개가 아니라 그라데이션 «한 장» — 요소 수를 늘리지 않는다 */
+        var stops = [], slot = 20/60*PXH;
+        for (var m=START; m<END; m+=20){
+          var n = ev.filter(function(e){ return e.day===d && e.st<m+20 && e.st+e.du>m; }).length;
+          var a = n ? Math.min(.10+n*.12,.9) : 0, y0 = (m-START)/60*PXH, y1 = y0+slot;
+          stops.push('rgba(124,58,237,'+a+') '+y0+'px '+(y1-1)+'px, transparent '+(y1-1)+'px '+y1+'px');
+        }
+        h += '<div class="foldbody" data-d="'+d+'" style="height:'+bodyH+'px;background-image:linear-gradient(to bottom,'+stops.join(',')+')" title="'+DAYS[d]+' '+DATES[d]+' · 수업 '+dayCount(d)+'개 — 누르면 펼칩니다"></div>'; return;
+      }
+      if (!ts.length){ h += '<div class="col daysep'+(d===TODAY?' today':'')+'" '+colStyle()+'></div>'; return; }
+      ts.forEach(function(t,i){ h += teacherCol(d, t, 2, i===0?' daysep':''); });
+    });
+    var el = document.getElementById('cal1'); el.innerHTML = h+'</div>';
+    el.querySelectorAll('[data-d]').forEach(function(x){
+      function go(){ open1 = +x.getAttribute('data-d'); render1(); }
+      x.addEventListener('click', go);
+      x.addEventListener('keydown', function(ev){ if (ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); go(); } });
+    });
+  }
+  render1();
+
+  // ── B-2 컴팩트 주간 ──
+  (function(){
+    var W = 34, cols = '52px', groups = [], daysShown = [];
+    for (var d=0; d<7; d++){ var ts = teachersOn(d); if (!ts.length) continue; groups.push(ts); daysShown.push(d); cols += ' repeat('+ts.length+','+W+'px)'; }
+    var h = '<div class="grid-2" style="grid-template-columns:'+cols+'"><div class="corner" style="grid-row:1/3"></div>';
+    groups.forEach(function(ts,i){ var d = daysShown[i]; h += '<div class="dayhead'+(d===TODAY?' today':'')+'" style="grid-column:span '+ts.length+'">'+DAYS[d]+' '+DATES[d]+' <span class="cnt">· '+dayCount(d)+'개</span></div>'; });
+    groups.forEach(function(ts){ ts.forEach(function(t,i){ h += '<div class="vhead'+(i===0?' daysep':'')+'" title="'+t+'"><span>'+t+'</span></div>'; }); });
+    h += gutter();
+    groups.forEach(function(ts,i){ var d = daysShown[i]; ts.forEach(function(t,j){ h += teacherCol(d, t, 1, j===0?' daysep':'').replace(/class="ev /g,'class="ev mini '); }); });
+    var el = document.getElementById('cal2'); el.innerHTML = h+'</div>';
+    // 미니맵
+    var map = document.getElementById('map2'), total = 52 + groups.reduce(function(a,ts){ return a+ts.length*W; },0);
+    var mh = '<div class="seg" style="width:'+(52/total*100)+'%"></div>';
+    groups.forEach(function(ts,i){ var d = daysShown[i]; mh += '<div class="seg'+(d===TODAY?' today':'')+'" style="width:'+(ts.length*W/total*100)+'%">'+DAYS[d]+' '+DATES[d]+' · 강사 '+ts.length+'</div>'; });
+    map.innerHTML = mh + '<div class="win" id="win2"></div>';
+    function sync(){ var w = document.getElementById('win2'); var l = el.scrollLeft/total*100, ww = Math.min(100-l, el.clientWidth/total*100); w.style.left = l+'%'; w.style.width = ww+'%'; }
+    el.addEventListener('scroll', sync); window.addEventListener('resize', sync); sync();
+    map.addEventListener('click', function(e){ var r = map.getBoundingClientRect(); el.scrollLeft = Math.max(0, (e.clientX-r.left)/r.width*total - el.clientWidth/2); });
+  })();
+
+  // ── B-3 하루 크게 ──
+  var open3 = TODAY;
+  function render3(){
+    var ts = teachersOn(open3), idle = T.length - ts.length;
+    var tabs = document.getElementById('tabs3'), th = '';
+    for (var i=0;i<7;i++) th += '<button type="button" data-d="'+i+'"'+(i===open3?' class="on"':'')+'>'+DAYS[i]+' '+DATES[i]+'<small>'+(dayCount(i)?'수업 '+dayCount(i)+'개':'수업 없음')+'</small></button>';
+    th += '<span class="note">'+DAYS[open3]+' 수업 있는 강사 '+ts.length+'명 · 수업 없는 강사 '+idle+'명(열 없음)</span>';
+    tabs.innerHTML = th;
+    tabs.querySelectorAll('button').forEach(function(b){ b.addEventListener('click', function(){ open3 = +b.getAttribute('data-d'); render3(); }); });
+    var h = '<div class="grid-3" style="grid-template-columns:52px '+(ts.length?'repeat('+ts.length+',minmax(96px,1fr))':'1fr')+'"><div class="corner"></div>';
+    var maxMin = Math.max.apply(null, ts.map(function(t){ return ev.filter(function(e){ return e.day===open3&&e.t===t; }).reduce(function(a,e){ return a+e.du; },0); }).concat([1]));
+    ts.forEach(function(t){
+      var mine = ev.filter(function(e){ return e.day===open3 && e.t===t; }).sort(function(a,b){ return a.st-b.st; });
+      var mins = mine.reduce(function(a,e){ return a+e.du; },0), hasDup = mine.some(function(e){ return e.dup; });
+      h += '<div class="thead'+(hasDup?' dup':'')+'"><b>'+t+(hasDup?' ⚠':'')+'</b><small>'+mine.length+'회 · '+mins+'분 · <span class="mono">'+hm(mine[0].st)+'~'+hm(mine[mine.length-1].st+mine[mine.length-1].du)+'</span></small><div class="load"><i style="width:'+(mins/maxMin*100)+'%"></i></div></div>';
+    });
+    if (!ts.length) h += '<div class="thead">이 날은 수업이 없습니다</div>';
+    h += gutter();
+    ts.forEach(function(t){
+      var mine = ev.filter(function(e){ return e.day===open3 && e.t===t; }).sort(function(a,b){ return a.st-b.st; });
+      var c = '<div class="col'+(open3===TODAY?' today':'')+'" '+colStyle()+'>';
+      // 수업 사이 30분 이상 빈 자리
+      for (var i=1;i<mine.length;i++){
+        var g0 = mine[i-1].st+mine[i-1].du, g1 = mine[i].st;
+        if (g1-g0 >= 30) c += '<div class="gap" style="top:'+((g0-START)/60*PXH+2)+'px;height:'+((g1-g0)/60*PXH-4)+'px">빈 '+(g1-g0)+'분</div>';
+      }
+      lanes(mine).forEach(function(e){ c += card(e, 3); });
+      h += c + '</div>';
+    });
+    if (!ts.length) h += '<div class="col" '+colStyle()+'></div>';
+    document.getElementById('cal3').innerHTML = h+'</div>';
+  }
+  render3();
+  function fill(id, cal, note){ var n = document.getElementById(cal).querySelectorAll('.ev').length; document.getElementById(id).textContent = n+'장 '+note; }
+  fill('n1','cal1','(펼친 하루분 + 접힌 요일은 그라데이션 6장)');
+  fill('n2','cal2','(주간 전체를 한 번에)');
+  fill('n3','cal3','(하루분)');
+})();
+</script>
+
+</html>

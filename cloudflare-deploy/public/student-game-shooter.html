@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>학생게임 — 슈팅+말하기 (원어민 음성·말하기 미션)</title>
@@ -152,17 +152,20 @@
      '배경 없이도 어떤 사진 위에서든 읽히게' 한다 — 학습 게임이라 가독성은 못 버린다.
      ⚠ 외곽선은 -webkit-text-stroke 가 아니라 text-shadow 4방향으로 — stroke 는 글자 안쪽을
        파먹어 한자 획이 뭉갠다. */
-  .monster .word{font-size:12px;font-weight:800;color:#fff;background:rgba(10,16,34,.26);
-    border:1px solid rgba(255,255,255,.20);border-radius:999px;padding:1px 8px;white-space:nowrap;
-    text-shadow:-1.5px -1.5px 0 rgba(0,0,0,.9), 1.5px -1.5px 0 rgba(0,0,0,.9),
-                -1.5px  1.5px 0 rgba(0,0,0,.9), 1.5px  1.5px 0 rgba(0,0,0,.9),
-                 0 0 7px rgba(0,0,0,.95)}
+  /* (2026-08-13) 사장님: "글자가 너무 두꺼워서 안 보여. 바탕색도 투명으로" —
+     외곽선 1.5px 는 한자(吉他 등) 획 사이를 메워 검은 덩어리로 만들었다. 1px 로 줄이고
+     대신 부드러운 검은 글로우로 배경과 분리한다. 알약 배경·테두리는 완전 투명. */
+  .monster .word{font-size:12px;font-weight:800;color:#fff;background:transparent;
+    border:none;border-radius:999px;padding:1px 8px;white-space:nowrap;
+    text-shadow:-1px -1px 0 rgba(0,0,0,.95), 1px -1px 0 rgba(0,0,0,.95),
+                -1px  1px 0 rgba(0,0,0,.95), 1px  1px 0 rgba(0,0,0,.95),
+                 0 0 6px rgba(0,0,0,.9), 0 2px 10px rgba(0,0,0,.8)}
   .monster.distractor .word{border-color:rgba(255,120,120,.30)}
   /* 🙋 민간인 — 단어를 안 들고 있고 라벨이 파랗다. 좀비와 헷갈리면 안 되므로 확실히 구분한다. */
   /* ⚠ 배경을 투명하게 낮췄으므로 글자색을 뒤집어야 한다 — 예전의 어두운 남색 글자(#04283a)는
        밝은 파란 알약 위라서 읽혔던 것이라, 배경을 빼면 어두운 도로 위에서 안 보인다.
        민간인은 '쏘면 감점'이라 다른 라벨보다 확실히 보여야 한다 → 투명하게 하되 대비는 더 준다. */
-  .monster.civ .word{background:rgba(14,116,190,.42);color:#e6f8ff;border-color:rgba(186,230,253,.75)}
+  .monster.civ .word{background:transparent;color:#9fdcff}   /* 투명 배경 — 하늘색 글자로만 구분 */
   .monster.civ.hurt{animation:civFall .7s forwards}      /* 잘못 쏘면 "oh no!" 하며 쓰러진다 */
   @keyframes civFall{0%{transform:none;opacity:1}
     35%{transform:translateY(6px) rotate(-14deg)}
@@ -174,8 +177,13 @@
      무작위 하나(45%)에 붙어서 대개 지금 쏠 단어가 아니었다. 같은 색이 서로 다른 곳을
      가리키니 화면을 믿을 수 없었다.
      → 금색은 상단칩과 필드 모두 '지금 쏠 단어'로 통일. 보너스는 색이 아니라 왕관으로. */
-  .monster.cur .word{background:linear-gradient(135deg,#fde68a,#f59e0b);color:#3a2e05;
-    border-color:#fff7d6;box-shadow:0 0 18px rgba(251,191,36,.95),0 4px 12px rgba(0,0,0,.45)}
+  /* (2026-08-13) 금색 알약 배경 + 진갈색 글자였는데, 기본 라벨의 검은 외곽선 그림자가
+     그대로 상속돼 어두운 글자와 겹치면서 한자가 검은 덩어리로 보였다(사장님 스크린샷).
+     배경을 빼고 '금색 = 글자 자체'로 — 검은 외곽선 위에 금빛 글로우라 어디서든 읽힌다. */
+  .monster.cur .word{background:transparent;color:#ffd845;
+    text-shadow:-1px -1px 0 rgba(0,0,0,.95), 1px -1px 0 rgba(0,0,0,.95),
+                -1px  1px 0 rgba(0,0,0,.95), 1px  1px 0 rgba(0,0,0,.95),
+                 0 0 6px rgba(0,0,0,.9), 0 0 16px rgba(251,191,36,.85)}
   /* ⚠ 확대(transform)와 광채(filter)는 여기 적으면 안 먹는다 — 루프가 매 프레임
      .word 의 transform 과 .face 의 filter 를 인라인으로 덮어쓰기 때문이다. JS 쪽에서 함께 넣는다. */
   /* 💰 보너스 표적(2배 점수) — 색이 아니라 왕관 뱃지로만 구분한다.
@@ -282,6 +290,13 @@
     font-size:15px;cursor:pointer;font-family:inherit;color:var(--tx);display:inline-flex;align-items:center;gap:4px}
   .gunbtn .gl{font-size:10px;color:var(--sub);font-weight:700}
   .gunbtn:active{transform:scale(.94)}
+  /* 🚪 나가기 화살표는 34px 정사각 — 허브 «밖» 에서 주입되는 나가는 문
+     (js/game-standalone-exit.js)과 같은 크기로 맞춘다(2026-09-02 사장님 지시).
+     실측(2026-09-02 수리 전): 35x27 — 세로가 얇아 엄지로 누르기 어려웠다.
+     ⚠️ `.gunbtn` 을 직접 키우지 않는다 — 지금은 이 버튼 하나뿐이지만 그 클래스가
+        다시 쓰이면 엉뚱한 버튼까지 34px 정사각이 된다. 그래서 id 로 좁힌다.
+     ℹ️ 이 파일은 *{box-sizing:border-box} 라 34px 안에 테두리·여백이 포함된다. */
+  #backBtn.gunbtn{width:34px;height:34px;padding:0;justify-content:center;font-size:17px}
   /* ⋮ 케밥(게임 설정: 속도·무기 통합) — 상단 HUD 오른쪽, 넉넉한 탭 영역 */
   .optkebab{font-size:22px;font-weight:900;line-height:1;padding:2px 12px;color:#ffd34d}
   /* 시작화면 통합 설정 버튼(현재 속도·무기 요약 + ⋮) */
@@ -435,8 +450,9 @@
      MangoiMemory.log 를 감싸 자동으로 POST /api/games/shadow 로 보낸다 — 채점 코드는 안 건드린다.
      ⚠️ 반드시 mangoi-memory.js **다음에** 실을 것. -->
 <script src="/js/mangoi-shadow-sync.js?v=1"></script>
-<script src="/js/i18n-sweep.js?v=22" defer></script>
-<script src="/js/game-track.js?v=3" defer></script>
+<script src="/js/i18n-sweep.js?v=23" defer></script>
+<script src="/js/game-track.js?v=4" defer></script>
+<script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 </head>
 <body>
 <div id="game">
@@ -713,6 +729,18 @@
     }catch(e){ return 'space'; }
   })();
   var FACES = THEMES[THEME].foes;
+  /* 🛸 (2026-08-13) 우주 테마는 경로가 다르다 — 사장님: "괴물이 사수 몸에서 솟지 말고 사방에서 나오게".
+     좀비는 도로 소실점에서 걸어오는 게 맞지만, 우주 배경은 행성 지평선이 화면 아래(0.698)라
+     같은 방식이면 몬스터 전부가 사수 코앞에서 솟아난다(스크린샷 확인). 그래서 우주에서는
+     화면 가장자리(위·왼쪽·오른쪽)에서 작게 나타나 플레이어 쪽으로 날아온다.
+     depth 엔진(크기·페이드·경고·통과 판정·동시수 제한)은 그대로 쓰고 좌표 계산만 가른다. */
+  var SPACE_FLY = (THEME === 'space');
+  function assignSpacePath(m, fw, fh){   // 진입 가장자리를 추첨해 시작점(sx,sy)을 준다
+    var r = Math.random();
+    if(r < 0.5){      m.sx = (0.06 + Math.random()*0.88) * fw; m.sy = -50; }            // 위쪽 50%
+    else if(r < 0.75){ m.sx = -60;    m.sy = (0.04 + Math.random()*0.50) * fh; }        // 왼쪽 25%
+    else {             m.sx = fw + 60; m.sy = (0.04 + Math.random()*0.50) * fh; }       // 오른쪽 25%
+  }
   // 걷기 스프라이트(4프레임 가로 스트립). 정지컷 shooter-mon-/shooter-zom- 는 폴백으로 남겨둔다.
   var FACE_SRC = function(id){ return '/img/shooter-anim-' + id + '.webp'; };
   // 🙋 민간인 4명 — 테마와 무관하게 공통(좀비 도시든 우주든 '구해야 할 사람')
@@ -1141,6 +1169,42 @@
     o.frequency.setValueAtTime(170,t); o.frequency.exponentialRampToValueAtTime(80,t+0.2);
     o.connect(g); g.connect(master||actx.destination); g.gain.setValueAtTime(0.15,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.22); o.start(t); o.stop(t+0.24);
   }catch(e){} }
+  /* 🙋 민간인 오사 경고 — "No! No! Stop!! Please stop!!!" 을 크게 외친다.
+     · 1순위 = 미리 구운 실감 연기 음성 /audio/civilian-stop.mp3 (Higgsfield Seed Audio, 2.7초).
+       서버 TTS(단조로운 낭독)보다 훨씬 생동감 있어서 이걸 기본으로 쓴다.
+     · 폴백 = 서버 TTS "Stop!!!!" (항상 lang:'en' 고정 — zh 서버 TTS 는 깨진 소리) → 브라우저 음성.
+     · ttsAudio(단어 읽기용 <audio>)를 안 쓰고 WebAudio 버퍼로 재생 —
+       단어 발음을 끊지 않으면서, 마스터 게인(1.4)+리미터를 타고 게인 2.2 를 얹어 확실히 크게 들린다. */
+  var CIV_STOP_URL='/audio/civilian-stop.mp3';
+  var civStopBuf=null, civStopLoading=false;
+  function _decodeToCivBuf(ab){ ensureCtx(); if(!actx) throw new Error('ctx');
+    return actx.decodeAudioData(ab).then(function(buf){ civStopBuf=buf; }); }
+  function prefetchCivStop(){
+    if(civStopBuf || civStopLoading) return; civStopLoading=true;
+    fetch(CIV_STOP_URL)
+      .then(function(r){ if(!r.ok) throw new Error('asset'); return r.arrayBuffer(); })
+      .then(_decodeToCivBuf)
+      .catch(function(){                              // 정적 파일이 없으면 서버 TTS 로
+        return fetch(TTS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:'Stop!!!!',lang:'en'})})
+          .then(function(r){ var ct=r.headers.get('content-type')||''; if(!r.ok || ct.indexOf('audio')<0) throw new Error('tts'); return r.arrayBuffer(); })
+          .then(_decodeToCivBuf);
+      })
+      .catch(function(){ civStopLoading=false; });    // 둘 다 실패하면 다음 기회에 다시 받는다
+  }
+  function sndCivStop(){ try{
+    ensureCtx();
+    if(civStopBuf && actx){
+      var s=actx.createBufferSource(), g=actx.createGain();
+      s.buffer=civStopBuf; g.gain.value=2.2;
+      s.connect(g); g.connect(master||actx.destination);
+      s.start();
+      return;
+    }
+    prefetchCivStop();                               // 아직 못 받았으면 이번엔 브라우저 음성으로 외치고, 다음을 위해 받아둔다
+    if(synth){ synth.cancel();
+      var u=new SpeechSynthesisUtterance('Stop!'); u.lang='en-US'; if(enVoice) u.voice=enVoice;
+      u.rate=1.1; u.pitch=1.15; u.volume=1; synth.speak(u); }
+  }catch(e){} }
 
   // ===================================================================
   //  🎤 말하기 미션 (Mastery Loop) — english-mastery-suite(슈팅+말하기) 이식
@@ -1173,13 +1237,20 @@
        중국어는 채점기가 영어 전용이라 기존 경로를 그대로 둔다.
      ⚠️ 반환값은 예전과 같은 boolean 이다 — 호출부는 한 줄도 안 바뀐다. */
   var lastSpeakDiag = null;   // 마지막 판정의 처방(있으면 화면에 한 줄 띄운다)
+  /* 💯 (2026-08-13 원장님 제안) 원샷 통과 판정용 정확도(0~1). matchSpoken 이 판정할 때마다 갱신한다.
+     boolean 만으로는 "100점"과 "턱걸이 통과"를 구분할 수 없다. */
+  var lastSpeakAcc = 0;
+  var SPEAK_PERFECT = 0.98, SPEAK_PERFECT_BONUS = 200, _speakTries = 0;
   function matchSpoken(heard, target){
     var h=_mclean(heard), t=_mclean(target);
+    lastSpeakAcc = 0;
     if(!h||!t) return false;
-    if(h===t){ lastSpeakDiag=null; return true; }
-    if(GLANG==='zh'){ lastSpeakDiag=null; return h.indexOf(t)>=0 || t.indexOf(h)>=0 || simRatio(heard,target)>=0.8; }
+    if(h===t){ lastSpeakDiag=null; lastSpeakAcc=1; return true; }
+    if(GLANG==='zh'){ lastSpeakDiag=null; lastSpeakAcc=simRatio(heard,target);
+      return h.indexOf(t)>=0 || t.indexOf(h)>=0 || lastSpeakAcc>=0.8; }
     if(window.MangoiScore){
       var g = MangoiScore.grade(heard, target);
+      lastSpeakAcc = g.accuracy;
       var d = (window.MangoiPron && MangoiPron.analyze(g)) || { tags:[], goodTags:[] };
       lastSpeakDiag = (window.MangoiPron && MangoiPron.tipFor(d.tags)) || '';
       try{
@@ -1189,6 +1260,7 @@
       }catch(_){}
       return !!g.pass;
     }
+    lastSpeakAcc = simRatio(heard, target);
     return _legacyMatchSpoken(heard, target);
   }
   // 채점기 로드 실패 시에만 쓰는 옛 방식 — 게임이 아예 안 되는 것보다는 낫다
@@ -1203,6 +1275,7 @@
   function awardSpeak(){ if(_onSpeakScore) _onSpeakScore(SPEAK_POINTS); speakAwarded++; }
   function startMission(done, onScore){
     onMissionDone=done; _onSpeakScore=onScore||null; speakCount=0; speakAwarded=0; audioPlayed=false;
+    _speakTries=0;   // 💯 이 문장에서 말하기를 시도한 횟수(원샷 판정용)
     // 🎧 새 문장 = 이전 문장 녹음은 버린다(다른 문장을 비교하면 헷갈린다)
     try{ if(myUrl){ URL.revokeObjectURL(myUrl); myUrl=''; } }catch(e){}
     if(playMineBtn){ playMineBtn.disabled=true; playMineBtn.classList.remove('playing'); }
@@ -1217,7 +1290,8 @@
     // ▼ Audio Prerequisite: 목표 문장을 1회 들려준 뒤에만 마이크 활성화 (+6초 보험 해제)
     var armed=false; function arm(){ if(armed) return; armed=true; audioPlayed=true;
       micBtn.disabled=false; micBtn.innerHTML='누르고 말하기';
-      missionStatus.innerHTML='버튼을 누르고 <b>또렷하게</b> 문장을 말하세요. ('+SPEAK_TARGET+'회 성공 필요)'; }
+      missionStatus.innerHTML='버튼을 누르고 <b>또렷하게</b> 문장을 말하세요. '
+        + '(<b>첫 시도 100점이면 바로 통과!</b> 아니면 '+SPEAK_TARGET+'회 성공)'; }
     speakMission(arm); setTimeout(arm, 6000);   // 미션 발음 속도(느리게/보통/빠르게) 적용
   }
   function setupRecognition(){
@@ -1296,6 +1370,17 @@
     var pct=Math.round(simRatio(heard, missionSentence())*100);
     var line='들린 말: <span class="heard">"'+(heard||'…')+'"</span><br>정확도 <span class="conf '+(matched?'ok':'no')+'">'+pct+'%</span>';
     if(pass){
+      _speakTries++;
+      /* 💯 (2026-08-13 원장님 제안) 원샷 원킬 — 첫 시도에서 정확도 100점이면
+         남은 반복을 건너뛰고 즉시 통과 + 퍼펙트 보너스. 첫 시도부터 집중하게 만드는 장치다. */
+      if(lastSpeakAcc>=SPEAK_PERFECT && _speakTries<=1 && speakCount===0){
+        speakCount=SPEAK_TARGET; renderStars();
+        if(_onSpeakScore) _onSpeakScore(SPEAK_PERFECT_BONUS);
+        missionStatus.innerHTML=line+'<br><b>🏆 퍼펙트! 첫 시도 100점!</b> 바로 통과 <b>+'+(SPEAK_POINTS*SPEAK_TARGET+SPEAK_PERFECT_BONUS)+'점</b>';
+        micBtn.disabled=true; micBtn.classList.remove('listening'); micBtn.innerHTML='🏆 원샷 통과!';
+        setTimeout(finishMission, 1100);
+        return;
+      }
       speakCount++; renderStars(); awardSpeak();          // ★ 말할 때마다 +100(라이브 반영)
       if(speakCount>=SPEAK_TARGET){
         missionStatus.innerHTML=line+'<br><b>완벽해요!</b> '+SPEAK_TARGET+'회 모두 성공! <b>+'+SPEAK_POINTS+'점</b>';
@@ -1305,6 +1390,7 @@
         missionStatus.innerHTML=line+'<br><b>성공! +'+SPEAK_POINTS+'점</b> ('+speakCount+'/'+SPEAK_TARGET+') 다시 한 번!';
       }
     } else {
+      _speakTries++;
       /* 🌱 (2026-08-03) "다시 해보세요"만으로는 학생이 **뭘 고쳐야 하는지** 모른다.
          한국인 취약 발음(R/L, TH, 끝소리…)이 잡히면 그 처방을 한 줄 붙인다.
          한/영 둘 다 — 강사 다수가 필리핀이라 화면을 같이 볼 때 읽혀야 한다. */
@@ -1413,8 +1499,9 @@
     if(!speakKoEl.textContent){
       var s = missionSentence();
       speakKoEl.textContent = '…';
+      // 🗣️ mode:'learn' — 학생이 읽는 «뜻» 이라 의역(2026-08-31). 낱말 팝업은 사전 뜻이라 기본 경로 그대로.
       fetch('/api/translate', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ texts:[s], target:'ko' }) })
+        body: JSON.stringify({ texts:[s], target:'ko', mode:'learn' }) })
         .then(function(r){ return r.json(); })
         .then(function(d){
           var t = d && d.map && d.map[s];
@@ -1433,6 +1520,7 @@
     currentIndex = 0;
     targetWords.forEach(function(w){ prefetchTTS(w.replace(/[.?!]/g,'')); });          // 원어민 음성 미리받기(즉시 재생)
     prefetchTTS(targetWords.join(' ').replace(/[.?!]/g,''));
+    prefetchCivStop();                                  // 🙋 "Stop!!!!" 음성도 미리 받아 첫 오사부터 즉시 들리게
     lvlPill.textContent = '단계' + stageLvl + ' · 문장 ' + (level+1) + ' · ' + correctWords + '/' + GOAL;
     var pool = DISTRACTORS.filter(function(w){ return targetWords.indexOf(w)<0; });
     shuffle(pool);
@@ -1498,7 +1586,8 @@
             //    이보다 빠르면 단어를 읽고 순서대로 쏠 시간이 안 나온다.
             vDepth:rand(0.072,0.115),
             vLane:(Math.random()<0.5?-1:1)*rand(0.10,0.26) };   // 걸으며 좌우로도 조금씩 이동
-    m.y=depthY(m.depth, fh); m.x=fw/2;
+    if(SPACE_FLY){ assignSpacePath(m, fw, fh); m.x=m.sx; m.y=m.sy; }   // 🛸 우주: 가장자리에서 출발
+    else { m.y=depthY(m.depth, fh); m.x=fw/2; }
     el.style.left=m.x+'px'; el.style.top=m.y+'px';
     /* 걸음 애니메이션은 .face 에 걸려 있다(.monster 의 sway 는 제거됨).
        개체마다 주기를 다르게 + 시작 시점도 흩어 놓아야 여럿이 군무처럼 안 보인다. */
@@ -1835,6 +1924,7 @@
     if(m.isCiv){                                        // 🙋 민간인을 쐈다 — 점수만 깎고 생명력은 안 건드린다
       score=Math.max(0, score-CIV_PENALTY);
       combo=0;
+      sndCivStop();                                     // 🔊 "Stop!!!!" — 민간인이 큰 소리로 외친다
       floatScore('oh no! -'+CIV_PENALTY, x, y, false);
       showCombo('민간인이에요! -'+CIV_PENALTY);
       m.el.classList.add('hurt');
@@ -1842,6 +1932,7 @@
       setTimeout(function(){                            // 쓰러진 뒤 저 멀리서 다시 걸어온다
         if(_mm.el){ _mm.el.classList.remove('hurt'); }
         _mm.depth=-0.35; _mm.lane=Math.random()*2-1;
+        if(SPACE_FLY) assignSpacePath(_mm, field.clientWidth, field.clientHeight);   // 🛸 우주: 새 가장자리에서
       }, 720);
       updateHUD();
       return;
@@ -1988,19 +2079,31 @@
       /* 🚶 발이 지면선에 붙게 — depthY 는 '지면선'을 주므로 요소 top 은 거기서 face 높이만큼
          빼야 한다. 이걸 안 해서 캐릭터가 도로 위에 떠 있었다(사장님: "하늘에서 날아오는 것 같아"). */
       var faceH=(m.faceEl ? m.faceEl.offsetHeight : 0);
+      var bob = Math.sin(m.wob*2) * 1.6 * sc;
+      if(SPACE_FLY){
+        /* 🛸 우주 비행 경로 — 자기 가장자리 시작점(sx,sy)에서 목표점까지 직선 보간.
+           목표점은 사수가 아니라 화면 하부의 '자기 lane 자리'(폭 80%에 분산) — 그래서
+           다가와도 사수 몸 위로 모이지 않고 화면 전역에 퍼진 채 커진다.
+           ease 지수 1.3: 멀리(작을 때)는 천천히, 가까울수록 빨리 = 원근감. */
+        if(m.sx==null) assignSpacePath(m, w, h);
+        var ease=Math.pow(d,1.3);
+        var ex=w/2 + m.lane*(w*0.40), ey=h*0.86;
+        m.x=m.sx + (ex-m.sx)*ease + Math.sin(m.wob)*4*sc;
+        m.y=m.sy + (ey-m.sy)*ease - faceH*ease + bob;
+      }else{
       m.x=w/2 + m.lane*spread + Math.sin(m.wob)*2*sc;
+      /* 한 걸음마다 몸이 한 번 오르내린다 → 한 사이클(두 걸음)에 2회. 실제 걷기의 특징이라
+         이것만 넣어도 '미끄러지듯 다가오는' 느낌이 사라진다. 진폭은 거리에 비례. */
+      m.y=depthY(d,h,w) - faceH + bob;
+      }
       /* 🎯 사수를 비켜 지나가게(사장님 지시) — 코앞에 왔을 때 화면 가운데 아래는 사수 자리다.
-         그대로 두면 좀비가 사수 몸을 뚫고 지나간다. 가까워질수록(=d 의 세제곱) 최소 간격을
-         벌려 좌우로 흘려보낸다. 멀리서는 0 이라 도로 가운데 대열은 그대로 유지된다. */
+         그대로 두면 몬스터가 사수 몸을 뚫고 지나간다. 가까워질수록(=d 의 세제곱) 최소 간격을
+         벌려 좌우로 흘려보낸다. 멀리서는 0 이라 대열은 그대로 유지된다. (두 테마 공통) */
       var need=(SHOOTER_HALF + halfW) * Math.pow(d, 3);
       var dx=m.x - w/2;
       if(Math.abs(dx) < need) m.x = w/2 + (dx<0 || (dx===0 && m.lane<0) ? -need : need);
       // 커진 만큼 화면 밖으로 잘리지 않게 자기 폭을 기준으로 가둔다(예전엔 40px 고정이었다)
       m.x=Math.max(halfW+2, Math.min(w-halfW-2, m.x));
-      /* 한 걸음마다 몸이 한 번 오르내린다 → 한 사이클(두 걸음)에 2회. 실제 걷기의 특징이라
-         이것만 넣어도 '미끄러지듯 다가오는' 느낌이 사라진다. 진폭은 거리에 비례. */
-      var bob = Math.sin(m.wob*2) * 1.6 * sc;
-      m.y=depthY(d,h,w) - faceH + bob;
       if(m.faceEl) m.faceEl.style.transform='scale('+sc.toFixed(3)+')';
       /* 🌫 공기원근 — 안개 속에서 서서히 떠오르게. 앞 FADE_IN 구간 동안 0 → 1 로 올리고,
          그 구간에선 살짝 흐리게(blur) 해 '멀리 희미하게' 가 눈에 보이도록 한다. */
@@ -2039,6 +2142,7 @@
         m.breached=true;
         if(m.isTarget && m.word===targetWords[currentIndex]) loseLife();
         m.depth=-0.05; m.lane=Math.random()*2-1; m.breached=false; // 다시 저 멀리서 걸어온다
+        if(SPACE_FLY) assignSpacePath(m, w, h);                    // 🛸 우주: 새 가장자리에서 재진입
       }
       m._halfW=halfW;                                // 아래 겹침 밀어내기에서 쓴다
       m._d=d;
@@ -2292,7 +2396,15 @@
 })();
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
-<script defer src="/js/flow.js?v=13"></script>
-<!-- BUILD:20260813001216 -->
+<!-- 🎮 게임을 «허브 밖에서» 열었을 때만 나가는 문을 띄운다 (2026-09-01).
+     허브(student-games.html)가 iframe 으로 감싸 열면 아무것도 하지 않는다 — 그쪽에
+     이미 「← 게임 선택」이 있다. 판정은 그 파일 하나에만 있다(16개에 복제하지 않는다).
+     ⚠️ 이 태그는 «마지막 인라인 script 태그 앞» 에 둔다(그 이름을 여기에 꺾쇠로 적으면
+        하니스 정규식이 주석에서부터 잘라 깨진다 — 2026-09-01 실측). `body` 닫기 직전에
+        두면 escape_school_mic·escape_zombie_mic 가 «닫기 직전의 인라인 코드» 를 오려
+        내는 정규식에 걸려 깨진다. defer 라 위치를 옮겨도 실행 시점은 그대로다. -->
+<script defer src="/js/game-standalone-exit.js?v=5"></script>
+<script defer src="/js/flow.js?v=23"></script>
+<!-- BUILD:20260813015745 -->
 </body>
 </html>

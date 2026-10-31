@@ -193,6 +193,28 @@ chk('시작이 실패하면 다시 «눌러서 시작» 으로 돌아온다',
   !!badge() && badge().classList.contains('mango-rec-off'));
 chk('굳어버리지 않는다(다시 누를 수 있다)', !!badge() && badge().style.pointerEvents !== 'none');
 
+/* ── ②-b 서버가 «학생 미동의(consent_required)» 로 거절하면 — 사유가 보여야 한다 ──
+   서버는 이 거절을 일부러 HTTP 200 + ok:false 로 준다(재시도 폭주 방지).
+   그래서 2026-08-27 까지는 배지가 그냥 «눌러서 시작» 으로 되돌아갔고, 몇 번을 눌러도
+   절대 성공할 수 없는 상태가 「녹화 버튼 고장」 으로 제보됐다(Teacher Shas, class-971). */
+console.log('\n· 서버가 «학생 미동의» 로 거절했을 때');
+MangoV3.api = async (url) => { apiCalls.push(url); return { ok: false, error: 'consent_required' }; };
+if (badge()) badge().click();
+await flush(); await flush(); await flush();
+await advance(2500);
+chk('배지에 미동의 상태 클래스가 붙는다', !!badge() && badge().classList.contains('mango-rec-consent'));
+chk('배지 «본문 글자» 가 사유를 말한다(툴팁은 폰에서 안 보인다)',
+  /미동의|consent/i.test(badge()?.querySelector('.mango-rec-time-text')?.textContent || ''),
+  badge()?.querySelector('.mango-rec-time-text')?.textContent);
+chk('굳어버리지 않는다(재시도 탭 가능 — 학생이 뒤늦게 동의하면 성공해야 한다)',
+  !!badge() && badge().style.pointerEvents !== 'none');
+// 일반 실패로 돌아가면 미동의 표시는 걷혀야 한다 — 안 걷히면 멀쩡한 실패까지 «학생 탓» 이 된다
+MangoV3.api = async (url) => { apiCalls.push(url); return { ok: false }; };
+if (badge()) badge().click();
+await flush(); await flush(); await flush();
+await advance(2500);
+chk('일반 실패로 돌아가면 미동의 표시가 걷힌다', !!badge() && !badge().classList.contains('mango-rec-consent'));
+
 /* ── ③ 수업 밖에서는 흔적을 남기지 않는다 ─────────────────────────────────── */
 console.log('\n· 수업에서 나갔을 때');
 body.classList.remove('vc-in-call');

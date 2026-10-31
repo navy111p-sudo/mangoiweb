@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" data-report-theme="light">
 <head>
 
 
@@ -8,9 +8,16 @@
 
 
 <meta charset="UTF-8">
-<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
-<title>월별 학습 보고서 — 망고아이</title>
+<script>
+// Restore before first paint; blocked storage still leaves a usable light report.
+try {
+  document.documentElement.dataset.reportTheme = localStorage.getItem('mangoi_report_theme') === 'dark' ? 'dark' : 'light';
+} catch (e) {}
+</script>
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>월간 성적표 — 망고아이</title>
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
 <link rel="stylesheet" href="/css/mangoi-fonts.css?v=2"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
@@ -51,6 +58,95 @@
   .print-btn{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a}
   .home-btn{background:rgba(139,92,246,0.5);color:#fff}
   .empty{padding:30px;text-align:center;color:#94a3b8}
+
+  /* Screen readability is separate from the compact printed report. */
+  @media screen {
+    body{font-size:16px;line-height:1.6}
+    .wrap{overflow-wrap:anywhere}
+    .brand-sub{font-size:18px}
+    .meta{font-size:14px;color:#cbd5e1}
+    .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .stat{min-width:0}
+    .stat-label,.voice-label{font-size:15px;color:#cbd5e1;letter-spacing:0}
+    .card h3{font-size:20px}
+    .eval-body{font-size:16px}
+    .eval-date,.eval-score,.score-max{font-size:14px}
+    .voice-num{font-size:28px;font-weight:800;line-height:1.3}
+    .report-footer{font-size:14px;color:#cbd5e1}
+    .empty{color:#cbd5e1;padding:28px 12px}
+    .actions{max-width:calc(100% - 24px);right:12px;bottom:12px;flex-wrap:wrap}
+    .actions button,.actions a{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:10px 18px;border-radius:99px;font-weight:700;font-family:inherit;font-size:16px;line-height:1.5;text-decoration:none}
+    .login-card label{font-size:16px !important}
+    .login-card input,.login-card p,.login-card button{font-size:16px !important}
+  }
+  @media screen and (min-width:768px) {
+    body{font-size:18px;padding-bottom:100px}
+    .wrap{max-width:1200px;padding:40px 32px}
+    .brand{margin-bottom:28px;padding-bottom:24px}
+    .brand-logo{font-size:44px}
+    .brand-sub{font-size:22px;margin-top:12px}
+    h1{font-size:32px}
+    .meta{font-size:16px;gap:10px 24px;margin-bottom:28px}
+    .stat-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:28px}
+    .stat{padding:20px 12px}
+    .stat-num{font-size:36px;line-height:1.3}
+    .stat-label,.voice-label{font-size:16px;margin-top:8px}
+    .card{padding:28px;margin-bottom:20px}
+    .card h3{font-size:22px;margin-bottom:20px}
+    .voice-num{font-size:32px}
+    .eval-item{padding:20px;margin-bottom:14px}
+    .eval-body{font-size:18px;line-height:1.8}
+    .eval-date,.eval-score,.score-max{font-size:16px}
+    .report-footer{font-size:16px}
+    .login-card{max-width:480px !important}
+    .login-card h3{font-size:24px !important}
+    .login-card input,.login-card p,.login-card button{font-size:18px !important}
+  }
+  .voice-num{font-weight:800}
+  @media print {
+    .voice-num{font-size:22px}
+    .voice-label{font-size:11px}
+    .score-max{font-size:13px}
+    .report-footer{font-size:11.5px}
+  }
+
+  .report-theme{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+  .report-theme button{min-height:48px;padding:10px 18px;border:1px solid #64748b;border-radius:12px;background:#172033;color:#e2e8f0;font-weight:700;line-height:1.5;font-family:inherit;font-size:16px;cursor:pointer}
+  .report-theme button[aria-pressed="true"]{background:#fbbf24;color:#1a1a1a;border-color:#fbbf24}
+  .report-theme button:focus-visible{outline:3px solid #2563eb;outline-offset:3px}
+  @media screen {
+    html[data-report-theme="light"]{color-scheme:light}
+    html[data-report-theme="dark"]{color-scheme:dark}
+    html[data-report-theme="light"] body{background:#f4f6fa;color:#172033}
+    html[data-report-theme="light"] body::before,html[data-report-theme="light"] body::after{display:none}
+    html[data-report-theme="light"] .card,html[data-report-theme="light"] .stat{background:#fff;border-color:#cbd5e1;backdrop-filter:none;box-shadow:0 3px 12px rgba(15,23,42,.04)}
+    html[data-report-theme="light"] h1{color:#172033}
+    html[data-report-theme="light"] .brand-logo,html[data-report-theme="light"] .brand-sub,html[data-report-theme="light"] .stat-num{background:none;color:#854d0e;-webkit-text-fill-color:currentColor}
+    html[data-report-theme="light"] .meta,html[data-report-theme="light"] .stat-label,html[data-report-theme="light"] .voice-label,html[data-report-theme="light"] .eval-date,html[data-report-theme="light"] .eval-body,html[data-report-theme="light"] .empty,html[data-report-theme="light"] .report-footer{color:#475569}
+    html[data-report-theme="light"] .meta b,html[data-report-theme="light"] .eval-body b,html[data-report-theme="light"] .report-footer b{color:#854d0e !important}
+    html[data-report-theme="light"] .card h3{color:#5b21b6}
+    html[data-report-theme="light"] .eval-item{background:#f5f3ff;border-left-color:#7c3aed}
+    html[data-report-theme="light"] .voice-num{color:#155e75 !important}
+    html[data-report-theme="light"] .score-max{color:#475569 !important;-webkit-text-fill-color:#475569 !important}
+    html[data-report-theme="light"] .login-card h3,html[data-report-theme="light"] .login-card label,html[data-report-theme="light"] .login-card p{color:#334155 !important}
+    html[data-report-theme="light"] .login-card #lg-err{color:#b91c1c !important}
+    html[data-report-theme="light"] .login-card input{background:#fff !important;color:#172033 !important;border-color:#94a3b8 !important}
+    html[data-report-theme="light"] .login-card input::placeholder{color:#64748b}
+    html[data-report-theme="light"] .home-btn{background:#6d28d9}
+    html[data-report-theme="light"] .report-theme button{background:#fff;color:#334155;border-color:#94a3b8}
+    html[data-report-theme="light"] .report-theme button[aria-pressed="true"]{background:#fef3c7;color:#713f12;border-color:#a16207}
+  }
+  /* Printing and PDF always use white paper and dark ink, including gradients. */
+  @media print {
+    html,body{color-scheme:light;background:#fff !important;color:#1a1a1a !important}
+    body{padding-bottom:0}
+    .wrap{overflow-wrap:anywhere}
+    .stat-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .stat{min-width:0}
+    .wrap,.wrap *{background:transparent !important;color:#1a1a1a !important;-webkit-text-fill-color:#1a1a1a !important;text-shadow:none !important;box-shadow:none !important;backdrop-filter:none !important}
+    .card,.stat,.eval-item{background:#fff !important;border-color:#bbb !important;break-inside:avoid}
+    .no-print{display:none !important}
+  }
 </style>
 <script src="/js/session-guard.js" defer></script>
 </head>
@@ -62,14 +158,31 @@
 </div>
 
 <div class="wrap">
+  <div class="report-theme no-print" role="group" aria-label="성적표 화면 밝기">
+    <button type="button" data-theme-choice="light" aria-pressed="true">☀️ 밝게</button>
+    <button type="button" data-theme-choice="dark" aria-pressed="false">🌙 어둡게</button>
+  </div>
   <div class="brand">
     <span class="brand-logo">Mangoi</span>
-    <div class="brand-sub" id="report-title">월별 학습 보고서</div>
+    <div class="brand-sub" id="report-title">월간 성적표</div>
   </div>
   <div id="content"><div class="empty">불러오는 중…</div></div>
 </div>
 
 <script>
+function applyReportTheme(theme, save) {
+  var chosen = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.reportTheme = chosen;
+  document.querySelectorAll('[data-theme-choice]').forEach(function(button) {
+    button.setAttribute('aria-pressed', String(button.dataset.themeChoice === chosen));
+  });
+  if (save) { try { localStorage.setItem('mangoi_report_theme', chosen); } catch (e) {} }
+}
+document.querySelectorAll('[data-theme-choice]').forEach(function(button) {
+  button.addEventListener('click', function() { applyReportTheme(button.dataset.themeChoice, true); });
+});
+applyReportTheme(document.documentElement.dataset.reportTheme, false);
+
 function esc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
 function getQuery(k){ try { return new URLSearchParams(location.search).get(k); } catch(e){ return null; } }
 
@@ -95,9 +208,9 @@ if (!uid) {
 // 🔑 학생 ID/비밀번호 로그인 폼 (index.html 과 동일한 /api/student/login 사용)
 function showLogin() {
   document.getElementById('content').innerHTML = `
-    <div class="card" style="max-width:380px;margin:20px auto;padding:28px 24px">
+    <div class="card login-card" style="max-width:380px;margin:20px auto;padding:28px 24px">
       <h3 style="font-size:17px;color:#fff;text-align:center;margin-bottom:6px">🔑 학생 로그인</h3>
-      <p style="color:#94a3b8;font-size:12.5px;text-align:center;margin-bottom:20px">보고서를 보려면 로그인하세요</p>
+      <p style="color:#94a3b8;font-size:12.5px;text-align:center;margin-bottom:20px">성적표를 보려면 로그인하세요</p>
       <div style="margin-bottom:12px">
         <label style="display:block;font-size:11.5px;color:#94a3b8;margin-bottom:6px">학생 ID</label>
         <input id="lg-uid" type="text" autocomplete="username" placeholder="예: hong_gd"
@@ -186,6 +299,29 @@ async function load() {
   }
 }
 
+/* 📏 score_overall 은 «한 칸에 두 척도» 다 — 강사가 쓰는 1분 수업일지(/api/eval/create,
+ *   bulk-create)는 1~5, AI 수업 리포트(/api/eval/ai-lesson-report)는 0~100 을 같은 칸에 적는다.
+ *   옛 코드는 「/10」으로 못 박아 두 갈래 **어느 쪽도 아닌 숫자**를 학부모에게 보여줬다
+ *   (2026-09-04 실측: 1~5 행 3건 · 0~100 행 2건). 값에서 척도를 읽어 만점을 그대로 말한다.
+ *   ⚠️ eval.html 의 evalMax() 와 «같은 말» 을 해야 한다 — 한쪽만 고치면 두 화면이 다른 만점을 말한다.
+ *   ⛔ 임의의 숫자로 환산하지 말 것.
+ *   ⚠️ 남은 것 — 위 「평균 점수」 타일(ev.avg_score)은 **서버가 두 척도를 섞어 평균 낸 값**이라
+ *      한 달에 두 갈래가 같이 있으면 뜻 없는 숫자가 된다(5 와 88 → 46.5). 만점도 못 붙인다.
+ *      고치려면 buildMonthlyReportData(src/api-reports.ts) 에서 맞춰야 하므로 별건으로 남긴다. */
+function evalMax(v){ return (Number(v) || 0) > 5 ? 100 : 5; }
+/* 🔴 「평균 점수」는 서버(buildMonthlyReportData, src/api-reports.ts)가 score_overall 을 그대로
+ *   평균 낸 값이다. 한 달에 두 척도가 섞이면 5 와 88 의 평균이 46.5 가 되어 **뜻이 없는 숫자**다.
+ *   ⛔ 그 숫자를 만점도 단서도 없이 그대로 보여주지 말 것 — 화면이 모르면 «모른다» 고 말해야 한다
+ *      (CLAUDE.md 2장 「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」).
+ *   ⚠️ 서버를 고치는 것이 정본이다 — 여기서는 «섞였는지» 만 보고 가린다. */
+function avgLabel(ev){
+  var items = (ev && ev.items) || [];
+  var kinds = {};
+  items.forEach(function(e){ if (e && e.score_overall != null) kinds[evalMax(e.score_overall)] = 1; });
+  if (Object.keys(kinds).length > 1) return '—';           // 섞인 달 — 평균이 뜻을 잃는다
+  var max = Object.keys(kinds)[0];
+  return (ev && ev.avg_score) ? ev.avg_score + '<span class="score-max" style="color:#cbd5e1;-webkit-text-fill-color:#cbd5e1">/' + (max || 5) + '</span>' : 0;
+}
 function render(d) {
   const s = d.student || {};
   const v = d.voice || {};
@@ -194,7 +330,7 @@ function render(d) {
   const pay = d.payments || {};
 
   const [year, month] = d.year_month.split('-');
-  document.getElementById('report-title').textContent = `${year}년 ${parseInt(month,10)}월 학습 보고서`;
+  document.getElementById('report-title').textContent = `${year}년 ${parseInt(month,10)}월 성적표`;
 
   let html = `
     <h1>${esc(s.student_name||uid)} 학생</h1>
@@ -206,8 +342,8 @@ function render(d) {
 
     <div class="stat-grid">
       <div class="stat"><div class="stat-num">${att.days || 0}</div><div class="stat-label">출석 일수</div></div>
-      <div class="stat"><div class="stat-num">${ev.count || 0}</div><div class="stat-label">평가서 작성</div></div>
-      <div class="stat"><div class="stat-num">${ev.avg_score || 0}</div><div class="stat-label">평균 점수</div></div>
+      <div class="stat"><div class="stat-num">${ev.count || 0}</div><div class="stat-label">수업일지</div></div>
+      <div class="stat"><div class="stat-num">${avgLabel(ev)}</div><div class="stat-label">평균 점수</div></div>
       <div class="stat"><div class="stat-num">${v.sessions || 0}</div><div class="stat-label">음성 코칭</div></div>
       <div class="stat"><div class="stat-num">${v.best || 0}</div><div class="stat-label">발음 최고점</div></div>
       <div class="stat"><div class="stat-num">${(pay.total_krw||0).toLocaleString('ko-KR')}</div><div class="stat-label">결제 (원)</div></div>
@@ -216,33 +352,33 @@ function render(d) {
     <div class="card">
       <h3>🎙 AI 음성 코칭 평균</h3>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
-        <div><div style="font-size:22px;font-weight:800;color:#34d399">${v.avg_accuracy||0}</div><div style="font-size:11px;color:#94a3b8">정확도</div></div>
-        <div><div style="font-size:22px;font-weight:800;color:#fbbf24">${v.avg_pronunciation||0}</div><div style="font-size:11px;color:#94a3b8">발음</div></div>
-        <div><div style="font-size:22px;font-weight:800;color:#a78bfa">${v.avg_fluency||0}</div><div style="font-size:11px;color:#94a3b8">유창성</div></div>
+        <div><div class="voice-num" style="color:#34d399">${v.avg_accuracy||0}</div><div class="voice-label">정확도</div></div>
+        <div><div class="voice-num" style="color:#fbbf24">${v.avg_pronunciation||0}</div><div class="voice-label">발음</div></div>
+        <div><div class="voice-num" style="color:#a78bfa">${v.avg_fluency||0}</div><div class="voice-label">유창성</div></div>
       </div>
     </div>
 
     <div class="card">
-      <h3>📝 이번 달 평가서</h3>
+      <h3>📝 이번 달 수업일지</h3>
       ${(ev.items||[]).length ? (ev.items||[]).map(e => `
         <div class="eval-item">
-          <span class="eval-score">${e.score_overall||0}/10</span>
+          <span class="eval-score">${e.score_overall||0}/${evalMax(e.score_overall)}</span>
           <span class="eval-date">${esc(e.lesson_date||'-')}</span>
           ${e.strengths ? `<div class="eval-body"><b>💪 잘한 점:</b> ${esc(e.strengths)}</div>` : ''}
           ${e.improvements ? `<div class="eval-body"><b>⚠️ 보완:</b> ${esc(e.improvements)}</div>` : ''}
           ${e.next_goals ? `<div class="eval-body"><b>🎯 다음 목표:</b> ${esc(e.next_goals)}</div>` : ''}
           ${e.teacher_comment ? `<div class="eval-body"><b>💬 강사 코멘트:</b> ${esc(e.teacher_comment)}</div>` : ''}
-        </div>`).join('') : '<div class="empty">이번 달 평가서가 없습니다</div>'}
+        </div>`).join('') : '<div class="empty">이번 달 수업일지가 없습니다</div>'}
     </div>
 
-    <div style="text-align:center;margin-top:30px;padding:20px;color:#94a3b8;font-size:11.5px;border-top:1px solid rgba(139,92,246,0.18)">
+    <div class="report-footer" style="text-align:center;margin-top:30px;padding:20px;border-top:1px solid rgba(139,92,246,0.18)">
       ✨ <b style="color:#fbbf24">망고아이 영어학원</b> — AI 기반 영어 교육 플랫폼<br>
       이 보고서는 자동 생성되었습니다. 인쇄/PDF 저장 가능.
     </div>`;
   document.getElementById('content').innerHTML = html;
 }
 </script>
-<!-- BUILD:20260813001216 -->
+<!-- BUILD:20260813015745 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

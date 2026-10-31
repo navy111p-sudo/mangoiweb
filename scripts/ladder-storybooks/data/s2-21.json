@@ -1,0 +1,311 @@
+{
+  "id": "s2-21",
+  "breaks": [
+    3,
+    2,
+    3,
+    5
+  ],
+  "key": {
+    "P": 6,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «큰 폭풍이 오고 있었다(문제)» 와 «수줍은 소년이 용기 내어 목소리를 내고 마을을 구했다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (a big storm was coming) and the solution (the shy boy found his voice and saved his village). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Taeo, a gray whale, the villagers"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "A big storm was coming, and the boats were far out at sea."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Taeo shouted to call the boats back, and they came home safely."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Taeo was a very ",
+      "ans": "shy",
+      "opts": [
+        "shy",
+        "loud",
+        "angry"
+      ]
+    },
+    {
+      "pre": " boy who sang to the sea. One night, a huge gray ",
+      "ans": "whale",
+      "opts": [
+        "whale",
+        "shark",
+        "bird"
+      ]
+    },
+    {
+      "pre": " answered with a song. One evening, its song sounded ",
+      "ans": "scared",
+      "opts": [
+        "scared",
+        "happy",
+        "sleepy"
+      ]
+    },
+    {
+      "pre": ", and Taeo saw a big storm coming. He ran to the ",
+      "ans": "harbor",
+      "opts": [
+        "harbor",
+        "school",
+        "market"
+      ]
+    },
+    {
+      "pre": " and shouted to call the boats back. All the boats came home just before the ",
+      "ans": "storm",
+      "opts": [
+        "storm",
+        "party",
+        "sunrise"
+      ]
+    },
+    {
+      "pre": " hit, and Taeo found his voice.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "shy",
+      "수줍은",
+      "He was very <b>shy</b> and rarely talked to people.",
+      "a little afraid to talk to other people"
+    ],
+    [
+      "village",
+      "마을",
+      "Taeo lived in a small fishing <b>village</b> by the sea.",
+      "a very small town"
+    ],
+    [
+      "storm",
+      "폭풍",
+      "A big <b>storm</b> was coming!",
+      "very bad weather with strong wind and rain"
+    ],
+    [
+      "harbor",
+      "항구",
+      "but he ran to the <b>harbor</b> and shouted",
+      "a safe place where boats stay near land"
+    ],
+    [
+      "trusted",
+      "믿었다",
+      "The villagers <b>trusted</b> him and radioed every boat.",
+      "believed that someone was right"
+    ],
+    [
+      "voice",
+      "목소리",
+      "A shy boy found his <b>voice</b> and saved his village.",
+      "the sound you make when you speak or sing"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did all the boats come home safely?",
+      "qko": "배들은 어떻게 모두 무사히 돌아왔나요?",
+      "opts": [
+        "The villagers trusted Taeo and radioed every boat.",
+        "The whale pushed the boats to the shore.",
+        "The storm stopped before it came."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "The villagers trusted him and radioed every boat.",
+        "One night, a deep song answered. It was a huge gray whale!",
+        "That night, Taeo sang a thank-you song to the whale.",
+        "He was very shy and rarely talked to people."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "마을 사람들이 태오를 믿고 모든 배에 무전을 보내서 배들이 폭풍 전에 돌아왔어요. 고래가 배를 밀었다는 말은 없어요.",
+        "The villagers trusted Taeo and radioed every boat, so the boats came home before the storm hit. Nothing says the whale pushed the boats."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The story says, \"A shy boy found his voice.\" What does \"found his voice\" mean here?",
+      "qko": "\"A shy boy found his voice.\"라는 문장이 있어요. 여기서 \"found his voice\"는 무슨 뜻인가요?",
+      "opts": [
+        "became brave enough to speak up",
+        "found a lost toy on the beach",
+        "lost his voice from singing"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Taeo was shy, but he ran to the harbor and shouted, \"Call the boats back!\"",
+        "But every evening, he sang to the sea from the rocks.",
+        "Soon, they \"talked\" in songs every night.",
+        "All the boats came home just before the storm hit."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "수줍던 태오가 항구로 달려가 사람들에게 «배들을 돌아오게 하세요!» 하고 외쳤어요. «found his voice»는 용기를 내어 말하게 되었다는 뜻이에요.",
+        "Shy Taeo ran to the harbor and shouted to the people, «Call the boats back!» «Found his voice» means he became brave enough to speak up."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did Taeo know a storm was coming?",
+      "qko": "태오는 폭풍이 오는 것을 어떻게 알았나요?",
+      "opts": [
+        "The whale's song sounded scared, so he looked at the sky.",
+        "A fisherman told him on the radio.",
+        "His teacher told him at school."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "One evening, the whale's song was fast and scared.",
+        "The fishing boats were still far out at sea.",
+        "Taeo looked at the sky. A big storm was coming!",
+        "The villagers trusted him and radioed every boat."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "고래의 노래가 빠르고 겁에 질려 있어서, 태오는 하늘을 보고 큰 폭풍이 오는 것을 알았어요. 두 문장을 이으면 답이 나와요.",
+        "The whale's song was fast and scared, so Taeo looked at the sky and saw a big storm coming. Put these two sentences together to find the answer."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Taeo teaches the village kids to sing to the whale.",
+      "태오가 마을 아이들에게 고래에게 노래하는 법을 가르쳐 줘요.",
+      "The Whale Song Club"
+    ],
+    [
+      "B",
+      "The whale brings its baby to meet Taeo.",
+      "고래가 아기 고래를 데리고 태오를 만나러 와요.",
+      "A New Little Friend"
+    ]
+  ],
+  "write": {
+    "pre": "I want to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“I want to <u>sing to a whale</u> because <u>whales answer with songs</u>.”",
+    "slotKo": [
+      "하고 싶은 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what you want to do",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «하고 싶은 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you want to do and your reason in English.",
+    "chips": [
+      {
+        "a": "visit the aquarium",
+        "b": "I love sea animals",
+        "label": "aquarium"
+      },
+      {
+        "a": "learn the piano",
+        "b": "my friend plays it well",
+        "label": "piano"
+      },
+      {
+        "a": "sleep over at Grandma's house",
+        "b": "she makes great pancakes",
+        "label": "Grandma"
+      }
+    ],
+    "aria": [
+      "what you want to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «I want to» 뒤에는 동사(sing, visit, learn)를 바로 쓰고, «because» 뒤에는 «누가 + 무엇을» 을 쓰세요.",
+    "moreEn": "One more step: after «I want to», write a verb (sing, visit, learn). After «because», write who + what."
+  },
+  "img": {
+    "style": "papercut",
+    "cover": "On dark rocks by the sea at sunset, a nine-year-old Korean boy with neat short black hair, a navy blue raincoat, rolled-up gray pants and yellow rubber boots sings with his hands cupped around his mouth, while a huge gray whale with white spots on its back and kind dark eyes rises out of the waves nearby and sprays a tall fountain of water into the orange sky.",
+    "scenes": {
+      "2": "At dusk, a nine-year-old Korean boy with neat short black hair, a navy blue raincoat, rolled-up gray pants and yellow rubber boots stands on the rocks and stares at huge dark storm clouds rolling over the sea, while a huge gray whale with white spots on its back and kind dark eyes swims in fast circles nearby and small fishing boats look like tiny dots far away.",
+      "3": "At the busy harbor under a dark, windy sky, a nine-year-old Korean boy with neat short black hair, a navy blue raincoat, rolled-up gray pants and yellow rubber boots shouts with all his might, and villagers in raincoats hurry to a radio in a small wooden hut as the fishing boats sail back home."
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "2": "A boy sees storm clouds as the whale swims fast.",
+    "3": "A boy shouts at the harbor to call the boats back.",
+    "cover": "A boy sings on the rocks as a gray whale rises from the sea."
+  }
+}

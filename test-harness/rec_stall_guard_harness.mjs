@@ -86,7 +86,7 @@ console.log('\n· 빈 껍데기 정리');
 {
   const r2 = read('src/recordings-r2.ts');
   chk('조각 0개로 오래 남은 recording 을 aborted 로 정리',
-      /status = 'aborted'[\s\S]{0,300}NOT IN \(SELECT DISTINCT recording_id FROM recording_parts\)/.test(r2));
+      /const nextStatus[\s\S]*?'aborted'/.test(r2) && /AND id NOT IN \(SELECT DISTINCT recording_id FROM recording_parts\)/.test(r2));
   const mango = read('src/api-mango.ts');
   chk("학생 목록이 'aborted' 를 제외", /AND status != 'aborted'/.test(mango));
 }

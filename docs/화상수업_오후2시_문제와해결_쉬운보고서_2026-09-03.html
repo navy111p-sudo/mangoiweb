@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>오늘 2시 수업, 화면이 왜 나빴을까</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap">
+</head>
+<body>
+<style>
+  :root{
+    --paper:#fbf7ef; --card:#ffffff; --card2:#f6f0e4;
+    --ink:#2a2018; --ink2:#6b5c4c; --ink3:#9a8b79;
+    --line:#e6dccb; --line2:#d3c5ae;
+    --mango:#e08a1e; --mango-soft:#fdf3e0;
+    --bad:#c0483c; --bad-soft:#fbeeec;
+    --good:#2f7d5a; --good-soft:#eaf5ef;
+    --todo:#3b6ea8; --todo-soft:#ecf2f9;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:"Noto Sans KR","Malgun Gothic",sans-serif;
+    font-size:15.5px; line-height:1.8; letter-spacing:-.01em;
+    padding:34px 22px 60px;
+  }
+  .wrap{max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:26px}
+  .stamp{font-size:12.5px; font-weight:700; color:var(--mango); letter-spacing:.06em}
+  h1{font-size:34px; line-height:1.3; margin:0; font-weight:700}
+  .lede{font-size:17px; color:var(--ink2); margin:0; line-height:1.75}
+  .byline{font-size:12.5px; color:var(--ink3)}
+  h2{font-size:21px; margin:0 0 10px; font-weight:700; display:flex; align-items:center; gap:10px}
+  .no{display:inline-flex; width:30px; height:30px; border-radius:50%; background:var(--mango); color:#fff; font-size:15px; align-items:center; justify-content:center; font-weight:700; flex:0 0 auto}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px 22px; break-inside:avoid}
+  .card p{margin:0 0 10px}
+  .card p:last-child{margin-bottom:0}
+  .tip{background:var(--mango-soft); border-left:5px solid var(--mango); border-radius:10px; padding:12px 16px; margin:12px 0 0; font-size:14.5px}
+  .bad{background:var(--bad-soft); border-left:5px solid var(--bad); border-radius:10px; padding:12px 16px; margin:12px 0 0}
+  .good{background:var(--good-soft); border-left:5px solid var(--good); border-radius:10px; padding:12px 16px; margin:12px 0 0}
+  .todo{background:var(--todo-soft); border-left:5px solid var(--todo); border-radius:10px; padding:12px 16px; margin:12px 0 0}
+  table{width:100%; border-collapse:collapse; font-size:14px; margin-top:10px}
+  th,td{border:1px solid var(--line2); padding:8px 10px; text-align:left; vertical-align:top}
+  th{background:var(--card2); font-weight:700}
+  td.n{text-align:right; white-space:nowrap}
+  .k{font-weight:700}
+  .red{color:var(--bad); font-weight:700}
+  .grn{color:var(--good); font-weight:700}
+  .blu{color:var(--todo); font-weight:700}
+  .small{font-size:13px; color:var(--ink2)}
+  ol,ul{margin:6px 0 0; padding-left:22px}
+  li{margin:4px 0}
+  .pipe{display:flex; gap:10px; align-items:stretch; margin:12px 0 4px}
+  .pipe .seg{flex:1; border-radius:10px; padding:10px 12px; font-size:13.5px; text-align:center; border:1px solid var(--line2)}
+  .pipe .ok{background:var(--good-soft)}
+  .pipe .ng{background:var(--bad-soft)}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px}
+  .box{border:1px solid var(--line2); border-radius:12px; padding:12px 14px; background:var(--card2)}
+  .box h3{margin:0 0 6px; font-size:15px}
+  .box p{margin:0; font-size:13.5px}
+  .foot{font-size:12.5px; color:var(--ink3); border-top:1px solid var(--line); padding-top:14px}
+  @media print{
+    body{padding:0; background:#fff; font-size:13.5px}
+    .wrap{max-width:none; gap:16px}
+    .card{padding:14px 16px; border-radius:12px}
+    h1{font-size:27px}
+    h2{font-size:18px}
+    .lede{font-size:15px}
+    table{font-size:12px}
+    .pagebreak{break-before:page}
+    @page{size:A4; margin:13mm 14mm}
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="stamp">망고아이 · 쉬운 보고서 · 2026년 9월 3일</div>
+    <h1>오늘 2시 수업, 화면이 왜 나빴을까?</h1>
+    <p class="lede">한국 학생 세영이(ysyt01)와 필리핀 Farrah 선생님의 오후 2시 수업.
+    화면이 흐려지고, 소리가 끊기고, 얼굴이 나왔다 안 나왔다 했습니다.
+    무슨 일이 있었는지, 무엇을 고쳤는지, 앞으로 무엇을 해야 확실히 좋아지는지를
+    열 살 어린이도 알 수 있게 적었습니다.</p>
+    <div class="byline">근거: 우리 서버에 남은 수업 기록(수업 21분, 1분마다 한 줄씩 40줄) · 배포 기록 · 로그인 기록. 「잰 것」과 「짐작한 것」을 나눠 적었습니다.</div>
+  </header>
+
+  <section class="card">
+    <h2><span class="no">1</span>한 줄 요약</h2>
+    <p><span class="k">인터넷이 «파이프» 라면, 오늘 필리핀 쪽 파이프가 자꾸 막혔습니다.</span>
+    파이프가 막히면 물(영상·소리)이 늦게 오고 중간에 끊깁니다. 우리 프로그램은 물이 안 오면
+    「영상을 잠깐 끄고 소리만 보내자」라고 스스로 판단하는데, 파이프가 막혔다 뚫렸다를 반복하니
+    영상도 <span class="red">껐다 켰다</span>를 반복했습니다. 그래서 얼굴이 나왔다 안 나왔다 한 것입니다.</p>
+    <div class="pipe">
+      <div class="seg ok">한국 학생 집<br><span class="small">파이프 정상</span></div>
+      <div class="seg ok">한국 ↔ 필리핀 바다 밑 케이블<br><span class="small">정상</span></div>
+      <div class="seg ng">필리핀 쪽 인터넷<br><span class="small red">자꾸 막힘</span></div>
+      <div class="seg ok">Farrah 선생님 컴퓨터<br><span class="small">카메라 정상</span></div>
+    </div>
+    <p class="small">카메라 화면에 「I can't use the camera」 라는 경고가 떴지만, 카메라 고장이 아닙니다. «영상이 안 온다»를 알려 주는 안내일 뿐이라 Camera Reset 을 눌러도 달라지지 않습니다.</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="no">2</span>우리가 «잰» 것 — 숫자로 보면 이렇게 다릅니다</h2>
+    <p>인터넷이 얼마나 좋은지는 세 가지로 잽니다. <span class="k">왕복 시간</span>(내 말이 상대에게 갔다가 답이 오는 시간),
+    <span class="k">끊긴 소리</span>(소리가 안 와서 컴퓨터가 대충 메운 비율), <span class="k">영상 멈춤</span>(1분에 화면이 얼어붙은 횟수)입니다.</p>
+    <table>
+      <tr><th>항목</th><th>보통 수업 (같은 날 다른 방)</th><th>오늘 2시 수업</th><th>쉽게 말하면</th></tr>
+      <tr><td>왕복 시간 (평균)</td><td class="n">100~150 ms</td><td class="n red">선생님 609 ms · 학생 588 ms</td><td>편지가 4~6배 늦게 도착</td></tr>
+      <tr><td>왕복 시간 (가장 나쁠 때)</td><td class="n">200 ms 미만</td><td class="n red">1,091 ms · 1,267 ms</td><td>말 한마디에 1초 넘게 기다림</td></tr>
+      <tr><td>끊긴 소리</td><td class="n">0.3~1.6 %</td><td class="n red">30~44 %</td><td>세 마디 중 한 마디가 사라짐</td></tr>
+      <tr><td>영상 멈춤 (1분당)</td><td class="n">1회쯤</td><td class="n red">6~21회</td><td>몇 초마다 한 번씩 얼어붙음</td></tr>
+      <tr><td>영상 자동 끄기·켜기</td><td class="n">0회</td><td class="n red">6번 왔다 갔다</td><td>얼굴이 나왔다 안 나왔다</td></tr>
+    </table>
+    <p class="small" style="margin-top:8px">「6번」은 1분마다 한 번 찍은 사진으로 센 것이라 실제로는 더 많았을 수 있습니다.</p>
+    <div class="tip"><span class="k">같은 날 오후 3시, 필리핀의 Karl 매니저와 Farrah 선생님이 둘이서 시험해 봤습니다.</span>
+    둘 다 필리핀에 있고 같은 통신사인데도 왕복 시간이 3분 사이에 60 ms → 1,676 ms → 60 ms 로 널뛰었습니다.
+    한국과 필리핀 사이 바다 밑 케이블이 문제였다면 이 시험에서는 멀쩡해야 합니다. 그래서 «필리핀 쪽 파이프»가 원인이라고 봅니다.</div>
+  </section>
+
+  <section class="card">
+    <h2><span class="no">3</span>가장 큰 문제 — 딱 하나로 말하면</h2>
+    <div class="bad"><span class="k">필리핀 쪽 인터넷 «올리기(업로드)» 파이프가 수업 내내 꽉 차서, 물이 밀리고 넘쳤습니다.</span></div>
+    <p style="margin-top:12px">화상수업은 내 얼굴을 «올려» 보내야 합니다. 올리는 파이프는 보통 내려받는 파이프보다 훨씬 가늡니다.
+    그 가는 파이프에 물을 계속 부으면 줄이 생겨서(컴퓨터 용어로 «버퍼블로트») 왕복 시간이 0.06초에서 1.6초까지 갑자기 늘어납니다.
+    오늘 기록이 정확히 그 모양입니다.</p>
+    <p><span class="k">짐작한 것(아직 확인 안 됨):</span> 그 파이프가 막힌 이유는 셋 중 하나입니다.
+    ① 선생님 집·사무실 인터넷 요금제의 업로드가 원래 작다 ② 같은 인터넷을 다른 사람·다른 프로그램이 함께 써서 꽉 찼다(다른 선생님 수업, 클라우드 백업, 업데이트)
+    ③ 그 시간대에 통신사 자체가 붐볐다. 어느 것인지는 내일 재 보면 갈립니다(6번 참고).</p>
+    <p><span class="k">우리 쪽에서 «아닌 것»으로 확인한 것:</span> 중계 서버(TURN) 정상 · 두 사람이 다른 방에 있지 않았음 · 유령 접속 없음 ·
+    선생님 컴퓨터가 수업을 녹화하느라 힘든 것도 아님(오늘 아침부터 선생님 컴퓨터는 녹화를 안 합니다) · 화질 설정은 이미 «낮음»이라 우리가 보내는 물 양은 크지 않음.</p>
+  </section>
+
+  <section class="card pagebreak">
+    <h2><span class="no">4</span>오늘 우리가 고친 것</h2>
+    <div class="good"><span class="k">「영상 껐다 켰다」 깜빡임을 없앴습니다.</span>
+    전에는 파이프가 8초만 괜찮아도 영상을 다시 켰다가 또 껐습니다. 이제는 <span class="k">32초 동안 계속 괜찮아야</span> 영상을 다시 켭니다.
+    한 번 소리만 보내기로 했으면 안정될 때까지 그대로 있습니다.</div>
+    <p style="margin-top:12px">시험 결과: 오늘과 똑같은 나쁜 파이프를 컴퓨터 안에서 흉내 내어 4분 돌렸더니, 옛날 방식은 <span class="red">12번</span> 껐다 켰고 새 방식은 <span class="grn">1번</span>만 껐다가 파이프가 진짜 좋아졌을 때 켰습니다.</p>
+    <p>이 수리는 오늘 오후 3시에 코드가 합쳐졌고, 수업 시간대(화·목 오후 2시~11시)에는 배포를 멈추는 규칙 때문에 <span class="k">오늘 밤 수업이 끝난 뒤 자동으로 나갑니다.</span> 오후 3시 시험 영상은 아직 옛날 방식입니다.</p>
+    <div class="tip"><span class="k">솔직하게:</span> 이 수리는 «깜빡임»만 줄입니다. 파이프가 1.6초씩 막히는 것 자체는 프로그램으로 못 고칩니다.
+    그래서 5번·6번이 진짜 해결입니다.</div>
+    <p class="small" style="margin-top:10px">이번 주에 함께 고친 것: 화질이 한 번 흐려지면 안 돌아오던 것(9/2) · 선생님 컴퓨터의 녹화 부담 제거(9/3 아침) · 회선이 나쁠 때 화면에 «저화질로 받는 중» 표시(9/2).</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="no">5</span>앞으로 «확실히» 좋아지려면 — 순서대로</h2>
+    <p>파이프 문제는 파이프를 고쳐야 합니다. 값싸고 빠른 것부터 차례로 적었습니다.</p>
+    <table>
+      <tr><th style="width:36px">순서</th><th>할 일</th><th>누가</th><th>효과</th><th>비용</th></tr>
+      <tr><td class="n">1</td><td><span class="k">선생님 컴퓨터를 랜선(유선)으로 연결</span>. 와이파이는 벽 하나만 있어도 파이프가 반으로 줄어듭니다.</td><td>Farrah · Karl</td><td class="grn">크다 (첫 번째로)</td><td>랜선 1개, 몇 천 원</td></tr>
+      <tr><td class="n">2</td><td><span class="k">수업 중 다른 «올리기» 멈추기</span> — 클라우드 백업·윈도우 업데이트·유튜브 올리기·같은 집 다른 사람의 영상통화.</td><td>Farrah · Karl</td><td class="grn">크다</td><td>0원</td></tr>
+      <tr><td class="n">3</td><td><span class="k">fast.com 으로 재기</span> — «Upload» 와 «Loaded latency» 숫자를 캡처. Loaded latency 가 500 ms 를 넘으면 위 짐작이 맞는 것입니다.</td><td>Karl</td><td class="blu">원인을 가름</td><td>0원, 2분</td></tr>
+      <tr><td class="n">4</td><td><span class="k">인터넷 요금제를 «업로드가 큰 것»으로</span> — 광랜(fiber)이면 보통 올리기와 내려받기가 같습니다. 필리핀 요금제는 업로드가 작은 것이 많습니다.</td><td>회사 → 선생님</td><td class="grn">크다</td><td>월 요금 차액 (현지 확인 필요)</td></tr>
+      <tr><td class="n">5</td><td><span class="k">사무실이면 «수업 전용 파이프» 따로</span> — 선생님 여러 명이 한 인터넷을 나눠 쓰면 한 명이 막혀도 다 막힙니다. 수업용 회선을 따로 두거나 공유기에서 수업 컴퓨터를 먼저 보내게(QoS) 설정.</td><td>회사 · Karl</td><td class="grn">크다</td><td>회선 1개 추가 + 공유기</td></tr>
+      <tr><td class="n">6</td><td><span class="k">비상용 두 번째 인터넷</span> — 휴대폰 데이터(LTE/5G)나 도시락 와이파이. 주 회선이 막히면 갈아탈 수 있게.</td><td>회사 → 선생님</td><td>중간</td><td>월 데이터 요금</td></tr>
+      <tr><td class="n">7</td><td><span class="k">우리 서버 쪽: 중계 방식을 «SFU» 로</span> — 지금은 두 컴퓨터가 직접 연결(P2P)인데, Cloudflare 의 중계 서버를 거치면 나쁜 구간을 피해 가는 길을 서버가 골라 줍니다. <span class="small">단, 선생님 집 파이프 자체가 막힌 것은 SFU 도 못 고칩니다. 1~5번을 한 «뒤에» 남는 문제를 줄이는 것입니다.</span></td><td>개발(우리)</td><td>중간</td><td>개발 2~3주 + 월 사용료(아래)</td></tr>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2><span class="no">6</span>무엇에 투자해야 하나 — 돈과 사람</h2>
+    <div class="grid2">
+      <div class="box"><h3>A. 바로 할 것 (돈 거의 안 듦)</h3><p>랜선 · 다른 올리기 멈추기 · fast.com 재기 · 화질 설정 «낮음» 확인. <span class="k">이번 주 안에.</span> Karl 이 선생님들 컴퓨터를 하나씩 확인.</p></div>
+      <div class="box"><h3>B. 선생님 인터넷 지원 (월 몇 만 원 수준)</h3><p>업로드가 큰 요금제로 바꾸는 차액을 회사가 보태는 것. 수업이 끊기면 수업료도 못 받으니 가장 남는 투자입니다. <span class="small">필리핀 통신사 가격은 현지 확인이 필요합니다.</span></p></div>
+      <div class="box"><h3>C. 사무실 회선 정리 (한 번 투자)</h3><p>수업 전용 회선 1개 + QoS 되는 공유기 1대. 선생님이 여럿인 곳에 효과가 큽니다.</p></div>
+      <div class="box"><h3>D. 서버 쪽 SFU (개발 + 월 사용료)</h3><p>Cloudflare Realtime: 보내는 데이터 1,000 GB/월까지 무료, 그 뒤 GB 당 0.05 달러. 개발 2~3주. 키(시크릿) 등록은 이미 준비돼 있고 꺼져 있습니다.</p></div>
+    </div>
+    <div class="todo" style="margin-top:12px"><span class="k">추천 순서:</span> A → B(또는 C) → 한 달 기록을 보고 → D.
+    A·B 만으로 오늘 같은 날의 대부분이 사라질 가능성이 큽니다. D 는 A·B 를 하고도 남는 «중간 구간» 문제를 줄이는 것이라 순서를 바꾸면 돈만 쓰고 체감이 없습니다.</div>
+  </section>
+
+  <section class="card">
+    <h2><span class="no">7</span>좋아졌는지 «어떻게 아나»</h2>
+    <p>9월 1일부터 선생님 쪽 인터넷 기록이 남기 시작해서, Farrah 선생님 기록은 아직 오늘 하루뿐입니다. 그래서 오늘이 «늘 그런 날»인지 «오늘만 나쁜 날»인지는 아직 모릅니다.</p>
+    <ul>
+      <li>내일·모레 수업 뒤 관리자 화면 <span class="k">「강사 회선품질」</span> 에서 Farrah 줄을 봅니다. 왕복 시간 평균이 <span class="grn">300 ms 아래</span>, 끊긴 소리가 <span class="grn">5 % 아래</span>면 해결된 것입니다.</li>
+      <li>랜선으로 바꾼 날과 안 바꾼 날을 나란히 비교하면 1번이 효과가 있었는지 바로 보입니다.</li>
+      <li>영상이 나왔다 안 나왔다 하는 것은 오늘 밤 배포 뒤 사라져야 합니다. 그래도 남으면 알려 주세요 — 그때는 다른 원인입니다.</li>
+    </ul>
+  </section>
+
+  <div class="foot">
+    잰 것: 서버 기록(vc_quality) 수업 21분 40줄 · 오후 3시 시험 6줄 · 배포 기록 run 2989·2995 · 로그인 IP. 짐작한 것은 본문에 「짐작」이라고 적었습니다.
+    관련 문서: docs/작업기록/260903_화상수업_AAO복구_32초_깜빡임수리.md · 260901_화상수업_화질음성_진단_및_계측사각지대_수리.md · 260902_SFU검토_A_B_C_참관정원_녹화유실_자격증명경계.md
+  </div>
+
+</div>
+</body>
+</html>

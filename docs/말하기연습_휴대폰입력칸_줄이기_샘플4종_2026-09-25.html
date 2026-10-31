@@ -1,0 +1,258 @@
+<title>말하기 연습 입력칸 시안</title>
+<style>
+  :root{
+    --paper:#f4f5f8; --card:#ffffff; --ink:#131a2a; --ink2:#44506a; --mute:#687387;
+    --line:#dfe3ea; --brand:#1d6fb8; --warn:#9a5b00; --warn-bg:#fdf1dd;
+    --good:#0f6b4f; --good-bg:#dcf5ea; --bad:#a32020; --bad-bg:#fbe4e4;
+    /* 앱 화면 색 (웜업 실제 값 근사) — 테마와 무관하게 앱은 늘 남색 */
+    --a-bg1:#2a4d9e; --a-bg2:#172a60; --a-bar:#16264f; --a-card:#18264d; --a-line:#2d4585;
+    --a-text:#eef2ff; --a-text2:#a9b8d8; --a-sky:#4aa8ec; --a-gold:#f2b53a; --a-red:#d9433c;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){ color-scheme:dark;
+      --paper:#14171d; --card:#1d2129; --ink:#eef1f6; --ink2:#b9c2d0; --mute:#8d97a8; --line:#2d323d;
+      --brand:#6fb6f0; --warn:#fbbf24; --warn-bg:#382a11; --good:#6ee7b7; --good-bg:#11312a; --bad:#fca5a5; --bad-bg:#3a1c1c; }
+  }
+  :root[data-theme="dark"]{ color-scheme:dark;
+      --paper:#14171d; --card:#1d2129; --ink:#eef1f6; --ink2:#b9c2d0; --mute:#8d97a8; --line:#2d323d;
+      --brand:#6fb6f0; --warn:#fbbf24; --warn-bg:#382a11; --good:#6ee7b7; --good-bg:#11312a; --bad:#fca5a5; --bad-bg:#3a1c1c; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;
+    font-size:15px;line-height:1.6}
+  .wrap{max-width:1560px;margin:0 auto;padding-block:28px 70px;padding-left:16px;padding-right:16px}
+  h1{font-size:26px;font-weight:900;letter-spacing:-.02em;margin:0 0 8px;text-wrap:balance}
+  .sub{margin:0 0 18px;color:var(--ink2);max-width:72ch}
+  .quote{margin:0 0 22px;padding:12px 16px;border-left:4px solid var(--warn);background:var(--warn-bg);border-radius:0 9px 9px 0}
+  h2.sec{font-size:13px;font-weight:900;letter-spacing:.08em;color:var(--mute);margin:32px 0 12px;padding-bottom:6px;border-bottom:2px solid var(--line)}
+  .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}
+  .fact{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .fact b{display:block;font-size:13px;color:var(--mute);font-weight:800;margin-bottom:4px}
+  .fact .n{font-size:24px;font-weight:900;font-variant-numeric:tabular-nums}
+  .fact small{color:var(--ink2)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:22px;align-items:start}
+  .opt{display:flex;flex-direction:column;gap:10px;min-width:0}
+  .opt h3{margin:0;font-size:19px;font-weight:900;letter-spacing:-.01em}
+  .opt h3 span{display:inline-block;min-width:26px;padding:0 7px;margin-right:6px;border-radius:7px;background:var(--brand);color:#fff;text-align:center}
+  .opt p{margin:0;color:var(--ink2);font-size:14px}
+  .gain{font-size:13px;font-weight:800;color:var(--good);background:var(--good-bg);border-radius:8px;padding:6px 10px;font-variant-numeric:tabular-nums}
+  .cost{font-size:13px;color:var(--ink2)}
+  .cost b{color:var(--bad)}
+
+  /* ── 휴대폰 틀 (390×780 을 0.9 로) ── */
+  .phone{width:min(352px,100%);height:704px;border-radius:30px;padding:8px;background:#0b1120;box-shadow:0 10px 30px rgba(10,20,50,.25);align-self:center}
+  .scr{height:100%;border-radius:23px;overflow:hidden;display:flex;flex-direction:column;color:var(--a-text);
+    background:linear-gradient(180deg,var(--a-bg1),var(--a-bg2));font-size:13px;line-height:1.4}
+  .top{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--a-bar);border-bottom:1px solid var(--a-line)}
+  .ib{width:34px;height:34px;border-radius:10px;border:1px solid var(--a-line);display:grid;place-items:center;font-size:15px;background:rgba(255,255,255,.04)}
+  .ib.gold{background:var(--a-gold);border-color:var(--a-gold)}
+  .ttl{flex:1;min-width:0;font-weight:900;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .head{flex:0 0 auto;display:flex;gap:10px;align-items:center;padding:10px 12px}
+  .face{flex:0 0 auto;border-radius:14px;background:linear-gradient(135deg,#7fb7d9,#e7c562);display:grid;place-items:center;font-size:30px;border:2px solid #8aa4e6}
+  .face.big{width:92px;height:112px;font-size:46px}
+  .face.mid{width:64px;height:76px;font-size:34px}
+  .face.sm{width:40px;height:40px;border-radius:50%;font-size:22px}
+  .hmeta{min-width:0;display:flex;flex-direction:column;gap:3px}
+  .hmeta b{font-size:14px}
+  .hmeta span{color:var(--a-text2);font-size:12px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:99px;border:1px solid var(--a-line);color:#b9d4ff;background:rgba(74,168,236,.12)}
+  .chip.combo{color:#ffc27a;background:rgba(242,120,58,.14);border-color:#6b4430}
+  .chat{flex:1 1 auto;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;padding:6px 12px;position:relative}
+  .chat::before{content:"";position:absolute;inset:0 0 auto 0;height:22px;background:linear-gradient(var(--a-bg1),transparent);opacity:.7;pointer-events:none}
+  .b{max-width:86%;padding:7px 10px;border-radius:13px;font-size:14px}
+  .b small{display:block;color:var(--a-text2);font-size:11.5px;margin-top:2px}
+  .b.ai{background:rgba(255,255,255,.08);border:1px solid var(--a-line);align-self:flex-start;border-bottom-left-radius:4px}
+  .b.me{background:#2f6fd0;align-self:flex-end;border-bottom-right-radius:4px}
+  .b .who{font-size:11px;color:#ffd48a;font-weight:800;display:block;margin-bottom:1px}
+  .area-tag{position:absolute;right:8px;top:6px;font-size:10.5px;font-weight:900;color:#0b1120;background:#8ff0c4;padding:2px 7px;border-radius:99px;font-variant-numeric:tabular-nums}
+  .comp{flex:0 0 auto;padding:8px 10px;background:var(--a-card);border-top:1px solid var(--a-line);display:flex;flex-direction:column;gap:7px}
+  .row{display:flex;gap:6px;align-items:center}
+  .inp{flex:1;min-width:0;height:42px;border-radius:12px;border:1px solid var(--a-line);background:rgba(0,0,0,.18);color:#7f8fb3;display:flex;align-items:center;padding:0 11px;font-size:13.5px;white-space:nowrap;overflow:hidden}
+  .btn{height:42px;border-radius:12px;display:grid;place-items:center;font-weight:900;font-size:14px;padding:0 13px;white-space:nowrap}
+  .btn.stop{background:var(--a-red);width:46px;padding:0;font-size:16px}
+  .btn.mic{background:#2c3f78;width:46px;padding:0;font-size:18px;border:1px solid var(--a-line)}
+  .btn.send{background:var(--a-sky);color:#071a33}
+  .live{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:800;color:#ffb3ad}
+  .dot{width:8px;height:8px;border-radius:50%;background:#ff5b52;flex:0 0 auto;box-shadow:0 0 0 3px rgba(255,91,82,.2)}
+  .seg{display:inline-flex;border:1px solid var(--a-line);border-radius:99px;padding:2px;background:rgba(0,0,0,.2);flex:0 0 auto}
+  .seg i{font-style:normal;font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:99px;color:var(--a-text2)}
+  .seg i.on{background:var(--a-sky);color:#071a33}
+  .beta{font-size:9.5px;font-weight:900;background:var(--a-gold);color:#3b2600;border-radius:5px;padding:0 4px;margin-left:3px}
+  .foot{flex:0 0 auto;display:flex;gap:6px;padding:7px 10px 10px}
+  .fb{flex:1;height:34px;border-radius:11px;display:grid;place-items:center;font-size:12.5px;font-weight:800;border:1px solid #6c5a2a;color:#ffd48a}
+  .fb.g{border-color:#2f7a55;background:#1f5a40;color:#dff8ea}
+  .bigmic{width:64px;height:64px;border-radius:50%;background:var(--a-red);display:grid;place-items:center;font-size:24px;box-shadow:0 0 0 6px rgba(217,67,60,.22)}
+  .small{font-size:11.5px;color:var(--a-text2)}
+  .kbd{width:40px;height:40px;border-radius:12px;border:1px solid var(--a-line);display:grid;place-items:center;font-size:17px}
+  .sheet-h{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--a-text2)}
+  .sheet-h b{color:var(--a-sky);font-size:12px}
+  .pill-live{flex:1;height:42px;border-radius:99px;background:rgba(217,67,60,.18);border:1px solid #7a3a3a;display:flex;align-items:center;gap:8px;padding:0 14px;font-weight:900;font-size:13.5px;color:#ffd0cc}
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  .tw{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12.5px;color:var(--mute)}
+  td.n{font-variant-numeric:tabular-nums;font-weight:800;white-space:nowrap}
+  tr:last-child td{border-bottom:0}
+  ul.keep{margin:0;padding-left:20px;color:var(--ink2)}
+  ul.keep li{margin:3px 0}
+</style>
+
+<div class="wrap">
+  <h1>A.i 말하기 연습 · 휴대폰 입력칸 시안 4종</h1>
+  <p class="sub">휴대폰 세로 화면에서 아래 입력 묶음(말하는 방법·자동 상태·안내 3줄·입력칸·힌트)이 대화창을 밀어내 선생님 말이 한 줄도 안 보이는 문제를 고치는 시안입니다. 네 시안 모두 <b>기능은 그대로 두고 자리만</b> 바꿉니다.</p>
+  <div class="quote">사장님 캡처: 1번(입력 묶음)이 너무 커서 2번(선생님이 방금 한 말 「你觉得看电影最好是在哪里看？」)이 가려집니다. 3번(얼굴 옆 빈자리)도 공간을 씁니다.</div>
+
+  <h2 class="sec">지금 화면 — 사진에서 잰 값 (390px 폭 휴대폰 기준, 대략)</h2>
+  <div class="facts">
+    <div class="fact"><b>아래 입력 묶음</b><span class="n">≈ 390px</span><br><small>화면 세로의 약 절반. 같은 뜻의 글이 3번 나옵니다 — 「자동·베타 👂 듣는 중」 · 「듣는 중이에요. 천천히 말해 주세요」 · 「🎤 지금 말해보세요! 천천히 해도 괜찮아요」</small></div>
+    <div class="fact"><b>얼굴 + 제목 + 칩</b><span class="n">≈ 230px</span><br><small>얼굴 옆 「한마디부터 시작해요」가 두 줄로 쪼개져 오른쪽 위에 떠 있고, 가운데는 비어 있습니다.</small></div>
+    <div class="fact"><b>대화창 (보이는 높이)</b><span class="n">≈ 40px</span><br><small>선생님 말 한 줄도 다 안 보입니다. 「이전 대화 보기」·「대답할 때 도움」 버튼도 반쯤 잘립니다.</small></div>
+  </div>
+  <p class="cost" style="margin-top:8px">⚠️ 숫자는 캡처 사진 비율로 잰 값입니다. 실제 기기에서는 몇 px 다를 수 있습니다.</p>
+
+  <h2 class="sec">시안 4종 — 모두 같은 대화, 같은 휴대폰 크기(390×780)</h2>
+  <div class="grid">
+
+    <!-- A+C -->
+    <section class="opt">
+      <h3><span style="background:var(--good)">A+C</span>중간 — 얼굴은 보이게, 한 줄로</h3>
+      <p>입력 묶음은 A처럼 두 줄로 합치고, 얼굴은 C처럼 없애지 않고 <b>중간 크기(56px 네모)</b>로 줄여 이름·칩과 한 줄에 둡니다. 입모양은 그대로 보이고 빈자리(3번)는 없어집니다.</p>
+      <div class="phone"><div class="scr">
+        <div class="top"><div class="ib">←</div><div class="ib">🏠</div><div class="ttl">A.i 말하기 연습</div><div class="ib">🔊</div><div class="ib gold">🎚</div><div class="ib">⋮</div></div>
+        <div class="head" style="padding:8px 12px"><div class="face" style="width:56px;height:62px;font-size:30px">👩</div><div class="hmeta" style="flex:1"><b>메이 선생님 <span style="color:var(--a-text2);font-weight:600;font-size:12px">· 함께 말해 봐요</span></b><span>한마디부터 시작해요 · 내 답변 7개</span><div class="chips"><span class="chip">자유 대화</span><span class="chip combo">🔥 7콤보</span></div></div></div>
+        <div class="chat"><span class="area-tag">대화창 ≈ 340px</span>
+          <div class="b ai"><span class="who">메이 선생님</span>你好！今天我们聊聊电影吧。<small>안녕! 오늘은 영화 얘기 해 볼까?</small></div>
+          <div class="b me">我喜欢在家看电影。</div>
+          <div class="b ai"><span class="who">메이 선생님</span>在家看很舒服！你喜欢看什么电影？<small>집에서 보면 편하죠! 어떤 영화 좋아해요?</small></div>
+          <div class="b me">我喜欢看动画片。</div>
+          <div class="b ai"><span class="who">메이 선생님</span>你觉得看电影最好是在哪里看？<small>영화는 어디서 보는 게 제일 좋아요?</small></div>
+        </div>
+        <div class="comp">
+          <div class="row" style="justify-content:space-between"><span class="live"><span class="dot"></span>듣는 중 · 천천히 말해도 돼요</span><span class="seg"><i>🎤 버튼</i><i class="on">✨ 자동<span class="beta">β</span></i></span></div>
+          <div class="row"><div class="inp">중국어로 말해 보세요</div><div class="btn stop">⏹</div><div class="btn send">보내기</div></div>
+        </div>
+        <div class="foot"><div class="fb">💡 새 질문</div><div class="fb g">끝내고 요약</div></div>
+      </div></div>
+      <div class="gain">입력 묶음 ≈ 390 → 100px · 대화창 ≈ 40 → 340px</div>
+      <div class="cost">A보다 대화 한 줄 더, C보다 얼굴이 큼. <b>남는 위험</b>: 스위치 글자가 작음(A와 같음) — 필요하면 12.5px 로 키울 수 있습니다.</div>
+    </section>
+
+    <!-- A -->
+    <section class="opt">
+      <h3><span>A</span>한 줄로 합치기</h3>
+      <p>「말하는 방법」은 입력칸 위 작은 스위치 하나로, 세 줄짜리 «듣는 중» 안내는 빨간 점 한 줄로 합칩니다. 힌트 줄은 첫 대화 전에만 보입니다.</p>
+      <div class="phone"><div class="scr">
+        <div class="top"><div class="ib">←</div><div class="ib">🏠</div><div class="ttl">A.i 말하기 연습</div><div class="ib">🔊</div><div class="ib gold">🎚</div><div class="ib">⋮</div></div>
+        <div class="head"><div class="face mid">👩</div><div class="hmeta"><b>메이 선생님</b><span>한마디부터 시작해요 · 내 답변 7개</span><div class="chips"><span class="chip">자유 대화</span><span class="chip combo">🔥 7콤보</span></div></div></div>
+        <div class="chat"><span class="area-tag">대화창 ≈ 300px</span>
+          <div class="b me">我喜欢在家看电影。</div>
+          <div class="b ai"><span class="who">메이 선생님</span>在家看很舒服！你喜欢看什么电影？<small>집에서 보면 편하죠! 어떤 영화 좋아해요?</small></div>
+          <div class="b me">我喜欢看动画片。</div>
+          <div class="b ai"><span class="who">메이 선생님</span>你觉得看电影最好是在哪里看？<small>영화는 어디서 보는 게 제일 좋아요?</small></div>
+        </div>
+        <div class="comp">
+          <div class="row" style="justify-content:space-between"><span class="live"><span class="dot"></span>듣는 중 · 천천히 말해도 돼요</span><span class="seg"><i>🎤 버튼</i><i class="on">✨ 자동<span class="beta">β</span></i></span></div>
+          <div class="row"><div class="inp">중국어로 말해 보세요</div><div class="btn stop">⏹</div><div class="btn send">보내기</div></div>
+        </div>
+        <div class="foot"><div class="fb">💡 새 질문</div><div class="fb g">끝내고 요약</div></div>
+      </div></div>
+      <div class="gain">입력 묶음 ≈ 390 → 100px · 대화창 ≈ 40 → 300px</div>
+      <div class="cost">바뀌는 것: 얼굴을 조금 줄이고(112→76px) 제목을 한 줄로. <b>남는 위험</b>: 스위치 글자가 작아(11.5px) 어린 학생이 못 볼 수 있음.</div>
+    </section>
+
+    <!-- B -->
+    <section class="opt">
+      <h3><span>B</span>큰 마이크 하나</h3>
+      <p>휴대폰에서는 말하기가 주인공입니다. 가운데 둥근 마이크 하나와 그 위 상태 한 줄만 두고, 글자 입력은 ⌨️ 를 누르면 펼칩니다. 「말하는 방법」은 ⋮ 메뉴 안에만 둡니다.</p>
+      <div class="phone"><div class="scr">
+        <div class="top"><div class="ib">←</div><div class="ib">🏠</div><div class="ttl">A.i 말하기 연습</div><div class="ib">🔊</div><div class="ib gold">🎚</div><div class="ib">⋮</div></div>
+        <div class="head"><div class="face mid">👩</div><div class="hmeta"><b>메이 선생님</b><span>내 답변 7개 · 🔥 7콤보</span><div class="chips"><span class="chip">자유 대화</span></div></div></div>
+        <div class="chat"><span class="area-tag">대화창 ≈ 310px</span>
+          <div class="b me">我喜欢在家看电影。</div>
+          <div class="b ai"><span class="who">메이 선생님</span>在家看很舒服！你喜欢看什么电影？<small>집에서 보면 편하죠! 어떤 영화 좋아해요?</small></div>
+          <div class="b me">我喜欢看动画片。</div>
+          <div class="b ai"><span class="who">메이 선생님</span>你觉得看电影最好是在哪里看？<small>영화는 어디서 보는 게 제일 좋아요?</small></div>
+        </div>
+        <div class="comp" style="align-items:center;gap:5px">
+          <span class="live"><span class="dot"></span>듣는 중… 천천히 말해 보세요</span>
+          <div class="row" style="width:100%;justify-content:space-between">
+            <div class="kbd">⌨️</div><div class="bigmic">⏹</div><div class="kbd">💡</div>
+          </div>
+          <span class="small">자동 말하기 (베타) · 바꾸려면 ⋮</span>
+        </div>
+        <div class="foot"><div class="fb g">끝내고 요약 보기</div></div>
+      </div></div>
+      <div class="gain">입력 묶음 ≈ 390 → 120px · 대화창 ≈ 40 → 310px</div>
+      <div class="cost">버튼이 가장 크고 단순합니다. <b>남는 위험</b>: 글로 답하는 학생은 ⌨️ 를 한 번 더 눌러야 함. 「말하는 방법」이 화면에서 안 보임(9/24 「잘 보이는 곳에」 지시와 부딪힘).</div>
+    </section>
+
+    <!-- C -->
+    <section class="opt">
+      <h3><span>C</span>얼굴을 상단바로 올리기</h3>
+      <p>얼굴을 작은 동그라미로 줄여 상단바 옆 한 줄에 붙이고(3번 빈자리 제거), 입력 묶음은 A처럼 두 줄로. 대화창을 가장 넓게 씁니다.</p>
+      <div class="phone"><div class="scr">
+        <div class="top"><div class="ib">←</div><div class="ib">🏠</div><div class="ttl">A.i 말하기 연습</div><div class="ib">🔊</div><div class="ib gold">🎚</div><div class="ib">⋮</div></div>
+        <div class="head" style="padding:7px 12px"><div class="face sm">👩</div><div class="hmeta" style="flex:1"><b>메이 선생님 <span style="color:var(--a-text2);font-weight:600;font-size:12px">· 말하는 중…</span></b></div><div class="chips"><span class="chip">자유 대화</span><span class="chip combo">🔥7</span></div></div>
+        <div class="chat"><span class="area-tag">대화창 ≈ 380px</span>
+          <div class="b ai"><span class="who">메이 선생님</span>你好！今天我们聊聊电影吧。<small>안녕! 오늘은 영화 얘기 해 볼까?</small></div>
+          <div class="b me">我喜欢在家看电影。</div>
+          <div class="b ai"><span class="who">메이 선생님</span>在家看很舒服！你喜欢看什么电影？<small>집에서 보면 편하죠! 어떤 영화 좋아해요?</small></div>
+          <div class="b me">我喜欢看动画片。</div>
+          <div class="b ai"><span class="who">메이 선생님</span>你觉得看电影最好是在哪里看？<small>영화는 어디서 보는 게 제일 좋아요?</small></div>
+        </div>
+        <div class="comp">
+          <div class="row" style="justify-content:space-between"><span class="live"><span class="dot"></span>듣는 중 · 천천히</span><span class="seg"><i>🎤 버튼</i><i class="on">✨ 자동<span class="beta">β</span></i></span></div>
+          <div class="row"><div class="inp">중국어로 말해 보세요</div><div class="btn stop">⏹</div><div class="btn send">보내기</div></div>
+        </div>
+        <div class="foot"><div class="fb">💡 새 질문</div><div class="fb g">끝내고 요약</div></div>
+      </div></div>
+      <div class="gain">입력 묶음 ≈ 390 → 100px · 대화창 ≈ 40 → 380px</div>
+      <div class="cost">대화가 가장 많이 보입니다. <b>남는 위험</b>: 선생님 얼굴·입모양이 작아져 «함께 말하는» 느낌이 줄어듦(얼굴은 누르면 크게 보기로 되살릴 수 있음).</div>
+    </section>
+
+    <!-- D -->
+    <section class="opt">
+      <h3><span>D</span>듣는 동안은 알약 하나</h3>
+      <p>자동 모드로 듣는 동안에는 입력칸 줄 전체를 «👂 듣는 중 · ⏹ 멈추기» 알약 하나로 바꿉니다. 말하는 방법·힌트·글 입력은 아래 «⚙ 옵션» 한 줄을 눌러 펼칩니다.</p>
+      <div class="phone"><div class="scr">
+        <div class="top"><div class="ib">←</div><div class="ib">🏠</div><div class="ttl">A.i 말하기 연습</div><div class="ib">🔊</div><div class="ib gold">🎚</div><div class="ib">⋮</div></div>
+        <div class="head"><div class="face mid">👩</div><div class="hmeta"><b>메이 선생님</b><span>한마디부터 시작해요 · 내 답변 7개</span><div class="chips"><span class="chip">자유 대화</span><span class="chip combo">🔥 7콤보</span></div></div></div>
+        <div class="chat"><span class="area-tag">대화창 ≈ 320px</span>
+          <div class="b me">我喜欢在家看电影。</div>
+          <div class="b ai"><span class="who">메이 선생님</span>在家看很舒服！你喜欢看什么电影？<small>집에서 보면 편하죠! 어떤 영화 좋아해요?</small></div>
+          <div class="b me">我喜欢看动画片。</div>
+          <div class="b ai"><span class="who">메이 선생님</span>你觉得看电影最好是在哪里看？<small>영화는 어디서 보는 게 제일 좋아요?</small></div>
+        </div>
+        <div class="comp">
+          <div class="row"><div class="pill-live"><span class="dot"></span>👂 듣는 중 · 천천히 말해요</div><div class="btn stop">⏹</div></div>
+          <div class="sheet-h"><span>✨ 자동으로 <span class="beta">베타</span></span><b>⚙ 옵션 · 글로 쓰기 ▾</b></div>
+        </div>
+        <div class="foot"><div class="fb">💡 새 질문</div><div class="fb g">끝내고 요약</div></div>
+      </div></div>
+      <div class="gain">입력 묶음 ≈ 390 → 90px · 대화창 ≈ 40 → 320px</div>
+      <div class="cost">지금 무엇을 하는지가 가장 분명합니다. <b>남는 위험</b>: 버튼 모드일 때는 A와 같은 두 줄로 돌아가 모양이 두 가지가 됨. 글로 쓰려면 한 번 펼쳐야 함.</div>
+    </section>
+  </div>
+
+  <h2 class="sec">한눈에 비교</h2>
+  <div class="tw"><table>
+    <thead><tr><th>시안</th><th>대화창 (대략)</th><th>「말하는 방법」 위치</th><th>글 입력</th><th>얼굴 크기</th></tr></thead>
+    <tbody>
+      <tr><td>지금</td><td class="n">≈ 40px</td><td>입력칸 위 큰 버튼 두 개</td><td>늘 보임</td><td>112px</td></tr>
+      <tr><td><b>A+C 중간</b></td><td class="n">≈ 340px</td><td>입력칸 위 작은 스위치</td><td>늘 보임</td><td>56px 네모</td></tr>
+      <tr><td>A 한 줄로 합치기</td><td class="n">≈ 300px</td><td>입력칸 위 작은 스위치</td><td>늘 보임</td><td>76px</td></tr>
+      <tr><td>B 큰 마이크 하나</td><td class="n">≈ 310px</td><td>⋮ 메뉴 안</td><td>⌨️ 눌러서</td><td>76px</td></tr>
+      <tr><td>C 얼굴을 상단바로</td><td class="n">≈ 380px</td><td>입력칸 위 작은 스위치</td><td>늘 보임</td><td>40px 동그라미</td></tr>
+      <tr><td>D 듣는 동안 알약</td><td class="n">≈ 320px</td><td>옵션 줄 안 (자동일 때)</td><td>옵션 펼쳐서</td><td>76px</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 class="sec">어느 시안을 골라도 그대로 두는 것</h2>
+  <ul class="keep">
+    <li>자동 말하기(베타)·버튼 말하기 두 방식과 그 기능 자체 — 자리만 옮깁니다.</li>
+    <li>⏹ 멈추기 버튼 — 늘 눈에 보이는 자리에 남깁니다(학생이 멈출 길이 사라지면 안 됩니다).</li>
+    <li>PC·태블릿 가로 화면 — 이번 변경은 휴대폰 세로(좁은 폭)에만 적용합니다.</li>
+    <li>「이전 대화 보기」·「대답할 때 도움이 필요해요」 — 대화창 위 한 줄로 되살려 잘리지 않게 합니다.</li>
+  </ul>
+</div>

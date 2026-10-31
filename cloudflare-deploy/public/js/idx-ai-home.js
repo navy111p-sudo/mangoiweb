@@ -32,17 +32,26 @@
     // 🏆 랭킹 / 리더보드
     { kws:['랭킹','리더보드','순위','랭킹보드','포인트 랭킹','1등','탑10','top10','leaderboard','ranking'], action: () => { if (typeof window.openLeaderboard==='function') window.openLeaderboard(); }, label:'🏆 랭킹·리더보드' },
     { kws:['포인트','포인트상점','포인트 상점','포인트샵','포인트 샵','포인트몰','기프트','기프티콘','기프티쇼','선물','상점','쇼핑','리워드','적립','마일리지','교환','point','points','gift','shop','reward'], action: () => { if (typeof window.showPointsShop==='function') window.showPointsShop(); }, label:'🎁 포인트 상점' },
-    { kws:['주간 스케줄','주간스케줄','내 스케줄','내스케줄','스케줄','시간표','주간 시간표','내 수업 일정','수업 일정','일정표','schedule','timetable'], action: () => location.href='/admin/weekly-schedule.html?role=student', label:'📅 내 주간 스케줄' },
+    { kws:['주간 스케줄','주간스케줄','내 스케줄','내스케줄','스케줄','시간표','주간 시간표','내 수업 일정','수업 일정','일정표','schedule','timetable'], action: () => location.href='/my-schedule.html', label:'📅 내 주간 스케줄' },
     { kws:['학생관리','학생 관리','학생목록','학생 목록','학생리스트','학생 명단','반 학생','students'], action: () => location.href='/admin.html#card-students-mgmt', label:'👨‍🎓 학생 관리' },
     { kws:['수업자료','수업 자료','학습자료','학습 자료','강의자료','수업 교재','수업노트','materials'], action: () => location.href='/lessons.html', label:'📖 수업 자료' },
-    { kws:['평가서','월말평가','월간평가','평가 결과','평가결과','evaluation'], action: () => location.href='/eval.html', label:'📝 평가서' },
-    { kws:['리포트','학습리포트','학습 리포트','월간리포트','분석 리포트','report'], action: () => location.href='/report.html', label:'📊 리포트' },
+    /* 🏷 (2026-09-04) 화면 이름을 「오늘 수업일지」·「월간 성적표」로 바꿨다(전체메뉴 타일과 같은 말).
+       ⛔ 옛 낱말 '평가서'·'리포트'를 kws 에서 빼지 말 것 — 그 말로 찾던 사람이 못 찾게 된다.
+          label 만 새 이름이고 kws 는 «옛 말 + 새 말» 을 모두 받는다. */
+    { kws:['수업일지','수업 일지','일지','평가서','월말평가','월간평가','평가 결과','평가결과','evaluation','lesson note'], action: () => location.href='/eval.html', label:'📝 오늘 수업일지' },
+    { kws:['성적표','월간성적표','월간 성적표','리포트','학습리포트','학습 리포트','월간리포트','분석 리포트','report','report card'], action: () => location.href='/report.html', label:'📊 월간 성적표' },
+    { kws:['오늘의 ai 학습','오늘의 a.i 학습','오늘 ai 학습','오늘의 학습','오늘 학습','오늘 할 일','오늘할일','오늘 공부','학습 계획','학습계획','계획표','ai 학습계획','todays plan','today plan','todays ai plan','study plan'], action: () => location.href='/today.html', label:'📅 오늘의 A.i 학습' },
     { kws:['ai 친구','ai친구','인공지능 친구','영어 친구','대화 연습','챗봇','ai friend','chatbot'], action: () => location.href='/ai-friend.html', label:'🤖 AI 친구' },
     { kws:['ai 작문','ai작문','영작','영작문','작문 첨삭','글쓰기','ai write','writing'], action: () => location.href='/ai-write.html', label:'✍ AI 작문' },
     { kws:['영어 발음 코치','영어발음코치','영어 발음 연습'], action: () => location.href='/speech-coach.html', label:'🗣 영어 발음 코치' },
     { kws:['단어장','단어 장','내 단어장','어휘장','어휘','vocab','vocabulary','word list'], action: () => location.href='/vocab.html', label:'📖 단어장' },
-    { kws:['복습퀴즈','복습 퀴즈','선생님 퀴즈','리뷰 퀴즈','review quiz'], action: () => location.href='/review-quiz.html', label:'🧠 복습퀴즈' },
-    { kws:['미니 퀴즈','미니퀴즈','퀴즈','단어 퀴즈','쪽지시험','quiz'], action: () => location.href='/micro-quiz.html', label:'🎯 미니 퀴즈' },
+    /* 2026-08-17 — 중국어 복습퀴즈. 페이지는 진작 있었는데 부르는 곳이 한 군데도 없었다.
+     * ⚠️ 반드시 아래 '복습퀴즈' 보다 **위**에 둔다. findRule() 은 부분일치로 «첫 매칭» 을 돌려주므로,
+     *    아래에 두면 「중국어 복습퀴즈」 가 '복습퀴즈' 에 먼저 걸려 한국어 화면으로 가 버린다.
+     * ⚠️ kws 에 맨 '중국어' 는 넣지 않는다 — 그건 중국어 발음 코치(ph157)의 몫이다. */
+    { kws:['중국어 복습퀴즈','중국어복습퀴즈','중국어 복습','중국어복습','중국어 퀴즈','중국어퀴즈','중문 퀴즈','chinese quiz','chinese review quiz'], action: () => location.href='/review-quiz-cn.html', label:'🇨🇳 중국어 복습퀴즈' },
+    { kws:['bts/siu 퀴즈','bts 퀴즈','siu 퀴즈','bts퀴즈','siu퀴즈','복습퀴즈','복습 퀴즈','선생님 퀴즈','리뷰 퀴즈','review quiz'], action: () => location.href='/review-quiz.html', label:'🧠 BTS/SIU 퀴즈' },
+    { kws:['미니 퀴즈','미니퀴즈','퀴즈','단어 퀴즈','쪽지시험','quiz'], action: () => location.href='/micro-quiz.html', label:'🎯 AI 단어 퀴즈' },
     { kws:['mbti 매칭','mbti매칭','엠비티아이 매칭','강사 매칭','성향 매칭','mbti match'], action: () => location.href='/mbti.html', label:'🧠 MBTI 매칭' },
     { kws:['mbti 테스트','mbti테스트','엠비티아이 테스트','성향 테스트','성격 테스트','mbti test'], action: () => location.href='/mbti-test.html', label:'🧪 MBTI 테스트' },
     { kws:['연속 출석','연속출석','출석','출석체크','출석 체크','스트릭','데일리 출석','streak','attendance'], action: () => location.href='/streak.html', label:'🔥 연속 출석' },
@@ -57,8 +66,8 @@
     { kws: ['홈페이지', '홈페', 'homepage', 'home', '메인', '처음'], action: () => { if (window.openAllMenuOverlay) window.openAllMenuOverlay(); }, label: '🏠 홈페이지 (전체 메뉴)' },
     // 관리자
     { kws: ['관리자', '대시보드', 'admin', 'dashboard'], action: () => location.href = '/admin.html', label: '📊 관리자 대시보드' },
-    // 신규상담
-    { kws: ['신규상담', '신규 상담', '상담', '상담신청', '상담 신청', '문의', '문의하기', '가입 문의', '가입문의', '첫 방문', '전화상담', '연락', 'inquiry', 'consult', '컨설팅'], action: () => window.openInquiryModal(), label: '💬 신규상담' },
+    // 상담 — 창구는 카카오 채널 하나 (2026-08-14 피드백 ⑤). openInquiryModal 이 카카오를 연다.
+    { kws: ['신규상담', '신규 상담', '상담', '상담신청', '상담 신청', '문의', '문의하기', '가입 문의', '가입문의', '첫 방문', '전화상담', '연락', 'inquiry', 'consult', '컨설팅', '카카오', '카톡', 'kakao'], action: () => window.openInquiryModal(), label: '💬 카카오 상담' },
     // 발음연습 (영어)
     { kws: ['발음', '발음연습', '발음 연습', '발음교정', '발음 교정', '발음테스트', '발음 체크', '영어발음', 'pronunciation', '스피치', 'speech', '스피킹', '말하기', '말하기 연습'], action: () => window.gridActions && window.gridActions.speech(), label: '🎤 영어 발음 코치 (AI 발음 평가)' },
     // ph157: 중국어 발음 코치
@@ -330,10 +339,11 @@
       { label: '🎮 학생게임', action: () => location.href = '/student-games.html' },
       { label: '📖 단어장', action: () => location.href = '/vocab.html' },
       { label: '🗣 발음연습', action: () => location.href = '/speech-coach.html' },
-      { label: '🧠 복습퀴즈', action: () => location.href = '/review-quiz.html' },
-      { label: '📊 성적표·리포트', action: () => location.href = '/report.html' },
+      { label: '🧠 BTS/SIU 퀴즈', action: () => location.href = '/review-quiz.html' },
+      { label: '🇨🇳 중국어퀴즈', action: () => location.href = '/review-quiz-cn.html' },
+      { label: '📊 월간 성적표', action: () => location.href = '/report.html' },
       { label: '🎁 포인트 상점', action: () => { if (window.showPointsShop) window.showPointsShop(); } },
-      { label: '💬 신규상담·체험', action: () => { if (window.openInquiryModal) window.openInquiryModal(); } },
+      { label: '💬 카카오 상담', action: () => { if (window.openInquiryModal) window.openInquiryModal(); } },
       { label: '🥭 전체 메뉴', action: () => { if (window.openAllMenuOverlay) window.openAllMenuOverlay(); } }
     ];
   }

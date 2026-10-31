@@ -159,12 +159,37 @@ export interface LegacyTeacherInfo {
   group_name?: string | null;
   email?: string | null;
   matched: boolean;      // 카페24 강사 명부에서 실제로 찾았는지
+  lookup_failed?: boolean; // 명부 조회 자체가 실패(=«없다» 가 아니라 «모른다»)
+}
+
+/**
+ * 🚧 (2026-10-25) 자동 생성 «허용 여부» 판정 — 정본.
+ *   [사고] 옛 LMS 는 강사만의 것이 아니다 — **대리점·지사 계정도 같은 로그인 폼**을 쓴다.
+ *     위 verifyLegacyLmsLogin 은 «세션이 열렸나» 만 보므로 대리점 아이디(masteraca)도 통과했고,
+ *     그 자리에서 scope_type='teacher' 계정이 생겨 로그인 뒤 /teacher 로 보내졌다
+ *     (화면: 「이 계정은 강사 기록에 연결되지 않았습니다」, 표시 이름 = 아이디 = 명부 미매칭의 흔적).
+ *   [규칙] 카페24 강사 명부(:Teacher)에서 **찾은 아이디만** 강사로 만든다.
+ *     · 못 찾음        → 'not_in_teacher_roster' (대리점·지사·기타 LMS 회원 — 본사가 계정 발급)
+ *     · 조회가 실패함  → 'roster_lookup_failed'  (모르면 강사 권한을 주지 않는다. 계정을 안 만들었으니
+ *                                                 다음 시도에서 다시 확인한다 = 일시적)
+ *   ⛔ «못 찾았지만 일단 강사로» 폴백을 되살리지 마세요 — 그게 이 사고입니다.
+ */
+/*   반환형을 판별 유니온으로 두지 않는다 — 이 저장소 tsc 설정에서는 `!gate.allow` 로 좁혀지지 않아
+     `gate.reason` 이 TS2339 가 된다(CI 에서 실제로 밟음). */
+export type LegacyProvisionRefusal = 'roster_lookup_failed' | 'not_in_teacher_roster';
+export function legacyProvisionGate(info: LegacyTeacherInfo | null | undefined):
+  { allow: boolean; reason?: LegacyProvisionRefusal } {
+  if (!info || info.lookup_failed) return { allow: false, reason: 'roster_lookup_failed' };
+  if (info.matched !== true) return { allow: false, reason: 'not_in_teacher_roster' };
+  return { allow: true };
 }
 
 /**
  * 카페24 강사 명부(Neo4j :Teacher)에서 로그인 아이디로 강사를 찾아 **실제 이름**을 얻는다.
  *   마이페이지의 급여·평가는 강사 '이름'으로 매칭되므로(sameTeacherName) 이름이 정확해야
- *   본인 데이터가 보인다. Neo4j 가 죽어 있어도 로그인은 막지 않는다(이름만 아이디로 폴백).
+ *   본인 데이터가 보인다.
+ *   ⚠️ (2026-10-25) 이 결과는 이제 «강사인가» 판정에도 쓰인다(legacyProvisionGate).
+ *      조회 실패는 «없음» 과 구분해 lookup_failed 로 돌려준다.
  */
 export async function lookupTeacherByLoginId(env: LegacyAuthEnv, loginId: string): Promise<LegacyTeacherInfo> {
   const id = loginId.trim().toLowerCase();
@@ -193,7 +218,8 @@ export async function lookupTeacherByLoginId(env: LegacyAuthEnv, loginId: string
       }
     }
   } catch (e: any) {
-    console.warn('[legacy-teacher-auth] 강사 명부 조회 실패(로그인은 계속):', e?.message || e);
+    console.warn('[legacy-teacher-auth] 강사 명부 조회 실패:', e?.message || e);
+    return { name: loginId, matched: false, lookup_failed: true };
   }
   return { name: loginId, matched: false };
 }
@@ -210,8 +236,39 @@ export async function provisionTeacherAccount(
   passwordHash: string,
   info: LegacyTeacherInfo
 ): Promise<void> {
+  /* 🚧 (2026-10-25) 정본이 한 번 더 막는다 — 부르는 쪽이 게이트를 빠뜨려도 강사 권한이 새지 않게. */
+  const gate = legacyProvisionGate(info);
+  if (!gate.allow) throw new Error('legacy_provision_refused:' + gate.reason);
+
   const now = Date.now();
   const email = loginId.includes('@') ? loginId : null;
+
+  /* 🔤 (2026-08-24) **대소문자만 다른 계정을 새로 만들지 않는다.**
+     [왜] `admin_account.username` 은 COLLATE NOCASE 가 없어 SQLite 가 `mangoi_167` 과
+       `Mangoi_167` 을 다른 값으로 본다. 그래서 아래 `ON CONFLICT(username)` 은 이 경우를
+       **못 걸러 준다** — 휴대폰 키보드의 자동 대문자 한 번에 계정이 두 벌이 됐다
+       (실측 2026-08-24: 두 계정이 나란히 존재, 쓰는 쪽에 연결이 없어 강사 화면이 «수업 없음»).
+     [무엇을 하나] 이미 있는 쪽을 그대로 쓴다. 비밀번호·이름을 덮어쓰지 않는다 —
+       이 함수는 «없을 때 만드는» 자리이지 «고치는» 자리가 아니다.
+     ℹ️ 부르는 쪽(auth-admin 로그인)도 이미 대소문자 무시로 찾으므로 여기까지 오는 일은
+       거의 없다. 그래도 둔다 — 이 함수가 계정을 만드는 유일한 자동 경로라, 여기가 마지막 문이다. */
+  /* ⚠️ try/catch 로 감싼다 — 여기는 «로그인» 경로다. 이 확인이 무슨 이유로든(옛 D1 스텁,
+     드라이버 차이) 예외를 던지면 강사가 아예 로그인하지 못하게 된다. 못 확인하면
+     «예전처럼» 진행한다(막는 쪽이 아니라 통과시키는 쪽으로 실패). */
+  let existing: { username: string } | null = null;
+  try {
+    existing = await env.DB.prepare(
+      `SELECT username FROM admin_account WHERE username = ? COLLATE NOCASE LIMIT 1`
+    ).bind(loginId).first<{ username: string }>();
+  } catch (e: any) {
+    console.warn('[legacy-teacher-auth] 대소문자 중복 확인 실패(계속 진행):', e?.message || e);
+  }
+  if (existing && String(existing.username) !== loginId) {
+    console.warn('[legacy-teacher-auth] 대소문자만 다른 계정이 이미 있어 새로 만들지 않음:',
+      loginId, '→', existing.username);
+    return;
+  }
+
   await env.DB.prepare(
     `INSERT INTO admin_account (username, password_hash, name, email, phone, created_at, updated_at, pref_lang, nationality)
      VALUES (?, ?, ?, ?, NULL, ?, ?, NULL, NULL)

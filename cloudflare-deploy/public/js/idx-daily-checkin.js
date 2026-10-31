@@ -145,17 +145,20 @@
 
     // 학원 랭킹 fetch (전용 공개 엔드포인트 — top-N + 이름·누적포인트만)
     try {
-      const r = await fetch('/api/points/leaderboard?limit=10');
+      /* 🔐 (2026-08-28) 서버가 더는 user_id 를 내려주지 않는다 — 학생은 비밀번호가 없어
+         «아이디를 아는 것 = 로그인» 이라, 공개 랭킹에 아이디를 실으면 계정을 나눠 주는 셈이었다.
+         「(나)」 표시는 서버가 판정해 주는 row.me 로 받는다(uid 는 보내기만 한다). */
+      const r = await fetch('/api/points/leaderboard?limit=10' + (u && u.uid ? '&uid=' + encodeURIComponent(u.uid) : ''));
       const d = await r.json();
       const all = (d.rows || []).slice().sort((a,b) => (b.lifetime_earned||0) - (a.lifetime_earned||0)).slice(0, 10);
-      const meIdx = u ? all.findIndex(x => x.user_id === u.uid) : -1;
+      const meIdx = all.findIndex(x => x.me);
       const rowsHtml = all.length === 0
         ? `<div style="padding:40px;text-align:center;color:#94a3b8">${isKo?'아직 활동 데이터가 없습니다.':'No activity yet.'}</div>`
         : all.map((s, i) => {
             const rankCls = i===0?'g1':(i===1?'g2':(i===2?'g3':''));
             const rankIcon = i===0?'🥇':(i===1?'🥈':(i===2?'🥉':(i+1)));
-            const isMe = u && s.user_id === u.uid;
-            const name = s.student_name || s.user_id;
+            const isMe = !!s.me;
+            const name = s.student_name || (isKo ? '이름 없음' : 'No name');
             return `<div class="lb-row ${isMe?'me':''}">
               <div class="lb-rank ${rankCls}">${rankIcon}</div>
               <div class="lb-name">${escapeText(name)}${isMe?(isKo?' <span style="font-size:11px;color:#fde68a;font-weight:600">(나)</span>':' <span style="font-size:11px;color:#fde68a;font-weight:600">(me)</span>'):''}</div>

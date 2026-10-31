@@ -13,8 +13,10 @@
  */
 import { json, parseJsonBody, keyMatchesAny } from './api-util';
 import { sendPlainSms } from './solapi-client';
+import { SITE_ORIGIN } from './site-url';       // 🔗 사람에게 나가는 링크는 한 곳에서
 import { getTraits } from './api-traits';
 import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
+import { recordCareContact } from './care-contact';   // 📞 이탈 케어 연락 기록 정본(2026-10-13)
 
 const AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
@@ -58,7 +60,7 @@ const ensureTable = oncePerIsolate(async (env: any): Promise<void> => {
   ).run();
 });
 
-const DEFAULT_LINK = 'https://test.mangoi.co.kr';
+const DEFAULT_LINK = SITE_ORIGIN;
 
 export async function getRetentionSettings(env: any): Promise<any> {
   await ensureTable(env);
@@ -206,8 +208,13 @@ export async function handleRetentionIngest(request: Request, url: URL, env: any
 /** '연락함' 토글 (관리자) */
 export async function markRetentionContacted(env: any, userId: string, contacted: boolean): Promise<void> {
   await ensureTable(env);
+  const now = Date.now();
   await env.DB.prepare(`UPDATE student_retention SET contacted=?, contacted_at=? WHERE user_id=?`)
-    .bind(contacted ? 1 : 0, contacted ? Date.now() : null, userId).run();
+    .bind(contacted ? 1 : 0, contacted ? now : null, userId).run();
+  /* 📞 (2026-10-13) «연락함» 을 켜면 케어 사례(forecast_care)에도 함께 적는다 — B 화면이 같은 사실을 보게.
+     ⛔ 끄기(false)는 forecast_care 를 안 건드린다 — 실수로 끈 토글이 다른 화면의 «상담 중» 까지 지우면 안 된다.
+     ⚠️ 누가 눌렀는지는 이 경로가 받지 않아 'retention_page' 로 적는다(src/index.ts 호출부는 공동 금지구역). */
+  if (contacted) await recordCareContact(env, userId, 'retention_page', now);
 }
 
 /** 관리자 조회 — 카테고리별 목록 + 이름(students_erp 조인) + 요약 */
@@ -289,6 +296,8 @@ export async function sendRetentionMessages(env: any, userIds: string[], opts: {
       budget--;
       // 발송 성공 = 연락함 표시
       await env.DB.prepare(`UPDATE student_retention SET contacted=1, contacted_at=? WHERE user_id=?`).bind(now, uid).run();
+      // 📞 (2026-10-13) 케어 사례에도 함께 — B 화면 «마지막 연락» 이 이 문자를 본다
+      await recordCareContact(env, uid, opts.by || 'admin', now, { auto: opts.by === 'auto-cron' });  // 자동 발송은 상태·담당을 안 바꾼다
     }
     results.push({ user_id: uid, status, reason: detail || undefined });
   }

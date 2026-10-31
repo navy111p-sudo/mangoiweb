@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="dns-prefetch" href="https://js.tosspayments.com">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A.i 이용권 · 망고아이</title>
+<link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml">
+<!--
+  🤖 A.i 콘텐츠 이용권(ai_content) — «언제까지 쓸 수 있나» 와 «매달 자동결제» 를 보는 화면 (2026-09-29)
+  · 끝나는 날·자동결제 계산은 서버 정본(src/ai-pass.ts)이 한다. 이 화면은 받은 값을 «그리기만» 한다.
+  · 수업 자동연장(enroll.html)과는 따로다 — 여기서 켜고 꺼도 수업 자동결제는 그대로다.
+-->
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:MangoiHanSC,'Malgun Gothic','맑은 고딕',sans-serif; background:linear-gradient(160deg,#0f172a,#1e293b); color:#e2e8f0; min-height:100vh; padding:16px 12px 60px; }
+  .wrap { max-width:520px; margin:0 auto; }
+  h1 { font-size:20px; color:#fbbf24; text-align:center; margin:44px 0 4px; display:flex; align-items:center; justify-content:center; gap:8px; }
+  h1 img { height:40px; }
+  .sub { text-align:center; color:#94a3b8; font-size:12.5px; margin-bottom:16px; line-height:1.6; }
+  .card { background:rgba(30,41,59,0.92); border:1px solid rgba(148,163,184,0.2); border-radius:16px; padding:16px 14px; margin-bottom:12px; }
+  .card h2 { font-size:14px; margin:0 0 10px; color:#fcd34d; }
+  .big { font-size:17px; font-weight:800; color:#f8fafc; }
+  .muted { font-size:12.5px; color:#94a3b8; line-height:1.7; margin-top:6px; }
+  .on { color:#6ee7b7; }
+  .btn { display:block; width:100%; margin-top:12px; padding:12px 14px; font-size:14px; font-weight:800; border-radius:12px; border:0; cursor:pointer; font-family:inherit; }
+  .btn-go { background:linear-gradient(135deg,#22c55e,#16a34a); color:#fff; }
+  .btn-off { background:transparent; border:1px solid rgba(252,165,165,0.45); color:#fca5a5; font-weight:700; }
+  .btn-buy { background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a1a; text-decoration:none; text-align:center; }
+  .btn[disabled] { opacity:.6; cursor:default; }
+  .note { font-size:11.5px; color:#94a3b8; line-height:1.7; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><img src="/img/mango-char.png" alt="" decoding="async">A.i 이용권</h1>
+  <div class="sub">화상수업 없이 A.i 학습도구를 쓰는 1개월 이용권이에요.</div>
+  <div id="app"><div class="card"><span class="muted">불러오는 중…</span></div></div>
+  <div class="card note">
+    · 이용권은 결제한 때부터 <b>1개월</b>이에요. 남은 기간이 있을 때 결제하면 <b>그 끝에 이어서</b> 1개월이 붙어요.<br>
+    · 자동결제는 이용권이 끝나기 <b>3일 전</b>에 등록한 카드로 결제돼요. 연락처가 등록돼 있으면 결제 전에 문자로 먼저 알려드려요.<br>
+    · 수업 자동결제(수강신청 화면)와는 따로예요. 여기서 끄고 켜도 수업 쪽은 바뀌지 않아요.
+  </div>
+</div>
+<script src="https://js.tosspayments.com/v1/payment"></script>
+<script>
+(function(){
+  'use strict';
+  var UID = null, TOKEN = null;
+  try {
+    var lu = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null') || {};
+    UID = localStorage.getItem('mangoi_uid') || lu.uid || lu.user_id || null;
+    TOKEN = localStorage.getItem('mango_token') || null;
+  } catch (e) {}
+  var app = document.getElementById('app');
+  function el(id){ return document.getElementById(id); }
+  function won(n){ return Number(n || 0).toLocaleString('ko-KR') + '원'; }
+  /* 한국 날짜(YYYY-MM-DD) — 서버가 한국 달력으로 끝나는 날을 정하므로 표시도 한국 시각으로 */
+  function kday(ms){
+    if (!ms) return '';
+    return new Date(Number(ms) + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function body(extra){ var b = { uid: UID, token: TOKEN, plan: 'ai_content' }; for (var k in (extra || {})) b[k] = extra[k]; return JSON.stringify(b); }
+
+  if (!UID) {
+    app.innerHTML = '<div class="card"><div class="big">🔒 로그인 후 이용할 수 있어요</div>'
+      + '<div class="muted">홈 화면에서 로그인한 뒤 다시 열어 주세요.</div>'
+      + '<a class="btn btn-buy" href="/">홈으로 가기</a></div>';
+    return;
+  }
+
+  function render(){
+    app.innerHTML = '<div class="card"><span class="muted">불러오는 중…</span></div>';
+    fetch('/api/pay/billing/status?plan=ai_content' + (TOKEN ? ('&token=' + encodeURIComponent(TOKEN)) : ''))
+      .then(function(r){ return r.json(); }).then(function(d){
+        if (!d || !d.ok) {
+          app.innerHTML = '<div class="card"><div class="big">⚠️ 상태를 불러오지 못했어요</div><div class="muted">' + esc((d && (d.message || d.error)) || '로그인이 만료됐을 수 있어요. 홈에서 다시 로그인해 주세요.') + '</div></div>';
+          return;
+        }
+        var now = Date.now();
+        var end = d.ai_pass_ends_at ? Number(d.ai_pass_ends_at) : 0;
+        var active = end > now;
+        var price = Number(d.price || 0);
+        var sub = d.subscription;
+        var h = '<div class="card"><h2>📅 이용 기간</h2>';
+        if (active) h += '<div class="big on">' + kday(end) + '까지 사용할 수 있어요</div>';
+        else if (end) h += '<div class="big">' + kday(end) + '에 끝났어요</div><div class="muted">다시 쓰려면 아래에서 자동결제를 켜거나 한 번 결제해 주세요.</div>';
+        else h += '<div class="big">아직 이용권이 없어요</div>';
+        h += '</div><div class="card"><h2>♾️ 매달 자동결제</h2>';
+        /* 매달 자동청구는 서버 스위치(auto_live)가 켜져 있을 때만 실제로 돈다 — 꺼져 있으면 그 사실을 먼저 말한다 */
+        if (!d.auto_live) h += '<div class="muted" style="color:#fcd34d">⚠️ 매달 자동결제는 아직 운영 시작 전이에요. 카드 등록과 첫 달 결제는 지금 되지만, 다음 달부터의 자동 결제는 운영이 시작된 뒤에 이뤄져요. 그 전에 이용권이 끝나면 다시 결제해 주세요.</div>';
+        if (sub) {
+          h += '<div class="big on">자동결제 켜짐 · 매월 ' + won(sub.amount) + '</div>'
+            + '<div class="muted">다음 결제 ' + kday(sub.next_billing_at) + ' (이용권이 끝나기 3일 전)</div>'
+            + '<button class="btn btn-off" id="btnOff">자동결제 해지</button>';
+        } else {
+          h += '<div class="muted">카드를 한 번 등록하면 매달 이용권이 끝나기 3일 전에 자동으로 ' + won(price) + '이 결제되고 1개월이 이어져요.</div>'
+            + '<div class="muted"><b>' + (active
+                ? '지금은 결제되지 않아요.' + (d.first_billing_at ? ' 첫 자동결제는 ' + kday(d.first_billing_at) + '이에요.' : '')
+                : '카드를 등록하면 지금 첫 달 ' + won(price) + '이 바로 결제돼요.') + '</b></div>'
+            + '<button class="btn btn-go" id="btnOn">♾️ 카드 등록하고 자동결제 켜기</button>';
+        }
+        h += '</div>';
+        app.innerHTML = h;
+        if (el('btnOff')) el('btnOff').addEventListener('click', function(){
+          if (!confirm('A.i 이용권 자동결제를 해지할까요?\n남은 이용 기간은 그대로 쓸 수 있어요.')) return;
+          this.disabled = true;
+          fetch('/api/pay/billing/cancel', { method:'POST', headers:{'Content-Type':'application/json'}, body: body() })
+            .then(function(){ render(); }).catch(function(){ alert('네트워크 오류'); render(); });
+        });
+        if (el('btnOn')) el('btnOn').addEventListener('click', startRegister);
+      }).catch(function(){
+        app.innerHTML = '<div class="card"><div class="big">⚠️ 네트워크 오류</div><div class="muted">잠시 후 다시 열어 주세요.</div></div>';
+      });
+  }
+
+  function startRegister(){
+    var b = el('btnOn');
+    if (b) { b.disabled = true; b.textContent = '🔄 처리 중…'; }
+    function reset(){ if (b) { b.disabled = false; b.textContent = '♾️ 카드 등록하고 자동결제 켜기'; } }
+    fetch('/api/pay/billing/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: body() })
+      .then(function(r){ return r.json(); }).then(function(o){
+        if (!o || !o.ok) { reset(); alert((o && o.message) || '자동결제 신청에 실패했어요.'); return; }
+        try {
+          window.TossPayments(o.clientKey).requestBillingAuth('카드', {
+            customerKey: o.customerKey,
+            successUrl: location.origin + '/ai-pass.html?billing_return=1',
+            failUrl: location.origin + '/ai-pass.html?billing_fail=1'
+          }).catch(function(e){ reset(); if (e && e.code !== 'USER_CANCEL') alert('카드 등록창 오류: ' + (e.message || '')); });
+        } catch (e) { reset(); alert('결제 모듈 오류'); }
+      }).catch(function(){ reset(); alert('네트워크 오류'); });
+  }
+
+  /* 토스 카드 등록에서 돌아왔을 때 — authKey 를 서버에 넘겨 빌링키로 바꾼다(이용권이 없으면 서버가 첫 달을 바로 결제) */
+  var qp = new URLSearchParams(location.search);
+  if (qp.get('billing_fail') === '1') {
+    history.replaceState(null, '', location.pathname);
+    alert('카드 등록이 취소되었거나 실패했어요: ' + (qp.get('message') || ''));
+  }
+  if (qp.get('billing_return') === '1') {
+    var authKey = qp.get('authKey'), customerKey = qp.get('customerKey');
+    history.replaceState(null, '', location.pathname);   // 새로고침 시 중복 등록 방지
+    if (authKey && customerKey) {
+      app.innerHTML = '<div class="card"><span class="muted">카드를 등록하고 있어요…</span></div>';
+      fetch('/api/pay/billing/confirm', { method:'POST', headers:{'Content-Type':'application/json'}, body: body({ authKey: authKey, customerKey: customerKey }) })
+        .then(function(r){ return r.json(); }).then(function(d){
+          if (!d || !d.ok) alert('카드 등록에 실패했어요: ' + ((d && (d.message || d.error)) || '오류'));
+          else if (d.charged) alert('✅ 자동결제가 켜졌고 첫 달 ' + won(d.amount) + '이 결제됐어요.\n' + kday(d.ai_pass_ends_at) + '까지 사용할 수 있어요.');
+          else if (d.charge_error) alert(d.message || ('카드는 등록됐지만 첫 결제에 실패했어요: ' + d.charge_error + '\n(카드 한도·잔액을 확인해 주세요)'));
+          else alert('♾️ 자동결제가 켜졌어요.' + (d.next_billing_at ? ' 첫 자동결제는 ' + kday(d.next_billing_at) + '이에요.' : ''));
+          render();
+        }).catch(function(){ alert('네트워크 오류 — 잠시 후 이 화면을 다시 열어 확인해 주세요.'); render(); });
+      return;
+    }
+  }
+  render();
+})();
+</script>
+<script defer src="/js/back-nav.js"></script>
+</body>
+</html>

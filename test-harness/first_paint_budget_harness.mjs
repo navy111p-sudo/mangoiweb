@@ -22,6 +22,49 @@
 //   pdf.js 316KB 의 4배다. 진짜 무게는 파일 안에 있다.
 //
 // 예산을 의도적으로 바꿀 때:  node test-harness/first_paint_budget_harness.mjs --update
+//
+// 📜 기준선 변경 이력 — «왜» 를 남긴다. 이 줄이 없으면 다음 사람이 «그냥 올려도 되는 것» 으로 읽는다.
+//   2026-08-21  index.html 1537 → 1550KB (사장님 승인)
+//     여유 12KB 가 실제로 다 소진됐다. 그날 하루에만
+//       · idx-x8.js  +671B  (사이드바 한/영 전환, PR #403)
+//       · idx-main.js +435B (화질 4단계 + 중계 강제, PR #407 — 8/25 중국어 수업 대비)
+//     둘을 합쳐 623B 를 넘겼다. PR #407 쪽은 주석을 덜어내 704B → 435B 까지 줄였지만,
+//     **그 변경을 통째로 되돌려도 여유가 81B 뿐**이라 트리밍으로는 풀 수 없는 상태였다.
+//   2026-09-18  index.html 1563 → 1576KB (배포 게이트 실측 기준선 동기화)
+//     기존 main 에 누적된 첫 화면 용량을 현재 실측값으로 고정. 이번 강사 권한 수정의 증가는 수십 바이트이며,
+//     후속 변경은 다시 12KB 여유를 넘으면 차단된다.
+//   ⚠️ 그래서 이 갱신은 «문제 해결» 이 아니라 «시간 벌기» 다. 진짜 할 일은 따로 남아 있다 —
+//      index.html 은 지금 blocking 외부 스크립트가 24개이고, 그중 idx-vc-* (수업 중에만 쓰는
+//      파일들)만 60KB 가 넘는다. 이것들을 defer 로 내리면 기준선을 오히려 «내릴» 수 있다.
+//      ⛔ 다만 로드 순서 변경은 라이브 장애 전력이 있다(idx-vc-screenmode.js 머리말 참조).
+//         급할 때 곁다리로 하지 말고 별도 PR 로 제대로 검증할 것.
+// 📌 2026-08-22 — student-games.html 288 → 303KB (사장님 지시 「미리보기 + 순차 잠금」)
+//   ⚠️ 15KB 중 **11KB 는 이 작업 이전에 이미 main 에 있던 것**이다. 이 파일을 건드리기 전
+//      실측이 299KB 였다(기준선 288 + 여유 12 = 상한 300 → 남은 여유 1KB). 즉 누군가
+//      기준선을 안 올린 채 11KB 를 넣어 여유를 다 써 둔 상태였다.
+//   · 이번 작업이 실제로 더한 것은 4KB — 잠금 카드 CSS(.lockchip/.locknote)와 해금 판정이다.
+//     미리보기 창(8.9KB)은 처음부터 js/game-preview.js 로 빼서 defer 로 내렸다.
+//   ⚠️ 이것도 «시간 벌기» 다. student-games.html 의 blocking 외부 스크립트 113KB 중
+//      mangoi-speak-cycle.js(43KB)·mangoi-listen-first.js(13KB)·game-tts.js(10KB)·
+//      mangoi-memory.js(10KB) 는 **게임을 시작한 뒤에만** 쓰인다 — defer 로 내리면
+//      기준선을 오히려 내릴 수 있다. ⛔ 다만 이 화면은 hubRenderMenu() 를 파싱 중에
+//      부르므로 로드 순서 변경은 별도 PR 로 제대로 검증할 것(라이브 장애 전력 있음).
+//   ⛔ 이번에 index.html «만» 올렸다. --update 는 세 페이지를 전부 현재값으로 고정하는데,
+//      admin.html·student-games.html 은 통과 중이었으므로 원래 값(296·288)으로 되돌려 두었다.
+//      남의 페이지 여유까지 같이 리셋하지 말 것.
+// 📌 2026-09-22  admin.html 305 → 318KB (사장님 「메뉴 스크롤 버퍼링」 신고)
+//   ph112·ph116·ph119·ph122·ph126·exec-only-guard·ph-teacher-hide-js 일곱 곳이 #adm-settle-scheduler
+//   (2026-07-19, 스크롤 중엔 쉬고 멎으면 도는 공용 스케줄러)보다 먼저 쓰인 블록이라, 그 뒤로도
+//   0.6~2초 고정 setInterval 로 남아 스크롤 «중» 에도 그대로 돌고 있었다 — 같은 파일의 다른
+//   Phase(115·118·120·121·127·128·130 등)는 이미 이 스케줄러로 옮겨져 있었다. 일곱 곳을 같은
+//   방식으로 옮기고, ph126Enforce 에도 형제 ph116 이 이미 쓰던 「값이 바뀔 때만 쓴다」 가드를
+//   더했다(예전엔 이미 visible 인 카드에도 매번 인라인 스타일을 무조건 다시 썼다).
+//   더한 바이트는 ~600B — 새 함수가 아니라 기존 setInterval 줄마다 붙은 폴백 삼항식(코드 전체에서
+//   이미 12곳 이상 쓰는 모양)과 3줄짜리 가드다. 줄여 볼 여지가 있는 것은 admin.html «자신의»
+//   인라인 스크립트라 #adm-settle-scheduler 정의가 언제나 먼저 실행된다는 보장이 있어 폴백을
+//   생략할 수도 있지만, 폴백 없이 직접 호출하면 그 스케줄러 정의가 언젠가 깨질 때 이 일곱
+//   함수가 «조용히 다시는 안 돎» 으로 실패한다 — 값이 바뀌지 않는 건 위험이 낮지만, 안 도는
+//   건 위험이 높다. 그래서 여기서는 트리밍 대신 여유를 올리는 쪽을 택했다.
 
 import { readFileSync, writeFileSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -53,12 +96,21 @@ function weigh(page) {
   }
   blocking += inline;
 
+  let lazy = 0;
   for (const m of html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/g)) {
     const tag = m[0], src = m[1].split('?')[0];
     // ⚠️ 주석 안에 태그 리터럴이 있으면 여기에 걸린다. 그래서 소스 파일이 실제로 있는 것만 센다
     //    (실제로 밟았다 — 주석에 써 둔 태그 때문에 「아직 313KB blocking」 이라는 오답이 나왔다)
     let size = 0;
     try { size = statSync(join(PUB, src)).size; } catch { continue; }
+    /* 🐢 (2026-08-13) `type="text/lazy-js"` 는 브라우저가 **아예 실행하지 않는** 태그다.
+       adm-lazy.js 가 카드를 펼칠 때 그때 받는다(= 이 하니스가 권하는 바로 그 방식).
+       그런데 위 정규식의 `\bsrc=` 가 **`data-src=` 에도 걸려서**, 지연 태그가
+       defer 도 없으니 전부 «blocking» 으로 세이고 있었다 — admin.html 20개 235KB.
+       숫자가 실제의 두 배 가까이 부풀었고, 카드를 지연으로 새로 만들 때마다 예산이 깎였다.
+       이 파일 머리말이 경계한 «지표가 옳은 일을 벌주는» 상태가 이미 벌어져 있었던 것이다.
+       → 따로 세어 눈에는 보이게 하되, blocking 에서는 뺀다. */
+    if (/type=["']text\/lazy-js["']/.test(tag)) { lazy += size; continue; }
     if (/\b(defer|async)\b/.test(tag)) { deferred += size; }
     else { blocking += size; items.push([size, src]); }
   }
@@ -67,6 +119,7 @@ function weigh(page) {
     blocking: Math.round(blocking / 1024),
     inline: Math.round(inline / 1024),
     deferred: Math.round(deferred / 1024),
+    lazy: Math.round(lazy / 1024),
     top: items.slice(0, 5),
   };
 }
@@ -75,7 +128,7 @@ const cur = {};
 for (const p of PAGES) { const w = weigh(p); if (w) cur[p] = w; }
 
 for (const [p, w] of Object.entries(cur)) {
-  console.log(`${p.padEnd(20)} blocking ${String(w.blocking).padStart(4)}KB (인라인 ${String(w.inline).padStart(4)}KB + 외부 ${String(w.blocking - w.inline).padStart(3)}KB) · defer ${String(w.deferred).padStart(4)}KB`);
+  console.log(`${p.padEnd(20)} blocking ${String(w.blocking).padStart(4)}KB (인라인 ${String(w.inline).padStart(4)}KB + 외부 ${String(w.blocking - w.inline).padStart(3)}KB) · defer ${String(w.deferred).padStart(4)}KB · 지연 ${String(w.lazy).padStart(4)}KB`);
 }
 
 if (UPDATE) {

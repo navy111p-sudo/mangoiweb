@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>말하기 퀴즈 — Mangoi 화상영어</title>
+<title>말하기 퀴즈 — mangoi.ai 화상영어</title>
 <!--
   ============================================================================
    🗣️ Speaking Quiz (말하기 퀴즈)  — single-file HTML + CSS + Vanilla JS
@@ -181,7 +182,8 @@
     .illus{font-size:clamp(76px,16vmin,148px)}
   }
 </style>
-<script src="/js/i18n-sweep.js?v=22" defer></script>
+<script src="/js/i18n-sweep.js?v=23" defer></script>
+<script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 </head>
 <body>
 <div id="app">
@@ -939,7 +941,15 @@
 })();
 </script>
 <!-- BUILD:20260704 speakquiz1 -->
-<script defer src="/js/flow.js?v=13"></script>
-<!-- BUILD:20260813001216 -->
+<!-- 🎮 게임을 «허브 밖에서» 열었을 때만 나가는 문을 띄운다 (2026-09-01).
+     허브(student-games.html)가 iframe 으로 감싸 열면 아무것도 하지 않는다 — 그쪽에
+     이미 「← 게임 선택」이 있다. 판정은 그 파일 하나에만 있다(16개에 복제하지 않는다).
+     ⚠️ 이 태그는 «마지막 인라인 script 태그 앞» 에 둔다(그 이름을 여기에 꺾쇠로 적으면
+        하니스 정규식이 주석에서부터 잘라 깨진다 — 2026-09-01 실측). `body` 닫기 직전에
+        두면 escape_school_mic·escape_zombie_mic 가 «닫기 직전의 인라인 코드» 를 오려
+        내는 정규식에 걸려 깨진다. defer 라 위치를 옮겨도 실행 시점은 그대로다. -->
+<script defer src="/js/game-standalone-exit.js?v=5"></script>
+<script defer src="/js/flow.js?v=23"></script>
+<!-- BUILD:20260813015745 -->
 </body>
 </html>

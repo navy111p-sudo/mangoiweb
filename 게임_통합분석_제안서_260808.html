@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>🎮 전체 게임 통합 분석 — 제안서 (2026-08-08)</title>
+<style>
+  :root{ --bg:#fdfcf7; --card:#fff; --ink:#1b2233; --ink2:#5a6478; --line:#e6e2d6;
+         --accent:#c2410c; --good:#15803d; --bad:#b91c1c; --warn:#a16207; --blue:#1d4ed8; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:-apple-system,BlinkMacSystemFont,'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+       line-height:1.75;font-size:15.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:32px 22px 80px}
+  h1{font-size:27px;font-weight:800;margin:0 0 6px;letter-spacing:-.5px}
+  .sub{color:var(--ink2);font-size:14px;margin-bottom:28px}
+  h2{font-size:20px;font-weight:800;margin:44px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  h3{font-size:16.5px;font-weight:800;margin:26px 0 8px;color:#0f172a}
+  p{margin:9px 0}
+  ul,ol{margin:9px 0;padding-left:22px} li{margin:5px 0}
+  code{background:#f1efe6;padding:1px 6px;border-radius:5px;font-size:13.5px;
+       font-family:Consolas,'D2Coding',monospace}
+  pre{background:#1b2233;color:#e6ecff;padding:14px 16px;border-radius:10px;overflow-x:auto;
+      font-size:13px;line-height:1.6;font-family:Consolas,'D2Coding',monospace}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px;display:block;overflow-x:auto}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:#f6f4ec;font-weight:800;white-space:nowrap}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:16px 0}
+  .box.red{border-left:5px solid var(--bad);background:#fef5f5}
+  .box.green{border-left:5px solid var(--good);background:#f4faf5}
+  .box.warn{border-left:5px solid var(--warn);background:#fdfaf0}
+  .box.blue{border-left:5px solid var(--blue);background:#f4f7fe}
+  .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:800;
+       background:#eee9dc;color:#4b4433;margin-right:5px}
+  .tag.n{background:#fde8e8;color:#991b1b} .tag.y{background:#dcf5e3;color:#14532d}
+  .tag.p{background:#e4ecfd;color:#1e3a8a}
+  .kpi{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
+  .kpi div{flex:1 1 150px;background:var(--card);border:1px solid var(--line);border-radius:10px;
+           padding:12px 14px;text-align:center}
+  .kpi b{display:block;font-size:23px;font-weight:800;color:var(--accent);line-height:1.3}
+  .kpi span{font-size:12.5px;color:var(--ink2)}
+  .en{color:var(--ink2);font-size:13px}
+  hr{border:0;border-top:1px solid var(--line);margin:34px 0}
+  .foot{color:var(--ink2);font-size:13px;margin-top:40px;padding-top:14px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>🎮 전체 게임 통합 분석 — 관리자 제안서</h1>
+<div class="sub">
+  2026-08-08 · 대상: 사장님 · 본사 매니저 · 지사/대리점 · 필리핀 강사<br>
+  요청: 「영어 배틀 관리」를 게임 하나가 아니라 <b>전 게임 통합 분석</b>으로. 최대한 가볍게·빠르게·안정적으로.
+</div>
+
+<div class="box red">
+  <b>먼저 보고드릴 것 — 제안의 방향이 실측 때문에 바뀌었습니다.</b><br>
+  화면의 「영어 배틀 관리」는 <b>배틀 기능이 아닙니다.</b> P2P 배틀 백엔드는 만들어진 적이 없고,
+  지금 보이는 숫자는 <b>이미 전 게임의 단어 정답 누계</b>를 「승수·vs AI」로 옷 입힌 것입니다.
+  즉 사장님 직감이 정확합니다 — 이건 <b>기능을 넓히는 일이 아니라, 이름표를 사실대로 되돌리는 일</b>입니다.
+  <br><br>
+  다만 그보다 더 큰 문제가 있습니다. <b>보여줄 데이터가 거의 없습니다.</b>
+  분석 화면을 지금 만들면 <b>빈 화면</b>이 나옵니다. 그래서 이 제안서는 <b>「계측 먼저, 화면 나중」</b> 순서로 씁니다.
+</div>
+
+<hr>
+
+<h2>1. 실측 — 지금 무엇이 있고 무엇이 없는가</h2>
+<p class="en">모두 운영 D1(<code>mango-db</code>)에서 <b>SELECT 만</b>으로 직접 조회한 실제 수치입니다(2026-08-08).</p>
+
+<div class="kpi">
+  <div><b>21</b><span>게임·학습 화면 총계</span></div>
+  <div><b>29,391</b><span>실제 학생(students_erp)</span></div>
+  <div><b>14</b><span>게임 기록이 있는 계정</span></div>
+  <div><b>0</b><span>그중 실제 학생</span></div>
+</div>
+
+<h3>1-1. 「영어 배틀 관리」 카드의 정체</h3>
+<pre>// src/api-admin.ts:9730 — 주석에도 그대로 적혀 있습니다
+// P2P 배틀 백엔드는 미구축 → 리더보드는 game_progress(게임 학습 기록) 집계.
+SELECT user_id, SUM(correct_count) AS wins FROM game_progress ... ORDER BY wins DESC</pre>
+<ul>
+  <li><b>「총 완료 배틀 1235」</b> = 배틀 수가 아니라 <b>단어 정답 누계</b></li>
+  <li><b>「평균 승수 176.4」</b> = 사람당 평균 정답 수</li>
+  <li><b>「jeong vs AI → 🏆 jeong」</b> = 대결 기록이 아니라 <b>단어 한 개의 정답/오답 수</b>를 대결처럼 그린 것<br>
+      (<code>zh · 不管 16:3</code> 은 "不管을 16번 맞고 3번 틀렸다"는 뜻입니다)</li>
+  <li>「참여 유저 7」 = 실제 학생 아님. <code>jeong·kang·kim·student·guest-*</code> — <b>전원 테스트 계정</b></li>
+</ul>
+<div class="box warn">
+  이 카드는 <b>이미 전 게임 통합 데이터를 보고 있습니다.</b> 다만 그것을 「배틀」이라고 부르고 있을 뿐입니다.
+  <b>새로 만들 것이 아니라, 정직하게 이름을 바꾸고 제대로 보여주면 됩니다.</b>
+</div>
+
+<h3>1-2. 게임 21종 — 무엇을 기록하고 무엇을 안 남기는가</h3>
+<table>
+<tr><th>구분</th><th>화면</th><th>서버 기록</th><th>상태</th></tr>
+<tr><td rowspan="3"><b>액션 게임<br>13종</b></td>
+    <td>avatar · escape-school · escape-voice · escape-zombie ·<br>language-ace · p38-3d · tank-battle · tetris</td>
+    <td><code>game_progress</code> (정오답)</td><td><span class="tag y">기록 O</span> 8종</td></tr>
+<tr><td>shooter · wordfighter · grammar-pizza ·<br>rescue-voyage · suspect-mystery · battle-3d</td>
+    <td>없음 (TTS·단어만 가져감)</td><td><span class="tag n">기록 ✕</span> 6종</td></tr>
+<tr><td>space-monster</td><td><code>/games/space-monster/hit</code> 별도</td><td><span class="tag p">별도 규격</span></td></tr>
+<tr><td rowspan="4"><b>학습 앱<br>8종</b></td>
+    <td>vocab(단어장) · micro-quiz · review-quiz</td><td><code>vocab_review_log</code> 65 / <code>review_quiz_results</code> 14 / <code>microlearn_logs</code> <b>0</b></td><td><span class="tag y">기록 O</span></td></tr>
+<tr><td>speech-coach(발음)</td><td><code>voice_coaching</code> 380건</td><td><span class="tag n">278건이 'guest'</span></td></tr>
+<tr><td>ai-write(영작)</td><td><code>ai_writing_corrections</code> 11</td><td><span class="tag y">기록 O</span></td></tr>
+<tr><td>judgment(판단력) · warmup</td><td><code>judgment_events</code> 77</td><td><span class="tag y">기록 O</span></td></tr>
+</table>
+
+<div class="box red">
+  <b>🔴 치명적 구조 문제 — 「어느 게임에서 나온 기록인지」를 저장하는 칸이 없습니다.</b>
+<pre>CREATE TABLE game_progress (
+  user_id, lang, item, ko, wrong_count, correct_count,
+  pron_best, pron_last, pron_count, last_seen, updated_at,
+  UNIQUE(user_id, lang, item)   ← 게임 이름이 어디에도 없음
+)</pre>
+  게임 8종이 같은 표에 <b>섞여서</b> 들어갑니다. 그래서 <b>「게임별 분석」은 지금 물리적으로 불가능합니다.</b>
+  화면을 아무리 잘 만들어도 "테트리스가 잘 되는지"를 대답할 수 없습니다.
+</div>
+
+<h3>1-3. 신뢰할 수 없는 숫자 (분석에 쓰면 안 되는 것)</h3>
+<table>
+<tr><th>표</th><th>행 수</th><th>실제로는</th></tr>
+<tr><td><code>student_streaks</code></td><td>3,053</td>
+    <td>전부 <code>current_streak=1</code>, <code>last_check_date=NULL</code>, <code>updated_at</code> 동일값<br>
+    → <b>일괄 시드 데이터. 학습 활동의 증거가 아닙니다.</b></td></tr>
+<tr><td><code>voice_coaching</code></td><td>380</td>
+    <td>278건(73%)이 <code>student_uid='guest'</code> → <b>누가 했는지 알 수 없음</b><br>나머지는 5월말 데모 계정 3건씩 균일</td></tr>
+<tr><td><code>game_progress</code> 발음</td><td>pron 누계 2</td>
+    <td>따라말하기(<code>/games/shadow</code>)를 <b>전 게임 통틀어 2번</b> 눌렀습니다</td></tr>
+<tr><td><code>student_badges</code></td><td>5</td><td>사실상 미사용</td></tr>
+<tr><td><code>microlearn_logs</code></td><td>0</td><td>비어 있음</td></tr>
+</table>
+
+<div class="box blue">
+  <b>결론.</b> 게임은 21개를 잘 만들어 두었는데, <b>학생 29,391명 중 게임 기록이 남은 사람은 0명</b>입니다.
+  이건 "학생이 게임을 안 한다"는 뜻일 수도 있고 <b>"게임을 해도 기록이 안 남는다"</b>는 뜻일 수도 있는데,
+  <b>지금 구조로는 그 둘을 구분조차 못 합니다.</b> 그것부터 고쳐야 합니다.
+</div>
+
+<hr>
+
+<h2>2. 제안 — 3단계, 그러나 1단계가 8할</h2>
+
+<table>
+<tr><th>단계</th><th>내용</th><th>기간</th><th>없으면</th></tr>
+<tr><td><b>0단계<br>계측</b></td><td>게임 이름 1칸 + 판(session) 1행 기록<br>미기록 게임 6종 연결</td><td>2~3일</td>
+    <td><b>화면을 만들어도 빈 화면</b></td></tr>
+<tr><td><b>1단계<br>화면</b></td><td>독립 경량 페이지 <code>/game-insights</code></td><td>2일</td>
+    <td>매니저가 admin.html 1MB를 열어야 함</td></tr>
+<tr><td><b>2단계<br>활용</b></td><td>주간 자동 요약 → 강사·매니저 액션 6종</td><td>2일</td>
+    <td>보긴 보는데 아무 일도 안 일어남</td></tr>
+</table>
+<p><b>총 6~7일.</b> 0단계 없이 1단계를 먼저 하자는 요청이 오면 <b>거절해야 합니다</b> — 만들어도 보여줄 게 없습니다.</p>
+
+<h3>2-1. 0단계 — 계측 (최소 침습 설계)</h3>
+<p>원칙: <b>기존 표를 갈아엎지 않는다. 칸 하나 더하고, 표 하나 새로 만든다.</b></p>
+
+<pre>-- ① 기존 표에 게임 이름 한 칸 (기존 데이터 안 깨짐, 기본값 '')
+ALTER TABLE game_progress ADD COLUMN game TEXT DEFAULT '';
+
+-- ② 판(session) 단위 1행 — 게임이 끝날 때 딱 1번만 기록
+CREATE TABLE IF NOT EXISTS game_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  uid TEXT NOT NULL,          -- 학생(익명 uid, 실명 저장 안 함)
+  game TEXT NOT NULL,         -- 'tetris' | 'shooter' | 'vocab' ...
+  lang TEXT DEFAULT 'en',
+  started_at INTEGER, ended_at INTEGER,
+  items INTEGER DEFAULT 0,    -- 그 판에서 만난 단어 수
+  correct INTEGER DEFAULT 0, wrong INTEGER DEFAULT 0,
+  finished INTEGER DEFAULT 0, -- 끝까지 했나 (0이면 중도 이탈)
+  coins INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_gs_game_time ON game_sessions(game, ended_at);
+CREATE INDEX IF NOT EXISTS idx_gs_uid ON game_sessions(uid, ended_at);</pre>
+
+<p><b>클라이언트 수정은 게임당 3줄입니다.</b></p>
+<pre>// 기존 호출에 game 이름만 추가
+fetch('/api/games/progress', { ..., body: JSON.stringify({
+  user_id, lang, game: 'tetris',   // ← 이 한 줄
+  events
+})});
+
+// 게임이 끝날 때 딱 1번 (실패해도 게임에 영향 없게 catch 로 삼킴)
+navigator.sendBeacon('/api/games/session', JSON.stringify({
+  uid, game:'tetris', lang, started_at, ended_at:Date.now(),
+  items, correct, wrong, finished:1, coins
+}));</pre>
+
+<div class="box green">
+  <b>왜 「판 단위 1행」인가 — 이것이 경량화의 핵심입니다.</b><br>
+  단어 하나 맞출 때마다 서버를 부르면 한 판에 수십~수백 요청이 됩니다. 필리핀 회선에서 이것은 <b>게임을 끊기게 만듭니다.</b><br>
+  · 판당 요청 <b>1~2건</b>(중간 progress 묶음 1 + 종료 beacon 1)<br>
+  · <code>sendBeacon</code> 은 <b>응답을 기다리지 않습니다</b> → 게임 프레임에 0 영향, 창을 닫아도 전송됨<br>
+  · 학생 29,000명이 하루 1판씩 해도 <b>하루 약 3만 행</b> — D1에 부담 없는 규모<br>
+  · 90일 지난 원본은 일 단위 집계로 접고(rollup) 원본 삭제 → 표가 무한정 커지지 않음
+</div>
+
+<p><b>서버는 API 2개만 추가합니다</b> (<code>src/index.ts</code> 라우팅 + 인증 게이트 <b>둘 다</b> 등록 — 안 하면 화면에 JSON 원문이 뜹니다):</p>
+<ul>
+  <li><code>POST /api/games/session</code> — 학생용(익명 허용), 판 1행 기록</li>
+  <li><code>GET /api/games/insights?range=7d</code> — 관리자용, <b>이미 집계된 JSON 하나</b>를 돌려줌 (KV 10분 캐시)</li>
+</ul>
+
+<h3>2-2. 1단계 — 화면 (독립 경량 페이지)</h3>
+<div class="box warn">
+  <b>⛔ admin.html 안에 카드로 넣지 않습니다.</b> admin.html 은 이미 <b>1.0MB · 카드 91개</b>이고,
+  필리핀 회선에서 <b>19~21초</b>가 걸립니다. 여기에 카드를 하나 더 얹으면 <b>전원이 함께 느려집니다.</b><br>
+  <b>→ <code>/game-insights</code> 독립 페이지.</b> 이미 검증된 길입니다 —
+  <code>manager.html</code> 이 같은 방식으로 <b>934KB·19초 → 10KB·0.43초(44배)</b>를 냈습니다.
+</div>
+
+<table>
+<tr><th>항목</th><th>설계</th><th>이유</th></tr>
+<tr><td>페이지 크기</td><td><b>15KB 이하</b> (HTML 1개, 외부 리소스 0개)</td><td>필리핀 회선은 굵기가 아니라 <b>왕복 횟수</b>가 아픕니다</td></tr>
+<tr><td>차트</td><td><b>라이브러리 없음.</b> 막대 = <code>&lt;div&gt;</code> width %</td><td>Chart.js 하나가 페이지보다 큽니다</td></tr>
+<tr><td>요청 수</td><td><b>3개 이하</b> (HTML + insights JSON + 폰트 캐시)</td><td>집계는 서버가 끝내서 보냅니다</td></tr>
+<tr><td>한/영</td><td><code>data-ko</code> / <code>data-en</code> + <b>5줄 applyLang</b></td><td>i18n 사전(204KB)을 <b>부르지 않습니다.</b> 필리핀 강사 필수</td></tr>
+<tr><td>목표 속도</td><td><b>1초 이내</b> 첫 화면</td><td><code>/teacher</code> 실측 0.83초와 같은 급</td></tr>
+<tr><td>실패 처리</td><td>API 죽으면 <b>「데이터 없음」</b> 표시, 화면은 살아 있음</td><td>분석 화면 때문에 업무가 멈추면 안 됩니다</td></tr>
+<tr><td>개인정보</td><td>닉네임·익명 uid만. <b>실명·연락처 표시 안 함</b></td><td>지사·대리점도 보는 화면입니다</td></tr>
+</table>
+
+<hr>
+
+<h2>3. 매니저가 보는 화면 — 블록 6개</h2>
+<p>원칙: <b>블록 하나 = 질문 하나 = 행동 하나.</b> 답만 있고 할 일이 없는 숫자는 넣지 않습니다.</p>
+
+<h3>① 오늘/이번 주 무엇이 돌아갔나 <span class="en">Activity by Game</span></h3>
+<pre>🎮 테트리스        ████████████████  판 412 · 학생 88
+🎮 좀비 탈출       ██████████        판 260 · 학생 61
+🎮 워드파이터      ██                판  31 · 학생  9
+🎮 문법 피자       ·                 판   0 · 학생  0   ← 아무도 안 함</pre>
+<p><b>얻는 것:</b> 21개 게임 중 <b>실제로 살아있는 게임과 죽은 게임</b>이 한 줄에 드러납니다.<br>
+<b>쓰는 법:</b> 판수 0인 게임은 → 홍보 부족인가, 입구가 안 보이나, 재미가 없나를 <b>다음 회의 안건으로</b>. 3주 연속 0이면 <b>내리는 것도 결정</b>합니다.</p>
+
+<h3>② 재미 vs 학습 — 사분면 <span class="en">Fun × Learning</span></h3>
+<p>정답률만 보면 <b>쉬운 게임이 1등</b>이 됩니다. 그래서 두 축으로 봅니다.</p>
+<ul>
+  <li><b>가로축 = 재방문율</b> (그 게임을 다시 한 학생 비율) → <b>재미</b></li>
+  <li><b>세로축 = 판당 학습 항목 수</b> (한 판에 단어를 몇 개 만나나) → <b>학습량</b></li>
+</ul>
+<table>
+<tr><th></th><th>재방문 높음</th><th>재방문 낮음</th></tr>
+<tr><th>학습량 많음</th><td class="tag y" style="border:1px solid var(--line)"><b>주력</b> — 수업 숙제로 지정</td><td><b>아깝다</b> — 재미 보강 (효과는 좋은데 안 옴)</td></tr>
+<tr><th>학습량 적음</th><td><b>사탕</b> — 보상용으로만. 학습 시간으로 세지 않음</td><td class="tag n" style="border:1px solid var(--line)"><b>정리 대상</b></td></tr>
+</table>
+<p><b>쓰는 법:</b> 「주력」 칸의 게임만 <b>강사가 숙제로 내줍니다.</b> 「사탕」은 상으로만 씁니다.</p>
+
+<h3>③ 전 게임 통합 약점 단어 Top 20 <span class="en">Weakest Words (All Games)</span></h3>
+<p>이건 <b>이미 만들어져 있습니다</b> — <code>/api/games/weak</code> 와 <code>game-report.html</code>(8KB, 교사용).
+게임별로 흩어진 오답을 <b>학생 단위로 합쳐서</b> 봅니다.</p>
+<p><b>쓰는 법 (가장 값어치 있는 부분):</b></p>
+<ol>
+  <li>학생별 약점 단어 5개를 <b>다음 수업 워밍업(warmup)에 자동 투입</b> — 이미 <code>/api/games/recommend</code> 가 이 일을 합니다</li>
+  <li>반 전체에서 공통으로 틀리는 단어 → <b>교재·수업 자료의 문제</b>일 수 있음. 강사가 아니라 <b>콘텐츠를 고칩니다</b></li>
+  <li>학부모 리포트에 <b>「이번 주 극복한 단어 7개」</b>로 실어 보냅니다 (희망 톤 — 못 하는 것 나열 금지)</li>
+</ol>
+
+<h3>④ 학생 3구간 — 성장 / 정체 / 사라짐 <span class="en">Growing / Stuck / Gone</span></h3>
+<table>
+<tr><th>구간</th><th>판정 기준(단순·설명 가능하게)</th><th>행동</th><th>누가</th></tr>
+<tr><td><span class="tag y">성장</span></td><td>2주 연속 판수 ↑ 또는 정답률 ↑</td><td>칭찬 메시지·뱃지</td><td>자동</td></tr>
+<tr><td><span class="tag">정체</span></td><td>판수는 유지, 정답률 3주째 제자리</td><td><b>난이도가 안 맞는 것</b> → 레벨 조정</td><td>강사</td></tr>
+<tr><td><span class="tag n">사라짐</span></td><td>이전엔 했는데 <b>14일째 0판</b></td><td>학부모 연락 — <b>이탈 신호</b></td><td>매니저</td></tr>
+</table>
+<div class="box blue">
+  <b>이게 회사에 돈이 되는 지점입니다.</b> 게임 이탈은 <b>수업 이탈보다 먼저</b> 나타납니다.
+  이미 있는 <b>이탈위험 대시보드(<code>churn-graph</code>)에 「게임 침묵 14일」을 신호 하나로 추가</b>하면
+  <b>새 시스템을 만들지 않고</b> 조기경보가 한 칸 정확해집니다.
+</div>
+
+<h3>⑤ 발음 분포 <span class="en">Pronunciation Spread</span></h3>
+<p>Azure 발음평가가 이미 붙어 있습니다(<code>azure_accuracy·fluency·completeness</code>). 지금은 <b>73%가 'guest'</b>라 학생에게 못 붙입니다.</p>
+<p><b>0단계에서 uid만 제대로 넣으면</b> → 점수대별 학생 분포 → <b>하위 20%를 speech-coach 대상으로 자동 추출</b>.<br>
+필리핀 강사에게는 <b>「이 학생은 /r/ 발음이 약합니다」</b>처럼 <b>영어로</b> 나가야 합니다.</p>
+
+<h3>⑥ 포기 지점 <span class="en">Drop-off</span></h3>
+<p><code>game_sessions.finished=0</code> 비율. <b>「시작은 했는데 끝을 못 본 판」</b>이 몇 %인가.</p>
+<ul>
+  <li>포기율 50% 넘는 게임 → <b>난이도 or 로딩</b>. 어느 쪽인지는 <code>ended_at - started_at</code> 이 말해줍니다<br>
+      (10초 만에 나갔으면 <b>안 뜬 것</b>이고, 3분 하다 나갔으면 <b>어려운 것</b>입니다)</li>
+  <li>이건 <b>필리핀·저사양 기기 문제를 잡는 유일한 창</b>입니다 — 학생은 신고하지 않고 그냥 나갑니다</li>
+</ul>
+
+<hr>
+
+<h2>4. 매니저 주간 루틴 — 5분</h2>
+<p>화면만 있으면 아무도 안 봅니다. <b>월요일 아침 5분짜리 순서</b>를 정해 둡니다.</p>
+<table>
+<tr><th>순서</th><th>본다</th><th>기준</th><th>한다</th></tr>
+<tr><td>1</td><td>블록 ④ <b>사라짐</b></td><td>14일 0판</td><td>명단을 지사에 전달 → 학부모 연락</td></tr>
+<tr><td>2</td><td>블록 ⑥ <b>포기율</b></td><td>50% 초과 게임</td><td>개발에 티켓 1건</td></tr>
+<tr><td>3</td><td>블록 ① <b>죽은 게임</b></td><td>3주 연속 0판</td><td>홍보 or 폐지 결정</td></tr>
+<tr><td>4</td><td>블록 ③ <b>공통 약점</b></td><td>반 절반 이상이 틀림</td><td>교재 담당에게 전달</td></tr>
+<tr><td>5</td><td>블록 ② <b>주력 게임</b></td><td>사분면 좌상단</td><td>이번 주 숙제로 지정</td></tr>
+</table>
+<p>주 1회 <b>배치</b>로 이 5줄을 요약해 매니저에게 알림톡 발송(AI 호출은 <b>주 1회 배치만</b> — 화면 열 때마다 부르면 비용이 셉니다).</p>
+
+<hr>
+
+<h2>5. 의도적으로 하지 않는 것</h2>
+<table>
+<tr><th>안 함</th><th>이유</th></tr>
+<tr><td>실시간 스트리밍 · WebSocket</td><td>분석은 실시간일 필요가 없습니다. 10분 캐시로 충분하고, 연결 유지가 회선을 먹습니다</td></tr>
+<tr><td>차트 라이브러리 (Chart.js 등)</td><td>라이브러리 하나가 페이지 전체보다 큽니다. CSS 막대로 충분합니다</td></tr>
+<tr><td>admin.html 카드 추가</td><td>91개 카드 · 1MB에 얹으면 <b>전원이 함께 느려집니다</b></td></tr>
+<tr><td>학생 실명·연락처 표시</td><td>지사·대리점도 보는 화면입니다. 닉네임·익명 uid만</td></tr>
+<tr><td>화면 열 때 AI 요약 생성</td><td>비용·지연. 주 1회 배치로 미리 구워 둡니다</td></tr>
+<tr><td>「배틀」 P2P 신규 개발</td><td>지금 요청은 <b>분석</b>입니다. 배틀은 별건으로 분리 판단</td></tr>
+<tr><td>과거 데이터 소급 복원</td><td>게임 이름이 기록된 적이 없어 <b>복원 불가능</b>합니다. 오늘부터 쌓습니다</td></tr>
+</table>
+
+<hr>
+
+<h2>6. 위험과 대비</h2>
+<table>
+<tr><th>위험</th><th>대비</th></tr>
+<tr><td><b>계측 코드가 게임을 느리게 만든다</b></td><td><code>sendBeacon</code>(응답 안 기다림) + 전 호출 <code>try/catch</code>. <b>기록 실패가 게임을 멈추면 안 됩니다</b></td></tr>
+<tr><td><b>표가 무한정 커진다</b></td><td>90일 후 일 단위 집계로 접고 원본 삭제. 집계표는 게임×날짜라 아주 작습니다</td></tr>
+<tr><td><b>학생이 점수를 조작한다</b></td><td>코인은 이미 1회 5,000 상한이 있습니다. 세션도 같은 상한 적용. <b>분석용이지 급여·정산에 쓰지 않습니다</b></td></tr>
+<tr><td><b>새 API가 인증 게이트에 안 걸린다</b></td><td><code>src/index.ts</code> 라우팅 + 게이트 <b>둘 다</b> 등록. 관리자용은 <code>isAgencyAllowedApi</code> 허용목록도 확인</td></tr>
+<tr><td><b>만들었는데 아무도 안 본다</b></td><td>§4 주간 5분 루틴을 <b>먼저</b> 정하고, 알림톡으로 <b>찾아가게</b> 합니다</td></tr>
+<tr><td><b>담당 영역 충돌</b></td><td>게임 화면·<code>api-games.ts</code>는 B 담당, <code>src/index.ts</code>는 A 전용 <b>금지구역</b>. 라우팅 등록은 <b>A에게 요청</b></td></tr>
+</table>
+
+<hr>
+
+<h2>7. 결정이 필요한 것 — 사장님</h2>
+<ol>
+  <li><b>「영어 배틀 관리」 카드를 「게임 학습 분석」으로 바꿉니다.</b> 지금 이름은 사실과 다릅니다.
+      <span class="en">(P2P 배틀을 진짜로 만들 계획이 따로 있다면 말씀해 주십시오 — 그건 별건입니다)</span></li>
+  <li><b>계측(0단계)부터 갑니다.</b> 화면 먼저는 빈 화면입니다.</li>
+  <li><b>게임 21개를 다 살릴지, 주력을 고를지.</b> 데이터가 2주 쌓이면 사분면이 답을 줍니다.
+      제 의견은 <b>주력 5~6개 집중</b>입니다 — 21개를 다 관리하는 비용이 만드는 비용보다 큽니다.</li>
+  <li><b>게임 침묵 14일을 이탈 신호로 쓸지.</b> 학부모 연락이 늘어나므로 운영 부담이 함께 늘어납니다.</li>
+</ol>
+
+<div class="box green">
+  <b>한 줄 요약.</b> 게임은 21개를 잘 만들어 두었습니다. 그런데 <b>어느 게임에서 무슨 일이 있었는지를 저장하지 않아서</b>,
+  지금은 좋은 게임과 죽은 게임을 구분할 수 없습니다.
+  <b>칸 하나(<code>game</code>)와 표 하나(<code>game_sessions</code>)</b>를 더하는 2~3일이,
+  화려한 대시보드 2주보다 <b>훨씬 값어치가 큽니다.</b>
+</div>
+
+<div class="foot">
+  근거: 운영 D1 <code>mango-db</code> 직접 조회(SELECT 전용, 2026-08-08) ·
+  <code>src/api-admin.ts:9730</code> · <code>src/index.ts:459-486, 3119</code> ·
+  <code>public/student-game-*.html</code> 13종 엔드포인트 전수 조사 ·
+  <code>public/game-report.html</code> · <code>public/manager.html</code>(경량 선례)<br>
+  ※ 이 문서는 <b>제안서이며 코드는 변경하지 않았습니다.</b>
+</div>
+
+</div>
+</body>
+</html>

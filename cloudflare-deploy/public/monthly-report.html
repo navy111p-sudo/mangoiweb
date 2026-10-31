@@ -2,8 +2,9 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>망고아이 월간 학습 레포트</title>
 <link rel="stylesheet" href="/css/mangoi-fonts.css?v=2"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
 <link rel="preload" as="image" href="/img/home-bg-dark.webp?v=20260730">
@@ -105,7 +106,7 @@
 </head>
 <body>
   <div class="topbar">
-    <span class="logo"><img src="/img/mango-char.png" alt="" style="height:1.4em;width:auto;vertical-align:-0.35em;margin-right:.15em"><span data-ko="망고아이 학습 레포트" data-en="Mangoi Learning Report">망고아이 학습 레포트</span></span>
+    <span class="logo"><img src="/img/mango-char.png" alt="" style="height:1.4em;width:auto;vertical-align:-0.35em;margin-right:.15em" loading="lazy" decoding="async"><span data-ko="망고아이 학습 레포트" data-en="Mangoi Learning Report">망고아이 학습 레포트</span></span>
     <span class="sp"></span>
     <button class="print-btn" onclick="window.print()" data-ko="🖨 인쇄 / PDF" data-en="🖨 Print / PDF">🖨 인쇄 / PDF</button>
     <button class="lang-btn" id="langBtn" onclick="toggleLang()">EN</button>
@@ -227,12 +228,12 @@
     var vo = d.voice||{};
     var att = (d.attendance||{}).days||0;
     var items = ev.items||[];
-    var hasData = (ev.count>0)||(att>0)||((vo.sessions||0)>0)||!!d.judgment;
+    var hasData = (ev.count>0)||(att>0)||((vo.sessions||0)>0)||!!d.judgment||!!(d.scene_words&&d.scene_words.sessions>0);
 
     var goals = items.map(function(r){return r.next_goals;}).filter(Boolean).slice(-3);
     var aiText = d.ai_text || (hasData ? t('이번 달 학습 요약입니다.','Monthly learning summary.') : '');
 
-    var html = '<div class="dash"><div class="hero"><div class="mango"><img src="/img/mango-char.png" alt="망고아이" style="width:52px;height:52px;object-fit:contain"></div>'+
+    var html = '<div class="dash"><div class="hero"><div class="mango"><img src="/img/mango-char.png" alt="망고아이" style="width:52px;height:52px;object-fit:contain" loading="lazy" decoding="async"></div>'+
       '<span class="badge">'+esc(d.year_month||period)+'</span>'+
       '<h2>'+esc(nm)+' '+t('학생 학습 레포트','Report')+'</h2>'+
       '<div class="who">'+(s.parent_name?(t('학부모: ','Parent: ')+esc(s.parent_name)):t('망고아이 영어','Mangoi English'))+'</div></div>'+
@@ -274,7 +275,7 @@
       html += '<div class="card"><h3>📈 '+t('평가 점수 추이','Score Trend')+'</h3>'+svgTrend(items)+'</div>';
       if((vo.sessions||0)>0){
         html += '<div class="card"><h3>🎤 '+t('발음 영역별','Pronunciation')+'</h3>'+
-          pronRow(t('정확도','Accuracy'),vo.avg_accuracy)+pronRow(t('발음','Pron.'),vo.avg_pronunciation)+pronRow(t('유창성','Fluency'),vo.avg_fluency)+'</div>';
+          pronRow(t('정확도','Accuracy'),vo.avg_accuracy)+pronRow(t('발음','Pron.'),vo.avg_pronunciation)+pronRow(t('유창성','Fluency'),vo.avg_fluency)+paceLine(vo)+'</div>';
       }
       if(jd){
         html += '<div class="card"><h3>🧠 '+t('판단력 성장','Decision-making')+' <span class="ai-tag">AI</span></h3>'+
@@ -285,6 +286,16 @@
           pronRow(t('이유 논리','Reasoning'), jd.axis&&jd.axis.reasoning)+
           pronRow(t('어투 민감도','Register'), jd.axis&&jd.axis.register)+
           ((jd.top_gaps&&jd.top_gaps.length)? '<div style="font-size:12.5px;color:#7c3aed;margin-top:8px">💪 '+t('더 연습할 점','Practice more')+': '+jd.top_gaps.map(esc).join(', ')+'</div>':'')+
+          '</div>';
+      }
+      /* ✍️ 교재 낱말 쓰기 숙제 — 한 판이라도 했을 때만(서버가 null 이면 카드째 생략). 약한 낱말은 «다시 볼 것» 으로만 말한다. */
+      var sw=d.scene_words;
+      if(sw&&sw.sessions>0){
+        html += '<div class="card"><h3>✍️ '+t('교재 낱말 쓰기 숙제','Textbook Word Writing')+'</h3>'+
+          '<div style="font-size:13.5px;color:var(--slate);margin-bottom:8px">'+t('이번 달 ','This month: ')+sw.sessions+t('번 · 낱말 ',' sessions · ')+sw.items+t('개 중 ',' words, ')+sw.correct+t('개를 스스로 맞혔어요',' written correctly on the first try')+'</div>'+
+          ((sw.weak&&sw.weak.length)
+            ? '<div style="font-size:12.5px;color:var(--mango)">💪 '+t('다시 볼 낱말','Words to review')+': <b>'+sw.weak.map(esc).join(', ')+'</b></div>'
+            : '<div style="font-size:12.5px;color:var(--good)">'+t('이번 달 틀린 낱말이 남아 있지 않아요 👏','No tricky words left this month 👏')+'</div>')+
           '</div>';
       }
       html += '</div>'; // .detail-section
@@ -307,6 +318,15 @@
     html += '</div></div>';
     document.getElementById('root').innerHTML = html;
   }
+  /* 🗣️ 따라 읽기 말속도(2026-10-18) — 서버가 표본이 모자라면 null 을 준다 → 그때는 아무것도 안 그린다(지어내지 않음).
+     ⛔ «WPM(대화 속도)» 이라 부르지 말 것 — 짧은 문장을 따라 읽는 속도라 앞뒤 쉼이 빠져 높게 나온다. */
+  function paceLine(vo){
+    var w=Number(vo&&vo.pace_wpm); if(!(w>0)) return '';
+    var p=Number(vo.prev_pace_wpm), diff='';
+    if(p>0){ var dd=w-p; diff=' <span style="color:'+(dd>=0?'#047857':'#b45309')+';font-weight:700">('+t('지난 기간 ','prev. ')+p+' → '+w+', '+(dd>=0?'+':'')+dd+')</span>'; }
+    return '<div class="pace-row" style="margin-top:8px;font-size:13px;color:#334155">🗣️ <b>'+t('따라 읽기 말속도','Read-aloud pace')+'</b>: '+(lang==='ko'?'분당 <b>'+w+'</b>낱말':'<b>'+w+'</b> words/min')+diff+
+      '<div style="font-size:11.5px;color:#64748b;margin-top:2px">'+t('AI 발음 코칭 '+(vo.pace_samples||0)+'문장 가운뎃값 · 짧은 문장을 따라 읽는 속도라 대화 속도보다 빠르게 나옵니다','Median of '+(vo.pace_samples||0)+' AI speech-coach sentences · read-aloud speed of short sentences, faster than conversation')+'</div></div>';
+  }
   function pronRow(lab,v){ v=Number(v)||0; return '<div class="pron-row"><span class="lab">'+lab+'</span><div class="bar"><i style="width:'+Math.max(0,Math.min(100,v))+'%"></i></div><span class="pct">'+v+t('점','')+'</span></div>'; }
 
   function loadReport(){
@@ -328,7 +348,7 @@
   if(uid && period){ loadReport(); } else { renderForm(); }
 })();
 </script>
-<!-- BUILD:20260813001216 -->
+<!-- BUILD:20260813015745 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

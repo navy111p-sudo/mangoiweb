@@ -30,6 +30,22 @@
     //   +0.03 에서는 망고 아래끝이 턱보다 19px 아래까지 내려와 **목을 가렸다**("목이 보이게 해줘").
     //   -0.06 은 캡처 실측으로 아래끝을 턱선(+1px)에 맞춘 값 — 더 올리면 턱이 밖으로 드러난다.
     { id:'rmrmango',ko:'미스터 망고', en:'Mr. Mango', anchor:'face', scale:2.05, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/mrmango.png', imgYOff:-0.06 },
+    // ── 어린이용 캐릭터 가면 (2026-08-22 사장님 요청 «디즈니 만화 주인공 같은 캐릭터») ──
+    //   ⚠️ 실제 디즈니 캐릭터는 저작권이 있어 라이브 서비스에 못 올립니다. 그래서 «디즈니풍»,
+    //   즉 3D 가족영화 화풍(큰 눈·둥근 형태·따뜻한 색)으로 **새로 그린 창작 캐릭터**입니다.
+    //   소재 = Higgsfield(seedream_v5_pro, remove_bg)로 만든 투명 PNG → 알파 bbox 로 크롭 →
+    //   긴 변 224px → 알파 1px 수축+약블러(외곽 흰 실선 제거) → 255색 양자화. 다른 r/*.png 와 같은 규격.
+    //   scale 은 «이미지 가로 = 얼굴폭 × scale». 뿔·갈기·프릴이 얼굴보다 넓은 컷일수록 값이 큽니다.
+    //   ⚠️ 실화면에서 «머리가 얼굴보다 작다/크다» 싶으면 이 숫자 하나만 만지면 됩니다(mrmango 주석 참고).
+    { id:'rlion',   ko:'아기 사자', en:'Lion Cub',     anchor:'face', scale:1.78, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/lion.png' },
+    { id:'runicorn',ko:'유니콘',    en:'Unicorn',      anchor:'face', scale:1.95, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/unicorn.png', imgYOff:-0.06 },
+    { id:'rdino',   ko:'아기 공룡', en:'Baby Dino',    anchor:'face', scale:2.00, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/dino.png' },
+    { id:'rbear',   ko:'곰돌이',    en:'Teddy Bear',   anchor:'face', scale:1.76, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/bear.png', imgYOff:-0.02 },
+    { id:'rpenguin',ko:'아기 펭귄', en:'Baby Penguin', anchor:'face', scale:1.72, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/penguin.png' },
+    { id:'rrobot',  ko:'꼬마 로봇', en:'Little Robot', anchor:'face', scale:1.72, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/robot.png' },
+    { id:'rfrog',   ko:'개구리 왕자', en:'Frog Prince', anchor:'face', scale:1.70, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/frog.png', imgYOff:-0.03 },
+    { id:'rdragon', ko:'아기 용',   en:'Baby Dragon',  anchor:'face', scale:1.86, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/dragon.png', imgYOff:-0.04 },
+
     { id:'rtiger',  ko:'호랑이',   en:'Tiger',      anchor:'face', scale:1.77, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/tiger.png' },
     { id:'rfox',    ko:'여우',     en:'Fox',        anchor:'face', scale:1.57, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/fox.png' },
     { id:'rcat',    ko:'고양이',   en:'Cat',        anchor:'face', scale:1.60, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/cat.png' },
@@ -46,13 +62,9 @@
     // ── 모자·가발 ──
     // ⚠️ hat 앵커의 yOff 는 '클수록 아래로'. 아래 값들은 이마 랜드마크(10) 기준으로
     //    '모자 밑단이 이마보다 살짝 아래' 가 되도록 역산한 값이다. 임의로 키우면 눈을 덮는다.
-    { id:'rtophat', ko:'중절모',       en:'Top Hat',        anchor:'hat', scale:1.70, yOff:-0.24, rotate:true, draw:'image', img:'/face-fx/r/tophat.png' },
-    { id:'rsteamhat', ko:'스팀펑크 모자', en:'Steampunk Hat', anchor:'hat', scale:1.80, yOff:-0.24, rotate:true, draw:'image', img:'/face-fx/r/steamhat.png' },
-    { id:'rcap',    ko:'야구모자',     en:'Cap',            anchor:'hat', scale:1.72, yOff:-0.26, rotate:true, draw:'image', img:'/face-fx/r/cap.png' },
     { id:'rcrowng', ko:'황금 왕관',    en:'Gold Crown',     anchor:'hat', scale:1.38, yOff:-0.25, rotate:true, draw:'image', img:'/face-fx/r/crown-gold.png' },
     { id:'rcrowns', ko:'은빛 왕관',    en:'Silver Crown',   anchor:'hat', scale:1.34, yOff:-0.16, rotate:true, draw:'image', img:'/face-fx/r/crown-silver.png' },
     { id:'rgrad',   ko:'학사모',       en:'Grad Cap',       anchor:'hat', scale:2.00, yOff:0.34, rotate:true, draw:'image', img:'/face-fx/r/gradcap.png' },
-    { id:'rhelmet', ko:'안전모',       en:'Hard Hat',       anchor:'hat', scale:1.74, yOff:-0.21, rotate:true, draw:'image', img:'/face-fx/r/helmet.png' },
     { id:'rviking', ko:'바이킹 투구',  en:'Viking Helmet',  anchor:'hat', scale:2.45, yOff:-0.04, rotate:true, draw:'image', img:'/face-fx/r/viking.png' },
     // 가발 PNG 는 앞머리가 막혀 있어 그대로 씌우면 얼굴을 가림 → 아래 배치 기준으로 얼굴 자리에
     //   타원 구멍을 미리 파둔 이미지다(wigcut). scale/yOff 를 바꾸면 구멍 위치도 다시 파야 한다.
@@ -61,11 +73,9 @@
 
     // ── 안경류(실사) ──
     { id:'raviator',ko:'항공 선글라스', en:'Aviator Shades',    anchor:'eyes', scale:1.62, yOff:0.05, rotate:true, draw:'image', img:'/face-fx/r/aviator.png' },
-    { id:'rsteamgg',ko:'스팀펑크 고글', en:'Steampunk Goggles', anchor:'eyes', scale:2.05, yOff:0.05, rotate:true, draw:'image', img:'/face-fx/r/steamgoggles.png' },
 
     // ── 수염 ──
     { id:'rstache1',ko:'카이저 수염',   en:'Curly Mustache', anchor:'stache', scale:0.68, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/stache-curl-brown.png' },
-    { id:'rstache2',ko:'검은 콧수염',   en:'Black Mustache', anchor:'stache', scale:0.66, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/stache-curl-black.png' },
     { id:'rstache3',ko:'넓은 콧수염',   en:'Wide Mustache',  anchor:'stache', scale:0.62, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/stache-wide.png' },
     { id:'rstache4',ko:'짧은 콧수염',   en:'Short Mustache', anchor:'stache', scale:0.42, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/stache-short.png' },
     { id:'rstache5',ko:'덥수룩 수염',   en:'Thick Mustache', anchor:'stache', scale:0.60, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/stache-thick.png', imgYOff:0.10 },

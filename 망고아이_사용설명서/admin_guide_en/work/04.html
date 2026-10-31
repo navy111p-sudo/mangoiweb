@@ -1,0 +1,121 @@
+<!doctype html><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1920px;height:1080px;overflow:hidden}
+body{
+  font-family:"Segoe UI","Malgun Gothic",system-ui,-apple-system,sans-serif;
+  background:linear-gradient(135deg,#FFE788 0%,#FFD23F 55%,#FFC01A 100%);
+  color:#2A1E00; position:relative;
+}
+/* soft mango blobs — decoration only */
+body::before{content:'';position:absolute;top:-320px;right:-260px;width:900px;height:900px;
+  border-radius:50%;background:rgba(255,255,255,.28)}
+body::after{content:'';position:absolute;bottom:-420px;left:-300px;width:820px;height:820px;
+  border-radius:50%;background:rgba(224,118,10,.10)}
+.slide{position:relative;z-index:1;width:1920px;height:1080px;padding:70px 86px;display:flex;flex-direction:column}
+
+/* header */
+.hd{display:flex;align-items:center;gap:26px;margin-bottom:34px;flex:none}
+.hd .num{width:82px;height:82px;border-radius:50%;background:#E8760A;color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:800;flex:none;
+  box-shadow:0 8px 20px -6px rgba(180,90,0,.55)}
+.hd .tx{flex:1;min-width:0}
+.hd .kicker{font-size:23px;font-weight:800;color:#B3620A;letter-spacing:.14em;text-transform:uppercase}
+.hd h1{font-size:62px;font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.hd .ko{font-size:26px;font-weight:700;color:#7A5E14;margin-top:8px}
+
+/* generic card */
+.card{background:#fff;border-radius:26px;padding:34px 38px;box-shadow:0 14px 34px -14px rgba(120,70,0,.34)}
+.card h3{font-size:27px;font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:11px}
+.card p{font-size:25px;line-height:1.52;color:#4A3A12}
+.card.blue{background:#EAF2FF}
+.card.blue h3{color:#1D4ED8}
+.card.blue p{color:#28407A}
+
+.body{flex:1;display:flex;gap:34px;min-height:0}
+.col{display:flex;flex-direction:column;gap:26px;min-height:0}
+
+/* screenshots */
+.shot{background:#fff;border-radius:22px;overflow:hidden;box-shadow:0 16px 40px -14px rgba(120,70,0,.45);
+  border:5px solid #fff;flex:1;display:flex;min-height:0}
+.shot img{width:100%;height:100%;object-fit:cover;object-position:top left;display:block}
+.shot.ph{background:repeating-linear-gradient(45deg,#FFF6D8,#FFF6D8 18px,#FFEFC0 18px,#FFEFC0 36px);
+  align-items:center;justify-content:center;border:5px dashed #E8B23A}
+.shot.ph div{text-align:center;color:#A8791A}
+.shot.ph b{display:block;font-size:34px;font-weight:800;margin-bottom:8px}
+.shot.ph span{font-size:24px;font-family:monospace}
+
+/* sub-menu list */
+.subs{display:grid;grid-template-columns:1fr 1fr;gap:16px 34px;align-content:start}
+.sub{display:flex;align-items:baseline;gap:13px}
+.sub .dot{width:11px;height:11px;border-radius:50%;background:#E8760A;flex:none;transform:translateY(-3px)}
+.sub .n{font-size:25px;font-weight:800;white-space:nowrap}
+.sub .d{font-size:21px;color:#6B5518;line-height:1.34}
+
+.secttl{font-size:29px;font-weight:800;color:#B3620A;margin-bottom:20px}
+.tip{background:#2A1E00;color:#FFD23F;border-radius:20px;padding:22px 30px;font-size:24px;font-weight:600;
+  display:flex;align-items:center;gap:14px;flex:none}
+.tip b{color:#fff;font-weight:800}
+
+/* footer */
+.ft{position:absolute;bottom:36px;left:86px;right:86px;display:flex;justify-content:space-between;
+  align-items:center;font-size:20px;color:#8A6A18;font-weight:700;z-index:2}
+
+/* ── cover ── */
+.cover{justify-content:center;align-items:flex-start;padding-left:130px}
+.cover .key{width:120px;height:120px;border-radius:50%;background:#E8760A;color:#fff;font-size:58px;
+  display:flex;align-items:center;justify-content:center;margin-bottom:40px;
+  box-shadow:0 14px 34px -8px rgba(180,90,0,.6)}
+.cover .brand{font-size:34px;font-weight:800;color:#B3620A;margin-bottom:16px;letter-spacing:.02em}
+.cover h1{font-size:118px;font-weight:800;line-height:1.04;letter-spacing:-.03em;margin-bottom:34px}
+.cover .sub{font-size:33px;color:#4A3A12;line-height:1.5;max-width:1080px}
+.cover .mango{position:absolute;right:110px;bottom:90px;width:430px}
+
+/* ── contents ──
+   grid-auto-flow:column + a fixed row count so the list reads DOWN column 1 then
+   down column 2. Row-wise flow (the grid default) would order it 3,4 / 5,6 across
+   the page, which reads as nonsense. */
+.toc{display:grid;grid-template-rows:repeat(13,auto);grid-auto-flow:column;
+  grid-auto-columns:1fr;gap:5px 50px;align-content:start;flex:1}
+.toc .row{display:flex;align-items:center;gap:16px;background:rgba(255,255,255,.72);
+  border-radius:11px;padding:6px 20px}
+.toc .row.hdr{background:none;padding:4px 0 0}
+.toc .row.hdr .lbl{font-size:18px;font-weight:800;color:#B3620A;letter-spacing:.1em;text-transform:uppercase}
+.toc .pg{width:38px;height:38px;border-radius:10px;background:#E8760A;color:#fff;font-size:19px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;flex:none}
+.toc .lbl{font-size:22px;font-weight:700;flex:1}
+
+/* ── index ── same column-flow reasoning: A–Z must read down each column */
+.idx{display:grid;grid-template-rows:repeat(12,auto);grid-auto-flow:column;
+  grid-auto-columns:1fr;gap:8px 28px;align-content:start;flex:1}
+.idx .row{display:flex;align-items:center;gap:13px;background:rgba(255,255,255,.72);
+  border-radius:11px;padding:10px 15px}
+.idx .nm{font-size:21px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.idx .mn{width:32px;height:32px;border-radius:8px;background:#E8760A;color:#fff;font-size:17px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;flex:none}
+
+/* ── steps ── */
+.steps{display:flex;gap:22px;flex:1}
+.step{flex:1;background:#fff;border-radius:24px;padding:32px;display:flex;flex-direction:column;gap:16px;
+  box-shadow:0 14px 34px -14px rgba(120,70,0,.34)}
+.step .sn{width:56px;height:56px;border-radius:50%;background:#FFD23F;color:#2A1E00;font-size:26px;font-weight:800;
+  display:flex;align-items:center;justify-content:center}
+.step h4{font-size:27px;font-weight:800;line-height:1.25}
+.step p{font-size:21px;color:#5A4712;line-height:1.45}
+</style>
+<div class="slide "><div class="hd">
+  <div class="num">2</div>
+  <div class="tx"><div class="kicker">Getting started</div><h1>Signing in</h1>
+  </div></div>
+  <div class="body">
+    <div class="col" style="flex:0 0 620px">
+      <div class="card"><h3>🔑 How to get in</h3>
+        <p>Go to <b>test.mangoi.co.kr/admin.html</b>, enter your ID and password, and press Login.</p></div>
+      <div class="card blue"><h3>💡 Switch to English</h3>
+        <p>Press the <b>EN</b> button at the top right. The whole page switches to English.
+        Press it again for Korean.</p></div>
+      <div class="card" style="flex:1"><h3>⚠️ If you can’t get in</h3>
+        <p>After <b>8 wrong tries</b> the account locks for <b>15 minutes</b> — this stops strangers guessing.
+        Wait, then try again.</p></div>
+    </div>
+    <div class="col" style="flex:1"><div class="shot"><img src="file:///C:/Users/Admin/Desktop/mangoi_develop2-main/망고아이_사용설명서/capture_en/01_login.png" alt=""></div></div>
+  </div></div><div class="ft"><span>Mangoi — Admin Page Guide</span><span>4</span></div>

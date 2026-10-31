@@ -29,11 +29,23 @@
       //   여기서 또 reload 하면 첫 진입이 "깜빡" 거리기만 함(첫 설치·배포 직후 공통).
       //   → 로드 30초 이내엔 조용히 교체만 하고, 오래 열려 있던 화면(설치형 PWA)만 새로고침.
       //   수업 중(vc-in-call)에는 절대 강제 새로고침하지 않음.
+      // 🥭 (2026-08-20 사장님 제보 ①④) «카톡 보고 오면 로고만 나온다» 의 한 갈래.
+      //   아래 visibilitychange 가 «돌아올 때마다» 새 버전을 확인하는데, 배포가 잦은 날에는
+      //   그때마다 controllerchange 가 떠서 **돌아오자마자 통째로 새로고침**이 걸렸다.
+      //   첫 화면을 다시 그리는 데 1.5MB 가 필요하므로 그 몇 초가 «멈춘 화면» 으로 보인다.
+      //   → «돌아온 직후» 에는 새로고침하지 않는다. 새 SW 는 조용히 교체만 되고,
+      //     다음에 페이지를 새로 열 때 최신 화면이 나온다(안 보이던 것이 아니라 미루는 것).
       let _swReloaded = false;
       const _swPageLoadedAt = Date.now();
+      let _swVisibleSince = Date.now();
+      document.addEventListener('visibilitychange', function(){
+        if (document.visibilityState === 'visible') _swVisibleSince = Date.now();
+      });
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (_swReloaded) return;
         if (Date.now() - _swPageLoadedAt < 30000) return;
+        // 화면을 다시 본 지 60초가 안 됐으면 = 방금 돌아온 것이다. 건드리지 않는다.
+        if (Date.now() - _swVisibleSince < 60000) return;
         try { if (document.body && document.body.classList.contains('vc-in-call')) return; } catch(e){}
         _swReloaded = true;
         location.reload();

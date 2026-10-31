@@ -409,7 +409,7 @@
       <div class="info-tile"><b>💎 프리미엄 콘텐츠</b><span>비즈니스·시험·일상 회화</span></div>
       <div class="info-tile"><b>🔒 무료 체험</b><span>1회 부담 없이 체험</span></div>
     </div>
-    <a class="info-cta" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()">📨 상담 신청하기 →</a>`;
+    <a class="info-cta" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()">💬 카카오톡으로 상담하기 →</a>`;
 
   const CURRICULUM = `
     <h2>📚 교육과정 안내</h2>
@@ -553,12 +553,12 @@
       <li>그룹 수업 (2-4명, 토론형)</li>
       <li>발음 클리닉 (AI + 강사 결합)</li>
     </ul>
-    <a class="info-cta" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()">🎁 무료체험 신청 →</a>`;
+    <a class="info-cta" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()">🎁 무료체험 문의 (카카오) →</a>`;
 
   const FAQ = `
     <h2>❓ 자주 묻는 질문</h2>
     <div class="faq-q">Q. 무료 체험은 어떻게 신청하나요?</div>
-    <div class="faq-a">홈 검색창의 "💬 신규상담" 또는 그리드의 "🎁 무료체험"을 클릭하시면 신청 폼이 열립니다. 담당자가 영업일 1일 내로 연락드려 일정을 잡아드려요.</div>
+    <div class="faq-a">홈 검색창의 "💬 카카오 상담" 또는 화면 오른쪽 아래 상담 버튼을 누르면 카카오톡 상담창이 열립니다. 운영시간(10:00~23:00)에는 보통 몇 분 내로 답변드려요.</div>
     <div class="faq-q">Q. 어떤 기기로 수업을 들을 수 있나요?</div>
     <div class="faq-a">PC(Chrome/Edge), 노트북, 태블릿(iPad/Android), 스마트폰 모두 가능합니다. 별도 앱 설치 없이 웹브라우저에서 바로 접속하세요. 카메라·마이크가 필수입니다.</div>
     <div class="faq-q">Q. 수업 시간을 변경하거나 연기·취소할 수 있나요?</div>
@@ -576,15 +576,17 @@
 
   const LIBRARY = `
     <h2>📁 자료실</h2>
-    <p>망고아이가 자체 개발한 화상영어 전용 교재 3종과 학습 자료를 안내합니다.</p>
+    <p>망고아이가 자체 개발한 화상영어 전용 교재 2종과 학습 자료를 안내합니다.</p>
 
     <h3>📖 레벨별 교재 — 망고아이 전용 컨텐츠</h3>
     <p style="color:#94a3b8;font-size:12px;margin:6px 0 10px">교재명을 <b style="color:#fbbf24">클릭</b>하면 상세 설명·구성·특징이 펼쳐집니다.</p>
 
     <div class="book-list">
 
-      <!-- 📘 MES — Mango English Study -->
-      <details class="book-item" open>
+      <!-- 🙈 MES — (2026-08-13 사장님 지시) 이제 안 쓰는 교재라 학부모용 소개에서 뺀다.
+           지우지 않고 감춘다 — 되살리려면 style 만 지우면 된다.
+           ⚠️ 함께 고칠 것: 위 «교재 3종» → 2종, 아래 추천표의 MES 줄. 하나만 고치면 숫자가 어긋난다. -->
+      <details class="book-item" style="display:none">
         <summary>
           <span class="book-cover" style="background:linear-gradient(135deg,#fbbf24,#f59e0b)">MES</span>
           <div class="book-meta">
@@ -621,8 +623,8 @@
         </div>
       </details>
 
-      <!-- 🥤 BTS — Bubble Tea Study -->
-      <details class="book-item">
+      <!-- 🥤 BTS — MES 를 감췄으므로 이제 이쪽이 «처음 펼쳐져 있는» 교재다 -->
+      <details class="book-item" open>
         <summary>
           <span class="book-cover" style="background:linear-gradient(135deg,#ec4899,#db2777)">BTS</span>
           <div class="book-meta">
@@ -725,8 +727,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.06)"><td style="padding:8px;color:#fff;font-weight:700">📘 MES</td><td style="padding:8px;text-align:center;color:#fbbf24">Lv 1-5</td><td style="padding:8px;color:#cbd5e1">처음 시작 · 기초 회화 다지기</td></tr>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.06)"><td style="padding:8px;color:#fff;font-weight:700">🥤 BTS</td><td style="padding:8px;text-align:center;color:#fbbf24">Lv 2-5</td><td style="padding:8px;color:#cbd5e1">발음·노래로 재미있게 학습</td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.06)"><td style="padding:8px;color:#fff;font-weight:700">🥤 BTS</td><td style="padding:8px;text-align:center;color:#fbbf24">Lv 1-5</td><td style="padding:8px;color:#cbd5e1">처음 시작 · 발음·노래로 재미있게 학습</td></tr>
         <tr><td style="padding:8px;color:#fff;font-weight:700">💪 SIU</td><td style="padding:8px;text-align:center;color:#fbbf24">Lv 5-8</td><td style="padding:8px;color:#cbd5e1">긴 문장·토픽 토론 능력 강화</td></tr>
       </tbody>
     </table>
@@ -767,17 +768,34 @@
       </div>
     </div>
 
-    <!-- 📨 온라인 상담 신청 (전체 너비) -->
+    <!-- 💬 상담 창구 (전체 너비) -->
     <div class="cs-channels cs-channels-1">
       <button type="button" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()" class="cs-card cs-card-form cs-card-wide">
-        <div class="cs-card-icon">📨</div>
+        <div class="cs-card-icon">💬</div>
         <div class="cs-card-body">
-          <div class="cs-card-title">온라인 상담 신청</div>
-          <div class="cs-card-detail">웹 폼으로 문의하기 · 학생 정보·관심 코스 함께 전달</div>
-          <div class="cs-card-meta">💬 담당자가 영업일 1일 내 카카오톡으로 연락드립니다</div>
+          <div class="cs-card-title">카카오톡 상담</div>
+          <div class="cs-card-detail">실시간 채팅 상담 · 학생 정보·관심 코스도 카톡으로 알려주세요</div>
+          <div class="cs-card-meta">💬 보통 몇 분 내 답변 · 운영시간 10:00 ~ 23:00</div>
         </div>
         <div class="cs-card-arrow">→</div>
       </button>
+    </div>
+
+    <!-- ☎️ 상담 전화 (2026-08-14) — contact.html 을 없애면서 전화번호가 갈 곳이 사라졌다.
+         ⚠️ 「모든 문의는 카카오로」 라는 요구는 그대로다. 이건 «또 하나의 문의 창구» 가 아니라
+            카카오를 못 쓰는 분을 위해 번호를 «남겨 두는» 자리다. 그래서 카카오 카드보다
+            작고 아래에 둔다 — 카카오 1순위는 2026-07-27 확정 사항이다.
+         ⚠️ tel: 링크는 PC 에서 아무 일도 안 일어날 수 있다. 그래서 번호를 글자로도 보여 준다. -->
+    <div class="cs-channels cs-channels-1" style="margin-top:8px">
+      <a href="tel:1644-0561" class="cs-card cs-card-tel">
+        <div class="cs-card-icon">☎️</div>
+        <div class="cs-card-body">
+          <div class="cs-card-title">상담 전화 <b style="color:#fbbf24">1644-0561</b></div>
+          <div class="cs-card-detail">10:00 ~ 23:00 (주말·공휴일 휴무)</div>
+          <div class="cs-card-meta" style="color:#94a3b8">💬 카카오톡이 더 빠릅니다</div>
+        </div>
+        <div class="cs-card-arrow">→</div>
+      </a>
     </div>
 
     <!-- 🏢 회사 정보 푸터 (법적 고지) -->
@@ -811,7 +829,7 @@
       </div>
     </div>
 
-    <a class="info-cta" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()">📨 온라인 문의 →</a>`;
+    <a class="info-cta" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()">💬 카카오톡으로 문의 →</a>`;
 
   // ⚠️ [2026-07-27] 아래 소개 문구에서 강사 수·수업 건수를 뺐다(직원 피드백 #9).
   //   바로 아래 목록이 "전체 강사진 (30명)" 인데 문구는 훨씬 큰 수를 말해 같은 화면에서 어긋났고,
@@ -945,7 +963,7 @@
       <b>🌸 봄 시즌 특별 할인 (5월 한정)</b>
       <span>비즈니스·시험 코스 20% 할인</span>
     </div>
-    <a class="info-cta" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()">📨 상담 받고 이벤트 적용 →</a>`;
+    <a class="info-cta" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()">💬 카카오로 상담하고 이벤트 적용 →</a>`;
 
   const LEARNGUIDE = `
     <h2>🎓 효과적인 학습 가이드</h2>
@@ -1068,7 +1086,7 @@
       </p>
     </div>
 
-    <a class="info-cta" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()">📨 가맹 상담 신청 →</a>`;
+    <a class="info-cta" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()">💬 카카오로 가맹 상담 →</a>`;
 
   const CALLCENTER = `
     <h2>🌏 현지 콜센터</h2>
@@ -1138,7 +1156,7 @@
         <div class="diag-row"><span>6. 화면 해상도</span><span id="diag-screen" class="diag-status checking">확인 중…</span></div>
       </div>
       <div id="diag-summary" style="margin-top:16px;padding:14px;background:rgba(255,255,255,0.05);border-radius:10px;font-size:13px;color:#94a3b8;line-height:1.6">진행 상황을 표시합니다…</div>
-      <a class="info-cta" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()">📨 문제 있으면 상담 신청 →</a>
+      <a class="info-cta" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()">💬 문제가 있으면 카카오 상담 →</a>
     `);
 
     const set = (id, status, text) => {
@@ -1206,9 +1224,15 @@
     features:    () => { closeGrid(); showModal(FEATURES); },
     curriculum:  () => { closeGrid(); showModal(CURRICULUM); },
     enroll:      () => { closeGrid(); window.openInquiryModal&&window.openInquiryModal(); },
-    trial:       () => { closeGrid(); window.openInquiryModal&&window.openInquiryModal(); setTimeout(()=>{ const p=document.getElementById('inq-program'); if(p)p.value='trial'; }, 100); },
+    /* 2026-08-14 피드백 ⑤ — 상담 폼이 없어져 #inq-program 프리필은 죽은 코드라 뺐다.
+       openInquiryModal 은 이제 카카오 채널을 연다(이름만 유지 — 부르는 곳이 많다). */
+    trial:       () => { closeGrid(); window.openInquiryModal&&window.openInquiryModal(); },
     faq:         () => { closeGrid(); showModal(FAQ); },
-    leveltest:   () => { closeGrid(); showLevelTestModal(); },
+    /* 2026-09-22: 홈 「레벨테스트」 타일은 아이용 입구(카드 3장, /level-start.html)로 간다.
+       그 화면의 «선생님 + 로봇» 카드가 /?menu=leveltest 로 이 신청 모달을 다시 연다
+       (그 경로는 아래 ?menu 처리가 showLevelTestModal() 을 «직접» 불러 여기로 되돌아오지 않는다).
+       ⛔ window.showLevelTestModal 자체는 바꾸지 않는다 — 결과보기·다시신청 등 모달을 곧바로 여는 곳이 쓴다. */
+    leveltest:   () => { closeGrid(); location.href = '/level-start.html'; },
     speech:      () => { closeGrid(); location.href = '/speech-coach.html'; },
     teachers:    () => {
       closeGrid();
@@ -1259,7 +1283,8 @@
     kakao:       () => { closeGrid();
                          if (window.openKakao) return window.openKakao();
                          const u = 'https://pf.kakao.com/_xlqnSxd';
-                         if (!window.open(u, '_blank', 'noopener')) location.href = u; },
+                         var _w = null; try { _w = window.open(u, '_blank'); } catch (e) {}
+                         if (_w) { try { _w.opener = null; } catch (e) {} } else location.href = u; },
     remote:      () => { closeGrid(); openRemoteSupportModal(); },
     installguide:() => { closeGrid(); showModal(INSTALLGUIDE); },
     library:     () => { closeGrid(); showModal(LIBRARY); },
@@ -1474,7 +1499,7 @@
         </div>
       </div>
       <button onclick="window.__reportLoginGate&&window.__reportLoginGate()" style="width:100%;margin-top:12px;padding:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);border:0;border-radius:10px;color:#1a0f08;font-size:14px;font-weight:800;cursor:pointer" data-ko="🔓 내 평가표 보러 가기 (로그인)" data-en="🔓 View my report card (log in)">🔓 내 평가표 보러 가기 (로그인)</button>
-      <button onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()" style="width:100%;margin-top:8px;padding:11px;background:rgba(255,255,255,0.06);border:1px solid rgba(148,163,184,0.35);border-radius:10px;color:#e2e8f0;font-size:13px;font-weight:700;cursor:pointer" data-ko="💬 수업 상담 신청하기" data-en="💬 Request a consultation">💬 수업 상담 신청하기</button>
+      <button onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()" style="width:100%;margin-top:8px;padding:11px;background:rgba(255,255,255,0.06);border:1px solid rgba(148,163,184,0.35);border-radius:10px;color:#e2e8f0;font-size:13px;font-weight:700;cursor:pointer" data-ko="💬 카카오톡으로 수업 상담" data-en="💬 Ask about classes on KakaoTalk">💬 카카오톡으로 수업 상담</button>
     `);
   };
   window.__reportLoginGate = showLoginGate;
@@ -2214,7 +2239,7 @@
 
       <!-- 간편 CTA (회원가입 없이) -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <a class="info-cta" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()" style="margin:0;padding:12px 10px;text-align:center;line-height:1.3;word-break:keep-all">📨 비회원 신청<br>(상담)</a>
+        <a class="info-cta" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()" style="margin:0;padding:12px 10px;text-align:center;line-height:1.3;word-break:keep-all">💬 카카오 상담<br>(비회원 가능)</a>
         <a class="info-cta" onclick="closeInfoModal();window.openKakao&&window.openKakao()" style="margin:0;padding:12px 10px;text-align:center;line-height:1.3;word-break:keep-all;background:linear-gradient(135deg,#FEE500,#FFCD00);color:#3C1E1E">💬 카톡으로 신청</a>
       </div>
       <p style="margin-top:10px;color:#94a3b8;font-size:11px;text-align:center">

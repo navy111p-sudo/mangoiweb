@@ -16,15 +16,15 @@
   // 고정 메뉴 (순서·번호 고정). again = 이 항목이 '현재 기능'일 때 "다시"로 표시할 라벨
   var MENU = [
     { key: 'class',  emoji: '🎥', label: '수업 입장',    again: '수업 다시 입장' },
-    { key: 'warmup', emoji: '🗣️', label: 'AI 웜업',      again: 'AI 웜업 다시' },
-    { key: 'quiz',   emoji: '🧠', label: '복습퀴즈',      again: '복습퀴즈 다시' },
+    { key: 'warmup', emoji: '🗣️', label: 'A.i 말하기 연습', again: 'A.i 말하기 연습 다시' },
+    { key: 'quiz',   emoji: '🧠', label: 'BTS/SIU 퀴즈',  again: 'BTS/SIU 퀴즈 다시' },
     { key: 'game',   emoji: '🎮', label: '학생게임',      again: '학생게임 다시' },
     { key: 'rec',    emoji: '📼', label: '녹화 다시보기', again: '녹화 다시보기' },
-    { key: 'speech', emoji: '🎤', label: '단계별 발음',   again: '단계별 발음 다시' },
+    { key: 'speech', emoji: '🎤', label: 'AI 음성코치',   again: 'AI 음성코치 다시' },   // 인트로 카드와 같은 이름으로 통일(2026-08-14, 구명 «단계별 발음»)
     { key: 'vocab',  emoji: '📖', label: '단어장',        again: '단어장 다시' },
     { key: 'aifriend', emoji: '🤖', label: 'AI 친구',     again: 'AI 친구 다시' },
     { key: 'aiwrite', emoji: '✍️', label: 'AI 글쓰기',    again: 'AI 글쓰기 다시' },
-    { key: 'miniquiz', emoji: '⚡', label: '미니퀴즈',     again: '미니퀴즈 다시' },
+    { key: 'miniquiz', emoji: '⚡', label: 'AI 단어 퀴즈', again: 'AI 단어 퀴즈 다시' },   // 화면 제목과 같은 이름으로 통일(2026-08-14)
     { key: 'exit',   emoji: '🚪', label: '나가기',        again: '나가기' }
   ];
 
@@ -36,12 +36,27 @@
   // 방금 끝낸 기능 → 메뉴에서 '나 자신'에 해당하는 항목(있으면 "다시"로 표기)
   var SELF = { warmup: 'warmup', class: 'class', game: 'game', quiz: 'quiz', speech: 'speech', aifriend: 'aifriend', aiwrite: 'aiwrite' };
 
-  var FROM_LABEL = { warmup: 'AI 웜업', game: '학생게임', class: '화상수업', quiz: '복습퀴즈', speech: '단계별 발음', aifriend: 'AI 친구', aiwrite: 'AI 글쓰기' };
+  var FROM_LABEL = { warmup: 'A.i 말하기 연습', game: '학생게임', class: '화상수업', quiz: 'BTS/SIU 퀴즈', speech: 'AI 음성코치', aifriend: 'AI 친구', aiwrite: 'AI 글쓰기' };
 
   // 최상위 창(아이프레임 안에서 실행 시 상위창을 대상으로 이동) — 교차출처면 자기 자신
   function topWin() {
     try { return (w.top && w.top !== w.self) ? w.top : w; } catch (_) { return w; }
   }
+
+  /* 🌐 (2026-08-13) 녹화 화면 문구 한/영 두 벌 — 강사 다수가 필리핀이고, 이 화면은
+       Karl «Double Login Issue» 수정으로 강사도 쓰게 됐는데 통째로 한국어뿐이었다.
+     ⚠️ 언어 판정은 반드시 getLang() 으로 한다 — 인라인 전역 currentLang 을 읽으면
+        🌐 토글을 눌러도 안 따라온다(CLAUDE.md 2절). 저장키는 mangoi_lang(구키 mango_lang 아님). */
+  function isEn() {
+    try {
+      var t = topWin();
+      if (typeof t.getLang === 'function') return t.getLang() === 'en';
+    } catch (_) {}
+    try { if (typeof w.getLang === 'function') return w.getLang() === 'en'; } catch (_) {}
+    try { return w.localStorage.getItem('mangoi_lang') === 'en'; } catch (_) {}
+    return false;
+  }
+  function T(ko, en) { return isEn() ? en : ko; }
   function nav(url) { var t = topWin(); try { t.location.href = url; } catch (_) { w.location.href = url; } }
 
   // 항목 클릭 시 이동 동작 (아이프레임/일반 페이지 모두 대응)
@@ -62,11 +77,11 @@
         case 'warmup': nav('/warmup.html'); break;
         case 'quiz': nav('/review-quiz.html'); break;
         case 'game': nav('/student-games.html'); break;
-        case 'speech': nav('/speech-coach.html'); break;   // 🎤 단계별 발음
+        case 'speech': nav('/speech-coach.html'); break;   // 🎤 AI 음성코치
         case 'vocab': nav('/vocab.html'); break;           // 📖 단어장
         case 'aifriend': nav('/ai-friend.html'); break;    // 🤖 AI 친구 대화
         case 'aiwrite': nav('/ai-write.html'); break;      // ✍️ AI 글쓰기
-        case 'miniquiz': nav('/micro-quiz.html'); break;   // ⚡ 미니퀴즈
+        case 'miniquiz': nav('/micro-quiz.html'); break;   // ⚡ AI 단어 퀴즈
         case 'rec':  openLatestRecording(); break;   // 직전 수업 녹화 바로 재생
         case 'exit':
           if (typeof t.showView === 'function' && t.document.getElementById('view-home')) t.showView('view-home');
@@ -233,6 +248,57 @@
     return null;
   }
 
+  /* 🧑‍🏫 (2026-08-13, 필리핀 IT매니저 Karl «Double Login Issue»)
+     [사고] 상단바에 «Teacher Win» 으로 이미 로그인돼 있는데, 메뉴 → 「녹화 보기」를 누르면
+            로그인 창이 한 번 더 떴다.
+     [원인] 교사·본사·지사 로그인은 `mangoi_admin_session` 만 만들고 학생 키
+            (`mangoi_logged_user`)는 **일부러** 만들지 않는다(idx-user-session.js 116줄 —
+            교사 계정으로 학생 전용 기능이 열리면 안 되므로). 그런데 studentUid() 는
+            학생 키만 봐서 «로그인 안 한 사람» 으로 판정했다.
+     [해결] 학생 신분을 만들지 않고, **녹화 조회용 신원**만 따로 읽는다. 서버도 같은 날
+            관리자·교사 세션 쿠키를 목록 API 에서 인정하도록 맞췄다(api-mango.ts).
+     ⚠️ studentUid() 자체는 건드리지 않는다 — 그걸 고치면 학생 전용 기능 전체가 함께 열린다. */
+  function adminViewer() {
+    var stores = [];
+    try { stores.push(w.localStorage); } catch (_) {}
+    try { var tw = topWin(); if (tw !== w && tw.localStorage) stores.push(tw.localStorage); } catch (_) {}
+    for (var s = 0; s < stores.length; s++) {
+      var o = readStore(stores[s], 'mangoi_admin_session');
+      if (o && (o.uid || o.name)) {
+        return { uid: String(o.uid || o.name), name: String(o.name || ''), admin: true };
+      }
+    }
+    return null;
+  }
+
+  // 녹화 화면이 쓰는 신원 — 학생이면 학생, 아니면 교사·관리자 세션.
+  function recViewer() { return studentUid() || adminViewer(); }
+
+  /* 조회 후보 아이디 목록 (앞에서부터 시도).
+     녹화 행의 teacher_name·participant_names 에는 «화상수업 입장 때 입력한 이름» 이 들어간다
+     (mango-rec.js 859줄 = vcUsername). 계정 아이디·표시이름과 다를 수 있어 함께 본다. */
+  function recKeys(who) {
+    if (!who) return [];
+    var cand = [who.uid, who.name];
+    if (who.admin) {
+      var stores = [];
+      try { stores.push(w.localStorage); } catch (_) {}
+      try { var tw = topWin(); if (tw !== w && tw.localStorage) stores.push(tw.localStorage); } catch (_) {}
+      for (var s = 0; s < stores.length; s++) {
+        try { cand.push(stores[s].getItem('mangoi_vc_uid')); } catch (_) {}
+      }
+    }
+    var out = [], seen = {};
+    for (var i = 0; i < cand.length; i++) {
+      var k = String(cand[i] == null ? '' : cand[i]).trim();
+      if (!k) continue;
+      var lk = k.toLowerCase();
+      if (seen[lk]) continue;
+      seen[lk] = 1; out.push(k);
+    }
+    return out;
+  }
+
   // 🔐 본인 인증 토큰 — 자기 창/상위창 localStorage, URL 파라미터에서 두루 찾음
   function authToken() {
     var stores = [];
@@ -266,6 +332,9 @@
   function ensureToken(who) {
     var t = authToken();
     if (t && tokenUid(t) === who.uid && !tokenExpired(t)) return Promise.resolve(t);
+    // 🧑‍🏫 교사·관리자 세션에는 학생 계정이 없다 — /api/student/login 은 404(user_not_found)만
+    //    돌려주므로 부르지 않는다. 인증은 admin_sessions 쿠키(credentials:'include')로 통과한다.
+    if (who.admin) return Promise.resolve('');
     return fetch('/api/student/login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: who.uid })
@@ -313,8 +382,7 @@
           .then(function (d) { return (d && (d.rows || d.recordings)) || []; })
           .catch(function () { return []; });
       }
-      var jobs = [q(who.uid)];
-      if (who.name && who.name !== who.uid) jobs.push(q(who.name));
+      var jobs = recKeys(who).map(q);
       return Promise.all(jobs).then(function (parts) {
         var seen = {}, merged = [];
         parts.forEach(function (rows) {
@@ -327,6 +395,22 @@
     });
   }
 
+  /* 서버가 내려주는 제목·길이는 한국어로 조립돼 온다(api-mango.ts: '방 X 수업' / '25분' · '30초').
+     행 전체를 영어로 갈아 끼우는 대신, 화면에 그릴 때만 두 갈래를 알아본다 —
+     서버 응답 형식을 바꾸면 관리자 화면·리포트까지 함께 흔들린다. */
+  function recTopic(topic) {
+    var s = String(topic == null ? '' : topic).trim();
+    if (!s) return T('수업 녹화', 'Class recording');
+    if (!isEn()) return s;
+    var m = /^방\s+(.+?)\s+수업$/.exec(s);
+    return m ? ('Room ' + m[1] + ' class') : s;
+  }
+  function recDuration(dur) {
+    var s = String(dur == null ? '' : dur).trim();
+    if (!s || !isEn()) return s;
+    return s.replace(/^(\d+)분$/, '$1 min').replace(/^(\d+)초$/, '$1 sec');
+  }
+
   function recListBox(html) {
     return '<div style="width:100%;max-width:640px;max-height:88vh;display:flex;flex-direction:column;' +
       'background:#0b1220;border:1px solid #1e293b;border-radius:18px;padding:20px 18px;color:#e2e8f0">' + html + '</div>';
@@ -334,12 +418,12 @@
 
   // 전체 목록 화면
   function recShowList() {
-    var who = _recWho || studentUid();
+    var who = _recWho || recViewer();
     if (!who) { recShowLoginNeeded(); return; }
     _recWho = who;
     recShell(recMsgBox(
       '<div style="font-size:34px;margin-bottom:10px">📚</div>' +
-      '<div style="font-size:15px;font-weight:700;color:#e2e8f0">전체 녹화 목록을 불러오는 중…</div>'
+      '<div style="font-size:15px;font-weight:700;color:#e2e8f0">' + T('전체 녹화 목록을 불러오는 중…', 'Loading all recordings…') + '</div>'
     ));
     recAuthedQuery(who).then(function (rows) {
       _recListRows = (rows || []).slice();
@@ -351,12 +435,12 @@
         //   나왔다. 서버가 내려주는 failed 플래그로 «저장 실패»를 솔직하게 표시한다.
         var failed = !!r.failed || String(r.status || '') === 'upload_failed';
         var playable = !failed && !!r.url && String(r.status || 'completed') === 'completed';
-        var meta = [r.date, r.teacher, r.duration].filter(function (x) { return x && x !== '-'; }).map(esc).join(' · ');
+        var meta = [r.date, r.teacher, recDuration(r.duration)].filter(function (x) { return x && x !== '-'; }).map(esc).join(' · ');
         var badge = playable
-          ? '<span style="flex:0 0 auto;background:#10b981;color:#04231a;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:800">▶ 재생</span>'
+          ? '<span style="flex:0 0 auto;background:#10b981;color:#04231a;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:800">' + T('▶ 재생', '▶ Play') + '</span>'
           : failed
-          ? '<span style="flex:0 0 auto;background:#7f1d1d;color:#fecaca;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700">⚠ 저장 실패</span>'
-          : '<span style="flex:0 0 auto;background:#334155;color:#94a3b8;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700">⏳ 준비중</span>';
+          ? '<span style="flex:0 0 auto;background:#7f1d1d;color:#fecaca;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700">' + T('⚠ 저장 실패', '⚠ Upload failed') + '</span>'
+          : '<span style="flex:0 0 auto;background:#334155;color:#94a3b8;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700">' + T('⏳ 준비중', '⏳ Processing') + '</span>';
         // ⬇ 저장 — 목록에서 바로 내 PC·휴대폰으로. (재생 URL 에 &dl=1 만 붙이면 서버가
         //   Content-Disposition: attachment 로 내려준다. 우리 play 엔드포인트일 때만 —
         //   외부 http(s) 녹화는 우리가 헤더를 못 붙이므로 저장 버튼을 걸지 않는다)
@@ -364,10 +448,10 @@
         var dlBtn = dlUrl
           // 📱 휴대폰에서 누를 버튼이다 — 높이 44px 는 이 저장소가 쓰는 터치 타깃 기준.
           //    (실측: 그냥 두면 31px 라 손가락으로 겨냥이 어렵다)
-          ? '<a href="' + esc(dlUrl) + '" download title="내 기기에 저장" ' +
+          ? '<a href="' + esc(dlUrl) + '" download data-rec-dl title="' + T('내 기기에 저장', 'Save to my device') + '" ' +
             'style="flex:0 0 auto;display:inline-flex;align-items:center;min-height:44px;' +
             'background:rgba(148,163,184,.14);color:#cbd5e1;border-radius:8px;' +
-            'padding:6px 12px;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">⬇ 저장</a>'
+            'padding:6px 12px;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">' + T('⬇ 저장', '⬇ Save') + '</a>'
           : '';
         // 행 = [재생 버튼(제목·정보·배지)] + [저장 링크].
         //   버튼 안에 버튼을 넣을 수 없어(중첩 불가) 바깥을 div 로 감싸고 클릭 영역만 button 으로 둔다.
@@ -381,17 +465,20 @@
           'cursor:' + (playable ? 'pointer' : 'default') + '">' +
           '<span style="flex:0 0 auto;font-size:24px">📼</span>' +
           '<span style="flex:1 1 auto;min-width:0">' +
-            '<span style="display:block;font-weight:800;font-size:14px;color:#f8fafc">' + esc(r.topic || '수업 녹화') + '</span>' +
+            '<span style="display:block;font-weight:800;font-size:14px;color:#f8fafc">' + esc(recTopic(r.topic)) + '</span>' +
             '<span style="display:block;font-size:12px;color:#94a3b8;margin-top:2px">' + (meta || '&nbsp;') + '</span>' +
           '</span>' + badge + '</button>' + dlBtn + '</div>';
       }).join('');
       recShell(recListBox(
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex:0 0 auto">' +
-          '<div style="font-weight:800;font-size:17px;color:#f8fafc">📚 내 녹화 수업 <span style="color:#94a3b8;font-weight:600;font-size:13px">· ' + _recListRows.length + '개</span></div>' +
+          '<div style="font-weight:800;font-size:17px;color:#f8fafc">' + T('📚 내 녹화 수업', '📚 My recorded classes') +
+            ' <span style="color:#94a3b8;font-weight:600;font-size:13px">· ' + _recListRows.length + T('개', '') + '</span></div>' +
           '<button data-rec-close style="flex:0 0 auto;background:rgba(255,255,255,.1);color:#e2e8f0;border:0;width:34px;height:34px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;line-height:1">✕</button>' +
         '</div>' +
         '<div style="flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch">' + items + '</div>' +
-        '<div style="flex:0 0 auto;color:#64748b;font-size:11px;margin-top:10px;line-height:1.6">※ 본인 수업 녹화만 표시됩니다. ⬇ 저장을 누르면 내 PC·휴대폰에 파일로 받을 수 있어요(보관 기간이 지나면 삭제되니 필요하면 미리 받아두세요). ⚠ 저장 실패는 업로드 도중 파일이 저장되지 못한 수업이라 재생할 수 없어요.</div>'
+        '<div style="flex:0 0 auto;color:#64748b;font-size:11px;margin-top:10px;line-height:1.6">' +
+          T('※ 본인 수업 녹화만 표시됩니다. ⬇ 저장을 누르면 내 PC·휴대폰에 파일로 받을 수 있어요(보관 기간이 지나면 삭제되니 필요하면 미리 받아두세요). ⚠ 저장 실패는 업로드 도중 파일이 저장되지 못한 수업이라 재생할 수 없어요.',
+            '※ Only your own class recordings are listed. Tap ⬇ Save to download a copy to your PC or phone (recordings are deleted once the retention period ends, so save anything you need in advance). ⚠ Upload failed means the file was never stored during upload, so it cannot be played.') + '</div>'
       ));
       var doc = recDoc(), ov = doc.getElementById('mango-rec-overlay');
       if (ov) {
@@ -476,12 +563,12 @@
   }
 
   function openLatestRecording() {
-    var who = studentUid();
+    var who = recViewer();
     if (!who) { recShowLoginNeeded(); return; }
     _recWho = who;
     recShell(recMsgBox(
       '<div style="font-size:38px;margin-bottom:10px">📼</div>' +
-      '<div style="font-size:15px;font-weight:700;color:#e2e8f0">최근 수업 녹화를 불러오는 중…</div>'
+      '<div style="font-size:15px;font-weight:700;color:#e2e8f0">' + T('최근 수업 녹화를 불러오는 중…', 'Loading your latest class recording…') + '</div>'
     ));
     var tried = {}, authFail = false, authOk = false, _tok = '';
     function query(q) {
@@ -509,12 +596,19 @@
       }
       return done.concat(rest);
     }
+    // 후보 아이디를 앞에서부터 시도 — 재생 가능한 녹화가 나오면 거기서 멈춘다.
+    //   (학생: 아이디 → 등록이름 / 교사: 계정아이디 → 표시이름 → 수업 입장 때 쓴 이름)
+    function queryKeys(keys, i, prev) {
+      if (i >= keys.length) return Promise.resolve(prev || []);
+      if (tried[keys[i]]) return queryKeys(keys, i + 1, prev);
+      return query(keys[i]).then(function (rows) {
+        if (playableList(rows).length) return rows;
+        return queryKeys(keys, i + 1, (prev && prev.length) ? prev : rows);
+      });
+    }
     ensureToken(who).then(function (tok) {
       _tok = tok || '';
-      return query(who.uid);
-    }).then(function (rows) {
-      if (!playableList(rows).length && who.name && !tried[who.name]) return query(who.name);
-      return rows;
+      return queryKeys(recKeys(who), 0, []);
     }).then(function (rows) {
       var list = playableList(rows);
       // 이미 로그인된(인증 성공한) 학생에게는 절대 재로그인을 요구하지 않는다
@@ -527,11 +621,13 @@
   function recShowLoginNeeded() {
     recShell(recMsgBox(
       '<div style="font-size:40px;margin-bottom:8px">🔒</div>' +
-      '<div style="font-size:16px;font-weight:800;margin-bottom:6px;color:#f8fafc">로그인이 필요해요</div>' +
-      '<div style="font-size:13px;color:#94a3b8;margin-bottom:16px">녹화는 본인 확인 후에만 볼 수 있어요.<br>로그인하면 지난 수업 녹화를 바로 볼 수 있어요.</div>' +
+      '<div style="font-size:16px;font-weight:800;margin-bottom:6px;color:#f8fafc">' + T('로그인이 필요해요', 'Sign-in required') + '</div>' +
+      '<div style="font-size:13px;color:#94a3b8;margin-bottom:16px">' +
+        T('녹화는 본인 확인 후에만 볼 수 있어요.<br>로그인하면 지난 수업 녹화를 바로 볼 수 있어요.',
+          'Recordings open only after we confirm who you are.<br>Sign in to watch your past classes right away.') + '</div>' +
       '<div style="display:flex;gap:8px;justify-content:center">' +
-        '<button data-rec-login style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:800;cursor:pointer">로그인하기</button>' +
-        '<button data-rec-close style="background:#334155;color:#e2e8f0;border:0;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer">닫기</button>' +
+        '<button data-rec-login style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:800;cursor:pointer">' + T('로그인하기', 'Sign in') + '</button>' +
+        '<button data-rec-close style="background:#334155;color:#e2e8f0;border:0;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer">' + T('닫기', 'Close') + '</button>' +
       '</div>'
     ));
     bindRecButtons();
@@ -552,9 +648,11 @@
   function recShowEmpty() {
     recShell(recMsgBox(
       '<div style="font-size:40px;margin-bottom:8px">🎬</div>' +
-      '<div style="font-size:16px;font-weight:800;margin-bottom:6px;color:#f8fafc">아직 녹화된 수업이 없어요</div>' +
-      '<div style="font-size:13px;color:#94a3b8;margin-bottom:16px">선생님과 화상수업을 하면 여기서 다시 볼 수 있어요.</div>' +
-      '<button data-rec-close style="background:#334155;color:#e2e8f0;border:0;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:700;cursor:pointer">닫기</button>'
+      '<div style="font-size:16px;font-weight:800;margin-bottom:6px;color:#f8fafc">' + T('아직 녹화된 수업이 없어요', 'No recorded classes yet') + '</div>' +
+      '<div style="font-size:13px;color:#94a3b8;margin-bottom:16px">' +
+        T('선생님과 화상수업을 하면 여기서 다시 볼 수 있어요.',
+          'Once a video class is recorded, you can watch it back here.') + '</div>' +
+      '<button data-rec-close style="background:#334155;color:#e2e8f0;border:0;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:700;cursor:pointer">' + T('닫기', 'Close') + '</button>'
     ));
     bindRecButtons();
   }
@@ -574,18 +672,18 @@
     recShell(
       '<div style="width:100%;max-width:1400px;background:#0b1220;border:1px solid #1e293b;border-radius:18px;padding:18px;box-shadow:0 30px 80px -12px rgba(0,0,0,.75)">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">' +
-          '<div style="color:#f8fafc;font-weight:800;font-size:16px;min-width:0">📼 최근 수업 녹화' +
+          '<div style="color:#f8fafc;font-weight:800;font-size:16px;min-width:0">' + T('📼 최근 수업 녹화', '📼 Latest class recording') +
             (meta ? ' <span style="color:#94a3b8;font-weight:600;font-size:13px">· ' + meta + '</span>' : '') + '</div>' +
           '<div style="flex:0 0 auto;display:flex;align-items:center;gap:8px">' +
-            (pDl ? '<a href="' + pEsc(pDl) + '" download title="내 PC·휴대폰에 저장" ' +
+            (pDl ? '<a href="' + pEsc(pDl) + '" download data-rec-dl title="' + T('내 PC·휴대폰에 저장', 'Save to my PC or phone') + '" ' +
               'style="background:linear-gradient(135deg,#22c55e,#16a34a);color:#052e16;border-radius:10px;' +
-              'padding:8px 14px;font-size:13px;font-weight:800;text-decoration:none;white-space:nowrap">⬇ 저장</a>' : '') +
+              'padding:8px 14px;font-size:13px;font-weight:800;text-decoration:none;white-space:nowrap">' + T('⬇ 저장', '⬇ Save') + '</a>' : '') +
             '<button data-rec-close style="background:rgba(255,255,255,.1);color:#e2e8f0;border:0;width:34px;height:34px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;line-height:1">✕</button>' +
           '</div>' +
         '</div>' +
         '<video data-rec-video controls autoplay playsinline ' +
           'style="width:100%;max-height:86vh;border-radius:12px;background:#000;display:block"></video>' +
-        '<div style="text-align:center;margin-top:10px"><button data-rec-list style="background:transparent;border:0;color:#38bdf8;font-size:13px;font-weight:700;cursor:pointer;padding:4px 8px">📚 전체 녹화 목록 보기 →</button></div>' +
+        '<div style="text-align:center;margin-top:10px"><button data-rec-list style="background:transparent;border:0;color:#38bdf8;font-size:13px;font-weight:700;cursor:pointer;padding:4px 8px">' + T('📚 전체 녹화 목록 보기 →', '📚 See all recordings →') + '</button></div>' +
       '</div>'
     );
     var doc = recDoc(), vid = doc.querySelector('#mango-rec-overlay [data-rec-video]');
@@ -602,14 +700,145 @@
   function recShowUnplayable() {
     recShell(recMsgBox(
       '<div style="font-size:40px;margin-bottom:8px">🎞️</div>' +
-      '<div style="font-size:16px;font-weight:800;margin-bottom:6px;color:#f8fafc">녹화를 재생할 수 없어요</div>' +
-      '<div style="font-size:13px;color:#94a3b8;margin-bottom:16px">업로드 도중 파일이 저장되지 못했거나, 보관 기간이 지났을 수 있어요.<br>전체 목록에서 다른 녹화를 확인해 보세요.</div>' +
+      '<div style="font-size:16px;font-weight:800;margin-bottom:6px;color:#f8fafc">' + T('녹화를 재생할 수 없어요', 'This recording cannot be played') + '</div>' +
+      '<div style="font-size:13px;color:#94a3b8;margin-bottom:16px">' +
+        T('업로드 도중 파일이 저장되지 못했거나, 보관 기간이 지났을 수 있어요.<br>전체 목록에서 다른 녹화를 확인해 보세요.',
+          'The file may have failed to upload, or its retention period may have passed.<br>Try another recording from the full list.') + '</div>' +
       '<div style="display:flex;gap:8px;justify-content:center">' +
-        '<button data-rec-list style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:10px;padding:11px 20px;font-size:14px;font-weight:800;cursor:pointer">📚 전체 목록</button>' +
-        '<button data-rec-close style="background:#334155;color:#e2e8f0;border:0;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer">닫기</button>' +
+        '<button data-rec-list style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:10px;padding:11px 20px;font-size:14px;font-weight:800;cursor:pointer">' + T('📚 전체 목록', '📚 Full list') + '</button>' +
+        '<button data-rec-close style="background:#334155;color:#e2e8f0;border:0;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer">' + T('닫기', 'Close') + '</button>' +
       '</div>'
     ));
     bindRecButtons();
+  }
+
+  /* 📱 ⬇저장 폴백 (2026-08-14, «저장을 눌러도 아무 반응이 없어요») ─────────────
+     카톡·문자앱 인앱 브라우저(WebView)와 홈 화면 설치형(standalone)은 파일 다운로드
+     기능 자체가 없어서, <a download> 를 눌러도 **에러조차 없이 조용히 무시**된다
+     (window.open null 함정과 같은 계열 — CLAUDE.md 2절). 일반 크롬·사파리는 이 코드가
+     개입하지 않고 기본 <a download> 그대로 둔다.
+       ① 안드로이드 카톡 인앱 → 외부 브라우저(크롬)로 다운로드 URL 을 바로 연다
+          (inapp-escape.js 의 kakaotalk://web/openExternal 방식). 열린 크롬엔 로그인
+          쿠키가 없지만, 서버가 URL 에 동봉한 &sig=/&token= 만으로 인증된다(2026-08-13).
+       ② 그 외 인앱·설치형 → 안내 시트를 띄워 버튼으로 잇는다(아래 recDlGuide).
+     🪤 1차 시도(같은 날)는 window.open 자동 시도 + «다른 브라우저로 열기» 토스트였는데,
+        갤럭시 설치형(PWA)에서 새 창이 조용히 안 열렸고, 설치형 앱엔 «다른 브라우저로
+        열기» 메뉴 자체가 없어 사용자가 «이게 무슨 뜻이냐»고 했다(원장님 실사용 피드백).
+        그래서 자동 시도 대신 **눌러서 실행하는 큰 버튼 2개**로 바꿨다 —
+        · «크롬(브라우저)으로 저장» = 안드로이드는 intent:// 로 기본 브라우저 앱을 직접
+          호출(설치형·인앱 모두에서 외부 브라우저가 뜬다), 그 외는 window.open→location.
+        · «저장 주소 복사» = 어떤 환경에서도 통하는 최후 수단. 주소만 있으면 아무
+          브라우저에서나 받아진다(&sig=/&token= 이 인증을 대신하므로 로그인 불필요). */
+  function recDlEnv() {
+    var ua = '';
+    try { ua = String(navigator.userAgent || '').toLowerCase(); } catch (_) {}
+    // '; wv)' = 안드로이드 WebView 공식 마커. 나머지는 국내에서 실제로 만나는 인앱들.
+    var inapp = /kakaotalk|naver\(inapp|line\/|instagram|fbav|fban|daumapps|; wv\)/.test(ua);
+    var standalone = false;
+    try {
+      standalone = (w.matchMedia && w.matchMedia('(display-mode: standalone)').matches) ||
+        (topWin().matchMedia && topWin().matchMedia('(display-mode: standalone)').matches) ||
+        (navigator.standalone === true);
+    } catch (_) {}
+    // 📥 자사 망고아이 앱 v2.0+ — UA 에 «MangoiApp/» 마커가 있으면 앱에 네이티브
+    //   다운로드 장치(DownloadListener→DownloadManager)가 있다(mobile-app MainActivity).
+    //   가로채지 않고 기본 <a download> 를 그대로 태우면 앱이 받아서 알림창에 저장한다.
+    //   (마커 없는 구버전 앱은 여전히 안내 시트 — 실행 시 앱 업데이트 안내가 뜬다)
+    var nativeDl = ua.indexOf('mangoiapp/') !== -1;
+    return {
+      blocked: (inapp || standalone) && !nativeDl,
+      kakaoAndroid: ua.indexOf('kakaotalk') !== -1 && ua.indexOf('android') !== -1
+    };
+  }
+  // intent:// = 안드로이드가 «기본 브라우저 앱»을 직접 띄우는 공식 통로.
+  //   설치형(PWA)·대부분의 인앱에서 window.open 이 조용히 죽는 것과 달리 앱 전환이
+  //   눈에 보이고, 열린 브라우저가 첨부 응답을 받아 바로 다운로드한다.
+  function recDlIntent(abs) {
+    try {
+      var u = new URL(abs);
+      topWin().location.href = 'intent://' + u.host + u.pathname + u.search + '#Intent;scheme=https;action=android.intent.action.VIEW;end';
+      return true;
+    } catch (_) { return false; }
+  }
+  // 다운로드가 막힌 환경용 안내 시트 — 설명 + 실행 버튼. (토스트 한 줄은 «뭘 하라는
+  // 거냐»는 반응만 남겼다. 사용자가 직접 누르는 버튼이어야 팝업 차단에도 안 걸린다)
+  //   autoTried=true 면 저장 탭 순간 이미 크롬을 띄운 뒤다(아래 recDlClick «바로 저장») —
+  //   시트는 «크롬이 안 열렸을 때» 를 위한 예비 통로로만 깔린다. 문구도 그에 맞춘다.
+  function recDlGuide(abs, autoTried) {
+    var doc = recDoc(), ov = doc.getElementById('mango-rec-overlay');
+    if (!ov) return;
+    var old = ov.querySelector('[data-rec-dl-guide]');
+    if (old) { old.parentNode.removeChild(old); }
+    var isAndroid = /android/i.test(navigator.userAgent || '');
+    var sheet = doc.createElement('div');
+    sheet.setAttribute('data-rec-dl-guide', '1');
+    sheet.style.cssText = 'position:absolute;left:50%;bottom:20px;transform:translateX(-50%);width:min(92%,420px);' +
+      'background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:16px;' +
+      'padding:18px 16px;font-size:14px;line-height:1.65;box-shadow:0 16px 50px rgba(0,0,0,.65)';
+    sheet.innerHTML =
+      '<div style="font-weight:800;font-size:15px;margin-bottom:6px">' + T('📥 파일 저장 안내', '📥 How to save the file') + '</div>' +
+      '<div style="color:#94a3b8;font-size:13px;margin-bottom:12px">' +
+        (autoTried
+          ? T('크롬이 열리면서 저장이 시작됐어요. 크롬이 열리지 않았다면 아래 버튼을 이용해 주세요.',
+              'Chrome should have opened and started the download. If it did not open, use a button below.')
+          : T('지금 보시는 화면(설치한 앱·카톡 등)은 파일 다운로드를 지원하지 않아요. 아래 버튼으로 브라우저에서 저장해 주세요.',
+              'This screen (installed app / in-app viewer) cannot download files. Use a button below to save via your browser.')) + '</div>' +
+      '<button data-dlg-open style="display:block;width:100%;background:linear-gradient(135deg,#22c55e,#16a34a);color:#052e16;border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:8px">' +
+        T('🌐 크롬(브라우저)으로 저장', '🌐 Save via Chrome/browser') + '</button>' +
+      '<button data-dlg-copy style="display:block;width:100%;background:rgba(148,163,184,.16);color:#e2e8f0;border:0;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">' +
+        T('🔗 저장 주소 복사 (브라우저에 붙여넣기)', '🔗 Copy download link (paste in a browser)') + '</button>' +
+      '<button data-dlg-close style="display:block;width:100%;background:transparent;color:#94a3b8;border:0;padding:8px;font-size:13px;font-weight:700;cursor:pointer">' + T('닫기', 'Close') + '</button>';
+    ov.appendChild(sheet);
+    var bOpen = sheet.querySelector('[data-dlg-open]');
+    bOpen.addEventListener('click', function () {
+      if (isAndroid && recDlIntent(abs)) return;
+      var wn = null;
+      try { wn = w.open(abs, '_blank'); } catch (_) { wn = null; }
+      if (!wn) { try { topWin().location.href = abs; } catch (_) {} }   // 새 창이 막히면 같은 창(첨부 응답이라 화면 유지)
+    });
+    sheet.querySelector('[data-dlg-copy]').addEventListener('click', function (ev) {
+      var btn = ev.currentTarget;
+      var done = function (ok) {
+        btn.textContent = ok
+          ? T('✅ 복사됐어요! 크롬 주소창에 붙여넣으면 저장돼요', '✅ Copied! Paste it into the Chrome address bar to save')
+          : T('복사가 막혔어요 — 아래 주소를 길게 눌러 복사해 주세요', 'Copy blocked — long-press the address below');
+        if (!ok) {
+          var box = doc.createElement('div');
+          box.style.cssText = 'margin-top:8px;padding:8px;background:#1e293b;border-radius:8px;font-size:11px;word-break:break-all;user-select:all;-webkit-user-select:all';
+          box.textContent = abs;
+          btn.parentNode.insertBefore(box, btn.nextSibling);
+        }
+      };
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(abs).then(function () { done(true); }, function () { done(false); });
+        } else { done(false); }
+      } catch (_) { done(false); }
+    });
+    sheet.querySelector('[data-dlg-close]').addEventListener('click', function () {
+      try { sheet.parentNode.removeChild(sheet); } catch (_) {}
+    });
+  }
+  function recDlClick(e, a) {
+    var env = recDlEnv();
+    if (!env.blocked) return;                     // 일반 브라우저 — 기본 <a download> 그대로
+    e.preventDefault();
+    var abs = '';
+    try { abs = new URL(a.getAttribute('href'), topWin().location.href).href; } catch (_) { abs = a.href; }
+    if (env.kakaoAndroid) {
+      // 카톡 안드로이드: 외부 크롬으로 직접 — 열리면서 바로 저장이 시작된다
+      try { topWin().location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(abs); return; } catch (_) {}
+    }
+    // 📱 «바로 저장» (2026-08-14 사장님 «바로는 힘들어?») — 안드로이드는 시트를 띄워
+    //   버튼을 한 번 더 누르게 하지 않고, 저장 탭 즉시 intent:// 로 크롬을 연다
+    //   (한 번 탭 = 크롬 전환 + 저장 시작). 시트는 «크롬이 안 열렸을 때» 예비용으로만
+    //   깔아 둔다 — intent 실패를 코드로 감지할 방법이 없어서, 성공 시엔 돌아와서
+    //   닫기만 누르면 되는 수준의 비용으로 실패 시의 막다른 길을 없앤다.
+    if (/android/i.test(navigator.userAgent || '') && recDlIntent(abs)) {
+      recDlGuide(abs, true);
+      return;
+    }
+    recDlGuide(abs, false);
   }
 
   function bindRecButtons() {
@@ -623,6 +852,9 @@
     });
     [].forEach.call(ov.querySelectorAll('[data-rec-list]'), function (b) {
       b.addEventListener('click', recShowList);
+    });
+    [].forEach.call(ov.querySelectorAll('[data-rec-dl]'), function (a) {
+      a.addEventListener('click', function (e) { recDlClick(e, a); });
     });
   }
 

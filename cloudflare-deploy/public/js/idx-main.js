@@ -11,6 +11,24 @@
 // ⚠️ 고칠 때는 이 파일을 고친다. index.html 로 되돌리지 말 것.
 // ⚠️ 내용을 바꾸면 태그의 ?v= 를 반드시 올린다(asset_version_harness 가 막는다).
 
+/* 🌐 (2026-08-14) 언어 판정의 «정본» — miIsEn()
+   ══════════════════════════════════════════════════════════════════
+   [왜 필요한가] index.html 에는 i18n 엔진이 두 개다. 나중에 로드되는 js/mango-i18n.js 가
+      setLang/getLang/toggleLang 을 덮어쓰는데, **인라인 엔진의 전역 currentLang 은 안 건드린다.**
+      그래서 강사가 🌐 를 눌러 영어로 바꿔도 currentLang 은 'ko' 인 채로 남는다.
+      이 파일이 currentLang 을 직접 읽던 23곳은 그동안 «영어로 안 바뀌는 자리» 였다 —
+      페이지 목록·영상 플레이어·카메라 꺼짐 표시·채팅 입력칸 등. 필리핀 강사에게만 나는 문제다.
+      (CLAUDE.md 「언어 판정」 함정에 적혀 있는 그것이다.)
+   [고침] 판정을 여기 하나로 모은다. getLang() → localStorage → currentLang 순으로 본다.
+   ⚠️ 새 코드에서 currentLang 을 직접 읽지 말 것. miIsEn() 을 쓴다. */
+function miIsEn(){
+    try { if (typeof getLang === 'function') return getLang() === 'en'; } catch (_) {}
+    try { var ls = localStorage.getItem('mangoi_lang'); if (ls) return ls === 'en'; } catch (_) {}
+    try { if (typeof currentLang !== 'undefined') return currentLang === 'en'; } catch (_) {}
+    return false;
+}
+window.miIsEn = miIsEn;
+
 /* ================================================================
    1. 뷰(화면) 전환 시스템
    ──────────────────────────────────────────────────────────────────
@@ -139,6 +157,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
             //   (정상 경로는 room-joined 가 즉시 도착해 이 폴백 전에 __vcWasReconnect 를 false 로 만든다.)
             if (isReconnect) {
                 setTimeout(function(){
+                    if (sock !== ws || intentionalClose || terminated) return;
                     if (window.__vcWasReconnect && typeof vcCleanupAllPeers === 'function') {
                         window.__vcWasReconnect = false;
                         console.log('[vc] 재연결 폴백 정리(room-joined 미수신)');
@@ -163,14 +182,23 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
                 //   ⚠️ (재점검) intentionalClose 만으로는 부족하다 — reconnectNow() 가 그 값을 false 로
                 //      되돌리므로, 관리자가 강제종료한 뒤 학생이 탭을 한 번 전환하면 조용히 재입장한다.
                 //      되돌릴 수 없는 종료는 별도 플래그(terminated)로 못박는다.
-                if (data.type === 'room-full' || data.type === 'force_end' || data.type === 'force-end') {
+                if (data.type === 'room-full' || data.type === 'force_end' || data.type === 'force-end' || data.type === 'observe-denied') {
                     terminated = true;
                     intentionalClose = true;
                     try { stopPing(); } catch(_) {}
                     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+                    /* 🔒 (2026-09-23) observe-denied — 참관 토큰이 없거나 만료됨. terminated 를
+                       반드시 세워야 한다: vc-in-call 이면 재연결이 무기한이라, 안 세우면 만료된
+                       같은 토큰을 계속 재전송하며 DO 를 두드리는 무한루프가 된다(room-full·
+                       force_end 와 같은 이유). 안내는 다른 두 가지와 달리 «수업 화면 상단 알림»
+                       이 아니라 «관찰자 전용 배너»(vcObserverBanner)로 띄운다 — 일반 수업 화면과
+                       섞이면 학생이 볼 일 없는 메시지가 참관자 아닌 화면에도 나갈 수 있다. */
+                    if (data.type === 'observe-denied') {
+                        try { if (typeof vcObserverBanner === 'function') vcObserverBanner('denied'); } catch(_) {}
+                    } else {
                     // 아무 안내도 없이 조용히 멈추면 "그냥 튕겼다"로 보인다 → 이유를 보여준다(한/영)
                     try {
-                        const _en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+                        const _en = miIsEn();
                         const _full = (data.type === 'room-full');
                         /* 🚪 (2026-08-06) 정원 숫자를 서버가 알려 준 값으로 표시한다.
                            예전엔 '10명' 이 하드코딩돼 있었는데, 방 종류별로 정원이 달라졌으므로
@@ -192,6 +220,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
                         }
                         _n.textContent = (_full ? '🚪 ' : '⏹ ') + _msg;
                     } catch(_) {}
+                    }
                 }
                 if (onMessage) onMessage(data, ws);
             } catch (e) {
@@ -242,7 +271,8 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
         console.log('[WebSocket] 재연결 후 대기 메시지 재전송:', q.length + '건');
     }
     const _origOnOpenFlush = onOpen;
-    onOpen = function(sock){ try { flushQueue(); } catch(e){} if (_origOnOpenFlush) _origOnOpenFlush(sock); };
+    // 🔴 (2026-10-20) 원래 onOpen(=join-room) «뒤에» 보낸다 — 앞이면 서버가 «아직 입장 전» 으로 보고 pdf-share 를 조용히 버린다
+    onOpen = function(sock){ try { if (_origOnOpenFlush) _origOnOpenFlush(sock); } finally { try { flushQueue(); } catch(e){} } };
 
     // 외부에서 사용할 수 있는 인터페이스 반환
     return {
@@ -250,7 +280,8 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
 
         send(data) {
             if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify(data));
+                try { ws.send(JSON.stringify(data)); return true; }
+                catch (_) { return false; }
             } else if (data && QUEUEABLE_TYPES[data.type]) {
                 sendQueue = sendQueue.filter(d => d.type !== data.type);   // 같은 타입은 최신만
                 if (sendQueue.length < 20) sendQueue.push(data);
@@ -258,6 +289,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
             } else {
                 console.warn('[WebSocket] 전송 실패: 연결 끊김 상태');
             }
+            return false;
         },
 
         /** 🔴 앱 복귀 시 반드시 호출 — 탭이 얼어 있는 동안 '답 기다리는 중' 상태가 그대로
@@ -274,7 +306,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
             if (ws && (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING)) {
                 console.log('[WebSocket] reconnectNow: 즉시 재연결 시도');
                 clearTimeout(reconnectTimer);
-                reconnectAttempts = 0;
+                reconnectAttempts = Math.max(1, reconnectAttempts);
                 intentionalClose = false;
                 connect();
             } else if (!ws || ws.readyState === WebSocket.CONNECTING) {
@@ -1081,7 +1113,7 @@ window.vcStopMyScreen = async function(){
                     } catch(_){}
                 });
                 try { if (sa.sys) sa.sys.stop(); } catch(_){}
-                try { if (sa.ctx) sa.ctx.close(); } catch(_){}
+                vcCloseAudioContext(sa.ctx);
                 window.__vcScreenAudio = null;
             }
         } catch(_){}
@@ -1148,126 +1180,6 @@ window.vcRenderScreenShareChip = function(){
     btn.textContent = en ? _sEn : _sKo;
 };
 
-/* ──────────────────────────────────────────────────────────────
-   🖥 수신측 «메인 보드» 표시 (2026-08-13, Melca 8/12 p19)
-   지적: "강사가 화면 공유를 하면 학생에게는 강사 얼굴 «작은 타일»에만 나온다"
-   방식: screen-share-state(on) 을 받으면 콘텐츠 영역(교재/칠판이 쓰는 #vc-content-pane)에
-        동적 패널(#tab-screenshare)을 만들어 강사 타일의 스트림을 크게 띄운다.
-        강사 타일은 그대로 남아 «작은 미리보기» 역할(일반 화상회의 UX).
-   주의: ① 보드 <video> 는 반드시 muted — 소리는 강사 타일이 이미 내고 있다(중복 방지)
-         ② 스트림은 replaceTrack 이라 타일과 «같은 MediaStream» — srcObject 를 공유하면 끝.
-            단 늦입장·재연결이면 타일 스트림이 늦게/새로 오므로 켜져 있는 동안 1초마다 동기화
-         ③ vcSwitchTab 호출은 _vcTabSyncApplying 로 감싼다 — 공동수업 관리자가 수신했을 때
-            자기 role 때문에 tab-sync 를 재방송해 학생 화면을 흔드는 루프 방지
-   ────────────────────────────────────────────────────────────── */
-window.__vcSSView = null;   // { uid, prevTab, prevCollapsed, timer } — 공유 중일 때만 존재
-/* 보드 <video> 를 강사 타일의 현재 스트림과 맞춘다(없으면 다음 틱에 다시) */
-window.vcScreenShareViewSync = function(){
-    try {
-        var st = window.__vcSSView; if (!st) return;
-        var bv = document.getElementById('vc-ss-board'); if (!bv) return;
-        var tile = document.getElementById('vc-video-' + st.uid);
-        var tv = tile && tile.querySelector('video');
-        if (tv && tv.srcObject && bv.srcObject !== tv.srcObject) {
-            bv.srcObject = tv.srcObject;
-            var p = bv.play(); if (p && p.catch) p.catch(function(){});
-        } else if (bv.srcObject && bv.paused) {
-            var p2 = bv.play(); if (p2 && p2.catch) p2.catch(function(){});
-        }
-    } catch(_){}
-};
-window.vcScreenShareViewOn = function(uid){
-    try {
-        if (!uid) return;
-        if (window.__vcScreenSharing) return;   // 내가 공유자 — 내 미리보기(vc-local-video)가 정본
-        var en = (typeof getLang === 'function' && getLang() === 'en');
-        /* 늦입장 재방송(user-joined 때 강사가 다시 알림)이 와도 멱등 — 상태를 덮어쓰지 않는다 */
-        if (window.__vcSSView && window.__vcSSView.uid === uid) { vcScreenShareViewSync(); return; }
-        if (!window.__vcSSView) {
-            var _cur = document.querySelector('.tab-panel.active');
-            var _curId = _cur && _cur.id ? _cur.id.replace('tab-', '') : '';
-            window.__vcSSView = {
-                uid: uid,
-                prevTab: (_curId && _curId !== 'screenshare') ? _curId : '',
-                prevCollapsed: (typeof vcIsContentCollapsed === 'function') ? vcIsContentCollapsed() : false,
-                timer: null
-            };
-        } else {
-            window.__vcSSView.uid = uid;        // 공유자가 바뀐 경우(드묾) — 복귀 상태는 유지
-        }
-        var pane = document.getElementById('vc-content-pane');
-        if (!pane) return;
-        var panel = document.getElementById('tab-screenshare');
-        if (!panel) {
-            panel = document.createElement('div');
-            panel.className = 'tab-panel';
-            panel.id = 'tab-screenshare';
-            panel.style.cssText = 'background:#000;position:relative;padding:0';
-            var v = document.createElement('video');
-            v.id = 'vc-ss-board';
-            v.autoplay = true; v.muted = true;
-            v.setAttribute('playsinline', '');
-            v.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;display:block';
-            panel.appendChild(v);
-            var lb = document.createElement('span');
-            lb.id = 'vc-ss-board-label';
-            lb.setAttribute('data-ko', '🖥 선생님 화면');
-            lb.setAttribute('data-en', "🖥 Teacher's screen");
-            lb.style.cssText = 'position:absolute;top:8px;left:8px;z-index:5;padding:3px 10px;border-radius:999px;background:rgba(14,165,233,.92);color:#fff;font-size:12px;font-weight:800;pointer-events:none';
-            panel.appendChild(lb);
-            pane.appendChild(panel);
-        }
-        try { var _lb = document.getElementById('vc-ss-board-label'); if (_lb) _lb.textContent = en ? "🖥 Teacher's screen" : '🖥 선생님 화면'; } catch(_){}
-        try { if (typeof vcSetContentCollapsed === 'function') vcSetContentCollapsed(false); } catch(_){}
-        /* 참가자 전체 보기(video-full)는 콘텐츠 칸을 display:none 으로 통째로 숨긴다 —
-           그대로면 보드가 안 보인다. 기본 분할(half)로 내리고 공유가 끝나면 되돌린다. */
-        try {
-            var _row = document.getElementById('vc-main-row');
-            if (_row && _row.classList.contains('video-full')) {
-                window.__vcSSView.prevMode = 'full';
-                if (typeof vcScreenSet === 'function') vcScreenSet('half');
-            }
-        } catch(_){}
-        var _was = window._vcTabSyncApplying; window._vcTabSyncApplying = true;
-        try { vcSwitchTab('screenshare'); } finally { window._vcTabSyncApplying = _was; }
-        /* 세로폰 — 공유 시작은 최우선(학생이 얼굴 크게를 골랐어도 반반으로). 가로/PC 는 내부에서 무시 */
-        try { window.__vcPheroReeval && window.__vcPheroReeval(); } catch(_){}
-        vcScreenShareViewSync();
-        window.__vcSSView.timer = setInterval(window.vcScreenShareViewSync, 1000);
-        console.log('[screen-share] 메인 보드 표시:', uid);
-    } catch(e){ console.warn('[screen-share] 메인 보드 표시 실패:', e); }
-};
-window.vcScreenShareViewOff = function(){
-    try {
-        var st = window.__vcSSView;
-        if (!st) return;
-        window.__vcSSView = null;
-        try { if (st.timer) clearInterval(st.timer); } catch(_){}
-        var panel = document.getElementById('tab-screenshare');
-        var bv = document.getElementById('vc-ss-board');
-        try { if (bv) bv.srcObject = null; } catch(_){}
-        /* 학생이 그 사이 다른 탭으로 옮겨 갔으면(보드가 안 보이는 상태) 화면은 건드리지 않는다 */
-        var showing = panel && panel.classList.contains('active');
-        if (showing) {
-            var _was = window._vcTabSyncApplying; window._vcTabSyncApplying = true;
-            try {
-                if (st.prevTab && document.getElementById('tab-' + st.prevTab)) {
-                    vcSwitchTab(st.prevTab);
-                    if (typeof vcSetContentCollapsed === 'function') vcSetContentCollapsed(!!st.prevCollapsed);
-                } else {
-                    /* 이전 콘텐츠를 모르면 얼굴 위주로(수업 기본 화면) — 하얀 화면 방지 */
-                    if (typeof vcSetContentCollapsed === 'function') vcSetContentCollapsed(true);
-                    try { document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); }); } catch(_){}
-                }
-                /* 공유 때문에 반반으로 내렸던 «참가자 전체 보기» 를 되돌린다 */
-                if (st.prevMode === 'full' && typeof vcScreenSet === 'function') { try { vcScreenSet('full'); } catch(_){} }
-            } finally { window._vcTabSyncApplying = _was; }
-        }
-        if (panel) panel.classList.remove('active');
-        console.log('[screen-share] 메인 보드 종료 — 이전 화면 복원:', st.prevTab || '(얼굴 위주)');
-    } catch(e){ console.warn('[screen-share] 메인 보드 복원 실패:', e); }
-};
-
 /** 앱 복귀 시: 트랙 enable + 비디오 재생 + ICE/WebSocket 복구 */
 async function vcOnAppResume(reason) {
     console.log('[app-resume] 복귀 감지:', reason);
@@ -1321,6 +1233,7 @@ async function vcOnAppResume(reason) {
         const pc = vcPeerConnections[userId];
         const s = pc.iceConnectionState;
         if (s === 'disconnected' || s === 'failed') {
+            if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(userId, pc)) continue;
             console.log('[app-resume] 피어 재연결:', s, userId);
             try { pc.restartIce(); } catch(_) {}
             vcReconnectPeer(userId);
@@ -1472,12 +1385,33 @@ async function vcManualReconnect() {
 }
 window.vcManualReconnect = vcManualReconnect;
 
+const __vcPeerEpoch = {};
+function vcAccountSnapshot() {
+    try { return localStorage.getItem('mangoi_logged_user') || ''; } catch (_) { return ''; }
+}
+function vcPeerAttemptScope(userId) {
+    const room = vcRoomId, self = vcUserId, conn = vcConn, sock = conn && conn.ws, peers = vcPeerConnections;
+    const epoch = __vcPeerEpoch[userId] || 0;
+    const account = vcAccountSnapshot();
+    return () => document.body.classList.contains('vc-in-call') && vcRoomId === room && vcUserId === self
+        && vcConn === conn && conn && conn.ws === sock && sock && sock.readyState === 1 && vcPeerConnections === peers
+        && (__vcPeerEpoch[userId] || 0) === epoch && vcAccountSnapshot() === account;
+}
+
 function vcReconnectPeer(userId) {
     if (!userId) return;
     if (!document.body.classList.contains('vc-in-call')) return;   // 수업 중일 때만
+    // Keep received audio alive while signaling reconnects; no offer can be delivered yet.
+    if (!vcConn || !vcConn.ws || vcConn.ws.readyState !== 1) {
+        vcShowReconnecting();
+        try { if (vcConn && vcConn.reconnectNow) vcConn.reconnectNow(); } catch (_) {}
+        return;
+    }
     const now = Date.now();
     if (__vcReconnectAt[userId] && now - __vcReconnectAt[userId] < 8000) return;  // 8초 쿨다운
     __vcReconnectAt[userId] = now;
+    __vcPeerEpoch[userId] = (__vcPeerEpoch[userId] || 0) + 1;
+    const current = vcPeerAttemptScope(userId);
     vcShowReconnecting();   // "재연결 중…" 배너 노출
 
     const old = vcPeerConnections[userId];
@@ -1498,12 +1432,13 @@ function vcReconnectPeer(userId) {
     const iAmOfferer = (vcUserId && userId) ? (String(vcUserId) < String(userId)) : true;
     if (iAmOfferer) {
         _iceReady.then(() => {
+            if (!current() || vcPeerConnections[userId]) return;
             try { vcCreatePeerAndOffer(userId, username); } catch(e) { console.warn('[vc-recover] offer 실패:', e); }
         });
     } else {
         // 상대(작은 ID)가 offer 를 보낼 것 → 4초 대기, 그래도 복구 안 되면 내가 백업 offer
         setTimeout(() => {
-            if (!vcPeerConnections[userId] && document.body.classList.contains('vc-in-call')) {
+            if (current() && !vcPeerConnections[userId]) {
                 console.warn('[vc-recover] 상대 offer 미수신 → 백업 offer:', userId);
                 try { vcCreatePeerAndOffer(userId, username); } catch(_) {}
             }
@@ -1553,7 +1488,28 @@ function vcReconnectPeer(userId) {
         if ((tries[id] || 0) >= MAX_TRIES) return;
         tries[id] = (tries[id] || 0) + 1;
         var name = (box.querySelector('.video-label') || {}).textContent || '참가자';
-        console.warn('[vc-stuck] 상대 영상 미도착 ' + Math.round((now - firstSeen[id]) / 1000) + '초 → 복구 시도 ' + tries[id] + ':', id, name);
+        /* 📶 (2026-08-22) 두 번째 시도부터는 TURN 릴레이를 강제한다.
+           [빠져 있던 것] 이 워치독은 4번을 재시도하면서 **4번 다 «직접 연결» 로만** 걸었다.
+             직접 경로가 원천적으로 막힌 회선(사무실 대칭NAT·기업 방화벽)에서는 네 번이 전부
+             같은 이유로 실패하고, **릴레이는 한 번도 안 써 보고 포기**한다.
+             릴레이를 켜 주는 길이 두 개 있었지만 둘 다 여기까지 안 온다 —
+             ① ICE 가 'failed' 로 떨어질 때(그 판정까지 수십 초, 그 전에 이 워치독이 소진된다)
+             ② 참관자 전용 워치독(vcObserverRetryStalled) — 학생·강사에겐 안 돈다.
+           [왜 1회는 직접으로 두나] MAX_TRIES 를 2→4 로 올린 이유가 «상대가 뒤늦게 권한을
+             허용하는 경우» 라, 첫 실패는 경로 문제가 아니라 미디어 문제일 때가 많다.
+             첫 판은 그대로 두고, 그래도 안 되면 경로를 의심한다.
+           [비용] 릴레이 중계는 돈이 든다. 그래서 «전부 릴레이» 가 아니라 **이미 두 번 실패한
+             연결만** 릴레이로 보낸다 — 집에서 잘 붙는 강사는 예전과 완전히 같다.
+           ⛔ 여기서 __vcRelayAlways(전역)를 켜지 마세요 — 그건 서버가 세션별로 정하는 값이고,
+              전역으로 켜면 그 뒤 «직접 시도» 가 아예 없어져 스스로 회복할 길이 사라집니다.
+              피어별 __vcForceRelay 는 붙는 순간 지워집니다(vcCreatePeer 의 ICE connected). */
+        /* ⚠️ `__vcIceHasTurn` 은 이 파일 최상단의 `let` 이다 — **window 에 속성이 생기지 않는다.**
+           `window.__vcIceHasTurn` 으로 읽으면 언제나 undefined 라 조건이 무의미해진다
+           (2026-08-21 회선품질 로그가 `window.vcRoomId` 로 같은 함정을 밟았다). 이름으로 직접 읽는다. */
+        if (tries[id] >= 2 && __vcIceHasTurn) {
+          try { (window.__vcForceRelay = window.__vcForceRelay || {})[id] = true; } catch (_) {}
+        }
+        console.warn('[vc-stuck] 상대 영상 미도착 ' + Math.round((now - firstSeen[id]) / 1000) + '초 → 복구 시도 ' + tries[id] + (tries[id] >= 2 ? ' (릴레이 강제)' : '') + ':', id, name);
         firstSeen[id] = now + 5000;   // 재협상에 시간을 주기 위해 다음 판정을 뒤로 미룸
         try {
           if (pc) vcReconnectPeer(id);                 // PC 있음 → 지금 트랙으로 재빌드+재offer
@@ -1594,11 +1550,11 @@ function vcApplyRemoteCamHint(userId) {
             if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
             box.appendChild(el);
         }
-        var en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+        /* 🌐 한/영 병기 — 260910 작업기록. 모양은 vc-refresh.css 의 .vc-camoff-hint i */
         el.innerHTML = (why === 'aao')
-            ? '📶<span>' + (en ? 'Weak connection — audio only for now.<br>The class continues.'
-                               : '연결이 약해 지금은 <b>음성만</b> 전송 중이에요.<br>수업은 계속됩니다.') + '</span>'
-            : '📷<span>' + (en ? 'Camera is off' : '상대가 카메라를 껐어요') + '</span>';
+            ? '📶<span>연결이 약해 지금은 <b>음성만</b> 전송 중이에요.<br>수업은 계속됩니다.'
+                + '<i>Weak connection — audio only for now. The class continues.</i></span>'
+            : '📷<span>상대가 카메라를 껐어요<i>Camera is off</i></span>';
         // 예전 '영상 준비 중' 안내가 남아 있으면 중복이므로 제거
         var old = box.querySelector('.vc-black-hint'); if (old) old.remove();
     } catch (_) {}
@@ -1621,6 +1577,7 @@ window.vcApplyRemoteCamHint = vcApplyRemoteCamHint;
         var connected = pc && (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed' || pc.connectionState === 'connected');
         var hint = box.querySelector('.vc-black-hint');
         if (!connected) { delete blackSince[id]; if (hint) hint.remove(); return; }   // 아직 연결 전 = #19 워치독 담당
+        if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(id, pc)) return;
         var rv = pc.getReceivers().find(function(r){ return r.track && r.track.kind === 'video'; });
         if (!rv || !rv.track) { delete blackSince[id]; if (hint) hint.remove(); return; }  // 상대가 영상 안 보냄 = 개입 금지
         var v = box.querySelector('video');
@@ -1673,17 +1630,20 @@ window.vcApplyRemoteCamHint = vcApplyRemoteCamHint;
                                  "소리는 오는데 재생이 막힘"을 감지 → 우회+버튼
         ④ 수업 중 아무 터치/키 → 즉시 소리 살리기 (자동재생 정책의 정석 해법)
    ────────────────────────────────────────────────────────────── */
+/* 🔊 출력 음량 — 사연·정본은 js/idx-vc-outputvolume.js(defer) 머리말. 기본(1)이면 예전과 같다. */
+function vcOutVol() { try { const v = parseFloat(localStorage.getItem('mangoi_vc_out_vol')); return (v >= 0 && v <= 1) ? v : 1; } catch (_) { return 1; } }
 function vcEnsureRemoteAudio() {
+    if (window.vcOutBoost) return;   // 🔊 증폭 중 — 소리는 WebAudio 가 낸다
     Object.keys(vcPeerConnections).forEach(id => {
         const v = document.querySelector('#vc-video-' + id + ' video');
         if (!v) return;
         const aux = document.getElementById('vc-aud-' + id);
         try {
-            v.volume = 1;
+            v.volume = vcOutVol();
             if (aux) {
                 // 보조 오디오 경로 가동 중 — 소리는 aux 전담, 비디오는 계속 음소거(이중재생 방지)
                 v.muted = true;
-                aux.volume = 1; aux.muted = false;
+                aux.volume = vcOutVol(); aux.muted = false;
                 if (aux.paused) { const ap = aux.play(); if (ap && ap.catch) ap.catch(()=>{}); }
                 if (v.paused) { const vp = v.play(); if (vp && vp.catch) vp.catch(()=>{}); }
                 return;
@@ -1775,6 +1735,7 @@ function vcToggleSoundBanner(show) {
             const prev = pc.__audPrev || { bytes: 0, blocked: 0, noTrack: 0 };
             const flowing = bytes > prev.bytes;
             // ── 상대 마이크 자체가 없음/꺼짐 → 우리 쪽에선 못 고침, 안내만
+            //   false-alarm guard(2026-08-20): js/idx-vc-dupghost.js
             let hint = box.querySelector('.vc-noaudio-hint');
             if (!hasAudioTrack || (!flowing && bytes === 0)) {
                 prev.noTrack = (prev.noTrack || 0) + 1;
@@ -1794,7 +1755,8 @@ function vcToggleSoundBanner(show) {
             }
             // ── 소리는 오는데 출력이 막힘 → 우회 + 버튼
             const aux = document.getElementById('vc-aud-' + id);
-            const outputBlocked = aux ? (aux.muted || aux.paused) : (v.muted || v.paused);
+            //   🔊 증폭 중 음소거는 «막힘» 이 아니다(WebAudio 가 소리를 낸다)
+            const outputBlocked = window.vcOutBoost ? false : (aux ? (aux.muted || aux.paused) : (v.muted || v.paused));
             if (flowing && outputBlocked) {
                 prev.blocked = (prev.blocked || 0) + 1;
                 if (prev.blocked >= 2) {
@@ -1807,11 +1769,13 @@ function vcToggleSoundBanner(show) {
             }
             prev.bytes = bytes;
             pc.__audPrev = prev;
-            // 매 틱 자동 복구 시도
+            // 매 틱 자동 복구 시도 (🔊 증폭 중엔 건너뛴다 — 위 주석)
             try {
-                v.volume = 1;
-                if (aux) { aux.volume = 1; if (aux.paused) aux.play().catch(()=>{}); }
-                else if (v.muted || v.paused) { v.muted = false; if (v.paused) v.play().catch(()=>{}); }
+                if (!window.vcOutBoost) {
+                    v.volume = vcOutVol();
+                    if (aux) { aux.volume = vcOutVol(); if (aux.paused) aux.play().catch(()=>{}); }
+                    else if (v.muted || v.paused) { v.muted = false; if (v.paused) v.play().catch(()=>{}); }
+                }
             } catch(_) {}
         }
         vcToggleSoundBanner(needTap);
@@ -1833,6 +1797,7 @@ function vcToggleSoundBanner(show) {
             const box = document.getElementById('vc-video-' + id);
             const v = box && box.querySelector('video');
             if (!pc || !v || !v.srcObject) continue;
+            if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(id, pc)) continue;
             const st = pc.iceConnectionState;
             if (st !== 'connected' && st !== 'completed') { pc.__vfz = null; continue; }
             const vt = (v.srcObject.getVideoTracks ? v.srcObject.getVideoTracks() : [])[0];
@@ -1886,6 +1851,7 @@ setInterval(() => {
     if (!wakeLock && document.visibilityState === 'visible') { try { requestWakeLock(); } catch(_) {} }
     Object.keys(vcPeerConnections).forEach(id => {
         const pc = vcPeerConnections[id]; if (!pc) return;
+        if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(id, pc)) return;
         const s = pc.iceConnectionState;
         if (s === 'failed') { vcReconnectPeer(id); pc.__discSince = 0; }
         else if (s === 'disconnected') {
@@ -1915,6 +1881,7 @@ window.addEventListener('online', () => {
     try { if (vcConn && vcConn.ws && vcConn.ws.readyState !== WebSocket.OPEN && typeof vcConn.reconnectNow === 'function') vcConn.reconnectNow(); } catch(_) {}
     Object.keys(vcPeerConnections).forEach(id => {
         const st = vcPeerConnections[id] && vcPeerConnections[id].iceConnectionState;
+        if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(id, vcPeerConnections[id])) return;
         if (st !== 'connected' && st !== 'completed') vcReconnectPeer(id);
     });
     try { vcResumeAllVideos(); } catch(_) {}
@@ -1934,9 +1901,7 @@ function vcCleanupAllPeers() {
     // 🇵🇭 (2026-07-24) 순단으로 남겨 둔 '재연결 중' 유령 타일도 함께 정리
     //   (유령은 id 가 vcghost-* 로 바뀌어 있어 위의 vc-video-* 루프에 안 걸린다)
     try { vcSweepGhostTiles(); } catch(_) {}
-    // 🖥 (2026-08-13 Melca p19) 공유 화면 메인 보드도 함께 — 피어가 다 사라졌는데 보드만 남으면
-    //   마지막 장면이 얼어붙은 채 크게 남는다. (공유가 살아 있으면 재연결 후 재송신이 다시 연다)
-    try { if (typeof vcScreenShareViewOff === 'function') vcScreenShareViewOff(); } catch(_) {}
+    try { window.vcScreenShareViewOff && vcScreenShareViewOff(); } catch(_) {}   // 🖥 공유 메인 보드도 닫기(idx-vc-ssboard.js)
 }
 let vcMicOn = true;
 let vcCamOn = true;
@@ -2002,7 +1967,7 @@ function lobbyAudioApplyState() {
     audio.muted  = muted;
     if (icon)  icon.textContent  = muted ? '🔇' : '🔊';
     if (label) {
-        const isEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
+        const isEn = miIsEn();
         label.textContent = muted ? (isEn ? 'Audio OFF' : '음성 OFF') : (isEn ? 'Audio ON' : '음성 ON');
         label.setAttribute('data-ko', muted ? '음성 OFF' : '음성 ON');
         label.setAttribute('data-en', muted ? 'Audio OFF' : 'Audio ON');
@@ -2319,17 +2284,19 @@ async function vcJoinMyClass() {
         var d = await r.json();
         var sessions = (d && d.sessions) || [];
         var current = d && d.current;
+        if (d) window.__vcRelayAlways = !!d.net_relay;
         if (!sessions.length) {
+            if (d.holiday && d.holiday.alert) { alert(d.holiday.alert); return; }
             alert('오늘 예약된 수업이 없어요. 🗓️\n예약이 있는데도 안 보이면 아래 "방 코드 직접 입력"으로 입장해 주세요.');
             return;
         }
         // 교사가 오늘 여러 수업이고 지금 바로 들어갈 것이 애매하면 → 목록에서 선택
-        if ((role === 'teacher' || role === 'admin') && sessions.length > 1 && !current) {
+        if ((role === 'teacher' || role === 'admin') && sessions.length > 1 && (!current || current.status === 'early')) {
             vcShowSessionPicker(sessions, name, role); return;
         }
         var target = current || sessions[0];
         if (target.status === 'early') { vcShowClassGate(target, name, role); return; }
-        if (target.status === 'ended') { alert('오늘 수업은 이미 종료되었어요.'); return; }
+        if (target.can_enter === false) { alert(target.enter_msg || 'Cannot join now.'); return; }
         vcEnterResolvedRoom(target, name, role);
     } catch (e) {
         console.warn('[vcJoinMyClass] err', e);
@@ -2392,7 +2359,7 @@ function vcShowSessionPicker(sessions, name, role) {
     var items = sessions.map(function (s) {
         var t = new Date(s.start_ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
         var badge = s.status === 'live' ? '<span style="color:#34d399">● 진행중</span>' : s.status === 'open' ? '<span style="color:#7dd3fc">입장 가능</span>' : s.status === 'ended' ? '<span style="color:#64748b">종료</span>' : '<span style="color:#fbbf24">' + t + ' 예정</span>';
-        var dis = s.status === 'ended';
+        var dis = s.can_enter === false;
         return '<button class="vc-pick" data-room="' + s.room_id + '" ' + (dis ? 'disabled' : '') + ' style="display:flex;justify-content:space-between;align-items:center;width:100%;background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.2);border-radius:14px;padding:14px 16px;margin-bottom:10px;color:#e2e8f0;cursor:' + (dis ? 'not-allowed' : 'pointer') + ';opacity:' + (dis ? '.5' : '1') + '"><span style="font-weight:700">' + t + ' · ' + (s.student_name || '학생') + '</span><span style="font-size:12px">' + badge + '</span></button>';
     }).join('');
     ov.innerHTML = '<div style="max-width:440px;width:92%;background:linear-gradient(160deg,#1e293b,#0f172a);border:1px solid rgba(148,163,184,.25);border-radius:24px;padding:28px 24px;color:#e2e8f0;box-shadow:0 30px 80px -20px rgba(0,0,0,.7)"><div style="font-size:18px;font-weight:800;margin-bottom:4px">오늘 수업 선택</div><div style="font-size:13px;color:#94a3b8;margin-bottom:18px">입장할 수업을 선택하면 학생과 같은 방으로 연결됩니다</div>' + items + '<button id="vc-pick-close" style="width:100%;background:transparent;color:#64748b;border:none;padding:10px;font-size:13px;cursor:pointer;margin-top:4px">닫기</button></div>';
@@ -2418,7 +2385,12 @@ function vcStopWaitingMonitor() {
     try { if (vcWaitTimer) { clearInterval(vcWaitTimer); vcWaitTimer = null; } } catch (e) {}
     try { if (window.__vcDemoTeacherTimer) { clearTimeout(window.__vcDemoTeacherTimer); window.__vcDemoTeacherTimer = null; } } catch (e) {}
     try { vcRemoveDemoTeacher(); } catch (e) {}
-    var c = document.getElementById('vc-wait-card'); if (c) c.remove();
+    /* 🪪 (2026-08-12) id 를 vc-wait-toast 로 분리 — 예전엔 vc-wait-card 를 썼는데,
+       그 id 는 index.html 의 «교재 여는 중» 정적 카드가 이미 쓰고 있었다.
+       ① if(!card) 가 항상 거짓이라 토스트 전용 스타일(fixed·bottom:88px)이 한 번도 안 붙고
+          inset:0 짜리 교재 카드가 «기다리는 중…» 판때기로 교재 패널 전면을 덮었고
+       ② 여기 remove() 가 교재 대기 카드를 DOM 에서 영구 삭제해 다시는 못 뜨게 했다. */
+    var c = document.getElementById('vc-wait-toast'); if (c) c.remove();
 }
 function vcStartWaitingMonitor(session, myRole) {
     vcStopWaitingMonitor();
@@ -2435,10 +2407,10 @@ function vcStartWaitingMonitor(session, myRole) {
     try { isDemo = !!(typeof demoStudents !== 'undefined' && session.student_uid && demoStudents[session.student_uid]) || /[?&]demoteacher=1/.test(location.search) || (localStorage.getItem('mangoi_demo_teacher') === '1'); } catch (e) {}
 
     if (!document.getElementById('vc-wait-kf')) { var st = document.createElement('style'); st.id = 'vc-wait-kf'; st.textContent = '@keyframes vcPulse{0%,100%{opacity:1}50%{opacity:.35}}'; document.head.appendChild(st); }
-    var card = document.getElementById('vc-wait-card');
+    var card = document.getElementById('vc-wait-toast');
     if (!card) {
         card = document.createElement('div');
-        card.id = 'vc-wait-card';
+        card.id = 'vc-wait-toast';
         card.style.cssText = 'position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:9800;background:rgba(15,23,42,.92);border:1px solid rgba(148,163,184,.3);border-radius:16px;padding:12px 18px;color:#e2e8f0;font-family:MangoiHanSC,"Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif;box-shadow:0 16px 40px -12px rgba(0,0,0,.6);display:flex;align-items:center;gap:12px;max-width:92vw';
         document.body.appendChild(card);
     }
@@ -2460,21 +2432,28 @@ function vcStartWaitingMonitor(session, myRole) {
         } catch (e) {}
         return false;
     }
-    function elapsed() { var s = Math.floor((Date.now() - startedAt) / 1000), m = Math.floor(s / 60); s = s % 60; return m + '분 ' + String(s).padStart(2, '0') + '초'; }
+    function elapsed() { var s = Math.floor((Date.now() - startedAt) / 1000), m = Math.floor(s / 60); s = s % 60; return m + ':' + String(s).padStart(2, '0'); }   // 3:07 — 한/영 공용 표기
     function paint(state) {
         if (!card) return;
+        /* 🌐 (2026-08-12) 필리핀 강사도 보는 토스트 — 언어 판정은 반드시 getLang() (CLAUDE.md) */
+        var en = false; try { en = (typeof getLang === 'function') && getLang() === 'en'; } catch (e) {}
+        var who = waitingFor === 'teacher' ? (en ? 'teacher' : '선생님') : (en ? 'student' : '학생');
         if (state === 'met') {
-            card.innerHTML = '<span style="font-size:20px">🎉</span><span style="font-size:14px;font-weight:700">' + waitingLabel + '이 입장했어요! 수업을 시작하세요.</span>';
+            var metMsg = en ? ('The ' + who + ' joined! You can start the class.') : (who + '이 입장했어요! 수업을 시작하세요.');
+            card.innerHTML = '<span style="font-size:20px">🎉</span><span style="font-size:14px;font-weight:700">' + metMsg + '</span>';
             setTimeout(vcStopWaitingMonitor, 3500);
             return;
         }
-        var callLabel = (calledTeacher && waitingFor === 'teacher') ? '선생님을 부르는 중…' : (waitingLabel + '을 기다리는 중…');
-        var sent = (calledTeacher && waitingFor === 'teacher') ? '<div style="font-size:11px;color:#34d399;margin-top:2px">📣 선생님을 호출했어요 — 곧 입장하십니다</div>'
-                 : (noShowSent ? '<div style="font-size:11px;color:#fbbf24;margin-top:2px">📣 상대에게 입장 알림을 보냈어요</div>' : '');
+        var callLabel = (calledTeacher && waitingFor === 'teacher')
+            ? (en ? 'Calling the teacher…' : '선생님을 부르는 중…')
+            : (en ? ('Waiting for the ' + who + '…') : (who + '을 기다리는 중…'));
+        var sent = (calledTeacher && waitingFor === 'teacher')
+            ? '<div style="font-size:11px;color:#34d399;margin-top:2px">📣 ' + (en ? 'Teacher has been called — joining soon' : '선생님을 호출했어요 — 곧 입장하십니다') + '</div>'
+            : (noShowSent ? '<div style="font-size:11px;color:#fbbf24;margin-top:2px">📣 ' + (en ? 'We sent them a reminder to join' : '상대에게 입장 알림을 보냈어요') + '</div>' : '');
         card.innerHTML = '<span style="width:10px;height:10px;border-radius:50%;background:#fbbf24;box-shadow:0 0 0 4px rgba(251,191,36,.2);animation:vcPulse 1.4s infinite;flex:0 0 auto"></span>'
             + '<div><div style="font-size:14px;font-weight:700">' + callLabel + ' <span style="color:#94a3b8;font-weight:500">(' + elapsed() + ')</span></div>'
-            + '<div style="font-size:11px;color:#94a3b8">입장하면 자동으로 사라져요</div>' + sent + '</div>'
-            + '<button onclick="vcStopWaitingMonitor()" style="background:rgba(148,163,184,.15);border:0;color:#cbd5e1;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;flex:0 0 auto">닫기</button>';
+            + '<div style="font-size:11px;color:#94a3b8">' + (en ? 'Disappears when they join' : '입장하면 자동으로 사라져요') + '</div>' + sent + '</div>'
+            + '<button onclick="vcStopWaitingMonitor()" style="background:rgba(148,163,184,.15);border:0;color:#cbd5e1;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;flex:0 0 auto">' + (en ? 'Close' : '닫기') + '</button>';
     }
     paint('waiting');
     // 🆕 (A) 학생이 들어오면 담당 선생님 즉시 호출(1회) — 이미 선생님이 있으면 생략
@@ -2572,17 +2551,45 @@ function vcRemoveDemoTeacher(){
    해결: 입장 직전에 getUserMedia 를 한 번 호출해 권한 팝업을 '먼저' 끝낸다.
      거부·미지원이어도 절대 입장을 막지 않는다(fail-open — 수업이 최우선). */
 window.__vcPermReady = false;
+/* ⚡ (2026-08-22 필리핀 강사 입장속도) 여기서 연 카메라를 «버리지 않고» 입장에 그대로 넘긴다.
+   [예전] bare {video:true,audio:true} 로 열고 곧바로 stop() → vcJoinRoom 이 처음부터 다시 열었다.
+     ① 카메라를 두 번 여는 셈이라 그 시간이 통째로 입장 지연이 된다(저사양 노트북일수록 크다).
+     ② bare 제약은 해상도 상한이 없어 웹캠이 1080p 로 열리는 일까지 있었다 — 곧 버릴 스트림에
+        CPU·발열을 쓰고, 그 사이 입장이 더 늦어진다.
+   [지금] 처음부터 acquireLocalMedia 의 튜닝된 제약(에코제거·PC 720p/모바일 VGA 상한·기억한 장치)으로
+     한 번만 열고 재사용한다. 권한 팝업을 «먼저» 끝낸다는 이 함수의 목적은 그대로다.
+   ⚠️ 소비되지 않으면 카메라 불이 켜진 채로 남는다 — 입장이 도중에 멈추는 길이 있다
+      (대기화면 vcShowClassGate·방 검증 차단·오늘 수업 없음). 그래서 20초 안에 아무도
+      가져가지 않으면 스스로 놓는다. */
+window.__vcPermStream = null;
+window.vcReleasePermStream = function () {
+    var s = window.__vcPermStream; window.__vcPermStream = null;
+    try { if (s && s.getTracks) s.getTracks().forEach(function (t) { t.stop(); }); } catch (_) {}
+};
+/** 방금 확보한 스트림을 «한 번만» 가져간다. 살아 있지 않으면 null(호출자가 정상 획득으로 내려감). */
+window.vcTakePermStream = function () {
+    var s = window.__vcPermStream;
+    if (!s || typeof s.getTracks !== 'function') return null;
+    window.__vcPermStream = null;
+    try { clearTimeout(window.__vcPermRelT); } catch (_) {}
+    var live = false;
+    try { live = s.getTracks().some(function (t) { return t.readyState === 'live'; }); } catch (_) {}
+    if (!live) { try { s.getTracks().forEach(function (t) { t.stop(); }); } catch (_) {} return null; }
+    return s;
+};
 window.vcEnsureMediaPermission = async function () {
-    if (window.__vcPermReady) return true;
+    if (window.__vcPermReady && window.__vcPermStream) return true;
     try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
         var s = null;
-        try { s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); }
+        try { s = await acquireLocalMedia({ video: true, audio: true }); }
         catch (e) {
             if (e && e.name === 'NotAllowedError') throw e;      // 사용자가 거부 → 재요청 안 함
-            s = await navigator.mediaDevices.getUserMedia({ audio: true });  // 카메라만 막힌 경우 소리라도 확보
+            s = await acquireLocalMedia({ video: false, audio: true });  // 카메라만 막힌 경우 소리라도 확보
         }
-        try { s.getTracks().forEach(function (t) { t.stop(); }); } catch (_) {}
+        window.vcReleasePermStream();
+        window.__vcPermStream = s;
+        try { window.__vcPermRelT = setTimeout(window.vcReleasePermStream, 20000); } catch (_) {}
         window.__vcPermReady = true;
         return true;
     } catch (e) {
@@ -2660,8 +2667,9 @@ async function vcJoinRoom(skipUI) {
            ② 관리자 세션이 없으면 이 블록은 아무것도 바꾸지 않는다 = 기존과 100% 동일. */
         var _admUid = '';
         try { _admUid = String((JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {}).uid || '').trim(); } catch (_) {}
-        if (/teacher|tutor/.test(_rr)) window.vcMyRole = 'teacher';
-        else if (/^admin$|^hq$|^hq_admin$/.test(_rr)) window.vcMyRole = 'admin';
+        var _normalizedRole = window.vcNormalizeClassRole ? window.vcNormalizeClassRole(_rr) : '';
+        if (_normalizedRole === 'teacher') window.vcMyRole = 'teacher';
+        else if (_normalizedRole === 'admin') window.vcMyRole = 'admin';
         else if (_rr) {
           window.vcMyRole = 'student';
           if (_admUid) {
@@ -2688,9 +2696,11 @@ async function vcJoinRoom(skipUI) {
     } catch (_) {}
     // 🎥 (2026-07-24) 권한 팝업을 입장보다 '먼저' 끝낸다 — 미디어 없는 SDP 고착 방지.
     //   모든 입장 경로(수동 입력·?room=·vc_autojoin·오늘 내 수업)가 이 한 곳을 지난다.
+    /* 📶 TURN 발급을 여기서 «걸어만» 둔다 — 카메라 권한 팝업·오늘수업 조회와 겹쳐서 진행된다.
+       실제 대기(await)는 피어를 만들기 직전 한 곳에서 한다(아래 «TURN 확보» 주석).
+       vcEnsureIceServers 는 진행 중 promise 를 공유하므로 두 번 불러도 fetch 는 한 번이다. */
+    try { vcEnsureIceServers(); } catch(_) {}
     try { await window.vcEnsureMediaPermission(); } catch (_) {}
-    // 📶 TURN 자격증명 확보 후 입장 (자동입장이 ICE fetch를 앞지르는 레이스 방지)
-    try { await vcEnsureIceServers(); } catch(_) {}
     // 비밀번호 (vc-room-input)는 인증용으로 저장만 함 (실 운영 시 백엔드 검증)
     const vcPassword = document.getElementById('vc-room-input').value.trim();
     // 방번호: 새 필드(vc-roomcode-input)
@@ -2734,6 +2744,7 @@ async function vcJoinRoom(skipUI) {
         var _js = _jd && (_jd.current || _jss.filter(function (s) { return s.join_open; })[0]);
         // 게이트 상태를 기억해 둔다 — 조회가 실패한 다음 번에도 «막을지 말지» 를 알아야 한다.
         if (_jd && _jd.student_gate) window.__vcStudentGate = _jd.student_gate;
+        if (_jd) window.__vcRelayAlways = !!_jd.net_relay;
 
         if (_js && _js.room_id && _js.join_open) {
           vcTypedRoom = _js.room_id;
@@ -2742,15 +2753,23 @@ async function vcJoinRoom(skipUI) {
         } else if (_isT) {
           /* 오늘 예약이 없는 교사(연습·시연)는 공용방으로 간다 — 이때는 다른 사람이 들어올 수 있음을
              분명히 알려 준다. 예약된 실제 수업은 위에서 각자 방으로 갈리므로 겹치지 않는다. */
-          window.__vcSharedRoomNotice = true;
+          window.__vcSharedRoomNotice = 'teacher';
+        } else if (!_jss.length && _jd && _jd.holiday && _jd.holiday.alert) {
+          alert(_jd.holiday.alert); _stopJoin = true;   // 🎌 휴강: 게이트가 꺼져 있어도 공용방에 안 넣는다(2026-10-09)
         } else if (_jd && _jd.student_gate !== 'on') {
           /* 🚪 게이트 꺼짐(기본) = 예전과 100% 동일하게 공용방으로 폴백한다.
              ⛔ 지금 켜면 안 되는 이유: class_schedules 663건 중 «실제 학생 예약» 은 6건뿐이다.
                 518건은 학생이 없는 강사 시간표 점유(user_id='lms', student_name=NULL), 140건은 시드.
                 이 상태로 켜면 대다수 학생이 "예약된 수업이 없어요" 를 만나 입장 자체를 못 한다.
                 카페24 수업을 실제 학생 예약으로 옮긴 뒤 wrangler.toml 의
-                VC_STUDENT_ROOM_GATE 를 'on' 으로 바꾸면 아래 차단이 살아난다. */
-          console.log('[vc] student_gate=off → 예전 폴백 유지(공용방)');
+                VC_STUDENT_ROOM_GATE 를 'on' 으로 바꾸면 아래 차단이 살아난다.
+             ⚠️ (2026-08-24) 그래도 학생에게는 «몰래» 들여보내지 않는다 — 폴백 자체(입장 가능함)는
+                그대로 두고, 교사와 같은 사후 알림 배너(__vcSharedRoomNotice)만 학생용 문구로 띄운다.
+                가로막지 않는 이유: 이 분기로 오는 학생 대부분은 «아직 예약 이관이 안 된» 실제
+                수강생이라 여기서 막으면 그 학생들이 수업에 못 들어간다(위 주석과 같은 사정). */
+          console.log('[vc] student_gate=off → 예전 폴백 유지(공용방, 학생에게는 안내 배너)');
+          window.__vcSharedRoomNotice = 'student';
+          window.__vcHolidayMsg = _jd.holiday && _jd.holiday.alert;
         } else {
           // ── 학생: 공용방 폴백 금지 (게이트 켜짐) ──
           var _early = _jss.filter(function (s) { return s.status === 'early'; })
@@ -2765,6 +2784,8 @@ async function vcJoinRoom(skipUI) {
             alert('오늘 수업은 이미 끝났어요. ⏹\n그래도 들어가야 한다면 매니저에게 방 번호를 받아 아래에 입력해 주세요.\n\n'
               + "Today's class has already ended.\nIf you still need to join, ask your manager for the room code and enter it below.");
             _stopJoin = true;
+          } else if (_jd.holiday && _jd.holiday.alert) {
+            alert(_jd.holiday.alert); _stopJoin = true;
           } else {
             alert('오늘 예약된 수업이 없어요. 🗓️\n예약이 있는데도 이렇게 나오면, 매니저에게 방 번호를 받아 아래에 입력해 주세요.\n\n'
               + 'You have no class booked for today.\nIf you believe this is wrong, ask your manager for the room code and enter it below.');
@@ -2826,7 +2847,7 @@ async function vcJoinRoom(skipUI) {
            🔑 «내리는» 데만 쓴다. 올리는 데 쓰면 이름 매칭이 한 번 어긋난 것으로 학생이 강사가 되어
               지금 고치는 사고를 반대 방향으로 다시 만든다(서버도 그래서 teacher 는 null 로 둔다).
            🔑 입장은 막지 않는다 — 이 게이트의 1원칙(수업 방해 금지)은 그대로다. 역할만 바로잡는다.
-           ⚠️ 관리자·참관(admin/observer)은 서버가 privileged 로 먼저 빠져 resolved_role 이 없다. */
+           ⚠️ 참관(observer)만 privileged 로 먼저 빠진다. 관리자는 2026-08-26 부터 받는다. */
         try {
           if (_vres && _vres.resolved_role === 'student' &&
               (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin')) {
@@ -2901,12 +2922,14 @@ async function vcJoinRoom(skipUI) {
     // 🖥 (2026-07-23) 수업에 들어오면 전체화면 — 설정에서 껐으면 건너뛴다.
     //    브라우저가 사용자 조작 없는 요청을 막으면, 다음 터치 때 한 번 더 시도한다.
     try { window.vcGoFullscreen && window.vcGoFullscreen(); } catch(e){}
-    /* 🔒 (2026-07-28) 오늘 예약이 없어 '공용 연습방'으로 들어온 교사에게만 알린다 —
-       "내 방에 다른 선생님이 들어왔다"(Shas·Kaye)의 실제 이유가 이것이다.
+    /* 🔒 (2026-07-28, 2026-08-24 학생 추가) 오늘 예약이 없어 '공용 연습방'으로 들어온 사람에게 알린다 —
+       "내 방에 다른 선생님이 들어왔다"(Shas·Kaye)의 실제 이유가 이것이다. 학생 쪽은 더 심각하다 —
+       실수로 이 방에서 «수업처럼» 진행하면 다른 학생·강사와 뒤섞인다. 값은 'teacher'|'student'.
        ※ 이 블록은 위 전체화면 호출보다 뒤에 둔다 — 하니스가 'vc-in-call 추가 → 전체화면 호출'
          인접(400자)을 검사하므로, 사이에 코드를 넣으면 그 보장이 깨진다. */
     try {
       if (window.__vcSharedRoomNotice) {
+        var _sharedWho = window.__vcSharedRoomNotice;
         window.__vcSharedRoomNotice = false;
         var _en0 = (typeof getLang === 'function' && getLang() === 'en');
         var _nm = document.getElementById('vc-room-name');
@@ -2916,10 +2939,18 @@ async function vcJoinRoom(skipUI) {
           _tag.style.cssText = 'font-size:11.5px;font-weight:700;color:#fbbf24;margin-left:6px';
           _nm.parentNode.insertBefore(_tag, _nm.nextSibling);
         }
+        var _hm = window.__vcHolidayMsg; window.__vcHolidayMsg = '';
         setTimeout(function(){
-          alert(_en0
-            ? 'You have no class booked for today, so you entered the shared practice room.\n\nOther teachers can also enter this room. For a real class, enter from your booked class - then you get your own room.'
-            : '오늘 예약된 수업이 없어 공용 연습방으로 들어왔어요.\n\n이 방에는 다른 선생님도 들어올 수 있습니다.\n실제 수업은 예약된 수업으로 입장하시면 선생님만의 방으로 들어갑니다.');
+          if (_hm) alert(_hm + '\n\n(지금 들어온 곳은 공용 연습방이에요 · This is a shared practice room)');
+          else if (_sharedWho === 'student') {
+            alert(_en0
+              ? "You don't have a class booked for today, so you entered a SHARED practice room — not your real classroom.\n\nOther students/teachers may also be here. Please don't start a lesson here. Check the home screen for your class days/times, and use \"Enter My Class\" when it's actually time."
+              : '오늘 예약된 수업이 없어서, 실제 수업방이 아닌 "공용 연습방"으로 들어왔어요.\n\n다른 학생·강사도 이 방에 있을 수 있어요. 여기서 수업을 진행하지 마세요.\n홈 화면에서 내 수업 요일·시간을 확인하고, 수업 시간이 되면 "오늘 내 수업 바로 입장"을 이용해 주세요.');
+          } else {
+            alert(_en0
+              ? 'You have no class booked for today, so you entered the shared practice room.\n\nOther teachers can also enter this room. For a real class, enter from your booked class - then you get your own room.'
+              : '오늘 예약된 수업이 없어 공용 연습방으로 들어왔어요.\n\n이 방에는 다른 선생님도 들어올 수 있습니다.\n실제 수업은 예약된 수업으로 입장하시면 선생님만의 방으로 들어갑니다.');
+          }
         }, 900);
       }
     } catch(e){}
@@ -3029,7 +3060,7 @@ async function vcJoinRoom(skipUI) {
     // 📱 모바일 가로모드 액션 헬퍼들 (안전한 폴백 — 기존 함수가 있으면 그것을 호출)
     window.vcMobileTabSwitch = window.vcMobileTabSwitch || function(name){
       // 기존 탭 시스템 검색해서 클릭 시뮬레이트
-      const map = { whiteboard:'칠판', material:'교재', video:'동영상', pronunciation:'발음연습', game:'학생게임', bg:'배경화면', warmup:'AI 웜업' };
+      const map = { whiteboard:'칠판', material:'교재', video:'동영상', pronunciation:'발음연습', game:'학생게임', bg:'배경화면', warmup:'A.i 말하기 연습' };
       const ko = map[name] || name;
       const tabs = document.querySelectorAll('.tab-bar > *, .vc-tab, [data-tab]');
       for (const t of tabs) {
@@ -3299,7 +3330,7 @@ async function vcJoinRoom(skipUI) {
           { icon:'🎬', label:'동영상', onclick:`vcMobileTabSwitch('video')` },
           { icon:'🎲', label:'학생게임', onclick:`vcMobileTabSwitch('game')` },
           { icon:'🎨', label:'배경화면', onclick:`vcMobileTabSwitch('bg')` },
-          { icon:'🗣️', label:'AI 웜업', onclick:`vcMobileTabSwitch('warmup')` },
+          { icon:'🗣️', label:'A.i 말하기 연습', onclick:`vcMobileTabSwitch('warmup')` },
           { icon:'📝', label:'칠판', onclick:`vcMobileTabSwitch('whiteboard')` },
         ],
       },
@@ -3314,19 +3345,16 @@ async function vcJoinRoom(skipUI) {
                     역할 미확정으로 숨어 있었다 → 강사 입장에선 «없어진» 것이 맞다.
              누르는 자리에 진짜 기능을 둔다. 학생이 눌러도 vcShareMyScreen 이 스스로 막는다. */
           { icon:'🖥️', label:'내 컴퓨터 화면 공유 (Share my screen)', onclick:`vcShareMyScreen()` },
-          { icon:'🟦', label:'1/4 화면', onclick:`vcScreenSet('quarter')` },
-          { icon:'🟦', label:'1/2 화면', onclick:`vcScreenSet('half')` },
-          { icon:'🟦', label:'3/4 화면', onclick:`vcScreenSet('threequarter')` },
-          /* 👥 (2026-07-30 강사 피드백 Kaye 18번) "줌·보다처럼 참가자 전체 보기를 넣어달라"
-         → 이 '전체' 모드가 바로 그 기능이었다(얼굴이 화면 전체를 채움). 라벨이 '전체' 뿐이라
-           무엇의 전체인지 알 수 없었고 메뉴에 숨어 있어 못 찾은 것 → 이름을 분명히 한다. */
-      { icon:'👥', label:'참가자 전체 보기 (Gallery)', onclick:`vcScreenSet('full')` },
-          { icon:'📌', label:'PIP', onclick:`vcScreenSet('pip')` },
-          { icon:'👤', label:'솔로', onclick:`vcScreenSet('solo')` },
-          /* 📝📖 (2026-07-30 강사 피드백 Jane) "교재나 칠판만 따로 크게 볼 수 없다 — 같이 커져서 집중이 어렵다"
-             → 이 두 모드가 바로 '하나만 크게'다(다른 쪽을 숨겨 화면을 통째로 씀). 라벨이 '칠판만'·'교재만'
-               뿐이라 '크게 보는 기능'인 줄 몰랐다 → 이름에 '크게'를 넣어 분명히 한다.
-             ※ 교재 내용 자체 확대는 Ctrl(⌘)+휠 로 따로 되고, 그때 다른 화면 요소는 커지지 않는다. */
+          /* 🖼 이름은 크기바(.vsb-seg)와 **한 벌** — 고치면 아래 toast labels 도 함께.
+             📜 왜 이 이름인지: docs/작업기록/260825_얼굴크기컨트롤_그림4칸_2안.md */
+          { icon:'🟦', label:'교재 크게 (Material)', onclick:`vcScreenSet('quarter')` },
+          { icon:'🟦', label:'기본 (Standard)', onclick:`vcScreenSet('half')` },
+          { icon:'🟦', label:'얼굴 크게 (Faces)', onclick:`vcScreenSet('threequarter')` },
+          { icon:'👥', label:'모두 보기 (Gallery)', onclick:`vcScreenSet('full')` },
+          { icon:'📌', label:'교재 전체 + 작은 얼굴 (PIP)', onclick:`vcScreenSet('pip')` },
+          /* ⛔ '솔로'라 부르지 말 것 — ⋯ 메뉴의 vcToggleSolo(='내 얼굴만')와 **반대 동작**이다.
+             이쪽은 video-solo 라 얼굴이 통째로 사라지고 교재만 남는다. */
+          { icon:'👤', label:'영상 끄고 교재만 (Video off)', onclick:`vcScreenSet('solo')` },
           { icon:'📝', label:'칠판만 크게 (Board only)', onclick:`vcScreenSet('boardonly')` },
           { icon:'📖', label:'교재만 크게 (Book only)', onclick:`vcScreenSet('bookonly')` },
         ],
@@ -3421,16 +3449,24 @@ async function vcJoinRoom(skipUI) {
         //   ("화면 이동하면 영상이 나왔다 안 나왔다" 대책 — 5초 감시를 기다리지 않음)
         if (typeof vcResumeAllVideos === 'function') try { vcResumeAllVideos(); } catch(e){}
       }, 280);
-      // 🙉 얼굴 숨김 이외의 모드로 바뀌면 복귀 칩은 자동 숨김 (⋯ 메뉴로 복귀해도 칩이 남지 않게)
+      // 🙉 (2026-08-12 마이마이 ⑩) 얼굴이 사라지는 모드는 hidefaces 만이 아니다 —
+      //    솔로·칠판만·교재만도 video-solo 로 얼굴을 통째로 숨긴다. 예전 코드는 이 세 모드에서
+      //    복귀 칩까지 꺼 버려서, 되돌리는 길이 «화면분할 시트를 다시 여는 것» 뿐이었다.
+      //    얼굴이 안 보이는 모드에서는 칩을 띄우고, 보이는 모드로 바뀌면 숨긴다.
       try {
-        if (mode !== 'hidefaces') {
-          window.__vcFacesHidden = false;   // 다른 모드로 바뀌면 얼굴 숨김 상태 해제
+        const facesGone = (mode === 'hidefaces' || mode === 'solo' || mode === 'boardonly' || mode === 'bookonly');
+        if (!facesGone) {
+          window.__vcFacesHidden = false;   // 얼굴이 보이는 모드로 바뀌면 숨김 상태 해제
           const chip = document.getElementById('vc-faces-restore');
           if (chip) chip.style.display = 'none';
+        } else if (mode !== 'hidefaces' && typeof window.vcFacesEnsureRestoreChip === 'function') {
+          // hidefaces 는 vcFacesHide() 가 칩을 직접 띄운다 — 중복 호출 방지
+          window.vcFacesEnsureRestoreChip();
         }
       } catch(e){}
       // 사용자 피드백 토스트
-      const labels = { quarter:'1/4', half:'1/2', threequarter:'3/4', full:'전체 영상', pip:'📖 교재 크게', facepip:'🧑‍🎓 학생 얼굴 크게', solo:'영상 끔(솔로)', boardonly:'📝 칠판만', bookonly:'📖 교재만', hidefaces:'🙈 얼굴 숨김 (수업은 계속 참여 중)' };
+      // ⚠️ 위 VC_FOLDERS.screen 의 label 과 **같은 말**이어야 한다.
+      const labels = { quarter:'교재 크게', half:'기본', threequarter:'얼굴 크게', full:'모두 보기', pip:'교재 전체 + 작은 얼굴', facepip:'얼굴 전체 + 작은 교재', solo:'영상 끄고 교재만', boardonly:'칠판만 크게', bookonly:'교재만 크게', hidefaces:'얼굴 숨김 (수업은 계속 참여 중)' };
       try {
         const t = document.createElement('div');
         t.textContent = '🖥️ 화면 모드: ' + (labels[mode] || mode);
@@ -3456,7 +3492,13 @@ async function vcJoinRoom(skipUI) {
       }
       vcScreenSet('hidefaces');
       window.__vcFacesHidden = true;   // 세로폰 자동 레이아웃(공유 재평가 포함)이 되돌리지 못하게 표시
-      // 🙂✕ 복귀 칩 — 이모지 원형 버튼(작게, 라이트 버튼 등 다른 버튼을 가리지 않는 위치)
+      vcFacesEnsureRestoreChip();
+    };
+    /* 🙂✕ 복귀 칩 생성·표시 — (2026-08-12 마이마이 ⑩) vcFacesHide 전용이던 것을 분리.
+       화면분할의 솔로·칠판만·교재만도 얼굴을 통째로 숨기는데(video-solo 재활용)
+       거기엔 복귀 버튼이 하나도 없어서 「비디오가 사라졌는데 되살리는 게 안 보인다」
+       신고가 왔다. 얼굴이 사라지는 모든 모드가 이 칩을 공유한다. */
+    window.vcFacesEnsureRestoreChip = function(){
       let chip = document.getElementById('vc-faces-restore');
       if (!chip) {
         chip = document.createElement('button');
@@ -3465,7 +3507,8 @@ async function vcJoinRoom(skipUI) {
         chip.addEventListener('click', function(){ try { vcFacesShow(); } catch(e){} });
         document.body.appendChild(chip);
       }
-      const en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+      const en = (typeof getLang === 'function') ? (getLang() === 'en')
+               : miIsEn();
       chip.innerHTML = '<span class="fr-face">🙂</span><span class="fr-x">✕</span>';
       /* 🌐 툴팁도 언어를 따라오게 두 벌로 남긴다 (얼굴을 숨긴 동안 계속 떠 있는 칩이라 굳으면 눈에 띈다) */
       chip.setAttribute('data-ko-title', '얼굴 화면 꺼짐 — 누르면 다시 보여요');
@@ -3525,14 +3568,20 @@ async function vcJoinRoom(skipUI) {
     // 칠판 캔버스가 보이는 시점에 실제 크기로 리사이즈 (display:none → flex 직후)
     setTimeout(() => { if (typeof wbResize === 'function') wbResize(); }, 100);
 
-    // ICE 서버 설정 먼저 가져오기 (TURN 포함)
-    await fetchIceServers();
-    console.log('[vc] ICE 서버 설정:', JSON.stringify(ICE_SERVERS.iceServers.map(s => s.urls)));
+    /* 📶 TURN 확보 — 위에서 미리 걸어 둔 발급을 여기서 기다린다.
+       ⛔ 예전엔 fetchIceServers() 를 무조건 한 번 더 불렀다. 위에서 이미 받아 놓은 자격증명이
+          있어도 매 입장마다 HTTP 왕복이 한 번 더 나갔다 — 필리핀 회선에서 그대로 입장 지연이다.
+          vcEnsureIceServers 는 «TURN 이 없거나 4시간 지났을 때만» 실제로 받아 오고,
+          그 경우에도 3초에서 끊어 수업을 지연시키지 않는다. */
+    await vcEnsureIceServers();
 
     try {
-        vcLocalStream = await acquireLocalMedia({ video: true, audio: true });
+        /* ⚡ 권한 선확보 때 이미 연 카메라가 있으면 그것을 그대로 쓴다(카메라 두 번 열지 않기).
+           없거나 이미 죽었으면 예전처럼 새로 연다 — 어느 쪽이든 입장은 계속된다. */
+        vcLocalStream = (window.vcTakePermStream && window.vcTakePermStream())
+                        || await acquireLocalMedia({ video: true, audio: true });
         document.getElementById('vc-local-video').srcObject = vcLocalStream;
-        document.getElementById('vc-local-label').textContent = vcUsername + (currentLang==='ko'?' (나)':' (Me)');
+        document.getElementById('vc-local-label').textContent = vcUsername + (miIsEn() ? ' (Me)' : ' (나)');
         attachStreamMonitor(document.getElementById('vc-local-box'), vcLocalStream);
         vcAddDetachButton(document.getElementById('vc-local-box'));
         try { vcRefreshPraiseUI(); } catch(e){}
@@ -3558,7 +3607,7 @@ async function vcJoinRoom(skipUI) {
         try {
             vcLocalStream = await acquireLocalMedia({ video: false, audio: true });
             document.getElementById('vc-local-video').srcObject = vcLocalStream;
-            document.getElementById('vc-local-label').textContent = vcUsername + (currentLang==='ko'?' (나)':' (Me)');
+            document.getElementById('vc-local-label').textContent = vcUsername + (miIsEn() ? ' (Me)' : ' (나)');
             attachStreamMonitor(document.getElementById('vc-local-box'), vcLocalStream);
             vcAddDetachButton(document.getElementById('vc-local-box'));
             try { vcRefreshPraiseUI(); } catch(e){}
@@ -3822,8 +3871,12 @@ function vcShowEarnToast(msg) {
     }, 3000);
 }
 
-/** 관찰자 모드로 입장 (관리자 전용 — 미디어 없이 수신만) */
-async function vcJoinAsObserver(roomId) {
+/** 관찰자 모드로 입장 (관리자 전용 — 미디어 없이 수신만)
+    🔒 (2026-09-23) tok — /api/admin/ghost/start 가 발급한 이 방 1개 전용 서명.
+    video-call-room.ts 의 handleJoinObserve 가 이 값 없이는(또는 방 번호가 다르거나
+    만료됐으면) join-observe 를 거절한다(observe-denied). 없어도 함수 자체는 그대로
+    시도한다 — 거절 응답이 오면 vcObserverBanner('denied') 가 이유를 말해 준다. */
+async function vcJoinAsObserver(roomId, tok) {
     vcIsObserver = true;
     window._vcObserverMode = true;   // ★ 관찰자는 입장 자동 교재 로드/공유 금지 (수신 전용)
     vcUsername = '관찰자';
@@ -3860,7 +3913,7 @@ async function vcJoinAsObserver(roomId) {
         vcHandleMessage,
         (ws) => {
             setStatusDot('vc-status-dot', 'connected');
-            ws.send(JSON.stringify({ type: 'join-observe', data: { username: '관찰자' } }));
+            ws.send(JSON.stringify({ type: 'join-observe', data: { username: '관찰자', tok: tok || '' } }));
         },
         () => setStatusDot('vc-status-dot', 'disconnected')
     );
@@ -3908,6 +3961,12 @@ function vcObserverBanner(kind, extra) {
         : kind === 'retry'
         ? (en ? '🔄 No video yet — reconnecting automatically…'
               : '🔄 영상이 아직 안 와서 자동으로 다시 연결하는 중…')
+        /* 🔒 (2026-09-23) observe-denied — 참관 토큰이 없거나(구버전 링크) 만료됨(TTL 30분).
+           «fail» 과 갈라 두는 이유: fail 은 «다시 눌러라» 인데 이건 «목록에서 새로 열어라» 다 —
+           같은 탭을 새로고침해도 URL 의 옛 tok 이 그대로라 똑같이 거절된다. */
+        : kind === 'denied'
+        ? (en ? '⚠ Observation permission expired or is invalid. Please open Observe again from the list.'
+              : '⚠ 참관 권한이 만료되었거나 유효하지 않습니다. 목록에서 참관을 다시 눌러 주세요.')
         : (en ? '⚠ Could not join as observer. Please close this tab and press Ghost again.'
               : '⚠ 참관에 연결하지 못했습니다. 이 탭을 닫고 [Ghost] 를 다시 눌러 주세요.');
     var box = document.createElement('div');
@@ -4071,9 +4130,8 @@ function vcHandleMessage(msg) {
             updateUserCount(msg.data.userCount);
             // 🌟 학생이면 (방·피어ID → 내 계정 uid) 를 서버에 등록 → 선생님이 별 누르면 서버가 내 계정에 확실히 적립.
             try { vcRegisterRosterIdentity(); setTimeout(vcRegisterRosterIdentity, 3000); } catch(e){}
-            /* 🖥 (2026-08-13 Melca p19) 공유 중에 내 WS 가 순단→재연결된 경우 — 학생들은 user-left 로
-               메인 보드를 닫았다. 다시 알려 보드를 되살린다(수신측 멱등이라 무중단 재연결이어도 무해). */
-            try { if (window.__vcScreenSharing && vcConn) vcConn.send({ type: 'screen-share-state', data: { on: true } }); } catch(e){}
+            // 🖥 공유 중 내 소켓이 재연결되면 학생 메인 보드가 닫혔다 — 다시 알린다(idx-vc-ssboard.js)
+            try { if (window.__vcScreenSharing && vcConn) vcConn.send({ type: 'screen-share-state', data: { on: true, resync: true } }); } catch(e){}
             break;
         }
 
@@ -4101,7 +4159,8 @@ function vcHandleMessage(msg) {
                     return;
                 }
                 // 각 사용자에 대해 약간의 지연을 주어 동시 offer 폭주 방지
-                setTimeout(() => vcCreatePeerAndOffer(user.userId, user.username), idx * 300);
+                const current = vcPeerAttemptScope(user.userId);
+                setTimeout(() => { if (current()) vcCreatePeerAndOffer(user.userId, user.username); }, idx * 300);
             });
             try { window.vcApplySpotlight && window.vcApplySpotlight(); } catch(e){}
             // PDF/이미지 공유 동기화 (늦게 입장한 학생도 현재 교재가 보이게)
@@ -4132,6 +4191,10 @@ function vcHandleMessage(msg) {
             break;
 
         // 📷 (2026-07-24) 상대의 카메라 on/off 통보 — 검은 화면의 '이유' 를 확정해 준다.
+        case 'video-recovery':
+            try { if (typeof vcRecoveryMessage === 'function') vcRecoveryMessage(msg.data); } catch (_) {}
+            break;
+
         case 'cam-state': {
             const _csId = msg.data && msg.data.userId;
             if (_csId) {
@@ -4153,10 +4216,16 @@ function vcHandleMessage(msg) {
             // 📷 내 카메라가 꺼져 있다면 새로 들어온 사람에게도 알려 준다.
             //   안 알리면 그 사람 화면에서는 '이유 없는 검은 화면' 이 되고 워치독이 재협상을 시도한다.
             try { if (window.vcCamOn === false) vcBroadcastCamState(false, 'user'); } catch(e){}
-            /* 🖥 (2026-08-13 Melca p19) 공유 «이후» 입장한 사람에게도 지금 공유 중임을 알린다 —
-               트랙은 vcCreatePeer 가 주지만 신호가 없으면 새 학생의 메인 보드가 안 열린다.
-               DO 릴레이는 전체 방송이라 기존 학생도 다시 받는데, 수신측이 멱등이라 중복 표시는 없다. */
-            try { if (window.__vcScreenSharing && vcConn) vcConn.send({ type: 'screen-share-state', data: { on: true } }); } catch(e){}
+            // 🖥 (2026-08-27) 공유 «중» 에 들어온(재접속 포함) 사람은 screen-share-state 를 못 받아
+            //   타일에 .vc-ss-badge 가 없다 → 공유 화면이 cover 로 좌우가 크게 잘린다
+            //   (idx-vc-mobilefix ⑧의 예외가 배지로 판별). DO 는 이 상태를 저장하지 않으므로
+            //   공유자가 입장을 보고 한 번 더 알린다. 4초 지연 = 새 사람 화면에 내 타일이
+            //   만들어질 시간. resync 표시는 받는 쪽이 토스트 없이 배지만 다시 단다.
+            try {
+                if (window.__vcScreenSharing) setTimeout(function(){
+                    try { if (window.__vcScreenSharing && vcConn) vcConn.send({ type: 'screen-share-state', data: { on: true, resync: true } }); } catch(_){}
+                }, 4000);
+            } catch(e){}
             try { (window.vcPeerRoles = window.vcPeerRoles || {})[msg.data.userId] = msg.data.role || 'student'; window.vcApplySpotlight && window.vcApplySpotlight(); } catch(e){}
             try { vcEnsureParticipantBox(msg.data.userId, msg.data.username); } catch(e){}   // 영상 전이라도 박스 미리 생성
             updateUserCount(msg.data.userCount);
@@ -4164,8 +4233,9 @@ function vcHandleMessage(msg) {
             // 새 사용자가 offer를 보내오면 vcHandleOffer에서 PC 생성됨
             // 하지만 안전장치로 5초 후 PC가 없으면 직접 offer 시도
             if (msg.data.userId && !vcPeerConnections[msg.data.userId]) {
+                const current = vcPeerAttemptScope(msg.data.userId);
                 setTimeout(() => {
-                    if (!vcPeerConnections[msg.data.userId]) {
+                    if (current() && !vcPeerConnections[msg.data.userId]) {
                         console.log('[vc] 안전장치: offer 미수신 → 직접 연결 시도:', msg.data.userId);
                         vcCreatePeerAndOffer(msg.data.userId, msg.data.username);
                     }
@@ -4179,10 +4249,7 @@ function vcHandleMessage(msg) {
             //   'dropped'는 같은 사람이 곧 재입장할 가능성이 높으므로 수업 종료로 즉시 오인하면
             //   안 된다(2026-07-13 실사용 신고: 수업 도중 갑자기 수업 종료됨).
             vcRemovePeer(msg.data.userId, msg.data.reason);
-            /* 🖥 (2026-08-13 Melca p19) 공유하던 강사가 나가면(순단 포함) 메인 보드를 원래 화면으로
-               되돌린다 — 얼어붙은 마지막 장면이 크게 남는 것 방지. 재입장하면 새 userId 로
-               user-joined 재송신이 다시 보드를 연다. */
-            try { if (window.__vcSSView && window.__vcSSView.uid === msg.data.userId) vcScreenShareViewOff(); } catch(e){}
+            try { if (window.__vcSSView && window.__vcSSView.uid === msg.data.userId) vcScreenShareViewOff(); } catch(e){}   // 🖥 공유자 퇴장 → 보드 닫기
             vcAddChatSystem(msg.data.reason === 'dropped'
                 ? `${msg.data.username} 님과 연결이 잠시 끊겼습니다. 재연결을 기다리는 중…`
                 : `${msg.data.username} 님이 퇴장했습니다.`);
@@ -4414,15 +4481,8 @@ function vcHandleMessage(msg) {
                     // 🧑‍🎓 (2026-08-12 Melca) 강사가 웜업 탭을 열어 주면 «강사 주도 웜업» 허가,
                     //   다른 탭으로 옮기면 허가 종료 (수업 중 학생 단독 웜업 차단의 예외 스위치)
                     window.__vcWarmupTeacherLed = (_tsTab === 'warmup');
-                    /* 🖥 (2026-08-13 Melca p19) 공유 화면이 메인 보드를 차지하는 동안에는 화면을
-                       뺏지 않는다(공유가 우선 — 일반 화상회의 UX). 강사가 그 사이 옮긴 탭은
-                       공유가 끝났을 때 돌아갈 자리로만 기억해 둔다. */
-                    if (window.__vcSSView) {
-                        window.__vcSSView.prevTab = _tsTab;
-                        window.__vcSSView.prevCollapsed = false;
-                        console.log('[tab-sync] 화면 공유 중 — 복귀 탭만 갱신:', _tsTab);
-                        break;
-                    }
+                    // 🖥 공유 화면이 메인 보드를 차지하는 동안엔 화면을 뺏지 않고 «복귀할 탭» 만 기억(idx-vc-ssboard.js)
+                    if (window.__vcSSView) { window.__vcSSView.prevTab = _tsTab; window.__vcSSView.prevCollapsed = false; break; }
                     window._vcTabSyncApplying = true;
                     /* 🔴 (2026-08-10 마이마이) 「교사가 칠판·교재로 옮겨도 학생은 얼굴 화면 그대로」
                        vcSwitchTab 은 .active 클래스만 바꾼다 — 학생이 탭을 두 번 눌러 콘텐츠를
@@ -4436,6 +4496,15 @@ function vcHandleMessage(msg) {
             } catch(_){ window._vcTabSyncApplying = false; }
             break;
         }
+        // 📢 귓속말 — 그리기는 /js/idx-whisper.js(defer). 아직 안 왔으면 큐에 담아 둔다.
+        case 'admin-whisper':
+        case 'admin-whisper-ack': {
+            try {
+                if (typeof window.vcWhisperOn === 'function') window.vcWhisperOn(msg.type, msg.data);
+                else { (window.__vcWhisperQ = window.__vcWhisperQ || []).push([msg.type, msg.data]); }
+            } catch(_){}
+            break;
+        }
         // 🖥 (2026-08-12 Melca) 화면 공유 시작/종료 알림 — 예전엔 학생은 예고 없이
         //   선생님 얼굴 타일이 갑자기 컴퓨터 화면으로 바뀌었다. 토스트 + 타일에 «화면 공유 중» 배지.
         case 'screen-share-state': {
@@ -4443,11 +4512,8 @@ function vcHandleMessage(msg) {
                 var _ssOn = !!(msg.data && msg.data.on);
                 var _ssUid = msg.data && msg.data.fromUserId;
                 var _ssEn = (typeof getLang === 'function' && getLang() === 'en');
-                /* 🖥 (2026-08-13 Melca p19) 늦입장 재방송(user-joined 때 강사가 다시 알림)은 전체에게
-                   다시 가므로, 이미 같은 상태를 알고 있으면 토스트를 또 띄우지 않는다 */
-                var _ssDup = _ssOn ? !!(window.__vcSSView && window.__vcSSView.uid === _ssUid)
-                                   : !window.__vcSSView;
-                if (!_ssDup && typeof showToast === 'function') showToast(_ssOn
+                // resync(늦입장자용 재알림)는 조용히 배지만 — 토스트를 또 띄우면 방 전체가 시끄럽다
+                if (!(msg.data && msg.data.resync) && typeof showToast === 'function') showToast(_ssOn
                     ? (_ssEn ? '🖥 The teacher is sharing their screen.' : '🖥 선생님이 화면 공유를 시작했어요.')
                     : (_ssEn ? '🖥 Screen sharing ended.' : '🖥 화면 공유가 끝났어요.'));
                 var _ssBox = _ssUid ? document.getElementById('vc-video-' + _ssUid) : null;
@@ -4464,10 +4530,9 @@ function vcHandleMessage(msg) {
                         _ssBox.appendChild(_ssB);
                     }
                 }
-                /* 🖥 (2026-08-13 Melca p19) 공유 화면을 «메인 보드»(교재/칠판 영역)에 크게 —
-                   강사 타일은 그대로 남아 작은 미리보기가 된다(일반 화상회의 UX) */
-                if (_ssOn) { try { vcScreenShareViewOn(_ssUid); } catch(_){} }
-                else { try { vcScreenShareViewOff(); } catch(_){} }
+                // 🖥 받는 쪽 «메인 보드» 에 크게 — 본문은 idx-vc-ssboard.js(defer)
+                if (_ssOn) { if (window.vcScreenShareViewOn) vcScreenShareViewOn(_ssUid); }
+                else if (window.vcScreenShareViewOff) vcScreenShareViewOff();
             } catch(_){}
             break;
         }
@@ -4698,6 +4763,8 @@ function vcHandleMessage(msg) {
 /** 특정 사용자에 대한 P2P 연결을 생성하고 Offer를 보냅니다. */
 async function vcCreatePeerAndOffer(userId, username) {
     try {
+        const current = vcPeerAttemptScope(userId);
+        if (!current()) return;
         // 이미 연결이 있으면 건너뜀 (중복 방지)
         if (vcPeerConnections[userId]) {
             console.log('[vc-webrtc] createPeerAndOffer: 이미 PC 존재 →', userId, '건너뜀');
@@ -4705,10 +4772,13 @@ async function vcCreatePeerAndOffer(userId, username) {
         }
         console.log('[vc-webrtc] createPeerAndOffer →', userId, username);
         try { await vcEnsureIceServers(); } catch(_) {}   // TURN 자격증명 보장(없으면 3초 내 포기)
+        if (!current() || vcPeerConnections[userId]) return;
         const pc = vcCreatePeer(userId, username);
         const offer = await pc.createOffer();
+        if (!current() || vcPeerConnections[userId] !== pc || pc.signalingState !== 'stable') return;
         offer.sdp = vcTuneAudioSdp(offer.sdp);            // 🔊 Opus FEC — 패킷 손실에도 소리 유지
         await pc.setLocalDescription(offer);
+        if (!current() || vcPeerConnections[userId] !== pc) return;
         console.log('[vc-webrtc] offer 전송 →', userId, 'SDP type:', offer.type);
         vcConn.send({ type: 'offer', data: { targetUserId: userId, sdp: pc.localDescription } });
     } catch (e) {
@@ -4818,8 +4888,16 @@ function vcApplyLowPower(pc) {
     } catch(_){}
   }
 
-  // 수업 중 + 학생일 때만 동작 (강사는 탭을 옮겨도 얼굴이 계속 나간다)
-  function active(){ return document.body.classList.contains('vc-in-call') && !staffNow(); }
+  /* 🔴 (2026-08-12 마이마이 재신고 「탭을 열 때마다 강사 영상이 꺼진다」)
+     «강사가 아니면 끈다»(!staffNow) 로는 부족했다 — 역할이 아직 확정되지 않은 강사가
+     «학생» 으로 오판돼 카메라가 꺼졌다. → 절약은 «확실한 학생»(정본 vcIsStudentNow)일 때만.
+     ⚠️ 역할 추측을 여기서 하지 않는다 — 판정은 전부 정본(vcIsStaffNow/vcIsStudentNow)에 있다. */
+  function studentNow(){
+    try { if (typeof vcIsStudentNow === 'function') return !!vcIsStudentNow(); } catch(_){}
+    return !staffNow();   // 정본이 없는 옛 환경에서는 종전 동작(강사 아님=학생) 유지
+  }
+  // 수업 중 + «확실한 학생»일 때만 동작 (강사는 탭을 옮겨도 얼굴이 계속 나간다)
+  function active(){ return document.body.classList.contains('vc-in-call') && studentNow(); }
 
   document.addEventListener('visibilitychange', function(){
     if (!active()) return;
@@ -4971,7 +5049,7 @@ function vcArmFullscreenRetry() {
 
 (function vcAdaptiveQuality() {
     if (window.__vcAdaptive) return; window.__vcAdaptive = true;
-    const STEPS = [1.0, 0.6, 0.35, 0.2];
+    const STEPS = [1.0, 0.6, 0.35, 0.2, 0.08];   // 4단계=얼굴만 (vc_lowstep_relay_harness)
     // 🎛 설정(자동/고/저)이 정한 기준 상한을 그대로 쓴다 — '저'면 처음부터 360p·15fps 로 시작한다
     function baseCaps() {
         try { if (window.vcQualityCaps) return window.vcQualityCaps(); } catch (_) {}
@@ -4979,7 +5057,7 @@ function vcArmFullscreenRetry() {
                        || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
         return { br: (mobile ? 500 : 1200) * 1000, fps: mobile ? 15 : 24, scale: 1 };
     }
-    const SCALE = [1, 1.5, 2, 3];   // 단계별 해상도 축소 — 낮은 비트레이트에선 픽셀 수를 줄여야 깨짐(블록화) 대신 선명한 저해상도가 됨
+    const SCALE = [1, 1.5, 2, 3, 4];   // 단계별 해상도 축소 — 낮은 비트레이트에선 픽셀 수를 줄여야 깨짐(블록화) 대신 선명한 저해상도가 됨
 
     /* 🕐 (2026-08-11 강사 피드백 — "오디오 지연", "렉", "버퍼링")
        [빠져 있던 것] 보내는 쪽은 오래 다듬어 왔다(비트레이트 적응·Opus FEC/DTX·AAO).
@@ -4992,20 +5070,26 @@ function vcArmFullscreenRetry() {
          (null = 브라우저의 적응 알고리즘에 그대로 돌려줌). 판단 근거는 바로 아래 루프가
          이미 재고 있는 손실률·RTT 다 — 새로 재지 않는다.
        ⚠️ 두 API 모두 크롬 계열에만 있다. 없으면 아무 일도 하지 않는다(기능 감지). */
-    function tuneReceiveLatency(pc, good) {
+    /* 🔊 (2026-09-05) 상태가 «둘» 에서 «셋» 이 됐다 — 자세한 근거는 아래 호출부 주석.
+       low = 대화 최우선(지연 0) · auto = 브라우저 자동 · buf = 늦게 온 패킷을 기다려 준다 */
+    function tuneReceiveLatency(pc, mode) {
         try {
             if (!pc || !pc.getReceivers) return;
-            if (pc.__rxLowLat === good) return;          // 상태가 그대로면 건드리지 않는다(불필요한 재설정 = 소리 튐)
-            pc.__rxLowLat = good;
+            var ms = (typeof window.__vcRxBufMs === 'number') ? window.__vcRxBufMs : 300;
+            var key = mode + (mode === 'buf' ? ms : '');   // ms 를 바꾸면 다시 걸리게(시험용 손잡이)
+            if (pc.__rxLat === key) return;               // 상태가 그대로면 건드리지 않는다(불필요한 재설정 = 소리 튐)
+            pc.__rxLat = key;
             pc.getReceivers().forEach(function (r) {
                 if (!r || !r.track) return;
                 var isAudio = r.track.kind === 'audio';
                 /* 목표 지연(ms). 오디오는 대화라 최대한 낮추고, 영상은 조금 여유를 둔다
                    — 영상이 튀는 것보다 20~30ms 늦는 편이 수업에 낫다. */
-                try { if ('jitterBufferTarget' in r) r.jitterBufferTarget = good ? (isAudio ? 0 : 100) : null; } catch (_) {}
-                try { if ('playoutDelayHint' in r) r.playoutDelayHint = good ? 0 : null; } catch (_) {}
+                var t = mode === 'low' ? (isAudio ? 0 : 100) : (mode === 'buf' && ms > 0 ? ms : null);
+                try { if ('jitterBufferTarget' in r) r.jitterBufferTarget = t; } catch (_) {}
+                /* ⚠️ playoutDelayHint 는 «초» 단위다(jitterBufferTarget 은 ms). 섞으면 1000배 틀린다. */
+                try { if ('playoutDelayHint' in r) r.playoutDelayHint = t === null ? null : (mode === 'low' ? 0 : t / 1000); } catch (_) {}
             });
-            console.log('[vc-latency] 수신 지연', good ? '낮춤(회선 양호)' : '브라우저 자동(회선 불안정)');
+            console.log('[vc-latency] 수신 지연', mode, mode === 'buf' ? ms + 'ms' : '');
         } catch (_) {}
     }
     window.__vcTuneReceiveLatency = tuneReceiveLatency;   // 하니스·진단에서 부를 수 있게
@@ -5016,18 +5100,19 @@ function vcArmFullscreenRetry() {
             if (!sender || !sender.getParameters) return;
             const caps = baseCaps();
             const mult = STEPS[step];
+            const lo = step >= 4;   // 4단계만 하한을 낮춘다(앞 단계는 그대로)
             const params = sender.getParameters();
             if (!params.encodings || !params.encodings.length) params.encodings = [{}];
-            params.encodings[0].maxBitrate   = Math.max(150 * 1000, Math.round(caps.br * mult));
-            params.encodings[0].maxFramerate = Math.max(10, Math.round(caps.fps * mult));
+            params.encodings[0].maxBitrate   = Math.max(lo ? 60000 : 150000, Math.round(caps.br * mult));
+            params.encodings[0].maxFramerate = Math.max(lo ? 5 : 10, Math.round(caps.fps * mult));
             params.encodings[0].scaleResolutionDownBy = (caps.scale || 1) * (SCALE[step] || 1);
             sender.setParameters(params).catch(() => {
                 // 일부 구형 브라우저는 scaleResolutionDownBy 를 거부 → 해상도 축소 없이 비트레이트 상한만이라도 재적용
                 try {
                     const p2 = sender.getParameters();
                     if (!p2.encodings || !p2.encodings.length) p2.encodings = [{}];
-                    p2.encodings[0].maxBitrate   = Math.max(150 * 1000, Math.round(caps.br * mult));
-                    p2.encodings[0].maxFramerate = Math.max(10, Math.round(caps.fps * mult));
+                    p2.encodings[0].maxBitrate   = Math.max(lo ? 60000 : 150000, Math.round(caps.br * mult));
+                    p2.encodings[0].maxFramerate = Math.max(lo ? 5 : 10, Math.round(caps.fps * mult));
                     delete p2.encodings[0].scaleResolutionDownBy;
                     sender.setParameters(p2).catch(() => {});
                 } catch (_) {}
@@ -5058,28 +5143,76 @@ function vcArmFullscreenRetry() {
                 pc.__qPrev = { lost: lost, sent: sent };
                 const dLost = Math.max(0, lost - prev.lost);
                 const dSent = Math.max(0, sent - prev.sent);
-                if (dSent + dLost < 25) return;  // 표본 부족(영상 꺼짐 등) — 판단 보류
+                if (dSent + dLost < 25) { try { vcQualityAcc(-1, rtt); } catch (_) {} return; }  // 표본 부족(영상 꺼짐/죽음) — 화질 판단은 보류, 기록은 «영상 없음» 으로 남긴다(js/idx-vc-qlog.js)
                 const lossPct = 100 * dLost / (dSent + dLost);
                 let step = pc.__qStep || 0;
-                if (lossPct > 6 || rtt > 450) {
-                    pc.__qGood = 0;
+                /* 📉 (2026-09-01 class-1015 「처음과 뒷부분은 계속 흐리고 중간에 잠깐 좋았다」)
+                   [무엇이 문제였나] 내려가는 데 최대 16초(4틱), 올라오는 데 12초(3틱)였다.
+                     그런데 그 수업의 실측은 «1분에 한 번꼴로 20~27% 스파이크» 였다(D1 vc_quality 20건,
+                     20분 중 17분이 최대손실 16%↑, 최악 60.6%). 그래서 내려가다 올라오기를 반복하는
+                     «진동» 이 됐고, 사람 눈에는 「흐렸다 잠깐 좋았다 다시 흐림」으로 보였다.
+                     1분 평균은 1.9% 라 어느 화면에서도 «양호» 였다 — 평균이 사고를 가린 것이다.
+                   [고침] 회복을 «오래 조용했을 때만» 허용한다 — 연속 8틱(32초) + 마지막 스파이크로부터 30초.
+                     ⛔ 내려가는 쪽은 그대로 둔다(빠르게 내려가는 것은 옳다).
+                     ⛔ 숫자를 더 키우지 말 것 — 회선이 정말 좋아졌는데도 흐린 채로 남는다. */
+                /* 🌏 (2026-09-02 class-849 강선생님 「흐려진 뒤 안 돌아온다」) RTT 문턱은 «이 연결의 기준값» 에 상대로 잰다.
+                   중국 회선은 RTT 가 늘 360ms 안팎이라(D1 vc_quality 19분 내내 360~435ms, 손실 1% 미만) «250 미만» 회복
+                   조건이 영영 안 맞았고, 450 초과 스파이크 한 번에 내려간 화질이 수업 끝까지 바닥에 남았다.
+                   기준값 = 그 연결에서 본 최소 RTT(위로는 틱당 2% 씩만 따라감). 기준 150 미만 회선은 옛 숫자 그대로다.
+                   ⛔ 손실 문턱은 안 건드린다 — «나쁜» 신호는 손실, RTT 는 «막힌» 신호라 기준 대비 증가분이 맞다.
+                   ⛔ 기준 상한 500 을 풀지 말 것 — 풀면 어떤 회선이든 «막힘» 을 영영 못 본다. 감시: vc_quality_blindspot_harness ④-2 */
+                if (rtt > 0) { const b = pc.__qRttBase; pc.__qRttBase = (b == null || rtt < b) ? rtt : b + (rtt - b) * 0.02; }
+                const rb = Math.min(pc.__qRttBase || 0, 500);
+                const rttDown = Math.max(450, rb + 200), rttUp = Math.max(250, rb + 100);
+                const LOSS_MID_STEP = 2, MID_TICKS = 15;
+                const held = Date.now() - (pc.__qBadAt || 0) > 30000;
+                if (lossPct > 6 || rtt > rttDown) {
+                    pc.__qGood = 0; pc.__qMid = 0; pc.__qBadAt = Date.now();
                     if (step < STEPS.length - 1) step++;
-                } else if (lossPct < 1.5 && (rtt === 0 || rtt < 250)) {
-                    pc.__qGood = (pc.__qGood || 0) + 1;
-                    if (pc.__qGood >= 3 && step > 0) { step--; pc.__qGood = 0; }
-                } else {
+                } else if (lossPct < 1.5 && (rtt === 0 || rtt < rttUp)) {
+                    pc.__qGood = (pc.__qGood || 0) + 1; pc.__qMid = (pc.__qMid || 0) + 1;
+                    if (pc.__qGood >= 8 && held && step > 0) { step--; pc.__qGood = 0; pc.__qMid = 0; }
+                } else if (lossPct >= 1.5) {
+                    /* 손실 축 사각지대(2026-09-08) — vc_quality_blindspot_harness ④-3 */
                     pc.__qGood = 0;
+                    if (rtt === 0 || rtt < rttUp) {
+                        pc.__qMid = (pc.__qMid || 0) + 1;
+                        if (pc.__qMid >= MID_TICKS && held && step > LOSS_MID_STEP) { step--; pc.__qMid = 0; }
+                    } else { pc.__qMid = 0; }
                 }
                 if (step !== (pc.__qStep || 0)) {
-                    console.warn('[vc-adapt] 손실률', lossPct.toFixed(1) + '%, RTT', Math.round(rtt) + 'ms → 단계', pc.__qStep || 0, '→', step);
+                    console.warn('[vc-adapt] 손실률', lossPct.toFixed(1) + '%, RTT', Math.round(rtt) + 'ms(기준 ' + Math.round(rb) + ') → 단계', pc.__qStep || 0, '→', step);
                     pc.__qStep = step;
                     applyStep(pc, step);
                 }
                 /* 🕐 받는 쪽 지연 — «지금 좋다»고 측정된 연결에서만 낮춘다(위 함수 주석 참조).
-                   기준은 화질 단계를 올릴 때와 같은 숫자를 쓴다: 손실 1.5% 미만 + RTT 250ms 미만.
+                   기준은 손실 1.5% 미만 + RTT 150ms 미만(절대값 — «정말 좋은 회선» 판정이라 기준 대비로 안 잰다).
                    한 번이라도 나빠지면 즉시 브라우저 자동으로 되돌아간다 = 끊김이 지연보다 우선. */
-                try { tuneReceiveLatency(pc, step === 0 && lossPct < 1.5 && (rtt === 0 || rtt < 250)); } catch (_) {}
-                try { vcQualityAcc(lossPct, rtt); } catch (_) {}   // 📶 회선품질 로깅 누적(30초마다 전송, fire-and-forget)
+                /* 🔊 (2026-09-01) 「소리가 끊긴다」에 이 줄이 직접 걸린다.
+                   기준이 «지금 이 4초가 좋다» 였다. 그런데 RTT 가 52~210ms 로 요동치는 회선에서는
+                   스파이크 사이의 조용한 4초마다 이 값이 켜졌다 꺼졌다 한다 — 위 tuneReceiveLatency
+                   주석이 스스로 경고하는 «불필요한 재설정 = 소리 튐» 이 1분에 몇 번씩 일어난 것이다.
+                   ✅ 이제 화질 회복과 «같은 근거» 를 쓴다: 32초 연속 양호 + 스파이크 후 30초 + RTT 150ms 미만.
+                      그만큼 조용한 적이 없는 회선에서는 아예 안 켜지고 브라우저의 적응 버퍼가 그대로 쓰인다
+                      — 그게 손실 있는 회선에서 옳은 기본값이다(같은 주석의 «지연보다 끊김이 우선»). */
+                /* 🔊 (2026-09-05) 세 번째 상태 «buf» — 늦게 온 패킷을 기다려 주는 버퍼.
+                   근거: D1 725분 실측에서 RTT 450ms+ 의 소리끊김 33% 중 «진짜» 손실은 0.97% 뿐
+                   — 32%p 가 «늦어서 버린 것»(34배). 늦은 것은 기다리면 살아난다.
+                   ⛔ 그 전제(conceal ≫ aloss)가 깨지면 버퍼는 아무것도 못 살린다 — 늘리기 전에 다시 재라.
+                   ⚠️ 대가는 지연(+300ms) → «먼»(기준 300ms+)·«막힌»(3틱) 연결에만 건다.
+                      ⛔ 「가까운 회선은 안 걸린다」가 아니다 — rb 가 작아도 3틱 막히면 걸린다.
+                   ⛔ low 게이트의 `rb < 300` 을 빼지 말 것: 그게 없으면 «먼 회선» 이 RTT 보고가
+                      빠진 틱마다 buf→low(300→0ms)로 뒤집혀, 이 함수 주석이 경고하는 «재설정 =
+                      소리 튐» 이 겨냥한 인구에서 그대로 난다(rb≥300 이면 rtt<150 은 원래 불가능).
+                   시험 window.__vcRxBufMs(0=끔) · 근거·미결은 vc_latency_tuning_harness 머리말 */
+                if (rtt > rttDown) pc.__qLate = (pc.__qLate || 0) + 1;
+                else if (rtt > 0 && rtt < rttUp) pc.__qLate = 0;
+                try {
+                    tuneReceiveLatency(pc,
+                        (step === 0 && (pc.__qGood || 0) >= 8 && Date.now() - (pc.__qBadAt || 0) > 30000 && lossPct < 1.5 && rb < 300 && (rtt === 0 || rtt < 150)) ? 'low'
+                        : (rb >= 300 || (pc.__qLate || 0) >= 3) ? 'buf' : 'auto');
+                } catch (_) {}
+                try { vcQualityAcc(lossPct, rtt); } catch (_) {}   // 📶 회선품질 로깅 누적(fire-and-forget)
             }).catch(function() {});
 
             // 📶 저대역 자동 음성전용(AAO) — 오디오 손실 기준 판정(영상을 꺼도 오디오는 흐르므로 회복 감지가 신뢰됨).
@@ -5097,10 +5230,20 @@ function vcArmFullscreenRetry() {
                     if (adp + adl < 8) return;                              // 표본 부족(무음/DTX 등) → 판단 보류
                     const alp = 100 * adl / (adp + adl);
                     const A = window.__vcAAO || (window.__vcAAO = { active: false, sev: 0, good: 0 });
-                    if (alp > 12 || art > 600) { A.sev++; A.good = 0; }     // 오디오 12%↑ 손실/RTT 600ms↑ = 망 붕괴
+                    /* 🔊 (2026-09-01) 문턱 12% → 8%. class-1015 실측에서 이 구제장치가 20분 내내 «0회» 였다.
+                       소리가 끊겨 말을 못 알아듣는데도 영상을 계속 보내고 있었다는 뜻이다.
+                       ⛔ 더 낮추지 말 것 — 필리핀·중국 회선에서 멀쩡한 수업의 영상이 자꾸 꺼진다.
+                          진입은 여전히 sev 3틱(12초) 연속이라 스파이크 한 번으로는 안 걸린다. */
+                    if (alp > 8 || art > 600) { A.sev++; A.good = 0; }      // 오디오 8%↑ 손실/RTT 600ms↑ = 망 붕괴
                     else if (alp < 3) { A.good++; if (A.sev > 0) A.sev--; } // 회복
                     else { A.good = 0; }
+                    /* 📉 두 판정이 같은 4초 주기라, 급격한 붕괴에선 AAO(3틱)가 최저 화질(4틱)보다
+                       먼저 와서 «얼굴만» 단계가 한 번도 안 쓰인다. 2틱째에 미리 내려 8초를 벌어 준다. */
+                    if (A.sev >= 2 && (pc.__qStep || 0) < STEPS.length - 1) { pc.__qStep = STEPS.length - 1; applyStep(pc, pc.__qStep); }
+                    A.floor = (pc.__qStep || 0) >= STEPS.length - 1;
                     vcAAOApply();
+                    // 📶 AAO 중엔 영상 통계가 없다 — 오디오 값으로 이어 적는다
+                    if (A.active) { try { vcQualityAcc(alp, art); } catch (_) {} }
                 }).catch(function(){});
             } catch (_) {}
         });
@@ -5108,25 +5251,29 @@ function vcArmFullscreenRetry() {
 })();
 
 /* 📶 저대역 자동 음성전용(AAO) 적용/복구 — vcLocalStream 영상트랙 enabled 토글(재협상 없음, vcBackgroundThrottle 와 동일 안전패턴).
-   사용자가 수동으로 카메라를 꺼둔 경우(vcCamOn===false)엔 관여하지 않는다. sev>=3(≈12초)에서 진입, good>=2(≈8초)에서 복구. */
+   사용자가 수동으로 카메라를 꺼둔 경우(vcCamOn===false)엔 관여하지 않는다. sev>=3(≈12초)에서 진입, good>=8(≈32초)에서 복구.
+   🔁 (2026-09-03 class-1016 Farrah↔ysyt01 「화면이 나왔다 안 나왔다」) 잰 것: D1 vc_quality 21분에 aao 칸이 0/1 을
+      6번 교차(60초 점 표본이라 하한), RTT 600~1,200ms. [추론] 복구가 good>=2(8초)라 회선이 계속 흔들리면
+      «끔 → 8초 뒤 켬 → 다시 끔» 이 된다 — 코드상 성립하는 기전이고 D1 로 증명된 것은 아니다.
+      복구는 화질 회복(위 __qGood>=8)과 같은 틱 수(8틱=32초 연속 조용함)로 — 한 번 음성만으로 갔으면 안정될 때까지 머문다.
+      ⚠️ 맞바꿈: 머무는 동안 영상 통계가 없어 화질 단계도 바닥에 머무므로, 복구 뒤 얼굴이 선명해지기까지는 전보다 길다.
+      ⛔ 진입(sev>=3)은 그대로 — 더 빠르게 끄면 스파이크 한 번에 영상이 꺼진다. 감시: vc_quality_blindspot_harness ⑫ */
 function vcAAOApply() {
     const A = window.__vcAAO; if (!A) return;
     if (typeof vcCamOn === 'undefined') return;
-    if (!A.active && A.sev >= 3 && vcCamOn !== false) {
-        A.active = true;
-        try { if (window.vcLocalStream) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = false; }); } catch (_) {}
+    if (!A.active && A.sev >= 3 && (A.floor || A.sev >= 5) && vcCamOn !== false) {
+        A.active = true; A.good = 0;
+        vcBroadcastCamState(false, 'aao');   // ⚠️ «끄기 전» 에 알린다 — 늦으면 상대가 «검은영상=장애» 로 보고 재협상을 건다(대역폭 위기에 최악)
+        try { vcAAOVideo(0); } catch (_) { try { vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = false; }); } catch (_2) {} }   // 📶 js/idx-vc-qlog.js ⑤ — 검정 대신 «마지막 장면 멈춤»
         try { if (window.vcBg && vcBg.isProcessing) { vcBg._aaoWas = true; vcBg.isProcessing = false; } } catch (_) {}
         /* 🌐 (2026-08-08 Ness ③ 「카메라가 갑자기 꺼진다」) 강사 다수가 필리핀이다.
            이 안내가 한국어뿐이라, 회선이 나빠 **일부러** 끈 것을 «고장» 으로 신고해 왔다.
            한/영을 함께 적는다 — 라벨만 영어이고 내용이 한국어면 읽을 수 없다(사장님 지시). */
         vcAAONotify('📶 <b>Your internet is weak — sending audio only for a moment.</b> The class continues; video returns automatically.<br>인터넷이 약해 잠시 <b>음성만</b> 전송합니다 — 수업은 계속되고, 회복되면 영상이 자동으로 돌아옵니다.');
-        // 상대에게도 알린다. 안 알리면 상대 화면에서 '검은 영상 = 장애' 로 오인해 재협상이 돈다
-        // (대역폭 위기 중에 연결을 다시 맺는 것은 최악의 선택이다).
-        vcBroadcastCamState(false, 'aao');
         console.warn('[vc-aao] 음성전용 진입 (오디오 손실 지속)');
-    } else if (A.active && A.good >= 2) {
+    } else if (A.active && A.good >= 8) {
         A.active = false; A.sev = 0;
-        try { if (vcCamOn !== false && window.vcLocalStream) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = true; }); } catch (_) {}
+        try { if (vcCamOn !== false) vcAAOVideo(1); } catch (_) { try { if (vcCamOn !== false) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = true; }); } catch (_2) {} }
         try { if (window.vcBg && vcBg._aaoWas) { vcBg.isProcessing = true; if (typeof vcBgRenderLoop === 'function') vcBgRenderLoop(); vcBg._aaoWas = false; } } catch (_) {}
         vcAAONotify('📶 <b>Connection recovered — video is back on.</b><br>연결이 회복되어 <b>영상을 다시 켭니다</b>');
         vcBroadcastCamState(vcCamOn !== false, 'aao');   // 사용자가 따로 꺼 둔 상태면 그건 존중
@@ -5151,30 +5298,7 @@ function vcAAONotify(html) {
     } catch (_) {}
 }
 
-/* 📶 회선품질 로깅 — 적응루프에서 손실/RTT를 누적, 60초마다 요약 1건 전송(fire-and-forget, 통화 무관). 강사별 인터넷 품질 파악용.
-   🟢 (2026-07-24 비용절감) 30초 → 60초. 이 값은 '강사 회선이 대체로 어떤가'를 보는 용도라 1분 요약으로 충분하다. D1 쓰기 2배 감소. */
-function vcQualityAcc(loss, rtt) {
-    var Q = window.__vcQ || (window.__vcQ = { s: [], r: [], sentAt: Date.now() });
-    if (typeof loss === 'number' && isFinite(loss)) Q.s.push(loss);
-    if (typeof rtt === 'number' && isFinite(rtt) && rtt > 0) Q.r.push(rtt);
-    if (Date.now() - Q.sentAt < 60000 || !Q.s.length) return;
-    try {
-        var avg = function (a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; };
-        var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-        var isT = (typeof vcIsTeacherRole === 'function') && vcIsTeacherRole();
-        var A = window.__vcAAO || {};
-        var body = JSON.stringify({
-            room: (window.vcRoomId || window.currentRoomId || ''),
-            uid: (u && u.uid) || '', name: (u && u.name) || '',
-            role: isT ? 'teacher' : ((u && u.role) || 'student'),
-            avg_loss: +avg(Q.s).toFixed(1), max_loss: +Math.max.apply(null, Q.s).toFixed(1),
-            avg_rtt: Math.round(avg(Q.r)), aao: A.active ? 1 : 0, samples: Q.s.length
-        });
-        if (navigator.sendBeacon) navigator.sendBeacon('/api/vc/quality-log', new Blob([body], { type: 'application/json' }));
-        else fetch('/api/vc/quality-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true }).catch(function () {});
-    } catch (_) {}
-    window.__vcQ = { s: [], r: [], sentAt: Date.now() };
-}
+/* 📶 회선품질 로깅 vcQualityAcc() 는 js/idx-vc-qlog.js (defer) 로 옮겼다 — 첫 화면 예산. 부르는 곳 3군데는 전부 try/catch 안이다. */
 
 /** RTCPeerConnection을 생성합니다 (다자간 통화용). */
 function vcCreatePeer(userId, username) {
@@ -5197,9 +5321,9 @@ function vcCreatePeer(userId, username) {
         rtcpMuxPolicy: 'require',
         iceCandidatePoolSize: 2
     };
-    if (window.__vcForceRelay && window.__vcForceRelay[userId] && window.__vcIceHasTurn) {
+    if (__vcIceHasTurn && (window.__vcRelayAlways || (window.__vcForceRelay && window.__vcForceRelay[userId]))) {
         _pcCfg.iceTransportPolicy = 'relay';
-        console.warn('[vc-webrtc] 🔁 relay 강제(직접연결 실패 복구):', userId);
+        console.warn('[vc-webrtc] 🔁 relay 강제:', userId);
     }
     const pc = new RTCPeerConnection(_pcCfg);
     vcPeerConnections[userId] = pc;
@@ -5247,6 +5371,7 @@ function vcCreatePeer(userId, username) {
     };
 
     pc.oniceconnectionstatechange = () => {
+        if (vcPeerConnections[userId] !== pc) return;
         const st = pc.iceConnectionState;
         console.log('[vc-webrtc] ICE(' + userId + '):', st);
         // 화면에 ICE 상태 표시
@@ -5260,6 +5385,7 @@ function vcCreatePeer(userId, username) {
             console.log('[vc-webrtc] ✅ ICE 연결 성공:', userId);
             try { if (window.__vcForceRelay) delete window.__vcForceRelay[userId]; } catch(_) {}   // 성공 → 다음엔 다시 직접연결부터 시도
         }
+        if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(userId, pc)) return;
         if (st === 'failed') {
             console.warn('[vc-webrtc] ❌ ICE 실패 → 재연결:', userId);
             try { (window.__vcForceRelay || (window.__vcForceRelay = {}))[userId] = true; } catch(_) {}   // 다음 재연결은 TURN 릴레이 강제(직접 실패 → 릴레이가 더 확실)
@@ -5270,7 +5396,8 @@ function vcCreatePeer(userId, username) {
             console.warn('[vc-webrtc] ⚠ ICE 끊김:', userId, '5초 후 재시도');
             try { pc.restartIce(); } catch(_) {}      // 일시적 끊김은 restartIce 로 회복될 수도
             setTimeout(() => {
-                if (vcPeerConnections[userId] === pc && pc.iceConnectionState === 'disconnected') {
+                if (vcPeerConnections[userId] === pc && pc.iceConnectionState === 'disconnected'
+                    && !(typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(userId, pc))) {
                     console.warn('[vc-webrtc] ICE 여전히 끊김 → 재연결:', userId);
                     vcReconnectPeer(userId);
                 }
@@ -5279,10 +5406,12 @@ function vcCreatePeer(userId, username) {
     };
 
     pc.onconnectionstatechange = () => {
+        if (vcPeerConnections[userId] !== pc) return;
         console.log('[vc-webrtc] conn(' + userId + '):', pc.connectionState);
         if (pc.connectionState === 'connected') {
             console.log('[vc-webrtc] ✅ P2P 연결 완료!', userId);
         }
+        if (typeof vcRecoveryOwnsPeer === 'function' && vcRecoveryOwnsPeer(userId, pc)) return;
         if (pc.connectionState === 'failed') {
             console.error('[vc-webrtc] ❌ P2P 연결 실패:', userId);
             /* 🔧 (2026-07-21) 예전엔 로그만 남기고 복구를 안 했다.
@@ -5380,9 +5509,13 @@ async function vcHandleOffer(data) {
             }
         }
 
-        // 기존 PC가 있으면 정리
-        try { await vcEnsureIceServers(); } catch(_) {}   // TURN 자격증명 보장(없으면 3초 내 포기)
-        const pc = vcCreatePeer(fromId, fromName);
+        if (data.recovery === true && (!existingPc || existingPc.signalingState !== 'stable'
+            || existingPc.connectionState === 'closed')) return;
+        // A recovery offer reuses the existing PC; ordinary initial/rebuild offers keep the old path.
+        const reuse = data.recovery === true && existingPc && existingPc.signalingState === 'stable'
+            && existingPc.connectionState !== 'closed';
+        if (!reuse) { try { await vcEnsureIceServers(); } catch(_) {} }
+        const pc = reuse ? existingPc : vcCreatePeer(fromId, fromName);
         await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
         vcFlushPendingIce(fromId, pc);
         const answer = await pc.createAnswer();
@@ -5539,8 +5672,13 @@ function vcAddRemoteVideo(userId, username, stream) {
     //   재시도 사다리(0.4s/1.2s/2.8s/5s) + volume=1 강제 + unmute가 재생을 멈추면 즉시 play 재시도.
     vid.play().then(() => {
         const tryUnmute = (n) => {
+            // 🔊 증폭 중(vcOutBoost)엔 이 타일 소리가 WebAudio 게인으로 나간다(요소는 일부러
+            //    muted). 여기서 되살리면 같은 트랙이 요소+게인으로 «두 번» 재생돼 최대 4배가
+            //    되고, 다시 음소거해 줄 계기가 없다 — 재접속·강제 재연결마다 재현(2026-08-27).
+            //    vcEnsureRemoteAudio(1598행)·vcAudioWatchdog 과 같은 규칙.
+            if (window.vcOutBoost) return;
             try {
-                vid.volume = 1;
+                vid.volume = vcOutVol();
                 vid.muted = false;
                 if (vid.paused) vid.play().catch(() => {});
             } catch(_) {}
@@ -5569,6 +5707,25 @@ function vcAddRemoteVideo(userId, username, stream) {
 // 🔧 (2026-07-05) 강사 판별 강화 — 로그인 role 뿐 아니라 URL 파라미터(vc_role), localStorage,
 //   MangoV3, 그리고 자동입장처럼 로그인이 없을 때를 대비해 '이름 휴리스틱(교사/강사/선생님/teacher)'
 //   까지 함께 본다. 하나라도 강사로 판단되면 강사 UI(별 버튼)를 보여준다.
+/* 🎭 수업 역할 정규화의 단일 정본.
+   화면 노출·교재 제어·WebSocket join-room 이 반드시 같은 답을 쓰게 한다.
+   부분 문자열 정규식은 student_teacher 같은 값을 강사로 올릴 수 있어 명시 목록만 허용한다. */
+window.vcNormalizeClassRole = function(raw){
+    try {
+        var r = String(raw == null ? '' : raw).trim().toLowerCase().replace(/[\s-]+/g, '_');
+        var teachers = {
+            teacher:1, tutor:1, instructor:1, '교사':1, '강사':1,
+            hq_teacher:1, head_teacher:1, english_teacher:1, chinese_teacher:1,
+            foreign_teacher:1, native_teacher:1
+        };
+        var admins = { admin:1, hq:1, hq_admin:1 };
+        if (teachers[r]) return 'teacher';
+        if (admins[r]) return 'admin';
+        if (r === 'student' || r === 'observer') return r;
+    } catch(_){}
+    return '';
+};
+
 function vcIsTeacherRole(){
     try {
         var r = '';
@@ -5579,7 +5736,8 @@ function vcIsTeacherRole(){
         if (!r) { try { r = window.vcRoleStored ? window.vcRoleStored() : ''; } catch(e){} }
         if (!r) { try { if (window.MangoV3 && window.MangoV3.user && window.MangoV3.user.role) r = window.MangoV3.user.role; } catch(e){} }
         if (!r) r = window.vcMyRole || '';
-        if (r === 'teacher' || r === 'admin') return true;
+        var _nr = window.vcNormalizeClassRole ? window.vcNormalizeClassRole(r) : '';
+        if (_nr === 'teacher' || _nr === 'admin') return true;
         /* 🚫 (2026-08-12 Melca 6번 「학생 화면에 자물쇠 아이콘이 보인다」)
            역할이 **이미 정해져 있으면** 이름 추측을 쓰지 않는다.
            이름 휴리스틱은 «아무 정보도 없을 때» 쓰는 마지막 수단인데, 아래 두 경우에
@@ -5609,6 +5767,21 @@ window.vcIsStaffNow = function(){
         if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin') return true;
         return (typeof vcIsTeacherRole === 'function') ? !!vcIsTeacherRole() : false;
     } catch(e){ return false; }
+};
+/* 🎭 (2026-08-13) 학생 판정의 «정본» — 배터리 절전 등 «학생일 때만» 거는 기능은 전부 이걸 쓴다.
+   [왜 별도로 두는가] «강사가 아니면 학생»(!vcIsStaffNow) 판정은 역할이 아직 확정되지 않은
+   강사(로그인은 됐지만 role 이 빈 값, vcMyRole 미설정 입장 경로)를 학생으로 오판해
+   탭 전환마다 강사 카메라를 꺼 버렸다(필리핀 매니저 재신고 8/10).
+   → «확실한 학생»만 true. 역할이 불확실하면 false — 학생 배터리를 조금 못 아끼는 것이
+   강사 얼굴이 검게 되는 사고보다 싸다. 역할 추측은 이 정본 안에서만 한다. */
+window.vcIsStudentNow = function(){
+    try {
+        if (window.vcIsStaffNow && window.vcIsStaffNow()) return false;
+        if (window.vcMyRole === 'student' || window.vcMyRole === 'observer') return true;
+        var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+        if (u && String(u.role || '').toLowerCase() === 'student') return true;
+    } catch(e){}
+    return false;
 };
 
 /* 🪞 (2026-08-12 강사 Shas 1번) AI 웜업 — 학생의 대화를 강사 화면에 비춰 준다.
@@ -5693,9 +5866,18 @@ window.vcRenderTextbookControls = function(){
         var SEL = ['button[onclick*="triggerUpload"]',
                    'button[onclick*="openTextbookLibrary"]',
                    'button[onclick*="pdfStopShare"]'];
+        /* 🔴 (2026-08-28) `b.style.display='none'` 로는 **안 숨겨진다.**
+           index.html 의 `.pdf-controls > button{display:inline-flex !important}` 가
+           작성자 !important 라 인라인 style 을 이긴다(CLAUDE.md 「CSS 를 JS 로 덮었는데
+           안 먹음」). 그래서 이 이중 방어의 «버튼 숨기기» 절반이 죽어 있었고, 학생에게
+           📁교재 업로드·📎파일 업로드·📚라이브러리·공유 중지가 그대로 보였다 —
+           누르면 게이트가 거절하므로 「보이는데 안 눌리는 버튼」이 됐다(사장님 제보).
+           ⚠️ 확인은 코드가 아니라 브라우저 getComputedStyle 로 할 것 — 인라인엔
+              display:none 이 들어가 있는데 계산값이 flex 다. */
         SEL.forEach(function(sel){
             bar.querySelectorAll(sel).forEach(function(b){
-                b.style.display = staff ? '' : 'none';
+                if (staff) b.style.removeProperty('display');
+                else b.style.setProperty('display', 'none', 'important');
             });
         });
     } catch(_){}
@@ -5782,6 +5964,15 @@ function vcUpdatePraiseRoster(){
         roster.style.display = 'flex';
         // 좁은 영상 칸에선 제목을 감춰 한 줄로 유지
         try { roster.classList.toggle('vpr-narrow', pane.getBoundingClientRect().width < 300); } catch(e){}
+        // Pane width animates after split changes; keep the compact roster in sync.
+        if (!pane.__vcRosterResize && typeof ResizeObserver !== 'undefined') {
+            pane.__vcRosterResize = new ResizeObserver(function(){
+                roster.classList.toggle('vpr-narrow', pane.getBoundingClientRect().width < 300);
+                var toast = document.getElementById('vc-roster-toast');
+                if (toast) toast.style.top = (roster.offsetTop + roster.offsetHeight + 4) + 'px';
+            });
+            pane.__vcRosterResize.observe(pane);
+        }
         // 안내 말풍선은 로스터 줄 '바로 아래'에 표시
         var rt2 = document.getElementById('vc-roster-toast');
         if (rt2){ try { rt2.style.top = (roster.offsetTop + roster.offsetHeight + 4) + 'px'; } catch(e){ rt2.style.top = '48px'; } }
@@ -6255,7 +6446,7 @@ window.vcShowLocalPlaceholder = function(kind, errMsg) {
     const ph = document.createElement('div');
     ph.className = 'vc-local-placeholder';
     ph.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e293b,#0f172a);color:#fff;padding:14px;text-align:center;z-index:4;border-radius:inherit;gap:8px;font-size:12px;line-height:1.5;';
-    const isEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
+    const isEn = miIsEn();
     const heads = {
         'camera-off':  isEn ? '📷 Camera is off'           : '📷 카메라가 꺼져 있어요',
         'camera-fail': isEn ? '⚠️ Camera access failed'    : '⚠️ 카메라를 사용할 수 없어요',
@@ -6380,6 +6571,17 @@ function vcSmartFitAll(){
 window.addEventListener('resize', function(){ setTimeout(vcSmartFitAll, 150); });
 window.addEventListener('orientationchange', function(){ setTimeout(vcSmartFitAll, 350); });
 
+// AudioContext.close() can reject asynchronously when a reconnect and the old
+// animation loop both clean up the same monitor. A synchronous try/catch alone
+// leaves that rejection unhandled.
+function vcCloseAudioContext(ctx) {
+    if (!ctx || ctx.state === 'closed') return;
+    try {
+        const closing = ctx.close();
+        if (closing && typeof closing.catch === 'function') closing.catch(function() {});
+    } catch (_) {}
+}
+
 function attachStreamMonitor(box, stream) {
     if (!box || !stream) return;
     try { vcInstallSmartFit(box.querySelector('video')); } catch(e){}
@@ -6409,7 +6611,7 @@ function attachStreamMonitor(box, stream) {
             const hideEl = document.createElement('span');
             hideEl.className = 'vs-icon vs-hide';
             hideEl.textContent = '🙈';
-            hideEl.title = (typeof currentLang !== 'undefined' && currentLang === 'en')
+            hideEl.title = miIsEn()
                 ? 'Hide faces (still in class)' : '얼굴 화면 숨기기 (수업은 계속 참여)';
             hideEl.addEventListener('click', function(e){
                 e.stopPropagation();
@@ -6451,7 +6653,7 @@ function attachStreamMonitor(box, stream) {
                     box.insertBefore(cov, status);
                 }
                 const txt = cov.querySelector('.cc-txt');
-                if (txt) txt.textContent = (typeof currentLang !== 'undefined' && currentLang === 'en') ? 'Camera off' : '카메라 꺼짐';
+                if (txt) txt.textContent = miIsEn() ? 'Camera off' : '카메라 꺼짐';
             }
         }
     }
@@ -6473,7 +6675,7 @@ function attachStreamMonitor(box, stream) {
         if (box.__vsMon.key === monKey) return;                 // 스트림+오디오트랙 동일 = 재등록 불필요
         try { clearInterval(box.__vsMon.iconInt); } catch(e){}
         box.__vsMon.stop = true;
-        try { box.__vsMon.ctx && box.__vsMon.ctx.close(); } catch(e){}
+        vcCloseAudioContext(box.__vsMon.ctx);
         box.__vsMon = null;
     }
     const mon = { key: monKey, stream: stream, stop: false, iconInt: null, ctx: null,
@@ -6498,7 +6700,7 @@ function attachStreamMonitor(box, stream) {
         const data = new Uint8Array(analyser.frequencyBinCount);
         function loop() {
             if (mon.stop || !box.isConnected) {
-                try { ctx.close(); } catch(e) {}
+                vcCloseAudioContext(ctx);
                 if (box.__vsMon === mon) box.__vsMon = null;
                 return;
             }
@@ -6527,7 +6729,8 @@ function attachStreamMonitor(box, stream) {
     } catch(e) {
         // 오디오 트랙이 없으면 createMediaStreamSource 가 던진다. 이때 만들어 둔 AudioContext 를
         // 닫지 않으면 브라우저의 AudioContext 개수 상한을 갉아먹는다(누수). (2026-07-24 재점검)
-        try { if (mon.ctx) { mon.ctx.close(); mon.ctx = null; } } catch(_) {}
+        vcCloseAudioContext(mon.ctx);
+        mon.ctx = null;
         console.warn('음량 분석 실패:', e);
     }
 }
@@ -6535,7 +6738,8 @@ function attachStreamMonitor(box, stream) {
 /* 🔇 (2026-08-07 강사 건의 1) "마이크는 켜져 있는데 소리가 안 들어온다"를 타일 위에 그대로 적는다.
    [왜 필요한가] 강사가 가장 답답해하는 순간은 «학생이 말을 안 하는 건지, 마이크가 죽은 건지» 모를 때다.
    음소거(🎤 ✖)와 «켜져 있는데 무음»은 완전히 다른 상황인데 화면에서 구분이 안 됐다.
-   문구는 한/영 두 벌 — 강사 다수가 필리핀이다. */
+   문구는 한/영 두 벌 — 강사 다수가 필리핀이다.
+   ⛔ 2026-09-11 지시 — 학생·관찰자에겐 안 띄운다(8초 침묵에도 떴다). 강사 버튼만 남긴다. */
 function vcMarkNoSound(box, on) {
     if (!box) return;
     let b = box.querySelector('.vc-nosound-badge');
@@ -6546,20 +6750,17 @@ function vcMarkNoSound(box, on) {
     const uid = (box.id || '').replace('vc-video-', '');
     /* 강사에게는 «누를 수 있는» 배지로 준다 — 이 한 번의 클릭이 학생 브라우저에서 마이크를
        다시 잡게 한다(건의 1의 "학생 기기 설정을 바꾸고 싶다"에 대한 가장 가벼운 답).
-       학생·관찰자에게는 그냥 안내 문구. */
+       학생·관찰자에게는 안 띄운다(위 ⛔). */
     const staff = (typeof vcIsStaffNow === 'function') ? vcIsStaffNow() : false;
-    b = document.createElement(staff && uid ? 'button' : 'div');
+    if (!(staff && uid)) return;
+    b = document.createElement('button');
     b.className = 'vc-nosound-badge';
-    b.textContent = staff && uid
-        ? (en ? '🔇 No sound · Tap to fix' : '🔇 소리 없음 · 눌러서 고치기')
-        : (en ? '🔇 No sound coming in' : '🔇 소리가 안 들어와요');
+    b.textContent = en ? '🔇 No sound · Tap to fix' : '🔇 소리 없음 · 눌러서 고치기';
     b.title = en
         ? 'Mic is on but nothing is heard. Tapping asks their browser to pick up the microphone again.'
         : '마이크는 켜져 있는데 소리가 없어요. 누르면 학생 브라우저가 마이크를 다시 잡습니다.';
-    if (staff && uid) {
-        b.type = 'button';
-        b.addEventListener('click', function (e) { e.stopPropagation(); vcRequestMicFix(uid, b); });
-    }
+    b.type = 'button';
+    b.addEventListener('click', function (e) { e.stopPropagation(); vcRequestMicFix(uid, b); });
     box.appendChild(b);
 }
 
@@ -6817,7 +7018,7 @@ function vcMarkPeerReconnecting(box) {
             + 'background:rgba(15,23,42,.86);color:#93c5fd;font-size:13px;font-weight:700;text-align:center;line-height:1.4;padding:8px;z-index:5;pointer-events:none;';
         box.appendChild(ov);
     }
-    const en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+    const en = miIsEn();
     ov.innerHTML = '🔄<span>' + (en ? 'Reconnecting…<br>(please wait a moment)' : '재연결 중…<br>(잠시만 기다려 주세요)') + '</span>';
     clearTimeout(box.__ghostTimer);
     box.__ghostTimer = setTimeout(function(){
@@ -6836,6 +7037,7 @@ function vcSweepGhostTiles() {
 window.vcSweepGhostTiles = vcSweepGhostTiles;
 
 function vcRemovePeer(userId, reason) {
+    __vcPeerEpoch[userId] = (__vcPeerEpoch[userId] || 0) + 1;
     const pc = vcPeerConnections[userId];
     if (pc) { pc.close(); delete vcPeerConnections[userId]; }
     try { delete vcPendingCandidates[userId]; } catch(_){}  // fix (2026-07-05) 버퍼된 ICE 후보 정리
@@ -7178,8 +7380,10 @@ async function vcPopulateMicSelect() {
 async function vcSwitchMic(deviceId) {
     if (!deviceId) return;
     try {
+        let noise = true;
+        try { noise = localStorage.getItem('mangoi_vc_noise') !== '0'; } catch (_) {}
         const stream = await navigator.mediaDevices.getUserMedia({
-            audio: { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+            audio: { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: noise, autoGainControl: true }
         });
         const newTrack = stream.getAudioTracks()[0];
         if (!newTrack) throw new Error('오디오 트랙 없음');
@@ -7641,7 +7845,8 @@ window.vcToggleContentTab = function(tabName){
     }
     var panel = document.getElementById('tab-' + tabName);
     var alreadyShowing = panel && panel.classList.contains('active') && !vcIsContentCollapsed();
-    if (alreadyShowing && tabName !== 'whiteboard') {
+    // 📖 (2026-08-20) 교재도 칠판처럼 다시 눌러도 안 접는다
+    if (alreadyShowing && tabName !== 'whiteboard' && tabName !== 'pdf') {
         vcSetContentCollapsed(true);
     } else {
         vcSetContentCollapsed(false);
@@ -8058,6 +8263,8 @@ function vcOnSegResults(results){
 //     ⚠ busy 플래그 + currentTime 체크 - WASM "memory access out of bounds" 방지
 async function vcBgRenderLoop(){
   if (!vcBg.isProcessing) return;
+  // Keep the display clock running while inference is pending; sending prevents overlap.
+  vcBg.rafId = requestAnimationFrame(vcBgRenderLoop);
   const v = vcBg.hiddenVideo;
   // Phase 7m: 모델이 무거워진 만큼 3 프레임마다 1번 처리 (CPU 66% 절약 → 멈춤 방지)
   //   ↳ 화상통화에선 20fps 정도면 충분히 자연스러움
@@ -8075,6 +8282,9 @@ async function vcBgRenderLoop(){
   const shouldProcess = (vcBg.frameTick % _everyN === 0);
   if (shouldProcess && v && v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0
       && vcBg.segmenter && !vcBg.sending) {
+    // A 15fps camera can be displayed at 60Hz; do not infer the same frame again.
+    if (typeof v.currentTime === 'number' && vcBg._lastFrameTime === v.currentTime) return;
+    vcBg._lastFrameTime = v.currentTime;
     vcBg.sending = true;
     const _t0 = window.vcPerf ? vcPerf.begin() : 0;   // ⏱ 모델 추론 + 합성(onResults) 시간 측정
     try {
@@ -8088,7 +8298,6 @@ async function vcBgRenderLoop(){
       vcBg.sending = false;
     }
   }
-  vcBg.rafId = requestAnimationFrame(vcBgRenderLoop);
 }
 
 // --- 5-b) 숨겨진 카메라 비디오 준비 (원본 스트림 → segmenter 입력) ---
@@ -8573,12 +8782,12 @@ window.vcSetBackground = async function(mode){
 
   // 처리 시작
   vcBg.isProcessing = true;
-  if (!vcBg.rafId) vcBgRenderLoop();
 
   // 첫 프레임 즉시 한 번 그려서 검정 화면 방지 (RAF 첫 콜백 전 대기 시간 동안)
   try {
     await vcBg.segmenter.send({ image: vcBg.hiddenVideo });
   } catch(e) { console.warn('[vc-bg] 초기 프레임 송신 실패:', e); }
+  if (vcBg.isProcessing && !vcBg.rafId) vcBgRenderLoop();
 
   // 캔버스 스트림 생성 → 로컬 비디오에 연결 + sender 교체
   if (!vcBg.processedStream) {
@@ -9146,7 +9355,7 @@ function _warmupRenderBlocked() {
       '<div style="font-size:21px;font-weight:800;color:#ef4444;margin-bottom:12px" data-ko="수업 중에는 사용할 수 없습니다." data-en="Cannot use during class.">수업 중에는 사용할 수 없습니다.</div>' +
       '<div style="font-size:15px;color:#cbd5e1;line-height:1.6" data-ko="수업 전이나 후에 이용해 주세요." data-en="Please use it before or after class.">수업 전이나 후에 이용해 주세요.</div>' +
       '<div style="margin-top:20px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:12px 18px;font-size:12.5px;color:#fca5a5;max-width:420px">' +
-        '💡 <span data-ko="선생님이 웜업 화면을 열어 주시면 함께 쓸 수 있어요." data-en="You can use it together when your teacher opens the warm-up screen.">선생님이 웜업 화면을 열어 주시면 함께 쓸 수 있어요.</span>' +
+        '💡 <span data-ko="선생님이 말하기 연습 화면을 열어 주시면 함께 쓸 수 있어요." data-en="You can use it together when your teacher opens the speaking practice screen.">선생님이 말하기 연습 화면을 열어 주시면 함께 쓸 수 있어요.</span>' +
       '</div>';
     panel.appendChild(bl);
   }
@@ -9204,7 +9413,7 @@ var GAME_SPEED_LEVELS = [
   { lvl:6, ico:'⚡', ko:'초고속',     en:'Super Fast' },
   { lvl:7, ico:'🔥', ko:'극한',       en:'Extreme' }
 ];
-function _gameSpeedName(s){ return (window.currentLang === 'en') ? s.en : s.ko; }
+function _gameSpeedName(s){ return miIsEn() ? s.en : s.ko; }
 function gameSpeedLabelSync(){
   var cur = GAME_SPEED_LEVELS[(GAME_STAGE || 1) - 1] || GAME_SPEED_LEVELS[2];
   var el = document.getElementById('game-speed-cur');
@@ -9333,7 +9542,7 @@ function _gameRenderSuite(which) {
   const v = (_gameState.current && _gameState.current.sentence)
             || _GAME_VOCAB[Math.floor(Math.random() * _GAME_VOCAB.length)];
   _gameState.current = { sentence: v, picked: [] };
-  const lang = (window.currentLang === 'en') ? 'en' : 'ko';
+  const lang = miIsEn() ? 'en' : 'ko';
   const src = '/english-mastery-suite.html?game=' + which
             + '&sentence=' + encodeURIComponent(v.en)
             + (v.ko ? '&ko=' + encodeURIComponent(v.ko) : '')
@@ -9440,7 +9649,7 @@ function _gameRenderShooter() {
   const v = (_gameState.current && _gameState.current.sentence)
             || _GAME_VOCAB[Math.floor(Math.random() * _GAME_VOCAB.length)];
   _gameState.current = { sentence: v, picked: [] };
-  const lang = (window.currentLang === 'en') ? 'en' : 'ko';
+  const lang = miIsEn() ? 'en' : 'ko';
   const src = '/student-game-shooter.html?sentence=' + encodeURIComponent(v.en) + '&lang=' + lang;
   const area = document.getElementById('game-area');
   if (!area) return;
@@ -10260,7 +10469,7 @@ function vcTogglePip(btn) {
       btn.classList.add('vc-pip-nudge');
       var tip = document.createElement('div');
       tip.className = 'vc-pip-tip';
-      var en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+      var en = miIsEn();
       tip.textContent = en
         ? '📌 Try PIP! Keep the other person\'s face in a small floating window while you view the textbook.'
         : '📌 PIP를 눌러보세요! 교재를 보면서도 상대방 얼굴을 작은 창으로 계속 띄워둘 수 있어요.';
@@ -10291,7 +10500,7 @@ function vcSyncPipVideos() {
   }
   if (sources.length === 0) {
     body.innerHTML = '<div class="vc-pip-empty">'
-      + (typeof currentLang !== 'undefined' && currentLang === 'en'
+      + (miIsEn()
           ? 'Other participants appear here'
           : '다른 참가자가 들어오면 여기에 표시됩니다')
       + '</div>';
@@ -10332,7 +10541,7 @@ function vcSyncPipVideos() {
   // 모두 사라졌으면 empty
   if (body.children.length === 0) {
     body.innerHTML = '<div class="vc-pip-empty">'
-      + (typeof currentLang !== 'undefined' && currentLang === 'en'
+      + (miIsEn()
           ? 'Other participants appear here'
           : '다른 참가자가 들어오면 여기에 표시됩니다')
       + '</div>';
@@ -10547,9 +10756,17 @@ function wbPaintStroke(ctx, W, H, data) {
     ctx.strokeStyle = data.color || '#000'; ctx.lineWidth = data.size || 3;
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.beginPath();
-    data.points.forEach((p, i) => { const x = p[0] * W, y = p[1] * H; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+    wbInkPath(ctx, data.points, W, H);
     ctx.stroke();
     ctx.restore();
+}
+/* 🖍 획 경로 정본 — 중점 2차곡선(첫·끝 점은 그대로). pen_smoothing_harness */
+function wbInkPath(c, P, W, H) {
+    var n = P.length, i, x, y;
+    if (!n) return;
+    c.moveTo(P[0][0] * W, P[0][1] * H);
+    for (i = 1; i < n - 1; i++) { x = P[i][0] * W; y = P[i][1] * H; c.quadraticCurveTo(x, y, (x + P[i + 1][0] * W) / 2, (y + P[i + 1][1] * H) / 2); }
+    if (n > 1) c.lineTo(P[n - 1][0] * W, P[n - 1][1] * H);
 }
 function wbPaintText(ctx, W, H, data) {
     if (!data || !data.text) return;
@@ -10740,14 +10957,6 @@ function wbInit() {
         }
 
         if (wbTool === 'pen' || wbTool === 'eraser') {
-            ctx.beginPath();
-            ctx.moveTo(wbLastX, wbLastY);
-            ctx.lineTo(x, y);
-            ctx.strokeStyle = wbTool === 'eraser' ? '#ffffff' : color;
-            ctx.lineWidth = wbTool === 'eraser' ? size * 3 : size;
-            ctx.lineCap = 'round';
-            ctx.stroke();
-
             // 정규화된 좌표를 서버로 전송 (다른 참가자에게 공유) + 내 기록에도 남긴다
             const _seg = {
                 tool: wbTool,
@@ -10757,6 +10966,7 @@ function wbInit() {
                 toY: y / canvas.height,
                 color, size
             };
+            wbPaintSeg(ctx, canvas.width, canvas.height, _seg);   // 🖍 칠하기 정본 하나(받는 쪽과 같은 코드)
             wbRecord({ k: 'seg', d: _seg });   // 🖍 내 획도 기록해야 리사이즈 후 남는다
             if (vcConn) vcConn.send({ type: 'whiteboard-draw', data: _seg });
             wbLastX = x; wbLastY = y;
@@ -10903,7 +11113,7 @@ function wbDrawPending(){
   for (const s of wbOcrPending){
     c.strokeStyle = s.color; c.lineWidth = s.size;
     c.beginPath();
-    s.points.forEach((p, i) => { if (i === 0) c.moveTo(p[0], p[1]); else c.lineTo(p[0], p[1]); });
+    wbInkPath(c, s.points, 1, 1);
     c.stroke();
   }
   c.restore();
@@ -10919,7 +11129,7 @@ function wbAiPreview(color, size){
   c.strokeStyle = color; c.globalAlpha = 0.45;
   c.lineWidth = size; c.lineCap = 'round'; c.lineJoin = 'round';
   c.beginPath();
-  wbAiPoints.forEach((p, i) => { if (i === 0) c.moveTo(p[0], p[1]); else c.lineTo(p[0], p[1]); });
+  wbInkPath(c, wbAiPoints, 1, 1);
   c.stroke();
   c.restore();
 }
@@ -10933,12 +11143,7 @@ function wbCommitRawStroke(){
   if (!wbAiPoints || wbAiPoints.length === 0) return;
   const color = document.getElementById('wb-color').value;
   const size = parseInt(document.getElementById('wb-size').value) || 3;
-  ctx.save();
-  ctx.strokeStyle = color; ctx.lineWidth = size; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.beginPath();
-  wbAiPoints.forEach((p, i) => { if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); });
-  ctx.stroke();
-  ctx.restore();
+  wbPaintStroke(ctx, 1, 1, { points: wbAiPoints, color, size });
   const pn = wbAiPoints.map(p => [p[0] / canvas.width, p[1] / canvas.height]);
   wbRecord({ k: 'stroke', d: { points: pn, color, size } });   // 🖍 리사이즈 후에도 남게
   if (vcConn) { try { vcConn.send({ type: 'whiteboard-stroke', data: { points: pn, color, size } }); } catch(_){} }
@@ -10998,7 +11203,7 @@ function wbCommitPendingAsInk(pending){
   for (const s of pending){
     ctx.strokeStyle = s.color; ctx.lineWidth = s.size;
     ctx.beginPath();
-    s.points.forEach((p, i) => { if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); });
+    wbInkPath(ctx, s.points, 1, 1);
     ctx.stroke();
     const pn = s.points.map(p => [p[0] / canvas.width, p[1] / canvas.height]);
     wbRecord({ k: 'stroke', d: { points: pn, color: s.color, size: s.size } });   // 🖍 리사이즈 후에도 남게
@@ -11346,6 +11551,8 @@ let pdfDoc = null, pdfPageNum = 1, pdfCurrentId = null, pdfPagesPerView = 1;
 let pdfZoom = 1;                          // 사용자 줌 배율
 let pdfDrawTool = 'none';                 // 'none' | 'pen' | 'eraser'
 let pdfAnnotations = {};                  // { [pageNum]: [strokes] }
+const pdfAnnotationsByDoc = new Map(); // Session only: keep each image/PDF's own notes.
+let pdfLoadGeneration = 0;
                                           // stroke = { tool, color, size, points: [[nx,ny], ...] (정규화 0~1) }
 
 // 파일 확장자/MIME으로 이미지 여부 판별
@@ -11593,7 +11800,7 @@ async function pdfUpload(input) {
     }
 
     // 클라이언트측 확장자 검증 — 교재 뷰어가 렌더할 수 있는 것만 교재로 올린다
-    const allowedExts = ['.pdf', '.jpg', '.jpeg', '.png'];
+    const allowedExts = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
     const isAllowed = f => allowedExts.some(e => String(f.name || '').toLowerCase().endsWith(e));
     const okFiles = files.filter(isAllowed);
     const badFiles = files.filter(f => !isAllowed(f));
@@ -11739,8 +11946,11 @@ async function pdfUpload(input) {
 })();
 
 async function pdfLoad(url, kind) {
-    // fix (2026-06-01) — 현재 교재 URL 기억 (다운로드 버튼용)
-    try { window._vcCurrentPdfUrl = url; window._vcCurrentPdfKind = kind || ''; } catch(_){}
+    const generation = ++pdfLoadGeneration;
+    const roomAtStart = typeof vcRoomId === 'undefined' ? '' : vcRoomId || '';
+    const pendingText = document.getElementById('ph265-textinput');
+    if (pendingText) pendingText.blur();
+    let nextDoc;
     // kind가 지정되지 않았으면 URL/MIME으로 추정 (레거시 호출 호환)
     if (!kind) {
         // HEAD 시도: Content-Type을 보고 판단
@@ -11755,7 +11965,7 @@ async function pdfLoad(url, kind) {
     }
 
     if (kind === 'image') {
-        pdfDoc = await pdfBuildImageDoc(url);
+        nextDoc = await pdfBuildImageDoc(url);
     } else {
         /* 📕 PDF.js 는 여기서 «처음» 받는다(2026-08-09 지연 로딩). 홈 첫 화면에선 안 받는다.
            ensurePdfJs() 가 workerSrc 까지 세팅해 주고, 이미 받아 뒀으면 즉시 돌아온다. */
@@ -11769,22 +11979,25 @@ async function pdfLoad(url, kind) {
            ⚠️ 서버가 Range 를 못 받아 주면 pdf.js 가 알아서 통짜 다운로드로 되돌아간다 — 안전한 변경이다.
            ⚠️ disableAutoFetch 를 켜면 «뒤 페이지로 훌쩍 뛸 때» 그 조각을 그때 받는다.
               그래서 아래 pdfRender 에서 **다음 페이지를 미리 받아 둔다**(체감 지연 제거). */
-        pdfDoc = await pdfjsLib.getDocument({
+        nextDoc = await pdfjsLib.getDocument({
             url: url,
             rangeChunkSize: 131072,     // 128KB — 조각이 너무 작으면 왕복이 늘어 오히려 느리다
             disableAutoFetch: true,
             disableStream: false
         }).promise;
     }
-    /* 📝 (2026-07-21) 새 교재를 열면 이전 교재의 필기를 비운다 — 교사 피드백
-       원인: pdfAnnotations 는 {페이지번호: 획들} 로만 저장된다. 교재가 '이미지 여러 장'
-             (라이브러리 시퀀스)이면 파일이 바뀌어도 페이지 번호가 똑같이 1 이라
-             이전 장에 그린 필기가 다음 장에 그대로 다시 그려졌다.
-       같은 파일을 다시 여는 경우(재공유·재렌더)는 지우지 않는다. */
+    if (generation !== pdfLoadGeneration
+        || roomAtStart !== (typeof vcRoomId === 'undefined' ? '' : vcRoomId || '')) return false;
+    pdfDoc = nextDoc;
+    window._vcCurrentPdfUrl = url;
+    window._vcCurrentPdfKind = kind || '';
+    // Switching image pages must isolate notes, while returning restores them.
     try {
-        if (window._pdfAnnoDocKey !== url) {
-            window._pdfAnnoDocKey = url;
-            pdfAnnotations = {};
+        const docKey = (typeof vcRoomId === 'undefined' ? '' : vcRoomId || '') + '|' + new URL(url, location.origin).href;
+        if (window._pdfAnnoDocKey !== docKey) {
+            if (window._pdfAnnoDocKey) pdfAnnotationsByDoc.set(window._pdfAnnoDocKey, pdfAnnotations);
+            window._pdfAnnoDocKey = docKey;
+            pdfAnnotations = pdfAnnotationsByDoc.get(docKey) || {};
             ['pdf-anno', 'pdf-anno-2'].forEach(function (id) {
                 var a = document.getElementById(id);
                 if (a) { try { a.getContext('2d').clearRect(0, 0, a.width, a.height); } catch (e) {} }
@@ -11793,6 +12006,8 @@ async function pdfLoad(url, kind) {
     } catch (e) {}
     pdfPageNum = 1;
     pdfRender();
+    /* ⚡ (2026-08-12 마이마이 ②) 현재 파일 렌더가 자리 잡은 뒤 시퀀스의 다음 파일을 미리 받는다 */
+    setTimeout(function () { try { _pdfPrefetchNextSeq(); } catch (_) {} }, 1200);
 }
 
 // fix (2026-06-01) — 현재 화면의 교재 파일 다운로드
@@ -11880,7 +12095,7 @@ async function _pdfRenderInner(_seq) {
         baseScale = Math.min(availW / baseVp.width, availH / baseVp.height);
         if (!isFinite(baseScale) || baseScale <= 0) baseScale = 1.0;
     }
-    const scale = baseScale * pdfZoom;
+    const scale = baseScale * pdfZoom * (window._pdfDPR||1);
 
     // 1번 페이지
     const canvas1 = document.getElementById('pdf-canvas');
@@ -12001,10 +12216,7 @@ function pdfDrawStroke(ctx, w, h, s) {
     }
     ctx.strokeStyle = s.color;
     ctx.beginPath();
-    s.points.forEach((p, i) => {
-        const x = p[0] * w, y = p[1] * h;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    });
+    wbInkPath(ctx, s.points, w, h);
     ctx.stroke();
     ctx.restore();
 }
@@ -12117,6 +12329,8 @@ function pdfBindAnnoEvents(annoId) {
             const px = (e.clientX - rect.left) / rect.width;
             const py = (e.clientY - rect.top) / rect.height;
             function commit(){
+                if (inp._committed) return;
+                inp._committed = true;
                 const txt = inp.value.trim();
                 inp.remove();
                 if (!txt) return;
@@ -12611,6 +12825,59 @@ async function pdfEnsureSequence() {
         return seq.length > 1;
     } catch(e) { console.warn('[pdfEnsureSequence]', e); return false; }
 }
+/* ⚡ (2026-08-12 마이마이 ②) 「책이 다음 장으로 안 넘어가고 랙이 걸린다」 — 남은 원인.
+   1장=1파일 교재에서는 ◀▶ 의 대부분이 «다음 파일 통째 교체» 라 매번 새 다운로드였다.
+   /raw 응답은 immutable 캐시이므로, 시퀀스의 다음 파일을 미리 받아 두면 넘김이 캐시에서 뜬다.
+   ⚠️ 수업 회선(WebRTC)과 경쟁하지 않게: 동시 1개만, 20MB 초과는 건너뛴다.
+      받다 만 응답은 캐시에 안 남으므로 blob() 으로 끝까지 받는다.
+
+   📊 (2026-08-13) 운영 DB 를 실제로 세어 보고 «한 장만 미리 받는» 것을 넓힌다.
+      textbook_files 38,922개 중 **38,860개(99.84%)가 JPG** 이고 PDF 는 62개뿐이다
+      (PDF 는 SIU BOOKS 58 · Shake it up 4). 즉 마이마이가 5번 반복한 「PDF 가 느리다」는
+      대부분 **PDF 가 아니라 «1장=1파일 JPG 를 넘길 때마다 새로 받는 것»** 이었다.
+      JPG 한 장은 작으므로 앞 3장을 미리 받아도 회선 부담이 크지 않다. 뒤로 넘기는 경우가
+      있어 **이전 1장**도 받아 둔다. 20MB 상한과 «동시 1개» 는 그대로 지킨다(순차 처리).
+      → 이래도 느리면 남은 원인은 회선이지 코드가 아니다(측정값을 문서에 남겼다). */
+const PDF_PREFETCH_AHEAD = 3;    // 앞으로 몇 장
+const PDF_PREFETCH_BEHIND = 1;   // 뒤로 몇 장
+let _pdfPrefetchBusy = false;
+window._pdfPrefetchedUrls = window._pdfPrefetchedUrls || Object.create(null);
+function _pdfPrefetchNextSeq() {
+    try {
+        var seq = window._libSequence;
+        if (!seq || seq.length < 2) return;
+        if (_pdfPrefetchBusy) return;
+        var cur = window._libSeqIdx || 0;
+        // 가까운 것부터: 다음 1·2·3장 → 이전 1장
+        var targets = [];
+        for (var a = 1; a <= PDF_PREFETCH_AHEAD; a++) targets.push(cur + a);
+        for (var b = 1; b <= PDF_PREFETCH_BEHIND; b++) targets.push(cur - b);
+        var queue = [];
+        targets.forEach(function (i) {
+            var f = seq[i];
+            if (!f || !f.url) return;
+            if (window._pdfPrefetchedUrls[f.url]) return;
+            queue.push(f.url);
+        });
+        if (!queue.length) return;
+        _pdfPrefetchBusy = true;
+        // 순차로 하나씩 — 동시에 여러 개를 받으면 수업 회선(WebRTC)과 경쟁한다
+        var step = function () {
+            var u = queue.shift();
+            if (!u) { _pdfPrefetchBusy = false; return; }
+            fetch(u).then(function (r) {
+                if (!r.ok) return null;
+                var len = parseInt(r.headers.get('content-length') || '0', 10);
+                if (len > 20 * 1024 * 1024) { try { if (r.body) r.body.cancel(); } catch (_) {} return null; }
+                return r.blob();
+            }).then(function (blob) {
+                if (blob) window._pdfPrefetchedUrls[u] = 1;
+                step();
+            }).catch(function () { step(); });
+        };
+        step();
+    } catch (_) { _pdfPrefetchBusy = false; }
+}
 // fix (2026-07-12) — 시퀀스 파일 이동. selectFromTextbookLibrary 는 교재 라이브러리 모달을
 //   한 번 연 세션에서만 정의됨(IDB 로드 콜백 내부) → 새 기기/학생용 직접 로드 폴백 필수.
 function _pdfGoSeqFile(f) {
@@ -12680,6 +12947,8 @@ async function pdfNextPage() {
         pdfPageNum = Math.min(pdfDoc.numPages, pdfPageNum + pdfPagesPerView);
         pdfRender();
         _pdfBroadcastPage();
+        // ⚡ 마지막 페이지에 닿으면 다음 «파일» 을 미리 받아 둔다 — 다음 클릭이 파일 교체이므로
+        if (pdfPageNum >= pdfDoc.numPages) { try { _pdfPrefetchNextSeq(); } catch (_) {} }
         return;
     }
     // 마지막 페이지 → 시퀀스의 다음 파일로 (시퀀스가 없으면 서버에서 재구성 — 새 기기/학생도 동작)
@@ -12707,14 +12976,53 @@ function pdfClosePageList(){
     var p = document.getElementById('pdf-pagelist');
     if (p) p.remove();
 }
+/* 📄 (2026-08-14 마이마이 8/13 남은 요청) 「쪽 번호가 파일 이름에 안 보인다 — BODA 처럼 되게」
+   ═════════════════════════════════════════════════════════════════════════════
+   [무엇이 문제였나] 자료실 파일의 이름은 «[BTS 6 Korea (Bedroom, living room)] 미분류 레슨 / Slide12.JPG»
+      처럼 **앞부분이 전부 같다.** 목록은 한 줄짜리(말줄임)라 화면에는 어느 줄이나
+      「1. [BTS 6 Korea (Bedroom, li…」 만 보였다 — 정작 몇 쪽인지는 잘려 나갔다.
+      마이마이가 스크린샷에 파랗게 동그라미 친 것이 이 «똑같이 잘린 줄» 이다.
+   [고침] 줄에는 **끝의 쪽 이름만** 남긴다(Slide12.JPG). 책 이름은 어차피 모든 줄이 같아서
+      알려 주는 것이 없다. 전체 이름은 title(마우스를 올리면 뜨는 풍선)에 그대로 둔다.
+   ⚠️ 파일 이름을 못 알아볼 때만 「12쪽 / Page 12」로 대신한다 — 빈 줄을 만들지 않는다. */
+function _pdfShortPageName(full, idx, en){
+    var s = String(full || '').trim();
+    // 「… / 파일이름」 — 마지막 슬래시 뒤가 진짜 쪽 이름이다
+    var slash = s.lastIndexOf('/');
+    if (slash >= 0) s = s.slice(slash + 1).trim();
+    // 앞에 [교재명] 이 남아 있으면(슬래시가 없던 경우) 그것도 뗀다
+    s = s.replace(/^\[[^\]]*\]\s*/, '').trim();
+    if (!s) s = (en ? 'Page ' : '') + (idx + 1) + (en ? '' : '쪽');
+    return s;
+}
+function _pdfEscAttr(s){
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+    });
+}
 async function pdfTogglePageList(){
     var exist = document.getElementById('pdf-pagelist');
     if (exist){ exist.remove(); return; }
-    var en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+    var en = miIsEn();
     var panel = document.createElement('div');
     panel.id = 'pdf-pagelist';
-    /* 실측: 위의 «관련 영상» 알약이 두 줄이면 100~156 을 쓴다 → 4px 겹쳤다. 172 로 내린다. */
-    panel.style.cssText = 'position:fixed;left:12px;top:172px;z-index:9600;width:236px;max-height:min(58vh,520px);'
+    /* 📐 (2026-08-13 마이마이 8/13 ②) 「고르면 창이 바로 닫힌다 · 크기를 못 늘린다」
+       ─────────────────────────────────────────────────────────────────────
+       ① 크기 조절 — resize:both. 브라우저가 드래그로 width/height 를 인라인에 쓰므로
+          max-height 로 묶으면 세로가 안 늘어난다 → height 로 주고 max-* 는 화면 밖 방지용만.
+          resize 는 overflow 가 visible 이 아니어야 동작한다(아래 overflow:hidden 유지).
+       ② 고른 크기를 기억한다 — 매 수업마다 다시 늘리게 하지 않는다(localStorage).
+       실측: 위의 «관련 영상» 알약이 두 줄이면 100~156 을 쓴다 → 4px 겹쳤다. 172 로 내린다. */
+    var _sz = { w: 236, h: 0 };
+    try {
+        var _saved = JSON.parse(localStorage.getItem('mangoi_pagelist_size') || 'null');
+        if (_saved && _saved.w > 0) _sz = _saved;
+    } catch (_) {}
+    panel.style.cssText = 'position:fixed;left:12px;top:172px;z-index:9600;'
+        + 'width:' + Math.max(200, Math.min(_sz.w, window.innerWidth - 24)) + 'px;'
+        + (_sz.h > 0 ? 'height:' + Math.max(160, Math.min(_sz.h, window.innerHeight - 190)) + 'px;'
+                     : 'height:min(58vh,520px);')
+        + 'min-width:200px;min-height:160px;max-width:92vw;max-height:82vh;resize:both;'
         + 'display:flex;flex-direction:column;background:rgba(15,23,42,.97);border:1.5px solid rgba(56,189,248,.5);'
         + 'border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.5);color:#e2e8f0;font-size:12.5px;overflow:hidden';
     panel.innerHTML = '<div style="display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid rgba(148,163,184,.25);font-weight:800;color:#7dd3fc">'
@@ -12723,6 +13031,20 @@ async function pdfTogglePageList(){
         + '<div id="pdf-pagelist-body" style="overflow-y:auto;padding:6px"><div style="padding:14px;color:#94a3b8">'
         + (en ? 'Loading…' : '불러오는 중…') + '</div></div>';
     document.body.appendChild(panel);
+    /* 늘린 크기를 기억한다 — 창을 다시 열 때 그 크기로 뜬다.
+       ResizeObserver 가 없는 옛 브라우저에서는 그냥 저장을 건너뛴다(크기 조절 자체는 동작). */
+    try {
+        if (window.ResizeObserver) {
+            var _ro = new ResizeObserver(function(){
+                try {
+                    if (!panel.isConnected) return;
+                    localStorage.setItem('mangoi_pagelist_size',
+                        JSON.stringify({ w: Math.round(panel.offsetWidth), h: Math.round(panel.offsetHeight) }));
+                } catch (_) {}
+            });
+            _ro.observe(panel);
+        }
+    } catch (_) {}
 
     // 시퀀스가 없으면 서버에서 다시 만든다(새 기기·재접속에서도 목록이 나오게 — 화살표 자가복구와 같은 길)
     try { await pdfEnsureSequence(); } catch(_){}
@@ -12751,9 +13073,10 @@ async function pdfTogglePageList(){
     var rowCssFlex = rowCss.replace('margin-bottom:3px;', '').replace('display:block;width:100%;', 'display:block;');
     if (seq.length > 1){
         for (var i = 0; i < seq.length; i++){
-            var nm = String(seq[i].name || ((en ? 'Page ' : '페이지 ') + (i + 1)));
+            var nmFull = String(seq[i].name || ((en ? 'Page ' : '페이지 ') + (i + 1)));
+            var nm = _pdfShortPageName(nmFull, i, en);
             html += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">'
-                 + '<button type="button" data-seq="' + i + '" style="flex:1;min-width:0;' + rowCssFlex + (i === curIdx ? ';' + onCss : '') + '">'
+                 + '<button type="button" data-seq="' + i + '" title="' + _pdfEscAttr(nmFull) + '" style="flex:1;min-width:0;' + rowCssFlex + (i === curIdx ? ';' + onCss : '') + '">'
                  + (i + 1) + '. ' + nm.replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]); })
                  + '</button>'
                  + '<button type="button" data-del="' + i + '" title="'
@@ -12790,7 +13113,10 @@ async function pdfTogglePageList(){
             if (!f) return;
             window._libSeqIdx = i;
             try { _pdfGoSeqFile(f); } catch(e){ console.warn('[pagelist]', e); }
-            pdfClosePageList();
+            /* 📌 (2026-08-13 마이마이 8/13 ②) 「고르면 창이 바로 닫힌다 — 닫을 때까지 두면 안 되나요」
+               → 닫지 않는다. 대신 «지금 보는 쪽» 강조만 옮긴다(BODA 처럼 목록을 띄워 두고 넘긴다).
+                 닫는 길은 헤더의 [✕] 하나뿐 — 실수로 사라지지 않는다. */
+            _pdfPageListMark(this, 'seq');
         });
     });
     /* 🗑 한 줄 빼기 — 목록(내 화면)에서만. 서버 요청을 보내지 않는다(위 주석 참고). */
@@ -12835,9 +13161,30 @@ async function pdfTogglePageList(){
             if (!n) return;
             pdfGoToPage(n);
             try { _pdfBroadcastPage(); } catch(_){}     // 학생 화면도 같은 쪽으로
-            pdfClosePageList();
+            _pdfPageListMark(this, 'page');            // 닫지 않는다 — 위 data-seq 주석 참고
         });
     });
+}
+/* 📑 (2026-08-13) 목록을 열어 둔 채 쓰기 위한 «강조만 옮기기».
+   ⚠️ 다시 그리지(pdfTogglePageList) 않는다 — 스크롤 위치와 사용자가 늘린 창 크기가 초기화된다.
+      같은 갈래(seq ↔ 파일 목록 / page ↔ 파일 안쪽 쪽)끼리만 강조를 옮긴다. */
+function _pdfPageListMark(btn, group){
+    try {
+        var panel = document.getElementById('pdf-pagelist');
+        if (!panel || !btn) return;
+        var onParts = ['background:rgba(56,189,248,.22)', 'border-color:rgba(56,189,248,.6)', 'color:#fff', 'font-weight:800'];
+        panel.querySelectorAll('[data-' + group + ']').forEach(function(o){
+            o.style.background = 'rgba(30,41,59,.7)';
+            o.style.borderColor = 'transparent';
+            o.style.color = '#cbd5e1';
+            o.style.fontWeight = '';
+        });
+        onParts.forEach(function(p){
+            var kv = p.split(':');
+            btn.style.setProperty(kv[0], kv.slice(1).join(':'));
+        });
+        btn.scrollIntoView({ block: 'nearest' });
+    } catch (_) {}
 }
 window.pdfTogglePageList = pdfTogglePageList;
 window.pdfClosePageList = pdfClosePageList;
@@ -12897,7 +13244,7 @@ function vpOpenYouTube() {
         : document.getElementById('vp-stage');
     if (!stage) return;
 
-    const isEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
+    const isEn = miIsEn();
 
     // 추천 영상 (embed 친화적 · 영어교육/동요/명강연 위주, 평생 안정된 인기 영상으로 선정)
     const featured = [
@@ -13223,7 +13570,7 @@ function vpAddSoundOverlay(stage, kind) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'vp-sound-overlay';
-    btn.textContent = (typeof currentLang !== 'undefined' && currentLang === 'en') ? '🔊 Tap for sound' : '🔊 소리 켜기';
+    btn.textContent = miIsEn() ? '🔊 Tap for sound' : '🔊 소리 켜기';
     btn.style.cssText = 'position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:30;'
         + 'padding:10px 22px;border:none;border-radius:999px;background:rgba(37,99,235,.95);color:#fff;'
         + 'font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.45);';
@@ -13273,7 +13620,7 @@ function vpClearRemote() {
     window.__vcVideoSharing = false;
     try { window.__vcPheroReeval && window.__vcPheroReeval(); } catch(_){}
     const stage = document.getElementById('vp-stage');
-    stage.innerHTML = '<div class="vp-empty">'+(currentLang==='en'?'🎬 Paste a YouTube URL or upload a video file.':'🎬 YouTube 주소를 붙여넣거나 동영상 파일을 업로드하세요.')+'</div>';
+    stage.innerHTML = '<div class="vp-empty">'+(miIsEn()?'🎬 Paste a YouTube URL or upload a video file.':'🎬 YouTube 주소를 붙여넣거나 동영상 파일을 업로드하세요.')+'</div>';
     const body = document.getElementById('vp-floating-body');
     if (body) body.innerHTML = '';
     const floating = document.getElementById('vp-floating');
@@ -13287,7 +13634,7 @@ async function vpUploadFile(input) {
     if (!f) return;
     input.value = '';   // 같은 파일을 다시 선택해도 change 가 뜨도록 초기화
     const stage = vpIsFloating ? document.getElementById('vp-floating-body') : document.getElementById('vp-stage');
-    const en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+    const en = miIsEn();
     // 🩹 (2026-07-13) 옛 코드는 URL.createObjectURL(로컬 blob)을 붙여 '올린 사람만 보이는' 재생이었다.
     //   blob: 주소는 다른 참가자가 접근할 수 없다. 이제 서버(R2)에 올린 뒤 그 URL 을
     //   video-share 로 방 전체에 전파 → 학생·강사 누구든 파일 자료를 진짜로 공유할 수 있다.
@@ -13346,7 +13693,7 @@ function vpClear() {
     window._vcShownVideoUrl = '';
     if (vcConn) vcConn.send({ type: 'video-stop-share', data: {} });
     const stage = document.getElementById('vp-stage');
-    stage.innerHTML = '<div class="vp-empty">'+(currentLang==='en'?'🎬 Paste a YouTube URL or upload a video file.':'🎬 YouTube 주소를 붙여넣거나 동영상 파일을 업로드하세요.')+'</div>';
+    stage.innerHTML = '<div class="vp-empty">'+(miIsEn()?'🎬 Paste a YouTube URL or upload a video file.':'🎬 YouTube 주소를 붙여넣거나 동영상 파일을 업로드하세요.')+'</div>';
     const body = document.getElementById('vp-floating-body');
     if (body) body.innerHTML = '';
     const floating = document.getElementById('vp-floating');
@@ -13524,12 +13871,12 @@ function vpTogglePiP() {
     const body = document.getElementById('vp-floating-body');
     if (!vpIsFloating) {
         const media = stage.querySelector('iframe, video');
-        if (!media) { alert(currentLang==='en'?'Load a video first.':'먼저 영상을 불러오세요.'); return; }
+        if (!media) { alert(miIsEn()?'Load a video first.':'먼저 영상을 불러오세요.'); return; }
         body.innerHTML = '';
         body.appendChild(media);
         floating.style.display = 'flex';
         vpIsFloating = true;
-        stage.innerHTML = '<div class="vp-empty">'+(currentLang==='en'?'📌 Moved to mini player.<br><span style="font-size:0.8rem;color:#475569;">Press ✕ or 📌 again to return.</span>':'📌 미니 플레이어로 이동했습니다.<br><span style="font-size:0.8rem;color:#475569;">✕를 누르거나 다시 📌를 누르면 되돌아옵니다.</span>')+'</div>';
+        stage.innerHTML = '<div class="vp-empty">'+(miIsEn()?'📌 Moved to mini player.<br><span style="font-size:0.8rem;color:#475569;">Press ✕ or 📌 again to return.</span>':'📌 미니 플레이어로 이동했습니다.<br><span style="font-size:0.8rem;color:#475569;">✕를 누르거나 다시 📌를 누르면 되돌아옵니다.</span>')+'</div>';
         vpMakeDraggable();
     } else {
         vpFloatingClose();
@@ -13646,15 +13993,27 @@ window.vcChatAutoOpen = vcChatAutoOpen;
 function vcSendChat() {
     const input = document.getElementById('vc-chat-input');
     const text = input.value.trim();
-    if (!text || !vcConn) return;
+    if (!text) return;
+    const target = (window.vcChatTarget && window.vcChatTarget.userId) || null;
+    const draft = input.__vcUnsentScope;
+    if (draft && draft.text === text && (draft.room !== vcRoomId || draft.self !== vcUserId || draft.account !== vcAccountSnapshot() || draft.target !== target)) {
+        vcAddChatSystem('수업 또는 받는 사람이 바뀌었어요. 보낼 내용을 확인하고 다시 입력해 주세요.');
+        return;
+    }
+    const data = { message: text };
+    if (target) data.toUserId = target;
+    if (!vcConn || !vcConn.ws || vcConn.ws.readyState !== 1 || vcConn.send({ type: 'chat-message', data }) !== true) {
+        input.__vcUnsentScope = { room: vcRoomId, self: vcUserId, account: vcAccountSnapshot(), target, text };
+        vcAddChatSystem('메시지가 전송되지 않았어요. 입력 내용은 남겨 두었어요. 연결된 뒤 다시 보내 주세요.');
+        return;
+    }
+    delete input.__vcUnsentScope;
     // 🔒 개별(1:1) 채팅 — 대상이 지정돼 있으면 그 사람에게만 전송.
     //   D1 영속 저장·@멘션 알림은 생략(개인 대화가 전체 기록/알림에 노출되지 않게).
-    if (window.vcChatTarget && window.vcChatTarget.userId) {
-        vcConn.send({ type: 'chat-message', data: { message: text, toUserId: window.vcChatTarget.userId } });
+    if (target) {
         input.value = '';
         return;
     }
-    vcConn.send({ type: 'chat-message', data: { message: text } });
     // 🆕 Phase K1: D1에 영속 저장 (실시간 표시는 vcReceiveChat 에코로)
     try {
         fetch('/api/chat/messages', {
@@ -13827,7 +14186,7 @@ function vcSetChatTarget(userId, username) {
     if (input) {
         input.placeholder = window.vcChatTarget
             ? ('🔒 ' + window.vcChatTarget.username + ' 에게만 보내기…')
-            : (input.getAttribute((typeof currentLang !== 'undefined' && currentLang === 'en') ? 'data-en-ph' : 'data-ko-ph') || '메시지 입력...');
+            : (input.getAttribute(miIsEn() ? 'data-en-ph' : 'data-ko-ph') || '메시지 입력...');
         try { input.focus(); } catch(_) {}
     }
 }
@@ -13903,12 +14262,13 @@ function escHtml(text) {
 window.addEventListener('DOMContentLoaded', () => {
     wbInit();  // 칠판 이벤트 리스너 등록
 
-    // URL 파라미터로 관찰자 모드 입장 (?observe=roomId)
+    // URL 파라미터로 관찰자 모드 입장 (?observe=roomId&tok=...)
     const urlParams = new URLSearchParams(window.location.search);
     const observeRoom = urlParams.get('observe');
     if (observeRoom) {
+        const observeTok = urlParams.get('tok') || '';
         // 약간 지연 후 관찰자 모드 입장 (UI 초기화 완료 대기)
-        setTimeout(() => vcJoinAsObserver(observeRoom), 500);
+        setTimeout(() => vcJoinAsObserver(observeRoom, observeTok), 500);
     }
 });
 

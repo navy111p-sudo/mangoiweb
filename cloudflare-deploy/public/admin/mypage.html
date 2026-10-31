@@ -8,22 +8,23 @@
 
 
 <meta charset="UTF-8">
-<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
 <!-- 🌐 (2026-07-23) 관리자·강사 화면 언어 부팅 — 해외 스태프는 로그인 직후부터 영어.
      판정 로직·주의사항은 /js/adm-lang-boot.js 파일 머리 주석 하나에 모여 있다.
      ⚠️ adm-lang-boot 는 defer 를 붙이지 말 것(첫 페인트 전에 lang 이 정해져야 함). -->
 <!-- 🐢 좁은 회선·싼 폰 절약 장치 (2026-08-08) — 다른 스크립트보다 먼저, defer 없이. -->
 <script src="/js/net-lite.js?v=1"></script>
 <script src="/js/adm-lang-boot.js?v=6"></script>
-<script defer src="/js/i18n-sweep.js?v=22"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<script defer src="/js/i18n-sweep.js?v=23"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>마이페이지 — 망고아이 관리자</title>
 <!-- 🚫 글로벌 [🏠 Home] [🌐 EN] 버튼 자동 inject 차단 (자체 헤더 사용) -->
 <meta name="mangoi-no-global-bar" content="1">
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
 <!-- 🛡️ 대리점·지사 계정의 본사 전용 API(2fa/status 등) 콘솔 403 소음 제거 — fetch 코드보다 먼저 -->
-<script src="/js/adm-scope-guard.js?v=1"></script>
+<script src="/js/adm-scope-guard.js?v=2"></script>
 <script src="/js/mango-i18n.js" defer></script>
 <!-- ═══════════════════════════════════════════════════════════════════
      ph161 (2026-07-23) — 구글 웹폰트 제거 (필리핀 저속 회선 대응)
@@ -731,12 +732,12 @@
     } catch(e){ document.documentElement.setAttribute('data-theme', 'dark'); }
   })();
 </script>
-<link rel="stylesheet" href="/css/admin-readability.css?v=2"><!-- 가독성 보강 -->
+<link rel="stylesheet" href="/css/admin-readability.css?v=4"><!-- 가독성 보강 -->
 <link rel="stylesheet" href="/css/adm-light-theme.css?v=2"><!-- ☀️ 관리자 밝은 테마 통일 (2026-07-23) -->
 </head>
 <body>
   <header class="top">
-    <a href="/" target="_blank" rel="noopener" class="brand" title="학생 홈페이지로 이동"><img src="/img/mango-char.png" alt="" style="height:1.15em;width:auto;vertical-align:-0.2em;margin-right:.1em">망고아이</a>
+    <a href="/" target="_blank" rel="noopener" class="brand" title="학생 홈페이지로 이동"><img src="/img/mango-char.png" alt="" style="height:1.15em;width:auto;vertical-align:-0.2em;margin-right:.1em" loading="lazy" decoding="async">망고아이</a>
     <button type="button" class="btn-back" onclick="if(history.length>1){history.back()}else{location.href='/admin/exec'}" title="이전 페이지로 돌아가기" style="cursor:pointer;font-family:inherit"><span data-ko="← 뒤로" data-en="← Back">← 뒤로</span></button>
     <span class="crumb" data-ko="관리자 · 마이페이지" data-en="Admin · My Page">관리자 · 마이페이지</span>
     <div class="right">
@@ -824,7 +825,7 @@
     <div class="profile-hero">
       <div class="avatar" id="heroAvatar">
         <img src="/img/Mangoi_Character.jpg" alt="망고아이"
-             onerror="this.style.display='none';this.parentNode.textContent='M'" />
+             onerror="this.style.display='none';this.parentNode.textContent='M'" loading="lazy" decoding="async"/>
       </div>
       <div class="profile-info">
         <div class="greet" data-ko="환영합니다" data-en="Welcome">환영합니다</div>
@@ -1136,6 +1137,16 @@
 
     <!-- ───── 프로필 ───── -->
     <section class="panel active" data-panel="profile">
+      <!-- 🔑 (2026-08-17) 복구 연락처 안내 — 비밀번호 찾기는 «등록된 연락처» 로만 돈다.
+           2026-08-17 기준 관리자 계정 47개 중 45개에 쓸 수 있는 연락처가 없었다(이메일 칸에
+           아이디가 그대로 들어간 행 포함). 연락처가 없으면 비번을 잊었을 때 본인이 못 푼다.
+           ⚠️ 이 배너는 «없을 때만» 뜬다(js/adm-mypage 쪽 loadProfile 에서 토글). 늘 떠 있으면 아무도 안 읽는다. -->
+      <div id="pwRecoveryBanner" style="display:none;margin:0 0 16px;padding:13px 15px;border-radius:12px;
+           background:#fffbeb;border:1px solid #fde68a;color:#78350f;font-size:13px;line-height:1.65">
+        <b>🔑 비밀번호 찾기를 쓰려면 연락처가 필요합니다.</b><br>
+        지금 이 계정에는 인증번호를 보낼 <b>휴대폰·이메일이 등록돼 있지 않습니다.</b>
+        아래 칸을 채워 저장해 두면, 비밀번호를 잊었을 때 로그인 화면의 «비밀번호 찾기» 로 본인이 직접 풀 수 있습니다.
+      </div>
       <div class="form-grid">
         <div class="field">
           <label><span data-ko="👤 아이디" data-en="👤 Username">👤 아이디</span></label>
@@ -1770,10 +1781,11 @@
           var nlBox = document.getElementById('tw-next-list');
           if (nlBox){
             var KIND = {
-              level_test: [en?'LEVEL TEST':'레벨테스트', 'rgba(16,185,129,0.20)', '#6ee7b7'],
-              leveltest:  [en?'LEVEL TEST':'레벨테스트', 'rgba(16,185,129,0.20)', '#6ee7b7'],
-              trial:      [en?'TRIAL':'체험수업',        'rgba(56,189,248,0.20)', '#7dd3fc'],
-              makeup:     [en?'MAKE-UP':'보강수업',      'rgba(251,191,36,0.20)', '#fcd34d'],
+              /* 🎨 (2026-10-07 사장님 «색 통일») 레벨테스트 파랑 · 체험 초록 · 보강 보라 (정규 주황 — 배지 없음) */
+              level_test: [en?'LEVEL TEST':'레벨테스트', 'rgba(59,130,246,0.20)', '#93c5fd'],
+              leveltest:  [en?'LEVEL TEST':'레벨테스트', 'rgba(59,130,246,0.20)', '#93c5fd'],
+              trial:      [en?'TRIAL':'체험수업',        'rgba(16,185,129,0.20)', '#6ee7b7'],
+              makeup:     [en?'MAKE-UP':'보강수업',      'rgba(139,92,246,0.22)', '#c4b5fd'],
             };
             var seenU = {}, upList = [];
             lessons.forEach(function(l){
@@ -1888,7 +1900,9 @@
         var M = {
           finish:          [en?'✅ Finished':'✅ 수업 완료',  'rgba(16,185,129,0.18)', '#6ee7b7'],
           student_absent:  [en?'🙅 Student absent':'🙅 학생 결석', 'rgba(239,68,68,0.18)', '#fca5a5'],
+          absence_hold:    [en?'⏸ On hold (no pay)':'⏸ 연속결석 보류', 'rgba(239,68,68,0.12)', '#fca5a5'],
           teacher_no_show: [en?'⚠️ No-show':'⚠️ 미입장',     'rgba(245,158,11,0.20)', '#fcd34d'],
+          holiday:         [en?'🎌 Holiday (no class)':'🎌 공휴일 휴강', 'rgba(148,163,184,0.18)', '#cbd5e1'],   // 2026-10-09 — 지급 0
           upcoming:        [en?'⏳ Upcoming':'⏳ 예정',       'rgba(148,163,184,0.18)', '#cbd5e1'],
           /* ⏸ (2026-08-08) 매니저가 승인한 연기. 예전엔 이 상태가 없어 «수업 완료» 로 섞여 있었고,
              하지도 않은 수업에 «당일 피드백 미작성» 공제까지 붙었다(서버에서 함께 고침). */
@@ -2116,6 +2130,19 @@
       </div>
       <button class="btn-primary" id="pwSaveBtn" data-ko="🔐 비밀번호 변경" data-en="🔐 Change password">🔐 비밀번호 변경</button>
 
+      <!-- ───── 😊 지문 · Face ID (패스키) — 2026-08-30, v4 제안서 06 ───── -->
+      <div class="info-box" style="margin-top:26px">
+        😊 <b data-ko="지문 · Face ID 로그인" data-en="Fingerprint · Face ID sign-in">지문 · Face ID 로그인</b><span data-ko=" — 이 기기를 한 번 등록해 두면, 다음부터 로그인 화면에서 지문이나 얼굴로 바로 들어올 수 있습니다. 비밀번호는 그대로 남아 있어요(기기를 바꾸면 그때 씁니다)." data-en=" — Register this device once and you can sign in with your fingerprint or face. Your password still works (you need it on a new device)."> — 이 기기를 한 번 등록해 두면, 다음부터 로그인 화면에서 지문이나 얼굴로 바로 들어올 수 있습니다. 비밀번호는 그대로 남아 있어요(기기를 바꾸면 그때 씁니다).</span>
+      </div>
+      <div id="pkBox" style="border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-top:12px;background:var(--bg-card-2)">
+        <div id="pkUnsupported" style="display:none;font-size:13px;color:var(--text-dim)" data-ko="이 브라우저·기기는 지문/얼굴 인증을 지원하지 않습니다. 아이디·비밀번호로 로그인해 주세요." data-en="This browser or device does not support biometric sign-in. Please use your ID and password.">이 브라우저·기기는 지문/얼굴 인증을 지원하지 않습니다. 아이디·비밀번호로 로그인해 주세요.</div>
+        <div id="pkSupported" style="display:none">
+          <button class="btn-primary" id="pkAddBtn" style="background:linear-gradient(135deg,#10b981,#059669)" data-ko="😊 이 기기 등록하기" data-en="😊 Register this device">😊 이 기기 등록하기</button>
+          <div id="pkMsg" style="margin-top:10px;font-size:13px"></div>
+          <div id="pkList" style="margin-top:12px;font-size:13px"></div>
+        </div>
+      </div>
+
       <!-- ───── 2단계 인증 (2FA) ───── -->
       <div class="info-box" style="margin-top:26px">
         🔐 <b data-ko="2단계 인증 (강력 추천)" data-en="Two-factor auth (recommended)">2단계 인증 (강력 추천)</b><span data-ko=" — 비밀번호가 유출돼도, 인증 앱의 6자리 코드가 없으면 로그인할 수 없습니다. 관리자 계정을 지키는 가장 강력한 방법이에요." data-en=" — Even if your password leaks, no one can sign in without the 6-digit code from your authenticator app."> — 비밀번호가 유출돼도, 인증 앱의 6자리 코드가 없으면 로그인할 수 없습니다. 관리자 계정을 지키는 가장 강력한 방법이에요.</span>
@@ -2225,7 +2252,11 @@
         __ltAppsById = {};
         items.forEach(function(a){ __ltAppsById[a.id] = a; });
         if (!items.length){ body.innerHTML = '<div style="padding:26px;text-align:center;color:var(--text-muted)">'+(en?'No applications yet':'아직 신청이 없습니다')+'</div>'; return; }
-        var STMAP = { pending:[en?'Pending':'대기','#f59e0b'], proposed:[en?'Proposed':'제안','#a855f7'], assigned:[en?'Assigned':'배정됨','#6366f1'], confirmed:[en?'Confirmed':'확정','#10b981'], done:[en?'Done':'완료','#10b981'], cancelled:[en?'Cancelled':'취소','#94a3b8'] };
+        /* 🎯 (2026-09-21) ai_done = AI 학습도구만 쓰는 학생의 자동진단 — 선생님 평가 단계를 안 거친다.
+           ⛔ 이 줄을 빼지 말 것 — 폴백이 `STMAP[a.status] || [a.status, …]` 라 «ai_done» 이 날것으로 뜬다.
+           같은 상태 맵이 js/adm-core.js · parent.html · t.html 에도 있다(한 곳만 고치면 어긋난다).
+           정본: src/student-track.ts */
+        var STMAP = { pending:[en?'Pending':'대기','#f59e0b'], proposed:[en?'Proposed':'제안','#a855f7'], assigned:[en?'Assigned':'배정됨','#6366f1'], confirmed:[en?'Confirmed':'확정','#10b981'], done:[en?'Done':'완료','#10b981'], ai_done:[en?'AI self-check':'AI 자동진단','#8b5cf6'], cancelled:[en?'Cancelled':'취소','#94a3b8'] };
         // 🔔 내게 배정된 신청을 맨 위로 (assigned_teacher === 내 이름)
         var myName = window.__myName || '';
         items.sort(function(a,b){ var am=(myName && a.assigned_teacher===myName)?0:1, bm=(myName && b.assigned_teacher===myName)?0:1; return am-bm || ((b.created_at||0)-(a.created_at||0)); });
@@ -2254,7 +2285,10 @@
             + '<td>'+ltEsc(when)+'</td>'
             + '<td style="text-align:center">'+(a.ai_score!=null?Math.round(a.ai_score):'—')+'</td>'
             + '<td style="text-align:center">'+(a.pron_score!=null?Math.round(a.pron_score):'—')+'</td>'
-            + '<td style="text-align:center">'+(a.final_level?('<b style="color:#34d399">'+ltEsc(a.final_level)+'</b>'):'—')+'</td>'
+            /* 🎯 (2026-09-21) 같은 «A2» 라도 AI 점수만으로 나온 것과 선생님이 확정한 것은 다른 사실이다.
+               하필 여기는 선생님이 직접 평가를 매기는 화면이라 그 구분이 가장 필요하다.
+               ⚠️ teacher_score 는 0점도 «선생님이 매긴 것» 이다 — != null 로 본다(|| 함정). */
+            + '<td style="text-align:center">'+(a.final_level?('<b style="color:#34d399">'+ltEsc(a.final_level)+'</b>'+'<span style="font-size:10.5px;color:var(--text-muted);margin-left:4px">'+(a.teacher_score!=null?(en?'(teacher)':'(선생님 확정)'):(en?'(AI only)':'(AI 자동)'))+'</span>'):'—')+'</td>'
             + '<td><span style="font-weight:700;color:'+st[1]+'">'+st[0]+'</span></td>'
             + '<td style="text-align:right;white-space:nowrap">'+evalCell+'</td>'
             + '</tr>';
@@ -2346,10 +2380,11 @@
       + '</div>'
       // 📚 (2026-07-22) 학부모 컴플레인 #6: 추천 교재·다음 수업 안내 — 필수 입력, 결과 문자에 포함됨
       + '<label style="display:block;font-size:12.5px;font-weight:700;color:#a5b4fc;margin:14px 0 6px">📚 '+(en?'Recommended textbook (required)':'추천 교재 (필수)')+'</label>'
-      + '<input id="lt-eval-book" type="text" value="'+ltEsc(app.recommended_textbook||'')+'" placeholder="'+(en?'e.g. MES / BTS / SIU (with level)':'예: MES / BTS / SIU (+레벨)')+'" list="lt-book-options" style="width:100%;box-sizing:border-box;background:#fff;color:#1a1a1a;border:1px solid #6366f1;border-radius:10px;padding:11px;font-size:14.5px;outline:none">'
+      + '<input id="lt-eval-book" type="text" value="'+ltEsc(app.recommended_textbook||'')+'" placeholder="'+(en?'e.g. BTS / SIU (with level)':'예: BTS / SIU (+레벨)')+'" list="lt-book-options" style="width:100%;box-sizing:border-box;background:#fff;color:#1a1a1a;border:1px solid #6366f1;border-radius:10px;padding:11px;font-size:14.5px;outline:none">'
+      /* 🙈 (2026-08-13 마이마이) MES 는 이제 안 쓴다 — 추천 교재 선택지에서 뺀다.
+         자유 입력 칸이라 옛 평가서에 남아 있는 «MES …» 값은 그대로 보인다(기록 보존). */
       + '<datalist id="lt-book-options">'
       +   '<option value="Phonics (파닉스)"></option>'
-      +   '<option value="MES (Mango English Study)"></option>'
       +   '<option value="BTS (Bubble Tea Study)"></option>'
       +   '<option value="SIU (Shake It Up)"></option>'
       +   '<option value="비즈니스 영어 코스"></option>'
@@ -2899,6 +2934,15 @@
         if (el('profName'))     el('profName').value = (ov && ov.name) ? ov.name : (u.name || '');
         if (el('profEmail'))    el('profEmail').value = (ov && ov.email) ? ov.email : (u.email || '');
         if (el('profPhone'))    el('profPhone').value = (ov && ov.phone) ? ov.phone : (u.phone || '');
+        // 🔑 복구 연락처 배너 — 서버 `pickResetContact()` 와 **같은 기준**으로 판정한다.
+        //   («값이 있으면 있는 것» 으로 세면 안 된다 — 이메일 칸에 아이디가 든 계정이 실제로 있다.)
+        try {
+          var _ph = String(u.phone || '').replace(/[^0-9]/g, '');
+          var _em = String(u.email || '').trim();
+          var _hasContact = _ph.length >= 8 || /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(_em);
+          var _bn = el('pwRecoveryBanner');
+          if (_bn && !ov) _bn.style.display = _hasContact ? 'none' : 'block';
+        } catch(_e){}
         applyRole(role, roleLabel, scope);
         window.__myRole = role; window.__myRoleLabel = roleLabel; window.__myScope = scope;
         window.__myName = name;
@@ -3027,6 +3071,123 @@
       .catch(function(){ alert(EN()?'⚠️ Network error.':'⚠️ 네트워크 오류.'); })
       .finally(function(){ el('profSaveBtn').disabled = false; });
   });
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     😊 지문 · Face ID 등록 (WebAuthn / FIDO2) — 2026-08-30, v4 제안서 06
+     ⚠️ 요청에 scope:'admin' 을 실어 «관리자 범위» 임을 밝힌다. 서버는 그 값을 그대로
+        믿지 않고, 저장할 때 붙인 접두사(admin:)로 다시 확인한다.
+     ⚠️ 지원하지 않는 기기에서는 버튼을 아예 안 그리고 «왜 없는지» 를 적는다 —
+        눌러도 안 되는 버튼이 제일 나쁘다(CLAUDE.md 2장).
+     🔑 rpId 는 서버가 apex 로 묶는다 — www 로 등록해도 apex 에서 그대로 쓰인다.
+     ═══════════════════════════════════════════════════════════════════════ */
+  (function adminPasskey(){
+    var box = document.getElementById('pkBox');
+    if (!box) return;
+    var sup = document.getElementById('pkSupported');
+    var uns = document.getElementById('pkUnsupported');
+    var ok = !!(window.PublicKeyCredential && navigator.credentials && navigator.credentials.create && window.isSecureContext);
+    if (!ok) { if (uns) uns.style.display = 'block'; return; }
+    if (sup) sup.style.display = 'block';
+
+    function decB(str){
+      str = String(str).replace(/-/g,'+').replace(/_/g,'/');
+      while (str.length % 4) str += '=';
+      var bin = atob(str), out = new Uint8Array(bin.length);
+      for (var i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
+      return out;
+    }
+    function encB(buf){
+      var b = new Uint8Array(buf), s2 = '';
+      for (var i=0;i<b.length;i++) s2 += String.fromCharCode(b[i]);
+      return btoa(s2).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    }
+    function say(t, good){
+      var m = document.getElementById('pkMsg');
+      if (!m) return;
+      m.textContent = t;
+      m.style.color = good ? '#059669' : '#b91c1c';
+    }
+    async function loadList(){
+      var el = document.getElementById('pkList');
+      if (!el) return;
+      try {
+        var r = await fetch('/api/passkey/list', { method:'POST', credentials:'include',
+          headers:{'Content-Type':'application/json'}, body: JSON.stringify({ scope:'admin' }) });
+        var d = await r.json().catch(function(){ return null; });
+        if (!r.ok || !d || d.ok !== true || !Array.isArray(d.items)) { el.textContent = ''; return; }
+        if (!d.items.length) { el.textContent = '아직 등록된 기기가 없습니다.'; el.style.color = 'var(--text-dim)'; return; }
+        el.style.color = '';
+        el.innerHTML = d.items.map(function(it){
+          var when = it.created_at ? new Date(it.created_at).toLocaleDateString('ko-KR') : '';
+          return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--border)">'
+            + '<span>😊 ' + (it.device_label ? String(it.device_label).replace(/[<>&]/g,'') : '등록된 기기') + '</span>'
+            + '<span style="color:var(--text-dim);font-size:12px">' + when + '</span>'
+            + '<button type="button" data-cid="' + it.credential_id + '" class="pk-del" style="margin-left:auto;padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:12px">삭제</button>'
+            + '</div>';
+        }).join('');
+        el.querySelectorAll('.pk-del').forEach(function(b){
+          b.addEventListener('click', async function(){
+            if (!confirm('이 기기의 지문·Face ID 등록을 지울까요? (비밀번호 로그인은 그대로입니다)')) return;
+            await fetch('/api/passkey/remove', { method:'POST', credentials:'include',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ scope:'admin', credential_id: b.getAttribute('data-cid') }) });
+            loadList();
+          });
+        });
+      } catch(e){ el.textContent = ''; }
+    }
+
+    var addBtn = document.getElementById('pkAddBtn');
+    if (addBtn) addBtn.addEventListener('click', async function(){
+      addBtn.disabled = true;
+      var l0 = addBtn.textContent;
+      addBtn.textContent = '🔄 기기에 등록 중...';
+      say('', true);
+      try {
+        var r1 = await fetch('/api/passkey/register/options', { method:'POST', credentials:'include',
+          headers:{'Content-Type':'application/json'}, body: JSON.stringify({ scope:'admin' }) });
+        var o = await r1.json().catch(function(){ return null; });
+        if (!r1.ok || !o || o.ok !== true || !o.options) {
+          say((o && (o.message || o.error)) || '등록 준비에 실패했어요. 다시 로그인한 뒤 시도해 주세요.', false);
+          return;
+        }
+        var op = o.options;
+        var pk = {
+          challenge: decB(op.challenge),
+          rp: op.rp,
+          user: { id: decB(op.user.id), name: op.user.name, displayName: op.user.displayName },
+          pubKeyCredParams: op.pubKeyCredParams,
+          timeout: op.timeout,
+          attestation: op.attestation,
+          excludeCredentials: (op.excludeCredentials || []).map(function(c){ return { type:'public-key', id: decB(c.id), transports: c.transports }; }),
+          authenticatorSelection: op.authenticatorSelection
+        };
+        var cred = await navigator.credentials.create({ publicKey: pk });
+        if (!cred) { say('등록이 취소됐어요.', false); return; }
+        var label = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '이 기기';
+        var r2 = await fetch('/api/passkey/register/verify', { method:'POST', credentials:'include',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            scope:'admin', device_label: String(label).slice(0,60),
+            credential: {
+              id: cred.id, rawId: encB(cred.rawId), type: cred.type,
+              transports: (cred.response.getTransports ? cred.response.getTransports() : undefined),
+              response: { clientDataJSON: encB(cred.response.clientDataJSON), attestationObject: encB(cred.response.attestationObject) }
+            }
+          }) });
+        var d2 = await r2.json().catch(function(){ return null; });
+        if (r2.ok && d2 && d2.ok === true) { say('✅ 등록됐어요! 다음부터 로그인 화면에서 지문·얼굴로 들어올 수 있어요.', true); loadList(); }
+        else say((d2 && (d2.message || d2.error)) || '등록에 실패했어요.', false);
+      } catch(e){
+        var nm = (e && (e.name || e.message)) || '';
+        say(nm === 'NotAllowedError' ? '등록이 취소됐어요.' : ('등록에 실패했어요: ' + nm), false);
+      } finally {
+        addBtn.disabled = false; addBtn.textContent = l0;
+      }
+    });
+
+    loadList();
+  })();
 
   // ── 비밀번호 변경 ──
   if (el('pwSaveBtn')) el('pwSaveBtn').addEventListener('click', function(){
@@ -3387,6 +3548,6 @@
 })();
 </script>
 <script defer src="/js/back-nav.js"></script>
-<script src="/js/adm-light-surfaces.js?v=12" defer></script><!-- 🌤 남은 다크 잔재 자동 완화 + 글자 대비 교정 -->
+<script src="/js/adm-light-surfaces.js?v=19" defer></script><!-- 🌤 남은 다크 잔재 자동 완화 + 글자 대비 교정 -->
 </body>
 </html>

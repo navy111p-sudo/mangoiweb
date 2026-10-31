@@ -77,7 +77,7 @@
         : String(a);
     }
     var u = me();
-    rqvSend('quiz-pick', { uid: u.uid, name: u.name || (window.vcUsername || ''),
+    rqvSend('quiz-pick', { uid: u.uid, name: u.name || ((typeof vcUsername !== 'undefined' && vcUsername) || ''),
                            idx: i, total: st.quiz.questions.length, text: text.slice(0, 80) });
   }
   /* 수업 메시지 수신 — idx-main.js 의 소켓 switch 가 여기로 넘겨 준다. */
@@ -168,15 +168,20 @@
        예전엔 학생 화면에서만 퀴즈가 사라져 「내 화면엔 남아 있는데?」가 됐다. */
     if (!rqvIsStaff() && st.quiz) {
       var _uq = me();
-      rqvSend('quiz-done', { uid: _uq.uid, name: _uq.name || (window.vcUsername || ''), quit: true });
+      rqvSend('quiz-done', { uid: _uq.uid, name: _uq.name || ((typeof vcUsername !== 'undefined' && vcUsername) || ''), quit: true });
       st.quiz = null;
     }
     setCtxLabel();
     body.innerHTML = '<div style="text-align:center;padding:30px;color:#a3b3d1;font-size:13px">⏳ '+(isEn()?'Loading…':'불러오는 중…')+'</div>';
     try {
-      var r = await fetch('/api/review-quiz/list?user_id='+encodeURIComponent(me().uid)+'&token='+encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })())).then(function(x){return x.json();});
+      /* 🈶 (2026-08-21) 언어 필터를 «반드시» 보낸다 — 서버는 lang 이 없으면 예전 호환을 위해
+         활성 퀴즈를 «전부» 돌려준다(api-games.ts 의 listLang). 그래서 중국어 수업에서
+         이 목록에 BTS·SIU 같은 영어 퀴즈가 그대로 섞여 나왔다(2026-08-21 사장님 제보).
+         학생 사이드바(review-quiz-cn.html)는 2026-08-17 에 &lang=zh 로 고쳤는데
+         «수업 화면 안» 인 이 파일만 같이 안 고쳐져 있었다. */
+      var r = await fetch('/api/review-quiz/list?user_id='+encodeURIComponent(me().uid)+'&lang='+encodeURIComponent(st.lang==='zh'?'zh':'en')+'&token='+encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })())).then(function(x){return x.json();});
       if (!r.ok) throw new Error(r.error||'load_fail');
-      if (!r.quizzes.length){ body.innerHTML = '<div style="text-align:center;padding:34px;color:#a3b3d1;font-size:13.5px">📭 '+(isEn()?'No quizzes yet.':'아직 등록된 퀴즈가 없어요.<br>위 [🤖 이 수업 맞춤 퀴즈]를 눌러 AI 출제를 받아보세요.')+'</div>'; return; }
+      if (!r.quizzes.length){ var _lz = (st.lang==='zh'); body.innerHTML = '<div style="text-align:center;padding:34px;color:#a3b3d1;font-size:13.5px">📭 '+(isEn()?('No '+(_lz?'Chinese':'English')+' quizzes yet.'):('아직 등록된 '+(_lz?'중국어':'영어')+' 퀴즈가 없어요.<br>위 [🤖 이 수업 맞춤 퀴즈]를 눌러 출제를 받아보세요.'))+'</div>'; return; }
       body.innerHTML = r.quizzes.map(function(q){
         var srcBadge = q.source==='ai' ? '<span style="font-size:10px;background:rgba(251,191,36,0.18);color:#fbbf24;padding:1px 7px;border-radius:99px;font-weight:800">AI</span>'
           : q.source==='passage' ? '<span style="font-size:10px;background:rgba(16,185,129,0.18);color:#6ee7b7;padding:1px 7px;border-radius:99px;font-weight:800">📖 교재본문</span>' : '';
@@ -385,7 +390,7 @@
          이제 강사가 그 순간을 눈으로 본다. */
       if (!rqvIsStaff() && st.quiz) {
         var _u2 = me();
-        rqvSend('quiz-done', { uid: _u2.uid, name: _u2.name || (window.vcUsername || ''),
+        rqvSend('quiz-done', { uid: _u2.uid, name: _u2.name || ((typeof vcUsername !== 'undefined' && vcUsername) || ''),
                                total: st.quiz.questions.length,
                                score: (r.score != null ? r.score : null) });
       }

@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>영어 학습 게임 — Mangoi 화상영어</title>
+<title>영어 학습 게임 — mangoi.ai 화상영어</title>
 <!--
   ============================================================================
    🎮 학생게임 허브 (Student Games Hub)  — single-file HTML + CSS + JS
@@ -61,13 +61,16 @@
     background-position:0 0,0 0,0 0,22% 34%,72% 44%,44% 58%,88% 70%;
     animation:gbFloat 7s ease-in-out infinite}
   #app > *{position:relative;z-index:1}
+  #app{--hub-w:min(2200px,100%)}
 
   /* ===== 헤더 ===== */
-  .hub-head{text-align:center;padding:26px 16px 10px}
-  .hub-head .brand{font-size:12px;font-weight:800;letter-spacing:2px;color:#b45309;margin-bottom:6px}
-  .hub-head h1{font-size:25px;font-weight:900;line-height:1.25;color:#0b2a5e}
+  /* ⚠️ 좌우 padding 을 여기에 두면 그 만큼 .hub-panel 이 아래 카드 그리드보다 좁아져 줄이 어긋난다.
+     여백은 «글자» 쪽에 준다. */
+  .hub-head{text-align:center;padding:20px 0 6px;width:100%}
+  .hub-head .brand{font-size:12px;font-weight:800;letter-spacing:2px;color:#b45309;margin-bottom:6px;padding:0 16px}
+  .hub-head h1{font-size:25px;font-weight:900;line-height:1.25;color:#0b2a5e;padding:0 16px}
   .hub-head h1 .em{color:#047857}
-  .hub-head .sub{font-size:13px;color:#20406e;margin-top:8px;line-height:1.6;font-weight:600}
+  .hub-head .sub{font-size:13px;color:#20406e;margin-top:8px;line-height:1.6;font-weight:600;padding:0 16px}
 
   /* ===== 🎯 오늘의 추천 카드 (맞춤 피드백 루프) — 로그인 학생 + 데이터 있을 때만 표시 ===== */
   #rec-card{display:none;width:min(720px,calc(100% - 8px));margin:4px auto 12px;padding:14px 18px;
@@ -107,12 +110,15 @@
     font-size:12px;font-weight:800;padding:0 12px;height:38px;border-radius:999px;white-space:nowrap;
     box-shadow:0 2px 8px rgba(0,0,0,.25)}
   #hub-audio-tap-hint.show{display:flex}
-  .game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:22px;
-    width:min(1100px,100%);margin-top:10px}
+  /* 폭 정본은 --hub-w 한 곳 — 컨트롤 패널과 카드 그리드가 «같은 폭» 이어야 줄이 맞는다.
+     2026-09-21: 전에는 min(1100px,100%) 라 1920px 화면에서도 3열 1100px 짜리 «가운데 띠» 로만
+     그려졌다(3840·7680px 에서도 1100px 그대로 — 실측). 카드 크기는 그대로 두고 열 수만 늘린다. */
+  .game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:22px;
+    width:var(--hub-w);margin-top:10px}
   @media(max-width:640px){.game-grid{grid-template-columns:1fr 1fr;gap:14px}}
 
   /* 🖐 카드 순서 바꾸기 */
-  .order-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px 2px}
+  .order-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0 0 2px;align-self:flex-start}
   .order-btn{padding:7px 14px;border-radius:999px;cursor:pointer;font-size:13px;font-weight:800;
     background:rgba(255,255,255,.9);border:1.5px solid rgba(80,110,180,.35);color:#2c3e66}
   .order-btn.on{background:#fbbf24;border-color:#e0a412;color:#3a2a00}
@@ -122,7 +128,10 @@
      아이 눈엔 "게임이 아니구나" 하고 지나가고, 어른 눈엔 바로 읽히게 한다. */
   /* ⚠️ #hub-menu 는 flex-direction:column + align-items:center 다.
      폭을 안 정하면 배너가 내용 크기(627px)로 쪼그라들고, align-self:stretch 를 주면
-     반대로 그리드(1100px)보다 넓어진다(1229px). → 게임 그리드와 **같은 식**을 쓴다. */
+     반대로 넘친다 — 그래서 폭을 못 박는다.
+     ⚠️ 2026-09-21: 카드 그리드·컨트롤 패널은 --hub-w 로 넓어졌지만 이 배너는 «일부러»
+     1100px 로 남긴다. 어른용 한 줄이라 학생 카드보다 눈에 덜 띄어야 한다(2026-08-03 결정).
+     즉 여기의 1100px 은 «그리드와 같은 폭» 이 아니라 «좁게 두는» 값이다. */
   .sci-banner{display:flex;align-items:center;gap:12px;margin:18px 0 0;padding:13px 16px;
     width:min(1100px,100%);box-sizing:border-box;
     border-radius:14px;text-decoration:none;background:rgba(255,255,255,.92);
@@ -189,6 +198,51 @@
   @media(prefers-reduced-motion:reduce){.game-card,.game-card .ph{transition:none}
     .game-card:hover{transform:none}.game-card:hover .ph{transform:none}}
 
+  /* ===== 🔒 «미리보기 + 순차 잠금» (2026-08-22 사장님 지시) — 자세한 사연은 js/game-preview.js 머리말 =====
+     ⛔ 사진을 grayscale 로 죽이지 말 것(미리보기가 목적). ⛔ 자물쇠를 카드 가운데에 덮지 말 것(제목·설명이 가려진다).
+        자물쇠 = 사진 왼쪽아래 칩(.lockchip), 해금 조건 = 설명 아래 제 줄(.locknote). 둘 다 글자와 안 겹치는 자리다.
+     ⚠️ 막은 ::before 로 — ::after 는 배지용 윗단 그라디언트가 이미 쓴다. */
+  .game-card.locked{cursor:pointer}
+  .game-card.locked .ph{filter:saturate(.62) brightness(.78)}
+  .game-card.locked .phwrap::before{content:'';position:absolute;inset:0;z-index:2;
+    pointer-events:none;background:rgba(8,20,44,.34)}
+  .game-card .lockchip{position:absolute;left:10px;bottom:10px;z-index:3;
+    display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:999px;
+    background:rgba(8,20,44,.88);border:1px solid rgba(251,191,36,.65);color:#fde68a;
+    font-size:13px;font-weight:900;letter-spacing:.2px;box-shadow:0 2px 10px rgba(0,0,0,.45)}
+  /* margin-top:auto — 설명 줄 수가 달라도 카드 바닥에 붙어 높이가 안 흔들린다 */
+  /* ⛔ display:flex 를 쓰지 말 것 — 글자마디와 <b> 가 각각 flex 아이템이 되어
+     좁은 폭에서 «게 1 클리어하면 열 / 임 개 려요» 처럼 쪼개진다(2026-08-22 실측 390px).
+     이건 한 줄 «문장» 이므로 보통 텍스트 흐름으로 둔다. */
+  .game-card .locknote{display:block;margin-top:auto;padding-top:8px;font-size:14px;
+    font-weight:800;color:#8a5a12;line-height:1.4}
+  .game-card .locknote b{color:#b45309}
+  @media(max-width:640px){
+    .game-card .lockchip{font-size:11px;padding:4px 9px;left:8px;bottom:8px}
+    .game-card .locknote{font-size:12px;padding-top:6px}
+  }
+
+  /* 🎯 퀘스트 안내 바 — 다음 해금까지 얼마나 남았는지 한 줄로 */
+  .quest-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;
+    margin:0 auto 14px;padding:11px 18px;border-radius:16px;width:fit-content;max-width:100%;
+    background:rgba(251,191,36,.16);border:1px solid rgba(251,191,36,.45);color:#fde68a;
+    font-size:15px;font-weight:800;text-align:center}
+  .quest-bar b{color:#fff}
+  .quest-bar .qbtn{background:rgba(0,0,0,.26);border:1px solid rgba(255,255,255,.2);border-radius:999px;
+    color:#e2e8f0;padding:6px 13px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
+  .quest-bar .qbtn:hover{background:rgba(0,0,0,.4);color:#fff}
+  /* 📱 버튼 설명 줄 — title 툴팁은 마우스 전용이라 폰에서 안 뜬다.
+     기본은 «보이게» 두고, 마우스가 있는 화면에서만 감춘다(툴팁과 겹치지 않게).
+     ⛔ .qwrap 에 flex 를 쓰지 말 것 — 설명 문장이 낱글자로 쪼개진다. */
+  .quest-bar .qwrap{display:block;text-align:center;max-width:100%}
+  .quest-bar .qhint{display:block;margin:4px auto 0;max-width:22em;
+    font-size:12px;font-weight:700;line-height:1.45;color:#fde68a;opacity:.92;white-space:normal}
+  /* 감추는 것은 «마우스가 있고 + 넓은» 화면뿐 — 터치 기기(hover:none)와 좁은 창은 그대로 보인다.
+     ⚠️ 좁은 폭 조건을 함께 두는 이유: 헤드리스·데스크톱 창을 좁혀도 hover:hover 로 보고되어
+        hover 조건만으로는 «폰 폭에서 보이는가» 를 검사할 방법이 없다. */
+  @media(hover:hover) and (pointer:fine) and (min-width:641px){.quest-bar .qhint{display:none}}
+  @media(max-width:640px){.quest-bar{font-size:13.5px;padding:9px 13px}}
+
   /* ===== 게임 화면 ===== */
   #hub-game{display:none;flex:1;flex-direction:column;min-height:100dvh}
   #hub-game.active{display:flex}
@@ -200,6 +254,30 @@
   .game-topbar .gname{font-size:15px;font-weight:800;color:var(--gold)}
   .game-topbar .next{margin-left:auto;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:0;
     padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  /* 📊 진행 띠 — 게임 22종 공통. 게임 코드는 한 글자도 안 고친다(허브가 위에 얹는다). */
+  .game-progress{display:flex;align-items:center;gap:10px;padding:7px 14px;
+    background:rgba(10,18,38,.82);border-bottom:1px solid var(--line);flex-shrink:0}
+  /* ⛔ 이 한 줄을 지우지 마세요. 작성자 CSS 가 display 를 정하면 브라우저 기본
+     [hidden]{display:none} 을 이깁니다(특정성이 아니라 «작성자 > UA» 순위라
+     선택자를 아무리 봐도 원인이 안 보입니다). 이게 없어서 목표가 0인 게임
+     (아바타 키우기)에서 box.hidden=true 인데도 띠가 계속 보였고, 그 띠는
+     폭이 미설정이라 «초록 가득» = 시작하자마자 «다 했어요» 로 읽혔습니다.
+     ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요 — admin_lazyload_harness 의
+        «장식 문자» 검사가 <style> 안을 세어 «한자 폰트 983KB 를 받는다» 로
+        판정합니다. 이 경고 문장 자신도 한 번 걸렸습니다 — « » 를 쓰세요. */
+  .game-progress[hidden]{display:none !important}
+  .game-progress .gp-track{display:block;flex:1;min-width:0;height:9px;border-radius:99px;
+    background:rgba(255,255,255,.13);overflow:hidden}
+  /* ⛔ display:block 을 지우지 말 것 — 인라인이면 폭·높이가 무시돼 채움이 안 보인다 */
+  .game-progress .gp-fill{display:block;height:100%;border-radius:99px;
+    background:linear-gradient(90deg,#34d399,#10b981);
+    min-width:6px;                       /* 0개일 때도 «측정 안 됨» 으로 안 읽히게 작은 표시를 남긴다 */
+    transition:width .28s ease}
+  .game-progress .gp-txt{flex:0 0 auto;font-size:12.5px;font-weight:700;color:#d7e3f4;
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .game-progress .gp-txt b{color:#6ee7b7}
+  @media(prefers-reduced-motion:reduce){ .game-progress .gp-fill{transition:none} }
+  @media(max-width:640px){ .game-progress{padding:5px 12px;gap:8px} .game-progress .gp-txt{font-size:11.5px} }
   .game-scorebar{display:flex;gap:14px;align-items:center;padding:8px 14px;background:rgba(10,18,38,.7);
     border-bottom:1px solid var(--line);font-size:13px;color:#cbd5e1;flex-shrink:0;flex-wrap:wrap}
   #game-area{flex:1;min-height:0;overflow:auto;background:linear-gradient(135deg,#0f172a,#1e293b);
@@ -440,8 +518,9 @@
   .gko-listen:active{transform:scale(.95)}
 
   /* ===== 🎛️ 허브 컨트롤 패널 — 산만한 버튼들을 하나의 글래스 카드로 정돈 ===== */
-  /* 🎛️ 컨트롤 패널: 아래 게임 카드 그리드와 같은 가로폭(1100px) + 또렷한 대비 + 큰 글자 */
-  .hub-panel{width:min(1100px,100%);margin:18px auto 0;background:rgba(8,15,36,.72);
+  /* 🎛️ 컨트롤 패널: 아래 게임 카드 그리드와 «같은 가로폭»(--hub-w) + 또렷한 대비 + 큰 글자.
+     ⚠️ 폭 숫자를 여기에 다시 적지 말 것 — 그리드와 어긋나면 줄이 안 맞는다. */
+  .hub-panel{width:var(--hub-w);margin:12px auto 0;background:rgba(8,15,36,.72);
     border:1px solid rgba(148,197,255,.32);border-radius:22px;padding:18px 24px;
     display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px 20px;
     backdrop-filter:blur(12px) saturate(130%);
@@ -499,7 +578,22 @@
   /* ===== 📱 모바일 컨트롤 패널 정돈 — 줄바꿈 난립(랭킹 낙오·왼쪽 쏠림) 방지, 줄마다 꽉 찬 정렬 =====
      ⚠️ 반드시 스타일시트 맨 끝에 위치해야 함(위 .fun-bar 기본 규칙을 덮어써야 하므로) */
   @media(max-width:640px){
-    .hub-panel{gap:10px;padding:14px 12px 16px}
+    .hub-panel{gap:10px;padding:14px 12px 16px;margin-top:10px}
+    /* 폰에서는 머리글이 화면의 절반을 먹어 카드가 첫 화면 «밖» 으로 밀린다(실측 688px).
+       글자를 지우지 않고 여백·크기만 조인다. */
+    /* ⚠️ 좁은 화면에서는 ←/🏠/🔊 줄(.hub-topnav)이 «떠 있는» 상태라 제목 글자를 덮는다
+       (안내음성 알림 말풍선이 뜨면 더 심하다). 흐름 안으로 되돌려 겹칠 수가 없게 한다. */
+    .hub-topnav{position:static;width:100%;margin:0 0 4px}
+    .hub-head{padding:2px 0}
+    /* 🎯 퀘스트 안내 바는 폰에서 228px 이라(설명 줄이 보이는 기기) 카드가 첫 화면 밖으로
+       밀린다. 넓은 화면에서는 카드 위 그대로 두고 폰에서만 카드 «아래» 로 내린다.
+       ⚠️ order 를 쓰므로 뒤따르는 형제들의 차례도 함께 적어야 한다(기본값 0 이라 앞으로 온다). */
+    .quest-bar{order:1;margin:14px auto 0}
+    .order-bar{order:2}
+    .sci-banner{order:3}
+    .hub-tail{order:4}
+    .hub-head h1{font-size:22px}
+    .hub-head .sub{font-size:12.5px;margin-top:5px;line-height:1.5}
     /* ① 코인+룰렛/상점/랭킹 = 한 줄 4등분 그리드 (랭킹 혼자 다음 줄로 밀리던 문제) */
     .fun-bar{width:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:7px;align-items:stretch}
     .fun-actions{display:contents}
@@ -524,7 +618,7 @@
   }
 </style>
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
-<script src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 미지원 브라우저용 녹음+Whisper 전사 -->
+<script src="/js/mangoi-voice-input.js?v=6"></script><!-- 🎤 미지원 브라우저용 녹음+Whisper 전사 -->
 <script src="/js/mangoi-speak-score.js?v=1"></script><!-- 🗣 따라 말하기 채점(기준 문장 단어 정렬) -->
 <!-- 🎓 교육심리 고도화 3종 (2026-08-03) — 전부 무료·서버 호출 없음
      · listen-first : 듣기를 '배경음'에서 '관문'으로 (Vandergrift 예측→검증→반성)
@@ -536,7 +630,8 @@
 <!-- 🗣 말하기 4단 선순환 (2026-08-04) — ① 뜻 가리고 듣기 → ② 낱말 → ③ 문장 → ④ 되듣고 따라 말하기.
      게임마다 복제돼 있던 말하기 절차를 한 곳으로 모은 모듈. 위 5개 모듈을 재사용하므로 반드시 뒤에 실린다. -->
 <script src="/js/mangoi-speak-cycle.js?v=6"></script>
-<script src="/js/i18n-sweep.js?v=22" defer></script>
+<script src="/js/i18n-sweep.js?v=23" defer></script>
+<script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 </head>
 <body>
 <div id="app">
@@ -547,7 +642,13 @@
   <!-- ===== 메뉴 ===== -->
   <div id="hub-menu">
     <div class="hub-topnav">
-      <button type="button" class="tn-btn" onclick="if(history.length>1){history.back()}else{location.href='/'}" title="뒤로 가기" aria-label="뒤로 가기 (이전 페이지)">←</button>
+      <!-- ⬅ 뒤로 판정은 정본 window.mangoiGoBack(js/back-nav.js) 하나만 쓴다 (2026-09-01 사장님 지시
+           「나머지 5개도 정본으로 모아줘」). 그전에는 화면마다 같은 판정을 복제해 두어, 한 곳을
+           고쳐도 나머지가 옛 동작으로 남았다(정본에는 «히스토리가 없으면 같은 오리진 referrer» 가
+           있는데 복제본에는 없었다 — 즉 복제본이 더 나빴다).
+           ⚠️ else 는 «판정» 이 아니라 안전망이다 — 그 파일이 아직 안 왔거나(defer) 캐시에 옛
+              사본이 남았을 때 «어딘가로는 보낸다». 여기에 판정을 다시 적으면 복제가 되살아난다. -->
+      <button type="button" class="tn-btn" onclick="if(window.mangoiGoBack){window.mangoiGoBack()}else{location.href='/'}" title="뒤로 가기" aria-label="뒤로 가기 (이전 페이지)">←</button>
       <a href="/" class="tn-btn" title="홈으로" aria-label="홈으로">🏠</a>
       <span id="hub-audio-tap-hint">눌러서 안내음성 듣기</span>
       <button type="button" class="tn-btn" id="hub-audio-mute-btn" onclick="toggleHubAudioMute()" title="안내 음성 음소거" aria-label="안내 음성 음소거">🔊</button>
@@ -590,6 +691,9 @@
       </div>
     </div>
 
+    <!-- 🎯 퀘스트(단계별 해금) 안내 — JS 렌더. 퀘스트 모드가 꺼져 있으면 숨김 -->
+    <div class="quest-bar" id="quest-bar" style="display:none"></div>
+
     <!-- 🎯 오늘의 추천 — /api/games/recommend 진단(정오답·발음) 기반 맞춤 안내. 데이터 없으면 숨김 -->
     <div id="rec-card">
       <div class="rec-top">
@@ -603,14 +707,14 @@
       <button type="button" class="rec-cta" id="rec-cta" style="display:none"></button>
     </div>
 
+    <div class="game-grid" id="game-grid"><!-- JS 렌더 --></div>
+
     <!-- 🖐 카드 순서 바꾸기 — 학생이 좋아하는 게임을 앞으로 끌어다 놓을 수 있다 -->
     <div class="order-bar">
       <button type="button" class="order-btn" id="order-toggle">🖐 순서 바꾸기</button>
       <button type="button" class="order-btn ghost" id="order-reset" style="display:none">↩ 기본 순서</button>
       <span class="order-tip" id="order-tip" style="display:none">카드를 끌어서 원하는 자리에 놓으세요 · Drag the cards</span>
     </div>
-
-    <div class="game-grid" id="game-grid"><!-- JS 렌더 --></div>
 
     <!-- 🎓 학부모·선생님용 안내 배너 (2026-08-03)
          왜 여기인가: 이 화면의 주 사용자는 **학생**이다. 연구 자료를 게임 카드 사이나 위쪽에
@@ -627,10 +731,10 @@
     </a>
 
     <!-- 🚀 게임을 안 하고도 바로 다른 곳으로 이동 (수업입장·AI 웜업·복습퀴즈·녹화·나가기) -->
-    <div style="text-align:center;margin-top:22px">
+    <div class="hub-tail" style="text-align:center;margin-top:22px">
       <div style="font-size:13px;color:#94a3b8;margin-bottom:10px">다른 활동으로 이동할까요?</div>
       <button onclick="window.MangoFlow&&MangoFlow.open('game')" style="display:inline-flex;align-items:center;gap:8px;padding:14px 30px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px -4px rgba(56,189,248,.5);font-family:inherit">
-        🚀 다음으로 이동 (수업·웜업·복습·나가기)
+        🚀 다음으로 이동 (수업·말하기 연습·복습·나가기)
       </button>
     </div>
   </div>
@@ -647,6 +751,13 @@
       <!-- iframe 게임 전용: 속도 드롭다운 여닫는 ⋮ 메뉴 (상단바 한 줄 유지) -->
       <button class="kebab" id="hub-kebab" title="게임 속도 설정" onclick="hubToggleTopMenu(event)">⋮</button>
       <button class="next" id="hub-next" onclick="gameNextRound()">🔄 다음 문제</button>
+    </div>
+    <!-- 📊 진행 띠 — 「얼마나 남았는지」를 22종 전부 같은 모양으로 (2026-09-22 사장님 지시)
+         ⛔ 채움을 <span> 으로 두고 display 를 안 적으면 브라우저가 글자로 봐서 폭이 0이 된다
+            (레벨테스트 CEFR 막대 실사고 — 4/4 와 0/4 가 똑같이 빈 막대였다). .gp-fill 의 display:block 필수. -->
+    <div class="game-progress" id="hub-progress" hidden>
+      <span class="gp-track"><span class="gp-fill" id="hub-gp-fill"></span></span>
+      <span class="gp-txt" id="hub-gp-txt"></span>
     </div>
     <div class="game-scorebar" id="hub-scorebar">
       <span id="game-hearts" title="하트를 다 잃기 전에 10문제 정답!" style="letter-spacing:1px">❤️❤️❤️</span>
@@ -894,19 +1005,33 @@ document.addEventListener('visibilitychange', function(){ if(document.visibility
 
 /* ── 🧠 서버 약점 단어로 복습 큐 시딩: 다른 기기에서 틀린 단어도 이어서 복습 ── */
 var _seededMiss = false;
+/* 🔁 2026-10-18 단어장 약점: 목록에 있는 것만(⛔지어 넣지 않음)·본인 토큰 — docs/작업기록/261018_약점낱말_웜업게임.md */
+var _serverWeak = null;
+function _applyServerWeak(){
+  var d=_serverWeak; if(!d) return;
+  (d.weak||[]).forEach(function(w){
+    var id=w&&w.item; if(!id) return;
+    var inW=_GAME_WORDS.find(function(x){ return x.en===id; });
+    var inV=_GAME_VOCAB.find(function(x){ return x.en===id; });
+    if(inW){ if(!_missQueue.some(function(x){ return x.id===id&&x.kind==='word'; })) _missQueue.push({kind:'word',id:id,item:inW}); }
+    else if(inV){ if(!_missQueue.some(function(x){ return x.id===id&&x.kind==='sent'; })) _missQueue.push({kind:'sent',id:id,item:inV}); }
+  });
+  if(GAME_LANG!=='en') return;
+  (d.vocab_weak||[]).forEach(function(w){
+    var id=w&&w.item; if(!id) return;
+    var inW=_GAME_WORDS.find(function(x){ return x.en===id; });
+    if(inW && !_missQueue.some(function(x){ return x.id===id&&x.kind==='word'; })) _missQueue.push({kind:'word',id:id,item:inW});
+  });
+}
 function _seedMissFromServer(){
-  if(_seededMiss) return; var uid=_gameUid(); if(!uid) return; _seededMiss=true;
-  fetch('/api/games/weak?user_id='+encodeURIComponent(uid)+'&lang='+GAME_LANG+'&limit=20')
+  if(_seededMiss) return; var uid=_gameUid(); if(!uid) return; _seededMiss=true; _serverWeak=null;
+  var lang=GAME_LANG, tk=''; try{ tk=localStorage.getItem('mango_token')||''; }catch(_){}
+  fetch('/api/games/weak?user_id='+encodeURIComponent(uid)+'&lang='+lang+'&limit=20', tk?{headers:{Authorization:'Bearer '+tk}}:{})
     .then(function(r){ return r.ok?r.json():null; })
     .then(function(d){
       if(!d||!d.ok||!d.weak) return;
-      d.weak.forEach(function(w){
-        var id=w.item; if(!id) return;
-        var inW=_GAME_WORDS.find(function(x){ return x.en===id; });
-        var inV=_GAME_VOCAB.find(function(x){ return x.en===id; });
-        if(inW){ if(!_missQueue.some(function(x){ return x.id===id&&x.kind==='word'; })) _missQueue.push({kind:'word',id:id,item:inW}); }
-        else if(inV){ if(!_missQueue.some(function(x){ return x.id===id&&x.kind==='sent'; })) _missQueue.push({kind:'sent',id:id,item:inV}); }
-      });
+      if(lang!==GAME_LANG) return;   // 그사이 언어가 바뀜
+      _serverWeak=d; _applyServerWeak();
     }).catch(function(){});
 }
 // 어휘가 로드된 뒤(교재/약점) 시딩 — 언어별로 1회
@@ -1094,7 +1219,7 @@ setInterval(function(){ if(_coinPending>0) _flushCoins(false); }, 20000);
 window.addEventListener('pagehide', function(){ _flushCoins(true); });
 
 function closeModal(){ var b=document.getElementById('modal-back'); if(b) b.classList.remove('on'); }
-function _openModal(html){ var b=document.getElementById('modal-back'), body=document.getElementById('modal-body'); if(!b||!body) return; body.innerHTML=html; b.classList.add('on'); }
+function _openModal(html){ var b=document.getElementById('modal-back'), body=document.getElementById('modal-body'); if(!b||!body) return; body.classList.remove('mwide');   /* 넓은 모달(미리보기) 잔상 제거 — 다음 모달이 넓게 열리는 사고 방지 */ body.innerHTML=html; b.classList.add('on'); }
 function _ensureNick(){ var n=_nick(); if(n) return n; var v=(prompt('랭킹에 표시할 닉네임을 정해줘! (2~12자)','')||'').trim().slice(0,12); if(!v) v='꼬마'+Math.floor(100+Math.random()*900); _lsSet('mangoi_nick', v); return v; }
 
 // 🎡 룰렛 (하루 1회 무료)
@@ -1462,6 +1587,9 @@ function _gameCheckGoal(){
 }
 function _gameShowResult(){
   _stopRoundTimer();
+  /* 🔓 퀘스트 해금 적립 — 여기가 인라인 게임의 **진짜 클리어 지점**이다(목표 정답 수 달성).
+     ⚠️ 정답 1개마다 적립하면 한 판 만에 21개가 다 열려 해금이 무의미해진다. */
+  try{ _questClear(_gameState.mode || 'inline'); }catch(_){}
   if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
   try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(_){}
   try{ _flushProgress(false); }catch(_){}   // 🧠 결과 화면에서 학습기록 서버 전송
@@ -1523,6 +1651,7 @@ if (window.MangoiGameVocab){
     if(GAME_LANG !== 'en') return;   // 중국어 모드에서는 영어 학생 맞춤 어휘로 덮어쓰지 않음
     if(d.sentences.length >= 3){ _GAME_VOCAB.length = 0; d.sentences.forEach(function(s){ _GAME_VOCAB.push(s); }); }
     if(d.words.length >= 6){ _GAME_WORDS.length = 0; d.words.forEach(function(w){ _GAME_WORDS.push(w); }); }
+    try{ _applyServerWeak(); }catch(_){}
     var el = document.getElementById('vocab-src-badge');
     if(el && (d.textbook || d.level)){
       el.textContent = '📚 ' + (d.textbook || '') + (d.level ? ' · ' + d.level : '') + ' 맞춤 출제 중';
@@ -1638,6 +1767,10 @@ function toggleSiteLang(){
   try{ localStorage.setItem('mangoi_lang', next); }catch(_){}
   document.documentElement.lang = next;
   _syncSiteLangBtn();
+  /* 진행 띠 글자는 JS 가 그린다 — i18n 엔진이 못 고치므로 여기서 다시 그린다.
+     ⛔ data-ko/data-en 을 달아서 풀지 말 것: 두 엔진이 textContent 를 통째로
+        갈아끼워 안쪽 <b> 가 DOM 에서 사라진다(결재함 배지와 같은 자리). */
+  try{ hubProgressDraw(); }catch(_){}
 }
 
 /* 🔊 게임 메뉴 진입 안내음성 — 방문할 때마다 무조건 재생(다른 페이지의 음소거 저장값과 무관),
@@ -1655,9 +1788,13 @@ function _hubAudioClearTapHint(){
 }
 function toggleHubAudioMute(){
   if(Date.now() - _hubAudioResumedAt < 400){ _hubAudioSyncBtn(); return; }   // 방금 "눌러서 듣기" 제스처였던 클릭은 토글 취급하지 않음
-  _hubIntroDismissed = !_hubIntroDismissed;
   var a = document.getElementById('hub-intro-audio');
-  if(_hubIntroDismissed){ if(a) a.pause(); }
+  /* 🔴 다음 상태는 «플래그를 뒤집어» 정하지 않는다 — 실제로 «소리가 나고 있나» 로 정한다.
+     플래그로 뒤집으면, 이 클릭 직전에 딴 코드(아래 pointerdown 자동정지 등)가 플래그를
+     이미 true 로 만들어 둔 경우 «음소거 상태니까 켜자» 로 읽혀 소리가 도로 살아난다. */
+  var playing = !!(a && !a.paused && !a.ended);
+  _hubIntroDismissed = playing;
+  if(_hubIntroDismissed){ if(a){ try{ a.pause(); }catch(_){} } }
   else if(a){ try{ a.play().catch(function(){}); }catch(_){} }
   _hubAudioClearTapHint();
   _hubAudioSyncBtn();
@@ -1691,8 +1828,15 @@ function _hubPlayIntroAudio(){
 }
 // 🔇 안내음성이 나오는 동안 다른 곳을 클릭하면(게임 시작·언어 전환·메뉴 이동 등) 그 즉시 멈춘다.
 //   막힌 자동재생을 방금 그 클릭으로 막 재개시킨 경우만 예외(_hubAudioResumedAt 400ms 창) — 안 그러면 재생하자마자 바로 멈춰버림.
-document.addEventListener('pointerdown', function(){
+document.addEventListener('pointerdown', function(e){
   if(Date.now() - _hubAudioResumedAt < 400) return;
+  /* 🔴 음소거 버튼 자신은 여기서 손대지 않는다(2026-08-23 「무음을 눌러도 안 멈춘다」의 정체).
+     pointerdown 이 click 보다 먼저 오므로, 여기서 pause + _hubIntroDismissed=true 로 만들어 두면
+     곧이어 오는 toggleHubAudioMute() 가 그 상태를 보고 «지금 꺼져 있으니 켜자» 로 뒤집어
+     소리가 그 자리에서 되살아났다. 몇 번을 눌러도 계속 재생 → 멈출 방법이 아예 없었다.
+     버튼 처리는 toggleHubAudioMute() 한 곳에만 맡긴다. */
+  var t = e && e.target;
+  if(t && t.closest && t.closest('#hub-audio-mute-btn')) return;
   var a = document.getElementById('hub-intro-audio');
   if(a && !a.paused){ a.pause(); _hubIntroDismissed = true; _hubAudioSyncBtn(); }
 });
@@ -1737,13 +1881,116 @@ function setGameSpeed(lvl){
     gameNextRound();
   }
 }
+/* ══════════════════════════════════════════════════════════════════
+   📊 진행 띠 — 「얼마나 더 해야 끝나는지」 (2026-09-22 사장님 지시)
+
+   왜: 게임 22종을 전부 브라우저로 재 보니 **8종은 「끝」이 화면에 한 글자도
+       안 보였고**, 보여 주는 14종도 기준이 여섯 가지였다
+       (0/10 · 1/6 · 1/4 · 0/5 · Round 1/3 · 0/60).
+       → 「무작정 언제까지 해야 끝나는지 모르니 몇 번 하다가 나가게 된다」
+
+   어떻게: **게임 코드는 한 글자도 안 고친다.** 허브가 게임 위에 띠를 얹고,
+       진행은 `js/game-track.js`(이미 13종이 싣고 있다)가 세던 정오답을
+       postMessage 로 받아서 그린다. 그 파일 머리말의 원칙과 같다 —
+       「게임 로직은 한 글자도 고치지 않는다 … 그래서 바깥에서 붙인다」.
+
+   ⛔ 목표(분모)를 화면이 지어내지 않는다. 아래 표가 정본이고, **그 값을 그대로
+      게임에게 URL(goal=)로 넘긴다** — 허브가 그리는 분모와 게임이 받는 목표가
+      «같은 한 값» 이라 어긋날 수가 없다.
+   ⛔ 이 숫자는 «그 게임의 진짜 끝» 이 아니라 **«오늘 이만큼 하면 된다» 는
+      우리 목표**다(제안서 2층 — 게임별 숫자는 사장님이 정하실 일).
+      🔴 2026-09-22 정정: 처음엔 게임 HUD 의 숫자를 그대로 베껴 적었는데
+         단위가 달랐다. 「1/6」은 문제 수가 아니라 **LEVEL** 이었고, 그때
+         쓰던 by:'seen' 은 문제 수가 아니라 **API 호출 수**라 문장 하나에
+         2씩 늘어 문장 3개에서 6/6 「다 했어요!」가 떴다.
+      ✅ 그래서 단위를 **«맞힌 개수» 하나**로 통일한다. 학생이 게임을 옮겨도
+         숫자의 뜻이 안 바뀌는 것이 이 띠를 만든 이유다.
+      ℹ️ 목표를 못 채운 채 게임이 먼저 끝나면 mangoi-game-complete 가
+         띠를 가득 채우므로 중간에서 멎지 않는다.
+   ══════════════════════════════════════════════════════════════════ */
+var GAME_GOAL_DEFAULT = 10;
+var GAME_GOALS = {
+  /* ⛔ 0 = 띠를 아예 안 그린다. 넷 다 이유가 있다:
+     avatar     경험치(0/60)라 «맞힌 개수» 와 단위가 다르다.
+     fish·speaking·scenequest
+                그 세 화면은 game-track.js 를 «안 싣는다» → 진행을 알려 올
+                통로가 원리상 없다. 띠를 그리면 게임 내내 0 에 멎어 있다가
+                끝에 갑자기 가득 차서, 화면이 «측정한 척» 거짓말을 한다.
+                ✅ 하니스가 registry 의 src 파일을 열어 기계로 대조한다 —
+                   통로가 생기면 그때 숫자를 넣으면 된다(제안서 2층). */
+  avatar:     { n:0 },
+  fish:       { n:0 },
+  speaking:   { n:0 },
+  scenequest: { n:0 }
+};
+function _goalOf(mode){
+  var g = GAME_GOALS[mode];
+  if(g && typeof g.n === 'number') return g.n;
+  return GAME_GOAL_DEFAULT;
+}
+
+var _gpState = { mode:'', goal:0, done:0, shown:false };
+
+/* 띠를 새 게임에 맞춰 초기화. goal 이 0이면 아예 안 그린다(모르는 것을 지어내지 않는다). */
+function hubProgressStart(mode){
+  _gpState = { mode:mode, goal:_goalOf(mode), done:0, shown:false };
+  var box = document.getElementById('hub-progress');
+  if(!box) return;
+  if(!_gpState.goal){
+    /* ⚠️ 두 겹으로 막는다 — hidden 이 한 번 안 먹었을 때(위 CSS 함정) 채움이
+       «폭 미설정» 이면 block 자식이 부모 폭을 100% 먹어 «초록 가득» 이 된다. */
+    var f0 = document.getElementById('hub-gp-fill'); if(f0) f0.style.width = '0%';
+    var t0 = document.getElementById('hub-gp-txt');  if(t0) t0.textContent = '';
+    box.hidden = true; return;
+  }
+  box.hidden = false;
+  hubProgressDraw();
+}
+function hubProgressStop(){
+  _gpState = { mode:'', goal:0, done:0, shown:false };
+  var box = document.getElementById('hub-progress');
+  var f0 = document.getElementById('hub-gp-fill'); if(f0) f0.style.width = '0%';
+  var t0 = document.getElementById('hub-gp-txt');  if(t0) t0.textContent = '';
+  if(box) box.hidden = true;
+}
+/* 진행을 그린다. ⚠️ 목표를 넘어서면 목표에 맞춰 자른다(11/10 은 거짓말이다). */
+function hubProgressDraw(){
+  var fill = document.getElementById('hub-gp-fill');
+  var txt  = document.getElementById('hub-gp-txt');
+  if(!fill || !txt || !_gpState.goal) return;
+  var done = Math.max(0, Math.min(_gpState.done, _gpState.goal));
+  var left = _gpState.goal - done;
+  fill.style.width = Math.round(100 * done / _gpState.goal) + '%';
+  var en = (_siteLang() === 'en');
+  /* ✅ 는 «맞힌 개수» 라는 뜻. 게임 자체 HUD(LEVEL·Round·단계)와 숫자가
+     달라 보여도 뜻이 다른 값이라 맞다. */
+  txt.innerHTML = '\u2705 <b>' + done + ' / ' + _gpState.goal + '</b> · ' +
+    (left > 0 ? (en ? (left + ' to go!') : (left + '개만 더!'))
+              : (en ? 'Done!' : '다 했어요!'));
+}
+/* 게임이 알려 온 진행을 반영. done 은 뒤로 가지 않는다(다시 그리기·중복 메시지 방어). */
+function hubProgressSet(done){
+  if(!_gpState.goal) return;
+  var n = Math.max(0, Number(done) || 0);
+  if(n < _gpState.done) return;
+  _gpState.done = n;
+  hubProgressDraw();
+}
+/* 게임이 «끝났다» 고 알려 오면 띠를 가득 채운다 — 아직 goal 을 안 읽는 게임이
+   자기 기준으로 먼저 끝나도 띠가 중간에서 멈춰 거짓말하지 않게. */
+function hubProgressComplete(){
+  if(!_gpState.goal) return;
+  _gpState.done = _gpState.goal;
+  hubProgressDraw();
+}
+
 // iframe 게임 src 에 속도/학생/목표/언어 파라미터 부착 — 게임 쪽에서 교재 맞춤 문장 로드 + 10개 정답 결과에 사용
 function _hubIframeSrc(g){
   var pick = _GAME_VOCAB[Math.floor(Math.random()*_GAME_VOCAB.length)];
   // 중국어는 띄어쓰기가 없으므로 분절된 words[] 를 공백으로 이어 전달(게임이 단어 단위로 분할)
   var sentence = (GAME_LANG==='zh' && pick.words && pick.words.length) ? pick.words.join(' ') : pick.en;
   var src = g.src(sentence);
-  src += (src.indexOf('?')>=0?'&':'?') + 'speed=' + _speedLvl + '&goal=10&stage=' + GAME_STAGE + '&glang=' + GAME_LANG;
+  src += (src.indexOf('?')>=0?'&':'?') + 'speed=' + _speedLvl + '&goal=' + _goalOf(g.mode) + '&stage=' + GAME_STAGE + '&glang=' + GAME_LANG;
   if(pick.ko) src += '&ko=' + encodeURIComponent(pick.ko);   // 말하기 미션 카드 '문장 탭 → 한국어 뜻'용
   try{ var uid = window.MangoiGameVocab && MangoiGameVocab.getUserId(); if(uid) src += '&uid=' + encodeURIComponent(uid); }catch(_){}
   return src;
@@ -1830,6 +2077,9 @@ const HUB_GAMES = [
     src:function(){ return '/student-game-tetris.html?v=2'; } },   // ownSpeed=게임 자체 ☰에 속도 있음 → 상단바 ⋮(속도) 숨김. v=2 서버TTS
   { mode:'rescue', kind:'iframe', ico:'🚤', ttl:'망고 구조선의 대항해', dsc:'파도를 타고 3D 바다를 달려 물에 빠진 단어 친구를 구조! 구한 단어로 문장 듣고 따라 말하기. 영어·중국어', bg:'#ff8a1e', badge:'3D·NEW', ownSpeed:true,
     src:function(){ return '/student-game-rescue-voyage.html?v=1'; } },   // 자체 언어선택·부스트 → 상단바 속도 숨김. ?glang 로 언어 수신
+  // Append to preserve every existing quest-unlock position and saved card order.
+  { mode:'scenequest', kind:'iframe', ico:'🔑', ttl:'장면 탐험대 (Scene Quest)', dsc:'실사 스타일 그림 12장·6초 영상 12편! 보고 영어 단어, 구문, 문장을 쓰면 문이 열려요. 열쇠 수집·콤보·보물문·오답 복습까지.', bg:'#247a72', badge:'영어쓰기·NEW', ownSpeed:true,
+    imageSrc:'/img/scene-quest/space.webp', src:function(){ return '/student-game-scene-quest.html'; } },
 ];
 
 /* ============================================================
@@ -1840,6 +2090,8 @@ const HUB_GAMES = [
 //   선택 버튼이 있어 한 게임이 두 언어를 다 담는다 → 제목에 '중국어'를 붙이면 영어판이 없는
 //   것처럼 보인다(사장님 지적, 2026-07-30). '우주 배틀'(battle3d)도 같은 이유로 단일 제목이다.
 function _gameTitle(g){ return g.ttl; }
+// 🔗 js/game-preview.js 가 읽는다. ⚠️ const 는 window 에 «저절로» 안 올라간다 — 이 줄을 지우면 미리보기가 조용히 빈다
+window.HUB_GAMES = HUB_GAMES;
 /* 🖐 학생이 정한 카드 순서 — localStorage 에 mode 배열로 저장.
    저장된 목록에 없는(새로 추가된) 게임은 원래 자리 순서를 지키며 뒤에 붙는다. */
 var ORDER_KEY = 'mangoi_game_order';
@@ -1867,17 +2119,226 @@ function _orderedGames(){
   return out;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   🔒 퀘스트 모드 — 단계별 게임 해금(Lock/Unlock)   (원장님 제안 2026-08-13)
+   · 왜: 21개를 한 번에 열어 두니 "선택의 패러독스"로 한 게임에 3분도 못 머문다.
+     처음엔 2개만 열고, 미션을 하나 깰 때마다 다음 게임이 하나씩 열린다.
+   · ⚠️ 이미 쓰고 있는 학생 29,000명을 하루아침에 잠그면 안 된다.
+     그래서 **처음 오는 학생만** 퀘스트 모드로 시작한다(코인·순서·기록이 있으면 전체 개방).
+     누구든 안내 바의 버튼으로 즉시 켜고 끌 수 있다.
+   · 해금 판정은 학생이 바꾼 카드 순서가 아니라 **기본 순서(HUB_GAMES)** 를 따른다.
+     안 그러면 순서를 바꾸는 것만으로 잠금이 뒤죽박죽 된다.
+   ══════════════════════════════════════════════════════════════════ */
+var QUEST_KEY = 'mangoi_quest_mode';       // 'on' | 'off'
+var QUEST_SRC = 'mangoi_quest_src';        // 'user' = 학생이 버튼으로 직접 고름(서버 판정보다 우선)
+var CLEAR_KEY = 'mangoi_game_clears';      // { mode: 클리어 횟수 }
+var QUEST_START = 2;                       // 처음부터 열려 있는 게임 수 (앞 2개는 조건 없이 바로 플레이)
+/* 🎫 두 번째 열쇠 — 레벨테스트 «결과 확정»(통과). 해금 경로가 둘이다: ①앞 게임 클리어 ②실력 검증.
+   ②는 지름길이라 통과하면 전체가 한 번에 열린다(검증을 마친 학생에게 순서를 다시 강요하면 벌이 된다).
+   ⚠️ 대리점별 커스텀 없음 — 전 지점 같은 규칙. 지점 설정을 읽는 코드를 넣지 말 것.
+   ⚠️ 정본은 서버(/api/games/recommend 의 leveltest_passed). 여기 값은 첫 화면이 안 깜빡이게 두는 사본이라
+      서버가 false 를 말하면 지운다(관리자가 레벨테스트 결과를 정정할 수 있다). */
+var LT_KEY = 'mangoi_leveltest_pass';      // '1' = 레벨테스트 결과가 확정됐다
+var _ltPassed = (function(){
+  try{ return localStorage.getItem(LT_KEY) === '1'; }catch(_){ return false; }
+})();
+
+function _clears(){
+  try{ var v = JSON.parse(localStorage.getItem(CLEAR_KEY)); return (v && typeof v === 'object') ? v : {}; }
+  catch(_){ return {}; }
+}
+function _clearTotal(){ var c = _clears(), n = 0; for(var k in c){ n += (parseInt(c[k],10)||0); } return n; }
+/* 🔑 해금은 **서로 다른 게임을 몇 개 깼는가**로 센다.
+   같은 게임을 열 번 깨도 하나로 친다 — 안 그러면 한 게임만 반복해서 21개를 다 열어 버린다.
+   ("각 게임의 목표를 달성할 때마다 다음 게임이 연쇄 해금" — 원장님 제안의 원래 뜻) */
+function _clearedModes(){ var c = _clears(), n = 0; for(var k in c){ if((parseInt(c[k],10)||0) > 0) n++; } return n; }
+/* 이 학생이 예전부터 쓰던 사람인가 — 코인·카드순서·클리어 기록 중 하나라도 있으면 그렇다 */
+function _isReturning(){
+  try{
+    if(localStorage.getItem(ORDER_KEY)) return true;
+    if(_coinsEarned() > 0) return true;
+    if(_clearTotal() > 0) return true;
+  }catch(_){}
+  return false;
+}
+function _questUserChosen(){
+  try{ return localStorage.getItem(QUEST_SRC) === 'user'; }catch(_){ return false; }
+}
+/* 첫 렌더용 **잠정** 값. 이 기기의 흔적으로 추측한다.
+   ⚠️ 추측을 저장하지 않는다 — 저장하면 그 기기에 «신규»가 박혀 버려서
+      나중에 서버가 «이 학생은 기존 학생»이라고 알려줘도 영영 안 바뀐다.
+      실제로 그렇게 만들었다가 «노트북은 2개만 열리고 폰은 다 열린다»가 됐다(2026-08-14 지적). */
+var _questMode = (function(){
+  try{
+    var v = localStorage.getItem(QUEST_KEY);
+    if(v === 'on' || v === 'off') return v === 'on';
+    return !_isReturning();
+  }catch(_){ return false; }
+})();
+
+/* 🌐 기기가 아니라 **계정**으로 «기존 학생»을 가려낸다 (2026-08-14 지적 대응)
+   문제: 잠금 여부를 기기(localStorage)로만 정하니, 같은 학생이 노트북에선 2개만 열리고
+         폰에선 전부 열렸다. 학생에겐 그냥 고장으로 보인다.
+   원인: 기존 학생이 **처음 쓰는 기기**에는 흔적(코인·순서·기록)이 없어 신규로 오판했다.
+
+   ⚠️ 그래서 서버 판정을 **한 방향으로만** 쓴다 — 「기존 학생인데 잠긴 경우」를 푸는 데만.
+      반대로 쓰면(기록이 적으면 잠금) 기능이 망가진다: /api/games/recommend 의
+      status:'no_data' 기준은 «최근 30일 8문제 미만»이라, 신규 학생이 8문제만 풀어도
+      «기존»으로 바뀌어 잠금이 통째로 풀려 버린다. 그 순간 퀘스트가 사라진다.
+      (처음엔 그렇게 짰다가 이 계산을 하고 되돌렸다.)
+
+   요약 — 자동 판정은 이렇게만 움직인다:
+     · 잠금 켜기 : 이 기기에 흔적이 없다(=신규일 가능성). 로컬 추측이 담당.
+     · 잠금 풀기 : 서버가 «이 계정엔 학습 기록이 충분하다」고 답했고,
+                   이 기기에서 아직 퀘스트를 한 판도 안 깼을 때만.
+     · 학생이 버튼으로 직접 고른 값은 어느 쪽이든 서버가 건드리지 않는다. */
+function _questApplyServer(d){
+  if(!d || !d.ok) return;
+  // 🎫 레벨테스트 판정은 아래 조기 return 보다 «앞» 이어야 한다 — 전체 개방 중에도 기억해 둬야 나중에 켤 때 바로 열린다
+  if(typeof d.leveltest_passed === 'boolean') _setLeveltestPass(d.leveltest_passed);
+  if(!_questMode) return;                          // 이미 전체 개방 — 건드릴 것 없다
+  if(_questUserChosen()) return;                   // 학생이 직접 고른 값이 우선
+  if(_clearedModes() > 0) return;                  // 이 기기에서 퀘스트 진행 중 — 뺏지 않는다
+  // 첫 세션 몇 문제로 «기존»이 되지 않도록 넉넉히 잡는다(신규 학생 보호)
+  var hasHistory = (Number(d.attempts) || 0) >= 20 || d.pron != null;
+  if(!hasHistory) return;
+  _questMode = false;
+  try{ localStorage.setItem(QUEST_KEY, 'off'); }catch(_){}
+  hubRenderMenu();                                 // 잠금이 풀렸으니 다시 그린다
+}
+/* 통과 여부 기록/해제 — 바뀌었을 때만 다시 그린다 */
+function _setLeveltestPass(pass){
+  pass = !!pass;
+  if(pass === _ltPassed) return;
+  _ltPassed = pass;
+  try{
+    if(pass) localStorage.setItem(LT_KEY, '1');
+    else localStorage.removeItem(LT_KEY);
+  }catch(_){}
+  try{ hubRenderMenu(); }catch(_){}
+  if(pass && _questMode){ try{ _toastHub('🎫 레벨테스트 통과! 모든 게임이 열렸어요'); }catch(_){} }
+}
+function _leveltestPassed(){ return _ltPassed; }
+/* 열린 게임 수 — 기본 2개 + 서로 다른 클리어 수. 레벨테스트를 통과했으면 전부 */
+function _unlockedCount(){
+  if(_ltPassed) return HUB_GAMES.length;
+  return Math.min(HUB_GAMES.length, QUEST_START + _clearedModes());
+}
+function _isUnlocked(mode){
+  if(!_questMode) return true;
+  if(_ltPassed) return true;                       // 🎫 실력 검증을 마친 학생 — 순서 면제
+  var i = HUB_GAMES.findIndex(function(g){ return g.mode === mode; });
+  if(i < 0) return true;
+  return i < _unlockedCount();
+}
+/* 이 게임을 열려면 몇 개 더 깨야 하나(열려 있으면 0). 기준은 학생이 바꾼 순서가 아니라 HUB_GAMES 다 */
+function _needToUnlock(mode){
+  if(_isUnlocked(mode)) return 0;
+  var i = HUB_GAMES.findIndex(function(g){ return g.mode === mode; });
+  if(i < 0) return 0;
+  return Math.max(1, i - _unlockedCount() + 1);
+}
+/* 미션 1회 완료 → 클리어 적립 + 새로 열린 게임이 있으면 알려 준다 */
+function _questClear(mode){
+  var before;
+  try{
+    before = _unlockedCount();
+    var c = _clears();
+    c[mode] = (parseInt(c[mode],10)||0) + 1;
+    localStorage.setItem(CLEAR_KEY, JSON.stringify(c));
+  }catch(_){ return; }
+  if(!_questMode) return;
+  var after = _unlockedCount();
+  _renderQuestBar();
+  if(after <= before) return;                 // 이미 깬 게임을 또 깬 것 — 새로 열린 게 없다
+  var g = HUB_GAMES[after - 1];
+  if(g){ try{ _toastHub('🔓 새 게임 해금! ' + g.ico + ' ' + g.ttl.split(' (')[0]); }catch(_){} }
+}
+/* 허브 상단 토스트(게임 화면 위에서도 보이게 최상단 고정) */
+function _toastHub(msg){
+  var t = document.getElementById('quest-toast');
+  if(!t){
+    t = document.createElement('div');
+    t.id = 'quest-toast';
+    t.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:9999;' +
+      'background:rgba(15,23,42,.94);color:#fde68a;border:1px solid rgba(251,191,36,.6);' +
+      'border-radius:999px;padding:11px 22px;font-weight:800;font-size:15px;' +
+      'box-shadow:0 10px 30px rgba(0,0,0,.45);transition:opacity .25s;pointer-events:none';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(_toastHub._t);
+  _toastHub._t = setTimeout(function(){ t.style.opacity = '0'; }, 2600);
+}
+
+function toggleQuestMode(){
+  _questMode = !_questMode;
+  // 'user' 표시 — 이후 서버 판정이 이 선택을 뒤집지 않는다
+  try{ localStorage.setItem(QUEST_KEY, _questMode ? 'on' : 'off'); localStorage.setItem(QUEST_SRC, 'user'); }catch(_){}
+  hubRenderMenu();
+  _toastHub(_questMode ? '🎯 퀘스트 모드 ON — 하나씩 깨서 열어 봐요!' : '🔓 전체 게임을 모두 열었어요!');
+}
+
+/* 퀘스트 바 버튼 한 개 — 버튼 + «무슨 뜻인지» 한 줄.
+   ⚠️ title 툴팁은 마우스 전용이라 폰에서는 영영 안 뜬다 — 그래서 같은 글을
+      .qhint 로 또 그리고, 마우스가 있는 화면에서만 CSS 로 감춘다(둘이 겹쳐 보이지 않게).
+   ⛔ .qwrap 을 flex 로 만들지 말 것 — 설명 문장이 낱글자로 쪼개진다(CLAUDE.md 2장 함정). */
+function _qbtn(label, hint, call){
+  return '<span class="qwrap">' +
+           '<button type="button" class="qbtn" title="' + hint + '" onclick="' + call + '">' + label + '</button>' +
+           '<span class="qhint">' + hint + '</span>' +
+         '</span>';
+}
+/* 버튼 설명 — 10세가 읽고 바로 알 수 있게 한 줄씩. 정본은 여기 한 곳 */
+var QBTN_QUEST = '게임을 하나 깰 때마다 새 게임이 하나씩 열리는 모드예요';
+var QBTN_LT    = '레벨테스트에 통과하면 게임을 하나씩 깨지 않아도 모든 게임이 한꺼번에 열려요';
+var QBTN_ALL   = '퀘스트 없이 지금 바로 모든 게임을 열어요';
+
+function _renderQuestBar(){
+  var bar = document.getElementById('quest-bar');
+  if(!bar) return;
+  var open = _unlockedCount(), total = HUB_GAMES.length;
+  if(!_questMode){
+    bar.style.display = 'flex';
+    bar.innerHTML = '<span>🔓 모든 게임이 열려 있어요 (' + total + '개)</span>' +
+      _qbtn('🎯 퀘스트 모드로 하기', QBTN_QUEST, 'toggleQuestMode()');
+    return;
+  }
+  bar.style.display = 'flex';
+  if(_ltPassed){
+    // 🎫 레벨테스트로 이미 열린 상태 — 「몇 개 더 깨야 한다」를 말하면 거짓말이 된다
+    bar.innerHTML = '<span>🎫 레벨테스트 통과! 모든 게임 <b>' + total + '개</b>가 열려 있어요</span>' +
+      _qbtn('🎯 퀘스트 모드로 하기', QBTN_QUEST, 'toggleQuestMode()');
+    return;
+  }
+  var next = (open < total) ? HUB_GAMES[open] : null;
+  bar.innerHTML = '<span>🎯 오늘의 퀘스트 · 열린 게임 <b>' + open + ' / ' + total + '</b></span>' +
+    (next ? '<span>열린 게임 중 <b>안 깬 게임 하나</b>를 클리어하면 <b>' + next.ico + ' ' + next.ttl.split(' (')[0] + '</b> 해금!</span>'
+          : '<span>👑 모든 게임을 다 열었어요!</span>') +
+    // 두 번째 해금 경로 — 잠긴 카드를 눌러야만 보이면 존재를 모르는 학생이 생긴다
+    (next ? _qbtn('🎫 레벨테스트로 한 번에 열기', QBTN_LT, 'hubGoLeveltestSafe()') : '') +
+    _qbtn('🔓 전체 열기', QBTN_ALL, 'toggleQuestMode()');
+}
+
 function hubRenderMenu(){
   // 3D 배틀은 영어/중국어 모두 지원(glang 전달) — 전체 노출
   var list = _orderedGames();
+  _renderQuestBar();
   document.getElementById('game-grid').innerHTML = list.map(function(g,i){
     // 🖼️ 카드 사진: 파일명은 mode 와 같다(/img/games/<mode>.webp).
     //    첫 6장은 바로 보이는 자리라 eager, 나머지는 lazy — 29,000명이 쓰는 화면이라 전송량을 아낀다.
     var eager = i < 6;
-    return '<div class="game-card" data-mode="'+g.mode+'" style="--cardbg:'+g.bg+'" onclick="hubOpenGame(\''+g.mode+'\')">'
+    // 🔒 잠긴 카드 — 지우지도 죽이지도 않는다. 자물쇠는 사진 칩, 해금 조건은 설명 아래 줄(글자를 안 가린다)
+    var unlocked = _isUnlocked(g.mode);
+    var need = _needToUnlock(g.mode);
+    return '<div class="game-card'+(unlocked?'':' locked')+'" data-mode="'+g.mode+'" style="--cardbg:'+g.bg+'"'
+      + ' aria-label="'+(unlocked?'':'잠김 · 미리보기 · ')+_gameTitle(g).replace(/"/g,'')+'"'
+      + ' onclick="hubOpenGame(\''+g.mode+'\')">'
       + '<div class="phwrap">'
       +   '<span class="badge">'+g.badge+'</span>'
-      +   '<img class="ph" src="/img/games/'+g.mode+'.webp" alt="" width="720" height="540"'
+      +   (unlocked ? '' : '<span class="lockchip">🔒 미리보기</span>')
+      +   '<img class="ph" src="'+(g.imageSrc || '/img/games/'+g.mode+'.webp')+'" alt="" width="720" height="540"'
       +     ' loading="'+(eager?'eager':'lazy')+'" decoding="async"'
       +     (eager?' fetchpriority="high"':'')
       // 사진을 못 받으면 카드가 텅 비지 않게 원래 이모지로 되돌린다
@@ -1887,6 +2348,7 @@ function hubRenderMenu(){
       + '<div class="body">'
       +   '<span class="ttl">'+_gameTitle(g)+'</span>'
       +   '<span class="dsc">'+g.dsc+'</span>'
+      +   (unlocked ? '' : '<span class="locknote">🗝️ 게임 <b>'+need+'개</b> 클리어하면 열려요</span>')
       + '</div>'
       + '</div>';
   }).join('');
@@ -1988,8 +2450,24 @@ function _applyGameTheme(mode){
   if(mode==='brick'||mode==='match'||mode==='fill'||mode==='balloon') area.classList.add('themed');
 }
 
+/* 🎫 레벨테스트 버튼 — hubGoLeveltest 는 defer 파일(js/game-preview.js)에 있어서
+   느린 회선에서는 «아직 안 왔을» 수 있다. 그대로 부르면 ReferenceError 로 조용히
+   무반응(=고장으로 보임) → hubOpenGame 의 잠금 폴백과 같은 방식으로 토스트를 준다. */
+function hubGoLeveltestSafe(){
+  if (typeof window.hubGoLeveltest === 'function') { window.hubGoLeveltest(); return; }
+  _toastHub('⏳ 준비 중이에요 — 잠시 후 다시 눌러 주세요!');
+}
 function hubOpenGame(mode){
   var g = _hubGame(mode); if(!g) return;
+  /* 🔒 잠긴 게임 → 미리보기(js/game-preview.js). ⛔ 여기서 실제 게임을 시작하는 길을 열지 말 것.
+     ⚠️ 그 파일은 defer 라 느린 회선에서 «아직 안 왔을» 수 있다 → 옛 토스트로 폴백(무반응은 고장으로 보인다). */
+  if(!_isUnlocked(mode)){
+    if(typeof window.hubPreviewGame === 'function'){ window.hubPreviewGame(mode); return; }
+    var _nx = HUB_GAMES[Math.max(0, _unlockedCount() - 1)];
+    _toastHub('🔒 게임 ' + _needToUnlock(mode) + '개를 클리어하면 열려요!'
+      + (_nx ? ' ' + _nx.ico + ' ' + _nx.ttl.split(' (')[0] + ' 부터 해 볼까요?' : ''));
+    return;
+  }
   _gameState.mode = mode;
   /* 🗣 (2026-08-04) 이 학생의 **약점 문장**을 서버에서 미리 받아둔다.
      4단 사이클은 보통 3문제에 1번만 도는데, 약점으로 잡힌 문장은 **매번** 돌린다.
@@ -2003,6 +2481,8 @@ function hubOpenGame(mode){
   // ⋮ 상단바 속도 메뉴 — 게임 자체에 속도 UI(☰)가 있으면 숨김(중복 제거)
   var _kb=document.getElementById('hub-kebab'); if(_kb) _kb.style.display = g.ownSpeed ? 'none' : '';
   var hubGameEl = document.getElementById('hub-game');
+
+  try{ hubProgressStart(mode); }catch(_){}   // 📊 진행 띠 — 게임 22종 공통
 
   if(g.kind === 'iframe'){
     // iframe 게임 — 점수바/다음버튼 숨기고 게임 페이지가 화면을 채움
@@ -2021,6 +2501,7 @@ function hubOpenGame(mode){
 }
 
 function hubBackToMenu(){
+  try{ hubProgressStop(); }catch(_){}        // 📊 진행 띠 정리
   // 진행 중이던 타이머/음성 정리
   if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
   _stopRoundTimer();
@@ -2091,6 +2572,7 @@ function _gameShuffle(arr){
 function _gameUpdateScore(){
   document.getElementById('game-score').textContent = _gameState.score;
   document.getElementById('game-correct').textContent = _gameState.correct;
+  try{ hubProgressSet(_gameState.correct); }catch(_){}   // 📊 진행 띠(인라인 4종은 허브가 직접 안다)
   document.getElementById('game-wrong').textContent = _gameState.wrong;
 }
 
@@ -2877,13 +3359,17 @@ function gameRenderBalloon(){
    🎈📝 문장 풍선 (Balloon Sentence) — 2026-08-04 사장님 지시
      · 풍선에 실린 단어를 **어순대로** 터뜨려 문장을 완성한다
      · 맞을 때마다 그 단어를 소리로 들려준다
-     · 문장이 완성되면 → 문장 3번 듣기 → 3번 따라 말하기(발음 채점) → 보너스
+     · 문장이 완성되면 → 문장 듣기 → 따라 말하기(발음 채점) → 보너스
+     · 💯 (2026-08-13 원장님 제안) 고정 3회 반복 폐지: 듣기는 1회, 말하기는 첫 시도
+       100점(정확도 0.98+)이면 즉시 통과+퍼펙트 보너스. 70점 미만이면 정답을
+       다시 들려주고 재시도 — 적응형 반복 학습.
      · 순서를 틀리면 **아무 일도 일어나지 않는다**(감점 없음). 어린 학생이 위축되지 않게.
    ⚠️ 기존 '풍선 터뜨리기'(뜻 맞추기)는 건드리지 않았다. 별도 모드다.
    ⚠️ 음성인식은 gameShadow 를 그대로 재사용한다(_afterShadow 훅으로 회차 제어) —
       여기서 새로 짜면 안드로이드 예외처리·Whisper 폴백·침묵감시를 통째로 복제하게 된다.
    ══════════════════════════════════════════════════════════════════════════ */
-var _BSENT_LISTEN = 3, _BSENT_SPEAK = 3;
+var _BSENT_LISTEN = 1, _BSENT_SPEAK = 3;   // 💯 듣기 1회면 말하기 시작(원장님 제안 2026-08-13)
+var _BSENT_PERFECT = 0.98;                 // 이 정확도(≈100점) 이상 첫 시도 = 원샷 원킬
 
 function _bsEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function _bsAttr(s){ return _bsEsc(s).replace(/"/g,'&quot;'); }
@@ -3094,20 +3580,36 @@ function _balloonSentComplete(){
     if(fb) fb.innerHTML = '<span style="color:#fbbf24">🎤 따라 말하기 (' + rep + '/' + _BSENT_SPEAK + ')</span>';
     setTimeout(function(){ try{ gameShadow(encodeURIComponent(text)); }catch(_){ finish(); } }, 380);
   }
+  /* 💯 정확도 기반 적응형 통과 (원장님 제안 2026-08-13)
+     · 100점(_BSENT_PERFECT 이상) → 남은 회차를 건너뛰고 즉시 통과.
+       그게 첫 시도면 '원샷 원킬' 퍼펙트 보너스까지 얹는다.
+     · 100점 미만이면 예전처럼 3회를 채워 자연스러운 반복 학습. */
   function onRep(g){
     if(g && typeof g.sc === 'number') scores.push(g.sc);
-    if(rep < _BSENT_SPEAK) setTimeout(nextRep, 1000);
-    else setTimeout(finish, 1000);
+    var sc = (g && typeof g.sc === 'number') ? g.sc : 0;
+    if(sc >= _BSENT_PERFECT){ setTimeout(function(){ finish(rep <= 1); }, 900); return; }
+    if(rep >= _BSENT_SPEAK){ setTimeout(function(){ finish(false); }, 1000); return; }
+    /* 많이 틀렸으면 정답을 한 번 다시 들려주고 재시도 — 뭘 고쳐야 할지 모른 채 반복하지 않게 */
+    if(sc < 0.7){
+      var fired = false, go = function(){ if(fired) return; fired = true; nextRep(); };
+      setTimeout(function(){ try{ window.gameSpeak ? gameSpeak(text, go) : go(); }catch(_){ go(); } }, 700);
+      setTimeout(go, Math.max(3600, String(text).length * 160));
+      return;
+    }
+    setTimeout(nextRep, 1000);
   }
-  function finish(){
+  function finish(perfect){
     _gameState._drill = null;
     var avg = scores.length ? scores.reduce(function(a,b){ return a+b; }, 0) / scores.length : 0;
     var bonus = 50 + Math.round(avg * 100);            /* 50 ~ 150 : 다 말하면 기본, 발음 좋으면 더 */
+    if(perfect) bonus += 100;                          /* 🏆 첫 시도 100점 = 퍼펙트 보너스 */
     _gameState.score += bonus;
     _gameUpdateScore();
-    if(fb) fb.innerHTML = '<span style="color:#10b981">🎉 보너스 +' + bonus + '점!</span>' +
+    try{ _addCoins(perfect ? 10 : 3); }catch(_){}      /* 💰 코인도 함께 — 퍼펙트는 넉넉히 */
+    if(fb) fb.innerHTML = (perfect
+        ? '<span style="color:#fbbf24">🏆 퍼펙트! 첫 시도 100점! +' + bonus + '점!</span>'
+        : '<span style="color:#10b981">🎉 보너스 +' + bonus + '점!</span>') +
       (scores.length ? ' <span style="color:#fbbf24">발음 평균 ' + Math.round(avg*100) + '점</span>' : '');
-    try{ if(typeof _gameScoreVoice==='function') _gameScoreVoice(bonus); }catch(_){}
     _gameState._advTimer = setTimeout(gameNextRound, 2200);
   }
 
@@ -3197,10 +3699,25 @@ window.addEventListener('message', function (ev){
   const d = ev && ev.data;
   if (!d || typeof d !== 'object' || !d.type) return;
   if (d.type === 'mangoi-game-back'){ hubBackToMenu(); return; }   // ← 게임 내부 뒤로가기 버튼
+  /* 📊 진행 — js/game-track.js 가 세던 정오답을 그대로 받는다(게임 코드는 안 고쳤다).
+     ⚠️ 게임이 «직접» 말한 값(self)은 그 게임이 자기 진행을 가장 잘 아니 그대로 믿는다.
+        그 밖에는 게임별로 «맞힌 개수»(done)인지 «푼 개수»(seen)인지 표가 정한다. */
+  if (d.type === 'mangoi-game-progress'){
+    try{
+      if(d.self) hubProgressSet(d.done);
+      /* ⛔ d.seen(= 푼 개수)을 쓰지 말 것. 그 값은 game-track.js 가 세는
+         «API 호출 수» 라 게임에 따라 문장 하나에 둘씩 늘어난다. */
+      else hubProgressSet(d.done);
+    }catch(_){}
+    return;
+  }
   if (d.type === 'mangoi-game-complete'){
+    try{ hubProgressComplete(); }catch(_){}
     _gameState.score += (d.score || 0);
     _gameState.correct += 1;
     try{ window.MangoiStreak && MangoiStreak.complete('iframe'); }catch(_){}  // 🔥 오늘 학습 달성(배틀/낚시/슈팅 미션 완료)
+    // 🔓 퀘스트 해금 적립 — 지금 열려 있는 게임의 미션이 끝났다는 뜻
+    try{ _questClear(d.game || _gameState.mode || 'iframe'); }catch(_){}
   }
 });
 
@@ -3265,7 +3782,10 @@ _hubPlayIntroAudio();   // 🔊 게임 메뉴 진입 안내음성 자동재생(�
     var uid = _gameUid(); if(!uid) return;
     fetch('/api/games/recommend?user_id='+encodeURIComponent(uid)+'&lang='+GAME_LANG)
       .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(d){ if(d && d.ok){ _recData = d; _recRender(); } })
+      .then(function(d){
+        if(d && d.ok){ _recData = d; _recRender(); }
+        try{ _questApplyServer(d); }catch(_){}   // 🔒 계정 기준 잠금 판정도 같은 응답으로
+      })
       .catch(function(){});
   }
   // 사이트 언어 전환 시 카드 문구만 다시 그림 (lang 속성 관찰 — 카드 한정, 루프 없음)
@@ -3298,8 +3818,13 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260813001216 -->
-<script defer src="/js/flow.js?v=13"></script>
+<!-- BUILD:20260813015745 -->
+<script defer src="/js/flow.js?v=23"></script>
+<script src="/js/game-preview.js?v=3" defer></script><!-- 👀 잠긴 게임 미리보기 창 (첫 화면 예산 밖) -->
 <script src="/js/ux-track.js?v=1" defer></script>
+<!-- ⬅ 뒤로 판정 정본. 이 화면의 ← 버튼이 window.mangoiGoBack 을 부른다.
+     ⚠️ 화면에 보이는 ← 가 이미 있으므로 이 파일은 자기 동그란 ← 를 «넣지 않는다»(hasVisibleBack). -->
+<script defer src="/js/back-nav.js"></script>
+<script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 </body>
 </html>

@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>수업 관제탑 — 망고아이</title>
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2"><!-- 한자 글꼴 통일 (hanzi_font_harness) — /css 루트 자산이라 admin/ 자산 금지 규칙에 안 걸림 -->
+<!--
+  🗼 수업 관제탑 (monitor-wall) — 2026-08-27 사장님 지시 「전체 상황을 한눈에 + 최대한 가볍게」
+  · 화면 코드는 /js/monitor-wall.js (2026-09-02 분리). CSS 는 여기 인라인 — /admin/ 밑에는 js·css 를 두지 않는다.
+  · 상한: HTML 12KB · HTML+JS 52KB (monitor_wall_harness ① — 2026-09-13 D안으로 50→52). 설계 경위·결정은 docs/작업기록/260827·260830·260902·260913 참고.
+  · 2026-09-13 D안(상황판): 본문 17px, 위 요약 띠(#chips), 「손봐야 할 방」 상자(#urgent), 두 «초» 설정에 이름표.
+  · 동적 영역에 data-ko/data-en 을 달지 않는다(본문 갈아끼우기 함정) — 언어는 JS 가 직접 그림.
+-->
+<style>
+/* comments in this block stay ASCII or « » - CJK corner brackets here trip the hanzi-font harness */
+:root{
+  --paper:#f5f6fa; --card:#ffffff; --ink:#0f172a; --sub:#475467; --muted:#64748b;
+  --line:#e2e8f0; --navy:#1e2a44; --navy-bg:#e8edf7; --violet:#6d28d9; --violet-bg:#f3eefe;
+  --ok:#15803d; --ok-bg:#e6f4ea; --warn:#b45309; --warn-bg:#fdf1de;
+  --crit:#b91c1c; --crit-bg:#fceaea; --mono:Consolas,"Courier New",monospace;
+}
+*{ box-sizing:border-box; }
+body{ margin:0; background:var(--paper); color:var(--ink);
+      font-family:MangoiHanSC,"Malgun Gothic","Apple SD Gothic Neo",sans-serif; font-size:16px; line-height:1.5; }
+.wrap{ max-width:1240px; margin:0 auto; padding:20px 18px 60px; }
+header{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:12px; }
+h1{ font-size:26px; margin:0; }
+.hd-note{ font-size:15px; color:var(--muted); }
+.hd-right{ margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+button, .btn{ font:inherit; cursor:pointer; border-radius:10px; border:1.5px solid #cbd5e1;
+  background:var(--card); color:var(--ink); padding:9px 16px; font-size:16px; font-weight:700; line-height:1.2; text-decoration:none; }
+button:disabled{ opacity:.45; cursor:not-allowed; }
+button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visible{ outline:2px solid var(--violet); outline-offset:1px; }
+
+/* KPI band - big numbers first (2026-09-13 D) */
+.band{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr)); gap:2px;
+  background:var(--navy); border-radius:16px; overflow:hidden; margin:0 0 18px; }
+.band:empty{ display:none; }
+.k{ padding:14px 18px; color:#fff; background:var(--navy); font-size:13.5px; font-weight:700;
+  letter-spacing:.05em; text-transform:uppercase; }
+.k b{ display:block; font-size:36px; font-weight:900; line-height:1.1; margin-top:4px;
+  letter-spacing:0; font-variant-numeric:tabular-nums; }
+.k b.sm{ font-size:17px; margin-top:12px; text-transform:none; }
+.k.st-bad{ background:#7f1d1d; }
+.k.st-warn{ background:#7c2d12; }
+.k.st-good{ background:#14532d; }
+
+/* toolbar - search / sort / refresh interval / rotation (two second-settings, each boxed and labelled) */
+.tools{ display:flex; gap:10px; align-items:stretch; flex-wrap:wrap; margin:0 0 14px; }
+.tools input[type=search]{ font:inherit; font-size:16px; padding:10px 14px; border-radius:10px;
+  border:1.5px solid #cbd5e1; background:var(--card); color:var(--ink); flex:1 1 260px; min-width:180px; }
+.tools select{ font:inherit; font-size:16px; padding:9px 12px; border-radius:10px;
+  border:1.5px solid #cbd5e1; background:var(--card); color:var(--ink); font-weight:700; }
+.grp{ display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:12px;
+  border:1.5px dashed #94a3b8; background:#f8fafc; }
+.grp.rot{ border-color:var(--navy); background:var(--navy-bg); }
+.grp .lbl{ font-size:14px; font-weight:700; color:var(--sub); white-space:nowrap; }
+.grp.rot .lbl{ color:var(--navy); }
+.grp .lbl small{ display:block; font-weight:500; font-size:12.5px; opacity:.8; }
+.tools .go, .acts .go{ background:var(--navy); border-color:var(--navy); color:#fff; }
+.rotbar{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:0 0 14px;
+  padding:10px 14px; border:1.5px solid var(--violet); background:var(--violet-bg);
+  border-radius:12px; font-size:16px; color:var(--violet); font-weight:700; }
+.rotbar .rb-now{ font-family:var(--mono); }
+.rotbar .rb-left{ font-variant-numeric:tabular-nums; }
+[hidden]{ display:none !important; }
+
+/* urgent box - only rooms that need a hand (2026-09-13 D) */
+.urgent{ border:2px solid var(--crit); border-radius:14px; padding:12px 16px; margin:0 0 16px; background:#fff5f5; }
+.urgent h3{ margin:0 0 6px; font-size:17px; color:var(--crit); }
+.urgent .u{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; font-size:17px; padding:8px 0; border-top:1px solid #fecaca; }
+.urgent .u:first-of-type{ border-top:0; }
+.urgent .u .t{ font-family:var(--mono); font-weight:700; font-variant-numeric:tabular-nums; }
+.urgent .u .why{ font-weight:700; color:var(--crit); }
+.urgent .u .why.warn{ color:var(--warn); }
+.urgent .u button{ margin-left:auto; }
+
+/* room table */
+.tablewrap{ overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:14px; }
+table{ border-collapse:collapse; width:100%; min-width:900px; }
+th, td{ text-align:left; padding:13px 14px; border-top:1px solid var(--line); vertical-align:middle; font-size:17px; }
+thead th{ border-top:0; background:#f1f5f9; color:var(--sub); font-size:13.5px; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
+tbody tr{ border-left:6px solid transparent; }
+tbody tr.st-ok{ border-left-color:var(--ok); }
+tbody tr.st-alone{ border-left-color:var(--warn); background:var(--warn-bg); }
+tbody tr.st-alert{ border-left-color:var(--crit); background:var(--crit-bg); }
+tbody tr.st-rot{ box-shadow:inset 0 0 0 2px var(--violet); }
+td.t{ font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap; font-size:19px; font-weight:700; }
+td.who b{ font-size:18px; }
+td.rid{ font-family:var(--mono); font-size:13px; color:var(--muted); word-break:break-all; }
+td.n{ font-variant-numeric:tabular-nums; white-space:nowrap; }
+td.acts{ white-space:nowrap; }
+td.acts button{ padding:8px 12px; font-size:15px; margin:2px 4px 2px 0; }
+.badge{ display:inline-block; font-size:13.5px; font-weight:800; border-radius:999px; padding:2px 10px; border:1.5px solid transparent; }
+.badge.alone{ background:var(--warn-bg); color:var(--warn); border-color:var(--warn); }
+.badge.alert{ background:var(--crit-bg); color:var(--crit); border-color:var(--crit); }
+.badge.obs{ background:var(--violet-bg); color:var(--violet); }
+.badge.mute{ background:var(--card); color:var(--muted); border-color:var(--line); }
+.sig-ok{ color:var(--ok); font-weight:700; }
+.sig-warn{ color:var(--warn); font-weight:700; }
+.sig-bad{ color:var(--crit); font-weight:800; }
+.acts .go2{ background:var(--violet-bg); border-color:var(--violet); color:var(--violet); }
+.acts .enter{ background:#fff7ed; border-color:#f0c48a; color:var(--warn); }
+.acts .kill{ background:var(--crit-bg); border-color:var(--crit); color:var(--crit); }
+.sec{ margin-top:26px; }
+.sec h2, .sec summary{ font-size:19px; font-weight:700; margin:0 0 4px; color:#334155; }
+.sec .note{ font-size:14.5px; color:var(--muted); margin:0 0 10px; }
+.rows{ background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+.row{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; padding:11px 16px;
+  border-top:1px solid var(--line); font-size:16px; }
+.row:first-child{ border-top:0; }
+.row .t{ font-family:var(--mono); font-weight:700; font-size:18px; font-variant-numeric:tabular-nums; }
+.row .st{ font-size:14px; font-weight:700; }
+.empty{ padding:16px; color:var(--muted); font-size:16px; }
+.err{ padding:12px 16px; border:1.5px solid var(--crit); background:var(--crit-bg);
+  color:var(--crit); border-radius:12px; margin:10px 0; font-size:16px; }
+footer{ margin-top:26px; font-size:14.5px; color:var(--muted); line-height:1.75; max-width:96ch; }
+</style>
+<style>/* PC 가독성 확대 — admin.html(body zoom 1.3)과 같은 배율. 폰(1024px 미만)은 그대로 (2026-10-09) */
+@media (min-width:1024px){ body{ zoom:1.3; } }</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="hd-title">🗼 수업 관제탑</h1>
+    <span class="hd-note" id="hd-note"></span>
+    <div class="hd-right">
+      <span class="hd-note" id="hd-updated"></span>
+      <button type="button" id="btn-refresh">🔄</button>
+      <button type="button" id="btn-lang">EN</button>
+      <a class="btn" href="/admin.html" id="lnk-admin">← 관리자 홈</a>
+    </div>
+  </header>
+
+  <div class="band" id="chips"></div>
+  <div id="auth-warn"></div>
+
+  <div class="tools" id="tools">
+    <input type="search" id="q" autocomplete="off">
+    <div class="grp"><span class="lbl" id="lb-sort"></span>
+    <select id="sel-sort">
+      <option value="sev"></option>
+      <option value="time"></option>
+      <option value="people"></option>
+      <option value="name"></option>
+    </select></div>
+    <div class="grp"><span class="lbl" id="lb-poll"></span>
+    <select id="sel-poll">
+      <option value="0"></option>
+      <option value="10"></option>
+      <option value="15" selected></option>
+      <option value="30"></option>
+      <option value="60"></option>
+    </select></div>
+    <div class="grp rot"><button type="button" class="go" id="btn-rot"></button><span class="lbl" id="lb-dwell"></span>
+    <select id="sel-dwell">
+      <option value="15"></option>
+      <option value="20" selected></option>
+      <option value="30"></option>
+      <option value="60"></option>
+    </select></div>
+  </div>
+
+  <div class="rotbar" id="rotbar" hidden></div>
+
+  <div class="urgent" id="urgent" hidden></div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr id="thead-row"></tr></thead>
+      <tbody id="rooms"></tbody>
+    </table>
+  </div>
+
+  <!-- 👥 (2026-09-10) 회의방 — «수업» 이 아니라 방 번호로 연 방이다. 기본은 접힌다.
+       ⛔ 줄을 지우지 않는다(참관·직접입장은 회의방에도 필요) — 갈라 놓기만 한다. -->
+  <details class="sec" id="meet-sec" hidden>
+    <summary id="meet-title"></summary>
+    <p class="note" id="meet-note"></p>
+    <div class="tablewrap"><table><tbody id="meet-rooms"></tbody></table></div>
+  </details>
+
+  <div class="sec">
+    <h2 id="sched-title"></h2>
+    <p class="note" id="sched-note"></p>
+    <div class="rows" id="sched"></div>
+  </div>
+
+  <footer id="ft"></footer>
+</div>
+
+<script src="/js/monitor-wall.js?v=10" defer></script><!-- v=9: 학생 방 참관·입장 --><!-- v=7: 참관 인증 tok 추가 --><!-- v=6: 손봐야 할 방 상자 — hover 재렌더 금지·참관 정원 (2026-09-13 함정 대조) -->
+</body>
+</html>

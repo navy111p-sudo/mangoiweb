@@ -1,0 +1,65 @@
+name: CI (PR 검사)
+
+# ═══════════════════════════════════════════════════════════════════════
+# PR 에서 배포 게이트를 미리 돌린다. **배포는 하지 않는다.**
+#
+# [왜 필요한가 — 2026-08-13]
+#   이 저장소의 워크플로는 둘 다 `push: branches:[main]` 에서만 돌았다.
+#   즉 PR 에는 검사가 한 건도 붙지 않았고, check runs 가 0 이라 초록도 빨강도 없었다.
+#   deploy.yml 의 차단 게이트 4개는 **머지된 다음**에야 돌기 때문에,
+#   실패하면 「리뷰는 통과했는데 프로덕션 배포가 안 나간」 상태로 끝난다.
+#   리뷰어가 머지 전에 알 방법이 없다는 것이 문제였다.
+#
+#   실제 학생 29,000명이 쓰는 서비스다. 머지 = 자동 배포이므로,
+#   머지 버튼을 누르기 전에 게이트 결과가 보여야 한다.
+#
+# [무엇을 돌리나]
+#   deploy.yml 과 **완전히 같은** 4종. 목록은 test-harness/ci-gates.sh 한 곳에만 있고
+#   두 워크플로가 그 파일을 부른다 — 복사해 두면 반드시 갈라진다(deploy.yml 주석 참고).
+#
+# [경로 필터를 걸지 않는다]
+#   deploy.yml 이 2026-08-07 에 paths 필터를 뺀 것과 같은 이유다. 큰 push/PR 에서
+#   GitHub 이 필터 판정을 놓쳐 **조용히 안 도는** 사고가 실제로 있었다.
+#   「불필요하게 도는」 비용보다 「돌았어야 하는데 안 도는」 위험이 훨씬 크다.
+# ═══════════════════════════════════════════════════════════════════════
+on:
+  pull_request:
+  workflow_dispatch:
+
+# 읽기만 한다 — 이 워크플로는 배포도, 코멘트도, 커밋도 하지 않는다.
+permissions:
+  contents: read
+
+# 같은 PR 에 새 커밋이 올라오면 이전 실행은 취소한다.
+#   (deploy.yml 은 반대로 cancel-in-progress: false — 배포는 중간에 끊으면 안 된다.
+#    여기는 검사일 뿐이라 취소가 안전하고 러너 시간도 아낀다.)
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: 배포 게이트 (tsc · 회귀 하니스 · 인라인 JS · ?v=)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # 24 이상이어야 한다 — 낮추지 말 것. deploy.yml 과 같은 버전을 쓴다.
+          #   회귀 하니스 9개가 src/*.ts 를 직접 import 해서 순수 모듈을 실행하는데,
+          #   Node 의 타입 벗기기가 23.6+/24 부터 기본으로 켜진다. 20 에선 실패한다.
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: 'cloudflare-deploy/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: cloudflare-deploy
+        run: npm ci
+
+      # 게이트 목록의 정본은 이 스크립트 하나뿐이다 (deploy.yml 도 같은 것을 부른다).
+      - name: 배포 게이트
+        run: bash test-harness/ci-gates.sh

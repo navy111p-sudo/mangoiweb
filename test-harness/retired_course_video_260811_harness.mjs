@@ -60,7 +60,11 @@ check('BTS 영상 숨김', vhid('BTS 03 004 006(How old are you)'));
 check('SIU 영상 숨김', vhid('SIU 2 unit 5'));
 check('교사안내 영상 숨김', vhid("Mangoi Teacher's Guide ( DOS and DON'TS in Online Class )"));
 check('그 외 영상은 그대로 보인다', !vhid('BtoB회원 수업안내동영상') && !vhid('Phonics song'));
-check('⚠️ MES 영상은 일부러 남겼다 (요청서가 지목한 건 «MES 책»)', !vhid('A MES 3 ep 2'));
+/* (2026-08-13 사장님 지시 «영상에서도 MES 숨겨줘») 계약 변경:
+   8/11 엔 요청서가 「MES 책」만 지목해 영상은 남겼지만, 이제 영상도 숨긴다.
+   낱말 경계는 그대로 — 'James' 류 제목이 딸려 사라지면 안 된다. */
+check('MES 영상도 숨긴다 (2026-08-13 사장님 지시)', vhid('A MES 3 ep 2'));
+check('🔴 낱말 속 우연일치 영상은 안 숨긴다 (James)', !vhid('James and the Giant Peach'));
 check('🔒 삭제가 아니라 화면에서만 거른다 (관리자 화면 영향 없음)',
   /mvCache = \(d\.items \|\| \[\]\)\.filter\(/.test(html) && !/DELETE FROM mango_videos/.test(html));
 

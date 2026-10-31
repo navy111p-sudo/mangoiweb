@@ -20,6 +20,7 @@ const path = require('path');
 // ── 모듈 임포트 ──
 const { registerSignaling, registerHealthRoute } = require('./modules/signaling/signaling');
 const { registerRoutes: registerVideoCallRoutes, registerVideoCall } = require('./modules/video-call/video-call');
+const { registerLightweightAiRoutes } = require('./modules/ai-lightweight/ai-lightweight');
 
 // ── 서버 초기화 ──
 const app = express();
@@ -54,6 +55,9 @@ registerHealthRoute(app, io);
 registerVideoCallRoutes(app);
 const videoCallModule = registerVideoCall(io);
 
+// 3) 경량 AI 모듈 — WebRTC 미디어 경로와 완전히 분리
+registerLightweightAiRoutes(app);
+
 // ── 통합 API ──
 
 // 전체 헬스 체크
@@ -76,6 +80,10 @@ app.get('/api/health', (_req, res) => {
         status: 'active',
         rooms: videoCallModule.rooms.size,
         connections: videoCallNsp.sockets ? videoCallNsp.sockets.size : 0,
+      },
+      ai: {
+        status: process.env.HF_API_TOKEN ? 'configured' : 'disabled',
+        mode: 'lightweight',
       },
       turnRelay: {
         status: process.env.TURN_RELAY_URL ? 'configured' : 'not-configured',

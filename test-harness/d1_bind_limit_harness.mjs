@@ -174,6 +174,17 @@ console.log('\nG. 회귀 감시 — src 의 손수 만든 IN 목록');
     // 🇵🇭 PH_MANAGERS 는 코드에 박힌 상수 배열(현재 3명)이라 사용자 입력으로 늘지 않는다.
     //    필리핀 본사 매니저가 90명을 넘길 일은 없다(사람이 손으로 추가하는 명단이다).
     'auth-admin.ts': '필리핀 매니저 명단 PH_MANAGERS 코드 상수 배열(현재 3명) — 입력으로 늘지 않음',
+    // 💬 강사 카카오·문자 전달 — 두 곳 모두 «핸들러 첫머리에서 90개 초과를 400 으로 거절» 한다
+    //    (send: profile_ids, mark-sent: log_ids). 화면에서도 90명을 넘기면 보내기가 막힌다.
+    'teacher-kakao.ts': 'send/mark-sent 가 입력 90개 초과를 400 으로 반려 — 바인드가 90을 넘을 수 없음',
+    // 🎬 DEMO_UIDS 는 코드에 박힌 상수 배열(['lms','type_seed'] 2개)이라 입력으로 늘지 않는다.
+    //    class_schedules·attendance 에서 «학생이 안 붙은 자리표시» 계정을 빼는 용도이고,
+    //    같은 목록을 api-admin.ts·api-teacher.ts 도 리터럴로 쓴다.
+    'learning-insights.ts': '데모 계정 DEMO_UIDS 코드 상수 배열(고정 2개) — 입력으로 늘지 않음',
+    // 🔄 (2026-08-28) 대체강사 오버레이 — myKeys = 로그인한 강사 «본인» 의 teachers.id 후보
+    //    (resolvedRows, 보통 0~1개) + username 1개. teachers 표 전체가 40행 안팎이라
+    //    설령 이름이 겹쳐도 100개를 넘을 수 없다 — 사용자 입력으로 늘지 않는 값이다.
+    'api-teacher.ts': '로그인한 강사 본인의 teachers.id 후보(보통 0~1개) + username 1개 — teachers 표 전체가 100행 미만',
   };
   const offenders = [];
   for (const f of readdirSync(SRC).filter(x => x.endsWith('.ts'))) {

@@ -6,12 +6,14 @@
 
 
   <meta charset="utf-8" />
-<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes" />
-  <title>💬 AI 영어 친구 Mango — Mangoi</title>
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>💬 AI 영어 친구 Mango — mangoi.ai</title>
   <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0a1530" />
   <script src="/js/mango-i18n.js" defer></script>
+  <script src="/js/ai-dubbing-practice.js?v=1" defer></script>
 <script src="/js/session-guard.js" defer></script>
   <style>
     :root {
@@ -46,6 +48,12 @@
       color: var(--text); border-radius: 999px; cursor: pointer; font-size: 11.5px;
       font-weight: 700; white-space: nowrap; }
     .opt.active { background: linear-gradient(135deg, var(--gold), #f59e0b); color: #1a1a1a; border-color: var(--gold); }
+    /* 🪜 레벨 버튼만 «숫자 + CEFR» 두 줄. 여덟 개가 폰 한 줄에 들어가야 하므로 좁게 잡는다.
+       ⚠️ .opts 는 flex-wrap 이라 넘치면 다음 줄로 흐른다 — 잘리지는 않는다. */
+    .opt[data-level] { display: inline-flex; flex-direction: column; align-items: center; gap: 0;
+      padding: 4px 9px; line-height: 1.15; }
+    .opt[data-level] i { font-style: normal; font-size: 9px; font-weight: 600; opacity: .72;
+      letter-spacing: .02em; }
 
     /* ══ 🎮 게임 HUD: 레벨·XP·스트릭·오늘의 단어·퀘스트 ══ */
     .hud { display: flex; gap: 8px; align-items: center; padding: 8px 14px;
@@ -109,6 +117,43 @@
     .tip-chip { margin-top: 8px; padding: 7px 10px; border-radius: 10px; font-size: 12px;
       background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.35);
       color: #fde68a; line-height: 1.5; white-space: normal; }
+    /* 🚨 «AI 가 답을 못 만들었다» 알림 (2026-09-09) — 말풍선이 «아닙니다».
+       ⛔ .ai-text 안에 넣지 마세요: 자막 «가리기/끄기» 에서 흐려지거나 사라져
+          하필 그 모드를 쓰는 학생에게만 안 닿습니다(서버가 +1P 로 권하는 모드입니다).
+       ⛔ display:flex 금지 — 짧은 문장이 낱글자로 쪼개집니다(CLAUDE.md 함정). */
+    .ai-notice { margin: 10px 0; padding: 9px 12px; border-radius: 10px; font-size: 13px;
+      background: rgba(251,191,36,0.14); border: 1px solid rgba(251,191,36,0.45);
+      color: #fde68a; line-height: 1.55; font-weight: 600; white-space: normal; }
+    /* ✏️ 교정 카드 (2026-09-09) — 웜업(warmup.html)과 «같은 모양·같은 서버 판정».
+       옛 방식은 답변 본문 끝에 (💡 …) 한국어 팁 한 줄을 붙이는 것이었는데, 그 팁은
+       «고친 문장» 을 안 보여 줘서 학생이 무엇을 어떻게 고칠지 알 수 없었다
+       (실측: "I go to school yesterday" → «어제에 가는 것이 더 자연스러워요»).
+       ⚠️ 가장 밝은 것은 «고친 문장»(fix-now) 이어야 한다 — 그것이 읽어야 할 것이다. */
+    .fix-card { align-self: flex-start; max-width: 88%; display: flex; flex-direction: column; gap: 8px;
+      margin: 2px 0 2px 36px; padding: 12px 14px; border-radius: 14px;
+      background: rgba(56,189,248,0.10); border: 1px solid rgba(56,189,248,0.34); }
+    .fix-card .fix-title { font-size: 13px; font-weight: 800; color: #bae6fd; }
+    .fix-card .fix-line { font-size: 15px; line-height: 1.45; }
+    .fix-card .fix-lbl { font-size: 12px; font-weight: 800; opacity: .8; margin-right: 7px; }
+    .fix-card .fix-was { opacity: .72; }
+    .fix-card .fix-now { font-weight: 800; color: #e0f2fe; }
+    .fix-card .fix-why { font-size: 13.5px; line-height: 1.5; opacity: .9; }
+    .fix-card .fix-acts { display: flex; gap: 7px; flex-wrap: wrap; }
+    .fix-card .fix-btn { font-family: inherit; cursor: pointer; color: var(--text);
+      background: rgba(56,189,248,0.18); border: 1px solid rgba(56,189,248,0.40);
+      border-radius: 999px; padding: 7px 13px; font-size: 13px; font-weight: 700; }
+    .fix-card .fix-btn:hover { background: rgba(56,189,248,0.27); }
+    .fix-card .fix-btn:active { transform: scale(.97); }
+    .fix-card .fix-btn:disabled { opacity: .55; cursor: wait; }
+    @media (max-width: 480px) {
+      /* ⛔ margin-left 를 0 으로 두지 말 것 — 왼쪽 가장자리에는 «메뉴» 손잡이(#mg-drawer-tab,
+         x 2~46px)가 떠 있어서 카드 제목과 «내가 말한 것» 라벨을 덮는다(2026-09-09 실측).
+         AI 말풍선이 x=50 에서 시작하는 것과 같은 이유다 — 카드도 그 줄에 맞춘다. */
+      .fix-card { max-width: calc(100% - 36px); }
+      .fix-card .fix-title { font-size: 14px; }
+      .fix-card .fix-line { font-size: 16px; }
+      .fix-card .fix-btn { font-size: 14px; }
+    }
     .ai-row { display: flex; gap: 8px; align-items: flex-end; }
     .ai-avatar { width: 28px; height: 28px; border-radius: 50%;
       background: linear-gradient(135deg, #fbbf24, #f59e0b);
@@ -154,11 +199,20 @@
     .topic-card:hover { transform: translateY(-3px) scale(1.03); border-color: rgba(251,191,36,0.55);
       box-shadow: 0 10px 22px -8px rgba(251,191,36,0.35); }
     .topic-card .t-emoji { font-size: 26px; line-height: 1; }
+    /* 🖼 실사 아이콘 자리 (2026-09-09 사장님 «이모지가 너무 단순하다»).
+       ⚠️ .t-icon 은 span 이라 display 를 «반드시» 적는다 — 인라인이면 width/height 를
+          브라우저가 통째로 무시한다(CLAUDE.md «막대 채움이 안 보임»과 같은 뿌리).
+       ⚠️ 그림을 못 받으면 img 의 onerror 가 이 칸을 이모지 글자로 되돌린다 —
+          그래서 font-size 를 여기 남겨 둔다(폴백이 26px 로 그려진다). */
+    .topic-card .t-icon { width: 48px; height: 48px; display: flex; align-items: center;
+      justify-content: center; font-size: 26px; line-height: 1; }
+    .topic-card .t-pic { display: block; width: 100%; height: 100%; object-fit: cover;
+      border-radius: 12px; }
     .topic-card .t-name { font-size: 11.5px; font-weight: 800; color: var(--text); }
     /* 🧑 친구(캐릭터) 고르기 카드 — 2026-08-07.
        주제 카드(.topic-card)와 같은 모양이되 «지금 고른 친구» 는 테두리로 확실히 표시한다.
        고른 게 안 보이면 카드를 눌러도 고른 느낌이 안 난다. */
-    .friends { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 9px;
+    .friends { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%,140px),1fr)); gap: 9px;
       max-width: 560px; margin: 10px auto 0; }
     @media (max-width: 420px) { .friends { grid-template-columns: 1fr; } }
     .friend-card { padding: 12px 8px 10px; border-radius: 14px; cursor: pointer;
@@ -169,6 +223,12 @@
     .friend-card.on { border-color: var(--gold); background: rgba(251,191,36,0.14);
       box-shadow: 0 0 0 1px rgba(251,191,36,0.5) inset; }
     .friend-card .f-emoji { font-size: 26px; line-height: 1; }
+    /* 🧑 (2026-09-03 사장님 지시) 이모지 대신 «아바타 교사 얼굴» — 대화 화면의 아바타와 같은 사람이어야
+       학생이 «이 얼굴을 골랐다» 고 느낍니다. 원본(240~280KB)이 아니라 얼굴만 잘라 낸 112px 썸네일
+       (/img/friend-*.webp, 4~8KB)을 씁니다. 파일이 없으면 onerror 가 옛 이모지를 되살립니다. */
+    .friend-card .f-face { width: 56px; height: 56px; border-radius: 50%; object-fit: cover;
+      background: #fff; border: 2px solid rgba(255,255,255,0.28); box-shadow: 0 3px 10px -4px rgba(0,0,0,0.6); }
+    .friend-card.on .f-face { border-color: var(--gold); }
     .friend-card .f-name { font-size: 12.5px; font-weight: 900; color: var(--text); }
     .friend-card .f-desc { font-size: 11px; color: var(--text2); line-height: 1.35; }
     /* 헤더 이름 아래 «눌러서 바꾸기» 안내 — 안 적어두면 이름이 버튼인 줄 아무도 모른다 */
@@ -246,6 +306,14 @@
     .chat[data-sub="off"] .ai-row:not(.sub-shown) .ai-text,
     .chat[data-sub="off"] .ai-row:not(.sub-shown) .tip-chip { display: none; }
     .chat[data-sub="off"] .ai-row:not(.sub-shown) .sub-veil { display: inline; }
+    /* 👁 «가리기» 상태를 말풍선 자신이 말하게 한다 (2026-08-31 사장님 제보)
+       흐린 글자만 있으면 «글자가 잘 안 나온다»=고장 으로 읽힌다. 실제로 그렇게 제보가 왔다.
+       «완전 끄기» 에는 안내(.sub-veil)가 있었는데 «가리기» 에만 아무 표시가 없었다.
+       ⚠️ .ai-text 밖에 두어야 한다 — 안에 두면 이 안내까지 함께 흐려져 아무 소용이 없다.
+       ⚠️ display:flex 금지 — 짧은 문장이 낱글자로 쪼개진다(CLAUDE.md 함정). */
+    .sub-hint { display: none; margin-top: 6px; font-size: 12px; font-weight: 800;
+      color: var(--text2); cursor: pointer; white-space: normal; }
+    .chat[data-sub="blur"] .ai-row:not(.sub-shown) .sub-hint { display: block; }
     /* 뜻 카드 — 파랑. 노란 팁 카드(문법)와 색으로 구분된다 */
     .ko-chip { margin-top: 8px; padding: 7px 10px; border-radius: 10px; font-size: 12.5px;
       background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.35);
@@ -282,12 +350,35 @@
     @keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.55); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
   </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
-<script src="/js/mango-avatar.js?v=13" defer></script>
+<script src="/js/avatar-visemes.js?v=5" defer></script>
+<script src="/js/mango-avatar.js?v=41" defer></script>
+<script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
+
+<style>
+.friend-talk-switch{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:6px;margin:0 auto 7px;color:#cbd5e1;font-size:13px;font-weight:700}
+.friend-talk-switch[hidden]{display:none}
+.friend-talk-switch button{min-height:36px;padding:6px 12px;border:1px solid #64748b;border-radius:999px;background:#1e293b;color:#e2e8f0;font:inherit;cursor:pointer}
+.friend-talk-switch button[aria-pressed="true"]{background:#0ea5e9;border-color:#38bdf8;color:white;box-shadow:0 0 0 2px #38bdf833}
+.friend-talk-switch button:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
+.friend-talk-switch small{background:#fbbf24;color:#172554;padding:1px 5px;border-radius:6px;font-size:10px}
+.friend-talk-status{max-width:820px;margin:0 auto 7px;font-size:13px;line-height:1.4;color:#bae6fd;text-align:center}
+</style>
+
 </head>
 <body>
   <div class="top">
-    <a href="/">←</a>
-    <div class="mango-icon"><img src="/img/mango-char.png" alt="Mango" /></div>
+    <!-- ⬅ 화살표는 «직전 페이지» 로 (2026-09-01 사장님 지시 「화살표는 뒤로가기로 고쳐줘」).
+         📜 그전에는 이 화살표가 `href="/"` 라 «홈» 이었고, 우상단 공용 [🏠 홈] 과 합쳐 홈이
+            두 개인데 정작 «뒤로» 가 없었다. 2026-08-03 지시: ← 는 직전 페이지, 홈은 처음 화면.
+         ⚠️ 판정(히스토리 → 같은 오리진 referrer → 홈)은 복제하지 않고 back-nav.js 의 정본을
+            부른다. 그 파일이 아직 안 왔거나(defer) 캐시에 옛 사본이 있으면 `href="/"` 가
+            폴백이라 «홈으로는 간다» — 무반응이 되지 않는다.
+         ℹ️ 홈으로 가는 문은 우상단 공용 바 [🏠 홈](mango-i18n.js)이 이미 넣어 준다. -->
+    <a href="/" onclick="if(window.mangoiGoBack){event.preventDefault();window.mangoiGoBack();}"
+       aria-label="뒤로 가기" title="뒤로 가기"
+       style="padding:8px 10px;margin:-8px -10px"><!-- 눌림 영역만 넓힌다(14x21 → 34x37).
+         음수 margin 이 그만큼 되돌려 주므로 옆 요소는 제자리다 — 실측으로 확인. -->←</a>
+    <div class="mango-icon"><img src="/img/mango-char.png" alt="Mango" loading="lazy" decoding="async"/></div>
     <!-- 🧑 (2026-08-07) 이름을 누르면 친구를 다시 고를 수 있다.
          고른 친구가 누구인지 늘 여기 떠 있어야 «내가 골랐다» 는 느낌이 남는다. -->
     <div class="info" onclick="showFriendPicker()" style="cursor:pointer"
@@ -297,33 +388,49 @@
         <span class="chg" data-ko="· 눌러서 친구 바꾸기" data-en="· tap to change">· 눌러서 친구 바꾸기</span></div>
     </div>
     <button class="snd-toggle" id="sndToggle" onclick="toggleSound()" aria-label="소리 켜기/끄기" data-ko-aria="소리 켜기/끄기" data-en-aria="Sound on/off" title="소리 듣기 켜기/끄기">🔊</button>
-    <button class="next-flow-btn" onclick="window.MangoFlow&&MangoFlow.open('aifriend')" aria-label="다음으로 이동" data-ko-aria="다음으로 이동" data-en-aria="Go to next activity" title="다음으로 이동 (수업·웜업·게임·나가기)" data-ko-title="다음으로 이동 (수업·웜업·게임·나가기)" data-en-title="Go next (Class·Warm-up·Games·Exit)">🚀</button>
+    <button class="next-flow-btn" onclick="window.MangoFlow&&MangoFlow.open('aifriend')" aria-label="다음으로 이동" data-ko-aria="다음으로 이동" data-en-aria="Go to next activity" title="다음으로 이동 (수업·말하기 연습·게임·나가기)" data-ko-title="다음으로 이동 (수업·말하기 연습·게임·나가기)" data-en-title="Go next (Class·Speaking·Games·Exit)">🚀</button>
     <button class="clear-btn" onclick="clearChat()">🗑 <span data-ko="대화 초기화" data-en="Clear">대화 초기화</span></button>
   </div>
   <div class="opts">
     <span style="font-size:11px;color:var(--text2);align-self:center;margin-right:4px" data-ko="레벨:" data-en="Level:">레벨:</span>
-    <button class="opt" data-level="A1">A1</button>
-    <button class="opt" data-level="A2">A2</button>
-    <button class="opt active" data-level="B1">B1</button>
-    <button class="opt" data-level="B2">B2</button>
-    <button class="opt" data-level="C1">C1</button>
+    <!-- 🪜 여덟 칸 (2026-08-31 사장님 결정). 숫자가 눈금이고 CEFR 은 그 위에 얹은 라벨이다 —
+         학부모·강사가 A1·B1 로 이야기하므로 둘 다 보여 준다.
+         ⚠️ data-level 값(S1…S8)이 서버로 가는 값이다. 서버 표(src/ai-friend-level.ts)와 «짝».
+         ⚠️ 옛 값(A1…C1)은 학생 브라우저에 남아 있어 계속 받는다(AIF_LEGACY). -->
+    <button class="opt" data-level="S1">1<i>A1</i></button>
+    <button class="opt" data-level="S2">2<i>A2</i></button>
+    <button class="opt" data-level="S3">3<i>A2+</i></button>
+    <button class="opt active" data-level="S4">4<i>B1</i></button>
+    <button class="opt" data-level="S5">5<i>B1+</i></button>
+    <button class="opt" data-level="S6">6<i>B2</i></button>
+    <button class="opt" data-level="S7">7<i>B2+</i></button>
+    <button class="opt" data-level="S8">8<i>C1</i></button>
     <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px" data-ko="스타일:" data-en="Style:">스타일:</span>
     <button class="opt active" data-persona="friendly" data-ko="친근한" data-en="Friendly">친근한</button>
     <button class="opt" data-persona="playful" data-ko="장난스러운" data-en="Playful">장난스러운</button>
     <button class="opt" data-persona="serious" data-ko="진지한" data-en="Serious">진지한</button>
     <button class="opt" data-persona="tutor" data-ko="튜터" data-en="Tutor">튜터</button>
+    <!-- 🎚️ 교정 방식 (2026-10-31 사장님 「A.i친구도 말하기처럼 자유대화·균형·집중교정」).
+         기본은 집중교정 — 서버 correctionModeOf 의 기본값과 «짝». 값은 localStorage 에 기억한다. -->
+    <span class="corr-label" style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px" data-ko="교정:" data-en="Correction:">교정:</span>
+    <button class="opt" data-cmode="free_talk" title="흐름을 끊지 않고 바른 문장을 자연스럽게 들려줘요" data-ko-title="흐름을 끊지 않고 바른 문장을 자연스럽게 들려줘요" data-en-title="Keeps the flow and simply models the right sentence" data-ko="자유대화" data-en="Free talk">자유대화</button>
+    <button class="opt" data-cmode="balanced" title="핵심 표현이나 되풀이되는 실수만 따라 말해요" data-ko-title="핵심 표현이나 되풀이되는 실수만 따라 말해요" data-en-title="Repeat-after-me only for key phrases or repeated mistakes" data-ko="균형" data-en="Balanced">균형</button>
+    <button class="opt active" data-cmode="focused" title="틀릴 때마다 바른 문장을 듣고 따라 말해요" data-ko-title="틀릴 때마다 바른 문장을 듣고 따라 말해요" data-en-title="Every mistake: hear the right sentence and say it back" data-ko="집중교정" data-en="Focused">집중교정</button>
     <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px">🔊 <span data-ko="속도:" data-en="Speed:">속도:</span></span>
-    <button class="opt" data-rate="0.6" data-ko="🐢 아주 느리게" data-en="🐢 Very slow">🐢 아주 느리게</button>
-    <button class="opt" data-rate="0.8" data-ko="느리게" data-en="Slow">느리게</button>
-    <button class="opt active" data-rate="1" data-ko="보통" data-en="Normal">보통</button>
-    <button class="opt" data-rate="1.2" data-ko="🐇 빠르게" data-en="🐇 Fast">🐇 빠르게</button>
+    <button class="opt" data-rate="0.5" data-ko="🐢 아주 느리게" data-en="🐢 Very slow">🐢 아주 느리게</button>
+    <button class="opt" data-rate="0.65" data-ko="느리게" data-en="Slow">느리게</button>
+    <button class="opt active" data-rate="0.8" data-ko="보통" data-en="Normal">보통</button>
+    <button class="opt" data-rate="1" data-ko="빠르게" data-en="Fast">빠르게</button>
+    <button class="opt" data-rate="1.25" data-ko="🐇 아주 빠르게" data-en="🐇 Very fast">🐇 아주 빠르게</button>
     <!-- 🧑 (2026-08-07) 「목소리」 → 「친구」 로 이름만 바꿨다. 값(data-voice)은 그대로라 저장된 설정이 그대로 이어진다.
          목소리·얼굴·이름은 원래 한 사람인데 «목소리 여자/남자» 라고만 적혀 있어서
          학생이 «캐릭터를 골랐다» 고 느끼지 못했다. 기능이 아니라 이름의 문제였다. -->
     <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px">🧑 <span data-ko="친구:" data-en="Friend:">친구:</span></span>
-    <button class="opt" data-voice="female" data-ko="👩 Emma" data-en="👩 Emma">👩 Emma</button>
-    <button class="opt" data-voice="male" data-ko="🦸 Jake" data-en="🦸 Jake">🦸 Jake</button>
-    <button class="opt" data-voice="mix" data-ko="🔀 둘 다" data-en="🔀 Both">🔀 둘 다</button>
+    <button class="opt" data-voice="emma" data-ko="👩 Emma" data-en="👩 Emma">👩 Emma</button>
+    <button class="opt" data-voice="jake" data-ko="🦸 Jake" data-en="🦸 Jake">🦸 Jake</button>
+    <button class="opt" data-voice="lily" data-ko="👧 Lily" data-en="👧 Lily">👧 Lily</button>
+    <button class="opt" data-voice="noah" data-ko="👦 Noah" data-en="👦 Noah">👦 Noah</button>
+    <button class="opt" data-voice="mix" data-ko="🔀 번갈아" data-en="🔀 All four">🔀 번갈아</button>
     <!-- 👁 자막 3단계 (2026-08-07) — 「가리기」가 핵심. 안 들려도 탭 한 번이면 확인하고 계속 간다 -->
     <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px">👁 <span data-ko="자막:" data-en="Subtitles:">자막:</span></span>
     <button class="opt active" data-sub="on" data-ko="보이기" data-en="Show">보이기</button>
@@ -364,8 +471,10 @@
     <div id="tavatar-ring">
       <canvas id="tavatar-canvas" width="320" height="400" aria-label="강사"></canvas>
       <video id="tavatar-video" muted loop playsinline preload="auto" disablepictureinpicture crossorigin="anonymous">
-        <source src="/img/teacher-avatar.webm" type="video/webm">
-        <source src="/img/teacher-avatar.mp4" type="video/mp4">
+        <!-- ⚠️ (2026-08-31) 옛 <source> 두 줄을 뺐습니다 — 캐릭터는 mango-avatar.js 가 «항상»
+             장착하므로(mountCharacter) 여기 적어 두면 JS 가 돌기 전에 브라우저가 teacher-avatar.webm
+             942KB 를 먼저 받기 시작합니다(실측: 206 요청 1건). 지금 기본 얼굴은 이미지라 그 영상은
+             폴백일 때만 필요합니다. ⛔ 「비어 있으니 채우자」 하고 되살리지 마세요. -->
       </video>
     </div>
     <div id="tavatar-status">
@@ -374,8 +483,18 @@
     </div>
   </div>
 
+  <!-- ✨ 오늘의 단어 «주차장» (2026-09-09 A안 목업의 마지막 한 조각).
+       카드 자체는 빈 화면 «안»(#wodSlot)에 그린다 — 그래야 대화창 높이를 한 픽셀도
+       안 먹는다(밖에 두었더니 PC 1280 에서 대화창이 52.6% 로 내려갔다. 실측).
+       ⛔ 이 상자는 «늘 비어 있고 늘 숨어» 있다. #wodChip 은 아래 스크립트가 .hud 에서
+          «옮겨» 오고, 빈 화면이 지워지기 «직전» 에 여기로 잠깐 피신한다(wodPark).
+       ⛔ 새로 만들지 말 것 — updateHUD 의 getElementById 가 null 이 되는데 그 함수는
+          null 검사가 없어 «던지고», 그 뒤 퀘스트 갱신 4줄이 통째로 죽는다. -->
+  <div id="wodCard" hidden></div>
   <div class="chat" id="chat"></div>
   <div class="input-bar">
+    <div id="friendTalkSwitch" class="friend-talk-switch" role="group" aria-label="말하는 방법"></div>
+    <div id="friendTalkStatus" class="friend-talk-status" role="status" aria-live="polite"></div>
     <!-- 💡 도움 칩 — 눌렀을 때만 열린다. 늘 떠 있으면 «고르는 학습» 이 되어 버린다 -->
     <div class="help-row" id="helpRow" style="display:none"></div>
     <form onsubmit="sendMsg(event)">
@@ -399,6 +518,8 @@
       data-ko="🚀 다음 활동 고르기" data-en="🚀 Choose next activity">🚀 다음 활동 고르기</button>
   </div>
 
+  <script src="/js/speech-preferences.js?v=3"></script>
+  <script src="/js/speech-rate-request.js?v=1"></script>
   <script>
     // 전체 사이트 로그인된 사용자(mango_user) + 서명 토큰 자동 사용
     // 서버가 uid 를 그대로 믿지 않으므로(타인 대화 열람/삭제 방지 = IDOR 차단)
@@ -409,22 +530,27 @@
     }
     async function getAuth() {
       if (authCache) return authCache;
-      let u = null;
-      try { u = JSON.parse(localStorage.getItem('mango_user') || 'null'); } catch(e){}
-      if (u && u.user_id) {
+      /* 🔴 (2026-09-09) 예전엔 mango_user.user_id 하나만 봤는데, 로그인 동기화가 실제로
+         저장하는 모양은 {uid,name,role} — user_id 칸이 없다. 그래서 로그인 학생도 매번
+         «게스트» 로 떨어져 계정에 대화 이력이 안 쌓였다. mangoi_logged_user 도 함께 보고,
+         uid·user_id·id 를 전부 받는다. */
+      let u = null, uid = null;
+      try { u = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null'); uid = u && (u.uid || u.user_id || u.id); } catch(e){}
+      if (!uid) { try { u = JSON.parse(localStorage.getItem('mango_user') || 'null'); uid = u && (u.user_id || u.uid || u.id); } catch(e){} }
+      if (uid) {
         let tok = null;
         try { tok = localStorage.getItem('mango_token'); } catch(e){}
-        if (tok && tokenUid(tok) === u.user_id) {
-          authCache = { uid: u.user_id, token: tok };
+        if (tok && tokenUid(tok) === uid) {
+          authCache = { uid: uid, token: tok };
           return authCache;
         }
         // 토큰이 없거나 다른 계정 것 → 비밀번호 미설정 계정은 조용히 재발급 (로그인과 동일 보안수준)
         try {
-          const r = await fetch('/api/student/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: u.user_id }) });
+          const r = await fetch('/api/student/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: uid }) });
           const d = await r.json();
           if (d.ok && d.token) {
             try { localStorage.setItem('mango_token', d.token); } catch(e){}
-            authCache = { uid: u.user_id, token: d.token };
+            authCache = { uid: uid, token: d.token };
             return authCache;
           }
         } catch(e){}
@@ -446,35 +572,122 @@
       } catch(e){}
       return null;
     }
-    let currentLevel = 'B1';
-    let currentPersona = 'friendly';
-    // 🔊 원어민 음성 재생 속도 (localStorage 로 유지, 기본 1 = 보통)
-    let currentRate = (function(){
-      try { const r = parseFloat(localStorage.getItem('mangoi_aifriend_tts_rate')); return (r >= 0.5 && r <= 1.5) ? r : 1; } catch(e){ return 1; }
+    /* 🎚 레벨(눈높이)은 «기억» 한다 — 2026-08-31 수리.
+       그전에는 let currentLevel='B1' 이고 저장 코드가 없어서, 아이가 A1 을 눌러도
+       새로고침하면 B1 으로 돌아갔다. 속도·목소리·자막·주제는 전부 기억하는데 레벨만 빠져 있었다.
+       실측(운영 D1 ai_friend_chats): 답변 313건 중 290건(93%)이 B1 으로 저장돼 있었다.
+       ⚠️ 기본값(아래 AIF_DEFAULT)은 서버 기본값(src/ai-friend-level.ts 의 AI_FRIEND_DEFAULT_LEVEL)과
+          «짝» 이다. 예전에는 화면 B1 · 서버 A2 로 서로 달랐다. 한쪽만 고치면 그 어긋남이 그대로 돌아온다.
+       ⚠️ 목록도 서버 AI_FRIEND_LEVELS 와 짝이다 — 화면에만 늘리면 서버가 모르는 값이라
+          조용히 기본값으로 떨어진다(CLAUDE.md 「화면에서 골랐는데 그 값만 저장이 안 됨」). */
+    /* 🪜 여덟 칸 — 서버 src/ai-friend-level.ts 의 AI_FRIEND_LEVELS 와 «짝» 이다.
+       ⚠️ 화면에만 늘리면 서버가 모르는 값이라 조용히 기본값으로 떨어진다
+          (CLAUDE.md 「화면에서 골랐는데 그 값만 저장이 안 됨」). */
+    const AIF_LEVELS = ['S1','S2','S3','S4','S5','S6','S7','S8'];
+    /* ⛔ 옛 키를 지우지 말 것 — 학생 브라우저에 A1…C1 이 남아 있다.
+       지우면 지금까지 고른 레벨이 전부 리셋된다(친구 이름을 넷으로 늘릴 때
+       female → emma 로 이어받은 것과 같은 처리다). */
+    const AIF_LEGACY = { A1:'S1', A2:'S2', B1:'S4', B2:'S6', C1:'S8' };
+    const AIF_DEFAULT = 'S4';                       // 서버 AI_FRIEND_DEFAULT_LEVEL 과 같아야 한다
+    const AIF_LEVEL_KEY = 'mangoi_aifriend_level';
+    let currentLevel = (function(){
+      try {
+        let v = localStorage.getItem(AIF_LEVEL_KEY);
+        if (Object.prototype.hasOwnProperty.call(AIF_LEGACY, v)) v = AIF_LEGACY[v];
+        return AIF_LEVELS.indexOf(v) >= 0 ? v : AIF_DEFAULT;
+      } catch(e){ return AIF_DEFAULT; }
     })();
+    let currentPersona = 'friendly';
+    /* 🔊 원어민 음성 재생 속도 — «계단 정본은 여기 한 곳» 이다.
+       화면 버튼(data-rate)·저장값 스냅·"천천히 말해줘" 한 칸 내리기가 모두 이 배열을 본다.
+       ⛔ 딴 곳에 값을 다시 적지 말 것 — 한쪽만 바뀌면 «버튼은 보통인데 실제로는 다른 배속» 이
+          되고 에러는 안 난다.
+       🔗 웜업(warmup.html)의 RATE_STEPS 와 «같은 다섯 값» 이어야 한다 —
+          화면마다 「느리게」가 다른 속도면 「어떤 화면은 더 느리다」가 되고 에러는 안 난다.
+       📜 2026-08-31 사장님 「속도 구별이 잘 안돼」 → 칸 사이를 20% 이상으로 넓혔다.
+          2026-09-10 사장님 「아직도 말 속도가 너무 빨라. 보통을 기준으로 모두 느리게」
+          → 계단을 통째로 한 칸씩 내렸다(보통 1 → 0.8, 즉 옛 「느리게」가 새 「보통」).
+          칸 사이 비율(30·23·25·25%)은 20% 위로 그대로라 8/31 결정이 안 깨진다. */
+    const RATE_STEPS_AF = [0.5, 0.65, 0.8, 1, 1.25];
+    const RATE_DEFAULT_AF = 0.8;              // = «보통»
+    const friendRatePreference = MangoiSpeechPreferences.create('friend', 3, function(level) {
+      applyRate(RATE_STEPS_AF[level - 1], false);
+    }, getAuth);
+    let currentRate = RATE_STEPS_AF[friendRatePreference.level - 1];
 
     document.querySelectorAll('.opt[data-level]').forEach(b => {
-      b.onclick = () => { document.querySelectorAll('.opt[data-level]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); currentLevel = b.dataset.level; };
+      b.classList.toggle('active', b.dataset.level === currentLevel);   // 기억해 둔 레벨을 화면에 입힌다
+      b.onclick = () => {
+        document.querySelectorAll('.opt[data-level]').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active'); currentLevel = b.dataset.level;
+        try { localStorage.setItem(AIF_LEVEL_KEY, currentLevel); } catch(e){}
+      };
     });
     document.querySelectorAll('.opt[data-persona]').forEach(b => {
       b.onclick = () => { document.querySelectorAll('.opt[data-persona]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); currentPersona = b.dataset.persona; };
     });
-    /* 🎙 목소리 선택 — 여자(asteria)/남자(orion)/번갈아(메시지마다 교대). localStorage 로 기억. */
-    let currentVoice = (function(){ try { const v = localStorage.getItem('mangoi_aifriend_voice'); return ['female','male','mix'].includes(v) ? v : 'female'; } catch(e){ return 'female'; } })();
-    let _mixTurn = 0;
-    function speakerFor() {
-      if (currentVoice === 'male') return 'orion';
-      if (currentVoice === 'mix') return (_mixTurn++ % 2 === 0) ? 'asteria' : 'orion';
-      return 'asteria';
+    /* 🎚️ 교정 방식 — 기본 집중교정. 서버 correctionModeOf 와 같은 세 값만 받는다.
+       ⚠️ 모르는 값이 저장돼 있으면 조용히 집중교정으로 떨어진다(서버 기본값과 같다). */
+    const AIF_CORR_KEY = 'mangoi_aifriend_correction';
+    const AIF_CORR_VALUES = ['free_talk', 'balanced', 'focused'];
+    let currentCorr = 'focused';
+    try {
+      const savedCorr = localStorage.getItem(AIF_CORR_KEY);
+      if (AIF_CORR_VALUES.indexOf(savedCorr) >= 0) currentCorr = savedCorr;
+    } catch(e){}
+    function paintCorrMode() {
+      document.querySelectorAll('.opt[data-cmode]').forEach(x => x.classList.toggle('active', x.dataset.cmode === currentCorr));
     }
-    // 👩‍🏫👨 목소리(TTS 화자) ↔ 아바타 얼굴 매핑 — orion(남) 이면 히어로(슈퍼맨풍), 그 외엔 강사(여).
-    function charForSpeaker(speaker) { return speaker === 'orion' ? 'male' : 'female'; }
+    paintCorrMode();
+    document.querySelectorAll('.opt[data-cmode]').forEach(b => {
+      b.onclick = () => {
+        if (AIF_CORR_VALUES.indexOf(b.dataset.cmode) < 0) return;
+        currentCorr = b.dataset.cmode;
+        paintCorrMode();
+        try { localStorage.setItem(AIF_CORR_KEY, currentCorr); } catch(e){}
+      };
+    });
+    /* 🎙 친구 고르기 — 고르면 목소리(Aura-2 speaker)와 얼굴(아바타)이 함께 바뀐다. localStorage 로 기억.
+       🧑 (2026-08-31) 사장님 지시로 «둘» 에서 «넷» 으로. 웜업과 같은 네 명·같은 화자를 씁니다 —
+          두 화면에서 같은 이름이 다른 목소리로 말하면 그때부터 «화면마다 답이 다른» 사고가 시작됩니다.
+       🔴 얼굴은 이제 화자 이름이 아니라 «사람 이름» 으로 고릅니다(PEOPLE[].char) —
+          예전에는 charForSpeaker() 가 화자 문자열을 비교해서, 화자만 바꾸면
+          «남자를 골랐는데 얼굴은 여자» 가 되고 에러도 안 났습니다. */
+    const PEOPLE = {
+      emma: { speaker:'asteria', char:'emma' },
+      jake: { speaker:'odysseus', char:'jake', male:true },   // 2026-10-02 apollo → odysseus (웜업과 같은 목소리)
+      lily: { speaker:'thalia',  char:'lily' },
+      noah: { speaker:'aries',   char:'noah', male:true },
+    };
+    /* 🎚️ (2026-10-02 사장님 「Jake·Noah 는 보통을 0.9배로」) — 남자 목소리는 0.9배보다 늘이지 않는다.
+       낮은 목소리를 늘여 재생하면 갈라져 들린다(웜업 warmup.html 의 EN_MALE_MIN_RATE 와 같은 규칙).
+       ⛔ 여자 목소리·빠르게(1배 이상) 고른 학생은 그대로다. */
+    const MALE_MIN_RATE_AF = 0.9;
+    function rateFor(person, r) { return ((PEOPLE[person] || {}).male && r < MALE_MIN_RATE_AF) ? MALE_MIN_RATE_AF : r; }
+    const PEOPLE_ORDER = ['emma','jake','lily','noah'];   // 「번갈아」가 도는 순서
+    let currentVoice = (function(){
+      try {
+        let v = localStorage.getItem('mangoi_aifriend_voice');
+        if (v === 'female') v = 'emma'; else if (v === 'male') v = 'jake';   // 옛 저장값 이어받기
+        return (v === 'mix' || PEOPLE[v]) ? v : 'emma';
+      } catch(e){ return 'emma'; }
+    })();
+    let _mixTurn = 0;
+    // 지금 «말할 사람». 번갈아면 순번이 가리키는 사람.
+    function personNow() { return currentVoice === 'mix' ? PEOPLE_ORDER[_mixTurn % PEOPLE_ORDER.length] : currentVoice; }
+    function speakerFor() {
+      const p = personNow();
+      if (currentVoice === 'mix') _mixTurn++;
+      return (PEOPLE[p] || PEOPLE.emma).speaker;
+    }
+    // 👤 사람 ↔ 아바타 얼굴 매핑 (js/mango-avatar.js 의 캐릭터 이름과 «짝»)
+    function charForPerson(p) { return (PEOPLE[p] || PEOPLE.emma).char; }
     // 🔄 아바타를 지금 선택된 목소리에 맞춰 즉시 반영 — MangoAvatar 가 아직 준비 전이면(스텁) 조용히 무시되고,
     //    build() 완료 후 다음 setCharacter 호출(버튼 클릭·첫 답변 재생)에서 정상 반영된다.
     function syncAvatarToVoice() {
       try {
         window.MangoAvatar && MangoAvatar.setCharacter &&
-          MangoAvatar.setCharacter(currentVoice === 'male' ? 'male' : 'female');
+          MangoAvatar.setCharacter(charForPerson(personNow()));
       } catch(e){}
     }
     syncAvatarToVoice();
@@ -488,6 +701,7 @@
         try { if (window.UXT) UXT.hit('ux:aifriend-voice-' + currentVoice); } catch(e){}
         syncAvatarToVoice();   // 👨 '남자'를 누르면 바로 슈퍼맨 얼굴로 바뀌게(다음 답변까지 기다리지 않고)
         syncFriendName();      // 🧑 헤더 이름도 같이 (Emma ↔ Jake)
+        try { efSyncFriend(friendOf(currentVoice)); } catch(e){}   // 📐 빈 화면 드롭다운도 같은 사람으로
       };
     });
 
@@ -500,18 +714,32 @@
           한 번 리셋된다. 친구 = 목소리이므로 키를 나눌 이유가 없다.
        ⚠️ 아바타 얼굴은 실제로 2개(female/male)뿐이다. 있지도 않은 얼굴로 캐릭터를 늘리지 않는다 —
           이름만 다른 같은 얼굴은 «고른 느낌» 이 아니라 «속은 느낌» 이 된다. */
+    // 🖼 face = 카드에 그릴 얼굴 썸네일(2026-09-03). js/mango-avatar.js 의 CHARACTERS 와 «같은 사람» 이어야 한다 —
+    //    emma=teacher-avatar · jake=hero-avatar · lily/noah=입모양 이미지 세트에서 얼굴만 잘라 낸 것.
+    //    emoji 는 썸네일이 없을 때(404)의 폴백으로 남긴다.
     const FRIENDS = [
-      { v: 'female', emoji: '👩', name: 'Emma',
+      // emma 는 -2: 정지 PNG(teacher-avatar.png)가 부옇고 회색 얼룩이 있어(사장님 「잘 보이지 않아」 2026-09-04)
+      //   영상(teacher-avatar.webm) 첫 프레임을 크로마키+선명화해 다시 만들었다. 이름을 바꾼 이유는 캐시 —
+      //   같은 이름으로 덮으면 이미 받은 브라우저는 옛 그림을 계속 보여 준다.
+      { v: 'emma', emoji: '👩', face: '/img/visemes/emma-v2-thumb.webp', name: 'Emma',
         ko: '엠마', en: 'Emma', persona: 'friendly',
         d_ko: '다정하게 이야기해요', d_en: 'Warm and friendly',
         hi: "Hi! I'm Emma. What do you want to talk about today?" },
-      { v: 'male', emoji: '🦸', name: 'Jake',
+      { v: 'jake', emoji: '🦸', face: '/img/friend-jake.webp', name: 'Jake',
         ko: '제이크', en: 'Jake', persona: 'playful',
         d_ko: '장난도 치고 농담도 해요', d_en: 'Playful and funny',
         hi: "Hey! I'm Jake. Ready for some fun English?" },
-      { v: 'mix', emoji: '🔀', name: 'Emma & Jake',
-        ko: '둘 다', en: 'Both', persona: 'friendly',
-        d_ko: '두 친구가 번갈아 이야기해요', d_en: 'They take turns',
+      { v: 'lily', emoji: '👧', face: '/img/friend-lily.webp', name: 'Lily',
+        ko: '릴리', en: 'Lily', persona: 'friendly',
+        d_ko: '또래 언니처럼 이야기해요', d_en: 'Like an older sister',
+        hi: "Hi! I'm Lily. What do you like to do?" },
+      { v: 'noah', emoji: '👦', face: '/img/friend-noah.webp', name: 'Noah',
+        ko: '노아', en: 'Noah', persona: 'playful',
+        d_ko: '또래 형처럼 이야기해요', d_en: 'Like an older brother',
+        hi: "Hey! I'm Noah. What do you like to do?" },
+      { v: 'mix', emoji: '🔀', name: 'All four',
+        ko: '번갈아', en: 'All four', persona: 'friendly',
+        d_ko: '네 친구가 돌아가며 이야기해요', d_en: 'All four take turns',
         hi: "Hi! We'll take turns talking with you!" },
     ];
     const friendOf = (v) => FRIENDS.find(f => f.v === v) || FRIENDS[0];
@@ -534,17 +762,41 @@
       // 화면에 떠 있는 모든 친구 카드의 «지금 고른 것» 표시를 갱신 —
       // 빈 화면(첫 진입)의 카드는 정적 HTML 이라 이걸 안 하면 눌러도 테두리가 안 옮겨간다
       document.querySelectorAll('.friend-card[data-v]').forEach(c => c.classList.toggle('on', c.dataset.v === f.v));
+      try { efSyncFriend(f); } catch(e){}   // 📐 빈 화면 드롭다운·얼굴도 같은 사람으로
       try { if (window.UXT) UXT.hit('ux:aifriend-friend-' + f.v); } catch(e){}
       const p = document.getElementById('friendPicker');
       if (p) p.remove();
-      // 고르자마자 그 친구가 자기 목소리로 인사한다 — 누구를 골랐는지 «귀로» 확인시켜 준다
-      if (greet) { appendMsg('ai', f.hi); if (isSoundOn()) speakText(f.hi, null, null); }
+      /* 고르자마자 그 친구가 자기 목소리로 인사한다 — 누구를 골랐는지 «귀로» 확인시켜 준다.
+         🧹 (2026-09-10) 인사는 «지금 누구를 골랐나» 를 알리는 확인 줄이라 «한 번에 하나» 만 남긴다.
+            전에는 카드를 누를 때마다 그냥 덧붙여서, 같은 인사가 빈 화면 아래로 쌓였다
+            (사장님 제보 — Emma 인사가 두 줄. 서버에 저장되는 값이 아니라 화면에만 쌓인 것이라
+             D1 `ai_friend_chats` 에는 인사가 한 줄도 없다).
+         ⚠️ 지우는 것은 «맨 끝에 붙어 있는 인사» 뿐이다 — 대화 도중에 친구를 바꾸면 그 앞의
+            «진짜 대화» 는 한 줄도 건드리면 안 된다(지우면 학생이 쓴 말이 사라진다).
+         ✅ 목소리는 누를 때마다 다시 들려준다 — 「들어 보고 고르는」 것이 이 인사의 목적이다. */
+      if (greet) {
+        const chatEl = document.getElementById('chat');
+        if (chatEl) {
+          while (chatEl.lastElementChild && chatEl.lastElementChild.dataset
+                 && chatEl.lastElementChild.dataset.friendGreet === '1') {
+            chatEl.lastElementChild.remove();
+          }
+        }
+        appendMsg('ai', f.hi);
+        if (chatEl && chatEl.lastElementChild) chatEl.lastElementChild.dataset.friendGreet = '1';
+        if (isSoundOn()) speakText(f.hi, null, null);
+      }
     }
     function friendCards() {
       const en = isEn();
       return '<div class="friends">' + FRIENDS.map(f =>
         '<div class="friend-card' + (f.v === currentVoice ? ' on' : '') + '" data-v="' + f.v + '" onclick="setFriend(\'' + f.v + '\', true)">'
-        + '<span class="f-emoji">' + f.emoji + '</span>'
+        // 얼굴 썸네일이 있으면 그것을, 못 받으면(404) 숨겨 둔 이모지를 되살린다 — 빈 칸이 제일 나쁘다
+        + (f.face
+            ? '<img class="f-face" src="' + f.face + '" alt="" width="56" height="56" loading="lazy" decoding="async"'
+              + ' onerror="this.hidden=true;this.nextSibling.hidden=false">'
+              + '<span class="f-emoji" hidden>' + f.emoji + '</span>'
+            : '<span class="f-emoji">' + f.emoji + '</span>')
         + '<span class="f-name">' + escapeHtml(en ? f.en : (f.name + ' · ' + f.ko)) + '</span>'
         + '<span class="f-desc">' + escapeHtml(en ? f.d_en : f.d_ko) + '</span></div>').join('') + '</div>';
     }
@@ -605,8 +857,11 @@
       if (!key) return '';
       if (_koCache.has(key)) return _koCache.get(key);
       const r = await fetch('/api/translate', {
+        // 🗣️ mode:'learn' — 서버가 언어모델로 «뜻(의역)» 을 만든다. 모드 없는 기본 경로는 m2m100 직역이라
+        //    「Good job!」이 「훌륭한 직업!」으로 나갔다(2026-08-31 제보). 웜업은 2026-08-24 에 이미 이 모드다.
+        //    ⛔ 이 한 낱말을 지우면 그 사고가 그대로 재현된다(캐시 접두사도 trl2: → tr: 로 갈린다).
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texts: [key], target: 'ko' })
+        body: JSON.stringify({ texts: [key], target: 'ko', mode: 'learn' })
       });
       const d = await r.json();
       const out = (d && d.ok && d.map && d.map[key]) ? String(d.map[key]) : '';
@@ -651,23 +906,22 @@
     /* 🐢 (2026-07-23) "천천히 말해줘" 를 말이나 글로 부탁하면 실제로 음성 속도를 한 단계 낮춘다.
        그동안은 속도가 화면 버튼으로만 바뀌어서, 부탁해도 똑같은 속도로 계속 말했다.
        (AI 답변 자체가 요청에 응하는 것은 서버 프롬프트에서 처리) */
-    const RATE_STEPS_AF = [0.6, 0.8, 1, 1.2];
-    function applyRate(v) {
+    /* 계단 정본(RATE_STEPS_AF)은 이 파일 위쪽 «음성 재생 속도» 블록에 한 벌만 있다. */
+    function applyRate(v, persist) {
       currentRate = v;
-      try { localStorage.setItem('mangoi_aifriend_tts_rate', String(currentRate)); } catch(e){}
+      if (persist !== false) friendRatePreference.set(RATE_STEPS_AF.indexOf(v) + 1);
       document.querySelectorAll('.opt[data-rate]').forEach(x => {
         x.classList.toggle('active', parseFloat(x.dataset.rate) === currentRate);
       });
     }
+    /* 🐢🐇 «부탁» 인지는 공용 판정(js/speech-rate-request.js)이 정한다 — 낱말 하나로 보면 「A snail is slow.」(대답)에도
+       느려졌다(2026-10-28 수리). 그 파일을 못 읽었으면 속도를 그대로 둔다(버튼으로는 계속 바꿀 수 있다). */
     function maybeAdjustRate(text) {
-      const t = String(text || '');
-      const slower = /(천천히|느리게|너무\s*빠르|못\s*알아|알아듣기)/.test(t)
-                  || /\b(slow(ly| down)?|too fast|more slowly|speak slower)\b/i.test(t);
-      const faster = /(빠르게|더\s*빨리)/.test(t) || /\b(faster|speed up)\b/i.test(t);
-      if (!slower && !faster) return;
+      const want = window.MangoiRateRequest ? window.MangoiRateRequest.judge(String(text || '')) : '';
+      if (want !== 'slower' && want !== 'faster') return;
       const i = RATE_STEPS_AF.indexOf(currentRate);
-      const cur = i < 0 ? RATE_STEPS_AF.indexOf(1) : i;
-      const next = slower ? Math.max(0, cur - 1) : Math.min(RATE_STEPS_AF.length - 1, cur + 1);
+      const cur = i < 0 ? RATE_STEPS_AF.indexOf(RATE_DEFAULT_AF) : i;   // 모르면 «보통» 칸에서 한 칸 옮긴다
+      const next = want === 'slower' ? Math.max(0, cur - 1) : Math.min(RATE_STEPS_AF.length - 1, cur + 1);
       if (RATE_STEPS_AF[next] !== currentRate) applyRate(RATE_STEPS_AF[next]);
     }
     function escapeHtml(s) {
@@ -819,7 +1073,25 @@
       }
       return html;
     }
-    function appendMsg(role, content) {
+    /* @param hasFix 교정 카드가 따로 그려지면 옛 (💡 …) 팁 칩은 안 그린다 —
+       같은 말이 카드와 본문에 두 번 나오면 아이가 무엇을 보라는 것인지 알 수 없다.
+       ⚠️ 팁 추출 자체는 남긴다: 프롬프트를 바꿔도 모델이 가끔 옛 모양을 내고,
+          그때 그 글자가 본문에 그대로 남으면 영어 TTS 가 한국어를 읽는다. */
+    /* 🚨 «답을 못 만들었다» 는 말풍선이 아니라 알림입니다 (2026-09-09).
+       ⛔ appendMsg('ai', …) 로 그리지 마세요 — 본문이 .ai-text 안에 들어가
+          ⓐ 자막 «가리기/끄기» 에서 흐려지거나 사라지고
+          ⓑ 🔊·뜻 버튼이 붙어 영어 TTS 가 한국어를 읽습니다(소리가 뭉개집니다). */
+    function appendNotice(text) {
+      const chat = document.getElementById('chat');
+      const d = document.createElement('div');
+      d.className = 'ai-notice';
+      d.textContent = text;          // 서버 문자열을 그리지 않으므로 이스케이프 걱정이 없습니다
+      chat.appendChild(d);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function appendMsg(role, content, hasFix) {
+      if (role === 'ai') _lastAiText = String(content || '');
       const chat = document.getElementById('chat');
       if (role === 'user') {
         const m = document.createElement('div');
@@ -836,11 +1108,12 @@
         row.className = 'ai-row';
         /* 👁 본문을 .ai-text 로 감싼다 — 자막 단계(전체/가림/끄기)가 이 span 하나만 건드리면 되고,
            말풍선·아바타·버튼은 늘 그 자리에 남는다. .sub-veil 은 「완전 끄기」일 때만 보이는 안내다. */
-        row.innerHTML = '<div class="ai-avatar"><img src="/img/mango-char.png" alt="Mango" /></div>'
+        row.innerHTML = '<div class="ai-avatar"><img src="/img/mango-char.png" alt="Mango" loading="lazy" decoding="async"/></div>'
           + '<div class="msg ai">'
           + '<span class="ai-text">' + escapeHtml(body).replace(/\n/g, '<br>') + '</span>'
           + '<span class="sub-veil" data-ko="🔊 듣고 맞혀 보세요 (탭하면 보여요)" data-en="🔊 Listen and guess (tap to see)">🔊 듣고 맞혀 보세요 (탭하면 보여요)</span>'
-          + (tip ? '<div class="tip-chip">' + escapeHtml(tip) + '</div>' : '')
+          + '<span class="sub-hint" data-ko="👁 자막을 가려 뒀어요 — 눌러서 보기" data-en="👁 Subtitles hidden — tap to reveal">👁 자막을 가려 뒀어요 — 눌러서 보기</span>'
+          + (tip && !hasFix ? '<div class="tip-chip">' + escapeHtml(tip) + '</div>' : '')
           + '</div>'
           + '<button class="replay-btn" aria-label="다시 듣기" data-ko-aria="다시 듣기" data-en-aria="Play again" title="다시 듣기">🔊</button>'
           + '<button class="mean-btn" data-ko="뜻" data-en="Meaning" title="한국어 뜻 보기" data-ko-title="한국어 뜻 보기" data-en-title="Show Korean meaning">뜻</button>';
@@ -871,6 +1144,7 @@
     }
     function toggleSound() {
       const on = isSoundOn();
+      if (on && window.FriendAutoTalk) { FriendAutoTalk.pause(); stopSpeakingNow(); }
       try { localStorage.setItem('mangoi_aifriend_sound', on ? '0' : '1'); } catch(e){}
       if (on) { // 껐음 — 재생 중인 음성 중단
         try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch(e){}
@@ -882,11 +1156,269 @@
       updateSoundBtn();
     }
     let _ttsLangSet = false;
-    function speakText(text, btn, row) {
-      if (!window.MangoiTTS) return;
+    /* ══════════════════════════════════════════════════════════════
+       ✏️ 교정 카드 — 서버가 «검증해서» 준 것만 그린다 (2026-09-09)
+       ⛔ 화면이 스스로 문장을 고치지 않는다. 아이가 그대로 따라 읽을 문장이라
+          코드가 지어내면 «안 고쳐 주는 것» 보다 나쁘다(판정 정본 src/warmup-correction.ts).
+       ⛔ 카드 상자에 data-ko/data-en 을 달지 말 것 — i18n 엔진이 textContent 를 통째로
+          갈아끼워 문장이 사라진다(CLAUDE.md 2장). 번역 대상은 «라벨» 뿐이고 자기 span 을 갖는다.
+       ══════════════════════════════════════════════════════════════ */
+    function fixCardClear() {
+      try {
+        const olds = document.querySelectorAll('.fix-card');   // 같은 카드가 두 벌 쌓이는 것 방지
+        for (let i = 0; i < olds.length; i++) olds[i].remove();
+      } catch(e){}
+    }
+    function _fixLabel(el, ko, en) {
+      el.setAttribute('data-ko', ko); el.setAttribute('data-en', en);
+      el.textContent = isEn() ? en : ko;
+    }
+    /* 🎯 발음 교정 도우미 (2026-11-01) */
+    const PRON_STOP = new Set(['you','your','the','are','is','it','this','that','what','how','why','who','where','when','did','do','does','can','will','and','for','with','not','yes','ok','okay','say','see','like','have','has','got','about','from','into','just','really','was']);
+    function pronTargetFromAi(text) {
+      const t = String(text || '').trim();
+      if (!/\?\s*$/.test(t)) return '';
+      const words = t.replace(/\?\s*$/, '').match(/[A-Za-z]{2,20}/g) || [];
+      for (let i = words.length - 1; i >= 0; i--) {
+        const w = words[i].toLowerCase();
+        if (!PRON_STOP.has(w)) return w;
+      }
+      return '';
+    }
+    function pronTargetOk(t) { return typeof t === 'string' && /^[A-Za-z]{2,20}$/.test(t); }
+    function pronEncodeWav(pcm, rate) {
+      const n = pcm.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+      const ws = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+      ws(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); ws(8, 'WAVE'); ws(12, 'fmt ');
+      v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+      ws(36, 'data'); v.setUint32(40, n * 2, true);
+      for (let i = 0; i < n; i++) { const x = Math.max(-1, Math.min(1, pcm[i])); v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7FFF, true); }
+      return new Uint8Array(buf);
+    }
+    function pronToB64(bytes) {
+      let bin = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      return btoa(bin);
+    }
+    /* 녹음(webm 등) → 16kHz mono WAV base64. 실패·11초 초과는 null — 교정만 건너뛴다. */
+    async function pronPayload(blob, target) {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        if (!AC || !OAC || !blob || !target) return null;
+        const dec = new AC();
+        let buf;
+        try { buf = await dec.decodeAudioData(await blob.arrayBuffer()); }
+        finally { try { dec.close(); } catch (e) {} }
+        if (!buf || buf.duration > 11) return null;
+        const off = new OAC(1, Math.max(1, Math.ceil(buf.duration * 16000)), 16000);
+        const src = off.createBufferSource(); src.buffer = buf; src.connect(off.destination); src.start(0);
+        const pcm = (await off.startRendering()).getChannelData(0);
+        const b64 = pronToB64(pronEncodeWav(pcm, 16000));
+        return b64.length > 500000 ? null : { audio_b64: b64, target: target };
+      } catch (e) { return null; }
+    }
+    /* 낱말을 n번 들려준다 — 끝날 때마다 다음 번 */
+    function sayThrice(word, n) {
+      let i = 0;
+      const next = function () { if (i++ < n) speakText(word, null, null, next); };
+      next();
+    }
+    /* 발음 교정 카드 — 틀린 낱말과 올바른 발음 3번 */
+    function showPronFix(pf) {
+      const chat = document.getElementById('chat');
+      if (!chat || !pf || !pronTargetOk(pf.word)) return;
+      const card = document.createElement('div');
+      card.className = 'fix-card pron-fix-card';
+      const t = document.createElement('div'); t.className = 'fix-title';
+      _fixLabel(t, '🔊 이렇게 발음해 보세요', '🔊 Say it like this');
+      card.appendChild(t);
+      const w = document.createElement('div'); w.className = 'fix-now';
+      w.textContent = String(pf.word);
+      card.appendChild(w);
+      const again = document.createElement('button');
+      again.type = 'button'; again.className = 'fix-speak';
+      _fixLabel(again, '🔊 다시 듣기', '🔊 Listen again');
+      again.onclick = function () { sayThrice(pf.word, pf.say_times || 3); };
+      card.appendChild(again);
+      chat.appendChild(card);
+      chat.scrollTop = chat.scrollHeight;
+      sayThrice(pf.word, pf.say_times || 3);
+    }
+    function showFixCard(fix, offerRepeat) {
+      fixCardClear();
+      if (!fix || !fix.was || !fix.now) return;   // 서버가 «교정 없음» 이면 아무것도 안 그린다
+      const chat = document.getElementById('chat');
+      if (!chat) return;
+      const card = document.createElement('div');
+      card.className = 'fix-card';
+
+      const t = document.createElement('div'); t.className = 'fix-title';
+      _fixLabel(t, '✨ 이렇게 말하면 더 좋아요', '✨ Even better like this');
+      card.appendChild(t);
+
+      const mk = function(labKo, labEn, val, cls) {
+        const row = document.createElement('div'); row.className = 'fix-line';
+        const l = document.createElement('span'); l.className = 'fix-lbl';
+        _fixLabel(l, labKo, labEn);
+        const v = document.createElement('span'); v.className = cls; v.textContent = val;
+        row.appendChild(l); row.appendChild(v); return row;
+      };
+      card.appendChild(mk('내가 말한 것', 'You said', String(fix.was), 'fix-was'));
+      card.appendChild(mk('이렇게', 'Better', String(fix.now), 'fix-now'));
+
+      if (fix.why_ko) {
+        const w = document.createElement('div'); w.className = 'fix-why';
+        w.textContent = '💡 ' + String(fix.why_ko);   // 한국어 설명 — 번역 대상이 아니다
+        card.appendChild(w);
+      }
+
+      const acts = document.createElement('div'); acts.className = 'fix-acts';
+      const listen = document.createElement('button');
+      listen.type = 'button'; listen.className = 'fix-btn';
+      _fixLabel(listen, '🔊 들어보기', '🔊 Listen');
+      listen.onclick = function(){ try { speakText(String(fix.now), listen, null); } catch(e){} };
+      acts.appendChild(listen);
+
+      /* 🎤 따라 말하기 — 되말해 주기만 하면 아이는 흘려 듣는다. 이 한 바퀴가 «수다» 를
+         «연습» 으로 바꾼다. 서버가 «3턴에 한 번» 만 offerRepeat 을 켠다. */
+      if (offerRepeat) {
+        const say = document.createElement('button');
+        say.type = 'button'; say.className = 'fix-btn';
+        _fixLabel(say, '🎤 따라 말해 보기', '🎤 Say it with me');
+        say.onclick = function(){ fixSpeakThenMic(say, String(fix.now)); };
+        acts.appendChild(say);
+      }
+      card.appendChild(acts);
+      chat.appendChild(card); chat.scrollTop = chat.scrollHeight;
+    }
+    /* 문장을 들려준 «뒤에» 마이크를 연다.
+       speakText 는 끝났음을 알려 주는 콜백이 밖으로 없지만, 재생이 끝나면 넘긴 버튼에서
+       'playing' 클래스를 떼는 계약이 이미 있다 — 그것을 신호로 쓴다.
+       ⚠️ 소리가 꺼져 있으면 그 클래스가 아예 안 붙으므로 곧바로 마이크가 열린다(맞는 동작).
+       ⚠️ 15초 안전망 — 신호를 놓쳐도 버튼이 영영 잠기지 않게 한다. */
+    var _repeatTarget = null;   // 🎤 «따라 말해 보기» 로 연 마이크의 목표 문장 — 다음 sendMsg 한 번이 채점에 쓴다(js/repeat-score.js)
+    function fixSpeakThenMic(btn, text) {
+      let opened = false;
+      const openMic = function(){
+        if (opened) return; opened = true;
+        btn.disabled = false;
+        _repeatTarget = { text: text, at: Date.now() };
+        try { if (!_recognizing) toggleMic(); } catch(e){}
+      };
+      btn.disabled = true;
+      try { speakText(text, btn, null); } catch(e){ openMic(); return; }
+      const t0 = Date.now();
+      const tick = setInterval(function(){
+        if (!btn.classList.contains('playing') && Date.now() - t0 > 350) { clearInterval(tick); openMic(); }
+        else if (Date.now() - t0 > 15000) { clearInterval(tick); openMic(); }
+      }, 200);
+    }
+
+    /* ═══ 📡 A-1 스트리밍 (2026-09-11) ═══════════════════════════════════════
+       [왜] 학생 121명 중 41명(34%)이 1턴만 하고 나갑니다(D1 실측). 지금까지는 답이 «다»
+       만들어진 뒤에야 읽기 시작했습니다. 이제 문장이 끝날 때마다 먼저 읽습니다.
+
+       ⛔ 토큰마다 읽지 않습니다 — 운율은 문장 단위라 "The"/"cat" 을 따로 읽으면 소리가 깨집니다
+          (서버 takeSentences 가 문장으로 잘라 보냅니다).
+       ⛔ 연달아 speakText 를 부르지 않습니다 — MangoiTTS 의 발화 순번이 앞 문장을 끊습니다.
+          그래서 «앞 문장이 끝나면 다음» 인 큐입니다.
+       ⚠️ 스트리밍 문장은 «미리보기» 이고 정본은 done 의 reply 입니다 — 서버가 재시도(반복·이름·
+          눈높이)를 돌리면 답이 바뀌고, 그때만 done 이 replaced:1 을 줍니다. */
+    var _stmGen = 0;                 // 🔢 지금 몇 번째 턴인가 — 새 턴·정지가 올립니다
+    var _stmChain = Promise.resolve();
+    var _stmSpoke = false;           // 이 턴에 스트리밍으로 읽은 것이 있나
+    var _stmRow = null;              // 미리보기 말풍선 (done 에서 정본으로 갈아끼웁니다)
+
+    function stmReset() {
+      _stmGen++; _stmChain = Promise.resolve(); _stmSpoke = false;
+      if (_stmRow && _stmRow.parentNode) _stmRow.parentNode.removeChild(_stmRow);
+      _stmRow = null;
+    }
+    /* ⏹ B (2026-09-11) — «AI 가 말하는 중에 학생이 말을 걸면 멈춘다».
+       ⛔ MangoiTTS.stop() «만» 부르면 안 됩니다 — A-1 의 문장 큐가 다음 문장을 이어서
+          재생해, 멈춘 것처럼 보였다가 곧 다시 말합니다. 정지는 반드시 이 한 곳으로. */
+    function stopSpeakingNow() {
+      if (window.FriendAutoTalk) FriendAutoTalk.stop();
+      stmReset();                                   // 큐·미리보기·세대 번호
+      try { window.MangoiTTS && MangoiTTS.stop && MangoiTTS.stop(); } catch(e){}
+      try { window.MangoAvatar && MangoAvatar.plainStop(); } catch(e){}   // 👩‍🏫 아바타 입 멈춤
+    }
+    function stmSpeak(sen) {
+      if (!isSoundOn()) return;
+      var my = _stmGen;
+      var later = _stmSpoke;
+      _stmSpoke = true;
+      /* ⚡ (2026-10-20 사장님 「A.i 친구 대답을 더 빠르게」) 둘째 문장부터는 «차례가 오기 전에» 소리를 미리 받는다 —
+         예전에는 앞 문장이 끝난 «뒤에야» 요청해 문장 사이마다 음성 합성 시간만큼 조용했다.
+         같은 문장을 재생할 때는 받아 둔 것(또는 받는 중인 요청)을 그대로 쓴다(game-tts 의 inflight).
+         ⛔ '번갈아' 모드는 미리 받지 않는다 — 문장마다 화자가 바뀌어(speakerFor) 다른 목소리를 받게 된다.
+         ⛔ 첫 문장은 미리 받지 않는다 — 곧바로 speakText 가 요청한다. */
+      if (later && currentVoice !== 'mix' && _ttsLangSet && window.MangoiTTS && MangoiTTS.prefetch) {
+        try { MangoiTTS.prefetch(sen, (PEOPLE[currentVoice] || PEOPLE.emma).speaker); } catch(e){}
+      }
+      _stmChain = _stmChain.then(function(){
+        return new Promise(function(res){
+          if (my !== _stmGen) return res();          // 새 턴이 시작됐으면 버립니다
+          var fired = false;
+          var fin = function(){ if (!fired) { fired = true; res(); } };
+          try { speakText(sen, null, null, fin); } catch(e){ return fin(); }
+          /* ⚠️ 안전망 — 끝 신호가 영영 안 오면 큐가 멈춰 남은 문장이 통째로 사라집니다. */
+          setTimeout(fin, 20000);
+        });
+      });
+    }
+    function stmShow(sen) {
+      if (!_stmRow) {
+        removeTyping();
+        var chat = document.getElementById('chat');
+        _stmRow = document.createElement('div');
+        /* ⛔ .ai-row 를 쓰지 않습니다 — 기존 코드가 «마지막 .ai-row» 로 정본 말풍선을 찾습니다. */
+        _stmRow.className = 'msg ai stm-preview';
+        _stmRow.setAttribute('aria-live', 'polite');
+        chat && chat.appendChild(_stmRow);
+      }
+      _stmRow.textContent = (_stmRow.textContent ? _stmRow.textContent + ' ' : '') + sen;
+      var chat2 = document.getElementById('chat');
+      if (chat2) chat2.scrollTop = chat2.scrollHeight;
+    }
+    /** SSE 를 읽어 문장을 흘리고, done 이벤트의 객체를 돌려줍니다. */
+    async function stmRead(r) {
+      var rd = r.body && r.body.getReader ? r.body.getReader() : null;
+      if (!rd) return { ok: false, error: 'stream_unsupported' };
+      var dec = new TextDecoder(), buf = '', out = null;
+      for (;;) {
+        var step = await rd.read();
+        if (step.done) break;
+        buf += dec.decode(step.value, { stream: true });
+        var nl;
+        while ((nl = buf.indexOf('\n')) >= 0) {
+          var line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+          if (line.indexOf('data:') !== 0) continue;
+          var ev = null;
+          try { ev = JSON.parse(line.slice(5)); } catch(e){ continue; }
+          if (!ev) continue;
+          if (ev.done) { out = ev; continue; }
+          if (ev.t) { stmShow(ev.t); stmSpeak(ev.t); }
+        }
+      }
+      return out || { ok: false, error: 'stream_incomplete' };
+    }
+
+    function speakText(text, btn, row, onDone) {
+      if (!friendRatePreference.loaded) {
+        const waitingGen = _stmGen;
+        return friendRatePreference.ready.then(function(){
+          if (waitingGen !== _stmGen) { if (onDone) onDone(); return; }
+          speakText(text, btn, row, onDone);
+        });
+      }
+      if (!window.MangoiTTS) { if (onDone) onDone(); return; }
       if (!_ttsLangSet) { try { MangoiTTS.setLang('en'); } catch(e){} _ttsLangSet = true; }
       const clean = String(text || '').replace(/^[⚠️❗️\s]+/, '').trim();
-      if (!clean || /^⚠️/.test(text)) return;   // 시스템/오류 메시지는 읽지 않음
+      if (!clean || /^⚠️/.test(text)) { if (onDone) onDone(); return; }   // 시스템/오류 메시지는 읽지 않음
+      const autoSpeech = window.FriendAutoTalk ? FriendAutoTalk.aiStart() : 0;
       document.querySelectorAll('.replay-btn.playing').forEach(x => x.classList.remove('playing'));
       document.querySelectorAll('.ai-row.speaking').forEach(x => x.classList.remove('speaking'));
       if (btn) btn.classList.add('playing');
@@ -911,17 +1443,22 @@
         }
       } catch(e){}
       const done = function(){
+        if (window.FriendAutoTalk) FriendAutoTalk.aiDone(autoSpeech);
         if (btn) btn.classList.remove('playing');
         if (row) row.classList.remove('speaking');
         try { window.MangoAvatar && MangoAvatar.plainStop(); } catch(e){}
+        /* 📡 (A-1) 문장 큐가 «앞 문장이 끝났다» 를 알아야 다음 문장을 시작합니다.
+           ⛔ 안 기다리고 연달아 부르면 MangoiTTS 의 발화 순번(_seq)이 앞 문장을 끊습니다. */
+        if (typeof onDone === 'function') { try { onDone(); } catch(e){} }
       };
       try {
         // ⚠️ speakerFor() 는 '번갈아' 모드에서 호출마다 순번(_mixTurn)이 넘어가므로 반드시 1회만 불러
         //   변수에 담아 재사용한다 — 두 번 부르면(화자용 1번+아바타용 1번) 매 턴 건너뛰며 어긋난다.
+        const _personNow = personNow();          // ⚠️ speakerFor() 가 번갈아 순번을 넘기므로 «먼저» 읽는다
         const _speaker = speakerFor();
         try { if (MangoiTTS.setSpeaker) MangoiTTS.setSpeaker(_speaker); } catch(e){}
-        try { window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(charForSpeaker(_speaker)); } catch(e){}
-        MangoiTTS.speak(clean, currentRate, done);
+        try { window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(charForPerson(_personNow)); } catch(e){}
+        MangoiTTS.speak(clean, rateFor(_personNow, currentRate), done);
       } catch(e){ done(); }
     }
 
@@ -933,6 +1470,8 @@
        문제도 없다(MediaRecorder는 멈추기 전까지 안 끊김). 실시간 자막은 사라지고 "녹음→전사"
        로 UX가 바뀌지만(사장님 승인), 그만큼 정답률이 오른다. */
     let _recognizing = false, _pendingVoice = false;
+    let _lastRecBlob = null, _lastAiText = '';   // 🎯 발음 교정용 — 방금 녹음 파일 / AI 마지막 말
+
     function updateMicUI() {
       const b = document.getElementById('micBtn'); if (!b) return;
       b.classList.toggle('recording', _recognizing);
@@ -958,20 +1497,38 @@
     }
 
     /* 🎤 녹음 → 서버 Whisper 전사(mangoi-voice-input.js). 모든 환경에서 이 방식 하나만 쓴다. */
-    let _whisperOn = false;
-    async function micViaWhisper() {
+    let _whisperOn = false, _friendMicSeq = 0;
+    function cancelFriendMic() {
+      if (!_whisperOn) return;
+      _friendMicSeq++;
+      if (window.MangoiVoice) MangoiVoice.cancel();
+      _whisperOn = false; _recognizing = false; updateMicUI(); micHint(null);
+    }
+    async function micViaWhisper(auto) {
       if (!window.MangoiVoice || !MangoiVoice.supported()) {
+        if (window.FriendAutoTalk) FriendAutoTalk.pause();
         micHint(isEn() ? 'This browser cannot use the microphone. Please type instead.'
                        : '이 브라우저는 마이크를 쓸 수 없어요. 아래에 글로 입력해 주세요. 😢', 5000);
         return;
       }
       if (_whisperOn) { MangoiVoice.stop(); return; }     // ⏹ — 지금까지 녹음분으로 전사
+      /* ⚡ (2026-10-20) 입모양 분석기를 «지금» 켜 둔다 — 듣고·전사하고·AI 가 답을 만드는 동안 함께 준비된다.
+         예전에는 첫 대답을 «재생하려는 순간» 에야 켜서(모델 37.8MB) 첫 대답 입모양이 늦었다. 이미 켜져 있으면 아무 일도 안 한다. */
+      try { window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); } catch(e){}
+      const micSeq = ++_friendMicSeq;
+      let heard = false, voiceError = '';
       _whisperOn = true; _recognizing = true; updateMicUI();
-      try { if (window.MangoiTTS && MangoiTTS.stop) MangoiTTS.stop(); } catch(e){}
-      try { window.MangoAvatar && MangoAvatar.plainStop(); } catch(e){}   // 👩‍🏫 아바타 입 멈춤
-      const said = await MangoiVoice.record({
+      stopSpeakingNow();   // ⏹ 말을 걸었으니 AI 낭독을 멈춥니다(큐까지 함께 — B)
+      let said = '', recBlob = null;   // 🎤 녹음 파일 — 판정이 놓친 작은 목소리를 다시 잰다(voice-has-speech.js)
+      try { said = await MangoiVoice.record({
         lang: 'en',
+        onAudio: b => { recBlob = b; },
+        firstMs: auto ? 0 : 20000,     // ✋ 버튼 모드: 판정이 말소리를 못 봐도 9초에 끊지 않는다(0 = 모듈 기본값)
         onState: (s, info) => {
+          if (micSeq !== _friendMicSeq) return;
+          if (s === 'speaking') heard = true;
+          if (s === 'error') voiceError = info && info.reason || 'server';
+          if (window.FriendAutoTalk) FriendAutoTalk.micState(s);
           if (s === 'ready')         micHint(isEn() ? 'Getting the mic ready…' : '마이크를 준비하고 있어요…', 0);
           else if (s === 'waiting')  micHint(isEn() ? '🎤 Speak now! Take your time.' : '🎤 지금 말해보세요! 천천히 해도 괜찮아요.', 0);
           else if (s === 'speaking') micHint(isEn() ? '🎤 Listening…' : '🎤 듣고 있어요…', 0);
@@ -986,17 +1543,31 @@
               : (isEn() ? 'Voice input failed. Please type instead.' : '🎤 음성 입력에 실패했어요. 글로 입력해 주세요.'), 5000);
           }
         }
-      });
+      }); } catch(e) { voiceError = 'server'; }
+      if (micSeq !== _friendMicSeq) return;
       _whisperOn = false; _recognizing = false; updateMicUI();
+      // Automatic listening must never submit Whisper hallucinations from silence.
+      /* 🎤 (2026-10-07) 판정(peak>8/128)이 놓친 작은 목소리는 녹음 파일로 다시 잰다 — 모르면 예전대로 버린다 */
+      if (auto && !heard && said) {
+        let v = null;
+        try { v = window.MangoiVoiceCheck ? await MangoiVoiceCheck.blobHasVoice(recBlob) : null; } catch(e) { v = null; }
+        if (micSeq !== _friendMicSeq) return;
+        if (v === true) heard = true;
+      }
+      if (auto && !heard) said = '';
+      _lastRecBlob = said ? recBlob : null;   // 🎯 발음 교정에 쓸 녹음(음성으로 보낸 턴만)
       if (said) {
         micHint(null);
         const input = document.getElementById('msgInput');
         if (input) input.value = said;
         _pendingVoice = true; sendMsg();
-      }
+      } else if (auto && window.FriendAutoTalk) { micHint(null); FriendAutoTalk.empty(voiceError); }
     }
 
     function toggleMic() {
+      const sendButton = document.getElementById('sendBtn');
+      if (sendButton && sendButton.disabled) return;
+      if (window.FriendAutoTalk) FriendAutoTalk.press();
       /* 시작 전에 입력창을 비운다 — 이전 내용이 새 녹음에 섞이지 않게. 멈춤(⏹)은
          micViaWhisper() 내부의 _whisperOn 검사가 처리(누르면 지금까지 녹음분으로 전사). */
       if (!_whisperOn) {
@@ -1009,7 +1580,7 @@
       const chat = document.getElementById('chat');
       const row = document.createElement('div');
       row.id = 'typingRow'; row.className = 'ai-row';
-      row.innerHTML = '<div class="ai-avatar"><img src="/img/mango-char.png" alt="Mango" /></div><div class="msg ai typing"><span></span><span></span><span></span></div>';
+      row.innerHTML = '<div class="ai-avatar"><img src="/img/mango-char.png" alt="Mango" loading="lazy" decoding="async"/></div><div class="msg ai typing"><span></span><span></span><span></span></div>';
       chat.appendChild(row);
       chat.scrollTop = chat.scrollHeight;
     }
@@ -1024,15 +1595,40 @@
        주제를 붙잡아 둘 근거가 하나도 없었다. 이제 고른 주제를 기억해(id) 매 요청에 함께
        보내고, 화면 위에도 계속 띄운다. */
     const TOPICS = [
-      { e: '🍕', ko: '음식 이야기', en: 'Food', id: 'food', msg: "Let's talk about food! What's your favorite food, Mango?" },
-      { e: '🐾', ko: '동물 친구들', en: 'Animals', id: 'animals', msg: 'I want to talk about animals! Do you have a favorite animal?' },
-      { e: '🚀', ko: '우주 탐험', en: 'Space', id: 'space', msg: "Let's talk about space! Tell me something cool about space." },
-      { e: '🦖', ko: '공룡 시대', en: 'Dinosaurs', id: 'dinosaurs', msg: 'Dinosaurs are so cool! Which dinosaur do you like?' },
-      { e: '🎮', ko: '게임 이야기', en: 'Games', id: 'video games', msg: "Let's talk about games! What games do you know?" },
-      { e: '🏫', ko: '학교 생활', en: 'School', id: 'school life', msg: 'Can I tell you about my school day?' },
-      { e: '⚽', ko: '스포츠', en: 'Sports', id: 'sports', msg: "Let's talk about sports! Do you like soccer?" },
-      { e: '🎬', ko: '영화·만화', en: 'Movies', id: 'movies and cartoons', msg: "Let's talk about movies and cartoons! What's fun to watch?" },
+      /* 💬 자유주제 — 2026-09-09 사장님 지시로 맨 앞에. 「무슨 얘기든 좋다」는 뜻이므로
+         id 를 넘기긴 하지만 서버 프롬프트가 «학생이 꺼낸 얘기를 따라간다» 이므로
+         고정 주제처럼 굳지 않는다(api-ai.ts 의 topicCtx). */
+      { e: '💬', pic: 'free', ko: '자유주제', en: 'Free Topic', id: 'anything you like', msg: "Let's just chat! What do you want to talk about today?" },
+      { e: '👪', pic: 'family', ko: '가족과 친구', en: 'Family & Friends', id: 'family and friends', msg: 'I want to talk about family and friends! Can you tell me about your family?' },
+      { e: '🍕', pic: 'food', ko: '음식 이야기', en: 'Food', id: 'food', msg: "Let's talk about food! What's your favorite food, Mango?" },
+      { e: '🐾', pic: 'animals', ko: '동물 친구들', en: 'Animals', id: 'animals', msg: 'I want to talk about animals! Do you have a favorite animal?' },
+      { e: '🚀', pic: 'space', ko: '우주 탐험', en: 'Space', id: 'space', msg: "Let's talk about space! Tell me something cool about space." },
+      { e: '🦖', pic: 'dinosaurs', ko: '공룡 시대', en: 'Dinosaurs', id: 'dinosaurs', msg: 'Dinosaurs are so cool! Which dinosaur do you like?' },
+      { e: '🎮', pic: 'games', ko: '게임 이야기', en: 'Games', id: 'video games', msg: "Let's talk about games! What games do you know?" },
+      { e: '🏫', pic: 'school', ko: '학교 생활', en: 'School', id: 'school life', msg: 'Can I tell you about my school day?' },
+      { e: '⚽', pic: 'sports', ko: '스포츠', en: 'Sports', id: 'sports', msg: "Let's talk about sports! Do you like soccer?" },
+      { e: '🎬', pic: 'movies', ko: '영화·만화', en: 'Movies', id: 'movies and cartoons', msg: "Let's talk about movies and cartoons! What's fun to watch?" },
     ];
+    /* 🖼 주제 카드 한 장 — 그리는 곳이 «둘»(빈 화면 · 주제 바꾸기)이라 마크업을 여기 한 곳에 둔다.
+       ⚠️ 그림(pic)이 없거나 못 받으면 «빈 칸» 이 되지 않게 onerror 가 이모지로 되돌린다
+          (CLAUDE.md 「목록에 항목만 늘리고 파일을 안 넣음」 — 그 폴백이 조용히 도는 것을
+          막으려고 topic_icon_harness 가 «표가 가리키는 그림이 실제로 있는가» 를 따로 본다). */
+    function topicCardHtml(t, i, en) {
+      /* ⚠️ onerror 는 «속성 안의 JS 문자열» 이라 이스케이프가 두 겹이다.
+            지금 표는 이모지뿐이라 안전하지만, 아포스트로피가 든 값이 들어오면 속성이 깨진다.
+            그래서 홑따옴표·역슬래시를 미리 막는다(라벨 쪽은 escapeHtml 이 맡는다). */
+      const eSafe = String(t.e || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      const icon = t.pic
+        ? '<span class="t-icon"><img class="t-pic" src="/img/topics/' + t.pic + '.webp" alt="" '
+          + 'loading="lazy" decoding="async" onerror="this.parentNode.textContent=\'' + eSafe + '\'"></span>'
+        /* pic 이 없는 주제를 나중에 넣을 수 있게 남겨 두는 갈래다(죽은 코드가 아니라 안전망).
+           ⚠️ 지금 정책은 «전부 실사» 라 하니스가 그 상태를 못 박는다 — 그래서 이 갈래로는
+              오지 않는다. pic 없는 주제를 정말 넣기로 하면 그 검사를 함께 고칠 것. */
+        : '<span class="t-emoji">' + t.e + '</span>';
+      return '<div class="topic-card" onclick="topicSend(' + i + ')">' + icon
+        + '<span class="t-name">' + escapeHtml(en ? t.en : t.ko) + '</span></div>';
+    }
+
     /* 🗺 지금 이야기 중인 주제 — 새로고침해도 이어지게 localStorage 에 보관 */
     let currentTopic = (function () {
       try {
@@ -1068,9 +1664,7 @@
       box.style.cssText = 'margin:10px 0 4px';
       box.innerHTML = '<p style="color:var(--text2);font-size:12px;font-weight:800;margin:0 0 8px;text-align:center">'
         + (en ? 'Pick a new topic:' : '새 주제를 골라볼까요?') + '</p>'
-        + '<div class="topics">' + TOPICS.map((t, i) =>
-            '<div class="topic-card" onclick="topicSend(' + i + ')"><span class="t-emoji">' + t.e
-            + '</span><span class="t-name">' + escapeHtml(en ? t.en : t.ko) + '</span></div>').join('')
+        + '<div class="topics">' + TOPICS.map((t, i) => topicCardHtml(t, i, en)).join('')
         + '</div>';
       chat.appendChild(box);
       chat.scrollTop = chat.scrollHeight;
@@ -1078,24 +1672,71 @@
     function renderEmpty() {
       const chat = document.getElementById('chat');
       const en = isEn();
-      const cards = TOPICS.map((t, i) =>
-        '<div class="topic-card" onclick="topicSend(' + i + ')"><span class="t-emoji">' + t.e + '</span><span class="t-name">' + escapeHtml(en ? t.en : t.ko) + '</span></div>'
-      ).join('');
+      const cards = TOPICS.map((t, i) => topicCardHtml(t, i, en)).join('');
       chat.innerHTML = '<div class="empty-state">'
-        + '<div class="hero-mango"><img src="/img/mango-char.png" alt="Mango" /></div>'
-        + "<h2>👋 Hi! I'm Mango</h2>"
+        + '<div class="hero-mango"><img src="/img/mango-char.png" alt="Mango" loading="lazy" decoding="async"/></div>'
+        + "<h2>👋 Hi! I'm " + friendOf(personNow()).name + "</h2>"
         + '<p>' + (en ? "Let's chat in English! Every message earns points ⭐" : "Let's chat in English! 한 마디 할 때마다 포인트가 쌓여요 ⭐") + '</p>'
+        /* 💡 「A.i말하기와 A.i친구하기 차이」 (2026-09-26 사장님) — 안내창 본체는 js/ai-diff.js 한 곳 */
+        + '<button type="button" class="aidiff-chip" onclick="window.mgOpenAiDiff&&mgOpenAiDiff()">'
+        + (en ? "💡 Speaking vs. Friend: what's different?" : '💡 A.i말하기와 A.i친구하기 차이') + '</button>'
         /* 🧑 친구 고르기를 주제보다 «먼저» 둔다 — 누구와 이야기할지가 먼저고 무슨 이야기를 할지가 그다음이다.
            고르지 않고 주제만 눌러도 그대로 진행된다(관문이 아니라 안내). */
-        + '<p style="color:var(--text2)">' + (en ? 'Who do you want to talk with?' : '오늘은 누구랑 이야기할까요?') + '</p>'
-        + friendCards()
-        + '<p style="color:var(--text2);margin-top:16px">' + (en ? 'Pick an adventure topic:' : '모험 주제를 골라볼까요?') + '</p>'
-        + '<div class="topics">' + cards + '</div>'
+        /* ✨ 오늘의 단어 — 인사 바로 아래. 여기는 «칩이 들어올 빈 자리» 이고
+           칩 자체는 wodSync() 가 옮겨 온다(새로 만들면 updateHUD 가 던진다). */
+        + '<div class="wod-card" id="wodSlot"></div>'
+        /* 📐 (2026-10-18 사장님 «한 장에 스크롤 없이 · 드롭다운으로» — A안)
+           친구 카드 5장 + 주제 카드 10장이 세로로 쌓여 빈 화면이 대화창보다 길었다(PC·폰 모두 스크롤).
+           → 둘을 «드롭다운 한 줄» 로 접는다. 고르는 순간 하는 일은 예전 카드와 «똑같다»
+             (친구 = setFriend(v,true) · 주제 = topicSend(i)). 판정·저장을 새로 만들지 않는다.
+           ⚠️ 그림 카드(topicCardHtml)는 지우지 않고 «그림으로 고르기» 접이칸 안에 남긴다 —
+              그림을 보고 고르는 아이가 있고, 카드 마크업 정본이 한 곳(topicCardHtml)이라는 약속도 그대로다.
+           ⚠️ 친구 카드(friendCards)는 대화 도중 «이름 눌러 친구 바꾸기»(showFriendPicker)가 계속 쓴다. */
+        + efPicksHtml(en)
+        /* 「그림 카드」 열기와 빠른 버튼 3개를 «한 줄» 에 둔다(.ef-foot) — 열면 카드가 그 줄 아래로 펼쳐진다. */
+        + '<div class="ef-foot"><details class="ef-more"><summary>' + (en ? '🖼 Topics by picture' : '🖼 그림으로 주제 고르기') + '</summary>'
+        + '<div class="topics">' + cards + '</div></details>'
         + '<div class="quick">'
-        + '<button onclick="quickSend(\'Hi Mango! How are you today?\')">Hi Mango! 👋</button>'
+        /* 🧑 이 버튼은 «학생이 AI 를 부르는» 말이라 이름이 들어간다 — 고른 친구로.
+           바로 위 인사를 「Hi! I'm Lily」로 고쳐 놓고 여기만 Mango 면 한 화면이 두 이름을 말한다. */
+        + '<button onclick="quickSend(\'Hi ' + friendOf(personNow()).name + '! How are you today?\')">Hi '
+        + friendOf(personNow()).name + '! 👋</button>'
         + '<button onclick="quickSend(\'Can you teach me a new word?\')">' + (en ? 'New word 📚' : '새 단어 📚') + '</button>'
         + '<button onclick="quickSend(\'Tell me a fun fact!\')">' + (en ? 'Fun fact 🌟' : '재미난 사실 🌟') + '</button>'
-        + '</div></div>';
+        + '</div></div></div>';
+    }
+    /* 📐 빈 화면의 «친구 ▾ · 주제 ▾» 한 줄 (2026-10-18 A안).
+       ⛔ 여기서 새 판정·저장을 만들지 않는다 — 친구는 setFriend, 주제는 topicSend 를 그대로 부른다.
+       ⚠️ 친구 옆 얼굴(#efFace)은 setFriend 가 함께 갱신한다(efSyncFriend). */
+    function efPicksHtml(en) {
+      const cur = friendOf(currentVoice);
+      const fOpts = FRIENDS.map(f => '<option value="' + f.v + '"' + (f.v === cur.v ? ' selected' : '') + '>'
+        + escapeHtml(f.emoji + ' ' + (en ? f.en : (f.name + ' · ' + f.ko)) + ' (' + (en ? f.d_en : f.d_ko) + ')')
+        + '</option>').join('');
+      const tOpts = '<option value="">' + (en ? '🗺 Choose a topic' : '🗺 주제 고르기') + '</option>'
+        + TOPICS.map((t, i) => '<option value="' + i + '">' + escapeHtml(t.e + ' ' + (en ? t.en : t.ko)) + '</option>').join('');
+      const face = cur.face
+        ? '<img class="ef-face" id="efFace" src="' + cur.face + '" alt="" width="36" height="36" decoding="async"'
+          + ' onerror="this.hidden=true">'
+        : '<img class="ef-face" id="efFace" alt="" width="36" height="36" hidden>';
+      return '<div class="ef-picks">'
+        + '<label class="ef-pick"><span class="ef-lab"><span class="ef-l">🧑 ' + (en ? 'Who do you want to talk with?' : '오늘은 누구랑 이야기할까요?') + '</span>'
+        + '<span class="ef-s">🧑 ' + (en ? 'Friend' : '친구') + '</span></span>'
+        + '<span class="ef-row">' + face
+        + '<select id="efFriend" aria-label="' + (en ? 'Friend' : '친구') + '" onchange="setFriend(this.value, true)">' + fOpts + '</select></span></label>'
+        + '<label class="ef-pick"><span class="ef-lab"><span class="ef-l">🗺 ' + (en ? 'Pick an adventure topic:' : '모험 주제를 골라볼까요?') + '</span>'
+        + '<span class="ef-s">🗺 ' + (en ? 'Topic' : '주제') + '</span></span>'
+        + '<span class="ef-row"><select id="efTopic" aria-label="' + (en ? 'Topic' : '주제') + '" onchange="if(this.value!==\'\')topicSend(+this.value)">' + tOpts + '</select></span></label>'
+        + '</div>';
+    }
+    function efSyncFriend(f) {
+      const s = document.getElementById('efFriend');
+      if (s && s.value !== f.v) s.value = f.v;
+      const im = document.getElementById('efFace');
+      if (im) {
+        if (f.face) { if (im.getAttribute('src') !== f.face) im.src = f.face; im.hidden = false; }
+        else im.hidden = true;
+      }
     }
     function topicSend(i) {
       const t = TOPICS[i];
@@ -1103,13 +1744,19 @@
       setTopic(t);                                   // 🗺 고른 주제를 대화 내내 유지
       const p = document.getElementById('topicPicker');
       if (p) p.remove();
-      quickSend(t.msg);
+      // 🧑 이 문장은 «학생이 AI 를 부르는» 말이라 이름이 들어 있다 — 고른 친구로 바꿔 보낸다.
+      //    Lily 를 골랐는데 "…, Mango?" 라고 부르면 그 순간 누구와 이야기하는지가 흐려진다.
+      quickSend(String(t.msg || '').replace(/\bMango\b/g, friendOf(personNow()).name));
     }
     async function sendMsg(e) {
       if (e) e.preventDefault();
       const input = document.getElementById('msgInput');
       const msg = (input.value || '').trim();
-      if (!msg) return;
+      if (!msg || document.getElementById('sendBtn').disabled) return;
+      document.getElementById('sendBtn').disabled = true;
+      const autoTurn = window.FriendAutoTalk ? FriendAutoTalk.begin() : 0;
+      let autoReplyOK = false;
+      try {
       maybeAdjustRate(msg);                 // 🐢 "천천히 말해줘" → 실제로 음성 속도를 낮춤
       const wasVoice = _pendingVoice; _pendingVoice = false;
       const auth = await getAuth();
@@ -1117,28 +1764,92 @@
 
       // 빈 상태면 클리어
       const empty = document.querySelector('.empty-state');
+      /* 🛟 빈 화면을 지우기 «직전» 에 오늘의 단어 칩을 밖으로 피신시킨다.
+         안 하면 innerHTML 이 그 칩을 통째로 파괴하고, 그 뒤 updateHUD() 의
+         getElementById 가 null 이 되어 «던진다»(퀘스트 갱신 4줄이 함께 죽는다). */
+      if (empty && window.wodPark) window.wodPark();
       if (empty) document.getElementById('chat').innerHTML = '';
+      /* ✏️ 이전 «교정 카드» 도 함께 걷는다 (웜업 warmup.html 과 같은 자리).
+         ⛔ showFixCard 안에서만 지우면 안 된다 — 서버 오류·네트워크 실패로 그 함수가 아예
+            안 불리는 경로가 둘 있어(아래 else / catch), 옛 카드가 «방금 보낸 문장» 아래
+            그대로 남아 그 문장을 고쳐 준 것처럼 보인다(2026-09-09 함정 대조). */
+      fixCardClear();
 
       input.value = '';
       document.getElementById('sendBtn').disabled = true;
+      /* 📡 새 턴 — 앞 턴의 문장 큐·미리보기를 끊습니다.
+         ⛔ 안 끊으면 학생이 다음 말을 보냈는데 «앞 답» 이 계속 읽힙니다. */
+      stmReset();
+      try { input.dispatchEvent(new Event('mangoi:turn-sent')); } catch(e){}   // ⏹ 다음 답변에도 끼어들 수 있게
       appendMsg('user', msg);
+      /* 🎤 «따라 말해 보기» 뒤에 보낸 말이면 낱말 단위로 채점해 보여 준다(js/repeat-score.js). 90초가 지나면 안 잰다. */
+      { const _rt = _repeatTarget; _repeatTarget = null;
+        if (_rt && Date.now() - _rt.at < 90000 && window.MangoRepeatScore) {
+          try { const _rc = MangoRepeatScore.render(_rt.text, msg, function(b){ fixSpeakThenMic(b, _rt.text); });
+            if (_rc) { const _ch = document.getElementById('chat'); _ch.appendChild(_rc); _ch.scrollTop = _ch.scrollHeight; } } catch(e){}
+        } }
       sndPop();
       appendTyping();
+      /* 🎯 집중교정 + 음성 턴이면 기준 낱말 발음을 WAV 로 함께 보낸다(서버가 Azure 로 판정). */
+      let pronBody = null;
+      if (wasVoice && currentCorr === 'focused' && _lastRecBlob) {
+        const tgt = pronTargetFromAi(_lastAiText);
+        if (tgt) pronBody = await pronPayload(_lastRecBlob, tgt);
+      }
+      _lastRecBlob = null;
       try {
         const r = await fetch('/api/ai/chat-friend', {
           method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
+          // 🧑 friend — 서버가 「너는 Lily 야」로 프롬프트를 만든다. 안 보내면 AI 가 자기를
+          //    'Mango' 로 알고, 「Hi! I'm Lily」로 인사해 놓고 이름을 물으면 다른 이름을 댄다
+          //    (2026-08-31 사장님 제보). 「번갈아」면 personNow() 가 그 턴의 사람을 준다.
           body: JSON.stringify({ uid: auth.uid, msg, level: currentLevel, persona: currentPersona,
+                                 friend: personNow(),
+                                 correction_mode: currentCorr,   // 🎚️ 교정 방식 (서버 기본값 = 집중교정)
+                                 pron: pronBody,                 // 🎯 발음 교정용 WAV + 기준 낱말(없으면 null)
                                  topic: currentTopic ? currentTopic.id : '', via: wasVoice ? 'voice' : 'text',
-                                 sub: currentSub })   // 🎧 자막을 끄고 대화하면 서버가 덤 1P (하루 5회)
+                                 sub: currentSub,     // 🎧 자막을 끄고 대화하면 서버가 덤 1P (하루 5회)
+                                 stream: 1 })         // 📡 A-1 — 문장이 끝날 때마다 먼저 읽습니다
         });
         let d;
-        try { d = await r.json(); } catch(je){ d = { ok:false, error: 'invalid_json_response', status: r.status }; }
+        /* 📡 서버가 스트리밍으로 답하면 문장을 흘려 받습니다. 옛 서버(JSON)면 ct 가 달라
+           저절로 아래 옛 경로로 갑니다 — 화면을 안 고쳐도 되는 방향입니다. */
+        const _ct = r.headers.get('Content-Type') || '';
+        if (_ct.indexOf('text/event-stream') >= 0) {
+          try { d = await stmRead(r); }
+          catch(se){ console.error('[AI Friend] stream read failed:', se); d = { ok:false, error:'stream_failed' }; }
+        } else {
+          try { d = await r.json(); } catch(je){ d = { ok:false, error: 'invalid_json_response', status: r.status }; }
+        }
         removeTyping();
-        if (d && d.ok && d.reply) {
-          appendMsg('ai', d.reply);
+        /* 미리보기 말풍선을 치웁니다 — 아래에서 정본(appendMsg)이 다시 그립니다. */
+        if (_stmRow && _stmRow.parentNode) { _stmRow.parentNode.removeChild(_stmRow); }
+        _stmRow = null;
+        /* 🚨 AI 가 답을 못 만든 턴 (2026-09-09 사장님 「이해못하고 이상한 주제로 질문해」).
+           서버가 ai_unavailable 로 밝혀 줍니다. 그때 오는 reply 는 «학생이 무슨 말을 했든 똑같은»
+           고정 문구라, 그대로 그리면 Lily 가 딴소리를 한 것처럼 보입니다(실측: 공룡 얘기 중에
+           「오늘 뭐 먹었어?」). ⛔ 소리로 읽지 않고 교정 카드도 안 붙입니다 — 둘 다 «AI 가 한 말»
+           이라는 전제 위에 있습니다. ✅ 대신 무슨 일이 났는지 사람 말로 적습니다. */
+        if (d && d.ok && d.ai_unavailable) {
+          // ⚠️ 맨이름 getLang 은 없을 때 ReferenceError — 이 파일의 정본 헬퍼를 씁니다.
+          appendNotice(isEn()
+            ? '⚠️ I could not think of a reply just now. Please send it again in a moment.'
+            : '⚠️ 지금은 답을 만들지 못했어요. 잠시 뒤 다시 보내 주세요.');
           applyGam(d.gam, wasVoice);
-          // 🔊 새 답변 자동 재생 (소리 듣기 켜져 있을 때) — 마지막 스피커 버튼에 재생 표시
-          if (isSoundOn()) {
+        } else if (d && d.ok && d.reply) {
+          autoReplyOK = true;
+          appendMsg('ai', d.reply, !!(d.fix && d.fix.was && d.fix.now));
+          /* ✏️ 서버가 «검증해서» 준 교정만 그린다(없으면 아무것도 안 그림).
+             ⚠️ appendMsg 뒤에 부른다 — 카드는 그 답변 «아래» 에 붙어야 한다. */
+          showFixCard(d.fix, d.repeat);
+          if (d.pron_fix) showPronFix(d.pron_fix);   // 🎯 기준 낱말을 틀리게 발음 → 3번 들려주기
+          applyGam(d.gam, wasVoice);
+          /* 🔊 새 답변 자동 재생 — 마지막 스피커 버튼에 재생 표시.
+             📡 (A-1) 스트리밍으로 이미 읽었으면 다시 읽지 않습니다. 단 서버가 재시도를 돌려
+                답이 바뀌었으면(replaced) 읽던 것을 멈추고 정본을 읽습니다. */
+          if (_stmSpoke && !d.replaced) { /* 이미 읽었습니다 */ }
+          else if (isSoundOn()) {
+            if (_stmSpoke) { stmReset(); try { window.MangoiTTS && MangoiTTS.stop(); } catch(e){} }
             const rows = document.querySelectorAll('.ai-row');
             const lastRow = rows.length ? rows[rows.length - 1] : null;
             const btns = document.querySelectorAll('.replay-btn');
@@ -1155,9 +1866,36 @@
         removeTyping();
         appendMsg('ai', '⚠️ 네트워크가 불안정합니다. Wi-Fi 를 확인해주세요. (' + (e && e.message ? e.message : 'unknown') + ')');
       }
-      document.getElementById('sendBtn').disabled = false;
-      input.focus();
+      } finally {
+        document.getElementById('sendBtn').disabled = false;
+        if (window.FriendAutoTalk) {
+          // Do not arm between streamed sentences or before a delayed final sentence.
+          _stmChain.then(() => FriendAutoTalk.settled(autoReplyOK, autoTurn));
+        }
+        /* 📱 2026-10-01 — 폰(터치)에서는 자동 포커스 안 함: 답마다 키보드가 올라와 화면을 덮었다.
+           PC(마우스)는 예전처럼 바로 이어 치기. 학생이 입력칸을 누르면 그때 키보드가 뜬다. */
+        const _coarse = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+        if (!_coarse && (!window.FriendAutoTalk || !FriendAutoTalk.on())) input.focus();
+      }
     }
+    /* ⏹ B — 글로 말을 걸 때도 멈춥니다(마이크가 없거나 조용한 곳에서 쓰는 학생).
+       ⚠️ «한 번만» 멈춥니다 — 매 글자마다 부르면 발화 순번만 계속 오릅니다.
+       ⛔ 음성으로 «자동» 감지하지 않습니다 — 스피커로 들으면 AI 가 자기 말에 끼어듭니다
+          (2026-07-23 「음성인식이 AI 말을 받아 적던」 사고와 같은 뿌리). 학생의 «몸짓» 에만 반응합니다. */
+    (function armTypingBarge(){
+      var inp = document.getElementById('msgInput');
+      if (!inp || inp._bargeBound) return;
+      inp._bargeBound = true;
+      inp.addEventListener('input', function(){
+        if (!inp.value) return;                     // 지워지는 것은 말을 거는 것이 아닙니다
+        if (inp._bargeDone) return;
+        inp._bargeDone = true;
+        stopSpeakingNow();
+      });
+      /* 보내고 나면 다음 답변에 다시 끼어들 수 있어야 합니다. */
+      inp.addEventListener('mangoi:turn-sent', function(){ inp._bargeDone = false; });
+    })();
+
     function quickSend(text) {
       document.getElementById('msgInput').value = text;
       sendMsg();
@@ -1258,7 +1996,7 @@
       const auth = await getAuth();
       if (!auth) { renderEmpty(); updateHUD(); return; }
       try {
-        const r = await fetch('/api/ai/chat-history?uid=' + encodeURIComponent(auth.uid), {
+        const r = await fetch('/api/ai/chat-history?uid=' + encodeURIComponent(auth.uid) + '&level=' + encodeURIComponent(currentLevel), {
           headers: { 'Authorization': 'Bearer ' + auth.token }
         });
         const d = await r.json();
@@ -1274,16 +2012,55 @@
         } else {
           renderEmpty();
         }
+        if (d.ok && d.level_suggest) showLevelSuggest(d.level_suggest, auth);   // 🎚 단계 제안(⑤)
       } catch(e){ renderEmpty(); }
       updateHUD();
       renderTopicBar();                              // 🗺 새로고침해도 고른 주제가 그대로 보이게
     }
+    /* 🎚 (2026-10-18 개선안 2순위 ⑤) «한 단계 올려(내려) 볼까요?» — 서버가 근거가 있을 때만 준다(level-suggest.ts).
+       ⛔ 여기서 단계를 몰래 바꾸지 않는다 — 학생이 누를 때만, 그리고 그 길은 «기존 단계 버튼» 그대로다.
+       ⛔ 제안이 지금 단계와 어긋나면(그 사이 학생이 바꿨으면) 그리지 않는다. */
+    function showLevelSuggest(sg, auth) {
+      try {
+        if (!sg || sg.from !== currentLevel) return;
+        const btn = document.querySelector('.opt[data-level="' + String(sg.to).replace(/[^A-Za-z0-9]/g, '') + '"]');
+        const chat = document.getElementById('chat');
+        if (!btn || !chat || document.getElementById('lvSuggest')) return;
+        const en = isEn(), up = sg.dir === 'up';
+        const name = escapeHtml((btn.textContent || sg.to).trim());
+        const box = document.createElement('div');
+        box.id = 'lvSuggest';
+        box.setAttribute('role', 'status');
+        box.style.cssText = 'margin:8px 12px;padding:10px 12px;border-radius:12px;background:#fff7ed;border:1px solid #fdba74;color:#7c2d12;font-size:14px;line-height:1.45';
+        box.innerHTML = (up
+            ? (en ? '🎉 You have been doing great at this level. Try one step up?' : '🎉 이 단계는 잘하고 있어요. 한 단계 올려 볼까요?')
+            : (en ? '🙂 This level seems a bit hard right now. Try one step easier?' : '🙂 지금 단계가 조금 어려워 보여요. 한 단계 쉽게 해 볼까요?'))
+          + '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">'
+          + '<button type="button" data-a="accept" style="padding:6px 12px;border-radius:999px;border:0;background:#c2410c;color:#fff;font-weight:700">'
+          + (en ? 'Go to ' : '') + name + (en ? '' : ' 로 바꾸기') + '</button>'
+          + '<button type="button" data-a="dismiss" style="padding:6px 12px;border-radius:999px;border:1px solid #fdba74;background:#fff;color:#7c2d12">'
+          + (en ? 'Keep my level' : '그대로 할래요') + '</button></div>';
+        box.addEventListener('click', function (ev) {
+          const t = ev.target && ev.target.closest ? ev.target.closest('button[data-a]') : null;
+          if (!t) return;
+          const decision = t.getAttribute('data-a');
+          if (decision === 'accept') btn.click();          // 기존 단계 버튼 그대로 — 저장도 거기서
+          box.remove();
+          fetch('/api/ai/chat-history', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
+            body: JSON.stringify({ action: 'level_suggest', uid: auth.uid, from: sg.from, to: sg.to, decision: decision, evidence: sg.evidence || {} }) }).catch(function(){});
+        });
+        chat.parentNode.insertBefore(box, chat);
+      } catch (e) {}
+    }
     async function clearChat() {
       if (!confirm(isEn() ? 'Clear all messages?' : '대화 내용을 모두 지울까요?')) return;
+      if (window.FriendAutoTalk) FriendAutoTalk.pause();
+      stopSpeakingNow();
       const auth = await getAuth();
       if (auth) {
         try { await fetch('/api/ai/chat-clear', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization': 'Bearer ' + auth.token}, body: JSON.stringify({ uid: auth.uid }) }); } catch(e){}
       }
+      if (window.wodPark) window.wodPark();         // 🛟 위와 같은 이유 — 지우기 직전에 피신
       document.getElementById('chat').innerHTML = '';
       setTopic(null);                                // 🗺 대화를 지우면 주제도 처음부터
       renderEmpty();
@@ -1294,9 +2071,25 @@
       renderTopicBar();
       if (document.querySelector('.empty-state')) renderEmpty();
     });
-    loadHistory();
+    loadHistory().then(function () {
+      function mountDubbingPractice() {
+        if (!window.MangoiDubPractice) return;
+        MangoiDubPractice.mountFriend({
+          host: document.getElementById('chat'), input: document.getElementById('msgInput'),
+          prepare: function (text) {
+            stopSpeakingNow();
+            setTopic(null);                      // The previous topic must not pull this practice away.
+            const input = document.getElementById('msgInput');
+            input.value = text; input.focus();   // Student reviews and sends through the existing form.
+          }
+        });
+      }
+      // defer scripts/i18n finish first, including when history resolves immediately.
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountDubbingPractice, { once: true });
+      else mountDubbingPractice();
+    });
   </script>
-<!-- BUILD:20260813001216 -->
+<!-- BUILD:20260813015745 -->
 <style id="mb-tidy-2026-07-11">
 /* 폴드 커버 등 초좁은 화면 보정: 입력줄이 전송 버튼을 밀어내던 문제 */
 .input-bar input{min-width:0}
@@ -1311,14 +2104,11 @@
   .input-bar input{padding:12px 12px}
   .input-bar button{padding:10px 13px}
 }
-/* ≤480px(폰): 우상단 고정 홈/EN 바가 🔊·대화초기화 버튼을 덮지 않게 헤더를 그 아래로 */
-@media (max-width:480px){
-  .top{padding-top:48px}
-}
-/* 481px 이상(태블릿~): 헤더 오른쪽에 고정 홈/EN 바 자리를 비워 버튼 겹침 방지 */
-@media (min-width:481px){
-  .top{padding-right:190px}
-}
+/* 🗑 여기 있던 옛 규칙 둘(폰 위쪽 여백 48 · 태블릿 오른쪽 여백 190)을 지웠다.
+   ⛔ 되살리지 마세요 — 그 둘은 «공용 홈/EN 바가 우상단에 «떠» 있다»(fixed) 는 전제로
+   만든 것인데, A안(2026-09-09)에서 그 바를 헤더 «안» 으로 합쳐 흐름 안으로 넣었습니다.
+   되살리면 헤더 오른쪽에 190 만큼 빈 구멍이 생깁니다.
+   ⚠️ 검사에 이 낱말들을 «없어야 한다» 로 쓸 거면 주석을 벗겨 낸 사본으로 판정하세요. */
 </style>
 <style id="txt-big-2026-07-13">
 /* ══ 🔎 가독성 확대 (2026-07-13 사장님 요청: PC에서 글자가 너무 작음) ══
@@ -1342,6 +2132,7 @@
 .input-bar button[type=submit]{font-size:16px}
 .tip-chip{font-size:13.5px}
 .topic-card .t-emoji{font-size:30px}
+.topic-card .t-icon{width:56px;height:56px;font-size:30px}
 .topic-card .t-name{font-size:13px}
 .empty-state h2{font-size:22px}
 .empty-state p{font-size:14.5px}
@@ -1370,12 +2161,21 @@
   .chat{padding:24px 20px;gap:15px}
   .msg{font-size:28px;line-height:1.55;max-width:74%;padding:14px 20px;border-radius:22px}
   .tip-chip{font-size:19px;padding:11px 15px}
+  /* ✏️ 교정 카드도 «같은 배율» 로 키운다 — 이 블록을 빠뜨리면 말풍선만 28px 로 커지고
+     카드는 15px 로 남아, PC 에서 «카드만 작다» 가 된다(2026-09-09 스크린샷으로 잡음). */
+  .fix-card{max-width:74%;padding:16px 20px;gap:10px;border-radius:20px}
+  .fix-card .fix-title{font-size:19px}
+  .fix-card .fix-line{font-size:22px}
+  .fix-card .fix-lbl{font-size:17px}
+  .fix-card .fix-why{font-size:19px}
+  .fix-card .fix-btn{font-size:18px;padding:9px 17px}
   .msg .wod-hit{padding:0 6px}
   .ai-avatar{width:40px;height:40px}
   .replay-btn{width:40px;height:40px;font-size:18px}
   /* 👁 뜻 버튼도 같이 키운다 — 안 키우면 확대 화면에서 이것만 눌리지 않을 만큼 작게 남는다 */
   .mean-btn{height:40px;padding:0 14px;font-size:16px}
   .sub-veil{font-size:19px}
+  .sub-hint{font-size:15px}
   .ko-chip{font-size:19px;padding:11px 15px}
   .typing span{width:8px;height:8px}
   .input-bar{padding:16px 18px}
@@ -1388,6 +2188,7 @@
   .topics{max-width:720px;gap:12px}
   .topic-card{padding:18px 8px 14px;border-radius:18px;gap:7px}
   .topic-card .t-emoji{font-size:40px}
+  .topic-card .t-icon{width:64px;height:64px;font-size:40px}
   .topic-card .t-name{font-size:17px}
   .quick button{font-size:16px;padding:11px 20px}
   .pt-toast{font-size:19px;padding:11px 24px}
@@ -1396,12 +2197,17 @@
   .cele-banner .cb-sub{font-size:16px}
 }
 </style>
-<script defer src="/js/game-tts.js?v=5"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈. v4: getAudioEl(아바타 음량 립싱크) -->
-<script defer src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
+<script defer src="/js/game-tts.js?v=8"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈. v4: getAudioEl(아바타 음량 립싱크). v6: 서버 실패 시 400ms 뒤 한 번 더 물어본 뒤에만 기기 목소리로 — 「목소리가 계속 변해」 -->
+<script defer src="/js/mangoi-voice-input.js?v=6"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
+<script defer src="/js/voice-has-speech.js?v=1"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
+<script defer src="/js/aifriend-auto-talk.js?v=1"></script>
+<script defer src="/js/aifriend-facetalk.js?v=3"></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 얼굴 가득 + 유리판 자막, 막히면 저절로 열림) -->
+<script defer src="/js/ai-diff.js?v=2"></script><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
-<script defer src="/js/flow.js?v=13"></script><!-- 🚀 다음으로 이동(MangoFlow) -->
+<script src="/js/repeat-score.js?v=1" defer></script><!-- 🎤 «따라 말해 보기» 채점 (2026-10-18) -->
+<script defer src="/js/flow.js?v=23"></script><!-- 🚀 다음으로 이동(MangoFlow) -->
 
 <!-- ══════════════════════════════════════════════════════════════
      💬 대화창 넓히기 (2026-07-29 사장님 지시: "봐야 할 부분이 너무 작다")
@@ -1417,20 +2223,31 @@
       ring 높이는 mango-avatar.js 가 인라인으로 넣으므로 !important 로 덮는다. */
 #tavatar-wrap{ flex-direction:row; align-items:center; justify-content:center;
   gap:10px; margin:6px auto 8px; }
-#tavatar-ring{ width:64px!important; height:80px!important; border-radius:14px; padding:3px; }
+/* 👩‍🏫 (2026-09-23) 얼굴 크게 — 사장님 «A.i 친구하기 화면도 웜업처럼 크게».
+   옛 값 64x80(폰)·88x110(PC). 폭·높이를 --av-w 하나로 정하고 4:5 로 계산한다.
+   ⚠️ 웜업처럼 «채팅 옆 여백» 으로 빼지 않는다 — 이 화면은 말풍선이 폭 전체(PC 74%)를 써서
+      옆 여백이 없고, 왼쪽 가운데에는 «메뉴» 손잡이도 있다. 위쪽 자리에서 크기만 키우고,
+      화면 세로가 길수록 더 크게 한다(대화창 몫을 남기려고 세로로 묶음).
+   감시: test-harness/manual/ai-friend-avatar-size-browser.mjs */
+#tavatar-wrap{ --av-w:88px; }
+#tavatar-ring{ width:var(--av-w)!important; height:calc(var(--av-w) * 1.25)!important; border-radius:14px; padding:3px; }
 #tavatar-canvas,#tavatar-video{ border-radius:11px; }
-#tavatar-status{ font-size:11px; padding:3px 10px; }
+#tavatar-status{ font-size:12px; padding:3px 10px; }
+@media (max-height:740px){ #tavatar-wrap{ --av-w:72px; } }
 @media (min-width:760px){
-  #tavatar-ring{ width:88px!important; height:110px!important; border-radius:16px; }
-  #tavatar-status{ font-size:13px; padding:4px 12px; }
+  #tavatar-wrap{ --av-w:124px; }
+  #tavatar-ring{ border-radius:18px; }
+  #tavatar-status{ font-size:14px; padding:4px 13px; }
 }
+@media (min-width:760px) and (min-height:860px){ #tavatar-wrap{ --av-w:150px; } }
+@media (min-width:760px) and (min-height:1000px){ #tavatar-wrap{ --av-w:190px; } }
+@media (min-width:760px) and (max-height:700px){ #tavatar-wrap{ --av-w:100px; } }
 /* 가로로 눕힌 폰 — 세로가 짧을 때.
    ⚠️ 폰을 눕히면 폭이 844px 이나 되어 "PC용 큰 글씨" 규칙(min-width:760px)이 걸린다.
       그래서 높이가 390px 뿐인데도 글씨·여백이 PC처럼 커져 대화창이 16%까지 눌렸다.
       폭이 아니라 '높이' 기준으로 전부 되돌린다. */
 @media (max-height:520px){
-  #tavatar-ring{ width:40px!important; height:50px!important; }
-  #tavatar-wrap{ margin:3px auto 5px; gap:8px; }
+  #tavatar-wrap{ --av-w:52px; margin:3px auto 5px; gap:8px; }
   #tavatar-status{ font-size:10px; padding:2px 8px; }
   .top{ padding:6px 14px; }
   .top .mango-icon{ width:28px; height:28px; }
@@ -1438,7 +2255,12 @@
   .top .status{ display:none; }
   .top .clear-btn{ font-size:11px; padding:5px 9px; }
   .snd-toggle{ width:32px; height:32px; font-size:15px; }
-  .opts-toggle{ font-size:11px; padding:5px 9px; }
+  /* 📜 2026-09-10 «설정» 두 글자가 이 버튼 안으로 들어와 버튼이 넓어졌다.
+     여기는 «높이» 기준 블록(가로로 눕힌 폰)이라 자리가 특히 빠듯해 함께 줄여 둔다.
+     ⚠️ 390·320px 실측은 «폭» 기준 블록(max-width:520px) 쪽에 적혀 있다.
+     ⛔ 그 글자를 접어서 되돌리지 말 것(사장님 지시) — 대신 여백에서 낸다. */
+  .opts-toggle{ font-size:11px; padding:5px 6px; }
+  .opts-toggle .ot-sum{ gap:2px; }
   .hud{ padding:4px 12px; gap:6px; }
   .hud-chip{ font-size:11.5px; padding:4px 9px; }
   .hud-lv .xp-track{ width:44px; height:6px; }
@@ -1454,21 +2276,279 @@
   .mic-btn{ width:40px; height:40px; font-size:17px; }
 }
 
-/* ② 설정·퀘스트는 기본으로 접어 둔다 (⚙ 버튼으로 펼침) */
-body:not(.opts-open) .opts,
-body:not(.opts-open) .quests{ display:none; }
+/* ② A안 «말끔한 한 줄» — 2026-09-09 사장님 결정 ─────────────────────────
+   설정 25개(레벨8·스타일4·속도5·친구5·자막3)와 퀘스트 4개를 헤더에서 내리고
+   «아래에서 올라오는 시트» 로 옮겼다.
 
-/* ⚙ 토글 버튼 — 헤더의 다른 버튼과 같은 모양 */
+   📐 왜 — 고치기 전 실측(설정 펼친 상태): 상단이 폰 360x640 에서 화면의 53.4%(342px)이고
+      대화창은 30.8% 뿐이었다. PC 1280x800 도 48.8%. 상단 조작 38개 중 25개가 설정 버튼.
+   ⚠️ 그전에도 ⚙ 접기는 있었다(2026-07-29, 기본 접힘). 그런데 «전부 아니면 전무» 라
+      자막 하나 바꾸려 해도 25개가 다 나왔고, 접어도 상단은 여전히 24.7~38.4% 였다.
+   ✅ 늘 보여야 하는 두 가지(연속일·오늘 포인트)는 헤더에 남긴다 — 아이를 계속 오게 만드는 장치다.
+   📄 제안서: docs/AI친구_대시보드_정리_샘플4종_2026-09-09.html */
+
+/* 헤더 한 줄 — 이름만 줄어들고 칩·버튼은 안 줄어든다.
+   ⚠️ .info 에 min-width:0 이 없으면 flex 자식 기본값(auto) 때문에 이름이 길 때
+      칩을 화면 밖으로 밀어낸다. */
+.top{ gap:8px; padding:9px 12px; }
+.top .info{ min-width:0; flex:1 1 auto; }
+.top .name, .top .status{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.top .mango-icon{ width:30px; height:30px; flex:0 0 auto; }
+.top .snd-toggle, .top .hud-chip, .top .opts-toggle{ flex:0 0 auto; }
+/* 헤더로 올라온 상태 칩은 한 줄에 맞게 조금 좁힌다 */
+/* ⚠️ 칩 글자를 여기서 줄이면 «PC에서 글자가 너무 작다»(2026-07-13 사장님 지시)를
+   되돌리는 셈이 된다 — 그 지시가 만든 규칙은 .hud-chip{font-size:17px}(min-width:760px)이고
+   이 규칙이 특정성으로 이긴다. 그래서 좁은 화면에서만 줄이고 PC 는 되살린다. */
+.top .hud-chip{ font-size:11.5px; padding:4px 9px; }
+@media (min-width:760px){ .top .hud-chip{ font-size:14.5px; padding:7px 13px; } }
+.top .hud-chip .xp-track{ display:none; }
+/* 좁은 폰에서는 부제부터 접어 칩 자리를 지킨다 */
+@media (max-width:420px){ .top .status .chg{ display:none; } }
+@media (max-width:350px){ .top .status{ display:none; } }
+
+/* ⚙ 토글 버튼 — 지금 레벨을 요약으로 함께 보여 준다(«4단계 · B1») */
 .opts-toggle{ background:rgba(148,163,184,0.16); color:#e2e8f0;
   border:1px solid rgba(148,163,184,0.35); border-radius:10px;
   padding:6px 10px; font-size:12px; font-weight:800; cursor:pointer;
-  white-space:nowrap; flex-shrink:0; display:inline-flex; align-items:center; gap:5px; }
-.opts-toggle .ot-sum{ color:var(--gold); font-weight:900; }
-body.opts-open .opts-toggle{ background:rgba(251,191,36,0.18); border-color:rgba(251,191,36,0.5); }
-@media (min-width:760px){ .opts-toggle{ font-size:14px; padding:8px 13px; } }
+  white-space:nowrap; display:inline-flex; align-items:center; gap:5px; }
+.opts-toggle .ot-sum{ color:var(--gold); font-weight:900; display:inline-flex; gap:4px; }
+.opts-toggle .ot-flag:empty{ display:none; }
+body.sheet-open .opts-toggle{ background:rgba(251,191,36,0.18); border-color:rgba(251,191,36,0.5); }
+@media (min-width:760px){ .opts-toggle{ font-size:13.5px; padding:7px 12px; } }
+/* 첫 방문 한 번만 «여기 있어요» 말풍선.
+   ⚠️ data-ko/data-en 이 아니라 «가상요소» 로 그린다 — 그 두 속성은 i18n 엔진이
+      textContent 를 통째로 갈아끼워 버튼 안 글자가 사라진다(CLAUDE.md 2장). */
+.opts-toggle[data-hint]::after{ content:attr(data-hint); position:absolute;
+  top:calc(100% + 8px); right:6px; background:var(--gold); color:#22160a;
+  font-size:11.5px; font-weight:800; padding:5px 10px; border-radius:9px;
+  white-space:nowrap; box-shadow:0 8px 20px -8px rgba(0,0,0,.6); z-index:60; }
+.opts-toggle[data-hint]{ position:relative; }
+
+/* 설정 시트 — 폰은 아래에서 올라오고, 넓은 화면은 오른쪽 아래 패널 */
+.sheet-scrim{ position:fixed; inset:0; background:rgba(6,11,24,0.58);
+  opacity:0; pointer-events:none; transition:opacity .24s; z-index:2147483090; }
+body.sheet-open .sheet-scrim{ opacity:1; pointer-events:auto; }
+.opts-sheet{ position:fixed; left:0; right:0; bottom:0; z-index:2147483100;
+  background:#16213e; border-top:1px solid var(--border);
+  border-radius:18px 18px 0 0;
+  padding:9px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+  max-height:86dvh; overflow-y:auto; overscroll-behavior:contain;
+  transform:translateY(101%); transition:transform .26s cubic-bezier(.22,.8,.3,1);
+  box-shadow:0 -16px 40px -16px rgba(0,0,0,0.75); }
+body.sheet-open .opts-sheet{ transform:translateY(0); }
+@media (min-width:760px){
+  .opts-sheet{ left:auto; right:16px; bottom:16px; width:430px;
+    border-radius:16px; border:1px solid var(--border);
+    max-height:min(78dvh,660px); transform:translateY(calc(100% + 24px)); }
+}
+.sheet-grip{ width:36px; height:4px; border-radius:99px; background:rgba(255,255,255,.28);
+  margin:0 auto 10px; }
+@media (min-width:760px){ .sheet-grip{ display:none; } }
+.sheet-head{ display:flex; align-items:center; justify-content:space-between; gap:10px;
+  margin-bottom:6px; }
+.sheet-title{ font-size:14px; font-weight:800; }
+.sheet-close{ background:rgba(148,163,184,0.16); color:#e2e8f0;
+  border:1px solid rgba(148,163,184,0.35); border-radius:9px; padding:6px 12px;
+  font-size:12.5px; font-weight:700; cursor:pointer; }
+/* 시트 안에서는 옛 줄(배경·좌우 여백)을 벗기고 «섹션» 처럼 흐르게 한다 */
+.opts-sheet .opts, .opts-sheet .quests, .opts-sheet .hud{
+  background:transparent; border:0; padding:0; margin:0;
+  display:flex; flex-wrap:wrap; gap:6px; }
+.opts-sheet .quests, .opts-sheet .hud{ padding-bottom:10px; }
+/* 라벨(레벨:·스타일:·속도:…)마다 줄을 바꿔 섹션이 눈에 들어오게.
+   ⚠️ 기존 .opts>span 규칙이 !important 라 여기서도 !important 가 필요하다. */
+.opts-sheet .opts > span{ flex:0 0 100% !important; margin:12px 0 1px !important;
+  font-size:12.5px !important; font-weight:700; color:var(--text2); }
+.opts-sheet .opts > span:first-child{ margin-top:2px !important; }
+.opts-sheet .opt{ font-size:12.5px; padding:7px 11px; }
+/* 헤더 안으로 합쳐진 공용 바(🏠 홈 · 🌐 EN).
+   ⚠️ 그 버튼들은 인라인 style 로 그려지므로 !important 가 아니면 못 이긴다.
+   ⚠️ 좁은 폰에서는 «글자» 만 접고 아이콘은 남긴다 — 홈·언어는 없애면 안 되는 문이다. */
+.top #mangoi-global-bar{ flex:0 0 auto; }
+.top #mangoi-global-bar > *{ padding:6px 9px !important; font-size:11.5px !important;
+  box-shadow:none !important; }
+/* 폰에서 한 줄에 맞추기 — 여덟 자리(←·얼굴·이름·🔥·⭐·🔊·⚙·홈EN)가 360px 에 들어가야 한다.
+   ⚠️ 넘치면 «잘라서» 풀지 말 것 — 안 보이는 버튼이 생긴다. 요소를 줄여서 맞춘다.
+   ✅ 칩 안 «일 연속»·«오늘» 은 접는다. 🔥 3 · ⭐ +12P 만으로 뜻이 통한다. */
+@media (max-width:520px){
+  .top{ gap:5px; padding:8px 10px; }
+  .top .mango-icon{ width:28px; height:28px; }
+  .top .snd-toggle{ width:28px; height:28px; font-size:14px; }
+  .top .hud-chip{ font-size:11px; padding:4px 7px; gap:3px; }
+  .top #streakChip > span[data-ko], .top #ptsChip > span[data-ko]{ display:none; }
+  /* 폰에서는 상태줄(● 온라인…)을 접고 이름 한 줄만 크게 — 이름이 잘리면 안 된다 */
+  .top .status{ display:none; }
+  .top .name{ font-size:15px; }
+}
+/* 시트 맨 위 «AI 목소리 듣기» 한 줄 */
+.sheet-quick{ display:flex; align-items:center; gap:9px; padding:2px 0 12px; }
+.sheet-quick-label{ font-size:13px; font-weight:700; }
+@media (max-width:520px){
+  /* 🏠 의 «홈» 글자만 접는다 — 집 그림은 그 자체로 뜻이 통한다.
+     ⛔ 🌐 옆 글자(«EN»·«한국어»)는 접지 말 것 — 그 글자가 «누르면 무엇이 되는가» 를
+        말하는 유일한 자리다. 지구본만 남기면 «무슨 말로 바뀌는지» 를 알 길이 없고,
+        title 툴팁은 폰에 hover 가 없어 안 뜬다(CLAUDE.md «폰에서는 안 뜸»). */
+  .top #mangoi-global-bar .mangoi-home-label{ display:none; }
+  /* ⚠️ 이 블록 안에서 같은 선택자를 두 번 적지 말 것 — 뒤가 이겨서 앞이 죽은 줄이 된다.
+     «설정» 두 글자가 들어오며 좁아진 몫을 여기서 함께 낸다(2026-09-10, 6px 8px → 6px 6px). */
+  .top #mangoi-global-bar > *{ padding:6px 6px !important; gap:3px !important; }
+  /* 📜 2026-09-10 이전에는 여기서 ⚙ 요약의 «레벨»(.ot-lv)을 접어 한 줄을 지켰다.
+     지금 그 자리에 든 것은 «설정» 두 글자라 «1단계 · A1»보다 짧아서 접을 이유가 없고,
+     사장님이 «톱니바퀴 옆에 설정이라고 단어도 추가해줘»라고 하신 바로 그 글자다.
+     ⚠️ 이 주석에 CJK 홑낫표를 쓰지 말 것 — subtitle_meaning_harness 가 <style> 안에서 세어
+        «이 화면이 983KB 한자 폰트를 받는다» 로 판정한다(세 번째로 밟았다). « » 를 쓴다.
+     ⛔ .ot-lv 를 다시 접지 말 것 — 톱니바퀴만 남으면 «무엇을 여는 버튼인지» 알 길이 없다
+        (title 툴팁은 폰에 hover 가 없어 안 뜬다).
+     ⛔ .ot-sum 을 통째로 숨기지도 말 것. 그러면 «자막·소리가 꺼져 있다»(👁·🔇) 표시까지
+        함께 사라져, 끈 학생에게 되돌아올 길이 화면에서 없어진다(함정 대조가 잡았다). */
+  /* 그 대신 여백에서 낸다 — «설정» 두 글자가 폭을 24px 먹기 때문이다(2026-09-10 실측).
+     ⚠️ 여기서 안 줄이면 390px 에서 친구 이름(«Emma»)이 잘린다. 이름을 지우는 것보다
+        버튼 여백을 줄이는 편이 낫다(위 ⛔ 이름·칩·홈·언어를 지우지 말 것). */
+  .opts-toggle{ padding:5px 6px; }
+  .opts-toggle .ot-sum{ gap:2px; }
+}
+/* ≤380px — 여기서부터는 «자리» 가 아니라 «여백» 으로 맞춘다.
+   🔴 잰 것(2026-09-09): 360px 에서 고정 자리 합이 341px 이라 이름에 24px 밖에 안 남고
+      «Emma»(45px)가 잘렸다. 320px 에서는 6px 가 통째로 넘쳤다.
+   ⛔ 이름·칩·홈·언어 중 무엇도 «지워서» 풀지 말 것 — 안 보이는 문이 생긴다.
+   ⛔ Mr.mango(.mango-icon)도 지우지 말 것 — 사이트 공식 캐릭터다(CLAUDE.md 0장). */
+@media (max-width:380px){
+  .top{ gap:4px; padding:8px 8px; }
+  .top .mango-icon{ width:26px; height:26px; }
+  .top .snd-toggle{ width:26px; height:26px; }
+  .top .name{ font-size:14px; }
+  .top .hud-chip{ font-size:10.5px; padding:4px 5px; gap:2px; }
+  .opts-toggle{ padding:6px 5px; }
+  .top #mangoi-global-bar > *{ padding:5px 6px !important; font-size:11px !important; }
+  .top #mangoi-global-bar{ gap:3px !important; }
+}
+/* ≤330px(아주 작은 폰) — 위 여백을 다 줄여도 몇 px 가 모자란다.
+   ✅ 남은 한 칸은 «뒤로» 버튼에서 낸다. 이 화면은 헤더 안에 🏠 홈이 함께 있어서
+      ← 를 아이콘만으로 줄여도 나가는 문이 둘 다 남는다. */
+@media (max-width:330px){
+  /* 🔴 잰 것(2026-09-10): «설정» 을 넣은 뒤 320px 에서 이름에 36px 밖에 안 남아
+     «Emma»(39px)가 3px 잘렸다. 칸 사이(gap)를 1px 줄여 6px 를 낸다. */
+  .top{ gap:2px; padding:8px 6px; }
+  .top .hud-chip{ padding:3px 4px; }
+  /* «설정» 글자를 지키려고 마지막 몇 px 를 여백에서 더 낸다(2026-09-10). */
+  .opts-toggle{ font-size:10.5px; padding:5px 4px; }
+  .top #mangoi-global-bar > *{ padding:5px 4px !important; }
+  /* 마지막 몇 px 는 이름 글자에서 낸다 — 지우는 것보다 작아지는 편이 낫다.
+     ⚠️ 더 줄이지 말 것. 13px 아래로는 «누구와 이야기하는가» 가 읽히지 않는다. */
+  .top .name{ font-size:13px; }
+}
+
+/* 위험한 조작은 맨 아래로 — 헤더에 두면 잘못 누른다 */
+.sheet-danger{ display:flex; flex-wrap:wrap; gap:8px; margin-top:16px;
+  padding-top:12px; border-top:1px solid var(--border); }
+
+/* ✨ 오늘의 단어 — 첫 화면에서만 보이는 카드.
+   시트 안에 있으면 «설정을 열어야 보이는 것» 이 되어 아무도 안 봅니다(A안 목업의 마지막 조각).
+   ⚠️ 대화가 시작되면 자리를 비웁니다 — 늘 떠 있으면 상단을 줄인 뜻이 없어집니다.
+   ⚠️ [hidden] 은 작성자 CSS 에 지기 쉬우므로 !important 로 못 박습니다
+      (CLAUDE.md «el.hidden 인데 그대로 보임»). */
+#wodCard{ display:none !important; }   /* 주차장 — 늘 숨김. 높이를 먹지 않는다 */
+.wod-card{ display:flex; justify-content:center; margin:2px 0 14px; }
+/* 카드 안으로 «옮겨 온» 칩은 헤더 칩이 아니라 «카드» 로 보이게 키웁니다.
+   ⛔ 색·테두리는 .hud-wod 가 이미 갖고 있으니 다시 칠하지 않습니다(두 세대가 겹칩니다). */
+.wod-card .hud-wod{ font-size:14px !important; padding:10px 16px !important;
+  border-radius:14px; cursor:pointer; max-width:100%; }
+.wod-card .hud-wod .wod-ko{ font-size:12.5px !important; }
+/* 👂 «눌러서 들어요» — title 툴팁은 폰에 hover 가 없어 안 뜹니다(CLAUDE.md).
+   그래서 글자로 그리되, 가상요소라 i18n 엔진의 textContent 갈아끼우기와 무관합니다. */
+.wod-card .hud-wod::after{ content:attr(data-tap); margin-left:8px;
+  font-size:11.5px; font-weight:700; color:var(--text2); }
+@media (max-width:380px){
+  .wod-card{ padding:5px 8px 2px; }
+  .wod-card .hud-wod{ font-size:12.5px !important; padding:8px 12px !important; }
+  .wod-card .hud-wod::after{ margin-left:5px; font-size:10.5px; }
+}
 
 /* ③ 대화창이 확실히 주인공이 되게 — 남는 높이를 모두 가져간다 */
 .chat{ flex:1 1 auto; min-height:0; }
+
+/* ④ 첫 화면 한 장에 — 2026-10-18 사장님 «스크롤 없애고 다 들어가게 · 드롭다운으로» (A안)
+   📐 고치기 전: 빈 화면이 마스코트 + 친구 카드 5장 + 주제 카드 10장 + 빠른 버튼을 세로로 쌓아
+      PC 1920x1080 에서도 대화창 안에서 스크롤해야 친구·주제가 다 보였다.
+   ✅ 친구·주제를 드롭다운 한 줄로, 마스코트는 작게(위에 강사 얼굴이 이미 크게 있다),
+      그림 카드는 접이칸 안으로. 대화창 높이·아바타 크기·헤더는 한 픽셀도 안 건드린다.
+   ⚠️ 이 화면은 어두운 테마 고정이라 select 에 color-scheme:dark 를 준다 —
+      안 주면 펼친 목록(option)이 흰 바탕에 흰 글자로 나오는 브라우저가 있다.
+   ⚠️ 이 주석에 CJK 홑낫표를 쓰지 말 것(한자 폰트 검사) — « » 를 쓴다. */
+#chat .empty-state{ padding:8px 12px 10px; }
+#chat .empty-state .hero-mango{ width:46px; height:46px; margin:0 auto 4px; border-width:2px; animation:none; }
+#chat .empty-state h2{ margin:0 0 2px; }
+#chat .empty-state p{ margin:2px 0; }
+#chat .empty-state .wod-card{ margin:4px 0 6px; }
+.ef-picks{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;
+  max-width:640px; margin:6px auto 0; text-align:left; }
+.ef-pick{ display:flex; flex-direction:column; gap:5px; min-width:0; }
+.ef-lab{ font-size:12.5px; font-weight:800; color:var(--text2); white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; }
+.ef-s{ display:none; }
+.ef-row{ display:flex; align-items:center; gap:8px; min-width:0; flex:1 1 auto; }
+.ef-face{ width:36px; height:36px; flex:0 0 auto; border-radius:50%; object-fit:cover;
+  background:#fff; border:2px solid var(--gold); }
+.ef-picks select{ flex:1 1 auto; min-width:0; width:100%; min-height:42px; color-scheme:dark;
+  background:#14213b; color:#f1f5f9; border:1px solid rgba(251,191,36,0.45); border-radius:12px;
+  padding:8px 10px; font-size:14px; font-weight:700; font-family:inherit; cursor:pointer; }
+.ef-picks select:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+.ef-picks option{ background:#14213b; color:#f1f5f9; }
+/* 그림 열기 + 빠른 버튼 — 한 줄. 열면 카드 줄(.ef-more[open])이 맨 아래 한 줄을 통째로 쓴다. */
+.ef-foot{ display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px;
+  max-width:640px; margin:8px auto 0; }
+.ef-foot .quick{ display:contents; }
+.ef-more summary{ display:inline-flex; align-items:center; cursor:pointer; list-style:none;
+  font-size:12.5px; font-weight:700; color:var(--text2); padding:8px 12px; line-height:1.2;
+  border:1px solid rgba(255,255,255,0.18); border-radius:999px; }
+.ef-more summary::-webkit-details-marker{ display:none; }
+.ef-more[open]{ order:2; flex:0 0 100%; }
+.ef-more[open] summary{ color:var(--gold); border-color:rgba(251,191,36,0.5); }
+.ef-more .topics{ margin:10px auto 0; }
+@media (min-width:760px){
+  #chat .empty-state .hero-mango{ width:56px; height:56px; }
+  #chat .empty-state h2{ font-size:26px; }
+  #chat .empty-state p{ font-size:15.5px; }
+  .ef-lab{ font-size:14px; }
+  .ef-picks select{ font-size:16px; min-height:46px; }
+  .ef-face{ width:42px; height:42px; }
+}
+/* 세로가 짧은 화면(노트북 1366x650 등) — 📐 잰 것: 1366x650 에서 대화창이 237px 뿐이다.
+   마스코트·부제는 접고(바로 위에 강사 얼굴이 있다), 인사·차이·오늘의 단어를 한 줄에,
+   친구·주제는 짧은 라벨을 왼쪽에 붙인 한 줄로 둔다. */
+@media (max-height:760px){
+  #chat .empty-state{ padding-top:0; }
+  #chat .empty-state .hero-mango{ display:none; }
+  #chat .empty-state > p{ display:none; }
+  #chat .empty-state h2{ font-size:22px; display:inline-block; vertical-align:middle; margin:2px 6px; }
+  #chat .empty-state .aidiff-chip{ vertical-align:middle; margin:2px 4px; }
+  #chat .empty-state .wod-card{ display:inline-flex; vertical-align:middle; margin:2px 4px; }
+  .ef-pick{ flex-direction:row; align-items:center; gap:8px; }
+  .ef-l{ display:none; }
+  .ef-s{ display:inline; }
+  .ef-lab{ flex:0 0 auto; }
+  .ef-picks select{ min-height:40px; }
+  .ef-face{ width:34px; height:34px; }
+  .ef-foot{ margin-top:6px; }
+}
+/* 폰 — 왼쪽 가장자리 «메뉴» 손잡이(x 2~46px)가 세로 가운데에 떠 있어 그 밑으로 들어가면 가려진다.
+   ⚠️ AI 말풍선이 x=50 에서 시작하는 것과 같은 이유로 양쪽을 46px 비운다(가운데정렬이 안 틀어지게 «양쪽»).
+   친구·주제 드롭다운은 라벨 없이 나란히 — 고른 값(이모지+이름 / 주제 고르기)이 곧 라벨이다(aria-label 은 있다). */
+@media (max-width:520px){
+  #chat .empty-state{ padding:0 46px 8px; }
+  #chat .empty-state .hero-mango{ display:none; }
+  #chat .empty-state > p{ display:none; }
+  #chat .empty-state h2{ font-size:20px; display:block; margin:0 0 2px; }
+  #chat .empty-state .aidiff-chip{ font-size:12.5px; padding:5px 11px; white-space:nowrap; margin:2px auto; }
+  #chat .empty-state .wod-card{ display:flex; margin:4px 0 2px; }
+  .ef-picks{ gap:6px; margin-top:6px; }
+  .ef-lab{ display:none; }
+  .ef-face{ display:none; }
+  .ef-picks select{ font-size:13px; padding:7px 6px; min-height:40px; }
+  .ef-foot{ gap:6px; }
+  .ef-more summary{ padding:6px 10px; font-size:12px; }
+  #chat .empty-state .quick button{ padding:6px 10px; font-size:12px; }
+}
 
 /* 🚀 (2026-08-02) 하단 '다음 활동 고르기' — 입력줄 바로 아래 한 줄.
    높이를 최소로 쓰려고 알약형 얇은 버튼 하나만 둔다(입력줄과 같은 배경으로 이어 붙임).
@@ -1494,51 +2574,302 @@ body.opts-open .opts-toggle{ background:rgba(251,191,36,0.18); border-color:rgba
 }
 </style>
 <script>
-/* ⚙ 설정/퀘스트 접기 토글 — 마크업은 건드리지 않고 여기서 버튼만 끼워 넣는다.
-   접힘 상태에서도 지금 레벨을 버튼에 함께 보여줘(예: "⚙ B1") 뭘 고르고 있는지 알 수 있게. */
+/* ⚙ 설정 시트 — A안 «말끔한 한 줄» (2026-09-09 사장님 결정)
+   마크업은 건드리지 않고 여기서 «자리만 옮긴다».
+
+   ⛔ 요소를 새로 만들지 않는다. #streakN·#ptsN·#qTalkN·#wodEn·#lvName·#xpFill 처럼
+      id 로 갱신하는 코드가 여럿이라, 다시 그리면 그 갱신이 조용히 죽는다
+      (CLAUDE.md 「기능이 있는데 아무 일도 안 일어남」과 같은 뿌리).
+      appendChild 는 요소를 «이동» 시키므로 그 참조와 리스너가 전부 살아 있다.
+
+   ⚠️ 옛 상태키(mangoi_aifriend_opts_open)는 «펼쳐 둠» 을 기억하던 것이라 더는 안 쓴다.
+      시트는 늘 닫힌 채로 시작한다 — 열어 둔 채 대화하는 물건이 아니다.
+      읽는 곳이 없어졌으니 남겨 두면 «죽은 키» 가 되므로 첫 실행 때 지운다. */
 (function(){
-  var KEY = 'mangoi_aifriend_opts_open';
-  function apply(open){
-    document.body.classList.toggle('opts-open', !!open);
-    try { localStorage.setItem(KEY, open ? '1' : '0'); } catch(e){}
-  }
+  var OLD_KEY  = 'mangoi_aifriend_opts_open';
+  var HINT_KEY = 'mangoi_aifriend_sheet_hint';
+
   /* 접힘 상태의 요약 — 레벨 + (자막을 가려 놨으면) 👁 표시.
-     ⚠️ 자막을 끈 학생에게 **되돌아올 길이 보여야** 한다. 설정 줄은 기본이 접힘이라,
-        표시가 없으면 "글자가 안 보이는데 어디서 켜지?" 가 되고 그건 끄기만 있고 켜기가 없는 것과 같다. */
+     ⚠️ 자막을 끈 학생에게 **되돌아올 길이 보여야** 한다. 표시가 없으면
+        "글자가 안 보이는데 어디서 켜지?" 가 되고 그건 끄기만 있고 켜기가 없는 것과 같다. */
   function summary(){
     var lv = document.querySelector('.opts .opt.active[data-level]');
     var sb = document.querySelector('.opts .opt.active[data-sub]');
-    var s = lv ? lv.textContent.trim() : '';
-    if (sb && sb.dataset.sub !== 'on') s = (s ? s + ' ' : '') + '👁';
-    return s;
+    var sn = document.getElementById('sndToggle');
+    /* ⚠️ 레벨 버튼은 두 줄이다(숫자 + <i>CEFR</i>). textContent 를 그대로 쓰면 「3A2+」 가 된다
+       — 2026-08-31 trap-check 가 잡았다. 숫자와 CEFR 을 «사람이 읽는 모양» 으로 붙인다. */
+    var s = '';
+    if (lv) {
+      var num = (lv.firstChild && lv.firstChild.nodeValue || '').trim();
+      var cefr = lv.querySelector('i');
+      s = num ? (cefr ? num + '단계 · ' + cefr.textContent.trim() : num + '단계') : lv.textContent.trim();
+    }
+    /* 🔴 «지금 꺼져 있다» 표시는 앞 글자와 «따로» 돌려준다.
+       한때 폰에서 앞부분을 접었는데 그때 이 표시까지 함께 접히면 자막·소리를 끈 학생에게
+       «되돌아올 길» 이 화면에서 사라진다 — 끄기만 있고 켜기가 없는 것과 같다(함정 대조가 잡았다).
+       📜 2026-09-10 부터는 접지 않는다(그 자리가 «설정» 두 글자로 바뀜) — 그래도 «따로 돌려주는»
+          구조는 그대로 둔다. 다시 좁아져 접게 될 때 이 표시가 함께 사라지면 안 되기 때문이다.
+       ⚠️ 소리도 같은 이유로 함께 본다. 🔊 버튼이 시트로 내려가 헤더에서 안 보이므로,
+          꺼 놓으면 어디에도 표시가 없었다. */
+    var flags = '';
+    if (sb && sb.dataset.sub !== 'on') flags += '👁';
+    if (sn && sn.classList.contains('off')) flags += '🔇';
+    /* ⚠️ lv(레벨 요약)는 2026-09-10 부터 «읽는 곳이 0곳» 이다 — 헤더 그 자리가 «설정» 이 됐다.
+       ⛔ 이 값을 헤더에 다시 그리지 마세요(사장님 지시). 지우지 않고 두는 것은 만드는 규칙이
+          간단하지 않아서다(레벨 버튼이 두 줄이라 textContent 를 그냥 쓰면 «3A2+» 가 된다 —
+          2026-08-31 trap-check 산물). 시트 어딘가에 레벨을 요약해 보여 줄 일이 생기면 이것을 쓴다. */
+    return { lv: s, flags: flags };
   }
+
+  /* ✨ 첫 화면에서만 보이는 «오늘의 단어» 카드.
+     ⛔ «보여라/숨겨라» 를 부르는 쪽이 정하지 않는다 — 화면에 빈 상태가 있는지 «보고»
+        정한다. 그래야 부르는 자리를 하나 빠뜨려도 어긋나지 않는다. */
+  /* 칩이 있어야 할 자리로 «옮긴다». 빈 화면이 있으면 그 안(#wodSlot), 없으면 주차장.
+     ⛔ «보여라/숨겨라» 를 부르는 쪽이 정하지 않는다 — 화면을 «보고» 정해야 부르는
+        자리를 하나 빠뜨려도 어긋나지 않는다.
+     ⛔ 새로 만들지 않는다. appendChild 는 «이동» 이라 참조·리스너가 전부 살아 있다. */
+  function wodSync(){
+    var chip = document.getElementById('wodChip');
+    var home = document.getElementById('wodCard');
+    if (!chip || !home) return;
+    var slot = document.getElementById('wodSlot');
+    var want = slot || home;
+    if (chip.parentNode !== want) want.appendChild(chip);
+  }
+  /* 🛟 빈 화면이 지워지기 «직전» 에 부른다 — innerHTML 이 칩을 파괴하기 전에 밖으로.
+     ⚠️ 이 함수는 절대 던지면 안 된다. 부르는 자리가 «대화를 보내는 길» 이라
+        여기서 죽으면 메시지가 안 나간다. */
+  function wodPark(){
+    try {
+      var chip = document.getElementById('wodChip');
+      var home = document.getElementById('wodCard');
+      if (chip && home && chip.parentNode !== home) home.appendChild(chip);
+    } catch(e){}
+  }
+  window.wodPark = wodPark;
+  /* 👂 «눌러서 들어요» 는 가상요소(::after content:attr)로 그린다.
+     ⛔ data-ko/data-en 으로 달지 말 것 — 두 i18n 엔진이 textContent 를 통째로 갈아끼워
+        카드 안 단어가 통째로 사라진다(CLAUDE.md 「아이콘 버튼에 달았더니」). */
+  function syncWodTap(){
+    var chip = document.getElementById('wodChip');
+    if (!chip) return;
+    /* ⛔ 언어 판정을 새로 만들지 않는다 — 이 화면의 정본은 isEn() 이다.
+       복제하면 어느 날 한쪽만 고쳐져 «화면마다 답이 다른» 사고가 된다. */
+    var en = false;
+    try { en = (typeof isEn === 'function') ? isEn() : false; } catch(e){}
+    chip.setAttribute('data-tap', chip.getAttribute(en ? 'data-en-tap' : 'data-ko-tap') || '');
+  }
+
+  /* 그리는 자리에 «곁들여» 부른다 — 원래 함수는 그대로 두고 감싸기만 한다.
+     ⛔ 상주 MutationObserver·setInterval 로 지켜보지 말 것(홈을 통째로 멎게 한 전력). */
+  function wireWod(){
+    if (window.renderEmpty && !window.renderEmpty.__wod) {
+      var re = window.renderEmpty;
+      window.renderEmpty = function(){ var r = re.apply(this, arguments); wodSync(); return r; };
+      window.renderEmpty.__wod = 1;
+    }
+    /* 대화가 시작되면 자리를 비운다. 말풍선이 붙는 길이 여럿이라 «붙이는 한 곳» 에서 본다. */
+    if (window.appendMsg && !window.appendMsg.__wod) {
+      var am = window.appendMsg;
+      window.appendMsg = function(){ var r = am.apply(this, arguments); wodSync(); return r; };
+      window.appendMsg.__wod = 1;
+    }
+    document.addEventListener('mangoi:lang-changed', function(){ syncWodTap(); });
+    window.addEventListener('mangoi:lang-changed', function(){ syncWodTap(); });
+  }
+
   function init(){
+    wireWod();                                  // ✨ 시트가 없어도(=아래 return) 카드는 살아야 한다
     var top = document.querySelector('.top');
-    if (!top || document.querySelector('.opts-toggle')) return;
+    if (!top || document.getElementById('optsSheet')) return;
+
+    var scrim = document.createElement('div');
+    scrim.className = 'sheet-scrim';
+
+    var sheet = document.createElement('aside');
+    sheet.className = 'opts-sheet';
+    sheet.id = 'optsSheet';
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-modal', 'true');
+    sheet.setAttribute('aria-label', '설정과 오늘의 할 일');
+    sheet.innerHTML =
+      '<div class="sheet-grip" aria-hidden="true"></div>'
+      + '<div class="sheet-head">'
+      +   '<span class="sheet-title"><span data-ko="설정과 오늘의 할 일" data-en="Settings &amp; today">설정과 오늘의 할 일</span></span>'
+      +   '<button type="button" class="sheet-close"><span data-ko="닫기" data-en="Close">닫기</span></button>'
+      + '</div><div class="sheet-body"></div>';
+    var body = sheet.querySelector('.sheet-body');
+
+    /* ① 늘 보여야 하는 두 가지를 «먼저» 헤더로 꺼낸다 — 연속일과 오늘 포인트.
+          아이를 다시 오게 만드는 것이 이 둘이라 시트에 숨기면 안 된다.
+       🔴 순서가 중요하다. .hud 를 시트에 먼저 넣으면 그 시트가 아직 document 에 안 붙어 있어
+          그 안의 칩이 «떨어진» 상태가 되고, getElementById 가 null 을 돌려준다 —
+          그러면 이 옮기기가 «에러 없이» 통째로 건너뛰어진다(실제로 그렇게 짰다가 실측으로 잡았다). */
+    var streak = document.getElementById('streakChip');
+    var pts    = document.getElementById('ptsChip');
+    var snd    = top.querySelector('.snd-toggle');
+    if (streak) top.insertBefore(streak, snd || null);
+    if (pts)    top.insertBefore(pts,    snd || null);
+
+    /* ①-2 ✨ 오늘의 단어도 «먼저» 꺼낸다 — 다만 헤더가 아니라 «첫 화면 카드» 로.
+          시트에 두면 설정을 열어야 보이는 것이 되어 아무도 안 본다(A안 목업의 마지막 조각).
+       🔴 여기가 .hud 이동보다 «앞» 이어야 하는 이유는 위 ① 과 같다 — 시트가 아직
+          document 에 없으면 getElementById 가 null 을 돌려주고 조용히 건너뛴다. */
+    var wodChip = document.getElementById('wodChip');
+    var wodCard = document.getElementById('wodCard');
+    if (wodChip && wodCard) {
+      wodCard.appendChild(wodChip);          // ⛔ 새로 만들지 않는다 — «옮긴다»(일단 주차장)
+      wodChip.setAttribute('data-tap', '👂 눌러서 들어요');
+      wodChip.setAttribute('data-ko-tap', '👂 눌러서 들어요');
+      wodChip.setAttribute('data-en-tap', '👂 Tap to hear');
+      syncWodTap();
+      wodSync();
+    }
+
+    /* ② 남은 줄을 그대로 옮긴다 — 소리 → 오늘의 할 일 → 상태(레벨·오늘의 단어) → 설정 순서.
+       ⚠️ 🔊 도 시트로 내린다. 헤더에 여덟 자리를 두면 폰 390px 에서 이름이 «Em…» 으로
+          잘린다(실측). 이름은 «누구와 이야기하는가» 라 자르면 안 되는 글자다. */
+    var quests = document.querySelector('.quests');
+    var hud    = document.querySelector('.hud');
+    var opts   = document.querySelector('.opts');
+    var snd2   = top.querySelector('.snd-toggle');
+    if (snd2) {
+      var quick = document.createElement('div');
+      quick.className = 'sheet-quick';
+      quick.appendChild(snd2);
+      var lab = document.createElement('span');
+      lab.className = 'sheet-quick-label';
+      lab.innerHTML = '<span data-ko="AI 목소리 듣기" data-en="AI voice">AI 목소리 듣기</span>';
+      quick.appendChild(lab);
+      body.appendChild(quick);
+    }
+    if (quests) body.appendChild(quests);
+    if (hud)    body.appendChild(hud);
+    if (opts)   body.appendChild(opts);
+
+    /* ③ 위험하거나 드물게 쓰는 것은 시트 맨 아래로.
+          «다음 활동» 은 입력줄 아래 .next-bottom 버튼이 늘 있으므로 길이 사라지지 않는다. */
+    var danger = document.createElement('div');
+    danger.className = 'sheet-danger';
+    var nextBtn  = top.querySelector('.next-flow-btn');
+    var clearBtn = top.querySelector('.clear-btn');
+    if (nextBtn)  danger.appendChild(nextBtn);
+    if (clearBtn) danger.appendChild(clearBtn);
+    if (danger.children.length) body.appendChild(danger);
+
+    /* ④ ⚙ 버튼 */
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'opts-toggle';
-    btn.title = '레벨·스타일·속도·목소리 설정과 오늘의 퀘스트 열기/닫기';
-    btn.setAttribute('data-ko-title', '레벨·스타일·속도·목소리 설정과 오늘의 퀘스트 열기/닫기');
-    btn.setAttribute('data-en-title', 'Show/hide settings and daily quests');
-    btn.innerHTML = '⚙ <span class="ot-sum"></span>';
-    function paint(){ btn.querySelector('.ot-sum').textContent = summary(); }
-    btn.onclick = function(){
-      apply(!document.body.classList.contains('opts-open'));
-      paint();
-    };
-    /* 소리 버튼 앞에 둔다 — 대화 초기화(빨간 버튼) 옆이면 잘못 누르기 쉽다 */
-    var anchor = top.querySelector('.snd-toggle');
-    if (anchor) top.insertBefore(btn, anchor); else top.appendChild(btn);
+    btn.id = 'optsToggle';
+    btn.setAttribute('aria-controls', 'optsSheet');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.title = '레벨·친구·말하기·자막 설정과 오늘의 할 일';
+    btn.setAttribute('data-ko-title', '레벨·친구·말하기·자막 설정과 오늘의 할 일');
+    btn.setAttribute('data-en-title', 'Settings and daily quests');
+    btn.setAttribute('aria-label', '설정 열기');
+    btn.setAttribute('data-ko-aria', '설정 열기');
+    btn.setAttribute('data-en-aria', 'Open settings');
+    /* 📜 2026-09-10 사장님 「이거 설정 톱니바퀴로 바꿔줘. 톱니바퀴 옆에 설정이라고 단어도 추가해줘」
+       — 여기 있던 「1단계 · A1」(레벨 요약)을 「설정」이라는 말로 바꿨다. 레벨은 시트를 열면 맨 위에 있다.
+       ⛔ data-ko/data-en 은 «글자만 담은 span» 에만 달 것 — ⚙ 나 .ot-sum 에 달면 두 i18n 엔진이
+          textContent 를 통째로 갈아끼워 톱니바퀴와 꺼짐 표시(.ot-flag)가 DOM 에서 사라진다. */
+    btn.innerHTML = '⚙ <span class="ot-sum"><span class="ot-lv" data-ko="설정" data-en="Settings">설정</span>'
+      + '<span class="ot-flag"></span></span>';
+    top.appendChild(btn);
 
-    var saved = '0';
-    try { saved = localStorage.getItem(KEY) || '0'; } catch(e){}
-    apply(saved === '1');
+    document.body.appendChild(scrim);
+    document.body.appendChild(sheet);
+    sheet.setAttribute('inert', '');          /* 처음엔 닫혀 있다 */
+    sheet.setAttribute('aria-hidden', 'true');
+
+    function paint(){
+      var r = summary();
+      /* ⛔ .ot-lv 에 레벨을 다시 쓰지 말 것 — 사장님이 「설정」으로 바꾸라고 하신 자리다(2026-09-10).
+         🌐 를 눌렀을 때 따라오도록 여기서도 지금 언어로 맞춰 준다(data-ko/data-en 과 같은 말). */
+      var lvEl = btn.querySelector('.ot-lv');
+      if (lvEl) lvEl.textContent = isEn() ? 'Settings' : '설정';
+      btn.querySelector('.ot-flag').textContent = r.flags;
+    }
+
+    function setOpen(v){
+      document.body.classList.toggle('sheet-open', !!v);
+      btn.setAttribute('aria-expanded', String(!!v));
+      /* 닫힘은 transform 으로만 만드니 display 는 살아 있다 — 그대로 두면 화면 밖 버튼
+         25개가 Tab·스크린리더에 계속 잡힌다(함정 대조가 잡았다). */
+      if (v) { sheet.removeAttribute('inert'); sheet.removeAttribute('aria-hidden'); }
+      else   { sheet.setAttribute('inert', ''); sheet.setAttribute('aria-hidden', 'true'); }
+      if (v) {
+        paint();
+        btn.removeAttribute('data-hint');
+        try { localStorage.setItem(HINT_KEY, '1'); } catch(e){}
+        var c = sheet.querySelector('.sheet-close');
+        if (c) c.focus();
+      } else {
+        btn.focus();
+      }
+    }
+
+    btn.onclick = function(){ setOpen(!document.body.classList.contains('sheet-open')); };
+    scrim.onclick = function(){ setOpen(false); };
+    sheet.querySelector('.sheet-close').onclick = function(){ setOpen(false); };
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && document.body.classList.contains('sheet-open')) setOpen(false);
+    });
+
     paint();
     /* 레벨·자막을 바꾸면 요약 글자도 따라 바뀌게 */
     document.querySelectorAll('.opts .opt[data-level], .opts .opt[data-sub]').forEach(function(o){
       o.addEventListener('click', function(){ setTimeout(paint, 0); });
     });
+    /* 소리를 끄고 켤 때도 표시가 따라와야 한다 — 안 그러면 헤더가 «켜져 있다» 고 거짓말한다 */
+    if (snd2) snd2.addEventListener('click', function(){ setTimeout(paint, 0); });
+
+    /* ⑥ 공용 상단바(🏠 홈 · 🌐 EN)를 헤더 «안» 으로 합친다.
+       🔴 이건 A안을 위해 «필요한» 변경이다. 그 바는 fixed·우상단·z-index 99999 라
+          헤더가 얇아지는 순간 세로로 겹쳐 ⚙·🔊 가 «보이는데 안 눌리는» 상태가 된다
+          (브라우저 실측으로 잡았다 — playwright 가 «🌐 가 클릭을 가로챈다» 고 거절했다).
+          고치기 전에는 헤더가 76~103px 로 두꺼워 그 바 «아래» 였기에 안 겹쳤다.
+       ⛔ 폰에서 오른쪽 150px 를 비워 두는 방법은 성립하지 않는다 — 360px 화면에서
+          남는 폭으로는 이름·칩·버튼이 한 줄에 안 들어간다(계산으로 확인).
+       ✅ 그래서 «자리만» 옮긴다. mango-i18n.js 는 그 바를 id 로 한 번만 만들고
+          그 뒤 위치를 다시 잡지 않으므로, 홈 이동·언어 전환·다른 스크립트가 넣는
+          버튼(mangoiAddBarButton)이 전부 그대로 산다.
+       ⚠️ 상주 감시를 두지 않는다 — 그 바는 defer 로 늦게 오므로 «끝이 있는» 확인만 한다
+          (홈 화면을 통째로 멎게 한 MutationObserver 사고와 같은 뿌리). */
+    function mergeGlobalBar(){
+      var bar = document.getElementById('mangoi-global-bar');
+      if (!bar) return false;
+      if (bar.dataset.mgMerged) return true;
+      bar.dataset.mgMerged = '1';
+      bar.style.position = 'static';
+      bar.style.top = 'auto';
+      bar.style.right = 'auto';
+      bar.style.zIndex = 'auto';
+      bar.style.gap = '6px';
+      top.appendChild(bar);      /* ⚙ 뒤 = 헤더 맨 오른쪽. 다른 화면과 자리가 같다 */
+      return true;
+    }
+    var barTries = 0;
+    (function waitBar(){
+      if (mergeGlobalBar() || ++barTries > 20) return;
+      setTimeout(waitBar, 150);
+    })();
+
+    /* ⑤ 첫 방문 한 번만 «여기 있어요». 설정이 헤더에서 사라졌으니
+          어디로 갔는지 한 번은 말해 줘야 한다(안 그러면 못 찾는다). */
+    try {
+      if (localStorage.getItem(HINT_KEY) !== '1') {
+        /* ⚠️ «보여준 그 순간» 에 기록한다. 시트를 열 때만 기록하면 «한 번만» 이 아니라
+              «시트를 한 번도 안 연 학생에게는 매번» 이 된다(함정 대조가 잡았다). */
+        localStorage.setItem(HINT_KEY, '1');
+        var en = false;
+        try { en = (typeof getLang === 'function' ? getLang() : 'ko') === 'en'; } catch(e2){}
+        btn.setAttribute('data-hint', en ? 'Settings moved here' : '설정은 여기로 옮겼어요');
+        setTimeout(function(){ btn.removeAttribute('data-hint'); }, 6000);
+      }
+      localStorage.removeItem(OLD_KEY);
+    } catch(e){}
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
@@ -1574,5 +2905,6 @@ body.opts-open .opts-toggle{ background:rgba(251,191,36,0.18); border-color:rgba
   setTimeout(refitAvatar, 800);   // 아바타 스크립트가 준비된 뒤 한 번
 })();
 </script>
+<script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 </body>
 </html>

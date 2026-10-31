@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>망고아이 · 우주 배틀 — 레슨 보스전</title>
@@ -27,8 +27,21 @@
   .topmid{position:absolute;top:47px;left:50%;transform:translateX(-50%);z-index:6;text-align:center;pointer-events:none;max-width:78vw;background:rgba(8,14,30,.5);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:3px 12px;backdrop-filter:blur(4px);display:inline-flex;flex-direction:column;align-items:center;line-height:1.25}
   .topmid .lesson{font-size:13px;font-weight:800;color:#fbbf24;text-shadow:0 1px 3px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:74vw}
   .topmid .score{font-size:12.5px;color:#9fb3d6;font-weight:700;margin-top:1px;white-space:nowrap}
-  .iconbtn{position:absolute;top:3px;right:8px;z-index:8;background:rgba(8,14,30,.7);border:1px solid rgba(255,255,255,.16);color:#eaf2ff;border-radius:9px;width:30px;height:30px;font-size:14px;cursor:pointer}
+  .iconbtn{position:absolute;top:3px;right:8px;z-index:8;background:rgba(8,14,30,.7);border:1px solid rgba(255,255,255,.16);color:#eaf2ff;border-radius:9px;width:34px;height:34px;font-size:17px;cursor:pointer}
   .iconbtn:active{transform:scale(.94)}
+  /* 🚪 이 모서리 아이콘 버튼 둘(🔊 음소거 · ← 나가기)을 34px 정사각으로 맞춘다 —
+     허브 «밖» 에서 주입되는 나가는 문(js/game-standalone-exit.js)과 같은 크기다
+     (2026-09-02 사장님 지시: 먼저 나가기만, 이어서 음소거도).
+     실측(수리 전): 둘 다 30x30 → 34x34.
+     ⚠️ 이 클래스를 쓰는 것은 그 둘뿐임을 확인하고 클래스 자체를 키웠다(위 .iconbtn).
+        셋째 버튼이 생기면 그것도 34px 가 된다 — 아이콘 버튼이면 그게 맞다.
+     🔴 두 버튼은 right:8px 로 오른쪽을 맞춰 «세로로 쌓입니다» — 그래서 아래 버튼의
+        top 은 위 버튼의 «높이에 딸린 값» 이다. 30px 시절 inline `top:37px` 은
+        3 + 30 + 4(간격) 로 나온 숫자였고, 34px 로 키우면 3 + 34 + 4 = 41 이 된다.
+        ⛔ 34 로 키우면서 37 을 그대로 두면 두 버튼이 «붙어» 버린다(간격 0).
+        ⛔ 그 숫자를 HTML inline 으로 두지 않는다 — 크기를 바꿀 때 같이 고쳐야 하는
+           값이 CSS 밖에 있으면 이번처럼 어긋난다. 계산 근거를 여기 적고 CSS 가 든다. */
+  #backBtn.iconbtn{top:41px}
   /* ⚡ 게임 속도(답변 제한시간) 5단계 선택 */
   .speedrow{display:flex;gap:6px;margin:0 0 12px}
   .speedrow button{flex:1;font-family:inherit;font-size:11px;font-weight:800;color:#9fb3d6;background:rgba(255,255,255,.06);
@@ -119,8 +132,9 @@
     .nameplate .hp{height:8px}
   }
 </style>
-<script src="/js/i18n-sweep.js?v=22" defer></script>
-<script src="/js/game-track.js?v=3" defer></script>
+<script src="/js/i18n-sweep.js?v=23" defer></script>
+<script src="/js/game-track.js?v=4" defer></script>
+<script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 </head>
 <body>
   <div id="mango-battle-3d">
@@ -133,7 +147,7 @@
     </div>
     <div class="topmid"><div class="lesson" id="lessonTxt">레슨</div><div class="score" id="scoreTxt">점수 0 · 콤보 0</div></div>
     <button class="iconbtn" id="muteBtn" title="음소거">🔊</button>
-    <button class="iconbtn" id="backBtn" title="뒤로 가기" style="top:37px">←</button>
+    <button class="iconbtn" id="backBtn" title="뒤로 가기">←</button>
     <div id="toast"></div>
     <div class="voicebadge" id="voiceBadge">🔊 음성 준비 중…</div>
 
@@ -196,9 +210,9 @@
        ⚠️ game-tts.js 를 함께 싣는 이유: 이 게임은 자체 <audio>(ttsA) 로만 발음하는데,
           4단 모듈의 낭독은 MangoiTTS 를 쓴다. 안 실으면 브라우저 speechSynthesis 로 떨어지고
           중국어는 그 경로가 깨진 음성이 나온다(CLAUDE.md 함정표). -->
-  <script src="/js/game-tts.js?v=5"></script>
+  <script src="/js/game-tts.js?v=8"></script>
   <script src="/js/mangoi-stt.js?v=2"></script>
-  <script src="/js/mangoi-voice-input.js?v=4"></script>
+  <script src="/js/mangoi-voice-input.js?v=6"></script>
   <script src="/js/mangoi-speak-score.js?v=1"></script>
   <script src="/js/mangoi-pron-tags.js?v=1"></script>
   <script src="/js/mangoi-memory.js?v=1"></script>
@@ -1704,7 +1718,15 @@
   .speedrow button{padding:8px 2px}
 }
 </style>
-<script defer src="/js/flow.js?v=13"></script>
-<!-- BUILD:20260813001216 -->
+<!-- 🎮 게임을 «허브 밖에서» 열었을 때만 나가는 문을 띄운다 (2026-09-01).
+     허브(student-games.html)가 iframe 으로 감싸 열면 아무것도 하지 않는다 — 그쪽에
+     이미 「← 게임 선택」이 있다. 판정은 그 파일 하나에만 있다(16개에 복제하지 않는다).
+     ⚠️ 이 태그는 «마지막 인라인 script 태그 앞» 에 둔다(그 이름을 여기에 꺾쇠로 적으면
+        하니스 정규식이 주석에서부터 잘라 깨진다 — 2026-09-01 실측). `body` 닫기 직전에
+        두면 escape_school_mic·escape_zombie_mic 가 «닫기 직전의 인라인 코드» 를 오려
+        내는 정규식에 걸려 깨진다. defer 라 위치를 옮겨도 실행 시점은 그대로다. -->
+<script defer src="/js/game-standalone-exit.js?v=5"></script>
+<script defer src="/js/flow.js?v=23"></script>
+<!-- BUILD:20260813015745 -->
 </body>
 </html>

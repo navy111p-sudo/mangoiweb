@@ -173,19 +173,48 @@
     }catch(e){ host.remove(); }
   }
 
+  /* 🐢 (2026-08-13 수정요청 #02 보강) 가디언이 API 를 폭주시키던 문제.
+     실측(실제 브라우저, 부팅 8초): /api/admin/ratings/summary 가 **10번** 나갔다.
+     20초를 다 채우면 최대 21번이다.
+
+     왜 —
+       · 가디언은 1초마다 «#rating-role-panel 이 없으면 다시 그린다» 였다.
+       · 그런데 render() 는 async 다. fetch 가 도는 동안에는 패널이 «아직» 없으므로
+         다음 초에 또 부른다 → 겹쳐서 계속 나간다.
+       · 더 나쁜 것은 «보여줄 게 없는» 경우다. renderAdmin 은 평가가 0건이거나
+         닫아 둔 상태(dismiss)면 host.remove() 하고 끝낸다 → 패널은 영영 안 생긴다
+         → 가디언이 20초 내내 두드린다. 최근 30일 평가가 없는 날에는
+           **관리자가 접속할 때마다** 이 요청이 21번 나갔다는 뜻이다.
+
+     고친 방식 — 가디언의 «원래 목적» 은 그대로 둔다:
+       · busy    : 그리는 중이면 건너뛴다 (겹침 방지)
+       · settled : 한 번 그려 봤는데도 패널이 없으면 «보여줄 게 없어서» 안 그린 것이다.
+                   그건 실패가 아니므로 더 두드리지 않고 가디언을 끝낸다.
+       · 패널이 «생겼다가 지워진» 경우는 settled 가 아니므로 종전대로 다시 붙인다
+         (대시보드 초기 재빌드 대응 — 이게 가디언을 둔 이유였다). */
+  var _rgBusy = false, _rgSettled = false;
+  function safeRender(render){
+    if (_rgBusy) return Promise.resolve();
+    _rgBusy = true;
+    return Promise.resolve().then(render).catch(function(){}).then(function(){
+      _rgBusy = false;
+      if (!document.getElementById('rating-role-panel')) _rgSettled = true;
+    });
+  }
   function run(){
     var role = roleOf();
     if (role === 'parent' || role === 'student') return;         // 표시 안 함
     var render = (role === 'teacher') ? renderTeacher : renderAdmin;  // 그 외 전부 관리자
-    render();
+    safeRender(render);
     // 🛡 가디언 — admin.html 대시보드 초기 재빌드로 패널이 지워지면 다시 붙임 (약 20초)
     var ticks = 0;
     var iv = setInterval(function(){
-      if (++ticks > 20) { clearInterval(iv); return; }
+      if (++ticks > 20 || _rgSettled) { clearInterval(iv); return; }
       var dismissed = false;
       try { dismissed = sessionStorage.getItem('mangoi_rating_alarm_dismiss')==='1'; } catch(e){}
       if (dismissed) { clearInterval(iv); return; }
-      if (!document.getElementById('rating-role-panel')) render();
+      if (_rgBusy) return;                                        // 그리는 중 — 겹쳐 부르지 않는다
+      if (!document.getElementById('rating-role-panel')) safeRender(render);
     }, 1000);
   }
   function boot(){ if (window.__mangoRatingBooted) return; window.__mangoRatingBooted = true; run(); }
@@ -194,7 +223,9 @@
     var role = roleOf();
     if (role === 'parent' || role === 'student') return;
     if (!document.getElementById('rating-role-panel') && role !== 'teacher') { /* 알람 닫힘 상태면 유지 */ }
-    (role === 'teacher' ? renderTeacher : renderAdmin)();
+    // 🌐 사람이 언어를 바꾼 것이라 «다시 그려야» 한다 — settled 를 풀고, 겹침만 막는다
+    _rgSettled = false;
+    safeRender(role === 'teacher' ? renderTeacher : renderAdmin);
   });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

@@ -15,11 +15,11 @@
       teacher_name: document.getElementById('aed-teacher-name').value.trim(),
       lesson_title: document.getElementById('aed-lesson-title').value.trim(),
       scores: {
-        participation: parseInt(document.getElementById('aed-sc-part').value) || null,
-        comprehension: parseInt(document.getElementById('aed-sc-comp').value) || null,
-        homework: parseInt(document.getElementById('aed-sc-hw').value) || null,
-        attitude: parseInt(document.getElementById('aed-sc-att').value) || null,
-        speaking: parseInt(document.getElementById('aed-sc-sp').value) || null,
+        participation: (document.getElementById('aed-sc-part').value === '' ? null : Number(document.getElementById('aed-sc-part').value)),
+        comprehension: (document.getElementById('aed-sc-comp').value === '' ? null : Number(document.getElementById('aed-sc-comp').value)),
+        homework: (document.getElementById('aed-sc-hw').value === '' ? null : Number(document.getElementById('aed-sc-hw').value)),
+        attitude: (document.getElementById('aed-sc-att').value === '' ? null : Number(document.getElementById('aed-sc-att').value)),
+        speaking: (document.getElementById('aed-sc-sp').value === '' ? null : Number(document.getElementById('aed-sc-sp').value)),
       },
       keywords: document.getElementById('aed-keywords').value.split(',').map(s=>s.trim()).filter(Boolean),
     };
@@ -64,18 +64,18 @@
       teacher_name: document.getElementById('aed-teacher-name').value.trim(),
       lesson_title: document.getElementById('aed-lesson-title').value.trim(),
       lesson_date: new Date().toISOString().slice(0,10),
-      score_participation: parseInt(document.getElementById('aed-sc-part').value) || null,
-      score_comprehension: parseInt(document.getElementById('aed-sc-comp').value) || null,
-      score_homework: parseInt(document.getElementById('aed-sc-hw').value) || null,
-      score_attitude: parseInt(document.getElementById('aed-sc-att').value) || null,
-      score_speaking: parseInt(document.getElementById('aed-sc-sp').value) || null,
+      score_participation: (document.getElementById('aed-sc-part').value === '' ? null : Number(document.getElementById('aed-sc-part').value)),
+      score_comprehension: (document.getElementById('aed-sc-comp').value === '' ? null : Number(document.getElementById('aed-sc-comp').value)),
+      score_homework: (document.getElementById('aed-sc-hw').value === '' ? null : Number(document.getElementById('aed-sc-hw').value)),
+      score_attitude: (document.getElementById('aed-sc-att').value === '' ? null : Number(document.getElementById('aed-sc-att').value)),
+      score_speaking: (document.getElementById('aed-sc-sp').value === '' ? null : Number(document.getElementById('aed-sc-sp').value)),
       strengths: document.getElementById('aed-out-strengths').value.trim(),
       improvements: document.getElementById('aed-out-improvements').value.trim(),
       next_goals: document.getElementById('aed-out-next_goals').value.trim(),
       teacher_comment: document.getElementById('aed-out-teacher_comment').value.trim(),
     };
     try {
-      const r = await fetch('/api/eval/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      const r = await fetch('/api/eval/draft-create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error);
       let extra = '';
@@ -84,7 +84,7 @@
         const sent = d.push.filter(p => p.sent > 0).length;
         if (sent) extra += ` · 푸시 ${sent}건`;
       }
-      out.innerHTML = `<div style="padding:12px 16px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);border-radius:8px;font-size:13px"><b style="color:#34d399">✅ 평가서 #${d.id} 저장 완료</b><br><span style="color:#a3b3d1;font-size:11.5px">종합 점수: <b style="color:#fbbf24">${d.overall}</b>점${extra}</span><br><a href="/eval.html?id=${d.id}" target="_blank" style="color:#93c5fd;font-size:12px;text-decoration:underline">📄 평가서 페이지 열기</a></div>`;
+      out.innerHTML = `<div style="padding:12px 16px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);border-radius:8px;font-size:13px"><b style="color:#34d399">✅ 평가서 #${d.id} 저장 완료</b><br><span style="color:#a3b3d1;font-size:11.5px">종합 점수: <b style="color:#fbbf24">${d.overall == null ? '-' : d.overall + '/10'}</b>점${extra}</span><br><a href="/eval.html?id=${d.id}" target="_blank" style="color:#93c5fd;font-size:12px;text-decoration:underline">📄 평가서 페이지 열기</a></div>`;
     } catch(e) { out.innerHTML = '<div style="color:#f87171">❌ '+esc(e.message)+'</div>'; }
   };
 
@@ -97,8 +97,15 @@
       const r = await fetch('/api/admin/retention/risk');
       const d = await r.json();
       if (!d.ok) throw new Error(d.error);
+      /* 📏 (2026-10-13) «누구를 봤는지» 를 말한다 — 예전엔 명부에서 아무 500명만 보고도 아무 말이 없었다.
+         서버가 scan 을 안 보내면(옛 서버) 이 줄은 그리지 않는다(지어내지 않음). */
+      const _sc = d.scan;
+      const scanLine = _sc ? `<div style="font-size:12px;color:#64748b;margin:0 0 10px;line-height:1.6">${isEn
+        ? `Checked ${_sc.scanned.toLocaleString()} students with a class record in the last ${_sc.window_days} days (or in the expiry list)` + (_sc.active_total != null ? ` out of ${_sc.active_total.toLocaleString()} active.` : '.') + ` Students with no class record in ${_sc.window_days} days (incl. new students and future-only bookings) were left out of this list.` + (_sc.truncated ? ` ⚠️ Limit reached — the ${(_sc.candidates - _sc.scanned).toLocaleString()} most active students were not scored.` : '')
+        : (_sc.active_total != null ? `명부 활성 ${_sc.active_total.toLocaleString()}명 중 ` : '') + `최근 ${_sc.window_days}일 수업 기록(또는 만료 목록)이 있는 ${_sc.scanned.toLocaleString()}명을 살펴봤습니다. ${_sc.window_days}일 동안 수업 기록이 없는 학생(새로 등록했거나 앞으로의 예약만 있는 학생 포함)은 이번 목록에서 뺐습니다.` + (_sc.truncated ? ` ⚠️ 상한에 걸려 가장 활발한 ${(_sc.candidates - _sc.scanned).toLocaleString()}명은 점수를 매기지 않았습니다.` : '')
+      }</div>` : '';
       if (!d.count) {
-        out.innerHTML = `<div style="padding:24px;text-align:center;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px"><b style="color:#34d399">✅ ${isEn?'No at-risk students!':'위험 학생이 없습니다!'}</b><br><span style="font-size:11.5px;color:#a3b3d1;margin-top:6px;display:inline-block">${isEn?'All students are attending normally.':'모든 학생이 정상 출석/학습 중입니다.'}</span></div>`;
+        out.innerHTML = scanLine + `<div style="padding:24px;text-align:center;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px"><b style="color:#34d399">✅ ${isEn?'No at-risk students!':'위험 학생이 없습니다!'}</b><br><span style="font-size:11.5px;color:#a3b3d1;margin-top:6px;display:inline-block">${isEn?'All students are attending normally.':'모든 학생이 정상 출석/학습 중입니다.'}</span></div>`;
         return;
       }
       // 위험도 분포 요약
@@ -106,7 +113,7 @@
       const medN = d.at_risk.filter(x=>x.risk_level==='medium').length;
       const lowN = d.at_risk.filter(x=>x.risk_level==='low').length;
 
-      out.innerHTML = `
+      out.innerHTML = scanLine + `
         <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
           <div style="background:rgba(239,68,68,0.15);border:1px solid #ef4444;border-radius:8px;padding:8px 14px;font-size:12px">
             🚨 ${isEn?'High':'심각'}: <b style="color:#fca5a5;font-size:14px">${highN}</b>
@@ -118,7 +125,7 @@
             🟡 ${isEn?'Low':'관찰'}: <b style="color:#cbd5e1;font-size:14px">${lowN}</b>
           </div>
           <div style="margin-left:auto;display:flex;gap:6px">
-            <button onclick="arrBulkAction('comeback_bundle')" style="padding:7px 14px;font-size:11.5px;background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer">🎁 ${isEn?'Comeback Bundle (All High)':'전체 심각 → 컴백 번들'}</button>
+            <button onclick="arrBulkAction('comeback_bundle')" style="padding:7px 14px;font-size:11.5px;background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer">🎁 ${isEn?'500P bonus (all high risk)':'전체 심각 → 500P 보너스'}</button>
             <button onclick="arrShowLogs()" style="padding:7px 14px;font-size:11.5px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#e6ecff;border-radius:6px;font-weight:700;cursor:pointer">📜 ${isEn?'Care Log':'발송 기록'}</button>
           </div>
         </div>
@@ -126,6 +133,8 @@
           const color = r.risk_level === 'high' ? '#ef4444' : r.risk_level === 'medium' ? '#f59e0b' : '#94a3b8';
           const bg = r.risk_level === 'high' ? 'rgba(239,68,68,0.08)' : r.risk_level === 'medium' ? 'rgba(245,158,11,0.08)' : 'rgba(148,163,184,0.06)';
           const actions = (r.recommended_actions||[r.recommended_action]).map(a => esc(a)).join(' · ');
+          // 학생이름: 서버가 이름을 못 찾으면 student_name 에 아이디를 넣으므로, 같으면 «이름 없음» 으로 그림(아이디를 이름처럼 보이지 않게)
+          const _nm = r.name_known !== false && r.student_name && r.student_name !== r.user_id;
           const metrics = `
             <span title="최근 30일 출석">📅 ${r.attendance_30d}회</span>
             <span title="평가 평균">⭐ ${r.eval_avg||'-'}</span>
@@ -137,11 +146,14 @@
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
               <div style="flex:1;min-width:0">
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                  <span style="font-weight:800;font-size:15px">${esc(r.student_name)}</span>
+                  <span style="font-size:11px;color:#94a3b8">${isEn?'Name':'학생이름'}</span>
+                  <span style="font-weight:800;font-size:15px">${_nm ? esc(r.student_name) : `<span style="color:#94a3b8;font-weight:600">${isEn?'(no name)':'(이름 없음)'}</span>`}</span>
+                  <span style="font-size:11px;color:#94a3b8">${isEn?'ID':'아이디'}</span>
                   <span style="font-family:MangoiHanSC,monospace;font-size:11px;color:#a3b3d1">${esc(r.user_id)}</span>
                   ${r.parent_name ? `<span style="font-size:11px;color:#94a3b8">👪 ${esc(r.parent_name)}${r.parent_phone?' · '+esc(r.parent_phone):''}</span>` : ''}
                 </div>
                 <div style="margin-top:6px;display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px;color:#cbd5e1">${metrics}</div>
+                ${arrLastContactLine(r, d, isEn)}
                 <div style="margin-top:8px;font-size:11.5px;color:#cbd5e1;line-height:1.55">${r.reasons.map(x => `<span style="display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;background:rgba(255,255,255,0.05);border-radius:6px">${esc(x)}</span>`).join('')}</div>
                 <div style="margin-top:8px;font-size:12px;color:#fbbf24"><b>💡 ${isEn?'Recommended':'추천'}:</b> ${actions}</div>
                 <!-- 케어 액션 버튼들 -->
@@ -150,7 +162,7 @@
                   <button onclick="arrCare('${esc(r.user_id)}','sms','${esc(r.student_name)}')" style="padding:6px 12px;font-size:11.5px;background:#3b82f6;color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer">📱 ${isEn?'SMS':'문자'}</button>
                   <button onclick="arrCare('${esc(r.user_id)}','gift','${esc(r.student_name)}')" style="padding:6px 12px;font-size:11.5px;background:linear-gradient(135deg,#ec4899,#f43f5e);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer">🎁 ${isEn?'Gift Points':'기프트 포인트'}</button>
                   <button onclick="arrCare('${esc(r.user_id)}','event','${esc(r.student_name)}')" style="padding:6px 12px;font-size:11.5px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer">🎉 ${isEn?'Event Invite':'이벤트 초대'}</button>
-                  <button onclick="arrCare('${esc(r.user_id)}','comeback_bundle','${esc(r.student_name)}')" style="padding:6px 12px;font-size:11.5px;background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer">🚀 ${isEn?'Comeback Bundle':'컴백 번들'}</button>
+                  <button onclick="arrCare('${esc(r.user_id)}','comeback_bundle','${esc(r.student_name)}')" style="padding:6px 12px;font-size:11.5px;background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer">🚀 ${isEn?'500P bonus':'컴백 500P'}</button>
                 </div>
                 <div id="arr-status-${i}" style="margin-top:6px;font-size:11px;color:#94a3b8;min-height:14px"></div>
               </div>
@@ -166,6 +178,21 @@
       window._arrAtRisk = d.at_risk;
     } catch(e) { out.innerHTML = '<div style="color:#f87171">❌ '+esc(e.message)+'</div>'; }
   };
+
+  /* 📞 (2026-10-13 케어 보드 2단계) 마지막 연락 — 서버 정본 lastContactMap(care-contact.ts)이 다섯 원천
+     (이 카드의 카톡·문자·전화 · AI 매출·이탈 요약 · 수강권 만료 화면의 연락함·자동 문자 · 상담 문자)을 합쳐 준다.
+     서버가 그 칸을 안 보냈으면(옛 서버·조회 실패) 아무것도 그리지 않는다 — «연락 안 함» 으로 지어내지 않는다. */
+  function arrLastContactLine(r, d, isEn){
+    if (!d || d.last_contact_ok !== true) return '';
+    var c = r.last_contact;
+    if (!c || !(c.at > 0)) return '<div style="margin-top:6px;font-size:11.5px;color:#475467">📞 ' + (isEn ? 'No contact recorded yet' : '아직 연락 기록 없음') + '</div>';
+    var days = Math.max(0, Math.floor((Date.now() - c.at) / 86400000));
+    var VIA = { kakao:['카톡(문자로 발송)','Kakao (sent as SMS)'], sms:['문자','SMS'], call:['전화','Call'], care:['AI 매출·이탈 요약','AI churn summary'],
+                retention:['수강권 만료 화면','Expiry page'], auto_sms:['자동 안내 문자','Auto SMS'], counsel_sms:['상담 문자','Counseling SMS'] };
+    var v = VIA[c.via] || [String(c.via || ''), String(c.via || '')];
+    var when = days === 0 ? (isEn ? 'today' : '오늘') : (isEn ? days + ' day' + (days === 1 ? '' : 's') + ' ago' : days + '일 전');
+    return '<div style="margin-top:6px;font-size:11.5px;color:#15803d">📞 ' + (isEn ? 'Last contact: ' : '마지막 연락: ') + esc(when) + ' · ' + esc(isEn ? v[1] : v[0]) + '</div>';
+  }
 
   // 📵 Phase RM — 노쇼(수업 미입장) 리포트 로드
   window.noShowsLoad = async function(){
@@ -190,22 +217,46 @@
         + chip('전체', d.count||0, '99,102,241')
         + chip('학생 노쇼', (d.by_missing&&d.by_missing.student)||0, '239,68,68')
         + chip('강사 노쇼', (d.by_missing&&d.by_missing.teacher)||0, '168,85,247')
+        /* 🔎 (2026-08-19) 「강사 미입장」 중 오판 건수를 따로 보여 준다. 이 기록은 학생 브라우저가
+           «내 화면에 안 보였다» 로 만드는 것이라, 강사가 멀쩡히 들어와 있어도 쌓인다.
+           숫자만 보고 강사를 탓하지 않도록 «강사 잘못 아님» 을 같은 줄에 둔다. */
+        + (((d.by_missing&&d.by_missing.teacher_false_alarm)||0) > 0
+             ? chip('└ 오판(강사 접속함)', d.by_missing.teacher_false_alarm, '52,211,153') : '')
         + '</div>'
         + d.no_shows.map(function(row){
             var who = row.missing_role === 'teacher' ? '<span style="color:#c4b5fd;font-weight:800">강사 미입장</span>' : '<span style="color:#fca5a5;font-weight:800">학생 미입장</span>';
             var push = row.notified_push ? '📲 푸시✓' : '📲 푸시—';
             var kakao = row.notified_kakao ? '💬 알림톡✓' : '💬 알림톡—';
-            return '<div style="border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.06);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">'
+            /* 오판이면 빨간 카드가 아니라 초록 테두리로 — 「봐야 할 일」과 「봐도 되는 일」을 색으로 가른다 */
+            var isFalse = row.false_alarm === true;
+            var box = isFalse
+              ? 'border:1px solid rgba(52,211,153,0.45);background:rgba(52,211,153,0.07)'
+              : 'border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.06)';
+            var mins = (row.teacher_seen_min != null && row.teacher_seen_min > 0) ? (row.teacher_seen_min + '분 접속') : '접속 기록 있음';
+            var note = isFalse
+              ? '<div style="flex-basis:100%;font-size:11.5px;color:#6ee7b7;background:rgba(52,211,153,.10);border-radius:8px;padding:6px 9px">'
+                + '✅ <b>오판입니다 — 강사 잘못이 아닙니다.</b> 출석 기록에 <b>'+_esc(mins)+'</b> 으로 남아 있습니다. '
+                + '이 알림은 <b>학생 화면에서</b> 「상대가 안 보인다」로 만들어집니다 — 서로 다른 주소로 들어오면 각자 다른 방이 되어 이렇게 됩니다. '
+                + '강사 평가 지표에서는 이미 빠져 있습니다.</div>'
+              : (row.missing_role === 'teacher' && row.teacher_present === null
+                  ? '<div style="flex-basis:100%;font-size:11.5px;color:#fcd34d">⚠️ 출석 기록으로는 판정할 수 없습니다(이름 없는 접속 기록). 사람이 확인해 주세요.</div>'
+                  : '');
+            return '<div style="'+box+';border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">'
               + '<div style="min-width:130px"><b>'+_esc(row.student_name||'학생')+'</b> <span style="color:#94a3b8;font-size:11px">/ '+_esc(row.teacher_name||'강사미배정')+'</span></div>'
-              + '<div style="flex:1;min-width:150px;font-size:12px;color:#cbd5e1">'+who+' · <span style="color:#94a3b8">'+_esc(row.lesson_title||'영어 수업')+'</span></div>'
+              + '<div style="flex:1;min-width:150px;font-size:12px;color:#cbd5e1">'+who
+              +   (isFalse ? ' <span style="color:#34d399;font-weight:800">(오판)</span>' : '')
+              +   ' · <span style="color:#94a3b8">'+_esc(row.lesson_title||'영어 수업')+'</span></div>'
               + '<div style="font-size:11.5px;color:#94a3b8">🕒 '+fmtDate(row.created_at)+' · '+(row.waited_min||5)+'분 대기</div>'
               + '<div style="font-size:11px;color:#a3b3d1">'+push+' · '+kakao+'</div>'
               + '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto">'
               +   (row.student_phone ? '<a href="tel:'+_esc(row.student_phone)+'" style="font-size:11.5px;color:#7dd3fc;text-decoration:none;background:rgba(125,211,252,.12);padding:5px 9px;border-radius:8px">📞 학생 '+_esc(row.student_phone)+'</a>' : '')
               +   (row.parent_phone ? '<a href="tel:'+_esc(row.parent_phone)+'" style="font-size:11.5px;color:#86efac;text-decoration:none;background:rgba(134,239,172,.12);padding:5px 9px;border-radius:8px">📞 학부모 '+_esc(row.parent_phone)+'</a>' : '')
               +   ((!row.student_phone && !row.parent_phone) ? '<span style="font-size:11px;color:#64748b">번호 없음</span>' : '')
-              +   '<button onclick="noShowContact('+row.id+')" style="font-size:11.5px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.35);color:#fbbf24;border-radius:8px;padding:5px 10px;cursor:pointer;font-weight:700">📲 다시 알림</button>'
+              /* 오판에는 [다시 알림] 을 주지 않는다 — 들어와 있던 강사에게 «왜 안 들어왔냐» 고
+                 푸시를 보내는 꼴이라, 잘못된 알림 위에 잘못된 알림을 얹는다. */
+              +   (isFalse ? '' : '<button onclick="noShowContact('+row.id+')" style="font-size:11.5px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.35);color:#fbbf24;border-radius:8px;padding:5px 10px;cursor:pointer;font-weight:700">📲 다시 알림</button>')
               + '</div>'
+              + note                                   /* flex-basis:100% — 카드 맨 아래 한 줄로 */
               + '</div>';
           }).join('');
     } catch(e) {
@@ -234,8 +285,9 @@
       kakao: isEn ? 'KakaoTalk message' : '카톡 메시지',
       sms: isEn ? 'SMS' : '문자',
       gift: isEn ? 'Gift points' : '기프트 포인트',
+      call: isEn ? 'Parent phone call (logged)' : '학부모 안부 전화 (기록)',
       event: isEn ? 'Event invitation' : '이벤트 초대',
-      comeback_bundle: isEn ? 'Comeback bundle (500P + free lesson)' : '컴백 번들 (500P + 무료 보강)',
+      comeback_bundle: isEn ? 'Comeback bonus (500P)' : '컴백 보너스 (500P 적립)',
     };
     let message = '', giftType = '', eventId = '';
     if (actionType === 'kakao' || actionType === 'sms') {
@@ -250,8 +302,14 @@
     } else if (actionType === 'event') {
       eventId = prompt(isEn ? 'Event ID or name:' : '이벤트 ID 또는 이름:', 'monthly-winter-2026');
       if (eventId === null) return;
+    } else if (actionType === 'call') {
+      /* 📞 전화는 «보내는» 것이 아니라 사람이 하고 나서 적는 것이다 — 통화 내용을 남긴다. */
+      message = prompt(isEn ? 'What did you talk about? (saved to the care log)' : '통화 내용을 적어 주세요 (케어 기록에 남습니다):', '');
+      if (message === null) return;
     } else if (actionType === 'comeback_bundle') {
-      if (!confirm(isEn ? `Send Comeback Bundle to ${studentName}?\n• 500P bonus\n• Free supplementary lesson\n• KakaoTalk message to parent` : `${studentName} 학생에게 컴백 번들을 보낼까요?\n• 500P 보너스\n• 무료 보강 수업 1회\n• 학부모 카톡 안내`)) return;
+      /* ⚠️ 약속은 «실제로 일어나는 것» 까지만 적는다 — 이 액션은 포인트만 적립한다.
+         예전 문구는 「무료 보강 1회 + 학부모 카톡 안내」까지 약속했지만 둘 다 안 나갔다. */
+      if (!confirm(isEn ? `Give ${studentName} the 500P comeback bonus?\n\n• 500P is credited now.\n• No message is sent — use the SMS button separately.\n• A free lesson must be scheduled by a person.` : `${studentName} 학생에게 컴백 보너스 500P 를 적립할까요?\n\n• 500P 는 지금 바로 적립됩니다.\n• 안내 문자는 나가지 않습니다 — [📱 문자] 로 따로 보내 주세요.\n• 무료 보강은 사람이 배정해야 합니다.`)) return;
     }
     try {
       const r = await fetch('/api/admin/retention/care', {
@@ -263,8 +321,16 @@
       // 카드에 결과 표시
       const idx = (window._arrAtRisk||[]).findIndex(x => x.user_id === uid);
       const el = document.getElementById('arr-status-' + idx);
-      if (el) el.innerHTML = `<span style="color:#34d399">✅ ${esc(labels[actionType] || actionType)} — ${esc(d.detail || d.status)}</span>`;
-      else alert((isEn?'✅ Sent: ':'✅ 발송됨: ') + (d.detail || d.status));
+      /* ⚠️ 서버는 «요청은 처리했다»(ok) 와 «실제로 나갔다»(status) 를 따로 말한다.
+         ok 만 보고 ✅ 를 띄우면 못 보낸 문자도 «발송됨» 으로 보인다 — 그게 이 화면이
+         오랫동안 하던 거짓말이었다(status='queued' 인데 ✅). 반드시 status 로 가른다. */
+      var bad = (d.status === 'failed');
+      var soft = (d.status === 'queued' || d.status === 'mock' || d.status === 'logged');
+      var mark = bad ? '❌' : (soft ? 'ℹ️' : '✅');
+      var color = bad ? '#fca5a5' : (soft ? '#fcd34d' : '#34d399');
+      var text = mark + ' ' + (labels[actionType] || actionType) + ' — ' + (d.detail || d.status);
+      if (el) el.innerHTML = `<span style="color:${color}">${esc(text)}</span>`;
+      else alert(text);
     } catch (e) {
       alert((isEn?'❌ Failed: ':'❌ 실패: ') + e.message);
     }
@@ -273,6 +339,16 @@
   // 🚀 벌크 — 모든 high 위험 학생에게 컴백 번들 발송
   window.arrBulkAction = async function(actionType) {
     const isEn = (window.adminLang === 'en');
+    /* ⛔ 카톡·문자 «일괄» 은 막는다 — 이제 이 경로는 진짜로 문자를 보낸다.
+       일괄에는 문구가 없어 어차피 한 건도 못 나가고, 문구를 붙여 열어 주면
+       그 순간 «학부모 전원에게 한 번에» 가 되어 되돌릴 수 없다
+       (CLAUDE.md 「학부모에게 문자가 두 번 감」과 같은 반경). 한 명씩 보내세요. */
+    if (actionType === 'kakao' || actionType === 'sms') {
+      alert(isEn
+        ? 'Bulk text/KakaoTalk is intentionally disabled — these now really send. Send them one by one.'
+        : '카톡·문자 일괄 발송은 일부러 막아 두었습니다 — 이제 실제로 나가기 때문입니다. 한 명씩 보내 주세요.');
+      return;
+    }
     const highs = (window._arrAtRisk || []).filter(x => x.risk_level === 'high');
     if (!highs.length) return alert(isEn ? 'No high-risk students.' : '심각 위험 학생이 없습니다.');
     if (!confirm(isEn ? `Send ${actionType} to ${highs.length} high-risk students?` : `${highs.length}명의 심각 위험 학생 모두에게 ${actionType} 발송할까요?`)) return;
@@ -284,10 +360,11 @@
           body: JSON.stringify({ user_id: s.user_id, action_type: actionType })
         });
         const d = await r.json();
-        if (d.ok) ok++; else fail++;
+        /* ok 는 «요청을 처리했다» 일 뿐이다 — 실제 결과는 status 가 말한다. */
+        if (d.ok && d.status !== 'failed') ok++; else fail++;
       } catch { fail++; }
     }
-    alert((isEn?`✅ Sent: ${ok}, ❌ Failed: ${fail}`:`✅ 발송: ${ok}건, ❌ 실패: ${fail}건`));
+    alert((isEn?`✅ Done: ${ok}, ❌ Failed: ${fail}`:`✅ 처리: ${ok}건, ❌ 실패: ${fail}건`));
     arrLoad();  // 새로고침
   };
 

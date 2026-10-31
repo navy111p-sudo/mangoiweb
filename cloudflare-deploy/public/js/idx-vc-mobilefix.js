@@ -1,0 +1,2286 @@
+/* idx-vc-mobilefix.js — 휴대폰 수업 화면 수리 묶음 (2026-08-25)
+ *
+ * 왜 별도 파일인가
+ *   index.html 의 첫 화면 blocking 예산은 실측 여유가 **104바이트**다
+ *   (1,599,895B / 상한 1,599,999B — first_paint_budget_harness).
+ *   그래서 새 코드는 idx-main.js 에 한 줄도 못 넣는다. defer 로 내려서
+ *   첫 그림에는 0바이트를 더하고, 수업이 시작된 뒤에만 일한다.
+ *
+ * 무엇을 고치나 (2026-08-25 사장님·강선생님 제보)
+ *   ① 교재를 화면 배율(devicePixelRatio)만큼 촘촘히 그린다 — 「글자가 깨져서 안 보인다」
+ *      사장님 확인: 「원본은 흐리지 않았다」 → 범인은 «화면에서 줄이는 단계» 로 확정.
+ *   ② 사진 교재를 여러 번에 나눠 줄인다 — 브라우저 기본 축소는 8배 이상에서 획을 지운다.
+ *   ③ 핀치로 확대한 배율이 손을 떼는 순간 100% 로 되돌아가던 것을 막는다.
+ *   ④ 폰에 확대·축소 버튼이 하나도 없던 것 — 교재 위에 띄운다.
+ *   ⑤ 「배경화면」 탭을 두 번 누르면 본문이 통째로 접히던 것 — 교재·칠판과 같게.
+ *   ⑥ 막아 세우는 안내에 중국어를 함께 적는다(화면 언어는 KO/EN 뿐이라 강사가 못 읽었다).
+ *   ⑦ 얼굴 꾸미기(가면) 파일을 우리 서버(/vendor/mediapipe-face/)에서 쓴다 —
+ *      지금까지 구글·jsdelivr 에서 받아 와 중국에서 통째로 막혀 있었다.
+ *   ⑧ 「교사 화면이 작고 학생 화면이 크다」 — 상대 타일이 검은 띠에 둘러싸이던 것.
+ *      ⑧-2 단, PC 1:1 수업의 «넓은 세로 칸» 에서는 꽉 채우지 않는다 — 확대를 멈추고
+ *      전체를 보여 준다(2026-09-07 사장님 「교사 얼굴이 너무 크다 · 절반으로 · 선명하고 가볍게」).
+ *   ⑨ 1:1 수업에서 «교사» 얼굴을 크게(상대:나 = 1.6:1, PC 는 누가 PIP 인가로).
+ *   ⑩ 중국어 복습퀴즈 — 수업 교재로 언어를 판정하고, 「진도(과)」를 학생이 고르게 한다
+ *      (2026-08-26 사장님 「중국어 수업 끝났는데 복습퀴즈가 왜 영어가 나와?」).
+ *   ⑪ 교재를 넘기면 «지금 몇 과인지» 를 기록한다 — 교재를 과별로 다시 올리면
+ *      진도가 저절로 따라간다(그 전엔 저장하는 코드가 저장소 전체에 0곳이었다).
+ *   ⑫ 공유 영상에 「일시정지」·「소리 끄기」 버튼 — 「소리 켜기」 는 한 번 누르면
+ *      사라져서 되끄기·멈추기가 아예 불가능했다(2026-08-27 사장님·Karl 테스트 제보).
+ *      같은 날 지시로 강사·관리자 화면에도 붙인다(폰에서는 유튜브 자체 컨트롤바가
+ *      하단 독에 가려 손이 안 닿는다). 그쪽만 네이티브 컨트롤 위로 비켜선다.
+ *   ⑬ 세로 «교재를 위로» — 학생 전용 옵션(2026-08-28 사장님 지시. 본문에만 있고
+ *      이 목차에 빠져 있어 병합하며 함께 채웠다).
+ *   ⑭ 「👥 학생 제어」 이름표가 세로폰 ☰ 기능 메뉴에서 «죽은 버튼» 처럼 보이던 것 —
+ *      그 메뉴에서만 한 줄짜리 소제목으로 그린다(2026-08-28 사장님 확인 요청).
+ *   ⑮ ⭐ 칭찬 별이 «조용히» 실패하던 것 — 학생 확인이 3.5초 안에 안 오면 서버에 한 번
+ *      물어 «들어갔는지 / 왜 안 들어갔는지» 를 선생님 화면 글자로 말한다
+ *      (2026-09-10 사장님 「교사가 prize 를 줘도 점수도 소리도 변화가 없어」).
+ *   ⑯ 🏷 이름표(로스터) 등록을 «끝이 있는» 일정으로 몇 번 더 시도한다 — 두 번 만에
+ *      포기하면 그 수업 내내 칭찬을 넣을 계정이 없다(같은 날 아침 실측 0장).
+ *   ⑱ 교재가 «살짝만 건드려도» 다음 장으로 넘어가던 것 — 스와이프 판정을 조이고(A)
+ *      손가락 넘김 직후 0.6초·다음 파일 받는 중에는 한 번 더 넘기지 않는다(B).
+ *
+ * ⚠️ idx-main.js 의 전역을 «덮어쓰는» 방식이다. 그쪽 함수 이름이 바뀌면 여기도 같이 고칠 것.
+ *    원본이 없으면 조용히 건너뛴다(아래 typeof 검사) — 이 파일 때문에 수업이 멈추지는 않는다.
+ * ⚠️ 내용을 바꾸면 index.html 태그의 ?v= 를 반드시 올린다(asset_version_harness 가 막는다).
+ */
+(function () {
+  'use strict';
+
+  /* 브라우저가 중국어인가 — 화면 언어 설정(KO/EN)과 별개로 판단한다.
+     설정은 두 가지뿐이고 기본이 한국어라, 「중국어를 고르면 보여준다」로는 영영 안 보인다.
+     그래서 «한 줄 덧붙이기» 로만 쓴다 — 기존 한국어·영어 문구는 그대로 둔다. */
+  function isZh() {
+    try { return (String(navigator.language || '') + String((navigator.languages || [])[0] || ''))
+      .toLowerCase().indexOf('zh') >= 0; } catch (e) { return false; }
+  }
+  function zhLine(msg, zh) { return isZh() ? (msg + '\n' + zh) : msg; }
+  function toast(msg) {
+    try { if (typeof window.mangoToast === 'function') return window.mangoToast(msg); } catch (e) {}
+    try { if (typeof window._pdfToast === 'function') return window._pdfToast(msg); } catch (e) {}
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     ① 교재를 화면 배율만큼 촘촘히 그린다
+     ──────────────────────────────────────────────────────────────
+     캔버스는 «몇 개의 점으로 그릴지» 를 따로 정해 줘야 한다. 안 정하면 CSS 픽셀을
+     그대로 쓴다. 요즘 폰은 CSS 1칸을 실제 점 3개로 표시하므로, 화면이 쓸 수 있는
+     점의 1/3 만 그려 놓고 3배로 늘려 보여주던 셈이다 — 획이 가는 한글이 여기서 사라진다.
+     ⚠️ 3배(점 9배)는 구형 폰이 버겁다. 2배로 상한을 둔다 — 실측상 읽히는 데는 충분하다.
+     ⚠️ 이 값은 idx-main.js 의 _pdfRenderInner 가 scale 에 곱한다(그쪽 한 줄이 짝).
+        여기서만 바꾸면 캔버스만 커지고 그림은 왼쪽 위에 작게 남는다.
+  ══════════════════════════════════════════════════════════════ */
+  function calcDPR() {
+    var r = window.devicePixelRatio || 1;
+    if (!isFinite(r) || r < 1) r = 1;
+    return Math.min(r, 2);
+  }
+  window._pdfDPR = calcDPR();
+
+  function smooth(cx) {
+    try {
+      cx.imageSmoothingEnabled = true;
+      if ('imageSmoothingQuality' in cx) cx.imageSmoothingQuality = 'high';
+    } catch (e) {}
+    return cx;
+  }
+
+  /* 캔버스의 «점 개수» 는 배율만큼 늘리고, «보이는 크기» 는 원래대로 고정한다.
+     ⚠️ style 을 반드시 함께 적어야 한다 — 안 적으면 캔버스가 배율만큼 커져 교재가 화면을 넘는다.
+     ℹ️ 필기 겹칩 캔버스(pdf-anno)는 idx-main.js 의 pdfSyncAnnoCanvas 가
+        pdfCanvas.style.width 를 그대로 베껴 가므로 여기만 정하면 같이 맞는다. */
+  window._pdfFitCanvas = function (canvas, w, h) {
+    var W = Math.max(1, Math.floor(w)), H = Math.max(1, Math.floor(h));
+    if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+    else { try { canvas.getContext('2d').clearRect(0, 0, W, H); } catch (e) {} }
+    var R = window._pdfDPR || 1;
+    canvas.style.width = (W / R) + 'px';
+    canvas.style.height = (H / R) + 'px';
+    try { smooth(canvas.getContext('2d')); } catch (e) {}
+  };
+
+  /* 펜 굵기·글자 크기는 «캔버스 점» 단위다. 점을 2배로 늘렸으니 그대로 두면
+     필기가 절반 굵기로 가늘어진다. 그리는 순간에 배율만큼 키운다.
+     ℹ️ 좌표는 0~1 로 정규화돼 있고 입력도 getBoundingClientRect 기준이라 손댈 것이 없다. */
+  var _drawStroke = window.pdfDrawStroke;
+  if (typeof _drawStroke === 'function') {
+    window.pdfDrawStroke = function (ctx, w, h, s) {
+      var R = window._pdfDPR || 1;
+      if (R !== 1 && s && (s.size || s.fontSize)) {
+        var t = {}; for (var k in s) t[k] = s[k];
+        if (t.size) t.size = t.size * R;
+        if (t.fontSize) t.fontSize = t.fontSize * R;
+        s = t;
+      }
+      return _drawStroke(ctx, w, h, s);
+    };
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     ② 사진 교재를 «여러 번에 나눠» 줄인다
+     ──────────────────────────────────────────────────────────────
+     drawImage 로 3000px 사진을 380px 에 한 번에 그리면, 브라우저는 8칸에 한 점씩
+     골라 쓴다 — 획이 규칙적으로 사라져 «깨진» 것처럼 보인다(모아레).
+     절반씩 줄여 내려가면 매 단계가 2배 축소라 획이 뭉개지지 않고 남는다.
+  ══════════════════════════════════════════════════════════════ */
+  function drawDownscaled(ctx, img, sw, sh, dw, dh) {
+    smooth(ctx);
+    if (!(sw > dw * 2) || dw < 1 || dh < 1) { ctx.drawImage(img, 0, 0, dw, dh); return; }
+    var src = img, cw = sw, ch = sh, guard = 0;
+    while (cw > dw * 2 && guard++ < 8) {
+      var nw = Math.max(Math.round(dw), Math.round(cw / 2));
+      var nh = Math.max(Math.round(dh), Math.round(ch / 2));
+      var c = document.createElement('canvas');
+      c.width = nw; c.height = nh;
+      smooth(c.getContext('2d')).drawImage(src, 0, 0, cw, ch, 0, 0, nw, nh);
+      src = c; cw = nw; ch = nh;
+    }
+    ctx.drawImage(src, 0, 0, cw, ch, 0, 0, dw, dh);
+  }
+
+  if (typeof window.pdfBuildImageDoc === 'function') {
+    window.pdfBuildImageDoc = function (url) {
+      return new Promise(function (resolve, reject) {
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function () {
+          var W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+          resolve({
+            numPages: 1,
+            _isImage: true,
+            getPage: function () {
+              return Promise.resolve({
+                getViewport: function (o) { return { width: W * o.scale, height: H * o.scale }; },
+                render: function (o) {
+                  return { promise: new Promise(function (res) {
+                    try { drawDownscaled(o.canvasContext, img, W, H, o.viewport.width, o.viewport.height); }
+                    catch (e) { try { o.canvasContext.drawImage(img, 0, 0, o.viewport.width, o.viewport.height); } catch (e2) {} }
+                    res();
+                  }) };
+                }
+              });
+            }
+          });
+        };
+        img.onerror = function () { reject(new Error('이미지 로드 실패: ' + url)); };
+        img.src = url;
+      });
+    };
+  }
+
+  /* 화면을 돌리거나 창을 옮기면 배율이 바뀔 수 있다(외부 모니터 등) → 다시 그린다 */
+  var _dprT = null;
+  function onDprMaybeChanged() {
+    var n = calcDPR();
+    if (n === window._pdfDPR) return;
+    window._pdfDPR = n;
+    clearTimeout(_dprT);
+    _dprT = setTimeout(function () { try { window.pdfRender && window.pdfRender(); } catch (e) {} }, 150);
+  }
+  window.addEventListener('resize', onDprMaybeChanged);
+  window.addEventListener('orientationchange', function () { setTimeout(onDprMaybeChanged, 400); });
+
+  /* ══════════════════════════════════════════════════════════════
+     ③ 핀치 확대가 손을 떼는 순간 100% 로 되돌아가던 것
+     ──────────────────────────────────────────────────────────────
+     교재 영역에는 «핀치 확대» 와 «더블탭 → 100% 되돌리기» 가 각각 따로 붙어 있다.
+     더블탭 판정은 「손가락 하나가 떨어진 일이 300ms 안에 두 번」만 본다.
+     그런데 핀치를 놓으면 손가락이 둘 떨어지므로 그 둘이 «더블탭» 으로 세인다
+     → 벌리는 동안엔 커졌다가 떼는 순간 원래대로 튕겨 돌아간다.
+     ⚠️ 두 손가락이 «정확히 같은 순간» 떨어지면 신호가 하나로 묶여(changedTouches 2)
+        빠져나가므로 «가끔은 되는» 것처럼 보였다. 재현이 들쭉날쭉했던 이유다.
+     ✅ 여기서는 그 처리를 지우지 않는다(진짜 더블탭은 그대로 살아 있어야 한다).
+        «방금 핀치가 끝났다» 는 사실만 캡처 단계에서 기록해 두고, 그 직후의
+        pdfSetZoom(1) 한 번만 무시한다.
+     ⚠️ 캡처 단계여야 한다 — 교재 상자에 붙은 원래 처리보다 먼저 돌아야 한다.
+  ══════════════════════════════════════════════════════════════ */
+  var _maxTouches = 0, _pinchEndAt = 0;
+  document.addEventListener('touchstart', function (e) {
+    try { if (e.touches && e.touches.length > _maxTouches) _maxTouches = e.touches.length; } catch (_) {}
+  }, true);
+  document.addEventListener('touchend', function (e) {
+    try {
+      if (e.touches && e.touches.length === 0) {
+        if (_maxTouches >= 2) _pinchEndAt = Date.now();
+        _maxTouches = 0;
+      }
+    } catch (_) {}
+  }, true);
+
+  var _setZoom = window.pdfSetZoom;
+  if (typeof _setZoom === 'function') {
+    window.pdfSetZoom = function (z) {
+      if (Number(z) === 1 && (Date.now() - _pinchEndAt) < 500) {
+        return (typeof window.pdfGetZoom === 'function') ? window.pdfGetZoom() : 1;
+      }
+      var out = _setZoom.apply(this, arguments);
+      /* 핀치·더블탭처럼 «우리 버튼 밖» 에서 바뀐 배율도 ④ 의 표시에 따라오게 한다.
+         안 하면 100% 인데 되돌리기가 떠 있는 어긋난 상태가 남는다(2026-08-28 실측). */
+      try { syncPct(); } catch (e) {}
+      return out;
+    };
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     ④ 폰에 확대·축소 버튼이 하나도 없던 것
+     ──────────────────────────────────────────────────────────────
+     원래 있던 확대 버튼들은 1024px 이하에서 전부 display:none 이고(index.html),
+     나머지는 「교재도구」 칩을 펼쳐야 나오는데 그 칩 줄은 좁은 폰에서 화면 밖으로 밀린다.
+     = 손가락이 유일한 길인데 그 길이 ③ 때문에 막혀 있었다. 손가락을 고치더라도
+       누를 수 있는 버튼은 남겨 둔다(손가락이 또 어긋나도 쓸 길이 있게).
+     ⛔ 아래 버튼은 «교재 탭 + 수업 중 + 좁은 화면» 일 때만 나온다. PC 는 원래 버튼을 쓴다.
+  ══════════════════════════════════════════════════════════════ */
+  var CSS =
+    /* 알약 하나 + 필요할 때만 나오는 되돌리기.
+       그전에는 40px 동그라미 넷이 세로 164px 로 쌓여 교재 오른쪽을 관통했다 —
+       그림자가 넷이라 «한 기능» 으로 안 읽혔고, 터치 목표도 권장 44px 에 못 미쳤다.
+       ⚠️ 알약 «안» 의 배율칸은 `#mgz-zoom .mgz-pill button`(1,1,1) 이 44px 을 걸어 두므로
+          클래스 하나짜리 규칙으로는 못 이긴다 — `button.mgz-pct`(1,2,1) 로 적는다. */
+    /* ⚠️ right 는 «화면 가장자리» 가 아니라 «교재 넘김 화살표를 피한 자리» 다.
+       그 화살표(.pdf-nav-next)는 오른쪽 가장자리 세로중앙에 붙어 있고, 폰 가로에서는
+       vc-dock.js 가 52x88 로 키운다(2026-07-01 사장님 지시 — 엄지로 누르기 좋게).
+       right:10px 이던 동안 알약과 겹쳐 «맨 위» 가 화살표였다 — 즉 크기 버튼이 눌리지
+       않았다. 실측(2026-08-28): 세로 390 겹침 37x64 · 가로 844 겹침 35x88(알약 높이의 77%).
+       ⛔ 화살표를 옮겨서 풀지 말 것. 알약이 비켜선다. */
+    '#mgz-zoom{position:absolute;right:80px;bottom:96px;z-index:40;display:none;' +
+      'flex-direction:column;align-items:center;gap:8px;pointer-events:auto;' +
+      'transition:opacity .25s ease}' +
+    '#mgz-zoom.mgz-idle{opacity:.35}' +
+    'body.vc-in-call #tab-pdf{position:relative}' +
+    '#mgz-zoom .mgz-pill{width:44px;border-radius:22px;overflow:hidden;' +
+      'display:flex;flex-direction:column;background:rgba(15,23,42,.74);' +
+      'box-shadow:0 3px 14px rgba(0,0,0,.3);backdrop-filter:blur(8px);' +
+      '-webkit-backdrop-filter:blur(8px)}' +
+    '#mgz-zoom button{border:0;background:transparent;color:#fff;font-family:inherit;' +
+      'font-weight:800;line-height:1;cursor:pointer;padding:0;' +
+      '-webkit-tap-highlight-color:transparent;' +
+      'display:flex;align-items:center;justify-content:center;overflow:hidden}' +
+    '#mgz-zoom .mgz-pill button{width:44px;height:44px;font-size:19px}' +
+    '#mgz-zoom button:active{background:rgba(255,255,255,.18)}' +
+    '#mgz-zoom .mgz-pill button.mgz-pct{height:26px;font-size:11px;font-weight:700;' +
+      'color:#fcd34d;font-variant-numeric:tabular-nums;' +
+      'border-top:1px solid rgba(255,255,255,.14);' +
+      'border-bottom:1px solid rgba(255,255,255,.14)}' +
+    /* ⚠️ 되돌리기는 «흐름 밖» 에 둔다 — 흐름 안에 두면 숨어 있을 때도 42px 을 차지해
+       세로가 156px 로 남았다(실측). 위로 띄운다: 아래로 내리면 독에 가까워진다. */
+    '#mgz-zoom .mgz-reset{position:absolute;bottom:calc(100% + 8px);left:50%;' +
+      'width:34px;height:34px;border-radius:50%;font-size:15px;' +
+      'background:rgba(15,23,42,.74);box-shadow:0 3px 14px rgba(0,0,0,.3);' +
+      'backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);' +
+      'opacity:0;transform:translateX(-50%) scale(.6);pointer-events:none;' +
+      'transition:opacity .16s ease,transform .16s ease}' +
+    '#mgz-zoom .mgz-reset.mgz-on{opacity:1;transform:translateX(-50%) scale(1);' +
+      'pointer-events:auto}' +
+    '@media (prefers-reduced-motion:reduce){' +
+      '#mgz-zoom,#mgz-zoom .mgz-reset{transition:none}}' +
+    '@media (min-width:1025px){#mgz-zoom{display:none !important}}';
+
+  function injectCss() {
+    if (document.getElementById('mgz-zoom-css')) return;
+    var st = document.createElement('style');
+    st.id = 'mgz-zoom-css';
+    st.textContent = CSS;
+    document.body.appendChild(st);   // body 끝 — 이 저장소의 화면 CSS 는 body 안에서 링크된다
+  }
+
+  /* ⚠️ 아이콘 버튼에 data-ko/data-en 을 달면 i18n 엔진이 textContent 를 «문장으로» 갈아끼워
+     동그란 버튼 안에 글자가 쏟아진다(CLAUDE.md 함정표 — 홈 오프닝 소리 버튼).
+     설명은 반드시 data-ko-title / data-ko-aria 로 단다. */
+  function makeBtn(label, koT, enT, fn) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.setAttribute('data-ko-title', koT); b.setAttribute('data-en-title', enT);
+    b.setAttribute('data-ko-aria', koT); b.setAttribute('data-en-aria', enT);
+    b.title = koT; b.setAttribute('aria-label', koT);
+    b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); fn(); });
+    return b;
+  }
+
+  var pctEl = null, resetEl = null, idleTimer = 0, lastPct = '';
+
+  /* 만지면 또렷해지고 3초 손 떼면 가라앉는다.
+     ⛔ 상주 setInterval 로 만들지 말 것 — 홈 전체를 멎게 한 전력이 있다.
+        한 번짜리 타이머라 그 사이 숨겨져도 무해하다. */
+  function armIdle() {
+    var wrap = document.getElementById('mgz-zoom');
+    if (!wrap) return;
+    if (wrap.classList.contains('mgz-idle')) wrap.classList.remove('mgz-idle');
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(function () {
+      var w = document.getElementById('mgz-zoom');
+      if (w) w.classList.add('mgz-idle');
+    }, 3000);
+  }
+
+  function syncPct() {
+    var z = 1;
+    try { z = (typeof window.pdfGetZoom === 'function') ? window.pdfGetZoom() : 1; } catch (e) {}
+    /* ⚠️ 핀치 중에는 이 함수가 손가락 움직임마다 불린다 — 값이 그대로면 아무것도 쓰지 않는다
+       (구형 폰에서 글자를 다시 그리는 값이 싸지 않다). */
+    var txt = Math.round(z * 100) + '%';
+    if (txt !== lastPct) {
+      lastPct = txt;
+      if (pctEl) pctEl.textContent = txt;
+      /* 100% 면 되돌리기는 할 일이 없다 — 그때만 감춘다 */
+      if (resetEl) resetEl.classList.toggle('mgz-on', Math.abs(z - 1) > 0.005);
+    }
+  }
+
+  function bump(d) {
+    try {
+      var z = (typeof window.pdfGetZoom === 'function') ? window.pdfGetZoom() : 1;
+      if (typeof window.pdfSetZoom === 'function') window.pdfSetZoom(z + d);
+    } catch (e) {}
+    syncPct();
+  }
+
+  function resetZoom() {
+    _pinchEndAt = 0;                       // 버튼으로 부른 되돌리기는 ③ 의 차단 대상이 아니다
+    try { if (typeof window.pdfSetZoom === 'function') window.pdfSetZoom(1); } catch (e) {}
+    syncPct();
+  }
+
+  function ensureZoomBtns() {
+    var panel = document.getElementById('tab-pdf');
+    if (!panel || document.getElementById('mgz-zoom')) return;
+    injectCss();
+    var wrap = document.createElement('div');
+    wrap.id = 'mgz-zoom';
+
+    var pill = document.createElement('div');
+    pill.className = 'mgz-pill';
+    pill.appendChild(makeBtn('＋', '교재 크게', 'Zoom in', function () { bump(0.2); }));
+    /* 배율칸은 «버튼» 이다 — 사람들은 이미 여기를 눌러 100% 로 가리라 기대하고 있었다
+       (그전에는 div 라 눌러도 아무 일이 없었다). */
+    pctEl = makeBtn('100%', '원래 크기로', 'Reset zoom', resetZoom);
+    pctEl.className = 'mgz-pct';
+    pill.appendChild(pctEl);
+    pill.appendChild(makeBtn('－', '교재 작게', 'Zoom out', function () { bump(-0.2); }));
+    wrap.appendChild(pill);
+
+    resetEl = makeBtn('↺', '원래 크기로', 'Reset zoom', resetZoom);
+    resetEl.className = 'mgz-reset';
+    wrap.appendChild(resetEl);
+
+    wrap.addEventListener('pointerdown', armIdle);
+    panel.appendChild(wrap);
+    lastPct = '';        // 새로 만든 칸이라 «값이 같으니 건너뛴다» 를 여기서는 쓰면 안 된다
+    syncPct();
+    armIdle();
+  }
+
+  function zoomBtnsSync() {
+    try {
+      var wrap = document.getElementById('mgz-zoom');
+      if (!wrap) return;
+      var onPdf = !!document.querySelector('#tab-pdf.active');
+      var inCall = document.body.classList.contains('vc-in-call');
+      var narrow = false;
+      try { narrow = window.matchMedia('(max-width:1024px)').matches; } catch (e) {}
+      var want = (onPdf && inCall && narrow) ? 'flex' : 'none';
+      if (wrap.style.display !== want) {
+        wrap.style.display = want;
+        if (want === 'flex') armIdle();   // 나타난 순간부터 3초 뒤 가라앉는다
+      }
+      if (want === 'flex') syncPct();
+    } catch (e) {}
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     ⑤ 「배경화면」 탭을 두 번 누르면 본문이 통째로 접히던 것
+     ──────────────────────────────────────────────────────────────
+     같은 탭을 다시 누르면 본문 영역을 접는 규칙인데, 접히면 그 안의 교재 도구줄
+     (교재 업로드·라이브러리)도 함께 사라지고 «다시 펴는 버튼» 이 화면에 없다.
+     교재(2026-08-20)와 칠판(2026-07-15)은 같은 신고로 이미 예외가 됐다 — 배경화면만 남아 있었다.
+  ══════════════════════════════════════════════════════════════ */
+  var _toggleTab = window.vcToggleContentTab;
+  if (typeof _toggleTab === 'function') {
+    window.vcToggleContentTab = function (name) {
+      if (name === 'bg') {
+        var p = document.getElementById('tab-bg');
+        var collapsed = false;
+        try { collapsed = !!(window.vcIsContentCollapsed && window.vcIsContentCollapsed()); } catch (e) {}
+        if (p && p.classList.contains('active') && !collapsed) {
+          try { window.closePheroMenu && window.closePheroMenu(); } catch (e) {}
+          return;                            // 다시 눌러도 접지 않는다
+        }
+      }
+      return _toggleTab.apply(this, arguments);
+    };
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     ⑥ 막아 세우는 안내에 중국어를 함께 적는다
+     ──────────────────────────────────────────────────────────────
+     이 화면의 언어는 KO/EN 두 가지뿐이다(js/mango-i18n.js — 「중국어·일본어·베트남어 제외」).
+     그래서 중국인 강사에게는 «왜 안 되는지» 가 읽을 수 없는 글자로 뜬다.
+     화면 전체를 옮기는 일이 아니라, «사람을 멈춰 세우는 문구» 에만 한 줄을 덧붙인다.
+  ══════════════════════════════════════════════════════════════ */
+  window.vcTextbookDenied = function () {
+    try {
+      if (window.__vcTbDenyAt && Date.now() - window.__vcTbDenyAt < 4000) return;
+      window.__vcTbDenyAt = Date.now();
+      var en = false;
+      try { en = (typeof window.getLang === 'function' && window.getLang() === 'en'); } catch (e) {}
+      var m = en ? 'Only the teacher can change the textbook for the class.'
+                 : '교재는 선생님만 바꿀 수 있어요.';
+      toast(zhLine(m, '只有老师可以更换班级的教材。'));
+    } catch (_) {}
+  };
+
+  /* 아이폰 사진(.heic)은 브라우저가 그리지 못한다 — 형식을 열어 줘 봐야 흰 화면이 된다.
+     고르는 순간에 «왜 안 되는지» 를 말해 준다(고르기 자체를 막지는 않는다 —
+     원래 처리가 「파일 공유」로 돌려 주는 길이 살아 있어야 하기 때문). */
+  document.addEventListener('change', function (e) {
+    try {
+      var el = e.target;
+      if (!el || el.id !== 'pdf-upload' || !el.files || !el.files.length) return;
+      var bad = Array.prototype.filter.call(el.files, function (f) {
+        return /\.(heic|heif)$/i.test(String(f.name || ''));
+      });
+      if (!bad.length) return;
+      toast(zhLine('사진 형식(HEIC)은 교재로 열 수 없어요 — JPG 로 바꿔서 올려 주세요.',
+                   'HEIC 格式无法作为教材打开，请转换为 JPG 后再上传。'));
+    } catch (_) {}
+  }, true);
+
+  /* ══════════════════════════════════════════════════════════════
+     ⑦ 얼굴 꾸미기(가면·모자)가 눌러도 아무 일이 없던 것
+     ──────────────────────────────────────────────────────────────
+     [원인] 얼굴인식 파일을 «클릭한 그 순간에» 바깥에서 받아 온다(js/idx-x6.js) —
+       · 실행 파일  cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35
+       · 모델       storage.googleapis.com/mediapipe-models/…/face_landmarker.task
+       둘 다 중국 본토에서 닿지 않는다 → 모델이 영영 안 오고 「로딩 중…」에서 멈춘다.
+     [고침] 두 파일을 우리 서버에 두고(/vendor/mediapipe-face/, 15MB) 그것부터 쓴다.
+       가상 배경이 2026-07-23 에 이미 같은 길을 갔다(/vendor/mediapipe/ · idx-main.js).
+       덤으로 필리핀 회선도 빨라진다 — 수업 중에 바깥 도메인 두 곳을 새로 여는 일이 없어진다.
+
+     ⚠️ **왜 idx-x6.js 를 직접 안 고쳤나** — 그 파일은 blocking 이라 한 글자만 더해도
+        첫 화면 예산(여유 73바이트)을 넘긴다. 대신 그 파일이 «이미 받아 둔 것» 을 담아 두는
+        칸(vcFx._vision · vcFx._fileset)에 우리 것을 미리 넣어 둔다. 그러면 그쪽 코드의
+        `vcFx._vision || (await import(CDN))` 이 앞쪽에서 끝나 CDN 을 아예 안 부른다.
+     ⚠️ 그 칸 이름이 바뀌면 이 미리넣기는 조용히 헛돈다(= CDN 으로 되돌아가 오늘과 같아진다).
+        그래서 face_model_local_harness 가 그 두 칸과 모델 주소의 «모양» 을 못 박아 둔다.
+     ⚠️ SIMD 를 못 쓰는 옛 기기는 nosimd 판 wasm(10MB 더)을 찾는데 그건 안 올렸다.
+        그런 기기에서는 미리넣기를 아예 하지 않고 원래대로 CDN 에 맡긴다.
+  ══════════════════════════════════════════════════════════════ */
+  var FACE_LOCAL = '/vendor/mediapipe-face';
+
+  /* WebAssembly SIMD 를 쓸 수 있는가 — MediaPipe 가 wasm 파일 이름을 이걸로 가른다
+     (…/vision_wasm_internal.wasm ↔ …/vision_wasm_nosimd_internal.wasm).
+     우리는 SIMD 판만 올렸으므로, 못 쓰는 기기에는 손대지 않는다. */
+  function hasSimd() {
+    try {
+      return WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0,
+        1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]));
+    } catch (e) { return false; }
+  }
+
+  var _primed = null;
+  function primeFaceModel() {
+    if (_primed) return _primed;
+    _primed = (async function () {
+      var fx = window.vcFx;
+      if (!fx) return false;
+      if (fx._vision || fx._fileset) return false;   // 이미 받아 둔 것이 있으면 건드리지 않는다
+      if (!hasSimd()) return false;                  // 옛 기기 → 원래대로 CDN
+      var mod = await import(FACE_LOCAL + '/vision_bundle.mjs');
+      var fileset = await mod.FilesetResolver.forVisionTasks(FACE_LOCAL + '/wasm');
+      /* 모델 주소는 idx-x6.js 안에 박혀 있어 밖에서 못 고친다 →
+         createFromOptions 를 한 겹 감싸 그 자리에서 우리 것으로 바꿔 넣는다.
+         나머지 옵션(델리게이트·민감도 등)은 그대로 넘긴다. */
+      fx._vision = {
+        FilesetResolver: mod.FilesetResolver,
+        FaceLandmarker: {
+          createFromOptions: function (fs, opts) {
+            var o = {}, k;
+            for (k in opts) o[k] = opts[k];
+            o.baseOptions = {};
+            for (k in (opts && opts.baseOptions) || {}) o.baseOptions[k] = opts.baseOptions[k];
+            o.baseOptions.modelAssetPath = FACE_LOCAL + '/face_landmarker.task';
+            return mod.FaceLandmarker.createFromOptions(fs, o);
+          }
+        }
+      };
+      fx._fileset = fileset;
+      try { console.log('[mobilefix] 얼굴인식 파일을 우리 서버에서 씁니다 — ' + FACE_LOCAL); } catch (e) {}
+      return true;
+    })().catch(function (e) {
+      /* 실패하면 «손대지 않은 상태» 로 되돌린다 — idx-x6.js 가 원래대로 CDN 에서 받는다.
+         즉 최악의 경우도 오늘과 같고, 이 파일 때문에 더 나빠지지는 않는다. */
+      try { if (window.vcFx) { window.vcFx._vision = null; window.vcFx._fileset = null; } } catch (_) {}
+      try { console.warn('[mobilefix] 로컬 얼굴인식 파일 사용 실패 → CDN 으로', e && e.message); } catch (_) {}
+      return false;
+    });
+    return _primed;
+  }
+
+  var _setFace = window.vcSetFace;
+  if (typeof _setFace === 'function') {
+    window.vcSetFace = async function (mode) {
+      if (mode && mode !== 'off') {
+        try { await primeFaceModel(); } catch (e) {}   // 우리 서버 파일을 먼저 물려 준다
+        armFxWatch();
+      } else {
+        // «끄기» 를 고르면 감시를 함께 끈다 — 안 끄면 15초 뒤 vcFx.active=false 를 보고
+        // 「얼굴인식 파일을 못 불러왔다」 는 거짓 경고가 뜬다(사용자가 일부러 끈 것인데).
+        clearInterval(_fxTimer);
+      }
+      try { return await _setFace.apply(this, arguments); } catch (e) { return null; }
+    };
+  }
+  var _fxTimer = null;
+  function armFxWatch() {
+    clearInterval(_fxTimer);
+    var t0 = Date.now();
+    _fxTimer = setInterval(function () {
+      var on = false;
+      try { on = !!(window.vcFx && window.vcFx.active); } catch (e) {}
+      if (on) { clearInterval(_fxTimer); return; }
+      if (Date.now() - t0 < 15000) return;
+      clearInterval(_fxTimer);
+      var el = document.getElementById('vc-fx-status');
+      var en = false;
+      try { en = (typeof window.getLang === 'function' && window.getLang() === 'en'); } catch (e) {}
+      var msg = en
+        ? '⚠ Could not load the face model. Please try once more.'
+        : '⚠ 얼굴인식 파일을 불러오지 못했어요. 한 번만 다시 눌러 주세요.';
+      if (isZh()) msg = '⚠ 无法加载人脸识别模型，请再点一次试试。';
+      if (el) el.textContent = msg;
+      toast(msg);
+    }, 1000);
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     ⑧ 「교사 화면이 작고 학생 화면이 크다」
+     ──────────────────────────────────────────────────────────────
+     [무엇이 문제였나] 타일(칸) 크기는 원래 같다. 작아 보이는 것은 칸 «안에서»
+       교사 얼굴만 검은 띠에 둘러싸여 있기 때문이다.
+       영상을 칸에 맞추는 정본(vcSmartFitVideo · js/idx-main.js)은 «영상과 칸의 방향이
+       다르거나 비율 차가 1.35배를 넘으면» 잘리지 않게 contain(전체 보이기)으로 바꾼다.
+       2026-07-14 에 「교사 화면도 학생처럼 꽉 차게」 지시로 예외를 넣었는데
+       그 예외에 **「세로폰일 때만」** 이라는 조건이 붙어 있었다.
+       → PC·태블릿처럼 얼굴 칸이 «세로로 긴» 배치에서는 예외가 안 걸려,
+         교사의 가로(16:9) 웹캠이 위아래 검은 띠로 작아진다.
+
+     [실측 2026-08-26 · 칸 안에서 얼굴 그림이 차지하는 비율]
+       PC·태블릿 1280x800 : 교사 28.2%(contain) / 학생 42.3%  ← 사장님 신고와 일치
+       폰 가로   844x390  : 교사  100%(cover)  / 학생 26.5%
+       폰 세로   390x844  : 둘 다 100%                        ← 2026-07-14 예외가 걸린다
+
+     [고침] 예외의 조건을 «화면 폭» 이 아니라 **«보내온 영상이 가로인가»** 로 바꾼다.
+       · 교사가 PC 웹캠(가로)이면 어느 기기에서도 꽉 찬다.
+       · 교사가 휴대폰 세로로 들어오면 원래 로직 그대로 — 얼굴이 잘리지 않는다.
+     ⛔ 화면 공유는 제외한다 — 가로 영상이지만 꽉 채우면 **공유한 화면의 좌우가 잘려 나간다.**
+        판별은 그 타일에 붙는 «화면 공유 중» 배지(.vc-ss-badge). 서버(DO)가 fromUserId 를
+        실어 주므로(src/video-call-room.ts:422) 어느 타일인지 확실하다.
+     ℹ️ 내 타일(#vc-local-box)은 건드리지 않는다 — 가상배경이 켜지면 contain 이어야
+        턱·목이 안 잘린다(2026-07-13 결정). 신고도 «상대 화면» 에 대한 것이었다.
+     ⚠️ 맞바꾼 것: 세로로 아주 긴 칸에서는 가로 영상의 좌우가 많이 잘린다.
+        얼굴은 대개 화면 가운데에 있어 괜찮지만, 옆으로 비켜 앉으면 잘릴 수 있다.
+        그때는 화면분할 버튼으로 얼굴 칸을 넓히면 된다.
+  ══════════════════════════════════════════════════════════════ */
+  function isScreenShareTile(box) {
+    try { return !!(box && box.querySelector('.vc-ss-badge')); } catch (e) { return false; }
+  }
+
+  /* ⑧-2 «넉넉히 큰 세로 칸» 에서는 꽉 채우지 않는다 — 확대를 멈춘다
+     ──────────────────────────────────────────────────────────────
+     [지시] 사장님 2026-09-07 「학생이 보는 교사 얼굴을 지금보다 절반 크기로. 너무 크다」
+            + 「셋 중 가장 선명하게, 최대한 가볍게」.
+     [무엇이 문제였나] 위 cover 는 «채우기» 가 아니라 «확대» 다.
+       PC 학생 화면의 얼굴 칸은 세로로 길다. 거기에 교사의 가로 웹캠을 cover 로 넣으면
+       세로에 맞추느라 늘어난다 — **[잰 것 · 1905x1051 창 · 교사 1280x720 · 「얼굴 크게」]**
+       칸은 850x938 인데 그림은 **1669x938**(원본의 1.30배 업스케일)이고 **폭 51% 만 보인다.**
+       → ① 얼굴이 가득 차고 ② 좌우가 잘려 코·입만 남고 ③ 늘린 만큼 흐려진다.
+       세 가지가 한 원인이라 «전체 보이기» 하나로 같이 풀린다 — 그림이 850x478 이 되어
+       얼굴은 **0.51배**(= 850/1669 · 지시한 «절반» 과 일치), 업스케일이 사라져 가장 선명하고,
+       GPU 가 늘리는 일이 없어 가장 가볍다.
+     ⛔ 좁은 칸은 그대로 둔다 — 사이드컬럼(교재 크게)·PIP 에서 전체 보이기를 하면
+        「교사 얼굴이 칸의 28% 로 쪼그라든다」던 2026-08-26 신고가 그대로 되살아난다.
+     ℹ️ 가르는 기준은 폭(px)이 아니라 **크기바에서 사람이 고른 모드**이고,
+        바꾸는 것은 **1:1 수업의 「얼굴 크게」·「모두 보기」뿐**이다(아래 목록 주석의 실측 참고).
+        ⚠️ 그중 「모두 보기」는 실측한 1905x1051 에서 칸이 **가로**(1889x938)라 가드에 걸려
+           실제로는 아무것도 안 바뀐다 — 세로로 긴 화면(태블릿 세로 등)에서만 닿는다.
+        「교재 크게」와 «학생 기본값» 인 「기본」은 손대지 않는다 — 거기서 전체 보이기를 하면
+        얼굴이 칸의 18~27.5% 가 되어 2026-08-26 신고가 그대로 되살아난다.
+     ℹ️ 폰은 이 줄에 애초에 안 닿는다(min-width:1024px) — 2026-07-14 「꽉 차게」 지시 그대로다.
+        폰 세로는 정본(vcSmartFitVideo)이 자기 예외로 먼저 cover 를 준다.
+     ℹ️ 세로 영상(교사가 폰으로 들어옴)은 위 cover 조건이 «가로일 때» 라 여기까지 오지 않는다.
+     ⚠️ 크기바로 칸이 바뀌면 ResizeObserver 가 다시 부른다(idx-main.js vcInstallSmartFit) — 저절로 따라온다. */
+  /* ⛔ 폭(px)으로 가르려다 실패했다 — 하니스가 잡았다.
+        「교재 크게」는 clamp(180px,18%,300px) 이고 「기본」은 clamp(260px,27%,460px) 라
+        **260~300px 이 겹친다.** 폭으로는 두 모드를 원리상 구분할 수 없다.
+        그래서 사람이 «고른 것» 그 자체(크기바 모드)로 가른다.
+
+     🔴 그리고 «작게 두는 모드를 뺀다»(부정 목록)에서 «넓게 보는 모드만»(긍정 목록)으로 좁혔다 —
+        실측이 이유다. 1905x1051 · 교사 웹캠 1280x720 에서 칸 안에 그려지는 그림:
+          「얼굴 크게」 850x938 → 전체 보이기 850x478 = 고치기 전의 **0.51배**  ← 사장님이 본 화면
+          「기본」     459x938 → 전체 보이기 459x258 = 칸의 **27.5%**
+        뒤엣것은 2026-08-26 「교사 얼굴이 칸의 28% 로 쪼그라든다」 신고 수치 **그대로**다.
+        게다가 「기본」은 index.html 의 **학생 기본값**(vc-main-row video-half)이라
+        건드리면 반경이 학생 전원이다. 그래서 «사장님이 그 화면에서 크다고 한» 모드만 바꾼다.
+     ℹ️ 「기본」에서도 줄이려면 이 목록에 'video-half' 를 더하면 된다 — 사람이 정할 일이다. */
+  /* ⛔ 'video-solo' 는 넣지 마세요 — 이름과 달리 «넓게 보는 모드» 가 아닙니다.
+        vcScreenSet(idx-main.js)의 「얼굴 화면 숨기기」·「칠판만」·「교재만」이 그 클래스를
+        재활용합니다(= 얼굴을 감추는 모드). 처음에 넣었다가 함정 대조가 잡았습니다 —
+        실측상 그때 타일이 0x0 이라 무해했지만, 목록을 읽는 다음 사람이 오해합니다. */
+  var MG_WIDE_FACE_MODES = ['video-threequarter', 'video-full'];
+  function mgBigPortraitBox(box) {
+    try {
+      if (!box || box.id === 'vc-local-box') return false;
+      if (!matchMedia('(min-width:1024px)').matches) return false;
+      var bw = box.clientWidth, bh = box.clientHeight;
+      if (!bw || !bh) return false;
+      if (bh <= bw) return false;                 // 가로로 넓은 칸은 확대가 안 일어난다(PIP 포함)
+      /* 🔴 1:1 수업에만 — 그룹 수업에서는 방향이 «반대» 가 된다.
+         [잰 것 — 1905x1051 · 함정 대조] 4인 「얼굴 크게」는 스포트라이트가 걸려
+         교사 타일이 가로(834x553)라 그대로인데 **학생 타일만**(273x361) 세로여서
+         얼굴이 42.7% 로 줄었다. 3인 「모두 보기」는 전원이 37.9%.
+         지시는 「학생이 보는 교사 얼굴」이었으므로 그 조합은 고치려던 것과 반대다.
+         ℹ️ ⑨(교사를 크게)도 같은 이유로 data-count="2" 에만 건다 — 3명 이상은
+            «누가 주인공인가» 가 정해지지 않는다. */
+      var grid = document.getElementById('vc-video-grid');
+      if (!grid || grid.getAttribute('data-count') !== '2') return false;
+      var row = document.getElementById('vc-main-row');
+      if (!row) return false;                     // 모르면 옛 동작 그대로
+      for (var i = 0; i < MG_WIDE_FACE_MODES.length; i++) {
+        if (row.classList.contains(MG_WIDE_FACE_MODES[i])) return true;
+      }
+      return false;                               // 모르는 모드도 옛 동작 그대로
+    } catch (e) { return false; }
+  }
+  window.mgBigPortraitBox = mgBigPortraitBox;   // 검사·콘솔에서 부를 수 있게
+
+  var _smartFit = window.vcSmartFitVideo;
+  if (typeof _smartFit === 'function') {
+    window.vcSmartFitVideo = function (v) {
+      try {
+        var box = (v && v.closest) ? v.closest('.video-box') : null;
+        /* 🖥 화면 공유는 «무조건» 전체 보이기. 잘리면 공유한 화면의 좌우가 사라진다.
+           ⚠️ 원래 로직에는 「세로폰에서 상대 타일은 무조건 cover」(2026-07-14) 가 있어서
+              그냥 넘기면 세로폰에서 공유 화면이 잘렸다(2026-08-26 실측 100% cover).
+              그 지시는 «얼굴» 을 꽉 채우라는 것이었지 공유 화면 얘기가 아니다. */
+        if (box && isScreenShareTile(box)) {
+          v.style.setProperty('object-fit', 'contain', 'important');
+          return;
+        }
+        /* 🔍 큰 세로 칸이면 꽉 채우지 않는다 — 위 ⑧-2. 정본에 맡기면 «전체 보이기» 가 된다. */
+        if (v && v.videoWidth && v.videoHeight && v.videoWidth >= v.videoHeight
+            && box && box.id !== 'vc-local-box' && !mgBigPortraitBox(box)) {
+          v.style.setProperty('object-fit', 'cover', 'important');
+          return;
+        }
+      } catch (e) {}
+      return _smartFit.apply(this, arguments);
+    };
+  }
+
+  /* 화면 공유가 시작·중지되면 배지가 붙고 떨어진다 → 그 타일만 다시 맞춘다.
+     ⛔ body 의 class 를 지켜보지 않는다(그건 홈 전체를 멎게 한 전력이 있다).
+        영상 그리드 하나만, 배지가 오갈 때만 본다 — 같은 자리에 이미 형제 감시가 있다
+        (idx-main.js 의 grid.__aspectMO). */
+  (function watchScreenShareBadge() {
+    function arm() {
+      var grid = document.getElementById('vc-video-grid');
+      if (!grid || grid.__ssFitMO) return;
+      grid.__ssFitMO = new MutationObserver(function (recs) {
+        var touched = false;
+        for (var i = 0; i < recs.length; i++) {
+          var all = [].concat([].slice.call(recs[i].addedNodes), [].slice.call(recs[i].removedNodes));
+          for (var j = 0; j < all.length; j++) {
+            var n = all[j];
+            if (n && n.classList && n.classList.contains('vc-ss-badge')) { touched = true; break; }
+          }
+          if (touched) break;
+        }
+        if (!touched) return;
+        try {
+          grid.querySelectorAll('.video-box video').forEach(function (v) { window.vcSmartFitVideo(v); });
+        } catch (e) {}
+      });
+      grid.__ssFitMO.observe(grid, { childList: true, subtree: true });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm);
+    else arm();
+    setTimeout(arm, 1500);          // 그리드가 늦게 생기는 경로 대비 (끝이 있는 재시도)
+  })();
+
+  /* ══════════════════════════════════════════════════════════════
+     ⑨ 1:1 수업의 얼굴 타일 크기 — 학생 화면은 «교사가 크게», 교사 화면은 «둘이 같게»
+     ──────────────────────────────────────────────────────────────
+     [지시] 2026-08-26 「교사를 학생보다 더 크게도 해줘」 → 2026-09-08 「교사 화면에서는 같은 크기로」.
+
+     [먼저 재 봤다 — 화면마다 «구조 자체» 가 다르다]  칸 크기 실측(1:1, video-half)
+       PC 1280x800 : 상대 341x687 / 나 210x158 → 이미 상대가 7.15배
+                     ⚠️ 여기는 그리드가 아니다 — css/vc-refresh.css 가
+                        «상대 전체화면 + 내 타일은 오른아래 작은 PIP» 로 그린다.
+       폰 가로     : 295x139 / 295x139 → 정확히 1배   ← 그리드(세로로 쌓임)
+       폰 세로     : 187x345 / 187x345 → 정확히 1배   ← 그리드(좌우로 갈림)
+     → 그래서 고침이 «두 종류» 다: 폰은 fr 비중, PC 는 «절대배치인가 그리드인가».
+
+     ⚠️ 그 두 곳은 2026-07-14 지시로 «정확히 반반» 이 못 박혀 있던 자리다
+        (index.html 3272·3392·3412 — 「겹침·축소·가림 절대 금지」).
+        2026-08-26 사장님 지시로 그 결정을 바꾼다. 되돌리려면 이 절만 지우면 된다.
+
+     [무엇을 크게 하나 — 화면마다 다르다]
+       · 학생 화면 → 상대(교사)가 큼        (2026-07-14·08-26 결정 유지)
+       · 교사 화면 → **둘이 같은 크기**     (2026-09-08 사장님 지시)
+     📜 이 자리는 지시가 세 번 바뀌었다. 어느 쪽으로 되돌리든 «누가 언제 왜» 를 남긴다.
+       ① 2026-07-14 「정확히 반반」 (index.html 3272·3392·3412)
+       ② 2026-08-26 「교사를 더 크게 — 교사 화면에서는 자기 자신이」 → 교사 화면이 1.6배·PC 는 전체화면
+       ③ 2026-09-08 「교사 얼굴이 너무 크다. 교사·학생을 같은 크기로 줄여라.
+                      **학생 화면은 현재대로**」 → 교사 화면만 ①로 되돌림
+     ⚠️ ③은 «교사 화면만» 이다. 학생 화면의 1.6배(폰)·전체화면+PIP(PC)는 그대로 두었다 —
+        둘을 함께 반반으로 만들면 2026-07-14 로 통째로 되돌아가는 것이라 지시를 벗어난다.
+     ℹ️ 순서(order)는 건드리지 않는다 — 내 타일은 그대로 맨 뒤에 있고 «크기» 만 바뀐다.
+     ℹ️ 1:1(data-count="2") 일 때만. 3명 이상은 주인공이 정해지지 않는다.
+  ══════════════════════════════════════════════════════════════ */
+  var BIG  = '1.6fr 1fr';          // 첫 칸(상대)이 큼      — 학생 화면
+  var SAME = '1fr 1fr';            // 둘이 같은 크기        — 교사 화면(2026-09-08 사장님 지시)
+  var PORT = '@media (max-width:920px) and (orientation:portrait){';
+  var LAND = '@media (max-width:1024px) and (orientation:landscape),(max-height:600px) and (orientation:landscape){';
+  /* 원래 규칙(index.html 3272·3392)이 (3,2,0)·(3,3,0) 이라 [data-count] 로 한 칸 더 얹어 이긴다.
+     교사용 줄은 body 에 클래스가 하나 더 붙어 자동으로 더 세다. */
+  var SEL_P  = 'body.vc-in-call#{ME} #vc-main-row.video-half #vc-video-grid#vc-video-grid[data-count="2"]';
+  var SEL_L  = 'body.vc-in-call#{ME} #vc-main-row:not(.video-solo):not(.video-full) #vc-video-grid#vc-video-grid[data-count="2"]';
+  function sel(t, me) { return t.replace('#{ME}', me ? '.mg-teacher-self:not(.vc-observer)' : ':not(.mg-teacher-self)'); }
+
+  var HERO_CSS =
+    /* 폰 세로 — 위쪽 얼굴 띠가 «좌우» 로 갈린다 → 가로 비중 */
+    PORT +
+      sel(SEL_P, false) + '{grid-template-columns:' + BIG + ' !important}' +
+      sel(SEL_P, true)  + '{grid-template-columns:' + SAME + ' !important}' +
+    '}' +
+    /* 폰 가로 — 오른쪽 얼굴 컬럼이 «위아래» 로 쌓인다 → 세로 비중 */
+    LAND +
+      sel(SEL_L, false) + '{grid-template-rows:' + BIG + ' !important;grid-auto-rows:1fr !important}' +
+      sel(SEL_L, true)  + '{grid-template-rows:' + SAME + ' !important;grid-auto-rows:1fr !important}' +
+    '}' +
+    /* PC·태블릿(≥1024px) — 여기는 그리드가 아니다.
+       css/vc-refresh.css 가 1:1 을 «상대 전체화면 + 내 타일은 오른아래 작은 PIP(24%·최대 210px)» 로 그린다
+       (display:block + 둘 다 position:absolute). 학생 화면은 그대로 두고, 교사 화면만 손댄다.
+
+       [2026-09-08 사장님 지시] 「교사 수업에서 교사 얼굴이 너무 크게 나온다 —
+        교사 얼굴과 학생 얼굴을 같은 크기로 줄여라. 학생 화면은 현재대로.」
+       그전(2026-08-26~09-07)에는 여기서 그 둘을 «맞바꿔» 교사 자신이 전체화면, 학생이 210px PIP 였다.
+       이제는 맞바꾸지 않고 «절대배치 자체를 끄고» 그리드 반반으로 되돌린다.
+       ⚠️ 학생 화면(:not(.mg-teacher-self))은 한 줄도 안 건드린다 — 거기서는 여전히
+          교사가 전체화면이고 내 타일이 오른아래 PIP 다(2026-07-14·08-26 결정 유지).
+       ⚠️ 위아래로 나눈다(1fr/1fr rows). PC 얼굴 칸은 세로로 긴 컬럼이라(실측 폭 341 · 높이 687)
+          좌우로 나누면 한 칸이 170px 짜리 세로 막대가 되어 얼굴이 남지 않는다.
+       ⚠️ (min-width:1024px) 으로 묶어 둔다 — 이 줄이 폰까지 닿으면 위 반반 규칙과 겹친다.
+       ⚠️ 이겨야 할 상대가 둘이다: vc-refresh.css 의 절대배치(id 1개)와
+          index.html vc-teacher-first 의 «내 타일 62% 축소»(3,5,1). 그래서 id 를 다섯 개로 만든다
+          (id 개수를 먼저 비교하므로 클래스가 적어도 이긴다). */
+    '@media (min-width:1024px){' +
+      /* ① 그리드로 되돌린다 — vc-refresh.css 의 display:block(전체화면+PIP 구조)을 끈다 */
+      'body.vc-in-call.mg-teacher-self:not(.vc-observer) #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"]{' +
+        'display:grid !important;position:relative !important;' +
+        'grid-template-columns:1fr !important;grid-template-rows:1fr 1fr !important;' +
+        'grid-auto-rows:1fr !important;align-content:stretch !important;gap:4px !important}' +
+      /* ② 두 타일 모두 절대배치를 풀고 자기 칸을 꽉 채운다 = 정확히 같은 크기 */
+      'body.vc-in-call.mg-teacher-self:not(.vc-observer) #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"] .video-box{' +
+        'position:relative !important;inset:auto !important;' +
+        'width:100% !important;height:100% !important;min-height:0 !important;' +
+        'max-width:none !important;aspect-ratio:auto !important;' +
+        'border-radius:12px !important;overflow:hidden !important;z-index:auto !important}' +
+      /* ③ 내 타일 — ②와 같은 값에 «흐리게»(vc-teacher-first 의 opacity:.96)를 끄는 줄을 더한다.
+         📌 [잰 것] ③을 통째로 지우고 실측하니 실제로 달라지는 것은 **opacity 하나뿐**이었다
+            (0.96 → 1). 폭 62%·margin-left:auto 는 ②의 width:100%(4,5,1)가
+            vc-teacher-first(3,5,1)를 이미 이겨 무효화된다(실측 width 329px · margin-left 0px).
+         ⚠️ 그러니 ③을 «없어도 되는 줄» 로 읽지 말 것 — 지우면 교사 자기 타일만 조용히
+            흐려진다(크기는 그대로라 «면적» 만 재는 검사로는 안 잡힌다).
+            그래서 브라우저 검사 ⑨-2 가 opacity 도 함께 잰다. */
+      'body.vc-in-call.mg-teacher-self:not(.vc-observer) #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"] #vc-local-box{' +
+        'position:relative !important;inset:auto !important;' +
+        'width:100% !important;height:100% !important;min-height:0 !important;' +
+        'max-width:none !important;aspect-ratio:auto !important;' +
+        'margin-left:0 !important;margin:0 !important;opacity:1 !important;' +
+        'border-radius:12px !important;overflow:hidden !important;z-index:auto !important;' +
+        'box-shadow:0 0 0 2px rgba(251,191,36,.55),0 4px 14px rgba(0,0,0,.38) !important}' +
+    '}';
+
+  /* ⑨-3 «이 방의 교사가 누구인가» — 상대 타일에 교사가 있으면 내가 무엇이든 상대가 주인공이다.
+     ──────────────────────────────────────────────────────────────
+     [사고] 2026-08-26 사장님 신고 「학생 수업 입장인데 내가 크고 교사가 작다」.
+       원인은 CSS 가 아니라 «역할» 이었다. jeong 은 홈 통합 로그인에서 관리자 폴백으로 들어가
+       학생 세션(mangoi_logged_user)이 없다 → 입장 역할 판정이 계정 역할을 못 찾고
+       관리자 세션 하나만 보고 admin 으로 떨어진다(idx-main.js «else if (_admUid)» 줄).
+       그러면 아래 ⑨ 의 「교사 화면에서는 자기 자신이 크게」가 그대로 걸려 얼굴이 맞바뀐다.
+     ⚠️ 그 오판을 서버가 되돌려 주지 못한다 — /api/class/verify-room 은 role=admin 이면
+        «privileged» 로 즉시 통과시키고 resolved_role 을 주지 않는다(api-mango.ts).
+        그래서 idx-main.js 의 «이 예약의 학생이면 역할을 내린다» 교정이 admin 에서만 안 돈다
+        → 한 번 admin 으로 잡히면 수업 내내 뒤집힌 채로 간다(실측 10분).
+     [고침] 판정을 «내가 스태프인가» 에서 «상대 중에 교사가 있는가» 로 옮긴다.
+       교사가 상대편에 있으면 내가 admin 이든 teacher 든 상대가 크다. 사장님·매니저가
+       학생 자리로 들어가도, 강사가 다른 강사 수업을 참관 삼아 들어가도 「교사가 크다」가 지켜진다.
+     ⛔ 역할 판정 정본(vcIsStaffNow)이나 idx-main.js 를 고쳐서 풀지 않는다 —
+        그 값은 화면공유·교재 넘김·장치 도우미까지 걸린 «권한» 이고, 여기서 필요한 것은
+        «화면에서 누가 주인공인가» 뿐이다. 권한은 그대로 두고 크기만 바로잡는다.
+     ℹ️ 상대 타일의 역할이 아직 안 왔으면 기본값이 'student' 라(idx-main.js) 진짜 교사 화면은
+        예전처럼 즉시 자기 자신이 커진다. 늦게 도착하면 vcApplySpotlight 를 감싸 다시 본다. */
+  function mgBoxIsTeacher(b) {
+    try {
+      /* 판정 정본은 idx-main.js 의 vcBoxIsStudent — 역할 + 이름 휴리스틱을 이미 함께 본다.
+         ⚠️ 그 이름이 바뀌면 조용히 헛돌므로 아래에 같은 뜻의 대비책을 둔다(하니스가 둘 다 본다). */
+      if (typeof window.vcBoxIsStudent === 'function') return !window.vcBoxIsStudent(b);
+      var uid = String(b.id || '').replace('vc-video-', '');
+      var role = (b.dataset && b.dataset.role) || (window.vcPeerRoles && window.vcPeerRoles[uid]) || 'student';
+      if (role === 'teacher' || role === 'admin' || role === 'observer') return true;
+      var lbl = b.querySelector('.video-label');
+      return /교사|강사|선생님|teacher|tutor/i.test((lbl && lbl.textContent) || '');
+    } catch (e) { return false; }
+  }
+  function mgRemoteTeacherPresent() {
+    try {
+      var grid = document.getElementById('vc-video-grid');
+      if (!grid) return false;
+      var bs = grid.querySelectorAll('.video-box');
+      for (var i = 0; i < bs.length; i++) {
+        var b = bs[i];
+        if (!b.id || b.id === 'vc-local-box') continue;
+        if (b.dataset && b.dataset.demo === '1') continue;   // 시연용 선생님 타일은 사람이 아니다
+        if (mgBoxIsTeacher(b)) return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  /* 내가 교사·관리자인가 — 역할은 입장 뒤에 정해지므로 «끝이 있는» 확인으로 몇 번 다시 본다.
+     ⛔ body class 를 MutationObserver 로 지켜보지 않는다(홈 전체를 멎게 한 전력이 있다).
+     ⛔ 있을 때만 지우고 없을 때만 더한다 — 무조건 classList 를 쓰면 class 속성이 다시 쓰여
+        남의 감시자를 깨운다(2026-07-14 라이브 장애와 같은 뿌리). */
+  function syncTeacherSelf() {
+    try {
+      var staff = false;
+      try {
+        staff = (typeof window.vcIsStaffNow === 'function') ? !!window.vcIsStaffNow()
+              : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin');
+      } catch (e) {}
+      /* ⛔ 참관(Ghost)은 제외한다. 참관자는 vcMyRole='admin' 이라 위 판정이 true 인데,
+         참관자의 #vc-local-box 는 영상이 없는 «빈 타일» 이고 지워지지도 않는다
+         (index.html 에 정적으로 있다). 방에 한 명뿐일 때 data-count="2" 가 되어
+         «빈 내 타일이 전체화면 + 진짜 참가자가 210px PIP» 가 된다 — 2026-08-26 실측으로 밟음.
+         ⚠️ 선택자에도 :not(.vc-observer) 를 함께 걸어 뒀다. 그 클래스를 붙이는
+         js/vc-observe-guard.js 와 이 파일의 실행 순서에 기대지 않기 위해서다. */
+      var observing = document.body.classList.contains('vc-observer');
+      /* 🧑‍🏫 상대편에 교사가 있으면 주인공은 그쪽이다 — 위 ⑨-3 참고 */
+      var want = staff && !observing && !mgRemoteTeacherPresent()
+              && document.body.classList.contains('vc-in-call');
+      var has = document.body.classList.contains('mg-teacher-self');
+      if (want && !has) document.body.classList.add('mg-teacher-self');
+      else if (!want && has) document.body.classList.remove('mg-teacher-self');
+    } catch (e) {}
+  }
+  window.mgSyncTeacherSelf = syncTeacherSelf;   // 검사·콘솔에서 부를 수 있게
+  window.mgRemoteTeacherPresent = mgRemoteTeacherPresent;
+
+  /* 교사가 «나중에» 들어오거나 역할이 늦게 도착하는 경우 — 그때 다시 본다.
+     vcApplySpotlight 는 ① 타일을 만들 때 ② 로스터에서 역할이 올 때 불린다(idx-main.js).
+     ⛔ 상주 setInterval·body class 감시를 두지 않는다(둘 다 이 저장소에서 사고를 낸 방식).
+     ℹ️ vc-spotlight.js 는 이 파일보다 «먼저» 오는 defer 라(index.html 15092 대 16367)
+        여기서 감싸면 원본이 안전하게 잡힌다. */
+  var _spot = window.vcApplySpotlight;
+  if (typeof _spot === 'function') {
+    window.vcApplySpotlight = function () {
+      var r = _spot.apply(this, arguments);
+      try { syncTeacherSelf(); } catch (e) {}
+      return r;
+    };
+  }
+
+  (function injectHeroCss() {
+    function put() {
+      if (document.getElementById('mg-hero-css')) return;
+      if (!document.body) return;
+      var st = document.createElement('style');
+      st.id = 'mg-hero-css';
+      st.textContent = HERO_CSS;
+      document.body.appendChild(st);   // 이 저장소의 화면 CSS 는 body 안에서 링크된다 — 뒤에 와야 이긴다
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put);
+    else put();
+  })();
+
+  /* ── 화면 상태에 따라 확대 버튼 보이기/숨기기 ──────────────────
+     ⛔ body 의 class 를 MutationObserver 로 지켜보지 않는다 — 이 저장소에는 body class 를
+        자주 다시 쓰는 코드가 여럿이라 콜백이 쉴 새 없이 돌아 화면이 멎은 전력이 있다
+        (CLAUDE.md 함정표 · 2026-07-14 라이브 장애). 대신 vcSwitchTab 을 감싸고,
+        수업에 들어간 순간부터 «끝이 있는» 확인만 한다. */
+  var _switchTab = window.vcSwitchTab;
+  if (typeof _switchTab === 'function') {
+    window.vcSwitchTab = function () {
+      var r = _switchTab.apply(this, arguments);
+      try { ensureZoomBtns(); zoomBtnsSync(); syncTeacherSelf(); } catch (e) {}
+      return r;
+    };
+  }
+  var _join = window.vcJoinRoom;
+  if (typeof _join === 'function') {
+    window.vcJoinRoom = function () {
+      var r = _join.apply(this, arguments);
+      var n = 0;
+      var iv = setInterval(function () {
+        try { ensureZoomBtns(); zoomBtnsSync(); syncTeacherSelf(); } catch (e) {}
+        if (++n >= 12) clearInterval(iv);      // 6초까지만 — 상주 타이머를 남기지 않는다
+      }, 500);
+      return r;
+    };
+  }
+  window.addEventListener('orientationchange', function () { setTimeout(zoomBtnsSync, 500); });
+  window.addEventListener('resize', function () { setTimeout(zoomBtnsSync, 300); });
+
+
+  /* ══════════════════════════════════════════════════════════════
+     ⑩ 🈶 중국어 복습퀴즈 — 「이 수업 언어」 자동 판정 + 「과(진도)」 고르기
+     ──────────────────────────────────────────────────────────────
+     [신고] 2026-08-26 사장님 — 「중국어 수업 끝났는데 복습퀴즈가 왜 영어가 나와?」
+            「수업교재와 진도에 맞게 중국어 퀴즈가 나와야 하는데 안 되네」
+
+     [무엇이 문제였나] 중국어 퀴즈가 없어서가 아니다 — 다락원 제1~14과가 이미 다 있다
+       (review_quizzes 활성 16건, source='passage' = 사람이 만든 교재본문 기반).
+       닿지 못한 이유가 셋이었다.
+         ① 언어를 «수업» 에서 안 읽었다 — idx-x8.js 의 st.lang 은 localStorage
+            (mangoi_review_lang·mangoi_game_lang)만 보고 기본값이 'en' 이다. 즉
+            «학생이 예전에 게임탭에서 골라둔 값» 이지 «이 수업이 무슨 언어인가» 가 아니다.
+         ② 교재 이름이 서로 달랐다 — 라이브러리 「다락원 중국어 마스터 3」 대 콘텐츠 「다락원」.
+            서버 매칭이 LOWER(textbook)=LOWER(?) 정확일치라 영영 안 맞았다.
+         ③ 진도(과)를 아무도 안 적었다 — mangoi_current_lesson 은 «읽는» 코드만 둘이고
+            **저장하는 코드가 저장소 전체에 0곳**이었다. 그래서 lesson_no 는 늘 0.
+
+     [고침] ①②는 서버에서 끝냈다(src/zh-textbook.ts + /api/review-quiz/auto 가 교재로
+       언어를 판정하고 이름을 이어 준다). 여기서 하는 것은 ③ — **학생이 과를 고르게** 한다
+       (2026-08-26 사장님 결정). 자동으로는 못 정한다: 그 교재 583쪽이 전부 「미분류 레슨」이고
+       unit_no 도 583개 전부 NULL 이라, 몇 과인지가 시스템 어디에도 없다.
+
+     ⛔ 교재 파일 이름에서 과를 «짐작» 하지 말 것 — 단서가 한 글자도 없다.
+     ⚠️ 이 파일에 두는 이유: idx-x8.js 는 blocking 이라 첫 화면 예산(여유 ~1.8KB)을 먹는다.
+        여기는 defer 라 첫 그림에 0바이트를 더한다(CLAUDE.md 「blocking 파일을 못 고칠 때」).
+     ══════════════════════════════════════════════════════════════ */
+  (function () {
+    var LS_LESSON = 'mangoi_current_lesson';   // idx-x8.js 의 ctx() 가 읽는 바로 그 칸
+    var probed = false, meta = null, autoSwitched = false;
+    /* 🔓 (2026-09-02) 교재가 «나중에» 도착하면 probe 를 다시 하게 푼다 — ⑬절이 부른다.
+       ⛔ autoSwitched 는 리셋하지 않는다 — rqvToggleLang 은 토글이라 두 번 부르면 도로 영어가 된다. */
+    window.__rqvResetProbe = function () { probed = false; meta = null; };
+
+    function body() { return document.getElementById('rqv-body'); }
+    function curLesson() {
+      try { return parseInt(localStorage.getItem(LS_LESSON) || '0', 10) || 0; } catch (e) { return 0; }
+    }
+    /* 이 수업의 교재·레벨 — idx-x8.js 의 ctx() 와 «같은 자리» 를 읽는다.
+       ⛔ 여기서 새로 추정하지 말 것. 두 곳이 서로 다른 교재를 보면 고른 과가 엉뚱한 퀴즈에 붙는다. */
+    function classCtx() {
+      var tb = '', lv = '';
+      try { tb = window.__mangoiCurrentBookId || window.__mangoiLastVideoBook || ''; } catch (e) {}
+      try { lv = localStorage.getItem('mangoi_current_level') || ''; } catch (e) {}
+      return { textbook: String(tb || '').trim(), level: String(lv || '').trim() };
+    }
+    /* 서버에 «이 수업이 무슨 언어이고 과가 몇 개인가» 만 물어본다.
+       ⚠️ auto_generate:0 — 물어보기만 하고 **퀴즈를 만들지 않는다**. 이걸 빠뜨리면 탭을 열 때마다
+          AI 가 새 퀴즈를 찍어내 review_quizzes 에 쓰레기가 쌓인다. */
+    async function probe() {
+      if (probed) return meta;
+      var c = classCtx();
+      /* 교재·레벨이 «아직» 없으면 잠그지 않는다 — 수업 초반에 복습 탭부터 열면
+         probed=true 가 영영 남아, 교재가 뜬 뒤에도 中文 전환·진도 줄이 그 세션 내내
+         안 나온다(= 이 패치가 고치려던 「중국어 수업인데 영어 퀴즈」 재현). */
+      if (!c.textbook && !c.level) return null;
+      probed = true;
+      try {
+        var r = await fetch('/api/review-quiz/auto', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ textbook: c.textbook, level: c.level, auto_generate: 0 })
+        }).then(function (x) { return x.json(); });
+        if (r && r.ok && r.lang === 'zh') meta = r;
+      } catch (e) { try { console.warn('[mobilefix ⑩] probe skip', e); } catch (_) {} }
+      return meta;
+    }
+    /* 화면이 영어로 잡혀 있으면 한 번만 中文 으로 돌린다.
+       ⚠️ st.lang 은 idx-x8.js 안에 갇혀 있어 밖에서 못 읽는다 — 버튼 «글자» 로 현재 상태를 본다.
+       ⛔ 두 번 부르면 도로 영어가 된다(토글이라). autoSwitched 로 한 번만. */
+    function switchToZhOnce() {
+      if (autoSwitched) return;
+      var b = document.getElementById('rqv-lang-btn');
+      if (!b || String(b.textContent || '').indexOf('EN') < 0) return;   // 이미 中文 이면 둔다
+      autoSwitched = true;
+      try { localStorage.setItem('mangoi_review_lang', 'zh'); } catch (e) {}
+      try { if (typeof window.rqvToggleLang === 'function') window.rqvToggleLang(); } catch (e) {}
+    }
+    function pick(n) {
+      try { localStorage.setItem(LS_LESSON, String(n || 0)); } catch (e) {}
+      paint();
+      try { if (typeof window.rqvAuto === 'function') window.rqvAuto(true); } catch (e) {}
+    }
+    window.__rqvPickLesson = pick;
+
+    function paint() {
+      if (!meta || !meta.lessons || !meta.lessons.length) return;
+      var host = body();
+      if (!host || !host.parentNode) return;
+      var bar = document.getElementById('rqv-lesson-bar');
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'rqv-lesson-bar';
+        /* ⚠️ #rqv-body «밖» 에 둔다 — renderQ() 가 body 를 통째로 다시 그리므로
+              안에 넣으면 문항을 넘길 때마다 이 줄이 사라진다(#rqv-live 와 같은 이유). */
+        host.parentNode.insertBefore(bar, host);
+      }
+      bar.setAttribute('style', 'flex-shrink:0;padding:8px 14px;background:rgba(239,68,68,.08);'
+        + 'border-bottom:1px solid rgba(239,68,68,.25);display:flex;align-items:center;gap:6px;'
+        + 'flex-wrap:wrap;font-size:12px;color:#fecaca;line-height:1.2');
+      var cur = curLesson();
+      var en = false;
+      // ⚠️ window.langCurrent 는 어디에서도 대입되지 않는 이름이고, 이 화면은
+      //    documentElement.lang 도 안 바꾼다 — 언어 판정 정본은 getLang() 하나(CLAUDE.md 2장).
+      try { en = (typeof window.getLang === 'function' && window.getLang() === 'en'); } catch (e) {}
+      var html = '<span style="font-weight:800;white-space:nowrap">📖 '
+        + (en ? 'Lesson' : '진도') + '</span>';
+      html += btn(0, en ? 'All' : '전체', cur === 0);
+      for (var i = 0; i < meta.lessons.length; i++) {
+        var n = meta.lessons[i];
+        html += btn(n, (en ? 'L' + n : '제' + n + '과'), cur === n);
+      }
+      bar.innerHTML = html;
+    }
+    function btn(n, label, on) {
+      return '<button onclick="__rqvPickLesson(' + n + ')" style="padding:4px 9px;border-radius:7px;'
+        + 'cursor:pointer;font-family:inherit;font-size:12px;font-weight:800;white-space:nowrap;'
+        + (on ? 'border:1px solid #fbbf24;background:#fbbf24;color:#1a1a1a'
+              : 'border:1px solid rgba(148,163,184,.4);background:rgba(255,255,255,.06);color:#e6ecff')
+        + '">' + label + '</button>';
+    }
+
+    async function ensureBar() {
+      await probe();
+      if (!meta) return;
+      switchToZhOnce();
+      paint();
+    }
+    /* idx-x8.js 가 복습퀴즈 화면을 그리는 «세 입구» 를 모두 감싼다.
+       ⚠️ 한 곳만 감싸면 다른 경로로 들어왔을 때 줄이 안 생긴다(수업 종료 흐름은 rqvAuto 로 곧장 온다). */
+    ['rqvOnEnter', 'rqvAuto', 'rqvLoadList'].forEach(function (name) {
+      var orig = window[name];
+      if (typeof orig !== 'function') return;      // 원본이 없으면 조용히 건너뛴다
+      window[name] = function () {
+        var r;
+        try { r = orig.apply(this, arguments); } finally { setTimeout(ensureBar, 0); }
+        return r;
+      };
+    });
+  })();
+
+
+  /* ══════════════════════════════════════════════════════════════
+     ⑪ 🈶 교재를 넘기면 «지금 몇 과인지» 를 기록한다
+     ──────────────────────────────────────────────────────────────
+     [왜 필요한가] ⑩절에서 학생이 과를 손으로 고르게 했지만, 그건 교재에 과 정보가
+       하나도 없어서 어쩔 수 없이 택한 길이었다(583쪽 전부 「미분류 레슨」·unit_no 전부 NULL).
+       교재를 과별 폴더로 다시 올리면 그 정보가 생긴다 — 그런데 **올리기만 해서는 소용이 없다.**
+       `mangoi_current_lesson` 은 읽는 코드만 둘이고 **저장하는 코드가 저장소 전체에 0곳**이라,
+       교재에 과가 생겨도 복습퀴즈까지 이어지는 고리가 여전히 끊겨 있다.
+       이 절이 그 마지막 한 칸을 잇는다 — 교재를 넘기면 진도가 저절로 따라간다.
+
+     [어디서 읽나] 교재 시퀀스 항목의 이름은 업로더가 「[교재명] 레슨명 / 파일명」 으로 만든다
+       (js/idx-x3.js buildBookSequence). 그 «레슨명» 이 곧 과다.
+     [언제 도나] window.pdfSyncSeqIdx — 보이는 파일이 바뀔 때마다 도는 정본이다
+       (다른 기기가 넘겨도 여기로 온다). ⛔ 상주 setInterval·MutationObserver 를 두지 않는다
+       (CLAUDE.md: body class 감시가 홈 전체를 멎게 한 전력).
+
+     ⚠️ 과를 «모르면» 0 으로 지운다 — 안 지우면 앞 교재의 과가 남아 엉뚱한 퀴즈가 붙는다.
+     ⚠️ 학생이 ⑩절에서 손으로 고른 값을 덮어쓰지 않는다 — 교재가 «실제로 다른 과로 옮겨갔을 때» 만 쓴다.
+     ══════════════════════════════════════════════════════════════ */
+  (function () {
+    var LS_LESSON = 'mangoi_current_lesson';
+    /* 마지막으로 «자동» 으로 쓴 값. ⚠️ 0 으로 시작해야 한다 — null 로 두면 첫 record()
+       에서 과를 모르는 교재(n=0)가 0!==null 을 타고 localStorage 를 '0' 으로 덮어써,
+       학생이 ⑩절에서 방금 고른 과를 지운다(«전환일 때만 덮어쓴다» 약속 위반). */
+    var lastAuto = 0;
+
+    /* 「[다락원 중국어 마스터 3] 제7과 / Slide3.JPG」 → 7
+       ⛔ 파일 이름은 보지 않는다 — Slide3.JPG 의 3 을 과로 잘못 읽는다(업로더가 밟았던 함정). */
+    function lessonOf(name) {
+      var s = String(name || '');
+      var m = /^\s*\[[^\]]*\]\s*([^/]*)/.exec(s);   // 대괄호 교재명 다음 ~ 첫 슬래시 앞 = 레슨명
+      if (!m) return 0;
+      var seg = m[1];
+      var n = /제\s*(\d+)\s*과|Lesson\s*(\d+)|Unit\s*(\d+)|Chapter\s*(\d+)/i.exec(seg);
+      if (!n) return 0;                            // 「미분류 레슨」·「A 유닛」 → 모름
+      for (var i = 1; i < n.length; i++) { if (n[i]) return parseInt(n[i], 10) || 0; }
+      return 0;
+    }
+    function currentName() {
+      try {
+        var seq = window._libSequence;
+        if (!seq || !seq.length) return '';
+        var it = seq[window._libSeqIdx || 0];
+        return (it && it.name) || '';
+      } catch (e) { return ''; }
+    }
+    function record(name) {
+      var n = lessonOf(name || currentName());
+      if (n === lastAuto) return;                  // 교재가 그 과에 그대로 있다 → 학생 선택을 건드리지 않는다
+      lastAuto = n;
+      try { localStorage.setItem(LS_LESSON, String(n)); } catch (e) {}
+      try { console.log('[mobilefix ⑪] 진도 기록: ' + (n ? '제' + n + '과' : '(모름)')); } catch (e) {}
+    }
+    window.__mgRecordLesson = record;             // ⑩절·검사에서 부를 수 있게
+
+    // 보이는 파일이 바뀌는 정본 — 다른 기기가 넘겨도 여기로 온다
+    var _sync = window.pdfSyncSeqIdx;
+    if (typeof _sync === 'function') {
+      window.pdfSyncSeqIdx = function (url) {
+        var r;
+        try { r = _sync.apply(this, arguments); } finally { try { record(''); } catch (e) {} }
+        return r;
+      };
+    }
+    // 교재를 처음 열 때 — 이름이 인자로 바로 온다(시퀀스가 아직 안 잡혔을 수 있다)
+    var _sel = window.selectFromTextbookLibrary;
+    if (typeof _sel === 'function') {
+      window.selectFromTextbookLibrary = function (id, url, kind, name) {
+        var r;
+        try { r = _sel.apply(this, arguments); } finally { try { record(name); } catch (e) {} }
+        return r;
+      };
+    }
+  })();
+
+  /* ══════════════════════════════════════════════════════════════
+     ⑫ 🎬 공유 영상에 학생용 「일시정지」·「소리 끄기」 버튼
+     ──────────────────────────────────────────────────────────────
+     [왜 필요한가] 강사가 공유한 영상은 학생 쪽 iframe 이 pointer-events:none 으로
+       잠겨 있다(2026-08-12 Melca 피드백 — 학생이 빨리감기로 수업을 건너뛰지 못하게).
+       그런데 「🔊 소리 켜기」 버튼이 한 번 누르면 스스로 사라지는(btn.remove) 구조라,
+       소리를 한 번 켜면 다시 끌 방법도, 영상을 멈출 방법도 화면에 하나도 없었다
+       (2026-08-27 사장님·Karl 테스트: 「계속 플레이하게 됩니다」).
+     [무엇을 다나] idx-main.js 의 vpAddSoundOverlay 를 감싸, 영상을 받은 사람 화면의
+       무대 오른쪽 아래에 작은 버튼 두 개를 얹는다 — [⏸/▶ 일시정지·재생] [🔇/🔊 소리].
+       둘 다 «내 화면에만» 적용된다(방에 아무것도 전송하지 않는다) — 재생 위치 이동(seek)은
+       여전히 막혀 있으므로 Melca 결정(강사만 제어)과 충돌하지 않는다.
+     ⚠️ 가운데 큰 「소리 켜기」 버튼은 그대로 둔다(첫 사용자 제스처가 필요해서 없앨 수 없다).
+        그 버튼이 소리를 켜면 우리 🔇 아이콘도 🔊 로 따라온다(onclick 을 한 겹 감쌈).
+     ⚠️ data-ko/data-en 을 달지 않는다 — i18n 엔진이 textContent 를 통째로 갈아끼워
+        아이콘이 문장으로 바뀐다(CLAUDE.md 2장). 설명은 title·aria-label 로만.
+     ⚠️ 아이콘은 ⏸(U+23F8, Unicode 7.0)·▶(U+25B6)·🔊(U+1F50A)·🔇(U+1F507) — 전부
+        Unicode 7 이하라 Win10 두부 표시 걱정이 없다(Unicode 13+ 금지 규칙).
+  ══════════════════════════════════════════════════════════════ */
+  (function () {
+    function viewerLocked() {
+      // vpLoadUrlRemote 의 _vpViewerLocked 판정과 같은 식 — 강사·관리자는 원래 컨트롤이 있다
+      try { return typeof window.vcCanControlTextbook === 'function' && !window.vcCanControlTextbook(); }
+      catch (e) { return false; }
+    }
+    function isEn() {
+      try { return typeof window.miIsEn === 'function' && window.miIsEn(); } catch (e) { return false; }
+    }
+    function ytCmd(stage, fn, args) {
+      var f = stage.querySelector('iframe');
+      if (f && f.contentWindow) f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: fn, args: args || [] }), '*');
+    }
+    function vmCmd(stage, method, value) {
+      var f = stage.querySelector('iframe');
+      if (!(f && f.contentWindow)) return;
+      var m = { method: method };
+      if (value !== undefined) m.value = value;
+      f.contentWindow.postMessage(JSON.stringify(m), '*');
+    }
+    function fileEl(stage) { return stage.querySelector('video'); }
+
+    function attach(stage, kind) {
+      if (!stage) return;
+      var old = stage.querySelector('.vp-viewer-ctrl');
+      if (old) old.remove();
+      /* 🙋 (2026-08-27 사장님 지시) 잠기지 않은 사람(강사·관리자)에게도 붙인다.
+         [왜 바꿨나] 처음에는 «원래 유튜브 자체 컨트롤이 있으니 필요 없다» 고 뺐다.
+           그런데 폰에서는 그 컨트롤바가 **하단 독(#vc-dock, z-index 99993)에 가린다** —
+           2026-08-27 제보 사진에서 「0:49 / 4:12」가 「나가기」 버튼에 덮여 있었다.
+           «버튼이 있다» 와 «손이 닿는다» 는 다르다.
+         ⚠️ 다만 잠기지 않은 화면에는 네이티브 컨트롤바가 실제로 깔려 있으므로 그 위로 비켜선다 —
+            같은 자리에 두면 유튜브의 전체화면·설정 버튼을 우리가 덮어 「전체화면이 안 눌린다」가 된다. */
+      var locked = viewerLocked();
+
+      var st = { muted: true, paused: false };   // 수신 영상은 음소거 자동재생으로 시작한다
+
+      var wrap = document.createElement('div');
+      wrap.className = 'vp-viewer-ctrl';
+      wrap.style.cssText = 'position:absolute;right:10px;bottom:' + (locked ? '14px' : '54px') + ';z-index:31;display:flex;gap:8px;';
+
+      function mkBtn() {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.style.cssText = 'width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.6);'
+          + 'color:#fff;font-size:17px;line-height:1;cursor:pointer;display:flex;align-items:center;'
+          + 'justify-content:center;padding:0;box-shadow:0 2px 8px rgba(0,0,0,.4);';
+        return b;
+      }
+      var pauseBtn = mkBtn();
+      var muteBtn = mkBtn();
+
+      /* 설명은 title·aria 로만 — data-ko/data-en 은 textContent 를 갈아끼우니 금지.
+         data-ko-title/data-en-title·data-ko-aria/data-en-aria 는 두 i18n 엔진이 지원해
+         🌐 토글 때도 따라온다(상태가 바뀌는 라벨이라 paint 마다 함께 갱신). */
+      function setLabel(b, ko, en) {
+        b.setAttribute('data-ko-title', ko); b.setAttribute('data-en-title', en);
+        b.setAttribute('data-ko-aria', ko); b.setAttribute('data-en-aria', en);
+        var cur = isEn() ? en : ko;
+        b.title = cur; b.setAttribute('aria-label', cur);
+      }
+      function paint() {
+        pauseBtn.textContent = st.paused ? '▶' : '⏸';
+        if (st.paused) setLabel(pauseBtn, '다시 재생', 'Play');
+        else setLabel(pauseBtn, '일시정지', 'Pause');
+        muteBtn.textContent = st.muted ? '🔇' : '🔊';
+        if (st.muted) setLabel(muteBtn, '소리 켜기', 'Sound on');
+        else setLabel(muteBtn, '소리 끄기', 'Sound off');
+      }
+
+      function setPaused(p) {
+        st.paused = p;
+        try {
+          if (kind === 'youtube') ytCmd(stage, p ? 'pauseVideo' : 'playVideo');
+          else if (kind === 'vimeo') vmCmd(stage, p ? 'pause' : 'play');
+          else { var v = fileEl(stage); if (v) { if (p) v.pause(); else v.play().catch(function () {}); } }
+        } catch (e) {}
+        paint();
+      }
+      function setMuted(m) {
+        st.muted = m;
+        try {
+          if (kind === 'youtube') {
+            if (m) ytCmd(stage, 'mute');
+            else { ytCmd(stage, 'unMute'); ytCmd(stage, 'setVolume', [100]); if (!st.paused) ytCmd(stage, 'playVideo'); }
+          } else if (kind === 'vimeo') {
+            vmCmd(stage, 'setVolume', m ? 0 : 1);
+            if (!m && !st.paused) vmCmd(stage, 'play');
+          } else {
+            var v = fileEl(stage);
+            if (v) { v.muted = m; if (!m) { v.volume = 1; if (!st.paused) v.play().catch(function () {}); } }
+          }
+        } catch (e) {}
+        // 우리 버튼으로 소리를 켰으면 가운데 큰 「소리 켜기」 는 볼일이 끝났다
+        if (!m) { var big = stage.querySelector('.vp-sound-overlay'); if (big) big.remove(); }
+        paint();
+      }
+
+      pauseBtn.onclick = function () { setPaused(!st.paused); };
+      muteBtn.onclick = function () { setMuted(!st.muted); };
+
+      // 가운데 큰 「소리 켜기」 와 상태를 맞춘다 — 그쪽으로 켜도 🔇 → 🔊 로 따라오게
+      var big = stage.querySelector('.vp-sound-overlay');
+      if (big) {
+        var orig = big.onclick;
+        big.onclick = function () {
+          try { if (orig) orig.apply(this, arguments); } catch (e) {}
+          st.muted = false; paint();
+        };
+      }
+
+      wrap.appendChild(pauseBtn);
+      wrap.appendChild(muteBtn);
+      paint();
+      stage.appendChild(wrap);
+    }
+
+    var _ov = window.vpAddSoundOverlay;
+    if (typeof _ov === 'function') {
+      window.vpAddSoundOverlay = function (stage, kind) {
+        var r = _ov.apply(this, arguments);
+        try { attach(stage, kind); } catch (e) {}
+        return r;
+      };
+    }
+  })();
+
+
+  /* ══════════════════════════════════════════════════════════════
+     ⑬ 📖 세로 «교재를 위로» — 학생 전용 옵션
+     ──────────────────────────────────────────────────────────────
+     [지시] 사장님 2026-08-28 「휴대폰 세로에서 위 얼굴 / 아래 교재를 맞바꾸는 옵션을
+            ☰ 기능 메뉴에 넣어줘. 강사는 되었고 «학생만» 켜게 해줘.」
+
+     [무엇을 하나] body 에 mg-tb-top 을 붙였다 뗀다. 그게 전부다.
+       · 교재 칸(.content-pane) order:1 → 위,  얼굴 칸(.video-pane) order:2 → 아래
+       · 크기는 하나도 안 바뀐다 — 순서만 뒤집힌다. 그래서 교재 그림·필기 겹칩 캔버스를
+         다시 잴 일이 없고, 영상 연결·화질·소리와도 무관하다.
+       · 첫 화면 예산 0바이트 — 이 파일은 defer 이고 CSS 도 스스로 만들어 붙인다.
+
+     ⛔ index.html 3248행의 «위: 얼굴 / 아래: 교재»(2026-07-14 사장님 지시)는 손대지 않는다.
+        그 줄은 그대로 두고 «켠 사람에게만» 위에 덧씌운다. 되돌리려면 이 절만 지우면 된다.
+        기본은 꺼짐이라 아무것도 안 한 학생의 화면은 지금과 한 픽셀도 다르지 않다.
+
+     ⚠️ [겹침] 하단 독(#vc-dock, z-index 99993)과 ☰ 기능 버튼(.vc-phero-ctrl)은 화면 아래에
+        «떠» 있다. 지금은 아래가 교재라 교재 여백을 덮고 있어 아무도 몰랐지만, 얼굴이
+        내려오면 학생 얼굴 아랫부분이 그대로 가려진다. 그래서 얼굴 칸 아래에 독 높이만큼
+        빈자리를 둔다(--mg-tb-gap). 그 값은 하드코딩하지 않고 «독을 실제로 재서» 넣는다 —
+        독은 접힘·화면폭·안전영역에 따라 높이가 달라지므로 숫자를 박으면 반드시 어긋난다.
+        ⚠️ 빈자리만큼 얼굴 칸을 줄인다(32vh−gap). 교재 칸을 줄이지 않는 쪽을 골랐다 —
+           이 기능의 목적 자체가 «교재를 크게 위에서 보는 것» 이기 때문이다.
+
+     ⚠️ [모드] 세로에는 «2단으로 쌓이는» 모드(기본·half)와 «떠 있는» 모드(pip·facepip·
+        full·solo·free)가 있다. 뒤쪽에는 위아래라는 개념 자체가 없다(pip 는 얼굴이
+        position:absolute 로 우상단에 뜬다). CSS 선택자에서 그 모드들을 빼 두었으므로
+        모드를 바꾸면 **JS 가 아무것도 안 해도** 규칙이 저절로 꺼지고 켜진다.
+        ℹ️ 세로 기본이 pip 인 학생이 눌렀을 때 «아무 일도 안 일어나는» 것을 막으려고,
+           떠 있는 모드에서 켜면 먼저 half(기본)로 옮긴 뒤 적용한다.
+           ⚠️ 끌 때는 pip 로 되돌리지 않는다 — «되돌리기» 를 흉내내려면 이전 모드를
+              기억해야 하는데, 그 사이 사람이 크기바로 또 바꿀 수 있어 더 헷갈린다.
+
+     🧑‍🎓 [학생만] 판정은 «내가 스태프인가» 하나로 하지 않는다. jeong(사장님)처럼 홈 통합
+        로그인에서 관리자 폴백으로 들어오면 vcMyRole 이 admin 으로 굳어 수업 내내 안 풀린다
+        (⑨-3 주석 참고 — 실측 10분). 그래서 스태프로 잡혀도 «상대편에 교사가 있으면»
+        나는 학생 자리로 본다. 어느 쪽으로 틀려도 피해는 «버튼이 보이거나 안 보이거나» 뿐이고,
+        이 옵션은 자기 화면만 바꾼다 — 남의 화면에는 아무 영향이 없다.
+        ⚠️ 그래서 사장님이 jeong 으로 들어가시면 «상대에 강사가 있을 때만» 버튼이 보인다.
+           혼자 방을 열어 확인하시면 안 보이는 것이 정상이다.
+     ⛔ 참관(Ghost)에게는 안 준다 — 참관자의 #vc-local-box 는 빈 타일이라 배치를 건드리면
+        ⑨ 에서 밟았던 «빈 타일이 주인공» 사고가 이쪽에서 재현된다.
+
+     ⛔ body class 를 MutationObserver 로 지켜보지 않는다(홈 전체를 멎게 한 전력).
+     ⛔ 상주 setInterval 을 남기지 않는다 — 입장 직후 «끝이 있는» 확인만 한다.
+     ══════════════════════════════════════════════════════════════ */
+  (function tbTopOption() {
+    var LS  = 'mangoi_vc_portrait_order';   // 'tbtop' 이면 켜짐. 없으면 꺼짐(기본)
+    var CLS = 'mg-tb-top';
+    var BTN = 'mg-tbtop-btn';
+
+    /* 떠 있는 모드 — 여기서는 «위아래» 가 없다. CSS 선택자와 반드시 같은 목록이어야 한다. */
+    var FLOATING = ['video-pip', 'video-facepip', 'video-full', 'video-solo', 'video-free'];
+    var NOT_FLOAT = ':not(.video-pip):not(.video-facepip):not(.video-full):not(.video-solo):not(.video-free)';
+
+    /* ⚠️ 900px 이다(920 아님) — 2단으로 쌓는 규칙(index.html 3253·3275행)이 사는
+       미디어쿼리가 max-width:900px 이라, 그보다 넓게 잡으면 901~920px 에서 이기는
+       규칙이 없는 채로 order 만 걸린다. */
+    /* 🔴 선택자에 **id 를 두 개** 쓴다(#vc-main-row > #vc-video-pane). 클래스로 쓰면 진다 —
+       index.html 17472행(2026-07-28 「교재 왼쪽」 개편)이 이미 같은 두 칸의 order 를
+       «id 두 개» 로 못 박아 두었고, 세로에서는 그것이 다시 «얼굴=1 / 교재=2» 로 되돌린다.
+       클래스를 아무리 쌓아도 id 수가 적으면 못 이긴다(CLAUDE.md 2장 특정성 함정).
+       ⚠️ 첫 판에 실제로 밟았다 — 규칙이 «있는데» 화면은 그대로였고, 브라우저 실측
+          (getComputedStyle(...).order 가 1/2 로 뒤집혀 나옴)으로만 보였다. */
+    var TBTOP_CSS =
+      '@media (max-width:900px) and (orientation:portrait){' +
+        'body.vc-in-call.' + CLS + ' #vc-main-row' + NOT_FLOAT + ' > #vc-content-pane{order:1 !important}' +
+        'body.vc-in-call.' + CLS + ' #vc-main-row' + NOT_FLOAT + ' > #vc-video-pane{' +
+          'order:2 !important;' +
+          /* 빈자리는 얼굴 칸 «안» 에 padding 으로 둔다 — 이 저장소는 box-sizing:border-box 라
+             칸의 «바깥 크기» 가 안 변한다 → 교재 칸이 한 픽셀도 안 줄어든다.
+             ⚠️ margin 으로 두면 그만큼을 교재 칸이 내놓는다(실측 −15px). 이 기능의 목적이
+                «교재를 크게 위에서 보는 것» 이라 그쪽은 목적에 어긋난다. */
+          'padding-bottom:var(--mg-tb-gap,76px) !important;' +
+          'border-bottom:none !important;' +
+          'border-top:1px solid rgba(148,163,184,0.22) !important}' +
+        /* ☰ 메뉴 안에서의 자리와 색.
+           🔴 **맨 앞(order:-1) + 두 칸 폭** 으로 둔다. 그냥 붙이면 탭바의 «맨 뒤» 라
+              메뉴 그리드에서도 마지막 칸이 되는데, 그 시트는 최대 66vh 짜리 «스크롤되는»
+              상자다 — 항목이 12개가 넘으면 화면 밖으로 밀려 «메뉴에 없다» 가 된다.
+              2026-08-28 사장님 제보가 그 상태였다(같은 이유로 «학생 크게»·«내 얼굴» 도 안 보였다).
+           ℹ️ 두 칸 폭으로 두는 이유 — 나머지는 «기능 타일» 2열 짝이라, 한 칸만 차지하면
+              교재·칠판 짝이 어긋난다. 제목 바로 아래 «가로 줄» 이면 그 짝을 안 건드린다.
+           ⚠️ .vc-phero-menu-item 은 index.html 이 크기·여백만 주고 색은 항목별로 준다. */
+        'body.vc-in-call.vc-phero-menu-open #vc-main-row .content-pane .tab-bar > .' + BTN + '{' +
+          'order:-1 !important;grid-column:1 / -1 !important;' +
+          'background:rgba(16,185,129,0.18) !important;color:#a7f3d0 !important;' +
+          'border:1px solid rgba(52,211,153,0.5) !important}' +
+      '}';
+
+    (function injectTbTopCss() {
+      function put() {
+        if (document.getElementById('mg-tbtop-css')) return;
+        if (!document.body) return;
+        var st = document.createElement('style');
+        st.id = 'mg-tbtop-css';
+        st.textContent = TBTOP_CSS;
+        document.body.appendChild(st);   // 이 저장소의 화면 CSS 는 body 안에서 링크된다 — 뒤에 와야 이긴다
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put);
+      else put();
+    })();
+
+    function isOn() {
+      try { return localStorage.getItem(LS) === 'tbtop'; } catch (e) { return false; }
+    }
+    function save(v) {
+      try { if (v) localStorage.setItem(LS, 'tbtop'); else localStorage.removeItem(LS); } catch (e) {}
+    }
+
+    /* 🧑‍🎓 내가 «학생 자리» 인가 — 위 머리말의 jeong 사고 참고 */
+    function isStudentSide() {
+      try {
+        if (document.body.classList.contains('vc-observer')) return false;   // 참관은 제외
+        var staff = false;
+        try {
+          staff = (typeof window.vcIsStaffNow === 'function') ? !!window.vcIsStaffNow()
+                : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin');
+        } catch (e) {}
+        if (!staff) return true;
+        /* 스태프로 잡혔어도 상대편에 교사가 있으면 나는 학생 자리다 */
+        return (typeof mgRemoteTeacherPresent === 'function') ? !!mgRemoteTeacherPresent() : false;
+      } catch (e) { return false; }
+    }
+
+    function row() { return document.getElementById('vc-main-row'); }
+
+    function isFloatingMode() {
+      var r = row(); if (!r) return false;
+      for (var i = 0; i < FLOATING.length; i++) if (r.classList.contains(FLOATING[i])) return true;
+      return false;
+    }
+
+    /* 화면 아래에 «떠 있는 것들» 이 실제로 덮는 높이를 재서 넣는다. 숫자를 박으면
+       접힘·안전영역·화면폭에 따라 반드시 어긋난다.
+       ⚠️ #vc-dock 하나만 재면 안 된다 — 폰에서 독은 «⋯» 뒤에 접혀 display:none 이고,
+          실제로 아래를 덮는 것은 ☰ 기능 버튼과 «⋯» 다.
+          390×844 실측(2026-08-28): ☰ 53px · ⋯ 42px · 독 0px(접힘).
+          그래서 «지금 보이는 것들» 을 전부 훑어 제일 높이 올라온 것을 쓴다.
+       ℹ️ 학생이 «⋯» 를 눌러 독을 펴면 그동안은 독이 얼굴 위를 덮는다 — 지금도 교재 위를
+          덮고 있고, 누른 사람이 곧 닫는 «잠깐» 이라 그대로 둔다. */
+    var BOTTOM_FURNITURE = ['#vc-dock', '#vc-dock-more', '#vc-dock-handle', '.vc-phero-ctrl'];
+    function measureGap() {
+      var g = 0;
+      try {
+        for (var i = 0; i < BOTTOM_FURNITURE.length; i++) {
+          var el = document.querySelector(BOTTOM_FURNITURE[i]);   // ⚠️ 이름을 e 로 두지 않는다 — 감싼 catch(e) 와 헷갈린다
+          if (!el) continue;
+          var r = el.getBoundingClientRect();
+          if (r.height <= 0) continue;                 // 접혀 있으면 안 덮는다
+          /* 화면 아래끝에서 그 윗변까지 = 덮는 띠. +6 은 얼굴이 거기 닿지 않게. */
+          var cover = Math.round((window.innerHeight - r.top) + 6);
+          if (cover > g) g = cover;
+        }
+      } catch (e) {}
+      if (!g) g = 76;              // 하나도 못 쟀을 때만 — 넉넉한 쪽으로
+      if (g < 40) g = 40;          // 너무 작으면 가리는 것을 못 막는다
+      if (g > 160) g = 160;        // 너무 크면 얼굴이 사라진다 — 이상한 값이 화면을 망가뜨리지 않게
+      try { document.documentElement.style.setProperty('--mg-tb-gap', g + 'px'); } catch (e) {}
+    }
+
+    /* ⛔ 있을 때만 지우고 없을 때만 더한다 — 무조건 classList 를 쓰면 class 속성이 다시 쓰여
+       남의 감시자를 깨운다(2026-07-14 라이브 장애와 같은 뿌리). */
+    function apply() {
+      try {
+        var want = isOn() && isStudentSide();
+        var has  = document.body.classList.contains(CLS);
+        if (want && !has) { measureGap(); document.body.classList.add(CLS); }
+        else if (!want && has) { document.body.classList.remove(CLS); }
+      } catch (e) {}
+    }
+
+    function isEn() {
+      try { return (typeof window.getLang === 'function') && window.getLang() === 'en'; } catch (e) { return false; }
+    }
+
+    /* 🌐 상태에 따라 글자가 바뀌는 버튼이므로 그릴 때 data-ko/data-en 도 «함께» 갱신한다.
+       (textContent 로만 쓰면 🌐 를 눌러도 안 따라온다 — CLAUDE.md 2장)
+       ⚠️ 설명 말풍선은 data-ko-title/data-en-title 로만 단다. data-ko/data-en 은
+          textContent 를 통째로 갈아끼우는 속성이라 «설명» 용도로 쓰면 안 된다. */
+    function paint() {
+      var b = document.getElementById(BTN); if (!b) return;
+      var on = isOn();
+      var ko = on ? '⇅ 얼굴을 위로'   : '⇅ 교재를 위로';
+      var en = on ? '⇅ Faces on top' : '⇅ Textbook on top';
+      var kt = on ? '얼굴을 다시 위로 올립니다' : '교재를 위로, 얼굴을 아래로 바꿉니다';
+      var et = on ? 'Put the faces back on top' : 'Move the textbook above the faces';
+      b.setAttribute('data-ko', ko);       b.setAttribute('data-en', en);
+      b.setAttribute('data-ko-title', kt); b.setAttribute('data-en-title', et);
+      var e = isEn();
+      b.textContent = e ? en : ko;
+      b.title = e ? et : kt;
+    }
+
+    function onClick() {
+      var turningOn = !isOn();
+      /* 떠 있는 모드에서 켜면 «아무 일도 안 일어난다» — 먼저 2단(기본)으로 옮긴다. */
+      if (turningOn && isFloatingMode()) {
+        try {
+          if (typeof window.vcScreenSet === 'function') window.vcScreenSet('half');
+          if (typeof window.vcUpdatePheroLabels === 'function') window.vcUpdatePheroLabels();
+        } catch (e) {}
+      }
+      save(turningOn);
+      apply();
+      paint();
+      try { window.closePheroMenu(); } catch (e) {}   // 메뉴 안 항목 — 누르면 닫아 결과가 바로 보이게
+    }
+
+    /* ☰ 기능 메뉴(=탭바 그리드) 안에 항목을 넣는다. 강사·관리자·참관에게는 만들지 않는다. */
+    function ensureBtn() {
+      try {
+        var tb = document.querySelector('#vc-main-row .content-pane .tab-bar');
+        if (!tb) return;
+        var b = document.getElementById(BTN);
+        if (!isStudentSide()) { if (b) { try { b.remove(); } catch (e) {} } return; }
+        if (b) { paint(); return; }
+        b = document.createElement('button');
+        b.type = 'button';
+        b.id = BTN;
+        b.className = 'vc-phero-menu-item ' + BTN;
+        b.addEventListener('click', onClick);
+        tb.appendChild(b);
+        paint();
+      } catch (e) {}
+    }
+
+    /* ── 언제 다시 보나 ────────────────────────────────────────
+       ⛔ 상주 감시자를 두지 않는다. 아래 네 가지 «순간» 에만 본다. */
+
+    /* ① ☰ 메뉴를 열기 직전 (탭바가 늦게 그려져도 항목이 있게) */
+    var _menu = window.vcTogglePheroMenu;
+    if (typeof _menu === 'function') {
+      window.vcTogglePheroMenu = function () {
+        try { ensureBtn(); } catch (e) {}
+        return _menu.apply(this, arguments);
+      };
+    }
+
+    /* ② 수업에 들어간 직후 — 역할이 늦게 오므로 «끝이 있는» 확인 */
+    var _join2 = window.vcJoinRoom;
+    if (typeof _join2 === 'function') {
+      window.vcJoinRoom = function () {
+        var r = _join2.apply(this, arguments);
+        var n = 0;
+        var iv = setInterval(function () {
+          try { ensureBtn(); apply(); } catch (e) {}
+          if (++n >= 12) clearInterval(iv);      // 6초까지만 — 상주 타이머를 남기지 않는다
+        }, 500);
+        return r;
+      };
+    }
+
+    /* ③ 상대 타일·역할이 바뀔 때 (교사가 나중에 들어오는 경우) */
+    var _spot2 = window.vcApplySpotlight;
+    if (typeof _spot2 === 'function') {
+      window.vcApplySpotlight = function () {
+        var r = _spot2.apply(this, arguments);
+        try { ensureBtn(); apply(); } catch (e) {}
+        return r;
+      };
+    }
+
+    /* ④ 화면이 돌거나 크기가 바뀔 때 — 독 높이가 달라지므로 다시 잰다 */
+    function relayout() { try { if (document.body.classList.contains(CLS)) measureGap(); } catch (e) {} }
+    window.addEventListener('orientationchange', function () { setTimeout(relayout, 500); });
+    window.addEventListener('resize', function () { setTimeout(relayout, 300); });
+    window.addEventListener('mangoi:lang-changed', function () { try { paint(); } catch (e) {} });
+
+    /* 검사·콘솔에서 부를 수 있게 */
+    window.mgTbTopApply       = apply;
+    window.mgTbTopEnsureBtn   = ensureBtn;
+    window.mgTbTopIsStudent   = isStudentSide;
+    window.mgTbTopMeasureGap  = measureGap;
+  })();
+
+  /* ══════════════════════════════════════════════════════════════
+     ⑭ 👥 「학생 제어」 이름표 — ☰ 기능 메뉴에서 «죽은 버튼» 으로 보이던 것
+     ──────────────────────────────────────────────────────────────
+     [무엇이 문제였나] index.html 8501 의 #vc-studentctl-label 은 버튼이 아니라
+       «묶음 이름표» 다(2026-08-12 강사 Shas ③번 — 「Lock Student Drawing 을 찾기까지
+       여러 번 시도해야 했다」). 가로 툴바에서는 왼쪽 세로선(border-left)이 구분선 노릇을
+       해서 읽히지만, 세로폰 ☰ 기능 메뉴는 탭바를 «2열 그리드» 로 펼친다
+       (index.html 16199~, @media (max-width:920px) and (orientation:portrait)).
+       그 그리드 CSS 는 «> button»·«> .mango-tool-chip»·«> .vc-phero-menu-item» 셋만
+       큰 버튼으로 그리므로, <span> 인 이 이름표는 규칙이 하나도 안 걸린 채 한 칸을
+       차지한다 → 회색 잔글씨만 있는 «눌러도 아무 일 없는 버튼» 으로 보인다
+       (2026-08-28 사장님 「이건 안 돼서 이렇게 만든 거야? 오류야?」).
+     [무엇을 하나] 그 메뉴에서만 한 줄을 통째로 쓰는 «소제목» 으로 바꾼다. 형식은 이미
+       같은 메뉴 맨 위에 있는 «📋 기능 메뉴 — 원하는 것을 누르세요»(::before, grid-column
+       1/-1)를 그대로 따른다. 아래 셋(🎤 전체 음소거·✋ 학생 필기 잠그기·🎯 집중 모드)이
+       한 묶음이라는 신호가 폰에서도 살아난다.
+     ⛔ 이름표를 «숨기는» 쪽으로 풀지 않는다 — 폰으로 수업하는 강사에게는 이 메뉴가
+        그 셋을 만나는 유일한 통로라, 숨기면 Shas 제보 이전 상태로 되돌아간다.
+     ⚠️ display 는 건드리지 않는다. 노출은 vcClassLockChipsRender 가 인라인 style 로
+        정한다(강사·관리자 inline-flex / 그 외 none). 여기서 display 를 쓰면 «학생 화면에
+        이름표만 남는» 사고가 난다. 그리드 자식은 inline-flex 가 flex 로 승격되므로
+        그대로 두어도 한 줄로 잘 그려진다.
+     ⚠️ 나머지 값에는 !important 가 필요하다 — 그 span 은 색·여백·border-left 를 «인라인»
+        style 로 들고 있고, 작성자 !important 만이 인라인을 이긴다(CLAUDE.md 2장).
+     ⚠️ 미디어쿼리를 반드시 함께 둔다. 빼면 PC·가로의 가로 툴바에서도 구분선이 사라진다.
+     ℹ️ index.html 은 공동 금지구역이고 첫 화면 예산 여유도 CI 기준 ~660B 뿐이라,
+        규칙을 그 파일에 넣지 않고 여기(defer)에서 body 끝에 얹는다 — ⑨절과 같은 방식.
+  ══════════════════════════════════════════════════════════════ */
+  (function injectStudentCtlCss() {
+    var CSS = [
+      '@media (max-width:920px) and (orientation:portrait){',
+      '  body.vc-in-call.vc-phero-menu-open #vc-main-row .content-pane .tab-bar > #vc-studentctl-label{',
+      '    grid-column:1 / -1 !important;',
+      '    justify-content:center !important;',
+      '    border-left:none !important;',
+      '    border-top:1px solid rgba(148,163,184,.25) !important;',
+      '    margin:6px 0 0 !important;',
+      '    padding:9px 2px 3px !important;',
+      '    font-size:12.5px !important;',
+      '    color:#93c5fd !important;',
+      '  }',
+      '}'
+    ].join('\n');
+    function put() {
+      if (document.getElementById('mg-studentctl-css')) return;
+      if (!document.body) return;
+      var st = document.createElement('style');
+      st.id = 'mg-studentctl-css';
+      st.textContent = CSS;
+      document.body.appendChild(st);   // body 끝 — 이 저장소의 화면 CSS 는 body 안에서 링크된다
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put);
+    else put();
+  })();
+
+  /* ══════════════════════════════════════════════════════════════
+     ⑬ 📚 «공유받은» 교재의 이름을 학생 화면도 알게 한다
+     ──────────────────────────────────────────────────────────────
+     [무엇이 문제였나] 복습퀴즈가 «이 수업이 무슨 교재·무슨 언어인가» 를 읽는 자리는
+       window.__mangoiCurrentBookId 하나인데(js/idx-x8.js 의 ctx), 그 값을 채우는 곳이
+       저장소 전체에 **딱 두 곳뿐이고 둘 다 js/idx-x3.js = 「내가 교재 라이브러리에서 직접 고를 때」**
+       였다. 교재 공유를 **받는** 쪽(pdf-share 수신 → vcApplySharedPdf)에는 채우는 코드가 0곳.
+       ⟹ 교재를 고르는 사람(강사)은 복습퀴즈를 안 풀고, 푸는 사람(학생)은 교재 이름을 가진 적이 없다.
+       그래서 학생 화면에서는 늘 textbook='' 이 되어
+         · ⑩절 probe 가 `if (!c.textbook && !c.level) return null` 에서 즉시 돌아가고
+           → 자동 中文 전환도, 「📖 진도」 줄도 **영영 안 나타났다**
+         · rqvAuto 가 {textbook:'', lang:'en'} 을 보내 서버의 zh 승격(api-games.ts:1889,
+           2026-08-26 수리)이 **발동할 근거를 못 받아** 「맞춤 퀴즈가 아직 없어요」 → 영어 목록.
+       즉 그 서버 수리는 라이브에서 한 번도 닿지 못하고 있었다(2026-09-02 사장님 제보
+       「중국어 수업인데 중국어 복습퀴즈가 안 나온다」의 뿌리).
+     [고침] 교재를 받을 때 파일 이름 앞의 「[교재명]」을 그 전역에 채운다.
+       업로더가 「[교재명] 레슨명 / 파일명」 으로 만들므로(js/idx-x3.js buildBookSequence)
+       js/idx-x3.js:86 이 쓰는 것과 **같은 규칙**이다 — 여기서 새로 추정하지 않는다.
+     ⛔ 못 뽑으면 건드리지 않는다 — 틀린 교재명은 «엉뚱한 과의 퀴즈» 가 되어 빈 값보다 나쁘다.
+     ⛔ url·R2 키에서 짐작하지 않는다(난수라 단서가 한 글자도 없다).
+     ⚠️ 이 파일에 두는 이유: idx-main.js 는 blocking 849KB 라 첫 화면 예산을 먹는다.
+        여기는 defer 라 첫 그림에 0바이트를 더한다(CLAUDE.md 「blocking 파일을 못 고칠 때」).
+     ⚠️ 감싸는 vcApplySharedPdf 는 «교사가 지금 공유(pdf-share)» 와 «학생이 입장할 때 폴링
+        (pdfState)» 두 경로가 모두 지나는 한 곳이다(js/idx-main.js 554·650·4392행).
+     ══════════════════════════════════════════════════════════════ */
+  (function () {
+    /* 「[다락원 중국어 마스터 3] 미분류 레슨 / Slide7.JPG」 → 「다락원 중국어 마스터 3」
+       ⚠️ 「[…]」 만 보면 넓다 — 「[중요] 공지.pdf」 같은 «교재가 아닌» 파일이 교재명 「중요」로
+          잡혀 **이미 맞게 잡혀 있던 교재를 덮어쓴다.** 업로더가 만드는 이름은 반드시
+          「[교재명] 레슨명 / 파일명」 이라 슬래시를 포함하므로(js/idx-x3.js buildBookSequence)
+          그것까지 있을 때만 교재로 인정한다 — 모르면 안 붙이는 쪽으로 실패한다.
+       ⚠️ js/idx-x3.js:86 은 같은 대괄호를 «앵커 없이»(/\[([^\]]+)\]/) 뽑는다. 둘이 같은 칸
+          (__mangoiCurrentBookId)에 쓰므로 «같은 규칙» 이라고 적으면 안 된다 — 이쪽이 더 좁다. */
+    function bookOf(name) {
+      var s = String(name || '');
+      var m = /^\s*\[([^\]]+)\]([^\]]*)$/.exec(s);
+      if (!m || m[2].indexOf('/') < 0) return '';
+      return String(m[1]).trim();
+    }
+    var _apply = window.vcApplySharedPdf;
+    if (typeof _apply !== 'function') return;      // 원본이 없으면 조용히 건너뛴다(예전과 동일)
+    window.vcApplySharedPdf = function (sUrl, sKind, currentPage, sPid, sName) {
+      var r;
+      try { r = _apply.apply(this, arguments); }
+      finally {
+        try {
+          var bk = bookOf(sName);
+          /* 바뀌었을 때만 손댄다 — 같은 교재를 다시 받을 때마다 probe 를 풀면
+             학생이 손으로 고른 中文·과 선택이 계속 되돌아간다. */
+          if (bk && bk !== window.__mangoiCurrentBookId) {
+            window.__mangoiCurrentBookId = bk;
+            if (typeof window.__rqvResetProbe === 'function') window.__rqvResetProbe();
+            /* 새 교재의 과를 ⑪절에 알린다 — 판정은 그쪽이 갖고 있다.
+               ⚠️ «앞 교재의 과를 반드시 지운다» 는 뜻이 아니다: ⑪ record() 는
+                  `if (n === lastAuto) return` 이라 **과 번호가 실제로 달라졌을 때만** 쓴다.
+                  새 교재도 과를 모르면(둘 다 0) 학생이 고른 과가 그대로 남는다. */
+            if (typeof window.__mgRecordLesson === 'function') window.__mgRecordLesson(sName);
+            try { console.log('[mobilefix ⑬] 공유 교재: ' + bk); } catch (e) {}
+          }
+        } catch (e) {}
+      }
+      return r;
+    };
+  })();
+
+  /* ══════════════════════════════════════════════════════════════
+     ⑭ 화면 공유 — «초당 장수» 만 15 로 묶는다 (2026-09-06 사장님 결정)
+     ────────────────────────────────────────────────────────────
+     왜 fps «만» 인가 — 화면 공유는 2026-08-11 에 contentHint='detail' 로
+       «글자 선명함이 먼저» 라고 일부러 정한 자리다(카메라는 정반대인 'motion').
+       해상도를 조이면 교재·PPT 글자가 뭉개져 그 결정과 정면으로 부딪힌다.
+       반대로 공유 화면은 정지화면에 가까워 초당 장수를 줄여도 잃는 것이 거의 없다.
+     ⛔ 카메라는 건드리지 않는다 — PC 24fps 유지(2026-09-06 사장님 결정).
+       회선이 나쁘면 적응 루프(idx-main.js vcAdaptiveQuality)가 이미 알아서 내리므로,
+       기준값을 내리면 «좋은 회선만» 손해다. degradationPreference 가
+       'maintain-framerate'(2026-08-11 강사 «영상이 멈춘다» 제보)인 것과도 어긋난다.
+     왜 여기(defer)인가 — 호출부는 idx-main.js 의 vcShareMyScreen 한 곳인데,
+       그 파일은 blocking 이고 첫 화면 예산 여유가 116바이트뿐이다(2026-09-06 실측).
+       그래서 navigator.mediaDevices.getDisplayMedia 를 밖에서 감싼다.
+       ⚠️ 이 방식의 약점: 그 API 이름이 바뀌면 «조용히» 헛돈다(에러도 안 난다).
+          그래서 screen_share_fps_harness 가 «호출처가 여전히 그 이름인가» 를 못 박는다.
+     ⚠️ 저장소 안 getDisplayMedia 호출처는 그 한 곳뿐이다(2026-09-06 전수) —
+        전역을 감싸도 다른 기능에 닿지 않는다. 새 호출처가 생기면 함께 보라.
+     ✅ 실패하면 «고치기 전» 으로 되돌린다 — 제약을 거부하는 브라우저에서는
+        원래 인자로 한 번 더 부른다. 화면 공유가 아예 안 되는 것이 제일 나쁘다. */
+  (function screenShareFpsCap(){
+    var MAX_FPS = 15;
+    var md = navigator.mediaDevices;
+    if (!md || typeof md.getDisplayMedia !== 'function' || md.__mgFpsCapped) return;
+    var orig = md.getDisplayMedia.bind(md);
+    md.__mgFpsCapped = true;
+    md.getDisplayMedia = function (constraints) {
+      var c = constraints || {};
+      var capped;
+      try {
+        if (c.video === false) return orig(c);   // 영상 없는 공유는 그대로 둔다
+        var v = c.video;
+        var vObj = (v && typeof v === 'object') ? Object.assign({}, v) : {};
+        /* 부르는 쪽이 이미 초당 장수를 정했으면 존중한다 — 나중에 더 낮게 부르는
+           자리가 생겨도 우리가 다시 «올려» 버리면 안 된다.
+           ⛔ width·height 는 건드리지 않는다(위 «fps 만» 이유). */
+        if (!vObj.frameRate) vObj.frameRate = { ideal: MAX_FPS, max: MAX_FPS };
+        capped = Object.assign({}, c, { video: vObj });
+      } catch (e) { return orig(c); }
+      return orig(capped).then(function (s) {
+        /* 제약을 «받아들인 척» 하고 무시하는 브라우저가 있어 트랙에 한 번 더 건다.
+           실패해도 무해 — 공유는 이미 시작됐다. */
+        try {
+          var t = s.getVideoTracks()[0];
+          if (t && t.applyConstraints) t.applyConstraints({ frameRate: { max: MAX_FPS } }).catch(function(){});
+        } catch (e) {}
+        try { console.log('[mobilefix ⑭] 화면 공유 ' + MAX_FPS + 'fps 상한'); } catch (e) {}
+        return s;
+      }, function (err) {
+        var n = (err && err.name) || '';
+        /* ⛔ 사용자가 «취소» 를 누른 것을 재시도하면 공유 선택 창이 «두 번» 뜬다.
+           되돌려 볼 것은 «제약을 거부당한» 경우뿐이다. */
+        if (n === 'NotAllowedError' || n === 'AbortError' || n === 'NotFoundError') throw err;
+        try { console.warn('[mobilefix ⑭] fps 상한 거부 → 원래 제약으로 재시도', n); } catch (e) {}
+        return orig(c);
+      });
+    };
+  })();
+
+  /* ═══════════════════════════════════════════════════════════════════
+     ⑮ ⭐ 칭찬 별 — «조용한 실패» 를 없앤다 (2026-09-10 사장님 「눌러도 아무 변화가 없어」)
+
+     [증상] 별을 눌러도 학생 화면에 소리·색종이가 안 나고 점수도 그대로인데,
+       선생님 화면도 «⭐ 전송 중…» 이 1.6초 뒤 사라질 뿐 아무 말을 안 한다.
+     [왜 조용한가] 실패하는 길이 셋인데 셋 다 화면에 한 글자도 안 그린다 —
+       ⓐ 학생이 방금 다시 들어와 타일 번호(peer id)가 죽었다.
+          2026-09-10 실측: 사장님 화면이 **2분 15초마다** 새 번호로 다시 들어오고 있었다
+          (vc_roster 의 meet-1234 peer_id 12개가 전부 다른 값). 별은 그 번호를 콕 집어
+          보내므로, 번호가 바뀐 뒤 옛 타일의 별을 누르면 **아무에게도 안 간다**.
+       ⓑ 학생 계정이 vc_roster 에 없어 서버가 넣을 곳을 못 찾는다(account_not_registered).
+       ⓒ 선생님 쿠키 세션이 없어 서버가 거절한다(auth_required).
+       원본 vcAwardPoint 는 서버 응답을 .catch(function(){}) 로 버리고, 학생 확인(ack)이
+       영영 안 오면 그냥 조용하다. 그래서 셋 중 어느 쪽인지조차 알 수 없었다.
+     [무엇을 하나] 학생 확인이 3.5초 안에 안 오면, 그때 **한 번만** 서버에 물어
+       ① 포인트가 실제로 들어갔는지 ② 안 들어갔으면 왜인지 를 화면 글자로 말한다.
+     ⛔ 평소에는 요청이 늘지 않는다 — 학생이 제때 답하면 이 절은 아무 일도 안 한다.
+     ⛔ 같은 award_id 로 묻기 때문에 포인트가 두 번 들어가지 않는다(서버 point_awards 멱등).
+     ⚠️ 여기서 «들어갔다» 고 말할 때도 학생 화면 연출은 못 본 것이다 — 그렇게 적는다.
+        「+1P」 라고만 하면 선생님이 학생도 봤다고 오해한다.
+     ⚠️ idx-main.js 는 blocking 이고 첫 화면 여유가 **187바이트**뿐이라(2026-09-10 실측)
+        그 파일은 한 줄도 못 고친다. 그래서 여기(defer)에서 밖에서 감싼다.
+        약점은 «그 이름이 바뀌면 조용히 헛돈다» 는 것 —
+        test-harness/praise_silent_fail_harness.mjs 가 이름과 배선을 못 박는다.
+     ═══════════════════════════════════════════════════════════════════ */
+  (function praiseSilentFail() {
+    var WAIT_MS = 3500;          // 학생 확인을 기다리는 시간. 회선이 느린 필리핀·중국을 감안한 값
+    if (typeof window.vcAwardPoint !== 'function' || window.vcAwardPoint.__mgSay) return;
+    var orig = window.vcAwardPoint;
+
+    function say(toast, msg) {
+      try { if (typeof vcShowStarToast === 'function') vcShowStarToast(toast, msg); } catch (e) {}
+    }
+    /* 타일 라벨에서 이름을 읽는다 — 번호가 죽었을 때 서버가 «이름» 으로 한 번 더 찾게 한다.
+       ⛔ 이름만으로 사람을 정하지는 않는다. 서버가 그 방 로스터 안에서 «완전일치 + 후보가
+          정확히 하나» 일 때만 받아들인다(api-points.ts). 동명이인이면 안 붙는다. */
+    function tileName(uid) {
+      try {
+        var el = document.querySelector('#vc-video-' + uid + ' .video-label');
+        return el ? String(el.textContent || '').replace(/\s*\(.*\)\s*$/, '').trim() : '';
+      } catch (e) { return ''; }
+    }
+    function reasonText(d) {
+      var e = (d && d.error) || '';
+      if (e === 'auth_required')          return '⚠️ 선생님 로그인이 풀렸어요 — 다시 로그인해 주세요';
+      if (e === 'account_not_registered') return '⚠️ 이 학생은 로그인이 안 돼 있어 포인트를 못 받아요';
+      if (e === 'target_not_student')     return '⚠️ 이 사람은 학생이 아니라 포인트를 못 받아요';
+      if (e === 'daily_cap_reached')      return '오늘 한도에 닿았어요';
+      return '⚠️ 전달되지 않았어요' + (e ? ' (' + e + ')' : '');
+    }
+
+    window.vcAwardPoint = function (targetUserId, btn, toast) {
+      /* 원본이 만든 awardId 를 알아내려고 «부르기 전후» 의 대기 목록을 견준다.
+         (원본이 awardId 를 돌려주지 않고, 그 파일은 고칠 수 없다) */
+      var before = {};
+      try { var q0 = window._vcPendingAwards || {}; for (var k0 in q0) before[k0] = 1; } catch (e) {}
+      var ret = orig.apply(this, arguments);
+      var id = null;
+      try {
+        var q1 = window._vcPendingAwards || {};
+        for (var k1 in q1) if (!before[k1]) { id = k1; break; }
+      } catch (e) {}
+      if (!id) return ret;                       // 원본 모양이 바뀌었다 — 조용히 옛 동작 그대로
+
+      setTimeout(function () {
+        var q = window._vcPendingAwards || {};
+        var p = q[id];
+        if (!p) return;                          // 학생이 답했다 — 원본이 이미 결과를 말했다
+        delete q[id];
+
+        var room = '', from = '';
+        try { room = (typeof vcRoomId !== 'undefined' && vcRoomId) || ''; } catch (e) {}
+        try { from = (typeof vcUsername !== 'undefined' && vcUsername) || '선생님'; } catch (e) {}
+        if (!room) { say(p.toast, '⚠️ 전달되지 않았어요'); return; }
+
+        fetch('/api/points/award-praise', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({
+            room: room, target_peer_id: p.targetUserId, award_id: id,
+            from_name: from, target_name: tileName(p.targetUserId)
+          })
+        }).then(function (r) { return r.json(); }).then(function (d) {
+          if (d && d.ok) {
+            /* 포인트는 들어갔다. 학생 화면 연출만 못 본 것이라 그대로 말한다. */
+            try {
+              window._vcAwardCounts = window._vcAwardCounts || {};
+              window._vcAwardCounts[p.targetUserId] = (window._vcAwardCounts[p.targetUserId] || 0) + 1;
+              if (typeof vcSyncAwardUI === 'function') vcSyncAwardUI(p.targetUserId);
+            } catch (e) {}
+            say(p.toast, '⭐ +1P 들어갔어요 (학생 화면 연출은 못 봤어요)');
+          } else {
+            say(p.toast, reasonText(d));
+          }
+        }).catch(function () { say(p.toast, '⚠️ 전달되지 않았어요 (통신 오류)'); });
+      }, WAIT_MS);
+
+      return ret;
+    };
+    window.vcAwardPoint.__mgSay = 1;
+  })();
+
+  /* ═══════════════════════════════════════════════════════════════════
+     ⑯ 🏷 이름표(로스터) 등록 보강 — «넣을 저금통이 없다» 를 줄인다
+
+     [왜] vcRegisterRosterIdentity 는 입장 때 «즉시 + 3초 뒤» 딱 두 번 시도하고,
+       그 두 번 다 로그인 정보를 못 읽으면 그 수업 내내 영영 등록하지 않는다.
+       그러면 선생님이 별을 눌러도 서버가 넣을 계정을 못 찾는다.
+       2026-09-10 실측: 아침 회의방 이름표 **0장**(같은 시각 다른 방은 정상) →
+       같은 날 오후에는 12장. 즉 «늘 안 되는» 것이 아니라 «되다 안 되다» 였다.
+     [무엇을 하나] 같은 등록을 **끝이 있는** 일정(1·6·20·60초)으로 몇 번 더 시도하고,
+       한 번 성공하면 그 뒤 타이머는 스스로 물러난다. 늦게 로그인 정보가 읽히면 그때 붙는다.
+     ⛔ 상주 setInterval·MutationObserver 를 두지 않는다 — 홈 전체가 멎은 전력이 있다.
+     ⛔ 계정을 «관리자 세션» 에서 빌려 오지 않는다 — 아래 myAccount() 주석 참고.
+     ⚠️ 교사·참관자는 원본과 똑같이 건너뛴다 — 칭찬을 «받는» 쪽이 아니다.
+     ═══════════════════════════════════════════════════════════════════ */
+  (function praiseRosterRetry() {
+    var DELAYS = [1000, 6000, 20000, 60000];   // 원본(0초·3초) 뒤를 이어 붙인다
+    if (typeof window.vcRegisterRosterIdentity !== 'function'
+        || window.vcRegisterRosterIdentity.__mgRetry) return;
+    var orig = window.vcRegisterRosterIdentity;
+
+    /* 계정은 «학생 로그인 키» 하나만 본다 — 원본과 같은 근거다.
+       ⛔ 관리자 세션(mangoi_admin_session)으로 떨어지는 폴백을 넣지 말 것.
+          처음 판에 넣었다가 함정 대조에서 빼냈다. 두 가지 이유다 —
+          ⓐ 닿지 않는다: idx-main.js 가 «관리자 세션이 있으면 vcMyRole = admin» 으로
+             정하므로, 그 세션이 있는 사람은 위 amIStudentHere() 에서 이미 물러난다.
+          ⓑ 닿으면 틀린다: 그래도 닿는 구석(vcMyRole 은 student 인데 학생 키만 없는
+             경우)에서는 **그 학생 자리를 선생님 계정으로** 로스터에 올린다 →
+             그 방 칭찬 포인트가 관리자 계정으로 간다. 서버는 관리자 쿠키를 통과시키므로
+             막히지 않는다. 1P = 1원이라 되돌리기 어렵다. */
+    function myAccount() {
+      try {
+        var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+        if (u && u.uid) return { uid: String(u.uid), name: String(u.name || u.uid) };
+      } catch (e) {}
+      return null;
+    }
+    function amIStudentHere() {
+      try { if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return false; } catch (e) {}
+      try { if (typeof vcIsTeacherRole === 'function' && vcIsTeacherRole()) return false; } catch (e) {}
+      return true;
+    }
+
+    window.vcRegisterRosterIdentity = function () {
+      var ret;
+      try { ret = orig.apply(this, arguments); } catch (e) {}
+      var done = false;
+      function tryOnce() {
+        if (done) return;
+        if (!amIStudentHere()) { done = true; return; }      // 대상이 아니다 — 더 볼 것 없다
+        var room = '', peer = '';
+        try { room = (typeof vcRoomId !== 'undefined' && vcRoomId) || ''; } catch (e) {}
+        try { peer = (typeof vcUserId !== 'undefined' && vcUserId) || ''; } catch (e) {}
+        if (!room || !peer) return;                          // 아직 방이 없다 — 다음 차례에
+        var me = myAccount();
+        if (!me) return;                                     // 아직 계정을 못 읽었다 — 다음 차례에
+        var tok = ''; try { tok = localStorage.getItem('mango_token') || ''; } catch (e) {}
+        fetch('/api/vc/roster', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ room: room, peer_id: peer, account_uid: me.uid,
+                                 token: tok, name: me.name, role: 'student' })
+        }).then(function (r) { return r.json(); }).then(function (d) {
+          if (d && d.ok) done = true;
+        }).catch(function () {});
+      }
+      try { DELAYS.forEach(function (ms) { setTimeout(tryOnce, ms); }); } catch (e) {}
+      return ret;
+    };
+    window.vcRegisterRosterIdentity.__mgRetry = 1;
+  })();
+
+  /* ⓬ (2026-09-10) 인앱 브라우저(카톡·네이버…)면 «수업에 들어가기 전에» 알린다.
+     [왜] class-1896-20260910 — 원장님이 카톡 인앱으로 45분 수업, 73분 중 릴레이 60분(82%),
+          최악 RTT 8,840ms · 소리끊김 51.3%. 안내 배너는 inapp-escape.js 에 «이미» 있는데
+          그 선제 조건이 `/video-call` 경로 또는 window.MANGO_VIDEO_PAGE 이고, 그 값은
+          precheck.html «한 곳에만» 있다. 수업은 `/`(index.html)에서 돌아가므로 그 배너는
+          getUserMedia 가 «실패할 때만» 떴다 — 카메라가 되면 영영 안 뜬다. 근거: 260910 작업기록.
+     ⛔ 수업 «중» 에는 띄우지 않는다 — 배너가 top:0 고정인데 수업 툴바는 36px 이라
+        「나가기」·언어 버튼을 통째로 덮는다(index.html 의 body.vc-in-call .toolbar).
+     ⛔ 자동 이동(openExternal) 금지 — 브라우저가 바뀌면 localStorage 가 달라
+        학생 로그인이 안 넘어간다(CLAUDE.md 「로그인했는데 또 로그인하래요」).
+     ⚠️ 홈 우상단 칩 줄(#ph50-chip-row)은 position:fixed 라 배너가 덮는다 → 배너 높이만큼 내린다.
+        그 줄은 ph50MoveChips 가 «나중에» 만들므로 지금·1.2초 뒤·resize 에 다시 잰다.
+        ⛔ 상주 MutationObserver·setInterval 금지(홈 전체를 멎게 한 전력). */
+  (function mgInAppNotice() {
+    try {
+      var E = window.MangoEscape;
+      if (!E || !E.isInApp || typeof E.showBanner !== 'function') return;
+      var OFF = 'mangoi_inapp_notice_off', chipT = null;
+      function banner() { return document.getElementById('mango-inapp-banner'); }
+      function place() {
+        var row = document.getElementById('ph50-chip-row'); if (!row) return;
+        var b = banner();
+        row.style.top = b ? (Math.round(b.getBoundingClientRect().height) + 10) + 'px' : '';
+      }
+      function hide() {
+        var b = banner(); if (b && b.parentNode) b.parentNode.removeChild(b);
+        try { document.body.style.paddingTop = ''; } catch (_) {}
+        place();
+      }
+      function show() {
+        if (banner()) return;
+        if (document.body && document.body.classList.contains('vc-in-call')) return;
+        try { if (sessionStorage.getItem(OFF) === '1') return; } catch (_) {}
+        E.showBanner();
+        var x = document.getElementById('mango-inapp-close');
+        if (x) x.addEventListener('click', function () {
+          try { sessionStorage.setItem(OFF, '1'); } catch (_) {}
+          place();
+        });
+        place();
+        if (chipT) clearTimeout(chipT);
+        chipT = setTimeout(place, 1200);
+      }
+      window.addEventListener('resize', place);
+      show();
+      var orig = window.showView;
+      if (typeof orig === 'function' && !orig.__mgInApp) {
+        window.showView = function (id) {
+          var r = orig.apply(this, arguments);
+          /* ⚠️ 로비(view-videocall-lobby)에서는 남긴다 — 덮어서 곤란한 것은 «수업 화면» 의
+             36px 툴바뿐이고, 카톡 링크로 들어온 사람은 로비가 그것을 읽을 유일한 시간이다
+             (그렇게 안 하면 겨냥한 사람에게 0.6초만 보인다 — 함정 대조 실측). */
+          try { if (String(id || '').indexOf('videocall-call') !== -1) hide(); } catch (_) {}
+          return r;
+        };
+        window.showView.__mgInApp = true;
+      }
+    } catch (e) {}
+  })();
+
+  /* ═══════════════════════════════════════════════════════════════════
+     ⑰ 🖍 판서 선 보정 — «판서 선이 울퉁불퉁하다» (2026-10-02 P3)
+
+     [왜] 칠판 펜은 마우스가 움직일 때마다 «앞 점 → 지금 점» 직선 한 토막(seg)을
+       그리고 보낸다. 빠르게 쓰면 토막이 길어져 곡선이 꺾은선으로 보였다.
+     [무엇을 하나]
+       ⓐ 칠판 펜 토막을 «중점 2차곡선» 으로 잇는다. 토막 k 를 받으면
+          «앞 토막의 중점 → (조절점 = 이음점) → 이 토막의 중점» 을 그린다.
+          마지막 반 토막(중점 → 끝점)은 다음 토막을 기다렸다가, 220ms 안에 안 오면
+          (또는 손을 떼면) 직선으로 마저 그린다 — 받는 쪽은 «획 끝» 신호가 없어서다.
+       ⓑ 펜일 때만 PointerEvent.getCoalescedEvents() 로 사이 점을 «최대 1개» 더
+          넣는다(빠를 때만 · 6px 이상 떨어진 점). 보내는 양은 많아야 2배이고 천천히
+          쓰면 그대로다. getCoalescedEvents 가 없으면 아무것도 안 한다(예전과 같다).
+       ⓒ 점 배열 획(교재 필기·AI 원본 잉크)은 idx-main.js 의 wbInkPath 가 곡선으로 그린다.
+     ⛔ 주고받는 데이터 모양은 한 글자도 안 바꾼다 — 옛 화면과 그대로 섞여 그린다.
+     ⛔ 지우개·직선·사각형·원은 예전 그대로(wbPaintSeg 원본) 그린다.
+     ⚠️ 이음 판정은 «앞 토막의 끝 == 이 토막의 시작» 정확일치다(보내는 쪽이 같은 식으로
+        계산해 같은 실수값이 나온다). 어긋나면 새 획으로 보고 그대로 그린다(= 예전 모양).
+     ⚠️ 기다리던 반 토막은 «다른 것을 칠하기 직전» 에 먼저 마저 그린다 — 순서가 뒤집히면
+        지우개 위에 펜 꼬리가 올라앉는다. 다시 그리기·전체 지우기 때는 버린다(이미 기록에 있다).
+     감시: test-harness/pen_smoothing_harness.mjs
+  ═══════════════════════════════════════════════════════════════════ */
+  (function () {
+    var TAIL_MS = 220, MAX_CHAINS = 8, GAP_PX = 6;
+    var origSeg = window.wbPaintSeg;
+    if (typeof origSeg !== 'function' || origSeg.__mgInk) return;
+
+    function st(ctx) { return ctx && (ctx.__mgInk || (ctx.__mgInk = { chains: [] })); }
+    function style(ctx, c) { ctx.beginPath(); ctx.strokeStyle = c.color; ctx.lineWidth = c.size; ctx.lineCap = 'round'; }
+    function tail(ctx, c) {
+      if (c.timer) { try { clearTimeout(c.timer); } catch (e) {} c.timer = null; }
+      style(ctx, c); ctx.moveTo(c.mx, c.my); ctx.lineTo(c.tx, c.ty); ctx.stroke();
+    }
+    function flushAll(ctx) {
+      var s = ctx && ctx.__mgInk; if (!s || !s.chains.length) return;
+      var list = s.chains; s.chains = [];
+      for (var i = 0; i < list.length; i++) { try { tail(ctx, list[i]); } catch (e) {} }
+    }
+    function dropAll(ctx) {
+      var s = ctx && ctx.__mgInk; if (!s) return;
+      for (var i = 0; i < s.chains.length; i++) { try { if (s.chains[i].timer) clearTimeout(s.chains[i].timer); } catch (e) {} }
+      s.chains = [];
+    }
+    function arm(ctx, c) {
+      if (c.timer) { try { clearTimeout(c.timer); } catch (e) {} }
+      c.timer = setTimeout(function () {
+        c.timer = null;
+        var s = ctx.__mgInk, k = s ? s.chains.indexOf(c) : -1;
+        if (k < 0) return;
+        s.chains.splice(k, 1);
+        try { tail(ctx, c); } catch (e) {}
+      }, TAIL_MS);
+    }
+
+    window.wbPaintSeg = function (ctx, W, H, d) {
+      if (!d || d.tool !== 'pen' || !(W > 0 && H > 0)) {
+        flushAll(ctx);
+        return origSeg.apply(this, arguments);
+      }
+      var s = st(ctx), c = null, i;
+      var fx = d.fromX * W, fy = d.fromY * H, tx = d.toX * W, ty = d.toY * H;
+      var mx = (fx + tx) / 2, my = (fy + ty) / 2;
+      for (i = 0; i < s.chains.length; i++) {
+        var q = s.chains[i];
+        if (q.ex === d.fromX && q.ey === d.fromY && q.color === d.color && q.size === d.size && q.W === W && q.H === H) { c = q; break; }
+      }
+      if (c) {
+        style(ctx, c);
+        ctx.moveTo(c.mx, c.my);
+        ctx.quadraticCurveTo(fx, fy, mx, my);
+        ctx.stroke();
+      } else {
+        c = { color: d.color, size: d.size, W: W, H: H, timer: null };
+        style(ctx, c);
+        ctx.moveTo(fx, fy);
+        ctx.lineTo(mx, my);
+        ctx.stroke();
+        s.chains.push(c);
+        if (s.chains.length > MAX_CHAINS) { var old = s.chains.shift(); try { tail(ctx, old); } catch (e) {} }
+      }
+      c.mx = mx; c.my = my; c.tx = tx; c.ty = ty; c.ex = d.toX; c.ey = d.toY;
+      arm(ctx, c);
+    };
+    window.wbPaintSeg.__mgInk = 1;
+
+    function wbCtx() { var cv = document.getElementById('wb-canvas'); try { return cv ? cv.getContext('2d') : null; } catch (e) { return null; } }
+
+    /* 다른 것을 칠하기 «직전» 에 기다리던 꼬리를 먼저 마저 그린다 */
+    ['wbPaintStroke', 'wbPaintText', 'wbRenderShape'].forEach(function (name) {
+      var f = window[name];
+      if (typeof f !== 'function' || f.__mgInk) return;
+      window[name] = function (ctx) { flushAll(ctx); return f.apply(this, arguments); };
+      window[name].__mgInk = 1;
+    });
+    /* 다시 그리기·전체 지우기 — 캔버스가 지워지므로 기다리던 꼬리는 버린다(기록에 이미 있다).
+       다시 그리기는 끝난 뒤 남은 꼬리를 바로 마저 그려 «완성된 그림» 으로 둔다. */
+    var origRedraw = window.wbRedrawAll;
+    if (typeof origRedraw === 'function' && !origRedraw.__mgInk) {
+      window.wbRedrawAll = function () {
+        var c = wbCtx(); dropAll(c);
+        var r = origRedraw.apply(this, arguments);
+        flushAll(c);
+        return r;
+      };
+      window.wbRedrawAll.__mgInk = 1;
+    }
+    var origClear = window.wbReceiveClear;
+    if (typeof origClear === 'function' && !origClear.__mgInk) {
+      window.wbReceiveClear = function () { dropAll(wbCtx()); return origClear.apply(this, arguments); };
+      window.wbReceiveClear.__mgInk = 1;
+    }
+
+    /* 칠판을 새로 누르거나 손을 떼면 꼬리를 바로 그린다
+       (도형 미리보기는 누르는 순간의 스냅샷을 쓰므로 그 안에 꼬리가 들어 있어야 한다) */
+    function onEdge(e) {
+      var t = e && e.target;
+      if (e.type === 'mouseup' || (t && t.id === 'wb-canvas')) flushAll(wbCtx());
+    }
+    document.addEventListener('mousedown', onEdge, true);
+    document.addEventListener('mouseup', onEdge, true);
+
+    /* ⓑ 사이 점 하나 더 — 펜일 때만 */
+    function pickExtra(list, last, fin, gap) {
+      if (!list || list.length < 2 || !last || !fin) return null;
+      var best = null, bestD = -1;
+      for (var i = 0; i < list.length - 1; i++) {
+        var p = list[i]; if (!p) continue;
+        var m = Math.min(Math.hypot(p.clientX - last.x, p.clientY - last.y),
+                         Math.hypot(p.clientX - fin.x, p.clientY - fin.y));
+        if (m > bestD) { bestD = m; best = p; }
+      }
+      return (best && bestD >= gap) ? { x: best.clientX, y: best.clientY } : null;
+    }
+
+    var lastPt = null;
+    function kindOf(t) {
+      if (!t) return '';
+      if (t.id === 'wb-canvas') return 'wb';
+      if (t.classList && t.classList.contains('pdf-anno')) return 'pdf';
+      return '';
+    }
+    function penOn(kind) {
+      try {
+        if (kind === 'wb') return wbDrawing === true && wbTool === 'pen';
+        if (kind === 'pdf') return pdfDrawTool === 'pen';
+      } catch (e) {}
+      return false;
+    }
+    document.addEventListener('pointerdown', function (e) {
+      if (!e.isTrusted || !kindOf(e.target)) return;
+      lastPt = { x: e.clientX, y: e.clientY };
+    }, true);
+    document.addEventListener('pointermove', function (e) {
+      if (!e.isTrusted) return;                    // 우리가(또는 칠판 터치 다리가) 만든 가짜 이벤트는 건너뛴다
+      var kind = kindOf(e.target);
+      if (!kind || !penOn(kind)) return;
+      if (kind === 'pdf' && !e.buttons) return;     // 눌린 채로 움직일 때만
+      var fin = { x: e.clientX, y: e.clientY };
+      var p = null;
+      if (typeof e.getCoalescedEvents === 'function') {
+        try { p = pickExtra(e.getCoalescedEvents(), lastPt, fin, GAP_PX); } catch (err) { p = null; }
+      }
+      lastPt = fin;
+      if (!p) return;
+      try {
+        e.target.dispatchEvent(kind === 'wb'
+          ? new MouseEvent('mousemove', { clientX: p.x, clientY: p.y })
+          : new PointerEvent('pointermove', { clientX: p.x, clientY: p.y, pointerId: e.pointerId, pointerType: e.pointerType, buttons: e.buttons, isPrimary: e.isPrimary }));
+      } catch (err) {}
+    }, true);
+  })();
+  /* ⑰ 끝 */
+
+  /* ═══════════════════════════════════════════════════════════════════
+     ⑱ 📖 교재가 «살짝만 건드려도» 다음 장으로 넘어가던 것 (2026-10-08 사장님)
+     ───────────────────────────────────────────────────────────────────
+     교재 영역(#pdf-scroll-wrap)은 idx-main.js 가 «0.5초 안에 옆으로 100px» 이면
+     장을 넘긴다. 그 판정에 구멍이 셋 있었다.
+       ㉠ 교재가 화면 폭에 딱 맞으면 «왼쪽 끝·오른쪽 끝» 이 둘 다 참이라
+          위아래로 보다가 손이 조금만 비스듬히 빨리 가도 넘어갔다.
+       ㉡ 두 손가락으로 확대하고 손을 떼면 그 «떼기» 가 스와이프로 세였다.
+       ㉢ 펜으로 필기하는 중에도 가로로 빨리 그으면 넘어갔다
+          (화면 끌기는 펜 모드면 멈추는데 장 넘기기는 펜 모드를 안 봤다).
+     A) 그래서 «교재 영역에서 시작한 손가락 동작» 이 끝나는 순간 캡처 단계에서
+        «정말 넘길 만한 동작이었나» 를 먼저 판정해 두고, 그 직후 같은 이벤트에서
+        불리는 pdfNextPage/pdfPrevPage 가 «아니오» 면 무시한다.
+     B) 손가락으로 장을 넘긴 직후 0.6초는 다음 넘김을 무시하고,
+        다음 «파일» 을 받아 오는 동안(비동기)에는 한 번 더 넘기지 않는다
+        (두 번 감지·연타로 두 장 / 두 파일을 건너뛰던 것).
+     ⛔ idx-main.js 의 원래 처리는 지우지 않는다 — 그 파일은 blocking 이라 손대지 않고
+        여기서 «막기만» 한다. 이 절이 없으면 예전 동작 그대로다.
+     ⛔ 화살표·툴바 버튼으로 «한 번» 누른 넘김은 막지 않는다 — 막는 것은
+        «교재 영역 스와이프 판정이 아니오인 경우» 와 «터치 직후 0.6초 안의 두 번째» 뿐.
+     ⛔ 상대에게서 온 장 이동(pdf-page-change → pdfGoToPage)은 이 길을 안 탄다.
+     ═══════════════════════════════════════════════════════════════════ */
+  (function () {
+    var SWIPE_MIN_PX = 140;       // 옛 100px → 140px
+    var SWIPE_RATIO = 3;          // 옛 «가로 ≥ 세로×2» → ×3 (거의 수평일 때만)
+    var SWIPE_MAX_MS = 500;       // 옛 값 그대로 — 천천히 끈 것은 넘김이 아니다
+    var FIT_MIN_FRAC = 0.4;       // 폭이 딱 맞는 교재는 화면 폭의 40% 이상 밀어야
+    var COOLDOWN_MS = 600;        // B) 손가락 넘김 직후 무시 구간
+    var TOUCH_RECENT_MS = 1000;   // 이 안에 터치가 있었으면 «손가락으로 부른 넘김»
+    var INFLIGHT_MAX_MS = 4000;   // 비동기 넘김이 끝나지 않아도 이만큼 지나면 풀어 준다
+
+    function swipeVerdict(g) {
+      /* g: { maxTouches, pen, dx, dy, dt, fits, width, edgeStart:{left,right} }
+         돌려주는 값: true = 넘겨도 된다 / false = 막는다 */
+      if (!g) return true;
+      if (g.maxTouches !== 1) return false;                 // ㉡ 두 손가락(확대) 동작
+      if (g.pen) return false;                              // ㉢ 펜 필기 중
+      var ax = Math.abs(g.dx), ay = Math.abs(g.dy);
+      if (!(g.dt <= SWIPE_MAX_MS)) return false;
+      if (ax < SWIPE_MIN_PX) return false;
+      if (ax < ay * SWIPE_RATIO) return false;
+      if (g.fits) {                                         // ㉠ 폭이 딱 맞는 교재
+        if (ax < Math.max(SWIPE_MIN_PX, (g.width || 0) * FIT_MIN_FRAC)) return false;
+        return true;
+      }
+      /* 확대해 옆으로 굴릴 수 있는 교재 — 이미 그 끝에 닿아 있던 상태에서 «한 번 더» 민 경우만.
+         끌다가 끝에 닿은 순간 같은 동작이 장까지 넘기던 것을 막는다. */
+      if (g.dx > 0) return !!(g.edgeStart && g.edgeStart.left);
+      return !!(g.edgeStart && g.edgeStart.right);
+    }
+
+    var G = null;            // 지금 진행 중인 교재 영역 손가락 동작
+    var gate = null;         // 방금 끝난 동작의 판정 — 같은 이벤트 안에서만 유효
+    var lastTouchAt = 0, lastTouchFlipAt = 0, inflightAt = 0;
+
+    function wrapOf(t) {
+      try { return t && t.closest ? t.closest('#pdf-scroll-wrap') : null; } catch (e) { return null; }
+    }
+    document.addEventListener('touchstart', function (e) {
+      lastTouchAt = Date.now();
+      try {
+        var w = wrapOf(e.target);
+        if (!w) return;
+        var n = e.touches ? e.touches.length : 0;
+        if (n === 1 || !G) {
+          var t = e.touches[0];
+          var maxL = w.scrollWidth - w.clientWidth;
+          G = {
+            maxTouches: n, x: t.clientX, y: t.clientY, t0: Date.now(),
+            pen: !!document.querySelector('.pdf-anno.active'),
+            fits: maxL <= 1, width: w.clientWidth,
+            edgeStart: { left: w.scrollLeft <= 1, right: w.scrollLeft >= maxL - 1 }
+          };
+        } else if (n > G.maxTouches) {
+          G.maxTouches = n;
+        }
+      } catch (err) {}
+    }, true);
+    document.addEventListener('touchend', function (e) {
+      lastTouchAt = Date.now();
+      try {
+        if (!G || !wrapOf(e.target)) return;
+        var c = e.changedTouches && e.changedTouches[0];
+        var allow = false;
+        if (c && e.touches && e.touches.length === 0) {
+          allow = swipeVerdict({
+            maxTouches: G.maxTouches, pen: G.pen, fits: G.fits, width: G.width, edgeStart: G.edgeStart,
+            dx: c.clientX - G.x, dy: c.clientY - G.y, dt: Date.now() - G.t0
+          });
+        }
+        gate = { allow: allow };
+        if (e.touches && e.touches.length === 0) G = null;
+        setTimeout(function () { gate = null; }, 0);   // 같은 이벤트가 끝나면 판정도 끝
+      } catch (err) { gate = null; }
+    }, true);
+    document.addEventListener('touchcancel', function () { G = null; gate = null; }, true);
+
+    function guard(orig) {
+      return function () {
+        var now = Date.now();
+        if (gate && !gate.allow) return Promise.resolve();                 // A) 넘길 동작이 아님
+        var byTouch = (now - lastTouchAt) < TOUCH_RECENT_MS;
+        if (byTouch && (now - lastTouchFlipAt) < COOLDOWN_MS) return Promise.resolve();  // B) 연속
+        if (inflightAt && (now - inflightAt) < INFLIGHT_MAX_MS) return Promise.resolve(); // B) 파일 받는 중
+        if (byTouch) lastTouchFlipAt = now;
+        var r;
+        try { r = orig.apply(this, arguments); } catch (err) { return Promise.resolve(); }
+        if (r && typeof r.then === 'function') {
+          var mine = inflightAt = now;
+          var done = function () { if (inflightAt === mine) inflightAt = 0; };
+          r.then(done, done);
+        }
+        return r;
+      };
+    }
+    try {
+      if (typeof window.pdfNextPage === 'function' && !window.pdfNextPage.__mgSwipeGuard) {
+        window.pdfNextPage = guard(window.pdfNextPage); window.pdfNextPage.__mgSwipeGuard = 1;
+      }
+      if (typeof window.pdfPrevPage === 'function' && !window.pdfPrevPage.__mgSwipeGuard) {
+        window.pdfPrevPage = guard(window.pdfPrevPage); window.pdfPrevPage.__mgSwipeGuard = 1;
+      }
+      window.__mgSwipeVerdict = swipeVerdict;   // 하니스·진단용
+      window.__mgSwipeGuardReady = 1;
+    } catch (err) {}
+  })();
+  /* ⑱ 끝 */
+
+  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 · 공유교재 이름잇기 · 화면공유 15fps · 칭찬 실패 안내 · 이름표 재시도 · 인앱안내 · 판서 곡선 · 교재 넘김 보호 준비됨'); } catch (e) {}
+})();

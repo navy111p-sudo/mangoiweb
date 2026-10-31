@@ -11,6 +11,21 @@ import { dirname, join } from 'path';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const src = readFileSync(join(root, 'cloudflare-deploy', 'src', 'enroll-ops.ts'), 'utf8');
+// 🕐 (2026-08-17) 수업 길이·격자·요금배수의 정본은 class-policy.ts 로 옮겨졌다.
+//   enroll-ops 가 그걸 import 해서 쓰므로, 샌드박스에도 원문 그대로 넣어 준다.
+//   (여기서 값을 베껴 적으면 정본이 바뀌어도 테스트가 안 따라가서 의미가 없다)
+const policySrc = readFileSync(join(root, 'cloudflare-deploy', 'src', 'class-policy.ts'), 'utf8');
+let policyCode = '';
+for (const cn of ['DEFAULT_CLASS_MINUTES', 'ENABLE_25MIN', 'CLASS_TIME_STEP_MIN', 'ALLOWED_CLASS_MINUTES']) {
+  const cm = policySrc.match(new RegExp(`export const ${cn}(?:: [A-Za-z\\[\\]]+)? =[^;]*;`));
+  if (!cm) { console.error(`FAIL extract class-policy ${cn}`); process.exit(1); }
+  policyCode += cm[0].replace(/^export /, '').replace(/(const \w+): [A-Za-z\[\]]+ =/, '$1 =') + '\n';
+}
+for (const fn of ['classLengthMultiplier', 'classTenMinUnits']) {
+  const fm = policySrc.match(new RegExp(`export function ${fn}[\\s\\S]*?\\n}`));
+  if (!fm) { console.error(`FAIL extract class-policy ${fn}`); process.exit(1); }
+  policyCode += fm[0].replace(/^export /, '').replace(/\(([^)]*)\): number \{/, (m0, args) => `(${args.replace(/: number/g, '')}) {`) + '\n';
+}
 
 const names = ['enrollQuoteCalc', 'enrollTimeToMin', 'enrollOverlap', 'enrollDates', 'enrollRefundCalc', 'kstToday', 'addDays', 'daysBetween', 'isValidWeekly', 'inferWeeklyDays', 'enrollParse'];
 // 상수도 원문에서 가져온다(값이 바뀌면 테스트도 같이 따라가게).
@@ -40,7 +55,7 @@ for (const n of names) {
     .replace(/\??: Set<string>/g, '')
     + '\n';
 }
-const fns = new Function(code + `; return { ${names.join(', ')} };`)();
+const fns = new Function(policyCode + code + `; return { ${names.join(', ')} };`)();
 
 let pass = 0, fail = 0;
 function eq(label, got, want) {
@@ -59,6 +74,26 @@ eq('부장님 확인 실례 30,000×6개월×95%=171,000', [q.sessions, q.discou
 q = fns.enrollQuoteCalc(60000, 2, 12, 20);
 eq('주2회 12개월 10% 할인', [q.sessions, q.amount], [96, 1296000]);
 eq('40분 수업 = 2배', fns.enrollQuoteCalc(60000, 1, 1, 40).amount, 120000);
+
+/* 🕐 (2026-08-17) 길이 요금은 «분에 정확히 비례» — 여기서 깎으면 강사 1시간 매출이 그대로 준다.
+   강사 1시간 매출 = (60÷길이)명 × 회당단가. 정비례일 때만 길이와 무관하게 일정하다.
+   30분을 1.5 가 아니라 1.4 로 두면 강사 시간당 −7%, 1.25 면 −17%. 되돌아가면 아무도 모르므로 못 박는다. */
+eq('30분 수업 = 1.5배', fns.enrollQuoteCalc(60000, 1, 1, 30).amount, 90000);
+eq('20분 회당 단가', fns.enrollQuoteCalc(60000, 1, 1, 20).perSession, 15000);
+eq('30분 회당 단가', fns.enrollQuoteCalc(60000, 1, 1, 30).perSession, 22500);
+{
+  // 어느 길이든 «분당 단가»가 같아야 한다 (20분 기준 750원/분)
+  const perMin = (m) => fns.enrollQuoteCalc(60000, 1, 1, m).perSession / m;
+  eq('분당 단가가 길이와 무관하게 같다 (20/30/40분)',
+     [20, 30, 40].map(perMin), [750, 750, 750]);
+  // 강사 1시간 매출이 길이와 무관하게 같다 = 강사가 적어도 매출이 안 준다는 근거
+  const perHour = (m) => Math.round((60 / m) * fns.enrollQuoteCalc(60000, 1, 1, m).perSession);
+  eq('강사 1시간 매출이 길이와 무관하게 같다', [20, 30, 40].map(perHour), [45000, 45000, 45000]);
+  // 핵심 상담 카드: 주3회×20분 과 주2회×30분 은 «총 수업시간도 값도» 같아야 한다
+  eq('주3회×20분 = 주2회×30분 (같은 값)',
+     fns.enrollQuoteCalc(60000, 3, 1, 20).amount === fns.enrollQuoteCalc(60000, 2, 1, 30).amount
+       && 3 * 20 === 2 * 30, true);
+}
 eq('10원 단위 절사', fns.enrollQuoteCalc(33333, 1, 1, 20).amount, 33330);
 eq('주5회(월20회)', [fns.enrollQuoteCalc(60000, 5, 1, 20).sessions, fns.enrollQuoteCalc(60000, 5, 1, 20).amount], [20, 300000]);
 eq('강사 가산 120% (정책 확정 시)', fns.enrollQuoteCalc(60000, 1, 1, 20, 1.2).amount, 72000);
@@ -146,8 +181,13 @@ eq('요일별 다른 시간 지정(신규 — 제보 #2-3)',
 eq('요일별 시간 중 하나라도 빠지면 거부', parse({ time: undefined, times: { '1': '19:00' } }).error, 'bad_time');
 eq('상품에 없는 주횟수(4) 거부', parse({ weekly: 4, days: [1, 2, 3, 4] }).error, 'bad_weekly');
 eq('상품에 없는 개월(5) 거부', parse({ months: 5 }).error, 'bad_months');
-eq('허용 안 된 수업길이(30분) 거부', parse({ minutes: 30 }).error, 'bad_minutes');
-eq('10분 단위 아닌 시각 거부', parse({ time: '16:05' }).error, 'bad_time');
+// 🕐 (2026-08-17) 30분 개방 — «A안: 10분 격자 · 20/30/40분»
+eq('30분 수업 허용', parse({ minutes: 30 }).minutes, 30);
+eq('40분 수업 허용', parse({ minutes: 40 }).minutes, 40);
+eq('허용 안 된 수업길이(25분) 거부 — 스위치가 꺼져 있다', parse({ minutes: 25 }).error, 'bad_minutes');
+eq('허용 안 된 수업길이(15분) 거부', parse({ minutes: 15 }).error, 'bad_minutes');
+eq('격자(10분) 아닌 시각 거부', parse({ time: '16:05' }).error, 'bad_time');
+eq('격자에 맞는 시각 허용', parse({ time: '16:10' }).timesMin[1], 970);
 eq('형식 틀린 시각 거부', parse({ time: '9:00' }).error, 'bad_time');
 eq('요일 수 ≠ 주횟수 거부(변조 방지)', parse({ weekly: 2, days: [1] }).error, 'days_count_mismatch');
 eq('요일 중복은 dedup 되어 개수 불일치로 거부', parse({ weekly: 2, days: [1, 1] }).error, 'days_count_mismatch');

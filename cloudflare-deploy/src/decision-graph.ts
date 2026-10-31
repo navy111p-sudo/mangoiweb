@@ -124,6 +124,7 @@ export async function runDecisionGraphSync(
             a.choice_score AS choice_score, a.reasoning_score AS reasoning_score, a.is_optimal AS is_optimal,
             a.best_option AS best_option, a.misconception_tag AS misconception_tag
      FROM judgment_events e JOIN judgment_analysis a ON a.event_id = e.id
+     WHERE LOWER(COALESCE(e.student_uid,'')) NOT LIKE 'guest%'
      ORDER BY e.created_at DESC LIMIT 3000`,
   ).all<any>();
   const rows = rs.results || [];

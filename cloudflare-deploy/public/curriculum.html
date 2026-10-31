@@ -8,8 +8,9 @@
 
 
 <meta charset="UTF-8">
-<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>망고아이 교육과정 — Curriculum</title>
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
@@ -54,7 +55,8 @@
   .track-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
   .track-card{background:#0f1f44;border:1px solid rgba(99,102,241,0.20);border-radius:12px;padding:16px;transition:all .15s}
   .track-card:hover{border-color:rgba(251,191,36,0.4);transform:translateY(-2px)}
-  .track-emoji{font-size:28px;margin-bottom:6px}
+  .track-card{overflow:hidden}
+  .track-photo{display:block;width:calc(100% + 32px);max-width:none;height:auto;margin:-16px -16px 12px;aspect-ratio:4/3;object-fit:cover;background:#16285a}
   .track-title{font-size:14.5px;font-weight:900;color:#fff;margin-bottom:6px}
   .track-desc{font-size:12.5px;color:#a3b3d1;line-height:1.6}
 
@@ -121,6 +123,10 @@
     .lvl-en{display:none}
     .lvl-head .lvl-en-col{display:none}
   }
+  /* PC 큰 화면: 폭 1100px 에 글자 11~14px 이라 1920 모니터에서 너무 작음(2026-10-09 사장님) → 본문 통째로 확대.
+     zoom 이라 폭도 함께 커져 배치 비율이 그대로. 1440px 미만·폰은 그대로. */
+  @media (min-width:1440px){ .wrap{zoom:1.15} }
+  @media (min-width:1700px){ .wrap{zoom:1.28} }
 </style>
 </head>
 <body>
@@ -274,32 +280,32 @@
     <h2><span class="ico">🎯</span> <span data-ko="목적별 학습 트랙" data-en="Learning Tracks by Goal">목적별 학습 트랙</span></h2>
     <div class="track-grid">
       <div class="track-card">
-        <div class="track-emoji">🧒</div>
+        <img class="track-photo" src="/img/curriculum-tracks/kids.webp" alt="키즈 영어 수업" data-ko-aria="키즈 영어 수업" data-en-aria="Kids English class" width="640" height="478" loading="lazy" decoding="async">
         <div class="track-title" data-ko="키즈 영어" data-en="Kids English">키즈 영어</div>
         <div class="track-desc" data-ko="만 4-12세, 게임·놀이형 수업으로 자연스럽게 영어를 익혀요" data-en="Ages 4-12, fun game-based lessons for natural language acquisition">만 4-12세, 게임·놀이형 수업으로 자연스럽게 영어를 익혀요</div>
       </div>
       <div class="track-card">
-        <div class="track-emoji">🎓</div>
+        <img class="track-photo" src="/img/curriculum-tracks/school.webp" alt="중·고등 학습" data-ko-aria="중·고등 학습" data-en-aria="Middle/high school study" width="640" height="478" loading="lazy" decoding="async">
         <div class="track-title" data-ko="중·고등 학습" data-en="Middle/High School">중·고등 학습</div>
         <div class="track-desc" data-ko="내신·수능·말하기 평가 대비 맞춤형 커리큘럼" data-en="Tailored curriculum for school exams and speaking assessments">내신·수능·말하기 평가 대비 맞춤형 커리큘럼</div>
       </div>
       <div class="track-card">
-        <div class="track-emoji">💼</div>
+        <img class="track-photo" src="/img/curriculum-tracks/business.webp" alt="비즈니스 영어" data-ko-aria="비즈니스 영어" data-en-aria="Business English" width="640" height="478" loading="lazy" decoding="async">
         <div class="track-title" data-ko="비즈니스 영어" data-en="Business English">비즈니스 영어</div>
         <div class="track-desc" data-ko="회의·이메일·프레젠테이션 등 실무 영어 집중" data-en="Focus on practical English: meetings, emails, presentations">회의·이메일·프레젠테이션 등 실무 영어 집중</div>
       </div>
       <div class="track-card">
-        <div class="track-emoji">📝</div>
+        <img class="track-photo" src="/img/curriculum-tracks/test.webp" alt="시험 대비" data-ko-aria="시험 대비" data-en-aria="Test preparation" width="640" height="478" loading="lazy" decoding="async">
         <div class="track-title" data-ko="시험 대비" data-en="Test Preparation">시험 대비</div>
         <div class="track-desc" data-ko="TOEIC · OPIc · IELTS · TOEFL 전문 강사 매칭" data-en="Expert instructors for TOEIC, OPIc, IELTS, and TOEFL">TOEIC · OPIc · IELTS · TOEFL 전문 강사 매칭</div>
       </div>
       <div class="track-card">
-        <div class="track-emoji">💬</div>
+        <img class="track-photo" src="/img/curriculum-tracks/conversation.webp" alt="일상 회화" data-ko-aria="일상 회화" data-en-aria="Daily conversation" width="640" height="478" loading="lazy" decoding="async">
         <div class="track-title" data-ko="일상 회화" data-en="Daily Conversation">일상 회화</div>
         <div class="track-desc" data-ko="자유 주제 토론과 발음 교정으로 자신감 UP" data-en="Free-topic discussions and pronunciation coaching">자유 주제 토론과 발음 교정으로 자신감 UP</div>
       </div>
       <div class="track-card">
-        <div class="track-emoji">🌏</div>
+        <img class="track-photo" src="/img/curriculum-tracks/travel.webp" alt="해외 거주·여행" data-ko-aria="해외 거주·여행" data-en-aria="Living abroad and travel" width="640" height="478" loading="lazy" decoding="async">
         <div class="track-title" data-ko="해외 거주·여행" data-en="Living Abroad / Travel">해외 거주·여행</div>
         <div class="track-desc" data-ko="실제 상황 시뮬레이션 기반 회화 훈련" data-en="Real-world situational conversation training">실제 상황 시뮬레이션 기반 회화 훈련</div>
       </div>
@@ -335,13 +341,15 @@
 
   <!-- ━━━━ 자체 개발 교재 ━━━━ -->
   <div class="section">
-    <h2><span class="ico">📖</span> <span data-ko="자체 개발 교재 3종" data-en="3 Proprietary Textbooks">자체 개발 교재 3종</span></h2>
+    <h2><span class="ico">📖</span> <span data-ko="자체 개발 교재 2종" data-en="2 Proprietary Textbooks">자체 개발 교재 2종</span></h2>
     <p class="hint" data-ko="교재명을 클릭하면 상세 설명·구성·특징이 펼쳐집니다." data-en="Click each textbook for detailed features and curriculum.">교재명을 클릭하면 상세 설명·구성·특징이 펼쳐집니다.</p>
 
     <div class="book-list">
 
-      <!-- MES -->
-      <details class="book-item" open>
+      <!-- 🙈 MES — (2026-08-13 사장님 지시) 학부모용 소개에서도 뺀다. 이제 안 쓰는 교재다.
+           지우지 않고 감춘다(10년 쓴 교재라 설명 원문을 남겨 둔다) — 되살리려면 style 만 지우면 된다.
+           ⚠️ 함께 고칠 것: 위 제목의 «자체 개발 교재 3종» → 2종. 감추기만 하면 숫자가 어긋난다. -->
+      <details class="book-item" style="display:none">
         <summary>
           <span class="book-cover" style="background:linear-gradient(135deg,#fbbf24,#f59e0b)">MES</span>
           <div>
@@ -378,8 +386,8 @@
         </div>
       </details>
 
-      <!-- BTS -->
-      <details class="book-item">
+      <!-- BTS — MES 를 감췄으므로 이제 이쪽이 «처음 펼쳐져 있는» 교재다 -->
+      <details class="book-item" open>
         <summary>
           <span class="book-cover" style="background:linear-gradient(135deg,#ec4899,#db2777)">BTS</span>
           <div>
@@ -495,6 +503,6 @@
   document.addEventListener('DOMContentLoaded', updateLangBtn);
 </script>
 
-<!-- BUILD:20260813001216 -->
+<!-- BUILD:20260813015745 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>

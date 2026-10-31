@@ -72,6 +72,39 @@
   var GAME = detectGame();
   var started = Date.now();
   var items = 0, correct = 0, wrong = 0, coins = 0;
+
+  /* ── 📊 진행 알림 — 허브 띠가 «얼마나 남았는지» 를 그릴 수 있게 (2026-09-22) ──────────
+     왜: 게임 22종 중 8종이 「끝」을 화면에 한 글자도 안 보여 줬고, 보여 주는 14종도
+         기준이 여섯 가지였다(0/10 · 1/6 · 1/4 · 0/5 · Round 1/3 · 0/60).
+         학생이 게임을 옮길 때마다 「이 숫자가 끝까지 얼마인지」를 다시 배워야 했다.
+     어떻게: 이 파일은 이미 정오답을 세고 있다(items·correct). 그것을 부모(허브)에게
+         알리기만 하면 **게임 22개를 한 글자도 안 고치고** 공통 띠를 그릴 수 있다.
+     ⛔ 이 알림이 게임을 방해하면 안 된다 — 전 구간 try/catch, 부모가 없으면 즉시 반환.
+     ⛔ 목표(분모)를 여기서 지어내지 않는다. 허브가 URL 로 넘긴 goal 을 그대로 돌려줄 뿐이고,
+        그 값이 없으면 안 싣는다(허브가 「모른다」를 알아야 띠를 안 그린다). */
+  var GOAL = (function () {
+    try {
+      var m = String(location.search || '').match(/[?&]goal=(\d{1,4})\b/);
+      var n = m ? parseInt(m[1], 10) : 0;
+      return (n > 0 && n <= 9999) ? n : 0;
+    } catch (e) { return 0; }
+  })();
+
+  var _lastSent = -1;
+  function notifyProgress() {
+    try {
+      if (window.parent === window) return;        // 독립 화면(AI 학습도구 등) — 부모가 없다
+      if (correct === _lastSent) return;           // 같은 값을 두 번 보내지 않는다
+      _lastSent = correct;
+      window.parent.postMessage({
+        type: 'mangoi-game-progress',
+        game: GAME,
+        done: correct,                              // 맞힌 개수
+        seen: items,                                // 푼 개수(맞고 틀림 합)
+        goal: GOAL                                  // 허브가 넘긴 목표(0 = 모름)
+      }, location.origin);
+    } catch (e) {}
+  }
   var finishedFlag = false;
   var sent = false;
 
@@ -116,6 +149,7 @@
         // 발음은 맞고 틀림이 아니라 점수다 — 80점 이상만 «해냈다» 로 본다.
         if ((Number(o.score) || 0) >= 80) correct++; else wrong++;
       }
+      notifyProgress();
       return JSON.stringify(o);
     } catch (e) { return bodyText; }
   }
@@ -132,6 +166,7 @@
   function queueAnswer(ok, item, ko) {
     try {
       items++; if (ok) correct++; else wrong++;
+      notifyProgress();
       var it = String(item == null ? '' : item).trim().slice(0, 200);
       if (!it) return;
       if (uid() === 'guest') return;
@@ -253,7 +288,23 @@
        *  @param ko    한국어 뜻 (있으면) */
       answer: function (ok, item, ko) { queueAnswer(!!ok, item, ko); },
       finish: function () { try { finishedFlag = true; send('finish'); } catch (e) {} },
-      note: function (n) { try { items += Math.max(0, Number(n) || 1); } catch (e) {} }
+      note: function (n) { try { items += Math.max(0, Number(n) || 1); } catch (e) {} },
+      /** 📊 진행을 게임이 «직접» 알린다 — 정오답을 안 세는 게임(라운드·웨이브·단계형)용.
+       *  허브 띠가 이 값을 그대로 그린다. goal 을 안 주면 허브가 URL 로 넘긴 값을 쓴다.
+       *  ⛔ 이 값이 정오답 카운터(correct)를 덮지 않는다 — 계측은 계측대로 따로 간다. */
+      progress: function (done, goal) {
+        try {
+          if (window.parent === window) return;
+          window.parent.postMessage({
+            type: 'mangoi-game-progress',
+            game: GAME,
+            done: Math.max(0, Number(done) || 0),
+            seen: Math.max(0, Number(done) || 0),
+            goal: Math.max(0, Number(goal) || 0) || GOAL,
+            self: 1                                   // 게임이 직접 말한 값 — 허브가 이것을 우선한다
+          }, location.origin);
+        } catch (e) {}
+      }
     };
   } catch (e) {}
 })();

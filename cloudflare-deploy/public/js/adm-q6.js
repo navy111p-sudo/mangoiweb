@@ -9,8 +9,19 @@
     weekOffset: 0,         // 0 = 이번 주, -1 = 지난 주, +1 = 다음 주
     teacherFilter: '',     // '' = 전체, 또는 강사 id
     teachers: [],          // [{id, name, korean_name, english_name}]
-    records: []            // [{teacher_id, teacher_name, date, scheduled, actual, late_min}]
+    records: [],           // [{teacher_id, teacher_name, date, scheduled, actual, late_min}]
+    /* 🪞 (2026-08-31) 카페24에만 있는 수업을 이 캘린더에 «겹쳐» 보여주기 위한 자리.
+       class_schedules 와 섞지 않는다 — 드래그·삭제·차단이 전부 records 의 인덱스로 도는데
+       여기에 섞으면 «카페24 카드를 끌었더니 엉뚱한 수업에 PATCH 가 나가는» 사고가 난다. */
+    c24: [],               // [{teacher_id, date, start_time, duration_min, student_name, verdict}]
+    c24On: true,           // 「카페24 수업 함께 보기」 체크박스
+    c24Msg: '',            // 못 읽었을 때 이유(빈 화면을 «수업 없음» 으로 오해하지 않게)
+    c24Cache: {},          // 주(월요일) → { t, rows, msg }
+    /* 🗂 (2026-09-02 사장님 선택 B-1) 전체 보기에서 «펼친 요일»(0=월 … 6=일).
+       null 이면 렌더 때 오늘(이번 주가 아니면 수업이 있는 첫 요일)로 정한다. 주를 옮기면 null 로 되돌린다. */
+    openDay: null
   };
+  try { ph54State.c24On = (localStorage.getItem('ph54_c24_overlay') !== '0'); } catch(e){}
 
   /* 🌐 (2026-08-07) 이 캘린더를 하루 종일 쓰는 사람은 **필리핀 매니저**다.
      그런데 차단/삭제 안내문이 전부 한국어였다 — 「매주 반복할까요?」 를 못 읽고 확인을 누르면
@@ -131,7 +142,7 @@
     });
   }
 
-  async function ph54LoadRecords(){
+  async function ph54LoadSchedules(){
     // 🗓 강사 '수업 스케줄'(class_schedules)을 로드한다.
     //    - /api/admin/schedules?week=<해당 주 월요일> 가 그 주(월~일)로 펼친 슬롯 배열을 돌려줌.
     //    - ⚠️ 각 슬롯의 teacher_id 는 **teachers.id** 다. (예전 주석은 teacher_profiles.id 라고
@@ -151,6 +162,85 @@
     ph54State.records = [];   // 실패 시 빈 상태(가짜 데이터로 채우지 않음)
   }
 
+  /* 🪞 (2026-08-31 사장님) 「카페24에 있는 수업이 mangoi.ai 에도 잡히도록. 바로 잡는 게
+     어렵다면 잡힌 것처럼 보이게라도」 — 그래서 **보기 전용 겹쳐 그리기**로 먼저 넣는다.
+     ⛔ class_schedules 에 행을 만들지 않는다. 만드는 순간 «실제로 열리는 수업» 이 되는데,
+        카페24에 «없는 수업»(취소·강사변경 잔재)이 섞여 있는 것이 8/31 에 확인됐다
+        (허윤아 17:00 에 Kes·Sid 두 건이 있는데 실제로는 Zee 한 명뿐이었다).
+        그것을 그대로 만들면 학생·강사가 «있지도 않은 수업» 을 기다린다.
+     ✅ 그래서 지금 단계는 «카페24에는 이렇게 잡혀 있습니다» 를 그대로 비춰 주기만 한다.
+     ℹ️ 자료는 그림자 성적표(/api/admin/reports/c24-mirror)를 그대로 쓴다 —
+        판정(강사 잇기·학생 확인·중복)이 이미 그 한 곳에 있고, 화면이 규칙을 또 만들면 갈라진다. */
+  var PH54_C24_TTL = 120000;   // 같은 주를 다시 그릴 때 2분은 다시 안 묻는다(Neo4j 왕복)
+  /* 그릴 것 = «망고아이 시간표에 아직 그 행이 없는» 것뿐.
+     already·update·manual_locked·diverged·conflict 는 이미 진짜 카드로 그려지므로 겹치면 두 번 보인다. */
+  /* 🔴 (2026-09-01) conflict 를 «안 그리던» 것을 되살렸다.
+     안 그린 이유는 「이미 진짜 카드로 그려지므로 두 번 보인다」였는데, **강사 필터를 걸면
+     그 진짜 카드는 «다른 강사» 것이라 이 화면에 없다** — 결과적으로 아무 데도 안 보였다.
+     실측: Mariane 30건 중 화면에 28건만 떴다(Ana 로 이미 만든 9/1 17:00·21:40 이 사라짐).
+     하필 사장님이 「이 강사 수업이 진짜인가」를 카페24와 대조하려던 바로 그 건들이었다.
+     ✅ 그리되 «겹친다» 고 말한다 — 두 번 보이는 것보다 안 보이는 것이 나쁘다. */
+  var PH54_C24_SHOW = { ok:1, not_whitelisted:1, no_student:1, conflict:1 };
+  var PH54_C24_WHY = {
+    ok:              { ko:'✅ 미러를 켜면 이 수업이 망고아이에도 만들어집니다.', en:'✅ Will be created in Mangoi once the mirror is on.' },
+    not_whitelisted: { ko:'⏸ 아직 미러를 켜지 않은 강사입니다 (그림자 단계).',   en:'⏸ Mirror is not enabled for this instructor yet (shadow stage).' },
+    no_student:      { ko:'⚠️ 이 학생 계정이 망고아이에 없습니다 — 그대로는 만들 수 없습니다.', en:'⚠️ This student account does not exist in Mangoi.' },
+    conflict:        { ko:'⚠️ 그 학생은 같은 시각에 다른 수업이 이미 있습니다 — 둘 중 하나는 잘못된 예약입니다. 카페24에서 확인이 필요합니다.',
+                       en:'⚠️ That student already has another class at the same time — one of the two is wrong. Check Cafe24.' }
+  };
+  /* 🔴 (2026-09-01 사장님 화면 확인) 지난 주를 열면 「수업 0개 · 카페24 58개」 가 뜨고
+     카드마다 「미러를 켜면 만들어집니다」 라고 적혀 있었다. **거짓말이다** —
+     미러 창은 «오늘부터» 라서 지난 수업은 영영 안 만들어진다.
+     매니저에게는 「58건이 빠졌다」 로 읽힌다.
+     ⛔ 그렇다고 지난 카드를 «감추면» 안 된다 — 그러면 「지난주에 수업이 하나도 없었다」 는
+        반대쪽 거짓말이 된다(카페24에는 실제로 58건이 있었다).
+     ✅ 그래서 «지우지 말고 다른 말을 하게» 한다 — 지난 것은 «기록», 앞으로 것만 «대기». */
+  function ph54TodayKst(){
+    return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  }
+
+  async function ph54LoadC24(){
+    if (!ph54State.c24On){ ph54State.c24 = []; ph54State.c24Msg = ''; return; }
+    var days  = ph54GetWeekDays();
+    var since = ph54FmtDate(days[0]), until = ph54FmtDate(days[6]);
+    var hit = ph54State.c24Cache[since];
+    if (hit && (Date.now() - hit.t) < PH54_C24_TTL){ ph54State.c24 = hit.rows; ph54State.c24Msg = hit.msg; return; }
+    var rows = [], msg = '';
+    try {
+      var r = await fetch('/api/admin/reports/c24-mirror?since='+since+'&until='+until, { credentials:'include' });
+      var j = await r.json().catch(function(){ return null; });
+      /* 🔴 «성공이라고 말했는가» 로 판정한다. 404 본문에는 ok 칸이 아예 없어서
+         `if (d.ok === false)` 는 그냥 통과하고 빈 배열이 «오늘은 없나 보다» 로 읽힌다(CLAUDE.md 2장). */
+      if (r.status === 403 || r.status === 401){
+        /* 권한이 없는 계정(강사·지사)은 «고장» 이 아니다. 경고를 띄우면 매니저가 장애로 신고한다. */
+        msg = '';
+      } else if (!r.ok || !j || j.ok !== true){
+        msg = ph54T('카페24 수업을 읽지 못했습니다', 'Could not read Cafe24 classes')
+            + ' (' + ((j && (j.error || j.message)) || ('HTTP ' + r.status)) + ')';
+      } else {
+        /* 🔴 (2026-09-01) 그리는 것과 «세는 것» 을 갈랐다.
+             예전에는 여기서 PH54_C24_SHOW 가 아닌 판정을 통째로 버렸다. 그래서 아래 범례의
+             「강사 못 이음 N개」가 **영원히 0** 인 죽은 코드였다 — 세려는 행이 이미 없었다.
+             사장님이 Mariane 을 퇴사 처리하자 그 사람의 카페24 잔재 30건이 화면에서
+             «말없이» 사라진 것이 그 때문이다(카드도 없고 숫자도 없고 경고도 없었다).
+           ✅ 그리지 않는 판단은 그대로 둔다(누구 칸에 놓을지 모르는 것을 아무 데나 놓지 않는다).
+              대신 «몇 건이 왜 안 그려졌는지» 는 남겨서 범례가 말하게 한다. */
+        rows = (Array.isArray(j.rows) ? j.rows : []);
+      }
+    } catch(e){
+      msg = ph54T('카페24 수업을 읽지 못했습니다 (네트워크)', 'Could not read Cafe24 classes (network)');
+    }
+    ph54State.c24 = rows; ph54State.c24Msg = msg;
+    ph54State.c24Cache[since] = { t: Date.now(), rows: rows, msg: msg };
+  }
+
+  /* 두 가지를 함께 읽는다 — 호출부(주 이동·저장 후 새로고침)가 여러 곳이라 여기서 묶는다.
+     ⚠️ 카페24 쪽이 느리거나 죽어도 스케줄은 그려져야 하므로 Promise.all 이되 ph54LoadC24 는
+        스스로 예외를 삼키고 이유만 남긴다. */
+  async function ph54LoadRecords(){
+    await Promise.all([ ph54LoadSchedules(), ph54LoadC24() ]);
+  }
+
   // HTML 이스케이프 (학생 이름 등 안전 출력)
   function ph54Esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   /* 🎨 (2026-08-11 사장님 지시) 「다른 캘린더 스케줄의 박스색들과 동일하게」
@@ -166,8 +256,11 @@
      ⚠️ 배경이 밝아졌으므로 카드 글자는 흰색이면 안 읽힌다.
         admin-inline-c.css 의 `.ph54-ev { color }` 를 #1e293b 로 함께 바꿨다(둘은 한 몸). */
   var PH54_BLOCK_HATCH = 'repeating-linear-gradient(45deg,#cbd5e1,#cbd5e1 5px,#aab6c6 5px,#aab6c6 10px)';
-  var PH54_TYPE_COLOR = { '1on1':'#bcaef0', 'group':'#f4abce', 'temp':'#8cc3f0', 'blocked':PH54_BLOCK_HATCH, 'leveltest':'#a7ddd4' };
-  var PH54_TYPE_LABEL = { '1on1':'1:1', 'group':'그룹', 'temp':'대체', 'blocked':'휴무', 'leveltest':'레벨테스트' };
+  /* 🎨 (2026-10-07 사장님 «스케줄·캘린더 색 통일») 위 목록은 옛 값이다 — 지금은 수업 «종류» 네 색:
+       정규 1:1 주황 #fde68a · 정규 그룹 분홍(그대로) · 보강 보라 #c4b5fd · 체험 초록 #86efac · 레벨테스트 파랑 #93c5fd
+     (weekly-schedule.html 다크 값과 같은 값. 대조: test-harness/class_type_canon_harness.mjs) */
+  var PH54_TYPE_COLOR = { '1on1':'#fde68a', 'group':'#f4abce', 'temp':'#c4b5fd', 'trial':'#86efac', 'blocked':PH54_BLOCK_HATCH, 'leveltest':'#93c5fd' };
+  var PH54_TYPE_LABEL = { '1on1':'정규', 'group':'정규 그룹', 'temp':'보강', 'trial':'체험', 'blocked':'휴무', 'leveltest':'레벨테스트' };
 
   /* 🏷 (2026-08-11) 「이 칸은 무엇인가」 — 카드에 정체를 적는다.
      활성 667행 중 진짜 망고아이 수업은 9행뿐이고, BELLE 처럼 24칸이 꽉 찬 강사도
@@ -232,6 +325,236 @@
   // 분 → 'HH:MM'
   function ph54FmtMin(mins){ return ph54Pad(Math.floor(mins/60))+':'+ph54Pad(mins%60); }
 
+  /* ═══ 🚚 드래그 이동(연기·변경) — 계산은 «순수 함수» 로 (2026-10-10 사장님 「캘린더 drag 로 연기·변경이 완벽하게」)
+     [고치기 전] 드롭이 PATCH /class-schedules/:id 에 «요일» 만 보냈다. 그런데 활성 수업 대부분은
+       날짜 지정(one_off·dated) 행이라 요일 칸을 바꿔도 «날짜는 그대로» 였다 — 서버는 ok 를 주고
+       화면은 「✅ 저장됨」 을 띄웠지만 새로고침하면 원래 날짜로 되돌아갔다. 게다가
+       ① 저장 «전» 에 화면을 옮기고 실패해도 「화면만 이동」 으로 남겨 두었고
+       ② 그룹 수업(학생마다 한 행)은 잡은 학생 «한 명» 만 옮겨 수업이 쪼개졌고
+       ③ 30분 칸에 맞춰 14:20 수업이 14:00/14:30 으로 바뀌었고
+       ④ LMS 점유·시연 시드(서버가 «옮길 수 없음» 으로 거절)도 끌렸다.
+     [지금] 주간 전체 스케줄(weekly-schedule.html)과 같은 원자적 이동 API(PATCH /class-schedules/move)
+       를 쓴다 — 어느 칸(날짜/요일)을 고칠지는 서버가 행마다 정하고(destination_date), 겹침·휴가·
+       동시 수정(expected)·그룹 구성(source_date)을 한 번에 검사한다.
+     ⛔ 이 계산을 드롭 핸들러 안에 다시 풀어 쓰지 말 것 — 하니스(test-harness/ph54_drag_move_harness.mjs)가
+        이 함수들을 오려 내 실제로 돌린다. */
+  var PH54_MOVE_SNAP = 10;   // 이동은 10분 칸 — 수업 시각이 :10·:20·:40·:50 에도 있다(30분 칸이면 시각이 바뀐다)
+
+  /** 서버가 «옮길 수 없음» 으로 거절하는 카드인가(차단·LMS 점유·시연 시드·id 없음). */
+  function ph54Movable(s){
+    if (!s || s.id == null || s.id === '') return false;
+    if (s.source === 'unavailability' || s.type === 'blocked') return false;
+    var o = String(s.origin || 'class');
+    return o === 'class';
+  }
+
+  /** 드롭 위치(열 위의 y 비율) → 새 시작 분. 잡은 자리(offsetMin)만큼 빼서 «카드 윗변» 이 놓인 곳을 쓴다.
+      ratio: 0~1(열 꼭대기~바닥), offsetMin: 카드 윗변에서 손가락까지 분, dur: 수업 길이(분). */
+  function ph54DropMinute(ratio, offsetMin, dur){
+    var total = (PH54_END_H - PH54_START_H) * 60;
+    var r = Number(ratio); if (!isFinite(r)) r = 0;
+    var off = Number(offsetMin); if (!isFinite(off) || off < 0) off = 0;
+    var d = Number(dur); if (!isFinite(d) || d <= 0) d = 20;
+    var raw = PH54_START_H * 60 + r * total - off;
+    var snapped = Math.round(raw / PH54_MOVE_SNAP) * PH54_MOVE_SNAP;
+    var lo = PH54_START_H * 60, hi = PH54_END_H * 60 - d;
+    hi = Math.floor(hi / PH54_MOVE_SNAP) * PH54_MOVE_SNAP;
+    return Math.max(lo, Math.min(snapped, hi));
+  }
+
+  /** 같은 수업 묶음(같은 강사·같은 날·같은 시각)의 id — 그룹 수업은 학생마다 한 행이라 전부 함께 옮긴다.
+      서버 moveSchedulesAtomically 의 source_date 검사와 같은 기준이다(모자라면 group_changed 로 거절된다). */
+  function ph54MoveGroupIds(rec, records){
+    var want = ph54MinOf(rec), out = [], seen = {};
+    (records || []).forEach(function(r){
+      if (!ph54Movable(r)) return;
+      if (String(r.teacher_id) !== String(rec.teacher_id) || String(r.date) !== String(rec.date)) return;
+      if (ph54MinOf(r) !== want) return;
+      var k = String(r.id); if (seen[k]) return; seen[k] = 1; out.push(k);
+    });
+    if (!seen[String(rec.id)] && ph54Movable(rec)) out.unshift(String(rec.id));
+    return out;
+  }
+
+  function ph54DowLabel(ymd){
+    var d = new Date(String(ymd) + 'T00:00:00Z'); if (isNaN(d)) return '';
+    var i = d.getUTCDay();
+    return ph54T(['일','월','화','수','목','금','토'][i], ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][i]);
+  }
+
+  /** 서버 응답 → «성공이라고 말했는가». ⛔ d.ok===false 로 묻지 말 것(404 본문엔 ok 칸이 없다). */
+  function ph54MoveResult(httpOk, d){
+    if (httpOk && d && d.ok === true) return { ok:true, versions: (d.move_versions && typeof d.move_versions === 'object') ? d.move_versions : null };
+    return { ok:false, msg: String((d && (d.message || d.error)) || '') };
+  }
+
+  /** 저장 한 곳 — 드롭과 «되돌리기» 가 함께 쓴다. 성공·실패 모두 서버에서 다시 읽어 그린다. */
+  async function ph54SaveMove(plan, from, newDate, newTime, dur, isUndo){
+    if (ph54State._saving) { ph54Toast(ph54T('💾 저장 중입니다. 잠시만요.', '💾 Saving — one moment.')); return false; }
+    ph54State._saving = true;
+    ph54HideUndo();
+    ph54Toast(ph54T('💾 저장 중… ', '💾 Saving… ') + newDate + ' ' + newTime);
+    var res;
+    try {
+      var r = await fetch('/api/admin/class-schedules/move', {
+        method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(plan.body)
+      });
+      var d = null; try { d = await r.json(); } catch(e2){}
+      res = ph54MoveResult(r.ok, d);
+      if (!res.ok && !res.msg) res.msg = 'HTTP ' + r.status;
+    } catch(e){ res = { ok:false, msg: ph54T('네트워크 오류', 'network error') }; }
+    finally { ph54State._saving = false; }
+    try { await ph54LoadRecords(); } catch(e3){}
+    ph54Render();
+    if (res.ok){
+      ph54Toast((isUndo ? ph54T('↩ 되돌렸습니다: ', '↩ Undone: ') : ph54T('✅ 저장됨: ', '✅ Saved: '))
+        + newDate + ' (' + ph54DowLabel(newDate) + ') ' + newTime + ' · ' + dur + ph54T('분', ' min'));
+      if (!isUndo && res.versions && from) {
+        var back = { ids: plan.ids.slice(), recurring: plan.recurring,
+          body: { ids: plan.ids.slice(), destination_date: from.date, start_time: ph54FmtMin(from.min),
+                  source_date: newDate, expected: res.versions } };
+        var ok = plan.ids.every(function(id){ return typeof res.versions[id] === 'string'; });
+        if (ok) ph54OfferUndo(back, from.date, ph54FmtMin(from.min), dur);
+      }
+    } else {
+      ph54Toast(ph54T('❌ 저장하지 못했습니다(옮기지 않음): ', '❌ Not saved (nothing moved): ') + res.msg);
+    }
+    return res.ok;
+  }
+
+  /* ↩ 15초 되돌리기 — 서버에 원래 자리로 다시 보낸다(화면만 되돌리지 않는다).
+     토스트(#ph54-toast)는 pointer-events:none 이라 버튼을 못 담아 따로 둔다. */
+  function ph54HideUndo(){
+    var u = document.getElementById('ph54-undo'); if (u) u.remove();
+    clearTimeout(ph54HideUndo._t);
+  }
+  /* ⚠️ 색은 «밝은» 값으로 — 어두운 인라인 배경(#1d4ed8 류)은 관리자 밝기 페인터(adm-light-surfaces)가
+     희게 덮어 1초쯤 «흰 바탕 흰 글자» 가 된다. bottom:110px 은 오른쪽 아래 스피드다이얼(FAB)을 비켜선 자리. */
+  function ph54OfferUndo(back, date, time, dur){
+    ph54HideUndo();
+    var u = document.createElement('div'); u.id = 'ph54-undo';
+    u.style.cssText = 'position:fixed;right:18px;bottom:110px;z-index:2147483646;background:#ffffff;color:#101828;border:1px solid #cbd5e1;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;box-shadow:0 10px 24px rgba(0,0,0,.18);display:block';
+    var b = document.createElement('button'); b.type = 'button';
+    b.style.cssText = 'margin-left:8px;background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;border-radius:8px;padding:6px 12px;font-weight:800;cursor:pointer';
+    b.textContent = ph54T('↩ 되돌리기', '↩ Undo');
+    var t = document.createElement('span'); t.textContent = ph54T('잘못 옮겼나요?', 'Moved by mistake?');
+    u.appendChild(t); u.appendChild(b); document.body.appendChild(u);
+    b.addEventListener('click', function(){ ph54HideUndo(); ph54SaveMove(back, null, date, time, dur, true); });
+    ph54HideUndo._t = setTimeout(ph54HideUndo, 15000);
+  }
+
+  /** 드롭 하나 → 서버에 보낼 요청. { ok:false, reason } 이면 보내지 않는다. */
+  function ph54BuildMovePlan(rec, records, newDate, newMin){
+    if (!ph54Movable(rec)) return { ok:false, reason:'not_movable' };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(newDate || ''))) return { ok:false, reason:'bad_date' };
+    if (!(isFinite(newMin) && newMin >= PH54_START_H*60 && newMin < PH54_END_H*60)) return { ok:false, reason:'bad_time' };
+    var newTime = ph54FmtMin(newMin);
+    if (String(newDate) === String(rec.date) && newMin === ph54MinOf(rec)) return { ok:false, reason:'same' };
+    var ids = ph54MoveGroupIds(rec, records);
+    /* 같은 강사의 다른 수업이 «정확히 그 날짜·시각» 에 이미 있으면 막는다(주간 전체 스케줄과 같은 규칙).
+       ⚠️ 서버는 «같은 강사·같은 시각·같은 길이» 를 그룹 합류로 받아 주므로 저장은 «성공» 하지만,
+          그 순간 두 수업이 한 묶음이 되어 ↩ 되돌리기가 «구성원 변경» 으로 거절된다(브라우저 300회 왕복에서 실측).
+       엇갈려 겹치는 자리는 서버가 거절하므로 여기서 따로 보지 않는다. */
+    var mine = {}; ids.forEach(function(x){ mine[x] = 1; });
+    var taken = (records || []).some(function(r){
+      return r && r.id != null && !mine[String(r.id)] && ph54Movable(r)
+        && String(r.teacher_id) === String(rec.teacher_id) && String(r.date) === String(newDate) && ph54MinOf(r) === newMin;
+    });
+    if (taken) return { ok:false, reason:'occupied' };
+    var expected = {}, byId = {};
+    (records || []).forEach(function(r){ if (r && r.id != null) byId[String(r.id)] = r; });
+    for (var i = 0; i < ids.length; i++){
+      var v = byId[ids[i]] && byId[ids[i]].move_version;
+      if (typeof v !== 'string' || !v) return { ok:false, reason:'stale' };
+      expected[ids[i]] = v;
+    }
+    return { ok:true, ids: ids, recurring: String(rec.move_field || '') === 'day_of_week',
+      body: { ids: ids, destination_date: String(newDate), start_time: newTime,
+              source_date: String(rec.date), expected: expected } };
+  }
+
+  /* ═══ 🗂 겹침 없는 배치 (2026-09-02 사장님 선택 — 샘플 B-1 «요일 접기 + 강사별 열» + B-3 «빈 시간») ═══
+     [왜] «전체 강사» 보기에서 카드가 전부 left:3px;right:3px 로 요일 칸 «전체 폭» 에 절대배치돼,
+          20:00 에 강사 6명의 수업이 정확히 같은 자리에 쌓이고 맨 위 한 장만 보였다(사장님 화면 캡처).
+     [어떻게] 전체 보기 = 펼친 요일 하나만 «그날 수업이 있는 강사» 수만큼 세로 열로 쪼개고(강사 한 사람의
+          수업은 자기 열에만 놓이므로 구조적으로 못 겹친다), 나머지 요일은 40px 띠로 접되 시간대별 수업
+          밀도를 그라데이션 한 장으로 남긴다. 띠·머리글을 누르면 그 요일이 펼쳐진다.
+          강사 필터 = 예전처럼 7열 주간(한 강사라 겹칠 것이 없다).
+     [열 안에서] 같은 강사에게 같은 시각 수업이 둘이면(이중배정·카페24 conflict) — 그것만 «군집» 단위로
+          폭을 나눠 둘 다 보이게 하고 빨간 테두리(.ph54-dup)를 친다. 겹치지 않는 카드는 폭을 다 쓴다.
+          수업 사이 30분 이상 빈 자리는 점선 칸(.ph54-gap)으로 그린다 — 대체 배정 자리가 바로 보이게.
+     [속도] 한 번 그리고 끝 — 스크롤·호버에 JS 없음. 군집 계산은 «같은 열 안» 에서만 하므로 O(n) 에 가깝다.
+     샘플·비교: docs/강사캘린더_강사별열_B안_세갈래_2026-09-02.html · 감시: test-harness/teacher_calendar_lanes_harness.mjs */
+  var PH54_GAP_MIN = 30;   // 이보다 짧은 빈틈은 «빈 자리» 로 안 그린다(20분 수업 사이 10분은 쉬는 시간)
+
+  /* 한 열(=한 강사·하루)의 카드 배치. items: [{st, du, ...}] (분 단위)
+     → 같은 배열 요소에 lane/lanes/dup 를 써 넣고, 빈 자리 목록을 함께 돌려준다. */
+  function ph54LayoutItems(items){
+    var list = items.slice().sort(function(a,b){ return a.st - b.st || b.du - a.du; });
+    var cluster = [], maxEnd = -1;
+    var flush = function(){
+      var laneEnd = [];
+      cluster.forEach(function(it){
+        var l = 0; while (l < laneEnd.length && laneEnd[l] > it.st) l++;
+        laneEnd[l] = it.st + it.du; it.lane = l;
+      });
+      cluster.forEach(function(it){ it.lanes = laneEnd.length; });
+      cluster = []; maxEnd = -1;
+    };
+    list.forEach(function(it){
+      it.dup = false;
+      if (cluster.length && it.st >= maxEnd) flush();
+      cluster.push(it); maxEnd = Math.max(maxEnd, it.st + it.du);
+    });
+    if (cluster.length) flush();
+    // 겹침 표시 — 짝마다 시간이 겹치는지 본다. 군집은 «앞 카드가 끝나기 전에 시작한 카드» 로만 자라므로
+    //   둘 이상인 군집의 구성원은 반드시 누군가와 겹친다(= 군집 크기>1 과 같은 뜻. 짝 검사는 그 사실을 그대로 적은 것)
+    for (var i = 0; i < list.length; i++) for (var j = i + 1; j < list.length; j++){
+      if (list[i].st < list[j].st + list[j].du && list[j].st < list[i].st + list[i].du){ list[i].dup = true; list[j].dup = true; }
+    }
+    // 빈 자리 — 연속 점유 사이 PH54_GAP_MIN 분 이상(차단 카드도 «점유» 로 본다)
+    var gaps = [], end = -1;
+    list.forEach(function(it){
+      if (end >= 0 && it.st - end >= PH54_GAP_MIN) gaps.push({ st: end, du: it.st - end });
+      end = Math.max(end, it.st + it.du);
+    });
+    return { items: list, gaps: gaps };
+  }
+  // 군집 안 자리 → 인라인 style 조각 (혼자면 빈 문자열 = CSS 기본 left:3px;right:3px)
+  function ph54LaneStyle(it){
+    if (!it || !(it.lanes > 1)) return '';
+    var w = 100 / it.lanes, l = it.lane * w;
+    return 'left:calc(' + l.toFixed(3) + '% + 2px);width:calc(' + w.toFixed(3) + '% - 4px);right:auto;';
+  }
+  // 빈 자리 점선 칸 HTML
+  function ph54GapHtml(g){
+    var top = (g.st - PH54_START_H*60) / 60 * PH54_HOUR_PX, h = g.du / 60 * PH54_HOUR_PX;
+    return '<div class="ph54-gap" style="top:' + (top + 2) + 'px;height:' + Math.max(h - 4, 10) + 'px">'
+      + ph54T('빈 ' + g.du + '분', g.du + 'm free') + '</div>';
+  }
+  /* 접힌 요일의 밀도 — 20분 칸마다 «그 시간에 걸친 카드 수» 를 보라 농도로. div 수십 개가 아니라
+     그라데이션 «한 장» 이다(요소 수를 늘리지 않는다). 모든 칸에 stop 을 두어야 사이가 번지지 않는다.
+     ⚠️ 색은 #a78bfa(휘도 0.34) — `js/adm-light-surfaces.js` 가 그라데이션 색의 **최대 휘도가 0.16 미만이면
+        통째로 옅은 불투명색으로 다시 써서**(!important) 농도 차이가 사라진다. #7c3aed(0.13) 로 두면 걸린다(trap-check 지적). */
+  function ph54FoldGradient(items){
+    var stops = [], slot = 20, px = slot / 60 * PH54_HOUR_PX;
+    for (var m = PH54_START_H*60; m < PH54_END_H*60; m += slot){
+      var n = 0;
+      for (var i = 0; i < items.length; i++){ if (items[i].st < m + slot && items[i].st + items[i].du > m) n++; }
+      var y0 = (m - PH54_START_H*60) / 60 * PH54_HOUR_PX, y1 = y0 + px;
+      var a = n ? Math.min(0.14 + n * 0.12, 0.9) : 0;
+      stops.push('rgba(167,139,250,' + a.toFixed(2) + ') ' + y0 + 'px ' + (y1 - 1) + 'px, transparent ' + (y1 - 1) + 'px ' + y1 + 'px');
+    }
+    return 'background-image:linear-gradient(to bottom,' + stops.join(',') + ');';
+  }
+  // 강사 번호 → 이름 (원부에 없으면 기록에 적힌 이름, 그것도 없으면 번호)
+  function ph54TeacherName(tid, fallback){
+    var k = String(tid == null ? '' : tid);
+    for (var i = 0; i < ph54State.teachers.length; i++){ if (String(ph54State.teachers[i].id) === k) return ph54State.teachers[i].name || fallback || k; }
+    return fallback || (k ? ('#' + k) : '');
+  }
+
   // 우하단 토스트(드래그 이동 결과 안내)
   function ph54Toast(msg){
     var t = document.getElementById('ph54-toast');
@@ -243,7 +566,7 @@
   // 수업 슬롯 1개 → 캘린더 이벤트 카드 HTML (시작시간/지속에 따른 절대위치 top/height)
   //   item 예시: { teacher_id:5, date:'2026-06-24', start_time:'15:00', duration_min:60,
   //               type:'1on1', students:[{name:'홍길동'}] }
-  function ph54EventCard(idx, s){
+  function ph54EventCard(idx, s, lay){
     var c        = PH54_TYPE_COLOR[s.type] || '#7c3aed';
     var startMin = ph54MinOf(s);
     var dur      = s.duration_min || 20;   // 기본 수업 20분(영어·중국어 공통, 2026-07-23)
@@ -265,21 +588,66 @@
     // ⑭ 「매주 반복인가 하루짜리인가」 를 카드에서 바로 읽히게 — 질문의 절반은 이걸 몰라서 나왔다.
     var typeTxt  = isBlock ? (s.recurring ? ph54T('매주 반복 차단', 'Every week') : ph54T('이 날짜만 차단', 'This date only'))
                            : (PH54_TYPE_LABEL[s.type] || '');
-    var canDrag  = (s.source !== 'unavailability');
-    return '<div class="ph54-ev ph54-t-'+(s.type||'')+(canDrag?'':' ph54-locked')+(org?' ph54-nonclass':'')+'"'
+    var canDrag  = ph54Movable(s);   // 차단·LMS 점유·시드·id 없는 칸은 서버가 거절하므로 애초에 안 끌린다
+    return '<div class="ph54-ev ph54-t-'+(s.type||'')+(canDrag?'':' ph54-locked')+(org?' ph54-nonclass':'')+(lay && lay.dup ? ' ph54-dup' : '')+'"'
       + (canDrag ? ' draggable="true"' : '')
       + ' data-idx="'+idx+'"'
       + (s.block_id != null ? ' data-block="'+s.block_id+'"' : '')
       /* 차단 카드는 «누를 수 있는 것» 이다(누르면 지운다) → 손가락 커서. 예전 default 커서는
          «아무 일도 안 일어나는 칸» 처럼 보여서 지우는 길이 있다는 걸 아무도 몰랐다. */
-      + ' style="top:'+top+'px;height:'+height+'px;background:'+c+(canDrag?'':';cursor:pointer;opacity:.92')+'" '
-      + 'title="'+ph54Esc(timeTxt+' · '+typeTxt+(isBlock?(s.reason?(' · '+s.reason):''):(org?(' · '+ph54T(org.ko,org.en)):(student?(' · '+student):''))))
-      + (canDrag ? '' : ph54T(' (드래그 불가 — 누르면 이 차단을 지웁니다)',
-                              ' (cannot drag — click to delete this block)'))+'">'
+      + ' style="top:'+top+'px;height:'+height+'px;'+ph54LaneStyle(lay)+'background:'+c+(canDrag?'':(isBlock?';cursor:pointer;opacity:.92':';cursor:not-allowed'))+'" '
+      + 'title="'+ph54Esc((lay && lay.dup ? ph54T('⚠ 같은 시각에 수업이 둘 · ', '⚠ Two classes at the same time · ') : '')+timeTxt+' · '+typeTxt+(isBlock?(s.reason?(' · '+s.reason):''):(org?(' · '+ph54T(org.ko,org.en)):(student?(' · '+student):''))))
+      + (canDrag ? '' : isBlock ? ph54T(' (드래그 불가 — 누르면 이 차단을 지웁니다)',
+                              ' (cannot drag — click to delete this block)')
+                              : ph54T(' (수업이 아닌 칸이라 옮길 수 없습니다)', ' (not a class — cannot be moved)'))+'">'
       +   '<div class="ph54-ev-time">'+ph54Esc(timeTxt)
       +     (org ? '<span class="ph54-ev-tag">'+ph54Esc(org.badge)+'</span>' : '')+'</div>'
       +   '<div class="ph54-ev-name">'+ph54Esc(nameTxt)+'</div>'   /* ← 학생 이름 (말줄임 처리) */
       +   '<div class="ph54-ev-type">'+ph54Esc(typeTxt)+'</div>'
+      + '</div>';
+  }
+
+  /* 🪞 카페24 수업 카드 — **보기 전용**.
+     · 드래그 불가: draggable 을 안 달았으므로 dragstart 자체가 안 난다.
+     · 클릭해도 아무 일 없음: 차단 삭제는 data-block 이 있을 때만 돈다.
+     · data-idx 를 «안 단다» — records 의 인덱스와 섞이면 엉뚱한 수업에 PATCH 가 나간다.
+     ⚠️ 글자를 «수업» 이라고만 쓰면 매니저가 진짜 잡힌 수업으로 읽는다. 배지와 아랫줄에
+        «카페24에만 있음» 을 적어 화면이 사실을 말하게 한다(CLAUDE.md — 지어내지 말 것). */
+  function ph54C24Card(s){
+    var startMin = ph54MinOf(s);
+    var dur      = s.duration_min || 20;
+    var top      = Math.max(0, (startMin - PH54_START_H*60) / 60 * PH54_HOUR_PX);
+    var height   = Math.max(dur / 60 * PH54_HOUR_PX, 22);
+    var timeTxt  = ph54FmtMin(startMin) + ' · ' + dur + ph54T('분', 'm');
+    var who      = s.student_name || s.student_uid || ph54T('학생 미확인', 'unknown student');
+    // 🔴 지난 날짜는 미러 대상이 아니다 — «만들어집니다» 라고 말하면 거짓이 된다
+    var isPast   = String(s.date || '') < ph54TodayKst();
+    var why      = isPast ? null : PH54_C24_WHY[s.verdict];
+    var tip = timeTxt + ' · ' + ph54T('카페24 수업', 'Cafe24 class') + ' · ' + who + '\n'
+      + (isPast
+          ? ph54T('카페24에 남아 있는 «지난» 수업 기록입니다. 미러는 오늘부터만 만들므로 이 수업은 망고아이에 생기지 않습니다 (보기 전용).',
+                  'A past class recorded in Cafe24. The mirror only creates from today onward, so this one will not appear in Mangoi (view only).')
+          : ph54T('카페24에 잡혀 있는 수업입니다. 망고아이 시간표에는 아직 만들어지지 않았습니다 (보기 전용 — 옮기거나 지울 수 없습니다).',
+                  'This class is scheduled in Cafe24. It has not been created in the Mangoi timetable yet (view only — cannot be moved or deleted).'))
+      + (why ? ('\n' + ph54T(why.ko, why.en)) : '');
+    /* 인라인 색은 background-color 로 쓴다 — `background:linear-gradient(135deg` 를 노리는
+       admin-inline-c.css 의 옛 규칙과 adm-s13 페인터에 안 걸리는 형태다(CLAUDE.md 2장). */
+    /* 자리(lane)는 렌더가 s.__lay 에 적어 준다 — 인자를 늘리지 않는 이유: c24_mirror_harness I절이
+       `function ph54C24Card(s){` 모양을 오려 내 «끌 수 없고 records 인덱스가 없는가» 를 검사한다
+       (그 두 낱말을 이 주석에 적으면 부정 검사가 자기 주석을 잡는다 — CLAUDE.md 2장). */
+    var lay      = s.__lay || null;
+    return '<div class="ph54-ev ph54-c24 ph54-locked'+(lay && lay.dup ? ' ph54-dup' : '')+'"'
+      + ' style="top:'+top+'px;height:'+height+'px;'+ph54LaneStyle(lay)+'cursor:default;box-shadow:none;'
+      +   'background-color:#dbeafe;background-image:repeating-linear-gradient(45deg,transparent,transparent 6px,rgba(15,23,42,.07) 6px,rgba(15,23,42,.07) 12px);'
+      +   'border:1.5px dashed #2563eb"'
+      + ' title="'+ph54Esc(tip)+'">'
+      +   '<div class="ph54-ev-time">'+ph54Esc(timeTxt)
+      +     '<span class="ph54-ev-tag" style="background:#1d4ed8">'+ph54T('카페24','C24')+'</span></div>'
+      +   '<div class="ph54-ev-name">'+ph54Esc(who)+'</div>'
+      +   '<div class="ph54-ev-type">'+ph54Esc(
+              isPast                    ? ph54T('지난 수업 (카페24 기록)','Past class (Cafe24 record)')
+            : s.verdict === 'conflict'  ? ph54T('⚠️ 같은 시각 다른 수업','⚠️ Clashes with another class')
+                                        : ph54T('카페24에만 있음','Cafe24 only'))+'</div>'
       + '</div>';
   }
 
@@ -306,6 +674,33 @@
       events.push({ idx: idx, rec: r, col: dateToCol[r.date] });
     });
 
+    /* 🪞 카페24 수업(보기 전용) — 강사가 이어진 것만 그린다.
+       강사를 못 이은 것(no_teacher)은 «누구 칸에» 놓아야 할지 모르므로 그리지 않고 아래에서 건수만 알린다.
+       ⛔ 모르는 것을 아무 칸에나 놓지 않는다 — 모르는 것보다 틀린 것이 나쁘다. */
+    var c24Events = [], c24NoTeacher = 0, c24Left = 0, c24Hidden = 0, c24Past = 0, c24Ahead = 0, c24Clash = 0;
+    var c24Today = ph54TodayKst();
+    (ph54State.c24 || []).forEach(function(r){
+      if (!r || !(r.date in dateToCol)) return;
+      /* 🚪 퇴사 강사의 잔재 — 할 일이 «없다». 회색으로 건수만 알린다.
+         ⛔ 이것을 아래 «원부에 없는 강사» 와 한 숫자로 합치지 말 것. 둘은 해야 할 일이 정반대다
+            (하나는 그냥 두면 되고, 하나는 사람이 원부에 등록해야 한다). 합치면 늘 켜져 있는
+            경고가 되어 정작 손봐야 할 것이 파묻힌다 — 녹화 목록에서 실제로 그랬다. */
+      if (r.verdict === 'no_teacher_left'){ c24Left++; return; }
+      /* 🙈 명부에서 숨긴 계정(시험용 등) — «일부러» 뺀 것이라 경고색을 쓰지 않는다.
+         ⛔ 「원부에 없는 강사」와 한 숫자로 합치지 말 것: 저쪽은 사람이 등록해야 하고
+            이쪽은 할 일이 없다. 합치면 늘 켜져 있는 경고가 되어 진짜가 파묻힌다. */
+      if (r.verdict === 'student_hidden'){ c24Hidden++; return; }
+      if (!r.teacher_id){ c24NoTeacher++; return; }
+      if (!PH54_C24_SHOW[r.verdict]) return;
+      if (filterId && String(r.teacher_id) !== String(filterId)) return;
+      c24Events.push({ rec: r, col: dateToCol[r.date] });
+      /* 🔴 «지난 것» 과 «앞으로 것» 을 한 숫자로 합치면 안 된다 — 지난 주를 열었을 때
+         「카페24 58개」가 «망고아이에 58건이 빠졌다» 로 읽힌다(2026-09-01 실제 화면). */
+      if (String(r.date) < c24Today) c24Past++;
+      else if (r.verdict === 'conflict') c24Clash++;
+      else c24Ahead++;
+    });
+
     // ── 컨트롤 바
     var html = ''
       + '<div id="ph54-sched-controls">'
@@ -322,24 +717,142 @@
               }).join('')
       +     '</select>'
       +   '</label>'
+      +   '<label style="margin-left:8px;white-space:nowrap" title="'
+      +     ph54Esc(ph54T('카페24에 잡혀 있는 수업을 이 표에 겹쳐 보여줍니다 (보기 전용).',
+                          'Overlays classes scheduled in Cafe24 (view only).'))+'">'
+      +     '<input type="checkbox" id="ph54-c24-toggle"'+(ph54State.c24On?' checked':'')
+      +       ' style="vertical-align:middle;margin-right:4px">'
+      +     ph54T('카페24 수업 함께 보기','Show Cafe24 classes')
+      +   '</label>'
       +   '<button id="ph54-clear-filter">전체 보기</button>'
       + '</div>';
 
     if (!filterId) {
-      html += '<div class="ph54-hint">💡 특정 강사를 선택하면 그 강사의 주간 수업만 깔끔하게 볼 수 있어요. (강사 목록의 📅 버튼으로도 열립니다)</div>';
+      html += '<div class="ph54-hint">'+ph54T(
+        '💡 요일 머리글이나 접힌 띠를 누르면 그 요일이 <b>강사별 열</b>로 펼쳐져요. 강사 이름을 누르면 그 강사만 주간으로 봅니다. (강사 목록의 📅 버튼으로도 열립니다)',
+        '💡 Click a day header or a folded strip to open that day as <b>one column per instructor</b>. Click an instructor name to see only that instructor for the whole week. (The 📅 button in the instructor list opens it too.)')+'</div>';
     } else {
       /* 🚫 (2026-08-08 마이마이 요청) 「강사가 언더타임이면 매니저가 그 시간을 막을 수 있게」
          강사를 고른 뒤에만 안내한다 — 전체 보기에서는 «누구를 막을지» 를 알 수 없다. */
       html += '<div class="ph54-hint">🚫 빈 칸을 <b>클릭</b>하면 그 시간을 <b>차단</b>할 수 있어요 (언더타임·회의 등). 차단된 시간엔 수업을 넣을 수 없습니다.</div>';
     }
 
-    // ── 타임라인: 헤더(요일) + 시간 거터 + 7일 컬럼
-    var headCells = '<div class="ph54-cal-corner"></div>';
-    days.forEach(function(d,i){
+    /* ⚠️ 못 읽었으면 «없다» 가 아니라 «못 읽었다» 고 말한다 — 빈 화면이 «오늘은 수업이 없나 보다» 로 읽힌다. */
+    if (ph54State.c24On && ph54State.c24Msg){
+      html += '<div class="ph54-hint">⚠️ '+ph54Esc(ph54State.c24Msg)+'</div>';
+    }
+
+    // ── 타임라인: 헤더(요일) + 시간 거터 + 컬럼 (🗂 전체 보기 = 요일 접기 + 강사별 열, 강사 필터 = 7열 주간)
+    var accordion = !filterId;
+
+    // 요일 → 강사 → 카드 묶음. 강사 순서는 원부(ph54State.teachers) 순, 원부에 없는 번호는 뒤.
+    var rosterIdx = {};
+    ph54State.teachers.forEach(function(t, i){ rosterIdx[String(t.id)] = i; });
+    var byDay = [];
+    for (var ci = 0; ci < 7; ci++){
+      var map = {}, order = [];
+      var bucket = function(tid, name){
+        var k = String(tid == null ? '' : tid);
+        if (!map[k]){ map[k] = { tid: k, name: name || '', items: [], n: 0, mins: 0, c24n: 0, dup: false }; order.push(k); }
+        return map[k];
+      };
+      events.forEach(function(e){
+        if (e.col !== ci) return;
+        var r = e.rec, b = bucket(r.teacher_id, ph54TeacherName(r.teacher_id, r.teacher_name));
+        var isBlk = (r.source === 'unavailability') || r.type === 'blocked';
+        b.items.push({ kind: 'rec', idx: e.idx, rec: r, st: ph54MinOf(r), du: r.duration_min || 20 });
+        if (!isBlk){ b.n++; b.mins += (r.duration_min || 20); }
+      });
+      c24Events.forEach(function(e){
+        if (e.col !== ci) return;
+        var r = e.rec, b = bucket(r.teacher_id, ph54TeacherName(r.teacher_id, r.teacher_name));
+        b.items.push({ kind: 'c24', rec: r, st: ph54MinOf(r), du: r.duration_min || 20 });
+        b.c24n++;
+      });
+      order.sort(function(a, b){
+        var ia = (a in rosterIdx) ? rosterIdx[a] : 9999, ib = (b in rosterIdx) ? rosterIdx[b] : 9999;
+        return ia - ib || (a < b ? -1 : a > b ? 1 : 0);
+      });
+      var tlist = order.map(function(k){
+        var t = map[k]; t.lay = ph54LayoutItems(t.items);
+        t.dup = t.lay.items.some(function(it){ return it.dup; });
+        return t;
+      });
+      byDay.push({ teachers: tlist,
+                   n: tlist.reduce(function(a, t){ return a + t.n; }, 0),
+                   total: tlist.reduce(function(a, t){ return a + t.items.length; }, 0) });
+    }
+
+    // 펼친 요일 — 오늘(이번 주), 아니면 수업이 있는 첫 요일, 그것도 없으면 월
+    var openDay = -1;
+    if (accordion){
+      openDay = (ph54State.openDay == null) ? -1 : (parseInt(ph54State.openDay, 10) || 0);
+      if (openDay < 0 || openDay > 6){
+        openDay = -1;
+        days.forEach(function(d, i){ if (ph54FmtDate(d) === todayStr) openDay = i; });
+        if (openDay < 0){ for (var k = 0; k < 7; k++){ if (byDay[k].total){ openDay = k; break; } } }
+        if (openDay < 0) openDay = 0;
+        ph54State.openDay = openDay;
+      }
+    }
+
+    // 열 폭 — 머리글과 본문이 «같은 문자열» 을 써야 칸이 맞는다
+    var colDefs = ['56px'];
+    for (var cd = 0; cd < 7; cd++){
+      if (!accordion) colDefs.push('minmax(96px,1fr)');
+      else if (cd !== openDay) colDefs.push('40px');
+      else colDefs.push(byDay[cd].teachers.length ? ('repeat(' + byDay[cd].teachers.length + ',minmax(58px,1fr))') : 'minmax(160px,1fr)');
+    }
+    var gridCols = 'grid-template-columns:' + colDefs.join(' ');
+    var dateTxt = function(i){ return ph54Pad(days[i].getMonth()+1) + '/' + ph54Pad(days[i].getDate()); };
+
+    var headCells = '<div class="ph54-cal-corner"' + (accordion ? ' style="grid-row:1/3"' : '') + '></div>';
+    days.forEach(function(d, i){
       var isToday = ph54FmtDate(d) === todayStr;
-      headCells += '<div class="ph54-cal-dayhead'+(isToday?' today':'')+'">'+dayLabel[i]
-        + '<br><span class="ph54-cal-date">'+ph54Pad(d.getMonth()+1)+'/'+ph54Pad(d.getDate())+'</span></div>';
+      if (!accordion){
+        headCells += '<div class="ph54-cal-dayhead' + (isToday ? ' today' : '') + '">' + dayLabel[i]
+          + '<br><span class="ph54-cal-date">' + dateTxt(i) + '</span></div>';
+        return;
+      }
+      var bd = byDay[i];
+      if (i === openDay){
+        headCells += '<div class="ph54-cal-dayhead ph54-open' + (isToday ? ' today' : '') + '" style="grid-column:span ' + Math.max(1, bd.teachers.length) + '">'
+          + dayLabel[i] + ' <span class="ph54-cal-date">' + dateTxt(i) + '</span>'
+          + ' <span class="ph54-cal-cnt">· ' + ph54T('수업 ', 'classes ') + bd.n + ph54T('개', '') + ' · ' + ph54T('강사 ', 'instructors ') + bd.teachers.length + ph54T('명', '') + '</span></div>';
+      } else {
+        headCells += '<div class="ph54-cal-dayhead ph54-cal-fold-head' + (isToday ? ' today' : '') + '" data-day="' + i + '" role="button" tabindex="0" title="'
+          + ph54Esc(dayLabel[i] + ' ' + dateTxt(i) + ' · ' + ph54T('수업 ' + bd.n + '개 — 누르면 펼칩니다', bd.n + ' classes — click to open')) + '">'
+          + dayLabel[i] + '<br><span class="ph54-cal-date">' + dateTxt(i) + '</span></div>';
+      }
     });
+    if (accordion){
+      // 2행: 펼친 요일은 강사 머리글(이름 · N회·M분 · 부하 막대 — 샘플 B-3), 접힌 요일은 건수
+      var maxMins = Math.max.apply(null, byDay[openDay].teachers.map(function(t){ return t.mins; }).concat([1]));
+      days.forEach(function(d, i){
+        var bd = byDay[i];
+        if (i !== openDay){
+          headCells += '<div class="ph54-cal-subhead ph54-cal-fold-head" data-day="' + i + '" role="button" tabindex="0">' + (bd.n || '—') + '</div>';
+          return;
+        }
+        if (!bd.teachers.length){ headCells += '<div class="ph54-cal-subhead ph54-daysep">' + ph54T('수업 없음', 'No classes') + '</div>'; return; }
+        bd.teachers.forEach(function(t, j){
+          var its = t.lay.items, first = its.length ? its[0].st : 0, last = 0;
+          its.forEach(function(it){ last = Math.max(last, it.st + it.du); });
+          var tipTxt = (t.name || ph54T('강사 미정', 'No instructor')) + ' · ' + t.n + ph54T('회 ', ' classes ') + t.mins + ph54T('분', 'm')
+            + (its.length ? ' · ' + ph54FmtMin(first) + '~' + ph54FmtMin(last) : '')
+            + (t.c24n ? ' · ' + ph54T('카페24 ', 'Cafe24 ') + t.c24n : '')
+            + (t.dup ? ph54T(' · ⚠ 같은 시각에 수업이 둘', ' · ⚠ two classes at the same time') : '')
+            + (t.tid && (t.tid in rosterIdx) ? ph54T(' — 누르면 이 강사만 봅니다', ' — click to show only this instructor') : '');
+          headCells += '<div class="ph54-cal-subhead' + (j === 0 ? ' ph54-daysep' : '') + (t.dup ? ' ph54-dup-head' : '') + '"'
+            + (t.tid && (t.tid in rosterIdx) ? ' data-teacher="' + ph54Esc(t.tid) + '" role="button" tabindex="0"' : '')
+            + ' title="' + ph54Esc(tipTxt) + '">'
+            + '<b>' + ph54Esc(t.name || ph54T('강사 미정', 'No instructor')) + (t.dup ? ' ⚠' : '') + '</b>'
+            + '<small>' + t.n + ph54T('회', 'x') + ' · ' + t.mins + ph54T('분', 'm') + (t.c24n ? ' · C24 ' + t.c24n : '') + '</small>'
+            + '<span class="ph54-load"><span style="width:' + Math.round(t.mins / maxMins * 100) + '%"></span></span>'
+            + '</div>';
+        });
+      });
+    }
 
     var gutter = '<div class="ph54-cal-gutter" style="height:'+bodyH+'px">';
     for (var h=PH54_START_H; h<PH54_END_H; h++){
@@ -347,19 +860,46 @@
     }
     gutter += '</div>';
 
+    // 한 열의 카드 + 빈 자리 HTML (자리는 ph54LayoutItems 가 정했다)
+    var colCards = function(lay){
+      var out = lay.gaps.map(ph54GapHtml).join('');
+      lay.items.forEach(function(it){
+        if (it.kind === 'rec') out += ph54EventCard(it.idx, it.rec, it);
+        else { it.rec.__lay = it; out += ph54C24Card(it.rec); it.rec.__lay = null; }
+      });
+      return out;
+    };
+    var colStyle = 'style="height:'+bodyH+'px;background-size:100% '+PH54_HOUR_PX+'px"';
     var cols = '';
-    for (var ci=0; ci<7; ci++){
-      var isToday2 = ph54FmtDate(days[ci]) === todayStr;
-      var cardsHtml = events.filter(function(e){ return e.col === ci; })
-                            .map(function(e){ return ph54EventCard(e.idx, e.rec); }).join('');
-      cols += '<div class="ph54-cal-col'+(isToday2?' today':'')+'" data-day="'+ci+'" '
-        + 'style="height:'+bodyH+'px;background-size:100% '+PH54_HOUR_PX+'px">'
-        + cardsHtml + '</div>';
+    for (var ci2 = 0; ci2 < 7; ci2++){
+      var isToday2 = ph54FmtDate(days[ci2]) === todayStr, bd2 = byDay[ci2], tcls = isToday2 ? ' today' : '';
+      if (accordion && ci2 !== openDay){
+        var allItems = [];
+        bd2.teachers.forEach(function(t){ allItems = allItems.concat(t.items); });
+        cols += '<div class="ph54-cal-fold' + tcls + '" data-day="' + ci2 + '" role="button" tabindex="0" style="height:' + bodyH + 'px;' + ph54FoldGradient(allItems) + '" title="'
+          + ph54Esc(dayLabel[ci2] + ' ' + dateTxt(ci2) + ' · ' + ph54T('수업 ' + bd2.n + '개 — 누르면 펼칩니다 (카드를 끌어다 놓으면 이 요일로 옮깁니다)', bd2.n + ' classes — click to open (drop a card here to move it to this day)')) + '"></div>';
+        continue;
+      }
+      if (!accordion){
+        // 강사 필터: 요일 한 열(한 강사) — 열 안에서만 겹침을 나누고 빈 자리를 그린다
+        var flat = [];
+        bd2.teachers.forEach(function(t){ flat = flat.concat(t.items); });
+        cols += '<div class="ph54-cal-col' + tcls + '" data-day="' + ci2 + '" ' + colStyle + '>' + colCards(ph54LayoutItems(flat)) + '</div>';
+        continue;
+      }
+      if (!bd2.teachers.length){
+        cols += '<div class="ph54-cal-col ph54-daysep' + tcls + '" data-day="' + ci2 + '" ' + colStyle + '></div>';
+        continue;
+      }
+      bd2.teachers.forEach(function(t, j){
+        cols += '<div class="ph54-cal-col' + (j === 0 ? ' ph54-daysep' : '') + tcls + '" data-day="' + ci2 + '" data-teacher="' + ph54Esc(t.tid) + '" ' + colStyle + '>'
+          + colCards(t.lay) + '</div>';
+      });
     }
 
     html += '<div id="ph54-cal"><div id="ph54-cal-body"><div id="ph54-cal-inner">'
-      + '<div id="ph54-cal-head">'+headCells+'</div>'
-      + '<div id="ph54-cal-track">'+gutter+cols+'</div>'
+      + '<div id="ph54-cal-head" style="' + gridCols + '">' + headCells + '</div>'
+      + '<div id="ph54-cal-track" style="' + gridCols + '">' + gutter + cols + '</div>'
       + '</div></div></div>';
 
     /* ── 범례 + 카운트
@@ -371,27 +911,76 @@
     var nReal   = evClass.filter(function(e){ return !ph54OriginOf(e.rec); }).length;
     var nOther  = evClass.length - nReal;
     html += '<div class="ph54-legend">'
-      +   '<span><i style="background:'+PH54_TYPE_COLOR['1on1']+'"></i>'+ph54T('1:1 수업','1:1')+'</span>'
-      +   '<span><i style="background:'+PH54_TYPE_COLOR['group']+'"></i>'+ph54T('그룹 수업','Group')+'</span>'
-      +   '<span><i style="background:'+PH54_TYPE_COLOR['temp']+'"></i>'+ph54T('대체','Substitute')+'</span>'
+      +   '<span><i style="background:'+PH54_TYPE_COLOR['1on1']+'"></i>'+ph54T('정규수업 1:1','Regular 1:1')+'</span>'
+      +   '<span><i style="background:'+PH54_TYPE_COLOR['group']+'"></i>'+ph54T('정규수업 그룹','Regular group')+'</span>'
+      +   '<span><i style="background:'+PH54_TYPE_COLOR['temp']+'"></i>'+ph54T('보강수업','Make-up')+'</span>'
+      +   '<span><i style="background:'+PH54_TYPE_COLOR['trial']+'"></i>'+ph54T('체험수업','Trial')+'</span>'
       +   '<span><i style="background:'+PH54_TYPE_COLOR['leveltest']+'"></i>'+ph54T('레벨테스트','Level test')+'</span>'
       +   '<span><i style="background:'+PH54_TYPE_COLOR['blocked']+'"></i>'+ph54T('휴무','Off')+'</span>'
       +   '<span><i class="ph54-legend-nonclass"></i>'+ph54T('LMS 점유·시드 (수업 아님)','LMS busy / seed (not a class)')+'</span>'
+      +   '<span><i class="ph54-legend-gap"></i>'+ph54T('수업 사이 빈 30분 이상','30+ min free between classes')+'</span>'
+      +   '<span><i class="ph54-legend-dup"></i>'+ph54T('같은 강사 · 같은 시각 겹침','Same instructor, same time')+'</span>'
+      +   (ph54State.c24On
+            ? '<span><i style="background-color:#dbeafe;background-image:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(15,23,42,.2) 3px,rgba(15,23,42,.2) 6px);border:1px dashed #2563eb;box-sizing:border-box"></i>'
+              + ph54T('카페24 수업 (지난 것은 기록, 앞으로 것만 대기)','Cafe24 class (past = record, upcoming = pending)')+'</span>'
+            : '')
       +   '<span class="ph54-legend-count">'
       +     ph54T('수업 ','Classes ')+nReal+ph54T('개','')
       +     (nOther ? '<b class="ph54-count-warn"> · '+ph54T('LMS 점유·시드 ','LMS busy / seed ')+nOther+ph54T('개','')+'</b>' : '')
+      +     (ph54State.c24On && c24Ahead
+              ? ' · '+ph54T('카페24 대기 ','Cafe24 pending ')+c24Ahead+ph54T('개','') : '')
+      +     (ph54State.c24On && c24Clash
+              ? '<b class="ph54-count-warn"> · '+ph54T('겹침 확인필요 ','Clashes to check ')+c24Clash+ph54T('개','')+'</b>' : '')
+      +     (ph54State.c24On && c24Past
+              ? ' · '+ph54T('지난 카페24 기록 ','Past Cafe24 records ')+c24Past+ph54T('개','') : '')
+      +     (ph54State.c24On && c24Left
+              ? ' · '+ph54T('퇴사 강사 잔재 ','Departed instructors ')+c24Left+ph54T('개 (안 그림)',' (not drawn)') : '')
+      +     (ph54State.c24On && c24Hidden
+              ? ' · '+ph54T('숨긴 계정 ','Hidden accounts ')+c24Hidden+ph54T('개 (안 그림)',' (not drawn)') : '')
+      +     (ph54State.c24On && c24NoTeacher
+              ? '<b class="ph54-count-warn"> · '+ph54T('⚠️ 원부에 없는 강사 ','⚠️ Not in the roster ')+c24NoTeacher+ph54T('개','')+'</b>' : '')
       +     ph54T(' · 카드를 드래그해 이동',' · drag a card to move it')
       +   '</span>'
       + '</div>';
 
+    // 다시 그려도 보던 자리를 잃지 않게 — 처음이면 펼친 요일의 첫 수업 한 시간 위로
+    var prevBody = document.getElementById('ph54-cal-body');
+    var keepTop = prevBody ? prevBody.scrollTop : -1;
     wrap.innerHTML = html;
+    var calBody = document.getElementById('ph54-cal-body');
+    if (calBody){
+      if (keepTop >= 0) calBody.scrollTop = keepTop;
+      else {
+        var firstSt = -1, src = accordion ? byDay[openDay].teachers : byDay.reduce(function(a, b){ return a.concat(b.teachers); }, []);
+        src.forEach(function(t){ t.items.forEach(function(it){ if (firstSt < 0 || it.st < firstSt) firstSt = it.st; }); });
+        if (firstSt >= 0) calBody.scrollTop = Math.max(0, (firstSt - 60 - PH54_START_H*60) / 60 * PH54_HOUR_PX);
+      }
+    }
+    // 🗂 접힌 요일(띠·머리글) → 펼치기 / 강사 머리글 → 그 강사만 보기
+    Array.prototype.forEach.call(wrap.querySelectorAll('.ph54-cal-fold, .ph54-cal-fold-head'), function(el){
+      var go = function(){ ph54State.openDay = parseInt(el.getAttribute('data-day'), 10); ph54Render(); };
+      el.addEventListener('click', go);
+      el.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go(); } });
+    });
+    Array.prototype.forEach.call(wrap.querySelectorAll('.ph54-cal-subhead[data-teacher]'), function(el){
+      var go = function(){ ph54State.teacherFilter = el.getAttribute('data-teacher'); ph54Render(); };
+      el.addEventListener('click', go);
+      el.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go(); } });
+    });
 
     // ── 컨트롤 바인딩
-    document.getElementById('ph54-prev-week').addEventListener('click', async function(){ ph54State.weekOffset--; await ph54LoadRecords(); ph54Render(); });
-    document.getElementById('ph54-this-week').addEventListener('click', async function(){ ph54State.weekOffset = 0; await ph54LoadRecords(); ph54Render(); });
-    document.getElementById('ph54-next-week').addEventListener('click', async function(){ ph54State.weekOffset++; await ph54LoadRecords(); ph54Render(); });
+    document.getElementById('ph54-prev-week').addEventListener('click', async function(){ ph54State.weekOffset--; ph54State.openDay = null; await ph54LoadRecords(); ph54Render(); });
+    document.getElementById('ph54-this-week').addEventListener('click', async function(){ ph54State.weekOffset = 0; ph54State.openDay = null; await ph54LoadRecords(); ph54Render(); });
+    document.getElementById('ph54-next-week').addEventListener('click', async function(){ ph54State.weekOffset++; ph54State.openDay = null; await ph54LoadRecords(); ph54Render(); });
     document.getElementById('ph54-teacher-filter').addEventListener('change', function(e){ ph54State.teacherFilter = e.target.value; ph54Render(); });
     document.getElementById('ph54-clear-filter').addEventListener('click', function(){ ph54State.teacherFilter = ''; ph54Render(); });
+    var ph54C24Tg = document.getElementById('ph54-c24-toggle');
+    if (ph54C24Tg) ph54C24Tg.addEventListener('change', async function(e){
+      ph54State.c24On = !!e.target.checked;
+      try { localStorage.setItem('ph54_c24_overlay', ph54State.c24On ? '1' : '0'); } catch(err){}
+      await ph54LoadC24();
+      ph54Render();
+    });
 
     /* ── 🚫 빈 칸 클릭 → 그 시간 차단 (teacher_unavailability) ──────────────────
        마이마이 요청: 「강사가 언더타임이라 수업을 못 하면 매니저가 그 시간을 막게 해 달라」
@@ -501,13 +1090,27 @@
       });
     }
 
-    // ── HTML5 Drag & Drop: 카드를 다른 요일/시간으로 이동 ──
+    // ── HTML5 Drag & Drop: 카드를 다른 요일/시간으로 이동(연기·변경) ──
+    //    계산은 위 순수 함수(ph54DropMinute·ph54BuildMovePlan), 저장은 ph54SaveMove 한 곳.
     var track = document.getElementById('ph54-cal-track');
     if (track){
-      // (1) 드래그 시작 — 어떤 레코드를 잡았는지 ph54State._drag 에 기억
+      // (1) 드래그 시작 — 어떤 레코드를, 카드의 «어디» 를 잡았는지 기억(놓을 때 카드 윗변 기준으로 맞춘다)
       track.addEventListener('dragstart', function(ev){
         var card = ev.target.closest && ev.target.closest('.ph54-ev'); if(!card) return;
-        ph54State._drag = { idx: parseInt(card.dataset.idx, 10) };
+        var rec0 = ph54State.records[parseInt(card.dataset.idx, 10)];
+        if (!ph54Movable(rec0)) { ev.preventDefault(); return; }
+        if (ph54State._saving) {   // 앞 이동을 저장하는 중 — 겹쳐 보내면 두 번째가 «옛 버전» 으로 거절된다
+          ev.preventDefault();
+          ph54Toast(ph54T('💾 앞의 이동을 저장하는 중입니다. 잠시 뒤 다시 끌어 주세요.', '💾 Still saving the previous move — try again in a moment.'));
+          return;
+        }
+        var offsetMin = 0;
+        try {
+          var colEl = card.closest('.ph54-cal-col');
+          var cr = card.getBoundingClientRect(), colR = colEl && colEl.getBoundingClientRect();
+          if (colR && colR.height > 0) offsetMin = (ev.clientY - cr.top) / (colR.height / ((PH54_END_H - PH54_START_H) * 60));
+        } catch(e){}
+        ph54State._drag = { idx: parseInt(card.dataset.idx, 10), offsetMin: offsetMin };
         card.classList.add('dragging');
         try { ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', card.dataset.idx); } catch(e){}
       });
@@ -515,55 +1118,67 @@
         var card = ev.target.closest && ev.target.closest('.ph54-ev'); if(card) card.classList.remove('dragging');
         Array.prototype.forEach.call(track.querySelectorAll('.ph54-col-over'), function(c){ c.classList.remove('ph54-col-over'); });
       });
-      // (2) 컬럼 위로 드래그 — preventDefault 해야 drop 이 발생, 하이라이트 표시
+      /* (2) 컬럼 위로 드래그 — preventDefault 해야 drop 이 발생, 하이라이트 표시
+         🗂 접힌 요일 띠(.ph54-cal-fold)도 놓을 자리다 — 놓으면 그 요일 «같은 시각» 으로 옮기고 그 요일을 펼친다.
+            강사별 열에 놓아도 «강사는 바뀌지 않는다»(요일·시각만 보낸다). */
+      var PH54_DROP_SEL = '.ph54-cal-col, .ph54-cal-fold';
       track.addEventListener('dragover', function(ev){
-        var col = ev.target.closest && ev.target.closest('.ph54-cal-col'); if(!col) return;
+        var col = ev.target.closest && ev.target.closest(PH54_DROP_SEL); if(!col) return;
         ev.preventDefault(); try { ev.dataTransfer.dropEffect = 'move'; } catch(e){}
       });
       track.addEventListener('dragenter', function(ev){
-        var col = ev.target.closest && ev.target.closest('.ph54-cal-col'); if(col) col.classList.add('ph54-col-over');
+        var col = ev.target.closest && ev.target.closest(PH54_DROP_SEL); if(col) col.classList.add('ph54-col-over');
       });
       track.addEventListener('dragleave', function(ev){
-        var col = ev.target.closest && ev.target.closest('.ph54-cal-col'); if(!col) return;
+        var col = ev.target.closest && ev.target.closest(PH54_DROP_SEL); if(!col) return;
         if (!col.contains(ev.relatedTarget)) col.classList.remove('ph54-col-over');
       });
-      // (3) 드롭 — 드롭한 컬럼(요일) + Y좌표(시간, 30분 스냅)로 레코드 갱신 → 재렌더 + 알림
+      // (3) 드롭 — 계산 → 확인 → 서버 저장 → «서버에서 다시 읽어» 그린다.
+      //     ⛔ 저장 «전» 에 화면을 옮기지 않는다(예전: 실패해도 「화면만 이동」 으로 남아 거짓말을 했다).
       track.addEventListener('drop', function(ev){
-        var col = ev.target.closest && ev.target.closest('.ph54-cal-col');
+        var col = ev.target.closest && ev.target.closest(PH54_DROP_SEL);
         if (!col || !ph54State._drag) return;
         ev.preventDefault();
-        var idx = ph54State._drag.idx; ph54State._drag = null;
-        var rec = ph54State.records[idx]; if(!rec) return;
+        Array.prototype.forEach.call(track.querySelectorAll('.ph54-col-over'), function(c){ c.classList.remove('ph54-col-over'); });
+        var drag = ph54State._drag; ph54State._drag = null;
+        var rec = ph54State.records[drag.idx]; if(!rec) return;
         var newCol = parseInt(col.dataset.day, 10);
-        // 드롭 Y → 30분 칸 인덱스 → 분
-        var rect = col.getBoundingClientRect();
-        var rowIdx = Math.round((ev.clientY - rect.top) / (PH54_HOUR_PX * PH54_SNAP / 60));
+        if (!(newCol >= 0 && newCol <= 6)) return;
         var dur = rec.duration_min || 20;   // 기본 수업 20분(영어·중국어 공통, 2026-07-23)
-        var newMin = PH54_START_H*60 + rowIdx*PH54_SNAP;
-        newMin = Math.max(PH54_START_H*60, Math.min(newMin, PH54_END_H*60 - dur));  // 06:00~24:00 범위 클램프
-        // 레코드 갱신(요일/날짜/시간/시)
-        var newDate = ph54FmtDate(days[newCol]);
-        var newTime = ph54FmtMin(newMin);
-        rec.date = newDate; rec.start_time = newTime; rec.hour = Math.floor(newMin/60); rec.day_of_week = dowKeyByIdx[newCol];
-        ph54Render();   // 즉시 다시 그리기(낙관적 업데이트)
-        console.log('[ph54] 일정 이동 →', { id: rec.id, day: dowKeyByIdx[newCol], date: newDate, start_time: newTime, duration_min: dur });
-        // 🔒 서버에 영구 저장(PATCH /api/admin/class-schedules/:id). id 없으면 화면 이동만.
-        if (rec.id != null) {
-          ph54Toast('💾 저장 중… ' + dayLabel[newCol] + '요일 ' + newTime);
-          fetch('/api/admin/class-schedules/' + rec.id, {
-            method: 'PATCH', credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ day_of_week: dowKeyByIdx[newCol], start_time: newTime })
-          })
-          .then(function(r){ return r.json().catch(function(){ return {}; }); })
-          .then(function(res){
-            if (res && res.ok) ph54Toast('✅ 저장됨: ' + dayLabel[newCol] + '요일 ' + newTime + ' (' + dur + '분)');
-            else ph54Toast('⚠️ 저장 실패(화면만 이동): ' + ((res && res.error) || '서버 오류'));
-          })
-          .catch(function(){ ph54Toast('⚠️ 저장 실패(네트워크). 화면만 이동됨'); });
-        } else {
-          ph54Toast('📌 이동(임시): ' + dayLabel[newCol] + '요일 ' + newTime + ' — 저장 불가(id 없음)');
+        var newMin;
+        if (col.classList.contains('ph54-cal-fold')) newMin = ph54MinOf(rec);   // 띠에는 시각 눈금이 없다 — 같은 시각
+        else {
+          var rect = col.getBoundingClientRect();
+          newMin = ph54DropMinute(rect.height > 0 ? (ev.clientY - rect.top) / rect.height : 0, drag.offsetMin, dur);
         }
+        var newDate = ph54FmtDate(days[newCol]);
+        var plan = ph54BuildMovePlan(rec, ph54State.records, newDate, newMin);
+        if (!plan.ok){
+          if (plan.reason === 'same') return;   // 제자리에 놓았다 — 아무 일도 없다(정상)
+          ph54Toast(plan.reason === 'stale'
+            ? ph54T('⚠️ 수업 정보가 오래되었습니다 — 새로고침한 뒤 다시 옮겨 주세요. (저장 안 함)', '⚠️ Class data is out of date — reload and try again. (Not saved)')
+            : plan.reason === 'occupied'
+            ? ph54T('⚠️ 그 시각에는 이 강사의 다른 수업이 이미 있습니다. (저장 안 함)', '⚠️ This instructor already has another class at that time. (Not saved)')
+            : ph54T('⚠️ 이 칸은 옮길 수 없습니다. (저장 안 함)', '⚠️ This slot cannot be moved. (Not saved)'));
+          return;
+        }
+        var otherTeacher = col.dataset.teacher && String(rec.teacher_id) !== String(col.dataset.teacher);
+        var newTime = plan.body.start_time;
+        var who = (rec.students || []).map(function(x){ return x && x.name; }).filter(Boolean).join(', ');
+        var ask = ph54T('이 수업을 옮길까요?\n\n', 'Move this class?\n\n')
+          + (who ? who + '\n' : '')
+          + ph54T('지금: ', 'Now: ') + rec.date + ' (' + ph54DowLabel(rec.date) + ') ' + ph54FmtMin(ph54MinOf(rec)) + '\n'
+          + ph54T('바꿀 곳: ', 'To: ') + newDate + ' (' + ph54DowLabel(newDate) + ') ' + newTime + ' · ' + dur + ph54T('분', ' min')
+          // 같은 강사·같은 시각 줄은 서버가 «한 묶음» 으로 옮긴다 — 그룹이 아니면(1:1 이 겹친 것) 그렇게 말한다
+          + (plan.ids.length > 1 ? (rec.type === 'group'
+              ? ph54T('\n👥 그룹 수업 — 학생 ' + plan.ids.length + '명이 함께 옮겨집니다', '\n👥 Group class — all ' + plan.ids.length + ' students move together')
+              : ph54T('\n👥 같은 시각에 겹친 수업 ' + plan.ids.length + '건이 함께 옮겨집니다', '\n👥 ' + plan.ids.length + ' classes at the same time move together')) : '')
+          + (plan.recurring ? ph54T('\n🔁 매주 반복 수업입니다 — 이번 주만이 아니라 «매주» 바뀝니다', '\n🔁 Weekly class — this changes EVERY week, not just this one') : '')
+          + (newDate < ph54TodayKst() ? ph54T('\n⚠️ 이미 지난 날짜입니다 — 기록을 바로잡을 때만 옮기세요', '\n⚠️ That date is in the past — only for correcting records') : '')
+          + (otherTeacher ? ph54T('\nℹ️ 강사는 그대로입니다(요일·시각만 옮김)', '\nℹ️ The instructor stays the same (day/time only)') : '');
+        if (!window.confirm(ask)) { ph54Toast(ph54T('취소했습니다 — 아무것도 바꾸지 않았습니다', 'Cancelled — nothing changed')); return; }
+        if (col.classList.contains('ph54-cal-fold')) ph54State.openDay = newCol;
+        ph54SaveMove(plan, { date: rec.date, min: ph54MinOf(rec) }, newDate, newTime, dur, false);
       });
     }
   }

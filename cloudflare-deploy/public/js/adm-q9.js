@@ -149,14 +149,27 @@
   };
 
   // 비밀번호 변경
-  window.ph111ChangePw = function(){
+  /* 2026-08-17 수리 — 예전에는 입력만 받고 "실서비스에서는 백엔드 API 호출" alert 만 띄웠다(=안 바뀜).
+     ⚠️ 같은 껍데기가 adm-r19(ph113)·adm-r20(ph114)·adm-r21(ph115)에도 있다. 넷 다 같이 고칠 것. */
+  window.ph111ChangePw = async function(){
     var current = prompt('현재 비밀번호:');
     if (!current) return;
-    var next = prompt('새 비밀번호 (8자 이상):');
-    if (!next || next.length < 8) { alert('비밀번호는 8자 이상이어야 합니다.'); return; }
+    var next = prompt('새 비밀번호 (6자 이상):');
+    if (!next || next.length < 6) { alert('비밀번호는 6자 이상이어야 합니다.'); return; }
     var confirm2 = prompt('새 비밀번호 확인:');
     if (next !== confirm2) { alert('비밀번호가 일치하지 않습니다.'); return; }
-    alert('🔑 비밀번호 변경 요청 — 실서비스에서는 백엔드 API 호출');
+    try {
+      var r = await fetch('/api/admin/change-password', {
+        method:'POST', credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ current_password: current, new_password: next })
+      });
+      var j = await r.json().catch(function(){ return {}; });
+      if (j && j.ok) alert('🔐 비밀번호가 변경됐습니다. 다른 기기는 자동 로그아웃됩니다.');
+      else if (j && j.error === 'wrong_current_password') alert('⚠️ 현재 비밀번호가 올바르지 않습니다.');
+      else if (j && j.error === 'too_short') alert('⚠️ 새 비밀번호는 6자 이상이어야 합니다.');
+      else alert('⚠️ 변경에 실패했습니다 — ' + ((j && (j.message || j.error)) || ('HTTP ' + r.status)));
+    } catch(e) { alert('⚠️ 네트워크 오류 — ' + ((e && e.message) || e)); }
   };
 
   // 역할 전환 (테스트용)
@@ -197,17 +210,13 @@
           role: _real.role || '',
           lastLogin: new Date().toLocaleString('ko-KR').slice(5, 17)
         }));
-      } else {
-        var defaultSession = {
-          uid: 'hq_mgr',
-          name: '정우영',
-          phone: '010-1234-5678',
-          email: 'navy111p@gmail.com',
-          branch: '본사',
-          lastLogin: new Date().toLocaleString('ko-KR').slice(5, 17)
-        };
-        localStorage.setItem('admin_session', JSON.stringify(defaultSession));
       }
+      /* 🪪 (2026-08-15) 여기 있던 «기본 세션» 생성 제거.
+         admin_session 이 비었을 때 { name:'정우영', email:'navy111p@gmail.com' } 를
+         만들어 localStorage 에 저장하고 있었다. 한 번 저장되면 그 뒤로는 진짜 세션과
+         구별이 안 돼서, 다른 계정으로 로그인해도 「정우영」이 남았다.
+         이제 비어 있으면 비어 있는 채로 두고, js/adm-identity.js 가 /api/admin/me 로
+         진짜 값을 채운다. 못 채우면 화면은 «계정 확인 중…» 으로 남는다. */
     }
     renderUserPopup();
   }

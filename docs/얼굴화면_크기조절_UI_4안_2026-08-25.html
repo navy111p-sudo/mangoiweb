@@ -1,0 +1,1100 @@
+<meta charset="utf-8">
+<title>얼굴 크기 컨트롤 4안</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --paper:#f7f6f3; --surface:#ffffff; --surface-2:#f1efe9;
+  --ink:#23211d; --ink-2:#6a655c; --ink-3:#6f6a5e;
+  --line:#e3dfd7; --line-2:#d2ccc0;
+  --amber:#b45c07; --amber-ink:#8a4705; --amber-soft:#fbeedb;
+  --sky:#0b6f9e; --sky-soft:#e2f0f7;
+  --good:#2f7a4a; --warn:#a1650b; --bad:#a8332a;
+  --screen:#131a24; --screen-2:#1d2733; --screen-line:#2f3d4d; --screen-ink:#c9d5e2;
+  --shadow:0 1px 2px rgba(35,33,29,.06),0 8px 24px -12px rgba(35,33,29,.18);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#15171a; --surface:#1c1f23; --surface-2:#23272c;
+    --ink:#ecebe7; --ink-2:#a49e94; --ink-3:#948e84;
+    --line:#2d3137; --line-2:#3a3f46;
+    --amber:#eda354; --amber-ink:#f3bd80; --amber-soft:#2b2117;
+    --sky:#6cc2e8; --sky-soft:#14262f;
+    --good:#6fbf8c; --warn:#dcae5b; --bad:#e58a80;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15171a; --surface:#1c1f23; --surface-2:#23272c;
+  --ink:#ecebe7; --ink-2:#a49e94; --ink-3:#948e84;
+  --line:#2d3137; --line-2:#3a3f46;
+  --amber:#eda354; --amber-ink:#f3bd80; --amber-soft:#2b2117;
+  --sky:#6cc2e8; --sky-soft:#14262f;
+  --good:#6fbf8c; --warn:#dcae5b; --bad:#e58a80;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,-apple-system,sans-serif;
+  font-size:16px; line-height:1.75; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1140px; margin:0 auto; padding:0 24px}
+.prose{max-width:70ch}
+h1,h2,h3{text-wrap:balance; line-height:1.25; margin:0}
+h1{font-size:clamp(2rem,5vw,2.9rem); font-weight:700; letter-spacing:-.03em}
+h2{font-size:clamp(1.35rem,3vw,1.7rem); font-weight:600; letter-spacing:-.02em}
+h3{font-size:1.02rem; font-weight:600; letter-spacing:-.01em}
+p{margin:0}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.7rem; font-weight:600;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3);
+}
+code{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.86em; background:var(--surface-2);
+  padding:.1em .38em; border-radius:4px; border:1px solid var(--line)}
+
+/* ── 머리 ── */
+header.hero{border-bottom:1px solid var(--line); padding:56px 0 40px; background:var(--surface)}
+.hero-grid{display:flex; flex-direction:column; gap:18px}
+.hero .lede{font-size:1.1rem; color:var(--ink-2); max-width:62ch}
+.hero-meta{display:flex; flex-wrap:wrap; gap:8px 20px; padding-top:6px}
+.hero-meta span{font-family:"IBM Plex Mono",monospace; font-size:.74rem; color:var(--ink-3); letter-spacing:.04em}
+
+section{padding:56px 0}
+section+section{border-top:1px solid var(--line)}
+.sec-head{display:flex; flex-direction:column; gap:10px; margin-bottom:28px}
+
+/* ── 지금 상태 ── */
+.facts{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1px;
+  background:var(--line); border:1px solid var(--line); border-radius:10px; overflow:hidden; margin-top:26px}
+.fact{background:var(--surface); padding:18px 20px; display:flex; flex-direction:column; gap:4px}
+.fact b{font-family:"IBM Plex Mono",monospace; font-size:1.7rem; font-weight:600; letter-spacing:-.03em; line-height:1.1}
+.fact span{font-size:.84rem; color:var(--ink-2); line-height:1.5}
+.fact.hot b{color:var(--bad)}
+
+/* ── 모의 화면 ── */
+.screen{
+  background:var(--screen); border:1px solid var(--screen-line); border-radius:10px;
+  overflow:hidden; color:var(--screen-ink); display:flex; flex-direction:column;
+  font-size:12px; user-select:none;
+}
+.screen-bar{
+  flex:0 0 auto; padding:7px 8px; border-bottom:1px solid var(--screen-line);
+  background:rgba(255,255,255,.03); min-height:42px; display:flex; align-items:center;
+}
+.screen-body{flex:1; display:flex; gap:5px; padding:5px; position:relative; min-height:0}
+.pane-faces{
+  width:var(--face,50%); display:grid; grid-template-rows:1fr 1fr; gap:5px;
+  transition:width .22s cubic-bezier(.4,0,.2,1); min-width:0; flex:0 0 auto;
+}
+.pane-content{
+  flex:1; min-width:0; border-radius:6px; background:var(--screen-2);
+  border:1px solid var(--screen-line); display:flex; align-items:center; justify-content:center;
+  position:relative; overflow:hidden;
+}
+.pane-content::before{
+  content:""; position:absolute; inset:14px;
+  background:repeating-linear-gradient(180deg,rgba(201,213,226,.22) 0 1px,transparent 1px 9px);
+  border-radius:3px;
+}
+.pane-content span{position:relative; font-size:11px; color:#8fa2b6; letter-spacing:.02em}
+.tile{
+  border-radius:6px; background:linear-gradient(155deg,#2b3a4b,#1e2a37);
+  border:1px solid var(--screen-line); display:flex; align-items:center; justify-content:center;
+  font-size:11px; color:#9fb3c8; min-height:0; overflow:hidden; position:relative;
+}
+.tile::after{content:""; position:absolute; width:34%; aspect-ratio:1; border-radius:50%;
+  background:rgba(201,213,226,.16); top:22%}
+.tile b{position:absolute; bottom:5px; left:6px; font-weight:500; font-size:10px; color:#c9d5e2}
+.tile.me{background:linear-gradient(155deg,#3a3020,#251f14)}
+
+/* 상태별 */
+.screen[data-size="full"] .pane-content{display:none}
+.screen[data-size="full"] .pane-faces{width:100%!important; grid-template-rows:1fr; grid-template-columns:1fr 1fr}
+.screen[data-mode="pip"] .pane-faces{
+  position:absolute; top:9px; right:9px; width:32%!important; height:44%; z-index:2;
+  box-shadow:0 6px 18px rgba(0,0,0,.5); border-radius:7px;
+}
+.screen[data-mode="pip"] .pane-content{flex:1}
+.screen[data-mode="solo"] .pane-faces{grid-template-rows:1fr}
+.screen[data-mode="solo"] .tile:not(.me){display:none}
+.screen[data-mode="free"] .pane-faces{
+  position:absolute; top:26px; left:22%; width:46%!important; height:58%; z-index:2;
+  box-shadow:0 8px 22px rgba(0,0,0,.55); border:1px dashed var(--amber); border-radius:7px; padding:3px;
+}
+.screen[data-mode="free"] .pane-faces::after{
+  content:"⤡"; position:absolute; right:-1px; bottom:-3px; color:var(--amber); font-size:13px;
+}
+
+/* ── 컨트롤 공통 ── */
+.ctl{display:flex; align-items:center; gap:5px; width:100%; min-width:0}
+.ctl-ico{font-size:12px; opacity:.75; flex:0 0 auto; line-height:1}
+.cbtn{
+  font:inherit; font-size:11px; line-height:1; color:#a9bacb; cursor:pointer;
+  background:rgba(148,163,184,.14); border:1px solid transparent; border-radius:6px;
+  padding:6px 8px; white-space:nowrap; flex:0 0 auto; transition:background .12s,color .12s;
+}
+.cbtn:hover{background:rgba(148,163,184,.28); color:#dbe5ef}
+.cbtn:focus-visible{outline:2px solid var(--amber); outline-offset:1px}
+.cbtn[aria-pressed="true"],.cbtn.on{background:#1f6feb; color:#fff}
+.cbtn.ghost{background:transparent; border-color:rgba(148,163,184,.3)}
+
+/* 1안 — 슬라이더 */
+.sl{flex:1; min-width:0; height:26px; position:relative; cursor:pointer; touch-action:none;
+  border-radius:13px; background:rgba(148,163,184,.14); padding:0 13px; display:flex; align-items:center}
+.sl:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
+.sl-track{position:absolute; left:13px; right:13px; height:3px; border-radius:2px; background:rgba(148,163,184,.3)}
+.sl-fill{position:absolute; left:13px; height:3px; border-radius:2px; background:#1f6feb; width:0; transition:width .16s}
+.sl-dot{position:absolute; width:5px; height:5px; border-radius:50%; background:rgba(201,213,226,.5); transform:translate(-50%,-50%); top:50%}
+.sl-thumb{
+  position:absolute; top:50%; transform:translate(-50%,-50%); background:#1f6feb; color:#fff;
+  font-size:10px; font-weight:600; padding:3px 7px; border-radius:9px; white-space:nowrap;
+  transition:left .16s; box-shadow:0 2px 6px rgba(0,0,0,.4); font-family:"IBM Plex Mono",monospace;
+}
+
+/* 2안 — 프리셋 세그먼트 */
+.seg{display:flex; flex:1; min-width:0; gap:2px; background:rgba(148,163,184,.13); padding:2px; border-radius:8px}
+.seg button{
+  flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px;
+  font:inherit; font-size:9.5px; color:#a9bacb; background:transparent; border:0; border-radius:6px;
+  padding:4px 2px; cursor:pointer; white-space:nowrap; transition:background .12s,color .12s;
+}
+.seg button svg{display:block; flex:0 0 auto}
+.seg button:hover{background:rgba(148,163,184,.2); color:#dbe5ef}
+.seg button:focus-visible{outline:2px solid var(--amber); outline-offset:-1px}
+.seg button[aria-pressed="true"]{background:#1f6feb; color:#fff}
+.seg button[aria-pressed="true"] svg{color:#fff}
+.seg .sg-more{flex:0 0 26px; font-size:13px}
+
+/* 3안 — 스테퍼 */
+.step{display:flex; align-items:center; gap:0; background:rgba(148,163,184,.14); border-radius:8px; overflow:hidden; flex:0 0 auto}
+.step button{font:inherit; font-size:13px; line-height:1; color:#c9d5e2; background:transparent; border:0;
+  width:26px; height:26px; cursor:pointer}
+.step button:hover:not(:disabled){background:rgba(148,163,184,.26)}
+.step button:disabled{opacity:.3; cursor:default}
+.step button:focus-visible{outline:2px solid var(--amber); outline-offset:-2px}
+.step .st-val{font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:600; color:#fff;
+  background:#1f6feb; min-width:44px; height:26px; display:flex; align-items:center; justify-content:center;
+  border:0; cursor:pointer; padding:0 4px}
+
+/* 4안 — 분할선 */
+.divider{
+  flex:0 0 9px; align-self:stretch; margin:0 -2px; cursor:col-resize; position:relative;
+  display:flex; align-items:center; justify-content:center; touch-action:none; z-index:3;
+}
+.divider::before{content:""; position:absolute; inset:0; border-radius:5px; background:transparent; transition:background .12s}
+.divider:hover::before,.divider.drag::before{background:rgba(31,111,235,.28)}
+.divider i{position:relative; width:3px; height:26px; border-radius:2px; background:rgba(201,213,226,.45); transition:background .12s}
+.divider:hover i,.divider.drag i{background:var(--amber)}
+.divider:focus-visible{outline:2px solid var(--amber); outline-offset:1px; border-radius:5px}
+.snapdots{position:absolute; top:2px; left:0; right:0; display:flex; justify-content:center}
+.chipbtn{
+  display:inline-flex; align-items:center; gap:5px; font:inherit; font-size:11px; color:#c9d5e2;
+  background:rgba(148,163,184,.14); border:0; border-radius:6px; padding:6px 9px; cursor:pointer; white-space:nowrap;
+}
+.chipbtn:hover{background:rgba(148,163,184,.26)}
+.chipbtn:focus-visible{outline:2px solid var(--amber); outline-offset:1px}
+.chipbtn .v{font-family:"IBM Plex Mono",monospace; font-weight:600; color:#fff}
+.hintline{margin-left:auto; font-size:10px; color:#7e91a5; white-space:nowrap}
+
+/* 팝오버(고급) */
+.pop{position:relative}
+.pop-menu{
+  position:absolute; top:calc(100% + 6px); right:0; z-index:10; min-width:132px;
+  background:#1b2532; border:1px solid var(--screen-line); border-radius:8px; padding:4px;
+  box-shadow:0 10px 28px rgba(0,0,0,.55); display:none; flex-direction:column; gap:2px;
+}
+.pop-menu.open{display:flex}
+.pop-menu button{font:inherit; font-size:11px; text-align:left; color:#c9d5e2; background:transparent;
+  border:0; border-radius:5px; padding:7px 9px; cursor:pointer; white-space:nowrap}
+.pop-menu button:hover{background:rgba(148,163,184,.2)}
+.pop-menu button[aria-pressed="true"]{background:rgba(31,111,235,.85); color:#fff}
+.pop-menu hr{border:0; border-top:1px solid var(--screen-line); margin:3px 0}
+
+/* ── 제안 카드 ── */
+.plan{display:flex; flex-direction:column; gap:26px}
+.plan-head{display:flex; align-items:flex-start; gap:16px}
+.plan-num{
+  flex:0 0 auto; font-family:"IBM Plex Mono",monospace; font-size:.78rem; font-weight:600;
+  letter-spacing:.06em; color:var(--amber-ink); background:var(--amber-soft);
+  border:1px solid color-mix(in srgb,var(--amber) 30%,transparent);
+  border-radius:6px; padding:5px 9px; margin-top:5px;
+}
+.plan-title{display:flex; flex-direction:column; gap:5px}
+.plan-title p{color:var(--ink-2); font-size:.95rem}
+.plan-body{display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:28px; align-items:start}
+@media (max-width:900px){.plan-body{grid-template-columns:1fr}}
+
+.demos{display:grid; grid-template-columns:minmax(0,1fr) 232px; gap:16px; align-items:start}
+@media (max-width:620px){.demos{grid-template-columns:1fr}}
+.demo{display:flex; flex-direction:column; gap:7px; min-width:0}
+.demo-cap{display:flex; align-items:baseline; gap:8px}
+.demo-cap b{font-family:"IBM Plex Mono",monospace; font-size:.68rem; font-weight:600; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--ink-3)}
+.demo-cap i{font-style:normal; font-size:.74rem; color:var(--ink-3)}
+.pc .screen{aspect-ratio:16/9.6}
+.phone{width:232px; max-width:100%}
+.phone .screen{aspect-ratio:9/17; border-radius:16px; border-width:5px; border-color:#0b0f14; font-size:11px}
+.phone .screen-bar{padding:5px 5px; min-height:34px}
+.phone .screen-body{flex-direction:column; padding:4px; gap:4px}
+.phone .pane-faces{width:100%!important; height:var(--faceH,42%); grid-template-rows:1fr;
+  grid-template-columns:1fr 1fr; flex:0 0 auto; transition:height .22s cubic-bezier(.4,0,.2,1)}
+.phone .screen[data-size="full"] .pane-faces{height:100%!important; grid-template-rows:1fr 1fr; grid-template-columns:1fr}
+.phone .screen[data-mode="pip"] .pane-faces{position:absolute; top:8px; right:8px;
+  width:38%!important; height:20%!important; grid-template-columns:1fr; grid-template-rows:1fr 1fr}
+.phone .screen[data-mode="solo"] .tile:not(.me){display:none}
+.phone .screen[data-mode="solo"] .pane-faces{grid-template-columns:1fr}
+.phone .screen[data-mode="free"] .pane-faces{position:absolute; top:24px; left:12%; width:70%!important; height:34%!important}
+.phone .divider{flex:0 0 9px; width:100%; cursor:row-resize; margin:-2px 0}
+.phone .divider i{width:26px; height:3px}
+.phone .seg button{font-size:8.5px}
+.phone .hintline{display:none}
+
+/* 판정 */
+.judge{display:flex; flex-direction:column; gap:18px; min-width:0}
+.jgroup{display:flex; flex-direction:column; gap:7px}
+.jgroup h3{display:flex; align-items:center; gap:7px}
+.dot{width:7px; height:7px; border-radius:50%; flex:0 0 auto}
+.dot.g{background:var(--good)} .dot.b{background:var(--bad)} .dot.n{background:var(--sky)}
+.jlist{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px}
+.jlist li{font-size:.9rem; color:var(--ink-2); line-height:1.6; padding-left:15px; position:relative}
+.jlist li::before{content:""; position:absolute; left:2px; top:.72em; width:4px; height:1.5px; background:var(--line-2)}
+.jlist li b{color:var(--ink); font-weight:600}
+.bench{background:var(--sky-soft); border:1px solid color-mix(in srgb,var(--sky) 22%,transparent);
+  border-radius:8px; padding:13px 15px; font-size:.87rem; color:var(--ink-2); line-height:1.6}
+.bench b{color:var(--ink); font-weight:600}
+.bench > b:first-child{font-weight:600; display:block; font-size:.72rem; letter-spacing:.1em;
+  text-transform:uppercase; font-family:"IBM Plex Mono",monospace; margin-bottom:5px; color:var(--sky)}
+.maps{display:flex; flex-wrap:wrap; gap:5px}
+.maps code{font-size:.74rem}
+
+/* 표 */
+.tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:10px; background:var(--surface)}
+table{border-collapse:collapse; width:max-content; min-width:100%; font-size:.88rem}
+th,td{padding:12px 15px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top}
+thead th{font-family:"IBM Plex Mono",monospace; font-size:.68rem; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--ink-3); font-weight:600; background:var(--surface-2); white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td:first-child{font-weight:600; white-space:nowrap}
+.rate{font-family:"IBM Plex Mono",monospace; font-weight:600; letter-spacing:.05em; white-space:nowrap}
+.rate.hi{color:var(--good)} .rate.mid{color:var(--warn)} .rate.lo{color:var(--bad)}
+
+/* 추천 */
+.rec{background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--amber);
+  border-radius:10px; padding:26px 28px; display:flex; flex-direction:column; gap:14px; box-shadow:var(--shadow)}
+.rec h2{font-size:1.3rem}
+.rec p{color:var(--ink-2); font-size:.95rem; max-width:66ch}
+.rec ol{margin:0; padding-left:1.25em; display:flex; flex-direction:column; gap:7px; color:var(--ink-2); font-size:.92rem}
+.rec ol b{color:var(--ink)}
+.traps{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px; margin-top:8px}
+.trap{background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:15px 17px;
+  display:flex; flex-direction:column; gap:5px}
+.trap b{font-size:.85rem; font-weight:600}
+.trap span{font-size:.82rem; color:var(--ink-2); line-height:1.6}
+footer{border-top:1px solid var(--line); padding:32px 0 56px; color:var(--ink-3); font-size:.8rem}
+@media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+</style>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <span class="eyebrow">망고아이 화상수업 · UI 제안</span>
+    <h1>얼굴 크기 컨트롤을 한 줄로</h1>
+    <p class="lede">지금 얼굴 화면 크기를 정하는 버튼이 7개, 좁아지면 두 줄로 접혀 수업 화면 위쪽을 잡아먹습니다.
+      경쟁 화상수업 제품들이 같은 문제를 어떻게 풀었는지 보고, 한 줄에 들어가는 안 4가지를 만들었습니다.
+      각 안의 컨트롤은 <b>실제로 눌러 볼 수 있습니다</b> — 옆 화면이 그대로 따라 움직입니다.</p>
+    <div class="hero-meta">
+      <span>2026-08-25</span><span>대상 · public/index.html 수업화면</span><span>PC + 휴대폰</span>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head prose">
+      <span class="eyebrow">지금 상태</span>
+      <h2>버튼 7개가 두 가지 다른 일을 섞어 하고 있습니다</h2>
+      <p style="color:var(--ink-2)">앞의 넷(<code>1/4 · 1/2 · 3/4 · 전체</code>)은 <b>하나의 축</b>입니다 — 얼굴이 화면을 얼마나 차지하느냐.
+        뒤의 셋(<code>PIP · 솔로 · 자유</code>)은 크기가 아니라 <b>특수 모드</b>이고, 수업 중 거의 쓰이지 않습니다.
+        성격이 다른 둘이 같은 줄에 나란히 있어서 「무엇을 고르는 줄인지」가 읽히지 않습니다.</p>
+    </div>
+
+    <div class="demos" style="max-width:900px">
+      <div class="demo pc">
+        <div class="demo-cap"><b>지금 / PC</b><i>버튼 7개 · 좁아지면 두 줄</i></div>
+        <div class="screen" data-screen data-size="half" style="--face:50%">
+          <div class="screen-bar">
+            <div class="ctl" style="flex-wrap:wrap; gap:4px">
+              <button class="cbtn" style="flex:1">1/4</button>
+              <button class="cbtn on" style="flex:1">1/2</button>
+              <button class="cbtn" style="flex:1">3/4</button>
+              <button class="cbtn" style="flex:1">전체</button>
+              <button class="cbtn" style="flex:1; background:rgba(245,158,11,.25); color:#fcd34d">📌 PIP</button>
+              <button class="cbtn" style="flex:1; background:rgba(168,85,247,.25); color:#d8b4fe">👤 솔로</button>
+              <button class="cbtn" style="flex:1; background:rgba(34,197,94,.22); color:#86efac">⤡ 자유</button>
+            </div>
+          </div>
+          <div class="screen-body">
+            <div class="pane-faces"><div class="tile"><b>강사</b></div><div class="tile me"><b>나</b></div></div>
+            <div class="pane-content"><span>교재 · 칠판</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="demo phone">
+        <div class="demo-cap"><b>지금 / 폰</b><i>세로에선 아예 없음</i></div>
+        <div class="screen" data-screen data-size="half" style="--faceH:42%">
+          <div class="screen-bar" style="justify-content:center">
+            <span style="font-size:9px; color:#7e91a5; text-align:center; line-height:1.4">컨트롤 없음<br>(display:none)</span>
+          </div>
+          <div class="screen-body">
+            <div class="pane-faces"><div class="tile"><b>강사</b></div><div class="tile me"><b>나</b></div></div>
+            <div class="pane-content"><span>교재 · 칠판</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="facts">
+      <div class="fact hot"><b>7</b><span>한 줄에 든 버튼 수. <code>flex-wrap:wrap</code> 이라 폭이 좁아지면 두 줄로 접힘</span></div>
+      <div class="fact hot"><b>0</b><span>폰 <b>세로</b>에서 보이는 버튼. 바 전체가 <code>display:none</code> — 크기를 바꿀 방법이 없음</span></div>
+      <div class="fact"><b>8.5px</b><span>폰 <b>가로</b>의 글자 크기. 우상단에 고정하고 <code>1/4</code>·<code>3/4</code> 를 숨겨 겨우 넣음</span></div>
+      <div class="fact"><b>10</b><span>하단 독 「화면 분할」 시트에 있는 <b>같은 기능</b> 항목 수 (<code>vcScreenSet</code>)</span></div>
+      <div class="fact"><b>8</b><span>얼굴 패널 폭을 breakpoint 마다 다시 정의하는 CSS 블록 수</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 1안 ══ -->
+<section>
+  <div class="wrap plan">
+    <div class="plan-head">
+      <span class="plan-num">1안</span>
+      <div class="plan-title">
+        <h2>크기 슬라이더</h2>
+        <p>버튼 4개를 손잡이 하나로 합칩니다. 왼쪽 끝이 교재 위주, 오른쪽 끝이 얼굴 위주.
+          끌면 4단으로 딱딱 붙고, 눌러도 그 자리로 갑니다. 특수 모드는 오른쪽 <code>⋯</code> 안으로.</p>
+      </div>
+    </div>
+    <div class="plan-body">
+      <div class="demos">
+        <div class="demo pc">
+          <div class="demo-cap"><b>PC</b><i>끌어 보세요 · ←→ 키도 됩니다</i></div>
+          <div class="screen" data-screen data-size="half" style="--face:50%">
+            <div class="screen-bar">
+              <div class="ctl" data-ctl="slider">
+                <span class="ctl-ico" title="교재 위주">📖</span>
+                <div class="sl" tabindex="0" role="slider" aria-label="얼굴 화면 크기" aria-valuemin="1" aria-valuemax="4" aria-valuenow="2" aria-valuetext="1/2">
+                  <div class="sl-track"></div><div class="sl-fill"></div><div class="sl-thumb">1/2</div>
+                </div>
+                <span class="ctl-ico" title="얼굴 위주">👥</span>
+                <div class="pop">
+                  <button class="cbtn ghost" data-pop aria-label="특수 보기" title="특수 보기">⋯</button>
+                  <div class="pop-menu">
+                    <button data-mode="pip">📌 작은 창(PIP)</button>
+                    <button data-mode="solo">👤 내 얼굴만</button>
+                    <button data-mode="free">⤡ 자유 크기</button>
+                    <hr><button data-mode="">↩ 기본으로</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="screen-body">
+              <div class="pane-faces"><div class="tile"><b>강사</b></div><div class="tile me"><b>나</b></div></div>
+              <div class="pane-content"><span>교재 · 칠판</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="demo phone">
+          <div class="demo-cap"><b>폰</b><i>세로에서도 한 줄</i></div>
+          <div class="screen" data-screen data-size="half" style="--faceH:42%">
+            <div class="screen-bar">
+              <div class="ctl" data-ctl="slider">
+                <span class="ctl-ico">📖</span>
+                <div class="sl" tabindex="0" role="slider" aria-label="얼굴 화면 크기" aria-valuemin="1" aria-valuemax="4" aria-valuenow="2" aria-valuetext="1/2">
+                  <div class="sl-track"></div><div class="sl-fill"></div><div class="sl-thumb">1/2</div>
+                </div>
+                <span class="ctl-ico">👥</span>
+                <div class="pop">
+                  <button class="cbtn ghost" data-pop aria-label="특수 보기">⋯</button>
+                  <div class="pop-menu">
+                    <button data-mode="pip">📌 작은 창</button>
+                    <button data-mode="solo">👤 내 얼굴만</button>
+                    <button data-mode="free">⤡ 자유 크기</button>
+                    <hr><button data-mode="">↩ 기본으로</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="screen-body">
+              <div class="pane-faces"><div class="tile"><b>강사</b></div><div class="tile me"><b>나</b></div></div>
+              <div class="pane-content"><span>교재 · 칠판</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="judge">
+        <div class="bench"><b>벤치마크</b>Zoom 의 「나란히 보기」 화면비 손잡이, Google Meet 의 타일 수 슬라이더.
+          둘 다 «얼마나 크게» 를 버튼이 아니라 하나의 축으로 다룹니다.</div>
+        <div class="jgroup"><h3><span class="dot g"></span>좋은 점</h3>
+          <ul class="jlist">
+            <li><b>줄 수가 고정</b>입니다 — 폭이 좁아지면 손잡이만 짧아지고 두 줄이 되지 않습니다.</li>
+            <li>손가락 하나로 끝까지 갑니다. 폰에서 «작은 버튼을 정확히 짚는» 일이 사라집니다.</li>
+            <li>개념이 하나(얼굴 크기)로 통일돼 <b>글자를 안 읽어도</b> 뭘 하는 줄인지 보입니다.</li>
+            <li>나중에 무단계(8단·연속)로 넓혀도 UI 를 다시 안 만듭니다.</li>
+          </ul>
+        </div>
+        <div class="jgroup"><h3><span class="dot b"></span>걸리는 점</h3>
+          <ul class="jlist">
+            <li>「지금 1/2 인가」를 손잡이 위치로 읽어야 합니다 — 그래서 손잡이에 숫자를 얹었습니다.</li>
+            <li>정확히 한 단만 옮기려면 조준이 필요합니다(키보드 ←→ 로 보완).</li>
+            <li>수업 중 <b>실수로 끌릴</b> 위험이 버튼보다 큽니다. 폰 상단 고정 자리라면 여백을 넉넉히 줘야 합니다.</li>
+          </ul>
+        </div>
+        <div class="jgroup"><h3><span class="dot n"></span>기존 코드 연결</h3>
+          <div class="maps"><code>vcSetVideoSize()</code><code>vcTogglePip()</code><code>vcToggleSolo()</code><code>vcToggleFreeResize()</code></div>
+          <p style="font-size:.85rem; color:var(--ink-2); margin-top:4px">함수는 그대로 두고 호출부만 바꿉니다. 서버·CSS 폭 규칙은 손대지 않습니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 2안 ══ -->
+<section>
+  <div class="wrap plan">
+    <div class="plan-head">
+      <span class="plan-num">2안</span>
+      <div class="plan-title">
+        <h2>레이아웃 그림 4칸</h2>
+        <p>숫자 대신 <b>결과 그림</b>을 보여 줍니다. 어느 칸이 커지는지 아이콘이 그대로 말해 주니
+          한국어·영어·중국어 강사 모두 라벨을 안 읽어도 고를 수 있습니다.</p>
+      </div>
+    </div>
+    <div class="plan-body">
+      <div class="demos">
+        <div class="demo pc">
+          <div class="demo-cap"><b>PC</b><i>그림이 곧 설명</i></div>
+          <div class="screen" data-screen data-size="half" style="--face:50%">
+            <div class="screen-bar">
+              <div class="ctl" data-ctl="preset">
+                <div class="seg">
+                  <button data-size="quarter" aria-pressed="false" title="교재를 크게">
+                    <svg width="22" height="14" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x=".7" y=".7" width="5" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".3"/><rect x="7.3" y=".7" width="14" height="12.6" rx="1.2"/></svg>
+                    <span>교재 크게</span>
+                  </button>
+                  <button data-size="half" aria-pressed="true" title="반반">
+                    <svg width="22" height="14" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x=".7" y=".7" width="9.6" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".3"/><rect x="11.7" y=".7" width="9.6" height="12.6" rx="1.2"/></svg>
+                    <span>반반</span>
+                  </button>
+                  <button data-size="threequarter" aria-pressed="false" title="얼굴을 크게">
+                    <svg width="22" height="14" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x=".7" y=".7" width="14" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".3"/><rect x="16.3" y=".7" width="5" height="12.6" rx="1.2"/></svg>
+                    <span>얼굴 크게</span>
+                  </button>
+                  <button data-size="full" aria-pressed="false" title="참가자 전체 보기">
+                    <svg width="22" height="14" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x=".7" y=".7" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".3"/><rect x="11.7" y=".7" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".3"/><rect x=".7" y="7.4" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".3"/><rect x="11.7" y="7.4" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".3"/></svg>
+                    <span>모두 보기</span>
+                  </button>
+                  <div class="pop sg-more" style="display:flex">
+                    <button data-pop aria-label="특수 보기" title="특수 보기" style="width:100%; background:transparent; border:0; color:#a9bacb; cursor:pointer; border-radius:6px">⋯</button>
+                    <div class="pop-menu">
+                      <button data-mode="pip">📌 작은 창(PIP)</button>
+                      <button data-mode="solo">👤 내 얼굴만</button>
+                      <button data-mode="free">⤡ 자유 크기</button>
+                      <hr><button data-mode="">↩ 기본으로</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="screen-body">
+              <div class="pane-faces"><div class="tile"><b>강사</b></div><div class="tile me"><b>나</b></div></div>
+              <div class="pane-content"><span>교재 · 칠판</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="demo phone">
+          <div class="demo-cap"><b>폰</b><i>좁으면 그림만</i></div>
+          <div class="screen" data-screen data-size="half" style="--faceH:42%">
+            <div class="screen-bar">
+              <div class="ctl" data-ctl="preset">
+                <div class="seg">
+                  <button data-size="quarter" aria-pressed="false" aria-label="교재 크게">
+                    <svg width="20" height="13" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x=".7" y=".7" width="5" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".3"/><rect x="7.3" y=".7" width="14" height="12.6" rx="1.2"/></svg>
+                  </button>
+                  <button data-size="half" aria-pressed="true" aria-label="반반">
+                    <svg width="20" height="13" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x=".7" y=".7" width="9.6" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".3"/><rect x="11.7" y=".7" width="9.6" height="12.6" rx="1.2"/></svg>
+                  </button>
+                  <button data-size="threequarter" aria-pressed="false" aria-label="얼굴 크게">
+                    <svg width="20" height="13" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x=".7" y=".7" width="14" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".3"/><rect x="16.3" y=".7" width="5" height="12.6" rx="1.2"/></svg>
+                  </button>
+                  <button data-size="full" aria-pressed="false" aria-label="모두 보기">
+                    <svg width="20" height="13" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x=".7" y=".7" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".3"/><rect x="11.7" y=".7" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".3"/><rect x=".7" y="7.4" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".3"/><rect x="11.7" y="7.4" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".3"/></svg>
+                  </button>
+                  <div class="pop sg-more" style="display:flex">
+                    <button data-pop aria-label="특수 보기" style="width:100%; background:transparent; border:0; color:#a9bacb; cursor:pointer">⋯</button>
+                    <div class="pop-menu">
+                      <button data-mode="pip">📌 작은 창</button>
+                      <button data-mode="solo">👤 내 얼굴만</button>
+                      <button data-mode="free">⤡ 자유 크기</button>
+                      <hr><button data-mode="">↩ 기본으로</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="screen-body">
+              <div class="pane-faces"><div class="tile"><b>강사</b></div><div class="tile me"><b>나</b></div></div>
+              <div class="pane-content"><span>교재 · 칠판</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="judge">
+        <div class="bench"><b>벤치마크</b>Google Meet 「레이아웃 변경」(자동·타일·스포트라이트·사이드바)과
+          Microsoft Teams 의 보기 전환 — 둘 다 <b>글자 없이 그림만으로도</b> 고를 수 있게 만들어 두었습니다.</div>
+        <div class="jgroup"><h3><span class="dot g"></span>좋은 점</h3>
+          <ul class="jlist">
+            <li><b>언어를 안 탑니다.</b> 필리핀·중국인 강사가 라벨을 못 읽어도 그림으로 고릅니다.
+              i18n 사전이 전체 문자열 일치라 라벨이 깨져도 기능이 안 죽습니다.</li>
+            <li>「전체」가 실제로 무엇인지 그림이 말해 줍니다 — 지금 이름만 보고 «무엇의 전체인지» 몰랐던 문제가 사라집니다.</li>
+            <li>한 번에 원하는 곳으로 갑니다. 단계를 거칠 필요가 없습니다.</li>
+            <li>폰에서 라벨만 떼면 그대로 축소됩니다 — <b>구조를 다시 안 짭니다.</b></li>
+          </ul>
+        </div>
+        <div class="jgroup"><h3><span class="dot b"></span>걸리는 점</h3>
+          <ul class="jlist">
+            <li>아이콘 4개를 처음엔 눈으로 익혀야 합니다(툴팁 필요).</li>
+            <li>칸이 4~5개라 슬라이더·스테퍼보다 <b>가로를 더 씁니다.</b> 폰 세로에서 라벨은 확실히 빼야 합니다.</li>
+            <li>아이콘을 SVG 로 새로 그려야 합니다 — 이모지로는 이 그림이 안 나옵니다.</li>
+          </ul>
+        </div>
+        <div class="jgroup"><h3><span class="dot n"></span>기존 코드 연결</h3>
+          <div class="maps"><code>vcSetVideoSize()</code><code>vcScreenSet()</code></div>
+          <p style="font-size:.85rem; color:var(--ink-2); margin-top:4px">하단 독 시트의 10개 항목과 <b>같은 이름·같은 그림</b>으로 맞추면 두 곳이 처음으로 일치합니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 3안 ══ -->
+<section>
+  <div class="wrap plan">
+    <div class="plan-head">
+      <span class="plan-num">3안</span>
+      <div class="plan-title">
+        <h2>크게 · 작게 스테퍼</h2>
+        <p>지도 확대·축소와 같은 방식. <code>−</code> <code>+</code> 로 4단을 오가고, 가운데 숫자를 누르면 기본(1/2)으로 돌아옵니다.
+          <code>⤢</code> 는 «모두 보기» 토글 — 한 번 더 누르면 직전 크기로.</p>
+      </div>
+    </div>
+    <div class="plan-body">
+      <div class="demos">
+        <div class="demo pc">
+          <div class="demo-cap"><b>PC</b><i>가장 좁은 안</i></div>
+          <div class="screen" data-screen data-size="half" style="--face:50%">
+            <div class="screen-bar">
+              <div class="ctl" data-ctl="stepper">
+                <span class="ctl-ico">👥</span>
+                <div class="step">
+                  <button data-step="-1" aria-label="얼굴 작게">−</button>
+                  <button class="st-val" data-reset aria-label="기본 크기로">1/2</button>
+                  <button data-step="1" aria-label="얼굴 크게">＋</button>
+                </div>
+                <button class="cbtn ghost" data-gallery aria-pressed="false" title="참가자 모두 보기">⤢</button>
+                <div class="pop" style="margin-left:auto">
+                  <button class="cbtn ghost" data-pop aria-label="특수 보기" title="특수 보기">⋯</button>
+                  <div class="pop-menu">
+                    <button data-mode="pip">📌 작은 창(PIP)</button>
+                    <button data-mode="solo">👤 내 얼굴만</button>
+                    <button data-mode="free">⤡ 자유 크기</button>
+                    <hr><button data-mode="">↩ 기본으로</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="screen-body">
+              <div class="pane-faces"><div class="tile"><b>강사</b></div><div class="tile me"><b>나</b></div></div>
+              <div class="pane-content"><span>교재 · 칠판</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="demo phone">
+          <div class="demo-cap"><b>폰</b><i>지금 그 자리에 그대로</i></div>
+          <div class="screen" data-screen data-size="half" style="--faceH:42%">
+            <div class="screen-bar">
+              <div class="ctl" data-ctl="stepper" style="justify-content:flex-end">
+                <div class="step">
+                  <button data-step="-1" aria-label="얼굴 작게">−</button>
+                  <button class="st-val" data-reset aria-label="기본 크기로">1/2</button>
+                  <button data-step="1" aria-label="얼굴 크게">＋</button>
+                </div>
+                <button class="cbtn ghost" data-gallery aria-pressed="false" aria-label="모두 보기">⤢</button>
+                <div class="pop">
+                  <button class="cbtn ghost" data-pop aria-label="특수 보기">⋯</button>
+                  <div class="pop-menu">
+                    <button data-mode="pip">📌 작은 창</button>
+                    <button data-mode="solo">👤 내 얼굴만</button>
+                    <button data-mode="free">⤡ 자유 크기</button>
+                    <hr><button data-mode="">↩ 기본으로</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="screen-body">
+              <div class="pane-faces"><div class="tile"><b>강사</b></div><div class="tile me"><b>나</b></div></div>
+              <div class="pane-content"><span>교재 · 칠판</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="judge">
+        <div class="bench"><b>벤치마크</b>지도 앱의 확대·축소, ClassIn 의 창 크기 조절 위젯.
+          «어느 단계인지» 를 고르는 게 아니라 <b>«지금보다 크게/작게»</b> 만 말하게 하는 방식입니다.</div>
+        <div class="jgroup"><h3><span class="dot g"></span>좋은 점</h3>
+          <ul class="jlist">
+            <li><b>네 안 중 가장 좁습니다.</b> 지금 폰 가로의 8.5px 자리에 그대로 들어가고도 남습니다 —
+              글자를 키워도 자리가 됩니다.</li>
+            <li>배울 것이 없습니다. <code>−</code> <code>+</code> 는 설명이 필요 없는 몇 안 되는 기호입니다.</li>
+            <li>수업 중 실수로 눌러도 <b>한 단</b>만 움직입니다. 되돌리기가 쉽습니다.</li>
+            <li>가운데 숫자가 «지금 상태»를 항상 보여 줍니다.</li>
+          </ul>
+        </div>
+        <div class="jgroup"><h3><span class="dot b"></span>걸리는 점</h3>
+          <ul class="jlist">
+            <li>1/4 에서 전체까지 <b>세 번</b> 눌러야 합니다 — 그래서 <code>⤢</code>(모두 보기)를 따로 뺐습니다.</li>
+            <li>선택지가 몇 개인지, 끝이 어디인지 <b>보이지 않습니다</b>(끝에서 버튼을 흐리게 해 보완).</li>
+            <li>「1/2」라는 표기 자체가 여전히 «무엇의 절반인지» 를 설명하지 않습니다.</li>
+          </ul>
+        </div>
+        <div class="jgroup"><h3><span class="dot n"></span>기존 코드 연결</h3>
+          <div class="maps"><code>vcSetVideoSize()</code><code>vcScreenSet('full')</code></div>
+          <p style="font-size:.85rem; color:var(--ink-2); margin-top:4px">4단 배열 하나와 인덱스만 있으면 됩니다 — <b>네 안 중 가장 작은 변경</b>입니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 4안 ══ -->
+<section>
+  <div class="wrap plan">
+    <div class="plan-head">
+      <span class="plan-num">4안</span>
+      <div class="plan-title">
+        <h2>분할선 끌기</h2>
+        <p>바를 없애고 <b>얼굴과 교재 사이 경계선</b>을 직접 끕니다. 상단에는 지금 비율 하나만 남습니다.
+          가운데 손잡이를 끌어 보세요 — 세 지점에서 딱 붙습니다.</p>
+      </div>
+    </div>
+    <div class="plan-body">
+      <div class="demos">
+        <div class="demo pc">
+          <div class="demo-cap"><b>PC</b><i>가운데 회색 손잡이를 끌기</i></div>
+          <div class="screen" data-screen data-size="half" style="--face:50%">
+            <div class="screen-bar">
+              <div class="ctl" data-ctl="divider">
+                <div class="pop">
+                  <button class="chipbtn" data-pop title="보기 바꾸기">👥 얼굴 <span class="v">1/2</span> ▾</button>
+                  <div class="pop-menu" style="left:0; right:auto">
+                    <button data-size="quarter">교재 크게 (1/4)</button>
+                    <button data-size="half">반반 (1/2)</button>
+                    <button data-size="threequarter">얼굴 크게 (3/4)</button>
+                    <button data-size="full">모두 보기 (전체)</button>
+                    <hr>
+                    <button data-mode="pip">📌 작은 창(PIP)</button>
+                    <button data-mode="solo">👤 내 얼굴만</button>
+                    <button data-mode="free">⤡ 자유 크기</button>
+                  </div>
+                </div>
+                <span class="hintline">↔ 가운데 선을 끌어도 됩니다</span>
+              </div>
+            </div>
+            <div class="screen-body">
+              <div class="pane-faces"><div class="tile"><b>강사</b></div><div class="tile me"><b>나</b></div></div>
+              <div class="divider" tabindex="0" role="separator" aria-label="얼굴·교재 경계 (좌우 키로 조절)"><i></i></div>
+              <div class="pane-content"><span>교재 · 칠판</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="demo phone">
+          <div class="demo-cap"><b>폰</b><i>가로선을 위아래로</i></div>
+          <div class="screen" data-screen data-size="half" style="--faceH:42%">
+            <div class="screen-bar">
+              <div class="ctl" data-ctl="divider">
+                <div class="pop">
+                  <button class="chipbtn" data-pop>👥 <span class="v">1/2</span> ▾</button>
+                  <div class="pop-menu" style="left:0; right:auto">
+                    <button data-size="quarter">교재 크게</button>
+                    <button data-size="half">반반</button>
+                    <button data-size="threequarter">얼굴 크게</button>
+                    <button data-size="full">모두 보기</button>
+                    <hr>
+                    <button data-mode="pip">📌 작은 창</button>
+                    <button data-mode="solo">👤 내 얼굴만</button>
+                    <button data-mode="free">⤡ 자유 크기</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="screen-body">
+              <div class="pane-faces"><div class="tile"><b>강사</b></div><div class="tile me"><b>나</b></div></div>
+              <div class="divider" tabindex="0" role="separator" aria-label="얼굴·교재 경계"><i></i></div>
+              <div class="pane-content"><span>교재 · 칠판</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="judge">
+        <div class="bench"><b>벤치마크</b>Zoom 「나란히 보기」의 화면 분할선, Windows 창 스냅.
+          컨트롤을 없애고 <b>보고 있는 것 자체를 만지게</b> 하는 방식입니다.</div>
+        <div class="jgroup"><h3><span class="dot g"></span>좋은 점</h3>
+          <ul class="jlist">
+            <li><b>지면을 거의 안 씁니다.</b> 상단에 남는 것은 칩 하나 — 지금 두 줄을 쓰던 자리가 통째로 수업 화면이 됩니다.</li>
+            <li>원하는 비율에 무단계로 맞출 수 있습니다. 「1/2 는 좁고 3/4 는 넓다」가 해결됩니다.</li>
+            <li>결과를 <b>보면서</b> 정합니다. 눌러 보고 되돌리는 왕복이 없습니다.</li>
+          </ul>
+        </div>
+        <div class="jgroup"><h3><span class="dot b"></span>걸리는 점</h3>
+          <ul class="jlist">
+            <li><b>발견성이 가장 낮습니다.</b> 「끌 수 있다」를 모르면 영영 안 씁니다 — 첫 수업 1회 안내가 반드시 필요합니다.
+              그래서 칩 메뉴에 4단계를 그대로 남겨 두었습니다.</li>
+            <li>폰 세로는 분할선이 <b>가로</b>라 위아래로 끌어야 합니다 — PC 와 조작 방향이 다릅니다.</li>
+            <li>칠판·PDF 캔버스가 <b>끄는 내내</b> 다시 그려집니다. 지금은 전환 후 280ms 에 한 번만 <code>wbResize()</code> 를 부르는데,
+              연속 조절이면 손을 뗄 때만 부르도록 바꿔야 합니다.</li>
+            <li>얼굴 폭이 CSS 8곳에서 breakpoint 별로 재정의되고 있어, <b>인라인 값과 부딪힙니다</b>
+              (작성자 <code>!important</code> 가 인라인을 이기는 구간이 있습니다).</li>
+          </ul>
+        </div>
+        <div class="jgroup"><h3><span class="dot n"></span>기존 코드 연결</h3>
+          <div class="maps"><code>vcApplyFreeBox()</code><code>vcAttachFreeHandlers()</code><code>wbResize()</code></div>
+          <p style="font-size:.85rem; color:var(--ink-2); margin-top:4px">「자유 크기」의 드래그 처리를 재활용할 수 있지만,
+            CSS 폭 규칙 정리가 선행돼야 합니다 — <b>네 안 중 가장 큰 변경</b>입니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 비교 ══ -->
+<section>
+  <div class="wrap">
+    <div class="sec-head prose">
+      <span class="eyebrow">한눈에</span>
+      <h2>네 안 비교</h2>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th>안</th><th>차지하는 가로</th><th>폰 세로 대응</th><th>배우기</th><th>실수 위험</th><th>구현 크기</th><th>공동 금지구역 손대는 정도</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td>1안 슬라이더</td>
+            <td class="rate mid">중간 (늘고 줄음)</td>
+            <td class="rate hi">한 줄에 들어감</td>
+            <td class="rate hi">쉬움</td>
+            <td class="rate mid">끌림 주의</td>
+            <td class="rate mid">보통</td>
+            <td>HTML 한 블록 + JS 한 함수</td>
+          </tr>
+          <tr>
+            <td>2안 그림 4칸</td>
+            <td class="rate mid">넓음 (칸 5개)</td>
+            <td class="rate mid">라벨 빼면 들어감</td>
+            <td class="rate hi">그림으로 즉시</td>
+            <td class="rate hi">낮음</td>
+            <td class="rate mid">보통</td>
+            <td>HTML 한 블록 + SVG 4개</td>
+          </tr>
+          <tr>
+            <td>3안 스테퍼</td>
+            <td class="rate hi">가장 좁음</td>
+            <td class="rate hi">지금 자리에 그대로</td>
+            <td class="rate hi">설명 불필요</td>
+            <td class="rate hi">가장 낮음</td>
+            <td class="rate hi">가장 작음</td>
+            <td>버튼 3개 + 인덱스 하나</td>
+          </tr>
+          <tr>
+            <td>4안 분할선</td>
+            <td class="rate hi">거의 안 씀</td>
+            <td class="rate lo">조작 방향이 달라짐</td>
+            <td class="rate lo">안내 없으면 못 찾음</td>
+            <td class="rate mid">보통</td>
+            <td class="rate lo">가장 큼</td>
+            <td>CSS 폭 규칙 8곳 정리 필요</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 추천 ══ -->
+<section>
+  <div class="wrap" style="display:flex; flex-direction:column; gap:26px">
+    <div class="rec">
+      <span class="eyebrow">추천</span>
+      <h2>2안(그림 4칸)을 기본으로, 폰 세로만 3안(스테퍼) 모양으로</h2>
+      <p>둘은 <b>같은 컴포넌트</b>입니다 — 폰에서 라벨을 떼고 칸을 줄이면 3안의 크기가 됩니다.
+        2안을 고르는 이유는 강사 구성입니다. 필리핀·중국인 강사가 화면 글자를 못 읽어도 그림으로 고를 수 있고,
+        「전체」가 무엇의 전체인지 몰라 못 쓰던 문제도 그림이 풀어 줍니다.
+        1안은 차점입니다 — 나중에 무단계로 넓힐 계획이 있으면 1안이 더 낫습니다.
+        4안은 지면 절약은 최고지만 <b>공동 금지구역인 CSS 폭 규칙 8곳</b>을 건드려야 해서 별건으로 미루시길 권합니다.</p>
+      <ol>
+        <li><b>고르기</b> — 위 네 안을 눌러 보시고 하나를 정해 주세요. 「2안인데 아이콘은 이렇게」 같은 섞기도 됩니다.</li>
+        <li><b>독 시트와 짝 맞추기</b> — 하단 독 「화면 분할」 10개 항목도 같은 이름·같은 그림으로 통일합니다. 지금은 두 곳의 이름이 다릅니다.</li>
+        <li><b>브라우저 확인</b> — PC · 폰 가로 · 폰 세로 세 폭에서 실제로 재고 나서 배포합니다.</li>
+      </ol>
+    </div>
+
+    <div class="prose" style="margin-top:10px">
+      <span class="eyebrow">구현할 때 밟기 쉬운 것</span>
+      <h2 style="margin-top:8px">먼저 확인할 함정 넷</h2>
+    </div>
+    <div class="traps">
+      <div class="trap"><b>아이콘 버튼에 data-ko / data-en 금지</b>
+        <span>i18n 엔진이 그 두 속성을 본 요소의 <code>textContent</code> 를 통째로 갈아치웁니다.
+          아이콘 자리에 문장이 들어앉아 낱글자로 쪼개집니다. 설명은
+          <code>data-ko-title</code> · <code>data-ko-aria</code> 로 다세요.</span></div>
+      <div class="trap"><b>이모지는 Unicode 13 미만만</b>
+        <span>Win10 에서 두부(□)로 나옵니다. 이 문서가 쓴 <code>📖 👥 👤 📌 ⤡ ⤢</code> 는 전부 안전 범위이고,
+          2안의 4칸 그림은 애초에 SVG 라 해당 없음.</span></div>
+      <div class="trap"><b>index.html 첫 화면 예산이 194바이트 남음</b>
+        <span>학생 29,000명이 첫 화면에서 받는 파일입니다. 컨트롤 JS 는
+          <b>별도 파일 + defer</b> 로 빼고 <code>index.html</code> 에는 마크업만 두세요.
+          주석 한 문단만 넣어도 게이트가 빨간불입니다.</span></div>
+      <div class="trap"><b>여긴 공동 금지구역입니다</b>
+        <span><code>public/index.html</code> 은 사고 반경이 서비스 전체라 배포 권한자(A)만 만집니다.
+          작업 전에 알리고, 화면이 바뀌는 변경은 <b>병합 후 사람이 한 번 봐야</b> 끝입니다.</span></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="wrap">망고아이 · 화상수업 얼굴 크기 컨트롤 개선 제안 · 2026-08-25 · 네 안 모두 이 문서에서 실제로 조작해 볼 수 있습니다</div></footer>
+
+<script>
+(function(){
+  var ORDER = ['quarter','half','threequarter','full'];
+  var LABEL = { quarter:'1/4', half:'1/2', threequarter:'3/4', full:'전체' };
+  var PCW   = { quarter:25, half:50, threequarter:75, full:100 };
+  var PHH   = { quarter:24, half:42, threequarter:62, full:100 };
+
+  function apply(screen, size, mode){
+    if (size) {
+      screen.dataset.size = size;
+      screen.style.setProperty('--face', PCW[size] + '%');
+      screen.style.setProperty('--faceH', PHH[size] + '%');
+    }
+    if (mode === undefined) return;
+    if (mode) screen.dataset.mode = mode; else screen.removeAttribute('data-mode');
+  }
+
+  // 팝오버 — 문서 어디를 눌러도 닫히게 (열려 있는 것 전부)
+  function closeAllPops(except){
+    document.querySelectorAll('.pop-menu.open').forEach(function(m){ if (m !== except) m.classList.remove('open'); });
+  }
+  document.addEventListener('pointerdown', function(e){
+    if (!e.target.closest('.pop')) closeAllPops(null);
+  });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeAllPops(null); });
+
+  function wirePop(ctl, screen, state, redraw){
+    var pop = ctl.querySelector('.pop');
+    if (!pop) return;
+    var btn = pop.querySelector('[data-pop]');
+    var menu = pop.querySelector('.pop-menu');
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      var willOpen = !menu.classList.contains('open');
+      closeAllPops(menu);
+      menu.classList.toggle('open', willOpen);
+    });
+    menu.querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click', function(){
+        if (b.hasAttribute('data-mode')) {
+          var m = b.getAttribute('data-mode');
+          state.mode = (state.mode === m) ? '' : m;
+          apply(screen, null, state.mode);
+        } else if (b.hasAttribute('data-size')) {
+          state.mode = '';
+          state.size = b.getAttribute('data-size');
+          apply(screen, state.size, '');
+        }
+        menu.querySelectorAll('[data-mode]').forEach(function(x){
+          x.setAttribute('aria-pressed', String(!!state.mode && x.getAttribute('data-mode') === state.mode));
+        });
+        if (redraw) redraw();
+        menu.classList.remove('open');
+      });
+    });
+  }
+
+  document.querySelectorAll('[data-ctl]').forEach(function(ctl){
+    var screen = ctl.closest('[data-screen]');
+    if (!screen) return;
+    var kind = ctl.getAttribute('data-ctl');
+    var state = { size:'half', mode:'' };
+    var isPhone = !!ctl.closest('.phone');
+
+    /* ── 1안 슬라이더 ── */
+    if (kind === 'slider') {
+      var sl = ctl.querySelector('.sl');
+      var fill = ctl.querySelector('.sl-fill');
+      var thumb = ctl.querySelector('.sl-thumb');
+      // 스냅 점 4개
+      for (var i = 0; i < 4; i++) {
+        var d = document.createElement('div');
+        d.className = 'sl-dot';
+        d.style.left = 'calc(13px + (100% - 26px) * ' + (i / 3) + ')';
+        sl.appendChild(d);
+      }
+      var draw = function(){
+        var idx = ORDER.indexOf(state.size);
+        var pct = idx / 3;
+        thumb.style.left = 'calc(13px + (100% - 26px) * ' + pct + ')';
+        thumb.textContent = LABEL[state.size];
+        fill.style.width = 'calc((100% - 26px) * ' + pct + ')';
+        sl.setAttribute('aria-valuenow', String(idx + 1));
+        sl.setAttribute('aria-valuetext', LABEL[state.size]);
+      };
+      var pick = function(clientX){
+        var r = sl.getBoundingClientRect();
+        var t = (clientX - r.left - 13) / Math.max(1, r.width - 26);
+        var idx = Math.round(Math.min(1, Math.max(0, t)) * 3);
+        if (ORDER[idx] === state.size && !state.mode) return;
+        state.size = ORDER[idx]; state.mode = '';
+        apply(screen, state.size, ''); draw();
+      };
+      var dragging = false;
+      sl.addEventListener('pointerdown', function(e){
+        dragging = true; sl.setPointerCapture(e.pointerId); pick(e.clientX); e.preventDefault();
+      });
+      sl.addEventListener('pointermove', function(e){ if (dragging) pick(e.clientX); });
+      sl.addEventListener('pointerup', function(){ dragging = false; });
+      sl.addEventListener('pointercancel', function(){ dragging = false; });
+      sl.addEventListener('keydown', function(e){
+        var idx = ORDER.indexOf(state.size), n = idx;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowUp') n = Math.min(3, idx + 1);
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') n = Math.max(0, idx - 1);
+        else if (e.key === 'Home') n = 0; else if (e.key === 'End') n = 3; else return;
+        e.preventDefault(); state.size = ORDER[n]; state.mode = '';
+        apply(screen, state.size, ''); draw();
+      });
+      apply(screen, state.size, ''); draw();
+      wirePop(ctl, screen, state, draw);
+    }
+
+    /* ── 2안 프리셋 ── */
+    if (kind === 'preset') {
+      var segBtns = ctl.querySelectorAll('.seg > button[data-size]');
+      var drawP = function(){
+        segBtns.forEach(function(b){
+          b.setAttribute('aria-pressed', String(!state.mode && b.getAttribute('data-size') === state.size));
+        });
+      };
+      segBtns.forEach(function(b){
+        b.addEventListener('click', function(){
+          state.size = b.getAttribute('data-size'); state.mode = '';
+          apply(screen, state.size, ''); drawP();
+        });
+      });
+      apply(screen, state.size, ''); drawP();
+      wirePop(ctl, screen, state, drawP);
+    }
+
+    /* ── 3안 스테퍼 ── */
+    if (kind === 'stepper') {
+      var val = ctl.querySelector('.st-val');
+      var minus = ctl.querySelector('[data-step="-1"]');
+      var plus = ctl.querySelector('[data-step="1"]');
+      var gal = ctl.querySelector('[data-gallery]');
+      var prevSize = 'half';
+      var drawS = function(){
+        var idx = ORDER.indexOf(state.size);
+        val.textContent = LABEL[state.size];
+        minus.disabled = (idx <= 0);
+        plus.disabled = (idx >= 3);
+        gal.setAttribute('aria-pressed', String(state.size === 'full'));
+        gal.classList.toggle('on', state.size === 'full');
+      };
+      [minus, plus].forEach(function(b){
+        b.addEventListener('click', function(){
+          var idx = ORDER.indexOf(state.size) + Number(b.getAttribute('data-step'));
+          idx = Math.min(3, Math.max(0, idx));
+          state.size = ORDER[idx]; state.mode = '';
+          apply(screen, state.size, ''); drawS();
+        });
+      });
+      val.addEventListener('click', function(){
+        state.size = 'half'; state.mode = ''; apply(screen, 'half', ''); drawS();
+      });
+      gal.addEventListener('click', function(){
+        if (state.size === 'full') { state.size = prevSize || 'half'; }
+        else { prevSize = state.size; state.size = 'full'; }
+        state.mode = ''; apply(screen, state.size, ''); drawS();
+      });
+      apply(screen, state.size, ''); drawS();
+      wirePop(ctl, screen, state, drawS);
+    }
+
+    /* ── 4안 분할선 ── */
+    if (kind === 'divider') {
+      var chipV = ctl.querySelector('.chipbtn .v');
+      var body = screen.querySelector('.screen-body');
+      var div = screen.querySelector('.divider');
+      var faces = screen.querySelector('.pane-faces');
+      var nearest = function(p){
+        var stops = [25, 50, 75, 100], best = stops[0];
+        stops.forEach(function(s){ if (Math.abs(s - p) < Math.abs(best - p)) best = s; });
+        return best;
+      };
+      var drawD = function(){
+        if (chipV) chipV.textContent = LABEL[state.size];
+      };
+      var setPct = function(pct, live){
+        pct = Math.min(100, Math.max(15, pct));
+        faces.style.transition = live ? 'none' : '';
+        if (isPhone) screen.style.setProperty('--faceH', pct + '%');
+        else screen.style.setProperty('--face', pct + '%');
+        var snapped = nearest(pct);
+        if (Math.abs(snapped - pct) < 6) {
+          state.size = ORDER[[25, 50, 75, 100].indexOf(snapped)];
+        }
+        drawD();
+      };
+      var dragD = false;
+      div.addEventListener('pointerdown', function(e){
+        dragD = true; div.classList.add('drag'); div.setPointerCapture(e.pointerId); e.preventDefault();
+      });
+      div.addEventListener('pointermove', function(e){
+        if (!dragD) return;
+        var r = body.getBoundingClientRect();
+        var pct = isPhone ? ((e.clientY - r.top) / r.height * 100) : ((e.clientX - r.left) / r.width * 100);
+        setPct(pct, true);
+      });
+      var endD = function(){
+        if (!dragD) return;
+        dragD = false; div.classList.remove('drag');
+        state.mode = '';
+        apply(screen, state.size, '');   // 손을 뗄 때만 스냅 + wbResize() 상당
+        drawD();
+      };
+      div.addEventListener('pointerup', endD);
+      div.addEventListener('pointercancel', endD);
+      div.addEventListener('keydown', function(e){
+        var idx = ORDER.indexOf(state.size), n = idx;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') n = Math.min(3, idx + 1);
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') n = Math.max(0, idx - 1);
+        else return;
+        e.preventDefault(); state.size = ORDER[n]; state.mode = '';
+        apply(screen, state.size, ''); drawD();
+      });
+      apply(screen, state.size, ''); drawD();
+      wirePop(ctl, screen, state, drawD);
+    }
+  });
+})();
+</script>

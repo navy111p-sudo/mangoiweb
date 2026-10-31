@@ -1,0 +1,67 @@
+/* 3판 추가분 — 원본 구성(문법·질문 10개·퍼즐)용 */
+.hs{font-family:'Noto Sans KR';font-size:22px;color:var(--pink);letter-spacing:0;vertical-align:middle;margin-left:10px}
+/* Simple Present */
+.k-sp{background:#EAF2FF}.spg{display:grid;grid-template-columns:1fr 1fr;gap:34px;flex:1;min-height:0}
+.spc{border-radius:28px;overflow:hidden;background:#fff;display:grid;grid-template-rows:1fr auto;box-shadow:0 14px 30px rgba(20,50,110,.14)}
+.spc.c1{transform:rotate(-1.2deg)}.spc.c2{transform:rotate(1.2deg)}.spc img{width:100%;height:100%;min-height:0;object-fit:cover}
+.spb{padding:18px 26px 22px;position:relative}.spb i{position:absolute;top:-34px;right:22px;font-style:normal;font-size:40px;background:var(--sun);width:68px;height:68px;border-radius:20px;display:flex;align-items:center;justify-content:center}
+.spb h3{font-family:'Bricolage Grotesque';font-size:36px;line-height:1.02;margin-bottom:6px}.spb p{font-size:19px;color:var(--sub)}
+.spb q{display:block;margin-top:10px;font-size:26px;font-weight:700;background:#EEF4FF;border-radius:12px;padding:8px 14px}.spb q::before,.spb q::after{content:none}.spb q b{color:var(--blue)}
+/* Are you a student */
+.k-qa .shade4{background:linear-gradient(180deg,rgba(10,22,28,.35),rgba(10,22,28,.1) 30%,rgba(10,22,28,.85) 72%)}
+.qa1{left:60px;top:120px;font-size:52px;padding:22px 34px;max-width:none}
+.tg{border-radius:10px;padding:0 10px}.t1{background:#FFE8B8}.t2{background:#D8E6FF}.t3{background:#FFD9E2}
+.lg{position:absolute;left:66px;top:272px;display:flex;gap:10px;z-index:4}.lg span{font-size:18px;font-weight:700;padding:6px 14px;border-radius:999px;color:var(--ink)}
+.yn{position:absolute;left:60px;right:60px;bottom:40px;display:grid;grid-template-columns:1fr 1fr;gap:26px;z-index:4}
+.yn>div{border-radius:24px;padding:20px 26px;font-size:36px;font-weight:700;display:grid;grid-template-columns:auto 1fr;column-gap:18px;align-items:center}
+.yn b{grid-row:1/3;width:72px;height:72px;border-radius:50%;border:6px solid;display:flex;align-items:center;justify-content:center;font-family:'Bricolage Grotesque';font-size:40px}
+.yn small{font-size:16px;letter-spacing:.1em;text-transform:uppercase}
+.y{background:#D5F5E8}.y b{color:var(--mint)}.y small{color:#0B7A57}.n{background:#FFE0E7}.n b{color:var(--pink)}.n small{color:#C21F4B}
+/* 동사 표 */
+.k-tbl{background:#FFF4DF}.tw{display:grid;grid-template-columns:330px 1fr;gap:34px;flex:1;min-height:0}
+.tt2{position:relative;display:flex;flex-direction:column}.tt2 h2{font-size:54px}.tt2 img{flex:1;min-height:0;width:100%;object-fit:cover;border-radius:24px;transform:rotate(-2deg)}
+.sx{flex-direction:column;position:absolute;right:-24px;bottom:-10px;background:var(--pink);color:#fff;border-radius:50%;width:140px;height:140px;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:700;font-size:19px;line-height:1.2;transform:rotate(10deg);box-shadow:0 8px 20px rgba(0,0,0,.25)}.sx b{font-family:'Bricolage Grotesque';font-size:52px;line-height:1}
+.gt{display:flex;flex-direction:column;gap:12px}
+.gh,.gr{display:grid;grid-template-columns:170px 1fr 1fr;gap:12px}.gh span{font-weight:700;font-size:20px;color:var(--sub);text-align:center}
+.gr{flex:1}.gl{border-radius:18px;color:#fff;font-weight:700;font-size:20px;display:flex;align-items:center;justify-content:center;letter-spacing:.04em}
+.gx{background:#fff;border-radius:18px;font-size:30px;font-weight:600;display:flex;align-items:center;padding:0 22px;line-height:1.25}.gx span{display:block}
+.ga .gl{background:var(--mint)}.gn .gl{background:var(--pink)}.gq .gl{background:var(--blue)}
+.ga b{color:#0B7A57}.gn b{color:#C21F4B}.gq b{color:var(--blue)}.gx u{text-decoration:none;background:var(--sun);border-radius:6px;padding:0 4px}
+/* Fix it */
+.k-fix{background:var(--ink)}.k-fix h2{color:#fff}.k-fix h2 span{color:var(--mango)}.k-fix .top span{color:#9FB3BA}.k-fix .foot{color:#FFD28A}
+.fxg{display:grid;grid-template-columns:1fr 1fr;gap:18px;flex:1}
+.fx{background:#fff;border-radius:22px;padding:18px 24px;display:flex;flex-direction:column;justify-content:center;gap:6px;position:relative}
+.fx i{position:absolute;top:14px;right:18px;font-style:normal;font-family:'Bricolage Grotesque';font-size:34px;color:var(--mango)}
+.bad{font-size:32px;font-weight:700;color:#C21F4B;text-decoration:line-through wavy rgba(194,31,75,.6);text-decoration-thickness:2px}
+.good{font-size:26px;font-weight:700;color:#0B7A57;background:#D5F5E8;align-self:flex-start;padding:4px 14px;border-radius:10px;transform:rotate(-1deg)}
+/* 질문 10개 — 세 가지 배치를 번갈아 */
+.k-q{padding:92px 60px 36px}.qb{display:flex;flex-direction:column;gap:14px;position:relative;z-index:3;flex:1;min-height:0}
+.qn{font-family:'Bricolage Grotesque';font-weight:800;font-size:30px;color:var(--mango);line-height:1}.qn small{font-size:18px;color:var(--sub)}
+.qh{font-size:50px;margin:0;line-height:1.02}
+.kw{display:grid;grid-template-columns:auto 1fr auto;column-gap:14px;align-items:center;background:#fff;border-radius:22px;padding:14px 20px;box-shadow:0 8px 20px rgba(16,35,43,.12);border-left:10px solid var(--mango)}
+.kw small{grid-column:1/3;font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);font-weight:700}
+.kw b{font-family:'Bricolage Grotesque';font-size:44px;line-height:1}.kw em{font-style:normal;font-family:'Noto Sans KR';font-weight:700;font-size:22px;color:var(--pink)}
+.kw p{grid-column:1/3;font-size:20px;color:var(--sub);margin-top:4px}.kw .spk{grid-column:3;grid-row:1/4}
+.ans{background:var(--sun);border-radius:20px;padding:14px 20px;font-size:28px;font-weight:700;display:flex;flex-direction:column;gap:2px}
+.ans small{font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:#8A6400}.ln{display:block;border-bottom:3px dashed rgba(16,35,43,.35);margin-top:10px;height:8px}
+.fu{font-size:21px;color:var(--sub);font-weight:600}.fu b{color:var(--blue)}
+.k-q0{background:#F3F6F8}.k-q0 .qi{position:absolute;right:0;top:0;bottom:0;width:520px;height:720px;object-fit:cover;clip-path:polygon(12% 0,100% 0,100% 100%,0 100%)}.k-q0 .qb{margin-right:520px}
+.k-q2{background:#FFF1E6}.k-q2 .qi{position:absolute;left:60px;top:92px;width:470px;height:592px;object-fit:cover;border-radius:30px;transform:rotate(-2deg);box-shadow:0 18px 34px rgba(0,0,0,.2)}.k-q2 .qb{margin-left:520px}.k-q2 .kw{border-left-color:var(--blue)}
+.k-q1 .shadeQ{position:absolute;inset:0;background:linear-gradient(90deg,rgba(10,22,28,.9) 0%,rgba(10,22,28,.75) 45%,rgba(10,22,28,.05) 75%)}
+.k-q1 .qb{max-width:680px}.k-q1 .qh{color:#fff}.k-q1 .fu{color:#D9E4E8}.k-q1 .fu b{color:var(--sun)}.k-q1 .qn small{color:#B8C7CC}.k-q1 .kw{border-left-color:var(--pink)}
+/* 퍼즐 */
+.k-xw{background:#E5F7F0}.k-xw h2 span{color:var(--mint)}
+.xw{display:grid;grid-template-columns:auto 1fr;gap:40px;flex:1;min-height:0;align-items:start}
+.xg{position:relative;margin-top:4px}.xc{position:absolute;width:52px;height:52px;background:#fff;border:3px solid var(--ink);border-radius:6px}
+.xc sup{position:absolute;left:3px;top:1px;font-size:14px;font-weight:700;color:var(--pink);line-height:1}
+.xl h3{font-family:'Bricolage Grotesque';font-size:26px;margin:4px 0 6px;color:#0B7A57}.xl ol{list-style:none;display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.xl li{font-size:17px;line-height:1.25;display:flex;gap:10px}.xl li i{font-style:normal;flex:none;width:28px;height:28px;border-radius:50%;background:var(--mint);color:#fff;font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center}.xl em{color:var(--sub);font-style:normal}
+/* 마무리 */
+.w2b{font-size:24px;line-height:1.4;color:#fff}.ex3{background:var(--sun);color:var(--ink);border-radius:14px;padding:12px 18px;font-size:24px;font-weight:600;margin-top:14px;display:inline-block}
+
+.k-q .qb{justify-content:center;gap:20px}.qh{font-size:60px}.qn{font-size:36px}
+.kw{padding:18px 24px}.kw b{font-size:56px}.kw em{font-size:26px}.kw p{font-size:24px}.kw small{font-size:16px}
+.ans{font-size:34px;padding:18px 24px}.ans small{font-size:15px}.ln{height:22px}.fu{font-size:25px}
+.fn .ex3{color:var(--ink);font-size:24px}.fn .w2b{font-size:24px}
+.xl li{font-size:20px}.xl li i{width:30px;height:30px;font-size:16px}.xl h3{font-size:28px}
+.fn .ex3 b{color:var(--pink)}.xl li{display:grid;grid-template-columns:30px 1fr;gap:10px}

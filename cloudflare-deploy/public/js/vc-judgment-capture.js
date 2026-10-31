@@ -22,12 +22,17 @@
       return w.vcMyRole === 'teacher' || w.vcMyRole === 'admin';
     } catch (_) { return false; }
   }
-  function myUid() { try { return String(w.vcUserId || '').trim(); } catch (_) { return ''; } }
-  function room() { try { return String(w.vcRoomId || '').trim(); } catch (_) { return ''; } }
+    /* 🔴 (2026-08-28) w.vcUserId·w.vcRoomId 는 **늘 빈 문자열**이었다 — 그 둘은 idx-main.js 의
+     let 선언이라 window(=w) 의 속성이 되지 않는다. 그래서 아래 capture() 첫 줄의
+     `!room() || !myUid()` 에 늘 걸려 **수업 중 판단 캡처가 한 건도 안 올라갔다.**
+     classic script 끼리는 전역 렉시컬 바인딩을 공유하므로 «맨 이름» 으로 읽는다.
+     ⛔ w.(=window.) 로 되돌리지 말 것 — 에러 없이 조용히 빈 값이 된다. */
+  function myUid() { try { return String((typeof vcUserId !== 'undefined' && vcUserId) || '').trim(); } catch (_) { return ''; } }
+  function room() { try { return String((typeof vcRoomId !== 'undefined' && vcRoomId) || '').trim(); } catch (_) { return ''; } }
 
   function capture(text) {
     if (dead || !text || !room() || !myUid() || isTeacher()) return;
-    try { if (w.vcIsObserver) return; } catch (_) {}
+    try { if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return; } catch (_) {}
     text = String(text).replace(/\s+/g, ' ').trim().slice(0, 300);
     if (text.length < 2) return;
     buf.push({ text: text, ts: Date.now() });
@@ -47,7 +52,7 @@
   function flush(final) {
     if (dead || !buf.length) return;
     var items = buf; buf = [];
-    var payload = JSON.stringify({ room_id: room(), uid: myUid(), name: String(w.vcUsername || ''), items: items });
+    var payload = JSON.stringify({ room_id: room(), uid: myUid(), name: String((typeof vcUsername !== 'undefined' && vcUsername) || ''), items: items });
     if (final && navigator.sendBeacon) {
       try { navigator.sendBeacon('/api/judgment/inclass', new Blob([payload], { type: 'application/json' })); } catch (_) {}
       return;

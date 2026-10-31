@@ -13,71 +13,21 @@
  *  실전 전환: 시크릿을 live_sk_* 로 바꾸고 프론트 클라이언트키도 live_ck_* 로 교체.
  */
 import { json, parseJsonBody } from './api-util';
+import { TOSS_CLIENT_KEY_DEFAULT, tossKeyRole, isTossKeyShaped, tossClientKey } from './toss-keys';   // 🔑 키 판정 정본
 import { checkAdminSession } from './auth-admin';
 import { sendPlainSms } from './solapi-client';
-import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnrollOrder, priceForUid, teacherRateFor, enrollQuoteCalc, ENROLL_WEEKLY, addDays } from './enroll-ops';
+import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnrollOrder, priceForUid, teacherRateFor, enrollQuoteCalc, ENROLL_WEEKLY, addDays, authUidOrAdminSession, renewStartDate, enrollTimeToMin } from './enroll-ops';
 import { authUidFromRequest } from './auth-token';
+import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서 (사전고지 문자)
+import { handleRefundApi } from './api-pay-refund';   // 💸 환불 실행·기록 (2026-08-25 신설)
+import { activateB2bAiInvoicePayment, mgbAmountNow } from './ai-billing';   // 🏢 대리점 AI 사용료 일괄결제 활성화 (MGB- 주문 전용, 2026-09-10)
+import { activateB2bTuitionPayment, handleB2bTuitionPublic } from './b2b-tuition-load';   // 🏫 B2B 화상수업 수업료 (MGT- 주문 · /api/pay/b2b/*, 2026-10-01)
+import { claimB2bInvoiceForConfirm, releaseB2bInvoiceClaim, revertB2bOnCancel, parseB2bOrder, findB2bDoublePaid, tossOrderProbe } from './b2b-pay-guard';   // 🔒 대리점 청구서 이중결제·취소 되돌리기 (2026-10-22)
+import { AI_PASS_PLAN, NOT_AI_PASS_PLAN_SQL, aiPassPeriod, aiPassNextBilling, currentAiPassEnd } from './ai-pass';
+import { phonesForStudent } from './notify-contacts';   // 📞 A.i 사전고지 번호 — 우리가 받아 둔 번호를 먼저 보는 정본   // 🤖 A.i 이용권 끝나는 날·매달 자동결제 (2026-09-29)
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
-/* 토스 클라이언트 키(공개)의 최후 폴백 = 토스 공식 테스트키(실제 청구 없음).
-   ✅ (2026-08-07) 프론트가 이제 GET /api/pay/config 로 이 값을 받아간다 —
-      idx-payment-modal.js 에 같은 값을 한 벌 더 두던 구조를 없앴다.
-      실결제 전환은 아래 두 시크릿 교체로 **끝난다**(코드 수정·재배포 없이 즉시 반영):
-        wrangler secret put TOSS_CLIENT_KEY   ← live_ck_...
-        wrangler secret put TOSS_SECRET_KEY   ← live_sk_...
-      한쪽만 바꾸면 /api/pay/config 가 key_mismatch:true 를 돌려주고 결제창에 경고가 뜬다. */
-const TOSS_CLIENT_KEY_DEFAULT = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
-
-/* 🛡️ (2026-08-07) 시크릿에 «키가 아닌 것»이 들어와도 결제창이 죽지 않게.
-   실제로 겪었다 — 키를 넣는 과정에서 엉뚱한 문자열이 TOSS_CLIENT_KEY 로 올라갔고,
-   그 값으로 window.TossPayments(...) 를 호출하면 결제창이 그대로 실패한다.
-   시크릿은 사람이 손으로 붙여넣는 값이라 «빈 값·명령어·따옴표 섞임»이 언제든 다시 생긴다.
-   → 모양이 토스 키가 아니면 무시하고 테스트키로 폴백한다. 잘못된 키로 여는 것보다
-     테스트 모드가 낫다(적어도 화면이 정직하게 「테스트 결제 모드」라고 말한다).
-   ⚠️ 검증은 «모양»만 본다. 키가 유효한지는 토스만 안다 — 그건 confirm 단계에서 걸러진다. */
-/* ⚠️ (2026-08-07 재수정) 처음엔 `^(test|live)_(ck|sk)_[A-Za-z0-9]{10,}$` 로 좁게 막았는데,
-   그러면 토스가 실제로 발급하는 다른 형태(결제위젯 키 `live_gck_...`, 중간 세그먼트가 더 있는
-   `test_gck_docs_xxxx` 등)까지 «가짜»로 판정해 버린다. 그건 훨씬 나쁜 사고다 —
-   tossMode()='disabled' 는 /api/pay/confirm 과 웹훅을 503 으로 막아 **진짜 결제를 죽인다**.
-   그래서 판정을 뒤집는다: «토스 키의 목록»을 맞히려 하지 말고, **명백한 쓰레기만** 걸러낸다.
-     · 공백이 있으면 키가 아니다 (붙여넣기 사고의 전형 — 명령어·문장이 통째로 들어온 경우)
-     · test_ / live_ 로 시작하지 않으면 키가 아니다
-     · 너무 짧으면 키가 아니다
-   역할(ck/sk) 구분은 두 번째 세그먼트에 'ck'/'sk' 가 들어있는지로 본다(gck·gsk 도 걸린다). */
-function tossKeyRole(v: unknown): 'ck' | 'sk' | null {
-  const s = String(v ?? '').trim();
-  /* ⚠️ (2026-08-07 3차) 길이 하한(20자)을 뺐다. 임의로 정한 숫자였는데, 접두사가 멀쩡한
-     실제 키 두 개를 «모양이 아니다»로 판정했다. 내가 모르는 길이의 키가 언제든 또 나온다.
-     남기는 건 «명백한 쓰레기»를 거르는 조건뿐: 공백 / test_·live_ 로 시작 안 함 / 접두사 비정상.
-     짧은 키는 토스가 거부한다 — 그 판정은 토스에게 맡긴다. */
-  if (!s || /\s/.test(s)) return null;
-  if (!/^(?:test|live)_/.test(s)) return null;
-  /* 🔴 (2026-08-07 4차) 실제로 «live_ck_...» 라는 **안내문의 자리표시자 글자**가 그대로 등록됐다.
-     접두사가 맞아서 전부 통과했고, mode 는 live·key_mismatch 는 false 로 «정상»이라 보고했다.
-     = 화면은 실결제라고 말하는데 토스에서만 조용히 전부 실패하는, 가장 나쁜 상태.
-     토스 키의 접두사 뒤는 영숫자(위젯키는 `_` 포함)뿐이다 — 점(...)이 들어갈 자리가 없다.
-     길이로 막지 않는 대신 «쓸 수 없는 문자»로 자리표시자를 잡는다. */
-  if (!/^(?:test|live)_[A-Za-z0-9_-]+$/.test(s)) return null;
-  const seg = s.split('_')[1] || '';
-  if (!/^[A-Za-z0-9]+$/.test(seg)) return null;
-  if (seg.includes('sk')) return 'sk';
-  if (seg.includes('ck')) return 'ck';
-  return null;
-}
-function isTossKeyShaped(v: unknown, kind: 'ck' | 'sk'): boolean {
-  return tossKeyRole(v) === kind;
-}
-
-/** 실제로 쓸 클라이언트 키 — 모양이 어긋나면 테스트키로 폴백 */
-function tossClientKey(env: any): { key: string; invalid: boolean } {
-  const raw = String(env.TOSS_CLIENT_KEY ?? '').trim();
-  if (!raw) return { key: TOSS_CLIENT_KEY_DEFAULT, invalid: false };      // 미설정 = 정상 폴백
-  if (!isTossKeyShaped(raw, 'ck')) {
-    console.warn('[pay] TOSS_CLIENT_KEY 모양이 토스 키가 아님 — 테스트키로 폴백');
-    return { key: TOSS_CLIENT_KEY_DEFAULT, invalid: true };               // 잘못 들어옴 = 폴백 + 신고
-  }
-  return { key: raw, invalid: false };
-}
+/* 🔑 토스 키 판정(테스트키 폴백·«키 모양» 검사)은 toss-keys.ts 가 정본 — 2026-10-21 옮김. */
 
 // ── 서버 가격표(정본). 프론트 PROG_INFO 와 동기화. 여기 없는 상품은 결제 불가(상담 유도) ──
 const PRICES: Record<string, { name: string; amount: number }> = {
@@ -96,6 +46,9 @@ const PRICES: Record<string, { name: string; amount: number }> = {
   'manager':        { name: '학습 매니저',      amount: 50000 },
   'group_class':    { name: '원어민 그룹 클래스', amount: 60000 },
   'pron_ai':        { name: 'AI 발음 코치',     amount: 15000 },
+  // 🤖 (2026-09-09) 화상수업 없이 AI 학습도구만 쓰는 1개월 이용권. pron_ai 와 같은 방식
+  // (activateEnrollment 가 enrollments 행만 만들고 class_schedules 는 안 건드림 — enroll_json 이 없으므로).
+  'ai_content':     { name: 'AI 콘텐츠 전용 (1개월)', amount: 10000 },
 };
 
 async function ensurePayTable(env: any): Promise<void> {
@@ -143,29 +96,126 @@ async function ensureSubscriptionsSchema(env: any): Promise<void> {
   try {
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, student_name TEXT, plan TEXT, amount INTEGER, status TEXT DEFAULT 'active', next_billing_at INTEGER, last_billed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
   } catch {}
-  for (const col of ['billing_key TEXT', 'customer_key TEXT', 'fail_count INTEGER DEFAULT 0', 'teacher_id TEXT', 'weekly INTEGER', 'minutes INTEGER']) {
+  /* charge_lock_at — «지금 이 구독을 청구하는 중» 표식(2026-08-31). chargeSubscriptionOnce 참고. */
+  for (const col of ['billing_key TEXT', 'customer_key TEXT', 'fail_count INTEGER DEFAULT 0', 'teacher_id TEXT', 'weekly INTEGER', 'minutes INTEGER', 'charge_lock_at INTEGER']) {
     try { await env.DB.exec(`ALTER TABLE subscriptions ADD COLUMN ${col}`); } catch {}
   }
 }
 
-/** 자동연장 대상 학생의 "월 1회" 견적 — renew-order 와 완전히 같은 계산식(가격 산정 이원화 방지) */
-async function autoRenewQuote(env: any, uid: string) {
+/** 자동연장 대상 학생의 견적(기본 1개월) — renew-order 와 완전히 같은 계산식(가격 산정 이원화 방지).
+ *  🔁 (2026-08-23) months 를 받게 확장 — charge-now(등록 카드로 창 없이 결제)가 3·6·12개월도 쓴다.
+ *     기간할인(6개월 95% / 12개월 90%)은 enrollQuoteCalc 가 그대로 적용한다. */
+async function autoRenewQuote(env: any, uid: string, months = 1) {
   const cur = await currentEnrollment(env, uid);
-  if (!cur.active || !cur.days_resolved || !cur.times_resolved) return { error: 'no_active_enrollment' };
+  // 🔁 (2026-08-24) active(미래 수업 있음) 대신 renewable — 60일 안에 끝난 수강도 자동결제로 이어받는다.
+  if (!cur.renewable || !cur.days_resolved || !cur.times_resolved) return { error: 'no_active_enrollment' };
   const weekly = cur.days.length;
   if (!ENROLL_WEEKLY.includes(weekly)) return { error: 'weekly_unresolved' };
   const { shopName, weekly1Price } = await priceForUid(env, uid);
   const tRate = await teacherRateFor(env, cur.teacher_id);
-  const q = enrollQuoteCalc(weekly1Price, weekly, 1, cur.minutes, tRate);
-  return { ok: true, cur, weekly, amount: q.amount, sessions: q.sessions, shopName, weekly1Price, tRate };
+  const q = enrollQuoteCalc(weekly1Price, weekly, months, cur.minutes, tRate);
+  return { ok: true, cur, weekly, months, amount: q.amount, sessions: q.sessions, shopName, weekly1Price, tRate };
+}
+
+/** ♾️ 다음 자동청구 시각 = «수강 마지막 수업일 3일 전» KST 10:00 (01:00 UTC — cron 스윕 시각과 동일).
+ *  등록시각 +30일 고정은 수강 종료일과 어긋나 «수업 공백»(종료가 먼저) 또는 «한 달 이른 청구»(청구가 먼저)를
+ *  만들었다(2026-08-23 수리). 이미 지난 시각이면 지금 — 다음 스윕에서 바로 청구 대상이 된다. */
+function nextBillingFromLastDate(lastDate: string): number {
+  const t = Date.parse(String(lastDate || '') + 'T01:00:00Z') - 3 * 86400 * 1000;
+  if (isNaN(t)) return Date.now() + 30 * 86400 * 1000;
+  /* ⚠️ (2026-08-24) 계산된 시각이 이미 지났으면(수업이 곧 끝나거나 이미 끝난 학생) «지금» 으로 두면 안 된다 —
+     다음 스윕이 그 자리에서 청구해 버려 **D-3 사전고지 문자가 나갈 틈이 없다**. 3일 뒤로 밀어
+     오늘 안내가 먼저 나가게 한다(sendPrebillNotices 가 now~now+3일 창을 본다). */
+  return t > Date.now() ? t : Date.now() + 3 * 86400 * 1000;
 }
 
 /** 토스 빌링키로 실제 청구 1회 — 관리자 "지금 청구" 버튼과 cron 자동청구가 공용으로 쓴다.
  *  성공: payment_orders 에 실제 결제로 기록 + enrollCreateSchedules 로 다음 달 수업 실제 생성.
  *  실패: fail_count 누적, 3회째면 자동 해지(카드가 계속 막히는데 계속 시도하지 않음). */
-export async function chargeSubscriptionOnce(env: any, sub: any): Promise<{ ok: boolean; error?: string; amount?: number }> {
+/** ⏱ 한 구독을 «동시에 두 번 청구하지 않기» 위한 선점 시간(밀리초).
+ *  이보다 오래된 표식은 죽은 것으로 보고 다음 실행이 가져간다 — 워커가 청구 도중 죽어도
+ *  스스로 풀린다. 토스 호출 + 수업 생성까지 넉넉히 덮으면서, 막혀도 다음 스윕에서 곧 재시도된다. */
+const CHARGE_LEASE_MS = 10 * 60 * 1000;
+
+/**
+ * 💳 빌링키로 실제 청구 — **네 경로가 모두 이 함수를 지난다**
+ *   ① cron 스윕(runAutoRenewChargeSweep) ② 관리자 「지금 청구」 ③ 학부모 「즉시 결제」(charge-now)
+ *   ④ 관리자 화면의 스윕 수동 실행
+ *
+ * [왜 선점이 필요한가] 이 함수는 «주문을 새로 만들고 → 토스에 청구» 한다. 주문번호가 매번
+ * 새로 만들어지므로 **토스는 두 요청을 서로 다른 주문으로 보고 카드를 두 번 긁는다.**
+ * 예전에는 아무 선점도 없어서 같은 구독이 두 경로에서 동시에 불리면(예: cron 과 관리자 수동)
+ * 그대로 이중청구였다. charge-now 에 60초 가드가 있었지만 «읽고 나서 쓰는» 방식이라
+ * 동시에 들어온 두 요청은 둘 다 통과한다.
+ *
+ * [무엇을 하나] 청구를 시작하기 전에 선점 칸을 조건부 UPDATE 로 «차지» 한다. D1(SQLite)은
+ * 쓰기를 직렬화하므로 두 요청이 동시에 와도 **정확히 하나만** changes=1 이 된다.
+ * 진 쪽은 청구하지 않고 already_charging 으로 돌아간다.
+ *
+ * ⚠️ 실패 쪽으로 닫는다 — 선점 자체가 실패하면(칸이 없거나 DB 오류) 청구하지 **않는다**.
+ *    돈이 걸린 자리에서는 «안 긁는 것» 이 «두 번 긁는 것» 보다 낫다. 대신 조용히 넘어가지 않고
+ *    로그를 남긴다(다음 스윕에서 다시 시도된다).
+ * ⛔ 선점을 «성공했을 때만» 푸는 식으로 바꾸지 말 것 — 카드 거절·네트워크 오류로 빠져나가는
+ *    길이 여럿이라 한 곳만 빠뜨려도 그 구독이 10분간 청구되지 않는다. finally 로 항상 푼다.
+ */
+export async function chargeSubscriptionOnce(env: any, sub: any, months = 1): Promise<{ ok: boolean; error?: string; amount?: number }> {
   if (!sub.billing_key || !sub.customer_key) return { ok: false, error: 'no_billing_key' };
-  const q = await autoRenewQuote(env, sub.user_id);
+  /* 선점 칸이 없는 DB 에서도 돌게 한다 — 관리자 「지금 청구」(api-admin.ts)는 이 함수를
+     부르기 전에 스키마를 보장하지 않는다. 매번 불러도 싸다: src/index.ts 의 fetch·scheduled
+     양쪽 진입부가 env.DB 를 wrapDbDdlOnce 로 감싸 **같은 DDL 문자열은 격리당 한 번만** 나간다
+     (src/db-ddl-once.ts). ⚠️ 그 래핑이 사라지면 이 호출이 구독 1건마다 8건씩 나간다. */
+  await ensureSubscriptionsSchema(env);
+  const _lockNow = Date.now();
+  let _claim: any = null;
+  try {
+    _claim = await env.DB.prepare(
+      `UPDATE subscriptions SET charge_lock_at = ? WHERE id = ? AND (charge_lock_at IS NULL OR charge_lock_at < ?)`
+    ).bind(_lockNow, sub.id, _lockNow - CHARGE_LEASE_MS).run();
+  } catch (e: any) {
+    console.error('[billing] 선점 실패 — 청구하지 않는다(이중청구 방지):', sub.id, e?.message);
+    return { ok: false, error: 'claim_failed' };
+  }
+  if (!_claim?.meta?.changes) {
+    console.warn('[billing] 이미 청구 중인 구독이라 건너뜀:', sub.id);
+    return { ok: false, error: 'already_charging' };
+  }
+  try {
+    /* 🛡️ (2026-10-10 퍼즈 실측) 선점 «전» 에 읽은 행이 낡았으면 청구하지 않는다.
+       스윕 둘이 같은 구독을 같은 순간 SELECT 하면, 첫 실행이 청구·해제를 끝낸 «뒤» 두 번째가
+       선점에 성공해 낡은 행으로 한 번 더 긁는다(실측: 같은 날 같은 카드 2회). 선점 직후 다시 읽어
+       last_billed_at·next_billing_at 이 내가 본 값 그대로일 때만 진행한다.
+       ⚠️ 다시 읽기가 실패하면 청구하지 않는다(안 긁는 쪽으로 실패 — 다음 스윕이 다시 본다). */
+    let _fresh: any = null;
+    try {
+      _fresh = await env.DB.prepare(`SELECT last_billed_at, next_billing_at FROM subscriptions WHERE id = ?`).bind(sub.id).first();
+    } catch (e: any) {
+      console.error('[billing] 선점 뒤 재조회 실패 — 청구하지 않는다:', sub.id, e?.message);
+      return { ok: false, error: 'claim_failed' };
+    }
+    if (!_fresh
+        || Number(_fresh.last_billed_at || 0) !== Number(sub.last_billed_at || 0)
+        || Number(_fresh.next_billing_at || 0) !== Number(sub.next_billing_at || 0)) {
+      console.warn('[billing] 읽은 뒤 다른 실행이 이미 처리한 구독이라 건너뜀:', sub.id);
+      return { ok: false, error: 'stale_snapshot' };
+    }
+    return await chargeSubscriptionOnceInner(env, sub, months);
+  } finally {
+    /* ⚠️ «내가 잡은 표식» 일 때만 푼다. Inner 가 리스(10분)를 넘기면 다른 실행이 만료로
+       정당하게 선점하는데, 그때 이 finally 가 남의 표식을 지우면 세 번째가 들어와
+       결국 이중청구가 된다. charge_lock_at 이 내 값 그대로일 때만 NULL 로 되돌린다.
+       ⚠️ 해제 실패는 삼키되(진짜 청구 결과를 가리면 안 된다) 조용히 넘기지는 않는다 —
+          실패하면 그 구독은 최대 10분간 already_charging 이라 원인을 알아야 한다. */
+    await env.DB.prepare(`UPDATE subscriptions SET charge_lock_at = NULL WHERE id = ? AND charge_lock_at = ?`)
+      .bind(sub.id, _lockNow).run()
+      .catch((e: any) => { console.warn('[billing] 선점 해제 실패(최대 10분 뒤 자동 해제):', sub.id, e?.message); });
+  }
+}
+
+async function chargeSubscriptionOnceInner(env: any, sub: any, months = 1): Promise<{ ok: boolean; error?: string; amount?: number }> {
+  /* 🤖 (2026-09-29) A.i 이용권 구독은 수업 견적(autoRenewQuote)을 타면 안 된다 — 수업이 없어 견적이
+     실패하고, 바로 아래 분기가 그 구독을 «해지» 해 버린다. plan 으로 먼저 가른다. */
+  if (String(sub.plan || '') === AI_PASS_PLAN) return await chargeAiPassOnce(env, sub);
+  const q = await autoRenewQuote(env, sub.user_id, months);
   if (!('ok' in q) || !q.ok) {
     // 현재 요일·시간 패턴을 더 이상 확신할 수 없음(수동으로 스케줄이 바뀐 경우 등) — 잘못된 금액 청구 방지, 해지 처리
     await env.DB.prepare(`UPDATE subscriptions SET status='cancelled', updated_at=? WHERE id=?`).bind(Date.now(), sub.id).run();
@@ -182,8 +232,12 @@ export async function chargeSubscriptionOnce(env: any, sub: any): Promise<{ ok: 
 
   // 1) 정상 주문 생성(연장과 동일 로직 — enroll_json·회차·충돌회피 전부 재사용)
   const orderResp = await createEnrollOrder(env, sub.user_id, {
-    weekly: q.weekly, months: 1, minutes: q.cur.minutes, times: q.cur.times,
-    startDate: addDays(q.cur.last_date, 1), teacherId: q.cur.teacher_id, days: q.cur.days,
+    weekly: q.weekly, months: q.months, minutes: q.cur.minutes, times: q.cur.times,
+    startDate: renewStartDate(q.cur.last_date), teacherId: q.cur.teacher_id, days: q.cur.days,
+    /* ⚠️ (2026-10-10) 요일→분 맵을 반드시 넘긴다 — 빠지면 createEnrollOrder 의 충돌검사가
+       timesMinByDow[dow] 에서 던지고(catch 가 삼킴) «충돌 없음» 으로 통과해 막힌 날짜를 그대로 잡는다.
+       연장 주문(renew-order)과 같은 계산. */
+    timesMin: Object.fromEntries((q.cur.days as number[]).map((d) => [d, enrollTimeToMin(q.cur.times[d])])),
   }, 'auto_renew');
   const orderBody: any = await orderResp.json().catch(() => ({}));
   if (!orderBody || !orderBody.ok) {
@@ -224,8 +278,87 @@ export async function chargeSubscriptionOnce(env: any, sub: any): Promise<{ ok: 
     await activateEnrollment(env, order, amount, now, orderId);
     await sendBuyerPaidSms(env, order, amount, orderId).catch(() => {});
   }
+  /* 다음 청구는 «30일 뒤» 가 아니라 «이번에 산 수업이 끝나기 3일 전». 3·6·12개월을 샀으면 그만큼 뒤로 밀린다.
+     구독의 amount 는 화면이 «매월 ○원» 으로 보여주는 값이라 개월 수와 무관하게 월 견적으로 적는다. */
+  const newLastDate = String(orderBody?.summary?.last_date || '');
+  const nextBillingAt = newLastDate ? nextBillingFromLastDate(newLastDate) : now + 30 * 86400 * 1000;
+  const monthlyAmount = q.months === 1 ? amount
+    : enrollQuoteCalc(q.weekly1Price, q.weekly, 1, q.cur.minutes, q.tRate).amount;
   await env.DB.prepare(`UPDATE subscriptions SET amount=?, last_billed_at=?, next_billing_at=?, fail_count=0, updated_at=? WHERE id=?`)
-    .bind(amount, now, now + 30 * 86400 * 1000, now, sub.id).run();
+    .bind(monthlyAmount, now, nextBillingAt, now, sub.id).run();
+  return { ok: true, amount };
+}
+
+/** 🤖 A.i 이용권 1개월 청구 — chargeSubscriptionOnce 의 선점(이중청구 방지) 안에서만 불린다.
+ *  금액은 서버 가격표(PRICES)가 정본. 성공하면 activateEnrollment 가 «끝나는 날» 을 이어 붙이고
+ *  다음 청구일을 그 끝 3일 전으로 맞춘다. 실패는 수업 구독과 같은 규칙(3회째 자동 해지). */
+async function chargeAiPassOnce(env: any, sub: any): Promise<{ ok: boolean; error?: string; amount?: number }> {
+  const priced = PRICES[AI_PASS_PLAN];
+  if (!priced || !(priced.amount > 0)) return { ok: false, error: 'not_payable' };
+  const uid = String(sub.user_id || '');
+  if (!uid) return { ok: false, error: 'no_uid' };
+  const amount = priced.amount, orderName = priced.name;
+  /* 결제 «전» 끝나는 날 — 결제 뒤 이것보다 늘었는지로 «이용권이 실제로 생겼나» 를 가른다. */
+  let prevEnd: number | null = null;
+  try { prevEnd = await currentAiPassEnd(env, uid, priced.name); } catch (e) { console.warn('[ai-pass] 결제 전 끝나는 날 조회 실패:', (e as any)?.message); }
+  const rnd = bytesHex(crypto.getRandomValues(new Uint8Array(6)));
+  const orderId = `MGI-${Date.now().toString(36).toUpperCase()}-${rnd}`;
+  try {
+    await env.DB.prepare(
+      `INSERT INTO payment_orders (order_id, uid, program, amount, status, method, payer_name, student_name, phone, created_at)
+       VALUES (?, ?, ?, ?, 'pending', 'card', NULL, ?, NULL, ?)`
+    ).bind(orderId, uid, AI_PASS_PLAN, amount, sub.student_name ? String(sub.student_name) : null, Date.now()).run();
+  } catch (e: any) {
+    await bumpSubscriptionFailure(env, sub, 'order_failed:' + String(e?.message || e));
+    return { ok: false, error: 'order_failed' };
+  }
+
+  const auth = 'Basic ' + btoa(String(env.TOSS_SECRET_KEY) + ':');
+  let tossRes: Response, tossJson: any;
+  try {
+    tossRes = await fetch(`https://api.tosspayments.com/v1/billing/${encodeURIComponent(sub.billing_key)}`, {
+      method: 'POST',
+      headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerKey: sub.customer_key, amount, orderId, orderName }),
+    });
+    tossJson = await tossRes.json();
+  } catch (e: any) {
+    await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=?`).bind('network:' + String(e?.message || e), orderId).run();
+    await bumpSubscriptionFailure(env, sub, 'network_error');
+    return { ok: false, error: 'network_error' };
+  }
+  if (!tossRes.ok || tossJson.status !== 'DONE') {
+    await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=?, raw=? WHERE order_id=?`)
+      .bind(String(tossJson?.message || tossJson?.code || 'toss_declined'), JSON.stringify(tossJson).slice(0, 4000), orderId).run();
+    await bumpSubscriptionFailure(env, sub, String(tossJson?.message || 'card_declined'));
+    return { ok: false, error: String(tossJson?.message || 'card_declined') };
+  }
+
+  const now = Date.now();
+  /* 🛡️ 돈은 이미 나갔다 — 뒷정리를 하기 «전에» 먼저 다음 청구일을 비운다(NULL = 스윕 대상 아님).
+     아래 어느 줄이 던져도 이 구독은 «아직 청구 대상» 인 채로 남지 않아 다음 스윕이 같은 카드를 또 긁지 않는다.
+     (이 줄이 없으면 next_billing_at 이 «지금» 이던 구독 — 첫 즉시결제·밀린 청구 — 이 그대로 재청구된다.) */
+  await env.DB.prepare(`UPDATE subscriptions SET next_billing_at=NULL, last_billed_at=?, updated_at=? WHERE id=?`).bind(now, now, sub.id).run();
+  await env.DB.prepare(`UPDATE payment_orders SET status='paid', payment_key=?, paid_at=?, method=?, raw=? WHERE order_id=?`)
+    .bind(String(tossJson.paymentKey || ''), now, '자동결제(빌링키)', JSON.stringify(tossJson).slice(0, 4000), orderId).run();
+  const order: any = await env.DB.prepare(`SELECT * FROM payment_orders WHERE order_id = ?`).bind(orderId).first();
+  if (order) await activateEnrollment(env, order, amount, now, orderId);
+  let endAt: number | null = null;
+  try { endAt = await currentAiPassEnd(env, uid, priced.name); } catch (e) { console.warn('[ai-pass] 끝나는 날 조회 실패:', (e as any)?.message); }
+  /* ⚠️ 결제는 됐는데 이용권이 «안 늘었으면»(활성화 실패) 자동결제를 멈춘다 — 다음 청구일을 NULL 로 둔 채 알린다.
+     「3일 뒤 또 청구」로 두면 이용권 없이 돈만 계속 빠져나가는 순환이 된다. 사람이 결제 내역을 보고 고친다. */
+  const extended = !!(endAt && endAt > Number(prevEnd || 0));
+  if (!extended) {
+    console.error('[ai-pass] 결제는 됐는데 이용권이 늘지 않음 — 자동결제 멈춤:', sub.id, orderId);
+    try {
+      const toPhone = (env as any).OWNER_ALERT_PHONE;
+      if (toPhone) await sendPlainSms(env, toPhone, `[망고아이] ⚠️ A.i 이용권 결제 후 활성화 실패\n${uid} · ${orderId}\n자동결제를 멈췄습니다. 결제 내역·수강 기록을 확인해 주세요.`);
+    } catch (e) { console.warn('[ai-pass] 활성화 실패 알림 문자 실패:', (e as any)?.message); }
+    await env.DB.prepare(`UPDATE subscriptions SET amount=?, fail_count=0, updated_at=? WHERE id=?`).bind(amount, now, sub.id).run();
+    return { ok: true, amount, error: 'activation_failed' };
+  }
+  await env.DB.prepare(`UPDATE subscriptions SET amount=?, last_billed_at=?, next_billing_at=?, fail_count=0, updated_at=? WHERE id=?`)
+    .bind(amount, now, aiPassNextBilling(endAt, now), now, sub.id).run();
   return { ok: true, amount };
 }
 
@@ -255,16 +388,79 @@ export async function runAutoRenewChargeSweep(env: any): Promise<any> {
   let live = false;
   try { live = (await env.SESSION_STATE.get('billing:auto_renew_live')) === '1'; } catch {}
   if (!live) {
-    return { ok: true, dry_run: true, due_count: rows.length, note: 'KV billing:auto_renew_live=1 로 켜야 실제 청구됩니다(현재 미리보기만)' };
+    // 미리보기에 «누가·얼마» 를 담아 준다 — 사장님이 스위치를 켜기 전에 볼 목록 (2026-08-23)
+    return {
+      ok: true, dry_run: true, due_count: rows.length,
+      due: rows.map((r: any) => ({ id: r.id, user_id: r.user_id, student_name: r.student_name, plan: r.plan || null, amount: r.amount, next_billing_at: r.next_billing_at })),
+      note: 'KV billing:auto_renew_live=1 로 켜야 실제 청구됩니다(현재 미리보기만)',
+    };
   }
-  let charged = 0, failed = 0;
+  /* 📨 D-3 사전고지 — 결제 3일 안쪽으로 들어온 구독에 «○일에 ○원 자동결제» 문자(결제일별 1회 멱등).
+     국내 정기결제 관행(사전고지 없는 자동청구 = 민원 1순위). 라이브일 때만 — dry-run 중에 보내면
+     «결제 예정» 이라는 문자 자체가 거짓말이 된다. 실패해도 청구 루프는 막지 않는다. */
+  let notified = 0;
+  try { notified = await sendPrebillNotices(env); } catch (e) { console.warn('[auto-renew] prebill notice:', (e as any)?.message); }
+  let charged = 0, failed = 0, skipped = 0;
   const results: any[] = [];
   for (const sub of rows) {
     const r = await chargeSubscriptionOnce(env, sub);
-    if (r.ok) charged++; else failed++;
+    /* ⏭ «건너뜀» 은 실패가 아니다 — 다른 경로가 같은 구독을 청구 중이거나(already_charging)
+       선점 자체를 못 한 것(claim_failed)이다. 이것을 failed 에 섞으면 관리자 화면이
+       «카드 거절» 로 읽어, 있지도 않은 결제 문제를 쫓게 된다. */
+    if (r.ok) charged++;
+    else if (r.error === 'already_charging' || r.error === 'claim_failed' || r.error === 'stale_snapshot') skipped++;
+    else failed++;
     results.push({ id: sub.id, user_id: sub.user_id, ...r });
   }
-  return { ok: true, dry_run: false, due_count: rows.length, charged, failed, results };
+  return { ok: true, dry_run: false, due_count: rows.length, charged, failed, skipped, notified, results };
+}
+
+/** 📨 자동청구 사전고지 — next_billing_at 이 3일 안인 활성 구독의 학부모 폰에 금액·날짜·해지 안내.
+ *  멱등: enroll_notify_log (uid, kind='prebill', day=결제예정일) — 같은 결제일에 두 번 보내지 않는다.
+ *  ⚠️ 전화번호 조회가 만료문자(runEnrollExpirySweep)와 «같은 곳» 이던 것은 2026-09-15 까지다 —
+ *     그쪽은 판정 정본 `phonesForStudent`(override 먼저)로 옮겼고 **이 경로는 아직 `students_erp` 직접 조회**다.
+ *     그래서 우리 화면에서 받은 번호(`student_erp_override`)를 이 문자는 못 본다(사람이 정할 일 — 돈이 걸린 경로). */
+async function sendPrebillNotices(env: any): Promise<number> {
+  const now = Date.now();
+  const rs: any = await env.DB.prepare(
+    `SELECT user_id, student_name, plan, amount, next_billing_at FROM subscriptions
+     WHERE status='active' AND billing_key IS NOT NULL AND next_billing_at > ? AND next_billing_at <= ?`
+  ).bind(now, now + 3 * 86400 * 1000).all();
+  const rows = ((rs as any)?.results as any[]) || [];
+  if (!rows.length) return 0;
+  try {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS enroll_notify_log (uid TEXT NOT NULL, kind TEXT NOT NULL, day TEXT NOT NULL, sent_at INTEGER, PRIMARY KEY (uid, kind, day))`);
+  } catch (_) { /* 이미 있음 — 정상 */ }
+  let sent = 0;
+  for (const sub of rows) {
+    const uid = String(sub.user_id || '');
+    if (!uid) continue;
+    const billDay = new Date(Number(sub.next_billing_at) + 9 * 3600 * 1000).toISOString().slice(0, 10); // KST 날짜
+    const kind = String(sub.plan || '') === AI_PASS_PLAN ? 'prebill_ai' : 'prebill';   // 수업·A.i 두 구독이 같은 날이어도 각각 한 번씩
+    const dup: any = await env.DB.prepare(`SELECT uid FROM enroll_notify_log WHERE uid=? AND kind=? AND day=? LIMIT 1`).bind(uid, kind, billDay).first();
+    if (dup) continue;
+    let phone = '', name = '';
+    if (String(sub.plan || '') === AI_PASS_PLAN) {
+      /* 🤖 A.i 구독은 번호 정본(phonesForStudent — 우리 화면에서 받은 번호 먼저)을 쓴다.
+         ⚠️ 수업 구독은 아직 아래 직접 조회 그대로다(돈이 걸린 경로라 사람이 정할 일 — 위 머리말). */
+      try { const ph = await phonesForStudent(env, uid); phone = String(ph.parent || ph.student || '').replace(/[^0-9]/g, ''); }
+      catch (e) { console.warn('[prebill] A.i 번호 조회 실패:', (e as any)?.message); }
+      name = String(sub.student_name || '');
+    } else try {
+      const s: any = await env.DB.prepare(
+        `SELECT COALESCE(parent_phone, phone) AS ph, COALESCE(korean_name, english_name, username) AS nm FROM students_erp WHERE user_id = ? LIMIT 1`
+      ).bind(uid).first();
+      phone = String(s?.ph || '').replace(/[^0-9]/g, '');
+      name = String(s?.nm || '');
+    } catch (_) {}
+    await env.DB.prepare(`INSERT OR REPLACE INTO enroll_notify_log (uid, kind, day, sent_at) VALUES (?, ?, ?, ?)`).bind(uid, kind, billDay, now).run();
+    if (phone.length < 10) continue;
+    const isAi = String(sub.plan || '') === AI_PASS_PLAN;   // 🤖 A.i 이용권은 해지 화면이 다르다
+    const txt = `[망고아이] ♾️ 자동결제 안내\n${name ? name + ' 학생 · ' : ''}${isAi ? 'A.i 이용권 1개월 · ' : ''}${billDay.slice(5).replace('-', '/')}에 ${Number(sub.amount || 0).toLocaleString('ko-KR')}원이 등록된 카드로 자동 결제될 예정입니다.\n변경·해지: ${siteUrl(isAi ? '/ai-pass.html' : '/enroll.html')}`;
+    const sr = await sendPlainSms(env, phone, txt);
+    if (sr?.ok) sent++;
+  }
+  return sent;
 }
 
 /**
@@ -276,6 +472,23 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
   if (!path.startsWith('/api/pay/')) return null;
 
   await ensurePayTable(env);
+
+  /* 🏫 (2026-10-01) 학원 결제 링크(로그인 없음) — /api/pay/b2b/* 는 b2b-tuition-load.ts 가 받는다.
+     링크 토큰(무작위·본사가 언제든 새로 만듦)이 곧 권한이다. 결제 확정은 아래 confirm·webhook 이 그대로 한다. */
+  if (path.startsWith('/api/pay/b2b/')) {
+    const r = await handleB2bTuitionPublic(request, url, env);
+    if (r) return r;
+  }
+
+  /* ═══ 💸 환불 «실행·기록» — 전용 모듈(api-pay-refund.ts)로 위임 (2026-08-25) ═══
+     ⚠️ enroll 위임보다 **먼저** 와야 한다 — 경로가 /api/pay/admin/refund* 라 겹치지는 않지만,
+        환불은 돈을 되돌리는 유일한 길이라 라우팅에서 눈에 띄는 자리에 둔다.
+     ℹ️ 기존 «계산기»(/api/pay/enroll/admin/refund-quote)는 그대로 둔다 —
+        수강신청 화면이 쓰고 있고, 새 미리보기와 답이 같은지 대조하는 근거가 된다. */
+  if (path.startsWith('/api/pay/admin/refund')) {
+    const r = await handleRefundApi(request, url, env);
+    if (r) return r;
+  }
 
   // ═══ 📚 수강신청(enroll) — 전용 모듈(enroll-ops.ts)로 위임 ═══
   if (path.startsWith('/api/pay/enroll/')) {
@@ -306,7 +519,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
        클라이언트 가드(idx-payment-modal.js)는 우회 가능하므로, 실제 보안 경계는 여기다.
        uid 는 클라이언트가 보낸 값을 그대로 믿지 않고 세션 토큰으로 재검증한다(enroll-ops.ts
        renew-order 와 동일 패턴) — 그래야 "아무 uid나 적어서 보내는" 위조를 막는다. */
-    const authUid = await authUidFromRequest(request, url, env, body);
+    const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) {
       return json({ ok: false, error: 'auth_required', message: '로그인 후 결제할 수 있습니다.' }, 401);
     }
@@ -359,7 +572,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
 
     /* 🔒 (2026-07-30) 비로그인 결제 차단 — 제보 #1. create-order 와 동일한 이유·동일한 방식.
        'other'(맞춤 상담)도 실제 금액이 찍힌 payment_orders 행이 만들어지므로 예외 없이 로그인 요구. */
-    const authUid = await authUidFromRequest(request, url, env, body);
+    const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) {
       return json({ ok: false, error: 'auth_required', message: '로그인 후 접수할 수 있습니다.' }, 401);
     }
@@ -436,8 +649,23 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     }
     // 🔒 금액 위변조 방지: 요청 금액 == 저장된 주문 금액 이어야 확정 진행.
     if (Number(order.amount) !== amount) {
-      await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason='amount_mismatch' WHERE order_id=?`).bind(orderId).run();
+      await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason='amount_mismatch' WHERE order_id=? AND status NOT IN ('paid','await_deposit')`).bind(orderId).run();
       return json({ ok: false, error: 'amount_mismatch', message: '결제 금액이 주문과 일치하지 않습니다.' }, 400);
+    }
+
+    /* 🔒 (2026-10-22) 대리점 청구서(MGB-·MGT-)는 «주문» 이 아니라 «청구서» 단위로 한 번만 승인한다.
+       같은 청구서에 주문이 여럿 생길 수 있어서(탭 두 개·창 다시 열기·공개 링크와 /manager 동시) 예전에는
+       둘 다 토스 승인 = 카드가 두 번 긁혔다. 아래 토스 승인이 곧 실제 청구라 그 «앞» 에서 막는다.
+       막히면 토스 승인을 부르지 않으므로 돈은 안 나간다(인증만 된 결제는 토스가 스스로 만료시킨다).
+       ⛔ 이 검사를 토스 호출 뒤로 옮기지 말 것 — 그러면 이미 긁힌 뒤다. */
+    if (parseB2bOrder(orderId)) {
+      // ③ (2026-10-23) AI 컨텐츠는 «지금 명세로 다시 계산한 금액» 과 주문 금액이 같아야 승인한다(결제창을 연 뒤 체크를 바꾼 경우)
+      const gate = await claimB2bInvoiceForConfirm(env, orderId, amount, (oid) => tossOrderProbe(env, oid), Date.now(),
+        { mgbAmountNow: (id) => mgbAmountNow(env, id) });
+      if (!gate.ok) {
+        await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=? AND status NOT IN ('paid','await_deposit')`).bind(gate.error.slice(0, 100), orderId).run();
+        return json({ ok: false, error: gate.error, message: gate.message }, 409);
+      }
     }
 
     // 토스 confirm 호출 (시크릿키 Basic 인증). 여기서 실제 승인이 완료된다.
@@ -454,18 +682,37 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
       return json({ ok: false, error: 'pg_network', message: '결제사 연결 오류. 잠시 후 다시 시도해 주세요.' }, 502);
     }
 
-    if (tossRes.ok && (tossJson?.status === 'DONE' || tossJson?.status === 'PAID')) {
+    /* 🖱️🖱️ (2026-10-10 샌드박스 반복검사로 발견) 결제 버튼 «연타» — 두 번째 승인 요청에 토스가
+       ALREADY_PROCESSED_PAYMENT 로 답한다. 예전에는 그것을 «실패» 로 읽어 이미 결제된 주문을 failed 로
+       덮어쓰고(수업은 생겼는데 장부는 실패) 사장님께 «결제 실패» 문자까지 보냈다. 학부모 화면도 «실패» 라
+       다시 결제할 위험이 있었다. ⟹ 그 답이 오면 토스에 «이 주문의 진짜 상태» 를 다시 묻고, 승인돼 있으면 성공으로 처리한다. */
+    let tossDone = tossRes.ok && (tossJson?.status === 'DONE' || tossJson?.status === 'PAID');
+    let tossWaiting = tossRes.ok && tossJson?.status === 'WAITING_FOR_DEPOSIT';
+    if (!tossDone && !tossWaiting && String(tossJson?.code || '') === 'ALREADY_PROCESSED_PAYMENT') {
+      const pay = await tossOrderLookup(env, orderId);
+      if (pay && Number(pay.totalAmount) === Number(order.amount)) {
+        // 가상계좌 연타는 DONE 이 아니라 «입금 대기» — 그것도 실패가 아니라 아래 입금대기 분기로 보낸다(계좌번호 포함)
+        if (pay.status === 'DONE') { tossDone = true; tossJson = pay; }
+        else if (pay.status === 'WAITING_FOR_DEPOSIT') { tossWaiting = true; tossJson = pay; }
+      }
+    }
+    if (tossDone) {
       const now2 = Date.now();
-      await env.DB.prepare(
-        `UPDATE payment_orders SET status='paid', payment_key=?, paid_at=?, raw=? WHERE order_id=?`
-      ).bind(paymentKey, now2, JSON.stringify(tossJson).slice(0, 4000), orderId).run();
-
-      // 💳→📚 수강 자동 활성화 + 📱 학부모 결제완료 확인문자 (둘 다 실패해도 결제 성공 응답 유지)
-      await activateEnrollment(env, order, amount, now2, orderId);
-      await sendBuyerPaidSms(env, order, amount, orderId);
+      /* 💳→📚 수강 자동 활성화 + 📱 학부모 결제완료 확인문자 (둘 다 실패해도 결제 성공 응답 유지)
+         ⚠️ «paid 로 바꾸는 쪽» 이 정확히 하나여야 활성화도 한 번이다 — confirm 연타·confirm 과 웹훅이 동시에 와도
+            조건부 UPDATE(아직 paid 가 아닐 때만)를 이긴 쪽만 활성화한다(markOrderPaid). */
+      const claimed = await markOrderPaid(env, orderId, String(tossJson?.paymentKey || paymentKey), now2, null, tossJson);
+      if (claimed) {
+        await activateEnrollment(env, order, amount, now2, orderId);
+        await sendBuyerPaidSms(env, order, amount, orderId);
+      }
+      let aiPassEndsAt: number | null = null;   // 🤖 A.i 이용권이면 «언제까지» 를 결제 완료 화면이 말하게
+      if (String(order.program) === AI_PASS_PLAN && order.uid) {
+        try { aiPassEndsAt = await currentAiPassEnd(env, String(order.uid), PRICES[AI_PASS_PLAN].name); } catch (e) { console.warn('[ai-pass] 끝나는 날 조회 실패:', (e as any)?.message); }
+      }
 
       return json({
-        ok: true, orderId, amount,
+        ok: true, orderId, amount, program: String(order.program || ''), ai_pass_ends_at: aiPassEndsAt,
         method: tossJson?.method || null,
         receipt: tossJson?.receipt?.url || null,
         approvedAt: tossJson?.approvedAt || null,
@@ -480,10 +727,11 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
        오판하고 사장님께 "⚠️ 결제 실패" 문자까지 나갈 뻔했다 — 별도 분기로 반드시 갈라야 한다.
        실제 입금 확인은 여기서 하지 않는다: 입금되면 토스가 /api/pay/webhook 으로 알려주고,
        거기서 상태를 'DONE'으로 재조회해 확정 + 수강 자동활성화까지 처리한다(기존 로직 그대로). */
-    if (tossRes.ok && tossJson?.status === 'WAITING_FOR_DEPOSIT') {
+    if (tossWaiting) {
+      /* ⚠️ 이미 paid(웹훅이 입금을 먼저 확정)면 입금대기로 되돌리지 않는다. */
       await env.DB.prepare(
-        `UPDATE payment_orders SET status='await_deposit', payment_key=?, raw=? WHERE order_id=?`
-      ).bind(paymentKey, JSON.stringify(tossJson).slice(0, 4000), orderId).run();
+        `UPDATE payment_orders SET status='await_deposit', payment_key=?, raw=? WHERE order_id=? AND status != 'paid'`
+      ).bind(String(tossJson?.paymentKey || paymentKey), JSON.stringify(tossJson).slice(0, 4000), orderId).run();
       const va = tossJson?.virtualAccount || null;
       return json({
         ok: true, orderId, amount, waitingDeposit: true,
@@ -500,7 +748,18 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     // 실패 — 토스 에러코드/메시지를 그대로 담아 프론트가 친절히 안내
     const code = tossJson?.code || ('http_' + tossRes.status);
     const msg = tossJson?.message || '결제 승인에 실패했습니다.';
-    await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=?`).bind(String(code).slice(0, 100), orderId).run();
+    /* ⚠️ 이미 결제됐거나(다른 요청이 먼저 확정) 입금 대기인 주문은 failed 로 덮지 않는다 — 덮으면 돈은 나갔는데 장부만 실패가 된다. */
+    const failRes: any = await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=? AND status NOT IN ('paid','await_deposit')`).bind(String(code).slice(0, 100), orderId).run();
+    // 토스가 «거절» 을 분명히 말한 경우만 대리점 청구서 선점을 놓는다 — 4xx + 에러코드가 있을 때뿐.
+    //   ⛔ 5xx·게이트웨이 오류·JSON 아닌 본문·ALREADY_PROCESSED 는 «승인됐을 수도» 있어 안 놓는다
+    //      (다음 결제가 토스 조회로 정말 안 나갔는지 확인한 뒤에만 넘겨받는다 — b2b-pay-guard.ts).
+    const tossDeclined = tossRes.status >= 400 && tossRes.status < 500 && !!tossJson?.code && tossJson.code !== 'ALREADY_PROCESSED_PAYMENT';
+    if (failRes?.meta?.changes && tossDeclined) await releaseB2bInvoiceClaim(env, orderId);
+    if (!failRes?.meta?.changes) {
+      const now: any = await env.DB.prepare(`SELECT status, amount FROM payment_orders WHERE order_id = ? LIMIT 1`).bind(orderId).first();
+      if (now?.status === 'paid') return json({ ok: true, already: true, orderId, amount: now.amount, message: '이미 결제 완료된 주문입니다.' });
+      if (now?.status === 'await_deposit') return json({ ok: true, already: true, orderId, amount: now.amount, waitingDeposit: true });
+    }
 
     // 🔔 결제 실패 시 사장님 폰 문자 알림 (실패해도 응답엔 영향 없음). 학부모 후속 연락용.
     try {
@@ -598,7 +857,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
      ⚠️ 전화번호는 개인정보다. 「본인이 로그인해서 본인 결제창을 여는」 이 경로 외에는 주지 않는다. */
   if (path === '/api/pay/prefill' && method === 'POST') {
     const body = await parseJsonBody(request) || {};
-    const authUid = await authUidFromRequest(request, url, env, body);
+    const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
 
     let stu: any = null;
@@ -692,13 +951,13 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     if (pay.status === 'DONE' && order.status !== 'paid') {
       // 금액 대조 후 확정 (프론트가 미완료한 결제를 웹훅이 보완 확정하는 순간)
       if (Number(pay.totalAmount) !== Number(order.amount)) {
-        await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason='webhook_amount_mismatch' WHERE order_id=?`).bind(orderId).run();
+        await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason='webhook_amount_mismatch' WHERE order_id=? AND status != 'paid'`).bind(orderId).run();
         return json({ ok: true, flagged: 'amount_mismatch' });
       }
       const now3 = Date.now();
-      await env.DB.prepare(
-        `UPDATE payment_orders SET status='paid', payment_key=?, paid_at=?, method=?, raw=? WHERE order_id=?`
-      ).bind(String(pay.paymentKey || ''), now3, String(pay.method || order.method || ''), JSON.stringify(pay).slice(0, 4000), orderId).run();
+      /* ⚠️ confirm 과 동시에 오면 둘 다 «아직 paid 아님» 으로 읽는다 — 조건부 UPDATE 를 이긴 쪽만 활성화(markOrderPaid). */
+      const claimed = await markOrderPaid(env, orderId, String(pay.paymentKey || ''), now3, String(pay.method || order.method || ''), pay);
+      if (!claimed) return json({ ok: true, already: true });
       await activateEnrollment(env, order, Number(order.amount), now3, orderId);
       await sendBuyerPaidSms(env, order, Number(order.amount), orderId);
       // 프론트 확정이 누락됐던 건을 웹훅이 잡은 것 → 사장님께 정보 문자(유령결제 방지 확인용)
@@ -714,6 +973,20 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
         console.warn('[api-pay] 웹훅 보완확정 알림 문자 실패:', (e as any)?.message, 'order=', orderId);
       }
       return json({ ok: true, confirmed: true });
+    }
+
+    /* 🔒 (2026-10-22) 대리점 청구서 결제가 취소되면 청구서·이용권·충전금도 함께 되돌린다.
+       멱등(취소 건마다 토스 transactionKey) — 부분 취소 뒤 전액 취소처럼 웹훅이 두 번 와도, 앱 환불이 먼저
+       되돌렸어도 한 번만 반영된다. 그래서 «이미 cancelled» 여도 이 갈래는 다시 탄다. */
+    const isB2b = !!parseB2bOrder(orderId);
+    if ((pay.status === 'CANCELED' || pay.status === 'PARTIAL_CANCELED') && isB2b) {
+      const rv = await revertB2bOnCancel(env, orderId, pay, 'toss_webhook');
+      // 앱에서 환불한 주문(refunded/partial_refunded)은 그 기록을 덮지 않는다
+      if (order.status !== 'cancelled' && order.status !== 'refunded' && order.status !== 'partial_refunded') {
+        await env.DB.prepare(`UPDATE payment_orders SET status='cancelled', fail_reason=? , raw=? WHERE order_id=?`)
+          .bind(String(pay.status), JSON.stringify(pay).slice(0, 4000), orderId).run();
+      }
+      return json({ ok: true, cancelled: true, b2b_reverted: rv.applied, b2b_warnings: rv.warnings });
     }
 
     if ((pay.status === 'CANCELED' || pay.status === 'PARTIAL_CANCELED') && order.status !== 'cancelled') {
@@ -748,9 +1021,20 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
   // ── 9) 자동연장(정기결제) — 제보 #2-2/#3-2. 현재 수강 중인 학생만 카드를 등록해 매월 자동 청구받는다 ──
   if (path === '/api/pay/billing/register' && method === 'POST') {
     const body = await parseJsonBody(request) || {};
-    const authUid = await authUidFromRequest(request, url, env, body);
+    const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
     await ensureSubscriptionsSchema(env);
+    /* 🤖 (2026-09-29) A.i 이용권 매달 자동결제 — 수업이 없어도 신청할 수 있다(수업 견적을 안 탄다). */
+    if (String(body.plan || '') === AI_PASS_PLAN) {
+      const priced = PRICES[AI_PASS_PLAN];
+      let endAt: number | null = null;
+      try { endAt = await currentAiPassEnd(env, authUid, priced.name); } catch (e) { console.warn('[ai-pass] 끝나는 날 조회 실패:', (e as any)?.message); }
+      const rndA = Array.from(crypto.getRandomValues(new Uint8Array(4))).map((b) => b.toString(16).padStart(2, '0')).join('');
+      return json({
+        ok: true, plan: AI_PASS_PLAN, customerKey: `mgi_${authUid}_${Date.now().toString(36)}${rndA}`,
+        clientKey: tossClientKey(env).key, preview_amount: priced.amount, ai_pass_ends_at: endAt,
+      });
+    }
     const q = await autoRenewQuote(env, authUid);
     if (!('ok' in q) || !q.ok) {
       return json({ ok: false, error: (q as any).error, message: '자동연장은 현재 요일·시간이 확실한 수강 중 학생만 신청할 수 있어요.' }, 400);
@@ -766,7 +1050,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
 
   if (path === '/api/pay/billing/confirm' && method === 'POST') {
     const body = await parseJsonBody(request) || {};
-    const authUid = await authUidFromRequest(request, url, env, body);
+    const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
     const authKey = String(body.authKey || '').trim();
     const customerKey = String(body.customerKey || '').trim();
@@ -774,6 +1058,8 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     // customerKey 는 register 단계에서 authUid 로 서명해 만들었다 — 다른 사람 걸 훔쳐 쓸 수 없게 접두사로 재검증.
     if (!customerKey.startsWith(`mgi_${authUid}_`)) return json({ ok: false, error: 'customer_key_mismatch' }, 403);
     await ensureSubscriptionsSchema(env);
+
+    if (String(body.plan || '') === AI_PASS_PLAN) return await confirmAiPassBilling(env, authUid, authKey, customerKey);
 
     const q = await autoRenewQuote(env, authUid);
     if (!('ok' in q) || !q.ok) return json({ ok: false, error: (q as any).error }, 400);
@@ -796,41 +1082,203 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
 
     const now = Date.now();
     // 기존에 활성 구독이 있으면 정리하고(중복청구 방지) 새로 등록
-    await env.DB.prepare(`UPDATE subscriptions SET status='replaced', updated_at=? WHERE user_id=? AND status='active'`).bind(now, authUid).run();
+    /* ⚠️ A.i 이용권 구독은 건드리지 않는다 — 수업 카드를 새로 등록했다고 A.i 자동결제가 꺼지면 안 된다. */
+    await env.DB.prepare(`UPDATE subscriptions SET status='replaced', updated_at=? WHERE user_id=? AND status='active' AND ${NOT_AI_PASS_PLAN_SQL}`).bind(now, authUid).run();
+    // 🔁 (2026-08-23) 첫 청구일 = «등록 +30일» 이 아니라 «현재 수강 종료 3일 전». 남은 수업이 10일치면
+    //    10-3일 뒤에 청구돼 수업이 끊기지 않고, 25일치 남았으면 그때까지 청구하지 않는다.
+    const nextBillingAt = nextBillingFromLastDate(String(q.cur.last_date || ''));
     const ins = await env.DB.prepare(
       `INSERT INTO subscriptions (user_id, student_name, plan, amount, status, next_billing_at, created_at, updated_at, billing_key, customer_key, fail_count, teacher_id, weekly, minutes)
        VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, 0, ?, ?, ?)`
     ).bind(authUid, q.cur.teacher_name ? String(q.cur.teacher_name) : authUid, 'auto_renew', q.amount,
-           now + 30 * 86400 * 1000, now, now, String(tossJson.billingKey), customerKey,
+           nextBillingAt, now, now, String(tossJson.billingKey), customerKey,
            String(q.cur.teacher_id), q.weekly, q.cur.minutes).run();
 
-    return json({ ok: true, id: ins.meta.last_row_id, next_billing_at: now + 30 * 86400 * 1000, amount: q.amount });
+    return json({ ok: true, id: ins.meta.last_row_id, next_billing_at: nextBillingAt, amount: q.amount });
   }
 
   if (path === '/api/pay/billing/cancel' && method === 'POST') {
     const body = await parseJsonBody(request) || {};
-    const authUid = await authUidFromRequest(request, url, env, body);
+    const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
     await ensureSubscriptionsSchema(env);
-    await env.DB.prepare(`UPDATE subscriptions SET status='cancelled', updated_at=? WHERE user_id=? AND status='active'`).bind(Date.now(), authUid).run();
+    /* 🤖 (2026-09-29) plan 으로 갈라 끈다 — 수업 자동결제 해지가 A.i 이용권 자동결제까지 끄면 안 되고, 그 반대도 같다. */
+    const cancelAi = String(body.plan || '') === AI_PASS_PLAN;
+    await env.DB.prepare(`UPDATE subscriptions SET status='cancelled', updated_at=? WHERE user_id=? AND status='active' AND ${cancelAi ? `plan='${AI_PASS_PLAN}'` : NOT_AI_PASS_PLAN_SQL}`).bind(Date.now(), authUid).run();
     return json({ ok: true });
   }
 
-  if (path === '/api/pay/billing/status' && method === 'GET') {
-    const authUid = await authUidFromRequest(request, url, env, {});
-    if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
+  /* ♾️→💳 (2026-08-23) 등록된 카드로 «결제창 없이» 즉시 결제 — 사장님 지시 「자동결제이면 그냥 자동으로
+     결제되는 방식으로」. 자동결제 학생의 연장 버튼과 카드등록 직후 «지금 바로 결제» 가 이걸 쓴다.
+     1·3·6·12개월 전부 지원(기간할인은 enrollQuoteCalc 가 동일 적용). 사람이 버튼을 눌러 시작하는
+     결제라 cron 킬스위치(billing:auto_renew_live)와는 무관하다 — 수동 「연장 결제」와 같은 급의 동의. */
+  if (path === '/api/pay/billing/charge-now' && method === 'POST') {
+    const body = await parseJsonBody(request) || {};
+    const authUid = await authUidOrAdminSession(request, url, env, body);
+    if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
+    const months = Number(body.months || 1);
+    if (![1, 3, 6, 12].includes(months)) return json({ ok: false, error: 'bad_months' }, 400);
     await ensureSubscriptionsSchema(env);
     const sub: any = await env.DB.prepare(
-      `SELECT id, plan, amount, status, next_billing_at, teacher_id, weekly, minutes FROM subscriptions WHERE user_id=? AND status='active' ORDER BY id DESC LIMIT 1`
+      `SELECT * FROM subscriptions WHERE user_id=? AND status='active' AND billing_key IS NOT NULL AND ${NOT_AI_PASS_PLAN_SQL} ORDER BY id DESC LIMIT 1`
     ).bind(authUid).first();
+    if (!sub) return json({ ok: false, error: 'no_subscription', message: '먼저 자동결제 카드를 등록해 주세요.' }, 400);
+    // 🛡️ 더블클릭·새로고침 연타 방어 — 직전 청구 60초 안에는 다시 청구하지 않는다(이중결제 예방)
+    if (Number(sub.last_billed_at || 0) > Date.now() - 60 * 1000) {
+      return json({ ok: false, error: 'too_soon', message: '방금 결제가 진행됐어요. 잠시 후 결제 내역을 확인해 주세요.' }, 429);
+    }
+    const r = await chargeSubscriptionOnce(env, sub, months);
+    /* 🛡️ «이미 청구 중» 은 실패가 아니다. 더블클릭이면 두 요청이 60초 가드를 나란히 통과한 뒤
+       하나만 선점하는데, 진 쪽에 「결제에 실패했어요」라고 말하면 학부모가 **다시 누른다** —
+       60초가 지난 뒤라면 그때는 진짜 두 번째 청구가 된다. 이중청구를 막으려 넣은 장치가
+       사람을 통해 이중청구로 되돌아오는 모양이라, 문구와 상태코드를 갈라 둔다. */
+    if (!r.ok && (r.error === 'already_charging' || r.error === 'claim_failed' || r.error === 'stale_snapshot')) {
+      return json({ ok: false, error: r.error,
+        message: '결제를 이미 처리하고 있어요. 잠시 후 결제 내역을 확인해 주세요.' }, 409);
+    }
+    if (!r.ok) return json({ ok: false, error: r.error, message: '결제에 실패했어요: ' + String(r.error || '') }, 400);
+    return json({ ok: true, amount: r.amount, months });
+  }
+
+  if (path === '/api/pay/billing/status' && method === 'GET') {
+    const authUid = await authUidOrAdminSession(request, url, env, {});
+    if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
+    await ensureSubscriptionsSchema(env);
+    /* 🤖 ?plan=ai_content 면 A.i 이용권 구독 + 끝나는 날. 기본(수강신청 화면)은 수업 구독만 —
+       A.i 구독이 더 최근이라고 수업 화면에 «자동결제 켜짐» 으로 뜨면 안 된다. */
+    const wantAi = url.searchParams.get('plan') === AI_PASS_PLAN;
+    const sub: any = await env.DB.prepare(
+      `SELECT id, plan, amount, status, next_billing_at, teacher_id, weekly, minutes FROM subscriptions WHERE user_id=? AND status='active' AND ${wantAi ? `plan='${AI_PASS_PLAN}'` : NOT_AI_PASS_PLAN_SQL} ORDER BY id DESC LIMIT 1`
+    ).bind(authUid).first();
+    if (wantAi) {
+      let endAt: number | null = null;
+      try { endAt = await currentAiPassEnd(env, authUid, PRICES[AI_PASS_PLAN].name); } catch (e) { console.warn('[ai-pass] 끝나는 날 조회 실패:', (e as any)?.message); }
+      /* 매달 자동청구는 cron 스윕이 하는데, 그 스윕은 KV billing:auto_renew_live='1' 일 때만 실제로 긁는다.
+         화면이 그 사실을 말하게 그대로 내려준다(꺼져 있으면 «매달 자동» 이 아직 사실이 아니다). */
+      let autoLive = false;
+      try { autoLive = (await env.SESSION_STATE.get('billing:auto_renew_live')) === '1'; } catch (e) { console.warn('[ai-pass] 자동청구 스위치 조회 실패:', (e as any)?.message); }
+      const nowS = Date.now();
+      return json({ ok: true, subscription: sub || null, ai_pass_ends_at: endAt, price: PRICES[AI_PASS_PLAN].amount,
+        auto_live: autoLive, first_billing_at: endAt && endAt > nowS ? aiPassNextBilling(endAt, nowS) : null });
+    }
     return json({ ok: true, subscription: sub || null });
   }
 
   return null;
 }
 
+/** 🤖 A.i 이용권 카드 등록 확정 — 빌링키 발급 → 구독 저장.
+ *  · 쓰고 있는 이용권이 남아 있으면 그 끝 3일 전에 첫 자동결제(지금은 안 긁는다).
+ *  · 없으면 **지금 첫 달을 바로 결제**한다 — 학부모가 «카드 등록 = 이용 시작» 으로 누른 것이라
+ *    3일을 기다리게 하면 그동안 이용권이 없다. 사람이 누른 결제라 cron 스위치(billing:auto_renew_live)와 무관
+ *    (charge-now 와 같은 급의 동의). 화면이 누르기 전에 «지금 ○원 결제» 를 말한다. */
+async function confirmAiPassBilling(env: any, authUid: string, authKey: string, customerKey: string): Promise<Response> {
+  const priced = PRICES[AI_PASS_PLAN];
+  const auth = 'Basic ' + btoa(String(env.TOSS_SECRET_KEY) + ':');
+  let tossRes: Response, tossJson: any;
+  try {
+    tossRes = await fetch('https://api.tosspayments.com/v1/billing/authorizations/issue', {
+      method: 'POST',
+      headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authKey, customerKey }),
+    });
+    tossJson = await tossRes.json();
+  } catch (e: any) {
+    return json({ ok: false, error: 'toss_network_error', message: String(e?.message || e) }, 502);
+  }
+  if (!tossRes.ok || !tossJson.billingKey) {
+    return json({ ok: false, error: 'billing_auth_failed', message: String(tossJson?.message || '카드 등록에 실패했습니다.') }, 400);
+  }
+  const now = Date.now();
+  let endAt: number | null = null;
+  try { endAt = await currentAiPassEnd(env, authUid, priced.name); } catch (e) { console.warn('[ai-pass] 끝나는 날 조회 실패:', (e as any)?.message); }
+  const hasActive = !!(endAt && endAt > now);
+  let stuName: string | null = null;   // 이름 칸에 로그인 아이디를 넣지 않는다(아이디 = 사실상 비밀번호, CLAUDE.md 2장)
+  try {
+    const nm: any = await env.DB.prepare(`SELECT COALESCE(korean_name, english_name) AS nm FROM students_erp WHERE user_id = ? LIMIT 1`).bind(authUid).first();
+    const v = String(nm?.nm || '').trim(); stuName = v && v !== authUid ? v : null;
+  } catch (e) { console.warn('[ai-pass] 학생 이름 조회 실패:', (e as any)?.message); }
+  /* 🛡️ 두 탭·연타로 confirm 이 겹쳐도 구독은 «하나만» — 조건부 INSERT(D1 은 쓰기를 직렬화한다).
+     60초 안에 같은 학생의 A.i 구독이 새로 생겼으면 이 요청은 아무것도 만들지 않고 돌아간다. 그래야 첫 즉시결제가 두 번 안 나간다.
+     첫 즉시결제 구독은 next_billing_at=NULL 로 넣는다 — 이 요청이 결제를 끝내기 전에 스윕이 잡아 가지 않게. */
+  const ins = await env.DB.prepare(
+    `INSERT INTO subscriptions (user_id, student_name, plan, amount, status, next_billing_at, created_at, updated_at, billing_key, customer_key, fail_count)
+     SELECT ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, 0
+      WHERE NOT EXISTS (SELECT 1 FROM subscriptions WHERE user_id = ? AND plan = ? AND created_at > ?)`
+  ).bind(authUid, stuName, AI_PASS_PLAN, priced.amount, hasActive ? aiPassNextBilling(endAt, now) : null, now, now,
+         String(tossJson.billingKey), customerKey, authUid, AI_PASS_PLAN, now - 60 * 1000).run();
+  if (!ins?.meta?.changes) {
+    return json({ ok: false, error: 'too_soon', message: '방금 자동결제 등록이 처리됐어요. 잠시 후 이 화면을 다시 열어 확인해 주세요.' }, 409);
+  }
+  const subId = ins.meta.last_row_id;
+  // 같은 plan 의 옛 구독만 정리(수업 구독은 그대로)
+  await env.DB.prepare(`UPDATE subscriptions SET status='replaced', updated_at=? WHERE user_id=? AND status='active' AND plan=? AND id <> ?`).bind(now, authUid, AI_PASS_PLAN, subId).run();
+  if (hasActive) {
+    return json({ ok: true, plan: AI_PASS_PLAN, id: subId, amount: priced.amount, charged: false, next_billing_at: aiPassNextBilling(endAt, now), ai_pass_ends_at: endAt });
+  }
+  const sub: any = await env.DB.prepare(`SELECT * FROM subscriptions WHERE id = ?`).bind(subId).first();
+  let r: { ok: boolean; error?: string; amount?: number } = { ok: false, error: 'subscription_not_saved' };
+  try { if (sub) r = await chargeSubscriptionOnce(env, sub); }
+  catch (e: any) {
+    /* 결제 도중 예외 — 토스까지 갔는지 모른다. next_billing_at 은 NULL 그대로 두어 자동으로 다시 긁지 않는다(안 긁는 쪽으로 실패). */
+    console.error('[ai-pass] 첫 결제 도중 예외 — 자동결제 보류:', subId, e?.message);
+    return json({ ok: true, plan: AI_PASS_PLAN, id: subId, amount: priced.amount, charged: false, charge_error: 'unknown_state',
+      message: '카드는 등록됐지만 첫 결제 결과를 확인하지 못했어요. 결제 내역을 확인한 뒤 문의해 주세요.' });
+  }
+  /* 선점 경합(already_charging·claim_failed)은 bump 를 안 탄다 — next 가 NULL 로 남으면 영영 안 긁히니 하루 뒤로. */
+  if (!r.ok && (r.error === 'already_charging' || r.error === 'claim_failed' || r.error === 'stale_snapshot' || r.error === 'subscription_not_saved')) {
+    await env.DB.prepare(`UPDATE subscriptions SET next_billing_at=?, updated_at=? WHERE id=? AND next_billing_at IS NULL`).bind(now + 86400 * 1000, now, subId).run().catch((e: any) => console.warn('[ai-pass] 재시도일 기록 실패:', e?.message));
+  }
+  let after: number | null = null;
+  try { after = await currentAiPassEnd(env, authUid, priced.name); } catch (e) { console.warn('[ai-pass] 끝나는 날 조회 실패:', (e as any)?.message); }
+  const s2: any = await env.DB.prepare(`SELECT next_billing_at FROM subscriptions WHERE id = ?`).bind(subId).first().catch(() => null);
+  const charged = !!r.ok && r.error !== 'activation_failed';
+  return json({ ok: true, plan: AI_PASS_PLAN, id: subId, amount: priced.amount, charged,
+    charge_error: charged ? null : (r.error || 'charge_failed'),
+    next_billing_at: s2 && s2.next_billing_at != null ? Number(s2.next_billing_at) : null, ai_pass_ends_at: after });
+}
+
+/** ✅ 주문을 paid 로 «차지» 한다 — 아직 paid 가 아닐 때만 바꾸고, 바꾼 쪽만 true.
+ *  confirm 연타·confirm 과 웹훅 동시 도착에서 활성화(수강 기록·수업 생성·확인문자)가 두 번 나가지 않게 하는 유일한 문.
+ *  D1(SQLite)은 쓰기를 직렬화하므로 둘이 동시에 와도 changes=1 은 정확히 하나다. (2026-10-10 샌드박스 반복검사) */
+async function markOrderPaid(env: any, orderId: string, paymentKey: string, when: number, method: string | null, raw: any): Promise<boolean> {
+  const r: any = method == null
+    ? await env.DB.prepare(`UPDATE payment_orders SET status='paid', payment_key=?, paid_at=?, raw=? WHERE order_id=? AND status != 'paid'`)
+        .bind(paymentKey, when, JSON.stringify(raw ?? {}).slice(0, 4000), orderId).run()
+    : await env.DB.prepare(`UPDATE payment_orders SET status='paid', payment_key=?, paid_at=?, method=?, raw=? WHERE order_id=? AND status != 'paid'`)
+        .bind(paymentKey, when, method, JSON.stringify(raw ?? {}).slice(0, 4000), orderId).run();
+  return !!(r?.meta?.changes);
+}
+
+/** 🔎 토스에 «이 주문의 진짜 상태» 를 묻는다(시크릿키). 못 물어보면 null — 부르는 쪽은 «모름» 으로 다룬다. */
+async function tossOrderLookup(env: any, orderId: string): Promise<any | null> {
+  try {
+    const auth = 'Basic ' + btoa(String(env.TOSS_SECRET_KEY) + ':');
+    const r = await fetch(`https://api.tosspayments.com/v1/payments/orders/${encodeURIComponent(orderId)}`, { headers: { 'Authorization': auth } });
+    if (!r.ok) return null;
+    const j: any = await r.json();
+    return j && j.status ? j : null;
+  } catch (_) { return null; }
+}
+
+/* 🔎 tossOrderProbe(tossOrderLookup 과 같되 404 «토스가 모름» 을 «못 물어봤다» 와 가름) —
+   정본은 b2b-pay-guard.ts 로 옮겼다(대리점 자동결제도 같은 것을 쓴다, 2026-10-23). */
+
 /** 💳→📚 수강 자동 활성화 (confirm·webhook 공용, 실패해도 결제 흐름에 영향 없음) */
 async function activateEnrollment(env: any, order: any, amount: number, when: number, orderId: string): Promise<void> {
+  /* 🏢 (2026-09-10) B2B 대리점 청구서 결제 — 개인 1건 활성화가 아니라 청구서에 포함된
+     학생 전원을 한 번에 활성화해야 한다. 구분은 주문번호 접두사(MGB-)뿐이다 —
+     ai-billing.ts 쪽에서 그렇게 정했다(스키마를 안 늘려서 이 파일의 SELECT 세 곳을
+     하나도 안 건드리기 위해서). 여기서 갈라 보내고 그 아래 개인용 로직은 그대로 둔다. */
+  /* 🏫 (2026-10-01) B2B 화상수업 수업료 청구서(충전금) — 주문번호 접두사 MGT- */
+  if (String(orderId || '').startsWith('MGT-')) {
+    await activateB2bTuitionPayment(env, orderId, amount, when).catch((e: any) => console.warn('[pay] b2b tuition activate:', e?.message));
+    return;
+  }
+  if (String(orderId || '').startsWith('MGB-')) {
+    await activateB2bAiInvoicePayment(env, orderId, amount, when).catch((e: any) => console.warn('[pay] b2b activate:', e?.message));
+    return;
+  }
   try {
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS enrollments (id INTEGER PRIMARY KEY AUTOINCREMENT, student_user_id TEXT, student_name TEXT NOT NULL, package TEXT, started_at INTEGER, ended_at INTEGER, monthly_fee_krw INTEGER, status TEXT DEFAULT 'pending', notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
     // 멱등: 같은 주문으로 이미 활성화됐으면 두 번 만들지 않음 (confirm과 webhook이 경합해도 안전)
@@ -838,13 +1286,51 @@ async function activateEnrollment(env: any, order: any, amount: number, when: nu
     if (dup) return;
     const sName = String(order.student_name || order.payer_name || '결제고객');
     const pkg = (PRICES[String(order.program)] && PRICES[String(order.program)].name) || String(order.program || '');
+    /* 🤖 (2026-09-29) A.i 이용권은 «끝나는 날» 을 적는다 — 결제 시각부터 1달, 남은 기간이 있으면 그 끝에 이어서.
+       다른 상품은 예전 그대로 NULL(기간을 DB 로 강제하지 않음 — CLAUDE.md 2장 «결제 상품을 새로 추가할 때»). */
+    let startAt = when, endAt: number | null = null;
+    if (String(order.program) === AI_PASS_PLAN && order.uid) {
+      let curEnd: number | null = null;
+      try { curEnd = await currentAiPassEnd(env, String(order.uid), pkg); } catch (e) { console.warn('[ai-pass] 끝나는 날 조회 실패:', (e as any)?.message); }
+      const per = aiPassPeriod(when, curEnd);
+      startAt = per.start; endAt = per.end;
+    }
     await env.DB.prepare(
       `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at)
-       VALUES (?, ?, ?, ?, NULL, ?, 'active', ?, ?, ?)`
-    ).bind(order.uid || null, sName, pkg, when, amount, `토스 결제 자동활성화 · ${orderId}`, when, when).run();
+       VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`
+    ).bind(order.uid || null, sName, pkg, startAt, endAt, amount, `토스 결제 자동활성화 · ${orderId}`, when, when).run();
   } catch (e) { console.warn('[pay] enrollment activate:', (e as any)?.message); }
   // 📚 수강신청 주문이면 회차 전량을 실제 수업으로 생성 (멱등·충돌 회피)
   await enrollCreateSchedules(env, order, orderId).catch((e: any) => console.warn('[enroll] schedules:', e?.message));
+  // ♾️ (2026-08-23) 수동 연장(결제창)이 자동결제와 겹치지 않게 — 결제로 수업이 늘었으면
+  //    다음 자동청구일도 «새 종료일 3일 전» 으로 다시 잡는다. 미리 3개월을 결제한 학생에게
+  //    옛 청구일 그대로 한 달치를 또 청구하는 사고를 막는 줄이다. 구독 없는 학생은 그냥 지나간다.
+  await syncSubscriptionNextBilling(env, order.uid).catch(() => {});
+}
+
+/** ♾️ uid 의 활성 구독이 있으면 next_billing_at 을 현재 수강 종료일 기준으로 재계산해 맞춘다 */
+async function syncSubscriptionNextBilling(env: any, uid: any): Promise<void> {
+  if (!uid) return;
+  /* 🤖 A.i 이용권을 결제창으로 한 번 더 샀으면 그 구독의 다음 청구일도 «새 끝나는 날 3일 전» 으로 민다
+     (미리 산 달을 모르고 옛 청구일에 또 긁지 않게). ⚠️ 이 갈래는 수업 구독을 건드리지 않는다. */
+  try {
+    const aiSub: any = await env.DB.prepare(
+      `SELECT id FROM subscriptions WHERE user_id=? AND status='active' AND billing_key IS NOT NULL AND plan='${AI_PASS_PLAN}' ORDER BY id DESC LIMIT 1`
+    ).bind(String(uid)).first();
+    if (aiSub) {
+      const endAt = await currentAiPassEnd(env, String(uid), PRICES[AI_PASS_PLAN].name);
+      if (endAt) await env.DB.prepare(`UPDATE subscriptions SET next_billing_at=?, updated_at=? WHERE id=?`)
+        .bind(aiPassNextBilling(endAt, Date.now()), Date.now(), aiSub.id).run();
+    }
+  } catch (e: any) { console.warn('[pay] ai pass next billing sync:', e?.message); }
+  const sub: any = await env.DB.prepare(
+    `SELECT id FROM subscriptions WHERE user_id=? AND status='active' AND billing_key IS NOT NULL AND ${NOT_AI_PASS_PLAN_SQL} ORDER BY id DESC LIMIT 1`
+  ).bind(String(uid)).first();
+  if (!sub) return;
+  const cur = await currentEnrollment(env, String(uid));
+  if (!cur?.renewable || !cur.last_date) return;
+  await env.DB.prepare(`UPDATE subscriptions SET next_billing_at=?, updated_at=? WHERE id=?`)
+    .bind(nextBillingFromLastDate(String(cur.last_date)), Date.now(), sub.id).run();
 }
 
 /** 📱 학부모 결제완료 확인문자 — "됐나 안 됐나" 불안 재시도(이중결제 1위 원인)를 원천 차단 */
@@ -894,13 +1380,20 @@ export async function runPaymentAudit(env: any, opts?: { sms?: boolean }): Promi
     out.newDup = r?.results || [];
   } catch (e) { out.newDupError = String((e as any)?.message || e); }
 
+  // B-2) 🏢 대리점 청구서 이중결제 (30일) — 위 B 는 uid 로 묶어서 uid 가 없는 대리점 주문(MGB-·MGT-)을 원리상 못 본다(2026-10-22)
+  try {
+    out.b2bDup = await findB2bDoublePaid(env, Date.now() - 30 * 86400 * 1000);
+  } catch (e) { out.b2bDup = []; out.b2bDupError = String((e as any)?.message || e); }
+
   // C) paid 인데 수강 연결 누락 (48시간)
+  //    🏫 대리점 청구서(MGT- 수업료 · MGB- AI 사용료)는 수강을 만들지 않는 결제라 뺀다 — 안 빼면 «누락» 으로 잘못 센다(2026-10-01).
   try {
     const since = Date.now() - 48 * 3600 * 1000;
     const r = await env.DB.prepare(
       `SELECT o.order_id, o.student_name, o.payer_name, o.amount
        FROM payment_orders o
        WHERE o.status='paid' AND o.paid_at >= ?
+         AND o.order_id NOT LIKE 'MGT-%' AND o.order_id NOT LIKE 'MGB-%'
          AND NOT EXISTS (SELECT 1 FROM enrollments e WHERE e.notes LIKE '%'||o.order_id||'%')`
     ).bind(since).all();
     out.missingEnroll = r?.results || [];
@@ -914,8 +1407,8 @@ export async function runPaymentAudit(env: any, opts?: { sms?: boolean }): Promi
     out.stalePending = r?.n || 0;
   } catch (_) {}
 
-  const anomalies = (out.legacyDup.length || 0) + (out.newDup.length || 0) + (out.missingEnroll.length || 0);
-  out.summary = { anomalies, legacyDup: out.legacyDup.length, newDup: out.newDup.length, missingEnroll: out.missingEnroll.length, stalePending: out.stalePending };
+  const anomalies = (out.legacyDup.length || 0) + (out.newDup.length || 0) + (out.missingEnroll.length || 0) + (out.b2bDup.length || 0);
+  out.summary = { anomalies, legacyDup: out.legacyDup.length, newDup: out.newDup.length, missingEnroll: out.missingEnroll.length, b2bDup: out.b2bDup.length, stalePending: out.stalePending };
 
   // 이상 있을 때만 사장님 문자 (매일 "정상" 문자는 소음이라 안 보냄)
   if (opts?.sms && anomalies > 0) {
@@ -926,6 +1419,7 @@ export async function runPaymentAudit(env: any, opts?: { sms?: boolean }): Promi
         if (out.legacyDup.length) lines.push(`·이중결제 의심 ${out.legacyDup.length}건(기존 결제창)`);
         if (out.newDup.length) lines.push(`·이중결제 의심 ${out.newDup.length}건(새 결제)`);
         if (out.missingEnroll.length) lines.push(`·수업연결 누락 ${out.missingEnroll.length}건`);
+        if (out.b2bDup.length) lines.push(`·대리점 청구서 이중결제 ${out.b2bDup.length}건`);
         lines.push(`관리자 결제센터에서 확인하세요`);
         await sendPlainSms(env, toPhone, lines.join('\n'));
         out.smsSent = true;

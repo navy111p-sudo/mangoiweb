@@ -1,3 +1,6 @@
+import { attachTeacherPreviousLessons } from './teacher-previous-lessons';
+import { attachCalendarRecords } from './calendar-records';
+import { dropTeacherCafe24Duplicates } from './teacher-cafe24-duplicates';
 // ────────────────────────────────────────────────────────────────────────────
 // 🇵🇭 강사 전용 초경량 포털 API — /api/teacher/portal
 //
@@ -22,6 +25,24 @@ import { getAdminActor, PH_MANAGERS, otherAccountOf } from './auth-admin';
 // 🎚️ 학생 읽기 밴드(판단력 훈련) — KV 1회 조회. 수업 전에 강사가 "이 아이가 지금
 //    어느 정도 문장을 읽나"를 알 수 있게 오늘 수업 목록에 얹는다.
 import { getReadingBandFor } from './api-judgment';
+// 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 나눈다 — 손으로 90 씩 자르지 않는다
+import { selectInChunks } from './d1-chunk';
+import { enrichClassesToday } from './class-today-extras';   // 📋 오늘 수업 일곱 칸(관리자·매니저와 같은 정본)
+import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
+import { applyRoomOverrides } from './class-room-override';   // 🚪 「오늘은 이 방으로」 — 학생 쪽과 같은 답을 받는다
+import { applyStudentElsewhere } from './teacher-student-elsewhere';   // 🚪 «학생이 다른 방에 있어요»(2026-10-21) — 방을 갈아 끼운 «뒤» 에 본다
+import { loadHoldRanges, heldOnFor } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25) — 강사에게 «기다리지 말라» 를 알린다
+import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
+import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
+import { loadHandovers } from './teacher-handover';   // 🤝 강사 인수인계 카드(2026-10-10)
+import { loadActiveGoals, setStudentGoal, goalByKey, GOALS } from './student-goal';   // 🗓 4주 목표(2026-10-10)
+import { loadParentRequests, markParentRequestDone } from './parent-request';   // 👪 학부모 요청 반영(2026-10-10)
+import { loadTeacherStudentHistory, validHistoryDate } from './teacher-student-history';
+import { normalizeTeacherLevelChoice, setStudentLevelByTeacher, levelScaleForPortal, teacherLevelScope, attachLevelScope, TEACHER_LEVEL_PAST_DAYS } from './teacher-student-level';   // 🎚 일지에서 학생 레벨 정하기(2026-10-27)
+import { buildPhoneGaps, PHONE_GAP_DAYS_MAX, SMS_MIN_DIGITS } from './phone-gaps';   // 📵 번호 없는 학생 — 강사판(2026-10-28)
+import { setOverridePhones } from './student-override';
+import { loadContactPhones } from './notify-contacts';   // ☎ 화면용 연락처 정본(2026-10-27) — 받아 둔 번호 → 명부 → 이탈위험 스냅샷
+import { loadMyLoginDays } from './teacher-login-times';   // 🔐 내 로그인·접속 시각(2026-10-30)
 
 interface TeacherEnv {
   DB: D1Database;
@@ -55,6 +76,92 @@ function dowMatches(raw: any, target: number): boolean {
   return false;
 }
 
+/* 🆔 화면에 «학생 아이디» 로 보여줄 값 — 2026-09-22 제안
+     「강사 페이지에서 망고아이 수업을 늘 학생 아이디와 함께 적어 달라」.
+   왜 서버가 내려주나: 강사는 같은 수업을 «옛 LMS» 에서도 본다. 두 화면을 잇는 열쇠는
+   이름이 아니라 아이디다(동명이인이 실재한다 — 김민서 71명·김민준 56명).
+   ⛔ 자리표시 행은 학생이 아니다 — user_id 가 'lms'·'type_seed' 인 행의 그 값을
+      아이디로 내려주면 강사 화면에 「lms 라는 학생」 이 생긴다. 비워서 보낸다.
+      (같은 판정이 이 파일 아래 kind 계산에도 있다 — 한쪽만 고치지 말 것)
+   ⚠️ 모듈 스코프에 둔다: 아이디를 싣는 자리가 이 파일 안에 흩어져 있어(주간표·앞으로 7일·
+      오늘·대타·옛LMS 미러) 핸들러 «안» 에 두면 먼 자리에서 스코프 밖이 된다(실제로 밟았다). */
+const studentUidOf = (s: any): string | null => {
+  const u = String(s.user_id || '').trim();
+  const lo = u.toLowerCase();
+  if (!u || lo === 'lms' || lo === 'type_seed') return null;
+  return u;
+};
+
+/* 🪪 강사 화면에 그릴 «학생 이름» — 2026-09-28 사장님 「왜 이름이 안 나오고 아이디만 나오지?」
+   class_schedules.student_name 은 예약을 넣을 때 적힌 글자라 비어 있거나 «아이디 그대로»
+   (예: yahee) 인 행이 있다. 그러면 화면(stuParts)은 이름==아이디로 보고 아이디 하나만 그린다.
+   → 그때만 명부(students_erp)의 korean_name → student_name 순으로 채운다.
+   ⛔ 명부 값도 아이디와 같으면 쓰지 않는다(이름을 지어내지 않는다 — 아이디 하나만 보이는 게 사실).
+   ⚠️ 조인이 실패해 erp_ko/erp_name 이 없으면 원래 값 그대로다(예전 동작). */
+const resolveStudentName = (s: any): string | null => {
+  const uid = String(s.user_id || '').trim().toLowerCase();
+  for (const v of [s.student_name, s.erp_ko, s.erp_name]) {
+    const t = String(v == null ? '' : v).trim();
+    if (t && t.toLowerCase() !== uid) return t;
+  }
+  return s.student_name || null;
+};
+
+/* 🎌 달력 줄(주간·월간)에 공휴일 휴강을 입힌다 — 판정 정본은 holiday-closure.ts, 여기는 «입히기» 한 곳.
+   연기된 회차는 이미 «안 열림» 이라 건드리지 않는다. 중국어 수업(예외 강사)은 isHolidayClosedFor 가 거른다. */
+function applyHolidayToItems(items: any[], holiday: any): void {
+  for (const it of items) if (it.class_state !== 'postponed' && isHolidayClosedFor(holiday, it.teacher_id)) {
+    it.status = 'holiday'; it.holiday_name = holiday.name;
+  }
+}
+
+/* 🔢 로그인 계정 → **카페24 강사번호**(attendance.teacher_uid). 옛 LMS 수업 목록과 그 수업의 이력 권한이
+   같은 판정을 써야 해서 함수 하나로 둔다(2026-10-28 — 이력 창이 따로 판정하면 반드시 어긋난다).
+   🔴 (2026-08-19) 여기가 «남의 수업이 보일 뻔한» 자리다. 반드시 읽고 고칠 것.
+      첫 판에서는 linkedTeacherIds(= D1 `teachers.id`, 지역 일련번호 1~29)를
+      attendance.teacher_uid 와 곧바로 맞췄다. 그런데 teacher_uid 는
+      **카페24 강사번호**(실측 9~196)다 — 완전히 다른 번호 체계다.
+      번호가 우연히 겹치는 자리에서 정확히 «다른 사람» 이 걸렸다(실측):
+        · HANNAH 계정(teachers.id=24) ↔ 카페24 24 = Teacher Mariane 의 수업 127건
+        · MELCA  계정(teachers.id=26) ↔ 카페24 26 = Teacher Rica 의 수업 11건
+      학생 이름이 함께 보이므로 «남의 수업이 보이는» 사고 그대로였다.
+      (이 파일 위쪽 'Anna → HANNAH' 기록과 같은 종류의 사고다. 번호라서 더 안 보였다.)
+   → 로그인 계정을 **카페24 강사번호로 따로 해석**한다. 경로는 하나뿐이다:
+        teacher_profiles.korean_name/english_name
+          ── 완전일치 ──▶ teacher_payroll_auto.teacher_name → teacher_id(카페24 번호)
+      teacher_payroll_auto 는 카페24 서버가 «번호와 이름을 함께» 밀어넣은 표라
+      그 안에서는 번호↔이름이 어긋나지 않는다.
+   ⚠️ 완전일치만 쓴다. 부분일치는 절대 금지 — 'Anna' 가 'H-ANNA-H' 에 붙던 그 사고다.
+   ⚠️ 후보가 2개 이상이면 **아무것도 붙이지 않는다**. 모르는 것보다 틀린 게 나쁘다.
+   ⚠️ 못 찾으면 빈 배열 — 부르는 쪽은 «안 보여주는» 쪽으로 실패한다(안전한 실패).
+   ⛔ linkedTeacherIds 로 되돌리지 말 것. 번호가 겹치는 자리에서 조용히 남의 수업을 준다. */
+/* 옛 LMS 수업 목록이 거슬러 보는 날 수 — 일지는 기억이 남아 있을 때 쓴다(2주면 충분).
+   그 줄의 「수업 요약 / 캘린더」 권한도 같은 창을 쓴다(목록에 없는 옛 방으로 이력을 무기한 열지 않게). */
+const LMS_LOOKBACK_DAYS = 14;
+const lmsSinceDate = (nowMs: number) => new Date(nowMs + 9 * 3600 * 1000 - LMS_LOOKBACK_DAYS * 86400000).toISOString().slice(0, 10);
+
+async function resolveCafe24TeacherIds(db: D1Database, actorName: unknown): Promise<string[]> {
+  const name = String(actorName || '').trim();
+  if (!name) return [];
+  const prof = await db.prepare(
+    `SELECT korean_name, english_name FROM teacher_profiles
+      WHERE korean_name = ? COLLATE NOCASE OR english_name = ? COLLATE NOCASE LIMIT 2`
+  ).bind(name, name).all<any>().catch(() => ({ results: [] as any[] }));
+  const rows = prof.results || [];
+  // 프로필이 둘 이상 걸리면 누구인지 모르는 것이다 → 붙이지 않는다.
+  if (rows.length === 1) {
+    for (const nm of [rows[0].korean_name, rows[0].english_name].filter(Boolean)) {
+      const pay = await db.prepare(
+        `SELECT DISTINCT teacher_id FROM teacher_payroll_auto
+          WHERE teacher_name = ? COLLATE NOCASE LIMIT 2`
+      ).bind(nm).all<any>().catch(() => ({ results: [] as any[] }));
+      const pr = pay.results || [];
+      if (pr.length === 1) return [String(pr[0].teacher_id)];
+    }
+  }
+  return [];
+}
+
 export async function handleTeacherApi(
   request: Request,
   url: URL,
@@ -63,7 +170,14 @@ export async function handleTeacherApi(
   const path = url.pathname;
   const method = request.method;
 
-  if (path !== '/api/teacher/portal' || method !== 'GET') return null;
+  /* 🗓 `POST ?part=goal` — 강사가 학생의 «4주 목표» 를 고른다(2026-10-10, src/student-goal.ts).
+   *  같은 경로에 얹는 이유는 `?part=my_evals` 와 같다(신원 판정 한 벌·index.ts 게이트 재등록 없음).
+   *  ⚠️ 권한 = «이 강사의 오늘 수업 학생» — 아래에서 classes 를 다 만든 뒤에 확인한다. */
+  const isGoalPost = method === 'POST' && url.searchParams.get('part') === 'goal';
+  const isPreqPost = method === 'POST' && url.searchParams.get('part') === 'preq';   // 👪 학부모 요청 «반영함»
+  const isLevelPost = method === 'POST' && url.searchParams.get('part') === 'level';  // 🎚 일지에서 학생 레벨 정하기
+  const isPhoneSavePost = method === 'POST' && url.searchParams.get('part') === 'phone_save';   // 📵 번호 없는 학생에게 번호 넣기
+  if (path !== '/api/teacher/portal' || (method !== 'GET' && !isGoalPost && !isPreqPost && !isLevelPost && !isPhoneSavePost)) return null;
 
   /* 🔔 `?only=next` — «다음 수업 하나» 만 돌려주는 초경량 모드 (2026-08-09)
    *
@@ -77,7 +191,14 @@ export async function handleTeacherApi(
    *  [건너뛰는 것] 공지·자료·평점 조회(D1 3회) · 매니저 블록(D1 2회, 오늘 전체 수업 스캔)
    *       · 학생 읽기밴드(KV). 즉 D1 왕복이 5회 줄고 본문이 수십 KB → 수백 B 가 된다.
    */
-  const onlyNext = url.searchParams.get('only') === 'next';
+  /* 📅 `?part=month&month=YYYY-MM` — «월간 보기» 전용 경량 응답 (2026-10-27 강사 제안 «관리자 화면처럼 월 보기»).
+   *  ?only=next 와 같은 이유로 같은 경로에 얹는다 — 신원 판정(계정→강사원부)이 한 벌이어야 «남의 수업» 이 안 섞인다.
+   *  주간 스케줄과 «같은 행·같은 판정»(아래 hitsOn·calendarItemOf)으로 한 달을 펼칠 뿐, 오늘 목록의 무거운
+   *  보강(출결·평가·연락처·인수인계)은 하지 않는다(월 달력은 «언제 무슨 수업이 있나» 만 그린다). */
+  const monthParam = url.searchParams.get('part') === 'month' ? String(url.searchParams.get('month') || '').trim() : '';
+  const monthMode = url.searchParams.get('part') === 'month';
+  const phoneMode = (method === 'GET' && url.searchParams.get('part') === 'phone_gaps') || isPhoneSavePost;   // 📵 신원만 쓰고 공지·자료·평점은 안 읽는다
+  const onlyNext = url.searchParams.get('only') === 'next' || url.searchParams.get('part') === 'student_history' || monthMode || phoneMode;
 
   // ── 신원: 쿠키 세션에서만 (클라이언트가 보내는 값은 일절 신뢰하지 않는다) ──
   const actor = await getAdminActor(request, env as any);
@@ -97,6 +218,71 @@ export async function handleTeacherApi(
       message_en: 'This page is for teacher or head-office accounts only.',
     }, 403);
   }
+  /* 📅 월 보기의 month 형식 검사 — 로그인 확인 «뒤» 에 둔다(student_history 와 같은 자리).
+     앞에 두면 미인증 요청이 401 이 아니라 400 을 받아, «401 이냐 핸들러 검증 오류냐» 로 게이트를 가르는
+     무해 프로브(규칙서 2장)가 이 경로를 «게이트 없음» 으로 오독한다. */
+  if (monthMode && !(/^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam) && Number(monthParam.slice(0, 4)) >= 2000)) {
+    return json({ ok: false, error: 'bad_month' }, 400);
+  }
+
+  /* ✍ `?part=my_evals` — «내가 쓴 일지» 카드 전용 경량 응답 (2026-08-27 마이마이 8/26 ①)
+   *
+   *  [왜] 강사가 쓴 일지(student_evaluations)를 되볼 화면이 없었다. 쓰기(/api/eval/create)는
+   *       되는데 조회 API(/api/eval/list)는 학생 서명토큰 기준이라 강사 세션과 안 맞는다.
+   *  [왜 여기] 새 경로를 만들면 index.ts 게이트에 또 등록해야 하고(빠뜨리면 조용히 죽는
+   *       CLAUDE.md 함정), 신원 판정도 두 벌이 된다. `?only=next` 와 같은 이유로 같은
+   *       경로에 얹는다 — 신원은 위 getAdminActor 한 벌 그대로.
+   *  [매칭] teacher_uid 는 이 화면이 저장할 때 넣는 값 = 로그인 아이디(DATA.me.username)다.
+   *       아이디 완전일치(NOCASE)만 쓴다 — 이름 매칭은 'Anna → HANNAH' 사고의 길이다.
+   *       teacher_uid 가 비어 있는 옛 행만 이름 **완전일치** 로 보조한다.
+   *  [카드는 펼칠 때만 부른다] — 이 화면의 설계 계약 4번(첫 화면 API 1회)을 지키기 위해
+   *       포털 본 응답에 싣지 않고 별도 part 로 뒀다. */
+  if (url.searchParams.get('part') === 'my_evals') {
+    const uname = String(actor.username || '').trim();
+    const aname = String(actor.name || '').trim();
+    if (!uname && !aname) return json({ ok: true, items: [] });
+    // 빈 값을 바인드하면 teacher_uid='' 행 · teacher_name='' 행과 맞아 남의 행이 섞인다
+    // — 값이 있는 축만 조건으로 만든다.
+    const ors: string[] = []; const binds: string[] = [];
+    if (uname) { ors.push(`(teacher_uid = ? COLLATE NOCASE)`); binds.push(uname); }
+    if (aname) { ors.push(`((teacher_uid IS NULL OR teacher_uid = '') AND teacher_name = ? COLLATE NOCASE)`); binds.push(aname); }
+    // note_en/note_ko/room_id 는 강사 1분 일지(/api/eval/create)만 채우는 칸 —
+    // AI 자동보고(ai-lesson-report 자동저장)·관리자 일괄평가(bulk-create) 행이
+    // «내가 쓴 일지» 로 둔갑하지 않게 이 표식으로 거른다.
+    // 🗓 (2026-10-27) 출결·레벨 칸(attendance_status·student_level)도 싣는다 — 정본 eval-attendance.ts.
+    //   ⚠️ 그 칸은 api-lessons.ts ensureEvalTable 의 «지연 ALTER» 로 생긴다 — 배포 뒤 첫 일지 저장 전에는
+    //      없어서 SELECT 가 «no such column» 으로 죽는다. 그때는 옛 칸만으로 한 번 더 읽는다(카드가 통째로 실패하지 않게).
+    const myEvalsSql = (extra: string) =>
+      `SELECT id, student_name, lesson_date, score_overall,
+              substr(COALESCE(note_en, teacher_comment, strengths, ''), 1, 600) AS note_en,
+              substr(COALESCE(note_ko, ''), 1, 600) AS note_ko,
+              parent_notified, viewed_by_parent, created_at${extra}
+         FROM student_evaluations
+        WHERE (${ors.join(' OR ')})
+          AND (note_en IS NOT NULL OR note_ko IS NOT NULL OR room_id IS NOT NULL)
+        ORDER BY created_at DESC LIMIT 40`;
+    const rs: any = await env.DB.prepare(myEvalsSql(', attendance_status, student_level')).bind(...binds).all<any>()
+      .catch(() => env.DB.prepare(myEvalsSql('')).bind(...binds).all<any>())
+      .catch((e: any) => {
+        console.warn('[teacher-portal] my_evals:', e?.message); return null;
+      });
+    // DB 실패를 «일지 없음» 으로 위장하지 않는다 — 화면의 실패 문구가 뜨게 한다.
+    if (!rs) return json({ ok: false, error: 'db_error' }, 500);
+    return json({ ok: true, items: rs.results || [] });
+  }
+
+  /* 🔐 `?part=my_login` — «내 로그인·접속 시각» 카드 (2026-10-30 매니저 제안 «add teacher's log in time»)
+   *  [왜 여기] my_evals 와 같은 이유 — 새 경로를 만들면 index.ts 게이트에 또 등록해야 하고 신원도 두 벌이 된다.
+   *  [누구 것] 로그인한 «자기» 계정만(actor.username). 클라이언트 값은 하나도 안 받는다.
+   *  [카드는 펼칠 때만 부른다] — 첫 화면 API 1회 계약. 정본 teacher-login-times.ts. */
+  if (url.searchParams.get('part') === 'my_login') {
+    try {
+      return json(await loadMyLoginDays(env, actor.username, Date.now()));
+    } catch (e: any) {
+      console.warn('[teacher-portal] my_login:', e?.message);
+      return json({ ok: false, error: 'db_error' }, 500);
+    }
+  }
 
   const now = Date.now();
   const KST = 9 * 3600 * 1000;
@@ -106,6 +292,7 @@ export async function handleTeacherApi(
   const pad = (n: number) => String(n).padStart(2, '0');
   const ymd = `${kY}${pad(kMo + 1)}${pad(kD)}`;
   const todayStr = `${kY}-${pad(kMo + 1)}-${pad(kD)}`;
+  const _holiday = await loadHolidayClosure(env.DB, todayStr);   // 🎌 공휴일 휴강(던지지 않음)
 
   // ── 담당 예약 조회 조건 ────────────────────────────────────────────────
   //   teacher_id 는 운영 DB 에서 TEXT("28") 이고, 계정 username 이 그대로 들어간 행도 있다.
@@ -159,8 +346,13 @@ export async function handleTeacherApi(
       : Promise.resolve(null),
     /* 🔗 관리자가 손으로 정해 준 «계정 = 강사» 정답표. 있으면 이름 추측을 건너뛴다.
        (관리자 화면: 강사 계정 연결 카드 / 표: teacher_account_links) */
+    /* 🔤 (2026-08-24) 아이디 **대소문자를 무시**해서 찾는다.
+       로그인이 대소문자를 무시하므로(auth-admin.ts) 세션에 담기는 아이디와
+       본사가 연결해 둔 아이디의 대소문자가 갈릴 수 있다. 그때 연결을 못 찾으면
+       화면이 「계정이 연결돼 있지 않다」고 말한다 — 실제로 그렇게 밟았다
+       (`mangoi_167` 에 연결이 있는데 `Mangoi_167` 로 들어와 0건). */
     actor.username
-      ? env.DB.prepare(`SELECT teacher_id, teacher_name FROM teacher_account_links WHERE username = ?`)
+      ? env.DB.prepare(`SELECT teacher_id, teacher_name FROM teacher_account_links WHERE username = ? COLLATE NOCASE LIMIT 1`)
           .bind(actor.username).first<any>()
           .catch(() => null)   // 표가 아직 없어도(첫 배포) 화면은 예전대로 돌아야 한다
       : Promise.resolve(null),
@@ -229,7 +421,157 @@ export async function handleTeacherApi(
   //    전자는 이름을 채워 넣는 일, 후자는 둘 중 누구인지 고르는 일이다. 문구도 갈라 준다.
   const identityAmbiguous = !isManager && ambiguousNames.length > 0;
 
+  /* 📵 «번호 없는 학생» — 강사판 (2026-10-28 사장님 「강사 화면에도 똑같이 넣어줘」)
+   *  GET  ?part=phone_gaps&days=7   — «내 수업» 이 있는데 수업 전 안내 문자가 갈 번호가 없는 학생(정본 src/phone-gaps.ts)
+   *  POST ?part=phone_save          — {student_uid, parent_phone?, student_phone?} 그 학생에게 번호를 «넣기만» 한다
+   *  🔐 범위 = 포털의 예약 조건과 «같은 열쇠»(로그인 아이디 + 확정된 원부 번호) — 남의 수업 학생은 목록에도 저장에도 안 닿는다(저장 키는 대소문자까지 정확일치). ⚠️ 다만 읽는 쪽 getOverridePhones 는 NOCASE 로 찾으므로, 대소문자만 다른 다른 계정(Kim/kim)이 자기 받은 번호가 없으면 이 번호를 집는다 — 관리자 PATCH 와 같은 성질(새로 생긴 것 아님).
+   *  ⛔ 관리자 PATCH /api/admin/student/:uid/contact 를 강사에게 열지 않는다 — 그 경로는 지우기·명부 수정까지 한다.
+   *     강사는 «번호가 없는 학생에게 새 번호 넣기» 만: 지우기 없음 · 이미 번호가 있는 학생 손댈 수 없음 · 명부(students_erp) 안 건드림
+   *     (받는 자리는 student_erp_override 하나 — 발송 정본이 «먼저» 읽고 야간 동기화가 못 덮는 자리).
+   *  ⛔ 화면이 보낸 uid 를 믿지 않는다 — 저장 «그 순간» 같은 판정으로 목록을 다시 만들어 그 안에 «정확일치» 로 있어야 한다.
+   *     번호 조회가 다 안 됐으면(complete:false) 막는다 — «이미 번호가 있는 학생» 을 덮을 수 있어서다(되돌리기 어려움).
+   *  ℹ️ 참고 번호(카페24 이탈위험 표)는 강사에게 안 보낸다(scope='teacher' 면 읽지도 않는다). */
+  if (phoneMode) {
+    const keys = [String(actor.username || '').trim(), ...linkedTeacherIds.map((x: any) => String(x))].filter(Boolean);
+    const who = { identity_unlinked: identityUnlinked, identity_ambiguous: identityAmbiguous };
+    if (!isPhoneSavePost) {
+      const r = await buildPhoneGaps(env as any, { days: Number(url.searchParams.get('days')), teacherKeys: keys });
+      return json({ ...r, ...who }, r.ok ? 200 : 503);
+    }
+    let b: any = {};
+    try { b = await request.json(); } catch { b = {}; }
+    const uid = String((b && b.student_uid) || '').trim();
+    if (!uid || uid.length > 80) return json({ ok: false, error: 'student_uid_required' }, 400);
+    /* 한 칸 판정 — '' = 안 보냄 · null = 잘못된 값. 화면(adm-phone-gaps.js checkPhone)과 같은 규칙에 «15자리 이하» 하나를 더한다. */
+    const pick = (v: any): string | null => {
+      const raw = String(v == null ? '' : v).trim();
+      if (!raw) return '';
+      if (raw.length > 30 || /[^0-9+\-\s().]/.test(raw)) return null;
+      const n = raw.replace(/[^0-9]/g, '').length;
+      return n >= SMS_MIN_DIGITS && n <= 15 ? raw : null;
+    };
+    const pp = pick(b && b.parent_phone), ps = pick(b && b.student_phone);
+    if (pp === null || ps === null) return json({ ok: false, error: 'bad_phone',
+      message: '번호는 숫자와 하이픈(-)으로 ' + SMS_MIN_DIGITS + '~15자리를 넣어 주세요.',
+      message_en: 'Enter ' + SMS_MIN_DIGITS + '–15 digits (hyphens are fine).' }, 400);
+    if (!pp && !ps) return json({ ok: false, error: 'no_phone',
+      message: '학부모나 학생 번호 중 하나를 넣어 주세요.', message_en: 'Enter a parent or student number.' }, 400);
+    // 저장 «그 순간» 의 목록 — 화면이 고를 수 있는 가장 긴 기간(14일)으로 다시 잰다(화면 목록은 언제나 그 안에 든다).
+    const r = await buildPhoneGaps(env as any, { days: PHONE_GAP_DAYS_MAX, teacherKeys: keys });
+    if (!r.ok) return json({ ok: false, error: 'phone_check_unavailable',
+      message: '지금 확인할 수 없어 저장하지 않았습니다 — 잠시 뒤 다시 눌러 주세요.',
+      message_en: 'Could not check right now, so nothing was saved — please try again shortly.' }, 503);
+    if (!r.complete) return json({ ok: false, error: 'phone_check_incomplete',
+      message: '이 학생에게 이미 번호가 있는지 다 확인하지 못해 저장하지 않았습니다 — 잠시 뒤 다시 눌러 주세요.',
+      message_en: 'Could not fully check whether this student already has a number, so nothing was saved — please try again shortly.' }, 503);
+    if (!r.gaps.some((g) => g.uid === uid)) return json({ ok: false, error: 'not_in_your_list',
+      message: '내 수업 학생 중 «번호가 없는» 학생에게만 넣을 수 있습니다 — 그사이 번호가 들어왔거나 수업이 지났을 수 있습니다. [🔄 불러오기]로 다시 확인해 주세요.',
+      message_en: 'You can only add a number for your own students who have none — one may have been added meanwhile, or the class has passed. Press [🔄 Load] to check again.' }, 403);
+    const put: { parent?: string; student?: string } = {};
+    if (pp) put.parent = pp;
+    if (ps) put.student = ps;
+    const w = await setOverridePhones(env as any, uid, put, ('teacher:' + String(actor.username || '')).slice(0, 80));
+    if (!w.ok) return json({ ok: false, error: 'save_failed',
+      message: '저장하지 못했습니다 — 잠시 뒤 다시 눌러 주세요.', message_en: 'Could not save — please try again shortly.' }, 500);
+    // 화면(saveMsg)이 읽는 모양 — 받는 자리(override)에 적혔다 · 명부는 «안 건드렸다»(null = 묻지 않음).
+    return json({ ok: true, phone_kept: true, roster_updated: null });
+  }
+
+  // Student history is lazy-loaded and read-only. Resolve the student from an owned schedule.
+  if (url.searchParams.get('part') === 'student_history') {
+    const scheduleId = Number(url.searchParams.get('schedule_id'));
+    /* 🗂 (2026-10-28 강사 화면 «Could not load class history») 옛 LMS 수업 줄(source 'lms')은 예약표 행이 없어
+       schedule_id 가 null 이다 — 그 줄의 [수업 요약 / 캘린더] 는 빈 번호를 보내 400 이 났다.
+       그 줄은 방 번호(c24-…)와 학생 아이디로 연다. 학생은 쿼리가 아니라 «이 강사(카페24 강사번호)가 가르친
+       그 방의 출석 행» 에서 확인한다 — 목록(아래 LMS 블록)과 같은 판정(resolveCafe24TeacherIds). */
+    const lmsRoom = String(url.searchParams.get('room_id') || '').trim();
+    const isLmsHistory = !(scheduleId > 0) && /^c24-\d{1,12}$/.test(lmsRoom);
+    const date = String(url.searchParams.get('date') || todayStr);
+    const month = String(url.searchParams.get('month') || date.slice(0, 7));
+    if ((!isLmsHistory && (!Number.isSafeInteger(scheduleId) || scheduleId <= 0)) || !validHistoryDate(date)
+        || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || Number(month.slice(0,4)) < 2000) {
+      return json({ ok: false, error: 'bad_history_request' }, 400);
+    }
+    if (isLmsHistory) {
+      /* 권한 = 목록에 그 줄을 그린 판정과 같다: 카페24 강사번호(D1 강사원부 연결과 무관 — 목록도 그것을 안 본다)
+         + 목록과 같은 날 창(LMS_LOOKBACK_DAYS). 그 창 밖의 옛 방으로는 열지 않는다(예약 경로가 «지금 담당» 만 여는 것과 같은 뜻). */
+      try {
+        const studentUid = String(url.searchParams.get('student_uid') || '').trim();
+        // 판정은 번호를 0~1개만 돌려준다(후보가 둘이면 아무것도 안 붙인다) — 그래서 IN 목록이 아니라 한 칸.
+        const tid = isManager ? '' : ((await resolveCafe24TeacherIds(env.DB, actor.name))[0] || '');
+        if (!studentUid || (!isManager && !tid)) return json({ ok: false, error: 'history_forbidden' }, 403);
+        const row = await env.DB.prepare(`SELECT user_id, date FROM attendance
+            WHERE room_id = ? AND user_id = ? COLLATE BINARY AND status = 'present' AND date >= ?${isManager ? '' : ' AND teacher_uid = ?'} LIMIT 1`)
+          .bind(lmsRoom, studentUid, lmsSinceDate(now), ...(isManager ? [] : [tid])).first<any>();
+        const uid = row && studentUidOf(row);
+        const lessonDate = row ? String(row.date || '').slice(0, 10) : '';
+        if (!uid || !validHistoryDate(lessonDate)) return json({ ok: false, error: 'history_forbidden' }, 403);
+        // 기준일은 그 LMS 수업 날 — 화면이 보낸 날짜(오늘 목록의 class_date)가 아니다.
+        return json(await loadTeacherStudentHistory(env, uid, month, lessonDate));
+      } catch (e) {
+        console.warn('[teacher-history] lms read failed');
+        return json({ ok: false, error: 'history_unavailable' }, 503);
+      }
+    }
+    if (!isManager && (identityUnlinked || identityAmbiguous)) return json({ ok: false, error: 'history_forbidden' }, 403);
+    try {
+      const schedule = await env.DB.prepare(`SELECT id, user_id, teacher_id, status FROM class_schedules WHERE id=? LIMIT 1`)
+        .bind(scheduleId).first<any>();
+      const uid = schedule && studentUidOf(schedule);
+      if (!uid) return json({ ok: false, error: 'history_forbidden' }, 403);
+      const keys = [...new Set([...linkedTeacherIds, String(actor.username || '')].filter(Boolean))];
+      let allowed = isManager || ((schedule.status || 'active') === 'active' && keys.includes(String(schedule.teacher_id)));
+      if (!allowed && keys.length) {
+        const sub = await env.DB.prepare(`SELECT substitute_teacher_id FROM class_substitutions
+          WHERE schedule_id=? AND sub_date=? AND status='active' LIMIT 1`).bind(scheduleId, date).first<any>();
+        allowed = !!sub && keys.includes(String(sub.substitute_teacher_id));
+      }
+      if (!allowed) return json({ ok: false, error: 'history_forbidden' }, 403);
+      return json(await loadTeacherStudentHistory(env, uid, month, date));
+    } catch (e) {
+      console.warn('[teacher-history] read failed');
+      return json({ ok: false, error: 'history_unavailable' }, 503);
+    }
+  }
+
+  /* 🔄 (2026-08-28) 1회성 대체강사 — 오늘 하루만. 강사 병가·휴가로 다른 강사가 이 회차를
+   *  맡으면 원래 강사의 class_schedules.teacher_id 는 그대로다(다음 회차 자동복귀를 위해 —
+   *  enroll-ops.ts (m-2)/(m-3) 참고). 그래서 위의 `conds`(teacher_id 매칭)만으로는:
+   *    · 원래 강사 쪽엔 "오늘도 내 수업" 으로 여전히 뜬다 → 대체가 있는 날은 숨겨야 한다.
+   *    · 대체강사 쪽엔 애초에 안 뜬다(teacher_id 가 자기가 아니므로) → 따로 끼워 넣어야 한다.
+   *  ⚠️ **오늘 하루만** 처리한다 — 주간표(weekDays)·월 달력(monthDays, 2026-10-27)·앞으로 7일(upcoming)은 day_of_week 로
+   *     매주 반복 매칭하므로, 그 특정 날짜만 겹치는 오버레이를 거기에 정확히 끼워 넣으려면
+   *     날짜별로 훨씬 더 손볼 곳이 많다(이 파일은 이미 사고 이력이 많은 파일이라 최소침습 우선).
+   *     그래서 대체 회차는 오늘 목록에서만 정확하고, 주간표·월 달력에는 아직 안 보인다(알려진 한계). */
+  const hiddenToday = new Set<number>();
+  const subToday: any[] = [];
+  try {
+    const myKeys = [...new Set([...linkedTeacherIds.map(String), actor.username ? String(actor.username) : ''].filter(Boolean))];
+    if (myKeys.length) {
+      const ph = myKeys.map(() => '?').join(',');
+      const subRows: any = await env.DB.prepare(
+        `SELECT cs2.schedule_id, cs2.substitute_teacher_id, cs2.original_teacher_id, cs2.reason,
+                cs.user_id, cs.student_name, cs.start_time, COALESCE(cs.duration_min,20) AS dm,
+                cs.class_type, cs.notes, cs.source,
+                se.level AS level, se.textbook AS textbook, se.english_name AS student_en,
+                t.name AS sub_name, t0.name AS orig_name
+           FROM class_substitutions cs2
+           JOIN class_schedules cs ON cs.id = cs2.schedule_id
+           LEFT JOIN students_erp se ON se.user_id = cs.user_id
+           LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs2.substitute_teacher_id AS TEXT)
+           LEFT JOIN teachers t0 ON CAST(t0.id AS TEXT) = CAST(cs2.original_teacher_id AS TEXT)
+          WHERE cs2.status = 'active' AND cs.status = 'active' AND cs2.sub_date = ?
+            AND (cs2.substitute_teacher_id IN (${ph}) OR cs2.original_teacher_id IN (${ph}))`
+      ).bind(todayStr, ...myKeys, ...myKeys).all<any>().catch(() => ({ results: [] } as any));
+      for (const sr of ((subRows?.results as any[]) || [])) {
+        if (myKeys.includes(String(sr.original_teacher_id || ''))) hiddenToday.add(Number(sr.schedule_id));
+        if (myKeys.includes(String(sr.substitute_teacher_id || ''))) subToday.push(sr);
+      }
+    }
+  } catch (e) { console.warn('[teacher-portal] substitution overlay:', (e as any)?.message); }
+
   const classes: any[] = [];
+  let cafe24DedupeSchedules: any[] = [];
   // 📅 앞으로 7일 안의 일회성 수업 — 선언은 여기(반환문과 같은 스코프). 채우는 건 아래 루프.
   const upcoming: any[] = [];
 
@@ -257,23 +599,47 @@ export async function handleTeacherApi(
     weekDow.push(d.getUTCDay());
   }
   const weekDays: any[] = weekDates.map((date, i) => ({ date, dow: weekDow[i], is_today: date === todayStr, items: [] as any[] }));
+  // 📅 월간 보기(?part=month) — 그 달의 날짜 칸. 월 보기가 아니면 비어 있어 아래 루프가 아무것도 안 한다.
+  const monthDays: any[] = [];
+  if (monthMode) {
+    const my = Number(monthParam.slice(0, 4)), mm0 = Number(monthParam.slice(5, 7)) - 1;
+    const last = new Date(Date.UTC(my, mm0 + 1, 0)).getUTCDate();
+    for (let d = 1; d <= last; d++) {
+      const date = `${monthParam}-${pad(d)}`;
+      monthDays.push({ date, dow: new Date(Date.UTC(my, mm0, d)).getUTCDay(), is_today: date === todayStr, items: [] as any[] });
+    }
+  }
   if (conds.length) {
-    const whereSql = `cs.status != 'cancelled' AND (${conds.join(' OR ')})`;
+    /* 🗓 (2026-08-19 Melca 8/19 제보 ①) 취소된 수업도 **받아는 온다.**
+       예전엔 여기서 통째로 뺐다. 그런데 강사 입장에서는 «내 수업이 그냥 없어진» 것으로 보인다 —
+       취소를 본 적이 없으니 「왜 없어졌지」가 된다.
+       → 받아 와서 «오늘 것만» 회색으로 남기고, 내일부터는 그리지 않는다(아래 class_state).
+       ⚠️ 주간 시간표(weekDays)·앞으로 7일(upcoming)에는 넣지 않는다 — 거기는 «앞으로 할 일» 이라
+          취소된 것이 섞이면 시간표를 잘못 읽는다. */
+    const whereSql = `(cs.status IS NULL OR cs.status <> 'cancelled' OR cs.scheduled_date = ?) AND (${conds.join(' OR ')})`;
+    const _soSel = startsOnSel(await ensureStartsOnColumn(env), 'cs');   // 📅 매주 반복의 시작일
     // 교재·레벨은 students_erp 에서 — 스키마 드리프트가 있는 테이블이라 실패하면 조인 없이 재시도.
     const sqlJoin =
-      `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
-              cs.duration_min, cs.notes, cs.class_type, cs.source, se.level AS level, se.textbook AS textbook,
-              se.english_name AS student_en
+      `SELECT cs.id, cs.teacher_id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
+              cs.duration_min, cs.notes, cs.class_type, cs.source, cs.status AS sched_status${_soSel},
+              se.level AS level, se.textbook AS textbook,
+              se.english_name AS student_en, se.eval_band AS eval_band,
+              se.korean_name AS erp_ko, se.student_name AS erp_name
          FROM class_schedules cs
          LEFT JOIN students_erp se ON se.user_id = cs.user_id
         WHERE ${whereSql}`;
     const sqlPlain =
-      `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
-              cs.duration_min, cs.notes, cs.class_type, cs.source
+      `SELECT cs.id, cs.teacher_id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
+              cs.duration_min, cs.notes, cs.class_type, cs.source, cs.status AS sched_status${_soSel}
          FROM class_schedules cs WHERE ${whereSql}`;
     let rows: any;
-    try { rows = await env.DB.prepare(sqlJoin).bind(...binds).all<any>(); }
-    catch { try { rows = await env.DB.prepare(sqlPlain).bind(...binds).all<any>(); } catch { rows = { results: [] }; } }
+    // ⚠️ whereSql 맨 앞에 취소-예외용 ? 하나가 늘었다 — 바인드 순서를 반드시 맞춘다.
+    const bindsAll = [todayStr, ...binds];
+    try { rows = await env.DB.prepare(sqlJoin).bind(...bindsAll).all<any>(); }
+    catch { try { rows = await env.DB.prepare(sqlPlain).bind(...bindsAll).all<any>(); } catch { rows = { results: [] }; } }
+    // 🪪 이름 칸이 비었거나 «아이디 그대로» 면 명부(students_erp)의 이름으로 채운다 — resolveStudentName 참고.
+    for (const r of (rows.results || [])) r.student_name = resolveStudentName(r);
+    cafe24DedupeSchedules = rows.results || [];
 
     /* ⏰ 입장 시간창 — 강사는 학생보다 **먼저(또는 같이)** 열려야 한다.
        (2026-08-02) 예전엔 값이 셋으로 갈라져 있었다: 학생 10분 / 마이페이지 30분 / 이 화면 5분.
@@ -334,39 +700,64 @@ export async function handleTeacherApi(
       return 'regular';
     };
 
+
+    /* 🗓 «이 수업이 그 날 열리나» · «달력 한 줄» — 주간 스케줄과 월간 보기가 **같은 함수**를 쓴다.
+       ⛔ 둘 중 한쪽에 판정을 다시 적지 말 것 — 화면마다 다른 답이 나온다. */
+    const hitsOn = (s: any, date: string, dow: number): boolean => s.scheduled_date
+      ? (String(s.scheduled_date).slice(0, 10) === date)
+      : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, dow) && recurStartedOn(s, date));
+    const calendarItemOf = (s: any, date: string, postponed: boolean): any => {
+      const [wh, wm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
+      return {
+        id: s.id,
+        schedule_id: s.id,
+        teacher_id: s.teacher_id,
+        date,
+        class_date: date,
+        room_id: 'class-' + s.id + '-' + date.replace(/-/g, ''),
+        start_ts: Date.parse(date + 'T' + pad(wh || 0) + ':' + pad(wm || 0) + ':00+09:00'),
+        class_state: postponed ? 'postponed' : undefined,
+        status: postponed ? 'postponed' : (date > todayStr ? 'early' : 'done'),
+        start_time: `${pad(wh || 0)}:${pad(wm || 0)}`,
+        duration_min: Number(s.duration_min) || 30,
+        level: s.level || null,
+        student_uid: studentUidOf(s),
+        student_name: s.student_name || s.student_en || null,
+        student_name_en: s.student_en || null,
+        kind: String(s.user_id || '').toLowerCase() === 'lms' ? 'lms'
+            : (String(s.user_id || '').toLowerCase() === 'type_seed' ? 'sample' : 'class'),
+        class_kind: classKindOf(s),
+        is_level_test: classKindOf(s) === 'level_test',
+      };
+    };
+
     const seen = new Set<number>();
     for (const s of (rows.results || [])) {
       /* 🗓 주간 스케줄 — 오늘/앞으로 판정과 «별개» 로 먼저 채운다.
          반복 수업도 넣는다: 여기는 «내 시간표» 라 그게 본래 목적이다.
          (앞의 upcoming 목록에는 일부러 안 넣었다 — 거기는 «특별한 한 건» 을 띄우는 자리다) */
-      for (let wi = 0; wi < 7; wi++) {
-        const hit = s.scheduled_date
-          ? (String(s.scheduled_date).slice(0, 10) === weekDays[wi].date)
-          : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, weekDays[wi].dow));
-        if (!hit) continue;
-        const [wh, wm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
-        weekDays[wi].items.push({
-          id: s.id,
-          start_time: `${pad(wh || 0)}:${pad(wm || 0)}`,
-          duration_min: Number(s.duration_min) || 30,
-          student_name: s.student_name || s.student_en || null,
-          student_name_en: s.student_en || null,
-          kind: String(s.user_id || '').toLowerCase() === 'lms' ? 'lms'
-              : (String(s.user_id || '').toLowerCase() === 'type_seed' ? 'sample' : 'class'),
-          class_kind: classKindOf(s),
-          is_level_test: classKindOf(s) === 'level_test',
-        });
+      // 🗓 취소된 수업은 «오늘 목록» 에만 회색으로 남긴다 — 시간표·앞으로 7일에는 넣지 않는다.
+      const _cancelled = String(s.sched_status || '') === 'cancelled';
+      /* Postponed occurrences remain visible in the weekly calendar, without join actions. */
+      const _postponed = isPostponedOccurrence(s);
+      if (!_cancelled) {   // cancelled schedules stay out of the timetable
+        for (const day of weekDays) if (hitsOn(s, day.date, day.dow)) day.items.push(calendarItemOf(s, day.date, _postponed));
+        for (const day of monthDays) if (hitsOn(s, day.date, day.dow)) day.items.push(calendarItemOf(s, day.date, _postponed));
       }
 
       if (seen.has(s.id)) continue;
       let occurs = false;
       if (s.scheduled_date) occurs = (s.scheduled_date === todayStr);
-      else if (s.day_of_week != null && s.day_of_week !== '') occurs = dowMatches(s.day_of_week, kDow);
+      else if (s.day_of_week != null && s.day_of_week !== '') occurs = dowMatches(s.day_of_week, kDow) && recurStartedOn(s, todayStr);
+
+      // 🔄 오늘은 다른 강사가 대체 — 내 「오늘 수업」 목록에는 안 뜬다(위 hiddenToday 주석 참고).
+      if (occurs && hiddenToday.has(Number(s.id))) continue;
 
       if (!occurs) {
         /* 오늘이 아니면 «앞으로 7일» 안에 열리는지 본다.
            ⚠️ 반복 수업(day_of_week)은 매주 도니 여기 넣으면 목록이 그 강사의 시간표로
               가득 찬다 → **일회성(one_off)만**. 레벨테스트는 전부 일회성이라 정확히 걸린다. */
+        if (_cancelled || _postponed) continue;       // 취소·연기된 것은 «앞으로» 에 넣지 않는다
         if (!s.scheduled_date) continue;
         const d = String(s.scheduled_date).slice(0, 10);
         if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d <= todayStr) continue;
@@ -381,6 +772,7 @@ export async function handleTeacherApi(
           start_time: `${pad(uh || 0)}:${pad(um || 0)}`,
           start_ts: uStart,
           duration_min: Number(s.duration_min) || 30,
+          student_uid: studentUidOf(s),
           student_name: s.student_name || s.student_en || null,
           student_name_en: s.student_en || null,
           level: s.level || null,
@@ -397,6 +789,9 @@ export async function handleTeacherApi(
       const dur = Number(s.duration_min) || 30;
       const end_ts = start_ts + dur * 60000;
       const _kind = classKindOf(s);
+      /* 🎌 (2026-10-09) 공휴일 휴강 — 학생 쪽(sessions/today)은 이 수업을 아예 안 보낸다. 강사 화면은
+         «연기된 수업» 과 같은 줄(입장 버튼 없음)로 그리고 holiday_name 으로 이유를 말한다. 중국어 수업(예외 강사)은 그대로. */
+      const _holidayOff = !_cancelled && !_postponed && isHolidayClosedFor(_holiday, s.teacher_id);
       // 레벨테스트는 학생 창(30분)과 **최소 동시**로 열어야 한다. 위 상수 주석 참고.
       const open_at_ts = start_ts - (_kind === 'level_test' ? OPEN_BEFORE_LEVELTEST : OPEN_BEFORE);
       const close_at_ts = end_ts + LATE_AFTER;
@@ -423,7 +818,7 @@ export async function handleTeacherApi(
         // 🔑 결정론적 방 번호 — api-mango.ts 의 sessions/today 와 **반드시 같은 식**.
         //    다르면 강사와 학생이 서로 다른 방에 들어가 수업이 성립하지 않는다.
         room_id: `class-${s.id}-${ymd}`,
-        student_uid: s.user_id,
+        student_uid: studentUidOf(s),
         student_name: s.student_name || s.student_en || null,
         // 🌐 학생 이름은 **번역하지 않는다** — 사람 이름을 기계번역하면 엉뚱한 말이 된다.
         //   대신 학생 원부에 이미 있는 영문명을 그대로 내려주고, 영어 화면이면 이걸 쓴다.
@@ -431,6 +826,9 @@ export async function handleTeacherApi(
         student_name_en: s.student_en || null,
         level: s.level || null,
         textbook: s.textbook || null,
+        // 🌱 (2026-08-24) 학년 데이터가 D1 에 사실상 0% 라(CLAUDE.md 2장) 자동 배정을 못 한다 —
+        //   강사가 수업 중 직접 태그한 값을 그대로 보여준다. 미배정이면 null.
+        eval_band: s.eval_band || null,
         note: s.notes || null,
         /* 🧪 (2026-08-06) 레벨테스트인지 알려 준다. 강사에겐 응대가 다르다 —
            처음 만나는 학생이고, 보호자가 옆에 있고, 끝나면 평가를 남겨야 한다.
@@ -450,10 +848,94 @@ export async function handleTeacherApi(
         enter_until_ts: enterUntilTs,
         duration_min: dur,
         status,
-        join_open: now >= open_at_ts && now <= close_at_ts,
+        /* 🏷 (2026-08-19 Melca 8/19 제보 ①) 「예정/진행중/완료/취소/노쇼가 구분되나」
+           ─────────────────────────────────────────────────────────────────
+           예전에는 화면이 이 값을 **자기가 다시 계산**했다(teacher.html 의 done/live/open).
+           그래서 화면마다 답이 달라질 수 있었고, 취소·노쇼는 라벨 자체가 없었다.
+           이제 **서버가 정해서 내려주고 화면은 그리기만 한다.**
+           ⚠️ 위의 status(early/open/live/done)는 **그대로 둔다** — 버튼 열림 판정 등
+              이미 쓰는 곳이 있다. 여기서 없애면 조용히 깨진다.
+              class_state 는 «사람에게 보여줄 라벨» 이고 status 는 «문이 열렸나» 다.
+           ⚠️ 노쇼는 여기서 판정하지 않는다 — 아래에서 class_no_show 기록을 그대로 읽는다.
+              판정을 두 벌 두면 화면마다 다른 답이 나온다(src/no-show-truth.ts 의 원칙). */
+        /* ⏸ (2026-10-01) 연기된 수업 — 그전에는 «예정/입장가능» 으로 보여 강사가 연기된 방에
+           들어가 기다렸다(class-1931 Farrah). teacher.html 은 이 줄에 입장 버튼 대신
+           «기다리지 않아도 됩니다» 를 그린다. */
+        class_state: _cancelled ? 'cancelled'
+                   : (_postponed || _holidayOff) ? 'postponed'
+                   : (status === 'live' ? 'ongoing'
+                   : (status === 'done' ? 'done' : 'scheduled')),
+        join_open: !_postponed && !_holidayOff && now >= open_at_ts && now <= close_at_ts,
+        holiday_name: _holidayOff ? (_holiday.name || '공휴일') : null,
+        holiday_msg: _holidayOff ? holidayClosedMsg(_holiday.name) : null,
         // ⚠️ join_open 은 «수업 시간인가» 다. «들어갈 수 있나» 는 이 값 — 둘을 섞지 말 것.
-        can_enter: now >= enterFromTs && now <= enterUntilTs,
+        can_enter: !_postponed && !_holidayOff && now >= enterFromTs && now <= enterUntilTs,
       });
+    }
+
+    /* 🔄 오늘 내가 대체로 들어가는 회차 — 위 hiddenToday/subToday 주석 참고.
+       원래 강사 쪽 배정(cs.teacher_id)과 무관하게 여기서 직접 채운다. */
+    for (const sr of subToday) {
+      const [hh2, mm2] = String(sr.start_time || '00:00').split(':').map((x: string) => Number(x));
+      const start_ts2 = Date.UTC(kY, kMo, kD, hh2 || 0, mm2 || 0, 0) - KST;
+      const dur2 = Number(sr.dm) || 30;
+      const end_ts2 = start_ts2 + dur2 * 60000;
+      const kind2 = classKindOf(sr);
+      const open_at_ts2 = start_ts2 - (kind2 === 'level_test' ? OPEN_BEFORE_LEVELTEST : OPEN_BEFORE);
+      const close_at_ts2 = end_ts2 + LATE_AFTER;
+      let status2: string;
+      if (now < open_at_ts2) status2 = 'early';
+      else if (now < start_ts2) status2 = 'open';
+      else if (now <= close_at_ts2) status2 = 'live';
+      else status2 = 'done';
+      classes.push({
+        kind: 'class',
+        schedule_id: sr.schedule_id,
+        room_id: `class-${sr.schedule_id}-${ymd}`,
+        student_uid: studentUidOf(sr),
+        student_name: sr.student_name || sr.student_en || null,
+        student_name_en: sr.student_en || null,
+        level: sr.level || null,
+        textbook: sr.textbook || null,
+        eval_band: null,
+        note: sr.notes || null,
+        class_kind: kind2,
+        is_level_test: kind2 === 'level_test',
+        open_lead_min: Math.round((start_ts2 - open_at_ts2) / 60000),
+        student_open_lead_min: Math.round((kind2 === 'level_test' ? OPEN_BEFORE_LEVELTEST : OPEN_BEFORE_STUDENT) / 60000),
+        start_time: `${pad(hh2 || 0)}:${pad(mm2 || 0)}`,
+        start_ts: start_ts2, end_ts: end_ts2, open_at_ts: open_at_ts2, close_at_ts: close_at_ts2,
+        enter_from_ts: enterFromTs, enter_until_ts: enterUntilTs,
+        duration_min: dur2,
+        status: status2,
+        class_state: status2 === 'live' ? 'ongoing' : (status2 === 'done' ? 'done' : 'scheduled'),
+        join_open: now >= open_at_ts2 && now <= close_at_ts2,
+        can_enter: now >= enterFromTs && now <= enterUntilTs,
+        // 🔄 대체강사로 들어가는 회차 — 「이거 내 수업 아닌데?」 를 화면이 바로 답할 수 있게.
+        substitute: true,
+        covering_for: sr.orig_name || null,
+      });
+    }
+    /* ⏸ (2026-10-01 사장님 «PC 는 B + D») 연기된 수업에 «누가·언제 연기했는지» 를 붙인다.
+       화면(teacher.html)이 PC 폭에서 입장 버튼 자리에 «⏸ 연기됨 · 13:55 · Maimai» 상자를 그린다.
+       ⚠️ 오늘 날짜(orig_date) 승인분만 읽는다 — IN 목록을 만들지 않으므로 D1 바인드 한도와 무관.
+       ⚠️ 실패해도 던지지 않는다 — 상자에서 «누가·언제» 만 빠지고 «연기됨» 은 그대로 뜬다.
+       ⛔ 못 찾으면 지어내지 않는다(postponed_info 를 싣지 않는다). */
+    if (classes.some((c: any) => c.class_state === 'postponed')) {
+      try {
+        const pr: any = await env.DB.prepare(
+          `SELECT schedule_id, decided_at, decided_by, requester_name FROM schedule_change_requests
+            WHERE status = 'approved' AND request_type = 'postpone' AND orig_date = ?
+            ORDER BY decided_at DESC`
+        ).bind(todayStr).all<any>();
+        const pmap = new Map<string, any>();
+        for (const r of (pr?.results || [])) { const k = String(r.schedule_id); if (!pmap.has(k)) pmap.set(k, r); }
+        for (const c of classes as any[]) {
+          if (c.class_state !== 'postponed') continue;
+          const r = pmap.get(String(c.schedule_id));
+          if (r) c.postponed_info = { at: Number(r.decided_at) || null, by: r.decided_by || r.requester_name || null };
+        }
+      } catch (e: any) { console.warn('[teacher-portal] postponed info:', e?.message); }
     }
     classes.sort((a, b) => a.start_ts - b.start_ts);
 
@@ -480,6 +962,401 @@ export async function handleTeacherApi(
     } catch { /* 밴드 조회 실패가 오늘 수업 표시를 막지 않는다 */ }
   }
 
+  /* 🏫 옛 LMS 수업(카페24 동기화분) — 「일지 쓰기」가 붙을 자리 (2026-08-18)
+   *
+   *  [왜] 강사들은 **옛 LMS 에서 수업한다**(사장님 확인). 그 수업은 카페24→Neo4j→D1 로
+   *       이미 들어와 있다 — attendance 의 room_id='c24-{class_id}' 행이 179,998건이다.
+   *       그런데 이 화면은 class_schedules(예약표)만 보고 있었고, 거기엔 정규 수업이
+   *       **0건**이다(2026-08-18 실측: 673행 중 lms·type_seed 자리표시를 빼면 15행,
+   *       그나마 레벨테스트 신청이다). 그래서 강사 화면은 늘 비어 있었고,
+   *       「일지 쓰기」 버튼은 끝난 수업이 있어야 그려지므로 **한 번도 뜬 적이 없다**
+   *       (수업일지 누적 0건 — student_evaluations 104건은 전부 데모·시드였다).
+   *
+   *  [무엇] 끝난 LMS 수업을 «완료된 수업» 으로 함께 실어 준다. 화면은 이미 status='done'
+   *       인 수업에 [일지 쓰기] 를 그리므로 화면 쪽 수정 없이 버튼이 살아난다.
+   *
+   *  ⚠️ 담당 판정은 **attendance.teacher_uid = 카페24 강사번호** 로만 한다(teachers.id 가 아니다 —
+   *     번호 체계가 달라 겹치는 자리에서 남의 수업이 걸린다. 판정·사고 기록은 resolveCafe24TeacherIds).
+   *     이름 문자열로는 절대 붙이지 않는다.
+   *  ⚠️ 입장 창을 과거로 둔다 — 끝난 LMS 수업에 [입장] 을 주면 아무도 없는 방이 열린다.
+   *     화면은 enter_from/until 로 판정하므로 [완료] + [일지 쓰기] 만 남는다.
+   *  ⚠️ 카페24가 아직 강사 속성을 안 주면 teacher_uid 가 전부 NULL 이라 이 블록은
+   *     조용히 0건이 된다(화면은 예전 그대로). cafe24-sync.ts 의 같은 날짜 주석 참고.
+   */
+  if (!onlyNext) {
+    try {
+      /* 🔴 담당 판정은 카페24 강사번호로만 — 판정과 그 사고 기록은 resolveCafe24TeacherIds(이 파일 위쪽). */
+      const cafe24Tids = await resolveCafe24TeacherIds(env.DB, actor.name);
+      if (!cafe24Tids.length) throw new Error('no_cafe24_teacher_id');
+
+      const tConds = cafe24Tids.map(() => 'a.teacher_uid = ?').join(' OR ');
+      const sinceDate = lmsSinceDate(now);
+      // eval_band 컬럼은 /api/eval/create 가 처음 불릴 때 생긴다(ensureEvalTable) — 배포
+      // 직후처럼 아직 없는 순간에 컬럼 하나 때문에 오늘 카페24 수업 목록이 통째로 사라지면
+      // 안 되므로, 그 컬럼 없이도 조회되는 쿼리로 폴백한다(위 sqlJoin/sqlPlain과 같은 패턴).
+      const lmsSqlJoin =
+        `SELECT a.room_id, a.user_id, a.username, a.joined_at, a.left_at, a.date,
+                a.teacher_uid, se.english_name AS student_en, se.level AS level, se.textbook AS textbook,
+                se.eval_band AS eval_band
+           FROM attendance a
+           LEFT JOIN students_erp se ON se.user_id = a.user_id
+          WHERE a.room_id LIKE 'c24-%' AND a.status = 'present'
+            AND a.date >= ? AND a.date <= ?
+            AND (${tConds})
+          ORDER BY a.joined_at DESC
+          LIMIT 200`;
+      const lmsSqlPlain =
+        `SELECT a.room_id, a.user_id, a.username, a.joined_at, a.left_at, a.date,
+                a.teacher_uid, se.english_name AS student_en, se.level AS level, se.textbook AS textbook
+           FROM attendance a
+           LEFT JOIN students_erp se ON se.user_id = a.user_id
+          WHERE a.room_id LIKE 'c24-%' AND a.status = 'present'
+            AND a.date >= ? AND a.date <= ?
+            AND (${tConds})
+          ORDER BY a.joined_at DESC
+          LIMIT 200`;
+      let lmsRs: any;
+      try { lmsRs = await env.DB.prepare(lmsSqlJoin).bind(sinceDate, todayStr, ...cafe24Tids).all<any>(); }
+      catch { lmsRs = await env.DB.prepare(lmsSqlPlain).bind(sinceDate, todayStr, ...cafe24Tids).all<any>(); }
+
+      // Keep Mangoi schedules and their room/attendance fields; hide only duplicate LMS rows.
+      const lmsVisible = dropTeacherCafe24Duplicates(lmsRs.results || [], cafe24DedupeSchedules, classes, dowMatches);
+      const seen = new Set(classes.map((c: any) => String(c.room_id)));
+      for (const r of lmsVisible.kept) {
+        const rid = String(r.room_id || '');
+        if (!rid || seen.has(rid)) continue;        // 예약표에서 이미 온 수업과 겹치지 않게
+        seen.add(rid);
+        const start_ts = Number(r.joined_at) || 0;
+        if (!start_ts) continue;
+        const end_ts = Number(r.left_at) > start_ts ? Number(r.left_at) : start_ts + 30 * 60000;
+        const kk = new Date(start_ts + KST);
+        classes.push({
+          kind: 'class',
+          source: 'lms',                            // 화면·로그에서 «어디서 온 수업인지» 구분용
+          schedule_id: null,
+          room_id: rid,
+          student_uid: studentUidOf(r),
+          student_name: r.username || r.user_id,
+          student_name_en: r.student_en || null,
+          level: r.level || null,
+          textbook: r.textbook || null,
+          eval_band: r.eval_band || null,
+          note: null,
+          class_kind: 'regular',
+          is_level_test: false,
+          start_time: `${pad(kk.getUTCHours())}:${pad(kk.getUTCMinutes())}`,
+          start_ts, end_ts,
+          // 이미 끝난 수업이다 — 모든 창을 과거로 닫아 [입장] 이 켜지지 않게 한다.
+          open_at_ts: start_ts, close_at_ts: end_ts,
+          enter_from_ts: start_ts, enter_until_ts: end_ts,
+          duration_min: Math.max(1, Math.round((end_ts - start_ts) / 60000)),
+          status: 'done',
+          class_state: 'done',        // 🏷 화면이 한 규칙으로만 그리게 — 여기만 빠지면 라벨이 안 뜬다
+          join_open: false,
+          can_enter: false,
+        });
+      }
+      classes.sort((a, b) => a.start_ts - b.start_ts);
+    } catch (e: any) {
+      // 카페24 번호를 못 찾았거나(no_cafe24_teacher_id) 조회가 실패해도
+      // 오늘 예약 수업 표시는 살아 있어야 한다. 못 찾은 경우는 «안 보여주는» 쪽으로 실패한다.
+      if (e?.message !== 'no_cafe24_teacher_id') console.warn('[teacher-portal] lms classes:', e?.message);
+    }
+  }
+
+  /* 🚪 「오늘은 이 방으로」 — 학생 쪽(sessions/today)과 **같은 답**을 받아야 한다.
+     ⚠️ 위 `room_id: \`class-${s.id}-${ymd}\`` 주석이 못 박아 둔 불변식이 바로 이것이다 —
+        「api-mango.ts 의 sessions/today 와 반드시 같은 식」. 지정이 걸린 수업에서
+        여기만 옛 방을 주면 **강사는 옛 방, 학생은 지정된 방**으로 갈려
+        「같은 수업인데 둘 다 참여자 1명」이 **매번** 재현된다(이 저장소가 네 번 사고 낸 그 자리).
+     ⚠️ 이 자리여야 한다 — 아래 노쇼·녹화 조회가 `room_id` 로 돌므로 **그 전에** 갈아 끼운다.
+     ⚠️ 던지지 않는다(fail-open) — 지정이 안 걸리면 예약방 그대로다. 정본 src/class-room-override.ts */
+  await applyRoomOverrides(env.DB, classes, ymd);
+
+  /* 🚪 (2026-10-21 필리핀 강사 요청 — BODA 처럼 «학생 방에 직접 들어가기») 학생이 지금 «이 수업 방이
+     아닌» 방에 접속해 있으면 그 사실을 싣는다 → teacher.html 이 빨간 줄 + 「학생 방으로 들어가기」를 그린다.
+     ⚠️ 방을 갈아 끼운 «뒤» 여야 한다 — 지정된 회의방에 제대로 있는 학생을 «다른 방» 으로 오판한다.
+     ⚠️ 던지지 않는다(fail-open). 배너(?only=next)는 건너뛴다. 정본 src/teacher-student-elsewhere.ts */
+  if (!onlyNext) await applyStudentElsewhere(env.DB, classes, now);
+
+  /* 📋 (2026-09-23) 관리자·매니저 「오늘 수업」과 같은 일곱 칸 — 정본 class-today-extras.ts.
+     ⚠️ 방 번호를 갈아 끼운 «뒤» 여야 한다(출석을 room_id 로 찾는다).
+     강사 입장은 원부 이름으로 대조한다(계정 표시이름은 «교사 …» 가 붙어 있을 수 있다) —
+     원부가 한 사람으로 확정될 때만 그 이름, 아니면 계정 이름(모르면 «확인 불가» 로 떨어진다).
+     ⛔ 던지지 않는다 — 이 칸 때문에 강사가 오늘 수업을 못 보면 안 된다. 배너(?only=next)는 건너뛴다. */
+  if (!onlyNext) {
+    // 매니저가 이 화면을 열면 «누구의 입장인지» 를 모른다 → 이름을 안 붙인다(강사 입장 = 확인 불가).
+    const _rosterName = isManager ? ''
+      : (resolvedRows.length === 1 && (resolvedRows[0] as any).name ? String((resolvedRows[0] as any).name) : tname);
+    for (const c of classes) if (!c.teacher_name && _rosterName) c.teacher_name = _rosterName;
+    // 📅 이번 주 7칸(2026-09-23) — 관리자와 같은 규칙의 요일 파서를 넘긴다(평가는 안 넘김 = 그대로 숨김)
+    try { await enrichClassesToday(env as any, classes, todayStr, now, { dowMatches }); } catch (e: any) { console.warn('[teacher-portal] extras:', e?.message); }
+  }
+  /* 📅 (2026-10-28 강사 제안 «시간이 빠른 순으로 안 나온다») 지난 14일 카페24 수업(source='lms')은 «그 수업 날» 을 싣는다.
+     enrichClassesToday 가 모든 줄의 class_date 를 오늘로 덮어 10-14 수업이 «2026-10-28» 로 찍혔고, start_ts(실제 날짜)
+     순서와 «오늘 날짜 + 시각» 이 어긋나 표가 뒤죽박죽으로 보였다. 일지(lesson_date)·수업 요약 날짜도 이 값을 쓴다.
+     ⛔ 공용 enrichClassesToday 는 안 고친다 — 관리자 「오늘 수업」이 같은 함수를 쓴다. */
+  for (const c of classes) if (c.source === 'lms' && c.start_ts) c.class_date = new Date(c.start_ts + KST).toISOString().slice(0, 10);
+
+  /* ⏸ (2026-09-25 사장님 결정) 연속 결석으로 «보류» 된 학생의 수업 — 강사는 방에서 기다리지 않고
+     필리핀 매니저에게 계속 다니는지 확인한다(보류 기간 강사비 0%). 정본 src/absence-hold.ts.
+     📅 (2026-10-28 사장님 결정) «오늘» 이 아니라 **그 줄의 수업 날짜(class_date)** 로 판정한다 — 급여·장부와 같은 기준.
+     ⚠️ 바로 위 «지난 수업 날짜» 복원 «뒤» 여야 한다 — 그 전엔 지난 줄도 오늘 날짜다.
+     ⚠️ 지난 카페24 줄(source='lms')은 출석(status='present')으로만 만든 줄 = 학생이 실제로 들어온 회차 →
+        보류가 아니다(정본 attendedStudentRooms 와 같은 원칙). 화면 표시만이다 — 급여·D1 은 안 건드린다.
+     ⚠️ 표가 없거나 못 읽으면 아무것도 안 붙는다(예전 화면 그대로). */
+  try {
+    const _holds = await loadHoldRanges(env as any);
+    if (_holds.size) for (const c of classes) {
+      if (c.kind !== 'class' || c.source === 'lms') continue;
+      const h = heldOnFor(_holds, c.student_uid, String(c.class_date || todayStr).slice(0, 10));
+      if (h) c.absence_hold = { id: h.id, held_after: h.held_after, state: h.state };
+    }
+  } catch { /* 보류 표시 실패가 오늘 수업 표시를 막지 않는다 */ }
+
+  if (!onlyNext) {
+    for (const day of weekDays) {
+      const real = day.items.filter((it: any) => it.kind === 'class');
+      if (!real.length) continue;
+      applyHolidayToItems(real, day.is_today ? _holiday : await loadHolidayClosure(env.DB, day.date));
+      // Today's authoritative room and attendance fields win over the schedule projection.
+      for (const it of real) {
+        const today = day.is_today && classes.find((c: any) => String(c.schedule_id) === String(it.schedule_id));
+        if (today) Object.assign(it, { room_id: today.room_id, status: today.status, class_state: today.class_state,
+          attendance: today.attendance, today_eval: today.today_eval });
+      }
+      if (day.date < todayStr && real.length) {
+        try { await enrichClassesToday(env as any, real, day.date, now, { evals: false, attendanceOnly: true }); }
+        catch { /* records stay unknown */ }
+      }
+      if (day.date > todayStr) for (const it of real) it.attendance = { state: it.holiday_name ? 'holiday' : it.class_state === 'postponed' ? 'postponed' : 'not_yet' };
+    }
+    await attachCalendarRecords(env, weekDays.flatMap((d: any) => d.items.filter((it: any) => it.kind === 'class')));
+  }
+
+  /* 🚫 노쇼 — 끝난 수업 중 «누군가 안 온» 기록이 있으면 라벨을 no_show 로 올린다.
+     ⚠️ 새로 판정하지 않는다. class_no_show 에 이미 남은 것을 읽기만 한다
+        (학생 브라우저가 5분 기다린 뒤 신고해 만든 행 — absent-sweep.ts).
+        판정을 두 벌 두면 화면마다 다른 답이 나온다.
+     ⚠️ **끝난 수업에만** 붙인다. 진행 중인 수업에 노쇼를 붙이면
+        «지금 하고 있는데 노쇼» 라는 모순이 화면에 뜬다.
+     ⚠️ 실패해도 목록은 그대로 나온다(라벨이 «완료» 로 남을 뿐) —
+        노쇼 표시 하나 때문에 강사가 오늘 수업을 못 보면 안 된다.
+     ⚠️ 배너용 호출(?only=next)에서는 건너뛴다 — 그쪽은 «다음 수업 한 건» 만 쓰는 가벼운 경로다. */
+  if (!onlyNext) try {
+    const doneRooms = classes.filter((c: any) => c.class_state === 'done' && c.room_id).map((c: any) => c.room_id);
+    if (doneRooms.length) {
+      const ns = await selectInChunks<any>(
+        env.DB, doneRooms,
+        (ph) => `SELECT room_id, missing_role FROM class_no_show WHERE room_id IN (${ph})`,
+        { swallowErrors: true },
+      );
+      const miss = new Map<string, string>();
+      for (const r of ns) {
+        const k = String(r.room_id || '');
+        if (!k) continue;
+        const role = String(r.missing_role || '');
+        // 같은 방에 학생·강사가 둘 다 있으면 «둘 다» 로 적는다
+        miss.set(k, (miss.has(k) && miss.get(k) !== role) ? 'both' : role);
+      }
+      for (const c of (classes as any[])) {
+        if (c.class_state !== 'done') continue;
+        const m = miss.get(c.room_id);
+        if (m) { c.class_state = 'no_show'; c.no_show_role = m; }
+      }
+    }
+  } catch { /* 노쇼 표시가 없어도 목록은 정상 */ }
+
+  // Enrich only rows already authorized by the teacher schedule query. Never accept a client student ID.
+  let contactsChecked = false, contactsComplete = true;
+  if (!onlyNext) try {
+    const visible = [...classes, ...weekDays.flatMap((d: any) => d.items)];
+    const uids = [...new Set(visible.filter((c: any) => c.kind === 'class' && c.student_uid).map((c: any) => String(c.student_uid)))];
+    if (uids.length) {
+      const records = await selectInChunks<any>(env.DB, uids,
+        (ph) => `SELECT * FROM students_erp WHERE user_id IN (${ph})`, { swallowErrors: true });
+      const byUid = new Map(records.map((r: any) => [String(r.user_id), r]));
+      /* ☎ (2026-10-27 강사 제안 «일부 학생 연락처가 여전히 안 보인다») 번호는 정본 loadContactPhones 한 곳에서.
+         예전엔 명부(students_erp)의 phone·parent_phone 만 읽었는데 그 칸은 사실상 비어 있어 — 매니저 화면에 뜨는
+         번호(student_retention)도 여기선 늘 «—» 였다. ⛔ 번호 판정을 이 파일에 다시 적지 말 것. */
+      const contacts = await loadContactPhones(env, uids);
+      const phones = contacts.phones;
+      contactsComplete = contacts.complete;
+      for (const c of visible as any[]) {
+        const uid = String(c.student_uid || '');
+        const r: any = byUid.get(uid);
+        if (r) c.academy = String(r.shop_name || '').trim() || null;
+        c.student_phone = phones.get(uid.trim()) || null;   // 정본의 키는 trim 된 아이디(카페24 행에 뒤 공백이 붙은 아이디가 실재한다)
+      }
+    }
+    // ☎ 화면이 «번호가 왜 없는지» 를 말해도 되는 근거 — 모든 원천에 «실제로» 물어봤을 때만 참.
+    //   ⚠️ loadContactPhones 는 던지지 않으므로 «try 를 끝까지 왔다» 만으로는 부족하다(D1 이 죽어도 여기까지 온다).
+    contactsChecked = contactsComplete;
+  } catch { /* Missing contact details must never prevent class entry. */ }
+
+  /* ✍ 일지 배지 + 학생별 «지난 수업» (2026-08-27 마이마이 8/26 ①②)
+   *
+   *  (a) eval_written — 이 수업 방(room_id)에 일지가 이미 있으면 표시한다.
+   *      마이마이 제보의 뿌리: Hannah 가 일지를 «썼는데»(DB 실측) 화면 어디에도
+   *      흔적이 없어 «피드백이 안 보인다» 가 됐다. room_id 완전일치로만 판정한다 —
+   *      /api/eval/create 가 저장하는 room_id 와 여기 room_id 는 같은 결정론 규칙이다.
+   *  (b) prev_lesson — 오늘 학생마다 «오늘 이전» 마지막 일지 1건(날짜·강사·내용)을
+   *      붙인다. 대타·레벨테스트에서 「이 학생을 지난번엔 누가 어떻게 가르쳤나」 가
+   *      화면에 없어서 강사가 맨손으로 들어가던 것. 내용은 400자로 자른다(목록용).
+   *  ⚠️ 실패해도 오늘 목록은 그대로 나온다 — 배지 하나 때문에 수업 목록을 막지 않는다.
+   *  ⚠️ 배너용(?only=next)은 건너뛴다 — 그쪽은 «다음 수업 한 건» 만 쓰는 가벼운 경로다. */
+  if (!onlyNext) try {
+    const rooms = [...new Set(classes.filter((c: any) => c.room_id).map((c: any) => String(c.room_id)))];
+    if (rooms.length) {
+      const evs = await selectInChunks<any>(
+        env.DB, rooms,
+        (ph) => `SELECT room_id, MAX(id) AS eval_id FROM student_evaluations
+                  WHERE room_id IN (${ph}) GROUP BY room_id`,
+        { swallowErrors: true },
+      );
+      const written = new Map<string, number>();
+      for (const r of evs) if (r.room_id) written.set(String(r.room_id), Number(r.eval_id));
+      for (const c of (classes as any[])) {
+        const eid = written.get(String(c.room_id || ''));
+        if (eid) { c.eval_written = true; c.eval_id = eid; }
+      }
+    }
+
+  } catch { /* 배지·지난수업이 없어도 목록은 정상 */ }
+
+  if (!onlyNext) await attachTeacherPreviousLessons(env.DB, [
+    ...classes, ...weekDays.flatMap((d: any) => d.items),
+  ], now);
+
+  /* 🤝 강사 인수인계 카드 (2026-10-10, 경쟁사 분석 적용 ②) — src/teacher-handover.ts
+   *  오늘 학생마다 «지난 목표 / 아직 못 고친 문장 / 복습 카드 했는지» 를 붙인다.
+   *  학생 기준이라 대체강사·강사 교체 때도 그대로 넘어간다.
+   *  ⚠️ 권한 범위 = «이 강사의 오늘 수업 학생» 목록 그 자체(클라이언트가 uid 를 보내지 않는다).
+   *  ⚠️ 배너용(?only=next)은 건너뛴다. 실패해도 목록은 그대로(loadHandovers 는 던지지 않는다). */
+  if (!onlyNext) try {
+    const hUids = classes.filter((c: any) => c.kind === 'class' && c.student_uid).map((c: any) => String(c.student_uid));
+    if (hUids.length) {
+      const hBy = await loadHandovers(env.DB, hUids, now, Date.UTC(kY, kMo, kD, 0, 0, 0) - KST);
+      for (const c of (classes as any[])) {
+        const h = hBy.get(String(c.student_uid || ''));
+        if (h && c.kind === 'class') c.handover = h;
+      }
+    }
+  } catch (e) { console.warn('[teacher-portal] handover:', (e as any)?.message); }
+
+  /* 🗓 4주 목표 — 오늘 학생마다 «지금 목표» 를 싣는다(없으면 안 싣는다 → 화면이 «목표 정하기» 를 그린다).
+   *  loadActiveGoals 는 던지지 않는다(표가 없으면 빈 Map). */
+  if (!onlyNext) try {
+    const gUids = classes.filter((c: any) => c.kind === 'class' && c.student_uid).map((c: any) => String(c.student_uid));
+    if (gUids.length) {
+      const gBy = await loadActiveGoals(env.DB, gUids, now);
+      for (const c of (classes as any[])) {
+        const g = gBy.get(String(c.student_uid || ''));
+        if (g && c.kind === 'class') c.student_goal = g;
+      }
+    }
+  } catch (e) { console.warn('[teacher-portal] goal:', (e as any)?.message); }
+
+  /* 👪 학부모 요청 — 오늘 학생마다 «열린» 요청(또는 최근 반영한 것)을 싣는다. 쌍둥이 계정 것도 본다.
+   *  loadParentRequests 는 던지지 않는다(표가 없으면 빈 Map). */
+  if (!onlyNext) try {
+    const pUids = classes.filter((c: any) => c.kind === 'class' && c.student_uid).map((c: any) => String(c.student_uid));
+    if (pUids.length) {
+      const pBy = await loadParentRequests(env.DB, pUids, now);
+      for (const c of (classes as any[])) {
+        const pr = pBy.get(String(c.student_uid || ''));
+        if (pr && c.kind === 'class') c.parent_request = pr;
+      }
+    }
+  } catch (e) { console.warn('[teacher-portal] parent-request:', (e as any)?.message); }
+
+  /* 👪 «반영함 ✔» — «오늘 이 강사 수업의 학생» 의 «열린» 요청만(목표와 같은 권한 범위·정확일치). */
+  if (isPreqPost) {
+    let b: any = {};
+    try { b = await request.json(); } catch { b = {}; }
+    const uid = String((b && b.student_uid) || '').trim();
+    const id = Number(b && b.request_id);
+    if (!uid) return json({ ok: false, error: 'student_uid_required' }, 400);
+    // ⚠️ 취소·연기(공휴일 포함)된 수업만 남은 학생은 «반영» 할 수업이 없다 — 화면이 오래돼 버튼이 남아 있어도 막는다(Codex P2).
+    const mine = classes.some((c: any) => c.kind === 'class' && String(c.student_uid || '') === uid
+      && c.class_state !== 'cancelled' && c.class_state !== 'postponed');
+    if (!mine) return json({ ok: false, error: 'not_your_student' }, 403);
+    try {
+      const r = await markParentRequestDone(env.DB, { uid, id, by: String(actor.username || ''), byName: String(actor.name || actor.username || ''), nowMs: now });
+      if (!r.ok) return json(r, r.error === 'not_open' ? 409 : 400);
+      return json({ ok: true, parent_request: r.request });
+    } catch (e) {
+      console.warn('[teacher-portal] parent-request save:', (e as any)?.message);
+      return json({ ok: false, error: 'db_error' }, 500);
+    }
+  }
+
+  /* 🎚 학생 레벨 정하기 — 일지 창에서 고르고 확인창에서 «예» 를 누르면 저장(2026-10-27 사장님 「강사가 일지에서 레벨을 직접 입력하게 해줘」).
+   *  정본은 src/teacher-student-level.ts — 값 판정·저장·변경 기록, 그리고 «이 강사의 학생인가» 판정(teacherLevelScope).
+   *  여기는 포털이 이미 만든 두 목록(오늘 목록 · 이 강사의 예약표 행)을 넘겨 묻기만 한다.
+   *  🔐 (2026-10-28 사장님 「3번 권한 범위 좁혀줘」) 예약표 행 «전부» 가 아니라 최근 14일·지금 매주 수업만 —
+   *     그 판정 범위는 teacherLevelScope 머리말. 범위 밖인데 수업 기록은 있으면 level_window_closed(+past_days)로 갈라 말한다.
+   *  ⛔ 클라이언트가 보낸 uid 를 그대로 믿지 않는다 — 목록에 «정확일치» 로 있어야 한다(Kim/kim 은 다른 계정). */
+  if (isLevelPost) {
+    let b: any = {};
+    try { b = await request.json(); } catch { b = {}; }
+    const uid = String((b && b.student_uid) || '').trim();
+    if (!uid) return json({ ok: false, error: 'student_uid_required' }, 400);
+    const level = normalizeTeacherLevelChoice(b && b.level);
+    if (!level) return json({ ok: false, error: 'bad_level' }, 400);
+    const scope = teacherLevelScope({ uid, todayClasses: classes, schedules: cafe24DedupeSchedules, todayStr, uidOf: studentUidOf });
+    if (scope === 'out_of_window') return json({ ok: false, error: 'level_window_closed', past_days: TEACHER_LEVEL_PAST_DAYS }, 403);
+    if (scope !== 'ok') return json({ ok: false, error: 'not_your_student' }, 403);
+    try {
+      const r = await setStudentLevelByTeacher(env.DB, { uid, level, by: String(actor.username || ''), byName: String(actor.name || actor.username || ''), nowMs: now });
+      if (!r.ok) return json({ ok: false, error: r.error }, r.error === 'not_found' ? 404 : 400);
+      return json({ ok: true, level: r.level, previous: r.previous == null ? null : r.previous, unchanged: !!r.unchanged });
+    } catch (e) {
+      console.warn('[teacher-portal] level save:', (e as any)?.message);
+      return json({ ok: false, error: 'db_error' }, 500);
+    }
+  }
+
+  /* 🗓 목표 정하기·지우기 — «오늘 이 강사 수업의 학생» 만(classes 가 곧 권한 범위).
+   *  ⛔ 클라이언트가 보낸 uid 를 그대로 믿지 않는다 — 목록에 있는지 «정확일치» 로 확인한다(Kim/kim 은 다른 계정). */
+  if (isGoalPost) {
+    let b: any = {};
+    try { b = await request.json(); } catch { b = {}; }
+    const uid = String((b && b.student_uid) || '').trim();
+    const key = String((b && b.goal_key) || '').trim();
+    if (!uid) return json({ ok: false, error: 'student_uid_required' }, 400);
+    if (key && !goalByKey(key)) return json({ ok: false, error: 'unknown_goal' }, 400);
+    const mine = classes.some((c: any) => c.kind === 'class' && String(c.student_uid || '') === uid);
+    if (!mine) return json({ ok: false, error: 'not_your_student' }, 403);
+    try {
+      const r = await setStudentGoal(env.DB, { uid, key, by: String(actor.username || ''), byName: String(actor.name || actor.username || ''), nowMs: now });
+      if (!r.ok) return json(r, 400);
+      return json({ ok: true, goal: r.goal });
+    } catch (e) {
+      console.warn('[teacher-portal] goal save:', (e as any)?.message);
+      return json({ ok: false, error: 'db_error' }, 500);
+    }
+  }
+
+  /* 📅 `?part=month` — 여기서 끝낸다(달력만). 아래 «다음 수업»·매니저 블록·주간 반환문은 타지 않는다. */
+  if (monthMode) {
+    /* 🎌 공휴일 휴강 — 주간 스케줄과 같은 정본(applyHolidayToItems)·같은 방식(하루씩 차례로, isolate 캐시 5분).
+       ⚠️ Promise.all 로 31일을 한꺼번에 묻지 않는다 — 찬 캐시면 날짜당 D1 문장 3~4개라 한 번에 100개 남짓이
+          몰린다(2026-10-27 함정 대조). 수업이 있는 날만 묻는다. 던지지 않는다(정본이 fail-open). */
+    for (const day of monthDays) {
+      const real = day.items.filter((it: any) => it.kind === 'class');
+      if (real.length) applyHolidayToItems(real, day.is_today ? _holiday : await loadHolidayClosure(env.DB, day.date));
+    }
+    return json({
+      ok: true, now, today: todayStr,
+      me: { identity_unlinked: identityUnlinked, identity_ambiguous: identityAmbiguous, is_manager: isManager },
+      month: {
+        month: monthParam,
+        days: monthDays.map(d => ({ ...d, items: d.items.sort((a: any, b: any) => a.start_time.localeCompare(b.start_time)) })),
+      },
+    });
+  }
+
   /* 🔔 `?only=next` — 여기서 끝낸다. 아래 매니저 블록·주간 스케줄·반환문은 타지 않는다.
    *
    *  고르는 규칙: «아직 안 끝난 것 중 가장 이른 하나». 끝난 수업은 배너로 부를 이유가 없다.
@@ -492,7 +1369,7 @@ export async function handleTeacherApi(
   if (onlyNext) {
     const GRACE_AFTER_END = 30 * 60 * 1000;   // 끝나고도 30분은 «진행 중» 으로 본다(연장·마무리)
     const cand = classes
-      .filter((c: any) => c.kind === 'class' && now <= c.end_ts + GRACE_AFTER_END)
+      .filter((c: any) => c.kind === 'class' && c.class_state !== 'postponed' && c.class_state !== 'cancelled' && now <= c.end_ts + GRACE_AFTER_END)   // ⏸ 연기·취소된 수업은 «다음 수업» 이 아니다(2026-10-01)
       .sort((a: any, b: any) => a.start_ts - b.start_ts)[0] || null;
     let next: any = null;
     if (cand) {
@@ -526,10 +1403,11 @@ export async function handleTeacherApi(
   if (isManager) {
     const dayStartMs = Date.UTC(kY, kMo, kD, 0, 0, 0) - KST;   // 오늘 00:00 KST 를 UTC ms 로
     const OPEN_BEFORE = 10 * 60 * 1000, LATE_AFTER = 15 * 60 * 1000;
+    const _soSelM = startsOnSel(await ensureStartsOnColumn(env), 'cs');
     const [allRs, nsRs] = await Promise.all([
       env.DB.prepare(
         `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date,
-                cs.start_time, cs.duration_min, cs.teacher_id, t.name AS teacher_name
+                cs.start_time, cs.duration_min, cs.status, cs.teacher_id${_soSelM}, t.name AS teacher_name
            FROM class_schedules cs
            LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id
           WHERE cs.status != 'cancelled' AND cs.user_id NOT IN ('lms','type_seed')`
@@ -545,8 +1423,9 @@ export async function handleTeacherApi(
     for (const s of (allRs.results || [])) {
       const occurs = s.scheduled_date
         ? (s.scheduled_date === todayStr)
-        : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, kDow));
+        : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, kDow) && recurStartedOn(s, todayStr));
       if (!occurs) continue;
+      if (isPostponedOccurrence(s)) continue;   // ⏸ 연기된 회차는 매니저 «오늘·다음» 목록에 안 올린다(2026-10-01)
       const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
       const start_ts = Date.UTC(kY, kMo, kD, hh || 0, mm || 0, 0) - KST;
       const end_ts = start_ts + (Number(s.duration_min) || 30) * 60000;
@@ -629,9 +1508,21 @@ export async function handleTeacherApi(
         || /중국어/.test(tname))
         ? 'ko' : 'en');
 
+  /* 🎚 (2026-10-28 사장님 「1번 확인창 전에 범위 밖이면 막아줘」) 일지 창이 확인창 «전에» 막을 수 있게,
+   *  POST ?part=level 과 «같은» 판정을 오늘 목록·요청한 주(?week=)의 항목마다 level_scope 로 실어 보낸다.
+   *  넘기는 네 값은 위 POST 블록과 반드시 같아야 한다(오늘 목록 · 예약표 행 · 오늘 날짜 · studentUidOf).
+   *  ⚠️ 목록을 «다 만든 뒤» 여기서 붙인다 — 화면은 읽기만 하고, 최종 판정은 그대로 POST 다. */
+  attachLevelScope([...classes, ...weekDays.flatMap((d: any) => d.items)], { todayClasses: classes, schedules: cafe24DedupeSchedules, todayStr, uidOf: studentUidOf });
+
   return json({
     ok: true,
     now, today: todayStr,
+    // 🗓 4주 목표 보기 — 화면이 목록을 따로 들고 있지 않게 서버 정본(student-goal.ts GOALS)을 그대로 내려준다.
+    goal_options: GOALS.map((g) => ({ key: g.key, ko: g.ko, en: g.en })),
+    // 🎚 일지 창의 «학생 레벨» 고르기 목록 — 화면이 숫자를 따로 들고 있지 않게 서버 정본을 내려준다.
+    level_scale: levelScaleForPortal(),
+    // 🔐 그 범위의 «최근 N일» — 화면이 막을 때 이 숫자만 말한다(화면에 숫자를 따로 적지 않는다).
+    level_past_days: TEACHER_LEVEL_PAST_DAYS,
     me: {
       username: actor.username, name: actor.name, role: actor.role,
       is_teacher: !isManager, is_manager: isManager, lang,
@@ -648,6 +1539,9 @@ export async function handleTeacherApi(
       also_account: otherAccountOf(actor.username || ''),
     },
     classes,
+    /* ☎ (2026-10-27) true = 연락처 조회를 마쳤다 → «—» 는 «번호가 없다» 는 뜻이다(조회 실패·캐시가 아니다).
+       화면은 이 값이 참일 때만 «왜 비었는지» 한 줄을 그린다. 캐시에는 안 남긴다(teacher.html saveCache). */
+    contacts_checked: contactsChecked,
     // 📅 앞으로 7일 안의 «일회성» 수업(레벨테스트 포함). 오늘 목록과 별개로 미리 준비하라고 알린다.
     upcoming: upcoming.sort((a, b) => a.start_ts - b.start_ts),
     // 🗓 내 주간 스케줄 — ?week=YYYY-MM-DD 로 주 이동(그 주의 월요일로 맞춰진다)

@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="zh">
 <head>
-  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5" />
-  <title>🧠 復習퀴즈 (中文) — Mangoi</title>
+  <title>🧠 중국어퀴즈 (中文) — mangoi.ai</title>
   <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0a1530" />
   <script src="/js/mango-i18n.js" defer></script>
@@ -88,8 +88,12 @@
     .rq-chip.score { color:#60a5fa; }
     .rq-chip.combo { color:#fb7185; background:rgba(251,113,133,0.12); border-color:rgba(251,113,133,0.3); }
     .rq-chip.combo.hot { animation:comboPop .4s ease-out; }
+    /* 🔊 이 버튼은 «효과음»(정답·오답 삐 소리) 전용이다. 듣기 문항의 중국어 음성과 무관한데
+       아이콘만 있어서 «퀴즈 소리»로 오해를 샀다(2026-08-21 사장님 지적) → 글자를 함께 보여 준다. */
     .rq-mute { margin-left:auto; cursor:pointer; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12);
-      border-radius:99px; width:34px; height:34px; font-size:15px; color:var(--text); }
+      border-radius:99px; min-width:34px; height:34px; padding:0 11px; font-size:12px; font-weight:700;
+      color:var(--text); white-space:nowrap; display:inline-flex; align-items:center; gap:5px; }
+    .rq-mute .rq-mute-ico { font-size:15px; }
     @keyframes comboPop { 0%{transform:scale(1)} 40%{transform:scale(1.35)} 100%{transform:scale(1)} }
     .rq-track { position:relative; height:34px; margin:2px 0 16px; }
     .rq-track-rail { position:absolute; left:14px; right:14px; top:22px; height:6px; border-radius:99px;
@@ -159,27 +163,71 @@
     .tone3 { color:var(--tone3); font-weight:700; }
     .tone4 { color:var(--tone4); font-weight:700; }
   </style>
-<script src="/js/game-track.js?v=3" defer></script>
+<!-- 👩‍🏫 (2026-09-24) 메이 선생님 얼굴 — 사장님 「중국어 복습퀴즈 화면에도 메이 선생님 넣어줘」.
+     듣기 문제를 읽어 줄 때 입이 소리에 맞춰 움직인다. 서버 중국어 음성이 여자 목소리 하나라 메이로 «고정».
+     ⚠️ 얼굴은 .wrap «밖» 에 둔다 — .wrap 은 PC 에서 zoom(1.25·1.6)이 걸려 안에 두면 크기·고정 위치가 어긋난다. -->
+<script>window.__mgAvatarWant = 'mei';</script>
+<link rel="stylesheet" href="/css/mango-avatar.css?v=3">
+<style>
+/* 크기: --av-w 하나로 폭·높이(4:5)를 정하고 !important (mango-avatar.js 가 높이를 인라인으로 한 번 넣는다).
+   · 폰 110 · 세로 짧은 폰(≤740) 90 · 폰 가로 60 — 퀴즈 위 가운데(퀴즈 칸을 너무 밀지 않게)
+   · 태블릿 150 · PC 140(세로에 묶음) — 퀴즈 위 가운데. PC 는 퀴즈가 zoom 으로 커서 얼굴이 크면 보기가 밀린다
+   · 아주 넓은 PC(≥1570): 퀴즈(zoom 1.6 = 1152px) «오른쪽 빈 여백» 에 고정(160~300px).
+     ⛔ 왼쪽에 두지 말 것 — 왼쪽 가운데에 «메뉴» 손잡이(mg-sidebar.js)가 있다.
+   감시: test-harness/manual/review-quiz-cn-avatar-browser.mjs */
+#tavatar-wrap{ --av-w:110px; margin:14px auto 0; }
+#tavatar-wrap #tavatar-ring{ width:var(--av-w)!important; height:calc(var(--av-w) * 1.25)!important; }
+#tavatar-status{ font-size:13px; }
+@media (max-width:640px) and (max-height:740px){ #tavatar-wrap{ --av-w:90px; margin-top:10px; } }
+@media (min-width:641px){ #tavatar-wrap{ --av-w:150px; } }
+@media (min-width:900px){ #tavatar-wrap{ --av-w:min(140px, calc((100vh - 360px) * .8)); } }
+@media (max-height:520px){ #tavatar-wrap{ --av-w:60px; } }
+@media (min-width:1570px) and (min-height:640px){
+  #tavatar-wrap{ position:fixed; right:24px; top:50%; transform:translateY(-50%); margin:0; z-index:40;
+    --av-w:clamp(160px, min(calc((100vw - 1152px) / 2 - 48px), calc((100vh - 200px) * .8)), 300px); }
+  #tavatar-status{ font-size:15px; padding:5px 15px; }
+}
+</style>
+<script src="/js/avatar-visemes.js?v=5" defer></script>
+<script src="/js/mango-avatar.js?v=41" defer></script>
+<script src="/js/game-track.js?v=4" defer></script>
 </head>
 <body>
   <div class="top">
-    <a href="/">← 首页</a>
-    <h1>🧠 <span>復習퀴즈 (中文)</span></h1>
+    <!-- ⬅ 화살표는 «직전 페이지» 로 (2026-09-01 사장님 지시 「화살표는 뒤로가기로 고쳐줘」).
+         📜 그전에는 이 화살표가 `href="/"` 라 «홈» 이었고, 우상단 공용 [🏠 홈] 과 합쳐 홈이
+            두 개인데 정작 «뒤로» 가 없었다. 2026-08-03 지시: ← 는 직전 페이지, 홈은 처음 화면.
+         ⚠️ 판정(히스토리 → 같은 오리진 referrer → 홈)은 복제하지 않고 back-nav.js 의 정본을
+            부른다. 그 파일이 아직 안 왔거나(defer) 캐시에 옛 사본이 있으면 `href="/"` 가
+            폴백이라 «홈으로는 간다» — 무반응이 되지 않는다.
+         ℹ️ 홈으로 가는 문은 우상단 공용 바 [🏠 홈](mango-i18n.js)이 이미 넣어 준다. -->
+    <a href="/" onclick="if(window.mangoiGoBack){event.preventDefault();window.mangoiGoBack();}">← 返回</a>
+    <h1>🧠 <span>중국어퀴즈 (中文)</span></h1>
     <div class="top-controls">
       <button class="top-btn" id="pinyin-toggle" title="拼音 표시/숨기기" onclick="togglePinyin()">拼音</button>
       <button class="top-btn" id="tone-toggle" title="톤마크 색상" onclick="toggleToneColor()">声调</button>
     </div>
   </div>
+  <div id="tavatar-wrap">
+    <div id="tavatar-ring">
+      <canvas id="tavatar-canvas" width="320" height="400" aria-label="메이 선생님"></canvas>
+      <video id="tavatar-video" muted loop playsinline preload="none" disablepictureinpicture crossorigin="anonymous"></video>
+    </div>
+    <div id="tavatar-status">
+      <span class="ts-idle" data-ko="메이 선생님과 함께 복습해요" data-en="Review with Teacher Mei">메이 선생님과 함께 복습해요</span>
+      <span class="ts-talk" data-ko="말하는 중…" data-en="Speaking…">말하는 중…</span>
+    </div>
+  </div>
   <div class="wrap">
     <div id="listView">
       <div class="intro">
-        <h2>🧠 선생님이 내주신 復習퀴즈</h2>
+        <h2>🧠 선생님이 내주신 중국어퀴즈</h2>
         <p>📚 다락원 교재로 배운 중국어를 퀴즈로 복습해요. 풀고 나면 <b>점수와 해설</b>이 바로 나와요!</p>
       </div>
       <div id="quizList"><div class="empty-box">⏳ 퀴즈를 불러오는 중…</div></div>
       <div style="text-align:center;margin-top:22px">
         <div style="font-size:13px;color:var(--text2);margin-bottom:10px">다른 활동으로 이동할까요?</div>
-        <button onclick="window.MangoFlow&&MangoFlow.open('quiz')" style="display:inline-flex;align-items:center;gap:8px;padding:14px 30px;background:linear-gradient(135deg,#60a5fa,#3b82f6);color:#fff;border:0;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px -4px rgba(96,165,250,.5);font-family:inherit">🚀 다음으로 이동 (수업·웜업·게임·나가기)</button>
+        <button onclick="window.MangoFlow&&MangoFlow.open('quiz')" style="display:inline-flex;align-items:center;gap:8px;padding:14px 30px;background:linear-gradient(135deg,#60a5fa,#3b82f6);color:#fff;border:0;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px -4px rgba(96,165,250,.5);font-family:inherit">🚀 다음으로 이동 (수업·말하기 연습·게임·나가기)</button>
       </div>
     </div>
     <div id="playView" style="display:none"></div>
@@ -187,6 +235,10 @@
   </div>
 
   <script>
+    /* 🇨🇳 이 화면을 연 학생은 «중국어 수강생» 으로 기록 (2026-08-24) —
+       홈 메뉴(js/idx-allmenu.js 의 mangoiZhLearner)가 이 표시를 보고 중국어 메뉴를 보여준다.
+       표시가 없으면 중국어 타일은 감춰진다(영어만 듣는 학생·첫 방문자에게 혼란 — 학원장 검수 피드백). */
+    try { localStorage.setItem('mangoi_zh_learner','1'); } catch(e){}
     var APP_STATE = { showPinyin:true, showToneColor:true, lang:'zh' };
     try { var saved=JSON.parse(localStorage.getItem('rq_cn_state')||'{}'); APP_STATE={...APP_STATE,...saved}; } catch(e){}
     function saveAppState(){ try{ localStorage.setItem('rq_cn_state',JSON.stringify(APP_STATE)); }catch(e){} }
@@ -228,7 +280,9 @@
     function sfxCorrect(combo){ var b=[523.25,659.25,783.99]; if(combo>=3) b.push(1046.5); if(combo>=5) b.push(1318.5); beep(b,0.15,'triangle',0.2); }
     function sfxWrong(){ beep([196,155.56],0.22,'sawtooth',0.11); }
     function sfxWin(){ beep([523.25,659.25,783.99,1046.5,1318.5],0.2,'triangle',0.22); }
-    window.toggleMute = function(btn){ SFX.muted=!SFX.muted; try{ localStorage.setItem('rq_cn_muted', SFX.muted?'1':'0'); }catch(e){} if(btn) btn.textContent=SFX.muted?'🔇':'🔊'; if(!SFX.muted) beep([659.25],0.1,'triangle',0.15); };
+    window.toggleMute = function(btn){ SFX.muted=!SFX.muted; try{ localStorage.setItem('rq_cn_muted', SFX.muted?'1':'0'); }catch(e){}
+      if(btn){ var _i=btn.querySelector('.rq-mute-ico'); if(_i) _i.textContent=SFX.muted?'🔇':'🔊'; else btn.textContent=SFX.muted?'🔇':'🔊'; }
+      if(!SFX.muted) beep([659.25],0.1,'triangle',0.15); };
 
     var CHEER_OK   = { ko:['정답이야! 🎉','完美! 🌟','太棒了! 👏','바로 그거야! 🔥','天才! 🧠','最高! 😆'] };
     var CHEER_HOT  = { ko:['불타오른다! 🔥','아직도 계속! ⚡','连续正确! 🚀','完全燃烧了! 🌊'] };
@@ -322,8 +376,8 @@
         window.scrollTo(0,0);
       } catch(e) { alert('퀴즈를 열 수 없어요. 잠시 후 다시 시도해주세요.'); }
     }
-    var TYPE_ICON = { choice:'📝', listen:'🎧', speak:'🎤' };
-    var TYPE_KO = { choice:'객관식', listen:'듣기', speak:'말하기' };
+    var TYPE_ICON = { choice:'📝', listen:'🎧', write:'✍️', speak:'🎤' };
+    var TYPE_KO = { choice:'객관식', listen:'듣기', write:'쓰기', speak:'말하기' };
     var rec = { mr:null, chunks:[], idx:-1 };
 
     function renderQ() {
@@ -339,7 +393,7 @@
       var hud = '<div class="rq-hud">'
         + '<span class="rq-chip score">⭐ ' + (state.correctCount*10) + '점</span>'
         + (comboOn ? '<span class="rq-chip combo' + (animate?' hot':'') + '">🔥 ' + state.combo + ' 콤보</span>' : '')
-        + '<button class="rq-mute" type="button" onclick="toggleMute(this)" title="소리 켜기/끄기">' + (SFX.muted?'🔇':'🔊') + '</button>'
+        + '<button class="rq-mute" type="button" onclick="toggleMute(this)" aria-label="효과음 켜기 끄기" title="효과음(정답·오답 소리) 켜기·끄기 — 듣기 문항의 중국어 음성은 문제 안의 «🔊 음성 듣기» 버튼입니다"><span class="rq-mute-ico">' + (SFX.muted?'🔇':'🔊') + '</span>효과음</button>'
         + '</div>';
 
       var prog = total > 1 ? (i/(total-1)) : 1;
@@ -372,9 +426,17 @@
           }
           return '<button class="'+cls+'"'+(answered?'':' onclick="pick('+k+')"')+'><span class="opt-prefix">'+ABC[k]+'</span>'+optText+mark+'</button>';
         }).join('');
+      } else if (typ==='write') {
+        inner += '<div class="q-text" style="font-size:18px">'+esc(q.q)+'</div>';
+        if (graded) {
+          inner += '<div style="width:100%;padding:14px 16px;border-radius:10px;background:rgba(255,255,255,0.06);font-size:18px;font-weight:700;color:#fff">'+esc(fb.your||'-')+'</div>';
+        } else {
+          inner += '<input id="writeIn" value="'+esc(state.answers[i]||'')+'" oninput="setText(this.value)" onkeydown="if(event.key===\'Enter\')checkText()" placeholder="한자로 입력하세요 (병음도 됩니다)" autocomplete="off" autocapitalize="off" style="width:100%;padding:14px 16px;border-radius:10px;border:1px solid rgba(148,163,184,0.35);background:rgba(255,255,255,0.96);color:#111;font-size:18px;font-family:inherit" />'
+            + '<button id="checkBtn" type="button" class="nav-btn primary" style="width:100%;margin-top:10px" onclick="checkText()">✅ 정답 확인</button>';
+        }
       } else { // speak
         inner += '<div style="font-size:14px;color:var(--text2);margin-bottom:8px">'+esc(q.q)+'</div>'
-          + '<div style="font-size:20px;font-weight:800;color:#fff;background:rgba(59,130,246,0.10);border:1px dashed rgba(59,130,246,0.4);border-radius:12px;padding:18px;text-align:center;margin-bottom:14px;line-height:1.4">'+esc(q.answer_text||'')+'</div>';
+          + '<div style="font-size:20px;font-weight:800;color:#fff;background:rgba(59,130,246,0.10);border:1px dashed rgba(59,130,246,0.4);border-radius:12px;padding:18px;text-align:center;margin-bottom:14px;line-height:1.4">'+esc(q.target||q.answer_text||'')+'</div>';
         if (!graded) {
           inner += '<div style="text-align:center"><button id="micBtn" type="button" onclick="micToggle('+i+')" style="padding:14px 26px;border:0;border-radius:99px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:15px;font-weight:800;cursor:pointer">🎤 녹음하고 말하기</button>'
             + '<div id="micStatus" style="font-size:12px;color:var(--text2);margin-top:10px">버튼을 누르고 또박또박 말해보세요</div></div>';
@@ -386,7 +448,7 @@
         var ok = fb.correct;
         var extra = '';
         if (typ==='listen' && fb.audio_text) extra += '<div style="font-size:12.5px;color:var(--text2);margin-top:6px">🎧 '+esc(fb.audio_text)+'</div>';
-        if (typ==='speak') extra += '<div class="rq-a rq-ok" style="font-size:13px;margin-top:6px">정답: '+esc(fb.answer_text||'')+(fb.accuracy!=null?' ('+fb.accuracy+'%)':'')+'</div>';
+        if (typ==='write' || typ==='speak') extra += '<div class="rq-a rq-ok" style="font-size:13px;margin-top:6px">정답: '+esc(fb.answer_text||'')+(fb.accuracy!=null?' ('+fb.accuracy+'%)':'')+'</div>';
         fbHtml = '<div class="rq-mascot '+(animate?(ok?'react':'sad'):'')+'">'
           + '<img src="'+MANGO_IMG+'" alt="" onerror="this.style.display=\'none\'">'
           + '<div class="rq-bubble '+(ok?'ok':'no')+' show">'+esc(fb.line||'')+'</div></div>'
@@ -413,12 +475,24 @@
         '</div>';
       document.getElementById('playView').innerHTML = html;
       if (typ==='listen' && !graded) setTimeout(function(){ playAudio(i, true); }, 350);
+      if (typ==='write' && !graded) { var _wi=document.getElementById('writeIn'); if(_wi) try{ _wi.focus(); }catch(e){} }
     }
 
 
     var SILENT_WAV='data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YYQDAAAAAAAAAA==';
     var rqAudio=null;
-    function rqGetAudio(){ if(!rqAudio){ rqAudio=new Audio(); rqAudio.preload='auto'; try{rqAudio.playsInline=true;}catch(e){} } return rqAudio; }
+    /* 👩‍🏫 입 모양 — 오디오 요소는 «하나만» 쓰고(attach 는 요소당 1회만 물린다) 소리가 «실제로» 날 때만 움직인다.
+       ⚠️ 잠금 해제용 무음(muted)도 같은 요소로 재생되므로 'playing' 에서 muted 면 건너뛴다.
+       ⚠️ attach 는 부를 때마다 다시 시도한다 — 아바타 모듈(defer)이 늦게 오면 첫 호출이 빈 함수라서. */
+    function rqAvTalk(on){ try{ if(window.MangoAvatar) (on ? MangoAvatar.plainStart : MangoAvatar.plainStop)(); }catch(e){} }
+    function rqGetAudio(){
+      if(!rqAudio){ rqAudio=new Audio(); rqAudio.preload='auto'; try{rqAudio.playsInline=true;}catch(e){}
+        rqAudio.addEventListener('playing', function(){ if(!rqAudio.muted) rqAvTalk(true); });
+        rqAudio.addEventListener('pause', function(){ rqAvTalk(false); });
+        rqAudio.addEventListener('ended', function(){ rqAvTalk(false); });
+        rqAudio.addEventListener('error', function(){ rqAvTalk(false); }); }
+      try{ if(window.MangoAvatar && MangoAvatar.attach) MangoAvatar.attach(rqAudio); }catch(e){}
+      return rqAudio; }
     document.addEventListener('click', function rqOnce(){ try{ var a=rqGetAudio(); a.muted=true; a.src=SILENT_WAV; var p=a.play(); if(p&&p.catch)p.catch(function(){}); }catch(e){} document.removeEventListener('click', rqOnce, true); }, true);
 
     window.playAudio = async function(i, auto){
@@ -460,7 +534,11 @@
           var blob=new Blob(rec.chunks,{type:'audio/webm'}); rec.mr=null; rec.idx=-1;
           if(blob.size<600){ if(stt) stt.textContent='너무 짧아요. 다시 하거나 다음으로 넘어가도 돼요'; return; }
           try {
-            var fd=new FormData(); fd.append('audio',blob,'speak.webm');
+            /* 🗣️ 기대 언어를 «반드시» 알려 준다. 안 주면 Whisper 가 짧은 발화를 엉뚱한 언어로
+               적는다(api-games.ts /api/voice/transcribe 주석의 2026-07-24 사고). 중국어 화면인데
+               이 한 줄이 빠져 있어서, 중국어로 말해도 다른 언어로 전사돼 거의 늘 오답이었다.
+               수업 화면(js/idx-x8.js)은 처음부터 보내고 있었다. */
+            var fd=new FormData(); fd.append('audio',blob,'speak.webm'); fd.append('lang','zh');
             var r=await fetch('/api/voice/transcribe',{method:'POST',body:fd}).then(function(x){return x.json();});
             var text=(r&&r.ok&&r.text)?String(r.text).trim():'';
             if(!text){ if(stt) stt.textContent='잘 못 들었어요. 다시 하거나 다음으로 넘어가도 돼요'; return; }
@@ -472,6 +550,18 @@
         if(btn){ btn.textContent='⏹ 정지'; btn.style.background='linear-gradient(135deg,#ef4444,#dc2626)'; }
         if(stt) stt.textContent='🔴 녹음 중… 끝나면 정지';
       } catch(e){ if(stt) stt.textContent='마이크 권한이 필요해요. 허용하거나 다음으로 넘어가도 돼요'; }
+    };
+
+    /* ✍️ 쓰기 문항 — 입력과 채점. 이 화면에는 원래 write 처리가 통째로 없었다(2026-08-21). */
+    window.setText = function(v){ state.answers[state.idx]=v; };
+    window.checkText = async function(){
+      var i=state.idx; if(state.fb[i]) return;
+      var v=String(state.answers[i]==null?'':state.answers[i]).trim();
+      if(!v) return;
+      var btn=document.getElementById('checkBtn');
+      if(btn){ btn.disabled=true; btn.textContent='채점 중…'; }
+      var resp=await rqCheck(i, v);
+      applyFeedback(i, resp, v);
     };
 
     async function pick(k){
@@ -592,6 +682,10 @@
       loadList();
     });
   </script>
-<!-- BUILD:20260813001216 -->
+<!-- BUILD:20260813015745 -->
+<!-- ⬅ 뒤로가기 판정 정본. 이 화면 헤더의 ← 가 window.mangoiGoBack 을 부른다.
+     ⚠️ 헤더에 보이는 ← 가 있으므로 이 파일은 자기 동그란 ← 를 «넣지 않는다»(hasVisibleBack). -->
+<script defer src="/js/back-nav.js"></script>
+<script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 </body>
 </html>

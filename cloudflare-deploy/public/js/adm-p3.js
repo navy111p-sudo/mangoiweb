@@ -109,7 +109,7 @@
     "학생 수업 평가": "Student Class Ratings",
     "학생·학부모 자료실": "Student·Parent Library",
     "학원 수": "Academies",
-    "학원 전체 스케줄": "Academy Full Schedule",
+    "전체 스케줄": "All Schedules",
     "학원별 학생 수업현황": "Attendance by School",
     "학원별 학생 수업현황 (SLP 출석 통계)": "Attendance Stats by Academy (SLP)",
     "현재 역할": "Current Role",
@@ -227,7 +227,7 @@
     '📢 공지 스튜디오': '📢 Notice Studio',
     '📢 팝업 게시': '📢 Popup Posting',
     '📅 캘린더 관리': '📅 Calendar Management',
-    '📅 학원 전체 스케줄': '📅 Academy Full Schedule',
+    '📅 전체 스케줄': '📅 All Schedules',
 
     // === ph125 손자 메뉴 누락 보강 (2026-07-10) ===
     'QR 생성': 'Generate QR',
@@ -289,22 +289,43 @@
     '👨‍🏫 강사 모드': '👨‍🏫 Teacher Mode',
     '🏬 지사 모드': '🏬 Branch Mode',
     '🤝 대리점 모드': '🤝 Agency Mode',
+    // 🚪 (2026-08-19) 「관리자로 복귀」 → 「로그아웃 (다른 계정으로)」. 옛 문구도 남겨 둔다 —
+    //    캐시에 옛 admin.html 이 남은 브라우저가 잠시 옛 글자를 그린다.
+    '🚪 로그아웃 (다른 계정으로)': '🚪 Log out (switch account)',
     '🛠 관리자로 복귀': '🛠 Back to Admin',
     '본인 수업·평가만 접근 권한': 'Access to own classes/evaluations only',
     '산하 대리점 데이터만': 'Sub-agency data only',
     '본인 학생만 접근 권한': 'Own students only',
 
-    // === ph106 BtoB/BtoC ===
-    '🏢 BtoB 결제관리 (학원 ↔ 본사/대리점)': '🏢 B2B Payments (Academy ↔ HQ/Agency)',
-    '👨‍👩‍👧 BtoC 결제관리 (학원 → 학부모 직판매)': '👨‍👩‍👧 B2C Payments (Academy → Parents)',
-    '📅 오늘 거래액': '📅 Today’s Revenue',
-    '📊 이번달 거래액': '📊 This Month',
-    '🧾 거래 건수': '🧾 Transactions',
-    '💸 수수료 합계': '💸 Fees Total',
-    '📅 오늘 매출': '📅 Today Sales',
-    '📊 이번달 매출': '📊 Monthly Sales',
-    '🧾 주문 건수': '🧾 Orders',
-    '📄 세금계산서 미발행': '📄 Tax Invoice Pending',
+    /* === ph106 BtoB/BtoC ===
+       ⚠️ (2026-08-17) 실데이터 연결로 라벨이 바뀌었다. i18n 은 «전체 문자열 일치» 라
+          라벨을 고치면 여기 키도 같이 고쳐야 한다 — 안 그러면 EN 에서 한국어가 남는다.
+          옛 키(오늘 거래액·수수료 합계·세금계산서 미발행 등)는 화면에서 사라져 지웠다. */
+    '🏢 BtoB 결제관리 (학원 → 본사 통장입금)': '🏢 B2B Payments (Academy → HQ Bank Transfer)',
+    '👨‍👩‍👧 BtoC 결제관리 (학부모 카드결제)': '👨‍👩‍👧 B2C Payments (Parent Card)',
+    '📅 오늘 입금액': '📅 Today’s Deposits',
+    '📊 이번달 입금액': '📊 This Month’s Deposits',
+    '🧾 입금 건수': '🧾 Deposits',
+    '🏫 입금처 수': '🏫 Depositing Academies',
+    '📅 오늘 결제액': '📅 Today’s Payments',
+    '📊 이번달 결제액': '📊 This Month’s Payments',
+    '🧾 결제 건수': '🧾 Payments',
+    '💸 PG 수수료': '💸 PG Fees',
+    '이번달 기준': 'This month',
+    '입금일': 'Deposit date',
+    '입금처 (통장 적요)': 'Depositor (bank memo)',
+    '입금액': 'Amount',
+    '결제일': 'Paid at',
+    '학생명': 'Student',
+    '결제 아이디': 'Payer ID',
+    '대리점': 'Agency',
+    '결제수단': 'Method',
+    '결제금액': 'Amount',
+    'PG 수수료': 'PG fee',
+    '원부에 없음': 'Not in roster',
+    '불러오는 중…': 'Loading…',
+    '해당 기간에 통장 입금이 없습니다.': 'No bank deposits in this period.',
+    '조건에 맞는 결제가 없습니다.': 'No payments match these filters.',
     '전체 본사': 'All HQ',
     '전체 지사': 'All Branches',
     '전체 대리점': 'All Agencies',
@@ -323,7 +344,8 @@
     '📊 Excel 다운로드': '📊 Download Excel',
     '📄 세금계산서 일괄발행': '📄 Bulk Tax Invoice',
     '📲 위험군 학부모 알림': '📲 Notify Risk Parents',
-    '📈 최근 30일 일별 거래액': '📈 Last 30 Days Revenue',
+    '📈 최근 30일 일별 입금액': '📈 Last 30 Days Deposits',
+    '📈 최근 30일 일별 결제액': '📈 Last 30 Days Payments',
     '📈 최근 12개월 월별 매출': '📈 Last 12 Months Sales',
 
     // === ph107 보고서 양식 ===

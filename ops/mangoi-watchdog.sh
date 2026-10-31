@@ -39,10 +39,11 @@ CONF=${MANGOI_WD_CONF:-/root/.mangoi-alert.env}
 LOG=${MANGOI_WD_LOG:-/var/log/mangoi-watchdog.log}
 STATE=${MANGOI_WD_STATE:-/var/lib/mangoi-watchdog.state}
 
-PRIMARY="https://test.mangoi.co.kr"
+PRIMARY="https://mangoi.ai"   # 2026-10-16 test.mangoi.co.kr 폐지 → 정본 주소로
 FALLBACK="https://webrtc-unified-platform.navy111p.workers.dev"
 
 FAIL_THRESHOLD=2        # 연속 몇 회 실패해야 장애로 볼 것인가 (5분 간격 × 2 = 10분)
+TURN_FAIL_THRESHOLD=3   # 📶 TURN 경로는 «장애» 가 아니라 «설정» 이라 더 느긋하게 본다 (5분 × 3 = 15분)
 CURL_TIMEOUT=15
 
 # 외부 명령은 «이름» 이 아니라 «변수» 로 부른다. 운영에서는 그냥 curl·openssl 이다.
@@ -218,13 +219,45 @@ if [ -z "$REASON" ]; then
   esac
 fi
 
+# ── 2-2) 📶 TURN 경로 점검 : 화상수업이 «무료 공용 TURN» 으로 흐르고 있지 않나 ──
+#  🔴 2026-08-26 실사고. TURN_KEY_ID/TURN_KEY_API_TOKEN 이 워커에 설정돼 있지 않아
+#     모든 수업이 openrelay.metered.ca(무료 공개)로 릴레이되고 있었다. 사이트는 200,
+#     D1 도 cron 도 정상 — 이 감시견의 기존 네 가지 판정에는 **한 개도 안 걸린다.**
+#     그런데 실제로는 RTT 389~629ms(손실은 낮음), 강사 재입장률 61.9% 였고
+#     사장님께는 「가끔 튕긴다」로만 보였다. «조용한 장애» 의 전형이다.
+#  ⚠️ 이건 «죽음» 이 아니라 «설정» 이라 위 REASON 체계에 섞지 않는다 — 섞으면
+#     복구 문자가 「사이트가 정상 복구되었습니다」로 나가 사람을 헷갈리게 한다.
+#     상태도 문자도 따로 관리한다.
+#  ⛔ 측정에 «실패» 했을 때는 경보하지 않는다(TURN_SRC 가 빈 값). 그 경우는 사이트
+#     자체가 이상한 것이고, 위 얕은/심층 점검이 이미 담당한다. 여기서 또 울면 이중 경보다.
+#  ⛔ 사이트가 이미 이상할 때(REASON 있음)는 아예 재지 않는다.
+TURN_SRC=""; TURN_DET=""
+if [ -z "$REASON" ]; then
+  _tbase="$PRIMARY"; [ "$PRIMARY_OK" = "1" ] || _tbase="$FALLBACK"
+  # 헤더 이름은 HTTP/2 에서 소문자로 온다 — 양쪽 다 받는다.
+  _thdr=$("$CURL" -s -o /dev/null -m "$CURL_TIMEOUT" -D - "$_tbase/api/turn-config" 2>/dev/null | tr -d '\r')
+  TURN_SRC=$(printf '%s\n' "$_thdr" | sed -n 's/^[Xx]-[Tt][Uu][Rr][Nn]-[Ss][Oo][Uu][Rr][Cc][Ee]: *//p' | tail -n1)
+  # 📶 X-Turn-Detail — «왜 그 경로였나». 이게 없으면 «키를 넣어라» 와 «키를 다시 발급해라» 를
+  #    구분할 수 없다(2026-08-26 실사고: 키가 있는데 없다고 오진해 등록을 안내했다).
+  TURN_DET=$(printf '%s\n' "$_thdr" | sed -n 's/^[Xx]-[Tt][Uu][Rr][Nn]-[Dd][Ee][Tt][Aa][Ii][Ll]: *//p' | tail -n1)
+fi
+
 # ── 3) 판정 : 연속 실패 누적 ──────────────────────────────────────────────
-PREV_STATE=up; FAILS=0
+PREV_STATE=up; FAILS=0; PREV_TURN=ok; TFAILS=0
 if [ -f "$STATE" ]; then
   # shellcheck disable=SC1090
   . "$STATE"
   PREV_STATE="${PREV_STATE:-up}"; FAILS="${FAILS:-0}"
+  PREV_TURN="${PREV_TURN:-ok}"; TFAILS="${TFAILS:-0}"
 fi
+
+# 📶 TURN 판정 — 오직 'public-fallback' 만 «나쁨» 이다.
+#    'last-known-good' 은 CF 가 잠깐 흔들리는 중이고 자격증명은 아직 진짜라 수업은 정상이다.
+#    빈 값(측정 실패)은 «모름» 이라 어느 쪽으로도 상태를 바꾸지 않는다 — 모르는 것을 단정하지 않는다.
+if [ "$TURN_SRC" = "public-fallback" ]; then TFAILS=$((TFAILS + 1)); else TFAILS=0; fi
+CUR_TURN=$PREV_TURN
+if [ "$TFAILS" -ge "$TURN_FAIL_THRESHOLD" ]; then CUR_TURN=bad
+elif [ "$TFAILS" -eq 0 ] && [ -n "$TURN_SRC" ]; then CUR_TURN=ok; fi
 
 if [ -n "$REASON" ]; then
   FAILS=$((FAILS + 1))
@@ -239,10 +272,10 @@ elif [ "$FAILS" -eq 0 ]; then
   CUR_STATE=up
 fi
 
-log "probe reason='${REASON:-none}' primary=$PRIMARY_OK fallback=$FALLBACK_OK fails=$FAILS state=$PREV_STATE->$CUR_STATE"
+log "probe reason='${REASON:-none}' primary=$PRIMARY_OK fallback=$FALLBACK_OK fails=$FAILS state=$PREV_STATE->$CUR_STATE turn='${TURN_SRC:-unknown}' turndetail='${TURN_DET:--}' tfails=$TFAILS turnstate=$PREV_TURN->$CUR_TURN"
 
 if [ "$TEST_MODE" = "1" ]; then
-  echo "reason=${REASON:-none} primary=$PRIMARY_OK fallback=$FALLBACK_OK fails=$FAILS state=$PREV_STATE->$CUR_STATE"
+  echo "reason=${REASON:-none} primary=$PRIMARY_OK fallback=$FALLBACK_OK fails=$FAILS state=$PREV_STATE->$CUR_STATE turn=${TURN_SRC:-unknown} turndetail=${TURN_DET:--} turnstate=$PREV_TURN->$CUR_TURN"
   echo "(--test 는 상태를 저장하지도, 문자를 보내지도 않습니다)"
   exit 0
 fi
@@ -253,7 +286,7 @@ if [ "$CUR_STATE" != "$PREV_STATE" ]; then
   if [ "$CUR_STATE" = "down" ]; then
     case "$REASON" in
       http)   MSG="[망고아이] ⚠️ 사이트에 바깥에서 접속이 안 됩니다(10분 연속). 즉시 확인이 필요합니다." ;;
-      domain) MSG="[망고아이] ⚠️ test.mangoi.co.kr 만 접속 불가입니다(워커는 정상). DNS·도메인 설정을 확인하세요." ;;
+      domain) MSG="[망고아이] ⚠️ mangoi.ai 만 접속 불가입니다(워커는 정상). DNS·도메인 설정을 확인하세요." ;;
       db)     MSG="[망고아이] ⚠️ 사이트는 뜨는데 데이터베이스(D1)가 응답하지 않습니다. 로그인·수업이 막힐 수 있습니다." ;;
       cron)   MSG="[망고아이] ⚠️ 사이트는 정상인데 자동작업(cron)이 40분 넘게 멈췄습니다. 알림·정산이 조용히 안 돌고 있습니다." ;;
       *)      MSG="[망고아이] ⚠️ 사이트 점검 API 가 비정상 응답입니다(10분 연속). 확인이 필요합니다." ;;
@@ -268,8 +301,34 @@ if [ "$CUR_STATE" != "$PREV_STATE" ]; then
   fi
 fi
 
+# ── 5) 📶 TURN 경로가 바뀐 순간에만 1회 ────────────────────────────────────
+#  장애 문자와 «따로» 보낸다. 같은 문장에 섞으면 복구 안내가 서로를 가린다.
+if [ "$CUR_TURN" != "$PREV_TURN" ]; then
+  if [ "$CUR_TURN" = "bad" ]; then
+    # ⚠️ 모르는 detail 값은 «그대로 실어 보내기만» 한다 — 값이 늘어날 수 있으므로 단정하지 않는다.
+    case "$TURN_DET" in
+      no-secrets)              _tw="Cloudflare TURN 키(TURN_KEY_ID / TURN_KEY_API_TOKEN)가 워커에 없습니다. 두 벌 모두에 넣어 주세요." ;;
+      cf-http-401|cf-http-403) _tw="키가 무효·회수됐습니다(${TURN_DET}). Cloudflare 에서 TURN 키를 다시 발급해 주세요. ※ 키는 이미 등록돼 있으니 «없다» 가 아닙니다." ;;
+      cf-http-429)             _tw="Cloudflare TURN 사용량 한도입니다(429). 사용량·요금제를 확인해 주세요." ;;
+      cf-fetch-error)          _tw="Cloudflare 에 연결 자체가 실패하고 있습니다. CF 쪽 장애일 수 있어 기다리면 풀릴 수 있습니다." ;;
+      *)                       _tw="원인 표시: ${TURN_DET:-없음}. Cloudflare 대시보드 > 해당 워커 > 관찰 가능성 > 로그 에서 turn-config 를 검색해 주세요." ;;
+    esac
+    TMSG="[망고아이] 📶 화상수업이 «무료 공용 TURN» 으로 연결되고 있습니다(15분 연속). 사이트는 정상이지만 영상 지연·끊김이 잦아집니다. ${_tw}"
+  else
+    TMSG="[망고아이] ✅ 화상수업 TURN 경로가 정상(Cloudflare)으로 돌아왔습니다."
+  fi
+  # send_sms 의 «워커 경유» 보조 경로가 REASON·CUR_STATE 를 읽는다 — 잠깐 빌려 쓰고 되돌린다.
+  _sv_reason="$REASON"; _sv_state="$CUR_STATE"
+  REASON="turn"; [ "$CUR_TURN" = "bad" ] && CUR_STATE=down
+  if send_sms "$TMSG"; then :; else
+    log "WARN TURN 알림 발송 실패 → TURN 상태 저장을 보류합니다 (will retry next run)"
+    CUR_TURN="$PREV_TURN"   # 저장하지 않는다 = 다음 회차(5분 뒤)에 다시 시도
+  fi
+  REASON="$_sv_reason"; CUR_STATE="$_sv_state"
+fi
+
 if [ "$SAVE" = "1" ]; then
   mkdir -p "$(dirname "$STATE")"
-  printf 'PREV_STATE=%s\nFAILS=%s\n' "$CUR_STATE" "$FAILS" > "$STATE"
+  printf 'PREV_STATE=%s\nFAILS=%s\nPREV_TURN=%s\nTFAILS=%s\n' "$CUR_STATE" "$FAILS" "$CUR_TURN" "$TFAILS" > "$STATE"
 fi
 exit 0

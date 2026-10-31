@@ -2,10 +2,11 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>레벨테스트 — 망고아이 / Mangoi Level Test</title>
-<link rel="stylesheet" href="/css/mangoi-han.css?v=1"><!-- 한자 글꼴 통일 (전 화면 공통 가드) -->
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) --><!-- 한자 글꼴 통일 (전 화면 공통 가드) -->
 
 <!--
   🎟️ 레벨테스트 티켓 — 「확인」과 「입장」을 한 화면에.
@@ -130,6 +131,9 @@
     proposed:  ['담당 선생님 배정 중','Assigning a teacher','#a78bfa'],
     confirmed: ['확정 — 예정대로 진행됩니다','Confirmed — all set','#34d399'],
     done:      ['테스트 완료','Test completed','#60a5fa'],
+    /* 🎯 (2026-09-21) AI 학습도구만 쓰는 학생의 자동진단 — 선생님 평가 단계를 안 거친다.
+       ⛔ 이 줄이 없으면 폴백이 «ai_done» 을 날것으로 그린다. 정본: src/student-track.ts */
+    ai_done:   ['AI 자동진단 완료','AI self-check done','#a78bfa'],
     cancelled: ['취소됨','Cancelled','#94a3b8']
   };
 
@@ -315,7 +319,9 @@
     if (!kh) return;
     kh.addEventListener('click', function(e){
       var url = this.href, w = null;
-      try { w = window.open(url, '_blank', 'noopener'); } catch(_){}
+      /* 🔴 2026-09-02: 'noopener' 를 기능 문자열로 주면 «탭은 열리는데 반환값이 null» 이라(표준) 반환값 판정이 늘 «막힘» 이 된다. 빼고 w.opener=null 로 같은 보호를 건다. */
+      try { w = window.open(url, '_blank'); } catch(_){}
+      if (w) { try { w.opener = null; } catch(_){} }
       if (!w) { e.preventDefault(); location.href = url; }   // 팝업차단·인앱: 같은 창으로
       else e.preventDefault();                               // 새 창이 떴으면 중복 이동 방지
     });
@@ -327,6 +333,6 @@
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
 })();
 </script>
-<!-- BUILD:20260813001216 -->
+<!-- BUILD:20260813015745 -->
 </body>
 </html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>게임 진행률 표시 제안서 — 「얼마나 남았는지」를 눈에 보이게</title>
+<style>
+  :root{
+    --ink:#101828; --muted:#475467; --line:#e4e7ec; --bg:#ffffff; --soft:#f8fafc;
+    --amber:#b45309; --green:#047857; --red:#b91c1c; --blue:#1d4ed8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:"Noto Sans KR",system-ui,-apple-system,"Segoe UI",sans-serif;
+       font-size:15px;line-height:1.75;-webkit-text-size-adjust:100%}
+  .wrap{width:min(920px,100%);margin:0 auto;padding:28px 20px 70px}
+  h1{font-size:27px;line-height:1.3;letter-spacing:-.02em;margin:0 0 6px}
+  h2{font-size:20px;margin:38px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  h3{font-size:16px;margin:24px 0 8px}
+  p{margin:10px 0}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 22px}
+  .lede{background:var(--soft);border:1px solid var(--line);border-left:4px solid var(--amber);
+        border-radius:10px;padding:16px 18px;margin:20px 0}
+  .lede b{color:var(--amber)}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--soft);font-weight:700;white-space:nowrap}
+  td.n{white-space:nowrap}
+  .ok{color:var(--green);font-weight:700}
+  .no{color:var(--red);font-weight:700}
+  .box{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:14px 0;background:var(--soft)}
+  .box.warn{border-left:4px solid var(--amber)}
+  .box.stop{border-left:4px solid var(--red)}
+  .box.go{border-left:4px solid var(--green)}
+  .box h4{margin:0 0 8px;font-size:15px}
+  ul,ol{margin:10px 0;padding-left:22px}
+  li{margin:5px 0}
+  code{background:#f1f5f9;border:1px solid var(--line);border-radius:5px;padding:1px 5px;
+       font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
+  .demo{border:1px solid var(--line);border-radius:10px;padding:16px;background:#0f172a;color:#e2e8f0;margin:12px 0}
+  .demo .bar{display:block;height:12px;border-radius:99px;background:#334155;overflow:hidden;margin:8px 0 6px}
+  .demo .fill{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#34d399,#10b981)}
+  .demo .lbl{display:block;font-size:13px;color:#cbd5e1}
+  .demo .lbl b{color:#fff}
+  .tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;
+       border:1px solid var(--line);background:#fff;margin-right:6px}
+  .tag.a{color:var(--amber);border-color:#fcd9a8}
+  .tag.g{color:var(--green);border-color:#a7e3cd}
+  .tag.r{color:var(--red);border-color:#f3b8b8}
+  .foot{margin-top:44px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+  @media(max-width:640px){ .wrap{padding:18px 16px 50px} h1{font-size:22px} table{font-size:13px} th,td{padding:6px 7px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>게임 진행률 표시 제안서</h1>
+<p class="sub">「얼마나 더 해야 끝나는지」를 눈에 보이게 · 2026-09-22 (KST) · 망고아이 · <a href="https://claude.ai/artifact/UyT8h7DRqDQyzNtbeXgtRE">웹으로 보기</a></p>
+
+<div class="lede">
+  <p style="margin-top:0"><b>사장님 말씀</b> — 「각각의 게임을 하면 내가 얼만큼 더해야 하는지 얼마나 남았는지 시각적으로 보이면 좋겠어요.
+  무작정 언제까지 해야 끝나는지 모르니 몇 번 하다가 나가게 돼요.」</p>
+  <p style="margin-bottom:0">그 말씀이 맞는지 <b>게임 22종을 전부 브라우저에 띄워 화면에 실제로 무엇이 보이는지 쟀습니다.</b>
+  결과 — <b>8종은 「끝」이 아예 안 보이고</b>, 보이는 14종도 <b>기준이 6가지로 제각각</b>이었습니다.</p>
+</div>
+
+<h2>1. 잰 것 — 게임 22종 전수 (브라우저 실측)</h2>
+
+<p>로컬 서버에 올려 게임을 하나씩 열고, 시작 버튼을 눌러 <b>화면에 실제로 그려진 글자</b>를 읽었습니다.
+(코드에 그런 글자가 있는지가 아니라, 눈에 보이는지를 쟀습니다.)</p>
+
+<h3 class="ok">✅ 끝이 보이는 게임 — 14종</h3>
+<table>
+  <tr><th>게임</th><th>화면에 보이는 표시</th><th>기준</th></tr>
+  <tr><td>문장 벽돌 · 단어 매칭 · 빈칸 채우기 · 풍선 터뜨리기 <span class="tag">허브 내장 4종</span></td><td class="n"><code>✅ 정답: 0/10</code></td><td>정답 10개</td></tr>
+  <tr><td>셔먼 탱크대전</td><td class="n"><code>0/10</code></td><td>정답 10개</td></tr>
+  <tr><td>P-38 라이트닝</td><td class="n"><code>0/10</code></td><td>정답 10개</td></tr>
+  <tr><td>P-38 3D 조종석</td><td class="n"><code>0/10</code></td><td>정답 10개</td></tr>
+  <tr><td>말하기 퀴즈</td><td class="n"><code>0 / 10</code></td><td>정답 10개</td></tr>
+  <tr><td>우주 괴물 사냥</td><td class="n"><code>1/6</code></td><td>문제 6개</td></tr>
+  <tr><td>낚시+말하기</td><td class="n"><code>0 / 5</code> + <code>⏱ 1:08</code></td><td>5개 + 시간</td></tr>
+  <tr><td>문법 피자 마스터</td><td class="n"><code>1 / 4</code> + 진행바</td><td>4단계</td></tr>
+  <tr><td>용의자 추리</td><td class="n"><code>Round 1/3</code></td><td>3라운드</td></tr>
+  <tr><td>장면 탐험대</td><td class="n"><code>1 / 12 · 133개</code></td><td>12장면</td></tr>
+  <tr><td>아바타 키우기</td><td class="n"><code>0 / 60 (다음 진화까지 60)</code></td><td>경험치 60</td></tr>
+</table>
+
+<h3 class="no">❌ 끝이 안 보이는 게임 — 8종</h3>
+<table>
+  <tr><th>게임</th><th>화면에 보이는 것</th><th>왜 끝을 모르나</th></tr>
+  <tr><td>슈팅+말하기</td><td class="n"><code>문장 1</code> · <code>60초</code></td><td>분모가 없습니다 — 문장이 몇 개인지 안 알려줍니다</td></tr>
+  <tr><td>워드 파이터</td><td class="n"><code>웨이브 1</code> · 생명</td><td>웨이브가 몇 개인지 없습니다</td></tr>
+  <tr><td>단어 테트리스</td><td class="n"><code>최고 기록 0점</code></td><td>목표 자체가 없습니다</td></tr>
+  <tr><td>망고 구조선의 대항해</td><td class="n">(숫자 표시 없음)</td><td>진행 표시가 하나도 없습니다</td></tr>
+  <tr><td>탈출: 말해야 열린다</td><td class="n"><code>성공 0</code> · <code>5:00</code></td><td>「몇 개 성공하면 끝」이 없습니다</td></tr>
+  <tr><td>좀비 실험실 탈출</td><td class="n"><code>성공 0</code> · <code>5:00</code></td><td>같음</td></tr>
+  <tr><td>학교에서 탈출하기</td><td class="n"><code>성공 0</code> · <code>5:00</code></td><td>같음</td></tr>
+  <tr><td>우주 배틀</td><td class="n"><code>점수 0 · 콤보 0</code></td><td>목표가 없습니다</td></tr>
+</table>
+
+<div class="box warn">
+  <h4>⚠️ 보이는 14종도 문제가 남습니다 — 기준이 6가지입니다</h4>
+  <p style="margin:0"><code>0/10</code> · <code>1/6</code> · <code>1/4</code> · <code>0/5</code> · <code>Round 1/3</code> · <code>0/60</code> —
+  학생이 게임을 옮길 때마다 <b>「이 숫자가 끝까지 얼마인지」를 다시 배워야</b> 합니다.
+  게다가 같은 <code>0/10</code>이라도 어디는 「정답 10개」, 어디는 「문제 10개」입니다.</p>
+</div>
+
+<div class="box stop">
+  <h4>🔴 그리고 셋 다에 공통인 것 — 나가면 사라집니다</h4>
+  <p style="margin:0">지금은 <b>진행을 저장하는 게임이 하나도 없습니다.</b>
+  중간에 나가면 다음에 다시 <code>0</code>부터입니다. 그래서 「몇 번 하다가 나간다」가
+  <b>다음에 또 처음부터</b>가 되어 되풀이됩니다.</p>
+</div>
+
+<h2>2. 왜 이렇게 됐나</h2>
+<p>게임이 22종인데 <b>서로 다른 시기에 따로 만들어졌고</b>, 각 게임이 자기 방식으로 HUD를 그렸습니다.
+「진행률을 이렇게 보여주자」는 <b>공통 약속이 애초에 없었습니다.</b></p>
+<p>허브(게임 고르는 화면)는 게임에게 <code>goal=10</code>이라는 값을 넘기고는 있지만,
+<b>실제로 그 값을 읽는 게임은 5종뿐</b>이고 나머지는 무시합니다.
+게임이 허브에게 돌려보내는 신호도 <b>「다 끝났다」 한 번뿐</b>이라, 허브는 진행 중에 학생이 어디까지 왔는지 모릅니다.</p>
+
+<h2>3. 제안 — 3층으로 나눠서</h2>
+
+<h3><span class="tag g">1층</span> 모든 게임 위에 같은 모양의 «진행 띠» 한 줄</h3>
+<p>허브가 게임을 감싸고 있으므로, <b>게임 코드는 한 글자도 안 고치고</b> 허브가 그 위에 띠를 얹습니다.</p>
+
+<div class="demo">
+  <span class="lbl">🚀 슈팅+말하기</span>
+  <span class="bar"><span class="fill" style="width:40%"></span></span>
+  <span class="lbl"><b>4 / 10</b> 문장 · 6개만 더 하면 끝나요!</span>
+</div>
+
+<ul>
+  <li><b>자리</b> — 허브 게임 상단바(<code>.game-topbar</code>) 바로 아래. 이미 있는 줄이라 새 공간을 안 뺏습니다.</li>
+  <li><b>모양</b> — 22종 전부 <b>똑같이</b>. 학생이 한 번만 배우면 됩니다.</li>
+  <li><b>어떻게 아나</b> — 이미 13종이 싣고 있는 <code>game-track.js</code>가 정답·오답을 세고 있습니다.
+      그것을 허브에 한 줄로 알려주면 됩니다.</li>
+  <li><b>선례</b> — <code>game-track.js</code> 자신이 그 방식입니다(그 파일 머리말: 「게임 로직은 한 글자도 고치지 않는다 … 그래서 바깥에서 붙인다」).</li>
+</ul>
+
+<h3><span class="tag a">2층</span> 끝이 없는 8종에 «끝»을 정하기 — 사장님이 정하실 일</h3>
+<p>1층 띠는 <b>목표가 있어야</b> 그릴 수 있습니다. 8종은 그 목표부터 정해야 합니다.</p>
+<table>
+  <tr><th>게임</th><th>제안 기본값</th><th>왜</th></tr>
+  <tr><td>탈출 3종</td><td class="n">문 <b>5개</b> 열기</td><td>이미 「성공 N」을 세고 있어 분모만 주면 됩니다</td></tr>
+  <tr><td>슈팅+말하기</td><td class="n">문장 <b>10개</b></td><td>허브가 이미 <code>goal=10</code>을 넘기고 있습니다</td></tr>
+  <tr><td>워드 파이터</td><td class="n"><b>3</b>웨이브</td><td>한 웨이브가 길어 10개는 지칩니다</td></tr>
+  <tr><td>우주 배틀 · 망고 구조선</td><td class="n">정답 <b>10개</b></td><td>다른 게임과 같은 기준</td></tr>
+  <tr><td>단어 테트리스</td><td class="n">줄 <b>10개</b> 또는 단어 10개</td><td>테트리스는 「줄」이 자연스럽습니다</td></tr>
+</table>
+<div class="box">
+  <p style="margin:0">⚠️ <b>이 숫자는 제 제안일 뿐입니다.</b> 게임마다 한 판 길이가 달라서,
+  10개가 어떤 게임은 2분이고 어떤 게임은 8분입니다. <b>사장님이 「이 게임은 몇 개」를 정해 주시면</b> 그대로 넣겠습니다.</p>
+</div>
+
+<h3><span class="tag">3층</span> 「오늘 얼마나 했나」 — 나가도 안 사라지게</h3>
+<ul>
+  <li>게임 카드에 작은 띠 — <code>오늘 3/5판</code></li>
+  <li>중간에 나가도 <b>그 자리부터 이어서</b> (레벨테스트에 이미 넣은 「중간 멈춤 · 이어서 하기」와 같은 방식)</li>
+  <li>이미 있는 <b>퀘스트 해금</b>(게임 하나 깰 때마다 다음 게임이 열림)과 이어집니다 —
+      지금은 「깨야 열린다」만 있고 <b>「얼마나 남았는지」가 안 보입니다.</b></li>
+</ul>
+
+<h2>4. 다른 길과 견주면</h2>
+<table>
+  <tr><th>안</th><th>어떻게</th><th>드는 시간</th><th>사고 반경</th><th>판단</th></tr>
+  <tr>
+    <td>A안</td><td>게임 22개를 하나씩 고침</td><td>가장 오래</td><td class="no">게임 22개</td>
+    <td>나중에 새 게임이 생기면 <b>또 갈립니다</b></td>
+  </tr>
+  <tr style="background:#f0fdf4">
+    <td><b>B안</b></td><td><b>허브가 위에 띠를 얹음</b></td><td>가장 빠름</td><td class="ok">허브 1곳</td>
+    <td><b>추천</b> — 한 곳만 고치면 22종이 전부 바뀝니다</td>
+  </tr>
+  <tr>
+    <td>C안</td><td>B안 + 게임 안 HUD도 통일</td><td>중간</td><td>허브 + 게임 8개</td>
+    <td>가장 깔끔하지만 A안의 위험이 절반 따라옵니다</td>
+  </tr>
+</table>
+<p><b>제 추천은 B안으로 시작해 2층까지</b>입니다. 8종은 목표 신호만 추가하면 되고, HUD를 통째로 건드리지 않습니다.</p>
+
+<h2>5. 미리 조심할 것 (이 저장소가 이미 밟은 함정)</h2>
+<div class="box stop">
+  <ul style="margin:0">
+    <li><b>띠가 「누를 것」을 가립니다.</b> — 화상수업에서 같은 실수를 했습니다.
+        얼굴 위에 띠를 얹었더니 <b>⭐ 칭찬 버튼(1점=1원)이 통째로 덮였는데</b>,
+        「보이나」 검사로는 안 잡히고 <b>픽셀을 찍어서야</b> 드러났습니다.
+        → 띠를 넣으면 그 아래 버튼을 그만큼 내리고, <b>색을 찍어</b> 확인합니다.</li>
+    <li><b>막대 채움이 안 보일 수 있습니다.</b> — 레벨테스트 결과 막대가 그랬습니다.
+        채움을 <code>&lt;span&gt;</code>으로 만들면 브라우저가 글자로 봐서 <b>폭·높이를 무시</b>합니다.
+        4/4와 0/4가 화면에서 똑같이 빈 막대였습니다.
+        → <code>display:block</code>을 명시하고 <b>실제 폭을 재서</b> 확인합니다.</li>
+    <li><b>0점을 「폭 0」으로 그리지 않습니다.</b> — 빈 막대는 「측정 안 됨」으로 읽힙니다.
+        시작할 때도 <b>작은 표시</b>를 남기고 숫자를 옆에 둡니다.</li>
+    <li><b>정오답을 서버에 안 보내는 게임 6종</b>(슈팅·워드파이터·문법피자·구조선·용의자·우주배틀)은
+        1층만으로는 진행을 알 수 없습니다 → 그 6종은 2층에서 신호 한 줄씩 추가해야 합니다.</li>
+  </ul>
+</div>
+
+<h2>6. 단계와 일정</h2>
+<table>
+  <tr><th>단계</th><th>무엇</th><th>결과</th><th>사장님 확인</th></tr>
+  <tr><td><b>1</b></td><td>공통 진행 띠 + 목표가 이미 있는 <b>14종</b> 연결</td>
+      <td>22종 중 14종이 같은 모양으로 「6개 남았어요」</td><td>화면 한 번 보기</td></tr>
+  <tr><td><b>2</b></td><td>끝이 없는 <b>8종</b>에 목표 넣기</td>
+      <td>22종 전부 끝이 보임</td><td class="n"><b>게임별 목표 숫자 결정</b></td></tr>
+  <tr><td><b>3</b></td><td>「오늘 얼마나 했나」 저장 · 이어하기</td>
+      <td>나갔다 와도 이어서</td><td>화면 한 번 보기</td></tr>
+</table>
+
+<h2>7. 사장님이 정해 주셔야 하는 것</h2>
+<ol>
+  <li><b>어느 단계까지 할까요?</b> — 1단계만 먼저 볼지, 2단계까지 한 번에 갈지</li>
+  <li><b>게임별 목표 숫자</b> — 위 표의 제안값대로 갈지, 「전부 10개로 통일」로 갈지</li>
+  <li><b>띠에 쓸 말</b> — 「6개 남았어요」 / 「4/10」 / 둘 다 중 어느 쪽이 아이들에게 나을지</li>
+  <li><b>시간제 게임(탈출·낚시)</b> — 이미 타이머가 있는데 진행 띠를 <b>같이</b> 둘지, 하나만 둘지</li>
+</ol>
+
+<div class="box go">
+  <h4>✅ 지금 바로 할 수 있는 것</h4>
+  <p style="margin:0">1단계는 <b>허브 한 곳</b>만 고치면 되고 게임 코드를 안 건드립니다.
+  말씀 주시면 오늘 안에 만들어 화면으로 보여 드리겠습니다.</p>
+</div>
+
+<div class="foot">
+  <p><b>이 문서의 숫자는 전부 실제로 잰 값입니다</b> — 2026-09-22 KST, 게임 22종을 브라우저에 띄워
+  「화면에 그려진 글자」를 읽었습니다(코드에 있는지가 아니라).</p>
+  <p>❌ 못 잰 것 — <b>배포된 실제 사이트 화면은 확인하지 못했습니다</b>(작업 환경의 프록시가 mangoi.ai 를 막습니다).
+  로컬에 같은 파일을 올려 쟀습니다.</p>
+</div>
+
+</div>
+</body>
+</html>

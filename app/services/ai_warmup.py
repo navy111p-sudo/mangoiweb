@@ -61,7 +61,7 @@ class WarmupRequest(BaseModel):
     lesson_topic: str | None = Field(
         default=None,
         max_length=200,
-        description="오늘 수업 주제(선택). 넣으면 워밍업이 실제 레슨과 이어집니다.",
+        description="오늘 수업 주제(선택). 넣으면 말하기가 실제 레슨과 이어집니다.",
         examples=["My Weekend Activities"],
     )
 
@@ -125,7 +125,7 @@ class PreClassAIEngine:
         if not api_key:
             raise AIWarmupError(
                 "OPENAI_API_KEY 환경변수가 설정되어 있지 않습니다. "
-                "AI 웜업을 쓰려면 OpenAI API 키를 환경변수로 넣어주세요."
+                "A.i 말하기를 쓰려면 OpenAI API 키를 환경변수로 넣어주세요."
             )
         try:
             # openai>=1.0 스타일 클라이언트.

@@ -7,6 +7,26 @@
   const fmtDate = (ms) => ms ? new Date(ms).toLocaleString('ko-KR',{dateStyle:'short',timeStyle:'short'}) : '-';
   const STAR_LABELS = ['','매우 별로','별로','좀 별로','보통','좋음','아주 좋음','매우 좋음'];
 
+  /* 🙂 (2026-08-18 수정요청 #02 후속) 강사 «성향» 칩 — 마법사가 물어보는 그 다섯 개와 같은 값.
+     여기가 비어 있으면 마법사에서 성향을 골라도 추천에 반영할 근거가 없다.
+     ⚠️ 값은 서버 normPersonality() · 마법사 WIZ_PERSONALITY 와 «같은 다섯 개» 여야 한다. */
+  function persChips() { return Array.prototype.slice.call(document.querySelectorAll('#mbti-pers .mbti-pers-chip')); }
+  function persGet() {
+    return persChips().filter(function (c) { return c.getAttribute('aria-pressed') === 'true'; })
+                      .map(function (c) { return c.dataset.pid; });
+  }
+  function persSet(v) {
+    var on = String(v || '').split(/[,\s]+/).filter(Boolean);
+    persChips().forEach(function (c) { c.setAttribute('aria-pressed', on.indexOf(c.dataset.pid) >= 0 ? 'true' : 'false'); });
+  }
+  window.mbtiPersGet = persGet;
+  window.mbtiPersSet = persSet;
+  document.addEventListener('click', function (e) {
+    var c = e.target.closest && e.target.closest('#mbti-pers .mbti-pers-chip');
+    if (!c) return;
+    c.setAttribute('aria-pressed', c.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+  });
+
   // 🧠 MBTI
   window.mbtiSave = async function() {
     const uid = document.getElementById('mbti-uid').value.trim();
@@ -24,6 +44,7 @@
           hobby: document.getElementById('mbti-hobby').value.trim(),
           teaching_style: document.getElementById('mbti-style').value.trim(),
           intro: document.getElementById('mbti-intro').value.trim(),
+          personality: persGet(),
         })
       });
       const d = await r.json();
@@ -100,17 +121,27 @@
         mbti:    'MBTI',
         hobby:   isEn ? 'Hobbies / Interests' : '취미',
         style:   isEn ? 'Teaching Style' : '스타일',
+        pers:    isEn ? 'Personality' : '성향',
       };
+      /* 🙂 성향 라벨 — 비어 있으면 «—» 로 두어 «아직 안 넣은 강사» 가 눈에 띄게 한다.
+         (성향이 비면 마법사 추천에서 그 강사는 성향 점수를 못 받는다) */
+      const PERS_LABEL = isEn
+        ? { kind:'😊 Warm', fun:'🎉 Fun', edu:'📚 Educational', serious:'🎯 Serious', laugh:'😄 Cheerful' }
+        : { kind:'😊 상냥한', fun:'🎉 재미있는', edu:'📚 교육적인', serious:'🎯 진지한', laugh:'😄 웃음많은' };
+      const persLabel = (v) => String(v || '').split(',').filter(Boolean)
+        .map(k => PERS_LABEL[k] || k).join(', ') || '—';
       el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>
         <th style="text-align:left;padding:8px">${hCol.teacher}</th>
         <th style="text-align:left;padding:8px">${hCol.mbti}</th>
         <th style="text-align:left;padding:8px">${hCol.hobby}</th>
         <th style="text-align:left;padding:8px">${hCol.style}</th>
+        <th style="text-align:left;padding:8px">${hCol.pers}</th>
       </tr></thead><tbody>${d.teachers.map(t => `<tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
         <td style="padding:8px"><b>${esc(t.teacher_name)}</b> <span style="font-size:10px;color:#a3b3d1">${esc(t.teacher_uid)}</span></td>
         <td style="padding:8px;font-weight:800;color:#4f7cff">${esc(t.mbti||'-')}</td>
         <td style="padding:8px;color:#cbd5e1">${esc(tr(t.hobby, MBTI_HOBBY_MAP))}</td>
         <td style="padding:8px;color:#cbd5e1">${esc(tr(t.teaching_style, MBTI_STYLE_MAP))}</td>
+        <td style="padding:8px;color:#cbd5e1">${esc(persLabel(t.personality))}</td>
       </tr>`).join('')}</tbody></table>`;
     } catch(e) {
       el.innerHTML = `<div style="color:#f87171">${isEn ? 'Failed to load' : '로드 실패'}</div>`;

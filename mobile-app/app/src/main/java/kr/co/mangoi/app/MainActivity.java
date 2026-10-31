@@ -19,8 +19,11 @@ import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.view.KeyEvent;
 import android.view.View;
+import android.widget.Toast;
+import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.GeolocationPermissions;
+import android.webkit.URLUtil;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -49,10 +52,20 @@ import java.net.URL;
 
 public class MainActivity extends AppCompatActivity {
 
-    // 테스트 대상 망고아이 웹앱 URL
-    private static final String START_URL = "https://test.mangoi.co.kr/";
+    /* 망고아이 웹앱 URL — 정본 도메인 (2026-08-17 test.mangoi.co.kr → mangoi.ai)
+     *
+     * ⚠️ 이 값은 **APK 바이너리에 박힌다.** 이미 깔린 앱은 새 APK 가 퍼질 때까지 옛 주소를 계속 본다.
+     *    그래서 test.mangoi.co.kr 은 «설치 기반이 새 버전으로 넘어갈 때까지» 살려 둬야 한다.
+     *    (그 주소를 먼저 죽이면 앱이 흰 화면이 되고, 업데이트 확인 주소도 같이 죽어 자력 복구가 안 된다)
+     *
+     * ⚠️ 오리진이 바뀌므로 이 버전을 처음 켠 사람은 **한 번 로그아웃**된다
+     *    (학생 로그인은 localStorage, 오리진별로 갈리는 게 웹 표준이라 옮길 방법이 없다).
+     *    test.mangoi.co.kr 에 등록해 둔 패스키도 도메인이 달라 다시 등록해야 한다.
+     *    도메인 신뢰(assetlinks)는 워커가 호스트와 무관하게 내려주므로 mangoi.ai 에서도 그대로 동작한다.
+     */
+    private static final String START_URL = "https://mangoi.ai/";
     // 앱 자동 업데이트 버전 매니페스트 (웹과 같은 도메인 — 사이트 배포 시 함께 갱신)
-    private static final String VERSION_URL = "https://test.mangoi.co.kr/app-version.json";
+    private static final String VERSION_URL = "https://mangoi.ai/app-version.json";
 
     private static final int REQ_PERMISSIONS = 1001;
 
@@ -120,15 +133,35 @@ public class MainActivity extends AppCompatActivity {
 
         // 😊 패스키(WebAuthn) 얼굴/지문 로그인 — Android 14+ / 최신 WebView 에서만 동작.
         //   미지원 기기는 feature 체크로 건너뛰고, 사이트 쪽 버튼도 자동 숨김이라 안전.
-        //   도메인 신뢰는 test.mangoi.co.kr/.well-known/assetlinks.json (kr.co.mangoi.app 지문) 이 담당.
+        //   도메인 신뢰는 mangoi.ai/.well-known/assetlinks.json (kr.co.mangoi.app 지문) 이 담당.
+        //   그 파일은 워커(src/index.ts)가 호스트와 무관하게 직접 내려주므로 도메인을 옮겨도 그대로 동작한다.
         try {
             if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_AUTHENTICATION)) {
                 WebSettingsCompat.setWebAuthenticationSupport(s, WebSettingsCompat.WEB_AUTHENTICATION_SUPPORT_FOR_APP);
             }
         } catch (Throwable ignored) {}
 
+        // 📛 UA 마커 — 페이지 JS(flow.js 등)가 «망고아이 앱(다운로드 지원 버전)» 임을
+        //   알아보고, 인앱 브라우저용 우회 안내를 띄우지 않게 한다. 버전 비교가 아니라
+        //   존재 여부만 보므로 형식만 유지하면 된다.
+        try { s.setUserAgentString(s.getUserAgentString() + " MangoiApp/" + BuildConfig.VERSION_NAME); } catch (Exception ignored) {}
+
         // JS 브리지: 페이지에서 window.AndroidTTS.speak('안녕', 'ko', 1.05, 1.0) 로 호출
         webView.addJavascriptInterface(new TtsBridge(), "AndroidTTS");
+
+        // 📥 (v2.0→v2.2) 파일 다운로드 — 녹화 «⬇저장» 등.
+        //   v2.0: WebView 는 DownloadListener 가 없으면 attachment 응답을 에러도 없이 버린다
+        //         («저장을 눌러도 무반응» 의 뿌리) → 시스템 DownloadManager 로 연결.
+        //   v2.1: DownloadManager 실패가 무표시라 사유 대화상자 추가.
+        //   v2.2: **DownloadManager 를 버리고 앱이 직접 받는다** — 실기기에서
+        //         «다운로드에 실패했습니다» 만 반복됐다(2026-08-15 새벽, 4회+).
+        //         DownloadManager 는 쿠키·UA 를 제대로 안 물려주고 별도 프로세스로
+        //         요청하다 보안장비류에 걸리기도 하는데, 실패 사유도 안 알려준다.
+        //         반면 이 WebView 로는 같은 URL 의 «재생» 이 잘 된다 — 즉 같은 쿠키·UA 로
+        //         앱이 직접 GET 하면 반드시 받아진다. HttpURLConnection 으로 직접 받아
+        //         MediaStore(공용 다운로드 폴더)에 넣고, 성공·실패를 그 자리에서 알린다.
+        webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) ->
+                downloadFileInApp(url, userAgent, contentDisposition, mimetype));
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -236,10 +269,16 @@ public class MainActivity extends AppCompatActivity {
                 sp.edit().putInt("last_vc", curVc).apply();
             }
         } catch (Exception ignore) {}
+        /* 🥭 (2026-08-20 사장님 제보 ①④ 「돌아오면 화면이 안 나온다」)
+           restoreState() 는 **복원에 실패하면 아무것도 안 하고 null 을 돌려준다.**
+           수업 화면처럼 저장할 상태가 크면 실제로 실패하는 일이 있다(안드로이드가
+           Bundle 크기를 제한한다). 지금까지 그 값을 안 봤기 때문에, 실패하면
+           **주소를 한 번도 안 여는 빈 화면**이 되고 앱이 스스로 회복하지 못했다.
+           → 복원이 안 됐으면 시작 주소를 다시 연다. 에러도 안 나던 사고라 이 한 줄이 전부다. */
         if (savedInstanceState == null) {
             webView.loadUrl(START_URL + "?_app=" + System.currentTimeMillis());
-        } else {
-            webView.restoreState(savedInstanceState);
+        } else if (webView.restoreState(savedInstanceState) == null) {
+            webView.loadUrl(START_URL + "?_app=" + System.currentTimeMillis());
         }
 
         // 앱(APK) 자체 자동 업데이트 확인 — 더 높은 버전이 있으면 안내 후 설치
@@ -366,6 +405,101 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception ignored) {}
     }
 
+    // ====================== 📥 앱 직접 다운로드 (v2.2) ======================
+    //   시스템 DownloadManager 를 쓰지 않는다 — 실기기에서 사유 없이 «실패» 만 반복했다.
+    //   재생이 되는 것과 똑같은 조건(같은 쿠키·같은 UA·같은 URL)으로 앱이 직접 받아서
+    //   공용 다운로드 폴더에 넣는다. 결과는 그 자리에서 토스트/대화상자로 알린다.
+    private void downloadFileInApp(String url, String userAgent, String contentDisposition, String mimetype) {
+        final String name = URLUtil.guessFileName(url, contentDisposition, mimetype);
+        final String mime = (mimetype != null && !mimetype.isEmpty()) ? mimetype : "video/webm";
+        Toast.makeText(this, "다운로드 중… " + name, Toast.LENGTH_LONG).show();
+        new Thread(() -> {
+            String err = null;
+            try {
+                HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+                c.setConnectTimeout(15000);
+                c.setReadTimeout(120000);           // 회선이 느려도 긴 수업 영상을 끊지 않게
+                c.setInstanceFollowRedirects(true);
+                try {
+                    String ck = CookieManager.getInstance().getCookie(url);
+                    if (ck != null && !ck.isEmpty()) c.setRequestProperty("Cookie", ck);
+                } catch (Exception ignored) {}
+                if (userAgent != null && !userAgent.isEmpty()) c.setRequestProperty("User-Agent", userAgent);
+                int http = c.getResponseCode();
+                // 📱 (v2.3) 206(부분 응답)도 정상으로 받는다 — 기기 최적화 기능·중간 장비가
+                //   요청에 Range: bytes=0- 를 끼워 넣으면 응답이 206 으로 바뀌는데, 시작점이
+                //   0 이면 내용물은 어차피 파일 전체다. 0 이 아닌 진짜 조각만 거른다.
+                //   (v2.2 실기기에서 «서버 응답 206» 실패 실측 — 2026-08-15)
+                boolean partialFromStart = false;
+                if (http == 206) {
+                    String cr = c.getHeaderField("Content-Range");
+                    partialFromStart = cr == null || cr.replace(" ", "").startsWith("bytes0-");
+                }
+                if (http != 200 && !(http == 206 && partialFromStart)) {
+                    err = "서버 응답 " + http;
+                } else {
+                    java.io.InputStream in = c.getInputStream();
+                    if (Build.VERSION.SDK_INT >= 29) {
+                        // Android 10+ — MediaStore 로 공용 다운로드 폴더에 기록(권한 불필요)
+                        android.content.ContentValues cv = new android.content.ContentValues();
+                        cv.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name);
+                        cv.put(android.provider.MediaStore.Downloads.MIME_TYPE, mime);
+                        cv.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                        cv.put(android.provider.MediaStore.Downloads.IS_PENDING, 1);
+                        Uri item = getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
+                        if (item == null) throw new Exception("다운로드 폴더에 파일을 만들 수 없어요");
+                        try (java.io.OutputStream out = getContentResolver().openOutputStream(item)) {
+                            if (out == null) throw new Exception("파일 쓰기 통로가 열리지 않아요");
+                            byte[] buf = new byte[65536];
+                            int n;
+                            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                        } catch (Exception we) {
+                            try { getContentResolver().delete(item, null, null); } catch (Exception ignored) {}
+                            throw we;
+                        }
+                        cv.clear();
+                        cv.put(android.provider.MediaStore.Downloads.IS_PENDING, 0);
+                        getContentResolver().update(item, cv, null, null);
+                    } else {
+                        // Android 9 이하 — 공용 Download 폴더에 직접 기록(WRITE_EXTERNAL_STORAGE 보유)
+                        File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                        //noinspection ResultOfMethodCallIgnored
+                        dir.mkdirs();
+                        File f = new File(dir, name);
+                        try (java.io.FileOutputStream out = new java.io.FileOutputStream(f)) {
+                            byte[] buf = new byte[65536];
+                            int n;
+                            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                        }
+                    }
+                    in.close();
+                }
+                c.disconnect();
+            } catch (Exception e) {
+                if (err == null) err = String.valueOf(e.getMessage());
+            }
+            final String ferr = err;
+            final String u = url;
+            runOnUiThread(() -> {
+                if (ferr == null) {
+                    Toast.makeText(MainActivity.this, "✅ 저장 완료: " + name + " (다운로드 폴더)", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                try {
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setTitle("저장 실패")
+                            .setMessage(name + "\n\n원인: " + ferr
+                                    + "\n\n[브라우저로 받기]를 누르면 크롬에서 바로 받아집니다(로그인 불필요).")
+                            .setPositiveButton("브라우저로 받기", (d, w) -> {
+                                try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(u))); } catch (Exception ignored) {}
+                            })
+                            .setNegativeButton("닫기", null)
+                            .show();
+                } catch (Exception ignored) {}
+            });
+        }).start();
+    }
+
     /**
      * 새 창(target="_blank"/window.open) 으로 요청된 URL 을 처리한다.
      * http/https 는 메인 WebView 에서 그대로 열어 앱 안에 머물게 하고,
@@ -474,9 +608,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void requestRuntimePermissions() {
-        String[] perms = {Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.MODIFY_AUDIO_SETTINGS};
-        ActivityCompat.requestPermissions(this, perms, REQ_PERMISSIONS);
+        java.util.ArrayList<String> perms = new java.util.ArrayList<>(java.util.Arrays.asList(
+                Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO,
+                Manifest.permission.MODIFY_AUDIO_SETTINGS));
+        // 안드로이드 13+ 는 알림 권한이 없으면 DownloadManager 진행/완료 알림이 안 보인다 (v2.1)
+        if (Build.VERSION.SDK_INT >= 33) perms.add("android.permission.POST_NOTIFICATIONS");
+        ActivityCompat.requestPermissions(this, perms.toArray(new String[0]), REQ_PERMISSIONS);
     }
 
     @Override

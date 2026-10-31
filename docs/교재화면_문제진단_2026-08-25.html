@@ -1,0 +1,737 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>교재가 안 보이는 이유</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#F5F4F0; --surface:#FFFFFF; --sunken:#FAF9F5;
+  --ink:#1A1712; --muted:#635C4E; --faint:#918978;
+  --line:#E0DCD1; --line-soft:#EDEAE2;
+  --accent:#9A5B00; --accent-soft:#FAEFDC;
+  --crit:#A32F1F; --crit-soft:#FBE9E5;
+  --ok:#2F6446; --ok-soft:#E4F0E8;
+  --code-bg:#1E1B15; --code-ink:#E8E2D4;
+  --shadow:0 1px 2px rgba(26,23,18,.05),0 10px 26px -18px rgba(26,23,18,.35);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#14120E; --surface:#1D1A15; --sunken:#191610;
+    --ink:#EDE7DA; --muted:#A79E8B; --faint:#7E7666;
+    --line:#2E2A22; --line-soft:#241F19;
+    --accent:#E0A34A; --accent-soft:#31260F;
+    --crit:#EB8B78; --crit-soft:#3A1D17;
+    --ok:#78C79C; --ok-soft:#16291F;
+    --code-bg:#0F0D0A; --code-ink:#E8E2D4;
+    --shadow:0 1px 2px rgba(0,0,0,.45),0 12px 30px -20px rgba(0,0,0,.85);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14120E; --surface:#1D1A15; --sunken:#191610;
+  --ink:#EDE7DA; --muted:#A79E8B; --faint:#7E7666;
+  --line:#2E2A22; --line-soft:#241F19;
+  --accent:#E0A34A; --accent-soft:#31260F;
+  --crit:#EB8B78; --crit-soft:#3A1D17;
+  --ok:#78C79C; --ok-soft:#16291F;
+  --code-bg:#0F0D0A; --code-ink:#E8E2D4;
+  --shadow:0 1px 2px rgba(0,0,0,.45),0 12px 30px -20px rgba(0,0,0,.85);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Noto Sans KR",system-ui,-apple-system,"Malgun Gothic",sans-serif;
+  font-weight:400; line-height:1.78; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:64rem;margin:0 auto;padding:clamp(2rem,5vw,4.5rem) clamp(1rem,4vw,2.5rem) 6rem;display:flex;flex-direction:column;gap:3.2rem}
+header{display:flex;flex-direction:column;gap:.9rem;border-bottom:2px solid var(--ink);padding-bottom:1.8rem}
+.eyebrow{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin:0}
+h1{font-family:"Gowun Batang",Batang,serif;font-weight:700;font-size:clamp(2rem,5vw,3.1rem);line-height:1.22;margin:0;text-wrap:balance;letter-spacing:-.015em}
+.sub{margin:0;color:var(--muted);max-width:42em;word-break:keep-all}
+.meta{display:flex;flex-wrap:wrap;gap:.35rem 1.5rem;font-size:.82rem;color:var(--muted);font-family:"JetBrains Mono",ui-monospace,monospace;margin:0}
+section{display:flex;flex-direction:column;gap:1.15rem}
+h2{font-family:"Gowun Batang",Batang,serif;font-weight:700;font-size:clamp(1.35rem,3vw,1.7rem);margin:0;letter-spacing:-.01em;word-break:keep-all;display:flex;align-items:baseline;gap:.75rem}
+h2::after{content:"";flex:1;height:1px;background:var(--line)}
+h3{font-family:"Gowun Batang",Batang,serif;font-weight:700;font-size:1.1rem;margin:.5rem 0 0;word-break:keep-all}
+p{margin:0;max-width:44em;word-break:keep-all}
+strong{font-weight:700}
+em{font-style:normal;background:var(--accent-soft);padding:0 .25em;border-radius:2px}
+
+/* 사건 카드 */
+.case{background:var(--surface);border:1px solid var(--line);border-radius:3px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+.case-head{display:flex;gap:1rem;align-items:flex-start;padding:1.2rem 1.4rem;border-bottom:1px solid var(--line-soft);background:var(--sunken)}
+.case-no{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.78rem;font-weight:500;letter-spacing:.08em;color:var(--surface);background:var(--ink);border-radius:2px;padding:.25rem .55rem;white-space:nowrap;margin-top:.2rem}
+.case-quote{font-family:"Gowun Batang",Batang,serif;font-size:1.15rem;font-weight:700;line-height:1.5;word-break:keep-all;margin:0}
+.case-body{padding:1.3rem 1.4rem;display:flex;flex-direction:column;gap:1.1rem}
+.case-body > p{max-width:46em}
+
+.row{display:flex;flex-direction:column;gap:.4rem}
+.rowlabel{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+
+/* 원인 블록 */
+.cause{border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 3px 3px 0;padding:.95rem 1.15rem;display:flex;flex-direction:column;gap:.55rem}
+.cause.crit{border-left-color:var(--crit);background:var(--crit-soft)}
+.cause.good{border-left-color:var(--ok);background:var(--ok-soft)}
+.cause-t{font-weight:700;word-break:keep-all;display:flex;gap:.5rem;align-items:baseline}
+.tag{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.68rem;letter-spacing:.1em;border:1px solid currentColor;border-radius:2px;padding:.05rem .4rem;white-space:nowrap;flex:0 0 auto}
+.cause .tag{color:var(--accent)}
+.cause.crit .tag{color:var(--crit)}
+.cause.good .tag{color:var(--ok)}
+.cause p{font-size:.95rem;max-width:46em}
+
+pre{margin:0;background:var(--code-bg);color:var(--code-ink);border-radius:3px;padding:.9rem 1.05rem;overflow-x:auto;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.8rem;line-height:1.7}
+pre b{color:#E0A34A;font-weight:500}
+pre i{color:#8E8571;font-style:normal}
+code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.86em;background:var(--sunken);border:1px solid var(--line-soft);border-radius:2px;padding:.05em .35em;word-break:break-all}
+.src{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.76rem;color:var(--muted);word-break:break-all}
+
+ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.5rem}
+ul.list li{padding-left:1.15rem;position:relative;word-break:keep-all;max-width:46em}
+ul.list li::before{content:"—";position:absolute;left:0;color:var(--faint)}
+ol{margin:0;padding-left:1.35rem;display:flex;flex-direction:column;gap:.5rem;max-width:46em}
+ol li{word-break:keep-all}
+
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:3px;background:var(--surface)}
+table{border-collapse:collapse;width:max-content;min-width:100%;font-size:.9rem}
+th,td{text-align:left;padding:.65rem .9rem;border-bottom:1px solid var(--line-soft);vertical-align:top;word-break:keep-all}
+th{font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-family:"JetBrains Mono",ui-monospace,monospace;font-weight:500;background:var(--sunken);white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+td.num{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill{display:inline-block;font-size:.74rem;font-family:"JetBrains Mono",ui-monospace,monospace;letter-spacing:.05em;border-radius:99px;padding:.1rem .55rem;white-space:nowrap}
+.p-hi{background:var(--crit-soft);color:var(--crit)}
+.p-mid{background:var(--accent-soft);color:var(--accent)}
+.p-lo{background:var(--ok-soft);color:var(--ok)}
+
+.stop{background:var(--surface);border:1px solid var(--crit);border-left-width:4px;border-radius:3px;padding:1.15rem 1.35rem;display:flex;flex-direction:column;gap:.7rem;box-shadow:var(--shadow)}
+.stop h3{margin:0;color:var(--crit)}
+.note{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--faint);border-radius:0 3px 3px 0;padding:1.1rem 1.3rem;display:flex;flex-direction:column;gap:.7rem;box-shadow:var(--shadow)}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.stat{background:var(--surface);padding:1.05rem 1.15rem;display:flex;flex-direction:column;gap:.15rem;min-width:0}
+.stat b{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:1.55rem;font-weight:500;font-variant-numeric:tabular-nums;color:var(--accent);line-height:1.15}
+.stat span{font-size:.8rem;color:var(--muted);word-break:keep-all}
+
+/* 화면 비율 도해 */
+.diagram{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr));gap:1.1rem}
+.phone{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:.55rem;display:flex;flex-direction:column;gap:3px;box-shadow:var(--shadow)}
+.phone .cap{font-size:.78rem;color:var(--muted);text-align:center;padding:.35rem 0 .1rem;word-break:keep-all}
+.bar{border-radius:2px;display:flex;align-items:center;justify-content:center;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.68rem;color:var(--muted)}
+.b-chrome{height:14px;background:var(--line)}
+.b-face{background:var(--crit-soft);color:var(--crit)}
+.b-book{background:var(--ok-soft);color:var(--ok)}
+.split{display:flex;gap:3px;flex:1}
+.split .b-book{flex:1}
+.split .b-face{flex:0 0 30%;flex-direction:column}
+footer{border-top:1px solid var(--line);padding-top:1.6rem;color:var(--muted);font-size:.85rem;display:flex;flex-direction:column;gap:.5rem}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){.case{transition:box-shadow .2s}}
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">화상수업 화면 진단 · 수정 완료</p>
+  <h1>교재가 안 보이는 이유</h1>
+  <p class="sub">8월 25일 신고 <strong>7건</strong>&#8202;&#8212;&#8202;사장님 4건(핀치 확대·교사 화면 크기·얼굴 위치·글자 깨짐)과 강선생님 3건(교재 업로드·가면·배경화면)&#8202;&#8212;&#8202;을 코드에서 되짚었습니다. 서로 다른 신고처럼 보이지만 <strong>원인은 10개이고, 두 갈래로 갈립니다</strong>: 사장님 것은 <em>화면을 그리는 방식</em>, 강선생님 것은 <em>중국에서 접속한다는 사실</em>입니다.</p>
+  <p class="meta"><span>2026-08-25</span><span>대상 방 class-848-20260825</span><span>브랜치 claude/textbook-display-issues-xig5pe</span><span>수정 반영 2026-08-25</span></p>
+</header>
+
+<section>
+  <h2>고친 것 &#183; 사장님 답변 반영</h2>
+
+  <div class="note">
+    <p><strong>사장님 답변</strong> &#8212; ① 세로폰 얼굴 배치는 그대로, 가로에서만 오른쪽 ② <strong>교재 원본은 흐리지 않았다</strong> ③ 중국어는 「막혔을 때 이유를 말해 주는 문구」까지만.</p>
+    <p>②가 결정적이었습니다. <strong>원본이 선명했다면 범인은 「화면에서 줄이는 단계」로 확정</strong>됩니다 &#8212; 원인 &#9313;(1배 해상도)과 &#9316;(저품질 축소)입니다. 추측이 아니라 확정된 원인을 고쳤습니다.</p>
+  </div>
+
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>신고</th><th>고친 내용</th><th>확인</th></tr></thead>
+      <tbody>
+        <tr><td>1 · 핀치 확대</td><td>손을 떼는 순간의 「100% 되돌리기」 한 번만 무시. 진짜 더블탭 되돌리기는 그대로 살아 있음</td><td><span class="pill p-lo">브라우저 실측</span></td></tr>
+        <tr><td>1 · 확대 버튼 없음</td><td>교재 위에 <strong>＋ / 배율 / － / ↺</strong> 버튼을 폰에서만 띄움</td><td><span class="pill p-lo">브라우저 실측</span></td></tr>
+        <tr><td>3·4 · 글자 깨짐</td><td>교재를 <strong>화면 배율(2배)만큼 촘촘히</strong> 그림 + 사진은 <strong>절반씩 나눠</strong> 줄임</td><td><span class="pill p-lo">브라우저 실측</span></td></tr>
+        <tr><td>2 · 교사 화면 크기</td><td><strong>손대지 않음</strong> &#8212; 세로 배치를 그대로 두라 하셔서 함께 걸린 규칙을 건드리지 않았습니다</td><td><span class="pill p-mid">보류</span></td></tr>
+        <tr><td>3 · 얼굴 위치</td><td><strong>손대지 않음</strong> &#8212; 가로는 이미 오른쪽(실측 확인), 세로는 지시대로 위에 유지</td><td><span class="pill p-lo">실측 확인</span></td></tr>
+        <tr><td>5 · 교재 업로드</td><td>파일 고르기 창과 검사에 <code>webp</code> 추가(서버는 이미 허용) + HEIC 안내</td><td><span class="pill p-lo">브라우저 실측</span></td></tr>
+        <tr><td>6 · 가면</td><td>12초 안에 모델이 안 오면 <strong>이유를 중국어로</strong> 말해 줌. 모델 자체 서빙은 <strong>사장님 결정 대기</strong></td><td><span class="pill p-mid">일부</span></td></tr>
+        <tr><td>7 · 배경화면 두 번 클릭</td><td>교재&#183;칠판과 같이 <strong>다시 눌러도 접히지 않게</strong></td><td><span class="pill p-lo">브라우저 실측</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>어떻게 넣었나 &#183; 첫 화면 예산 104바이트</h3>
+  <p>실측한 여유가 <strong>104바이트</strong>였습니다. 그래서 새 코드는 전부 <strong>새 파일 <code>js/idx-vc-mobilefix.js</code>(defer)</strong>로 빼고, 손댈 수 없는 자리 두 곳만 <strong>31바이트</strong>로 고쳤습니다. 첫 화면에 더해진 무게는 <strong>0바이트</strong>이고 <strong>73바이트가 남았습니다.</strong></p>
+  <pre><i>// 첫 화면에 실린 것은 31바이트뿐 — 나머지는 수업이 시작된 뒤에만 받는다</i>
+js/idx-main.js  <b>+31B</b>   scale 에 화면 배율 곱하기 · 업로드 형식에 webp 추가
+js/idx-vc-mobilefix.js  (defer, 첫 화면 <b>0B</b>)   나머지 전부</pre>
+
+  <div class="cause good">
+    <div class="cause-t"><span class="tag">검증</span><span>글자를 찾는 검사로는 이 버그들이 안 잡힙니다</span></div>
+    <ul class="list">
+      <li>타입체크 통과 &#183; 회귀 하니스 <strong>PASS 207 / FAIL 0</strong> &#183; 배포 게이트 4종 통과</li>
+      <li>그런데 <strong>이 버그들이 살아 있는 동안에도 그 검사들은 전부 초록불이었습니다.</strong> 그래서 진짜 브라우저로 재는 검사를 새로 만들었습니다 &#8212; <code>test-harness/manual/vc-textbook-mobile-browser.mjs</code> (<strong>30건 전부 통과</strong>).</li>
+      <li>재는 것: 캔버스의 실제 점 개수 / 두 손가락을 실제로 벌렸다 뗀 뒤의 배율 / 확대 버튼이 그 자리에서 «맨 위»인가(보인다&#8800;눌린다) / 배경화면 두 번 클릭 / 중국어가 붙는가 / 얼굴 위치.</li>
+      <li>⚠️ <strong>자동으로 돌지 않습니다</strong>(<code>manual/</code> 규약). 교재 렌더&#183;핀치&#183;확대 버튼을 건드리면 사람이 불러야 합니다.</li>
+    </ul>
+  </div>
+
+  <div class="stop">
+    <h3>배포 전에 알아 두실 것</h3>
+    <p><strong>공동 금지구역을 건드렸습니다</strong> &#8212; <code>public/index.html</code>과 <code>js/idx-main.js</code>입니다(CLAUDE.md 4-2장). 사장님 지시로 진행했지만, 배포 전에 <strong>공동 유지보수자에게 알려 주십시오.</strong></p>
+    <p><strong>배포 후 사장님이 한 번 보셔야 끝납니다.</strong> 작업 환경의 프록시가 <code>mangoi.ai</code>를 막아 배포된 실제 화면은 확인할 수 없습니다. 보실 것: 폰에서 교재 글자가 읽히는지 &#183; 두 손가락으로 키운 뒤 손을 떼도 커진 채 남는지 &#183; 교재 오른쪽 아래 ＋/－ 버튼.</p>
+  </div>
+
+  <div class="note">
+    <p><strong>남은 결정 하나 &#183; 가면(신고 6)</strong> &#8212; 지금은 「왜 안 되는지」만 알려 줍니다. 진짜로 되게 하려면 얼굴인식 파일을 우리 서버로 복사해야 하는데 <strong>약 15MB</strong>(모델 3.8MB + 실행 파일 11MB)입니다. 저장소에 영구히 들어가고 배포할 때마다 함께 올라갑니다. <strong>가면은 수업을 막는 기능이 아니라 꾸미기</strong>라, 넣을지는 사장님이 정하실 일로 남겨 두었습니다. 넣기로 하시면 경로는 이미 준비돼 있어 파일만 복사하면 됩니다.</p>
+  </div>
+</section>
+
+<section>
+  <h2>한눈에</h2>
+  <div class="stats">
+    <div class="stat"><b>10</b><span>특정한 원인</span></div>
+    <div class="stat"><b>8</b><span>코드로 확정</span></div>
+    <div class="stat"><b>2</b><span>실물 확인 필요</span></div>
+    <div class="stat"><b>48vh</b><span>세로폰에서 얼굴이 먹는 높이</span></div>
+    <div class="stat"><b>1&#215;</b><span>교재를 그리는 해상도 배율</span></div>
+    <div class="stat"><b>0</b><span>중국어 안내 문구</span></div>
+  </div>
+
+  <p>가장 중요한 것 하나만 고르면 <strong>원인 &#9313;</strong>입니다. 교재를 화면 픽셀이 아니라 <em>CSS 픽셀</em>로 그리고 있어서, 요즘 휴대폰이 쓸 수 있는 점의 <strong>3분의 1만</strong> 씁니다. 신고 1·3·4가 모두 여기서 겹칩니다.</p>
+
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>신고</th><th>주된 원인</th><th>확정도</th><th>고치는 난이도</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>1 · 손가락으로 크게 해도 안 커진다</td>
+          <td>&#9312; 핀치를 놓는 순간을 「더블탭」으로 오인해 100%로 되돌림<br>&#9317; 브라우저 기본 핀치는 CSS로 꺼 둠</td>
+          <td><span class="pill p-lo">코드 확정</span></td>
+          <td><span class="pill p-lo">낮음 · 4줄</span></td>
+        </tr>
+        <tr>
+          <td>2 · 교사 화면이 작고 학생이 크다</td>
+          <td>&#9314; 교사의 가로(16:9) 웹캠이 세로 타일에서 검은 띠로 둘러싸임</td>
+          <td><span class="pill p-lo">코드 확정</span></td>
+          <td><span class="pill p-mid">중간 · 규칙 5곳</span></td>
+        </tr>
+        <tr>
+          <td>3 · 얼굴이 위에 있어 교재가 작다</td>
+          <td>&#9315; 세로폰 기본 배치가 「위 얼굴 절반 / 아래 교재 절반」으로 못 박혀 있음</td>
+          <td><span class="pill p-lo">코드 확정</span></td>
+          <td><span class="pill p-mid">중간 · 지시 변경</span></td>
+        </tr>
+        <tr>
+          <td>4 · 8/25 강선생님 수업 글자 깨짐</td>
+          <td>&#9313; 1배 해상도 렌더 + &#9316; 저품질 축소 + &#9318; 펼침면 한 장</td>
+          <td><span class="pill p-mid">코드 확정 &#43; 실물 미확인</span></td>
+          <td><span class="pill p-mid">중간 · 성능 확인 필요</span></td>
+        </tr>
+        <tr>
+          <td>5 · (강선생님) 폴더는 열리는데 교재를 못 올린다</td>
+          <td>&#9319; 파일 고르기 창이 <code>.webp</code>를 아예 안 보여줌<br>(서버는 받아 주는데 화면만 막고 있음)</td>
+          <td><span class="pill p-lo">코드 확정</span></td>
+          <td><span class="pill p-lo">낮음 · 두 줄</span></td>
+        </tr>
+        <tr>
+          <td>6 · (강선생님) 가면이 보이는데 눌러도 안 된다</td>
+          <td>&#9320; 얼굴인식 모델을 <strong>구글 서버</strong>에서 받는데 중국에서 막힘</td>
+          <td><span class="pill p-lo">코드 확정</span></td>
+          <td><span class="pill p-mid">중간 · 파일 자체 서빙</span></td>
+        </tr>
+        <tr>
+          <td>7 · (강선생님) 배경화면을 두 번 누르면 화면이 사라진다</td>
+          <td>&#9321; 같은 탭을 다시 누르면 <strong>본문 전체가 접힘</strong> — 교재도구도 함께 사라짐</td>
+          <td><span class="pill p-lo">코드 확정</span></td>
+          <td><span class="pill p-lo">낮음 · 예외 한 줄</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>신고 1 &#183; 손가락으로 크게 해도 안 커진다</h2>
+
+  <div class="case">
+    <div class="case-head">
+      <span class="case-no">CASE 1</span>
+      <p class="case-quote">&#171;휴대폰에서 교재를 손가락으로 크게 해도 커지지 않아&#187;</p>
+    </div>
+    <div class="case-body">
+
+      <div class="cause crit">
+        <div class="cause-t"><span class="tag">원인 &#9312;</span><span>핀치가 끝나는 순간 코드가 스스로 100%로 되돌립니다</span></div>
+        <p>교재 영역에는 손가락 처리가 두 벌 붙어 있습니다. <strong>핀치 확대</strong>와 <strong>더블탭 &#8594; 100% 되돌리기</strong>입니다. 그런데 더블탭 판정이 「손가락 하나가 떨어진 일이 300밀리초 안에 두 번 있었나」만 봅니다.</p>
+        <p><strong>핀치를 놓으면 손가락이 두 개 떨어집니다.</strong> 대개 몇 밀리초 간격으로 각각 신호를 내므로, 더블탭 판정이 그 둘을 <em>「더블탭」으로 셉니다.</em> 손가락을 벌리는 동안에는 실제로 커지다가, 떼는 순간 원래 크기로 튕겨 돌아갑니다.</p>
+        <pre><i>// cloudflare-deploy/public/js/idx-main.js:3195~3210</i>
+<i>// 더블탭 → 100% reset (pinch zoom 후 빠르게 원상복구)</i>
+var lastTap = 0;
+wrap.addEventListener('touchend', function(e){
+  if (e.changedTouches.length !== 1) return;
+  var now = Date.now();
+  if (now - lastTap &lt; 300) {
+    <b>if (typeof window.pdfSetZoom === 'function') window.pdfSetZoom(1);</b>  <i>← 핀치 직후 여기로 들어옴</i>
+    lastTap = 0;
+  } else { lastTap = now; }
+});</pre>
+        <p>바로 위 핀치 종료 처리(<code>3188~3193행</code>)는 <code>pinching = false</code>만 하고 <strong>더블탭 쪽에는 아무 표시도 남기지 않습니다.</strong> 두 처리가 같은 요소에 각각 붙어 있어서 서로를 모릅니다.</p>
+      </div>
+
+      <div class="row">
+        <span class="rowlabel">왜 「가끔은 되는 것 같기도」 한가</span>
+        <p>두 손가락이 <strong>완전히 같은 순간</strong> 떨어지면 신호가 한 번에 묶여 나오고(<code>changedTouches.length === 2</code>), 그러면 더블탭 판정이 첫 줄에서 그냥 빠져나가 확대가 남습니다. 그래서 재현이 들쭉날쭉하고 「내 손가락이 이상한가」 싶어집니다.</p>
+      </div>
+
+      <div class="cause">
+        <div class="cause-t"><span class="tag">원인 &#9317;</span><span>브라우저가 원래 해 주던 확대를 그 자리에서만 꺼 놨습니다</span></div>
+        <p>교재 상자에 <code>touch-action: pan-x pan-y</code>가 걸려 있습니다. 이 값은 「끌어서 넘기기는 허용, <strong>핀치 확대는 브라우저가 하지 마라</strong>」는 뜻입니다. 즉 확대는 전적으로 위 자체 코드에 맡겨져 있고, 그것이 실패하면 <strong>대체 수단이 하나도 없습니다.</strong></p>
+        <pre><i>// cloudflare-deploy/public/index.html:2234~2239</i>
+@media (max-width: 1024px) {
+  #pdf-scroll-wrap, .pdf-scroll-wrap {
+    <b>touch-action: pan-x pan-y !important;</b>
+    -webkit-overflow-scrolling: touch !important;
+  }
+}</pre>
+      </div>
+
+      <div class="cause">
+        <div class="cause-t"><span class="tag">원인 &#9318;</span><span>휴대폰에는 확대 버튼도 화면에 없습니다</span></div>
+        <p>확대·축소 버튼(<code>.pdf-pan-btn</code> 등)은 1024px 이하에서 <code>display:none</code>으로 전부 숨겨져 있습니다 (<span class="src">index.html:2216~2232</span>). 나머지 확대 버튼은 「교재도구」 칩을 펼쳐야 나오는데, 그 칩 줄은 좁은 폰에서 화면 밖으로 밀립니다. <strong>그래서 손가락이 유일한 길인데 그 길이 막혀 있었습니다.</strong></p>
+      </div>
+
+      <div class="cause good">
+        <div class="cause-t"><span class="tag">고침</span><span>핀치가 끝난 뒤 400밀리초는 더블탭을 무시</span></div>
+        <p>핀치 종료 시각을 남겨 두고, 더블탭 판정 첫 줄에서 그 시각을 확인해 빠져나가면 됩니다. 되돌리기 기능 자체는 그대로 살아 있습니다.</p>
+        <ul class="list">
+          <li>핀치 종료 처리에 <code>window.__pdfPinchEndAt = Date.now()</code> 한 줄, 더블탭 판정 맨 앞에 <code>if (Date.now() - (window.__pdfPinchEndAt||0) &lt; 400) { lastTap = 0; return; }</code> 두 줄.</li>
+          <li>덤으로 <strong>확대 버튼 두 개(&#43;/&#8722;)를 폰 화면 아래 고정 노출</strong>하는 편이 안전합니다. 손가락 처리가 또 어긋나도 사장님과 학생이 쓸 수 있는 길이 남습니다.</li>
+        </ul>
+      </div>
+
+      <div class="note">
+        <p><strong>다만 확대가 살아나도 「선명해지지는」 않습니다.</strong> 확대하면 더 큰 캔버스에 다시 그리긴 하지만, 그 캔버스가 애초에 화면 해상도의 3분의 1입니다 &#8594; <strong>원인 &#9313;</strong>(신고 4)을 같이 고쳐야 글자가 읽힙니다.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>신고 2 &#183; 교사 화면이 작고 학생 화면이 크다</h2>
+
+  <div class="case">
+    <div class="case-head">
+      <span class="case-no">CASE 2</span>
+      <p class="case-quote">&#171;교사화면이 작고 학생 화면이 커. 반대로 교사화면이 크던가 최소한 같은 크기로&#187;</p>
+    </div>
+    <div class="case-body">
+
+      <p><strong>타일(칸) 크기는 이미 같습니다.</strong> 작아 보이는 것은 <em>칸 안에서 교사 얼굴만 검은 띠에 둘러싸여 있기 때문</em>입니다. 보내 주신 화면에서 강선생님 칸의 위아래에 검은 여백이 넓게 있는 것이 그것입니다.</p>
+
+      <div class="cause crit">
+        <div class="cause-t"><span class="tag">원인 &#9314;</span><span>「꽉 채우기」 예외가 세로폰에만 있습니다</span></div>
+        <p>영상을 칸에 맞추는 규칙(<code>vcSmartFitVideo</code>)은, 영상과 칸의 <strong>방향이 다르거나 비율 차가 1.35배를 넘으면</strong> 잘리지 않게 <code>contain</code>(전체 보이기 &#61; 검은 띠 생김)으로 바꿉니다.</p>
+        <p>2026-07-14에 「교사 화면도 학생처럼 꽉 차게」 지시가 있어 예외를 넣었는데, 그 예외에 <strong>「세로폰일 때만」이라는 조건이 붙어 있습니다.</strong> 그래서 가로폰·태블릿·PC에서는 예외가 안 걸리고, 교사의 가로(16:9) 웹캠이 세로로 긴 칸에 들어가면 <strong>위아래가 검게 남습니다.</strong></p>
+        <pre><i>// cloudflare-deploy/public/js/idx-main.js:6346~6352</i>
+if (box.id !== 'vc-local-box'
+    <b>&amp;&amp; matchMedia('(max-width:920px) and (orientation:portrait)').matches</b>) {
+  v.style.setProperty('object-fit', 'cover', 'important');   <i>← 꽉 채움</i>
+  return;
+}
+<i>// ↓ 위 조건에 안 걸리면 여기로 내려와 검은 띠가 생긴다</i>
+var mismatch = vbgOn || ((vr &lt; 1) !== (br &lt; 1)) || (Math.max(vr,br)/Math.min(vr,br) &gt; 1.35);
+v.style.setProperty('object-fit', <b>mismatch ? 'contain' : 'cover'</b>, 'important');</pre>
+        <p class="src">계산 예 &#183; 교사 16:9 = 1.78 / 칸 685&#215;770 = 0.89 &#8594; 방향이 서로 달라 mismatch &#8594; contain</p>
+      </div>
+
+      <div class="cause">
+        <div class="cause-t"><span class="tag">왜 학생만 커 보이나</span><span>사장님 폰 카메라는 세로 영상입니다</span></div>
+        <p>휴대폰 세로 카메라는 9:16 영상을 보냅니다. 세로로 긴 칸과 방향이 같아서 <strong>거의 여백 없이 칸을 채웁니다.</strong> 같은 크기의 칸인데 한쪽만 여백이 크니 「교사가 작다」로 보입니다.</p>
+      </div>
+
+      <div class="cause good">
+        <div class="cause-t"><span class="tag">고침</span><span>「가로 영상이면 꽉 채우고, 세로 영상일 때만 전체 보이기」</span></div>
+        <p>예외의 조건을 <strong>화면 폭이 아니라 「보내온 영상이 세로인가」로 바꿉니다.</strong> 그러면 교사가 PC 웹캠(가로)이면 어느 기기에서도 꽉 차고, 교사가 휴대폰 세로로 들어와도 얼굴이 잘리지 않습니다.</p>
+        <p>「교사를 더 크게」까지 원하시면 칸 비중을 <code>grid-template-rows: 1.6fr 1fr</code>로 주면 됩니다.</p>
+      </div>
+
+      <div class="stop">
+        <h3>고칠 때 반드시 함께 볼 곳 &#183; 「정확히 반반」 규칙이 다섯 벌입니다</h3>
+        <p>2026-07-14 지시(「교사·학생 정확히 반반, 축소 금지」)로 같은 취지의 CSS가 여러 곳에 못 박혀 있습니다. <strong>한 곳만 고치면 다른 곳이 이겨서 화면이 안 바뀝니다.</strong></p>
+        <ul class="list">
+          <li><span class="src">index.html:16269</span> — 내 타일 62% 축소(1:1 수업 기본)</li>
+          <li><span class="src">index.html:3275~3310</span> — 세로폰 1/2 모드, 위 얼굴 좌우 반반</li>
+          <li><span class="src">index.html:3392~3432</span> — 가로폰, 62% 축소 무효화 &#43; 완전히 같은 크기 강제</li>
+          <li><span class="src">index.html:15960~15975</span> — 영상 컬럼 빈 칸 제거 &#43; <code>object-fit:cover</code> 강제</li>
+          <li><span class="src">js/idx-main.js:6339~6362</span> — 위의 자동 맞춤(최종 승자, 인라인 <code>!important</code>)</li>
+        </ul>
+        <p>인라인 <code>!important</code>로 쓰는 자바스크립트가 CSS를 전부 이기므로, <strong>실제로 화면을 정하는 것은 마지막 한 곳입니다.</strong> 거기부터 고치는 것이 맞습니다.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>신고 3 &#183; 얼굴이 위에 있어 교재가 작다</h2>
+
+  <div class="case">
+    <div class="case-head">
+      <span class="case-no">CASE 3</span>
+      <p class="case-quote">&#171;교사와 학생이 오른쪽에 있어야 하는데 위에 있어서 교재가 작게 잘 안보여&#187;</p>
+    </div>
+    <div class="case-body">
+
+      <p>사장님이 원하시는 배치(<strong>얼굴 오른쪽 좁게 &#183; 교재 왼쪽 넓게</strong>)는 <strong>이미 있습니다.</strong> 다만 <em>휴대폰을 가로로 눕혔을 때만</em> 적용됩니다. 세로로 들고 있으면 「위 얼굴 / 아래 교재」로 강제됩니다.</p>
+
+      <div class="diagram">
+        <div class="phone">
+          <div class="bar b-chrome"></div>
+          <div class="bar b-face" style="height:120px">얼굴 48vh</div>
+          <div class="bar b-book" style="height:100px">교재 약 40vh</div>
+          <div class="cap">지금 &#183; 세로로 들었을 때</div>
+        </div>
+        <div class="phone">
+          <div class="bar b-chrome"></div>
+          <div class="split" style="height:220px">
+            <div class="bar b-book">교재</div>
+            <div class="bar b-face">얼굴<br>130px</div>
+          </div>
+          <div class="cap">지금 &#183; 가로로 눕혔을 때</div>
+        </div>
+        <div class="phone">
+          <div class="bar b-chrome"></div>
+          <div class="split" style="height:220px">
+            <div class="bar b-book">교재</div>
+            <div class="bar b-face">얼굴</div>
+          </div>
+          <div class="cap">사장님이 원하시는 것</div>
+        </div>
+      </div>
+
+      <div class="cause crit">
+        <div class="cause-t"><span class="tag">원인 &#9315;</span><span>세로폰 기본이 「1/2 반반」으로 못 박혀 있습니다</span></div>
+        <p>수업에 들어가면 세로폰은 <strong>무조건 1/2 모드</strong>가 됩니다. 2026-07-14에 「절대로 PIP 쓰지 말고 1/2로」 지시가 있어 다른 배치로 가는 길을 아예 없앤 것입니다.</p>
+        <pre><i>// cloudflare-deploy/public/js/idx-vc-screenmode.js:83~87</i>
+<i>// 🔑 (2026-07-14 사장님 재지시) 세로폰 = '항상 1/2'(half). PIP 자동 전환 완전 폐지.</i>
+<b>var want = 'half';</b></pre>
+        <p>그리고 그 1/2 모드에서 얼굴 영역 높이가 <strong>48vh &#61; 화면 높이의 48%</strong>로 고정돼 있습니다.</p>
+        <pre><i>// cloudflare-deploy/public/index.html:3275~3278</i>
+body.vc-in-call .vc-main-row.video-half &gt; .video-pane {
+  <b>height: 48vh !important;</b>
+  <b>max-height: 48vh !important;</b>
+}</pre>
+      </div>
+
+      <div class="row">
+        <span class="rowlabel">교재에 실제로 남는 자리</span>
+        <p>390&#215;844 크기 폰 기준입니다. 화면 높이 844에서 얼굴 <strong>405</strong>(48%), 상단 바 36, 탭 줄 약 40, 아래 버튼 독 약 70을 빼면 <strong>교재에 남는 높이는 약 290픽셀</strong>입니다. 여기에 보내 주신 교재가 <strong>책을 펼쳐 두 쪽을 한 장에 찍은 사진</strong>이라, 한 쪽에 돌아가는 폭은 <strong>약 190픽셀</strong>입니다. 원고지 한 칸이 2픽셀도 안 됩니다.</p>
+      </div>
+
+      <div class="cause good">
+        <div class="cause-t"><span class="tag">고침</span><span>세 가지 안 &#183; 위험도가 다릅니다</span></div>
+        <div class="tblwrap">
+          <table>
+            <thead><tr><th>안</th><th>내용</th><th>효과</th><th>위험</th></tr></thead>
+            <tbody>
+              <tr><td class="num">가</td><td>48vh &#8594; 26~30vh 로 줄이기</td><td>교재 높이 약 290 &#8594; 440px<br>(&#43;50%)</td><td><span class="pill p-lo">낮음</span> 숫자 한 줄</td></tr>
+              <tr><td class="num">나</td><td>「교재만 크게」 버튼을 아래 독에 상시 노출<br>(<code>video-solo</code> 모드는 이미 있음)</td><td>필요할 때 한 번 눌러 전체 폭</td><td><span class="pill p-lo">낮음</span> 버튼 추가</td></tr>
+              <tr><td class="num">다</td><td>세로에서도 좌우 분할<br>(얼굴 오른쪽 좁은 세로 컬럼)</td><td>지시하신 배치 그대로</td><td><span class="pill p-hi">사장님 승인 필요</span><br>2026-07-14 지시를 뒤집는 변경</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><strong>권장</strong> — 가·나를 먼저 넣어 오늘 바로 좋아지게 하고, 다는 사장님이 「1/2 반반」 지시를 거두신다는 확인을 받고 진행합니다. 세로 390픽셀 폭에서 얼굴을 오른쪽 130픽셀로 빼면 교재 폭이 <strong>390 &#8594; 250</strong>으로 오히려 줄어드는 자리도 있어, 실제 폰에서 재 보고 정하는 것이 안전합니다.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>신고 4 &#183; 8월 25일 강선생님 수업, 교재 글자가 깨짐</h2>
+
+  <div class="case">
+    <div class="case-head">
+      <span class="case-no">CASE 4</span>
+      <p class="case-quote">&#171;중국어 강선생님과 8월 25일 오후 7시 20분 수업에서 교재의 글자가 깨져서 보이지 않아&#187;</p>
+    </div>
+    <div class="case-body">
+
+      <div class="cause crit">
+        <div class="cause-t"><span class="tag">원인 &#9313;</span><span>교재를 화면 해상도의 3분의 1로 그립니다 &#183; 가장 큰 원인</span></div>
+        <p>교재는 <code>&lt;canvas&gt;</code>에 그립니다. 캔버스는 <strong>「몇 개의 점으로 그릴지」를 따로 정해 줘야</strong> 합니다. 안 정하면 브라우저가 쓰는 논리 단위(CSS 픽셀)를 그대로 씁니다.</p>
+        <p>그런데 요즘 휴대폰은 <strong>논리 1칸을 실제 점 3개로</strong> 표시합니다(devicePixelRatio 3). 즉 화면은 1170개의 점을 쓸 수 있는데 <strong>390개만 그려 놓고 3배로 늘려서</strong> 보여주는 셈입니다. 획이 가는 한글은 이 단계에서 뭉개져 사라집니다.</p>
+        <pre><i>// cloudflare-deploy/public/js/idx-main.js:11843~11847</i>
+function _pdfFitCanvas(canvas, w, h) {
+  const W = Math.max(1, Math.floor(w)), H = Math.max(1, Math.floor(h));
+  <b>canvas.width = W; canvas.height = H;</b>   <i>← 화면 배율(devicePixelRatio)이 없다</i>
+}</pre>
+        <p><strong>확인</strong> &#183; <code>devicePixelRatio</code>라는 낱말이 <code>index.html</code>과 <code>idx-main.js</code> 전체에 <strong>0건</strong>입니다. 교재 그리는 길 어디에도 화면 배율을 반영하는 곳이 없습니다.</p>
+      </div>
+
+      <div class="cause crit">
+        <div class="cause-t"><span class="tag">원인 &#9316;</span><span>큰 사진을 작은 캔버스에 한 번에 욱여넣습니다</span></div>
+        <p>사진 교재는 원본을 목표 크기에 <strong>단번에</strong> 그립니다. 브라우저의 기본 축소 품질은 낮게 잡혀 있어서, 3000픽셀짜리 사진을 380픽셀로 <strong>8배 줄이면</strong> 글자 획이 규칙적으로 사라지며 「깨진 것처럼」 보입니다(모아레). 품질을 올리는 <code>imageSmoothingQuality</code> 설정조차 안 켜져 있습니다.</p>
+        <pre><i>// cloudflare-deploy/public/js/idx-main.js:11367~11391 (pdfBuildImageDoc)</i>
+render: ({ canvasContext, viewport }) =&gt; ({
+  promise: new Promise((res) =&gt; {
+    <b>canvasContext.drawImage(img, 0, 0, viewport.width, viewport.height);</b>
+    res();
+  })
+})</pre>
+      </div>
+
+      <div class="cause">
+        <div class="cause-t"><span class="tag">원인 &#9318;</span><span>펼침면 한 장 &#183; 폭이 반으로 나뉩니다</span></div>
+        <p>보내 주신 화면의 교재는 <strong>책을 펼쳐 두 쪽을 한 장에 찍은 사진</strong>입니다. 화면은 그 한 장을 폭에 맞추므로, 한 쪽이 실제로 받는 폭은 <strong>절반</strong>입니다. 신고 3의 좁은 자리와 겹치면 한 쪽당 190픽셀이 됩니다.</p>
+        <p><strong>업로드 쪽은 죄가 없습니다</strong> — 올릴 때 줄이거나 다시 압축하는 코드가 없어(<span class="src">js/idx-main.js:11550 pdfUploadOne</span>) 원본이 그대로 서버에 있습니다. 즉 <strong>범인은 「화면에서 줄이는 단계」</strong>일 가능성이 큽니다.</p>
+      </div>
+
+      <div class="cause good">
+        <div class="cause-t"><span class="tag">고침</span><span>화면 배율을 반영하고, 축소 품질을 올립니다</span></div>
+        <ul class="list">
+          <li>캔버스의 점 개수를 <code>&#215; devicePixelRatio</code>로 잡고, 보이는 크기는 <code>style.width/height</code>로 원래대로 둡니다. 필기 겹칩 캔버스(<code>pdf-anno</code>)도 <strong>같이</strong> 맞춰야 합니다 — 안 하면 펜 자국이 어긋납니다.</li>
+          <li>배율은 <strong>2로 상한</strong>을 두시길 권합니다. 3배로 하면 점 개수가 9배가 되어 구형 폰에서 발열·버벅임이 납니다.</li>
+          <li>사진은 <code>imageSmoothingQuality = 'high'</code>로 그립니다(한 줄).</li>
+          <li>강사에게는 <strong>「한 장에 한 쪽씩」</strong> 안내하는 것이 화면 어떤 개선보다 효과가 큽니다.</li>
+        </ul>
+      </div>
+
+      <div class="stop">
+        <h3>이 건에서 확인하지 못한 것</h3>
+        <p>작업 환경(원격 컨테이너)의 프록시가 <code>mangoi.ai</code>를 막고 있어, <strong>그 방에 실제로 올라와 있던 교재 파일을 열어 보지 못했습니다.</strong> 원본 자체가 흐린 사진이었을 가능성은 아직 남아 있습니다.</p>
+        <p><strong>확인 방법</strong> — 브라우저에서 <code>mangoi.ai/api/room-media/class-848-20260825</code> 를 열면 <code>pdfState.url</code>이 나옵니다. 파일 이름 가운데 숫자가 <strong>올라간 시각(밀리초)</strong>이고, 그 주소를 그대로 열면 <strong>원본 해상도</strong>를 볼 수 있습니다. 원본이 2000픽셀 이상인데 화면에서만 안 읽혔다면 위 원인 &#9313;·&#9316;이 확정입니다.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>강선생님 제보 3건 &#183; 뿌리가 하나입니다</h2>
+
+  <div class="note">
+    <p>세 건을 따로 보면 제각각인데, 코드에서 보면 <strong>「중국에서 접속하는 강사」라는 조건 하나</strong>가 두 건을 만들고, 나머지 하나는 탭을 두 번 누른 것입니다. 그리고 <strong>세 건 모두 화면이 이유를 말해 주지 않습니다</strong> — 이 수업 화면에는 <strong>중국어가 한 글자도 없습니다</strong>(<span class="src">js/mango-i18n.js:25 &#183; LANG_CYCLE = ['ko','en'] &#183; 「중국어·일본어·베트남어 제외」</span>). 강선생님께는 안내도 오류 문구도 <strong>읽을 수 없는 글자</strong>로 뜹니다.</p>
+  </div>
+
+  <div class="case">
+    <div class="case-head">
+      <span class="case-no">CASE 5</span>
+      <p class="case-quote">&#171;问题一&#8202;:&#8202;可以打开文件夹，但不能上传教材&#187;<br><span style="font-size:.86rem;font-weight:400;color:var(--muted)">폴더는 열 수 있는데 교재를 올릴 수 없다</span></p>
+    </div>
+    <div class="case-body">
+
+      <div class="cause crit">
+        <div class="cause-t"><span class="tag">원인 &#9319;</span><span>파일 고르기 창이 <code>.webp</code> 파일을 아예 안 보여줍니다</span></div>
+        <p>교재 올리기 입력칸에 <strong>고를 수 있는 형식이 네 가지로 못 박혀</strong> 있습니다. 폴더 창은 열리지만 그 형식이 아닌 파일은 <strong>회색으로 죽어 있거나 목록에 뜨지 않습니다.</strong> 「폴더는 열리는데 올릴 수가 없다」는 말과 정확히 맞습니다.</p>
+        <pre><i>// cloudflare-deploy/public/index.html:8512</i>
+&lt;input type="file" id="pdf-upload" multiple
+       accept="<b>.pdf,.jpg,.jpeg,.png</b>,application/pdf,image/jpeg,image/png" /&gt;</pre>
+        <p><strong>그런데 서버는 <code>webp</code>를 이미 받아 줍니다.</strong> 막고 있는 것은 화면 쪽뿐입니다.</p>
+        <pre><i>// cloudflare-deploy/src/index.ts:4260 (handlePdfUpload)</i>
+const _allowedUpload = ['application/pdf','image/jpeg','image/jpg','image/png',<b>'image/webp'</b>,
+  'video/mp4','video/webm','video/quicktime','video/x-m4v'];</pre>
+        <p>중국에서 쓰는 브라우저와 위챗은 그림을 <strong>기본으로 <code>.webp</code>로 저장</strong>합니다. 그래서 같은 화면인데 한국·필리핀 강사는 되고 중국 강사만 안 되는 모양이 됩니다.</p>
+      </div>
+
+      <div class="row">
+        <span class="rowlabel">형식이 어긋난 자리가 세 곳입니다</span>
+        <div class="tblwrap">
+          <table>
+            <thead><tr><th>곳</th><th>허용</th><th>webp</th><th>heic(아이폰)</th></tr></thead>
+            <tbody>
+              <tr><td>파일 고르기 창 <span class="src">index.html:8512</span></td><td>pdf jpg jpeg png</td><td>&#10008;</td><td>&#10008;</td></tr>
+              <tr><td>올리기 검사 <span class="src">idx-main.js:11602</span></td><td>pdf jpg jpeg png</td><td>&#10008;</td><td>&#10008;</td></tr>
+              <tr><td>서버 <span class="src">src/index.ts:4260</span></td><td>pdf jpg jpeg png <strong>webp</strong> 동영상</td><td>&#10004;</td><td>&#10008;</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="cause good">
+        <div class="cause-t"><span class="tag">고침</span><span>화면 쪽 두 곳에 webp를 더합니다</span></div>
+        <ul class="list">
+          <li><code>accept</code>에 <code>.webp,image/webp</code>를 더하고, <code>allowedExts</code>에 <code>'.webp'</code>를 더합니다. 서버는 이미 준비돼 있어 고칠 것이 없습니다.</li>
+          <li><code>.heic</code>(아이폰 사진)는 <strong>브라우저가 그리지 못하므로</strong> 형식만 열면 흰 화면이 됩니다. 열지 말고, 대신 <strong>「이 형식은 못 씁니다&#8202;&#183;&#8202;JPG로 바꿔 주세요」를 중국어까지 넣어</strong> 알려 주는 편이 맞습니다.</li>
+          <li>지금은 형식이 안 맞으면 <strong>「파일 공유(내려받기)로 올릴까요?」라는 한국어 확인창</strong>이 뜹니다(<span class="src">idx-main.js:11611</span>). 강선생님께는 이 문장이 안 읽혀서, 「예」를 누르면 교재가 아니라 <strong>다운로드 카드</strong>가 학생에게 갑니다.</li>
+        </ul>
+      </div>
+
+      <div class="stop">
+        <h3>먼저 여쭤 볼 것</h3>
+        <p>강선생님께 <strong>「올리려던 파일의 확장자」</strong>를 물어봐 주십시오. <code>.webp</code>·<code>.heic</code>면 위 원인이 확정입니다. <code>.jpg</code>인데도 안 됐다면 다른 갈래(권한 또는 회선)이므로, 그때 브라우저 <strong>F12 &#8594; Console</strong> 화면을 찍어 보내 주시면 바로 가릅니다.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="case">
+    <div class="case-head">
+      <span class="case-no">CASE 6</span>
+      <p class="case-quote">&#171;问题二&#8202;:&#8202;面具可以看到，但是点击无法试用&#187;<br><span style="font-size:.86rem;font-weight:400;color:var(--muted)">가면은 보이는데 눌러도 써 볼 수가 없다</span></p>
+    </div>
+    <div class="case-body">
+
+      <div class="cause crit">
+        <div class="cause-t"><span class="tag">원인 &#9320;</span><span>얼굴인식 모델을 구글 서버에서 받습니다 &#183; 중국에서 막혀 있습니다</span></div>
+        <p>가면&#183;모자&#183;안경(얼굴 꾸미기)은 <strong>얼굴 위치를 찾아내는 인공지능 모델</strong>이 있어야 동작합니다. 그 모델을 <strong>클릭한 그 순간에</strong> 바깥에서 받아 오는데, 받아 오는 곳이 두 군데 다 <strong>중국에서 닿지 않는 주소</strong>입니다.</p>
+        <pre><i>// cloudflare-deploy/public/js/idx-x6.js:210~218</i>
+var V = '<b>https://cdn.jsdelivr.net</b>/npm/@mediapipe/tasks-vision@0.10.35';
+var vision = await import(V + '/vision_bundle.mjs');
+...
+modelAssetPath: '<b>https://storage.googleapis.com</b>/mediapipe-models/face_landmarker/…/face_landmarker.task'</pre>
+        <p><code>storage.googleapis.com</code>은 중국 본토에서 <strong>차단</strong>됩니다. 그래서 모델이 영원히 안 오고, 화면은 <strong>「얼굴인식 모델 로딩 중&#8230;」에서 멈춥니다.</strong> 실패하면 뜨는 문구도 <strong>「&#9888; 로드 실패 (네트워크 확인)」</strong> &#8212; 작은 회색 글씨에, 한국어와 영어뿐입니다(<span class="src">idx-x6.js:vcSetFace</span>).</p>
+      </div>
+
+      <div class="cause good">
+        <div class="cause-t"><span class="tag">확정 근거</span><span>가상 배경은 되는데 가면만 안 되는 이유</span></div>
+        <p>강선생님이 <strong>배경화면은 보신다</strong>는 점이 그대로 증거입니다. 가상 배경 모델은 <strong>2026-07-23에 이미 우리 서버로 옮겨 뒀습니다</strong>(「필리핀 저속 회선에서 도메인 하나를 줄인다」). 그때 <strong>얼굴 꾸미기만 빠졌습니다.</strong></p>
+        <div class="tblwrap">
+          <table>
+            <thead><tr><th>기능</th><th>모델을 받는 곳</th><th>중국에서</th></tr></thead>
+            <tbody>
+              <tr><td>가상 배경</td><td><code>/vendor/mediapipe/</code> (우리 서버) &#183; 실패 시에만 CDN</td><td><span class="pill p-lo">된다</span></td></tr>
+              <tr><td>얼굴 꾸미기(가면)</td><td>jsdelivr &#43; <strong>구글 스토리지</strong> (우리 서버 사본 없음)</td><td><span class="pill p-hi">안 된다</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="src">확인함 &#183; cloudflare-deploy/public/vendor/mediapipe/ 에는 selfie_segmentation 파일만 9개 있고, face_landmarker 사본은 저장소 어디에도 없음(검색 0건)</p>
+      </div>
+
+      <div class="cause good">
+        <div class="cause-t"><span class="tag">고침</span><span>가상 배경에 이미 쓴 방법을 그대로 적용</span></div>
+        <ul class="list">
+          <li>모델 파일(<code>face_landmarker.task</code> 약 3.7MB)과 <code>tasks-vision</code> 묶음을 <code>/vendor/</code> 밑에 <strong>우리 서버로 복사</strong>하고, 지금처럼 <strong>「우리 서버 먼저, 실패하면 CDN」</strong> 순서로 바꿉니다. 가상 배경(<span class="src">idx-main.js:7926 VC_MP_LOCAL / VC_MP_CDN</span>)에 쓰인 방식을 그대로 옮기면 됩니다.</li>
+          <li><strong>덤으로 필리핀 강사도 빨라집니다</strong> &#8212; 지금은 수업 중에 바깥 도메인 두 곳을 새로 연결해야 합니다.</li>
+          <li>실패 문구를 중국어로도 띄우고, <strong>몇 초 안에 안 오면 포기하고 말해 주도록</strong> 시간 제한을 둡니다(지금은 무한정 기다립니다).</li>
+        </ul>
+      </div>
+
+      <div class="note">
+        <p><strong>확인 방법</strong> &#183; 강선생님께 브라우저 주소창에 <code>storage.googleapis.com</code>을 쳐 보시라고 해 주십시오. 안 열리면 이 원인이 확정입니다. (이 작업 환경도 프록시가 막고 있어 제가 대신 열어 볼 수 없었습니다.)</p>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="case">
+    <div class="case-head">
+      <span class="case-no">CASE 7</span>
+      <p class="case-quote">&#171;问题三&#8202;:&#8202;连续点击两次背景画面，就会出面最后一张图面，找不到上传文件的地方，也看不到操作板&#187;<br><span style="font-size:.86rem;font-weight:400;color:var(--muted)">배경화면을 연달아 두 번 누르면 마지막 그림만 남고, 파일 올릴 곳도 도구판도 안 보인다</span></p>
+    </div>
+    <div class="case-body">
+
+      <div class="cause crit">
+        <div class="cause-t"><span class="tag">원인 &#9321;</span><span>같은 탭을 다시 누르면 「본문 전체」가 접힙니다</span></div>
+        <p>탭을 누르는 함수는 <strong>「이미 그 탭이 열려 있으면 접는다」</strong>로 되어 있습니다. 그래서 배경화면을 두 번 누르면 배경 탭만 닫히는 것이 아니라 <strong>교재&#183;칠판&#183;도구줄이 들어 있는 본문 영역이 통째로 접힙니다.</strong> 화면에는 얼굴과 <strong>마지막에 남아 있던 그림</strong>만 남습니다 &#8212; 강선생님 말씀 그대로입니다.</p>
+        <pre><i>// cloudflare-deploy/public/js/idx-main.js:7650~7656</i>
+var alreadyShowing = panel &amp;&amp; panel.classList.contains('active') &amp;&amp; !vcIsContentCollapsed();
+<i>// 📖 (2026-08-20) 교재도 칠판처럼 다시 눌러도 안 접는다</i>
+if (alreadyShowing &amp;&amp; tabName !== 'whiteboard' &amp;&amp; <b>tabName !== 'pdf'</b>) {
+    <b>vcSetContentCollapsed(true);</b>   <i>← 배경화면·동영상·학생게임은 여기로 들어온다</i>
+}</pre>
+        <p><strong>교재와 칠판은 이미 예외로 빼 뒀습니다</strong>(2026-07-15 칠판, 2026-08-20 교재 &#8212; 같은 신고가 두 번 있었다는 뜻입니다). <em>배경화면&#183;동영상&#183;학생게임&#183;AI웜업만 아직 접힙니다.</em></p>
+      </div>
+
+      <div class="cause">
+        <div class="cause-t"><span class="tag">왜 「도구판이 안 보인다」까지 가는가</span><span>교재 도구줄이 그 본문 안에 들어 있습니다</span></div>
+        <p>교재 올리기 버튼(<code>📁 교재 업로드</code>)과 라이브러리 버튼은 <strong>교재 탭 안의 도구줄</strong>에 있습니다. 본문이 접히면 그 줄도 함께 사라집니다. 게다가 접힌 상태를 <strong>다시 펴는 버튼이 화면에 따로 없습니다</strong> &#8212; 📖 교재 탭을 다시 눌러야 돌아옵니다. 그 방법을 모르면 <strong>수업 도중에 교재를 올릴 길이 사라집니다.</strong></p>
+      </div>
+
+      <div class="cause good">
+        <div class="cause-t"><span class="tag">고침</span><span>접기를 없애거나, 되돌아오는 길을 보이게</span></div>
+        <ul class="list">
+          <li><strong>권장</strong> &#8212; 교재&#183;칠판과 똑같이 <strong>배경화면도 예외로 추가</strong>합니다(조건에 <code>&amp;&amp; tabName !== 'bg'</code> 한 줄). 다시 누르면 그냥 그대로 있습니다. 같은 신고가 세 번째이므로, <strong>접기 자체를 없애는 것</strong>도 생각해 볼 만합니다.</li>
+          <li>접기를 남긴다면, 접힌 동안 <strong>「📖 교재로 돌아가기」 띠를 화면에 한 줄</strong> 띄워야 합니다. 지금은 아무 표시가 없어 「고장」으로 읽힙니다.</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="stop">
+    <h3>세 건을 관통하는 것 &#183; 화면이 중국어로 말하지 않습니다</h3>
+    <p>강선생님이 받은 안내는 전부 이런 것들입니다 &#8212; <strong>「교재는 선생님만 바꿀 수 있어요」 &#183; 「교재 화면에 바로 못 여는 파일이 있어요」 &#183; 「&#9888; 로드 실패 (네트워크 확인)」.</strong> 한국어와 영어뿐이고, 언어 전환도 <strong>KO / EN 두 가지만 돕니다.</strong></p>
+    <p>그래서 <strong>「막혔다」와 「고장났다」를 구분할 방법이 강선생님께 없습니다.</strong> 세 건을 다 고쳐도, 다음에 다른 것이 막히면 같은 모양의 제보가 또 옵니다.</p>
+    <p><strong>최소 조치</strong> &#8212; 수업 화면에서 <strong>실제로 사람을 막아 세우는 문구만</strong>(권한 거절&#183;형식 거절&#183;모델 로드 실패&#183;업로드 실패, 대략 10줄 안팎) 중국어를 함께 넣습니다. 화면 전체를 중국어로 만드는 일이 아니라, <strong>「왜 안 되는지」 말해 주는 줄에만</strong> 붙이는 것입니다. 언어 전환 목록에 중국어를 넣는 것은 별건이고 훨씬 큰 일입니다.</p>
+  </div>
+</section>
+
+<section>
+  <h2>고칠 때 걸리는 제약 세 가지</h2>
+
+  <div class="stop">
+    <h3>1 &#183; 첫 화면 무게에 여유가 0KB입니다</h3>
+    <p>방금 실제로 재 봤습니다. <code>index.html</code>이 첫 화면에서 받는 무게가 <strong>1562KB</strong>인데 상한이 <strong>1562KB</strong>(기준선 1550 &#43; 여유 12)입니다. <strong>주석 한 문단만 더해도 게이트가 빨간불</strong>입니다.</p>
+    <pre>$ node test-harness/first_paint_budget_harness.mjs
+index.html    blocking <b>1562KB</b> (인라인 273KB + 외부 1289KB) · defer 1039KB
+✅ 첫 화면 무게 예산 유지        <i>← 상한 1550+12 = 1562KB, 여유 0</i></pre>
+    <p><strong>그러므로 새 코드는 <code>idx-main.js</code>나 <code>index.html</code> 안에 넣으면 안 됩니다.</strong> 별도 파일 &#43; <code>defer</code>로 빼고, 원래 함수를 감싸는 방식으로 붙여야 합니다. 그 예산은 필리핀 회선을 지키려고 둔 것이라 기준선을 올리는 것은 마지막 수단입니다.</p>
+  </div>
+
+  <div class="stop">
+    <h3>2 &#183; 여기는 공동 금지구역입니다</h3>
+    <p><code>public/index.html</code>은 CLAUDE.md 4-2장에서 <strong>배포 권한자(A) 전용</strong>으로 지정된 파일입니다. <code>js/idx-main.js</code>는 그 인라인 스크립트를 그대로 옮겨 둔 것이라 실질적으로 같은 영역입니다. <strong>이번 수정은 배포 권한자가 직접 하거나, 최소한 사전에 알리고 진행해야 합니다.</strong></p>
+  </div>
+
+  <div class="stop">
+    <h3>3 &#183; 이런 버그는 지금의 검사가 못 잡습니다</h3>
+    <p>네 건 모두 <strong>「함수도 값도 다 있고, 몇 픽셀인가 / 어느 순서인가만 틀린」</strong> 종류입니다. 글자를 찾는 회귀 검사 211개와 타입체크는 <strong>전부 초록불인 상태</strong>에서 이 문제들이 살아 있었습니다.</p>
+    <p>고치면서 <strong>진짜 브라우저로 재는 검사</strong>를 함께 만들어야 재발을 막습니다 — 390픽셀 폭에서 ① 두 손가락 확대 후 배율이 유지되는가 ② 교사·학생 칸의 실제 영상 표시 면적 ③ 교재 영역 높이 ④ 캔버스 점 개수가 화면 배율만큼인가. 기존 <code>test-harness/manual/</code> 검사들이 본보기입니다.</p>
+  </div>
+</section>
+
+<section>
+  <h2>권장 작업 순서</h2>
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>순서</th><th>무엇을</th><th>어느 신고</th><th>위험</th><th>승인</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td>핀치 종료 후 400ms 더블탭 무시</td><td>1</td><td><span class="pill p-lo">낮음</span></td><td>불필요</td></tr>
+        <tr><td class="num">2</td><td>캔버스에 화면 배율 반영(상한 2) &#43; 축소 품질 high</td><td>1·3·4</td><td><span class="pill p-mid">중간</span> 구형 폰 성능 확인</td><td>불필요</td></tr>
+        <tr><td class="num">3</td><td>세로폰 얼굴 높이 48vh &#8594; 28vh</td><td>3</td><td><span class="pill p-lo">낮음</span></td><td>사장님 눈으로 확인</td></tr>
+        <tr><td class="num">4</td><td>&#171;교재만 크게&#187; 버튼 &#43; 확대(&#43;/&#8722;) 버튼 상시 노출</td><td>1·3</td><td><span class="pill p-lo">낮음</span></td><td>불필요</td></tr>
+        <tr><td class="num">5</td><td>영상 맞춤 기준을 「보내온 영상이 세로인가」로 변경</td><td>2</td><td><span class="pill p-mid">중간</span> 규칙 5곳 함께</td><td>불필요</td></tr>
+        <tr><td class="num">6</td><td>세로폰도 좌우 분할(얼굴 오른쪽)</td><td>3</td><td><span class="pill p-hi">높음</span></td><td><strong>사장님 결정 필요</strong></td></tr>
+        <tr><td class="num">7</td><td>브라우저 실측 검사 추가</td><td>전부</td><td><span class="pill p-lo">낮음</span></td><td>불필요</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>1~2번만 해도 <strong>사장님 신고 네 건 중 세 건이 체감으로 달라집니다.</strong> 3·4번은 같은 날 함께 넣을 수 있습니다. 6번은 지난 지시를 뒤집는 것이라 따로 여쭙겠습니다.</p>
+
+  <h3>강선생님 제보 &#183; 따로 묶습니다</h3>
+  <p>화면을 그리는 문제가 아니라 <strong>「어떤 파일을 받아 주는가」와 「어디서 받아 오는가」</strong>라서, 위 작업과 겹치지 않고 따로 넣을 수 있습니다.</p>
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>순서</th><th>무엇을</th><th>어느 신고</th><th>위험</th><th>승인</th></tr></thead>
+      <tbody>
+        <tr><td class="num">8</td><td>교재 올리기에 <code>webp</code> 허용(화면 두 곳)</td><td>5</td><td><span class="pill p-lo">낮음</span> 서버는 이미 준비됨</td><td>불필요</td></tr>
+        <tr><td class="num">9</td><td>배경화면 탭을 「다시 눌러도 안 접힘」 예외에 추가</td><td>7</td><td><span class="pill p-lo">낮음</span> 한 줄</td><td>불필요</td></tr>
+        <tr><td class="num">10</td><td>막아 세우는 문구에 중국어 병기(10줄 안팎)</td><td>5·6·7</td><td><span class="pill p-lo">낮음</span></td><td>불필요</td></tr>
+        <tr><td class="num">11</td><td>얼굴인식 모델을 우리 서버로 복사(약 4MB) &#43; 시간 제한</td><td>6</td><td><span class="pill p-mid">중간</span> 파일 추가·경로 전환</td><td>불필요</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><strong>8·9·10번은 오늘 바로 넣을 수 있습니다</strong> — 셋 다 위험이 낮고, 강선생님 제보 세 건 중 두 건이 그 자리에서 풀립니다. 11번(가면)은 파일을 저장소에 새로 넣는 일이라 하루 더 걸립니다.</p>
+</section>
+
+<section>
+  <h2>사장님께 여쭙는 것 &#183; 두 가지</h2>
+  <ol>
+    <li><strong>세로로 든 폰에서 얼굴을 오른쪽으로 옮길까요?</strong> 2026-07-14에 「세로폰은 항상 1/2 반반, PIP 절대 금지」라고 지시하셔서 지금 코드가 그렇게 못 박혀 있습니다. 옮기면 그 지시를 거두는 것이 됩니다. (옮기지 않고 얼굴 높이만 줄이는 3번만으로도 교재는 1.5배 커집니다.)</li>
+    <li><strong>그 수업의 교재 원본이 원래 흐렸는지</strong> 확인이 필요합니다. 위 &#171;확인 방법&#187;의 주소를 한 번 열어 보시거나, 강선생님께 그날 올린 사진 파일을 받아 주시면 화면 문제인지 원본 문제인지 갈립니다.</li>
+    <li><strong>강선생님께 두 가지만 물어봐 주십시오</strong> — ① 올리려던 <strong>파일 확장자</strong>(<code>.webp</code>·<code>.heic</code>·<code>.jpg</code> 중 무엇인지) ② 브라우저에서 <code>storage.googleapis.com</code>이 열리는지. 이 둘이면 신고 5·6의 원인이 확정됩니다.</li>
+    <li><strong>중국어 안내를 어디까지 넣을까요?</strong> 지금 권하는 것은 <strong>「막혔을 때 이유를 말해 주는 문구 10줄 안팎」</strong>뿐입니다. 수업 화면 전체를 중국어로 만드는 것은 훨씬 큰 일이고, 중국인 강사가 몇 분인지에 따라 판단이 갈립니다.</li>
+  </ol>
+</section>
+
+<footer>
+  <p><strong>확인한 방법</strong> — 소스 코드 직접 확인(<code>index.html</code> 17,915줄 &#183; <code>js/idx-main.js</code> 14,055줄 &#183; <code>js/idx-vc-screenmode.js</code> &#183; <code>js/idx-vc-textbook.js</code> &#183; <code>js/idx-x6.js</code> &#183; <code>src/index.ts</code>), 첫 화면 무게 하니스 실제 실행.</p>
+  <p><strong>확인하지 못한 것</strong> — 배포된 실제 화면(프록시가 <code>mangoi.ai</code> 차단), 그 방에 올라와 있던 교재 파일의 원본 해상도, 실제 휴대폰에서의 재현, 중국에서 <code>storage.googleapis.com</code>·<code>cdn.jsdelivr.net</code>에 실제로 닿는지(이 환경도 같은 프록시에 막혀 있습니다). 이 보고서의 원인은 <strong>코드를 읽어 특정한 것</strong>이고, 고친 뒤에는 <strong>사장님이 실제 폰에서 한 번 보셔야 끝난 것</strong>입니다.</p>
+  <p>망고아이 &#183; 2026-08-25</p>
+</footer>
+
+</div>

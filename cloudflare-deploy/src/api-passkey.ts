@@ -13,12 +13,14 @@
 //   · attestation='none' 정책 — attStmt 는 검증하지 않음(대부분 서비스 표준).
 //   · 챌린지는 KV(SESSION_STATE) 5분 TTL, verify 시 소비(delete) → 재사용 공격 차단.
 //   · rpId = 요청 호스트명 동적 사용 → test.mangoi.co.kr / workers.dev 모두 동작.
+//     단 `*.mangoi.ai` 는 apex(`mangoi.ai`)로 묶는다 — resolveRpId() 주석 참조.
 //   · ES256(-7) 서명은 ASN.1 DER → WebCrypto 는 raw r||s 요구 → 변환 필수.
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
 import { authUidFromRequest as authUidGlobal, signUidToken, startSession } from './auth-token';
 import type { MangoEnv } from './api-mango';
 import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
+import { checkAdminSession, issueAdminSession } from './auth-admin';   // 🔐 v4 제안서 06 — 관리자 생체인증
 
 const CH_TTL_SEC = 300;           // 챌린지 유효 5분
 const MAX_CREDS_PER_USER = 8;     // 계정당 패스키 상한(온가족 기기 고려)
@@ -29,6 +31,23 @@ const MAX_CREDS_PER_USER = 8;     // 계정당 패스키 상한(온가족 기기
 const ANDROID_APP_ORIGINS = [
   'android:apk-key-hash:1QIpo1vhGmV0PAazPhrJDBi_wHCWLkb9H2uaofE-7DA',
 ];
+
+// ── rpId: 같은 사이트인데 «다른 사이트» 로 갈리지 않게 ───────────────────
+// WebAuthn 은 rpId 가 한 글자만 달라도 **다른 사이트**로 보고 자격증명을 안 내준다.
+// 2026-08-17 에 `www.mangoi.ai` 를 추가로 붙였는데(기존 `mangoi.ai` 도 그대로 산다),
+// rpId 로 요청 호스트명을 그대로 쓰면 한쪽에서 등록한 지문이 다른 쪽에서
+// `rp_mismatch` 로 거절된다 — 사용자에겐 「어제까진 지문으로 됐는데 오늘 안 돼요」로 보인다.
+//
+// 표준상 rpId 는 «오리진 호스트의 등록가능 상위 도메인» 이면 되므로 apex 로 통일한다.
+//   mangoi.ai → mangoi.ai · www.mangoi.ai → mangoi.ai
+// ⛔ test.mangoi.co.kr·workers.dev·localhost 는 상위 도메인이 **다르므로** 묶으면 안 된다.
+//    (실측 2026-08-17: 등록된 패스키 7개 = test.mangoi.co.kr 6 · mangoi.ai 1 · www 0
+//     → apex 로 묶어도 기존 등록분은 rpId 가 그대로라 재등록이 필요 없다)
+const PASSKEY_RP_APEX = 'mangoi.ai';
+function resolveRpId(hostname: string): string {
+  const h = String(hostname || '').toLowerCase();
+  return (h === PASSKEY_RP_APEX || h.endsWith('.' + PASSKEY_RP_APEX)) ? PASSKEY_RP_APEX : h;
+}
 
 // ── base64url ──
 function b64uFromBytes(bytes: Uint8Array): string {
@@ -177,10 +196,74 @@ export async function handlePasskeyApi(
   if (method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
 
   const body: any = await request.json().catch(() => ({}));
-  const rpId = url.hostname;
+  const rpId = resolveRpId(url.hostname);
+
+  /* 🔐 (2026-08-30 v4 제안서 06) 관리자 지문·Face ID 로그인.
+     ─────────────────────────────────────────────────────────────────────────
+     [왜 새 주소를 안 만들었나] `/api/passkey/*` 는 src/index.ts 라우팅 목록에
+       **정규식으로 여섯 경로만** 올라와 있다(register/options … remove). 새 경로를 만들면
+       그 정규식을 고쳐야 하는데 그 파일은 공동 금지구역이다. 그래서 **같은 경로**를 쓰고
+       요청 본문의 `scope:'admin'` 으로 갈랐다 — 금지구역을 한 줄도 안 건드린다.
+     [저장 자리] 같은 표(webauthn_credentials)를 쓰되 user_id 를 `admin:<아이디>` 로 둔다.
+       ⛔ 접두사를 빼지 말 것 — 학생 아이디와 관리자 아이디는 서로 겹칠 수 있고(둘 다 자유 문자열),
+          겹치면 학생 패스키로 관리자에 들어가게 된다.
+     ⚠️ 대소문자 — admin_account.username 은 COLLATE NOCASE 가 아니라 `Mangoi_167` 과
+        `mangoi_167` 이 다른 행으로 실재한다(CLAUDE.md 2장). 그래서 **DB 에 적힌 표기**로
+        찾아 그 표기로 저장·조회한다. 입력 표기를 그대로 쓰면 같은 사람에게 패스키가 두 벌 생긴다.
+     ⛔ 학생 경로의 판정을 재사용하지 않는다(students_erp 조회·mango_token 발급이 섞이면
+        관리자에게 학생 전용 기능이 열린다 — CLAUDE.md 2장 「로그인했는데 또 로그인하래요」). */
+  const isAdminScope = String(body.scope || '') === 'admin';
+  const ADMIN_PREFIX = 'admin:';
+
+  /** 입력 아이디 → DB 에 적힌 표기. 정확일치 먼저, 없으면 대소문자만 다른 후보가 «하나일 때만». */
+  async function resolveAdminUsername(input: string): Promise<string | null> {
+    const raw = String(input || '').trim();
+    if (!raw) return null;
+    try {
+      const exact: any = await env.DB.prepare(`SELECT username FROM admin_account WHERE username = ?`).bind(raw).first();
+      if (exact?.username) return String(exact.username);
+      const rs: any = await env.DB.prepare(`SELECT username FROM admin_account WHERE LOWER(username) = LOWER(?)`).bind(raw).all();
+      const rows = rs.results || [];
+      if (rows.length === 1) return String(rows[0].username);
+    } catch { /* 표가 없는 옛 DB */ }
+    return null;   // ⛔ 후보가 둘 이상이면 «못 찾음» — 아무거나 고르지 않는다
+  }
+
+  /** 지금 요청이 «로그인된 관리자» 인가. 등록 경로에서만 쓴다. */
+  async function currentAdminUsername(): Promise<string | null> {
+    const sess: any = await checkAdminSession(request, env as any);
+    if (!sess || !sess.ok) return null;
+    return String(sess.username || '').trim() || null;
+  }
 
   // ═══ POST /api/passkey/register/options — 등록 옵션 (로그인 상태 필수) ═══
   if (path === '/api/passkey/register/options') {
+    if (isAdminScope) {
+      const au = await currentAdminUsername();
+      if (!au) return json({ ok: false, error: 'admin_session_required', message: '먼저 아이디·비밀번호로 로그인해 주세요.' }, 401);
+      await ensureTable(env);
+      const key = ADMIN_PREFIX + au;
+      const ex: any = await env.DB.prepare(`SELECT credential_id, transports FROM webauthn_credentials WHERE user_id = ?`).bind(key).all();
+      const cs = ex.results || [];
+      if (cs.length >= MAX_CREDS_PER_USER) return json({ ok: false, error: 'too_many_passkeys', message: '기기는 계정당 최대 ' + MAX_CREDS_PER_USER + '개까지 등록할 수 있어요.' }, 400);
+      const ch = b64uFromBytes(crypto.getRandomValues(new Uint8Array(32)));
+      await env.SESSION_STATE.put('pk:reg:' + ch, JSON.stringify({ uid: key }), { expirationTtl: CH_TTL_SEC });
+      return json({
+        ok: true,
+        options: {
+          challenge: ch,
+          rp: { id: rpId, name: '망고아이 관리자' },
+          user: { id: b64uFromBytes(new TextEncoder().encode(key)), name: au, displayName: au },
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+          timeout: 60000,
+          attestation: 'none',
+          excludeCredentials: cs.map((c: any) => ({ type: 'public-key', id: c.credential_id, transports: c.transports ? JSON.parse(c.transports) : undefined })),
+          /* 관리자 계정은 급여·회계를 여는 열쇠라 «사용자 확인» 을 요구한다(지문·얼굴·PIN 중 하나).
+             학생 쪽(preferred)보다 한 단계 높다 — 여기서 낮추지 말 것. */
+          authenticatorSelection: { residentKey: 'preferred', userVerification: 'required' },
+        },
+      });
+    }
     const uid = await authUidGlobal(request, url, env, body);
     if (!uid) return json({ ok: false, error: 'auth_required', message: '먼저 로그인해주세요.' }, 401);
     await ensureTable(env);
@@ -210,7 +293,11 @@ export async function handlePasskeyApi(
 
   // ═══ POST /api/passkey/register/verify — 브라우저 attestation 검증·공개키 저장 ═══
   if (path === '/api/passkey/register/verify') {
-    const uid = await authUidGlobal(request, url, env, body);
+    /* ⚠️ 검증(서명·rpId·challenge)은 학생과 «완전히 같은 코드» 를 탄다 — 갈라 쓰면 한쪽만
+       약해진다. 다른 것은 «누구의 것으로 저장하느냐»(uid) 하나뿐이다. */
+    const uid = isAdminScope
+      ? (await currentAdminUsername().then(u => (u ? ADMIN_PREFIX + u : null)))
+      : await authUidGlobal(request, url, env, body);
     if (!uid) return json({ ok: false, error: 'auth_required' }, 401);
     await ensureTable(env);
     const cred = body.credential || {};
@@ -250,13 +337,54 @@ export async function handlePasskeyApi(
   // ═══ POST /api/passkey/login/options — 로그인 챌린지 발급 (공개) ═══
   //   body: { user_id? } — 있으면 그 계정의 패스키 목록, 없으면 discoverable(기기 저장) 방식
   if (path === '/api/passkey/login/options') {
+    if (isAdminScope) {
+      await ensureTable(env);
+      const au = await resolveAdminUsername(String(body.username || body.user_id || ''));
+      /* ⛔ «그런 아이디가 없다» 를 알려 주지 않는다 — 아이디 존재 여부가 새는 통로가 된다.
+         후보가 없으면 빈 목록으로 챌린지만 준다(기기에 저장된 패스키가 있으면 그것으로 시도된다). */
+      let allow: any[] = [];
+      if (au) {
+        try {
+          const rs: any = await env.DB.prepare(
+            `SELECT credential_id, transports FROM webauthn_credentials WHERE user_id = ? AND (rp_id = ? OR rp_id IS NULL)`
+          ).bind(ADMIN_PREFIX + au, rpId).all();
+          allow = (rs.results || []).map((c: any) => ({ type: 'public-key', id: c.credential_id, transports: c.transports ? JSON.parse(c.transports) : undefined }));
+        } catch {}
+      }
+      const ch = b64uFromBytes(crypto.getRandomValues(new Uint8Array(32)));
+      await env.SESSION_STATE.put('pk:auth:' + ch, JSON.stringify({ uid: au ? ADMIN_PREFIX + au : null, admin: true }), { expirationTtl: CH_TTL_SEC });
+      return json({ ok: true, options: { challenge: ch, rpId, timeout: 60000, userVerification: 'required', allowCredentials: allow } });
+    }
     await ensureTable(env);
     const uid = String(body.user_id || '').trim();
     let allowCredentials: any[] = [];
     if (uid) {
-      const rs: any = await env.DB.prepare(`SELECT credential_id, transports FROM webauthn_credentials WHERE user_id = ?`).bind(uid).all();
+      /* 🈶 rp_id 로 걸러 낸다 (2026-08-18).
+       *   예전에는 user_id 만 보고 **다른 도메인에 등록된 패스키까지** 후보로 내줬다.
+       *   그러면 브라우저는 «이 사이트(rpId)에 맞는 자격증명» 을 못 찾아 세리머니가 그냥 실패하고,
+       *   화면에는 「인증이 취소됐거나 시간이 초과됐어요」 만 뜬다 — 진짜 이유(주소가 바뀌어
+       *   재등록이 필요하다)를 사용자가 알 방법이 없다. 앱 주소를 mangoi.ai 로 옮기면서
+       *   test.mangoi.co.kr 에 등록해 둔 사람들이 정확히 이 상태가 된다.
+       *   ⚠️ rp_id 가 NULL 인 행은 컬럼이 생기기 전에 만들어진 것이라 어느 도메인인지 알 수 없다.
+       *      지금은 0건이지만, 있으면 막지 말고 후보에 넣는다(막으면 멀쩡한 사람이 못 들어온다). */
+      const rs: any = await env.DB.prepare(
+        `SELECT credential_id, transports FROM webauthn_credentials WHERE user_id = ? AND (rp_id = ? OR rp_id IS NULL)`
+      ).bind(uid, rpId).all();
       const creds = rs.results || [];
-      if (!creds.length) return json({ ok: false, error: 'no_passkey', message: '이 계정에 등록된 패스키가 없어요. 비밀번호로 로그인한 뒤 등록해주세요.' }, 404);
+      if (!creds.length) {
+        // 이 도메인엔 없지만 **다른 도메인에는 있는** 경우 — 「없음」이 아니라 「옮겨졌음」이라고 알려야 한다.
+        const other: any = await env.DB.prepare(
+          `SELECT COUNT(*) AS n FROM webauthn_credentials WHERE user_id = ?`
+        ).bind(uid).first();
+        if (Number(other?.n || 0) > 0) {
+          return json({
+            ok: false, error: 'passkey_other_domain',
+            message: '주소가 바뀌면서 이 기기의 얼굴/지문 로그인이 해제됐어요. 비밀번호로 로그인하면 다시 등록할 수 있어요.',
+            message_en: 'Your passkey was registered on our old address. Sign in with your password to set it up again.',
+          }, 404);
+        }
+        return json({ ok: false, error: 'no_passkey', message: '이 계정에 등록된 패스키가 없어요. 비밀번호로 로그인한 뒤 등록해주세요.' }, 404);
+      }
       allowCredentials = creds.map((c: any) => ({ type: 'public-key', id: c.credential_id, transports: c.transports ? JSON.parse(c.transports) : undefined }));
     }
     const challenge = b64uFromBytes(crypto.getRandomValues(new Uint8Array(32)));
@@ -305,6 +433,24 @@ export async function handlePasskeyApi(
       const now = Date.now();
       try { await env.DB.prepare(`UPDATE webauthn_credentials SET counter = ?, last_used_at = ? WHERE credential_id = ?`).bind(ad.counter || oldC, now, row.credential_id).run(); } catch {}
 
+      /* 🔐 (2026-08-30 v4 제안서 06) 관리자 패스키 — 여기까지 오면 서명 검증이 끝났다.
+         세션 발급·역할 판정·첫 화면 경로·언어는 **비밀번호 로그인과 같은 함수**를 쓴다
+         (auth-admin.ts issueAdminSession). ⛔ 여기서 역할을 다시 판정하지 말 것 —
+         로그인 경로마다 역할이 달라지는 사고가 이 저장소에 이미 있었다(CLAUDE.md 2장).
+         ⚠️ 저장된 자격증명이 관리자 것인지는 **저장할 때 붙인 접두사**로만 가른다.
+            body 의 scope 를 믿으면 학생 패스키로 관리자 세션을 받을 수 있다. */
+      if (String(row.user_id || '').startsWith(ADMIN_PREFIX)) {
+        const adminUser = String(row.user_id).slice(ADMIN_PREFIX.length);
+        const exists: any = await env.DB.prepare(`SELECT username FROM admin_account WHERE username = ?`).bind(adminUser).first();
+        if (!exists?.username) return json({ ok: false, error: 'user_not_found' }, 404);
+        const ip = request.headers.get('CF-Connecting-IP') || '';
+        const ua = request.headers.get('User-Agent') || '';
+        return await issueAdminSession(env as any, String(exists.username), { remember: !!body.remember, ip, ua, method: 'passkey' });
+      }
+      /* ⛔ 반대 방향도 막는다 — 관리자 화면에서 온 요청(scope:'admin')인데 걸린 자격증명이
+         학생 것이면 학생 토큰을 내주면 안 된다. «맞는 자리로 가라» 고 말한다. */
+      if (isAdminScope) return json({ ok: false, error: 'not_admin_credential', message: '이 기기에 등록된 것은 학생 패스키입니다. 관리자 로그인은 아이디·비밀번호로 먼저 등록해 주세요.' }, 403);
+
       const stu: any = await env.DB.prepare(`SELECT user_id, student_name, parent_name, parent_user_id, password_hash FROM students_erp WHERE user_id = ?`).bind(row.user_id).first();
       if (!stu) return json({ ok: false, error: 'user_not_found' }, 404);
       try { await env.DB.prepare(`UPDATE students_erp SET last_login_at = ? WHERE user_id = ?`).bind(now, row.user_id).run(); } catch {}
@@ -329,7 +475,10 @@ export async function handlePasskeyApi(
 
   // ═══ POST /api/passkey/list — 내 패스키 목록 (본인만) ═══
   if (path === '/api/passkey/list') {
-    const uid = await authUidGlobal(request, url, env, body);
+    // 🔐 관리자 범위(v4 제안서 06) — 자기 계정의 기기만 보고 지운다(IDOR 방지는 학생과 동일)
+    const uid = isAdminScope
+      ? (await currentAdminUsername().then(u => (u ? ADMIN_PREFIX + u : null)))
+      : await authUidGlobal(request, url, env, body);
     if (!uid) return json({ ok: false, error: 'auth_required' }, 401);
     await ensureTable(env);
     const rs: any = await env.DB.prepare(`SELECT credential_id, device_label, transports, created_at, last_used_at FROM webauthn_credentials WHERE user_id = ? ORDER BY created_at DESC`).bind(uid).all();
@@ -338,7 +487,10 @@ export async function handlePasskeyApi(
 
   // ═══ POST /api/passkey/remove — 내 패스키 삭제 (본인 것만 — IDOR 방지) ═══
   if (path === '/api/passkey/remove') {
-    const uid = await authUidGlobal(request, url, env, body);
+    // 🔐 관리자 범위(v4 제안서 06) — 자기 계정의 기기만 보고 지운다(IDOR 방지는 학생과 동일)
+    const uid = isAdminScope
+      ? (await currentAdminUsername().then(u => (u ? ADMIN_PREFIX + u : null)))
+      : await authUidGlobal(request, url, env, body);
     if (!uid) return json({ ok: false, error: 'auth_required' }, 401);
     await ensureTable(env);
     const cid = String(body.credential_id || '').trim();

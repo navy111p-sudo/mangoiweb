@@ -293,6 +293,12 @@
     //    그룹 헤더 갯수 배지를 '실제 보이는 메뉴 수'로 동기화 ("8개라는데 1개만 보임" 혼란 해소)
     document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(g){
       var subs = g.querySelectorAll('.ph85-sub');
+      /* 🗺 (2026-08-15) 하위 항목이 «원래 하나도 없는» 그룹은 여기서 판단하지 않는다.
+         이 규칙의 뜻은 «권한 때문에 항목이 전부 감춰진 그룹은 머리도 감춘다» 인데,
+         adm-ia6.js 의 「🗺 메뉴 지도」(옛 「전체 보기」)는 항목 없이 머리 하나로 된 버튼이라
+         visible===0 에 걸려 **통째로 사라져 있었다**(실측: computed display:none).
+         그게 옛 메뉴 전체로 돌아가는 유일한 길이라, 「시스템 메뉴가 안 보인다」의 한 축이었다. */
+      if (!subs.length) { g.classList.remove('ph118-empty'); return; }
       var visible = 0;
       subs.forEach(function(s){
         if (!s.classList.contains('ph118-hidden') && s.style.display !== 'none') visible++;

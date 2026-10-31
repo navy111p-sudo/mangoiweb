@@ -10,6 +10,9 @@
 //        - CSS 의 감춤 규칙은 전부 :not(.sub-shown) 을 달고 있어야 하고
 //        - 그 sub-shown 을 실제로 붙여 주는 클릭 배선이 있어야 하고
 //        - «완전 끄기»는 빈 말풍선이 아니라 안내(.sub-veil)를 남겨야 한다
+//        - «가리기»도 마찬가지다. 흐린 글자만 남으면 «글자가 잘 안 나온다»=고장 으로 읽힌다
+//          (2026-08-31 실제 제보). 그래서 .sub-hint 로 «왜 흐린지 + 눌러서 보기»를 말풍선이 직접 말한다.
+//          그 안내는 반드시 흐림 대상 «밖»에 있어야 한다 — 같이 흐려지면 없는 것과 같다
 //        - 설정 줄이 접혀 있어도 지금 자막이 꺼져 있다는 표시가 보여야 한다(ai-friend ⚙ 요약)
 //     ③ 감춤은 filter/display 로만 한다. opacity+transition 금지 —
 //        백그라운드 탭·저전력 모드에서 transition 이 멈추면 영영 안 보인다(CLAUDE.md 함정).
@@ -76,14 +79,26 @@ for (const [name, t] of [['ai-friend', aif], ['warmup', wup]]) {
   check(`${name}: 완전 끄기에서 안내(.sub-veil)가 보인다`,
     /\[data-sub="off"\][^{]*\.sub-veil[^{]*\{[^}]*display:\s*(inline|block)/.test(css));
   check(`${name}: 안내 문구가 «탭하면 보인다»를 알려 준다`, /탭하면 보/.test(t));
+  // «가리기»도 왜 흐린지 말해 줘야 한다 — 안 그러면 고장으로 읽힌다(2026-08-31 제보)
+  check(`${name}: 가리기에서도 «왜 흐린지» 안내(.sub-hint)가 보인다`,
+    /\[data-sub="blur"\][^{]*\.sub-hint[^{]*\{[^}]*display:\s*(inline|block)/.test(css)
+    && /class="sub-hint"/.test(t));
+  // 그 안내가 흐림 대상에 들어가 있으면 함께 흐려져 아무 소용이 없다
+  const blurTargets = (css.match(/\[data-sub="blur"\][^{]*\{[^}]*filter:\s*blur\([^}]*\}/g) || []).join('\n');
+  check(`${name}: 그 안내 자신은 흐림 대상이 아니다`, !/\.sub-hint/.test(blurTargets), blurTargets);
+  check(`${name}: 안내가 눌러서 보는 길을 알려 준다`, /sub-hint[\s\S]{0,160}?눌러서 보기/.test(t));
   // 단계를 바꾸면 이전에 열어 둔 것들을 닫는가 (안 닫으면 가리기로 바꿔도 계속 보인다)
   check(`${name}: 단계를 바꾸면 이전 sub-shown 을 지운다`,
     /sub-shown[\s\S]{0,220}?classList\.remove\(\s*['"]sub-shown['"]/.test(t)
     || /remove\(\s*['"]sub-shown['"]/.test(t));
 }
-// 설정 줄이 접혀 있어도 «지금 꺼져 있다»가 보여야 한다 (ai-friend 는 .opts 가 기본 접힘)
-check('ai-friend: .opts 는 기본으로 접혀 있다(전제 확인)',
-  /body:not\(\.opts-open\)\s*\.opts/.test(styleOf(aif)));
+// 설정 줄이 «늘 보이지는 않으니» 그 상태에서도 «지금 꺼져 있다»가 보여야 한다.
+// ⚠️ 전제를 옛 «접기»(body:not(.opts-open)) 한 가지로 못 박아 두었더니, 2026-09-09 에
+//    A안 «시트» 로 옮기면서 보장은 그대로인데 이 검사만 빨간불이 났다.
+//    묻는 것은 «어떤 방식인가» 가 아니라 «늘 펼쳐져 있지는 않은가» 다.
+check('ai-friend: 설정 줄이 늘 펼쳐져 있지는 않다(전제 확인)',
+  /body:not\(\.opts-open\)\s*\.opts/.test(styleOf(aif))     // 옛 방식: 접기
+  || /class="opts-sheet"|\.opts-sheet\s*\{/.test(aif));      // 지금 방식: 시트
 check('ai-friend: 접힌 상태에서도 자막이 꺼져 있으면 ⚙ 요약에 표시된다',
   /opt\.active\[data-sub\]/.test(aif) && /dataset\.sub\s*!==\s*['"]on['"]/.test(aif));
 
@@ -133,6 +148,46 @@ check('warmup: 뜻을 열면 가려진 말풍선도 함께 열린다',
   /toggleMeaning[\s\S]{0,1800}?classList\.add\(\s*['"]sub-shown['"]/.test(wup));
 // ⚠️ 새 API 가 아니라 기존 경로를 쓴다 — 그래도 게이트 등록 여부는 확인해야 «본문 없는 404»를 안 만난다
 check("index.ts 게이트에 '/api/translate' 가 등록돼 있다", /path === '\/api\/translate'/.test(idx));
+
+// 🗣️ (2026-08-24) 웜업 뜻 보기는 «의역» 모드로 묻는다 — 모드 없는 기본 경로(m2m100)가
+//   "Let's warm up before class" 를 «수업 전에 따뜻하게하자» 로 직역한 제보가 출발점.
+//   서버 learn 모드(언어모델 의역)와 화면의 mode:'learn' 은 짝이다 — 한쪽만 지우면 직역으로 돌아간다.
+const mango = read(P('src', 'api-mango.ts'));
+check("warmup: 뜻 보기를 mode:'learn' 으로 묻는다", /mode:\s*['"]learn['"]/.test(wup));
+/* 🗣️ (2026-09-01) 고정 인사말의 의역 정본이 «서버» 로 옮겨졌다 — 화면(warmup.html)에도
+   같은 정규식이 한 벌 있어서 「같은 판정이 두 곳」이던 것을 한 곳으로 모았다.
+   ⛔ 이 검사를 다시 화면 쪽 `curatedMeaning` 으로 되돌리지 말 것. */
+check('warmup: 고정 인사말은 손질한 의역을 쓴다 (정본은 서버 learn-phrase-ko.ts)',
+  /export function curatedLearnMeaning/.test(read(P('src', 'learn-phrase-ko.ts')))
+  && /입을 풀어/.test(read(P('src', 'learn-phrase-ko.ts')))
+  && /curatedLearnMeaning\(t\)/.test(mango));
+check('warmup: 화면이 «자기가 쓴 한국어» 는 미리 넣어 번역 요청 자체를 없앤다',
+  /_koCache\[gEn\] = gKo/.test(wup));
+check("서버: /api/translate 가 mode='learn' 을 안다", /b\.mode === 'learn'/.test(mango));
+/* 🪤 (2026-09-01) 이 검사는 원래 `/trl1:/` 이었는데, 접두사를 trl2 로 올린 뒤에도
+   «옛 접두사를 설명하는 주석» 의 글자에 걸려 계속 초록이었다 — 아무것도 보장하지 않는 상태였다.
+   ✅ 주석을 벗겨 낸 «살아 있는 코드» 에서, learn 접두사가 기본(tr:)·chat(trc*) 과 다른지를 본다.
+      번호는 앞으로도 올라가므로 숫자를 못 박지 않는다. */
+const noComment = (t) => {
+  let inBlock = false;
+  return t.split('\n').map((l) => {
+    let out = '', i = 0;
+    while (i < l.length) {
+      if (inBlock) { const e = l.indexOf('*/', i); if (e < 0) { i = l.length; } else { inBlock = false; i = e + 2; } continue; }
+      const b = l.indexOf('/*', i), ln = l.indexOf('//', i);
+      if (ln >= 0 && (b < 0 || ln < b)) { out += l.slice(i, ln); break; }
+      if (b >= 0) { out += l.slice(i, b); inBlock = true; i = b + 2; continue; }
+      out += l.slice(i); break;
+    }
+    return out;
+  }).join('\n');
+};
+{
+  const live = noComment(mango);
+  const m = live.match(/learnMode \? '(tr[a-z]*\d*:)'/);
+  check('서버: learn 모드 캐시 접두사가 «살아 있는 코드» 에 있고 기본·chat 과 다르다',
+    !!m && m[1] !== 'tr:' && !m[1].startsWith('trc'), m ? `실제: ${m[1]}` : '못 찾음');
+}
 
 /* ─────────────────────────────────────────────────────────────
    6. speech-coach — 여긴 자막을 가리면 안 된다

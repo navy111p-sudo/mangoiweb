@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>수업 영상이 흐렸던 이유</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+</head>
+<body>
+<style>
+  :root{
+    --paper:#fbf7ef; --card:#ffffff; --card2:#f6f0e4;
+    --ink:#2a2018; --ink2:#6b5c4c; --ink3:#9a8b79;
+    --line:#e6dccb; --line2:#d3c5ae;
+    --mango:#e08a1e; --mango-soft:#fdf3e0;
+    --bad:#c0483c; --bad-soft:#fbeeec;
+    --good:#2f7d5a; --good-soft:#eaf5ef;
+    --todo:#3b6ea8; --todo-soft:#ecf2f9;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#17130f; --card:#211b16; --card2:#2a2219;
+      --ink:#f3ece2; --ink2:#c2b4a3; --ink3:#8e8074;
+      --line:#352b22; --line2:#4a3c2f;
+      --mango:#f2ab4b; --mango-soft:#2e2314;
+      --bad:#f0897c; --bad-soft:#2e1a17;
+      --good:#69c79b; --good-soft:#132a20;
+      --todo:#84b3e6; --todo-soft:#141f2c;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#17130f; --card:#211b16; --card2:#2a2219;
+    --ink:#f3ece2; --ink2:#c2b4a3; --ink3:#8e8074;
+    --line:#352b22; --line2:#4a3c2f;
+    --mango:#f2ab4b; --mango-soft:#2e2314;
+    --bad:#f0897c; --bad-soft:#2e1a17;
+    --good:#69c79b; --good-soft:#132a20;
+    --todo:#84b3e6; --todo-soft:#141f2c;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:"Noto Sans KR",-apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif;
+    font-size:17px; line-height:1.85; letter-spacing:-.01em;
+    padding:40px 20px 72px;
+  }
+  .wrap{max-width:720px; margin:0 auto; display:flex; flex-direction:column; gap:38px}
+
+  .head{display:flex; flex-direction:column; gap:12px}
+  .stamp{font-size:13px; font-weight:700; color:var(--mango); letter-spacing:.06em}
+  h1{
+    font-family:"Gowun Dodum","Noto Sans KR",sans-serif;
+    font-size:clamp(30px,6vw,42px); line-height:1.35; margin:0; text-wrap:balance; font-weight:400;
+  }
+  .lede{font-size:18px; color:var(--ink2); margin:0; line-height:1.8}
+  .byline{font-size:13.5px; color:var(--ink3)}
+
+  .chapter{display:flex; align-items:center; gap:12px; margin:0 0 4px}
+  .no{
+    width:34px; height:34px; flex:0 0 34px; border-radius:50%;
+    display:grid; place-items:center; font-weight:900; font-size:15px;
+    background:var(--mango); color:#2a2018;
+  }
+  h2{font-family:"Gowun Dodum","Noto Sans KR",sans-serif; font-weight:400;
+     font-size:clamp(22px,4.2vw,28px); margin:0; line-height:1.4}
+  section{display:flex; flex-direction:column; gap:16px}
+  p{margin:0}
+  strong{font-weight:700}
+  .big{font-size:19px; line-height:1.85}
+
+  .quote{
+    background:var(--card2); border-left:5px solid var(--mango);
+    padding:16px 20px; border-radius:0 12px 12px 0; font-size:17px; color:var(--ink);
+  }
+  .quote .who{display:block; margin-top:8px; font-size:13.5px; color:var(--ink3)}
+
+  .facts{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr)); gap:12px}
+  .fact{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 14px; text-align:center}
+  .fact .n{font-family:"Gowun Dodum","Noto Sans KR",sans-serif; font-size:30px; line-height:1.15; color:var(--bad); font-variant-numeric:tabular-nums}
+  .fact.ok .n{color:var(--good)}
+  .fact .t{font-size:13.5px; color:var(--ink2); margin-top:6px; line-height:1.5}
+
+  .why{display:flex; flex-direction:column; gap:14px}
+  .why > div{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 20px}
+  .why h3{margin:0 0 8px; font-size:18px; font-weight:700; display:flex; gap:9px; align-items:baseline}
+  .why h3 span{color:var(--bad); font-weight:900; font-size:14px; flex:0 0 auto}
+  .why p{color:var(--ink2)}
+  .why p + p{margin-top:8px}
+  .like{background:var(--bad-soft); border-radius:10px; padding:11px 14px; margin-top:10px; font-size:15.5px; color:var(--ink)}
+  .like b{color:var(--bad)}
+
+  figure{margin:0; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px 16px 14px}
+  figcaption{font-size:14px; color:var(--ink2); text-align:center; margin-top:10px; line-height:1.6}
+  svg{display:block; width:100%; height:auto}
+
+  .fixed{display:flex; flex-direction:column; gap:12px}
+  .fixed > div{background:var(--good-soft); border:1px solid var(--line); border-left:5px solid var(--good); border-radius:0 14px 14px 0; padding:15px 18px}
+  .fixed h3{margin:0 0 5px; font-size:17px; font-weight:700}
+  .fixed p{font-size:15.5px; color:var(--ink2)}
+
+  .todo{display:flex; flex-direction:column; gap:12px}
+  .todo > div{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:15px 18px; display:flex; gap:14px; align-items:flex-start}
+  .who{flex:0 0 auto; font-size:12.5px; font-weight:700; padding:3px 10px; border-radius:999px;
+       background:var(--todo-soft); color:var(--todo); border:1px solid var(--line2); white-space:nowrap; margin-top:3px}
+  .todo h3{margin:0 0 4px; font-size:16.5px; font-weight:700}
+  .todo p{font-size:15.5px; color:var(--ink2)}
+
+  .last{background:var(--mango-soft); border:1px solid var(--line2); border-radius:16px; padding:20px 22px; font-size:17px; line-height:1.85}
+  .last b{color:var(--ink)}
+
+  footer{border-top:1px solid var(--line); padding-top:14px; font-size:12.5px; color:var(--ink3); line-height:1.7}
+
+  @media print{
+    body{background:#fff; padding:0; font-size:11.5px; line-height:1.7}
+    .wrap{max-width:none; gap:22px}
+    h1{font-size:26px} h2{font-size:18px} .lede{font-size:13px}
+    .fact .n{font-size:22px} .no{width:26px;height:26px;flex-basis:26px;font-size:12px}
+    section, figure, .why > div, .fixed > div, .todo > div{break-inside:avoid}
+    @page{size:A4; margin:14mm}
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <div class="stamp">망고아이 화상수업 · 2026년 9월 1일</div>
+    <h1>수업 영상이 흐렸던 이유,<br>그리고 우리가 한 일</h1>
+    <p class="lede">선생님과 학생이 서로 잘 안 보이고 소리가 끊겼습니다.
+      무엇이 문제였는지, 무엇을 고쳤는지, 앞으로 무엇이 더 필요한지 쉽게 적었습니다.</p>
+    <div class="byline">읽는 데 5분 정도 걸립니다.</div>
+  </header>
+
+  <section>
+    <div class="chapter"><div class="no">1</div><h2>무슨 일이 있었나요?</h2></div>
+    <div class="quote">
+      “중간에 잠깐 화면이 잘 나오고 소리가 안 끊겼어요.
+      처음과 뒷부분은 계속 화면이 흐리고 소리가 끊겨서 말을 알아듣기가 힘들었어요.”
+      <span class="who">— 9월 1일 오후 2시 수업을 마친 뒤 받은 이야기</span>
+    </div>
+    <p class="big">그래서 그날 수업 20분을 <strong>1분씩 나누어 전부 다시 살펴봤습니다.</strong>
+      컴퓨터가 남겨 놓은 기록이 있어서, 무슨 일이 있었는지 숫자로 볼 수 있었습니다.</p>
+    <div class="facts">
+      <div class="fact"><div class="n">17분</div><div class="t">20분 중에<br>화면이 깨진 시간</div></div>
+      <div class="fact"><div class="n">9개</div><div class="t">실제로는 2명인데<br>컴퓨터가 만든 연결</div></div>
+      <div class="fact"><div class="n">0번</div><div class="t">소리를 살리는 장치가<br>작동한 횟수</div></div>
+    </div>
+    <p>“중간에 잠깐 좋았다”는 것도 사실이었습니다. 인터넷이 좋아진 게 아니라,
+      <strong>나빠지는 순간과 순간 사이</strong>였습니다.</p>
+  </section>
+
+  <section>
+    <div class="chapter"><div class="no">2</div><h2>왜 그랬을까요?</h2></div>
+    <p class="big">이유가 세 가지였고, 세 가지가 한꺼번에 겹쳤습니다.</p>
+
+    <div class="why">
+      <div>
+        <h3><span>첫째</span>보이지 않는 “유령 친구”가 계속 늘었습니다</h3>
+        <p>수업방에는 선생님과 학생 <strong>딱 두 사람</strong>뿐이었습니다.
+          그런데 학생 컴퓨터는 <strong>아홉 곳</strong>으로 영상을 보내고 있었습니다.
+          여덟 개는 이미 사라진 상대였는데, 컴퓨터가 그걸 몰랐습니다.</p>
+        <div class="like"><b>이런 느낌이에요.</b> 빨대 하나로 주스를 마시는데,
+          누가 몰래 빨대를 여덟 개 더 꽂아 놓은 것입니다. 내 몫이 아홉 배로 나뉘니 잘 안 올라옵니다.</div>
+      </div>
+
+      <div>
+        <h3><span>둘째</span>화질이 시소처럼 오르락내리락했습니다</h3>
+        <p>인터넷이 나빠지면 화질을 낮추고, 좋아지면 다시 올리도록 만들어 두었습니다. 좋은 생각입니다.
+          그런데 <strong>다시 올리기까지 12초밖에 안 기다렸습니다.</strong></p>
+        <p>이 수업에서는 나빠지는 일이 <strong>1분에 한 번씩</strong> 찾아왔습니다.
+          그래서 내려갔다 올라갔다만 반복했습니다. 그게 “흐렸다가 잠깐 좋았다가 다시 흐림”의 정체였습니다.</p>
+      </div>
+
+      <div>
+        <h3><span>셋째</span>우리에게 “보는 눈”이 없었습니다</h3>
+        <p>가장 큰 이유입니다. 우리는 <strong>선생님 인터넷이 어떤지 한 번도 재본 적이 없었습니다.</strong>
+          관리자 화면에 「선생님 인터넷 상태」라는 칸이 있었는데, 만든 날부터 그날까지 <strong>기록이 0건</strong>이었습니다.</p>
+        <p>게다가 우리가 재던 것은 “내가 <strong>보내는</strong> 영상”뿐이었습니다.
+          하지만 “화면이 흐리다”는 말은 전부 “내가 <strong>받는</strong> 영상” 이야기입니다.
+          정작 필요한 숫자가 하나도 없었던 것입니다.</p>
+        <div class="like"><b>그래서 이랬어요.</b> 고칠 곳을 못 찾은 게 아니라,
+          <b>어디가 아픈지 잴 체온계가 없었습니다.</b></div>
+      </div>
+    </div>
+
+    <figure>
+      <svg viewBox="0 0 640 272" role="img" aria-label="수업방에 실제로는 두 사람뿐인데 연결은 아홉 개가 있는 그림">
+        <rect x="8" y="8" width="624" height="224" rx="16" fill="none" stroke="var(--line2)" stroke-width="2" stroke-dasharray="7 6"/>
+        <text x="26" y="34" fill="var(--ink3)" font-size="13" font-family="Noto Sans KR">수업방</text>
+
+        <circle cx="120" cy="128" r="34" fill="var(--mango)"/>
+        <text x="120" y="134" text-anchor="middle" font-size="15" font-weight="700" fill="#2a2018" font-family="Noto Sans KR">학생</text>
+        <text x="120" y="186" text-anchor="middle" font-size="13" fill="var(--ink2)" font-family="Noto Sans KR">진짜 사람 1</text>
+
+        <circle cx="520" cy="60" r="30" fill="var(--good)"/>
+        <text x="520" y="66" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff" font-family="Noto Sans KR">선생님</text>
+        <text x="520" y="106" text-anchor="middle" font-size="13" fill="var(--ink2)" font-family="Noto Sans KR">진짜 사람 2</text>
+        <line x1="156" y1="120" x2="488" y2="66" stroke="var(--good)" stroke-width="3.5"/>
+
+        <g stroke="var(--bad)" stroke-width="2" stroke-dasharray="5 5" opacity=".65">
+          <line x1="156" y1="132" x2="470" y2="126"/>
+          <line x1="156" y1="136" x2="470" y2="152"/>
+          <line x1="154" y1="140" x2="450" y2="176"/>
+          <line x1="152" y1="144" x2="420" y2="198"/>
+          <line x1="150" y1="126" x2="450" y2="104"/>
+          <line x1="150" y1="122" x2="420" y2="92"/>
+          <line x1="152" y1="148" x2="380" y2="212"/>
+          <line x1="148" y1="118" x2="390" y2="82"/>
+        </g>
+        <g fill="var(--bad)" opacity=".72">
+          <circle cx="470" cy="126" r="8"/><circle cx="470" cy="152" r="8"/>
+          <circle cx="450" cy="176" r="8"/><circle cx="420" cy="198" r="8"/>
+          <circle cx="450" cy="104" r="8"/><circle cx="420" cy="92" r="8"/>
+          <circle cx="380" cy="212" r="8"/><circle cx="390" cy="82" r="8"/>
+        </g>
+        <text x="320" y="262" text-anchor="middle" font-size="13" font-weight="700" fill="var(--bad)" font-family="Noto Sans KR">사라진 상대 8 — 컴퓨터만 아직 붙잡고 있었어요</text>
+      </svg>
+      <figcaption>실제 기록으로 확인한 모습입니다. 26분 동안 연결이 1개에서 9개까지 하나씩 늘었습니다.<br>
+        그날 저녁 수업 <strong>7개 방 중 5개</strong>에서 같은 일이 있었습니다.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div class="chapter"><div class="no">3</div><h2>어떻게 고쳤나요?</h2></div>
+    <p class="big">먼저 <strong>눈</strong>을 만들고, 그다음 <strong>병</strong>을 고쳤습니다. 순서가 중요했습니다.</p>
+    <div class="fixed">
+      <div>
+        <h3>① 체온계를 만들었습니다</h3>
+        <p>이제 선생님 인터넷도 기록됩니다. 0건이던 것이 <strong>그날 저녁에만 선생님 6명 분</strong>이 쌓였습니다.
+          “내가 받는 화면과 소리”도 함께 잽니다. 소리가 몇 퍼센트 끊겼는지, 영상이 몇 번 멈췄는지까지 남습니다.</p>
+      </div>
+      <div>
+        <h3>② 유령 친구를 치웁니다</h3>
+        <p>“살아 있는 것처럼 보이는가”가 아니라 <strong>“진짜로 소식이 오고 있는가”</strong>로 바꿨습니다.
+          소리도 영상도 1분 동안 아무것도 안 오면 사라진 상대로 봅니다.
+          단, <strong>혼자 있는 상대는 절대 지우지 않습니다.</strong> 잘못 지우면 수업이 끊기니까요.</p>
+      </div>
+      <div>
+        <h3>③ 시소를 멈췄습니다</h3>
+        <p>화질을 다시 올리기 전에 <strong>12초 → 32초</strong> 기다립니다.
+          실제 그날 기록으로 시험해 보니 오르락내리락이 <strong>38번에서 4번</strong>으로 줄었습니다.</p>
+      </div>
+      <div>
+        <h3>④ 소리를 먼저 살립니다</h3>
+        <p>인터넷이 아주 나쁠 때 영상을 잠깐 끄고 소리만 보내는 장치가 있었는데,
+          기준이 너무 높아 그날 한 번도 안 켜졌습니다. 기준을 낮췄습니다. <strong>말이 들리는 게 먼저</strong>니까요.</p>
+      </div>
+      <div>
+        <h3>⑤ 화면이 알려 줍니다</h3>
+        <p>인터넷이 나쁘면 그 사람 화면에 <strong>“인터넷 연결이 불안정합니다”</strong>라고 뜹니다.
+          선생님 화면에는 그 학생 칸에 표시됩니다. 관리자 화면에는 이제 아이디 대신 <strong>이름</strong>이 나옵니다.</p>
+      </div>
+      <div>
+        <h3>⑥ 수업 중에는 새 프로그램을 올리지 않습니다</h3>
+        <p>새 프로그램을 올리면 <strong>수업 중인 사람의 연결이 끊깁니다.</strong>
+          그날 저녁에만 22번을 올렸고, 그때마다 선생님이 튕겼습니다.
+          <strong>그 끊김이 바로 유령 친구를 만들던 원인</strong>이었습니다. 이제 수업 시간에는 미뤘다가 새벽에 한 번에 올립니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="chapter"><div class="no">4</div><h2>완벽하게 하려면 무엇이 남았나요?</h2></div>
+    <p class="big">고친 것이 <strong>진짜로 통했는지</strong>는 아직 모릅니다. 오늘 밤 새벽에 적용되고,
+      내일 수업부터 확인할 수 있습니다.</p>
+    <div class="todo">
+      <div><div class="who">자동</div><div>
+        <h3>내일 저녁, 숫자로 확인하기</h3>
+        <p>방마다 “연결 수가 실제 사람 수보다 많지 않은지” 자동으로 확인하도록 예약해 두었습니다.
+          유령이 사라졌으면 성공입니다.</p></div></div>
+      <div><div class="who">며칠</div><div>
+        <h3>하루로 판단하지 않기</h3>
+        <p>어떤 학생은 그날만 인터넷이 나빴을 수 있습니다.
+          <strong>여러 날 계속 나쁜 사람</strong>만 진짜 인터넷 문제입니다. 그래서 “며칠째인지”를 세도록 만들었습니다.</p></div></div>
+      <div><div class="who">사람</div><div>
+        <h3>전화번호가 하나도 없습니다</h3>
+        <p>학생 <strong>29,461명 전원</strong>의 전화번호가 우리 시스템에 비어 있습니다.
+          그래서 문자도 알림톡도 보낼 수 없습니다. 번호가 들어오면 안내가 한 번에 살아납니다. 요청서는 써 두었습니다.</p></div></div>
+      <div><div class="who">사람</div><div>
+        <h3>진짜로 인터넷이 나쁜 분들 돕기</h3>
+        <p>유령을 걷어내고도 남는 분들이 있습니다. 랜선을 꽂거나, 공유기 가까이 가거나,
+          수업 중 다른 다운로드를 멈추면 좋아집니다.</p></div></div>
+      <div><div class="who">사람</div><div>
+        <h3>화면을 한 번 봐 주세요</h3>
+        <p>안내 문구가 실제로 어떻게 보이는지는 사람이 눈으로 봐야 확인됩니다.
+          다음 수업에서 한 번만 확인해 주시면 됩니다.</p></div></div>
+    </div>
+  </section>
+
+  <div class="last">
+    <b>가장 중요한 것 한 가지.</b><br>
+    이 문제가 오래 반복된 이유는 고칠 곳을 못 찾아서가 아니라,
+    <b>어디가 나쁜지 잴 방법이 없어서</b>였습니다. 이번에 그 체온계를 만들었습니다.
+    이제부터는 “인터넷이 나쁜 것 같아요”가 아니라 <b>“누구 인터넷이 며칠째 이만큼 나쁩니다”</b>라고
+    숫자로 말할 수 있습니다.
+  </div>
+
+  <footer>
+    망고아이 화상수업 품질 보고 · 2026년 9월 1일<br>
+    실제 수업 기록(20분치 60초 요약 20건, 출석 기록, 녹화 기록)을 근거로 작성했습니다.
+    확인되지 않은 것은 “아직 모른다”고 적었습니다.
+  </footer>
+
+</div>
+
+</body>
+</html>

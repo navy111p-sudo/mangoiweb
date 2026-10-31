@@ -25,8 +25,158 @@ name: Deploy WebRTC Unified Platform (Cloudflare Workers)
 on:
   push:
     branches: [main]
+  # ⏰ 수업 시간대에 «보류» 된 배포를 창이 끝난 뒤 내보낸다 (2026-09-01).
+  #   ⛔ 이 시각들은 반드시 수업 시간대 «밖» 이어야 한다 — 창 안이면 보류를 풀러 오는
+  #      이 실행마저 스스로 보류해 배포가 영영 안 나간다. 창의 정본은
+  #      .github/scripts/class-window.mjs 이고, 둘이 어긋나면
+  #      test-harness/deploy_class_window_harness.mjs ④ 가 FAIL 낸다.
+  #
+  #   🔴 왜 «여러 번» 인가 — **이 저장소의 schedule 은 «제 시각에» 오지 않는다.**
+  #      관측된 회차(2026-09-01~02, 3건):
+  #        예정 16:30Z → 19:27:38Z  **+177분**  (run #2926)
+  #        예정 17:05Z → 19:38:57Z  **+153분**  (run #2977)
+  #        예정 20:47Z → 22:50:46Z  **+124분**  (run #2978)
+  #      2026-09-10 재실측 — **도착 시각은 «잰 것», «어느 회차인지» 는 «추론» 이다.**
+  #      ⚠️ API 응답에 «이 run 이 어느 cron 에서 왔나» 가 안 실린다. 아래 짝짓기는
+  #         그날 도착이 가능했던 크론 셋(00:11Z · 03:35Z · 17:05Z)과 회차 셋을
+  #         **순서대로** 맞춘 것이다. ⛔ 완료형으로 읽지 말 것.
+  #        [잰 것] 19:28:35Z 도착 (run #3153) → 17:05Z 회차면 **+144분**
+  #                (앞 크론 03:35Z 로 보면 +953분이라 성립하지 않는다 — 이 짝은 사실상 확실)
+  #        [잰 것] 08:20:37Z 도착 (run #3152) → 03:35Z 면 +285분 · 00:11Z 면 +489분
+  #        [잰 것] 04:31:17Z 도착 (run #3148) → 03:35Z 면 +56분  · 00:11Z 면 +260분
+  #      ⟹ **누락된 적은 아직 없고, 어느 짝으로 읽어도 «가장 짧게 잡아 +56분» 이다**(순서대로 맞추면 +260 · +285 · +144).
+  #      ⛔ 그러니 예정 시각에서 30분~1시간 안 왔다고 「안 나갔다」로 판단하지 말 것 —
+  #         2026-09-02 에 그렇게 두 번 잘못 보고했다. **3시간은 기다려 보고 말할 것.**
+  #      ⚠️ 표본이 6개뿐이다. 「항상 이만큼」이 아니라 「지금까지 6번이 그랬다」이다.
+  #
+  #   📌 2026-09-11 에 «네 번» → «여섯 번» 으로 늘렸다(03:43 · 07:26 KST 추가).
+  #      계기는 사장님 「수업 끝나고 바로 배포되게 해줘」였는데, 재 보니 **«바로» 는
+  #      이 schedule 로는 구조적으로 못 한다** — 위 지연이 «가장 짧게 잡아도» +56분이고, 게다가
+  #      창이 끝나는 23:00 직후에는 **크론을 놓을 자리 자체가 없다**(야간 실접속
+  #      23:20~01:20 과 22:40~23:00 수업 사이가 20분뿐인데 앞뒤 15분씩 비워야 한다 →
+  #      규칙상 가장 이른 시각이 01:35 이다 — 경계를 1분씩 훑어 확인했다(01:34 는 FAIL,
+  #      01:35 는 PASS). test-harness/deploy_class_window_harness.mjs
+  #      의 OUT_WINDOW_CLASSES · CLASS_MARGIN_MIN 이 그 계약이다).
+  #      ⟹ 그래서 «당기는» 대신 «기회를 늘려» 나쁜 회차의 손해를 줄인다. 실제로 그날
+  #         한 회차가 **17:20 KST(목요일 = 창 «안»)에 도착해 스스로 보류**됐고 —
+  #         이것은 짝짓기와 무관하게 «잰 것» 이다 — 그 뒤 04:28 KST 에 나가기까지
+  #         (그날 **15:07 KST 에 병합**한 것이 기준이다)
+  #         15:07 에 병합한 것이 13시간 묶여 있었다.
+  #      ⚠️ 이걸로도 «바로» 는 안 된다. 창이 닫히자마자(2026-10-02 부터 15:00) 곧바로 내보내려면 사람이
+  #         Actions → Run workflow 를 누르거나(창이 닫힌 뒤라 force_now 도 필요 없다)
+  #         로컬 deploy.ps1 을 돌리는 수밖에 없다.
+  #         ⛔ 클로드는 그 버튼을 못 누른다 — workflow_dispatch 가 403
+  #            (`Resource not accessible by integration`, 2026-09-11 재확인).
+  #      ⚠️ GitHub 의 schedule 은 우선순위가 낮은 대기열이라 지연되거나 **아예 누락**될
+  #         수 있다(문서). 하나에만 기대면 「나갔어야 할 게 조용히 안 나가는」 상태가
+  #         그대로 재현된다.
+  #      ⟹ 창 밖 구간(15:00~12:00 — 2026-10-02 부터)에 여러 번 흩어 둔다. 하나가 빠져도 다음이 잡는다.
+  #      ⛔ 여기에 «몇 번인지» 를 적지 말 것 — 아래 목록이 정본이다. 2026-09-11 에
+  #         넷 → 여섯으로 늘리면서 이 문서·요약·deploy.ps1 에 박아 둔 「네 번」이
+  #         한꺼번에 거짓이 됐다(#721 의 «시각» 사고와 같은 모양, 이번엔 «횟수»).
+  #      ⚠️ 분을 :00 · :30 이 아닌 어중간한 값으로 둔다 — 전 세계 크론이 정각·반각에
+  #         몰려 그 시각이 가장 많이 밀린다는 것이 알려진 완화책이다.
+  #         ⚠️ 다만 그 효과를 우리가 잰 적은 없다.
+  #      ⚠️ 마지막 회차는 창이 «열리기» 전 마지막 기회다. (⛔ 시각은 여기 적지 않는다 — 아래 목록이 정본)
+  #      🔴 **그 회차는 위 지연을 받으면 창 «안» 에서 돌 수 있다** — 지연이 가장 짧게 잡아
+  #         +56분, 길게는 +285분이라 창이 열린 뒤에 도착하면 화·목에는 **스스로 보류된다.**
+  #         즉 그 회차는 정작 창이 있는 날에 헛돌 수 있다.
+  #         ⛔ 이것을 「크론이 고장났다」로 읽지 말 것 — 보류는 설계대로 동작한 것이다.
+  #      ⛔ **「창이 닫힌 직후에 두면 지연에 강하다」로 풀지 말 것.** 2026-09-16 에 그렇게
+  #         해 보려다 되돌렸다 — 자기잠금에서 안전한 것과 «수업을 안 끊는다» 는 다른 말이다.
+  #         창이 닫히는 16:00 직후에 두면 지연(+56~285분)이 착지시키는 곳이 17~21시인데
+  #         그 시간대가 실측 피크다(17시 28 · 19시 62 · 21시 142 — 화·목 실접속).
+  #         ⟹ 옛 회차는 「지연되면 스스로 보류」(손해 = 배포가 늦음)였는데 그 자리는
+  #            「지연되면 피크에 그대로 나감」(손해 = 수업이 끊김)이라 **위험의 종류가
+  #            나쁜 쪽으로 맞바뀐다.** 아래 🔴 가 그 결론이다.
+  #         ⛔ 창을 다시 바꿀 때는 **모든 크론을 새 창에 넣어 판정해 볼 것** —
+  #            `node -e "import('./.github/scripts/class-window.mjs').then(m=>…isClassWindow…)"`
+  #            한 줄이면 된다. 감시는 deploy_class_window_harness.mjs ④ 가 실제로 돌린다.
+  #
+  #   ⚠️ 바뀐 것이 없어도 하루 몇 차례 재배포된다. 그 시각이 전부 창 밖이라 무해하고, 「나갔어야 할 게 조용히 안 나가는」 쪽이 훨씬 위험하다
+  #      (이 파일 2026-08-07 주석과 같은 판단).
+  #   📜 처음에 23:35 KST 로 잡았다가 물렸다 — 실측하니 23:20~23:40 · 23:30~23:50 ·
+  #      00:00~00:20 수업이 실재해서, 몰아 배포가 수업 한복판에 떨어질 뻔했다.
+  #   ⛔ 안내 문구에 이 시각을 베껴 적지 말 것 — 2026-09-01 에 크론만 옮기고 주석이
+  #      남아 «언제 나가는지» 를 거짓으로 말한 적이 있다(#721). 사람에게 보여 주는 글은
+  #      「창이 끝난 뒤 새벽~오전에」로 두고, 정확한 시각은 이 목록 하나만 본다.
+  #   🔴 크론은 «매일» 돈다 — 그런데 창은 **화·목만** 막는다. 그러니 «창 밖» 은
+  #      «수업이 없다» 가 아니다. 시각을 고를 때는 창 밖에 실재하는 수업·접속과도
+  #      떨어져 있어야 한다. 2026-09-02 에 이것을 두 번 밟았다:
+  #        · 13:23 → 월 13:00~13:20 수업(장지웅)이 끝난 3분 뒤
+  #        · 23:17 → 아래 «23:20~» 야간 접속이 시작되기 3분 전
+  #      감시: test-harness/deploy_class_window_harness.mjs 의 OUT_WINDOW_CLASSES.
+  schedule:
+    - cron: '5 17 * * *'    # 17:05 UTC = 02:05 KST — 야간 접속(23:20~01:20)이 끝난 뒤 «첫 기회»
+                            #
+                            #   🔴 **이 시각은 «GitHub 에게 부탁하는 시각» 이고 «도착하는 시각» 이 아니다.**
+                            #      [잰 것 — 2026-10-16, 09-26~10-16 schedule 실행 100건 전수]
+                            #      하루 정확히 5건이 온다(=다섯 회차가 다 발화한다 · 20일간 cancelled 1건)
+                            #      그런데 **02:05~04:20 KST 에 도착한 실행은 20일간 0건**이고,
+                            #      그날 «첫 도착» 은 04:35~08:32(중앙 06:17)였다.
+                            #      ⟹ 지연 +150~387분(중앙 252분). 「새벽 2시에 나간다」는 사실이 아니다.
+                            #      ⛔ 「회차가 안 떴다」로 읽지 말 것 — 떴고, GitHub 가 늦게 깨운 것이다.
+                            #         «어느 회차가 깨웠나» 는 이제 실행 로그·요약에 남는다
+                            #         (판정 step 의 SCHEDULE_CRON — REST 응답에는 크론이 없다).
+                            #   ⛔ 그래서 «앞으로 당겨 02시에 도착하게» 도 안 된다 — 최소 지연이 123분이라
+                            #      22시대로 당기면 도착이 00:23 까지 내려와 야간 접속 한복판이다.
+                            #
+                            #   ⛔ 이것을 더 앞으로 당기지 말 것. 야간 실접속이 01:20 까지 있고
+                            #      배포는 2분 30초쯤 걸린다 — 규칙상 허용되는 가장 이른 시각은
+                            #      01:35 이지만, 그러면 야간 접속과의 여유가 45분 → 15분으로 줄어든다.
+                            #      «실접속 판정»(class-window.mjs 의 live-class)이 지금 403 으로
+                            #      잠들어 있어 그 16분을 지켜 줄 다른 방어가 없다.
+                            #      2026-09-11 에 「수업 끝나고 바로 배포되게」를 검토하며 재고 그대로 뒀다.
+    - cron: '43 18 * * *'   # 18:43 UTC = 03:43 KST
+    - cron: '47 20 * * *'   # 20:47 UTC = 05:47 KST — 접속이 가장 뜸한 구간(05:14~08:45 실측)
+    - cron: '26 22 * * *'   # 22:26 UTC = 07:26 KST
+    - cron: '11 0 * * *'    # 00:11 UTC = 09:11 KST — 이름은 «창이 열리기 전 마지막 기회»(나머지 169분)
+                            #
+                            #   🔴 **그런데 실제로는 창이 열린 «뒤» 에 도착한다.**
+                            #      [잰 것 — 2026-10-16, 같은 100건] 이 회차의 도착은 12:04~15:41 KST
+                            #      (지연 +250~390분 · 중앙 325분)로 **20일 중 20일 전부** 11:20 이후였다.
+                            #      화·목에는 창(12:00~15:00) 안으로 들어와 **스스로 보류돼 버려졌다** —
+                            #      09-29 14:36 · 10-01 14:41 · 10-08 14:53 · 10-13 12:04 · 10-15 13:26.
+                            #      ⟹ 화·목에 이 회차는 «기회» 가 아니다. 그날 쓸 수 있는 기회는 앞의 네 번
+                            #         (도착 04:35~11:20)뿐이고, 그래도 보류된 커밋이 하루 묶이지는 않는다.
+                            #   ⛔ 창이 닫힌 뒤(16:20 류)로 옮기지 말 것 — 위 🔴 가 그것을 되돌린 기록이다.
+                            #   ⚠️ 이름을 믿지 말고 위 숫자를 보라. 「창까지 169분」은 **부탁한 시각 기준**이고,
+                            #      도착 기준으로는 한 번도 참이 아니었다(이 파일이 반복해서 밟은 그 형태).
+                            #
+                            #   📜 2026-09-02 에 두 번 옮겼다. 둘 다 「창 밖이니 안전하다」는
+                            #      틀린 전제에서 나왔다(위 🔴).
+                            #      · 13:23 → 월 13:00~13:20 수업이 끝난 3분 뒤였다
+                            #      · 23:17 → 야간 접속 23:20 이 시작되기 3분 전이었다
+                            #        (같은 파일 위 📜 줄이 그 시간대를 이미 적어 두고 있었는데
+                            #         내가 만든 검사 표에서 그것을 빠뜨렸다)
+                            #   ⚠️ 「25분 전에 끝난다」식으로 안심하지 말 것 — 이 파일이 위에서
+                            #      **+286분까지 가는 지연**을 재 두었다. 25~45분만 밀려도 회차가
+                            #      수업 «안»에서 돌 수 있다. 즉 위험을 없앤 것이 아니라
+                            #      «지연되면 수업에서 멀어지는 값» 을 «가까워지는 값» 으로
+                            #      맞바꾸는 것이다. 월요일은 창이 안 막으므로 다른 방어가 없다.
+                            #
+                            #   🔴 **2026-09-16 에 여섯 번째 회차(12:35 KST)를 없앴다 — 옮길 자리가 없었다.**
+                            #      창이 12:00~16:00 으로 앞당겨지면서 12:35 가 창 «안» 이 되어
+                            #      자기잠금(보류를 풀러 오는 실행이 스스로 보류)에 걸렸다.
+                            #      ⛔ 「창이 닫힌 직후(16:20)」로 옮기려다 되돌렸다 — 실측하니
+                            #         16:16 · 16:27 에 실접속이 있어 앞뒤 15분 규칙을 4분·7분 차이로
+                            #         어긴다. 애초에 16시 «이후» 는 17·19·21시가 피크라
+                            #         («창이 닫힌 직후 = 한가하다» 가 이 서비스에서는 거짓)
+                            #         어디에 둬도 수업에 가깝다.
+                            #      ✅ 그래서 «나쁜 자리에 두느니 없앤다» 로 정했다. 위 09:11 이
+                            #         «창 열리기 전 마지막 기회» 를 그대로 맡고, 창이 주 18시간
+                            #         → 주 8시간(화·목 4시간씩)으로 줄어 몰아배포 부담도 함께 줄었다.
+                            #      ⚠️ 대가 — 창이 닫히는 시각(2026-10-02 부터 15:00)부터 다음 기회(02:05)까지 11시간 공백이다.
+                            #         그 사이 병합한 것은 다음 날 새벽에 나간다.
+                            #      ⛔ 2026-09-11 「넷 → 여섯으로 늘려 지연 손해를 줄인다」를 되돌린
+                            #         것이므로, 되살리려면 **그 시각에 접속이 실제로 없는지 분 단위로
+                            #         재고** OUT_WINDOW_CLASSES 에 함께 넣을 것.
   workflow_dispatch:
     inputs:
+      force_now:
+        description: '수업 시간대여도 지금 배포 (장애 수정 등 급할 때만)'
+        required: false
+        default: 'false'
       skip_base:
         description: 'base Worker 배포 건너뜀'
         required: false
@@ -70,63 +220,90 @@ jobs:
           cache: 'npm'
           cache-dependency-path: 'cloudflare-deploy/package-lock.json'
 
+      # ─── ⏸ 수업 시간대 배포 보류 판정 (2026-09-01) ───────────────────────
+      #  🔴 배포하면 화상수업 Durable Object(VideoCallRoom)가 재시작되어 **진행 중인
+      #     수업의 WebSocket 이 전부 끊긴다.** 2026-09-01 실측: 21:43:57 배포 8초 뒤
+      #     class-1070 강사, 37초 뒤 class-1078 강사(Krystel)가 동시에 끊겼고,
+      #     class-996 은 강사가 10분 사이 네 번 끊겨 녹화가 4:03/3:18/0:18 로 토막났다.
+      #     그날 19:33~22:06 에만 배포가 22번 나갔다.
+      #  ⛔ 판정을 여기에 적지 않는다 — 정본은 `.github/scripts/class-window.mjs`
+      #     하나다(사고 서술·창을 그 시각으로 정한 실측 근거도 거기 있다).
+      #     여기서 다시 적으면 «한쪽만 고쳐지는» 그 함정이 그대로 재현된다.
+      #  ⚠️ 보류해도 이 실행은 **초록불로 끝난다.** 아래 배포 게이트는 그대로 돌아
+      #     main 이 배포 가능한 상태인지 계속 확인하고, 건너뛰는 것은 Cloudflare 배포뿐이다.
+      #     보류된 커밋은 위 schedule 이 몰아서 내보낸다(창이 닫힌 뒤 밤~낮에 여러 차례).
+      #     ⛔ 여기에 «몇 번인지» 도 적지 말 것 — 위 schedule 목록이 정본이다.
+      #     ⚠️ 여기에 시각을 «숫자로» 적어 두면 크론을 옮길 때 한쪽만 고쳐진다 —
+      #        2026-09-01 에 실제로 그랬다(창을 01:20 까지 늘리며 크론을 23:35 → 01:30 으로
+      #        옮겼는데 이 줄만 23:35 로 남아, 보류된 배포가 언제 나가는지 거짓으로 말했다).
+      #        고칠 일이 생기면 **위 schedule 한 곳만** 고치고 이 줄은 그것을 가리키게 둔다.
+      #  ⏱ 「어느 회차가 이 실행을 깨웠나」 (2026-10-16 추가)
+      #     🔴 GitHub REST 응답에는 크론이 한 글자도 없다 — 그래서 «02:05 회차가 왔는가» 를
+      #        사후에 가릴 방법이 없었다. 실측(09-26~10-16, schedule 실행 100건)으로 말할 수 있는
+      #        것은 «하루 5.0건이 온다»(=다섯 회차가 다 발화) 와 «02:05~04:20 KST 에 도착한 실행이
+      #        20일간 0건» 까지였고, «어느 회차가 몇 시에 왔나» 는 **추론**이었다.
+      #     ⛔ 여기에도 시각을 숫자로 적지 않는다 — GitHub 가 주는 크론 식을 **그대로** 옮긴다.
+      - name: 수업 시간대 배포 보류 판정
+        id: class_window
+        working-directory: .
+        env:
+          FORCE_NOW: ${{ github.event.inputs.force_now }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          # ⛔ run: 안에서 ${{ }} 로 펼치지 않는다(셸 주입) — 커밋 메시지와 같은 이유로 env 로만.
+          SCHEDULE_CRON: ${{ github.event.schedule }}
+        run: |
+          echo "⏱ 깨운 것: $GITHUB_EVENT_NAME · 크론: ${SCHEDULE_CRON:-없음(schedule 아님)}"
+          node .github/scripts/class-window.mjs
+
       - name: Install dependencies
         run: npm ci
 
-      # ─── 컴파일 게이트 (차단) ───
-      # 2026-08-09 이전엔 여기에 continue-on-error: true 가 붙어 있어서
-      #   「검사는 하는데 실패해도 그냥 배포」 였다. 검사한 척만 하는 상태다.
+      # ─── 배포 차단 게이트 4종 ───
+      # 2026-08-13: step 4개로 늘어놓던 것을 test-harness/ci-gates.sh 로 옮겼다.
+      #   PR 용 워크플로(ci.yml)를 새로 만들면서, 같은 목록을 두 워크플로에 **복사**하면
+      #   이 저장소가 반복해서 밟은 함정이 되기 때문이다 — 바로 아래 8/7 사고 기록이
+      #   말하는 그것("목록이 둘이라 한쪽만 고치면 이렇게 된다").
+      #   각 게이트의 사고 기록·주의사항은 전부 그 스크립트 안으로 함께 옮겼다.
       #
-      # 그리고 npx 는 쓰지 않는다 — npx 가 조용히 실패해도 «출력 없음 + exit 0» 이라
-      #   통과와 화면이 똑같다(CLAUDE.md 함정 목록에 있는 그것).
-      #   node 로 로컬 typescript 바이너리를 직접 부르면 그 착시가 없다.
-      #   deploy.ps1 과 같은 방식이어야 두 배포 경로의 검사 수준이 같아진다.
-      - name: TypeScript check (src/*.ts) — 차단
-        run: node node_modules/typescript/bin/tsc --noEmit
-
-      # ─── 회귀 하니스 (차단) ───
-      # 하니스 138개는 하나하나가 «예전에 이렇게 고장 났었다» 는 사고 기록이다.
-      # 그런데 이 CI 경로는 그중 2개(문법·캐시버전)만 돌리고 있었고,
-      # 전체 게이트는 로컬 deploy.ps1 에만 걸려 있었다 —
-      # main 으로 배포하면 검사를 사실상 안 받고 나가는 구조였다.
-      #
-      # 기준선(2026-08-09): PASS 115 / SKIP(E2E) 20 / FAIL 0.
-      # E2E 20개는 라이브 화상수업·브라우저 상태가 필요해 헤드리스에서 자동 제외된다.
-      - name: Regression harness (run.mjs --fast) — 차단
-        working-directory: .
-        run: node test-harness/run.mjs --fast
-
-      # ─── 인라인 JS 문법 게이트 (차단) ───
-      # 이 경로는 deploy.ps1 을 타지 않는다. 로컬 배포에만 게이트를 걸면
-      # main 에 push 되는 순간 여기로 그대로 빠져나간다.
-      #
-      # 2026-07-23 장애: 폰트 일괄치환이 JS 문자열 안 CSS 를 건드려 문자열이 끊겼고
-      #   index.html 인라인 script 10블록이 통째로 SyntaxError → 수업 입장 함수가
-      #   아예 정의되지 않아 전 사용자가 수업에 못 들어갔다. 그런데
-      #     · 위 tsc 는 src/*.ts 만 본다 (게다가 continue-on-error 라 실패해도 통과)
-      #     · 아래 헬스체크는 HTTP 200 여부만 본다 (내용이 깨져도 200 이다)
-      #   이 두 개로는 절대 못 잡는다.
-      #
+      # ⚠️ 게이트를 추가·수정할 일이 생기면 **ci-gates.sh 만** 고친다. 여기는 부르기만 한다.
       # continue-on-error 를 붙이지 않는다 — 실패하면 배포하지 않는다.
-      # 검사 대상: cloudflare-deploy/public 이하 .html 인라인 <script> + .js 전수
-      - name: Inline JS syntax gate (HTML <script> + .js)
+      #   (게이트는 아래 wrangler 배포 step 보다 **먼저** 돈다. 실패 = 배포 안 나감이지,
+      #    깨진 코드가 나가는 것이 아니다.)
+      - name: 배포 게이트 (tsc · 회귀 하니스 · 인라인 JS · ?v=) — 차단
         working-directory: .
-        run: node test-harness/inline_js_syntax_harness.mjs
+        run: bash test-harness/ci-gates.sh
 
-      # ─── 정적자산 캐시버전 게이트 (차단) ───
-      # deploy.ps1 은 sw.js 의 CACHE_NAME 만 자동으로 올린다. js/css 의 ?v= 는 사람이 손으로 올린다.
-      # 안 올리면 «배포는 됐는데 기존 사용자에게는 옛 파일이 그대로» 가 된다 —
-      # 화면은 새것, 스크립트는 옛것이라 원인 찾기가 특히 어렵다.
+      # ─── BUILD_STAMP 갱신 (차단) ───
+      # ⚠️ 이게 없으면 «배포는 성공했는데 아무도 새 화면을 못 보는» 상태가 된다. 실제로 겪었다.
       #
-      # 2026-08-07 하루에만 두 번 걸렸다: /js/adm-tlink.js (v=1) · /js/adm-core.js (v=39).
-      # 둘 다 deploy.ps1 의 게이트(run.mjs --fast 안에 이 하니스가 있다)가 잡아서 사람이 올렸다.
-      # 그런데 이 CI 경로에는 그 게이트가 없어서, main 으로 배포되면 그대로 빠져나간다.
-      # deploy.ps1 과 CI 두 경로 모두에 같은 게이트가 걸려 있어야 한다.
+      # 무슨 일이 있었나 (2026-08-13, PR #102):
+      #   워크플로 14단계가 전부 초록불이고 헬스체크까지 통과했는데, 학생게임 화면이 그대로였다.
+      #   원인은 캐시가 아니라 **서버가 「안 바뀌었다」고 답한 것**이다.
+      #   src/index.ts 의 htmlEtag304() 는 HTML 의 ETag/Last-Modified 를 오직 BUILD_STAMP
+      #   하나로 만든다. 재방문 브라우저가 If-None-Match 로 그 값을 보내오면 그대로 304 를 준다.
+      #   그 설계의 전제는 「배포마다 BUILD_STAMP 가 새로 찍힌다」인데, 그건 deploy.ps1 만
+      #   하고 있었다(스크립트 3/7단계). 이 CI 경로에는 그 단계가 없어서 스탬프가 16시간 전
+      #   값에 멈춰 있었고, 결과적으로 **CI 로 나간 배포는 재방문 사용자에게 영영 안 보였다.**
       #
-      # continue-on-error 를 붙이지 않는다 — 실패하면 배포하지 않는다.
-      - name: Static asset cache-version gate (?v= 누락)
-        working-directory: .
-        run: node test-harness/asset_version_harness.mjs
+      # 가장 나쁜 건 아무 신호가 없다는 것이다. 배포도 성공, 헬스체크도 성공, 파일도 올라가 있다.
+      # 그래서 「반영이 안 됐다」는 말을 들어도 어디를 봐야 할지 알 수 없다.
+      #
+      # ⚠️ wrangler.toml 은 BUILD_STAMP 를 [vars] 와 [env.production.vars] 에 **두 벌** 갖고 있다.
+      #    한 벌만 갈면 운영 워커는 옛 스탬프 그대로다 → 아래에서 2줄이 바뀌었는지 반드시 센다.
+      - name: Stamp BUILD_STAMP (HTML 캐시 검증자 갱신)
+        working-directory: cloudflare-deploy
+        run: |
+          set -euo pipefail
+          STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          sed -i -E "s|^BUILD_STAMP = \".*\"|BUILD_STAMP = \"${STAMP}\"|" wrangler.toml
+          N="$(grep -c "^BUILD_STAMP = \"${STAMP}\"" wrangler.toml || true)"
+          if [ "$N" -ne 2 ]; then
+            echo "::error::BUILD_STAMP 를 2줄 갱신해야 하는데 ${N}줄만 바뀌었다. wrangler.toml 의 [vars]/[env.production.vars] 구조가 바뀌었는지 확인할 것 — 이대로 배포하면 새 화면이 사용자에게 안 보인다."
+            grep -n "BUILD_STAMP" wrangler.toml || true
+            exit 1
+          fi
+          echo "✓ BUILD_STAMP = ${STAMP} (2줄 갱신)"
+          echo "BUILD_STAMP=${STAMP}" >> "$GITHUB_ENV"
 
       # 시크릿 존재 여부 확인 — 없으면 워크플로우는 성공 처리하고 배포만 건너뜀
       - name: Check required secrets
@@ -142,7 +319,7 @@ jobs:
 
       # ─── 1) base Worker 배포 (webrtc-unified-platform) ───
       - name: Deploy base Worker
-        if: steps.check_secrets.outputs.secrets_present == 'true' && github.event.inputs.skip_base != 'true'
+        if: steps.check_secrets.outputs.secrets_present == 'true' && steps.class_window.outputs.hold != 'true' && github.event.inputs.skip_base != 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -156,7 +333,7 @@ jobs:
       # Wrangler 4부터 [env.production] 은 top-level 바인딩을 자동 상속하지 않으므로
       # wrangler.toml 에 production 블록이 재선언되어 있어야 함 (이미 되어 있음).
       - name: Deploy production Worker
-        if: steps.check_secrets.outputs.secrets_present == 'true' && github.event.inputs.skip_prod != 'true'
+        if: steps.check_secrets.outputs.secrets_present == 'true' && steps.class_window.outputs.hold != 'true' && github.event.inputs.skip_prod != 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -165,9 +342,32 @@ jobs:
           wranglerVersion: '4'
           command: deploy --env production
 
+      # ─── 2-b) A.i 상담사 워커 배포 (mangoi-ai-avatar-cf) — 2026-10-01 사장님 지시 ───
+      # 홈 화면 «A.i 상담사» 는 별도 워커라 예전엔 사람이 PC 에서 wrangler deploy 를 해야 했다.
+      # 같은 Cloudflare 계정·같은 토큰으로 함께 내보낸다. 수업 보호 창(class_window)도 똑같이 따른다.
+      # ⚠️ continue-on-error: 상담사 배포가 실패해도 메인 사이트 배포 결과를 «실패» 로 바꾸지 않는다.
+      #    대신 바로 아래 단계가 실패 사실을 경고로 크게 남긴다(조용히 넘어가지 않게).
+      - name: Deploy A.i counselor Worker (mangoi-ai-avatar-cf)
+        id: deploy_avatar
+        if: steps.check_secrets.outputs.secrets_present == 'true' && steps.class_window.outputs.hold != 'true'
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: 'mangoi-ai-avatar-cf'
+          wranglerVersion: '4'
+          command: deploy
+
+      - name: A.i counselor deploy result
+        if: steps.deploy_avatar.outcome == 'failure'
+        run: |
+          echo "::warning::A.i 상담사 워커(mangoi-ai-avatar-cf) 배포 실패 — 메인 사이트는 정상 배포됨. 위 단계 로그를 확인하세요(토큰 권한 등)."
+          echo "### ⚠️ A.i 상담사 워커 배포 실패 — 메인 사이트는 영향 없음" >> "$GITHUB_STEP_SUMMARY"
+
       # ─── 3) 배포 후 헬스체크 ───
       - name: Health check — base
-        if: steps.check_secrets.outputs.secrets_present == 'true' && github.event.inputs.skip_base != 'true'
+        if: steps.check_secrets.outputs.secrets_present == 'true' && steps.class_window.outputs.hold != 'true' && github.event.inputs.skip_base != 'true'
         run: |
           URL="https://webrtc-unified-platform.navy111p.workers.dev/video-call/"
           CODE=$(curl -sS -o /dev/null -w "%{http_code}" -L --max-time 20 "$URL" || echo "000")
@@ -177,7 +377,7 @@ jobs:
           fi
 
       - name: Health check — production
-        if: steps.check_secrets.outputs.secrets_present == 'true' && github.event.inputs.skip_prod != 'true'
+        if: steps.check_secrets.outputs.secrets_present == 'true' && steps.class_window.outputs.hold != 'true' && github.event.inputs.skip_prod != 'true'
         run: |
           URL="https://webrtc-unified-platform-prod.navy111p.workers.dev/video-call/"
           CODE=$(curl -sS -o /dev/null -w "%{http_code}" -L --max-time 20 "$URL" || echo "000")
@@ -186,11 +386,128 @@ jobs:
             echo "::warning::production Worker 헬스체크 실패 (HTTP $CODE)"
           fi
 
-      - name: Deploy summary
-        if: always()
+      # ─── 3-2) 📶 TURN 경로 점검 ───────────────────────────────────────────
+      #  🔴 2026-08-26 실사고. `TURN_KEY_ID`/`TURN_KEY_API_TOKEN` 이 워커에 설정돼 있지
+      #     않아 **모든 화상수업이 무료 공개 TURN(openrelay.metered.ca)으로 릴레이**되고
+      #     있었다. src/index.ts 의 그 폴백 주석이 직접 경고한다 —
+      #     「그 서버는 50명을 받을 수 있는 서버가 아니라서, 아무 에러 없이 «영상만 안
+      #      나오는» 상태가 된다」. 실제로 RTT 389~629ms(손실은 0.7~4.2%로 낮음),
+      #     강사 재입장률 61.9% 였고 사장님께는 「가끔 튕긴다」로만 보였다.
+      #  ⚠️ 문제는 «틀렸다» 가 아니라 **아무도 말해 주지 않았다** 는 것이다. 위 «Check
+      #     required secrets» 는 CLOUDFLARE_API_TOKEN/ACCOUNT_ID 둘만 본다. TURN 이
+      #     빠져도 배포는 초록불, 화면도 조용 — 언제부터였는지 알 방법조차 없었다.
+      #     그래서 배포마다 «지금 어느 경로인가» 를 찍어 남긴다.
+      #  ⛔ 배포를 «실패» 시키지는 않는다. TURN 이 없어도 수업은 (느리게) 되고, 여기서
+      #     막으면 이 문제와 무관한 수정까지 못 나간다. 대신 눈에 띄게 남긴다.
+      #  ⚠️ 워커가 «두 벌» 이라 둘 다 본다 — 하나만 넣으면 한쪽 도메인 사용자만 고쳐진다
+      #     (CLAUDE.md 0장: test.mangoi.co.kr = 기본 워커, mangoi.ai = -prod).
+      - name: TURN 경로 점검 (X-Turn-Source)
+        if: always() && steps.check_secrets.outputs.secrets_present == 'true' && steps.class_window.outputs.hold != 'true'
         run: |
           {
-            if [ "${{ steps.check_secrets.outputs.secrets_present }}" = "true" ]; then
+            echo "### 📶 TURN 경로 점검"
+            echo ""
+            echo "| Worker | X-Turn-Source | X-Turn-Detail | 판정 |"
+            echo "|---|---|---|---|"
+          } >> $GITHUB_STEP_SUMMARY
+          BAD=""
+          for W in "기본|https://webrtc-unified-platform.navy111p.workers.dev" \
+                   "production|https://webrtc-unified-platform-prod.navy111p.workers.dev"; do
+            NAME="${W%%|*}"; URL="${W#*|}"
+            # ⚠️ 헤더 이름 대소문자는 HTTP/2 에서 소문자로 온다. sed 로 양쪽 다 받는다.
+            #    (awk 의 IGNORECASE 는 러너 기본 awk(mawk)에 없다 — 조용히 빈 값이 된다.)
+            HDR=$(curl -sS -D - -o /dev/null -L --max-time 20 "$URL/api/turn-config" 2>/dev/null | tr -d '\r')
+            SRC=$(printf '%s\n' "$HDR" | sed -n 's/^[Xx]-[Tt][Uu][Rr][Nn]-[Ss][Oo][Uu][Rr][Cc][Ee]: *//p' | tail -n1)
+            # 📶 X-Turn-Detail — «왜 그 경로였나». source 만으로는 public-fallback 이
+            #    ①시크릿없음 ②CF거절 ③연결실패 셋을 뭉뚱그린다(2026-08-26 실사고).
+            DET=$(printf '%s\n' "$HDR" | sed -n 's/^[Xx]-[Tt][Uu][Rr][Nn]-[Dd][Ee][Tt][Aa][Ii][Ll]: *//p' | tail -n1)
+            [ -z "$SRC" ] && SRC="(응답없음)"
+            [ -z "$DET" ] && DET="-"
+            # ⚠️ 모르는 detail 값은 «표시만» 한다 — 값이 늘어날 수 있으므로 판정에 쓰지 않는다.
+            case "$DET" in
+              no-secrets)      WHY="→ 시크릿(TURN_KEY_ID/TURN_KEY_API_TOKEN)이 워커에 없습니다" ;;
+              cf-http-401|cf-http-403) WHY="→ 키가 무효·회수됐습니다. Cloudflare 에서 TURN 키를 다시 발급하세요" ;;
+              cf-http-429)     WHY="→ 사용량 한도입니다. Cloudflare Calls/TURN 사용량·요금제를 확인하세요" ;;
+              cf-http-*)       WHY="→ Cloudflare TURN API 가 거절했습니다 ($DET)" ;;
+              cf-fetch-error)  WHY="→ Cloudflare 에 연결 자체가 실패했습니다(CF 쪽 장애일 수 있음)" ;;
+              *)               WHY="" ;;
+            esac
+            case "$SRC" in
+              cloudflare|kv-cache)
+                MARK="✅ 정상" ;;
+              last-known-good)
+                MARK="⚠️ Cloudflare TURN API 가 흔들리는 중 — 24시간 안에 복구되지 않으면 무료 폴백으로 떨어진다"
+                BAD="$BAD $NAME" ;;
+              public-fallback)
+                MARK="🔴 무료 공개 TURN 사용 중 — 이유는 detail 칸"
+                BAD="$BAD $NAME" ;;
+              *)
+                MARK="⚠️ 알 수 없는 응답 — /api/turn-config 가 안 열렸을 수 있다"
+                BAD="$BAD $NAME" ;;
+            esac
+            echo "$NAME → $SRC ($DET) → $MARK $WHY"
+            echo "| $NAME | \`$SRC\` | \`$DET\` | $MARK $WHY |" >> $GITHUB_STEP_SUMMARY
+            if [ "$SRC" = "public-fallback" ]; then
+              echo "::error::[$NAME 워커] 모든 화상수업이 무료 공개 TURN(openrelay)으로 릴레이되고 있습니다. 이유: $DET $WHY"
+            elif [ "$MARK" != "✅ 정상" ]; then
+              echo "::warning::[$NAME 워커] TURN 경로가 정상이 아닙니다 — source=$SRC detail=$DET $WHY"
+            fi
+          done
+          if [ -n "$BAD" ]; then
+            {
+              echo ""
+              echo "**고치는 법은 \`X-Turn-Detail\` 에 따라 다릅니다.**"
+              echo ""
+              echo "| detail | 뜻 | 할 일 |"
+              echo "|---|---|---|"
+              echo "| \`no-secrets\` | 시크릿이 없다 | 아래 명령으로 등록 |"
+              echo "| \`cf-http-401\` \`cf-http-403\` | 키가 무효·회수됨 | Cloudflare 에서 TURN 키 **재발급** (등록 아님) |"
+              echo "| \`cf-http-429\` | 사용량 한도 | Calls/TURN 사용량·요금제 확인 |"
+              echo "| \`cf-fetch-error\` | 연결 자체 실패 | Cloudflare 쪽 장애 — 우리가 할 일 없음 |"
+              echo ""
+              echo "⛔ **\`no-secrets\` 가 아니면 키를 새로 넣지 마세요** — 이미 있는 키를 덮어쓰면 «고쳤다» 는 기록만 남고 원인은 그대로입니다(2026-08-26 실사고)."
+              echo ""
+              echo "\`no-secrets\` 일 때만 — Cloudflare 대시보드 → Calls → TURN 에서 키를 발급한 뒤, 워커 **두 벌 모두**에 넣습니다."
+              echo ""
+              echo '```bash'
+              echo 'cd cloudflare-deploy'
+              echo 'npx wrangler secret put TURN_KEY_ID'
+              echo 'npx wrangler secret put TURN_KEY_API_TOKEN'
+              echo 'npx wrangler secret put TURN_KEY_ID        --env production'
+              echo 'npx wrangler secret put TURN_KEY_API_TOKEN --env production'
+              echo '```'
+              echo ""
+              echo '확인: `curl -sI https://mangoi.ai/api/turn-config | grep -i "^x-turn-"` → source 가 `cloudflare`/`kv-cache` 면 정상입니다.'
+            } >> $GITHUB_STEP_SUMMARY
+          fi
+          # ⛔ 여기서 배포를 실패시키지 않는다(위 주석). 경고만 남기고 통과.
+          exit 0
+
+      - name: Deploy summary
+        if: always()
+        env:
+          # ⏱ 어느 회차가 깨웠는지를 «로그를 열지 않고» 볼 수 있게 요약에도 남긴다.
+          SCHEDULE_CRON: ${{ github.event.schedule }}
+        run: |
+          {
+            if [ -n "$SCHEDULE_CRON" ]; then
+              echo "⏱ 몰아 배포 회차: \`$SCHEDULE_CRON\` (UTC · GitHub 가 알려 준 값 그대로)"
+              echo ""
+            fi
+            # ⏸ 보류는 «배포 성공» 이 아니다 — 요약이 그렇게 말하면 다음 사람이
+            #   「나갔다」고 읽는다(CLAUDE.md 2장: 못 한 것은 못 했다고 적을 것).
+            if [ "${{ steps.class_window.outputs.hold }}" = "true" ]; then
+              echo "### ⏸ 배포하지 않았습니다 — 수업 시간대"
+              echo ""
+              echo "커밋 \`${{ github.sha }}\` 은 **창이 닫힌 뒤 몰아 배포**에 실려 나갑니다."
+              # 🔴 이 실행이 «몰아 배포 회차 자신» 이면 그 회차는 통째로 버려진 것이다.
+              #    실측(09-26~10-16): schedule 실행 100건 중 5건이 창 안으로 늦게 들어와 이렇게 됐다.
+              if [ -n "$SCHEDULE_CRON" ]; then
+                echo ""
+                echo "⚠️ **이 실행이 몰아 배포 회차 자신입니다** — GitHub 가 늦게 깨워 창 «안» 으로"
+                echo "들어왔고, 그래서 이 회차는 아무것도 내보내지 못했습니다. 다음 회차를 기다립니다."
+              fi
+            elif [ "${{ steps.check_secrets.outputs.secrets_present }}" = "true" ]; then
               echo "### 🚀 Cloudflare Workers 배포 요약"
               echo ""
               echo "| Worker | URL |"

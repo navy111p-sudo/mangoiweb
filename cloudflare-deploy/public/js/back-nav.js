@@ -24,10 +24,25 @@
     return false;
   }
 
-  function goBack() {
-    var fallback = (p.indexOf('/admin') === 0) ? '/admin.html' : '/';
+  /* @param {string} [fallbackUrl] 히스토리도 referrer 도 없을 때 갈 곳. 안 주면 홈(/admin* 은 /admin.html).
+       화면마다 «돌아갈 곳» 이 다르기 때문이다 — 게임 안 학습화면은 홈이 아니라 게임 허브로 가야 한다.
+     @param {{sameOriginOnly?:boolean}} [opts] true 면 «앞 화면이 우리 사이트일 때만» 뒤로 간다
+       (밖에서 들어온 사람을 밖으로 되돌려보내지 않고 홈으로 보낸다 — 웜업이 그 정책이었다). */
+  function goBack(fallbackUrl, opts) {
+    /* ⚠️ 첫 인자로 Event 가 올 수 있다 — 이 파일 안에 `b.onclick = goBack` 자리가 있고,
+          리스너의 첫 인자는 Event 라 «항상 truthy» 다(이 저장소가 이미 밟은 함정).
+          그래서 «문자열일 때만» 폴백으로 인정한다. */
+    var fallback = (typeof fallbackUrl === 'string' && fallbackUrl)
+      ? fallbackUrl
+      : ((p.indexOf('/admin') === 0) ? '/admin.html' : '/');
+    var sameOriginOnly = !!(opts && opts.sameOriginOnly);
+    var sameRef = false;
     try {
-      if (history.length > 1) { history.back(); return; }
+      var r0 = document.referrer || '';
+      sameRef = r0.indexOf(location.origin + '/') === 0;
+    } catch (e) {}
+    try {
+      if (history.length > 1 && (!sameOriginOnly || sameRef)) { history.back(); return; }
     } catch (e) {}
     /* (2026-08-03) 히스토리가 없는 진입 — 앱/PWA 첫 화면, 카톡·문자 링크, target=_blank 새 탭 —
        에서는 back() 이 아무 데도 못 간다. 여기서 곧장 홈으로 보내면 ← 가 [🏠 홈] 버튼과
@@ -42,6 +57,15 @@
     } catch (e) {}
     location.href = fallback;
   }
+
+  /* 🔗 (2026-09-01) 다른 화면이 «자기 헤더에 이미 있는 ←» 에 이 판정을 붙일 수 있게 내보낸다.
+     왜 내보내나: 「직전 페이지로 가되, 히스토리가 없으면 같은 오리진 referrer, 그것도 없으면
+     홈」이라는 판정을 화면마다 복제하면 한쪽만 고쳐진다(이 저장소가 반복해서 밟은 형태).
+     ⚠️ 이 파일은 홈 화면(/, /index.html, /admin.html, /admin)에서 맨 위에서 곧바로 return 하므로
+        그 화면에는 이 함수가 «없다» — 부르는 쪽은 반드시 「있으면 쓴다」로 감싸고, 없을 때를
+        위해 `href` 를 남겨 두세요(그러면 최악이어도 홈으로는 갑니다).
+     ⚠️ 이 파일은 `?v=` 없이 실려 캐시에 옛 사본이 남을 수 있다 — 그때도 위 폴백으로 버팁니다. */
+  window.mangoiGoBack = goBack;
 
   function inject() {
     if (document.getElementById('mangoi-back-btn')) return;

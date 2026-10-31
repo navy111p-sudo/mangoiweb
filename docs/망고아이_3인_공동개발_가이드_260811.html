@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>망고아이 3인 공동개발 가이드</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm 18mm 14mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;
+    font-size: 10.5pt; line-height: 1.72; color: #1a1a1a; margin: 0;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  h1 { font-size: 24pt; margin: 0 0 6px; letter-spacing: -1px; }
+  h2 {
+    font-size: 15pt; margin: 30px 0 12px; padding: 8px 12px;
+    background: #16324f; color: #fff; border-radius: 5px;
+    page-break-after: avoid; letter-spacing: -0.5px;
+  }
+  h3 {
+    font-size: 12pt; margin: 20px 0 8px; padding-left: 10px;
+    border-left: 5px solid #f6a623; color: #16324f;
+    page-break-after: avoid;
+  }
+  h4 { font-size: 10.8pt; margin: 14px 0 6px; color: #16324f; page-break-after: avoid; }
+  p { margin: 7px 0; }
+  ul, ol { margin: 7px 0 7px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  code {
+    font-family: Consolas,"D2Coding",monospace; font-size: 9.3pt;
+    background: #eef2f7; padding: 1px 5px; border-radius: 3px; color: #124; word-break: break-all;
+  }
+  pre {
+    font-family: Consolas,"D2Coding",monospace; font-size: 9.2pt; line-height: 1.6;
+    background: #16324f; color: #e8f0f8; padding: 11px 14px; border-radius: 6px;
+    white-space: pre-wrap; word-break: break-all; margin: 8px 0; page-break-inside: avoid;
+  }
+  pre .c { color: #8fb3d0; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9.7pt; page-break-inside: avoid; }
+  th { background: #16324f; color: #fff; padding: 7px 9px; text-align: left; font-weight: 600; }
+  td { border: 1px solid #cfd8e3; padding: 6px 9px; vertical-align: top; }
+  tr:nth-child(even) td { background: #f7f9fc; }
+  .box { padding: 11px 14px; border-radius: 6px; margin: 11px 0; page-break-inside: avoid; }
+  .danger  { background: #fdecea; border-left: 6px solid #c0392b; }
+  .warn    { background: #fff7e0; border-left: 6px solid #f6a623; }
+  .ok      { background: #eaf7ee; border-left: 6px solid #2e8b57; }
+  .info    { background: #eef4fb; border-left: 6px solid #16324f; }
+  .box b.t { display: block; margin-bottom: 4px; font-size: 10.5pt; }
+  .danger b.t { color: #c0392b; } .warn b.t { color: #b57b00; }
+  .ok b.t { color: #2e8b57; } .info b.t { color: #16324f; }
+  .cover {
+    text-align: center; padding: 60px 0 34px; border-bottom: 4px solid #16324f; margin-bottom: 18px;
+  }
+  .cover .sub { font-size: 12.5pt; color: #4a5a6a; margin-top: 10px; }
+  .cover .meta { font-size: 9.5pt; color: #7a8797; margin-top: 22px; line-height: 1.9; }
+  .badge {
+    display: inline-block; background: #f6a623; color: #16324f; font-weight: 700;
+    padding: 3px 12px; border-radius: 20px; font-size: 9.5pt; margin-bottom: 14px;
+  }
+  .step {
+    display: flex; gap: 12px; margin: 12px 0; page-break-inside: avoid;
+    background: #f7f9fc; border: 1px solid #dde5ee; border-radius: 7px; padding: 11px 13px;
+  }
+  .step .n {
+    flex: 0 0 34px; height: 34px; background: #16324f; color: #fff; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13pt;
+  }
+  .step .b { flex: 1; }
+  .step .b b { display: block; font-size: 11pt; color: #16324f; margin-bottom: 2px; }
+  .flow { margin: 14px 0; page-break-inside: avoid; }
+  .flow .row { display: flex; align-items: stretch; gap: 6px; margin: 6px 0; }
+  .flow .cell {
+    flex: 1; border: 2px solid #16324f; border-radius: 7px; padding: 8px 6px;
+    text-align: center; font-size: 9.2pt; line-height: 1.45; background: #fff;
+  }
+  .flow .cell b { display: block; font-size: 10pt; color: #16324f; }
+  .flow .cell.you { background: #eef4fb; }
+  .flow .cell.hub { background: #16324f; color: #fff; } .flow .cell.hub b { color: #f6a623; }
+  .flow .cell.live { background: #eaf7ee; border-color: #2e8b57; } .flow .cell.live b { color: #2e8b57; }
+  .flow .arrow { display: flex; align-items: center; font-size: 16pt; color: #f6a623; font-weight: 700; }
+  .flow .down { text-align: center; font-size: 15pt; color: #f6a623; font-weight: 700; line-height: 1; margin: 2px 0; }
+  .pagebreak { page-break-before: always; }
+  .card {
+    border: 3px dashed #16324f; border-radius: 10px; padding: 16px 20px; margin: 14px 0;
+    background: #fbfcfe; page-break-inside: avoid;
+  }
+  .kbd { font-size: 9.4pt; color: #5a6a7a; }
+  .tag { display:inline-block; padding:1px 7px; border-radius:4px; font-size:8.8pt; font-weight:700; }
+  .tag.a { background:#16324f; color:#fff; }
+  .tag.b { background:#2e8b57; color:#fff; }
+  .tag.c { background:#c0392b; color:#fff; }
+  .small { font-size: 9.3pt; color: #5a6a7a; }
+  hr { border: 0; border-top: 1px solid #dde5ee; margin: 22px 0; }
+  .toc { background:#f7f9fc; border:1px solid #dde5ee; border-radius:8px; padding:14px 20px; }
+  .toc ol { margin:0; padding-left:20px; }
+  .toc li { margin:3px 0; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="badge">직원 · 사장님 공용 · 2026-08-11</div>
+  <h1>망고아이 3인 공동개발 가이드</h1>
+  <div class="sub">GitHub · 바탕화면 폴더 · Claude 를 셋이 같이 쓰는 법<br>
+  고친 것을 합치고 → 검사하고 → 배포해서 → test.mangoi.co.kr 에서 확인하기까지</div>
+  <div class="meta">
+    저장소 : github.com/navy111p-sudo/mangoiweb (비공개)<br>
+    실서비스 주소 : https://test.mangoi.co.kr<br>
+    대상 : 사장님 1명 + 직원 2명 (총 3명)
+  </div>
+</div>
+
+<div class="toc">
+<b>목차</b>
+<ol>
+  <li>먼저 이 한 장 — 전체 그림</li>
+  <li>바탕화면의 망고아이 폴더들 정체 (지금 6개나 있습니다)</li>
+  <li>처음 한 번만 하는 준비 (직원용)</li>
+  <li>누가 어떤 파일을 맡는가 — 충돌을 없애는 유일한 방법</li>
+  <li>매일 하는 4단계</li>
+  <li>합치기(merge) — 사장님이 검사하는 법</li>
+  <li>검사 3종 — 무엇으로 확인했는지 말할 수 있어야 합니다</li>
+  <li>배포 — 길이 두 개 있고, 서로를 모릅니다</li>
+  <li>test.mangoi.co.kr 에서 실제로 확인하기</li>
+  <li>사고가 났을 때 (되돌리기)</li>
+  <li>Claude 를 셋이 같이 쓰는 법</li>
+  <li>절대 하지 말 것 · 용어사전 · 요약 카드</li>
+</ol>
+</div>
+
+<h2>1. 먼저 이 한 장 — 전체 그림</h2>
+
+<h3>1-1. 한 문장 요약</h3>
+<p><b>인터넷에 "진짜 원본" 폴더를 하나 두고, 세 사람이 각자 복사본을 받아 고친 뒤, 원본에 다시 합칩니다.
+합쳐진 원본이 실제 홈페이지로 나갑니다.</b></p>
+
+<ul>
+  <li>그 방법의 이름 = <b>깃(Git)</b></li>
+  <li>그 인터넷 창고의 이름 = <b>깃허브(GitHub)</b></li>
+  <li>홈페이지가 실제로 돌아가는 곳 = <b>Cloudflare</b> (주소는 <code>test.mangoi.co.kr</code>)</li>
+</ul>
+
+<div class="info box">
+  <b class="t">가장 중요한 오해 하나</b>
+  바탕화면에 있는 망고아이 폴더는 <b>원본이 아닙니다.</b> 복사본입니다.
+  내 폴더에서 아무리 파일을 고쳐도, <b>홈페이지는 1도 안 바뀝니다.</b>
+  홈페이지가 바뀌려면 "합치기 → 배포" 두 단계를 더 거쳐야 합니다. (6장·8장)
+</div>
+
+<h3>1-2. 그림으로 보면</h3>
+
+<div class="flow">
+  <div class="row">
+    <div class="cell you"><b>사장님 PC</b>바탕화면<br>mangoi_develop2-main</div>
+    <div class="cell you"><b>직원 A PC</b>내가 clone 한<br>복사본 폴더</div>
+    <div class="cell you"><b>직원 B PC</b>내가 clone 한<br>복사본 폴더</div>
+  </div>
+  <div class="down">↓ &nbsp; git push &nbsp;(내 작업방을 창고에 올림) &nbsp; ↓</div>
+  <div class="row">
+    <div class="cell hub"><b>GitHub — mangoiweb (원본 창고)</b>
+    각자의 작업방(브랜치)이 여기 모입니다 → 사장님이 Pull Request 를 검사하고 <b>main</b> 에 합칩니다</div>
+  </div>
+  <div class="down">↓ &nbsp; main 에 합쳐지는 순간 GitHub Actions 가 자동으로 검사 5종을 돌리고 배포 &nbsp; ↓</div>
+  <div class="row">
+    <div class="cell live"><b>Cloudflare Workers</b>
+    학생·학부모·강사가 보는 진짜 화면 → <b>https://test.mangoi.co.kr</b></div>
+  </div>
+</div>
+
+<div class="warn box">
+  <b class="t">여기에 지름길이 하나 더 있습니다 (사장님 전용)</b>
+  사장님은 자기 PC에서 <code>deploy.ps1</code> 을 실행해 <b>GitHub 을 거치지 않고 바로</b> Cloudflare 에 올릴 수도 있습니다.
+  빠르지만 위험합니다. 이 두 길이 서로를 모르기 때문에 사고가 납니다 — <b>8장에서 자세히</b> 설명합니다.
+</div>
+
+<h3>1-3. 세 사람의 역할</h3>
+<table>
+<tr><th style="width:18%">역할</th><th style="width:30%">맡는 일</th><th>할 수 있는 것 / 없는 것</th></tr>
+<tr><td><span class="tag a">사장님</span></td><td>관리자·운영·정산 화면, 홈+화상수업, 서버 라우팅</td>
+<td>코드 수정 ○ · PR 승인 ○ · <b>배포 ○ (혼자만)</b> · DB 확인 ○</td></tr>
+<tr><td><span class="tag b">직원 A</span></td><td>학생 학습 콘텐츠 (게임·단어장·퀴즈·발음코치)</td>
+<td>코드 수정 ○ · PR 올리기 ○ · <b>배포 ✕</b> · DB 변경 ✕</td></tr>
+<tr><td><span class="tag b">직원 B</span></td><td>A 와 겹치지 않는 다른 학습 콘텐츠 파일</td>
+<td>코드 수정 ○ · PR 올리기 ○ · <b>배포 ✕</b> · DB 변경 ✕</td></tr>
+</table>
+<p class="small">※ 직원 2명이 <b>같은 게임 파일</b>을 동시에 고치면 또 충돌합니다. A·B 사이에서도 파일을 나눠야 합니다 (4장).</p>
+
+<div class="pagebreak"></div>
+<h2>2. 바탕화면의 망고아이 폴더들 정체</h2>
+
+<p>사장님 PC 바탕화면에는 지금 망고아이 폴더가 <b>여러 개</b> 있습니다. 헷갈리기 쉬우니 정리합니다.</p>
+
+<table>
+<tr><th style="width:38%">폴더</th><th style="width:16%">정체</th><th>설명</th></tr>
+<tr><td><code>mangoi_develop2-main</code></td><td><b>본체</b></td>
+<td>진짜 작업 폴더입니다. 여기가 원본 창고와 연결돼 있습니다. <b>평소엔 여기서만 작업하세요.</b></td></tr>
+<tr><td><code>mangoi-sec-wt</code><br><code>mangoi_melca_deploy_wt</code><br><code>mangoi_qa0807_deploy_wt</code><br><code>mangoi_wt_audit</code></td>
+<td>분신<br>(worktree)</td>
+<td>본체와 <b>같은 저장소를 공유하는 별도 작업방</b>입니다. 배포·점검할 때 "깨끗한 상태"가 필요해서 만든 것입니다.
+겉보기엔 똑같은 폴더로 보이지만 <b>서로 다른 시점의 코드</b>가 들어 있습니다.</td></tr>
+<tr><td><code>mangoi_deploy_wt_260808</code> 등</td><td>잔재</td>
+<td>이미 등록이 풀린 옛 폴더입니다. 여기서 작업하면 아무 데도 반영되지 않습니다.</td></tr>
+</table>
+
+<div class="danger box">
+  <b class="t">직원분들이 절대 헷갈리면 안 되는 것</b>
+  <b>직원 PC 에는 폴더가 딱 1개만 있어야 합니다.</b> 3장에서 <code>git clone</code> 으로 만드는 그 폴더 하나입니다.
+  분신(worktree)은 배포·점검용 고급 기능이라 직원은 만들 필요도, 만들어서도 안 됩니다.
+  <br><br>
+  그리고 <b>같은 폴더를 카톡·USB·구글드라이브로 주고받지 마세요.</b> 그 순간 깃이 하는 일이 전부 무의미해집니다.
+</div>
+
+<h3>2-1. 내 폴더가 지금 어떤 상태인지 확인하는 법</h3>
+<p>폴더에서 아래 두 줄만 치면, 내가 지금 <b>어느 작업방에</b> 있고 <b>안 올린 게 뭔지</b> 다 나옵니다.</p>
+<pre><span class="c"># 지금 내가 있는 작업방(브랜치) 이름</span>
+git branch --show-current
+
+<span class="c"># 안 올린 변경 파일 목록</span>
+git status</pre>
+
+<p>참고로 <b>지금 사장님 본체 폴더</b>는 <code>main</code> 이 아니라 <code>vc-device-helper-260810</code> 이라는 작업방에 들어가 있고,
+아직 올리지 않은 파일이 여러 개 있는 상태입니다. 이런 상태에서 배포하면 <b>그 미완성 파일들이 같이 올라갑니다.</b></p>
+
+<div class="pagebreak"></div>
+<h2>3. 처음 한 번만 하는 준비 (직원용)</h2>
+
+<div class="step"><div class="n">1</div><div class="b"><b>GitHub 계정 만들기</b>
+github.com 에서 무료 가입합니다. 사장님께 <b>가입한 아이디</b>를 알려주세요.</div></div>
+
+<div class="step"><div class="n">2</div><div class="b"><b>사장님이 초대 → 직원이 수락</b>
+저장소가 <b>비공개(private)</b>라, 초대받지 않으면 주소를 알아도 열리지 않습니다.
+사장님이 저장소 → Settings → Collaborators 에서 아이디를 추가하면, 직원 메일로 초대장이 옵니다. <b>수락 버튼을 눌러야</b> 접근됩니다.
+<br><span class="small">(현재 등록된 사람은 사장님 1명뿐입니다. 직원 2명 초대가 첫 할 일입니다.)</span></div></div>
+
+<div class="step"><div class="n">3</div><div class="b"><b>Git 설치</b>
+git-scm.com 에서 받아 설치합니다. 옵션은 전부 기본값으로 두면 됩니다.</div></div>
+
+<div class="step"><div class="n">4</div><div class="b"><b>내 컴퓨터로 복사본 받기 (clone)</b>
+바탕화면에서 마우스 오른쪽 → "터미널에서 열기" 후 아래를 붙여넣습니다.
+<pre>git clone --depth 50 https://github.com/navy111p-sudo/mangoiweb.git</pre>
+<span class="small"><code>--depth 50</code> = "최근 기록 50개만 받기". 전부 받으면 1.3GB라 오래 걸립니다.</span></div></div>
+
+<div class="step"><div class="n">5</div><div class="b"><b>내 이름 등록 (누가 고쳤는지 기록되게)</b>
+<pre>git config --global user.name  "홍길동"
+git config --global user.email "본인메일@example.com"</pre></div></div>
+
+<div class="step"><div class="n">6</div><div class="b"><b>Claude Code 설치</b>
+설치 후 이 폴더에서 실행하면, 폴더 안의 <code>CLAUDE.md</code> 라는 규칙서를 <b>자동으로 읽습니다.</b>
+그래서 세 사람의 Claude 가 같은 규칙(금지사항·함정목록)을 따르게 됩니다.</div></div>
+
+<div class="danger box">
+  <b class="t">비밀 열쇠 파일은 절대 깃에 올리지 않습니다</b>
+  <code>.env</code>, <code>.dev.vars</code> 파일은 일부러 깃에 <b>없습니다.</b> 없으면 사장님께 따로 받으세요.
+  실수로 이 파일을 <code>git add</code> 해서 올리면, 결제·DB·AI 키가 통째로 노출돼 <b>전부 새로 발급받아야 합니다.</b>
+  (실제로 과거에 한 번 겪어서 4단계에 걸쳐 열쇠를 전부 교체한 적이 있습니다.)
+</div>
+
+<div class="pagebreak"></div>
+<h2>4. 누가 어떤 파일을 맡는가</h2>
+
+<p>충돌을 없애는 방법은 기술이 아니라 <b>약속</b>입니다. 이유는 파일 크기 때문입니다.</p>
+
+<div class="warn box">
+  <b class="t">왜 파일을 나눠야 하나요</b>
+  <code>index.html</code> 은 <b>1.6MB</b>, <code>admin.html</code> 은 <b>1.3MB</b> 짜리 거대한 한 덩어리 파일입니다.
+  이 파일을 두 사람이 동시에 고치면, 깃이 "어느 쪽이 맞는지" 판단하지 못해 <b>충돌 해결이 사실상 불가능</b>합니다.
+  잘못 풀면 남의 작업이 통째로 사라집니다.
+</div>
+
+<h3>4-1. 영역 분담표</h3>
+<table>
+<tr><th style="width:20%">영역</th><th style="width:12%">담당</th><th>파일</th></tr>
+<tr><td><b>학생 학습 콘텐츠</b></td><td><span class="tag b">직원 A·B</span></td>
+<td><code>public/student-game-*.html</code> (게임들) · <code>public/student-games.html</code> ·
+<code>public/vocab.html</code> · <code>public/micro-quiz.html</code> · <code>public/review-quiz.html</code> ·
+<code>public/warmup.html</code> · <code>public/ai-write.html</code> · <code>public/speech-coach*.html</code> ·
+<code>public/suspect-mystery.html</code> · <code>src/api-games.ts</code> · <code>src/api-points.ts</code></td></tr>
+<tr><td><b>관리자·운영·정산</b></td><td><span class="tag a">사장님</span></td>
+<td><code>public/admin.html</code> · <code>src/api-admin.ts</code> · <code>src/accounting-*.ts</code> ·
+<code>src/api-payroll-auto.ts</code> · <code>src/org-settlement.ts</code></td></tr>
+<tr><td><b>공동 금지구역</b></td><td><span class="tag c">사장님만</span></td>
+<td><code>public/index.html</code> (홈+화상수업) · <code>src/index.ts</code> (라우팅+로그인 관문) ·
+<code>src/video-call-room.ts</code> · <code>src/signaling-room.ts</code> · <code>wrangler.toml</code> ·
+<code>deploy.ps1</code> · <code>public/sw.js</code></td></tr>
+</table>
+<p class="small">(모든 경로는 <code>cloudflare-deploy/</code> 아래입니다.)</p>
+
+<h3>4-2. 직원 A 와 B 는 어떻게 나누나</h3>
+<p>게임은 <b>파일이 하나씩 따로</b> 있어서 서로 안 겹칩니다. 그래서 <b>"파일 단위"로 나누면</b> 충돌이 0에 가깝습니다.</p>
+<ul>
+  <li>예) A = 단어장·복습퀴즈·웜업 &nbsp; / &nbsp; B = 게임들·발음코치·AI 영작</li>
+  <li>단, <code>api-games.ts</code>, <code>api-points.ts</code> 는 <b>둘 다 쓰는 공용 파일</b>입니다.
+  여기를 고칠 땐 <b>먼저 상대에게 한마디</b> 하세요.</li>
+  <li>내 영역 밖 파일을 꼭 고쳐야 하면 <b>혼자 고치지 말고 사장님께 먼저 말씀</b>하세요.</li>
+</ul>
+
+<div class="pagebreak"></div>
+<h2>5. 매일 하는 4단계</h2>
+
+<div class="step"><div class="n">1</div><div class="b"><b>아침에 최신본 받기 — 커피보다 먼저</b>
+<pre>git checkout main
+git pull</pre>
+어제 남이 고쳐놓은 것을 내 컴퓨터로 가져옵니다. <b>이것만 지켜도 문제의 절반은 안 생깁니다.</b></div></div>
+
+<div class="step"><div class="n">2</div><div class="b"><b>내 작업방(브랜치) 만들기</b>
+<pre>git checkout -b 단어장-정렬수정</pre>
+원본을 직접 건드리지 않고 <b>나만의 복사본</b>에서 작업합니다. 여기서 뭘 망가뜨려도 남에게 영향이 없습니다.
+<br><span class="small">이름 예시: <code>로그인-오류수정</code>, <code>게임-속도개선</code>. 한글도 됩니다.</span></div></div>
+
+<div class="step"><div class="n">3</div><div class="b"><b>다 고쳤으면 도장 찍고 올리기</b>
+<pre>git add -A
+git commit -m "단어장 목록을 가나다순으로 정렬"
+git push -u origin 단어장-정렬수정</pre>
+<code>-m</code> 뒤 따옴표 안에는 <b>무엇을 했는지 한글로</b> 적습니다. 나중에 "이거 누가 왜 고쳤지?" 할 때 이 문장을 봅니다.
+<br><span class="small">한 번 <code>-u</code> 로 올리고 나면, 그 다음부터는 <code>git push</code> 만 치면 됩니다.</span></div></div>
+
+<div class="step"><div class="n">4</div><div class="b"><b>사장님께 결재 올리기 (Pull Request)</b>
+GitHub 사이트에 들어가면 <b>"Compare &amp; pull request"</b> 초록 버튼이 보입니다. 눌러서 제출하세요.
+제목에 무엇을 고쳤는지, 본문에 <b>왜 고쳤는지</b>와 <b>어떻게 확인했는지</b>를 적습니다.</div></div>
+
+<div class="ok box">
+  <b class="t">"내가 고친 게 홈페이지에 안 보여요" — 정상입니다</b>
+  4단계까지는 <b>제안</b>일 뿐입니다. 사장님이 검사하고 합쳐야(6장), 그리고 배포돼야(8장) 화면에 나옵니다.
+</div>
+
+<h3>5-1. 커밋은 자주, 작게</h3>
+<p>하루 종일 고치고 저녁에 한 번 커밋하면, 문제가 생겼을 때 <b>어디서부터 잘못됐는지 찾을 수 없습니다.</b>
+"한 가지 일이 끝날 때마다" 커밋하세요. 커밋은 공짜입니다.</p>
+
+<div class="pagebreak"></div>
+<h2>6. 합치기(merge) — 사장님이 검사하는 법</h2>
+
+<h3>6-1. PR 화면에서 무엇을 보나</h3>
+<ol>
+  <li><b>Files changed</b> 탭 — 바뀐 줄이 초록(추가) / 빨강(삭제)으로 보입니다.</li>
+  <li><b>바뀐 파일이 담당 영역 안인지</b> 먼저 봅니다. 직원 PR 에 <code>index.html</code> 이나
+  <code>wrangler.toml</code> 이 들어 있으면 <b>그 자리에서 되돌려 보내세요.</b></li>
+  <li>비밀 열쇠(<code>.env</code>, 토큰 문자열)가 섞여 있지 않은지 확인합니다.</li>
+</ol>
+
+<div class="warn box">
+  <b class="t">"파일 53개가 바뀌었다"고 나와도 놀라지 마세요</b>
+  배포할 때마다 모든 HTML 맨 아래에 <b>배포 시각 도장</b>이 새로 찍힙니다.
+  <pre style="margin:6px 0 0">&lt;!-- BUILD:20260811145740 --&gt;</pre>
+  그래서 배포 직후 <code>git pull</code> 하면 53개가 바뀐 것처럼 보이지만, <b>대부분 이 1줄짜리 도장뿐</b>입니다.
+  진짜 변경만 보려면 도장을 빼고 봅니다:
+  <pre style="margin:6px 0 0">git diff -I'BUILD:' main..작업브랜치</pre>
+</div>
+
+<h3>6-2. 충돌(conflict)이 났을 때</h3>
+<table>
+<tr><th style="width:40%">충돌 지점</th><th>어떻게 하나</th></tr>
+<tr><td><code>&lt;!-- BUILD:숫자 --&gt;</code> 줄</td><td><b>아무 쪽이나 골라도 됩니다.</b> 어차피 다음 배포 때 새로 찍힙니다.</td></tr>
+<tr><td>그 외 모든 곳</td><td><b>직원은 혼자 풀지 마세요.</b> 사장님께 알리고 같이 봅니다. 잘못 풀면 남의 작업이 사라집니다.</td></tr>
+</table>
+
+<h3>6-3. 깃이 못 잡는 충돌 — "보이지 않는 충돌"</h3>
+<div class="danger box">
+  <b class="t">이게 제일 무섭습니다</b>
+  두 사람이 <b>같은 버그를 각자 다르게 고치면</b>, 두 수정이 서로 다른 줄에 있기 때문에
+  깃은 <b>충돌이라고 알려주지 않고 조용히 둘 다 넣어버립니다.</b>
+  결과는 "고침이 두 번 적용된" 이상한 화면입니다. (실제로 겪었습니다.)
+  <br><br>
+  <b>예방책은 하나뿐입니다 — 시작하기 전에 "나 이거 고칠게요" 라고 말하는 것.</b>
+  원격이라 서로 뭘 하는지 안 보입니다. 아침에 한 줄씩 공유하세요.
+</div>
+
+<h3>6-4. 합치는 방법</h3>
+<p>검사가 끝나면 PR 화면에서 <b>Merge pull request</b> 버튼을 누릅니다. 그 순간 <code>main</code> 이 바뀌고,
+<b>자동 배포가 시작됩니다</b> (8장).</p>
+<div class="warn box">
+  <b class="t">이 저장소는 무료 플랜이라 main 을 기술적으로 잠글 수 없습니다</b>
+  즉 마음만 먹으면 누구나 <code>main</code> 에 바로 push 할 수 있습니다. <b>규칙으로만 막힙니다.</b>
+  <b>직원은 절대 <code>main</code> 에 직접 push 하지 마세요.</b> (그 push 하나가 즉시 배포로 이어집니다.)
+</div>
+
+<div class="pagebreak"></div>
+<h2>7. 검사 3종 — "고쳤습니다"만 말하면 안 됩니다</h2>
+
+<p>코드를 고쳤으면 <b>PR 을 올리기 전에</b> 내 컴퓨터에서 아래 3가지를 돌립니다.
+그리고 PR 본문에 <b>결과를 붙여 넣으세요.</b></p>
+
+<h3>검사 1. 문법 검사 (약 20초)</h3>
+<pre>cd cloudflare-deploy
+node node_modules/typescript/bin/tsc --noEmit</pre>
+<div class="danger box">
+  <b class="t">함정 — <code>npx tsc</code> 를 쓰면 안 됩니다</b>
+  <code>npx</code> 는 <b>조용히 실패해도 아무것도 안 찍습니다.</b> 통과했을 때와 화면이 똑같습니다.
+  "출력이 없으니 통과했다"고 착각하고 배포해서 사고가 난 적이 있습니다. 반드시 위 <code>node ...</code> 형태로 쓰세요.
+</div>
+
+<h3>검사 2. 회귀 하니스 (약 90초) — 가장 중요</h3>
+<pre><span class="c"># 반드시 «저장소 맨 위 폴더»에서 실행</span>
+node test-harness/run.mjs --fast</pre>
+<p>기준선: <b>PASS 114~115 / SKIP 20 / FAIL 0</b>. FAIL 이 하나라도 있으면 <b>PR 을 올리지 마세요.</b></p>
+<p class="small">SKIP 20개는 실제 화상수업 화면이 필요한 검사라 자동으로 빠집니다 — 정상입니다.</p>
+<div class="warn box">
+  <b class="t">함정 — 실행 위치</b>
+  검사 1 에서 <code>cd cloudflare-deploy</code> 를 했으므로, <b>이어서 그대로 치면 실패합니다</b>
+  (<code>MODULE_NOT_FOUND</code>). <code>cloudflare-deploy/test-harness/</code> 에도 같은 이름 폴더가 있지만
+  그 안엔 <code>run.mjs</code> 가 <b>없습니다.</b> 꼭 저장소 맨 위로 돌아가서 실행하세요 (<code>cd ..</code>).
+</div>
+<p class="small">이 하니스 138개 하나하나가 <b>"예전에 이렇게 고장 났었다"는 사고 기록</b>입니다. 그래서 이걸 통과하면
+같은 사고가 다시 나지 않습니다.</p>
+
+<h3>검사 3. 실제 브라우저 확인</h3>
+<p>화면을 고쳤으면 <b>반드시 눈으로</b> 봅니다. 캡처를 PR 에 첨부하면 사장님이 훨씬 빨리 승인합니다.</p>
+
+<div class="ok box">
+  <b class="t">보고 방식 (약속)</b>
+  "고쳤습니다"라고만 하지 말고 <b>무엇으로 확인했는지</b> 같이 씁니다.<br>
+  ○ 좋은 예 : <span class="small">"단어장 정렬 수정. tsc 통과 / 하니스 PASS 114 FAIL 0 / 크롬에서 가나다순 확인(캡처 첨부)"</span><br>
+  ✕ 나쁜 예 : <span class="small">"수정 완료했습니다"</span><br>
+  <b>실패했으면 실패했다고, 건너뛴 게 있으면 건너뛰었다고 그대로 쓰세요.</b> 확인 안 된 걸 "됐습니다"라고 하는 게 가장 큰 사고의 원인입니다.
+</div>
+
+<div class="pagebreak"></div>
+<h2>8. 배포 — 길이 두 개 있고, 서로를 모릅니다</h2>
+
+<h3>길 A. main 에 합치면 자동 배포 (권장)</h3>
+<p>PR 을 <code>main</code> 에 머지하는 순간, GitHub Actions 가 <b>알아서</b> 아래를 순서대로 합니다.</p>
+<table>
+<tr><th style="width:8%">순서</th><th style="width:40%">하는 일</th><th>실패하면</th></tr>
+<tr><td>1</td><td>필요한 프로그램 설치 (<code>npm ci</code>)</td><td rowspan="5"><b>전부 "차단" 게이트입니다.<br>하나라도 실패하면 배포하지 않고 멈춥니다.</b></td></tr>
+<tr><td>2</td><td>문법 검사 (tsc)</td></tr>
+<tr><td>3</td><td>회귀 하니스 138종</td></tr>
+<tr><td>4</td><td>HTML 안 JS 문법 전수 검사</td></tr>
+<tr><td>5</td><td>정적파일 캐시버전(<code>?v=</code>) 누락 검사</td></tr>
+<tr><td>6</td><td>Cloudflare 에 Worker 2개 배포<br><span class="small">(기본 + <b>production</b> — 실서비스는 production 쪽입니다)</span></td><td>경고 표시</td></tr>
+<tr><td>7</td><td>배포 후 접속 확인(헬스체크)</td><td>경고 표시</td></tr>
+</table>
+<p>진행 상황은 GitHub 저장소 → <b>Actions</b> 탭에서 실시간으로 볼 수 있습니다. 초록 체크가 뜨면 성공입니다.</p>
+
+<h3>길 B. 사장님 PC 에서 직접 배포 (<code>deploy.ps1</code>)</h3>
+<pre>powershell -File deploy.ps1</pre>
+<p>이 스크립트는 검사 → 도장찍기 → 커밋 → 배포 → 재확인까지 한 번에 합니다.</p>
+<div class="danger box">
+  <b class="t">직원은 이 파일을 절대 실행하지 않습니다</b>
+  이 스크립트는 <b>내 컴퓨터의 <code>cloudflare-deploy/public/</code> 폴더를 통째로 업로드</b>합니다.
+  즉 <b>커밋하지 않은 미완성 파일까지 그대로 실서비스에 올라갑니다.</b>
+  학생 29,000명이 즉시 그 화면을 보게 됩니다.
+  <br><br>
+  사장님도 실행 전 <b><code>git status</code> 확인은 필수</b>입니다. 스크립트가 "이번에 올라갈 파일 목록"을 화면에 뿌려 주니,
+  <b>모르는 파일이 보이면 Ctrl+C 로 즉시 중단</b>하세요.
+</div>
+
+<h3>8-1. 두 길이 충돌하면 생기는 사고 (실제 사례)</h3>
+<div class="danger box">
+  <b class="t">"합쳤을 뿐인데 라이브가 3일 전으로 되돌아갔다"</b>
+  사장님이 <code>deploy.ps1</code> 로 5번 배포했는데 그 내용이 <code>main</code> 에는 없었습니다.
+  그 상태에서 다른 PR 을 <code>main</code> 에 머지하자, <b>자동배포가 옛날 <code>main</code> 내용으로 라이브를 덮어썼습니다.</b>
+  그 5번의 작업이 라이브에서 사라졌습니다.
+  <br><br>
+  <b>예방책 :</b> 로컬 배포를 했으면 <b>그 브랜치를 반드시 곧 <code>main</code> 에 합치세요.</b>
+  로컬 배포는 "임시", 진짜 정본은 언제나 <code>main</code> 이어야 합니다.
+</div>
+
+<h3>8-2. 배포 전 마지막 확인 한 가지</h3>
+<p><b>"지금 내 커밋이 이 브랜치의 맨 앞(tip)인가?"</b> — 배포 직전에 확인합니다.</p>
+<pre>git log --oneline -3</pre>
+<p class="small">과거에 "남의 미완성 파일을 피하려고" 내 커밋 시점에 고정해 배포했다가,
+그 사이 남이 <b>정상적으로 커밋한 11개 작업</b>이 라이브에서 통째로 사라진 적이 있습니다.</p>
+
+<div class="pagebreak"></div>
+<h2>9. test.mangoi.co.kr 에서 실제로 확인하기</h2>
+
+<div class="danger box">
+  <b class="t">주소를 헷갈리지 마세요</b>
+  실서비스 주소는 <b><code>https://test.mangoi.co.kr</code></b> 입니다.
+  일부 옛 문서와 스크립트에 <code>mango-i.com</code> 이 적혀 있는데, <b>그 도메인은 등록조차 되어 있지 않습니다</b>(접속 불가).
+  고객에게 나가는 링크에 그걸 쓰면 <b>죽은 링크가 발송됩니다.</b>
+</div>
+
+<h3>9-1. 1단계 — 캐시부터 지우세요 (99%가 여기서 착각합니다)</h3>
+<p>배포는 잘 됐는데 <b>내 화면만 옛날 그대로</b>인 경우가 대부분입니다. 브라우저가 옛 파일을 저장해 두기 때문입니다.</p>
+<table>
+<tr><th style="width:22%">기기</th><th>확인 방법</th></tr>
+<tr><td>PC</td><td><b>시크릿 창(Ctrl+Shift+N)</b>으로 여는 게 가장 확실합니다. 또는 <code>Ctrl+Shift+R</code> (강력 새로고침)</td></tr>
+<tr><td>휴대폰</td><td>브라우저 설정 → 사이트 데이터 → <code>test.mangoi.co.kr</code> 데이터 <b>완전 삭제</b><br>
+또는 <b>시크릿/InPrivate 모드</b>로 접속 (가장 확실)</td></tr>
+<tr><td>앱으로 설치한 경우</td><td>홈 화면 아이콘을 길게 눌러 <b>앱 삭제 후 재설치</b></td></tr>
+</table>
+
+<h3>9-2. 2단계 — "언제 배포된 버전인지" 확인</h3>
+<p>화면 소스 맨 아래에 있는 배포 도장을 봅니다.</p>
+<pre><span class="c"># 배포 도장 확인 (캐시 우회를 위해 뒤에 아무 숫자나 붙임)</span>
+curl --compressed -s "https://test.mangoi.co.kr/?nocache=1" | findstr "BUILD:"</pre>
+
+<div class="warn box">
+  <b class="t">함정 — BUILD 도장만 믿으면 안 됩니다</b>
+  이 도장은 <b><code>deploy.ps1</code>(길 B)로 배포할 때만</b> 새로 찍힙니다.
+  <b>GitHub Actions 자동배포(길 A)는 도장을 새로 찍지 않습니다.</b>
+  <br><br>
+  그래서 "도장이 그대로다 = 배포가 안 됐다" 는 <b>틀린 판단</b>입니다.
+  <b>내가 고친 그 글자·그 기능이 실제로 보이는지</b>로 판단하세요. 그게 유일하게 확실한 방법입니다.
+</div>
+
+<h3>9-3. 3단계 — 실제 눈으로 확인 (필수)</h3>
+<ol>
+  <li>시크릿 창으로 <code>https://test.mangoi.co.kr</code> 접속</li>
+  <li><b>내가 고친 그 화면</b>으로 직접 이동해서 <b>고친 부분이 보이는지</b> 확인</li>
+  <li><b>휴대폰에서도</b> 한 번 더 확인 (화면 크기 때문에 PC 에선 멀쩡한데 폰에서 깨지는 일이 흔합니다)</li>
+  <li>고친 기능을 <b>실제로 눌러서</b> 동작하는지 확인 (보이는 것 ≠ 작동하는 것)</li>
+</ol>
+
+<div class="ok box">
+  <b class="t">확인 순서 요약</b>
+  ① Actions 탭 초록 체크 → ② 시크릿 창으로 접속 → ③ 내가 고친 부분이 보이는지 →
+  ④ 눌러서 동작하는지 → ⑤ 휴대폰에서 한 번 더
+</div>
+
+<div class="pagebreak"></div>
+<h2>10. 사고가 났을 때 (되돌리기)</h2>
+
+<h3>10-1. 아직 커밋 안 했는데 파일을 망쳤다</h3>
+<pre>git checkout .</pre>
+<p>마지막 커밋 상태로 되돌아갑니다. <b>단, 그 이후 작업한 건 전부 사라집니다.</b> 아까우면 실행 전에 물어보세요.</p>
+
+<h3>10-2. 이미 합쳤는데 잘못됐다</h3>
+<pre>git revert &lt;커밋번호&gt;</pre>
+<p>"그 변경을 취소하는 새 커밋"을 만듭니다. 기록은 남기면서 되돌리는, 가장 안전한 방법입니다.</p>
+
+<h3>10-3. 라이브가 깨졌다 — 가장 급한 상황 (사장님만)</h3>
+<pre>cd cloudflare-deploy
+npx wrangler rollback
+npx wrangler rollback --env production   <span class="c"># 실서비스는 이쪽이 진짜</span></pre>
+<p><b>직전 배포 버전으로 즉시 되돌립니다.</b> 먼저 되돌리고, 원인은 그 다음에 찾으세요.</p>
+
+<div class="warn box">
+  <b class="t">연락 순서</b>
+  라이브가 이상하면 <b>혼자 해결하려 하지 말고 즉시 사장님께 연락</b>하세요.
+  학생 29,000명이 쓰는 서비스입니다. 억지로 고치려다 더 크게 만드는 경우가 가장 많습니다.
+</div>
+
+<h2>11. Claude 를 셋이 같이 쓰는 법</h2>
+
+<h3>11-1. 무엇이 공유되고, 무엇이 안 되나</h3>
+<table>
+<tr><th style="width:30%">항목</th><th style="width:14%">공유?</th><th>설명</th></tr>
+<tr><td><code>CLAUDE.md</code> (규칙서)</td><td><b>공유 ○</b></td>
+<td>저장소에 들어 있어서 <b>세 사람의 Claude 가 전부 같은 규칙</b>을 읽습니다.
+새 함정을 발견하면 여기에 적고 PR 에 포함하세요 — 그러면 다른 두 사람의 Claude 도 그걸 알게 됩니다.</td></tr>
+<tr><td>Claude 의 "기억"</td><td><b>공유 ✕</b></td>
+<td>각자 PC 안에만 있습니다. 내 Claude 가 아는 걸 남의 Claude 는 <b>모릅니다.</b>
+중요한 건 사람이 직접 말해 주거나 <code>CLAUDE.md</code> 에 적어야 합니다.</td></tr>
+<tr><td>대화 내용</td><td><b>공유 ✕</b></td><td>서로 보이지 않습니다.</td></tr>
+</table>
+
+<h3>11-2. Claude 에게 일을 시킬 때의 3가지 습관</h3>
+<div class="step"><div class="n">1</div><div class="b"><b>"먼저 git pull 하고 시작해줘"</b>
+Claude 는 내 폴더 상태만 봅니다. 옛날 상태에서 작업하면 나중에 충돌합니다.</div></div>
+<div class="step"><div class="n">2</div><div class="b"><b>"이건 내 담당 파일이야" 를 알려주기</b>
+Claude 는 도움이 되려고 <b>관련 있어 보이는 다른 파일까지 고치려</b> 합니다.
+금지구역(<code>index.html</code> 등)은 열지 말라고 미리 못 박으세요.</div></div>
+<div class="step"><div class="n">3</div><div class="b"><b>"무엇으로 확인했는지 같이 보고해줘"</b>
+검사 3종(7장)을 돌리고 결과를 함께 말하게 하세요. "고쳤습니다"만 받으면 확인이 안 된 것입니다.</div></div>
+
+<div class="danger box">
+  <b class="t">세 사람의 Claude 가 같은 폴더를 동시에 만지면 안 됩니다</b>
+  실제로 겪은 사고입니다. 한 세션이 작업하는 도중 다른 세션이 폴더를 되돌려서 <b>미커밋 작업이 통째로 사라졌습니다.</b>
+  <b>커밋은 자주 하세요.</b> 커밋하지 않은 작업은 언제든 사라질 수 있습니다.
+</div>
+
+<div class="pagebreak"></div>
+<h2>12. 절대 하지 말 것</h2>
+
+<table>
+<tr><th style="width:32%">금지</th><th>이유</th></tr>
+<tr><td><b>DB 에 DELETE / UPDATE / DROP</b></td>
+<td><b>개발용 DB 와 운영 DB 가 같습니다.</b> 테스트용이 따로 없습니다.
+실제 학생 29,000명의 데이터입니다. <b>확인은 SELECT 만.</b> 변경이 필요하면 반드시 사람에게 먼저 말하세요.</td></tr>
+<tr><td><b>직원이 <code>deploy.ps1</code> 실행</b></td>
+<td>내 컴퓨터의 미완성 파일이 그대로 실서비스에 올라갑니다.</td></tr>
+<tr><td><b><code>main</code> 에 직접 push</b></td>
+<td>검사 없이 곧바로 자동 배포로 이어집니다. 무료 플랜이라 기술적으로 못 막습니다 — 규칙으로만 지켜집니다.</td></tr>
+<tr><td><b><code>.env</code> / <code>.dev.vars</code> 커밋</b></td>
+<td>결제·DB·AI 열쇠가 통째로 노출됩니다. 전부 재발급해야 합니다.</td></tr>
+<tr><td><b>남의 담당 파일 수정</b></td>
+<td>충돌 해결이 사실상 불가능합니다. 꼭 필요하면 <b>먼저 말하고</b> 하세요.</td></tr>
+<tr><td><b>"없길래 다시 넣었어요"</b></td>
+<td>일부러 없앤 기능들이 있습니다 (관리자 hover 카드, 화상수업 웜업 버튼, 관리자 서비스워커 등).
+없는 데는 이유가 있습니다. <code>CLAUDE.md</code> 를 먼저 읽으세요.</td></tr>
+<tr><td><b>JS/CSS 고치고 <code>?v=</code> 안 올리기</b></td>
+<td>"배포는 됐는데 기존 사용자에겐 옛 파일" 상태가 됩니다. 화면은 새것, 스크립트는 옛것이라 원인 찾기가 특히 어렵습니다.
+<span class="small">(다행히 검사 게이트가 잡아 줍니다 — 그래서 검사를 건너뛰면 안 됩니다.)</span></td></tr>
+</table>
+
+<h2>13. 용어사전 — 서류함으로 비유하면</h2>
+<table>
+<tr><th style="width:26%">깃 용어</th><th>실제로 무슨 뜻이냐면</th></tr>
+<tr><td><code>git pull</code></td><td>서류함에서 <b>최신 서류 꺼내오기</b></td></tr>
+<tr><td>브랜치 (작업방)</td><td>원본 말고 <b>복사본</b>에 연필로 수정하기</td></tr>
+<tr><td><code>git add</code></td><td>제출할 서류를 <b>봉투에 담기</b></td></tr>
+<tr><td><code>git commit</code></td><td>"여기까지 고쳤음" 하고 <b>도장 찍기</b> (아직 내 책상 위)</td></tr>
+<tr><td><code>git push</code></td><td>도장 찍은 봉투를 <b>서류함에 제출하기</b></td></tr>
+<tr><td>Pull Request (PR)</td><td>사장님께 <b>"원본에 반영해 주세요" 결재 올리기</b></td></tr>
+<tr><td>머지 (merge)</td><td>결재가 나서 <b>원본에 실제로 합쳐지는 것</b></td></tr>
+<tr><td>충돌 (conflict)</td><td>두 사람이 <b>같은 줄</b>을 고쳐서 깃이 판단을 못 하는 상태</td></tr>
+<tr><td>배포 (deploy)</td><td>합쳐진 내용을 <b>진짜 홈페이지에 올리는 것</b> (사장님만)</td></tr>
+<tr><td>롤백 (rollback)</td><td>배포를 <b>직전 버전으로 되돌리는 것</b></td></tr>
+<tr><td>워크트리 (worktree)</td><td>같은 저장소를 쓰는 <b>별도 작업 폴더</b> (사장님 전용 고급 기능)</td></tr>
+</table>
+
+<div class="pagebreak"></div>
+<h2>14. 요약 카드 — 책상에 붙여두세요</h2>
+
+<div class="card">
+<h4 style="margin-top:0">직원용 — 매일 이 순서</h4>
+<pre style="margin:0">아침       : git checkout main
+             git pull                      ← 커피보다 먼저
+
+작업 시작  : git checkout -b 작업이름
+
+작업 중    : (자주) git add -A
+                    git commit -m "무엇을 했는지"
+
+PR 전 검사 : cd cloudflare-deploy
+             node node_modules/typescript/bin/tsc --noEmit
+             cd ..
+             node test-harness/run.mjs --fast      ← PASS 114 / FAIL 0
+             브라우저에서 눈으로 확인
+
+제출       : git push -u origin 작업이름
+             GitHub 에서 "Compare & pull request"
+             PR 본문에 «무엇으로 확인했는지» 쓰기
+
+절대 금지  : deploy.ps1 실행 / main 에 직접 push / DB 변경 / .env 커밋</pre>
+</div>
+
+<div class="card">
+<h4 style="margin-top:0">사장님용 — 합치고 배포하고 확인하기</h4>
+<pre style="margin:0">1. PR 검사   : 바뀐 파일이 담당 영역 안인가?  비밀키 섞였나?
+               git diff -I'BUILD:' main..작업브랜치   ← 도장 빼고 진짜 변경만
+
+2. 합치기    : GitHub 에서 Merge pull request
+               → Actions 가 검사 5종 후 자동 배포 (초록 체크 확인)
+
+   또는       : powershell -File deploy.ps1     ← 로컬 배포 (git status 먼저!)
+               ⚠ 로컬 배포했으면 그 브랜치를 «반드시» main 에 합칠 것
+
+3. 확인      : 시크릿 창으로 https://test.mangoi.co.kr
+               내가 고친 부분이 «실제로» 보이는가 → 눌러서 동작하는가
+               휴대폰에서도 한 번 더
+               ⚠ BUILD 도장은 자동배포 때 안 바뀜 — 내용으로 판단할 것
+
+4. 사고 시   : cd cloudflare-deploy
+               npx wrangler rollback --env production   ← 먼저 되돌리고 원인은 나중에</pre>
+</div>
+
+<div class="info box">
+  <b class="t">마지막으로 — 이 세 가지만 지켜도 사고의 90%는 안 납니다</b>
+  <b>① 아침에 <code>git pull</code></b> &nbsp;·&nbsp;
+  <b>② 내 담당 파일만 만지기</b> &nbsp;·&nbsp;
+  <b>③ 확인 안 된 것을 "됐습니다"라고 말하지 않기</b>
+</div>
+
+<hr>
+<p class="small" style="text-align:center">
+망고아이 3인 공동개발 가이드 · 2026-08-11 작성<br>
+상세 규칙서 : 저장소의 <code>CLAUDE.md</code> · <code>MAINTENANCE.md</code> · <code>docs/TROUBLESHOOTING.md</code><br>
+모르는 것은 혼자 판단하지 말고 물어보세요.
+</p>
+
+</body>
+</html>

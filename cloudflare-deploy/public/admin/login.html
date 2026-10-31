@@ -2,8 +2,9 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>관리자 로그인 — 망고아이</title>
 <meta name="theme-color" content="#f1f5f9">
 <style>
@@ -41,6 +42,8 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
 .login-btn{width:100%;padding:22px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:800;font-size:25px;border:0;border-radius:14px;cursor:pointer;transition:transform .12s,box-shadow .15s;box-shadow:0 8px 22px -4px rgba(59,130,246,0.6);font-family:inherit;margin-top:4px}
 .login-btn:hover{transform:translateY(-1px);box-shadow:0 12px 28px -4px rgba(59,130,246,0.75)}
 .login-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+.caps-warn{display:none;margin-top:10px;padding:10px 14px;background:rgba(251,191,36,0.14);border:1px solid rgba(251,191,36,0.45);border-radius:10px;color:#fcd34d;font-size:17px;line-height:1.45}
+.caps-warn.show{display:block}
 .err{display:none;margin-top:14px;padding:14px 18px;background:rgba(239,68,68,0.16);border:1px solid rgba(239,68,68,0.42);border-radius:10px;color:#fca5a5;font-size:20px;line-height:1.5}
 .err.show{display:block}
 .divider{display:flex;align-items:center;gap:12px;margin:26px 0 18px;color:rgba(230,236,255,0.5);font-size:19px;font-weight:600}
@@ -65,7 +68,7 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
 @media(max-width:480px){.home-link{top:8px;left:48px;width:34px;height:34px;font-size:15px}}
 .home-link:hover{background:rgba(255,255,255,0.18)}
 </style>
-<link rel="stylesheet" href="/css/admin-readability.css?v=2"><!-- 가독성 보강 -->
+<link rel="stylesheet" href="/css/admin-readability.css?v=4"><!-- 가독성 보강 -->
 </head>
 <body>
 <div id="lg-bg"></div>
@@ -78,10 +81,29 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
     <div class="sub">역할에 맞는 데이터 범위가 자동 적용됩니다.</div>
   </div>
   <div class="body">
+    <!-- 🚧 인앱 브라우저 경고 (2026-08-19) — 카카오톡 등 «앱 안 브라우저» 는 로그인 쿠키를 돌려주지 않아
+         로그인은 성공해도 곧바로 이 화면으로 되돌아온다. 서버 기록으로 확인한 실제 사고다. -->
+    <div id="inappWarn" style="display:none;margin:0 0 16px;padding:14px 16px;border-radius:14px;
+         background:rgba(251,191,36,0.14);border:1px solid rgba(251,191,36,0.45);color:#fde68a;font-size:17px;line-height:1.55">
+      <div style="font-weight:800;margin-bottom:6px" id="inappTitle">⚠️ 카카오톡 안에서는 로그인이 유지되지 않습니다</div>
+      <div style="font-size:15.5px;color:rgba(255,255,255,0.82)" id="inappDesc">
+        로그인은 되지만 이 브라우저가 로그인 상태를 저장하지 못해 다시 이 화면이 뜹니다.
+        아래 버튼으로 크롬·사파리에서 열어 주세요.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button type="button" id="inappOpen" style="flex:1 1 auto;min-width:140px;padding:11px 14px;border:0;border-radius:10px;
+                background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:16px;font-weight:800;cursor:pointer">🌐 크롬으로 열기</button>
+        <button type="button" id="inappCopy" style="flex:0 0 auto;padding:11px 14px;border:1px solid rgba(255,255,255,0.28);border-radius:10px;
+                background:rgba(255,255,255,0.08);color:#fff;font-size:16px;font-weight:800;cursor:pointer">📋 주소 복사</button>
+      </div>
+      <div id="inappHint" style="font-size:14px;color:rgba(255,255,255,0.6);margin-top:9px">
+        버튼이 안 되면 오른쪽 위 ⋮ 를 눌러 '다른 브라우저로 열기' 를 고르세요.
+      </div>
+    </div>
     <form id="loginForm" autocomplete="on">
       <div class="field">
         <label>👤 아이디</label>
-        <input type="text" id="username" name="username" autocomplete="username" placeholder="아이디를 입력하세요" required>
+        <input type="text" id="username" name="username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="아이디를 입력하세요" required>
       </div>
       <div class="field">
         <label>🔑 비밀번호</label>
@@ -89,6 +111,9 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
           <input type="password" id="password" name="password" autocomplete="current-password" placeholder="●●●●" required>
           <button type="button" class="pw-eye" id="pwEye" title="비밀번호 보기/숨기기" tabindex="-1">👁</button>
         </div>
+        <!-- 🔠 (2026-08-26) Caps Lock 안내. 비밀번호는 대소문자를 그대로 본다(사장님 결정)므로,
+             «틀렸다» 대신 «왜 틀렸는지» 를 미리 보여 준다. 아이디는 서버가 대소문자를 무시한다. -->
+        <div class="caps-warn" id="capsWarn">🔠 Caps Lock 이 켜져 있어요 — 비밀번호는 대문자·소문자를 구분합니다</div>
         <div class="remember-row">
           <label class="remember">
             <input type="checkbox" id="rememberId">
@@ -103,6 +128,15 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
         <div style="font-size:14px;color:rgba(255,255,255,0.6);margin-top:6px">구글/MS 인증 앱에 표시된 6자리 숫자를 입력하세요.</div>
       </div>
       <button type="submit" class="login-btn" id="loginBtn">✅ 로그인</button>
+      <!-- 😊 (2026-08-30 v4 제안서 06) 지문 · Face ID 로그인 (WebAuthn / FIDO2).
+           · 기기에 등록해 둔 사람에게만 보인다 — 안 보이는 것이 정상이고, 그때는 위에서
+             아이디·비밀번호로 로그인한 뒤 관리자 화면에서 «이 기기 등록» 을 하면 된다.
+           · 서버 판정·세션·첫 화면 경로는 비밀번호 로그인과 **같은 함수**를 탄다.
+           ⛔ 비밀번호 입력칸을 없애지 말 것 — 기기를 바꾸거나 잃어버리면 그것뿐이다. -->
+      <button type="button" class="login-btn" id="bioBtn"
+              style="display:none;margin-top:10px;background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 8px 22px -4px rgba(16,185,129,.55)">
+        😊 지문 · Face ID 로 로그인
+      </button>
       <div class="err" id="errMsg"></div>
     </form>
     <div class="divider">또는 소셜 계정으로 로그인</div>
@@ -135,47 +169,106 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
     if (pw.type === 'password') { pw.type = 'text'; this.textContent = '🙈'; }
     else { pw.type = 'password'; this.textContent = '👁'; }
   });
+
+  /* 🔠 (2026-08-26) Caps Lock 안내.
+     아이디는 서버가 대소문자를 무시하지만 **비밀번호는 그대로 본다**(사장님 결정 —
+     강사·관리자 49개 계정이 급여·회계를 여는 열쇠라 강도를 낮추지 않는다).
+     그래서 「틀렸습니다」 뒤에 알려 주는 대신, 원인을 **치기 전에** 보여 준다.
+     ⚠️ `getModifierState` 는 실제 키를 눌러야 값이 잡힌다 — 그래서 keydown·keyup 둘 다 본다.
+     ⚠️ 폰에는 Caps Lock 이 없어 이 줄은 뜨지 않는다(폰은 위 👁 «비밀번호 보기» 가 그 역할). */
+  (function(){
+    var warn = document.getElementById('capsWarn');
+    var pw = document.getElementById('password');
+    if (!warn || !pw) return;
+    function check(e){
+      var on = false;
+      try { on = !!(e.getModifierState && e.getModifierState('CapsLock')); } catch (_) {}
+      warn.classList.toggle('show', on);
+    }
+    pw.addEventListener('keydown', check);
+    pw.addEventListener('keyup', check);
+    pw.addEventListener('blur', function(){ warn.classList.remove('show'); });
+  })();
+  // 🔑 (2026-08-17) 「운영자에게 메일 보내세요」 안내 → 실제 셀프 재설정으로 교체.
+  //   로직은 /js/adm-pw-reset.js 한 곳에만 있다(admin.html 로그인 오버레이도 같은 파일을 쓴다).
+  //   ⚠️ 여기에 재설정 로직을 복사해 넣지 말 것 — 그렇게 네 벌이 됐다가 사고를 냈다(PR #173).
   document.getElementById('pwForgot').addEventListener('click', function(e){
     e.preventDefault();
-    alert('비밀번호 재설정\n\n운영자 이메일 navy111p@gmail.com 으로\n계정 ID와 함께 요청해 주세요.\n\n또는 소셜 로그인을 이용하실 수 있습니다.');
+    var uid = (document.getElementById('username').value || '').trim();
+    if (window.mangoiPwReset) { window.mangoiPwReset.open(uid); return; }
+    // 스크립트가 아직 안 올라온 예외 상황 — 없는 기능을 있는 척하지 않고 사실대로 안내한다.
+    alert('비밀번호 찾기 화면을 불러오지 못했습니다.\n새로고침 후 다시 시도해 주세요.\n\n계속 안 되면 운영자(navy111p@gmail.com)에게 문의해 주세요.');
   });
   // 🔐 (2026-07-14) 로그인 힌트 안내 삭제 — 관련 리스너 제거됨.
   var params = new URLSearchParams(location.search);
   var nextUrl = params.get('next') || '/admin.html';
   try { nextUrl = decodeURIComponent(nextUrl); } catch(e){}
-  document.getElementById('loginForm').addEventListener('submit', async function(e){
-    e.preventDefault();
-    var btn = document.getElementById('loginBtn');
-    var err = document.getElementById('errMsg');
-    var uid = document.getElementById('username').value.trim();
-    var pw = document.getElementById('password').value;
-    err.classList.remove('show');
-    if (!uid || !pw) { err.textContent = '⚠️ 아이디와 비밀번호를 입력해 주세요.'; err.classList.add('show'); return; }
-    btn.disabled = true;
-    btn.textContent = '🔄 로그인 중...';
-    try {
-      var otpEl = document.getElementById('otpCode');
-      var otpVal = (otpEl && otpEl.value || '').replace(/\D/g,'');
-      var payload = { username: uid, password: pw, remember: true };
-      if (otpVal) payload.code = otpVal;
-      var res = await fetch('/api/admin/login', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify(payload),
-        credentials:'include'
-      });
-      var data = await res.json().catch(function(){ return {}; });
-      // 🔐 2단계 인증: 비번은 맞고 코드가 필요한 상태 → 6자리 입력란 표시
-      if (data && data.need_2fa) {
-        document.getElementById('otpField').style.display = 'block';
-        setTimeout(function(){ otpEl && otpEl.focus(); }, 50);
-        err.textContent = '📱 인증 앱의 6자리 코드를 입력해 주세요.';
-        err.classList.add('show');
-        btn.disabled = false;
-        btn.textContent = '🔓 인증하고 로그인';
+
+  /* ══ 🚧 인앱 브라우저(앱 안 브라우저) 판정 — 2026-08-19 ═══════════════════════════════════
+     [실제 사고] 사장님이 카카오톡에서 mangoi.ai/work 를 열고 admin 으로 로그인 → 로그인 화면이
+       다시 떴다. 서버 기록상 로그인은 **성공**(admin_login_history success=1)했는데, 그때 만들어진
+       세션 2건이 «한 번도 쓰이지 않았다»(admin_sessions 의 last_seen_at == created_at).
+       = 인앱 브라우저가 세션 쿠키를 돌려주지 않는다. 같은 폰의 크롬 세션은 40분 정상이었다.
+     ⚠️ 이건 사장님만의 문제가 아니다 — 알림톡·카톡 링크로 /teacher·/manager·/work 를 여는
+        강사·매니저에게 똑같이 일어난다(「로그인했는데 또 로그인하래요」의 한 뿌리).
+     ⛔ 「쿠키를 넓히면 되지 않나」로 풀 수 없다. 쿠키는 제대로 내려가고 있고, 그것을 돌려주지
+        않는 쪽이 앱이다. 브라우저를 바꾸는 것 말고는 방법이 없다. */
+  var UA = String(navigator.userAgent || '');
+  var IS_ANDROID = /Android/i.test(UA);
+  var IS_IOS = /iPhone|iPad|iPod/i.test(UA);
+  function inAppName(){
+    if (/KAKAOTALK/i.test(UA)) return '카카오톡';
+    if (/NAVER\(inapp|NAVER /i.test(UA)) return '네이버 앱';
+    if (/Instagram/i.test(UA)) return '인스타그램';
+    if (/FBAN|FBAV|FB_IAB/i.test(UA)) return '페이스북';
+    if (/Line\//i.test(UA)) return '라인';
+    if (/DaumApps|band/i.test(UA)) return '다음·밴드';
+    if (IS_ANDROID && /; wv\)/i.test(UA)) return '앱 안 브라우저';
+    return '';
+  }
+  var IN_APP = inAppName();
+  function showInappWarn(loggedIn){
+    var box = document.getElementById('inappWarn'); if (!box) return;
+    var nm = IN_APP || '앱 안 브라우저';
+    document.getElementById('inappTitle').textContent = loggedIn
+      ? ('⚠️ 로그인은 됐지만 ' + nm + ' 이(가) 로그인 상태를 저장하지 못했습니다')
+      : ('⚠️ ' + nm + ' 안에서는 로그인이 유지되지 않습니다');
+    if (IS_IOS) {
+      document.getElementById('inappOpen').textContent = '🌐 사파리로 열기';
+      document.getElementById('inappHint').textContent = '버튼이 안 되면 오른쪽 아래 ⋯ 를 눌러 「Safari로 열기」를 고르세요.';
+    }
+    box.style.display = 'block';
+    try { box.scrollIntoView({ block: 'nearest' }); } catch(e){}
+  }
+  (function wireInapp(){
+    var openBtn = document.getElementById('inappOpen');
+    var copyBtn = document.getElementById('inappCopy');
+    var target = function(){ return location.href; };
+    if (openBtn) openBtn.addEventListener('click', function(){
+      var u = target();
+      if (IS_ANDROID) {
+        /* 안드로이드는 intent: 로 크롬을 직접 지정할 수 있다. 크롬이 없으면 아무 일도 안 일어나므로
+           안내 문구(⋮ → 다른 브라우저로 열기)를 함께 남겨 둔다. */
+        var bare = u.replace(/^https?:\/\//, '');
+        location.href = 'intent://' + bare + '#Intent;scheme=https;package=com.android.chrome;end';
         return;
       }
-      if (res.ok && data.ok) {
+      if (IS_IOS) { location.href = 'x-safari-' + u; return; }   // 사파리로 넘기기(지원 기기에서만)
+      window.open(u, '_blank');
+    });
+    if (copyBtn) copyBtn.addEventListener('click', function(){
+      var u = target();
+      var done = function(){ copyBtn.textContent = '✅ 복사됨'; setTimeout(function(){ copyBtn.textContent = '📋 주소 복사'; }, 1800); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(u).then(done, function(){ prompt('이 주소를 복사해서 크롬에 붙여넣으세요', u); }); }
+      else { prompt('이 주소를 복사해서 크롬에 붙여넣으세요', u); }
+    });
+    if (IN_APP) showInappWarn(false);
+  })();
+  /* ✅ 로그인 성공 뒤 처리 — 아이디·비밀번호와 «지문·Face ID» 가 **같은 길**을 타게 하려고
+     함수로 뺐습니다 (2026-08-30 v4 제안서 06). ⚠️ 본문은 옮기기만 했고 한 줄도 안 고쳤습니다.
+     ⛔ 여기 판정을 패스키 쪽에 복사하지 마세요 — 「어디로 로그인했느냐에 따라 다른 화면」이
+        되는 사고가 이 저장소에 이미 있었습니다(위 home_path 주석 참고). */
+  async function onAdminLoginSuccess(data, uid, btn, err) {
         btn.textContent = '✅ 로그인 성공!';
         // 아이디 자동 저장 처리
         try {
@@ -253,6 +346,8 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
             pref_lang: wantLang || 'ko',
             // 🌏 국적(ISO 2글자) — 하위 페이지가 이걸 보고 언어를 정한다(KR 만 한국어)
             nationality: (data.nationality ? String(data.nationality).toUpperCase() : ''),
+            // 🏠 상단바 사용자 메뉴(idx-user-session.js)가 «내 첫 화면» 을 알도록 실어 둔다
+            home_path: data.home_path || '',
             login_at: Date.now()
           };
           localStorage.setItem('mangoi_admin_session', JSON.stringify(session));
@@ -275,13 +370,73 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
         //         매니저에게 서버가 허용하는 것은 25개(10%)뿐이다. 나머지 90%는 열어도 403 이다.
         //         → 그들이 실제로 쓸 수 있는 것만 담은 화면으로 보낸다. 권한 변화는 없다.
         //      ⚠️ 이 분기는 public/index.html 에도 **복제**돼 있다(CLAUDE.md 2절). 함께 고칠 것.
-        if ((!clean || clean === '/admin.html')
-            && (String(role).indexOf('teacher') >= 0 || role === 'branch' || role === 'agency')) {
-          clean = (String(role).indexOf('teacher') >= 0) ? '/teacher' : '/manager';
+        //   🏠 (2026-08-20) 이 판정의 **정본은 서버**(auth-admin.ts 의 home_path)로 옮겼다.
+        //      화면 세 곳에 같은 규칙이 복제돼 있어, 한쪽만 고치면 «어디서 로그인했느냐에 따라
+        //      다른 화면» 이 된다. 서버가 보내주면 그대로 따른다. 옛 규칙은 서버가 값을
+        //      안 줄 때(구버전 응답)만 쓰는 폴백으로 남긴다.
+        if (!clean || clean === '/admin.html') {
+          if (data.home_path) {
+            clean = data.home_path;
+          } else if (String(role).indexOf('teacher') >= 0 || role === 'branch' || role === 'agency') {
+            clean = (String(role).indexOf('teacher') >= 0) ? '/teacher' : (role === 'branch' ? '/branch' : '/manager');
+          }
         }
-        setTimeout(function(){ location.href = clean || '/admin.html'; }, 400);
+        var _go = function(){ setTimeout(function(){ location.href = clean || '/admin.html'; }, 400); };
+        if (!IN_APP) { _go(); }
+        else {
+          /* 🚧 인앱 브라우저에서는 «정말 로그인이 유지되는지» 보내기 전에 한 번 확인한다.
+             쿠키가 안 돌아오면 그대로 보내 봐야 로그인 화면으로 되돌아올 뿐이다(무한 반복).
+             확인 자체가 실패하면(회선 문제 등) 원래대로 진행한다 — 멀쩡한 사람을 막지 않는다. */
+          var _ok = true;
+          try {
+            var chk = await fetch('/api/admin/me', { credentials:'include', cache:'no-store' });
+            _ok = chk.ok;
+          } catch(e){ _ok = true; }
+          if (_ok) { _go(); }
+          else {
+            btn.disabled = false; btn.textContent = '✅ 로그인';
+            showInappWarn(true);
+          }
+        }
+  }
+
+  document.getElementById('loginForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var btn = document.getElementById('loginBtn');
+    var err = document.getElementById('errMsg');
+    var uid = document.getElementById('username').value.trim();
+    var pw = document.getElementById('password').value;
+    err.classList.remove('show');
+    if (!uid || !pw) { err.textContent = '⚠️ 아이디와 비밀번호를 입력해 주세요.'; err.classList.add('show'); return; }
+    btn.disabled = true;
+    btn.textContent = '🔄 로그인 중...';
+    try {
+      var otpEl = document.getElementById('otpCode');
+      var otpVal = (otpEl && otpEl.value || '').replace(/\D/g,'');
+      var payload = { username: uid, password: pw, remember: true };
+      if (otpVal) payload.code = otpVal;
+      var res = await fetch('/api/admin/login', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(payload),
+        credentials:'include'
+      });
+      var data = await res.json().catch(function(){ return {}; });
+      // 🔐 2단계 인증: 비번은 맞고 코드가 필요한 상태 → 6자리 입력란 표시
+      if (data && data.need_2fa) {
+        document.getElementById('otpField').style.display = 'block';
+        setTimeout(function(){ otpEl && otpEl.focus(); }, 50);
+        err.textContent = '📱 인증 앱의 6자리 코드를 입력해 주세요.';
+        err.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = '🔓 인증하고 로그인';
+        return;
+      }
+      if (res.ok && data.ok) {
+        await onAdminLoginSuccess(data, uid, btn, err);
       } else {
-        var msg = (data && (data.error || data.message)) || '아이디 또는 비밀번호가 올바르지 않습니다.';
+        /* (2026-10-25) 서버가 사람용 문장(message)을 주면 그것을 먼저 — 코드(error)만 보이면 «not_teacher_account» 같은 글자가 그대로 뜬다 */
+        var msg = (data && (data.message || data.error)) || '아이디 또는 비밀번호가 올바르지 않습니다.';
         err.textContent = '❌ ' + msg;
         err.classList.add('show');
         btn.disabled = false;
@@ -294,6 +449,119 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
       btn.textContent = '✅ 로그인';
     }
   });
+  /* ═══════════════════════════════════════════════════════════════════════
+     😊 지문 · Face ID 로그인 (WebAuthn / FIDO2) — 2026-08-30, v4 제안서 06
+     ───────────────────────────────────────────────────────────────────────
+     [무엇] 서버가 챌린지를 주고, 기기(Windows Hello · Touch ID · Face ID · 안드로이드 지문)가
+       서명하고, 서버가 그 서명을 검증해 **비밀번호 로그인과 똑같은 세션**을 만든다.
+     ⚠️ 비밀번호를 대신하는 것이지 «없애는» 것이 아니다 — 기기를 바꾸면 비밀번호로 들어와
+        새 기기를 등록해야 한다. 그래서 이 버튼은 «있으면 편한 길» 로만 둔다.
+     ⚠️ 지원하지 않는 브라우저·기기에서는 **버튼을 아예 안 그린다** — 눌러도 안 되는 버튼이
+        제일 나쁘다(CLAUDE.md 2장). `PublicKeyCredential` 이 없으면 조용히 지나간다.
+     ⚠️ 이 화면은 **관리자 범위**다. 요청에 scope:'admin' 을 실어 보내고, 서버는 저장할 때
+        붙인 접두사로 관리자 자격증명인지 다시 확인한다(본문 값을 믿지 않는다).
+     🔑 rpId 는 서버가 apex(mangoi.ai)로 묶는다 — www 로 열어도 같은 패스키가 쓰인다
+        (src/api-passkey.ts resolveRpId. CLAUDE.md 0장 「어제까진 지문으로 됐는데」).
+     ═══════════════════════════════════════════════════════════════════════ */
+  (function bioLogin(){
+    var btn = document.getElementById('bioBtn');
+    if (!btn) return;
+    if (!(window.PublicKeyCredential && navigator.credentials && navigator.credentials.get)) return;
+    if (!window.isSecureContext) return;     // http 로 열면 브라우저가 아예 거부한다
+
+    var b64u = {
+      dec: function (s) {
+        s = String(s).replace(/-/g, '+').replace(/_/g, '/');
+        while (s.length % 4) s += '=';
+        var bin = atob(s), out = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+        return out;
+      },
+      enc: function (buf) {
+        var b = new Uint8Array(buf), s = '';
+        for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+        return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      }
+    };
+
+    /* 🌐 (2026-10-09) 영어 화면에서도 이 버튼만 한국어로 남았다 — 공용 i18n 사전(i18n-sweep)은
+       버튼 안 줄바꿈·공백 때문에 «전체 문자열 일치» 가 안 걸렸다. 사전(42개 화면 공용)을 고치지 않고
+       여기서 언어를 보고 직접 쓴다. 판정은 i18n-sweep 의 lang() 과 같은 순서. */
+    var EN = (function () {
+      try { if (window.getLang) return window.getLang() === 'en'; } catch (e) {}
+      try { var l = localStorage.getItem('mangoi_lang'); if (l) return l === 'en'; } catch (e) {}
+      return document.documentElement.lang === 'en';
+    })();
+    var T = function (ko, en) { return EN ? en : ko; };
+    btn.textContent = T('😊 지문 · Face ID 로 로그인', '😊 Sign in with fingerprint · Face ID');
+    btn.style.display = 'block';
+    btn.addEventListener('click', async function () {
+      var err = document.getElementById('errMsg');
+      var uid = (document.getElementById('username').value || '').trim();
+      err.classList.remove('show');
+      btn.disabled = true;
+      var label0 = btn.textContent;
+      btn.textContent = T('🔄 기기에 확인 중...', '🔄 Checking your device...');
+      try {
+        var r1 = await fetch('/api/passkey/login/options', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ scope: 'admin', username: uid })
+        });
+        var o = await r1.json().catch(function () { return null; });
+        if (!r1.ok || !o || o.ok !== true || !o.options) throw new Error('options');
+
+        var pk = {
+          challenge: b64u.dec(o.options.challenge),
+          rpId: o.options.rpId,
+          timeout: o.options.timeout || 60000,
+          userVerification: o.options.userVerification || 'required',
+          allowCredentials: (o.options.allowCredentials || []).map(function (c) {
+            return { type: 'public-key', id: b64u.dec(c.id), transports: c.transports };
+          })
+        };
+        var cred = await navigator.credentials.get({ publicKey: pk });
+        if (!cred) throw new Error('cancelled');
+
+        var r2 = await fetch('/api/passkey/login/verify', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({
+            scope: 'admin', remember: true,
+            credential: {
+              id: cred.id, rawId: b64u.enc(cred.rawId), type: cred.type,
+              response: {
+                clientDataJSON: b64u.enc(cred.response.clientDataJSON),
+                authenticatorData: b64u.enc(cred.response.authenticatorData),
+                signature: b64u.enc(cred.response.signature),
+                userHandle: cred.response.userHandle ? b64u.enc(cred.response.userHandle) : null
+              }
+            }
+          })
+        });
+        var d2 = await r2.json().catch(function () { return null; });
+        if (r2.ok && d2 && d2.ok === true) {
+          btn.textContent = T('✅ 로그인 성공!', '✅ Signed in!');
+          /* 비밀번호 로그인과 **같은 함수** — 세션 저장·언어·첫 화면이 어긋날 수 없다 */
+          await onAdminLoginSuccess(d2, d2.username || uid, btn, err);
+          return;
+        }
+        /* EN 에서는 서버의 한국어 message 를 쓰지 않는다 — message_en 이 있을 때만 */
+        var msg = (d2 && (EN ? d2.message_en : (d2.message || d2.error))) || T('기기 인증에 실패했어요.', 'Device check failed.');
+        err.textContent = '❌ ' + msg + T(' 아이디·비밀번호로 로그인해 주세요.', ' Please sign in with your ID and password.');
+        err.classList.add('show');
+      } catch (e) {
+        /* 사용자가 취소한 것도 여기로 온다 — «실패» 라고 겁주지 않는다 */
+        var nm = (e && (e.name || e.message)) || '';
+        err.textContent = (nm === 'NotAllowedError' || nm === 'cancelled')
+          ? T('ℹ️ 기기 인증이 취소됐어요. 아이디·비밀번호로도 로그인할 수 있어요.', 'ℹ️ The device check was cancelled. You can also sign in with your ID and password.')
+          : T('❌ 이 기기에 등록된 관리자 지문·Face ID 가 없어요. 아이디·비밀번호로 로그인한 뒤 등록해 주세요.', '❌ No admin fingerprint or Face ID is registered on this device. Sign in with your ID and password, then register it.');
+        err.classList.add('show');
+      } finally {
+        btn.disabled = false;
+        if (btn.textContent !== T('✅ 로그인 성공!', '✅ Signed in!')) btn.textContent = label0;
+      }
+    });
+  })();
+
   setTimeout(function(){
     var pw = document.getElementById('password');
     if (document.getElementById('username').value) pw.focus();
@@ -379,7 +647,8 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
   });
 })();
 </script>
-<script src="/js/i18n-sweep.js?v=22"></script>
+<script src="/js/adm-pw-reset.js?v=2"></script><!-- 🔑 비밀번호 찾기 공용 모달 (admin.html 과 공유) -->
+<script src="/js/i18n-sweep.js?v=23"></script>
 <script defer src="/js/back-nav.js"></script>
 </body>
 </html>

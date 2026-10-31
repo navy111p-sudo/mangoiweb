@@ -50,7 +50,14 @@ function check(label, ok) {
 // ── 0. /api/admin/classes/today 핸들러 본문만 떼어낸다 ────────────────────
 const hStart = ADMIN.indexOf(`path === '/api/admin/classes/today'`);
 check('① /api/admin/classes/today 핸들러가 api-admin.ts 에 있다', hStart > 0);
-const HANDLER = hStart > 0 ? ADMIN.slice(hStart, hStart + 4000) : '';
+/* ⚠️ (2026-08-25) 예전엔 «앞에서 4000자» 로 잘랐다. 핸들러가 길어지자 뒤쪽 코드가 잘려 나가
+   「is_level_test 가 없다」 같은 **거짓 실패**가 났다(뜻은 멀쩡한데 자[尺]가 짧았던 것).
+   → 다음 핸들러가 시작하는 자리까지를 본문으로 본다. 못 찾으면 넉넉히 12000자. */
+const hEnd = (() => {
+  const nxt = ADMIN.indexOf("path === '/api/admin/class-audit'", hStart + 40);
+  return nxt > hStart ? nxt : hStart + 12000;
+})();
+const HANDLER = hStart > 0 ? ADMIN.slice(hStart, hEnd) : '';
 
 // ── 1. 되살아나면 안 되는 것 — 숫자 직접 비교 ─────────────────────────────
 //    이것이 정확히 그 버그다. 주석이 아니라 실행 코드에 남아 있으면 안 된다.

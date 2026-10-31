@@ -11,11 +11,26 @@
       #mi-sd-backdrop.is-open{ opacity:1; visibility:visible; }
 
       /* 컨테이너: 우하단 코너 고정, 세로 정렬(액션 위 / 트리거 아래), 중심선 일치 */
+      /* 🔴 (2026-08-21) pointer-events:none 이 «장식» 이 아니다 — 이게 없으면 접힌 액션 3개가
+         «안 보이는 채로 자리만 차지» 하면서 그 상자 전체가 클릭을 가로챈다.
+         접힌 상태의 .mi-sd-action 은 opacity:0 + pointer-events:none 이지만 display 는 살아 있어서
+         컨테이너 높이가 그대로 남기 때문이다. 실측(2026-08-21):
+             1400px  상자 108x396  보이는 아바타 108px → 위 289px 이 투명하게 클릭 차단
+              900px  상자  83x305  보이는 아바타  83px → 위 222px
+              482px  상자  83x305  보이는 아바타  83px → 위 222px
+         그 구간에 걸린 폼 칸은 «보이는데 안 눌린다» 가 된다(수강신청 시간칸 ⏰ 가 실제로 그랬다).
+         ✅ 상자는 통과시키고, 실제로 눌러야 하는 것(아바타 · 펼친 액션)에만 auto 를 되돌린다.
+         ⛔ 상자 높이를 줄이는 방식으로 풀지 말 것 — 펼침 애니메이션이 그 높이를 쓴다. */
       #mi-speed-dial{ position:fixed; right:16px; bottom:16px; z-index:9992;
-        display:flex; flex-direction:column; align-items:center; gap:14px; }
+        display:flex; flex-direction:column; align-items:center; gap:14px;
+        pointer-events:none; }
 
       /* 액션 묶음: column-reverse → DOM 첫 항목(AI)이 트리거 바로 위(아래쪽)에 옴 */
-      #mi-sd-actions{ display:flex; flex-direction:column-reverse; align-items:center; gap:14px; }
+      #mi-sd-actions{ display:flex; flex-direction:column-reverse; align-items:center; gap:14px;
+        pointer-events:none; }
+      /* 눌러야 하는 것만 되살린다 — 아바타는 늘, 액션은 펼쳤을 때만(아래 .is-open 규칙이 auto 로 돌린다) */
+      #mi-ops-fab{ pointer-events:auto; }
+      #mi-speed-dial.is-open #mi-sd-actions{ pointer-events:auto; }
 
       /* 공통 액션 버튼 — 동일 크기 원형 + 통일된 그림자 */
       .mi-sd-action{ position:relative; display:flex; align-items:center; justify-content:center;
@@ -58,20 +73,26 @@
       .mi-sd-ai .mi-sd-chip{ color:#b45309; border:1px solid rgba(180,83,9,0.45); }
 
       /* 메인 트리거 = 상담원 아바타 */
-      #mi-ops-fab{ position:relative; width:64px; height:64px; cursor:pointer; }
-      #mi-ops-fab-label{ position:absolute; right:0; left:auto; bottom:72px; transform:none; max-width:60vw;
-        background:#1a1a1a; color:#ffcc00; font-weight:800; font-size:12px; padding:4px 11px;
+      /* 📱 (2026-08-21 사장님 지시) 휴대폰에서 아바타를 64 → 48px 로 줄였다.
+         우하단에 떠 있는 물건이라 좁은 화면에서는 폼 칸을 그만큼 덜 가린다.
+         ⚠️ 48px 아래로는 내리지 말 것 — 손가락 터치 최소 권장이 44px 이고,
+            여기에 테두리 2px 가 안쪽으로 들어가 실제 누를 면은 그보다 작다.
+         ⚠️ 여기 «기본값» 이 곧 휴대폰 값이다 — 아래 @media (min-width:481px) 가 PC 를 83px 로 덮는다.
+            그래서 이 줄을 고치면 PC 는 안 바뀌고 휴대폰만 바뀐다. */
+      #mi-ops-fab{ position:relative; width:48px; height:48px; cursor:pointer; }
+      #mi-ops-fab-label{ position:absolute; right:0; left:auto; bottom:56px; transform:none; max-width:60vw;
+        background:#1a1a1a; color:#ffcc00; font-weight:800; font-size:11px; padding:3px 9px;
         border-radius:999px; white-space:nowrap; box-shadow:0 3px 10px rgba(0,0,0,0.4);
         border:1px solid rgba(255,204,0,0.55); pointer-events:none; transition:opacity .2s ease; }
       #mi-speed-dial.is-open #mi-ops-fab-label{ opacity:0; }
-      #mi-ops-fab-btn{ position:absolute; left:0; bottom:0; width:64px; height:64px;
-        border:3px solid #ffcc00; border-radius:50%; background:#111; overflow:hidden;
+      #mi-ops-fab-btn{ position:absolute; left:0; bottom:0; width:48px; height:48px;
+        border:2px solid #ffcc00; border-radius:50%; background:#111; overflow:hidden;
         box-shadow:0 6px 18px rgba(0,0,0,0.35); animation: miOpsGlowPulse 1.8s ease-in-out infinite;
         transition:transform .18s ease; }
       #mi-ops-fab-vid{ position:absolute; inset:0; width:100%; height:100%; border-radius:50%;
         object-fit:cover; object-position:center 18%; display:block; pointer-events:none;
         transition:filter .2s ease; }
-      #mi-ops-fab-btn::before{ content:""; position:absolute; inset:-6px; border-radius:50%; z-index:-1;
+      #mi-ops-fab-btn::before{ content:""; position:absolute; inset:-4px; border-radius:50%; z-index:-1;
         background:conic-gradient(from 0deg, #ffcc00, #fff7c2, #ffae00, #fff7c2, #ffcc00);
         filter:blur(4px); opacity:.9; animation: miOpsHaloSpin 3s linear infinite; }
       @keyframes miOpsHaloSpin{ to{ transform:rotate(360deg); } }
@@ -82,7 +103,7 @@
       #mi-ops-fab:hover #mi-ops-fab-btn{ transform:scale(1.05); }
       /* 닫기(✕) 오버레이 — 펼쳤을 때 표시 */
       .mi-ops-fab-close{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-        border-radius:50%; background:rgba(17,17,17,0.62); color:#ffcc00; font-size:26px; font-weight:700;
+        border-radius:50%; background:rgba(17,17,17,0.62); color:#ffcc00; font-size:20px; font-weight:700;
         opacity:0; transform:rotate(-90deg) scale(0.6); pointer-events:none;
         transition:opacity .22s ease, transform .26s cubic-bezier(0.34,1.4,0.5,1); }
       #mi-speed-dial.is-open .mi-ops-fab-close{ opacity:1; transform:rotate(0deg) scale(1); }
@@ -99,6 +120,7 @@
       @media (min-width:481px){
         #mi-ops-fab{ width:83px; height:83px; }
         #mi-ops-fab-btn{ width:83px; height:83px; border-width:4px; }
+        #mi-ops-fab-btn::before{ inset:-6px; }   /* 휴대폰에서 -4px 로 줄인 것을 PC 는 원래대로 */
         #mi-ops-fab-label{ bottom:91px; font-size:15px; padding:5px 13px; }
         .mi-sd-action{ width:60px; height:60px; }
         .mi-sd-chip{ right:70px; font-size:13px; }
@@ -473,8 +495,25 @@
       text-overflow: ellipsis !important;
       justify-content: center !important;
     }
-    /* 4. 대시보드 가로 잘림 방지 */
-    html, body { overflow-x: hidden !important; max-width: 100vw !important; }
+    /* 4. 대시보드 가로 잘림 방지
+       🔴 (2026-08-20) 여기서 `html` 을 빼면 안 되는 것처럼 보이지만, **빼야 한다.**
+          `html{overflow-x:hidden}` 은 루트를 «스크롤 상자» 로 만든다. 그러면 body 의 overflow 가
+          뷰포트로 올라가지 못하고 body 가 자기 스크롤 상자를 갖는데, 실제로 굴러가는 것은
+          뷰포트라 body 의 scrollTop 은 영영 0 이다. 그 안의 position:sticky 는 「자기 상자가
+          한 번도 안 굴렀으니 붙을 일도 없다」로 판단해 그냥 흘러간다.
+          → 본문 맨 위 경로 줄(#mi-crumb)이 ≤900px 에서 **한 번도 안 붙어 있었다.**
+          실측(390·768·900px, Chromium 141): 맨 아래까지 굴리면 줄 top −1397·−1152·−1135.
+          이 줄에서 `html, ` 을 지우자 셋 다 top 0. 901px 이상은 원래부터 정상이었다.
+       ✅ 가로 잘림 방어는 그대로다 — html 이 visible 이면 **body 의 overflow 가 뷰포트로 올라가
+          뷰포트가 대신 자른다**(CSS 표준의 «전파»). 실측으로 scrollWidth ≤ innerWidth 유지.
+       📜 2026-08-19 에 admin.html 이 `html body{overflow-x:clip}` 로 이걸 고치려 했지만
+          **선택자가 body 만 가리켜서 아무 효과가 없었다.** 범인은 처음부터 html 쪽이었다.
+          같은 교훈이 css/mangoi-layout.css 머리말에도 적혀 있다 —
+          「⛔ html/body 에 overflow-x:hidden 을 걸지 않는다. position:sticky 가 죽는다」.
+       ⛔ 여기에 `html` 을 다시 넣지 말 것. test-harness/manual/crumb-sticky-browser.mjs 가
+          실제로 그려서 잰다(그 검사가 이 버그를 찾아냈다). */
+    body { overflow-x: hidden !important; }
+    html, body { max-width: 100vw !important; }
     /* legacy-toggle / toggleAllMenuCards 버튼 — 큰 터치 영역 */
     #legacy-toggle,
     button[onclick*="toggleAllMenuCards"] {
@@ -2085,12 +2124,17 @@
 /* ── [style#no-id-31] ── */
 
       @keyframes rsPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-      .rs-kpi { background:linear-gradient(180deg,#fff,#f8fafc); border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px; transition:transform .2s,box-shadow .2s }
-      .rs-kpi:hover { transform:translateY(-2px); box-shadow:0 8px 18px -4px rgba(0,0,0,0.08) }
-      .rs-kpi .icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:8px }
-      .rs-kpi .label { font-size:11px; font-weight:700; color:#64748b; margin-bottom:2px }
-      .rs-kpi .value { font-size:20px; font-weight:900; color:#0f172a; font-variant-numeric:tabular-nums; line-height:1.1 }
-      .rs-kpi .unit { font-size:11px; font-weight:600; color:#94a3b8; margin-top:3px }
+      /* 📊 저장소 상태 타일 — 2026-09-13 D안으로 키움(라벨 11→13.5px · 숫자 20→34px). 색·탭·머리글은
+         파일 맨 끝 #card-recording-storage 블록(인라인·클래스만으론 [id^="card-"] 규칙에 눌린다).
+         ⛔ hover translate 되살리지 말 것 — CLAUDE.md 1-3 「hover 확대 금지」(옛 규칙에 있었다). */
+      .rs-kpi { background:linear-gradient(180deg,#fff,#f8fafc); border:1px solid #e5e7eb; border-radius:14px; padding:18px 20px 16px; display:flex; flex-direction:column; gap:6px; min-height:132px; transition:box-shadow .15s }
+      .rs-kpi:hover { box-shadow:0 8px 18px -4px rgba(0,0,0,0.08) }
+      .rs-kpi .label { display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:700; color:#475467 }
+      .rs-kpi .label .icon { font-size:20px; line-height:1 }
+      .rs-kpi .label .tagline { font-size:12px; font-weight:700; color:#b91c1c; margin-left:auto }
+      .rs-kpi .value { font-size:34px; font-weight:900; color:#101828; font-variant-numeric:tabular-nums; line-height:1.05; display:flex; align-items:baseline; gap:4px }
+      .rs-kpi .value small { font-size:15px; font-weight:700; color:#667085 }
+      .rs-kpi .unit { font-size:13px; font-weight:600; color:#667085 }
       /* 📱 모바일 — 녹화관리 헤더/카운트/버튼 세로 정렬 (글자 쪼개짐 방지) */
       @media (max-width: 768px) {
         #card-recording-storage > summary { flex-wrap: wrap !important; align-items: flex-start !important; gap: 8px !important; padding: 12px 14px !important; }
@@ -2098,8 +2142,9 @@
         #card-recording-storage #rec-counts { display:block !important; width: 100% !important; white-space: normal !important; word-break: keep-all !important; line-height: 1.6 !important; font-size: 12px !important; }
         #card-recording-storage #rs-refresh-btn, #card-recording-storage #rs-diag-btn { flex: 1 1 0 !important; justify-content: center !important; min-width: 110px !important; padding: 10px 12px !important; font-size: 13px !important; }
         #card-recording-storage #rs-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
-        #card-recording-storage .rs-kpi .label { font-size: 10.5px !important; }
-        #card-recording-storage .rs-kpi .value { font-size: 18px !important; }
+        #card-recording-storage .rs-kpi .label { font-size: 12.5px !important; }
+        #card-recording-storage .rs-kpi .value { font-size: 28px !important; }
+        #card-recording-storage .rs-tab { font-size: 14px !important; padding: 10px 12px !important; }
       }
       /* 🎨 [요청] 새로고침·진단 버튼 — 아이보리(밝게) 테마에서만 파스텔 배경 + 어두운 글자.
          다크 테마에서는 기본 파란 버튼(어두운 바탕+흰 글자) 유지. */
@@ -2306,6 +2351,25 @@ button.chip:hover,
   #tp-list-table td button.tp-act--del   { background: #ef4444 !important; }
   #tp-list-table td button.tp-act--cal   { background: #8b5cf6 !important; }
   #tp-list-table td button.tp-act-btn:hover { filter: brightness(1.15) !important; }
+  /* 🚪 (2026-09-02) 퇴사·비활동 강사의 «수업입장 🎥 · 수업관찰 👁» — 할 일이 없으니 흐리게.
+     [왜] 사장님 「퇴사시켰는데 왜 파란 불이 그대로 켜져 있나」. 실측(2026-09-02)상
+          활동중·비활동·퇴사 세 행의 버튼 색이 **완전히 같아서**, 퇴사 처리를 해도 그 줄에서
+          눈에 달라지는 것이 하나도 없었다.
+     ⛔ 버튼을 없애지 않는다(지난 수업 확인이 걸려 있고, 감추면 아무도 정리하지 않는다).
+     ⛔ disabled 로 만들지 않는다 — 「보이는데 안 눌린다」가 되면 그것대로 고장으로 읽힌다.
+        눌리면 기존 안내가 사실대로 답한다. 이유는 툴팁에 적어 둔다.
+     ⚠️ opacity 는 이 화면의 글자색 페인터 셋(인라인 !important)이 건드리지 않는 속성이라
+        color 를 바꾸는 방식보다 안전하다. */
+  #tp-list-table td button.tp-act-btn.tp-act--dim {
+    opacity: .32 !important;
+    filter: grayscale(.55) !important;
+    box-shadow: none !important;
+  }
+  /* 마우스를 올리면 «눌러도 된다» 는 것이 보여야 한다 — 죽은 버튼이 아니다. */
+  #tp-list-table td button.tp-act-btn.tp-act--dim:hover {
+    opacity: .72 !important;
+    filter: grayscale(.2) !important;
+  }
   /* 삭제 무장 상태(1차 클릭 후 2차 대기) — 진한 빨강 + 맥동 */
   #tp-list-table td button.tp-act--del-armed { background: #b91c1c !important; animation: tpDelPulse .9s ease-in-out infinite; }
   @keyframes tpDelPulse { 0%,100%{ box-shadow:0 0 0 0 rgba(239,68,68,.55) } 50%{ box-shadow:0 0 0 5px rgba(239,68,68,0) } }
@@ -2364,6 +2428,32 @@ button.chip:hover,
   /* 학생 이름 — 시간보다 약간 큰 굵은 글씨, 길면 말줄임(...) 처리 */
   .ph54-ev-name { font-size:11px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .ph54-ev-type { font-size:9px; font-weight:600; opacity:.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* 🗂 (2026-09-02 사장님 선택 — B-1 «요일 접기 + 강사별 열» + B-3 «빈 시간»)
+     전체 보기에서 같은 시각 카드가 한 자리에 쌓이던 문제(위 .ph54-ev 의 left:3px;right:3px)의 수리.
+     배치 계산은 adm-q6.js ph54LayoutItems — 둘은 한 몸(카드 폭은 그쪽이 인라인으로 준다).
+     샘플·비교: docs/강사캘린더_강사별열_B안_세갈래_2026-09-02.html */
+  .ph54-cal-dayhead.ph54-open { background:#334155; color:#fff; text-align:left; padding-left:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ph54-cal-cnt { font-size:10px; font-weight:600; color:#cbd5e1; }
+  .ph54-cal-fold-head { cursor:pointer; user-select:none; }
+  .ph54-cal-fold-head:hover { background:rgba(59,130,246,.22); }
+  .ph54-cal-subhead { font-size:10px; font-weight:700; color:#cbd5e1; text-align:center; padding:3px 3px 4px; border-left:1px solid #1e293b; border-top:1px solid #334155; background:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ph54-cal-subhead[data-teacher] { cursor:pointer; }
+  .ph54-cal-subhead[data-teacher]:hover { background:rgba(59,130,246,.22); }
+  .ph54-cal-subhead b { display:block; font-size:11px; overflow:hidden; text-overflow:ellipsis; }
+  .ph54-cal-subhead small { display:block; font-size:9px; font-weight:500; color:#94a3b8; }
+  .ph54-cal-subhead.ph54-dup-head b { color:#fca5a5; }
+  .ph54-load { display:block; height:3px; margin-top:3px; border-radius:2px; background:#334155; overflow:hidden; }
+  .ph54-load span { display:block; height:100%; background:#a78bfa; }
+  .ph54-daysep { border-left:2px solid #475569; }
+  /* 접힌 요일 띠 — 밀도는 adm-q6.js 가 그라데이션 한 장으로 인라인에 준다 */
+  .ph54-cal-fold { position:relative; border-left:2px solid #475569; cursor:pointer; background-color:rgba(148,163,184,.06); background-repeat:no-repeat; }
+  .ph54-cal-fold:hover, .ph54-cal-fold.ph54-col-over { background-color:rgba(59,130,246,.18); }
+  /* 수업 사이 빈 자리 — 카드 아래에 깔리고 클릭·드롭은 열로 그대로 통과한다 */
+  .ph54-gap { position:absolute; left:3px; right:3px; border:1px dashed rgba(148,163,184,.55); border-radius:5px; font-size:9px; color:#94a3b8; display:flex; align-items:center; justify-content:center; pointer-events:none; box-sizing:border-box; overflow:hidden; }
+  /* 같은 강사 · 같은 시각 — outline 은 자리를 안 밀고 lite 모드의 box-shadow:none 에도 살아남는다 */
+  .ph54-ev.ph54-dup { outline:2px solid #ef4444; outline-offset:-1px; }
+  .ph54-legend i.ph54-legend-gap { background:transparent; border:1px dashed #94a3b8; box-sizing:border-box; }
+  .ph54-legend i.ph54-legend-dup { background:#bcaef0; outline:2px solid #ef4444; outline-offset:-1px; }
   .ph54-hint { margin:8px 0; padding:8px 12px; background:rgba(59,130,246,.10); border:1px solid rgba(59,130,246,.3); border-radius:8px; color:#bfdbfe; font-size:12px; }
   .ph54-legend { margin-top:10px; display:flex; gap:14px; flex-wrap:wrap; align-items:center; font-size:11px; color:#94a3b8; }
   .ph54-legend i { display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:5px; vertical-align:middle; }
@@ -2724,6 +2814,26 @@ button.chip:hover,
   /* 데스크톱(hover 말풍선이 따로 있음)에서는 모바일 말풍선 숨김 */
   @media (min-width:1024px){ #sb-mtip{ display:none !important; } }
 
+  /* ── 📝 (2026-08-16) 메뉴 설명을 «가로채는 말풍선» 대신 «이름 밑 한 줄» 로 ──────
+     옛 방식은 모바일에서 첫 탭을 삼켜 말풍선을 띄웠다(= 두 번 눌러야 이동).
+     이제 한 번 탭이면 바로 이동하고, 설명은 처음부터 그냥 보인다(adm-s10.js paintDescriptions).
+     ⚠️ .ph85-sub 는 flex 라 이 줄을 그냥 넣으면 이름 옆에 붙는다 → flex-basis:100% 로 줄을 바꾼다.
+     ⚠️ 별점(data-mi-stars)의 ::after 와 같은 줄을 다투지 않도록 order 를 뒤로 민다. */
+  @media (max-width:1023px){
+    #ph85-sidebar .ph85-sub, #ph85-sidebar .ph125-gc{ flex-wrap:wrap; align-items:center; }
+    #ph85-sidebar .sb-mtip-inline{
+      flex:0 0 100%; order:9;
+      margin-top:2px; padding-right:6px;
+      font-size:11.5px; font-weight:500; line-height:1.4;
+      color:rgba(226,232,240,0.62); word-break:keep-all;
+      /* 두 줄까지만 — 설명이 길어도 메뉴가 밀리지 않게 */
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+    }
+    html[data-admin-theme="ivory"] #ph85-sidebar .sb-mtip-inline{ color:rgba(74,56,38,0.66); }
+  }
+  /* 데스크톱은 hover 말풍선을 그대로 쓴다 — 줄이 늘어나면 메뉴가 길어지기만 한다 */
+  @media (min-width:1024px){ .sb-mtip-inline{ display:none !important; } }
+
 
 /* ── [style#ph86-sidebar-enhance] ── */
 
@@ -2986,6 +3096,76 @@ button.chip:hover,
       display: none !important;
     }
   }
+
+  /* ═══ 🔐 역할 숨김 전용 클래스 (2026-08-18) ═══════════════════════════════
+     위 «카드들 보이게» 복구 규칙(display:block !important)이 **인라인 display:none 을 이긴다**
+     — 작성자 !important 가 인라인 비-!important 보다 세다. 그래서 예전처럼
+     el.style.display='none' 으로 역할별 카드를 감추면 PC(≥1024px)에서 그대로 보였다.
+     (2026-08-18 실측: 메뉴 카드 85개 중 #legacy-cards 안 71개가 무력화. 경영진 전용
+      «권한 관리»·«이탈 관리» 가 본사 매니저 화면에 노출됐다.)
+
+     ⛔ 복구 규칙을 지워서 풀면 안 된다 — 그것을 넣은 이유가 따로 있다(ph87 이 #legacy-cards 를
+        숨겨 「메뉴를 눌러도 카드가 안 보인다」 사고가 났던 것의 복구책이다).
+     ✅ 그래서 숨김을 «인라인» 이 아니라 «이 클래스» 로 한다:
+        · #legacy-cards details.rbac-hide → 특정도 (0,1,1,1) > 복구 규칙 (0,1,0,1)
+        · #legacy-cards .rbac-hide        → 특정도 동률이지만 소스 순서가 뒤라 이긴다
+        · .rbac-hide                      → #legacy-cards 밖 카드 14개 + 모바일 폭 담당
+        미디어쿼리 **밖**에 두는 것이 중요하다 — 안에 두면 휴대폰에서 안 먹는다.
+     ⚠️ 이 클래스를 쓰는 곳(붙이는 쪽·읽는 쪽)이 짝이다. 한쪽만 고치면 판정이 어긋난다:
+        붙임 adm-core.js _applyMenuVisibility() · _applyPayrollTeacherUI()
+        읽음 adm-core.js buildMenuIndex()/검색색인 · adm-quickmenu.js visible()
+             adm-quick-access.js roleHidden() · adm-p1.js memberVisible()/검색색인 */
+  #legacy-cards details.rbac-hide,
+  #legacy-cards .rbac-hide,
+  .rbac-hide { display: none !important; }
+
+  /* ═══ 🗂️ 카드 안 손자 폼은 실제로 접힌다 (2026-09-18, v=82 에서 재수리) ═══════════
+     사장님 제보 「대리점을 누르면 등록/검색/목록이 한 번에 다 나와서 스크롤만 하면
+     다 보인다 — 메뉴 하나당 하나만 노출되게. 대리점만이 아니라 모든 메뉴」.
+     원인은 위 «카드들 보이게» 복구 규칙(#legacy-cards details{display:block!important},
+     3038·3084행)이 #legacy-cards 안의 «모든» <details> 를 open 속성과 무관하게 강제로
+     펴기 때문이다 — 「+ 대리점(학원) 신규 등록」처럼 원래 접혀 있어야 할 details(ct-form-
+     wrap 등)가 늘 펼쳐진 채로 보인다.
+
+     ⛔ 그 복구 규칙 자체는 지우지 않는다(위 3107행 경고와 같은 이유 — ph87 이 legacy-cards
+        를 통째로 숨겼던 사고의 재발 방지책이다).
+
+     🔴 v=81 판의 결함(trap-check 실측으로 발견, 되돌림) — 그때는
+        「#legacy-cards .sub-body details:not([open]) { display: none !important; }」로
+        <details> «전체» 를 지웠다. 그런데 `display:none` 은 그 요소를 통째로 지우므로
+        `<summary>` 도 함께 사라져 — 닫힌 폼을 다시 열 클릭 지점이 아예 없어졌다
+        (브라우저 실측: 닫힌 summary 의 getBoundingClientRect() 가 {w:0,h:0}). 「+ 대리점
+        신규 등록」같은 19개 이상의 등록/일괄등록 폼이 클릭할 방법 없이 완전히 사라졌었다.
+     ✅ 그래서 <details> 요소 자신은 그대로 두고(→ 위 복구 규칙이 계속 적용돼 summary 가
+        항상 보임) «summary 를 뺀 내용만» 닫혀 있을 때 숨긴다:
+          #legacy-cards .sub-body details:not([open]) > :not(summary)
+          → 특정도 (1,2,2) > 복구 규칙 (1,0,1) — summary 는 :not(summary) 에 안 걸려 그대로 보임
+        .rbac-hide 가 감추는 레벨0(.menu-card)·레벨1(.sub-item) 자체는 .sub-body «밖» 이라
+        이 규칙과 특정도 경쟁을 하지 않는다 — 역할별 카드 숨김에 영향 없음.
+
+     ⚠️ .sub-body 안에 details 가 «둘 이상» 인 곳은 87곳 중 5곳뿐이고(2026-09-18 조사),
+        그중 3곳(대표지사·지사·강사의 「등록 폼 vs 엑셀 일괄 등록」)은 이 규칙이 정확히
+        의도한 대로 작동한다 — 둘 다 원래 닫혀 있던 폼이라 기본이 둘 다 닫힘이 된다.
+        나머지 2곳(가맹점 정산의 「수수료 설정+상세표」·「배정 못 한 결제/B2B/지출분류
+        3종 할일 목록」)은 직원이 «동시에» 열어 두고 대조·처리하는 화면이라, admin.html
+        본문에서 그 details 들에 open 속성을 그대로 살려 두었다(예: acc-payer-box) —
+        그래서 이 규칙 아래에서도 기존처럼 기본이 열림이다. ⛔ 그 open 속성을 지우지 말 것.
+     ⚠️ 형제 details 를 자동으로 닫는 JS 로직은 «넣지 않는다» — 위 예외 2곳처럼 여러
+        details 를 동시에 열어 둬야 하는 화면이 있어, 하나가 열리면 남을 강제로 닫으면
+        그 업무 흐름이 깨진다. 여기서는 «닫혀 있던 것이 열리면 보인다» 만 되돌리고,
+        기본값(열림/닫힘)은 admin.html 이 각 details 에 open 속성을 붙였는지로 정해진다.
+        🔴 v=81 판에서 이 줄을 CSS 로는 지켰지만, adm-r25.js `reveal()` 의 «이미 있던»
+        형제 sub-item 자동닫기(사이드바 손자 클릭 시)가 이제 실제로 효과를 내 acc-payer-box
+        3형제 예외를 깨뜨렸다(trap-check 실측). 그 JS 쪽은 `data-keep-open` 속성으로
+        따로 고쳤다 — adm-r25.js `reveal()` 의 주석을 볼 것. ⛔ 여기 CSS 만 보고 「JS 는
+        안 건드렸으니 무관하다」고 판단하지 말 것 — 같은 사고의 다른 절반이다.
+     ⚠️ 검색창·목록 표처럼 <details> 가 아닌(data-gc 만 붙은) 요소는 이 규칙과 무관하다 —
+        대리점의 「🔎 검색」이 「🏪 목록」표를 필터링하는 짝이라, 둘을 따로 접었다 펴면
+        검색 결과를 볼 수 없게 된다(기능 회귀). 그래서 둘은 손대지 않고 그대로 함께
+        보인다 — 「메뉴 하나당 하나만」은 «접고 펴는 details» 에만 적용한다.
+     미디어쿼리 밖에 둔다 — 모바일(<1024px)은 원래 이 강제 규칙이 없어(위 두 복구 규칙이
+     전부 min-width:1024px 안에만 있음) 이 규칙이 native 동작과 같은 값을 내려 무해하다. */
+  #legacy-cards .sub-body details:not([open]) > :not(summary) { display: none !important; }
 
   /* [성능 2026-06-12] legacy-cards 첫 표시 시 100+ 카드 동시 렌더 → 수십초 메인스레드 프리즈 방지.
      화면 밖 카드는 content-visibility:auto 로 렌더 생략(스크롤·scrollIntoView 시 자동 렌더). */
@@ -3262,6 +3442,227 @@ button.chip:hover,
     background: linear-gradient(135deg, var(--accent), #3B82F6) !important;
     color: #FFFFFF !important;
   }
+
+  /* ─────────── 수강신청 등록 표 — 행 안 «작은 아이콘 버튼» ───────────
+     ⚠️ 위 #tp-list-table 과 같은 사정이다. 바로 위 전역 룰이
+     padding:9px 18px · 인디고 그라데이션을 !important 로 입히는데,
+     작성자 !important 는 인라인 style 을 이기므로 adm-core.js 가 적어 보낸
+     «width:24px; padding:0; 앰버» · «투명 빨강 ✕» 이 통째로 무시된다.
+     실측(2026-08-20 헤드리스, 1280·1100·1024px 동일):
+       ⏰ 요일별 시간  목표 26×26 → 실제 49×31 (시간 칸이 비워 둔 28px 를 넘어 입력칸을 밀어냄)
+       ✕ 행 삭제    목표 투명 빨강 → 실제 67×46 파란 알약
+     ID 접두(특이도)로 둘만 되살린다. ⚠️ box-sizing 을 명시하는 이유 —
+     width 가 테두리를 포함해야 입력칸의 calc(100% - 28px) 와 딱 맞는다.
+     ⛔ hover 는 «색만» — 전역 룰의 transform/box-shadow 를 함께 끈다(크기·위치 고정 원칙). */
+  /* 🕐 (2026-08-21 사장님 지시) ⏰ 는 «입력칸 안쪽 오른쪽 끝» 에 얹는다.
+     밖에 나란히 두면 칸 가운데에 툭 튀어나와 보인다. 자리는 입력칸의 padding-right 로 비운다.
+     ⚠️ transform 으로 세로 가운데를 맞추므로, 전역 hover 룰의 translateY(-1px) 가 그대로 먹으면
+        버튼이 아래로 튄다 — hover 에서도 같은 transform 을 !important 로 못 박는다(1-3 「hover 확대 금지」). */
+  #en-multi-table .en-time-wrap { position: relative; display: block; }
+  /* ⚠️ 오른쪽 여백을 인라인 style 로 주면 안 먹는다 — 아래 「폼 — input/textarea/select」 전역 룰이
+        padding 을 !important 로 덮기 때문이다(실측 2026-08-21: 32px 로 적었는데 12px 로 나옴).
+        여백이 모자라면 친 글자가 ⏰ 밑으로 들어간다. ID 접두로 이 칸만 되살린다. */
+  #en-multi-table .en-time-wrap input.en-row-time {
+    display: block; padding-right: 34px !important;
+  }
+  #en-multi-table td button.en-row-time-builder {
+    position: absolute !important; right: 4px !important; top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 26px !important; height: 26px !important; padding: 0 !important;
+    box-sizing: border-box !important;
+    background: #fef3c7 !important; background-image: none !important;
+    border: 1px solid #f59e0b !important; border-radius: 4px !important;
+    color: #92400e !important; font-size: 12px !important; font-weight: 400 !important;
+    line-height: 1 !important; vertical-align: middle !important;
+  }
+  #en-multi-table td button.en-row-time-builder:hover {
+    background: #fde68a !important; background-image: none !important;
+    transform: translateY(-50%) !important; box-shadow: none !important;
+  }
+  #en-multi-table td button.en-row-del {
+    padding: 0 6px !important; box-sizing: border-box !important;
+    background: transparent !important; background-image: none !important;
+    border: 0 !important; border-radius: 0 !important;
+    color: #ef4444 !important; font-size: 14px !important; font-weight: 700 !important;
+  }
+  #en-multi-table td button.en-row-del:hover {
+    background: transparent !important; background-image: none !important;
+    color: #b91c1c !important;
+    transform: none !important; box-shadow: none !important;
+  }
+  /* 🔀 (2026-09-15) 「여러 강사로 나눠 배정」 버튼 — 위 두 버튼과 같은 함정(전역 인디고 알약)
+     이라 같은 방식(ID 접두)으로 되살린다. hover 는 색만(1-3 「hover 확대 금지」). */
+  #en-multi-table td button.en-row-multi-teacher-btn {
+    display: block !important; width: 100% !important; margin-top: 6px !important;
+    padding: 4px 6px !important; box-sizing: border-box !important;
+    background: #f5f3ff !important; background-image: none !important;
+    border: 1px solid #c4b5fd !important; border-radius: 4px !important;
+    color: #6d28d9 !important; font-size: 10.5px !important; font-weight: 600 !important;
+    line-height: 1.4 !important;
+  }
+  #en-multi-table td button.en-row-multi-teacher-btn:hover {
+    background: #ede9fe !important; background-image: none !important;
+    transform: none !important; box-shadow: none !important;
+  }
+  /* 🔀 계획이 적용된 행은 단일-강사/요일/시간 칸이 더는 읽히지 않는다(_readEnrollmentRows 가
+     건너뜀) — 그대로 두면 «칸엔 값이 있는데 등록엔 안 쓰인다» 는 혼란이 생기므로 흐리게 하고
+     손을 뗀다(값은 지우지 않는다 — 계획을 지우면 그대로 되살아나야 하므로). */
+  #en-multi-table tr.en-row-multi-active td.en-c-prio select.en-row-priority,
+  #en-multi-table tr.en-row-multi-active td.en-c-prio select.en-row-teacher,
+  #en-multi-table tr.en-row-multi-active td.en-c-day,
+  #en-multi-table tr.en-row-multi-active td.en-c-time {
+    opacity: .35 !important; pointer-events: none !important;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     🗓️ (2026-08-20 사장님 지시) 수강신청 등록 표 → 「카드 두 줄」 배치
+     ─────────────────────────────────────────────────────────────────────
+     왜 — 열 개짜리 한 줄(min-width:1180px)에 관리자 화면 zoom:1.3 이 곱해져
+       실제로는 약 1,534px 를 차지했다. 사장님 화면에 늘 가로 스크롤이 남았고,
+       2026-08-20 의 «⏰ 가 입력칸을 덮는» 사고도 좁은 칸에서만 재현되던 것이었다.
+     어떻게 — DOM 은 그대로 두고 CSS 로만 눕힌다. `<tr>` 가 카드, `<td>` 가 이름표 붙은 칸이 된다.
+       ⚠️ 이 방식을 고른 이유가 있다 — 값을 읽는 `_readEnrollmentRows()` 가
+          `#en-multi-rows tr` 와 `.en-row-*` 를 그대로 쓰고, 행 배선 20줄도 `tr.querySelector` 다.
+          마크업을 카드 `<div>` 로 바꾸면 그 전부를 함께 고쳐야 한다.
+       ⚠️ 칸 이름은 `data-label` → `::before` 로 그린다. 표 머리(thead)를 숨기면
+          이름이 함께 사라지므로 칸마다 다시 붙여 줘야 한다.
+     ⛔ hover 로 커지지 않는다(색만) — 1-3 「hover 확대 금지」.
+     ══════════════════════════════════════════════════════════════════════ */
+  #en-multi-table {
+    min-width: 0 !important; width: 100% !important;
+    border-collapse: separate !important; border-spacing: 0 !important;
+    background: transparent !important;
+  }
+  #en-multi-table thead { display: none !important; }
+  #en-multi-table tbody { display: block !important; }
+  #en-multi-table tbody tr {
+    display: grid !important; grid-template-columns: repeat(12, 1fr);
+    gap: 10px 12px; position: relative;
+    padding: 32px 12px 12px !important; margin-bottom: 10px;
+    background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px;
+  }
+  #en-multi-table tbody tr td.en-c {
+    display: block !important; border: 0 !important; padding: 0 !important;
+    white-space: normal !important; min-width: 0; vertical-align: top;
+  }
+  #en-multi-table tbody tr td.en-c::before {
+    content: attr(data-label); display: block; margin-bottom: 4px;
+    font-size: 10.5px; font-weight: 700; color: #6b7280; letter-spacing: .01em;
+  }
+  #en-multi-table tbody tr td.en-c-num::before,
+  #en-multi-table tbody tr td.en-c-del::before { content: none; }
+  /* 번호와 ✕ 는 카드 머리로 — 흐름에서 빼내 칸을 안 잡아먹게 한다 */
+  #en-multi-table tbody tr td.en-c-num {
+    position: absolute; top: 8px; left: 12px;
+    font-size: 11px !important; font-weight: 700 !important; color: #6b7280 !important;
+    background: #f8fafc; border: 1px solid #e5e7eb !important;
+    border-radius: 5px; padding: 0 7px !important; line-height: 18px;
+  }
+  #en-multi-table tbody tr td.en-c-del { position: absolute; top: 5px; right: 8px; }
+  /* 첫 줄 = 누구를·어떻게 · 둘째 줄 = 언제 (DOM 순서와 다르므로 order 로 세운다) */
+  /* ⏱ (2026-08-26) 「수업 시간」 칸을 넣으면서 둘째 줄을 다시 짰다.
+     ⛔ 새 칸에 order 를 안 주면 기본값 0 이라 «학생 아이디보다 앞» 으로 튀어나온다
+        (order 는 «DOM 순서» 가 아니라 «지정 안 하면 0» 이다 — 실제로 그 상태로 병합돼 있었다).
+     칸 합이 줄마다 정확히 12 여야 빈칸이 안 생긴다: 3+3+4+2 / 4+4+4 / 6+6. */
+  #en-multi-table tbody tr td.en-c-uid      { order: 1; grid-column: span 3; }
+  #en-multi-table tbody tr td.en-c-type     { order: 2; grid-column: span 3; }
+  #en-multi-table tbody tr td.en-c-prio     { order: 3; grid-column: span 4; }
+  #en-multi-table tbody tr td.en-c-size     { order: 4; grid-column: span 2; }
+  #en-multi-table tbody tr td.en-c-day      { order: 5; grid-column: span 4; }
+  #en-multi-table tbody tr td.en-c-time     { order: 6; grid-column: span 4; }
+  #en-multi-table tbody tr td.en-c-classmin { order: 7; grid-column: span 4; }
+  #en-multi-table tbody tr td.en-c-start    { order: 8; grid-column: span 6; }
+  #en-multi-table tbody tr td.en-c-dur      { order: 9; grid-column: span 6; }
+  /* 📞 (2026-09-10) 학부모 연락처 — 한 줄을 통째로 쓴다(span 12).
+     ⚠️ 이 블록은 12칸 그리드라 **줄마다 합이 정확히 12** 여야 한다. 기존 세 줄
+        (3+3+4+2 / 4+4+4 / 6+6)은 이미 12로 맞아 있으므로, 새 칸을 4나 6으로 끼우면
+        그 줄들이 어긋나 배치가 통째로 무너진다(규칙서 2장 「열을 하나 더했는데 맨 앞으로 튀어나옴」).
+     ⚠️ order 를 안 주면 기본값 0 이라 학생 아이디보다 «앞» 에 놓인다. */
+  #en-multi-table tbody tr td.en-c-phone    { order: 10; grid-column: span 12; }
+  @media (max-width: 1100px) {
+    #en-multi-table tbody tr { grid-template-columns: repeat(6, 1fr); }
+    #en-multi-table tbody tr td.en-c { grid-column: span 3 !important; }
+  }
+  @media (max-width: 620px) {
+    #en-multi-table tbody tr td.en-c { grid-column: span 6 !important; }
+  }
+
+  /* 요일·레벨 구분 — 켜진 것이 눈에 «보이게». 체크박스는 그대로 두고 상자만 씌운다
+     (값을 읽는 쪽이 `.en-row-day:checked` 를 세므로 input 을 없애면 안 된다).
+     ⚠️ 요일은 «체크박스 위 / 글자 아래» 세로 배치를 유지한다(2026-08-20 사장님 지시). */
+  #en-multi-table td.en-c-day label,
+  #en-multi-table td.en-c-type label {
+    border: 1px solid #e5e7eb; border-radius: 7px; background: #ffffff;
+    padding: 4px 6px; margin-right: 3px !important; cursor: pointer;
+  }
+  #en-multi-table td.en-c-day label { min-width: 30px; justify-content: center; }
+  #en-multi-table td.en-c-type label { display: inline-flex; align-items: center; }
+  #en-multi-table td.en-c-day label:has(input:checked),
+  #en-multi-table td.en-c-type label:has(input:checked) {
+    border-color: #4338ca; background: #eef2ff; color: #3730a3; font-weight: 700;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     🗓️ 시작일 — PC 는 «누르면 달력»(브라우저 기본), 휴대폰은 «굴리는 드럼».
+     ─────────────────────────────────────────────────────────────────────
+     ⛔ 팝오버로 띄우지 않는다. 2026-08-21 실측 — 표(`#en-multi-table`)가 overflow:hidden 이라
+        칸 밖으로 나간 팝오버가 통째로 잘렸다(팝오버 bottom 16945 > 표 bottom 16783).
+        버튼은 눌리는데 화면에는 아무것도 안 나타나서 「작동이 안 된다」로 보였다.
+        ✅ 드럼을 «칸 안에» 두면 칸이 늘어나므로 잘릴 일이 없다.
+     ⚠️ `.enw-col li` 높이(28px)는 `adm-core.js` 의 EN_WHEEL_ITEM 과 반드시 같아야 한다.
+     ══════════════════════════════════════════════════════════════════════ */
+  #en-multi-table .en-start-wrap { display: block; }
+  #en-multi-table .en-start-wrap input.en-row-start { cursor: pointer; }
+
+  /* 자주 쓰는 시작일 — 실제로 수업이 시작되는 날은 거의 이 넷 중 하나다.
+     ⚠️ 전역 룰(details.menu-card button{인디고 !important})이 이 작은 버튼도 파란 알약으로
+        뭉개므로 ID 접두로 되살린다(같은 파일 위쪽 ⏰·✕ 와 같은 사정). */
+  #en-multi-table .en-start-quick { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+  #en-multi-table td button.en-q {
+    padding: 2px 7px !important; height: auto !important; box-sizing: border-box !important;
+    background: #f8fafc !important; background-image: none !important;
+    border: 1px solid #e2e8f0 !important; border-radius: 5px !important;
+    color: #475569 !important; font-size: 10.5px !important; font-weight: 600 !important;
+    line-height: 1.5 !important; white-space: nowrap;
+  }
+  #en-multi-table td button.en-q:hover {
+    background: #eef2ff !important; background-image: none !important;
+    border-color: #c7d2fe !important; color: #4338ca !important;
+    transform: none !important; box-shadow: none !important;
+  }
+
+  /* 📱 드럼 — 휴대폰에서만 보인다. PC 는 브라우저 기본 달력이 훨씬 빠르다. */
+  #en-multi-table .en-start-drum { display: none; }
+  @media (max-width: 1023px) {
+    #en-multi-table .en-start-drum { display: block; margin-top: 6px; }
+  }
+  #en-multi-table .enw-heads { display: flex; gap: 3px; padding: 0 3px 3px; }
+  #en-multi-table .enw-heads span {
+    flex: 1; min-width: 46px; text-align: center;
+    font-size: 10px; font-weight: 700; color: #6b7280;
+  }
+  #en-multi-table .enw-drum {
+    position: relative; display: flex; gap: 3px; padding: 3px;
+    border: 1px solid #cbd5e1; border-radius: 9px; background: #f8fafc;
+  }
+  #en-multi-table .enw-band {
+    position: absolute; left: 3px; right: 3px; top: 50%; height: 28px;
+    transform: translateY(-50%); border-radius: 6px;
+    background: #eef2ff; border: 1px solid #c7d2fe; pointer-events: none;
+  }
+  #en-multi-table .enw-col {
+    position: relative; z-index: 1; flex: 1; height: 84px; overflow-y: auto;
+    scroll-snap-type: y mandatory; overscroll-behavior: contain;
+    scrollbar-width: none; cursor: ns-resize; border-radius: 6px;
+  }
+  #en-multi-table .enw-col::-webkit-scrollbar { display: none; }
+  #en-multi-table .enw-col ul { list-style: none; margin: 0; padding: 28px 0; }
+  #en-multi-table .enw-col li {
+    height: 28px; line-height: 28px; text-align: center;
+    font-size: 13px; color: #9ca3af; scroll-snap-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  #en-multi-table .enw-col li.on { color: #4338ca; font-weight: 800; }
 
   /* ============================================
      폼 — input/textarea/select
@@ -4030,6 +4431,40 @@ button.chip:hover,
   .pm-kpi-value { font-size: 22px !important; font-weight: 900 !important; color: #FFFFFF !important; }
   .pm-kpi-trend { font-size: 11px !important; color: #86EFAC !important; font-weight: 700 !important; margin-top: 4px !important; }
 
+  /* 💳 (2026-08-17) ph106 결제관리 안내 띠 2종.
+       옛 «DEMO» 표식(.pm-kpi::before · .pm-demo-badge · .pm-demo-note)은 실데이터를
+       붙이면서 지웠다 — 이제 진짜 숫자라 데모 딱지가 붙으면 안 된다.
+       · 배경은 반드시 background-color — 인라인 linear-gradient 는 위쪽 옛 다크 규칙과
+         adm-s13.js 페인터에 덮인다(CLAUDE.md 함정표).
+
+     ① .pm-src-note — 「통장 반영 ○○까지」 같은 데이터 신선도 경고 */
+  .pm-src-note {
+    margin-bottom: 14px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 12.5px !important;
+    font-weight: 700 !important;
+    line-height: 1.6 !important;
+    background-color: #FEF3C7 !important;
+    color: #7C2D12 !important;
+    border: 1px solid #FCD34D !important;
+  }
+  /* ② .pm-unattr-note — 「대리점을 못 붙인 몫」 (숨기지 않는다) */
+  .pm-unattr-note {
+    margin-bottom: 14px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 12.5px !important;
+    font-weight: 700 !important;
+    line-height: 1.6 !important;
+    background-color: #E0F2FE !important;
+    color: #0C4A6E !important;
+    border: 1px solid #7DD3FC !important;
+  }
+  /* ⚠️ hidden 이 먹게 못박는다 — 작성자 CSS 가 display 를 정하면 브라우저 기본
+     [hidden]{display:none} 을 이긴다(CLAUDE.md 함정표: teacher.html .btn 건). */
+  .pm-src-note[hidden], .pm-unattr-note[hidden] { display: none !important; }
+
   /* === 가독성 보정: 밝은(흰) 배경 모달에서 다크화가 글자를 밝게 만들어 안 보이던 것 복구 === */
   /* 강사 평가 입력 모달 (흰 배경) → 카테고리 라벨·요약 라벨을 어둡게 */
   .eval-modal .eval-row label { color: #1f2937 !important; }
@@ -4205,6 +4640,36 @@ button.chip:hover,
     padding: 8px 18px !important; border-radius: 8px !important;
     font-weight: 800 !important; cursor: pointer !important;
   }
+  /* ✍️ 표의 「결재 올리기」 (2026-08-20 신설)
+     ⛔ .pm-row-btn.tax 를 재사용했더니 — ① 링크라 밑줄이 그어지고
+        ② 라벨이 칸(160px)보다 길어 **두 줄로 접히면서 배경이 조각나** 「글자가 잘려 내려온」 것처럼 보였다.
+        (인라인 요소는 줄마다 배경이 따로 그려진다 — 버튼처럼 보이지만 버튼이 아니다)
+     ✅ inline-flex + nowrap 으로 «한 줄로만» 그린다. 라벨도 짧게 줄였다. */
+  /* 양식 이름이 두 줄로 접혀 지저분하던 것 — 표는 바깥 상자가 overflow-x:auto 라 넘쳐도 안전하다 */
+  #card-report-forms .rf-table td:nth-child(2) { white-space: nowrap; }
+
+  #card-report-forms .rf-go {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    white-space: nowrap !important;      /* 두 줄로 접히지 않는다 */
+    text-decoration: none !important;    /* 링크 밑줄 제거 */
+    background: rgba(16,185,129,0.16) !important;
+    color: #6EE7B7 !important;
+    border: 1px solid rgba(16,185,129,0.5) !important;
+    border-radius: 7px !important;
+    padding: 6px 11px !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    line-height: 1.2 !important;
+  }
+  #card-report-forms .rf-go:hover {
+    background: rgba(16,185,129,0.28) !important;
+    color: #A7F3D0 !important;
+  }
+
   #card-report-forms .rf-btn-new {
     background: linear-gradient(135deg, #10B981, #059669) !important;
     color: #fff !important; border: 0 !important;
@@ -4212,6 +4677,11 @@ button.chip:hover,
     font-weight: 800 !important; cursor: pointer !important;
     margin: 18px auto 0 !important;
     display: block !important;
+  }
+  #card-report-forms a.rf-btn-new {
+    text-decoration: none !important;
+    width: max-content !important;
+    text-align: center;
   }
   #card-report-forms .rf-btn-new:hover {
     background: linear-gradient(135deg, #059669, #047857) !important;
@@ -4274,15 +4744,20 @@ button.chip:hover,
     background: linear-gradient(135deg, #2563EB, #3B82F6) !important;
     color: #fff !important;
   }
+  /* 💬 안내 박스 (2026-08-20 손질)
+     · 진한 파랑 배경이 «투박하다» 는 지적 → 배경은 아주 옅게, 강조는 왼쪽 띠로만.
+     · 글자가 상자 안에서 답답하게 눌리던 것 → 여백·줄간격을 늘리고 문장을 두 줄로 줄였다. */
   #card-report-forms .rf-info {
-    background: rgba(37,99,235,0.15) !important;
-    border-left: 4px solid #2563EB;
+    background: rgba(37,99,235,0.07) !important;
+    border: 1px solid rgba(37,99,235,0.22);
+    border-left: 3px solid #3B82F6;
     color: #F8FAFC !important;
-    border-radius: 8px;
-    padding: 10px 14px;
+    border-radius: 10px;
+    padding: 12px 16px;
     margin-bottom: 14px;
     font-size: 12.5px;
-    line-height: 1.7;
+    line-height: 1.85;
+    overflow-wrap: anywhere;   /* 긴 낱말이 상자를 밀어내지 않게 */
   }
   #card-report-forms .rf-info b { color: #93C5FD !important; }
 
@@ -4607,7 +5082,24 @@ button.chip:hover,
   .lib-lang-lb{font-size:11.5px;font-weight:800;color:#94a3b8;min-width:52px}
   details.menu-card .lib-files a.lib-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;font-size:12px;font-weight:700;text-decoration:none !important;border-radius:99px;border:1px solid rgba(148,163,184,.4);color:#e2e8f0 !important;background:rgba(255,255,255,.06)}
   details.menu-card .lib-files a.lib-chip:hover{border-color:#f59e0b;color:#fde68a !important;background:rgba(245,158,11,.16)}
-  .lib-note{font-size:11px;color:#94a3b8;margin-top:6px;display:flex;align-items:center;gap:5px}
+  /* ⛔ display:flex 로 되돌리지 말 것 (2026-09-03).
+     이 줄은 «아이콘 + 한 줄 설명» 을 세로 가운데로 맞추려고 flex 였는데,
+     설명 안에 <b> 가 들어오면 앞 텍스트·<b>·뒤 텍스트가 «각각 flex 아이템» 이 되고
+     flex-wrap 기본값이 nowrap 이라 한 문장이 좁은 «단» 3개로 쪼개진다.
+     [잰 것 — 1280px, 로컬 서버에 admin.html 을 실제로 그려서]
+       고치기 전: <b>원본 화질 그대로</b> 폭 72px·2.6줄 / 「인쇄해서 차에 두는 용도」 3.9줄
+       고친 뒤  : 각각 폭 99px·143px·1.2줄, 문장이 상자 폭(694px)을 꽉 채워 정상 줄바꿈
+       <b> 가 없는 설명 줄 다섯 개는 폭·높이(733×24)가 고치기 전과 1px 도 안 바뀜
+     [그래서 내린 판단] «아이콘 정렬이 깨질까» 는 걱정하지 않아도 된다 — 아이콘이 별도 요소가
+       아니라 텍스트 노드 안의 이모지(「ℹ️ 자료를…」)라 자식이 하나뿐이고, 그러면 gap 은
+       아무 일도 안 한다(align-items 는 익명 아이템에 걸리기는 하나 결과가 같다).
+     같은 뿌리: CLAUDE.md 2장 「짧은 라벨 한 줄에 display:flex 를 썼더니 낱글자로 쪼개짐」. */
+  .lib-note{font-size:11px;color:#94a3b8;margin-top:6px}
+  /* 🗑 (2026-08-16) 여기 있던 «자료실에만 중국어 폰트» 규칙은 지웠다.
+     body 전체에서 MangoiHanSC 를 빼고 이곳에만 되돌리려던 시도였는데,
+     hanzi_font_harness(2026-08-04 사장님 지시로 만든 통일 가드)에 걸려 전부 되돌렸다.
+     지금은 admin-readability.css 의 --mg-font-sans 와 admin-inline-a.css 의 body 가
+     예전처럼 MangoiHanSC 를 맨 앞에 두므로, 자료실만 따로 지정할 이유가 없다. */
   /* 🎨 밝은(ivory) 테마 — 위 다크 네이티브 색을 밝은 배경용으로 반전 (ph103은 ivory에서 중지되므로 안전) */
   html[data-admin-theme="ivory"] .lib-gate{background:#fffbeb;border-color:rgba(245,158,11,.45)}
   html[data-admin-theme="ivory"] .lib-lock{color:#475569}
@@ -5155,17 +5647,36 @@ button.chip:hover,
   }
 
   /* === 모달 (ph114 와 같은 디자인 재사용) === */
+  /* 🔴 (2026-08-19 사장님 「이거 작동이 안된다」) z-index 를 100000 → 100002 로 올렸다.
+     [무슨 일이 있었나] 이 모달을 여는 계정 버튼(#ph115-user)은 사이드바 바닥 도크
+       (#ph162-dock) 안에 있다. 그런데 휴대폰에서 그 사이드바는 화면을 100% 덮는 드로어이고
+       z-index 가 **100001** 이다(이 파일의 @media(max-width:1023px) 블록).
+       그래서 계정 버튼을 누르면 모달은 «열리는데»(overlay.show, display:flex) 드로어가
+       그 위를 통째로 덮어 **아무것도 안 보였다.** 눌러도 반응이 없는 화면이 된다.
+       실측(2026-08-19, 크로미움): 탭 직후 overlay.show=true 인데
+       elementsFromPoint(모달 중앙) = [드로어 시계, ASIDE#ph85-sidebar, …] 로 모달이 3번째였다.
+     ⚠️ «열렸다» 와 «보인다» 는 다르다 — classList 만 확인하면 이 사고를 못 본다.
+        반드시 elementsFromPoint 로 «맨 위에 무엇이 있나» 를 재라(CLAUDE.md 2장).
+     ⚠️ 드로어(100001)를 낮추는 방향으로 풀지 말 것 — 그 값은 드로어 뒷막(#mga-overlay,
+        100000) 위에 있어야 한다. 모달을 올리는 쪽이 반경이 작다.
+     📜 짧은 화면 대비 — 이 모달은 내용이 690px 가까이 된다. 세로가 짧은 폰에서는
+        align-items:center + overflow 없음이면 위아래가 잘려 맨 아래 «로그아웃» 을 못 누른다.
+        그래서 넘칠 때만 스크롤되게 overflow-y:auto 를 주고, 가운데 정렬은 flex 정렬 대신
+        모달의 margin:auto 로 한다(넘칠 때 위쪽이 잘리는 flex 정렬 함정 회피). */
   #ph115-modal-overlay {
     position: fixed !important; inset: 0 !important;
     background: rgba(0,0,0,0.75) !important;
     backdrop-filter: blur(6px) !important;
-    z-index: 100000 !important;
+    z-index: 100002 !important;
     display: none !important;
-    align-items: center !important;
+    align-items: flex-start !important;
     justify-content: center !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
     padding: 20px !important;
   }
   #ph115-modal-overlay.show { display: flex !important; }
+  #ph115-modal-overlay > #ph115-modal { margin: auto !important; }
   #ph115-modal {
     background: linear-gradient(135deg, #0F172A, #1E293B) !important;
     border: 2px solid rgba(96,165,250,0.6) !important;
@@ -5871,6 +6382,10 @@ button.chip:hover,
     justify-content: space-between !important;
     gap: 12px !important;
   }
+  /* ⚠️ 위 `display:flex !important` 가 adm-r26.js 의 숨김을 이겨서, 필터를 걸기 전에도
+     이 띠가 늘 떠 있었다(「필터 결과: 0건 표시 / 전체 0건」이 행 있는 표 위에 그대로).
+     작성자 !important 는 인라인 style 도 이긴다 — 그래서 hidden 속성으로 못박는다. */
+  .ph128-stat[hidden] { display: none !important; }
   .ph128-stat b { color: #FDE68A !important; font-size: 16px !important; }
   .ph128-stat-reset {
     background: linear-gradient(135deg, #F59E0B, #D97706) !important;
@@ -6878,40 +7393,244 @@ button.chip:hover,
     /* 본문 좌측 패딩 제거 (드로어 방식) */
     html body { padding-left: 0 !important; }
 
-    /* 진짜 메뉴 사이드바 = 왼쪽 슬라이드 드로어 */
+    /* ② (2026-08-16 사장님) 진짜 메뉴 사이드바 = 화면을 **100% 덮는** 드로어.
+       옛 값은 width:282px / max-width:82vw 라 오른쪽에 본문이 18% 남아 계속 눈에 걸렸고,
+       긴 메뉴 이름이 두 줄로 접혔다. 이제 왼쪽 끝 ~ 오른쪽 끝 전부 쓴다.
+       ⚠️ 높이는 100vh 가 아니라 **100dvh**. 휴대폰은 스크롤할 때 주소창이 접혔다 펴지는데
+          100vh 는 «주소창이 펴진 상태의 높이» 로 고정돼, 바닥의 계정 도크(#ph162-dock)가
+          화면 밖으로 밀려나 안 눌린다. dvh 는 «지금 실제로 보이는 높이» 다.
+          (dvh 를 모르는 옛 브라우저를 위해 100vh 를 먼저 적어 둔다 — 뒤에 오는 것이 이긴다) */
     html body #ph85-sidebar, html body aside#ph85-sidebar {
       display: block !important; visibility: visible !important; opacity: 1 !important;
       position: fixed !important; top: 0 !important; left: 0 !important; bottom: 0 !important;
-      width: 282px !important; max-width: 82vw !important; height: 100vh !important;
+      width: 100% !important; max-width: none !important;
+      height: 100vh !important; height: 100dvh !important;
       z-index: 100001 !important;
       background: linear-gradient(180deg,#1e293b 0%,#0f172a 100%) !important;
-      border-right: 1px solid rgba(99,102,241,0.3) !important;
-      box-shadow: 6px 0 30px rgba(0,0,0,.55) !important;
-      overflow-y: auto !important; padding-top: 16px !important;
-      transition: transform .32s cubic-bezier(.32,.72,0,1) !important;
+      border-right: 0 !important;
+      box-shadow: none !important;
+      overflow-y: auto !important;
+      /* 시계 블록이 맨 위에 오므로 옛 상단 여백은 뺀다 */
+      padding-top: 0 !important;
+      /* 아이폰 홈바·노치에 가리지 않게 */
+      padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+      /* 드로어 안에서 스크롤이 끝나도 뒤 본문이 따라 밀리지 않게 */
+      overscroll-behavior: contain !important;
+      transition: transform .28s cubic-bezier(.32,.72,0,1) !important;
+      will-change: transform;
     }
     /* 닫힘(기본) — :not 으로 옛 *-open 클래스보다 우선 */
     html body:not(.mga-open) #ph85-sidebar { transform: translateX(-100%) !important; }
     /* 열림 */
     html body.mga-open #ph85-sidebar { transform: translateX(0) !important; }
 
-    #mga-tab { display: flex !important; }
+    /* ① 옛 손잡이(왼쪽 가운데 세로 탭)는 완전히 없앤다 */
+    #mga-tab { display: none !important; }
+    #mgv2-burger { display: grid !important; }
     body.mga-open #mga-overlay { display: block !important; }
     body.mga-open { overflow: hidden !important; }
-  }
-  @media (min-width: 1024px) { #mga-tab, #mga-overlay { display: none !important; } }
 
-  #mga-tab {
-    display: none; position: fixed; left: 0; top: 50%; transform: translateY(-50%);
-    width: 40px; height: 78px; border: 1px solid rgba(245,158,11,0.30); border-left: 0; border-radius: 0 14px 14px 0;
-    background: rgba(245,158,11,0.10); color: #f59e0b;
-    font-size: 25px; font-weight: 900; cursor: pointer; z-index: 100002;
-    box-shadow: 2px 1px 8px rgba(0,0,0,.18); align-items: center; justify-content: center;
-    -webkit-tap-highlight-color: transparent; padding: 0;
-    transition: left .32s cubic-bezier(.32,.72,0,1), background .2s;
+
+    /* 「모두 펼치기 / 모두 접기」를 한 줄에 (2026-08-17 사장님 — 공간 낭비 지적)
+       무엇이 문제였나 — 위쪽 «≤920px» 규칙이 #ph86-actions 를 flex-direction:column
+       으로 눕혀 놨다. 그건 **옛 PC 좁은 사이드바**(30vw · 최대 280px)에 버튼 3개를
+       넣으려고 만든 것인데, 이 드로어는 화면 전체 너비라 그 제약이 없다.
+       실측: 버튼 하나가 369px 폭에 글자 12px → 두 줄 76px 를 거의 빈 칸으로 썼다.
+       한 줄로 되돌리면 40px 로 끝나고 36px 을 메뉴에 돌려준다.
+       ⚠️ 위 규칙이 !important 라 이쪽도 !important 가 필요하다. 다만 순서로 이기려
+          하지 말고 **ID 2개**(#ph85-sidebar #ph86-actions)로 특정성을 올려서 이긴다
+          — 그래야 나중에 파일 어디에 무엇이 추가돼도 순서에 안 흔들린다.
+       ⚠️ 「🙈 숨기기」는 이 화면에서 이미 display:none 이다(실측). 그래서 한 줄에
+          들어가는 건 두 개뿐이고, 폭이 반씩(약 181px) 나뉘어도 라벨이 안 접힌다.
+       ⚠️ 라벨 글자는 건드리지 않는다 — i18n 사전이 전체 문자열 일치라서
+          «↧ 모두 펼치기» 를 한 글자만 바꿔도 영어 번역이 깨진다(CLAUDE.md). */
+    #ph85-sidebar #ph86-actions {
+      flex-direction: row !important;
+      flex-wrap: nowrap !important;
+      gap: 6px !important;
+      margin: 8px 0 !important;
+    }
+    #ph85-sidebar #ph86-actions .ph86-action-btn {
+      flex: 1 1 0 !important;      /* 둘이 폭을 정확히 반씩 나눈다 */
+      min-width: 0 !important;     /* flex 항목 기본 min-width:auto 를 풀어야 안 넘친다 */
+      /* 세로로 아낀 36px 중 5px 만 돌려 써서 손가락 칸을 40px 로 키운다(35px → 40px) */
+      min-height: 40px !important;
+      padding: 8px 6px !important;
+      font-size: 12.5px !important;
+      white-space: nowrap !important;
+      /* ⛔ 여기에 display 를 쓰면 안 된다. 「🙈 숨기기」를 이 화면에서 감추는 규칙이
+            display:none 인데, ID 2개짜리 이 선택자가 그걸 이겨서 숨은 버튼이 되살아나고
+            셋이 폭을 나눠 가진다(119px씩 — 실제로 밟았다). <button> 은 원래 내용을
+            세로 가운데로 놓으므로 min-height 만 주면 충분하다. */
+    }
+
+    /* 메뉴가 넓어진 만큼 손가락 칸도 넓힌다 (안드로이드·애플 공통 권장 최소 48px) */
+    #ph85-sidebar .ph85-head { min-height: 52px; }
+    #ph85-sidebar .ph85-sub, #ph85-sidebar .ph125-gc { min-height: 46px; }
+    /* iOS 는 글자 16px 미만 입력칸에 자동으로 화면을 확대해 버린다 */
+    #ph85-sidebar .ph85-search { font-size: 16px !important; }
   }
-  body.mga-open #mga-tab { left: min(282px, 82vw); background: rgba(239,68,68,0.14); color: #ef4444; border-color: rgba(239,68,68,0.30); }
-  #mga-overlay { display: none; position: fixed; inset: 0; background: rgba(2,6,18,.55); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); z-index: 100000; }
+  /* 📐 태블릿(720~1023px)은 100% 로 덮지 않는다 — 화면이 넓어 본문을 보면서 고르는 편이 낫고,
+     한 줄에 글자가 60자 넘게 늘어나면 오히려 읽기 나쁘다. 휴대폰만 100% 다. */
+  @media (min-width: 720px) and (max-width: 1023px) {
+    html body #ph85-sidebar, html body aside#ph85-sidebar {
+      width: 400px !important;
+      box-shadow: 8px 0 40px rgba(0,0,0,.5) !important;
+      border-right: 1px solid rgba(99,102,241,0.3) !important;
+    }
+  }
+  /* PC 에서 숨기는 것은 «드로어 부품» 뿐이다 — 사이드바가 늘 펼쳐져 있어 필요가 없다.
+     ⚠️ 여기에 #mgv2-clock 이 들어 있었다(2026-08-17 제거). 시계를 모바일 전용으로 만들었을
+        때 넣은 줄인데, 사장님이 PC 에서 「왜 시간·날씨가 안 뜨나」 하신 원인 중 하나였다.
+        시계·날씨는 이제 PC 사이드바에도 뜬다(아래 공용 규칙). */
+  @media (min-width: 1024px) { #mga-tab, #mga-overlay, #mgv2-burger { display: none !important; } }
+
+  /* ═══ ③ 시계 + 🌤 날씨 — 사이드바 맨 위 (모바일·PC 공용) ═══════════════════
+     JS 가 #ph85-sidebar 의 첫 자식으로 시계를 끼우고, 날씨는 시계 다음 형제로 붙는다.
+     ⚠️ 미디어쿼리 «밖» 에 둔다. 2026-08-17 까지 이 규칙들이 @media (max-width:1023px)
+        안에 갇혀 있어서, PC 에서는 요소를 만들어도 스타일이 하나도 안 먹었다.
+     ⚠️ 색을 직접 박지 않는다. 이 화면은 다크·아이보리 두 테마에 더해
+        js/adm-light-surfaces.js 가 런타임에 표면을 다시 칠한다. 특정 색을 박으면
+        «흰 바탕에 흰 글자» 가 나는 자리가 여기다. 그래서 글자색은 부모에서 물려받고
+        (color:inherit) 배경·테두리는 반투명으로만 얹는다 — 어느 바탕에서도 읽힌다. */
+  /* 📏 (2026-08-23 사장님) 「크기를 절반으로」 — 시계+날씨 덩어리가 사이드바 맨 위를
+        130px 가까이 먹고 있었다(실측: 폰 390px 129.8px · PC 1440px(zoom1.3) 190.5px).
+        여백·글자를 함께 줄여 폰 68.4px(52.7%) · PC 86.8px(45.6%) 로 낮췄다.
+        ⚠️ 글자만 반으로 줄이면(17px→8.5px) 40~50대 사용자가 못 읽는다. 그래서
+           «줄 수» 를 줄여서 높이를 벌었다 — 라벨과 날짜를 한 줄에 나란히 놓는다
+           (아래 .mgv2-c 의 grid). 글자는 읽히는 선까지만 내렸다. */
+  #mgv2-clock {
+    display: flex; gap: 6px; color: inherit;
+    padding: calc(4px + env(safe-area-inset-top, 0px)) 12px 4px;
+    border-bottom: 1px solid currentColor;
+    border-bottom-color: color-mix(in srgb, currentColor 16%, transparent);
+  }
+  /* 모바일만 오른쪽 여백을 크게 — 드로어 ✕ 버튼 자리를 비운다(56px).
+     안 그러면 «필리핀» 칸을 덮는다. PC 에는 ✕ 가 없으니 그 여백이 낭비다. */
+  @media (max-width: 1023px) { #mgv2-clock { padding-right: 60px; } }
+  /* 📏 (2026-08-25 사장님) 「날짜랑 «한국»·«필리핀» 빼고 한 줄에」 — 샘플 A안 채택.
+     상자가 «하나» 다. 그 안에 KR·시각 · PH·시각 을 가운데로 모아 한 줄에 놓는다.
+     ⚠️ line-height 를 반드시 못 박는다. 이 파일 바깥(관리자 본문)의 상속값이 1.5~1.7 이라
+        한 줄로 만들어도 상자 높이가 그만큼 부풀어 «줄만 줄고 높이는 그대로» 가 된다
+        (샘플 검증에서 실제로 밟음 — 1.2 를 넣기 전 35px 이 아니라 45px 였다).
+     ⚠️ nowrap 이 빠지면 좁은 폰(≤330px, 아래 ✕ 여백 참고)에서 «09:08:» / «10» 으로 쪼개진다. */
+  #mgv2-clock .mgv2-c {
+    flex: 1; min-width: 0;
+    background: rgba(128,145,180,.13);
+    border: 1px solid rgba(128,145,180,.22);
+    border-radius: 8px; padding: 3px 8px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    white-space: nowrap; line-height: 1.2;
+  }
+  /* 🔍 opacity 는 .78 이 하한이다 (2026-08-17 더블체크에서 재서 잡음).
+     이 자리 글자는 10~11px 로 작은데 opacity 로 흐리게 하고 있었다. 실제로 재 보니
+     라벨 3.9:1 · 날씨 부제 3.4:1 로 WCAG AA 본문 기준(4.5:1)에 미달했다.
+     .78 로 올리면 5.0:1 이 된다.
+     ⚠️ 더 낮추지 마세요. «연하게 보이는 게 예쁘다» 는 이유로 내리면 40~50대 사장님·
+        직원 화면에서 글자가 사라집니다. 흐리게 할 거면 opacity 대신 글자 크기를
+        키우세요(18.66px 이상 굵은 글씨는 3:1 만 넘으면 됩니다). */
+  /* 라벨(KR·PH)은 자기 시각에 «붙어» 보여야 한다. 음수 margin 은 상자 gap(10px)이
+     라벨↔시각 사이에도 그대로 들어가 «KR   09:08:10» 으로 벌어지는 것을 되돌리는 것이다. */
+  #mgv2-clock .mgv2-l {
+    font-size: 10px; font-weight: 700; opacity: .78; letter-spacing: .6px;
+    margin-right: -5px;
+  }
+  #mgv2-clock .mgv2-t {
+    font-size: 14px; font-weight: 800; letter-spacing: .3px;
+    font-variant-numeric: tabular-nums;
+  }
+  /* 가운뎃점은 «두 시각을 가르는» 장식이라 화면낭독기에는 안 읽힌다(aria-hidden). */
+  #mgv2-clock .mgv2-sep { opacity: .32; font-weight: 700; }
+
+  /* 🌤 (2026-08-17 사장님) 카가얀데오로(CDO) 날씨 — 시계 바로 밑 한 줄.
+     ⚠️ 받아온 게 없으면 js 가 .mgv2-w-empty 를 붙인다 → 줄 자체가 사라진다.
+        «날씨: —» 같은 빈 껍데기를 남기지 않는다. */
+  #mgv2-weather {
+    display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 6px;
+    margin: 3px 12px 0; padding: 2px 8px 3px;
+    border: 1px solid rgba(128,145,180,.22); border-radius: 8px;
+    background: rgba(128,145,180,.13);
+    color: inherit; font-size: 10px; line-height: 1.25; word-break: keep-all;
+  }
+  #mgv2-weather.mgv2-w-empty { display: none; }
+  /* ⚠️ (2026-08-23) 날씨 줄도 시계와 같은 오른쪽 여백을 받는다. 시계를 절반으로 낮추면서
+        날씨 줄이 y≈50px 로 올라왔는데, 드로어 ✕(#mgv2-burger.is-open, top 8px·높이 46px)의
+        아래끝이 y≈54px 라 오른쪽 끝이 ✕ 밑으로 들어갔다. 360px 에서도 이 여백을 빼고
+        한 줄에 들어간다(실측). ⚠️ 반드시 위 «margin: 3px 12px 0» 축약형 «뒤» 에 둘 것 —
+        앞에 두면 같은 특정성(1,0,0)이라 뒤에 오는 축약형이 이겨서 아무 일도 안 일어난다. */
+  @media (max-width: 1023px) { #mgv2-weather { margin-right: 60px; } }
+  /* 아이콘은 SVG 다(글자가 아니다). 글자와 baseline 을 맞추면 위로 떠 보이므로
+     이 칸만 세로 가운데로 맞추고, 좁아져도 찌그러지지 않게 flex:none 을 준다. */
+  #mgv2-weather .mgv2-w-ico  { display: inline-flex; flex: none; align-self: center; line-height: 0; opacity: .9; }
+  /* 아이콘 크기는 JS 가 svg 속성(15×15)으로 적어 보내지만 CSS 가 이긴다 —
+     줄 높이를 낮춘 만큼(2026-08-23) 여기서 함께 줄인다. JS 는 건드리지 않는다. */
+  #mgv2-weather .mgv2-w-ico svg { display: block; width: 12px; height: 12px; }
+  #mgv2-weather .mgv2-w-city { font-weight: 700; opacity: .78; }
+  #mgv2-weather .mgv2-w-temp { font-weight: 800; font-size: 12px; font-variant-numeric: tabular-nums; }
+  #mgv2-weather .mgv2-w-sub  { opacity: .78; font-size: 9px; }   /* .62 → .78 : 3.4:1 이었다 */
+  /* 브랜드 줄은 시계 바로 밑에 — 위 여백을 시계가 이미 만들었다 */
+  #ph85-sidebar .ph85-brand { padding-top: 6px !important; }
+
+  /* ① 왼쪽 맨 위 «줄 3개» — 이것 하나로 열고 닫는다.
+     ⚠️ ☰ 「글자」를 쓰지 않고 선 3개를 직접 그린다. 글자로 그리면 기종마다 굵기·크기가
+        달라지고, Win10 등 글꼴이 없는 곳에서는 두부(□)로 나온다. */
+  #mgv2-burger {
+    display: none; position: fixed;
+    top: calc(8px + env(safe-area-inset-top, 0px)); left: 8px;
+    width: 46px; height: 46px; padding: 0;
+    place-items: center;
+    border: 1px solid rgba(148,163,184,.34); border-radius: 14px;
+    background: rgba(255,255,255,.94);
+    -webkit-backdrop-filter: saturate(180%) blur(8px); backdrop-filter: saturate(180%) blur(8px);
+    box-shadow: 0 3px 12px rgba(2,6,18,.18);
+    cursor: pointer; z-index: 100002;
+    -webkit-tap-highlight-color: transparent;
+    transition: background .18s, border-color .18s;
+  }
+  #mgv2-burger i, #mgv2-burger i::before, #mgv2-burger i::after {
+    display: block; width: 21px; height: 2.2px; border-radius: 2px;
+    background: #0f172a; transition: transform .2s, opacity .15s;
+  }
+  #mgv2-burger i { position: relative; }
+  #mgv2-burger i::before, #mgv2-burger i::after { content: ""; position: absolute; left: 0; }
+  #mgv2-burger i::before { top: -7px; }
+  #mgv2-burger i::after  { top:  7px; }
+  #mgv2-burger:active { background: rgba(241,245,249,.98); }
+  /* 열리면 ✕ 로 바뀌면서 **오른쪽 위** 로 간다.
+     처음엔 «같은 자리에서 다시 누르면 닫힘» 으로 뒀는데, 실제로 그려 보니
+     왼쪽 위는 시계 「한국 KR」 칸 자리라 버튼이 시각을 가렸다(실측: 05:01:17 → :01:17).
+     화면을 100% 덮는 시트에서 ✕ 를 오른쪽 위에 두는 것은 흔한 방식이라 헷갈리지도 않고,
+     닫는 길은 그 밖에도 세 개 더 있다 — 바깥 어두운 곳 · 뒤로가기 · ESC. */
+  #mgv2-burger.is-open {
+    left: auto; right: 8px;
+    background: rgba(15,23,42,.92); border-color: rgba(148,163,184,.28);
+  }
+  #mgv2-burger.is-open i { background: transparent; }
+  #mgv2-burger.is-open i::before { top: 0; transform: rotate(45deg);  background: #fff; }
+  #mgv2-burger.is-open i::after  { top: 0; transform: rotate(-45deg); background: #fff; }
+  /* ⚠️ 반드시 :not(.is-open) 로 «닫힘일 때만» 걸어야 한다.
+     처음엔 그냥 `html[…ivory] #mgv2-burger i` 로 썼는데, 그 선택자가
+     `#mgv2-burger.is-open i` 보다 특정성이 높아서(요소 3개 vs 1개) 열림 상태의
+     «가운데 막대 숨기기»를 덮어 버렸다 — ✕ 가 아니라 별표(✻)로 보였다.
+     버튼 배경도 마찬가지로 아이보리가 다시 이겨서 열려도 밝은 색 그대로였다. (실측 2026-08-16) */
+  html[data-admin-theme="ivory"] #mgv2-burger:not(.is-open) { background: rgba(255,250,240,.95); border-color: #e0b050; }
+  html[data-admin-theme="ivory"] #mgv2-burger:not(.is-open) i,
+  html[data-admin-theme="ivory"] #mgv2-burger:not(.is-open) i::before,
+  html[data-admin-theme="ivory"] #mgv2-burger:not(.is-open) i::after { background: #4a3826; }
+  /* 저전력·손떨림 설정에서는 애니메이션을 끈다 */
+  @media (prefers-reduced-motion: reduce) {
+    html body #ph85-sidebar, #mgv2-burger i, #mgv2-burger i::before, #mgv2-burger i::after { transition: none !important; }
+  }
+
+  /* 🗑 (2026-08-16) 옛 손잡이 #mga-tab 규칙 삭제 — 요청 ① 로 «줄 3개»(#mgv2-burger) 가 대신한다.
+     버튼 자체도 admin.html 에서 지웠다. 여기 규칙을 남겨 두면 나중에 누가 다시 살릴 빌미가 된다. */
+  #mga-overlay {
+    display: none; position: fixed; inset: 0; z-index: 100000;
+    /* ⚠️ backdrop-filter(배경 흐림) 제거 — 휴대폰에서 가장 비싼 효과이고,
+       드로어가 화면을 100% 덮는 지금은 뒤가 아예 안 보여서 흐릴 대상도 없다.
+       불투명도만 조금 올려 대체한다. */
+    background: rgba(2,6,18,.62);
+  }
 
 
 /* ── [style#ph-hero-mobile-hide] ── */
@@ -7349,6 +8068,121 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #ph85-sidebar .ph125-gc .ph125-num { background: rgba(217,119,6,0.22) !important; color: #92400e !important; }
   html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub .ph125-toggle { color: #b45309 !important; }
 
+  /* ═══════════════════════════════════════════════════════════════════════
+     ⚡ '자주 쓰는 기능' — 첫 화면판 (2026-08-16 사장님)
+     ═══════════════════════════════════════════════════════════════════════
+     사이드바 안에 있던 상자를 admin.html 의 .hero 바로 밑으로 옮겼다.
+     사이드바에서는 «세로 목록»이 맞았지만, 첫 화면에서는 «타일 격자»가 맞다 —
+     10개를 세로로 세우면 그것만 500px 라 경영지표가 화면 밖으로 밀린다.
+     휴대폰 2열 · 태블릿 3열 · PC 5열로 접는다.
+
+     ⚠️ 항목의 배치·색은 adm-quick-access.js 가 **인라인 style 로** 박는다
+        (display:flex, padding:7px 12px, color:#fde68a, border-top …).
+        인라인을 이기려면 !important 가 반드시 있어야 한다. 빼면 조용히
+        사이드바 시절 세로 목록 + 옅은 노란 글씨로 돌아간다.
+        (그 파일은 다른 사람 영역이라 손대지 않고 CSS 로만 덮는다.)
+     ⚠️ 글자색을 밝은 배경 기준으로 잡는다. 옛 아이보리 규칙은
+        `#ph85-sidebar #ph161-quick` 이라 여기에는 안 걸린다 — 그대로 두면
+        크림색 위 옅은 금색이 되어 2026-08-04 멜카 매니저 신고가 재발한다.
+     ═══════════════════════════════════════════════════════════════════════ */
+  #ph161-quick {
+    /* 첫 화면 맨 위 — 줄3개 버튼(모바일, 좌상단 고정 46px)과 겹치지 않게 위 여백을 준다 */
+    margin: 8px 0 12px;
+    border: 1px solid rgba(180,83,9,0.28);
+    border-radius: 14px;
+    background: rgba(251,191,36,0.10);
+    overflow: hidden;
+  }
+  @media (max-width: 1023px) { #ph161-quick { margin-top: calc(62px + env(safe-area-inset-top, 0px)); } }
+  #ph161-quick .ph161-head {
+    padding: 9px 14px;
+    font-size: 11.5px; font-weight: 900; letter-spacing: .3px;
+    color: #92400e;
+    border-bottom: 1px solid rgba(180,83,9,0.18);
+  }
+  #ph161-quick-items {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    background: rgba(180,83,9,0.16);          /* 칸 사이 실선을 배경으로 그린다 */
+  }
+  @media (min-width: 640px)  { #ph161-quick-items { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (min-width: 1024px) { #ph161-quick-items { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+
+  #ph161-quick .ph161-q {
+    /* 인라인 세로목록 스타일을 전부 타일로 덮는다 */
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-height: 52px !important;              /* 손가락 최소 48px */
+    padding: 10px 12px !important;
+    border-top: 0 !important;
+    background: rgba(255,255,255,0.72);
+    color: #2b2620 !important;                /* 밝은 배경 — 사실상 검정(멜카 매니저 요청) */
+    font-size: 12.5px !important;
+    line-height: 1.3 !important;
+    font-weight: 700 !important;
+    word-break: keep-all;
+  }
+  #ph161-quick .ph161-q svg { stroke: #b45309 !important; }
+  #ph161-quick .ph161-q:active { background: rgba(245,158,11,0.22); }
+  /* hover 는 «색만» — 크기·위치는 고정(관리자 규칙: hover 확대 금지) */
+  #ph161-quick .ph161-q:hover { background: rgba(245,158,11,0.16); color: #7c2d12 !important; }
+  #ph161-quick .ph161-mode {
+    grid-column: 1 / -1;
+    background: rgba(255,255,255,0.72);
+    color: #92400e !important;
+    border-top: 0 !important;
+  }
+
+  /* ── 🕘 최근 본 메뉴 5개 (2026-08-16) ──────────────────────────────────
+     위 「자주 쓰는 기능」과 한 덩어리로 보이도록 같은 테두리·같은 앰버 계열을 쓰되,
+     «타일»이 아니라 «칩»으로 만들어 성격이 다르다는 것을 형태로 알린다 —
+     자주 쓰는 기능 = 고정된 도구함, 최근 본 메뉴 = 내가 지나온 자취.
+     ⚠️ 색은 위 타일과 같은 이유로 테마와 무관하게 «밝은 바탕 + 진한 글자» 한 벌이다
+        (adm-light-surfaces.js 가 본문을 밝게 덧칠하므로 어두운 판을 만들면 흰 위 노랑이 된다). */
+  #ph164-recent {
+    margin: 0 0 12px;
+    border: 1px solid rgba(180,83,9,0.22);
+    border-radius: 14px;
+    /* 위 「자주 쓰는 기능」(0.10)과 같은 계열로. 더 옅게 잡았더니 본문의 푸른 배경 위에서
+       앰버가 아니라 회색으로 보여 두 상자가 남남처럼 떨어져 보였다(실측 화면 확인). */
+    background: rgba(251,191,36,0.10);
+    padding: 9px 12px 11px;
+  }
+  #ph164-recent.ph164-empty { display: none !important; }   /* 기록 없으면 아예 안 보인다 */
+  #ph164-recent .ph164-head {
+    font-size: 11.5px; font-weight: 900; letter-spacing: .3px;
+    color: #92400e; margin-bottom: 7px;
+  }
+  #ph164-recent-items { display: flex; flex-wrap: wrap; gap: 6px; }
+  #ph164-recent .ph164-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    min-height: 38px; padding: 6px 12px;
+    border: 1px solid rgba(180,83,9,0.28); border-radius: 999px;
+    background: rgba(255,255,255,0.78);
+    color: #2b2620; font-size: 12.5px; font-weight: 700; line-height: 1.25;
+    font-family: inherit; cursor: pointer; max-width: 100%;
+    -webkit-tap-highlight-color: transparent;
+    word-break: keep-all;
+  }
+  #ph164-recent .ph164-chip svg { color: #b45309; }
+  /* hover 는 «색만» — 크기·위치 고정(관리자 규칙: hover 확대 금지) */
+  #ph164-recent .ph164-chip:hover { background: rgba(245,158,11,0.16); color: #7c2d12; }
+  #ph164-recent .ph164-chip:active { background: rgba(245,158,11,0.24); }
+  /* 첫 화면 맨 위에서는 자주 쓰는 기능 바로 밑에 붙는다 */
+  #ph161-quick + #ph164-recent { margin-top: -4px; }
+
+  /* 🚫 다크 테마용 «어두운 타일» 을 따로 만들지 않는다 — 만들었다가 되돌린 이유를 남긴다.
+     처음엔 data-admin-theme="dark" 에서 타일을 남색(#16213a) + 옅은 노란 글자로 잡았다.
+     그런데 실측해 보니 다크 테마에서도 타일 배경이 **rgb(244,246,251) 흰색**으로 나왔다.
+     범인은 js/adm-light-surfaces.js — 본문의 «너무 진한» 면을 런타임에 밝게 덧칠하는데,
+     그 파일의 제외 목록에 `#ph85-sidebar *` 는 있어도 이 상자는 (사이드바를 나왔으니) 없다.
+     결과: 흰 배경 + 옅은 노란 글자 = 안 읽힘. 2026-08-04 멜카 매니저 신고와 같은 그림이다.
+     → 테마와 무관하게 «밝은 타일 + 진한 글자» 한 벌로 간다. 어느 테마에서도 읽힌다.
+     ⚠️ 다시 어두운 타일을 넣고 싶다면 adm-light-surfaces.js 의 SKIP_SEL 에
+        '#ph161-quick', '#ph161-quick *' 를 먼저 넣어야 한다. 안 넣으면 조용히 흰색이 된다. */
+
   /* ⚡ '자주 쓰는 기능'(#ph161-quick) — 아이보리 테마 가독성
      ─────────────────────────────────────────────────────────────
      🐞 멜카(본사 매니저) 2026-08-04 신고: "글자를 검정으로 바꿔 주세요. 눈이 덜 피로합니다."
@@ -7406,7 +8240,7 @@ button.chip:hover,
   #ph85-sidebar .ph85-sub:hover .mi-ico,
   #ph85-sidebar .ph85-sub.ph125-open .mi-ico,
   #ph85-sidebar .ph85-sub.ph85-active .mi-ico{ color:#fbbf24 !important; opacity:1 !important; }
-  /* 강조 줄(학원 전체 스케줄)은 파란 계열 유지 */
+  /* 강조 줄(전체 스케줄)은 파란 계열 유지 */
   #ph85-sidebar .ph85-sub-schedule .mi-ico{ color:#60a5fa !important; opacity:.92 !important; }
   #ph85-sidebar .ph85-sub-schedule:hover .mi-ico{ color:#93c5fd !important; opacity:1 !important; }
 
@@ -7595,6 +8429,9 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #card-report-forms .rf-form-name:hover { color: #1E40AF !important; }
   html[data-admin-theme="ivory"] #card-report-forms .rf-badge.active { background: rgba(34,197,94,0.18) !important; color: #15803D !important; }
   html[data-admin-theme="ivory"] #card-report-forms .rf-badge.inactive { background: rgba(148,163,184,0.22) !important; color: #475569 !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-info { background: #F5F8FF !important; border-color: #D5E2FB !important; border-left-color: #3B82F6 !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-go { background: #E9F7F1 !important; color: #0B6E63 !important; border-color: #9AD5C4 !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-go:hover { background: #D5EFE6 !important; color: #075E54 !important; }
 
   /* 19) 학원별 학생 수업현황 카드 — 밝게(ivory) 모드: 밝은 배경 + 어두운 글자 */
   html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-info { color: #1E293B !important; }
@@ -7945,22 +8782,25 @@ button.chip:hover,
 /* ── [style#no-id-115] ── */
 
 @media (min-width: 901px) {
-  /* (26-07-22 2차 절반 축소) 기본값과 동일 — 옛 캐시 CSS 를 이기는 백스톱 역할만 */
+  /* (26-07-22 2차 절반 축소) 기본값과 동일 — 옛 캐시 CSS 를 이기는 백스톱 역할만.
+     ⚠️ (2026-08-17) 여기 값이 admin-inline-a.css 의 짝과 **반드시 같아야** 한다.
+        옛 `1fr 160px` 이 !important 로 남아 있으면 a.css 를 1fr 로 고쳐도 안 먹는다. */
   .hero {
-    grid-template-columns: 1fr 160px !important;
+    grid-template-columns: 1fr !important;   /* 오른쪽 캐릭터 액자 삭제 → 1컬럼 */
     gap: 24px !important;
     padding: 16px 32px !important;
     min-height: 0 !important;
     border-radius: 22px !important;
     margin-bottom: 16px !important;
   }
-  .hero .hero-search input { padding: 14px 96px 14px 54px !important; font-size: 17px !important; }
-  .hero .hero-search-icon { width: 36px !important; height: 36px !important; left: 10px !important; }
-  .hero .hero-search-mic { width: 40px !important; height: 40px !important; right: 12px !important; }
+  /* 🥭 왼쪽 = Mr. Mango 미니 아바타 / 오른쪽 = 돋보기 · 마이크 · ✕지우기 (2026-08-17 재배치) */
+  .hero .hero-search input { padding: 14px 152px 14px 66px !important; font-size: 17px !important; }
+  /* 📏 (2026-08-17 2차 «조금만 더 키워줘») 40 → 48px. a.css 의 짝과 값이 같아야 한다 */
+  .hero .hero-search-mango { width: 48px !important; height: 48px !important; left: 10px !important; }
+  .hero .hero-search-icon { width: 40px !important; height: 40px !important; right: 12px !important; left: auto !important; }
+  .hero .hero-search-mic { width: 40px !important; height: 40px !important; right: 58px !important; }
   .hero .hero-search-mic .mic-icon { width: 20px !important; height: 20px !important; }
-  .hero-character-frame { padding: 5px !important; border-radius: 18px !important; }
-  .hero-character-frame img { max-width: 130px !important; min-width: 100px !important; border-radius: 14px !important; }
-  .hero-character-frame::after { font-size: 14px !important; }  /* 🛸 UFO */
+  .hero .hero-search-clear { right: 104px !important; }
 }
 
 
@@ -8054,10 +8894,18 @@ button.chip:hover,
     color: #c2410c !important; border-color: rgba(234,88,12,0.45) !important;
   }
   /* 손자 메뉴 — mi-menu-icons 가 스코프 없이 박아둔 다크값(rgba(15,23,42,.55)/#cbd5e1)을 덮는다 */
+  /* 🎨 (2026-08-19 사장님 선택 «B 옅은 크림») 손자 상자 색.
+     [전] #f6f9fd — 푸른빛 흰색. 사이드바 본체는 따뜻한 크림·복숭아색이라 계열이 서로 달라,
+          목록이 열릴 때마다 «다른 화면을 오려 붙인 것»처럼 도드라졌다.
+     [후] #fffaf3 — 사이드바와 같은 따뜻한 계열. 왼쪽 선도 회색에서 사이드바 주황으로 맞춘다.
+     ⚠️ 반투명(backdrop-filter: blur)은 고르지 않았다 — 뒤 색이 비쳐 «계열이 같아지는» 것이
+        반투명의 실제 효과인데, 사이드바가 단색이라 같은 결과를 그냥 칠해서 얻을 수 있다.
+        흐림은 매 프레임 그래픽 가속을 쓰므로 필리핀 가정 PC·구형 휴대폰에서 여닫이가 끊긴다.
+        굳이 반투명이 필요하면 흐림 없는 rgba(255,255,255,.72) 가 다음 후보다(사장님께 함께 보여 드린 C안). */
   html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph125-grandchildren {
-    background: #f6f9fd !important;
-    border-left: 1px solid rgba(15,23,42,0.12) !important;
-    box-shadow: inset 0 1px 0 rgba(15,23,42,0.05) !important;
+    background: #fffaf3 !important;
+    border-left: 2px solid rgba(234,88,12,0.30) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.85) !important;
   }
   html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph125-gc { color: #475467 !important; }
   html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph125-gc:hover { background: rgba(234,88,12,0.12) !important; color: #9a3412 !important; }
@@ -8180,27 +9028,8 @@ button.chip:hover,
 /* ── [style#ph160-nav-rail] ── */
 
   /* 접기 버튼 — 펼침 상태 기본 모양 */
-  #ph160-rail-toggle {
-    display: none;               /* PC 미디어쿼리에서만 켠다 */
-    align-items: center; justify-content: center; gap: 6px;
-    width: 100%; height: 30px; margin: 0 0 8px;
-    background: rgba(148,163,184,0.10);
-    border: 1px solid rgba(148,163,184,0.22);
-    border-radius: 8px;
-    color: #cbd5e1; font-size: 12px; font-weight: 700;
-    cursor: pointer;
-    transition: background .16s, color .16s, border-color .16s;
-  }
-  #ph160-rail-toggle:hover {
-    background: rgba(251,191,36,0.16);
-    border-color: rgba(251,191,36,0.45);
-    color: #fde68a;
-  }
-  #ph160-rail-toggle:focus-visible { outline: 2px solid #fbbf24; outline-offset: 2px; }
-  #ph160-rail-toggle .ph160-chev { font-size: 15px; line-height: 1; transition: transform .22s ease; }
 
   @media (min-width: 1024px) {
-    #ph160-rail-toggle { display: flex; }
 
     /* ⛔ width / padding-left 에 transition 을 걸지 않는다.
        두 속성은 애니메이션 매 프레임마다 '전체 레이아웃 재계산'을 일으킨다.
@@ -8210,63 +9039,17 @@ button.chip:hover,
     /* ── 접힌 상태 ───────────────────────────────────────────── */
     /* body 의 padding-left 는 여러 스크립트가 인라인으로 312px 를 박는다.
        인라인을 이기려면 스타일시트 쪽에 !important 가 필요하다. */
-    html[data-adm-nav="rail"] body { padding-left: 76px !important; }
-    html[data-adm-nav="rail"] #ph85-sidebar {
-      /* box-sizing 필수 — 기본 content-box 로 두면 padding 12px + border 1px 만큼
-         레일이 본문을 덮는다(실측 13px). 76px 안에 전부 포함시켜 body padding 과 정확히 맞춘다. */
-      box-sizing: border-box !important;
-      width: 76px !important;
-      padding-left: 6px !important; padding-right: 6px !important;
-      overflow-x: hidden !important;
-    }
 
     /* 글자 요소는 접힐 때만 숨긴다 (기본값은 '보임') */
-    html[data-adm-nav="rail"] .ph85-brand-text,
-    html[data-adm-nav="rail"] .ph85-search-wrap,
-    html[data-adm-nav="rail"] #ph86-actions,
-    html[data-adm-nav="rail"] #ph85-howto,
-    html[data-adm-nav="rail"] #ph85-ai-asst span,
-    html[data-adm-nav="rail"] .ph85-title,
-    html[data-adm-nav="rail"] .ph85-arrow,
-    html[data-adm-nav="rail"] .ph85-live,
-    html[data-adm-nav="rail"] #ph160-rail-toggle .ph160-lab { display: none !important; }
 
-    html[data-adm-nav="rail"] #ph160-rail-toggle { width: 100%; height: 34px; }
-    html[data-adm-nav="rail"] #ph160-rail-toggle .ph160-chev { transform: rotate(180deg); }
 
-    html[data-adm-nav="rail"] .ph85-brand {
-      justify-content: center; padding: 6px 0 10px; margin-bottom: 8px;
-    }
-    html[data-adm-nav="rail"] #ph85-ai-asst,
-    html[data-adm-nav="rail"] .ph85-classroom {
-      justify-content: center; padding: 11px 0 !important; gap: 0 !important;
-    }
 
-    html[data-adm-nav="rail"] .ph85-head {
-      justify-content: center; padding: 9px 0 !important; position: relative;
-    }
-    html[data-adm-nav="rail"] .ph85-group { margin-bottom: 5px; }
 
     /* 개수 배지 → 아이콘 우상단 코너로. 알림 6건이 몇 건인지는 접어도 보여야 한다 */
-    html[data-adm-nav="rail"] .ph85-count-badge {
-      position: absolute !important;
-      /* 아이콘(28px, 가운데 정렬)의 우상단에 붙인다. right 기준으로 잡으면
-         레일 오른쪽 끝에 붙어 아이콘과 떨어져 보인다(실측 12px 이격). */
-      top: 3px; left: calc(50% + 6px); right: auto;
-      margin: 0 !important; padding: 0 4px !important;
-      min-width: 15px; text-align: center;
-      font-size: 9.5px !important; line-height: 15px !important;
-      border-radius: 99px !important;
-      background: rgba(251,191,36,0.92) !important;
-      color: #422006 !important;
-      pointer-events: none;
-    }
 
     /* 접힌 동안에는 하위 메뉴가 절대 펼쳐지지 않는다 (레일 폭에 글자가 낄 자리가 없음) */
-    html[data-adm-nav="rail"] .ph85-group.open .ph85-subs { max-height: 0 !important; }
 
     /* ⛔ hover 로 라벨/서브메뉴를 띄우지 않는다. 강조는 배경색까지만 */
-    html[data-adm-nav="rail"] .ph85-head:hover { background: rgba(251,191,36,0.14); }
   }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -8604,3 +9387,1004 @@ html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] a[href="/b
   color: #1d4ed8 !important;
   border-color: #93b4f0 !important;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   🧭 #ph162-dock — 사이드바 하단 계정 도크 (2026-08-15 「A안」)
+   옛 상단바(.top-header)를 없애고 🩺 진단 · 🌐 EN · 계정 버튼을 여기로 내렸다.
+
+   [왜 이 파일 맨 끝인가] admin.html 은 a → b → c 순으로 CSS 를 읽는다. #ph115-user 를
+     헤더 버튼 모양으로 칠하는 옛 규칙들이 이 파일 위쪽(7628~7660 등)에 !important 로 박혀 있어,
+     같은 특정도로는 못 이긴다. 맨 끝에 두면 «나중에 온 쪽»이라 동점에서 이긴다.
+
+   [hover 는 색만] CLAUDE.md 1-3 — 관리자 화면의 hover 확대(scale/translate)는 "정신없다"고
+     제거된 규칙이다. 여기서도 transition 대상은 색뿐이고 크기·위치는 고정이다.
+
+   [배치] 2열 그리드. 진단·EN 이 한 줄, 런타임 mount 되는 #ph115-user 가 그 아래 전체 폭.
+     #topUserBtn 은 display:none 이라 그리드 칸을 차지하지 않는다.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+  #ph162-dock {
+    /* 사이드바(#ph85-sidebar)는 overflow-y:auto 스크롤 컨테이너다. sticky 로 바닥에 붙인다.
+       사이드바 padding 이 12px 10px 이라 그만큼 음수 마진으로 상쇄해 좌우 끝까지 채운다. */
+    position: sticky;
+    bottom: -12px;
+    margin: 10px -10px -12px;
+    padding: 10px 12px 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    background: #0f172a;                               /* 사이드바 기본(다크) 그라데이션 하단색 */
+    border-top: 1px solid rgba(148,163,184,0.22);
+    z-index: 3;
+  }
+
+  #ph162-dock .ph162-pill {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    font-size: 12px; font-weight: 700; line-height: 1.2;
+    text-decoration: none; white-space: nowrap;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(148,163,184,0.28);
+    color: #e2e8f0;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease, color .15s ease;
+  }
+  #ph162-dock .ph162-pill:hover {
+    background: rgba(245,158,11,0.16);
+    border-color: rgba(217,119,6,0.55);
+    color: #fbbf24;
+  }
+  #ph162-dock .ph162-pill:focus-visible {
+    outline: 2px solid #f59e0b;
+    outline-offset: 2px;
+  }
+
+  /* 👤 런타임 mount 되는 계정 버튼 — 헤더 시절 모양을 도크 모양으로 덮는다.
+     옛 규칙들이 !important 라 여기서도 !important 가 필요하다. */
+  #ph162-dock #ph115-user {
+    /* 🧭 (2026-08-21 사장님 「부피가 너무 크다」) 옛 값은 1 / -1 = 한 줄 전체였다.
+       이제 «마지막 칸을 빼고» 차지하고, 그 마지막 칸에 사이트 홈이 옆으로 선다 → 줄이 하나 줄어든다.
+       ⚠️ -2 / -1 · 1 / -2 로 «끝에서부터» 세는 이유: 음성 토글이 못 붙는 브라우저에서는
+          도크가 3칸이 아니라 2칸이다(adm-r15.js 의 .has-voice 가 안 붙는다). 앞에서부터
+          세면(1/3, 3/-1) 그때 칸이 모자라 암시적 열이 생기면서 배치가 무너진다. */
+    grid-column: 1 / -2 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+    background: rgba(255,255,255,0.06) !important;
+    border: 1px solid rgba(148,163,184,0.28) !important;
+    color: #e2e8f0 !important;
+    font-size: 12.5px !important;
+    cursor: pointer !important;
+    box-shadow: none !important;
+    transition: background .15s ease, border-color .15s ease !important;
+  }
+  #ph162-dock #ph115-user:hover {
+    background: rgba(245,158,11,0.14) !important;
+    border-color: rgba(217,119,6,0.50) !important;
+  }
+  #ph162-dock #ph115-user .ph115-avatar {
+    width: 24px !important; height: 24px !important; flex: none !important;
+    border-radius: 50% !important;
+    display: inline-flex !important; align-items: center !important; justify-content: center !important;
+    background: linear-gradient(135deg,#fbbf24,#ea8a04) !important;
+    color: #fff !important; font-weight: 900 !important; font-size: 12px !important;
+  }
+  #ph162-dock #ph115-user .ph115-name {
+    flex: 1 !important; min-width: 0 !important; text-align: left !important;
+    font-weight: 800 !important;
+    overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important;
+  }
+  #ph162-dock #ph115-user .ph115-role {
+    flex: none !important;
+    font-size: 10px !important; font-weight: 800 !important;
+    padding: 2px 7px !important; border-radius: 99px !important;
+    background: rgba(148,163,184,0.22) !important;
+    color: #cbd5e1 !important;
+  }
+
+  /* ☀️ 밝은 테마(항상 켜져 있음 — admin.html 이 data-admin-theme="ivory" 고정) */
+  html[data-admin-theme="ivory"] #ph162-dock {
+    background: #fdf1df !important;                    /* 사이드바 ivory 그라데이션의 하단색 */
+    border-top-color: rgba(150,120,70,0.22) !important;
+  }
+  html[data-admin-theme="ivory"] #ph162-dock .ph162-pill,
+  html[data-admin-theme="ivory"] #ph162-dock #ph115-user {
+    background: #ffffff !important;
+    border-color: rgba(150,120,70,0.28) !important;
+    color: #57534e !important;
+  }
+  html[data-admin-theme="ivory"] #ph162-dock .ph162-pill:hover,
+  html[data-admin-theme="ivory"] #ph162-dock #ph115-user:hover {
+    background: rgba(245,158,11,0.14) !important;
+    border-color: rgba(217,119,6,0.50) !important;
+    color: #b45309 !important;
+  }
+  html[data-admin-theme="ivory"] #ph162-dock #ph115-user .ph115-role {
+    background: rgba(150,120,70,0.16) !important;
+    color: #78716c !important;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     🧹 (2026-08-21 사장님 지적 「사이트 홈과 관리자 칸 사이가 너무 비어 있다」)
+     그 빈 자리는 여백이 아니라 **옛 상단바의 사용자 버튼**(#topUserBtn)이다.
+     배경만 투명해서 안 보일 뿐, 그리드 한 줄을 그대로 차지하고 있었다
+     (실측 2026-08-21, 헤드리스: PC 28px·휴대폰 22px + 간격 7px).
+
+     [왜 지금까지 안 숨겨졌나] 이 파일 5389행이 이미 `#topUserBtn{display:none!important}`
+       라고 적어 두었는데, 옛 헤더 규칙 `#topUserBtn.th-user{display:inline-flex!important}`
+       (1944·4922행)가 **특정도가 한 칸 높아서** 이긴다. 게다가 그리드 자식이라
+       inline-flex 가 flex 로 승격돼 한 줄을 온전히 먹었다.
+     → 여기서 도크 id 를 앞에 붙여(2,0,0) 확실히 이긴다.
+
+     ⛔ 요소를 admin.html 에서 지우지 말 것 — adm-core.js 의 initTopUserMenu() 가
+        /api/admin/me 를 부르는 이 화면의 «유일한» 서버 신원 조회 자리다.
+        보이지만 않으면 되고, 지우면 그 호출까지 함께 사라진다. */
+  #ph162-dock #topUserBtn,
+  #ph162-dock #topUserPopup {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important; height: 0 !important;
+    padding: 0 !important; margin: 0 !important;
+  }
+
+  /* 🏠 사이트 홈 — 계정 카드 «옆» 마지막 한 칸.
+     [왜 옆으로] 도크가 네 줄(유틸·계정·빈칸·홈)이라 PC 227px·휴대폰 172px 를 늘 덮고 있었다.
+       빈 칸을 없애고 홈을 계정 옆으로 옮기면 두 줄이 된다.
+     ⚠️ 칸 하나(PC 기준 91px)에 그림+글자를 넣어야 하므로 여백·글자를 조금 줄인다.
+        ⛔ 글자를 빼고 그림만 남기지 말 것 — 이 버튼은 「나가는 문이 안 보인다」는
+           2026-08-20 필리핀 매니저 제보로 넣은 것이다(admin.html 의 그 자리 주석 참조).
+     ⚠️ 좁은 칸에서 이름이 길어져도 다른 칸을 밀지 않도록 min-width:0 + overflow:hidden. */
+  #ph162-dock #ph162-sitehome {
+    grid-column: -2 / -1 !important;
+    min-width: 0;
+    padding: 8px 6px;
+    gap: 4px;
+    font-size: 11.5px;
+    overflow: hidden;
+  }
+  #ph162-dock #ph162-sitehome img {
+    width: 18px !important; height: 18px !important;
+  }
+  /* 글자는 EN 일 때가 더 길다(「사이트 홈」 4글자 대 「Site home」 9글자). 칸을 넘치면
+     하드하게 잘리는 대신 «…» 로 줄인다 — 넘쳐서 옆 칸(계정)을 밀어내는 것보다 낫다.
+     실측(2026-08-21 헤드리스, PC 1440·1024 · 휴대폰): 「사이트 홈」·「Site home」 둘 다
+     넘치지 않았고(scrollWidth ≤ clientWidth), 계정 이름을 길게 넣어도 홈 칸 폭은 그대로였다. */
+  #ph162-dock #ph162-sitehome span {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+/* ═══ 🔍 메뉴 검색 결과 숨김 (2026-08-19) ═══════════════════════════════════
+   검색은 style.display 를 쓰지 않는다 — admin.html 의 «강제 visible» 복구 루프가
+   1.5초마다 display:none 을 전부 되살려서, 검색이 «쳤다가 잠시 뒤 풀리는» 상태였다.
+   그 루프는 사이드바가 통째로 사라졌던 사고의 복구책이라 지우면 안 되고,
+   대신 검색이 **클래스로** 숨긴다. 복구 루프는 style 만 보므로 서로 안 부딪힌다.
+   ⚠️ 클래스 이름을 바꾸면 admin.html 의 runSearch(HIDE 상수)도 함께 고칠 것.
+   ⚠️ !important 가 필요하다 — 사이드바 요소들이 다른 규칙에서 display 를 지정받는다. */
+#ph85-sidebar .ph85-group.ph85-shide,
+#ph85-sidebar .ph85-sub.ph85-shide,
+#ph85-sidebar .ph125-grandchildren.ph85-shide,
+#ph85-sidebar .ph125-gc.ph85-shide,
+/* 🧾 (2026-09-09) 결재함은 그룹 안 .ph85-sub 가 아니라 사이드바 맨 위 <a> 라
+   위 네 줄 어디에도 안 걸렸다. 검색이 그것도 걸러야 하므로 함께 못박는다.
+   ⛔ 이 줄을 지우면 검색 중에 결재함만 혼자 남아 «걸러지지 않는» 항목이 된다. */
+#ph85-sidebar #ia6-appr.ph85-shide { display: none !important; }
+
+/* ═══ ⭐ 자주 쓰는 메뉴 (2026-08-19 · js/adm-quickfav.js) ═══════════════════
+   검색창 아래, 그룹 목록 위. 매일 쓰는 대여섯 개를 3번 클릭 → 1번으로.
+   ⚠️ 일부러 .ph85-group / .ph85-sub 이름을 쓰지 않는다 — 그 이름을 쓰면
+      그룹 갯수 배지·역할 필터·메뉴 검색이 이 줄까지 세거나 거른다.
+   ⚠️ 숨김은 클래스로만 한다(.qf-empty/.qf-searching). style.display 로 숨기면
+      admin.html 의 «강제 visible» 복구 루프가 되살린다. */
+#ph85-sidebar .qf-box{
+  margin: 6px 10px 10px; padding: 7px 8px 8px;
+  border: 1px solid rgba(234,88,12,.22); border-radius: 11px;
+  background: #fffaf3;
+}
+#ph85-sidebar .qf-box.qf-empty,
+#ph85-sidebar .qf-box.qf-searching{ display: none !important; }
+#ph85-sidebar .qf-head{
+  font-size: 11.5px; font-weight: 700; color: #9a3412;
+  padding: 1px 4px 6px; letter-spacing: -.01em;
+}
+#ph85-sidebar .qf-row{
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 6px; border-radius: 7px; cursor: pointer;
+  font-size: 13px; color: #344054; line-height: 1.35;
+}
+#ph85-sidebar .qf-row:hover{ background: rgba(234,88,12,.10); color: #9a3412; }
+#ph85-sidebar .qf-mark{ flex: none; width: 14px; font-size: 11px; opacity: .75; text-align: center; }
+#ph85-sidebar .qf-row.qf-pinned .qf-mark{ color: #ea580c; opacity: 1; }
+#ph85-sidebar .qf-name{
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* ★ 버튼 — 보이는 글자는 작게 두되 «누르는 범위»는 손가락에 맞춘다(권장 44px). */
+#ph85-sidebar .qf-star{
+  flex: none; width: 30px; height: 30px; margin: -8px -4px -8px 0;
+  border: 0; background: transparent; cursor: pointer;
+  font-size: 13px; line-height: 1; color: #b4b8c0;
+}
+#ph85-sidebar .qf-row.qf-pinned .qf-star{ color: #ea580c; }
+#ph85-sidebar .qf-star:hover{ color: #ea580c; }
+@media (max-width: 1023px){
+  #ph85-sidebar .qf-row{ padding: 9px 6px; font-size: 13.5px; }
+  #ph85-sidebar .qf-star{ width: 44px; height: 44px; margin: -12px -6px -12px 0; }
+}
+/* 다크(기본) 테마 — 아이보리가 아닐 때 */
+html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-box{
+  background: rgba(255,255,255,.06); border-color: rgba(148,163,184,.28);
+}
+html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-head{ color: #fbbf24; }
+html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-row{ color: #cbd5e1; }
+html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-row:hover{ background: rgba(148,163,184,.14); color: #f8fafc; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   👁 (2026-08-21) 참관 / 직접 입장 버튼 — 색이 화면에 «실제로» 나오게
+   ───────────────────────────────────────────────────────────────────────
+   [뜻] 보라 = 참관(학생에게 안 보임) · 주황 = 직접 입장(학생에게 보임)
+        · 빨강 = 되돌릴 수 없는 행위(즉시 개입·강제 종료) · 파랑 = 그 밖의 이동
+
+   [왜 여기에 있나 — 인라인 style 로는 화면에 안 나온다]
+   2026-08-21 헤드리스 실측: 「🔴 실시간 수업 현황」 버튼 네 개가 전부 흰색이었다.
+   인라인에 색을 적어 두었는데도 그렇다. 이 파일의 규칙 둘이 순서대로 이긴다 —
+     ① 3279행  details.menu-card button:not(…)                    → 파랑 그라데이션 !important
+     ② 9072행  html[…="ivory"][…="slate"] [id^="card-"] button:not([class]) → #ffffff !important
+   ②의 근거는 «클래스가 없다 = 의도한 색이 없다» 인데 이 버튼들에서 그 전제가 틀렸다.
+   그래서 클래스를 달아 ②를 벗어나면, 이번엔 ①이 잡아 전부 같은 파랑이 된다.
+
+   [특이성] ① 이 (0,5,2) 라 «맨 끝 + !important» 만으로는 진다(실측으로 확인).
+   이 파일이 9062행에 적어 둔 방식을 그대로 쓴다 — «항상 참인 :not() 을 덧붙여
+   대상은 그대로 둔 채 힘만 올린다». 아래는 (0,8,1) 이라 ① 을 이긴다.
+   ⚠️ 카드 조상을 조건에 넣지 않는다 — 「오늘 수업」은 카드 id 가 sm- 로 시작해
+      [id^="card-"] 로는 안 걸린다(2026-08-21 실측).
+
+   ⛔ 색을 JS 인라인으로 되돌리지 말 것 — 화면에 안 나오는데 코드만 보면 나오는 줄 안다.
+   ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것 — [class$="-btn"] 규칙(3894·9012행)에 걸린다.
+   감시: test-harness/observer_camera_guard_harness.mjs F절
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* 힘 올리기용 꼬리 — 우리 버튼엔 이 클래스들이 붙을 일이 없어 «항상 참» 이다 */
+button.rm-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active),
+button.gh-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active),
+button.tc-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  border-radius: 6px !important; cursor: pointer !important;
+  background-image: none !important; box-shadow: none !important; transform: none !important;
+}
+/* 「🔴 실시간 수업 현황」 — 채운 버튼 */
+button.rm-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  padding: 4px 12px !important; font-size: 12px !important; font-weight: 600 !important;
+  border: none !important; color: #fff !important;
+}
+button.rm-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){ background: #8b5cf6 !important; }
+button.rm-act-extend:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){ background: #2563eb !important; }
+button.rm-act-intervene:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){ background: #ef4444 !important; }
+button.rm-act-end:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){ background: #dc2626 !important; }
+button.rm-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):hover{ background: #7c3aed !important; }
+button.rm-act-extend:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):hover{ background: #1d4ed8 !important; }
+button.rm-act-intervene:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):hover{ background: #dc2626 !important; }
+button.rm-act-end:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):hover{ background: #b91c1c !important; }
+
+/* 「👀 수업 관찰」 카드 · 「🚪 오늘 수업」 표 — 옅은 칩 */
+button.gh-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active),
+button.tc-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  padding: 4px 10px !important; font-size: 11.5px !important; font-weight: 700 !important;
+}
+button.gh-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(139,92,246,0.22) !important; color: #6d28d9 !important;
+  border: 1px solid rgba(139,92,246,0.5) !important; margin-right: 4px !important;
+}
+button.gh-act-enter:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(245,158,11,0.22) !important; color: #b45309 !important;
+  border: 1px solid rgba(245,158,11,0.55) !important;
+}
+button.tc-act-enter:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(245,158,11,0.16) !important; color: #b45309 !important;
+  border: 1px solid rgba(245,158,11,0.55) !important;
+  padding: 4px 12px !important; font-weight: 800 !important; margin-right: 4px !important;
+}
+button.tc-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(139,92,246,0.16) !important; color: #6d28d9 !important;
+  border: 1px solid rgba(139,92,246,0.45) !important;
+}
+/* 🔗 (2026-08-30 v4 제안서 16) 초대 링크 — 청록 칩. 입장(주황)·참관(보라)과 색을 갈라
+   «학생에게 보이나 안 보이나» 축과 헷갈리지 않게 한다. 이 버튼은 방을 열지 않는다. */
+button.tc-act-invite:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(6,182,212,0.16) !important; color: #0e7490 !important;
+  border: 1px solid rgba(6,182,212,0.45) !important; margin-left: 4px !important;
+}
+html:not([data-admin-theme="ivory"]) button.tc-act-invite:not(.ph85-head):not(.ph86-action-btn):not(.primary){ color: #a5f3fc !important; }
+/* 「👀 수업 관찰」 — 한 번 클릭 «바로 참관» 은 채운 보라 (2026-08-27 사장님 「하나하나 입력해야
+   해서 관찰이 어렵다」 — 가장 먼저 손이 가는 버튼이라 옅은 칩과 갈라 «채운» 보라로).
+   보라 = 참관(학생에게 안 보임) 규칙은 그대로다. */
+button.gh-act-quick:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: #8b5cf6 !important; color: #fff !important;
+  border: none !important; margin-right: 4px !important; font-weight: 800 !important;
+}
+/* hover 는 기본 규칙(0,7,1)을 이겨야 실제로 보인다 — 같은 :not() 꼬리를 다 달아 (0,8,1) 로 */
+button.gh-act-quick:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active):hover{ background: #7c3aed !important; }
+/* 다크(기본) 테마에서는 옅은 칩의 «글자»가 배경에 묻힌다 — 밝은 쪽으로 */
+html:not([data-admin-theme="ivory"]) button.gh-act-observe:not(.ph85-head):not(.ph86-action-btn):not(.primary),
+html:not([data-admin-theme="ivory"]) button.tc-act-observe:not(.ph85-head):not(.ph86-action-btn):not(.primary){ color: #ddd6fe !important; }
+html:not([data-admin-theme="ivory"]) button.gh-act-enter:not(.ph85-head):not(.ph86-action-btn):not(.primary),
+html:not([data-admin-theme="ivory"]) button.tc-act-enter:not(.ph85-head):not(.ph86-action-btn):not(.primary){ color: #fde68a !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🏦 신한 계좌 지출 화면 — «뜻이 있는 색» 만 지킨다 (2026-08-23)
+
+   [왜 여기 있나] 이 파일 8743·8744 행이 `[id^="card-"]` 안의 글자를 통째로
+   `#101828 !important` 로 덮고, `js/adm-light-surfaces.js` 페인터가 그 위에 인라인
+   `!important` 로 한 번 더 칠한다. 그래서 화면 코드에 색을 적어도 화면에는 안 나온다
+   (2026-08-23 실측: 빨강 #b91c1c → rgb(55,92,129)).
+
+   ⛔ 그 두 규칙을 고쳐서 풀지 말 것 — 관리자 화면 전체의 글자색이 걸린다.
+   ✅ 대신 여기서 **조상 id 를 앞에 붙여**(`#acc-bankacct …` = ID 한 칸) 위 규칙들을 이긴다.
+      ID 칸이 있으면 클래스를 아무리 많이 쌓은 규칙도 못 이긴다.
+
+   ⛔ **페인터의 `SKIP_SEL` 에는 일부러 넣지 않았다.** `js/adm-s13.js` 의 `fixTextOnDark()` 와
+      `js/adm-light-surfaces.js` 는 «대비가 모자랄 때만» 다시 칠하는 **가독성 구제**다.
+      예외로 빼면 어두운 면 위에 **안 읽히는 빨강**이 그대로 박힌다 — 한 번 등재했다가
+      되돌렸다(2026-08-23). 그래서 색이 눌릴 수 있는 자리(KPI 타일)는 색에 기대지 않고
+      화면 쪽에서 ▲▼ 기호로 뜻을 함께 말한다.
+   ⚠️ 나머지 글자(제목·표 본문)는 일부러 두었다 — 그건 테마가 정하는 것이 맞다.
+      여기서 지키는 것은 «색이 곧 정보» 인 것들뿐이다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+#acc-bankacct .bk-sig-amt    { color: #1e40af !important; }   /* 이번 달 총 출금 */
+#acc-bankacct .bk-sig-up     { color: #b91c1c !important; }   /* 지출이 늘었다 = 나쁜 소식 */
+#acc-bankacct .bk-sig-down   { color: #047857 !important; }   /* 줄었다 */
+#acc-bankacct .bk-sig-flat   { color: #6b7280 !important; }   /* 비교할 지난달이 없다 */
+#acc-bankacct .bk-sig-review { color: #b91c1c !important; }   /* 아직 계정과목이 없는 돈 */
+#acc-bankacct .bk-role-opex   { color: #1e40af !important; }  /* 판관비에 포함 */
+#acc-bankacct .bk-role-dup    { color: #6b7280 !important; }  /* 중복이라 제외 */
+#acc-bankacct .bk-role-moved  { color: #7c3aed !important; }  /* 다른 줄로 간 돈 */
+#acc-bankacct .bk-role-review { color: #b91c1c !important; }  /* 확인 필요 */
+
+/* ── 🏷️ 계정과목 지정 칸 · 안내 글자 (2026-08-23, 2단계 함정 대조에서 잡힘) ──────
+   [무엇이 죽었나] 이 파일의 전역 규칙이 **인라인 style 을 통째로 이깁니다.** 실측:
+     · `[id^="card-"] select`(3866행)   → font-size 11px 로 적었는데 화면은 **13.5px**,
+                                          padding 3px 5px → **8px 12px**
+     · `#legacy-cards select`(8473행)   → max-width 150px → **100%**(좁은 화면)
+     · `[id^="card-"] :is(p,span,div…)`(8743·8744행) → 안내줄 갈색 #78350f → **#101828**
+   즉 「경고로 읽히라고」 준 색과 「표 안에 들어가라고」 준 크기가 둘 다 사라집니다.
+   ⛔ 그 전역 규칙들을 고쳐서 풀지 말 것 — 관리자 화면 전체의 입력칸·글자가 걸립니다.
+   ✅ 조상 id 를 앞에 붙여(ID 한 칸) 여기서만 되살립니다. `box-sizing` 도 함께 명시해야
+      `max-width` 가 테두리를 포함해 칸 안에 들어갑니다(2장 「표 안의 작은 버튼」과 같은 사정). */
+#acc-bankacct td select.bk-assign {
+  font-size: 11px !important;
+  padding: 3px 5px !important;
+  max-width: 160px !important;
+  box-sizing: border-box !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 5px !important;
+}
+#acc-bankacct .bk-note      { color: #78350f !important; }   /* 「지난 출금까지 바뀐다」 경고 */
+#acc-bankacct .bk-note-mute { color: #6b7280 !important; }   /* 「지정해도 안 바뀝니다」 등 설명 */
+
+/* ── 🔎 거래처 이름을 눌러 «개별 건» 펼치기 (2026-08-23) ────────────────────
+   [왜] 「🏪 거래처별 합계」와 「🧾 출금 내역」에 같은 이름이 다른 금액으로 나와
+   «무슨 차이냐» 는 물음이 실제로 나왔다. 합계 줄에서 바로 그 건들을 펼쳐 보게 한다.
+   ⛔ hover 에 `transform`·`scale` 을 쓰지 않는다 — 1-3 「hover 확대 금지」.
+      강조는 색과 밑줄만, 크기·위치는 고정. */
+#acc-bankacct .bk-exp        { color: #1e40af !important; cursor: pointer; font-weight: 700; }
+#acc-bankacct .bk-exp:hover  { text-decoration: underline; }
+#acc-bankacct .bk-exp:focus-visible { outline: 2px solid #1e40af; outline-offset: 1px; }
+#acc-bankacct .bk-ok         { color: #047857 !important; }   /* «(지정됨)» 배지 */
+#acc-bankacct tr.bk-detail   { background: #f8fafc; }
+#acc-bankacct tr.bk-detail td,
+#acc-bankacct tr.bk-detail th { color: #374151 !important; }
+
+/* ── 🧱 다섯 구역을 «눈으로» 가르기 + 🔃 정렬 헤더 · 🔍 필터 칸 (2026-08-24 사장님 요청) ──
+   [무엇이 문제였나] 「고정비·변동비 / 전월 대비 증감 / 계정과목별 합계 / 거래처별 합계 /
+   출금 내역」 다섯 구역이 **전부 똑같은 `1px solid #e5e7eb`** 라, 스크롤하면 어디서 어디까지가
+   한 덩어리인지 안 보였다(사장님 「선이 흐려서 잘 보이지 않아」).
+   ⛔ 표 «안» 줄까지 굵게 하지 않는다 — 줄이 굵어지면 숫자가 더 안 읽힌다.
+      가르는 것은 «구역» 이고, 표 안은 지금의 얇은 줄(`#f1f5f9`)이 맞다.
+   ✅ 구역은 ① 테두리 2px ② 왼쪽 6px 색 띠(구역마다 다른 색) ③ 제목 밑 2px 줄
+      ④ 구역 사이 여백 22px — 네 가지로 가른다. 색 띠만으로도 스크롤 중에 위치를 안다.
+   ⛔ hover 에 `transform`·`scale` 을 넣지 않는다(CLAUDE.md 1-3 「hover 확대 금지」).
+   ⚠️ 값이 `!important` 인 이유는 이 파일 전역 규칙(3866·8473·8743행 등)이 인라인 style 을
+      통째로 이기기 때문이다. 조상 id(`#acc-bankacct`)를 앞에 붙여야 그것을 다시 이긴다. */
+#acc-bankacct .bk-sec {
+  /* 🪤 배경을 여기서 «흰색으로 못 박는» 이유 — 화면 쪽 인라인 `background:#fff` 는 이 파일의
+     옛 다크 규칙에 지고, 그 «어두워진 계산값» 을 본 `js/adm-s13.js` 페인터가 이 상자를
+     밝게 다시 칠하면서 **`border-color` 까지 인라인 `!important` 로** 덮어쓴다.
+     실측(2026-08-24): 아래 색 띠가 다섯 구역 모두 `rgba(15,23,42,0.1)` 로 나왔다 —
+     인라인 `!important` 는 어떤 CSS 도 못 이기므로 «칠해지지 않게» 막는 것이 유일한 길이다.
+     ✅ 배경이 처음부터 흰색이면 페인터의 `isDarkGray()` 가 거짓이라 손을 대지 않는다.
+     ⛔ 페인터를 고치거나 예외로 빼지 말 것 — 그건 어두운 면의 가독성 구제다. */
+  background-color: #ffffff !important;
+  background-image: none !important;
+  border: 2px solid #cbd5e1 !important;
+  border-left: 6px solid #94a3b8 !important;
+  border-radius: 10px !important;
+  margin-bottom: 22px !important;
+  padding: 14px !important;
+}
+#acc-bankacct .bk-sec-recur  { border-left-color: #0f4c81 !important; }
+#acc-bankacct .bk-sec-movers { border-left-color: #b45309 !important; }
+#acc-bankacct .bk-sec-cats   { border-left-color: #6d28d9 !important; }
+#acc-bankacct .bk-sec-payees { border-left-color: #0f766e !important; }
+#acc-bankacct .bk-sec-rows   { border-left-color: #334155 !important; }
+#acc-bankacct .bk-sec-h {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 13.5px !important; font-weight: 800 !important;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 7px;
+  margin-bottom: 10px !important;
+}
+
+/* 🔍 필터 줄 — `[id^="card-"] select`(3866행)가 13.5px·8px 12px 로 부풀리고
+   `#legacy-cards select`(8473행)가 폭을 100% 로 늘린다. 여기서 되살린다.
+   ⚠️ `box-sizing` 을 함께 적어야 테두리가 폭 밖으로 나가지 않는다(2장 「표 안의 작은 버튼」). */
+#acc-bankacct .bk-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+#acc-bankacct .bk-tools input.bk-filter,
+#acc-bankacct .bk-tools select.bk-filter-sel {
+  font-size: 12px !important;
+  padding: 5px 8px !important;
+  max-width: 230px !important;
+  width: auto !important;
+  box-sizing: border-box !important;
+  border-radius: 6px !important;
+}
+#acc-bankacct .bk-count { font-size: 11px !important; color: #6b7280 !important; font-weight: 400 !important; }
+
+/* 🔃 정렬 — 법인카드 표(.pr-th)와 «같은 조작»(헤더 클릭 = 내림→오름→해제, Shift+클릭 = 2차 키).
+   ⚠️ 공용 `.pr-th` 규칙은 미디어쿼리 안에 있어 여기까지 안 온다. 그래서 값을 다시 적는다.
+   ⛔ 정렬 해제를 `<button>` 으로 만들지 말 것 — `details.menu-card button` 전역 규칙이
+      인디고 그라데이션 알약(padding 9px 18px)으로 바꿔 제목줄을 밀어낸다(2장). */
+#acc-bankacct .pr-th { cursor: pointer; user-select: none; position: relative; padding-right: 22px !important; }
+#acc-bankacct .pr-th:hover { background: #f3f4f6; }
+#acc-bankacct .pr-th .pr-arrow { position: absolute; right: 5px; font-size: 10px; color: #9ca3af !important; font-weight: 700; }
+#acc-bankacct .pr-th.pr-active { background: #eff6ff; }
+#acc-bankacct .pr-th.pr-active .pr-arrow { color: #1e40af !important; }
+#acc-bankacct .bk-sortnote { font-size: 11px !important; font-weight: 400 !important; display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+#acc-bankacct .bk-sortchip { background: #dbeafe; color: #1e40af !important; padding: 2px 7px; border-radius: 4px; font-weight: 700; }
+#acc-bankacct .bk-clear { color: #1e40af !important; cursor: pointer; font-weight: 700; text-decoration: underline; }
+#acc-bankacct .bk-clear:focus-visible { outline: 2px solid #1e40af; outline-offset: 1px; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   🔑 강사 정보 수정 「로그인 계정」의 «비밀번호 변경» 버튼 (2026-08-24)
+   [증상] 파랑(#2563eb)으로 인라인 지정했는데 브라우저 실측은 흰 버튼이었다
+          — background rgb(255,255,255) · color rgb(52,64,84) · padding 9px 18px.
+   [왜] 이 버튼엔 class 가 없었다 → 9072·9129 행의 «클래스가 없다 = 의도한 색이 없다»
+        규칙(`[id^="card-"] button:not([class])` → #ffffff !important)이 인라인을 이겼다.
+        작성자 !important 는 인라인보다 세다(2장 「관리자 버튼에 색을 줬는데 흰색」).
+   [고침] ① 클래스를 붙여 그 두 규칙의 대상에서 빠지고
+          ② 남는 경쟁자 `details.table-card.menu-card button:not(…)`(0,5,2) 를
+             아래 (0,6,1) 로 이긴다 — rm-act 계열(9480행)과 같은 방식이다.
+          ③ 페인터(adm-light-surfaces.js)의 SKIP_SEL 에도 등재했다.
+   ⛔ 색을 인라인으로 되돌리지 말 것 — 화면에 안 나오는데 코드만 보면 나오는 줄 안다.
+   ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것 — [class$="-btn"](3894·9012행)에 걸린다.
+   ═══════════════════════════════════════════════════════════════════════ */
+button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+  padding: 7px 14px !important; font-size: 12.5px !important; font-weight: 700 !important;
+  background: #2563eb !important; background-image: none !important;
+  color: #fff !important; border: 0 !important; border-radius: 6px !important;
+  box-shadow: none !important; transform: none !important;
+  cursor: pointer !important; white-space: nowrap !important;
+}
+button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):hover{
+  background: #1d4ed8 !important;
+}
+/* 연결된 로그인 계정이 없으면 비활성 — «누를 수 있는데 안 되는» 버튼으로 보이지 않게 */
+button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):disabled{
+  background: #cbd5e1 !important; color: #64748b !important; cursor: not-allowed !important;
+}
+
+/* ── 🧾 「카페24 회계 실데이터 ▸ 지출결의」 도구 줄 · 표 (2026-08-24 사장님 요청) ──────
+   [왜 여기(파일 맨 끝)에, 왜 조상 id 를 앞에 붙이나]
+   이 카드 안에서는 아래 전역 규칙들이 **인라인 style 을 `!important` 로 이깁니다**:
+     · `details.menu-card button{ background:인디고 그라데이션 !important; padding:9px 18px !important }`
+     · `details.menu-card input:not(...)/select{ background:rgba(15,23,42,.75) !important; padding:8px 12px !important }`
+     · `[id^="card-"] :is(p,span,div,b,strong…){ color:#101828 !important }`
+   그래서 ① 칩·검색칸을 `<button>`·`<select>` 로 만들지 않고 `<span>`·`<input>` 으로 세우고
+        ② 모양은 **조상 id(#sub-c24-finance = ID 한 칸)** 를 앞에 붙여 여기서만 되살립니다.
+   ⛔ 전역 규칙을 고쳐서 풀지 말 것 — 관리자 화면 전체의 버튼·입력칸이 걸립니다.
+   ⛔ hover 에 `transform`·`scale` 을 쓰지 말 것(CLAUDE.md 1-3 「hover 확대 금지」). 강조는 색만.
+   ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것 — `[class$="-btn"]` 규칙에 다시 걸립니다.
+   ✅ 색은 `background-color:` 로 줍니다(`background:linear-gradient(...)` 는 옛 다크 규칙에 걸립니다). */
+#sub-c24-finance #c24fin-tools { margin: 2px 0 10px; }
+#sub-c24-finance #c24fin-tools .c24x-row {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px; border-radius: 999px; cursor: pointer;
+  font-size: 12px !important; font-weight: 700;
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1;
+  user-select: none;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip b { color: #64748b !important; font-weight: 800; }
+#sub-c24-finance #c24fin-tools .c24x-chip:hover { background-color: #e2e8f0 !important; }
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-on {
+  background-color: #1d4ed8 !important; border-color: #1d4ed8;
+  color: #ffffff !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-on b { color: #dbeafe !important; }
+#sub-c24-finance #c24fin-tools .c24x-chip:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+/* 「다수와 다른 상태」 — 확인하러 가야 하는 줄이라 색을 따로 준다 */
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-odd {
+  background-color: #fef3c7 !important; border-color: #f59e0b; color: #92400e !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-odd b { color: #b45309 !important; }
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-odd.c24x-on {
+  background-color: #b45309 !important; border-color: #b45309; color: #ffffff !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-odd.c24x-on b { color: #fef3c7 !important; }
+/* 검색칸 — 전역 다크 입력 규칙(3515행)을 이 카드에서만 되돌린다.
+   `box-sizing` 을 함께 적어야 테두리가 폭 안에 들어온다(2장 「표 안의 작은 버튼」과 같은 사정). */
+#sub-c24-finance #c24fin-tools input.c24x-q {
+  flex: 1 1 190px; min-width: 150px; max-width: 340px;
+  padding: 5px 10px !important;
+  font-size: 12px !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  box-sizing: border-box !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-n { font-size: 12px !important; color: #64748b !important; margin-left: auto; }
+#sub-c24-finance #c24fin-tools .c24x-note {
+  margin-top: 7px; font-size: 11.5px !important; line-height: 1.6;
+  color: #6b7280 !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-note b { color: #b45309 !important; }
+/* 정렬 헤더 — 「신한 계좌」 화면과 같은 조작(한 번 누르면 뒤집힌다) */
+#sub-c24-finance #c24fin-table th.c24x-th { cursor: pointer; user-select: none; }
+#sub-c24-finance #c24fin-table th.c24x-th:hover { color: #1d4ed8 !important; }
+#sub-c24-finance #c24fin-table th.c24x-sorted { color: #1d4ed8 !important; }
+/* 분류(추정) 배지 — 원본 값이 아니라 우리가 지은 것이라 색을 옅게 둔다 */
+#sub-c24-finance #c24fin-table .c24x-tag {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px !important; font-weight: 700; white-space: nowrap;
+  background-color: #f1f5f9 !important; color: #475569 !important;
+}
+#sub-c24-finance #c24fin-table .c24x-tag-salary { background-color: #dbeafe !important; color: #1e40af !important; }
+#sub-c24-finance #c24fin-table .c24x-tag-tax    { background-color: #ede9fe !important; color: #5b21b6 !important; }
+#sub-c24-finance #c24fin-table .c24x-tag-fac    { background-color: #dcfce7 !important; color: #166534 !important; }
+#sub-c24-finance #c24fin-table .c24x-tag-loan   { background-color: #ffe4e6 !important; color: #9f1239 !important; }
+/* 상태 — 코드의 «뜻» 을 모르므로 이름을 붙이지 않는다. 다수와 다른 값만 눈에 띄게 한다. */
+#sub-c24-finance #c24fin-table .c24x-st { color: #64748b !important; font-weight: 700; }
+#sub-c24-finance #c24fin-table .c24x-st-odd {
+  display: inline-block; padding: 2px 8px; border-radius: 6px;
+  background-color: #fef3c7 !important; color: #92400e !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ↕️ 「카페24 회계 실데이터」 표 — «지금 이 칸으로 정렬 중» 강조 (2026-08-24)
+
+   [왜 여기 있나] 이 강조를 JS 인라인 style 로 주면 **화면에 안 나옵니다.**
+   실측(1440×900, getComputedStyle): 인라인 color:#b45309 → 실제 rgb(16,24,40),
+   인라인 border-bottom:2px solid #f59e0b → 실제 0.769px rgba(15,23,42,.1).
+   이기는 규칙 두 개가 이 파일에 있습니다(테마 조건부가 아닙니다 —
+   admin.html 이 data-admin-theme="ivory"·data-admin-tone="slate" 를 무조건 박습니다):
+     · 8770행  …[id^="card-"] :is(…,span,th,…) { color:#101828 !important }
+     · 8793행  … table th { border-bottom:1px solid rgba(15,23,42,.10) !important }
+   작성자 !important 는 인라인도 이깁니다(CLAUDE.md 2장 「카드 안 글자에 색을 줬는데」).
+
+   [그래서] 클래스로 주고, **조상 id 두 개**를 앞에 붙여 이깁니다(2,1,1 / 2,1,0).
+   ⛔ 색을 JS 인라인으로 되돌리지 마세요 — 화면엔 안 나오는데 코드만 보면 나오는 줄 압니다.
+   ⛔ 이 강조가 사라져도 «무슨 정렬인지» 는 ▲▼ 기호와 안내 줄(#c24fin-sortnote)이
+      말로 지고 갑니다 — 색은 거들 뿐입니다(어두운 면에서 색이 눌리는 화면이라).
+   ═══════════════════════════════════════════════════════════════════════ */
+#card-accounting-mgmt #c24fin-head th.c24fin-on,
+#card-accounting-mgmt #c24fin-head th.c24fin-on span {
+  color: #b45309 !important;
+}
+#card-accounting-mgmt #c24fin-head th.c24fin-on {
+  border-bottom: 2px solid #f59e0b !important;
+}
+#card-accounting-mgmt #c24fin-sortnote.c24fin-note-on {
+  color: #b45309 !important; font-weight: 700 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   🟢⏸️🚪 강사 명부 — 상태를 «그 자리에서» 바꾸기  (2026-09-01, 사장님 A안)
+   ═══════════════════════════════════════════════════════════════════════
+   [왜 파일 맨 끝인가] 이 파일 3279행 전역 룰이
+     details.menu-card button { background: 인디고 그라데이션 !important; padding: 9px 18px !important }
+   라서, 카드 «안» 의 버튼은 인라인 style 을 줘도 큰 파란 알약이 됩니다.
+   그래서 위 #tp-list-table td button.tp-act-btn 선례와 똑같이 **ID 접두**로 되살립니다.
+   ⛔ 전역 룰 자체를 고쳐서 풀지 마세요 — 관리자 화면 버튼 전체 모양이 걸립니다.
+
+   [메뉴·토스트는 왜 여기 규칙이 단순한가] 그 둘은 document.body 에 띄웁니다.
+   위 전역 룰은 조상에 details.menu-card 를 요구하므로 **아예 안 걸립니다.**
+   대신 밝기 페인터(js/adm-light-surfaces.js)의 'body' 훑기에는 걸리므로
+   그쪽 SKIP_SEL 에 #tp-st-menu·#tp-st-toast 를 등재해 두었습니다 — 짝입니다.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 표 안 트리거 버튼(배지를 감싼다) ── */
+#tp-list-table td button.tp-st-btn {
+  display: inline-flex !important; align-items: center !important; gap: 4px !important;
+  padding: 2px 6px !important; margin: 0 !important;
+  background: transparent !important; background-image: none !important;
+  border: 1px solid transparent !important; border-radius: 999px !important;
+  box-shadow: none !important; cursor: pointer !important; line-height: 1.5 !important;
+  font-size: 11px !important; color: #101828 !important;
+  box-sizing: border-box !important; max-width: 100% !important;
+}
+#tp-list-table td button.tp-st-btn:hover { border-color: #cbd5e1 !important; background: #f8fafc !important; }
+#tp-list-table td button.tp-st-btn:focus-visible { outline: 2px solid #b45309 !important; outline-offset: 1px !important; }
+#tp-list-table td button.tp-st-btn .tp-st-caret { font-size: 8.5px !important; color: #94a3b8 !important; }
+#tp-list-table td button.tp-st-btn .tp-st-hidden {
+  background: #e2e8f0 !important; color: #334155 !important;
+  padding: 2px 7px !important; border-radius: 999px !important; font-weight: 600 !important;
+}
+/* 🙈 숨긴 강사 행 — 「안보임」 필터로 볼 때만 화면에 나옵니다. 지워진 것이 아님을 흐리게 알립니다. */
+#tp-list-body tr[data-hidden="1"] td { opacity: .62 !important; }
+#tp-list-body tr[data-hidden="1"] td button.tp-st-btn { opacity: 1 !important; }
+
+/* ── 떠 있는 상태 메뉴 (document.body 자식) ── */
+#tp-st-menu {
+  position: fixed; z-index: 100002;          /* 모바일 드로어(#ph85-sidebar 100001) 위 */
+  min-width: 186px; padding: 5px;
+  background: #ffffff; color: #101828;
+  border: 1px solid #e2e8f0; border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(16, 24, 40, .18);
+  font-size: 12.5px; font-family: inherit;
+}
+#tp-st-menu .tp-st-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 9px; border-radius: 7px; cursor: pointer; white-space: nowrap;
+}
+#tp-st-menu .tp-st-item:hover,
+#tp-st-menu .tp-st-item:focus-visible { background: #f1f5f9; outline: none; }
+#tp-st-menu .tp-st-item.on { background: #f8fafc; font-weight: 700; }
+#tp-st-menu .tp-st-chk { margin-left: auto; color: #b45309; font-weight: 700; }
+#tp-st-menu .tp-st-sep { height: 1px; margin: 5px 4px; background: #e2e8f0; }
+/* 🌏 (2026-09-01) 구분 메뉴의 «지금 어디서 읽고 있는지» 한 줄.
+   국적이 비어 있어 지역 «글자» 로 읽는 강사가 실측 32명이라, 안 적으면
+   「고르지도 않았는데 필리핀이라고 나온다」가 된다. 눌리는 항목이 아니다. */
+#tp-st-menu .tp-st-note {
+  padding: 7px 10px 5px; font-size: 11px; line-height: 1.45; color: #64748b;
+  max-width: 240px; white-space: normal;
+}
+
+/* ── 되돌리기 토스트 (document.body 자식) ──
+   ⚠️ 어두운 배경으로 만들지 않습니다 — 밝기 페인터가 «안 읽히는 글자» 로 보고
+      인라인 !important 로 다시 칠하는 자리라, 처음부터 밝게 둡니다. */
+#tp-st-toast {
+  position: fixed; z-index: 100002;
+  left: 50%; transform: translateX(-50%); bottom: 26px;
+  display: flex; align-items: center; gap: 14px;
+  max-width: min(92vw, 520px); padding: 11px 16px;
+  background: #ffffff; color: #101828;
+  border: 1px solid #cbd5e1; border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(16, 24, 40, .22);
+  font-size: 13px; line-height: 1.5;
+}
+#tp-st-toast .tp-st-toast-msg { min-width: 0; }
+#tp-st-toast button.tp-st-undo {
+  flex: 0 0 auto;
+  padding: 4px 12px !important; margin: 0 !important;
+  background: #b45309 !important; background-image: none !important; color: #ffffff !important;
+  border: 0 !important; border-radius: 7px !important;
+  font-size: 12.5px !important; font-weight: 700 !important; cursor: pointer !important;
+  box-shadow: none !important;
+}
+#tp-st-toast button.tp-st-undo:hover { filter: brightness(1.1); }
+#tp-st-toast button.tp-st-undo:focus-visible { outline: 2px solid #101828 !important; outline-offset: 2px !important; }
+
+/* ════════════════════════════════════════════════════════════
+   🟢🚪❓ 「강사 명부 (실데이터)」 상태 배지 — 색이 «구분 정보» 다
+   ════════════════════════════════════════════════════════════
+   [왜] 이 배지는 인라인 style 로 색을 갖고 있었는데, 카드 «안» 에서는
+        html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .sub-body :is(span…)
+        가 color:#101828 !important 로 이겨 **재직·퇴사·미확인 세 상태가 전부 검정**이었다
+        (2026-09-01 브라우저 실측: 셋 다 rgb(16,24,40)). 배경도 인라인 background:#fef3c7 가
+        [style*="background:#fef3c7"] 규칙에 걸려 rgba(250,204,21,.12) 로 바뀌고 있었다.
+        ⟹ 화면에서 「이 강사가 재직인지 퇴사인지」를 색으로 가릴 수 없었다.
+   [어떻게] 조상 id 를 앞에 붙여 (1,2,0) 으로 만든다 — 테마 규칙은 id 가 0개라
+        !important 끼리 붙어도 ID 개수에서 진다. `.tp-st-badge` 와 같은 팔레트를 쓴다
+        (같은 카드 안 두 표가 서로 다른 색으로 「퇴사」를 말하면 그것이 더 헷갈린다).
+   ⛔ background 는 단축(`background:`)이 아니라 background-color 로 쓴다 —
+      `[style*="background:#…"]` 를 노리는 옛 다크 규칙에 다시 걸린다(CLAUDE.md 2장).
+   ⛔ 이 배지를 글자색 페인터 셋에서 빼는 등재도 함께 있어야 한다(한 곳만 하면 나머지가 덮는다):
+      adm-light-surfaces SKIP_SEL · adm-s12 KEEP_SEL · adm-s13 TX_KEEP.
+   ⚠️ 배지가 자기 배경을 들고 다녀 대비는 스스로 만족한다(실측 5.6~7.4:1). */
+#card-teacher-mgmt .tr-st-badge {
+  display: inline-block !important;
+  padding: 2px 8px !important;
+  border-radius: 99px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1.5 !important;      /* 한 줄짜리라 못 박는다 — 상속값(1.5~1.7)이면 칸 높이가 들쭉날쭉하다 */
+  white-space: nowrap !important;   /* 좁은 칸에서 「미확인」이 «미 / 확 / 인» 으로 쪼개지는 것을 막는다 */
+  /* 🔲 (2026-09-03 사장님 제보 「교재 상태가 배지가 아니라 그냥 글자로 보여」) 테두리 한 줄.
+     [왜] 바탕이 #dcfce7 처럼 옅으면 흰 카드 위에서 «색 있는 글자» 로만 읽힌다 —
+          실측상 배경은 제대로 칠해지고 있었고(49x27 · radius 99px), 부족한 것은 «윤곽» 이었다.
+     ⛔ 바탕을 진하게 해서 풀지 않는다 — 글자 대비가 떨어지고 옆 표(.tp-st-badge)와 팔레트가 갈린다.
+        테두리는 대비를 건드리지 않고 «배지임» 만 만든다.
+     ⚠️ box-sizing 을 함께 못 박는다 — 테두리가 폭을 밀면 좁은 칸에서 줄이 바뀐다. */
+  box-sizing: border-box !important;
+  border: 1px solid transparent !important;
+}
+#card-teacher-mgmt .tr-st-badge.tr-st-active   { background-color: #dcfce7 !important; color: #166534 !important;  border-color: #86efac !important; }
+#card-teacher-mgmt .tr-st-badge.tr-st-inactive { background-color: #fee2e2 !important; color: #991b1b !important;  border-color: #fca5a5 !important; }
+#card-teacher-mgmt .tr-st-badge.tr-st-unknown  { background-color: #fef3c7 !important; color: #854d0e !important;  border-color: #fcd34d !important; }
+/* ⏹ 교재 명부의 «중지» — 회색이다.
+   ⛔ 빨강(.tr-st-inactive)을 쓰지 않는다: 중지는 «문제» 가 아니라 «지금 안 쓰는 것» 이라
+      빨강이면 정리해야 할 일처럼 읽힌다. 그렇다고 옛 #94a3b8 로 되돌리지도 말 것 —
+      흰 카드 위에서 대비 2.0 이라 «배지가 없는 것» 처럼 보였다(그래서 고친 것이다). */
+#card-teacher-mgmt .tr-st-badge.tr-st-off      { background-color: #e5e7eb !important; color: #374151 !important;  border-color: #cbd5e1 !important; }
+
+
+/* ⏮ 녹화 일괄 복원 버튼 (2026-09-02)
+   ⚠️ `details.menu-card button{...!important}` 전역 룰이 인라인 style 을 이기므로
+      조상 id 를 앞에 붙여 되살린다(이 파일의 #tp-list-table·#en-multi-table 선례와 같은 방식).
+   ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것 — [class$="-btn"] 규칙에 다시 걸린다. */
+#rec-search-bar button.rec-restore-bulk{
+  background:#fff7ed !important; background-image:none !important;
+  color:#9a3412 !important; border:1px solid #fdba74 !important;
+  padding:6px 12px !important; font-size:13px !important; font-weight:700 !important;
+  border-radius:6px !important; box-sizing:border-box; cursor:pointer;
+}
+#rec-search-bar button.rec-restore-bulk:hover{ background:#ffedd5 !important; }
+#rec-search-bar button.rec-restore-bulk[disabled]{ opacity:.6; cursor:default; }
+#rec-restore-result{ width:100%; font-size:12.5px; line-height:1.6; color:#374151; }
+
+
+/* 🔵 자료실 「NEW」 배지 색 되살리기 (2026-09-03 · 숫자 정정 2026-09-09)
+   ⚠️ `html[data-admin-theme="ivory"] .lib-doc-t span{color:#2563eb!important}` 가
+      이미 있는데도 화면에는 검정(#101828)으로 나왔다. 페인터 탓이 아니다 —
+      브라우저로 재 보니 인라인 우선순위가 비어 있었고(즉 아무도 인라인 !important 를 안 씀),
+      순수하게 **특이성**에서 진 것이다:
+        · `.lib-doc-t span`                              → (0,2,2)
+        · `[…ivory][…slate] [id^="card-"] :is(…)`        → (0,10,…)  ← 이쪽이 이겨서 #101828
+        · `[…ivory] [id^="card-"] :is(…)` (tone 미지정)   → (0,9,…)
+   ⛔ 규칙을 «행 번호» 로 가리키지 말 것 — 이 파일은 계속 자라서 곧 어긋난다.
+      실제로 처음 적은 5014·8239·8843 이 그때부터 12줄씩 틀렸고 네 곳에 복제돼 있었다
+      (2026-09-09 함정 대조가 잡음). 위처럼 **선택자 문자열**로 가리킬 것.
+   ✅ 그래서 «특이성 꼬리» 로 (0,12,4) 를 만들어 둘 다 이긴다(클래스 12 > 10 > 9).
+      ⚠️ 처음엔 11 이었고, 2026-09-06 에 `:not(.lib-lvl)` 이 붙어 12 가 됐다.
+      :not() 목록은 위 :is(…) 규칙의 예외 목록을 «본뜬 것» 이지 똑같지는 않다
+      (여기엔 `:not(button *)`·`:not(.kpi-tile *)` 가 없고 `:not([hidden])` 이 더 있다 —
+       `.lib-doc .lib-doc-t span` 으로 이미 좁혀져 그 셋은 닿지 않는다).
+      「색이 의도된 배지·칩」은 원래 그 규칙이 비켜 가려던 것이고, 이 배지가 정확히 그것이다.
+   ⛔ `[data-admin-tone="slate"]` 를 넣어 좁히지 말 것 — (0,13,4) 가 되어 특이성으로는 이기지만,
+      tone 이 slate 가 아닐 때는 **선택자가 매치조차 안 돼서** tone 미지정 규칙이 그대로 먹는다.
+      (특이성에서 지는 것이 아니라 «안 걸리는» 것이다 — 근거를 헷갈리면 산술을 의심하게 된다.)
+   ⛔ 카드 id 를 나열해서(#card-lib-agency …) 풀지 말 것 — 자료실 카드가 늘면 조용히 빠진다.
+   ⚠️ 아래 앰버 규칙과 **특이성이 똑같다**(둘 다 (0,12,4)). 지금은 이쪽이 `:not(.lib-lvl)` 로
+      배제해서 안 겹치지만, 그 `:not()` 을 「중복이네」 하고 지우면 정답의 근거가 «특이성» 이
+      아니라 «파일 안 순서» 가 된다(누가 앰버 블록을 위로 옮기면 조용히 파랑이 된다).
+   ℹ️ 다크 테마는 손대지 않는다(이 규칙은 ivory 에서만 걸린다).
+      ⚠️ 다만 `admin.html` 은 지금 **ivory 고정**이라(283·287행이 하드 설정, `applyAdminColor('dark')`
+         호출부 0건 — 2026-09-09 실측) 그 «어두울 때» 는 실제로 열리지 않는다.
+   ℹ️ #2563eb 는 흰 카드 위에서 대비 5.17:1 — 11px 굵은 글자(본문 기준 4.5:1)를 넘는다. */
+html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span:not(.lib-lvl):not(a):not(button):not(.badge):not(.kpi-tile):not([class*="btn"]):not([class*="chip"]):not([class*="pill"]):not([class*="tag"]):not([hidden]){
+  color: #2563eb !important;
+}
+
+
+/* 🙈 관리자 교재 표의 «숨김» 토글 버튼 (2026-09-07 사장님 지시)
+   [왜] 숨김은 2026-08-13 부터 /textbook-uploader.html 에만 있었다 — 그 페이지를 모르면
+        찾을 길이 없어 「숨김 버튼이 어디 있냐」가 올라왔다. 같은 API 를 교재 표에도 붙였다.
+   [함정] 이 버튼은 3363행 `details.menu-card button:not(…)`(인디고 그라데이션 !important +
+        padding 9px 18px !important)에 먹혀 «큰 파란 알약» 이 된다 — 표 안 작은 버튼이 그렇게
+        부풀면 옆 칸을 밀어낸다(CLAUDE.md 2장 «표 안의 작은 아이콘 버튼», #tp-list-table 선례).
+        그래서 조상 id 를 앞에 붙여 (1,1,2) 로 되살린다 — ID 가 1개라 (0,5,2) 를 이긴다.
+   ⛔ 클래스 이름을 «-btn» 으로 끝내지 않는다 — `[class$="-btn"]` 규칙(3894·9012행)에 다시 걸린다.
+   ⛔ background 단축이 아니라 background-color 로 쓴다(옛 다크 규칙이 `background:#…` 를 노린다).
+   ⛔ hover 에 transform 을 쓰지 않는다(CLAUDE.md 1-3 «hover 확대 금지» — 색·밝기만).
+   ⚠️ 색이 «구분 정보» 다(보임 초록 / 숨김 빨강). 그래서 글자색 페인터 셋 세 곳에 등재해 뒀다 —
+      adm-light-surfaces SKIP_SEL · adm-s12 KEEP_SEL · adm-s13 TX_KEEP.
+      ℹ️ [잰 것 — 2026-09-07 브라우저 실측] **지금 팔레트에서는 그 셋이 이 버튼을 원래 안 건드린다**
+         (등재를 셋 다 빼고 다시 재도 색이 한 픽셀도 안 바뀌었다). 밝은 바탕 + 어두운 글자 + 대비 6.49~6.80 이라
+         「어두운 면 구제」·「밝게 누르기」 어느 조건에도 안 걸리기 때문이다.
+      ⟹ 등재는 «지금 막고 있는 것» 이 아니라 **팔레트를 어둡게 바꾸는 날을 위한 것**이다.
+         그러니 브라우저 검사도 이 등재를 못 잡는다 — 색을 바꿀 때는 사람이 세 곳을 함께 보라.
+   ⚠️ box-sizing 을 못 박는다 — 테두리가 폭을 밀면 좁은 칸에서 줄이 바뀐다.
+   ℹ️ 팔레트는 옆 표(.tr-st-badge)와 같은 것을 쓴다 — 한 화면에서 초록·빨강이 다른 뜻이면 헷갈린다.
+      대비: #166534 on #dcfce7 = 6.49:1 · #991b1b on #fee2e2 = 6.80:1 (본문 기준 4.5:1 초과). */
+#textbooks-table td button.tb-hide-toggle {
+  display: inline-block !important;
+  padding: 3px 10px !important;
+  margin: 0 !important;
+  border-radius: 99px !important;
+  font-size: 11.5px !important;
+  font-weight: 800 !important;
+  line-height: 1.5 !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+  cursor: pointer !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  background-color: #dcfce7 !important;
+  color: #166534 !important;
+  border: 1px solid #86efac !important;
+}
+#textbooks-table td button.tb-hide-toggle.tb-hide-on {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+  border-color: #fca5a5 !important;
+}
+/* ⛔ hover 에 움직임을 두지 않는다(CLAUDE.md 1-3 «hover 확대 금지» — 색·밝기만).
+   ⚠️ 3374행 `details.table-card.menu-card button:not()x3:hover{ transform:translateY(-1px)!important }`
+      가 그대로 걸려 실측 1px 이 올라가고 있었다(2026-09-07 브라우저 실측 top 854.81 → 853.51).
+      «안 쓴다» 고 주석만 적어 두면 그것이 거짓이 된다 — 끄는 줄을 실제로 둔다
+      (#en-multi-table td button 선례와 같은 방식). */
+#textbooks-table td button.tb-hide-toggle:hover {
+  filter: brightness(0.95) !important;
+  transform: none !important;
+}
+#textbooks-table td button.tb-hide-toggle[disabled] { opacity: .55 !important; cursor: default !important; }
+
+/* 🟠 자료실 「쉬움」 난이도 배지는 앰버 (2026-09-06 사장님 지시 「원래 앰버로 되돌려줘」)
+   바로 위 파랑 규칙에서 `.lib-lvl` 만 빼고 여기서 따로 칠한다 —
+   같은 (0,12,4) 라 `[id^="card-"] :is(…)` 두 규칙(클래스 10·9)을 똑같이 이긴다.
+   ⚠️ 위 규칙과 **특이성이 동점**이다. 지금은 위쪽이 `:not(.lib-lvl)` 로 배제해서 안 겹치지만,
+      그 `:not()` 이 사라지면 «파일 안 순서» 로만 결정되므로 이 블록이 뒤에 있어야 한다.
+   ⚠️ 인라인의 원래 앰버 #fbbf24 를 그대로 쓰지 않는다:
+        흰 카드 위 대비 **1.67:1** 로 사실상 안 읽힌다(잰 값).
+        #b45309 는 5.02:1 — 이 파일이 ivory 에서 쓰는 앰버와 같은 값이다.
+   🔴 그래서 화면에 보이는 것은 «밝은 금색» 이 아니라 «탄 주황» 이고, 눈으로 확연히 다르다.
+      ⛔ 「다크에서는 인라인 #fbbf24 가 그대로니 원래 앰버가 어딘가엔 살아 있다」로 위안 삼지 말 것 —
+         `admin.html` 은 지금 **ivory 고정**이라(283·287행 하드 설정, `applyAdminColor('dark')`
+         호출부 0건 — 2026-09-09 실측) 그 경로가 열리지 않는다. 즉 «원래 앰버» 는 지금
+         화면 어디에도 없다. 이 이탈이 마음에 걸리면 사람에게 다시 물을 것.
+   ⛔ 이 배지에 «-btn/-chip/-pill/-tag» 로 끝나거나 `badge`·`kpi-tile` 인 클래스를 주지 말 것 —
+      위 :is(…) 규칙의 :not() 목록에 걸려 제외되면 인라인 #fbbf24 가 그대로 나와 안 읽힌다. */
+html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span.lib-lvl:not(a):not(button):not(.badge):not(.kpi-tile):not([class*="btn"]):not([class*="chip"]):not([class*="pill"]):not([class*="tag"]):not([hidden]){
+  color: #b45309 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   🔎 (2026-09-09) 히어로 «통합 검색» 드롭다운을 PC 에서 되살린다
+   ──────────────────────────────────────────────────────────────────────────
+   🔴 무슨 일이 있었나 — 사장님 「가로 검색창에 «녹화» 를 쳤는데 아무 일도 안 일어나」.
+      실측(로컬 서버 + 크로미움, 「녹화」 입력):
+        · 폭 1600px … computed display «none» · 높이 0px · 그런데 DOM 안 항목은 12개
+        · 폭  900px … computed display «block» · 높이 482px · 항목 12개
+      즉 후보를 12개 «찾아 놓고» 화면에 한 줄도 안 그리고 있었다.
+
+   범인은 이 파일 2896행([style#ph89-clean])과 3082행의
+     @media (min-width:1024px){ .menu-search-wrap, .menu-search-input,
+       .menu-search-dropdown, .menu-search-clear, .menu-search-item{display:none!important} }
+   2026-05-25 Phase 89 「우측 메인 영역의 옛 메뉴(가나다 순) 검색 카드 제거」 규칙인데,
+   2026-06-24 에 되살린 히어로 검색창의 드롭다운이 **같은 클래스**(menu-search-dropdown)를
+   달고 있어 함께 걸린다. 작성자 !important 라 admin-inline-a.css 의
+   `.hero .hero-search-dropdown.show{display:block}`(important 없음)을 언제나 이긴다.
+   admin.html 의 ph89Clean 이 박는 **인라인** display:none 도 함께 이겨야 하는데,
+   작성자 !important 는 인라인도 이기므로 여기 한 곳으로 둘 다 해결된다.
+
+   ⛔ 위 두 규칙을 지워서 풀지 말 것 — 옛 검색 카드 제거가 통째로 풀린다.
+      (지금 admin.html 에 그 실물 마크업은 없지만, 규칙을 지우면 «왜 지웠나» 가 사라진다.)
+   ⛔ 히어로 드롭다운에서 menu-search-dropdown/menu-search-item 클래스를 떼는 방식도 금지 —
+      admin-inline-a.css 224행의 항목 모양(display:flex·padding·hover)이 그 클래스에 걸려 있다.
+   ⚠️ `.show` 없을 때는 여전히 감춰야 한다(아래 첫 줄) — 안 그러면 빈 상자가 늘 떠 있는다.
+   ✅ 확인은 코드가 아니라 브라우저에서:
+      getComputedStyle(document.getElementById('menu-search-dropdown')).display
+      감시는 test-harness/manual/admin-search-browser.mjs ①절 */
+@media (min-width: 1024px) {
+  .hero .hero-search-dropdown { display: none !important; }
+  .hero .hero-search-dropdown.show { display: block !important; }
+  .hero .hero-search-dropdown .menu-search-item { display: flex !important; }
+}
+
+/* 👥 (2026-09-10) 수업 관찰 카드 — 「⚠ 혼자 대기중」(수업방) 과 「혼자」(회의방) 의 색을 되살린다.
+   [왜] 인라인 color 는 이 카드 안에서 **한 글자도 안 먹는다** —
+        html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] :is(p,span,div,…)
+        가 #101828 !important 로 덮어(0,3,1 대 인라인) 앰버·회색이 **둘 다 검정**으로 나왔다
+        (2026-09-10 함정 대조 브라우저 실측 — 두 색이 같아 «갈라 놓았다» 는 말이 화면에서 거짓이었다).
+   [고침] 조상 id 를 앞에 붙여 (1,1,0) 으로 이긴다. 같은 파일의 .tr-st-badge(v=63) 와 같은 방식.
+   ⛔ 앰버 #fbbf24 로 되돌리지 말 것 — 흰 카드 위 대비 1.67 이라 안 읽힌다(#b45309 = 5.0).
+   ⚠️ 색은 «둘째» 신호다 — 글리프(⚠)·문구·굵기가 먼저다. 색만으로 뜻을 지고 가게 두지 말 것. */
+#card-admin-ghost .gh-alone      { color: #b45309 !important; font-weight: 800 !important; }
+#card-admin-ghost .gh-alone-meet { color: #475467 !important; font-weight: 700 !important; }
+
+/* 🏢 (2026-09-11) 조직 3표(대리점·지사·대표지사)의 «표 안 작은 버튼» 을 되살린다.
+ [왜] 전역 룰 `details.menu-card button:not(…)` 가 background 인디고 그라데이션 +
+      padding:9px 18px + color:#fff 를 **!important** 로 걸어, 작성자가 인라인으로 적어 둔
+      `padding:2px 8px;font-size:11px;background:#fff` 이 통째로 무시된다(작성자 !important >
+      인라인). 그래서 「✏️ 수정」·「🟢 사용중」·「취소」가 전부 큰 파란 알약이 되어 좁은 칸을
+      밀어낸다 — 같은 파일 #tp-list-table td button.tp-act-btn(강사 목록)·
+      #en-multi-table td button.en-row-time-builder(수강신청 표) 선례와 **똑같은 함정**이다.
+ [고침] ID 접두로 특이도를 올려 되살린다 — (1,1,2) 대 전역 (0,4,2). id 가 하나라도 있으면
+      클래스를 아무리 쌓은 규칙도 못 이긴다.
+ ⛔ 이 블록에 `display` 를 쓰지 말 것 — 「취소」 세 개는 인라인 `display:none` 으로 숨겨져
+    있고(수정 모드에서만 보인다), 여기서 display 를 정하면 **항상 보이게** 된다.
+ ⛔ hover 에 transform 을 되살리지 말 것 — CLAUDE.md 1-3 「hover 확대 금지」.
+ ⚠️ 전역 룰 자체를 고쳐서 풀지 말 것 — 관리자 화면 버튼 «전체» 의 모양이 걸린다. */
+#centers-table td button.org-rowact,
+#franchises-table td button.org-rowact,
+#mbranches-table td button.org-rowact,
+#ct-cancel-btn, #fr-cancel-btn, #mbr-cancel-btn {
+  background-color: #FFFFFF !important;
+  background-image: none !important;
+  color: #344054 !important;
+  border: 1px solid #D0D5DD !important;
+  border-radius: 5px !important;
+  padding: 2px 8px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1.6 !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
+  cursor: pointer !important;
+}
+/* 「취소」는 폼 안 버튼이라 표 안 버튼보다 한 치수 크게 둔다(원래 인라인 값 그대로). */
+#ct-cancel-btn, #fr-cancel-btn, #mbr-cancel-btn {
+  padding: 5px 12px !important;
+  font-size: 13px !important;
+  border-radius: 6px !important;
+}
+#centers-table td button.org-rowact:hover,
+#franchises-table td button.org-rowact:hover,
+#mbranches-table td button.org-rowact:hover,
+#ct-cancel-btn:hover, #fr-cancel-btn:hover, #mbr-cancel-btn:hover {
+  background-color: #F9FAFB !important;
+  background-image: none !important;
+  border-color: #98A2B3 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* ═══ 🎥 녹화 관리 «저장소 상태» D안 — 2026-09-13 (사장님 「너무 작아서 크게 · 찾기 어려움」)
+ [왜 여기] 카드 안 글자색은 html[…ivory][…slate] [id^="card-"] … :is(span,div,…){color:#101828!important}
+      (클래스 10)에 눌린다. 인라인 color 도 진다. id 하나(1,x,0)면 이긴다 — .tr-st-badge 선례.
+ [탭 줄] .rs-tabs 는 «감추는 탭» 이 아니라 그 구역으로 내려가는 링크다(세 구역 전부 보임).
+ [주의 카드] .rs-attn 은 JS(refreshStorageStats)가 저장 실패 > 0 일 때만 붙인다. 배경은
+      background-color 로(«background:#f…» 는 옛 다크 규칙에 잡혀 투명이 된다).
+ [버튼] details.menu-card button 의 인디고 알약 !important 를 id 접두로 되살린다(#en-multi-table 선례).
+ [페인터] 빨강 #b91c1c 위 #fee2e2 는 대비 5.2(WCAG 계산 · 브라우저 실측 5.3)라 adm-s12(밝은 글자만)·adm-s13/light-surfaces(대비<3·4.5 만)
+      가 안 건드린다 — 그래서 SKIP_SEL 등재 없이 CSS 만으로 된다(등재하면 JS 3벌+HTML 18곳 ?v= 가 걸린다).
+ ⛔ hover 에 transform 금지(1-3). ⛔ [hidden] 버튼은 반드시 display:none — 아래 규칙이 UA 의 [hidden] 을 이긴다. */
+#card-recording-storage .rs-tabs { display:flex; gap:4px; border-bottom:2px solid #e4e7ec; margin:2px 0 16px; }
+/* 탭 글자·밑줄은 카드 안 «a 링크» 규칙(파랑+밑줄)이 span 까지 덮으므로 !important 로 되살린다(실측: 세 탭이 전부 파랑·밑줄). */
+#card-recording-storage .rs-tab, #card-recording-storage .rs-tab span { color:#667085 !important; text-decoration:none !important; }
+#card-recording-storage .rs-tab { display:inline-flex; align-items:center; gap:7px; padding:10px 16px; margin-bottom:-2px; font-size:15px; font-weight:800; border-bottom:3px solid transparent; cursor:pointer; }
+#card-recording-storage .rs-tab .ic { font-size:16px; line-height:1; }
+#card-recording-storage .rs-tab:hover, #card-recording-storage .rs-tab:hover span { color:#344054 !important; }
+#card-recording-storage .rs-tab.on, #card-recording-storage .rs-tab.on span { color:#1e3a8a !important; }
+#card-recording-storage .rs-tab.on { border-bottom-color:#1e3a8a; }
+/* 숫자는 한 줄로(«28.1 GB» 가 좁은 칸에서 두 줄로 꺾였다). PC 는 zoom 1.3 이라 1500px 미만이면 2×2 가 더 넉넉하다. */
+#card-recording-storage .rs-kpi .value { white-space:nowrap; }
+@media (max-width:1499px) and (min-width:769px) { #card-recording-storage #rs-kpi-grid { grid-template-columns:1fr 1fr !important; } }
+#card-recording-storage .rs-sec { display:flex; align-items:center; gap:10px; font-size:16px; font-weight:900; color:#101828; margin:6px 0 10px; scroll-margin-top:calc(var(--adm-jump-offset,0px) + 8px); }
+#card-recording-storage .rs-sec .ic { width:30px; height:30px; border-radius:8px; display:grid; place-items:center; font-size:16px; background:#e6ecff; color:#1e3a8a; }
+#card-recording-storage .rs-sec .rule { flex:1; height:1px; background:#e4e7ec; }
+#card-recording-storage .rs-kpi .label { color:#475467 !important; }
+#card-recording-storage .rs-kpi .value, #card-recording-storage .rs-kpi .value span { color:#101828 !important; }
+#card-recording-storage .rs-kpi .value small { color:#667085 !important; }
+#card-recording-storage .rs-kpi .unit, #card-recording-storage .rs-kpi .unit span { color:#667085 !important; }
+#card-recording-storage .rs-kpi.rs-attn { background-color:#fee2e2 !important; background-image:none !important; border-color:#fca5a5 !important; }
+#card-recording-storage .rs-kpi.rs-attn .label, #card-recording-storage .rs-kpi.rs-attn .label span,
+#card-recording-storage .rs-kpi.rs-attn .value, #card-recording-storage .rs-kpi.rs-attn .value span, #card-recording-storage .rs-kpi.rs-attn .value small,
+#card-recording-storage .rs-kpi.rs-attn .unit, #card-recording-storage .rs-kpi.rs-attn .unit span { color:#b91c1c !important; }
+#card-recording-storage .rs-kpi.rs-ok .value, #card-recording-storage .rs-kpi.rs-ok .value span { color:#15803d !important; }
+#card-recording-storage .rs-kpi button.rs-act {
+  display:inline-flex !important; align-items:center !important; align-self:flex-start; margin-top:auto;
+  background-color:transparent !important; background-image:none !important; color:#b91c1c !important;
+  border:1.5px solid #b91c1c !important; border-radius:8px !important; padding:6px 12px !important;
+  font-size:13px !important; font-weight:700 !important; line-height:1.4 !important; box-shadow:none !important; cursor:pointer !important;
+}
+#card-recording-storage .rs-kpi button.rs-act span { color:#b91c1c !important; }
+#card-recording-storage .rs-kpi button.rs-act:hover { background-color:#fecaca !important; transform:none !important; box-shadow:none !important; }
+#card-recording-storage .rs-kpi button.rs-act[hidden] { display:none !important; }
+
+/* 📝 (2026-09-30) 「오늘 수업」 지난/오늘 평가 칸의 «📄 전문 보기» 링크 — js/adm-today-classes.js xEval.
+   details.menu-card a{color:#60A5FA!important;underline} 는 흰 카드 위 대비가 약해(≈2.5) ID 접두로 이긴다. */
+#sm-today-classes a.tc-evq-link{display:inline-block;margin-top:2px;color:#1d4ed8 !important;font-weight:700;text-decoration:none !important;white-space:nowrap}
+#sm-today-classes a.tc-evq-link:hover{text-decoration:underline !important}
+
+/* 🎨 (2026-10-01) 오늘 수업 표 «⏸ 연기됨/Postponed» — 회색에 묻혀 안 보였다 → 보라 배지.
+   인라인 색은 [id^="card-"] :is(span…) 규칙에 검정으로 눌리므로 조상 id 로 이긴다. 대비 #6d28d9/#ede9fe ≈ 6.4 */
+#sm-today-classes span.tc-st-postponed{display:inline-block;padding:2px 9px;border-radius:99px;
+  background-color:#ede9fe !important;color:#6d28d9 !important;border:1px solid #a78bfa !important;font-weight:800 !important;box-sizing:border-box}
+
+/* ✏️➕ (2026-10-28 매니저·강사 제안) 「오늘 수업」 지난/오늘 피드백 칸의 「✏️ 고치기」·「➕ 추가」 — js/adm-today-classes.js xEvalAct.
+   인라인 색은 [id^="card-"] :is(span…) 규칙에 검정으로 눌리므로 조상 id 로 이긴다(바로 위 tc-st-postponed 와 같은 방식).
+   hover 는 색·밑줄만(크기·위치 고정 — CLAUDE.md 1-3). 대비 #1d4ed8/#eff6ff ≈ 6.4 · #047857/#ecfdf3 ≈ 5.3 */
+#sm-today-classes span.tc-evq-act{display:block;width:max-content;margin-top:4px;padding:2px 9px;border-radius:99px;cursor:pointer;
+  white-space:nowrap;font-size:11px;background-color:#eff6ff !important;color:#1d4ed8 !important;border:1px solid #93c5fd !important;
+  font-weight:800 !important;box-sizing:border-box}
+#sm-today-classes span.tc-evq-act.tc-evq-add{background-color:#ecfdf3 !important;color:#047857 !important;border-color:#6ce9a6 !important}
+#sm-today-classes span.tc-evq-act:hover{text-decoration:underline}
+#sm-today-classes span.tc-evq-act:focus-visible{outline:2px solid #1d4ed8;outline-offset:2px}

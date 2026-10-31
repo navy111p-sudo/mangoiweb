@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>아바타 키우기 — Avatar Quest</title>
@@ -41,7 +41,14 @@
       radial-gradient(55% 40% at 82% 26%, rgba(230,120,60,.24), transparent 66%),
       radial-gradient(70% 55% at 50% 105%, rgba(40,120,190,.28), transparent 62%),
       #0a0714;}
-  #bgStars{position:absolute;inset:0}
+  /* ⚠️ width/height 를 반드시 준다 (2026-08-14 사고).
+     <canvas> 는 «대체 요소»라 inset:0 만으로는 안 늘어나고, **width/height 속성값이 곧 CSS 크기**가 된다.
+     그 상태에서 fitCanvas 가 매 프레임 «CSS크기 × 화면배율»을 속성에 다시 써 넣으므로,
+     배율이 1이 아닌 화면(윈도우 125%·150%)에서는 크기가 프레임마다 곱해지며 폭주한다.
+     실측: 20초 남짓 만에 4,194만 × 4,194만 px 까지 커지고 배경이 흰색으로 덮여
+     («어두웠던 화면이 20초 뒤 밝아져 글씨가 안 보인다» 의 정체) 글자 대비가 무너졌다.
+     배율 100% 인 개발 PC·헤드리스에서는 곱셈이 1이라 절대 재현되지 않는다. */
+  #bgStars{position:absolute;inset:0;width:100%;height:100%}
 
   /* ───────── 상단 HUD ───────── */
   .hud{position:relative;z-index:20;display:flex;align-items:center;gap:10px;
@@ -245,8 +252,9 @@
     .opt{padding:10px 14px}
   }
 </style>
-<script src="/js/game-track.js?v=3" defer></script>
+<script src="/js/game-track.js?v=4" defer></script>
 <script src="/js/session-guard.js" defer></script>
+<script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 </head>
 <body>
 <div id="app">
@@ -352,7 +360,7 @@
 
 <script src="/js/game-tts.js"></script>
 <script src="/js/game-vocab.js"></script>
-<script src="/js/mangoi-voice-input.js"></script>
+<script src="/js/mangoi-voice-input.js?v=6"></script>
 <!-- 🗣 따라 말하기 채점 단일 출처. 직접 만든 "단어 몇 개 들렸나" 방식은 쓰지 말 것 —
      그 방식은 "I have a dog" 에 "I have a cat" 이라고 해도 통과시킨다(2026-07-23 확인). -->
 <script src="/js/mangoi-speak-score.js?v=1"></script>
@@ -360,6 +368,14 @@
      이 게임은 채점만 하고 기록을 안 남겨서, 여기서 막힌 문장이 다른 게임으로 이어지지 않았다. -->
 <script src="/js/mangoi-pron-tags.js?v=1"></script>
 <script src="/js/mangoi-memory.js?v=1"></script>
+<!-- 🎮 게임을 «허브 밖에서» 열었을 때만 나가는 문을 띄운다 (2026-09-01).
+     허브(student-games.html)가 iframe 으로 감싸 열면 아무것도 하지 않는다 — 그쪽에
+     이미 「← 게임 선택」이 있다. 판정은 그 파일 하나에만 있다(16개에 복제하지 않는다).
+     ⚠️ 이 태그는 «마지막 인라인 script 태그 앞» 에 둔다(그 이름을 여기에 꺾쇠로 적으면
+        하니스 정규식이 주석에서부터 잘라 깨진다 — 2026-09-01 실측). `body` 닫기 직전에
+        두면 escape_school_mic·escape_zombie_mic 가 «닫기 직전의 인라인 코드» 를 오려
+        내는 정규식에 걸려 깨진다. defer 라 위치를 옮겨도 실행 시점은 그대로다. -->
+<script defer src="/js/game-standalone-exit.js?v=5"></script>
 <script>
 (function(){
 'use strict';
@@ -1069,9 +1085,16 @@ var homeCv = document.getElementById('avatarCv'), homeCtx = homeCv.getContext('2
 function fitCanvas(cv){
   var dpr = Math.min(2, window.devicePixelRatio || 1);
   var r = cv.getBoundingClientRect();
-  var w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height));
-  if (cv.width !== w * dpr || cv.height !== h * dpr){
-    cv.width = w * dpr; cv.height = h * dpr;
+  /* 🛡 상한 — 캔버스에 CSS 크기가 없으면 여기 값이 다시 속성으로 들어가 매 프레임 배율만큼
+     곱해진다(대체 요소의 크기 = 속성값). 화면보다 큰 값이 나올 수 없으므로 잘라낸다.
+     이 한 줄이 없으면 배율 125% 화면에서 캔버스가 수천만 px 로 자란다. */
+  var LIMIT = Math.max(2048, Math.round(Math.max(screen.width || 0, screen.height || 0, 2048) * 2));
+  var w = Math.max(1, Math.min(LIMIT, Math.round(r.width)));
+  var h = Math.max(1, Math.min(LIMIT, Math.round(r.height)));
+  // 속성은 정수여야 한다 — 소수를 넣으면 잘려서 비교가 매 프레임 어긋나고 캔버스가 계속 재할당된다
+  var aw = Math.round(w * dpr), ah = Math.round(h * dpr);
+  if (cv.width !== aw || cv.height !== ah){
+    cv.width = aw; cv.height = ah;
     var c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   return { w:w, h:h };
@@ -2046,6 +2069,6 @@ document.addEventListener('visibilitychange', function(){
 });
 })();
 </script>
-<!-- BUILD:20260813001216 -->
+<!-- BUILD:20260813015745 -->
 </body>
 </html>

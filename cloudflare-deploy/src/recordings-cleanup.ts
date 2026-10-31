@@ -126,7 +126,7 @@ export async function sweepStuckRecordings(
   const olderThanMs = options.olderThanMs ?? 6 * 3600 * 1000;   // 6시간
   const limit = options.limit ?? 200;
   const out: StuckSweepResult = { checked: 0, recovered: 0, failed: 0, errors: [] };
-  if (!env.DB) return out;
+  if (!env.DB || !env.RECORDINGS) return out;
 
   let rows: any;
   try {
@@ -146,9 +146,19 @@ export async function sweepStuckRecordings(
     try {
       if (env.RECORDINGS && r.file_url) {
         const head = await env.RECORDINGS.head(r.file_url);
+        if (head?.customMetadata?.recoveredFrom === 'snapshot') continue; // finalizer owns recovery
         size = head ? (head.size || 0) : 0;
       }
-    } catch { /* head 실패는 «없음» 으로 본다 — 실패로 정리하는 쪽이 안전하다 */ }
+      if (!size) {
+        const part = await env.DB.prepare(`SELECT 1 AS n FROM recording_parts WHERE recording_id = ? LIMIT 1`)
+          .bind(r.id).first();
+        if (part) continue;
+        if (r.file_url && (await env.RECORDINGS.head(r.file_url + '.snap'))?.size) continue;
+      }
+    } catch (e: any) {
+      out.errors.push('id=' + r.id + ' 저장 확인 보류: ' + (e?.message || e));
+      continue; // storage errors are not evidence of lost video
+    }
 
     try {
       if (size > 0) {

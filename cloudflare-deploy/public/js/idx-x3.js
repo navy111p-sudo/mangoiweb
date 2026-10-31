@@ -32,7 +32,7 @@
   function courseIcon(name){
     var n = (name || '').toLowerCase();
     if (n.indexOf('phonics') >= 0) return '🔤';
-    if (n.indexOf('mes') >= 0) return '🎯';
+    if (/(^|[^a-z])mes([^a-z]|$)/.test(n)) return '🎯'; // 낱말로만(Games 오인 방지)
     if (n.indexOf('bts') >= 0) return '🌟';
     if (n.indexOf('siu') >= 0) return '🦁';
     if (n.indexOf('마스터') >= 0 || n.indexOf('master') >= 0) return '🏆';
@@ -41,7 +41,8 @@
   function courseOrder(name){
     var n = (name || '').toLowerCase();
     for (var i = 0; i < COURSE_ORDER.length; i++) {
-      if (n.indexOf(COURSE_ORDER[i].toLowerCase()) >= 0) return i;
+      var k = COURSE_ORDER[i].toLowerCase();
+      if (k === 'mes' ? /(^|[^a-z])mes([^a-z]|$)/.test(n) : n.indexOf(k) >= 0) return i;
     }
     return 99;
   }
@@ -68,40 +69,9 @@
   window._libCurrentCategory = null;
   window._tbfUrlCache = window._tbfUrlCache || {};
 
-  function _loadAllIDB(){
-    return new Promise(function(resolve){
-      var done = false;
-      var to = setTimeout(function(){
-        if (done) return; done = true;
-        resolve({textbooks:[], files:{}, err:'timeout'});
-      }, 5000);
-      try {
-        var req = indexedDB.open('mangoi-textbooks', 3);
-        req.onupgradeneeded = function(e){
-          var d = e.target.result;
-          if (!d.objectStoreNames.contains('textbooks')) {
-            var s = d.createObjectStore('textbooks', {keyPath:'id'});
-            try { s.createIndex('publisher','publisher'); } catch(_){}
-          }
-          if (!d.objectStoreNames.contains('files')) d.createObjectStore('files', {keyPath:'id'});
-        };
-        req.onsuccess = function(){
-          var db = req.result;
-          if (!db.objectStoreNames.contains('textbooks') || !db.objectStoreNames.contains('files')) {
-            db.close();
-            if (done) return; done = true; clearTimeout(to);
-            resolve({textbooks:[], files:{}, err:'store_missing'}); return;
-          }
-          var tx = db.transaction(['textbooks','files'], 'readonly');
-          var tbR = tx.objectStore('textbooks').getAll();
-          var flR = tx.objectStore('files').getAll();
-          var tbs = null, fls = null;
-          function chk(){
-            if (tbs === null || fls === null) return;
-            var fm = {};
-            fls.forEach(function(f){ fm[f.id] = f; });
-            db.close();
-            if (done) return; done = true; clearTimeout(to);
+  /* 🔴 (2026-08-27) 이 함수는 오래도록 _loadAllIDB «성공 콜백 안» 에 정의돼 있었다 —
+     업로더가 IDB 를 블롭으로 채운 뒤에는 읽기가 5초를 넘거나 실패해 영영 undefined 가 되고,
+     라이브러리에서 교재를 골라도 window.open 폴백만 떠서 수업에 적용되지 않았다. 최상위 고정. */
   window.selectFromTextbookLibrary = async function(id, url, kind, name) {
     console.log('[ph247] selectFromTextbookLibrary:', id, kind, name);
     /* 🎬 교재 → 예습/복습 동영상 «자동 연결» 은 여기서 완전히 끊었다.
@@ -124,9 +94,17 @@
       }
       if (typeof window.pdfLoad === 'function') {
         window.pdfCurrentId = 'lib_' + id;
-        // ph258: 새 파일 띄울 때 zoom 100% reset (자동 fit)
-        if (typeof window.pdfZoom !== 'undefined') window.pdfZoom = 1.0;
-        await window.pdfLoad(url, kind);
+        /* ph258: 새 파일 띄울 때 zoom 100% reset (자동 fit)
+           🔴 (2026-08-28) 이 줄은 **한 번도 실행된 적이 없었다.** 배율은 idx-main.js 의
+              `let pdfZoom` 인데 let 은 window 의 속성이 되지 않아 `typeof window.pdfZoom` 이
+              늘 'undefined' → 조건이 항상 거짓. 그래서 교재를 바꿔도 앞 교재의 확대가
+              그대로 남았다(사장님 화면 실측: 새 교재를 여는 중인데 320%).
+              ⚠️ 같은 함정을 핀치·더블탭에서 이미 밟고 pdfSetZoom() 을 만들어 뒀는데
+                 (idx-main.js 의 그 함수 머리말이 경위를 적고 있다) 이 마지막 한 곳만
+                 옛 방식으로 남아 있었다. 정본 함수를 쓰면 렌더와 «320%» 라벨까지 함께 갱신된다.
+              ⛔ window.pdfZoom 으로 되돌리지 말 것 — 조용히 아무 일도 안 하게 된다. */
+        if (typeof window.pdfSetZoom === 'function') window.pdfSetZoom(1);
+        if (await window.pdfLoad(url, kind) === false) return; // A newer selection won while this file loaded.
         console.log('[ph247] pdfLoad OK');
       } else {
         console.warn('[ph247] pdfLoad missing, fallback');
@@ -169,6 +147,40 @@
     }
   };
 
+  function _loadAllIDB(){
+    return new Promise(function(resolve){
+      var done = false;
+      var to = setTimeout(function(){
+        if (done) return; done = true;
+        resolve({textbooks:[], files:{}, err:'timeout'});
+      }, 5000);
+      try {
+        var req = indexedDB.open('mangoi-textbooks', 3);
+        req.onupgradeneeded = function(e){
+          var d = e.target.result;
+          if (!d.objectStoreNames.contains('textbooks')) {
+            var s = d.createObjectStore('textbooks', {keyPath:'id'});
+            try { s.createIndex('publisher','publisher'); } catch(_){}
+          }
+          if (!d.objectStoreNames.contains('files')) d.createObjectStore('files', {keyPath:'id'});
+        };
+        req.onsuccess = function(){
+          var db = req.result;
+          if (!db.objectStoreNames.contains('textbooks') || !db.objectStoreNames.contains('files')) {
+            db.close();
+            if (done) return; done = true; clearTimeout(to);
+            resolve({textbooks:[], files:{}, err:'store_missing'}); return;
+          }
+          var tx = db.transaction(['textbooks','files'], 'readonly');
+          var tbR = tx.objectStore('textbooks').getAll();
+          var flR = tx.objectStore('files').getAll();
+          var tbs = null, fls = null;
+          function chk(){
+            if (tbs === null || fls === null) return;
+            var fm = {};
+            fls.forEach(function(f){ fm[f.id] = f; });
+            db.close();
+            if (done) return; done = true; clearTimeout(to);
             console.log('[ph245] IDB 교재', tbs.length, '· 파일', fls.length);
             resolve({textbooks:tbs, files:fm, err:null});
           }
@@ -200,7 +212,7 @@
     if (/phonics|파닉스/.test(b)) return 'Phonics';
     if (/siu/.test(b)) return 'SIU';
     if (/bts/.test(b)) return 'BTS';
-    if (/mes/.test(b)) return 'MES';
+    if (/(^|[^a-z])mes([^a-z]|$)/.test(b)) return 'MES';
     if (/다락원|master|마스터/.test(b)) return '중국어';
     return '서버 교재';
   }
@@ -417,7 +429,8 @@
       var courseKeys = Object.keys(courses).sort(function(a, b){
         var oa = courseOrder(a), ob = courseOrder(b);
         if (oa !== ob) return oa - ob;
-        return a.localeCompare(b, 'ko');
+        // (2026-08-12 마이마이 ①) 「BTS 를 1~34 순서로」 — numeric 없이는 BTS 34 < BTS 4
+        return a.localeCompare(b, 'ko', { numeric:true, sensitivity:'base' });
       });
       var catTotal = 0; courseKeys.forEach(function(p){ catTotal += courses[p]; });
       html += '<div class="tbf-cat open" data-cat="' + esc(cat) + '">';
@@ -460,6 +473,17 @@
     var titleEl = document.getElementById('tbf-main-title');
     var subEl = document.getElementById('tbf-main-sub');
     var books = window._libAllBooks.slice();
+    // (2026-08-12 마이마이 ①) 「BTS 를 1~34 순서로」 — 서버는 BINARY 정렬(BTS 34 < BTS 4)이라 여기서 재정렬
+    books.sort(function(a, b){
+      var pa = a.publisher || '', pb = b.publisher || '';
+      if (pa !== pb) {
+        var oa = courseOrder(pa), ob = courseOrder(pb);
+        if (oa !== ob) return oa - ob;
+        var pc = pa.localeCompare(pb, 'ko', { numeric:true, sensitivity:'base' });
+        if (pc) return pc;
+      }
+      return String(a.textbook || '').localeCompare(String(b.textbook || ''), 'ko', { numeric:true, sensitivity:'base' });
+    });
     var lvFilter = (document.getElementById('tbf-lib-level') || {}).value || '';
     var qFilter = ((document.getElementById('tbf-lib-search') || {}).value || '').trim().toLowerCase();
 
@@ -511,7 +535,19 @@
         thumbHtml = '<div class="tbf-card-thumb"><div class="tbf-card-emoji">' + courseIcon(b.publisher) + '</div></div>';
       }
       var lvlChip = b.level ? '<span class="tbf-card-chip tbf-chip-lvl">' + esc(b.level) + '</span>' : '';
-      var cntChip = '<span class="tbf-card-chip tbf-chip-cnt">📑 ' + lessonCount + '과 · 📄 ' + totalFiles + '</span>';
+      /* 🔤 (2026-08-14 마이마이) 영어 화면에서 이 배지가 「0 and · 781」 로 나왔다.
+         ─────────────────────────────────────────────────────────────────────
+         [원인] 여기서 그리던 글자는 «0과 · 781» 이었는데, i18n 사전이 한국어 조사 「과」를
+            영어 and 로 바꿔 놓았다. 숫자만 남고 그게 «무엇의» 숫자인지가 사라졌다.
+         [고침] ① 조사 「과」를 쓰지 않는다(「단원」). ② 언어별 문구를 지금 바로 계산하고
+            data-ko / data-en 을 함께 달아 🌐 를 눌렀을 때도 따라오게 한다
+            (CLAUDE.md 「JS 로 그린 라벨」 함정 — 그릴 때 두 속성을 같이 갱신할 것). */
+      var _cntKo = '📑 ' + lessonCount + '단원 · 📄 ' + totalFiles + '쪽';
+      var _cntEn = '📑 ' + lessonCount + (lessonCount === 1 ? ' unit · 📄 ' : ' units · 📄 ')
+                 + totalFiles + (totalFiles === 1 ? ' page' : ' pages');
+      var _cntNow = (typeof getLang === 'function' && getLang() === 'en') ? _cntEn : _cntKo;
+      var cntChip = '<span class="tbf-card-chip tbf-chip-cnt" data-ko="' + esc(_cntKo) + '" data-en="' + esc(_cntEn) + '">'
+                  + esc(_cntNow) + '</span>';
       html += '<div class="tbf-card" data-tb-id="' + esc(b.id) + '">';
       html += thumbHtml;
       html += '<div class="tbf-card-body">';
@@ -564,6 +600,16 @@
     });
     return seq;
   }
+  /* 🔗 미리보기 창(/js/idx-tb-preview.js)이 쓰는 헬퍼 한 벌.
+     이 IIFE 안의 함수들은 바깥에서 안 보이므로 여기서 한 번만 넘겨준다.
+     ⚠️ buildBookSequence 를 저쪽에 복사하지 말 것 — 목록의 쪽 번호와 ◀▶ 시퀀스가
+        어긋나는 순간 「3번을 눌렀는데 4번이 뜬다」가 된다. 정본은 여기 하나다. */
+  window.__tbfLibHelpers = {
+    esc: esc, fileEmoji: fileEmoji, courseIcon: courseIcon, naturalCmp: naturalCmp,
+    buildBookSequence: buildBookSequence, ensureServerBookFiles: _ensureServerBookFiles,
+    closeLibrary: function(){ try { window.closeTextbookLibrary(); } catch(_){} }
+  };
+
   async function applyBookToClass(book){
     try {
       if (book && book._serverBook && !(book.lessons && book.lessons.length)) {
@@ -584,84 +630,41 @@
       window.open(first.url, '_blank');
     }
   }
+  /* 📑 (2026-08-20 Melca 8/13 제보 ②) 「페이지를 고르면 창이 바로 닫힌다 — 내가 닫을 때까지
+        떠 있게 해 달라. 크기도 조절하고 싶고, 파일 이름에 쪽 번호가 안 보인다(BODA 처럼)」
+     ═══════════════════════════════════════════════════════════════════════════════
+     실제 구현은 「js/idx-tb-preview.js」(defer) 에 있다. 여기 두지 않은 이유:
+        이 파일(idx-x3.js)은 index.html 이 **blocking 으로** 부른다. 그 예산은 지금
+        여유가 0KB 다(first_paint_budget_harness — 필리핀 회선을 지키려고 둔 예산이고,
+        학생 29,000명 **전원**이 첫 화면에서 받는다). 미리보기는 **강사만** 쓰는 기능이라
+        학생 첫 화면을 무겁게 할 이유가 없다.
+     ⚠️ 그래서 이 창을 고칠 때는 idx-tb-preview.js 를 고치고 index.html 의 그 태그
+        ?v= 를 올린다. 여기를 고치는 게 아니다.
+     ⚠️ 헬퍼(esc·naturalCmp·buildBookSequence…)는 이 IIFE 안에만 있어서 바깥에서 못 본다
+        → __tbfLibHelpers 로 한 벌 넘겨준다(아래 buildBookSequence 옆). */
   async function previewBook(book){
-    // 서버 교재면 파일을 먼저 lazy 로드
-    if (book && book._serverBook && !(book.lessons && book.lessons.length)) {
-      try { if (typeof window.showToast === 'function') window.showToast('📥 교재 불러오는 중…'); } catch(_){}
-      try { await _ensureServerBookFiles(book); } catch(e) { alert('교재 파일 로드 실패: ' + (e.message || e)); return; }
+    var fn = window.__tbfPreviewBook;
+    if (typeof fn !== 'function') {
+      // defer 스크립트가 아직 안 왔다(느린 회선에서 클릭이 아주 빠른 경우). 조용히 실패하지 않는다.
+      var en = false; try { en = (typeof getLang === 'function' && getLang() === 'en'); } catch(_){}
+      alert(en ? 'Still loading — please try again in a moment.' : '아직 불러오는 중입니다 — 잠시 뒤 다시 눌러 주세요.');
+      return;
     }
-    var lessons = book.lessons || [];
-    var modal = document.createElement('div');
-    modal.id = 'tbf-preview-modal';
-    modal.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;padding:14px';
-    var lessonsHtml = '';
-    if (lessons.length === 0) {
-      lessonsHtml = '<div style="color:#94a3b8;text-align:center;padding:30px">레슨 정보가 없습니다.</div>';
-    } else {
-      // ph250: 레슨 자연 정렬 + 레슨 안의 파일도 자연 정렬
-      lessons.slice().sort(function(a,b){ return naturalCmp(a.name, b.name); }).forEach(function(l){
-        lessonsHtml += '<div style="margin-bottom:10px"><div style="font-weight:700;color:#1e40af;font-size:13px;margin-bottom:4px">📑 ' + esc(l.name) + '</div>';
-        var sortedIds = (l.fileIds || []).slice().sort(function(a, b){
-          var fa = window._libFileMap[a] || {};
-          var fb = window._libFileMap[b] || {};
-          return naturalCmp(fa.name || '', fb.name || '');
-        });
-        sortedIds.forEach(function(fid){
-          var f = window._libFileMap[fid];
-          if (!f) {
-            lessonsHtml += '<div style="color:#94a3b8;padding:4px 8px">❓ 파일 없음</div>';
-          } else {
-            lessonsHtml += '<div class="tbf-pv-file" data-fid="' + esc(fid) + '" data-kind="' + esc(f.kind) + '" data-name="' + esc(f.name) + '" style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:#f8fafc;border-radius:6px;margin:3px 0;font-size:12px;cursor:pointer;border:1px solid #e2e8f0">' +
-              '<span>' + fileEmoji(f.kind) + '</span>' +
-              '<span style="flex:1;color:#334155;font-weight:600">' + esc(f.name) + '</span>' +
-              '<span style="padding:3px 10px;background:#3b82f6;color:#fff;border-radius:99px;font-size:11px;font-weight:700">▶ 띄우기</span>' +
-            '</div>';
-          }
-        });
-        lessonsHtml += '</div>';
-      });
-    }
-    modal.innerHTML =
-      '<div style="background:#fff;border-radius:14px;width:min(640px,95vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">' +
-        '<div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#f8fafc,#eff6ff)">' +
-          '<div style="font-size:22px">' + courseIcon(book.publisher) + '</div>' +
-          '<div style="flex:1">' +
-            '<div style="font-weight:900;color:#0f172a;font-size:15px">' + esc(book.textbook) + '</div>' +
-            '<div style="font-size:11.5px;color:#64748b">' + esc(book.publisher) + ' · ' + esc(book.level || '') + '</div>' +
-          '</div>' +
-          '<button id="tbf-pv-close" style="background:#fff;border:1px solid #cbd5e1;padding:6px 12px;border-radius:8px;cursor:pointer;font-weight:700">✕</button>' +
-        '</div>' +
-        '<div style="padding:14px 18px;overflow-y:auto;flex:1">' + lessonsHtml + '</div>' +
-      '</div>';
-    /* 🔒 (2026-08-07 QA #4) 배경 클릭 닫힘 차단 — 정책은 /js/mg-modal-policy.js. 폴백 true = 예전 동작 */
-    modal.addEventListener('click', function(e){ if (e.target === modal && (window.mgBackdropClosable ? window.mgBackdropClosable(modal) : true)) modal.remove(); });
-    document.body.appendChild(modal);
-    document.getElementById('tbf-pv-close').addEventListener('click', function(){ modal.remove(); });
-    // ph250: 미리보기에서 파일 클릭 시 — book 전체 시퀀스 만들어 그 파일부터 시작
-    modal.querySelectorAll('.tbf-pv-file').forEach(function(el){
-      el.addEventListener('click', function(){
-        var fid = el.getAttribute('data-fid');
-        var seq = buildBookSequence(book);
-        var idx = 0;
-        for (var i = 0; i < seq.length; i++) {
-          if (seq[i].id === fid) { idx = i; break; }
-        }
-        if (seq.length === 0) { alert('파일을 찾을 수 없습니다.'); return; }
-        window._libSequence = seq;
-        window._libSeqIdx = idx;
-        console.log('[ph250] 미리보기에서 시퀀스 시작 —', seq.length, '개 / 현재', idx + 1);
-        modal.remove();
-        closeTextbookLibrary();
-        var f = seq[idx];
-        if (window.selectFromTextbookLibrary) window.selectFromTextbookLibrary(f.id, f.url, f.kind, f.name);
-      });
-    });
+    return fn(book);
   }
 
   document.addEventListener('keydown', function(e){
     if (e.key === 'Escape') {
       var pv = document.getElementById('tbf-preview-modal');
-      if (pv) { pv.remove(); return; }
+      /* ESC 로 닫을 때도 크기·자리를 남긴다 — ✕ 로 닫을 때만 저장하면
+         «ESC 로 닫은 다음에는 창이 원래 자리로 돌아가는» 반쪽이 된다. */
+      if (pv) {
+        try {
+          var r = pv.getBoundingClientRect();
+          localStorage.setItem('mangoi_tbpv_box', JSON.stringify({ l: Math.round(r.left), t: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }));
+        } catch(_){}
+        pv.remove(); return;
+      }
       var m = document.getElementById('tbf-lib-modal');
       if (m && m.style.display === 'flex') closeTextbookLibrary();
     }

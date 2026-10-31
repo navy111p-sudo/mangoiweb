@@ -32,8 +32,7 @@
     if (document.getElementById('ph114-user-fab')) return;
     var user = getUser();
     if (!user) {
-      user = { uid: 'hq_mgr', name: '정우영', email: 'navy111p@gmail.com', branch: '본사', phone: '010-1234-5678' };
-      saveUser(user);
+      user = window.admIdentityOrPending();   // 🪪 (2026-08-15) 실명 fallback 제거 + saveUser 제거
     }
     var initial = (user.name || user.uid || 'U').charAt(0).toUpperCase();
     var role = ROLE_INFO[user.uid] || { label: '👤 ' + user.uid, color: 'rgba(59,130,246,0.4)', text: '#93C5FD', desc: '' };
@@ -68,8 +67,7 @@
   window.ph114OpenModal = function(){
     var user = getUser();
     if (!user) {
-      user = { uid: 'hq_mgr', name: '정우영', email: 'navy111p@gmail.com', branch: '본사' };
-      saveUser(user);
+      user = window.admIdentityOrPending();   // 🪪 (2026-08-15) 실명 fallback 제거 + saveUser 제거
     }
     var initial = (user.name || user.uid || 'U').charAt(0).toUpperCase();
     var role = ROLE_INFO[user.uid] || { label: '👤 ' + user.uid, color: 'rgba(59,130,246,0.4)', text: '#93C5FD', desc: '' };
@@ -145,14 +143,27 @@
   };
 
   // 비밀번호 변경
-  window.ph114ChangePw = function(){
+  /* 2026-08-17 수리 — 예전에는 입력만 받고 "실서비스에서는 백엔드 API 호출" alert 만 띄웠다(=안 바뀜).
+     ⚠️ 같은 껍데기가 adm-q9(ph111)·adm-r19(ph113)·adm-r21(ph115)에도 있다. 넷 다 같이 고칠 것. */
+  window.ph114ChangePw = async function(){
     var c = prompt('🔑 현재 비밀번호:');
     if (!c) return;
-    var n = prompt('🔑 새 비밀번호 (8자 이상):');
-    if (!n || n.length < 8) { alert('비밀번호는 8자 이상이어야 합니다.'); return; }
+    var n = prompt('🔑 새 비밀번호 (6자 이상):');
+    if (!n || n.length < 6) { alert('비밀번호는 6자 이상이어야 합니다.'); return; }
     var c2 = prompt('🔑 새 비밀번호 확인:');
     if (n !== c2) { alert('비밀번호가 일치하지 않습니다.'); return; }
-    alert('🔑 비밀번호 변경 요청 — 실서비스에서는 백엔드 API 호출');
+    try {
+      var r = await fetch('/api/admin/change-password', {
+        method:'POST', credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ current_password: c, new_password: n })
+      });
+      var j = await r.json().catch(function(){ return {}; });
+      if (j && j.ok) alert('🔐 비밀번호가 변경됐습니다. 다른 기기는 자동 로그아웃됩니다.');
+      else if (j && j.error === 'wrong_current_password') alert('⚠️ 현재 비밀번호가 올바르지 않습니다.');
+      else if (j && j.error === 'too_short') alert('⚠️ 새 비밀번호는 6자 이상이어야 합니다.');
+      else alert('⚠️ 변경에 실패했습니다 — ' + ((j && (j.message || j.error)) || ('HTTP ' + r.status)));
+    } catch(e) { alert('⚠️ 네트워크 오류 — ' + ((e && e.message) || e)); }
   };
 
   // 도움말

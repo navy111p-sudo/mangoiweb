@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>망고아이 — 「자주 쓰는 기능」 개편 샘플 (2026-08-08)</title>
+<style>
+  :root{
+    --page:#eef2f7; --ink:#1f2937; --muted:#6b7280;
+    --side-bg1:#ffffff; --side-bg2:#f6f9fd; --side-ink:#344054;
+    --amber-hd:#92400e; --amber-ico:#b45309; --amber-line:rgba(180,83,9,.35);
+    --item-ink:#2b2620; --hover:rgba(245,158,11,.16); --hover-ink:#7c2d12;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--ink);
+       font-family:"Malgun Gothic","맑은 고딕",-apple-system,Segoe UI,Roboto,sans-serif;
+       font-size:14px;line-height:1.55}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 18px 60px}
+  h1{font-size:21px;margin:0 0 4px;letter-spacing:-.3px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 18px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 18px;
+       background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px}
+  .bar b{font-size:12.5px;color:#475569;margin-right:2px}
+  button{font:inherit;cursor:pointer;border-radius:9px;border:1px solid #cbd5e1;
+         background:#fff;color:#334155;padding:6px 12px;font-size:12.5px;font-weight:700}
+  button:hover{background:#f1f5f9}
+  button.on{background:#c2410c;border-color:#c2410c;color:#fff}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:880px){.cols{grid-template-columns:1fr}}
+  .col h2{font-size:14px;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+  .tag{font-size:10.5px;font-weight:900;letter-spacing:.4px;padding:3px 8px;border-radius:999px}
+  .tag.now{background:#e2e8f0;color:#475569}
+  .tag.new{background:#c2410c;color:#fff}
+  .note{font-size:12px;color:var(--muted);margin:8px 2px 0;min-height:32px}
+
+  /* ── 실제 사이드바와 같은 모양 (ivory/slate 톤) ───────────────── */
+  .side{background:linear-gradient(180deg,var(--side-bg1) 0%,var(--side-bg2) 100%);
+        border:1px solid rgba(15,23,42,.08);border-radius:14px;padding:12px;
+        box-shadow:0 6px 20px -12px rgba(15,23,42,.35);color:var(--side-ink)}
+  .quick{border:1px solid var(--amber-line);border-radius:12px;
+         background:rgba(255,255,255,.78);overflow:hidden}
+  .quick-hd{padding:8px 12px;font-size:11px;font-weight:900;letter-spacing:.3px;
+            color:var(--amber-hd);border-bottom:1px solid rgba(180,83,9,.22);
+            display:flex;align-items:center;gap:6px}
+  .quick-hd .sp{flex:1}
+  .quick-hd .mini{font-weight:700;letter-spacing:0;font-size:10px;color:#9a7b52;cursor:pointer}
+  .quick-hd .mini:hover{color:#7c2d12;text-decoration:underline}
+  .q{display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer;
+     color:var(--item-ink);font-size:13px;font-weight:700;min-width:0;overflow-wrap:anywhere;
+     border-top:1px solid rgba(150,120,70,.20)}
+  .q:first-child{border-top:0}
+  .q:hover{background:var(--hover);color:var(--hover-ink)}
+  .q svg{flex:none;stroke:var(--amber-ico)}
+  .q .lb{flex:1}
+  .q .cnt{font-size:10px;font-weight:900;color:#9a7b52;background:rgba(180,83,9,.10);
+          border-radius:999px;padding:2px 7px;min-width:20px;text-align:center}
+  .q.isnew .lb::after{content:"NEW";font-size:9px;font-weight:900;color:#fff;background:#c2410c;
+          border-radius:4px;padding:1px 4px;margin-left:6px;vertical-align:2px;letter-spacing:.3px}
+  .q.moved{animation:pop .5s ease}
+  @keyframes pop{0%{background:rgba(245,158,11,.35)}100%{background:transparent}}
+
+  .legend{margin-top:22px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px}
+  .legend h3{font-size:13.5px;margin:0 0 8px}
+  .legend ol{margin:0;padding-left:20px}
+  .legend li{margin:5px 0;font-size:13px}
+  code{background:rgba(99,102,241,.10);color:#5b21b6;padding:1px 5px;border-radius:4px;font-size:12px}
+  .warn{margin-top:10px;padding:9px 12px;border-left:3px solid #f59e0b;background:#fffbeb;
+        font-size:12.5px;color:#78350f;border-radius:0 8px 8px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>「⚡ 자주 쓰는 기능」 개편 샘플</h1>
+  <p class="sub">2026-08-08 · 오른쪽 목록을 <b>실제로 눌러 보세요</b>. 누른 만큼 순서가 스스로 바뀝니다.</p>
+
+  <div class="bar">
+    <b>언어</b>
+    <button id="b-ko" class="on" onclick="setLang('ko')">한국어</button>
+    <button id="b-en" onclick="setLang('en')">English</button>
+    <span style="width:14px"></span>
+    <b>정렬</b>
+    <button id="b-auto" class="on" onclick="setMode('auto')">자동(내 사용순)</button>
+    <button id="b-fix" onclick="setMode('fixed')">기본 순서</button>
+    <span style="width:14px"></span>
+    <button onclick="reset()">⟳ 사용기록 지우기</button>
+    <button onclick="demo()">▶ 2주치 사용 흉내내기</button>
+  </div>
+
+  <div class="cols">
+    <div class="col">
+      <h2><span class="tag now">현재 (라이브)</span> 6개 · 순서 고정</h2>
+      <div class="side"><div class="quick">
+        <div class="quick-hd">⚡ <span id="hd-now">자주 쓰는 기능</span></div>
+        <div id="list-now"></div>
+      </div></div>
+      <p class="note">2026-07-23 매니저 요청 5개 + 08-08 레벨테스트. 누가 쓰든 순서가 같습니다.</p>
+    </div>
+
+    <div class="col">
+      <h2><span class="tag new">개편안</span> 10개 · 내가 쓴 만큼 위로</h2>
+      <div class="side"><div class="quick">
+        <div class="quick-hd">⚡ <span id="hd-new">자주 쓰는 기능</span><span class="sp"></span>
+          <span class="mini" id="modelabel" onclick="toggleMode()">자동</span></div>
+        <div id="list-new"></div>
+      </div></div>
+      <p class="note" id="note-new"></p>
+    </div>
+  </div>
+
+  <div class="legend">
+    <h3>이 샘플이 보여 주는 것</h3>
+    <ol>
+      <li><b>항목 4개 추가</b> — 출결 현황 · 결제/미납 · 평가서 · 문의/신규상담 (<span style="color:#c2410c;font-weight:800">NEW</span> 표시).
+        「결제·미납」은 <b>경쟁사 조사 때문에 뒤늦게 넣은 것</b>입니다 — 국내 학원관리 5개 제품이 전부 첫 화면에 두고 있었고,
+        확인해 보니 우리도 <b>미납 독촉이 매일 17건씩</b> 나가고 있었습니다.</li>
+      <li><b>기본 순서를 근거로 다시 매김</b> — 최근 30일 실제 업무량(출결 4,834건 · 수업분석 2,072건 · 미납독촉 934건/90일 · 평가서 104건/90일 …) 기준.</li>
+      <li><b>사람마다 다른 순서</b> — 클릭이 브라우저에 쌓이고, 최근 것에 가중치를 줘서 다음 접속 때 위로 올라옵니다. 서버·DB 변경 없음.</li>
+      <li><b>순서가 시시각각 흔들리지 않음</b> — 실제 구현에서는 <b>페이지를 열 때 한 번만</b> 재정렬합니다(작업 중에 버튼이 움직이면 손이 헷갈립니다). 이 샘플은 보여 주기 위해 즉시 움직입니다.</li>
+      <li><b>「기본 순서」로 되돌리기</b> — 머리글 오른쪽의 <code>자동/기본</code> 을 누르면 학습을 끕니다.</li>
+    </ol>
+    <div class="warn">숫자 배지(클릭 수)는 이 샘플에만 있습니다. 실제 화면에는 넣지 않습니다 — 사이드바가 좁고, 숫자가 보이면 「많이 눌러야 하나」 하는 오해를 부릅니다.</div>
+  </div>
+
+</div>
+
+<script>
+/* ─────────────────────────────────────────────────────────────────
+   샘플 데이터 — 실제 adm-quick-access.js 의 ITEMS 와 같은 모양
+   ico = feather 계열 단색 선 아이콘 (라벨에 이모지 금지: 아이콘 2개로 보임)
+   ───────────────────────────────────────────────────────────────── */
+var NOW_ITEMS = [
+  {k:'students',  ko:'학생 목록 (대리점·학원)', en:'Student list (by agency)'},
+  {k:'ghost',     ko:'수업 관찰',              en:'Class observation'},
+  {k:'today',     ko:'오늘 수업 (바로 입장)',   en:"Today's classes (join)"},
+  {k:'rooms',     ko:'수업 종료 / 연장',        en:'End / extend classes'},
+  {k:'enroll',    ko:'수강신청 / 등록',         en:'Enrollment'},
+  {k:'leveltest', ko:'레벨테스트',              en:'Level test'}
+];
+
+var NEW_ITEMS = [
+  {k:'today',     ko:'오늘 수업 (바로 입장)',   en:"Today's classes (join)"},
+  {k:'ghost',     ko:'수업 관찰',              en:'Class observation'},
+  {k:'rooms',     ko:'수업 종료 / 연장',        en:'End / extend classes'},
+  {k:'attend',    ko:'출결 현황',              en:'Attendance',      isnew:true},
+  {k:'students',  ko:'학생 목록 (대리점·학원)', en:'Student list (by agency)'},
+  {k:'enroll',    ko:'수강신청 / 등록',         en:'Enrollment'},
+  {k:'unpaid',    ko:'결제 · 미납',            en:'Payments & overdue', isnew:true},
+  {k:'leveltest', ko:'레벨테스트',              en:'Level test'},
+  {k:'eval',      ko:'평가서',                 en:'Evaluations',     isnew:true},
+  {k:'inquiry',   ko:'문의 · 신규상담',         en:'Inquiries',       isnew:true}
+];
+
+var ICO = {
+  students : '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>',
+  ghost    : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  today    : '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  rooms    : '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  enroll   : '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  leveltest: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+  attend   : '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/>',
+  eval     : '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>',
+  unpaid   : '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/>',
+  inquiry  : '<path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z"/>'
+};
+
+var lang = 'ko', mode = 'auto';
+/* hits[key] = [{d:일차, n:횟수}] — 실제 구현도 같은 구조(localStorage) */
+var hits = {};
+var TODAY = 0;              // 데모용 가상 «오늘»
+var HALF_LIFE = 7;          // 최근 7일이면 가중치 절반
+
+function score(k){
+  var a = hits[k]; if(!a || !a.length) return 0;
+  var s = 0;
+  for(var i=0;i<a.length;i++){
+    var age = TODAY - a[i].d;
+    if(age > 30) continue;                       // 30일 지난 것은 잊는다
+    s += a[i].n * Math.pow(0.5, age / HALF_LIFE);
+  }
+  return s;
+}
+
+function ordered(){
+  var base = NEW_ITEMS.slice();
+  if(mode === 'fixed') return base;
+  return base
+    .map(function(it,i){ return {it:it, i:i, s:score(it.k)}; })
+    .sort(function(a,b){ return (b.s - a.s) || (a.i - b.i); })   // 동점이면 기본 순서
+    .map(function(x){ return x.it; });
+}
+
+function row(it, showCount){
+  var label = lang === 'en' ? it.en : it.ko;
+  var n = showCount ? (hits[it.k]||[]).reduce(function(t,x){return t+x.n;},0) : 0;
+  return '<div class="q' + (it.isnew ? ' isnew' : '') + '" data-k="' + it.k + '"'
+       + (showCount ? ' onclick="tap(\'' + it.k + '\')"' : '') + '>'
+       + '<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">' + ICO[it.k] + '</svg>'
+       + '<span class="lb">' + label + '</span>'
+       + (showCount && n ? '<span class="cnt">' + n + '</span>' : '')
+       + '</div>';
+}
+
+var prevOrder = [];
+function render(){
+  document.getElementById('list-now').innerHTML = NOW_ITEMS.map(function(it){ return row(it,false); }).join('');
+  var ord = ordered();
+  document.getElementById('list-new').innerHTML = ord.map(function(it){ return row(it,true); }).join('');
+
+  /* 자리가 바뀐 항목만 잠깐 강조 — 무엇이 왜 움직였는지 보이게 */
+  ord.forEach(function(it,i){
+    if(prevOrder.length && prevOrder[i] !== it.k){
+      var el = document.querySelector('#list-new .q[data-k="' + it.k + '"]');
+      if(el) el.classList.add('moved');
+    }
+  });
+  prevOrder = ord.map(function(x){ return x.k; });
+
+  var hd = lang === 'en' ? 'Quick access' : '자주 쓰는 기능';
+  document.getElementById('hd-now').textContent = hd;
+  document.getElementById('hd-new').textContent = hd;
+  document.getElementById('modelabel').textContent =
+    mode === 'auto' ? (lang==='en'?'auto':'자동') : (lang==='en'?'default':'기본');
+
+  var total = Object.keys(hits).reduce(function(t,k){
+    return t + (hits[k]||[]).reduce(function(a,x){return a+x.n;},0); },0);
+  document.getElementById('note-new').textContent = total
+    ? '내 클릭 ' + total + '회 반영 — 최근에 많이 쓴 것이 위로 올라옵니다. (30일 지난 기록은 잊습니다)'
+    : '아직 사용기록이 없어 기본 순서 그대로입니다. 눌러 보세요.';
+}
+
+function tap(k){
+  var a = hits[k] || (hits[k] = []);
+  var last = a[a.length-1];
+  if(last && last.d === TODAY) last.n++; else a.push({d:TODAY, n:1});
+  render();
+}
+function setLang(l){ lang=l;
+  document.getElementById('b-ko').className = l==='ko'?'on':'';
+  document.getElementById('b-en').className = l==='en'?'on':'';
+  render(); }
+function setMode(m){ mode=m;
+  document.getElementById('b-auto').className = m==='auto'?'on':'';
+  document.getElementById('b-fix').className  = m==='fixed'?'on':'';
+  render(); }
+function toggleMode(){ setMode(mode==='auto'?'fixed':'auto'); }
+function reset(){ hits={}; TODAY=0; prevOrder=[]; render(); }
+
+/* 2주치 사용 흉내 — «본사 매니저» 가정. 매일 오늘수업·출결을 열고, 평가서는 주 2~3회 */
+function demo(){
+  hits={}; prevOrder=[];
+  var plan = { today:6, attend:5, eval:3, unpaid:3, students:2, inquiry:2, rooms:1, ghost:1, enroll:1, leveltest:1 };
+  for(var d=0; d<14; d++){
+    Object.keys(plan).forEach(function(k){
+      var per = plan[k] / 7;                       // 주당 횟수 → 하루 기대값
+      var n = Math.floor(per) + ((d % Math.max(1, Math.round(1/(per%1||1)))) === 0 && per%1 ? 1 : 0);
+      if(n > 0){ (hits[k] || (hits[k]=[])).push({d:d, n:n}); }
+    });
+  }
+  TODAY = 13;
+  setMode('auto');
+}
+
+render();
+</script>
+</body>
+</html>

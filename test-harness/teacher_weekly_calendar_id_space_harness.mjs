@@ -46,7 +46,10 @@ check('되찾기 전에 원부를 먼저 불러온다 (순서가 뒤집히면 �
   /await Promise\.all\(\[[\s\S]{0,220}?\]\);\s*[\s\S]{0,400}?var rid = ph54ResolveTeacherId\(tname\)/.test(q6));
 check('못 찾으면 조용히 0건을 보여주지 않고 이유를 말한다', /if \(!rid\) ph54Toast\(/.test(q6));
 
-console.log('\n[ ③ 이름 매칭이 «남의 일정» 을 끌어오면 안 된다 (FAR ⊄ HT FARRAH) ]');
+//  📌 (2026-09-08) FAR(22) 와 HT FARRAH(3) 는 실은 **같은 사람**이다(사장님 확인).
+//     그래도 이 검사는 그대로다 — 이어야 할 행은 **활성 22** 이고 3 은 퇴사 행이다.
+//     그리고 이 규칙이 지키는 것은 그 쌍이 아니라 «부분일치 일반»(HT NESS 등)이다.
+console.log('\n[ ③ 이름 매칭이 «엉뚱한 행» 을 끌어오면 안 된다 (Teacher Far → 활성 22) ]');
 // 진짜 함수를 떼어 실행한다 — 규칙을 여기에 다시 적으면 자기복사 검사가 된다
 const normSrc = (q6.match(/function ph54NormName\(s\)\{[\s\S]*?\n  \}/) || [''])[0];
 const resSrc  = (q6.match(/function ph54ResolveTeacherId\(name\)\{[\s\S]*?\n  \}/) || [''])[0];

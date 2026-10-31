@@ -9,6 +9,37 @@
 // localStorage 키: mangoi_logged_user = { uid, name }
 // ═══════════════════════════════════════════════════════════════════
 (function(){
+  /* 🔒 (2026-09-22) 「다른 기기에서 로그인되었습니다」 — 같은 기기인데 «자기가 자기를 밀어내던» 것.
+     운영은 SINGLE_SESSION='on' 이라 로그인에 «성공할 때마다» 서버가 새 세션번호(sid)를 발급하고
+     이전 토큰은 그 자리에서 401 이 된다(src/auth-token.ts). 그런데 토큰 칸이 두 벌인데 서로를
+     몰랐다 — 홈·학습 화면은 mango_token, 마이 페이지(parent.html)는 mangoi_parent_token.
+     ⟹ 홈에서 로그인하면 마이 페이지 토큰이 죽어 「🔒 다시 로그인해주세요」가 뜬다.
+     ✅ 그래서 «이미 있던 같은 계정의» 마이 페이지 토큰을 새 토큰으로 갱신한다.
+     ⛔ 없으면 «만들지» 않는다 — 마이 페이지는 「로그인 유지」를 켰을 때만 토큰을 남기는데
+        (2026-07-30 제보 #3 — 자녀가 비번 없이 학부모 페이지를 여는 것을 막는 장치),
+        여기서 새로 만들면 그 정책이 통째로 풀린다. 목적은 «되던 것을 안 죽이기» 다.
+     ⛔ 다른 계정이면 손대지 않는다 — 대소문자까지 정확일치(Kim/kim 처럼 대소문자만 다른 계정이 실재).
+     ⚠️ parent.html 에 같은 규칙이 한 벌 더 있다(그 화면은 이 파일을 싣지 않는다).
+        둘이 같은 답을 내는지는 test-harness/login_token_sync_harness.mjs 가 대조한다.
+     📄 docs/작업기록/260922_로그인_다른기기에서_로그인됨_한기기_자가퇴출_진단.md */
+  function lmTokenUid(t){
+    try {
+      var p = String(t || '').split('.')[0].replace(/-/g,'+').replace(/_/g,'/');
+      while (p.length % 4) p += '=';
+      return String(JSON.parse(atob(p)).uid || '');
+    } catch(e){ return ''; }
+  }
+  function lmSyncParentToken(newToken){
+    try {
+      var cur = localStorage.getItem('mangoi_parent_token') || '';
+      if (!cur || !newToken) return false;                 // ⛔ 없으면 만들지 않는다(정책 유지)
+      var a = lmTokenUid(cur), b = lmTokenUid(newToken);
+      if (!a || !b || a !== b) return false;               // 다른 계정 → 손대지 않는다
+      localStorage.setItem('mangoi_parent_token', newToken);
+      return true;
+    } catch(e){ return false; }
+  }
+
   // 데모 학생 5명 + 각자의 수업
   // hourOffset: 0.5 = 30분 후 / dateOffset: 일 단위
   var demoStudents = {
@@ -132,9 +163,11 @@
         // 🇵🇭🏫 (2026-08-08) 여기만 옛 규칙이 남아 강사·매니저를 전부 /admin/mypage 로 보내고 있었다.
         //   위쪽 로그인 분기(24751)와 admin/login.html 은 이미 /teacher 로 가는데 이 메뉴만 달랐다.
         //   역할판정 로직이 세 곳에 복제돼 있다 — 하나를 고치면 나머지도 반드시 함께 볼 것(CLAUDE.md 2절).
-        var _dest = (_r.indexOf('teacher') >= 0) ? '/teacher'
-                  : (_r === 'branch' || _r === 'agency') ? '/manager'
-                  : '/admin.html';
+        // 🏠 첫 화면 정본은 서버(auth-admin.ts home_path). 없을 때만 옛 규칙으로 폴백.
+        var _dest = (_as && _as.home_path)
+                  || ((_r.indexOf('teacher') >= 0) ? '/teacher'
+                     : (_r === 'branch' || _r === 'agency') ? '/manager'
+                     : '/admin.html');
         btn.title = L ? '메뉴 열기' : 'Open menu';
         btn.onclick = function(){ toggleAdminUserMenu(_as, _dest); };
         btn.style.background = 'linear-gradient(135deg,rgba(59,130,246,.18),rgba(37,99,235,.18))';
@@ -146,9 +179,10 @@
         lbl.setAttribute('data-ko','로그인');
         lbl.setAttribute('data-en','Login');
         btn.onclick = openLoginModal;
-        btn.style.background = 'rgba(30,41,59,0.85)';
-        btn.style.borderColor = 'rgba(148,163,184,0.35)';
-        btn.style.color = '#e2e8f0';
+        // 🔑 (2026-08-25) 비로그인 로그인 버튼이 눈에 안 띈다는 지적 — 무채색 대신 골드로.
+        btn.style.background = 'linear-gradient(135deg,#fde68a,#f59e0b)';
+        btn.style.borderColor = 'rgba(245,158,11,0.9)';
+        btn.style.color = '#1a1a1a';
       }
     }
     // 🎁 Phase P3: 포인트 칩 동기화 (로그인 시 표시 + 잔액 fetch)
@@ -365,6 +399,15 @@
       refreshPointsChip(true);
     } catch(e) {}
   };
+  // 브랜드의 망고 이모지 → Mr.mango 캐릭터. 판정이 indexOf 인 이유, Text/Html 을 가른 이유는
+  // docs/작업기록/260825_포인트샵_브랜드_Mr.mango.md (첫 화면 예산이 빠듯해 여기엔 안 적는다)
+  var PS_MANGO_RE = /\u{1F96D}/gu;
+  function psBrandText(b){ return String(b||'').replace(PS_MANGO_RE,'').replace(/\s+/g,' ').trim(); }
+  function psBrandHtml(b){
+    var raw = String(b||'').trim(); if (!raw) return '';
+    if (raw.indexOf('\u{1F96D}') < 0) return escapeLT(raw);
+    return '<img src="/img/mango-char.png" alt="Mr.mango" style="width:16px;height:16px;object-fit:contain;vertical-align:-4px;margin-right:3px">' + escapeLT(psBrandText(raw) || '\uB9DD\uACE0\uC544\uC774');
+  }
   window.psLoadCatalog = async function(){
     var pane = document.getElementById('ps-pane-catalog'); if (!pane) return;
     var L = (window.getLang?window.getLang():'ko')==='ko';
@@ -376,7 +419,7 @@
       var rows = d.rows || [];
       if (!rows.length) { pane.innerHTML = '<div class="ps-empty">'+(L?'상품이 없습니다.':'No gifts available.')+'</div>'; return; }
       var cards = rows.map(function(g){
-        var brandTag = g.brand ? '<div class="ps-brand">'+escapeLT(g.brand)+'</div>' : '';
+        var brandTag = g.brand ? '<div class="ps-brand">'+psBrandHtml(g.brand)+'</div>' : '';
         var stockTag = (g.stock != null) ? ('<div class="ps-stock">'+(L?'남은 수량':'Stock')+' '+g.stock+'</div>') : '';
         // 🥭 망고아이(수업료 전환) 카드는 3D 캐릭터 이미지로 표시
         var isMango = (g.brand && g.brand.indexOf('망고아이') >= 0) || g.category === 'tuition'
@@ -395,7 +438,7 @@
           '</div>'+
           '<div class="ps-card-foot">'+
             '<div class="ps-price">'+g.point_price.toLocaleString('ko-KR')+' P</div>'+
-            '<button class="ps-redeem-btn" onclick="psStartRedeem('+g.id+',&quot;'+escapeLT(g.name).replace(/&quot;/g,'\\&quot;')+'&quot;,&quot;'+escapeLT(g.brand||'').replace(/&quot;/g,'\\&quot;')+'&quot;,'+g.point_price+')">'+(L?'교환하기':'Redeem')+'</button>'+
+            '<button class="ps-redeem-btn" onclick="psStartRedeem('+g.id+',&quot;'+escapeLT(g.name).replace(/&quot;/g,'\\&quot;')+'&quot;,&quot;'+escapeLT(psBrandText(g.brand||'')).replace(/&quot;/g,'\\&quot;')+'&quot;,'+g.point_price+')">'+(L?'교환하기':'Redeem')+'</button>'+
           '</div>'+
         '</div>';
       }).join('');
@@ -420,7 +463,7 @@
         var dt = new Date(x.requested_at).toLocaleString('ko-KR');
         return '<div class="ps-hist-item">'+
           '<div class="ps-hist-main">'+
-            '<div class="ps-hist-name">'+(x.gift_brand?escapeLT(x.gift_brand)+' · ':'')+escapeLT(x.gift_name||'-')+'</div>'+
+            '<div class="ps-hist-name">'+(x.gift_brand?psBrandHtml(x.gift_brand)+' · ':'')+escapeLT(x.gift_name||'-')+'</div>'+
             '<div class="ps-hist-meta">'+dt+' · '+(x.recipient_phone||'-')+'</div>'+
           '</div>'+
           '<div class="ps-hist-side">'+
@@ -530,6 +573,7 @@
   window.logout = function(){
     setUser(null);
     try { localStorage.removeItem('mangoi_admin_session'); } catch(e){}
+    mangoiRevokeAdminCookie();   // 위 removeItem 의 «나머지 반» — 아래 함수 주석 참고
     document.getElementById('user-menu').classList.remove('show');
     showLcToast2('👋 '+(((window.getLang?window.getLang():'ko')==='ko')?'로그아웃되었습니다.':'Signed out.'));
   };
@@ -550,8 +594,15 @@
     menu.classList.add('show');
   };
 
+  // 🚪 관리자 세션 폐기(2026-08-21). 정본은 HttpOnly 쿠키라 JS 로 못 지운다 — 서버 POST 뿐.
+  //   ⚠️ 첫 화면 예산 때문에 설명은 docs/작업기록/260821_로그아웃이_서버세션을_안끊던_네곳.md 에 둔다.
+  function mangoiRevokeAdminCookie(){
+    try { fetch('/api/admin/logout', { method:'POST', credentials:'include' }).catch(function(){}); } catch(e){}
+  }
+
   window.logoutAdminSession = function(){
     try { localStorage.removeItem('mangoi_admin_session'); } catch(e){}
+    mangoiRevokeAdminCookie();
     var menu = document.getElementById('user-menu');
     if(menu) menu.classList.remove('show');
     showLcToast2('👋 '+(((window.getLang?window.getLang():'ko')==='ko')?'로그아웃되었습니다.':'Signed out.'));
@@ -576,7 +627,7 @@
       '<div class="lm-body">'+
         // ━━━━ 😊 패스키(얼굴/지문) 로그인 — 지원 브라우저에서만 노출 ━━━━
         (window.PublicKeyCredential ?
-          '<button type="button" onclick="doPasskeyLogin()" style="width:100%;padding:14px 18px;margin-bottom:14px;background:linear-gradient(135deg,#34d399,#10b981);color:#052e1b;border:0;border-radius:12px;font-weight:800;font-size:14.5px;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,.35)">😊 '+(L?'얼굴/지문으로 바로 로그인':'Sign in with Face / Fingerprint')+'</button>'+
+          '<button type="button" onclick="doPasskeyLogin()" style="width:100%;padding:14px 18px;margin-bottom:14px;background:linear-gradient(135deg,#34d399,#10b981);color:#052e1b;border:0;border-radius:12px;font-weight:800;font-size:14.5px;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,.35)">😊👆 '+(L?'얼굴/지문으로 바로 로그인':'Sign in with Face / Fingerprint')+'</button>'+
           '<div style="text-align:center;color:#94a3b8;font-size:11.5px;margin:0 0 10px;position:relative">'+
             '<span style="background:#131826;padding:0 12px;position:relative;z-index:1">'+(L?'또는 아이디로':'Or with ID')+'</span>'+
             '<span style="position:absolute;left:0;right:0;top:50%;height:1px;background:#232b40;z-index:0"></span>'+
@@ -639,7 +690,7 @@
     try {
       fetch('/api/student/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: s.uid }) })
         .then(function(r){ return r.json(); })
-        .then(function(d){ if (d && d.ok && d.token) { try { localStorage.setItem('mango_token', d.token); } catch(e){} } })
+        .then(function(d){ if (d && d.ok && d.token) { try { localStorage.setItem('mango_token', d.token); } catch(e){} lmSyncParentToken(d.token); } })
         .catch(function(){});
     } catch(e){}
     closeLoginModal();
@@ -662,7 +713,9 @@
       if (!d.ok) { alert('❌ ' + (d.message || d.error || (L?'요청 실패':'Request failed'))); return; }
       var code = (prompt('📱 ' + (d.message || (L?'문자로 받은 인증번호 6자리를 입력해 주세요':'Enter the 6-digit code'))) || '').trim();
       if (!code) return;
-      var npw = (prompt(L?'새 비밀번호를 입력해 주세요 (6자 이상)':'New password (6+ chars)') || '').trim();
+      // 🔢 (2026-08-24) 4자 — 서버(api-students.ts password-reset/confirm)가 4자를 받는데
+      //   여기 안내만 6자로 남아 「4자로 줄였다는데 6자 이상 쓰래요」가 됐다(옛 LMS 기준이 4자).
+      var npw = (prompt(L?'새 비밀번호를 입력해 주세요 (4자 이상)':'New password (4+ chars)') || '').trim();
       if (!npw) return;
       var r2 = await fetch('/api/student/password-reset/confirm', {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -720,13 +773,17 @@
       // 🧑‍🏫 (2026-07-27) 교사 판정을 아이디 접두사보다 먼저 본다. 옛 LMS 에서 넘어온 강사
       //   아이디는 형태가 제각각이라(예: capi… 로 시작하는 이름) 접두사 규칙에 걸리면
       //   엉뚱한 화면(캐피타운 정산)으로 가버린다. 서버가 준 is_teacher 가 항상 우선.
-      var dest = '/admin.html';
-      // 🇵🇭 (2026-08-02) 강사는 초경량 강사 포털(/teacher)로. admin/login.html 의 같은 분기와
-      //   **반드시 함께** 고쳐야 한다(역할판정 로직이 두 파일에 복제돼 있음 — CLAUDE.md 2절).
-      if (String(role).indexOf('teacher') >= 0) dest = '/teacher';
-      // 🏫 (2026-08-08) 지사·대리점도 초경량 매니저 포털로. admin/login.html 의 같은 분기와 함께 고칠 것.
-      else if (role === 'branch' || role === 'agency') dest = '/manager';
-      else if (uid === 'capitown' || uid.indexOf('capi') === 0) dest = '/admin/capitown-settlement.html';
+      // 🏠 첫 화면 정본은 서버(auth-admin.ts home_path). 없을 때만 아래 옛 규칙이 정한다.
+      var dest = (j && j.home_path) || '/admin.html';
+      /* ⚠️ 아래 옛 규칙은 **서버가 값을 안 줄 때만** 돌아야 한다. 묶지 않으면 바로 위에서
+            받은 home_path 를 그대로 덮어써, 서버로 정본을 옮긴 의미가 사라진다. */
+      if (!(j && j.home_path)) {
+        // 🇵🇭 (2026-08-02) 강사는 초경량 강사 포털(/teacher)로.
+        if (String(role).indexOf('teacher') >= 0) dest = '/teacher';
+        // 🏫 (2026-08-08) 지사·대리점도 초경량 매니저 포털로.
+        else if (role === 'branch' || role === 'agency') dest = '/manager';
+        else if (uid === 'capitown' || uid.indexOf('capi') === 0) dest = '/admin/capitown-settlement.html';
+      }
       closeLoginModal();
       var fbL = (window.getLang?window.getLang():'ko')==='ko';
       showLcToast2(fbL ? ('✅ ' + name + '님 환영합니다!') : ('✅ Welcome, ' + name + '!'));
@@ -774,6 +831,7 @@
         localStorage.setItem('mangoi_vc_uid', _lu.name || _lu.uid);
         // 🔐 uid 서명 토큰 — AI 친구 대화 등 uid 기반 개인 데이터 API 인증용
         if (d.token) localStorage.setItem('mango_token', d.token);
+        lmSyncParentToken(d.token);   // 🔒 같은 기기의 마이 페이지 토큰이 이 로그인으로 죽지 않게(위 주석)
         // 😊 패스키 버튼이 아이디 없이도 이 계정을 찾도록 마지막 아이디 기억
         localStorage.setItem('mangoi_pk_last_uid', d.user.user_id);
       } catch(e){}
@@ -812,6 +870,7 @@
       localStorage.setItem('mangoi_logged_user', JSON.stringify(_lu));
       localStorage.setItem('mangoi_vc_uid', _lu.name || _lu.uid);
       if (d.token) localStorage.setItem('mango_token', d.token);
+      lmSyncParentToken(d.token);   // 🔒 패스키 로그인도 같은 sid 갱신이라 똑같이 맞춘다
     } catch(e){}
   }
 
@@ -833,6 +892,18 @@
       var r = await fetch('/api/passkey/login/options', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: uid }) });
       var d = await r.json();
       if (!d.ok) {
+        /* 🈶 (2026-08-18) 주소가 바뀌어 옛 도메인 패스키만 있는 경우.
+           이건 «오류» 가 아니라 «다시 등록하시면 됩니다» 안내라 빨간 ❌ 대신 파란 안내로 띄우고,
+           바로 다음 행동(비밀번호 로그인)으로 이어지게 비밀번호 칸에 커서를 옮긴다.
+           ⚠️ 서버가 rp_id 로 걸러 주기 전에는 이 분기까지 오지도 못하고 세리머니가 그냥 실패해
+              「인증이 취소됐거나 시간이 초과됐어요」만 떴다(진짜 이유를 알 수 없었다). */
+        if (d.error === 'passkey_other_domain') {
+          showStep('💡 ' + (L
+            ? '주소가 바뀌면서 얼굴/지문 로그인이 해제됐어요. 아래에 비밀번호를 넣어 로그인하시면 다시 등록할 수 있어요.'
+            : (d.message_en || 'Your passkey was registered on our old address. Sign in with your password to set it up again.')));
+          try { var pw = document.getElementById('lm-pw'); if (pw) pw.focus(); } catch(e){}
+          return;
+        }
         // 그 계정에 패스키가 없거나 준비 실패 → 아이디 입력 유도(조용히 끝나지 않게)
         showErr('❌ ' + (d.message || d.error || (L?'패스키 준비 실패':'Passkey unavailable')) + (uid ? '' : (L?' 학생 ID를 입력한 뒤 눌러주세요.':' Enter your Student ID first.')));
         return;
@@ -874,7 +945,11 @@
       if (e && e.name === 'AbortError') { /* 새 시도가 이전 요청을 중단한 것 — 조용히 무시 */ }
       else if (e && e.name === 'NotAllowedError') showErr(L?'❌ 인증이 취소됐거나 시간이 초과됐어요. 다시 시도해주세요. (NotAllowed)':'❌ Cancelled or timed out. (NotAllowed)');
       else if (e && e.name === 'NotSupportedError') showErr(L?'❌ 이 브라우저는 패스키를 지원하지 않아요. 크롬/엣지 최신 버전을 사용해주세요.':'❌ Passkeys not supported in this browser.');
-      else if (e && e.name === 'SecurityError') showErr('❌ 보안 오류(SecurityError) — 주소가 test.mangoi.co.kr 인지 확인해주세요.');
+      // ⚠️ 2026-08-18 — 여기 적힌 주소가 옛 주소(test.mangoi.co.kr)로 남아 있었다.
+      //    도메인을 옮기면 이런 «문구 속 주소» 가 조용히 거짓말이 된다. 정본은 mangoi.ai.
+      else if (e && e.name === 'SecurityError') showErr(L
+        ? '❌ 보안 오류(SecurityError) — 주소창이 mangoi.ai 인지 확인해주세요.'
+        : '❌ SecurityError — please check the address is mangoi.ai.');
       else showErr('❌ [' + ((e && e.name) || 'Error') + '] ' + ((e && e.message) || e));
     } finally { window.__pkBusy = false; }
   };
@@ -977,210 +1052,6 @@
   document.addEventListener('mangoi:lang-change', updateLoginUI);
 })();
 
-// openLessonChangeModal 을 로그인 체크 + 본인 수업만 표시하도록 재정의
-(function(){
-  var origOpen = window.openLessonChangeModal;
-  window.openLessonChangeModal = function(){
-    var L = (window.getLang?window.getLang():'ko')==='ko';
-    var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
-    if(!u){
-      // 로그인 필요 안내
-      var ov = document.getElementById('lc-overlay');
-      ov.innerHTML = '<div class="lc-modal" onclick="event.stopPropagation()">'+
-        '<div class="lc-head"><h2>🔑 '+(L?'로그인이 필요합니다':'Login Required')+'</h2><button class="lc-close" onclick="closeLessonChangeModal()">✕</button></div>'+
-        '<div class="lc-body" style="display:flex;align-items:center;justify-content:center">'+
-          '<div style="max-width:440px;width:100%;background:#131826;border:2px solid #ef4444;border-radius:18px;padding:32px 24px;text-align:center">'+
-            '<div style="font-size:64px;line-height:1;margin-bottom:14px">👤</div>'+
-            '<p style="color:#cbd5e1;font-size:14.5px;line-height:1.6;margin:0 0 22px">'+(L?'내 수업을 확인하려면<br>먼저 로그인해주세요.':'Please sign in first<br>to view your classes.')+'</p>'+
-            '<button onclick="closeLessonChangeModal();setTimeout(openLoginModal,150)" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:15px;font-weight:800;padding:14px 32px;border-radius:12px;border:none;cursor:pointer;box-shadow:0 6px 16px rgba(245,158,11,.4)">🔑 '+(L?'로그인 하기':'Sign In')+'</button>'+
-          '</div>'+
-        '</div>'+
-      '</div>';
-      ov.classList.add('show');
-
-      return;
-    }
-    // 로그인된 학생의 수업으로 demoClasses 교체 후 원래 모달 호출
-    var s = window.__demoStudents[u.uid];
-    if(s && Array.isArray(s.classes)){
-      // 🥭 Phase 5: AI 등록 class_schedules 도 fetch 해서 머지 (실시간 반영)
-      mergeAiSchedulesAndRender(u.uid, s);
-    } else {
-      origOpen.call(window);
-    }
-  };
-
-  // 🥭 Phase 5: D1 class_schedules 를 fetch → student.classes 와 머지 → 모달 렌더
-  async function mergeAiSchedulesAndRender(uid, student){
-    var merged = Object.assign({}, student, { classes: (student.classes||[]).slice() });
-    try {
-      var r = await fetch('/api/admin/class-schedules?user_id=' + encodeURIComponent(uid), { credentials:'include' });
-      var j = await r.json();
-      if (j && j.ok && Array.isArray(j.items)) {
-        var dowIdx = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
-        var typeNames = { level_test:'레벨테스트', trial:'체험수업', regular:'정규수업' };
-        var todayMid = new Date(); todayMid.setHours(0,0,0,0);
-        for (var ai of j.items) {
-          if (ai.status === 'cancelled') continue;
-          var tm = String(ai.start_time||'').match(/^(\d{1,2}):(\d{2})$/);
-          if (!tm) continue;
-          var hh = parseInt(tm[1],10), mm = parseInt(tm[2],10);
-          if (ai.schedule_kind === 'recurring' && ai.day_of_week) {
-            // 향후 4주의 매주 occurrences 만들어 머지
-            var dows = String(ai.day_of_week).split(',').map(function(d){return dowIdx[d];}).filter(function(x){return x!==undefined;});
-            for (var w = 0; w < 4; w++) {
-              for (var di of dows) {
-                var d = new Date(todayMid);
-                var add = ((di - d.getDay() + 7) % 7) + (w * 7);
-                if (add === 0 && w === 0) continue; // 오늘은 이미 지났을 가능성 → 건너뜀
-                d.setDate(d.getDate() + add);
-                merged.classes.push({
-                  id: 'ai_' + ai.id + '_w' + w + '_d' + di,
-                  type: ai.class_type === 'trial' ? 'temp' : '1on1',
-                  teacher: '🤖 AI: ' + (ai.teacher_name || (typeNames[ai.class_type]||'정규')),
-                  lessonDate: d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'),
-                  lessonHour: hh,
-                  durationMin: 30,
-                  __aiSchedule: true
-                });
-              }
-            }
-          } else if (ai.scheduled_date) {
-            merged.classes.push({
-              id: 'ai_' + ai.id,
-              type: ai.class_type === 'trial' ? 'temp' : '1on1',
-              teacher: '🤖 AI: ' + (ai.teacher_name || (typeNames[ai.class_type]||'정규')),
-              lessonDate: ai.scheduled_date,
-              lessonHour: hh,
-              durationMin: 30,
-              __aiSchedule: true
-            });
-          }
-        }
-        // 시간순 정렬
-        merged.classes.sort(function(a,b){
-          var da = (a.lessonDate||'') + (String(a.lessonHour||0).padStart(2,'0'));
-          var db = (b.lessonDate||'') + (String(b.lessonHour||0).padStart(2,'0'));
-          return da.localeCompare(db);
-        });
-      }
-    } catch(e) { console.warn('[lc] AI schedules fetch failed:', e); }
-    renderMyClassList(merged);
-  }
-
-  function renderMyClassList(student){
-    var L = (window.getLang?window.getLang():'ko')==='ko';
-    var ov = document.getElementById('lc-overlay');
-    function pad(n){return String(n).padStart(2,'0');}
-    function getClsDt(c){
-      if(c.lessonDate && c.lessonHour!=null){
-        var parts = c.lessonDate.split('-');
-        var d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-        d.setHours(c.lessonHour, 0, 0, 0);
-        return d;
-      }
-      if(c.hourOffset!=null){ var now=new Date(); return new Date(now.getTime()+c.hourOffset*3600*1000); }
-      var d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+(c.dateOffset||0)); d.setHours(c.hour); return d;
-    }
-    function fmt(d){ var dn=L?['일','월','화','수','목','금','토']:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-      return d.getFullYear()+'.'+pad(d.getMonth()+1)+'.'+pad(d.getDate())+' ('+dn[d.getDay()]+') '+pad(d.getHours())+':'+pad(d.getMinutes()); }
-    function diffMin(d){ return (d-new Date())/60000; }
-
-    var items = student.classes.map(function(c){
-      var dt = getClsDt(c);
-      var diff = diffMin(dt);
-      var typeLbl = c.type==='1on1'?(L?'1대1':'1-on-1'):(c.type==='group'?(L?'그룹':'Group'):(L?'임시':'Temp'));
-      var typeCls = c.type==='1on1'?'t1on1':(c.type==='group'?'group':'t1on1');
-      var left;
-      if(diff<0) left = L?'이미 시작/종료':'Past';
-      else if(diff<60) left = Math.round(diff)+(L?'분 남음':'min');
-      else if(diff<1440) left = Math.round(diff/60)+(L?'시간 남음':'h');
-      else left = Math.round(diff/1440)+(L?'일 남음':'d');
-      return '<div class="lc-item">'+
-        '<div class="lc-item-head">'+
-          '<div class="lc-item-title">'+(c.type==='1on1'?'🟣':(c.type==='group'?'💗':'🔵'))+' '+c.teacher+'</div>'+
-          '<span class="lc-item-type '+typeCls+'">'+typeLbl+'</span>'+
-        '</div>'+
-        '<div class="lc-item-meta">'+
-          '📅 <b>'+fmt(dt)+'</b><br>'+
-          '⏰ '+left+' · '+c.durationMin+(L?'분':'min')+
-        '</div>'+
-        '<div class="lc-actions">'+
-          '<button class="lc-btn postpone" onclick="tryMyAction(&quot;'+c.id+'&quot;,&quot;postpone&quot;)">📅 '+(L?'연기':'Postpone')+'</button>'+
-          '<button class="lc-btn change" onclick="tryMyAction(&quot;'+c.id+'&quot;,&quot;change&quot;)">🔄 '+(L?'변경':'Change')+'</button>'+
-          '<button class="lc-btn" onclick="tryMyAction(&quot;'+c.id+'&quot;,&quot;cancel&quot;)" style="background:rgba(239,68,68,.15);color:#fca5a5;border-color:rgba(239,68,68,.4)">🗑 '+(L?'취소':'Cancel')+'</button>'+
-        '</div>'+
-      '</div>';
-    }).join('');
-
-    var html = '<div class="lc-modal" onclick="event.stopPropagation()">'+
-      '<div class="lc-head"><h2>📅 '+(L?student.name+' 님의 수업':student.name+'\'s Classes')+'</h2>'+
-      '<button class="lc-close" onclick="closeLessonChangeModal()">✕</button></div>'+
-      '<div class="lc-body">'+
-        '<div class="lc-info">💡 <b>'+(L?'규정 안내':'Policy')+'</b><br>'+
-          '· '+(L?'<b>연기·취소</b>: 시작 30분 전 <b style="color:#86efac">무료</b> · 30분 이내 <b style="color:#fbbf24">유료</b>':'<b>Postpone/Cancel</b>: <b style="color:#86efac">free</b> if 30+ min before · <b style="color:#fbbf24">charged</b> within 30 min')+'<br>'+
-          '· '+(L?'<b>변경</b>: 시작 <b>24시간 전</b>까지만 가능':'<b>Change</b>: only up to <b>24 h</b> before')+
-        '</div>'+
-        '<div class="lc-list">'+(items||'<div class="lc-empty">'+(L?'예정된 수업이 없습니다.':'No upcoming classes.')+'</div>')+'</div>'+
-      '</div></div>';
-    ov.innerHTML = html;
-    ov.classList.add('show');
-
-
-    // 본인 수업 액션 처리
-    window.tryMyAction = function(clsId, mode){
-      var c = student.classes.find(function(x){return x.id===clsId;});
-      if(!c) return;
-      var L=(window.getLang?window.getLang():'ko')==='ko';
-      var dt = getClsDt(c);
-      var diff = diffMin(dt);   // 원 수업까지 남은 분
-
-      // ── 변경(change): 시작 24시간 이내면 차단 (정책) ──
-      if(mode==='change' && diff < 1440){
-        var detailC = '📅 <b>'+fmt(dt)+'</b><br>⏰ '+(diff<0?(L?'이미 시작/종료':'Past'):(Math.round(diff)+(L?'분 남음':' min')))+'<br>'+(L?'급한 경우 학원에 직접 연락 부탁드립니다.':'Please contact the center directly.');
-        var rejHtml = '<div class="lc-reject" onclick="event.stopPropagation()"><div class="lc-rej-ico">😔</div><h3>'+(L?'변경할 수 없습니다':'Cannot Change')+'</h3><p>'+(L?'수업 변경은 시작 <b>24시간 전</b>까지만 가능합니다.':'Changes are only allowed up to <b>24 hours</b> before class.')+'</p><div class="lc-rej-detail">'+detailC+'</div><button onclick="closeLessonChangeModal()">'+(L?'확인':'OK')+'</button></div>';
-        document.getElementById('lc-overlay').innerHTML = rejHtml;
-        return;
-      }
-
-      // ── 연기·취소: 30분 이내면 '유료' 안내 후 진행 (차단하지 않음 — 정책: 30분 이내=유료) ──
-      var isPaid = (mode!=='change') && (diff <= 30);
-      function proceed(){
-        if(mode==='cancel'){ doCancel(c, dt, isPaid); return; }
-        if(typeof openLessonPickerModal==='function'){
-          if(!c.students) c.students = [{name:student.name, uid:student.uid}];
-          openLessonPickerModal(c, mode);   // 연기/변경 → 기존 위저드 (확정 시 서버 저장+태깅)
-        }
-      }
-      if(isPaid){
-        var feeMsg = (mode==='cancel')
-          ? (L?'수업 시작 <b>30분 이내 취소</b>는 <b style="color:#fbbf24">유료</b>로 처리됩니다.':'Cancelling within <b>30 min</b> of start is <b style="color:#fbbf24">charged</b>.')
-          : (L?'수업 시작 <b>30분 이내 연기</b>는 <b style="color:#fbbf24">유료</b>로 처리됩니다.':'Postponing within <b>30 min</b> of start is <b style="color:#fbbf24">charged</b>.');
-        var detailP = '📅 <b>'+fmt(dt)+'</b><br>⏰ '+(diff<0?(L?'이미 시작/종료':'Past'):(Math.round(diff)+(L?'분 남음':' min')));
-        var confHtml = '<div class="lc-reject" onclick="event.stopPropagation()" style="border-color:#fbbf24"><div class="lc-rej-ico">💰</div><h3 style="color:#fbbf24">'+(L?'유료 처리 안내':'Paid Notice')+'</h3><p>'+feeMsg+'<br>'+(L?'계속하시겠습니까?':'Continue?')+'</p><div class="lc-rej-detail">'+detailP+'</div><div style="display:flex;gap:8px"><button onclick="closeLessonChangeModal()" style="flex:1;background:#374151;color:#fff">'+(L?'아니요':'No')+'</button><button id="lc-paid-ok" style="flex:1">'+(L?'예, 계속':'Yes, continue')+'</button></div></div>';
-        document.getElementById('lc-overlay').innerHTML = confHtml;
-        var okb = document.getElementById('lc-paid-ok'); if(okb) okb.onclick = function(){ proceed(); };
-        return;
-      }
-      proceed();
-    };
-
-    // 🆕 취소 실행 — 서버에 기록(유료/무료 태깅 + 관리자 알림) + 로컬 목록에서 제거
-    function doCancel(c, dt, isPaid){
-      var L=(window.getLang?window.getLang():'ko')==='ko';
-      try {
-        if(typeof window.lcPersistRequest==='function'){
-          window.lcPersistRequest(c, 'cancel', { origStartMs: dt.getTime(), origTeacher: c.teacher });
-        }
-      } catch(e){}
-      try { var idx = student.classes.indexOf(c); if(idx>=0) student.classes.splice(idx,1); } catch(e){}
-      var t = document.getElementById('lc-toast');
-      if(t){
-        t.innerHTML = '✅ '+(L?'수업이 취소되었습니다':'Class cancelled')+' · '+(isPaid?(L?'💰유료':'💰paid'):(L?'🆓무료':'🆓free'))+'<br><span style="font-size:11px;color:#94a3b8">'+(L?'담당자가 확인 후 연락드립니다':'Staff will confirm shortly')+'</span>';
-        t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); }, 3500);
-      }
-      try { renderMyClassList(student); } catch(e){ closeLessonChangeModal(); }
-    }
-  }
-})();
+// (2026-10-07) 옛 «내 수업» 창(openLessonChangeModal 재정의 IIFE)은 지웠다 — index.html 의 lesson-change-unify 가
+//   2026-06-08 부터 모든 입구를 /lesson-postpone-demo.html 로 보내 한 번도 열리지 않았다.
 

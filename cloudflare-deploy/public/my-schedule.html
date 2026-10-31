@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>내 주간 스케줄 · 망고아이</title>
+<link rel="icon" href="/favicon.ico">
+<!-- 🈶 한자 글꼴 통일 — 중국어 교재를 쓰는 학생이 있어 화면마다 글꼴이 갈리면 안 된다(hanzi_font_harness) -->
+<link rel="stylesheet" href="/css/mangoi-han.css">
+<meta name="robots" content="noindex">
+<!-- ═══════════════════════════════════════════════════════════════════════
+  my-schedule.html — 학생 «내 주간 스케줄» (2026-08-30, v4 제안서 01)
+
+  [왜 새로 만들었나] 전체 메뉴의 「📅 내 주간 스케줄」이 /admin/weekly-schedule.html?role=student
+    로 가고 있었다. 그런데 그 경로는 src/index.ts 의 isAdminPath 가 «/admin/ 으로 시작하면
+    무조건 인증» 이라 **학생은 관리자 로그인 화면으로 튕긴다.** 게다가 그 화면은 244KB 짜리
+    관리자 그리드를 다 받은 뒤 JS 로 남의 수업을 지우는 방식이라, 학생 폰에서 무겁고
+    «본인 UID 가 없으면 첫 번째 학생을 자동 매칭» 하는 데모 폴백까지 들어 있었다.
+
+  [무엇] 읽기 전용 안내 화면이다. 이미 있는 /api/class/schedule/mine 하나만 부른다.
+    입장·방 번호·출석 로직은 한 줄도 건드리지 않는다(그건 index.html 담당).
+
+  [가볍게] 외부 스크립트·폰트·프레임워크 0개. 이 파일 하나로 끝난다.
+  ⚠️ /admin/ 밑에 두지 않는다 — 두는 순간 로그인 게이트에 걸려 처음 문제로 되돌아간다.
+  ⚠️ 확장자(.html)를 그대로 쓴다 — wrangler.toml 의 html_handling="none" 이라
+     확장자 없는 주소는 src/index.ts 에 한 줄씩 손으로 이어야 한다(CLAUDE.md 2장).
+═══════════════════════════════════════════════════════════════════════ -->
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#050714;color:#e2e8f0;
+    font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",Malgun Gothic,sans-serif}
+  a{color:inherit}
+  .wrap{max-width:760px;margin:0 auto;padding:14px 14px 40px}
+  header{display:flex;align-items:center;gap:8px;padding:10px 0 14px}
+  header h1{margin:0;font-size:18px;font-weight:800;flex:1 1 auto;line-height:1.25}
+  .nav{display:inline-flex;align-items:center;gap:5px;padding:7px 11px;border-radius:99px;
+    border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#e2e8f0;
+    font-size:12.5px;font-weight:700;text-decoration:none;cursor:pointer;white-space:nowrap}
+  .nav:hover{background:rgba(255,255,255,.13)}
+  .sub{font-size:12px;color:#94a3b8;margin:0 0 12px;line-height:1.5}
+  .next{border:1px solid rgba(245,158,11,.45);background:rgba(245,158,11,.10);
+    border-radius:14px;padding:12px 14px;margin:0 0 14px}
+  .next b{color:#fbbf24}
+  .day{border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.04);
+    border-radius:14px;padding:10px 12px;margin:0 0 9px}
+  .day.today{border-color:rgba(96,165,250,.55);background:rgba(96,165,250,.10)}
+  .dh{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:800;margin-bottom:6px}
+  .dh .badge{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:99px;
+    background:rgba(96,165,250,.22);color:#bfdbfe}
+  .row{display:flex;align-items:center;gap:9px;padding:6px 0;font-size:13px;
+    border-top:1px dashed rgba(255,255,255,.09)}
+  .row:first-of-type{border-top:0}
+  .row .t{font-weight:800;color:#fbbf24;min-width:74px}
+  .row .who{color:#cbd5e1;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .len{color:#94a3b8;font-size:11.5px;white-space:nowrap}
+  .empty{color:#64748b;font-size:12.5px;padding:4px 0}
+  .msg{border:1px dashed rgba(255,255,255,.18);border-radius:14px;padding:22px 16px;
+    text-align:center;color:#94a3b8;font-size:13px;line-height:1.7}
+  .msg a.cta{display:inline-block;margin-top:10px;padding:9px 16px;border-radius:99px;
+    background:linear-gradient(135deg,#f59e0b,#d97706);color:#1a1206;font-weight:800;
+    text-decoration:none;font-size:13px}
+  footer{margin-top:18px;font-size:11px;color:#475569;text-align:center;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <button class="nav" type="button" id="btn-back">← <span data-i="back">뒤로</span></button>
+    <a class="nav" href="/">🏠 <span data-i="home">홈</span></a>
+    <h1 style="text-align:right">📅 <span data-i="title">내 주간 스케줄</span></h1>
+  </header>
+  <p class="sub" id="sub"></p>
+  <div id="body"><div class="msg" data-i="loading">불러오는 중…</div></div>
+  <footer><span data-i="foot">수업 시간 변경은 [수업 연기·변경]에서 신청해 주세요.</span></footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  /* 🌐 이 화면은 공용 i18n 엔진을 싣지 않는다(파일 하나로 끝내려고).
+        대신 저장 정본인 mangoi_lang 만 읽어 KO/EN 두 벌 문구를 갈아 끼운다. */
+  var EN = false;
+  try { EN = (localStorage.getItem('mangoi_lang') || 'ko') === 'en'; } catch (e) {}
+  var T = {
+    back:  ['뒤로', 'Back'],
+    home:  ['홈', 'Home'],
+    title: ['내 주간 스케줄', 'My Weekly Schedule'],
+    loading: ['불러오는 중…', 'Loading…'],
+    foot:  ['수업 시간 변경은 [수업 연기·변경]에서 신청해 주세요.',
+            'To change a class time, use “Postpone / Change”.']
+  };
+  Object.keys(T).forEach(function (k) {
+    var els = document.querySelectorAll('[data-i="' + k + '"]');
+    for (var i = 0; i < els.length; i++) els[i].textContent = T[k][EN ? 1 : 0];
+  });
+  if (EN) document.documentElement.lang = 'en';
+
+  document.getElementById('btn-back').addEventListener('click', function () {
+    /* ⛔ history.back() 하나로 풀지 않는다 — 카톡 링크로 «바로» 들어온 사람은
+       아무 일도 안 일어나 「버튼이 고장났다」가 된다(CLAUDE.md 2장). */
+    var sameOrigin = false;
+    try { sameOrigin = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch (e) {}
+    if (sameOrigin && history.length > 1) history.back();
+    else location.href = '/';
+  });
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+  function fmtTime(hhmm) {
+    var m = /^(\d{1,2}):(\d{2})/.exec(String(hhmm || '')); if (!m) return hhmm || '';
+    var h = Number(m[1]), mi = m[2];
+    if (EN) return ((h % 12) || 12) + ':' + mi + ' ' + (h < 12 ? 'AM' : 'PM');
+    return (h < 12 ? '오전 ' : '오후 ') + ((h % 12) || 12) + ':' + mi;
+  }
+  function fmtDate(ymd) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || '')); if (!m) return '';
+    return EN ? (Number(m[2]) + '/' + Number(m[3])) : (Number(m[2]) + '월 ' + Number(m[3]) + '일');
+  }
+  /* 오늘 요일은 «한국시간» 으로 센다 — 필리핀 강사·중국 학생이 같은 화면을 본다. */
+  function kstDow() {
+    var k = new Date(Date.now() + 9 * 3600 * 1000);
+    return k.getUTCDay();
+  }
+
+  var DOW_KO = ['일', '월', '화', '수', '목', '금', '토'];
+  var DOW_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  function me() {
+    try {
+      var u = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null');
+      if (u && u.uid) return u;
+      var alt = JSON.parse(localStorage.getItem('mango_user') || 'null');
+      if (alt && (alt.uid || alt.id)) return { uid: alt.uid || alt.id, name: alt.name || alt.uid };
+    } catch (e) {}
+    return null;
+  }
+
+  var bodyEl = document.getElementById('body');
+  var subEl = document.getElementById('sub');
+
+  function note(html) { bodyEl.innerHTML = '<div class="msg">' + html + '</div>'; }
+
+  var u = me();
+  if (!u) {
+    note(EN
+      ? 'Sign in to see your weekly class schedule.<br><a class="cta" href="/">Go to sign in</a>'
+      : '로그인하면 내 수업 요일과 시간을 볼 수 있어요.<br><a class="cta" href="/">로그인하러 가기</a>');
+    return;
+  }
+  subEl.textContent = (u.name || u.uid) + (EN ? '' : ' 학생');
+
+  var qs = 'user_id=' + encodeURIComponent(u.uid);
+  if (u.name) qs += '&student_name=' + encodeURIComponent(u.name);
+
+  fetch('/api/class/schedule/mine?' + qs, { credentials: 'include' })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      /* ✅ 판정은 «실패라고 말했는가» 가 아니라 «성공이라고 말했는가» 로 한다
+         (CLAUDE.md 2장 — 종단 404 본문에는 ok 칸이 아예 없다). */
+      if (!d || d.ok !== true || !Array.isArray(d.schedules)) {
+        note(EN ? 'Could not load the schedule. Please try again in a moment.'
+                : '스케줄을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.');
+        return;
+      }
+      render(d.schedules);
+    })
+    .catch(function () {
+      note(EN ? 'Network error. Please try again.' : '네트워크 오류입니다. 다시 시도해 주세요.');
+    });
+
+  function render(list) {
+    if (!list.length) {
+      note(EN
+        ? 'No class is registered yet.<br>Please ask the office if this looks wrong.'
+        : '아직 등록된 수업이 없어요.<br>잘못된 것 같으면 사무실에 문의해 주세요.');
+      return;
+    }
+
+    /* ⏰ 다음 수업 — 서버가 next_start_ts 오름차순으로 정렬해 준다 */
+    var html = '';
+    var next = list[0];
+    if (next && next.next_date) {
+      html += '<div class="next">' + (EN ? 'Next class ' : '다음 수업 ') + '<b>'
+        + esc(fmtDate(next.next_date)) + ' ' + esc(fmtTime(next.start_time)) + '</b>'
+        + (next.teacher_name ? (' · ' + esc(next.teacher_name)) : '') + '</div>';
+    }
+
+    /* 요일별 목록 — 폰에서 7열 격자는 글자가 낱글자로 쪼개진다(CLAUDE.md 2장).
+       ⛔ 그래서 격자 대신 요일 카드 세로 목록으로 그린다. */
+    var byDow = [[], [], [], [], [], [], []];
+    var oneOff = [];
+    list.forEach(function (s) {
+      var labels = s.day_labels_ko || [];
+      if (s.scheduled_date && !labels.length) { oneOff.push(s); return; }
+      labels.forEach(function (d) {
+        var i = DOW_KO.indexOf(d);
+        if (i >= 0) byDow[i].push(s);
+      });
+    });
+
+    var today = kstDow();
+    for (var off = 0; off < 7; off++) {
+      var i = (today + off) % 7;
+      var rows = byDow[i];
+      if (!rows.length) continue;
+      rows.sort(function (a, b) { return String(a.start_time).localeCompare(String(b.start_time)); });
+      html += '<div class="day' + (off === 0 ? ' today' : '') + '">'
+        + '<div class="dh">' + (EN ? DOW_EN[i] : DOW_KO[i] + '요일')
+        + (off === 0 ? '<span class="badge">' + (EN ? 'Today' : '오늘') + '</span>' : '')
+        + '</div>';
+      rows.forEach(function (s) {
+        html += '<div class="row"><span class="t">' + esc(fmtTime(s.start_time)) + '</span>'
+          + '<span class="who">' + esc(s.teacher_name || (EN ? 'Teacher TBA' : '강사 배정 중')) + '</span>'
+          + '<span class="len">' + (Number(s.duration_min) || 20) + (EN ? ' min' : '분') + '</span></div>';
+      });
+      html += '</div>';
+    }
+
+    if (oneOff.length) {
+      html += '<div class="day"><div class="dh">' + (EN ? 'One-off classes' : '날짜 지정 수업') + '</div>';
+      oneOff.forEach(function (s) {
+        html += '<div class="row"><span class="t">' + esc(fmtDate(s.scheduled_date)) + '</span>'
+          + '<span class="who">' + esc(fmtTime(s.start_time)) + ' · '
+          + esc(s.teacher_name || (EN ? 'Teacher TBA' : '강사 배정 중')) + '</span>'
+          + '<span class="len">' + (Number(s.duration_min) || 20) + (EN ? ' min' : '분') + '</span></div>';
+      });
+      html += '</div>';
+    }
+
+    bodyEl.innerHTML = html || '<div class="empty">—</div>';
+  }
+})();
+</script>
+</body>
+</html>

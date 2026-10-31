@@ -98,6 +98,17 @@
     // 🌐 EN 토글 시 영어 data-tip 으로 교체(언어 바뀌면 다음 주기에 자동 갱신)
     var en = (window.adminLang && window.adminLang!=='ko');
     document.querySelectorAll('#ph85-sidebar .ph85-sub').forEach(function(sub){
+      /* 💬 (2026-08-19) 항목이 «자기» 설명을 가지고 있으면 그것을 쓴다(adm-ia6.js 가 실어 준다).
+         여기 TIPS 는 «대표 카드» 기준이라, 카드를 여럿 맡는 항목·같은 카드의 다른 칸을 가리키는
+         항목(대표지사/지사/대리점/본사 관리)·카드가 없는 항목(딴 페이지)에서는 설명이
+         **네 번 똑같이 뜨거나 아예 비어** 있었다.
+         ⚠️ 이 우선순위를 지우면 그대로 되돌아간다 — 정착 루프가 1.5초마다 다시 덮어쓴다.
+         ⚠️ 언어 전환도 여기서 함께 처리한다(항목 설명의 영어는 data-ia6-tip-en). */
+      var own = (en && sub.getAttribute('data-ia6-tip-en')) || sub.getAttribute('data-ia6-tip');
+      if (own) {
+        if (sub.getAttribute('data-tip') !== own) sub.setAttribute('data-tip', own);
+        return;
+      }
       var cardId = sub.dataset.card;
       if (!cardId) return;
       var tip = (en && window.TIP_EN && window.TIP_EN[cardId]) ? window.TIP_EN[cardId] : TIPS[cardId];

@@ -232,14 +232,14 @@
         var msg = String(data.message || '');
 
         // 내가 보낸 것 → 방금 번역해 보낸 원문을 붙여준다(내가 뭘 썼는지 보이게)
-        if (data.userId === window.vcUserId && lastSent && lastSent.translated === msg) {
+        if (data.userId === (typeof vcUserId !== 'undefined' ? vcUserId : '') && lastSent && lastSent.translated === msg) {
           addNote(trId, lastSent.original, true);
           lastSent = null;
           return r;
         }
         // 상대가 보낸 것 → 내 언어가 아니면 내 언어로 바꿔 붙인다
         var rt = readTarget();
-        if (data.userId !== window.vcUserId && msg && rt && needsTr(msg, rt)) {
+        if (data.userId !== (typeof vcUserId !== 'undefined' ? vcUserId : '') && msg && rt && needsTr(msg, rt)) {
           translate([msg], rt).then(function(map){
             var out = map && map[msg];
             if (out && out !== msg) addNote(trId, out, false);

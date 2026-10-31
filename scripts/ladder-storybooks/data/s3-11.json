@@ -1,0 +1,311 @@
+{
+  "id": "s3-11",
+  "breaks": [
+    2,
+    2,
+    2,
+    4
+  ],
+  "key": {
+    "P": 1,
+    "S": 5
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "이유",
+      "en": "reason"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «달의 모양(위상)은 햇빛을 받는 면을 우리가 얼마나 보느냐에 따라 달라진다(주제)» 와 «달이 지구 주위를 돌면서 밝은 절반을 여러 각도에서 보게 된다(이유)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (the phases depend on how much of the sunlit side we can see) and the reason (as the moon travels around the Earth, we see the bright half from different angles). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Why the moon seems to change shape"
+    },
+    {
+      "k": "Key fact",
+      "qko": "태양은 달을 얼마나 비추나요?",
+      "qen": "How much of the moon does the sun light up?",
+      "a": "The sun always lights up half of it"
+    },
+    {
+      "k": "Pattern",
+      "qko": "이 변화는 얼마나 걸리나요?",
+      "qen": "How long does the cycle take?",
+      "a": "About 29 and a half days"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "The moon does not make its own light; it ",
+      "ans": "reflects",
+      "opts": [
+        "reflects",
+        "eats",
+        "hides"
+      ]
+    },
+    {
+      "pre": " light from the sun. The sun always lights up ",
+      "ans": "half",
+      "opts": [
+        "half",
+        "a third",
+        "a tenth"
+      ]
+    },
+    {
+      "pre": " of the moon. As the moon travels around the ",
+      "ans": "Earth",
+      "opts": [
+        "Earth",
+        "Mars",
+        "Jupiter"
+      ]
+    },
+    {
+      "pre": ", we see the bright half from different angles. At a new moon we cannot see the bright side, and at a ",
+      "ans": "full",
+      "opts": [
+        "full",
+        "dark",
+        "small"
+      ]
+    },
+    {
+      "pre": " moon we see all of it. The whole cycle takes about 29 and a half ",
+      "ans": "days",
+      "opts": [
+        "days",
+        "years",
+        "hours"
+      ]
+    },
+    {
+      "pre": ", and then the pattern starts again.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "phases",
+      "위상, 단계",
+      "These different shapes, called <b>phases</b>, depend on how much of the moon’s sunlit side we can see.",
+      "the different shapes the moon seems to have"
+    ],
+    [
+      "sunlit",
+      "햇빛을 받는",
+      "how much of the moon’s <b>sunlit</b> side we can see.",
+      "lit by the sun"
+    ],
+    [
+      "reflects",
+      "반사하다",
+      "it shines because it <b>reflects</b> light from the sun.",
+      "sends light back from a surface"
+    ],
+    [
+      "angles",
+      "각도",
+      "we see that bright half from different <b>angles</b>.",
+      "different directions you look from"
+    ],
+    [
+      "cycle",
+      "주기, 순환",
+      "This whole <b>cycle</b> takes about 29 and a half days",
+      "a set of events that happens again and again"
+    ],
+    [
+      "pattern",
+      "반복되는 모양, 규칙",
+      "and then the <b>pattern</b> starts again.",
+      "a way something happens again in the same order"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does the moon shine at night?",
+      "qko": "달은 왜 밤에 빛나나요?",
+      "opts": [
+        "Because it reflects light from the sun",
+        "Because it makes its own light",
+        "Because it is very close to the Earth"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Instead, it shines because it reflects light from the sun.",
+        "The moon seems to change shape during the month, but its shape never really changes.",
+        "This whole cycle takes about 29 and a half days, and then the pattern starts again.",
+        "As the moon keeps moving, we see more of the bright side each night."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "달은 스스로 빛을 내지 않고, 태양의 빛을 반사하기 때문에 빛난다고 했어요.",
+        "The moon does not make its own light. It shines because it reflects light from the sun."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In \"These different shapes, called phases,\" what does \"phases\" mean?",
+      "qko": "«These different shapes, called phases» 에서 «phases» 는 무슨 뜻인가요?",
+      "opts": [
+        "The different shapes the moon seems to have",
+        "The light that comes from the sun",
+        "The path the moon travels around the Earth"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "These different shapes, called phases, depend on how much of the moon's sunlit side we can see.",
+        "The sun always lights up half of the moon.",
+        "Instead, it shines because it reflects light from the sun.",
+        "This whole cycle takes about 29 and a half days, and then the pattern starts again."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«이 다양한 모양을 위상(phases)이라고 부른다» 고 했으니, phases 는 달이 바뀌어 보이는 여러 모양이에요.",
+        "The text says «these different shapes» are «called phases», so phases are the shapes the moon seems to have."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why can’t we see the moon at a new moon?",
+      "qko": "삭(신월) 때는 왜 달을 볼 수 없나요?",
+      "opts": [
+        "The sun lights the half of the moon that is facing away from us",
+        "The moon stops reflecting light for a few days",
+        "The moon becomes much smaller than before"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "The sun always lights up half of the moon.",
+        "When the Earth is between the sun and the moon, we see the whole bright side, which is a full moon.",
+        "When the moon is between the Earth and the sun, we cannot see its bright side, so we call it a new moon.",
+        "This whole cycle takes about 29 and a half days, and then the pattern starts again."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "태양은 언제나 달의 절반을 비추는데, 달이 지구와 태양 사이에 있으면 그 밝은 면을 볼 수 없다고 했어요. 두 문장을 이으면 밝은 면이 우리 반대쪽을 향한다는 것을 알 수 있어요.",
+        "The sun always lights up half of the moon, and when the moon is between the Earth and the sun, we cannot see its bright side. Together they show the bright half faces away from us."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Why does the moon always show us the same side?",
+      "달은 왜 우리에게 늘 같은 면만 보여 줄까요?",
+      "The Same Side of the Moon"
+    ],
+    [
+      "B",
+      "What would it be like to live on the moon?",
+      "달에서 산다면 어떨까요?",
+      "Living on the Moon"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "before",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“Let’s <u>look at the moon tonight</u> before <u>it becomes a full moon</u>.”",
+    "slotKo": [
+      "함께 할 일",
+      "그 전에 일어날 일"
+    ],
+    "slotEn": [
+      "what we do",
+      "what happens next"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그보다 나중에 일어날 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do together and what happens after that.",
+    "chips": [
+      {
+        "a": "draw the moon every night",
+        "b": "the month ends",
+        "label": "moon diary"
+      },
+      {
+        "a": "find our flashlight",
+        "b": "it gets dark",
+        "label": "flashlight"
+      },
+      {
+        "a": "check the weather",
+        "b": "we go stargazing",
+        "label": "weather"
+      }
+    ],
+    "aria": [
+      "what we do",
+      "what happens after"
+    ],
+    "moreKo": "한 걸음 더: «before» 뒤에 «무엇이 + 어떻게 되는지» 를 넣어 때를 분명하게 써 보세요. (예: before the sun goes down)",
+    "moreEn": "One more step: after «before», write what + what happens to make the time clear. (e.g. before the sun goes down)"
+  },
+  "img": {
+    "style": "photo",
+    "cover": "A bright half moon in a clear dark night sky above a quiet hill with a few trees",
+    "scenes": {
+      "1": "A close view of the moon’s gray, cratered surface, with one side brightly lit by sunlight and the other side in shadow",
+      "3": "A large bright full moon rising above a city skyline in the evening"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "The moon’s surface lit by sunlight on one side",
+    "3": "A full moon rising over a city",
+    "cover": "A half moon over a hill at night"
+  }
+}

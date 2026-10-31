@@ -1,0 +1,311 @@
+{
+  "id": "s2-25",
+  "breaks": [
+    3,
+    3,
+    3,
+    4
+  ],
+  "key": {
+    "P": 5,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «아무도 자라와 앉고 싶어 하지 않아서 자라는 혼자 앉았다(문제)» 와 «때로는 나와 다른 친구가 가장 밝게 빛나는 친구이다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (nobody wanted to sit with Zara, so she sat alone) and the lesson (sometimes the friend who is different is the one who shines brightest). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Zara from Planet Lumo, her new class"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Zara was different, so she sat alone."
+    },
+    {
+      "k": "Lesson",
+      "qko": "무엇을 배웠나요?",
+      "qen": "What is the lesson?",
+      "a": "A friend who is different can shine the brightest."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "A new student named Zara had blue ",
+      "ans": "skin",
+      "opts": [
+        "skin",
+        "hair",
+        "shoes"
+      ]
+    },
+    {
+      "pre": " and came from Planet Lumo. At first, everyone was ",
+      "ans": "afraid",
+      "opts": [
+        "afraid",
+        "happy",
+        "proud"
+      ]
+    },
+    {
+      "pre": " of her, so she sat alone. During a science test, the ",
+      "ans": "lights",
+      "opts": [
+        "lights",
+        "doors",
+        "windows"
+      ]
+    },
+    {
+      "pre": " went out. Zara's skin began to ",
+      "ans": "glow",
+      "opts": [
+        "glow",
+        "freeze",
+        "shrink"
+      ]
+    },
+    {
+      "pre": " like a lamp, and everyone got outside ",
+      "ans": "safely",
+      "opts": [
+        "safely",
+        "late",
+        "alone"
+      ]
+    },
+    {
+      "pre": ". After that, everyone wanted to sit with her.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "student",
+      "학생, 전학생",
+      "We have a new <b>student</b> from far away.",
+      "a person who learns at a school"
+    ],
+    [
+      "glow",
+      "빛나다",
+      "Suddenly, Zara's skin began to <b>glow</b> like a lamp!",
+      "to give out soft light"
+    ],
+    [
+      "different",
+      "다른",
+      "the friend who is <b>different</b>",
+      "not the same as others"
+    ],
+    [
+      "afraid",
+      "무서워하는",
+      "At first, everyone was a little <b>afraid</b> of her.",
+      "feeling scared"
+    ],
+    [
+      "floated",
+      "둥둥 떠 있었다",
+      "<b>floated</b> above her chair",
+      "stayed up in the air"
+    ],
+    [
+      "completely",
+      "완전히",
+      "The room was <b>completely</b> dark",
+      "in every way; totally"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did Zara sit alone?",
+      "qko": "자라는 왜 혼자 앉았나요?",
+      "opts": [
+        "Nobody wanted to sit with her.",
+        "She liked to be alone in class.",
+        "The teacher told her to sit alone."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Nobody wanted to sit with her, so she sat alone.",
+        "Her name was Zara, and she came from Planet Lumo.",
+        "Thanks to her light, we all got outside safely.",
+        "The door opened, and a girl with blue skin walked in."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«아무도 자라와 앉고 싶어 하지 않아서 자라는 혼자 앉았다»라고 나와요. 자라가 혼자 있는 걸 좋아했다거나 선생님이 시켰다는 말은 없어요.",
+        "The text says nobody wanted to sit with her, so she sat alone. Nothing says she liked being alone or that the teacher told her to."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The story says, \"Thanks to her light, we all got outside safely.\" What does \"thanks to\" mean here?",
+      "qko": "\"Thanks to her light, we all got outside safely.\"라는 문장이 있어요. 여기서 \"thanks to\"는 무슨 뜻인가요?",
+      "opts": [
+        "because of",
+        "saying thank you to",
+        "even without"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Suddenly, Zara's skin began to glow like a lamp!",
+        "She ate pencils for lunch and floated above her chair.",
+        "On Monday, our teacher said, \"We have a new student from far away.\"",
+        "After that day, everyone wanted to sit with Zara."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "바로 앞에서 자라의 피부가 전등처럼 빛나기 시작했어요. 그 빛 «때문에» 모두 밖으로 나갈 수 있었으니, \"thanks to\"는 «~ 덕분에»라는 뜻이에요.",
+        "Just before, Zara's skin began to glow like a lamp. Everyone got out because of that light, so \"thanks to\" means «because of»."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why did everyone want to sit with Zara after that day?",
+      "qko": "그날 이후 왜 모두가 자라 옆에 앉고 싶어 했나요?",
+      "opts": [
+        "Her glowing skin helped everyone get out of the dark room.",
+        "She gave everyone pencils to eat.",
+        "She got the best score on the science test."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Suddenly, Zara's skin began to glow like a lamp!",
+        "At first, everyone was a little afraid of her.",
+        "Thanks to her light, we all got outside safely.",
+        "Then, during the science test, the lights went out."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "불이 나갔을 때 자라의 피부가 전등처럼 빛났고, 그 빛 덕분에 모두 무사히 밖으로 나갔어요. 두 문장을 이으면, 자라가 반 친구들을 도와주었기 때문이에요.",
+        "When the lights went out, Zara's skin glowed like a lamp, and thanks to her light, everyone got outside safely. Put these two sentences together: Zara helped the class."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Zara takes the class on a trip to Planet Lumo.",
+      "자라가 반 친구들을 데리고 루모 행성으로 여행을 가요.",
+      "A Trip to Planet Lumo"
+    ],
+    [
+      "B",
+      "Zara teaches the class about life on her planet.",
+      "자라가 반 친구들에게 자기 행성의 생활을 알려 줘요.",
+      "All About Lumo"
+    ]
+  ],
+  "write": {
+    "pre": "If",
+    "mid": "we can",
+    "sep": ", ",
+    "slots": [
+      "cl",
+      "vp"
+    ],
+    "src": "“If <u>we sit with a new student</u>, we can <u>make a new friend</u>.”",
+    "slotKo": [
+      "모두가 하는 일",
+      "그러면 함께 할 수 있는 일"
+    ],
+    "slotEn": [
+      "what everyone does",
+      "what we can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «모두가 하는 일 + 그러면 함께 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what everyone does and what we can do together in English.",
+    "chips": [
+      {
+        "a": "we all clean up together",
+        "b": "finish quickly",
+        "label": "clean"
+      },
+      {
+        "a": "everyone shares the ball",
+        "b": "play a fun game",
+        "label": "share"
+      },
+      {
+        "a": "we listen to each other",
+        "b": "solve the problem",
+        "label": "listen"
+      }
+    ],
+    "aria": [
+      "what everyone does",
+      "what we can do"
+    ],
+    "moreKo": "한 걸음 더: «If» 뒤에는 «누가 + 무엇을 한다», «we can» 뒤에는 동사로 시작해 보세요. (예: we can play together)",
+    "moreEn": "One more step: after «If», write who + what they do. After «we can», start with a verb. (e.g. we can play together)"
+  },
+  "img": {
+    "style": "flat",
+    "cover": "In a dark classroom with the lights out, a ten-year-old alien girl with light blue skin, short silver hair, big purple eyes and a yellow school sweater glows softly like a lamp and lights up the room, while her classmates follow her light toward the open door with relieved faces.",
+    "scenes": {
+      "1": "In a bright classroom, a ten-year-old alien girl with light blue skin, short silver hair, big purple eyes and a yellow school sweater floats a little above her chair at a desk by herself and happily chews on a yellow pencil, while classmates at the other desks stare at her in surprise.",
+      "3": "In a sunny school lunchroom, a ten-year-old alien girl with light blue skin, short silver hair, big purple eyes and a yellow school sweater sits at a long table crowded with smiling classmates who squeeze in to sit next to her and share their lunches."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "An alien girl floats above her chair and eats a pencil alone.",
+    "3": "Many classmates sit with the alien girl at lunch.",
+    "cover": "A glowing alien girl lights up a dark classroom for her classmates."
+  }
+}

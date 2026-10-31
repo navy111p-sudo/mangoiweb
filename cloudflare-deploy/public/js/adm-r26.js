@@ -51,7 +51,11 @@
     var stat = document.createElement('div');
     stat.className = 'ph128-stat';
     stat.id = 'ph128-stat-' + tbody.id;
-    stat.style.display = 'none';
+    /* ⚠️ 인라인 display:none 은 admin-inline-c.css 의 `.ph128-stat{display:flex !important}`
+       에 진다(작성자 !important > 인라인). 그래서 이 띠가 필터를 걸기 전에도 늘 떠서
+       「필터 결과: 0건 표시 / 전체 0건」 을 표 위에 보여 주고 있었다 — 표에 행이 있는데도.
+       저장소가 쓰는 방식대로 hidden 속성으로 바꾸고, CSS 에 [hidden] 규칙을 박아 뒀다. */
+    stat.hidden = true;
     stat.innerHTML =
       '<span>🔍 필터 결과: <b id="ph128-count-' + tbody.id + '">0</b>건 표시 / 전체 <span id="ph128-total-' + tbody.id + '">0</span>건' +
       '<span class="ph128-active-count" id="ph128-active-' + tbody.id + '" style="margin-left:8px">0개 활성</span></span>' +
@@ -102,9 +106,9 @@
     var activeFilters = Object.keys(filters).length;
 
     if (activeFilters === 0) {
-      if (stat) stat.style.display = 'none';
+      if (stat) stat.hidden = true;
     } else {
-      if (stat) stat.style.display = '';
+      if (stat) stat.hidden = false;
       if (countEl) countEl.textContent = visible;
       if (totalEl) totalEl.textContent = rows.length;
       if (activeEl) activeEl.textContent = activeFilters + '개 활성';

@@ -103,11 +103,11 @@ ok('attachStreamMonitor 중복 등록 방지(루프·AudioContext 누적)',
 ok('중복 판정 키에 오디오 트랙 id 포함(마이크 뒤늦게 복구되는 경우)',
    /const monKey = \(stream\.id \|\| ''\) \+ '\|' \+ \(_at0 \? _at0\.id : 'noaudio'\)/.test(IDX));
 ok('음량 분석 실패 시 AudioContext 를 닫는다(누수)',
-   /catch\(e\) \{[\s\S]{0,260}mon\.ctx\.close\(\); mon\.ctx = null;/.test(IDX));
+   /catch\(e\) \{[\s\S]{0,260}vcCloseAudioContext\(mon\.ctx\);\s*mon\.ctx = null;/.test(IDX));
 ok('마이크 진단 복구도 window.vcMicOn 을 맞춘다(독이 빨간 채 굳던 회귀)',
    /window\.vcMicOn = true;\s*\/\/ 🔴 \(2026-07-24 재점검\)/.test(IDX));
 ok('마이크 재획득 경로도 동일', /vcMicOn = true; window\.vcMicOn = true;/.test(IDX));
-ok('스트림이 바뀌면 옛 루프를 확실히 정리', /clearInterval\(box\.__vsMon\.iconInt\)/.test(IDX) && /__vsMon\.ctx && box\.__vsMon\.ctx\.close\(\)/.test(IDX));
+ok('스트림이 바뀌면 옛 루프를 확실히 정리', /clearInterval\(box\.__vsMon\.iconInt\)/.test(IDX) && /box\.__vsMon\.stop = true;\s*vcCloseAudioContext\(box\.__vsMon\.ctx\)/.test(IDX));
 ok('rAF 루프도 정지 플래그를 확인', /if \(mon\.stop \|\| !box\.isConnected\)/.test(IDX));
 
 // ── ③ 필리핀 강사 튕김 ─────────────────────────────────────────
@@ -139,8 +139,11 @@ ok('새 소켓을 만들기 전에도 비운다(낡은 인터벌이 새 소켓�
 ok('전제②: 서버가 ping 에 pong 을 돌려준다', /case 'ping':\s*this\.send\(userId, \{ type: 'pong'/.test(DO));
 ok('전제③: ping 응답에 join 여부 검사가 없다(관찰자도 pong 을 받아야 함)',
    !/case 'ping'[\s\S]{0,80}isJoined/.test(DO));
+// (2026-08-20) 객체 «모양» 이 아니라 «뜻» 을 검사한다 — seenAt(생존 판정) 같은 칸이 늘어도
+//   userId 가 accept 시점에 붙어 있는지만 보면 이 검사의 목적은 그대로다.
+//   예전 정규식은 중괄호 안을 통째로 못 박아 두어, 칸 하나 늘리자 의미가 멀쩡한데 FAIL 했다.
 ok('전제③-b: 소켓 accept 시점에 userId 를 붙인다(입장 전에도 send 가 도달)',
-   /server\.serializeAttachment\(\{ userId, roomId: this\.roomId, joined: false \}/.test(DO));
+   /server\.serializeAttachment\(\{[^}]*\buserId\b[^}]*joined: false[^}]*\}/.test(DO));
 ok('ping 주기 25초는 그대로 유지(Cloudflare 유휴 타임아웃 방지)', /\}, 25000\); \/\/ 25초마다 ping/.test(IDX));
 ok('정원초과·강제종료는 재연결 중단(예전엔 거절→재연결 무한루프)',
    /data\.type === 'room-full' \|\| data\.type === 'force_end'[\s\S]{0,200}intentionalClose = true;/.test(IDX));

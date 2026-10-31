@@ -244,6 +244,22 @@ function _enqueuePart(blob) {
 /**
  * 녹화 중지 — MediaRecorder 정지 → 잔여 버퍼 flush → 큐 대기 → R2 complete → DB 업데이트
  */
+function _sendRecordingEndHint(beacon) {
+  if (!_recordingId) return;
+  var body = JSON.stringify({ recording_id: _recordingId, recording_key: _r2Key, finalize_pending: true });
+  try {
+    if (beacon && navigator.sendBeacon && navigator.sendBeacon('/api/recordings/stop',
+        new Blob([body], { type: 'application/json' }))) return;
+  } catch (_) {}
+  fetch('/api/recordings/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: body, keepalive: true }).catch(function() {});
+}
+window.addEventListener('pagehide', function(event) {
+  if (event.persisted) return;
+  _sendRecordingEndHint(true);
+  _onBeforeUnload();
+});
+
 function stopRecording() {
   return new Promise(function(resolve) {
     if (!_mediaRecorder || _mediaRecorder.state === 'inactive') {
@@ -256,6 +272,7 @@ function stopRecording() {
     //   /complete 를 호출할 수 있었음(완료된 멀티파트를 재완료 시도 → R2 쪽 오류로 파일 유실
     //   가능성). 이 플래그가 서있으면 beforeunload 쪽은 전송을 양보한다.
     _stopRequested = true;
+    _sendRecordingEndHint(false);
 
     var savedRecordingId = _recordingId;
     var savedStartedAt = _recordingStartedAt;
@@ -315,7 +332,8 @@ function stopRecording() {
               body: JSON.stringify({
                 recording_id: savedRecordingId,
                 duration_ms: durationMs,
-                size_bytes: _r2TotalBytes
+                size_bytes: _r2TotalBytes,
+                r2_success: true          // complete 가 ok 를 준 자리다 (2026-08-26)
               })
             });
 
@@ -424,7 +442,8 @@ function _callStop(recId, durationMs, sizeBytes, errorInfo) {
       duration_ms: durationMs || 0,
       size_bytes: sizeBytes || 0,
       file_url: 'CLIENT_ERR:' + (errorInfo || 'unknown'),
-      storage: 'error'
+      storage: 'error',
+      r2_success: false         // 폴백으로 불리는 자리 = 업로드가 실패했다는 뜻 (2026-08-26)
     })
   }).catch(function(e) { console.error('[recorder] stop 폴백 실패:', e); });
 }

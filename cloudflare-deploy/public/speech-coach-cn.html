@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>🇨🇳 중국어 발음 교정 — 중국어 마스터 + Lv 1~20</title>
-<!-- BUILD:20260813001216 -->
+<!-- BUILD:20260813015745 -->
 <style>
 :root {
   --bg: #0B1224;
@@ -51,6 +51,38 @@ header.hero h1 .ico{font-size:32px}
 header.hero .sub{margin-top:6px;font-size:13.5px;color:rgba(255,255,255,0.92);font-weight:600;position:relative}
 header.hero .home{position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:#fff;padding:6px 12px;border-radius:99px;font-size:12px;font-weight:700;text-decoration:none;transition:background .15s}
 header.hero .home:hover{background:rgba(255,255,255,0.28)}
+
+/* 🏠 홈 버튼 (2026-09-01 사장님 지시) — 왼쪽 위 ← 오른쪽에 붙는다.
+   📜 2026-08-04 에 «← 바로 앞이 곧 홈» 이라 뺐던 것을 한국어판(speech-coach.html,
+      2026-08-31)에 이어 이 화면에도 되살린다. 이 화면으로 오는 길이 여럿이라
+      (홈 첫화면·전체메뉴·한국어판 코치에서 «중국어» 로 건너오기) ← 한 번이 홈이 아니고,
+      앱·카톡 인앱은 주소창도 뒤로 버튼도 없어 나갈 문이 ← 하나뿐이었다.
+   ⚠️ 옛 `header.hero .home`(위 두 줄, hero 안 우상단)을 되살리지 않은 이유: 그 자리는
+      문서 흐름 안이라 **스크롤하면 사라진다.** 이 화면은 레벨·단원 목록이 길어서 정작
+      «나가고 싶을 때» 화면 밖이다. 한국어판과 모양·자리도 달라진다.
+   ⚠️ 모양은 back-nav.js 의 ← 와 «같게» 맞춘다 — 나란히 놓이는 두 버튼이 서로 다르게
+      생기면 하나는 «다른 기능» 으로 읽힌다.
+   ⚠️ 자리(top/left/height)는 파일 끝 스크립트가 ← 를 재서 덮어쓴다. 여기 값은 그 스크립트가
+      못 돌 때의 폴백이다.
+   ℹ️ 제목이 왼쪽 정렬이고 hero 가 폰에서 y=50 부터 시작하므로(2026-09-01 실측) 이 버튼과
+      겹치지 않는다 — 한국어판처럼 제목 폭을 비워 줄 필요가 없다. */
+#sc-home-btn{position:fixed;top:14px;left:58px;z-index:99999;
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  height:38px;padding:0 13px;border-radius:99px;
+  font-family:inherit;font-size:13px;font-weight:800;white-space:nowrap;
+  text-decoration:none;cursor:pointer;
+  background:rgba(20,33,59,0.92);color:#fbbf24;
+  border:1px solid rgba(251,191,36,0.50);
+  box-shadow:0 6px 18px -2px rgba(0,0,0,0.4);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  -webkit-tap-highlight-color:transparent;transition:background .15s,color .15s}
+#sc-home-btn:hover{background:rgba(251,191,36,0.22);color:#fff}
+#sc-home-btn:active{transform:scale(.96)}
+@media (max-width:480px){
+  /* back-nav.js 의 ← 가 34px 로 작아지는 폭(innerWidth<=480)에 맞춘다. 글자는 남긴다 —
+     폰에는 hover 가 없어 title 만으로는 아무것도 안 보인다. */
+  #sc-home-btn{top:8px;left:48px;height:34px;padding:0 10px;font-size:12px;gap:4px}
+}
 
 /* 레벨 선택 카드 */
 .lvl-section{margin-bottom:18px}
@@ -182,19 +214,112 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 @media (max-width:1000px){ .wrap{padding-top:60px} }
 @media (max-width:480px){ .wrap{padding-top:50px} }
 </style>
-<script src="/js/game-track.js?v=3" defer></script>
+<script src="/js/game-track.js?v=4" defer></script>
 <script src="/js/session-guard.js" defer></script>
 <!-- 🎤 Azure 발음평가 공용 서비스 계층(영어 코치와 공유) — zh-CN 음소 평가 (2026-08-10) -->
-<script src="/js/speech-azure.js?v=1" defer></script>
+<script src="/js/speech-azure.js?v=2" defer></script>
+<!-- 👩‍🏫 (2026-09-23) 선생님 얼굴 — 사장님 «중국어 발음 연습 화면에도 선생님 얼굴 넣어줘».
+     얼굴은 메이 선생님(mei)으로 «고정» 한다: 이 화면의 서버 중국어 음성은 화자를 못 고르는
+     여자 목소리 하나라, 남자 얼굴(룽)을 두면 얼굴과 목소리가 어긋난다.
+     공용 CSS(mango-avatar.css)가 모양·말할 때 반짝임을 주고, 크기는 아래 <style> 이 정한다. -->
+<script>window.__mgAvatarWant = 'mei';</script>
+<link rel="stylesheet" href="/css/mango-avatar.css?v=3">
+<style>
+/* 크기: 폭·높이를 --av-w 하나로 정하고 4:5 로 계산 + !important
+   (mango-avatar.js 가 높이를 인라인으로 한 번 넣는데 인라인이 CSS 높이를 이긴다).
+   · 폰 150(세로 800↑) · 130 · 작은 폰 104 · 폰 가로 72 — 발음 카드 맨 위 가운데
+   · 태블릿·노트북 180 — 발음 카드 맨 위 가운데
+   · 넓은 PC(≥1300): 카드(900px) «오른쪽 빈 여백» 에 고정(160~300px).
+     ⛔ 왼쪽에 두지 말 것 — 왼쪽 가운데에 «메뉴» 손잡이(mg-sidebar.js)가 있다.
+   감시: test-harness/manual/speech-coach-cn-avatar-browser.mjs */
+#tavatar-wrap{ --av-w:150px; margin:0 auto 14px; }
+#tavatar-wrap #tavatar-ring{ width:var(--av-w)!important; height:calc(var(--av-w) * 1.25)!important; }
+#tavatar-status{ font-size:13px; }
+@media (max-width:640px) and (max-height:799px){ #tavatar-wrap{ --av-w:130px; } }
+@media (max-width:640px) and (max-height:700px){ #tavatar-wrap{ --av-w:104px; margin-bottom:10px; } }
+@media (min-width:641px){ #tavatar-wrap{ --av-w:min(180px, calc((100vh - 200px) * .8)); } }
+@media (max-height:520px){ #tavatar-wrap{ --av-w:72px; } }
+@media (min-width:1300px) and (min-height:640px){
+  #tavatar-wrap{ position:fixed; right:24px; top:50%; transform:translateY(-50%); margin:0; z-index:40;
+    --av-w:clamp(160px, min(calc((100vw - 900px) / 2 - 48px), calc((100vh - 200px) * .8)), 300px); }
+  #tavatar-status{ font-size:15px; padding:5px 15px; }
+}
+
+/* 🖥 PC 한 화면 (2026-10-16 사장님 «중국어 발음 코치도 영어판처럼 한장에 스크롤 없이, 글자는 그대로»).
+   [왼쪽: 제목·레벨·단원 | 오른쪽: 발음 카드] 두 칸. 발음 카드 안은 [선생님 얼굴 | 문장·버튼].
+   글자는 한 글자도 빼지 않고 여백·크기만 줄인다.
+   · 얼굴은 위 ≥1300 «오른쪽 여백 고정» 을 여기서 되돌려 카드 안에 둔다(카드가 넓어져 여백이 없다).
+   · 결과가 뜨면(.result-card.show) 반복·속도·«다른 활동으로» 줄을 접어 그 자리를 결과가 쓴다
+     (결과 카드에 «다음 문장»·«다음 활동 고르기» 가 따로 있다).
+   · 화면 왼쪽 위 [←][🏠 홈](x≈14~118)과 왼쪽 가운데 «메뉴» 손잡이(x≈2~46)를 피하려고
+     양옆을 60px 이상 비우고, 그래도 홈 버튼과 겹치는 폭(<1640px)에서는 위를 58px 비운다.
+   · 긴 문장·Lv 목록·결과로 그래도 넘치면 파일 끝 스크립트가 --sc-fit(1→0.6)을 낮춰
+     얼굴·한자 글자·카드 여백을 함께 줄인다(넘칠 때만 · 글자 내용은 그대로). */
+@media (min-width:1024px){
+  html,body{ min-height:100vh; }
+  .wrap{ max-width:none; width:min(1400px, calc(100vw - 120px)); padding:12px 0 10px;
+    min-height:100vh; display:grid; grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);
+    column-gap:22px; align-content:center; align-items:start; }
+  .wrap > *{ grid-column:1; min-width:0; }
+  .wrap > .main-card{ grid-column:2; grid-row:1 / span 6; margin-bottom:0; }
+  header.hero{ padding:calc(14px * var(--sc-fit,1)) 20px; margin-bottom:10px; }
+  header.hero h1{ font-size:20px; }
+  header.hero h1 .ico{ font-size:26px; }
+  header.hero .sub{ margin-top:2px; }
+  .group-tabs{ margin-bottom:8px; }
+  .lvl-section{ margin-bottom:10px; }
+  .lvl-section h2{ margin-bottom:6px; }
+  .lvl-btn{ padding:calc(7px * var(--sc-fit,1)) 6px; line-height:1.4; }
+  #lv-grid{ grid-template-columns:repeat(5,minmax(0,1fr)); }
+  .lvl-btn .num{ font-size:16px; margin-bottom:0; }
+  .lesson-grid{ margin-bottom:0; }
+  .lesson-btn{ padding:calc(6px * var(--sc-fit,1)) 4px; }
+  .main-card{ padding:16px 20px; display:grid; grid-template-columns:auto minmax(0,1fr); column-gap:20px; align-items:start; }
+  .main-card > *{ grid-column:2; min-width:0; }
+  #tavatar-wrap{ grid-column:1; grid-row:1 / span 20; align-self:center;
+    position:static; transform:none; margin:0; right:auto; top:auto;
+    --av-w:min(240px, calc((100vh - 300px) * .8 * var(--sc-fit,1)), calc((100vw - 120px) * 1.15 / 2.15 - 400px)); }
+  #tavatar-status{ font-size:13px; padding:4px 12px; }
+  .main-card .chinese{ padding:4px 0; font-size:max(20px, calc(30px * var(--sc-fit,1))); line-height:1.3; }
+  .main-card .pinyin{ margin-top:2px; }
+  .main-card .korean{ margin-top:6px; padding-top:6px; }
+  .controls{ margin-top:10px; }
+  .controls.sentence-nav{ margin-top:8px !important; }
+  .btn{ padding:9px 16px; }
+  .repeat-row{ margin-top:8px; padding:5px 12px; }
+  .speed-row{ margin-top:8px; padding:6px 14px; }
+  .main-card > .controls[style*="margin-top:18px"]{ margin-top:10px !important; }
+  .progress{ margin-top:6px; }
+  .move-next{ margin-top:8px !important; }
+  .move-next button{ padding:9px 20px !important; font-size:15px !important; }
+  .main-card:has(.result-card.show) .repeat-row,
+  .main-card:has(.result-card.show) .speed-row,
+  .main-card:has(.result-card.show) .move-next{ display:none; }
+  .result-card{ margin-top:8px; padding:10px 14px; }
+}
+@media (min-width:1024px) and (max-width:1639px){ .wrap{ padding-top:58px; } }
+/* 1024~1299px: 오른쪽 칸을 넓혀 얼굴(150px)과 문장·이전/다음 줄이 함께 들어가게 한다
+   (같은 비율이면 얼굴이 80px 대로 줄고 한자 문장이 두 줄로 쪼개진다 — 1024x768 실측). */
+@media (min-width:1024px) and (max-width:1299px){
+  .wrap{ grid-template-columns:minmax(0,.7fr) minmax(0,1.3fr); }
+  #tavatar-wrap{ --av-w:min(150px, calc((100vh - 300px) * .8 * var(--sc-fit,1))); }
+  .lvl-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+  #lv-grid{ grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .main-card{ padding:14px 16px; column-gap:16px; }
+}
+</style>
+<script src="/js/avatar-visemes.js?v=5" defer></script>
+<script src="/js/mango-avatar.js?v=41" defer></script>
+<script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 </head>
 <body>
 <div class="wrap">
 
 <header class="hero">
-  <!-- 🏠 홈 버튼 제거 (2026-08-04 사장님 지시, 한국어판 speech-coach.html 과 동일) —
-       ← 로 나가면 바로 앞이 곧 홈이라 같은 일을 하는 버튼이 둘이었다.
-       ↳ 되살리려면 이 자리에 <a class="home" href="/">🏠 홈</a> 을 다시 넣으면 된다
-         (header.hero .home 스타일은 그대로 남겨 뒀다). -->
+  <!-- 🏠 홈 버튼은 여기(hero 안 우상단)가 아니라 «왼쪽 위 ← 옆» 에 있다 — 파일 끝 #sc-home-btn.
+       ⛔ `class="home"` 으로 이 자리에 되살리지 말 것: 문서 흐름이라 스크롤하면 사라지고
+          (이 화면은 목록이 길다) 한국어판 speech-coach.html 과 모양·자리가 달라진다.
+       📜 2026-08-04 에 「← 바로 앞이 곧 홈」이라 뺐다가 2026-09-01 사장님 지시로 되살린 것이다. -->
   <h1><span class="ico">🇨🇳</span>중국어 발음 교정</h1>
   <p class="sub">중국어 마스터 + Lv 1~20 · AI 음성 인식 + 원어민 비교</p>
 </header>
@@ -227,6 +352,16 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 
 <!-- 메인 발음 카드 -->
 <div class="main-card">
+  <div id="tavatar-wrap">
+    <div id="tavatar-ring">
+      <canvas id="tavatar-canvas" width="320" height="400" aria-label="메이 선생님"></canvas>
+      <video id="tavatar-video" muted loop playsinline preload="none" disablepictureinpicture crossorigin="anonymous"></video>
+    </div>
+    <div id="tavatar-status">
+      <span class="ts-idle" data-ko="메이 선생님과 함께" data-en="With Teacher Mei">메이 선생님과 함께</span>
+      <span class="ts-talk" data-ko="말하는 중…" data-en="Speaking…">말하는 중…</span>
+    </div>
+  </div>
   <div class="prompt-label">📢 <span data-ko="아래 문장을 큰 소리로 따라 읽어보세요" data-en="Read aloud">아래 문장을 큰 소리로 따라 읽어보세요</span></div>
   <div class="chinese" id="cn-text">你好,我是学生。</div>
   <div class="pinyin" id="cn-pinyin">Nǐ hǎo, wǒ shì xuéshēng.</div>
@@ -259,8 +394,8 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 
   <div class="speed-row">
     <label>느리게</label>
-    <input type="range" id="speed-range" min="0.5" max="1.2" step="0.05" value="0.85">
-    <span class="val" id="speed-val">0.85x</span>
+    <input type="range" id="speed-range" min="0.5" max="1.2" step="0.05" value="0.8">
+    <span class="val" id="speed-val">0.80x</span>
   </div>
 
   <div class="controls" style="margin-top:18px">
@@ -270,9 +405,9 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
   <div class="progress" id="progress">시도 1/3 · 버튼을 눌러 녹음을 시작하세요</div>
 
   <!-- 다음으로 이동 (항상 표시) -->
-  <div style="text-align:center;margin-top:16px">
+  <div class="move-next" style="text-align:center;margin-top:16px">
     <div style="color:#94a3b8;font-size:13px;margin-bottom:8px" data-ko="다른 활동으로 이동할까요?" data-en="Move to another activity?">다른 활동으로 이동할까요?</div>
-    <button onclick="window.MangoFlow&&MangoFlow.open('speech')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:12px;padding:12px 24px;font-size:16px;font-weight:800;cursor:pointer" data-ko="🚀 다음으로 이동 (수업·웜업·복습·나가기)" data-en="🚀 Move to next (Class · Warmup · Review · Exit)">🚀 다음으로 이동 (수업·웜업·복습·나가기)</button>
+    <button onclick="window.MangoFlow&&MangoFlow.open('speech')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:12px;padding:12px 24px;font-size:16px;font-weight:800;cursor:pointer" data-ko="🚀 다음으로 이동 (수업·말하기 연습·복습·나가기)" data-en="🚀 Move to next (Class · Speaking · Review · Exit)">🚀 다음으로 이동 (수업·말하기 연습·복습·나가기)</button>
   </div>
 
   <div class="result-card" id="result">
@@ -971,7 +1106,7 @@ let state = {
   lessonIdx: 0,
   lv: 1,
   attempt: 1,
-  speed: 0.85,
+  speed: 0.8,   // «보통» — A.i 말하기 연습·A.i 친구하기와 같은 기준(2026-09-24 사장님 지시)
   recording: false,
   sIdx: 0,             // 현재 문장 인덱스 (순차 이동/선택)
   repeat: 1,           // 반복 횟수 (숫자 또는 Infinity)
@@ -1036,6 +1171,15 @@ function markSentenceDone(){
     }
   }
 }
+/* 🔐 (2026-09-09) 로그인 계정 uid — mangoi_logged_user({uid,name,role}) 를 먼저 보고
+   mango_user 로 폴백한다. ⚠️ `mango_user_id` 는 여기서 쓰면 안 되는 키다 — 그건
+   js/mango.js 가 발급하는 화상수업용 «기기별 임의 식별자»(u_xxxxxx)라 계정과 무관하다
+   (public/speech-coach.html 의 같은 버그 — 형제 화면이라 여기도 같이 고친다). */
+function mgAcctUid(){
+  try { var a = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null'); if (a && (a.uid || a.user_id || a.id)) return a.uid || a.user_id || a.id; } catch(e){}
+  try { var u = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (u && (u.user_id || u.uid || u.id)) return u.user_id || u.uid || u.id; } catch(e){}
+  return null;
+}
 /* 세트 완주 보상 — 로컬 배지 저장 + 서버 포인트 적립(로그인 시) */
 function awardSpeechPoints(setId, badgeLabel){
   try {
@@ -1043,7 +1187,7 @@ function awardSpeechPoints(setId, badgeLabel){
     if (b.indexOf(setId) < 0) { b.push(setId); localStorage.setItem('mangoi_speech_badges', JSON.stringify(b)); }
   } catch(e){}
   try {
-    var uid = localStorage.getItem('mango_user_id');
+    var uid = mgAcctUid();
     if (uid) {
       fetch('/api/points/earn-by-rule', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1154,8 +1298,22 @@ function setTtsBtn(on){
 }
 let cnAudio = null;
 const cnTtsCache = {};
+/* 👩‍🏫 (2026-09-23) 입 모양 연결 — 오디오 요소를 «하나만» 만들어 다시 쓴다.
+   ⚠️ mango-avatar.js 의 attach() 는 WebAudio 로 «요소 하나» 만 물 수 있다(요소당 1회).
+      예전처럼 매번 new Audio() 를 만들면 두 번째 재생부터 입이 안 움직인다.
+   ⚠️ attach 는 재생할 때마다 부른다 — 아바타 모듈(defer)이 늦게 오면 첫 호출이 빈 함수라서.
+      같은 요소면 모듈이 알아서 그냥 돌아간다. */
+function cnAudioEl(){
+  if (!cnAudio) { cnAudio = new Audio(); cnAudio.preload = 'auto'; }
+  try { if (window.MangoAvatar && MangoAvatar.attach) MangoAvatar.attach(cnAudio); } catch(_){}
+  return cnAudio;
+}
+function avTalk(on){
+  try { if (window.MangoAvatar) (on ? MangoAvatar.plainStart : MangoAvatar.plainStop)(); } catch(_){}
+}
 function stopSpeak(){
   speaking = false;
+  avTalk(false);
   if (cnAudio) { try { cnAudio.pause(); } catch(_){} }
   try { speechSynthesis.cancel(); } catch(_){}
   setTtsBtn(false);
@@ -1198,8 +1356,10 @@ async function speak(){
     count++;
     showLabel();
     if (url) {
-      cnAudio = new Audio(url);
+      cnAudioEl();
+      cnAudio.src = url;
       cnAudio.playbackRate = state.speed;
+      avTalk(true);
       cnAudio.onended = function(){ if (speaking) setTimeout(playOnce, 280); };
       cnAudio.onerror = function(){ stopSpeak(); };
       cnAudio.play().catch(function(){ stopSpeak(); });
@@ -1216,6 +1376,7 @@ async function speak(){
     //    기본(한국어) 보이스가 중국어 문장을 엉터리로 읽는다(영어판 '이상한 한국말' 사고와 동일).
     if (!cn) { stopSpeak(); return; }
     u.voice = cn;
+    u.onstart = function(){ avTalk(true); };
     u.onend = function(){ if (speaking) setTimeout(playOnce, 280); };
     u.onerror = function(){ stopSpeak(); };
     try { speechSynthesis.cancel(); } catch(_){}
@@ -1454,8 +1615,59 @@ if ('speechSynthesis' in window) speechSynthesis.getVoices();
 console.log('[speech-coach-cn] 중국어 발음 교정 활성 — 다락원 마스터 + Lv 1~20 · 반복듣기 v2');
 </script>
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
+<!-- 🏠 홈 — 처음 화면으로. ← (back-nav.js, 직전 페이지)와 짝이다.
+     ℹ️ 이 화면은 공용 i18n 엔진을 «싣지 않는다» → data-ko/data-en 은 동작하지 않으므로
+        달지 않는다. 화면 글자가 한국어(「중국어 발음 교정」·「단원 선택」)이므로 라벨도 한국어. -->
+<a id="sc-home-btn" href="/" aria-label="홈으로 가기" title="처음 화면으로 (首页)">🏠 홈</a>
 <script defer src="/js/back-nav.js"></script>
+<script>
+/* 🏠 홈 버튼을 back-nav.js 가 넣은 ← «오른쪽» 에 붙인다 (2026-09-01).
+   한국어판 speech-coach.html 과 같은 방식이다 — 왜 숫자를 박지 않고 재나:
+     · back-nav.js 는 자기 좌표·크기를 innerWidth<=480 으로 가르는데 이 화면 CSS 의 모바일
+       기준은 640px(@media max-width:640px)이라 서로 다르다.
+     · ← 의 크기·자리가 그쪽에서 바뀌면 여기도 함께 깨진다(에러는 안 난다).
+   ⚠️ 한국어판과 달리 제목 폭을 비워 주는 코드는 없다 — 이 화면 제목은 왼쪽 정렬이고
+      hero 가 이 버튼 «아래» 에서 시작해 겹치지 않는다(2026-09-01 실측).
+   ⛔ 상주 MutationObserver·setInterval 금지 — 홈 화면을 통째로 멎게 한 전례가 있다. */
+(function () {
+  'use strict';
+  var GAP = 6, t = null;
+  function place() {
+    var home = document.getElementById('sc-home-btn'); if (!home) return;
+    var back = document.getElementById('mangoi-back-btn'); if (!back) return;
+    var r = back.getBoundingClientRect(); if (!r.width) return;
+    home.style.top = Math.round(r.top) + 'px';
+    home.style.left = Math.round(r.right + GAP) + 'px';
+    home.style.height = Math.round(r.height) + 'px';
+  }
+  window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(place, 120); });
+  /* back-nav.js 는 DOMContentLoaded + 350ms 에 ← 를 넣는다 — 그 뒤에 재야 한다. */
+  [0, 420, 900].forEach(function (ms) { setTimeout(place, ms); });
+})();
+</script>
 <script defer src="/js/mg-sidebar.js"></script>
-<script defer src="/js/flow.js?v=13"></script>
+<script defer src="/js/flow.js?v=23"></script>
+<script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
+<script>
+/* 📏 PC 한 화면 맞춤 (2026-10-16) — 넘칠 때만 --sc-fit 을 1 → 0.6 으로 조금씩 낮춘다.
+   ResizeObserver 로 «내용 칸» 크기가 바뀔 때만 다시 잰다(⛔ 상주 타이머·body class 감시 금지 —
+   홈을 멈춘 전력). 측정은 한 번의 콜백 안에서 동기로 끝나므로 화면이 깜빡이지 않는다.
+   0.6 에서도 넘치면 그때는 스크롤을 허용한다(글자를 더 줄이지 않는다). */
+(function(){
+  if (!window.ResizeObserver || !window.matchMedia) return;
+  var mq = matchMedia('(min-width: 1024px)'), de = document.documentElement, busy = false;
+  function fit(){
+    if (busy) return; busy = true;
+    try {
+      if (!mq.matches) { de.style.removeProperty('--sc-fit'); return; }
+      var f = 1; de.style.setProperty('--sc-fit', '1');
+      while (f > 0.6 && de.scrollHeight > innerHeight + 1) { f = Math.round((f - 0.04) * 100) / 100; de.style.setProperty('--sc-fit', String(f)); }
+    } finally { busy = false; }
+  }
+  var ro = new ResizeObserver(fit), wrap = document.querySelector('.wrap');
+  if (wrap) for (var i = 0; i < wrap.children.length; i++) ro.observe(wrap.children[i]);
+  addEventListener('resize', fit); fit();
+})();
+</script>
 </body>
 </html>

@@ -193,8 +193,13 @@ console.log('\n[5] 🔌 배선(가드·게이트·랜딩) 소스 검사');
 {
   const mango = readFileSync(join(CF, 'src', 'api-mango.ts'), 'utf8');
   const guardStart = mango.indexOf("path.startsWith('/api/admin/nps/')"); // 위임 가드 블록 시작
-  const guardEnd = mango.indexOf('handleAdminApi', guardStart);
+  /* ⚠️ (2026-08-13) 끝 표시를 'handleAdminApi' «단어» 로 잡으면 안 된다 —
+     가드 블록 안 주석에 그 이름이 나오기만 해도 거기서 잘려, 뒤쪽 항목들이 «없다» 로 읽힌다
+     (실제로 #05 작업 때 주석 한 줄 때문에 멀쩡한 4건이 빨간불이 됐다).
+     실제 호출문으로 정확히 잡는다. */
+  const guardEnd = mango.indexOf('const rAdmin = await handleAdminApi(', guardStart);
   const guard = mango.slice(guardStart, guardEnd);
+  check('가드 블록을 제대로 떼어냈다 (아래 검사의 전제)', guardStart >= 0 && guardEnd > guardStart);
   check('가드: /api/admin/referrals', guard.includes("path.startsWith('/api/admin/referrals')"));
   check('가드: /api/admin/counseling/', guard.includes("path.startsWith('/api/admin/counseling/')"));
   check('가드: /api/admin/attendance/qr-gen', guard.includes("'/api/admin/attendance/qr-gen'"));
