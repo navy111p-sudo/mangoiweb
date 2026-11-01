@@ -171,6 +171,87 @@ try{
   await openPrefs(p);await p.locator('#wfBackgroundMode').selectOption('plain');await p.locator('#wfPreferencesClose').click();await p.evaluate(()=>newWarmupChat());await p.waitForFunction(()=>!sending);ck(await p.locator('#wfStage').getAttribute('data-background')==='plain','plain preference survives new practice');await F.close();
  }
  // Shared audio engine, repeat cancellation and microphone hand-off, using a local test WAV.
+ if(group==='all'||group==='panel-stream'){
+  for(const [w,h,touch] of [[390,844,true],[1366,900,false]]){
+   const F=await fixture(w,h,'en',touch),{page:p}=F;
+   await p.evaluate(()=>{_speechOn=true;window.__wavStarts=0;document.addEventListener('play',()=>__wavStarts++,true);speak('Keep the original voice and mouth playing while adjusting the display.');});
+   await p.waitForFunction(()=>_ttsAudio&&!_ttsAudio.paused);
+   await p.evaluate(()=>{_ttsAudio.loop=true;window.__wavRestarts=0;_ttsAudio.addEventListener('play',()=>__wavRestarts++);window.__panelAudio=_ttsAudio;window.__panelSeq=_speakSeq;window.__panelEpoch=_warmEpoch;window.__panelSession=SESSION_ID;});
+   for(const operation of ['manual','lock','plain','escape','cancel']){
+    await openPrefs(p);
+    if(operation==='manual')await p.locator('#wfBackground').selectOption('bakery');
+    if(operation==='lock')await p.locator('#wfBackgroundLock').check();
+    if(operation==='plain')await p.locator('#wfBackgroundMode').selectOption('plain');
+    if(operation==='escape')await p.keyboard.press('Escape');
+    else if(operation==='cancel')await p.locator('#wfPreferences').evaluate(d=>d.dispatchEvent(new Event('cancel',{cancelable:true}))&&d.close());
+    else await p.locator('#wfPreferencesClose').click();
+    await p.waitForTimeout(40);
+    ck(await p.evaluate(()=>!_warmPaused&&_ttsAudio===__panelAudio&&!_ttsAudio.paused&&_speakSeq===__panelSeq&&_warmEpoch===__panelEpoch&&SESSION_ID===__panelSession),w+' '+operation+' preferences retain the same running WAV/sequence/epoch/session');
+   }
+   for(const close of ['button','escape']){
+    await p.locator('#wfExpandOpen').click();
+    ck(await p.evaluate(()=>!_warmPaused&&!_ttsAudio.paused&&_speakSeq===__panelSeq),w+' enlarged sentence leaves original audio running');
+    if(close==='button')await p.locator('#wfLargeClose').click();else await p.keyboard.press('Escape');
+    ck(await p.evaluate(()=>!_ttsAudio.paused&&_speakSeq===__panelSeq&&_warmEpoch===__panelEpoch),w+' enlarge '+close+' close does not stop or restart speech');
+   }
+   ck(await p.evaluate(()=>__wavRestarts===0),w+' display controls never restart WAV playback');
+   ck(await p.evaluate(async()=>{var t=_ttsAudio.currentTime;await new Promise(r=>setTimeout(r,150));return Math.abs(_ttsAudio.currentTime-t)>.02;}),w+' original WAV timeline keeps advancing after display controls');
+   await p.locator('#wfAskOpen').click();ck(await p.evaluate(()=>_warmPaused&&_ttsAudio.paused),w+' question still stops conflicting practice speech');
+   await p.keyboard.press('Escape');await F.close();
+  }
+  async function stream(p,first){
+   await p.evaluate(first=>{window.__flowFetch=warmupFetch;warmupFetch=function(url,options){if(String(url).endsWith('/api/warmup/chat'))return Promise.resolve(new Response(new ReadableStream({start(c){const send=o=>c.enqueue(new TextEncoder().encode('data: '+JSON.stringify(o)+'\n\n'));window.__pushSentence=t=>send({t});window.__finishStream=t=>{send({done:true,ok:true,status:200,ai_response:t});c.close();};if(first)__pushSentence(first);}}),{headers:{'content-type':'text/event-stream'}}));return __flowFetch(url,options);};document.getElementById('inp').value='new streamed turn';sendMsg();},first);
+   await p.waitForFunction(()=>sending&&typeof __pushSentence==='function');
+   if(first)await p.waitForFunction(()=>document.querySelector('.stm-preview'));
+  }
+  {
+   const F=await fixture(),{page:p,S}=F;await stream(p,'Visible streamed first sentence.');
+   await p.locator('#wfExpandOpen').click();ck((await p.locator('#wfLargeText').innerText()).includes('Visible streamed first sentence.')&&await p.evaluate(()=>!_warmPaused&&sending),'enlarge reads actual preview without cancelling delayed SSE');
+   await p.evaluate(()=>__pushSentence('Next streamed sentence.'));await p.waitForFunction(()=>document.getElementById('wfLargeText').textContent.includes('Next streamed sentence.'));ck(true,'open enlargement follows subsequent streamed sentence');
+   await p.evaluate(()=>__finishStream('Final completed reply.'));await p.waitForFunction(()=>!sending);await p.waitForFunction(()=>document.getElementById('wfLargeText').textContent==='Final completed reply.');ck(true,'enlarge follows confirmed replacement at stream completion');
+   await p.keyboard.press('Escape');await p.locator('#wfAskOpen').click();await p.locator('#wfAskInput').fill('Explain this');await p.locator('#wfAskSend').click();await p.waitForFunction(()=>document.getElementById('wfAskAnswer').textContent.length>0);
+   ck(S.asks.at(-1).lines[0]==='Final completed reply.','completed question references the final visible reply');
+   await p.keyboard.press('Escape');await p.evaluate(()=>{warmupFetch=__flowFetch;});
+   await p.waitForFunction(()=>!_warmPaused);await p.locator('#tbHelp').click();await p.locator('[data-tb=tbHist]').click();await p.evaluate(()=>{_speechOn=true;});await p.locator('#log .msg.ai .replay-btn').first().click();await p.waitForFunction(()=>_ttsAudio&&!_ttsAudio.paused);await p.locator('#wfAskOpen').click();await p.locator('#wfAskInput').fill('Current sentence?');await p.locator('#wfAskSend').click();await p.waitForFunction(()=>document.getElementById('wfAskAnswer').textContent.length>0);
+   ck(S.asks.at(-1).lines[0]==='Final completed reply.','replaying an older message does not relabel the currently displayed reply');await F.close();
+  }
+  {
+   const F=await fixture(),{page:p,S}=F;await stream(p,'Frozen visible preview, not the old reply.');await p.locator('#wfAskOpen').click();
+   ck((await p.locator('#wfAskContextText').textContent()).includes('Frozen visible preview')&&(await p.locator('#wfAskContextText').textContent()).includes('완성 답변'),'question labels the visible preview as unfinished');
+   await p.evaluate(()=>__finishStream('LATE FINAL MUST NOT REPLACE SNAPSHOT'));await p.waitForFunction(()=>!sending);
+   await p.locator('#wfAskInput').fill('Explain the visible text');await p.locator('#wfAskSend').click();await p.waitForFunction(()=>document.getElementById('wfAskAnswer').textContent.length>0);
+   ck(S.asks.at(-1).lines[0]==='Frozen visible preview, not the old reply.','cancelled stream retains the exact question-opening snapshot after preview removal');
+   ck(!(await p.locator('#wfAskContextText').textContent()).includes('LATE FINAL'),'late SSE cannot overwrite frozen question context');S.askMode='delay';await p.locator('#wfAskSend').click();while(!S.pendingAsk.length)await p.waitForTimeout(10);await p.locator('#wfAskCancel').click();S.pendingAsk.splice(0).forEach(r=>r());S.askMode='ok';
+   ck((await p.locator('#wfAskContextText').textContent()).includes('Frozen visible preview'),'question cancel retains the frozen displayed sentence');
+   await p.keyboard.press('Escape');await p.evaluate(()=>{warmupFetch=__flowFetch;});await sendAnswer(p,'next turn');await p.locator('#wfAskOpen').click();await p.locator('#wfAskInput').fill('New turn?');await p.locator('#wfAskSend').click();await p.waitForFunction(()=>document.getElementById('wfAskAnswer').textContent.length>0);
+   ck(S.asks.at(-1).lines[0]===en,'next turn replaces the earlier interrupted preview snapshot');await F.close();
+  }
+  {
+   const F=await fixture(),{page:p,S}=F;await stream(p,null);await p.locator('#wfExpandOpen').click();
+   ck((await p.locator('#wfLargeText').textContent()).includes('받는 중'),'enlarge shows waiting state instead of old sentence before first SSE text');await p.keyboard.press('Escape');await p.locator('#wfAskOpen').click();
+   ck(await p.locator('#wfAskSend').isDisabled(),'question cannot send the previous sentence as a new response before any SSE text');
+   ck((await p.locator('#wfAskContextText').textContent()).includes('아직 받지 못'),'missing new sentence is explained explicitly');await p.evaluate(()=>__finishStream('discard'));await p.keyboard.press('Escape');ck(S.asks.length===0,'blocked pre-sentence question never reaches API');await F.close();
+  }
+  {
+   const F=await fixture(),{page:p}=F;await stream(p,null);await p.locator('#wfExpandOpen').click();await p.evaluate(()=>{pauseWarmup();__finishStream('discard');});await p.waitForFunction(()=>!sending);await p.waitForTimeout(30);
+   ck((await p.locator('#wfLargeText').textContent()).includes('받기 전에 중단'),'interruption before the first SSE sentence cannot reveal the old reply as current');await F.close();
+  }
+  {
+   const F=await fixture(),{page:p}=F;await stream(p,'This preview will finish with repeated wording.');await p.locator('#wfExpandOpen').click();await p.evaluate(t=>__finishStream(t),en);await p.waitForFunction(()=>!sending);await p.waitForTimeout(30);
+   ck(await p.locator('#wfLargeText').textContent()===en,'a new completed reply identical to an earlier reply is not mislabelled as interrupted');await F.close();
+  }
+  {
+   const F=await fixture(),{page:p,S}=F;await stream(p,'Old cancelled preview still waiting for its SSE final.');await p.locator('#wfAskOpen').click();await p.keyboard.press('Escape');await p.waitForFunction(()=>!_warmPaused);await p.evaluate(()=>{window.__finishOld=__finishStream;warmupFetch=__flowFetch;});S.chatMode='delay';
+   await p.evaluate(()=>{document.getElementById('inp').value='a new turn before old stream ends';sendMsg();});await p.waitForFunction(()=>sending&&!!document.querySelector('.typing'));await p.locator('#wfExpandOpen').click();
+   ck((await p.locator('#wfLargeText').textContent()).includes('받는 중')&&!(await p.locator('#wfLargeText').textContent()).includes('Old cancelled'),'new turn waiting state takes priority over a lingering cancelled preview');
+   await p.evaluate(()=>__finishOld('OLD LATE FINAL'));while(!S.pendingChat.length)await p.waitForTimeout(10);S.pendingChat.splice(0).forEach(r=>r());await F.close();
+  }
+  {
+   const F=await fixture(),{page:p}=F;await stream(p,'Visible interrupted enlarged preview.');await p.locator('#wfExpandOpen').click();
+   await p.evaluate(()=>{pauseWarmup();__finishStream('discarded');});await p.waitForFunction(()=>!document.querySelector('.stm-preview'));
+   ck((await p.locator('#wfLargeText').textContent()).includes('중단되기 전')&&(await p.locator('#wfLargeText').textContent()).includes('Visible interrupted'),'interrupted enlargement keeps a clearly labelled snapshot instead of falling back to old text');await F.close();
+  }
+ }
  if(group==='all'||group==='media'){
   const F=await fixture(1366,900,'en',false),{page:p,S}=F;S.audio=true;await sendAnswer(p,'I want bread.');
   await p.evaluate(()=>{_ttsCache={};_speechOn=true;window.__avatarStarts=0;window.__avatarStops=0;var a=MangoAvatar.plainStart,b=MangoAvatar.plainStop;MangoAvatar.plainStart=function(){__avatarStarts++;return a.apply(this,arguments);};MangoAvatar.plainStop=function(){__avatarStops++;return b.apply(this,arguments);};});
