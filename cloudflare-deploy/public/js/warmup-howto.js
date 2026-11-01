@@ -202,7 +202,7 @@
       + '@media print{'
       + ' body>*:not(#' + PRINT_ID + '){display:none!important}'
       + ' #' + PRINT_ID + '{display:block!important;position:static;color:#000;background:#fff;'
-      + 'font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;font-size:11pt;line-height:1.6;padding:8mm}'
+      + 'font-family:MangoiHanSC,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;font-size:11pt;line-height:1.6;padding:8mm}'
       + ' #' + PRINT_ID + ' h1{font-size:18pt;margin:0 0 3mm;border-bottom:2px solid #222;padding-bottom:2mm}'
       + ' #' + PRINT_ID + ' h2{font-size:13pt;margin:6mm 0 2mm;border-left:4px solid #2a7;padding-left:2mm;page-break-after:avoid}'
       + ' #' + PRINT_ID + ' .hw-pq{margin:0 0 2mm;page-break-inside:avoid}'
@@ -230,7 +230,7 @@
   function saveWord() {
     var t = T();
     var head = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
-      + '<head><meta charset="utf-8"><title>' + t.title + '</title></head><body style="font-family:Malgun Gothic,sans-serif;font-size:11pt">';
+      + '<head><meta charset="utf-8"><title>' + t.title + '</title></head><body style="font-family:MangoiHanSC,Malgun Gothic,sans-serif;font-size:11pt">';
     var blob = new Blob(['\ufeff' + head + printHtml() + '</body></html>'], { type: 'application/msword' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
