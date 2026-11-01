@@ -302,6 +302,10 @@ function wordOverlap(a: string, b: string,
  * 모델이 준 fix 를 결정론으로 검증한다. 하나라도 어긋나면 **null**(= 교정 없음).
  * ⛔ 여기서 문장을 «고쳐 쓰지» 않는다 — 통과시키거나 버리기만 한다.
  */
+/** why_ko 에 섞이면 안 되는 한자·가나 범위 (부수·호환·확장 B·반각 가타카나 포함). */
+export const WHY_KO_FOREIGN_SCRIPT =
+  /[\u2E80-\u2FDF\u3005\u3007\u3040-\u30FA\u30FC-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\uFF66-\uFF9D\u{20000}-\u{3134F}]/u;
+
 export function verifyWarmupFix(
   fixRaw: any,
   studentInput: unknown,
@@ -320,8 +324,10 @@ export function verifyWarmupFix(
      예: 「가족이現在还有 있다는 뜻으로現在형을…」 — 프롬프트 지시만으로는 모델이 가끔 어긴다.
      글자를 지워 살리면 문장이 깨지므로(「있다는 뜻으로형을」), 깨진 설명을 보이느니 교정을 건너뛴다.
      ⛔ 중국어 수업(lang 'zh')에는 걸지 않는다 — 그 설명은 「了 는 …」처럼 한자를 정당하게 짚는다
-        (warmup_zh_lang_harness 의 양사·了 교정이 이 가드에 걸려 버려졌던 것을 CI 가 잡았다). */
-  if (!(opts && opts.lang === 'zh') && /[㐀-䶿一-鿿぀-ヿ]/.test(whyKo)) return null;
+        (warmup_zh_lang_harness 의 양사·了 교정이 이 가드에 걸려 버려졌던 것을 CI 가 잡았다).
+     🔎 2026-11-01 수백 번 퍼즈: 기본 한자(4E00~)만 막아 호환 한자(豈 — 한글 한자 변환이 내는 글자)·
+        확장 B(𩐘)·부수(⾕)·々〇·반각 가타카나(ﾍ)가 새어 나갔다 → 범위를 넓혔다(u 플래그 필수). */
+  if (!(opts && opts.lang === 'zh') && WHY_KO_FOREIGN_SCRIPT.test(whyKo)) return null;
 
   /* 🀄 언어 축 (2026-09-13). 아래 모든 판정이 여기서 갈린다.
      🔴 이 축이 없던 동안 **중국어 교정은 한 건도 통과하지 못했습니다** —
