@@ -30,6 +30,7 @@ import { assessPronFix } from './pron-focus';   // 🎯 집중교정 발음 교�
 /* ✏️ «교정 카드» 판정 정본 — 웜업과 «같은 한 벌» 을 쓴다 (2026-09-09 사장님 「A.i 친구도 똑같이」).
    ⛔ 파일 이름이 warmup 이라고 복제해 오지 말 것. 판정이 두 벌이 되면 한쪽만 고쳐진다. */
 import { backfillPastTenseFix } from './tense-backfill';
+import { focusedCandidate, focusedReplyFix, recoverFocusedFix, FOCUSED_DRAFT_RULE } from './focused-correction';
 import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
          decideWarmupFixShow, warmupShouldOfferRepeat, isRfRejection } from './warmup-correction';
 import type { MangoEnv } from './api-mango';
@@ -827,7 +828,8 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
 ${askedLine}- A short answer is a GOOD answer. "Yes.", "Movies!", "I like it." are complete — just reply happily and keep the chat going. Only ask them to repeat when the message truly breaks off mid-word ("I", "and my"), and NEVER ask twice in a row: if your last reply already asked them to repeat, answer whatever you did understand this time.
 - If the student asks you to slow down, repeat, or speak more simply (in English or Korean), FIRST say yes to that request and then do it — use shorter, easier sentences right away. Never ignore the request and carry on with your own topic.
 - Never break character. Never say you are an AI. Never use words far above the student's level.
-${AI_FRIEND_CORRECTION_RULE}`;
+${AI_FRIEND_CORRECTION_RULE}
+${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
 
       const messages: any[] = [{ role: 'system', content: system }];
       for (const h of history) {
@@ -881,6 +883,7 @@ ${AI_FRIEND_CORRECTION_RULE}`;
          있는데 파싱하자마자 덮으면 화면의 답장은 옛것인데 카드만 새 답장의 것이 된다. */
       let rawFix: any = null;
       let stagedFix: any = null;
+      let focusedFix: any = null;
       let friendPlain = 0;   // 모델이 «평문» 을 준 횟수 — 조용히 옛 동작으로 돌아가지 않게 남긴다
       let friendEmpty = 0;   // 빈 응답 — 위와 «다른 사실» 이라 한 숫자로 뭉치지 않는다
       let friendRF = true;   // response_format 을 거부하는 모델이면 한 번 끄고 다시(선례: 웜업)
@@ -1013,7 +1016,15 @@ ${AI_FRIEND_CORRECTION_RULE}`;
          ⚠️ 그쪽은 시간 예산(FRAG_RETRY_BUDGET_MS) 안에서만, 최대 두 번 다시 뽑는다.
          ⚠️ 다시 뽑은 것이 «같은 질문이 없거나 줄었고» 글자 반복도 아닐 때만 받는다 — 아니면 원래 답(대화를 끊지 않는다).
          ⚠️ 던지지 않는다 — 모델이 던지면 거기서 멈추고 지금까지의 답을 쓴다. */
-      if (reply && usedModel) {
+      if (reply && usedModel && immediateFix) {
+        focusedFix = focusedCandidate(rawFix, msg)
+          || focusedCandidate(backfillPastTenseFix(msg), msg)
+          || focusedCandidate(konglishFix(msg), msg)
+          || focusedReplyFix(reply, msg)
+          || await recoverFocusedFix(msg, (msgs) => runFriend(usedModel, msgs, 480, 0.2));
+        if (focusedFix) { rawFix = focusedFix; reply = focusedFix.now; }
+      }
+      if (reply && usedModel && !focusedFix) {
         const rr = await retryRepeatedQuestion({
           text: reply, textRepeat: aiFriendIsRepeat(reply, history),
           repeatsOf: (t) => repeatedQuestions(t, qmem),
@@ -1086,7 +1097,7 @@ ${AI_FRIEND_CORRECTION_RULE}`;
          ⛔ 이름만 갈아 끼우지 않습니다 — 뒤따르는 말과 앞뒤가 안 맞을 수 있습니다.
          ⚠️ 두 번째도 어기면 그냥 내보냅니다 — 이름 한 번 틀린 것이 대화가 끊기는 것보다 낫습니다. */
       const badName = wrongSelfName(reply, friendName, { askedName: askedOwnName(msg) });
-      if (badName && usedModel) {
+      if (badName && usedModel && !focusedFix) {
         console.warn('[chat-friend] wrong self-name:', badName, 'expected=' + friendName);
         try {
           const again: any = await runFriend(usedModel, messages.concat([
@@ -1112,7 +1123,7 @@ ${AI_FRIEND_CORRECTION_RULE}`;
          ⛔ 문장 «안» 의 단어는 자르지 마세요 — 아이가 그대로 따라 읽는 문장이라 깨진 영어를 배웁니다.
          ⛔ 다시 뽑은 것을 무조건 받지 마세요 — 빈 답이나 더 긴 답으로 바꾸면 고치려던 것이 나빠집니다. */
       const lvBefore = aiFriendMeasureReply(reply, level, { answering: studentAsked });
-      if (!lvBefore.ok) {
+      if (!lvBefore.ok && !focusedFix) {
         if (usedModel) {
           try {
             const shorter: any = await runFriend(usedModel, messages.concat([

@@ -22,6 +22,7 @@ function load(file) {
 }
 const H = load('warmup-honest.ts');
 const S = load('warmup-stream.ts');
+const F = load('focused-correction.ts');
 const api = fs.readFileSync(path.join(CF, 'src/api-ai.ts'), 'utf8');
 const index = fs.readFileSync(path.join(CF, 'src/index.ts'), 'utf8');
 const html = fs.readFileSync(path.join(CF, 'public/ai-friend.html'), 'utf8');
@@ -173,10 +174,27 @@ const DB = { prepare(sql) {
 }, exec: d1ExecLikeProd(raw), batch: async ss => Promise.all(ss.map(s => s.run())) };
 const cache = new Map();
 let routeFix = fix;
+let scenario = 'normal', modelCalls = 0, rechecks = 0;
 const env = { DB, ROOM_JWT_SECRET: 'focused-local-fixture-only',
   SESSION_STATE: { get: async k => cache.get(k) ?? null, put: async (k, v) => cache.set(k, String(v)), list: async () => ({ keys: [] }) },
   AI: { run: async (_model, opts) => {
-    const response = JSON.stringify({ reply: question, fix: { ...routeFix, why_ko: '어제라서 과거형', tag: 'past_tense', severity: 'major' }, grade: 'partial' });
+    modelCalls++;
+    const recheck = opts.messages?.[0]?.content.includes('FOCUSED_CORRECTION_CHECK');
+    if (recheck) rechecks++;
+    const fullFix = { ...routeFix, why_ko: '문법에 맞게 고쳐요', tag: 'other', severity: 'minor' };
+    let response = JSON.stringify({ reply: question, fix: fullFix, grade: 'partial' });
+    if (scenario === 'repeated') response = JSON.stringify({ reply: H.ensureFocusedFixSpoken(question, 'focused', 'partial', routeFix), fix: fullFix });
+    if (scenario === 'missing' || scenario === 'invalid') response = JSON.stringify({ reply: 'You can say... "' + routeFix.now + '"', fix: scenario === 'invalid' ? { ...fullFix, was: 'Invented text' } : null });
+    if (scenario === 'truncated') response = JSON.stringify({ reply: 'You can say... "' + routeFix.now + '"' }).slice(0, -1) + ',"fix": {';
+    if (scenario === 'invalid') response = JSON.stringify({ reply: question, fix: { ...fullFix, was: 'Invented text' } });
+    if (scenario === 'omitted') response = JSON.stringify({ reply: question, fix: null });
+    if (scenario === 'correct') response = JSON.stringify({ reply: 'What do you like?', fix: null, grade: 'perfect' });
+    if (recheck) {
+      if (['failed-check', 'failed-quoted'].includes(scenario)) throw new Error('fixture unavailable');
+      response = JSON.stringify({ reply: 'Checked.', fix: scenario === 'correct' ? null : fullFix });
+    }
+    if (scenario === 'failed-check' && !recheck) response = JSON.stringify({ reply: 'Please try again.', fix: null });
+    if (scenario === 'failed-quoted' && !recheck) response = JSON.stringify({ reply: 'You can say... "' + routeFix.now + '"', fix: null });
     if (!opts.stream) return { response };
     return new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('data: ' + JSON.stringify({ response }) + '\n\ndata: [DONE]\n\n')); c.close(); } });
   } } };
@@ -212,6 +230,45 @@ check('avatar correction containing an internal question is still spoken exactly
   assert.equal(complex.fix?.now, routeFix.now);
   assert.equal(complex.ai_response, H.ensureFocusedFixSpoken(question, 'focused', 'partial', routeFix));
   assert.equal(complex.ai_response.split(routeFix.now).length - 1, 3);
+});
+// The screenshot's first-turn missing article: reply has a correction but fix is absent.
+routeFix = { was: 'my favorite animal is lion', now: 'My favorite animal is a lion' };
+for (const kind of ['avatar', 'friend']) for (const mode of ['focused', 'balanced', 'free_talk']) {
+  for (const variant of ['missing', 'omitted', 'invalid', 'truncated', 'repeated', 'correct', 'failed-check', 'failed-quoted']) {
+    scenario = variant; modelCalls = 0; rechecks = 0;
+    let token, uid;
+    if (kind === 'friend') { const auth = await (await post('/api/ai/chat-guest-token', {})).json(); token = auth.token; uid = auth.uid; }
+    const response = await post(kind === 'avatar' ? '/api/warmup/chat' : '/api/ai/chat-friend', kind === 'avatar'
+      ? { session_id: 'reliability-' + mode + '-' + variant, student_input: variant === 'correct' ? routeFix.now : routeFix.was, correction_mode: mode, stream: 1, difficulty: 1 }
+      : { uid, msg: variant === 'correct' ? routeFix.now : routeFix.was, correction_mode: mode, stream: 1, level: 'S1' }, token);
+    const events = (await response.text()).split('\n').filter(s => s.startsWith('data:')).map(s => JSON.parse(s.slice(5)));
+    const body = events.find(e => e.done);
+    check(kind + ' first turn ' + mode + ' / ' + variant, () => {
+      assert.equal(response.status, 200);
+      assert.ok(body);
+      const spoken = body.ai_response || body.reply;
+      if (mode === 'focused' && !['correct', 'failed-check'].includes(variant)) {
+        assert.equal(body.fix?.now, routeFix.now);
+        assert.equal(spoken, H.ensureFocusedFixSpoken(question, mode, 'partial', routeFix));
+        assert.equal(events.filter(e => e.t).length, 0);
+        const needsCheck = ['omitted', 'invalid'].includes(variant);
+        assert.equal(rechecks, needsCheck ? 1 : 0);
+        assert.equal(modelCalls, needsCheck ? 2 : 1);
+      } else if (mode === 'focused') {
+        assert.equal(body.fix, null);
+        assert.ok(!spoken.includes('You can say'));
+        assert.equal(rechecks, 1);
+      } else {
+        assert.equal(rechecks, 0, 'ordinary modes do not acquire focused rechecks');
+      }
+    });
+  }
+}
+check('quoted correction recovery requires explicit framing, source overlap and a real change', () => {
+  assert.equal(F.focusedReplyFix('You can say... "My favorite animal is a lion"', routeFix.was)?.now, routeFix.now);
+  for (const reply of ['What is your favorite animal?', 'You can say... "I drove to the moon"', 'You can say... "' + routeFix.was + '"']) {
+    assert.equal(F.focusedReplyFix(reply, routeFix.was), null);
+  }
 });
 raw.close();
 console.log(`PASS ${pass} / FAIL 0`);
