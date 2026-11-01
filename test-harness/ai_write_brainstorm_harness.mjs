@@ -287,7 +287,8 @@ check('문장 나누기에 lookbehind 를 쓰지 않는다 (구형 사파리)', 
 console.log('\n[C] 🔴 어휘 업그레이드 검증부(api-ai.ts)를 오려 내 실행');
 check('프롬프트가 어휘 업그레이드를 요구한다', /vocabulary upgrades/.test(API) && /"upgrades": \[\{"from"/.test(API));
 check('첨삭 응답·저장에 upgrades 가 함께 나간다',
-  /corrected, score, issues, tip, reply, upgrades, level,/.test(API) && /issues, tip, reply, upgrades, mission_words/.test(API));
+  // 2026-11-01: issues 옆에 suggestions(🟡 참고 — write-issue-triage.ts)가 끼어도 «upgrades 가 함께 나간다» 는 뜻은 같습니다.
+  /corrected, score, issues,(?: suggestions,)? tip, reply, upgrades, level,/.test(API) && /issues,(?: suggestions,)? tip, reply, upgrades, mission_words/.test(API));
 check('화면이 upgrades 를 그린다 (결과 + 복습 모달)',
   /d\.upgrades \|\| \[\]/.test(HTML) && /feedback\.upgrades \|\| \[\]/.test(HTML));
 

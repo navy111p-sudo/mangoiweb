@@ -24,6 +24,12 @@
 //        걸려서 철자 오타가 TENSE_CONFUSION 으로 잘못 분류됩니다.
 // ═══════════════════════════════════════════════════════════════════════
 
+/** «문법 규칙으로 설명되지 않는» 두 갈래의 머리말 — 낱말을 다른 낱말로 바꿈 · 뜻이 통하는 말을 덜어 냄.
+ *  이 둘은 «틀려서» 가 아니라 «다르게도 쓸 수 있어서» 일 수 있습니다(teach → show).
+ *  write-issue-triage.ts 가 이 머리말로 «오류인지 표현 차이인지» 를 가르므로 문구를 바꿀 때 상수로만 바꾸세요. */
+export const STYLE_SWAP_LEAD = '더 자연스러운 낱말로 바꿨어요';
+export const DROP_WORDS_LEAD = '없어도 뜻이 통하는 말을 덜어 냈어요';
+
 /** 아이 글에 자주 나오는 불규칙 과거형 (원형 → 과거) */
 const PAST: Record<string, string> = {
   go: 'went', come: 'came', eat: 'ate', see: 'saw', get: 'got', give: 'gave', take: 'took',
@@ -174,7 +180,7 @@ export function explainCorrection(original: string, suggested: string): string |
     if (PREP.has(a) && PREP.has(b)) return `이 표현에는 '${A(0)}' 가 함께 쓰여요: ${R(0)} → ${A(0)}. 전치사는 짝지어 외워 두면 좋아요.`;
     if (BE.has(a) && BE.has(b)) return `주어에 맞는 be동사로 바꿨어요: ${R(0)} → ${A(0)}.`;
     if (looksMisspelled(a, b)) return `철자를 다듬었어요: ${R(0)} → ${A(0)}. 소리 내어 읽어 보면 기억에 남아요.`;
-    return `더 자연스러운 낱말로 바꿨어요: ${R(0)} → ${A(0)}.`;
+    return `${STYLE_SWAP_LEAD}: ${R(0)} → ${A(0)}.`;
   }
 
   // ③ 낱말이 «더해진» 경우 (뺀 것 없음)
@@ -204,7 +210,7 @@ export function explainCorrection(original: string, suggested: string): string |
     if (rem.length === 1 && PREP.has(rem[0])) return `전치사가 겹쳐서 '${R(0)}' 하나를 뺐어요. 한 자리에 전치사는 하나면 충분해요.`;
     if (rem.length === 1 && ART.has(rem[0])) return `여기에는 관사 '${R(0)}' 가 필요 없어요.`;
     if (rem.every(w => PREP.has(w) || ART.has(w))) return `겹치는 말(${showAllR()})을 뺐어요.`;
-    return `없어도 뜻이 통하는 말을 덜어 냈어요: ${showAllR()}.`;
+    return `${DROP_WORDS_LEAD}: ${showAllR()}.`;
   }
 
   // ⑤ 낱말은 그대로인데 순서만 바뀜
