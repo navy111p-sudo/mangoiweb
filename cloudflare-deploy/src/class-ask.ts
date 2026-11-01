@@ -147,6 +147,8 @@ export async function handleClassAsk(request: Request, env: any, deps: {
   json: (o: any, s?: number) => Response;
   recordFailure?: (f: any) => Promise<void>;
   linkRule?: string;   // 🔗 연결 표현 규칙 — buildClassAskMessages 머리말
+  /** 🔤 한국어 뜻이 읽을 만한가(2026-11-01) — 이 파일은 import 0 을 지키므로 부르는 쪽(api-ai.ts)이 넘겨 줍니다. false 면 뜻을 비웁니다. */
+  koOk?: (s: string) => boolean;
 }): Promise<Response> {
   const { json } = deps;
   const b: any = await request.json().catch(() => ({}));
@@ -167,7 +169,8 @@ export async function handleClassAsk(request: Request, env: any, deps: {
     try {
       const r = await env.AI.run(m, { messages: msgs, max_tokens: 220, temperature: 0.4 });
       const out = a.lang === 'zh' ? parseClassAskZh(aiText(r)) : parseClassAsk(aiText(r));
-      if (out) return json({ ok: true, ...out });
+      // zh/ko or en/ko answer; an unreadable Korean gloss is blanked (koOk from api-ai.ts).
+      if (out) return json({ ok: true, ...out, ko: out.ko && deps.koOk && !deps.koOk(out.ko) ? '' : out.ko });
       plain++;
     } catch (e: any) {
       lastErr = e;

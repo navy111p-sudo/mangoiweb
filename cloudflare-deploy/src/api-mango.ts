@@ -1,4 +1,5 @@
 import type { EleaderEngines } from './eleader-engines';
+import { looksGarbledKo } from './ko-readable';   // 🔤 학부모 번역 깨진 한국어 거르기(2026-11-01)
 import { recordTeacherRoomPresence } from './teacher-room-presence';
 import { attachCalendarRecords } from './calendar-records';
 import { WEEKLY_POSTPONE, readWeeklyPostponePlan } from './weekly-postpone';
@@ -3260,7 +3261,8 @@ ${numbered}`;
         if (stuName) { outEn = outEn.split(MASK).join(stuName); outKo = outKo.split(MASK).join(stuName); }
 
         const noteDebug = url.searchParams.get('debug') === '1';
-        const hasKo = /[가-힣]/.test(outKo);
+        // 🔤 깨진 한국어(2026-11-01 영작 첨삭 실사고와 같은 모양)는 «못 만들었다» 로 — 학부모에게 그대로 나가지 않게.
+        const hasKo = /[가-힣]/.test(outKo) && !looksGarbledKo(outKo);
         if (!hasKo) {
           return json({ ok: false, error: 'no_korean', message: '한국어를 만들지 못했습니다. 잠시 후 다시 시도해 주세요.',
                         ...(noteDebug ? { _debug: dbgNote } : {}) }, 502);

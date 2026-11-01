@@ -30,6 +30,7 @@
 //
 //   실행: node test-harness/ai_write_brainstorm_harness.mjs
 import { readFileSync, existsSync, statSync } from 'fs';
+import { stripTypeScriptTypes } from 'node:module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -292,11 +293,17 @@ check('첨삭 응답·저장에 upgrades 가 함께 나간다',
 check('화면이 upgrades 를 그린다 (결과 + 복습 모달)',
   /d\.upgrades \|\| \[\]/.test(HTML) && /feedback\.upgrades \|\| \[\]/.test(HTML));
 
+/* 2026-11-01: 업그레이드 이유에 «읽을 수 있는 한국어» 검사(isReadableKo)가 붙었습니다 — 정본(write-issue-triage.ts)에서
+   그 함수를 그대로 오려 와 블록 앞에 붙여 실행합니다(하니스에 베껴 적지 않음). */
+// 2026-11-01: 그 함수는 공용 정본 ko-readable.ts(import 0)로 옮겼습니다 — 파일 통째로 «export» 만 떼어 붙입니다.
+const _KO = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../cloudflare-deploy/src/ko-readable.ts'), 'utf8');
+const KO_FN = stripTypeScriptTypes(_KO).replace(/^export /gm, '') + '\n';
+check('정본에서 isReadableKo 를 오려 냈다', /function isReadableKo\(/.test(KO_FN) && /function looksGarbledKo\(/.test(KO_FN));
 const upSrc = (API.match(/const upgrades = \(Array\.isArray\(parsed\.upgrades\)[\s\S]*?\.slice\(0, 3\);/) || [])[0] || '';
 check('업그레이드 검증부를 오려 냈다', upSrc.length > 100);
 if (upSrc) {
   const runUp = new Function('text', 'parsed',
-    'const _lowText = text.toLowerCase();\n' + upSrc.replace(/: any/g, '') + '\nreturn upgrades;');
+    KO_FN + 'const _lowText = text.toLowerCase();\n' + upSrc.replace(/: any/g, '') + '\nreturn upgrades;');
   const T = 'I have many thing in my room and a bad man took my bag and my old cup.';
   const got = runUp(T, { upgrades: [
     { from: 'thing', to: 'property', why: '소유물을 뜻하는 어른스러운 단어예요.' },
@@ -326,14 +333,17 @@ if (upSrc) {
   // ⚠️ to 는 «따라 쓸 영어» 라 숫자도 안 받는다 — 검사 데이터에 숫자를 넣지 말 것
   const many = runUp('a b c d e f', { upgrades: 'abcdef'.split('').map(c => ({ from: 'a', to: 'alpha' + c, why: '더 자연스러운 표현이에요.' })) });
   check('최대 3건까지만 내보낸다', many.length === 3, String(many.length));
+  // 2026-11-01 실사고 — 깨진 한국어 이유(「지도 알는 어 지도 었다 알 지도 었다.」)는 버린다
+  const garbled = runUp('lots of presents', { upgrades: [{ from: 'presents', to: 'gifts', why: '지도 알는 어 지도 었다 알 지도 었다.' }] });
+  check('⛔ 깨진 한국어 이유는 버린다', garbled.length === 0, JSON.stringify(garbled));
   check('upgrades 가 없어도 안전하다 (빈 배열)', runUp('hello', {}).length === 0);
 
   /* 되돌리면 FAIL — 게이트를 빼면 이유 없는 항목이 그대로 학생 화면으로 나간다 */
-  const mutated = upSrc.replace(/\/\[가-힣\]\/\.test\(u\.why\) && u\.why\.length >= 6 &&/, '');
+  const mutated = upSrc.replace(/\/\[가-힣\]\/\.test\(u\.why\) && u\.why\.length >= 6 &&/, '').replace(/isReadableKo\(u\.why\) &&[^\n]*\n/, '');   // 이유 검사 «전부» 제거(2026-11-01 두 겹이 됨)
   check('변이 대상이 소스에 있다 (why 게이트)', mutated !== upSrc);
   if (mutated !== upSrc) {
     const runBad = new Function('text', 'parsed',
-      'const _lowText = text.toLowerCase();\n' + mutated.replace(/: any/g, '') + '\nreturn upgrades;');
+      KO_FN + 'const _lowText = text.toLowerCase();\n' + mutated.replace(/: any/g, '') + '\nreturn upgrades;');
     const bad = runBad(T, { upgrades: [{ from: 'room', to: 'chamber', why: '' }] });
     check('되돌리면 깨진다: 이유 없는 항목이 통과한다', bad.length === 1, JSON.stringify(bad));
   }

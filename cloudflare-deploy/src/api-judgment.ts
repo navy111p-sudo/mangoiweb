@@ -14,6 +14,7 @@
 //   LLM: Cloudflare Workers AI @cf/meta/llama-3.3-70b-instruct-fp8-fast (기존 하우스 모델).
 //   KV : env.SESSION_STATE (오답사전 캐시 + 동일 판단 반복 캐시).
 // ═══════════════════════════════════════════════════════════════════════
+import { keepIfReadableKo } from './ko-readable';   // 🔤 깨진 한국어 거르기(2026-11-01)
 import type { MangoEnv } from './api-mango';
 import { getWeakDecisionSkills } from './decision-graph';  // 3단계: 취약 스킬(Neo4j) — 시나리오 입력
 import { runInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
@@ -1193,9 +1194,10 @@ Judge ${learnerPoss.toLowerCase()} REASONING (not just the choice). Return STRIC
         registerAwareness = clamp(j.register_awareness);
         const mc = (j.misconception && j.misconception !== 'null') ? String(j.misconception).toUpperCase().trim() : null;
         misconception = (mc && taxonomy.some((t) => t.code === mc)) ? mc : null;
-        feedbackKo = cleanKo(String(j.feedback_ko || '')).slice(0, 300);
+        // 🔤 깨진 한국어는 비워 아래 폴백 문구를 씁니다(아이 말투는 반말일 수 있어 «느슨» 판정 — 2026-11-01).
+        feedbackKo = keepIfReadableKo(cleanKo(String(j.feedback_ko || ''))).slice(0, 300);
         feedbackEn = String(j.feedback_en || '').slice(0, 300);
-        whyChosenKo = cleanKo(String(j.why_chosen_ko || '')).slice(0, 200);
+        whyChosenKo = keepIfReadableKo(cleanKo(String(j.why_chosen_ko || ''))).slice(0, 200);
         whyChosenEn = String(j.why_chosen_en || '').slice(0, 200);
         if (wantZh) { feedbackZh = String(j.feedback_zh || '').slice(0, 300); whyChosenZh = String(j.why_chosen_zh || '').slice(0, 200); }
       }

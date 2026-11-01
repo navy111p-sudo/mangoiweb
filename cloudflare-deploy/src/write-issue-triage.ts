@@ -19,6 +19,7 @@
 //     ⛔ 학생이 쓰지 않은 말을 «고쳤다» 고 띄우지 않습니다(어휘 업그레이드의 from 규칙과 같음).
 // ═══════════════════════════════════════════════════════════════════════
 import { explainCorrection, STYLE_SWAP_LEAD, DROP_WORDS_LEAD } from './correction-reason';
+import { isReadableKo, isEnglishReply } from './ko-readable';
 
 export type IssueKind = 'error' | 'suggest';
 export interface TriagedIssue { original: string; suggested: string; reason: string; kind: IssueKind }
@@ -66,7 +67,9 @@ export function modelCategory(it: any): 'error' | 'unnatural' | '' {
   return '';   // 'style'·'ok'·빈 값 — «다르게도 쓸 수 있다» 는 고칠 근거가 아닙니다
 }
 
-const validKo = (r: string) => /[가-힣]/.test(r) && r.length >= 6;
+/* 🔤 «읽을 수 있는 한국어» 판정은 공용 정본 ko-readable.ts 로 옮겼습니다(2026-11-01 — 다른 AI 기능도 같은 검사를 씁니다).
+   이 파일은 그대로 다시 내보내 api-ai.ts 의 import 가 바뀌지 않게 합니다. */
+export { isReadableKo, isEnglishReply };
 
 /**
  * 모델이 준 issues 배열을 3단계로 가릅니다(순수 함수 — 던지지 않습니다).
@@ -104,11 +107,12 @@ export function triageIssues(studentText: any, rawIssues: any): TriageResult {
 
     if (ruleBacked || cat === 'error') {
       if (out.issues.length >= MAX_ERRORS) { drop('over_cap'); continue; }
-      const reason = validKo(modelReason) ? modelReason : (det || ERROR_FALLBACK_KO);
+      // 🔤 규칙으로 설명되는 교정은 «서버 설명» 이 정본입니다 — AI 한국어는 깨질 수 있습니다(위 isReadableKo 실사고).
+      const reason = ruleBacked ? (det as string) : (isReadableKo(modelReason) ? modelReason : (det || ERROR_FALLBACK_KO));
       out.issues.push({ original, suggested, reason, kind: 'error' });
     } else if (cat === 'unnatural') {
       if (out.suggestions.length >= MAX_SUGGESTIONS) { drop('over_cap'); continue; }
-      const reason = validKo(modelReason) ? modelReason : SUGGEST_FALLBACK_KO;
+      const reason = isReadableKo(modelReason) ? modelReason : SUGGEST_FALLBACK_KO;
       out.suggestions.push({ original, suggested, reason, kind: 'suggest' });
     } else {
       // 🟢 문법 규칙으로도, 모델 판단으로도 «틀렸다» 는 근거가 없다 → 학생 표현을 인정합니다.

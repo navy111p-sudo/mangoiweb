@@ -188,13 +188,14 @@ console.log('\n[ G. api-ai.ts 배선 — import 만 해 두고 안 쓰면 소용
      «무슨 답이 나오는가» 는 write_issue_triage_harness 가 정본을 실제로 돌려 봅니다. */
   const TRI = SRC('write-issue-triage.ts');
   check("api-ai.ts 가 판정 정본(triageIssues)을 import 한다",
-    /import \{ triageIssues \} from '\.\/write-issue-triage'/.test(AI));
+    /import \{ triageIssues\b[^}]*\} from '\.\/write-issue-triage'/.test(AI));
   check("api-ai.ts 가 triageIssues(text, parsed.issues) 결과로 issues 를 만든다",
     /const _tri = triageIssues\(text, parsed\.issues\)/.test(AI) && /const issues = _tri\.issues\.map\(/.test(AI));
   check("판정 정본이 correction-reason 의 explainCorrection 을 import 한다",
     /import \{ explainCorrection[^}]*\} from '\.\/correction-reason'/.test(TRI));
-  check('모델 이유는 «한국어 6자 이상» 일 때만 쓴다(정본)',
-    /const validKo = \(r: string\) => \/\[가-힣\]\/\.test\(r\) && r\.length >= 6/.test(TRI));
+  // 2026-11-01: «한글 6자 이상» 만으로는 깨진 한국어(「신호 입력를 지도신.」)가 통과했습니다 → isReadableKo 로 강화.
+  check('모델 이유는 «읽을 수 있는 한국어» 일 때만 쓴다(정본 isReadableKo)',
+    /import \{ isReadableKo[^}]*\} from '\.\/ko-readable'/.test(TRI) && /isReadableKo\(modelReason\)/.test(TRI));
   check('⛔ 옛 규칙기반 추측(_guessReason)이 api-ai.ts 에 남아 있지 않다',
     !/_guessReason\s*=/.test(AI));
 }
