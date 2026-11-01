@@ -1,0 +1,20 @@
+PASS engine and all Jake portrait pixels unchanged
+PASS 390 no horizontal overflow
+PASS 390 original Jake rendered
+PASS 390 native image aspect within portrait frame
+PASS 390 frame wholly inside viewport
+PASS 390 dialogue does not cover portrait
+PASS 390 help Escape restores focus
+PASS 390 original mouth moves after help
+PASS 390 eye region animation persists
+PASS 390 no JS errors
+PASS 1366 no horizontal overflow
+PASS 1366 original Jake rendered
+PASS 1366 native image aspect within portrait frame
+PASS 1366 frame wholly inside viewport
+PASS 1366 dialogue does not cover portrait
+PASS 1366 help Escape restores focus
+PASS 1366 original mouth moves after help
+PASS 1366 eye region animation persists
+PASS 1366 no JS errors
+PASS total 19

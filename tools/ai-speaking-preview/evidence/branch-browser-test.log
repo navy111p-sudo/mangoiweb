@@ -1,0 +1,99 @@
+PASS preview denies API access
+PASS Lily only source crop changes, existing eye/mouth/head logic preserved
+PASS index 390 no horizontal overflow
+PASS index 390 existing avatar renders
+PASS index 390 visible targets at least 44px
+PASS index 390 authored example opens
+PASS index 390 Escape restores focus
+PASS index 390 translation expands
+PASS index 390 demo speed setting retained
+PASS index 390 original mouth rendering changes after help
+PASS index 390 original idle animation continues
+PASS index 390 no JavaScript errors:
+PASS index 390 no external requests
+PASS index 768 no horizontal overflow
+PASS index 768 existing avatar renders
+PASS index 768 visible targets at least 44px
+PASS index 768 authored example opens
+PASS index 768 Escape restores focus
+PASS index 768 translation expands
+PASS index 768 demo speed setting retained
+PASS index 768 original mouth rendering changes after help
+PASS index 768 no JavaScript errors:
+PASS index 768 no external requests
+PASS index 1366 no horizontal overflow
+PASS index 1366 existing avatar renders
+PASS index 1366 visible targets at least 44px
+PASS index 1366 authored example opens
+PASS index 1366 Escape restores focus
+PASS index 1366 translation expands
+PASS index 1366 demo speed setting retained
+PASS index 1366 original mouth rendering changes after help
+PASS index 1366 no JavaScript errors:
+PASS index 1366 no external requests
+PASS lily 390 no horizontal overflow
+PASS lily 390 existing avatar renders
+PASS lily 390 visible targets at least 44px
+PASS lily 390 authored example opens
+PASS lily 390 Escape restores focus
+PASS lily 390 translation expands
+PASS lily 390 demo speed setting retained
+PASS lily 390 original mouth rendering changes after help
+PASS lily 390 original idle animation continues
+PASS lily 390 no JavaScript errors:
+PASS lily 390 no external requests
+PASS lily 768 no horizontal overflow
+PASS lily 768 existing avatar renders
+PASS lily 768 visible targets at least 44px
+PASS lily 768 authored example opens
+PASS lily 768 Escape restores focus
+PASS lily 768 translation expands
+PASS lily 768 demo speed setting retained
+PASS lily 768 original mouth rendering changes after help
+PASS lily 768 no JavaScript errors:
+PASS lily 768 no external requests
+PASS lily 1366 no horizontal overflow
+PASS lily 1366 existing avatar renders
+PASS lily 1366 visible targets at least 44px
+PASS lily 1366 authored example opens
+PASS lily 1366 Escape restores focus
+PASS lily 1366 translation expands
+PASS lily 1366 demo speed setting retained
+PASS lily 1366 original mouth rendering changes after help
+PASS lily 1366 no JavaScript errors:
+PASS lily 1366 no external requests
+PASS jake 390 no horizontal overflow
+PASS jake 390 existing avatar renders
+PASS jake 390 visible targets at least 44px
+PASS jake 390 portrait not covered by dialogue
+PASS jake 390 authored example opens
+PASS jake 390 Escape restores focus
+PASS jake 390 translation expands
+PASS jake 390 demo speed setting retained
+PASS jake 390 original mouth rendering changes after help
+PASS jake 390 original idle animation continues
+PASS jake 390 no JavaScript errors:
+PASS jake 390 no external requests
+PASS jake 768 no horizontal overflow
+PASS jake 768 existing avatar renders
+PASS jake 768 visible targets at least 44px
+PASS jake 768 portrait not covered by dialogue
+PASS jake 768 authored example opens
+PASS jake 768 Escape restores focus
+PASS jake 768 translation expands
+PASS jake 768 demo speed setting retained
+PASS jake 768 original mouth rendering changes after help
+PASS jake 768 no JavaScript errors:
+PASS jake 768 no external requests
+PASS jake 1366 no horizontal overflow
+PASS jake 1366 existing avatar renders
+PASS jake 1366 visible targets at least 44px
+PASS jake 1366 portrait not covered by dialogue
+PASS jake 1366 authored example opens
+PASS jake 1366 Escape restores focus
+PASS jake 1366 translation expands
+PASS jake 1366 demo speed setting retained
+PASS jake 1366 original mouth rendering changes after help
+PASS jake 1366 no JavaScript errors:
+PASS jake 1366 no external requests
+PASS total 98

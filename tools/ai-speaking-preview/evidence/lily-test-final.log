@@ -1,0 +1,18 @@
+PASS only Lily source crop changed; eye mouth head coordinates byte-identical
+PASS 390 no horizontal overflow
+PASS 390 avatar renders
+PASS 390 full original 4:5 aspect retained
+PASS 390 full avatar width inside viewport
+PASS 390 help closes and restores focus
+PASS 390 original mouth moves after help
+PASS 390 eye region changes during idle after help
+PASS 390 no JS errors
+PASS 1366 no horizontal overflow
+PASS 1366 avatar renders
+PASS 1366 full original 4:5 aspect retained
+PASS 1366 full avatar width inside viewport
+PASS 1366 help closes and restores focus
+PASS 1366 original mouth moves after help
+PASS 1366 eye region changes during idle after help
+PASS 1366 no JS errors
+PASS total 17
