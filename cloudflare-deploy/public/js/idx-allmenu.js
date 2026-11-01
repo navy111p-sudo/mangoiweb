@@ -47,7 +47,7 @@
     {emoji:'📅', img:'', name:'오늘의 A.i 학습', url:'/today.html'},
     /* 🎓 (2026-10-08 사장님 「메뉴에도 연결해줘」) A.i 선생님 수업 — 전용 사진이 없어 img 는 비운다(emoji 로 그림). */
     {emoji:'🎓', img:'', name:'A.i 선생님 수업', en:'A.i Teacher Class', url:'/ai-class.html'},
-    {emoji:'🤖', img:'/img/menu/ai-friend.webp', name:'AI 친구', url:'/ai-friend.html'},
+    {emoji:'🤖', img:'/img/menu/ai-friend.webp', name:'AI 말하기', en:'AI Speaking', url:'/ai-speaking.html'},
     {emoji:'✍', img:'/img/menu/ai-write.webp', name:'AI 작문', url:'/ai-write.html'},
     {emoji:'🗣', img:'/img/menu/speech.webp', name:'영어 발음 코치', url:'/speech-coach.html'},
     {emoji:'🇨🇳', img:'/img/menu/speech-cn.webp', name:'중국어 발음 코치', url:'/speech-coach-cn.html'},

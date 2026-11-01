@@ -34,7 +34,7 @@
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
     'inquiry':'https://pf.kakao.com/_xlqnSxd','kakao':'https://pf.kakao.com/_xlqnSxd','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
-    'chat':'/ai-friend.html','teacher-praise':'/teacher-praise.html',
+    'chat':'/ai-speaking.html','teacher-praise':'/teacher-praise.html',
     'points-shop':'/?shop=1','mypoints':'/?shop=1','checkin':'/streak.html',
     'leaderboard':'/streak.html','push-subscribe':'/'
   };
@@ -4696,10 +4696,9 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         <button class="mg-hl mg-s3" onclick="mgDrawerClose();location.href='/ai-class.html';" data-ko="🎓 A.i 선생님 수업" data-en="🎓 A.i Teacher Class">🎓 A.i 선생님 수업</button>
         <button class="mg-hl mg-s3" onclick="mgDrawerClose();location.href='/stories.html';" data-ko="📚 영어 독서" data-en="📚 English Reading">📚 영어 독서</button>
         <button class="mg-hl mg-s3" onclick="mgDrawerClose();location.href='/ai-dubbing.html';" data-ko="🎬 A.i영화더빙" data-en="🎬 A.i Movie Dubbing">🎬 A.i영화더빙</button>
-        <button class="mg-hl mg-s3" onclick="mgDrawerClose();location.href='/warmup.html';" data-ko="🗣️ A.i 말하기 연습" data-en="🗣️ A.i Speaking Practice">🗣️ A.i 말하기 연습</button>
+        <button class="mg-hl mg-s3" onclick="mgDrawerClose();location.href='/ai-speaking.html';" data-ko="🗣️ AI 말하기" data-en="🗣️ AI Speaking">🗣️ AI 말하기</button>
         <button class="mg-hl mg-s2" onclick="mgDrawerClose();location.href='/judgment.html';" data-ko="🧠 판단력 훈련" data-en="🧠 Decision Training">🧠 판단력 훈련</button>
         <button onclick="mgGo('speech')" data-ko="🎤 AI 음성코치" data-en="🎤 AI Voice Coach">🎤 AI 음성코치</button>
-        <button onclick="mgDrawerClose();location.href='/ai-friend.html';" data-ko="🤖 AI 친구 대화" data-en="🤖 AI Friend Chat">🤖 AI 친구 대화</button>
         <button onclick="mgDrawerClose();location.href='/ai-write.html';" data-ko="✍️ AI 글쓰기" data-en="✍️ AI Writing">✍️ AI 글쓰기</button>
         <button onclick="mgDrawerClose();location.href='/review-quiz.html';" data-ko="🧠 BTS/SIU 퀴즈" data-en="🧠 BTS/SIU Quiz">🧠 BTS/SIU 퀴즈</button>
         <!-- 🇨🇳 2026-08-17 — 중국어 복습퀴즈. 바로 위 한국어판 옆자리. -->
@@ -6237,7 +6236,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         <!-- ph178 (2026-05-29) — 수업 신청 카드 (시간·교사 선택 → 결제) -->
         <button class="ai-quick-btn" data-go="booking" data-ko="📝 수업 신청" data-en="📝 Book Class" onclick="event.preventDefault();location.href='/lesson-booking-demo.html';return false;">📝 수업 신청</button>
         <!-- 2026-09-24 — 빈 3칸 채움(사장님 지시): 말하기 연습·내 시간표·영어 게임. 주소는 mg-sidebar.js URLS 와 같다. -->
-        <button class="ai-quick-btn" data-go="warmup" data-ko="🗣️ A.i 말하기 연습" data-en="🗣️ A.i Speaking" onclick="event.preventDefault();location.href='/warmup.html';return false;">🗣️ A.i 말하기 연습</button>
+        <button class="ai-quick-btn" data-go="warmup" data-ko="🗣️ AI 말하기" data-en="🗣️ AI Speaking" onclick="event.preventDefault();location.href='/ai-speaking.html';return false;">🗣️ AI 말하기</button>
         <button class="ai-quick-btn" data-go="my-schedule" data-ko="🗓 내 시간표" data-en="🗓 My Schedule" onclick="event.preventDefault();location.href='/my-schedule.html';return false;">🗓 내 시간표</button>
         <button class="ai-quick-btn" data-go="student-game" data-ko="🎮 영어 게임" data-en="🎮 English Games" onclick="event.preventDefault();location.href='/student-games.html';return false;">🎮 영어 게임</button>
       </div>
@@ -6265,11 +6264,9 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
           {ic:aifSvg('<path d="M4 11v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8H4z"/><path d="m4 11-.9-4.1a2 2 0 0 1 1.5-2.4L17 1.8a2 2 0 0 1 2.4 1.5l.7 3.1L4 11z"/><path d="m6.6 5.6 3.1 3.9"/><path d="m12.9 4.2 3.1 3.9"/>'),
            ko:'A.i 영화더빙', en:'A.i Movie Dubbing', dko:'내 목소리로 만드는 영어 영화', den:'An English movie with your voice', url:'/ai-dubbing.html'},
           {ic:aifSvg('<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><circle cx="8.5" cy="11.5" r=".9" fill="#fbbf24" stroke="none"/><circle cx="12.5" cy="11.5" r=".9" fill="#fbbf24" stroke="none"/><circle cx="16.5" cy="11.5" r=".9" fill="#fbbf24" stroke="none"/>'),
-           ko:'A.i 말하기 연습', en:'A.i Speaking Practice', dko:'A.i가 먼저 말을 걸어 주는 말하기 연습', den:'AI starts the talk — you practice speaking', url:'/warmup.html'},
+           ko:'AI 말하기', en:'AI Speaking', dko:'교재 연습 또는 AI 친구와 대화', den:'Textbook practice or chat with an AI friend', url:'/ai-speaking.html'},
           {ic:aifSvg('<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="8.5" y1="21" x2="15.5" y2="21"/>'),
            ko:'AI 음성코치', en:'AI Voice Coach', dko:'단계별 발음 교정 연습', den:'Step-by-step pronunciation', url:'/speech-coach.html'},
-          {ic:'<img src="/img/mango-char.png" alt="" class="aif-icimg" loading="lazy" decoding="async">',
-           ko:'AI 친구 (망고아이)', en:'AI Friend (Mangoi)', dko:'망고아이와 영어로 수다', den:'Chat in English with Mangoi', url:'/ai-friend.html'},
           {ic:aifSvg('<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>'),
            ko:'AI 영작', en:'AI Writing', dko:'영어 글쓰기 자동 첨삭', den:'Auto English-writing feedback', url:'/ai-write.html'},
           {ic:aifSvg('<polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/>'),
@@ -7378,10 +7375,10 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         <span class="gm-sub" data-ko="문법 · 표현 자동 교정" data-en="Grammar & phrasing fix">문법 · 표현 자동 교정</span>
       </button>
       <!-- 💬 Phase CF — AI 영어 친구 -->
-      <button class="gm-card" data-go="chat" data-en-key="ai friend" onclick="location.href='/ai-friend.html'">
+      <button class="gm-card" data-go="chat" data-en-key="ai friend" onclick="location.href='/ai-speaking.html'">
         <span class="gm-icon">💬</span>
-        <span class="gm-label" data-ko="AI 영어 친구" data-en="AI Friend">AI 영어 친구</span>
-        <span class="gm-sub" data-ko="24시간 영어 대화" data-en="24/7 English chat">24시간 영어 대화</span>
+        <span class="gm-label" data-ko="AI 말하기" data-en="AI Speaking">AI 말하기</span>
+        <span class="gm-sub" data-ko="교재 연습 · 친구 대화" data-en="Textbook practice · Friend chat">교재 연습 · 친구 대화</span>
       </button>
       <!-- ⚡ Phase ML — 마이크로러닝 (1분 단어 퀴즈) -->
       <button class="gm-card" data-go="microquiz" data-en-key="micro quiz" onclick="location.href='/micro-quiz.html'">
@@ -14573,7 +14570,7 @@ document.addEventListener('keydown', function(e){
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
     'inquiry':'https://pf.kakao.com/_xlqnSxd','kakao':'https://pf.kakao.com/_xlqnSxd','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
-    'chat':'/ai-friend.html','teacher-praise':'/teacher-praise.html',
+    'chat':'/ai-speaking.html','teacher-praise':'/teacher-praise.html',
     'points-shop':'/?shop=1','mypoints':'/?shop=1','checkin':'/streak.html',
     'leaderboard':'/streak.html','push-subscribe':'/'
   };
@@ -14710,7 +14707,7 @@ document.addEventListener('keydown', function(e){
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
     'inquiry':'https://pf.kakao.com/_xlqnSxd','kakao':'https://pf.kakao.com/_xlqnSxd','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
-    'chat':'/ai-friend.html','teacher-praise':'/teacher-praise.html',
+    'chat':'/ai-speaking.html','teacher-praise':'/teacher-praise.html',
     'points-shop':'/?shop=1','mypoints':'/?shop=1','checkin':'/streak.html',
     'leaderboard':'/streak.html','push-subscribe':'/'
   };
@@ -14998,7 +14995,7 @@ document.addEventListener('keydown', function(e){
 </script>
 
 <!-- fix v22 (2026-05-27) — 전체메뉴 버튼 capture-phase 핸들러 (다른 핸들러 우회) -->
-<script defer src="/js/idx-allmenu.js?v=22"></script>
+<script defer src="/js/idx-allmenu.js?v=23"></script>
 <!-- 📱 (2026-08-30 v4 제안서 05) 모바일은 다크 고정 + 상단 테마 칩 숨김. 사연은 그 파일 머리말에. -->
 <script defer src="/js/idx-theme-mobile.js?v=4"></script>
 

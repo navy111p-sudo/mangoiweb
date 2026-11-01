@@ -110,8 +110,9 @@ checked === homeLinkable.length
       ①«GROUPS 에 선언됐는가»(값을 본다) ②«기타 머리글보다 위에 그려졌는가»
       둘을 짝으로 묻는다. */
 console.log('\n② AI 학습 도구가 홈 밖 25개 화면에서 «제 그룹 안에» 보이는가');
+// 2026-11-01: speaking + friend menu entries are now one speaking entrance (warmup code).
 const restAt = nav.indexOf('data-ko="기타"');
-for (const go of ['today','judgment','ai-friend','ai-write','micro-quiz','review-quiz-cn','vocab']) {
+for (const go of ['today','judgment','warmup','ai-write','micro-quiz','review-quiz-cn','vocab']) {
   const it = M.byGo(go);
   if (!it) { bad(`${go} — ITEMS 에서 사라짐`); continue; }
   const declared = M.GROUPS.some(g => g.go.indexOf(go) >= 0);
