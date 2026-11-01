@@ -49,8 +49,10 @@ function pastOf(verb: string): string | null {
   return v + 'ed';
 }
 
-/** 학생 문장에서 과거형 교정을 만든다. 맞지 않으면 null. */
-export function backfillPastTenseFix(studentInput: unknown): { was: string; now: string; why_ko: string; tag: string } | null {
+type BackfillFix = { was: string; now: string; why_ko: string; tag: string };
+
+/** 과거·미래 시간 표현이 있을 때의 보완. 맞지 않으면 null. */
+function pastOrFutureFix(studentInput: unknown): BackfillFix | null {
   const said = String(studentInput == null ? '' : studentInput).trim();
   if (!said || said.length > 120) return null;
 
@@ -121,4 +123,153 @@ function futureBaseOf(subj: string, verb: string): string | null {
     if (v.endsWith('s') && known(v.slice(0, -1))) return v.slice(0, -1);
   }
   return null;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   📐 고신뢰 문법 규칙 (2026-11-01, 집중교정 정확도 — 제안 2번)
+   뜻을 바꾸지 않고 한 군데만 고칠 수 있고 패턴이 명확한 오류만 본다.
+   나머지 문법은 모델(교정 재확인)에게 맡긴다. 한 번에 한 군데만 고친다.
+   ───────────────────────────────────────────────────────────── */
+
+/* 잘못 만든 과거형 → 바른 과거형 (규칙으로 만든 불규칙 과거). */
+const WRONG_PAST: Readonly<Record<string, string>> = {
+  goed: 'went', eated: 'ate', buyed: 'bought', runned: 'ran', comed: 'came', taked: 'took',
+  maded: 'made', drinked: 'drank', sleeped: 'slept', thinked: 'thought', seed: 'saw',
+  writed: 'wrote', gived: 'gave', teached: 'taught', catched: 'caught', falled: 'fell',
+  readed: 'read', sitted: 'sat', hitted: 'hit',
+};
+
+/* 수사·많음 뒤에 복수형이 와야 하는 흔한 가산명사(단수형). */
+const COUNT_NOUNS: readonly string[] = [
+  'cat', 'dog', 'book', 'apple', 'banana', 'friend', 'pencil', 'toy', 'car', 'bird', 'flower',
+  'pen', 'chair', 'table', 'ball', 'cookie', 'bag', 'hat', 'shoe', 'egg', 'star', 'room',
+  'house', 'tree', 'cup', 'box', 'doll', 'bear', 'rabbit', 'student', 'teacher', 'child',
+];
+
+/* a/an 판정 예외: 「uni·use·eu·one」은 자음 소리로 시작, 「hour·honest·honor」는 모음 소리로 시작. */
+const AN_EXCEPT = /^(uni|use|usu|eu|one|once)/i;
+const H_SILENT = /^(hour|honest|honor|honour)/i;
+
+const BACKFILL_LIMIT = 120;
+
+function isBaseVerb(v: string): boolean {
+  return REGULAR_VERBS.includes(v) || Object.prototype.hasOwnProperty.call(IRREGULAR_PAST, v);
+}
+
+/** 3인칭 단수 현재형: go→goes, watch→watches, study→studies, play→plays */
+function thirdPersonOf(v: string): string {
+  if (/(s|x|z|ch|sh|o)$/.test(v)) return v + 'es';
+  if (/[^aeiou]y$/.test(v)) return v.slice(0, -1) + 'ies';
+  return v + 's';
+}
+
+/** 복수형: child→children, box→boxes, city→cities, cat→cats */
+function pluralOf(n: string): string {
+  if (n === 'child') return 'children';
+  if (/(s|x|z|ch|sh)$/.test(n)) return n + 'es';
+  if (/[^aeiou]y$/.test(n)) return n.slice(0, -1) + 'ies';
+  return n + 's';
+}
+
+function needsAn(word: string): boolean {
+  const w = word.toLowerCase();
+  if (AN_EXCEPT.test(w)) return false;
+  if (H_SILENT.test(w)) return true;
+  return /^[aeiou]/.test(w);
+}
+
+function fixOf(body: string, end: string, newBody: string, whyKo: string, tag: string): BackfillFix | null {
+  const was = body + end;
+  const now = newBody + end;
+  if (was === now) return null;
+  return { was, now, why_ko: whyKo, tag };
+}
+
+/** 「주어 동사 나머지」 모양만 본다. 주어가 여섯 개 밖이면 null. */
+function subjectVerbParts(body: string): { subjOriginal: string; subj: string; verb: string; restPart: string } | null {
+  const sm = body.match(/^([A-Za-z]+)\s+([A-Za-z]+)\b\s*(.*)$/);
+  if (!sm) return null;
+  const subj = sm[1].toLowerCase();
+  if (!SUBJECTS.includes(subj)) return null;
+  const rest = sm[3] || '';
+  return { subjOriginal: sm[1], subj, verb: sm[2], restPart: rest ? ' ' + rest : '' };
+}
+
+/** ① 잘못 만든 과거형 (goed → went). 과거 표현이 있을 때만. */
+function wrongPastFix(body: string, end: string): BackfillFix | null {
+  const p = subjectVerbParts(body);
+  if (!p || !PAST_MARKER.test(body) || BLOCKERS.test(body)) return null;
+  const right = WRONG_PAST[p.verb.toLowerCase()];
+  if (!right) return null;
+  const marker = (body.match(PAST_MARKER) || ['yesterday'])[0].toLowerCase();
+  return fixOf(body, end, `${p.subjOriginal} ${right}${p.restPart}`,
+    `${marker}처럼 지난 일은 과거형을 써요. ${p.verb} → ${right}`, 'past_tense');
+}
+
+/** ② 주어와 동사의 일치 (He like → He likes, I likes → I like). 조동사·부정·과거가 없을 때만. */
+function subjectVerbFix(body: string, end: string): BackfillFix | null {
+  const p = subjectVerbParts(body);
+  if (!p || BLOCKERS.test(body)) return null;
+  const v = p.verb.toLowerCase();
+  const thirdPerson = ['he', 'she', 'it'].includes(p.subj);
+  let right: string | null = null;
+  if (thirdPerson) {
+    if (isBaseVerb(v)) right = thirdPersonOf(v);
+  } else if (v.endsWith('es') && isBaseVerb(v.slice(0, -2))) {
+    right = v.slice(0, -2);
+  } else if (v.endsWith('s') && isBaseVerb(v.slice(0, -1))) {
+    right = v.slice(0, -1);
+  }
+  if (!right || right === v) return null;
+  const whyKo = thirdPerson
+    ? `${p.subjOriginal} 는 현재형에서 동사 끝에 -s 를 붙여요. ${p.verb} → ${right}`
+    : `${p.subjOriginal} 와 함께 쓸 때는 동사를 원형으로 써요. ${p.verb} → ${right}`;
+  return fixOf(body, end, `${p.subjOriginal} ${right}${p.restPart}`, whyKo, 'subject_verb');
+}
+
+/** ③ a / an (a apple → an apple, an dog → a dog). 첫 번째 관사 하나만. */
+function articleFix(body: string, end: string): BackfillFix | null {
+  const m = /\b(a|an)\s+([A-Za-z]+)\b/i.exec(body);
+  if (!m) return null;
+  const art = m[1];
+  const word = m[2];
+  const want = needsAn(word) ? 'an' : 'a';
+  if (art.toLowerCase() === want) return null;
+  const capital = /[A-Z]/.test(art[0]);
+  const repl = capital ? (want === 'an' ? 'An' : 'A') : want;
+  const newBody = body.slice(0, m.index) + repl + body.slice(m.index + art.length);
+  const sound = want === 'an' ? '모음' : '자음';
+  return fixOf(body, end, newBody,
+    `${word} 는 ${sound} 소리로 시작해서 ${want} 를 써요. ${art} → ${want}`, 'article');
+}
+
+/** ④ 수사·many 뒤 복수형 (two cat → two cats). 표에 있는 명사만. */
+function pluralFix(body: string, end: string): BackfillFix | null {
+  const m = /\b(two|three|four|five|six|seven|eight|nine|ten|many|several)\s+([A-Za-z]+)\b/i.exec(body);
+  if (!m) return null;
+  const noun = m[2].toLowerCase();
+  if (!COUNT_NOUNS.includes(noun)) return null;
+  const plural = pluralOf(noun);
+  const nounStart = m.index + m[0].length - m[2].length;
+  const shown = /[A-Z]/.test(m[2][0]) ? plural[0].toUpperCase() + plural.slice(1) : plural;
+  const newBody = body.slice(0, nounStart) + shown + body.slice(m.index + m[0].length);
+  return fixOf(body, end, newBody, `${m[1]} 뒤에는 명사를 복수형으로 써요. ${m[2]} → ${shown}`, 'plural');
+}
+
+/** 고신뢰 문법 규칙. 순서대로 보고, 처음 맞는 한 군데만 돌려준다. */
+export function grammarRuleFix(studentInput: unknown): BackfillFix | null {
+  const said = String(studentInput == null ? '' : studentInput).trim();
+  if (!said || said.length > BACKFILL_LIMIT) return null;
+  const m = said.match(/^(.*?)([.!?]*)$/);
+  const body = (m ? m[1] : said).trim();
+  const end = m ? m[2] : '';
+  // 영어 문장만: 글자·공백·따옴표·쉼표만 허용. 숫자·한글·기호가 섞이면 건드리지 않는다.
+  if (!body || !/^[A-Za-z][A-Za-z\s',]*$/.test(body)) return null;
+  return wrongPastFix(body, end) || subjectVerbFix(body, end) || articleFix(body, end) || pluralFix(body, end);
+}
+
+/** 학생 문장에서 교정을 만든다 (시간 표현 보완 → 고신뢰 문법 규칙). 맞지 않으면 null.
+ *  호출부(index.ts · api-ai.ts)는 이 이름을 그대로 쓴다. */
+export function backfillPastTenseFix(studentInput: unknown): BackfillFix | null {
+  return pastOrFutureFix(studentInput) || grammarRuleFix(studentInput);
 }
