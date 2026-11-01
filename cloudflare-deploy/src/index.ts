@@ -4548,7 +4548,6 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
        🔁 이미 물은 질문(repeatOf)도 멈추되, 시간 예산을 넘긴 턴은 다시 안 뽑으니 멈추지도 않는다. */
     const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput, fragQ, honest: !!honest, focused: honest?.mode === 'focused',
       repeatOf: qmem ? (sen) => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS && repeatedQuestions(sen, qmem).length > 0 : undefined }) : null;
-    live?.primer();   // 📣 (2026-11-01) 집중교정이면 모델을 기다리는 동안 중립 리액션 신호를 먼저 — 글자는 안 보냄(warmup-stream.ts primer)
     try {
       const result: any = await runWarmup(messages, 0.7, live);
       aiText = takeWarmupReply(result); commitFix();
