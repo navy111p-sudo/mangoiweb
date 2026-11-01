@@ -98,15 +98,15 @@
           "name": "chime"
         }
       ],
-      "video": "/media/dubbing/dub-004/scene-1.mp4?v=2",
+      "video": "/media/dubbing/dub-004/scene-1.mp4?v=4",
       "durationSec": 40,
       "videoAudio": "mute",
       "bgm": null,
       "voices": {
-        "kai": "/media/dubbing/dub-004/scene-1-kai.mp3",
-        "emma": "/media/dubbing/dub-004/scene-1-emma.mp3",
-        "maya": "/media/dubbing/dub-004/scene-1-maya.mp3",
-        "pip": "/media/dubbing/dub-004/scene-1-pip.mp3",
+        "kai": "/media/dubbing/dub-004/scene-1-kai.mp3?v=2",
+        "emma": "/media/dubbing/dub-004/scene-1-emma.mp3?v=2",
+        "maya": "/media/dubbing/dub-004/scene-1-maya.mp3?v=2",
+        "pip": "/media/dubbing/dub-004/scene-1-pip.mp3?v=2",
         "momo": "/media/dubbing/dub-004/scene-1-momo.mp3?v=2"
       },
       "lines": [
@@ -128,7 +128,7 @@
           "emotion": "alert",
           "scored": true,
           "start": 6.549625,
-          "end": 10.654625
+          "end": 8.7196
         },
         {
           "id": "s1-l3",
@@ -178,7 +178,7 @@
           "emotion": "concerned",
           "scored": true,
           "start": 26.894229166666666,
-          "end": 29.279229166666667
+          "end": 29.0842
         },
         {
           "id": "s1-l8",
@@ -211,7 +211,7 @@
           "end": 38.27102083333333
         }
       ],
-      "poster": "/media/dubbing/dub-004/scene-1.jpg"
+      "poster": "/media/dubbing/dub-004/scene-1.jpg?v=2"
     },
     {
       "no": 2,
@@ -241,16 +241,16 @@
           "name": "chime"
         }
       ],
-      "video": "/media/dubbing/dub-004/scene-2.mp4?v=2",
+      "video": "/media/dubbing/dub-004/scene-2.mp4?v=4",
       "durationSec": 40,
       "videoAudio": "mute",
       "bgm": null,
       "voices": {
-        "kai": "/media/dubbing/dub-004/scene-2-kai.mp3",
-        "emma": "/media/dubbing/dub-004/scene-2-emma.mp3",
-        "maya": "/media/dubbing/dub-004/scene-2-maya.mp3",
-        "pip": "/media/dubbing/dub-004/scene-2-pip.mp3",
-        "momo": "/media/dubbing/dub-004/scene-2-momo.mp3"
+        "kai": "/media/dubbing/dub-004/scene-2-kai.mp3?v=2",
+        "emma": "/media/dubbing/dub-004/scene-2-emma.mp3?v=2",
+        "maya": "/media/dubbing/dub-004/scene-2-maya.mp3?v=2",
+        "pip": "/media/dubbing/dub-004/scene-2-pip.mp3?v=2",
+        "momo": "/media/dubbing/dub-004/scene-2-momo.mp3?v=2"
       },
       "lines": [
         {
@@ -261,7 +261,7 @@
           "emotion": "curious",
           "scored": true,
           "start": 1.1321041666666667,
-          "end": 2.8171458333333335
+          "end": 2.9121
         },
         {
           "id": "s2-l2",
@@ -311,7 +311,7 @@
           "emotion": "surprised",
           "scored": true,
           "start": 21.4535,
-          "end": 23.1935
+          "end": 22.9432
         },
         {
           "id": "s2-l7",
@@ -354,7 +354,7 @@
           "end": 37.017354166666664
         }
       ],
-      "poster": "/media/dubbing/dub-004/scene-2.jpg"
+      "poster": "/media/dubbing/dub-004/scene-2.jpg?v=2"
     },
     {
       "no": 3,
@@ -388,15 +388,15 @@
           "name": "sparkle"
         }
       ],
-      "video": "/media/dubbing/dub-004/scene-3.mp4?v=2",
+      "video": "/media/dubbing/dub-004/scene-3.mp4?v=4",
       "durationSec": 40,
       "videoAudio": "mute",
       "bgm": null,
       "voices": {
-        "kai": "/media/dubbing/dub-004/scene-3-kai.mp3",
-        "emma": "/media/dubbing/dub-004/scene-3-emma.mp3",
-        "maya": "/media/dubbing/dub-004/scene-3-maya.mp3",
-        "pip": "/media/dubbing/dub-004/scene-3-pip.mp3",
+        "kai": "/media/dubbing/dub-004/scene-3-kai.mp3?v=2",
+        "emma": "/media/dubbing/dub-004/scene-3-emma.mp3?v=2",
+        "maya": "/media/dubbing/dub-004/scene-3-maya.mp3?v=2",
+        "pip": "/media/dubbing/dub-004/scene-3-pip.mp3?v=2",
         "momo": "/media/dubbing/dub-004/scene-3-momo.mp3?v=2"
       },
       "lines": [
@@ -428,7 +428,7 @@
           "emotion": "focused",
           "scored": true,
           "start": 6.7349375,
-          "end": 8.2449375
+          "end": 7.9134
         },
         {
           "id": "s3-l4",
@@ -478,7 +478,7 @@
           "emotion": "confident",
           "scored": true,
           "start": 28.399833333333333,
-          "end": 30.419833333333333
+          "end": 30.6798
         },
         {
           "id": "s3-l9",
@@ -501,7 +501,7 @@
           "end": 38.7698125
         }
       ],
-      "poster": "/media/dubbing/dub-004/scene-3.jpg"
+      "poster": "/media/dubbing/dub-004/scene-3.jpg?v=2"
     },
     {
       "no": 4,
@@ -534,16 +534,16 @@
           "name": "chime"
         }
       ],
-      "video": "/media/dubbing/dub-004/scene-4.mp4?v=3",
+      "video": "/media/dubbing/dub-004/scene-4.mp4?v=4",
       "durationSec": 40,
       "videoAudio": "mute",
       "bgm": null,
       "voices": {
-        "kai": "/media/dubbing/dub-004/scene-4-kai.mp3",
-        "emma": "/media/dubbing/dub-004/scene-4-emma.mp3",
-        "maya": "/media/dubbing/dub-004/scene-4-maya.mp3",
-        "pip": "/media/dubbing/dub-004/scene-4-pip.mp3",
-        "momo": "/media/dubbing/dub-004/scene-4-momo.mp3"
+        "kai": "/media/dubbing/dub-004/scene-4-kai.mp3?v=2",
+        "emma": "/media/dubbing/dub-004/scene-4-emma.mp3?v=2",
+        "maya": "/media/dubbing/dub-004/scene-4-maya.mp3?v=2",
+        "pip": "/media/dubbing/dub-004/scene-4-pip.mp3?v=2",
+        "momo": "/media/dubbing/dub-004/scene-4-momo.mp3?v=2"
       },
       "lines": [
         {
@@ -574,7 +574,7 @@
           "emotion": "amazed",
           "scored": true,
           "start": 7.39275,
-          "end": 10.80775
+          "end": 10.0228
         },
         {
           "id": "s4-l4",
@@ -624,7 +624,7 @@
           "emotion": "apologetic",
           "scored": true,
           "start": 27.948104166666667,
-          "end": 30.733125
+          "end": 30.0581
         },
         {
           "id": "s4-l9",
@@ -647,7 +647,7 @@
           "end": 37.58614583333333
         }
       ],
-      "poster": "/media/dubbing/dub-004/scene-4.jpg"
+      "poster": "/media/dubbing/dub-004/scene-4.jpg?v=2"
     },
     {
       "no": 5,
@@ -693,16 +693,16 @@
           "name": "horn"
         }
       ],
-      "video": "/media/dubbing/dub-004/scene-5.mp4?v=3",
+      "video": "/media/dubbing/dub-004/scene-5.mp4?v=4",
       "durationSec": 40,
       "videoAudio": "mute",
       "bgm": null,
       "voices": {
-        "kai": "/media/dubbing/dub-004/scene-5-kai.mp3",
-        "emma": "/media/dubbing/dub-004/scene-5-emma.mp3",
-        "maya": "/media/dubbing/dub-004/scene-5-maya.mp3",
-        "pip": "/media/dubbing/dub-004/scene-5-pip.mp3",
-        "momo": "/media/dubbing/dub-004/scene-5-momo.mp3"
+        "kai": "/media/dubbing/dub-004/scene-5-kai.mp3?v=2",
+        "emma": "/media/dubbing/dub-004/scene-5-emma.mp3?v=2",
+        "maya": "/media/dubbing/dub-004/scene-5-maya.mp3?v=2",
+        "pip": "/media/dubbing/dub-004/scene-5-pip.mp3?v=2",
+        "momo": "/media/dubbing/dub-004/scene-5-momo.mp3?v=2"
       },
       "lines": [
         {
@@ -743,7 +743,7 @@
           "emotion": "excited",
           "scored": true,
           "start": 9.5444375,
-          "end": 13.2194375
+          "end": 11.6244
         },
         {
           "id": "s5-l5",
@@ -793,7 +793,7 @@
           "emotion": "relieved",
           "scored": true,
           "start": 30.258604166666668,
-          "end": 34.93360416666667
+          "end": 32.3686
         },
         {
           "id": "s5-l10",
@@ -806,7 +806,7 @@
           "end": 37.8101875
         }
       ],
-      "poster": "/media/dubbing/dub-004/scene-5.jpg"
+      "poster": "/media/dubbing/dub-004/scene-5.jpg?v=2"
     },
     {
       "no": 6,
@@ -836,16 +836,16 @@
           "name": "fanfare"
         }
       ],
-      "video": "/media/dubbing/dub-004/scene-6.mp4?v=3",
+      "video": "/media/dubbing/dub-004/scene-6.mp4?v=4",
       "durationSec": 40,
       "videoAudio": "mute",
       "bgm": null,
       "voices": {
-        "kai": "/media/dubbing/dub-004/scene-6-kai.mp3",
-        "emma": "/media/dubbing/dub-004/scene-6-emma.mp3",
-        "maya": "/media/dubbing/dub-004/scene-6-maya.mp3",
-        "pip": "/media/dubbing/dub-004/scene-6-pip.mp3",
-        "momo": "/media/dubbing/dub-004/scene-6-momo.mp3"
+        "kai": "/media/dubbing/dub-004/scene-6-kai.mp3?v=2",
+        "emma": "/media/dubbing/dub-004/scene-6-emma.mp3?v=2",
+        "maya": "/media/dubbing/dub-004/scene-6-maya.mp3?v=2",
+        "pip": "/media/dubbing/dub-004/scene-6-pip.mp3?v=2",
+        "momo": "/media/dubbing/dub-004/scene-6-momo.mp3?v=2"
       },
       "lines": [
         {
@@ -856,7 +856,7 @@
           "emotion": "warm",
           "scored": true,
           "start": 0.4995,
-          "end": 2.7095
+          "end": 2.8095
         },
         {
           "id": "s6-l2",
@@ -906,7 +906,7 @@
           "emotion": "cheerful",
           "scored": true,
           "start": 16.809708333333333,
-          "end": 19.234708333333334
+          "end": 18.1797
         },
         {
           "id": "s6-l7",
@@ -949,8 +949,8 @@
           "end": 38.57375
         }
       ],
-      "poster": "/media/dubbing/dub-004/scene-6.jpg"
+      "poster": "/media/dubbing/dub-004/scene-6.jpg?v=2"
     }
   ],
-  "_comment": "A.i영화더빙 dub-004 (4편 «뜻밖의 반전!» — 등대의 별 수정). 영상 = AI 영상 생성기(wan2_7)로 실제 대사 음성에 입모양을 맞춘 10초 안팎 클립 4개를 이어 장면마다 40초(2026-10-21 합성, tools: 임시 브랜치 ep4-media-build). 역할별 음성 scene-N-<역>.mp3 = 입모양을 만든 그 장면 음성에서 그 역의 대사 구간만 남긴 것(40초, 나머지 무음) — 실제 음성 구간이 전부 대사 창 안에 드는 것을 확인. 배경음악·효과음은 아직 없음(bgm null — 1·3편과 같음). 갈아 끼울 때는 ?v= 를 붙이세요(미디어 7일 캐시). 2026-10-21: 모모 s1-l10·s3-l6 두 줄만 음높이가 다른 줄보다 반음 4~5개 높아(CREPE 188·183Hz 대 나머지 119~151Hz) Praat PSOLA 로 내림 — 길이·타이밍 그대로(scene-1·3-momo.mp3?v=2). 2026-10-22: 카이 s4-l4·s4-l9, 마야 s6-l3 대사 때 모모가 말하는 것으로 보이던 화면을 실제 화자 단독 대사 컷으로 교체. 5장면 사다리 컷의 세 번째 팔 수정. 영상만 교체하며 원어민 음원·대사·화자·시각·40초 길이는 유지(scene-4·5·6.mp4?v=2)."
+  "_comment": "A.i영화더빙 dub-004 (4편 «뜻밖의 반전!» — 등대의 별 수정). 2026-10-21 재생성: 대사 «한 줄마다» 클립 하나 — 그 줄을 말하는 캐릭터 «한 명만» 나오는 클로즈업 그림 + 그 줄 음성만으로 AI 영상 생성기(wan2_7)가 입모양을 맞춘 클립 60개를 원래 대사 시각에 맞춰 이어 장면마다 40초(이전 판은 여러 캐릭터가 함께 나오는 그림에 장면 음성을 통째로 넣어 «말하지 않는 캐릭터의 입» 이 움직였다). Emma 목소리는 다른 여자아이 목소리(Chloe)로 새로 녹음 — 시작 시각은 원래 대본 그대로, 끝 시각만 새 음성 길이로 고침. Kai 의 두 줄(s2-l3·s3-l7)은 입이 덜 움직여 한 번 더 생성해 바꿈. 역할별 음성 scene-N-<역>.mp3 = 그 장면 음성에서 그 역의 대사 구간만 남긴 것(40초, 나머지 무음). 배경음악·효과음은 아직 없음(bgm null). 같은 이름으로 갈아 끼웠으므로 ?v=2(미디어 7일 캐시) — 또 갈아 끼우면 번호를 올리세요. 2026-10-22 main 병합: 모모 s1-l10·s3-l6 음높이 보정(#1702, Praat PSOLA — 길이·타이밍 그대로)을 유지해 scene-1·3-momo.mp3 는 그 보정본(?v=2) — 이 판 영상의 모모 입모양은 같은 원본 모모 음성으로 만들어 시각이 같음. #1706·18396f1b1 의 옛 영상 부분 수정(화자 컷 16줄·엠마 연속성·사다리 두 팔)은 이 판의 60줄 한 명 클로즈업 전면 재생성이 대신함(같은 문제를 전 줄에서 해결 — 새 Emma 음성에 입을 맞춘 영상이라 옛 영상과 섞을 수 없음). 장면 영상 주소는 main 이 이미 쓴 ?v=2·?v=3 과 겹치지 않게 6개 모두 ?v=4."
 }
