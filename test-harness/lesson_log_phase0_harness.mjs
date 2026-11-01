@@ -136,7 +136,8 @@ check('🔑 한 번의 호출로 en·ko 를 함께 받는다 (두 번 부르지 
 check('🔒 학생 실명은 가려서 보낸다', /const MASK = '\{\{STUDENT\}\}'/.test(SRC) && /stuName \? raw\.split\(stuName\)\.join\(MASK\)/.test(SRC));
 check('🔒 돌아오면 실명을 되돌린다', /outEn\.split\(MASK\)\.join\(stuName\)/.test(SRC));
 check('🔴 한국어가 없으면 ok:false (화면이 발송을 막아야 한다)',
-  /const hasKo = \/\[가-힣\]\/\.test\(outKo\);[\s\S]{0,120}error: 'no_korean'/.test(SRC));
+  // 2026-11-01: 깨진 한국어(looksGarbledKo)도 «한국어 없음» 과 같은 갈래로 막습니다 — 뜻(발송을 막는다)은 그대로라 그 덧붙임을 허용합니다.
+  /const hasKo = \/\[가-힣\]\/\.test\(outKo\)(?: && !looksGarbledKo\(outKo\))?;[\s\S]{0,120}error: 'no_korean'/.test(SRC));
 check('존댓말을 강제한다', /The Korean MUST use polite speech/.test(SRC));
 check('어미 중첩(합니다요)을 코드로 교정한다', /\(습니다\|합니다\|입니다\|ㅂ니다\)요/.test(SRC));
 check('「숙제」 오역을 막는다', /"숙제" is school homework, never housework or a job/.test(SRC));
