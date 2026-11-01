@@ -35,6 +35,10 @@ console.log('\nA. 정본 backfillPastTenseFix 의 답');
       'She cry last night.', 'We watch movie last week', 'He play basketball yesterday!',
       "I didn't play yesterday", 'I play soccer every day', 'I have pizza yesterday',
       'I studied yesterday', 'I played soccer yesterday', 'I flied yesterday', '', '안녕 yesterday',
+      'I play piano tomorrow', 'I go to school tomorrow.', 'He play basketball next week', 'She plays piano tomorrow',
+      'We cook dinner next Monday', 'I will play piano tomorrow', 'I am playing piano tomorrow',
+      'I want to play piano tomorrow', 'I like piano tomorrow', 'I played piano tomorrow', 'I play piano today',
+      'You go to park tomorrow', 'It rain tomorrow', 'I eat pizza tomorrow',
     ])};\n` +
     `console.log(JSON.stringify(cases.map(s => [s, f(s)])));\n`);
   const r = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', join(tmp, 'run.mjs')], { encoding: 'utf8' });
@@ -42,7 +46,21 @@ console.log('\nA. 정본 backfillPastTenseFix 의 답');
   let rows = [];
   try { rows = JSON.parse(r.stdout.trim().split('\n').pop()); } catch {}
   const get = (s) => (rows.find(x => x[0] === s) || [])[1];
-  check('A-0 정본을 실행했다 (결과 행 14개)', rows.length === 14, (r.stderr || '').slice(0, 200));
+  check('A-0 정본을 실행했다 (결과 행 28개)', rows.length === 28, (r.stderr || '').slice(0, 200));
+  // 🔮 미래: 「현재형 + tomorrow/next 〇〇」 → will + 원형 (tag 는 verb_form)
+  check('A-13 play piano tomorrow → will play (미래 핵심 사례)', get('I play piano tomorrow')?.now === 'I will play piano tomorrow');
+  check('A-14 go → will go (to 가 있어도 장소 전치사라 막지 않는다)', get('I go to school tomorrow.')?.now === 'I will go to school tomorrow.');
+  check('A-15 He play … next week → He will play (-s 없는 3인칭)', get('He play basketball next week')?.now === 'He will play basketball next week');
+  check('A-16 She plays → She will play (-s 제거)', get('She plays piano tomorrow')?.now === 'She will play piano tomorrow');
+  check('A-17 next Monday 도 미래 표현', get('We cook dinner next Monday')?.now === 'We will cook dinner next Monday');
+  check('A-18 이미 will 이면 안 건드린다', get('I will play piano tomorrow') === null);
+  check('A-19 진행형(am playing)은 안 건드린다', get('I am playing piano tomorrow') === null);
+  check('A-20 want to 는 올바른 문장이라 안 건드린다', get('I want to play piano tomorrow') === null);
+  check('A-21 like 는 상태 동사라 뜻을 바꾸지 않도록 안 건드린다', get('I like piano tomorrow') === null);
+  check('A-22 과거형 + tomorrow 는 미래 보완 대상이 아니다', get('I played piano tomorrow') === null);
+  check('A-23 today 는 미래 표현이 아니다', get('I play piano today') === null);
+  check('A-24 It rain tomorrow 는 It 의 -s 없는 형도 안 건드린다 (rain 은 표에 없음)', get('It rain tomorrow') === null);
+  check('A-25 eat → will eat (불규칙 원형)', get('I eat pizza tomorrow')?.now === 'I will eat pizza tomorrow');
   check('A-1 play → played (첫 턴, 핵심 사례)', get('I play soccer yesterday')?.now === 'I played soccer yesterday');
   check('A-2 go → went (to 가 있어도 막지 않는다)', get('I go to school yesterday')?.now === 'I went to school yesterday');
   check('A-3 eat → ate (불규칙)', get('I eat pizza yesterday')?.now === 'I ate pizza yesterday');
@@ -53,8 +71,8 @@ console.log('\nA. 정본 backfillPastTenseFix 의 답');
   check('A-8 이미 과거형이면 안 건드린다', get('I played soccer yesterday') === null);
   check('A-9 표에 없는 동사는 안 건드린다 (지어내지 않는다)', get('I flied yesterday') === null);
   check('A-10 빈 입력·한글 섞임은 null', get('') === null && get('안녕 yesterday') === null);
-  const ok = rows.filter(x => x[1]).every(x => x[1].tag === 'past_tense' && x[1].was !== x[1].now && /[가-힣]/.test(x[1].why_ko) && x[1].why_ko.length <= 200);
-  check('A-11 모든 답은 past_tense·서로 다름·한글 설명·200자 이하', ok);
+  const ok = rows.filter(x => x[1]).every(x => ['past_tense', 'verb_form'].includes(x[1].tag) && x[1].was !== x[1].now && /[가-힣]/.test(x[1].why_ko) && x[1].why_ko.length <= 200);
+  check('A-11 모든 답은 과거(past_tense)·미래(verb_form) 태그·서로 다름·한글 설명·200자 이하', ok);
   check('A-12 was 는 학생 원문 그대로 (끝 문장부호 포함)', get('He play basketball yesterday!')?.was === 'He play basketball yesterday!');
 }
 

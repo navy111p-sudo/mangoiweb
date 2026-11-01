@@ -66,21 +66,59 @@ export function backfillPastTenseFix(studentInput: unknown): { was: string; now:
   const rest = sm[3] || '';
   if (!SUBJECTS.includes(subj)) return null;
 
-  if (!PAST_MARKER.test(body)) return null;
   if (BLOCKERS.test(body)) return null;
   // 숫자·기호가 섞이면 확실하지 않으니 버린다
   if (/[^A-Za-z\s',]/.test(body)) return null;
 
-  const past = pastOf(verb);
-  if (!past || past.toLowerCase() === verb.toLowerCase()) return null;
-
   const subjOriginal = sm[1];
   const restPart = rest ? ' ' + rest : '';
   const was = body + end;
+
+  // 🔮 미래 표현(tomorrow · next 〇〇) — 「I play piano tomorrow」 → 「I will play piano tomorrow」.
+  if (FUTURE_MARKER.test(body)) {
+    const base = futureBaseOf(subj, verb);
+    if (!base) return null;
+    // 「want to play」처럼 to부정사를 받는 동사는 FUTURE_SKIP_VERBS 에서 이미 막는다.
+    // 여기서 rest 의 「to」를 보면 「go to school」 같은 전치사 to 까지 막히므로 보지 않는다.
+    const now = subjOriginal + ' will ' + base + restPart + end;
+    if (was === now) return null;
+    const marker = (body.match(FUTURE_MARKER) || ['tomorrow'])[0].toLowerCase();
+    const whyKo = `${marker}처럼 앞으로 할 일은 will 과 동사 원형으로 써요. ${verb} → will ${base}`;
+    return { was, now, why_ko: whyKo, tag: 'verb_form' };
+  }
+
+  if (!PAST_MARKER.test(body)) return null;
+
+  const past = pastOf(verb);
+  if (!past || past.toLowerCase() === verb.toLowerCase()) return null;
+
   const now = subjOriginal + ' ' + past + restPart + end;
   if (was === now) return null;
 
   const marker = (body.match(PAST_MARKER) || ['yesterday'])[0].toLowerCase();
   const whyKo = `${marker}처럼 지난 일을 말할 때는 동사를 과거형으로 써요. ${verb} → ${past}`;
   return { was, now, why_ko: whyKo, tag: 'past_tense' };
+}
+
+/* 미래 표현 — 이 중 하나가 있으면 「현재형 + 미래 시간」 오류를 본다. */
+const FUTURE_MARKER = /\b(tomorrow|next\s+(?:week|month|year|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b/i;
+
+/* 「want to ~」처럼 뒤에 to부정사·동명사를 받는 동사, 그리고 상태·생각 동사는 미래 보완에서 뺀다.
+   「I like piano tomorrow」 같은 문장은 「will like」로 바꾸면 뜻이 달라지므로 건드리지 않는다. */
+const FUTURE_SKIP_VERBS: readonly string[] = [
+  'want', 'like', 'love', 'need', 'hope', 'plan', 'try', 'decide', 'start', 'begin', 'learn',
+  'enjoy', 'hate', 'prefer', 'know', 'think', 'feel', 'seem', 'look', 'be', 'have',
+];
+
+/** 미래 보완용 원형. I·We·You·They 는 원형 그대로만, He·She·It 은 -s 형도 원형으로 본다. */
+function futureBaseOf(subj: string, verb: string): string | null {
+  const v = verb.toLowerCase();
+  if (FUTURE_SKIP_VERBS.includes(v)) return null;
+  const known = (w: string) => (REGULAR_VERBS.includes(w) || Object.prototype.hasOwnProperty.call(IRREGULAR_PAST, w)) && !FUTURE_SKIP_VERBS.includes(w);
+  if (known(v)) return v;
+  if (['he', 'she', 'it'].includes(subj)) {
+    if (v.endsWith('es') && known(v.slice(0, -2))) return v.slice(0, -2);
+    if (v.endsWith('s') && known(v.slice(0, -1))) return v.slice(0, -1);
+  }
+  return null;
 }
