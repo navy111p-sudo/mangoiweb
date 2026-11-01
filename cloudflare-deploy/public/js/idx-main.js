@@ -8680,6 +8680,8 @@ window.vcSetBackground = async function(mode){
     try { if (typeof showToast === 'function') showToast(_vcBgLockMsg(true)); } catch(_){}
     return;
   }
+  const generation = vcBg._changeGeneration = (vcBg._changeGeneration || 0) + 1;
+  const isCurrent = () => generation === vcBg._changeGeneration;
   // 활성 타일 표시
   document.querySelectorAll('.vc-bg-tile').forEach(t => {
     if (t.getAttribute('data-bg') === mode) {
@@ -8695,7 +8697,7 @@ window.vcSetBackground = async function(mode){
 
   // 카메라 트랙 확보
   const camTrack = vcLocalStream && vcLocalStream.getVideoTracks()[0];
-  if (!camTrack) {
+  if (!camTrack && mode !== 'off') {
     if (status) status.textContent = '⚠ 카메라가 꺼져 있어 가상 배경을 적용할 수 없습니다.';
     return;
   }
@@ -8757,12 +8759,17 @@ window.vcSetBackground = async function(mode){
   // 첫 적용: MediaPipe 로드 + 엔진 init + 배경 이미지 + 원본 트랙 보관 (best-effort)
   try {
     await vcLoadMediaPipe();
+    if (!isCurrent()) return;
     await vcInitBgEngine();
+    if (!isCurrent()) return;
     await vcEnsureHiddenVideo();
+    if (!isCurrent()) return;
     if (mode !== 'blur' && VC_BG_IMAGES[mode]) {
       await vcLoadBgImage(mode);
     }
+    if (!isCurrent()) return;
   } catch(e) {
+    if (!isCurrent()) return;
     if (status) status.textContent = '✅ ' + (({blur:'흐림',galaxy:'우주',desert:'사막',underwater:'바닷속',beach:'바닷가',jungle:'정글'})[mode]||mode) + ' 배경 (CSS 프레임 모드 - AI 처리 미사용)';
     console.warn('[vc-bg] MediaPipe 로드 실패, CSS 프레임 모드 유지:', e);
     return;
@@ -8775,9 +8782,15 @@ window.vcSetBackground = async function(mode){
   vcBg.isProcessing = true;
 
   // 첫 프레임 즉시 한 번 그려서 검정 화면 방지 (RAF 첫 콜백 전 대기 시간 동안)
-  try {
-    await vcBg.segmenter.send({ image: vcBg.hiddenVideo });
-  } catch(e) { console.warn('[vc-bg] 초기 프레임 송신 실패:', e); }
+  // Initial inference uses the same mutex as RAF and other background requests.
+  if (!vcBg.sending) {
+    vcBg.sending = true;
+    try {
+      await vcBg.segmenter.send({ image: vcBg.hiddenVideo });
+    } catch(e) { console.warn('[vc-bg] 초기 프레임 송신 실패:', e); }
+    finally { vcBg.sending = false; }
+  }
+  if (!isCurrent()) return;
   if (vcBg.isProcessing && !vcBg.rafId) vcBgRenderLoop();
 
   // 캔버스 스트림 생성 → 로컬 비디오에 연결 + sender 교체
@@ -8808,7 +8821,7 @@ window.vcSetBackground = async function(mode){
   vcBg.frameCount = 0;
   vcBg.errorCount = 0;
   setTimeout(() => {
-    if (vcBg.mode !== mode) return; // 사용자가 다른 배경으로 바꿈
+    if (!isCurrent()) return; // Also rejects a stale A→B→A request.
     const nameMap = {blur:'흐림',galaxy:'우주',desert:'사막',underwater:'바닷속',beach:'바닷가',jungle:'정글'};
     const niceName = nameMap[mode] || mode;
     if ((vcBg.frameCount || 0) > 0) {
@@ -12024,7 +12037,9 @@ window.vcDownloadCurrentTextbook = vcDownloadCurrentTextbook;
 
 async function pdfLoadRemote(pdfId, page, kind) {
     pdfCurrentId = pdfId;
-    await pdfLoad(`/api/video-call/pdf/${pdfId}`, kind);
+    // A newer document or room may have cancelled this load while it was pending.
+    // Keep its stale page number out of the document that won the race.
+    if (await pdfLoad(`/api/video-call/pdf/${pdfId}`, kind) === false) return false;
     pdfPageNum = page || 1;
     pdfRender();
 }

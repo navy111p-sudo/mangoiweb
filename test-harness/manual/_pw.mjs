@@ -36,6 +36,9 @@ export function loadPlaywright() {
 
 /** 미리 깔려 있는 Chromium 실행 파일. 웹 세션 환경은 /opt/pw-browsers 를 쓴다. */
 export function findChromium() {
+  // Also supports an installed Windows/macOS browser without a Linux bundle.
+  const explicit = process.env.MANGOI_CHROME_EXECUTABLE;
+  if (explicit && existsSync(explicit)) return explicit;
   const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
   if (!existsSync(base)) return null;
   for (const d of readdirSync(base)) {
