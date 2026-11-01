@@ -19,7 +19,8 @@ import { checkAndAwardBadges, BADGE_CATALOG } from './api-games';
 import { processAiCommand, executeAction, processStudentCommand } from './ai-command';
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
 import { checkAdminSession } from './auth-admin';
-import { triageIssues, isReadableKo, isEnglishReply } from './write-issue-triage';   // 🚦 고칠 곳 3단계 판정(오류·참고·인정) — «왜» 설명은 그 안에서 correction-reason 을 씀
+import { triageIssues, isReadableKo, isEnglishReply } from './write-issue-triage';
+import { looksGarbledKo } from './ko-readable';   // 🔤 수업 중 질문의 한국어 뜻 거르기(2026-11-01)   // 🚦 고칠 곳 3단계 판정(오류·참고·인정) — «왜» 설명은 그 안에서 correction-reason 을 씀
 import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint, aiFriendStudentAsked,
          aiFriendTrimSentences, aiFriendNormalizeLevel,
          AI_FRIEND_DEFAULT_LEVEL, AI_FRIEND_LEVELS } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
@@ -656,7 +657,7 @@ Student text: """${text}"""`;
 
     // ✋ A.i 선생님 수업 — 학생 질문 즉답. 판정·상한·파싱은 전부 class-ask.ts 정본(여기는 부르기만)
     if (method === 'POST' && path === '/api/ai/class-ask') {
-      return handleClassAsk(request, env, { json, recordFailure: (f: any) => recordAiFailure(env, f), linkRule: connectorRule('beginner') });
+      return handleClassAsk(request, env, { json, recordFailure: (f: any) => recordAiFailure(env, f), linkRule: connectorRule('beginner'), koOk: (s: string) => !looksGarbledKo(s) });
     }
 
     if (method === 'POST' && path === '/api/ai/chat-friend') {

@@ -19,6 +19,7 @@
 //     ⛔ 학생이 쓰지 않은 말을 «고쳤다» 고 띄우지 않습니다(어휘 업그레이드의 from 규칙과 같음).
 // ═══════════════════════════════════════════════════════════════════════
 import { explainCorrection, STYLE_SWAP_LEAD, DROP_WORDS_LEAD } from './correction-reason';
+import { isReadableKo, isEnglishReply } from './ko-readable';
 
 export type IssueKind = 'error' | 'suggest';
 export interface TriagedIssue { original: string; suggested: string; reason: string; kind: IssueKind }
@@ -66,39 +67,9 @@ export function modelCategory(it: any): 'error' | 'unnatural' | '' {
   return '';   // 'style'·'ok'·빈 값 — «다르게도 쓸 수 있다» 는 고칠 근거가 아닙니다
 }
 
-/**
- * AI 가 쓴 한국어가 «사람이 읽을 수 있는 문장» 인가(2026-11-01 실사고).
- *   운영 화면 실측: 「신호 입력를 지도신.」·「어 신린 있다 없다」·「지도 알는 어 지도 었다 알 지도 었다.」 —
- *   한국어에 약한 보조 모델이 낱말 조각을 늘어놓았는데, «한글 6자 이상» 검사만 있어 그대로 학생 화면에 나갔습니다.
- *   ⛔ 확신이 없으면 버립니다(부르는 쪽이 결정론 설명·기본 문구로 바꿉니다). 틀린 설명은 설명 없음보다 나쁩니다.
- *   ① 길이 6~200 · 한글 포함  ② 존댓말로 끝남(…요 / …니다)  ③ 같은 낱말이 세 번 이상 반복되지 않음
- *   ④ 받침 있는 글자 뒤 «를», 받침 없는 글자 뒤 «을» 같은 틀린 조사가 없음(「입력를」)
- */
-export function isReadableKo(raw: any): boolean {
-  const s = String(raw == null ? '' : raw).trim();
-  if (s.length < 6 || s.length > 200 || !/[가-힣]/.test(s)) return false;
-  if (!/(요|니다)[.!?~\s]*$/.test(s)) return false;
-  const toks = s.replace(/[^가-힣a-zA-Z0-9' ]+/g, ' ').split(/\s+/).filter(Boolean);
-  const cnt: Record<string, number> = {};
-  for (const t of toks) { cnt[t] = (cnt[t] || 0) + 1; if (cnt[t] >= 3) return false; }
-  const hasJong = (ch: string) => { const c = ch.charCodeAt(0) - 0xAC00; return c >= 0 && c < 11172 && c % 28 !== 0; };
-  for (const t of toks) {
-    const m = t.match(/([가-힣])(를|을)$/);
-    if (!m || t.length < 3) continue;
-    if (m[2] === '를' && hasJong(m[1])) return false;
-    if (m[2] === '을' && !hasJong(m[1])) return false;
-  }
-  return true;
-}
-
-/** 영어로 써야 하는 칸(펜팔 답장)인가 — 한글이 섞이거나 영문자가 너무 적으면 false. */
-export function isEnglishReply(raw: any): boolean {
-  const s = String(raw == null ? '' : raw).trim();
-  if (!s || /[\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF]/.test(s)) return false;
-  const nonSpace = s.replace(/\s+/g, '');
-  const letters = (nonSpace.match(/[A-Za-z]/g) || []).length;
-  return letters >= 3 && letters / nonSpace.length >= 0.6;
-}
+/* 🔤 «읽을 수 있는 한국어» 판정은 공용 정본 ko-readable.ts 로 옮겼습니다(2026-11-01 — 다른 AI 기능도 같은 검사를 씁니다).
+   이 파일은 그대로 다시 내보내 api-ai.ts 의 import 가 바뀌지 않게 합니다. */
+export { isReadableKo, isEnglishReply };
 
 /**
  * 모델이 준 issues 배열을 3단계로 가릅니다(순수 함수 — 던지지 않습니다).

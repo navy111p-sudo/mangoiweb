@@ -8,6 +8,7 @@
 //   라우트: /api/vocab/* + /api/admin/microlearn/* + /api/review-quiz/* + /api/admin/review-quiz/*
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
+import { isReadableKo, looksGarbledKo } from './ko-readable';   // 🔤 깨진 한국어 거르기(2026-11-01)
 import { json } from './api-util';
 import { KOREAN_GLOSS_RULE, hasForeignGloss, normalizeKoreanGloss, isKoreanGloss, repairKoreanGlosses, readableKoreanVocabulary } from './korean-vocab';
 import { applyPointTransaction } from './api-points';   // 🧾 포인트는 원장(point_transactions)을 거친다
@@ -1708,6 +1709,11 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         try { arr = JSON.parse(m[0]); } catch { return { ok: false as const, error: 'ai_bad_json' }; }
         const parsed = rqParseQuestions(arr);
         if (!parsed.ok || !parsed.list || !parsed.list.length) return { ok: false as const, error: parsed.error || 'ai_invalid_questions' };
+        /* 🔤 (2026-11-01) AI 가 만든 문항의 한국어가 깨졌으면 — 문제 글이 깨진 문항은 빼고, 해설만 깨졌으면 해설을 비웁니다.
+           ⚠️ 이 자리는 «AI 생성» 갈래만입니다(rqParseQuestions 는 선생님이 쓴 문항도 읽으므로 거기엔 안 둡니다). */
+        parsed.list = parsed.list.filter((q: any) => !looksGarbledKo(q && q.q));
+        for (const q of parsed.list) if (q && looksGarbledKo(q.explain)) q.explain = '';
+        if (!parsed.list.length) return { ok: false as const, error: 'ai_invalid_questions' };
         /* 🧪 (2026-09-02) 만든 것을 «실제로 검사한다» — 지금까지 영어 갈래는 프롬프트로
            지시만 하고 결과를 한 번도 확인하지 않았다. 이 저장소의 반복 실측이
            「지시만으로는 안 지켜진다」이고(판단력 「Want play with me」·AI친구 전보문),
@@ -3035,8 +3041,8 @@ SCORE: accuracy ${accuracy}, pronunciation ${pronunciation}, fluency ${fluency} 
 
 Respond in JSON ONLY:
 {
-  "feedback": "<one short Korean sentence about what was good and what to improve>",
-  "suggestion": "<one Korean tip to practice next time>"
+  "feedback": "<one short, natural Korean sentence ending in ~요. about what was good and what to improve>",
+  "suggestion": "<one short, natural Korean tip ending in ~요. for next time>"
 }`;
           const resp = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
             messages: [
@@ -3054,8 +3060,9 @@ Respond in JSON ONLY:
           if (m) {
             try {
               const j = JSON.parse(m[0]);
-              if (j.feedback) aiFeedback = String(j.feedback).slice(0, 300);
-              if (j.suggestion) suggestion = String(j.suggestion).slice(0, 300);
+              // 🔤 깨진 한국어(「지도 알는 어 지도 었다…」류 — 2026-11-01 영작 첨삭 실사고)는 버리고 아래 기본 문구를 씁니다.
+              if (j.feedback && isReadableKo(j.feedback)) aiFeedback = String(j.feedback).slice(0, 300);
+              if (j.suggestion && isReadableKo(j.suggestion)) suggestion = String(j.suggestion).slice(0, 300);
             } catch (e) { /* fall back */ }
           }
         } catch (e: any) {
