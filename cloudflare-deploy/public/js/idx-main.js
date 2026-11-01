@@ -359,11 +359,19 @@ let __vcIceLoadedAt = 0;      // TURN 자격증명 발급 시각
 let __vcIceHasTurn  = false;  // relay(TURN) 서버 확보 여부
 let __vcIcePromise  = null;   // 중복 fetch 방지 공유 promise
 async function fetchIceServers() {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2800);
     try {
-        const resp = await fetch('/api/turn-config');
+        const resp = await fetch('/api/turn-config', { signal: controller.signal });
         if (resp.ok) {
             const data = await resp.json();
-            if (data.iceServers && data.iceServers.length > 0) {
+            // Validate the complete response before replacing the last working configuration.
+            const valid = data && Array.isArray(data.iceServers) && data.iceServers.length > 0 && data.iceServers.every(server => {
+                if (!server || typeof server !== 'object') return false;
+                const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+                return urls.length > 0 && urls.every(url => typeof url === 'string' && /^(stun|stuns|turn|turns):[^\s]+$/i.test(url));
+            });
+            if (valid) {
                 ICE_SERVERS = { iceServers: data.iceServers };
                 __vcIceLoadedAt = Date.now();
                 __vcIceHasTurn = data.iceServers.some(s => {
@@ -375,6 +383,8 @@ async function fetchIceServers() {
         }
     } catch (e) {
         console.warn('[ICE] 서버 설정 로드 실패, 기본값 사용:', e);
+    } finally {
+        clearTimeout(timer);
     }
 }
 /* TURN 자격증명 준비 보장 — 연결(offer/answer/재연결) 직전에 호출.
@@ -387,10 +397,12 @@ function vcEnsureIceServers() {
     if (!__vcIcePromise) {
         __vcIcePromise = fetchIceServers().finally(() => { __vcIcePromise = null; });
     }
-    return Promise.race([__vcIcePromise, new Promise(r => setTimeout(r, 3000))]);
+    let waitTimer;
+    return Promise.race([__vcIcePromise, new Promise(r => { waitTimer = setTimeout(r, 3000); })])
+        .finally(() => clearTimeout(waitTimer));
 }
 // 페이지 로드 시 즉시 ICE 설정 가져오기
-fetchIceServers();
+vcEnsureIceServers();
 
 /**
  * getUserMedia 에러를 사용자 친화적인 한국어 메시지로 변환합니다.
@@ -3888,7 +3900,7 @@ async function vcJoinAsObserver(roomId, tok) {
     document.getElementById('vc-room-name').textContent = roomId + ' (관찰 중)';
 
     // ICE 서버 설정
-    await fetchIceServers();
+    await vcEnsureIceServers();
 
     // 관찰자는 로컬 미디어 없음 — 빈 스트림
     vcLocalStream = new MediaStream();
