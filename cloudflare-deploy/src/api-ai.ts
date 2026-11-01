@@ -23,6 +23,7 @@ import { explainCorrection } from './correction-reason';   // 🔤 «왜 고쳤�
 import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint, aiFriendStudentAsked,
          aiFriendTrimSentences, aiFriendNormalizeLevel,
          AI_FRIEND_DEFAULT_LEVEL, AI_FRIEND_LEVELS } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
+import { studentCallName, scrubLoginId } from './student-call-name';   // 🧑 학생을 부를 이름 — 아이디 금지(2026-11-01)
 import { resolveFriendName, wrongSelfName, askedOwnName } from './ai-friends';   // 🧑 AI 친구 이름 정본 + «다른 이름으로 소개했나» 판정
 import { stripAddedKorean, hasAddedKorean } from './reply-korean';               // 🇰🇷 모델이 덧붙인 한국어 번역 제거 — 「뜻」 버튼 설계를 지킨다
 import { parseJsonBody } from './api-util';
@@ -743,14 +744,19 @@ Student text: """${text}"""`;
       /* 🎚 눈높이 규격 — 이 아래의 프롬프트·검사가 전부 이 하나를 봅니다(정본 src/ai-friend-level.ts).
          ⚠️ 여기서 만들어야 합니다 — 아래 stuCtx(약점 단어)가 lvSpec.plain 을 읽습니다. */
       const lvSpec = aiFriendLevelSpec(level);
+      let callName = '';
+      try { callName = studentCallName(st, uid); } catch { callName = ''; }
       let stuCtx = '';
       try {
-        const sname = String(st?.english_name || st?.korean_name || '').trim().slice(0, 40);
+        /* 🧑 (2026-11-01) 이름 칸에 아이디가 든 학생이 있어 「Yay, ysyt01!」 이 나갔다 — 정본 src/student-call-name.ts
+           ⛔ english_name 을 그대로 쓰지 말 것 · 이름이 없으면 아이디 대신 «이름 없이» 부른다. */
+        const sname = callName;
         const textbook = String(st?.textbook || '').trim().slice(0, 60);
         // 단어장 약점 먼저, 게임 약점 다음 — 합치기·정리 정본 friendWeakList(src/vocab-weak.ts)
         const weak = friendWeakList(vw || [], (wk?.results as any[]) || [], 5);
         const parts: string[] = [];
-        if (sname) parts.push(`Their name is "${sname}" — greet or cheer them by name sometimes.`);
+        if (sname) parts.push(`Their name is "${sname}" — greet or cheer them by name sometimes. Never call them by any username or login ID.`);
+        else parts.push(`You do not know their name — cheer them without a name (e.g. "Great job!"). Never call them by a username or login ID, and never make up a name.`);
         if (textbook) parts.push(`They study the textbook "${textbook}" — occasionally relate the chat to what they learn there.`);
         if (weak.length && !lvSpec.plain) parts.push(`Words they recently got wrong in their word book, games or quizzes: ${weak.join(', ')}. Once in a while, weave ONE of these words naturally into your reply or question (never quiz the whole list at once). Cheer loudly when they use one correctly.`);
         if (parts.length) stuCtx = `\nAbout THIS student (use naturally in conversation — never recite this list):\n- ${parts.join('\n- ')}`;
@@ -831,7 +837,10 @@ ${AI_FRIEND_CORRECTION_RULE}`;
 
       const messages: any[] = [{ role: 'system', content: system }];
       for (const h of history) {
-        messages.push({ role: h.role === 'user' ? 'user' : 'assistant', content: h.content });
+        /* 🧑 예전 답장에 남은 아이디(「Yay, ysyt01!」)를 모델이 따라 하지 않게 «보여 줄 사본» 에서만 이름으로 바꾼다.
+           ⚠️ D1 기록은 그대로 둔다. */
+        const content = h.role === 'user' ? h.content : scrubLoginId(h.content, uid, callName || 'friend');
+        messages.push({ role: h.role === 'user' ? 'user' : 'assistant', content });
       }
       /* 🎤/🐢 이번 발화가 '잘린 조각' 이거나 '천천히 해달라'는 부탁이면, 그 사실을 모델에게
          명시적으로 알려준다. 규칙만으로는 모델이 직전 답변을 그대로 복사해 버린다. */
