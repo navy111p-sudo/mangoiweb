@@ -168,6 +168,8 @@ export function explainCorrection(original: string, suggested: string): string |
     const a = rem[0], b = add[0];
     if (PAST[a] === b) return `지난 일이니까 과거형으로 써요: ${R(0)} → ${A(0)}. 시제를 맞추면 언제 있었던 일인지 분명해져요.`;
     if (BE_PAST[a] === b) return `지난 일이니까 be동사도 과거형으로 써요: ${R(0)} → ${A(0)}.`;
+    // was→is · were→are — 같은 주어(he was → he is)인데 «주어에 맞는 be동사» 로 설명하면 틀린 설명입니다(2026-11-01 실사고).
+    if (BE_PAST[b] === a) return `여기서는 지금 이야기라 현재형으로 써요: ${R(0)} → ${A(0)}. 시제를 문장에 맞췄어요.`;
     // ⚠️ 불규칙 과거형은 «철자 오타» 보다 **먼저** 봅니다(losed→lost 가 편집거리 2 라 오타로 새어 나갔습니다).
     for (const st of edStems(a)) {
       if (PAST[st] === b) return `이 동사는 -ed 를 붙이지 않는 불규칙 과거형이에요: ${R(0)} → ${A(0)} (${st} → ${b}). 시제는 맞았으니 모양만 외워 두면 돼요.`;

@@ -108,6 +108,30 @@ function coreScenarios(M) {
   t('C7 규칙상 오류면 모델이 unnatural 이라 해도 오류(빨간 줄)', r.issues.length === 1 && r.suggestions.length === 0);
   r = tri('Hello there my friend.', [{ original: 'Hello there', suggested: 'Hi there', category: 'unnatural', reason: '' }]);
   t('C8 참고의 이유가 비면 «지금도 맞다» 문구', r.suggestions.length === 1 && r.suggestions[0].reason === M.SUGGEST_FALLBACK_KO);
+  // H — 깨진 한국어(2026-11-01 운영 화면 실사고 문장 그대로)
+  const GARBLED = ['신호 입력를 지도신.', '어 신린 있다 없다', '지도 알는 어 지도 었다 알 지도 었다.', '있다 어 알는 사람 었다 알 있다 어 있는 어 알는 사람 었다.'];
+  t('H1 깨진 한국어 4종을 «못 읽음» 으로 판정', GARBLED.every(g => !M.isReadableKo(g)));
+  const GOOD = ['지난 일이니까 과거형으로 써요.', '책은 watch 가 아니라 read 를 써요.', '주어가 he 라서 동사에 -s 를 붙여요.', '원어민은 이렇게도 자주 말해요.', '관사를 넣으면 더 자연스럽습니다.', '소유물을 뜻하는 어른스러운 단어예요.'];
+  t('H2 정상 한국어 6종은 통과(짝)', GOOD.every(g => M.isReadableKo(g)));
+  r = tri('I like junggle.', [{ original: 'junggle', suggested: 'jungle', category: 'error', reason: '신호 입력를 지도신.' }]);
+  t('H3 규칙으로 설명되는 교정은 AI 문장 대신 서버 설명', r.issues.length === 1 && /철자/.test(r.issues[0].reason) && !r.issues[0].reason.includes('지도'));
+  r = tri('I like junggle.', [{ original: 'junggle', suggested: 'jungle', reason: '철자가 틀려서 고쳤어요.' }]);
+  t('H4 규칙으로 설명되면 «멀쩡한» AI 문장보다도 서버 설명이 정본', r.issues.length === 1 && /철자를 다듬었어요/.test(r.issues[0].reason));
+  r = tri('I watched a book.', [{ original: 'watched a book', suggested: 'read a book', category: 'error', reason: '어 신린 있다 없다' }]);
+  t('H5 규칙 밖 오류의 깨진 이유는 안 나가고 서버 설명으로', r.issues.length === 1 && !r.issues[0].reason.includes('신린') && /watched → read/.test(r.issues[0].reason));
+  r = tri('I have many homework.', [{ original: 'many homework', suggested: 'a lot of homework', category: 'error', reason: '어 신린 있다 없다' }]);
+  t('H5b 서버도 설명 못 하면 기본 문구', r.issues.length === 1 && r.issues[0].reason === M.ERROR_FALLBACK_KO);
+  r = tri('Hello there my friend.', [{ original: 'Hello there', suggested: 'Hi there', category: 'unnatural', reason: '지도 알는 어 지도 었다 알 지도 었다.' }]);
+  t('H6 참고의 깨진 이유 → «지금도 맞다» 문구', r.suggestions.length === 1 && r.suggestions[0].reason === M.SUGGEST_FALLBACK_KO);
+  r = tri('when his friends give him lots of presents, he was very happy', [{ original: 'he was', suggested: 'he is', reason: '어 신린 있다 없다' }]);
+  t('H7 was → is 는 «시제» 로 설명(주어 탓이 아님)', r.issues.length === 1 && /시제/.test(r.issues[0].reason) && !/주어에 맞는/.test(r.issues[0].reason));
+  t('H8 답장 칸: 깨진 한국어·한글 섞임은 거절, 영어는 통과(짝)',
+    !M.isEnglishReply(GARBLED[3]) && !M.isEnglishReply('Great job! 정말 잘했어요') && !M.isEnglishReply('') &&
+    M.isEnglishReply('Wow, your friends are so kind! What was your favorite present?'));
+  // H9 — 끝맺음은 멀쩡한데 «한 군데만» 깨진 문장(각 검사를 따로 시험 — 변이시험이 잡은 빈틈)
+  t('H9a 틀린 조사(받침 뒤 를)만 있는 문장은 거절', !M.isReadableKo('신호 입력를 지도해요.') && M.isReadableKo('신호 입력을 지도해요.'));
+  t('H9b 틀린 조사(받침 없는 뒤 을)만 있는 문장은 거절', !M.isReadableKo('사과을 먹어요.') && M.isReadableKo('사과를 먹어요.'));
+  t('H9c 같은 낱말 세 번 반복은 거절', !M.isReadableKo('지도 알는 지도 었다 지도 해요.') && M.isReadableKo('지도 알는 지도 해요.'));
   return bad;
 }
 
@@ -161,7 +185,7 @@ const M = await loadTriage();
 sec('[ A·B·C. 원장님 사례 · 진짜 오류(짝) · 경계 — 정본을 실제로 돌림 ]');
 {
   const bad = coreScenarios(M);
-  const names = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8'];
+  const names = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'H1', 'H2', 'H3', 'H4', 'H5', 'H5b', 'H6', 'H7', 'H8', 'H9a', 'H9b', 'H9c'];
   for (const n of names) check(`시나리오 ${n}`, !bad.some(b => b.startsWith(n + ' ')), bad.find(b => b.startsWith(n + ' ')));
 }
 
@@ -181,7 +205,7 @@ sec('[ E. 배선 — api-ai.ts ]');
 {
   const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
   const AI = strip(AI_SRC);
-  check('E1 정본을 import 한다', /import \{ triageIssues \} from '\.\/write-issue-triage'/.test(AI));
+  check('E1 정본을 import 한다', /import \{ triageIssues\b[^}]*\} from '\.\/write-issue-triage'/.test(AI));
   check('E2 모델 issues 를 정본에 넘긴다', /triageIssues\(text, parsed\.issues\)/.test(AI));
   check('E3 ⛔ 프롬프트가 «2-5개» 를 강제하지 않는다', !/List 2-5/.test(AI));
   check('E4 프롬프트가 «빈 목록이 맞다» 를 말한다', /EMPTY list is correct/.test(AI));
@@ -228,6 +252,10 @@ sec('[ G. 변이시험 — 정본을 일부러 고장 내면 실제로 FAIL 나�
     ['정규화 약화(끝 부호 안 벗김)', ".replace(/[\\s.!?,;:]+$/, '')", ''],
     ['대소문자 오인용 거르기 제거', "if (oN.toLowerCase() === sN.toLowerCase() && !textNorm.includes(oN)) { drop('case_misquote'); continue; }", ''],
     ['상한 제거', "if (out.issues.length >= MAX_ERRORS) { drop('over_cap'); continue; }", ''],
+    ['끝맺음 검사 제거(깨진 한국어 통과)', "if (!/(요|니다)[.!?~\\s]*$/.test(s)) return false;", ''],
+    ['틀린 조사 검사 제거', "if (m[2] === '를' && hasJong(m[1])) return false;", ''],
+    ['반복 검사 제거', 'if (cnt[t] >= 3) return false;', ''],
+    ['규칙 설명 대신 AI 문장 우선', 'const reason = ruleBacked ? (det as string) : (isReadableKo(modelReason) ? modelReason : (det || ERROR_FALLBACK_KO));', 'const reason = isReadableKo(modelReason) ? modelReason : (det || ERROR_FALLBACK_KO);'],
   ];
   for (const [name, from, to] of MUT) {
     if (!TRI_SRC.includes(from)) { check(`G 변이 적용 가능: ${name}`, false, '앵커를 못 찾음 — 정본이 바뀌었으면 변이도 맞춰 주세요'); continue; }
