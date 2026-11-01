@@ -1988,6 +1988,19 @@
         btn.disabled = false; btn.innerHTML = '✨ AI 첨삭 받기';
       }
     }
+    /* 🟡 «참고» 상자 — 결과 화면·지난 기록 두 곳이 같은 함수를 씁니다(한쪽만 다르게 그리지 않게).
+       ⛔ 취소선·빨간색 금지: 학생 표현은 «틀리지 않았다» 가 이 상자의 전제입니다. */
+    function awSuggestHtml(list) {
+      const arr = Array.isArray(list) ? list.filter(s => s && s.original && s.suggested) : [];
+      if (!arr.length) return '';
+      return '<div style="font-size:11.5px;color:var(--text2);font-weight:700;margin:4px 0 6px">'
+        + '<span data-ko="🟡 참고 · 지금 표현도 맞아요" data-en="🟡 For reference · Yours is fine too">' + escapeHtml(awTr('🟡 참고 · 지금 표현도 맞아요', '🟡 For reference · Yours is fine too')) + '</span></div>'
+        + '<div style="margin-bottom:15px">' + arr.map(s =>
+          `<div style="padding:10px 12px;background:rgba(251,191,36,0.10);border-left:3px solid #fbbf24;border-radius:6px;margin-bottom:6px">
+            <div style="font-size:13px"><span style="color:var(--text)">${escapeHtml(s.original)}</span> <span style="color:var(--text2)">·</span> <span style="color:#fde68a">${escapeHtml(s.suggested)}</span></div>
+            <div style="font-size:11.5px;color:var(--text2);margin-top:3px">💬 ${escapeHtml(s.reason || '')}</div>
+          </div>`).join('') + '</div>';
+    }
     function renderResult(d) {
       const sc = d.score || 0;
       const color = scoreColor(sc);
@@ -1996,6 +2009,9 @@
           <span class="issue-orig">${escapeHtml(i.original)}</span> → <span class="issue-sug">${escapeHtml(i.suggested)}</span>
           <div class="issue-reason">💡 ${escapeHtml(i.reason)}</div>
         </div>`).join('');
+      /* 🟡 참고(2026-11-01 원장님 피드백) — «틀리진 않지만 이렇게도 써요». 빨간 줄·취소선을 쓰지 않습니다
+         (아이가 «내가 틀렸다» 로 읽지 않게). 서버 정본 write-issue-triage.ts 가 오류와 따로 보내 줍니다. */
+      const suggestHtml = awSuggestHtml(d.suggestions);
       // ⬆️ 어휘 업그레이드 — 단순한 단어를 더 자연스러운 원어민 표현으로 (3단계 정밀 첨삭)
       const upgradesHtml = (d.upgrades || []).length ? `
         <div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px">⬆️ 어휘 업그레이드 — 이렇게 바꾸면 더 자연스러워요</div>
@@ -2036,6 +2052,7 @@
           <div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px">✅ 수정된 문장</div>
           <div class="corrected">${escapeHtml(d.corrected)}</div>
           ${issuesHtml ? '<div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px"><span data-ko="💡 이렇게 고치면 더 좋아요" data-en="💡 Make it even better">💡 이렇게 고치면 더 좋아요</span></div><div class="issues">' + issuesHtml + '</div>' : ''}
+          ${suggestHtml}
           ${upgradesHtml}
           <details class="rewrite-box">
             <summary class="rewrite-head">✏️ 첨삭 후 따라 쓰기 (선택 · 펼쳐 보기) <span style="font-size:13px;color:var(--text2)">(+5P)</span></summary>
@@ -2248,7 +2265,7 @@
         </div>
 
         ${issuesHtml ? `<div style="margin-bottom:14px"><div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px">⚠️ 발견된 점 (${issues.length}건)</div>${issuesHtml}</div>` : ''}
-
+        ${awSuggestHtml(feedback.suggestions)}
         ${upHtml}
 
         ${reply ? `<div class="reply-bubble" style="margin-bottom:14px"><img src="/img/mango-char.png" alt="망고"><div style="flex:1"><div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:4px">💬 망고 선생님의 답장</div><div class="reply-text">${escapeHtml(reply)}</div></div></div>` : ''}

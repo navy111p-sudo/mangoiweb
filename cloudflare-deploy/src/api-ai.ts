@@ -19,7 +19,7 @@ import { checkAndAwardBadges, BADGE_CATALOG } from './api-games';
 import { processAiCommand, executeAction, processStudentCommand } from './ai-command';
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
 import { checkAdminSession } from './auth-admin';
-import { explainCorrection } from './correction-reason';   // 🔤 «왜 고쳤는지» 결정론 설명
+import { triageIssues } from './write-issue-triage';   // 🚦 고칠 곳 3단계 판정(오류·참고·인정) — «왜» 설명은 그 안에서 correction-reason 을 씀
 import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint, aiFriendStudentAsked,
          aiFriendTrimSentences, aiFriendNormalizeLevel,
          AI_FRIEND_DEFAULT_LEVEL, AI_FRIEND_LEVELS } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
@@ -83,9 +83,13 @@ export async function handleAiApi(
       if (text.length > 2000) return json({ ok: false, error: 'text_too_long' }, 400);
 
       const prompt = `You are Mango, a friendly English writing tutor for a Korean student at CEFR level ${level}. The student wrote the following text. Your job:
-1. Provide a corrected version (preserve student's meaning).
+1. Provide a corrected version (preserve student's meaning). Fix ONLY the problems you list in "issues"; keep every other word exactly as the student wrote it.
 2. Provide a numeric score 0-100 for overall quality.
-3. List 2-5 specific issues found, each with: original phrase, suggested phrase, and a REQUIRED brief reason IN KOREAN (one short sentence explaining WHY, e.g. tense, article, preposition, word order). Never leave "reason" empty.
+3. List ONLY real problems (0-5 items — an EMPTY list is correct when the writing has no problems). Each item: original phrase (copied EXACTLY from the student's text), suggested phrase, category, and a REQUIRED brief reason IN KOREAN (one short sentence explaining WHY, e.g. tense, article, preposition, word order). Never leave "reason" empty.
+   - category "error": grammar, spelling, or a wrong word.
+   - category "unnatural": grammatical, but a native speaker would clearly not say it this way.
+   - Do NOT list phrasing that is already correct and natural just because another way exists. Examples to leave alone: "When the water boils" (do not change to "Once the water has boiled"); "I'll teach you how to make it" (do not change "teach" to "show").
+   - Never list an item whose suggested phrase is the same as the original.
 4. Provide one encouraging tip in Korean (1-2 sentences).
 5. Reply to the CONTENT of the student's writing like a pen-pal friend, in English appropriate for ${level} level (1-2 short sentences, warm, may end with a small question).
 6. Suggest 1-3 vocabulary upgrades: pick a plain word or phrase the student ACTUALLY WROTE and offer a more natural / more advanced English word for CEFR ${level} (e.g. "thing you own" -> "property", "bad guy who steals" -> "thief"). "from" MUST appear in the student's text exactly. "why" is REQUIRED and must be a short Korean sentence saying WHY the new word is better (nuance, register, precision) — an item with an empty "why" is DISCARDED, so never leave it blank. If nothing is worth upgrading, use an empty list.
@@ -94,7 +98,7 @@ Respond in this strict JSON format only, no markdown:
 {
   "corrected": "...",
   "score": 85,
-  "issues": [{"original":"...","suggested":"...","reason":"..."}],
+  "issues": [{"original":"...","suggested":"...","category":"error","reason":"..."}],
   "tip": "...",
   "reply": "...",
   "upgrades": [{"from":"...","to":"...","why":"..."}]
@@ -156,20 +160,15 @@ Student text: """${text}"""`;
          즉 모델이 reason 을 매번 비워 보낸다. 학생은 «무엇을» 만 보고 «왜» 는 못 배웠다.
          정본은 `src/correction-reason.ts` 의 explainCorrection(원문→교정 낱말 diff 분류).
          ⛔ 분류가 안 되면 null 을 돌려주고, 그때만 일반 문구를 쓴다 — 지어내지 않는다. */
-      const _guessReason = (orig: string, sug: string): string =>
-        explainCorrection(orig, sug) || '더 자연스러운 표현으로 바꿨어요.';
-      const issues = (Array.isArray(parsed.issues) ? parsed.issues : [])
-        .slice(0, 8)
-        .map((it: any) => {
-          const original = String(it?.original || '').trim();
-          const suggested = String(it?.suggested || '').trim();
-          let reason = String(it?.reason || '').trim();
-          /* ⚠️ 모델 이유는 «한국어로 6자 이상» 일 때만 씁니다 — 빈 값·영어 한 낱말이 그대로
-             학생 화면에 나가던 것을 막습니다. 그 밖에는 결정론 설명(explainCorrection). */
-          if (!/[가-힣]/.test(reason) || reason.length < 6) reason = _guessReason(original, suggested);
-          return { original, suggested, reason };
-        })
-        .filter((it: any) => it.original && it.suggested && it.reason);
+      /* 🚦 [2026-11-01 엘리더잼 원장님 피드백] 맞게 쓴 표현까지 «고칠 곳» 으로 띄우던 것을 막습니다.
+         정본은 `src/write-issue-triage.ts` — 원문과 같은 수정안·학생이 안 쓴 말은 버리고,
+         🔴 오류만 issues(빨간 줄)로, 🟡 «틀리진 않지만 어색함» 은 suggestions(참고)로 가릅니다.
+         ⚠️ issues 는 아래에서 단어장 저장·판단력 오답 기록에 쓰입니다 — «참고» 는 거기 넣지 않습니다
+            (맞게 쓴 표현을 오답으로 기록하면 원장님이 지적한 그 일이 기록에서 되풀이됩니다). */
+      const _tri = triageIssues(text, parsed.issues);
+      const issues = _tri.issues.map(({ original, suggested, reason }) => ({ original, suggested, reason }));
+      const suggestions = _tri.suggestions.map(({ original, suggested, reason }) => ({ original, suggested, reason }));
+      if (_tri.dropped.length) console.log('[write-correct] triage dropped:', JSON.stringify(_tri.dropped.map(d => d.why)));
       const tip = String(parsed.tip || '꾸준히 영작 연습을 이어가세요! 매일 한 문장씩만 써도 한 달이면 30문장입니다.');
       // 💬 망고 선생님의 답장 — 첨삭을 '검사'가 아니라 '대화'로 만드는 펜팔 답장
       const reply = String(parsed.reply || '').trim().slice(0, 400);
@@ -224,7 +223,7 @@ Student text: """${text}"""`;
       let topicRecorded = false;   // 📅 «그 주제로 냈다» 가 정말 적혔는가 — 화면은 이것이 true 일 때만 ✓ 를 그린다
       try {
         const now = Date.now();
-        const fb = JSON.stringify({ issues, tip, reply, upgrades, mission_words: missionWords, mission_used: missionUsed, meta });
+        const fb = JSON.stringify({ issues, suggestions, tip, reply, upgrades, mission_words: missionWords, mission_used: missionUsed, meta });
         try {
           await env.DB.prepare(
             `INSERT INTO ai_writing_corrections (student_uid, original_text, corrected_text, feedback, level, score, created_at, topic_id) VALUES (?,?,?,?,?,?,?,?)`
@@ -352,7 +351,7 @@ Student text: """${text}"""`;
       // 단 진짜로 AI 가 완전히 안 됐으면 errCode 도 표시
       return json({
         ok: true,
-        corrected, score, issues, tip, reply, upgrades, level,
+        corrected, score, issues, suggestions, tip, reply, upgrades, level,
         mission_words: missionWords, mission_used: missionUsed,
         points: pointsEarned, mission_bonus: missionBonus, streak_bonus: streakBonus,
         earned_badges: earnedBadges, vocab_saved: vocabSaved,

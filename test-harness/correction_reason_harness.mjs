@@ -183,16 +183,20 @@ console.log('\n[ F. 되돌리면 FAIL — 소스를 실제로 변이시켜 확�
 
 console.log('\n[ G. api-ai.ts 배선 — import 만 해 두고 안 쓰면 소용없다 ]');
 {
-  check("api-ai.ts 가 correction-reason 을 import 한다",
-    /import \{ explainCorrection \} from '\.\/correction-reason'/.test(AI));
-  check('폴백 문구는 explainCorrection 이 null 일 때만 쓴다',
-    /explainCorrection\(orig, sug\) \|\| '[^']+'/.test(AI));
-  check('모델 이유는 «한국어 6자 이상» 일 때만 쓴다',
-    /if \(!\/\[가-힣\]\/\.test\(reason\) \|\| reason\.length < 6\) reason = _guessReason\(original, suggested\)/.test(AI));
-  check('⛔ 옛 규칙기반 추측(_guessReason 본체)이 남아 있지 않다',
-    !/_guessReason\s*=\s*\(orig: string, sug: string\): string => \{/.test(AI));
-  check('이유가 비면 그 항목을 아예 내보내지 않는다',
-    /\.filter\(\(it: any\) => it\.original && it\.suggested && it\.reason\)/.test(AI));
+  /* 2026-11-01 — 배선이 «고칠 곳 3단계 판정» 정본(write-issue-triage.ts)으로 옮겨졌습니다.
+     api-ai.ts 는 triageIssues 를 «부르기만» 하고, 그 정본이 explainCorrection 을 씁니다.
+     «무슨 답이 나오는가» 는 write_issue_triage_harness 가 정본을 실제로 돌려 봅니다. */
+  const TRI = SRC('write-issue-triage.ts');
+  check("api-ai.ts 가 판정 정본(triageIssues)을 import 한다",
+    /import \{ triageIssues \} from '\.\/write-issue-triage'/.test(AI));
+  check("api-ai.ts 가 triageIssues(text, parsed.issues) 결과로 issues 를 만든다",
+    /const _tri = triageIssues\(text, parsed\.issues\)/.test(AI) && /const issues = _tri\.issues\.map\(/.test(AI));
+  check("판정 정본이 correction-reason 의 explainCorrection 을 import 한다",
+    /import \{ explainCorrection[^}]*\} from '\.\/correction-reason'/.test(TRI));
+  check('모델 이유는 «한국어 6자 이상» 일 때만 쓴다(정본)',
+    /const validKo = \(r: string\) => \/\[가-힣\]\/\.test\(r\) && r\.length >= 6/.test(TRI));
+  check('⛔ 옛 규칙기반 추측(_guessReason)이 api-ai.ts 에 남아 있지 않다',
+    !/_guessReason\s*=/.test(AI));
 }
 
 console.log(`\n${FAIL === 0 ? '🎉' : '💥'} correction_reason_harness — PASS ${PASS} / FAIL ${FAIL}`);
