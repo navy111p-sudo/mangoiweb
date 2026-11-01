@@ -243,7 +243,12 @@
     var box = document.getElementById(PRINT_ID);
     if (!box) { box = document.createElement('div'); box.id = PRINT_ID; document.body.appendChild(box); }
     box.innerHTML = printHtml();
-    var done = function () { box.innerHTML = ''; window.removeEventListener('afterprint', done); };
+    var done = function () {
+      box.innerHTML = '';
+      var st = document.getElementById('wuhowto-print-css');   /* 인쇄 CSS 도 치운다 — 남으면 이후 페이지 인쇄가 빈 문서가 된다 */
+      if (st && st.parentNode) st.parentNode.removeChild(st);
+      window.removeEventListener('afterprint', done);
+    };
     window.addEventListener('afterprint', done);
     try { window.print(); } catch (e) { done(); }
   }
