@@ -34,7 +34,7 @@
     'precheck':'/precheck.html',
     'booking':'/lesson-booking-demo.html',
     'faq':'/faq.html',
-    'warmup':'/warmup.html',
+    'warmup':'/ai-speaking.html',
     'student-game':'/student-games.html',
     'review-quiz':'/review-quiz.html',
     'review-quiz-cn':'/review-quiz-cn.html',  // 🇨🇳 중국어 복습퀴즈 (2026-08-17 연결)
@@ -66,7 +66,7 @@
     { ko:'수업',          en:'Classes',        go:['booking','precheck','warmup','leveltest'] },
     /* 2026-09-12 — 홈 드로어의 «AI 학습 도구» 차례를 그대로 따른다.
        ⛔ 웜업(warmup)은 옮기지 않았다 — 아래 «수업» 그룹에 그대로 둔다(배치 변경 최소화). */
-    { ko:'학습 도구',     en:'Learning Tools', go:['today','ai-class','stories','ai-dubbing','judgment','speech','ai-friend','ai-write','review-quiz','review-quiz-cn','micro-quiz','vocab','student-game','points-shop'] },
+    { ko:'학습 도구',     en:'Learning Tools', go:['today','ai-class','stories','ai-dubbing','judgment','speech','ai-write','review-quiz','review-quiz-cn','micro-quiz','vocab','student-game','points-shop'] },
     { ko:'결제 · 문의',   en:'Billing & Help', go:['payment','refund','inquiry','faq'] }
   ];
   // 그룹에 넣지 않고 맨 위/맨 아래에 그대로 두는 것 (성격이 달라 분류가 어색한 항목)
@@ -89,7 +89,7 @@
     { go:'precheck',    cls:'mg-s1',       ko:'🎥 수업 진단',        en:'🎥 PreCheck' },
     { go:'booking',     cls:'mg-s2',       ko:'📝 수업 신청',        en:'📝 Book Class' },
     { go:'faq',         cls:'mg-hl mg-s2', ko:'❓ 자주 묻는 질문',    en:'❓ FAQ' },
-    { go:'warmup',      cls:'mg-hl mg-s3', ko:'🗣️ A.i 말하기 연습',   en:'🗣️ A.i Speaking Practice' },
+    { go:'warmup',      cls:'mg-hl mg-s3', ko:'🗣️ AI 말하기',          en:'🗣️ AI Speaking' },
     { go:'student-game',cls:'mg-hl mg-s2', ko:'🎮 학생게임',         en:'🎮 Student Game' },
     { go:'review-quiz', cls:'',            ko:'🧠 BTS/SIU 퀴즈',      en:'🧠 BTS/SIU Quiz' },
     /* 🤖 2026-09-12 추가 — 라벨·별점(cls)은 홈 드로어(index.html #mg-drawer)와 «같은 값»이어야 한다.
@@ -99,7 +99,6 @@
     { go:'stories',     cls:'mg-hl mg-s3', ko:'📚 영어 독서',        en:'📚 English Reading' },
     { go:'ai-dubbing',  cls:'mg-hl mg-s3', ko:'🎬 A.i영화더빙',      en:'🎬 A.i Movie Dubbing' },
     { go:'judgment',    cls:'mg-hl mg-s2', ko:'🧠 판단력 훈련',       en:'🧠 Decision Training' },
-    { go:'ai-friend',   cls:'',            ko:'🤖 AI 친구 대화',      en:'🤖 AI Friend Chat' },
     { go:'ai-write',    cls:'',            ko:'✍️ AI 글쓰기',         en:'✍️ AI Writing' },
     { go:'micro-quiz',  cls:'',            ko:'⚡ AI 단어 퀴즈',      en:'⚡ AI Vocab Quiz' },
     { go:'review-quiz-cn', cls:'',         ko:'🇨🇳 중국어퀴즈',   en:'🇨🇳 Chinese Quiz' },
