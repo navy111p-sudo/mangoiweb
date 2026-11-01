@@ -446,7 +446,7 @@ console.log('\n── ⑨ A.i 친구 — 단어장 약점을 «낱말 (뜻)» �
   const stu = (st, wk, vw, lv) => {
     try {
       return new Function('st', 'wk', vwName || '__none', 'lvSpec', 'friendWeakList', 'callName', 'return (function(){ ' + stripTypeScriptTypes(stuSrc) + ' return stuCtx; })();')(
-        st, wk, vw, L ? L.aiFriendLevelSpec(lv) : { plain: false }, (...a) => { spy.push(a); return V.friendWeakList(...a); }, CN ? CN(st, 'kim01') : '');
+        st, wk, vw, L ? L.aiFriendLevelSpec(lv) : { plain: false }, (...a) => { spy.push(a); return V.friendWeakList(...a); }, CN ? CN(st, 'kim01', { latinOnly: true }) : '');
     } catch (e) { return 'THREW:' + e.message; }
   };
   const GWK = { results: [{ item: 'tiger', ko: '호랑이' }] };
