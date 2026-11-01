@@ -32,6 +32,7 @@ import { filterQuizQuestions, summarizeRejects } from './quiz-quality';
 import { ATTENDANCE_BY_UID, attUidBinds } from './attendance-uid';
 import { BAND_SPECS, bandFromTextbookLevel } from './judgment-level';       // 📏 레벨별 문장 길이 정본  // 🧪 AI 문항 검사(2026-09-02)
 import { isSttRepeatLoop } from './stt-loop';
+import { sttRejectReason } from './stt-confidence';
 
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2845,9 +2846,11 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         let audio: ArrayBuffer | null = null;
         let hintLang = '';
         let hintPrompt = '';
+        let strictSpeech = false;
         let paReference = '';   // 🎤 Azure 발음평가 모범 문장 (Whisper 로는 절대 안 넘어간다)
         if (ct.includes('multipart/form-data')) {
           const fd = await request.formData();
+          strictSpeech = fd.get('strict') === '1';
           const file = fd.get('audio') as File | null;
           if (!file) return json({ ok: false, error: 'no_audio_file' }, 400);
           audio = await file.arrayBuffer();
@@ -2867,6 +2870,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           audio = await request.arrayBuffer();
           hintLang = String(url.searchParams.get('lang') || '').trim().toLowerCase();
           hintPrompt = String(url.searchParams.get('prompt') || '').trim().slice(0, 300);
+          strictSpeech = url.searchParams.get('strict') === '1';
         }
         if (!audio || audio.byteLength < 100) return json({ ok: false, error: 'audio_too_small' }, 400);
         if (audio.byteLength > 25 * 1024 * 1024) return json({ ok: false, error: 'audio_too_large', max: '25MB' }, 400);
@@ -2877,6 +2881,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         // 기대 언어 정규화(ISO-639-1). 지원 밖이면 힌트 없이 자동감지로 둔다.
         const langMap: Record<string, string> = { en: 'en', ko: 'ko', zh: 'zh', 'zh-cn': 'zh' };
         const lang = langMap[hintLang] || '';
+        if (strictSpeech && !lang) return json({ ok: false, error: 'speech_language_required' }, 400);
 
         /* 🎤 (2026-08-08) Azure 음소 발음평가 — Whisper 전사와 «동시에» 돌린다.
            · 키(AZURE_SPEECH_KEY·AZURE_SPEECH_REGION)가 없으면 assessPronunciation 이
@@ -2923,6 +2928,14 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
             if (hintPrompt) turboParams.initial_prompt = hintPrompt;
             const turbo: any = await ai.run('@cf/openai/whisper-large-v3-turbo', turboParams);
             const ttRaw = String(turbo?.text || '').trim();
+            // A successful empty/VAD rejection is terminal, never a reason to try base Whisper.
+            // Confidence rejection is for chat. Pronunciation coaching still needs weak speech to score it.
+            const rejected = !ttRaw ? 'no_speech' : (strictSpeech ? sttRejectReason(turbo) : null);
+            if (rejected) {
+              console.info('[voice/transcribe] dropped=' + rejected);
+              return json({ ok: true, text: '', dropped: rejected, lang, segments: null,
+                transcription_info: null, azure: null, azure_diag: 'dropped' });
+            }
             // 🔁 (2026-10-02) 「oah, oah, oah …」 같은 반복 환각은 «들은 것 없음» 으로 돌려준다(src/stt-loop.ts)
             if (ttRaw && isSttRepeatLoop(ttRaw)) {
               console.warn('[voice/transcribe] repeat-loop dropped len=' + ttRaw.length);
@@ -2940,6 +2953,10 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
               ...(await azureOut()),
             });
           } catch (turboErr: any) {
+            if (strictSpeech) {
+              console.warn('[voice/transcribe] strict recognizer unavailable');
+              return json({ ok: false, error: 'speech_recognizer_unavailable' }, 503);
+            }
             console.warn('[voice/transcribe] turbo failed, fallback base whisper:', turboErr?.message);
           }
         }

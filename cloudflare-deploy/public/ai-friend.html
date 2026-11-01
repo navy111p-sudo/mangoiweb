@@ -1522,18 +1522,35 @@
          예전에는 첫 대답을 «재생하려는 순간» 에야 켜서(모델 37.8MB) 첫 대답 입모양이 늦었다. 이미 켜져 있으면 아무 일도 안 한다. */
       try { window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); } catch(e){}
       const micSeq = ++_friendMicSeq;
-      let heard = false, voiceError = '';
+      let voiceError = '';
       _whisperOn = true; _recognizing = true; updateMicUI();
       stopSpeakingNow();   // ⏹ 말을 걸었으니 AI 낭독을 멈춥니다(큐까지 함께 — B)
       let said = '', recBlob = null;   // 🎤 녹음 파일 — 판정이 놓친 작은 목소리를 다시 잰다(voice-has-speech.js)
+      let voiceCheck = null;
+      const verifyVoice = () => voiceCheck || (voiceCheck = Promise.resolve().then(() =>
+        window.MangoiVoiceCheck ? MangoiVoiceCheck.blobHasVoice(recBlob) : null
+      ).catch(() => null));
       try { said = await MangoiVoice.record({
         lang: 'en',
         silenceMs: auto ? 1500 : 2500,
         onAudio: b => { recBlob = b; },
+        // A peak can be a click. Verify the whole recording before uploading, in BOTH modes.
+        transcribe: async fd => {
+          const hasVoice = await verifyVoice();
+          if (micSeq !== _friendMicSeq) return { ok: true, text: '' };
+          if (hasVoice !== true) {
+            voiceError = 'no_audio';
+            return { ok: true, text: '', dropped: 'no_audio' };
+          }
+          fd.append('strict', '1'); // No weaker recognizer fallback for automatic chat submission.
+          const r = await fetch('/api/voice/transcribe', { method: 'POST', body: fd });
+          const d = r.ok ? await r.json() : null;
+          if (d && d.ok && !String(d.text || '').trim()) voiceError = 'no_audio';
+          return d;
+        },
         firstMs: auto ? 0 : 20000,     // ✋ 버튼 모드: 판정이 말소리를 못 봐도 9초에 끊지 않는다(0 = 모듈 기본값)
         onState: (s, info) => {
           if (micSeq !== _friendMicSeq) return;
-          if (s === 'speaking') heard = true;
           if (s === 'error') voiceError = info && info.reason || 'server';
           if (window.FriendAutoTalk) FriendAutoTalk.micState(s);
           if (s === 'ready')         micHint(isEn() ? 'Getting the mic ready…' : '마이크를 준비하고 있어요…', 0);
@@ -1553,15 +1570,12 @@
       }); } catch(e) { voiceError = 'server'; }
       if (micSeq !== _friendMicSeq) return;
       _whisperOn = false; _recognizing = false; updateMicUI();
-      // Automatic listening must never submit Whisper hallucinations from silence.
-      /* 🎤 (2026-10-07) 판정(peak>8/128)이 놓친 작은 목소리는 녹음 파일로 다시 잰다 — 모르면 예전대로 버린다 */
-      if (auto && !heard && said) {
-        let v = null;
-        try { v = window.MangoiVoiceCheck ? await MangoiVoiceCheck.blobHasVoice(recBlob) : null; } catch(e) { v = null; }
+      // Recheck at the submission boundary too: recorder overrides must not bypass the guard.
+      if (said) {
+        const v = await verifyVoice();
         if (micSeq !== _friendMicSeq) return;
-        if (v === true) heard = true;
+        if (v !== true) { said = ''; voiceError = 'no_audio'; }
       }
-      if (auto && !heard) said = '';
       _lastRecBlob = said ? recBlob : null;   // 🎯 발음 교정에 쓸 녹음(음성으로 보낸 턴만)
       if (said) {
         micHint(null);
@@ -1569,6 +1583,10 @@
         if (input) input.value = said;
         _pendingVoice = true; sendMsg();
       } else if (auto && window.FriendAutoTalk) { micHint(null); FriendAutoTalk.empty(voiceError); }
+      else if (voiceError === 'no_audio') {
+        micHint(isEn() ? 'I could not clearly hear speech. Please try again.'
+                       : '말소리를 분명하게 확인하지 못했어요. 다시 말해 주세요.', 5000);
+      }
     }
 
     function toggleMic() {
