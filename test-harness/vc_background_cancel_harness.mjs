@@ -27,6 +27,8 @@ function fixture(stage, fail = false) {
     vcSwapVideoTrack: track => swaps.push(track.id),
   });
   ctx.window = ctx;
+  const helper = main.indexOf('async function vcBgSendFrame(image)');
+  if (helper >= 0) vm.runInContext(main.slice(helper, main.indexOf('// --- 5-b)', helper)), ctx);
   vm.runInContext(main.slice(start, end), ctx);
   return { ctx, status, video, local, swaps, timers, finish: () => finish(), metrics: () => ({ total, max }) };
 }

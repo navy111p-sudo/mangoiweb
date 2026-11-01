@@ -33,7 +33,7 @@ window._vcLoadTextbookByName = async function(book){
   window._libSequence = seq; window._libSeqIdx = 0;               // ◀▶ 페이지 화살표도 동작하게
   try { if (typeof window.vcSwitchTab === 'function') window.vcSwitchTab('pdf'); } catch(e){}
   var f = seq[0];
-  await Promise.resolve(window.pdfLoad ? window.pdfLoad(f.url, f.kind) : null);
+  if (await Promise.resolve(window.pdfLoad ? window.pdfLoad(f.url, f.kind) : null) === false) return false;
   try { window._vcShownPdfName = f.name; } catch(e){}
   // 방에 공유 → 교사·학생 모두 같은 교재를 봄
   //   ★ (2026-07-20) 입장 직후엔 WS(vcConn)가 아직 안 열려 있을 수 있음 → 조용히(quiet) 몇 번 재시도.

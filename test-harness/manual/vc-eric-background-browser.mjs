@@ -34,7 +34,9 @@ try {
         window.vcBgRenderLoop = () => { vcBg.rafId = requestAnimationFrame(() => {}); };
         window.vcSwapVideoTrack = track => swaps.push(track.id);
       }, { stage, fail });
-      await page.addScriptTag({ content: main.slice(start, end) });
+      const helper = main.indexOf('async function vcBgSendFrame(image)');
+      const support = helper < 0 ? '' : main.slice(helper, main.indexOf('// --- 5-b)', helper));
+      await page.addScriptTag({ content: support + main.slice(start, end) });
       await page.evaluate(() => { window.pending = vcSetBackground('galaxy'); });
       await page.waitForFunction(() => typeof window.finish === 'function');
       const result = await page.evaluate(async () => {
