@@ -286,20 +286,21 @@
       setOpen(true, false); return;
     }
     setState('listen');
-    var heard = false, errReason = '';
-    var said = await MangoiVoice.record({
+    var errReason = '';
+    var said = await friendRecordVoice({
+      isCurrent: function () { return my === turnSeq && active; },
       lang: 'en',
       silenceMs: 1500, // Faster hands-free turn end; retain the 700ms speaker echo guard.
       onState: function (s, info) {
         if (my !== turnSeq) return;
-        if (s === 'speaking') { heard = true; root.classList.add('heard'); if (open && noteEl.textContent) clearHelp(); }
+        if (s === 'speaking') { root.classList.add('heard'); if (open && noteEl.textContent) clearHelp(); }
         else if (s === 'thinking') setState('think');
         else if (s === 'error') errReason = (info && info.reason) || 'server';
       }
     });
     if (my !== turnSeq || !active) return;
     said = String(said || '').trim();
-    if (!heard) said = '';                     // ⛔ 무음에서 Whisper 가 지어낸 말은 버린다
+    // friendRecordVoice checked the recording even when a click triggered 'speaking'.
     if (errReason === 'denied' || errReason === 'unsupported') {
       setState('pause');
       noteEl.textContent = errReason === 'denied'

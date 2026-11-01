@@ -129,7 +129,7 @@ async function testAiFriend() {
   check('옛 mergeSpeech/tidySpeech 제거됨', !html.includes('function mergeSpeech') && !html.includes('function tidySpeech'));
   check('webkitSpeechRecognition 미사용', !html.includes('webkitSpeechRecognition'));
   check('MangoiVoice(Whisper) 배선 존재', html.includes('MangoiVoice.record'));
-  check('영어 언어힌트 전달(lang: \'en\')', /MangoiVoice\.record\(\{[^}]*lang:\s*'en'/.test(html),
+  check('영어 언어힌트 전달(lang: \'en\')', /friendRecordVoice\(\{[\s\S]{0,200}lang:\s*'en'/.test(html),
         '힌트 없으면 짧은 영어를 한국어로 오인식하는 사고 재발(2026-07-24)');
 
   const html2 = readFileSync(join(PUB, 'ai-friend.html'), 'utf8');
@@ -143,13 +143,15 @@ async function testAiFriend() {
   let lastRecordOpts = null, resolveRecord = null;
   const FakeMangoiVoice = {
     supported: () => true,
-    record: (opts) => { lastRecordOpts = opts; return new Promise(res => { resolveRecord = res; }); },
+    record: (opts) => { lastRecordOpts = opts; opts.onAudio({ speech: true }); return new Promise(res => { resolveRecord = res; }); },
     stop: () => { if (resolveRecord) { const r = resolveRecord; resolveRecord = null; r('__STOPPED__'); } },
   };
+  const voiceCheck = { blobHasVoice: async blob => blob?.speech === true };
   const sandbox = {
     document: doc,
-    window: { MangoiVoice: FakeMangoiVoice, MangoiTTS: { stop(){} }, MangoAvatar: { plainStop(){} }, speechSynthesis: { cancel(){} } },
+    window: { MangoiVoice: FakeMangoiVoice, MangoiVoiceCheck: voiceCheck, MangoiTTS: { stop(){} }, MangoAvatar: { plainStop(){} }, speechSynthesis: { cancel(){} } },
     MangoiVoice: FakeMangoiVoice,
+    MangoiVoiceCheck: voiceCheck,
     setTimeout: (cb) => cb(),   // 이 배선 검증엔 실제 지연이 필요 없음
     clearTimeout: () => {},
     isEn: () => false,
@@ -189,6 +191,11 @@ async function testAiFriend() {
   resolveRecord('');
   await flush();
   check('무음이면 전송 안 함', sent.length === 0, `실제=${sent.length}건`);
+  toggleMic();
+  lastRecordOpts.onAudio({ speech: false });
+  resolveRecord('Thank you very much for watching.');
+  await flush();
+  check('발화 근거 없는 텍스트도 전송 안 함', sent.length === 0);
 }
 
 /* ══════════════════════════════════════════════════════════════════════

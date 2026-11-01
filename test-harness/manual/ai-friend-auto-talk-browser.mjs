@@ -4,14 +4,14 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
 import { readFile, mkdir } from 'node:fs/promises';
-import { resolve, extname } from 'node:path';
+import { resolve, extname, sep } from 'node:path';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PW_DIR + '/node_modules/playwright');
 const root = resolve('cloudflare-deploy/public');
 const server = createServer(async (req, res) => {
   try {
     const path = resolve(root, '.' + new URL(req.url, 'http://local').pathname);
-    if (!path.startsWith(root + '/')) throw Error('path');
+    if (!path.startsWith(root + sep)) throw Error('path');
     const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.webp': 'image/webp' };
     res.setHeader('Content-Type', mime[extname(path)] || 'application/octet-stream');
     res.end(await readFile(path));
@@ -26,6 +26,9 @@ try {
   const errors = [];
   page.on('pageerror', e => errors.push(String(e)));
   const json = obj => ({ contentType: 'application/json', body: JSON.stringify(obj) });
+  // Avatar assets are unrelated to the mic scheduler; keep this offline test deterministic.
+  await page.route('**/js/mango-avatar.js*', r => r.fulfill({ contentType: 'application/javascript',
+    body: 'window.MangoAvatar={attach(){},plainStart(){},plainStop(){},setCharacter(){}};' }));
   await page.route('**/api/**', r => r.fulfill(json({ ok: true, items: [] })));
   await page.route('**/api/ai/chat-guest-token', r => r.fulfill(json({ ok: true, uid: 'guest_probe', token: 'probe.token' })));
   let requests = 0;
@@ -36,13 +39,16 @@ try {
     MangoiTTS.speak = (text, rate, done) => probe.ends.push(done);
     MangoiTTS.stop = () => { probe.ends = []; };
     MangoiVoice.supported = () => true;
+    MangoiVoiceCheck.blobHasVoice = async () => probe.voice === true;
     MangoiVoice.busy = () => !!probe.resolve;
     MangoiVoice.record = opts => {
       probe.recordings++; probe.opts = opts; opts.onState('waiting', {});
       return new Promise(r => { probe.resolve = r; });
     };
     MangoiVoice.cancel = () => { probe.canceled++; if (probe.resolve) { const r = probe.resolve; probe.resolve = null; r('late canceled text'); } };
-    probe.finish = (text, heard = true, error = '') => {
+    probe.finish = (text, heard = true, error = '', voice = heard) => {
+      probe.voice = voice;
+      probe.opts.onAudio(new Blob(['local audio double']));
       if (heard) probe.opts.onState('speaking', {});
       if (error) probe.opts.onState('error', { reason: error });
       const r = probe.resolve; probe.resolve = null; r(text);
@@ -59,8 +65,8 @@ try {
   ok(requests === 1 && await recordings() === 1, 'voice sends once; no listening while TTS is pending');
   await page.evaluate(() => probe.ends.shift()()); await settle();
   ok(await recordings() === 2, 'mic resumes only after TTS completion and echo delay');
-  await page.evaluate(() => probe.finish('Thank you.', false)); await settle();
-  ok(requests === 1 && await recordings() === 3, 'silence hallucination is discarded, with one retry');
+  await page.evaluate(() => probe.finish('Thank you very much for watching.', true, '', false)); await settle();
+  ok(requests === 1 && await recordings() === 3, 'loud click cannot bypass silence check; one retry');
   await page.evaluate(() => probe.finish('Thank you.', false)); await settle();
   ok(requests === 1 && await recordings() === 3, 'second silent run pauses without a loop');
   await select('auto'); await settle(); await select('button'); await settle();
@@ -76,8 +82,10 @@ try {
   ok(!(await page.evaluate(() => FriendAutoTalk.on())) && (await page.textContent('#friendTalkStatus')).includes('권한'), 'permission error pauses and gives actionable guidance');
   await select('auto'); await settle(); await page.focus('#msgInput'); await settle();
   ok(!(await page.evaluate(() => _whisperOn)) && requests === 2, 'typing focus cancels automatic recording');
-  // SSE sentences have gaps longer than the echo delay: never listen between them.
+  // Focused correction holds speech until validation. Use normal correction to exercise
+  // the streaming gap while automatic mode is active.
   await page.evaluate(() => {
+    currentCorr = 'balanced';
     const original = window.fetch;
     window.fetch = function (url, opts) {
       if (String(url) !== '/api/ai/chat-friend') return original(url, opts);
@@ -93,7 +101,7 @@ try {
     };
   });
   await select('auto'); await settle();
-  await page.evaluate(() => probe.finish('Tell me more.'));
+  await page.evaluate(() => { document.getElementById('msgInput').value = 'Tell me more.'; sendMsg(); });
   await page.waitForFunction(() => probe.ends.length === 1);
   const beforeStream = await recordings();
   await page.evaluate(() => probe.ends.shift()()); await settle();
@@ -109,6 +117,11 @@ try {
   await select('auto'); await settle();
   await page.evaluate(() => MangoiFaceTalk.enter()); await page.waitForTimeout(50);
   ok(!(await page.evaluate(() => FriendAutoTalk.on())) && !(await page.evaluate(() => _whisperOn)), 'face chat suspends inline automatic listening');
+  const beforeFace = requests;
+  await page.waitForFunction(() => !!probe.resolve);
+  await page.evaluate(() => probe.finish('Thank you very much for watching.', true, '', false));
+  await settle();
+  ok(requests === beforeFace, 'face chat also discards a hallucination after a loud click');
   await page.evaluate(() => MangoiFaceTalk.exit()); await settle();
   await mkdir(process.env.AIF_SCREENSHOTS || '/tmp/aif-screenshots', { recursive: true });
   for (const width of [1440, 390]) {

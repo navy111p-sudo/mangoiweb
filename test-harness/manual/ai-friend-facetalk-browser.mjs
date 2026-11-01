@@ -28,12 +28,14 @@ const STUB=`(function(){
   window.__log=[]; window.__speaking=0; window.__recDuringSpeak=0;
   window.__script=[{heard:true,text:'I like dogs'},{heard:false,text:'Thank you.'},{heard:false,text:''},{heard:true,text:'Yes I do'}];
   function patch(){
-    if(!window.MangoiTTS||!window.MangoiVoice){return setTimeout(patch,30);}
+    if(!window.MangoiTTS||!window.MangoiVoice||!window.MangoiVoiceCheck){return setTimeout(patch,30);}
+    MangoiVoiceCheck.blobHasVoice=async function(b){return !!(b&&b.hasVoice);};
     MangoiTTS.speak=function(text,rate,done){ __log.push('speak:'+text); __speaking++;
       setTimeout(function(){ __speaking--; __log.push('spoke'); done&&done(); },500); };
     MangoiVoice.supported=function(){return true;};
     MangoiVoice.record=function(o){ if(__speaking>0) __recDuringSpeak++;
       var st=__script.shift()||{heard:false,text:''}; __log.push('rec');
+      o.onAudio&&o.onAudio({hasVoice:st.heard});
       return new Promise(function(res){ window.__recCancel=function(){res('');};
         o.onState('waiting',{});
         setTimeout(function(){ if(st.heard) o.onState('speaking',{});
