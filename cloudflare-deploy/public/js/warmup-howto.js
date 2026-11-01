@@ -59,7 +59,7 @@
         ['내 말을 못 알아들어요', '마이크 권한을 «허용» 했는지 보고, 조용한 곳에서 또박또박 말해 보세요. 카톡 안에서 열었다면 크롬으로 다시 열면 잘 돼요.'],
         ['너무 어렵거나 너무 쉬워요', '오른쪽 위 <b>⋮</b> 에서 수준을 바꾸거나, «연령·수준·교재 다시 고르기» 를 누르세요.']
       ],
-      close: '닫기', ok: '알겠어요', mute: '음성 끄기', unmute: '음성 듣기', save: '📄 안내 글 저장 (.txt)'
+      close: '닫기', ok: '알겠어요', mute: '음성 끄기', unmute: '음성 듣기', save: '🖨️ 안내 글 PDF로 저장 (인쇄)', word: '📝 안내 글 Word로 저장 (.doc)'
     },
     en: {
       title: '📘 How to use A.i Speaking',
@@ -106,7 +106,7 @@
         ['It doesn’t hear me', 'Allow the microphone and speak clearly in a quiet place. If you opened it inside KakaoTalk, reopen it in Chrome.'],
         ['Too hard or too easy', 'Change the level with <b>⋮</b> at the top right, or tap “Change age · level · book”.']
       ],
-      close: 'Close', ok: 'Got it', mute: 'Turn voice off', unmute: 'Play voice guide (Korean)', save: '📄 Save guide as text (.txt)'
+      close: 'Close', ok: 'Got it', mute: 'Turn voice off', unmute: 'Play voice guide (Korean)', save: '🖨️ Save guide as PDF (print)', word: '📝 Save guide as Word (.doc)'
     }
   };
   window.mgWarmupHowtoText = TXT;
@@ -187,38 +187,65 @@
     o.push('</ul></div><h4>' + t.faqT + '</h4>');
     for (i = 0; i < t.faq.length; i++) o.push('<details><summary>' + t.faq[i][0] + '</summary><p>' + t.faq[i][1] + '</p></details>');
     o.push('<button type="button" class="hw-save">' + t.save + '</button>');
+    o.push('<button type="button" class="hw-save hw-word" style="margin-top:10px">' + t.word + '</button>');
     o.push('<button type="button" class="hw-ok">' + t.ok + '</button></div>');
     return o.join('');
   }
-  /* 📄 안내 글을 텍스트 파일로 저장 (사장님 요청). 화면 HTML 을 다시 쓰지 않고 TXT 데이터에서 글만 뽑는다.
-     ⛔ window.open 을 쓰지 않는다 — 인앱 브라우저는 새 창을 못 열어 null 만 돌려준다. 같은 창에서 내려받기만 한다. */
-  function plain(s) {
-    var d = document.createElement('div');
-    d.innerHTML = String(s).replace(/<br\s*\/?>/gi, '\n');
-    return d.textContent;
+  /* 🖨️ 안내 글을 PDF 로 저장 (사장님 요청) — 인쇄 대화상자에서 «PDF로 저장» 을 고르면 된다.
+     ⛔ window.open 을 쓰지 않는다 — 인앱 브라우저는 새 창을 못 열어 null 만 돌려준다.
+     같은 창에 인쇄용 글만 잠깐 펼쳐 window.print() 를 부르고, 끝나면 치운다. */
+  var PRINT_ID = 'wuhowto-print';
+  function printCss() {
+    if (document.getElementById('wuhowto-print-css')) return;
+    var s = document.createElement('style'); s.id = 'wuhowto-print-css';
+    s.textContent = '#' + PRINT_ID + '{display:none}'
+      + '@media print{'
+      + ' body>*:not(#' + PRINT_ID + '){display:none!important}'
+      + ' #' + PRINT_ID + '{display:block!important;position:static;color:#000;background:#fff;'
+      + 'font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;font-size:11pt;line-height:1.6;padding:8mm}'
+      + ' #' + PRINT_ID + ' h1{font-size:18pt;margin:0 0 3mm;border-bottom:2px solid #222;padding-bottom:2mm}'
+      + ' #' + PRINT_ID + ' h2{font-size:13pt;margin:6mm 0 2mm;border-left:4px solid #2a7;padding-left:2mm;page-break-after:avoid}'
+      + ' #' + PRINT_ID + ' .hw-pq{margin:0 0 2mm;page-break-inside:avoid}'
+      + ' #' + PRINT_ID + ' .hw-pq b{display:block}'
+      + ' #' + PRINT_ID + ' .hw-pa{margin:0 0 0 4mm;color:#333}'
+      + '}';
+    document.head.appendChild(s);
   }
-  function guideText() {
-    var t = T(), L = [], i;
-    L.push(plain(t.title), '', plain(t.lead), '', t.quickT);
-    for (i = 0; i < t.quick.length; i++) L.push('  ' + (i + 1) + '. ' + plain(t.quick[i]));
-    L.push('');
-    for (i = 0; i < t.steps.length; i++) L.push((i + 1) + '. ' + plain(t.steps[i][0]) + '\n   ' + plain(t.steps[i][1]));
-    L.push('', t.toolsT);
-    for (i = 0; i < t.tools.length; i++) L.push('- ' + plain(t.tools[i][0]) + ' ' + plain(t.tools[i][1]));
-    L.push('', t.autoT, plain(t.flow.join(' → ')) + ' → ' + plain(t.flowTail));
-    for (i = 0; i < t.autoTips.length; i++) L.push('  - ' + plain(t.autoTips[i]));
-    L.push('', t.faqT);
-    for (i = 0; i < t.faq.length; i++) L.push('Q. ' + plain(t.faq[i][0]) + '\nA. ' + plain(t.faq[i][1]), '');
-    return L.join('\n');
+  function printHtml() {
+    var t = T(), o = [], i;
+    o.push('<h1>' + t.title + '</h1><p>' + t.lead + '</p>');
+    o.push('<h2>' + t.quickT + '</h2><ol>');
+    for (i = 0; i < t.quick.length; i++) o.push('<li>' + t.quick[i] + '</li>');
+    o.push('</ol>');
+    for (i = 0; i < t.steps.length; i++) o.push('<div class="hw-pq"><b>' + (i + 1) + '. ' + t.steps[i][0] + '</b><p class="hw-pa">' + t.steps[i][1] + '</p></div>');
+    o.push('<h2>' + t.toolsT + '</h2><ul>');
+    for (i = 0; i < t.tools.length; i++) o.push('<li><b>' + t.tools[i][0] + '</b> ' + t.tools[i][1] + '</li>');
+    o.push('</ul><h2>' + t.autoT + '</h2><p>' + t.flow.join(' → ') + ' → ' + t.flowTail + '</p><ul>');
+    for (i = 0; i < t.autoTips.length; i++) o.push('<li>' + t.autoTips[i] + '</li>');
+    o.push('</ul><h2>' + t.faqT + '</h2>');
+    for (i = 0; i < t.faq.length; i++) o.push('<div class="hw-pq"><b>Q. ' + t.faq[i][0] + '</b><p class="hw-pa">A. ' + t.faq[i][1] + '</p></div>');
+    return o.join('');
   }
-  function saveText() {
-    var txt = guideText();
-    var blob = new Blob(['﻿' + txt], { type: 'text/plain;charset=utf-8' });   /* BOM: 메모장·엑셀 한글 깨짐 방지 */
+  /* 📝 Word 로 저장 — Word 가 여는 HTML(.doc). 인쇄 본문과 같은 내용을 그대로 쓴다. */
+  function saveWord() {
+    var t = T();
+    var head = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
+      + '<head><meta charset="utf-8"><title>' + t.title + '</title></head><body style="font-family:Malgun Gothic,sans-serif;font-size:11pt">';
+    var blob = new Blob(['\ufeff' + head + printHtml() + '</body></html>'], { type: 'application/msword' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
-    a.href = url; a.download = (isEn() ? 'warmup-guide-en.txt' : 'ai-speaking-guide-ko.txt');
+    a.href = url; a.download = (isEn() ? 'warmup-guide-en.doc' : 'ai-speaking-guide-ko.doc');
     document.body.appendChild(a); a.click();
     setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  }
+  function savePdf() {
+    printCss();
+    var box = document.getElementById(PRINT_ID);
+    if (!box) { box = document.createElement('div'); box.id = PRINT_ID; document.body.appendChild(box); }
+    box.innerHTML = printHtml();
+    var done = function () { box.innerHTML = ''; window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done);
+    try { window.print(); } catch (e) { done(); }
   }
   /* 🔊 성우 음성 (2026-10-03 사장님) — 열면 바로 말한다. 옆 버튼으로 끄고 켠다(기기에 기억).
      ⚠️ 음성은 한국어 한 벌이라 영어 화면에서는 «꺼진 채» 시작하고 누르면 들려준다.
@@ -272,7 +299,8 @@
       o = document.createElement('div'); o.id = ID;
       o.addEventListener('click', function (e) {
         if (e.target.closest && e.target.closest('.hw-snd')) { toggleSnd(); return; }
-        if (e.target.closest && e.target.closest('.hw-save')) { saveText(); return; }
+        if (e.target.closest && e.target.closest('.hw-word')) { saveWord(); return; }
+        if (e.target.closest && e.target.closest('.hw-save')) { savePdf(); return; }
         if (e.target === o || (e.target.closest && e.target.closest('.hw-x,.hw-ok'))) close();
       });
       document.body.appendChild(o);
