@@ -295,10 +295,10 @@ check('화면이 upgrades 를 그린다 (결과 + 복습 모달)',
 
 /* 2026-11-01: 업그레이드 이유에 «읽을 수 있는 한국어» 검사(isReadableKo)가 붙었습니다 — 정본(write-issue-triage.ts)에서
    그 함수를 그대로 오려 와 블록 앞에 붙여 실행합니다(하니스에 베껴 적지 않음). */
-const _TRI = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../cloudflare-deploy/src/write-issue-triage.ts'), 'utf8');
-const _koI = _TRI.indexOf('export function isReadableKo(');
-const KO_FN = _koI >= 0 ? stripTypeScriptTypes(_TRI.slice(_koI, _TRI.indexOf('\n}\n', _koI) + 3).replace(/^export /, '')) + '\n' : '';
-check('정본에서 isReadableKo 를 오려 냈다', KO_FN.length > 200);
+// 2026-11-01: 그 함수는 공용 정본 ko-readable.ts(import 0)로 옮겼습니다 — 파일 통째로 «export» 만 떼어 붙입니다.
+const _KO = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../cloudflare-deploy/src/ko-readable.ts'), 'utf8');
+const KO_FN = stripTypeScriptTypes(_KO).replace(/^export /gm, '') + '\n';
+check('정본에서 isReadableKo 를 오려 냈다', /function isReadableKo\(/.test(KO_FN) && /function looksGarbledKo\(/.test(KO_FN));
 const upSrc = (API.match(/const upgrades = \(Array\.isArray\(parsed\.upgrades\)[\s\S]*?\.slice\(0, 3\);/) || [])[0] || '';
 check('업그레이드 검증부를 오려 냈다', upSrc.length > 100);
 if (upSrc) {

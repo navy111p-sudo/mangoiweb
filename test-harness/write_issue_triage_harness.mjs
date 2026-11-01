@@ -27,6 +27,7 @@ const SRC = join(ROOT, 'cloudflare-deploy/src');
 const PUB = join(ROOT, 'cloudflare-deploy/public');
 const TRI_SRC = readFileSync(join(SRC, 'write-issue-triage.ts'), 'utf8');
 const CR_SRC = readFileSync(join(SRC, 'correction-reason.ts'), 'utf8');
+const KO_SRC = readFileSync(join(SRC, 'ko-readable.ts'), 'utf8');   // 🔤 2026-11-01 «읽을 수 있는 한국어» 공용 정본
 const AI_SRC = readFileSync(join(SRC, 'api-ai.ts'), 'utf8');
 const HTML = readFileSync(join(PUB, 'ai-write.html'), 'utf8');
 const SEED = Number(process.env.TRIAGE_SEED || 20261101) >>> 0;
@@ -42,12 +43,13 @@ const sec = (t) => { if (!QUIET) console.log('\n' + t); };
 // ── 정본 적재: 타입 제거 → 임시 폴더에 .mjs 로 → import ──
 const TMP = mkdtempSync(join(tmpdir(), 'wit-'));
 let modSeq = 0;
-async function loadTriage(triSrc = TRI_SRC) {
+async function loadTriage(triSrc = TRI_SRC, koSrc = KO_SRC) {
   const n = ++modSeq;
   const crPath = join(TMP, `correction-reason-${n}.mjs`);
   const triPath = join(TMP, `write-issue-triage-${n}.mjs`);
   writeFileSync(crPath, stripTypeScriptTypes(CR_SRC));
-  const triJs = stripTypeScriptTypes(triSrc).replace(/from '\.\/correction-reason'/, `from './correction-reason-${n}.mjs'`);
+  writeFileSync(join(TMP, `ko-readable-${n}.mjs`), stripTypeScriptTypes(koSrc));
+  const triJs = stripTypeScriptTypes(triSrc).replace(/from '\.\/correction-reason'/, `from './correction-reason-${n}.mjs'`).replace(/from '\.\/ko-readable'/, `from './ko-readable-${n}.mjs'`);
   writeFileSync(triPath, triJs);
   return import(pathToFileURL(triPath).href);
 }
@@ -131,7 +133,9 @@ function coreScenarios(M) {
   // H9 — 끝맺음은 멀쩡한데 «한 군데만» 깨진 문장(각 검사를 따로 시험 — 변이시험이 잡은 빈틈)
   t('H9a 틀린 조사(받침 뒤 를)만 있는 문장은 거절', !M.isReadableKo('신호 입력를 지도해요.') && M.isReadableKo('신호 입력을 지도해요.'));
   t('H9b 틀린 조사(받침 없는 뒤 을)만 있는 문장은 거절', !M.isReadableKo('사과을 먹어요.') && M.isReadableKo('사과를 먹어요.'));
-  t('H9c 같은 낱말 세 번 반복은 거절', !M.isReadableKo('지도 알는 지도 었다 지도 해요.') && M.isReadableKo('지도 알는 지도 해요.'));
+  t('H9c 같은 낱말 세 번 반복«만» 있는 문장은 거절', !M.isReadableKo('지도 알는 지도 지도 해요.') && M.isReadableKo('지도 알는 지도 해요.'));
+  // H10 — 멀쩡하지만 «존댓말로 안 끝난» 설명은 짧은 설명 칸(엄격)에서만 거절(조각·조사·반복 검사로는 안 걸리는 문장)
+  t('H10 끝맺음만 다른 문장: 엄격은 거절, 느슨(깨짐 판정)은 통과(짝)', !M.isReadableKo('지난 일이라 과거형을 쓴다.') && M.isReadableKo('지난 일이라 과거형을 써요.'));
   return bad;
 }
 
@@ -185,7 +189,7 @@ const M = await loadTriage();
 sec('[ A·B·C. 원장님 사례 · 진짜 오류(짝) · 경계 — 정본을 실제로 돌림 ]');
 {
   const bad = coreScenarios(M);
-  const names = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'H1', 'H2', 'H3', 'H4', 'H5', 'H5b', 'H6', 'H7', 'H8', 'H9a', 'H9b', 'H9c'];
+  const names = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'H1', 'H2', 'H3', 'H4', 'H5', 'H5b', 'H6', 'H7', 'H8', 'H9a', 'H9b', 'H9c', 'H10'];
   for (const n of names) check(`시나리오 ${n}`, !bad.some(b => b.startsWith(n + ' ')), bad.find(b => b.startsWith(n + ' ')));
 }
 
@@ -252,17 +256,18 @@ sec('[ G. 변이시험 — 정본을 일부러 고장 내면 실제로 FAIL 나�
     ['정규화 약화(끝 부호 안 벗김)', ".replace(/[\\s.!?,;:]+$/, '')", ''],
     ['대소문자 오인용 거르기 제거', "if (oN.toLowerCase() === sN.toLowerCase() && !textNorm.includes(oN)) { drop('case_misquote'); continue; }", ''],
     ['상한 제거', "if (out.issues.length >= MAX_ERRORS) { drop('over_cap'); continue; }", ''],
-    ['끝맺음 검사 제거(깨진 한국어 통과)', "if (!/(요|니다)[.!?~\\s]*$/.test(s)) return false;", ''],
-    ['틀린 조사 검사 제거', "if (m[2] === '를' && hasJong(m[1])) return false;", ''],
-    ['반복 검사 제거', 'if (cnt[t] >= 3) return false;', ''],
+    ['끝맺음 검사 제거(깨진 한국어 통과)', "if (!/(요|니다)[.!?~\\s]*$/.test(s)) return false;", '', 'ko'],
+    ['틀린 조사 검사 제거', "if (m[2] === '를' && hasJong(m[1])) return true;", '', 'ko'],
+    ['반복 검사 제거', 'if (cnt[t] >= limit) return true;', '', 'ko'],
     ['규칙 설명 대신 AI 문장 우선', 'const reason = ruleBacked ? (det as string) : (isReadableKo(modelReason) ? modelReason : (det || ERROR_FALLBACK_KO));', 'const reason = isReadableKo(modelReason) ? modelReason : (det || ERROR_FALLBACK_KO);'],
   ];
-  for (const [name, from, to] of MUT) {
-    if (!TRI_SRC.includes(from)) { check(`G 변이 적용 가능: ${name}`, false, '앵커를 못 찾음 — 정본이 바뀌었으면 변이도 맞춰 주세요'); continue; }
+  for (const [name, from, to, where] of MUT) {
+    const base = where === 'ko' ? KO_SRC : TRI_SRC;
+    if (!base.includes(from)) { check(`G 변이 적용 가능: ${name}`, false, '앵커를 못 찾음 — 정본이 바뀌었으면 변이도 맞춰 주세요'); continue; }
     // ⚠️ 변이본이 «적재조차 안 되면» 잡힌 것이 아닙니다(문법 오류는 검사가 아니라 우연) — 못 잡은 것으로 셉니다.
     let caught = false, why = '';
     try {
-      const Mm = await loadTriage(TRI_SRC.replace(from, to));
+      const Mm = where === 'ko' ? await loadTriage(TRI_SRC, KO_SRC.replace(from, to)) : await loadTriage(TRI_SRC.replace(from, to));
       const bad = coreScenarios(Mm);
       const v = fuzz(Mm, SEED, 600);
       caught = bad.length > 0 || Object.values(v).some(x => x > 0);

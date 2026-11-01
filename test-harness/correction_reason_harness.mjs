@@ -195,7 +195,7 @@ console.log('\n[ G. api-ai.ts 배선 — import 만 해 두고 안 쓰면 소용
     /import \{ explainCorrection[^}]*\} from '\.\/correction-reason'/.test(TRI));
   // 2026-11-01: «한글 6자 이상» 만으로는 깨진 한국어(「신호 입력를 지도신.」)가 통과했습니다 → isReadableKo 로 강화.
   check('모델 이유는 «읽을 수 있는 한국어» 일 때만 쓴다(정본 isReadableKo)',
-    /export function isReadableKo\(/.test(TRI) && /isReadableKo\(modelReason\)/.test(TRI));
+    /import \{ isReadableKo[^}]*\} from '\.\/ko-readable'/.test(TRI) && /isReadableKo\(modelReason\)/.test(TRI));
   check('⛔ 옛 규칙기반 추측(_guessReason)이 api-ai.ts 에 남아 있지 않다',
     !/_guessReason\s*=/.test(AI));
 }
