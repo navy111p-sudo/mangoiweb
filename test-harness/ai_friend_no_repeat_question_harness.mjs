@@ -168,7 +168,8 @@ async function guest() {
 }
 async function chat(g, msg, extra = {}) {
   calls.length = 0;
-  const body = { uid: g.uid, msg, level: 'S6', friend: 'lily', ...extra };
+  // These cases exercise incremental preview. Focused mode holds it until validation.
+  const body = { uid: g.uid, msg, level: 'S6', friend: 'lily', correction_mode: 'balanced', ...extra };
   const r = await M.handleAiApi(req('/api/ai/chat-friend', body, g.token), U('/api/ai/chat-friend'), env);
   if (body.stream) {
     const txt = await r.text();
@@ -287,6 +288,11 @@ console.log('① 장면 — 실제 핸들러');
   const { res } = await dogTalk(['Nice! What color is your dog?'], { stream: 1 });
   ok('①-7b 새 질문이면 미리듣기가 끝까지 나가고 다시 읽지 않는다(짝)', res.sent.join(' ') === 'Nice! What color is your dog?' && res.replaced === 0 && res.calls.length === 1, { sent: res.sent, replaced: res.replaced });
 }
+{
+  const { res } = await dogTalk(['Wow! Is your dog small?', 'Cool! What color is your dog?'], { stream: 1, correction_mode: 'focused' });
+  ok('집중교정: 미리듣기를 보류해도 반복 질문은 정본에서 다시 뽑힌다', res.sent.length === 0 && res.reply === 'Cool! What color is your dog?' && res.replaced === 0, { sent: res.sent, reply: res.reply });
+}
+
 {
   const { res } = await dogTalk(["Hi, I'm Roy! What color is your dog?", "I'm Lily! Is your dog small?"]);
   ok('①-8 이름 다시 뽑기가 «이미 물은 질문» 을 새로 들여오면 받지 않는다', kinds(res).includes('name') && !/small/i.test(res.reply), { reply: res.reply, kinds: kinds(res) });
