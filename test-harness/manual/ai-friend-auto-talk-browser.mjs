@@ -117,6 +117,11 @@ try {
   await select('auto'); await settle();
   await page.evaluate(() => MangoiFaceTalk.enter()); await page.waitForTimeout(50);
   ok(!(await page.evaluate(() => FriendAutoTalk.on())) && !(await page.evaluate(() => _whisperOn)), 'face chat suspends inline automatic listening');
+  const beforeFace = requests;
+  await page.waitForFunction(() => !!probe.resolve);
+  await page.evaluate(() => probe.finish('Thank you very much for watching.', true, '', false));
+  await settle();
+  ok(requests === beforeFace, 'face chat also discards a hallucination after a loud click');
   await page.evaluate(() => MangoiFaceTalk.exit()); await settle();
   await mkdir(process.env.AIF_SCREENSHOTS || '/tmp/aif-screenshots', { recursive: true });
   for (const width of [1440, 390]) {

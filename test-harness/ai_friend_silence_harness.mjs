@@ -37,7 +37,7 @@ check('PCM quiet short answer retained', () => assert.equal(audio.window.MangoiV
 check('PCM stationary noise rejected', () => assert.equal(audio.window.MangoiVoiceCheck.inSamples(new Float32Array(16000).fill(.03), 16000), false));
 
 const page = read('public/ai-friend.html');
-const micCode = page.slice(page.indexOf('    async function micViaWhisper(auto)'), page.indexOf('    function toggleMic()', page.indexOf('    async function micViaWhisper(auto)')));
+const micCode = page.slice(page.indexOf('    async function friendRecordVoice(opts)'), page.indexOf('    function toggleMic()', page.indexOf('    async function micViaWhisper(auto)')));
 async function micCase({ voice = true, auto = true, text = hallucination, late = '', override = false } = {}) {
   const sent = [], hints = [], requests = []; let checks = 0;
   const ctx = { Promise, String, _friendMicSeq: 0, _whisperOn: false, _recognizing: false,
@@ -79,6 +79,22 @@ const overridden = await micCase({ override: true, voice: false });
 check('submission boundary catches recorder override', () => assert.equal(overridden.sent.length, 0));
 const empty = await micCase({ text: '' });
 check('server rejection creates no user turn', () => assert.equal(empty.sent.length, 0));
+const face = read('public/js/aifriend-facetalk.js');
+const faceListen = face.slice(face.indexOf('  async function listen()'), face.indexOf('  async function send('));
+for (const voice of [false, true, null]) {
+  const r = await micCase({ voice, text: 'Yes.' });
+  r.sent.length = 0; r.requests.length = 0;
+  Object.assign(r.ctx, { turnSeq: 0, active: true, silentRuns: 1, waitQuiet: async () => true,
+    setState() {}, showPauseNote() {}, showStuck() {}, clearHelp() {}, open: false,
+    root: { classList: { add() {} } }, noteEl: { textContent: '' }, chipsEl: { innerHTML: '' },
+    send: async text => r.sent.push(text) });
+  vm.runInContext(faceListen, r.ctx);
+  await r.ctx.listen();
+  check('face conversation uses same acoustic guard voice=' + voice, () => {
+    assert.equal(r.sent.length, voice === true ? 1 : 0);
+    assert.equal(r.requests.length, voice === true ? 1 : 0);
+  });
+}
 
 const api = read('src/api-games.ts');
 const start = api.indexOf("    if (method === 'POST' && path === '/api/voice/transcribe')");
