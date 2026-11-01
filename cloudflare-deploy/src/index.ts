@@ -7,6 +7,7 @@ import { handleSpeechPreferences } from './speech-preferences';
 import { loadRecentMistakes, recentMistakesPromptLine } from './recent-mistakes';   // 🔁 최근 교정 다시 쓰기(2026-10-18)
 import { loadVocabWeakRows, loadWeakWordsForWarmup, weakWordsPromptLine, weakWordsCallerOk, mergeWeakFirst, VOCAB_WEAK_GAME_MAX } from './vocab-weak';   // 🔁 틀린 낱말 다시 쓰기(2026-10-18)
 import { readableKoreanVocabulary, hasForeignGloss } from './korean-vocab';
+import { WEAK_WHERE, WEAK_ORDER, WEAK_OLDER_WHERE, WEAK_RECENT_DAYS, weakSince } from './weak-words';  // 🎯 게임 약점 단어 정본(최근 60일·최근 먼저)
 /**
  * index.ts - Main Worker entry point
  * Handles routing, API endpoints, and WebSocket upgrades
@@ -90,6 +91,7 @@ import { logWarmupFixTrace, type WarmupFixTraceReason } from './warmup-fix-trace
 import { authUidFromRequest } from './auth-token';          //    ↑ 본인 확인용(토큰 uid == 요청 user_id 일 때만 기록)
 import { retiredDomainResponse } from './retired-domain';    // 🚫 폐지 주소(test.mangoi.co.kr) → 안내문만 (2026-10-16)
 import { handleDubbingApi, isPrivateDubbingKey } from './api-dubbing'; // 🎬 계정별 더빙 작품·이어하기 (기존 녹화와 분리)
+import { kstTodayYmd, loadStreakTargets } from './daily-streak-targets';
 
 interface Env {
   SIGNALING_ROOM: DurableObjectNamespace;
@@ -3067,19 +3069,17 @@ async function sendDailyStreakPush(env: any): Promise<void> {
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT NOT NULL, title TEXT NOT NULL, body TEXT, url TEXT, icon TEXT, badge TEXT, tag TEXT, queued_at INTEGER NOT NULL, fetched_at INTEGER);`);
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, user_id TEXT, username TEXT, role TEXT, joined_at INTEGER, left_at INTEGER, status TEXT, date TEXT);`);
 
-  const today = new Date().toISOString().slice(0, 10);
+  // 받을 사람은 정본 한 곳이 정합니다(학생 계정만 · 직원 제외 · 오늘(KST) 출석 계정 제외) — src/daily-streak-targets.ts
+  const today = kstTodayYmd();
   const now = Date.now();
-
-  // 오늘 출석한 user_id 들
-  const attRs = await env.DB.prepare(`SELECT DISTINCT user_id FROM attendance WHERE date = ?`).bind(today).all();
-  const attendedSet = new Set((attRs.results || []).map((r: any) => r.user_id));
-
-  // 활성 푸시 구독자 중 오늘 출석 안 한 사람
-  const subRs = await env.DB.prepare(`SELECT DISTINCT user_id, endpoint FROM push_subscriptions WHERE enabled = 1 AND user_id IS NOT NULL`).all();
-  const targets = ((subRs.results || []) as any[]).filter(s => !attendedSet.has(s.user_id));
+  const { targets, error: targetErr } = await loadStreakTargets(env.DB, today);
+  if (targetErr) {
+    console.warn('[daily-streak] target lookup failed — sending nothing:', targetErr);
+    return;
+  }
 
   if (!targets.length) {
-    console.log('[daily-streak] no targets (everyone attended or no subscribers)');
+    console.log('[daily-streak] no targets (no student subscribers left after filters)');
     return;
   }
 
@@ -4054,12 +4054,22 @@ async function handleGamesWeak(request: Request, env: Env): Promise<Response> {
     const limit = Math.min(50, parseInt(u.searchParams.get('limit') || '15', 10) || 15);
     if (!userId) return new Response(JSON.stringify({ ok: false, error: 'user_id_required' }), { status: 400, headers: _MS_JSON });
     await _ensureGameProgressTable(env);
-    // 약점 = 오답이 있고 (오답 ≥ 정답) 인 항목, 오답 많은 순
+    // 약점 = 정본 src/weak-words.ts — 오답 ≥ 정답 · 최근 60일 안에 본 것만 · 최근에 본 것 먼저
+    //   (예전엔 누적만 봐서 한 번 많이 틀린 단어가 «영원히» 약점이었다 — 2026-10-18 개선안 ⑥)
+    const since = weakSince(Date.now());
     const rs = await env.DB.prepare(
       `SELECT item, ko, wrong_count, correct_count, pron_best, pron_count FROM game_progress
-       WHERE user_id = ? AND lang = ? AND wrong_count > 0 AND wrong_count >= correct_count
-       ORDER BY wrong_count DESC, (wrong_count - correct_count) DESC LIMIT ?`
-    ).bind(userId, lang, limit).all();
+       WHERE user_id = ? AND lang = ? AND ${WEAK_WHERE}
+       ORDER BY ${WEAK_ORDER} LIMIT ?`
+    ).bind(userId, lang, since, limit).all();
+    // 창 밖으로 뺀 옛 약점 수 — 화면이 「없다」와 「오래돼서 뺐다」를 갈라 말하게(못 세면 null = 모름)
+    let older: number | null = null;
+    try {
+      const oc: any = await env.DB.prepare(
+        `SELECT COUNT(*) AS n FROM game_progress WHERE user_id = ? AND lang = ? AND ${WEAK_OLDER_WHERE}`
+      ).bind(userId, lang, since).first();
+      older = oc && oc.n != null ? Number(oc.n) : null;
+    } catch { older = null; }
     const weak = ((rs.results as any[]) || []).map((r) => ({
       item: r.item, ko: r.ko || '', wrong: r.wrong_count || 0, correct: r.correct_count || 0,
       pron_best: r.pron_best || 0, pron_count: r.pron_count || 0
@@ -4075,7 +4085,7 @@ async function handleGamesWeak(request: Request, env: Env): Promise<Response> {
         (await loadVocabWeakRows(env.DB, userId, Date.now(), VOCAB_WEAK_GAME_MAX)).map((r) => String(r.word || '').trim()).filter((w) => isEnglishText(w, 30)),
         [], VOCAB_WEAK_GAME_MAX, (w) => w).map((item) => ({ item }));
     }
-    return new Response(JSON.stringify({ ok: true, lang, weak, vocab_weak: vocabWeak }), { status: 200, headers: _MS_JSON });
+    return new Response(JSON.stringify({ ok: true, lang, weak, window_days: WEAK_RECENT_DAYS, older, vocab_weak: vocabWeak }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
@@ -4162,12 +4172,12 @@ async function handleGamesRecommend(request: Request, env: Env): Promise<Respons
     const pronVals = [gamePron, coachPron].filter((v): v is number => v != null);
     const pron = pronVals.length ? Math.round(pronVals.reduce((s, v) => s + v, 0) / pronVals.length) : null;
 
-    // ③ 취약 단어 상위 5 (handleGamesWeak 과 동일 기준)
+    // ③ 취약 단어 상위 5 — handleGamesWeak 과 «같은 정본»(src/weak-words.ts · 최근 60일 · 최근 먼저)
     const wrs = await env.DB.prepare(
       `SELECT item, ko, wrong_count, correct_count FROM game_progress
-       WHERE user_id = ? AND lang = ? AND wrong_count > 0 AND wrong_count >= correct_count
-       ORDER BY wrong_count DESC, (wrong_count - correct_count) DESC LIMIT 5`
-    ).bind(userId, lang).all();
+       WHERE user_id = ? AND lang = ? AND ${WEAK_WHERE}
+       ORDER BY ${WEAK_ORDER} LIMIT 5`
+    ).bind(userId, lang, weakSince(Date.now())).all();
     const weak = ((wrs.results as any[]) || []).map((r) => ({ item: r.item, ko: r.ko || '', wrong: r.wrong_count || 0, correct: r.correct_count || 0 }));
 
     // ④ 진단 → 추천 (룰 기반: <80 보완 필요 · ≥90 우수)
