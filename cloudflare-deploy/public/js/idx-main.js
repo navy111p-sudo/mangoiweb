@@ -359,8 +359,10 @@ let __vcIceLoadedAt = 0;      // TURN 자격증명 발급 시각
 let __vcIceHasTurn  = false;  // relay(TURN) 서버 확보 여부
 let __vcIcePromise  = null;   // 중복 fetch 방지 공유 promise
 async function fetchIceServers() {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2800);
     try {
-        const resp = await fetch('/api/turn-config');
+        const resp = await fetch('/api/turn-config', { signal: controller.signal });
         if (resp.ok) {
             const data = await resp.json();
             if (data.iceServers && data.iceServers.length > 0) {
@@ -375,6 +377,8 @@ async function fetchIceServers() {
         }
     } catch (e) {
         console.warn('[ICE] 서버 설정 로드 실패, 기본값 사용:', e);
+    } finally {
+        clearTimeout(timer);
     }
 }
 /* TURN 자격증명 준비 보장 — 연결(offer/answer/재연결) 직전에 호출.
@@ -390,7 +394,7 @@ function vcEnsureIceServers() {
     return Promise.race([__vcIcePromise, new Promise(r => setTimeout(r, 3000))]);
 }
 // 페이지 로드 시 즉시 ICE 설정 가져오기
-fetchIceServers();
+vcEnsureIceServers();
 
 /**
  * getUserMedia 에러를 사용자 친화적인 한국어 메시지로 변환합니다.
