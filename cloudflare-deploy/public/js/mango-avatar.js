@@ -402,11 +402,12 @@
            while(video.firstChild) video.removeChild(video.firstChild);
            video.removeAttribute('src'); video.load(); }catch(e){}   // 영상은 확실히 세워 둔다
       imgFrames = {}; imgCur = null; imgAspectDone = false;
+      var mountedFrames = imgFrames;
       var failed = false;
       ['closed','medium','wide'].forEach(function(k){
         var im = new Image();
         im.onload = function(){
-          if(name !== curChar) return;            // 그 사이 캐릭터가 또 바뀌었으면 버린다
+          if(name !== curChar || imgFrames !== mountedFrames) return; // Ignore an old mount, even after switching away and back.
           if(k === 'closed' && !imgAspectDone && im.naturalWidth && im.naturalHeight){
             imgAspectDone = true;                 // 실측 비율로 카드 높이를 정확히 다시 맞춘다
             setAspect((im.naturalWidth  * (cropRect.r - cropRect.l)) /
@@ -417,6 +418,9 @@
           if(!drawing) drawStill();
         };
         im.onerror = function(){
+          // A closed-frame failure can already have mounted the fallback video (imgFrames=null).
+          // Late medium/wide callbacks must not mutate that replacement or a newer image mount.
+          if(name !== curChar || imgFrames !== mountedFrames) return;
           // 🔴 파일이 아직 안 올라왔거나 깨졌을 때 «빈 얼굴 카드» 로 남지 않게 성인 얼굴로 되돌린다.
           //    「얼굴이 옛날 것이다」 = 그 PNG 가 /img/ 에 없다는 뜻이다.
           // ⚠️ 되돌리는 것은 «쉬는 얼굴(closed)» 이 없을 때만이다 — medium·wide 는 말할 때만 쓰는

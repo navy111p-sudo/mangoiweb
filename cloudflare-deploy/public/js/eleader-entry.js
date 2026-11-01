@@ -4,7 +4,7 @@
   const box=document.getElementById('eleaderEntry');
   if(!box)return;
   let epoch=0,controller,lastToken='';
-  const token=()=>localStorage.getItem('mango_token')||'';
+  const token=()=>{try{return localStorage.getItem('mango_token')||'';}catch{return '';}};
   // EN/KO follows the site-wide key `mangoi_lang`, same as warmup.html wuEn().
   const en=()=>{try{return localStorage.getItem('mangoi_lang')==='en';}catch{return false;}};
   const T={chip:{ko:' · 맞춤 문항 연습',en:' · custom question practice'},
