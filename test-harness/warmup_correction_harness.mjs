@@ -369,6 +369,14 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   t('B-11c why_ko 가 순수 한글이면 여전히 통과한다 (한자 가드가 정상 교정을 막지 않는다)',
     !!verifyWarmupFix({ was: 'I go', now: 'I went', why_ko: '과거에 한 일이라 went 를 써', tag: 'past_tense', severity: 'minor' }, said));
 
+  /* 2026-11-01 퍼즈가 잡은 구멍 — 기본 한자 밖의 글자도 막는다 */
+  t('B-11d 호환 한자·확장 B·부수·々〇·반각 가타카나도 버린다',
+    ['과거라 豈 를 써', '과거라 𩐘 를 써', '과거라 ⾕ 를 써', '과거라 々 를 써', '과거라 〇 를 써', '과거라 ﾍ 를 써', '과거라 ひ 를 써']
+      .every(w => verifyWarmupFix({ was: 'I go', now: 'I went', why_ko: w, tag: 'past_tense', severity: 'minor' }, said) === null));
+  t('B-11e 한국어 문장부호(· 「」 。 、 ・ « »)와 이모지는 막지 않는다 (짝)',
+    ['과거라 «went» · 「went」 를 써。、・💡', '어제 일이라 went(갔다)를 써요!'].every(w =>
+      !!verifyWarmupFix({ was: 'I go', now: 'I went', why_ko: w, tag: 'past_tense', severity: 'minor' }, said)));
+
   t('B-12 교정문에 한글이 섞이면 버린다 (영어 TTS 가 그대로 읽는다)',
     verifyWarmupFix({ was: 'I go', now: 'I went 갔어', why_ko: '과거형', tag: 'past_tense', severity: 'minor' }, said) === null);
 

@@ -103,12 +103,13 @@
         userVisibleOnly: true,
         applicationServerKey: b64uToUint8(keyD.key),
       });
-      // 서버 등록
+      // 서버 등록 — 로그인 정본이 적는 모양은 {uid, name, role} 이라 user_id 칸이 없을 수 있습니다.
+      //   uid 를 먼저 보고 옛 모양(user_id)도 받습니다(2026-10-18 — 학생 구독이 «계정 없음» 으로 저장되던 것).
       const user = (function(){ try { return JSON.parse(localStorage.getItem('mango_user')||'null'); } catch(e){ return null; } })();
       await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: sub.toJSON(), user_id: user?.user_id || null, ua: navigator.userAgent.slice(0, 200) })
+        body: JSON.stringify({ subscription: sub.toJSON(), user_id: (user && (user.uid || user.user_id || user.id)) || null, ua: navigator.userAgent.slice(0, 200) })
       });
       try { localStorage.setItem('mangoi_push_subscribed', '1'); } catch(e){}
       alert('🔔 푸시 알림 구독 완료!\n수업 알림, 결제 안내, 평가서 알림 등을 받을 수 있어요.');

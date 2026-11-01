@@ -54,7 +54,7 @@ const noImports = (t) => t.replace(/^import[^\n]*\n/gm, '').replace(/^export\s+/
 let V = null, isEnglishText = null;
 try {
   V = new Function(stripTypeScriptTypes(noImports(WW) + '\n' + noImports(MOD)) +
-    '\nreturn { VOCAB_WEAK_GAME_MAX, VOCAB_WEAK_WHERE, VOCAB_WEAK_ORDER, WEAK_WORDS_MAX, WEAK_WORDS_MAX_BEGINNER, cleanWeakWord, cleanWeakKo, friendWeakList, VOCAB_WEAK_FRIEND_MAX, mergeWeakFirst, loadVocabWeakRows, loadWeakWordsForWarmup, weakWordsPromptLine, weakWordsCallerOk, WEAK_WHERE, WEAK_ORDER, weakSince };')();
+    '\nreturn { VOCAB_WEAK_GAME_MAX, VOCAB_WEAK_WHERE, VOCAB_WEAK_ORDER, WEAK_WORDS_MAX, WEAK_WORDS_MAX_BEGINNER, cleanWeakWord, cleanWeakKo, friendWeakList, VOCAB_WEAK_FRIEND_MAX, mergeWeakFirst, loadVocabWeakRows, loadWeakWordsForWarmup, weakWordsPromptLine, weakWordsCallerOk, WEAK_WHERE, WEAK_ORDER, WEAK_OLDER_WHERE, WEAK_RECENT_DAYS, weakSince };')();
   isEnglishText = new Function(stripTypeScriptTypes(noImports(EO)) + '\nreturn isEnglishText;')();
 } catch (e) { check('정본 실행', false, e.message); }
 check('전제: 정본(vocab-weak + weak-words + english-only)을 실제로 실행했다', !!V && typeof isEnglishText === 'function');
@@ -253,10 +253,12 @@ if (runVocab) {
 console.log('\n── ⑥ /api/games/weak — handleGamesWeak 를 통째로 오려 내 실제로 ──');
 const gfn = blockFrom(IDX, 'async function handleGamesWeak(');
 check('전제: handleGamesWeak 를 오려 냈다', gfn.includes('vocab_weak') && gfn.includes('game_progress'));
-check('⑥ 응답에 vocab_weak 를 «따로» 싣는다(weak 와 다른 칸)', /weak,\s*vocab_weak:\s*vocabWeak/.test(gfn), gfn.slice(-400));
+// (2026-10-18 #1632) 응답에 window_days·older 칸이 끼어 «바로 옆» 을 못 박지 않는다 — 같은 응답 객체에 weak 와 vocab_weak 가 «각각» 있는가로 묻는다
+check('⑥ 응답에 vocab_weak 를 «따로» 싣는다(weak 와 다른 칸)', /ok:\s*true,\s*lang,\s*weak\b[^}]*\bvocab_weak:\s*vocabWeak/.test(gfn), gfn.slice(-400));
 let mkWeak = null;
 try {
   mkWeak = new Function('_ensureGameProgressTable', '_MS_JSON', 'isEnglishText', 'loadVocabWeakRows', 'mergeWeakFirst', 'VOCAB_WEAK_GAME_MAX', 'vocabWeakCallerVerified', 'URL', 'Response',
+    'WEAK_WHERE', 'WEAK_ORDER', 'WEAK_OLDER_WHERE', 'WEAK_RECENT_DAYS', 'weakSince',   // 게임 약점 정본(src/weak-words.ts, #1632) — 정본에서 읽어 넣는다
     stripTypeScriptTypes(gfn) + '\nreturn handleGamesWeak;');
 } catch (e) { check('handleGamesWeak 실행 준비', false, e.message); }
 const VOCAB_MAX = (() => { const m = MOD.match(/export const VOCAB_WEAK_GAME_MAX\s*=\s*(\d+)/); return m ? Number(m[1]) : NaN; })();
@@ -264,13 +266,15 @@ check('전제: 게임 쪽 개수 상수를 정본에서 읽었다', Number.isFin
 async function weakCase({ lang = 'en', verified = true, vocabDown = false } = {}) {
   const env = { DB: vocabDown ? { prepare(sql) { if (/FROM vocabulary/.test(sql)) throw new Error('no such table: vocabulary'); return d1(db).prepare(sql); } } : d1(db) };
   try {
-    const fn = mkWeak(async () => {}, {}, isEnglishText, V.loadVocabWeakRows, V.mergeWeakFirst, VOCAB_MAX, async () => verified, URL, Response);
+    const fn = mkWeak(async () => {}, {}, isEnglishText, V.loadVocabWeakRows, V.mergeWeakFirst, VOCAB_MAX, async () => verified, URL, Response,
+      V.WEAK_WHERE, V.WEAK_ORDER, V.WEAK_OLDER_WHERE, V.WEAK_RECENT_DAYS, V.weakSince);
     const r = await fn({ url: `https://example.test/api/games/weak?user_id=kim01&lang=${lang}&limit=20` }, env);
     return { status: r.status, body: await r.json() };
   } catch (e) { return { status: -1, body: { error: String(e && e.message || e), weak: [], vocab_weak: [] } }; }
 }
 if (mkWeak) {
-  const gameRows = db.prepare(`SELECT item FROM game_progress WHERE user_id='kim01' AND lang='en' AND wrong_count>0 AND wrong_count>=correct_count`).all().map((r) => r.item).sort();
+  // (2026-10-18 #1632) «게임 기록 그대로» = 게임 약점 정본(최근 60일 창)을 그대로 — 창 밖 옛 약점(zebra 200일)은 그 정본이 뺀다
+  const gameRows = db.prepare(`SELECT item FROM game_progress WHERE user_id='kim01' AND lang='en' AND ${V.WEAK_WHERE}`).all(V.weakSince(Date.now())).map((r) => r.item).sort();
   const en = await weakCase();
   const weakItems = (en.body.weak || []).map((x) => x.item).sort();
   const vw = (en.body.vocab_weak || []).map((x) => x.item);
