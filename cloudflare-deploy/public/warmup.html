@@ -348,7 +348,7 @@
   .wus-cmode-tag{font-size:11.5px;font-weight:800;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:0 7px}
   @media (max-width:560px){ .wus-cmodes{grid-template-columns:1fr} }
   /* ⏱️ 교정 방식 아래 응대 속도 안내(2026-11-01). wus-hint 를 쓰면 PC 박스(.wus-pcb .wus-hint)에서 숨겨지므로 따로 둔다. */
-  .wus-cm-speed{font-size:12.5px;color:var(--text2);line-height:1.5;margin:8px 2px 0}
+  .wus-cm-speed{font-size:12.5px;color:var(--text2);line-height:1.5;margin:10px 2px 0;background:rgba(56,189,248,.08);border-left:3px solid var(--accent);border-radius:8px;padding:8px 10px}
   /* 📘💬 두 갈래로 시작 — «교재로» / «자유 대화로» (2026-09-16 · 시안 3안)
      ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요 — subtitle_meaning_harness 가 <style> 안
         홑낫표를 «한자 폰트(983KB)를 받는 화면» 으로 셉니다(CLAUDE.md 2장, 실제로 밟았습니다).
@@ -496,8 +496,10 @@
     /* 🎚️ 교정 방식 — 2번 카드는 이미 가장 길어서 1번 카드에 «한 줄» 로 둔다.
        실측(2026-10-29): 1번 카드의 남는 높이가 1440×900 에서 약 47px(zoom 전)뿐이라 제목 줄을 접고
        «교정 [자유대화][균형][집중교정]» 한 줄로 만든다. ⛔ 제목·설명을 되살리면 PC 한 화면이 깨진다. */
-    #wusPcB1 #wusGMode{display:flex;align-items:center;gap:8px;margin-top:10px}
+    #wusPcB1 #wusGMode{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
     #wusPcB1 #wusGMode[hidden]{display:none!important}
+    /* ⏱️ 응대 속도 안내는 버튼 줄 «밑» 에 가로 전체로 내려간다 (flex 줄 안에서 겹치지 않도록) */
+    #wusPcB1 .wus-cm-speed{flex:0 0 100%;margin:8px 0 0}
     #wusPcB1 #wusGMode>.wus-sub{display:none}
     #wusPcB1 .wus-cm-short{display:inline;flex:0 0 auto;font-size:14px;font-weight:800;color:var(--text2);white-space:nowrap}
     #wusPcB1 .wus-cmodes{flex:1 1 auto;min-width:0;gap:6px}
