@@ -19,7 +19,7 @@ import { checkAndAwardBadges, BADGE_CATALOG } from './api-games';
 import { processAiCommand, executeAction, processStudentCommand } from './ai-command';
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
 import { checkAdminSession } from './auth-admin';
-import { triageIssues } from './write-issue-triage';   // 🚦 고칠 곳 3단계 판정(오류·참고·인정) — «왜» 설명은 그 안에서 correction-reason 을 씀
+import { triageIssues, isReadableKo, isEnglishReply } from './write-issue-triage';   // 🚦 고칠 곳 3단계 판정(오류·참고·인정) — «왜» 설명은 그 안에서 correction-reason 을 씀
 import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint, aiFriendStudentAsked,
          aiFriendTrimSentences, aiFriendNormalizeLevel,
          AI_FRIEND_DEFAULT_LEVEL, AI_FRIEND_LEVELS } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
@@ -85,13 +85,13 @@ export async function handleAiApi(
       const prompt = `You are Mango, a friendly English writing tutor for a Korean student at CEFR level ${level}. The student wrote the following text. Your job:
 1. Provide a corrected version (preserve student's meaning). Fix ONLY the problems you list in "issues"; keep every other word exactly as the student wrote it.
 2. Provide a numeric score 0-100 for overall quality.
-3. List ONLY real problems (0-5 items — an EMPTY list is correct when the writing has no problems). Each item: original phrase (copied EXACTLY from the student's text), suggested phrase, category, and a REQUIRED brief reason IN KOREAN (one short sentence explaining WHY, e.g. tense, article, preposition, word order). Never leave "reason" empty.
+3. List ONLY real problems (0-5 items — an EMPTY list is correct when the writing has no problems). Each item: original phrase (copied EXACTLY from the student's text), suggested phrase, category, and a REQUIRED brief reason IN KOREAN (one short, simple, grammatical Korean sentence ending in "~요." that explains WHY, e.g. tense, article, preposition, word order). Never leave "reason" empty. If you cannot write natural Korean, write the reason in simple English instead.
    - category "error": grammar, spelling, or a wrong word.
    - category "unnatural": grammatical, but a native speaker would clearly not say it this way.
    - Do NOT list phrasing that is already correct and natural just because another way exists. Examples to leave alone: "When the water boils" (do not change to "Once the water has boiled"); "I'll teach you how to make it" (do not change "teach" to "show").
    - Never list an item whose suggested phrase is the same as the original.
-4. Provide one encouraging tip in Korean (1-2 sentences).
-5. Reply to the CONTENT of the student's writing like a pen-pal friend, in English appropriate for ${level} level (1-2 short sentences, warm, may end with a small question).
+4. Provide one encouraging tip in natural Korean (1-2 short sentences ending in "~요.").
+5. Reply to the CONTENT of the student's writing like a pen-pal friend, in ENGLISH ONLY appropriate for ${level} level (1-2 short sentences, warm, may end with a small question). Never write Korean in "reply".
 6. Suggest 1-3 vocabulary upgrades: pick a plain word or phrase the student ACTUALLY WROTE and offer a more natural / more advanced English word for CEFR ${level} (e.g. "thing you own" -> "property", "bad guy who steals" -> "thief"). "from" MUST appear in the student's text exactly. "why" is REQUIRED and must be a short Korean sentence saying WHY the new word is better (nuance, register, precision) — an item with an empty "why" is DISCARDED, so never leave it blank. If nothing is worth upgrading, use an empty list.
 
 Respond in this strict JSON format only, no markdown:
@@ -169,9 +169,14 @@ Student text: """${text}"""`;
       const issues = _tri.issues.map(({ original, suggested, reason }) => ({ original, suggested, reason }));
       const suggestions = _tri.suggestions.map(({ original, suggested, reason }) => ({ original, suggested, reason }));
       if (_tri.dropped.length) console.log('[write-correct] triage dropped:', JSON.stringify(_tri.dropped.map(d => d.why)));
-      const tip = String(parsed.tip || '꾸준히 영작 연습을 이어가세요! 매일 한 문장씩만 써도 한 달이면 30문장입니다.');
+      /* 🔤 [2026-11-01 실사고] 한국어에 약한 보조 모델이 «낱말 조각» 을 늘어놓은 글(「지도 알는 어 지도 었다…」)이
+         그대로 학생 화면에 나갔습니다. 읽을 수 있는 한국어가 아니면 기본 문구로 바꿉니다(정본 isReadableKo). */
+      const _tipRaw = String(parsed.tip || '').trim().slice(0, 300);
+      const tip = isReadableKo(_tipRaw) ? _tipRaw : '꾸준히 영작 연습을 이어가세요! 매일 한 문장씩만 써도 한 달이면 30문장입니다.';
       // 💬 망고 선생님의 답장 — 첨삭을 '검사'가 아니라 '대화'로 만드는 펜팔 답장
-      const reply = String(parsed.reply || '').trim().slice(0, 400);
+      // 💬 답장은 «영어로만» — 한글이 섞이면(깨진 한국어가 이 칸에 온 실사고) 답장을 아예 안 보입니다.
+      const _replyRaw = String(parsed.reply || '').trim().slice(0, 400);
+      const reply = isEnglishReply(_replyRaw) ? _replyRaw : '';
       // ⬆️ [2026-08-30] 어휘 업그레이드 — 쉬운 단어를 더 자연스러운 원어민 표현으로.
       //   ⚠️ 모델이 «학생이 쓰지도 않은 단어» 를 고쳐 준 것처럼 지어내는 일이 있다.
       //      그러면 학생 화면에 «내가 안 쓴 말» 이 내 글에서 고쳐진 것처럼 뜬다 →
@@ -200,6 +205,7 @@ Student text: """${text}"""`;
           // ⚠️ 이유는 «한국어로 6자 이상» 일 때만 인정한다(issues 와 같은 기준).
           //    빈 값·영어 한 낱말이 그대로 학생 화면에 나가던 것을 막는다.
           /[가-힣]/.test(u.why) && u.why.length >= 6 &&
+          isReadableKo(u.why) &&   // 깨진 한국어(「지도 알는 어 지도 었다…」)는 버림 — 2026-11-01 실사고
           _lowText.includes(u.from.toLowerCase()))
         .slice(0, 3);
 
