@@ -91,6 +91,7 @@
   detail.appendChild(button('wfAllSettings','기존 전체 설정 열기','Open all existing settings',function(){prefPanel.close();openMenu();}));
   body.appendChild(element('p','wfPreferenceNote'));
   var large=panel('wfLarge',['현재 문장 크게 보기','Read the current sentence']);var largeText=element('p','wfLargeText');large.insertBefore(largeText,large.lastChild);
+  [prefPanel,large].forEach(function(d){var note=element('p',d.id+'RecordingNote');note.setAttribute('role','status');d.insertBefore(note,d.lastChild);});
   function dialogs(){return[ask,prefPanel,large];}
   function active(){return dialogs().some(function(d){return d.open;});}
   function practiceKey(){return[SESSION_ID,_warmLang,_warmLevel,_warmAge,WCTX.textbook,WCTX.lesson_no,LESSON_TOPIC,_wuCorrMode,_voiceMode].join('|');}
@@ -108,6 +109,19 @@
     if(interrupts && window.WarmupFaceTalk && WarmupFaceTalk.isActive())WarmupFaceTalk.exit();
     returnReady=interrupts&&!_warmPaused;opener=source;
     if(interrupts){questionReference=displayedSentence();opening=true;pauseWarmup();opening=false;}
+    else {
+      var listening=_recognizing||_whisperOn,repeat=!!document.querySelector('[data-warm-repeat]');
+      _autoHook('panelOpen');
+      _warmVoiceEpoch++;
+      if(_warmMicCancel){_warmMicCancel();_warmMicCancel=null;}
+      if(_recog){_recog.onstart=null;_recog.onresult=null;_recog.onend=null;_recog.onerror=null;}
+      if(listening){_micAbortQuiet();if(_recognizing)setMicState(false);}
+      if(_recog){try{_recog.abort();}catch(e){}}
+      _fixRepeatTimers.splice(0).forEach(clearInterval);
+      document.querySelectorAll('[data-warm-repeat]').forEach(function(b){b.disabled=false;delete b.dataset.warmRepeat;});
+      if(listening||repeat)_repeatTarget=null;
+      $(id+'RecordingNote').textContent=(listening?tr('진행 중이던 연습 녹음을 취소했어요. 대화 답변은 보내지 않아요. ','The practice recording was cancelled. No conversation reply is submitted. '):repeat?tr('뒤이을 따라 말하기 녹음을 취소했어요. 닫은 뒤 다시 선택할 수 있어요. ','The follow-up repeat recording was cancelled. You can choose it again after closing. '):'')+tr('이 창에서는 새 자동 녹음을 시작하지 않아요. 음성 재생은 계속돼요.','No new automatic recording starts in this panel. Speech playback continues.')+(window.WarmupAutoTalk&&WarmupAutoTalk.isOn()?tr(' 창을 닫으면 선택한 자동 말하기를 이어갈 수 있어요.',' Your selected automatic turn-taking can continue after closing.'):'');
+    }
     if(id==='wfLarge'){largeReference=null;refreshLarge();}
     if(id==='wfAsk'){capture();answer.replaceChildren();askState.textContent=snapshot.pending?tr('새 문장을 아직 받지 못했어요. 돌아가 답변을 받은 뒤 질문해 주세요.','No new sentence has arrived. Return and ask after a reply arrives.'):tr('한국어·영어·중국어로 물어볼 수 있어요. 마이크는 한국어 질문을 받아 적어요.','Type in Korean, English or Chinese. The question mic transcribes Korean.');}
     paintPreferences();paintBusy();panelOwner=$(id);$(id).showModal();if(id==='wfAsk')input.focus();
@@ -116,6 +130,7 @@
     if(event && panelOwner!==event.target)return;var interrupted=panelOwner===ask;panelOwner=null;
     if(interrupted){pauseWarmup();snapshot=null;questionReference=null;requestId++;voiceId++;busy=false;recording=false;paintBusy();
       if(returnReady && !document.hidden)resumeWarmup();}
+    else _autoHook('panelClose');
     returnReady=false;
     if(opener && opener.isConnected)opener.focus();
   }
@@ -220,15 +235,15 @@
   }
   function refreshLarge(){
     var r=displayedSentence(),completed=$('log').querySelectorAll('.msg.ai:not(.stm-preview)'),n=completed[completed.length-1];
-    if(largeReference&&largeReference.pending&&!r.preview&&n===largeReference.priorNode){largeText.textContent=tr('새 문장을 받기 전에 중단됐어요.','Interrupted before the new sentence arrived.');largeText.dataset.preview='interrupted';return;}
-    if(largeReference&&largeReference.preview&&!r.preview&&n===largeReference.priorNode){largeText.textContent=tr('중단되기 전 표시된 문장: ','Text displayed before interruption: ')+largeReference.text;largeText.dataset.preview='interrupted';return;}
+    if(largeReference&&largeReference.pending&&!r.pending&&!r.preview&&n===largeReference.priorNode){largeText.textContent=tr('새 문장을 받기 전에 중단됐어요.','Interrupted before the new sentence arrived.');largeText.dataset.preview='interrupted';return;}
+    if(largeReference&&largeReference.preview&&!r.pending&&!r.preview&&n===largeReference.priorNode){largeText.textContent=tr('중단되기 전 표시된 문장: ','Text displayed before interruption: ')+largeReference.text;largeText.dataset.preview='interrupted';return;}
     largeReference={text:r.text,preview:r.preview,pending:r.pending,priorNode:n};
     largeText.textContent=r.pending?tr('새 문장을 받는 중이에요…','Waiting for the new sentence…'):r.preview?tr('받는 중: ','Receiving: ')+r.text:r.text;largeText.dataset.preview=String(!!r.preview);
   }
   new MutationObserver(function(){if(large.open)refreshLarge();}).observe($('log'),{childList:true,subtree:true,characterData:true});
   function currentSentence(){var msgs=$('log').querySelectorAll('.msg.ai');return msgs.length?msgs[msgs.length-1]._warmText||msgs[msgs.length-1].querySelector('.wu-text')?.textContent||'':'';}
   var flow=window.MangoWarmupFlow={
-    blocksPractice:function(){return ask.open;},helpActive:function(){return ask.open;},hintStyle:function(){return prefs.hints;},
+    blocksPractice:function(){return ask.open;},blocksRecording:active,helpActive:function(){return ask.open;},hintStyle:function(){return prefs.hints;},
     onPause:onPause,contextChanged:contextChanged,
     onMessage:function(t,who){contextChanged();
       // Only explicit topic-change requests are signals; ordinary replies and AI wording never rotate scenes.

@@ -25,7 +25,7 @@ async function fixture(w=390,h=844,lang='en',touch=true,setup=false,blockedStora
  const context=await browser.newContext({viewport:{width:w,height:h},hasTouch:touch,isMobile:false});const page=await context.newPage(),errors=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.text().startsWith('ZOOM_OVERFLOW'))console.log(m.text());});
  await context.addInitScript(({blockedStorage})=>{
-   window.__mic={starts:0,aborts:0};window.SpeechRecognition=class{start(){__mic.starts++;this.onstart?.();}stop(){this.onend?.();}abort(){__mic.aborts++;}};
+   window.__mic={starts:0,aborts:0};window.SpeechRecognition=class{start(){__mic.starts++;this.onstart?.();}stop(){__mic.stops=(__mic.stops||0)+1;this.onend?.();}abort(){__mic.aborts++;}};
    localStorage.setItem('mangoi_ftk_peeked','1');
    if(blockedStorage)Storage.prototype.setItem=function(){throw new DOMException('blocked','QuotaExceededError');};
  },{blockedStorage});
@@ -241,15 +241,76 @@ try{
    ck(await p.locator('#wfLargeText').textContent()===en,'a new completed reply identical to an earlier reply is not mislabelled as interrupted');await F.close();
   }
   {
-   const F=await fixture(),{page:p,S}=F;await stream(p,'Old cancelled preview still waiting for its SSE final.');await p.locator('#wfAskOpen').click();await p.keyboard.press('Escape');await p.waitForFunction(()=>!_warmPaused);await p.evaluate(()=>{window.__finishOld=__finishStream;warmupFetch=__flowFetch;});S.chatMode='delay';
-   await p.evaluate(()=>{document.getElementById('inp').value='a new turn before old stream ends';sendMsg();});await p.waitForFunction(()=>sending&&!!document.querySelector('.typing'));await p.locator('#wfExpandOpen').click();
-   ck((await p.locator('#wfLargeText').textContent()).includes('받는 중')&&!(await p.locator('#wfLargeText').textContent()).includes('Old cancelled'),'new turn waiting state takes priority over a lingering cancelled preview');
-   await p.evaluate(()=>__finishOld('OLD LATE FINAL'));while(!S.pendingChat.length)await p.waitForTimeout(10);S.pendingChat.splice(0).forEach(r=>r());await F.close();
+   const F=await fixture(),{page:p}=F;await stream(p,'Old cancelled preview still waiting for its SSE final.');await p.locator('#wfAskOpen').click();await p.keyboard.press('Escape');await p.waitForFunction(()=>!_warmPaused);await p.evaluate(()=>{window.__finishOld=__finishStream;warmupFetch=__flowFetch;});
+   await p.locator('#wfExpandOpen').click();await stream(p,null);await p.waitForTimeout(30);
+   ck((await p.locator('#wfLargeText').textContent()).includes('받는 중')&&!(await p.locator('#wfLargeText').textContent()).includes('중단'),'new pending turn replaces the old preview state without an interruption label');
+   await p.evaluate(()=>__finishOld('OLD LATE FINAL'));await p.waitForFunction(()=>!document.querySelector('.stm-preview'));await p.waitForTimeout(30);
+   ck(await p.evaluate(()=>sending&&!!document.querySelector('.typing'))&&(await p.locator('#wfLargeText').textContent()).includes('받는 중')&&!(await p.locator('#wfLargeText').textContent()).includes('중단'),'removing the cancelled old preview preserves the active new request waiting state');
+   if(shots)await p.screenshot({path:join(shots,'pending-after-old-preview-removal.png')});
+   await p.evaluate(()=>__pushSentence('The new request sentence has arrived.'));await p.waitForFunction(()=>document.getElementById('wfLargeText').textContent.includes('The new request sentence'));
+   ck(!(await p.locator('#wfLargeText').textContent()).includes('중단'),'new sentence arrival replaces waiting state with the live preview');
+   await p.evaluate(()=>__finishStream('The new request is complete.'));await p.waitForFunction(()=>!sending);await p.waitForFunction(()=>document.getElementById('wfLargeText').textContent==='The new request is complete.');
+   ck(true,'new request completion replaces preview with the confirmed text');await F.close();
   }
   {
    const F=await fixture(),{page:p}=F;await stream(p,'Visible interrupted enlarged preview.');await p.locator('#wfExpandOpen').click();
    await p.evaluate(()=>{pauseWarmup();__finishStream('discarded');});await p.waitForFunction(()=>!document.querySelector('.stm-preview'));
    ck((await p.locator('#wfLargeText').textContent()).includes('중단되기 전')&&(await p.locator('#wfLargeText').textContent()).includes('Visible interrupted'),'interrupted enlargement keeps a clearly labelled snapshot instead of falling back to old text');await F.close();
+  }
+ }
+ if(group==='all'||group==='panel-auto'){
+  for(const panel of ['wfPreferences','wfLarge'])for(const closing of ['button','escape','cancel']){
+   const F=await fixture(),{page:p,S}=F;
+   await p.evaluate(()=>{_speechOn=true;_audioUnlocked=true;speak('Keep speaking while the display panel is open.');});await p.waitForFunction(()=>_ttsAudio&&!_ttsAudio.paused);
+   await p.evaluate(()=>{WarmupAutoTalk.setMode('auto');window.__autoPanelAudio=_ttsAudio;window.__autoPanelSeq=_speakSeq;});
+   await p.locator(panel==='wfPreferences'?'#wfPreferencesOpen':'#wfExpandOpen').click();
+   ck(await p.evaluate(()=>!_warmPaused&&!_ttsAudio.paused&&_ttsAudio===__autoPanelAudio&&_speakSeq===__autoPanelSeq),panel+'/'+closing+' retains active TTS while deferring auto recording');
+   await p.waitForFunction(()=>_ttsAudio.ended);await p.waitForTimeout(850);
+   ck(await p.evaluate(()=>__mic.starts===0&&!_recognizing&&WarmupAutoTalk._state.panelDeferred),panel+'/'+closing+' TTS completion cannot open the microphone behind modal');
+   if(shots&&closing==='button')await p.screenshot({path:join(shots,'auto-held-'+panel+'.png')});
+   if(closing==='button')await p.locator('#'+panel+'Close').click();else if(closing==='escape')await p.keyboard.press('Escape');else await p.locator('#'+panel).evaluate(d=>{d.dispatchEvent(new Event('cancel',{cancelable:true}));d.close();});
+   await p.waitForFunction(()=>__mic.starts===1&&_recognizing);await p.evaluate(()=>_autoHook('panelClose'));await p.waitForTimeout(800);
+   ck(await p.evaluate(()=>__mic.starts===1&&_recognizing),panel+'/'+closing+' close resumes one deferred auto recorder without duplicates');
+   ck(S.chat.length===1,panel+'/'+closing+' modal actions never send a learner turn');await F.close();
+  }
+  for(const panel of ['wfPreferences','wfLarge']){
+   const F=await fixture(),{page:p,S}=F;await p.evaluate(()=>{_audioUnlocked=true;WarmupAutoTalk.setMode('button');toggleMic();});await p.waitForFunction(()=>_recognizing);await p.evaluate(()=>document.getElementById('inp').value='keep my draft');
+   await p.locator(panel==='wfPreferences'?'#wfPreferencesOpen':'#wfExpandOpen').click();await p.waitForFunction(()=>!_recognizing);
+   ck((await p.locator('#'+panel+'RecordingNote').textContent()).includes('취소')&&await p.evaluate(()=>__mic.stops===1),panel+' visibly cancels an already active practice recording');
+   await p.keyboard.press('Escape');await p.waitForTimeout(850);
+   ck(await p.evaluate(()=>__mic.starts===1&&!_recognizing)&&await p.locator('#inp').inputValue()==='keep my draft'&&S.chat.length===1,panel+' manual recorder stays stopped and preserves draft without sending');await F.close();
+  }
+  {
+   const F=await fixture(),{page:p,S}=F;await p.evaluate(()=>{_audioUnlocked=true;WarmupAutoTalk.setMode('auto');});await p.waitForFunction(()=>_recognizing&&__mic.starts===1);await p.locator('#wfPreferencesOpen').click();await p.waitForFunction(()=>!_recognizing);
+   ck((await p.locator('#wfPreferencesRecordingNote').textContent()).includes('취소'),'already active automatic recorder is stopped with a visible notice');await p.keyboard.press('Escape');await p.waitForFunction(()=>__mic.starts===2&&_recognizing);await p.waitForTimeout(1000);
+   ck(await p.evaluate(()=>__mic.starts===2)&&S.chat.length===1,'automatic recorder resumes once after cancellation and close without submitting');await F.close();
+  }
+  {
+   const F=await fixture(),{page:p,S}=F;await p.evaluate(()=>{_audioUnlocked=true;WarmupAutoTalk.setMode('button');_micPreferWhisper=true;window.__lateVoice=null;window.__cancelVoiceCount=0;MangoiVoice.supported=()=>true;MangoiVoice.record=()=>new Promise(r=>__lateVoice=r);MangoiVoice.cancel=()=>{__cancelVoiceCount++;};toggleMic();});await p.waitForFunction(()=>_whisperOn);await p.locator('#wfExpandOpen').click();
+   ck(await p.evaluate(()=>!_whisperOn&&!_recognizing&&__cancelVoiceCount===1),'display modal cancels the existing Whisper path without TTS interruption');await p.evaluate(()=>__lateVoice('late cancelled words'));await p.waitForTimeout(80);
+   ck((await p.locator('#inp').inputValue())===''&&S.chat.length===1,'cancelled transcription cannot submit or replace the draft behind modal');await F.close();
+  }
+  {
+   const F=await fixture(),{page:p}=F;await p.evaluate(()=>{WarmupAutoTalk.setMode('button');toggleMic();window.__staleResult=_recog.onresult;window.__staleEnd=_recog.onend;window.__whisperStarts=0;MangoiVoice.supported=()=>true;MangoiVoice.record=()=>{__whisperStarts++;return new Promise(()=>{});};_recog.onerror({error:'network'});document.getElementById('inp').value='safe draft';document.getElementById('wfPreferencesOpen').click();});await p.waitForTimeout(450);
+   ck(await p.evaluate(()=>__whisperStarts===0&&!_recognizing&&!_whisperOn),'opening display modal invalidates a delayed STT network-to-Whisper retry');await p.evaluate(()=>{__staleResult({});__staleEnd();});
+   ck(await p.locator('#inp').inputValue()==='safe draft','stale STT result/end callbacks cannot erase the draft in the modal');await p.keyboard.press('Escape');await p.evaluate(()=>toggleMic());await p.waitForFunction(()=>_recognizing);await p.evaluate(()=>__staleEnd());
+   ck(await p.evaluate(()=>__mic.starts===2&&_recognizing),'new manual recording works after close while cancelled-generation callbacks stay fenced');await F.close();
+  }
+  {
+   const F=await fixture(),{page:p}=F;await p.evaluate(()=>{WarmupAutoTalk.setMode('button');toggleMic();window.__retryAttempts=0;_recog.start=()=>{__retryAttempts++;throw Error('fixture restart failed');};_recog.onend();document.getElementById('wfExpandOpen').click();});await p.waitForTimeout(400);
+   ck(await p.evaluate(()=>__retryAttempts===1&&__mic.starts===1&&!_recognizing),'display modal invalidates the delayed recognition restart without starting another mic');await p.keyboard.press('Escape');await p.evaluate(()=>toggleMic());await p.waitForFunction(()=>_recognizing);
+   ck(await p.evaluate(()=>__mic.starts===2),'a fresh recorder still starts after a cancelled retry and modal close');await F.close();
+  }
+  {
+   const F=await fixture(),{page:p}=F;await p.evaluate(()=>{_speechOn=true;_audioUnlocked=true;speak('Question interrupts this speech.');});await p.waitForFunction(()=>_ttsAudio&&!_ttsAudio.paused);await p.evaluate(()=>WarmupAutoTalk.setMode('auto'));await p.locator('#wfAskOpen').click();await p.waitForTimeout(850);
+   ck(await p.evaluate(()=>_warmPaused&&_ttsAudio.paused&&__mic.starts===0),'question modal still stops speech and blocks automatic recording');await p.keyboard.press('Escape');await p.waitForTimeout(850);
+   ck(await p.evaluate(()=>!_recognizing&&__mic.starts===0),'question close does not silently arm a new automatic recording');await F.close();
+  }
+  {
+   const F=await fixture(),{page:p}=F;await sendAnswer(p,'I want bread.');await p.evaluate(()=>{_speechOn=true;WarmupAutoTalk.setMode('button');});const repeat=p.locator('.fix-card .fix-btn').last();await repeat.click();await p.waitForFunction(()=>_ttsAudio&&!_ttsAudio.paused);await p.locator('#wfPreferencesOpen').click();
+   ck((await p.locator('#wfPreferencesRecordingNote').textContent()).includes('따라 말하기')&&await repeat.isEnabled(),'display modal cancels the pending repeat microphone handoff and re-enables its button');await p.waitForTimeout(2800);
+   ck(await p.evaluate(()=>__mic.starts===0&&!_recognizing),'explicit repeat handoff cannot open a recorder behind display modal');await p.keyboard.press('Escape');await repeat.click();await p.waitForFunction(()=>_recognizing);
+   ck(await p.evaluate(()=>__mic.starts===1&&!!_repeatTarget),'repeat remains usable after the display modal closes');await F.close();
   }
  }
  if(group==='all'||group==='media'){

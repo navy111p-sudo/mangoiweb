@@ -3606,7 +3606,7 @@ function toggleMic(){
 }
 function _startSttSession(){
   if(_warmPaused)return;
-  var micEpoch=_warmEpoch;
+  var micEpoch=_warmEpoch, micVoiceEpoch=_warmVoiceEpoch;
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   _recog=new SR();
   _recog.lang=isZh() ? 'zh-CN' : 'en-US';   // 🀄 고른 언어로 듣는다 (기본은 영어 연습)
@@ -3691,9 +3691,9 @@ function _startSttSession(){
     }
     return s;
   }
-  _recog.onstart=function(){if(_warmPaused || micEpoch!==_warmEpoch)return; _micBySilence=false; _micSess=''; setMicState(true); _armSilence(); };
+  _recog.onstart=function(){if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return; _micBySilence=false; _micSess=''; setMicState(true); _armSilence(); };
   _recog.onresult=function(e){
-    if(_warmPaused || micEpoch!==_warmEpoch)return;
+    if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return;
     /* 결과가 올 때마다 이번 녹음의 전체 결과 목록(0~끝)을 겹침 제거하며 처음부터 다시 조립
        → 이어붙일 버퍼가 없어 PC(조각형)·안드로이드(누적형) 모두 반복이 생길 수 없다 */
     var full='';
@@ -3705,7 +3705,7 @@ function _startSttSession(){
   };
   /* 오류 — no-speech(아직 말을 못 꺼냄)만 다시 듣기 허용, 나머지는 그대로 종료 */
   _recog.onerror=function(e){
-    if(_warmPaused || micEpoch!==_warmEpoch)return;
+    if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return;
     if(_silence) clearTimeout(_silence);
     if(e.error==='no-speech') return;  // onend 에서 다시 듣는다 (안내문으로 말을 끊지 않음)
     _micStopWanted=true;
@@ -3717,7 +3717,7 @@ function _startSttSession(){
       addMsg('🎤 마이크를 찾지 못했어요. 헤드셋·기기 연결을 확인해 주세요.', 'sys');
     } else if(e.error==='network'){
       // 음성인식 서버에 못 닿는 환경 — 녹음+Whisper 로 대신 시도
-      setTimeout(function(){ if(!_warmPaused && micEpoch===_warmEpoch)micViaWhisper(); }, 300);
+      setTimeout(function(){ if(!_warmPaused && micEpoch===_warmEpoch && micVoiceEpoch===_warmVoiceEpoch)micViaWhisper(); }, 300);
     }
   };
   /* 🎤 (2026-07-23) 브라우저가 제멋대로 끊은 경우 다시 듣기.
@@ -3726,7 +3726,7 @@ function _startSttSession(){
      → 우리 침묵 타이머가 부른 종료가 아니면 아직 말하는 중으로 보고, 들은 말을 유지한 채
        즉시 다시 듣는다. 끝내는 권한은 오직 침묵 타이머와 사용자의 ⏹ 뿐. */
   _recog.onend=function(){
-    if(_warmPaused || micEpoch!==_warmEpoch)return;
+    if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return;
     if(_silence) clearTimeout(_silence);
     /* 아직 한 마디도 못 들었으면 재시작을 3회로 제한 — 안드로이드는 start() 마다
        '삐' 소리가 나서, 학생이 말을 안 하는데 8번씩 재시작하면 그게 더 성가시다. */
@@ -3739,7 +3739,7 @@ function _startSttSession(){
       _micRestarts++;
       try{ _recog.start(); return; }   // UI 는 계속 '듣는 중' 유지
       catch(err){
-        setTimeout(function(){ if(_warmPaused || micEpoch!==_warmEpoch)return;try{ _recog.start(); }catch(e2){ _finishMic(); } }, 250);
+        setTimeout(function(){ if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return;try{ _recog.start(); }catch(e2){ _finishMic(); } }, 250);
         return;
       }
     }
@@ -4711,12 +4711,12 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 <!-- BUILD:20260813015745 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 <script src="/js/repeat-score.js?v=1" defer></script><!-- 🎤 «따라 말해 보기» 채점 (2026-10-18) -->
-<script src="/js/warmup-auto-talk.js?v=7" defer></script><!-- ✨ 자동 말하기(베타) — 기본은 버튼 모드 -->
+<script src="/js/warmup-auto-talk.js?v=8" defer></script><!-- ✨ 자동 말하기(베타) — 기본은 버튼 모드 -->
 <script src="/js/warmup-facetalk.js?v=2" defer></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 자동 말하기 엔진을 켜고 모양만 바꿈) -->
 <script src="/js/warmup-touch-bar.js?v=1" defer></script><!-- 📱 터치 기기 전용 아래 3칸 바(도움·말하기·글쓰기) — 2026-09-26 시안 4 -->
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 <script defer src="/js/warmup-photo-icons.js?v=5"></script>
 <link rel="stylesheet" href="/css/warmup-flow.css?v=1" />
-<script defer src="/js/warmup-flow.js?v=2"></script>
+<script defer src="/js/warmup-flow.js?v=3"></script>
 </body>
 </html>
