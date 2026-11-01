@@ -66,8 +66,17 @@
     } catch (e) {}
   }
 
+  /* 401 = 다른 기기에서 새로 로그인해 옛 토큰이 죽은 것 → 칸을 숨기지 않고 이유를 말한다.
+     403(허용 안 된 계정)은 예전처럼 조용히 숨긴다. */
+  var notice = '';
   function render() {
-    if (!data) { box.hidden = true; box.replaceChildren(); panelQuota = null; return; }
+    if (!data) {
+      if (!notice) { box.hidden = true; box.replaceChildren(); panelQuota = null; return; }
+      css();
+      var nh = document.createElement('h3'); nh.textContent = '📗 ' + T('엘리더잼 Level 1 기본과정', 'Eleader Jam Level 1 Basic Course');
+      var np = document.createElement('p'); np.textContent = notice;
+      box.replaceChildren(nh, np); panelQuota = null; box.hidden = false; return;
+    }
     css();
     var h = document.createElement('h3'); h.textContent = '📗 ' + T('엘리더잼 Level 1 기본과정', 'Eleader Jam Level 1 Basic Course');
     var p = document.createElement('p');
@@ -211,11 +220,17 @@
   var epoch = 0;
   async function load() {
     var mine = ++epoch, tk = token();
-    data = null; quota = { used: null, cap: null }; render();
+    data = null; notice = ''; quota = { used: null, cap: null }; render();
     if (!tk) return;
     try {
       var r = await fetch('/api/ai/eleader/l1/books', { headers: { Authorization: 'Bearer ' + tk }, cache: 'no-store', credentials: 'omit' });
-      if (mine !== epoch || token() !== tk || !r.ok) return;
+      if (mine !== epoch || token() !== tk) return;
+      if (r.status === 401) {
+        notice = T('다른 기기에서 새로 로그인되어 이 화면의 연결이 끊겼어요. 로그아웃 후 다시 로그인해 주세요.',
+          'You logged in on another device, so this session ended. Please log out and log in again.');
+        render(); return;
+      }
+      if (!r.ok) return;
       var d = await r.json();
       if (!d || d.ok !== true || !Array.isArray(d.books) || !d.books.length) return;
       quota = { used: typeof d.used_today === 'number' ? d.used_today : null, cap: d.daily_cap > 0 ? d.daily_cap : null };
