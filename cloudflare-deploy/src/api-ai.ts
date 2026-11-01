@@ -745,7 +745,8 @@ Student text: """${text}"""`;
          ⚠️ 여기서 만들어야 합니다 — 아래 stuCtx(약점 단어)가 lvSpec.plain 을 읽습니다. */
       const lvSpec = aiFriendLevelSpec(level);
       let callName = '';
-      try { callName = studentCallName(st, uid); } catch { callName = ''; }
+      // latinOnly — 답장의 한글은 지워지므로(stripAddedKorean) 한글 이름만 있으면 이름 없이 부른다
+      try { callName = studentCallName(st, uid, { latinOnly: true }); } catch { callName = ''; }
       let stuCtx = '';
       try {
         /* 🧑 (2026-11-01) 이름 칸에 아이디가 든 학생이 있어 「Yay, ysyt01!」 이 나갔다 — 정본 src/student-call-name.ts

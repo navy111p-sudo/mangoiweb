@@ -33,16 +33,29 @@ function clean(v: unknown): string {
   return String(v ?? '').replace(/\s+/g, ' ').trim();
 }
 
+/** 로마자 이름인가(영어 답장에 그대로 넣어도 되는가). */
+export function isLatinName(v: string): boolean {
+  return /^[A-Za-z][A-Za-z .'-]*$/.test(v);
+}
+
+export interface CallNameOpts {
+  /** 영어로만 말하는 화면 — 로마자 이름만 쓴다.
+   *  🔴 AI 영어친구는 답장에서 한글을 지운다(src/reply-korean.ts stripAddedKorean) — 한글 이름을 넘기면
+   *     「Yay, 김민서!」 가 「Yay, Nice sentence!」 처럼 이름만 잘려 나간다(2026-11-01 샌드박스 실측). */
+  latinOnly?: boolean;
+}
+
 /** 학생을 부를 이름. 쓸 만한 이름이 없으면 ''(빈 값). */
-export function studentCallName(row: StudentNameRow | null | undefined, uid: unknown): string {
+export function studentCallName(row: StudentNameRow | null | undefined, uid: unknown, opts: CallNameOpts = {}): string {
   if (!row) return '';
   const id = clean(uid).toLowerCase();
   for (const raw of [row.english_name, row.korean_name]) {
-    const name = clean(raw);
+    const name = clean(raw).slice(0, MAX_LEN).trim();
     if (!name) continue;
     if (id && name.toLowerCase() === id) continue;   // 아이디를 이름 칸에 적어 둔 경우
     if (looksLikeLoginId(name)) continue;            // 다른 아이디 모양 값
-    return name.slice(0, MAX_LEN);
+    if (opts.latinOnly && !isLatinName(name)) continue;
+    return name;
   }
   return '';
 }
