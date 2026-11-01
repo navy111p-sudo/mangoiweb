@@ -364,6 +364,11 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
   t('B-11 why_ko 가 한국어가 아니면 버린다',
     verifyWarmupFix({ was: 'I go', now: 'I went', why_ko: 'use past tense', tag: 'past_tense', severity: 'minor' }, said) === null);
 
+  t('B-11b why_ko 에 한자가 섞이면 교정 전체를 버린다 (2026-10-31 「가족이現在还有…」)',
+    verifyWarmupFix({ was: 'I go', now: 'I went', why_ko: '가족이現在还有 있다는 뜻으로現在형을 써', tag: 'past_tense', severity: 'minor' }, said) === null);
+  t('B-11c why_ko 가 순수 한글이면 여전히 통과한다 (한자 가드가 정상 교정을 막지 않는다)',
+    !!verifyWarmupFix({ was: 'I go', now: 'I went', why_ko: '과거에 한 일이라 went 를 써', tag: 'past_tense', severity: 'minor' }, said));
+
   t('B-12 교정문에 한글이 섞이면 버린다 (영어 TTS 가 그대로 읽는다)',
     verifyWarmupFix({ was: 'I go', now: 'I went 갔어', why_ko: '과거형', tag: 'past_tense', severity: 'minor' }, said) === null);
 

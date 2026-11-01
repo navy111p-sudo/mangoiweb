@@ -142,18 +142,14 @@ console.log('⑥-2 집중교정 음성 순서 — 교정 문장이 답장보다 
   const FIX = { now: 'I went to the park yesterday', was: 'I go park yesterday' };
   const REPLY = 'Where did you play after that?';
   const out = H.ensureFocusedFixSpoken(REPLY, 'focused', 'partial', FIX);
-  const fixAt = out.indexOf('"I went to the park yesterday"');
-  const replyAt = out.indexOf(REPLY);
-  ok('교정 문장이 맨 앞', fixAt === 0);
-  ok('교정 문장이 답장보다 앞', fixAt >= 0 && replyAt > fixAt);
-  ok('"Let\'s say it this way" 가 교정 문장 뒤·답장 앞', out.indexOf("Let's say it this way") > fixAt && out.indexOf("Let's say it this way") < replyAt);
-  const repeats = out.split('"I went to the park yesterday"').length - 1;
-  ok('교정 문장은 모두 4번 (앞 1 + 반복 3)', repeats === 1 + H.FOCUSED_FIX_REPEATS && H.FOCUSED_FIX_REPEATS === 3, repeats);
-  // 정확히 3번: "Let's say it this way" 뒤 ~ "Can you say it with me?" 사이에 교정 문장이 정확히 3번
-  const seg = out.slice(out.indexOf("Let's say it this way"), out.indexOf('Can you say it with me?'));
-  const inSeg = seg.split('"I went to the park yesterday"').length - 1;
-  ok('"Let\'s say it this way" 뒤 반복 구간에 교정 문장이 정확히 3번', inSeg === 3, inSeg);
-  ok('답장에 이미 교정이 있어도 순서는 같다', H.ensureFocusedFixSpoken('Good. I went to the park yesterday. Where?', 'focused', 'partial', FIX).startsWith('"I went to the park yesterday"'));
+  const corrected = '"I went to the park yesterday"';
+  ok('교정 안내가 첫 발화다', out.startsWith('You can say... ' + corrected));
+  ok('다음 질문은 교정 턴에 나오지 않는다', !out.includes(REPLY));
+  const repeats = out.split(corrected).length - 1;
+  ok('고친 문장은 추가 선행 발화 없이 총 3번', repeats === 3 && H.FOCUSED_FIX_REPEATS === 3, repeats);
+  ok('You can say 안내도 3번', (out.match(/You can say/g) || []).length === 3);
+  ok('세 번 뒤 따라 말하기로 끝난다', out.endsWith('Can you say it with me?'));
+  ok('모델이 이미 교정을 말해도 총 3번', H.ensureFocusedFixSpoken('Good. I went to the park yesterday. Where?', 'focused', 'partial', FIX) === out);
   ok('완벽이면 건드리지 않는다', H.ensureFocusedFixSpoken(REPLY, 'focused', 'perfect', FIX) === REPLY);
   ok('자유대화·균형이면 건드리지 않는다', H.ensureFocusedFixSpoken(REPLY, 'free_talk', 'partial', FIX) === REPLY && H.ensureFocusedFixSpoken(REPLY, 'balanced', 'partial', FIX) === REPLY);
   ok('교정이 없으면 건드리지 않는다', H.ensureFocusedFixSpoken(REPLY, 'focused', 'partial', null) === REPLY);

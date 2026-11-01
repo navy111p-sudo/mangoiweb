@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { stripTypeScriptTypes } from 'node:module';
+import { stripTypeScriptTypes, createRequire } from 'node:module';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const R = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -74,8 +74,29 @@ check('chat-friend: 응답에 pron_fix 를 싣는다', /pron_fix: pronFix/.test(
 check('chat-friend: 판정 실패는 응답을 막지 않는다(assessPronFix 는 던지지 않음)', /catch \{\s*return null;\s*\}/.test(PF_SRC));
 check('화면: 음성 턴이면 WAV 와 기준 낱말을 보낸다', /pron: pronBody/.test(HTML) && /pronPayload\(_lastRecBlob, tgt\)/.test(HTML));
 check('화면: 집중교정 모드에서만 보낸다', /wasVoice && currentCorr === 'focused' && _lastRecBlob/.test(HTML));
-check('화면: 응답의 pron_fix 를 그린다', /if \(d\.pron_fix\) showPronFix\(d\.pron_fix\)/.test(HTML));
-check('화면: 발음 교정은 3번 들려준다(sayThrice)', /sayThrice\(pf\.word, pf\.say_times \|\| 3\)/.test(HTML) && /if \(i\+\+ < n\) speakText\(word, null, null, next\)/.test(HTML));
+check('화면: 응답의 pron_fix 를 그린다', /if \(d\.pron_fix\) showPronFix\(d\.pron_fix, false\)/.test(HTML));
+// Execute the actual queue, including its completion signal and cancellation.
+const ts = createRequire(path.join(ROOT, 'cloudflare-deploy/package.json'))('typescript');
+const inline = [...HTML.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('function sayThrice('));
+const ast = ts.createSourceFile('friend.js', inline, ts.ScriptTarget.Latest, true);
+let saySource = '';
+(function visit(n) { if (ts.isFunctionDeclaration(n) && n.name?.text === 'sayThrice') saySource = n.getText(ast); ts.forEachChild(n, visit); })(ast);
+check('전제: 실제 sayThrice 함수를 추출했다', !!saySource);
+const calls = [];
+const say = new Function('speakText', 'isSoundOn', 'var _stmGen=0; ' + saySource + '; return sayThrice;')(
+  (word, _b, _r, done) => { calls.push(word); queueMicrotask(done); }, () => true);
+await say('bug', 3);
+check('화면: 발음 교정 3회가 완료된 뒤 큐를 돌려준다', calls.length === 3 && calls.every(x => x === 'bug'));
+check('화면: 자동 발음 반복은 주 응답 큐 뒤에 연결된다', /_stmChain = _stmChain\.then\(function \(\) \{[\s\S]*?return sayThrice\(d\.pron_fix\.word, d\.pron_fix\.say_times \|\| 3\)/.test(HTML));
+const muted = [];
+await new Function('speakText', 'isSoundOn', 'var _stmGen=0; ' + saySource + '; return sayThrice;')((w) => muted.push(w), () => false)('bug', 3);
+check('짝: 음소거면 발음 반복도 읽지 않는다', muted.length === 0);
+const cut = [];
+let cancelled;
+cancelled = new Function('speakText', 'isSoundOn', 'var _stmGen=0; ' + saySource + '; return {say:sayThrice,stop(){_stmGen++;}};')(
+  (word, _b, _r, done) => { cut.push(word); cancelled.stop(); queueMicrotask(done); }, () => true);
+await cancelled.say('bug', 3);
+check('짝: 새 턴·정지 뒤에는 남은 발음 반복을 이어 읽지 않는다', cut.length === 1);
 check('화면: 녹음 파일을 발음 교정 뒤에 비운다', /_lastRecBlob = null;/.test(HTML));
 check('화면: AI 마지막 말을 기억한다', /if \(role === 'ai'\) _lastAiText = String\(content \|\| ''\);/.test(HTML));
 
