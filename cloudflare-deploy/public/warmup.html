@@ -3310,6 +3310,22 @@ function _stmSentence(L, sen, typing){
   if(L.wake) L.wake();
 }
 /* SSE 읽기 — 30초 동안 아무것도 안 오면 끊는다(warmupFetch 의 20초 타이머는 «머리» 가 오면 꺼진다). */
+/* 📣 (2026-11-01) 집중교정 중립 리액션 — 교정 여부를 기다리는 동안 「Mm-hm.」 을 기기 목소리로 한 번만 낸다.
+   ⛔ 말풍선·정본 비교·지연 측정(_latMark)에는 손대지 않는다 — 첫 «진짜» 소리는 여전히 정본 답변이 닫는다.
+   ⛔ 중국어·소리 끔·턴이 바뀌었으면 아무것도 안 낸다. 정본 답변이 나오기 전에 끊기면 _stopSpeak 가 함께 끊는다. */
+var PRIMER_TEXT='Mm-hm.';
+function _primerSay(L){
+  if(!L || L.primed) return; L.primed=1;
+  if(_warmPaused || L.epoch!==_warmEpoch || !window.speechSynthesis || !_speechOn) return;
+  if(isZh()) return;
+  try{
+    if(!_enVoice) pickVoice();
+    var u=new SpeechSynthesisUtterance(PRIMER_TEXT);
+    u.lang=(_enVoice&&_enVoice.lang)||'en-US'; u.rate=RATE_STEPS[_rateLevel]||0.95; u.pitch=1.02; u.volume=0.9;
+    if(_enVoice) u.voice=_enVoice;
+    window.speechSynthesis.speak(u);   // ⛔ onstart 에 _latMark 를 걸지 않는다 — 측정은 정본 답변의 첫 소리만 닫는다
+  }catch(e){}
+}
 async function _stmRead(r, onSen, L){
   var rd=r.body.getReader(), dec=new TextDecoder(), buf='', fin=null, idle=null;
   var kick=function(){ clearTimeout(idle); idle=setTimeout(function(){ try{ rd.cancel(); }catch(e){} }, 30000); };
@@ -3327,6 +3343,7 @@ async function _stmRead(r, onSen, L){
           var one=ln[j].trim(); if(one.indexOf('data:')!==0) continue;
           var o=null; try{ o=JSON.parse(one.slice(5).trim()); }catch(e){ continue; }
           if(o && o.done) fin=o;
+          else if(o && o.f){ try{ _primerSay(L); }catch(e){} }          // 📣 집중교정 중립 신호 — 글자 없이 「Mm-hm.」 한 번
           else if(o && typeof o.t==='string'){ try{ onSen(o.t); }catch(e){} }
         }
       }

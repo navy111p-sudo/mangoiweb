@@ -114,6 +114,9 @@ export async function readWarmupAiStream(st: any, lang: string, onSentence: (s: 
 }
 
 export type WarmupLive = {
+  /** 📣 (2026-11-01) 집중교정 턴의 «중립 신호» — 모델을 부르기 전에 한 번 보냅니다. 글자가 없는 {f:1} 이라
+   *  화면은 중립 리액션(「Mm-hm.」)만 소리로 내고, 대화 말풍선·정본 비교에는 아무 영향이 없습니다. 보냈으면 true. */
+  primer(): boolean;
   /** 문장 하나를 «먼저 막는 문» 에 걸고, 통과하면 내보냅니다. 내보냈으면 true. */
   push(sen: string): boolean;
   /** 지금까지 실제로 내보낸 글(공백으로 이음). */
@@ -140,7 +143,16 @@ export function createWarmupLive(
   try { negative = studentSoundsNegative(o.studentInput); } catch { negative = true; }
   let askedName = false;
   try { askedName = askedOwnName(o.studentInput); } catch { askedName = false; }
+  let primed = false;
   return {
+    primer(): boolean {
+      /* 집중교정은 교정 여부를 «답이 다 끝나야» 알므로 첫 소리를 텍스트로 낼 수 없다. 대신 «뭔가 듣고 있다» 는
+         중립 신호만 낸다. 공감 턴(negative)은 어차피 흘려보내지 않으므로 신호도 내지 않는다. */
+      if (primed || !o.focused || negative || halt) return false;
+      primed = true;
+      try { send({ f: 1 }); } catch {}
+      return true;
+    },
     push(sen: string): boolean {
       const s = String(sen == null ? '' : sen).trim();
       if (!s || halt) return false;
