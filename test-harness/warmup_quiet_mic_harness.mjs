@@ -2,6 +2,7 @@
 // 녹음 모듈 판정(peak>8)이 놓친 «작은 말소리» 를 녹음 파일로 다시 재서 버리지 않는가 +
 // 무음·일정한 잡음·딸깍 한 번은 여전히 버리는가(짝). 함수를 소스에서 오려 내 실제로 돌립니다.
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 const SRC = process.env.WARMUP_SRC || new URL('../cloudflare-deploy/public/warmup.html', import.meta.url);
 const JS = process.env.CHECK_SRC || new URL('../cloudflare-deploy/public/js/voice-has-speech.js', import.meta.url);
 const FR = process.env.FRIEND_SRC || new URL('../cloudflare-deploy/public/ai-friend.html', import.meta.url);
@@ -56,11 +57,33 @@ html = fHtml;
 const fv = (() => { const i = fHtml.indexOf('async function micViaWhisper('); if (i < 0) return ''; let d = 0; for (let k = fHtml.indexOf('{', i); k < fHtml.length; k++) { if (fHtml[k] === '{') d++; else if (fHtml[k] === '}' && --d === 0) return fHtml.slice(i, k + 1); } return ''; })();
 ok('전제: A.i 친구하기 micViaWhisper 를 오려 냈다', fv.length > 500);
 ok('A.i 친구하기: 녹음 파일을 받아 둔다', /onAudio\s*:\s*(\w+)\s*=>\s*\{\s*recBlob\s*=\s*\1/.test(fv));
-const fg = fv.indexOf('MangoiVoiceCheck.blobHasVoice(recBlob)'), fd = fv.indexOf("if (auto && !heard) said = '';");
-ok('A.i 친구하기: 버리기 «전» 에 다시 잰다', fg > 0 && fd > fg);
-ok('A.i 친구하기: 판정이 놓친 자동 모드에서만', /if\s*\(\s*auto\s*&&\s*!heard\s*&&\s*said\s*\)/.test(fv.slice(fv.lastIndexOf('if (', fg) - 5, fg)));
-ok('A.i 친구하기: true 일 때만 살린다', /if\s*\(\s*v\s*===\s*true\s*\)\s*heard\s*=\s*true/.test(fv));
-ok('A.i 친구하기: 기다린 사이 새 녹음이 시작됐으면 물러난다', /blobHasVoice\(recBlob\)[\s\S]{0,120}if\s*\(\s*micSeq\s*!==\s*_friendMicSeq\s*\)\s*return/.test(fv));
+// The former "only if auto && !heard" assertion encoded the bug: a click bypassed it.
+// Execute the shared adapter and real PCM classifier instead of pinning that old branch.
+const shared = fnBody('friendRecordVoice');
+ok('A.i 친구하기: 공용 검사 함수를 실제로 호출한다', /await friendRecordVoice\(/.test(fv) && shared.length > 500);
+async function probe(samples, cancel = false) {
+  let current = true, uploads = 0, checks = 0;
+  const ctx = {
+    Promise, String,
+    MangoiVoiceCheck: { blobHasVoice: async b => { checks++; if (cancel) current = false; return run(b.samples); } },
+    MangoiVoice: { record: async opts => {
+      opts.onAudio({ samples }); opts.onState('speaking', {}); // a peak is not an exemption
+      const d = await opts.transcribe({ append() {} }); return d?.text || '';
+    } },
+    fetch: async () => { uploads++; return { ok: true, json: async () => ({ ok: true, text: 'Yes.' }) }; }
+  };
+  ctx.window = ctx; vm.createContext(ctx); vm.runInContext('async ' + shared, ctx);
+  const said = await ctx.friendRecordVoice({ isCurrent: () => current, onState() {} });
+  return { said, uploads, checks };
+}
+const quiet = await probe(quietSpeech);
+ok('A.i 친구하기: 작은 말소리는 공용 판정으로 살린다', quiet.said === 'Yes.' && quiet.uploads === 1 && quiet.checks === 1);
+for (const [label, samples] of [['무음', sig(3, () => 0)], ['딸깍', sig(3, t => t > 1 && t < 1.02 ? .5 : 0)], ['모름', new Float32Array(0)]]) {
+  const r = await probe(samples);
+  ok('A.i 친구하기: ' + label + '은 peak 이벤트가 있어도 업로드 전에 막는다', !r.said && r.uploads === 0);
+}
+const canceled = await probe(quietSpeech, true);
+ok('A.i 친구하기: 기다린 사이 새 녹음이 시작됐으면 물러난다', !canceled.said && canceled.uploads === 0);
 ok('A.i 친구하기: 버튼 모드는 9초에 끊지 않는다', /firstMs\s*:\s*auto\s*\?\s*0\s*:\s*20000/.test(fv));
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
