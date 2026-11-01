@@ -18,7 +18,7 @@ function boot(respond) {
   vm.runInContext(block, context);
   const flush = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
   return {
-    calls, context, flush,
+    calls, context, flush, timers,
     ensure: () => vm.runInContext('vcEnsureIceServers()', context),
     read: expr => vm.runInContext(expr, context),
     async advance(ms) {
@@ -80,4 +80,50 @@ test('HTTP failure and invalid JSON do not poison the next attempt', async () =>
   await h.ensure();
   assert.equal(h.calls.length, 3);
   assert.equal(h.read('__vcIceHasTurn'), true);
+});
+
+
+test('invalid ICE server lists preserve the last working configuration and permit retry', async () => {
+  for (const iceServers of [{ length: 1 }, [null], [{ urls: [] }], [{ urls: 'https://invalid.test' }], [{ urls: ['turn:valid.test', null] }]]) {
+    const h = boot(n => n === 1 || n === 3 ? good() : Promise.resolve({ ok: true, json: async () => ({ iceServers }) }));
+    await h.flush();
+    const loadedAt = h.read('__vcIceLoadedAt');
+    await h.advance(4 * 3600 * 1000 + 1);
+    await h.ensure();
+    assert.equal(h.read('ICE_SERVERS.iceServers[0].urls'), 'turn:example.test:3478');
+    assert.equal(h.read('__vcIceLoadedAt'), loadedAt, 'invalid response must not mark credentials fresh');
+    await h.ensure();
+    assert.equal(h.calls.length, 3);
+  }
+});
+
+test('successful configuration releases both fetch and caller deadline timers', async () => {
+  const h = boot(() => good());
+  await Promise.all([h.ensure(), h.ensure()]);
+  await h.flush();
+  assert.equal(h.timers.size, 0);
+});
+
+test('a valid URL array is accepted and reused', async () => {
+  const h = boot(() => Promise.resolve({ ok: true, json: async () => ({ iceServers: [
+    { urls: 'stun:example.test:3478' },
+    { urls: ['turn:example.test:3478?transport=udp', 'turns:example.test:443?transport=tcp'], username: 'test', credential: 'test' }
+  ] }) }));
+  await h.flush();
+  await h.ensure();
+  assert.equal(h.read('__vcIceHasTurn'), true);
+  assert.equal(h.calls.length, 1);
+});
+
+
+test('entry deadline still resolves if the fetch implementation ignores cancellation', async () => {
+  const h = boot(() => new Promise(() => {}));
+  let completed = false;
+  const entry = h.ensure().then(() => { completed = true; });
+  await h.advance(2999);
+  assert.equal(completed, false);
+  await h.advance(1);
+  await entry;
+  assert.equal(completed, true);
+  assert.equal(h.timers.size, 0);
 });
