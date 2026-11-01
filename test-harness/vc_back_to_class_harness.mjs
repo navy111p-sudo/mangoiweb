@@ -38,10 +38,14 @@ await page.evaluate(() => {
   document.body.classList.add('vc-in-call', 'vc-orientation-dismissed');
 });
 
+// Let the real onEnterCall observer finish its initial textbook switch first.
+await new Promise(r => setTimeout(r, 1000));
+
 // ── 시나리오 7: 아무 교재정보 없음 → whiteboard 폴백 + jsapi 없는 iframe 강제 종료 ──
 let r = await page.evaluate(async () => {
   window._vcShownPdfUrl = ''; window._vcCurrentPdfUrl = '';
   window._libSequence = null;
+  pdfDoc = null; // also reset the lexical document, not just URL metadata
   window.pdfEnsureSequence = async () => false;      // 서버 재구성 없음 시뮬
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-video').classList.add('active');

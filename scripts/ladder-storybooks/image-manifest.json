@@ -1,0 +1,3609 @@
+{
+  "model": "nano_banana_2_1",
+  "size": [
+    1024,
+    688
+  ],
+  "books": {
+    "s1-01": {
+      "style": "felt",
+      "assets": {
+        "cover": {
+          "jobId": "be256aa9-caf0-45f9-9090-6165a5e14a14",
+          "version": 2,
+          "sha256": "153164e1a0dd65a1f9400564e1ba11d38827b7aec2172fe5a68a5151ce6950be"
+        },
+        "1": {
+          "jobId": "947a6667-f91d-45b6-9ff2-e10760bfc8de",
+          "version": 2,
+          "sha256": "931d47df828c22f7a6fdb50c9f8813836ce549c577d044a5388f355e2fb43b3b"
+        },
+        "2": {
+          "jobId": "82f2b368-cf32-41d2-8686-9966482f19bf",
+          "version": 2,
+          "sha256": "3e07c8f88dfa7d526ca51df9f684adcb8fd350b0fbccfc3cf950be60dd739e69"
+        }
+      }
+    },
+    "s1-02": {
+      "style": "crayon",
+      "assets": {
+        "cover": {
+          "jobId": "97108fcb-f79b-4ab2-8379-abf1c3322f1f",
+          "version": 2,
+          "sha256": "02a67d35281f63e2c14730a459e658bfd1d7343a44da868d12bad91305e8289d"
+        },
+        "1": {
+          "jobId": "0ca45cc2-14e0-471b-8a3a-5e69ae984571",
+          "version": 2,
+          "sha256": "2ab4e53524a9de0b046f1f254eb494fa4611edc7b8705a37b142ca68015310cc"
+        },
+        "2": {
+          "jobId": "fde849b5-cff2-4edd-a133-97c97df92063",
+          "version": 2,
+          "sha256": "8590ad763f40dbd5c749f14ce58efa0f8bbb81ce28523a3d3beff958c8a80172"
+        }
+      }
+    },
+    "s1-03": {
+      "style": "webtoon",
+      "assets": {
+        "cover": {
+          "jobId": "4878f6e2-6d4b-4b50-b835-75d6bfab5271",
+          "version": 2,
+          "sha256": "46ae966622c82730be680a2ed9ee9c7b48f26b128c5c8c3341eee80768df1b81"
+        },
+        "1": {
+          "jobId": "58f2b045-3de1-4e4d-80d0-ec00018c4395",
+          "version": 2,
+          "sha256": "c8b7ff967bf7352f7329186c837377c8caf6054c2112e8593a5957b769091972"
+        },
+        "2": {
+          "jobId": "97c3ec5b-82cc-43de-aab9-ccd7180b4fe8",
+          "version": 2,
+          "sha256": "8ae1f769931a59116396cc689302374219dd51fc1ffe77251d2b9653aa552502"
+        }
+      }
+    },
+    "s1-04": {
+      "style": "papercut",
+      "assets": {
+        "cover": {
+          "jobId": "e55d1ce8-0953-4b58-8856-2d460ac790f5",
+          "version": 2,
+          "sha256": "3bed41b237558d73bb75e2da62281794a739a9ce0b5d10ac2700422848d1f6c6"
+        },
+        "1": {
+          "jobId": "73bf9536-1e77-4ca0-8362-f6bde151561d",
+          "version": 2,
+          "sha256": "2cb06f5c1fb6b3a838ce862b942de0185957fcc5b30777312c4f4db42741f75a"
+        },
+        "2": {
+          "jobId": "026090a1-d982-4533-8a0d-8238b5186588",
+          "version": 2,
+          "sha256": "224fc273ab9a853f7ca6076370a34c55ac556829356e7534b669ac1fb5574dbf"
+        }
+      }
+    },
+    "s1-05": {
+      "style": "clay",
+      "assets": {
+        "cover": {
+          "jobId": "d0d386bc-c5f8-4f91-b1fb-4a11dfa483b5",
+          "version": 2,
+          "sha256": "937df42253fdb7a791fc946e18a53327d683a461fe0d2f1d6cf4471b097399c7"
+        },
+        "1": {
+          "jobId": "0062a317-b108-47ce-8d43-ac76a56ec7b6",
+          "version": 2,
+          "sha256": "9362f87fa8bda65289930f2d71948a6abdad7c618fed0795e28095e64c323413"
+        },
+        "2": {
+          "jobId": "94d01f37-ea42-427a-92b1-937c4dff0c07",
+          "version": 2,
+          "sha256": "fe9fb526c56b7a33441c7c48e39c5814f9d582786ccde5248dbcb8ab143acecb"
+        }
+      }
+    },
+    "s1-06": {
+      "style": "flat",
+      "assets": {
+        "cover": {
+          "jobId": "00efa6cd-3e6e-41bc-81aa-00ce17baaa69",
+          "version": 2,
+          "sha256": "eccdd59fcdf1b248d7ed6a444d0554227f86024790f20a5ad8c2a897c5a38920"
+        },
+        "1": {
+          "jobId": "81bb641d-0868-41c7-8b4a-39194263c96e",
+          "version": 2,
+          "sha256": "0aebdccf425640a190b0a8c96eaad2cf239dca454da939fa50547e31c4453698"
+        },
+        "2": {
+          "jobId": "8c60c36f-5f9b-4eb3-a32d-5e47bec3ae88",
+          "version": 2,
+          "sha256": "a1cf1327557959b49b7bb64ee7807124a3110e61626904a18a792c74e34eb136"
+        }
+      }
+    },
+    "s1-07": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "b39bca68-802d-4774-b0ec-cb5ad11963a5",
+          "version": 2,
+          "sha256": "b0e3b977eaa97029c9e45e77565e59f7907b6e28009b88c7d43bbf48b21d4aeb"
+        },
+        "1": {
+          "jobId": "2ba0700a-a268-43d5-a4e9-d2a839509624",
+          "version": 2,
+          "sha256": "a59fdca531fb14ff1cc25de280cc677c49c26bffcca38c1de304a5a85bfa76ed"
+        },
+        "2": {
+          "jobId": "09acf1bd-b339-4bfa-b59d-79847b26d624",
+          "version": 2,
+          "sha256": "676367198ab9af36be0bba6dad068e137793ef189ae594ede8db923bb6916e91"
+        }
+      }
+    },
+    "s1-08": {
+      "style": "felt",
+      "assets": {
+        "cover": {
+          "jobId": "cdde308c-ade6-4b5e-9f9b-6618f28cc9a6",
+          "version": 2,
+          "sha256": "43f1fd8b9d4e1252b1005e5ac32fe5f36ce67c74affbc4f66772ab4babb1580d"
+        },
+        "1": {
+          "jobId": "e210814c-8105-48d8-82a9-57dd7da0c65e",
+          "version": 2,
+          "sha256": "c79964ed01923f079337d4ebefd1d8c9173923dd2d1706062fb1bead450a037c"
+        },
+        "2": {
+          "jobId": "d878bf19-ee25-4255-8944-b97f27e7af63",
+          "version": 2,
+          "sha256": "2e3edf782abb746f6a48bef3703014c3173fefc2c76d411214905d642bd00c86"
+        }
+      }
+    },
+    "s1-09": {
+      "style": "clay",
+      "assets": {
+        "cover": {
+          "jobId": "72811920-ab05-4cb5-a6a5-d5bbe72d6923",
+          "version": 2,
+          "sha256": "622360e40721d29c2d00c33f08f83afbbacf7f597c7bdeb1adcb5ac9dcbf3d1b"
+        },
+        "1": {
+          "jobId": "b6322714-bb80-4884-82e5-0ec7a4d57475",
+          "version": 2,
+          "sha256": "b6be94a5089eae33bee4438b8ea1cfd0a4a6fe6f9a3756ec3a6499c71e1d351e"
+        },
+        "2": {
+          "jobId": "0d674d5d-0ac1-41bf-8fb9-fec80e1e5139",
+          "version": 2,
+          "sha256": "0ee1daca56ebaa391b9acb9a4500bf48f4b10696d3ec71e4b4fe5ca8f572d2b9"
+        }
+      }
+    },
+    "s1-10": {
+      "style": "felt",
+      "assets": {
+        "cover": {
+          "jobId": "cd8cd657-6bf0-49e7-a9e2-f6b4506a280e",
+          "version": 2,
+          "sha256": "49aa8e66cff423df80a420d5f81a2af8016ad8354f2fca7ea9df980a51abf240"
+        },
+        "1": {
+          "jobId": "61c2862f-b08b-4315-a2ef-0c0482fc3f37",
+          "version": 2,
+          "sha256": "f85ba9297f11f0e64224ca3a7095a1f2a7880798ad408c8a7a0504d66b157040"
+        },
+        "2": {
+          "jobId": "606b21d3-64c2-4c37-b014-4b28a1cba9fb",
+          "version": 2,
+          "sha256": "8ef49029776749146115545638139637c16e0ab13195f8f84ebe8b838fbe0b94"
+        }
+      }
+    },
+    "s1-11": {
+      "style": "crayon",
+      "assets": {
+        "cover": {
+          "jobId": "e7f039a4-5efc-4657-b3fc-b6119c079afa",
+          "version": 2,
+          "sha256": "a0158ab010826eef0ea6da01e6a394a9c5cd15e5896a182196e45ef10daa23c7"
+        },
+        "1": {
+          "jobId": "e82ab211-5128-4e08-93c1-c416039486e8",
+          "version": 2,
+          "sha256": "695bda32b94b33bf925bef6a369acef12ba148611940194e25efba7caefb64dd"
+        },
+        "2": {
+          "jobId": "916e6eaa-8cd6-45d0-8648-58793c129185",
+          "version": 2,
+          "sha256": "df781fa55b188f6b8b6ab74b5c3f50b9d41fc2ce4ad613b2eed30ae6d6fa0e2d"
+        }
+      }
+    },
+    "s1-12": {
+      "style": "papercut",
+      "assets": {
+        "cover": {
+          "jobId": "5411e74a-e4a8-453d-aca6-d82cac0ac256",
+          "version": 2,
+          "sha256": "abe0eb366b063805dd04a6aed7bb1096b181bda2f85a9256b36e973efad108af"
+        },
+        "1": {
+          "jobId": "5d8d42b9-b772-47f8-ba2a-5582182ee777",
+          "version": 2,
+          "sha256": "9b57303aa2eb9b861d14b03e80d38cadb2cfad8c422e66265b470aeed8995f58"
+        },
+        "2": {
+          "jobId": "0ca9874e-4470-452f-b18a-97521f967497",
+          "version": 2,
+          "sha256": "fa28a48ef57f7943d125848f78724312f9b3117af7e971552f4f9412dc4cf613"
+        }
+      }
+    },
+    "s1-13": {
+      "style": "flat",
+      "assets": {
+        "cover": {
+          "jobId": "20ce9adf-0b29-44fc-a9d8-3c6955e53165",
+          "version": 2,
+          "sha256": "21ad85592e54d80bfeba6833f4506bc33c151c502c73d3cb690cc323e4ed19e9"
+        },
+        "1": {
+          "jobId": "51db99a9-2c80-439c-9e63-8b7a496b4cad",
+          "version": 2,
+          "sha256": "9fd1ad030c6138b534627df0c178e86638bc4d7a1db8376b34abce0e030f1210"
+        },
+        "2": {
+          "jobId": "c2f6e461-837a-4190-aa56-f43f6dba01b4",
+          "version": 2,
+          "sha256": "44d29db9512f66d7fa8b88810e4466e6891ca487155f9845ba7cd4ed189b610e"
+        }
+      }
+    },
+    "s1-14": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "b69a5183-073b-413d-8040-4d8da8f5189f",
+          "version": 2,
+          "sha256": "66d14c0a14c8acb5a1d68d0e9501f0b85ba1cf669d96b6a4125671994e2c0491"
+        },
+        "1": {
+          "jobId": "a3de0d8e-4db2-47f9-a57c-0e547d8c70e7",
+          "version": 2,
+          "sha256": "615f5cc67e335267dbc9ecda4fb3bc9466c587777c5d27dc74498a8f2cbb3000"
+        },
+        "2": {
+          "jobId": "ff78d37a-eef6-408f-8143-430241488dcd",
+          "version": 2,
+          "sha256": "51d2e88b19fdb19659443401e49a0fadf71da162e3b1b82e53129f719c6f335c"
+        }
+      }
+    },
+    "s1-15": {
+      "style": "clay",
+      "assets": {
+        "cover": {
+          "jobId": "fa1fa833-e7ef-4647-826f-3b5aed84f3c5",
+          "version": 2,
+          "sha256": "4ee35c10ced758c290f2817617b0bc09f1c6dd7ac20774941ec2b9cb489c4598"
+        },
+        "1": {
+          "jobId": "11d09520-afcc-4d75-9f04-de0b8b8fbc69",
+          "version": 2,
+          "sha256": "b4c48f6919d40a7d678a2978d60d25e4961c58354f6cffcbf9ae101092c6b865"
+        },
+        "2": {
+          "jobId": "b8f63cab-5d10-4557-b5ce-2503afb0a95c",
+          "version": 2,
+          "sha256": "f6e47e36b77d511d6073a70c38e071b106e33017fa4e37d3f8e527a7a306a92f"
+        }
+      }
+    },
+    "s1-16": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "9041f90b-3147-4bd9-8f57-94ee0549c0ce",
+          "version": 2,
+          "sha256": "61dba9f77470a7571d2ad78b1a887cef0a9d21cfcc85e69b566bec6b401fdea5"
+        },
+        "1": {
+          "jobId": "706e9684-2f42-40c9-9b28-d354991ea47b",
+          "version": 2,
+          "sha256": "42ddee31f378d4d43968120513b813812c296d5c7fc8f7781411b586ad1b4adc"
+        },
+        "2": {
+          "jobId": "d23d9cc1-4dec-4129-b0ba-4cc5b193e882",
+          "version": 2,
+          "sha256": "800d0fdd57e1cfc7f42455a0365a5fa14fa04f0b663fa6f1280a65b5191ef3d0"
+        }
+      }
+    },
+    "s1-17": {
+      "style": "vintage",
+      "assets": {
+        "cover": {
+          "jobId": "657a2f87-630e-4e1a-b233-2d8cfc925544",
+          "version": 2,
+          "sha256": "ce3fff5ce57c420fdcfc21a8dc37e05a65abb2c2944e41398e6c71ecd246388d"
+        },
+        "1": {
+          "jobId": "57a2b8d8-a3c7-4d26-8ae1-754f412df11c",
+          "version": 2,
+          "sha256": "65a36454d383646f3da64806efc9d76a110a05c27778c26b091d048ccfea46ba"
+        },
+        "2": {
+          "jobId": "1221a778-1a5e-4117-becb-73dda7cf4a32",
+          "version": 2,
+          "sha256": "1705d49e9f430f160463ae78346a8891a5fb80bab55755a9acfdd9a009b72262"
+        }
+      }
+    },
+    "s1-18": {
+      "style": "clay",
+      "assets": {
+        "cover": {
+          "jobId": "876981f0-f8b7-48f6-b2c9-b7096cb45dd7",
+          "version": 2,
+          "sha256": "adb2c1d3aff6310852a4907cd5ba4aa4e5535bd774d5e452d200332b0cf750d7"
+        },
+        "1": {
+          "jobId": "ff5ea336-e7a4-4459-9b8e-3d6bf6823b19",
+          "version": 2,
+          "sha256": "7fdc7fa2799e84ea8355f3fc2bc9b9c1f4063e9ce86099b0480902112704def9"
+        },
+        "2": {
+          "jobId": "4bdbf7a1-9f68-432f-85b9-b7940880b514",
+          "version": 2,
+          "sha256": "2d6573d56e20a066b4db2825e57ac77d998d0241cc801d9c7837143ec069ed70"
+        }
+      }
+    },
+    "s1-19": {
+      "style": "fairytale",
+      "assets": {
+        "cover": {
+          "jobId": "60597c49-c47c-4130-8a5a-af2938ad04a9",
+          "version": 2,
+          "sha256": "c78a6990adcccd72571106508336c34ecc22d40abfe57ba9849c5c001b9d3f40"
+        },
+        "1": {
+          "jobId": "ade63058-7753-4080-ba88-263d96fb1957",
+          "version": 2,
+          "sha256": "bd05f74a202738bf0b1b8795928968e64454c07a0dce1c388e116c4e7747e389"
+        },
+        "2": {
+          "jobId": "9f9aa6de-697b-4a03-86d7-55ea82cfea23",
+          "version": 2,
+          "sha256": "29580bd8f6f96c99d7fe194fe98c0ca0ef0ff9711d0025ccb0c9613fd15dbea4"
+        }
+      }
+    },
+    "s1-20": {
+      "style": "comic",
+      "assets": {
+        "cover": {
+          "jobId": "e7312764-d439-4410-90f3-fb953f9efeee",
+          "version": 2,
+          "sha256": "8ff03a623b81e695cdecfff3ff2a7886f13b8cd2a02eb1f5abfedd26c1a03966"
+        },
+        "1": {
+          "jobId": "2e764dd8-4c49-45a1-b04e-d429aa0b2e34",
+          "version": 2,
+          "sha256": "58f92711539c379432d5e82bd92a8a96b50aed4354577eb88a0efb238cdcf67f"
+        },
+        "2": {
+          "jobId": "e873d608-87a7-4861-8f7b-26ffd47ecc2f",
+          "version": 2,
+          "sha256": "b9ceecb04a07fbf619967fa0dfb6ed0c36587f2ebd32c4a154f7b396b208a321"
+        }
+      }
+    },
+    "s1-21": {
+      "style": "anime",
+      "assets": {
+        "cover": {
+          "jobId": "0b194601-4715-47aa-8451-fb498155661f",
+          "version": 2,
+          "sha256": "b57e9ac75933cacafa5eba483c28d5436ad61ddeb19a173d2871c522f4f5b2eb"
+        },
+        "1": {
+          "jobId": "603b5cd0-88b9-4650-9197-b795a91725e8",
+          "version": 2,
+          "sha256": "dd6ff34a9ac10dee0f37bc15fb2c7801cacf0386322ba7764fcdf241bb320f25"
+        },
+        "2": {
+          "jobId": "644809d0-91c5-44c5-ab4c-8a98bd7c290a",
+          "version": 2,
+          "sha256": "722ed3b31459a240651f51299ab0ad631b1259dbae5730e2a22451c18c9dcf70"
+        }
+      }
+    },
+    "s1-22": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "8db2c8bd-9ed0-49f4-9325-36bee9f2185b",
+          "version": 2,
+          "sha256": "b91af78e5a12af7e16b6e38dc742d25bdc493e4a329795da0bb06b819d9df6d4"
+        },
+        "1": {
+          "jobId": "6b577dab-7e7b-4361-a02b-555268a167f4",
+          "version": 2,
+          "sha256": "e7b3a03f0d378478d80a201eb36adac694a8230e4989fb60cc81fdc0f44a360a"
+        },
+        "2": {
+          "jobId": "dee7f5f9-63f6-4295-ab2a-050078cfed14",
+          "version": 2,
+          "sha256": "6c1668a4b77ecd294abf67aff7ebb72650afde8d84a3063caf26d167df23bd7e"
+        }
+      }
+    },
+    "s1-23": {
+      "style": "crayon",
+      "assets": {
+        "cover": {
+          "jobId": "78dc4886-3d8d-412b-b0de-133e31c01203",
+          "version": 2,
+          "sha256": "d420b5e467fd7ee14d7bd82f40b54da9e18cbbf97c74b324fa738b27346b95b6"
+        },
+        "1": {
+          "jobId": "f5640484-dcd8-4876-900a-0e5688880063",
+          "version": 2,
+          "sha256": "c9ee5afe3c9ad3e206a485ef5952f7927edd1ec2f80cdb46e24d4d78da6ef26e"
+        },
+        "2": {
+          "jobId": "5ed9a25e-4f42-49b4-adcb-46433ec7e43e",
+          "version": 2,
+          "sha256": "b0689e510255e9c9506d7088e8a84541717adecdc8948e68c836e58a67802cc8"
+        }
+      }
+    },
+    "s1-24": {
+      "style": "comic",
+      "assets": {
+        "cover": {
+          "jobId": "99459a8e-4ef0-4eac-9555-6ab61336ee3b",
+          "version": 2,
+          "sha256": "7f8d3c6714f848274cb72247723a1c94b31cf76e817f4779c7509f118025c8c6"
+        },
+        "1": {
+          "jobId": "140c6eda-8fb9-4495-9f30-a2b255c906a1",
+          "version": 2,
+          "sha256": "c0920da28828725ddddca6f624ed71703bca2fe1c1f41d18bb37269ea86bcffc"
+        },
+        "2": {
+          "jobId": "0b0f3a70-95bb-4e2b-85a2-810cda4b4502",
+          "version": 2,
+          "sha256": "c6d14ea629a25637d78f22240ec0a2752ea53bf39c739c2e21f45953fccd9813"
+        }
+      }
+    },
+    "s1-25": {
+      "style": "clay",
+      "assets": {
+        "cover": {
+          "jobId": "8f854325-c5a8-414b-b61e-0db2881cf2cd",
+          "version": 2,
+          "sha256": "76b58f41738b505fe42fe8e9080ce430ebac14aec2e6fc1565ad1aa285a9e203"
+        },
+        "1": {
+          "jobId": "45abca9e-e2cf-47fb-a2cf-e866a7b5c3d9",
+          "version": 2,
+          "sha256": "f9d0962d43f1b73f6c62b041e80a254508faf1efc73598cf3f724f10af26fbe6"
+        },
+        "2": {
+          "jobId": "7accbe2e-5e05-4cf7-b76d-62269435ea1c",
+          "version": 2,
+          "sha256": "ecb3764e8b84a7486dd6b9125a9b58883e54691fb80d600fdbed1c0bde1cf347"
+        }
+      }
+    },
+    "s1-26": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "ea817d4d-ff8b-48e0-bafe-e8e50b4544c1",
+          "version": 2,
+          "sha256": "20ad23b678a4155f6a34353d3e1895709b1c10b3e056bd0f2381a047aef80848"
+        },
+        "1": {
+          "jobId": "71833954-429d-4e7d-97f0-72b4766c8c70",
+          "version": 2,
+          "sha256": "e53d11c35336b075982a2a5d18c85e6e38f65842b58014e0fb28ed18333d47e9"
+        },
+        "2": {
+          "jobId": "9301a283-51ab-48be-9724-3ae4a0433a54",
+          "version": 2,
+          "sha256": "80f0e45be894ea0e72b74812dd1a8e3d16770fd588ef3aa57b45b2e031b581b0"
+        }
+      }
+    },
+    "s1-27": {
+      "style": "webtoon",
+      "assets": {
+        "cover": {
+          "jobId": "af000d9f-e677-4cfc-8ce5-409364dd473d",
+          "version": 2,
+          "sha256": "8986555d064563033503c9dde0a467f39429da495c955a38ee446c9fcbb96c57"
+        },
+        "1": {
+          "jobId": "bf000e5b-f526-4796-b731-7fa0ef2d94be",
+          "version": 2,
+          "sha256": "1dd8d2dd2aef92cae1b225cb0069dad970db48ead4bff2b1fd50e3fc8845b206"
+        },
+        "2": {
+          "jobId": "f3c33b7c-e949-458d-a4bc-1d721d0a72da",
+          "version": 2,
+          "sha256": "5f13f9ae30876e3472bdaaa3ad64afd6a4e62166b3a0d0abbc12eed6ebffb367"
+        }
+      }
+    },
+    "s1-28": {
+      "style": "flat",
+      "assets": {
+        "cover": {
+          "jobId": "ccb40dd1-1622-4121-aa3f-de26ebc7ed01",
+          "version": 2,
+          "sha256": "20b8c79a9eff4fe324fd4e13548929dd5bf38b306570fe8f6921d1e5a87eae4d"
+        },
+        "1": {
+          "jobId": "df2d002b-4765-4b22-8b85-cd18f372f0c3",
+          "version": 2,
+          "sha256": "2588eaed16030f32cc0a9582c7ffded4df0f28a39529ea6fb1b737e324a8e9ee"
+        },
+        "2": {
+          "jobId": "76a02a31-d976-467f-887a-6ab799075aca",
+          "version": 2,
+          "sha256": "ed49f095902c6a8989d4e2195d46317a9acba2d56b8e49067295280d3e84dd76"
+        }
+      }
+    },
+    "s1-29": {
+      "style": "webtoon",
+      "assets": {
+        "cover": {
+          "jobId": "4d95df78-8f65-4643-b427-e9d95bbe8fda",
+          "version": 2,
+          "sha256": "2f9823997eb74c927ad4ffb72dfe24c3eac873d9f9718095179a114b107ab0d4"
+        },
+        "1": {
+          "jobId": "3ccd2ae7-ef49-4870-8e32-997b71821243",
+          "version": 2,
+          "sha256": "ed0d907849b62b725911116a30fca539b4af0bb71eaae46734de041bcdafdaa6"
+        },
+        "2": {
+          "jobId": "e485fcf3-46da-4546-90f2-1b78f8c00305",
+          "version": 2,
+          "sha256": "dc165f71efec23a3f3d59527b58b4d8b6e388d468baddbbf1560e175ef854954"
+        }
+      }
+    },
+    "s1-30": {
+      "style": "fairytale",
+      "assets": {
+        "cover": {
+          "jobId": "033a59fb-8196-4c13-8036-704f926600cc",
+          "version": 2,
+          "sha256": "9b50101ecdbff454f82a5ed812aab7ca5d94593a3eae301eb828786ae3a10d20"
+        },
+        "1": {
+          "jobId": "ae2153c8-597d-46ff-806a-3cf9765d55c6",
+          "version": 2,
+          "sha256": "92afb209324fb7cd86adce0651d9673c3b46b4c096d1ba91630991389dc8c872"
+        },
+        "2": {
+          "jobId": "aa74240b-dfcc-44a8-bde3-60ae9eade3a8",
+          "version": 2,
+          "sha256": "b92ddc25e53fd052fe390f6afb13b93691269fe219c86e62f33d69d5b26f9e0b"
+        }
+      }
+    },
+    "s1-31": {
+      "style": "brick",
+      "assets": {
+        "cover": {
+          "jobId": "a2a73088-5762-440f-abbf-59b59db14f1c",
+          "version": 2,
+          "sha256": "426e14bc6e510fc9cf4c8f420fff53edf38e4367ea5351e2d21ffc17c1617663"
+        },
+        "1": {
+          "jobId": "3b114af2-5600-46eb-8ea5-fabe330d0d63",
+          "version": 2,
+          "sha256": "1abe370528fe8e347ea6a0df0093051ddb8a509e4eb3e7b2465d92054fb94a37"
+        },
+        "2": {
+          "jobId": "2c10ea9f-c276-49cd-befd-50e346499d2c",
+          "version": 2,
+          "sha256": "be66fe8836abdccb7dbae0e3a9faedb0cacb297a0b99b5e455ae1c51638c05de"
+        }
+      }
+    },
+    "s1-32": {
+      "style": "anime",
+      "assets": {
+        "cover": {
+          "jobId": "4d8d6f35-6aaa-4058-9502-fa14d87003a2",
+          "version": 2,
+          "sha256": "392855029801d87bb2b076ba5a13fb47ccbb69033471ac6e019b5eafb73ec92d"
+        },
+        "1": {
+          "jobId": "82ffd7c9-7cf2-4f74-8e17-e2aa52c54995",
+          "version": 2,
+          "sha256": "281f720e93218ef6eda7a3495069ef4aef13f6aab11c845d38c39f0f931cc87a"
+        },
+        "2": {
+          "jobId": "a8d96048-940b-4d9f-8184-3d04b0aad53b",
+          "version": 2,
+          "sha256": "f05496c65ab1cd70a762e91d4f4423fa11f129eda92a147b8899461a66463906"
+        }
+      }
+    },
+    "s1-33": {
+      "style": "flat",
+      "assets": {
+        "cover": {
+          "jobId": "8d0b077f-4b91-402d-a3aa-5ade45a4327f",
+          "version": 2,
+          "sha256": "91c6be3e7419409e1b8aa6f94b94991d54570cf831a10da2e43ba41e686d0026"
+        },
+        "1": {
+          "jobId": "a2b14e3e-f8a8-4a31-a8bf-22ef11f037e6",
+          "version": 2,
+          "sha256": "1da9e9c00a0f3fb74b40d71b5208806d76099db4a94a4210f0a1bb806ee0bc37"
+        },
+        "2": {
+          "jobId": "4d6697f1-6a75-46c9-a514-3a2f0a2aa4c8",
+          "version": 2,
+          "sha256": "f124bf146940f3301297a6ee670a9cf98a2fb20907f885ebd38b23af6a832cb8"
+        }
+      }
+    },
+    "s1-34": {
+      "style": "comic",
+      "assets": {
+        "cover": {
+          "jobId": "529a8786-d391-41c6-8fc7-7a743f91573d",
+          "version": 2,
+          "sha256": "90b6cc5c52efac91643c320deca9b266e35296e2240c47e2536b0b2ae9836efd"
+        },
+        "1": {
+          "jobId": "bfff905a-63d1-4c40-8274-40b1ffd03f2d",
+          "version": 2,
+          "sha256": "20f350582f25e6492664bcd769e3ed73090757dffc80232a50a07b1e52f35d35"
+        },
+        "2": {
+          "jobId": "6a1a361e-f8c2-464a-8f2a-f9a99e212a3e",
+          "version": 2,
+          "sha256": "69d76382a16a7a5181d085001641ace7935b3b0f262b1d032e0cca029b49a47e"
+        }
+      }
+    },
+    "s1-35": {
+      "style": "anime",
+      "assets": {
+        "cover": {
+          "jobId": "46090922-05c1-4d2f-b98c-46c5f6f6c4c2",
+          "version": 2,
+          "sha256": "debc660da16eeda72be763913c5e0832808c0215e2a7c674070f1ad2b94dacf2"
+        },
+        "1": {
+          "jobId": "58f2c941-0de8-4ac2-95f7-c7b6b12db5de",
+          "version": 2,
+          "sha256": "0a79ca415846c1fd26c9afd13b455d520fea672664471eaa2eae6335a17fd46c"
+        },
+        "2": {
+          "jobId": "243f327a-f096-4743-8a9e-df2952628c06",
+          "version": 2,
+          "sha256": "2afaacd53b332b45ab403fc7ad569ef573a9e2cbf0557ca5644a4718411cf51e"
+        }
+      }
+    },
+    "s1-36": {
+      "style": "vintage",
+      "assets": {
+        "cover": {
+          "jobId": "844b6f5c-c830-4472-9c87-5c9e75a96479",
+          "version": 2,
+          "sha256": "5188d69467e3ead77d6b4042425403e611cf108db5b29307098e0a58b4137406"
+        },
+        "1": {
+          "jobId": "0be70206-d693-47f2-851a-0179a2c7f295",
+          "version": 2,
+          "sha256": "243a4ab3f41343889a1c805ec41f5096d7ea2152cbff271d999eb6906b8751ba"
+        },
+        "2": {
+          "jobId": "fadaa697-2392-4db4-a259-ff13b63316d3",
+          "version": 2,
+          "sha256": "d12806578042e3dc031fce85680d1816c3231402f250d2b672ffc2e9e289d875"
+        }
+      }
+    },
+    "s1-37": {
+      "style": "felt",
+      "assets": {
+        "cover": {
+          "jobId": "6d8049a3-754f-40aa-9d28-8037d35738ce",
+          "version": 2,
+          "sha256": "ace670856164341fbeddaec186b890f6e5f494b5c9b64c27a29560a8f4e9ed82"
+        },
+        "1": {
+          "jobId": "3ab95f81-44ae-46cd-8a2b-54e3e1a5c5e1",
+          "version": 2,
+          "sha256": "c8f0ce4e2db567aff7e92fb25732953c9bb2ba3dd1fb1f4a5ecdeac5c4dac178"
+        },
+        "2": {
+          "jobId": "72718a76-9407-467f-b534-af3f192c21b0",
+          "version": 2,
+          "sha256": "6181a1975143e9bcac388ed7929be2bab30daca64fdfcbbf1b3f2cfde3df0100"
+        }
+      }
+    },
+    "s1-38": {
+      "style": "flat",
+      "assets": {
+        "cover": {
+          "jobId": "9315d531-7a78-4d5a-930b-802be658773d",
+          "version": 2,
+          "sha256": "10a5b3c4255a32c5d0480f8c46433c90a64f5915b826976729cd89d952d01954"
+        },
+        "1": {
+          "jobId": "39bb7ec5-b596-4287-894e-dd996ec7a68b",
+          "version": 2,
+          "sha256": "da9d21b78650e4b184b1d0e83f8f267d3c828003b7b0b95dcd7d5e23eeb02fac"
+        },
+        "2": {
+          "jobId": "8678665e-4848-463e-8a2d-64954bc21ddd",
+          "version": 2,
+          "sha256": "c1610a8cad7ebe31b78a4aba740dde11e14c47e1861f60a564ed157942cbe606"
+        }
+      }
+    },
+    "s1-39": {
+      "style": "fairytale",
+      "assets": {
+        "cover": {
+          "jobId": "9450dda0-b811-4c2a-b78a-e90aea1e02e3",
+          "version": 2,
+          "sha256": "c21c7f0b08d209ae31e30649fc9f83a9857042379e7684640b23748a25ebf3f0"
+        },
+        "1": {
+          "jobId": "5ede2648-08d8-45ee-8687-4ad247ea106c",
+          "version": 2,
+          "sha256": "8b6777763946f1326bafd6837eac7c6d96152d74886a6be482319d7013533c86"
+        },
+        "2": {
+          "jobId": "989ddfcf-07fc-4c47-986b-2a230925fcdf",
+          "version": 2,
+          "sha256": "17dd0514475eb718db731f88215f2115efb7d6b7a82bee3ee14eb12d4903e302"
+        }
+      }
+    },
+    "s1-40": {
+      "style": "papercut",
+      "assets": {
+        "cover": {
+          "jobId": "14eb495e-a619-41a1-ad73-8dadbb95e900",
+          "version": 2,
+          "sha256": "3e3f73086c18f53bdc616b1a272ca45787d33d2500f753117f1de12854493f99"
+        },
+        "1": {
+          "jobId": "9b129c94-e7b7-4fc3-9dc6-127b05c9da6d",
+          "version": 2,
+          "sha256": "e566d53dff4d857e2545c40301a6c93f7ad1ff44f852f4a50ef7c442ef03f37e"
+        },
+        "2": {
+          "jobId": "172caf85-13d7-46a9-a261-d3ec837aaf4d",
+          "version": 2,
+          "sha256": "fa9096b11fb7c4de659ee0f61ab3d544311184bef5ef6f9736c2e2307134a83b"
+        }
+      }
+    },
+    "s1-41": {
+      "style": "fairytale",
+      "assets": {
+        "cover": {
+          "jobId": "6e9efb00-4aa4-4ea3-8a67-51649a2ed486",
+          "version": 2,
+          "sha256": "9c9d621c59295b4341f44676d0de9f00a1ff430b19d5acb454fc2c8a619ea91e"
+        },
+        "1": {
+          "jobId": "309b3f89-60ae-4aef-9a07-3874a9d29861",
+          "version": 2,
+          "sha256": "d5cf4f0b5ab031635ca1a7ad3e60e360a3bbc55b0f40df79e15d94b3c167e45a"
+        },
+        "2": {
+          "jobId": "9f37b72a-09f7-4fc0-8833-43a0cf250cbd",
+          "version": 2,
+          "sha256": "9e1dd290c1fec371d6c3932970a9698e39fd57c5f9d07dc343f0295ca1f3ad12"
+        }
+      }
+    },
+    "s1-42": {
+      "style": "papercut",
+      "assets": {
+        "cover": {
+          "jobId": "3bd5b82d-e201-4230-8324-6b1a665ba7b5",
+          "version": 2,
+          "sha256": "2e4bfa59eaf393df757551c77b24d9021c8e7bc6b4d44286970c7eaebf22fb5d"
+        },
+        "1": {
+          "jobId": "bdc785c7-d84c-484b-ba78-d2f5c93017fb",
+          "version": 2,
+          "sha256": "4ac0eaa9814beb38b86ab6a546cc9ec8d61364f817750671477d0d0ed41ed823"
+        },
+        "2": {
+          "jobId": "a6d8311d-cc94-4184-ac67-dbedddbba19b",
+          "version": 2,
+          "sha256": "d3ea55805396bf0434d6a9436fa31f753b5eba0f7dee82d2e48913c226356966"
+        }
+      }
+    },
+    "s1-43": {
+      "style": "minhwa",
+      "assets": {
+        "cover": {
+          "jobId": "a6ce5265-e861-4796-80bf-8fe8245d0cbc",
+          "version": 2,
+          "sha256": "849bf3d58cc982042a14f425a7da6304906ae6369f2af445b92d9d44e3c9096b"
+        },
+        "1": {
+          "jobId": "86a33a42-81d7-4e20-8fb4-bf3d3ffffcf9",
+          "version": 2,
+          "sha256": "d30c83e103edb027c7ba288da08eb263ca30506067117fb1efd231b4dfe410f8"
+        },
+        "2": {
+          "jobId": "aafdd03d-ca82-4019-85d1-fc717686d113",
+          "version": 2,
+          "sha256": "71c4ec51cb4503a20dbe850b1a207d874c504e6f3d6fed27320d3a115a970d4e"
+        }
+      }
+    },
+    "s1-44": {
+      "style": "comic",
+      "assets": {
+        "cover": {
+          "jobId": "b6221b67-5e62-42db-8570-bd8bd07d8eb6",
+          "version": 2,
+          "sha256": "f9fcf2628851c99252529e1379a8698e80258d4f4b77c7a1fdcee0020e0e19ea"
+        },
+        "1": {
+          "jobId": "8110d4dc-d5f2-4665-bb1b-1efc51e18a49",
+          "version": 2,
+          "sha256": "f9120d003b5815f00cebba0596fd059cd0cad07870205b04acb3d7fba1328803"
+        },
+        "2": {
+          "jobId": "a454e058-4f90-4658-a259-dd9e24ef40ab",
+          "version": 2,
+          "sha256": "f44958a3b0a17924624927e3a17435a8bd50cfd5f1c701b8fe012034d3443ea7"
+        }
+      }
+    },
+    "s1-45": {
+      "style": "clay",
+      "assets": {
+        "cover": {
+          "jobId": "6ea49c85-ee71-4051-bc8a-fc98e598e546",
+          "version": 2,
+          "sha256": "03af452a8ba84085c3aebe49d84458daec402e12b89056a67c6efb37f6a81ec2"
+        },
+        "1": {
+          "jobId": "4d105a67-abef-4cd6-ace8-11faabe95c49",
+          "version": 2,
+          "sha256": "e7ecd1ae6e55cd901b66219b654ed40199bbf08a70051292656908159373915b"
+        },
+        "2": {
+          "jobId": "2b8bc6ba-3b59-49b1-8435-fc67b37dc2fa",
+          "version": 2,
+          "sha256": "759dcb485f4c92278db8e043a5fb215cf78bcbedc625e78deeb100db0292457f"
+        }
+      }
+    },
+    "s1-46": {
+      "style": "webtoon",
+      "assets": {
+        "cover": {
+          "jobId": "b0e6d9b6-65ce-4bbb-98f3-25b75d623773",
+          "version": 2,
+          "sha256": "df5d513103fe7ce7d4300bc3cfe3b3a861efdcb293100379b5673b222ee99ac7"
+        },
+        "1": {
+          "jobId": "e48545e2-0600-4eac-9330-322440a24493",
+          "version": 2,
+          "sha256": "3bec9272715709c50c735ec8ff95b28a46c33a6ca79f79bb81c34a5e428116ee"
+        },
+        "2": {
+          "jobId": "527e271c-c7b5-4ddc-9265-4fda179a9f42",
+          "version": 2,
+          "sha256": "74c8c1a3e3d619bee3c676d70ffbedebaed2e63c9dc9058d68f695b0a1223e30"
+        }
+      }
+    },
+    "s1-47": {
+      "style": "anime",
+      "assets": {
+        "cover": {
+          "jobId": "282ab615-b764-4318-b3f2-395fe884ef3e",
+          "version": 2,
+          "sha256": "8cf70ab6614598350cf08f859178a810ebf167b8b417bcbe286eaadab04e3465"
+        },
+        "1": {
+          "jobId": "e36c0ba9-c4bb-4faf-b6d4-c161236ee523",
+          "version": 2,
+          "sha256": "11118afdd6f7f8a7fedb9c66958eb479eb4c04f468c707e87b2e53a950a4660f"
+        },
+        "2": {
+          "jobId": "faf42598-47f0-4819-bbc8-fd47650e0134",
+          "version": 2,
+          "sha256": "aa8e45a7940cc460275ac47c0a6a33347802953f1f7656e15c1b4838e78ebb53"
+        }
+      }
+    },
+    "s1-48": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "58b77a3f-37a6-47a1-834e-eac58d58fa88",
+          "version": 2,
+          "sha256": "52074f102eb2ea3a25f4b92034b93cf3ca303b27a50d11069aea4522e8c6dc9a"
+        },
+        "1": {
+          "jobId": "80211a04-6bb2-4d38-a60c-f671826b47c3",
+          "version": 2,
+          "sha256": "814b76d47e158663950a838e4b17a0f8fd098623fc2752d26153dd4625dc2d7e"
+        },
+        "2": {
+          "jobId": "8228f1a2-cf3f-4d48-863e-18358112241f",
+          "version": 2,
+          "sha256": "7305b190ceda886ca2d8c0d51b6aadb383f118003a4c82fd4602616dfc8f384a"
+        }
+      }
+    },
+    "s2-01": {
+      "style": "clay",
+      "assets": {
+        "cover": {
+          "jobId": "6dac3a06-91c0-48c8-9042-d70f43ec561d",
+          "version": 2,
+          "sha256": "9394b9b6c03f5c10e8ecc7f41cc3cf1c1d619a22264478c6d26604b58da4bae9"
+        },
+        "1": {
+          "jobId": "e07f808e-08ce-47a3-ba6f-09a54dba67b2",
+          "version": 2,
+          "sha256": "a4a5e06e97134e075ea48bb0281ef2f65cdc969fe454ee73f0a87744a5085873"
+        },
+        "2": {
+          "jobId": "2733f31c-640b-4395-8a76-4014b75963ba",
+          "version": 2,
+          "sha256": "3407c893bc4ccf417cee56ef92152e162c89e93db1a661bdf050774feb106443"
+        }
+      }
+    },
+    "s2-02": {
+      "style": "fairytale",
+      "assets": {
+        "cover": {
+          "jobId": "738aa631-585f-4ae9-aa65-d96df438dbce",
+          "version": 2,
+          "sha256": "307cf491c240824bf0a5b28b461c4bf24928870e8ffbf45822fcf6a6aa1137dc"
+        },
+        "1": {
+          "jobId": "763fee47-52fd-410d-8d2d-b6721a559941",
+          "version": 2,
+          "sha256": "1f7b51d705d43b41213f89c99e8f98eef0c79a5c288e9262540f0f6b39a829c2"
+        },
+        "2": {
+          "jobId": "7176c7b0-183a-471c-9bf9-c9572b4e4efe",
+          "version": 2,
+          "sha256": "589fd919d8fd0648cf5951e20b8b23b2827e1479d04cf6c55fa737dfd81fd2f9"
+        }
+      }
+    },
+    "s2-03": {
+      "style": "anime",
+      "assets": {
+        "cover": {
+          "jobId": "16e0d7b7-9c6b-4b4b-9918-2876b343e496",
+          "version": 2,
+          "sha256": "6b97d9e3f0abc291fa01e7e5efaca0be213f395ac7c57f72cf8cac17c54f6b41"
+        },
+        "1": {
+          "jobId": "ff619ef0-a92b-43d9-88fe-719e608253aa",
+          "version": 2,
+          "sha256": "d98e52995085850151a6b89f15f10f9fbe006871d44a886742b9d884fbc935b2"
+        },
+        "3": {
+          "jobId": "e5548aaf-a11e-4383-92c0-74dc637f85d8",
+          "version": 2,
+          "sha256": "34bf6afec1754f835537a2fbac530248933de20d8b45f22c1002c60c7f74f751"
+        }
+      }
+    },
+    "s2-04": {
+      "style": "webtoon",
+      "assets": {
+        "cover": {
+          "jobId": "d866cbfc-a4eb-4ee6-a96a-74bf2256877c",
+          "version": 2,
+          "sha256": "6b84f4530f9004410e0e60f1ad2553ed05ab7a1ebf4c2591bbab11a2df824136"
+        },
+        "1": {
+          "jobId": "c02c1fb9-fc9c-4fd7-91cc-74708203d039",
+          "version": 2,
+          "sha256": "8e6d25673c4424a844062cf17abceb25794333609b5b84cfaccb35baf36861ff"
+        },
+        "2": {
+          "jobId": "392c33b8-0b50-48c7-ad8b-1f2d4632eae4",
+          "version": 2,
+          "sha256": "a30d9c2a814474911e43084cebac942ff4e2b204175261afc560aabc231cae52"
+        }
+      }
+    },
+    "s2-05": {
+      "style": "brick",
+      "assets": {
+        "cover": {
+          "jobId": "8a6fb484-1865-477f-887c-6956c8ba683b",
+          "version": 2,
+          "sha256": "0f696670b5305b1f24ea7d7af084ae85eafd756bcec654659e3e01151b0cc198"
+        },
+        "1": {
+          "jobId": "e30fe7fd-9716-4fe7-801d-575166924d65",
+          "version": 2,
+          "sha256": "f82a5537bb10735d84f845b38798c852dbeef78f1b43ebf469531f07075ff053"
+        },
+        "2": {
+          "jobId": "c5d56ab1-c049-4e25-97d6-f0f87434c0e3",
+          "version": 2,
+          "sha256": "1aed21ad3edcb5f4f5ee946b33366ca6d02923f2b7a98b2dc2346822051ef949"
+        }
+      }
+    },
+    "s2-06": {
+      "style": "flat",
+      "assets": {
+        "cover": {
+          "jobId": "2d202928-1f81-4a2a-b9d8-08e337118629",
+          "version": 2,
+          "sha256": "4ebb8095534c64942a6c6439029ebbd33741814ab612e461be321616fbea064f"
+        },
+        "1": {
+          "jobId": "fa4566ee-8951-4101-9b16-2f2c0a72b647",
+          "version": 2,
+          "sha256": "25059e14b4e8e1c4d5c2ed424efba51db81da9415357f224bccb522302775bb1"
+        },
+        "3": {
+          "jobId": "604e255f-f4d4-43ac-b095-ca468f0e6b96",
+          "version": 2,
+          "sha256": "a3cf75746ae1d2ed3835e146adf3c68a12c9677bd9ef7f9099f0f10505fad917"
+        }
+      }
+    },
+    "s2-07": {
+      "style": "comic",
+      "assets": {
+        "cover": {
+          "jobId": "ee9f9a29-57bf-44a8-9c13-719a006ec14e",
+          "version": 2,
+          "sha256": "47d81fe84dbf480029a315acaf7875a4397d425bb186e1e67efb53da43eb5021"
+        },
+        "1": {
+          "jobId": "cbff52e1-89cb-44fb-9272-ad757eb2ca1d",
+          "version": 2,
+          "sha256": "632a2ce23c7e0933be857f073294d95980d4769e601a4c5ffdd45998ae427a86"
+        },
+        "3": {
+          "jobId": "7714fd9c-5ec0-4ae3-82b5-0b2dfc99f9ba",
+          "version": 2,
+          "sha256": "c53ead6dccf5b3b7cbb9220991d44af66bae1a505b7813d67ce8898b389aff0d"
+        }
+      }
+    },
+    "s2-08": {
+      "style": "vintage",
+      "assets": {
+        "cover": {
+          "jobId": "c8cdb7e6-dedc-4e33-9c4e-f92953a95f90",
+          "version": 2,
+          "sha256": "55a8b940e24196ecf6437fe3cf3771b7bd24143f7e59dbaf6aee31d1041d0968"
+        },
+        "1": {
+          "jobId": "624e5678-69cf-48d8-9e47-329f51857d88",
+          "version": 2,
+          "sha256": "9248d0487dd1b03d1b7322c85a7731b1b6cf076877507fb2101a14633ef642eb"
+        },
+        "2": {
+          "jobId": "2abb3616-716b-405f-b8f1-e93229d7f5f7",
+          "version": 2,
+          "sha256": "1ff5ca59ea2a62023381f051ee22a3bef73080cfc50efee24142e4b2b0cfbf75"
+        }
+      }
+    },
+    "s2-09": {
+      "style": "minhwa",
+      "assets": {
+        "cover": {
+          "jobId": "ad31162b-45ea-461f-b272-1ecc210b1bbf",
+          "version": 2,
+          "sha256": "6f48badcd7b99a2773e9e7510db81f2707a4c3f4795388b2d6400cb72b9b4a84"
+        },
+        "1": {
+          "jobId": "724b147f-5426-4371-8d81-ec1a24adb1cf",
+          "version": 2,
+          "sha256": "b804a39c1efba5a27ea1a508132531f5c017658c7108ec2ed4477094a3211651"
+        },
+        "2": {
+          "jobId": "6572c3fb-63e2-4bd9-8969-a0725363dc2d",
+          "version": 2,
+          "sha256": "085ad277f78e8025032f646dc2b76756f0d465ce4de2b4e18840d63f0acccbb4"
+        }
+      }
+    },
+    "s2-10": {
+      "style": "fairytale",
+      "assets": {
+        "cover": {
+          "jobId": "98d293c9-71da-43c3-b85a-6d5b1a0fdf90",
+          "version": 2,
+          "sha256": "7e59a2c91ca7a1b012fc311161f30de81b02de3de9c4d6ec48dd663b82d54b49"
+        },
+        "1": {
+          "jobId": "1e2ebad0-0a08-4bef-8a52-a09f46f5a553",
+          "version": 2,
+          "sha256": "48c1d2eeb829bd6ba6a753fe50f81719f13950e591cf857c61fe28363f7f1259"
+        },
+        "2": {
+          "jobId": "5a885786-cad2-493c-a4a4-22ac0858c740",
+          "version": 2,
+          "sha256": "80c7e306a7185561ceff7033e6fbcf7c09befbabdaaeb308b51c75638ccc2647"
+        }
+      }
+    },
+    "s2-11": {
+      "style": "papercut",
+      "assets": {
+        "cover": {
+          "jobId": "f8ab2494-7b91-4bcf-b730-c66a4e2e7caa",
+          "version": 2,
+          "sha256": "33ee6bfe73d460c4bcc7b29d320a271542f6f47ea6009d5ab7f0d6ce02be1f1d"
+        },
+        "1": {
+          "jobId": "1f9e3c3b-e75f-461d-bdef-7f6e87b6b7ed",
+          "version": 2,
+          "sha256": "d9d9b50fd442c04f00ec7eb547551fc491167de04625d73cce0afe3f1e7df007"
+        },
+        "2": {
+          "jobId": "c6f89c8b-e33c-4ac9-9fe4-a6493fc860de",
+          "version": 2,
+          "sha256": "ecac3f305b9386a615de05bde51d7e0b4dd620bd7b426714e847a2d8a4c86273"
+        }
+      }
+    },
+    "s2-12": {
+      "style": "anime",
+      "assets": {
+        "cover": {
+          "jobId": "fea18fc8-1c02-493d-a984-58f276023174",
+          "version": 2,
+          "sha256": "ecb1a9563a2133d493ffcf910355572293ff7e50e22c1a1d93bc0b959bf9efeb"
+        },
+        "1": {
+          "jobId": "7054fbd0-30f4-4b8d-9d3f-259450ef1c92",
+          "version": 2,
+          "sha256": "22089a60c16e0017ac04b2433f2674256ed8f36f0b8e46e4645cfb81a0dd6393"
+        },
+        "2": {
+          "jobId": "9a4d1ba9-8209-47be-9732-058569c9f48a",
+          "version": 2,
+          "sha256": "d08c60eaf6d11a12976faa1a524ca994983edb6653c6f41b338e18fec03733f2"
+        }
+      }
+    },
+    "s2-13": {
+      "style": "brick",
+      "assets": {
+        "cover": {
+          "jobId": "0665b818-4516-40e0-b2dd-627561efad75",
+          "version": 2,
+          "sha256": "bc96cfa1e9154c3481cca6c14c59790b6c3ad125e23fe936e35ac73f13c0a9ce"
+        },
+        "1": {
+          "jobId": "13f72b3d-0404-4196-a76c-c25087fc657a",
+          "version": 2,
+          "sha256": "e20c6a9a5619b58b00c209eee14f3c1f2c31502d95f1ba5de235a7911ff5684c"
+        },
+        "2": {
+          "jobId": "f4941cf6-1d02-425b-bbec-90284cfda294",
+          "version": 2,
+          "sha256": "0d2fe74df45c026eed43f0f21a403b5d0f9026b8071d73ec5b5b0aa66d360a7f"
+        }
+      }
+    },
+    "s2-14": {
+      "style": "anime",
+      "assets": {
+        "cover": {
+          "jobId": "c5ce7f31-e135-4d11-9849-e78d4dc7bad9",
+          "version": 2,
+          "sha256": "03b1c97c88d7976d205e34d70e6b5d736c09a611fb5f630ff6bbcd0b1fe4f3f8"
+        },
+        "1": {
+          "jobId": "d9044275-d894-4a05-8189-a58722a3a99e",
+          "version": 2,
+          "sha256": "444209e191fee83511641164a705ac48e612d0a12259983f15284420d4516ebd"
+        },
+        "3": {
+          "jobId": "d8518f35-f4ce-412c-a87d-24e220d6e8aa",
+          "version": 2,
+          "sha256": "b2819bae6c9c671c7a4732cefa1edc1321a2c8d5ba52e7bbbc4066bc5d0243f2"
+        }
+      }
+    },
+    "s2-15": {
+      "style": "webtoon",
+      "assets": {
+        "cover": {
+          "jobId": "b87d6df0-738a-47ad-86c0-60d12e3c59cd",
+          "version": 2,
+          "sha256": "2a15be6adf80a10cbaa0a07ab9b207d1abdd80f5c6d6ddd80e02b9f4d2b5cb0e"
+        },
+        "2": {
+          "jobId": "2714bc14-a983-44c2-9c7f-835f527a072c",
+          "version": 2,
+          "sha256": "ed071a4391464d1b3144d3a0b902c9ead7fff5002623bac669832a9a48128ffa"
+        },
+        "3": {
+          "jobId": "2bd27576-35bc-4b50-956f-bd659d6a6cf9",
+          "version": 2,
+          "sha256": "ea1e4ff8407fb59f5c69d79d8e522f7347b70a95625dcf2ef6a423be335aabdf"
+        }
+      }
+    },
+    "s2-16": {
+      "style": "comic",
+      "assets": {
+        "cover": {
+          "jobId": "62ff979a-20a7-445d-a4a3-cd07421311ab",
+          "version": 2,
+          "sha256": "c4db783b1d61c664ac460dd6d196429bbd42cfc6901209f8b5a6bcc4a8d22f1c"
+        },
+        "1": {
+          "jobId": "99d2940d-c5f0-4bfc-b9b7-2fca582cfcd5",
+          "version": 2,
+          "sha256": "cefe3b99d24ad247a7010312e818e10738285935ce9851d886a2f02a4e25308f"
+        },
+        "3": {
+          "jobId": "6e6133f5-fca0-4734-92b4-3bdf1bb8ddf0",
+          "version": 2,
+          "sha256": "5d9a7a401323d0adf3540b9cc8c3a4fc40d884b14b61f5545fdae1e1db3b4f73"
+        }
+      }
+    },
+    "s2-17": {
+      "style": "minhwa",
+      "assets": {
+        "cover": {
+          "jobId": "c67086af-fbfb-4de0-b683-61d5a959bf62",
+          "version": 2,
+          "sha256": "f8b3901fbae84ba31c8ea6cecf683d4ec19187340c7a0e8c5c2dc32e7f7e5a5b"
+        },
+        "1": {
+          "jobId": "ea3124bf-7226-4d54-9675-7c84bbccf6e9",
+          "version": 2,
+          "sha256": "bd714d5945e7b088fb3d629b4bbdd1342dee60112291af1b75c8848892e3c013"
+        },
+        "3": {
+          "jobId": "f0d2ae43-0250-4494-b6f0-b952e52db7cd",
+          "version": 2,
+          "sha256": "bd232f722d7026f4a5100dcc8cb2d0cc6279fe4f6f09f744dd08925bbfea4577"
+        }
+      }
+    },
+    "s2-18": {
+      "style": "pixel",
+      "assets": {
+        "cover": {
+          "jobId": "02d796a1-06a4-46db-ad06-5e35712c9af1",
+          "version": 2,
+          "sha256": "860d1ea01bb33949eb850e82c98c65adc190fd85da0832d1ed6115b675d1b607"
+        },
+        "1": {
+          "jobId": "aafe71ef-217e-4a72-9237-91a29a6a1c88",
+          "version": 2,
+          "sha256": "951d10c431a9b207c505e97b125e5d6f7283f758b0c415da10fcaac712c06a87"
+        },
+        "3": {
+          "jobId": "35677525-592a-4482-96c5-fb4bc17ea835",
+          "version": 2,
+          "sha256": "5bcbdcf71b70ccb56d23e5d1160192ae1c963323005837935ae268d993b43e81"
+        }
+      }
+    },
+    "s2-19": {
+      "style": "vintage",
+      "assets": {
+        "cover": {
+          "jobId": "98655562-0415-4873-8b0f-bcafcdcddf7a",
+          "version": 2,
+          "sha256": "a7b5d6ab7b0ccebc86d82b7bac6bb7f8af28bc492ffe6271e37d350bdb146337"
+        },
+        "1": {
+          "jobId": "5f37b49a-1aa5-466d-8f5b-0d7f327a1eb8",
+          "version": 2,
+          "sha256": "9501e5b3af68bff5536bd12694cfb05935946b284941c54cc131f5c6e82e0c91"
+        },
+        "2": {
+          "jobId": "1d8d0c92-e7a7-4bd0-808d-d57b6f096265",
+          "version": 2,
+          "sha256": "627d0e8e6bcc35dfad25cff34539aa62782bece87900d9d77add97b684720350"
+        }
+      }
+    },
+    "s2-20": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "88e6ca4b-d18c-4324-ae2e-1a749e3625c4",
+          "version": 2,
+          "sha256": "c4e4fe460b1dfe049c92a1431bfc789f417f5075edffc6821712ac8e171c1f45"
+        },
+        "1": {
+          "jobId": "ee277516-eddc-4b1a-a7ad-9b691b4024d0",
+          "version": 2,
+          "sha256": "2ab72d00584b2cdb051d431e5722555d579f988a373d7fb10614a81167e4b4ef"
+        },
+        "3": {
+          "jobId": "d8c4c42a-99a8-4e43-9f1e-926bccbda2cc",
+          "version": 2,
+          "sha256": "0dd3f7e8188df207cd0c97d77a2b7f082c9569ba70806f3f27c501313ad4b7b4"
+        }
+      }
+    },
+    "s2-21": {
+      "style": "papercut",
+      "assets": {
+        "cover": {
+          "jobId": "ea0168ee-c80f-4d9a-b3b2-1d3ce860b8b2",
+          "version": 2,
+          "sha256": "17703a8f514761ffb27d51044215663383da5f89bda42a773dfaf914ad136a18"
+        },
+        "2": {
+          "jobId": "32eea8ba-670e-4839-b932-8464d49d2bca",
+          "version": 2,
+          "sha256": "59356b81f03ad9adb3dcf7bf956849e3b01f55d0175c600e618c102740e33910"
+        },
+        "3": {
+          "jobId": "2af46472-0ba7-4091-9547-a7a71c1f059a",
+          "version": 2,
+          "sha256": "5407f17592439e9fcf0032a243883703e0c73ffd28640c5a3222713247e07d26"
+        }
+      }
+    },
+    "s2-22": {
+      "style": "webtoon",
+      "assets": {
+        "cover": {
+          "jobId": "a277e34d-bac0-4222-a2bf-27d9d4d41476",
+          "version": 2,
+          "sha256": "d9bdad00d09b999ef4b74c2bc8ccc87c1bce0b3aaadb1dc335cded50135cf59d"
+        },
+        "1": {
+          "jobId": "7522b532-ddf4-4b65-97e1-ef7f8e2dc744",
+          "version": 2,
+          "sha256": "765cf3096f31565e363927b20afb80e886691d7bf8d40ba809c4f0717d1aea0f"
+        },
+        "3": {
+          "jobId": "83f05b79-9cfe-4500-8c48-5115f1bb89d7",
+          "version": 2,
+          "sha256": "cc87e383775ecab215b7c71d873def611e3c7d33b4ae393aaba858a674124a86"
+        }
+      }
+    },
+    "s2-23": {
+      "style": "vintage",
+      "assets": {
+        "cover": {
+          "jobId": "a013808d-f851-42d5-8277-ee4f42fc9eef",
+          "version": 2,
+          "sha256": "75b342fc256d3eba227125567ad071c9f7ae195a54742f8484c185713f6b9c6c"
+        },
+        "1": {
+          "jobId": "d5faf3be-4f9a-49b5-b067-4630b1a8ac3c",
+          "version": 2,
+          "sha256": "ba5ce8a5ba4b287224c25b6900e29b674309cfbf55e71baea3333ed126c11a77"
+        },
+        "3": {
+          "jobId": "6d96f4ea-3bc7-4df7-b0e1-1e4897f25927",
+          "version": 2,
+          "sha256": "d696e2b5220ec675d99edd493901916c0f58735fc58a5d4c7a3bdf15822c6c57"
+        }
+      }
+    },
+    "s2-24": {
+      "style": "anime",
+      "assets": {
+        "cover": {
+          "jobId": "c297f58e-fc57-4c5c-8917-471135ffb0d4",
+          "version": 2,
+          "sha256": "146403f15588298447f7b56d787c8971302de0bbda69c27e61cf2414c0e856d8"
+        },
+        "1": {
+          "jobId": "d944f765-3eaf-465d-bcf5-51dc870d23ae",
+          "version": 2,
+          "sha256": "05b0ac8dbf6487f788267d7ccd1be415c04bd1b1cc077c6b84b8c440d7c2242a"
+        },
+        "2": {
+          "jobId": "4eadedca-3604-412b-8e0b-2bb701ba8053",
+          "version": 2,
+          "sha256": "e2725e0eebd97705682dc7c5ab80980528a0418145679b2eea56ce795bf0def4"
+        }
+      }
+    },
+    "s2-25": {
+      "style": "flat",
+      "assets": {
+        "cover": {
+          "jobId": "84a77748-c40a-4b3b-b9e6-a0fa8f084c40",
+          "version": 2,
+          "sha256": "925108ffbc7a9014c9a5ab02ccf0e38dbdcf971ff0874bbfc29ff9b931b00a06"
+        },
+        "1": {
+          "jobId": "d117bb0d-1a9d-4fb5-ba9d-743f0b8e1245",
+          "version": 2,
+          "sha256": "4b5c6952794d6c87b53b25e9bb502a353c1f90fa54a4bcc5c14033c51a93da11"
+        },
+        "3": {
+          "jobId": "a1b9094b-784e-4bd0-8a05-5aea96585f58",
+          "version": 2,
+          "sha256": "8206f3c836d70d36232afdb9398106a31a3d4cd423b10ef65f748dc7b4934883"
+        }
+      }
+    },
+    "s2-26": {
+      "style": "comic",
+      "assets": {
+        "cover": {
+          "jobId": "9a5ad0a8-fe28-4994-96d5-43985c3feee0",
+          "version": 2,
+          "sha256": "e8c09f77b78616ea654aa0052eb0bfcadab8b32cd78803e0e71f1e5798f97de0"
+        },
+        "1": {
+          "jobId": "ba0e74da-0f0b-4150-96d1-4ac64a63d7ea",
+          "version": 2,
+          "sha256": "37ad653f8a72916ff8b5187931084d080b2bf21c674986d1dfab3be7121c0c8e"
+        },
+        "3": {
+          "jobId": "ed27c8a2-a57a-4a3d-a2c6-bb8da4f9d2dd",
+          "version": 2,
+          "sha256": "e158b6afd8e47f7dafb493180138b6c9157c82e0f541cca4245ac263c5feb3ad"
+        }
+      }
+    },
+    "s2-27": {
+      "style": "papercut",
+      "assets": {
+        "cover": {
+          "jobId": "26ac2b9a-103e-41b4-810d-fae673eac356",
+          "version": 2,
+          "sha256": "1ae44d494257d9fc65a8af347d66528216cfa67a6c35a9b891988d6507642840"
+        },
+        "1": {
+          "jobId": "d1655027-998e-4220-bca2-76c4429e16b6",
+          "version": 2,
+          "sha256": "6126a49d4cf63da458880171eeb3acfc11b2024e6f9fe860e0824543cc56d8b7"
+        },
+        "3": {
+          "jobId": "cedb0f4f-88c6-4870-bed1-625b4a6d1fb2",
+          "version": 2,
+          "sha256": "3ca7b80234d9f10acf4a137d38419b00efd978e0262c1ea1f9dc26ab803726a7"
+        }
+      }
+    },
+    "s2-28": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "a1c93b80-6c8b-42e6-adfc-66dd12ac976c",
+          "version": 2,
+          "sha256": "aa6b582dca4a6211da20c8de3a491b9c620d9f0aad265f50002a67d251b1001e"
+        },
+        "1": {
+          "jobId": "2dabf9ed-c213-4bb5-9ddf-2615200f5303",
+          "version": 2,
+          "sha256": "8f2e85e485af5fa1e7393d56f3106f48c896a2e0ebc686a54ce4bc4f2dd98bd4"
+        },
+        "3": {
+          "jobId": "304179f2-010b-45a9-9ac7-51e5b8035c04",
+          "version": 2,
+          "sha256": "3be7f5b01b6998fbd2b7f49d256eab55ed3376bbe66ec80534f0ed3d0103a4db"
+        }
+      }
+    },
+    "s2-29": {
+      "style": "fairytale",
+      "assets": {
+        "cover": {
+          "jobId": "52b0e564-42b8-42c3-80c5-8849a09a8d88",
+          "version": 2,
+          "sha256": "71d9089903da4c4ced7330e42f67a50d3234482cc2a093b5f7ca628a2e5625d5"
+        },
+        "1": {
+          "jobId": "3e15ce06-a0ad-4628-b475-730cc3c0eb9f",
+          "version": 2,
+          "sha256": "998265221c1454881a00d967321b3199ccf9da4750012884cf4c6df9c6d0aea1"
+        },
+        "2": {
+          "jobId": "073ab269-e248-44f1-9c85-39a38e7ec84b",
+          "version": 2,
+          "sha256": "ad649067e43d545214094a215d9c3adc2169769bda82fadab9c67eb34d7eaef4"
+        }
+      }
+    },
+    "s2-30": {
+      "style": "webtoon",
+      "assets": {
+        "cover": {
+          "jobId": "7a5410eb-db68-476f-9277-264d30dc4685",
+          "version": 2,
+          "sha256": "bcd339a8eb4284be778664cc6cb6a4ac81067fedb3e2cd0a39c02b485a00aaa7"
+        },
+        "2": {
+          "jobId": "6b6d88d7-11d0-409b-8bab-1e794596ae45",
+          "version": 2,
+          "sha256": "ea59ef40029d7c36a86fa0e04ab2726072b5f682f3852f2a585ef9ba9e5fd68e"
+        },
+        "3": {
+          "jobId": "d2215d8f-f710-49ea-8aac-8ed563641238",
+          "version": 2,
+          "sha256": "4e2429b328952ec1132d0ba3d7a9acdf185c219387c4d28ce3ccc77f977f9252"
+        }
+      }
+    },
+    "s2-31": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "05a65093-7f7f-4d32-b2c8-b5096dd4de3e",
+          "version": 2,
+          "sha256": "e36a8980641aedd49674cbf44f59ff156ed5e071d8a6c2337186fa9eddbbedbb"
+        },
+        "1": {
+          "jobId": "0c6fe6a3-7f73-409e-ad72-9c5d343836b3",
+          "version": 2,
+          "sha256": "8f4900053c65826ab35a08e5a25d1a1b47148729a6f1cb9470b4ba0e5dbcc343"
+        },
+        "3": {
+          "jobId": "a7e0b2dd-9c32-4e21-950d-3bbb9715d967",
+          "version": 2,
+          "sha256": "63b62c896d810b26506145358da8c4c390803f716543a22fd53c191ff4c63fac"
+        }
+      }
+    },
+    "s2-32": {
+      "style": "comic",
+      "assets": {
+        "cover": {
+          "jobId": "07510246-ea29-4a86-80c1-502b43bee55c",
+          "version": 2,
+          "sha256": "15b28f0aabd21a17000f32fe313f943ea8e27e443131660a8bf58f84277a2ffe"
+        },
+        "1": {
+          "jobId": "49afeffe-a8b2-4b96-b9e0-01f43cee12f1",
+          "version": 2,
+          "sha256": "6dbb5a0a90b5949ff7ad5e57205edfd092e919e2055b35534680b02c6973941f"
+        },
+        "3": {
+          "jobId": "6ee7d0b0-2ba2-4159-b61c-fc9414893ff2",
+          "version": 2,
+          "sha256": "f188675b8bbff25b75686b200fe726ea177fd273c8902cb4931a9769f66ab63e"
+        }
+      }
+    },
+    "s2-33": {
+      "style": "anime",
+      "assets": {
+        "cover": {
+          "jobId": "827b442a-42c7-4e00-a92e-62f5f22ff8cf",
+          "version": 2,
+          "sha256": "b2ae45c3c62fa45cb9211dee6230f3c1e5db646c452aec46ea288e544287691d"
+        },
+        "1": {
+          "jobId": "9140aa30-0e3e-4586-95bc-33b9c9c5f624",
+          "version": 2,
+          "sha256": "dbf69879a07b8043b67b89ea66ce0a5f0b643c776e61d7c0cff8b2149b4cdc4f"
+        },
+        "3": {
+          "jobId": "6db1adc5-cafc-4aa1-97cd-b330d6cb9d6e",
+          "version": 2,
+          "sha256": "96f082402098e0abb2dd3227ae80904d140659d4d2bb5ab99818caa1bd708600"
+        }
+      }
+    },
+    "s2-34": {
+      "style": "flat",
+      "assets": {
+        "cover": {
+          "jobId": "19e5b6a6-d5bd-4817-944b-1abb9f7eee92",
+          "version": 2,
+          "sha256": "c03166e6f6321297bafe2e71ccdabc9ed68f574ad90936af2f52202b217509fb"
+        },
+        "1": {
+          "jobId": "df3527c0-dd43-461b-8076-f3787084f741",
+          "version": 2,
+          "sha256": "d7ea9e9d602104c15f324f83bd2ad426907b584560d6ef2045ae2fb173d04c2a"
+        },
+        "2": {
+          "jobId": "2cbbe468-b1cd-4797-9d6a-9d02fe1e74fa",
+          "version": 2,
+          "sha256": "ecaebc58534eb654007bf7d28c27312f795e6f2610271152da282289c8f503bc"
+        }
+      }
+    },
+    "s2-35": {
+      "style": "anime",
+      "assets": {
+        "cover": {
+          "jobId": "6e61124e-ccf2-4d06-a6d9-0729895ba93d",
+          "version": 2,
+          "sha256": "128e8cad4d5d663ba04d43d9291575cb854dbb533f13fa6eb39b4b16787a0c4d"
+        },
+        "1": {
+          "jobId": "7aa0c8fa-35fb-444a-9612-b7909ec27e0f",
+          "version": 2,
+          "sha256": "42e08b280fb0826a3ab2adcdf0a8c92bd91f6e44aaecc5db62c9cd7f411819d4"
+        },
+        "3": {
+          "jobId": "e6ba8efa-4cf1-42f1-a2c7-aa792026f356",
+          "version": 2,
+          "sha256": "e2bf44aeb6fdcdded9523f253771325e478177812ced04c50eb5c6c71a8ce866"
+        }
+      }
+    },
+    "s2-36": {
+      "style": "comic",
+      "assets": {
+        "cover": {
+          "jobId": "2f6c65da-2664-4b5e-a100-c13f4ae19e00",
+          "version": 2,
+          "sha256": "7250642f1b7a9cf5c8921b310580e80293f20d509b935b752cdefa808fc2031b"
+        },
+        "1": {
+          "jobId": "a6e58f99-4314-4baf-849c-d8047a3dab62",
+          "version": 2,
+          "sha256": "c7301b98f3f753aacc8a7124a3492727511275fadaaf6fd6f99ed0ecf7c64681"
+        },
+        "3": {
+          "jobId": "46fc9b77-2148-4c9b-a01c-65de758bde7a",
+          "version": 2,
+          "sha256": "15d9343a5198b7249d04b1f0fb537b9cd9a5e9d7a4d0eaede628661bec9a0403"
+        }
+      }
+    },
+    "s2-37": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "8c77737e-383b-4d65-a14f-9c6c010166c5",
+          "version": 2,
+          "sha256": "b6ab0c7c9417ef82b5b5d073611aa8063d79a3100f6860b5acaf1d029c584505"
+        },
+        "1": {
+          "jobId": "3d6f66f7-75d6-4182-9d1c-ff85fd2d191d",
+          "version": 2,
+          "sha256": "cd395fb15481ba74a6d679578c1447f82b8876a652f5b730f263d1d2ab1e64bd"
+        },
+        "3": {
+          "jobId": "60c90a58-4fc2-46a5-8e39-22a2fd22a6b7",
+          "version": 2,
+          "sha256": "6117c78c29dfedb19f6cbff78e28e6da0b1d73ee47228e8e73d32f37bbd062bd"
+        }
+      }
+    },
+    "s2-38": {
+      "style": "anime",
+      "assets": {
+        "cover": {
+          "jobId": "1c70f167-0053-4490-bac3-8019ce6c60a7",
+          "version": 2,
+          "sha256": "9533de17df8e0b9934b0e74273a7951be05bd992aece91c98b2abb2e27d6823a"
+        },
+        "1": {
+          "jobId": "fd404c02-2abf-4371-85e5-5a1b6b57ae10",
+          "version": 2,
+          "sha256": "c3e712f303553e7f9fadd38a1e1a26897169c87dd7989563f3792cea44eed618"
+        },
+        "3": {
+          "jobId": "3ed904fa-7f21-493e-890d-c5cace67c9c3",
+          "version": 2,
+          "sha256": "cbefe99bc4b090c2e3726f4f52ab89ffe62c63bf773094628783e32eb9754065"
+        }
+      }
+    },
+    "s2-39": {
+      "style": "crayon",
+      "assets": {
+        "cover": {
+          "jobId": "c4e3c40b-2a5c-4f17-91e8-93c78fee8a93",
+          "version": 2,
+          "sha256": "3e5320b11364d69f5f11a6f00d977ce3ec4348498e9ed23e7a5f572b6c8d9338"
+        },
+        "1": {
+          "jobId": "080a89d9-d031-480e-8d4b-018779cba69f",
+          "version": 2,
+          "sha256": "6bc92cefd3022f89483aa95e83d49c4641066a94942be79361de18d73cacbcc9"
+        },
+        "3": {
+          "jobId": "955c4110-cf98-48e5-a926-32288a76669e",
+          "version": 2,
+          "sha256": "264b63a874667d1eabc921665e5fcc295a5232c8f6e6cb9d6328a5b9e050d0dd"
+        }
+      }
+    },
+    "s2-40": {
+      "style": "flat",
+      "assets": {
+        "cover": {
+          "jobId": "4b6abc6f-5e96-4c76-86bc-5d38f423fc15",
+          "version": 2,
+          "sha256": "8dbd84c82c65fa1734aba41c28b6ce6673b3f2c2a656a5173535c3c151e245c0"
+        },
+        "2": {
+          "jobId": "73439d3c-d0d3-4a43-a84a-70e1df534b5d",
+          "version": 2,
+          "sha256": "69fe1b7c0b62a7125ed6deff00f0a4abcb392578dcd857e4cfe47afdbc7d17d6"
+        },
+        "3": {
+          "jobId": "d48f7771-1691-42e1-b4c3-bc8adf60a55b",
+          "version": 2,
+          "sha256": "1011271211ba776d3cd88585c3813b2fe406b5ade85f3a91317b9d77a30f9273"
+        }
+      }
+    },
+    "s2-41": {
+      "style": "anime",
+      "assets": {
+        "cover": {
+          "jobId": "9ba36891-575d-4af9-ace5-17c9e24c9f24",
+          "version": 2,
+          "sha256": "a159d81ff8bfb1da25c559117f30d6354e75b6975b719d42a4035226ca409106"
+        },
+        "1": {
+          "jobId": "91d3c7b2-1da5-4653-ade8-669cf2d4050f",
+          "version": 2,
+          "sha256": "7f57aa5ccb006b08730e0e7203aad4b282fb5232ea28175c77b42aa5afe16209"
+        },
+        "3": {
+          "jobId": "2584f164-e7d9-4a7a-827b-dec423fc4b4a",
+          "version": 2,
+          "sha256": "0fe2d778e0612b96360eb4b665ab45d8d45c53f66abbaa250f35cae9371b127c"
+        }
+      }
+    },
+    "s2-42": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "5d3535ea-cf2c-4ad9-bfd8-844ede5029c5",
+          "version": 2,
+          "sha256": "9e68aed9a522b0c50c3c0ae761ee9ae9294033ba1466942d680056765914cd99"
+        },
+        "1": {
+          "jobId": "b65c304c-0405-4bc5-bd3f-699c69b602f3",
+          "version": 2,
+          "sha256": "f8075a90d170002e7a4b6c4ecbcb4b0ddf1d303bde000b317e2695ed7e5d625f"
+        },
+        "2": {
+          "jobId": "44857dfa-c469-49ff-a16e-c6c712978ff9",
+          "version": 2,
+          "sha256": "88884dc2d46abdc90c180781c2a501c27691210d6171d55e8e9563b28bba29e0"
+        }
+      }
+    },
+    "s2-43": {
+      "style": "fairytale",
+      "assets": {
+        "cover": {
+          "jobId": "da5525a4-5e91-439f-8bd5-bc980cb83004",
+          "version": 2,
+          "sha256": "160d9bb1ec53b1c2dd0f89374902c423c9fbbd486a18749e9eff4655a5d8f622"
+        },
+        "1": {
+          "jobId": "0c13783b-8626-4f4e-8db9-db1743054ddd",
+          "version": 2,
+          "sha256": "a2fb6cc2879bf191a2c050bbb02e78af34821158086cc86ffb00003763b7ebd4"
+        },
+        "2": {
+          "jobId": "6791ea63-53b2-4afa-90d3-0aa4ba14f71f",
+          "version": 2,
+          "sha256": "166da3bccdb6545da1756afde9144c3d145445ccf7ddcf5a4fe8502371e273a5"
+        }
+      }
+    },
+    "s2-44": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "6ecd9a06-abfd-4f02-9358-d819682460d0",
+          "version": 2,
+          "sha256": "56f6e7305e827dca977fe3d45dcf1ec490aaed5c63468a81c2f683216b41aef5"
+        },
+        "1": {
+          "jobId": "a6cf1ce1-9fb0-43b6-9cf2-71a8cd453bae",
+          "version": 2,
+          "sha256": "ec8885696f34cb3f42b9037e489693ef6347589850f0e1ba365d21e86cf5e798"
+        },
+        "3": {
+          "jobId": "009676b9-5e9d-4cd0-95cd-e58f3043e31e",
+          "version": 2,
+          "sha256": "73b8628cd9c8331d6c839667a300df2be072594075c17f7121ac2c6624fc98b7"
+        }
+      }
+    },
+    "s2-45": {
+      "style": "comic",
+      "assets": {
+        "cover": {
+          "jobId": "6b516986-53ad-495d-81c7-be261a14a3a4",
+          "version": 2,
+          "sha256": "806f21f517c6f80644312353699a4a1db11d968e91b6875746b6a8eb4ec053fc"
+        },
+        "1": {
+          "jobId": "e19bc7a7-a6ec-4778-abbc-0f9f91747d6c",
+          "version": 2,
+          "sha256": "90aa84acc084d76884ad6cf245ca30b916e8fb184bce95e1b9fce5ea90545266"
+        },
+        "2": {
+          "jobId": "65291a57-9430-47a3-a264-7c08301c2ee6",
+          "version": 2,
+          "sha256": "bb157f22edb8942bf4d9364aa70f2175b85918450c6886b9323883c18cc8e1f3"
+        }
+      }
+    },
+    "s2-46": {
+      "style": "minhwa",
+      "assets": {
+        "cover": {
+          "jobId": "5d30298f-0d65-4424-90a2-2bf4d2eeb147",
+          "version": 2,
+          "sha256": "a7a27fd2854efed714854f55cb92927686f0da1a9d87c24aad9d2745144d022f"
+        },
+        "2": {
+          "jobId": "2484c9bc-c048-40e0-8212-6fb0aa7fbd1c",
+          "version": 2,
+          "sha256": "7facf0baca3ec231a15faea6b1cd7b7696094b67170cf30c984a14b288697c2d"
+        },
+        "3": {
+          "jobId": "325a48d9-1517-408e-a8a8-cb184c3fd81d",
+          "version": 2,
+          "sha256": "d461dae55fb3db34f036a289bd78c4bf257b6c17952b2601ddf0987e23574462"
+        }
+      }
+    },
+    "s2-47": {
+      "style": "webtoon",
+      "assets": {
+        "cover": {
+          "jobId": "9fba9d8f-d027-4bd4-9c11-37311b23d31f",
+          "version": 2,
+          "sha256": "ec64287dcd6f202cccf6b35dc8b6942edeba7f5a931bf40314884d62067444f7"
+        },
+        "1": {
+          "jobId": "5840e99f-0675-4e8f-a1b6-51475f1b1624",
+          "version": 2,
+          "sha256": "f3d0cf3ff5d8cd142cfb296aa7adf26a71fef12459a90a4acd503981c060c4fe"
+        },
+        "3": {
+          "jobId": "74578e5e-d3f2-4c30-a323-380d27e6662c",
+          "version": 2,
+          "sha256": "e609dc2d666fed7235cde1f8097f78ec3ffbe04c0065d8961a5a52318249a05b"
+        }
+      }
+    },
+    "s2-48": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "b0f39c10-a5fa-41f4-ae3f-18170971acfc",
+          "version": 2,
+          "sha256": "57d0c1ded185ebbb07aa4bb633ad4bf6ceb7bb94ebb8531243a6031689db538f"
+        },
+        "1": {
+          "jobId": "cd955765-5821-45c2-8763-c8a7996f9add",
+          "version": 2,
+          "sha256": "ad7f33a53f75b15668345bb75c7d7991de921e9b311627583c027656909930db"
+        },
+        "3": {
+          "jobId": "95cfc1d6-dd61-4479-9601-9dc9e52dd83c",
+          "version": 2,
+          "sha256": "e507a4e72f863fe09815e4df8ebf3157e4d00f578c9289c3a71f9d7558a4c52c"
+        }
+      }
+    },
+    "s3-01": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "1af76382-9ebc-471b-976a-307f34a6f2f3",
+          "version": 2,
+          "sha256": "d1a59ed7ea2f15517a33c71234e7f031339b0a72dbe97ae2e19fca21e2674523"
+        },
+        "1": {
+          "jobId": "2183520c-aa87-45a2-b45a-af580e46655c",
+          "version": 2,
+          "sha256": "1766b03f56a1d3c31d0f75ebe54de0574ba3505e7871b1fda0fe0cac9d195a2e"
+        },
+        "3": {
+          "jobId": "9e1703dd-bacb-40a0-b141-ac600d1e6d54",
+          "version": 2,
+          "sha256": "650d5a9679112c010c0ba655a192d241e422672186c0405220c5e25a28cf3e74"
+        }
+      }
+    },
+    "s3-02": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "9e01ab36-ff76-4fff-9667-567ddc2a1224",
+          "version": 2,
+          "sha256": "e5e3d1335bf1868c4751603bd4822c820b2659bf0951f21bb4b8c452cb87b7ee"
+        },
+        "1": {
+          "jobId": "3fb5a052-f57d-4494-9c75-576d11297760",
+          "version": 2,
+          "sha256": "c335e1f75eea6bb98d88a50d80fb2688a3f946b0c305cb8d6fd7360f169d8aea"
+        },
+        "3": {
+          "jobId": "8a067263-e058-4588-b6ec-c525b7f81009",
+          "version": 2,
+          "sha256": "48d9d8ef5c06e0a738181fef400c97821bf43251b7bfc5c3c0ba4778f706d859"
+        }
+      }
+    },
+    "s3-03": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "988fc058-a6ad-4773-afc5-f7277f758677",
+          "version": 2,
+          "sha256": "35cf712ede1afa0ce2bef41835c4336b0504c5abe589a78125d1ef22faebd943"
+        },
+        "1": {
+          "jobId": "d72e8345-1729-4433-872d-79dba1a44fc2",
+          "version": 2,
+          "sha256": "f4d73da3bee2c2ef9c0f9927e6f2fd62a7de1afdeffa73627397873bb6d9e199"
+        },
+        "3": {
+          "jobId": "28cc1fa3-4a88-4f89-bbcf-0bfa6ef22ff1",
+          "version": 2,
+          "sha256": "10d8f2e9f0eb585e6cd4e71c4e319cf11e460510a67b9c6ee5b0e358fea99fc6"
+        }
+      }
+    },
+    "s3-04": {
+      "style": "papercut",
+      "assets": {
+        "cover": {
+          "jobId": "ea0cce57-99a5-47db-8f66-8f270e0e466a",
+          "version": 2,
+          "sha256": "a214fecf6c6e3bf616ef044bcebb52add81d185d2b73c18302c247da6273859d"
+        },
+        "1": {
+          "jobId": "809fead8-d7f2-40eb-9965-77b21f0e8c19",
+          "version": 2,
+          "sha256": "a3279b5c73a41c7da176127edc5c765f2737fd0c340f31ee93914aeb73753ccc"
+        },
+        "2": {
+          "jobId": "ab38c214-d12c-4b30-afb2-e7939e5e1744",
+          "version": 2,
+          "sha256": "65c96f0da859e2f3f74dc343f455134d9b24bf3cace2aa137466a115babf10e1"
+        }
+      }
+    },
+    "s3-05": {
+      "style": "minhwa",
+      "assets": {
+        "cover": {
+          "jobId": "fb5291c3-8ecf-4e16-9291-55e59b058b87",
+          "version": 2,
+          "sha256": "6b9f9cb94610ad2c125be3d95c2f84547b288dd0ebf7c57721041dc9078d4c2a"
+        },
+        "1": {
+          "jobId": "b05421d2-3cf4-4a32-952e-0c76e25c4516",
+          "version": 2,
+          "sha256": "72732eff2fd3e0c9bd83963f9e95dffa985fea66f14632a8b885287a4c472252"
+        },
+        "3": {
+          "jobId": "dc341423-4e2a-4d52-8739-fd51d684c82b",
+          "version": 2,
+          "sha256": "fa894af8f9552a039aeef8ac8174ac8645084211eb75595d11b833bb4287e75d"
+        }
+      }
+    },
+    "s3-06": {
+      "style": "editorial",
+      "assets": {
+        "cover": {
+          "jobId": "e8f73dd8-be3c-4f13-b15c-d877481b5890",
+          "version": 2,
+          "sha256": "e8713ea279729f8fc80a54df00693e48945c449a283ea190623c102aafd3b5be"
+        },
+        "1": {
+          "jobId": "f602b511-6dcb-4309-867d-98b7db69c500",
+          "version": 2,
+          "sha256": "47b0501742eef52eff227bf58e794289d593c20f2a9473646d7e2f5991ec91bd"
+        },
+        "3": {
+          "jobId": "b90ad4d0-572d-4436-8ce2-38eae7866b60",
+          "version": 2,
+          "sha256": "76ecfd6ec08da9ba78129a206becf45d85d8db4d38dcb292170572a0e7df79e5"
+        }
+      }
+    },
+    "s3-07": {
+      "style": "flat",
+      "assets": {
+        "cover": {
+          "jobId": "0f0319c9-85db-4073-a6d0-f1ba10d92154",
+          "version": 2,
+          "sha256": "484bce18580ee5e439d8aa5f37cdb730c06006e27c0d5c4ce5d85b16ad39bb7d"
+        },
+        "1": {
+          "jobId": "9d5a074b-2524-4db1-a088-8b4b14a58589",
+          "version": 2,
+          "sha256": "fb0706e44f5a1e153629beccd890b6631daec6bf3a6a48d6603a21c6ee9011f6"
+        },
+        "2": {
+          "jobId": "45a9cd24-b7d7-4567-b69a-f349b775050f",
+          "version": 2,
+          "sha256": "0fb3d7b1cd1f005cdd52d40a1b0967d88b9bd41c29a51fef6a18ee7fa998599b"
+        }
+      }
+    },
+    "s3-08": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "4d06f9ba-980b-4f11-a240-46193e6fced9",
+          "version": 2,
+          "sha256": "1a390b5dc64bc76ddeb09d52eadb21c522c00255bfdfa9e061209ceb1503ec86"
+        },
+        "1": {
+          "jobId": "31e35fab-4345-4d99-b81f-8257b8414503",
+          "version": 2,
+          "sha256": "7d5c3871358ee0fe723a156a375f64a2e119246f7f7661b59a8d41fb51772643"
+        },
+        "2": {
+          "jobId": "d304ec95-1a4a-4a01-a3a4-10d313bc47af",
+          "version": 2,
+          "sha256": "f4e605a7774459c8f793626212115a303ffe56b2f70b45d779d91275bc1ee857"
+        }
+      }
+    },
+    "s3-09": {
+      "style": "vintage",
+      "assets": {
+        "cover": {
+          "jobId": "b286e06e-cc82-4e71-b930-3b4130db2270",
+          "version": 2,
+          "sha256": "347319755debedef9206d5c9250feb06c5a91275aff3e22dc268b9f1a60857af"
+        },
+        "1": {
+          "jobId": "877a9941-7042-4f72-85f8-6c7a0559d24a",
+          "version": 2,
+          "sha256": "570eec40e6e05db9bdb16982e163a18d62f23d1110444df3a51b5a6801e71020"
+        },
+        "2": {
+          "jobId": "e648775b-486d-4bb7-ba2a-d26da00e50f8",
+          "version": 2,
+          "sha256": "3f45f953a950ae5a90b902c2b07cc7177a0f731de9f770b9841801d7ecf494df"
+        }
+      }
+    },
+    "s3-10": {
+      "style": "comic",
+      "assets": {
+        "cover": {
+          "jobId": "cfac631e-b33c-49fb-b141-8e4a7ca445db",
+          "version": 2,
+          "sha256": "2c6714511dc1a53eea7308d7f3b040d18ff87ab4a1d0768392d416af7ab76733"
+        },
+        "1": {
+          "jobId": "ab3eb56e-c4ce-47e1-86f5-3b007110958e",
+          "version": 2,
+          "sha256": "40183bdadc36c6eb6d473c697c1864b38b12df68a258ba8dff173e3f9f272931"
+        },
+        "2": {
+          "jobId": "bf87cbd9-9d02-4692-96f4-cfbb24d32659",
+          "version": 2,
+          "sha256": "d7ab7565902f602b7038a374d066897b1273235377a94bf85357ba02d9181bc9"
+        }
+      }
+    },
+    "s3-11": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "48d9e864-2c57-4dac-bd83-fcc32a7127c3",
+          "version": 2,
+          "sha256": "c595c4ca7545633f5c1aa944c0850c9ab3379ee2e6fec65bc9723c61b3d5d0ff"
+        },
+        "1": {
+          "jobId": "bd16220b-93ac-4692-ba0c-d229e1b7e8c4",
+          "version": 2,
+          "sha256": "73457fc07ab0b5e4f75f8260136f775746cd44513a7259ad7d4ad9a9f2f678d3"
+        },
+        "3": {
+          "jobId": "27eeb48c-3b44-4c34-998b-47703926439c",
+          "version": 2,
+          "sha256": "77c48749a695a2b0d40672c1e280a2e1ce61d705c2c07542289645986d294411"
+        }
+      }
+    },
+    "s3-12": {
+      "style": "webtoon",
+      "assets": {
+        "cover": {
+          "jobId": "b88cddc2-35b6-4a3e-97c6-30e45ab6d735",
+          "version": 2,
+          "sha256": "c9fe2dfbe2746d73dd297a6fc91b3289e84df8c2f29b50a9292eda7a5d4cb1fc"
+        },
+        "1": {
+          "jobId": "2ba6414e-c089-45b3-95a5-b14e5f39328e",
+          "version": 2,
+          "sha256": "b2eccd139313b5c46654fbea7d12913755103c30abbeba1334dc3ef539cbfa13"
+        },
+        "2": {
+          "jobId": "c4bde53e-ebbe-425d-b0ea-869d07a814d4",
+          "version": 2,
+          "sha256": "0248f605cdbbf046cf00a4c1c099bc3675053d1f27c18541af11ba1037a1e932"
+        }
+      }
+    },
+    "s3-13": {
+      "style": "vintage",
+      "assets": {
+        "cover": {
+          "jobId": "344960d4-12a5-449a-8adb-23485f1a1b59",
+          "version": 2,
+          "sha256": "40371cb35c60d2a85e00db86174155abc80e435f5f174ef389bcf8271210a2a9"
+        },
+        "1": {
+          "jobId": "3f195704-9d38-4329-a1fa-c666078a4728",
+          "version": 2,
+          "sha256": "384325465418239ba6f43b03e4e2a1a1bc55a6bd5d567def8732658269be478a"
+        },
+        "2": {
+          "jobId": "bce455b4-2b74-498d-a315-1dc5957b265e",
+          "version": 2,
+          "sha256": "586f521df06260e1cad21dfcbb18938c8f3735c2db5a411229f9103a8b429272"
+        }
+      }
+    },
+    "s3-14": {
+      "style": "flat",
+      "assets": {
+        "cover": {
+          "jobId": "064a5893-c56f-46c5-b759-53e6df933a91",
+          "version": 2,
+          "sha256": "abc3016bdb79971ea771231b6b8b77f24560cb78f8357bf12a976c1d25ae048d"
+        },
+        "2": {
+          "jobId": "3b96dff4-3c05-47b5-9d99-e403224659af",
+          "version": 2,
+          "sha256": "3c74d9b4e48e016bea1177e8ff76a6935de24fd0ec97664ee691e9a3d83487b2"
+        },
+        "3": {
+          "jobId": "0df1e1e2-201a-4feb-9aaf-9588156d810d",
+          "version": 2,
+          "sha256": "d3cf0ae0ecc2469a2102223b11283b38c7298392917e084d4062511df6404fbe"
+        }
+      }
+    },
+    "s3-15": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "44d1b844-12f7-4ce3-94ec-2a35928d8e6a",
+          "version": 2,
+          "sha256": "80d8843aef5e89a326e76305f44e5518a3c1d96c07168d185855f6176152f8cf"
+        },
+        "2": {
+          "jobId": "482c4b95-4b17-4223-a283-40f08522de9f",
+          "version": 2,
+          "sha256": "0ffa20360c5acdaacc85a16583777cd8c8dec77592578d04fdb521077301d91a"
+        },
+        "3": {
+          "jobId": "60474458-e09e-4d35-ba9d-728efcf95abc",
+          "version": 2,
+          "sha256": "fd02f84904e7b8a7da08ebedb2482ad6bf626ca24f78d18bb05659d41f634e46"
+        }
+      }
+    },
+    "s3-16": {
+      "style": "vintage",
+      "assets": {
+        "cover": {
+          "jobId": "ad6e6af5-3f22-4db7-8b1c-b692a2b38284",
+          "version": 2,
+          "sha256": "806c81338646d6ae9774d0666925f85f890c3e1b971a0d2df55b928ba3931127"
+        },
+        "2": {
+          "jobId": "721aafa5-6639-49d5-8f2d-64817a2b0cd4",
+          "version": 2,
+          "sha256": "507dd51c94b709879c38b0f9d5f2b3c921d95a08be836101eb57f127ef5dc5a0"
+        },
+        "3": {
+          "jobId": "250b8a59-9bdc-4bf6-b58a-b135fad6ca77",
+          "version": 2,
+          "sha256": "b0de4aef193f204cf7050f0959fe65a5d00fa7385a33094e02c392f2c45290fc"
+        }
+      }
+    },
+    "s3-17": {
+      "style": "papercut",
+      "assets": {
+        "cover": {
+          "jobId": "10a6139d-2c98-43c1-a23e-91a11a9a16c6",
+          "version": 2,
+          "sha256": "95197e539490c34d8a33928c7ef080cc9c0d673060f063288c88fa45ca2e133e"
+        },
+        "1": {
+          "jobId": "8ef7ce31-9509-4ca0-8b40-f7981539fddb",
+          "version": 2,
+          "sha256": "9d1d188491001519da0148efb94e581a3d1741f059f5df63480d5cb91afd7cb9"
+        },
+        "2": {
+          "jobId": "a404516a-b27b-473b-a6ec-382c0bb4eb19",
+          "version": 2,
+          "sha256": "ec6ee8cf6c76de985c71352c4ef74cb656ef8ad18d40f09e89e2cd100606083e"
+        }
+      }
+    },
+    "s3-18": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "d7f9d5cb-750e-4849-82d1-4dbd08c99302",
+          "version": 2,
+          "sha256": "f21eb8de51ae846a89e79941302cfdc2eb255f7b687f69e96323871cee79b311"
+        },
+        "1": {
+          "jobId": "b7bce81b-599c-49b2-a11d-b04ae7a22d19",
+          "version": 2,
+          "sha256": "e9200db2b05d4b7c7b20367897e062cd2f968c2724f41758a6063ea1a51c98cf"
+        },
+        "3": {
+          "jobId": "d74e5f4d-5341-4a8f-be93-b33b811db8a4",
+          "version": 2,
+          "sha256": "c19ebab3689cfed60e7340affd45e2ac8467ed7bdcc44ad21a03eaa63b0c382d"
+        }
+      }
+    },
+    "s3-19": {
+      "style": "vintage",
+      "assets": {
+        "cover": {
+          "jobId": "27fe90a4-e5e4-49d5-b91f-bde1299e34c4",
+          "version": 2,
+          "sha256": "f9089246fc03327ed8bf19863c90628b8a172d1ba247e3f89d797b5623003583"
+        },
+        "1": {
+          "jobId": "a0fb482b-96af-4973-ab8b-f7f225048b90",
+          "version": 2,
+          "sha256": "90d1e1c538d431c7b11816f0d52853892a15dbaa5fff6e003fd1761b5573f48b"
+        },
+        "2": {
+          "jobId": "32300d98-491a-4e07-a855-f665a304046d",
+          "version": 2,
+          "sha256": "af03c728a229003a0cd0f16bc93ee87c64dfb5ad7aa66034fb51bb52a2cac165"
+        }
+      }
+    },
+    "s3-20": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "797d442a-0988-42d1-8eb0-7eb51eeabd87",
+          "version": 2,
+          "sha256": "27303d838eef9ed0c0c06e6cecae2c39a3cbd4e7e25508586c9abbe39a49faf2"
+        },
+        "1": {
+          "jobId": "36c23a76-7d17-47b4-8fb0-8c9fc1466e95",
+          "version": 2,
+          "sha256": "ac43c1c4d8c7580e510c685d7c1c4092549c0e52d27b2473f53afb7c6efd29f0"
+        },
+        "2": {
+          "jobId": "087a6755-2182-4ac0-a470-76db21550a18",
+          "version": 2,
+          "sha256": "5c543cdb14e735d9a029b6ecda09c23a2746af39cb4f18c52589c3784fbfca78"
+        }
+      }
+    },
+    "s3-21": {
+      "style": "vintage",
+      "assets": {
+        "cover": {
+          "jobId": "c003da4c-a199-4f3d-836d-8acda5322e57",
+          "version": 2,
+          "sha256": "b156a1b47fc85d96d57c9fbf64212a2663bdade824dccf8587d41c10211d1cdf"
+        },
+        "1": {
+          "jobId": "0005b115-cea3-483e-9403-4be54856b202",
+          "version": 2,
+          "sha256": "25a83163de213af042fa16e943de108af34c5011c8593bedfc2a5e93edc2b7d5"
+        },
+        "2": {
+          "jobId": "75c6c660-e95c-47da-a91f-f7b0be2d3c3c",
+          "version": 2,
+          "sha256": "d70825671105a7877b572616817505837beba4a21072635a05e074c216e70bd7"
+        }
+      }
+    },
+    "s3-22": {
+      "style": "vintage",
+      "assets": {
+        "cover": {
+          "jobId": "7d865084-cfb0-45a1-a445-348633103ea4",
+          "version": 2,
+          "sha256": "b4cda6b0831e4c6161b2a416004a72702ee31433e75f28c9c620693092cf9d22"
+        },
+        "1": {
+          "jobId": "5d941b1f-3eb4-47d4-aa23-5dc37d565d9e",
+          "version": 2,
+          "sha256": "a8e9464a78909250240fc5635a704a6e9e998437fc32fef832d6ebd11af3715c"
+        },
+        "2": {
+          "jobId": "8f6ae605-1923-43de-b852-5f61c2451c40",
+          "version": 2,
+          "sha256": "a1b61265d70ab327f13dcc776e16fbf9204953eabe5d455f4a9ecdfe397f6f61"
+        }
+      }
+    },
+    "s3-23": {
+      "style": "editorial",
+      "assets": {
+        "cover": {
+          "jobId": "3651480e-ba8e-4496-a992-fd8d66680dd3",
+          "version": 2,
+          "sha256": "2efcb5fda6705d8fffce61b4b069036d4fea6a4d20cef3614ab6ddb6e643732b"
+        },
+        "1": {
+          "jobId": "532c45c5-2a58-49fb-b44e-0f80f44f14f9",
+          "version": 2,
+          "sha256": "6170b3fc9421385b8fb4143095862231bfa84b1ceacb86a7a92bc63f8cd08640"
+        },
+        "2": {
+          "jobId": "046f07f6-4d3b-438a-819b-755a5078edb0",
+          "version": 2,
+          "sha256": "f127dce6664ceb992213d5dedd50cfdf3725b02034ce3f4b51916eee656e3554"
+        }
+      }
+    },
+    "s3-24": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "839592ac-40b0-4a8d-ae17-2058f7405cc4",
+          "version": 2,
+          "sha256": "ea9022f83577c9d610aaad120dd3a069f5dbec1e5196168419abecbb1739f011"
+        },
+        "1": {
+          "jobId": "f4202960-d8e1-436c-b007-4310fefb8ca6",
+          "version": 2,
+          "sha256": "1db3ff1444d7e28cdced84a2c94e4bae234ffbb72a6f19c8ec59b75b176c666d"
+        },
+        "3": {
+          "jobId": "04857333-1563-486d-aa63-4cbeb346a245",
+          "version": 2,
+          "sha256": "3d42a589ace5621d1c760186b26f9a440ec81c59840dcfd90cd9b9775030bfa7"
+        }
+      }
+    },
+    "s3-25": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "dbdca6c2-360f-49bf-8cac-438878c3a91e",
+          "version": 2,
+          "sha256": "d5d9b286f14d43ab99b08c887fed047df7b9836494b25c00987bd0d219193b9e"
+        },
+        "1": {
+          "jobId": "d16c65c9-01de-4231-a6e5-6a9f6da67732",
+          "version": 2,
+          "sha256": "64dc9ba18ff5d94f0aae47653a5be202486711cc3dd551c4ad696d712290b4dc"
+        },
+        "3": {
+          "jobId": "72b3c20f-d998-4a89-8ac3-a546ac9b9561",
+          "version": 2,
+          "sha256": "269c5a360c94ca7e2060b84063110274e57e78409d410563330935bb9001dc15"
+        }
+      }
+    },
+    "s3-26": {
+      "style": "webtoon",
+      "assets": {
+        "cover": {
+          "jobId": "eb936255-dfb2-44cd-b38f-95cc5dc2c12b",
+          "version": 2,
+          "sha256": "50b69740fed48d9c865652a48e351710c707a91b2c683734171451562a3ddd95"
+        },
+        "1": {
+          "jobId": "d1d1300d-0504-4a0d-a5b3-ef2254002aef",
+          "version": 2,
+          "sha256": "3058b3ab4d7ae4d1f311afd181618cd2f86b36f594d83daf4a40dba01656204e"
+        },
+        "3": {
+          "jobId": "d41e91a9-5911-47f6-be10-a1869d328461",
+          "version": 2,
+          "sha256": "2efc617c4d9c7808c70a723ca4f58455bd1d86a9a6da00823b641a444252a2b5"
+        }
+      }
+    },
+    "s3-27": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "9038f36a-fe44-4bb9-9b60-dfa841debb5e",
+          "version": 2,
+          "sha256": "aeb05546fadab9ab2648a90a105934271593d2dc996712106c35cd74f981e954"
+        },
+        "1": {
+          "jobId": "cd26a36a-8a58-4578-91c9-dc8374635501",
+          "version": 2,
+          "sha256": "d35cec0ee85a6560d9578b8ff89b596da55ffada36038799cb3e7d489f5d5e6f"
+        },
+        "2": {
+          "jobId": "f5a3876d-4360-490e-a5be-22dbf013dd32",
+          "version": 2,
+          "sha256": "d3d8cf3f889f22b6acf6cf2cfd388961fa131844cc147d3f4169912da9f9e464"
+        }
+      }
+    },
+    "s3-28": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "2a496145-2222-4272-9c98-2046a91d4256",
+          "version": 2,
+          "sha256": "801b76788d64ac4dbb5d6c5fa4ad9e8484a406f7b69ed50cb83c0d39c3f2f748"
+        },
+        "2": {
+          "jobId": "d699281a-b680-4b18-9f85-40f21a729db7",
+          "version": 2,
+          "sha256": "d802d2d06ac08af1f83f0a57b529ceb17f6dd674c1d69cd4fd5217086b27351c"
+        },
+        "3": {
+          "jobId": "d7c85a9c-8112-4ca8-96ac-6a957ba786c2",
+          "version": 2,
+          "sha256": "7bbd64629628dc3c3d5981f12f6649d60b729c231db40ac18c7f2396e3e842e7"
+        }
+      }
+    },
+    "s3-29": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "0f572031-c352-44e9-bf91-c355023a0e3a",
+          "version": 2,
+          "sha256": "95586c2006578219e7b0ef13321f72dc8e8fb111391086b731c0f5886e017806"
+        },
+        "1": {
+          "jobId": "8c21bf76-af71-4dae-b93f-7f47825455f5",
+          "version": 2,
+          "sha256": "10cb8a1823380fe26c22a736c1665841976a936fc3f62652f2c9b860bb67a580"
+        },
+        "2": {
+          "jobId": "1b358cf5-67e6-4bcd-b2c4-5d0273313d7b",
+          "version": 2,
+          "sha256": "a069d263b394d538f6f86cdc101a368fa3902b800792657462819161392f752f"
+        }
+      }
+    },
+    "s3-30": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "26287377-ffbf-47e3-8f24-77d2900f14c2",
+          "version": 2,
+          "sha256": "84d8834fc47b6373862886ddc031f92cf454f2a0137b452edbca39036b46eedb"
+        },
+        "1": {
+          "jobId": "aadf174d-7381-450d-b6d1-f0b41eea488a",
+          "version": 2,
+          "sha256": "2b117d9b8fb6b299028dd25d2cf211fd7474e0350ed881feaabe81972a8c9b07"
+        },
+        "2": {
+          "jobId": "a3d5afcd-e6fc-4a0a-84ec-1fc945d471b7",
+          "version": 2,
+          "sha256": "3213ab625eb6eb4862f89f8a37cc0516c8cbf9dc82525954c09c751f21ee94ca"
+        }
+      }
+    },
+    "s3-31": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "de1ad46b-a69c-4f0e-b229-b672e2f59f2a",
+          "version": 2,
+          "sha256": "6896b4b4200c7629121428500a8b6f731d6918178bbcf4a3487a9233ac5e7e11"
+        },
+        "1": {
+          "jobId": "0448f371-9035-4b84-ac72-55fc2578091a",
+          "version": 2,
+          "sha256": "acffe0023daa3dc3c3f4742880e6a3e3925acde8e7f994e6fc9e55ad36457ddf"
+        },
+        "2": {
+          "jobId": "e29a86ed-a380-4e51-91f6-e8fe99d101ed",
+          "version": 2,
+          "sha256": "f55bfdf52daa86a42c5d268e5352f5513471c943a747574cbe5109134f58be98"
+        }
+      }
+    },
+    "s3-32": {
+      "style": "vintage",
+      "assets": {
+        "cover": {
+          "jobId": "2453e6dc-0e4c-4a56-b9b1-07fe8e819e70",
+          "version": 2,
+          "sha256": "e7ab6c5c96cebe2a58fb4ce2c3546420b20b77e7f60d7065984692296f961957"
+        },
+        "2": {
+          "jobId": "c83860af-5afb-46bd-8d33-1b59dcf84e20",
+          "version": 2,
+          "sha256": "7c860ca59e8a1b2f9a8821992314db0a3732a9a798870a8f941ac563e2d59508"
+        },
+        "3": {
+          "jobId": "056b10e9-fd4b-4df4-a90e-ac66ef3a8c8f",
+          "version": 2,
+          "sha256": "cb860fb759b141608b8498dd032aab88003990a2968ef2996290f3cd55e31ce9"
+        }
+      }
+    },
+    "s3-33": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "21c398d8-01c7-4962-826e-6f29b0e8cab5",
+          "version": 2,
+          "sha256": "8092e378ba37172c084e7b68dd8611d156f14d6eddd22b29aebee250a1fa4154"
+        },
+        "1": {
+          "jobId": "2e6dde88-8eb3-4d94-86cd-81564541fd86",
+          "version": 2,
+          "sha256": "dea4c33d0d5681243091021bd5876f1f4480ec08413daa26136cc7a6d02ec08a"
+        },
+        "2": {
+          "jobId": "6af9642d-d0e6-4c08-8361-ad1c5d2907ec",
+          "version": 2,
+          "sha256": "c7b31b9e335b79b89a30ba032dfc67789ac24cdda6bf882aad84aac57d01b463"
+        }
+      }
+    },
+    "s3-34": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "934b7ab7-f7e7-40e6-9f37-7f508f621c7a",
+          "version": 2,
+          "sha256": "58a4170434633e0e08c82df522fd00771fbd6ef5f2ffc55cc5a2dccad437f349"
+        },
+        "1": {
+          "jobId": "63bcd517-ce56-4333-89e0-66813ca53e84",
+          "version": 2,
+          "sha256": "6ed5b956f3746e752def03c2e8b1484a0a1ace090e2ca6857dad74e07d72a94f"
+        },
+        "2": {
+          "jobId": "f20e61d3-929d-458d-97cb-f7e95df204f8",
+          "version": 2,
+          "sha256": "654780d7dc8398fbff363dd7414cf172718104c33db974180a2c9a5372a0092f"
+        }
+      }
+    },
+    "s3-35": {
+      "style": "pixel",
+      "assets": {
+        "cover": {
+          "jobId": "b65fe3d3-69a5-44d3-a191-dd6920b21f55",
+          "version": 2,
+          "sha256": "a0ab3f808d1527add7785c78cdca2b17ad1a51874c62078bc5a6d074c161856f"
+        },
+        "1": {
+          "jobId": "5d9252d2-968a-441e-b3ac-9d9281edd8ff",
+          "version": 2,
+          "sha256": "5b50e56a62b40e7b1e46babe1a37d407e553af10add7494e22564cf621b180e7"
+        },
+        "2": {
+          "jobId": "cc99d0ac-c8f5-4097-a5ce-cad2ca672d05",
+          "version": 2,
+          "sha256": "56e66a09e44d0ab01b19804dfbd706ab5e8bddc8dba2bfbdc2b2fc18263c5a6f"
+        }
+      }
+    },
+    "s3-36": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "8efa8275-25fc-443e-8fa1-53627b6071e6",
+          "version": 2,
+          "sha256": "4e27a9d7c8789c1e0999a2880cf4ba39b2b601cc8a7e6d805381c5bbd352d7ea"
+        },
+        "1": {
+          "jobId": "088ac83a-566c-40e7-ad5d-a0cf1fbf3930",
+          "version": 2,
+          "sha256": "98c5b882a979bb63d3911483ccfa9b2ca072d7f3c1ed1a0feda89f5f3882d98d"
+        },
+        "2": {
+          "jobId": "4255cd22-c8d6-4e4e-b1de-97f157e3dfb8",
+          "version": 2,
+          "sha256": "265d5b1840fc606e410ba6ba1b94b80db1c45bab0db33bbec76e9cabd539be1c"
+        }
+      }
+    },
+    "s3-37": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "0a739644-6354-466b-883d-7f9b77668210",
+          "version": 2,
+          "sha256": "6f246a3d71abae7d8ad789f3a45a8e81b02b004a1b8785543cffa994f5d72d71"
+        },
+        "1": {
+          "jobId": "b6ac8842-10e6-4f57-b9b5-a80a108a423f",
+          "version": 2,
+          "sha256": "2bfdb4326a9a442c94c5195cb360ed473226553068a57fe42fc027fc11530571"
+        },
+        "2": {
+          "jobId": "19456d02-001e-4fc7-8738-4b6e8820a10b",
+          "version": 2,
+          "sha256": "a799407ecfe5ba1592122c0bbbe55ae106f8c23b30b93a1e6b89eca5f5ad28a5"
+        }
+      }
+    },
+    "s3-38": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "dc1708e3-132f-464d-9d01-dd10a3f76310",
+          "version": 2,
+          "sha256": "8f575b3dcc9b48e92cd6d0bbfeba4e845d7e3399c9c3627b5725fbf1f4833112"
+        },
+        "2": {
+          "jobId": "d1f7639f-340f-4638-ac76-05bbdfc2989c",
+          "version": 2,
+          "sha256": "265487cf6ac29b005bb6dc26feb7811a5cb670ffe0803035274cd1fbaa182351"
+        },
+        "3": {
+          "jobId": "5bd7eeaf-858c-4c93-81ff-7e194abebd92",
+          "version": 2,
+          "sha256": "5ba2f99937ea3a3362a6187669b6930c4379bc6ec5f55e656ed44ccc0e4e2422"
+        }
+      }
+    },
+    "s3-39": {
+      "style": "anime",
+      "assets": {
+        "cover": {
+          "jobId": "5733b104-8d70-4790-8912-501bb754524b",
+          "version": 2,
+          "sha256": "cdf8d68fd3af94eedd264f670de7aebf6118dfa55b901574a20485006d73f9c2"
+        },
+        "1": {
+          "jobId": "7f24ca6e-edba-41f0-850f-6e933bb185fe",
+          "version": 2,
+          "sha256": "f302abf47da1f28f392100ff4f98feb95283d455192f579a92653b572bfb3e4f"
+        },
+        "3": {
+          "jobId": "83a22818-9731-494c-b9db-0228e00901af",
+          "version": 2,
+          "sha256": "d4790f5578ba4c0c3e93c0ba0583e25b2527ee5a76ca0f0dca81fe073208e457"
+        }
+      }
+    },
+    "s3-40": {
+      "style": "anime",
+      "assets": {
+        "cover": {
+          "jobId": "12ee6d74-9008-440f-a7b4-243c97a03e72",
+          "version": 2,
+          "sha256": "523db70d26f852ead4589373b9cf911118377708d9f1f00037f21fbcd1fef728"
+        },
+        "1": {
+          "jobId": "8019343b-db0e-4513-bcbf-373f503a09bb",
+          "version": 2,
+          "sha256": "5451fdc3bb62f46078a3bb69c67a7dc1afd75ea426a95b56ddfceba4fabd943c"
+        },
+        "3": {
+          "jobId": "26910972-5674-4365-ae4b-d522ec793ecd",
+          "version": 2,
+          "sha256": "567e2c6c906a4d6cfff5f03d808b4e6ee9ea303e1025a3be254a7ccb51f20fc4"
+        }
+      }
+    },
+    "s3-41": {
+      "style": "anime",
+      "assets": {
+        "cover": {
+          "jobId": "9374e673-61da-4521-8538-8e1394003ed0",
+          "version": 2,
+          "sha256": "bb9c786a7defcf459af1ef76225e94dba07e22c7f02f3eba78c470284c893ea3"
+        },
+        "1": {
+          "jobId": "66baf2f6-f77f-4e67-97f5-6c0c0ffd524d",
+          "version": 2,
+          "sha256": "07a252cead7abfd841871e40828945ab2031237aa031039961ec00c0dcc74537"
+        },
+        "3": {
+          "jobId": "1a742c94-e9a9-4b5f-8157-259142674f59",
+          "version": 2,
+          "sha256": "0b8cac17988c89120795ceabb269f967bbc522965d8c657ff5ac9d74d6436cb4"
+        }
+      }
+    },
+    "s3-42": {
+      "style": "anime",
+      "assets": {
+        "cover": {
+          "jobId": "b4398419-3f5c-4716-9fd5-a11fd41df71f",
+          "version": 2,
+          "sha256": "ba82de257a7fafa4f0d7919e2d636d78523ac9fd5905fb25a5fa2d6f3db909be"
+        },
+        "1": {
+          "jobId": "13930379-8a8e-41da-97be-b48a7b2cacf7",
+          "version": 2,
+          "sha256": "534b62b70da5b5060e270bf856a0b6f50f6452a35cf792ee57cb337452a7c854"
+        },
+        "3": {
+          "jobId": "92d2b6d4-f6e5-4414-92a3-230126aeed65",
+          "version": 2,
+          "sha256": "679231ad4faf02c12f6082a41ba00351086b1cf4fcb915bda49dac8b32c3cde0"
+        }
+      }
+    },
+    "s4-01": {
+      "style": "editorial",
+      "assets": {
+        "cover": {
+          "jobId": "c87ac7dc-0d12-499d-aab3-700499026dd6",
+          "version": 2,
+          "sha256": "36455757d3963d30a5d26e774afe31f6708102a49e411b944da8e289a213fbb0"
+        },
+        "1": {
+          "jobId": "c56bd616-8022-4079-bf2d-b2c008be032d",
+          "version": 2,
+          "sha256": "95481f1b9c7888eae9be249f6e72bfe64b0cf3c5b028381f3b2e35e603e4645e"
+        },
+        "3": {
+          "jobId": "0790820e-0125-4c7b-8aa1-c334be4bf829",
+          "version": 2,
+          "sha256": "2208dd9f76a3dd3fe95c6b5fc5c98d9c59ac7bf98a1b08023c7de8811184ebd3"
+        }
+      }
+    },
+    "s4-02": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "914e38e8-7b92-48cb-a60c-f63bb0e45aac",
+          "version": 2,
+          "sha256": "29da39b8e6ac17160abd328d5a0783f1362df3903b22dab2898825f669ade820"
+        },
+        "1": {
+          "jobId": "17805430-0244-479b-a7d0-2c5721b51cdc",
+          "version": 2,
+          "sha256": "50d36b601baeb8e7d47c77461e8f15a2b95973828a6fa8ff6e5f4ef6368d74b6"
+        },
+        "2": {
+          "jobId": "62405cfa-2e8f-4e94-9bf8-318b88806b24",
+          "version": 2,
+          "sha256": "dbcae1788124ddcbd4ef62079c3469bd4bece4ff3c76aa5201045494368c0328"
+        }
+      }
+    },
+    "s4-03": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "903541b3-48fa-4d79-9af4-c25096de1f0d",
+          "version": 2,
+          "sha256": "373c6c1fb304481a5d9f234c54c9da1d56670b29b965983b43efe8d39de876ab"
+        },
+        "1": {
+          "jobId": "1e948fcd-a02b-4560-a1f5-5e246ff6acf1",
+          "version": 2,
+          "sha256": "3dd107ada9106779470148701b9b91a8866900bbaf7ad61988c34988dfbaf4cf"
+        },
+        "3": {
+          "jobId": "51f84cd2-208f-4418-877c-53f10ac3e71e",
+          "version": 2,
+          "sha256": "05f650923710cb28cc3544053cc710eb6a4cae34e040991a71ceb7ecd07d60f8"
+        }
+      }
+    },
+    "s4-04": {
+      "style": "vintage",
+      "assets": {
+        "cover": {
+          "jobId": "bb510236-4b18-480f-beac-9ae9571a7d3d",
+          "version": 2,
+          "sha256": "502ef1144900bad3eac7ce066e5f3a34cd950b5a73e67a5aa61e37756c274d0d"
+        },
+        "1": {
+          "jobId": "309bbe1e-d408-47e7-a9a6-c4205562da4a",
+          "version": 2,
+          "sha256": "6fcfbbed586d309734bfbef11198d6f3a64734d787e93a25b07cbc14c23fced9"
+        },
+        "2": {
+          "jobId": "c4a2a6ab-cae6-4df4-bbba-cbc018cd05fd",
+          "version": 2,
+          "sha256": "57770e14c90319d3674ff9ad35a907feeb8637da771f12b413fd25116ee0ce6a"
+        }
+      }
+    },
+    "s4-05": {
+      "style": "editorial",
+      "assets": {
+        "cover": {
+          "jobId": "8e2a8fa1-bcf7-43a4-8d61-15b58f91faa3",
+          "version": 2,
+          "sha256": "7ac8e8f8d398fb37c1de3f9eb3062a071cc3690a00dae07b82ffb3dbb0cc4a91"
+        },
+        "1": {
+          "jobId": "6fcb95f6-2be4-4ed3-a1ef-d9802ef4ba17",
+          "version": 2,
+          "sha256": "379220fd14d50aa3795f7e59a27550f4bd26361025c9e987cda79a733fe5c016"
+        },
+        "2": {
+          "jobId": "a425b429-69df-45b3-a0a7-a2783a34cf67",
+          "version": 2,
+          "sha256": "0a7a71128b903276c764c3a3562ec5d10c5978d8a5a4e2519e6269cf3d3aafce"
+        }
+      }
+    },
+    "s4-06": {
+      "style": "editorial",
+      "assets": {
+        "cover": {
+          "jobId": "e260ced2-a9be-4480-ac54-ddcd627e3b02",
+          "version": 2,
+          "sha256": "d8667828ec289cd1c0ce26594e35dc2c091dc89bb6aeb88fb1b828b11c5388c1"
+        },
+        "1": {
+          "jobId": "3cb1d39c-0b46-4989-801b-4ee30afce7ce",
+          "version": 2,
+          "sha256": "4f377ab8c7bcbf3f324aa178a2b3126469f104daccd7d99427e3723168f8cc2b"
+        },
+        "3": {
+          "jobId": "ef9be43e-06b2-4a32-b107-cac247181bd3",
+          "version": 2,
+          "sha256": "f987724d141dc2904a01540b6401f8a11bb6363483837fdc967247544f60f3c7"
+        }
+      }
+    },
+    "s4-07": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "617db074-d623-43b0-b829-e28d2c20bfdc",
+          "version": 2,
+          "sha256": "966f454d06afb9bdad73c051be1d294d7408439911d56dfcff7e15c6278276bc"
+        },
+        "1": {
+          "jobId": "ae1879bb-cf09-49dc-bcc7-b9b8fdb26879",
+          "version": 2,
+          "sha256": "f25acf7bf45bbea5021ee8e1eed7191f936c83b4209ca83795d7dd204a12963c"
+        },
+        "3": {
+          "jobId": "2378ab2b-6440-4f1e-8c5a-a795c12bc0d0",
+          "version": 2,
+          "sha256": "e90234f3404c2d0da0d5ac1f16047273f79a1c15a4429a37866302cb5fb8c7a6"
+        }
+      }
+    },
+    "s4-08": {
+      "style": "editorial",
+      "assets": {
+        "cover": {
+          "jobId": "baafcf24-042d-4ce4-a635-862885a3c3e1",
+          "version": 2,
+          "sha256": "e2e2903795f7ec4a0a0774f6f2fcd4d99a34418239680a6a0dcba489669c673f"
+        },
+        "1": {
+          "jobId": "7bdeff6d-781e-495a-a582-ec2c004d6b9e",
+          "version": 2,
+          "sha256": "fd33e5733eebbbb808e1335967a383176570161a34cef605b74cb0bcab3e2e9e"
+        },
+        "3": {
+          "jobId": "6dc146df-f4b6-4274-8fda-e5bd3f962019",
+          "version": 2,
+          "sha256": "dee1b9b5e59cc3f2bd6d79406caeff0a5478058f1ec303aa0d9f9e5b40357441"
+        }
+      }
+    },
+    "s4-09": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "98df65b6-0e80-40bc-966c-8b2ebe9a61ec",
+          "version": 2,
+          "sha256": "443a9ef9f2c0bce0a30ee00a81836a307d3d34f9d86e6cfcaf195c5ef765204a"
+        },
+        "1": {
+          "jobId": "657b4785-6b54-4c94-a0f2-0f615b930247",
+          "version": 2,
+          "sha256": "68580ff537f979e00f6bf74e39e4ae667ac0115f048244f79947260e7da3a26d"
+        },
+        "3": {
+          "jobId": "c044676f-c244-4122-ba29-1784ad3ad23e",
+          "version": 2,
+          "sha256": "93a5e51b913072914766513be1976b90e22b28adf6370ec44527861f17e2f104"
+        }
+      }
+    },
+    "s4-10": {
+      "style": "webtoon",
+      "assets": {
+        "cover": {
+          "jobId": "a9a353b1-b069-42d6-b847-048d256f9886",
+          "version": 2,
+          "sha256": "cf60d10d5bddde5617ec810c0e4382c6865c08b1746282061dec7a35f67f54e1"
+        },
+        "1": {
+          "jobId": "51b94510-53c7-4a10-910c-c8e734385267",
+          "version": 2,
+          "sha256": "4c093470d40e160d2aee51e9ae6dbd5b925c16c508af1022c8b1570a884f7809"
+        },
+        "3": {
+          "jobId": "53dfe3ac-a27c-414c-a875-b995db103d1a",
+          "version": 2,
+          "sha256": "38ff0740f28d7b721d9baf26bdb5bcaf96519c6afea5025740b9aad4acd5c72a"
+        }
+      }
+    },
+    "s4-11": {
+      "style": "editorial",
+      "assets": {
+        "cover": {
+          "jobId": "ca23f8dd-389e-441c-ac8a-6a78d5dca4a6",
+          "version": 2,
+          "sha256": "f77cdd3aec563c6ac6cbea1314acb4a290e3ba3b2be5d214a26dd179f21b2be2"
+        },
+        "1": {
+          "jobId": "2af1afa0-e8ee-4a3e-ae58-525fda691aba",
+          "version": 2,
+          "sha256": "04c94888abcae0086e52755c35498890e3a82a52751f35a9aeb51396c8a4ae59"
+        },
+        "3": {
+          "jobId": "9826087f-5927-4832-9f86-95206fb66c36",
+          "version": 2,
+          "sha256": "7173dc679efba895654dbcab7ca13133f0d824fd349e6031b4417c1bda71ebd4"
+        }
+      }
+    },
+    "s4-12": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "c06f46c3-7021-4db5-92de-9d14eb164786",
+          "version": 2,
+          "sha256": "bc3f47d2e3a90ffb69e4176d399e61a34ee2d98d34a445af65b3794154daf6e4"
+        },
+        "1": {
+          "jobId": "45e0a37e-affb-40b8-b396-261300af5d00",
+          "version": 2,
+          "sha256": "49575fb4dd7af7fb845c85c10651b02d0ac976ab4e45ca4a9e14b15cef716a07"
+        },
+        "2": {
+          "jobId": "00d805ca-e2dc-4345-9910-a13bbc3febc6",
+          "version": 2,
+          "sha256": "76e34fb31a10d04cdd30ebc95b4d5c7cdc715c19ab3151c8cceaf8c2e9d5ff1b"
+        }
+      }
+    },
+    "s4-13": {
+      "style": "comic",
+      "assets": {
+        "cover": {
+          "jobId": "154377d3-3c4e-4f7d-af66-8ea2dac6eb28",
+          "version": 2,
+          "sha256": "5974005696ca5a82e508d22e2acd3840259606a87078937609eeffb2e50f0f95"
+        },
+        "1": {
+          "jobId": "0ff101c3-6ae5-40db-bc44-cb0f0ba37f9b",
+          "version": 2,
+          "sha256": "21c85b0e4c613c201805206b3cb18d4916c4ae056510bb218efeca775cfad6ce"
+        },
+        "3": {
+          "jobId": "c7958154-99f8-4caf-bb06-f00ceab576bf",
+          "version": 2,
+          "sha256": "93ae5c10d24778fe60881f83386cebb5de78ad61d88c074e7108f6e98cc31af5"
+        }
+      }
+    },
+    "s4-14": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "1779e048-8724-47ee-a82e-d7c651bfe40d",
+          "version": 2,
+          "sha256": "c9c7a69c8cb0aeadf981787fd6e4eb4e47c610f65146a0652fe242e5782843c2"
+        },
+        "1": {
+          "jobId": "5bda5ab5-cb6a-4934-899e-3c22a4122f41",
+          "version": 2,
+          "sha256": "66121c0c8d9cd5aee60c039a64d7ac1569f249f3da6a6baa0ea188e1abf2ee45"
+        },
+        "2": {
+          "jobId": "ab393bae-e57e-47fd-8ec5-a6190c2a9d13",
+          "version": 2,
+          "sha256": "3abf2e6c05d92273c242b34e015de056cfd44bb1521d486697961b575e7423c7"
+        }
+      }
+    },
+    "s4-15": {
+      "style": "vintage",
+      "assets": {
+        "cover": {
+          "jobId": "d36baab9-3956-47fd-aacb-0b8bb9995829",
+          "version": 2,
+          "sha256": "bb84895dbd9eac9055a3e6cb6375b1faca24b5c403355ca0d5613802937fb8bf"
+        },
+        "1": {
+          "jobId": "b778b49d-73ed-4a60-a7b6-c845213b7a55",
+          "version": 2,
+          "sha256": "b766834dfe43cab5978ac0f7ec52c4d6184ed57c0b89ed139ee221a1ac3e4e5e"
+        },
+        "2": {
+          "jobId": "ac5540b3-fe99-452a-b618-1f6119802520",
+          "version": 2,
+          "sha256": "9ac51386c4f9ef793c738bfeae80cc9ffbec13b1d4384ac707940f926104be98"
+        }
+      }
+    },
+    "s4-16": {
+      "style": "editorial",
+      "assets": {
+        "cover": {
+          "jobId": "b695c808-af9f-4767-8a96-7cc4a3f72884",
+          "version": 2,
+          "sha256": "1774aa8a5344e3f03f81c6ced836e1eb4430e5b8e7985d899c9d5389744c6f1e"
+        },
+        "1": {
+          "jobId": "653647e5-488a-48d9-a8b2-511000915d00",
+          "version": 2,
+          "sha256": "a8eb22c688beb4dfa202aef5337a7146bc4fc743cbf8e435c1c2a79e31661e05"
+        },
+        "3": {
+          "jobId": "cc097c4d-85d0-45fe-8422-2dc81fc4030d",
+          "version": 2,
+          "sha256": "3276f78738a0ed20431100ae79942490a52ea959f02bf3edae93ce15da766c96"
+        }
+      }
+    },
+    "s4-17": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "5f253368-7a02-4081-b397-15b0275a4c89",
+          "version": 2,
+          "sha256": "df5d7d945c915b2baadfa0c614cd36835b94cc292aef8a84f5cb2cdb4ce879ab"
+        },
+        "2": {
+          "jobId": "4fd99769-a3fe-4307-b4c3-7c75bf720db9",
+          "version": 2,
+          "sha256": "095f81cefc4b0b7b75633d2446827ebaca15478032c01e4e030dc637df503e10"
+        },
+        "3": {
+          "jobId": "6a764ff8-2040-463f-ad42-fa77d23adfa4",
+          "version": 2,
+          "sha256": "17d61cfdf6c97f3e23e05dd678fcb78573000bf5a474031e4531b20b2a0ce166"
+        }
+      }
+    },
+    "s4-18": {
+      "style": "papercut",
+      "assets": {
+        "cover": {
+          "jobId": "39adf457-ca32-4ab3-98a5-647eb154534d",
+          "version": 2,
+          "sha256": "0fdac7cf65c9d13791350d21ae685a8794075c9beec8efc16d3bcd5fdcfa8342"
+        },
+        "2": {
+          "jobId": "63605258-f7d6-407e-9097-ed2d5aed13f3",
+          "version": 2,
+          "sha256": "a3d375f83d67756da4fc96330ee70a2c3cd0de8815891d2ba8600ed8f1eb3d48"
+        },
+        "3": {
+          "jobId": "7303cc9e-91f7-4256-8a62-a1dae3e116c7",
+          "version": 2,
+          "sha256": "c86ba8d5bc3e7853592072ae86334241fbfe5e6914e32f2e4f52084dc9667731"
+        }
+      }
+    },
+    "s4-19": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "23102fe6-bc06-42c1-9a59-3d40e0a7dff5",
+          "version": 2,
+          "sha256": "9ea8606b8db3a3d014190e74a9f7174e39c51c27b339053766cc254044727a65"
+        },
+        "1": {
+          "jobId": "07c7f978-a13f-41ed-9db6-8bb3829e9722",
+          "version": 2,
+          "sha256": "cebd918e99060f57f63ecfc8c52e41fb5086fed1eb38f5cc555334fb31c7fc6c"
+        },
+        "3": {
+          "jobId": "69bd8737-36fe-4d51-97de-af680cd1735b",
+          "version": 2,
+          "sha256": "7ab1fd463e31c579d19341501094fd4b7204ac7557e5808db502f157d0350cae"
+        }
+      }
+    },
+    "s4-20": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "6df103a3-2ff7-4594-9b49-907f386fae01",
+          "version": 2,
+          "sha256": "5e908e7b533efac308b0ebf4391828fbc7675d036530a3a6411bcc855aeacb5d"
+        },
+        "1": {
+          "jobId": "0103cc0d-4920-483b-ab64-ca43a245ae3f",
+          "version": 2,
+          "sha256": "e88b57404f7f4188c36b55da32d0c7c52c02ba1fdaedc4e6fa32892528344f9b"
+        },
+        "2": {
+          "jobId": "63ffef39-273f-4fe2-8457-2b15a9bda855",
+          "version": 2,
+          "sha256": "324871149af936564be3d9e6b00d821a49b40988d34fa541450f3b0f59e7068d"
+        }
+      }
+    },
+    "s4-21": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "c47fd924-6574-4228-83d5-24e9ba980250",
+          "version": 2,
+          "sha256": "b6e78939110dbb56d8e14b6da2512b028a362d54e666c5a2d6b60b956719396c"
+        },
+        "1": {
+          "jobId": "0fe0062b-ff3d-4650-b911-6eeeaee1dd47",
+          "version": 2,
+          "sha256": "92d1363236fbf89e3eaae112ea507bd79b1086da489f6d0c4e560ba0b9ae351e"
+        },
+        "2": {
+          "jobId": "d4eb17fc-ec7e-4113-ae8a-b3b144e5777a",
+          "version": 2,
+          "sha256": "5d2a4cc3901406f96d7c6b5b28176b6f1d3b8dee7b2aae4464735e9da8183f7b"
+        }
+      }
+    },
+    "s4-22": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "f22d1984-7b6f-4018-a621-7f03b99f881f",
+          "version": 2,
+          "sha256": "90c4d3570ac60f3f32f501d26359b5511abb46f490902e092ff1fdc8fbd7f6f9"
+        },
+        "1": {
+          "jobId": "c6884a5d-d5d4-489d-a327-bb0e0c3997a9",
+          "version": 2,
+          "sha256": "8939ca3311a019f1bdf0c75f0b1948801f3041c671ecff72c4febd02e9fa643c"
+        },
+        "3": {
+          "jobId": "315c19f7-7ddc-47bf-9d8f-cdb6faa61de4",
+          "version": 2,
+          "sha256": "1af93f8eb4a5133324e6b56d928dd18dea17ed4e66181bf442bb5a3e60c961b7"
+        }
+      }
+    },
+    "s4-23": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "e29621ee-fb3d-449c-b93a-64db38396474",
+          "version": 2,
+          "sha256": "210cead90ad097a2bbdf20400ee196397a9ecbc88c189dfc650336662004fd73"
+        },
+        "1": {
+          "jobId": "7b95ea56-81ce-4847-97e2-0938105040ec",
+          "version": 2,
+          "sha256": "dfd8d4200425b8d2c0a8253ca26b7186b31ee0489f50926de8745c6154bdf319"
+        },
+        "2": {
+          "jobId": "f52b53ba-d496-4466-8fe8-45863cd7fa27",
+          "version": 2,
+          "sha256": "bd4087788fbf8d4d75cb973c3a58fcfe17666c3a46633cd0a3e1b61638c9e2e1"
+        }
+      }
+    },
+    "s4-24": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "026e2226-72b6-44d2-a7e1-2e3759cf9898",
+          "version": 2,
+          "sha256": "d12e8a37d34f00c8d4f77232f68ece93cc89c72a5832dc268bca7b272f73a777"
+        },
+        "1": {
+          "jobId": "cf764549-5e52-4b4e-9690-768ec440fe60",
+          "version": 2,
+          "sha256": "356c25cb3695c425910c03f65db0426486d1bc9274e304f6ee364f5be02e9931"
+        },
+        "3": {
+          "jobId": "be1e5d3c-f6c6-4762-9e44-e93f23e1a50d",
+          "version": 2,
+          "sha256": "2e09a4c083825294186d72bc60ddf3d1db3e1d899c5b45b88a3df63b19b4773a"
+        }
+      }
+    },
+    "s4-25": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "90843726-9c36-4894-b52f-0c1170f6ffeb",
+          "version": 2,
+          "sha256": "46395595ec53e70298382190c4a136d1e581d2b07189d190b2ab7837ed2575e6"
+        },
+        "1": {
+          "jobId": "28dbc37a-a273-492f-8e52-3098a4abe140",
+          "version": 2,
+          "sha256": "3dd71b45656f3e6cec66e7455ef249d89084eee849c0fdbed0e84e6f6ac9a87f"
+        },
+        "2": {
+          "jobId": "b1df352b-0497-46d1-aa1f-97dee981e975",
+          "version": 2,
+          "sha256": "e3cb0bc6509c024aee7f0b73d1603aaeda38badbe2901deb801269c3ba4c8de9"
+        }
+      }
+    },
+    "s4-26": {
+      "style": "comic",
+      "assets": {
+        "cover": {
+          "jobId": "bd17371d-716c-4906-a106-8d4f2881d5af",
+          "version": 2,
+          "sha256": "fe6ccbd6831d13417458838543e2e86f4749e7905866947795382de799e1bcad"
+        },
+        "1": {
+          "jobId": "e5085a83-023e-4da4-96ee-52dc9403d1be",
+          "version": 2,
+          "sha256": "d22a7a05d38fdb87882ae9bb122582917db60f043bfc6dfa41c82747774d00a0"
+        },
+        "3": {
+          "jobId": "fafbd66b-4ea6-4ba6-bcfe-2078d0b45888",
+          "version": 2,
+          "sha256": "656aacab3734babf0208b44053e8bdc46844dd1dca5b1b009a81dbb1b46fdacf"
+        }
+      }
+    },
+    "s4-27": {
+      "style": "vintage",
+      "assets": {
+        "cover": {
+          "jobId": "ac2c4bc2-5832-4e17-b0f0-c0c3765fef16",
+          "version": 2,
+          "sha256": "ddb64eac29de7b7cc1b085e9bf7801bd54a10781fc3adcba8aade208592f4499"
+        },
+        "1": {
+          "jobId": "4f4dece9-2faf-4d13-88a6-048d41d26a74",
+          "version": 2,
+          "sha256": "90e5ece8735247e207ef1235807c8c2dc842de407808a4fd0269115e4479f42d"
+        },
+        "2": {
+          "jobId": "2c6e4ca5-26b2-4efd-99ef-22f704ff0576",
+          "version": 2,
+          "sha256": "7556c37ba8b09d7388fecc2579b8012d585d7d32c04c3d733b2f6ec43b799f17"
+        }
+      }
+    },
+    "s4-28": {
+      "style": "vintage",
+      "assets": {
+        "cover": {
+          "jobId": "2f6564f7-e7b6-4f72-aa88-5fe142ba8bbe",
+          "version": 2,
+          "sha256": "e6b596fad28ac7fbcd40e9a92e427740a4f776f2160c5c21f90799ef7a3c65c5"
+        },
+        "1": {
+          "jobId": "5e6add3e-8cd4-4a1f-b8ba-6ed9939c9591",
+          "version": 2,
+          "sha256": "d6d316983415668e6e5a70aa286c9a9f908f248a3a4a3a58f1db61eb2710bef6"
+        },
+        "3": {
+          "jobId": "95cc431d-9825-49cd-a39e-2c490db1a1d1",
+          "version": 2,
+          "sha256": "31a4de6e6cd78beb70d064f31b1d11e50f749f0776415548d32c576ac5f67d6a"
+        }
+      }
+    },
+    "s4-29": {
+      "style": "webtoon",
+      "assets": {
+        "cover": {
+          "jobId": "37a383cc-87a7-4eec-ac6e-291465f83ab9",
+          "version": 2,
+          "sha256": "3290fe03380ebbabcdca195eed89017e693966007fdba6647dd8f27c86a5ad48"
+        },
+        "1": {
+          "jobId": "800d1c48-94cd-4ced-a673-a71c66da66ea",
+          "version": 2,
+          "sha256": "20be99b452fbb4f3b67431acbea236c312bcc59f55c95393d09bb79553f6b86e"
+        },
+        "2": {
+          "jobId": "77d7503f-d785-4e29-83f5-228f22fb21f2",
+          "version": 2,
+          "sha256": "f94473cea10e073a52efc9ff7a64dc654eaf6b7509dbab17fc01c7e49f253be2"
+        }
+      }
+    },
+    "s4-30": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "db10b616-4f46-4472-bb51-5117c3f8303c",
+          "version": 2,
+          "sha256": "47db1fc0bc6dac93a673abd69f640fa482daf9fd1986fe32a09865b31ed1c746"
+        },
+        "2": {
+          "jobId": "7d115cc2-c543-45be-8c91-8f943275205d",
+          "version": 2,
+          "sha256": "fe2288aa819d216a09c8d0b77697a7fa58ad5bec0b451e55de5d62cfa0272595"
+        },
+        "3": {
+          "jobId": "44768100-fd02-4eed-83ce-9151e7d3633a",
+          "version": 2,
+          "sha256": "e2ff18c5c3342eeea771771ff46a6d56c7a11a09f3ce1eede233226bc967dc3f"
+        }
+      }
+    },
+    "s4-31": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "6fb7ca7b-36ef-41e8-8b10-b79a96304a52",
+          "version": 2,
+          "sha256": "b6a5a0a9109adcf1e0368ad4e931e6c1a2fc13c30c7701bc0e49d6992f6ad07e"
+        },
+        "1": {
+          "jobId": "bedb111e-8c20-441f-87e1-d1da9b66c93f",
+          "version": 2,
+          "sha256": "952b180d861a2e0359a633e7a4373adf1f41f925fa6b51eb5587ec00fd69e089"
+        },
+        "2": {
+          "jobId": "c83eb122-7c3d-4a75-be1a-de3f17409d45",
+          "version": 2,
+          "sha256": "569747cd465b7c92cdbb74057a24f83ae3af55286f74481ba5279e229f4bf8c7"
+        }
+      }
+    },
+    "s4-32": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "198273b9-7099-4234-86a4-16a79117ad75",
+          "version": 2,
+          "sha256": "dcc81ab91ee44cc61f0dd63596e9e90c1e84919f6ea294959f4eb0f2db2e0d2b"
+        },
+        "1": {
+          "jobId": "297c81b2-bc75-44e3-a209-761c9df60187",
+          "version": 2,
+          "sha256": "2f11ff733a7acda2d0f70d7412935a6909a77ad907c54771c32c80b428ba7e8e"
+        },
+        "2": {
+          "jobId": "c55b8a14-67d0-474e-a313-a2064b66619d",
+          "version": 2,
+          "sha256": "5b1f3b5cf879051c850250241bb782f38e500499f30cb8635e8a099728d2ba38"
+        }
+      }
+    },
+    "s4-33": {
+      "style": "anime",
+      "assets": {
+        "cover": {
+          "jobId": "87773c21-11fc-4866-99bb-8719cbd6183d",
+          "version": 2,
+          "sha256": "612c30eeffa138dd600794c32ff63c7129188e72fd366bae8361c3ecbb882316"
+        },
+        "1": {
+          "jobId": "0aafab59-1a42-49ac-8818-f03cddad180d",
+          "version": 2,
+          "sha256": "0cb7392b217d9bc5df785ffd384aaa13c42b9b43f2abcc0863db238b404709cc"
+        },
+        "3": {
+          "jobId": "9f40dd4a-2373-4ccb-bbe2-7d5b30e5e14b",
+          "version": 2,
+          "sha256": "4f6e618daaf3cba369411920b67718150c7d97cbd9923d3839831559269e99be"
+        }
+      }
+    },
+    "s4-34": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "a425dada-2929-4d93-89a8-5f7c60dacd52",
+          "version": 2,
+          "sha256": "8881e9278a722053a044876fd77fb48ea34d50f5caf31ae7161934edc1a7296c"
+        },
+        "1": {
+          "jobId": "7bcd85cb-216d-45ec-b217-9665af34806d",
+          "version": 2,
+          "sha256": "112560f228543e55705eade6a61630335a6288d45003dc6d770c3ba9eb11d7ee"
+        },
+        "2": {
+          "jobId": "1e20794b-5cda-4dc5-9695-ceca8babdee1",
+          "version": 2,
+          "sha256": "9e6ff5b50f68d7d7e66283bc02901d6960e88197d1c7e6a0f66a4906f4d2ac7b"
+        }
+      }
+    },
+    "s4-35": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "7343b934-dbf4-4de6-ad87-61af2c9d9399",
+          "version": 2,
+          "sha256": "795845867f51275b6e2de00c33c94195c95c0d2406437782693a153e4da93284"
+        },
+        "1": {
+          "jobId": "b97ddb74-bb6c-4357-8a80-183b645bdd41",
+          "version": 2,
+          "sha256": "1705f0a5e86083b208723e27dd529c72c36e29fac133f839c5f9c0678284830f"
+        },
+        "2": {
+          "jobId": "c19d2f0f-2195-4b0b-b26b-e7c0898eae07",
+          "version": 2,
+          "sha256": "ff6f5625fecf434808dbea58b4e4bf2354f9f012ce77c2869dbb76f3a3f9a4b0"
+        }
+      }
+    },
+    "s4-36": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "b151e1c6-0fc9-4061-af8b-bbb601e7586b",
+          "version": 2,
+          "sha256": "f2dc43a7a693c113c563746e2b7c77e48063934b61b7d47440b1304fadd721f1"
+        },
+        "1": {
+          "jobId": "391a229d-f62d-4075-8126-ea138ec60137",
+          "version": 2,
+          "sha256": "36e067f83f3accf5c6fb543ca3dd810176fd99e6cfd74debf01d55e141fac606"
+        },
+        "3": {
+          "jobId": "7bea1413-1e99-4c1a-be54-01a50b68cb63",
+          "version": 2,
+          "sha256": "8f3d2b6ec637720f05bbaef6427738d4a66738a0b30b38a2986dfd33cf7592b0"
+        }
+      }
+    },
+    "s4-37": {
+      "style": "editorial",
+      "assets": {
+        "cover": {
+          "jobId": "b6060493-4938-46de-9804-bea94643c259",
+          "version": 2,
+          "sha256": "f4a15f425ce2009bf357af612392807c8485e18b1c8871d82e640ba62e2ffc50"
+        },
+        "1": {
+          "jobId": "bfa84a72-2595-439c-8e6c-7fee2ffa1f81",
+          "version": 3,
+          "sha256": "8817d123a3784358f6d295fcad1c148d477b7f1c66e0ec75f15a8c34f116e478"
+        },
+        "3": {
+          "jobId": "399c89ce-4ac2-4fee-a293-776aa6d73393",
+          "version": 2,
+          "sha256": "d5ec8d3e25480d7113c54910f926256898d61777d9f31a530ffaab8db2b4df59"
+        }
+      }
+    },
+    "s4-38": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "5c10acaf-17e8-457e-ac04-b35aa8f3f278",
+          "version": 2,
+          "sha256": "759f37d446f96e5b260d6797226303828ab88436b1ff480508f17fd007b43045"
+        },
+        "1": {
+          "jobId": "d24e927a-3099-4660-9883-f64143f7284f",
+          "version": 2,
+          "sha256": "78508f2d8802c6579551893b96ccaffb7c1c40ee7fb739047c620c64773399b6"
+        },
+        "2": {
+          "jobId": "4a8ff0df-f50d-4648-937e-45860a49a0a3",
+          "version": 2,
+          "sha256": "eb638db1b22551c9c52607c97a9451ed644fd7b3688043cf6dfb53a578b52de7"
+        }
+      }
+    },
+    "s4-39": {
+      "style": "webtoon",
+      "assets": {
+        "cover": {
+          "jobId": "b2205f84-2df6-4f8e-a535-2f14e0043ebd",
+          "version": 2,
+          "sha256": "796fd18b91faa3c8ebbb563871934a8338f5db7f322744a076600c2a9f4e5413"
+        },
+        "1": {
+          "jobId": "ce5f3188-e945-4321-89c7-0d4c2c7c2188",
+          "version": 2,
+          "sha256": "efc00b0e18a2953affaee0c4abd6e2e4b2a6c19e2c201efcb631e8e365409549"
+        },
+        "2": {
+          "jobId": "dae75383-5280-4733-8867-ebf7185e9bd8",
+          "version": 2,
+          "sha256": "9c0ff000ed2917e4a06e14f7d40a30842e92b2114a652edbad6a58a77d3fdeab"
+        }
+      }
+    },
+    "s4-40": {
+      "style": "papercut",
+      "assets": {
+        "cover": {
+          "jobId": "4902b599-fd54-4b4f-b688-3001c60be95b",
+          "version": 2,
+          "sha256": "f0cc3f037777a72ad37f38e30ac3939d1b652c08b3b5be96b79d6a3cac8dc62d"
+        },
+        "2": {
+          "jobId": "4c93a98a-6300-4810-bc41-628a8d53ebb6",
+          "version": 2,
+          "sha256": "4d8d8652c7b37bc9ab2560bb696365d7b746e931d224b1606347a8b2f63054e6"
+        },
+        "3": {
+          "jobId": "e1e2c5e4-88c7-4214-a1cb-3441a153ae3b",
+          "version": 2,
+          "sha256": "ece72144b32e186009fc9241f582e611a2e126c1f7dc5027ab2b9c6700bd8f9a"
+        }
+      }
+    },
+    "s4-41": {
+      "style": "cg3d",
+      "assets": {
+        "cover": {
+          "jobId": "3c60c81c-5d73-453c-857d-36093dbedd0d",
+          "version": 2,
+          "sha256": "42df8e2da6db6a353486966c299bcedc4cfe4d0a3bf9ade564a29e4f9232cff8"
+        },
+        "1": {
+          "jobId": "9fd544e9-3b09-47ad-a3c6-0a92ee6afe8f",
+          "version": 2,
+          "sha256": "339d2c0f04f44b4f0a9fba180d638a0df568db51cc74c46237a1bb0dee027030"
+        },
+        "2": {
+          "jobId": "81ca2736-fbb9-4b8d-bfd5-906b468190c4",
+          "version": 2,
+          "sha256": "d70dff769dacc7021715e9a938f11e5f8410bd8d5ccec7692ac46671bd8e472e"
+        }
+      }
+    },
+    "s4-42": {
+      "style": "photo",
+      "assets": {
+        "cover": {
+          "jobId": "deac03e2-4c6c-4a94-a7d6-d6ffc142e76f",
+          "version": 2,
+          "sha256": "276fa1715a4f756b1ecbf25762fc677f8dedc971d5930efe04f182d8bb3472b8"
+        },
+        "1": {
+          "jobId": "87619fca-4f45-40ac-af70-b9c464e299b4",
+          "version": 2,
+          "sha256": "28dcea041c3e969dca034cea5fdf2259366c0258068d4d980437c8e400910f1e"
+        },
+        "2": {
+          "jobId": "efc54e67-be74-47be-9a90-b5af689b14eb",
+          "version": 2,
+          "sha256": "96d20b5fcbe35d93ee74168f8378f2b6d1c2b4b40ffbcbc50c428896ce7f8506"
+        }
+      }
+    }
+  }
+}

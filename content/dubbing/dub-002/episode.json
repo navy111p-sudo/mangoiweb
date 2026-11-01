@@ -1,0 +1,623 @@
+{
+  "id": "dub-002",
+  "title": {
+    "ko": "예상치 못한 위기!",
+    "en": "The Unexpected Space Emergency!"
+  },
+  "level": 1,
+  "poster": "poster.webp",
+  "playable": [
+    "maya",
+    "kai",
+    "emma",
+    "pip"
+  ],
+  "scenes": [
+    {
+      "no": 1,
+      "label": {
+        "ko": "우주에서 온 신호",
+        "en": "A Signal from Space"
+      },
+      "arc": "ki",
+      "durationSec": 45,
+      "video": "scene-1/video.mp4",
+      "preview": "scene-1/preview.mp4",
+      "thumb": "scene-1/thumb.webp",
+      "bgm": "scene-1/bgm.wav",
+      "voices": {
+        "maya": "scene-1/voice-maya.wav",
+        "kai": "scene-1/voice-kai.wav",
+        "emma": "scene-1/voice-emma.wav",
+        "pip": "scene-1/voice-pip.wav"
+      },
+      "lines": [
+        {
+          "id": "s1-l1",
+          "speaker": "maya",
+          "en": "What is that light?",
+          "ko": "저 빛은 뭐지?",
+          "start": 1.0,
+          "end": 5.5,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s1-l2",
+          "speaker": "kai",
+          "en": "It came from outside!",
+          "ko": "밖에서 왔어!",
+          "start": 6.2,
+          "end": 10.7,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s1-l3",
+          "speaker": "emma",
+          "en": "Look! A little spaceship!",
+          "ko": "봐! 작은 우주선이야!",
+          "start": 11.4,
+          "end": 15.9,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s1-l4",
+          "speaker": "pip",
+          "en": "Hello! Please help me!",
+          "ko": "안녕! 도와줘!",
+          "start": 16.6,
+          "end": 21.1,
+          "emotion": "scared",
+          "scored": true
+        },
+        {
+          "id": "s1-l5",
+          "speaker": "maya",
+          "en": "Are you okay, friend?",
+          "ko": "친구야, 괜찮아?",
+          "start": 21.8,
+          "end": 26.3,
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s1-l6",
+          "speaker": "kai",
+          "en": "We can help you!",
+          "ko": "우리가 도와줄게!",
+          "start": 27.0,
+          "end": 31.5,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s1-l7",
+          "speaker": "emma",
+          "en": "Tell us your name!",
+          "ko": "이름을 알려줘!",
+          "start": 32.2,
+          "end": 36.7,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s1-l8",
+          "speaker": "pip",
+          "en": "My name is Pip!",
+          "ko": "내 이름은 핍이야!",
+          "start": 37.4,
+          "end": 41.9,
+          "emotion": "happy",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 2,
+      "label": {
+        "ko": "비밀 우주선",
+        "en": "The Secret Spaceship"
+      },
+      "arc": "seung",
+      "durationSec": 45,
+      "video": "scene-2/video.mp4",
+      "preview": "scene-2/preview.mp4",
+      "thumb": "scene-2/thumb.webp",
+      "bgm": "scene-2/bgm.wav",
+      "voices": {
+        "maya": "scene-2/voice-maya.wav",
+        "kai": "scene-2/voice-kai.wav",
+        "emma": "scene-2/voice-emma.wav",
+        "pip": "scene-2/voice-pip.wav"
+      },
+      "lines": [
+        {
+          "id": "s2-l1",
+          "speaker": "maya",
+          "en": "Wow! This ship is huge!",
+          "ko": "와! 우주선이 정말 커!",
+          "start": 1.0,
+          "end": 5.5,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s2-l2",
+          "speaker": "kai",
+          "en": "Look at the stars!",
+          "ko": "별들을 봐!",
+          "start": 6.2,
+          "end": 10.7,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s2-l3",
+          "speaker": "emma",
+          "en": "Everyone, buckle up!",
+          "ko": "모두 안전띠 매!",
+          "start": 11.4,
+          "end": 15.9,
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s2-l4",
+          "speaker": "pip",
+          "en": "Welcome to my ship!",
+          "ko": "내 우주선에 온 걸 환영해!",
+          "start": 16.6,
+          "end": 21.1,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s2-l5",
+          "speaker": "maya",
+          "en": "Can I fly it?",
+          "ko": "내가 조종해도 돼?",
+          "start": 21.8,
+          "end": 26.3,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s2-l6",
+          "speaker": "kai",
+          "en": "I will read the map!",
+          "ko": "내가 지도를 볼게!",
+          "start": 27.0,
+          "end": 31.5,
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s2-l7",
+          "speaker": "emma",
+          "en": "Let's go together!",
+          "ko": "함께 가자!",
+          "start": 32.2,
+          "end": 36.7,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s2-l8",
+          "speaker": "pip",
+          "en": "Ready? Let's fly!",
+          "ko": "준비됐지? 날아가자!",
+          "start": 37.4,
+          "end": 41.9,
+          "emotion": "happy",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 3,
+      "label": {
+        "ko": "고장 난 조종장치",
+        "en": "The Broken Controls"
+      },
+      "arc": "seung",
+      "durationSec": 45,
+      "video": "scene-3/video.mp4",
+      "preview": "scene-3/preview.mp4",
+      "thumb": "scene-3/thumb.webp",
+      "bgm": "scene-3/bgm.wav",
+      "voices": {
+        "maya": "scene-3/voice-maya.wav",
+        "kai": "scene-3/voice-kai.wav",
+        "emma": "scene-3/voice-emma.wav",
+        "pip": "scene-3/voice-pip.wav"
+      },
+      "lines": [
+        {
+          "id": "s3-l1",
+          "speaker": "maya",
+          "en": "Why are we turning?",
+          "ko": "왜 돌고 있지?",
+          "start": 1.0,
+          "end": 5.5,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s3-l2",
+          "speaker": "kai",
+          "en": "The map looks wrong!",
+          "ko": "지도가 이상해!",
+          "start": 6.2,
+          "end": 10.7,
+          "emotion": "scared",
+          "scored": true
+        },
+        {
+          "id": "s3-l3",
+          "speaker": "emma",
+          "en": "I see a loose wire!",
+          "ko": "선이 빠져 있어!",
+          "start": 11.4,
+          "end": 15.9,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s3-l4",
+          "speaker": "pip",
+          "en": "Oh no! Help me!",
+          "ko": "이런! 도와줘!",
+          "start": 16.6,
+          "end": 21.1,
+          "emotion": "scared",
+          "scored": true
+        },
+        {
+          "id": "s3-l5",
+          "speaker": "maya",
+          "en": "Stay calm, everyone!",
+          "ko": "모두 침착해!",
+          "start": 21.8,
+          "end": 26.3,
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s3-l6",
+          "speaker": "kai",
+          "en": "I have an idea!",
+          "ko": "좋은 생각이 있어!",
+          "start": 27.0,
+          "end": 31.5,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s3-l7",
+          "speaker": "emma",
+          "en": "Let's fix it now!",
+          "ko": "지금 고치자!",
+          "start": 32.2,
+          "end": 36.7,
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s3-l8",
+          "speaker": "pip",
+          "en": "We can do this!",
+          "ko": "우린 할 수 있어!",
+          "start": 37.4,
+          "end": 41.9,
+          "emotion": "happy",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 4,
+      "label": {
+        "ko": "외계인의 비밀",
+        "en": "Pip's Secret"
+      },
+      "arc": "jeon",
+      "durationSec": 30,
+      "video": "scene-4/video.mp4",
+      "preview": "scene-4/preview.mp4",
+      "thumb": "scene-4/thumb.webp",
+      "bgm": "scene-4/bgm.wav",
+      "voices": {
+        "maya": "scene-4/voice-maya.wav",
+        "kai": "scene-4/voice-kai.wav",
+        "emma": "scene-4/voice-emma.wav",
+        "pip": "scene-4/voice-pip.wav"
+      },
+      "lines": [
+        {
+          "id": "s4-l1",
+          "speaker": "maya",
+          "en": "What is that planet?",
+          "ko": "저 행성은 뭐야?",
+          "start": 0.5,
+          "end": 3.6,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s4-l2",
+          "speaker": "kai",
+          "en": "It looks so beautiful!",
+          "ko": "정말 아름다워 보여!",
+          "start": 4.2,
+          "end": 7.2,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s4-l3",
+          "speaker": "emma",
+          "en": "Pip, is that home?",
+          "ko": "핍, 저기가 네 집이야?",
+          "start": 7.8,
+          "end": 10.9,
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s4-l4",
+          "speaker": "pip",
+          "en": "Yes. I miss home.",
+          "ko": "응. 집이 그리워.",
+          "start": 11.4,
+          "end": 14.5,
+          "emotion": "sad",
+          "scored": true
+        },
+        {
+          "id": "s4-l5",
+          "speaker": "maya",
+          "en": "We are your friends!",
+          "ko": "우린 네 친구야!",
+          "start": 15.1,
+          "end": 18.2,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s4-l6",
+          "speaker": "kai",
+          "en": "You are not alone!",
+          "ko": "넌 혼자가 아니야!",
+          "start": 18.8,
+          "end": 21.9,
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s4-l7",
+          "speaker": "emma",
+          "en": "We will help you!",
+          "ko": "우리가 도와줄게!",
+          "start": 22.4,
+          "end": 25.5,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s4-l8",
+          "speaker": "pip",
+          "en": "Thank you, my friends!",
+          "ko": "고마워, 친구들아!",
+          "start": 26.1,
+          "end": 29.2,
+          "emotion": "happy",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 5,
+      "label": {
+        "ko": "우주 대탈출",
+        "en": "Escape the Vortex"
+      },
+      "arc": "jeon",
+      "durationSec": 45,
+      "video": "scene-5/video.mp4",
+      "preview": "scene-5/preview.mp4",
+      "thumb": "scene-5/thumb.webp",
+      "bgm": "scene-5/bgm.wav",
+      "voices": {
+        "maya": "scene-5/voice-maya.wav",
+        "kai": "scene-5/voice-kai.wav",
+        "emma": "scene-5/voice-emma.wav",
+        "pip": "scene-5/voice-pip.wav"
+      },
+      "lines": [
+        {
+          "id": "s5-l1",
+          "speaker": "maya",
+          "en": "Turn left, Kai!",
+          "ko": "카이, 왼쪽으로 돌려!",
+          "start": 1.0,
+          "end": 5.5,
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s5-l2",
+          "speaker": "kai",
+          "en": "I found the wire!",
+          "ko": "선을 찾았어!",
+          "start": 6.2,
+          "end": 10.7,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s5-l3",
+          "speaker": "emma",
+          "en": "The light is green!",
+          "ko": "불빛이 초록색이야!",
+          "start": 11.4,
+          "end": 15.9,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s5-l4",
+          "speaker": "pip",
+          "en": "Press the blue button!",
+          "ko": "파란 버튼을 눌러!",
+          "start": 16.6,
+          "end": 21.1,
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s5-l5",
+          "speaker": "maya",
+          "en": "We are almost safe!",
+          "ko": "거의 안전해졌어!",
+          "start": 21.8,
+          "end": 26.3,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s5-l6",
+          "speaker": "kai",
+          "en": "Hold on, everybody!",
+          "ko": "모두 꽉 잡아!",
+          "start": 27.0,
+          "end": 31.5,
+          "emotion": "calm",
+          "scored": true
+        },
+        {
+          "id": "s5-l7",
+          "speaker": "emma",
+          "en": "Look! We did it!",
+          "ko": "봐! 우리가 해냈어!",
+          "start": 32.2,
+          "end": 36.7,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s5-l8",
+          "speaker": "pip",
+          "en": "You saved my ship!",
+          "ko": "내 우주선을 구해줬어!",
+          "start": 37.4,
+          "end": 41.9,
+          "emotion": "happy",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "no": 6,
+      "label": {
+        "ko": "지구로 돌아오다",
+        "en": "Back to Earth"
+      },
+      "arc": "gyeol",
+      "durationSec": 30,
+      "video": "scene-6/video.mp4",
+      "preview": "scene-6/preview.mp4",
+      "thumb": "scene-6/thumb.webp",
+      "bgm": "scene-6/bgm.wav",
+      "voices": {
+        "maya": "scene-6/voice-maya.wav",
+        "kai": "scene-6/voice-kai.wav",
+        "emma": "scene-6/voice-emma.wav",
+        "pip": "scene-6/voice-pip.wav"
+      },
+      "lines": [
+        {
+          "id": "s6-l1",
+          "speaker": "maya",
+          "en": "Welcome back to Earth!",
+          "ko": "지구에 돌아온 걸 환영해!",
+          "start": 0.5,
+          "end": 3.6,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s6-l2",
+          "speaker": "kai",
+          "en": "That was amazing!",
+          "ko": "정말 대단했어!",
+          "start": 4.2,
+          "end": 7.2,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s6-l3",
+          "speaker": "emma",
+          "en": "We will miss you!",
+          "ko": "우린 네가 그리울 거야!",
+          "start": 7.8,
+          "end": 10.9,
+          "emotion": "sad",
+          "scored": true
+        },
+        {
+          "id": "s6-l4",
+          "speaker": "pip",
+          "en": "I will visit again!",
+          "ko": "다시 놀러 올게!",
+          "start": 11.4,
+          "end": 14.5,
+          "emotion": "happy",
+          "scored": true
+        },
+        {
+          "id": "s6-l5",
+          "speaker": "maya",
+          "en": "What's inside this box?",
+          "ko": "이 상자 안에 뭐가 있지?",
+          "start": 15.1,
+          "end": 18.2,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s6-l6",
+          "speaker": "kai",
+          "en": "Is that an egg?",
+          "ko": "저거 알이야?",
+          "start": 18.8,
+          "end": 21.9,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s6-l7",
+          "speaker": "emma",
+          "en": "Look! It is moving!",
+          "ko": "봐! 움직이고 있어!",
+          "start": 22.4,
+          "end": 25.5,
+          "emotion": "surprised",
+          "scored": true
+        },
+        {
+          "id": "s6-l8",
+          "speaker": "pip",
+          "en": "Surprise! A new friend!",
+          "ko": "깜짝 선물이야! 새 친구야!",
+          "start": 26.1,
+          "end": 29.2,
+          "emotion": "happy",
+          "scored": true
+        }
+      ]
+    }
+  ]
+}

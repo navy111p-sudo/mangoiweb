@@ -193,6 +193,8 @@ footer code{font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,m
 @media (max-width:640px){.wrap{padding:28px 15px 60px}.gkids{margin-left:48px}}
 @media (prefers-reduced-motion: reduce){*{transition:none !important}}
 </style>
+<style>/* PC 가독성 확대 — admin.html(body zoom 1.3)과 같은 배율. 폰(1024px 미만)은 그대로 (2026-10-09) */
+@media (min-width:1024px){ body{ zoom:1.3; } }</style>
 </head>
 <body>
 <div class="wrap">
@@ -255,7 +257,10 @@ footer code{font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,m
   </section>
 
   <div id="body"></div>
+  <section aria-label="검토용 시범판"><h2>검토용 시범판 (기본 비활성)</h2><p>엘리더잼 3유닛·60문항: <a href="/eleader-pilot.html?academy=eleaderjam">학생 전용관</a> · <a href="/eleader-pilot.html?academy=eleaderjam&amp;view=director">원장 관리</a>. 기존 로그인과 학원 소속이 필요하며 AI·녹음은 미연결입니다.</p></section>
   <p class="empty" id="empty">찾는 항목이 없습니다. 다른 낱말로 찾아 보세요.</p>
+
+  <section aria-label="학원 시연"><h2>학원 연계 학습 시연</h2><p><a href="/seed.html">우리 반의 씨앗 학습지와 AI 말하기 및 복습 퀴즈</a></p></section>
 
   <footer>
     <span><b>기준</b> 2026-08-15 · <code>cloudflare-deploy/public</code> 실제 파일</span>

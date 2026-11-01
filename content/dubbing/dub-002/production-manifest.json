@@ -1,0 +1,123 @@
+{
+  "id": "dub-002",
+  "brand": "mangoi.ai",
+  "title": {
+    "ko": "예상치 못한 위기!",
+    "en": "The Unexpected Space Emergency!"
+  },
+  "episodeDurationTargetSec": 240,
+  "format": "6 scenes x 40 seconds; 16 clips x 15 seconds",
+  "characters": [
+    "maya",
+    "kai",
+    "sofia",
+    "pip"
+  ],
+  "clips": [
+    {
+      "index": 1,
+      "job_id": "aab87183-29d1-464e-801d-0c11598698fa",
+      "durationSec": 15,
+      "status": "generation_submitted; verify completion before use"
+    },
+    {
+      "index": 2,
+      "job_id": "09850164-2195-47e0-b15a-8a085f76ede1",
+      "durationSec": 15,
+      "status": "generation_submitted; verify completion before use"
+    },
+    {
+      "index": 3,
+      "job_id": "2f7caf86-4410-4345-ae00-231038388148",
+      "durationSec": 15,
+      "status": "generation_submitted; verify completion before use"
+    },
+    {
+      "index": 4,
+      "job_id": "f429ab98-d3b4-41b9-8890-2b54ff4e9d2d",
+      "durationSec": 15,
+      "status": "generation_submitted; verify completion before use"
+    },
+    {
+      "index": 5,
+      "job_id": "7fe7a019-173f-4c91-9eb3-f7faf7410942",
+      "durationSec": 15,
+      "status": "generation_submitted; verify completion before use"
+    },
+    {
+      "index": 6,
+      "job_id": "8f52e375-775c-41dd-b5aa-e15ed8c70d70",
+      "durationSec": 15,
+      "status": "generation_submitted; verify completion before use"
+    },
+    {
+      "index": 7,
+      "job_id": "c00adba8-f73c-4ad5-be7a-382aa945f9cf",
+      "durationSec": 15,
+      "status": "generation_submitted; verify completion before use"
+    },
+    {
+      "index": 8,
+      "job_id": "a7193202-9e72-406f-833a-31e7e54ed414",
+      "durationSec": 15,
+      "status": "generation_submitted; verify completion before use"
+    },
+    {
+      "index": 9,
+      "job_id": "e8c0a807-511f-4eb8-b76e-e0f48bf10e66",
+      "durationSec": 15,
+      "status": "generation_submitted; verify completion before use"
+    },
+    {
+      "index": 10,
+      "job_id": "28daba72-1e0c-4dd0-a619-6aa2f05e819d",
+      "durationSec": 15,
+      "status": "generation_submitted; verify completion before use"
+    },
+    {
+      "index": 11,
+      "job_id": "9655fcf5-39db-4783-80a9-a7fb63d71af3",
+      "durationSec": 15,
+      "status": "generation_submitted; verify completion before use"
+    },
+    {
+      "index": 12,
+      "job_id": "474a1b84-1d7f-4d66-b6ae-c3fd0386ddea",
+      "durationSec": 15,
+      "status": "generation_submitted; verify completion before use"
+    },
+    {
+      "index": 13,
+      "job_id": "5b30c1a0-5ab2-412f-9a17-d3c9395cd6e8",
+      "durationSec": 15,
+      "status": "generation_submitted; verify completion before use"
+    },
+    {
+      "index": 14,
+      "job_id": "97da2e7d-76f1-4d3b-9c7e-1b4ed86f6dd1",
+      "durationSec": 15,
+      "status": "generation_submitted; verify completion before use"
+    },
+    {
+      "index": 15,
+      "job_id": "c91f4f80-924d-4aa7-b478-8103b91bdea4",
+      "durationSec": 15,
+      "status": "generation_submitted; verify completion before use"
+    },
+    {
+      "index": 16,
+      "job_id": "dd2c4247-8af3-4ef0-b07a-bfcb36bdaadb",
+      "durationSec": 15,
+      "status": "generation_submitted; verify completion before use"
+    }
+  ],
+  "important": "Previous dub-002 portal script is obsolete: new production is space adventure. Do not use it as final dialogue. No merged video, audio stems or validated episode.json yet.",
+  "productionRequirements": [
+    "original native-English character voice WAV stems 48kHz mono",
+    "silent 720p+ H264 MP4",
+    "separate 48kHz stereo BGM/SFX",
+    "6-scene bilingual timed dialogue JSON",
+    "per-role mute for group dubbing",
+    "no release before visual/audio QA"
+  ]
+}

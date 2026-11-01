@@ -83,6 +83,8 @@ async function measure(mode) {
   });
 }
 
+let failures = 0;
+function check(name, ok) { console.log((ok ? '✅ ' : '❌ ') + name); if (!ok) failures++; }
 for (const mode of ['facepip', 'pip']) {
   const m = await measure(mode);
   console.log(`\n═══════════ MODE: ${mode}  (viewport ${m.vw}x${m.vh}) ═══════════`);
@@ -95,6 +97,11 @@ for (const mode of ['facepip', 'pip']) {
   pr('grid', m.grid);
   m.boxes.forEach(b => console.log(`    box ${String(b.id).padEnd(12)} x=${b.x} y=${b.y} w=${b.w} h=${b.h} disp=${b.disp}`));
   pr('phero-ctrl', m.phero);
+  check(mode + ': mode actually applied', m.rowClass.split(' ').includes('video-' + mode));
+  check(mode + ': video pane visible inside viewport', m.videoPane && m.videoPane.w > 0 && m.videoPane.h > 0 && m.videoPane.y >= 0 && m.videoPane.y + m.videoPane.h <= m.vh + 2);
+  check(mode + ': remote video visible', m.boxes.some(b => b.id !== 'vc-local-box' && b.w > 0 && b.h > 0));
+  if (mode === 'facepip') check('facepip fills screen height', m.videoPane.h / m.vh >= 0.7);
+  else check('pip leaves space for lesson content', m.contentPane.h / m.vh >= 0.7 && m.videoPane.w / m.vw < 0.5);
   // 진단
   if (m.videoPane) {
     const fill = Math.round(m.videoPane.h / m.vh * 100);
@@ -103,3 +110,5 @@ for (const mode of ['facepip', 'pip']) {
 }
 
 await browser.close();
+
+process.exitCode = failures ? 1 : 0;

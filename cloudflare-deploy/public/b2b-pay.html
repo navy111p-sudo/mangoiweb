@@ -207,7 +207,7 @@
         var hold = i.hold && HOLD[i.hold] ? ' · ' + T(HOLD[i.hold][0], HOLD[i.hold][1]) : '';
         var extra = i.holiday ? ' · ' + T('공휴일', 'holiday') : (i.on_leave ? ' · ' + T('휴원', 'leave') : '');
         var btn = (i.state === 'upcoming' && !i.pending_postpone) ? ' <button type="button" data-act="pp" data-sid="' + i.schedule_id + '" data-date="' + esc(i.date) + '" data-start="' + esc(i.start || '') + '" data-ms="' + Number(i.start_ms || 0) + '">' + T('연기 신청', 'Postpone') + '</button>' : (i.pending_postpone ? ' · ' + T('연기 신청함', 'requested') : '');
-        h += '<span class="chip s-' + esc(i.state) + '" title="' + esc(lab + hold) + '"><span class="d">' + md(i.date) + '</span>' + esc(i.start || '') + ' ' + esc(lab) + extra + (i.charge_krw > 0 ? ' · −' + won(i.charge_krw) : '') + hold + btn + '</span>';
+        h += '<span class="chip s-' + esc(i.state) + '" title="' + esc(lab + hold + (i.teacher_name ? ' · ' + T('강사 ', 'Teacher ') + i.teacher_name : '')) + '"><span class="d">' + md(i.date) + '</span>' + esc(i.start || '') + ' ' + esc(lab) + (i.teacher_name ? ' · ' + esc(i.teacher_name) : '') + extra + (i.charge_krw > 0 ? ' · −' + won(i.charge_krw) : '') + hold + btn + '</span>';
       });
       h += '</div></div>';
     });

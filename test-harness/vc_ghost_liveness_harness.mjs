@@ -25,6 +25,7 @@
 // 이 파일이 깨지면 위 사고가 그대로 재발한다. 지우지 말 것.
 
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 import { readPageSource } from './page-source.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -235,15 +236,28 @@ ok('둘 다 미수신인 같은 이름 쌍은 건드리지 않는다(무한 킥 
 ok('참관자 화면에서는 동작하지 않는다', /_vcObserverMode\) return;/.test(GH));
 ok('타일을 지운 만큼 참여자 수 표시도 줄인다', /Math\.min\(n, visibleCount\(\)\)/.test(GH));
 ok('참여자 수는 줄이기만 한다(서버 숫자를 늘리지 않는다)', /Math\.min\(/.test(GH) && !/Math\.max\(n,/.test(GH));
-ok('떠날 때 leave-room 을 한 번 더 보낸다(유령이 생기는 것 자체를 줄인다)',
-   /addEventListener\('pagehide'[\s\S]{0,900}type: 'leave-room'/.test(GH));
+// Lifecycle events do not establish user intent; execute both persisted cases.
+function lifecycleDoesNotEndClass(persisted) {
+  const listeners = {}, sent = [];
+  const context = vm.createContext({
+    window: { addEventListener: (name, fn) => { listeners[name] = fn; },
+      vcConn: { send: msg => sent.push(msg) } },
+    document: { body: { classList: { contains: () => true } } },
+    setInterval() {}, console
+  });
+  vm.runInContext(GH, context);
+  listeners.pagehide?.({ persisted });
+  return !sent.some(msg => msg.type === 'leave-room');
+}
+ok('일시적 페이지 이탈·새로고침은 정상 수업 종료 신호를 보내지 않는다',
+   lifecycleDoesNotEndClass(false));
 
 // 🔴 아래 둘은 «고치려던 것보다 큰 사고» 를 막는 줄이다. 지우면 학생 화면에 「수업이 끝났어요」가 뜬다.
 //    index.html 의 vcRemovePeer 후킹은 reason==='left' 일 때만 10초 뒤 endOfClassFlow() 를 예약한다.
 ok('유령 제거는 사유 없이 부른다(«left» 로 부르면 수업 종료 흐름이 돈다)',
    /window\.vcRemovePeer\(userId\);/.test(GH) && !/vcRemovePeer\(userId, ?'left'\)/.test(GH));
-ok('bfcache(persisted) 때는 leave-room 을 보내지 않는다(앱 전환만 해도 수업이 끝난다)',
-   /pagehide'[\s\S]{0,900}e\.persisted\) return;/.test(GH));
+ok('bfcache(persisted) 복귀에서도 정상 수업 종료 신호를 보내지 않는다',
+   lifecycleDoesNotEndClass(true));
 
 // ── ③ 오경보 ───────────────────────────────────────────────────────
 console.log('\n[ ③ 「🎤 상대 소리가 안 와요」 오경보 ]');

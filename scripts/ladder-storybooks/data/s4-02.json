@@ -1,0 +1,311 @@
+{
+  "id": "s4-02",
+  "breaks": [
+    1,
+    4,
+    5,
+    2
+  ],
+  "key": {
+    "P": 0,
+    "S": 11
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «온실 효과는 생명을 위해 필요하지만 인간이 그것을 위험할 만큼 강하게 만들고 있다(주제)» 와 «그래서 배출을 줄이는 것이 꼭 필요하다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (the greenhouse effect is natural, but human activity is making it dangerously stronger) and the conclusion (reducing emissions is essential). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "The greenhouse effect"
+    },
+    {
+      "k": "Key fact",
+      "qko": "온실 효과는 어떻게 일어나나요?",
+      "qen": "How does the greenhouse effect work?",
+      "a": "Gases like carbon dioxide trap heat and keep Earth warm"
+    },
+    {
+      "k": "Why it matters",
+      "qko": "왜 문제가 되나요?",
+      "qen": "Why does it matter?",
+      "a": "Too much trapped heat melts glaciers and raises sea levels"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "The greenhouse effect is a natural process that keeps Earth ",
+      "ans": "warm",
+      "opts": [
+        "warm",
+        "dry",
+        "dark"
+      ]
+    },
+    {
+      "pre": ". Gases such as carbon dioxide absorb ",
+      "ans": "heat",
+      "opts": [
+        "heat",
+        "water",
+        "salt"
+      ]
+    },
+    {
+      "pre": " from the surface. Since the Industrial Revolution, people have burned coal, oil, and ",
+      "ans": "gas",
+      "opts": [
+        "gas",
+        "sand",
+        "ice"
+      ]
+    },
+    {
+      "pre": ", and cutting down ",
+      "ans": "forests",
+      "opts": [
+        "forests",
+        "mountains",
+        "rivers"
+      ]
+    },
+    {
+      "pre": " adds even more carbon. As more heat is trapped, global temperatures ",
+      "ans": "rise",
+      "opts": [
+        "rise",
+        "fall",
+        "stop"
+      ]
+    },
+    {
+      "pre": ", so reducing emissions is essential.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "atmosphere",
+      "대기",
+      "Sunlight passes through the <b>atmosphere</b> and warms the planet's surface.",
+      "the layer of air around Earth"
+    ],
+    [
+      "radiation",
+      "복사, 방사",
+      "The warm surface then gives off heat in the form of infrared <b>radiation</b>.",
+      "energy that travels out as rays or waves"
+    ],
+    [
+      "emissions",
+      "배출(량)",
+      "Reducing <b>emissions</b> is therefore essential to keeping the climate stable.",
+      "gases that are sent out into the air"
+    ],
+    [
+      "absorb",
+      "흡수하다",
+      "Certain gases in the air <b>absorb</b> much of this heat.",
+      "to take in something, like a sponge takes in water"
+    ],
+    [
+      "intensity",
+      "세기, 강도",
+      "The problem is not the effect itself but its <b>intensity</b>.",
+      "how strong something is"
+    ],
+    [
+      "glaciers",
+      "빙하",
+      "This warming melts <b>glaciers</b>, raises sea levels, and makes heat waves more frequent.",
+      "huge, slow-moving masses of ice"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does cutting down forests add more carbon dioxide to the air?",
+      "qko": "숲을 베어 내면 왜 공기 중 이산화탄소가 더 늘어나나요?",
+      "opts": [
+        "Because burning trees cools the planet",
+        "Because trees that once absorbed carbon are removed",
+        "Because forests produce methane and water vapor"
+      ],
+      "ans": 1,
+      "evs": [
+        "Cutting down forests adds even more, because trees that once absorbed carbon are removed.",
+        "Certain gases in the air, such as carbon dioxide, methane, and water vapor, absorb much of this heat and send part of it back toward the ground.",
+        "Since the Industrial Revolution, people have burned huge amounts of coal, oil, and gas, releasing carbon dioxide that had been stored underground for millions of years.",
+        "Sunlight passes through the atmosphere and warms the planet's surface."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "본문에 «trees that once absorbed carbon are removed» 라고 나와요. 탄소를 흡수하던 나무가 사라지기 때문이에요.",
+        "The text says trees that once absorbed carbon are removed, so more carbon stays in the air."
+      ],
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In 'The problem is not the effect itself but its intensity,' what does 'intensity' mean?",
+      "qko": "'The problem is not the effect itself but its intensity' 에서 'intensity' 는 무슨 뜻인가요?",
+      "opts": [
+        "how strong the effect is",
+        "when the effect began",
+        "where the effect happens"
+      ],
+      "ans": 0,
+      "evs": [
+        "The problem is not the effect itself but its intensity.",
+        "The greenhouse effect is a natural process that keeps Earth warm enough for life, but human activity is making it dangerously stronger.",
+        "The warm surface then gives off heat in the form of infrared radiation.",
+        "Without these greenhouse gases, Earth's average temperature would be far below freezing."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "첫 문장에서 인간이 온실 효과를 «더 강하게(stronger)» 만든다고 했어요. 그래서 intensity 는 «세기» 를 뜻해요.",
+        "The first sentence says human activity is making the effect stronger, so intensity means how strong it is."
+      ],
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why does the writer say a process that protects life can also threaten it?",
+      "qko": "글쓴이는 왜 생명을 지키는 과정이 생명을 위협할 수도 있다고 말하나요?",
+      "opts": [
+        "Because the right amount of trapped heat keeps us alive, but too much causes harmful changes",
+        "Because sunlight can no longer pass through the atmosphere",
+        "Because greenhouse gases disappear when glaciers melt"
+      ],
+      "ans": 0,
+      "evs": [
+        "Without these greenhouse gases, Earth's average temperature would be far below freezing.",
+        "This warming melts glaciers, raises sea levels, and makes heat waves and heavy rainfall more frequent.",
+        "Sunlight passes through the atmosphere and warms the planet's surface.",
+        "Since the Industrial Revolution, people have burned huge amounts of coal, oil, and gas, releasing carbon dioxide that had been stored underground for millions of years."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "온실가스가 없으면 지구는 얼어붙을 만큼 춥지만, 열이 너무 많이 갇히면 빙하가 녹고 해수면이 올라가요. 두 단서를 합치면 답이 나와요.",
+        "Without greenhouse gases Earth would be freezing, but too much warming melts glaciers and raises sea levels. Together these give the answer."
+      ],
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How can a city cut its carbon emissions?",
+      "도시는 어떻게 탄소 배출을 줄일 수 있을까?",
+      "The Low-Carbon City"
+    ],
+    [
+      "B",
+      "Why are glaciers important for people who live near them?",
+      "빙하는 그 근처에 사는 사람들에게 왜 중요할까?",
+      "Life Beside the Glaciers"
+    ]
+  ],
+  "write": {
+    "pre": "We should",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“We should <u>plant more trees in our town</u> so that <u>more carbon is absorbed from the air</u>.”",
+    "slotKo": [
+      "우리가 해야 할 일",
+      "그렇게 하면 생기는 결과"
+    ],
+    "slotEn": [
+      "what we should do",
+      "the result we want"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «해야 할 일 + 그 목적» 으로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and the result you want in English.",
+    "chips": [
+      {
+        "a": "turn off the lights when we leave a room",
+        "b": "we use less electricity",
+        "label": "lights"
+      },
+      {
+        "a": "take the bus to school",
+        "b": "fewer cars burn gas",
+        "label": "bus"
+      },
+      {
+        "a": "bring our own water bottles",
+        "b": "we throw away less plastic",
+        "label": "bottles"
+      }
+    ],
+    "aria": [
+      "what we should do",
+      "the result"
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에 «누가 + 무엇을» 넣어 결과를 분명하게 써 보세요. (예: so that our town stays cooler)",
+    "moreEn": "One more step: after «so that», write who + what to make the result clear. (e.g. so that our town stays cooler)"
+  },
+  "img": {
+    "style": "photo",
+    "cover": "A melting glacier flowing down between rocky mountains into a grey lake, with streams of meltwater running over the ice under a bright sun",
+    "scenes": {
+      "1": "Sunlight shining through scattered clouds onto green fields, a small village, and a calm sea, seen from a hilltop",
+      "2": "Thick smoke rising from the tall chimneys of a coal power plant beside a hillside of freshly cut tree stumps"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Sunlight warming fields and the sea",
+    "2": "A smoking power plant next to cut-down forest",
+    "cover": "A melting glacier in the mountains"
+  }
+}

@@ -35,7 +35,7 @@ const si = rc.indexOf("var sig = LANG + '|';"), se = rc.indexOf('if (sig === las
 ok('전제: 지문 조립부를 찾았다', si > 0 && se > si);
 const loop = rc.slice(si, se);
 function sigOf(row) {
-  try { return new Function('LANG', 'list', 'now', 'stuName', 'stuUid', loop.replace("var sig = LANG + '|';", "var sig = LANG + '|'; var t = now();") + '\nreturn sig;')('ko', [row], () => 0, () => '', () => ''); }
+  try { return new Function('LANG', 'list', 'now', 'stuName', 'stuUid', 'ASKED', loop.replace("var sig = LANG + '|';", "var sig = LANG + '|'; var t = now();") + '\nreturn sig;')('ko', [row], () => 0, () => '', () => '', {}); }
   catch (e) { return 'ERR ' + e.message; }
 }
 const base = { schedule_id: 7, start_time: '19:00', open_at_ts: 1, start_ts: 2, close_at_ts: 3, room_id: 'class-7-20260929', duration_min: 20 };

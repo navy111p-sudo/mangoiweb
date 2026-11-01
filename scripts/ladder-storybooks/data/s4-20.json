@@ -1,0 +1,312 @@
+{
+  "id": "s4-20",
+  "breaks": [
+    2,
+    4,
+    4,
+    7
+  ],
+  "key": {
+    "P": 2,
+    "S": 16
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «커피를 기르는 많은 농부가 아주 적은 돈을 번다(문제)» 와 «공정 무역이 답의 전부는 아니지만, 우리의 일상 선택이 먼 곳 사람들의 삶과 이어져 있음을 보여 준다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (many coffee farmers earn very little) and the conclusion (fair trade is not the whole answer, but it shows our everyday choices are connected to people far away). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Problem",
+      "qko": "어떤 문제가 있나요?",
+      "qen": "What is the problem?",
+      "a": "Many coffee farmers earn very little when world prices fall"
+    },
+    {
+      "k": "Solution",
+      "qko": "공정 무역은 농부를 어떻게 돕나요?",
+      "qen": "How does fair trade help farmers?",
+      "a": "A minimum price and an extra premium for their communities"
+    },
+    {
+      "k": "Limit",
+      "qko": "공정 무역의 한계는 무엇인가요?",
+      "qen": "What are the limits of fair trade?",
+      "a": "Certification costs money, and demand for certified coffee is limited"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Most coffee is grown by small ",
+      "ans": "farmers",
+      "opts": [
+        "farmers",
+        "companies",
+        "robots"
+      ]
+    },
+    {
+      "pre": ", and the price they receive can rise and fall sharply. Fair trade buyers agree to pay farmer groups at least a ",
+      "ans": "minimum",
+      "opts": [
+        "minimum",
+        "secret",
+        "lower"
+      ]
+    },
+    {
+      "pre": " price, plus an extra amount called a premium. However, certification costs ",
+      "ans": "money",
+      "opts": [
+        "money",
+        "seeds",
+        "water"
+      ]
+    },
+    {
+      "pre": ", and demand for certified coffee is limited. Even so, fair trade has made many ",
+      "ans": "consumers",
+      "opts": [
+        "consumers",
+        "goats",
+        "soldiers"
+      ]
+    },
+    {
+      "pre": " think about where their products come from. It shows that our everyday ",
+      "ans": "choices",
+      "opts": [
+        "choices",
+        "dreams",
+        "games"
+      ]
+    },
+    {
+      "pre": " are connected to the lives of people far away.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "certification",
+      "인증",
+      "Under fair trade <b>certification</b>, buyers agree to pay farmer groups at least a minimum price",
+      "an official approval that something meets certain rules"
+    ],
+    [
+      "premium",
+      "추가 금액, 프리미엄",
+      "They also pay an extra amount called a <b>premium</b>",
+      "an extra amount of money paid on top of the usual price"
+    ],
+    [
+      "consumers",
+      "소비자들",
+      "our everyday choices as <b>consumers</b> are connected to the lives of people far away",
+      "people who buy and use products"
+    ],
+    [
+      "harvest",
+      "수확물",
+      "farmers often sell only part of their <b>harvest</b> at fair trade prices",
+      "the crops that are gathered in one season"
+    ],
+    [
+      "critics",
+      "비판하는 사람들",
+      "Some <b>critics</b> point out that certification costs money",
+      "people who point out problems with an idea"
+    ],
+    [
+      "standards",
+      "기준",
+      "fair trade rules include <b>standards</b> against child labor and for environmental protection",
+      "rules that say how something should be done"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why can some coffee farmers not even cover the cost of growing their beans?",
+      "qko": "왜 어떤 커피 농부들은 원두를 기르는 비용조차 감당하지 못하나요?",
+      "opts": [
+        "Because world coffee prices sometimes fall sharply",
+        "Because goats eat their coffee plants",
+        "Because fair trade does not let them sell"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "When prices fall, some farmers cannot even cover the cost of growing their beans.",
+        "Most coffee is grown by small farmers in countries such as Ethiopia, Colombia, and Vietnam.",
+        "Whether or not that story is true, coffee is now one of the most popular drinks in the world, with billions of cups enjoyed every day.",
+        "Some coffee companies now also buy directly from farmers and share the details of their prices."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "본문에 가격이 떨어지면 어떤 농부들은 원두를 기르는 비용조차 감당하지 못한다고 나와요. 가격이 세계 시장에 따라 크게 오르내리기 때문이에요.",
+        "The text says that when prices fall, some farmers cannot even cover the cost of growing their beans."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what does \"address this problem\" mean?",
+      "qko": "글에서 «address this problem» 은 무슨 뜻인가요?",
+      "opts": [
+        "To deal with the problem and try to solve it",
+        "To write the problem on an envelope",
+        "To make the problem much bigger"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Fair trade was created to address this problem.",
+        "Under fair trade certification, buyers agree to pay farmer groups at least a minimum price, even when market prices drop.",
+        "Yet many of the farmers who grow coffee earn very little.",
+        "However, fair trade is not a perfect solution."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "«address» 는 보통 «주소» 라는 뜻이지만, 여기서는 «문제를 다루어 해결하려 하다» 라는 뜻이에요. 바로 다음 문장에서 공정 무역이 최저 가격을 보장해 농부를 돕는다고 설명해요.",
+        "Here \"address\" means to deal with a problem. The next sentence shows how fair trade tries to solve it with a minimum price."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why might fair trade not help the poorest farmers very much?",
+      "qko": "공정 무역이 가장 가난한 농부들에게 큰 도움이 되지 못할 수 있는 이유는 무엇인가요?",
+      "opts": [
+        "Certification costs money, and only part of the harvest sells at fair trade prices",
+        "Fair trade buyers pay less than the market price",
+        "Fair trade rules allow child labor"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Some critics point out that certification costs money, which the poorest farmers may not be able to afford.",
+        "Others note that farmers often sell only part of their harvest at fair trade prices, because demand for certified coffee is limited.",
+        "They also pay an extra amount called a premium, which communities can spend on schools, clean water, or better equipment.",
+        "Even so, fair trade has made many consumers think about where their products come from."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "인증에는 돈이 들어서 가장 가난한 농부는 감당하기 어렵고, 인증 커피를 찾는 수요가 한정되어 수확물의 일부만 공정 무역 가격으로 팔 수 있어요. 두 한계를 함께 봐야 해요.",
+        "Certification costs money the poorest farmers may not afford, and they often sell only part of their harvest at fair trade prices. You need both clues."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How does a coffee bean travel from a farm to your cup?",
+      "커피콩은 농장에서 내 컵까지 어떻게 올까?",
+      "From Farm to Cup"
+    ],
+    [
+      "B",
+      "What other products can we buy as fair trade?",
+      "공정 무역으로 살 수 있는 다른 물건에는 무엇이 있을까?",
+      "Fair Trade Beyond Coffee"
+    ]
+  ],
+  "write": {
+    "pre": "If",
+    "mid": "we can",
+    "sep": ", ",
+    "slots": [
+      "cl",
+      "vp"
+    ],
+    "slotKo": [
+      "조건(만약 ~하면)",
+      "할 수 있는 일"
+    ],
+    "slotEn": [
+      "a condition",
+      "what we can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «어떤 조건 + 그때 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own condition and what we can do in English.",
+    "aria": [
+      "the condition",
+      "what we can do"
+    ],
+    "src": "“If <u>we check where our products come from</u>, we can <u>support farmers who are paid fairly</u>.”",
+    "chips": [
+      {
+        "a": "we bring our own cup to the cafe",
+        "b": "reduce paper cup waste",
+        "label": "cup"
+      },
+      {
+        "a": "we buy fruit from local farms",
+        "b": "help farmers near our town",
+        "label": "fruit"
+      },
+      {
+        "a": "we read the label before shopping",
+        "b": "choose products made more fairly",
+        "label": "label"
+      }
+    ],
+    "moreKo": "한 걸음 더: «we can» 뒤에 «누구를 + 어떻게 도울 수 있는지» 를 써 보세요. (예: help children in coffee-growing towns go to school)",
+    "moreEn": "One more step: after «we can», write who we can help and how. (e.g. help children in coffee-growing towns go to school)"
+  },
+  "img": {
+    "style": "photo",
+    "cover": "A coffee farmer’s weathered hands holding a heap of ripe red coffee cherries freshly picked from green coffee plants on a hillside farm",
+    "scenes": {
+      "1": "Small farmers on a steep green mountainside picking ripe red coffee cherries into woven baskets among rows of coffee bushes",
+      "2": "Smiling children drinking from a new clean-water tap at a small rural school in a coffee-growing village"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Farmers picking coffee cherries on a hillside",
+    "2": "Children drinking clean water at a village school",
+    "cover": "Hands holding ripe red coffee cherries"
+  }
+}

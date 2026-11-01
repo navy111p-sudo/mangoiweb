@@ -1,0 +1,311 @@
+{
+  "id": "s3-12",
+  "breaks": [
+    1,
+    2,
+    4,
+    3
+  ],
+  "key": {
+    "P": 0,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «김치의 특별한 맛은 발효라는 자연적인 과정에서 나온다(주제)» 와 «발효 덕분에 김치는 맛도 좋고 건강에도 좋다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (kimchi’s special taste comes from fermentation) and the conclusion (thanks to fermentation, kimchi is delicious and good for your health). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Kimchi and fermentation"
+    },
+    {
+      "k": "Key fact",
+      "qko": "유산균은 무슨 일을 하나요?",
+      "qen": "What do the bacteria do?",
+      "a": "They change sugars into acids"
+    },
+    {
+      "k": "Why it matters",
+      "qko": "발효 덕분에 무엇이 좋아지나요?",
+      "qen": "Why is fermentation helpful?",
+      "a": "Kimchi tastes sour and lasts a long time"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Kimchi is made by mixing vegetables with salt and ",
+      "ans": "spices",
+      "opts": [
+        "spices",
+        "milk",
+        "chocolate"
+      ]
+    },
+    {
+      "pre": ". It is stored in a ",
+      "ans": "cool",
+      "opts": [
+        "cool",
+        "hot",
+        "sunny"
+      ]
+    },
+    {
+      "pre": " place, and lactic acid ",
+      "ans": "bacteria",
+      "opts": [
+        "bacteria",
+        "birds",
+        "seeds"
+      ]
+    },
+    {
+      "pre": " start to grow. They change sugars into acids, which gives kimchi its ",
+      "ans": "sour",
+      "opts": [
+        "sour",
+        "sweet",
+        "bitter"
+      ]
+    },
+    {
+      "pre": " flavor. In the past, families made large amounts of kimchi in late ",
+      "ans": "autumn",
+      "opts": [
+        "autumn",
+        "spring",
+        "summer"
+      ]
+    },
+    {
+      "pre": " to eat during the winter. This tradition is called kimjang.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "fermentation",
+      "발효",
+      "its special taste comes from a natural process called <b>fermentation</b>.",
+      "a natural change in food made by tiny living things"
+    ],
+    [
+      "stored",
+      "보관되다",
+      "the kimchi is <b>stored</b> in a cool place for some time.",
+      "kept in a place to use later"
+    ],
+    [
+      "bacteria",
+      "세균, 박테리아",
+      "tiny living things called lactic acid <b>bacteria</b> start to grow.",
+      "very tiny living things"
+    ],
+    [
+      "flavor",
+      "맛, 풍미",
+      "This is what gives kimchi its sour, tangy <b>flavor</b>.",
+      "the taste of a food"
+    ],
+    [
+      "harmful",
+      "해로운",
+      "The salt and acid also stop many <b>harmful</b> germs from growing",
+      "bad for you"
+    ],
+    [
+      "tradition",
+      "전통",
+      "This <b>tradition</b>, called kimjang, is still important in Korea today.",
+      "something people have done for a long time"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why can kimchi be kept for a long time?",
+      "qko": "김치는 왜 오래 보관할 수 있나요?",
+      "opts": [
+        "Because salt and acid stop harmful germs from growing",
+        "Because it is eaten only in late autumn",
+        "Because it has no vegetables in it"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "The salt and acid also stop many harmful germs from growing, so kimchi can be kept for a long time.",
+        "To make kimchi, people mix vegetables like napa cabbage and radish with salt and spices.",
+        "This tradition, called kimjang, is still important in Korea today.",
+        "Then the kimchi is stored in a cool place for some time."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "소금과 산이 해로운 세균이 자라지 못하게 막아서 김치를 오래 보관할 수 있다고 했어요.",
+        "The salt and acid stop many harmful germs from growing, so kimchi can be kept for a long time."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In \"its sour, tangy flavor,\" what does \"tangy\" mean?",
+      "qko": "«its sour, tangy flavor» 에서 «tangy» 는 무슨 뜻인가요?",
+      "opts": [
+        "Sharp and a little sour",
+        "Soft and very sweet",
+        "Cold and hard"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "This is what gives kimchi its sour, tangy flavor.",
+        "Kimchi is a famous Korean food, and its special taste comes from a natural process called fermentation.",
+        "In the past, families made large amounts of kimchi in late autumn to eat during the winter.",
+        "During this time, tiny living things called lactic acid bacteria start to grow."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«sour(새콤한)» 와 나란히 쓰여 김치의 맛을 꾸며 주니, tangy 는 톡 쏘고 새콤한 맛이라는 뜻이에요.",
+        "«Tangy» is used together with «sour» to describe the flavor, so it means sharp and a little sour."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How do the bacteria give kimchi its sour taste?",
+      "qko": "유산균은 어떻게 김치에 새콤한 맛을 주나요?",
+      "opts": [
+        "They change the sugars in the vegetables into acids",
+        "They add more salt to the cabbage",
+        "They make the kimchi very hot"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "These good bacteria change the sugars in the vegetables into acids.",
+        "Then the kimchi is stored in a cool place for some time.",
+        "This is what gives kimchi its sour, tangy flavor.",
+        "This tradition, called kimjang, is still important in Korea today."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "좋은 균이 채소의 당분을 산으로 바꾸고, «이것이» 김치에 새콤하고 톡 쏘는 맛을 준다고 했어요. 두 문장을 이어야 해요.",
+        "The good bacteria change the sugars into acids, and «this» gives kimchi its sour, tangy flavor. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "What other foods around the world are fermented?",
+      "세계에는 또 어떤 발효 음식이 있을까요?",
+      "Fermented Foods Around the World"
+    ],
+    [
+      "B",
+      "How do families make kimchi together at kimjang time?",
+      "김장 때 가족들은 어떻게 함께 김치를 담글까요?",
+      "A Day of Kimjang"
+    ]
+  ],
+  "write": {
+    "pre": "If",
+    "mid": "we can",
+    "sep": ", ",
+    "slots": [
+      "cl",
+      "vp"
+    ],
+    "src": "“If <u>we keep kimchi in a cool place</u>, we can <u>enjoy it all winter</u>.”",
+    "slotKo": [
+      "조건",
+      "할 수 있는 일"
+    ],
+    "slotEn": [
+      "the condition",
+      "what we can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «만약 ~하면 + 우리가 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write a condition and what we can do then in English.",
+    "chips": [
+      {
+        "a": "we help our family",
+        "b": "finish the kimjang quickly",
+        "label": "kimjang"
+      },
+      {
+        "a": "we eat more vegetables",
+        "b": "stay healthy",
+        "label": "vegetables"
+      },
+      {
+        "a": "we try new foods",
+        "b": "find a new favorite dish",
+        "label": "new foods"
+      }
+    ],
+    "aria": [
+      "the condition",
+      "what we can do"
+    ],
+    "moreKo": "한 걸음 더: «If» 뒤에 «누가 + 무엇을 하면» 을 분명하게 써 보세요. (예: If we eat kimchi often)",
+    "moreEn": "One more step: after «If», write who + what they do. (e.g. If we eat kimchi often)"
+  },
+  "img": {
+    "style": "webtoon",
+    "cover": "A Korean family wearing rubber gloves, rubbing red seasoning into salted napa cabbage leaves in a large bowl at kimjang time",
+    "scenes": {
+      "1": "Fresh napa cabbages, white radishes, coarse salt, and red chili pepper flakes laid out on a kitchen table",
+      "2": "A glass jar packed with red cabbage kimchi, with tiny bubbles visible against the glass"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Cabbage, radish, salt, and chili flakes",
+    "2": "A jar of kimchi with small bubbles",
+    "cover": "A family making kimchi together"
+  }
+}

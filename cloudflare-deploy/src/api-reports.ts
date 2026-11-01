@@ -2,6 +2,7 @@
 // 📄 api-reports.ts — 월간 학습 보고서(MR)·월간 AI 레포트(MAR) (20차 분리)
 //   runMonthlyReports 는 index.ts 크론이 import 해서 매월 자동 실행.
 // ═══════════════════════════════════════════════════════════════════════
+import { loadSpeakingPace } from './speaking-pace';   // 🗣️ 따라 읽기 말속도(2026-10-18)
 import { json, parseJsonBody } from './api-util';
 import { resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정(소유자/관리자 인증 일원화)
 import { sendKakaoAlimtalk, getSolapiMode } from './solapi-client';
@@ -9,6 +10,7 @@ import { computeGrowthForStudent } from './api-judgment';  // 🧠 판단력 성
 import type { MangoEnv } from './api-mango';
 
 import { ATTENDANCE_BY_UID, attUidBinds } from './attendance-uid';
+import { warmupCountsBetween } from './warmup-parent';   // 👪 웜업 횟수(2026-10-02 P4)
 // ═══════════════════════════════════════════════════════════════════════
 // 📊 월간 AI 레포트 — 공용 헬퍼 (생성 + AI + 카카오 발송 + 월간 배치)
 //   엔드포인트: /api/admin/monthly-report/{generate,send,list}, /api/report/monthly-view
@@ -262,6 +264,9 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
     evalRows = (evals.results || []) as any[];
   } catch {}
   try { voiceStats = await env.DB.prepare(`SELECT COUNT(*) AS n, AVG(accuracy_score) AS acc, AVG(pronunciation_score) AS pron, AVG(fluency_score) AS flu, MAX(accuracy_score) AS best FROM voice_coaching WHERE student_uid = ? AND created_at >= ? AND created_at < ?`).bind(uid, start, end).first(); } catch {}
+  /* 🗣️ 따라 읽기 말속도 — 이번 기간 + «바로 앞의 같은 길이 기간». 정본 src/speaking-pace.ts(던지지 않음, 모르면 null). */
+  const paceNow = await loadSpeakingPace(env.DB, uid, start, end);
+  const pacePrev = await loadSpeakingPace(env.DB, uid, start - (end - start), start);
   const evalAvg = evalRows.length ? Math.round((evalRows.reduce((s, r) => s + (r.score_overall || 0), 0) / evalRows.length) * 10) / 10 : 0;
 
   // 📋 AI 학습 활동 — 단어장(vocab_review_log) + 복습퀴즈(review_quiz_results) 실사용 횟수만 합산.
@@ -273,6 +278,11 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
     const qc: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM review_quiz_results WHERE user_id = ? AND created_at >= ? AND created_at < ?`).bind(uid, start, end).first();
     aiActivityCount = (vc?.n || 0) + (qc?.n || 0);
   } catch { /* 테이블이 없거나 조회 실패해도 리포트 전체는 계속 진행 */ }
+
+  // 🗣️ 수업 전 A.i 웜업 횟수(2026-10-02 P4) — «횟수» 만 싣는다(점수가 아니다 — 다른 척도와 섞지 않는다).
+  //   ⛔ ai_activity_count 에 더하지 않는다 — 그 칸의 뜻(단어장+복습퀴즈)을 바꾸지 않고 따로 둔다.
+  //   null = 모름(표 없음·조회 실패) — 0 과 다른 사실이라 화면이 «—» 로 그려야 한다.
+  const warmupCounts = await warmupCountsBetween(env.DB, uid, start, end);
 
   // ✍️ 교재 낱말 쓰기 숙제(장면 탐험대 «그림 단어장», 2026-09-24) — 한 판이라도 했을 때만 싣는다.
   //   약한 낱말 = 이 기간에 다시 만났고 «틀린 횟수 ≥ 맞힌 횟수» 인 낱말(handleGamesWeak 과 같은 기준).
@@ -424,6 +434,10 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
       avg_pronunciation: Math.round(voiceStats?.pron || 0),
       avg_fluency: Math.round(voiceStats?.flu || 0),
       best: voiceStats?.best || 0,
+      // 분당 낱말(따라 읽기) — 표본이 모자라면 null. ⛔ «대화 WPM» 으로 부르지 않는다(speaking-pace.ts).
+      pace_wpm: paceNow ? paceNow.wpm : null,
+      pace_samples: paceNow ? paceNow.samples : 0,
+      prev_pace_wpm: pacePrev ? pacePrev.wpm : null,
     },
     judgment,
     scene_words: sceneWords,
@@ -435,6 +449,7 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
     radar_ai_axis_count: aiAxisCount, // AI 로 채운 축 수 (0 이면 종전과 완전히 동일한 리포트)
     growth_highlight: growthHighlight,
     ai_activity_count: aiActivityCount,
+    warmup: warmupCounts,
     teacher_name: teacherName,
     ai_text: aiDraftCommentKo,  // 기존 monthly-report.html "담임의 한마디" 카드 하위호환(Phase 2 전까지)
     ai_draft_comment_ko: aiDraftCommentKo,

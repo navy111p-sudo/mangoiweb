@@ -1,0 +1,310 @@
+{
+  "id": "s1-25",
+  "breaks": [
+    3,
+    3,
+    4
+  ],
+  "key": {
+    "P": 1,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «부는 어둠을 무서워한다(문제)» 와 «친구가 있으면 어둠도 덜 무섭다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (Boo is afraid of the dark) and the lesson (the dark is not so scary with friends). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Boo, a little ghost, and the fireflies"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Boo is afraid of the dark, and the wind blows his candle out."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Fireflies come and light up the night around Boo."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Boo is a little ",
+      "ans": "ghost",
+      "opts": [
+        "ghost",
+        "cat",
+        "bird"
+      ]
+    },
+    {
+      "pre": ", but he is afraid of the ",
+      "ans": "dark",
+      "opts": [
+        "dark",
+        "sun",
+        "rain"
+      ]
+    },
+    {
+      "pre": ". One night, the wind blows his ",
+      "ans": "candle",
+      "opts": [
+        "candle",
+        "hat",
+        "book"
+      ]
+    },
+    {
+      "pre": " out, and Boo starts to ",
+      "ans": "shake",
+      "opts": [
+        "shake",
+        "sing",
+        "eat"
+      ]
+    },
+    {
+      "pre": ". Then ",
+      "ans": "fireflies",
+      "opts": [
+        "fireflies",
+        "bats",
+        "clouds"
+      ]
+    },
+    {
+      "pre": " come and light up the night. The dark is not so scary with friends.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "ghost",
+      "유령",
+      "Boo is a little <b>ghost</b>.",
+      "a spirit in stories that can float and fly"
+    ],
+    [
+      "afraid",
+      "무서워하는",
+      "Ghosts love the night, but Boo is <b>afraid</b> of the dark!",
+      "scared of something"
+    ],
+    [
+      "candle",
+      "양초",
+      "Every night, he hides in the attic with a <b>candle</b>.",
+      "a stick of wax that gives light when it burns"
+    ],
+    [
+      "shake",
+      "떨다",
+      "Boo starts to <b>shake</b>.",
+      "to move a little, quickly, again and again"
+    ],
+    [
+      "firefly",
+      "반딧불이",
+      "They are <b>fireflies</b>!",
+      "a small bug whose body lights up at night"
+    ],
+    [
+      "scary",
+      "무서운",
+      "The dark is not so <b>scary</b> with friends.",
+      "making you feel afraid"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does Boo start to shake?",
+      "qko": "부는 왜 떨기 시작하나요?",
+      "opts": [
+        "The wind blows his candle out, and it is dark.",
+        "He is very hungry.",
+        "He sees a big dog."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "One night, the wind blows his candle out.",
+        "Boo is a little ghost.",
+        "They are fireflies!",
+        "Boo smiles."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«One night, the wind blows his candle out.» 바람에 촛불이 꺼져서 깜깜해졌어요. 부는 어둠을 무서워해서 떨어요.",
+        "The wind blows his candle out, and it gets dark. Boo is afraid of the dark, so he shakes."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"The fireflies dance around Boo and light up the night.\" What does \"light up\" mean?",
+      "qko": "«light up the night» 에서 «light up» 은 무슨 뜻일까요?",
+      "opts": [
+        "make it bright",
+        "make it cold",
+        "make it quiet"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Then he sees tiny lights outside the window.",
+        "Boo is a little ghost.",
+        "Boo starts to shake.",
+        "Boo smiles."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«Then he sees tiny lights outside the window.» 반딧불이는 작은 불빛이에요. 그러니 «light up» 은 «환하게 밝히다» 라는 뜻이에요.",
+        "Boo sees tiny lights, and they are fireflies. So \"light up\" means make it bright."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why is the dark not so scary for Boo now?",
+      "qko": "이제 부에게 어둠이 왜 덜 무서운가요?",
+      "opts": [
+        "Firefly friends dance around him and make the night bright.",
+        "He finds a new candle in the attic.",
+        "The sun comes up early."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "The fireflies dance around Boo and light up the night.",
+        "The dark is not so scary with friends.",
+        "Ghosts love the night, but Boo is afraid of the dark!",
+        "One night, the wind blows his candle out."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "반딧불이들이 부 주위에서 춤추며 밤을 밝혀 주고(«The fireflies dance around Boo and light up the night.»), 친구가 있으면 어둠이 덜 무서워요(«The dark is not so scary with friends.»). 두 문장을 이어야 알 수 있어요.",
+        "The fireflies dance around Boo and light up the night, and the dark is not so scary with friends. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Boo and the fireflies play hide-and-seek every night.",
+      "부와 반딧불이들이 밤마다 숨바꼭질을 한다.",
+      "Night Games with Fireflies"
+    ],
+    [
+      "B",
+      "Boo helps a little girl who is afraid of the dark.",
+      "부가 어둠을 무서워하는 여자아이를 도와준다.",
+      "Boo Helps a Friend"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "before",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "함께 할 일",
+      "그보다 나중에 일어날 일"
+    ],
+    "slotEn": [
+      "what to do",
+      "what happens later"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그보다 나중에 일어날 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what to do together and what happens later in English.",
+    "aria": [
+      "what to do",
+      "what happens later"
+    ],
+    "moreKo": "한 걸음 더: «before» 뒤에 «누가 + 무엇을» 넣어 써 보세요. (예: before Dad comes home)",
+    "moreEn": "One more step: after «before», write who + what. (e.g. before Dad comes home)",
+    "src": "“Let’s <u>watch the fireflies</u> before <u>we go to sleep</u>.”",
+    "chips": [
+      {
+        "a": "turn on the night light",
+        "b": "we go to bed",
+        "label": "light"
+      },
+      {
+        "a": "read a story",
+        "b": "Mom turns off the lights",
+        "label": "story"
+      },
+      {
+        "a": "put away our toys",
+        "b": "Dad comes home",
+        "label": "toys"
+      }
+    ]
+  },
+  "img": {
+    "style": "clay",
+    "cover": "In a dark, cozy attic at night, a small round white ghost with big black eyes, rosy cheeks and a wavy tail floats in the middle and smiles as dozens of glowing yellow fireflies dance around him and light up the room.",
+    "scenes": {
+      "1": "In a dark attic at night, a small round white ghost with big black eyes, rosy cheeks and a wavy tail shivers next to a candle that has just blown out with a thin curl of smoke, and he peeks at tiny glowing lights outside the round window.",
+      "2": "Outside an old house under a starry sky, a small round white ghost with big black eyes, rosy cheeks and a wavy tail floats by the open attic window and smiles as a swirl of glowing fireflies dances around him and lights up the night."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Boo shakes in the dark attic.",
+    "2": "Boo smiles with his firefly friends.",
+    "cover": "Fireflies light up the attic around Boo."
+  }
+}

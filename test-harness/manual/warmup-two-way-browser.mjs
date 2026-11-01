@@ -151,11 +151,20 @@ for (const [w, h, label] of [[390, 844, '휴대폰'], [1280, 800, '노트북'], 
   ck(`⑤ [${label}] 「지금」 도 자유 대화로 돌아온다(짝)`, d.nowWay === 'free' && d.onWay === 'free', [d.onWay, d.nowWay]);
   ck(`⑤ [${label}] 하단 줄도 자유 대화(짝)`, /자유 대화/.test(d.bn), d.bn.slice(0, 40));
 
-  /* 하단 «고르기 ↑» 는 접힌 자리로 데려가야 한다 — 접힌 채 스크롤만 하면 아무 일도 안 일어난다. */
-  await tap(page, '#wusBookNow');
+  /* 하단 «고르기 ↑» 는 접힌 자리로 데려가야 한다 — 접힌 채 스크롤만 하면 아무 일도 안 일어난다.
+     2026-10-18 — PC(1100px↑·620↑)는 «3단계 카드(B안)» 라 교재 칸이 3번 카드 «안» 에 늘 보이고 하단 줄은 숨습니다.
+     그때는 «하단 줄이 없다 + 카드의 「교재로 웜업」을 누르면 펼쳐진다» 가 같은 보장입니다. */
+  const pcB = await page.evaluate(() => { const pc = document.getElementById('wusPc3'); return !!pc && !pc.hidden && getComputedStyle(pc).display !== 'none'; });
+  if (pcB) {
+    const bnVis = await page.evaluate(() => { const e = document.getElementById('wusBookNow'); return !!e && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().height > 0; });
+    ck(`⑥ [${label}] PC 카드 배치 — 하단 «고르기» 줄은 숨는다(중복)`, !bnVis, bnVis);
+    await tap(page, '#wusTwoWay [data-way="book"]');
+  } else {
+    await tap(page, '#wusBookNow');
+  }
   await page.waitForTimeout(700);
   d = await readState(page);
-  ck(`⑥ [${label}] 하단 «고르기 ↑» 를 누르면 펼쳐진다`, d.booksHidden === false, d.booksHidden);
+  ck(`⑥ [${label}] ${pcB ? '카드의 «교재로 웜업»' : '하단 «고르기 ↑»'} 를 누르면 펼쳐진다`, d.booksHidden === false, d.booksHidden);
   await ctx.close();
 }
 

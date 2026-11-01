@@ -1,0 +1,311 @@
+{
+  "id": "s3-30",
+  "breaks": [
+    3,
+    5,
+    5,
+    3
+  ],
+  "key": {
+    "P": 3,
+    "S": 15
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «어떤 동물은 스스로 빛을 만들 수 있고, 이것을 생물 발광이라고 한다(주제)» 와 «빛은 많은 생물에게 강력한 생존 도구다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (some animals can make their own light, which is called bioluminescence) and the conclusion (light is a powerful survival tool for many living things). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Animals that make their own light"
+    },
+    {
+      "k": "Key fact",
+      "qko": "빛은 어떻게 만들어지나요?",
+      "qen": "How is the light made?",
+      "a": "Special chemicals in the body mix"
+    },
+    {
+      "k": "Why it matters",
+      "qko": "동물은 빛을 어디에 쓰나요?",
+      "qen": "How do animals use the light?",
+      "a": "To find partners, catch food, and escape"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Some living things can make their own ",
+      "ans": "light",
+      "opts": [
+        "light",
+        "heat",
+        "noise"
+      ]
+    },
+    {
+      "pre": ", and this is called bioluminescence. It happens when special ",
+      "ans": "chemicals",
+      "opts": [
+        "chemicals",
+        "bones",
+        "rocks"
+      ]
+    },
+    {
+      "pre": " inside their bodies mix. Fireflies use their glow to find ",
+      "ans": "partners",
+      "opts": [
+        "partners",
+        "water",
+        "shelter"
+      ]
+    },
+    {
+      "pre": " on summer nights. The anglerfish uses a glowing lamp on its head to ",
+      "ans": "attract",
+      "opts": [
+        "attract",
+        "scare",
+        "warn"
+      ]
+    },
+    {
+      "pre": " small fish, and some squid release glowing clouds to confuse their ",
+      "ans": "enemies",
+      "opts": [
+        "enemies",
+        "babies",
+        "parents"
+      ]
+    },
+    {
+      "pre": ". Light is a powerful survival tool for many living things.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "chemicals",
+      "화학 물질",
+      "special <b>chemicals</b> inside their bodies mix and give off light",
+      "substances that can mix and change into something new"
+    ],
+    [
+      "common",
+      "흔한",
+      "glowing is far more <b>common</b>",
+      "happening often or found in many places"
+    ],
+    [
+      "attract",
+      "끌어들이다",
+      "on its head to <b>attract</b> small fish",
+      "to make something come closer"
+    ],
+    [
+      "release",
+      "내뿜다, 내보내다",
+      "Some squid even <b>release</b> glowing clouds",
+      "to let something go out"
+    ],
+    [
+      "escape",
+      "달아나다",
+      "to confuse enemies and <b>escape</b>",
+      "to get away from danger"
+    ],
+    [
+      "survival",
+      "생존",
+      "a powerful <b>survival</b> tool for many living things",
+      "staying alive"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why is glowing far more common in the deep sea?",
+      "qko": "깊은 바다에서는 왜 빛을 내는 생물이 훨씬 흔한가요?",
+      "opts": [
+        "Because sunlight never reaches there",
+        "Because the water there is warm",
+        "Because many boats shine lights there"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "But in the deep sea, where sunlight never reaches, glowing is far more common.",
+        "These lights do not come from boats or cameras.",
+        "Unlike a light bulb, this light makes almost no heat.",
+        "Scientists use the chemicals behind this glow as tools in medical research."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "햇빛이 전혀 닿지 않는 깊은 바다에서 빛을 내는 일이 훨씬 흔하다고 했어요. 배나 카메라의 불빛은 이 빛과 관계가 없어요.",
+        "Glowing is far more common in the deep sea, where sunlight never reaches. The lights do not come from boats or cameras."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In “glowing is far more common,” what does “common” mean?",
+      "qko": "«glowing is far more common» 에서 «common» 은 무슨 뜻인가요?",
+      "opts": [
+        "happening often",
+        "very rare",
+        "very dangerous"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "In fact, most animals that live in the deep ocean can make light.",
+        "Some mushrooms on land can glow as well.",
+        "These lights do not come from boats or cameras.",
+        "Scientists use the chemicals behind this glow as tools in medical research."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "다음 문장에서 «깊은 바다에 사는 동물 대부분이 빛을 낼 수 있다» 고 했어요. 대부분이 그렇다면 «흔한», 곧 자주 볼 수 있다는 뜻이에요.",
+        "The next sentence says most animals in the deep ocean can make light. If most of them can, glowing is «common», or happening often."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How does the anglerfish use its light to catch food?",
+      "qko": "아귀(anglerfish)는 빛을 이용해 어떻게 먹이를 잡나요?",
+      "opts": [
+        "Its glowing lamp draws small fish close, and then it quickly swallows them",
+        "It shines its light into their eyes so they cannot swim",
+        "It releases glowing clouds to trap small fish"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "The anglerfish has a glowing \"lamp\" on its head to attract small fish.",
+        "When curious fish swim closer, the anglerfish quickly swallows them.",
+        "Some squid even release glowing clouds to confuse enemies and escape.",
+        "But in the deep sea, where sunlight never reaches, glowing is far more common."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "아귀는 머리에 달린 빛나는 «등불» 로 작은 물고기를 끌어들이고, 궁금해서 가까이 온 물고기를 재빨리 삼켜요. 빛나는 구름을 뿜는 것은 오징어예요.",
+        "The anglerfish uses its glowing lamp to attract small fish, and when they swim closer, it quickly swallows them. Squid are the ones that release glowing clouds."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How do fireflies talk with their flashing lights?",
+      "반딧불이는 깜빡이는 빛으로 어떻게 대화할까?",
+      "Firefly Signals"
+    ],
+    [
+      "B",
+      "What other strange animals live in the deep sea?",
+      "깊은 바다에는 또 어떤 신기한 동물이 살까?",
+      "Creatures of the Deep"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "before",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“Let’s <u>look for fireflies tonight</u> before <u>the summer ends</u>.”",
+    "slotKo": [
+      "함께 할 일",
+      "그보다 나중에 일어날 일"
+    ],
+    "slotEn": [
+      "what we do",
+      "what happens next"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그보다 나중에 일어날 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do together and what happens after that.",
+    "chips": [
+      {
+        "a": "finish our homework",
+        "b": "we play outside",
+        "label": "homework"
+      },
+      {
+        "a": "charge the flashlight",
+        "b": "we go camping",
+        "label": "camping"
+      },
+      {
+        "a": "feed the fish",
+        "b": "we leave for school",
+        "label": "fish"
+      }
+    ],
+    "aria": [
+      "what we do",
+      "what happens after"
+    ],
+    "moreKo": "한 걸음 더: «before» 뒤에 «무엇이 + 어떻게 되는지» 를 넣어 때를 분명하게 써 보세요. (예: before the lights go out)",
+    "moreEn": "One more step: after «before», write what + what happens to make the time clear. (e.g. before the lights go out)"
+  },
+  "img": {
+    "style": "photo",
+    "cover": "Dark sea water at night sparkling with thousands of tiny glowing blue specks that swirl around a diver’s gloved hand",
+    "scenes": {
+      "1": "Fireflies glowing yellow-green above tall grass at the edge of a forest on a summer night, with a cluster of softly glowing green mushrooms on a mossy log in front",
+      "2": "A deep-sea anglerfish with a wide mouth and a small glowing lure hanging in front of its head, floating in pitch-black water as a tiny fish swims toward the light"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Fireflies and glowing mushrooms at night",
+    "2": "An anglerfish with a glowing lure in the dark sea",
+    "cover": "Tiny glowing sea creatures lighting up dark water"
+  }
+}

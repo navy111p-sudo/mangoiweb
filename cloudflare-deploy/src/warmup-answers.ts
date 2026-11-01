@@ -132,6 +132,49 @@ function swapAnswers(low: string): string[] {
   return [`${carrier.lead} ${w.join(' ')}.`, `${carrier.lead} ${alt.join(' ')}.`];
 }
 
+/**
+ * 🗣️ Yes/No 질문을 «그 질문의 낱말» 로 길게 대답 (2026-10-02 사장님 지시 —
+ *    「I do / I don't 으로 하지 말고 I am happy / I am not happy · I like coffee / I don't like coffee」).
+ *   「Do you like coffee?」 → ['I like coffee.', "I don't like coffee."]
+ *   「Are you happy today?」 → ['I am happy today.', 'I am not happy today.']
+ *   「Can you swim?」 → ['I can swim.', "I can't swim."]
+ * ⛔ 대명사·부정사·절이 섞이면(「Do you like your school?」 → 「I like your school.」 같은 비문) 만들지 않는다 —
+ *    그때는 아래 짧은 대답(Yes, I do.)으로 떨어진다. 동사는 형태가 안 바뀌는 것만(현재형) 받는다.
+ */
+const FULL_DO_VERBS = new Set(['like', 'love', 'want', 'have', 'need', 'play', 'eat', 'drink', 'watch', 'enjoy', 'know', 'read', 'live']);
+const FULL_BLOCK = new Set(['me', 'him', 'her', 'us', 'them', 'yourself', 'yours', 'mine', 'this', 'that', 'these', 'those']);
+function fullAnswers(low: string): string[] {
+  if (/\bor\b/.test(low)) return [];
+  const head = low.split(',')[0];                       // 「Are you hungry, Minsu?」 → 이름 앞까지
+  const objOk = (t: string): string => {
+    const w = t.replace(/[^a-z' ]/g, ' ').split(/\s+/).filter(Boolean);
+    if (!w.length || w.length > 4) return '';
+    for (const x of w) if (OPTION_BLOCK.has(x) || FULL_BLOCK.has(x)) return '';
+    return w.join(' ');
+  };
+  let m = head.match(/^do you ([a-z]+)\s+([^?.!]+)\??\s*$/);
+  if (m && FULL_DO_VERBS.has(m[1])) {
+    const o = objOk(m[2]);
+    if (o) return [`I ${m[1]} ${o}.`, `I don't ${m[1]} ${o}.`];
+    return [];
+  }
+  m = head.match(/^are you\s+([^?.!]+)\??\s*$/);
+  if (m) {
+    const o = objOk(m[1]);
+    if (o && !/ing$/.test(o.split(' ')[0])) return [`I am ${o}.`, `I am not ${o}.`];
+    return [];
+  }
+  m = head.match(/^can you ([a-z]+)((?:\s+[^?.!]+)?)\??\s*$/);
+  if (m && !OPTION_BLOCK.has(m[1]) && !FULL_BLOCK.has(m[1])) {
+    const rest = m[2].trim();
+    const o = rest ? objOk(rest) : '';
+    if (rest && !o) return [];
+    const tail = o ? ` ${o}` : '';
+    return [`I can ${m[1]}${tail}.`, `I can't ${m[1]}${tail}.`];
+  }
+  return [];
+}
+
 /** 보기 한 개가 문장으로 쓸 만한 «이름» 인가 — 아니면 빈 문자열(= 만들지 않음). */
 function cleanOption(words: string[], lead: string): string {
   const w = words.slice();
@@ -211,7 +254,13 @@ export function warmupAnswerChips(aiText: unknown, level: unknown): string[] {
     // ①-b 바꿔 말하기 — 「Do you like the red ball?」 → 「I like the red ball. / I like the blue ball.」
     //      늘 같은 「Yes, I do. / No, I don't.」 대신 «그 질문의 낱말» 로 대답하게 한다(2026-10-02).
     if (!out.length) for (const a of swapAnswers(low)) out.push(a);
-    // ② Yes/No — 조동사가 맞는 교과서 짧은 대답
+    // ①-c 긴 대답 — 「Do you like coffee?」 → 「I like coffee. / I don't like coffee.」(2026-10-02)
+    //      단계 상한을 넘으면 아래 chipOk 가 버리므로, 그때만 짧은 대답으로 떨어진다.
+    if (!out.length) {
+      const full = fullAnswers(low);
+      if (full.length === 2 && full.every((x) => chipOk(x, cap))) for (const a of full) out.push(a);
+    }
+    // ② Yes/No — 조동사가 맞는 교과서 짧은 대답(긴 대답을 만들 수 없을 때만)
     if (!out.length) {
       const m = YESNO.find((y) => y.re.test(low));
       if (m) { out.push(m.yes); out.push(m.no); }

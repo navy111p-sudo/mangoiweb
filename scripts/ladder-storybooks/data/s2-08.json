@@ -1,0 +1,310 @@
+{
+  "id": "s2-08",
+  "breaks": [
+    3,
+    4,
+    3
+  ],
+  "key": {
+    "P": 6,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "사건",
+      "en": "event"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «할아버지가 사진마다 이야기를 들려주며 함께 웃은 일(사건)» 과 «사진이 가족의 추억을 살아 있게 하고 더 가깝게 해 준다는 깨달음(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the event (Grandpa told a story about each photo and they laughed together) and the lesson (photos keep family memories alive and bring us closer). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Ara, Grandpa"
+    },
+    {
+      "k": "Event",
+      "qko": "무슨 일이 있었나요?",
+      "qen": "What happened?",
+      "a": "They looked at old family photos and shared stories."
+    },
+    {
+      "k": "Lesson",
+      "qko": "무엇을 배웠나요?",
+      "qen": "What is the lesson?",
+      "a": "Photos keep family memories alive and bring us closer."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Ara found an old film ",
+      "ans": "camera",
+      "opts": [
+        "camera",
+        "radio",
+        "clock"
+      ]
+    },
+    {
+      "pre": " in Grandpa's closet. Grandpa took out old photo ",
+      "ans": "albums",
+      "opts": [
+        "albums",
+        "games",
+        "shoes"
+      ]
+    },
+    {
+      "pre": ". In them, Ara saw Grandma as a young woman and her dad as a ",
+      "ans": "baby",
+      "opts": [
+        "baby",
+        "teacher",
+        "doctor"
+      ]
+    },
+    {
+      "pre": ". Grandpa told a story about each photo, and they ",
+      "ans": "laughed",
+      "opts": [
+        "laughed",
+        "fought",
+        "cried"
+      ]
+    },
+    {
+      "pre": " together. Ara learned that photos keep family ",
+      "ans": "memories",
+      "opts": [
+        "memories",
+        "money",
+        "rules"
+      ]
+    },
+    {
+      "pre": " alive and bring us closer.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "closet",
+      "벽장",
+      "One rainy day, Ara found an old camera in Grandpa's <b>closet</b>.",
+      "a small room or cupboard for keeping things"
+    ],
+    [
+      "film",
+      "필름",
+      "That is my <b>film</b> camera",
+      "a thin roll used in old cameras to take photos"
+    ],
+    [
+      "special",
+      "특별한",
+      "so every photo was <b>special</b>",
+      "very important and not like the others"
+    ],
+    [
+      "albums",
+      "앨범",
+      "He took out a heavy box full of old photo <b>albums</b>.",
+      "books for keeping photos"
+    ],
+    [
+      "memories",
+      "추억",
+      "She understood that photos keep our family <b>memories</b> alive and bring us closer.",
+      "things you remember from the past"
+    ],
+    [
+      "closer",
+      "더 가까운",
+      "photos keep our family memories alive and bring us <b>closer</b>",
+      "feeling more love for each other"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why was every photo special with Grandpa's film camera?",
+      "qko": "할아버지의 필름 카메라로 찍은 사진은 왜 한 장 한 장이 특별했나요?",
+      "opts": [
+        "You could not see the pictures right away.",
+        "The camera was made of gold.",
+        "Grandpa took only one photo."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "\"That is my film camera,\" Grandpa said with a smile.",
+        "\"You cannot see the pictures right away, so every photo was special.\"",
+        "One rainy day, Ara found an old camera in Grandpa's closet.",
+        "He took out a heavy box full of old photo albums."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "사진을 바로 볼 수 없어서 한 장 한 장이 특별했다고 할아버지가 말했어요.",
+        "Grandpa says you cannot see the pictures right away, so every photo was special."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "What does \"keep our family memories alive\" mean?",
+      "qko": "«가족의 추억을 살아 있게 한다» 는 말은 무슨 뜻인가요?",
+      "opts": [
+        "help us remember our family's past",
+        "make old photos move like a video",
+        "keep family members from getting sick"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Grandpa told her a story about each photo, and they laughed together for hours.",
+        "One rainy day, Ara found an old camera in Grandpa's closet.",
+        "He took out a heavy box full of old photo albums.",
+        "The next weekend, she took pictures of the family having dinner together."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "할아버지는 사진을 보며 옛날 일을 떠올려 이야기해 주었어요. 사진이 지난 일을 기억하게 해 준다는 뜻이에요.",
+        "Grandpa remembered a story for each photo. So photos help us remember the past."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How do we know Ara wanted to make her own family photos?",
+      "qko": "아라가 직접 가족 사진을 남기고 싶어 했다는 것을 어떻게 알 수 있나요?",
+      "opts": [
+        "She learned to use the film camera and took family photos.",
+        "She threw the old camera away.",
+        "She asked Grandpa for a new phone."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Ara asked Grandpa to teach her how to use the film camera.",
+        "The next weekend, she took pictures of the family having dinner together.",
+        "One rainy day, Ara found an old camera in Grandpa's closet.",
+        "There was a picture of the whole family at the beach many years ago."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "아라는 필름 카메라 쓰는 법을 배우고 싶어 했고, 다음 주말에 가족 사진을 찍었어요. 두 문장을 이으면 알 수 있어요.",
+        "Ara asked Grandpa to teach her the camera, and the next weekend she took pictures of her family."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Ara and Grandpa print her new photos and make an album.",
+      "아라와 할아버지가 새 사진을 뽑아 앨범을 만들어요.",
+      "Ara's First Album"
+    ],
+    [
+      "B",
+      "Ara takes the film camera on her school trip.",
+      "아라가 필름 카메라를 들고 학교 소풍을 가요.",
+      "Pictures from the Trip"
+    ]
+  ],
+  "write": {
+    "pre": "I want to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“I want to <u>take a photo of my family</u> because <u>photos keep our memories alive</u>.”",
+    "slotKo": [
+      "하고 싶은 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what I want to do",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «하고 싶은 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you want to do and your reason in English.",
+    "chips": [
+      {
+        "a": "visit my grandma",
+        "b": "she tells funny stories",
+        "label": "grandma"
+      },
+      {
+        "a": "learn to cook",
+        "b": "I can make dinner for my mom",
+        "label": "cook"
+      },
+      {
+        "a": "make a family album",
+        "b": "we can look at it together",
+        "label": "album"
+      }
+    ],
+    "aria": [
+      "what you want to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because she tells funny stories)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because she tells funny stories)"
+  },
+  "img": {
+    "style": "vintage",
+    "cover": "A girl with a long black ponytail and a yellow sweater sits on the floor beside an old man with gray hair, round glasses and a brown cardigan, looking together at an open photo album, with an old film camera next to them.",
+    "scenes": {
+      "1": "In a cozy room, the old man with gray hair, round glasses and a brown cardigan lifts a heavy box full of old photo albums, while the girl with a long black ponytail and a yellow sweater looks inside with wide eyes.",
+      "2": "The girl with a long black ponytail and a yellow sweater holds an old film camera to her eye and takes a picture of her family eating dinner together at a table, with the old man with gray hair and round glasses smiling at the table."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Grandpa takes out a box of old photo albums.",
+    "2": "Ara takes a picture of her family having dinner.",
+    "cover": "Ara and Grandpa look at an old photo album together."
+  }
+}

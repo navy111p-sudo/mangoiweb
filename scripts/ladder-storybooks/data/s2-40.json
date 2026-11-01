@@ -1,0 +1,311 @@
+{
+  "id": "s2-40",
+  "breaks": [
+    4,
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 4,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «다이얼이 꽉 끼어서 움직이지 않았다(문제)» 와 «발명품은 보여 주기 전에 꼼꼼히 시험해야 한다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the dial got stuck) and the lesson (test inventions carefully before showing them). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Jisu, the judges, the students"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "The dial got stuck, and the gym filled with snow."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Jisu fixed a loose red wire and made the sun come out."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Jisu built a weather ",
+      "ans": "machine",
+      "opts": [
+        "machine",
+        "cake",
+        "house"
+      ]
+    },
+    {
+      "pre": " for the science fair. At first, it made a little ",
+      "ans": "snow",
+      "opts": [
+        "snow",
+        "rain",
+        "music"
+      ]
+    },
+    {
+      "pre": ", but then the dial got ",
+      "ans": "stuck",
+      "opts": [
+        "stuck",
+        "lost",
+        "warm"
+      ]
+    },
+    {
+      "pre": ". The gym filled with snow until Jisu found a loose red ",
+      "ans": "wire",
+      "opts": [
+        "wire",
+        "shoe",
+        "ball"
+      ]
+    },
+    {
+      "pre": " and fixed it. She did not win, but she learned to ",
+      "ans": "test",
+      "opts": [
+        "test",
+        "sell",
+        "hide"
+      ]
+    },
+    {
+      "pre": " her inventions before showing them.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "fair",
+      "박람회(대회)",
+      "she wanted to win the school science <b>fair</b>",
+      "an event where people show their work and sometimes win prizes"
+    ],
+    [
+      "judges",
+      "심사위원들",
+      "Little snowflakes fell on the <b>judges</b>, and everyone clapped.",
+      "people who decide who wins a contest"
+    ],
+    [
+      "stuck",
+      "꽉 끼어 움직이지 않는",
+      "But then the dial got <b>stuck</b>.",
+      "not able to move"
+    ],
+    [
+      "howling",
+      "윙윙 울부짖는",
+      "the wind was <b>howling</b>!",
+      "making a long, loud sound"
+    ],
+    [
+      "loose",
+      "헐거운, 빠진",
+      "One red wire was <b>loose</b>.",
+      "not tight or not held in place well"
+    ],
+    [
+      "melted",
+      "녹았다",
+      "the snow <b>melted</b>",
+      "turned from ice or snow into water"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did the gym fill up with snow?",
+      "qko": "체육관은 왜 눈으로 가득 찼나요?",
+      "opts": [
+        "The dial got stuck, and the snow kept getting heavier.",
+        "Jisu turned the dial to \"Sun.\"",
+        "A real snowstorm came into the gym from outside."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "So she built a weather machine out of an old fan, a fridge part, and a lot of wires.",
+        "But then the dial got stuck.",
+        "Warm light filled the room, and the snow melted.",
+        "Little snowflakes fell on the judges, and everyone clapped."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "다이얼이 꽉 끼어 움직이지 않아서 눈이 점점 더 많이 내렸어요. 지수가 다이얼을 «Sun» 으로 돌린 것은 눈을 멈추려고 나중에 한 일이에요.",
+        "The dial got stuck, so the snow kept getting heavier. Jisu turned the dial to \"Sun\" later, to stop the snow."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The text says, \"One red wire was loose.\" What does loose mean here?",
+      "qko": "\"One red wire was loose.\"라고 나와요. 여기서 loose는 무슨 뜻인가요?",
+      "opts": [
+        "not connected tightly",
+        "too hot to touch",
+        "brand new and shiny"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "She fixed it with shaking hands and turned the dial to \"Sun.\"",
+        "Students screamed and slid across the floor.",
+        "Jisu loved science, and she wanted to win the school science fair.",
+        "On the day of the fair, she turned the dial to \"Snow.\""
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "지수가 그 전선을 고치자 기계가 다시 제대로 움직였어요. 그러니 loose는 «꽉 연결되어 있지 않은» 이라는 뜻이에요.",
+        "After Jisu fixed the wire, the machine worked again. So loose means the wire was not connected tightly."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why did Jisu learn to test her inventions before showing them?",
+      "qko": "지수는 왜 발명품을 보여 주기 전에 시험해 봐야 한다는 것을 배웠나요?",
+      "opts": [
+        "Her machine went wrong in front of everyone at the fair.",
+        "The judges told her to stop inventing.",
+        "She won first prize too easily."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "But then the dial got stuck.",
+        "Jisu loved science, and she wanted to win the school science fair.",
+        "Soon the gym was full of snow, and the wind was howling!",
+        "Warm light filled the room, and the snow melted."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "대회 날 모두가 보는 앞에서 다이얼이 꽉 끼었고, 체육관이 눈으로 가득 찼어요. 이 두 문장을 이으면 왜 미리 시험해야 하는지 알 수 있어요.",
+        "On the day of the fair, the dial got stuck, and the gym filled with snow in front of everyone. These two clues show why she must test first."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Jisu builds a better machine and tests it many times.",
+      "지수가 더 좋은 기계를 만들고 여러 번 시험해요.",
+      "Test, Test, Test!"
+    ],
+    [
+      "B",
+      "The school asks Jisu to make snow for a winter festival.",
+      "학교가 겨울 축제를 위해 지수에게 눈을 만들어 달라고 부탁해요.",
+      "The Snow Festival"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "before",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“Let’s <u>test the machine</u> before <u>we show it to everyone</u>.”",
+    "slotKo": [
+      "함께 할 일",
+      "그보다 나중에 일어날 일"
+    ],
+    "slotEn": [
+      "what to do",
+      "what happens later"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그보다 나중에 일어날 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what to do together and what happens later in English.",
+    "chips": [
+      {
+        "a": "wash our hands",
+        "b": "we eat lunch",
+        "label": "lunch"
+      },
+      {
+        "a": "check our answers",
+        "b": "we give the test to the teacher",
+        "label": "test"
+      },
+      {
+        "a": "warm up our bodies",
+        "b": "we start the race",
+        "label": "race"
+      }
+    ],
+    "aria": [
+      "what to do",
+      "what happens later"
+    ],
+    "moreKo": "한 걸음 더: «before» 뒤에 «누가 + 무엇을» 넣어 써 보세요. (예: before the bell rings)",
+    "moreEn": "One more step: after «before», write who + what. (e.g. before the bell rings)"
+  },
+  "img": {
+    "style": "flat",
+    "cover": "Inside a school gym full of swirling snow, a girl with a curly brown ponytail and big safety goggles on her head in a green lab coat crawls toward a big boxy machine made of an old fan, a fridge part, and colorful wires, while laughing students slide across the snowy floor and three judges at a long table are covered in snow like snowmen.",
+    "scenes": {
+      "2": "In the snowy school gym, a girl with a curly brown ponytail and big safety goggles on her head in a green lab coat kneels in deep snow behind a big boxy machine made of an old fan, a fridge part, and colorful wires, opens a small back door, and points at one loose red wire among the colorful wires, while snowflakes swirl around her.",
+      "3": "In the school gym, warm golden light shines from a big boxy machine made of an old fan, a fridge part, and colorful wires, the snow melts into shiny puddles, smiling students shake snow off their clothes, and a girl with a curly brown ponytail and big safety goggles on her head in a green lab coat sits beside the machine with a big relieved smile."
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "2": "Jisu finds a loose red wire in the machine.",
+    "3": "Warm light melts the snow in the gym.",
+    "cover": "The gym fills with snow from Jisu's weather machine."
+  }
+}

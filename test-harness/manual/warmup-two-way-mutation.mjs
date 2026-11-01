@@ -22,8 +22,12 @@ try {
 } finally {
   writeFileSync(page, original);
 }
+// 검사 수를 «정확히 N» 으로 못 박지 않는다 — 절이 늘면 멀쩡한 변경이 빨간불이 된다(2026-10-18 PC 카드 절로 63→65).
+// 바닥(63)만 두고 FAIL 0 을 요구한다 — 검사가 조용히 줄어드는 것은 여전히 잡는다.
+const MIN_CHECKS = 63;
 const restored = run();
-if (restored.error || restored.signal || restored.status !== 0 ||
-    !/warmup-two-way-browser — PASS 63 \/ FAIL 0/.test(restored.stdout || ''))
-  throw new Error('Restored baseline must pass all 63 checks; skip is not success');
-console.log('PASS: restored baseline 63/0');
+const rs = /warmup-two-way-browser — PASS (\d+) \/ FAIL (\d+)/.exec(restored.stdout || '');
+if (restored.error || restored.signal || restored.status !== 0 || !rs ||
+    Number(rs[2]) !== 0 || Number(rs[1]) < MIN_CHECKS)
+  throw new Error('Restored baseline must pass at least ' + MIN_CHECKS + ' checks with 0 FAIL; skip is not success');
+console.log('PASS: restored baseline ' + rs[1] + '/0');

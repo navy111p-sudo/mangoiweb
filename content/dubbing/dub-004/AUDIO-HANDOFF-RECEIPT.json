@@ -1,0 +1,39 @@
+{
+  "status": "metadata_projection_imported_audio_binary_access_still_blocked",
+  "authoritativeTimingPath": "voices/draft-scene-mix/timing-proposal-v1.json",
+  "timingImported": true,
+  "warning": "Draft line timestamps now follow actual-voice-timing-draft-v1 projection; remain provisional for video. Do not set synced or ready.",
+  "reportedByParent": {
+    "lines": 60,
+    "asrCompared": true,
+    "scenes": 6,
+    "secondsPerScene": 40,
+    "roleStems": 5,
+    "musicAndSfx": true,
+    "listeningQaPending": true,
+    "fullVideoComplete": false
+  },
+  "files": {
+    "audioReview": "libfile_38c107a1014c8191a4b5900f93438927",
+    "timingHandoff": "libfile_ace92bad2f908191853b0e211141c5eb",
+    "sourceAndEditedAudio": "libfile_0c4476d71abc8191932cad2a2d5e08e6",
+    "visualCheckpoint": "libfile_89021b23207881918f707a67e59c5e15",
+    "scene1": "libfile_ac49884a196c8191a3a5bad7bac3c556",
+    "scene2": "libfile_36c1710f13c48191b92f16b7d2fc5a25",
+    "scene3": "libfile_b4df714f379c819199ace0427f2d2c21",
+    "scene4": "libfile_8f84ae6e38688191ac7d380419e6b01b",
+    "scene5": "libfile_5888ee43548c8191a1120b09361ea138",
+    "scene6": "libfile_43d1e589c1c08191ae2f4f81b5e9ccd0"
+  },
+  "accessAttempt": {
+    "tool": "Library prepare_materialize",
+    "destination": "/workspace/library-files/dub004-audio",
+    "items": [
+      "timingHandoff",
+      "scene1"
+    ],
+    "result": "No workspace_path; signed transfer URLs returned. GET timingHandoff via supplied URL returned HTTP 403, no local file. Stopped without alternate-host/proxy bypass. Scene1 transfer not attempted after shared transfer path failure."
+  },
+  "nextRequired": "Actual audio access/listening and full animated video for synchronization and runtime QA. Do not retry/bypass previous HTTP403.",
+  "timingImportScope": "Parent-supplied derived projection only, not full source manifest or binary QA"
+}

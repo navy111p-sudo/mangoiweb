@@ -1,0 +1,311 @@
+{
+  "id": "s2-37",
+  "breaks": [
+    4,
+    2,
+    4,
+    3
+  ],
+  "key": {
+    "P": 7,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "배운 것",
+      "en": "what they learned"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «커다란 백혈구들이 그들을 향해 달려왔다(문제)» 와 «우리 몸은 건강을 지키려고 매 순간 세균과 싸운다(배운 것)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (big white blood cells were rushing toward them) and the what they learned (our bodies fight germs every second to keep us healthy). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Mina, Joon, Dr. Han, a nurse"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "White blood cells thought the submarine was a germ and rushed at it."
+    },
+    {
+      "k": "Learned",
+      "qko": "무엇을 알게 되었나요?",
+      "qen": "What did they learn?",
+      "a": "Our bodies fight germs every second to keep us healthy."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Mina and Joon rode a tiny ",
+      "ans": "submarine",
+      "opts": [
+        "submarine",
+        "train",
+        "plane"
+      ]
+    },
+    {
+      "pre": " through Dr. Han's ",
+      "ans": "blood",
+      "opts": [
+        "blood",
+        "stomach",
+        "brain"
+      ]
+    },
+    {
+      "pre": ". They saw red blood cells and passed through the ",
+      "ans": "heart",
+      "opts": [
+        "heart",
+        "nose",
+        "eye"
+      ]
+    },
+    {
+      "pre": ". Then big white blood cells rushed at them, because they thought the submarine was a ",
+      "ans": "germ",
+      "opts": [
+        "germ",
+        "toy",
+        "fish"
+      ]
+    },
+    {
+      "pre": ". The kids escaped just in ",
+      "ans": "time",
+      "opts": [
+        "time",
+        "space",
+        "sand"
+      ]
+    },
+    {
+      "pre": " and learned that our bodies fight germs every second.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "invented",
+      "발명했다",
+      "Dr. Han <b>invented</b> a tiny submarine",
+      "made something new for the first time"
+    ],
+    [
+      "submarine",
+      "잠수함",
+      "The <b>submarine</b> became smaller than a grain of sand.",
+      "a boat that can travel under water"
+    ],
+    [
+      "grain",
+      "알갱이",
+      "smaller than a <b>grain</b> of sand.",
+      "a very tiny piece of sand or rice"
+    ],
+    [
+      "floated",
+      "둥둥 떠다녔다",
+      "red blood cells <b>floated</b> past like little red plates.",
+      "moved slowly in water or air"
+    ],
+    [
+      "germs",
+      "세균들",
+      "\"They think we are <b>germs</b>!\"",
+      "very tiny living things that can make you sick"
+    ],
+    [
+      "healthy",
+      "건강한",
+      "to keep us <b>healthy</b>",
+      "strong and not sick"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did the white blood cells rush toward the submarine?",
+      "qko": "백혈구들은 왜 잠수함을 향해 달려왔나요?",
+      "opts": [
+        "They thought the submarine was a germ.",
+        "They wanted to play with the kids.",
+        "The heart told them to come."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "\"They think we are germs!\" shouted Joon.",
+        "Zap! The submarine became smaller than a grain of sand.",
+        "Back at full size, Joon was still shaking.",
+        "Dr. Han invented a tiny submarine, and Mina and her brother Joon climbed inside."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "준이 «우리를 세균으로 생각해!» 라고 외쳤어요. 백혈구는 몸에 들어온 세균과 싸우니까, 잠수함을 세균으로 알고 달려온 거예요.",
+        "Joon shouted, «They think we are germs!» White blood cells fight germs, so they rushed at the submarine."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Big white blood cells were rushing toward them!\" What does \"rushing\" mean here?",
+      "qko": "\"Big white blood cells were rushing toward them!\"이라고 나와요. 여기서 \"rushing\"은 무슨 뜻인가요?",
+      "opts": [
+        "moving very fast",
+        "sleeping quietly",
+        "moving slowly and carefully"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Inside, red blood cells floated past like little red plates.",
+        "Mina turned around and raced back to the arm.",
+        "\"You will travel through my blood,\" said Dr. Han. \"Come back in ten minutes!\"",
+        "\"Our bodies fight germs every second to keep us healthy,\" said Mina."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "백혈구가 빠르게 다가오니까 미나는 급히 방향을 돌려 팔 쪽으로 쏜살같이 돌아갔어요. rushing은 «아주 빠르게 움직이는» 것을 뜻해요.",
+        "The white blood cells were coming fast, so Mina had to turn around and race back. «Rushing» means moving very fast."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did the kids get out of Dr. Han's body?",
+      "qko": "아이들은 한 박사의 몸에서 어떻게 빠져나왔나요?",
+      "opts": [
+        "Mina raced back to the arm, and the nurse pulled them out.",
+        "Dr. Han sneezed them out.",
+        "The white blood cells carried them out."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Mina turned around and raced back to the arm.",
+        "Then they reached the heart, and it pushed them forward with a loud boom, boom.",
+        "Just in time, the nurse pulled them out with the needle.",
+        "A nurse put it into Dr. Han's arm with a needle."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "미나가 잠수함을 돌려 팔 쪽으로 서둘러 돌아갔고, 간호사가 바로 그때 잠수함을 꺼냈어요. 두 문장을 이으면 답이 나와요.",
+        "Mina raced back to the arm, and just in time the nurse pulled them out. Put these two clues together."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Mina and Joon travel to the lungs to see how we breathe.",
+      "미나와 준이 우리가 숨 쉬는 방법을 보러 폐로 여행해요.",
+      "Trip to the Lungs"
+    ],
+    [
+      "B",
+      "Joon decides to wash his hands more often to help his body.",
+      "준이 몸을 돕기 위해 손을 더 자주 씻기로 해요.",
+      "Joon's Clean Hands"
+    ]
+  ],
+  "write": {
+    "pre": "I want to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“I want to <u>wash my hands often</u> because <u>germs can make me sick</u>.”",
+    "slotKo": [
+      "하고 싶은 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what you want to do",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «하고 싶은 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you want to do and your reason in English.",
+    "chips": [
+      {
+        "a": "eat more vegetables",
+        "b": "they keep my body strong",
+        "label": "vegetables"
+      },
+      {
+        "a": "sleep early tonight",
+        "b": "I am very tired",
+        "label": "sleep"
+      },
+      {
+        "a": "visit the science museum",
+        "b": "I like learning about the body",
+        "label": "museum"
+      }
+    ],
+    "aria": [
+      "what you want to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «I want to» 뒤에는 동사(eat, sleep, visit)를 바로 쓰고, «because» 뒤에는 «누가 + 무엇을» 을 쓰세요.",
+    "moreEn": "One more step: after «I want to», write a verb (eat, sleep, visit). After «because», write who + what."
+  },
+  "img": {
+    "style": "cg3d",
+    "cover": "Inside a glowing pink tunnel inside a human body, a tiny yellow submarine with round windows races away from three huge fluffy white blobs, and through the windows a girl with a long black ponytail in a purple jumpsuit grips the steering wheel while a little boy with a round bowl haircut in a matching purple jumpsuit shouts with his mouth wide open.",
+    "scenes": {
+      "1": "Inside a glowing pink tunnel, round red discs that look like little red plates float past a tiny yellow submarine with round windows, where a girl with a long black ponytail in a purple jumpsuit and a little boy with a round bowl haircut in a matching purple jumpsuit press their faces to the glass in wonder.",
+      "3": "In a bright lab, a girl with a long black ponytail in a purple jumpsuit smiles and points to a simple drawing of a smiling white blob chasing a little green germ on a board while a little boy with a round bowl haircut in a matching purple jumpsuit sits on the floor, still shaking, and a man with messy white hair in a long white lab coat laughs next to a tiny yellow submarine with round windows on a silver tray."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "Mina and Joon watch red cells float past the submarine.",
+    "3": "Back in the lab, Mina explains while Joon is still shaking.",
+    "cover": "The tiny submarine races away from big white cells."
+  }
+}

@@ -13,6 +13,7 @@ import {
 import { dowList, loadHoldRanges, heldOnFor } from './absence-hold';
 import { recurStartedOn } from './class-start-date';
 import { teacherPresenceByRoom } from './no-show-truth';
+import { loadTeacherNameOf } from './student-schedule-summary';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const KST = 9 * 3600 * 1000;
@@ -26,9 +27,9 @@ export async function ensureStudentLeaveTable(env: any): Promise<void> {
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_student_leaves_uid ON student_leaves(student_uid)`); } catch { /* 있음 */ }
 }
 
-export async function loadLeaves(env: any, uid: string): Promise<LeaveRow[] | null> {
+export async function loadLeaves(env: any, uid: string, readOnly = false): Promise<LeaveRow[] | null> {
   try {
-    await ensureStudentLeaveTable(env);
+    if (!readOnly) await ensureStudentLeaveTable(env);
     const rs = await env.DB.prepare(
       `SELECT id, student_uid, start_date, end_date, reason, status, created_by, created_at, cancelled_by, cancelled_at
          FROM student_leaves WHERE student_uid = ? ORDER BY start_date DESC`
@@ -41,7 +42,7 @@ export async function loadLeaves(env: any, uid: string): Promise<LeaveRow[] | nu
 }
 
 /** ym = 'YYYY-MM'. 그 달 그 학생의 회차 원장. */
-export async function buildStudentLedger(env: any, uid: string, ym: string, now: number = Date.now()) {
+export async function buildStudentLedger(env: any, uid: string, ym: string, now: number = Date.now(), readOnly = false, historyRows?: any[]) {
   const [y, m] = ym.split('-').map(Number);
   const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const from = `${ym}-01`, to = `${ym}-${pad(days)}`;
@@ -49,7 +50,7 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
 
   let rows: any[] = [];
   try {
-    const rs = await env.DB.prepare(
+    const rs = historyRows ? { results: historyRows } : await env.DB.prepare(
       `SELECT * FROM class_schedules WHERE user_id = ? AND COALESCE(status,'active') != 'cancelled'`
     ).bind(uid).all();
     rows = (rs?.results || []).filter((r: any) => {
@@ -76,11 +77,12 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
       }
     }
     for (const d of dates) {
+      if (r.history_until && d >= r.history_until) continue;
       const startMs = Date.parse(`${d}T${start.length === 5 ? start : '00:00'}:00+09:00`);
       occ.push({ schedule_id: Number(r.id), date: d, start, dur, teacher_id: r.teacher_id ?? null,
         status: String(r.status || 'active').toLowerCase(), room: `class-${r.id}-${d.replace(/-/g, '')}`,
         dated: !!dated, source: String(r.source || ''), start_ms: startMs,
-        upcoming: !(startMs <= now) });
+        upcoming: !(startMs <= now), history_cancelled: !!r.history_cancelled_on && d >= r.history_cancelled_on });
     }
   }
   occ.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
@@ -150,7 +152,7 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
     } catch (e: any) { warnings.push('postpone_requests'); }
   }
 
-  const leaves = await loadLeaves(env, uid);
+  const leaves = await loadLeaves(env, uid, readOnly);
   if (leaves === null) warnings.push('leaves');
   const holds = await loadHoldRanges(env);
   const holidays = new Set<string>();
@@ -172,7 +174,9 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
     //   · 반복 행 → 요청이 «기록만» 되고 행은 안 바뀌므로(decide 의 'recorded') 요청이 유일한 근거
     //   · 날짜 행 → 실제로 status='postponed' 로 바뀐 경우만. 새 날짜로 «옮겨진» 행은 옮겨진 날짜의
     //     회차가 따로 세어지므로(급여도 같음) 여기서 연기로 또 세지 않는다.
-    const pr0 = postponeReq[key] || null;
+    /* 🔁 (2026-10-09) 반복 수업 «그 주만» 연기 — 요청은 반복 줄 번호, 연기 기록은 새 줄(source='recurring-week:<id>'). */
+    const rwParent = o.source.indexOf('recurring-week:') === 0 ? o.source.slice('recurring-week:'.length) : '';
+    const pr0 = postponeReq[key] || (rwParent ? postponeReq[`${rwParent}|${o.date}`] : null) || null;
     const pr = pr0 && (!o.dated || o.status === 'postponed') ? pr0 : null;
     const state: LedgerState = classifyOccurrence({
       schedStatus: o.status,
@@ -184,6 +188,8 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
       onLeave: !!isOnLeave(leaves || [], o.date),
       onHold: !!heldOnFor(holds, uid, o.date),
       holiday: holidays.has(o.date),
+      // History-only cancellation overlay; actual attendance still wins in the canonical classifier.
+      ...(!pr && o.history_cancelled ? { postponeReq: { request_type: 'cancel' } } : {}),
     });
     const def = LEDGER_STATES[state];
     return {
@@ -196,6 +202,12 @@ export async function buildStudentLedger(env: any, uid: string, ym: string, now:
       on_leave: !!isOnLeave(leaves || [], o.date), holiday: holidays.has(o.date),
     };
   });
+
+  /* 👩‍🏫 (2026-10-08) 화면이 강사 «번호» 만 받던 것을 이름으로. 정본 loadTeacherNameOf(원부 번호 → 계정 연결)
+     — 실패해도 던지지 않고 빈 이름을 준다(원장은 그대로 떠야 한다). ⛔ 카페24 강사번호와 섞지 않는다. */
+  let nameOf: (tid: any) => string = () => '';
+  try { nameOf = await loadTeacherNameOf(env); } catch { /* 이름 없이 간다 */ }
+  for (const it of items as any[]) it.teacher_name = nameOf(it.teacher_id) || null;
 
   return {
     ok: true, uid, month: ym,

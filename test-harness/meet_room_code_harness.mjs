@@ -14,9 +14,10 @@
  *   ⑤ 빈칸은 빈칸 그대로인가 (공용방 폴백은 예전 동작 그대로여야 한다)
  *   ⑥ 입장 직전 배선 — vcJoinRoom 래퍼가 실제로 그 해석을 쓰는가
  */
+import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 
-const ROOT = new URL('..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const P_MODAL = ROOT + 'cloudflare-deploy/public/js/idx-vc-room.js';
 const P_LOBBY = ROOT + 'cloudflare-deploy/public/js/idx-vc-roomcode.js';
 const P_INDEX = ROOT + 'cloudflare-deploy/public/index.html';

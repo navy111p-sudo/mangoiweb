@@ -1,0 +1,311 @@
+{
+  "id": "s2-14",
+  "breaks": [
+    3,
+    3,
+    3,
+    4
+  ],
+  "key": {
+    "P": 2,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "해결",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «배가 바위에 부딪쳐 물이 들어오기 시작했다(문제)» 와 «소민이가 침착했기 때문에 모두가 탈출할 수 있었다(해결)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the ship hit a rock and water started coming in) and the solution (Somin stayed calm and helped everyone escape). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Somin, her dad, the people on the ferry"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "The ferry hit a rock and started to sink."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Somin stayed calm and found the way out."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Somin and her dad were on a ",
+      "ans": "ferry",
+      "opts": [
+        "ferry",
+        "train",
+        "plane"
+      ]
+    },
+    {
+      "pre": ". The ship hit a ",
+      "ans": "rock",
+      "opts": [
+        "rock",
+        "whale",
+        "bridge"
+      ]
+    },
+    {
+      "pre": ", and water came in. Somin helped a little ",
+      "ans": "boy",
+      "opts": [
+        "boy",
+        "girl",
+        "dog"
+      ]
+    },
+    {
+      "pre": " put on a life jacket. When the lights went out, she looked for a green ",
+      "ans": "light",
+      "opts": [
+        "light",
+        "door",
+        "flag"
+      ]
+    },
+    {
+      "pre": " and found the exit. Because she stayed ",
+      "ans": "calm",
+      "opts": [
+        "calm",
+        "scared",
+        "sleepy"
+      ]
+    },
+    {
+      "pre": ", everyone escaped safely.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "ferry",
+      "여객선",
+      "Somin and her dad were on a <b>ferry</b> to a small island.",
+      "a boat that carries people across water"
+    ],
+    [
+      "calm",
+      "침착한",
+      "Because Somin stayed <b>calm</b>",
+      "quiet and not worried"
+    ],
+    [
+      "escape",
+      "탈출하다",
+      "she helped everyone <b>escape</b>.",
+      "to get out of a dangerous place"
+    ],
+    [
+      "exit",
+      "출구",
+      "Somin could not see the <b>exit</b> anywhere!",
+      "the way out of a place"
+    ],
+    [
+      "tilt",
+      "기울다",
+      "the floor began to <b>tilt</b>.",
+      "to lean to one side"
+    ],
+    [
+      "rescue",
+      "구조",
+      "Soon, <b>rescue</b> boats arrived",
+      "help that saves people from danger"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did water start coming into the ship?",
+      "qko": "배 안으로 왜 물이 들어오기 시작했나요?",
+      "opts": [
+        "The ship hit a rock.",
+        "A big wave broke a window.",
+        "Somin opened a door."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Somin and her dad were on a ferry to a small island.",
+        "The ship had hit a rock, and water started coming in.",
+        "Somin found the life jackets under the seats and helped a little boy put one on.",
+        "Everyone followed her up the stairs to the deck."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "본문에 «배가 바위에 부딪쳤고, 물이 들어오기 시작했다»라고 나와요. 큰 파도가 창문을 깼다거나 소민이가 문을 열었다는 말은 없어요.",
+        "The text says the ship had hit a rock, and water started coming in. Nothing says a wave broke a window or that Somin opened a door."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "Dad says, \"Stay calm and remember the safety video.\" What does \"stay calm\" mean here?",
+      "qko": "아빠가 \"Stay calm and remember the safety video.\"라고 말해요. 여기서 \"stay calm\"은 무슨 뜻인가요?",
+      "opts": [
+        "do not panic and think clearly",
+        "stay in your seat and sleep",
+        "run fast in every direction"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "People screamed and ran in every direction.",
+        "Suddenly, there was a loud CRASH, and the ship shook hard.",
+        "\"There! The exit is this way!\" she shouted.",
+        "Soon, rescue boats arrived and took everyone safely to shore."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "사람들이 소리 지르며 사방으로 뛰어다닐 때 아빠가 이 말을 했어요. 겁먹고 허둥대지 말고 차분하게 생각하라는 뜻이에요.",
+        "Dad said this while people were screaming and running in every direction. It means do not panic, and think clearly."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did Somin find the exit in the dark?",
+      "qko": "소민이는 깜깜한 곳에서 어떻게 출구를 찾았나요?",
+      "opts": [
+        "She looked for a small green light and found the way out.",
+        "Her dad carried her up to the deck.",
+        "A rescue boat turned on its lights."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "She remembered the green signs and looked for a small green light.",
+        "People screamed and ran in every direction.",
+        "\"There! The exit is this way!\" she shouted.",
+        "Soon, rescue boats arrived and took everyone safely to shore."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "소민이는 초록색 표지판을 떠올려 작은 초록 불빛을 찾았고, 곧 «출구는 이쪽이에요!» 하고 외쳤어요. 두 문장을 이으면 답이 나와요.",
+        "Somin remembered the green signs and looked for a small green light, and then she shouted, «The exit is this way!» Put these two sentences together to find the answer."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Somin teaches her class how to stay safe on a ship.",
+      "소민이가 반 친구들에게 배에서 안전하게 지내는 법을 알려 줘요.",
+      "Somin's Safety Class"
+    ],
+    [
+      "B",
+      "Somin and her dad finally visit the small island.",
+      "소민이와 아빠가 드디어 작은 섬에 놀러 가요.",
+      "The Island Trip"
+    ]
+  ],
+  "write": {
+    "pre": "We should",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“We should <u>learn where the exits are</u> so that <u>we can get out quickly</u>.”",
+    "slotKo": [
+      "해야 할 일",
+      "그러면 어떻게 되는지"
+    ],
+    "slotEn": [
+      "what we should do",
+      "what will happen"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «해야 할 일 + 그 목적» 으로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and its purpose in English.",
+    "chips": [
+      {
+        "a": "wear a helmet on a bike",
+        "b": "our heads stay safe",
+        "label": "helmet"
+      },
+      {
+        "a": "listen to the fire drill rules",
+        "b": "everyone knows what to do",
+        "label": "fire drill"
+      },
+      {
+        "a": "put on a life jacket on a boat",
+        "b": "we can float in the water",
+        "label": "life jacket"
+      }
+    ],
+    "aria": [
+      "what we should do",
+      "so that what happens"
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에는 «누가 + 무엇을 할 수 있다» 를 쓰세요. (예: so that we can stay safe)",
+    "moreEn": "One more step: after «so that», write who + what they can do. (e.g. so that we can stay safe)"
+  },
+  "img": {
+    "style": "anime",
+    "cover": "In a dark, tilted ship hallway, an eleven-year-old Korean girl with two short black pigtails, a mint-green raincoat and white sneakers points toward a small glowing green light above a door with no writing on it, followed by her dad, a tall man with short black hair, a gray sweater and a small backpack, and then a line of people in orange life jackets.",
+    "scenes": {
+      "1": "Inside a ferry cabin with a little water on the floor, an eleven-year-old Korean girl with two short black pigtails, a mint-green raincoat and white sneakers kneels by the seats and helps a small boy put on an orange life jacket, while her dad, a tall man with short black hair, a gray sweater and a small backpack calmly holds out more life jackets and other passengers rush past behind them.",
+      "3": "On the ship's deck under a cloudy sky, an eleven-year-old Korean girl with two short black pigtails, a mint-green raincoat and white sneakers and her dad, a tall man with short black hair, a gray sweater and a small backpack wave at orange rescue boats coming near, and the small boy in an orange life jacket holds her hand and smiles."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "A girl helps a small boy put on a life jacket.",
+    "3": "A girl and her dad wave at rescue boats from the deck.",
+    "cover": "A girl points to a green light in a dark ship as people follow her."
+  }
+}

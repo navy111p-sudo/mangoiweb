@@ -105,9 +105,18 @@ console.log('\n[ C. 파기 SQL 을 진짜 SQLite 에 돌린다 — 세 상태가
 {
   /* 소스의 DELETE 를 그대로 오려 낸다. 손으로 옮겨 적으면 «검사는 통과하는데 실물은 다른»
      상태가 된다(규칙서 2장 — 하니스가 옛 계약을 외우는 사고). */
-  const i = retention.indexOf('DELETE FROM kakao_ids');
-  const j = retention.indexOf('`', i);
-  const sql = retention.slice(i, j);
+  /* (2026-10-13) 파기 단계가 공용 apply(표, WHERE, …) 를 거치게 바뀌어(dryRun 은 세기만),
+     조건이 `apply('kakao_ids', `…`)` 로 들어 있다 — 그 WHERE 를 오려 내 «DELETE FROM kakao_ids WHERE» 를 붙인다.
+     옛 모양(DELETE 를 직접 적은 것)도 그대로 받는다. */
+  let sql = '';
+  const ia = retention.indexOf("apply('kakao_ids'");
+  if (ia >= 0) {
+    const b1 = retention.indexOf('`', ia), b2 = retention.indexOf('`', b1 + 1);
+    sql = 'DELETE FROM kakao_ids WHERE ' + retention.slice(b1 + 1, b2);
+  } else {
+    const i = retention.indexOf('DELETE FROM kakao_ids');
+    sql = i < 0 ? '' : retention.slice(i, retention.indexOf('`', i));
+  }
   check('파기 SQL 을 소스에서 오려 냈다', /kakao_consent = 0/.test(sql) && sql.length > 200,
     '길이 ' + sql.length);
 

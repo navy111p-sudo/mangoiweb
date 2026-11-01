@@ -11,6 +11,7 @@
  */
 
 import { WebSocketMessage } from './types';
+import { requireRoomJwtSecret } from './room-jwt-secret';
 
 const MAX_PEERS = 2;
 
@@ -38,8 +39,7 @@ export class SignalingRoom {
     if (!requireToken) return { ok: true };
     if (!token) return { ok: false, error: 'token_required' };
     try {
-      // 🔐 폴백은 강한 상수(공개 BUILD_STAMP 금지, 2026-07-12 보안). auth-token.ts / api-mango 와 동일해야 함.
-      const secret = this.env.ROOM_JWT_SECRET || 'mgi-fb-d0895a3a232c5ef0f0950c6128a04a5311ec69ba142cb4a86a8d334e33c56f30';
+      const secret = requireRoomJwtSecret(this.env);
       const parts = token.split('.');
       if (parts.length !== 3) return { ok: false, error: 'malformed' };
       const [h, p, s] = parts;

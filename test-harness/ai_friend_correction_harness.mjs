@@ -403,9 +403,11 @@ const t = (n, ok, x) => out.push([n, !!ok, x == null ? '' : String(x)]);
   const d1 = decideWarmupFixShow(major, null, 5);
   t('F-8 뜻이 달라지는 오류는 바로 보여 준다', !!d1.show);
   const d2 = decideWarmupFixShow(minor, null, 5);
-  t('F-9 작은 실수는 처음엔 안 보여 준다', d2.show === null);
+  /* 2026-10-30 — 작은 실수도 «첫 번째» 에 보여 준다(사장님 「틀린 말을 안 고쳐 준다」). 매 턴은 간격(F-11b)이 막는다. */
+  t('F-9 🔴 작은 실수도 첫 번째에 보여 준다 (2026-10-30)', !!d2.show);
+  t('F-9b 짝: 낱말 고르기(word_choice)는 예전대로 두 번째부터', decideWarmupFixShow({ ...minor, tag: 'word_choice' }, null, 5).show === null);
   const d3 = decideWarmupFixShow(minor, d2.memo, 9);
-  t('F-10 같은 실수가 두 번째면 보여 준다', !!d3.show);
+  t('F-10 간격을 띄운 같은 실수도 보여 준다', !!d3.show);
   const d4 = decideWarmupFixShow(major, d1.memo, 6);
   /* 🔴 2026-09-09 사장님 「I ate pizza yesterday 인데 아바타가 수정해주지 않았어」 —
      뜻이 달라지는 오류는 연달아 틀려도 «매번» 고쳐 준다(옛 코드는 major 도 2턴을 띄웠다). */
@@ -421,8 +423,8 @@ const t = (n, ok, x) => out.push([n, !!ok, x == null ? '' : String(x)]);
      학생의 맨 첫 마디는 원리상 못 고쳐 줬다. 지금은 «한 번도 안 보여줬으면 간격 없음» 이다. */
   t('F-13 🔴 turnNo=1 — 학생의 첫 마디도 고쳐 준다',
     !!decideWarmupFixShow(major, null, 1).show);
-  t('F-13b 짝 검사: 첫 마디여도 작은 실수는 처음엔 안 고친다',
-    decideWarmupFixShow(minor, null, 1).show === null);
+  t('F-13b 🔴 첫 마디의 작은 실수도 고쳐 준다 (2026-10-30)',
+    !!decideWarmupFixShow(minor, null, 1).show);
 }
 console.log('__J__' + JSON.stringify(out));
 `;

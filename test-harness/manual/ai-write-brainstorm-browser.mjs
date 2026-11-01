@@ -61,6 +61,7 @@ const browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbo
 for (const [label, w, h] of [['PC 1280', 1280, 900], ['휴대폰 390', 390, 844]]) {
   console.log('\n▶ ' + label);
   const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+  await ctx.addInitScript(() => { try { localStorage.setItem('mangoi_aiwrite_howto_v1', '1'); } catch (e) {} }); // 첫 방문 «📖 사용 방법» 창이 화면을 덮지 않게(본 것으로 표시) — onescreen 과 같은 방식
   await ctx.addInitScript(() => { try { localStorage.removeItem('mangoi_aiwrite_go_v1'); } catch (_) {} });
   // 포괄 스텁 «먼저» → 구체 스텁 «뒤»
   await ctx.route('**/api/**', (r) => r.fulfill({ contentType: 'application/json', body: '{"ok":false}' }));
@@ -69,7 +70,10 @@ for (const [label, w, h] of [['PC 1280', 1280, 900], ['휴대폰 390', 390, 844]
   const errs = [];
   page.on('pageerror', (e) => errs.push(String(e)));
   await page.goto(BASE + '/ai-write.html', { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('#goThemes .go-theme', { timeout: 15000 });
+  // 📅 (2026-10-19 사장님 지시) 브레인스토밍은 «도움» 접이칸 밖 · 그림 바로 아래이고, 글감은 «🎬 장면·글감 선택» 목록 하나에서 고른다.
+  //    (10-08~10-18 판은 #awHelp 를 펼치고 «🧠 내 경험» 칩을 눌렀다 — 그 칩 줄은 목록으로 합쳐 지웠다)
+  await page.waitForSelector('#picChoice option[value^="story:"]', { state: 'attached', timeout: 15000 });
+  const firstStory = await page.evaluate(() => document.querySelector('#picChoice option[value^="story:"]').value);
 
   // ① 4단계 배너
   const steps = await page.evaluate(() => {
@@ -79,7 +83,7 @@ for (const [label, w, h] of [['PC 1280', 1280, 900], ['휴대폰 390', 390, 844]
   check('① 파이프라인 4단계가 뜨고 지금은 1단계', steps.n === 4 && steps.on === '1', JSON.stringify(steps));
 
   // ② 주제 → 6하원칙 질문 6개, 답 없으면 «뼈대로 쓰기» 잠김
-  await page.click('#goThemes .go-theme');
+  await page.selectOption('#picChoice', firstStory); await page.waitForTimeout(300);
   check('② 주제를 고르면 질문 6개', (await page.locator('#goBody .go-q input').count()) === 6);
   check('② 답이 없으면 «뼈대로 쓰기» 가 잠겨 있다', await page.locator('#goApplyBtn').isDisabled());
 
@@ -156,7 +160,7 @@ for (const [label, w, h] of [['PC 1280', 1280, 900], ['휴대폰 390', 390, 844]
   check('⑦ 가로로 넘치지 않는다', ov.sw <= ov.iw + 1, JSON.stringify(ov));
   const shred = await page.evaluate(() => {
     const bad = [];
-    document.querySelectorAll('#flowSteps .fs-t, .go-theme, .go-part-t').forEach((el) => {
+    document.querySelectorAll('#flowSteps .fs-t, .go-cur-t, .go-cur-src, .go-part-t').forEach((el) => {
       const lh = parseFloat(getComputedStyle(el).lineHeight) || 18;
       const n = Math.round(el.getBoundingClientRect().height / lh);
       if (n >= 3) bad.push(el.textContent.trim().slice(0, 18) + ':' + n + '줄');
@@ -169,16 +173,18 @@ for (const [label, w, h] of [['PC 1280', 1280, 900], ['휴대폰 390', 390, 844]
   await page.evaluate(() => window.setLang && window.setLang('en'));
   const en = await page.evaluate(() => ({
     t: document.querySelector('#flowSteps .fs-t').textContent,
-    th: document.querySelector('.go-theme').textContent,
+    th: (document.querySelector('.go-cur-t') || {}).textContent || '',
+    groups: [...document.querySelectorAll('#picChoice optgroup')].map((o) => o.label).join(' '),
     q: (document.querySelector('.go-q-label') || {}).textContent || '',
   }));
-  check('⑧ EN 화면에서 새 UI 도 영어로 바뀐다', !/[가-힣]/.test(en.t + en.th + en.q), JSON.stringify(en));
+  check('⑧ EN 화면에서 새 UI 도 영어로 바뀐다 (지금 주제 줄 · 목록 묶음 이름 포함)', en.th.length > 0 && en.groups.length > 0 && !/[가-힣]/.test(en.t + en.th + en.q + en.groups), JSON.stringify(en));
 
-  /* 🔗 ⑩ 주제 목록 셋이 «한 길» 로 모이는가 — 그림·글감을 눌러도 브레인스토밍이 그 주제로 열린다
+  /* 🔗 ⑩ 주제가 «한 길» 로 모이는가 — 목록에서 그림·글감을 골라도 브레인스토밍이 그 주제로 열린다
      ⚠️ 바로 위 ⑧ 이 화면을 EN 으로 바꿔 놓는다 — 한국어 라벨로 누를 거라 되돌려 놓고 시작한다. */
   await page.evaluate(() => window.setLang && window.setLang('ko'));
   await page.waitForTimeout(200);
   await page.evaluate(() => { document.getElementById('text').value = ''; updateCharCount(); });
+  await page.selectOption('#picChoice', 'pic:3'); await page.waitForTimeout(300);   // 🎬 목록에서 그림 장면을 고르면 그림 칸이 그림으로 돌아온다
   await page.click('#picCard .pic-btn.go');                       // 🖼 이 장면으로 쓰기
   await page.waitForTimeout(450);
   const scene = await page.evaluate(() => ({
@@ -193,7 +199,7 @@ for (const [label, w, h] of [['PC 1280', 1280, 900], ['휴대폰 390', 390, 844]
     scene.cap.replace(/^🖼\s*/, '').slice(0, 12) !== '' && scene.cur.includes(scene.cap.replace(/^🖼\s*/, '').slice(0, 12)),
     scene.cur + ' / ' + scene.cap);
 
-  await page.click('#topicRow .topic-chip[data-topic]');           // 🎲 오늘의 글감
+  await page.selectOption('#picChoice', 'topic:0');                 // 🎲 오늘의 글감 — 이제 같은 목록에서 고른다
   await page.waitForTimeout(450);
   const topic = await page.evaluate(() => ({
     qs: document.querySelectorAll('#goBody .go-q input').length,

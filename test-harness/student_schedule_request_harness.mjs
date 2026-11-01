@@ -87,13 +87,16 @@ function makeDb() {
     const exec = args => ({
       first: async () => st.get(...args) || null,
       all: async () => ({ results: st.all(...args) }),
-      run: async () => { const r = st.run(...args); return { meta: { last_row_id: Number(r.lastInsertRowid) } }; },
+      run: async () => { const r = st.run(...args); return { success: true, meta: { last_row_id: Number(r.lastInsertRowid), changes: Number(r.changes) } }; },
     });
     return Object.assign(exec([]), { bind: (...a) => exec(a) });
   };
   return { db, D1: { prepare: wrap, exec: async sql => db.exec(sql) } };
 }
+const versionSrc = SRC('src/class-schedule-move.ts');
+const scheduleMoveVersion = new Function('row', blockAt(versionSrc, versionSrc.indexOf('export function scheduleMoveVersion')));
 const json = (o, status = 200) => ({ status, body: o });
+const autoCalls = [];
 async function call({ tok, payload, pre }) {
   const { db, D1 } = makeDb();
   const env = { DB: D1 };
@@ -102,12 +105,16 @@ async function call({ tok, payload, pre }) {
   const url = new URL('http://x/api/class/schedule/request');
   const authUidGlobal = async () => tok;
   const notes = [];
+  /* ⏩ (2026-10-06) 자동 승인은 student_auto_postpone_harness 가 진짜로 돌린다 — 여기서는
+     «접수 뒤 그 요청 번호로 부르는가» 만 보고, 결과는 «대기 그대로»(applied:null)로 돌려준다. */
+  autoCalls.length = 0;
+  const autoStub = async (_e, id) => { autoCalls.push(id); return { applied: null, reason: 'stub' }; };
   const enqueueNotification = async (_e, n) => { notes.push(n); };
   let res;
   try {
-    const fn = new Function('env', 'request', 'url', 'json', 'authUidGlobal', 'enqueueNotification', 'studentRequestGate', 'ensureScheduleChangeRequestTable',
+    const fn = new Function('env', 'request', 'url', 'json', 'authUidGlobal', 'enqueueNotification', 'studentRequestGate', 'ensureScheduleChangeRequestTable', 'scheduleMoveVersion', 'WEEKLY_POSTPONE', 'autoApproveStudentPostpone',
       'return (async () => {' + body + '\n})();');
-    res = await fn(env, request, url, json, authUidGlobal, enqueueNotification, gate, ensureScheduleChangeRequestTable); }
+    res = await fn(env, request, url, json, authUidGlobal, enqueueNotification, gate, ensureScheduleChangeRequestTable, scheduleMoveVersion, 'weekly_postpone', autoStub); }
   catch (e) { res = { status: 0, body: { error: 'THREW ' + e.message } }; }
   const rows = (() => { try { return db.prepare('SELECT * FROM schedule_change_requests').all(); } catch { return []; } })();
   return { res, rows, notes };
@@ -118,6 +125,7 @@ const plus = n => new Date(Date.parse(today + 'T00:00:00Z') + n * 864e5).toISOSt
 {
   const { res, rows, notes } = await call({ tok: 'jeong', payload: { schedule_id: 849, request_type: 'postpone', orig_date: plus(1), new_date: plus(3), new_time: '11:20', student_name: '가짜이름', orig_time: '03:00', student_uid: 'kim' } });
   ok('내 반복 수업 연기 → 200', res.status === 200 && res.body.ok === true, res);
+  ok('접수 뒤 자동 승인을 «그 요청 번호» 로 부른다', autoCalls.length === 1 && autoCalls[0] === res.body.id, autoCalls);
   ok('요청 1행 저장', rows.length === 1, rows.length);
   const r = rows[0] || {};
   ok('학생 역할·토큰 uid 로 적는다', r.requester_role === 'student' && r.requester_uid === 'jeong', r);
@@ -166,7 +174,8 @@ let ftBody = blockAt(mango, ftAt);
 ok('라우트 몸통을 오려 냈다', ftBody.length > 400);
 ok('판정은 정본 moveCandidatesFor 를 부른다(복제 금지)', /moveCandidatesFor\(env, row, date, time\)/.test(ftBody));
 ok('정본이 enroll-ops.ts 에 «export» 로 있다', /export async function moveCandidatesFor\(/.test(SRC('src/enroll-ops.ts')));
-ok('관리자 move-candidates 도 같은 정본을 부른다(두 판정이 갈리지 않게)', /return json\(await moveCandidatesFor\(env, row, date, time\)\)/.test(SRC('src/enroll-ops.ts')));
+/* 2026-10-13: 관리자 경로는 { dayCount: true } 를 붙인다(그날 수업 수·적은 순 정렬) — 판정은 같은 정본이다. */
+ok('관리자 move-candidates 도 같은 정본을 부른다(두 판정이 갈리지 않게)', /return json\(await moveCandidatesFor\(env, row, date, time(, \{[^}]*\})?\)\)/.test(SRC('src/enroll-ops.ts')));
 ftBody = ftBody.replace(/ as any/g, '').replace(/\b(let|const) (\w+): [^=;]+=/g, '$1 $2 =').replace(/\((\w+): any\)/g, '($1)').replace(/\(e: any\)/g, '(e)').replace(/\b(let|const) (\w+): any;/g, '$1 $2;');
 async function callFt({ tok, qs, mc, path = '/api/class/schedule/free-teachers', ds }) {
   const { db, D1 } = makeDb();
@@ -239,6 +248,17 @@ for (const cand of ['typescript', join(ROOT, 'cloudflare-deploy', 'node_modules'
 ok('typescript 를 찾았다(decide 를 실제로 돌리려면 필요)', !!tsMod);
 if (tsMod) dBody = tsMod.transpileModule('async function __d(){' + dBody + '\n}', { compilerOptions: { target: 99 } }).outputText
   .replace(/^[\s\S]*?async function __d\(\)\s*\{/, '').replace(/\}\s*$/, '');
+const atomicModule = {};
+if (tsMod) new Function('exports', tsMod.transpileModule(SRC('src/schedule-request-atomic.ts'), { compilerOptions: { target: 99, module: 1 } }).outputText)(atomicModule);
+/* 🔁 (2026-10-09) 반복 수업 «그 주 하루만» 정본 — esbuild 로 번들해 진짜 판정을 쓴다(복제 금지). */
+const oneWeekModule = {};
+try {
+  const esb = createRequire(join(ROOT, 'cloudflare-deploy', 'package.json'))('esbuild');
+  const out = esb.buildSync({ entryPoints: [join(ROOT, 'cloudflare-deploy/src/recurring-one-week.ts')], bundle: true, format: 'cjs', platform: 'node', write: false, logLevel: 'silent' });
+  const m = { exports: {} }; new Function('module', 'exports', 'require', out.outputFiles[0].text)(m, m.exports, createRequire(import.meta.url));
+  Object.assign(oneWeekModule, m.exports);
+} catch (e) { /* 아래 전제 검사가 FAIL 로 알린다 */ }
+ok('반복 수업 «그 주 하루만» 정본을 불러왔다', typeof oneWeekModule.oneWeekEligible === 'function');
 async function callDecide({ reqRow, scope = 'hq', isTeacher = false, conflict = false, schedSource = null, schedDate = '2026-10-01' }) {
   const db = new DatabaseSync(':memory:');
   db.exec(`CREATE TABLE teachers (id INTEGER PRIMARY KEY, name TEXT, active INTEGER DEFAULT 1)`);
@@ -247,16 +267,19 @@ async function callDecide({ reqRow, scope = 'hq', isTeacher = false, conflict = 
   db.exec(`INSERT INTO class_schedules VALUES (4385,'jeong',${schedDate === null ? 'NULL' : `'${schedDate}'`},'16:00',20,'16',${schedSource ? `'${schedSource}'` : 'NULL'},'active',0)`);
   db.exec(`CREATE TABLE admin_scope (username TEXT, scope_type TEXT)`);
   if (scope) db.prepare(`INSERT INTO admin_scope VALUES ('boss', ?)`).run(scope);
-  const wrap = sql => { const st = db.prepare(sql); const ex = a => ({ first: async () => st.get(...a) || null, all: async () => ({ results: st.all(...a) }), run: async () => { st.run(...a); return {}; } }); return Object.assign(ex([]), { bind: (...a) => ex(a) }); };
+  const wrap = sql => { const st = db.prepare(sql); const ex = a => ({ first: async () => st.get(...a) || null, all: async () => ({ results: st.all(...a) }), run: async () => { const r = st.run(...a); return { success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; } }); return Object.assign(ex([]), { bind: (...a) => ex(a) }); };
   /* D1 batch = 한 트랜잭션 — 하나라도 실패하면 전부 되돌린다(그 성질까지 흉내낸다). */
-  const batch = async stmts => { db.exec('BEGIN'); try { for (const x of stmts) await x.run(); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; } };
+  const batch = async stmts => { db.exec('BEGIN'); try { const out = []; for (const x of stmts) out.push(await x.run()); db.exec('COMMIT'); return out; } catch (e) { db.exec('ROLLBACK'); throw e; } };
   const env = { DB: { prepare: wrap, exec: async q => db.exec(q), batch } };
   await ensureScheduleChangeRequestTable(env);
   const r = Object.assign({ schedule_id: 4385, request_type: 'postpone', teacher_name: 'KRYSTEL', student_name: '정우영', orig_date: '2026-10-01', orig_time: '16:00', new_date: '2026-10-01', new_time: '16:00', status: 'pending', created_at: 1 }, reqRow);
+  r.schedule_snapshot = scheduleMoveVersion(db.prepare('SELECT * FROM class_schedules WHERE id=4385').get());
   const cols = Object.keys(r);
   db.prepare(`INSERT INTO schedule_change_requests (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...cols.map(k => r[k]));
   const audits = []; const confCalls = [];
   const deps = {
+    scheduleMoveVersion, ...atomicModule, WEEKLY_POSTPONE: 'weekly_postpone',
+    findScheduleMoveConflicts: async () => null, // Strict availability is exercised through the full Worker lifecycle harness.
     getAdminActor: async () => ({ ok: true, isTeacher, username: 'boss', name: '사장', role: scope }),
     forbiddenTeacherBody: (_a, m) => ({ ok: false, error: 'forbidden_teacher', message: m }),
     ensureScheduleRequestTable: async () => {},
@@ -266,6 +289,9 @@ async function callDecide({ reqRow, scope = 'hq', isTeacher = false, conflict = 
     MIRROR_SOURCE: 'c24-mirror', MIRROR_SOURCE_MANUAL: 'c24-mirror:manual', DEFAULT_CLASS_MINUTES: 20,
     teacherMoveDenyReason: gateMod.teacherMoveDenyReason,
     writeClassAudit: async (_e, a) => { audits.push(a); },
+    ensureStartsOnColumn: async () => 2, kstToday: () => '2026-09-30',
+    oneWeekEligible: oneWeekModule.oneWeekEligible, oneWeekMessage: oneWeekModule.oneWeekMessage,
+    prepareRecurringOneWeek: oneWeekModule.prepareRecurringOneWeek, ONE_WEEK_FALLBACK: oneWeekModule.ONE_WEEK_FALLBACK,
   };
   const names = Object.keys(deps);
   let res;
@@ -325,7 +351,13 @@ ok('게이트 정본을 불러왔다', typeof gateMod.teacherMoveDenyReason === 
 }
 {
   const { res, cs } = await callDecide({ reqRow: { new_teacher_id: '21' }, schedDate: null });
-  ok('반복 수업은 여전히 기록만(recorded) — 강사 안 바뀜', res.body && res.body.applied === 'recorded' && cs.teacher_id === '16', { res, cs });
+  /* 🔁 (2026-10-09) 옛 경계 「반복 수업은 언제나 기록만」을 옮겼다 — 이제 «그 주 하루만» 반영한다.
+     이 표에는 요일 칸이 없어 회차(10/1)가 «그 요일이 아님» 이므로 옮기지 않고(409) 강사도 안 바뀐다. */
+  ok('반복 수업 — 그 요일이 아닌 회차면 옮기지 않는다(409) · 강사 안 바뀜', res.status === 409 && res.body && res.body.error === 'orig_not_class_day' && cs.teacher_id === '16' && typeof res.body.message === 'string', { res, cs });
+}
+{
+  const { res, cs } = await callDecide({ reqRow: { new_teacher_id: '21', orig_date: null }, schedDate: null });
+  ok('반복 수업 — 회차 날짜 없는 옛 요청은 예전처럼 기록만(recorded) · 강사 안 바뀜', res.body && res.body.applied === 'recorded' && cs.teacher_id === '16', { res, cs });
 }
 {
   const { res, cs } = await callDecide({ reqRow: { new_teacher_id: '21' }, isTeacher: true });
@@ -490,10 +522,22 @@ ok('실제 수업은 1개부터 완료 가능', /__MOB_REAL \? state\.cart\.leng
 const confirmB = blockAt(page, page.indexOf('function onConfirm(){'));
 ok('확정도 실제 수업은 담은 수를 강요하지 않는다', /!__MOB_REAL && state\.cart\.length < state\.weeklyTarget/.test(confirmB));
 const push = blockAt(page, page.indexOf('function pushBackAll(){'));
-const pushReal = blockAt(push, push.indexOf('if (__MOB_REAL)'));
-ok('«한 주 뒤로» 는 실제 수업에서 고른 하나만 담는다(전부 map 하지 않음)', /state\.cart\.push\(/.test(pushReal) && !/CURRENT_SCHEDULE\.map\(/.test(pushReal), pushReal.slice(0, 200));
+// 2026-10-05: explicitly requested weekly cascading postponement replaces the
+// old one-occurrence shortcut. Execute the actual UI handler against a preview.
+const previewState={mode:'postpone',tab:'weekly',dtOrig:0,cart:[]};  // 2026-10-05 A안: «매주» 탭에서만 담는다
+const previewItems=[{id:1,from_date:'2027-01-06',to_date:'2027-01-13',to_time:'16:30'},{id:2,from_date:'2027-01-13',to_date:'2027-01-20',to_time:'16:30'}];
+const previewDeps={state:previewState,__MOB_REAL:true,CURRENT_SCHEDULE:[{schedule_id:1,teacherName:'Sandbox',date:'2027-01-06',hour:'16:30'}],__dtFirstOpen:()=>0,localStorage:{getItem:()=> 'sandbox-token'},showToast:()=>{},renderBody:()=>{},updateSticky:()=>{},fetch:async()=>({ok:true,json:async()=>({ok:true,count:2,items:previewItems,snapshot:'sandbox-snapshot'})})};
+await new Function(...Object.keys(previewDeps),'return (async()=>{'+push+'})();')(...Object.values(previewDeps));
+ok('한 주 뒤로: 전체 시리즈를 한 요청으로 담는다',previewState.cart.length===1&&previewState.cart[0].requestScope==='weekly_postpone');
+ok('연기 전후 전체 회차와 서버 스냅샷 보존',previewState.cart[0]?.seriesItems.length===2&&previewState.cart[0]?.seriesSnapshot==='sandbox-snapshot');
+// 짝: 응답을 기다리는 사이 날짜 탭으로 갔으면 늦게 온 미리보기를 버린다(Codex 리뷰 #1381)
+const awayState={mode:'postpone',tab:'weekly',dtOrig:0,cart:[]};
+const awayDeps={...previewDeps,state:awayState,fetch:async()=>{awayState.tab='time';return {ok:true,json:async()=>({ok:true,count:2,items:previewItems,snapshot:'sandbox-snapshot'})};}};
+await new Function(...Object.keys(awayDeps),'return (async()=>{'+push+'})();')(...Object.values(awayDeps));
+ok('기다리는 사이 다른 탭으로 가면 매주 묶음을 담지 않는다',awayState.cart.length===0);
 const done = blockAt(page, page.indexOf('function showCompletion('));
 ok('완료 화면의 «기존» 도 고른 수업만', /__mobPickedOrigs\(\)/.test(done) && /beforeSrc\.forEach/.test(done));
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
+

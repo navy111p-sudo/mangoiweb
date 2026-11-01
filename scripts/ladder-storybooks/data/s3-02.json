@@ -1,0 +1,311 @@
+{
+  "id": "s3-02",
+  "breaks": [
+    2,
+    2,
+    3,
+    3
+  ],
+  "key": {
+    "P": 1,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «꿀벌은 꽃가루를 옮겨 식물이 씨앗과 열매를 맺게 돕는다(주제)» 와 «그래서 꿀벌을 지키는 것이 중요하다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (honeybees carry pollen and help plants make seeds and fruit) and the conclusion (protecting honeybees is important). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 대한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "How honeybees help flowers"
+    },
+    {
+      "k": "Key fact",
+      "qko": "가장 중요한 사실은 무엇인가요?",
+      "qen": "What is the most important fact?",
+      "a": "Bees carry pollen from flower to flower"
+    },
+    {
+      "k": "Why it matters",
+      "qko": "왜 중요한가요?",
+      "qen": "Why does it matter?",
+      "a": "Plants can make seeds and fruit"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Honeybees carry ",
+      "ans": "pollen",
+      "opts": [
+        "pollen",
+        "sand",
+        "water"
+      ]
+    },
+    {
+      "pre": " from flower to flower. Pollen sticks to the tiny ",
+      "ans": "hairs",
+      "opts": [
+        "hairs",
+        "shells",
+        "feathers"
+      ]
+    },
+    {
+      "pre": " on a bee's body. This process is called ",
+      "ans": "pollination",
+      "opts": [
+        "pollination",
+        "evaporation",
+        "condensation"
+      ]
+    },
+    {
+      "pre": ", and it lets plants make ",
+      "ans": "seeds",
+      "opts": [
+        "seeds",
+        "clouds",
+        "rocks"
+      ]
+    },
+    {
+      "pre": ". Farmers depend on bees, so protecting them is ",
+      "ans": "important",
+      "opts": [
+        "important",
+        "useless",
+        "dangerous"
+      ]
+    },
+    {
+      "pre": " for both nature and people.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "pollen",
+      "꽃가루",
+      "<b>Pollen</b> is a fine, yellow powder that flowers make.",
+      "a fine yellow powder made by flowers"
+    ],
+    [
+      "nectar",
+      "꽃꿀",
+      "a bee visits a flower to drink sweet <b>nectar</b>",
+      "a sweet liquid inside flowers"
+    ],
+    [
+      "process",
+      "과정",
+      "This <b>process</b> is called pollination",
+      "a set of steps that happen in order"
+    ],
+    [
+      "pollination",
+      "꽃가루받이(수분)",
+      "This process is called <b>pollination</b>",
+      "moving pollen between flowers so plants can make seeds"
+    ],
+    [
+      "depend",
+      "의존하다",
+      "Farmers <b>depend</b> on bees to pollinate crops",
+      "to need someone or something"
+    ],
+    [
+      "crops",
+      "농작물",
+      "pollinate <b>crops</b> such as apples and almonds",
+      "plants that farmers grow for food"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "What happens when a bee visits a flower to drink nectar?",
+      "qko": "벌이 꿀을 마시러 꽃에 가면 어떤 일이 생기나요?",
+      "opts": [
+        "Pollen sticks to the tiny hairs on its body",
+        "The flower stops making pollen",
+        "The bee loses all its hairs"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "When a bee visits a flower to drink sweet nectar, pollen sticks to the tiny hairs on its body.",
+        "Pollen is a fine, yellow powder that flowers make.",
+        "Farmers depend on bees to pollinate crops such as apples and almonds.",
+        "Honeybees are busy insects, and they play a big role in nature."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "벌이 꽃꿀을 마시러 꽃에 가면 몸의 작은 털에 꽃가루가 달라붙는다고 했어요.",
+        "When a bee visits a flower to drink nectar, pollen sticks to the tiny hairs on its body."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In «Farmers depend on bees,» what does «depend on» mean?",
+      "qko": "«Farmers depend on bees» 에서 «depend on» 은 무슨 뜻인가요?",
+      "opts": [
+        "need",
+        "hate",
+        "feed"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Without bees, there would be much less fruit and fewer flowers in the world.",
+        "Pollen is a fine, yellow powder that flowers make.",
+        "Then the bee flies to another flower of the same kind.",
+        "Honeybees are busy insects, and they play a big role in nature."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "벌이 없으면 열매가 훨씬 적어진다고 했어요. 그러니 농부들은 벌이 «꼭 필요하다» 는 뜻이에요.",
+        "Without bees, there would be much less fruit. So farmers «need» bees."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How does a flower get pollen from another flower so it can make seeds?",
+      "qko": "꽃은 씨앗을 만들기 위해 다른 꽃의 꽃가루를 어떻게 받나요?",
+      "opts": [
+        "A bee flies to it and some pollen falls off",
+        "The wind always brings nectar to it",
+        "Farmers paint pollen onto each flower"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Then the bee flies to another flower of the same kind.",
+        "Pollen is a fine, yellow powder that flowers make.",
+        "Some of the pollen falls off and lands on the new flower.",
+        "That is why protecting honeybees is important for both nature and people."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "벌이 같은 종류의 다른 꽃으로 날아가고, 그때 꽃가루 일부가 떨어져 새 꽃에 앉아요. 두 문장을 이어야 알 수 있어요.",
+        "The bee flies to another flower of the same kind, and some pollen falls off onto the new flower. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How do bees make honey?",
+      "벌은 어떻게 꿀을 만들까?",
+      "From Flower to Honey"
+    ],
+    [
+      "B",
+      "What can we do to help bees?",
+      "우리는 벌을 돕기 위해 무엇을 할 수 있을까?",
+      "Saving the Bees"
+    ]
+  ],
+  "write": {
+    "pre": "We should",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "해야 할 일",
+      "그 결과"
+    ],
+    "slotEn": [
+      "what we should do",
+      "the result"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «우리가 해야 할 일 + 그 결과» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and the result in English.",
+    "aria": [
+      "what we should do",
+      "the result"
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에 «누가 + 무엇을 할 수 있다» 를 넣어 결과를 분명하게 써 보세요. (예: so that bees can find food)",
+    "moreEn": "One more step: after «so that», write who + can + what to make the result clear. (e.g. so that bees can find food)",
+    "src": "“We should <u>protect honeybees</u> so that <u>plants can make seeds and fruit</u>.”",
+    "chips": [
+      {
+        "a": "plant more flowers",
+        "b": "bees can find food",
+        "label": "flowers"
+      },
+      {
+        "a": "turn off the lights",
+        "b": "we can save energy",
+        "label": "energy"
+      },
+      {
+        "a": "wash our hands",
+        "b": "we do not get sick",
+        "label": "hands"
+      }
+    ]
+  },
+  "img": {
+    "style": "photo",
+    "cover": "A honeybee drinking nectar from a bright yellow flower in a sunny garden",
+    "scenes": {
+      "1": "Close-up of a honeybee on a flower with yellow pollen grains stuck to the fuzzy hairs on its body",
+      "3": "An apple orchard in spring full of white blossoms, with wooden beehives standing between the trees"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "A bee covered with yellow pollen",
+    "3": "Beehives in a blooming apple orchard",
+    "cover": "A honeybee on a yellow flower"
+  }
+}

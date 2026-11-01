@@ -111,8 +111,8 @@ for (const [file, nLoops] of [['src/absent-sweep.ts', 1], ['src/lesson-reminder.
 {
   const S = strip(R('src/api-teacher.ts'));
   ok('강사 포털: 정본으로 판정한다', /const _postponed = isPostponedOccurrence\(s\);/.test(S));
-  ok('강사 포털: 상태를 «postponed» 로 내려준다', /: _postponed \? 'postponed'/.test(S));
-  ok('강사 포털: 입장을 닫는다', /can_enter: !_postponed && now >= enterFromTs/.test(S) && /join_open: !_postponed && now >= open_at_ts/.test(S));
+  ok('강사 포털: 상태를 «postponed» 로 내려준다', /: \(?_postponed(?: \|\| _holidayOff\))? \? 'postponed'/.test(S));
+  ok('강사 포털: 입장을 닫는다', /can_enter: !_postponed && (?:!_holidayOff && )?now >= enterFromTs/.test(S) && /join_open: !_postponed && (?:!_holidayOff && )?now >= open_at_ts/.test(S));
   const H = strip(R('public/teacher.html'));
   const a = H.indexOf("if (c.class_state === 'postponed'){");
   const blk = a > 0 ? H.slice(a, H.indexOf('continue;', a)) : '';
@@ -185,12 +185,17 @@ const ADM_S = strip(ADM);
   ok('상태를 postponed 로 바꾼다', !!setM);
   const jm = /join_open:\s*([^,\n]+),/.exec(blk);
   let jf = null;
-  try { jf = jm ? new Function('_postponed', 'nowMs', 'open_at_ts', 'close_at_ts', 'return (' + jm[1] + ');') : null; } catch (e) { jf = null; }
+  /* 🎌 (2026-10-09) 식에 공휴일 휴강(_holOff)이 더해졌다 — 인자로 받되 이 절의 시험은 «휴강 아님»(false) 으로 돌린다.
+     휴강 쪽 판정은 holiday_closure_harness ⑨ 가 본다. 식에 그 이름이 없어도(옛 판) 그대로 돈다. */
+  let jf0 = null;
+  try { jf0 = jm ? new Function('_postponed', 'nowMs', 'open_at_ts', 'close_at_ts', '_holOff', 'return (' + jm[1] + ');') : null; } catch (e) { jf0 = null; }
+  if (jf0) jf = (p, n, o, c) => jf0(p, n, o, c, false);
   ok('전제: join_open 식을 오려 냈다', typeof jf === 'function', jm && jm[1]);
   if (jf) {
     ok('연기면 입장 시간대 안이어도 닫힌다', jf(true, 100, 50, 200) === false);
     ok('짝: 연기 아니면 시간대 안에서 열린다', jf(false, 100, 50, 200) === true);
     ok('짝: 연기 아니어도 시간대 밖은 닫힌다', jf(false, 300, 50, 200) === false);
+    if (/_holOff/.test(jm[1])) ok('짝: 공휴일 휴강이면 시간대 안이어도 닫힌다', jf0(false, 100, 50, 200, true) === false);
   }
   ok('postponed 칸을 내려준다', /postponed:\s*_postponed,/.test(blk));
 }
@@ -200,17 +205,20 @@ console.log('\nD-2. 다시 잡기 — PATCH · decide');
 {
   const i = ADM_S.indexOf("path === '/api/admin/schedule-requests/decide'");
   const blk = i >= 0 ? ADM_S.slice(i, ADM_S.indexOf("path === '/api/admin/classes/today'", i)) : '';
-  ok('decide: 예약 SELECT 가 status 를 싣는다', /SELECT id, scheduled_date, start_time, duration_min, user_id, teacher_id, source, status FROM class_schedules/.test(blk));
+  ok('decide: 예약 SELECT 가 status 를 싣는다', /SELECT \* FROM class_schedules WHERE id = \? LIMIT 1/.test(blk));
   ok('decide: 연기 상태면 되살리기 문장을 함께 돌린다',
     /if \(String\(\(cs as any\)\?\.status \|\| ''\) === 'postponed'\) _mvAll\.push\(env\.DB\.prepare\(REACTIVATE_POSTPONED_SQL\)\.bind\(row\.schedule_id\)\);/.test(blk));
-  ok('decide: 여러 문장이면 batch 로 묶는다', /if \(_mvAll\.length > 1\) await env\.DB\.batch\(_mvAll\);\s*else await _mv\.run\(\);/.test(blk));
+  ok('decide: 수업과 결정을 같은 원자 batch 로 묶는다', /mutations\.push\(\.\.\._mvAll\)/.test(blk) && /commitScheduleRequestDecision\(env, guards, mutations, decision\)/.test(blk));
   const j = ADM_S.indexOf("/^\\/api\\/admin\\/class-schedules\\/\\d+$/.test(path)) {", ADM_S.indexOf("method === 'PATCH' || method === 'PUT'"));
   const pb = j >= 0 ? ADM_S.slice(j, j + 12000) : '';
   ok('PATCH: 전제 — 핸들러를 찾았다', pb.length > 0);
   ok('PATCH: 연기 회차를 날짜·시각으로 옮기면 active 로 되돌린다',
     /if \(isPostponedOccurrence\(_pchRow\) && sets\.some\(\(x\) => x\.startsWith\('scheduled_date'\) \|\| x\.startsWith\('start_time'\)\)\) \{\s*sets\.push\(`status = 'active'`\);/.test(pb));
-  ok('PATCH: 되돌리기가 UPDATE 보다 앞에서 sets 에 들어간다',
-    pb.indexOf("status = 'active'") > 0 && pb.indexOf("status = 'active'") < pb.indexOf('UPDATE class_schedules SET ${sets.join'));
+  const moveSource = strip(R('src/class-schedule-move.ts'));
+  ok('PATCH: 원자 이동 경로로 저장한다', /await moveSchedulesAtomically\(env, _pchActor/.test(pb));
+  ok('PATCH: 원자 UPDATE 이전에 연기 회차를 되살리고 같은 batch 에 저장한다',
+    moveSource.indexOf("dest.status = 'active'") > 0 && moveSource.indexOf("dest.status = 'active'") < moveSource.indexOf('UPDATE class_schedules SET')
+      && /dest.status \?\? null/.test(moveSource) && /env.DB.batch\(statements\)/.test(moveSource));
 }
 
 // ── E. 화면 ──

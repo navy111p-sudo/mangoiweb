@@ -1,0 +1,311 @@
+{
+  "id": "s3-18",
+  "breaks": [
+    2,
+    3,
+    5,
+    3
+  ],
+  "key": {
+    "P": 7,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "수수께끼",
+      "en": "puzzle"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «아이에게 쉬운 일이 로봇에게는 매우 어렵다(수수께끼)» 와 «가정용 로봇은 이미 우리를 돕고, 쉬운 기술을 배우면서 더 큰 역할을 할 것이다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the puzzle (jobs that are easy for a child are very hard for robots) and the conclusion (home robots already help us and will play a bigger role as they learn). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Why easy jobs are hard for home robots"
+    },
+    {
+      "k": "Key fact",
+      "qko": "로봇이 옷 개기를 어려워하는 까닭은 무엇인가요?",
+      "qen": "Why is folding clothes hard for robots?",
+      "a": "Soft objects change shape, so grabbing them is hard"
+    },
+    {
+      "k": "Why it matters",
+      "qko": "앞으로 로봇은 어떻게 될까요?",
+      "qen": "What will robots do in the future?",
+      "a": "They will practice and do more jobs in our homes"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Robots can help build cars and explore Mars, and robot vacuums use ",
+      "ans": "sensors",
+      "opts": [
+        "sensors",
+        "paintbrushes",
+        "umbrellas"
+      ]
+    },
+    {
+      "pre": " to map rooms. But jobs that are easy for a child, like ",
+      "ans": "folding",
+      "opts": [
+        "folding",
+        "buying",
+        "burning"
+      ]
+    },
+    {
+      "pre": " clothes, are very hard for robots. Soft objects keep changing ",
+      "ans": "shape",
+      "opts": [
+        "shape",
+        "color",
+        "price"
+      ]
+    },
+    {
+      "pre": ", so a robot cannot easily predict how to grab them. Engineers now let robots ",
+      "ans": "practice",
+      "opts": [
+        "practice",
+        "sleep",
+        "stop"
+      ]
+    },
+    {
+      "pre": " thousands of times, just like children learn. One day, robots may cook and do laundry, but we will need to think about privacy and ",
+      "ans": "safety",
+      "opts": [
+        "safety",
+        "speed",
+        "money"
+      ]
+    },
+    {
+      "pre": ".",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "sensors",
+      "센서, 감지기",
+      "many use <b>sensors</b> to map rooms and avoid stairs",
+      "devices that notice things like light, heat, or movement"
+    ],
+    [
+      "elderly",
+      "나이 드신, 연세 많은",
+      "keep <b>elderly</b> people company",
+      "old"
+    ],
+    [
+      "engineers",
+      "기술자, 공학자",
+      "<b>engineers</b> have discovered a strange puzzle",
+      "people who design and build machines"
+    ],
+    [
+      "predict",
+      "예측하다",
+      "a robot cannot easily <b>predict</b> how to grab them",
+      "to say what will happen before it happens"
+    ],
+    [
+      "naturally",
+      "자연스럽게",
+      "Our hands and brains do this so <b>naturally</b>",
+      "easily, without having to try hard"
+    ],
+    [
+      "privacy",
+      "사생활",
+      "we will also need to think about <b>privacy</b> and safety",
+      "being able to keep your personal life to yourself"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why is it hard for a robot to fold clothes?",
+      "qko": "로봇이 옷을 개기 어려운 이유는 무엇인가요?",
+      "opts": [
+        "Because soft clothes keep changing shape, so it cannot predict how to grab them",
+        "Because clothes are too heavy for robots to lift",
+        "Because robots are not allowed to touch clothes"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Soft objects keep changing shape, so a robot cannot easily predict how to grab them.",
+        "Robot vacuum cleaners became popular in the early 2000s, and many use sensors to map rooms and avoid stairs.",
+        "Jobs that are hard for people, such as solving huge math problems, can be easy for computers.",
+        "Engineers now let robots practice thousands of times, just like children learn."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "부드러운 물건은 계속 모양이 바뀌어서 로봇이 어떻게 잡아야 할지 쉽게 예측할 수 없다고 했어요.",
+        "Soft objects keep changing shape, so a robot cannot easily predict how to grab them."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In \"they will play a bigger role in our lives,\" what does \"play a bigger role\" mean?",
+      "qko": "«they will play a bigger role in our lives» 에서 «play a bigger role» 은 무슨 뜻인가요?",
+      "opts": [
+        "become more important and do more jobs",
+        "play more games with children",
+        "become smaller and quieter"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "One day, robots may cook, do laundry, and care for people, but we will also need to think about privacy and safety.",
+        "So why can it not fold your T-shirt?",
+        "Jobs that are hard for people, such as solving huge math problems, can be easy for computers.",
+        "Our hands and brains do this so naturally that we never notice how difficult it is."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "바로 앞 문장에서 로봇이 언젠가 요리하고 빨래하고 사람을 돌볼지도 모른다고 했어요. 그러니 «play a bigger role» 은 우리 삶에서 «더 중요한 일을 많이 맡는다» 는 뜻이에요.",
+        "The sentence before says robots may cook, do laundry, and care for people, so «play a bigger role» means they will become more important and do more jobs."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "What is the strange puzzle that engineers discovered?",
+      "qko": "기술자들이 발견한 이상한 수수께끼는 무엇인가요?",
+      "opts": [
+        "Jobs that are hard for people can be easy for computers, but jobs that are easy for a child are hard for robots",
+        "Robots can fold clothes but cannot explore Mars",
+        "Children solve huge math problems faster than computers"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Jobs that are hard for people, such as solving huge math problems, can be easy for computers.",
+        "Robot vacuum cleaners became popular in the early 2000s, and many use sensors to map rooms and avoid stairs.",
+        "Jobs that are easy for a child, like folding clothes or picking up messy toys, are very hard for robots.",
+        "Engineers now let robots practice thousands of times, just like children learn."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "사람에게 어려운 일(큰 수학 문제 풀기)은 컴퓨터에게 쉬울 수 있는데, 아이에게 쉬운 일(옷 개기)은 로봇에게 매우 어렵다고 했어요. 두 문장을 함께 봐야 수수께끼가 보여요.",
+        "Hard jobs for people, like huge math problems, can be easy for computers, but easy jobs for a child, like folding clothes, are very hard for robots. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How do robot vacuums find their way around a room?",
+      "로봇 청소기는 어떻게 방 안에서 길을 찾을까요?",
+      "How Robot Vacuums See"
+    ],
+    [
+      "B",
+      "Could robots help take care of people in hospitals?",
+      "로봇이 병원에서 사람들을 돌볼 수 있을까요?",
+      "Robots That Care"
+    ]
+  ],
+  "write": {
+    "pre": "I can’t",
+    "mid": "but I can",
+    "sep": ", ",
+    "slots": [
+      "vp",
+      "vp"
+    ],
+    "src": "“I can’t <u>build a robot yet</u>, but I can <u>fold my own clothes</u>.”",
+    "slotKo": [
+      "할 수 없는 일",
+      "대신 할 수 있는 일"
+    ],
+    "slotEn": [
+      "what I can’t do",
+      "what I can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «할 수 없는 일 + 대신 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you can’t do and what you can do instead in English.",
+    "chips": [
+      {
+        "a": "drive a car",
+        "b": "ride my bike",
+        "label": "ride"
+      },
+      {
+        "a": "cook a big meal",
+        "b": "make a sandwich",
+        "label": "cook"
+      },
+      {
+        "a": "play the piano well",
+        "b": "practice every day",
+        "label": "piano"
+      }
+    ],
+    "aria": [
+      "what you can’t do",
+      "what you can do instead"
+    ],
+    "moreKo": "한 걸음 더: 두 칸 모두 «하는 일» 낱말로 시작하게 써 보세요. (예: cook dinner, wash the dishes)",
+    "moreEn": "One more step: start both blanks with an action word. (e.g. cook dinner, wash the dishes)"
+  },
+  "img": {
+    "style": "cg3d",
+    "cover": "A white robotic arm with a two-finger gripper trying to fold a crumpled blue T-shirt on a lab table, while a child beside it folds a T-shirt neatly",
+    "scenes": {
+      "1": "A round robot vacuum cleaner gliding across a wooden living room floor past a sofa and a rug, with a small green light glowing on top",
+      "3": "Two robotic arms in a bright kitchen carefully practicing how to pick up soft towels and place them in a laundry basket"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "A robot vacuum cleaning a living room",
+    "3": "Robot arms practicing with soft towels",
+    "cover": "A robot arm trying to fold a T-shirt"
+  }
+}

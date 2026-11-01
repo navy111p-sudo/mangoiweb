@@ -1,0 +1,311 @@
+{
+  "id": "s4-32",
+  "breaks": [
+    3,
+    6,
+    5,
+    6
+  ],
+  "key": {
+    "P": 8,
+    "S": 18
+  },
+  "roleNames": {
+    "P": {
+      "ko": "근거",
+      "en": "reason"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «오늘날 쓸 수 있는 공룡 DNA는 남아 있지 않다(근거)» 와 «진짜 공룡을 되살리는 것은 거의 불가능하고, 최근 멸종한 동물을 되살리는 일은 가능하지만 논란이 크다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the reason (no usable dinosaur DNA remains today) and the conclusion (bringing back real dinosaurs is almost certainly impossible, while bringing back recently extinct animals is possible but highly debated). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Whether extinct animals can be brought back"
+    },
+    {
+      "k": "Key fact",
+      "qko": "공룡을 되살릴 수 없는 이유는 무엇인가요?",
+      "qen": "Why can dinosaurs not come back?",
+      "a": "DNA breaks down, so no usable dinosaur DNA remains"
+    },
+    {
+      "k": "Debate",
+      "qko": "어떤 논란이 있나요?",
+      "qen": "What is debated?",
+      "a": "Mammoth-like animals might help nature, but critics worry about the animals and the cost"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "To rebuild an animal, scientists would need its complete ",
+      "ans": "DNA",
+      "opts": [
+        "DNA",
+        "skeleton",
+        "eggs"
+      ]
+    },
+    {
+      "pre": ". Because DNA breaks down over time, no usable dinosaur DNA ",
+      "ans": "remains",
+      "opts": [
+        "remains",
+        "grows",
+        "moves"
+      ]
+    },
+    {
+      "pre": " today. However, some researchers hope to create animals like the woolly ",
+      "ans": "mammoth",
+      "opts": [
+        "mammoth",
+        "shark",
+        "eagle"
+      ]
+    },
+    {
+      "pre": " by editing the DNA of Asian ",
+      "ans": "elephants",
+      "opts": [
+        "elephants",
+        "horses",
+        "whales"
+      ]
+    },
+    {
+      "pre": ". Supporters say this could even restore damaged ",
+      "ans": "ecosystems",
+      "opts": [
+        "ecosystems",
+        "buildings",
+        "computers"
+      ]
+    },
+    {
+      "pre": ", but critics raise serious questions. Bringing back real dinosaurs is almost certainly impossible.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "ancient",
+      "아주 오래된, 고대의",
+      "Studies of <b>ancient</b> bones",
+      "very old; from a long time ago"
+    ],
+    [
+      "extinct",
+      "멸종한",
+      "bringing back recently <b>extinct</b> animals",
+      "no longer existing anywhere in the world"
+    ],
+    [
+      "remains",
+      "유해, 남은 것",
+      "some of their DNA has been found in frozen <b>remains</b>",
+      "the parts of a body that are left after a long time"
+    ],
+    [
+      "endangered",
+      "멸종 위기에 처한",
+      "this could help protect <b>endangered</b> species",
+      "at risk of disappearing forever"
+    ],
+    [
+      "ecosystems",
+      "생태계",
+      "and even restore damaged <b>ecosystems</b>",
+      "all the living things in an area and how they live together"
+    ],
+    [
+      "debated",
+      "논란이 되는, 논쟁 중인",
+      "remains possible but highly <b>debated</b>",
+      "argued about by people with different opinions"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why do scientists plan to edit the DNA of Asian elephants?",
+      "qko": "과학자들은 왜 아시아코끼리의 DNA를 편집하려고 하나요?",
+      "opts": [
+        "Because Asian elephants are close relatives of mammoths",
+        "Because elephant DNA never breaks down",
+        "Because Asian elephants are a kind of dinosaur"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Mammoths survived until about 4,000 years ago, and some of their DNA has been found in frozen remains.",
+        "Scientists hope to edit the DNA of Asian elephants, their close relatives, to create cold-resistant animals that look like mammoths.",
+        "Supporters say this could help protect endangered species and even restore damaged ecosystems.",
+        "The problem is that DNA breaks down over time."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "아시아코끼리는 매머드의 가까운 친척이에요. 그래서 그 DNA를 편집해 추위에 강하고 매머드처럼 생긴 동물을 만들려는 거예요.",
+        "Asian elephants are close relatives of mammoths, so scientists hope to edit their DNA to create mammoth-like animals."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what does 'de-extinction' mean?",
+      "qko": "글에서 'de-extinction(멸종 복원)' 은 무슨 뜻인가요?",
+      "opts": [
+        "Making animals extinct on purpose",
+        "Bringing back animals that have died out",
+        "Protecting animals that are still alive"
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "DNA is the set of instructions inside every cell that tells a living thing how to grow.",
+        "Some researchers are trying to bring back features of animals that disappeared much more recently, such as the woolly mammoth.",
+        "Some also argue that the money would be better spent protecting species that are still alive.",
+        "The last non-bird dinosaurs died out about 66 million years ago."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "바로 다음 문장에서 사라진 동물의 특징을 되살리려는 연구를 설명해요. 멸종한 동물을 다시 살려 내는 일이라는 뜻이에요.",
+        "The next sentence describes trying to bring back features of animals that disappeared. It means bringing extinct animals back."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why is it almost impossible to bring back real dinosaurs?",
+      "qko": "진짜 공룡을 되살리는 것은 왜 거의 불가능한가요?",
+      "opts": [
+        "Because dinosaurs were too big to fit in a laboratory",
+        "Because no dinosaur bones have ever been found",
+        "Because readable DNA lasts only a few million years, but dinosaurs died out 66 million years ago"
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Studies of ancient bones suggest that even in ideal, frozen conditions, readable DNA probably cannot survive for more than a few million years.",
+        "Supporters say this could help protect endangered species and even restore damaged ecosystems.",
+        "The last non-bird dinosaurs died out about 66 million years ago.",
+        "Millions of people left the theater wondering the same thing."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "읽을 수 있는 DNA는 길어야 수백만 년밖에 버티지 못하는데, 공룡은 약 6,600만 년 전에 사라졌어요. 두 사실을 합치면 쓸 수 있는 공룡 DNA가 남아 있을 수 없어요.",
+        "Readable DNA survives only a few million years, but the last non-bird dinosaurs died out about 66 million years ago. Together, these show no usable DNA remains."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How do scientists find and read DNA in frozen mammoth remains?",
+      "과학자들은 얼어붙은 매머드 유해에서 DNA를 어떻게 찾아 읽을까?",
+      "Secrets in the Ice"
+    ],
+    [
+      "B",
+      "Why are birds called living dinosaurs?",
+      "새는 왜 «살아 있는 공룡» 이라고 불릴까?",
+      "Living Dinosaurs"
+    ]
+  ],
+  "write": {
+    "pre": "We should",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "우리가 해야 할 일",
+      "그렇게 하면 생기는 결과"
+    ],
+    "slotEn": [
+      "what we should do",
+      "the result we want"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «해야 할 일 + 그 목적» 으로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we should do and the result you want in English.",
+    "aria": [
+      "what we should do",
+      "the result"
+    ],
+    "src": "“We should <u>protect animals that are still alive</u> so that <u>they do not become extinct</u>.”",
+    "chips": [
+      {
+        "a": "keep our school pond clean",
+        "b": "frogs can live there safely",
+        "label": "pond"
+      },
+      {
+        "a": "put up a bird feeder in winter",
+        "b": "small birds find enough food",
+        "label": "birds"
+      },
+      {
+        "a": "pick up trash on the beach",
+        "b": "sea turtles do not eat plastic",
+        "label": "beach"
+      }
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에 «누가 + 무엇을 할 수 있게» 를 넣어 목적을 분명하게 써 보세요. (예: so that bees can find enough flowers)",
+    "moreEn": "One more step: after «so that», write who + what they can do to make the purpose clear. (e.g. so that bees can find enough flowers)"
+  },
+  "img": {
+    "style": "cg3d",
+    "cover": "A towering fossil skeleton of a huge meat-eating dinosaur in a bright museum hall, its long jaws open and tail stretched out, while a teenager stands far below looking up at it",
+    "scenes": {
+      "1": "A scientist in a white coat, face mask, and gloves using a tiny drill to collect powder from a brown fossil bone in a clean laboratory, small empty plastic tubes waiting in a rack beside it",
+      "2": "A small herd of shaggy, reddish-brown elephants with long curved tusks and thick woolly coats walking through deep snow on a wide, windy tundra under a pale sky"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "A scientist taking a sample from an old bone",
+    "2": "Woolly elephants walking across a snowy plain",
+    "cover": "A teenager looking up at a dinosaur skeleton"
+  }
+}

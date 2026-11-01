@@ -1,0 +1,310 @@
+{
+  "id": "s1-05",
+  "breaks": [
+    2,
+    3,
+    2
+  ],
+  "key": {
+    "P": 1,
+    "S": 6
+  },
+  "roleNames": {
+    "P": {
+      "ko": "하고 싶은 일",
+      "en": "goal"
+    },
+    "S": {
+      "ko": "결과",
+      "en": "result"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «미나와 아빠는 엄마를 깜짝 놀라게 해 주고 싶다(하고 싶은 일)» 와 «엄마가 기쁨의 눈물을 흘린다(결과)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the goal (Mina and Dad want to surprise Mom) and the result (Mom laughs and cries happy tears). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Mina, Dad, and Mom"
+    },
+    {
+      "k": "Plan",
+      "qko": "무엇을 하고 싶었나요?",
+      "qen": "What do they want to do?",
+      "a": "They want to surprise Mom on her birthday."
+    },
+    {
+      "k": "Result",
+      "qko": "어떻게 되었나요?",
+      "qen": "What happens in the end?",
+      "a": "Mom laughs and cries happy tears."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Today is Mom’s ",
+      "ans": "birthday",
+      "opts": [
+        "birthday",
+        "holiday",
+        "trip"
+      ]
+    },
+    {
+      "pre": ". While Mom is at ",
+      "ans": "work",
+      "opts": [
+        "work",
+        "school",
+        "home"
+      ]
+    },
+    {
+      "pre": ", Mina and Dad bake a ",
+      "ans": "cake",
+      "opts": [
+        "cake",
+        "pie",
+        "bread"
+      ]
+    },
+    {
+      "pre": ". Mina draws a card with a big red ",
+      "ans": "heart",
+      "opts": [
+        "heart",
+        "star",
+        "flower"
+      ]
+    },
+    {
+      "pre": ". They put ",
+      "ans": "balloons",
+      "opts": [
+        "balloons",
+        "flowers",
+        "lights"
+      ]
+    },
+    {
+      "pre": " all over the living room, and Mom cries happy tears.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "birthday",
+      "생일",
+      "Today is Mom's <b>birthday</b>.",
+      "the day you were born"
+    ],
+    [
+      "surprise",
+      "깜짝 놀라게 하다",
+      "Mina and Dad want to <b>surprise</b> her.",
+      "to do something nice that someone does not know about yet"
+    ],
+    [
+      "bake",
+      "굽다",
+      "While Mom is at work, they <b>bake</b> a cake.",
+      "to cook in an oven"
+    ],
+    [
+      "card",
+      "카드",
+      "Mina draws a <b>card</b> with a big red heart.",
+      "a folded paper with a message on it"
+    ],
+    [
+      "balloons",
+      "풍선",
+      "They put <b>balloons</b> all over the living room.",
+      "soft colorful toys filled with air"
+    ],
+    [
+      "tears",
+      "눈물",
+      "Mom laughs and cries happy <b>tears</b>.",
+      "water that comes from your eyes"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does Mom cry?",
+      "qko": "엄마는 왜 눈물을 흘리나요?",
+      "opts": [
+        "She is very happy.",
+        "She is hurt.",
+        "She does not like the cake."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Mom laughs and cries happy tears.",
+        "When Mom comes home, they shout, \"Surprise!\"",
+        "While Mom is at work, they bake a cake.",
+        "Today is Mom's birthday."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "엄마는 «happy tears», 곧 기뻐서 눈물을 흘려요.",
+        "Mom cries \"happy tears.\" She is very happy."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Mina and Dad want to surprise her.\" What does \"surprise\" mean here?",
+      "qko": "«want to surprise her» 에서 «surprise» 는 무슨 뜻일까요?",
+      "opts": [
+        "do something nice that she does not know about",
+        "make her angry",
+        "ask her for help"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Mina and Dad want to surprise her.",
+        "Mina draws a card with a big red heart.",
+        "They put balloons all over the living room.",
+        "Mom laughs and cries happy tears."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«surprise» 는 «엄마가 모르게 좋은 일을 준비해서 깜짝 놀라게 하다» 예요.",
+        "\"Surprise\" means to do something nice that she does not know about yet."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How do Mina and Dad get ready for the surprise?",
+      "qko": "미나와 아빠는 깜짝 파티를 어떻게 준비하나요?",
+      "opts": [
+        "They bake a cake and put up balloons.",
+        "They buy a dog and a cat.",
+        "They go to a big restaurant."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "While Mom is at work, they bake a cake.",
+        "They put balloons all over the living room.",
+        "Today is Mom's birthday.",
+        "Mom laughs and cries happy tears."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "둘은 케이크를 굽고, 거실에 풍선을 달아요. 두 문장을 이어야 알 수 있어요.",
+        "They bake a cake and put balloons all over the living room. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Mom plans a surprise for Mina's birthday.",
+      "엄마가 미나의 생일 깜짝 파티를 준비한다.",
+      "Mina's Turn"
+    ],
+    [
+      "B",
+      "The family eats the cake and plays games.",
+      "가족이 함께 케이크를 먹고 게임을 한다.",
+      "Cake and Games"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "before",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "함께 할 일",
+      "그보다 나중에 일어날 일"
+    ],
+    "slotEn": [
+      "what to do",
+      "what happens later"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그보다 나중에 일어날 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what to do together and what happens later in English.",
+    "aria": [
+      "what to do",
+      "what happens later"
+    ],
+    "moreKo": "한 걸음 더: «before» 뒤에 «누가 + 무엇을» 넣어 써 보세요. (예: before Dad comes home)",
+    "moreEn": "One more step: after «before», write who + what. (e.g. before Dad comes home)",
+    "src": "“Let’s <u>bake a cake</u> before <u>Mom comes home</u>.”",
+    "chips": [
+      {
+        "a": "clean the room",
+        "b": "Dad comes home",
+        "label": "clean"
+      },
+      {
+        "a": "draw a card",
+        "b": "Grandma visits us",
+        "label": "card"
+      },
+      {
+        "a": "blow up balloons",
+        "b": "the party starts",
+        "label": "balloons"
+      }
+    ]
+  },
+  "img": {
+    "style": "clay",
+    "cover": "Mina, a girl with two braids and a pink dress, and Dad, a man with glasses and a blue shirt, hold a birthday cake in a living room full of balloons, while Mom, a woman with long brown hair and a gray coat, smiles with happy tears at the door.",
+    "scenes": {
+      "1": "In the kitchen, Dad, a man with glasses and a blue shirt, takes a cake out of the oven while Mina, a girl with two braids and a pink dress, draws a big red heart on a card at the table.",
+      "2": "Mom, a woman with long brown hair and a gray coat, opens the front door, and Mina, a girl with two braids and a pink dress, and Dad, a man with glasses and a blue shirt, jump with their arms up among balloons; Mom laughs with happy tears."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Dad bakes a cake and Mina draws a card.",
+    "2": "Mom comes home and is surprised.",
+    "cover": "Mina and Dad surprise Mom with a cake."
+  }
+}

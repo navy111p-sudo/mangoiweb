@@ -75,6 +75,7 @@ import {
   askCard, spendTypesCsv,                              // ❓ 결재 전 질문(6단계)
   normPhotoQuality,                                    // 📷 사진 흐림·어두움(7단계)
   normReceiptItems, receiptBody, guessCategory,        // 🧾 영수증 품목 → 내용·항목(8단계)
+  ocrReadDoubtful, ocrDoubtfulFlag,                    // 🧾 엉터리 AI 판독은 자동 반려에 안 쓴다(2026-10-08)
   EXEC_USERNAMES, MONEY_APPROVERS,
 } from './approval-policy';
 import { getTodayFx } from './fx-rate';                // 💱 원·페소 바꿔 보기(16단계) — 못 구하면 null
@@ -1749,8 +1750,12 @@ export async function handleApprovalApi(
       if (rawOcr) { const n = Number(rawOcr); if (isFinite(n) && n > 0) ocrAmount = n; }
       // 🔎 영수증에서 읽은 날짜·상점 — 날짜 대조와 AI 검토 재료. 형식이 아니면 버린다.
       const ocrSpentRaw = String(form.get('ocr_spent_at') || '').trim().slice(0, 10);
-      const ocrSpentAt = /^\d{4}-\d{2}-\d{2}$/.test(ocrSpentRaw) ? ocrSpentRaw : null;
+      let ocrSpentAt = /^\d{4}-\d{2}-\d{2}$/.test(ocrSpentRaw) ? ocrSpentRaw : null;
       const ocrVendor = String(form.get('ocr_vendor') || '').trim().slice(0, 60) || null;
+      // 🧾 AI 판독이 엉터리(읽은 날짜가 1년 넘게 과거·미래)면 그 금액·날짜로 점검·자동 반려하지 않는다.
+      const ocrDoubt = ocrReadDoubtful(ocrSpentAt, Date.now())
+        ? ocrDoubtfulFlag(ocrAmount, ocrSpentAt, normCurrency(String(form.get('currency') || 'PHP'))) : null;
+      if (ocrDoubt) { ocrAmount = null; ocrSpentAt = null; }
 
       let fileKey: string | null = null, fileName: string | null = null;
       let fileExt: string | null = null, fileSize: number | null = null;
@@ -1826,6 +1831,7 @@ export async function handleApprovalApi(
         photoQuality: normPhotoQuality(form.get('photo_quality')),
         weekCount: facts.weekCount, vendor: ocrVendor, newVendor: facts.newVendor,
       });
+      if (ocrDoubt) flags.push(ocrDoubt);
       /* 🔎 필리핀에서 올라온 돈 나가는 건은 AI 가 내용을 한 번 더 읽는다 — 🟡 표시만 붙인다. */
       if (ph && spec.needsAmount && !hrSnap) {
         const concerns = await aiReview(env, { req_type: reqType, category, title, body, amount, currency, vendor: ocrVendor });
@@ -2930,8 +2936,12 @@ export async function handleApprovalApi(
                                         amount_hint: misRaw.amount_hint } : null;
     // 돈이 안 나가는 분류(휴가·일반 문서)는 «분류 확인» 만 한다 — 금액 점검·AI 검토는 돌리지 않는다.
     if (!spec.needsAmount) return json({ ok: true, signal: 'green', reasons: [], flags: [], misfile });
-    const ocrAmount = (() => { const n = num(b?.ocr_amount); return n != null && n > 0 ? n : null; })();
     const ymd = (v: any) => { const t = String(v || '').trim().slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : null; };
+    const ocrAmountRaw = (() => { const n = num(b?.ocr_amount); return n != null && n > 0 ? n : null; })();
+    // 🧾 엉터리 AI 판독 — 올리기 «전» 신호등도 올린 뒤와 같은 기준이어야 한다(한쪽만 고치면 화면마다 다른 말).
+    const preDoubt = ocrReadDoubtful(ymd(b?.ocr_spent_at), Date.now())
+      ? ocrDoubtfulFlag(ocrAmountRaw, ymd(b?.ocr_spent_at), currency) : null;
+    const ocrAmount = preDoubt ? null : ocrAmountRaw;
     const body = String(b?.body || '').slice(0, 4000);
     const title = String(b?.title || '').slice(0, 200);
     const category = spec.wantsCategory ? normCategory(String(b?.category || '')) : null;
@@ -2943,11 +2953,12 @@ export async function handleApprovalApi(
       reqType, amount, currency, hasFile: !!b?.has_file, ocrAmount,
       duplicateCount: facts.duplicateCount, duplicateRecentCount: facts.duplicateRecentCount,
       monthTotal: facts.monthTotal, medianAmount: facts.medianAmount,
-      body, spentAt: ymd(b?.spent_at), ocrSpentAt: ymd(b?.ocr_spent_at), now: Date.now(),
+      body, spentAt: ymd(b?.spent_at), ocrSpentAt: preDoubt ? null : ymd(b?.ocr_spent_at), now: Date.now(),
       receiptReusedCount,
       photoQuality: normPhotoQuality(b?.photo_quality),
       weekCount: facts.weekCount, vendor: preVendor, newVendor: facts.newVendor,
     });
+    if (preDoubt) flags.push(preDoubt);
     if (ph && spec.needsAmount && amount != null) {    // 금액이 없으면(분류 확인만 하러 온 것) AI 를 부르지 않는다
       const concerns = await aiReview(env, {
         req_type: reqType, category, title, body, amount, currency,
@@ -3009,6 +3020,14 @@ export async function handleApprovalApi(
     // 🧾 8단계 — 품목으로 «내용» 초안과 «항목» 짐작을 만든다(글은 정본 순수 함수가 정한다).
     //    통화는 화면이 고른 것(?cur=) — 영수증만 보고 ₱/₩ 를 짐작하지 않는다.
     const cur = normCurrency(new URL(request.url).searchParams.get('cur'));
+    /* 🧾 엉터리 판독이면 금액·날짜를 칸에 채우지 않는다 — 채우면 사람이 그 틀린 값으로 올린다.
+       doubtful 을 함께 알려 화면이 «직접 넣어 주세요» 라고 말하게 한다. 품목·가게는 참고로 둔다. */
+    if (ocrReadDoubtful(got.spent_at, Date.now())) {
+      return json({ ok: true, ...got, amount: null, spent_at: null, doubtful: true,
+        read_amount: got.amount, read_spent_at: got.spent_at,
+        body_draft: receiptBody(got.items, null, cur),
+        category_guess: guessCategory(got.vendor, got.items) });
+    }
     return json({ ok: true, ...got,
       body_draft: receiptBody(got.items, got.amount, cur),
       category_guess: guessCategory(got.vendor, got.items) });

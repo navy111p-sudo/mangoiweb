@@ -1,0 +1,311 @@
+{
+  "id": "s2-29",
+  "breaks": [
+    3,
+    3,
+    3,
+    4
+  ],
+  "key": {
+    "P": 7,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "변화",
+      "en": "change"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «집에 돌아가려고 하자 거울에 금이 가기 시작했다(문제)» 와 «그날부터 루시는 거울 속 친구처럼 더 용감해졌다(변화)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (when Lucy tried to go home, the mirror began to crack) and the change (from that day on, Lucy was braver, just like her mirror friend). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Lucy, Ycul the mirror girl"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "The mirror began to crack, and Lucy could get stuck."
+    },
+    {
+      "k": "Change",
+      "qko": "어떻게 달라졌나요?",
+      "qen": "How did Lucy change?",
+      "a": "Lucy became braver, like her mirror friend."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Lucy touched an old ",
+      "ans": "mirror",
+      "opts": [
+        "mirror",
+        "clock",
+        "box"
+      ]
+    },
+    {
+      "pre": " in the attic and went into a world where everything was ",
+      "ans": "backward",
+      "opts": [
+        "backward",
+        "tiny",
+        "frozen"
+      ]
+    },
+    {
+      "pre": ". She met Ycul, a ",
+      "ans": "brave",
+      "opts": [
+        "brave",
+        "shy",
+        "lazy"
+      ]
+    },
+    {
+      "pre": " girl who looked just like her. When the mirror began to ",
+      "ans": "crack",
+      "opts": [
+        "crack",
+        "sing",
+        "melt"
+      ]
+    },
+    {
+      "pre": ", Lucy jumped through it and came home. She became ",
+      "ans": "braver",
+      "opts": [
+        "braver",
+        "shyer",
+        "sadder"
+      ]
+    },
+    {
+      "pre": ", just like her mirror friend.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "attic",
+      "다락방",
+      "Lucy found an old mirror in her grandmother's <b>attic</b>.",
+      "a room under the roof of a house"
+    ],
+    [
+      "backward",
+      "거꾸로, 뒤로",
+      "a world where everything was <b>backward</b>",
+      "in the opposite way or direction"
+    ],
+    [
+      "opposite",
+      "반대의",
+      "\"Everything here is <b>opposite</b>,\" Ycul said.",
+      "as different as possible"
+    ],
+    [
+      "crack",
+      "금이 가다",
+      "the mirror began to <b>crack</b>!",
+      "to break with thin lines"
+    ],
+    [
+      "stuck",
+      "갇힌, 꼼짝 못 하는",
+      "\"If it breaks, you will be <b>stuck</b> here forever!\"",
+      "not able to move or get out"
+    ],
+    [
+      "landed",
+      "내려앉았다",
+      "She <b>landed</b> in the attic just as the mirror broke.",
+      "came down onto the ground"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did Ycul shout, \"Hurry!\"?",
+      "qko": "이쿨은 왜 \"Hurry!\"라고 외쳤나요?",
+      "opts": [
+        "The mirror was cracking, and Lucy could get stuck.",
+        "It was time for dinner in the mirror world.",
+        "Lucy was late for a game."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "But when she tried to go home, the mirror began to crack!",
+        "People walked backward, clocks ran backward, and the sun was green.",
+        "They played together all afternoon.",
+        "Lucy found an old mirror in her grandmother's attic."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "루시가 집에 가려고 하자 거울에 금이 가기 시작했어요. 거울이 깨지면 루시가 영원히 갇히니까 서두르라고 한 거예요. 저녁 시간이나 놀이 이야기는 없어요.",
+        "When Lucy tried to go home, the mirror began to crack. If it broke, Lucy would be stuck forever, so Ycul told her to hurry. Nothing says it was dinner time or game time."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The story says, \"People walked backward, clocks ran backward.\" What does \"backward\" mean here?",
+      "qko": "\"People walked backward, clocks ran backward.\"라는 말이 있어요. 여기서 \"backward\"는 무슨 뜻인가요?",
+      "opts": [
+        "in the opposite direction",
+        "very quickly",
+        "in a straight line"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "\"Everything here is opposite,\" Ycul said. \"I am brave, but you are shy.\"",
+        "She met a girl named Ycul who looked just like her.",
+        "They played together all afternoon.",
+        "She landed in the attic just as the mirror broke."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "이쿨은 «여기선 모든 게 반대야»라고 말했어요. 사람도 시계도 보통과 반대 방향으로 움직였다는 뜻이에요.",
+        "Ycul said, «Everything here is opposite.» People and clocks moved in the opposite direction from normal."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why did Lucy become braver?",
+      "qko": "루시는 왜 더 용감해졌나요?",
+      "opts": [
+        "She remembered Ycul's words and jumped through the cracking mirror.",
+        "Her grandmother gave her a new mirror.",
+        "She stayed in the mirror world forever."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Lucy was scared, but she remembered Ycul's words.",
+        "People walked backward, clocks ran backward, and the sun was green.",
+        "She took a deep breath and jumped through the glass.",
+        "When she touched it, her hand went through the glass!"
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "루시는 무서웠지만 이쿨의 말을 떠올렸고, 숨을 크게 들이쉬고 거울 속으로 뛰어들었어요. 두 문장을 이으면, 무서움을 이겨 낸 경험이 루시를 용감하게 만들었어요.",
+        "Lucy was scared, but she remembered Ycul's words, took a deep breath and jumped through the glass. Put these two sentences together: facing her fear made her brave."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Lucy finds a new mirror and visits Ycul again.",
+      "루시가 새 거울을 찾아 이쿨을 다시 만나러 가요.",
+      "Hello Again, Ycul"
+    ],
+    [
+      "B",
+      "Brave Lucy sings a song in front of the whole school.",
+      "용감해진 루시가 전교생 앞에서 노래를 불러요.",
+      "Lucy on Stage"
+    ]
+  ],
+  "write": {
+    "pre": "I can’t",
+    "mid": "but I can",
+    "sep": ", ",
+    "slots": [
+      "vp",
+      "vp"
+    ],
+    "src": "“I can’t <u>stop feeling scared</u>, but I can <u>take a deep breath and try</u>.”",
+    "slotKo": [
+      "못 하는 일",
+      "대신 할 수 있는 일"
+    ],
+    "slotEn": [
+      "what I can't do",
+      "what I can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «못 하는 일 + 대신 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you can't do and what you can do instead in English.",
+    "chips": [
+      {
+        "a": "run very fast",
+        "b": "walk all the way to the end",
+        "label": "run"
+      },
+      {
+        "a": "speak English well",
+        "b": "say hello every day",
+        "label": "English"
+      },
+      {
+        "a": "reach the top shelf",
+        "b": "ask my dad for help",
+        "label": "shelf"
+      }
+    ],
+    "aria": [
+      "what you can't do",
+      "what you can do"
+    ],
+    "moreKo": "한 걸음 더: «but I can» 뒤에 «동사 + 어떻게» 를 넣어 보세요. (예: but I can try again tomorrow)",
+    "moreEn": "One more step: after «but I can», write a verb + how. (e.g. but I can try again tomorrow)"
+  },
+  "img": {
+    "style": "fairytale",
+    "cover": "In a dusty attic, a nine-year-old girl with long brown hair in two braids, freckles, a blue dress and white sneakers leaps out of a tall old mirror with a wooden frame as thin cracks spread across the glass, while inside the mirror a nine-year-old girl who looks exactly like her, with long brown hair in two braids, freckles, a red dress and white sneakers cheers her on with both fists in the air.",
+    "scenes": {
+      "1": "In a strange bright town under a green sun, people walk backward along the street and a big round clock with no numbers has hands turning the wrong way, as a nine-year-old girl with long brown hair in two braids, freckles, a blue dress and white sneakers meets a nine-year-old girl who looks exactly like her, with long brown hair in two braids, freckles, a red dress and white sneakers and they stare at each other in surprise.",
+      "2": "In the colorful mirror world under a green sun, two smiling little girls who look like twins hold hands and run together, one in a red dress and one in a blue dress, both with long brown braids, freckles and white sneakers, heading toward a tall old mirror with a wooden frame standing in the street, thin cracks spreading across its glass."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "A girl meets her mirror twin in a backward world with a green sun.",
+    "2": "The two girls run toward the cracking mirror.",
+    "cover": "A girl jumps out of a cracking mirror as her mirror twin cheers."
+  }
+}

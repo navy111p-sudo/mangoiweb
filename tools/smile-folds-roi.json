@@ -1,0 +1,21 @@
+{
+  "about": "Regions (portrait px, 640x800) where tools/remove-smile-folds.py may look for smile-line creases. Kept lateral to the widest mouth pose and below the eye rects; nothing outside these polygons is ever changed.",
+  "sourceRev": "22a0ae9",
+  "params": {"darkThr": 4.0, "brightThr": 4.0, "minArea": 14, "grow": 2, "hfSigma": 1.0, "hfClip": 3.0, "iters": 1200, "sameTol": 4, "frameOpen": 2, "frameBand": 5, "frameQuality": 89, "darkPlaceholder": 0.2},
+  "actors": {
+    "lily": {
+      "rect": [250, 294, 144, 122],
+      "roi": [
+        [[279,304],[297,305],[293,316],[286,327],[280,337],[276,346],[272,356],[262,362],[254,354],[254,334],[264,316]],
+        [[357,304],[368,308],[380,322],[390,336],[396,352],[398,370],[392,378],[384,376],[381,358],[377,343],[368,330],[359,316]]
+      ]
+    },
+    "noah": {
+      "rect": [244, 364, 154, 130],
+      "roi": [
+        [[258,362],[276,364],[272,378],[266,392],[260,404],[256,416],[254,428],[250,436],[234,436],[232,416],[240,396],[250,376]],
+        [[378,374],[389,374],[398,386],[408,398],[414,412],[414,428],[408,438],[394,438],[390,424],[388,408],[382,394],[378,384]]
+      ]
+    }
+  }
+}

@@ -88,6 +88,8 @@ for (const [w, h, label] of SIZES) {
     const el = document.elementFromPoint(Math.round(b.left + b.width / 2), Math.round(b.top + b.height / 2));
     return {
       barSticky: getComputedStyle(bar).position,
+      pcB: (() => { const pc = document.getElementById('wusPc3'); return !!pc && !pc.hidden && getComputedStyle(pc).display !== 'none'; })(),
+      fits: setup.scrollHeight <= setup.clientHeight + 1,
       ctaTopMost: el === cta || cta.contains(el),
       ctaInView: b.top >= 0 && b.bottom <= innerHeight,
       pickText: pick ? (pick.textContent || '').trim() : '', pickHidden: pick ? pick.hidden : true,
@@ -95,7 +97,10 @@ for (const [w, h, label] of SIZES) {
     };
   });
   ck('확정 버튼이 화면 안에 있고 맨 위다(가린 것 없음)', !a.missing && a.ctaInView && a.ctaTopMost, JSON.stringify(a));
-  ck('띠가 바닥에 붙어 있다(sticky)', a.barSticky === 'sticky');
+  /* 2026-10-18 — PC(1100px↑·620↑)는 «3단계 카드(B안)» 라 화면 전체가 스크롤 없이 들어가고 띠는 카드 아래 고정 자리입니다.
+     그때는 «sticky» 가 아니라 «화면이 넘치지 않는다» 가 같은 보장(확정 버튼이 언제나 보임)입니다. ⛔ 넘치는 PC 에서 static 이면 FAIL. */
+  ck(a.pcB ? '띠가 보인다(PC 3단계 카드 — 스크롤 없이 한 화면)' : '띠가 바닥에 붙어 있다(sticky)',
+    a.pcB ? (a.fits && a.ctaInView) : a.barSticky === 'sticky', a.pcB ? 'fits=' + a.fits : a.barSticky);
   ck('«고른 것» 줄이 실제 값으로 채워졌다', !a.pickHidden && /고른 것: .+·.+/.test(a.pickText || ''), a.pickText);
   ck('가로 넘침 없음', a.docOverflow <= 0, 'overflow=' + a.docOverflow);
 

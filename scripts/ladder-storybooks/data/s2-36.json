@@ -1,0 +1,311 @@
+{
+  "id": "s2-36",
+  "breaks": [
+    3,
+    4,
+    4,
+    3
+  ],
+  "key": {
+    "P": 9,
+    "S": 13
+  },
+  "roleNames": {
+    "P": {
+      "ko": "반전",
+      "en": "twist"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «유령이 아니라 배고픈 작은 고양이였다(반전)» 과 «우리가 무서워하는 것이 사실은 도움을 기다리고 있을 때도 있다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the twist (it was not a ghost but a small, hungry cat) and the lesson (sometimes the things we fear are just waiting for help). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Captain Rina, the sailors, a cat"
+    },
+    {
+      "k": "Event",
+      "qko": "무슨 일이 일어났나요?",
+      "qen": "What happened?",
+      "a": "Rina heard a sad cry on a dark ship that looked like a ghost ship."
+    },
+    {
+      "k": "Lesson",
+      "qko": "무엇을 배웠나요?",
+      "qen": "What is the lesson?",
+      "a": "Sometimes the things we fear just need help."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "One foggy night, Captain Rina saw an old ship with no ",
+      "ans": "lights",
+      "opts": [
+        "lights",
+        "sails",
+        "cats"
+      ]
+    },
+    {
+      "pre": ". The sailors thought it was a ",
+      "ans": "ghost",
+      "opts": [
+        "ghost",
+        "castle",
+        "whale"
+      ]
+    },
+    {
+      "pre": " ship, but Rina was ",
+      "ans": "curious",
+      "opts": [
+        "curious",
+        "sleepy",
+        "angry"
+      ]
+    },
+    {
+      "pre": " and rowed over. Below the deck, she found a small, hungry ",
+      "ans": "cat",
+      "opts": [
+        "cat",
+        "ghost",
+        "dog"
+      ]
+    },
+    {
+      "pre": ". She took it to her ship, and it became the crew's ",
+      "ans": "friend",
+      "opts": [
+        "friend",
+        "captain",
+        "enemy"
+      ]
+    },
+    {
+      "pre": ". Sometimes the things we fear just need help.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "foggy",
+      "안개 낀",
+      "One <b>foggy</b> night",
+      "full of thick, wet, gray air"
+    ],
+    [
+      "torn",
+      "찢어진",
+      "a ship with <b>torn</b> sails.",
+      "pulled apart, with holes"
+    ],
+    [
+      "whispered",
+      "속삭였다",
+      "\"It's a ghost ship!\" the sailors <b>whispered</b>.",
+      "said very quietly"
+    ],
+    [
+      "curious",
+      "궁금해하는(호기심 많은)",
+      "<b>Curious</b>, Rina rowed over in a small boat.",
+      "wanting to know or see something"
+    ],
+    [
+      "glowing",
+      "빛나는",
+      "two <b>glowing</b> eyes looked at her!",
+      "giving out a soft light"
+    ],
+    [
+      "crew",
+      "(배의) 선원들",
+      "The <b>crew</b> named the cat Ghost",
+      "all the people who work on a ship"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did the sailors think it was a ghost ship?",
+      "qko": "선원들은 왜 그 배가 유령선이라고 생각했나요?",
+      "opts": [
+        "It had no lights, and nobody was on deck.",
+        "They saw a ghost waving at them.",
+        "The cat told them a scary story."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "There were no lights, and nobody was on deck.",
+        "Rina took it back to her ship and gave it warm milk.",
+        "Rina slowly lifted her lamp.",
+        "The crew named the cat Ghost, and it became their friend."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "배에 불빛도 없고 갑판에 아무도 없어서, 선원들은 유령선이라고 생각했어요. 유령을 실제로 봤다는 말은 없어요.",
+        "The ship had no lights, and nobody was on deck, so the sailors thought it was a ghost ship. Nobody really saw a ghost."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Her heart beat fast, but she climbed down the dark stairs.\" How did Rina feel?",
+      "qko": "\"Her heart beat fast, but she climbed down the dark stairs.\"라고 나와요. 리나의 마음은 어땠나요?",
+      "opts": [
+        "scared, but brave enough to go on",
+        "bored and sleepy",
+        "angry at the sailors"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Then she heard a sad cry from below the deck.",
+        "Rina took it back to her ship and gave it warm milk.",
+        "The crew named the cat Ghost, and it became their friend.",
+        "One foggy night, Captain Rina saw a ship with torn sails."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "리나는 갑판 아래에서 슬픈 울음소리를 들었어요. 그래서 무서워서 심장이 빨리 뛰었지만, 그래도 어두운 계단을 내려갔어요. 무섭지만 용감했던 거예요.",
+        "Rina heard a sad cry from below the deck, so she was scared and her heart beat fast. But she still went down the stairs. She was scared but brave."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "What really made the sad cry below the deck?",
+      "qko": "갑판 아래의 슬픈 울음소리는 사실 무엇이었나요?",
+      "opts": [
+        "a small, hungry cat that had been alone for days",
+        "a ghost who wanted to scare Rina",
+        "a sailor who was hiding from Rina"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "\"It's a ghost ship!\" the sailors whispered.",
+        "It was not a ghost at all, but a small, hungry cat!",
+        "The old ship creaked and moaned in the wind.",
+        "It had been alone on the ship for days."
+      ],
+      "ev": [
+        1,
+        3
+      ],
+      "why": [
+        "리나가 등불을 들자 유령이 아니라 배고픈 작은 고양이가 있었고, 그 고양이는 며칠 동안 배에 혼자 있었어요. 그래서 슬프게 울고 있었던 거예요.",
+        "When Rina lifted her lamp, it was a small, hungry cat, and it had been alone on the ship for days. That is why it was crying."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Ghost the cat helps the crew find a lost map.",
+      "고양이 고스트가 선원들이 잃어버린 지도를 찾도록 도와줘요.",
+      "Ghost Finds the Map"
+    ],
+    [
+      "B",
+      "Rina meets another ship that really needs help in a storm.",
+      "리나가 폭풍 속에서 도움이 꼭 필요한 다른 배를 만나요.",
+      "Help in the Storm"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "before",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“Let’s <u>look closely</u> before <u>we get scared</u>.”",
+    "slotKo": [
+      "함께 할 일",
+      "그보다 나중에 일어날 일"
+    ],
+    "slotEn": [
+      "what to do",
+      "what happens later"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그보다 나중에 일어날 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what to do together and what happens later in English.",
+    "chips": [
+      {
+        "a": "turn on the light",
+        "b": "we walk into a dark room",
+        "label": "light"
+      },
+      {
+        "a": "read the story again",
+        "b": "we answer the questions",
+        "label": "read"
+      },
+      {
+        "a": "ask the teacher",
+        "b": "we guess the answer",
+        "label": "ask"
+      }
+    ],
+    "aria": [
+      "what to do",
+      "what happens later"
+    ],
+    "moreKo": "한 걸음 더: «before» 뒤에 «누가 + 무엇을» 넣어 써 보세요. (예: before we run away)",
+    "moreEn": "One more step: after «before», write who + what. (e.g. before we run away)"
+  },
+  "img": {
+    "style": "comic",
+    "cover": "In the dark bottom of an old wooden ship full of dusty barrels, a young woman captain with a long dark braid in a blue coat with gold buttons and a captain's hat slowly lifts a glowing lamp, and its warm light shows a small skinny gray kitten with big green eyes sitting in the corner and meowing up at her.",
+    "scenes": {
+      "1": "On a foggy night sea, a young woman captain with a long dark braid in a blue coat with gold buttons and a captain's hat rows a small wooden boat toward a dark old ship with torn sails and no lights, while sailors on a bigger ship behind her peek over the rail with nervous faces.",
+      "3": "On the sunny deck of a big ship, a young woman captain with a long dark braid in a blue coat with gold buttons and a captain's hat kneels and gives a bowl of warm milk to a small skinny gray kitten with big green eyes, while smiling sailors crowd around to watch it drink."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "Rina rows toward the foggy ghost ship.",
+    "3": "Rina gives the kitten warm milk on her ship.",
+    "cover": "Rina's lamp shows a small gray kitten in the dark ship."
+  }
+}

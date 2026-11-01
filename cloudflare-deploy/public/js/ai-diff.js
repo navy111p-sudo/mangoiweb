@@ -38,7 +38,7 @@
       title: 'A.i Speaking vs. A.i Friend',
       lead: 'Both let you talk with AI in English. The one big difference: <b>who leads the chat</b>!',
       aName: '🗣️ A.i Speaking', aOne: 'The AI talks to you first',
-      a: ['You talk about <b>today\'s textbook</b> — perfect warm-up before class!',
+      a: ['You talk about <b>today\'s textbook</b> — perfect speaking practice before class!',
           'Stuck? Tap <b>“Show answers”</b> for a hint',
           '<b>Subtitles appear right away</b> while you speak',
           'Works in <b>English and Chinese</b>'],

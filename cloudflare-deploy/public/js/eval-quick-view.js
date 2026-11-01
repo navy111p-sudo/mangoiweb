@@ -22,6 +22,9 @@
  *    evalEditAllowed — 강사는 자기가 쓴 것만, 본사 매니저는 전부, 지사·대리점은 못 고침).
  *    ⛔ 화면이 그 판정을 복제하지 않는다. 고치는 칸은 글 둘(강사 메모·학부모 안내)뿐 — 점수는 안 고친다.
  *    ⛔ 학부모 문자는 다시 안 간다 — 이미 보낸 경우 그 사실을 저장 뒤 글자로 말한다.
+ * ➕ (2026-10-28 매니저·강사 제안 «오늘·지난 피드백 칸에 고치기·추가 버튼»)
+ *    · mgEvalQuick(id, { edit:true }) — 보기를 건너뛰고 곧장 고치기(서버가 허락할 때만, 아니면 보기 + 이유).
+ *    · mgEvalQuick.create(ctx, opts) — 빈 칸에서 새로 쓰기(POST /api/eval/manual-create). 규칙은 renderCreate 머리말.
  */
 (function () {
   'use strict';
@@ -70,7 +73,9 @@
       + 'color:#101828;border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px}'
       + '#mg-evq .evq-btn{background:#1d4ed8;color:#ffffff;border:0;border-radius:8px;padding:7px 14px;font-weight:800;cursor:pointer;font-size:13px}'
       + '#mg-evq .evq-btn2{background:#f1f5f9;color:#101828;border:1px solid #cbd5e1;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px}'
-      + '#mg-evq .evq-note{font-size:12.5px;font-weight:700;margin:4px 16px 0}';
+      + '#mg-evq .evq-note{font-size:12.5px;font-weight:700;margin:4px 16px 0}'
+      + '#mg-evq .evq-in{font:inherit;font-size:13.5px;background:#ffffff;color:#101828;border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px}'
+      + '#mg-evq .evq-chk{display:flex;gap:8px;align-items:center;font-size:13px;color:#101828;cursor:pointer}';
     document.head.appendChild(st);
   }
 
@@ -170,45 +175,198 @@
 
   /* 보기 화면 + (허락되면) 고치기 배선. done 은 저장 직후 한 줄 안내. */
   function showView(ev, en, opts, done) {
-    var T = function (enS, koS) { return en ? enS : koS; };
     show(renderEval(ev, en) + (done ? '<div class="evq-note" style="color:#047857;padding-bottom:12px">' + esc(done) + '</div>' : ''));
     if (!ev.__canEdit) return;   /* 고칠 수 없으면 배선할 것이 없다 */
     var box = document.getElementById('mg-evq');
     var eb = box && box.querySelector ? box.querySelector('[data-evq-edit]') : null;
     if (!eb) return;
-    eb.addEventListener('click', function () {
-      show(renderEdit(ev, en));
-      var b2 = document.getElementById('mg-evq');
-      var msg = b2.querySelector('[data-evq-msg]');
-      b2.querySelector('[data-evq-cancel]').addEventListener('click', function () { showView(ev, en, opts, ''); });
-      var sv = b2.querySelector('[data-evq-save]');
-      sv.addEventListener('click', function () {
-        var body = {};
-        var fs = b2.querySelectorAll('[data-evq-f]');
-        for (var i = 0; i < fs.length; i++) {
-          var k = fs[i].getAttribute('data-evq-f');
-          var v = String(fs[i].value || '').trim();
-          if (v !== String(ev[k] == null ? '' : ev[k]).trim()) body[k] = v;
+    eb.addEventListener('click', function () { showEdit(ev, en, opts); });
+  }
+
+  /* ✏️ 고치기 화면 + 저장 배선 — 보기 화면의 버튼과 «바로 고치기»(opts.edit) 가 같은 길을 탄다. */
+  function showEdit(ev, en, opts) {
+    var T = function (enS, koS) { return en ? enS : koS; };
+    show(renderEdit(ev, en));
+    var b2 = document.getElementById('mg-evq');
+    var msg = b2.querySelector('[data-evq-msg]');
+    b2.querySelector('[data-evq-cancel]').addEventListener('click', function () { showView(ev, en, opts, ''); });
+    var sv = b2.querySelector('[data-evq-save]');
+    sv.addEventListener('click', function () {
+      var body = {};
+      var fs = b2.querySelectorAll('[data-evq-f]');
+      for (var i = 0; i < fs.length; i++) {
+        var k = fs[i].getAttribute('data-evq-f');
+        var v = String(fs[i].value || '').trim();
+        if (v !== String(ev[k] == null ? '' : ev[k]).trim()) body[k] = v;
+      }
+      if (!Object.keys(body).length) { msg.style.color = '#b45309'; msg.textContent = T('Nothing changed.', '바뀐 내용이 없습니다.'); return; }
+      sv.disabled = true; msg.style.color = '#475467'; msg.textContent = T('Saving…', '저장 중…');
+      fetch('/api/eval/' + encodeURIComponent(ev.id), {
+        method: 'PATCH', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (d) { return { st: r.status, d: d }; });
+      }).then(function (x) {
+        if (!(x.st === 200 && x.d && x.d.ok === true)) {   /* «성공이라고 말했는가» 로 가른다 */
+          sv.disabled = false; msg.style.color = '#b42318'; msg.textContent = saveErr(x.st, x.d, en); return;
         }
-        if (!Object.keys(body).length) { msg.style.color = '#b45309'; msg.textContent = T('Nothing changed.', '바뀐 내용이 없습니다.'); return; }
-        sv.disabled = true; msg.style.color = '#475467'; msg.textContent = T('Saving…', '저장 중…');
-        fetch('/api/eval/' + encodeURIComponent(ev.id), {
-          method: 'PATCH', credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
-        }).then(function (r) {
-          return r.json().catch(function () { return {}; }).then(function (d) { return { st: r.status, d: d }; });
-        }).then(function (x) {
-          if (!(x.st === 200 && x.d && x.d.ok === true)) {   /* «성공이라고 말했는가» 로 가른다 */
-            sv.disabled = false; msg.style.color = '#b42318'; msg.textContent = saveErr(x.st, x.d, en); return;
-          }
-          for (var k2 in body) ev[k2] = body[k2] || null;
-          showView(ev, en, opts, x.d.parent_notified
-            ? T('✅ Saved. The parent page shows the new text (no new SMS was sent).', '✅ 저장했습니다. 학부모 화면에 새 글이 보입니다(문자는 다시 안 갔습니다).')
-            : T('✅ Saved.', '✅ 저장했습니다.'));
-          if (typeof opts.onSaved === 'function') { try { opts.onSaved(ev); } catch (e2) {} }
-        }).catch(function () {
-          sv.disabled = false; msg.style.color = '#b42318'; msg.textContent = T('Network problem — please try again.', '연결 문제 — 다시 눌러 주세요.');
-        });
+        for (var k2 in body) ev[k2] = body[k2] || null;
+        showView(ev, en, opts, x.d.parent_notified
+          ? T('✅ Saved. The parent page shows the new text (no new SMS was sent).', '✅ 저장했습니다. 학부모 화면에 새 글이 보입니다(문자는 다시 안 갔습니다).')
+          : T('✅ Saved.', '✅ 저장했습니다.'));
+        if (typeof opts.onSaved === 'function') { try { opts.onSaved(ev); } catch (e2) {} }
+      }).catch(function () {
+        sv.disabled = false; msg.style.color = '#b42318'; msg.textContent = T('Network problem — please try again.', '연결 문제 — 다시 눌러 주세요.');
+      });
+    });
+  }
+
+  /* ➕ (2026-10-28 매니저·강사 제안 «오늘·지난 피드백 칸에 고치기·추가 버튼») 빈 칸에서 바로 쓰기.
+     ctx = { which:'today'|'last', student_uid, student_name, teacher_uid, teacher_name,
+             room_id, class_date, prev_classes } — 「오늘 수업」 줄의 값 그대로.
+     · 오늘 = 그 수업의 방 번호·날짜 그대로.
+     · 지난 = 서버가 예약표로 계산한 «지난 회차» 목록(prev_classes = [{date, room_id, time}],
+       src/class-today-extras.ts recentClassesFor)에서 «고른다». 방 번호는 그 회차의 것을 그대로 쓴다.
+       ⛔ 화면에서 «오늘 방의 예약 번호 + 날짜» 로 지어내지 않는다 — 반복 수업은 요일당 1행이라 월·수·금 학생의
+          월요일 방이 틀린다(2026-10-28 Codex 리뷰 지적으로 짐작 방식을 버렸다). 목록이 없으면 부르는 쪽이 버튼을 안 준다.
+       ⚠️ 고른 날짜가 이 수업 날짜보다 앞이어야 서버(pickEvals)가 «지난» 칸에 놓는다.
+     · 학부모 문자는 «오늘» 에서 «고른 사람만» — 기본은 안 보낸다(관리자 화면이 저장할 때마다 문자가
+       나가지 않게 — api-lessons.ts create 의 notify_parent 주석과 같은 이유). 문자 본문이
+       「오늘 수업 일지가 도착했어요」라서 «지난» 에는 아예 주지 않는다(거짓 문자가 된다).
+     ⛔ 점수는 받지 않는다 — 별점은 강사 일지 창(teacher.html openEval)의 몫이다.
+     ⛔ teacher_uid 를 수업 강사 아이디로 채우지 않는다 — «누가 썼나» 가 거짓이 된다. 부르는 쪽이
+        «쓰는 사람» 을 넘긴다(강사 화면 = 자기 아이디, 관리자·매니저 화면 = 없음 → 본사만 고칠 수 있음). */
+  /** 고를 수 있는 지난 회차 — 서버 목록 중 «모양이 맞고 이 수업보다 앞선» 것만(지어내지 않는다). */
+  function pickableClasses(ctx) {
+    var d = String((ctx && ctx.class_date) || '').slice(0, 10);
+    return (Array.isArray(ctx && ctx.prev_classes) ? ctx.prev_classes : []).filter(function (p) {
+      return p && /^\d{4}-\d{2}-\d{2}$/.test(String(p.date || '')) && String(p.date) < d
+        && /^class-\d+-\d{8}$/.test(String(p.room_id || ''));
+    });
+  }
+
+  /** ➕ 쓰기 화면 — 하니스가 오려 내 돌린다. */
+  function renderCreate(ctx, en) {
+    var T = function (enS, koS) { return en ? enS : koS; };
+    var last = ctx.which === 'last';
+    var ta = function (key, label, ph) {
+      return '<div class="evq-sec"><div class="evq-lb">' + esc(label) + '</div>'
+        + '<textarea class="evq-ta" data-evq-f="' + key + '" maxlength="2000" placeholder="' + esc(ph) + '"></textarea></div>';
+    };
+    var sub = last ? T('Add last class feedback', '지난 수업 피드백 추가')
+      : T("Add today's feedback", '오늘 피드백 추가') + ' · ' + String(ctx.class_date || '');
+    return '<div class="evq-hd"><div class="evq-ti"><b>➕ ' + esc(ctx.student_name || ctx.student_uid || T('Class log', '수업일지')) + '</b>'
+      + '<span class="evq-sub">' + esc(sub) + '</span></div>'
+      + '<button type="button" class="evq-x" data-evq-close aria-label="' + esc(T('Close', '닫기')) + '">✕</button></div>'
+      + '<div class="evq-bd">'
+      + (last
+          ? '<div class="evq-sec"><div class="evq-lb">' + esc(T('Which class?', '어느 수업인가요?')) + '</div>'
+            + '<select class="evq-in" data-evq-pick>'
+            + pickableClasses(ctx).map(function (p, i) {
+                var wd = new Date(p.date + 'T00:00:00Z').getUTCDay();
+                var day = en ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][wd] : ['일', '월', '화', '수', '목', '금', '토'][wd];
+                return '<option value="' + i + '">' + esc(p.date + ' (' + day + ')' + (p.time ? ' ' + p.time : '')) + '</option>';
+              }).join('')
+            + '</select>'
+            + '<div class="evq-sub">' + esc(T('From the student\'s schedule — the most recent class is selected. Pick another if it was moved or a holiday.',
+                '학생 예약표의 지난 수업입니다 — 가장 최근 수업이 골라져 있습니다. 연기·휴강이었으면 다른 날을 고르세요.')) + '</div></div>'
+          : '')
+      + ta('note_en', T('Teacher note (English)', '강사 메모 (영어)'),
+          T('What happened in class — a few lines in English.', '수업에서 있었던 일 — 영어로 몇 줄.'))
+      + '<div class="evq-sec"><button type="button" class="evq-btn2" data-evq-tr>'
+      + esc(T('🇰🇷 Make the Korean', '🇰🇷 한국어로 만들기')) + '</button></div>'
+      + ta('note_ko', T('For parents (Korean)', '학부모 안내 (한국어)'),
+          T('Filled in by «Make the Korean» — you can edit it.', '「한국어로 만들기」가 채워 줍니다 — 고쳐도 됩니다.'))
+      + (last ? ''
+          : '<label class="evq-chk"><input type="checkbox" data-evq-sms> '
+            + esc(T('📲 Also text the parent (sends the Korean note)', '📲 학부모에게 문자도 보내기 (한국어 칸이 나갑니다)')) + '</label>')
+      + '</div><div class="evq-note" data-evq-msg></div>'
+      + '<div class="evq-ft"><button type="button" class="evq-btn2" data-evq-cancel>' + esc(T('Cancel', '취소')) + '</button>'
+      + '<button type="button" class="evq-btn" data-evq-save>' + esc(T('Save', '저장')) + '</button></div>';
+  }
+  /** 문자 결과 한 줄 — 서버 응답(notify)을 «그대로» 옮긴다. 보내라고 안 했으면 ''. */
+  function notifyLine(asked, n, en) {
+    var T = function (enS, koS) { return en ? enS : koS; };
+    if (!asked) return '';
+    if (n && n.deferred) return T('📲 Night time — the text will go out in the morning.', '📲 밤 시간이라 문자는 아침에 나갑니다.');
+    if (n && n.sent && n.sent.length) return T('📲 Text sent to the parent.', '📲 학부모에게 문자를 보냈습니다.');
+    if (n && n.failed && n.failed.length) return T('⚠ The text could not be sent.', '⚠ 문자를 보내지 못했습니다.');
+    return T('⚠ No parent phone on file — no text was sent.', '⚠ 등록된 학부모 번호가 없어 문자는 안 갔습니다.');
+  }
+
+  function showCreate(ctx, en, opts) {
+    var T = function (enS, koS) { return en ? enS : koS; };
+    var last = ctx.which === 'last';
+    show(renderCreate(ctx, en));
+    var box = document.getElementById('mg-evq');
+    var msg = box.querySelector('[data-evq-msg]');
+    var fEn = box.querySelector('[data-evq-f="note_en"]'), fKo = box.querySelector('[data-evq-f="note_ko"]');
+    var say = function (color, text) { msg.style.color = color; msg.textContent = text; };
+    box.querySelector('[data-evq-cancel]').addEventListener('click', close);
+    /* 🇰🇷 강사 일지 창과 같은 서버 길(/api/translate mode='note') — 다듬은 영어와 학부모용 한국어를 한 번에 받는다. */
+    var tr = box.querySelector('[data-evq-tr]');
+    tr.addEventListener('click', function () {
+      var text = String(fEn.value || '').trim();
+      if (!text) { say('#b45309', T('Write a few lines in English first.', '영어로 몇 줄 먼저 적어 주세요.')); return; }
+      tr.disabled = true; say('#475467', T('Making the Korean…', '한국어로 만드는 중…'));
+      fetch('/api/translate', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'note', text: text, student_name: ctx.student_name || '' })
+      }).then(function (r) { return r.json().catch(function () { return {}; }); }).then(function (j) {
+        tr.disabled = false;
+        if (!j || j.ok !== true || !j.ko) { say('#b42318', T('Could not make the Korean — try again.', '한국어를 만들지 못했습니다 — 다시 눌러 주세요.')); return; }
+        if (j.en) fEn.value = j.en;
+        fKo.value = j.ko;
+        say('#047857', T('✅ Korean is ready — check it, then Save.', '✅ 한국어가 준비됐습니다 — 확인하고 「저장」을 눌러 주세요.'));
+      }).catch(function () {
+        tr.disabled = false; say('#b42318', T('Network problem — please try again.', '연결 문제 — 다시 눌러 주세요.'));
+      });
+    });
+    var sv = box.querySelector('[data-evq-save]');
+    var saving = false;
+    sv.addEventListener('click', function () {
+      if (saving) return;
+      var noteEn = String(fEn.value || '').trim(), noteKo = String(fKo.value || '').trim();
+      var smsBox = box.querySelector('[data-evq-sms]');
+      var sms = !last && !!(smsBox && smsBox.checked);
+      if (!noteEn && !noteKo) { say('#b45309', T('Write the feedback first.', '피드백을 먼저 적어 주세요.')); return; }
+      /* 지난 = 고른 회차의 날짜·방 그대로(서버 목록) · 오늘 = 이 수업의 날짜·방 */
+      var pick = last ? pickableClasses(ctx)[Number((box.querySelector('[data-evq-pick]') || {}).value)] : null;
+      if (last && !pick) { say('#b42318', T('Pick which class this feedback is for.', '어느 수업의 피드백인지 골라 주세요.')); return; }
+      var date = last ? pick.date : String(ctx.class_date || '');
+      var room = last ? pick.room_id : String(ctx.room_id || '');
+      if (sms) {   /* 서버도 같은 검사를 한다(정본) — 여기선 왕복 전에 미리 말해 줄 뿐 */
+        var hangul = (noteKo.match(/[가-힣]/g) || []).length;
+        if (!noteKo || hangul < noteKo.length * 0.3) {
+          say('#b42318', T('Tap «Make the Korean» first — parents get the Korean.', '「한국어로 만들기」를 먼저 눌러 주세요 — 학부모는 한국어를 받습니다.')); return;
+        }
+      }
+      saving = true; sv.disabled = true; say('#475467', T('Saving…', '저장 중…'));
+      fetch('/api/eval/manual-create', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student_uid: ctx.student_uid, student_name: ctx.student_name || null,
+          teacher_uid: ctx.teacher_uid || null, teacher_name: ctx.teacher_name || null,
+          room_id: room || null, lesson_date: date,
+          note_en: noteEn || null, note_ko: noteKo || null, notify_parent: sms
+        })
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (d) { return { st: r.status, d: d }; });
+      }).then(function (x) {
+        if (!(x.st === 200 && x.d && x.d.ok === true && x.d.id)) {   /* «저장했다고 말했는가» 로 가른다 */
+          saving = false; sv.disabled = false; say('#b42318', saveErr(x.st, x.d, en)); return;
+        }
+        var id = x.d.id, nl = notifyLine(sms, x.d.notify, en);
+        show('<div class="evq-hd"><div class="evq-ti"><b>✅ ' + esc(T('Feedback saved', '피드백을 저장했습니다')) + '</b>'
+          + '<span class="evq-sub">' + esc((ctx.student_name || ctx.student_uid || '') + ' · ' + date) + '</span></div>'
+          + '<button type="button" class="evq-x" data-evq-close aria-label="' + esc(T('Close', '닫기')) + '">✕</button></div>'
+          + (nl ? '<div class="evq-msg">' + esc(nl) + '</div>' : '')
+          + '<div class="evq-ft"><span></span><button type="button" class="evq-btn" data-evq-open>' + esc(T('📄 Open it', '📄 열어 보기')) + '</button></div>');
+        var ob = document.getElementById('mg-evq').querySelector('[data-evq-open]');
+        if (ob) ob.addEventListener('click', function () { window.mgEvalQuick(id, { en: en, onSaved: opts.onSaved }); });
+        if (typeof opts.onSaved === 'function') { try { opts.onSaved({ id: id }); } catch (e2) {} }
+      }).catch(function () {
+        saving = false; sv.disabled = false; say('#b42318', T('Network problem — please try again.', '연결 문제 — 다시 눌러 주세요.'));
       });
     });
   }
@@ -231,7 +389,10 @@
         if (my !== seq || !document.getElementById('mg-evq')) return;   // 그 사이 닫았거나 다른 것을 열었다
         if (x.st === 200 && x.d && x.d.ok === true && x.d.eval) {
           var ev = x.d.eval; ev.__canEdit = x.d.can_edit === true;   /* ⛔ 모르면(옛 서버) 고치기 안 줌 */
-          showView(ev, en, opts || {}, '');
+          /* ✏️ (2026-10-28) 표의 「✏️ 고치기」 버튼은 곧장 고치기 화면으로 — 서버가 허락할 때만.
+             허락이 없으면 보기 화면이 «보기 전용» 이유를 말한다(버튼이 아무 일도 안 하는 것보다 낫다). */
+          if (opts && opts.edit === true && ev.__canEdit) showEdit(ev, en, opts);
+          else showView(ev, en, opts || {}, '');
           return;
         }
         var why = x.st === 401 ? T('Your login has expired — please log in again.', '로그인이 끊겼습니다 — 다시 로그인해 주세요.')
@@ -246,6 +407,15 @@
           + '<div class="evq-msg">⚠️ ' + esc(T('Network problem — please try again.', '연결 문제로 못 불러왔습니다 — 다시 눌러 주세요.')) + '</div>');
       });
   };
+  /** ➕ 빈 칸에서 쓰기 — ctx 는 위 renderCreate 머리말. 학생 아이디가 없으면 열지 않는다(누구 것인지 모르면 안 쓴다). */
+  window.mgEvalQuick.create = function (ctx, opts) {
+    if (!ctx || !String(ctx.student_uid || '').trim()) return;
+    if (ctx.which === 'last' && !pickableClasses(ctx).length) return;   /* 고를 회차가 없으면 열지 않는다(짐작해 쓰지 않는다) */
+    seq++;   // 불러오던 보기 창이 있으면 그 응답이 이 창을 덮지 않게
+    showCreate(ctx, !!(opts && opts.en), opts || {});
+  };
   window.mgEvalQuick._render = renderEval;   // 하니스용
   window.mgEvalQuick._renderEdit = renderEdit;
+  window.mgEvalQuick._renderCreate = renderCreate;
+  window.mgEvalQuick._pickable = pickableClasses;
 })();

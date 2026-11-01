@@ -1,0 +1,50 @@
+{
+ "about": "tools/shrink-mouth.py — mouth-only uniform shrink (portrait px, 640x800). The support ellipse must stay inside the PRECISION rect so the tile border is untouched. newRect (optional) widens the patch rect; tiles are rebuilt from the base around the old tile, and PRECISION must use newRect.",
+ "sourceRev": "8e2321d",
+ "params": {
+  "scale": 0.9,
+  "plateau": 0.55,
+  "frameQuality": 89,
+  "lipRedThr": 70
+ },
+ "actors": {
+  "lily": {
+   "rect": [
+    250,
+    294,
+    144,
+    122
+   ],
+   "centre": [
+    328,
+    361
+   ],
+   "radius": [
+    62,
+    50
+   ]
+  },
+  "noah": {
+   "rect": [
+    244,
+    364,
+    154,
+    130
+   ],
+   "newRect": [
+    214,
+    364,
+    214,
+    130
+   ],
+   "centre": [
+    321,
+    434
+   ],
+   "radius": [
+    105,
+    58
+   ]
+  }
+ }
+}

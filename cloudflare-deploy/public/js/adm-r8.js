@@ -35,6 +35,113 @@
     renew: _num('ov-renew', 30),
   });
 
+  /* 🔎 필터 (2026-10-13 사장님 지시) — 스캔한 명단을 «화면에서만» 거른다.
+     ⛔ 전체 발송(ovNotifyAll)은 필터와 무관하게 서버가 다시 계산한 전원에게 간다 —
+        그래서 필터 줄에 그 사실을 적어 둔다(거른 사람만 간다고 오해하지 않게).
+     필터 값은 _ovF 에 두어 다시 스캔해도 유지한다. */
+  let _ovFoot = '';
+  const _ovF = { q: '', kind: '', phone: '', minDays: '' };
+  const ovRowDays = (s) => (s.lapse_days != null ? s.lapse_days : s.days_overdue);
+  const ovMatch = (s, f) => {
+    const phone = s.parent_phone || s.student_phone || '';
+    if (f.kind === 'renew' && !isRenewal(s)) return false;
+    if (f.kind === 'unpaid' && isRenewal(s)) return false;
+    if (f.phone === 'yes' && !phone) return false;
+    if (f.phone === 'no' && phone) return false;
+    const md = parseInt(f.minDays, 10);
+    if (Number.isFinite(md) && md > 0) {
+      const d = Number(ovRowDays(s));
+      if (!Number.isFinite(d) || d < md) return false;
+    }
+    const q = String(f.q || '').trim().toLowerCase();
+    if (q) {
+      const qd = q.replace(/\D/g, '');
+      const hay = (String(s.student_name || '') + ' ' + String(s.user_id || '')).toLowerCase();
+      const hit = hay.indexOf(q) >= 0 || (qd.length >= 3 && phone.replace(/\D/g, '').indexOf(qd) >= 0);
+      if (!hit) return false;
+    }
+    return true;
+  };
+  window.__ovMatch = ovMatch; // 하니스용
+
+  const ovRowHtml = (s) => {
+    const phone = s.parent_phone || s.student_phone || '';
+    const renewal = isRenewal(s);
+    const label = termLabel(s);
+    const days = ovRowDays(s);
+    const payload = esc(JSON.stringify({
+      user_id: s.user_id || '', student_name: s.student_name || '', phone: phone,
+      days_overdue: s.days_overdue || 0, amount_krw: renewal ? 0 : (s.amount_krw || 0),
+      channel: s.channel || '', last_class_at: s.last_class_at || 0,
+    }));
+    return `<tr style="border-bottom:1px solid #e5e7eb">
+      <td style="padding:9px 12px"><b>${esc(s.student_name||'-')}</b><br><span style="font-size:11px;color:#9ca3af">${esc(s.user_id||'')}</span></td>
+      <td style="padding:9px 12px;text-align:center"><span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;color:#fff;background:${renewal?'#7c3aed':'#dc2626'}">${esc(label)}</span></td>
+      <td style="padding:9px 12px;font-size:11.5px;color:#6b7280">${fmtDateShort(s.last_paid_at)}</td>
+      <td style="padding:9px 12px;font-size:11.5px;color:#6b7280">${fmtDay(s.last_class_at)}</td>
+      <td style="padding:9px 12px;text-align:center"><span style="color:${termColor(s)};font-weight:800;font-size:14px">${days != null ? days+'일' : '-'}</span></td>
+      <td style="padding:9px 12px;text-align:right;color:${renewal?'#9ca3af':'#d97706'};font-weight:800">${renewal ? '—' : fmt(s.amount_krw)+'원'}</td>
+      <td style="padding:9px 12px;font-size:11.5px;color:#6b7280">${esc(phone||'❌ 번호없음')}</td>
+      <td style="padding:8px 10px;text-align:center;white-space:nowrap">
+        <button data-ov='${payload}' onclick="ovNotifyOne(this)"
+                ${phone?'':'disabled'}
+                style="padding:6px 14px;font-size:11.5px;background:${phone?(renewal?'#7c3aed':'#dc2626'):'#9ca3af'};color:#fff;border:0;border-radius:6px;cursor:${phone?'pointer':'not-allowed'};font-weight:700">📲 ${renewal?'연장 안내':'미납 알림'}</button>
+      </td>
+    </tr>`;
+  };
+
+  const ovTbody = () => {
+    const list = _ovOverdue.filter(s => ovMatch(s, _ovF));
+    const cnt = document.getElementById('ov-filter-count');
+    if (cnt) cnt.textContent = `${fmt(list.length)}명 / 전체 ${fmt(_ovOverdue.length)}명`;
+    if (!list.length) return '<tr><td colspan="8" style="padding:22px;text-align:center;color:#6b7280">조건에 맞는 학생이 없습니다.</td></tr>';
+    return list.map(ovRowHtml).join('');
+  };
+
+  // 입력할 때마다 표 «본문» 만 다시 그린다(필터 칸은 그대로 — 커서가 안 날아간다)
+  window.ovFilterChange = function(key, val){
+    _ovF[key] = val;
+    const tb = document.getElementById('ov-tbody');
+    if (tb) tb.innerHTML = ovTbody();
+  };
+  window.ovFilterReset = function(){
+    _ovF.q = ''; _ovF.kind = ''; _ovF.phone = ''; _ovF.minDays = '';
+    ovRenderTable();
+  };
+
+  function ovRenderTable(){
+    const el = document.getElementById('ov-list');
+    if (!el) return;
+    const inS = 'padding:7px 10px;font-size:12.5px;border:1px solid #cbd5e1;border-radius:7px;background:#ffffff;color:#101828;box-sizing:border-box';
+    const sel = (key, opts) => `<select onchange="ovFilterChange('${key}', this.value)" style="${inS}">` +
+      opts.map(o => `<option value="${o[0]}"${_ovF[key]===o[0]?' selected':''}>${o[1]}</option>`).join('') + '</select>';
+    const bar = `<div id="ov-filter" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px">
+        <span style="font-weight:800;color:#4c1d95;font-size:12.5px">🔎 필터</span>
+        <input type="search" placeholder="이름·아이디·번호" value="${esc(_ovF.q)}" oninput="ovFilterChange('q', this.value)" style="${inS};width:180px">
+        ${sel('kind', [['','구분: 전체'],['renew','🔁 미연장'],['unpaid','💸 미납']])}
+        ${sel('phone', [['','번호: 전체'],['yes','번호 있음'],['no','번호 없음']])}
+        <label style="font-size:12px;color:#475467;display:flex;align-items:center;gap:4px">경과
+          <input type="number" min="0" placeholder="0" value="${esc(_ovF.minDays)}" oninput="ovFilterChange('minDays', this.value)" style="${inS};width:70px">일 이상</label>
+        <button type="button" onclick="ovFilterReset()" style="padding:6px 12px;font-size:12px;border:1px solid #cbd5e1;border-radius:7px;background:#ffffff;color:#344054;cursor:pointer">초기화</button>
+        <span id="ov-filter-count" style="margin-left:auto;font-size:12px;color:#475467;font-weight:700"></span>
+        <div style="flex-basis:100%;font-size:11px;color:#667085">ℹ️ 필터는 화면 표시만 거릅니다 — 「전체 발송」은 필터와 관계없이 대상 전원에게 나갑니다.</div>
+      </div>`;
+    const body = ovTbody(); // ov-filter-count 는 아직 DOM 에 없으니 아래서 다시 채운다
+    el.innerHTML = bar + `<table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden">
+        <thead style="background:linear-gradient(135deg,#f5f3ff,#ede9fe)"><tr>
+          <th style="text-align:left;padding:10px 12px;color:#4c1d95">학생</th>
+          <th style="text-align:center;padding:10px 12px;color:#4c1d95">구분</th>
+          <th style="text-align:left;padding:10px 12px;color:#4c1d95">최근 결제일</th>
+          <th style="text-align:left;padding:10px 12px;color:#4c1d95">마지막 수업일</th>
+          <th style="text-align:center;padding:10px 12px;color:#4c1d95">경과일</th>
+          <th style="text-align:right;padding:10px 12px;color:#4c1d95">금액</th>
+          <th style="text-align:left;padding:10px 12px;color:#4c1d95">학부모 번호</th>
+          <th style="text-align:center;padding:10px 12px;color:#4c1d95">조작</th>
+        </tr></thead><tbody id="ov-tbody">${body}</tbody></table>` + _ovFoot;
+    const cnt = document.getElementById('ov-filter-count');
+    if (cnt) cnt.textContent = `${fmt(_ovOverdue.filter(s => ovMatch(s, _ovF)).length)}명 / 전체 ${fmt(_ovOverdue.length)}명`;
+  }
+
   window.ovScan = async function(){
     const el = document.getElementById('ov-list');
     el.innerHTML = '<div style="padding:20px;color:#6b7280;text-align:center">스캔 중…</div>';
@@ -62,42 +169,8 @@
         el.innerHTML = '<div style="padding:30px;text-align:center;color:#10b981;background:#ecfdf5;border-radius:10px;border:1px dashed #10b981">🎉 지금 안내할 미연장·미납 학생이 없습니다.</div>' + foot;
         return;
       }
-      const rows = _ovOverdue.map(s => {
-        const phone = s.parent_phone || s.student_phone || '';
-        const renewal = isRenewal(s);
-        const label = termLabel(s);
-        const days = (s.lapse_days != null ? s.lapse_days : s.days_overdue);
-        const payload = esc(JSON.stringify({
-          user_id: s.user_id || '', student_name: s.student_name || '', phone: phone,
-          days_overdue: s.days_overdue || 0, amount_krw: renewal ? 0 : (s.amount_krw || 0),
-          channel: s.channel || '', last_class_at: s.last_class_at || 0,
-        }));
-        return `<tr style="border-bottom:1px solid #e5e7eb">
-          <td style="padding:9px 12px"><b>${esc(s.student_name||'-')}</b><br><span style="font-size:11px;color:#9ca3af">${esc(s.user_id||'')}</span></td>
-          <td style="padding:9px 12px;text-align:center"><span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;color:#fff;background:${renewal?'#7c3aed':'#dc2626'}">${esc(label)}</span></td>
-          <td style="padding:9px 12px;font-size:11.5px;color:#6b7280">${fmtDateShort(s.last_paid_at)}</td>
-          <td style="padding:9px 12px;font-size:11.5px;color:#6b7280">${fmtDay(s.last_class_at)}</td>
-          <td style="padding:9px 12px;text-align:center"><span style="color:${termColor(s)};font-weight:800;font-size:14px">${days != null ? days+'일' : '-'}</span></td>
-          <td style="padding:9px 12px;text-align:right;color:${renewal?'#9ca3af':'#d97706'};font-weight:800">${renewal ? '—' : fmt(s.amount_krw)+'원'}</td>
-          <td style="padding:9px 12px;font-size:11.5px;color:#6b7280">${esc(phone||'❌ 번호없음')}</td>
-          <td style="padding:8px 10px;text-align:center;white-space:nowrap">
-            <button data-ov='${payload}' onclick="ovNotifyOne(this)"
-                    ${phone?'':'disabled'}
-                    style="padding:6px 14px;font-size:11.5px;background:${phone?(renewal?'#7c3aed':'#dc2626'):'#9ca3af'};color:#fff;border:0;border-radius:6px;cursor:${phone?'pointer':'not-allowed'};font-weight:700">📲 ${renewal?'연장 안내':'미납 알림'}</button>
-          </td>
-        </tr>`;
-      }).join('');
-      el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden">
-        <thead style="background:linear-gradient(135deg,#f5f3ff,#ede9fe)"><tr>
-          <th style="text-align:left;padding:10px 12px;color:#4c1d95">학생</th>
-          <th style="text-align:center;padding:10px 12px;color:#4c1d95">구분</th>
-          <th style="text-align:left;padding:10px 12px;color:#4c1d95">최근 결제일</th>
-          <th style="text-align:left;padding:10px 12px;color:#4c1d95">마지막 수업일</th>
-          <th style="text-align:center;padding:10px 12px;color:#4c1d95">경과일</th>
-          <th style="text-align:right;padding:10px 12px;color:#4c1d95">금액</th>
-          <th style="text-align:left;padding:10px 12px;color:#4c1d95">학부모 번호</th>
-          <th style="text-align:center;padding:10px 12px;color:#4c1d95">조작</th>
-        </tr></thead><tbody>${rows}</tbody></table>` + foot;
+      _ovFoot = foot;
+      ovRenderTable();
     } catch(e) {
       el.innerHTML = '<div style="padding:20px;color:#ef4444">스캔 실패: '+esc(e.message)+'</div>';
     }

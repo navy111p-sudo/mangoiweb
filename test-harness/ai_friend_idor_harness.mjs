@@ -59,9 +59,26 @@ for (const p of ['/api/ai/chat-friend', '/api/ai/chat-history', '/api/ai/chat-cl
 // 2) 토큰 유틸: HMAC-SHA256 서명 + 만료 검증
 ok(/function\s+signUidToken/.test(apiMango) && /function\s+verifyUidToken/.test(apiMango),
   'signUidToken / verifyUidToken 유틸 존재');
-const verifyBlk = handlerBlock(apiMango, 'function verifyUidToken');
-ok(/crypto\.subtle\.verify\('HMAC'/.test(verifyBlk), 'verifyUidToken — HMAC-SHA256 서명 검증');
-ok(/p\.exp\s*&&\s*p\.exp\s*<\s*Date\.now\(\)/.test(verifyBlk), 'verifyUidToken — 만료(exp) 검증');
+// Execute the real module so refactoring cannot silently disable signature/expiry checks.
+const ts = (await import('../cloudflare-deploy/node_modules/typescript/lib/typescript.js')).default;
+const auth = {};
+const secrets = {};
+new Function('exports', ts.transpileModule(read('src/room-jwt-secret.ts'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText)(secrets);
+new Function('exports', 'require', ts.transpileModule(read('src/auth-token.ts'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText)(auth, name => {
+  if (name === './room-jwt-secret') return secrets;
+  throw new Error('Unexpected auth-token dependency: ' + name);
+});
+const tokenEnv = { ROOM_JWT_SECRET: 'idor-harness-only' };
+const token = await auth.signUidToken('idor-student', tokenEnv);
+ok(await auth.verifyUidToken(token, tokenEnv) === 'idor-student', 'verifyUidToken — 정상 서명 통과');
+ok(await auth.verifyUidToken(token, { ROOM_JWT_SECRET: 'different-key' }) === null,
+  'verifyUidToken — 다른 키의 서명 거부');
+ok(await auth.verifyUidToken(await auth.signUidToken('idor-student', tokenEnv, -1000), tokenEnv) === null,
+  'verifyUidToken — 만료(exp) 검증');
 
 // 3) 로그인 응답에 토큰 포함
 const loginBlk = handlerBlock(apiMango, "path === '/api/student/login'");

@@ -39,7 +39,7 @@ export function findChromium() {
   const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
   if (!existsSync(base)) return null;
   for (const d of readdirSync(base)) {
-    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell']) {
+    for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell', 'chrome-linux64/chrome']) {
       const p = join(base, d, rel);
       if (existsSync(p)) return p;
     }

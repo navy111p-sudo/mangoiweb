@@ -5,7 +5,7 @@
 (function(){
   const fmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
   const fmtDate = (ms) => ms ? new Date(ms).toLocaleString('ko-KR',{dateStyle:'short',timeStyle:'short'}) : '-';
-  const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 
   window.evClearForm = function(){
     ['ev-student-uid','ev-student-name','ev-teacher-name','ev-lesson-title','ev-lesson-date',
@@ -42,7 +42,7 @@
       student_phone: document.getElementById('ev-student-phone').value.trim(),
     };
     try {
-      const r = await fetch('/api/eval/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const r = await fetch('/api/eval/manual-create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
       const d = await r.json();
       if (!d.ok) { fb.style.color='#ef4444'; fb.textContent='❌ '+(d.error||'실패'); return; }
       const evalUrl = location.origin + '/eval.html?id=' + d.id;
@@ -50,7 +50,7 @@
         ? ` · 카톡 ${d.notify.sent.length}건 발송${d.notify.failed.length?' (실패 '+d.notify.failed.length+')':''}`
         : '';
       fb.style.color='#10b981';
-      fb.innerHTML = `✅ 평가서 #${d.id} 저장 (종합 ${d.overall||'-'}점)${notifyMsg} → <a href="${evalUrl}" target="_blank" style="color:#2563eb">미리보기</a>`;
+      fb.innerHTML = `✅ 평가서 #${d.id} 저장 (종합 ${d.overall == null ? '-' : d.overall + '/5'}점)${notifyMsg} → <a href="${evalUrl}" target="_blank" style="color:#2563eb">미리보기</a>`;
       // 폼 일부만 초기화 (학생 UID/이름/강사는 다음 평가서에 재사용 편의)
       ['ev-lesson-title','ev-s-part','ev-s-comp','ev-s-hw','ev-s-att','ev-s-spk',
        'ev-strengths','ev-improvements','ev-goals'].forEach(id => {
@@ -66,31 +66,45 @@
   window.evLoadList = async function(){
     const el = document.getElementById('ev-list-table');
     if (!el) return;
+    const statsEl = document.getElementById('ev-stats-line');
+    if (statsEl) statsEl.innerHTML = '통계 불러오는 중…';
     el.innerHTML = '<div style="padding:20px;color:#6b7280;text-align:center">불러오는 중…</div>';
     try {
       const r = await fetch('/api/admin/eval/list');
       const d = await r.json();
+      if (!r.ok || !d.ok) throw new Error(d.error || '평가서를 불러오지 못했습니다.');
       const rows = d.rows || [];
       const s = d.stats || {};
+      const avg = s.avg_score_scale === 100 && typeof s.avg_score === 'number' && Number.isFinite(s.avg_score) ? s.avg_score.toFixed(1) + '/100' : '-';
+      const excluded = Number(s.excluded_score_count) || 0;
       document.getElementById('ev-stats-line').innerHTML =
-        `총 <b>${fmt(s.total)}</b>건 · 이번 달 <b style="color:#10b981">${fmt(s.this_month)}</b>건 · 평균 종합 <b style="color:#d97706">${(s.avg_score||0).toFixed(1)}</b>점 · 카톡발송 ${fmt(s.notified)} · 학부모열람 ${fmt(s.viewed)}`;
+        `총 <b>${fmt(s.total)}</b>건 · 이번 달 <b style="color:#10b981">${fmt(s.this_month)}</b>건 · 평균 종합 <b style="color:#d97706">${avg}</b>점 (100점 환산 · ${fmt(s.scored_count)}건 기준) · 카톡발송 ${fmt(s.notified)} · 학부모열람 ${fmt(s.viewed)}` +
+        (excluded ? `<br><span style="color:#b45309">척도 미확인 ${fmt(s.unknown_scale_count)}건 · 점수/척도 오류 ${fmt(s.invalid_score_count)}건은 평균에서 제외했습니다.</span>` : '');
       if (!rows.length) { el.innerHTML = '<div style="padding:30px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:10px">아직 작성된 평가서가 없습니다.</div>'; return; }
       const html = rows.map(e => {
-        const overall = e.score_overall;
-        /* 🔴 옛 코드는 점수를 그대로 repeat() 에 넣었다 — 그런데 score_overall 은
-         *   «한 칸에 두 척도» 라(강사 1분 일지 1~5 · AI 수업 리포트 0~100)
-         *   88 이 들어오면 '☆'.repeat(5-88) 이 **RangeError 를 던져 이 표가 통째로 안 그려진다.**
-         *   0~100 행이 하나만 섞여도 그렇다. 척도를 먼저 5점으로 맞추고 0~5 로 자른다.
-         *   ⚠️ eval.html 의 evalMax()/evalOn5() 와 같은 말을 한다(하니스가 대조한다). */
-        const evMax = (Number(overall) || 0) > 5 ? 100 : 5;
-        const on5 = Math.max(0, Math.min(5, Math.round((Number(overall) || 0) * 5 / evMax)));
-        const stars = overall != null ? '★'.repeat(on5) + '☆'.repeat(5 - on5) : '-';
+        // The API owns provenance/normalization. Never guess /5 vs /10 vs /100 from magnitude.
+        const overall = e.score_value;
+        const evMax = e.score_max;
+        const known = e.score_status === 'ok' && typeof e.score_normalized_100 === 'number' && Number.isFinite(e.score_normalized_100);
+        const on5 = known ? Math.max(0, Math.min(5, Math.round(e.score_normalized_100 / 20))) : 0;
+        const stars = known ? '★'.repeat(on5) + '☆'.repeat(5 - on5) : '-';
+        const scoreText = known ? esc(overall) + '<span style="font-size:10.5px;color:#9ca3af;font-weight:600">/' + esc(evMax) + '</span>'
+          : e.score_status === 'missing' ? '-' : esc(overall == null ? '-' : overall) + ' <small>척도·점수 확인 필요</small>';
+        const nameStates = { uid_conflict: '학생 UID 불일치', ambiguous: '학생 이름 중복 확인 필요', not_found: '학생 이름 미확인', missing_name: '학생 이름 미기록', missing_uid: '학생 UID 미기록', lookup_failed: '학생 이름 조회 실패' };
+        const studentName = e.display_student_name || String(e.student_name || '').trim() || nameStates[e.student_name_status] || '학생 이름 미확인';
+        const uidText = e.student_identity_status === 'uid_conflict'
+          ? 'UID 불일치: ' + (e.student_uid || '-') + ' / ' + (e.user_id || '-')
+          : 'UID: ' + (e.display_student_uid || e.student_uid || e.user_id || '미기록');
+        const authorName = e.display_author_name || String(e.teacher_name || '').trim();
+        const author = authorName ? (e.display_author_role === 'evaluator' ? '평가자: ' : '강사: ') + authorName : '강사·평가자 미기록';
+        const dateLabels = { lesson_date: '수업일', eval_at: '평가일 (KST)', created_at: '기록일 (KST)' };
+        const date = e.display_date ? (dateLabels[e.display_date_source] || '날짜') + ': ' + e.display_date : '날짜 미기록';
         return `<tr style="border-bottom:1px solid #e5e7eb">
           <td style="padding:9px 12px;font-size:11px;color:#9ca3af">#${e.id}</td>
-          <td style="padding:9px 12px"><b>${esc(e.student_name||'-')}</b><br><span style="font-size:11px;color:#9ca3af">${esc(e.lesson_title||'')}</span></td>
-          <td style="padding:9px 12px;font-size:12px;color:#6b7280">${esc(e.teacher_name||'-')}</td>
-          <td style="padding:9px 12px;text-align:center"><span style="color:#fbbf24;font-size:13px">${stars}</span><br><b style="color:#d97706">${overall != null ? overall + '<span style="font-size:10.5px;color:#9ca3af;font-weight:600">/' + evMax + '</span>' : '-'}</b></td>
-          <td style="padding:9px 12px;font-size:11.5px;color:#6b7280">${esc(e.lesson_date||'-')}</td>
+          <td style="padding:9px 12px"><b>${esc(studentName)}</b><br><span style="font-size:11px;color:#9ca3af">${esc(uidText)}</span><br><span style="font-size:11px;color:#9ca3af">${esc(e.lesson_title||'')}</span></td>
+          <td style="padding:9px 12px;font-size:12px;color:#6b7280">${esc(author)}</td>
+          <td style="padding:9px 12px;text-align:center"><span style="color:#fbbf24;font-size:13px">${stars}</span><br><b style="color:#d97706">${scoreText}</b></td>
+          <td style="padding:9px 12px;font-size:11.5px;color:#6b7280">${esc(date)}${e.display_date_source && e.display_date_source !== 'lesson_date' ? '<br><small>' + (String(e.lesson_date || '').trim() ? '수업일 확인 필요' : '수업일 미기록') + '</small>' : ''}${e.date_status === 'invalid_date' ? '<br><small>날짜 확인 필요</small>' : ''}</td>
           <td style="padding:9px 12px;text-align:center">${e.parent_notified?'<span style="color:#10b981">✓ 발송</span>':'<span style="color:#9ca3af">-</span>'}<br>${e.viewed_by_parent?'<span style="color:#3b82f6;font-size:11px">👁 열람</span>':''}</td>
           <td style="padding:8px 10px;text-align:center;white-space:nowrap">
             <a href="/eval.html?id=${e.id}" target="_blank" style="padding:5px 10px;font-size:11px;background:#3b82f6;color:#fff;border-radius:5px;text-decoration:none">미리보기</a>
@@ -102,13 +116,14 @@
         <thead style="background:#f3f4f6"><tr>
           <th style="text-align:left;padding:9px 12px">ID</th>
           <th style="text-align:left;padding:9px 12px">학생·수업</th>
-          <th style="text-align:left;padding:9px 12px">강사</th>
+          <th style="text-align:left;padding:9px 12px">강사·평가자</th>
           <th style="text-align:center;padding:9px 12px">종합점수</th>
-          <th style="text-align:left;padding:9px 12px">수업일</th>
+          <th style="text-align:left;padding:9px 12px">날짜·기준</th>
           <th style="text-align:center;padding:9px 12px">학부모</th>
           <th style="text-align:center;padding:9px 12px">조작</th>
         </tr></thead><tbody>${html}</tbody></table>`;
     } catch(e) {
+      if (statsEl) statsEl.innerHTML = '통계 확인 불가';
       el.innerHTML = '<div style="padding:20px;color:#ef4444">로드 실패: '+esc(e.message)+'</div>';
     }
   };

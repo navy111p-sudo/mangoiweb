@@ -21,7 +21,11 @@
  *  - 비상 이벤트: 1년
  *  - 동의 기록: 영구 (감사 추적, 단 철회 시 PII는 마스킹)
  *  - AI 영작 첨삭 원문/기록: 30일 (아동 개인정보 최소보관 원칙)
+ *  - 영어 동화책 바꿔 쓰기 기록(story_write_log): 30일 — 같은 «학생이 쓴 영어 문장» 이라 위와 같은 기간.
+ *    강사 인수인계 카드는 그중 최근 7일만 읽는다(teacher-handover.ts HANDOVER_STORY_DAYS).
  */
+
+import { STORY_LOG_RETENTION_DAYS } from './story-correct';
 
 export interface PurgeEnv {
   DB: D1Database;
@@ -49,6 +53,8 @@ export interface PurgeResult {
   emergency_events: number;
   consents_masked: number;
   ai_writing: number;
+  /** 영어 동화책 바꿔 쓰기 기록 — 지운 건수(dryRun 이면 «지울» 건수) */
+  story_write?: number;
   errors: string[];
   /** R2 에서 실제로 지운 영상 파일 수 */
   recording_files_deleted?: number;
@@ -73,6 +79,7 @@ export async function purgeExpired(env: PurgeEnv, opts: PurgeOptions = {}): Prom
     emergency_events: 0,
     consents_masked: 0,
     ai_writing: 0,
+    story_write: 0,
     errors: [],
     recording_files_deleted: 0,
     recording_files_failed: 0,
@@ -153,24 +160,35 @@ export async function purgeExpired(env: PurgeEnv, opts: PurgeOptions = {}): Prom
     }
   } catch (e: any) { result.errors.push('recordings: ' + e.message); }
 
+  /* 2)~6) 공통 — dryRun 이면 «바꾸지 않고 건수만» 센다(2026-10-13).
+     ⚠️ 그 전에는 녹화(1)만 dryRun 을 지키고 아래 단계들은 `?dry_run=1` 이어도 **실제로 지웠다** —
+        «먼저 건수를 세 보라» 는 안전장치가 오히려 파기를 실행하는 통로였다.
+     ✅ 조건(WHERE)을 한 곳에서 받아 «지우기/고치기» 와 «세기» 가 같은 행을 보게 한다
+        (조건을 두 번 적으면 언젠가 둘이 어긋나 «센 것과 지운 것이 다른» 상태가 된다). */
+  const apply = async (table: string, where: string, binds: any[], set?: string): Promise<number> => {
+    if (opts.dryRun) {
+      const c = await env.DB.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${where}`).bind(...binds).first<any>();
+      return Number(c && c.n) || 0;
+    }
+    const sql = set ? `UPDATE ${table} SET ${set} WHERE ${where}` : `DELETE FROM ${table} WHERE ${where}`;
+    const r = await env.DB.prepare(sql).bind(...binds).run();
+    return r.meta.changes || 0;
+  };
+  /* 첫 사용 때 생기는 표는 «있을 때만» 다룬다 — 파기 작업이 표를 새로 만들지 않는다. */
+  const hasTable = async (name: string): Promise<boolean> =>
+    !!(await env.DB.prepare(`SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = ?`).bind(name).first<any>());
+
   // 2) 출결: left_at으로부터 3년 지난 것 (left_at 없으면 joined_at 기준)
   const threeYearsAgo = now - 3 * 365 * DAY;
   try {
-    const r = await env.DB.prepare(
-      `DELETE FROM attendance
-       WHERE COALESCE(left_at, joined_at) < ?`
-    ).bind(threeYearsAgo).run();
-    result.attendance = r.meta.changes || 0;
+    result.attendance = await apply('attendance', `COALESCE(left_at, joined_at) < ?`, [threeYearsAgo]);
     result.speaking_data = result.attendance; // 발화 데이터는 attendance에 같이 저장됨
   } catch (e: any) { result.errors.push('attendance: ' + e.message); }
 
   // 3) 보상: 5년 지난 것
   const fiveYearsAgo = now - 5 * 365 * DAY;
   try {
-    const r = await env.DB.prepare(
-      `DELETE FROM rewards WHERE issued_at < ?`
-    ).bind(fiveYearsAgo).run();
-    result.rewards = r.meta.changes || 0;
+    result.rewards = await apply('rewards', `issued_at < ?`, [fiveYearsAgo]);
   } catch (e: any) { result.errors.push('rewards: ' + e.message); }
 
   /* 4) 카카오 ID: 동의를 «철회» 했거나 카카오를 «거절» 한 사용자 즉시 파기
@@ -193,9 +211,8 @@ export async function purgeExpired(env: PurgeEnv, opts: PurgeOptions = {}): Prom
           ⛔ ②를 지우면 2026-09-01 이전 11행이 다시 «거절» 이 되어, 그 학생이 나중에 카카오를
              연결하는 순간 그날 밤 지워진다. */
   try {
-    const r = await env.DB.prepare(
-      `DELETE FROM kakao_ids
-       WHERE user_id IN (
+    result.kakao_ids = await apply('kakao_ids',
+      `user_id IN (
          SELECT user_id FROM consents WHERE withdrawn_at IS NOT NULL
          AND withdrawn_at > (SELECT COALESCE(MAX(consented_at), 0) FROM consents c2 WHERE c2.user_id = consents.user_id AND c2.withdrawn_at IS NULL)
        )
@@ -203,47 +220,50 @@ export async function purgeExpired(env: PurgeEnv, opts: PurgeOptions = {}): Prom
          SELECT c.user_id FROM consents c WHERE c.kakao_consent = 0 AND c.withdrawn_at IS NULL
          AND c.raw_payload LIKE '%"kakao"%'
          AND NOT EXISTS (SELECT 1 FROM consents c2 WHERE c2.user_id = c.user_id AND c2.consented_at > c.consented_at AND c2.kakao_consent = 1 AND c2.withdrawn_at IS NULL)
-       )`
-    ).run();
-    result.kakao_ids = r.meta.changes || 0;
+       )`, []);
   } catch (e: any) { result.errors.push('kakao_ids: ' + e.message); }
 
   // 5) 비상 이벤트: 1년 지난 것
   const oneYearAgo = now - 365 * DAY;
   try {
-    const r = await env.DB.prepare(
-      `DELETE FROM emergency_events WHERE triggered_at < ?`
-    ).bind(oneYearAgo).run();
-    result.emergency_events = r.meta.changes || 0;
+    result.emergency_events = await apply('emergency_events', `triggered_at < ?`, [oneYearAgo]);
   } catch (e: any) { result.errors.push('emergency_events: ' + e.message); }
 
   // 5b) AI 영작 첨삭 원문/기록: 30일 지난 것 (테이블은 첫 사용 시 생성되므로 없으면 조용히 건너뜀)
+  //     (2026-10-13) 예전에는 여기서 표를 CREATE 했다 — 없으면 지울 것도 없으므로 «있을 때만» 으로 바꿈.
   const thirtyDaysAgo = now - 30 * DAY;
   try {
-    await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_writing_corrections (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, original_text TEXT NOT NULL, corrected_text TEXT, feedback TEXT, level TEXT, score INTEGER, created_at INTEGER NOT NULL);`);
-    const r = await env.DB.prepare(
-      `DELETE FROM ai_writing_corrections WHERE created_at < ?`
-    ).bind(thirtyDaysAgo).run();
-    result.ai_writing = r.meta.changes || 0;
+    if (await hasTable('ai_writing_corrections')) {
+      result.ai_writing = await apply('ai_writing_corrections', `created_at < ?`, [thirtyDaysAgo]);
+    }
   } catch (e: any) { result.errors.push('ai_writing: ' + e.message); }
+
+  /* 5c) 영어 동화책 바꿔 쓰기 기록(story_write_log): 30일 지난 것.
+     ⚠️ 표를 «만들지» 않는다 — 학생이 아직 한 번도 안 썼으면 표가 없고, 그건 «지울 것 0건» 이다
+        (파기 작업이 남의 표를 새로 만드는 부작용을 두지 않는다. 표 정의의 정본은 story-correct.ts).
+     ✅ 이 단계는 dryRun 을 지킨다 — 그때는 지우지 않고 «지울 건수» 만 센다. */
+  try {
+    if (await hasTable('story_write_log')) {
+      result.story_write = await apply('story_write_log', `created_at < ?`, [now - STORY_LOG_RETENTION_DAYS * DAY]);
+    }
+  } catch (e: any) { result.errors.push('story_write: ' + e.message); }
 
   // 6) 동의 철회 레코드의 PII 마스킹 (username, raw_payload에 담긴 개인정보)
   //    → 완전 삭제하지 않고 감사 추적을 위해 마스킹만
   try {
-    const r = await env.DB.prepare(
-      `UPDATE consents
-       SET username = NULL, guardian_contact = NULL,
-           raw_payload = '{"masked":true}', ip_address = NULL, user_agent = NULL
-       WHERE withdrawn_at IS NOT NULL
+    result.consents_masked = await apply('consents',
+      `withdrawn_at IS NOT NULL
          AND (username IS NOT NULL OR raw_payload NOT LIKE '%"masked":true%')
-         AND withdrawn_at < ?`
-    ).bind(now - 7 * DAY).run(); // 철회 7일 후 마스킹 (실수 복구 기간)
-    result.consents_masked = r.meta.changes || 0;
+         AND withdrawn_at < ?`,
+      [now - 7 * DAY], // 철회 7일 후 마스킹 (실수 복구 기간)
+      `username = NULL, guardian_contact = NULL,
+           raw_payload = '{"masked":true}', ip_address = NULL, user_agent = NULL`);
   } catch (e: any) { result.errors.push('consents: ' + e.message); }
 
   // 실행 로그 저장 (KV에 마지막 실행 결과)
+  //   ⚠️ dryRun 은 남기지 않는다 — «마지막 실행» 은 실제로 지운 기록이어야 한다(미리보기가 덮으면 사라진다).
   try {
-    if (env.SESSION_STATE) {
+    if (env.SESSION_STATE && !opts.dryRun) {
       await env.SESSION_STATE.put('retention:last_run', JSON.stringify(result), { expirationTtl: 90 * 24 * 3600 });
     }
   } catch (_) {}

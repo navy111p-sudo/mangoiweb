@@ -66,7 +66,7 @@ async function measure(page) {
 const VIEWPORTS = [
   { name: 'PC(1280×800)', w: 1280, h: 800, expectSmallLocal: true },
   { name: '태블릿(1024×768)', w: 1024, h: 768, expectSmallLocal: true },
-  { name: '가로폰(844×390)', w: 844, h: 390, expectSmallLocal: true },
+  { name: '가로폰(844×390)', w: 844, h: 390, expectSmallLocal: false },
 ];
 
 for (const vp of VIEWPORTS) {
@@ -83,6 +83,9 @@ for (const vp of VIEWPORTS) {
     chk('화면상 교사 타일이 내 타일보다 위', m.remoteTop < m.localTop, `교사 top=${m.remoteTop}, 나 top=${m.localTop}`);
     if (vp.expectSmallLocal) {
       chk('1:1 수업에서 내 타일이 교사보다 작음', m.localW < m.remoteW, `교사 ${m.remoteW}px vs 나 ${m.localW}px (count=${m.dataCount})`);
+    } else {
+      // Current landscape policy gives both faces equal width (index.html landscape CSS).
+      chk('가로폰 두 얼굴 동일 폭', Math.abs(m.localW - m.remoteW) <= 2, JSON.stringify(m));
     }
   } else {
     // 일부 모드(세로 등)는 내 타일 기본 숨김 — 그 자체가 '교사가 주인공' 이므로 통과

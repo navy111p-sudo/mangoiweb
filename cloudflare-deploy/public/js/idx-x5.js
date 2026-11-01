@@ -40,7 +40,10 @@
           }
           pick.classList.add('ph64-hidden');
         });
-        newCard.addEventListener('touchend', function(e){ e.preventDefault(); newCard.click(); });
+        newCard.addEventListener('touchend', function(e){
+          if (!(window.mgIsTap && window.mgIsTap(e))) return;   // 스크롤이면 무시(idx-tap-guard.js)
+          e.preventDefault(); newCard.click();
+        });
       }
     });
   }

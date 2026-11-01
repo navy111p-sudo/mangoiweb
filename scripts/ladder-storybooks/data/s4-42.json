@@ -1,0 +1,312 @@
+{
+  "id": "s4-42",
+  "breaks": [
+    4,
+    3,
+    6,
+    7
+  ],
+  "key": {
+    "P": 5,
+    "S": 18
+  },
+  "roleNames": {
+    "P": {
+      "ko": "원인",
+      "en": "cause"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «지구 온난화의 대부분은 사람이 석탄, 석유, 가스를 태우면서 생긴다(원인)» 과 «2100년의 지구는 앞으로 수십 년 동안 사람들이 하는 선택에 크게 달려 있다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the cause (most of the warming is caused by humans burning coal, oil, and gas) and the conclusion (Earth in 2100 will depend largely on the choices people make in the coming decades). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Possible climates of Earth in the year 2100"
+    },
+    {
+      "k": "Two futures",
+      "qko": "어떤 두 가지 미래가 있나요?",
+      "qen": "What are the two possible futures?",
+      "a": "About 4 degrees of warming with high emissions, or 1.5 to 2 with low emissions"
+    },
+    {
+      "k": "Solution",
+      "qko": "어떤 해결책이 이미 있나요?",
+      "qen": "What solutions already exist?",
+      "a": "Cheaper solar and wind power, electric vehicles, and protecting forests"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Since the late 1800s, Earth has warmed by about 1.1 degrees Celsius, mostly because humans burn coal, oil, and ",
+      "ans": "gas",
+      "opts": [
+        "gas",
+        "water",
+        "sand"
+      ]
+    },
+    {
+      "pre": ", which release greenhouse gases that trap ",
+      "ans": "heat",
+      "opts": [
+        "heat",
+        "rain",
+        "snow"
+      ]
+    },
+    {
+      "pre": ". Scientists use scenarios to describe what could happen if people make different ",
+      "ans": "choices",
+      "opts": [
+        "choices",
+        "songs",
+        "maps"
+      ]
+    },
+    {
+      "pre": ". With high emissions, warming could reach about 4 degrees, but with low emissions, it could stay close to 1.5 to 2 degrees. Many solutions already exist, but they require ",
+      "ans": "cooperation",
+      "opts": [
+        "cooperation",
+        "luck",
+        "silence"
+      ]
+    },
+    {
+      "pre": " between governments, companies, and individuals. The Earth of 2100 depends on what we do in the coming ",
+      "ans": "decades",
+      "opts": [
+        "decades",
+        "minutes",
+        "weekends"
+      ]
+    },
+    {
+      "pre": ", so the story is still being written.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "predict",
+      "예측하다",
+      "No one can <b>predict</b> the future exactly",
+      "to say what will happen before it happens"
+    ],
+    [
+      "release",
+      "내뿜다, 방출하다",
+      "which <b>releases</b> carbon dioxide and other greenhouse gases",
+      "to let something go out into the air or water"
+    ],
+    [
+      "scenario",
+      "시나리오, 가능한 미래의 모습",
+      "A <b>scenario</b> is not a prediction but a description of what could happen",
+      "a description of a possible future situation"
+    ],
+    [
+      "emission",
+      "배출",
+      "In a high-<b>emission</b> scenario",
+      "the act of sending out gas, heat, or light"
+    ],
+    [
+      "efficiently",
+      "효율적으로",
+      "using energy more <b>efficiently</b>",
+      "without wasting time, energy, or money"
+    ],
+    [
+      "cooperation",
+      "협력",
+      "these changes require <b>cooperation</b> between governments, companies, and individuals",
+      "working together to reach a goal"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why has Earth's average temperature risen since the late 1800s?",
+      "qko": "1800년대 후반부터 지구의 평균 기온은 왜 올랐나요?",
+      "opts": [
+        "Because the Sun has become much brighter",
+        "Because humans burn coal, oil, and gas, which release greenhouse gases",
+        "Because forests produce too much oxygen"
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Solar and wind power have become much cheaper over the past decade, and electric vehicles are spreading in many countries.",
+        "Most of this warming is caused by humans burning coal, oil, and gas, which releases carbon dioxide and other greenhouse gases.",
+        "No one can predict the future exactly, but climate scientists can describe possible paths.",
+        "This could bring stronger heat waves, rising sea levels, and serious problems for farming and water supplies."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "기온 상승의 대부분은 사람이 석탄, 석유, 가스를 태우면서 이산화탄소 같은 온실가스를 내뿜기 때문이에요.",
+        "Most of the warming is caused by humans burning coal, oil, and gas, which releases greenhouse gases."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the last sentence, what does 'writing it' mean?",
+      "qko": "마지막 문장에서 'writing it(그것을 쓰는 것)' 은 무슨 뜻인가요?",
+      "opts": [
+        "Helping to decide Earth's future through our choices",
+        "Writing a science report about the climate",
+        "Reading more stories about the year 2100"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "The Earth of 2100 has not already been decided.",
+        "Since the late 1800s, the average temperature of Earth's surface has risen by about 1.1 degrees Celsius.",
+        "It will depend largely on the choices people make in the coming decades.",
+        "In a high-emission scenario, where fossil fuel use keeps rising, global temperatures could rise by about 4 degrees or more by 2100."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "2100년의 지구는 아직 정해지지 않았고, 앞으로 수십 년 동안의 선택에 크게 달려 있다고 했어요. 그러니 «이야기를 쓴다» 는 것은 우리의 선택으로 미래를 만든다는 뜻이에요.",
+        "Earth in 2100 has not been decided and depends on the choices of the coming decades. So 'writing it' means shaping the future through our choices."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why does the writer say the difference between the two futures is enormous?",
+      "qko": "글쓴이는 왜 두 미래의 차이가 엄청나다고 말하나요?",
+      "opts": [
+        "Both futures would bring exactly the same temperature",
+        "Neither future depends on human choices",
+        "One path could mean about 4 degrees of warming, the other only about 1.5 to 2"
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "In a high-emission scenario, where fossil fuel use keeps rising, global temperatures could rise by about 4 degrees or more by 2100.",
+        "These gases trap heat in the atmosphere, much like a blanket.",
+        "In a low-emission scenario, where the world quickly reduces greenhouse gases, warming could be kept close to 1.5 to 2 degrees.",
+        "Solar and wind power have become much cheaper over the past decade, and electric vehicles are spreading in many countries."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "온실가스 배출이 계속 늘면 2100년까지 약 4도 이상 오를 수 있지만, 빠르게 줄이면 1.5~2도 가까이로 막을 수 있어요. 두 문장을 비교해야 차이가 보여요.",
+        "High emissions could mean about 4 degrees or more, while quickly cutting emissions could keep warming near 1.5 to 2 degrees. Compare the two sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How can a school cut its energy use?",
+      "학교는 어떻게 에너지 사용을 줄일 수 있을까?",
+      "The Low-Energy School"
+    ],
+    [
+      "B",
+      "What will coastal cities look like if sea levels rise?",
+      "해수면이 높아지면 바닷가 도시는 어떤 모습이 될까?",
+      "Cities and the Rising Sea"
+    ]
+  ],
+  "write": {
+    "pre": "If",
+    "mid": "we can",
+    "sep": ", ",
+    "slots": [
+      "cl",
+      "vp"
+    ],
+    "slotKo": [
+      "조건(만약 ~하면)",
+      "할 수 있는 일"
+    ],
+    "slotEn": [
+      "a condition",
+      "what we can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «어떤 조건 + 그때 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own condition and what we can do in English.",
+    "aria": [
+      "the condition",
+      "what we can do"
+    ],
+    "src": "“If <u>more families switch to solar power</u>, we can <u>cut the greenhouse gases we release</u>.”",
+    "chips": [
+      {
+        "a": "we walk or bike to school",
+        "b": "reduce car exhaust in our town",
+        "label": "bike"
+      },
+      {
+        "a": "we turn off the air conditioner when we leave",
+        "b": "save electricity",
+        "label": "electricity"
+      },
+      {
+        "a": "our class plants trees in the schoolyard",
+        "b": "make the playground cooler",
+        "label": "trees"
+      }
+    ],
+    "moreKo": "한 걸음 더: «If» 뒤에는 «누가 + 무엇을 하면» 을, «we can» 뒤에는 동사원형을 넣어 보세요. (예: If our school recycles paper, we can save many trees)",
+    "moreEn": "One more step: after «If», write who + what; after «we can», start with a base verb. (e.g. If our school recycles paper, we can save many trees)"
+  },
+  "img": {
+    "style": "photo",
+    "cover": "An elderly grandparent and two young children sitting together on a grassy hillside at sunset, looking out over a valley where rows of solar panels and tall white wind turbines stand among green forests",
+    "scenes": {
+      "1": "Thick grey smoke pouring from the tall chimneys of a coal power plant into a hazy orange sky, a long line of cars and trucks on a highway in front of it",
+      "2": "Seawater flooding a coastal street lined with palm trees during a storm, waves crashing over a sea wall and parked cars standing in deep water"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Smoke rising from a coal power plant",
+    "2": "Seawater flooding a coastal street",
+    "cover": "A grandparent and children looking at wind turbines and solar panels"
+  }
+}

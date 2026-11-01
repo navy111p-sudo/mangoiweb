@@ -1,0 +1,311 @@
+{
+  "id": "s4-33",
+  "breaks": [
+    6,
+    3,
+    7,
+    4
+  ],
+  "key": {
+    "P": 5,
+    "S": 17
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «과학자들은 꿈에 대한 하나의 최종 답은 아직 없지만, 많은 것을 알아냈다(주제)» 와 «충분한 렘수면을 포함한 좋은 잠은 학습, 기분, 건강에 중요하다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (scientists do not have one final answer about dreams, yet they have learned a great deal) and the conclusion (good sleep, including enough REM sleep, is important for learning, mood, and health). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Why we dream"
+    },
+    {
+      "k": "Key fact",
+      "qko": "생생한 꿈은 언제 많이 꾸나요?",
+      "qen": "When do vivid dreams happen?",
+      "a": "During REM sleep, when the brain is highly active"
+    },
+    {
+      "k": "Theories",
+      "qko": "꿈에 대해 어떤 이론들이 있나요?",
+      "qen": "What are the theories?",
+      "a": "Dreams may store memories, process emotions, or let us practice facing dangers"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Most of our vivid dreams happen during REM sleep, when the brain is highly ",
+      "ans": "active",
+      "opts": [
+        "active",
+        "quiet",
+        "empty"
+      ]
+    },
+    {
+      "pre": ". Our muscles are temporarily ",
+      "ans": "relaxed",
+      "opts": [
+        "relaxed",
+        "tight",
+        "strong"
+      ]
+    },
+    {
+      "pre": ", so we do not act out our dreams. Scientists have several ",
+      "ans": "theories",
+      "opts": [
+        "theories",
+        "machines",
+        "rules"
+      ]
+    },
+    {
+      "pre": ": dreams may help us store ",
+      "ans": "memories",
+      "opts": [
+        "memories",
+        "money",
+        "food"
+      ]
+    },
+    {
+      "pre": ", process emotions, or practice reacting to ",
+      "ans": "dangers",
+      "opts": [
+        "dangers",
+        "music",
+        "games"
+      ]
+    },
+    {
+      "pre": ". Although there is no final answer yet, good sleep is clearly important for learning, mood, and health.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "vivid",
+      "생생한",
+      "they usually reported <b>vivid</b> dreams",
+      "very clear and detailed, like something real"
+    ],
+    [
+      "cycles",
+      "주기",
+      "Sleep moves through <b>cycles</b> that last about 90 minutes.",
+      "patterns of events that repeat again and again"
+    ],
+    [
+      "temporarily",
+      "일시적으로, 잠시",
+      "most of the body's muscles are <b>temporarily</b> relaxed",
+      "only for a short time, not forever"
+    ],
+    [
+      "process",
+      "처리하다, 정리하다",
+      "dreams help us <b>process</b> emotions, especially fear and stress",
+      "to deal with and understand something step by step"
+    ],
+    [
+      "simulation",
+      "모의 실험, 시뮬레이션",
+      "sometimes called the threat <b>simulation</b> theory",
+      "a practice copy of a real situation"
+    ],
+    [
+      "fascinating",
+      "매우 흥미로운",
+      "one of the most <b>fascinating</b> mysteries of the human mind",
+      "extremely interesting"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why do we not act out our dreams during REM sleep?",
+      "qko": "렘수면 중에 우리는 왜 꿈을 몸으로 따라 하지 않나요?",
+      "opts": [
+        "Because the brain stops working during REM sleep",
+        "Because most of the body's muscles are temporarily relaxed",
+        "Because our eyes stay completely still"
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Many of our most vivid dreams happen during a stage called REM sleep, which stands for rapid eye movement.",
+        "During REM sleep, the brain is highly active, but most of the body's muscles are temporarily relaxed, so we do not act out our dreams.",
+        "Every so often, the sleepers' eyes darted quickly back and forth under their closed eyelids.",
+        "In their view, dreams are simply a side effect of the brain's activity during sleep."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "렘수면 동안 뇌는 매우 활발하지만, 몸의 근육 대부분은 잠시 힘이 풀려 있어요. 그래서 꿈을 행동으로 옮기지 않아요.",
+        "During REM sleep, the brain is active, but most muscles are temporarily relaxed, so we do not act out our dreams."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what does 'a side effect of the brain's activity' mean?",
+      "qko": "글에서 'a side effect of the brain's activity(뇌 활동의 부수 효과)' 는 무슨 뜻인가요?",
+      "opts": [
+        "An extra result that happens without a special purpose",
+        "A medicine that helps the brain sleep",
+        "A dangerous illness caused by dreaming"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "One theory suggests that dreaming helps the brain store memories and connect new information with old knowledge.",
+        "Interestingly, some scientists argue that dreams may have no special purpose at all.",
+        "Sleep moves through cycles that last about 90 minutes.",
+        "Every night, most people spend around two hours dreaming, even if they remember nothing in the morning."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "바로 앞 문장에서 꿈에는 특별한 목적이 전혀 없을 수도 있다고 했어요. 목적 없이 그냥 따라서 생기는 결과라는 뜻이에요.",
+        "The sentence before says dreams may have no special purpose. A side effect is something that simply happens along with something else."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why might students who sleep well remember more than students who stay up all night?",
+      "qko": "잠을 잘 잔 학생이 밤을 새운 학생보다 왜 더 많이 기억할 수 있나요?",
+      "opts": [
+        "Because staying up all night makes dreams more vivid",
+        "Because tests are always easier in the morning",
+        "Because sleep and dreaming help the brain store memories and learn"
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "One theory suggests that dreaming helps the brain store memories and connect new information with old knowledge.",
+        "A third theory, sometimes called the threat simulation theory, says that dreams allow us to practice reacting to dangers safely.",
+        "Good sleep, including enough REM sleep, is important for learning, mood, and health.",
+        "In 1953, two researchers at the University of Chicago noticed something strange while watching people sleep."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "꿈이 뇌가 기억을 저장하도록 돕는다는 이론이 있고, 충분한 렘수면을 포함한 좋은 잠은 학습에 중요해요. 두 문장을 연결하면 답이 나와요.",
+        "One theory says dreaming helps the brain store memories, and good sleep is important for learning. Connect the two sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Why do some people know they are dreaming while they dream?",
+      "어떤 사람들은 왜 꿈속에서 자신이 꿈을 꾸고 있다는 걸 알까?",
+      "Lucid Dreams"
+    ],
+    [
+      "B",
+      "How much sleep do teenagers really need?",
+      "청소년에게는 잠이 실제로 얼마나 필요할까?",
+      "The Teenage Sleep Clock"
+    ]
+  ],
+  "write": {
+    "pre": "If",
+    "mid": "we can",
+    "sep": ", ",
+    "slots": [
+      "cl",
+      "vp"
+    ],
+    "slotKo": [
+      "조건(만약 ~하면)",
+      "할 수 있는 일"
+    ],
+    "slotEn": [
+      "a condition",
+      "what we can do"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «어떤 조건 + 그때 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own condition and what we can do in English.",
+    "aria": [
+      "the condition",
+      "what we can do"
+    ],
+    "src": "“If <u>we get enough sleep before a test</u>, we can <u>remember more of what we studied</u>.”",
+    "chips": [
+      {
+        "a": "we put our phones away at night",
+        "b": "fall asleep faster",
+        "label": "phones"
+      },
+      {
+        "a": "we go to bed at the same time every day",
+        "b": "wake up with more energy",
+        "label": "bedtime"
+      },
+      {
+        "a": "we write down our dreams in the morning",
+        "b": "remember them better",
+        "label": "dreams"
+      }
+    ],
+    "moreKo": "한 걸음 더: «If» 뒤에는 «누가 + 무엇을 하면» 을, «we can» 뒤에는 동사원형을 넣어 보세요. (예: If we turn off screens early, we can sleep more deeply)",
+    "moreEn": "One more step: after «If», write who + what; after «we can», start with a base verb. (e.g. If we turn off screens early, we can sleep more deeply)"
+  },
+  "img": {
+    "style": "anime",
+    "cover": "A teenager sleeping peacefully on their side in a dim bedroom, soft blue moonlight falling across the pillow and blanket from a half-open window",
+    "scenes": {
+      "1": "A sleep laboratory at night where a person sleeps in a bed with thin sensor wires taped to the forehead and beside the eyes, while through a glass window a researcher watches wavy brain-wave lines moving across several monitors",
+      "3": "A tired student slumped over a desk late at night under a single desk lamp, head resting on a pile of open textbooks and a half-empty mug beside them, while a neatly made bed waits untouched in the dark corner of the room"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "A sleeping person connected to sensors in a sleep lab",
+    "3": "A tired student asleep on textbooks at night",
+    "cover": "A teenager sleeping in moonlight"
+  }
+}

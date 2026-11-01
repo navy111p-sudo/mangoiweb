@@ -11,6 +11,8 @@
      · 그 수업(schedule_id)이 «그 학생의 것» 일 때만 받는다(남의 수업 연기 금지).
      · 원래 일시·학생 이름·담당 강사는 서버가 class_schedules 에서 읽는다.
      · 요청은 «접수» 일 뿐 — 승인은 관리자가 기존 /decide 로 한다(수업을 여기서 옮기지 않는다).
+       ⏩ 예외(2026-10-06): 날짜 지정 수업의 «무료 연기» 는 접수 직후 자동 승인된다 — 조건·검사는
+          student-auto-postpone.ts 한 곳. 반복 수업·유료·강사 변경·겹침은 여전히 관리자 승인.
    ═══════════════════════════════════════════════════════════════════════ */
 
 export const STUDENT_REQ_DAILY_CAP = 30;   // 한 학생이 하루에 낼 수 있는 요청 수(폭주 방지)
@@ -71,8 +73,11 @@ export async function ensureScheduleChangeRequestTable(env: any): Promise<void> 
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_scr_status ON schedule_change_requests(status, created_at)`); } catch {}
   // 🆕 유료/무료 태깅(2026-07-14) — 기존 배포 DB 호환 컬럼 추가(멱등, 이미 있으면 무시)
   /* 👨‍🏫 (2026-09-30) new_teacher_id = «교사로 연기» 에서 학생이 고른 강사(원부 번호). teacher_name 은 «담당 강사» 그대로 둔다. */
+  /* 2026-10-04 schedule_snapshot: server-captured scheduleMoveVersion. Never backfill old
+     pending rows from today's timetable: that would invent their request-time baseline. */
   /* ⏸ (2026-10-02) end_makeup = «연기보강» 이름(예: 연기보강 (10월 2일 연기)). 있으면 승인 때 class_type='makeup' + 메모. */
-  for (const col of ['fee_type TEXT', 'minutes_before INTEGER', 'requester_uid TEXT', 'new_teacher_id TEXT', 'end_makeup TEXT']) {
+  for (const col of ['fee_type TEXT', 'minutes_before INTEGER', 'requester_uid TEXT', 'new_teacher_id TEXT', 'end_makeup TEXT', 'schedule_snapshot TEXT', 'request_scope TEXT', 'series_snapshot TEXT']) {
     try { await env.DB.exec(`ALTER TABLE schedule_change_requests ADD COLUMN ${col}`); } catch {}
   }
 }
+

@@ -357,13 +357,19 @@ console.log('\n[ I. 💬 대답 보기 칩 — 결정론으로 «맞는 영어»
   // ② 실제 질문을 넣어 «나온 문장» 을 본다
   const words = (s) => s.trim().split(/\s+/).filter(Boolean).length;
   const cases = [
-    { q: "Hi! I'm Mango. 🥭 Are you happy today?", lv: 1, want: ['Yes, I am.', "No, I'm not."] },
+    { q: "Hi! I'm Mango. 🥭 Are you happy today?", lv: 1, want: ['I am happy today.', 'I am not happy today.'] },
     { q: 'Hi! I\'m Mango. 🥭 How are you today, happy or tired?', lv: 2, want: ['I am happy.', 'I am tired.'] },
     { q: 'Nice! Do you like pizza or chicken?', lv: 1, want: ['I like pizza.', 'I like chicken.'] },
     { q: 'Do you like ice cream or cake?', lv: 2, want: ['I like ice cream.', 'I like cake.'] },
     { q: 'Are you a student or a teacher?', lv: 2, want: ['I am a student.', 'I am a teacher.'] },
-    { q: 'Wow! Do you have a pet?', lv: 1, want: ['Yes, I do.', "No, I don't."] },
-    { q: 'Can you swim?', lv: 2, want: ['Yes, I can.', "No, I can't."] },
+    { q: 'Wow! Do you have a pet?', lv: 1, want: ['I have a pet.', "I don't have a pet."] },
+    { q: 'Can you swim?', lv: 2, want: ['I can swim.', "I can't swim."] },
+    // 📜 2026-10-02 사장님 지시 — Yes/No 질문은 «그 질문의 낱말» 로 길게 대답한다(I like coffee / I don't like coffee)
+    { q: 'Do you like coffee?', lv: 1, want: ['I like coffee.', "I don't like coffee."] },
+    // ⛔ 대명사·부정사가 섞이면 비문이 되므로 긴 대답을 만들지 않고 짧은 대답으로 떨어진다 (짝)
+    { q: 'Do you like your school?', lv: 2, want: ['Yes, I do.', "No, I don't."] },
+    { q: 'Can you help me?', lv: 2, want: ['Yes, I can.', "No, I can't."] },
+    { q: 'Are you going to school?', lv: 2, want: ['Yes, I am.', "No, I'm not."] },
     { q: 'Would you like some water?', lv: 2, want: ['Yes, please.', 'No, thank you.'] },
     { q: 'Is it hot today?', lv: 3, want: ['Yes, it is.', "No, it isn't."] },
   ];
@@ -500,7 +506,7 @@ console.log('\n[ K. 다시 고르기에 손이 닿는가 — 되돌리기 방지
      「이 이름이 교재를 암시하지 않아 아무도 못 찾는다」를 고쳤는데(#987), 새로 낸 상단바
      지름길이 옛 말을 그대로 쓰면 그 수리가 새 입구에서 되살아납니다.
      ⛔ 기대 글자를 여기 손으로 적지 마세요 — 둘을 «서로» 대조해야 한쪽만 바꿔도 잡힙니다. */
-  const reopenLabel = ((HTML.match(/class="menu-reopen"[^>]*>([^<]+)</) || [, ''])[1] || '')
+  const reopenLabel = ((HTML.match(/class="menu-reopen"[^>]*>(?:<span[^>]*>)?([^<]+)</) || [, ''])[1] || '')
     .replace(/[^가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9·]/g, '');
   const tuneLabel = ((tune.match(/title="([^"]+)"/) || [, ''])[1] || '')
     .replace(/[^가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9·]/g, '');
@@ -530,7 +536,7 @@ console.log('\n[ K. 다시 고르기에 손이 닿는가 — 되돌리기 방지
       const LEV = [{ n: 3, ko: '기초' }, { n: 4, ko: '중급' }];
       const AGE = [{ id: 'kid', ko: '유아' }, { id: 'adult', ko: '어른' }];
       try {
-        new Function('document', 'LEVEL_CATALOG', 'AGE_CATALOG', '_warmLevel', '_warmAge', pickSrc)(doc, LEV, AGE, lv, ag);
+        new Function('document', 'LEVEL_CATALOG', 'AGE_CATALOG', '_warmLevel', '_warmAge', "/* 🌐 2026-10-03 — 화면 언어 헬퍼(wuT·wuEn·ageName)는 KO 로 돌린다. */ function wuEn(){return false} function wuT(k,e){return k} function ageName(a){return a?a.ko:''} " + pickSrc)(doc, LEV, AGE, lv, ag);
       } catch (e) { return { err: String((e && e.message) || e) }; }
       return el;
     };

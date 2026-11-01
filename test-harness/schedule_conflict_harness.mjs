@@ -90,8 +90,12 @@ check('«옮길 때» 자기 자신을 겹침에서 뺄 수 있다 (excludeId)',
   /excludeId/.test(src) && /String\(row\.id\) !== exclude/.test(src));
 check('수업 이동(연기·변경 승인)에서도 겹침을 본다',
   /findScheduleConflicts\(env, \{[\s\S]{0,300}?excludeId: row\.schedule_id/.test(src));
-check('겹치면 옮기지 않고 conflict 로 남긴다 (조용히 겹치게 두지 않음)',
-  /applied = 'conflict'/.test(src));
+// Approval now keeps the request pending rather than consuming it as approved/conflict.
+// The full Worker/SQLite lifecycle harness additionally proves no request/calendar writes.
+const rejectConflict = src.indexOf("return json({ ok: false, error: 'conflict', applied: 'conflict'");
+check('겹치면 409로 돌아가고 이동 배치에 넣지 않는다 (요청도 pending 유지)',
+  rejectConflict > 0 && /\}, 409\)/.test(src.slice(rejectConflict, rejectConflict + 400)) &&
+  src.indexOf('mutations.push(..._mvAll)', rejectConflict) > rejectConflict);
 check('합반(같은 시각·같은 길이)은 강사 겹침에서 제외한다',
   /sameSlot/.test(src) && /if \(sameSlot\) continue;/.test(src));
 check('같은 학생 행은 강사 겹침에서 중복으로 세지 않는다',

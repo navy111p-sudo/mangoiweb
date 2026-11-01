@@ -1,0 +1,311 @@
+{
+  "id": "s4-06",
+  "breaks": [
+    4,
+    3,
+    2,
+    2
+  ],
+  "key": {
+    "P": 3,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주장",
+      "en": "claim"
+    },
+    "S": {
+      "ko": "해결책",
+      "en": "solution"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «인공지능의 편향은 기계 자체가 아니라 학습한 데이터에서 온다(주장)» 와 «개발자는 데이터를 꼼꼼히 확인하고 여러 집단에서 시험해야 한다(해결책)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the claim (bias in AI comes from the data it is trained on, not the machine itself) and the solution (developers must check their data and test on many groups). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Bias in artificial intelligence"
+    },
+    {
+      "k": "Claim",
+      "qko": "글쓴이의 주장은 무엇인가요?",
+      "qen": "What does the writer claim?",
+      "a": "AI bias usually comes from the data it is trained on"
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결하자고 하나요?",
+      "qen": "What solution is given?",
+      "a": "Check data carefully and test systems on many groups of people"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Many people believe computers are ",
+      "ans": "objective",
+      "opts": [
+        "objective",
+        "emotional",
+        "careless"
+      ]
+    },
+    {
+      "pre": ", but AI learns by finding patterns in ",
+      "ans": "data",
+      "opts": [
+        "data",
+        "dreams",
+        "music"
+      ]
+    },
+    {
+      "pre": ". If that data reflects past unfairness, the system can learn the ",
+      "ans": "unfairness",
+      "opts": [
+        "unfairness",
+        "kindness",
+        "honesty"
+      ]
+    },
+    {
+      "pre": " too. A hiring program trained on old records may prefer male ",
+      "ans": "applicants",
+      "opts": [
+        "applicants",
+        "teachers",
+        "customers"
+      ]
+    },
+    {
+      "pre": ". Developers should check their data and test their systems on many different ",
+      "ans": "groups",
+      "opts": [
+        "groups",
+        "machines",
+        "cities"
+      ]
+    },
+    {
+      "pre": " of people.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "objective",
+      "객관적인",
+      "Many people believe that computers are <b>objective</b>.",
+      "not influenced by personal feelings"
+    ],
+    [
+      "bias",
+      "편향, 편견",
+      "<b>Bias</b> in AI usually comes from the data it is trained on.",
+      "an unfair preference for or against someone"
+    ],
+    [
+      "discriminate",
+      "차별하다",
+      "The program is not trying to <b>discriminate</b>.",
+      "to treat people unfairly because of who they are"
+    ],
+    [
+      "applicants",
+      "지원자",
+      "The program may conclude that male <b>applicants</b> are better candidates.",
+      "people who ask for a job or a place"
+    ],
+    [
+      "patterns",
+      "패턴, 양식",
+      "Artificial intelligence systems learn by finding <b>patterns</b> in large amounts of data.",
+      "things that happen again and again in the same way"
+    ],
+    [
+      "prejudices",
+      "편견",
+      "Ignoring these steps can turn old human <b>prejudices</b> into automated decisions.",
+      "unfair opinions formed without good reasons"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why might the hiring program decide that male applicants are better?",
+      "qko": "채용 프로그램은 왜 남성 지원자가 더 낫다고 판단할 수 있나요?",
+      "opts": [
+        "Because the company mostly hired men in the records it learned from",
+        "Because the program was told to treat women unfairly",
+        "Because men answered the interview questions faster"
+      ],
+      "ans": 0,
+      "evs": [
+        "If the company mostly hired men during that period, the program may conclude that male applicants are better candidates.",
+        "The program is not trying to discriminate; it is simply copying the patterns it was given.",
+        "Diverse teams can also help notice problems that others might miss.",
+        "Artificial intelligence systems, however, learn by finding patterns in large amounts of data collected from the real world."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "본문에 회사가 그 기간에 주로 남성을 뽑았다면 프로그램이 남성 지원자가 더 낫다고 결론 낼 수 있다고 나와요. 프로그램은 차별하려는 게 아니라 데이터를 따라 할 뿐이에요.",
+        "The text says that if the company mostly hired men, the program may conclude men are better. It is copying its data, not trying to discriminate."
+      ],
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In 'computers are objective,' what does 'objective' mean?",
+      "qko": "'computers are objective' 에서 'objective' 는 무슨 뜻인가요?",
+      "opts": [
+        "not influenced by personal feelings",
+        "very expensive and powerful",
+        "difficult to understand"
+      ],
+      "ans": 0,
+      "evs": [
+        "Many people believe that computers are objective because they follow mathematical rules rather than feelings.",
+        "The program is not trying to discriminate; it is simply copying the patterns it was given.",
+        "Suppose a company trains a hiring program using records of the employees it hired over the past twenty years.",
+        "Ignoring these steps can turn old human prejudices into automated decisions that affect millions of people."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "같은 문장에서 컴퓨터는 «감정(feelings)이 아니라 수학적 규칙» 을 따른다고 해요. 그래서 objective 는 «감정에 흔들리지 않는» 이라는 뜻이에요.",
+        "The same sentence says computers follow mathematical rules rather than feelings, so objective means not influenced by feelings."
+      ],
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why can AI bias become a serious problem for society?",
+      "qko": "인공지능의 편향은 왜 사회에 심각한 문제가 될 수 있나요?",
+      "opts": [
+        "It copies unfair patterns and can use them in decisions about millions of people",
+        "It makes computers break down more often",
+        "It stops companies from hiring anyone at all"
+      ],
+      "ans": 0,
+      "evs": [
+        "The program is not trying to discriminate; it is simply copying the patterns it was given.",
+        "Ignoring these steps can turn old human prejudices into automated decisions that affect millions of people.",
+        "Artificial intelligence systems, however, learn by finding patterns in large amounts of data collected from the real world.",
+        "Diverse teams can also help notice problems that others might miss."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "프로그램은 받은 패턴을 그대로 따라 하고, 그러면 옛 편견이 수백만 명에게 영향을 주는 자동 결정이 될 수 있어요. 두 단서를 합치면 답이 나와요.",
+        "The program copies the patterns it is given, and this can turn old prejudices into automated decisions affecting millions. Together these give the answer."
+      ],
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How do facial recognition systems learn to recognize faces?",
+      "얼굴 인식 시스템은 어떻게 얼굴을 알아보는 법을 배울까?",
+      "How Machines See Faces"
+    ],
+    [
+      "B",
+      "Can diverse teams build fairer technology?",
+      "다양한 사람이 모인 팀은 더 공정한 기술을 만들 수 있을까?",
+      "Fairer Tech Together"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "so that",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“Let’s <u>test the app with students from many different schools</u> so that <u>it works fairly for everyone</u>.”",
+    "slotKo": [
+      "함께 할 일",
+      "그 목적(결과)"
+    ],
+    "slotEn": [
+      "what we will do",
+      "the result we want"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그 목적» 으로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what we will do and the result we want in English.",
+    "chips": [
+      {
+        "a": "ask quiet classmates for their ideas",
+        "b": "every voice is heard",
+        "label": "ideas"
+      },
+      {
+        "a": "check our sources before we post",
+        "b": "we do not share false facts",
+        "label": "sources"
+      },
+      {
+        "a": "mix the teams for the science project",
+        "b": "each team has different strengths",
+        "label": "teams"
+      }
+    ],
+    "aria": [
+      "what we will do",
+      "the result"
+    ],
+    "moreKo": "한 걸음 더: «so that» 뒤에 «누가 + 어떻게 되는지» 를 넣어 결과를 분명하게 써 보세요. (예: so that no one is left out)",
+    "moreEn": "One more step: after «so that», write who + what happens to make the result clear. (e.g. so that no one is left out)"
+  },
+  "img": {
+    "style": "editorial",
+    "cover": "A group of young engineers of different genders and skin tones gathered around a laptop in a bright office, the laptop seen from behind",
+    "scenes": {
+      "1": "A tall stack of old paper personnel folders on an office desk next to an open metal filing cabinet, with no visible writing",
+      "3": "A team of people of different ages, genders, and skin tones discussing ideas around a meeting table covered with blank sticky notes"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "A stack of old employee files on a desk",
+    "3": "A diverse team talking around a table",
+    "cover": "A diverse team working around a laptop"
+  }
+}

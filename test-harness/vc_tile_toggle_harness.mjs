@@ -1,3 +1,6 @@
+let failures = 0;
+const print = console.log.bind(console);
+console.log = (...args) => { if (args.includes('❌')) failures++; print(...args); };
 /**
  * 📷🎤 내 타일 아이콘 클릭 토글 검증 (2026-07-13)
  *  1) 내 타일(vc-local-box)의 .vs-cam / .vs-mic 이 클릭 가능(pointer-events)
@@ -108,4 +111,4 @@ console.log('6) 상단 버튼 동기화(둘 다 켜짐):', btns, btns.cam === '�
 
 await browser.close();
 if (ownServer) server.close();
-process.exit(0);
+process.exit(failures ? 1 : 0);

@@ -71,7 +71,11 @@ ok('B-2 1단계는 막혔을 때 말이 하나 붙는다', red.includes('One mor
 const piz = A.warmupAnswerChips('Do you like pizza?', 3);
 ok('B-3 음식도 바꿔 준다(3단계엔 막힘 말 없음)', piz.length === 2 && piz[0] === 'I like pizza.' && piz[1] === 'I like chicken.', piz);
 const pet = A.warmupAnswerChips('Do you have a pet?', 1);
-ok('B-4 (짝) 바꿀 낱말이 없으면 예전처럼 Yes/No', pet.some((x) => /^Yes/.test(x)) && pet.some((x) => /^No/.test(x)), pet);
+/* 📜 2026-10-02 사장님 지시 — 바꿀 낱말이 없으면 «그 질문의 낱말» 로 긍정·부정 두 문장(I have a pet / I don't have a pet).
+   옛 단정(「Yes, I do / No, I don't」)은 그 지시로 버렸다 — 짧은 대답은 대명사가 섞여 긴 대답을 못 만들 때만 남는다(B-4b). */
+ok('B-4 (짝) 바꿀 낱말이 없으면 긍정·부정 긴 대답', pet[0] === 'I have a pet.' && pet[1] === "I don't have a pet.", pet);
+const pron = A.warmupAnswerChips('Do you like your school?', 1);
+ok('B-4b (짝) 대명사가 섞이면 비문 대신 짧은 Yes/No', pron.some((x) => /^Yes/.test(x)) && pron.some((x) => /^No/.test(x)) && !pron.some((x) => /your/.test(x)), pron);
 const either = A.warmupAnswerChips('Do you like pizza or chicken?', 2);
 ok('B-5 (짝) 양자택일은 예전 그대로(질문 속 두 말)', either.join('|').includes('pizza') && either.join('|').includes('chicken'), either);
 const two = A.warmupAnswerChips('Do you like dogs and cats?', 1);

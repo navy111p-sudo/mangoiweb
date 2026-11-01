@@ -1,0 +1,70 @@
+{
+  "reference_element": "67713c4d-1dfd-4ce1-9433-88ccfd04096b",
+  "new_source_clips": [
+    {
+      "no": 1,
+      "job_id": "1694c8ac-f104-4ab1-897f-260a2df69453"
+    },
+    {
+      "no": 2,
+      "job_id": "7e112213-cc10-493d-aeaf-05151d3eb6fd"
+    },
+    {
+      "no": 3,
+      "job_id": "a898147f-6316-423f-b757-0e8dc54941f6"
+    },
+    {
+      "no": 4,
+      "job_id": "61a947b1-929c-48a2-a972-3e6acb96b858"
+    },
+    {
+      "no": 5,
+      "job_id": "138a585a-413e-4074-a4de-a1f15fe7cfda"
+    },
+    {
+      "no": 6,
+      "job_id": "41bec87c-e764-44fc-a1e1-e7c84512b860"
+    },
+    {
+      "no": 7,
+      "job_id": "c62d6ba1-ac57-4680-a4a8-cc1f55d45812"
+    },
+    {
+      "no": 8,
+      "job_id": "d6fd51e5-1b4f-489b-93ab-827deaf1eaf8"
+    },
+    {
+      "no": 9,
+      "job_id": "93df758c-71c1-4442-b951-d756a750bd84"
+    },
+    {
+      "no": 10,
+      "job_id": "bd02d428-7ef9-4f1a-9aaf-3db2b03a876b"
+    },
+    {
+      "no": 11,
+      "job_id": "7109ab9d-3a81-41be-9689-eaa9018d0598"
+    },
+    {
+      "no": 12,
+      "job_id": "2143f9bd-d028-4218-b767-f54cf4a5c2f4"
+    },
+    {
+      "no": 13,
+      "job_id": "4daf5825-cb79-4e2b-abad-545354212f05"
+    },
+    {
+      "no": 14,
+      "job_id": "b5f4f75c-ae22-48eb-be3b-7912005a95ca"
+    },
+    {
+      "no": 15,
+      "job_id": "2c5f8fb7-b70e-4d21-a70e-15230973349f"
+    },
+    {
+      "no": 16,
+      "job_id": "89fa1c2f-a960-4c8b-b183-adc012c05092"
+    }
+  ],
+  "status": "manual-QA-required"
+}

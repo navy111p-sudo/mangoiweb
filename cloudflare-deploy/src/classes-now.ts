@@ -21,6 +21,7 @@
  */
 import { mirrorNoteClassId } from './c24-mirror';
 import { recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
+import { isHolidayClosedFor, type HolidayClosure } from './holiday-closure';   // 🎌 공휴일 휴강 정본
 
 /** 화면이 «참관 버튼을 달아도 되는가» 를 가르는 값. */
 export type ClassesNowSource = 'mangoi' | 'cafe24';
@@ -173,4 +174,61 @@ export function mergeClassesNow(c24: ClassesNowRow[], mangoi: ClassesNowRow[]): 
   );
   return [...c24.filter(c => !mirrored.has(String(c.room_id))), ...mangoi]
     .sort((a, b) => (a.start_ms - b.start_ms) || String(a.room_id).localeCompare(String(b.room_id)));
+}
+
+/** 🪞 (2026-10-20 매니저 「today's class, still not all schedule have move button」)
+ *  매니저 「오늘 수업」(classes/today) 은 망고아이 줄과 카페24 줄을 그냥 이어 붙였다 —
+ *  미러가 만든 줄(notes `c24:<수업번호>`)과 그 원본(`c24-<수업번호>`)이 **두 줄로** 나갔다.
+ *  [잰 것 — 2026-10-19 운영 D1] 카페24 120줄 중 100줄이 이미 미러 줄이 있는 «복사본» 이었고,
+ *  그 복사본에는 «LMS 수업 — 카페24에서 변경» 이 붙어 «Move 가 없다» 로 보였다.
+ *  ✅ 카페24 줄 중 «미러 줄이 있는 수업» 을 뺀다 — `mergeClassesNow` 와 같은 규칙.
+ *  ⚠️ `mirrored` 는 날짜·상태를 안 가리고 모은 수업번호다 — 사람이 다른 날로 옮겼거나
+ *     취소한 미러 줄이어도 그 원본은 이미 «망고아이가 정본» 이라 다시 보이면 안 된다.
+ *  ⚠️ 조회가 실패해 `mirrored` 가 비면 아무것도 안 뺀다(예전처럼 두 줄 — 수업이 사라지는 쪽보다 낫다). */
+export function dropMirroredCafe24<T extends { room_id?: any }>(c24: T[], mirrored: Set<string>): { kept: T[]; hidden: number } {
+  if (!mirrored.size) return { kept: c24.slice(), hidden: 0 };
+  const kept = c24.filter(r => {
+    const m = /^c24-(.+)$/.exec(String(r.room_id || ''));
+    return !(m && mirrored.has(m[1]));
+  });
+  return { kept, hidden: c24.length - kept.length };
+}
+
+/** 🎌 (2026-10-09) 공휴일 휴강으로 «열리지 않는» 수업을 뺀다 — 합친(merge) «뒤» 의 목록에 쓴다.
+ *  · 망고아이·카페24 줄 둘 다 본다(카페24 는 2026-10-09 사장님 「카페24 수업도 관제탑에서 휴강 반영」).
+ *  · 날짜는 그 수업의 KST 날짜(자정 근처면 어제·내일일 수 있다).
+ *  · 강사는 teacherOf(줄) 이 돌려준 원부 번호(teachers.id). 망고아이 = schedule_id → teacher_id,
+ *    카페24 = 카페24 강사번호 → 이름 → 원부 번호(유일할 때만). 부르는 쪽이 정한다.
+ *    teacherOf 가 EXEMPT_BY_NAME 을 돌려주면 «이름으로 중국어 강사임을 알았다» = 연다.
+ *  · 그 날짜의 판정이 없으면(못 읽음) «휴강 아님» — 막는 쪽으로 실패하지 않는다. */
+export const EXEMPT_BY_NAME = '__exempt_by_name__';
+
+/** 🎌 카페24 줄의 «휴강 판정용 강사 열쇠» — 관제탑(classes-now)·매니저 «오늘 수업»(classes/today) 이 같은 답을 내게 한 곳에 둔다.
+ *  info = loadCafe24TeacherMap 의 결과(원부 번호는 이름이 유일할 때만). 원부 번호를 알면 그 번호,
+ *  모르면 이름으로 중국어 강사인지 본다(예외 강사 원부 이름 정확일치 · 「중국어」·chinese 포함 → EXEMPT_BY_NAME = 연다).
+ *  그래도 모르면 '' = «예외 아님» = 휴강(망고아이의 «강사 미배정 = 휴강» 과 같은 규칙). */
+export function cafe24HolidayTeacher(
+  info: { teacherId?: any; name?: any } | null | undefined, exemptNames: Set<string>, norm: (v: any) => string,
+): string {
+  if (info && info.teacherId) return String(info.teacherId);
+  const nm = info && info.name ? String(info.name) : '';
+  if (nm && (exemptNames.has(norm(nm)) || /중국어|chinese/i.test(nm))) return EXEMPT_BY_NAME;
+  return '';
+}
+export function dropHolidayClosed<T extends ClassesNowRow>(
+  rows: T[], teacherOf: (row: T) => any, byYmd: Record<string, HolidayClosure | undefined>,
+): { kept: T[]; closed: number; closed_c24: number; name: string | null } {
+  let closed = 0, closedC24 = 0; let name: string | null = null;
+  const kept = rows.filter((c) => {
+    const ymd = new Date(Number(c.start_ms) + KST9).toISOString().slice(0, 10);
+    const h = byYmd[ymd];
+    if (!h || !h.closed) return true;
+    const tid = teacherOf(c);
+    if (tid === EXEMPT_BY_NAME) return true;
+    if (!isHolidayClosedFor(h, tid)) return true;
+    closed++; if (c.source === 'cafe24') closedC24++;
+    if (!name) name = h.name;
+    return false;
+  });
+  return { kept, closed, closed_c24: closedC24, name };
 }

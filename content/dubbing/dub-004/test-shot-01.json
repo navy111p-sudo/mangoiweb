@@ -1,0 +1,17 @@
+{
+  "shot": "test-01 (scene 1, 29.9-35.9s: Maya s1-l8 -> Pip s1-l9)",
+  "date": "2026-10-20 UTC",
+  "model": "wan2_7 720p 6s",
+  "credits": 9,
+  "cumulativeCredits": 60.9,
+  "remainingWithin360": 299.1,
+  "jobId": "4fe07d11-44b6-4a2c-9a3c-9b08705086a4",
+  "inputs": {"startImage": "references/maya-pip-two-shot.png", "audio": "audio/pilot/s1-maya-pip-exact6s.wav (mp3 192k for upload)"},
+  "uploadFix": "presigned PUT needs header 'If-None-Match: *' (signed header) and the slot's own Content-Type; this was the cause of the earlier HTTP403",
+  "measured": {
+    "outputAudioVsInput": "correlation 0.9997, lag 0 ms (16 kHz mono) - provided audio kept unchanged",
+    "video": "1276x722 h264 30fps 6.0s"
+  },
+  "visualCheckByClaude": "6 frames: Maya mouth open while speaking then closed; Pip mouth open at ~3.5-4.5s; Pip has 3 ball-tip antennae; outfits match references. Frame check only - not human lip-sync certification.",
+  "notChecked": "phoneme-level lip-sync, human listening, final 24fps conform"
+}

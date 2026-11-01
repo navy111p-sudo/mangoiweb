@@ -71,6 +71,7 @@ const SRC = {
   active: bodyAt(html, 'function nsTeacherActive('),
   build: bodyAt(html, 'function nsBuildTeacherOptions('),
   sync: bodyAt(html, 'function nsSyncTeacherOptions('),
+  wp: bodyAt(html, 'function nsWpMatch('),
   esc: bodyAt(html, 'function nsEsc('),
   picked: bodyAt(html, 'function nsPickedTeacher('),
   fallback: bodyAt(html, 'function nsFallbackToText('),
@@ -82,12 +83,12 @@ for (const [k, v] of Object.entries(SRC)) {
 
 /* ── ① 화면: «재직/퇴사» 를 갈라 그리는가 ─────────────────────────────── */
 console.log('\n── ① 목록을 실제로 그려 본다 ──');
-let build = null, active = null, picked = null;
+let build = null, active = null, picked = null, wpMatch = null;
 try {
-  const mk = new Function(SRC.esc + '\n' + SRC.active + '\n' + SRC.build +
-    '\nreturn { build: nsBuildTeacherOptions, active: nsTeacherActive };');
+  const mk = new Function(SRC.esc + '\n' + SRC.active + '\n' + SRC.wp + '\n' + SRC.build +
+    '\nreturn { build: nsBuildTeacherOptions, active: nsTeacherActive, wp: nsWpMatch };');
   const m = mk();
-  build = m.build; active = m.active;
+  build = m.build; active = m.active; wpMatch = m.wp;
 } catch (e) {
   check('전제 — 목록 함수를 돌릴 수 있다', false, e.message);
 }
@@ -156,9 +157,9 @@ if (SRC.sync.length > 40 && build) {
     const wrap = { style: { display: 'none' } };
     const lb = { textContent: '' };
     const fn = new Function('selEl', 'teacherRows', 'leftChkEl', 'leftWrapEl', 'leftLbEl',
-      'nsBuildTeacherOptions', 'nsTeacherActive',
+      'nsBuildTeacherOptions', 'nsTeacherActive', 'wpEl', 'say', 'nsWpMatch',
       SRC.sync + '\nnsSyncTeacherOptions(); return { sel: selEl, wrap: leftWrapEl, lb: leftLbEl };');
-    return fn(sel, rows, { checked }, wrap, lb, build, active);
+    return fn(sel, rows, { checked }, wrap, lb, build, active, null, () => {}, wpMatch);
   };
   let r = null;
   try { r = mkSync(ROWS, false); } catch (e) { check('전제 — 동기화를 돌릴 수 있다', false, e.message); }
@@ -183,9 +184,9 @@ if (SRC.sync.length > 40 && build) {
     sel.value = '22';
     check('전제 — 가짜 select 가 22 를 들고 있다', sel.value === '22', sel.value);
     const fn = new Function('selEl', 'teacherRows', 'leftChkEl', 'leftWrapEl', 'leftLbEl',
-      'nsBuildTeacherOptions', 'nsTeacherActive',
+      'nsBuildTeacherOptions', 'nsTeacherActive', 'wpEl', 'say', 'nsWpMatch',
       SRC.sync + '\nnsSyncTeacherOptions(); return selEl.value;');
-    const v = fn(sel, ROWS, { checked: true }, { style: {} }, { textContent: '' }, build, active);
+    const v = fn(sel, ROWS, { checked: true }, { style: {} }, { textContent: '' }, build, active, null, () => {}, wpMatch);
     check('다시 그려도 고른 값이 남는다 (22)', String(v) === '22', String(v));
   } catch (e) { check('고른 값 보존을 잴 수 있다', false, e.message); }
 }
@@ -255,9 +256,11 @@ try {
   const txt = { style: { display: 'none' } };
   const lw = { style: { display: 'flex' } };
   let said = '';
-  const mk = new Function('selEl', 'txtEl', 'leftWrapEl', 'say',
+  const ww = { style: { display: 'flex' } };
+  const mk = new Function('selEl', 'txtEl', 'leftWrapEl', 'say', 'wpWrapEl',
     SRC.fallback + '\nreturn nsFallbackToText;');
-  mk(sel, txt, lw, (h) => { said = String(h); })('HTTP 403');
+  mk(sel, txt, lw, (h) => { said = String(h); }, ww)('HTTP 403');
+  check('[짝] 근무지 칸도 함께 감춘다 (거를 목록이 없다)', ww.style.display === 'none', ww.style.display);
   check('목록을 못 받으면 드롭다운을 감춘다', sel.style.display === 'none');
   check('[짝] 그리고 옛 텍스트 칸이 다시 보인다', txt.style.display === '');
   check('[짝] 체크박스도 함께 감춘다 (고를 것이 없다)', lw.style.display === 'none', lw.style.display);
@@ -366,6 +369,85 @@ try {
     !r4.teacherId && r4.teacherName === null && r4.teacherMatched === false, JSON.stringify(r4));
 } catch (e) {
   check('전제 — 서버 블록을 돌릴 수 있다', false, e.message);
+}
+
+/* ── ⑨ 근무지(전체·홈·사무실) 칸 — 2026-10-07 사장님 「담당 강사 옆에 칸 추가」 ─────────
+   근거는 서버가 실어 주는 workplace(명부 group_name — workplaceOf). 화면은 «고르기만» 한다.
+   짝: «홈이면 홈만» ↔ «전체면 모르는 강사까지 다» ↔ «모르는 강사는 홈·사무실 어느 쪽에도 안 넣는다». */
+console.log('\n── ⑨ 근무지 칸으로 거른다 ──');
+const WROWS = [
+  { id: 2, name: 'BELLE', active: 1, workplace: 'home' },
+  { id: 7, name: 'ANA', active: 1, workplace: 'office' },
+  { id: 26, name: 'MELCA', active: 1, workplace: '' },        // 명부에 근무지가 없다(모름)
+  { id: 11, name: 'MARIANE', active: 0, workplace: 'home' },  // 퇴사
+];
+check('전제 — nsWpMatch 를 잘라 냈다', !!wpMatch);
+if (build) {
+  let h = '', o = '', a = '';
+  try { h = build(WROWS, false, 'home'); o = build(WROWS, false, 'office'); a = build(WROWS, false, ''); }
+  catch (e) { check('전제 — 근무지로 그릴 수 있다', false, e.message); }
+  check('홈 → BELLE(2) 있다', /value="2"/.test(h), h);
+  check('[짝] 홈 → ANA(7, 사무실) 없다', !/value="7"/.test(h));
+  check('[짝] 홈 → 모르는 MELCA(26) 없다 (지어내지 않는다)', !/value="26"/.test(h));
+  check('사무실 → ANA(7) 있다', /value="7"/.test(o));
+  check('[짝] 사무실 → BELLE(2) 없다', !/value="2"/.test(o));
+  check('[짝] 사무실 → MELCA(26) 없다', !/value="26"/.test(o));
+  check('전체 → 셋 다 있다 (모르는 강사도)', /value="2"/.test(a) && /value="7"/.test(a) && /value="26"/.test(a));
+  check('[짝] 전체여도 퇴사는 기본으로 안 보인다', !/value="11"/.test(a));
+  let hl = ''; try { hl = build(WROWS, true, 'home'); } catch (_) {}
+  check('홈 + 퇴사 보기 → MARIANE(11) 이 «(퇴사)» 로 나온다', /value="11">MARIANE \(퇴사\)/.test(hl), hl);
+  let ol = ''; try { ol = build(WROWS, true, 'office'); } catch (_) {}
+  check('[짝] 사무실 + 퇴사 보기 → MARIANE(11, 홈) 안 나온다', !/value="11"/.test(ol));
+  check('«지정 안 함» 은 어느 근무지든 맨 앞에 있다', /^<option value="">/.test(h) && /^<option value="">/.test(o));
+}
+// 동기화 — 근무지 칸 숫자·선택 풀림 안내
+try {
+  const mkSel = (v) => {
+    const o2 = { _html: '', _v: v };
+    Object.defineProperty(o2, 'innerHTML', { get() { return this._html; }, set(x) { this._html = String(x); const y = this._v; this._v = (y && this._html.indexOf('value="' + y + '"') >= 0) ? y : ''; } });
+    Object.defineProperty(o2, 'value', { get() { return this._v; }, set(x) { const y = String(x == null ? '' : x); this._v = (this._html.indexOf('value="' + y + '"') >= 0 || y === '') ? y : ''; } });
+    return o2;
+  };
+  const mkWp = (v) => ({ value: v, options: [{ value: '', textContent: '' }, { value: 'home', textContent: '' }, { value: 'office', textContent: '' }] });
+  const run = (wpv, picked) => {
+    const sel = mkSel('');
+    if (picked) { sel.innerHTML = '<option value="' + picked + '">x</option>'; sel.value = picked; }
+    const said = [];
+    const wpE = mkWp(wpv);
+    const lb = { textContent: '' };
+    const fn = new Function('selEl', 'teacherRows', 'leftChkEl', 'leftWrapEl', 'leftLbEl',
+      'nsBuildTeacherOptions', 'nsTeacherActive', 'wpEl', 'say', 'nsWpMatch',
+      SRC.sync + '\nnsSyncTeacherOptions(); return selEl;');
+    const s2 = fn(sel, WROWS, { checked: false }, { style: {} }, lb, build, active, wpE, (m) => said.push(m), wpMatch);
+    return { sel: s2, said, wp: wpE, lb };
+  };
+  const r1 = run('home', '');
+  check('홈을 고르면 목록이 홈만 그린다', /value="2"/.test(r1.sel.innerHTML) && !/value="7"/.test(r1.sel.innerHTML));
+  check('근무지 칸에 숫자를 적는다 — 전체 3 · 홈 1 · 사무실 1',
+    /\(3\)/.test(r1.wp.options[0].textContent) && /\(1\)/.test(r1.wp.options[1].textContent) && /\(1\)/.test(r1.wp.options[2].textContent),
+    r1.wp.options.map(x => x.textContent).join(' | '));
+  const r2 = run('office', '2');
+  check('고른 강사(BELLE)가 사무실에서 빠지면 선택이 풀린다', r2.sel.value === '', r2.sel.value);
+  check('[짝] 그 사실을 화면이 말한다', r2.said.some(m => /선택이 풀렸/.test(m)), JSON.stringify(r2.said));
+  const r3 = run('home', '2');
+  check('[짝] 고른 강사가 남아 있으면 그대로 두고 아무 말도 안 한다', r3.sel.value === '2' && r3.said.length === 0, JSON.stringify(r3.said));
+  check('[짝] 퇴사 명 수도 근무지에 맞춰 센다 (홈 1명)', /\(1명\)/.test(r1.lb.textContent), r1.lb.textContent);
+  const r4 = run('office', '');
+  check('[짝] 사무실에는 퇴사가 0명', /\(0명\)/.test(r4.lb.textContent), r4.lb.textContent);
+} catch (e) { check('전제 — 근무지 동기화를 돌릴 수 있다', false, e.message); }
+check('근무지 칸이 담당 강사 바로 옆에 있다 (ns-teacher-sel 뒤, 등록 버튼 앞)',
+  html.indexOf('id="ns-teacher-sel"') < html.indexOf('id="ns-teacher-wp"') && html.indexOf('id="ns-teacher-wp"') < html.indexOf('id="ns-add"'));
+check('근무지를 바꾸면 다시 그린다', /wpEl\.addEventListener\(\s*'change'\s*,\s*nsSyncTeacherOptions\s*\)/.test(strip(html)));
+check('[짝] 목록을 못 받으면 근무지 칸도 숨긴다', /wpWrapEl/.test(strip(SRC.fallback)));
+// 서버 — workplace 를 명부 group_name 정본으로 싣는가
+{
+  const api = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/src/api-admin.ts'), 'utf8');
+  const i = api.indexOf("path === '/api/admin/teachers') {\n      await ensurePayrollSchema");
+  const seg = i >= 0 ? api.slice(i, api.indexOf('return json({ ok: true, items: teacherRows', i)) : '';
+  check('전제 — 서버 강사 목록 블록을 잘라 냈다', seg.length > 200, 'len=' + seg.length);
+  check('서버가 workplace 를 workplaceOf(group_name) 으로 싣는다', /workplaceOf\(p\.group_name\)/.test(seg) && /workplace:/.test(seg));
+  check('[짝] 서버가 teachers.status 로 근무지를 정하지 않는다', !/workplace:\s*r\.status/.test(seg));
+  check('[짝] 근무지 조회 실패는 목록을 안 죽인다(try/catch)', /try \{[\s\S]*teacher_profiles[\s\S]*\} catch/.test(seg));
 }
 
 console.log('\n결과: PASS ' + pass + ' / FAIL ' + fail + '\n');

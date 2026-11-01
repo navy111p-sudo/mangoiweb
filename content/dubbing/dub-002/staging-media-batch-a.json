@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "status": "upload-pending-unconfirmed",
+  "assets": [
+    {
+      "scene": 1,
+      "kind": "video",
+      "media_id": "4cc2c6d8-83d8-4a83-92fe-9c2ddad2c388",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/4cc2c6d8-83d8-4a83-92fe-9c2ddad2c388.mp4"
+    },
+    {
+      "scene": 1,
+      "kind": "bgm",
+      "media_id": "b97acdd8-4b69-44c1-b5dc-4bf92841c918",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/b97acdd8-4b69-44c1-b5dc-4bf92841c918.mp3"
+    },
+    {
+      "scene": 1,
+      "kind": "poster",
+      "media_id": "d947b776-bd67-4e97-9b74-8003e30587c1",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/d947b776-bd67-4e97-9b74-8003e30587c1.webp"
+    },
+    {
+      "scene": 2,
+      "kind": "video",
+      "media_id": "e81e1b81-a3ff-4d3c-aa3c-8f5753b1b59c",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/e81e1b81-a3ff-4d3c-aa3c-8f5753b1b59c.mp4"
+    },
+    {
+      "scene": 2,
+      "kind": "bgm",
+      "media_id": "d8032ec8-401f-4b13-ad07-d62d6ffb611b",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/d8032ec8-401f-4b13-ad07-d62d6ffb611b.mp3"
+    },
+    {
+      "scene": 2,
+      "kind": "poster",
+      "media_id": "e1070946-6abd-4ec6-86d0-060599ea7b39",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/e1070946-6abd-4ec6-86d0-060599ea7b39.webp"
+    },
+    {
+      "scene": 3,
+      "kind": "video",
+      "media_id": "1bbcd018-a7fc-4063-b7b8-ccdbe840e995",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/1bbcd018-a7fc-4063-b7b8-ccdbe840e995.mp4"
+    },
+    {
+      "scene": 3,
+      "kind": "bgm",
+      "media_id": "a083d91f-07e5-4ae5-bb9f-58707dbba4cf",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/a083d91f-07e5-4ae5-bb9f-58707dbba4cf.mp3"
+    },
+    {
+      "scene": 3,
+      "kind": "poster",
+      "media_id": "72761514-91e1-4a1b-a6bb-09f648e9b9cd",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/72761514-91e1-4a1b-a6bb-09f648e9b9cd.webp"
+    },
+    {
+      "scene": 4,
+      "kind": "video",
+      "media_id": "6212086f-de82-4a36-8dd5-351b3ee82f5e",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/6212086f-de82-4a36-8dd5-351b3ee82f5e.mp4"
+    },
+    {
+      "scene": 4,
+      "kind": "bgm",
+      "media_id": "a6c3bf0c-b3a2-4704-9dd4-4cd9fdc7b1d2",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/a6c3bf0c-b3a2-4704-9dd4-4cd9fdc7b1d2.mp3"
+    },
+    {
+      "scene": 4,
+      "kind": "poster",
+      "media_id": "39cebb31-4dd3-42b8-85a7-5b54b4b957d7",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/39cebb31-4dd3-42b8-85a7-5b54b4b957d7.webp"
+    },
+    {
+      "scene": 5,
+      "kind": "video",
+      "media_id": "bceae76a-3542-4af2-80c8-c80cbcf40834",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/bceae76a-3542-4af2-80c8-c80cbcf40834.mp4"
+    },
+    {
+      "scene": 5,
+      "kind": "bgm",
+      "media_id": "80baeddf-13fd-470d-bfa8-1ba04441d2fc",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/80baeddf-13fd-470d-bfa8-1ba04441d2fc.mp3"
+    },
+    {
+      "scene": 5,
+      "kind": "poster",
+      "media_id": "d1cb6e45-d588-4657-9ec4-9513655f099a",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/d1cb6e45-d588-4657-9ec4-9513655f099a.webp"
+    },
+    {
+      "scene": 6,
+      "kind": "video",
+      "media_id": "4a3c63a6-69e2-4b34-8bae-735e89d0cf24",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/4a3c63a6-69e2-4b34-8bae-735e89d0cf24.mp4"
+    },
+    {
+      "scene": 6,
+      "kind": "bgm",
+      "media_id": "ab12319b-f56d-48eb-b9fd-b48281b9c6e1",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/ab12319b-f56d-48eb-b9fd-b48281b9c6e1.mp3"
+    },
+    {
+      "scene": 6,
+      "kind": "poster",
+      "media_id": "4dec2c3a-296f-4367-ad08-ba5694843c24",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/4dec2c3a-296f-4367-ad08-ba5694843c24.webp"
+    }
+  ]
+}

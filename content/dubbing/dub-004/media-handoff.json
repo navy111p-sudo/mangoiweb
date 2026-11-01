@@ -1,0 +1,129 @@
+{
+  "asOf": "2026-10-20 resumed after 13:56 UTC approval",
+  "main": "98beaf2ec",
+  "ep02Head": "5b5bd5f678f0216bbf1ec2b97797fa9a8c3d5dae",
+  "referenceElement": {
+    "id": "67713c4d-1dfd-4ce1-9433-88ccfd04096b",
+    "name": "EP02 Four Cast",
+    "status": "completed",
+    "imageJobId": "8d402ba3-d159-4f14-8f5b-2097b2757d3f",
+    "previewUrl": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_130515_8d402ba3-d159-4f14-8f5b-2097b2757d3f_min.webp",
+    "verified": "Owned-library metadata and latest EP02 source register agree; pixels not inspected here",
+    "usage": "Use provider-supported reference mechanism; Kling3.0 element also requires start image. Not every model supports element references."
+  },
+  "missing": [
+    "Momo reference and voice matching latest user image; additional cost approval if needed",
+    "60 NEW episode-four spoken utterances (requests provided, not synthesized)",
+    "Final phoneme-aligned animation and audio",
+    "Nautical music/SFX and approval of incremental audio/reference costs"
+  ],
+  "audioSourcesForOwnerReview": {
+    "episode": "dub-002",
+    "status": "generated-not-mixed-or-qc-approved",
+    "provider": "Higgsfield",
+    "assets": [
+      {
+        "type": "bgm",
+        "name": "space_adventure_theme",
+        "id": "62cdc4f8-4fd7-4971-bb0f-d87368e8dd30",
+        "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_044750_62cdc4f8-4fd7-4971-bb0f-d87368e8dd30.m4a",
+        "durationSec": 30
+      },
+      {
+        "type": "sfx",
+        "name": "mysterious_signal",
+        "id": "0bf49d2f-1da9-45b5-b5be-b471ba2d05c5",
+        "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_044812_0bf49d2f-1da9-45b5-b5be-b471ba2d05c5.mp3",
+        "durationSec": 5
+      },
+      {
+        "type": "sfx",
+        "name": "spaceship_launch",
+        "id": "e4dd3206-32fe-4eed-bee6-824e8fc09a27",
+        "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_044815_e4dd3206-32fe-4eed-bee6-824e8fc09a27.mp3",
+        "durationSec": 6
+      },
+      {
+        "type": "sfx",
+        "name": "control_warning",
+        "id": "2e6ab549-23a8-4a74-b414-307266ad195a",
+        "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_044818_2e6ab549-23a8-4a74-b414-307266ad195a.mp3",
+        "durationSec": 5
+      },
+      {
+        "type": "sfx",
+        "name": "zero_gravity",
+        "id": "8b02f05b-031a-4880-a061-aaef69710abd",
+        "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_044822_8b02f05b-031a-4880-a061-aaef69710abd.mp3",
+        "durationSec": 5
+      },
+      {
+        "type": "sfx",
+        "name": "escape_vortex",
+        "id": "c8ce35f2-358a-4e94-8617-e67625eaae42",
+        "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_044826_c8ce35f2-358a-4e94-8617-e67625eaae42.mp3",
+        "durationSec": 7
+      },
+      {
+        "type": "sfx",
+        "name": "happy_landing",
+        "id": "3996cc5e-4b7f-44f2-9c7a-3061cc82839f",
+        "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_044830_3996cc5e-4b7f-44f2-9c7a-3061cc82839f.mp3",
+        "durationSec": 6
+      }
+    ],
+    "plan": [
+      {
+        "scene": 1,
+        "sfx": "mysterious_signal"
+      },
+      {
+        "scene": 2,
+        "sfx": "spaceship_launch"
+      },
+      {
+        "scene": 3,
+        "sfx": "control_warning"
+      },
+      {
+        "scene": 4,
+        "sfx": "zero_gravity"
+      },
+      {
+        "scene": 5,
+        "sfx": "escape_vortex"
+      },
+      {
+        "scene": 6,
+        "sfx": "happy_landing"
+      }
+    ],
+    "mixRequirements": [
+      "retain original audio files separately; don't bake into video",
+      "loop music if licensed, with crossfades and per-scene variation",
+      "duck BGM 12-18dB under speaking lines, avoid effects over dialogue",
+      "export one stereo 48kHz bgm.wav for each scene, exactly matching the corresponding silent video duration from time zero",
+      "keep character voice files independently mono 48kHz",
+      "temporary Cloudfront URLs must be copied into owned storage before publishing"
+    ],
+    "releaseStatus": "not ready; music/effects are generated but must be listened to, converted, timed and mixed"
+  },
+  "reuseRestrictions": "Existing EP02 media are owner-library sources, not a blanket license certification. Do not reuse failed original video. Musical/FX sources need fit and rights review. EP02 spoken lines do not match EP04; reuse voice identity, not mismatched speech. Do not regenerate EP02.",
+  "generationOwnership": "Media agent assigned by parent. This agent submits no jobs/uploads and spends zero credits. Parent video cap 360; balance is not budget.",
+  "latestUserVisualReference": {
+    "libraryFileId": "libfile_b6494c0eacb48191bc6cc32ff6033cf3",
+    "fileName": "image(20261020-135814).png",
+    "authority": "supersedes earlier textual wardrobe and promotional poster",
+    "pixelsVerifiedBy": "parent and media agent; not local integration agent",
+    "externalUploadConsent": "pending in last parent message"
+  },
+  "confirmedEP02VoiceParams": {
+    "model": "inworld_text_to_speech",
+    "kai": "Evan (en)",
+    "emma": "Abby (en)",
+    "maya": "Amina (en)",
+    "pip": "Pixie (en)",
+    "momo": null,
+    "constraint": "Catalog says Game pipeline only. Check supported generation route; never substitute UUID from another model based on name. No generation executed."
+  }
+}

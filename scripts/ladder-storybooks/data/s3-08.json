@@ -1,0 +1,311 @@
+{
+  "id": "s3-08",
+  "breaks": [
+    2,
+    2,
+    3,
+    3
+  ],
+  "key": {
+    "P": 1,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «펭귄은 몸의 특별한 특징 덕분에 추위를 견딘다(주제)» 와 «지방, 깃털, 협동으로 추위에 잘 대비되어 있다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (penguins survive the cold because of special body features) and the conclusion (fat, feathers, and teamwork prepare them for the cold). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "How penguins stay warm"
+    },
+    {
+      "k": "Key fact",
+      "qko": "펭귄은 무엇으로 따뜻하게 지내나요?",
+      "qen": "What keeps penguins warm?",
+      "a": "Thick fat, oily feathers, and huddling"
+    },
+    {
+      "k": "Why it matters",
+      "qko": "그 덕분에 펭귄은 어디서 살 수 있나요?",
+      "qen": "Where can they live because of this?",
+      "a": "Very cold places like Antarctica"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Penguins live in very cold places, but they stay ",
+      "ans": "warm",
+      "opts": [
+        "warm",
+        "wet",
+        "hungry"
+      ]
+    },
+    {
+      "pre": ". A thick layer of ",
+      "ans": "fat",
+      "opts": [
+        "fat",
+        "ice",
+        "sand"
+      ]
+    },
+    {
+      "pre": " under their skin keeps body heat inside. Their short feathers are covered with ",
+      "ans": "oil",
+      "opts": [
+        "oil",
+        "snow",
+        "mud"
+      ]
+    },
+    {
+      "pre": ", which keeps cold water away. During storms, emperor penguins ",
+      "ans": "huddle",
+      "opts": [
+        "huddle",
+        "sleep",
+        "swim"
+      ]
+    },
+    {
+      "pre": " together in large groups and take ",
+      "ans": "turns",
+      "opts": [
+        "turns",
+        "photos",
+        "food"
+      ]
+    },
+    {
+      "pre": " standing in the warm middle.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "survive",
+      "살아남다, 견디다",
+      "They can <b>survive</b> the cold because their bodies have several special features.",
+      "to stay alive in a hard situation"
+    ],
+    [
+      "features",
+      "특징",
+      "their bodies have several special <b>features</b>.",
+      "special parts or qualities of something"
+    ],
+    [
+      "layer",
+      "층",
+      "penguins have a thick <b>layer</b> of fat under their skin.",
+      "a flat amount of something that covers another thing"
+    ],
+    [
+      "overlap",
+      "겹치다",
+      "many short feathers that <b>overlap</b> tightly, like tiles on a roof.",
+      "to cover part of something else"
+    ],
+    [
+      "huddle",
+      "바짝 모이다",
+      "emperor penguins <b>huddle</b> together in large groups during storms.",
+      "to stand very close together"
+    ],
+    [
+      "prepared",
+      "대비된, 준비된",
+      "penguins are well <b>prepared</b> for the cold.",
+      "ready for something"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does cold water not reach a penguin’s skin?",
+      "qko": "왜 차가운 물이 펭귄의 피부에 닿지 않나요?",
+      "opts": [
+        "Because its feathers are covered with oil",
+        "Because penguins never go into the water",
+        "Because its legs have special blood vessels"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "The feathers are covered with oil, which keeps cold water away from the skin.",
+        "This fat keeps body heat inside like a warm blanket.",
+        "Special blood vessels in their legs also help their feet lose very little heat.",
+        "They take turns standing in the warm middle and the cold outside of the group."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "깃털이 기름으로 덮여 있어서 차가운 물이 피부에 닿지 않게 해 준다고 했어요. 다리의 혈관은 발의 열에 관한 이야기예요.",
+        "The feathers are covered with oil, which keeps cold water away from the skin. The blood vessels are about heat in the feet."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In \"They take turns standing in the warm middle,\" what does \"take turns\" mean?",
+      "qko": "«They take turns standing in the warm middle» 에서 «take turns» 는 무슨 뜻인가요?",
+      "opts": [
+        "Each one does it, one after another",
+        "All of them stay in one place forever",
+        "They run away from the group"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "They take turns standing in the warm middle and the cold outside of the group.",
+        "In addition, emperor penguins huddle together in large groups during storms.",
+        "First, penguins have a thick layer of fat under their skin.",
+        "Many penguins live in very cold places, such as Antarctica, yet they stay warm."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "따뜻한 가운데와 추운 바깥쪽에 «번갈아» 선다고 했으니, take turns 는 차례대로 돌아가며 한다는 뜻이에요.",
+        "They stand in the warm middle and the cold outside, so «take turns» means each one does it one after another."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Which two body features help penguins keep their body heat?",
+      "qko": "펭귄이 체온을 지키도록 돕는 몸의 특징 두 가지는 무엇인가요?",
+      "opts": [
+        "Fat under the skin and special blood vessels in the legs",
+        "Thin skin and long feathers",
+        "Warm water and bright sunshine"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "This fat keeps body heat inside like a warm blanket.",
+        "Many penguins live in very cold places, such as Antarctica, yet they stay warm.",
+        "Special blood vessels in their legs also help their feet lose very little heat.",
+        "Second, they have many short feathers that overlap tightly, like tiles on a roof."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "지방이 담요처럼 체온을 안에 가두고, 다리의 특별한 혈관이 발에서 열이 아주 조금만 빠져나가게 한다고 했어요. 두 문장을 함께 봐야 해요.",
+        "The fat keeps body heat inside like a blanket, and the blood vessels in the legs help the feet lose very little heat. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Some penguins live near the equator. How do they stay cool?",
+      "적도 근처에 사는 펭귄도 있어요. 어떻게 시원하게 지낼까요?",
+      "Penguins in Warm Places"
+    ],
+    [
+      "B",
+      "How do polar bears stay warm in the Arctic?",
+      "북극곰은 북극에서 어떻게 따뜻하게 지낼까요?",
+      "Polar Bears in the Arctic"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "src": "“I think <u>penguins are great team players</u> because <u>they take turns in the cold</u>.”",
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "chips": [
+      {
+        "a": "my coat is very warm",
+        "b": "it has a thick layer inside",
+        "label": "coat"
+      },
+      {
+        "a": "our class works well together",
+        "b": "we help each other",
+        "label": "teamwork"
+      },
+      {
+        "a": "winter is fun",
+        "b": "we can play in the snow",
+        "label": "winter"
+      }
+    ],
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 글에서 찾은 사실을 넣어 이유를 분명하게 써 보세요. (예: because they huddle together)",
+    "moreEn": "One more step: after «because», use a fact from the text to make your reason clear. (e.g. because they huddle together)"
+  },
+  "img": {
+    "style": "photo",
+    "cover": "A large group of emperor penguins huddled close together on snow and ice in Antarctica during a windy storm",
+    "scenes": {
+      "1": "A plump emperor penguin standing alone on snowy ice, showing its round, well-padded body",
+      "2": "A close view of a penguin coming out of icy seawater, with water drops sliding off its short, tightly packed feathers"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "A round emperor penguin on the ice",
+    "2": "Water sliding off a penguin’s feathers",
+    "cover": "Emperor penguins huddling together in a storm"
+  }
+}

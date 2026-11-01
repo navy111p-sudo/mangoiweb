@@ -1,0 +1,91 @@
+{
+  "episode": "dub-002",
+  "status": "generated-not-mixed-or-qc-approved",
+  "provider": "Higgsfield",
+  "assets": [
+    {
+      "type": "bgm",
+      "name": "space_adventure_theme",
+      "id": "62cdc4f8-4fd7-4971-bb0f-d87368e8dd30",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_044750_62cdc4f8-4fd7-4971-bb0f-d87368e8dd30.m4a",
+      "durationSec": 30
+    },
+    {
+      "type": "sfx",
+      "name": "mysterious_signal",
+      "id": "0bf49d2f-1da9-45b5-b5be-b471ba2d05c5",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_044812_0bf49d2f-1da9-45b5-b5be-b471ba2d05c5.mp3",
+      "durationSec": 5
+    },
+    {
+      "type": "sfx",
+      "name": "spaceship_launch",
+      "id": "e4dd3206-32fe-4eed-bee6-824e8fc09a27",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_044815_e4dd3206-32fe-4eed-bee6-824e8fc09a27.mp3",
+      "durationSec": 6
+    },
+    {
+      "type": "sfx",
+      "name": "control_warning",
+      "id": "2e6ab549-23a8-4a74-b414-307266ad195a",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_044818_2e6ab549-23a8-4a74-b414-307266ad195a.mp3",
+      "durationSec": 5
+    },
+    {
+      "type": "sfx",
+      "name": "zero_gravity",
+      "id": "8b02f05b-031a-4880-a061-aaef69710abd",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_044822_8b02f05b-031a-4880-a061-aaef69710abd.mp3",
+      "durationSec": 5
+    },
+    {
+      "type": "sfx",
+      "name": "escape_vortex",
+      "id": "c8ce35f2-358a-4e94-8617-e67625eaae42",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_044826_c8ce35f2-358a-4e94-8617-e67625eaae42.mp3",
+      "durationSec": 7
+    },
+    {
+      "type": "sfx",
+      "name": "happy_landing",
+      "id": "3996cc5e-4b7f-44f2-9c7a-3061cc82839f",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261020_044830_3996cc5e-4b7f-44f2-9c7a-3061cc82839f.mp3",
+      "durationSec": 6
+    }
+  ],
+  "plan": [
+    {
+      "scene": 1,
+      "sfx": "mysterious_signal"
+    },
+    {
+      "scene": 2,
+      "sfx": "spaceship_launch"
+    },
+    {
+      "scene": 3,
+      "sfx": "control_warning"
+    },
+    {
+      "scene": 4,
+      "sfx": "zero_gravity"
+    },
+    {
+      "scene": 5,
+      "sfx": "escape_vortex"
+    },
+    {
+      "scene": 6,
+      "sfx": "happy_landing"
+    }
+  ],
+  "mixRequirements": [
+    "retain original audio files separately; don't bake into video",
+    "loop music if licensed, with crossfades and per-scene variation",
+    "duck BGM 12-18dB under speaking lines, avoid effects over dialogue",
+    "export one stereo 48kHz bgm.wav for each scene, exactly matching the corresponding silent video duration from time zero",
+    "keep character voice files independently mono 48kHz",
+    "temporary Cloudfront URLs must be copied into owned storage before publishing"
+  ],
+  "releaseStatus": "not ready; music/effects are generated but must be listened to, converted, timed and mixed"
+}

@@ -953,7 +953,8 @@ export async function executeAction(
       const note = String(args?.note || '').slice(0, 500);
       if (!userId) return { ok: false, error: 'user_id_required' };
       // intervention_logs 테이블 자동 생성 (스키마 누락 환경 대비)
-      await env.DB.exec(
+      //   ⚠️ (2026-10-28) prepare().run() — D1 exec() 는 줄마다 따로 실행해 여러 줄 CREATE 가 죽는다(이 표가 운영에 없던 이유).
+      await env.DB.prepare(
         `CREATE TABLE IF NOT EXISTS intervention_logs (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           user_id TEXT NOT NULL,
@@ -962,7 +963,7 @@ export async function executeAction(
           created_by TEXT,
           created_at INTEGER NOT NULL
         )`
-      );
+      ).run();
       await env.DB.prepare(
         `INSERT INTO intervention_logs (user_id, note, source, created_by, created_at)
          VALUES (?, ?, 'ai-command', ?, ?)`

@@ -68,12 +68,84 @@
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { d.__http = r.status; return d; }); })
       .then(function (d) {
         /* «성공이라고 말했는가» 로 판정한다 — 관문이 빠진 404 본문에는 ok 칸이 없다(CLAUDE.md 「새 API 추가」) */
-        if (d && d.ok === true && d.plan) { DATA = d; render(); return; }
+        if (d && d.ok === true && d.plan) { DATA = d; render(); loadFix(u); loadGoal(u); return; }
         if (d.__http === 401) { show('td-login'); return; }
         if (d.__http === 404) { status(T('계정을 찾지 못했어요. 학원에 문의해 주세요.', 'Account not found — please contact your academy.'), true); return; }
         status(T('지금은 계획을 읽지 못했어요. 잠시 뒤 다시 열어 주세요.', 'Could not load the plan. Please try again shortly.'), true);
       })
       .catch(function () { status(T('연결이 끊겼어요. 인터넷을 확인해 주세요.', 'Connection failed. Check your internet.'), true); });
+  }
+
+  /* ═══ 📝 «지난번에 틀린 문장 다시 말하기» (2026-10-10, 경쟁사 분석 적용 ①) ═══
+     서버 정본 fix-cards.ts(?fixcards=1)가 고른 카드(최대 3장)만 그린다 — 화면은 문장을 고르지 않는다.
+     · 카드가 0장이거나 못 읽으면 칸째 감춘다(«없다» 를 고장처럼 보이게 하지 않는다).
+     · 맛보기(로그인 안 함)에서는 부르지 않는다 — 남의 문장이 없고, 지어내지도 않는다.
+     · «🎤 따라 말하기» 는 발음 코칭을 ?say=<고친 문장> 으로 연다(채점은 그 화면 그대로). */
+  var FIX = null;
+  function fixUrl(c) { return '/speech-coach.html?say=' + encodeURIComponent(c.to) + '&from=today'; }
+  function renderFix() {
+    var box = $('td-fix'), list = $('td-fix-list');
+    if (!box || !list) return;
+    var cards = (FIX && FIX.ok === true && Array.isArray(FIX.cards)) ? FIX.cards : [];
+    if (!cards.length || (DATA && DATA.sample)) { box.hidden = true; list.innerHTML = ''; return; }
+    $('td-h-fix').textContent = T('📝 지난번에 틀린 문장 — 다시 말해 봐요', '📝 Sentences to fix — say them again');
+    list.innerHTML = cards.map(function (c) {
+      var warm = c.source === 'warmup', af = c.source === 'aifriend';
+      var lab = warm ? T('웜업에서', 'From warm-up')
+              : af ? T('A.i 친구에서', 'From A.i friend')
+                     : (c.lesson_title ? T('수업에서 · ', 'From class · ') + c.lesson_title : T('수업에서', 'From class'));
+      var n = Number(c.practiced) || 0;
+      var best = (c.best_accuracy == null || !isFinite(Number(c.best_accuracy))) ? null : Math.round(Number(c.best_accuracy));
+      /* 연습 기록을 «못 물어봤으면»(sources.practice !== true) 아무 말도 안 한다 — «안 했다» 로 단정하지 않는다 */
+      var known = !!(FIX.sources && FIX.sources.practice === true);
+      var pr = !known ? '' : n ? T(n + '번 연습' + (best != null ? ' · 최고 ' + best + '점' : ''), 'Practiced ' + n + 'x' + (best != null ? ' · best ' + best : ''))
+                 : T('아직 연습 안 함', 'Not practiced yet');
+      return '<div class="card fix">' +
+        '<span class="lab' + (warm ? ' warm' : '') + '">' + esc(lab) + '</span>' +
+        '<p class="from">' + esc(T('내가 한 말: ', 'I said: ') + c.from) + '</p>' +
+        '<p class="to">' + esc(c.to) + '</p>' +
+        (c.why_ko && !isEn() ? '<p class="why">' + esc(c.why_ko) + '</p>' : '') +
+        '<a class="go" href="' + esc(fixUrl(c)) + '">' + esc(T('🎤 따라 말하기', '🎤 Say it')) + '</a>' +
+        (pr ? '<span class="pr' + (n ? ' ok' : '') + '">' + esc(pr) + '</span>' : '') +
+        '</div>';
+    }).join('');
+    box.hidden = false;
+  }
+  /* ═══ 🗓 «이번 달 목표» (2026-10-10, 경쟁사 분석 적용 ③) ═══
+     목표는 선생님이 정한다(서버 정본 student-goal.ts, ?goal=1). 화면은 고르지도 지어내지도 않는다.
+     · 막대 = «28일 중 며칠째» (시간 진행). «달성률» 은 잴 방법이 없어 안 그린다.
+     · 연습 횟수는 서버가 셀 수 있었을 때만(null = 모름 → 그 줄을 안 그린다). */
+  var GOAL = null;
+  function renderGoal() {
+    var box = $('td-goal'), card = $('td-goal-card');
+    if (!box || !card) return;
+    var g = (GOAL && GOAL.ok === true && GOAL.goal) ? GOAL.goal : null;
+    if (!g || (DATA && DATA.sample)) { box.hidden = true; card.innerHTML = ''; return; }
+    var day = Number(g.day) || 1, days = Number(g.days) || 28;
+    var pct = Math.max(4, Math.min(100, Math.round(day / days * 100)));
+    $('td-h-goal').textContent = T('🗓 이번 달 목표 — 선생님이 정했어요', '🗓 This month\'s goal — set by your teacher');
+    var p = GOAL.practice, pl = [];
+    if (p && p.friend != null) pl.push(T('A.i 친구에게 ' + p.friend + '번 말함', 'spoke to A.i friend ' + p.friend + 'x'));
+    if (p && p.warmup != null) pl.push(T('웜업 ' + p.warmup + '회', 'warm-up ' + p.warmup + ' sessions'));
+    card.innerHTML = '<p class="gt">' + esc(isEn() ? g.en : g.ko) + '</p>' +
+      '<div class="gbar"><div class="gfill" style="width:' + pct + '%"></div></div>' +
+      '<p class="gm">' + esc(T(days + '일 중 ' + day + '일째', 'Day ' + day + ' of ' + days)) +
+      (pl.length ? esc(' · ' + T('목표를 정한 뒤 연습: ', 'Practice since: ') + pl.join(' · ')) : '') + '</p>';
+    box.hidden = false;
+  }
+  function loadGoal(u) {
+    if (!u || !u.uid) { GOAL = null; renderGoal(); return; }
+    fetch('/api/student/today?goal=1&uid=' + encodeURIComponent(u.uid) + '&token=' + encodeURIComponent(tok()), { credentials: 'include' })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (d) { GOAL = d; renderGoal(); })
+      .catch(function () { GOAL = null; renderGoal(); });   // 못 읽으면 칸만 감춘다
+  }
+  function loadFix(u) {
+    if (!u || !u.uid) { FIX = null; renderFix(); return; }
+    fetch('/api/student/today?fixcards=1&uid=' + encodeURIComponent(u.uid) + '&token=' + encodeURIComponent(tok()), { credentials: 'include' })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (d) { FIX = d; renderFix(); })
+      .catch(function () { FIX = null; renderFix(); });   // 못 읽으면 칸만 감춘다 — 오늘 계획은 그대로
   }
 
   /* 서버 레벨 → 도구 키. 비어 있을 때만. (웜업 1~8 · AI 친구 S1~S8 = 같은 눈금) */
@@ -147,6 +219,8 @@
     if (sb) sb.hidden = !d.sample;
     show('td-main');
     var name = d.name || '';
+    /* 사용법 1번 그림의 예시 이름을 이 사람 이름으로 덮는 데 쓴다(js/today-guide.js). ⛔ data-ko/en 아님 */
+    $('td-hello').setAttribute('data-name', d.sample ? '' : name);
     $('td-hello').textContent = name ? T(name + ' 님, 오늘도 조금만 해요', 'Hi ' + name + ' — a little today') : T('오늘도 조금만 해요', 'A little today');
     var sub = '';
     if (p.mode === 'unassigned') sub = T('아직 레벨이 없어요. 레벨테스트를 먼저 보면 모든 도구가 내 수준에 맞춰져요.', 'No level yet — take the level test first and every tool adapts to you.');
@@ -235,6 +309,6 @@
   window.addEventListener('pageshow', function (e) { if (e.persisted) load(); });
   document.addEventListener('visibilitychange', function () { if (!document.hidden && DATA) load(); });
   /* 언어 토글 — 발행처가 화면마다 다르다(document / window). 둘 다 듣는다(CLAUDE.md 2장). */
-  window.addEventListener('mangoi:lang-changed', function () { if (DATA) render(); });
-  document.addEventListener('mangoi:lang-changed', function () { if (DATA) render(); });
+  window.addEventListener('mangoi:lang-changed', function () { if (DATA) { render(); renderGoal(); renderFix(); } });
+  document.addEventListener('mangoi:lang-changed', function () { if (DATA) { render(); renderGoal(); renderFix(); } });
 })();

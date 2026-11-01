@@ -1,0 +1,310 @@
+{
+  "id": "s1-22",
+  "breaks": [
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 2,
+    "S": 8
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "결말",
+      "en": "ending"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «카이가 너무 멀리 걸어가서 길을 잃었다(문제)» 와 «카이가 무사하고 외계인 친구가 생겼다(결말)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (Kai walks too far and gets lost) and the ending (Kai is safe and has a new alien friend). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Kai and a purple alien with long ears"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "Kai walks too far on Planet Zog and gets lost."
+    },
+    {
+      "k": "Ending",
+      "qko": "마지막에 어떻게 되나요?",
+      "qen": "What happens at the end?",
+      "a": "The alien flies Kai back to his ship, and Kai has a new friend."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Kai lands on Planet Zog. The sky is ",
+      "ans": "pink",
+      "opts": [
+        "pink",
+        "blue",
+        "green"
+      ]
+    },
+    {
+      "pre": ", and there are two suns. Kai walks too far and gets ",
+      "ans": "lost",
+      "opts": [
+        "lost",
+        "sleepy",
+        "wet"
+      ]
+    },
+    {
+      "pre": ". A purple alien with long ",
+      "ans": "ears",
+      "opts": [
+        "ears",
+        "arms",
+        "legs"
+      ]
+    },
+    {
+      "pre": " gives him a ride on a big flying ",
+      "ans": "fish",
+      "opts": [
+        "fish",
+        "car",
+        "bird"
+      ]
+    },
+    {
+      "pre": ". They fly back to Kai’s ",
+      "ans": "ship",
+      "opts": [
+        "ship",
+        "house",
+        "school"
+      ]
+    },
+    {
+      "pre": ". Kai is safe, and he has a new alien friend.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "planet",
+      "행성",
+      "Kai's spaceship lands on <b>Planet</b> Zog.",
+      "a big round world in space, like Earth"
+    ],
+    [
+      "lost",
+      "길을 잃은",
+      "Kai walks too far and gets <b>lost</b>.",
+      "not knowing where you are"
+    ],
+    [
+      "nod",
+      "고개를 끄덕이다",
+      "Kai <b>nods</b>.",
+      "to move your head up and down to say yes"
+    ],
+    [
+      "ride",
+      "태워 주기",
+      "The alien gives him a <b>ride</b> on a big flying fish!",
+      "a trip on something that moves"
+    ],
+    [
+      "hill",
+      "언덕",
+      "They fly over pink <b>hills</b> to Kai's ship.",
+      "a small mountain"
+    ],
+    [
+      "safe",
+      "안전한",
+      "Kai is <b>safe</b>, and he has a new alien friend.",
+      "not in danger"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why is Kai lost?",
+      "qko": "카이는 왜 길을 잃었나요?",
+      "opts": [
+        "He walks too far.",
+        "His spaceship breaks.",
+        "The two suns go down."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Kai walks too far and gets lost.",
+        "Kai's spaceship lands on Planet Zog.",
+        "The sky is pink, and there are two suns.",
+        "They fly over pink hills to Kai's ship."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«Kai walks too far and gets lost.» 너무 멀리 걸어가서 길을 잃었어요.",
+        "Kai walks too far, so he gets lost."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"Kai nods.\" What does \"nods\" mean here?",
+      "qko": "«Kai nods.» 에서 «nods» 는 무슨 뜻일까요?",
+      "opts": [
+        "moves his head up and down to say yes",
+        "shakes his head to say no",
+        "runs away fast"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Kai walks too far and gets lost.",
+        "Then a purple alien with long ears comes.",
+        "Kai's spaceship lands on Planet Zog.",
+        "Kai is safe, and he has a new alien friend."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«Kai walks too far and gets lost.» 카이는 정말 길을 잃었어요. 그래서 «Are you lost?» 라는 물음에 고개를 끄덕여 «응» 이라고 대답해요.",
+        "Kai really is lost. So when the alien asks \"Are you lost?\", Kai moves his head up and down to say yes."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How does Kai get back to his ship?",
+      "qko": "카이는 어떻게 자기 우주선으로 돌아가나요?",
+      "opts": [
+        "The alien flies him back on a big flying fish.",
+        "He walks back all by himself.",
+        "His ship comes to find him."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "The alien gives him a ride on a big flying fish!",
+        "They fly over pink hills to Kai's ship.",
+        "Kai walks too far and gets lost.",
+        "The sky is pink, and there are two suns."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "외계인이 커다란 날아다니는 물고기를 태워 주고(«The alien gives him a ride on a big flying fish!»), 함께 분홍 언덕 위를 날아 우주선으로 가요(«They fly over pink hills to Kai's ship.»). 두 문장을 이어야 알 수 있어요.",
+        "The alien gives Kai a ride on a big flying fish, and they fly over pink hills to Kai’s ship. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Kai invites the alien to visit Earth.",
+      "카이는 외계인을 지구로 초대한다.",
+      "Welcome to Earth"
+    ],
+    [
+      "B",
+      "Kai and the alien ride the flying fish again the next day.",
+      "다음 날 카이와 외계인이 날아다니는 물고기를 또 탄다.",
+      "Another Fish Ride"
+    ]
+  ],
+  "write": {
+    "pre": "Let’s",
+    "mid": "before",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "함께 할 일",
+      "그보다 나중에 일어날 일"
+    ],
+    "slotEn": [
+      "what to do",
+      "what happens later"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «함께 할 일 + 그보다 나중에 일어날 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what to do together and what happens later in English.",
+    "aria": [
+      "what to do",
+      "what happens later"
+    ],
+    "moreKo": "한 걸음 더: «before» 뒤에 «누가 + 무엇을» 넣어 써 보세요. (예: before Dad comes home)",
+    "moreEn": "One more step: after «before», write who + what. (e.g. before Dad comes home)",
+    "src": "“Let’s <u>look at the map</u> before <u>we walk too far</u>.”",
+    "chips": [
+      {
+        "a": "pack our bags",
+        "b": "we go on a trip",
+        "label": "trip"
+      },
+      {
+        "a": "put on our helmets",
+        "b": "we ride our bikes",
+        "label": "bike"
+      },
+      {
+        "a": "hold hands",
+        "b": "we cross the street",
+        "label": "street"
+      }
+    ]
+  },
+  "img": {
+    "style": "cg3d",
+    "cover": "Under a pink sky with two shining suns, a boy with short black hair in an orange space suit with a clear round helmet and a friendly purple alien with long floppy ears and a round smiley face ride on the back of a giant flying blue fish with big wavy fins, soaring over rolling pink hills toward a small silver spaceship.",
+    "scenes": {
+      "1": "On a rocky pink planet under a pink sky with two suns, a boy with short black hair in an orange space suit with a clear round helmet stands alone and nods, while a friendly purple alien with long floppy ears and a round smiley face leans down kindly toward him with a curious face.",
+      "2": "Under a pink sky with two suns, a boy with short black hair in an orange space suit with a clear round helmet and a friendly purple alien with long floppy ears and a round smiley face land on a giant flying blue fish with big wavy fins next to a small silver spaceship, and Kai hugs the alien with a big smile."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "A purple alien finds lost Kai.",
+    "2": "Kai hugs his new alien friend by his ship.",
+    "cover": "Kai and the alien ride a flying fish."
+  }
+}

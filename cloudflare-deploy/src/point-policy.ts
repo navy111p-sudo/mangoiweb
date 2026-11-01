@@ -37,6 +37,7 @@ export const POINT_POLICY = {
 export const GAME_QUIZ_RULES = [
   'rescue_sentence', 'speech_master', 'ai_writing_rewrite',
   'micro_quiz_done', 'review_quiz_done', 'vocab_review', 'game_score',
+  'story_read',   // 📖 A.i 동화책 한 편 완주(2026-10-09) — 하루 30점 묶음을 함께 쓴다
 ];
 
 const KST_OFF = 9 * 3600 * 1000;

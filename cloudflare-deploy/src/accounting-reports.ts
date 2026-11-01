@@ -35,6 +35,7 @@ import { sceneHomeworkRouter } from './scene-homework';   // ✍️ 쓰기 숙�
 import { absenceHoldRouter } from './absence-hold';   // ⏸ 연속 결석 보류 목록·매니저 결정(회계 아님 — 라우터만 빌려 씀)
 import { bankacctStatus } from './bankacct-sync';   // 🏦 계좌 연동 상태 한 줄 — «왜 비어 있는지» 를 화면에 그대로 말해 준다   // 🔒 마감·해제는 본사(hq)만 — 권한 판정은 scope.ts 한 곳에서
 import { c24MirrorReport, applyMirror, setMirrorMode, setMirrorTeacher, clearMirrorTeacher } from './c24-mirror';  // 🪞 카페24 → 망고아이 시간표 미러
+import { textbookResolutionReport } from './textbook-resolution';   // 📐 교재 원본 해상도 점검(회계 아님 — 라우터만 빌려 씀, 읽기 전용)
 import { getAdminActor, isOrgScopedRole } from './auth-admin';   // 🔐 쓰기 API 는 강사·조직계정을 각각 따로 막는다
 import { runCypher } from './teacher-match';        //    ↑ 가 쓰는 Neo4j 조회기 — 주입해서 넘긴다(테스트에서 갈아끼우려고)
 
@@ -359,6 +360,8 @@ export function expenseRoleOf(account: string): ExpenseRole {
 
 const OPEX_DUP_CATEGORIES = ['급여이체', '카드대금'];          // 다른 항목과 이중계상 → 제외
 const OPEX_MOVED_CATEGORIES = ['강사급여송금', '학생환불'];     // 판관비가 아니라 다른 줄로 가는 돈
+/** 이 날(포함)까지 나간 지사수수료는 전월 비용으로 본다 — 'DD' 문자열 비교. 아래 monthActualOpex 주석 참고. */
+export const ACCRUAL_SHIFT_DAY = '03';
 async function monthActualOpex(env: Env, period: string) {
   const cardSpend = await safe(async () => {
     const r = await env.DB.prepare(`
@@ -378,36 +381,63 @@ async function monthActualOpex(env: Env, period: string) {
   /* 🏷️ 「기타출금」 덩어리를 계정과목으로 쪼갠다. 판정은 위 주석의 ①②③ 순서.
      ⚠️ 저장된 category 를 덮어쓰지 않고 «읽을 때» 다시 나눈다 — 바로빌 동기화(배포
         권한자만 실행)를 기다리지 않고 지정한 것이 바로 반영되게. */
+  /* 📅 지사수수료 «귀속월» 기준 (2026-10-09 사장님 지시 — 2번안)
+     [무엇이 문제였나] 지사 수수료는 매달 한 번 묶어서 이체하는데, 월말(7/31·9/30)에 보내면
+     그 달로, 다음 달 1일(7/1·9/1)에 보내면 다음 달로 잡혔다. 그래서 7월·9월은 두 달 치,
+     6월·8월은 0 이 되어 연간 결산에서 8월은 흑자가 부풀고 9월은 비용이 부풀었다
+     (실측: 9/1 26건 3,823,287 + 9/30 24건 3,121,888 이 둘 다 9월).
+     [그래서] «지사수수료» 로 판정된 출금 중 **1~3일에 나간 것은 전월 비용**으로 본다.
+       · 이 달 1~3일 지사수수료 → 빼서 전월로
+       · 다음 달 1~3일 지사수수료 → 이 달로 가져옴
+     ⚠️ 판정은 resolveExpenseAccount() 그대로다 — 지사수수료가 아닌 출금은 날짜와 무관하게
+        통장 날짜의 달에 둔다(현금 기준 그대로). 원본 DB 는 한 글자도 안 바꾼다(읽을 때만).
+     ⚠️ 계좌 원장 화면(bank-expenses)은 «통장에 찍힌 날» 기준 목록이라 그대로다 — 두 화면의
+        월 합계가 이 이동분만큼 다를 수 있고, 그것이 의도다(ACCRUAL_SHIFT_DAY).
+     ⛔ 쪼개기가 실패하면(규칙표를 못 읽음) 예전처럼 통장 날짜 기준 한 덩어리로 남는다. */
+  const nextP = (() => {
+    const [yy, mm] = period.split('-').map(Number);
+    const d = new Date(Date.UTC(yy, mm, 1));
+    return d.toISOString().slice(0, 7);
+  })();
   const split = await safe(async () => {
-    const misc = bankAll.find(b => b.category === UNCLASSIFIED);
-    if (!misc) return null;
     const rows = await env.DB.prepare(`
-      SELECT COALESCE(remark,'') AS remark, amount FROM bankacct_transactions
-      WHERE kind='out' AND COALESCE(category,'기타출금')=? AND substr(trans_at,1,7)=?
-    `).bind(UNCLASSIFIED, period).all();
+      SELECT COALESCE(remark,'') AS remark, amount, substr(trans_at,1,7) AS m, substr(trans_at,9,2) AS dd
+      FROM bankacct_transactions
+      WHERE kind='out' AND COALESCE(category,'기타출금')=?
+        AND (substr(trans_at,1,7)=? OR (substr(trans_at,1,7)=? AND substr(trans_at,9,2)<=?))
+    `).bind(UNCLASSIFIED, period, nextP, ACCRUAL_SHIFT_DAY).all();
     /* 🧭 판정은 resolveExpenseAccount() 한 곳에서 — 계좌 원장 화면
        (/api/admin/reports/bank-expenses)도 같은 함수를 쓴다. 여기서 규칙을 다시 적으면
        두 화면의 분류가 조용히 갈라진다(2026-08-23 에 함수로 뺀 이유). */
     const rules = await loadExpenseAccountRules(env);
 
     const byCat = new Map<string, number>();
-    let unresolved = 0;
-    for (const r of ((rows.results || []) as Array<{ remark: string; amount: number }>)) {
+    let unresolved = 0, shiftIn = 0, shiftOut = 0;
+    for (const r of ((rows.results || []) as Array<{ remark: string; amount: number; m: string; dd: string }>)) {
       const amt = Number(r.amount) || 0;
       const cat = resolveExpenseAccount(rules, r.remark, UNCLASSIFIED);
+      const early = String(r.dd || '') <= ACCRUAL_SHIFT_DAY;
+      if (r.m === nextP) {                       // 다음 달 초 출금 — 지사수수료만 이 달로 가져온다
+        if (cat !== '지사수수료') continue;
+        shiftIn += amt;
+      } else if (cat === '지사수수료' && early) { // 이 달 초 지사수수료 — 전월 몫이라 뺀다
+        shiftOut += amt;
+        continue;
+      }
       if (cat === UNCLASSIFIED) unresolved += amt;
       byCat.set(cat, (byCat.get(cat) || 0) + amt);
     }
-    return { byCat, unresolved };
+    return { byCat, unresolved, shiftIn, shiftOut };
   }, null);
 
   if (split) {
-    // 기타출금 한 줄을 쪼갠 결과로 갈아 끼운다(합계는 그대로)
+    // 기타출금 한 줄을 쪼갠 결과로 갈아 끼운다(귀속월 이동분 만큼 합계가 달라질 수 있다)
     const idx = bankAll.findIndex(b => b.category === UNCLASSIFIED);
     if (idx >= 0) bankAll.splice(idx, 1);
     for (const [cat, total] of split.byCat) bankAll.push({ category: cat, total });
     bankAll.sort((a, b) => (Number(b.total) || 0) - (Number(a.total) || 0));
   }
+  const franchiseShift = { in: split ? split.shiftIn : 0, out: split ? split.shiftOut : 0, next: nextP };
 
   const catSum = (cats: string[]) => bankAll.filter(b => cats.includes(b.category))
     .reduce((a, b) => a + (Number(b.total) || 0), 0);
@@ -421,7 +451,7 @@ async function monthActualOpex(env: Env, period: string) {
   const actual = cardSpend + bankOpex;
   // hasActual 은 «그 달에 신한 실데이터가 있긴 한가» — 송금·환불만 있는 달도 실데이터가 있는 달이다
   const hasActual = actual > 0 || teacherPayout > 0 || refunds > 0 || bankDup > 0;
-  return { cardSpend, bankRows, bankOpex, bankDup, teacherPayout, refunds, actual, hasActual };
+  return { cardSpend, bankRows, bankOpex, bankDup, teacherPayout, refunds, actual, hasActual, franchiseShift };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -663,6 +693,15 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
       const r = await absenceHoldRouter(env as any, request, url, p, { getAdminActor: getAdminActor as any, isOrgScopedRole });
       if (r) return r;
     }
+    /* 📐 교재 원본 해상도 점검 — 정본은 src/textbook-resolution.ts (2026-10-02, 파일럿 후속 P6).
+       읽기 전용이지만 교재 파일 목록을 훑으므로 본사만: 강사는 이 prefix 에서 이미 막히고,
+       지사·대리점은 여기서 막는다. */
+    if (p === 'textbook-resolution') {
+      const actor = await getAdminActor(request, env as any);
+      if ((actor as any).isTeacher) return new Response(JSON.stringify(forbiddenTeacherBody(actor as any)), { status: 403, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+      if (isOrgScopedRole((actor as any).role)) return new Response(JSON.stringify({ ok: false, error: 'forbidden_scope' }), { status: 403, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+      return await textbookResolutionReport(env, url);
+    }
     if (p === 'monthly')   return await monthlyReport(env, url, fmt);
     if (p === 'quarterly') return await quarterlyReport(env, url, fmt);
     if (p === 'annual')    return await annualReport(env, url, fmt);
@@ -820,7 +859,7 @@ async function buildMonthly(env: Env, period: string) {
     const r = await env.DB.prepare(`
       SELECT COALESCE(SUM(total_active_ms),0)/60000 AS total_min,
              COUNT(*) AS sessions,
-             SUM(CASE WHEN COALESCE(total_active_ms,0)=0 THEN 1 ELSE 0 END) AS zero_sessions
+             SUM(CASE WHEN COALESCE(total_active_ms,0)=0 AND COALESCE(room_id,'') NOT LIKE 'c24-%' THEN 1 ELSE 0 END) AS zero_sessions
       FROM attendance
       WHERE date BETWEEN ? AND ?
     `).bind(period + '-01', period + '-31').first<{ total_min: number; sessions: number; zero_sessions: number }>();
@@ -834,11 +873,23 @@ async function buildMonthly(env: Env, period: string) {
      장부 쪽도 KCP 정산 대상(bookPg)만 넣는다 — 대사 화면과 규칙이 갈라지면 안 된다. */
   /* ⏳ 그 달 «결제분» 이 들어온 입금 구간 = [월초+시차, 월말+시차]. classifyDeposit 으로
      「케이씨피」 정산분만 센다. 실패하면 null → reconcileMonth 가 종전(같은 달)으로 돈다. */
+  /* ⏳ (2026-10-09) 그 입금 구간이 «아직 안 끝났으면» 판정하지 않는다.
+     실사고: 10/9 에 9월 리포트를 열었더니 구간(9/22~10/22)의 절반만 지났는데
+     들어온 두 번(₩3,129,279)을 9월 결제 «전체» 의 예상 입금(₩15,443,560)과 견줘
+     🚨 「크게 어긋남 · -393.5%」 가 떴다. 돈이 빈 것이 아니라 아직 안 들어온 것이다.
+     구간 끝이 «통장 자료가 있는 마지막 날» 보다 뒤면 → verdict 'pending'.
+     ⚠️ 마지막 날을 못 읽으면 null → 예전처럼 판정한다(모르면 옛 동작). */
+  const lagShift = (ms: number) => new Date(ms + PG_SETTLE_LAG_DAYS * 86400000 + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  const lagWin = (() => { const { startMs, endMs } = monthRange(period); return { from: lagShift(startMs), to: lagShift(endMs) }; })();
+  const lastBankDay = await safe(async () => {
+    const r = await env.DB.prepare(`SELECT MAX(substr(trans_at,1,10)) AS d FROM bankacct_transactions`).first<{ d: string }>();
+    return r?.d ? String(r.d) : null;
+  }, null as string | null);
   const lagPg = await safe(async () => {
     const { startMs, endMs } = monthRange(period);
     // startMs 는 «KST 자정» 의 epoch 라 UTC ISO 로 자르면 하루 이른 날짜가 나온다
     // (실효 시차 20일 — reconcileReport 의 날짜문자열 +21일과 하루 어긋남). +9h 로 맞춘다.
-    const shift = (ms: number) => new Date(ms + PG_SETTLE_LAG_DAYS * 86400000 + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    const shift = lagShift;
     const r = await env.DB.prepare(`
       SELECT COALESCE(remark,'') AS remark, amount FROM bankacct_transactions
        WHERE kind='in' AND substr(trans_at,1,10) >= ? AND substr(trans_at,1,10) < ?
@@ -850,7 +901,8 @@ async function buildMonthly(env: Env, period: string) {
     }
     return pg;
   }, null);
-  const rec = reconcileMonth(pl.rev.bookPg, pl.rev.dep, lagPg);
+  const rec = reconcileMonth(pl.rev.bookPg, pl.rev.dep, lagPg,
+    lagPg != null ? lagWindowOpen(lagWin, lastBankDay) : null);
 
   /* 💵 통장 기준 «실제» 현금흐름 — 장부(결제기록)가 불완전해도 이건 사실이다.
      «리포트가 적자라는데 회사는 돌아간다» 는 혼란을 없애려고 나란히 보여 준다.
@@ -1021,7 +1073,9 @@ async function buildMonthly(env: Env, period: string) {
       ['비용', pl.cost],
       ['순이익', pl.net],
       ['이익률(%)', pl.margin],
-      ...(data.pl.confident ? [] : [['(주의) 장부와 통장이 어긋나 순이익이 확정치가 아닙니다'] as (string | number)[]]),
+      ...(data.pl.confident ? [] : [[rec.verdict === 'pending'
+        ? '(주의) PG 정산 입금이 아직 다 안 들어와 순이익이 확정치가 아닙니다'
+        : '(주의) 장부와 통장이 어긋나 순이익이 확정치가 아닙니다'] as (string | number)[]]),
       [],
       ['[장부 vs 통장] — 기준: 통장 「케이씨피」 입금'],
       ['실제 PG 정산 입금(기준)', rec.deposit_pg],
@@ -1029,6 +1083,7 @@ async function buildMonthly(env: Env, period: string) {
       ['장부 매출(KCP 정산 대상만)', rec.revenue],
       ['예상 입금(수수료 차감)', rec.expected],
       ['차이', rec.diff == null ? '(자료없음)' : rec.diff],
+      ...(rec.verdict === 'pending' ? [['(정산 대기) ' + rec.message] as (string | number)[]] : []),
       /* ⛔ «성격 미확인 입금» 줄 제거(2026-08-18 사장님 지시 — 「케이씨피M」 표기 정리의 마지막 단계).
          금액은 payload 의 deposit_transfer_unknown_krw 로 계속 나가지만 화면·CSV 에는 그리지 않는다. */
       [],
@@ -1883,11 +1938,21 @@ function snapshotCsvRows(snap: any): (string | number)[][] {
 /* 👥 그 달에 «실제로 움직인» 학생 수 — 수업에 들어왔거나(attendance) 결제한(student_payments)
    학생의 합집합. students_erp.status='active' 는 퇴원 처리가 안 된 옛 학생까지 포함해
    지표의 분모로 쓸 수 없다(2026-08-16: active 28,672명 vs 실제 활동 805명). */
+/* 출석 행 → 학생 계정(모르면 NULL). 정본은 이 두 줄 — 활동 학생 수를 세는 곳은 여기만 쓴다. */
+const ATT_STUDENT_ACCT = `COALESCE(NULLIF(account_uid,''), CASE WHEN room_id LIKE 'c24-%' THEN user_id END)`;
+const ATT_STUDENT_ONLY = `COALESCE(role,'student') = 'student'`;
 async function monthActiveStudents(env: Env, period: string) {
   const { startMs, endMs } = monthRange(period);
+  /* 👤 (2026-10-09) «학생 한 명» 은 계정으로 센다 — attendance.user_id 는 실접속이면 «접속마다 새로 나오는
+     기기 임시번호»(u_xxx·DO 번호)이고 카페24 예약 씨앗(c24-*)이면 계정이다. 그대로 DISTINCT 하면
+     같은 학생이 접속할 때마다 한 명씩 늘고 선생님·관리자까지 섞인다.
+     실측 2026-09: 옛 방식 762명 → 계정 기준 학생 531명(선생님 44·관리자 10·기기번호 112 등이 섞여 있었음).
+     실접속은 account_uid(2026-08-12 부터 기록), 씨앗은 user_id 가 계정. 계정을 모르는 실접속 행은 «모름» 으로 빼고
+     지어내지 않는다(그 학생은 대개 같은 달 씨앗 행으로 이미 세어진다). */
   const attended = await safe(async () => {
     const r = await env.DB.prepare(`
-      SELECT COUNT(DISTINCT user_id) AS c FROM attendance WHERE date BETWEEN ? AND ?
+      SELECT COUNT(DISTINCT ${ATT_STUDENT_ACCT}) AS c FROM attendance
+      WHERE date BETWEEN ? AND ? AND ${ATT_STUDENT_ONLY}
     `).bind(period + '-01', period + '-31').first<{ c: number }>();
     return Number(r?.c) || 0;
   }, 0);
@@ -1901,7 +1966,8 @@ async function monthActiveStudents(env: Env, period: string) {
   const total = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT COUNT(*) AS c FROM (
-        SELECT DISTINCT user_id FROM attendance WHERE date BETWEEN ? AND ?
+        SELECT DISTINCT ${ATT_STUDENT_ACCT} AS user_id FROM attendance
+         WHERE date BETWEEN ? AND ? AND ${ATT_STUDENT_ONLY} AND ${ATT_STUDENT_ACCT} IS NOT NULL
         UNION
         SELECT DISTINCT user_id FROM student_payments
          WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
@@ -1923,7 +1989,21 @@ async function monthActiveStudents(env: Env, period: string) {
       그 달 결제가 그 달 통장에 다 안 들어온다 — 같은 달끼리 빼면 매번 «통장이 적다» 가
       나온다. 호출부가 [월초+시차, 월말+시차] 구간으로 구해 넘긴다. 못 구했으면(자료 부족)
       null 이고, 그때만 종전처럼 같은 달 입금을 쓴다. */
-function reconcileMonth(revenueBook: number, dep: MonthDeposits, lagPg: number | null = null) {
+/* ⏳ 입금 구간 [from, to) 가 아직 안 끝났는가 — 끝(to 전날)이 통장 마지막 자료 날짜보다 뒤면 열려 있다.
+   마지막 날을 모르면(null) 열려 있지 않은 것으로 본다(= 예전 동작). 열려 있으면 그 구간을 돌려준다. */
+function lagWindowOpen(win: { from: string; to: string }, lastBankDay: string | null)
+  : { from: string; to: string; last_bank: string } | null {
+  if (!lastBankDay || !/^\d{4}-\d{2}-\d{2}$/.test(lastBankDay)) return null;
+  // to 는 «다음 날 0시»(배타) — 마지막 자료 날짜가 to 보다 앞이면 그 구간 입금이 아직 다 안 왔다
+  return lastBankDay < prevDay(win.to) ? { from: win.from, to: win.to, last_bank: lastBankDay } : null;
+}
+function prevDay(ymd: string): string {
+  const t = Date.parse(ymd + 'T00:00:00Z');
+  return Number.isFinite(t) ? new Date(t - 86400000).toISOString().slice(0, 10) : ymd;
+}
+
+function reconcileMonth(revenueBook: number, dep: MonthDeposits, lagPg: number | null = null,
+                        lagOpen: { from: string; to: string; last_bank: string } | null = null) {
   const expected = Math.round(revenueBook * (1 - PG_FEE_RATE));
   const hasBank = dep.hasBank;
   const pgUsed = lagPg == null ? dep.pg : lagPg;      // 시차를 맞춘 입금(있으면)
@@ -1931,8 +2011,10 @@ function reconcileMonth(revenueBook: number, dep: MonthDeposits, lagPg: number |
   // 통장이 기준 — 들어온 돈을 100 으로 놓고 장부가 얼마나 벌어졌는지 본다.
   // 통장에 정산금이 한 푼도 없는데 장부엔 매출이 있으면 −100%(= 확인 필요)로 본다.
   const pct = diff == null ? 0 : (pgUsed > 0 ? (diff / pgUsed) * 100 : (expected > 0 ? -100 : 0));
-  let verdict: 'ok' | 'warn' | 'alert' | 'no_data';
+  let verdict: 'ok' | 'warn' | 'alert' | 'no_data' | 'pending';
   if (!hasBank) verdict = 'no_data';
+  // ⏳ 입금 구간이 아직 안 끝났다 — 들어온 일부를 «전체 예상» 과 견주면 늘 크게 모자라 보인다
+  else if (lagPg != null && lagOpen) verdict = 'pending';
   /* 시차를 맞춘 뒤로는 여유를 좁힌다. 예전 ±15/30% 는 «어차피 시차로 어긋난다» 는
      전제였는데, 맞춘 값이면 그렇게 벌어질 이유가 없다. */
   else if (Math.abs(pct) <= (lagPg == null ? 15 : 10)) verdict = 'ok';
@@ -1950,6 +2032,9 @@ function reconcileMonth(revenueBook: number, dep: MonthDeposits, lagPg: number |
       ? 'PG 정산 입금이 장부보다 크게 적습니다. 정산 시차인지 미수금인지 KCP 정산내역을 확인하세요.'
       : 'PG 정산 입금이 장부보다 크게 많습니다. 장부에 안 잡힌 결제가 있는지 확인하세요.',
     no_data: '이 달은 계좌 입금 자료가 없어 대사를 할 수 없습니다.',
+    pending: lagOpen
+      ? `이 달 결제분의 PG 정산이 아직 다 들어오지 않았습니다(입금 구간 ${lagOpen.from} ~ ${prevDay(lagOpen.to)}, 통장 자료는 ${lagOpen.last_bank} 까지). ${prevDay(lagOpen.to)} 이후에 다시 확인하세요.`
+      : '이 달 결제분의 PG 정산이 아직 다 들어오지 않았습니다.',
   };
   return {
     revenue: revenueBook, expected, deposit_pg: pgUsed,
@@ -1960,7 +2045,9 @@ function reconcileMonth(revenueBook: number, dep: MonthDeposits, lagPg: number |
     // ⚠️ reconcileReport 쪽 deposit_transfer 는 «성격 미확인만» 이다 — 같은 이름에
     //    확인된 자금이체(케이씨피M)까지 실으면 1-3 장 금지(화면 부활)가 되살아난다.
     deposit_b2b: dep.b2b, deposit_transfer: dep.transferUnknown, deposit_other: dep.other,
-    diff, diff_pct: Number(pct.toFixed(1)), verdict, message: MSG[verdict],
+    // ⏳ 구간이 열려 있으면 비율은 뜻이 없다(들어온 일부로 나눠 수백 % 로 부푼다) → null
+    diff, diff_pct: verdict === 'pending' ? null : Number(pct.toFixed(1)), verdict, message: MSG[verdict],
+    lag_window: lagOpen ? { from: lagOpen.from, to: prevDay(lagOpen.to), last_bank: lagOpen.last_bank } : null,
     /* ⚠️ 확인이 끝난 내부 자금이체는 안내하지 않는다(2026-08-18 사장님 지시 — 설명이
        오히려 혼동을 준다). 아직 «모르는» 입금만 묻는다. */
     /* ⛔ 대사 배너는 타계좌 입금을 더 이상 안내하지 않는다 — 확인된 자금이체도(2026-08-18),
@@ -2045,8 +2132,10 @@ function sourceCoverage(period: string, from: string | null): 'full' | 'partial'
   return from.slice(8, 10) === '01' ? 'full' : 'partial';
 }
 
-function coverageOf(period: string, starts: { bankFrom: string | null; cardFrom: string | null }): Coverage {
-  if (period > currentMonth()) {
+function coverageOf(period: string, starts: { bankFrom: string | null; cardFrom: string | null }, nowMs: number = Date.now()): Coverage {
+  const kst = new Date(nowMs + 9 * 3600 * 1000).toISOString();   // 판정 기준 «지금»(KST) — 하니스가 시각을 넣어 돌린다
+  const curM = kst.slice(0, 7);
+  if (period > curM) {
     return { level: 'future', bank: 'none', card: 'none', note: '아직 오지 않은 달입니다.' };
   }
   const bank = sourceCoverage(period, starts.bankFrom);
@@ -2054,9 +2143,17 @@ function coverageOf(period: string, starts: { bankFrom: string | null; cardFrom:
   const parts: string[] = [];
   /* 진행 중인 달은 «온전» 이라고 할 수 없다 — 아직 절반만 지났는데 한 달치로 읽으면
      매출도 비용도 실제보다 작다. 자료 연동과 무관한 이유라 따로 먼저 판정한다. */
-  if (period === currentMonth()) {
+  if (period === curM) {
     return { level: 'partial', bank, card,
       note: '아직 진행 중인 달입니다 — 매출도 비용도 한 달치가 아니라 오늘까지의 값입니다.' };
+  }
+  /* 📅 지사수수료 귀속월(ACCRUAL_SHIFT_DAY) 때문에 «지난달» 은 다음 달 3일까지 아직 온전하지 않다 —
+     그 사이 나가는 지사수수료가 지난달 비용으로 들어오는데, 그 전에 «확정» 으로 읽으면 순이익이 부풀어 보인다.
+     ⛔ 날짜가 «이 달 1~3일» 이고 period 가 «바로 전 달» 일 때만. 자료가 없을 뿐인 옛 달은 아래 판정 그대로. */
+  const prevM = (() => { const [yy, mm] = curM.split('-').map(Number); return new Date(Date.UTC(yy, mm - 2, 1)).toISOString().slice(0, 7); })();
+  if (period === prevM && kst.slice(8, 10) <= ACCRUAL_SHIFT_DAY && bank !== 'none') {
+    return { level: 'partial', bank, card,
+      note: `지사 수수료가 ${curM.slice(5)}월 ${Number(ACCRUAL_SHIFT_DAY)}일까지 이 달 비용으로 더 들어올 수 있습니다 — ${Number(ACCRUAL_SHIFT_DAY) + 1}일 이후 확정됩니다.` };
   }
   if (bank === 'none') parts.push(`통장 자료가 없습니다(연동 ${starts.bankFrom || '미연동'}부터)`);
   else if (bank === 'partial') parts.push(`통장 자료가 ${starts.bankFrom}부터라 이 달은 일부만 있습니다`);
@@ -2078,7 +2175,7 @@ async function periodRow(env: Env, period: string, starts: { bankFrom: string | 
   if (coverage.level === 'future') {
     return {
       period, revenue: 0, revenue_book: 0, revenue_b2b: 0, pays: 0, payroll: 0, cost: 0, net: 0,
-      op_cost_source: 'none' as const, coverage,
+      op_cost_source: 'none' as const, fee_shift_in: 0, fee_shift_out: 0, coverage,
     };
   }
   const pl = await monthPL(env, period);
@@ -2092,6 +2189,9 @@ async function periodRow(env: Env, period: string, starts: { bankFrom: string | 
     cost: pl.cost,
     net: pl.net,
     op_cost_source: pl.opCostSource as 'actual' | 'estimated' | 'none',
+    /* 📅 지사수수료 귀속월 이동분 — in: 다음 달 초 이체를 이 달로 가져옴 · out: 이 달 초 이체를 전월로 보냄 */
+    fee_shift_in: pl.ax.franchiseShift.in,
+    fee_shift_out: pl.ax.franchiseShift.out,
     coverage,
   };
 }
@@ -2125,6 +2225,7 @@ function trendCsv(title: string, label: string, rows: PeriodRow[],
   return [
     [title, label],
     ['※ 매출 = 장부 결제 + 통장 직접입금(B2B).'],
+    [`※ 지사 수수료는 «귀속월» 기준입니다 — 매달 ${Number(ACCRUAL_SHIFT_DAY)}일까지 이체된 지사 수수료는 전월 비용으로 잡습니다(그 밖의 비용은 통장에 찍힌 날 기준).`],
     [`※ 자료 연동 시작 — 통장 ${starts.bankFrom || '미연동'} · 법인카드 ${starts.cardFrom || '미연동'}. 그 전 달은 비용이 없거나 일부라 순이익이 실제보다 좋게 나옵니다.`],
     [],
     ['월', '매출', '  장부 결제', '  통장 B2B', '결제건수', '강사급여', '비용 합계', '순이익', '자료 상태'],
@@ -2873,7 +2974,7 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const classMin = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT COALESCE(SUM(total_active_ms),0)/60000 AS total_min,
-             SUM(CASE WHEN COALESCE(total_active_ms,0)=0 THEN 1 ELSE 0 END) AS zero_sessions
+             SUM(CASE WHEN COALESCE(total_active_ms,0)=0 AND COALESCE(room_id,'') NOT LIKE 'c24-%' THEN 1 ELSE 0 END) AS zero_sessions
       FROM attendance WHERE date BETWEEN ? AND ?
     `).bind(period + '-01', period + '-31').first<{ total_min: number; zero_sessions: number }>();
     return r || { total_min: 0, zero_sessions: 0 };
@@ -2891,7 +2992,8 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const kpis: Kpi[] = [
     { key: 'revenue', label: '월 매출 (장부+통장 B2B)', value: revenue, unit: 'KRW', source: 'actual', available: true },
     { key: 'revenue_b2b', label: '  └ 통장 직접입금(B2B)', value: pl.rev.b2b, unit: 'KRW', source: pl.rev.b2b > 0 ? 'actual' : 'none', available: true },
-    { key: 'active_real', label: '활동 학생 (수업·결제한 학생)', value: activeReal.total, unit: '명', source: 'actual', available: true },
+    { key: 'active_real', label: '활동 학생 (수업·결제한 학생)', value: activeReal.total, unit: '명', source: 'actual', available: true,
+      note: '학생 계정 기준(선생님·관리자·접속마다 바뀌는 기기번호는 세지 않음).' },
     { key: 'active_students', label: '재적 학생 (원부 status=active)', value: active, unit: '명', source: 'review', available: true,
       note: '퇴원 처리가 안 된 옛 학생까지 포함돼 있어 지표의 분모로는 쓰지 않습니다.' },
     { key: 'paying_users', label: '결제 학생', value: pl.rev.payingUsers, unit: '명', source: 'actual', available: true },
@@ -2913,7 +3015,10 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
       note: classMin.zero_sessions > 0 ? `수업 기록 ${classMin.zero_sessions}건의 수업시간이 0으로 저장돼 있어 실제보다 적게 나옵니다.` : '' },
   ];
 
-  const data = { ok: true, type: 'kpi', period, label: `${label} 경영지표 (KPI)`, kpis,
+  /* 📅 (2026-10-09) 분기·연간·월간과 같은 판정 — 진행 중인 달·통장/카드 연동 전 달은 이익률·ROI·순이익이
+     «확정값» 이 아니다. KPI 만 이 표시가 없어 기본값(이번 달)을 열면 반쪽 숫자가 확정처럼 보였다. */
+  const coverage = coverageOf(period, await syncStarts(env));
+  const data = { ok: true, type: 'kpi', period, label: `${label} 경영지표 (KPI)`, kpis, coverage,
     revenue, cost, net, payroll: pl.payroll.total, margin_pct: pl.margin };
 
   if (fmt === 'csv' || fmt === 'xlsx') {
@@ -3025,6 +3130,17 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
   /* 💰 매출·비용은 monthPL() 한 곳에서 — 월간 리포트와 숫자가 어긋나지 않게(2026-08-16).
      매출에는 통장 B2B 직접입금이 포함된다. 분기면 3개월치를 합산한 값이다(2026-08-18). */
   const B = await statementBasis(env, months);
+  /* 📅 (2026-10-09) 분기·연간·월간·KPI 와 같은 판정 — 진행 중인 달·통장/카드 연동 전 달이 끼면 «참고값».
+     재무제표만 이 표시가 없어 이번 달(진행 중)을 골라도 반쪽 숫자가 확정처럼 보였다.
+     분기는 세 달 중 가장 나쁜 달을 따르고, 온전하지 않은 달마다 이유를 적는다. */
+  const fsStarts = await syncStarts(env);
+  const fsCovs = months.map(m => ({ m, c: coverageOf(m, fsStarts) }));
+  const covRank: Record<string, number> = { full: 0, partial: 1, future: 2, none: 3 };
+  const fsBad = fsCovs.filter(x => x.c.level !== 'full');
+  const coverage = {
+    level: fsBad.length ? fsBad.reduce((a, x) => covRank[x.c.level] > covRank[a] ? x.c.level : a, 'partial' as string) : 'full',
+    note: fsBad.map(x => (months.length > 1 ? `${x.m}: ` : '') + x.c.note).join(' / '),
+  };
   const rev = { revenue: B.revTotal, pay_count: B.payCount };
   const payroll = B.payroll;
   const ax = B.ax;
@@ -3209,7 +3325,9 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
     const operatingIn = rev.revenue;
     const operatingOut = payrollEff + opCost + pgFee + tax + ax.refunds;
     const operatingNet = operatingIn - operatingOut;
-    const investingNet = -Math.round(rev.revenue * 0.02);   // 투자활동 (장비) 추정
+    /* ⛔ (2026-10-09) 예전엔 «장비 구매 = 매출 × 2%» 로 지어낸 숫자였다 — 근거가 없다(자산대장·구매기록 없음).
+       모르는 값은 0 으로 두고 «자료없음» 이라고 밝힌다(재무상태표의 유형자산과 같은 처리). */
+    const investingNet = 0;
     const financingNet = 0;                                 // 차입/상환 추정
     const netCashChange = operatingNet + investingNet + financingNet;
     data = {
@@ -3226,7 +3344,7 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
           { name: '영업활동 순현금흐름', amount: operatingNet, total: true, highlight: true },
         ]},
         { title: 'II. 투자활동 현금흐름 (Investing)', items: [
-          { name: '장비 구매 (추정)', amount: investingNet },
+          { name: '장비 구매 — 자료없음 (구매·자산 기록이 없어 계산하지 않음)', amount: investingNet },
           { name: '투자활동 순현금흐름', amount: investingNet, total: true, highlight: true },
         ]},
         { title: 'III. 재무활동 현금흐름 (Financing)', items: [
@@ -3234,10 +3352,20 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
           { name: '재무활동 순현금흐름', amount: financingNet, total: true, highlight: true },
         ]},
         { title: 'IV. 현금 순증감', items: [
-          { name: '당기 현금 변동', amount: netCashChange, highlight: true, big: true },
+          { name: '당기 현금 변동 (장부 기준 계산)', amount: netCashChange, highlight: true, big: true },
         ]},
+        /* 💵 위 표는 장부(결제기록)로 «계산한» 흐름이다. 실제 통장이 얼마나 늘고 줄었는지를 옆에 둔다
+           — 손익계산서의 같은 참고 섹션과 같은 값(monthCash, 내부 자금이체 제외). */
+        ...(plCash.n > 0 ? [{ title: '※ 참고 — 통장 기준 실제 현금흐름 (신한 계좌)', items: [
+          { name: '실제 입금', amount: plCash.cin },
+          { name: '실제 출금', amount: -plCash.cout },
+          { name: '순증감 (통장이 실제로 늘거나 준 돈)', amount: plCash.cin - plCash.cout, highlight: true },
+        ]}] : []),
       ],
-      summary: { operating: operatingNet, investing: investingNet, financing: financingNet, net_change: netCashChange },
+      summary: { operating: operatingNet, investing: investingNet, financing: financingNet, net_change: netCashChange,
+        cash_in_krw: plCash.cin, cash_out_krw: plCash.cout, cash_net_krw: plCash.cin - plCash.cout },
+      notes: ['위 I~IV 는 장부(결제기록)와 비용 계산으로 만든 표입니다. 실제 통장 변동은 맨 아래 «참고» 를 보세요 — 장부에 안 잡힌 매출, 수업료가 아닌 입금(세금 환급·이자 등) 때문에 두 값이 다를 수 있습니다.',
+        '투자활동(장비 구매)·재무활동(차입/상환)은 기록이 없어 0 입니다.'],
     };
   }
   else if (type === 'tb') {
@@ -3284,6 +3412,7 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
   else {
     return err('unknown type: ' + type + ' (use pl|bs|cf|tb)');
   }
+  data.coverage = coverage;
 
   if (fmt === 'csv' || fmt === 'xlsx') {
     const rows: (string | number)[][] = [
@@ -3301,6 +3430,9 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
       }
       rows.push([]);
     }
+    // 화면과 같은 말을 엑셀에도 — 참고값 경고·안내문
+    if (coverage.level !== 'full') rows.push(['⚠ 자료가 온전하지 않은 기간 — 참고값', coverage.note]);
+    for (const n of (data.notes || [])) rows.push(['※ ' + n]);
     return out(fmt, `statement-${type}-${period}.csv`, rows);
   }
   return json(data);
@@ -3375,35 +3507,60 @@ async function journalReport(env: Env, url: URL, fmt: string): Promise<Response>
   const endMs   = to   ? new Date(to   + 'T23:59:59+09:00').getTime()
                         : monthRange(period).endMs;
 
+  // 📏 화면은 200건까지만 그리지만, 엑셀(내보내기)은 «그 기간 전부» 여야 한다 — 잘린 장부가 합계까지 틀리게 만든다.
+  //    잘렸으면 truncated 로 말한다(조용히 자르지 않기).
+  const isExport = fmt === 'csv' || fmt === 'xlsx';
+  const rowLimit = isExport ? 20000 : 200;
   const pays = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT id, paid_at, user_id, amount_krw, method, memo
       FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
-      ORDER BY paid_at DESC LIMIT 200
-    `).bind(startMs, endMs).all();
+      ORDER BY paid_at DESC LIMIT ?
+    `).bind(startMs, endMs, rowLimit).all();
     return (r.results || []) as Array<any>;
   }, []);
 
+  // 💼 강사 급여 전표는 «고른 기간» 에 맞춘다 — 예전에는 from~to 를 줘도 이번 달(period 기본값) 급여가 섞였다.
+  //    기간에 걸친 달(YYYY-MM)의 급여를 읽고, 전표일(그 달 25일)이 기간 안인 것만 남긴다.
+  const kstDay = (ms: number) => new Date(ms + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  const fromDay = kstDay(startMs), toDay = kstDay(endMs);
   const slips = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT id, teacher_id, period, payment_krw FROM payslips
-      WHERE period=? AND ${realPayslipSql()} ORDER BY payment_krw DESC LIMIT 200
-    `).bind(period).first ? await env.DB.prepare(`
-      SELECT id, teacher_id, period, payment_krw FROM payslips
-      WHERE period=? AND ${realPayslipSql()} ORDER BY payment_krw DESC LIMIT 200
-    `).bind(period).all() : { results: [] };
-    return (r.results || []) as Array<any>;
+      WHERE period>=? AND period<=? AND ${realPayslipSql()} ORDER BY period DESC, payment_krw DESC LIMIT ?
+    `).bind(fromDay.slice(0, 7), toDay.slice(0, 7), rowLimit).all();
+    return ((r.results || []) as Array<any>).filter(s => {
+      const d = String(s.period || '') + '-25';
+      return d >= fromDay && d <= toDay;
+    });
   }, []);
+  const truncated = pays.length >= rowLimit;
+
+  // 🧑‍🎓 학생 이름 (2026-10-09 사장님 지시 — 아이디만으로는 누구인지 모름)
+  //   user_id «완전일치» 로만 잇고, 이름이 없거나 아이디와 같으면(카페24에 이름 없는 계정) 빈 값.
+  //   ⛔ 이름을 지어내지 않는다. 조회가 실패해도 전표는 그대로 나간다(이름 칸만 빔).
+  const nameByUid = new Map<string, string>();
+  const payUids = [...new Set(pays.map(p => String(p.user_id || '')).filter(Boolean))];
+  const nameRows = await safe(() => selectInChunks<any>(env.DB, payUids, ph =>
+    `SELECT user_id, COALESCE(NULLIF(TRIM(korean_name),''), NULLIF(TRIM(username),'')) AS nm
+       FROM students_erp WHERE user_id IN (${ph})`), [] as any[]);
+  for (const r of nameRows) {
+    const uid = String(r.user_id || ''), nm = String(r.nm || '').trim();
+    if (uid && nm && nm !== uid && !nameByUid.has(uid)) nameByUid.set(uid, nm);
+  }
 
   // 자동 분개 생성
   const entries: any[] = [];
   let docNo = 1;
   for (const p of pays) {
     const date = new Date((p.paid_at || 0) + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    const uid = String(p.user_id || '');
+    const studentName = nameByUid.get(uid) || '';
     entries.push({
       doc_no: 'J-' + String(docNo++).padStart(4, '0'),
       date,
-      desc: `학생 결제 (${p.user_id || ''})`,
+      desc: studentName ? `학생 결제 (${studentName} · ${uid})` : `학생 결제 (${uid})`,
+      student_name: studentName || null,
       debit_account: '현금',
       credit_account: '매출',
       amount: p.amount_krw,
@@ -3413,7 +3570,7 @@ async function journalReport(env: Env, url: URL, fmt: string): Promise<Response>
   for (const s of slips) {
     entries.push({
       doc_no: 'J-' + String(docNo++).padStart(4, '0'),
-      date: period + '-25',
+      date: String(s.period || '') + '-25',
       desc: `강사 급여 지급 (${s.teacher_id || ''})`,
       debit_account: '인건비',
       credit_account: '미지급금',
@@ -3425,15 +3582,18 @@ async function journalReport(env: Env, url: URL, fmt: string): Promise<Response>
 
   const totals = entries.reduce((a, e) => ({ debit: a.debit + e.amount, credit: a.credit + e.amount }), { debit: 0, credit: 0 });
 
-  const data = { ok: true, type: 'journal', period, label: `회계 전표 / 분개장 — ${period}`, entries, totals };
+  const rangeLabel = (from || to) ? `${fromDay}~${toDay}` : period;
+  const data = { ok: true, type: 'journal', period, label: `회계 전표 / 분개장 — ${rangeLabel}`, entries, totals, truncated };
 
-  if (fmt === 'csv' || fmt === 'xlsx') {
-    return out(fmt, `journal-${period}.csv`, [
-      ['망고아이 회계 전표 / 분개장', period],
+  if (isExport) {
+    return out(fmt, `journal-${fromDay}_${toDay}.csv`, [
+      ['망고아이 회계 전표 / 분개장', rangeLabel],
+      ...(truncated ? [[`⚠ ${rowLimit}건에서 잘렸습니다 — 기간을 나눠 받아 주세요`]] : []),
       [],
-      ['전표번호', '일자', '적요', '차변', '대변', '금액', '참조'],
-      ...entries.map(e => [e.doc_no, e.date, e.desc, e.debit_account, e.credit_account, e.amount, e.ref]),
-      ['합계', '', '', '', '', totals.debit, ''],
+      // 🧑‍🎓 학생 이름은 칸을 따로 둔다(2026-10-09 — 엑셀에서 이름으로 정렬·필터하려고). 급여 줄·이름 모름은 빈칸.
+      ['전표번호', '일자', '적요', '학생 이름', '차변', '대변', '금액', '참조'],
+      ...entries.map(e => [e.doc_no, e.date, e.desc, e.student_name || '', e.debit_account, e.credit_account, e.amount, e.ref]),
+      ['합계', '', '', '', '', '', totals.debit, ''],
     ]);
   }
   return json(data);

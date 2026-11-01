@@ -1,0 +1,311 @@
+{
+  "id": "s2-13",
+  "breaks": [
+    3,
+    3,
+    4,
+    3
+  ],
+  "key": {
+    "P": 9,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "사건",
+      "en": "event"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «외계인은 괴물이 아니라 외로운 아이였다(사건)» 와 «친구는 생각지도 못한 곳에서 만날 수 있다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the event (the alien was not a monster but a lonely kid) and the lesson (a friend can be found in the most surprising places). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Juno, his sister Ara, Zuri the alien"
+    },
+    {
+      "k": "Event",
+      "qko": "무슨 일이 일어났나요?",
+      "qen": "What happened?",
+      "a": "A space signal came from Zuri, a lonely alien kid."
+    },
+    {
+      "k": "Lesson",
+      "qko": "무엇을 배웠나요?",
+      "qen": "What is the lesson?",
+      "a": "A friend can be found in surprising places."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Juno and Ara built a ",
+      "ans": "radio",
+      "opts": [
+        "radio",
+        "robot",
+        "rocket"
+      ]
+    },
+    {
+      "pre": " in the garage. One night, it caught a strange ",
+      "ans": "signal",
+      "opts": [
+        "signal",
+        "song",
+        "storm"
+      ]
+    },
+    {
+      "pre": " from space. Juno was ",
+      "ans": "scared",
+      "opts": [
+        "scared",
+        "proud",
+        "tired"
+      ]
+    },
+    {
+      "pre": " of aliens, but the message came from Zuri, a ",
+      "ans": "lonely",
+      "opts": [
+        "lonely",
+        "famous",
+        "dangerous"
+      ]
+    },
+    {
+      "pre": " kid with no friends. Ara answered, and the three friends talked across the ",
+      "ans": "stars",
+      "opts": [
+        "stars",
+        "sea",
+        "city"
+      ]
+    },
+    {
+      "pre": " every night.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "signal",
+      "신호",
+      "The <b>signal</b> was coming from far beyond the Moon!",
+      "a sound or sign that sends a message"
+    ],
+    [
+      "message",
+      "메시지, 전하는 말",
+      "But the next <b>message</b> changed everything.",
+      "words that someone sends to another person"
+    ],
+    [
+      "lonely",
+      "외로운",
+      "It was a <b>lonely</b> kid, just like them!",
+      "sad because you have no friends"
+    ],
+    [
+      "strange",
+      "이상한",
+      "Late one night, it made a <b>strange</b> sound",
+      "different and surprising"
+    ],
+    [
+      "planet",
+      "행성",
+      "I have no friends on my <b>planet</b>.",
+      "a big round world in space, like Earth"
+    ],
+    [
+      "surprising",
+      "뜻밖의, 놀라운",
+      "A friend can be found in the most <b>surprising</b> places.",
+      "not what you expect"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why was Juno scared?",
+      "qko": "주노는 왜 무서웠나요?",
+      "opts": [
+        "He thought aliens might attack them.",
+        "The radio broke in the garage.",
+        "Ara was angry at him."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "They wrote down the beeps for three nights.",
+        "Juno was scared. \"What if aliens attack us?\"",
+        "Juno and his sister Ara built a radio in the garage.",
+        "Every night after that, the three friends talked across the stars."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "주노는 «외계인이 우리를 공격하면 어떡해?» 하고 무서워했어요. 라디오가 고장 났다거나 아라가 화를 냈다는 말은 없어요.",
+        "Juno was scared and said, «What if aliens attack us?» Nothing says the radio broke or that Ara was angry."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The story says, \"But the next message changed everything.\" What does \"changed everything\" mean here?",
+      "qko": "\"But the next message changed everything.\"라는 문장이 있어요. 여기서 \"changed everything\"은 무슨 뜻인가요?",
+      "opts": [
+        "made them see the alien in a new way",
+        "broke the radio into pieces",
+        "made the beeps stop forever"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "The alien was not a monster. It was a lonely kid, just like them!",
+        "Late one night, it made a strange sound: beep, beep-beep, beep.",
+        "The signal was coming from far beyond the Moon!",
+        "They wrote down the beeps for three nights."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "다음 메시지를 받고 나서 외계인이 괴물이 아니라 외로운 아이라는 걸 알게 되었어요. 무서운 마음이 친구가 되고 싶은 마음으로 바뀐 거예요.",
+        "After the next message, they learned the alien was not a monster but a lonely kid. Their fear turned into friendship."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why did Ara say, \"Now you have two friends on Earth\"?",
+      "qko": "아라는 왜 \"Now you have two friends on Earth.\"라고 말했나요?",
+      "opts": [
+        "Zuri had no friends on that planet.",
+        "Zuri wanted to attack Earth.",
+        "Zuri asked for a new radio."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "\"I am Zuri. I am ten years old. I have no friends on my planet.\"",
+        "Juno was scared. \"What if aliens attack us?\"",
+        "The alien was not a monster. It was a lonely kid, just like them!",
+        "Late one night, it made a strange sound: beep, beep-beep, beep."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "주리는 «우리 행성에는 친구가 없어»라고 했고, 둘과 같은 외로운 아이였어요. 그래서 아라가 친구가 되어 주겠다고 답한 거예요.",
+        "Zuri said there were no friends on that planet, and Zuri was a lonely kid just like them. So Ara answered that they would be friends."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Zuri visits Earth and meets Juno and Ara.",
+      "주리가 지구에 와서 주노와 아라를 직접 만나요.",
+      "Zuri Comes to Earth"
+    ],
+    [
+      "B",
+      "Juno and Ara build a bigger radio to talk with more planets.",
+      "주노와 아라가 더 큰 라디오를 만들어 다른 행성들과도 이야기해요.",
+      "Hello, Planets!"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "src": "“I think <u>the alien is not scary</u> because <u>it is a lonely kid</u>.”",
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "chips": [
+      {
+        "a": "my cat is bored",
+        "b": "she is sleeping all day",
+        "label": "cat"
+      },
+      {
+        "a": "my friend is happy",
+        "b": "he got a new puppy",
+        "label": "puppy"
+      },
+      {
+        "a": "it will snow tonight",
+        "b": "the air is very cold",
+        "label": "snow"
+      }
+    ],
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because it has no friends)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because it has no friends)"
+  },
+  "img": {
+    "style": "brick",
+    "cover": "At night in a messy garage, a ten-year-old Korean boy with short spiky black hair, round black glasses, a yellow hoodie and blue jeans and his older sister, a twelve-year-old Korean girl with a long black ponytail, a purple T-shirt and gray overalls lean over a homemade radio with blinking lights and a tall wire antenna, smiling and talking into a small microphone; through the open garage door, a sky full of stars shows a tiny purple planet where a small round green alien kid with big shiny black eyes, two short antennae and a little orange scarf waves back.",
+    "scenes": {
+      "1": "Late at night in the garage, a ten-year-old Korean boy with short spiky black hair, round black glasses, a yellow hoodie and blue jeans and his older sister, a twelve-year-old Korean girl with a long black ponytail, a purple T-shirt and gray overalls sit by a homemade radio with blinking lights; she draws rows of small dots and short lines in a notebook while he points through the window at a bright full Moon.",
+      "2": "A split picture: on the left, in the dark garage, a ten-year-old Korean boy with short spiky black hair, round black glasses, a yellow hoodie and blue jeans hides behind his older sister, a twelve-year-old Korean girl with a long black ponytail, a purple T-shirt and gray overalls with wide scared eyes while the homemade radio glows; on the right, far away on a tiny purple planet, a small round green alien kid with big shiny black eyes, two short antennae and a little orange scarf sits alone on a rock, holding a little radio and looking sad."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Two kids write down beeps from the radio at night.",
+    "2": "A scared boy hides while a lonely alien kid sits on a far planet.",
+    "cover": "Two kids talk into a homemade radio while an alien kid waves from a far planet."
+  }
+}

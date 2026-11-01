@@ -712,12 +712,12 @@ async function loadStudentRankings() {
   const tb = document.getElementById('rk-tbody');
   const sumEl = document.getElementById('rk-summary');
   if (!tb) return;
-  tb.innerHTML = '<tr><td colspan="8" class="empty">' + (adminLang==='en'?'Loading…':'로딩 중…') + '</td></tr>';
+  tb.innerHTML = '<tr><td colspan="9" class="empty">' + (adminLang==='en'?'Loading…':'로딩 중…') + '</td></tr>';
 
   const params = new URLSearchParams({ period, sort_by: sortBy, limit: '20' });
   if (period === 'custom') {
     if (!fromV || !toV) {
-      tb.innerHTML = '<tr><td colspan="8" class="empty">' + (adminLang==='en'?'Pick from/to dates':'시작·종료 날짜를 선택하세요') + '</td></tr>';
+      tb.innerHTML = '<tr><td colspan="9" class="empty">' + (adminLang==='en'?'Pick from/to dates':'시작·종료 날짜를 선택하세요') + '</td></tr>';
       return;
     }
     params.set('from', fromV);
@@ -735,7 +735,7 @@ async function loadStudentRankings() {
     }
 
     if (j.items.length === 0) {
-      tb.innerHTML = '<tr><td colspan="8" class="empty">' + (adminLang==='en'?'No data in this period':'기간 내 데이터 없음') + '</td></tr>';
+      tb.innerHTML = '<tr><td colspan="9" class="empty">' + (adminLang==='en'?'No data in this period':'기간 내 데이터 없음') + '</td></tr>';
       return;
     }
 
@@ -761,6 +761,11 @@ async function loadStudentRankings() {
       const uidEnc = encodeURIComponent(it.user_id);
       return `<tr>
         <td style="font-weight:700;text-align:center">${medal}</td>
+        <td>${it.student_name
+              ? `<b style="color:#101828">${escName(it.student_name)}</b>` + (it.student_name_basis === 'schedule'
+                  ? ` <span style="color:#b45309;font-size:11px" title="${adminLang==='en'?'No account on this connection — inferred from the class reservation of that room (it could be the teacher\u2019s screen)':'이 접속에는 계정이 없어 그 방 예약 학생으로 추정했습니다 (강사 화면일 수도 있음)'}">${adminLang==='en'?'(by booking)':'(예약 기준)'}</span>`
+                  : '')
+              : `<span style="color:#667085" title="${adminLang==='en'?'Not found in the student roster (temporary device id or unregistered account)':'학생 명부에서 이름을 찾지 못했습니다 (접속 임시번호이거나 명부에 없는 계정)'}">—</span>`}</td>
         <td><a href="/admin/student?uid=${uidEnc}" target="_blank" style="color:#0984e3;text-decoration:none;border-bottom:1px dotted #0984e3">${escName(it.username)}</a></td>
         <td>${it.session_count}</td>
         <td>${fmtMs2(it.active_ms)}</td>
@@ -772,7 +777,7 @@ async function loadStudentRankings() {
     }).join('');
   } catch (e) {
     console.warn('[rankings] load failed:', e);
-    tb.innerHTML = '<tr><td colspan="8" class="empty">' + (adminLang==='en'?'Load failed':'로드 실패') + ': ' + (e.message||e) + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="9" class="empty">' + (adminLang==='en'?'Load failed':'로드 실패') + ': ' + (e.message||e) + '</td></tr>';
   }
 }
 
@@ -1837,6 +1842,63 @@ function _ensureRoomEnhCss(){
    ⚠️ 색은 `background-color:` 로만 준다 — `background:linear-gradient(…)` 이나
       `background:#…` 은 admin-inline-c.css 의 옛 다크 규칙이 `!important` 로 덮는다
       (CLAUDE.md 2장 「관리자 카드 안 박스 색이 안 먹음」). */
+/* 🚨 (2026-10-07 delaware · LEN) «같은 수업인데 서로 다른 방» 경고 띠.
+   판정은 서버(src/room-mismatch.ts)가 하고 여기는 그리기만 한다 — 학생은 다른 방에 접속 중인데
+   예약방에는 누군가(대개 선생님)가 접속 중인 수업. 둘 다 «접속» 으로 보여 어느 표에도 안 드러나던 사고다.
+   ⚠️ 글자색은 인라인 !important — admin-inline-c.css 가 카드 안 글자를 #101828 !important 로 덮는다.
+   ⛔ list 가 null(서버가 그 칸을 안 줌·옛 서버)이면 아무것도 그리지 않는다(0건을 «정상» 이라 말하지 않음). */
+/* 👁🚪 (2026-10-20 제안 «학생과 교사가 다른 방에 있으면 관찰자가 학생 방으로 들어갈 곳») 경고 줄마다 «학생 방» 버튼 두 개.
+   새 기능이 아니라 이미 있는 두 입구를 그대로 부른다 — 숨은 참관 observeRoom(감사 기록·observe_sig 포함),
+   보이게 입장 ghEnterRoom(adm-s1.js, 확인창·카메라 꺼짐). ⚠️ onclick 문자열 대신 data-* + 위임 —
+   방 번호에 따옴표가 섞이면 onclick 이 깨진다(adm-s1 v=15 와 같은 함정). */
+document.addEventListener('click', function (e) {
+  const b = e.target && e.target.closest ? e.target.closest('#rooms-mismatch-alert [data-mm-act]') : null;
+  if (!b) return;
+  e.preventDefault();
+  const room = b.getAttribute('data-mm-room') || '';
+  if (!room) return;
+  if (b.getAttribute('data-mm-act') === 'observe') observeRoom(room);
+  else if (typeof window.ghEnterRoom === 'function') window.ghEnterRoom(room);
+});
+function _renderRoomMismatch(list, _L) {
+  function _mismatchBtns(room, _L) {
+    if (!room) return '';
+    const r = _esc(String(room));
+    const st = 'margin-left:6px;padding:2px 8px;border-radius:99px;font-size:11.5px;font-weight:700;cursor:pointer;';
+    return ' <button type="button" data-mm-act="observe" data-mm-room="' + r + '" style="' + st + 'border:1px solid #c4b5fd;background-color:#f5f3ff;color:#5b21b6 !important">'
+         + (_L ? '👁 Observe student room' : '👁 학생 방 참관') + '</button>'
+         + ' <button type="button" data-mm-act="enter" data-mm-room="' + r + '" style="' + st + 'border:1px solid #fdba74;background-color:#fff7ed;color:#9a3412 !important">'
+         + (_L ? '🚪 Enter student room (visible)' : '🚪 학생 방 입장(보임)') + '</button>';
+  }
+  try {
+    const sum = document.getElementById('rooms-now-summary');
+    if (!sum || !sum.parentNode) return;
+    let box = document.getElementById('rooms-mismatch-alert');
+    if (!list || !list.length) { if (box) box.remove(); return; }
+    if (!box) { box = document.createElement('div'); box.id = 'rooms-mismatch-alert'; sum.parentNode.insertBefore(box, sum); }
+    box.setAttribute('role', 'alert');
+    box.style.cssText = 'background-color:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:10px 12px;margin:0 0 10px;line-height:1.6';
+    const head = _L
+      ? '🚨 Student and teacher are in different rooms (' + list.length + ')'
+      : '🚨 학생과 선생님이 서로 다른 방에 있습니다 (' + list.length + '건)';
+    const rows = list.map(m => {
+      const who = _esc(String(m.student_name || (_L ? 'Student' : '학생')));
+      const t = _L ? _esc(String(m.teacher_name || 'the teacher')) : (m.teacher_name ? _esc(String(m.teacher_name)) + ' 선생님' : '선생님');
+      const tw = m.via_twin ? (_L ? ' · via twin account' : ' · 쌍둥이 계정으로 접속') : '';
+      return '<div style="font-size:12.5px;color:#7f1d1d !important">'
+        + _esc(String(m.start_kst || '')) + ' ' + who + ' — '
+        + (_L ? 'student in ' : '학생은 ') + '<b style="color:#7f1d1d !important">' + _esc(String(m.student_room || '')) + '</b>'
+        + (_L ? ', ' + t + ' waiting in ' : ', ' + t + '은 ') + '<b style="color:#7f1d1d !important">' + _esc(String(m.expected_room || '')) + '</b>'
+        + (_L ? '' : ' 에서 대기') + tw + _mismatchBtns(m.student_room, _L) + '</div>';
+    }).join('');
+    box.innerHTML = '<div style="font-weight:800;font-size:13.5px;color:#991b1b !important;margin-bottom:4px">' + head + '</div>' + rows
+      + '<div style="font-size:12px;color:#7f1d1d !important;margin-top:4px">'
+      + (_L ? 'Ask the student to leave and re-enter from the home screen, or join the waiting room to guide them.'
+            : '학생에게 홈에서 다시 입장하도록 안내하거나, 대기 중인 방에 들어가 안내해 주세요.')
+      + '</div>';
+  } catch (e) { /* 카드를 그리는 길목 — 던지지 않는다 */ }
+}
+
 function _renderRoomsSummary(counts, liveRooms, _L) {
   /* 📣 (2026-09-01 A안) 「오늘 수업」 탭 줄의 «화상방 접속» 숫자 — 세는 곳은 여기 하나뿐이고
      탭은 받아 적기만 한다. ⚠️ 통째로 try/catch — 이 함수는 카드를 그리는 길목이라 던지면 안 된다. */
@@ -1953,11 +2015,12 @@ async function loadActiveRooms() {
     } catch(_) {}
     /* 📅 예약 기준 «지금 수업» — 강사 계정(403)·구버전 서버에서는 조용히 없는 것으로 둔다.
        ⛔ 여기서 실패한다고 방 목록까지 못 그리게 하면 안 된다(원래 기능이 우선). */
-    let sched = [], scounts = null;
+    let sched = [], scounts = null, mism = null;
     try {
-      if (cr) { const cj = await cr.json(); if (cj && cj.ok) { sched = cj.classes || []; scounts = cj.counts || null; } }
+      if (cr) { const cj = await cr.json(); if (cj && cj.ok) { sched = cj.classes || []; scounts = cj.counts || null; mism = Array.isArray(cj.room_mismatch) ? cj.room_mismatch : null; } }
     } catch(_) {}
     _renderRoomsSummary(scounts, (rooms || []).length, _L);
+    _renderRoomMismatch(mism, _L);
     const schedRows = _schedRowsHtml(sched, _L, !rooms || rooms.length === 0);
 
     if (!rooms || rooms.length === 0) {
@@ -5710,12 +5773,22 @@ function _populateFranchiseSelect(items) {
   // 🔎 «지사 소속 대리점 찾기» 의 지사 드롭다운도 같은 목록을 쓴다(고른 값은 지킨다)
   const fba = document.getElementById('fba-branch');
   if (fba) { const keep = fba.value; fba.innerHTML = opts; if (keep) fba.value = keep; }
+  // 🏢 (2026-10-10) 대리점 목록 «지사로 좁히기» 드롭다운 — 같은 목록, 첫 칸만 «전체».
+  const ctf = document.getElementById('ct-fid');
+  if (ctf) {
+    const keep = ctf.value;
+    ctf.innerHTML = '<option value="" data-ko="— 지사 선택 (전체) —" data-en="— All branches —">'
+      + (adminLang==='en' ? '— All branches —' : '— 지사 선택 (전체) —') + '</option>'
+      + items.map(f => `<option value="${f.id}">${_esc(f.name)}</option>`).join('');
+    if (keep) ctf.value = keep;
+  }
 }
 // 🏢 지사 드롭다운만 필요할 때 (대리점·학원 카드를 먼저 연 경우) — {id,name} 만 받는다.
 //    이게 없으면 «조직 관리» 카드를 안 열고 대리점을 등록하려 할 때 지사 목록이 빈칸이었다.
 async function _ensureFranchiseSelect() {
   const sel = document.getElementById('ct-franchise');
-  if (!sel || sel.options.length > 1) return;
+  const ctf = document.getElementById('ct-fid');
+  if (!sel || (sel.options.length > 1 && (!ctf || ctf.options.length > 1))) return;
   try {
     const r = await fetch('/api/admin/franchises?fields=min',{cache:'no-store',credentials:'include'});
     const d = await r.json().catch(()=>({}));
@@ -5724,8 +5797,11 @@ async function _ensureFranchiseSelect() {
 }
 // ✏️ (2026-09-11) 수정 모드 — 대리점(centers)의 _ctEditId/ctResetForm/ctEdit 와 같은 방식.
 var _frEditId = 0;
+// 🏛️ (2026-10-25) 수정 폼을 열 때의 대표지사 — 저장 때 «바뀌었을 때만» master_assign 을 보낸다.
+var _frEditMaster = '';
 function frResetForm() {
   _frEditId = 0;
+  _frEditMaster = '';
   const e = id => document.getElementById(id);
   ['fr-name','fr-login','fr-login-pw','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>{ if(e(id)) e(id).value=''; });
   if (e('fr-master')) e('fr-master').value = '';
@@ -5744,6 +5820,8 @@ function frEdit(id) {
   if (e('fr-name')) e('fr-name').value = f.name == null ? '' : f.name;
   // 🏛️ (2026-09-18) 지금 배정된 대표지사 — 표 칸(assignMasterBranch)과 같은 값(f.master_branch_id).
   if (e('fr-master')) e('fr-master').value = f.master_branch_id == null ? '' : String(f.master_branch_id);
+  // 칸이 실제로 잡은 값을 기억한다 — 목록에 그 대표지사가 없으면 '' 이고, 그대로 저장하면 «안 바뀜» 이 된다.
+  _frEditMaster = (e('fr-master') || {}).value || '';
   // 🪪 (2026-09-15) 화면에 보이는 login_id 는 «추정값» 일 수 있다(admin_scope 접두어 매칭) —
   // 그 값을 그대로 이 칸에 채우면 «건드리지 않고 그냥 저장」만 눌러도 추정값이 확정값으로
   // 굳는다. 이 칸은 본사가 실제로 입력해 둔 f.login_username(원본)만 채운다.
@@ -5772,7 +5850,28 @@ function _frPasswordAlert(result) {
   }
 }
 
+/* ⏳ (2026-10-25 — 사장님 제보 「지사 정보를 수정하려는데 수정 저장을 눌러도 반응이 없다」)
+   저장하는 동안 버튼에 아무 표시가 없었고, 성공해도 알림 없이 폼만 조용히 비워졌다 —
+   그래서 «느린 저장» 과 «안 된 저장» 을 구별할 수 없었다. 저장 중에는 버튼을 잠그고 글자를
+   바꾸며, 끝나면 성공/실패를 반드시 말로 알린다. 본문은 _saveFranchiseInner. */
+var _frSaving = false;
 async function saveFranchise() {
+  if (_frSaving) return;
+  const btn = document.getElementById('fr-add-btn');
+  const ko = btn ? btn.getAttribute('data-ko') : '', en = btn ? btn.getAttribute('data-en') : '';
+  _frSaving = true;
+  if (btn) { btn.disabled = true; btn.textContent = adminLang==='en' ? 'Saving…' : '저장 중…'; }
+  try {
+    await _saveFranchiseInner();
+  } catch (err) {
+    alert((adminLang==='en' ? 'Failed to save: ' : '저장 실패: ') + (err && err.message || err));
+  } finally {
+    _frSaving = false;
+    // 성공하면 frResetForm 이 이미 «+ 등록» 으로 바꿔 두었다 — 그 경우는 글자를 되돌리지 않는다.
+    if (btn) { btn.disabled = false; if (btn.getAttribute('data-ko') === ko) _ctSetBtnLabel(btn, ko, en); }
+  }
+}
+async function _saveFranchiseInner() {
   const e = id => document.getElementById(id);
   const name = (e('fr-name').value||'').trim();
   if (!name) { alert(adminLang==='en'?'Name required':'이름은 필수'); return; }
@@ -5806,9 +5905,13 @@ async function saveFranchise() {
       return;
     }
     // 🏛️ (2026-09-18) frResetForm 이 fr-master 값을 지우기 «전» 에 배정을 보낸다.
-    await assignMasterBranch(_frEditId, masterVal);
+    // (2026-10-25) 폼을 열 때와 같으면 보내지 않는다 — 대표지사 목록이 아직 안 채워진 채
+    // 저장하면 값이 '' 로 읽혀 멀쩡한 배정이 «미지정» 으로 풀리던 길도 함께 막힌다.
+    const savedId = _frEditId;
+    if (masterVal !== _frEditMaster) await assignMasterBranch(savedId, masterVal);
     frResetForm();
     loadFranchises();
+    if (!d || !d.password_result) alert(adminLang==='en' ? 'Branch #' + savedId + ' saved.' : '지사 정보를 저장했습니다 (ID ' + savedId + ').');
     // 🔑 이름을 바꿨는데 그 지사에 로그인 계정이 연결돼 있으면, 그 계정은 여전히 «옛 이름»
     // 기준으로 학생을 찾는다(서버가 일부러 안 옮긴다 — 대리점(centers)과 같은 이유).
     if (d && d.login_account_note) {
@@ -5877,17 +5980,25 @@ function _frBulkParseRows(raw) {
   const idx = name => header.indexOf(name);
   const iName = idx('지사명') >= 0 ? idx('지사명') : idx('지사');
   const iLogin = idx('아이디');
-  const iOwner = idx('관리자') >= 0 ? idx('관리자') : idx('대표');
-  const iPhone = idx('전화번호') >= 0 ? idx('전화번호') : idx('휴대폰');
+  /* 🪪 (2026-10-29) 사장님이 주신 «활동 지사장» 표는 머리글이 「대표명」·「연락처」·「비밀번호」 라
+     그 이름도 받는다(「대표지사명」 과 헷갈리지 않게 정확일치로만 찾는다). */
+  const pick = (...names) => { for (const n of names) { const k = idx(n); if (k >= 0) return k; } return -1; };
+  const iOwner = pick('관리자', '대표명', '대표');
+  const iPhone = pick('전화번호', '휴대폰', '연락처');
+  const iPw = pick('비밀번호');
   const iMaster = idx('대표지사명') >= 0 ? idx('대표지사명') : idx('대표지사');
   if (iName < 0) return { error: adminLang === 'en' ? '"지사명" column not found.' : '「지사명」 칸을 못 찾았습니다.' };
   const rows = [];
   for (let i = headerIdx + 1; i < lines.length; i++) {
     const cells = lines[i];
     const name = String(cells[iName] == null ? '' : cells[iName]).trim();
-    if (!name) continue;
+    const cell = k => k >= 0 ? String(cells[k] == null ? '' : cells[k]).trim() : '';
+    /* 🪪 (2026-10-29) 지사명이 비어 있어도 대표명·연락처가 있으면 남긴다 — 그 줄은 미리보기에서
+       «연락처 → 대표명» 순으로 찾는다(그 표에서 지사명이 빈 지사장이 6명). */
+    if (!name && !cell(iOwner) && !cell(iPhone)) continue;
     rows.push({
       name,
+      pw: cell(iPw),
       login: iLogin >= 0 ? String(cells[iLogin] == null ? '' : cells[iLogin]).trim() : '',
       owner: iOwner >= 0 ? String(cells[iOwner] == null ? '' : cells[iOwner]).trim() : '',
       phone: iPhone >= 0 ? String(cells[iPhone] == null ? '' : cells[iPhone]).trim() : '',
@@ -5896,6 +6007,68 @@ function _frBulkParseRows(raw) {
   }
   if (!rows.length) return { error: adminLang === 'en' ? 'No data rows under the header.' : '머리글 아래에 데이터 줄이 없습니다.' };
   return { rows };
+}
+
+/* 🪪 (2026-10-29 — 사장님 「활동 지사장들 아이디만이라도 복구해야 해」) 표의 지사명이 시스템
+   이름과 다르거나비어 있는 줄이 많아, 지사명 정확일치만으로는
+   거의 안 붙는다. 그래서 찾는 근거를 셋으로 늘린다 — ① 지사명 정확일치 ② 연락처(숫자만 비교)
+   ③ 대표명 정확일치. 앞에서 못 찾을 때만 다음으로 간다.
+   ⛔ 어느 근거든 «시스템에서 후보가 정확히 하나» 이고 «표 안에서도 그 값이 한 줄뿐» 일 때만
+   붙인다(같은 대표명이 표에 두 줄인 경우가 실제로 있다). 서로 다른 두 줄이 같은 지사로 가면 둘 다 보류한다 —
+   남의 지사에 아이디가 붙는 것이 빈칸보다 나쁘다. 부분일치는 쓰지 않는다. */
+function _frBulkDigits(s) { return String(s == null ? '' : s).replace(/\D/g, ''); }
+function _frBulkOwnerKey(s) { return String(s == null ? '' : s).replace(/\s+/g, ''); }
+function _frBulkMatch(rows, frRows) {
+  const by = (keyFn) => { const m = {}; for (const f of frRows) { const k = keyFn(f); if (k) (m[k] = m[k] || []).push(f); } return m; };
+  const byName = by(f => _frBulkNorm(f.name));
+  const byPhone = by(f => { const d = _frBulkDigits(f.phone); return d.length >= 9 ? d : ''; });
+  const byOwner = by(f => _frBulkOwnerKey(f.owner_name));
+  const cnt = (keyFn) => { const m = {}; for (const r of rows) { const k = keyFn(r); if (k) m[k] = (m[k] || 0) + 1; } return m; };
+  const rowPhone = r => { const d = _frBulkDigits(r.phone); return d.length >= 9 ? d : ''; };
+  const sheetPhone = cnt(rowPhone), sheetOwner = cnt(r => _frBulkOwnerKey(r.owner));
+  const out = rows.map(row => {
+    const nk = _frBulkNorm(row.name);
+    if (nk) {
+      const c = byName[nk] || [];
+      if (c.length === 1) return { row, f: c[0], by: 'name' };
+      if (c.length > 1) return { row, f: null, why: 'name_dup:' + c.length };
+    }
+    const pk = rowPhone(row);
+    if (pk) {
+      const c = byPhone[pk] || [];
+      if (c.length === 1 && sheetPhone[pk] === 1) return { row, f: c[0], by: 'phone' };
+      if (c.length > 1 || sheetPhone[pk] > 1) return { row, f: null, why: 'phone_dup' };
+    }
+    const ok = _frBulkOwnerKey(row.owner);
+    if (ok) {
+      const c = byOwner[ok] || [];
+      if (c.length === 1 && sheetOwner[ok] === 1) return { row, f: c[0], by: 'owner' };
+      if (c.length > 1 || sheetOwner[ok] > 1) return { row, f: null, why: 'owner_dup' };
+    }
+    return { row, f: null, why: 'not_found' };
+  });
+  const hit = {};
+  for (const m of out) if (m.f) hit[m.f.id] = (hit[m.f.id] || 0) + 1;
+  for (const m of out) if (m.f && hit[m.f.id] > 1) { m.why = 'same_branch'; m.f = null; m.by = undefined; }
+  return out;
+}
+function _frBulkRowLabel(r) {
+  return [r.name, r.owner].filter(Boolean).join(' · ') || r.phone || '?';
+}
+function _frBulkReason(why) {
+  const en = adminLang === 'en';
+  if (why && why.indexOf('name_dup:') === 0) { const n = why.slice(9); return en ? `ambiguous — ${n} branches share this name` : `같은 이름의 지사가 ${n}곳 있어 판단 보류`; }
+  if (why === 'phone_dup') return en ? 'same phone on several branches/rows — skipped' : '같은 연락처가 여러 지사(또는 여러 줄)에 있어 판단 보류';
+  if (why === 'owner_dup') return en ? 'same owner name on several branches/rows — skipped' : '같은 대표명이 여러 지사(또는 여러 줄)에 있어 판단 보류';
+  if (why === 'same_branch') return en ? 'two rows point to the same branch — both skipped' : '두 줄이 같은 지사로 이어져 둘 다 보류';
+  return en ? 'not found by branch name, phone or owner name' : '지사명·연락처·대표명 어느 것으로도 시스템에서 못 찾음';
+}
+function _frBulkByLabel(by) {
+  const en = adminLang === 'en';
+  if (by === 'name') return en ? 'branch name' : '지사명';
+  if (by === 'phone') return en ? 'phone' : '연락처';
+  if (by === 'owner') return en ? 'owner name' : '대표명';
+  return '—';
 }
 
 async function frBulkPreview() {
@@ -5921,15 +6094,19 @@ async function frBulkPreview() {
   const updates = [];
   const skipped = [];
   let noChange = 0;
-  for (const row of parsed.rows) {
-    const key = _frBulkNorm(row.name);
-    const cands = byName[key] || [];
-    if (cands.length === 0) { skipped.push({ name: row.name, reason: adminLang === 'en' ? 'not found in system' : '시스템에 없는 지사명' }); continue; }
-    if (cands.length > 1) { skipped.push({ name: row.name, reason: adminLang === 'en' ? `ambiguous — ${cands.length} branches share this name` : `같은 이름의 지사가 ${cands.length}곳 있어 판단 보류` }); continue; }
-    const f = cands[0];
-    const change = { id: f.id, name: f.name };
+  const matches = _frBulkMatch(parsed.rows, _frRows);
+  for (const m of matches) {
+    const row = m.row;
+    const label = _frBulkRowLabel(row);
+    if (!m.f) { skipped.push({ name: label, reason: _frBulkReason(m.why) }); continue; }
+    const f = m.f;
+    const change = { id: f.id, name: f.name, by: m.by };
     let anything = false;
     if (row.login && row.login !== (f.login_username || '')) { change.login = row.login; anything = true; }
+    /* 🔑 (2026-10-29) 「비밀번호」 칸이 있으면 그 아이디로 실제 로그인 계정을 만든다(이미 이
+       지사 계정이면 비밀번호만 재설정) — 서버 PATCH 의 createOrResetBranchLogin 그대로.
+       아이디가 없는 줄은 비밀번호만으로는 아무것도 안 한다. */
+    if (row.pw && (row.login || f.login_username)) { change.pw = row.pw; change.login = change.login || row.login || ''; anything = true; }
     if (wantOwnerPhone) {
       if (row.owner && row.owner !== (f.owner_name || '')) { change.owner = row.owner; anything = true; }
       if (row.phone && row.phone !== (f.phone || '')) { change.phone = row.phone; anything = true; }
@@ -5948,20 +6125,24 @@ async function frBulkPreview() {
     else noChange++;
   }
   _frBulkPlan = { updates, wantOwnerPhone, wantMaster };
-  const nUpdate = updates.filter(u => u.login || u.owner || u.phone || u.masterId).length;
+  const nUpdate = updates.filter(u => u.login || u.owner || u.phone || u.masterId || u.pw).length;
+  const nPw = updates.filter(u => u.pw).length;
   let html = '<div style="font-weight:600;margin-bottom:4px">'
     + (adminLang === 'en'
         ? `Preview: ${parsed.rows.length} rows read · ${nUpdate} branch(es) will be updated · ${noChange} already up to date · ${skipped.length} skipped`
         : `미리보기: 총 ${parsed.rows.length}행 읽음 · ${nUpdate}곳 갱신 예정 · ${noChange}곳 이미 최신 · ${skipped.length}곳 건너뜀`)
     + '</div>';
+  if (nPw) html += '<div style="color:#b45309;margin-bottom:4px">' + (adminLang === 'en'
+      ? `🔑 ${nPw} branch(es) will get a real login account with the password in the sheet (existing account of that branch: password reset).`
+      : `🔑 ${nPw}곳은 표의 비밀번호로 «실제로 로그인되는» 계정을 만듭니다(이미 그 지사 계정이면 비밀번호만 바꿉니다).`) + '</div>';
   if (updates.length) {
     html += '<table style="margin-top:6px"><thead><tr>'
       + '<th data-ko="지사" data-en="Branch">지사</th><th data-ko="아이디" data-en="Login ID">아이디</th>'
       + '<th data-ko="관리자" data-en="Manager">관리자</th><th data-ko="전화" data-en="Phone">전화</th>'
-      + '<th data-ko="대표지사" data-en="Master Branch">대표지사</th></tr></thead><tbody>'
-      + updates.slice(0, 60).map(u => `<tr><td>${_esc(u.name)}</td><td>${u.login ? _esc(u.login) : '—'}</td>`
+      + '<th data-ko="대표지사" data-en="Master Branch">대표지사</th><th data-ko="찾은 근거" data-en="Matched by">찾은 근거</th></tr></thead><tbody>'
+      + updates.slice(0, 60).map(u => `<tr><td>${_esc(u.name)}</td><td>${u.login ? _esc(u.login) : '—'}${u.pw ? ' 🔑' : ''}</td>`
         + `<td>${u.owner ? _esc(u.owner) : '—'}</td><td>${u.phone ? _esc(u.phone) : '—'}</td>`
-        + `<td>${u.masterId ? _esc(u.masterName) : (u.masterMissing ? ('⚠ ' + _esc(u.masterMissing) + (adminLang === 'en' ? ' (not found)' : ' 없음')) : '—')}</td></tr>`).join('')
+        + `<td>${u.masterId ? _esc(u.masterName) : (u.masterMissing ? ('⚠ ' + _esc(u.masterMissing) + (adminLang === 'en' ? ' (not found)' : ' 없음')) : '—')}</td><td>${_esc(_frBulkByLabel(u.by))}</td></tr>`).join('')
       + '</tbody></table>';
     if (updates.length > 60) html += `<div style="color:#6b7280;margin-top:4px">${adminLang === 'en' ? `…and ${updates.length - 60} more` : `…외 ${updates.length - 60}건 더`}</div>`;
   }
@@ -5994,14 +6175,15 @@ async function frBulkRun() {
     // 눈에 띄라고» 넣어 둔 정보성 줄이다 — 아무 요청도 안 보내면서 «성공」으로 세면 실행
     // 결과가 부풀려진다(직접 돌려서 잡은 실제 결함 — run_test.mjs). 실제로 할 일이 있는
     // 행만 센다.
-    if (!(u.login || u.owner || u.phone || u.masterId)) continue;
+    if (!(u.login || u.owner || u.phone || u.masterId || u.pw)) continue;
     let rowOk = true;
-    if (u.login || u.owner || u.phone) {
+    if (u.login || u.owner || u.phone || u.pw) {
       try {
         const body = { id: u.id };
         if (u.login) body.login_username = u.login;
         if (u.owner) body.owner_name = u.owner;
         if (u.phone) body.phone = u.phone;
+        if (u.pw) body.login_password = u.pw;
         const r = await fetch('/api/admin/franchises', {
           method: 'PATCH', credentials: 'include',
           headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
@@ -6420,7 +6602,8 @@ window.hqDelete = hqDelete;
 //   🐢 예전엔 921행을 한 번에 받아(약 130KB) 카드가 닫혀 있어도 DOM 에 다 그렸다.
 //      → 서버 페이징 50건 + 서버 검색. 검색은 '이 페이지 50행'이 아니라 921건 전체 대상.
 //   💳 pt = 결제유형 필터('' | 'B2B' | 'B2C' | 'NONE'). counts 는 서버가 준 유형별 건수.
-var _ctState = { q: '', offset: 0, limit: 50, total: 0, pt: '', counts: null };
+//   ↕ sort/dir = 머리글 정렬(2026-10-28). 서버가 «실제로 적용한» 값으로 덮는다(모르는 열쇠는 '').
+var _ctState = { q: '', offset: 0, limit: 50, total: 0, pt: '', fid: '', counts: null, sort: '', dir: '' };
 /* 💰 수강료 상수 — 표 안 칸(_tuCell)과 수정 폼(ct-tuition)이 «같은 값» 을 써야 해서
    함수 밖으로 올렸다(2026-09-11). ⚠️ 18,000 은 서버 HQ_UNIT_KRW 와 짝이다
    (org-settlement.ts) — 한쪽만 고치면 화면이 통과시킨 값을 서버가 거절한다. */
@@ -6432,17 +6615,31 @@ var _CT_STD_TUITION = 30000, _CT_HQ_UNIT = 18000;
 //    사람이 방금 본 것과 폼에 채워진 값이 어긋나지 않는다.
 var _ctRows = [];
 var _ctCanEdit = true;   // GET 이 알려 준 can_edit — 강사·지사·대리점 계정에겐 ✏️ 수정 버튼을 안 그린다
+/* 🔒 (2026-10-28 사장님 「본사 계정만 만들 수 있게 좁혀줘」) GET 이 알려 준 can_login — 로그인 아이디·비밀번호
+   칸을 보여 줄지. 서버 저장도 같은 판정(agency-login-gate.ts)으로 막으므로 이건 «눌러도 403 나는 칸» 을 안 보이게 하는 것뿐.
+   ⚠️ 모르면(옛 서버·응답에 칸 없음) 보여 둔다 — 최종 판정은 서버다. */
+var _ctCanLogin = true;
+function _ctSyncLoginFields() {
+  var w = document.getElementById('ct-login-wrap'), h = document.getElementById('ct-login-hint');
+  // ⚠️ wrap 은 인라인 style 이 display:inline-flex 라 '' 로 지우면 칸 사이 간격(gap)까지 사라진다 — 값을 명시한다.
+  if (w) w.style.display = _ctCanLogin ? 'inline-flex' : 'none';
+  if (h) h.style.display = _ctCanLogin ? '' : 'none';
+}
 async function loadCenters(opts) {
   opts = opts || {};
   if (opts.q !== undefined) { _ctState.q = String(opts.q || '').trim(); _ctState.offset = 0; }
   if (opts.pt !== undefined) { _ctState.pt = String(opts.pt || ''); _ctState.offset = 0; }
+  if (opts.fid !== undefined) { _ctState.fid = String(opts.fid || ''); _ctState.offset = 0; }
+  if (opts.sort !== undefined) { _ctState.sort = String(opts.sort || ''); _ctState.dir = String(opts.dir || ''); _ctState.offset = 0; }
   if (opts.offset !== undefined) _ctState.offset = Math.max(0, opts.offset);
   const tb = document.getElementById('centers-table');
   if (!tb) return;
   _ensureFranchiseSelect();
   const qs = '?limit=' + _ctState.limit + '&offset=' + _ctState.offset
            + (_ctState.q ? '&q=' + encodeURIComponent(_ctState.q) : '')
-           + (_ctState.pt ? '&payment_type=' + encodeURIComponent(_ctState.pt) : '');
+           + (_ctState.pt ? '&payment_type=' + encodeURIComponent(_ctState.pt) : '')
+           + (_ctState.fid ? '&franchise_id=' + encodeURIComponent(_ctState.fid) : '')
+           + (_ctState.sort ? '&sort=' + encodeURIComponent(_ctState.sort) + '&dir=' + (_ctState.dir === 'desc' ? 'desc' : 'asc') : '');
   let d = {}, _ctHttp = 0;
   try {
     const r = await fetch('/api/admin/centers' + qs, { cache:'no-store', credentials:'include' });
@@ -6456,7 +6653,7 @@ async function loadCenters(opts) {
     _ctRows = [];
     const en = adminLang === 'en';
     const why = (d && (d.message || d.error)) || (_ctHttp ? ('HTTP ' + _ctHttp) : (en ? 'network error' : '연결 실패'));
-    tb.innerHTML = '<tr><td colspan="10" class="empty" style="color:#b91c1c">⚠ '
+    tb.innerHTML = '<tr><td colspan="11" class="empty" style="color:#b91c1c">⚠ '
       + (en ? 'Could not load the agency list: ' : '대리점 목록을 불러오지 못했습니다: ') + _esc(String(why))
       + (_ctHttp ? ' (HTTP ' + _ctHttp + ')' : '') + '</td></tr>';
     const pg = document.getElementById('ct-pager'); if (pg) pg.innerHTML = '';
@@ -6466,6 +6663,11 @@ async function loadCenters(opts) {
   _ctState.total = Number(d.total || 0);
   if (d && d.counts) _ctState.counts = d.counts;
   if (d && typeof d.can_edit === 'boolean') _ctCanEdit = d.can_edit;
+  if (d && typeof d.can_login === 'boolean') _ctCanLogin = d.can_login;
+  _ctSyncLoginFields();
+  _ctState.sort = d.sort ? String(d.sort.key || '') : '';
+  _ctState.dir = d.sort ? String(d.sort.dir || '') : '';
+  _ctSyncSortHead();
   _ctRenderPtFilter();
   // 유형을 바꿔 목록이 줄면 지금 페이지가 범위를 벗어날 수 있다 → 마지막 페이지로 당긴다.
   // (total 0 이면 offset 0 이 되고, 그때는 이 조건이 거짓이라 무한 반복이 없다)
@@ -6474,8 +6676,8 @@ async function loadCenters(opts) {
   }
   if (!d.ok || !Array.isArray(d.items) || d.items.length === 0) {
     _ctRows = [];
-    tb.innerHTML = '<tr><td colspan="10" class="empty">'
-      + ((_ctState.q || _ctState.pt) ? (adminLang==='en' ? 'No match' : '검색 결과 없음') : '—') + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="11" class="empty">'
+      + ((_ctState.q || _ctState.pt || _ctState.fid) ? (adminLang==='en' ? 'No match' : '검색 결과 없음') : '—') + '</td></tr>';
     _ctRenderPager();
     return;
   }
@@ -6513,8 +6715,22 @@ async function loadCenters(opts) {
     ? `<button type="button" onclick="ctEdit(${Number(c.id)})" class="org-rowact" data-ko="✏️ 수정" data-en="✏️ Edit"
         style="padding:2px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">${adminLang==='en'?'✏️ Edit':'✏️ 수정'}</button>`
     : '';
+  /* 🪪 (2026-10-26) 로그인 아이디 — 서버가 admin_scope(이름 정확일치)로 찾아 준 값.
+     login_ids 가 «없으면» 못 물어본 것(본사 아님·조회 실패) → «?», 빈 배열이면 «계정 없음». */
+  const _ctLoginCell = c => {
+    const en = adminLang === 'en';
+    if (!Array.isArray(c.login_ids)) return '<span style="color:#9ca3af" title="' + (en ? 'Unknown' : '확인하지 못했습니다') + '">?</span>';
+    if (!c.login_ids.length) return '<span style="color:#9ca3af" title="' + (en ? 'No login account is linked to this exact agency name' : '이 대리점 이름과 정확히 이어진 로그인 계정이 없습니다') + '">' + (en ? 'No account' : '계정 없음') + '</span>';
+    return c.login_ids.map(u => {
+      const safe = String(u).replace(/['\\]/g, '');
+      return `<span style="font-family:MangoiHanSC,ui-monospace,monospace;font-size:12px">${_esc(u)}</span>`
+        + `<button type="button" onclick="ltCopyTicket(this,'${safe}')" title="${en?'Copy login ID':'아이디 복사'}"
+            style="margin-left:4px;padding:1px 6px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">📋</button>`;
+    }).join('<br>')
+      + (c.login_shared ? '<div style="font-size:10.5px;color:#b45309">' + (en ? '⚠ shared by agencies with the same name' : '⚠ 같은 이름 대리점과 함께 씀') + '</div>' : '');
+  };
   tb.innerHTML = d.items.map(c =>
-    `<tr><td>${c.id}</td><td>${_esc(c.franchise_name)||'—'}</td><td><b>${_esc(c.name)}</b></td><td>${_ptCell(c)}</td><td style="white-space:nowrap">${_tuCell(c)}</td><td>${_esc(c.country)||'—'}</td><td>${_esc(c.manager)||'—'}</td><td>${_esc(c.phone)||'—'}</td><td>${_esc(c.address)||'—'}</td><td style="white-space:nowrap">${_actCell(c)}</td></tr>`
+    `<tr><td>${c.id}</td><td>${_esc(c.franchise_name)||'—'}</td><td><b>${_esc(c.name)}</b></td><td style="white-space:nowrap">${_ctLoginCell(c)}</td><td>${_ptCell(c)}</td><td style="white-space:nowrap">${_tuCell(c)}</td><td>${_esc(c.country)||'—'}</td><td>${_esc(c.manager)||'—'}</td><td>${_esc(c.phone)||'—'}</td><td>${_esc(c.address)||'—'}</td><td style="white-space:nowrap">${_actCell(c)}</td></tr>`
   ).join('');
   _ctRenderPager();
 }
@@ -6626,6 +6842,9 @@ function _ctRenderPtFilter() {
   }).join('');
 }
 function ctFilterPayType(v) { loadCenters({ pt: v }); }
+// 🏢 (2026-10-10) 지사 드롭다운으로 좁히기 — 서버 franchise_id 필터(이름으로 거르면 같은 이름 지사가 섞인다)
+function ctFilterFranchise(v) { loadCenters({ fid: v }); }
+window.ctFilterFranchise = ctFilterFranchise;
 window.ctFilterPayType = ctFilterPayType;
 function _ctRenderPager() {
   const el = document.getElementById('ct-pager');
@@ -6642,6 +6861,25 @@ function _ctRenderPager() {
     `<span style="font-size:12px;color:#64748b">${en?'Showing':'표시'} <b>${from}–${to}</b> / ${t}${_ctState.q?(en?' (search)':' (검색)'):''}</span>`
     + btn(hasPrev, en?'‹ Prev':'‹ 이전', 'ctPrevPage()')
     + btn(hasNext, en?'Next ›':'다음 ›', 'ctNextPage()');
+}
+/* ↕ (2026-10-28 사장님 「필터 올림·내림」) 머리글 정렬 — ▲ 올림 → ▼ 내림 → 원래 순서(강사 명부 tpSortBy 와 같은 순환).
+   ⚠️ 50건씩 넘겨 보는 표라 «이 페이지만» 섞으면 921건 전체 순서가 아니다 → 서버에 sort/dir 로 묻고
+      첫 페이지부터 다시 받는다. 화살표는 서버가 돌려준 d.sort 로 그린다(_ctSyncSortHead).
+   ⚠️ 화살표는 data-ar 속성 + CSS ::after(i18n 이 [data-ko] 의 textContent 를 갈아끼운다). */
+function ctSortBy(key) {
+  let sort = key, dir = 'asc';
+  if (_ctState.sort === key && _ctState.dir === 'asc') dir = 'desc';
+  else if (_ctState.sort === key && _ctState.dir === 'desc') { sort = ''; dir = ''; }
+  loadCenters({ sort: sort, dir: dir });
+}
+window.ctSortBy = ctSortBy;
+function _ctSyncSortHead() {
+  const ths = document.querySelectorAll('#ct-list-table th.ct-sort-th');
+  for (let i = 0; i < ths.length; i++) {
+    const th = ths[i], on = !!_ctState.sort && th.getAttribute('data-sk') === _ctState.sort;
+    th.setAttribute('data-ar', on ? (_ctState.dir === 'desc' ? '▼' : '▲') : '⇅');
+    if (on !== th.classList.contains('ct-sort-on')) th.classList.toggle('ct-sort-on', on);
+  }
 }
 function ctPrevPage() { loadCenters({ offset: Math.max(0, _ctState.offset - _ctState.limit) }); }
 function ctNextPage() { loadCenters({ offset: _ctState.offset + _ctState.limit }); }
@@ -6663,6 +6901,24 @@ function _ctSetBtnLabel(btn, ko, en) {
   btn.setAttribute('data-en', en);
   btn.textContent = (typeof adminLang !== 'undefined' && adminLang === 'en') ? en : ko;
 }
+/* 🔑 로그인 칸 안내 문구 — 등록/수정이 규칙이 달라 문구도 둘이다.
+   등록: 아이디·비밀번호 «둘 다» 넣으면 계정을 만든다. 수정: «비밀번호를 넣었을 때만» 만들거나(새 아이디)
+   비밀번호를 바꾼다(이 대리점 아이디) — 서버 checkAgencyLogin(api-admin.ts)과 같은 규칙.
+   🪤 textContent 만 바꾸면 🌐 를 눌렀을 때 옛 문구로 돌아간다 — data-ko/en 도 함께 바꾼다(_ctSetBtnLabel 과 같은 이유). */
+var _CT_LOGIN_HINT = {
+  add:  ['※ 로그인 아이디·비밀번호를 둘 다 입력하면 이 대리점 전용 로그인 계정을 함께 만듭니다. 비워 두면 계정 없이 목록에만 등록됩니다.',
+         '※ Fill in both the login ID and password to also create a login account for this agency. Leave both blank to register without an account.'],
+  edit: ['※ 비밀번호를 넣고 저장하면 — 새 아이디면 이 대리점 로그인 계정을 만들고, 이미 이 대리점 아이디면 비밀번호를 바꿉니다. 비밀번호를 비워 두면 계정은 그대로입니다.',
+         '※ Enter a password and save — a new ID creates a login account for this agency; this agency\'s existing ID gets a new password. Leave the password blank to keep the account as is.'],
+};
+function _ctSetLoginHint(editing) {
+  const h = document.getElementById('ct-login-hint');
+  if (!h) return;
+  const t = _CT_LOGIN_HINT[editing ? 'edit' : 'add'];
+  h.setAttribute('data-ko', t[0]);
+  h.setAttribute('data-en', t[1]);
+  h.textContent = (typeof adminLang !== 'undefined' && adminLang === 'en') ? t[1] : t[0];
+}
 function ctResetForm() {
   _ctEditId = 0;
   const e = id => document.getElementById(id);
@@ -6670,17 +6926,17 @@ function ctResetForm() {
   _ctTuitionPrev = '';
   if (e('ct-franchise')) e('ct-franchise').value = '';
   if (e('ct-paytype')) e('ct-paytype').value = '';
-  const loginWrap = e('ct-login-wrap'); if (loginWrap) loginWrap.style.display = '';
-  const loginHint = e('ct-login-hint'); if (loginHint) loginHint.style.display = '';
+  _ctSetLoginHint(false);
   _ctSetBtnLabel(e('ct-add-btn'), '+ 등록', '+ Register');
   const c = e('ct-cancel-btn'); if (c) c.style.display = 'none';
 }
 window.ctResetForm = ctResetForm;
 
 /* ✏️ (2026-09-11 신설 — 사장님 제보 「대리점을 수정할 수 있는 메뉴가 없다」)
-   표 ✏️ 수정 버튼 → 등록 폼을 그대로 열어 값을 채운다. 로그인 계정 만들기 칸은 숨긴다 —
-   계정을 «새로 붙이는» 일은 대리점 정보 수정과는 다른 작업이고, 이미 로그인 계정이 있는
-   대리점에서 이 칸을 다시 채워 저장하면 «이미 있는 아이디» 로 걸려 헷갈리기만 한다. */
+   표 ✏️ 수정 버튼 → 등록 폼을 그대로 열어 값을 채운다.
+   (2026-10-28) 로그인 칸도 연다 — 처음엔 숨겼지만(«이미 있는 아이디» 로 걸려 헷갈린다는 이유) 그러면
+   카페24 대리점 921곳에 계정을 붙일 길이 없었다. 지금은 서버가 «이 대리점 아이디» 를 알아보고
+   비밀번호만 바꾸므로 그 혼란이 없다(checkAgencyLogin 의 reset). */
 function ctEdit(id) {
   const c = _ctRows.filter(x => String(x.id) === String(id))[0];
   if (!c) return;
@@ -6696,10 +6952,14 @@ function ctEdit(id) {
   // 💰 안 정한 곳은 빈 칸 그대로 둔다 — 30,000 을 채워 넣으면 «사람이 정한 값» 처럼 보인다.
   _ctTuitionPrev = (c.tuition_krw == null || c.tuition_krw === '') ? '' : String(Number(c.tuition_krw));
   if (e('ct-tuition')) e('ct-tuition').value = _ctTuitionPrev;
-  if (e('ct-login-id')) e('ct-login-id').value = '';
+  /* 🔑 (2026-10-28) 로그인 칸을 수정 화면에서도 연다 — 카페24에서 온 대리점은 등록 폼을 안 거쳐
+     계정을 붙일 자리가 없었다(목록이 전부 «계정 없음»). 이미 계정이 «딱 하나» 면 그 아이디를 미리
+     채운다 → 비밀번호만 넣으면 비밀번호 바꾸기. 여럿이면 어느 것인지 모르니 비워 둔다(추측 금지).
+     비밀번호는 절대 채우지 않는다 — 비워 두는 것 자체가 «바꾸지 않음» 의 신호다. */
+  const ids = Array.isArray(c.login_ids) ? c.login_ids : [];
+  if (e('ct-login-id')) e('ct-login-id').value = ids.length === 1 ? String(ids[0]) : '';
   if (e('ct-login-pw')) e('ct-login-pw').value = '';
-  const loginWrap = e('ct-login-wrap'); if (loginWrap) loginWrap.style.display = 'none';
-  const loginHint = e('ct-login-hint'); if (loginHint) loginHint.style.display = 'none';
+  _ctSetLoginHint(true);
   const wrap = e('ct-form-wrap'); if (wrap) wrap.open = true;
   _ctSetBtnLabel(e('ct-add-btn'), '💾 수정 저장', '💾 Save');
   const cancel = e('ct-cancel-btn'); if (cancel) cancel.style.display = '';
@@ -6713,8 +6973,15 @@ async function saveCenter() {
   if (!name) { alert(adminLang==='en'?'Name required':'이름은 필수'); return; }
   // 💰 ctResetForm() 이 칸을 비우므로 «비우기 전에» 읽어 둔다.
   const tuitionNow = e('ct-tuition') ? String(e('ct-tuition').value || '').trim() : '';
+  // 🔑 로그인 아이디·비밀번호 — 등록·수정 공용(규칙은 _CT_LOGIN_HINT 참고). 역시 비우기 전에 읽는다.
+  const loginId = (e('ct-login-id') && e('ct-login-id').value || '').trim();
+  const loginPw = (e('ct-login-pw') && e('ct-login-pw').value || '');
   if (_ctEditId) {
-    // ✏️ 수정 저장 — 로그인 계정 필드는 수정 화면에서 숨겨 뒀으니 여기서는 안 보낸다.
+    if (loginPw && !loginId) {
+      alert(adminLang==='en' ? 'Enter the login ID to set a password.' : '비밀번호를 설정하려면 로그인 아이디를 입력하세요.');
+      return;
+    }
+    // ✏️ 수정 저장 — (2026-10-28) 로그인 아이디·비밀번호도 함께 보낸다. 비밀번호가 비어 있으면 서버가 계정에 손대지 않는다.
     let d;
     try {
       const r = await fetch('/api/admin/centers', {
@@ -6727,6 +6994,8 @@ async function saveCenter() {
           phone: e('ct-phone') ? (e('ct-phone').value || null) : null,
           address: e('ct-address').value || null,
           payment_type: (e('ct-paytype') && e('ct-paytype').value) || null,
+          // 🔑 비밀번호가 비어 있으면 서버가 계정에 손대지 않는다(아이디만 미리 채워져 있어도).
+          login_username: loginId || null, login_password: loginPw || null,
         })
       });
       d = await r.json().catch(() => ({}));
@@ -6763,12 +7032,18 @@ async function saveCenter() {
         : ('참고: 이 대리점의 로그인 계정 "' + d.login_account_note.username + '" 은(는) 여전히 옛 이름("'
             + d.login_account_note.old_name + '") 기준으로 학생을 찾습니다. 필요하면 그 계정을 사람이 직접 확인해 주세요.'));
     }
+    // 🔑 (2026-10-28) 계정을 만들었는지 / 비밀번호를 바꿨는지 사람에게 말한다(지사 _frPasswordAlert 와 같은 자리).
+    if (d && d.login_result === 'created') {
+      alert(adminLang==='en' ? ('Agency login account created: ' + loginId + ' — this ID can now sign in.')
+                              : ('대리점 로그인 계정을 만들었습니다: ' + loginId + ' — 이제 이 아이디로 로그인됩니다.'));
+    } else if (d && d.login_result === 'reset') {
+      alert(adminLang==='en' ? ('Password changed for agency account: ' + loginId)
+                              : ('이 대리점 계정(' + loginId + ')의 비밀번호를 바꿨습니다.'));
+    }
     return;
   }
-  // 🔑 (2026-08-19) 로그인 아이디·비밀번호 — 둘 다 채워야 계정을 만든다. 하나만 채우면
+  // 🔑 (2026-08-19) 등록은 둘 다 채워야 계정을 만든다. 하나만 채우면
   //    서버 왕복 없이 여기서 먼저 막는다(centers 는 만들어지지 않았는데 계정만 실패하는 걸 방지).
-  const loginId = (e('ct-login-id') && e('ct-login-id').value || '').trim();
-  const loginPw = (e('ct-login-pw') && e('ct-login-pw').value || '');
   if ((loginId && !loginPw) || (!loginId && loginPw)) {
     alert(adminLang==='en' ? 'Fill in both login ID and password, or leave both blank.'
                             : '로그인 아이디와 비밀번호를 둘 다 입력하거나, 둘 다 비워 두세요.');
@@ -8795,6 +9070,10 @@ function _addEnrollmentRow(prefill) {
       '<button type="button" class="en-row-time-builder" title="요일별 시간 다르게 설정" ' +
         'style="width:24px;height:24px;padding:0;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;cursor:pointer;font-size:12px">⏰</button>' +
       '</div>' +
+      /* 🕐 (2026-10-30) 오전/오후 미리보기 — «7:40» 이 오전인지 사람이 저장 전에 본다(_enPaintTimeHint).
+         ⛔ 클래스 이름에 «-row» 를 넣지 말 것 — admin-inline-c.css 의 옛 규칙 [id^="card-"] [class*="-row"] 가 !important 로
+            바탕을 덮고 adm-s13 페인터가 흰색으로 다시 칠해 노란 경고가 사라진다(실제 admin.html 렌더로 확인). */
+      '<div class="en-time-hint" aria-live="polite" style="display:none;white-space:normal;font-size:10.5px;line-height:1.35;margin-top:3px;padding:2px 5px;border-radius:4px;max-width:260px"></div>' +
     '</td>' +
     '<td class="en-c en-c-classmin" data-label="' + (_enrIsEn ? 'Class length' : '수업 시간') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' +
       '<select class="en-row-classmin" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + classMinOpts + '</select></td>' +
@@ -8866,6 +9145,8 @@ function _addEnrollmentRow(prefill) {
     btn.disabled = true; btn.textContent = '…';
     try { await _openTimeBuilder(tr); } finally { btn.disabled = false; btn.textContent = orig; }
   });
+  // 🕐 (2026-10-30) 시간 칸 오전/오후 미리보기 — 칠 때마다 다시 그린다
+  { const _tIn = tr.querySelector('.en-row-time'); if (_tIn) { _tIn.addEventListener('input', () => _enPaintTimeHint(tr)); _enPaintTimeHint(tr); } }
   // 🔀 (2026-09-15) 여러 강사로 나눠 배정 — 모달 열기
   tr.querySelector('.en-row-multi-teacher-btn').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
@@ -9365,7 +9646,7 @@ async function _openTimeBuilder(tr) {
   const checkedDays = Array.from(tr.querySelectorAll('.en-row-day:checked')).map(c => c.value);
   // 현재 시간 입력값 파싱
   const currentTime = (tr.querySelector('.en-row-time')?.value || '').trim();
-  const parsed = _parseScheduleText(currentTime);
+  const parsed = _parseScheduleText(_enNormTimeText(currentTime));
   // 🕐 (2026-08-25) 「강사 우선」 + 특정 강사를 골랐을 때만 그 강사의 예약된 시간을 걸러 보여준다.
   //   「요일·시간 우선」이거나 강사가 「자동 배정」(빈값)이면 예전처럼 전부 선택 가능하다 —
   //   아직 누구에게 배정될지 모르는데 특정 강사 기준으로 막으면 안 된다.
@@ -9485,6 +9766,7 @@ async function _openTimeBuilder(tr) {
         }
       }
     }
+    _enPaintTimeHint(tr);
     close();
   });
 }
@@ -9512,7 +9794,7 @@ async function _openMultiTeacherBuilder(tr) {
     // 처음 여는 것이면 이미 채워 둔 단일 강사/요일/시간을 첫 조합으로 미리 채워 준다(편의)
     const curTeacher = (tr.querySelector('.en-row-teacher')?.value || '').trim();
     const curDays = Array.from(tr.querySelectorAll('.en-row-day:checked')).map(c => c.value);
-    const curTimeRaw = (tr.querySelector('.en-row-time')?.value || '').trim();
+    const curTimeRaw = _enNormTimeText((tr.querySelector('.en-row-time')?.value || '').trim()).trim();
     const curTime = /^\d{1,2}\s*:\s*\d{2}$/.test(curTimeRaw) ? curTimeRaw : '';
     existing = [{ teacher: curTeacher, days: curDays, time: curTime }];
   }
@@ -9629,7 +9911,7 @@ async function _openMultiTeacherBuilder(tr) {
 function _mtbClassifyCombo(teacher, days, timeRaw) {
   teacher = (teacher || '').trim();
   days = Array.isArray(days) ? days : [];
-  timeRaw = (timeRaw || '').trim();
+  timeRaw = _enNormTimeText((timeRaw || '').trim()).trim();   // 🕐 '7:40 PM' → '19:40'
   const time = /^\d{1,2}\s*:\s*\d{2}$/.test(timeRaw) ? _tbTimeToParts(timeRaw).join(':') : '';
   if (!teacher && days.length === 0 && !timeRaw) return { kind: 'empty' };
   if (!teacher || days.length === 0 || !time) return { kind: 'partial', teacher: teacher || '(강사 미선택)' };
@@ -9660,6 +9942,104 @@ function _enRenderMultiTeacherSummary(tr) {
   const dayKo = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
   box.textContent = '🔀 ' + plan.length + '건 나눠 배정: ' +
     plan.map(c => c.teacher + '(' + (Array.isArray(c.days) ? c.days : []).map(d => dayKo[d] || d).join('') + ' ' + c.time + ')').join(' · ');
+}
+
+/* 🕐 (2026-10-30) 시간 칸 글자 → «24시 · 한글 요일» 정본 모양. 서버 normalizeTimeText(src/enroll-activate.ts)와 «같은 규칙».
+     '7:40 PM'·'7:40pm'·'오후 7:40'·'PM 7:40' → '19:40' · '12:10 AM' → '00:10' · '7pm' → '19:00' · 'Mon 7:30, Wed 8:00' → '월 7:30, 수 8:00'
+   [왜] 2026-10-29 매니저(영어 화면)가 저녁 7:40 수업을 등록했는데 20회가 오전 07:40 으로 만들어졌다 —
+        서버 파서가 'PM' 을 버리고, 'Mon 7:30' 의 영어 요일도 무시했다(에러 없음).
+   ⚠️ 표시가 없는 '7:40' 은 그대로 07:40(추측하지 않는다) — 대신 칸 아래 미리보기가 «오전» 이라고 말한다.
+   ⛔ 뒤돌아보기 정규식((?<!…))을 새로 늘리지 않는다 — 그것을 모르는 옛 iOS 사파리(16.4 미만)에서는 리터럴 하나가
+      파일 전체를 문법 오류로 죽인다(이 파일엔 예전부터 한 곳 있다 — 별건). 앞 글자를 잡아 되돌려 쓰는 방식으로 같은 뜻을 낸다.
+   ⚠️ 서버와 어긋나면 미리보기와 실제 시간표가 달라진다 — enroll_time_ampm_harness 가 같은 입력 수백 개로 대조한다. */
+function _enNormTimeText(raw) {
+  let s = String(raw == null ? '' : raw);
+  if (!s.trim()) return s;
+  const LABEL = ['일','월','화','수','목','금','토'];
+  const EN = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
+  const DAY_RE = /(^|[^a-z])(sun(?:day)?|mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:r(?:s(?:day)?)?)?|fri(?:day)?|sat(?:urday)?)(?![a-z])\.?/gi;
+  s = s.replace(DAY_RE, (m, pre, d, off, all) =>
+    pre + LABEL[EN[d.slice(0, 3).toLowerCase()]] + (/\s/.test(all.charAt(off + m.length)) ? '' : ' '));
+  const isPm = (k) => /^(p|오후)/i.test(k);
+  const to24 = (h, mi, k) => {
+    if (!(h >= 0 && h <= 23) || Number(mi) > 59) return null;
+    let hh = h;
+    if (isPm(k)) { if (h >= 1 && h <= 11) hh = h + 12; }
+    else if (h === 12) hh = 0;
+    return String(hh).padStart(2, '0') + ':' + mi;
+  };
+  const MK = '(오전|오후|[ap]\\.?\\s?m\\.?)(?![a-z])';
+  // ⚠️ 더 안 바뀔 때까지 되풀이(서버와 같은 이유 — 한 판만 돌면 «두 번 다듬은 값» 이 달라진다). 바뀔 때마다 표시가 줄어 끝난다.
+  for (let pass = 0; pass < 20; pass++) {
+    const before = s;
+    // ⚠️ 순서: «뒤 표시» 를 먼저 — 앞 표시를 먼저 보면 '7:30 PM 8:00 PM' 의 첫 PM 이 뒤 시각에 붙는다.
+    s = s.replace(new RegExp('(\\d{1,2})\\s*:\\s*(\\d{2})\\s*' + MK, 'gi'),
+      (m, h, mi, k) => { const v = to24(Number(h), mi, k); return v === null ? m : v; });
+    s = s.replace(new RegExp('(^|[^a-z])' + MK + '\\s*(\\d{1,2})\\s*:\\s*(\\d{2})', 'gi'),
+      (m, pre, k, h, mi) => { const v = to24(Number(h), mi, k); return v === null ? m : pre + v; });
+    s = s.replace(new RegExp('(^|[^\\d:])(\\d{1,2})\\s*' + MK, 'gi'),
+      (m, pre, h, k) => { const n = Number(h); const v = n >= 1 && n <= 12 ? to24(n, '00', k) : null; return v === null ? m : pre + v; });
+    if (s === before) break;
+  }
+  return s;
+}
+
+/* 🕐 시간 칸 아래 미리보기 — «서버가 실제로 만들 시각» 을 오전/오후로 말한다(같은 정규화 → 같은 해석).
+   반환 { slots:[{day, hm, h}], bad, morning } · 빈 칸이면 null.
+   morning = 오전 1~11시 시각이 있는데 사람이 «오전/AM» 을 직접 적지 않았다 → 저녁을 뜻했을 수 있다(이번 사고 모양). */
+function _enTimeHint(raw) {
+  const txt = String(raw == null ? '' : raw);
+  if (!txt.trim()) return null;
+  const norm = _enNormTimeText(txt);
+  const slots = [];
+  const re = /([일월화수목금토])\s*:?\s*(\d{1,2}):(\d{2})/g;
+  let m;
+  while ((m = re.exec(norm)) !== null) slots.push({ day: m[1], h: Number(m[2]), mi: m[3] });
+  if (!slots.length) {
+    const one = /(\d{1,2}):(\d{2})/.exec(norm);
+    if (one) slots.push({ day: '', h: Number(one[1]), mi: one[2] });
+  }
+  const bad = !slots.length || slots.some(x => !(x.h >= 0 && x.h <= 23) || Number(x.mi) > 59);
+  slots.forEach(x => { x.hm = String(x.h).padStart(2, '0') + ':' + x.mi; });
+  const amTyped = /오전|(^|[^a-z])a\.?\s?m\.?(?![a-z])/i.test(txt);
+  const morning = !bad && !amTyped && slots.some(x => x.h >= 1 && x.h <= 11);
+  return { slots, bad, morning };
+}
+
+/* 시간 칸 아래 한 줄을 그린다. ⚠️ 색은 «background-color» 로 — admin-inline-c.css 가 카드 안 글자색을 #101828 로 덮는다. */
+function _enPaintTimeHint(tr) {
+  if (!tr) return;
+  const input = tr.querySelector('.en-row-time');
+  const box = tr.querySelector('.en-time-hint');
+  if (!input || !box) return;
+  const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
+  const DAY_EN = { '일':'Sun','월':'Mon','화':'Tue','수':'Wed','목':'Thu','금':'Fri','토':'Sat' };
+  const hint = _enTimeHint(input.value);
+  const paint = (text, bg, bd) => {
+    box.textContent = text;
+    box.style.display = text ? 'block' : 'none';
+    box.style.backgroundColor = bg || 'transparent';
+    box.style.border = bd ? ('1px solid ' + bd) : '0';
+  };
+  if (!hint) { paint('', '', ''); return; }
+  if (hint.bad) {
+    paint(en ? '⚠ Cannot read this time — e.g. 19:40 or 7:40 PM' : '⚠ 시간을 읽지 못했습니다 — 예: 19:40 또는 오후 7:40', '#fee2e2', '#fca5a5');
+    return;
+  }
+  const ap = (x) => {
+    const h12 = (x.h % 12) || 12;
+    return en ? (h12 + ':' + x.mi + ' ' + (x.h < 12 ? 'AM' : 'PM')) : ((x.h < 12 ? '오전 ' : '오후 ') + h12 + ':' + x.mi);
+  };
+  let line = '→ ' + hint.slots.map(x => (x.day ? (en ? DAY_EN[x.day] : x.day) + ' ' : '') + ap(x) + ' (' + x.hm + ')').join(' · ');
+  if (hint.morning) {
+    const am = hint.slots.find(x => x.h >= 1 && x.h <= 11);
+    const pmHm = String(am.h + 12) + ':' + am.mi;
+    line += en ? ('  ⚠ MORNING class. For evening type ' + pmHm + ' or ' + am.h + ':' + am.mi + ' PM')
+               : ('  ⚠ 오전 수업입니다. 저녁이면 «' + pmHm + '» 또는 «오후 ' + am.h + ':' + am.mi + '» 처럼 적으세요');
+    paint(line, '#fef3c7', '#f59e0b');
+  } else {
+    paint(line, '#ecfdf5', '#a7f3d0');
+  }
 }
 
 // 시간 텍스트 파싱 — "10:30" 또는 "월 7:30, 수 8:00" 형식
@@ -9704,7 +10084,8 @@ function _readEnrollmentRows() {
     const pkg = (tr.querySelector('.en-row-package')?.value || '').trim();
     const fee = tr.querySelector('.en-row-fee')?.value || '';
     const start = tr.querySelector('.en-row-start')?.value || '';
-    const time = tr.querySelector('.en-row-time')?.value || '';
+    // 🕐 (2026-10-30) 보내기 전에 정본 모양으로 — '7:40 PM'·'Mon 7:30' 이 서버에서 오전·요일 무시로 바뀌지 않게
+    const time = _enNormTimeText(tr.querySelector('.en-row-time')?.value || '').trim();
     const classSize = tr.querySelector('.en-row-size')?.value || '';
     // ⏱ (2026-08-26) 수업 시간(분) — 안 고르거나 이상한 값이면 20분(class-policy.ts DEFAULT_CLASS_MINUTES).
     //   select 옵션이 20/30/40 뿐이라 정상 사용에서는 항상 그중 하나지만, 값 자체를 방어적으로 다시 검사한다.
@@ -9854,6 +10235,34 @@ async function _enAutoConfirm(id) {
   }
 }
 
+/* 📥 (2026-10-07 사장님 지시) 등록할 때마다 엑셀(CSV)·워드가 «무조건» 내려받아지던 것을 선택으로.
+   「등록 후 엑셀·워드 받기」(#en-export-files)를 켠 경우에만 바로 내려받고, 끄면(기본) 파일을 모아 두었다가
+   상태 줄 옆 「📥 엑셀·워드 받기」 버튼으로 필요할 때만 받는다(선택은 이 기기에 기억). 카톡 알림은 그대로 나간다. */
+var _enPendingFiles = [];
+function _enWantFiles() {
+  var cb = document.getElementById('en-export-files');
+  return !!(cb && cb.checked);
+}
+function _enDl(blob, name) {
+  if (_enWantFiles()) { _downloadBlob(blob, name); return; }
+  _enPendingFiles.push({ blob: blob, name: name });
+  var btn = document.getElementById('en-export-later');
+  if (btn) {
+    btn.style.display = '';
+    var ko = '📥 엑셀·워드 받기 (' + _enPendingFiles.length + ')', en = '📥 Download files (' + _enPendingFiles.length + ')';
+    btn.setAttribute('data-ko', ko); btn.setAttribute('data-en', en);
+    btn.textContent = (adminLang === 'en') ? en : ko;
+  }
+}
+function _enDownloadPending() {
+  var list = _enPendingFiles.slice();
+  list.forEach(function (f, i) { setTimeout(function () { _downloadBlob(f.blob, f.name); }, i * 300); });
+}
+function _enResetPending() {
+  _enPendingFiles = [];
+  var btn = document.getElementById('en-export-later');
+  if (btn) btn.style.display = 'none';
+}
 async function addEnrollment() {
   const records = _readEnrollmentRows();
   const status = document.getElementById('en-multi-status');
@@ -10065,6 +10474,7 @@ async function addEnrollment() {
 
 // 다중 등록 자동 export — 통합 카톡 + 통합 CSV + 통합 Word
 function autoExportBulkEnrollment(records) {
+  _enResetPending();
   const dateStr = new Date().toISOString().slice(0,10);
   const N = records.length;
 
@@ -10111,7 +10521,7 @@ function autoExportBulkEnrollment(records) {
            '"' + (r._teacher || r.teacher_name || '').replace(/"/g, '""') + '",' +
            (r._started_at_str || '') + '\n';
   });
-  _downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+  _enDl(new Blob([csv], { type: 'text/csv;charset=utf-8' }),
     '수강신청_일괄_' + N + '명_' + dateStr + '.csv');
 
   // 통합 Word (다행 표)
@@ -10148,7 +10558,7 @@ function autoExportBulkEnrollment(records) {
       '</tr>';
   });
   docHtml += '</table><div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div></body></html>';
-  _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
+  _enDl(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
     '수강신청_일괄_' + N + '명_' + dateStr + '.doc');
 }
 
@@ -10157,6 +10567,7 @@ function autoExportBulkEnrollment(records) {
 //   ② Excel CSV 자동 다운로드 (한글 BOM 포함, 엑셀에서 깨짐 없이 열림)
 //   ③ Word HTML 자동 다운로드 (.doc — MS Word 에서 표 그대로 열림)
 async function autoExportEnrollment(enr) {
+  _enResetPending();
   // ① 카톡 큐 — 백엔드 KV 큐에 메시지 적재
   const categoryBadge = enr.category === 'test_only' ? '🔍 레벨테스트만'
                       : enr.category === 'full' ? '🌟 풀패키지(레벨+체험+정규)'
@@ -10206,7 +10617,7 @@ async function autoExportEnrollment(enr) {
     '"강사","' + String(enr.teacher || '').replace(/"/g, '""') + '"\n' +
     '"시작일","' + enr.started_at + '"\n' +
     '"등록일시","' + enr.created_at + '"\n';
-  _downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+  _enDl(new Blob([csv], { type: 'text/csv;charset=utf-8' }),
     '수강신청_' + safeName + '_' + dateStr + '.csv');
 
   // ③ Word (.doc HTML) 다운로드 — MS Word 가 HTML 을 표로 렌더링
@@ -10241,7 +10652,7 @@ async function autoExportEnrollment(enr) {
     '</table>' +
     '<div class="footer">© Mangoi · 자동 생성 · ' + new Date().toLocaleString('ko-KR') + '</div>' +
     '</body></html>';
-  _downloadBlob(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
+  _enDl(new Blob([docHtml], { type: 'application/msword;charset=utf-8' }),
     '수강신청_' + safeName + '_' + dateStr + '.doc');
 
   // 사용자 안내 토스트 (간단한 alert)
@@ -10273,17 +10684,27 @@ async function setEnrollmentStatus(id, status) {
   // 되돌리기 어려운 쪽만 확인 — 취소는 오탭 한 번에 그대로 넘어가던 자리였다
   if (status === 'cancelled') {
     const msg = en
-      ? ('Cancel this enrollment' + (name ? ' — ' + name : '') + '?\nThe student account stays; only this enrollment is marked cancelled.')
-      : ('이 수강신청을 «취소» 처리할까요' + (name ? ' — ' + name : '') + '?\n학생 계정은 그대로 남고, 이 신청 건만 취소로 표시됩니다.');
+      ? ('Cancel this enrollment' + (name ? ' — ' + name : '') + '?\nThe classes it booked that have not happened yet will be ended too (past classes stay as they are; weekly repeating rows must be ended in the student’s Schedule tab).\nThe student account stays. You can undo with «↩ Reopen».')
+      : ('이 수강신청을 «취소» 처리할까요' + (name ? ' — ' + name : '') + '?\n이 신청으로 잡힌 수업 중 아직 안 지난 수업도 함께 종료됩니다(지난 수업은 그대로 · 매주 반복 줄은 학생 «스케줄» 탭에서 따로).\n학생 계정은 그대로 남고, «↩ 되살리기» 로 되돌릴 수 있습니다.');
     if (!confirm(msg)) return;
   }
   const r = await fetch('/api/admin/enrollments/'+id, {method:'PATCH',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({status})});
   const d = await r.json().catch(()=>({}));
-  if (!r.ok || d.ok === false) { alert((en?'Failed: ':'실패: ')+(d.error||('HTTP '+r.status))); return; }
-  // 서버는 status 한 칸만 바꾼다. 무엇이 바뀌었는지 말해 주지 않으면 «아무 일도 안 난» 것으로 보인다
-  _enToast(en
+  if (!r.ok || d.ok !== true) { alert((en?'Failed: ':'실패: ')+((en ? d.message_en : d.message) || d.detail || d.error || ('HTTP '+r.status))); return; }
+  // 무엇이 바뀌었는지 말해 준다 — 수업을 몇 건 내리고·되살렸는지까지(✕ 취소 → 수업 종료, 2026-10-08)
+  let extra = '';
+  if (d.ended_classes != null) {
+    extra = en ? (' · ' + d.ended_classes + ' upcoming class(es) ended') : (' · 남은 수업 ' + d.ended_classes + '건 종료');
+    if (d.weekly_left) extra += en ? (' · ' + d.weekly_left + ' weekly row(s) left — end them in the Schedule tab') : (' · 매주 반복 ' + d.weekly_left + '줄은 그대로 — 스케줄 탭에서 따로 종료');
+  } else if (d.restore_failed) {
+    extra = en ? ' · ⚠ could not restore the classes — re-add them in the schedule' : ' · ⚠ 수업을 되살리지 못했습니다 — 스케줄에서 다시 넣어 주세요';
+  } else if (d.restored_classes != null) {
+    extra = en ? (' · ' + d.restored_classes + ' class(es) restored') : (' · 수업 ' + d.restored_classes + '건 되살림');
+    if (d.restore_skipped) extra += en ? (' (' + d.restore_skipped + ' not restored: past / weekly / slot taken)') : (' (' + d.restore_skipped + '건은 못 되살림: 지난 날짜·매주 반복·시간 겹침)');
+  }
+  _enToast((en
     ? ((name ? name + ' — ' : '') + 'status changed to ' + label)
-    : ((name ? name + ' ' : '') + '상태를 «' + label + '» 으로 바꿨습니다'));
+    : ((name ? name + ' ' : '') + '상태를 «' + label + '» 으로 바꿨습니다')) + extra);
   loadEnrollments();
 }
 
@@ -10908,6 +11329,40 @@ async function _bulkRegisterEnrollments(records) {
   loadEnrollments();
 }
 
+// .xlsx → CSV 텍스트(그 뒤는 _parseCsvEnrollments 가 그대로 읽는다 — 「항목,값」·머리글 두 모양 모두).
+//   zip·시트 읽기는 학생 단체 등록(js/adm-student-bulk.js)의 parseXlsx 를 빌린다 — 같은 읽기를 두 벌 두지 않는다.
+//   엑셀은 날짜·시각을 «숫자»로 저장한다(2026-11-03 → 46329, 19:00 → 0.791666…) — 그 칸만 글자로 되돌린다.
+function _enXlsxCell(label, v) {
+  const t = String(v == null ? '' : v).trim();
+  const lb = String(label || '');
+  if (/시작|개강|start/i.test(lb) && /^\d{5}(\.\d+)?$/.test(t)) {
+    const n = Math.floor(Number(t));
+    if (n > 20000 && n < 80000) return new Date(Date.UTC(1899, 11, 30) + n * 86400000).toISOString().slice(0, 10);
+  }
+  if (/시간|time/i.test(lb) && /^0?\.\d+$/.test(t)) {
+    const m = Math.round(Number(t) * 1440) % 1440;
+    return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  }
+  return t;
+}
+function _enRowsToCsv(rows) {
+  rows = (rows || []).filter(r => r && r.some(c => String(c == null ? '' : c).trim()));
+  if (!rows.length) return '';
+  const header = rows[0].map(h => String(h == null ? '' : h).trim());
+  const pairForm = /^항목$/.test(header[0] || '') && /^값$/.test(header[1] || '');
+  const q = (c) => { const s = String(c == null ? '' : c); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  return rows.map((r, ri) => r.map((c, ci) => {
+    if (ri === 0) return q(c);
+    const label = pairForm ? (ci === 1 ? r[0] : '') : header[ci];
+    return q(_enXlsxCell(label, c));
+  }).join(',')).join('\n');
+}
+async function _enXlsxToCsv(buf) {
+  const B = window.__smBulk;
+  if (!B || typeof B.parseXlsx !== 'function') throw new Error('엑셀 읽기 도구가 아직 안 불러졌습니다(새로고침 후 다시)');
+  return _enRowsToCsv(await B.parseXlsx(buf));
+}
+
 async function importEnrollmentFromFile() {
   const fi = document.getElementById('en-import-file');
   if (!fi || !fi.files || fi.files.length === 0) {
@@ -10917,7 +11372,26 @@ async function importEnrollmentFromFile() {
   const file = fi.files[0];
   const ext = (file.name.split('.').pop() || '').toLowerCase();
   let text = '';
-  try { text = await file.text(); }
+  // 2026-10-29: 진짜 엑셀(.xlsx)은 zip 이라 file.text() 로 읽으면 깨진 글자 → 0건이었다.
+  //   첫 바이트로 가른다(확장자보다 정확 — 이름만 .xls 인 .xlsx 도 있다).
+  let head = null;
+  try { head = new Uint8Array(await file.slice(0, 8).arrayBuffer()); } catch (e) { head = null; }
+  if (head && head[0] === 0x50 && head[1] === 0x4B) {
+    if (/^docx?$/.test(ext)) { alert('워드(.docx) 파일은 읽지 못합니다. 엑셀(.xlsx)·CSV 로 올려 주세요.\nWord (.docx) files cannot be read. Please upload .xlsx or CSV.'); return; }
+    try { text = await _enXlsxToCsv(await file.arrayBuffer()); }
+    catch (e) { alert('엑셀 파일을 읽지 못했습니다: ' + (e && e.message || e) + '\n「CSV UTF-8」로 저장해 올려 주세요.\nCould not read the Excel file — please save as CSV UTF-8.'); return; }
+    _renderImportPreview(_parseCsvEnrollments(text), file.name);
+    return;
+  }
+  if (head && head[0] === 0xD0 && head[1] === 0xCF && head[2] === 0x11 && head[3] === 0xE0) {
+    alert('옛 엑셀(.xls 97-2003) 형식은 읽지 못합니다. 엑셀에서 「다른 이름으로 저장 → Excel 통합 문서(.xlsx)」 또는 「CSV UTF-8」로 저장해 올려 주세요.\nOld .xls (97-2003) is not supported — save as .xlsx or CSV UTF-8.');
+    return;
+  }
+  // 2026-10-30: 엑셀이 «CSV(쉼표로 분리)» 로 저장하면 CP949 라 file.text() 로 한글이 깨진다 — 학생 단체 등록의 decodeText(UTF-8 엄격 → euc-kr)를 빌린다
+  try {
+    const B = window.__smBulk;
+    text = (B && typeof B.decodeText === 'function') ? B.decodeText(await file.arrayBuffer()) : await file.text();
+  }
   catch (e) { alert('파일 읽기 실패: ' + e.message); return; }
   let records = [];
   // 자동 감지 우선 — HTML 태그가 있으면 어떤 확장자든 표 파서로 처리
@@ -12264,6 +12738,60 @@ function smPaintLearningFilters(rows) {
     '<a role="button" tabindex="0" data-learning-type="' + k + '" aria-pressed="' + (k === _smLearningType) + '">' + _esc(smLearningLabel(k, en)) + ' (' + counts[k] + ')</a>').join('')
     + '<small>' + (en ? 'Loaded list · AI is free with video classes' : '불러온 목록 기준 · 화상수업은 AI 학습 무료 포함') + '</small>';
 }
+/* ✅ (2026-10-13 사장님 「D+A 추천안」) «오늘 손볼 학생» 카드 — 학생 목록 맨 위.
+   누르면 그 학생만 남는다(한 번 더 누르면 풀림). 판정은 이미 받은 값만 쓴다(서버 요청 0).
+   ⚠️ «예약 없음»: 서버 예약 요약(loadSchedSummaryMap)은 실패해도 빈 Map 으로 떨어져(fail-open)
+      «전원 예약 없음» 처럼 보인다 — 그래서 불러온 목록에 예약이 «한 명도» 없으면 이 카드는
+      숫자 대신 «—» 로 «모름» 을 말한다(지어내지 않는다).
+   ⚠️ «번호 없음»: 학생·부모 번호가 «둘 다» 빈 학생. 문자(리마인더·안내)가 닿지 않는다. */
+let _smTodo = '';
+const SM_TODO = [
+  { k: 'nophone',   ko: '번호 없음 · 문자 안 감',      en: 'No phone · texts can’t reach', tone: 'bad',
+    test: s => !String(s.student_phone || '').trim() && !String(s.parent_phone || '').trim() },
+  { k: 'nosched',   ko: '예약 없음 · 수강신청 필요',   en: 'No booking · needs enrollment', tone: 'warn', needSched: true,
+    test: s => !(s.sched && Number(s.sched.total || 0) > 0) },
+  { k: 'noteacher', ko: '예약은 있는데 강사 이름 없음', en: 'Booked but no teacher shown', tone: 'warn', needSched: true,
+    test: s => !!(s.sched && Number(s.sched.total || 0) > 0) && !(Array.isArray(s.sched.teachers) && s.sched.teachers.filter(Boolean).length) },
+];
+function smTodoApply(rows) {
+  const t = SM_TODO.find(x => x.k === _smTodo);
+  return t ? rows.filter(t.test) : rows;
+}
+function smPaintTodoCards(rows) {
+  const el = document.getElementById('sm-todo-cards');
+  if (!el) return;
+  const en = adminLang === 'en';
+  const schedKnown = rows.some(s => s.sched && Number(s.sched.total || 0) > 0);
+  el.innerHTML = SM_TODO.map(t => {
+    const unknown = t.needSched && !schedKnown;
+    const n = unknown ? '—' : rows.filter(t.test).length.toLocaleString();
+    const tip = unknown ? (en ? 'Booking info not loaded — can’t count' : '예약 정보를 못 받아 셀 수 없습니다') : (en ? 'Show only these students' : '이 학생만 보기');
+    return '<a role="button" tabindex="0" class="sm-todo sm-todo-' + t.tone + '" data-todo="' + t.k + '" aria-pressed="' + (_smTodo === t.k) + '" title="' + _esc(tip) + '">'
+      + '<b>' + n + '</b><span>' + _esc(en ? t.en : t.ko) + '</span></a>';
+  }).join('')
+    + (_smTodo ? '<a role="button" tabindex="0" class="sm-todo sm-todo-clear" data-todo="">' + (en ? '✕ Show all' : '✕ 전체 보기') + '</a>' : '');
+}
+/* ▦ 간단히 보기(기본) ↔ 모든 칸 — 카페24 정본이라 대부분 비어 있는 칸(결제타입·수강 시작일·요약·수업회수)과
+   덜 쓰는 칸(대리점 연락처·본사명·지사명·세션 수)을 접고, 아이디는 학생명 아래로 내린다.
+   ⛔ 칸을 «지우지» 않는다 — 열 구조(col·th·td·colspan 22)는 그대로이고 CSS 로만 감춘다(정렬·CSV 그대로). */
+function smApplyCompact() {
+  let on = true;
+  try { on = localStorage.getItem('mangoi_sm_compact') !== '0'; } catch (e) {}
+  const tbl = document.getElementById('sm-students-table');
+  if (tbl) tbl.classList.toggle('sm-compact', on);
+  const b = document.getElementById('sm-compact-toggle');
+  if (b) {
+    const ko = on ? '▦ 모든 칸 보기' : '▤ 간단히 보기', en = on ? '▦ Show all columns' : '▤ Compact view';
+    b.setAttribute('data-ko', ko); b.setAttribute('data-en', en);
+    b.textContent = adminLang === 'en' ? en : ko;
+  }
+}
+function smToggleCompact() {
+  let on = true;
+  try { on = localStorage.getItem('mangoi_sm_compact') !== '0'; localStorage.setItem('mangoi_sm_compact', on ? '0' : '1'); } catch (e) {}
+  smApplyCompact();
+}
+window.smToggleCompact = smToggleCompact;
 let _smAgency = '';                                         // 🏫 대리점·학원 필터 (빈값 = 전체)
 let _smCountBase = '';                                      // 전체 인원수 라벨 (검색 시 "N명 / 전체" 표시용)
 /* ⚡ (2026-08-05 사장님 지적: "버벅거리고 자꾸 왔다갔다 움직인다") 안정화용 상태 4개.
@@ -12394,7 +12922,7 @@ async function loadStudentList(q, opts) {
   //   대신 인원수 라벨 옆에만 조용히 표시한다.
   const _quiet = !!(opts && opts.quiet) && _smStudents.length > 0;
   if (_quiet) { if (cnt) cnt.textContent = (_L ? '🔄 Searching…' : '🔄 전체에서 찾는 중…'); }
-  else tb.innerHTML = '<tr><td colspan="20" class="empty">' + (_L?'Loading...':'불러오는 중...') + '</td></tr>';
+  else tb.innerHTML = '<tr><td colspan="22" class="empty">' + (_L?'Loading...':'불러오는 중...') + '</td></tr>';
   let seedStudents = [];
   let apiItems = [];
   let d = null;
@@ -12466,6 +12994,12 @@ async function loadStudentList(q, opts) {
           항상 «—» 가 된다(2026-09-15 도입 이래 실제로 그 상태였다).
           ⛔ 문장을 여기서 조립하지 말 것 — 서버 label_ko/label_en 을 «고르기만» 한다. */
       sched: s.sched || null,
+      /* 💰📅 (2026-10-13) «최근 결제»·«다음 수업» — 서버 정본(student-roster-extras.ts)을 그대로 옮긴다.
+          ⛔ 여기서 지어내지 말 것 — 서버가 안 주면 null(칸은 «—»). 정렬용 숫자만 따로 둔다. */
+      lastpay: s.lastpay || null,
+      next_class: s.next_class || null,
+      lastpay_at: (s.lastpay && Number(s.lastpay.paid_at)) || 0,
+      next_class_at: (s.next_class && Number(s.next_class.at)) || Number.MAX_SAFE_INTEGER,
     }));
   } catch (e) {
     if (e && e.name === 'AbortError') return;   // 최신 요청에 밀림 — 화면 손대지 않고 종료
@@ -12483,7 +13017,7 @@ async function loadStudentList(q, opts) {
     // 🩹 백그라운드 검색이 0건이어도 이미 떠 있는 목록을 지우지 않는다.
     //   (지우면 "결과 있음 → 없음 → 있음" 으로 표가 깜빡이며 왔다갔다 한다)
     if (_quiet) { renderStudentTable(); return; }
-    tb.innerHTML = '<tr><td colspan="20" class="empty">' + (window._smShowHidden
+    tb.innerHTML = '<tr><td colspan="22" class="empty">' + (window._smShowHidden
       ? (_L ? 'No hidden students' : '숨긴 학생이 없습니다')
       : (_L?'No students yet':'아직 학생 데이터 없음')) + '</td></tr>';
     if (cnt) cnt.textContent = window._smShowHidden ? (_L ? '🙈 Hidden: 0' : '🙈 숨긴 학생 0명') : '';
@@ -12611,6 +13145,30 @@ window.aiOpenAnalysis = aiOpenAnalysis;
       (CLAUDE.md 「같은 기능이 두 벌이 되면 화면마다 답이 다른 사고가 시작된다」).
    ⛔ 주소를 여기저기서 조립하지 말 것 — 입구가 둘(표의 행 ✏️ · 도구 줄 「✏️ 정보 수정」)이라
       한 곳만 고치면 조용히 갈린다. 이 함수가 정본이다. */
+/* ⏸ (2026-10-08 매니저·사장님 「학생목록·오늘 수업·스케줄 캘린더 모두 연기/변경/취소」)
+   학생 목록 한 줄에서 그 학생의 앞으로 수업을 고르고 → 공용 연기·변경·취소 창(js/class-move-modal.js)을 연다.
+   ⛔ 판정·서버 경로를 여기 새로 만들지 않는다 — 고르기·펼치기는 그 파일의 pickOpen/pickOccurrences 정본.
+   🔒 «취소»·«매주 수업 나누기» 는 본사 전용 — 신원 정본 window.__ADM_ME.role 로 판정하고, 모르면 안 준다. */
+function smOpenMovePick(uid, name) {
+  if (!uid) return;
+  var en = (typeof window.adminLang !== 'undefined' && window.adminLang === 'en');
+  if (!window.mangoiMoveModal || typeof window.mangoiMoveModal.pickOpen !== 'function') {
+    alert(en ? 'Could not open the window. Reload and try again.' : '연기·변경 창을 열지 못했습니다. 새로고침 후 다시 눌러 주세요.');
+    return;
+  }
+  var me = null;
+  try { me = window.__ADM_ME || null; } catch (e) {}
+  var role = (me && me.role) ? String(me.role) : '';
+  var hq = !!role && ['teacher', 'branch', 'agency', 'franchise'].indexOf(role) < 0;
+  window.mangoiMoveModal.pickOpen({ uid: uid, name: name || uid }, {
+    isEn: function () { return typeof window.adminLang !== 'undefined' && window.adminLang === 'en'; },
+    canCancel: hq, canSplit: hq, days: 28,
+    me: me ? { name: me.name || me.uid || '' } : null
+    /* ⚠️ onClose 에서 학생 목록을 다시 받지 않는다 — 검색·필터·쪽 상태를 잃는다. 바뀐 것은 고르기 창이 다시 받아 보여 준다. */
+  });
+}
+window.smOpenMovePick = smOpenMovePick;
+
 function smContactUrl(uid) {
   return '/admin/student?uid=' + encodeURIComponent(String(uid == null ? '' : uid)) + '&tab=contact';
 }
@@ -12690,20 +13248,24 @@ function renderStudentTable() {
   let _filtered = smLearningRows();
   smPaintLearningFilters(_filtered);
   if (_smLearningType !== 'all') _filtered = _filtered.filter(s => smLearningType(s) === _smLearningType);
+  smPaintTodoCards(_filtered);
+  _filtered = smTodoApply(_filtered);
+  smApplyCompact();
 
   // 인원수 라벨 — 검색·필터 중이면 "N명 / 전체" 로 표시
   const _cntEl = document.getElementById('sm-students-count');
   if (_cntEl && _smCountBase) {
-    _cntEl.textContent = (_q || _ag || _smLearningType !== 'all')
+    _cntEl.textContent = (_q || _ag || _smLearningType !== 'all' || _smTodo)
       ? (_L ? ('🔍 ' + _filtered.length + ' found / ' + _smCountBase) : ('🔍 ' + _filtered.length + '명 / 전체 ' + _smCountBase))
       : _smCountBase;
   }
 
   if (!_filtered.length) {
     _smRows = []; _smShown = 0;
-    const _why = _ag && !_q ? (_L ? 'No students in “' + _esc(_ag) + '”' : '“' + _esc(_ag) + '” 소속 학생이 없습니다')
+    const _why = _smTodo && !_q ? (_L ? 'No students in this group' : '해당하는 학생이 없습니다')
+               : _ag && !_q ? (_L ? 'No students in “' + _esc(_ag) + '”' : '“' + _esc(_ag) + '” 소속 학생이 없습니다')
                             : (_L ? 'No matching students' : '검색 결과가 없습니다 — “' + _esc(_q) + '”');
-    tb.innerHTML = '<tr><td colspan="20" class="empty">' + _why + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="22" class="empty">' + _why + '</td></tr>';
     return;
   }
 
@@ -12766,12 +13328,32 @@ function renderStudentTable() {
      늘 «—» 였다. 이 칸만 실제 예약을 본다.
      ⛔ 문장을 여기서 조립하지 말 것 — 학생 상세 카드도 같은 값을 그리므로 서버
         (src/student-schedule-summary.ts)가 만든 label_ko/label_en 을 «고르기만» 한다. */
+  /* 🧭 (2026-10-09 사장님 「A안」) 예전 «상세보기» 칸에 5개가 세로로 쌓여 있던 버튼을
+     «그 버튼이 바꾸는 값» 옆으로 나눠 옮겼다: 이름 = 상세 · 이름 옆 ✏️ = 수정 ·
+     예약 칸 = 📅 스케줄 · ⏸ 연기·변경 · 수강 종료일 칸 = 🗓️ 종료·연장.
+     ⏸ 은 예약이 있을 때만 — 미룰 수업이 없는 학생에게 «눌러도 할 일 없는» 버튼을 주지 않는다.
+     ⛔ <button> 으로 바꾸지 말 것(admin-inline-c.css 전역 버튼 규칙 — 위 수강신청 칸과 같은 이유). */
+  const _schedActs = (s, hasSched) => {
+    const uid = String((s && s.user_id) || '');
+    if (!uid) return '';
+    const uidEnc = encodeURIComponent(uid);
+    const safeUid = _esc(uid), safeName = _esc((s && s.username) || uid);
+    return '<div class="sm-acts">'
+      + '<a class="sm-act sm-act-sched" href="/admin/student?uid=' + uidEnc + '&tab=schedule" target="_blank" title="' + (_L ? 'Calendar · teacher · move/postpone' : '캘린더 · 담당 강사 · 연기·변경') + '">📅 ' + (_L ? 'Schedule' : '스케줄') + '</a>'
+      + (hasSched ? '<a href="#" class="sm-move-go" data-uid="' + safeUid + '" data-name="' + safeName + '" onclick="event.preventDefault();smOpenMovePick(this.getAttribute(\'data-uid\'),this.getAttribute(\'data-name\'))" title="' + (_L ? 'Postpone · change · cancel one class' : '수업 한 번 연기 · 변경 · 취소') + '">⏸ ' + (_L ? 'Postpone' : '연기·변경') + '</a>' : '')
+      + '</div>';
+  };
   const _schedTd = (s) => {
     const q = s && s.sched;
     const txt = q ? String((_L ? q.label_en : q.label_ko) || '—') : '—';
-    if (!txt || txt === '—') return '<td style="text-align:center">—</td>';
+    if (!txt || txt === '—') return '<td style="text-align:center">—' + _schedActs(s, false) + '</td>';
     const x = _esc(txt);
-    return '<td style="text-align:center" title="' + x + '">' + x + '</td>';
+    /* 👩‍🏫 (2026-10-07 매니저 요청) 담당 강사 이름 — 서버 정본(sched.teachers)을 그대로 쓴다.
+       지난 수업의 강사는 빠져 있고, 이름을 못 찾은 번호는 서버가 넣지 않는다(지어내지 않음). */
+    const tl = (q && Array.isArray(q.teachers)) ? q.teachers.filter(Boolean) : [];
+    const tx = tl.length ? _esc(tl.join(', ')) : '';
+    return '<td style="text-align:center" title="' + x + (tx ? ' · ' + tx : '') + '">' + x
+      + (tx ? '<div style="font-size:11px;color:#475467;white-space:nowrap">👩‍🏫 ' + tx + '</div>' : '') + _schedActs(s, true) + '</td>';
   };
   /* 📚 (2026-09-24 사장님 지시) 「수강신청」 칸 — 학생마다 카드 하나. 누르면 smGoEnroll 이
      수강신청 등록 표로 가서 그 학생 아이디를 채운다.
@@ -12795,6 +13377,45 @@ function renderStudentTable() {
       + (r ? '<div style="font-size:10.5px;color:#667085;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r + '</div>' : '')
       + '</td>';
   };
+  /* 🔗 (2026-10-13 사장님 지시) 맨 오른쪽 «바로가기» — 학생 상세의 탭 셋을 새 탭으로 바로 연다.
+     실측(2026-10-13): 결제 기록 1,366명 · 수업 녹화 약 2,100건 · 출결은 수업 기록과 같은 정본 —
+     데이터가 비어 있는 탭(상담 18건·교사 피드백 2건)은 일부러 고르지 않았다.
+     ⛔ <button> 으로 바꾸지 말 것(위 «예약» 칸과 같은 이유 — 전역 버튼 규칙). */
+  const _quickTd = (s) => {
+    const uid = String((s && s.user_id) || '');
+    if (!uid) return '<td style="text-align:center">—</td>';
+    const u = encodeURIComponent(uid);
+    const a = (tab, cls, ko, en, tko, ten) => '<a class="sm-act ' + cls + '" href="/admin/student?uid=' + u + '&tab=' + tab
+      + '" target="_blank" title="' + (_L ? ten : tko) + '">' + (_L ? en : ko) + '</a>';
+    return '<td style="text-align:center"><div class="sm-acts sm-quick">'
+      + a('payment', 'sm-q-pay', '💰 수업료', '💰 Tuition', '결제 기록 · 밀린 금액', 'Payments · overdue')
+      + a('attend', 'sm-q-att', '🗂️ 출결', '🗂️ Attendance', '출결 현황 · 들어온 시간', 'Attendance · join times')
+      + a('recording', 'sm-q-rec', '🎬 녹화', '🎬 Recordings', '수업 녹화 영상', 'Class recordings')
+      + '</div></td>';
+  };
+  /* 💰 (2026-10-13 사장님 지시) «최근 결제» — 가장 늦은 결제 완료(paid) 한 건의 날짜·금액.
+     ⛔ 취소(cancelled)는 결제가 아니다 — 서버가 이미 뺐다. 없으면 «—». */
+  const _kstMd = (ms) => { const d = new Date(Number(ms) + 9 * 3600e3); return Number.isFinite(d.getTime()) ? d.toISOString().slice(5, 10) : ''; };
+  const _lastPayTd = (s) => {
+    const p = s && s.lastpay;
+    const at = p && Number(p.paid_at);
+    if (!at || !Number.isFinite(at)) return '<td style="text-align:center">—</td>';
+    const md = _kstMd(at), amt = Number(p.amount_krw) || 0;
+    const won = '₩' + amt.toLocaleString();
+    const tip = (_L ? 'Last payment ' : '최근 결제 ') + new Date(at + 9 * 3600e3).toISOString().slice(0, 10) + ' · ' + won;
+    return '<td class="sm-lastpay" style="text-align:center" title="' + _esc(tip) + '">' + _esc(md)
+      + '<span class="sm-pay-amt">' + _esc(won) + '</span></td>';
+  };
+  /* 📅 (2026-10-13 사장님 지시) «다음 수업» — 지금 이후 가장 이른 예약(망고아이 예약 + 카페24 예약).
+     앞으로 14일 안만 본다(그 밖은 «—»). 공휴일 휴강은 반영하지 않는다(예약 기준). */
+  const _nextClassTd = (s) => {
+    const n = s && s.next_class;
+    if (!n || !n.ymd || !n.hm) return '<td style="text-align:center">—</td>';
+    const src = n.source === 'cafe24' ? (_L ? 'Cafe24 booking' : '카페24 예약') : (_L ? 'Mangoi booking' : '망고아이 예약');
+    const tip = (_L ? 'Next class ' : '다음 수업 ') + n.ymd + ' ' + n.hm + ' · ' + src;
+    return '<td class="sm-nextclass" style="text-align:center" title="' + _esc(tip) + '">' + _esc(String(n.ymd).slice(5, 10))
+      + '<span class="sm-next-hm">' + _esc(n.hm) + '</span></td>';
+  };
   _smRowHtml = (s) => {
     const uid = String(s.user_id || '');
     const uidEnc = encodeURIComponent(uid);
@@ -12802,11 +13423,10 @@ function renderStudentTable() {
     const safeName = _esc(s.username || uid);
     return `<tr>
       <td title="${safeUid}"><code>${safeUid}</code></td>
-      <td title="${safeName}"><b>${safeName}</b>${smLearningBadge(s, _L)}</td>
-      <td style="text-align:center;line-height:1.7"><a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Details':'상세'}</a><br><a href="${smContactUrl(uid)}" target="_blank" style="color:#0369a1" title="${_L?'Edit contact & info':'연락처·정보 수정'}">✏️ ${_L?'Edit':'수정'}</a></td>
+      <td title="${safeName}"><a class="sm-name-go" href="/admin/student?uid=${uidEnc}" target="_blank" title="${_L?'Open student details':'학생 상세 열기'}"><b>${safeName}</b></a><a class="sm-act sm-act-edit" href="${smContactUrl(uid)}" target="_blank" title="${_L?'Edit contact & info':'연락처·정보 수정'}" aria-label="${_L?'Edit':'수정'}">✏️</a><span class="sm-uid-sub">${safeUid}</span>${smLearningBadge(s, _L)}</td>
       <td>${_c(s.payment_type)}</td>
       <td>${_d(s.signup_date)}</td>
-      <td>${_d(s.end_date)}</td>
+      <td>${_d(s.end_date)}${uid ? `<div class="sm-acts"><a class="sm-act sm-act-end" href="/admin/student?uid=${uidEnc}&tab=extension" target="_blank" title="${_L?'End classes · extend · undo':'수업 종료 · 연장 · 되돌리기'}">🗓️ ${_L?'End/Extend':'종료·연장'}</a></div>` : ''}</td>
       ${_ct(s.summary)}
       <td>${splitDt(s.created_at)}</td>
       <td style="text-align:right">${_c(s.classes_per_week)}</td>
@@ -12818,9 +13438,12 @@ function renderStudentTable() {
       <td>${_c(_piiPhone(s.teacher_phone))}</td>
       ${_ct(s.shop_name)}
       ${_ct(s.hq_name)}
-      ${_ct(s.branch2_name)}
-      <td style="text-align:right"><span class="sess-count">${(s.session_count||0).toLocaleString()}</span></td>
+      ${_ct(s.branch2_name || s.franchise)}
+      <td style="text-align:right">${s.session_count ? `<span class="sess-count">${s.session_count.toLocaleString()}${_L?'':'회'}</span>${s.last_seen ? `<span class="sm-last-class" title="${_L?'Last class':'최근 수업'}">${_L?'Last ':'최근 '}${_esc(String(s.last_seen).slice(5,10))}</span>` : ''}` : '—'}</td>
       <td>${_c(s.status)}</td>
+      ${_lastPayTd(s)}
+      ${_nextClassTd(s)}
+      ${_quickTd(s)}
     </tr>`;
   };
 
@@ -12885,7 +13508,7 @@ window.smGoEnroll = smGoEnroll;
 function _smMoreRow(_L) {
   const left = _smRows.length - _smShown;
   if (left <= 0) return '';
-  return '<tr id="sm-more-row"><td colspan="20" class="empty" style="cursor:pointer" onclick="smAppendRows()">'
+  return '<tr id="sm-more-row"><td colspan="22" class="empty" style="cursor:pointer" onclick="smAppendRows()">'
        + (_L ? ('▾ ' + left.toLocaleString() + ' more — scroll or click') : ('▾ ' + left.toLocaleString() + '명 더 있습니다 — 아래로 굴리거나 눌러서 더 보기'))
        + '</td></tr>';
 }
@@ -12910,6 +13533,7 @@ function smExportStudentsCsv() {
   if (!_smStudents || !_smStudents.length) { alert(_L ? 'Load the student list first.' : '먼저 “불러오기”로 학생 목록을 불러오세요.'); return; }
   let _pre = smLearningRows();
   if (_smLearningType !== 'all') _pre = _pre.filter(s => smLearningType(s) === _smLearningType);
+  _pre = smTodoApply(_pre);
   const rows = _pre.slice().sort((a, b) => {
       for (const so of _smSort) {
         const k = so.key === 'username' ? '_username_lc' : so.key;
@@ -12940,9 +13564,13 @@ function smExportStudentsCsv() {
     ['대리점연락처',  s => _piiPhone(s.teacher_phone)],
     ['대리점명',      s => s.shop_name],
     ['본사명',        s => s.hq_name],
-    ['지사명',        s => s.branch2_name],
-    ['세션수',        s => s.session_count || 0],
+    ['지사',          s => s.branch2_name || s.franchise],
+    ['수업기록',      s => s.session_count || 0],
+    ['최근수업',      s => s.last_seen || ''],
     ['상태',          s => s.status],
+    ['최근결제일',    s => (s.lastpay && s.lastpay.paid_at) ? new Date(Number(s.lastpay.paid_at) + 9 * 3600e3).toISOString().slice(0, 10) : ''],
+    ['최근결제금액',  s => (s.lastpay && s.lastpay.paid_at) ? (Number(s.lastpay.amount_krw) || 0) : ''],
+    ['다음수업',      s => (s.next_class && s.next_class.ymd) ? (s.next_class.ymd + ' ' + s.next_class.hm) : ''],
   ];
   const cell = v => { let x = (v == null ? '' : String(v)); return /[",\r\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
   const out = [cols.map(c => cell(c[0])).join(',')];
@@ -13014,6 +13642,18 @@ document.addEventListener('click', (ev) => {
     if (active) active.focus();
   }
   if (lf) { lf.addEventListener('click', selectLearningType); lf.addEventListener('keydown', selectLearningType); }
+  const tc = document.getElementById('sm-todo-cards');
+  function selectTodo(ev) {
+    const target = ev.target.closest('[data-todo]');
+    if (!target || !tc.contains(target)) return;
+    if (ev.type === 'keydown' && ev.key !== 'Enter' && ev.key !== ' ') return;
+    ev.preventDefault();
+    const k = target.dataset.todo || '';
+    _smTodo = (_smTodo === k) ? '' : k;
+    renderStudentTable();
+  }
+  if (tc) { tc.addEventListener('click', selectTodo); tc.addEventListener('keydown', selectTodo); }
+  smApplyCompact();
   document.addEventListener('mangoi:lang-changed', () => renderStudentTable());
 
 
@@ -13539,6 +14179,13 @@ window.bulkCopyContacts = function() {
     setTimeout(loadTeacherProfiles, 200);
   }
   if (e('en-add-btn'))         e('en-add-btn').addEventListener('click', addEnrollment);
+  if (e('en-export-later'))     e('en-export-later').addEventListener('click', _enDownloadPending);
+  if (e('en-export-files')) {
+    try { e('en-export-files').checked = localStorage.getItem('mangoi_en_export_files') === '1'; } catch (_) {}
+    e('en-export-files').addEventListener('change', function () {
+      try { localStorage.setItem('mangoi_en_export_files', this.checked ? '1' : '0'); } catch (_) {}
+    });
+  }
   if (e('en-refresh-btn'))     e('en-refresh-btn').addEventListener('click', loadEnrollments);
   if (e('en-import-file-btn')) e('en-import-file-btn').addEventListener('click', importEnrollmentFromFile);
   if (e('en-import-kakao-btn'))e('en-import-kakao-btn').addEventListener('click', importEnrollmentFromKakao);
@@ -15250,8 +15897,9 @@ async function askAI(command) {
       change_schedule:    '🔄 스케줄 변경',
       postpone_class:     '⏸ 수업 연기',
     };
-    const typeNames = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
-    const typeColor = { regular:'#3b82f6', level_test:'#f59e0b', trial:'#10b981' };
+    /* 🎨 (2026-10-07 사장님 «종류 이름·색 통일») 정규 주황 · 보강 보라 · 체험 초록 · 레벨테스트 파랑 */
+    const typeNames = { regular:'정규수업', makeup:'보강수업', level_test:'레벨테스트', trial:'체험수업' };
+    const typeColor = { regular:'#d97706', makeup:'#8b5cf6', level_test:'#3b82f6', trial:'#059669' };
     let html = '<div class="ai-answer">' + _aiEsc(res.answer || 'AI가 스케줄을 파싱했습니다') + '</div>';
     if (items.length === 0) {
       html += '<div class="ai-error" style="margin-top:10px">⚠️ 파싱된 스케줄이 없습니다. 학생명·요일·시간을 명확히 다시 입력해 주세요.</div>';
@@ -15368,8 +16016,8 @@ async function executeAiAction(name, args) {
         change_schedule:    '🔄 스케줄 변경',
         postpone_class:     '⏸ 수업 연기',
       };
-      const typeNames = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
-      const typeColor = { regular:'#3b82f6', level_test:'#f59e0b', trial:'#10b981' };
+      const typeNames = { regular:'정규수업', makeup:'보강수업', level_test:'레벨테스트', trial:'체험수업' };
+      const typeColor = { regular:'#d97706', makeup:'#8b5cf6', level_test:'#3b82f6', trial:'#059669' };
       // type 별 등록 카운트 (체험/레벨 누락 진단용)
       const typeCount = { regular: 0, trial: 0, level_test: 0 };
       ok.forEach(x => { if (typeCount[x.type] !== undefined) typeCount[x.type]++; });
@@ -15383,8 +16031,8 @@ async function executeAiAction(name, args) {
       // 유형별 카운트 (정규/체험/레벨)
       if (ok.length > 0) {
         html += '<div style="margin-top:6px;font-size:12px;color:#6b7280">📊 유형별: ' +
-          '<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700">정규 ' + typeCount.regular + '</span> ' +
-          '<span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700;margin-left:4px">체험 ' + typeCount.trial + '</span> ' +
+          '<span style="background:#d97706;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700">정규 ' + typeCount.regular + '</span> ' +
+          '<span style="background:#059669;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700;margin-left:4px">체험 ' + typeCount.trial + '</span> ' +
           '<span style="background:#3b82f6;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700;margin-left:4px">레벨 ' + typeCount.level_test + '</span>' +
         '</div>';
       }
@@ -15528,7 +16176,7 @@ window.openNewStudentForm = function(items) {
   if (typeof items === 'string') { try { items = JSON.parse(items); } catch { items = []; } }
   if (!Array.isArray(items) || items.length === 0) return;
   const dayNames = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
-  const typeNames = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
+  const typeNames = { regular:'정규수업', makeup:'보강수업', level_test:'레벨테스트', trial:'체험수업' };
   function escAttr(s){ return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
   // Phase 7i: 동일 student_name 으로 그룹화 → 1명당 1개 fieldset, 스케줄은 리스트로
   const groups = {};
@@ -15849,6 +16497,9 @@ window.rebuildGlobalSearchIndex = function() {
       warn:    ['#92400e', '#fffbeb', '#fcd34d', '⚠️ 장부와 통장이 조금 어긋납니다'],
       alert:   ['#991b1b', '#fef2f2', '#fca5a5', '🚨 장부와 통장이 크게 어긋납니다'],
       no_data: ['#374151', '#f9fafb', '#d1d5db', 'ℹ️ 이 달은 통장 자료가 없습니다'],
+      // ⏳ 2026-10-09 — 입금 구간이 아직 안 끝난 달. 들어온 일부를 전체와 견주면 늘 «크게 모자람» 이라
+      //    판정하지 않는다(서버 reconcileMonth 가 정함). 경고색이 아니라 안내색.
+      pending: ['#1e40af', '#eff6ff', '#93c5fd', '⏳ PG 정산 입금을 기다리는 중입니다 — 아직 판정하지 않습니다'],
     }[rec.verdict] || null;
     if (!V) return '';
     /* 기준은 통장이다(2026-08-18) — 실제로 들어온 「케이씨피」 정산금을 먼저 말하고,
@@ -15857,7 +16508,9 @@ window.rebuildGlobalSearchIndex = function() {
       `<div style="margin-top:6px;font-size:12px;color:#374151">
         통장에 들어온 「케이씨피」 정산금 <b>${fmtKRW(rec.deposit_pg)}</b>${rec.lag_days ? `<span style="color:#1e3a8a"> (이 달 결제분이 ${rec.lag_days}일 뒤 들어온 구간 기준 — 같은 달 통장에 찍힌 금액은 ${fmtKRW(rec.deposit_pg_same_month)})</span>` : ''} → 수수료 ${window.pgFeeRateLabel()}를 되돌린 통장 기준 매출 <b>${rec.bank_revenue == null ? '—' : fmtKRW(rec.bank_revenue)}</b> ·
         장부 매출(KCP 정산 대상) <b>${fmtKRW(rec.revenue)}</b> → 예상 입금 <b>${fmtKRW(rec.expected)}</b>
-        (차이 ${rec.diff == null ? '—' : fmtKRW(rec.diff)}, 통장 기준 ${rec.diff_pct}%)
+        ${rec.verdict === 'pending'
+          ? `· 지금까지 들어온 것은 일부라 차이·비율을 내지 않습니다`
+          : `(차이 ${rec.diff == null ? '—' : fmtKRW(rec.diff)}, 통장 기준 ${rec.diff_pct}%)`}
       </div>`;
     const extra = [rec.transfer_note, rec.b2b_note].filter(Boolean)
       .map(t => `<div style="margin-top:6px;font-size:12px;color:#374151">· ${esc(t)}</div>`).join('');
@@ -16162,11 +16815,23 @@ window.rebuildGlobalSearchIndex = function() {
   document.addEventListener('DOMContentLoaded', () => {
     const p = document.getElementById('acc-rep-period');
     if (p) p.addEventListener('change', () => window.accCloseRefresh && window.accCloseRefresh());
+    // (2026-10-09) 분기 선택칸이 HTML 첫 옵션(1분기)으로 시작해 사람이 안 바꾸면 늘 1분기 보고서가 나왔다 — 지금 분기로 시작
+    const q = document.getElementById('acc-rep-quarter');
+    if (q) q.value = String(Math.ceil(Number(defaultMonth().slice(5, 7)) / 3));
   });
 
   // 메인: 리포트 종류별 fetch + render
-  window.openReport = async function(type){
-    const inputs = getInputs();
+  /* (2026-10-09) 보고서 창 안에서 다른 분기를 고르면 그 창이 이 함수를 다시 부른다(override + targetWin).
+     새 창을 또 열지 않고 같은 창을 다시 채운다. 관리자 화면의 선택칸도 맞춰 둔다(다음에 열 때 같은 분기). */
+  window.openReport = async function(type, override, targetWin){
+    const inputs = Object.assign(getInputs(), override || {});
+    if (override) {
+      const yEl = document.getElementById('acc-rep-year'), qEl = document.getElementById('acc-rep-quarter');
+      if (yEl && override.year) yEl.value = String(override.year);
+      if (qEl && override.quarter) qEl.value = String(override.quarter);
+      const pEl = document.getElementById('acc-rep-period');
+      if (pEl && override.period) { pEl.value = String(override.period); try { pEl.dispatchEvent(new Event('change')); } catch(e){} }
+    }
     let url, csvUrl, title;
     switch(type){
       case 'monthly':
@@ -16203,7 +16868,7 @@ window.rebuildGlobalSearchIndex = function() {
     }
 
     // 새 창 먼저 열기 (사용자 액션 컨텍스트 유지 — 팝업 차단 회피)
-    const win = window.open('', '_blank', 'width=1100,height=900,scrollbars=yes');
+    const win = (targetWin && !targetWin.closed) ? targetWin : window.open('', '_blank', 'width=1100,height=900,scrollbars=yes');
     if (!win) {
       alert('팝업이 차단되었습니다. 이 사이트의 팝업을 허용해 주세요.');
       return;
@@ -16215,16 +16880,23 @@ window.rebuildGlobalSearchIndex = function() {
 
     try {
       const r = await fetch(url, { credentials:'include' });
-      const data = await r.json();
-      if (!data.ok) throw new Error(data.error || 'API error');
+      const data = await r.json().catch(() => ({ ok:false, error:'http_' + r.status }));
+      if (!data.ok) { const er = new Error(data.error || 'API error'); er.who = data.who_line || ''; throw er; }
       const html = renderReport(type, data, csvUrl);
       win.document.open();
       win.document.write(html);
       win.document.close();
     } catch(e) {
-      win.document.body.innerHTML = `<h2 style="color:#ef4444">에러: ${e.message}</h2>
-        <p>API 호출 실패 — wrangler 배포 후 다시 시도하세요.</p>
-        <p><code>${url}</code></p>`;
+      /* (2026-10-09) 옛 문구는 무슨 오류든 «wrangler 배포 후 다시» 였다 — 로그인이 풀린 사장님께 엉뚱한 안내였음 */
+      const code = String(e.message || '');
+      const why = code === 'auth_required'
+        ? '로그인이 풀렸습니다. 관리자 화면을 새로고침해 다시 로그인한 뒤 눌러 주세요.<br>(같은 브라우저에서 다른 계정으로 로그인하면 이전 로그인이 풀립니다.)<br><span style="color:#6b7280">Your login expired — reload the admin page, sign in again and retry.</span>'
+        : code.indexOf('forbidden') === 0
+          ? '이 계정에는 이 리포트를 볼 권한이 없습니다. ' + esc(e.who || '')
+          : '리포트를 불러오지 못했습니다. 잠시 뒤 다시 눌러 주세요.';
+      win.document.body.innerHTML = `<h2 style="color:#ef4444">에러: ${esc(code)}</h2>
+        <p>${why}</p>
+        <p><code>${esc(url)}</code></p>`;
     }
   };
 
@@ -16290,6 +16962,13 @@ window.rebuildGlobalSearchIndex = function() {
         .toolbar .csv{background:#10b981;color:#fff}
         .toolbar .close{background:#6b7280;color:#fff}
         @media print{.toolbar{display:none}body{padding:0}}
+        .qpick{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px;margin:48px 0 14px;/* 위 48px = 오른쪽 위 고정 도구줄(인쇄·엑셀·닫기) 아래로 — 안 내리면 11·12월 버튼이 그 밑에 깔린다 */padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px}
+        .qpick label{font-size:12px;font-weight:700;color:#9a3412;margin-right:4px}
+        .qpick select{padding:6px 8px;font-size:13px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#111}
+        .qpick .qbtn{padding:6px 14px;font-size:13px;border:1px solid #fdba74;border-radius:6px;background:#fff;color:#9a3412;cursor:pointer;font-weight:600}
+        .qpick .mbtn{padding:6px 9px}
+        .qpick .qbtn.on{background:#fb923c;border-color:#fb923c;color:#fff}
+        @media print{.qpick{display:none}}
         .footer{margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center}
       </style>`;
     // 📊 엑셀 — 숫자가 «숫자» 로 들어가고 상세 내역이 시트로 나뉜다(CSV 는 한 장뿐)
@@ -16300,6 +16979,29 @@ window.rebuildGlobalSearchIndex = function() {
         <button class="csv" onclick="location.href='${csvUrl}'">📥 CSV</button>
         <button class="close" onclick="window.close()">✕ 닫기</button>
       </div>`;
+    /* 📅 분기 선택칸 (2026-10-09 사장님 「1분기·2분기·3분기 분기별로 볼 수 있는 선택칸」) —
+       이 창은 관리자 화면이 연 창이라 opener.openReport 로 같은 창을 다시 채운다.
+       opener 가 없으면(관리자 화면을 닫음) 지어내지 않고 사실대로 말한다. */
+    const qPicker = (type !== 'quarterly' && type !== 'annual' && type !== 'monthly' && type !== 'franchise' && type !== 'payslips' && type !== 'kpi') ? '' : (() => {
+      /* 월간(2026-10-09 사장님 「월간 회계 리포트도 년월 선택칸」)은 년도 + 1~12월, 분기는 년도 + 1~4분기, 연간은 년도만 */
+      /* 가맹점별 정산서(2026-10-09 사장님 「가맹점별 정산서도 년월 선택칸」)도 월간과 같은 년도+1~12월 */
+      /* 강사별 급여명세서·경영지표 KPI(2026-10-09 사장님 「급여명세서랑 경영지표도 년월 선택칸」)도 같은 년도+1~12월 — 둘 다 서버가 period=YYYY-MM 을 돌려준다 */
+      const isQ = type === 'quarterly', isM = type === 'monthly' || type === 'franchise' || type === 'payslips' || type === 'kpi';
+      const pm = isM ? /^(\d{4})-(\d{2})$/.exec(String(d.period || '')) : null;
+      const nowY = Number(defaultYear()), curY = (pm ? Number(pm[1]) : Number(d.year)) || nowY;
+      const curQ = Number(d.quarter) || 1, curM = pm ? Number(pm[2]) : 1;
+      const years = []; for (let y = Math.max(nowY, curY); y >= Math.min(nowY - 3, curY); y--) years.push(y);
+      const yOpts = years.map(y => `<option value="${y}"${y === curY ? ' selected' : ''}>${y}년</option>`).join('');
+      const qBtns = isQ ? [1,2,3,4].map(q => `<button type="button" class="qbtn${q === curQ ? ' on' : ''}" data-q="${q}" onclick="qGo(${q})">${q}분기</button>`).join('')
+        : isM ? [1,2,3,4,5,6,7,8,9,10,11,12].map(m => `<button type="button" class="qbtn mbtn${m === curM ? ' on' : ''}" data-q="${m}" onclick="qGo(${m})">${m}월</button>`).join('')
+        : '';
+      const keep = isQ ? curQ : isM ? curM : 0;
+      return `<div class="qpick"><label>기간</label><select id="qp-year" onchange="qGo(${keep})">${yOpts}</select>${qBtns}</div>
+        <script>function qGo(q){var y=Number(document.getElementById('qp-year').value);
+          var ov=${isM}?{period:y+'-'+(q<10?'0':'')+q}:(q?{year:y,quarter:q}:{year:y});
+          var o=window.opener;if(o&&!o.closed&&typeof o.openReport==='function'){var w=window;setTimeout(function(){o.openReport('${type}',ov,w);},0);}
+          else{alert('관리자 화면이 닫혀 있어 다른 기간을 불러올 수 없습니다. 관리자 화면에서 다시 열어 주세요. / The admin page is closed — reopen the report from there.');}}<\/script>`;
+    })();
     const footer = `<div class="footer">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')} · 출처: webrtc-unified-platform</div>`;
 
     let body = '';
@@ -16310,7 +17012,7 @@ window.rebuildGlobalSearchIndex = function() {
     else if (type === 'payslips')  body = renderPayslips(d);
     else if (type === 'kpi')       body = renderKpi(d);
 
-    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${body}${footer}
+    return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.label||'Report'}</title>${baseStyle}</head><body>${toolbar}${qPicker}${body}${footer}
 </body></html>`;
   }
 
@@ -16320,7 +17022,13 @@ window.rebuildGlobalSearchIndex = function() {
     const headline = `이번 달 매출 <b>${fmtKRW(p.revenue)}</b>, 쓴 돈 <b>${fmtKRW(p.cost)}</b>, `
       + (p.confident
           ? `남은 돈 <b>${fmtKRW(p.net_income)}</b> (이익률 ${p.margin_pct}%) 입니다.`
-          : `계산상 <b>${fmtKRW(p.net_income)}</b> 이지만 <b>장부와 통장이 어긋나 확정 숫자가 아닙니다.</b>`);
+          : `계산상 <b>${fmtKRW(p.net_income)}</b> 이지만 <b>${
+              d.reconcile && d.reconcile.verdict === 'pending'
+                ? 'PG 정산 입금이 아직 다 안 들어와'
+                : (d.reconcile && (d.reconcile.verdict === 'warn' || d.reconcile.verdict === 'alert'))
+                  ? '장부와 통장이 어긋나'
+                  : '비용 자료가 온전하지 않아'
+            } 확정 숫자가 아닙니다.</b>`);
     return `
       <h1>📅 월간 회계 리포트</h1>
       <div class="meta">${d.label}</div>
@@ -16434,12 +17142,15 @@ window.rebuildGlobalSearchIndex = function() {
     };
     const st = d.sync_starts || {};
     const bad = ms.filter(m => m.coverage && m.coverage.level !== 'full');
+    /* (2026-10-09) «진행 중인 달» 은 통장·카드가 다 연동돼 있어도 자료부족이다(서버 coverageOf).
+       그 달만 있는데 «연동 이전이라 비용이 없다» 고 말하면 거짓 — 이유는 달마다 서버 note 를 그대로 쓴다 */
+    const syncBad = bad.filter(m => m.coverage.bank !== 'full' || m.coverage.card !== 'full');
     return `
       ${bad.length ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:8px;padding:12px 15px;margin:12px 0;font-size:12.5px;line-height:1.75">
         <b style="color:#92400e">⚠️ 자료가 온전하지 않은 달이 ${bad.length}개 있습니다 — 그 달의 순이익을 그대로 믿으면 안 됩니다.</b><br>
-        통장 연동은 <b>${esc(st.bankFrom || '미연동')}</b>, 법인카드 연동은 <b>${esc(st.cardFrom || '미연동')}</b> 부터입니다.
-        그 전 달은 <b>비용이 없거나 일부만</b> 잡혀서 순이익이 실제보다 좋게(때로는 흑자로) 나옵니다.<br>
-        해당 달: ${bad.map(m => `<b>${esc(m.period)}</b>`).join(' · ')}
+        ${syncBad.length ? `통장 연동은 <b>${esc(st.bankFrom || '미연동')}</b>, 법인카드 연동은 <b>${esc(st.cardFrom || '미연동')}</b> 부터입니다.
+        그 전 달은 <b>비용이 없거나 일부만</b> 잡혀서 순이익이 실제보다 좋게(때로는 흑자로) 나옵니다.<br>` : ''}
+        ${bad.map(m => `<b>${esc(m.period)}</b> — ${esc((m.coverage && m.coverage.note) || '')}`).join('<br>')}
       </div>` : ''}
       <div class="tblwrap"><table class="compact">
         <thead><tr><th>${headLabel}</th><th class="num">매출</th><th class="barcell"></th><th class="num">장부 결제</th><th class="num">통장 B2B</th><th class="num">결제건</th><th class="num">강사 급여</th><th class="num">비용 합계</th><th class="num">순이익</th><th class="barcell"></th></tr></thead>
@@ -16454,7 +17165,7 @@ window.rebuildGlobalSearchIndex = function() {
             <td class="num">${fmtKRW(m.revenue_b2b)}</td>
             <td class="num">${m.pays}</td>
             <td class="num">${fmtKRW(m.payroll)}</td>
-            <td class="num">${fmtKRW(m.cost)}</td>
+            <td class="num">${fmtKRW(m.cost)}${(m.fee_shift_in||m.fee_shift_out) ? `<div style="font-size:10px;color:#475467" title="지사 수수료 귀속월 이동분">${m.fee_shift_in ? '수수료 +' + fmtKRW(m.fee_shift_in) + ' (다음달 초 이체)' : ''}${m.fee_shift_in && m.fee_shift_out ? '<br>' : ''}${m.fee_shift_out ? '수수료 −' + fmtKRW(m.fee_shift_out) + ' (전월로)' : ''}</div>` : ''}</td>
             <td class="num"><b style="color:${dim ? '#9ca3af' : ((m.net||0) < 0 ? '#dc2626' : '#166534')}">${fmtKRW(m.net)}</b>${dim ? '<div style="font-size:10px;color:#b45309">참고값</div>' : ''}</td>
             <td class="barcell">${dim ? '' : bar(m.net, (m.net||0) < 0 ? '#ef4444' : '#22c55e')}</td>
           </tr>`; }).join('')}
@@ -16466,6 +17177,7 @@ window.rebuildGlobalSearchIndex = function() {
       </table></div>
       <p style="font-size:11.5px;color:#6b7280;margin:10px 0 0;line-height:1.7">
         ※ 매출 = 장부 결제(카페24 등) + 통장 직접입금(B2B).<br>
+        ※ 지사 수수료는 <b>귀속월 기준</b> — 매달 3일까지 이체된 지사 수수료는 전월 비용으로 잡습니다(다른 비용은 통장 날짜 기준).<br>
         ※ <b>회사 상태는 「자료 온전한 달만」 합계로 보세요.</b> 전체 합계에는 비용이 덜 잡힌 달이 섞여 있어 실제보다 좋게 나옵니다.<br>
         ※ 아직 오지 않은 달은 표에서 뺐습니다.
       </p>
@@ -16571,13 +17283,22 @@ window.rebuildGlobalSearchIndex = function() {
 
   function renderKpi(d){
     // 계산할 근거가 없는 지표는 숫자를 지어내지 않고 «자료없음» 으로 보여 준다(2026-08-16)
+    /* (2026-10-09) 서버 coverage(분기·연간·월간과 같은 판정)가 full 이 아니면 이익률·ROI·순이익에 «참고값».
+       옛 서버라 coverage 가 없으면 아무것도 안 붙인다(예전 그대로) */
+    const cov = d.coverage || null;
+    const partial = !!(cov && cov.level && cov.level !== 'full');
+    const REF_KEYS = { margin_pct:1, roi_pct:1 };
     return `
       <h1>⭐ 경영지표 (KPI)</h1>
       <div class="meta">${d.label}</div>
+      ${partial ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:8px;padding:12px 15px;margin:12px 0;font-size:12.5px;line-height:1.75">
+        <b>⚠️ 이 달은 자료가 온전하지 않습니다 — 이익률·ROI·순이익은 참고값입니다.</b><br>${esc(cov.note || '')}
+      </div>` : ''}
       <div class="kpi-grid">
         ${d.kpis.map(k => `<div class="kpi" style="${k.available === false ? 'opacity:.72' : ''}">
           <div class="l">${esc(k.label)}${badge(k.source)}</div>
           <div class="v" style="${k.available === false ? 'font-size:15px;color:#991b1b' : ''}">${k.available === false ? '자료없음' : fmtNum(k.value, k.unit)}</div>
+          ${partial && REF_KEYS[k.key] && k.available !== false ? '<div style="font-size:10.5px;color:#b45309;margin-top:3px">참고값</div>' : ''}
           ${k.note ? `<div style="font-size:10.5px;color:#6b7280;margin-top:5px;line-height:1.55">${esc(k.note)}</div>` : ''}
         </div>`).join('')}
       </div>
@@ -16585,7 +17306,7 @@ window.rebuildGlobalSearchIndex = function() {
       <table>
         <tr><th>매출 (장부 결제 + 통장 B2B)</th><td class="num">${fmtKRW(d.revenue)}</td></tr>
         <tr><th>비용 (강사급여 포함)</th><td class="num">${fmtKRW(d.cost)}</td></tr>
-        <tr class="total"><td>순이익</td><td class="num">${fmtKRW(d.net)}</td></tr>
+        <tr class="total"><td>순이익${partial ? ' <span style="font-size:10.5px;color:#b45309">(참고값)</span>' : ''}</td><td class="num">${fmtKRW(d.net)}</td></tr>
       </table>
       <p style="font-size:11px;color:#6b7280;margin-top:14px;line-height:1.7">
         ※ ARPU = 매출 ÷ <b>그 달 활동 학생수</b>(수업에 들어왔거나 결제한 학생). 재적 학생수로 나누지 않습니다 —
@@ -17673,6 +18394,16 @@ window.rebuildGlobalSearchIndex = function() {
     } catch(e) { _showErr(tbody, e, 6); }
   };
 
+  // 📥 분개장 엑셀 — 화면과 같은 기간(from~to)을 그대로 넘긴다. 비어 있으면 서버가 이번 달로 잡는다.
+  window.accJournalExcel = function(){
+    const qs = new URLSearchParams({ format: 'xlsx' });
+    const from = (document.getElementById('acc-jrn-from') || {}).value || '';
+    const to   = (document.getElementById('acc-jrn-to') || {}).value || '';
+    if (from) qs.set('from', from);
+    if (to)   qs.set('to', to);
+    location.href = '/api/admin/reports/journal?' + qs.toString();
+  };
+
   window.accNewJournalEntry = function(){
     const date  = prompt('일자 (YYYY-MM-DD)', _today());
     if (!date) return;
@@ -17844,6 +18575,30 @@ window.rebuildGlobalSearchIndex = function() {
     if (format) qs.set('format', format);
     return '/api/admin/reports/statement?' + qs.toString();
   }
+  /* (2026-10-09) 서버가 보내는 coverage(참고값 경고)·notes(안내문)를 그린다 — 예전엔 notes 를 한 줄도
+     안 그려서 재무상태표의 「완전한 표가 아닙니다」·시산표의 차대 일치 여부가 화면·PDF 어디에도 안 나왔다.
+     화면과 PDF 가 같은 함수를 쓴다. */
+  function _fsExtras(d, where){
+    let h = '';
+    const c = d && d.coverage;
+    if (c && c.level && c.level !== 'full') {
+      h += `<div style="background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:8px;padding:10px 13px;margin:${where === 'top' ? '0 0 12px' : '12px 0'};font-size:12.5px;line-height:1.7;color:#78350f">
+        <b>⚠️ 이 기간은 자료가 온전하지 않습니다 — 아래 숫자는 참고값입니다.</b><br>${_esc(c.note || '')}</div>`;
+    }
+    return h;
+  }
+  function _fsNotes(d){
+    const ns = (d && Array.isArray(d.notes)) ? d.notes : [];
+    return ns.length ? `<div style="margin-top:12px;font-size:12px;color:#475467;line-height:1.7">${ns.map(n => '※ ' + _esc(n)).join('<br>')}</div>` : '';
+  }
+  /* (2026-10-09) 월 선택칸이 HTML 에 2026-04 로 박혀 있어 늘 4월 재무제표가 나왔다 — «지난달» 로 시작
+     (이번 달은 진행 중이라 반쪽 숫자다). 사람이 이미 바꿨으면 안 건드린다. */
+  (function(){
+    const mEl = document.getElementById('acc-fs-month');
+    if (!mEl || mEl.value !== mEl.defaultValue) return;
+    const t = _today().slice(0,7).split('-').map(Number);
+    mEl.value = new Date(Date.UTC(t[0], t[1] - 2, 1)).toISOString().slice(0,7);
+  })();
   window.accGenStatement = async function(){
     _fsGenerated = true;
     const wrap = document.getElementById('acc-fs-result');
@@ -17853,6 +18608,7 @@ window.rebuildGlobalSearchIndex = function() {
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||'API error');
       let html = `<div style="font-size:18px;font-weight:800;color:#111;border-bottom:3px solid #fb923c;padding-bottom:6px;margin-bottom:14px">${_esc(d.label)}</div>`;
+      html += _fsExtras(d, 'top');
       for (const sec of d.sections) {
         html += `<div style="font-size:14px;font-weight:700;color:#374151;margin:14px 0 6px">${_esc(sec.title)}</div>`;
         html += '<table style="width:100%;border-collapse:collapse;font-size:13px">';
@@ -17871,6 +18627,7 @@ window.rebuildGlobalSearchIndex = function() {
         }
         html += '</table>';
       }
+      html += _fsNotes(d);
       wrap.innerHTML = html;
     } catch(e) {
       wrap.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px">에러: ${_esc(e.message||e)}</div>`;
@@ -17980,6 +18737,7 @@ window.rebuildGlobalSearchIndex = function() {
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||'API error');
       let body = `<h1 style="font-size:22px;border-bottom:3px solid #fb923c;padding-bottom:8px">${_esc(d.label)}</h1>`;
+      body += _fsExtras(d, 'top');
       for (const sec of d.sections) {
         body += `<h2 style="font-size:14px;color:#374151;margin:16px 0 6px">${_esc(sec.title)}</h2>`;
         body += '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px">';
@@ -17996,6 +18754,7 @@ window.rebuildGlobalSearchIndex = function() {
         }
         body += '</table>';
       }
+      body += _fsNotes(d);
       w.document.open();
       w.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${_esc(d.label)}</title>
         <style>@page{size:A4;margin:18mm 14mm}body{font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;max-width:900px;margin:0 auto}.toolbar{position:fixed;top:10px;right:10px;background:#fff;padding:8px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.1)}.toolbar button{padding:8px 14px;font-size:13px;border:0;border-radius:6px;cursor:pointer;margin-left:6px;font-weight:600}@media print{.toolbar{display:none}body{padding:0}}</style>

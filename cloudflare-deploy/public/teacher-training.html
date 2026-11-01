@@ -8,7 +8,7 @@
      판정 로직·주의사항은 /js/adm-lang-boot.js 파일 머리 주석 하나에 모여 있다.
      ⚠️ adm-lang-boot 는 defer 를 붙이지 말 것(첫 페인트 전에 lang 이 정해져야 함). -->
 <script src="/js/adm-lang-boot.js?v=6"></script>
-<script defer src="/js/i18n-sweep.js?v=22"></script>
+<script defer src="/js/i18n-sweep.js?v=23"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>망고아이 강사 교육 매뉴얼 · Mangoi Teacher Playbook</title>
     <script src="/js/lucide-local.js?v=1"></script><!-- ph161: unpkg lucide@latest(1500종·버전 미고정) → 실제 쓰는 6종 로컬본 -->
@@ -464,7 +464,7 @@ T.ko = {
     tlTitle: '25분 수업 시간 배분(권장)',
     tlCap: '어떤 활동도 7분을 넘기지 않습니다. 이것이 지루함을 막는 가장 확실한 장치입니다.',
     tlItems: [
-      { t: '오프닝 · 웜업', m: 4, c: '#f59e0b' },
+      { t: '오프닝 · 말하기', m: 4, c: '#f59e0b' },
       { t: '오늘의 미션 선언', m: 2, c: '#f97316' },
       { t: '교재 · 말하기', m: 7, c: '#2563eb' },
       { t: '게임 보상', m: 5, c: '#059669' },
@@ -480,7 +480,7 @@ T.ko = {
     sub: '매 수업 같은 순서로 돕니다. 순서가 고정되면 아이는 다음에 뭐가 올지 알고 안심합니다.',
     cycleTitle: '망고아이 몰입 사이클',
     steps: [
-      { s: 'Step 1', h: '웜업 — 벽을 낮춘다', tool: 'A.i 말하기 연습 · 지난 오답',
+      { s: 'Step 1', h: '말하기 — 벽을 낮춘다', tool: 'A.i 말하기 연습 · 지난 오답',
         p: '공부 이야기부터 하지 않습니다. 주말·날씨·좋아하는 것으로 시작하고, 지난 시간에 헷갈렸던 표현을 대화 속에 슬쩍 섞습니다.',
         goal: '"오늘도 편하다"는 느낌 만들기' },
       { s: 'Step 2', h: '미션 — 오늘 이길 판을 정한다', tool: '오늘의 목표 카드',
@@ -496,10 +496,10 @@ T.ko = {
         p: '"Mr.Mango가 춤춘다!"와 함께 별을 띄웁니다. 무엇을 잘해서 받는 별인지 한 문장으로 말해 줍니다.',
         goal: '성취를 기억에 남기기' },
       { s: 'Step 6', h: '기록 — 다음 수업으로 넘긴다', tool: '수업 일지 · 리포트',
-        p: '기억이 선명한 2분 안에 기록합니다. 오늘 어려워한 발음 하나가 다음 수업 웜업의 재료가 됩니다.',
+        p: '기억이 선명한 2분 안에 기록합니다. 오늘 어려워한 발음 하나가 다음 수업 말하기의 재료가 됩니다.',
         goal: '개인화의 고리를 끊지 않기' }
     ],
-    say: '6단계를 다 못 지켜도 괜찮습니다. 다만 <b>1번(웜업)과 5번(보상)</b>은 절대 건너뛰지 마세요. 시작과 끝의 기분이 그 수업 전체의 기억이 됩니다.'
+    say: '6단계를 다 못 지켜도 괜찮습니다. 다만 <b>1번(말하기)과 5번(보상)</b>은 절대 건너뛰지 마세요. 시작과 끝의 기분이 그 수업 전체의 기억이 됩니다.'
   },
 
   /* 05 ─────────────────────────────────────────────── */
@@ -644,7 +644,7 @@ T.ko = {
       ['수업 중', '질문 후 3초 기다리기', '침묵은 비어 있는 시간이 아니라 아이가 문장을 만드는 시간입니다.'],
       ['수업 중', '5~7분마다 활동 전환하기', '하품·몸 비틀기가 나오기 «전»에 바꿉니다.'],
       ['수업 중', '별점 · 배지 · 리액션 한 번 이상 사용', '보상은 나중이 아니라 그 자리에서 줘야 합니다.'],
-      ['수업 후', '2분 안에 수업 일지 기록', '기억이 사라지기 전에. 다음 수업의 웜업 재료입니다.'],
+      ['수업 후', '2분 안에 수업 일지 기록', '기억이 사라지기 전에. 다음 수업의 말하기 재료입니다.'],
       ['수업 후', '어려워한 표현 1개 다음 수업으로 넘기기', '이어지는 느낌이 개인화의 핵심입니다.']
     ],
 
@@ -783,7 +783,7 @@ T.en = {
     tlTitle: 'Recommended 25-minute class plan',
     tlCap: 'Nothing runs past 7 minutes. This single rule blocks most boredom.',
     tlItems: [
-      { t: 'Opening · warm-up', m: 4, c: '#f59e0b' },
+      { t: 'Opening · speaking practice', m: 4, c: '#f59e0b' },
       { t: 'Declare the mission', m: 2, c: '#f97316' },
       { t: 'Book · speaking', m: 7, c: '#2563eb' },
       { t: 'Game reward', m: 5, c: '#059669' },
@@ -798,7 +798,7 @@ T.en = {
     sub: 'Run the same order every time. A predictable order makes children feel safe, not bored.',
     cycleTitle: 'The Mangoi engagement cycle',
     steps: [
-      { s: 'Step 1', h: 'Warm-up — lower the wall', tool: 'A.i Speaking Practice · last errors',
+      { s: 'Step 1', h: 'Speaking practice — lower the wall', tool: 'A.i Speaking Practice · last errors',
         p: 'Do not open with study talk. Start with the weekend, the weather, their favourite thing — and slip in an expression they struggled with last time.',
         goal: 'Create the feeling of "this is easy again"' },
       { s: 'Step 2', h: 'Mission — name today’s win', tool: 'Goal card',
@@ -814,7 +814,7 @@ T.en = {
         p: 'Fire the stars with "Mr.Mango is dancing!" — and say in one sentence exactly what earned them.',
         goal: 'Make the achievement memorable' },
       { s: 'Step 6', h: 'Log — pass it to next time', tool: 'Lesson log · report',
-        p: 'Write it within two minutes, while it is still sharp. Today’s hard sound becomes tomorrow’s warm-up.',
+        p: 'Write it within two minutes, while it is still sharp. Today’s hard sound becomes tomorrow’s speaking practice.',
         goal: 'Keep the personalization chain unbroken' }
     ],
     say: 'You will not always fit all six. But never skip <b>step 1 and step 5</b> — how a class starts and ends is what the child remembers.'
@@ -957,7 +957,7 @@ T.en = {
       ['During', 'Wait 3 seconds after every question', 'Silence is not empty time — it is sentence-building time.'],
       ['During', 'Switch activity every 5–7 minutes', 'Switch «before» the yawn, not after.'],
       ['During', 'Use stars, badges or reactions at least once', 'Rewards land only when they are immediate.'],
-      ['After', 'Write the lesson log within 2 minutes', 'Before the memory fades. It is tomorrow’s warm-up material.'],
+      ['After', 'Write the lesson log within 2 minutes', 'Before the memory fades. It is tomorrow’s speaking practice material.'],
       ['After', 'Carry one difficult expression to next class', 'That thread of continuity is what personalization means.']
     ],
 

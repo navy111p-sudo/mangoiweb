@@ -1,0 +1,1669 @@
+{
+  "id": "dub-008",
+  "title": {
+    "ko": "사라진 무지개 등불",
+    "en": "The Missing Rainbow Lantern"
+  },
+  "status": "final",
+  "timing": "synced",
+  "level": 1,
+  "palette": "adventure",
+  "characters": {
+    "ollie": {
+      "name": {
+        "ko": "올리",
+        "en": "Ollie"
+      },
+      "emoji": "👁",
+      "ttsSpeaker": "apollo"
+    },
+    "blue": {
+      "name": {
+        "ko": "블루",
+        "en": "Blue"
+      },
+      "emoji": "💙",
+      "ttsSpeaker": "orion"
+    },
+    "puffy": {
+      "name": {
+        "ko": "퍼피",
+        "en": "Puffy"
+      },
+      "emoji": "💜",
+      "ttsSpeaker": "arcas"
+    },
+    "mini": {
+      "name": {
+        "ko": "미니",
+        "en": "Mini"
+      },
+      "emoji": "🧡",
+      "ttsSpeaker": "thalia"
+    },
+    "green": {
+      "name": {
+        "ko": "그린",
+        "en": "Green"
+      },
+      "emoji": "💚",
+      "ttsSpeaker": "zeus"
+    },
+    "bubbles": {
+      "name": {
+        "ko": "버블스",
+        "en": "Bubbles"
+      },
+      "emoji": "💛",
+      "ttsSpeaker": "asteria"
+    }
+  },
+  "playable": [
+    "ollie",
+    "blue",
+    "puffy",
+    "mini",
+    "green",
+    "bubbles"
+  ],
+  "note": {
+    "ko": "6개의 이야기 · 약 11분 · 여섯 친구 중 역할을 골라 연습해요. 배경음악 트랙에는 원본 효과음도 함께 들어 있어요.",
+    "en": "Six chapters · about 11 minutes · Choose any of six friends. The background track includes the original sound effects."
+  },
+  "scenes": [
+    {
+      "no": 1,
+      "label": {
+        "ko": "사라진 무지개 등불",
+        "en": "The Missing Rainbow Lantern"
+      },
+      "arc": "ki",
+      "durationSec": 118.75,
+      "video": "/media/dubbing/dub-008/scene-1.mp4",
+      "poster": "/media/dubbing/dub-008/scene-1.jpg",
+      "videoAudio": "mute",
+      "bgm": "/media/dubbing/dub-008/scene-1-bgm.mp3",
+      "sfx": [],
+      "voices": {
+        "ollie": "/media/dubbing/dub-008/scene-1-ollie.mp3",
+        "blue": "/media/dubbing/dub-008/scene-1-blue.mp3",
+        "puffy": "/media/dubbing/dub-008/scene-1-puffy.mp3",
+        "mini": "/media/dubbing/dub-008/scene-1-mini.mp3",
+        "green": "/media/dubbing/dub-008/scene-1-green.mp3",
+        "bubbles": "/media/dubbing/dub-008/scene-1-bubbles.mp3"
+      },
+      "lines": [
+        {
+          "id": "s1-shot1-l1",
+          "speaker": "ollie",
+          "en": "Today is the Rainbow Festival!",
+          "ko": "오늘은 무지개 축제야!",
+          "start": 1.42,
+          "end": 3.967479
+        },
+        {
+          "id": "s1-shot1-l2",
+          "speaker": "blue",
+          "en": "Look at the flags!",
+          "ko": "깃발들을 봐!",
+          "start": 6.422,
+          "end": 8.148542
+        },
+        {
+          "id": "s1-shot1-l3",
+          "speaker": "puffy",
+          "en": "They are so pretty!",
+          "ko": "정말 예쁘다!",
+          "start": 12.62,
+          "end": 14.322354
+        },
+        {
+          "id": "s1-shot2-l1",
+          "speaker": "blue",
+          "en": "A little higher, please.",
+          "ko": "조금만 더 높이 올려 줘.",
+          "start": 15.763333,
+          "end": 17.463896
+        },
+        {
+          "id": "s1-shot2-l2",
+          "speaker": "puffy",
+          "en": "Like this?",
+          "ko": "이렇게?",
+          "start": 22.179833,
+          "end": 23.173729
+        },
+        {
+          "id": "s1-shot2-l3",
+          "speaker": "blue",
+          "en": "Yes! Thank you!",
+          "ko": "응! 고마워!",
+          "start": 23.253729,
+          "end": 25.44925
+        },
+        {
+          "id": "s1-shot2-l4",
+          "speaker": "ollie",
+          "en": "Great job!",
+          "ko": "정말 잘했어!",
+          "start": 26.473333,
+          "end": 28.493396
+        },
+        {
+          "id": "s1-shot3-l1",
+          "speaker": "bubbles",
+          "en": "I have cookies!",
+          "ko": "나 쿠키 있어!",
+          "start": 29.786667,
+          "end": 31.095313
+        },
+        {
+          "id": "s1-shot3-l2",
+          "speaker": "mini",
+          "en": "Can I have one?",
+          "ko": "하나 먹어도 돼?",
+          "start": 37.206667,
+          "end": 38.269083
+        },
+        {
+          "id": "s1-shot3-l3",
+          "speaker": "bubbles",
+          "en": "Yes! Let us share.",
+          "ko": "응! 함께 나눠 먹자.",
+          "start": 38.646667,
+          "end": 41.253333
+        },
+        {
+          "id": "s1-shot3-l4",
+          "speaker": "mini",
+          "en": "Thank you!",
+          "ko": "고마워!",
+          "start": 42.396667,
+          "end": 43.272833
+        },
+        {
+          "id": "s1-shot4-l1",
+          "speaker": "mini",
+          "en": "Look! A butterfly!",
+          "ko": "봐! 나비야!",
+          "start": 46.11,
+          "end": 47.688125
+        },
+        {
+          "id": "s1-shot4-l2",
+          "speaker": "bubbles",
+          "en": "On my nose?",
+          "ko": "내 코 위에?",
+          "start": 50.71,
+          "end": 51.785708
+        },
+        {
+          "id": "s1-shot4-l3",
+          "speaker": "bubbles",
+          "en": "Excuse me!",
+          "ko": "실례합니다!",
+          "start": 56.5,
+          "end": 57.610958
+        },
+        {
+          "id": "s1-shot4-l4",
+          "speaker": "mini",
+          "en": "Bless you!",
+          "ko": "건강하렴!",
+          "start": 58.37,
+          "end": 59.199125
+        },
+        {
+          "id": "s1-shot5-l1",
+          "speaker": "green",
+          "en": "This is our rainbow light.",
+          "ko": "이건 우리의 무지개 등불이야.",
+          "start": 62.619333,
+          "end": 64.626708
+        },
+        {
+          "id": "s1-shot5-l2",
+          "speaker": "blue",
+          "en": "Tonight, it will shine.",
+          "ko": "오늘 밤에 빛날 거야.",
+          "start": 66.373333,
+          "end": 69.119458
+        },
+        {
+          "id": "s1-shot5-l3",
+          "speaker": "green",
+          "en": "Look at the colors!",
+          "ko": "색깔들을 봐!",
+          "start": 70.453333,
+          "end": 71.558896
+        },
+        {
+          "id": "s1-shot6-l1",
+          "speaker": "mini",
+          "en": "Red, yellow, green, and blue!",
+          "ko": "빨강, 노랑, 초록, 파랑!",
+          "start": 76.326667,
+          "end": 79.733208
+        },
+        {
+          "id": "s1-shot6-l2",
+          "speaker": "puffy",
+          "en": "So many colors!",
+          "ko": "색이 정말 많아!",
+          "start": 81.046667,
+          "end": 82.510813
+        },
+        {
+          "id": "s1-shot6-l3",
+          "speaker": "green",
+          "en": "Rainbow sparkles!",
+          "ko": "반짝이는 무지개야!",
+          "start": 84.246667,
+          "end": 86.024771
+        },
+        {
+          "id": "s1-shot6-l4",
+          "speaker": "mini",
+          "en": "Beautiful!",
+          "ko": "아름다워!",
+          "start": 87.046667,
+          "end": 87.629938
+        },
+        {
+          "id": "s1-shot7-l1",
+          "speaker": "mini",
+          "en": "Can we put it up there?",
+          "ko": "저 위에 올려도 돼?",
+          "start": 93.36,
+          "end": 94.767042
+        },
+        {
+          "id": "s1-shot7-l2",
+          "speaker": "puffy",
+          "en": "Later. We will do it together.",
+          "ko": "나중에. 우리 함께 하자.",
+          "start": 96.7465,
+          "end": 99.299958
+        },
+        {
+          "id": "s1-shot7-l3",
+          "speaker": "mini",
+          "en": "Okay. Together.",
+          "ko": "좋아. 함께 하자.",
+          "start": 99.39,
+          "end": 102.256271
+        },
+        {
+          "id": "s1-shot8-l1",
+          "speaker": "blue",
+          "en": "Oh! The ribbon!",
+          "ko": "어! 리본이!",
+          "start": 107.413333,
+          "end": 109.483687
+        },
+        {
+          "id": "s1-shot8-l2",
+          "speaker": "ollie",
+          "en": "I can get it!",
+          "ko": "내가 잡을 수 있어!",
+          "start": 112.313333,
+          "end": 113.946042
+        },
+        {
+          "id": "s1-shot8-l3",
+          "speaker": "blue",
+          "en": "Be careful!",
+          "ko": "조심해!",
+          "start": 116.035333,
+          "end": 117.161708
+        },
+        {
+          "id": "s1-shot8-l4",
+          "speaker": "ollie",
+          "en": "I got it!",
+          "ko": "잡았다!",
+          "start": 117.241708,
+          "end": 118.658771
+        }
+      ]
+    },
+    {
+      "no": 2,
+      "label": {
+        "ko": "반짝이는 단서",
+        "en": "Sparkling Clues"
+      },
+      "arc": "seung",
+      "durationSec": 175.83333333333334,
+      "video": "/media/dubbing/dub-008/scene-2-v4.mp4",
+      "poster": "/media/dubbing/dub-008/scene-2.jpg",
+      "videoAudio": "mute",
+      "bgm": "/media/dubbing/dub-008/scene-2-bgm.mp3",
+      "sfx": [],
+      "voices": {
+        "ollie": "/media/dubbing/dub-008/scene-2-ollie.mp3",
+        "blue": "/media/dubbing/dub-008/scene-2-blue.mp3",
+        "puffy": "/media/dubbing/dub-008/scene-2-puffy.mp3",
+        "mini": "/media/dubbing/dub-008/scene-2-mini.mp3",
+        "green": "/media/dubbing/dub-008/scene-2-green.mp3",
+        "bubbles": "/media/dubbing/dub-008/scene-2-bubbles.mp3"
+      },
+      "lines": [
+        {
+          "id": "s2-shot9-l1",
+          "speaker": "green",
+          "en": "Wait. Where is the light?",
+          "ko": "잠깐. 등불이 어디 있지?",
+          "start": 5.596667,
+          "end": 8.087313
+        },
+        {
+          "id": "s2-shot9-l2",
+          "speaker": "puffy",
+          "en": "It is gone!",
+          "ko": "사라졌어!",
+          "start": 9.416667,
+          "end": 10.644646
+        },
+        {
+          "id": "s2-shot9-l3",
+          "speaker": "mini",
+          "en": "Oh, no.",
+          "ko": "이런.",
+          "start": 13.496667,
+          "end": 14.464521
+        },
+        {
+          "id": "s2-shot10-l1",
+          "speaker": "ollie",
+          "en": "Was it here?",
+          "ko": "여기 있었어?",
+          "start": 16.498,
+          "end": 18.116083
+        },
+        {
+          "id": "s2-shot10-l2",
+          "speaker": "green",
+          "en": "Yes. Right here.",
+          "ko": "응. 바로 여기.",
+          "start": 20.2725,
+          "end": 21.968354
+        },
+        {
+          "id": "s2-shot10-l3",
+          "speaker": "ollie",
+          "en": "Where is the light?",
+          "ko": "등불이 어디 있지?",
+          "start": 23.4245,
+          "end": 25.76575
+        },
+        {
+          "id": "s2-shot10-l4",
+          "speaker": "green",
+          "en": "Let us look.",
+          "ko": "찾아보자.",
+          "start": 27.8405,
+          "end": 28.53375
+        },
+        {
+          "id": "s2-shot11-l1",
+          "speaker": "blue",
+          "en": "Is it under the table?",
+          "ko": "탁자 아래에 있니?",
+          "start": 32.543333,
+          "end": 34.283521
+        },
+        {
+          "id": "s2-shot11-l2",
+          "speaker": "green",
+          "en": "No. It is not here.",
+          "ko": "아니. 여기에는 없어.",
+          "start": 34.863333,
+          "end": 37.023521
+        },
+        {
+          "id": "s2-shot11-l3",
+          "speaker": "blue",
+          "en": "Oops!",
+          "ko": "이런!",
+          "start": 39.123333,
+          "end": 39.845271
+        },
+        {
+          "id": "s2-shot11-l4",
+          "speaker": "green",
+          "en": "Are you okay?",
+          "ko": "괜찮아?",
+          "start": 41.263333,
+          "end": 42.369063
+        },
+        {
+          "id": "s2-shot11-l5",
+          "speaker": "blue",
+          "en": "I am okay.",
+          "ko": "난 괜찮아.",
+          "start": 43.343333,
+          "end": 44.444896
+        },
+        {
+          "id": "s2-shot12-l1",
+          "speaker": "bubbles",
+          "en": "It is not in my basket.",
+          "ko": "내 바구니에는 없어.",
+          "start": 46.766667,
+          "end": 48.543021
+        },
+        {
+          "id": "s2-shot12-l2",
+          "speaker": "mini",
+          "en": "What is in there?",
+          "ko": "그 안에는 뭐가 있니?",
+          "start": 50.726667,
+          "end": 51.924062
+        },
+        {
+          "id": "s2-shot12-l3",
+          "speaker": "bubbles",
+          "en": "Only cookies!",
+          "ko": "쿠키뿐이야!",
+          "start": 52.686667,
+          "end": 53.848979
+        },
+        {
+          "id": "s2-shot12-l4",
+          "speaker": "puffy",
+          "en": "Let us look over there.",
+          "ko": "저쪽을 찾아보자.",
+          "start": 55.396667,
+          "end": 56.866979
+        },
+        {
+          "id": "s2-shot13-l1",
+          "speaker": "ollie",
+          "en": "Bubbles, did you take it?",
+          "ko": "버블스, 네가 가져갔니?",
+          "start": 62.835333,
+          "end": 65.233396
+        },
+        {
+          "id": "s2-shot13-l2",
+          "speaker": "bubbles",
+          "en": "No, I did not! I only have cookies.",
+          "ko": "아니, 안 가져갔어! 나한테는 쿠키뿐이야.",
+          "start": 65.343333,
+          "end": 68.96425
+        },
+        {
+          "id": "s2-shot13-l3",
+          "speaker": "ollie",
+          "en": "Oh.",
+          "ko": "아.",
+          "start": 70.823333,
+          "end": 71.888583
+        },
+        {
+          "id": "s2-shot14-l1",
+          "speaker": "puffy",
+          "en": "Let us ask everyone.",
+          "ko": "모두에게 물어보자.",
+          "start": 73.546667,
+          "end": 75.095229
+        },
+        {
+          "id": "s2-shot14-l2",
+          "speaker": "green",
+          "en": "Did anyone move it?",
+          "ko": "누가 옮겼니?",
+          "start": 78.917167,
+          "end": 80.135375
+        },
+        {
+          "id": "s2-shot14-l3",
+          "speaker": "mini",
+          "en": "I... um...",
+          "ko": "나... 음...",
+          "start": 81.723167,
+          "end": 83.60375
+        },
+        {
+          "id": "s2-shot14-l4",
+          "speaker": "green",
+          "en": "Does anyone know?",
+          "ko": "아는 사람 있니?",
+          "start": 84.857167,
+          "end": 85.895125
+        },
+        {
+          "id": "s2-shot15-l1",
+          "speaker": "blue",
+          "en": "Are you okay?",
+          "ko": "괜찮아?",
+          "start": 88.31,
+          "end": 89.340458
+        },
+        {
+          "id": "s2-shot15-l2",
+          "speaker": "mini",
+          "en": "I am worried.",
+          "ko": "걱정돼.",
+          "start": 93.65,
+          "end": 94.589313
+        },
+        {
+          "id": "s2-shot15-l3",
+          "speaker": "blue",
+          "en": "I am here with you.",
+          "ko": "내가 여기 함께 있어.",
+          "start": 95.9585,
+          "end": 97.995125
+        },
+        {
+          "id": "s2-shot15-l4",
+          "speaker": "mini",
+          "en": "Thank you, Blue.",
+          "ko": "고마워, 블루.",
+          "start": 100.07,
+          "end": 101.050396
+        },
+        {
+          "id": "s2-shot16-l1",
+          "speaker": "ollie",
+          "en": "I am sorry, Bubbles.",
+          "ko": "미안해, 버블스.",
+          "start": 107.693333,
+          "end": 109.729062
+        },
+        {
+          "id": "s2-shot16-l2",
+          "speaker": "bubbles",
+          "en": "Thank you for saying sorry.",
+          "ko": "사과해 줘서 고마워.",
+          "start": 110.843333,
+          "end": 112.349917
+        },
+        {
+          "id": "s2-shot16-l3",
+          "speaker": "ollie",
+          "en": "Can we look together?",
+          "ko": "같이 찾아볼까?",
+          "start": 113.609333,
+          "end": 115.695833
+        },
+        {
+          "id": "s2-shot16-l4",
+          "speaker": "bubbles",
+          "en": "Yes!",
+          "ko": "응!",
+          "start": 115.813333,
+          "end": 116.403021
+        },
+        {
+          "id": "s2-shot17-l1",
+          "speaker": "puffy",
+          "en": "We can find it together.",
+          "ko": "함께 찾을 수 있어.",
+          "start": 118.936667,
+          "end": 120.764229
+        },
+        {
+          "id": "s2-shot17-l2",
+          "speaker": "ollie",
+          "en": "Let us find it!",
+          "ko": "찾으러 가자!",
+          "start": 123.526667,
+          "end": 125.187708
+        },
+        {
+          "id": "s2-shot17-l3",
+          "speaker": "mini",
+          "en": "I can help, too.",
+          "ko": "나도 도울 수 있어.",
+          "start": 125.706667,
+          "end": 126.939646
+        },
+        {
+          "id": "s2-shot17-l4",
+          "speaker": "blue",
+          "en": "Yes, you can!",
+          "ko": "그럼, 너도 할 수 있어!",
+          "start": 128.976667,
+          "end": 130.469583
+        },
+        {
+          "id": "s2-shot18-l1",
+          "speaker": "green",
+          "en": "Stop. Look carefully.",
+          "ko": "멈춰. 자세히 봐.",
+          "start": 134.43,
+          "end": 137.012875
+        },
+        {
+          "id": "s2-shot18-l2",
+          "speaker": "ollie",
+          "en": "What can you see?",
+          "ko": "뭐가 보이니?",
+          "start": 139.44,
+          "end": 141.289667
+        },
+        {
+          "id": "s2-shot18-l3",
+          "speaker": "green",
+          "en": "A little sparkle!",
+          "ko": "작은 반짝임이야!",
+          "start": 142.6825,
+          "end": 143.794292
+        },
+        {
+          "id": "s2-shot18-l4",
+          "speaker": "ollie",
+          "en": "Where?",
+          "ko": "어디?",
+          "start": 144.824,
+          "end": 146.061958
+        },
+        {
+          "id": "s2-shot19-l1",
+          "speaker": "green",
+          "en": "Look! Rainbow sparkles!",
+          "ko": "봐! 무지개가 반짝여!",
+          "start": 150.623333,
+          "end": 153.114062
+        },
+        {
+          "id": "s2-shot19-l2",
+          "speaker": "blue",
+          "en": "They are from the light!",
+          "ko": "등불에서 나온 거야!",
+          "start": 154.553333,
+          "end": 156.113271
+        },
+        {
+          "id": "s2-shot19-l3",
+          "speaker": "green",
+          "en": "Here is another one!",
+          "ko": "여기 또 하나 있어!",
+          "start": 157.783333,
+          "end": 159.418125
+        },
+        {
+          "id": "s2-shot19-l4",
+          "speaker": "blue",
+          "en": "Good job!",
+          "ko": "잘했어!",
+          "start": 159.903333,
+          "end": 160.834042
+        },
+        {
+          "id": "s2-shot20-l1",
+          "speaker": "bubbles",
+          "en": "Is it on my nose?",
+          "ko": "내 코 위에 있니?",
+          "start": 166.916667,
+          "end": 168.576417
+        },
+        {
+          "id": "s2-shot20-l2",
+          "speaker": "mini",
+          "en": "Yes! Right there!",
+          "ko": "응! 바로 거기!",
+          "start": 169.036667,
+          "end": 171.237875
+        },
+        {
+          "id": "s2-shot20-l3",
+          "speaker": "bubbles",
+          "en": "It tickles!",
+          "ko": "간지러워!",
+          "start": 172.803167,
+          "end": 174.206958
+        },
+        {
+          "id": "s2-shot20-l4",
+          "speaker": "mini",
+          "en": "You are funny!",
+          "ko": "넌 정말 재미있어!",
+          "start": 174.346667,
+          "end": 175.745042
+        }
+      ]
+    },
+    {
+      "no": 3,
+      "label": {
+        "ko": "숲속에서 함께",
+        "en": "Together in the Forest"
+      },
+      "arc": "seung",
+      "durationSec": 190.95833333333334,
+      "video": "/media/dubbing/dub-008/scene-3.mp4",
+      "poster": "/media/dubbing/dub-008/scene-3.jpg",
+      "videoAudio": "mute",
+      "bgm": "/media/dubbing/dub-008/scene-3-bgm.mp3",
+      "sfx": [],
+      "voices": {
+        "ollie": "/media/dubbing/dub-008/scene-3-ollie.mp3",
+        "blue": "/media/dubbing/dub-008/scene-3-blue.mp3",
+        "puffy": "/media/dubbing/dub-008/scene-3-puffy.mp3",
+        "mini": "/media/dubbing/dub-008/scene-3-mini.mp3",
+        "green": "/media/dubbing/dub-008/scene-3-green.mp3",
+        "bubbles": "/media/dubbing/dub-008/scene-3-bubbles.mp3"
+      },
+      "lines": [
+        {
+          "id": "s3-shot21-l1",
+          "speaker": "ollie",
+          "en": "Look at these footprints!",
+          "ko": "이 발자국들을 봐!",
+          "start": 0.036667,
+          "end": 3.057833
+        },
+        {
+          "id": "s3-shot21-l2",
+          "speaker": "puffy",
+          "en": "They go into the forest.",
+          "ko": "숲으로 이어져 있어.",
+          "start": 5.966667,
+          "end": 7.402729
+        },
+        {
+          "id": "s3-shot21-l3",
+          "speaker": "ollie",
+          "en": "Let us follow them!",
+          "ko": "따라가 보자!",
+          "start": 8.756667,
+          "end": 10.897396
+        },
+        {
+          "id": "s3-shot21-l4",
+          "speaker": "blue",
+          "en": "Slowly, please.",
+          "ko": "천천히 해 줘.",
+          "start": 13.536667,
+          "end": 14.527813
+        },
+        {
+          "id": "s3-shot22-l1",
+          "speaker": "blue",
+          "en": "Stay with me.",
+          "ko": "내 곁에 있어.",
+          "start": 17.72,
+          "end": 18.8645
+        },
+        {
+          "id": "s3-shot22-l2",
+          "speaker": "mini",
+          "en": "Okay, Blue.",
+          "ko": "알겠어, 블루.",
+          "start": 20.3365,
+          "end": 21.528437
+        },
+        {
+          "id": "s3-shot22-l3",
+          "speaker": "puffy",
+          "en": "Is everyone here?",
+          "ko": "모두 여기 있니?",
+          "start": 24.798,
+          "end": 26.094187
+        },
+        {
+          "id": "s3-shot22-l4",
+          "speaker": "bubbles",
+          "en": "I am here!",
+          "ko": "나 여기 있어!",
+          "start": 27.5685,
+          "end": 29.286104
+        },
+        {
+          "id": "s3-shot23-l1",
+          "speaker": "bubbles",
+          "en": "What is that sound?",
+          "ko": "무슨 소리지?",
+          "start": 31.073333,
+          "end": 32.247458
+        },
+        {
+          "id": "s3-shot23-l2",
+          "speaker": "green",
+          "en": "I do not know.",
+          "ko": "모르겠어.",
+          "start": 34.413333,
+          "end": 36.069667
+        },
+        {
+          "id": "s3-shot23-l3",
+          "speaker": "ollie",
+          "en": "Let us listen.",
+          "ko": "들어보자.",
+          "start": 36.913333,
+          "end": 38.471354
+        },
+        {
+          "id": "s3-shot24-l1",
+          "speaker": "mini",
+          "en": "I am a little scared.",
+          "ko": "조금 무서워.",
+          "start": 47.896667,
+          "end": 49.873521
+        },
+        {
+          "id": "s3-shot24-l2",
+          "speaker": "blue",
+          "en": "Me, too.",
+          "ko": "나도.",
+          "start": 52.277167,
+          "end": 52.9055
+        },
+        {
+          "id": "s3-shot24-l3",
+          "speaker": "puffy",
+          "en": "Let us stay together.",
+          "ko": "함께 있자.",
+          "start": 52.9855,
+          "end": 56.033646
+        },
+        {
+          "id": "s3-shot24-l4",
+          "speaker": "mini",
+          "en": "Okay.",
+          "ko": "알겠어.",
+          "start": 57.871167,
+          "end": 58.753104
+        },
+        {
+          "id": "s3-shot25-l1",
+          "speaker": "ollie",
+          "en": "Ready, everyone?",
+          "ko": "모두 준비됐니?",
+          "start": 62.32,
+          "end": 64.055604
+        },
+        {
+          "id": "s3-shot25-l2",
+          "speaker": "mini",
+          "en": "Ready.",
+          "ko": "준비됐어.",
+          "start": 65.47,
+          "end": 66.087188
+        },
+        {
+          "id": "s3-shot25-l3",
+          "speaker": "bubbles",
+          "en": "Wait for me!",
+          "ko": "나를 기다려 줘!",
+          "start": 68.92,
+          "end": 69.987396
+        },
+        {
+          "id": "s3-shot25-l4",
+          "speaker": "puffy",
+          "en": "Come with us!",
+          "ko": "우리와 같이 가자!",
+          "start": 72.61,
+          "end": 73.673208
+        },
+        {
+          "id": "s3-shot26-l1",
+          "speaker": "blue",
+          "en": "Let us find the light!",
+          "ko": "등불을 찾으러 가자!",
+          "start": 76.113333,
+          "end": 77.911833
+        },
+        {
+          "id": "s3-shot26-l2",
+          "speaker": "ollie",
+          "en": "Together!",
+          "ko": "함께!",
+          "start": 82.147833,
+          "end": 83.822438
+        },
+        {
+          "id": "s3-shot26-l3",
+          "speaker": "mini",
+          "en": "I can help.",
+          "ko": "내가 도울 수 있어.",
+          "start": 84.661833,
+          "end": 85.930417
+        },
+        {
+          "id": "s3-shot26-l4",
+          "speaker": "bubbles",
+          "en": "Here we go!",
+          "ko": "자, 출발!",
+          "start": 86.183333,
+          "end": 87.051604
+        },
+        {
+          "id": "s3-shot27-l1",
+          "speaker": "bubbles",
+          "en": "What is that sound?",
+          "ko": "무슨 소리지?",
+          "start": 92.676667,
+          "end": 94.303438
+        },
+        {
+          "id": "s3-shot27-l2",
+          "speaker": "blue",
+          "en": "Stay with me.",
+          "ko": "내 곁에 있어.",
+          "start": 95.476667,
+          "end": 96.171104
+        },
+        {
+          "id": "s3-shot27-l3",
+          "speaker": "bubbles",
+          "en": "Is it a monster?",
+          "ko": "괴물일까?",
+          "start": 98.573167,
+          "end": 99.244479
+        },
+        {
+          "id": "s3-shot27-l4",
+          "speaker": "blue",
+          "en": "Let us look.",
+          "ko": "찾아보자.",
+          "start": 102.287167,
+          "end": 103.750667
+        },
+        {
+          "id": "s3-shot28-l1",
+          "speaker": "bubbles",
+          "en": "I am scared.",
+          "ko": "무서워.",
+          "start": 104.8885,
+          "end": 106.270583
+        },
+        {
+          "id": "s3-shot28-l2",
+          "speaker": "blue",
+          "en": "I am here.",
+          "ko": "나 여기 있어.",
+          "start": 109.8885,
+          "end": 110.932687
+        },
+        {
+          "id": "s3-shot28-l3",
+          "speaker": "bubbles",
+          "en": "There it is again!",
+          "ko": "또 들렸어!",
+          "start": 113.903333,
+          "end": 115.003479
+        },
+        {
+          "id": "s3-shot28-l4",
+          "speaker": "blue",
+          "en": "Listen carefully.",
+          "ko": "잘 들어봐.",
+          "start": 115.36,
+          "end": 116.614688
+        },
+        {
+          "id": "s3-shot29-l1",
+          "speaker": "green",
+          "en": "Look up there!",
+          "ko": "저 위를 봐!",
+          "start": 116.87,
+          "end": 118.421646
+        },
+        {
+          "id": "s3-shot29-l2",
+          "speaker": "bubbles",
+          "en": "A pot?",
+          "ko": "냄비?",
+          "start": 121.398333,
+          "end": 122.310041
+        },
+        {
+          "id": "s3-shot29-l3",
+          "speaker": "green",
+          "en": "It is only a pot.",
+          "ko": "그냥 냄비야.",
+          "start": 122.945,
+          "end": 124.269479
+        },
+        {
+          "id": "s3-shot29-l4",
+          "speaker": "bubbles",
+          "en": "Not a monster!",
+          "ko": "괴물이 아니야!",
+          "start": 126.105,
+          "end": 127.649
+        },
+        {
+          "id": "s3-shot30-l1",
+          "speaker": "bubbles",
+          "en": "That is funny!",
+          "ko": "정말 웃기다!",
+          "start": 132.622833,
+          "end": 133.756042
+        },
+        {
+          "id": "s3-shot30-l2",
+          "speaker": "green",
+          "en": "We are safe.",
+          "ko": "우리는 안전해.",
+          "start": 134.896833,
+          "end": 135.875188
+        },
+        {
+          "id": "s3-shot30-l3",
+          "speaker": "bubbles",
+          "en": "More sparkles!",
+          "ko": "반짝임이 또 있어!",
+          "start": 138.608833,
+          "end": 139.460271
+        },
+        {
+          "id": "s3-shot30-l4",
+          "speaker": "green",
+          "en": "This way.",
+          "ko": "이쪽이야.",
+          "start": 139.540271,
+          "end": 140.381208
+        },
+        {
+          "id": "s3-shot31-l1",
+          "speaker": "ollie",
+          "en": "Look! An old house.",
+          "ko": "봐! 오래된 집이야.",
+          "start": 143.661667,
+          "end": 146.135063
+        },
+        {
+          "id": "s3-shot31-l2",
+          "speaker": "blue",
+          "en": "Wait for us.",
+          "ko": "우리를 기다려 줘.",
+          "start": 146.778334,
+          "end": 148.108875
+        },
+        {
+          "id": "s3-shot31-l3",
+          "speaker": "ollie",
+          "en": "I will look inside.",
+          "ko": "안에 들어가 볼게.",
+          "start": 150.687501,
+          "end": 152.128188
+        },
+        {
+          "id": "s3-shot31-l4",
+          "speaker": "blue",
+          "en": "Be careful.",
+          "ko": "조심해.",
+          "start": 153.923501,
+          "end": 154.751522
+        },
+        {
+          "id": "s3-shot32-l1",
+          "speaker": "ollie",
+          "en": "Oh! The door!",
+          "ko": "어! 문이!",
+          "start": 161.144166,
+          "end": 163.498479
+        },
+        {
+          "id": "s3-shot32-l2",
+          "speaker": "ollie",
+          "en": "Where are my friends?",
+          "ko": "친구들이 어디 있지?",
+          "start": 164.7455,
+          "end": 165.921292
+        },
+        {
+          "id": "s3-shot32-l3",
+          "speaker": "ollie",
+          "en": "Can you hear me?",
+          "ko": "내 목소리 들리니?",
+          "start": 166.001292,
+          "end": 167.64925
+        },
+        {
+          "id": "s3-shot33-l1",
+          "speaker": "blue",
+          "en": "I can hear you!",
+          "ko": "네 목소리가 들려!",
+          "start": 168.79,
+          "end": 170.336063
+        },
+        {
+          "id": "s3-shot33-l2",
+          "speaker": "ollie",
+          "en": "I am right here!",
+          "ko": "나 바로 여기 있어!",
+          "start": 170.83,
+          "end": 172.640458
+        },
+        {
+          "id": "s3-shot33-l3",
+          "speaker": "blue",
+          "en": "Follow my voice.",
+          "ko": "내 목소리를 따라와.",
+          "start": 173.758333,
+          "end": 175.277
+        },
+        {
+          "id": "s3-shot33-l4",
+          "speaker": "ollie",
+          "en": "I am coming.",
+          "ko": "지금 갈게.",
+          "start": 175.676666,
+          "end": 176.919541
+        },
+        {
+          "id": "s3-shot34-l1",
+          "speaker": "blue",
+          "en": "There you are!",
+          "ko": "거기 있었구나!",
+          "start": 179.25,
+          "end": 180.395021
+        },
+        {
+          "id": "s3-shot34-l2",
+          "speaker": "ollie",
+          "en": "Thank you, Blue.",
+          "ko": "고마워, 블루.",
+          "start": 183.15,
+          "end": 184.254875
+        },
+        {
+          "id": "s3-shot34-l3",
+          "speaker": "blue",
+          "en": "Let us stay together.",
+          "ko": "함께 있자.",
+          "start": 185.51,
+          "end": 187.120958
+        },
+        {
+          "id": "s3-shot34-l4",
+          "speaker": "ollie",
+          "en": "I will wait next time.",
+          "ko": "다음에는 기다릴게.",
+          "start": 188.153334,
+          "end": 190.293709
+        }
+      ]
+    },
+    {
+      "no": 4,
+      "label": {
+        "ko": "미니의 고백",
+        "en": "Mini Tells the Truth"
+      },
+      "arc": "jeon",
+      "durationSec": 54.083333333333336,
+      "video": "/media/dubbing/dub-008/scene-4.mp4",
+      "poster": "/media/dubbing/dub-008/scene-4.jpg",
+      "videoAudio": "mute",
+      "bgm": "/media/dubbing/dub-008/scene-4-bgm.mp3",
+      "sfx": [],
+      "voices": {
+        "ollie": "/media/dubbing/dub-008/scene-4-ollie.mp3",
+        "puffy": "/media/dubbing/dub-008/scene-4-puffy.mp3",
+        "mini": "/media/dubbing/dub-008/scene-4-mini.mp3",
+        "green": "/media/dubbing/dub-008/scene-4-green.mp3"
+      },
+      "lines": [
+        {
+          "id": "s4-shot35-l1",
+          "speaker": "green",
+          "en": "Look! The light!",
+          "ko": "봐! 등불이야!",
+          "start": 2.408333,
+          "end": 5.131208
+        },
+        {
+          "id": "s4-shot35-l2",
+          "speaker": "mini",
+          "en": "We found it.",
+          "ko": "찾았다.",
+          "start": 8.634333,
+          "end": 10.098666
+        },
+        {
+          "id": "s4-shot35-l3",
+          "speaker": "green",
+          "en": "Why is it here?",
+          "ko": "왜 여기 있지?",
+          "start": 10.268333,
+          "end": 11.389583
+        },
+        {
+          "id": "s4-shot35-l4",
+          "speaker": "mini",
+          "en": "I know.",
+          "ko": "나는 알아.",
+          "start": 12.488333,
+          "end": 13.729291
+        },
+        {
+          "id": "s4-shot36-l1",
+          "speaker": "mini",
+          "en": "I moved the light.",
+          "ko": "내가 등불을 옮겼어.",
+          "start": 16.942667,
+          "end": 18.760376
+        },
+        {
+          "id": "s4-shot36-l2",
+          "speaker": "ollie",
+          "en": "You moved it?",
+          "ko": "네가 옮겼다고?",
+          "start": 19.771167,
+          "end": 21.059917
+        },
+        {
+          "id": "s4-shot36-l3",
+          "speaker": "mini",
+          "en": "I wanted to help.",
+          "ko": "도와주고 싶었어.",
+          "start": 21.152667,
+          "end": 23.04998
+        },
+        {
+          "id": "s4-shot36-l4",
+          "speaker": "mini",
+          "en": "I am sorry.",
+          "ko": "미안해.",
+          "start": 23.12998,
+          "end": 25.553251
+        },
+        {
+          "id": "s4-shot37-l1",
+          "speaker": "ollie",
+          "en": "You should have told us.",
+          "ko": "우리에게 말해 줬어야지.",
+          "start": 29.743333,
+          "end": 31.691708
+        },
+        {
+          "id": "s4-shot37-l2",
+          "speaker": "mini",
+          "en": "I know.",
+          "ko": "나는 알아.",
+          "start": 31.783333,
+          "end": 33.338396
+        },
+        {
+          "id": "s4-shot37-l3",
+          "speaker": "ollie",
+          "en": "The light is going out!",
+          "ko": "불빛이 꺼지고 있어!",
+          "start": 35.8735,
+          "end": 37.830646
+        },
+        {
+          "id": "s4-shot37-l4",
+          "speaker": "mini",
+          "en": "Oh, no!",
+          "ko": "이런!",
+          "start": 37.915,
+          "end": 39.421334
+        },
+        {
+          "id": "s4-shot38-l1",
+          "speaker": "mini",
+          "en": "It is my mistake.",
+          "ko": "내 실수야.",
+          "start": 41.330833,
+          "end": 43.22325
+        },
+        {
+          "id": "s4-shot38-l2",
+          "speaker": "mini",
+          "en": "I will fix it.",
+          "ko": "내가 고칠게.",
+          "start": 45.168333,
+          "end": 46.973208
+        },
+        {
+          "id": "s4-shot38-l3",
+          "speaker": "puffy",
+          "en": "We are here with you.",
+          "ko": "우리가 네 곁에 있어.",
+          "start": 49.706333,
+          "end": 51.585312
+        },
+        {
+          "id": "s4-shot38-l4",
+          "speaker": "mini",
+          "en": "Thank you.",
+          "ko": "고마워.",
+          "start": 52.298333,
+          "end": 53.491521
+        }
+      ]
+    },
+    {
+      "no": 5,
+      "label": {
+        "ko": "우리 함께 고치자",
+        "en": "Let Us Fix It Together"
+      },
+      "arc": "jeon",
+      "durationSec": 55.0,
+      "video": "/media/dubbing/dub-008/scene-5.mp4",
+      "poster": "/media/dubbing/dub-008/scene-5.jpg",
+      "videoAudio": "mute",
+      "bgm": "/media/dubbing/dub-008/scene-5-bgm.mp3",
+      "sfx": [],
+      "voices": {
+        "puffy": "/media/dubbing/dub-008/scene-5-puffy.mp3",
+        "mini": "/media/dubbing/dub-008/scene-5-mini.mp3",
+        "green": "/media/dubbing/dub-008/scene-5-green.mp3"
+      },
+      "lines": [
+        {
+          "id": "s5-shot39-l1",
+          "speaker": "mini",
+          "en": "I can fix it.",
+          "ko": "내가 고칠 수 있어.",
+          "start": 1.916667,
+          "end": 3.815833
+        },
+        {
+          "id": "s5-shot39-l2",
+          "speaker": "mini",
+          "en": "Oh. Not yet.",
+          "ko": "아. 아직 안 되네.",
+          "start": 3.896667,
+          "end": 7.350771
+        },
+        {
+          "id": "s5-shot39-l3",
+          "speaker": "mini",
+          "en": "Let me try again.",
+          "ko": "다시 해 볼게.",
+          "start": 7.931,
+          "end": 9.832146
+        },
+        {
+          "id": "s5-shot39-l4",
+          "speaker": "mini",
+          "en": "I need help.",
+          "ko": "도움이 필요해.",
+          "start": 9.912146,
+          "end": 11.487604
+        },
+        {
+          "id": "s5-shot40-l1",
+          "speaker": "mini",
+          "en": "Can you help me?",
+          "ko": "나를 도와줄래?",
+          "start": 15.348334,
+          "end": 17.198563
+        },
+        {
+          "id": "s5-shot40-l2",
+          "speaker": "green",
+          "en": "Of course.",
+          "ko": "물론이지.",
+          "start": 18.506834,
+          "end": 19.333459
+        },
+        {
+          "id": "s5-shot40-l3",
+          "speaker": "mini",
+          "en": "I need help.",
+          "ko": "도움이 필요해.",
+          "start": 20.388334,
+          "end": 22.044354
+        },
+        {
+          "id": "s5-shot40-l4",
+          "speaker": "green",
+          "en": "Let us fix it together.",
+          "ko": "함께 고치자.",
+          "start": 23.080001,
+          "end": 24.889896
+        },
+        {
+          "id": "s5-shot41-l1",
+          "speaker": "puffy",
+          "en": "I can hold it.",
+          "ko": "내가 잡고 있을게.",
+          "start": 26.63,
+          "end": 28.408375
+        },
+        {
+          "id": "s5-shot41-l2",
+          "speaker": "green",
+          "en": "Put this here.",
+          "ko": "이걸 여기에 놓아.",
+          "start": 32.1225,
+          "end": 33.237208
+        },
+        {
+          "id": "s5-shot41-l3",
+          "speaker": "mini",
+          "en": "Like this?",
+          "ko": "이렇게?",
+          "start": 36.09,
+          "end": 37.620271
+        },
+        {
+          "id": "s5-shot41-l4",
+          "speaker": "green",
+          "en": "Yes. Good job!",
+          "ko": "응. 잘했어!",
+          "start": 38.03,
+          "end": 40.028188
+        },
+        {
+          "id": "s5-shot42-l1",
+          "speaker": "mini",
+          "en": "Let us try.",
+          "ko": "해 보자.",
+          "start": 40.603333,
+          "end": 42.508708
+        },
+        {
+          "id": "s5-shot42-l2",
+          "speaker": "green",
+          "en": "It is working!",
+          "ko": "작동하고 있어!",
+          "start": 49.927833,
+          "end": 50.733063
+        },
+        {
+          "id": "s5-shot42-l3",
+          "speaker": "mini",
+          "en": "We fixed it together!",
+          "ko": "우리가 함께 고쳤어!",
+          "start": 50.813063,
+          "end": 53.154292
+        },
+        {
+          "id": "s5-shot42-l4",
+          "speaker": "green",
+          "en": "Well done!",
+          "ko": "참 잘했어!",
+          "start": 53.891833,
+          "end": 54.843063
+        }
+      ]
+    },
+    {
+      "no": 6,
+      "label": {
+        "ko": "가장 따뜻한 축제",
+        "en": "A Festival of Friendship"
+      },
+      "arc": "gyeol",
+      "durationSec": 73.70833333333333,
+      "video": "/media/dubbing/dub-008/scene-6.mp4",
+      "poster": "/media/dubbing/dub-008/scene-6.jpg",
+      "videoAudio": "mute",
+      "bgm": "/media/dubbing/dub-008/scene-6-bgm.mp3",
+      "sfx": [],
+      "voices": {
+        "ollie": "/media/dubbing/dub-008/scene-6-ollie.mp3",
+        "blue": "/media/dubbing/dub-008/scene-6-blue.mp3",
+        "puffy": "/media/dubbing/dub-008/scene-6-puffy.mp3",
+        "mini": "/media/dubbing/dub-008/scene-6-mini.mp3",
+        "green": "/media/dubbing/dub-008/scene-6-green.mp3"
+      },
+      "lines": [
+        {
+          "id": "s6-shot43-l1",
+          "speaker": "blue",
+          "en": "Let us take it home.",
+          "ko": "집으로 가져가자.",
+          "start": 3.156667,
+          "end": 4.566583
+        },
+        {
+          "id": "s6-shot43-l2",
+          "speaker": "puffy",
+          "en": "Hold it with me.",
+          "ko": "나와 함께 잡아 줘.",
+          "start": 6.836667,
+          "end": 8.476125
+        },
+        {
+          "id": "s6-shot43-l3",
+          "speaker": "blue",
+          "en": "Slowly, please.",
+          "ko": "천천히 해 줘.",
+          "start": 9.336667,
+          "end": 10.685396
+        },
+        {
+          "id": "s6-shot43-l4",
+          "speaker": "puffy",
+          "en": "Together.",
+          "ko": "함께.",
+          "start": 11.436667,
+          "end": 12.118333
+        },
+        {
+          "id": "s6-shot44-l1",
+          "speaker": "blue",
+          "en": "The wind is strong!",
+          "ko": "바람이 세게 불어!",
+          "start": 19.51,
+          "end": 21.314146
+        },
+        {
+          "id": "s6-shot44-l2",
+          "speaker": "puffy",
+          "en": "Hold on!",
+          "ko": "꽉 잡아!",
+          "start": 21.97,
+          "end": 22.830354
+        },
+        {
+          "id": "s6-shot44-l3",
+          "speaker": "blue",
+          "en": "I need help!",
+          "ko": "도움이 필요해!",
+          "start": 25.37,
+          "end": 26.747604
+        },
+        {
+          "id": "s6-shot44-l4",
+          "speaker": "puffy",
+          "en": "We can keep it safe.",
+          "ko": "우리가 안전하게 지킬 수 있어.",
+          "start": 28.17,
+          "end": 29.602604
+        },
+        {
+          "id": "s6-shot45-l1",
+          "speaker": "ollie",
+          "en": "We can block the wind.",
+          "ko": "우리가 바람을 막을 수 있어.",
+          "start": 31.143333,
+          "end": 33.355708
+        },
+        {
+          "id": "s6-shot45-l2",
+          "speaker": "green",
+          "en": "Hold this side.",
+          "ko": "이쪽을 잡아 줘.",
+          "start": 35.163333,
+          "end": 36.549563
+        },
+        {
+          "id": "s6-shot45-l3",
+          "speaker": "ollie",
+          "en": "We are a team!",
+          "ko": "우리는 한 팀이야!",
+          "start": 38.703333,
+          "end": 40.117438
+        },
+        {
+          "id": "s6-shot45-l4",
+          "speaker": "green",
+          "en": "The light is safe.",
+          "ko": "등불은 안전해.",
+          "start": 42.181833,
+          "end": 43.665792
+        },
+        {
+          "id": "s6-shot46-l1",
+          "speaker": "mini",
+          "en": "I am sorry.",
+          "ko": "미안해.",
+          "start": 46.436667,
+          "end": 48.035875
+        },
+        {
+          "id": "s6-shot46-l2",
+          "speaker": "puffy",
+          "en": "You are my friend.",
+          "ko": "너는 내 친구야.",
+          "start": 50.967167,
+          "end": 52.141854
+        },
+        {
+          "id": "s6-shot46-l3",
+          "speaker": "mini",
+          "en": "Thank you for helping me.",
+          "ko": "도와줘서 고마워.",
+          "start": 52.221854,
+          "end": 55.250687
+        },
+        {
+          "id": "s6-shot46-l4",
+          "speaker": "puffy",
+          "en": "We help each other.",
+          "ko": "우리는 서로 도와.",
+          "start": 56.853167,
+          "end": 58.372104
+        },
+        {
+          "id": "s6-shot47-l1",
+          "speaker": "ollie",
+          "en": "We did it!",
+          "ko": "우리가 해냈어!",
+          "start": 61.984833,
+          "end": 63.054667
+        },
+        {
+          "id": "s6-shot47-l2",
+          "speaker": "blue",
+          "en": "We are different.",
+          "ko": "우리는 서로 달라.",
+          "start": 63.328333,
+          "end": 64.472708
+        },
+        {
+          "id": "s6-shot47-l3",
+          "speaker": "puffy",
+          "en": "We are friends!",
+          "ko": "우리는 친구야!",
+          "start": 66.568833,
+          "end": 67.82525
+        },
+        {
+          "id": "s6-shot47-l4",
+          "speaker": "mini",
+          "en": "Together!",
+          "ko": "함께!",
+          "start": 68.508333,
+          "end": 69.575833
+        }
+      ]
+    }
+  ]
+}

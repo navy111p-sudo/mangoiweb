@@ -158,23 +158,31 @@ export async function getOverridePhones(env: OverrideEnv, userId: string): Promi
  * ⚠️ 여기는 정확일치로만 찾는다 — 여러 명을 한꺼번에 볼 때 대소문자 후보를 섞으면
  *    누구의 번호인지가 흐려진다. 단건 조회(위)가 그 폴백을 담당한다.
  */
-export async function loadOverridePhones(env: OverrideEnv, uids: string[]): Promise<Map<string, OverridePhones>> {
+export async function loadOverridePhones(
+  env: OverrideEnv, uids: string[], opts: { report?: { complete: boolean } } = {},
+): Promise<Map<string, OverridePhones>> {
   const out = new Map<string, OverridePhones>();
   const want = Array.from(new Set(uids.filter(Boolean).map(u => String(u).trim())));
   if (!want.length) return out;
-  if (!(await ensureStudentOverrideTable(env))) return out;
+  /* 🔎 (2026-10-28 무작위 반복 검사) report = «다 물어봤나» 를 알려 준다. 던지지는 않는다(fail-open 그대로).
+     연락처 정본(notify-contacts.ts loadContactPhones)이 이것으로 «조회 실패» 를 «번호 없음» 과 가른다
+     — 안 그러면 이 표가 흔들린 순간 직원이 넣은 번호가 사라지는데 화면은 «다 물어봤다(없으면 정말 없다)» 고 말한다.
+     ⚠️ 청크 하나가 실패해도 다른 청크에서 받은 번호는 그대로 돌려준다 — 버리면 그 학생들이 명부 번호로 떨어져
+        «받아 둔 값이 명부를 이긴다» 가 깨진다. report 를 안 넘기는 호출(학생 상세 쪽)은 예전과 똑같다. */
+  const miss = () => { if (opts.report) opts.report.complete = false; };
+  if (!(await ensureStudentOverrideTable(env))) { miss(); return out; }
   try {
     const rows = await selectInChunks<any>(
       env.DB, want,
       (ph) => `SELECT user_id, parent_phone, student_phone FROM student_erp_override WHERE user_id IN (${ph})`,
-      { swallowErrors: true },
+      { swallowErrors: true, onChunkError: miss },
     );
     for (const r of rows) {
       if (!r || !r.user_id) continue;
       const p = { parent: normPhone(r.parent_phone), student: normPhone(r.student_phone) };
       if (p.parent || p.student) out.set(String(r.user_id), p);
     }
-  } catch { /* fail-open — 번호 칸이 비어 보일 뿐 */ }
+  } catch { miss(); /* fail-open — 번호 칸이 비어 보일 뿐 */ }
   return out;
 }
 

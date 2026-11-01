@@ -399,6 +399,33 @@ function showKakaoShareDialog(url) {
 
     </div>
 
+    <!-- 🗓 (2026-10-10) 선생님이 정한 4주 목표 — 목표가 없거나 서버가 goal 칸을 안 보냈으면 카드째 감춘다(pdGoalHtml 이 null). -->
+    <div class="card" id="pd-goal-card" style="margin-top:16px;display:none">
+      <h3>🗓 <span data-ko="이번 달 목표" data-en="This month's goal">이번 달 목표</span></h3>
+      <div id="pd-goal"></div>
+    </div>
+
+    <!-- 📊 (2026-10-10) 지난 30일 «한 것» 과 «해낸 것» 을 따로 — 공부한 양을 «실력» 이라 부르지 않으려고 칸을 나눈다.
+         서버가 study_skill 칸을 안 보냈거나 셀 수 있는 것이 하나도 없으면 카드째 감춘다(pdSkillHtml 이 null). -->
+    <div class="card" id="pd-skill-card" style="margin-top:16px;display:none">
+      <h3>📊 <span data-ko="지난 30일: 한 것과 해낸 것" data-en="Last 30 days: what was done and what was achieved">지난 30일: 한 것과 해낸 것</span></h3>
+      <div id="pd-skill"></div>
+    </div>
+
+    <!-- 👪 (2026-10-10) 선생님께 요청 하나 — 보기 중 하나를 고르면 다음 수업 강사 화면에 뜨고, 선생님이 «반영함» 을 누르면 여기에 ✔ 로 돌아온다.
+         서버가 request_options 칸을 안 보낸 응답(옛 서버·배포 중)에는 카드째 감춘다(pdReqHtml 이 null). -->
+    <div class="card" id="pd-req-card" style="margin-top:16px;display:none">
+      <h3>👪 <span data-ko="선생님께 요청" data-en="Request to the teacher">선생님께 요청</span></h3>
+      <div id="pd-req"></div>
+    </div>
+
+    <!-- 🗣️ A.i 말하기 (2026-10-02 P4 — 사장님 결정: 횟수 + 고쳐 준 표현 1~2개).
+         서버가 warmup 칸을 안 보낸 응답(옛 서버·배포 중)에는 카드를 통째로 감춘다(pdWarmupHtml 이 null). -->
+    <div class="card" id="pd-warmup-card" style="margin-top:16px;display:none">
+      <h3>🗣️ <span data-ko="A.i 말하기" data-en="A.i Speaking">A.i 말하기</span></h3>
+      <div id="pd-warmup"></div>
+    </div>
+
     <!-- 평가서 섹션 -->
     <!-- 🎯 레벨테스트 신청 현황 — 신청건이 있을 때만 표시.
          (그동안 이 화면에 신청 내역이 아예 없어서 «신청했는데 안 보인다» 문의가 났다) -->
@@ -465,6 +492,155 @@ function showKakaoShareDialog(url) {
 const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const fmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
 const fmtDate = (ms) => ms ? new Date(ms).toLocaleDateString('ko-KR', { month:'short', day:'numeric' }) : '-';
+
+/* 🗣️ 웜업 카드 (2026-10-02 P4) — 서버(readParentWarmup, src/warmup-parent.ts)가 준 값을 «그리기만» 한다.
+   ⛔ 숫자를 지어내지 않는다: null = «모름» 은 «—», fixes_recorded=false 는 «아직 기록되지 않음».
+   ⛔ data-ko/data-en 은 «글자만 담은» span 에만 단다(두 i18n 엔진이 textContent 를 통째로 갈아끼운다).
+   반환값 null = 카드를 감춘다(서버가 warmup 칸을 안 보낸 경우 — 0건을 «안 했다» 로 읽히게 두지 않는다). */
+function pdWarmupHtml(w, en) {
+  if (!w || typeof w !== 'object') return null;
+  const T = (ko, enS) => `<span data-ko="${esc(ko)}" data-en="${esc(enS)}">${esc(en ? enS : ko)}</span>`;
+  const known = (w.spoke_sessions_this_month != null && w.days_this_month != null);
+  const spoke = Number(w.spoke_sessions_this_month) || 0;
+  const all = Number(w.sessions_this_month) || 0;
+  const days = Number(w.days_this_month) || 0;
+  let h = '<div class="stat">' + T('이번 달 A.i 말하기', 'A.i speaking sessions this month') + '<span class="v gold">'
+    + (known
+        ? `<span id="pd-wu-sessions">${fmt(spoke)}</span>${T('회', ' times')} · <span id="pd-wu-days">${fmt(days)}</span>${T('일', ' days')}`
+        : '—')
+    + '</span></div>';
+  if (!known) {
+    h += '<div style="font-size:13px;color:var(--pd-muted);margin-top:6px">' + T('A.i 말하기 기록을 확인하지 못했어요. 잠시 뒤 새로고침해 주세요.', 'Could not load A.i speaking records. Please refresh in a moment.') + '</div>';
+  } else if (spoke === 0) {
+    h += '<div style="font-size:13px;color:var(--pd-muted);margin-top:6px">' + T('이번 달에는 아직 A.i 말하기에서 대화를 시작한 기록이 없어요.', 'No A.i speaking conversation started yet this month.') + '</div>';
+  }
+  if (known && all > spoke) {
+    h += '<div style="font-size:12.5px;color:var(--pd-muted);margin-top:4px">' + T(`열었지만 말하기 전에 나간 ${all - spoke}회는 빼고 셌어요.`, `${all - spoke} session(s) opened but left before speaking are not counted.`) + '</div>';
+  }
+  h += '<div style="font-weight:800;color:var(--pd-accent);margin:14px 0 8px;font-size:15px">' + T('✏️ A.i 가 고쳐 준 표현', '✏️ Expressions the A.i corrected') + '</div>';
+  const fixes = Array.isArray(w.recent_fixes) ? w.recent_fixes.slice(0, 2) : [];
+  if (!w.fixes_recorded) {
+    h += '<div class="empty" style="padding:14px 12px">' + T('고쳐 준 표현은 아직 기록하고 있지 않아요. 기록이 시작되면 이곳에 보여 드려요.', 'Corrected expressions are not being recorded yet. They will appear here once recording starts.') + '</div>';
+  } else if (!fixes.length) {
+    h += '<div class="empty" style="padding:14px 12px">' + T('최근 30일 동안 고쳐 준 표현이 없어요.', 'No corrections in the last 30 days.') + '</div>';
+  } else {
+    h += fixes.map(f => `<div class="eval-item pd-wu-fix">
+        <div class="eval-text"><s style="color:var(--pd-red)">${esc(f.from)}</s> → <b style="color:var(--pd-green)">${esc(f.to)}</b></div>
+        ${f.why_ko ? `<div class="eval-text" style="color:var(--pd-ink2)">${esc(f.why_ko)}</div>` : ''}
+        <div class="eval-date" style="margin-left:0">${esc(fmtDate(f.at))}</div>
+      </div>`).join('');
+  }
+  return h;
+}
+
+/* 🗓 4주 목표 카드 (2026-10-10) — 서버(student-goal.ts)가 준 값을 «그리기만» 한다.
+   목표는 선생님이 정한다. 막대는 «28일 중 며칠째» (시간)이지 «달성률» 이 아니다.
+   연습 횟수는 서버가 셀 수 있었을 때만(null = 모름 → 그 줄을 안 그린다). 반환 null = 카드를 감춘다. */
+function pdGoalHtml(g, en) {
+  if (!g || typeof g !== 'object' || !g.key) return null;
+  const T = (ko, enS) => `<span data-ko="${esc(ko)}" data-en="${esc(enS)}">${esc(en ? enS : ko)}</span>`;
+  const day = Number(g.day) || 1, days = Number(g.days) || 28;
+  const pct = Math.max(4, Math.min(100, Math.round(day / days * 100)));
+  let h = `<div style="font-weight:900;font-size:16px;margin-bottom:6px">${T(String(g.ko || ''), String(g.en || ''))}</div>`;
+  h += `<div style="display:block;height:8px;border-radius:99px;background:rgba(148,163,184,.25);overflow:hidden;margin:4px 0 6px"><div class="pd-goal-fill" style="display:block;height:100%;width:${pct}%;border-radius:99px;background:var(--pd-green)"></div></div>`;
+  h += `<div style="font-size:13px;color:var(--pd-muted)">${T(days + '일 중 ' + day + '일째', 'Day ' + day + ' of ' + days)}`;
+  const p = g.practice || null;
+  if (p && p.friend != null) h += ' · ' + T('A.i 친구에게 ' + (Number(p.friend) || 0) + '번 말함', 'spoke to A.i friend ' + (Number(p.friend) || 0) + 'x');
+  if (p && p.warmup != null) h += ' · ' + T('웜업 ' + (Number(p.warmup) || 0) + '회', 'warm-up ' + (Number(p.warmup) || 0) + ' sessions');
+  h += '</div>';
+  if (g.set_by_name) h += `<div style="font-size:12.5px;color:var(--pd-muted);margin-top:4px">${T('정한 선생님: ', 'Set by: ')}${esc(g.set_by_name)}</div>`;
+  return h;
+}
+
+/* 📊 «한 것» / «해낸 것» 카드 (2026-10-10) — 서버(study-vs-skill.ts)가 센 값을 «그리기만» 한다.
+   null = «셀 수 없었음» 이라 그 줄을 안 그린다(0 과 다르다). 셀 수 있는 줄이 하나도 없으면 null = 카드를 감춘다.
+   ⛔ «한 것» 의 횟수를 «실력» 이라고 쓰지 않는다 — 그래서 두 칸이다. */
+function pdSkillHtml(s, en) {
+  if (!s || typeof s !== 'object' || !s.study || !s.skill) return null;
+  const T = (ko, enS) => `<span data-ko="${esc(ko)}" data-en="${esc(enS)}">${esc(en ? enS : ko)}</span>`;
+  const num = (v) => (v == null || !Number.isFinite(Number(v))) ? null : Number(v);
+  const row = (ko, enS, v) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0"><span>${T(ko, enS)}</span><b>${esc(String(v))}</b></div>`;
+  const st = s.study, sk = s.skill;
+  let left = '', right = '', n = 0;
+  const cd = num(st.class_days), ft = num(st.friend_talks), wu = num(st.warmups), vr = num(st.vocab_reviews);
+  if (cd != null) { left += row('화상수업 들어온 날', 'Days in class', cd); n++; }
+  if (ft != null) { left += row('A.i 친구에게 말한 횟수', 'Times spoke to A.i friend', ft); n++; }
+  if (wu != null) { left += row('수업 전 웜업', 'Warm-ups', wu); n++; }
+  if (vr != null) { left += row('단어 복습', 'Word reviews', vr); n++; }
+  const rw = num(sk.remembered_words), fr = num(sk.fixed_said_right), fto = num(sk.fixed_total);
+  if (rw != null) {
+    right += row('넣은 지 7일 넘어 단어 퀴즈에서 맞힌 단어', 'Words right in a quiz 7+ days after adding', rw); n++;
+    const ex = Array.isArray(sk.remembered_examples) ? sk.remembered_examples.filter(Boolean).slice(0, 3) : [];
+    if (ex.length) right += `<div style="font-size:12.5px;color:var(--pd-muted);padding:0 0 4px">${ex.map(esc).join(', ')}</div>`;
+  }
+  if (fr != null && fto != null && fto > 0) { right += row('고친 문장(최근 최대 3개)을 다시 읽어 발음 정확도 80+', 'Corrected sentences (latest 3) re-read at 80+ accuracy', fr + ' / ' + fto); n++; }
+  if (!n) return null;
+  if (!right) right = `<div style="font-size:13px;color:var(--pd-muted)">${T('아직 셀 수 있는 기록이 없어요', 'Nothing to count yet')}</div>`;
+  else if (rw === 0 && !(fr > 0)) right += `<div style="font-size:12.5px;color:var(--pd-muted);margin-top:4px">${T('단어를 넣고 7일 뒤 단어 퀴즈에서 맞히면 여기에 쌓입니다', 'Words count here when a quiz is answered right 7+ days after adding')}</div>`;
+  const col = (title, body) => `<div style="flex:1 1 220px;min-width:0;border:1px solid rgba(148,163,184,.35);border-radius:12px;padding:10px 12px"><div style="font-weight:900;margin-bottom:6px">${title}</div>${body}</div>`;
+  return `<div style="display:flex;flex-wrap:wrap;gap:10px">`
+    + col('🗂 ' + T('한 것 (공부량)', 'Done (amount)'), left || `<div style="font-size:13px;color:var(--pd-muted)">—</div>`)
+    + col('🏅 ' + T('해낸 것 (실력)', 'Achieved (skill)'), right)
+    + `</div><div style="font-size:12px;color:var(--pd-muted);margin-top:8px">${T('공부한 시간·횟수와 게임 점수는 «실력» 으로 세지 않습니다.', 'Study time, counts and game scores are not counted as skill.')}</div>`;
+}
+
+/* 👪 학부모 요청 카드 (2026-10-10) — 서버(parent-request.ts)가 준 보기·상태를 «그리기만» 한다.
+   반환 null = 카드를 감춘다(옛 응답이라 보기 목록이 없을 때). 보기를 이 화면에 적지 않는다. */
+function pdReqHtml(r, opts, en) {
+  if (!Array.isArray(opts) || !opts.length) return null;
+  const T = (ko, enS) => `<span data-ko="${esc(ko)}" data-en="${esc(enS)}">${esc(en ? enS : ko)}</span>`;
+  let h = '';
+  if (r && r.key && r.status === 'done') {
+    const dd = r.done_at ? new Date(r.done_at + 9 * 3600000).toISOString().slice(5, 10).replace('-', '/') : '';
+    h += `<div style="font-weight:800;margin-bottom:4px">✔ ${T(String(r.ko || ''), String(r.en || ''))}</div>`;
+    h += `<div style="font-size:13px;color:var(--pd-green);font-weight:700">${T('선생님이 수업에 반영했어요', 'The teacher applied it in class')}${r.done_by_name ? ' · ' + esc(r.done_by_name) : ''}${dd ? ' · ' + esc(dd) : ''}</div>`;
+  } else if (r && r.key && r.status === 'open') {
+    h += `<div style="font-weight:800;margin-bottom:4px">${T(String(r.ko || ''), String(r.en || ''))}</div>`;
+    h += `<div style="font-size:13px;color:var(--pd-muted)">${T('다음 수업 선생님 화면에 보입니다 · 아직 반영 전', 'Shown to the next teacher · not applied yet')}</div>`;
+  } else {
+    h += `<div style="font-size:13px;color:var(--pd-muted);margin-bottom:4px">${T('다음 수업에서 선생님이 신경 써 주셨으면 하는 것을 하나 골라 주세요.', 'Pick one thing you would like the teacher to focus on next class.')}</div>`;
+  }
+  const cur = (r && r.status === 'open') ? r.key : '';
+  h += `<div style="margin-top:8px"><select id="pd-req-pick" aria-label="${esc(en ? 'Choose a request' : '요청 고르기')}" style="max-width:100%;padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#101828;font-size:14px">`;
+  h += `<option value="">${esc(cur ? (en ? '— cancel request —' : '— 요청 취소 —') : (en ? 'Choose a request…' : '요청 고르기…'))}</option>`;
+  for (const o of opts) h += `<option value="${esc(o.key)}"${o.key === cur ? ' selected' : ''}>${esc(en ? o.en : o.ko)}</option>`;
+  h += `</select> <span id="pd-req-msg" style="font-size:12.5px;color:var(--pd-muted)"></span></div>`;
+  return h;
+}
+let _pdReqCur = '';
+async function pdReqSave(sel) {
+  const key = sel.value;
+  if (!key && !_pdReqCur) return;
+  const en = !!(window.getLang && getLang() === 'en');
+  if (!key && !confirm(en ? 'Cancel this request?' : '이 요청을 취소할까요?')) { sel.value = _pdReqCur; return; }
+  const msg = document.getElementById('pd-req-msg');
+  if (msg) msg.textContent = en ? 'Saving…' : '저장 중…';
+  sel.disabled = true;
+  try {
+    const r = await fetch('/api/parent/dashboard?part=request&child_uid=' + encodeURIComponent(_currentUid) + '&token=' + encodeURIComponent(_token || ''),
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ request_key: key }) });
+    const d = await r.json().catch(() => null);
+    if (!r.ok || !d || d.ok !== true) throw new Error((d && d.error) || ('http_' + r.status));
+    pdReqRender(d.parent_request || null, window.__pdReqOpts || []);
+  } catch (e) {
+    sel.disabled = false; sel.value = _pdReqCur;
+    const m2 = document.getElementById('pd-req-msg');
+    const why = (en ? 'Not saved' : '저장 안 됨') + ' (' + (e && e.message || '') + ')';
+    if (m2) m2.textContent = why; else alert(why);
+  }
+}
+function pdReqRender(r, opts) {
+  const card = document.getElementById('pd-req-card');
+  if (!card) return;
+  const h = pdReqHtml(r, opts, !!(window.getLang && getLang() === 'en'));
+  if (h == null) { card.style.display = 'none'; return; }
+  window.__pdReqOpts = opts;
+  _pdReqCur = (r && r.status === 'open') ? r.key : '';
+  document.getElementById('pd-req').innerHTML = h;
+  card.style.display = '';
+  const sel = document.getElementById('pd-req-pick');
+  if (sel) sel.addEventListener('change', () => pdReqSave(sel));
+}
 
 let _currentUid = null;
 let _token = null;        // 🔐 로그인 토큰(비밀번호 인증 후 발급)
@@ -953,6 +1129,39 @@ function pdRender(d){
    *   ⛔ 「/5」로 바꾸는 것도 안 된다 — 그 순간 0~100 행이 「88 / 5」가 되어 새 거짓말이 된다.
    *   ⚠️ eval.html·report.html 의 evalMax() 와 «같은 말» 을 해야 한다(하니스 ⑤절이 대조한다). */
   const pdEvalMax = (v) => (Number(v) || 0) > 5 ? 100 : 5;
+
+  // 🗓 4주 목표 (2026-10-10)
+  {
+    const gCard = document.getElementById('pd-goal-card');
+    const gHtml = pdGoalHtml(d.goal, !!(window.getLang && getLang() === 'en'));
+    if (gCard) {
+      if (gHtml == null) { gCard.style.display = 'none'; }
+      else { document.getElementById('pd-goal').innerHTML = gHtml; gCard.style.display = ''; }
+    }
+  }
+
+  // 📊 한 것 / 해낸 것 (2026-10-10)
+  {
+    const sCard = document.getElementById('pd-skill-card');
+    const sHtml = pdSkillHtml(d.study_skill, !!(window.getLang && getLang() === 'en'));
+    if (sCard) {
+      if (sHtml == null) { sCard.style.display = 'none'; }
+      else { document.getElementById('pd-skill').innerHTML = sHtml; sCard.style.display = ''; }
+    }
+  }
+
+  // 👪 선생님께 요청 (2026-10-10)
+  pdReqRender(d.parent_request || null, d.request_options);
+
+  // 🗣️ A.i 말하기 (2026-10-02 P4)
+  {
+    const wuCard = document.getElementById('pd-warmup-card');
+    const wuHtml = pdWarmupHtml(d.warmup, !!(window.getLang && getLang() === 'en'));
+    if (wuCard) {
+      if (wuHtml == null) { wuCard.style.display = 'none'; }
+      else { document.getElementById('pd-warmup').innerHTML = wuHtml; wuCard.style.display = ''; }
+    }
+  }
 
   // 평가서
   const evals = d.evaluations || [];

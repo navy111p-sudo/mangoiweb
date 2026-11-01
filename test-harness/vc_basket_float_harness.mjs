@@ -32,6 +32,7 @@ await page.evaluate(() => {
   row.classList.add('video-pip');
   // 진짜 바구니 재현 (vcEnsurePointBasket 이 만드는 것과 동일 클래스, 점수 3)
   const box = document.getElementById('vc-local-box');
+  box.style.setProperty('display', 'none', 'important'); // hidden-self fixture, not an automatic PIP policy
   if (!box.querySelector('.vc-point-basket')) {
     const b = document.createElement('div');
     b.className = 'vc-point-basket';
@@ -87,7 +88,7 @@ console.log('시나리오2(점수 3→5):', JSON.stringify(d2));
 chk('미러 점수 갱신 = 5', d2 === '5', d2);
 
 // 시나리오 3: 👁 내 얼굴 보기 → 진짜 바구니 보임 → 미러 자동 숨김
-await page.evaluate(() => { document.body.classList.add('vc-phero-self'); });
+await page.evaluate(() => { document.body.classList.add('vc-phero-self'); document.getElementById('vc-local-box').style.removeProperty('display'); });
 await new Promise(r => setTimeout(r, 1000));
 const d3 = await page.evaluate(() => {
   const g = s => { const el = document.querySelector(s); if (!el) return null;

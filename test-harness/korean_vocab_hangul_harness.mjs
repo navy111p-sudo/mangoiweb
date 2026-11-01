@@ -54,7 +54,8 @@ assert.ok(start > 0 && end > start);
 const wrapped = stripTypeScriptTypes('async function routeFixture() {\n' + src.slice(start, end) + '\n}');
 const code = wrapped.slice(wrapped.indexOf('{') + 1, wrapped.lastIndexOf('}'));
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-const route = new AsyncFunction('env', 'request', 'sourceName', 'normalizeKoreanGloss', 'isCleanText', `
+// 🔐 (2026-10-19) 라우트가 본인 확인(vocabWriteDenied)을 부른다 — 여기서는 «통과» 로 두고 뜻 검사만 본다(게이트 자체는 vocab_write_owner_gate_harness).
+const route = new AsyncFunction('env', 'request', 'sourceName', 'normalizeKoreanGloss', 'isCleanText', 'url', 'vocabWriteDenied', `
   const method='POST', path='/api/vocab/gen-quiz';
   const ensureMicroLearnSchema=async()=>{};
   const json=x=>x;
@@ -69,7 +70,7 @@ async function quiz(sourceName, glosses, distractors) {
       async run() { saved.push(binds); return { meta: { last_row_id: saved.length } }; },
     };
   } } };
-  const result = await route(env, { json: async () => ({ user_id: 'fixture', source: sourceName, count: glosses.length || 1 }) }, sourceName, normalizeKoreanGloss, isKoreanGloss);
+  const result = await route(env, { json: async () => ({ user_id: 'fixture', source: sourceName, count: glosses.length || 1 }) }, sourceName, normalizeKoreanGloss, isKoreanGloss, new URL('https://mangoi.ai/api/vocab/gen-quiz'), async () => null);
   return { result, saved };
 }
 for (const source of ['mywords', 'textbook']) {

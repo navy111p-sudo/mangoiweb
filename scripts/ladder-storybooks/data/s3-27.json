@@ -1,0 +1,312 @@
+{
+  "id": "s3-27",
+  "breaks": [
+    3,
+    5,
+    3,
+    3
+  ],
+  "key": {
+    "P": 2,
+    "S": 13
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «오늘날 과학자들은 강력한 도구로 우주에 다른 생명이 있는지 알아내려 한다(주제)» 와 «아직 답은 모르지만 과학자들은 계속 찾고 있다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (scientists are using powerful tools to find out if anyone is out there) and the conclusion (we do not know the answer yet, but scientists keep looking). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "The search for life beyond Earth"
+    },
+    {
+      "k": "Key fact",
+      "qko": "과학자들은 어떤 방법으로 찾고 있나요?",
+      "qen": "How are scientists searching?",
+      "a": "They study exoplanets and listen for signals"
+    },
+    {
+      "k": "Result",
+      "qko": "지금까지 무엇을 알아냈나요?",
+      "qen": "What have they found so far?",
+      "a": "No clear proof yet, but they keep looking"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Our galaxy, the Milky Way, has more than 100 billion ",
+      "ans": "stars",
+      "opts": [
+        "stars",
+        "moons",
+        "comets"
+      ]
+    },
+    {
+      "pre": ". Scientists have found more than 5,000 planets around other stars, called ",
+      "ans": "exoplanets",
+      "opts": [
+        "exoplanets",
+        "asteroids",
+        "galaxies"
+      ]
+    },
+    {
+      "pre": ". Some are in the habitable zone, where water could stay ",
+      "ans": "liquid",
+      "opts": [
+        "liquid",
+        "frozen",
+        "hidden"
+      ]
+    },
+    {
+      "pre": ". Scientists also use radio telescopes to listen for ",
+      "ans": "signals",
+      "opts": [
+        "signals",
+        "storms",
+        "winds"
+      ]
+    },
+    {
+      "pre": " from other worlds. So far, no one has found clear proof, so whether we are alone is still a ",
+      "ans": "mystery",
+      "opts": [
+        "mystery",
+        "fact",
+        "rule"
+      ]
+    },
+    {
+      "pre": ", and scientists keep looking for the answer.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "mystery",
+      "수수께끼",
+      "it is still a <b>mystery</b>",
+      "something that no one can explain yet"
+    ],
+    [
+      "galaxy",
+      "은하",
+      "Our <b>galaxy</b>, the Milky Way, has more than 100 billion stars.",
+      "a huge group of stars in space"
+    ],
+    [
+      "planets",
+      "행성",
+      "Many of these stars have <b>planets</b> that travel around them.",
+      "large round objects that travel around a star"
+    ],
+    [
+      "signals",
+      "신호",
+      "to listen for <b>signals</b> from other worlds",
+      "sounds or messages that carry information"
+    ],
+    [
+      "proof",
+      "증거",
+      "no one has found any clear <b>proof</b> of life beyond Earth",
+      "facts that show something is true"
+    ],
+    [
+      "discovery",
+      "발견",
+      "Each <b>discovery</b> teaches us more about how planets form",
+      "finding something new for the first time"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does liquid water matter in the search for life?",
+      "qko": "생명을 찾을 때 액체 상태의 물이 왜 중요한가요?",
+      "opts": [
+        "Because every living thing on Earth needs it",
+        "Because it makes planets easy to see",
+        "Because radio telescopes need it to work"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Liquid water matters because every living thing on Earth needs it.",
+        "Some of them are in the \"habitable zone,\" where water could stay liquid.",
+        "Many of these stars have planets that travel around them.",
+        "Scientists also use giant radio telescopes to listen for signals from other worlds."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "지구의 모든 생물에게는 물이 필요하기 때문이라고 했어요. habitable zone 문장은 물이 «어디에» 있을 수 있는지를 말할 뿐, 왜 중요한지는 말하지 않아요.",
+        "Every living thing on Earth needs liquid water. The habitable zone sentence tells where water could be, not why it matters."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In “the habitable zone,” what does “habitable” most likely mean?",
+      "qko": "«the habitable zone» 에서 «habitable» 은 무슨 뜻일까요?",
+      "opts": [
+        "good for living things to live in",
+        "full of bright, hot stars",
+        "too far away to see"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Some of them are in the \"habitable zone,\" where water could stay liquid.",
+        "Liquid water matters because every living thing on Earth needs it.",
+        "Our galaxy, the Milky Way, has more than 100 billion stars.",
+        "This search is called SETI, the Search for Extraterrestrial Intelligence."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "habitable zone 은 물이 액체로 있을 수 있는 곳이고, 모든 생물에게는 그 물이 필요해요. 그러니 «habitable» 은 생물이 «살 수 있는» 이라는 뜻이에요. 두 문장을 함께 봐야 해요.",
+        "The habitable zone is where water could stay liquid, and every living thing needs water. So «habitable» means good for living things to live in."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "What two ways do scientists use to search for life beyond Earth?",
+      "qko": "과학자들이 지구 밖의 생명을 찾는 두 가지 방법은 무엇인가요?",
+      "opts": [
+        "They find distant planets and listen for signals with radio telescopes",
+        "They send people to every planet and dig in the ground",
+        "They watch the Moon and count the clouds"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Scientists have already found more than 5,000 of these distant planets, called exoplanets.",
+        "Scientists also use giant radio telescopes to listen for signals from other worlds.",
+        "Imagine lying on the grass on a clear night and whispering, \"Is anyone out there?\"",
+        "So far, however, no one has found any clear proof of life beyond Earth."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "과학자들은 먼 곳의 행성(외계 행성)을 5,000개 넘게 찾았고, 거대한 전파 망원경으로 다른 세계에서 오는 신호를 듣고 있어요. 두 방법이 각각 다른 문장에 나와요.",
+        "Scientists have found more than 5,000 distant planets, and they also use giant radio telescopes to listen for signals. Each way is in a different sentence."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "What is the closest planet outside our solar system like?",
+      "태양계 밖에서 가장 가까운 행성은 어떤 곳일까?",
+      "Our Nearest Exoplanet"
+    ],
+    [
+      "B",
+      "Could people live on Mars one day?",
+      "언젠가 사람이 화성에서 살 수 있을까?",
+      "A Home on Mars"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "src": "“I think <u>scientists should keep looking</u> because <u>each discovery teaches us something new</u>.”",
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "chips": [
+      {
+        "a": "stars are beautiful",
+        "b": "they shine in the dark sky",
+        "label": "stars"
+      },
+      {
+        "a": "science class is fun",
+        "b": "we do cool experiments",
+        "label": "science"
+      },
+      {
+        "a": "my dog is smart",
+        "b": "he knows when I come home",
+        "label": "dog"
+      }
+    ],
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 글에서 찾은 사실을 넣어 이유를 분명하게 써 보세요. (예: because many stars have planets)",
+    "moreEn": "One more step: after «because», use a fact from the text to make your reason clear. (e.g. because many stars have planets)"
+  },
+  "img": {
+    "style": "photo",
+    "cover": "A child lying on the grass on a clear night, seen from behind, looking up at a sky full of stars with the bright, cloudy band of the Milky Way stretching overhead",
+    "scenes": {
+      "1": "A rocky planet with blue oceans, green land and white swirling clouds circling close to a glowing orange star, with many distant stars scattered across black space",
+      "2": "A row of giant white radio telescope dishes standing in a wide desert at dusk, all tilted up toward the same part of the purple sky"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "A blue and green planet near an orange star",
+    "2": "Giant radio telescope dishes pointing at the sky",
+    "cover": "A child looking up at the Milky Way at night"
+  }
+}

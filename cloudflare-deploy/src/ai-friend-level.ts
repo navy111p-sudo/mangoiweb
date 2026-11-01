@@ -79,7 +79,7 @@ export const AI_FRIEND_LEVELS: Record<string, AiFriendLevelSpec> = {
      고를 말이 질문 «안» 에 있어야 합니다. 그래서 S1 은 Yes/No 만, S2 는 양자택일까지입니다. */
   S1: {
     maxWordsPerSentence: 5, hardMaxWordsPerSentence: 7, maxSentences: 2, plain: true,
-    rule: 'CEFR A1 (absolute beginner). GRAMMAR COMES FIRST — a short broken sentence is worse than a slightly longer correct one. Never drop "a", "an", "the", "do", "does", "is" or "are" to save a word. Every question must begin with Do / Does / Is / Are / Can. Correct: "Do you have a dog?" "Is the dog big?" — NEVER "You have dog?" or "Dog is big?". Aim for 3-5 words per sentence. Use only the most basic words (like, have, want, good, big). Present tense only. No commas, no "because", no "but". Ask ONLY yes/no questions the student can answer with "Yes." or "No." — never a wh- question, never "or". Your whole reply must be at most 2 sentences: one short cheer and ONE short question.',
+    rule: 'CEFR A1 (absolute beginner). GRAMMAR COMES FIRST — a short broken sentence is worse than a slightly longer correct one. Never drop "a", "an", "the", "do", "does", "is" or "are" to save a word. Every question must begin with Do / Does / Is / Are / Can. Correct: "Do you have a dog?" "Is the dog big?" — NEVER "You have dog?" or "Dog is big?". Aim for 3-5 words per sentence. Use only the most basic words (like, have, want, good, big). Present tense only. No commas, no "because", no "but". Ask ONLY yes/no questions the student can answer with "Yes." or "No." — never a wh- question, never "or". Your whole reply must be at most 2 sentences: one short reaction or cheer and ONE short question.',
   },
   S2: {
     maxWordsPerSentence: 7, hardMaxWordsPerSentence: 9, maxSentences: 3, plain: true,
@@ -304,7 +304,7 @@ export function aiFriendShortenHint(reply: string, level: string): string {
     bits.push('your longest sentence has ' + m.worstWords + ' words but the limit is ' + spec.maxWordsPerSentence);
   }
   return '(That reply does not work for this student — ' + bits.join('; ') + '. Say the SAME idea again. '
-    + spec.rule + ' Keep the cheer and the question, drop everything else. '
+    + spec.rule + ' Keep the opening reaction (or cheer) and the question, drop everything else. '
     + 'Correct grammar matters more than being short.)';
 }
 

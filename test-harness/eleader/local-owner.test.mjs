@@ -1,0 +1,40 @@
+import {tmpdir as handoffTmp} from 'node:os';import {resolve as handoffResolve} from 'node:path';import {pathToFileURL as handoffURL,fileURLToPath as handoffFile} from 'node:url';
+import http from 'node:http';
+import test from 'node:test';import assert from 'node:assert/strict';import {mkdtempSync,readFileSync,writeFileSync,rmSync} from 'node:fs';import {tmpdir} from 'node:os';import {join} from 'node:path';import {randomUUID} from 'node:crypto';
+import {createOwnerAI,readExistingOAuth} from './local-owner/provider.mjs';import {startLocal} from './local-owner/server.mjs';
+const build=(process.env.ELEADER_BUILD_DIR||handoffResolve('.eleader-trial-build')),directory=mkdtempSync(join(tmpdir(),'ed-owner-'));
+const models={stt:'@cf/openai/whisper-large-v3-turbo',chat:'@cf/meta/llama-3.3-70b-instruct-fp8-fast',tts:'@cf/deepgram/aura-2-en'};
+test('durable local budget:61calls, binary preserved, restart denied, uncertain calls consumed',async()=>{
+ let calls=0;const ledger=join(directory,'full.jsonl');const ai=createOwnerAI({token:'synthetic-only',ledgerPath:ledger,expiresAt:Date.now()+3600000,transport:async(url,options)=>{calls++;assert.ok(url.startsWith('https://api.cloudflare.com/client/v4/accounts/7ae16a3c4bcc84743c70828a5156ebb3/ai/run/@cf/'));assert.equal(options.redirect,'error');return url.includes('aura')?new Response(new Uint8Array([255,251,0,1]),{headers:{'Content-Type':'audio/mpeg'}}):Response.json({success:true,result:{text:'yes',response:'{}'}});}});
+ await ai.run(models.tts,{text:'Hello.',speaker:'asteria'});
+ for(let i=0;i<20;i++){await ai.run(models.stt,{audio:'AA=='});await ai.run(models.chat,{messages:[{role:'user',content:'yes'}],max_tokens:160});const stream=await ai.run(models.tts,{text:'Hello.',speaker:'asteria'});assert.deepEqual(new Uint8Array(await new Response(stream).arrayBuffer()),new Uint8Array([255,251,0,1]));}
+ assert.equal(calls,61);await assert.rejects(ai.run(models.tts,{text:'Hello.',speaker:'asteria'}));assert.equal(calls,61);ai.close();assert.throws(()=>createOwnerAI({token:'x',ledgerPath:ledger,expiresAt:Date.now()+3600000}));
+ const lines=readFileSync(ledger,'utf8').trim().split('\n').map(JSON.parse);assert.equal(lines.length,62);assert.equal(lines.at(-1).total_nanos,345414600);assert.ok(!readFileSync(ledger,'utf8').includes('synthetic-only'));
+ let failed=0;const f=createOwnerAI({token:'x',ledgerPath:join(directory,'failed'),expiresAt:Date.now()+3600000,transport:async()=>{failed++;throw Error('private detail');}});await assert.rejects(f.run(models.tts,{text:'Hi.',speaker:'asteria'}),/uncertain/);assert.equal(failed,1);assert.equal(readFileSync(join(directory,'failed'),'utf8').trim().split('\n').length,2);f.close();
+});
+test('OAuth parsed locally withexpiry; no refresh path',()=>{const file=join(directory,'fake.toml');writeFileSync(file,'oauth_token = "synthetic"\nscopes = ["ai:read"]\nexpiration_time = "2000-01-01T00:00:00Z"\n');assert.throws(()=>readExistingOAuth(file));writeFileSync(file,'oauth_token = "synthetic"\nscopes = ["ai:read"]\nexpiration_time = "'+new Date(Date.now()+7200000).toISOString()+'"\n');assert.equal(readExistingOAuth(file).token,'synthetic');});
+test('loopback actualHTTP: setup/login/owner-cookie/start/full20, host+origin isolation, no remote resources',async()=>{
+ const {ELEADER_BOOK_UNITS:books}=await import(handoffURL(handoffResolve(build,'curriculum.mjs')));let calls=0,chat=0;const ai={close(){},async run(model){calls++;if(model.includes('whisper'))return {text:'yes'};if(model.includes('llama'))return {response:JSON.stringify({example:books[0].questions[chat++].model.replace(/[,\"]/g,'')})};return new ReadableStream({start(c){c.enqueue(new Uint8Array([255,251,1,2]));c.close();}});}};
+ const ledger=join(directory,'server');const app=await startLocal({build,oauthFile:'not-read-by-test',ledgerPath:ledger,port:0,readOAuth:()=> ({token:'synthetic',expiresAt:Date.now()+3600000}),makeAI:options=>createOwnerAI({...options,transport:async(url,request)=>{const model=url.split('/ai/run/')[1];const result=await ai.run(model,JSON.parse(request.body));return model.includes('aura')?new Response(result,{headers:{'Content-Type':'audio/mpeg'}}):Response.json({success:true,result});}})});const origin=new URL(app.url).origin;const password=randomUUID();
+ try{
+ assert.equal((await fetch(origin+'/api/ai/eleader/state')).status,403);
+ assert.equal((await fetch(origin+'/local/setup',{headers:{Origin:'https://evil.invalid'}})).status,403);
+ assert.equal(await new Promise((resolve,reject)=>{const req=http.request(origin+'/local/setup',{headers:{Host:'evil.invalid'}},r=>{r.resume();resolve(r.statusCode);});req.on('error',reject);req.end();}),403);
+ let r=await fetch(origin+'/local/setup',{method:'POST',headers:{Origin:origin},body:JSON.stringify({password,ready:true})});assert.equal(r.status,200);const setup=await r.json();assert.equal(calls,0);
+ r=await fetch(origin+'/api/student/login',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({user_id:'ed',password})});assert.equal(r.status,200);const {token}=await r.json();assert.ok(token);
+ r=await fetch(origin+'/api/ai/eleader/state?academy=ed-sandbox',{headers:{Authorization:'Bearer '+token}});assert.equal(r.status,200);const state=await r.json();assert.equal(state.units.length,22);assert.equal(state.trial.voice_mode,'cloudflare');
+ const pcm=new Uint8Array(32044),view=new DataView(pcm.buffer);for(const [value,offset] of [['RIFF',0],['WAVEfmt ',8],['data',36]])for(let i=0;i<value.length;i++)pcm[offset+i]=value.charCodeAt(i);view.setUint32(4,32036,true);view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,16000,true);view.setUint32(28,32000,true);view.setUint16(32,2,true);view.setUint16(34,16,true);view.setUint32(40,32000,true);
+ const headers={Origin:origin,Authorization:'Bearer '+token,'Content-Type':'application/json','X-Trial20-Policy':'adult-trial20-v1','X-Trial20-Confirm':'yes'};
+ r=await fetch(origin+'/api/ai/eleader/trial20/start',{method:'POST',headers,body:JSON.stringify({code:setup.code,book:state.units[0].id,policy:'adult-trial20-v1',adult:true,processing:true})});assert.equal(r.status,200);headers.Cookie=r.headers.get('set-cookie').split(';')[0];assert.match(headers.Cookie,/^ed_trial_local=/);
+ for(let step=0;step<=20;step++){r=await fetch(origin+'/api/ai/eleader/trial20/'+(step?'turn':'question'),{method:'POST',headers:{...headers,...(step?{'Content-Type':'audio/wav'}:{}),'X-Trial20-Step':String(step),'X-Trial20-Request':randomUUID()},body:step?pcm:undefined});assert.equal(r.status,200,'step'+step);assert.equal((await r.arrayBuffer()).byteLength,4);}
+ assert.equal(calls,61);assert.equal((await fetch(origin+'/local/setup',{method:'POST',headers:{Origin:origin},body:JSON.stringify({password,ready:true})})).status,409);
+ }finally{await app.close();}
+});
+test.after(()=>rmSync(directory,{recursive:true,force:true}));
+
+test('local ledger concurrency/input/expiry guards deny before network',async()=>{
+ let calls=0;const ai=createOwnerAI({token:'synthetic',ledgerPath:join(directory,'concurrent'),expiresAt:Date.now()+60000,transport:async()=>{calls++;return new Response(new Uint8Array([255,251,0,1]),{headers:{'Content-Type':'audio/mpeg'}});}});
+ await assert.rejects(ai.run('other-model',{}));await assert.rejects(ai.run(models.tts,{text:'x'.repeat(101),speaker:'asteria'}));await assert.rejects(ai.run(models.chat,{messages:[],max_tokens:161}));await assert.rejects(ai.run(models.stt,{audio:'x'.repeat(640061)}));assert.equal(calls,0);
+ const results=await Promise.allSettled(Array.from({length:100},()=>ai.run(models.tts,{text:'Hello.',speaker:'asteria'})));assert.equal(results.filter(r=>r.status==='fulfilled').length,21);assert.equal(calls,21);ai.close();
+ const expired=createOwnerAI({token:'synthetic',ledgerPath:join(directory,'expired'),expiresAt:Date.now()-1,transport:async()=>{throw Error('must not call');}});await assert.rejects(expired.run(models.tts,{text:'Hi.',speaker:'asteria'}),/expired/);expired.close();
+});

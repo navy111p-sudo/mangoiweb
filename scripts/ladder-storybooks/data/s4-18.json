@@ -1,0 +1,312 @@
+{
+  "id": "s4-18",
+  "breaks": [
+    4,
+    4,
+    8,
+    4
+  ],
+  "key": {
+    "P": 2,
+    "S": 17
+  },
+  "roleNames": {
+    "P": {
+      "ko": "질문",
+      "en": "question"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «우리가 쓰는 언어가 생각하는 방식을 바꿀까?(질문)» 와 «언어는 마음을 가두는 감옥이 아니라 주의를 이끄는 도구다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the question (does the language you speak change the way you think?) and the conclusion (language is a tool that guides attention rather than a prison that traps the mind). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Whether language shapes the way we think"
+    },
+    {
+      "k": "Claim",
+      "qko": "오늘날 대부분의 연구자는 어떤 생각을 받아들이나요?",
+      "qen": "What idea do most researchers accept today?",
+      "a": "Language does not limit thought but can influence what we notice"
+    },
+    {
+      "k": "Example",
+      "qko": "한국어는 어떤 예를 보여 주나요?",
+      "qen": "What example does Korean give?",
+      "a": "Honorifics make speakers pay attention to age and relationships"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "A linguist once suggested that language strongly ",
+      "ans": "shapes",
+      "opts": [
+        "shapes",
+        "stops",
+        "copies"
+      ]
+    },
+    {
+      "pre": " thought. Most researchers today reject the strongest version, because translation between languages is ",
+      "ans": "possible",
+      "opts": [
+        "possible",
+        "impossible",
+        "illegal"
+      ]
+    },
+    {
+      "pre": ". However, language can influence what we notice and ",
+      "ans": "remember",
+      "opts": [
+        "remember",
+        "forget",
+        "sell"
+      ]
+    },
+    {
+      "pre": ". For example, Russian speakers can tell light and dark ",
+      "ans": "blue",
+      "opts": [
+        "blue",
+        "red",
+        "green"
+      ]
+    },
+    {
+      "pre": " apart slightly faster, and Korean honorifics make speakers pay attention to age. Language is a tool that guides ",
+      "ans": "attention",
+      "opts": [
+        "attention",
+        "sleep",
+        "money"
+      ]
+    },
+    {
+      "pre": " rather than a prison that traps the mind.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "influence",
+      "영향을 주다",
+      "it can <b>influence</b> what we notice and remember",
+      "to change or affect something"
+    ],
+    [
+      "honorifics",
+      "높임법, 경어",
+      "Its system of <b>honorifics</b> requires speakers to pay constant attention to age and social relationships.",
+      "special words and endings used to show respect"
+    ],
+    [
+      "attention",
+      "주의, 관심",
+      "language is a tool that guides <b>attention</b> rather than a prison that traps the mind",
+      "the act of noticing or focusing on something"
+    ],
+    [
+      "reject",
+      "받아들이지 않다, 거부하다",
+      "Most researchers today <b>reject</b> that strong version.",
+      "to refuse to accept an idea"
+    ],
+    [
+      "concepts",
+      "개념",
+      "People can learn new <b>concepts</b>, and translation between languages is possible.",
+      "ideas about what something is"
+    ],
+    [
+      "remarkably",
+      "놀라울 정도로",
+      "Speakers of these languages tend to keep track of directions <b>remarkably</b> well, even indoors.",
+      "in a surprising or unusual way"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why can the five-year-old girl point to north even inside a building?",
+      "qko": "다섯 살 소녀는 왜 건물 안에서도 북쪽을 가리킬 수 있나요?",
+      "opts": [
+        "Her language uses compass directions for everything",
+        "She always carries a compass in her pocket",
+        "Her teacher showed her a map of the building"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "For her, this is completely normal, because her language uses compass directions for everything.",
+        "This question has fascinated scientists for nearly a century.",
+        "People can learn new concepts, and translation between languages is possible.",
+        "Korean offers its own example."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "본문에 그 아이의 언어는 모든 것을 동서남북 방향으로 말한다고 나와요. 그래서 방향을 늘 의식하게 돼요.",
+        "The text says her language uses compass directions for everything, so she always keeps track of directions."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what does \"that strong version\" mean?",
+      "qko": "글에서 «that strong version(그 강한 형태)» 은 무엇을 뜻하나요?",
+      "opts": [
+        "The idea that we cannot think about things our language has no words for",
+        "The idea that language guides what we notice",
+        "The idea that translation between languages is easy"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "In the early twentieth century, the linguist Benjamin Lee Whorf suggested that language strongly shapes thought.",
+        "In its strongest form, this idea says we cannot think about things our language has no words for.",
+        "Language may not limit thought, but it can influence what we notice and remember.",
+        "Even so, these effects are usually small, and scientists still debate how far they go."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "앞에서 언어가 생각을 크게 좌우한다는 생각이 나오고, 그 가장 강한 형태는 «자기 언어에 단어가 없는 것은 생각할 수 없다» 는 주장이라고 해요. 그것이 «strong version» 이에요.",
+        "The idea that language strongly shapes thought, in its strongest form, says we cannot think about things our language has no words for. That is the strong version."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How does the Korean language guide what speakers pay attention to?",
+      "qko": "한국어는 말하는 사람이 무엇에 주의를 기울이도록 이끄나요?",
+      "opts": [
+        "Honorifics make speakers notice age and relationships when they choose words",
+        "Korean has more words for colors than Russian",
+        "Korean speakers always describe places with north and south"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Its system of honorifics requires speakers to pay constant attention to age and social relationships.",
+        "For example, you say a polite greeting to a teacher but a short, casual one to a close friend.",
+        "Russian has separate basic words for light blue and dark blue, and studies suggest Russian speakers can tell these shades apart slightly faster.",
+        "People can learn new concepts, and translation between languages is possible."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "한국어의 높임법은 말하는 사람이 나이와 관계에 늘 신경 쓰게 만들고, 그래서 선생님께는 공손하게, 친한 친구에게는 짧고 편하게 인사해요. 두 문장을 함께 봐야 해요.",
+        "Korean honorifics require attention to age and relationships, so you greet a teacher politely and a close friend casually. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How do people who use compass directions find their way?",
+      "동서남북으로 말하는 사람들은 어떻게 길을 찾을까?",
+      "Living by the Compass"
+    ],
+    [
+      "B",
+      "Why do some languages have many words for one color?",
+      "어떤 언어는 왜 한 가지 색에 여러 단어가 있을까?",
+      "Colors in Many Languages"
+    ]
+  ],
+  "write": {
+    "pre": "It is important to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "중요한 일",
+      "그것이 중요한 이유"
+    ],
+    "slotEn": [
+      "an important action",
+      "the reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «중요한 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write an important action and your reason in English.",
+    "aria": [
+      "the important action",
+      "why it is important"
+    ],
+    "src": "“It is important to <u>learn another language</u> because <u>it can open new ways of seeing the world</u>.”",
+    "chips": [
+      {
+        "a": "listen carefully to a new classmate",
+        "b": "we can learn how they see things",
+        "label": "classmate"
+      },
+      {
+        "a": "use polite words with our elders",
+        "b": "it shows respect in Korean",
+        "label": "polite"
+      },
+      {
+        "a": "read English books every day",
+        "b": "we notice new ideas in another language",
+        "label": "reading"
+      }
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «무엇을 새로 알거나 볼 수 있는지» 를 넣어 이유를 분명하게 써 보세요. (예: because I can talk with people from other countries)",
+    "moreEn": "One more step: after «because», write what you can newly learn or see. (e.g. because I can talk with people from other countries)"
+  },
+  "img": {
+    "style": "papercut",
+    "cover": "A young girl standing in a sunlit school hallway, confidently pointing in one direction with her arm stretched out, while a surprised adult beside her looks where she points",
+    "scenes": {
+      "2": "A Korean high school student bowing politely to an older teacher in a school hallway, while two classmates nearby wave casually to each other",
+      "3": "A teenage student at a desk video-chatting on a laptop with a smiling friend from another country, both waving at each other"
+    },
+    "ver": {
+      "cover": 2,
+      "2": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "2": "A student bowing politely to a teacher",
+    "3": "A student video-chatting with a friend abroad",
+    "cover": "A young girl pointing confidently in one direction"
+  }
+}

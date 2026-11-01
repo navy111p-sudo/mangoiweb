@@ -1,0 +1,9 @@
+# Transient disconnects must not end a class
+
+The reported Sid mobile pilot class disconnected around seven minutes and opened the rating screen. The incident's initiating cause is unconfirmed: no matching Sid close log was recovered. This change fixes a verified code path rather than claiming an incident diagnosis.
+
+A WebSocket close code of 1000 previously became user-left reason=left. The student rating hook treats left as intentional departure and opens its rating flow after ten seconds without peers. All transport close codes now become dropped; only an explicit leave-room message produces left. The pagehide handler no longer sends leave-room, because refresh or mobile suspension does not prove intent. Explicit vcLeaveRoom still sends leave-room; the existing retry and ICE recovery paths stay in place. The plugin cache version is bumped.
+
+Changing the close-code test alone was rejected: pagehide could still emit an explicit leave-room. Automatically ending after a longer timeout was rejected: it would still turn connection failures into completed classes. Closing a tab without using the exit button now follows connection-loss recovery, so the remaining participant must explicitly end the class if the teacher does not return.
+
+Validation: node --check on the plugin; 13 behavioral checks in vc_explicit_end_harness.mjs execute the actual server class, student rating hook, lifecycle plugin and WebSocket manager with simulated transport/timers. Checks cover seven close codes, socket error, explicit exit without duplicate notifications, rejoin before timeout, unhealthy transport, both pagehide persisted values, and reconnect opening a new socket. These are simulated tests, not a real Korea–Philippines mobile call. Full typecheck and regression suite are delegated to repository CI; no production verification has been performed at authoring time.

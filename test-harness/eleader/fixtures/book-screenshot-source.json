@@ -1,0 +1,70 @@
+{
+  "library_file_id": "libfile_813fa44ea1548191b9a597ea65719efa",
+  "inspection": "parent viewed actual pixels; faithful transcription delivered in delegation",
+  "book_count": 22,
+  "provided_examples": [
+    {
+      "id": "books-v1-b01-q01",
+      "question": "Do you have a pet?",
+      "hint": "반려동물이 있나요?",
+      "model": "I have a cat.",
+      "short": "i have a cat",
+      "origin": "supplied-screenshot-example",
+      "aliases": [],
+      "bank_refs": [
+        "proposal-v1-u01-q01",
+        "pets-12"
+      ],
+      "provenance": [
+        "화면 제공 예시",
+        "기존 문항 은행 동일 질문"
+      ]
+    },
+    {
+      "id": "books-v1-b01-q02",
+      "question": "Why do you like your pet?",
+      "hint": "반려동물을 왜 좋아하나요? 없다면 상상해도 좋아요.",
+      "model": "I like its soft fur.",
+      "short": "i like its soft fur",
+      "origin": "supplied-screenshot-example",
+      "aliases": [],
+      "bank_refs": [],
+      "provenance": [
+        "화면 제공 예시"
+      ]
+    },
+    {
+      "id": "books-v1-b01-q03",
+      "question": "What pet do you want?",
+      "hint": "어떤 반려동물을 원하나요?",
+      "model": "I want a dog.",
+      "short": "i want a dog",
+      "origin": "supplied-screenshot-example",
+      "aliases": [],
+      "bank_refs": [],
+      "provenance": [
+        "화면 제공 예시"
+      ]
+    },
+    {
+      "id": "books-v1-b01-q04",
+      "question": "Why do you want it?",
+      "hint": "그 동물을 왜 원하나요?",
+      "model": "A dog can play with me.",
+      "short": "a dog can play with me",
+      "origin": "supplied-screenshot-example",
+      "aliases": [],
+      "bank_refs": [],
+      "provenance": [
+        "화면 제공 예시"
+      ]
+    }
+  ],
+  "ambiguous_books": [
+    14,
+    15,
+    18,
+    20,
+    22
+  ]
+}

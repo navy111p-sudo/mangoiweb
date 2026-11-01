@@ -29,11 +29,11 @@ console.log('🛡 화상수업 안정성 체크리스트 — ' + new Date().toIS
 
 /* ═══════════════ 1. ICE / TURN 연결 설정 ═══════════════ */
 section('1. ICE/TURN 연결 설정');
-ok('동적 TURN 자격증명 로드(/api/turn-config)', has("fetch('/api/turn-config')"));
+ok('동적 TURN 자격증명 로드(/api/turn-config)', has(/fetch\('\/api\/turn-config'\s*[,)]/));
 ok('STUN 폴백 기본값(구글+Cloudflare) 존재', has('stun:stun.l.google.com:19302') && has('stun:stun.cloudflare.com:3478'));
 ok('연결 직전 TURN 보장(vcEnsureIceServers) 정의', has('function vcEnsureIceServers'));
 ok('vcEnsureIceServers: 4시간 만료 자격증명 재발급', has(/4\s*\*\s*3600\s*\*\s*1000/));
-ok('vcEnsureIceServers: 3초 타임아웃(수업 지연 금지)', has(/Promise\.race\(\[__vcIcePromise,\s*new Promise\(r => setTimeout\(r,\s*3000\)\)\]\)/));
+ok('vcEnsureIceServers: 3초 타임아웃(수업 지연 금지)', has(/Promise\.race\(\[__vcIcePromise,\s*new Promise\(r => (?:\{ waitTimer = )?setTimeout\(r,\s*3000\)(?:; \})?\)\]\)/));
 ok('vcJoinRoom 입장 시 TURN 확보 대기(await)', has(/await vcEnsureIceServers\(\)/));
 ok('피어 재연결 시 TURN 재발급(vcReconnectPeer 내부)', /vcEnsureIceServers\(\)\.catch/.test(html));
 ok('PC 설정: bundlePolicy max-bundle(포트 단일화)', has("bundlePolicy: 'max-bundle'"));

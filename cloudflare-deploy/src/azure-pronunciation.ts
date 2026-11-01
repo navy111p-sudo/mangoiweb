@@ -46,6 +46,15 @@ export interface AzureWordScore {
   accuracy: number;
   /** omission=빠뜨림 · insertion=없는 말 추가 · mispronunciation=틀리게 발음 */
   errorType?: string;
+  /** 🔍 (2026-10-18) 음소별 점수 — «어느 소리가 약했나» (public/js/phoneme-tips.js). Azure 가 안 주면 빈 배열 */
+  phonemes?: { p: string; acc: number }[];
+}
+
+/** Azure Words[].Phonemes → 우리 모양. 이상한 값은 버린다(던지지 않는다). */
+export function phonemesOf(w: any, num: (v: any) => number): { p: string; acc: number }[] {
+  const arr = Array.isArray(w?.Phonemes) ? w.Phonemes : [];
+  return arr.slice(0, 20).map((p: any) => ({ p: String(p?.Phoneme || ''), acc: num(p?.PronunciationAssessment?.AccuracyScore) }))
+    .filter((p: { p: string }) => !!p.p);
 }
 
 /* 🔍 «왜 발음평가가 안 붙었나» 를 화면에서 바로 알 수 있게 사유를 돌려준다 (2026-08-08).
@@ -236,6 +245,7 @@ export async function assessPronunciation(
               words: Array.isArray(b2?.Words) ? b2.Words.slice(0, 40).map((w: any) => ({
                 word: String(w?.Word || ''), accuracy: n2(w?.PronunciationAssessment?.AccuracyScore),
                 errorType: w?.PronunciationAssessment?.ErrorType || undefined,
+                phonemes: phonemesOf(w, n2),
               })) : [],
             };
           }
@@ -256,6 +266,7 @@ export async function assessPronunciation(
           word: String(w?.Word || ''),
           accuracy: num(w?.PronunciationAssessment?.AccuracyScore),
           errorType: w?.PronunciationAssessment?.ErrorType || undefined,
+          phonemes: phonemesOf(w, num),
         }))
       : [];
 

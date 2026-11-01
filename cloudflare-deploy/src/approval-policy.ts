@@ -2350,6 +2350,35 @@ export function digestSlotKst(ms: number): string | null {
   return t.toISOString().slice(0, 10) + ':' + h;
 }
 
+/**
+ * 🧾 AI 영수증 판독을 «믿어도 되는가» (2026-10-08 — Karl #11 실사고).
+ *   무료 비전 모델은 손글씨 영수증을 못 읽어도 «그럴듯한 값» 을 지어낸다
+ *   (실측: 「10-7-26 · TOTAL 5,760」 손글씨를 「2015-05-03 · 4,400」으로 읽음).
+ *   그 값으로 «금액이 10% 넘게 다름» 을 🔴 로 보고 자동 반려하면, 멀쩡한 건이 AI 오독 하나로 막힌다.
+ *   판정: 읽은 날짜가 오늘보다 366일 넘게 과거이거나 하루 넘게 미래면 «엉터리 판독» 으로 본다
+ *   — 그 판독의 금액·날짜를 점검·신호등·자동 반려에 쓰지 않는다(사람이 눈으로 본다).
+ *   ⚠️ 날짜를 못 읽었으면(null) 판단 근거가 없어 예전대로 둔다 — 모르는 것을 «엉터리» 로 지어내지 않는다.
+ */
+export function ocrReadDoubtful(ocrSpentAt: string | null | undefined, now: number): boolean {
+  const oc = ymdDays(ocrSpentAt);
+  if (oc == null) return false;
+  const t = ymdDays(kstYmd(now))!;
+  return oc < t - 366 || oc > t + 1;
+}
+
+/** 엉터리 판독일 때 결재자·기안자에게 남기는 표시(🟡). 읽은 값은 «무엇이 틀렸는지» 보이게 그대로 적는다. */
+export function ocrDoubtfulFlag(ocrAmount: number | null | undefined, ocrSpentAt: string | null | undefined,
+                                currency?: string | null): Flag {
+  const cur = String(currency || 'PHP');
+  const amt = (ocrAmount != null && Number(ocrAmount) > 0) ? fmt(Number(ocrAmount), cur) : null;
+  const what = (ocrSpentAt ? ocrSpentAt : '') + (amt ? (ocrSpentAt ? ' · ' : '') + amt : '');
+  return {
+    code: 'ocr_doubtful', level: 'warn',
+    ko: 'AI 가 영수증을 잘못 읽은 것 같습니다(' + what + ') — 금액·날짜는 영수증을 눈으로 확인해 주세요',
+    en: 'AI seems to have misread the receipt (' + what + ') — please check the amount and date on the receipt by eye',
+  };
+}
+
 /** 한국 시각 기준 YYYY-MM-DD */
 export function kstYmd(ms: number): string {
   return new Date(Number(ms) + 9 * 3600_000).toISOString().slice(0, 10);

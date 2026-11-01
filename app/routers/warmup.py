@@ -20,10 +20,10 @@ from app.services.ai_warmup import (
     engine,
 )
 
-router = APIRouter(prefix="/api/warmup", tags=["warmup(수업 전 AI 웜업)"])
+router = APIRouter(prefix="/api/warmup", tags=["warmup(수업 전 A.i 말하기)"])
 
 
-@router.post("/chat", response_model=WarmupResponse, summary="수업 전 AI 웜업 대화")
+@router.post("/chat", response_model=WarmupResponse, summary="수업 전 A.i 말하기 대화")
 def warmup_chat(payload: WarmupRequest):
     """
     학생의 발화(payload.student_input)를 받아 AI 대화 친구의 답변을 돌려줍니다.

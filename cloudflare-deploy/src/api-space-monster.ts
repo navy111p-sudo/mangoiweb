@@ -14,7 +14,8 @@ interface SpaceMonsterHit {
 
 async function ensureSpaceMonsterSchema(env: { DB: D1Database }) {
   try {
-    await env.DB.exec(`
+    // prepare().run() — D1 exec() 는 줄마다 따로 실행해 여러 줄 CREATE 가 죽는다(2026-10-28).
+    await env.DB.prepare(`
       CREATE TABLE IF NOT EXISTS space_monster_hits (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT NOT NULL,
@@ -25,9 +26,9 @@ async function ensureSpaceMonsterSchema(env: { DB: D1Database }) {
         hit_at INTEGER NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `)
+    `).run()
 
-    await env.DB.exec(`
+    await env.DB.prepare(`
       CREATE TABLE IF NOT EXISTS space_monster_results (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT NOT NULL,
@@ -38,7 +39,7 @@ async function ensureSpaceMonsterSchema(env: { DB: D1Database }) {
         completed_at INTEGER NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `)
+    `).run()
 
     // 인덱스
     try {

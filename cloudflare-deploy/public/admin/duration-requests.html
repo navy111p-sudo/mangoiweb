@@ -233,7 +233,10 @@ async function load(){
   var rows = j.requests || [];
   $('tb').innerHTML = rows.length ? rows.map(function(r){
     return '<tr data-id="'+esc(r.id)+'">'
-      + '<td><b>'+esc(r.student_name||'—')+'</b></td>'
+      + '<td><b>'+esc(r.student_name||'—')+'</b>'
+      /* (2026-10-08) 담당 강사 — 서버가 원부 이름을 붙여 준다. 칸을 늘리지 않고 학생 아래 한 줄로(colspan 유지). */
+      + (r.teacher_name ? '<div style="font-size:12px;color:#475467">강사 '+esc(r.teacher_name)+'</div>' : '')
+      + '</td>'
       + '<td>'+whenText(r)+'</td>'
       + '<td class="num">'+esc(r.cur_minutes||r.from_minutes||'—')+'분</td>'
       + '<td class="num"><b>'+esc(r.to_minutes)+'분</b></td>'

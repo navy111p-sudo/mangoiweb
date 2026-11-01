@@ -39,7 +39,7 @@ CONF=${MANGOI_WD_CONF:-/root/.mangoi-alert.env}
 LOG=${MANGOI_WD_LOG:-/var/log/mangoi-watchdog.log}
 STATE=${MANGOI_WD_STATE:-/var/lib/mangoi-watchdog.state}
 
-PRIMARY="https://test.mangoi.co.kr"
+PRIMARY="https://mangoi.ai"   # 2026-10-16 test.mangoi.co.kr 폐지 → 정본 주소로
 FALLBACK="https://webrtc-unified-platform.navy111p.workers.dev"
 
 FAIL_THRESHOLD=2        # 연속 몇 회 실패해야 장애로 볼 것인가 (5분 간격 × 2 = 10분)
@@ -286,7 +286,7 @@ if [ "$CUR_STATE" != "$PREV_STATE" ]; then
   if [ "$CUR_STATE" = "down" ]; then
     case "$REASON" in
       http)   MSG="[망고아이] ⚠️ 사이트에 바깥에서 접속이 안 됩니다(10분 연속). 즉시 확인이 필요합니다." ;;
-      domain) MSG="[망고아이] ⚠️ test.mangoi.co.kr 만 접속 불가입니다(워커는 정상). DNS·도메인 설정을 확인하세요." ;;
+      domain) MSG="[망고아이] ⚠️ mangoi.ai 만 접속 불가입니다(워커는 정상). DNS·도메인 설정을 확인하세요." ;;
       db)     MSG="[망고아이] ⚠️ 사이트는 뜨는데 데이터베이스(D1)가 응답하지 않습니다. 로그인·수업이 막힐 수 있습니다." ;;
       cron)   MSG="[망고아이] ⚠️ 사이트는 정상인데 자동작업(cron)이 40분 넘게 멈췄습니다. 알림·정산이 조용히 안 돌고 있습니다." ;;
       *)      MSG="[망고아이] ⚠️ 사이트 점검 API 가 비정상 응답입니다(10분 연속). 확인이 필요합니다." ;;

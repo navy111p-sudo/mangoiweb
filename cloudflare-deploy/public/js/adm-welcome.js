@@ -27,26 +27,25 @@
   // 🌐 (2026-07-23) 슬라이드 이미지도 언어를 따라간다.
   //   그동안 겉 문구만 영어로 바뀌고 **그림은 한국어 데크가 그대로** 떴다.
   //   필리핀 강사·매니저에게는 정작 읽어야 할 안내서 본문이 한국어였다.
-  //   영어 데크(24장)는 이미 만들어져 있다: /guide/admin-easy-en/  (adm-s18.js 상세뷰어가 쓰는 것)
-  //   ko_n / en_n = 같은 내용이 각 데크에서 몇 번째 장인지. 두 데크는 장수·순서가 다르다
-  //   (KO 18장 / EN 24장 — EN 은 목차 2장 + 뒤쪽 A–Z 색인 3장이 더 있다).
-  //   ⚠️ 데크를 다시 만들면 이 번호가 어긋난다. adm-s18.js 의 DECKS.titles 로 대조할 것.
+  //   ko_n / en_n = 같은 내용이 각 데크에서 몇 번째 장인지.
+  //   (2026-10-09) 두 데크가 같은 26장 구성이 됐다(글 정본 docs/관리자안내_소스/slides.mjs · slides-en.mjs)
+  //   → 지금은 n 과 en_n 이 같다. ⚠️ 데크를 다시 만들면 이 번호가 어긋난다. adm-s18.js 의 DECKS.titles 로 대조할 것.
   var SLIDES = [
     { n: 1,  en_n: 1,  ko_t: '망고아이 관리자 콘솔',        en_t: 'Mangoi Admin Console',
       ko_d: '학원 운영에 필요한 모든 기능이 한 화면에 모여 있어요. 아래 화살표로 넘겨 보세요.',
       en_d: 'Everything you need to run the academy, all in one place. Swipe through with the arrows below.' },
-    { n: 5,  en_n: 6,  ko_t: '왼쪽 사이드바 = 모든 메뉴',    en_t: 'Left sidebar = every menu',
-      ko_d: '왼쪽의 9개 그룹(평가서·알림·강사·통계·회계·학생·교육·자료실·시스템)을 누르면 원하는 기능으로 바로 이동해요.',
-      en_d: 'Tap any of the 9 groups on the left (Reports, Alerts, Teachers, Stats, Finance, Students, Content, Library, System) to jump straight to a feature.' },
-    { n: 15, en_n: 17, ko_t: '자주 쓰는 기능 3가지',        en_t: 'The 3 you\'ll use most',
-      ko_d: '① 평가서 작성 · ② 공지/알림 보내기 · ③ 통계·KPI 확인. 이 세 가지만 익혀도 절반은 끝!',
-      en_d: '① Write reports · ② Send notices/alerts · ③ Check stats & KPIs. Master these three and you\'re halfway there.' },
-    { n: 16, en_n: 18, ko_t: '공지 보내보기',              en_t: 'Send your first notice',
-      ko_d: '"알림 센터"에서 학부모·강사에게 공지와 카카오 알림톡을 몇 번의 클릭으로 보낼 수 있어요.',
-      en_d: 'In "Alert Center" you can send notices and KakaoTalk alerts to parents and teachers in just a few clicks.' },
-    { n: 17, en_n: 20, ko_t: '도움이 필요하면 ❓ 버튼',      en_t: 'Need help? The ❓ button',
-      ko_d: '헷갈릴 땐 왼쪽 위 파란 "❓ 사용 방법" 버튼을 누르세요. 그림으로 된 18단계 안내가 언제든 다시 열려요.',
-      en_d: 'Stuck? Tap the blue "❓ How to use" button at the top-left. The 24-page picture guide is always one click away.' }
+    { n: 5,  en_n: 5,  ko_t: '왼쪽 사이드바 = 모든 메뉴',    en_t: 'Left sidebar = every menu',
+      ko_d: '왼쪽의 7개 묶음(오늘·학생·강사·수업·콘텐츠·정산·매출·본사·지사·대리점·시스템)을 누르면 원하는 기능으로 바로 이동해요.',
+      en_d: 'Tap any of the 7 groups on the left (Today, Students, Teachers, Lessons, Finance, HQ · Branches · Agencies, System) to jump straight to a feature.' },
+    { n: 7,  en_n: 7,  ko_t: '매일 하는 일 5가지',          en_t: 'The 5 everyday jobs',
+      ko_d: '① 수강신청 · ② 수업 스케줄 · ③ 연기·변경 · ④ 학생 결제 · ⑤ 강사 급여. 다음 장부터 그림의 빨간 번호를 따라 하면 돼요.',
+      en_d: '① Enrollment · ② Class schedule · ③ Reschedule · ④ Student payments · ⑤ Teacher payroll. From the next page, just follow the red numbers.' },
+    { n: 14, en_n: 14, ko_t: '공지 보내보기',              en_t: 'Send your first notice',
+      ko_d: '「시스템 › 공지 발송」에서 학부모·학생에게 공지와 카카오 알림톡을 몇 번의 클릭으로 보낼 수 있어요.',
+      en_d: 'In "System › Announcements" you can send notices and KakaoTalk alerts to parents and students in just a few clicks.' },
+    { n: 22, en_n: 22, ko_t: '도움이 필요하면 ❓ 버튼',      en_t: 'Need help? The ❓ button',
+      ko_d: '헷갈릴 땐 왼쪽 위 파란 "❓ 사용 방법" 버튼을 누르세요. 그림으로 된 26장 안내가 언제든 다시 열려요.',
+      en_d: 'Stuck? Tap the blue "❓ How to use" button at the top-left. The 26-page picture guide is always one click away.' }
   ];
 
   // 지금 언어에 맞는 슬라이드 이미지 경로. 영어 데크에 해당 장이 없으면 한국어로 폴백(빈 화면 방지).
@@ -54,14 +53,15 @@
   //   혹시 .webp 가 없는 그림이 있어도 화면이 비지 않도록, 아래 onErrorFallback 이
   //   자동으로 원본 .jpg 로 되돌린다(원본 파일은 지우지 않고 그대로 둔다).
   function slideSrc(s) {
-    if (L() === 'en' && s.en_n) return '/guide/admin-easy-en/' + pad(s.en_n) + '.webp';
-    return '/guide/admin-easy/' + pad(s.n) + '.webp';
+    // ?v= — 그림은 7일 캐시라 같은 이름으로 갈아 끼우면 옛 그림이 남는다(adm-s18.js 의 DECKS.*.ver 와 같은 값).
+    if (L() === 'en' && s.en_n) return '/guide/admin-easy-en/' + pad(s.en_n) + '.webp?v=26a';
+    return '/guide/admin-easy/' + pad(s.n) + '.webp?v=26a';
   }
   // .webp 로드 실패 → 같은 이름의 .jpg 로 한 번만 되돌린다(무한 재시도 방지)
   function onErrorFallback(el) {
     if (!el || el.__fellBack) return;
     el.__fellBack = true;
-    if (typeof el.src === 'string' && /\.webp$/.test(el.src)) el.src = el.src.replace(/\.webp$/, '.jpg');
+    if (typeof el.src === 'string' && /\.webp(\?|$)/.test(el.src)) el.src = el.src.replace(/\.webp(\?|$)/, '.jpg$1');
   }
 
   var idx = 0, root = null, built = false;
@@ -214,7 +214,7 @@
       var tmp = new Image();
       tmp.onload = function () { img.__fellBack = false; img.src = next; img.style.opacity = '1'; };
       // .webp 를 못 받으면 원본 .jpg 로 (그림이 안 뜨는 것보다 낫다)
-      tmp.onerror = function () { img.__fellBack = false; img.src = next.replace(/\.webp$/, '.jpg'); img.style.opacity = '1'; };
+      tmp.onerror = function () { img.__fellBack = false; img.src = next.replace(/\.webp(\?|$)/, '.jpg$1'); img.style.opacity = '1'; };
       tmp.src = next;
       if (tmp.complete) { img.__fellBack = false; img.src = next; img.style.opacity = '1'; }
     }

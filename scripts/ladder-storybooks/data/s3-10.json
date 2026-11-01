@@ -1,0 +1,311 @@
+{
+  "id": "s3-10",
+  "breaks": [
+    2,
+    2,
+    3,
+    3
+  ],
+  "key": {
+    "P": 0,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "주제",
+      "en": "topic"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «최초의 올림픽은 고대 그리스에서 제우스를 위한 축제로 열렸다(주제)» 와 «근대 올림픽이 이 오래된 전통을 이어 가고 있다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the topic (the first Olympic Games were a festival for Zeus in ancient Greece) and the conclusion (the modern Olympics follow this old tradition). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "The ancient Olympic Games"
+    },
+    {
+      "k": "Key fact",
+      "qko": "경기는 언제, 어디서 열렸나요?",
+      "qen": "When and where were they held?",
+      "a": "Every four years at Olympia"
+    },
+    {
+      "k": "Why it matters",
+      "qko": "오늘날과는 어떻게 이어지나요?",
+      "qen": "How is it connected to today?",
+      "a": "The modern Olympics follow this tradition"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "The first Olympic Games were held in ancient ",
+      "ans": "Greece",
+      "opts": [
+        "Greece",
+        "Rome",
+        "China"
+      ]
+    },
+    {
+      "pre": " as a festival for the god Zeus. They took place every ",
+      "ans": "four",
+      "opts": [
+        "four",
+        "two",
+        "ten"
+      ]
+    },
+    {
+      "pre": " years at Olympia. At first, there was only one short running ",
+      "ans": "race",
+      "opts": [
+        "race",
+        "song",
+        "meal"
+      ]
+    },
+    {
+      "pre": ". Only free Greek men and boys could ",
+      "ans": "compete",
+      "opts": [
+        "compete",
+        "cook",
+        "sing"
+      ]
+    },
+    {
+      "pre": ", and winners got a crown made of olive ",
+      "ans": "leaves",
+      "opts": [
+        "leaves",
+        "gold",
+        "stones"
+      ]
+    },
+    {
+      "pre": " instead of gold medals.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "ancient",
+      "고대의",
+      "The first Olympic Games were held in <b>ancient</b> Greece almost 3,000 years ago",
+      "from a very long time ago"
+    ],
+    [
+      "event",
+      "종목, 경기",
+      "At first, there was only one <b>event</b>, a short running race.",
+      "one race or game in a sports competition"
+    ],
+    [
+      "compete",
+      "경쟁하다, 참가하다",
+      "Only free Greek men and boys could <b>compete</b> in the games.",
+      "to take part and try to win"
+    ],
+    [
+      "crown",
+      "관",
+      "they got a <b>crown</b> made of olive leaves.",
+      "a round thing worn on the head as an honor"
+    ],
+    [
+      "agreement",
+      "협정, 약속",
+      "a special peace <b>agreement</b> allowed athletes and visitors to travel safely.",
+      "a promise that two or more groups make"
+    ],
+    [
+      "tradition",
+      "전통",
+      "The modern Olympics, which started in 1896, follow this old <b>tradition</b>.",
+      "something people have done for a long time"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why could athletes and visitors travel safely during the games?",
+      "qko": "경기 기간에 선수와 방문객은 왜 안전하게 여행할 수 있었나요?",
+      "opts": [
+        "Because of a special peace agreement",
+        "Because the games were held in Rome",
+        "Because every winner got a gold medal"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "During the games, a special peace agreement allowed athletes and visitors to travel safely.",
+        "The games took place every four years in a place called Olympia.",
+        "Winners did not receive gold medals; instead, they got a crown made of olive leaves.",
+        "Only free Greek men and boys could compete in the games."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "경기 기간에는 특별한 평화 협정 덕분에 안전하게 여행할 수 있었다고 했어요.",
+        "The text says a special peace agreement allowed athletes and visitors to travel safely."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In \"Only free Greek men and boys could compete in the games,\" what does \"compete\" mean?",
+      "qko": "«Only free Greek men and boys could compete in the games» 에서 «compete» 는 무슨 뜻인가요?",
+      "opts": [
+        "To take part in a contest and try to win",
+        "To sell food to the visitors",
+        "To build a new stadium"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Only free Greek men and boys could compete in the games.",
+        "Married women were not even allowed to watch.",
+        "The ancient games ended more than 1,500 years ago.",
+        "The games took place every four years in a place called Olympia."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "자유민인 그리스 남자와 소년만 «경기에(in the games)» 할 수 있었던 일이니, compete 는 직접 경기에 나가 이기려고 겨룬다는 뜻이에요.",
+        "The sentence tells who could do this «in the games», so «compete» means to take part and try to win."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Which clues show that the ancient games were different from today’s Olympics?",
+      "qko": "고대 올림픽이 오늘날 올림픽과 달랐다는 단서는 무엇인가요?",
+      "opts": [
+        "Winners got olive crowns, not gold medals, and married women could not even watch",
+        "Winners got gold medals, and everyone could watch",
+        "Only women could compete in the games"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Winners did not receive gold medals; instead, they got a crown made of olive leaves.",
+        "The games took place every four years in a place called Olympia.",
+        "Married women were not even allowed to watch.",
+        "The modern Olympics, which started in 1896, follow this old tradition."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "우승자가 금메달 대신 올리브 잎 관을 받았고, 결혼한 여성은 구경조차 할 수 없었다고 했어요. 두 문장을 함께 봐야 해요.",
+        "Winners got a crown of olive leaves instead of gold medals, and married women were not even allowed to watch. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "What happened at the first modern Olympics in 1896?",
+      "1896년 첫 근대 올림픽에서는 무슨 일이 있었을까요?",
+      "The First Modern Olympics"
+    ],
+    [
+      "B",
+      "When did women start to compete in the Olympics?",
+      "여성은 언제부터 올림픽에 참가했을까요?",
+      "Women in the Olympics"
+    ]
+  ],
+  "write": {
+    "pre": "It is important to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“It is important to <u>play fair in sports</u> because <u>everyone wants a safe and fun game</u>.”",
+    "slotKo": [
+      "중요한 일",
+      "중요한 이유"
+    ],
+    "slotEn": [
+      "an important thing to do",
+      "the reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «중요한 일 + 그것이 중요한 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write an important thing to do and why it is important.",
+    "chips": [
+      {
+        "a": "warm up before a race",
+        "b": "our muscles need to get ready",
+        "label": "warm up"
+      },
+      {
+        "a": "cheer for the other team",
+        "b": "they work hard too",
+        "label": "cheer"
+      },
+      {
+        "a": "drink water during games",
+        "b": "our bodies get thirsty",
+        "label": "water"
+      }
+    ],
+    "aria": [
+      "what is important to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because everyone can be safe)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because everyone can be safe)"
+  },
+  "img": {
+    "style": "comic",
+    "cover": "Ancient Greek runners sprinting barefoot down the long dirt track of the stadium at Olympia, crowds cheering from the grassy banks on both sides, a stone starting line behind them",
+    "scenes": {
+      "1": "An ancient Greek clay vase in a museum case, painted with black figures of men running a race",
+      "2": "A crown made of fresh green olive leaves resting on an old stone block in the sunlight"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "An ancient vase showing runners",
+    "2": "A crown of olive leaves",
+    "cover": "Runners racing in the ancient stadium at Olympia"
+  }
+}

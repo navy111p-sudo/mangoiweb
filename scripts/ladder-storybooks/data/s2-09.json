@@ -1,0 +1,310 @@
+{
+  "id": "s2-09",
+  "breaks": [
+    3,
+    4,
+    4
+  ],
+  "key": {
+    "P": 5,
+    "S": 10
+  },
+  "roleNames": {
+    "P": {
+      "ko": "사건",
+      "en": "event"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «나무꾼이 금도끼를 자기 것이 아니라고 정직하게 대답한 일(사건)» 과 «정직함이 언제나 가장 좋은 선택이라는 교훈(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the event (the woodcutter honestly said the golden axe was not his) and the lesson (honesty is always the best choice). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "A poor woodcutter, a mountain spirit"
+    },
+    {
+      "k": "Event",
+      "qko": "무슨 일이 있었나요?",
+      "qen": "What happened?",
+      "a": "He said the golden and silver axes were not his."
+    },
+    {
+      "k": "Lesson",
+      "qko": "무엇을 배웠나요?",
+      "qen": "What is the lesson?",
+      "a": "Honesty is always the best choice."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "A poor woodcutter's old iron ",
+      "ans": "axe",
+      "opts": [
+        "axe",
+        "hat",
+        "bag"
+      ]
+    },
+    {
+      "pre": " fell into the river. A mountain ",
+      "ans": "spirit",
+      "opts": [
+        "spirit",
+        "farmer",
+        "teacher"
+      ]
+    },
+    {
+      "pre": " showed him a golden axe and a silver axe. Each time, he ",
+      "ans": "honestly",
+      "opts": [
+        "honestly",
+        "angrily",
+        "sadly"
+      ]
+    },
+    {
+      "pre": " said no. When the spirit brought out the old iron axe, the woodcutter ",
+      "ans": "smiled",
+      "opts": [
+        "smiled",
+        "cried",
+        "ran"
+      ]
+    },
+    {
+      "pre": ". The spirit was pleased and gave him all ",
+      "ans": "three",
+      "opts": [
+        "three",
+        "two",
+        "four"
+      ]
+    },
+    {
+      "pre": " axes. Honesty is always the best choice.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "axe",
+      "도끼",
+      "Suddenly, his old iron <b>axe</b> slipped and fell into the water.",
+      "a tool for cutting wood"
+    ],
+    [
+      "slipped",
+      "미끄러졌다",
+      "Suddenly, his old iron axe <b>slipped</b> and fell into the water.",
+      "slid out of the hand by accident"
+    ],
+    [
+      "spirit",
+      "신령",
+      "A mountain <b>spirit</b> came out of the river holding a golden axe.",
+      "a magic being from old stories"
+    ],
+    [
+      "honestly",
+      "정직하게",
+      "\"No, it is not,\" the woodcutter answered <b>honestly</b>.",
+      "in a true way, without lying"
+    ],
+    [
+      "pleased",
+      "기쁜, 마음에 든",
+      "The spirit was so <b>pleased</b> with his honesty that he gave him all three axes.",
+      "happy and satisfied"
+    ],
+    [
+      "honesty",
+      "정직함",
+      "The story teaches us that <b>honesty</b> is always the best choice.",
+      "telling the truth"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did the woodcutter sit down and cry?",
+      "qko": "나무꾼은 왜 주저앉아 울었나요?",
+      "opts": [
+        "It was the only axe he had.",
+        "He cut his hand on the tree.",
+        "The spirit was angry with him."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Suddenly, his old iron axe slipped and fell into the water.",
+        "He sat down and cried because it was the only axe he had.",
+        "A mountain spirit came out of the river holding a golden axe.",
+        "At last, the spirit brought out the old iron axe, and the woodcutter smiled."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "그것이 나무꾼이 가진 하나뿐인 도끼였기 때문이라고 나와 있어요.",
+        "The text says he cried because it was the only axe he had."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In \"At last, the spirit brought out the old iron axe,\" what does \"At last\" mean?",
+      "qko": "«마침내 산신령이 낡은 쇠도끼를 꺼냈다» 에서 «마침내» 는 무슨 뜻인가요?",
+      "opts": [
+        "finally, after other tries",
+        "at the very beginning",
+        "very quickly, in a hurry"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "The spirit showed him a silver axe, but he said no again.",
+        "A poor woodcutter was cutting a tree beside a deep river.",
+        "\"Yes, that one is mine!\" he said.",
+        "He sat down and cried because it was the only axe he had."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "산신령은 금도끼, 은도끼를 먼저 보여 준 뒤에 쇠도끼를 꺼냈어요. 여러 번 해 본 끝에 드디어라는 뜻이에요.",
+        "The spirit showed the golden and silver axes first. So «At last» means finally, after other tries."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why did the spirit give the woodcutter all three axes?",
+      "qko": "산신령은 왜 나무꾼에게 도끼 세 개를 모두 주었나요?",
+      "opts": [
+        "He told the truth about his axe.",
+        "He cried very loudly.",
+        "He asked for the golden axe."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "\"No, it is not,\" the woodcutter answered honestly.",
+        "The spirit was so pleased with his honesty that he gave him all three axes.",
+        "He sat down and cried because it was the only axe he had.",
+        "A mountain spirit came out of the river holding a golden axe."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "나무꾼은 금도끼가 자기 것이 아니라고 정직하게 대답했고, 산신령은 그 정직함이 마음에 들어서 도끼를 모두 주었어요.",
+        "The woodcutter answered honestly, and the spirit was pleased with his honesty, so he gave him all three axes."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "A greedy neighbor tries to trick the spirit.",
+      "욕심 많은 이웃이 산신령을 속이려 해요.",
+      "The Greedy Neighbor"
+    ],
+    [
+      "B",
+      "The woodcutter shares his new axes with the village.",
+      "나무꾼이 새 도끼를 마을 사람들과 나눠요.",
+      "Three Axes for the Village"
+    ]
+  ],
+  "write": {
+    "pre": "It is important to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“It is important to <u>tell the truth</u> because <u>people can trust you</u>.”",
+    "slotKo": [
+      "중요한 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what is important",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «중요한 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what is important and your reason in English.",
+    "chips": [
+      {
+        "a": "say sorry",
+        "b": "my friend feels better",
+        "label": "sorry"
+      },
+      {
+        "a": "return lost things",
+        "b": "the owner is looking for them",
+        "label": "lost things"
+      },
+      {
+        "a": "keep promises",
+        "b": "friends believe you",
+        "label": "promises"
+      }
+    ],
+    "aria": [
+      "what is important",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because people can trust you)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because people can trust you)"
+  },
+  "img": {
+    "style": "minhwa",
+    "cover": "By a deep blue river in the mountains, an old man with a long white beard and flowing white robes rises from the water holding a golden axe and a silver axe, while a thin woodcutter with a short black beard, old patched gray clothes and a straw hat kneels on the riverbank.",
+    "scenes": {
+      "1": "The old man with a long white beard and flowing white robes stands above the river water holding out a shiny golden axe, and the thin woodcutter with a short black beard, patched gray clothes and a straw hat shakes his head.",
+      "2": "On the riverbank, the thin woodcutter with a short black beard, patched gray clothes and a straw hat smiles while holding an old iron axe, as the old man with a long white beard and white robes hands him a golden axe and a silver axe too."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "The woodcutter says the golden axe is not his.",
+    "2": "The spirit gives the woodcutter all three axes.",
+    "cover": "A mountain spirit holds a golden axe and a silver axe above the river."
+  }
+}

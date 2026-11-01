@@ -94,6 +94,9 @@ function harness(opt) {
   };
   const f = new Function('ENV', '_ttsPrefetch', '_ttsSpeak', 'LOG',
     'var _latCur=null;' +
+    // 📌 2026-10-02 남자 목소리 «문장 사이 쉼» — 이 하니스는 순서·끊김을 보므로 쉼 0(여자 목소리)으로 둔다.
+    //    쉼이 생기는 경우는 warmup_feedback_1002_harness [2] 가 본다.
+    'function _enMaleGapMs(){ return 0; }' +
     'var _ttsCache=ENV.cache, _ttsEng=ENV.eng;' +
     scSrc.replace(/_speakSeq/g, 'ENV.seq') + '\nreturn _speakChunks;');
   let sc;

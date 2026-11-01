@@ -57,6 +57,7 @@ await page.evaluate(() => {
 // unibar tick(0.7s) + phero ctrl 주입 대기
 await new Promise(r => setTimeout(r, 1600));
 
+await page.evaluate(() => vcSwitchTab('video'));
 const data = await page.evaluate(() => {
   const R = sel => {
     const el = document.querySelector(sel); if (!el) return null;
@@ -105,6 +106,7 @@ const checks = [
   ['소리켜기(ml-un) ⨯ ☰기능 FAB', overlap(data.mlUn, data.pheroBtn)],
 ];
 let fail = 0;
+if (!data.vpStage || data.vpStage.w <= 0 || !data.mlUn || data.mlUn.w <= 0) { fail++; console.log('❌ 동영상과 소리 켜기 버튼이 실제 표시되어야 함'); }
 for (const [name, area] of checks) { if (area > 0) fail++; console.log((area > 0 ? '❌ 겹침 ' : '✅ 통과 ') + name + ' = ' + area + 'px²'); }
 // 유튜브 하단 컨트롤대(스테이지 아래 60px) 침범 여부
 if (data.mlUn && data.vpStage) {

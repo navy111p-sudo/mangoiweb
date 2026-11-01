@@ -1,0 +1,2161 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>키키와 토토 더빙 — mangoi.ai</title>
+<meta name="description" content="A.i 더빙동영상(🎬 A.i영화더빙 메뉴 안) · 영상 속 캐릭터 대사를 내가 직접 더빙하는 영어 말하기 연습 · 10편">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Nunito:wght@400;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="/css/mangoi-han.css">
+<script defer src="/js/back-nav.js"></script>
+<script defer src="/js/tts-short-text.js?v=1"></script>
+<style>
+/* Layout: 녹음 부스 느낌 — 왼쪽 무대(화면+자막+재생기), 오른쪽 설정+큐시트. 모바일은 한 줄로 쌓기 */
+:root {
+  --bg: #EEF3F4;
+  --surface: #FFFFFF;
+  --ink: #16252C;
+  --muted: #5A6C73;
+  --line: #D5E0E3;
+  --accent: #0E7A7E;
+  --accent-ink: #FFFFFF;
+  --mine: #B86E00;
+  --mine-soft: #FFF1D9;
+  --rec: #E0444A;
+  --stage-frame: #16252C;
+  --font-display: MangoiHanSC, "Jua", "Nunito", system-ui, sans-serif;
+  --font-body: MangoiHanSC, "Nunito", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: MangoiHanSC, "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --r: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E171B; --surface: #16232A; --ink: #E6EEF0; --muted: #93A6AD; --line: #293A42;
+    --accent: #41C1C4; --accent-ink: #062022; --mine: #F2B544; --mine-soft: #3A2D14; --rec: #FF6167;
+    --stage-frame: #05090B; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E171B; --surface: #16232A; --ink: #E6EEF0; --muted: #93A6AD; --line: #293A42;
+  --accent: #41C1C4; --accent-ink: #062022; --mine: #F2B544; --mine-soft: #3A2D14; --rec: #FF6167;
+  --stage-frame: #05090B; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+/* mangoi.ai: 화면 곳곳의 display 규칙이 브라우저 기본 [hidden]{display:none} 을 이기므로 못 박는다
+   (안 박으면 «더빙 완료»·«영상 만드는 중» 같은 숨긴 덮개가 처음부터 다 보인다). */
+[hidden] { display: none !important; }
+/* 왼쪽 위 ← 뒤로가기(back-nav.js, 고정 위치)가 제목 첫 글자를 덮지 않게 자리를 비워 둔다 */
+.top .brand { padding-left: 48px; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 18px 32px;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+/* ---------- Header ---------- */
+.top { max-width: 1180px; margin: 0 auto 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.brand h1 { font-family: var(--font-display); font-weight: 400; font-size: 30px; margin: 0; line-height: 1.1; text-wrap: balance; }
+.brand p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+.lang { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); padding: 3px; }
+.lang button { border: 0; background: none; padding: 5px 14px; border-radius: 999px; font-weight: 800; font-size: 13px; letter-spacing: .04em; color: var(--muted); }
+.lang button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
+/* A short, linked route through the existing role, recording and movie controls. */
+.studio-guide { max-width: 1180px; margin: 0 auto 18px; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.studio-guide a { display: flex; align-items: center; gap: 12px; height: 100%; min-height: 86px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); color: var(--ink); text-decoration: none; }
+.studio-guide a:hover { border-color: var(--accent); background: var(--bg); }
+.studio-step { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 32px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 16px; font-weight: 800; }
+.studio-guide strong { display: block; font-size: 16px; line-height: 1.45; }
+.studio-guide small { display: block; margin-top: 3px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+#studio-setup, #studio-script, #studio-movie { scroll-margin-top: 20px; }
+.studio-options { border-top: 1px solid var(--line); padding-top: 12px; }
+.studio-options summary { min-height: 44px; padding-block: 10px; cursor: pointer; color: var(--muted); font-size: 14px; font-weight: 800; }
+.studio-options[open] summary { margin-bottom: 10px; }
+.studio-options .field + .field { margin-top: 16px; }
+.studio-play-help { padding: 11px 14px; border-left: 3px solid var(--accent); background: var(--surface); border-radius: 0 10px 10px 0; }
+.studio-movie-actions .btn.primary { flex: 1 1 180px; }
+
+/* ---------- Main grid ---------- */
+.grid { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- Stage ---------- */
+.stage-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.stage { position: relative; border-radius: var(--r); overflow: hidden; background: var(--stage-frame); border: 6px solid var(--stage-frame); aspect-ratio: 16 / 9; max-width: 100%; }
+.stage svg { display: block; width: 100%; height: 100%; }
+.stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #05090B; }
+.ai-badge { position: absolute; bottom: 10px; right: 10px; padding: 3px 9px; border-radius: 6px; background: rgba(10,16,19,.72); color: #CFE9EA; font: 500 11px var(--font-mono); letter-spacing: .06em; }
+.onair { position: absolute; top: 10px; left: 10px; display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px;
+  background: rgba(10,16,19,.72); color: #9AA9AE; font: 500 12px var(--font-mono); letter-spacing: .12em; }
+.onair i { width: 9px; height: 9px; border-radius: 50%; background: #4A5559; }
+.onair.live { color: #fff; }
+.onair.live i { background: #FF4B52; box-shadow: 0 0 10px #FF4B52; animation: blink 1s steps(2) infinite; }
+.tc { position: absolute; top: 10px; right: 10px; padding: 4px 10px; border-radius: 6px; background: rgba(10,16,19,.72); color: #E6EEF0; font: 500 12px var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.turn { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: min(92%, 440px);
+  background: rgba(10,16,19,.86); color: #fff; border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; }
+.turn-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.turn strong { font-family: var(--font-display); font-weight: 400; font-size: 22px; line-height: 1.1; }
+.turn.echo strong { color: #8FE3E5; }
+.turn:not(.echo) strong { color: #FFC857; }
+.bar { height: 8px; border-radius: 99px; background: rgba(255,255,255,.18); overflow: hidden; }
+.bar span { display: block; height: 100%; width: 0; background: #FFC857; border-radius: 99px; }
+.turn.echo .bar span { background: #8FE3E5; }
+.done-btn { border: 0; border-radius: 999px; padding: 7px 14px; background: #fff; color: #16252C; font-weight: 800; font-size: 14px; white-space: nowrap; }
+.turn.waiting .done-btn { animation: pulse 1s ease-in-out infinite; }
+
+.finish { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 10px; background: rgba(10,16,19,.8); color: #fff; padding: 16px; }
+.finish h2 { font-family: var(--font-display); font-weight: 400; font-size: 34px; margin: 0; color: #FFC857; }
+.finish p { margin: 0; font-size: 16px; }
+.finish .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 6px; }
+.finish button { border: 0; border-radius: 999px; padding: 9px 18px; font-weight: 800; background: #fff; color: #16252C; }
+.finish button.ghost { background: transparent; color: #fff; border: 2px solid rgba(255,255,255,.5); }
+
+/* ---------- Caption ---------- */
+.caption { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; min-height: 104px; display: grid; gap: 4px; }
+.caption.mine { background: var(--mine-soft); border-color: var(--mine); }
+.cap-who { display: flex; gap: 8px; align-items: center; font-weight: 800; font-size: 13px; color: var(--muted); letter-spacing: .03em; }
+.caption.mine .cap-who { color: var(--mine); }
+.cap-en { font-size: 22px; font-weight: 700; line-height: 1.35; margin: 0; overflow-wrap: anywhere; }
+.cap-ko { font-size: 15px; color: var(--muted); margin: 0; }
+.tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: .06em; background: var(--mine); color: var(--surface); }
+
+/* ---------- Transport ---------- */
+.transport { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 9px 12px; font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
+.tbtn svg { width: 16px; height: 16px; fill: currentColor; }
+.tbtn.play { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); padding: 10px 20px; font-size: 15px; }
+.tbtn:disabled { opacity: .45; cursor: not-allowed; }
+.counter { margin-left: auto; font: 500 13px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.notice { font-size: 13px; color: var(--rec); margin: 0; }
+
+/* ---------- Panel ---------- */
+.panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: grid; gap: 14px; }
+.field { display: grid; gap: 7px; }
+.label { font-size: 14px; font-weight: 800; color: var(--muted); }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 7px 12px; font-weight: 700; font-size: 14px; }
+.seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.seg.roles button[aria-pressed="true"] { background: var(--mine); border-color: var(--mine); color: var(--surface); }
+.help { margin: 0; font-size: 14px; line-height: 1.65; color: var(--muted); }
+.checks { display: grid; gap: 8px; }
+.checks label { display: flex; gap: 9px; align-items: center; font-size: 14px; cursor: pointer; }
+.checks input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+.cue-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.cue-head h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 20px; }
+.cue-head span { font: 500 12px var(--font-mono); color: var(--muted); }
+.cues { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 460px; overflow-y: auto; }
+@media (max-width: 860px) { .cues { max-height: none; } }
+.cue { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 2px 10px; padding: 8px 10px; border-radius: 10px; border: 1px solid transparent; cursor: pointer; }
+.cue:hover { background: var(--bg); }
+.cue.mine { background: var(--mine-soft); }
+.cue.now { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
+.cue-tc { font: 500 11px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; padding-top: 3px; }
+.cue-who { font-size: 12px; font-weight: 800; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+.cue.mine .cue-who { color: var(--mine); }
+.cue-en { grid-column: 2; font-weight: 700; overflow-wrap: anywhere; }
+.cue-ko { grid-column: 2; font-size: 13px; color: var(--muted); }
+
+/* ---------- Recording ---------- */
+.cap-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.chip-btn { border: 1px solid var(--mine); background: var(--surface); color: var(--mine); border-radius: 999px; padding: 6px 12px; font-weight: 800; font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
+.chip-btn.solid { background: var(--mine); color: var(--surface); }
+.chip-btn .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.cue-rec { grid-column: 2; display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+.cue-rec button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 12px; font-size: 14px; font-weight: 700; }
+.cue-rec button.has { color: var(--accent); border-color: var(--accent); }
+.meter { height: 8px; background: var(--bg); border-radius: 99px; overflow: hidden; }
+.meter span { display: block; height: 100%; width: 0; background: var(--mine); border-radius: 99px; transition: width .3s; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 8px 12px; font-weight: 700; font-size: 14px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.danger { color: var(--rec); border-color: var(--rec); background: transparent; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.status { font-size: 13px; color: var(--muted); margin: 0; min-height: 1.2em; }
+.studio-save { border-color: var(--accent); }
+.studio-save .row .btn { min-height: 44px; text-decoration: none; display: inline-flex; align-items: center; }
+.studio-save .status[data-state="saved"] { color: var(--accent); }
+.studio-save .status[data-state="error"] { color: var(--rec); }
+.btn, .tbtn, .seg button, .chip-btn, .cue-rec button, .lang button, .done-btn { min-height: 44px; }
+.status { line-height: 1.65; font-size: 14px; }
+@media (max-width: 600px) {
+  .studio-guide { grid-template-columns: minmax(0, 1fr); gap: 7px; }
+  .studio-guide a { min-height: 66px; padding: 10px 12px; }
+  .studio-guide strong { font-size: 15px; }
+  .studio-guide small { margin-top: 1px; }
+  .studio-save .row .btn { flex: 1 1 140px; justify-content: center; }
+  .brand h1 { font-size: 25px; }
+  .cue-rec button { padding-inline: 10px; }
+}
+.recbar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; padding: 5px 6px 5px 12px; border-radius: 999px; background: rgba(224,68,74,.92); color: #fff; font-weight: 800; font-size: 13px; white-space: nowrap; }
+.recbar button { border: 0; border-radius: 999px; padding: 4px 10px; background: #fff; color: #16252C; font-weight: 800; font-size: 12px; }
+body.exporting .transport, body.exporting .panel, body.exporting .cap-actions { pointer-events: none; opacity: .5; }
+
+.foot { max-width: 1180px; margin: 18px auto 0; font-size: 13px; color: var(--muted); }
+
+/* ---------- Scene animation ---------- */
+.char .mouth { transform-box: fill-box; transform-origin: center; }
+.char.talking .bob { animation: bob .42s ease-in-out infinite; }
+.char.talking .mouth { animation: talk .2s ease-in-out infinite alternate; }
+.char .spot { opacity: 0; transition: opacity .2s; }
+.char.myturn .spot { opacity: .9; }
+@keyframes bob { 50% { transform: translateY(-5px); } }
+@keyframes talk { from { transform: scaleY(1); } to { transform: scaleY(3.2); } }
+@keyframes blink { 50% { opacity: .35; } }
+@keyframes pulse { 50% { transform: scale(1.06); } }
+.stage video.kenburns { animation: kenburns 9s ease-in-out infinite alternate; }
+@keyframes kenburns { from { transform: scale(1); } to { transform: scale(1.08) translate(-1.5%, -1%); } }
+@media (prefers-reduced-motion: reduce) {
+  .char.talking .bob, .char.talking .mouth, .onair.live i, .turn.waiting .done-btn, .stage video.kenburns { animation: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <h1 data-i18n="title">키키와 토토 더빙</h1>
+    <p data-i18n="sub">캐릭터를 고르고, 내 목소리로 영어 영화를 만들어요.</p>
+  </div>
+  <div class="lang" role="group" aria-label="Language">
+    <button type="button" id="lang-ko" data-lang="ko">KO</button>
+    <button type="button" id="lang-en" data-lang="en">EN</button>
+  </div>
+</header>
+
+<ol class="studio-guide" aria-label="더빙하는 순서" data-i18n-aria="guideLabel">
+  <li><a href="#studio-setup"><span class="studio-step" aria-hidden="true">1</span><span><strong data-i18n="guideRole">역할 고르기</strong><small data-i18n="guideRoleHelp">내가 연기할 캐릭터를 골라요.</small></span></a></li>
+  <li><a href="#studio-script"><span class="studio-step" aria-hidden="true">2</span><span><strong data-i18n="guideRecord">대사 녹음하기</strong><small data-i18n="guideRecordHelp">내 대사 옆 ‘녹음하기’를 눌러요.</small></span></a></li>
+  <li><a href="#studio-movie"><span class="studio-step" aria-hidden="true">3</span><span><strong data-i18n="guideMovie">내 영상 만들기</strong><small data-i18n="guideMovieHelp">녹음한 목소리를 영상에 넣어요.</small></span></a></li>
+</ol>
+
+<main class="grid">
+  <section class="stage-col">
+    <div class="stage">
+      <svg id="scene" viewBox="0 0 640 360" role="img" aria-label="Scene"></svg>
+      <video id="vid" muted playsinline preload="auto" hidden></video>
+      <div class="ai-badge" id="ai-badge" hidden>AI VIDEO · HIGGSFIELD</div>
+      <div class="recbar" id="recbar" hidden><span>● <span data-i18n="exporting">더빙 영상 만드는 중</span></span><button type="button" id="btn-export-cancel" data-i18n="cancel">취소</button></div>
+      <canvas id="export-canvas" width="960" height="540" hidden></canvas>
+      <div class="onair" id="onair"><i></i>REC</div>
+      <div class="tc" id="tc">00:00.0</div>
+      <div class="turn" id="turn" hidden>
+        <div class="turn-head">
+          <strong id="turn-label"></strong>
+          <button type="button" class="done-btn" id="turn-done" data-i18n="done">다 말했어요</button>
+        </div>
+        <div class="bar"><span id="turn-bar"></span></div>
+      </div>
+      <div class="finish" id="finish" hidden>
+        <h2 data-i18n="finishTitle">더빙 완료!</h2>
+        <p id="finish-body"></p>
+        <div class="row">
+          <button type="button" id="finish-again" data-i18n="again">다시 하기</button>
+          <button type="button" class="ghost" id="finish-role" data-i18n="changeRole">역할 바꾸기</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="caption" id="caption" aria-live="polite">
+      <div class="cap-who" id="cap-who"></div>
+      <p class="cap-en" id="cap-en"></p>
+      <p class="cap-ko" id="cap-ko"></p>
+      <div class="cap-actions" id="cap-actions" hidden>
+        <button type="button" class="chip-btn solid" id="btn-rec"><i class="dot"></i><span id="btn-rec-label"></span></button>
+        <button type="button" class="chip-btn" id="btn-myplay" data-i18n="myVoice">내 목소리 듣기</button>
+      </div>
+    </div>
+
+    <div class="transport">
+      <button type="button" class="tbtn" id="btn-restart" data-i18n-aria="restart"><svg viewBox="0 0 24 24"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg></button>
+      <button type="button" class="tbtn" id="btn-prev" data-i18n-aria="prev"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zM9.5 12 18 18V6z"/></svg></button>
+      <button type="button" class="tbtn play" id="btn-play"></button>
+      <button type="button" class="tbtn" id="btn-next" data-i18n-aria="next"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg></button>
+      <button type="button" class="tbtn" id="btn-repeat"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></svg><span data-i18n="repeat">이 대사 다시</span></button>
+      <span class="counter" id="counter"></span>
+    </div>
+    <p class="help studio-play-help" data-i18n="playHelp">먼저 재생해서 들어보세요. 내 목소리를 저장하려면 대사 옆 ‘녹음하기’를 눌러요.</p>
+    <p class="notice" id="notice" hidden></p>
+    <section class="card studio-save" aria-label="연습 보관">
+      <div class="cue-head"><h2 data-i18n="continueTitle">저장한 연습과 내 영상</h2></div>
+      <p class="help" data-i18n="continueHelp">전에 녹음한 대사를 불러와 나머지를 이어서 녹음해요.</p>
+      <div class="row">
+        <button type="button" class="btn" id="btn-resume" data-i18n="resumePractice">하던 연습 계속하기</button>
+        <button type="button" class="btn" id="btn-save-practice" data-i18n="savePractice">여기까지 저장하기</button>
+        <a class="btn" href="/ai-dubbing.html?library=movies" data-i18n="myWorks">내 영상 보기</a>
+      </div>
+      <p class="status" id="studio-save-status" role="status" aria-live="polite"></p>
+      <button type="button" class="btn" id="btn-movie-retry" data-i18n="retryMovie" hidden>완성 영상 다시 저장</button>
+      <button type="button" class="btn" id="btn-conversation" data-i18n="conversation" disabled>이 문장으로 AI 친구와 대화하기</button>
+    </section>
+  </section>
+
+  <aside class="panel">
+    <div class="card" id="studio-setup">
+      <div class="cue-head"><h2 data-i18n="setupTitle">1. 이야기와 역할 고르기</h2></div>
+      <div class="field">
+        <span class="label" data-i18n="episode">어떤 이야기로 할까요?</span>
+        <div class="seg" id="seg-ep"></div>
+        <p class="help" id="ep-help"></p>
+      </div>
+      <div class="field">
+        <span class="label" data-i18n="role">누구의 목소리가 될까요?</span>
+        <div class="seg roles" id="seg-role"></div>
+        <div class="row">
+          <button type="button" class="btn" id="btn-rotate" data-i18n="rotate">↻ 역할 돌아가며 바꾸기</button>
+        </div>
+        <p class="help" data-i18n="roleHelp"></p>
+      </div>
+      <div class="field">
+        <span class="label" data-i18n="mode">어떻게 연습할까요?</span>
+        <div class="seg" id="seg-mode"></div>
+        <p class="help" id="mode-help"></p>
+      </div>
+      <details class="studio-options">
+        <summary data-i18n="moreOptions">속도·자막·배경음악 조절</summary>
+        <div class="field">
+          <span class="label" data-i18n="speed">말하는 속도</span>
+          <div class="seg" id="seg-speed"></div>
+        </div>
+        <div class="field">
+          <span class="label" data-i18n="options">소리와 자막 설정</span>
+          <div class="checks">
+            <label><input type="checkbox" id="opt-bgm"><span data-i18n="bgm">배경음악</span></label>
+            <label><input type="checkbox" id="opt-ko"><span data-i18n="subKo">한국어 해석 보기</span></label>
+            <label><input type="checkbox" id="opt-hide"><span data-i18n="hideMine">내 대사 가리기 (암기 연습)</span></label>
+            <label><input type="checkbox" id="opt-echo"><span data-i18n="echo">따라 말하기 전에 내 대사 먼저 듣기</span></label>
+            <label><input type="checkbox" id="opt-auto"><span data-i18n="autoNext">내 차례 시간이 끝나면 자동으로 넘기기</span></label>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="card" id="studio-script">
+      <div class="cue-head">
+        <h2 data-i18n="cueSheet">2. 내 대사 녹음하기</h2>
+        <span id="cue-meta"></span>
+      </div>
+      <p class="help" data-i18n="recordGuide">‘내 대사’ 표시를 찾아 녹음해 보세요. 말을 마치면 같은 버튼의 ‘녹음 완료’를 눌러요.</p>
+      <ol class="cues" id="cues"></ol>
+    </div>
+
+    <div class="card" id="studio-movie">
+      <div class="cue-head">
+        <h2 data-i18n="recTitle">3. 내 영상 만들기</h2>
+        <span id="rec-count"></span>
+      </div>
+      <div class="meter"><span id="rec-fill"></span></div>
+      <p class="help" data-i18n="recHelp"></p>
+      <div class="row studio-movie-actions">
+        <button type="button" class="btn" id="btn-review" data-i18n="reviewPlay">녹음 먼저 들어보기</button>
+        <button type="button" class="btn primary" id="btn-export" data-i18n="exportVideo" hidden>내 영상 만들고 저장하기</button>
+      </div>
+      <div class="row"><button type="button" class="btn danger" id="btn-clear" data-i18n="clearAll">이 이야기 녹음 모두 지우기</button></div>
+      <div class="row" id="clear-confirm" hidden>
+        <span class="status" data-i18n="clearAsk"></span>
+        <button type="button" class="btn danger" id="btn-clear-yes" data-i18n="clearYes">지우기</button>
+        <button type="button" class="btn" id="btn-clear-no" data-i18n="cancel">취소</button>
+      </div>
+      <p class="status" id="rec-status" aria-live="polite"></p>
+    </div>
+
+  </aside>
+</main>
+
+<p class="foot" data-i18n="sample">모든 캐릭터와 대본은 자체 제작입니다.</p>
+
+<script src="/js/ai-dubbing-library.js?v=4"></script>
+<script src="/js/ai-dubbing-practice.js?v=1"></script>
+<script>
+/* =========================================================
+   1. DATA — 캐릭터 & 에피소드 (오리지널 콘텐츠)
+   ========================================================= */
+const CAST = {
+  kiki: { name: { en: 'Kiki', ko: '키키' }, x: 200, scale: 1,    pitch: 1.55, kind: 'cat', fur: '#F2A65A', belly: '#FFE3C4' },
+  toto: { name: { en: 'Toto', ko: '토토' }, x: 330, scale: 1,    pitch: 1.2,  kind: 'dog', fur: '#C89B6D', belly: '#F4E3CF' },
+  mom:  { name: { en: 'Mom',  ko: '엄마' }, x: 470, scale: 1.28, pitch: 1.0,  kind: 'cat', fur: '#B9B2CC', belly: '#ECE8F4', dress: '#5E8FD6' },
+  lulu: { name: { en: 'Lulu', ko: '룰루' }, x: 575, scale: 0.95, pitch: 1.4,  kind: 'cat', fur: '#F4F1F4', belly: '#FFFFFF', dress: '#F2A7C3' },
+};
+/* 에피소드에 실제로 나오는 캐릭터만 (등장 순서 아닌 CAST 순서) */
+const castOf = (ep) => Object.keys(CAST).filter((id) => ep.lines.some((l) => l.who === id));
+
+const EPISODES = [
+  {
+    id: 'picnic', bg: 'park', level: 1,
+    media: '/media/dubbing/picnic-', // Higgsfield 제작: picnic-key.jpg, picnic-01.mp4/.mp3 …
+    music: { bpm: 104, root: 60 },
+    desc: { en: 'Short sentences · asking and thanking', ko: '짧은 문장 · 부탁하고 고마워하기' },
+    title: { en: 'Picnic Day', ko: '소풍 가는 날' },
+    lines: [
+      { who: 'mom',  en: "Good morning, Kiki! It's a sunny day.",  ko: '좋은 아침이야, 키키! 해가 쨍쨍한 날이야.' },
+      { who: 'kiki', en: 'Hooray! Can we go on a picnic?',          ko: '야호! 우리 소풍 가도 돼요?' },
+      { who: 'mom',  en: "Yes, we can. Let's call Toto.",           ko: '그럼, 가자. 토토도 부르자.' },
+      { who: 'toto', en: 'Hi, Kiki! I brought my red ball.',        ko: '안녕, 키키! 나 빨간 공 가져왔어.' },
+      { who: 'kiki', en: "Great! Let's play catch.",                ko: '좋아! 공 주고받기 하자.' },
+      { who: 'toto', en: 'Ready? One, two, three... catch!',        ko: '준비됐어? 하나, 둘, 셋... 받아!' },
+      { who: 'kiki', en: 'Oops! The ball is in the tree!',          ko: '앗! 공이 나무에 걸렸어!' },
+      { who: 'mom',  en: "Don't worry. I can reach it.",            ko: '걱정 마. 엄마 손이 닿아.' },
+      { who: 'toto', en: 'Thank you! You are so tall!',             ko: '고맙습니다! 정말 키가 크세요!' },
+      { who: 'mom',  en: 'Now, who is hungry?',                     ko: '자, 배고픈 사람?' },
+      { who: 'kiki', en: 'Me! I want a sandwich, please.',          ko: '저요! 샌드위치 주세요.' },
+      { who: 'toto', en: 'Me too! Picnics are the best!',           ko: '나도! 소풍이 최고야!' },
+    ],
+  },
+  {
+    id: 'teddy', bg: 'room', level: 1,
+    media: '/media/dubbing/teddy-',
+    music: { bpm: 92, root: 65 },
+    desc: { en: 'Short sentences · finding a lost toy', ko: '짧은 문장 · 잃어버린 인형 찾기' },
+    title: { en: 'Where Is Teddy?', ko: '테디는 어디 있지?' },
+    lines: [
+      { who: 'kiki', en: "Mom, I can't find my teddy bear.",         ko: '엄마, 곰인형을 못 찾겠어요.' },
+      { who: 'mom',  en: 'Oh no. Where did you see him last?',       ko: '저런. 마지막으로 어디서 봤니?' },
+      { who: 'kiki', en: 'I think he was on my bed.',                ko: '침대 위에 있었던 것 같아요.' },
+      { who: 'toto', en: 'I can help! I have a good nose.',          ko: '내가 도와줄게! 난 코가 좋거든.' },
+      { who: 'mom',  en: "Let's look under the table.",              ko: '탁자 밑을 찾아보자.' },
+      { who: 'kiki', en: "He's not here. I'm sad.",                  ko: '여기 없어요. 슬퍼요.' },
+      { who: 'toto', en: 'Sniff, sniff... I smell something!',       ko: '킁킁... 무슨 냄새가 나!' },
+      { who: 'toto', en: "Look! He's in the toy box!",               ko: '봐! 장난감 상자 안에 있어!' },
+      { who: 'kiki', en: 'Teddy! I missed you so much!',             ko: '테디! 정말 보고 싶었어!' },
+      { who: 'mom',  en: 'Good job, Toto. You found him.',           ko: '잘했어, 토토. 네가 찾았구나.' },
+      { who: 'kiki', en: 'Thank you, Toto. You are my best friend.', ko: '고마워, 토토. 넌 내 단짝이야.' },
+    ],
+  },
+  {
+    id: 'bday', bg: 'room', level: 2,
+    media: '/media/dubbing/bday-',
+    music: { bpm: 116, root: 67 },
+    title: { en: "Toto's Birthday Surprise", ko: '토토의 깜짝 생일 파티' },
+    desc: { en: 'Feelings and secrets · 3 friends, 5–6 lines each', ko: '감정 표현과 비밀 작전 · 셋이 5~6줄씩 발표' },
+    lines: [
+      { who: 'toto', en: 'Today is my birthday... but nobody remembered.',   ko: '오늘 내 생일인데... 아무도 기억 못 했어.' },
+      { who: 'kiki', en: 'Shh! Mom, Toto is coming! Hide the cake!',         ko: '쉿! 엄마, 토토가 와요! 케이크 숨겨요!' },
+      { who: 'mom',  en: 'Quick! Put it under the blanket!',                 ko: '얼른! 담요 밑에 넣자!' },
+      { who: 'toto', en: 'Hi, Kiki. What are you doing?',                    ko: '안녕, 키키. 뭐 하고 있어?' },
+      { who: 'kiki', en: 'Nothing! We are just... um... reading a book!',    ko: '아무것도 아니야! 우린 그냥... 음... 책 읽고 있었어!' },
+      { who: 'toto', en: 'Oh. Okay. I think I will go home.',                ko: '아. 그렇구나. 난 집에 갈래.' },
+      { who: 'mom',  en: 'Wait, Toto! Can you help me find my glasses?',     ko: '잠깐, 토토! 엄마 안경 찾는 것 좀 도와줄래?' },
+      { who: 'toto', en: 'Sure. Hmm... are they in the kitchen?',            ko: '그럼요. 음... 부엌에 있어요?' },
+      { who: 'kiki', en: "Toto, close your eyes. Don't peek!",               ko: '토토, 눈 감아. 몰래 보면 안 돼!' },
+      { who: 'mom',  en: 'One, two, three... open your eyes!',               ko: '하나, 둘, 셋... 눈 떠!' },
+      { who: 'kiki', en: 'Surprise! Happy birthday, Toto!',                  ko: '서프라이즈! 생일 축하해, 토토!' },
+      { who: 'toto', en: "Wow! You didn't forget! This is the best day ever!", ko: '와! 안 잊어버렸구나! 최고의 날이야!' },
+      { who: 'mom',  en: 'Of course not. Now, make a wish!',                 ko: '당연하지. 자, 소원 빌어 봐!' },
+      { who: 'kiki', en: 'Blow out the candles, Toto!',                      ko: '촛불 꺼, 토토!' },
+      { who: 'toto', en: 'I wish... we can be best friends forever!',        ko: '내 소원은... 우리가 영원히 단짝인 거야!' },
+    ],
+  },
+  {
+    id: 'show', bg: 'room', level: 3,
+    media: '/media/dubbing/show-',
+    music: { bpm: 124, root: 62 },
+    title: { en: 'The Big Talent Show Mix-Up', ko: '학교 장기자랑 대소동' },
+    desc: { en: 'Longer sentences · 4 friends · a funny twist and courage', ko: '긴 문장 · 4명 발표 · 웃긴 반전과 용기 내기' },
+    lines: [
+      { who: 'kiki', en: 'The talent show starts in five minutes! Where is our magic hat?', ko: '장기자랑이 5분 뒤에 시작해! 우리 마술 모자 어디 있지?' },
+      { who: 'toto', en: 'Oh no! I put it right here on the chair!',                        ko: '어떡해! 바로 여기 의자 위에 뒀는데!' },
+      { who: 'lulu', en: "Um... hi. I'm Lulu. Can I help you look for it?",                ko: '음... 안녕. 난 룰루야. 찾는 거 도와줄까?' },
+      { who: 'mom',  en: "Let's stay calm and look everywhere, one by one.",               ko: '침착하게 하나씩 다 찾아보자.' },
+      { who: 'kiki', en: "It's not under the table. It's not behind the curtain!",         ko: '탁자 밑에도 없어. 커튼 뒤에도 없어!' },
+      { who: 'lulu', en: 'Toto... what is that on your head?',                              ko: '토토... 네 머리 위에 그거 뭐야?' },
+      { who: 'toto', en: 'My head? Oh! The magic hat! I was wearing it all the time!',     ko: '내 머리? 앗! 마술 모자다! 계속 쓰고 있었네!' },
+      { who: 'kiki', en: 'Toto! You are so silly!',                                         ko: '토토! 너 정말 엉뚱하다!' },
+      { who: 'mom',  en: 'Great! Now you are ready. Lulu, are you singing today?',         ko: '잘됐다! 이제 준비 끝. 룰루, 오늘 노래하니?' },
+      { who: 'lulu', en: "Yes... but I'm so nervous. My legs are shaking.",                ko: '네... 근데 너무 떨려요. 다리가 후들거려요.' },
+      { who: 'kiki', en: "Don't worry, Lulu. Everybody gets nervous sometimes.",           ko: '걱정 마, 룰루. 누구나 가끔 떨려.' },
+      { who: 'toto', en: "Why don't you sing with us? We can be a team!",                  ko: '우리랑 같이 노래할래? 우리 한 팀 하자!' },
+      { who: 'lulu', en: 'Really? Thank you! I feel much braver now.',                      ko: '정말? 고마워! 이제 훨씬 용기가 나.' },
+      { who: 'mom',  en: "It's your turn! Go and have fun, everyone!",                     ko: '너희 차례야! 다들 가서 즐겁게 하렴!' },
+      { who: 'kiki', en: 'Ta-da! Welcome to our magic show!',                               ko: '짜잔! 우리 마술쇼에 오신 걸 환영합니다!' },
+      { who: 'toto', en: 'We did it! Thank you, everybody!',                                ko: '해냈다! 모두 고마워요!' },
+    ],
+  },
+  {
+    id: 'treasure', bg: 'room', level: 3,
+    media: '/media/dubbing/treasure-',
+    music: { bpm: 98, root: 57 },
+    title: { en: 'The Rainy Day Treasure Map', ko: '비 오는 날의 보물지도' },
+    desc: { en: 'Directions and places · next to, behind, turn left · 3 kids 4 lines each', ko: '위치·방향 표현 · next to, behind, turn left · 아이 3명 4줄씩' },
+    lines: [
+      { who: 'kiki', en: "It's raining again. We can't play outside today.", ko: '또 비가 와. 오늘은 밖에서 못 놀겠다.' },
+      { who: 'toto', en: 'Look! I found an old map under the sofa!',          ko: '봐! 소파 밑에서 오래된 지도를 찾았어!' },
+      { who: 'lulu', en: "A treasure map? Let's read it together!",           ko: '보물지도? 같이 읽어 보자!' },
+      { who: 'mom',  en: 'Hmm... Step one: walk to the big window.',          ko: '음... 첫 번째: 큰 창문으로 걸어가세요.' },
+      { who: 'kiki', en: 'I see a red key next to the flower pot!',           ko: '화분 옆에 빨간 열쇠가 보여!' },
+      { who: 'toto', en: 'Step two says: go up the stairs and turn left.',    ko: '두 번째는: 계단을 올라가서 왼쪽으로 돌기래.' },
+      { who: 'lulu', en: "It's so dark up here. I'm a little scared.",        ko: '여기 위는 너무 어두워. 조금 무서워.', still: '/media/dubbing/treasure-up.jpg' },
+      { who: 'kiki', en: 'Hold my hand, Lulu. We are brave together!',        ko: '내 손 잡아, 룰루. 우리 같이 용감하자!', still: '/media/dubbing/treasure-up.jpg' },
+      { who: 'toto', en: "There's a box behind the curtain! It's locked!",    ko: '커튼 뒤에 상자가 있어! 잠겨 있어!', still: '/media/dubbing/treasure-up.jpg' },
+      { who: 'lulu', en: "Let's try the red key! One, two, three...",         ko: '빨간 열쇠를 써 보자! 하나, 둘, 셋...', still: '/media/dubbing/treasure-up.jpg' },
+      { who: 'kiki', en: "It opened! What's inside?",                          ko: '열렸다! 안에 뭐가 있지?', still: '/media/dubbing/treasure-open.jpg' },
+      { who: 'toto', en: 'Cookies! And a letter... it says, From Mom!',       ko: "쿠키다! 그리고 편지... '엄마가'라고 써 있어!", still: '/media/dubbing/treasure-open.jpg' },
+      { who: 'mom',  en: 'Surprise! A rainy day can be fun, too!',            ko: '깜짝이야! 비 오는 날도 재밌을 수 있단다!', still: '/media/dubbing/treasure-open.jpg' },
+      { who: 'lulu', en: "Let's make a new map for next time!",               ko: '다음엔 우리가 새 지도를 만들자!', still: '/media/dubbing/treasure-open.jpg' },
+    ],
+  },
+  {
+    id: 'xmas', bg: 'room', level: 3,
+    media: '/media/dubbing/xmas-',
+    music: { bpm: 112, root: 65 },
+    title: { en: 'The Shining Christmas Star', ko: '크리스마스 발표회의 반짝이는 별' },
+    desc: { en: 'Christmas special · teamwork and courage · 4 friends', ko: '크리스마스 특별편 · 협동과 용기 · 4명 발표' },
+    lines: [
+      { who: 'kiki', en: 'Merry Christmas, everyone! Our Christmas show starts soon!', ko: '메리 크리스마스! 우리 크리스마스 발표회가 곧 시작해!' },
+      { who: 'toto', en: 'Look at the big tree! But... where is the golden star?',    ko: '큰 트리 좀 봐! 근데... 금색 별은 어디 있지?' },
+      { who: 'lulu', en: 'Oh no! It fell down and broke into two pieces!',           ko: '어떡해! 떨어져서 두 조각이 났어!' },
+      { who: 'mom',  en: "Don't be sad. We can make a new one together.",            ko: '속상해하지 마. 같이 새로 만들면 돼.' },
+      { who: 'kiki', en: 'I have yellow paper and some glitter!',                     ko: '나한테 노란 종이랑 반짝이가 있어!' },
+      { who: 'toto', en: 'I can cut it out. Lulu, can you hold the glue?',            ko: '내가 오릴게. 룰루, 풀 좀 잡아 줄래?' },
+      { who: 'lulu', en: 'Sure! Wow, our new star is so shiny and beautiful!',        ko: '그럼! 와, 우리 새 별 정말 반짝반짝 예쁘다!' },
+      { who: 'mom',  en: 'Toto, go up the ladder carefully and put it on top.',       ko: '토토, 사다리 조심해서 올라가 꼭대기에 달아 줘.' },
+      { who: 'toto', en: 'Whoa... the ladder is shaking! Help!',                      ko: '으악... 사다리가 흔들려! 도와줘!' },
+      { who: 'kiki', en: "We've got you, Toto! Hold on tight!",                       ko: '우리가 잡았어, 토토! 꽉 잡아!' },
+      { who: 'lulu', en: 'You did it! The star is on the tree!',                      ko: '해냈다! 별이 트리 위에 올라갔어!' },
+      { who: 'mom',  en: 'Now, the lights... three, two, one!',                       ko: '이제 불을 켤게... 셋, 둘, 하나!' },
+      { who: 'kiki', en: "Look! It's snowing outside, too!",                          ko: '봐! 밖에 눈도 와!', still: '/media/dubbing/xmas-lit.jpg' },
+      { who: 'toto', en: 'This is the most beautiful Christmas ever!',                ko: '이렇게 아름다운 크리스마스는 처음이야!', still: '/media/dubbing/xmas-lit.jpg' },
+      { who: 'lulu', en: "Let's sing our Christmas song together!",                   ko: '다 같이 크리스마스 노래 부르자!', still: '/media/dubbing/xmas-lit.jpg' },
+      { who: 'kiki', en: 'Merry Christmas, everybody! Thank you for coming!',         ko: '모두 메리 크리스마스! 와 주셔서 고마워요!', still: '/media/dubbing/xmas-lit.jpg' },
+    ],
+  },
+  {
+    id: 'hallo', bg: 'park', level: 3,
+    media: '/media/dubbing/hallo-',
+    music: { bpm: 100, root: 57 },
+    title: { en: 'The Spooky Halloween Shadow', ko: '할로윈 밤의 수상한 그림자' },
+    desc: { en: 'Halloween special · costumes, courage and a funny twist · 4 friends', ko: '할로윈 특별편 · 분장, 용기, 웃긴 반전 · 4명 발표' },
+    lines: [
+      { who: 'kiki', en: 'Trick or treat! Look at my witch costume!',                  ko: '트릭 오어 트릿! 내 마녀 의상 좀 봐!' },
+      { who: 'toto', en: "Arr! I'm a pirate, and I want candy!",                      ko: '아르! 나는 해적이야, 사탕 줘!' },
+      { who: 'lulu', en: "I'm a fairy! My wings can sparkle!",                        ko: '난 요정이야! 내 날개는 반짝반짝 빛나!' },
+      { who: 'mom',  en: 'You all look wonderful! Stay together and have fun.',      ko: '다들 정말 멋지다! 꼭 붙어 다니면서 즐겁게 놀아.' },
+      { who: 'kiki', en: "Let's knock on the first door. Knock, knock!",              ko: '첫 번째 집 문을 두드려 보자. 똑똑!' },
+      { who: 'toto', en: 'Yay! We got chocolate and lollipops!',                      ko: '야호! 초콜릿이랑 막대사탕 받았다!' },
+      { who: 'lulu', en: 'Wait... did you hear that? Something is moving in the bushes.', ko: '잠깐... 저 소리 들었어? 덤불 속에서 뭔가 움직여.', still: '/media/dubbing/hallo-patch.jpg' },
+      { who: 'kiki', en: "Look! There's a big, scary shadow!",                        ko: '봐! 크고 무서운 그림자가 있어!', still: '/media/dubbing/hallo-patch.jpg' },
+      { who: 'toto', en: "M-maybe it's a monster! I'm not scared... okay, I'm a little scared.", ko: '모, 몬스터일지도 몰라! 난 안 무서워... 아니, 쪼끔 무서워.', still: '/media/dubbing/hallo-patch.jpg' },
+      { who: 'lulu', en: "Let's hold hands and count to three. One, two, three!",    ko: '손잡고 셋까지 세자. 하나, 둘, 셋!', still: '/media/dubbing/hallo-patch.jpg' },
+      { who: 'mom',  en: "Boo! Ha ha, it's only me, with a giant pumpkin lantern!",  ko: '워! 하하, 커다란 호박 등불을 든 엄마야!', still: '/media/dubbing/hallo-patch.jpg' },
+      { who: 'kiki', en: 'Mom! You scared us so much!',                               ko: '엄마! 진짜 깜짝 놀랐잖아요!', still: '/media/dubbing/hallo-reveal.jpg' },
+      { who: 'mom',  en: 'Sorry! I made this lantern to light your way home.',       ko: '미안! 너희 집에 가는 길 밝혀 주려고 이 등불 만들었어.', still: '/media/dubbing/hallo-reveal.jpg' },
+      { who: 'toto', en: "Wow, it's glowing! Let's share our candy with Mom!",       ko: '와, 빛난다! 엄마랑 사탕 나눠 먹자!', still: '/media/dubbing/hallo-reveal.jpg' },
+      { who: 'lulu', en: "Halloween is spooky, but it's more fun with friends!",    ko: '할로윈은 으스스하지만 친구랑 함께라서 더 재밌어!', still: '/media/dubbing/hallo-reveal.jpg' },
+      { who: 'kiki', en: 'Happy Halloween, everybody!',                               ko: '모두 해피 할로윈!', still: '/media/dubbing/hallo-reveal.jpg' },
+    ],
+  },
+  {
+    id: 'seol', bg: 'room', level: 3,
+    media: '/media/dubbing/seol-',
+    music: { bpm: 96, root: 62 },
+    title: { en: 'Our Exciting Seollal', ko: '신나는 설날 대작전' },
+    desc: { en: 'Korean New Year special · hanbok, sebae, tteokguk, yut-nori · 4 friends', ko: '설날 특별편 · 한복·세배·떡국·윷놀이를 영어로 · 4명 발표' },
+    lines: [
+      { who: 'kiki', en: 'Happy New Year! Today is Seollal, the Korean New Year!',      ko: '새해 복 많이 받으세요! 오늘은 한국의 새해, 설날이야!' },
+      { who: 'lulu', en: "Wow, everyone is wearing hanbok! They're so colorful!",       ko: '와, 다들 한복 입었네! 정말 알록달록해!' },
+      { who: 'toto', en: 'This is my first hanbok. Do I look cool?',                     ko: '나 한복 처음 입어 봐. 나 멋있어?' },
+      { who: 'mom',  en: "You all look lovely. Now, let's do sebae, the New Year's bow.", ko: '다들 정말 예쁘다. 자, 이제 새해 인사, 세배를 하자.' },
+      { who: 'kiki', en: 'Put your hands together and bow slowly, like this.',          ko: '이렇게 손을 모으고 천천히 절하면 돼.' },
+      { who: 'lulu', en: 'Saehae bok mani badeuseyo! Did I say it right?',               ko: '새해 복 많이 받으세요! 내가 맞게 말했어?' },
+      { who: 'mom',  en: "Perfect! Here's some lucky money for each of you.",           ko: '완벽해! 여기 너희들 세뱃돈이야.' },
+      { who: 'toto', en: "Thank you! Now, can we eat tteokguk? I'm so hungry!",         ko: '감사합니다! 이제 떡국 먹어도 돼요? 너무 배고파요!', still: '/media/dubbing/seol-table.jpg' },
+      { who: 'kiki', en: 'If you eat tteokguk, you get one year older!',                ko: '떡국을 먹으면 한 살 더 먹는대!', still: '/media/dubbing/seol-table.jpg' },
+      { who: 'toto', en: "Then I'll eat two bowls and get two years older!",            ko: '그럼 두 그릇 먹고 두 살 더 먹을래!', still: '/media/dubbing/seol-table.jpg' },
+      { who: 'mom',  en: "Ha ha! After lunch, let's play yut-nori together.",           ko: '하하! 점심 먹고 다 같이 윷놀이 하자.', still: '/media/dubbing/seol-table.jpg' },
+      { who: 'lulu', en: "How do we play? I've never played it before.",                ko: '어떻게 해? 나 한 번도 안 해 봤어.', still: '/media/dubbing/seol-yut.jpg' },
+      { who: 'kiki', en: 'Throw the four sticks and move your piece. Watch!',           ko: '막대 네 개를 던지고 말을 움직이면 돼. 봐!', still: '/media/dubbing/seol-yut.jpg' },
+      { who: 'toto', en: 'My turn! Come on... Mo! I got the best throw!',               ko: '내 차례! 제발... 모다! 제일 좋은 게 나왔어!', still: '/media/dubbing/seol-yut.jpg' },
+      { who: 'lulu', en: 'Yay! Our team wins! Korean New Year is so much fun!',         ko: '야호! 우리 팀이 이겼다! 설날 정말 재밌다!', still: '/media/dubbing/seol-yut.jpg' },
+      { who: 'kiki', en: 'Happy New Year, everyone! See you next year!',                ko: '여러분, 새해 복 많이 받으세요! 내년에 또 만나요!', still: '/media/dubbing/seol-yut.jpg' },
+    ],
+  },
+  {
+    id: 'chu', bg: 'room', level: 3,
+    media: '/media/dubbing/chu-',
+    music: { bpm: 92, root: 60 },
+    title: { en: 'A Full Moon Wish on Chuseok', ko: '보름달 아래 추석 소원' },
+    desc: { en: 'Chuseok special · songpyeon, full moon wishes, ganggangsullae · 4 friends', ko: '추석 특별편 · 송편·보름달 소원·강강술래를 영어로 · 4명 발표' },
+    lines: [
+      { who: 'kiki', en: "Happy Chuseok! It's the Korean Thanksgiving Day!",          ko: '즐거운 추석! 한국의 추수감사절이야!' },
+      { who: 'lulu', en: 'What do people do on Chuseok?',                              ko: '추석에는 뭘 해?' },
+      { who: 'mom',  en: 'We share food with family and give thanks for the harvest.', ko: '가족과 음식을 나누고, 풍성한 수확에 감사해.' },
+      { who: 'toto', en: "And we make songpyeon! Let's make them together!",           ko: '그리고 송편을 만들어! 같이 만들자!' },
+      { who: 'kiki', en: 'Roll the dough into a ball, then fill it with sweet sesame.', ko: '반죽을 동글게 굴리고, 달콤한 깨를 넣어.', still: '/media/dubbing/chu-make.jpg' },
+      { who: 'lulu', en: 'Then pinch it closed like a half-moon. Look, mine is tiny!', ko: '그다음 반달처럼 꼭 집어. 봐, 내 건 아주 작아!', still: '/media/dubbing/chu-make.jpg' },
+      { who: 'toto', en: "Look at mine! It's as big as my hand!",                      ko: '내 거 봐! 내 손만큼 커!', still: '/media/dubbing/chu-make.jpg' },
+      { who: 'mom',  en: 'Ha ha! Every songpyeon is special, big or small.',           ko: '하하! 크든 작든 송편은 다 특별해.', still: '/media/dubbing/chu-make.jpg' },
+      { who: 'kiki', en: "Mmm, they smell so good! They're soft and sweet!",           ko: '음, 냄새 좋다! 말랑말랑 달콤해!', still: '/media/dubbing/chu-make.jpg' },
+      { who: 'toto', en: 'Look outside! The full moon is so big and bright!',          ko: '밖에 봐! 보름달이 정말 크고 밝아!', still: '/media/dubbing/chu-moon.jpg' },
+      { who: 'mom',  en: 'On Chuseok night, we make a wish to the full moon.',         ko: '추석 밤에는 보름달에게 소원을 빌어.', still: '/media/dubbing/chu-moon.jpg' },
+      { who: 'lulu', en: 'I wish everyone stays healthy and happy.',                   ko: '모두 건강하고 행복하길 빌어.', still: '/media/dubbing/chu-moon.jpg' },
+      { who: 'toto', en: 'I wish... for a hundred more songpyeon!',                    ko: '내 소원은... 송편 백 개 더!', still: '/media/dubbing/chu-moon.jpg' },
+      { who: 'kiki', en: "Toto, you're so funny! Now let's hold hands and dance in a circle!", ko: '토토, 너 정말 웃기다! 이제 손잡고 동그랗게 춤추자!', still: '/media/dubbing/chu-moon.jpg' },
+      { who: 'lulu', en: 'Ganggangsullae! Round and round under the moon!',            ko: '강강술래! 달 아래서 빙글빙글!', still: '/media/dubbing/chu-moon.jpg' },
+      { who: 'kiki', en: 'Happy Chuseok, everyone! Thank you for watching!',           ko: '모두 즐거운 추석 보내세요! 봐 주셔서 감사합니다!', still: '/media/dubbing/chu-moon.jpg' },
+    ],
+  },
+  {
+    id: 'kids', bg: 'park', level: 3,
+    media: '/media/dubbing/kids-',
+    music: { bpm: 120, root: 64 },
+    title: { en: "A Special Gift on Children's Day", ko: '어린이날의 특별한 선물' },
+    desc: { en: "Children's Day special · sharing, gratitude and Parents' Day · 4 friends", ko: '어린이날 특별편 · 나눔과 감사, 어버이날 카네이션 · 4명 발표' },
+    lines: [
+      { who: 'kiki', en: "Hooray! Today is May fifth, Children's Day!",            ko: '야호! 오늘은 5월 5일, 어린이날이야!' },
+      { who: 'toto', en: "Mom said we're going to the amusement park!",             ko: '엄마가 놀이공원에 간대!' },
+      { who: 'mom',  en: "Yes! Today is your special day. Let's have fun!",         ko: '그래! 오늘은 너희들의 특별한 날이야. 신나게 놀자!' },
+      { who: 'lulu', en: 'Look! A merry-go-round with golden horses!',              ko: '봐! 금색 말이 있는 회전목마야!' },
+      { who: 'kiki', en: "Let's ride it together! Round and round we go!",          ko: '같이 타자! 빙글빙글 돌아간다!', still: '/media/dubbing/kids-ride.jpg' },
+      { who: 'toto', en: "Wheee! This is so much fun! I'm flying!",                 ko: '우와아! 너무 재밌어! 날아가는 것 같아!', still: '/media/dubbing/kids-ride.jpg' },
+      { who: 'mom',  en: 'Here are some balloons for you. Hold them tight!',        ko: '여기 풍선이야. 꼭 잡아!' },
+      { who: 'toto', en: 'Oh no! My balloon flew away! Come back!',                 ko: '어떡해! 내 풍선이 날아갔어! 돌아와!', still: '/media/dubbing/kids-balloon.jpg' },
+      { who: 'lulu', en: "Don't cry, Toto. You can share my balloon.",              ko: '울지 마, 토토. 내 풍선 같이 쓰자.', still: '/media/dubbing/kids-balloon.jpg' },
+      { who: 'toto', en: "Really? Thank you, Lulu. You're so kind.",                ko: '정말? 고마워, 룰루. 넌 정말 착해.', still: '/media/dubbing/kids-balloon.jpg' },
+      { who: 'kiki', en: 'Mom, we have a surprise for you, too!',                   ko: '엄마, 우리도 깜짝 선물이 있어요!', still: '/media/dubbing/kids-gift.jpg' },
+      { who: 'lulu', en: 'We made these paper carnations for you!',                 ko: '엄마 드리려고 종이 카네이션 만들었어요!', still: '/media/dubbing/kids-gift.jpg' },
+      { who: 'mom',  en: "Oh my! Carnations? But today is Children's Day!",         ko: '어머나! 카네이션? 오늘은 어린이날인데!', still: '/media/dubbing/kids-gift.jpg' },
+      { who: 'toto', en: "Parents' Day is coming soon. Thank you for everything, Mom!", ko: '곧 어버이날이잖아요. 엄마, 늘 고마워요!', still: '/media/dubbing/kids-gift.jpg' },
+      { who: 'lulu', en: "Every day is special when we're together!",               ko: '함께라면 매일매일이 특별해!', still: '/media/dubbing/kids-gift.jpg' },
+      { who: 'kiki', en: "Happy Children's Day, everyone!",                         ko: '모두 행복한 어린이날 보내세요!', still: '/media/dubbing/kids-gift.jpg' },
+    ],
+  },
+];
+
+/* =========================================================
+   2. I18N — EN/KO 인터페이스 문구
+   ========================================================= */
+const T = {
+  ko: {
+    title: '키키와 토토 더빙', sub: '캐릭터를 고르고, 내 목소리로 영어 영화를 만들어요.',
+    guideLabel: '더빙하는 순서', guideRole: '역할 고르기', guideRoleHelp: '내가 연기할 캐릭터를 골라요.',
+    guideRecord: '대사 녹음하기', guideRecordHelp: '내 대사 옆 ‘녹음하기’를 눌러요.',
+    guideMovie: '내 영상 만들기', guideMovieHelp: '녹음한 목소리를 영상에 넣어요.',
+    setupTitle: '1. 이야기와 역할 고르기', moreOptions: '속도·자막·배경음악 조절',
+    playHelp: '먼저 재생해서 들어보세요. 내 목소리를 저장하려면 대사 옆 ‘녹음하기’를 눌러요.',
+    recordGuide: '‘내 대사’ 표시를 찾아 녹음해 보세요. 말을 마치면 같은 버튼의 ‘녹음 완료’를 눌러요.',
+    episode: '어떤 이야기로 할까요?', role: '누구의 목소리가 될까요?', mode: '어떻게 연습할까요?', speed: '말하는 속도', options: '소리와 자막 설정',
+    practice: '듣고 따라 말하기', dub: '직접 더빙하기',
+    helpPractice: '처음이라면 먼저 대사를 듣고 따라 말해보세요. 모든 캐릭터의 목소리가 나와요.',
+    helpDub: '상대 대사만 나와요. 내 대사 차례엔 음소거되고 내가 직접 말해요.',
+    subKo: '한국어 해석 보기', hideMine: '내 대사 가리기 (암기 연습)',
+    echo: '따라 말하기 전에 내 대사 먼저 듣기', autoNext: '내 차례 시간이 끝나면 자동으로 넘기기',
+    play: '재생', pause: '일시정지', restart: '처음부터', prev: '이전 대사', next: '다음 대사', repeat: '이 대사 다시',
+    cueSheet: '2. 내 대사 녹음하기', myLine: '내 대사', me: '나',
+    yourTurn: '내 차례! 말하세요', echoTurn: '따라 말해보세요', done: '다 말했어요',
+    finishTitle: '더빙 완료!', finishBody: (n) => `내 대사 ${n}개를 해냈어요. 박수 짝짝짝!`,
+    again: '다시 하기', changeRole: '역할 바꾸기',
+    pickRole: '역할을 하나 이상 골라주세요.',
+    ready: '재생 버튼을 누르면 시작해요.',
+    noVoice: '이 기기는 음성 읽기를 지원하지 않아 자막과 타이머로만 진행돼요.',
+    lines: (n, m) => `${n}줄 · 내 대사 ${m}줄`,
+    sample: '모든 캐릭터와 대본은 자체 제작이고, 영상과 캐릭터 음성은 Higgsfield AI로 만들었어요. 저작권 걱정 없이 수업에 쓸 수 있습니다.',
+    bgm: '배경음악 (대사 나올 땐 작게)', series: '키키와 토토 시리즈',
+    rotate: '↻ 역할 돌아가며 바꾸기', roleHelp: '혼자라면 캐릭터 한 명을 고르세요. 친구와 함께라면 여러 명을 고를 수 있어요.',
+    review: '내 녹음으로 보기', helpReview: '상대 대사는 원래 목소리로, 내 대사는 내가 녹음한 목소리로 이어서 들려줘요.',
+    recTitle: '3. 내 영상 만들기', recCount: (n, m) => `${n} / ${m}개 녹음`,
+    recHelp: '먼저 내 목소리를 들어보고, 마음에 들면 영상으로 저장해요. 로그인하면 내 계정에도 보관해요. 저장 완료 표시를 확인해 주세요.',
+    stopRecording: '녹음 완료', micWaiting: '마이크 연결 중…',
+    micRecording: '녹음 중입니다. 말을 마치면 녹음 완료를 누르세요.',
+    micUnsupported: '마이크 녹음을 지원하는 최신 브라우저에서 HTTPS 주소로 열어 주세요.',
+    micDenied: '마이크 권한을 허용한 뒤 다시 녹음하기를 눌러 주세요.',
+    micMissing: '마이크를 찾을 수 없어요. 연결을 확인해 주세요.',
+    micFailed: '녹음하지 못했어요. 마이크를 확인하고 다시 시도해 주세요.',
+    record: '녹음하기', reRecord: '다시 녹음', myVoice: '내 목소리 듣기', reviewPlay: '녹음 먼저 들어보기', exportVideo: '내 영상 만들고 저장하기',
+    clearAll: '이 이야기 녹음 모두 지우기', clearAsk: '이 에피소드의 녹음을 모두 지울까요?', clearYes: '지우기', cancel: '취소',
+    exporting: '더빙 영상 만드는 중', exportReady: '영상이 준비됐어요.', exportSaved: '영상을 내려받았어요. 다운로드 폴더를 확인하세요.',
+    exportDeclined: '저장을 취소했어요.', exportFail: '이 기기에서는 영상 저장을 할 수 없어요.', exportCanceled: '영상 만들기를 멈췄어요.',
+    recSaved: '녹음을 저장했어요.', recBad: '소리 파일을 열 수 없어요. 다른 파일로 다시 해 주세요.', cleared: '녹음을 모두 지웠어요.',
+    continueTitle: '저장한 연습과 내 영상', continueHelp: '전에 녹음한 대사를 불러와 나머지를 이어서 녹음해요.',
+    resumePractice: '하던 연습 계속하기', savePractice: '여기까지 저장하기', myWorks: '내 영상 보기',
+    conversation: '이 문장으로 AI 친구와 대화하기', retryMovie: '완성 영상 다시 저장',
+    savingAccount: '계정에 저장하는 중이에요…', savedAccount: '계정에 저장했어요. 다른 기기에서도 이어할 수 있어요.',
+    guestPractice: '로그인하면 계정에 보관할 수 있어요. 지금은 이 기기의 녹음을 이어서 연습해요.',
+    savedDevice: '이 기기에 연습을 저장했어요.', recMemory: '기기에 저장하지 못했어요. 이 창을 닫기 전에 녹음을 내려받아 주세요.',
+    localKept: '이 기기의 녹음은 그대로 남아 있어요.', loadingPractice: '저장된 대사와 녹음을 불러오는 중이에요…',
+    resumedPractice: '연습을 불러왔어요. 이 기기에서 새로 녹음한 대사는 그대로 두었어요.',
+    noPractice: '아직 저장된 연습이 없어요. 대사를 녹음하거나 ‘여기까지 저장하기’를 눌러 주세요.',
+    partialResume: '일부 녹음을 불러오지 못했어요. 연결을 확인한 뒤 다시 불러와 주세요.',
+    practiceUnavailable: '회화 연습을 열지 못했어요. 잠시 후 다시 눌러 주세요.',
+    movieSaved: '영상을 내 계정에 저장했어요. ‘내 영상 보기’에서 다시 볼 수 있어요.', downloadVoice: '녹음 내려받기',
+    practiceDeleted: '연습 기록과 대사 녹음을 삭제했어요. 새로 녹음해서 시작할 수 있어요.',
+    deletingPractice: '연습 기록과 대사 녹음을 삭제하는 중이에요…', practiceDeleteFailed: '이 기기의 연습을 모두 삭제하지 못했어요. 보관함에서 삭제를 다시 눌러 주세요.',
+  },
+  en: {
+    title: 'Kiki & Toto Dubbing', sub: 'Pick a character and make an English movie with your voice.',
+    guideLabel: 'How to make your dub', guideRole: 'Pick a role', guideRoleHelp: 'Choose the character you want to play.',
+    guideRecord: 'Record your lines', guideRecordHelp: 'Tap Record beside your lines.',
+    guideMovie: 'Make your movie', guideMovieHelp: 'Add your recorded voice to the video.',
+    setupTitle: '1. Pick a story and role', moreOptions: 'Speed, subtitles and music',
+    playHelp: 'Press Play to listen first. To save your voice, tap Record beside a line.',
+    recordGuide: 'Find MY LINE and tap Record. When you finish speaking, tap Finish recording on the same button.',
+    episode: 'Which story?', role: 'Who will you play?', mode: 'How will you practise?', speed: 'Speaking speed', options: 'Sound and subtitles',
+    practice: 'Listen and repeat', dub: 'Speak my part',
+    helpPractice: 'New here? Listen and repeat first. You will hear every character’s voice.',
+    helpDub: 'Only the other parts are read aloud. Your lines are muted and you speak them.',
+    subKo: 'Show Korean translation', hideMine: 'Hide my lines (memory practice)',
+    echo: 'Hear my line before repeating it', autoNext: 'Move on automatically when my time is up',
+    play: 'Play', pause: 'Pause', restart: 'Start over', prev: 'Previous line', next: 'Next line', repeat: 'Repeat line',
+    cueSheet: '2. Record your lines', myLine: 'MY LINE', me: 'ME',
+    yourTurn: 'Your turn! Speak now', echoTurn: 'Now you say it', done: "I'm done",
+    finishTitle: 'Dub complete!', finishBody: (n) => `You performed ${n} lines. Great job!`,
+    again: 'Play again', changeRole: 'Change role',
+    pickRole: 'Choose at least one role.',
+    ready: 'Press Play to start.',
+    noVoice: 'This device has no text-to-speech, so lines run with captions and a timer only.',
+    lines: (n, m) => `${n} lines · ${m} mine`,
+    sample: 'All characters and scripts are our own, with video and character voices made in Higgsfield AI, so classes can use them freely.',
+    bgm: 'Background music (softer during lines)', series: 'Kiki & Toto series',
+    rotate: '↻ Rotate roles', roleHelp: 'On your own? Choose one character. With friends? You can choose more than one.',
+    review: 'Play my recordings', helpReview: 'Plays the other parts in their voices and your lines in your recorded voice.',
+    recTitle: '3. Make your movie', recCount: (n, m) => `${n} / ${m} recorded`,
+    recHelp: 'Listen to your voice first, then save it as a movie. When signed in, it also saves to your account. Check the saved status.',
+    stopRecording: 'Finish recording', micWaiting: 'Connecting microphone…',
+    micRecording: 'Recording. Tap Finish recording when you are done.',
+    micUnsupported: 'Open this HTTPS page in a current browser supporting microphone recording.',
+    micDenied: 'Allow microphone access, then tap Record again.',
+    micMissing: 'No microphone found. Check your connection.',
+    micFailed: 'Recording failed. Check your microphone and try again.',
+    record: 'Record', reRecord: 'Record again', myVoice: 'Hear my voice', reviewPlay: 'Listen to my recordings', exportVideo: 'Make and save my movie',
+    clearAll: 'Delete this story’s recordings', clearAsk: 'Delete all recordings for this episode?', clearYes: 'Delete', cancel: 'Cancel',
+    exporting: 'Making your dub video', exportReady: 'Your video is ready.', exportSaved: 'Downloaded. Check your Downloads folder.',
+    exportDeclined: 'Save canceled.', exportFail: 'This device can’t save videos.', exportCanceled: 'Stopped making the video.',
+    recSaved: 'Recording saved.', recBad: 'That sound file can’t be played. Try another file.', cleared: 'All recordings deleted.',
+    continueTitle: 'Saved practice and movies', continueHelp: 'Load your recorded lines and continue recording the rest.',
+    resumePractice: 'Continue my practice', savePractice: 'Save my progress', myWorks: 'My videos',
+    conversation: 'Chat with my AI friend using these lines', retryMovie: 'Retry saving the movie',
+    savingAccount: 'Saving to your account…', savedAccount: 'Saved to your account. You can continue on another device.',
+    guestPractice: 'Sign in to save to your account. You can continue recordings on this device now.',
+    savedDevice: 'Practice saved on this device.', recMemory: 'Could not save on this device. Download your recording before closing this page.',
+    localKept: 'Your recordings remain on this device.', loadingPractice: 'Loading your saved lines and recordings…',
+    resumedPractice: 'Practice loaded. New recordings on this device were kept.',
+    noPractice: 'No saved practice yet. Record a line or tap Save my progress.',
+    partialResume: 'Some recordings could not be loaded. Check your connection and load again.',
+    practiceUnavailable: 'Could not open the conversation. Please try again.',
+    movieSaved: 'Your movie is saved to your account. Open My videos to watch it again.', downloadVoice: 'Download recording',
+    practiceDeleted: 'Practice and line recordings deleted. You can start a new recording.',
+    deletingPractice: 'Deleting the practice and line recordings…', practiceDeleteFailed: 'Could not finish removing this device’s practice. Open Saved practice and retry deleting it.',
+  },
+};
+
+/* =========================================================
+   3. STATE — 설정 저장(브라우저별)
+   ========================================================= */
+const STORE_KEY = 'dubstudio.v1';
+const state = {
+  lang: 'ko', ep: 0, roles: new Set(['kiki']), mode: 'practice', speed: 0.85,
+  subKo: true, hideMine: false, echo: true, autoNext: true, bgm: true,
+  idx: 0, playing: false, single: false, finished: false,
+};
+(function loadPrefs() {
+  try {
+    const p = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+    if (!p) throw 0; // 저장값 없음 → 아래 사이트 언어만 본다
+    for (const k of ['lang', 'ep', 'mode', 'speed', 'subKo', 'hideMine', 'echo', 'autoNext', 'bgm']) if (k in p) state[k] = p[k];
+    if (Array.isArray(p.roles) && p.roles.length) state.roles = new Set(p.roles.filter((r) => r in CAST));
+    if (!EPISODES[state.ep]) state.ep = 0;
+  } catch (e) { /* 저장소 없음: 기본값 사용 */ }
+  try { const g = localStorage.getItem('mangoi_lang'); if (g === 'ko' || g === 'en') state.lang = g; } catch (e) { /* 무시 */ }
+  const qi = epFromQuery(location.search); // 주소로 고른 편이 저장값을 이긴다
+  if (qi >= 0) state.ep = qi;
+})();
+/* 🔗 ?ep=<id> 로 열면 그 편으로 시작한다(2026-10-20 — A.i영화더빙 화면의 «키키와 토토» 카드가 이 주소로 보낸다).
+   모르는 id·이상한 글자는 무시(-1) → 저장된 편·첫 편 그대로. */
+function epFromQuery(search) {
+  const m = /[?&]ep=([A-Za-z0-9_-]{1,24})(?:[&#]|$)/.exec(String(search || ''));
+  if (!m) return -1;
+  const id = m[1].toLowerCase();
+  return EPISODES.findIndex((e) => e.id === id);
+}
+function savePrefs(checkpoint = true) {
+  try {
+    const { lang, ep, mode, speed, subKo, hideMine, echo, autoNext, bgm } = state;
+    localStorage.setItem(STORE_KEY, JSON.stringify({ lang, ep, mode, speed, subKo, hideMine, echo, autoNext, bgm, roles: [...state.roles] }));
+  } catch (e) { /* 무시 */ }
+  if (checkpoint) checkpointStudio();
+}
+
+const t = (k) => T[state.lang][k];
+/* 다른 에피소드로 바꿨을 때 등장하지 않는 역할은 빼고, 비면 첫 캐릭터를 맡김 */
+function fitRoles() {
+  const ids = castOf(EPISODES[state.ep]);
+  state.roles = new Set([...state.roles].filter((r) => ids.includes(r)));
+  if (!state.roles.size) state.roles.add(ids[0]);
+}
+fitRoles();
+const episode = () => EPISODES[state.ep];
+const lines = () => episode().lines;
+const isMine = (line) => state.roles.has(line.who);
+const $ = (id) => document.getElementById(id);
+
+/* 에피소드 미디어 경로 (영상 클립 + 캐릭터 음성). media가 없으면 SVG + 브라우저 음성으로 대체 */
+const pad2 = (n) => String(n).padStart(2, '0');
+const mediaFor = (i) => {
+  const ep = episode(), base = ep.media;
+  if (!base) return null;
+  const hasClip = !ep.clipLines || ep.clipLines.includes(i + 1); // clipLines: 영상이 있는 대사 번호(1부터)
+  return { clip: hasClip ? `${base}${pad2(i + 1)}.mp4` : null, voice: `${base}${pad2(i + 1)}.mp3` };
+};
+const posterFor = (ep) => (ep.media ? `${ep.media}key.jpg` : '');
+/* 대사별 정지 장면 그림 (없으면 에피소드 대표 그림) */
+const stillFor = (i) => lines()[i]?.still || posterFor(episode());
+
+/* 음성 파일 미리 불러오기 (에피소드별 캐시) */
+const audioCache = new Map();
+function audioFor(i) {
+  const m = mediaFor(i);
+  if (!m) return null;
+  if (!audioCache.has(m.voice)) {
+    const a = new Audio(m.voice);
+    a.preload = 'auto';
+    a.addEventListener('loadedmetadata', refreshTimecodesSoon); // 실제 길이로 타임코드 갱신
+    audioCache.set(m.voice, a);
+  }
+  return audioCache.get(m.voice);
+}
+
+let tcTimer = null;
+function refreshTimecodesSoon() {
+  clearTimeout(tcTimer);
+  tcTimer = setTimeout(() => {
+    const starts = cueStarts();
+    document.querySelectorAll('#cues .cue-tc').forEach((el, i) => { el.textContent = fmtTC(starts[i]); });
+    $('tc').textContent = fmtTC(starts[state.idx]);
+  }, 150);
+}
+
+/* 대사 길이(초, 속도 1.0 기준): 음성 파일이 있으면 실제 길이, 없으면 단어 수로 추정 */
+const estSec = (line) => 0.9 + line.en.split(/\s+/).length * 0.38;
+const lineSec = (line, i) => {
+  const d = audioFor(i)?.duration;
+  return Number.isFinite(d) && d > 0 ? d : estSec(line);
+};
+const turnSec = (line, i) => lineSec(line, i) / state.speed * 1.4 + 1;
+function cueStarts() {
+  let acc = 0;
+  return lines().map((l, i) => { const s = acc; acc += lineSec(l, i) + 0.4; return s; });
+}
+function fmtTC(sec) {
+  const m = Math.floor(sec / 60), s = sec - m * 60;
+  return `${String(m).padStart(2, '0')}:${s.toFixed(1).padStart(4, '0')}`;
+}
+/* 암기 연습용 힌트: 단어 첫 글자만 보여주기 */
+const hint = (text) => text.replace(/[A-Za-z']+/g, (w) => w[0] + '_'.repeat(w.length - 1));
+
+/* =========================================================
+   4. SCENE — SVG 무대 그리기 (오리지널 캐릭터)
+   ========================================================= */
+const BG = {
+  park: `
+    <rect width="640" height="360" fill="#BFE6F5"/>
+    <circle cx="560" cy="62" r="34" fill="#FFD45C"/>
+    <g fill="#FFFFFF" opacity=".9"><ellipse cx="150" cy="66" rx="46" ry="15"/><ellipse cx="185" cy="56" rx="30" ry="13"/><ellipse cx="390" cy="48" rx="38" ry="12"/></g>
+    <path d="M0 230 Q160 170 320 220 T640 210 V360 H0Z" fill="#9BD67E"/>
+    <path d="M0 262 Q200 228 420 256 T640 250 V360 H0Z" fill="#7CC363"/>
+    <rect x="56" y="120" width="18" height="140" rx="6" fill="#8A5A3B"/>
+    <circle cx="65" cy="108" r="52" fill="#4FA65A"/><circle cx="28" cy="140" r="34" fill="#5DB866"/><circle cx="102" cy="136" r="36" fill="#5DB866"/>
+    <circle cx="90" cy="98" r="10" fill="#E5484D"/>
+    <path d="M226 296 L480 296 L516 348 L190 348Z" fill="#F07B6A"/>
+    <g stroke="#FFFFFF" stroke-width="7" opacity=".6"><line x1="270" y1="296" x2="250" y2="348"/><line x1="330" y1="296" x2="320" y2="348"/><line x1="390" y1="296" x2="392" y2="348"/><line x1="448" y1="296" x2="462" y2="348"/></g>
+    <rect x="540" y="282" width="52" height="34" rx="6" fill="#C98B4E"/><path d="M548 284 Q566 254 584 284" stroke="#8A5A3B" stroke-width="5" fill="none"/>`,
+  room: `
+    <rect width="640" height="360" fill="#F6E3C8"/>
+    <rect y="270" width="640" height="90" fill="#D9A86C"/>
+    <g stroke="#C4935A" stroke-width="2"><line x1="0" y1="300" x2="640" y2="300"/><line x1="0" y1="330" x2="640" y2="330"/></g>
+    <rect x="250" y="40" width="150" height="110" rx="8" fill="#FFFFFF"/><rect x="258" y="48" width="134" height="94" rx="4" fill="#AEDDF2"/>
+    <line x1="325" y1="48" x2="325" y2="142" stroke="#FFFFFF" stroke-width="6"/>
+    <rect x="20" y="196" width="140" height="70" rx="10" fill="#8C6FC9"/><rect x="20" y="170" width="44" height="96" rx="8" fill="#6E54A8"/><rect x="66" y="186" width="70" height="26" rx="10" fill="#FFFFFF"/>
+    <rect x="540" y="214" width="88" height="62" rx="6" fill="#E5484D"/><rect x="536" y="206" width="96" height="14" rx="5" fill="#C23A3F"/>
+    <circle cx="566" cy="204" r="9" fill="#A0703F"/><circle cx="598" cy="204" r="9" fill="#A0703F"/>
+    <rect x="240" y="252" width="0" height="0"/>`,
+};
+
+function catSVG(c) {
+  const dress = c.dress ? `<path d="M-30 -58 Q0 -70 30 -58 L40 -6 Q0 6 -40 -6Z" fill="${c.dress}"/>` : `<ellipse cx="0" cy="-34" rx="20" ry="25" fill="${c.belly}"/>`;
+  return `
+    <path d="M28 -30 Q72 -48 56 -92" stroke="${c.fur}" stroke-width="10" fill="none" stroke-linecap="round"/>
+    <ellipse cx="0" cy="-40" rx="34" ry="40" fill="${c.fur}"/>${dress}
+    <path d="M-38 -128 L-30 -172 L-6 -146Z" fill="${c.fur}"/><path d="M38 -128 L30 -172 L6 -146Z" fill="${c.fur}"/>
+    <path d="M-31 -136 L-27 -160 L-14 -146Z" fill="#F4A9B8"/><path d="M31 -136 L27 -160 L14 -146Z" fill="#F4A9B8"/>
+    <circle cx="0" cy="-114" r="42" fill="${c.fur}"/>
+    <ellipse cx="0" cy="-100" rx="20" ry="14" fill="${c.belly}"/>
+    <circle cx="-15" cy="-122" r="6" fill="#1E1E24"/><circle cx="15" cy="-122" r="6" fill="#1E1E24"/>
+    <circle cx="-13" cy="-124" r="2" fill="#FFFFFF"/><circle cx="17" cy="-124" r="2" fill="#FFFFFF"/>
+    <circle cx="-26" cy="-104" r="6" fill="#F4A9B8" opacity=".6"/><circle cx="26" cy="-104" r="6" fill="#F4A9B8" opacity=".6"/>
+    <path d="M-5 -108 L5 -108 L0 -102Z" fill="#E07A8C"/>
+    <ellipse class="mouth" cx="0" cy="-95" rx="7" ry="2.5" fill="#7A2E3A"/>
+    <g stroke="#4A3B36" stroke-width="1.5"><line x1="-12" y1="-102" x2="-36" y2="-106"/><line x1="-12" y1="-99" x2="-36" y2="-97"/><line x1="12" y1="-102" x2="36" y2="-106"/><line x1="12" y1="-99" x2="36" y2="-97"/></g>`;
+}
+function dogSVG(c) {
+  return `
+    <path d="M30 -34 Q58 -44 52 -70" stroke="${c.fur}" stroke-width="10" fill="none" stroke-linecap="round"/>
+    <ellipse cx="0" cy="-40" rx="34" ry="40" fill="${c.fur}"/><ellipse cx="0" cy="-34" rx="20" ry="25" fill="${c.belly}"/>
+    <circle cx="0" cy="-114" r="42" fill="${c.fur}"/>
+    <ellipse cx="-40" cy="-112" rx="13" ry="30" fill="#8C6440" transform="rotate(14 -40 -112)"/>
+    <ellipse cx="40" cy="-112" rx="13" ry="30" fill="#8C6440" transform="rotate(-14 40 -112)"/>
+    <ellipse cx="14" cy="-124" rx="13" ry="12" fill="#8C6440"/>
+    <ellipse cx="0" cy="-100" rx="22" ry="15" fill="${c.belly}"/>
+    <circle cx="-15" cy="-124" r="6" fill="#1E1E24"/><circle cx="15" cy="-124" r="6" fill="#1E1E24"/>
+    <circle cx="-13" cy="-126" r="2" fill="#FFFFFF"/><circle cx="17" cy="-126" r="2" fill="#FFFFFF"/>
+    <ellipse cx="0" cy="-108" rx="8" ry="6" fill="#2A1E1A"/>
+    <ellipse class="mouth" cx="0" cy="-94" rx="7" ry="2.5" fill="#7A2E3A"/>`;
+}
+function charSVG(id) {
+  const c = CAST[id];
+  const body = c.kind === 'dog' ? dogSVG(c) : catSVG(c);
+  const mine = state.roles.has(id);
+  const name = c.name[state.lang];
+  const tagW = 54 + (mine ? 26 : 0);
+  return `
+    <g class="char" id="ch-${id}" transform="translate(${c.x} 300) scale(${c.scale})">
+      <ellipse class="spot" cx="0" cy="2" rx="52" ry="11" fill="#FFE27A"/>
+      <g class="bob">${body}</g>
+      <g transform="scale(${1 / c.scale})">
+        <rect x="${-tagW / 2}" y="10" width="${tagW}" height="22" rx="11" fill="${mine ? '#B86E00' : '#16252C'}" opacity=".9"/>
+        <text x="0" y="25.5" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="800" font-size="13" fill="#FFFFFF">${name}${mine ? ' · ' + t('me') : ''}</text>
+      </g>
+    </g>`;
+}
+function renderScene() {
+  const ep = episode();
+  const hasMedia = Boolean(ep.media);
+  $('scene').innerHTML = BG[ep.bg] + castOf(ep).map(charSVG).join('');
+  $('scene').hidden = hasMedia;
+  $('ai-badge').hidden = !hasMedia;
+  const vid = $('vid');
+  vid.hidden = !hasMedia;
+  if (hasMedia) {
+    vid.poster = posterFor(ep);
+    lines().forEach((_, i) => audioFor(i));
+  } else {
+    vid.removeAttribute('src'); vid.load();
+  }
+}
+
+/* 영상 클립: 대사가 진행되는 동안 반복 재생, 끝나면 멈춤 */
+function showClip(i, autoplay) {
+  const m = mediaFor(i);
+  if (!m) return;
+  const vid = $('vid');
+  vid.poster = stillFor(i);
+  if (!m.clip) { // 영상이 없는 대사: 그림을 천천히 확대(켄 번스 효과)
+    if (vid.getAttribute('src')) { vid.removeAttribute('src'); vid.load(); }
+    vid.classList.toggle('kenburns', autoplay);
+    return;
+  }
+  vid.classList.remove('kenburns');
+  if (!vid.src.endsWith(m.clip)) vid.src = m.clip;
+  vid.loop = true;
+  vid.playbackRate = state.speed;
+  if (autoplay) { vid.currentTime = 0; vid.play().catch(() => {}); }
+  else vid.pause();
+}
+function pauseClip() {
+  if (!episode().media) return;
+  $('vid').pause();
+  $('vid').classList.remove('kenburns');
+}
+function setTalking(who, myTurn = false) {
+  document.querySelectorAll('.char').forEach((g) => g.classList.remove('talking', 'myturn'));
+  if (!who) return;
+  const g = $('ch-' + who);
+  if (!g) return;
+  g.classList.add('talking');
+  if (myTurn) g.classList.add('myturn');
+}
+
+/* =========================================================
+   5. SPEECH — 브라우저 음성 합성(TTS)
+   ========================================================= */
+const synth = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let voices = [];
+let currentUtterance = null; // GC로 onend가 사라지는 브라우저 버그 방지용 참조
+function loadVoices() {
+  if (!synth) return;
+  const all = synth.getVoices();
+  const en = all.filter((v) => /^en[-_]/i.test(v.lang));
+  const us = en.filter((v) => /US/i.test(v.lang));
+  voices = us.length >= 2 ? us : (en.length ? en : all);
+}
+if (synth) { loadVoices(); synth.addEventListener?.('voiceschanged', loadVoices); }
+function voiceFor(who) {
+  if (!voices.length) return null;
+  return voices[Object.keys(CAST).indexOf(who) % voices.length];
+}
+
+/* =========================================================
+   6. RECORDINGS — 학생 녹음 (기기 녹음 앱/파일 → 이 기기 IndexedDB 저장)
+   ========================================================= */
+const DubLibrary = window.MangoiDubLibrary || null;
+let studioIdentity = DubLibrary ? DubLibrary.identity() : 'guest';
+let studioReady = false, studioLoading = false;
+const recs = new Map(); // Current account only: "episode:line" → { blob, url, audio }
+const recKey = (i) => `${episode().id}:${i}`;
+const recFor = (i) => sameStudioAccount(studioIdentity) ? recs.get(recKey(i)) : undefined;
+const localRecKey = (key, owner = studioIdentity) => `${encodeURIComponent(owner)}|${key}`;
+const sameStudioAccount = (owner) => owner === studioIdentity && (!DubLibrary || DubLibrary.identity() === owner);
+
+let dbPromise = null;
+function openDB() {
+  dbPromise ??= new Promise((resolve) => {
+    try {
+      const req = indexedDB.open('dubstudio', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('recs');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+  return dbPromise;
+}
+async function dbWrite(fn) {
+  const db = await openDB();
+  if (!db) return false;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction('recs', 'readwrite');
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = tx.onabort = () => resolve(false);
+      fn(tx.objectStore('recs'));
+    } catch (e) { resolve(false); }
+  });
+}
+async function loadRecs() {
+  const owner = studioIdentity;
+  const revisions = new Map(EPISODES.map((ep) => [ep.id, studioRevision(ep.id)]));
+  const db = await openDB();
+  if (!db) return;
+  await new Promise((resolve) => {
+    try {
+      const tx = db.transaction('recs', 'readonly'), store = tx.objectStore('recs');
+      const keys = store.getAllKeys(), vals = store.getAll();
+      tx.onerror = tx.onabort = () => resolve();
+      tx.oncomplete = () => {
+        if (sameStudioAccount(owner)) {
+          // Legacy device recordings have no owner. Never attach or upload them to a signed-in account.
+          if (owner === 'guest') keys.result.forEach((key, j) => {
+            const epId = String(key).split(':')[0];
+            if (/^[a-z0-9-]+:\d+$/.test(String(key)) && vals.result[j] instanceof Blob && studioRevision(epId) === revisions.get(epId)) setRec(key, vals.result[j]);
+          });
+          const prefix = localRecKey('', owner);
+          keys.result.forEach((key, j) => {
+            if (!String(key).startsWith(prefix)) return;
+            const recordKey = String(key).slice(prefix.length), value = vals.result[j];
+            const blob = value instanceof Blob ? value : value?.blob;
+            if (!(blob instanceof Blob)) return;
+            const [epId, lineNo] = recordKey.split(':'), line = EPISODES.find((e) => e.id === epId)?.lines[Number(lineNo)];
+            if (studioRevision(epId) !== revisions.get(epId)) return;
+            if (value.en && (!line || line.en !== value.en || line.who !== value.speaker)) return;
+            setRec(recordKey, blob, value instanceof Blob ? {} : value);
+            if (value.pending) pendingStudioEdits.set(recordKey, { blob, localSaved: true });
+          });
+        }
+        resolve();
+      };
+    } catch (e) { resolve(); }
+  });
+}
+
+function setRec(key, blob, metadata = {}) {
+  const old = recs.get(key);
+  if (old) { old.audio.pause(); URL.revokeObjectURL(old.url); }
+  const url = URL.createObjectURL(blob);
+  const audio = new Audio(url);
+  audio.preload = 'auto';
+  recs.set(key, { blob, url, audio, audioId: metadata.audioId || null, pending: Boolean(metadata.pending) });
+}
+function localRecValue(key, recording) {
+  const [epId, lineNo] = key.split(':'), line = EPISODES.find((e) => e.id === epId)?.lines[Number(lineNo)];
+  return { blob: recording.blob, audioId: recording.audioId || null, pending: Boolean(recording.pending), en: line?.en || '', speaker: line?.who || '' };
+}
+function deleteRec(key) {
+  const r = recs.get(key);
+  if (r) { r.audio.pause(); URL.revokeObjectURL(r.url); }
+  recs.delete(key);
+  const owner = studioIdentity;
+  dbWrite((s) => { s.delete(localRecKey(key, owner)); if (owner === 'guest') s.delete(key); });
+  pendingStudioEdits.set(key, { deleted: true });
+}
+function canPlay(blob) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(blob);
+    const a = new Audio(url);
+    const done = (ok) => { URL.revokeObjectURL(url); resolve(ok); };
+    a.onloadedmetadata = () => done(true);
+    a.onerror = () => done(false);
+    setTimeout(() => done(false), 4000);
+  });
+}
+
+// Each session owns its destination key, including while permission is pending.
+let micSession = null;
+function recordingLabel(i) {
+  if (micSession && micSession.key === recKey(i)) {
+    return t(micSession.recorder ? 'stopRecording' : 'micWaiting');
+  }
+  return t(recFor(i) ? 'reRecord' : 'record');
+}
+function stopMicRecording(discard = false) {
+  const session = micSession;
+  if (!session) return;
+  session.discard = session.discard || discard;
+  if (!session.stopping && session.recorder && session.recorder.state !== 'inactive') {
+    session.stopping = true;
+    session.recorder.stop();
+  } else if (!session.recorder) micSession = null;
+  if (discard) micSession = null;
+  // stop() flushes asynchronously. Keep the input alive until recorder.onstop
+  // releases it, so short recordings cannot lose their final audio packets.
+  if (session.stream && !session.stopping) session.stream.getTracks().forEach(track => track.stop());
+}
+async function pickRecording(i) {
+  if (!studioReady || studioLoading || studioDeleting.has(episode().id)) return;
+  if (micSession) { stopMicRecording(); renderRecUI(); renderCues(); return; }
+  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    setStatus(t('micUnsupported')); return;
+  }
+  pause();
+  state.idx = i;
+  const session = { key: recKey(i), owner: studioIdentity, revision: studioRevision(episode().id), recorder: null, stream: null, discard: false };
+  micSession = session;
+  setStatus(t('micWaiting')); renderCurrent(); renderCues();
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (micSession !== session || session.discard) {
+      stream.getTracks().forEach(track => track.stop()); return;
+    }
+    session.stream = stream;
+    const recorder = new MediaRecorder(stream);
+    session.recorder = recorder;
+    const chunks = [];
+    recorder.ondataavailable = event => { if (event.data?.size) chunks.push(event.data); };
+    recorder.onerror = () => {
+      session.discard = true;
+      stopMicRecording();
+      if (micSession === session) micSession = null;
+      setStatus(t('micFailed')); renderRecUI(); renderCues();
+    };
+    recorder.onstop = async () => {
+      stream.getTracks().forEach(track => track.stop());
+      if (micSession === session) micSession = null;
+      const validSession = () => !session.discard && sameStudioRevision(session.owner, session.key.split(':')[0], session.revision);
+      if (validSession()) {
+        const blob = new Blob(chunks, { type: recorder.mimeType || chunks[0]?.type || 'audio/webm' });
+        const playable = blob.size && await canPlay(blob);
+        if (!validSession()) return;
+        if (playable) {
+          setRec(session.key, blob, { pending: true });
+          const edit = { blob, localSaved: false };
+          pendingStudioEdits.set(session.key, edit);
+          const value = localRecValue(session.key, recs.get(session.key));
+          const localSaved = await dbWrite(store => { if (validSession()) store.put(value, localRecKey(session.key, session.owner)); });
+          edit.localSaved = localSaved;
+          if (!validSession()) return;
+          setStatus(t(localSaved ? 'recSaved' : 'recMemory'));
+          checkpointStudio();
+          scheduleStudioSave(session.key.split(':')[0], true);
+        } else setStatus(t('micFailed'));
+      }
+      renderRecUI(); renderCues();
+    };
+    recorder.start();
+    setStatus(t('micRecording')); renderRecUI(); renderCues();
+  } catch (error) {
+    if (session.stream) session.stream.getTracks().forEach(track => track.stop());
+    if (micSession !== session) return;
+    micSession = null;
+    setStatus(t(error.name === 'NotAllowedError' ? 'micDenied' : error.name === 'NotFoundError' ? 'micMissing' : 'micFailed'));
+    renderRecUI(); renderCues();
+  }
+}
+window.addEventListener('pagehide', () => stopMicRecording(true));
+function playMyVoice(i) {
+  if (!sameStudioAccount(studioIdentity)) return;
+  stopMicRecording();
+  const r = recFor(i);
+  if (!r) return;
+  pause();
+  r.audio.currentTime = 0;
+  r.audio.playbackRate = 1;
+  r.audio.play().catch(() => setStatus(t('recBad')));
+}
+function setStatus(msg) { $('rec-status').textContent = msg; }
+
+/* Account drafts use immutable audio takes. Commit the new manifest before
+ * removing an old take, so a failed upload cannot erase another recorded line. */
+const pendingStudioEdits = new Map(), studioBases = new Map(), studioDrafts = new Map();
+const studioTimers = new Map(), studioJobs = new Map(), studioCheckpoints = new Map(), studioRevisions = new Map(), studioDeleting = new Map();
+const studioRevision = (epId) => studioRevisions.get(epId) || 0;
+const sameStudioRevision = (owner, epId, revision) => sameStudioAccount(owner) && studioRevision(epId) === revision;
+let studioStatus = { key: '' }, movieRetry = null;
+const studioDraftId = (epId) => `studio-${epId}`;
+const checkpointKey = (epId, owner = studioIdentity) => `dubstudio.checkpoint.v2:${encodeURIComponent(owner)}:${epId}`;
+function studioResumeFromQuery(search, epId) {
+  const match = /[?&]resume=([A-Za-z0-9_-]{1,80})(?:[&#]|$)/.exec(String(search || ''));
+  return Boolean(match && match[1] === studioDraftId(epId));
+}
+let studioResumeRequested = studioResumeFromQuery(location.search, episode().id);
+function readStudioCheckpoint(epId) {
+  const key = checkpointKey(epId);
+  if (studioCheckpoints.has(key)) return studioCheckpoints.get(key);
+  try {
+    const snapshot = JSON.parse(localStorage.getItem(key) || 'null');
+    return snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot) ? snapshot : null;
+  } catch (_) { return null; }
+}
+function checkpointStudio(saveRemote = true) {
+  if (!studioReady || studioLoading || studioDeleting.has(episode().id) || !sameStudioAccount(studioIdentity)) return false;
+  const { idx, mode, speed, subKo, hideMine, echo, autoNext, bgm } = state;
+  const deletedLines = [...pendingStudioEdits].filter(([key, edit]) => key.startsWith(`${episode().id}:`) && edit.deleted).map(([key]) => Number(key.split(':')[1]));
+  const snapshot = { version: 1, idx, mode, speed, subKo, hideMine, echo, autoNext, bgm, roles: [...state.roles], deletedLines, updatedAt: Date.now() };
+  let localSaved = false;
+  studioCheckpoints.set(checkpointKey(episode().id), snapshot);
+  try { localStorage.setItem(checkpointKey(episode().id), JSON.stringify(snapshot)); localSaved = true; } catch (_) { /* Still allow an account save when browser storage is unavailable. */ }
+  if (saveRemote) scheduleStudioSave(episode().id);
+  return localSaved;
+}
+function setStudioStatus(key, error) {
+  studioStatus = { key, error };
+  renderStudioStorage();
+}
+function renderStudioStorage() {
+  const box = $('studio-save-status');
+  if (!box) return;
+  const memoryOnly = studioStatus.error?.localSaved === false || [...pendingStudioEdits.values()].some((e) => e.blob && e.localSaved === false);
+  box.textContent = studioStatus.error && DubLibrary
+    ? `${DubLibrary.errorText(studioStatus.error, state.lang === 'en')} ${t(memoryOnly ? 'recMemory' : 'localKept')}`
+    : t(studioStatus.key || (studioIdentity === 'guest' ? 'guestPractice' : 'continueHelp'));
+  box.dataset.state = studioStatus.error ? 'error' : studioStatus.key === 'savedAccount' || studioStatus.key === 'movieSaved' ? 'saved' : '';
+  $('btn-resume').disabled = !studioReady || studioLoading || studioDeleting.has(episode().id) || studioJobs.has(episode().id) || Boolean(micSession) || exp.active;
+  $('btn-save-practice').disabled = !studioReady || studioLoading || studioDeleting.has(episode().id) || studioJobs.has(episode().id) || Boolean(micSession) || exp.active;
+  $('btn-movie-retry').hidden = !movieRetry;
+  $('btn-conversation').disabled = !studioReady || studioLoading || Boolean(micSession) || exp.active || !lines().some((line, i) => isMine(line) && recFor(i));
+}
+function scheduleStudioSave(epId, immediate = false) {
+  clearTimeout(studioTimers.get(epId));
+  if (studioDeleting.has(epId)) return;
+  if (!studioReady || !DubLibrary || !DubLibrary.hasAccount()) {
+    if (studioReady) setStudioStatus('guestPractice');
+    return;
+  }
+  const owner = studioIdentity, revision = studioRevision(epId);
+  const begin = () => {
+    studioTimers.delete(epId);
+    if (!sameStudioRevision(owner, epId, revision)) return;
+    const task = (studioJobs.get(epId) || Promise.resolve()).catch(() => {}).then(() => {
+      if (sameStudioRevision(owner, epId, revision)) return persistStudio(epId, owner);
+    });
+    studioJobs.set(epId, task);
+    renderStudioStorage();
+    task.finally(() => { if (studioJobs.get(epId) === task) { studioJobs.delete(epId); renderStudioStorage(); } }).catch(() => {});
+  };
+  if (immediate) begin(); else studioTimers.set(epId, setTimeout(begin, 800));
+}
+function validStudioRefs(draft, ep) {
+  const refs = draft?.state?.recordings;
+  if (!Array.isArray(refs)) return [];
+  return refs.filter((r) => r && Number.isInteger(r.line) && ep.lines[r.line] && r.en === ep.lines[r.line].en
+    && r.speaker === ep.lines[r.line].who && /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(r.audioId));
+}
+async function persistStudio(epId, owner) {
+  if (!sameStudioAccount(owner)) return;
+  const ep = EPISODES.find((item) => item.id === epId), id = studioDraftId(epId);
+  const revision = studioRevision(epId), valid = () => sameStudioRevision(owner, epId, revision);
+  const snapshot = readStudioCheckpoint(epId);
+  if (!ep || !snapshot) return;
+  const edits = [...pendingStudioEdits].filter(([key]) => key.startsWith(`${epId}:`));
+  setStudioStatus('savingAccount');
+  try {
+    if (!studioBases.has(epId)) {
+      try {
+        const found = await DubLibrary.getDraft(id);
+        if (!valid()) return;
+        studioBases.set(epId, found.draft);
+      } catch (e) {
+        if (!valid()) return;
+        if (e.status === 404) studioBases.set(epId, null); else throw e;
+      }
+    }
+    if (!valid()) return;
+    const oldRefs = validStudioRefs(studioBases.get(epId), ep), refs = new Map(oldRefs.map((r) => [r.line, r]));
+    for (const [key, edit] of edits) {
+      if (!valid()) return;
+      const line = Number(key.split(':')[1]);
+      if (!ep.lines[line]) continue;
+      if (edit.deleted) { refs.delete(line); continue; }
+      const audioId = `line-${line}-${DubLibrary.newId()}`;
+      await DubLibrary.uploadAudio(id, audioId, edit.blob);
+      if (!valid()) return;
+      refs.set(line, { line, audioId, en: ep.lines[line].en, speaker: ep.lines[line].who });
+    }
+    const saved = await DubLibrary.saveDraft(id, {
+      engine: 'studio', episodeId: epId, title: ep.title[state.lang],
+      state: { ...snapshot, deletedLines: [], recordings: [...refs.values()] },
+    });
+    if (!valid()) return;
+    studioBases.set(epId, saved.draft); studioDrafts.set(epId, saved.draft);
+    edits.forEach(([key, edit]) => {
+      if (pendingStudioEdits.get(key) !== edit) return;
+      pendingStudioEdits.delete(key);
+      const local = recs.get(key);
+      if (local && local.blob === edit.blob) {
+        local.audioId = refs.get(Number(key.split(':')[1]))?.audioId || null; local.pending = false;
+        const value = localRecValue(key, local);
+        dbWrite((s) => { if (valid()) s.put(value, localRecKey(key, owner)); });
+      }
+    });
+    const localCheckpoint = readStudioCheckpoint(epId);
+    if (localCheckpoint) {
+      localCheckpoint.deletedLines = [...pendingStudioEdits].filter(([key, edit]) => key.startsWith(`${epId}:`) && edit.deleted).map(([key]) => Number(key.split(':')[1]));
+      try { localStorage.setItem(checkpointKey(epId), JSON.stringify(localCheckpoint)); } catch (_) {}
+    }
+    // Only obsolete take IDs from a confirmed manifest can be removed.
+    const liveIds = new Set([...refs.values()].map((r) => r.audioId));
+    oldRefs.forEach((r) => { if (!liveIds.has(r.audioId) && valid()) DubLibrary.removeAudio(id, r.audioId).catch(() => {}); });
+    if (episode().id === epId) setStudioStatus([...pendingStudioEdits.keys()].some((key) => key.startsWith(`${epId}:`)) ? 'savingAccount' : 'savedAccount');
+  } catch (e) {
+    if (valid()) setStudioStatus('', e);
+  }
+}
+async function resumeStudio() {
+  if (!studioReady || studioLoading || studioDeleting.has(episode().id) || studioJobs.has(episode().id) || micSession || exp.active) return;
+  pause();
+  const ep = episode(), owner = studioIdentity, id = studioDraftId(ep.id);
+  const revision = studioRevision(ep.id), valid = () => sameStudioRevision(owner, ep.id, revision);
+  clearTimeout(studioTimers.get(ep.id)); studioTimers.delete(ep.id);
+  studioLoading = true; setStudioStatus('loadingPractice');
+  let draft = null, problem = null, missing = 0;
+  try {
+    if (DubLibrary && DubLibrary.hasAccount()) {
+      try {
+        const result = await DubLibrary.getDraft(id);
+        if (!valid()) return;
+        draft = result.draft;
+      } catch (e) {
+        if (!valid()) return;
+        if (e.status !== 404) problem = e;
+      }
+    }
+    if (!valid()) return;
+    if (draft && (draft.engine !== 'studio' || draft.episodeId !== ep.id)) { draft = null; problem = new Error('invalid_draft'); }
+    if (!problem) studioBases.set(ep.id, draft);
+    const local = readStudioCheckpoint(ep.id);
+    const prefs = local && (!draft || local.updatedAt > (draft.state?.updatedAt || 0)) ? local : draft?.state;
+    if (draft) {
+      const refs = validStudioRefs(draft, ep);
+      const keptLines = new Set(refs.map((ref) => `${ep.id}:${ref.line}`));
+      // A deletion confirmed on another device also removes its old local cache.
+      // A new local take has its own pending edit and is always kept.
+      recs.forEach((recording, key) => {
+        if (!key.startsWith(`${ep.id}:`) || !recording.audioId || keptLines.has(key) || pendingStudioEdits.has(key)) return;
+        recording.audio.pause(); URL.revokeObjectURL(recording.url); recs.delete(key);
+        dbWrite((store) => store.delete(localRecKey(key, owner)));
+      });
+      await Promise.all(refs.map(async (ref) => {
+        const key = `${ep.id}:${ref.line}`;
+        if (recs.get(key)?.audioId === ref.audioId || pendingStudioEdits.has(key)) return;
+        try {
+          const blob = await DubLibrary.getAudio(id, ref.audioId);
+          if (!valid() || pendingStudioEdits.has(key)) return;
+          setRec(key, blob, { audioId: ref.audioId });
+          const value = localRecValue(key, recs.get(key));
+          await dbWrite((s) => { if (valid()) s.put(value, localRecKey(key, owner)); });
+        } catch (_) { missing++; }
+      }));
+      if (!valid()) return;
+      studioDrafts.set(ep.id, draft);
+    }
+    if (!valid() || episode().id !== ep.id) return;
+    if (prefs) {
+      if (['practice', 'dub', 'review'].includes(prefs.mode)) state.mode = prefs.mode;
+      if ([0.7, 0.85, 1].includes(prefs.speed)) state.speed = prefs.speed;
+      for (const key of ['subKo', 'hideMine', 'echo', 'autoNext', 'bgm']) if (typeof prefs[key] === 'boolean') state[key] = prefs[key];
+      if (Array.isArray(prefs.roles)) state.roles = new Set(prefs.roles.filter((r) => castOf(ep).includes(r)));
+      fitRoles();
+      state.idx = Number.isInteger(prefs.idx) ? Math.min(ep.lines.length - 1, Math.max(0, prefs.idx)) : 0;
+      state.finished = false;
+      savePrefs(false);
+    }
+    setStudioStatus(missing ? 'partialResume' : prefs || [...recs.keys()].some((key) => key.startsWith(`${ep.id}:`)) ? 'resumedPractice' : 'noPractice', problem);
+  } finally {
+    if (valid()) { studioLoading = false; renderAll(); }
+  }
+}
+async function saveStudioMovie(blob, meta, owner = studioIdentity) {
+  if (!DubLibrary || !sameStudioAccount(owner)) return;
+  const attempt = { blob, meta, owner };
+  movieRetry = attempt; setStudioStatus('savingAccount');
+  try {
+    await DubLibrary.saveMovie(blob, meta);
+    if (!sameStudioAccount(owner) || movieRetry !== attempt) return;
+    movieRetry = null; setStudioStatus('movieSaved');
+  } catch (e) {
+    if (!sameStudioAccount(owner) || movieRetry !== attempt) return;
+    if (e.clientId) meta.clientId = e.clientId;
+    setStudioStatus('', e);
+  }
+}
+function openStudioConversation() {
+  const recorded = lines().filter((line, i) => isMine(line) && recFor(i));
+  if (!recorded.length) return;
+  const result = window.MangoiDubPractice?.open({
+    episodeId: episode().id, title: episode().title,
+    lines: recorded.map((line) => ({ en: line.en, ko: line.ko, speaker: line.who })),
+  });
+  if (!result?.ok) setStudioStatus('practiceUnavailable');
+}
+async function initStudioStorage() {
+  const owner = studioIdentity;
+  await loadRecs();
+  if (!sameStudioAccount(owner)) return;
+  EPISODES.forEach((ep) => {
+    const deleted = readStudioCheckpoint(ep.id)?.deletedLines;
+    if (Array.isArray(deleted)) deleted.filter((i) => Number.isInteger(i) && ep.lines[i]).forEach((i) => {
+      const key = `${ep.id}:${i}`, recording = recs.get(key);
+      if (recording) { recording.audio.pause(); URL.revokeObjectURL(recording.url); recs.delete(key); }
+      pendingStudioEdits.set(key, { deleted: true });
+    });
+  });
+  studioReady = true; renderRecUI(); renderCues();
+  if (studioResumeRequested) {
+    studioResumeRequested = false;
+    await resumeStudio();
+    if (!sameStudioAccount(owner)) return;
+  }
+  if (DubLibrary && DubLibrary.hasAccount()) {
+    try {
+      const revisions = new Map(EPISODES.map((ep) => [ep.id, studioRevision(ep.id)]));
+      const result = await DubLibrary.listDrafts();
+      if (!sameStudioAccount(owner)) return;
+      result.drafts.filter((d) => d.engine === 'studio' && studioRevision(d.episodeId) === revisions.get(d.episodeId)).forEach((d) => studioDrafts.set(d.episodeId, d));
+      renderStudioStorage();
+      new Set([...pendingStudioEdits.keys()].map((key) => key.split(':')[0])).forEach((epId) => scheduleStudioSave(epId));
+    } catch (e) { if (sameStudioAccount(owner)) setStudioStatus('', e); }
+  }
+}
+function forgetDeletedStudioDraft(detail) {
+  if (!detail || detail.owner !== studioIdentity || !sameStudioAccount(detail.owner)) return;
+  const ep = EPISODES.find((item) => studioDraftId(item.id) === detail.draftId);
+  if (!ep) return;
+  if (detail.phase === 'deleted' || detail.phase === 'failed') {
+    if (!studioDeleting.has(ep.id)) {
+      // A suspended tab may see only the final notice when it becomes active.
+      if (detail.phase === 'deleted') forgetDeletedStudioDraft({ owner: detail.owner, draftId: detail.draftId });
+      return;
+    }
+    if (studioDeleting.get(ep.id) !== detail.nonce) return;
+    studioDeleting.delete(ep.id);
+    if (episode().id === ep.id) { setStudioStatus(detail.phase === 'deleted' ? 'practiceDeleted' : 'practiceDeleteFailed'); renderAll(); }
+    return;
+  }
+  if (detail.phase === 'deleting') studioDeleting.set(ep.id, detail.nonce);
+  studioRevisions.set(ep.id, studioRevision(ep.id) + 1);
+  clearTimeout(studioTimers.get(ep.id)); studioTimers.delete(ep.id); studioJobs.delete(ep.id);
+  if (micSession?.key.startsWith(`${ep.id}:`)) stopMicRecording(true);
+  if (episode().id === ep.id) pause();
+  recs.forEach((recording, key) => {
+    if (!key.startsWith(`${ep.id}:`)) return;
+    recording.audio.pause(); URL.revokeObjectURL(recording.url); recs.delete(key);
+  });
+  [...pendingStudioEdits.keys()].forEach((key) => { if (key.startsWith(`${ep.id}:`)) pendingStudioEdits.delete(key); });
+  studioBases.delete(ep.id); studioDrafts.delete(ep.id); studioCheckpoints.delete(checkpointKey(ep.id));
+  try { localStorage.removeItem(checkpointKey(ep.id)); } catch (_) {}
+  if (episode().id === ep.id) {
+    studioLoading = false; state.idx = 0; state.finished = false; $('finish').hidden = true;
+    setStatus(''); setStudioStatus(detail.phase === 'deleting' ? 'deletingPractice' : 'practiceDeleted'); renderAll();
+  }
+}
+window.addEventListener('mangoi:dubbing-draft-deleted', (event) => forgetDeletedStudioDraft(event.detail));
+window.addEventListener('storage', (event) => {
+  if (event.key !== 'mangoi:dubbing-draft-deleted' || !event.newValue) return;
+  try { forgetDeletedStudioDraft(JSON.parse(event.newValue)); } catch (_) {}
+});
+if (DubLibrary) DubLibrary.onAccountChange((owner) => {
+  stopMicRecording(true); pause();
+  recs.forEach((r) => URL.revokeObjectURL(r.url)); recs.clear();
+  studioIdentity = owner; studioReady = false; studioLoading = false;
+  studioTimers.forEach(clearTimeout); studioTimers.clear(); studioJobs.clear();
+  pendingStudioEdits.clear(); studioBases.clear(); studioDrafts.clear(); studioCheckpoints.clear(); studioDeleting.clear();
+  EPISODES.forEach((ep) => studioRevisions.set(ep.id, studioRevision(ep.id) + 1));
+  studioResumeRequested = false;
+  movieRetry = null; studioStatus = { key: '' }; setStatus('');
+  state.idx = 0; state.finished = false; $('finish').hidden = true;
+  renderAll(); initStudioStorage();
+});
+
+/* =========================================================
+   7. MUSIC — 자체 작곡 배경음악 (브라우저에서 실시간 연주, 저작권 없음)
+   I–vi–IV–V 코드 진행 + 아르페지오 + 베이스 + 셰이커. 대사 중엔 볼륨을 낮춤(덕킹)
+   ========================================================= */
+const MIX = { ctx: null, bus: null }; // 모든 소리가 모이는 곳 (영상 저장 시 녹음 대상)
+function audioCtx() {
+  if (!MIX.ctx) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    MIX.ctx = new Ctx();
+    MIX.bus = MIX.ctx.createGain();
+    MIX.bus.connect(MIX.ctx.destination);
+  }
+  return MIX.ctx;
+}
+
+const CHORDS = [[0, 4, 7], [9, 12, 16], [5, 9, 12], [7, 11, 14]]; // I, vi, IV, V
+const ARP = [0, 1, 2, 3, 2, 1, 2, 1];
+const VOL = { full: 0.09, ducked: 0.035 };
+const bgm = { gain: null, timer: 0, next: 0, step: 0, noise: null };
+const midiHz = (m) => 440 * 2 ** ((m - 69) / 12);
+
+function note(time, midi, vol, type, dur) {
+  const ctx = MIX.ctx, o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = type; o.frequency.value = midiHz(midi);
+  g.gain.setValueAtTime(0.0001, time);
+  g.gain.linearRampToValueAtTime(vol, time + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+  o.connect(g).connect(bgm.gain);
+  o.start(time); o.stop(time + dur + 0.05);
+}
+function shaker(time) {
+  const ctx = MIX.ctx;
+  if (!bgm.noise) {
+    bgm.noise = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+    const d = bgm.noise.getChannelData(0);
+    for (let k = 0; k < d.length; k++) d[k] = (Math.random() * 2 - 1) * (1 - k / d.length);
+  }
+  const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  s.buffer = bgm.noise; f.type = 'highpass'; f.frequency.value = 6000; g.gain.value = 0.25;
+  s.connect(f).connect(g).connect(bgm.gain);
+  s.start(time);
+}
+function playStep(step, time) {
+  const { root } = episode().music;
+  const chord = CHORDS[Math.floor(step / 8) % 4];
+  const tones = [...chord, chord[0] + 12];
+  note(time, root + tones[ARP[step % 8]], 0.5, 'triangle', 0.32);
+  if (step % 4 === 0) note(time, root - 24 + chord[0], 0.7, 'sine', 0.6);
+  if (step % 2 === 1) shaker(time);
+}
+function startMusic() {
+  if (!state.bgm || !episode().music || bgm.timer) return;
+  const ctx = audioCtx();
+  if (!ctx) return;
+  ctx.resume();
+  if (!bgm.gain) { bgm.gain = ctx.createGain(); bgm.gain.connect(MIX.bus); }
+  bgm.gain.gain.cancelScheduledValues(ctx.currentTime);
+  bgm.gain.gain.setTargetAtTime(VOL.ducked, ctx.currentTime, 0.3);
+  bgm.next = ctx.currentTime + 0.1; bgm.step = 0;
+  const spb = () => 60 / episode().music.bpm / 2; // 8분음표 길이
+  bgm.timer = setInterval(() => {
+    while (bgm.next < ctx.currentTime + 0.3) { playStep(bgm.step++, bgm.next); bgm.next += spb(); }
+  }, 80);
+}
+function stopMusic(fanfare = false) {
+  if (!bgm.timer) return;
+  clearInterval(bgm.timer); bgm.timer = 0;
+  const ctx = MIX.ctx, t = ctx.currentTime;
+  if (fanfare) {
+    bgm.gain.gain.setTargetAtTime(VOL.full * 1.6, t, 0.05);
+    const r = episode().music.root + 12;
+    [0, 4, 7, 12].forEach((n, k) => note(t + k * 0.12, r + n, 0.6, 'triangle', 0.5));
+  }
+  bgm.gain.gain.setTargetAtTime(0.0001, t + (fanfare ? 0.8 : 0), 0.25);
+}
+function duck(on) {
+  if (!bgm.timer) return;
+  bgm.gain.gain.setTargetAtTime(on ? VOL.ducked : VOL.full, MIX.ctx.currentTime, 0.15);
+}
+
+/* =========================================================
+   8. ENGINE — 재생 흐름 (연습 / 더빙 / 내 더빙)
+   ========================================================= */
+let runId = 0;       // 오래된 콜백 무효화용 토큰
+let timers = [];
+let turnDone = null; // "다 말했어요" 버튼 동작
+const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+
+function stopAll() {
+  runId++;
+  timers.forEach(clearTimeout); timers = [];
+  if (synth) synth.cancel();
+  const silence = (a) => { a.pause(); a.onended = a.onerror = null; };
+  audioCache.forEach(silence);
+  recs.forEach((r) => silence(r.audio));
+  pauseClip();
+  setTalking(null);
+  hideTurn();
+}
+
+/* 오디오 요소 한 번 재생 → 끝나면 fin, 실패하면 onFail */
+function playAudioEl(a, sec, rate, run, fin, onFail) {
+  routeToMixer(a);
+  a.onended = fin;
+  a.onerror = onFail;
+  a.currentTime = 0;
+  a.playbackRate = rate;
+  a.preservesPitch = true;
+  a.play().catch(onFail);
+  later(fin, sec / rate * 2000 + 2500); // 재생 이벤트가 오지 않는 기기 대비 안전장치
+}
+
+/* 대사 소리 내기: 캐릭터 음성 파일 우선, 실패하면 브라우저 음성(TTS) */
+function speak(line, i, run, done) {
+  let finished = false;
+  const fin = () => { if (finished || run !== runId) return; finished = true; done(); };
+  const a = audioFor(i);
+  if (!a) { speakTTS(line, run, fin); return; }
+  const fallback = () => { if (!finished && run === runId) speakTTS(line, run, fin); };
+  playAudioEl(a, lineSec(line, i), state.speed, run, fin, fallback);
+}
+
+/* 내 녹음 재생 (내 더빙 모드) */
+function speakMine(line, i, run, done) {
+  const r = recFor(i);
+  let finished = false;
+  const fin = () => { if (finished || run !== runId) return; finished = true; done(); };
+  const d = r.audio.duration;
+  playAudioEl(r.audio, Number.isFinite(d) ? d : estSec(line) * 2, 1, run, fin, fin);
+}
+
+function speakTTS(line, run, fin) {
+  const ms = estSec(line) / state.speed * 1000;
+  if (!synth) { later(fin, ms); return; }
+  const u = new SpeechSynthesisUtterance(line.en);
+  u.lang = 'en-US';
+  const v = voiceFor(line.who); if (v) u.voice = v;
+  u.pitch = CAST[line.who].pitch;
+  u.rate = 0.95 * state.speed;
+  u.onend = fin; u.onerror = fin;
+  currentUtterance = u;
+  later(fin, ms * 2.5 + 1500); // onend가 오지 않는 기기 대비 안전장치
+  synth.speak(u);
+}
+
+function startTurn(line, i, run, kind, done) {
+  setTalking(line.who, true);
+  showClip(i, true); // 내가 말하는 동안 캐릭터 입이 움직임 (소리는 없음)
+  $('onair').classList.add('live');
+  const box = $('turn');
+  box.hidden = false;
+  box.classList.toggle('echo', kind === 'echo');
+  box.classList.remove('waiting');
+  $('turn-label').textContent = kind === 'echo' ? t('echoTurn') : t('yourTurn');
+  const bar = $('turn-bar');
+  const sec = turnSec(line, i);
+  bar.style.transition = 'none'; bar.style.width = '0';
+  void bar.offsetWidth; // 리플로우로 애니메이션 초기화
+  bar.style.transition = `width ${sec}s linear`; bar.style.width = '100%';
+  const finish = () => { if (run !== runId) return; hideTurn(); pauseClip(); setTalking(null); done(); };
+  turnDone = finish;
+  later(() => { if (state.autoNext || exp.active) finish(); else box.classList.add('waiting'); }, sec * 1000);
+}
+function hideTurn() {
+  $('turn').hidden = true;
+  $('onair').classList.remove('live');
+  turnDone = null;
+}
+
+function runLine(i) {
+  stopAll();
+  const run = runId;
+  state.idx = i;
+  checkpointStudio();
+  state.finished = false;
+  $('finish').hidden = true;
+  renderCurrent();
+  duck(true);
+  const line = lines()[i];
+  const mine = isMine(line);
+  const useMyVoice = mine && state.mode === 'review' && recFor(i);
+  if (mine && !useMyVoice && state.mode !== 'practice') {
+    startTurn(line, i, run, 'turn', () => advance(run)); // 더빙 / 녹음 없는 내 더빙: 음소거 차례
+    return;
+  }
+  setTalking(line.who);
+  showClip(i, true);
+  (useMyVoice ? speakMine : speak)(line, i, run, () => {
+    setTalking(null);
+    pauseClip();
+    if (state.mode === 'practice' && isMine(line) && state.echo) startTurn(line, i, run, 'echo', () => advance(run));
+    else { duck(false); later(() => advance(run), 350); }
+  });
+}
+function advance(run) {
+  if (run !== runId || !state.playing) return;
+  if (state.single) { state.single = false; pause(); return; }
+  if (state.idx + 1 < lines().length) runLine(state.idx + 1);
+  else finishEpisode();
+}
+function play() {
+  stopMicRecording();
+  if (!state.roles.size) return;
+  if (state.finished) state.idx = 0;
+  state.playing = true; state.single = false;
+  startMusic();
+  runLine(state.idx);
+  renderTransport();
+}
+function pause() {
+  state.playing = false;
+  stopAll();
+  stopMusic();
+  if (exp.active) finishExport(false);
+  renderTransport();
+}
+function jump(i, keepPlaying = state.playing) {
+  stopMicRecording();
+  const n = lines().length;
+  state.idx = Math.max(0, Math.min(n - 1, i));
+  checkpointStudio();
+  state.finished = false;
+  $('finish').hidden = true;
+  if (keepPlaying) { state.playing = true; state.single = false; runLine(state.idx); }
+  else { stopAll(); renderCurrent(); }
+  renderTransport();
+}
+function repeatLine() {
+  stopMicRecording();
+  if (!state.roles.size) return;
+  state.playing = true; state.single = true;
+  runLine(state.idx);
+  renderTransport();
+}
+function finishEpisode() {
+  state.playing = false; state.finished = true;
+  stopAll();
+  stopMusic(true);
+  const mineCount = lines().filter(isMine).length;
+  $('finish-body').textContent = t('finishBody')(mineCount);
+  $('finish').hidden = false;
+  if (exp.active) {
+    const recorder = exp.recorder;
+    setTimeout(() => { if (exp.active && exp.recorder === recorder) finishExport(true); }, 600); // 마지막 소리 꼬리까지 담기
+  }
+  checkpointStudio();
+  renderTransport();
+}
+
+/* =========================================================
+   9. EXPORT — 내 더빙 영상 저장 (화면+소리를 실시간 녹화)
+   ========================================================= */
+const exp = { active: false, dest: null, recorder: null, chunks: [], mime: '', raf: 0 };
+/* mangoi.ai: 브라우저 내려받기(<a download>)로 저장한다 — 받은 파일은 기기의 다운로드 폴더로 간다. */
+const downloads = {
+  save({ filename, data }) {
+    const u = URL.createObjectURL(data);
+    const a = document.createElement('a');
+    a.href = u; a.download = filename; a.style.display = 'none';
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 60000);
+    return Promise.resolve({ status: 'saved' });
+  },
+};
+
+const routed = new WeakSet();
+function routeToMixer(a) {
+  if (!exp.active || routed.has(a)) return;
+  try { MIX.ctx.createMediaElementSource(a).connect(MIX.bus); routed.add(a); } catch (e) { /* 이미 연결됨 */ }
+}
+const canExport = () => Boolean(downloads && episode().media && window.MediaRecorder &&
+  HTMLCanvasElement.prototype.captureStream && (window.AudioContext || window.webkitAudioContext));
+function pickMime() {
+  const types = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+  return types.find((m) => MediaRecorder.isTypeSupported(m)) || '';
+}
+
+function startExport() {
+  if (exp.active) return;
+  if (micSession) { setStatus(t('micRecording')); return; }
+  if (!canExport()) { setStatus(t('exportFail')); return; }
+  const ctx = audioCtx();
+  ctx.resume();
+  exp.dest = ctx.createMediaStreamDestination();
+  MIX.bus.connect(exp.dest);
+  exp.active = true; // routeToMixer가 연결하도록 먼저 켬
+  exp.meta = { engine: 'studio', episodeId: episode().id, title: episode().title[state.lang], interrupted: false,
+    clientId: DubLibrary ? DubLibrary.newId() : undefined };
+  exp.startedAt = Date.now();
+  exp.owner = studioIdentity;
+  lines().forEach((_, i) => { const a = audioFor(i); if (a) routeToMixer(a); const r = recFor(i); if (r) routeToMixer(r.audio); });
+
+  const canvas = $('export-canvas');
+  lines().forEach((_, i) => stillImage(stillFor(i))); // 장면 그림 미리 불러오기
+  exp.stream = null;
+  try {
+    const stream = canvas.captureStream(30);
+    exp.stream = stream;
+    exp.dest.stream.getAudioTracks().forEach((tk) => stream.addTrack(tk));
+    const mime = pickMime();
+    exp.recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    exp.mime = exp.recorder.mimeType || mime || 'video/webm';
+  } catch (e) {
+    exp.active = false;
+    exp.stream?.getTracks().forEach((track) => track.stop());
+    exp.dest.stream.getAudioTracks().forEach((track) => track.stop());
+    MIX.bus.disconnect(exp.dest); setStatus(t('exportFail')); return;
+  }
+  const chunks = [];
+  exp.chunks = chunks;
+  exp.recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  const recorder = exp.recorder;
+  recorder.onerror = () => {
+    if (!exp.active || exp.recorder !== recorder) return;
+    state.playing = false; stopAll(); stopMusic();
+    finishExport(false, true); renderTransport();
+  };
+  document.body.classList.add('exporting');
+  $('recbar').hidden = false;
+  setStatus('');
+  // The canvas is captured immediately, before play() renders the first line.
+  // Reset the caption before drawing so a selected recording cannot leak in.
+  state.idx = 0; state.finished = false;
+  drawFrame();
+  try { recorder.start(1000); }
+  catch (e) { recorder.onerror(); return; }
+  state.mode = 'review'; savePrefs(); renderSettings();
+  play();
+}
+
+function drawFrame() {
+  if (!exp.active) return;
+  const canvas = $('export-canvas'), g = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, vid = $('vid');
+  const still = stillImage(stillFor(state.idx));
+  if (vid.getAttribute('src') && vid.readyState >= 2) g.drawImage(vid, 0, 0, W, H);
+  else if (still.complete && still.naturalWidth) g.drawImage(still, 0, 0, W, H);
+  drawCaption(g, W, H);
+  exp.raf = requestAnimationFrame(drawFrame);
+}
+const stills = new Map();
+function stillImage(src) {
+  if (!stills.has(src)) { const img = new Image(); img.src = src; stills.set(src, img); }
+  return stills.get(src);
+}
+function drawCaption(g, W, H) {
+  const line = lines()[state.idx];
+  if (!line) return;
+  const text = `${CAST[line.who].name.en}: ${line.en}`;
+  let size = 30;
+  g.font = `800 ${size}px MangoiHanSC, Nunito, sans-serif`;
+  while (g.measureText(text).width > W - 80 && size > 16) { size -= 2; g.font = `800 ${size}px MangoiHanSC, Nunito, sans-serif`; }
+  const w = g.measureText(text).width + 40, h = size + 24, x = (W - w) / 2, y = H - h - 20;
+  g.fillStyle = 'rgba(10,16,19,.78)';
+  g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, 14) : g.rect(x, y, w, h); g.fill();
+  g.fillStyle = isMine(line) ? '#FFC857' : '#FFFFFF';
+  g.textBaseline = 'middle';
+  g.fillText(text, x + 20, y + h / 2 + 1);
+}
+
+function finishExport(save, failed = false) {
+  if (!exp.active) return;
+  const dest = exp.dest, rec = exp.recorder, chunks = exp.chunks, mime = exp.mime;
+  const stream = exp.stream;
+  const releaseTracks = () => (stream?.getTracks() || []).forEach((track) => track.stop());
+  const owner = exp.owner, meta = { ...exp.meta, durationMs: Date.now() - exp.startedAt };
+  exp.active = false;
+  cancelAnimationFrame(exp.raf);
+  document.body.classList.remove('exporting');
+  $('recbar').hidden = true;
+  // 이전 작업의 정리가 곧바로 시작한 새 작업의 소리까지 끊지 않게 목적지를 붙잡는다.
+  setTimeout(() => { releaseTracks(); try { MIX.bus.disconnect(dest); } catch (e) { /* 무시 */ } }, 1500);
+  const showStatus = (msg) => { if (sameStudioAccount(owner) && exp.recorder === rec && !exp.active) setStatus(msg); };
+  if (failed) showStatus(t('exportFail'));
+  let stopped = false;
+  rec.onstop = async () => {
+    if (stopped) return;
+    stopped = true;
+    releaseTracks();
+    if (!sameStudioAccount(owner)) return;
+    if (failed) { showStatus(t('exportFail')); return; }
+    if (!save) { showStatus(t('exportCanceled')); return; }
+    const blob = new Blob(chunks, { type: mime });
+    const ext = mime.includes('mp4') ? 'mp4' : 'webm';
+    showStatus(t('exportReady'));
+    try {
+      await downloads.save({ filename: `dub-${meta.episodeId}-${new Date().toISOString().slice(0, 10)}.${ext}`, data: blob });
+      showStatus(t('exportSaved'));
+    } catch (e) {
+      showStatus(e?.code === 'declined' ? t('exportDeclined') : t('exportFail'));
+    }
+    if (blob.size) saveStudioMovie(blob, meta, owner);
+  };
+  if (rec.state === 'inactive') { if (!save || failed) rec.onstop(); }
+  else {
+    try { rec.stop(); }
+    catch (e) { rec.onstop(); }
+  }
+}
+function resetEpisode() {
+  stopMicRecording(true);
+  state.playing = false; state.finished = false; state.idx = 0;
+  stopAll();
+  stopMusic();
+  $('finish').hidden = true;
+}
+
+/* =========================================================
+   10. RENDER — 화면 갱신
+   ========================================================= */
+function segButtons(el, items, isOn, onPick) {
+  el.innerHTML = '';
+  items.forEach((it) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = it.label;
+    b.setAttribute('aria-pressed', String(isOn(it.value)));
+    b.addEventListener('click', () => onPick(it.value));
+    el.appendChild(b);
+  });
+}
+
+function renderStatic() {
+  document.documentElement.lang = state.lang;
+  document.title = t('title');
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-aria]').forEach((el) => {
+    el.setAttribute('aria-label', t(el.dataset.i18nAria)); el.title = t(el.dataset.i18nAria);
+  });
+  $('lang-ko').setAttribute('aria-pressed', String(state.lang === 'ko'));
+  $('lang-en').setAttribute('aria-pressed', String(state.lang === 'en'));
+}
+
+function renderSettings() {
+  segButtons($('seg-ep'), EPISODES.map((e, i) => ({ label: `Lv.${e.level} · ${e.title[state.lang]}`, value: i })),
+    (v) => v === state.ep, (v) => { state.ep = v; fitRoles(); resetEpisode(); savePrefs(); renderAll(); });
+  $('ep-help').textContent = `${t('series')} ${state.ep + 1} · ${episode().desc[state.lang]}`;
+
+  segButtons($('seg-role'), castOf(episode()).map((id) => ({ label: CAST[id].name[state.lang], value: id })),
+    (v) => state.roles.has(v),
+    (v) => { state.roles.has(v) ? state.roles.delete(v) : state.roles.add(v); resetEpisode(); savePrefs(); renderAll(); });
+
+  segButtons($('seg-mode'), ['practice', 'dub', 'review'].map((m) => ({ label: t(m), value: m })),
+    (v) => v === state.mode, (v) => { state.mode = v; resetEpisode(); savePrefs(); renderAll(); });
+  $('mode-help').textContent = t({ practice: 'helpPractice', dub: 'helpDub', review: 'helpReview' }[state.mode]);
+
+  segButtons($('seg-speed'), [0.7, 0.85, 1].map((s) => ({ label: `${s}×`, value: s })),
+    (v) => v === state.speed, (v) => { state.speed = v; savePrefs(); renderSettings(); });
+
+  $('opt-bgm').checked = state.bgm;
+  $('opt-ko').checked = state.subKo;
+  $('opt-hide').checked = state.hideMine;
+  $('opt-echo').checked = state.echo;
+  $('opt-auto').checked = state.autoNext;
+}
+
+function lineText(line) {
+  return isMine(line) && state.hideMine ? hint(line.en) : line.en;
+}
+
+function renderCues() {
+  const starts = cueStarts();
+  const list = $('cues');
+  list.innerHTML = '';
+  lines().forEach((line, i) => {
+    const li = document.createElement('li');
+    li.className = 'cue' + (isMine(line) ? ' mine' : '') + (i === state.idx ? ' now' : '');
+    li.tabIndex = 0;
+    const who = CAST[line.who].name[state.lang];
+    li.innerHTML = `
+      <span class="cue-tc">${fmtTC(starts[i])}</span>
+      <span class="cue-who">${who}${isMine(line) ? ` <span class="tag">${t('myLine')}</span>` : ''}</span>
+      <span class="cue-en"></span>
+      ${state.subKo ? '<span class="cue-ko"></span>' : ''}`;
+    li.querySelector('.cue-en').textContent = lineText(line);
+    if (state.subKo) li.querySelector('.cue-ko').textContent = line.ko;
+    if (isMine(line)) li.appendChild(cueRecButtons(i));
+    li.addEventListener('click', () => jump(i));
+    li.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jump(i); } });
+    list.appendChild(li);
+  });
+  const mine = lines().filter(isMine).length;
+  $('cue-meta').textContent = t('lines')(lines().length, mine);
+}
+
+function cueRecButtons(i) {
+  const box = document.createElement('div');
+  box.className = 'cue-rec';
+  const has = Boolean(recFor(i));
+  const add = (label, cls, fn) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = label; if (cls) b.className = cls;
+    b.disabled = studioDeleting.has(episode().id) || Boolean(micSession && micSession.key !== recKey(i));
+    b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
+    box.appendChild(b);
+  };
+  add((has ? '● ' : '🎤 ') + recordingLabel(i), has ? 'has' : '', () => pickRecording(i));
+  if (has) {
+    add('▶ ' + t('myVoice'), 'has', () => playMyVoice(i));
+    add(t('downloadVoice'), '', () => {
+      const recording = recFor(i);
+      if (recording) downloads.save({ filename: `dub-${episode().id}-line-${i + 1}.${recording.blob.type.includes('mp4') ? 'm4a' : recording.blob.type.includes('ogg') ? 'ogg' : 'webm'}`, data: recording.blob });
+    });
+  }
+  return box;
+}
+
+function renderRecUI() {
+  const mineIdx = lines().map((l, i) => (isMine(l) ? i : -1)).filter((i) => i >= 0);
+  const done = mineIdx.filter((i) => recFor(i)).length;
+  $('rec-count').textContent = t('recCount')(done, mineIdx.length);
+  $('rec-fill').style.width = mineIdx.length ? `${(done / mineIdx.length) * 100}%` : '0';
+  $('btn-export').hidden = !canExport();
+  $('btn-export').disabled = done === 0;
+  $('btn-clear').disabled = done === 0;
+  const line = lines()[state.idx];
+  const showCap = Boolean(line && isMine(line));
+  $('cap-actions').hidden = !showCap;
+  if (showCap) {
+    const has = Boolean(recFor(state.idx));
+    $('btn-rec-label').textContent = recordingLabel(state.idx);
+    $('btn-rec').disabled = !studioReady || studioLoading || studioDeleting.has(episode().id) || Boolean(micSession && micSession.key !== recKey(state.idx));
+    $('btn-myplay').hidden = !has;
+  }
+  renderStudioStorage();
+}
+
+function renderCurrent() {
+  const line = lines()[state.idx];
+  const mine = isMine(line);
+  const cap = $('caption');
+  cap.classList.toggle('mine', mine);
+  $('cap-who').innerHTML = '';
+  $('cap-who').append(CAST[line.who].name[state.lang]);
+  if (mine) { const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = t('myLine'); $('cap-who').append(tag); }
+  $('cap-en').textContent = lineText(line);
+  $('cap-ko').textContent = state.subKo ? line.ko : '';
+  $('cap-ko').hidden = !state.subKo;
+  $('tc').textContent = fmtTC(cueStarts()[state.idx]);
+  if (!state.playing) showClip(state.idx, false);
+  renderRecUI();
+
+  const items = $('cues').children;
+  [...items].forEach((li, i) => li.classList.toggle('now', i === state.idx));
+  const list = $('cues'), cur = items[state.idx];
+  if (cur && list.scrollHeight > list.clientHeight) {
+    const top = cur.offsetTop - list.offsetTop;
+    if (top < list.scrollTop || top + cur.offsetHeight > list.scrollTop + list.clientHeight) {
+      list.scrollTo({ top: top - list.clientHeight / 3, behavior: 'smooth' });
+    }
+  }
+  renderTransport();
+}
+
+const ICON_PLAY = '<svg viewBox="0 0 24 24"><path d="M7 5v14l12-7z"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>';
+function renderTransport() {
+  const noRole = !state.roles.size;
+  const btn = $('btn-play');
+  btn.innerHTML = (state.playing ? ICON_PAUSE : ICON_PLAY) + `<span>${state.playing ? t('pause') : t('play')}</span>`;
+  btn.disabled = noRole;
+  $('btn-repeat').disabled = noRole;
+  $('btn-prev').disabled = state.idx === 0;
+  $('btn-next').disabled = state.idx >= lines().length - 1;
+  $('counter').textContent = `${state.idx + 1} / ${lines().length}`;
+  const notice = $('notice');
+  const msg = noRole ? t('pickRole') : (!synth ? t('noVoice') : '');
+  notice.textContent = msg;
+  notice.hidden = !msg;
+}
+
+function renderAll() {
+  renderStatic();
+  renderSettings();
+  renderScene();
+  renderCues();
+  renderCurrent();
+}
+
+/* =========================================================
+   11. EVENTS
+   ========================================================= */
+/* 영상을 못 불러오면 그림 무대로 대체 */
+$('vid').addEventListener('error', () => {
+  if (!$('vid').getAttribute('src')) return; // 정지 그림 장면은 오류 아님
+  $('vid').hidden = true; $('ai-badge').hidden = true; $('scene').hidden = false;
+});
+
+/* 역할 돌아가며 바꾸기: 고른 역할마다 이 에피소드의 다음 캐릭터로 이동 (예: 키키 → 토토 → 엄마 → 룰루 → 키키) */
+$('btn-rotate').addEventListener('click', () => {
+  const ids = castOf(episode());
+  const mine = [...state.roles].filter((r) => ids.includes(r));
+  state.roles = new Set(mine.length ? mine.map((r) => ids[(ids.indexOf(r) + 1) % ids.length]) : [ids[0]]);
+  resetEpisode(); savePrefs(); renderAll();
+});
+
+/* 녹음 */
+$('btn-rec').addEventListener('click', () => pickRecording(state.idx));
+$('btn-myplay').addEventListener('click', () => playMyVoice(state.idx));
+$('btn-review').addEventListener('click', () => {
+  state.mode = 'review'; savePrefs(); renderSettings();
+  state.idx = 0; state.finished = false; play();
+});
+$('btn-export').addEventListener('click', startExport);
+$('btn-export-cancel').addEventListener('click', pause);
+$('btn-resume').addEventListener('click', resumeStudio);
+$('btn-save-practice').addEventListener('click', () => {
+  const localSaved = checkpointStudio(false);
+  lines().forEach((_, i) => {
+    const key = recKey(i), recording = recFor(i);
+    if (recording && (!recording.audioId || recording.pending) && !pendingStudioEdits.has(key)) pendingStudioEdits.set(key, { blob: recording.blob, localSaved: true });
+  });
+  if (DubLibrary && DubLibrary.hasAccount()) scheduleStudioSave(episode().id, true);
+  else setStudioStatus(localSaved ? 'savedDevice' : 'recMemory');
+});
+$('btn-movie-retry').addEventListener('click', () => {
+  if (movieRetry && sameStudioAccount(movieRetry.owner)) saveStudioMovie(movieRetry.blob, movieRetry.meta);
+});
+$('btn-conversation').addEventListener('click', openStudioConversation);
+$('btn-clear').addEventListener('click', () => { $('clear-confirm').hidden = false; });
+$('btn-clear-no').addEventListener('click', () => { $('clear-confirm').hidden = true; });
+$('btn-clear-yes').addEventListener('click', () => {
+  stopMicRecording(true);
+  lines().forEach((_, i) => deleteRec(recKey(i)));
+  $('clear-confirm').hidden = true;
+  setStatus(t('cleared'));
+  checkpointStudio();
+  renderRecUI(); renderCues(); renderCurrent();
+});
+
+document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => {
+  state.lang = b.dataset.lang; savePrefs();
+  try { localStorage.setItem('mangoi_lang', state.lang); } catch (e) { /* 무시 */ }
+  renderAll();
+}));
+$('btn-play').addEventListener('click', () => (state.playing ? pause() : play()));
+$('btn-prev').addEventListener('click', () => jump(state.idx - 1));
+$('btn-next').addEventListener('click', () => jump(state.idx + 1));
+$('btn-restart').addEventListener('click', () => { jump(0, false); play(); });
+$('btn-repeat').addEventListener('click', repeatLine);
+$('turn-done').addEventListener('click', () => turnDone && turnDone());
+$('finish-again').addEventListener('click', () => { state.idx = 0; play(); });
+$('finish-role').addEventListener('click', () => { resetEpisode(); renderAll(); $('seg-role').querySelector('button')?.focus(); });
+
+const bindCheck = (id, key, rerender) => $(id).addEventListener('change', (e) => {
+  state[key] = e.target.checked; savePrefs(); if (rerender) { renderCues(); renderCurrent(); }
+});
+bindCheck('opt-ko', 'subKo', true);
+bindCheck('opt-bgm', 'bgm', false);
+$('opt-bgm').addEventListener('change', () => { if (state.bgm && state.playing) startMusic(); else if (!state.bgm) stopMusic(); });
+bindCheck('opt-hide', 'hideMine', true);
+bindCheck('opt-echo', 'echo', false);
+bindCheck('opt-auto', 'autoNext', false);
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.closest('input, button, .cue')) return;
+  if (e.code === 'Space') { e.preventDefault(); state.playing ? pause() : play(); }
+  if (e.key === 'ArrowRight') jump(state.idx + 1);
+  if (e.key === 'ArrowLeft') jump(state.idx - 1);
+});
+
+renderAll();
+initStudioStorage();
+window.addEventListener('beforeunload', (event) => {
+  if (micSession || exp.active || [...pendingStudioEdits.values()].some((edit) => edit.blob && edit.localSaved === false)) {
+    event.preventDefault(); event.returnValue = '';
+  }
+});
+</script>
+</body>
+</html>

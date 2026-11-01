@@ -97,7 +97,7 @@ check('전제 — 정본 블록을 오려 냈다', canon.length > 400, 'len=' + 
 
 let F = null;
 try {
-  F = new Function(canon + '\nreturn { mgsDowIdx: mgsDowIdx, mgsSchedHitsDate: mgsSchedHitsDate, mgsYmd: mgsYmd, mgsSchedTime: mgsSchedTime, mgsAiColors: mgsAiColors };')();
+  F = new Function('var MangoiClassDisplay={time:function(t){return t;},range:function(c){return c.start_time||"";}}; var location={search:""};\n' + canon + '\nreturn { mgsDowIdx: mgsDowIdx, mgsSchedHitsDate: mgsSchedHitsDate, mgsYmd: mgsYmd, mgsSchedTime: mgsSchedTime, mgsAiColors: mgsAiColors };')();
 } catch (e) { check('정본이 실제로 돌아간다', false, e.message); }
 if (F) {
   check('정본이 실제로 돌아간다', typeof F.mgsDowIdx === 'function');
@@ -202,8 +202,8 @@ const weekFn = funcAt(src, 'renderDSchedWeek');
 check('전제 — 주간 렌더 함수를 잘라 냈다', weekFn.length > 2000, 'len=' + weekFn.length);
 let drew = null, drawErr = '';
 try {
-  const sandbox = new Function(
-    canon + '\n' + funcAt(src, 'mgsSrcLabel') + '\n' + weekFn + '\n' +
+  const sandbox = new Function('var MangoiClassDisplay={time:function(t){return t;},range:function(c){return c.start_time||"";}}; var location={search:""};\n' +
+    canon + '\n' + funcAt(src, 'mgsSrcLabel') + '\n' + funcAt(src, 'teacherLabel') + '\n' + weekFn + '\n' +
     'function mgsEnrHasLiveClass(){ return true; }\n' +
     /* 🎌 2026-09-25 공휴일 도우미 — 소스에서 그 구간을 오려 낸다(⛔ 베껴 적지 말 것).
        fetch 가 없으니 «공휴일 없음» 으로 그려지고, 위 카드 수 검사는 그대로 뜻을 갖는다. */
@@ -243,7 +243,7 @@ try {
 check('주간 격자가 실제로 그려진다', !!drew && !!drew.html, drawErr);
 if (drew && drew.html) {
   /* 🏷 (2026-09-24) 카드는 title 글자가 아니라 data-mgs-sch 로 찾는다 — 이름표가 source 따라 바뀐다. */
-  const cards = drew.html.match(/data-mgs-sch="1" title="[^"]*"/g) || [];
+  const cards = drew.html.match(/data-mgs-sch="1"[^>]*?title="[^"]*"/g) || [];
   const cols  = (drew.html.match(/\* (\d) \/ 7 \+ 2px/g) || []).map(x => x.match(/(\d)/)[1]);
   check('그려야 할 것은 그린다 — 카드 5장', cards.length === 5, '실제 ' + cards.length + '장');
   /* 🪤 «없는가» 를 drew.html 전체로 묻지 말 것 — 격자의 시간 눈금(>18:00<)이 걸려
@@ -260,7 +260,7 @@ if (drew && drew.html) {
 console.log('\n── ⑥ 이름표는 source 로 가른다 (2026-09-24 「직접 등록했는데 왜 AI 등록?」) ──');
 {
   let L = null;
-  try { L = new Function('var _lang="ko";\n' + funcAt(src, 'mgsSrcLabel') + '\nreturn mgsSrcLabel;')(); }
+  try { L = new Function('var MangoiClassDisplay={time:function(t){return t;},range:function(c){return c.start_time||"";}}; var location={search:""};\n' + 'var _lang="ko";\n' + funcAt(src, 'mgsSrcLabel') + '\nreturn mgsSrcLabel;')(); }
   catch (e) { check('전제 — mgsSrcLabel 을 오려 냈다', false, e.message); }
   if (L) {
     check('관리자 폼(admin_ui) 은 «직접 등록» — AI 가 아니다', /직접/.test(L({ source: 'admin_ui' })) && !/AI/.test(L({ source: 'admin_ui' })), L({ source: 'admin_ui' }));
@@ -285,7 +285,7 @@ console.log('\n⑧ 공휴일 표시');
   check('전제 — 공휴일 도우미를 오려 냈다', helpers.length > 800, 'len=' + helpers.length);
   let R = null, err = '';
   try {
-    R = new Function(canon + '\n' + funcAt(src, 'mgsSrcLabel') + '\n' + helpers + '\n' +
+    R = new Function('var MangoiClassDisplay={time:function(t){return t;},range:function(c){return c.start_time||"";}}; var location={search:""};\n' + canon + '\n' + funcAt(src, 'mgsSrcLabel') + '\n' + funcAt(src, 'teacherLabel') + '\n' + helpers + '\n' +
       'function esc(s){ return String(s); }\n' +
       'function mgsEnrHasLiveClass(){ return true; }\nfunction mgsSetGhostNote(){}\n' +
       'var __ev = []; var fetch = function(u){ var s = String(u);\n' +

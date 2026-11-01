@@ -159,12 +159,37 @@ export interface LegacyTeacherInfo {
   group_name?: string | null;
   email?: string | null;
   matched: boolean;      // 카페24 강사 명부에서 실제로 찾았는지
+  lookup_failed?: boolean; // 명부 조회 자체가 실패(=«없다» 가 아니라 «모른다»)
+}
+
+/**
+ * 🚧 (2026-10-25) 자동 생성 «허용 여부» 판정 — 정본.
+ *   [사고] 옛 LMS 는 강사만의 것이 아니다 — **대리점·지사 계정도 같은 로그인 폼**을 쓴다.
+ *     위 verifyLegacyLmsLogin 은 «세션이 열렸나» 만 보므로 대리점 아이디(masteraca)도 통과했고,
+ *     그 자리에서 scope_type='teacher' 계정이 생겨 로그인 뒤 /teacher 로 보내졌다
+ *     (화면: 「이 계정은 강사 기록에 연결되지 않았습니다」, 표시 이름 = 아이디 = 명부 미매칭의 흔적).
+ *   [규칙] 카페24 강사 명부(:Teacher)에서 **찾은 아이디만** 강사로 만든다.
+ *     · 못 찾음        → 'not_in_teacher_roster' (대리점·지사·기타 LMS 회원 — 본사가 계정 발급)
+ *     · 조회가 실패함  → 'roster_lookup_failed'  (모르면 강사 권한을 주지 않는다. 계정을 안 만들었으니
+ *                                                 다음 시도에서 다시 확인한다 = 일시적)
+ *   ⛔ «못 찾았지만 일단 강사로» 폴백을 되살리지 마세요 — 그게 이 사고입니다.
+ */
+/*   반환형을 판별 유니온으로 두지 않는다 — 이 저장소 tsc 설정에서는 `!gate.allow` 로 좁혀지지 않아
+     `gate.reason` 이 TS2339 가 된다(CI 에서 실제로 밟음). */
+export type LegacyProvisionRefusal = 'roster_lookup_failed' | 'not_in_teacher_roster';
+export function legacyProvisionGate(info: LegacyTeacherInfo | null | undefined):
+  { allow: boolean; reason?: LegacyProvisionRefusal } {
+  if (!info || info.lookup_failed) return { allow: false, reason: 'roster_lookup_failed' };
+  if (info.matched !== true) return { allow: false, reason: 'not_in_teacher_roster' };
+  return { allow: true };
 }
 
 /**
  * 카페24 강사 명부(Neo4j :Teacher)에서 로그인 아이디로 강사를 찾아 **실제 이름**을 얻는다.
  *   마이페이지의 급여·평가는 강사 '이름'으로 매칭되므로(sameTeacherName) 이름이 정확해야
- *   본인 데이터가 보인다. Neo4j 가 죽어 있어도 로그인은 막지 않는다(이름만 아이디로 폴백).
+ *   본인 데이터가 보인다.
+ *   ⚠️ (2026-10-25) 이 결과는 이제 «강사인가» 판정에도 쓰인다(legacyProvisionGate).
+ *      조회 실패는 «없음» 과 구분해 lookup_failed 로 돌려준다.
  */
 export async function lookupTeacherByLoginId(env: LegacyAuthEnv, loginId: string): Promise<LegacyTeacherInfo> {
   const id = loginId.trim().toLowerCase();
@@ -193,7 +218,8 @@ export async function lookupTeacherByLoginId(env: LegacyAuthEnv, loginId: string
       }
     }
   } catch (e: any) {
-    console.warn('[legacy-teacher-auth] 강사 명부 조회 실패(로그인은 계속):', e?.message || e);
+    console.warn('[legacy-teacher-auth] 강사 명부 조회 실패:', e?.message || e);
+    return { name: loginId, matched: false, lookup_failed: true };
   }
   return { name: loginId, matched: false };
 }
@@ -210,6 +236,10 @@ export async function provisionTeacherAccount(
   passwordHash: string,
   info: LegacyTeacherInfo
 ): Promise<void> {
+  /* 🚧 (2026-10-25) 정본이 한 번 더 막는다 — 부르는 쪽이 게이트를 빠뜨려도 강사 권한이 새지 않게. */
+  const gate = legacyProvisionGate(info);
+  if (!gate.allow) throw new Error('legacy_provision_refused:' + gate.reason);
+
   const now = Date.now();
   const email = loginId.includes('@') ? loginId : null;
 

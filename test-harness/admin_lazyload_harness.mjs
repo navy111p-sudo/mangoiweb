@@ -54,10 +54,10 @@ console.log('\n[ ②-2 안내 그림은 WebP (같은 그림, 용량 1/3) ]');
   } catch { }
   check(`한국어 안내 그림이 .webp 로 변환돼 있다 (${webpKo}장)`, webpKo >= 20);
   check(`원본 .jpg 도 폴백용으로 남아 있다 (${jpgKo}장)`, jpgKo >= 20);
-  check('환영 모달이 .webp 를 가리킨다', /admin-easy(-en)?\/' \+ pad\([^)]*\) \+ '\.webp'/.test(welc));
+  check('환영 모달이 .webp 를 가리킨다', /admin-easy(-en)?\/' \+ pad\([^)]*\) \+ '\.webp(\?v=[\w.-]+)?'/.test(welc));
   check('상세 뷰어도 .webp 를 가리킨다', /pad\(n\+1\)\+'\.webp'/.test(s18));
   check('환영 모달에 .jpg 폴백이 있다',
-    /onErrorFallback/.test(welc) && /replace\(\/\\\.webp\$\/, '\.jpg'\)/.test(welc));
+    /onErrorFallback/.test(welc) && !/replace\(\/\\\.webp\$\/, '\.jpg'\)/.test(welc) && /replace\(\/\\\.webp\(\\\?\|\$\)\/, '\.jpg\$1'\)/.test(welc));
   check('상세 뷰어에 .jpg 폴백이 있다(큰 그림·썸네일 둘 다)',
     /toJpg\(/.test(s18) && /onerror=/.test(s18) && /\.jpg/.test(s18));
 }

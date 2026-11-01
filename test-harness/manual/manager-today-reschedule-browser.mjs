@@ -71,6 +71,8 @@ function check(name, cond, extra) {
 /** 한 판 — scope 와 /decide 응답을 갈아 끼워 여러 상황을 본다. */
 async function open(browser, opts) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  /* 📋 (2026-10-07) 이 검사는 «자세히 보기» 의 줄(연기·입장·교재 배지)을 잰다 — 기본은 «간단히» 라 켜 두고 시작 */
+  await ctx.addInitScript(() => { try { localStorage.setItem('mgr_today_detail', '1'); } catch (e) {} });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));

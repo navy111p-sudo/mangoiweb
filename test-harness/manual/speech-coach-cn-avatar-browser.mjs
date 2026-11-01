@@ -22,7 +22,11 @@ const {chromium,exe}=requireBrowser();
 let pass=0,fail=0;const ok=(n,c,d)=>{if(c){pass++;console.log('  ✅ '+n+(d?'  '+d:''));}else{fail++;console.log('  ❌ FAIL '+n+(d?'  '+d:''));}};
 const browser=await chromium.launch({executablePath:exe,args:['--autoplay-policy=no-user-gesture-required']});
 const SIZES=[[390,844,145,'폰 세로'],[412,780,125,'폰 중간'],[360,640,100,'작은 폰'],[844,390,68,'폰 가로'],[768,1024,175,'태블릿'],
-  [1024,768,175,'작은 노트북'],[1366,768,175,'노트북 1366'],[1440,900,190,'PC 1440'],[1920,1080,290,'PC 1920']];
+  [1024,768,140,'작은 노트북'],[1366,768,175,'노트북 1366'],[1440,900,190,'PC 1440'],[1920,1080,230,'PC 1920']];
+// 📜 2026-10-16 사장님 «PC 에서 한 화면에 스크롤 없이» — PC(≥1024px)는 얼굴을 문장 «위» 가 아니라 «왼쪽 옆» 에 둔다
+//    (메인 카드 안 2칸 그리드). 그래서 PC 의 경계를 «문장 위에 놓임» → «문장 왼쪽에 놓임(안 가림)» 으로 옮기고,
+//    얼굴 폭 하한은 «한 화면» 이 먼저라 1024px 175→140 · 1920px 290→230 으로 낮췄다(실측 150·240px).
+//    대신 PC 는 «세로 스크롤이 없다» 를 새로 잰다 — 그 화면을 만든 이유라서다.
 async function open(w,h){
   const ctx=await browser.newContext({viewport:{width:w,height:h}});
   const page=await ctx.newPage();
@@ -45,7 +49,7 @@ for(const [w,h,minW,name] of SIZES){
     const top=document.elementFromPoint(rr.l+rr.w/2, rr.t+rr.h/2);
     const tab=document.getElementById('mg-drawer-tab'); const tr=tab?R(tab):null;
     const st=document.querySelector('#tavatar-status .ts-idle'); const lh=parseFloat(getComputedStyle(st).lineHeight)||16;
-    return {rr,card,cn,fixed,tr,onTop:!!(top&&ring.contains(top)),stLines:Math.round(st.getBoundingClientRect().height/lh),innerH:innerHeight,innerW:innerWidth};
+    return {rr,card,cn,fixed,tr,onTop:!!(top&&ring.contains(top)),stLines:Math.round(st.getBoundingClientRect().height/lh),innerH:innerHeight,innerW:innerWidth,sh:document.documentElement.scrollHeight};
   });
   console.log(`▶ ${name} ${w}x${h} — 얼굴 ${Math.round(m.rr.w)}x${Math.round(m.rr.h)} · ${m.fixed?'오른쪽 여백(고정)':'카드 맨 위'}`);
   ok(name+': 얼굴 폭 ≥ '+minW, m.rr.w>=minW, Math.round(m.rr.w)+'px');
@@ -53,6 +57,10 @@ for(const [w,h,minW,name] of SIZES){
   ok(name+': 얼굴이 화면 안', m.rr.t>=0 && m.rr.b<=m.innerH+1 && m.rr.l>=0 && m.rr.r<=m.innerW+1);
   ok(name+': 얼굴 가운데가 맨 위(안 가려짐)', m.onTop);
   if(m.fixed) ok(name+': 카드(900px)와 안 겹침', m.rr.l>=m.card.r+8, `얼굴 왼쪽 ${Math.round(m.rr.l)} · 카드 오른쪽 ${Math.round(m.card.r)}`);
+  else if(w>=1024){
+    ok(name+': 중국어 문장 왼쪽에 놓임(문장을 안 가림)', m.rr.r<=m.cn.l+1, `얼굴 오른쪽 ${Math.round(m.rr.r)} · 문장 왼쪽 ${Math.round(m.cn.l)}`);
+    ok(name+': PC 한 화면 — 세로 스크롤 없음', m.sh<=m.innerH+1, `${m.sh} / ${m.innerH}`);
+  }
   else ok(name+': 중국어 문장 위에 놓임(문장을 안 가림)', m.rr.b<=m.cn.t+1, `얼굴 아래 ${Math.round(m.rr.b)} · 문장 위 ${Math.round(m.cn.t)}`);
   if(m.tr) ok(name+': 메뉴 손잡이와 안 겹침', m.rr.l>=m.tr.r || m.rr.b<=m.tr.t || m.rr.t>=m.tr.b);
   ok(name+': 상태 글자 한 줄', m.stLines<=1, String(m.stLines));

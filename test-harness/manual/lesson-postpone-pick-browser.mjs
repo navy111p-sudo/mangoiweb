@@ -62,14 +62,16 @@ async function scenario(label, { pushAll, dupReply }) {
   ok(`[${label}] 완료 버튼이 눌린다`, btn && btn.dis === false, btn);
   await page.click('#confirm-btn', { timeout: 3000 }).catch(e => ok(`[${label}] 완료 버튼 클릭`, false, e.message));
   await page.waitForFunction(() => document.getElementById('screen-done').classList.contains('active'), null, { timeout: 5000 }).catch(() => {});
-  const done = await page.evaluate(() => ({ title: document.getElementById('done-title').textContent, sub: document.getElementById('done-sub').textContent }));
+  const done = await page.evaluate(() => ({ title: document.getElementById('done-title').textContent, sub: document.getElementById('done-sub').textContent, list: document.getElementById('done-list').textContent, n: document.querySelectorAll('#done-list li').length }));
   if (!pushAll) {
     ok(`[${label}] 서버로 나간 요청은 정확히 1건`, sent.length === 1, sent.length);
     ok(`[${label}] 그 1건은 오늘 수업(850)`, sent[0] && sent[0].schedule_id === 850 && sent[0].orig_date === d(1), sent[0]);
     ok(`[${label}] 그 1건은 한 주 뒤 같은 시각`, sent[0] && sent[0].new_date === d(8) && sent[0].new_time === '19:20', sent[0]);
     if (dupReply) ok(`[${label}] 중복이면 «기다리는 중» 을 사람 말로`, /기다리는 중/.test(done.sub) && /저장되지 않/.test(done.title), done);
     else {
-      ok(`[${label}] 완료 화면 «기존» 에 고른 수업만(다른 날 없음)`, !done.sub.includes(' / ') && done.sub.includes(fmt(1)) && !done.sub.includes(fmt(2)), done.sub);
+      /* 📅 (2026-10-06) 완료 화면은 «기존 → 새 날짜» 한 줄씩 — 고른 수업 하나만, 옮긴 날짜까지 */
+      ok(`[${label}] 완료 화면에 고른 수업 한 줄만(다른 날 없음)`, done.n === 1 && done.list.includes(fmt(1)) && !done.list.includes(fmt(2)), done);
+      ok(`[${label}] 완료 화면에 옮겨진 날짜(한 주 뒤)가 보인다`, done.list.includes('→') && done.list.includes(fmt(8)), done.list);
       ok(`[${label}] 완료 제목은 «요청을 보냈어요»`, /요청을 보냈어요/.test(done.title), done.title);
     }
   } else {

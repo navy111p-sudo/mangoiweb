@@ -56,6 +56,22 @@ export const ATTENDANCE_BY_UID = attendanceByUid();
 export const ATTENDANCE_BY_UID_NOCASE =
   `(account_uid = ? COLLATE NOCASE OR user_id = ? COLLATE NOCASE)`;
 
+/* ── 여러 학생을 한 번에 — 목록판 (2026-10-13 이탈 위험 스캔) ─────────────────
+   위 조건을 IN 으로 넓힌 것입니다. 바인드를 «JSON 배열 문자열 하나» 로 받아서
+   (json_each) 학생 수와 무관하게 물음표가 두 개뿐입니다 — D1 의 100개 한도에
+   안 걸리고 청크로 자를 필요도 없습니다(선례: class-schedule-move.ts).
+   ⛔ 이것도 읽기 전용입니다(위와 같은 이유).
+   ATTENDANCE_ACCOUNT_KEY 는 그 행이 «어느 학생 것인가» 입니다 — 실접속 행은
+   account_uid, 카페24 씨앗은 user_id(=계정). GROUP BY 에 이것을 쓰면 두 갈래가
+   한 학생으로 합쳐집니다. ⛔ user_id 로 GROUP BY 하지 마세요(실접속이 기기번호로 흩어짐). */
+export const ATTENDANCE_ACCOUNT_KEY = `COALESCE(NULLIF(account_uid,''), user_id)`;
+export const ATTENDANCE_BY_UID_LIST =
+  `(account_uid IN (SELECT value FROM json_each(?)) OR user_id IN (SELECT value FROM json_each(?)))`;
+export function attUidListBinds(uids: string[]): [string, string] {
+  const j = JSON.stringify((uids || []).map(u => String(u ?? '')));
+  return [j, j];
+}
+
 /* ── account_uid 칸 보장 (멱등) ────────────────────────────────────────────
    그 칸은 «지연 ALTER» 로 생깁니다(api-mango.ts 의 attendance INSERT 자리).
    운영 DB 에는 이미 있지만, 없는 환경에서 위 조건을 쓰면 prepare 가

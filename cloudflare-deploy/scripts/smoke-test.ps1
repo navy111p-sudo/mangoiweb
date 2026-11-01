@@ -1,6 +1,6 @@
 ﻿# ═══════════════════════════════════════════════════════════════════════
 # smoke-test.ps1 — 배포 후 핵심 API 회귀 스모크 테스트 (REFACTOR_PLAN 5단계)
-#   실서버(test.mangoi.co.kr)의 핵심 엔드포인트 13종이 "기대한 상태코드 +
+#   실서버(mangoi.ai)의 핵심 엔드포인트 13종이 "기대한 상태코드 +
 #   기대한 응답 형태"를 주는지 확인한다. 보안 게이트(401)가 살아있는지도
 #   함께 검사하므로, 200이 아니라 401/400 이 '정답'인 항목이 있다.
 #   사용: powershell -NoProfile -File scripts\smoke-test.ps1 [-BaseUrl https://...]
@@ -8,7 +8,7 @@
 #   ⚠ 부작용 없는 호출만 사용할 것 (쓰기 API는 존재하지 않는 계정/무효 입력만)
 # ═══════════════════════════════════════════════════════════════════════
 param(
-    [string]$BaseUrl = "https://test.mangoi.co.kr"
+    [string]$BaseUrl = "https://mangoi.ai"
 )
 
 $UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) MangoiSmokeTest/1.0 Chrome/126"

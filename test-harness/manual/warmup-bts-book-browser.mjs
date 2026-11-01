@@ -345,11 +345,15 @@ for (const [vw, vh, wlabel] of [[1920,1040,'PC'], [390,844,'폰'], [1280,720,'�
   r = await evaluate(`(function(){
     var q=function(x){return document.querySelector(x)};
     var R=function(el){var b=el.getBoundingClientRect();return{t:Math.round(b.top),b:Math.round(b.bottom),w:Math.round(b.width),l:Math.round(b.left)};};
-    var bn=q('#wusBookNow'), st=q('#wusStart');
+    /* 2026-10-18 — PC(1100px↑·620↑)는 «3단계 카드(B안)» 라 하단 줄이 숨고, 그 일(«지금은 자유 대화» 를 말하고
+       누르면 교재로 간다)을 3번 카드의 «두 갈래» 칸이 첫 화면 안에서 맡습니다. 그때는 그 칸을 잽니다. */
+    var pc=q('#wusPc3'), pcB=!!pc && !pc.hidden && getComputedStyle(pc).display!=='none';
+    var bn=pcB ? q('#wusTwoWay [data-way="free"]') : q('#wusBookNow'), st=q('#wusStart');
     if(!bn||!st) return JSON.stringify({err:'no-el'});
     var rb=R(bn), rs=R(st);
     var top=document.elementFromPoint(Math.round(rb.l+rb.w/2), Math.round((rb.t+rb.b)/2));
-    return JSON.stringify({ hidden:bn.hidden, h:Math.round(rb.b-rb.t), text:(bn.textContent||'').trim(),
+    return JSON.stringify({ pcB:pcB, hidden:bn.hidden, h:Math.round(rb.b-rb.t), text:(bn.textContent||'').trim(),
+      nowFree: pcB ? !!(bn.classList.contains('on') || bn.querySelector('.wus-now')) : null,
       inFirst: rb.b<=innerHeight && rb.t>=0, gap: rs.t-rb.b, overlaps: rb.b>rs.t,
       isMine: !!(top && bn.contains(top)), booksHidden: q('#wusBooksSec').hidden,
       booksTop: Math.round(q('#wusBooksSec').getBoundingClientRect().top), view:innerHeight });
@@ -369,6 +373,7 @@ for (const [vw, vh, wlabel] of [[1920,1040,'PC'], [390,844,'폰'], [1280,720,'�
   t(`⑩ [${wlabel}] 시작 버튼과 겹치지 않는다`, d.overlaps === false && d.gap >= 0, d);
   t(`⑩ [${wlabel}] 그 자리에서 맨 위가 그 줄이다(눌린다)`, d.isMine === true, d);
   t(`⑩ [${wlabel}] 안 골랐으면 «자유 대화» 라고 말한다`, /자유 대화/.test(d.text||''), d.text);
+  if (d.pcB) t(`⑩ [${wlabel}] PC 카드 — 「자유 대화」 칸에 «지금» 표시가 있다(짝)`, d.nowFree === true, d);
 
   await evaluate("document.getElementById('wusBookNow').click()");
   await sleep(800);
@@ -483,14 +488,18 @@ await cmd('Emulation.clearDeviceMetricsOverride');
     await sleep(150);
     const after = JSON.parse(await evaluate(`JSON.stringify({
       now: (document.getElementById('wusBookNow')||{}).textContent || '',
+      siuPhoto: Array.from(document.querySelectorAll('#wusBookNow img.wu-photo-icon')).some(img =>
+        img.getAttribute('data-wu-emoji') === '📗' &&
+        img.getAttribute('src') === '/img/warmup-photos/book.webp' && img.complete && img.naturalWidth > 0),
       on: !!document.querySelector('#wusBooks [data-bts="${firstSiu}"].on'),
       saved: localStorage.getItem('mangoi_warmup_bts') || ''
     })`));
     t('⑪ SIU 를 누르면 그 버튼이 «지금» 으로 표시된다', after.on === true, after);
     /* ⚠️ 이름만 보면 약합니다 — bookTitleOf 는 갈래와 무관하게 «SIU BASIC …» 을 돌려주므로
-       siu 판정을 죽여도 통과합니다(2026-09-15 변이 B3 실측 93/0). 📗 표시까지 짝으로 묻습니다. */
+       siu 판정을 죽여도 통과합니다(2026-09-15 변이 B3 실측 93/0).
+       2026-10-04: 이모지 대신 실사 사진을 사용합니다. 원본 📗 갈래 표지와 실제 로드된 사진을 함께 검사합니다. */
     t('⑪ SIU 를 누르면 «지금 교재» 줄이 SIU 라고 말한다', /SIU BASIC/.test(after.now), after.now);
-    t('⑪ 그 줄이 SIU 갈래로 그려진다(📗 · 짝)', after.now.indexOf('📗') >= 0, after.now);
+    t('⑪ 그 줄이 SIU 갈래의 실사 책 사진으로 그려진다(짝)', after.siuPhoto === true, after);
     t('⑪ SIU 선택이 저장된다(새로고침해도 남게)', after.saved === firstSiu, after.saved);
     /* ⛔ 짝 — BTS 로 되돌리는 길이 살아 있어야 합니다. */
     /* 🔄 2026-09-16 «두 갈래로 시작»(시안 3안) — 목록 안 «교재 없이 자유 대화» 줄은

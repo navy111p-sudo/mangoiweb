@@ -1,0 +1,310 @@
+{
+  "id": "s1-14",
+  "breaks": [
+    4,
+    3,
+    3
+  ],
+  "key": {
+    "P": 7,
+    "S": 9
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "결말",
+      "en": "ending"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «로켓 연료가 모자라다(문제)» 와 «미나의 달 여행은 멋진 모험이다(결말)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the rocket is low on fuel) and the ending (Mina’s trip is a great adventure). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Captain Mina"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "The rocket is low on fuel."
+    },
+    {
+      "k": "Ending",
+      "qko": "마지막에 어떻게 되나요?",
+      "qen": "What happens at the end?",
+      "a": "Mina flies home just in time."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Captain Mina flies her ",
+      "ans": "rocket",
+      "opts": [
+        "rocket",
+        "bike",
+        "boat"
+      ]
+    },
+    {
+      "pre": " to the ",
+      "ans": "Moon",
+      "opts": [
+        "Moon",
+        "sea",
+        "park"
+      ]
+    },
+    {
+      "pre": ". On the Moon, she can jump very ",
+      "ans": "high",
+      "opts": [
+        "high",
+        "low",
+        "slowly"
+      ]
+    },
+    {
+      "pre": ". She finds a ",
+      "ans": "shiny",
+      "opts": [
+        "shiny",
+        "sad",
+        "wet"
+      ]
+    },
+    {
+      "pre": " rock. Then the rocket is low on ",
+      "ans": "fuel",
+      "opts": [
+        "fuel",
+        "water",
+        "food"
+      ]
+    },
+    {
+      "pre": ", so Mina flies home just in time.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "rocket",
+      "로켓",
+      "Captain Mina gets into her <b>rocket</b>.",
+      "a machine that flies into space"
+    ],
+    [
+      "blast off",
+      "발사하다",
+      "3, 2, 1, <b>blast off</b>!",
+      "to fly up fast at the start"
+    ],
+    [
+      "land",
+      "(땅에) 내리다",
+      "Soon Mina <b>lands</b> on the Moon.",
+      "to come down from the sky onto the ground"
+    ],
+    [
+      "shiny",
+      "반짝이는",
+      "She finds a <b>shiny</b> rock.",
+      "bright and full of light"
+    ],
+    [
+      "fuel",
+      "연료",
+      "Suddenly, the rocket beeps. \"Low <b>fuel</b>!\"",
+      "what makes a rocket or a car go"
+    ],
+    [
+      "adventure",
+      "모험",
+      "Her trip to the Moon is a great <b>adventure</b>!",
+      "an exciting trip"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why does Mina run back to the rocket?",
+      "qko": "미나는 왜 로켓으로 서둘러 돌아가나요?",
+      "opts": [
+        "The rocket is low on fuel.",
+        "She is hungry for lunch.",
+        "She drops her shiny rock."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Suddenly, the rocket beeps. \"Low fuel!\"",
+        "On the Moon, she can jump very high!",
+        "She finds a shiny rock.",
+        "Captain Mina gets into her rocket."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "로켓이 «Low fuel!» 하고 울려요. 연료가 모자라서 서둘러 돌아가요.",
+        "The rocket beeps, \"Low fuel!\" So Mina runs back."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"3, 2, 1, blast off!\" What does \"blast off\" mean?",
+      "qko": "«3, 2, 1, blast off!» 에서 «blast off» 는 무슨 뜻일까요?",
+      "opts": [
+        "the rocket starts to fly up",
+        "the rocket breaks",
+        "Mina goes to sleep"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "The rocket shoots up into the dark sky.",
+        "Soon Mina lands on the Moon.",
+        "She finds a shiny rock.",
+        "Her trip to the Moon is a great adventure!"
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«The rocket shoots up into the dark sky.» 바로 다음에 로켓이 하늘로 솟아올라요. 그러니 «blast off» 는 날아오르기 시작한다는 뜻이에요.",
+        "Right after \"blast off,\" the rocket shoots up into the sky. So it means the rocket starts to fly up."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why is Mina’s trip a great adventure?",
+      "qko": "미나의 달 여행은 왜 멋진 모험인가요?",
+      "opts": [
+        "She jumps high on the Moon and gets home just in time.",
+        "She stays home and reads about the Moon.",
+        "She meets a monster on the Moon."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "On the Moon, she can jump very high!",
+        "Mina runs back and flies home just in time.",
+        "3, 2, 1, blast off!",
+        "Earth gets smaller and smaller."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "달에서 아주 높이 뛰었고(«On the Moon, she can jump very high!»), 연료가 떨어지기 전에 아슬아슬하게 집에 왔어요(«Mina runs back and flies home just in time.»). 신나고 아슬아슬해서 멋진 모험이에요.",
+        "She jumps very high on the Moon, and she gets home just in time. It is fun and exciting, so it is a great adventure."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Captain Mina flies to Mars next time.",
+      "미나 선장은 다음에 화성으로 날아간다.",
+      "Mina Goes to Mars"
+    ],
+    [
+      "B",
+      "Mina shows her shiny Moon rock to her friends.",
+      "미나는 친구들에게 반짝이는 달 돌을 보여 준다.",
+      "The Shiny Moon Rock"
+    ]
+  ],
+  "write": {
+    "pre": "I want to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "하고 싶은 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what you want to do",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «하고 싶은 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you want to do and your reason in English.",
+    "aria": [
+      "what you want to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because my friend likes space)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because my friend likes space)",
+    "src": "“I want to <u>go to the Moon</u> because <u>I can jump very high</u>.”",
+    "chips": [
+      {
+        "a": "ride a rocket",
+        "b": "it is very fast",
+        "label": "rocket"
+      },
+      {
+        "a": "go to the beach",
+        "b": "I like to swim",
+        "label": "beach"
+      },
+      {
+        "a": "visit my grandma",
+        "b": "she makes cookies",
+        "label": "grandma"
+      }
+    ]
+  },
+  "img": {
+    "style": "cg3d",
+    "cover": "On the gray Moon under a black starry sky with the small blue Earth far away, a young girl with a black ponytail in a white space suit with a red stripe and a clear round helmet jumps very high with both arms up and a big smile, leaving deep footprints in the dust below, next to a tall red and white rocket.",
+    "scenes": {
+      "1": "On the gray dusty Moon, a young girl with a black ponytail in a white space suit with a red stripe and a clear round helmet kneels and holds up a sparkling shiny rock with wide happy eyes, while a tall red and white rocket stands behind her and the small blue Earth glows in the black sky.",
+      "2": "Inside a tall red and white rocket with a blinking red warning light on the control panel, a young girl with a black ponytail in a white space suit with a red stripe and a clear round helmet grips the controls with a brave face as the rocket zooms through space toward the big blue Earth."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Mina finds a shiny rock on the Moon.",
+    "2": "Mina flies the rocket home to Earth.",
+    "cover": "Mina jumps very high on the Moon."
+  }
+}

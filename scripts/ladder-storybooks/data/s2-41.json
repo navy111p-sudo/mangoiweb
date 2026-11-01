@@ -1,0 +1,311 @@
+{
+  "id": "s2-41",
+  "breaks": [
+    4,
+    2,
+    4,
+    3
+  ],
+  "key": {
+    "P": 4,
+    "S": 11
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «학교의 황금 두루마리가 사라졌다(문제)» 와 «훌륭한 닌자는 근육만이 아니라 눈과 머리를 쓴다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the school's golden scroll disappeared) and the lesson (a great ninja uses his eyes and mind, not only his muscles). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Kenji, the big kids, the master, a raccoon"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "The school's golden scroll disappeared."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Kenji followed flour and tiny footprints and found the scroll."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Kenji was the ",
+      "ans": "smallest",
+      "opts": [
+        "smallest",
+        "strongest",
+        "tallest"
+      ]
+    },
+    {
+      "pre": " student at a ninja school, but he noticed everything. When the golden ",
+      "ans": "scroll",
+      "opts": [
+        "scroll",
+        "cup",
+        "bell"
+      ]
+    },
+    {
+      "pre": " disappeared, the strong kids searched the ",
+      "ans": "forest",
+      "opts": [
+        "forest",
+        "river",
+        "city"
+      ]
+    },
+    {
+      "pre": ". Kenji looked closely and followed tiny ",
+      "ans": "footprints",
+      "opts": [
+        "footprints",
+        "birds",
+        "lights"
+      ]
+    },
+    {
+      "pre": " to the kitchen. A raccoon was sleeping on the scroll! The master said a great ninja uses his eyes and his ",
+      "ans": "mind",
+      "opts": [
+        "mind",
+        "muscles",
+        "feet"
+      ]
+    },
+    {
+      "pre": ", not only his muscles.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "noticed",
+      "알아차렸다",
+      "he <b>noticed</b> everything",
+      "saw or found something, even a small thing"
+    ],
+    [
+      "disappeared",
+      "사라졌다",
+      "One night, the school's golden scroll <b>disappeared</b>!",
+      "went away so no one could see or find it"
+    ],
+    [
+      "scroll",
+      "두루마리",
+      "found a fat raccoon sleeping on the <b>scroll</b>",
+      "a long piece of paper that is rolled up"
+    ],
+    [
+      "flour",
+      "밀가루",
+      "He saw a little <b>flour</b> and some tiny footprints.",
+      "white powder used to make bread and cakes"
+    ],
+    [
+      "raccoon",
+      "너구리",
+      "The <b>raccoon</b> had taken it to make a warm bed.",
+      "a small animal with a black mask on its face and a striped tail"
+    ],
+    [
+      "muscles",
+      "근육",
+      "not only his <b>muscles</b>",
+      "the parts of your body that help you move and lift things"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did the raccoon take the golden scroll?",
+      "qko": "너구리는 왜 황금 두루마리를 가져갔나요?",
+      "opts": [
+        "It wanted to make a warm bed.",
+        "It wanted to read the scroll.",
+        "The big kids gave the scroll to it."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "The big kids laughed at him every day.",
+        "The raccoon had taken it to make a warm bed.",
+        "The strongest students ran into the forest to search, but they found nothing.",
+        "He could not jump as high as the others, and he was not very strong."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "너구리는 따뜻한 잠자리를 만들려고 두루마리를 가져갔어요. 덩치 큰 아이들이 너구리에게 줬다는 말은 없어요.",
+        "The raccoon took the scroll to make a warm bed. The text never says the big kids gave it away."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The text says Kenji \"noticed everything.\" What does this mean?",
+      "qko": "켄지는 \"noticed everything\"이라고 나와요. 이 말은 무슨 뜻인가요?",
+      "opts": [
+        "He saw even very small things.",
+        "He forgot many things.",
+        "He jumped higher than everyone."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "He saw a little flour and some tiny footprints.",
+        "He could not jump as high as the others, and he was not very strong.",
+        "The master smiled at Kenji.",
+        "From that day, nobody laughed at Kenji again."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "켄지는 바닥에 떨어진 아주 조금의 밀가루와 작은 발자국까지 보았어요. 그러니 «아주 작은 것까지 알아차렸다» 는 뜻이에요.",
+        "Kenji saw a little flour and tiny footprints on the floor. So he saw even very small things."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How was Kenji able to find the scroll?",
+      "qko": "켄지는 어떻게 두루마리를 찾을 수 있었나요?",
+      "opts": [
+        "He looked closely at the floor instead of running into the forest.",
+        "He was faster than the strongest students.",
+        "The master told him where it was."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "The strongest students ran into the forest to search, but they found nothing.",
+        "Kenji was the smallest student at the secret ninja school in the mountains.",
+        "Kenji stayed behind and looked closely at the floor.",
+        "From that day, nobody laughed at Kenji again."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "힘센 학생들은 숲으로 달려갔지만 아무것도 찾지 못했어요. 켄지는 남아서 바닥을 자세히 살폈어요. 이 두 문장을 이으면 답이 나와요.",
+        "The strong students ran into the forest and found nothing. Kenji stayed and looked closely at the floor. Put these two clues together."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Kenji teaches the big kids how to look for clues.",
+      "켄지가 덩치 큰 아이들에게 단서 찾는 법을 가르쳐요.",
+      "Kenji the Teacher"
+    ],
+    [
+      "B",
+      "The raccoon becomes the school's sneaky new pet.",
+      "너구리가 학교의 장난꾸러기 새 반려동물이 돼요.",
+      "The Ninja Raccoon"
+    ]
+  ],
+  "write": {
+    "pre": "I can’t",
+    "mid": "but I can",
+    "sep": ", ",
+    "slots": [
+      "vp",
+      "vp"
+    ],
+    "src": "“I can’t <u>jump very high</u>, but I can <u>notice small things</u>.”",
+    "slotKo": [
+      "못 하는 일",
+      "대신 할 수 있는 일"
+    ],
+    "slotEn": [
+      "what I can't do",
+      "what I can do instead"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «못 하는 일 + 대신 할 수 있는 일» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you can't do and what you can do instead in English.",
+    "chips": [
+      {
+        "a": "run very fast",
+        "b": "keep going for a long time",
+        "label": "run"
+      },
+      {
+        "a": "sing loudly",
+        "b": "play the piano",
+        "label": "music"
+      },
+      {
+        "a": "lift heavy boxes",
+        "b": "help with small jobs",
+        "label": "help"
+      }
+    ],
+    "aria": [
+      "what you can't do",
+      "what you can do"
+    ],
+    "moreKo": "한 걸음 더: «but I can» 뒤에 «동사 + 언제» 를 넣어 보세요. (예: but I can try again tomorrow)",
+    "moreEn": "One more step: after «but I can», write a verb + when. (e.g. but I can try again tomorrow)"
+  },
+  "img": {
+    "style": "anime",
+    "cover": "In a dim wooden kitchen lit by a round paper lantern, a small boy with a short black topknot in a dark blue ninja suit with a white belt kneels on the floor and smiles at a fat raccoon curled up asleep on a golden scroll, while a trail of tiny white floury footprints leads to it and two tall students peek in through the doorway.",
+    "scenes": {
+      "1": "On a moonlit night at a mountain ninja school, tall students in black ninja suits run toward a dark forest holding paper lanterns, while a small boy with a short black topknot in a dark blue ninja suit with a white belt stays in the doorway and stares at an empty wooden stand.",
+      "3": "In a sunny wooden hall, an old master with a long gray mustache in a brown robe gently pats the head of a small boy with a short black topknot in a dark blue ninja suit with a white belt, who holds the golden scroll with both hands, while the other students bow and a fat raccoon peeks out from behind a pillar."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "The big students run to the forest, but Kenji stays.",
+    "3": "The master smiles at Kenji, who holds the scroll.",
+    "cover": "Kenji finds a raccoon sleeping on the golden scroll."
+  }
+}

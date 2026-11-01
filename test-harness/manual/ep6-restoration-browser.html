@@ -1,0 +1,28 @@
+<!doctype html><meta charset="utf-8"><title>EP 6 복원 음성 재생 검사</title>
+<style>body{font:17px system-ui;background:#161b26;color:#eee;margin:30px}video{width:800px;max-width:95vw}pre{white-space:pre-wrap}button{padding:15px;font-size:18px}</style>
+<h1>EP 6 원본 음성 복원 검사</h1><button id="run">3회 재생 검사 시작</button><p>정상 → 음성 0.4초 지연 → 일시정지·재개 · 각 61초 · 실제 MP4/MP3</p><video id="video" muted></video><pre id="result">준비됨</pre>
+<script src="/cloudflare-deploy/public/js/ai-dubbing-core.js"></script><script src="/cloudflare-deploy/public/js/ai-dubbing-watch.js"></script>
+<script>
+run.onclick=async()=>{
+ run.disabled=true;const base='/cloudflare-deploy/public', raw=await(await fetch(base+'/data/dubbing/dub-007.json')).json();
+ const s=raw.scenes[5];s.video=base+s.video;s.bgm=base+s.bgm;for(const k in s.voices)s.voices[k]=base+s.voices[k];
+ const ep=MangoiDubCore.normalizeEpisode(raw).episode,sc=ep.scenes[5];window.replayResults=[];
+ for(let round=1;round<=3;round++){
+  const row={round,seen:false,seeksDuringSpeech:[],errors:[],pausedOK:null,lines:[]},audios=[];let injected=false,held=false;
+  const v=document.getElementById('video');
+  class A extends Audio{constructor(){super();audios.push(this)}}
+  const runner=MangoiDubWatch.create({C:MangoiDubCore,opt:{cardMs:10,endMs:10},Audio:A,video:()=>v,
+   prepVideo:(el,s)=>{el.src=s.video;el.load()},waitVideo:el=>new Promise(r=>{if(el.readyState>=3)return r(true);el.oncanplaythrough=()=>r(true);el.onerror=()=>r(false)}),
+   route:a=>{a.addEventListener('error',()=>row.errors.push(a.error?.message));a.addEventListener('seeking',()=>{if(!a.injecting&&sc.lines.some(l=>a.currentTime>=l.start-.12&&a.currentTime<=l.end+.12))row.seeksDuringSpeech.push(a.currentTime)});return{cut(){}}},
+   showLine:(ep,l)=>{if(!row.lines.includes(l.id))row.lines.push(l.id)},clearLine(){},card(){},tts:()=>Promise.resolve(null),onSeen(){row.seen=true}});
+  result.textContent='재생 중: '+round+'/3\n'+JSON.stringify(replayResults,null,2);
+  const timer=setInterval(()=>{
+   if(round===2&&!injected&&v.currentTime>48){injected=true;const a=audios.find(a=>a.src.includes('-nora.'));a.injecting=true;a.addEventListener('seeked',()=>a.injecting=false,{once:true});a.currentTime-=.4}
+   if(round===3&&!held&&v.currentTime>48){held=true;runner.pause();const t=v.currentTime;setTimeout(()=>{row.pausedOK=Math.abs(v.currentTime-t)<.03&&audios.every(a=>a.paused);runner.resume()},500)}
+  },50);
+  row.ok=await runner.start([{ep,scIdx:5,first:true}]);clearInterval(timer);row.end=v.currentTime;
+  row.frames=v.getVideoPlaybackQuality().totalVideoFrames;row.dropped=v.getVideoPlaybackQuality().droppedVideoFrames;replayResults.push(row);
+ }
+ result.textContent='검사 완료\n'+JSON.stringify(replayResults,null,2);run.disabled=false;
+};
+</script>

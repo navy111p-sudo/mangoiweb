@@ -1,0 +1,310 @@
+{
+  "id": "s1-07",
+  "breaks": [
+    2,
+    3,
+    2
+  ],
+  "key": {
+    "P": 1,
+    "S": 6
+  },
+  "roleNames": {
+    "P": {
+      "ko": "처음 마음",
+      "en": "first feeling"
+    },
+    "S": {
+      "ko": "나중 마음",
+      "en": "final feeling"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «처음에는 무서웠다» 와 «용기를 내서 뿌듯했다» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the first feeling (Ella is scared) and the final feeling (Ella is brave and proud). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Ella, Mom, the dentist"
+    },
+    {
+      "k": "First feeling",
+      "qko": "처음에는 어떤 마음이었나요?",
+      "qen": "How does Ella feel at first?",
+      "a": "Ella is scared, and her hands shake."
+    },
+    {
+      "k": "Final feeling",
+      "qko": "마지막에는 어떤 마음이었나요?",
+      "qen": "How does Ella feel at the end?",
+      "a": "Ella is brave and feels proud."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Ella has a dentist ",
+      "ans": "visit",
+      "opts": [
+        "visit",
+        "party",
+        "game"
+      ]
+    },
+    {
+      "pre": " today. She is ",
+      "ans": "scared",
+      "opts": [
+        "scared",
+        "hungry",
+        "sleepy"
+      ]
+    },
+    {
+      "pre": ", and her hands shake. Mom holds her ",
+      "ans": "hand",
+      "opts": [
+        "hand",
+        "bag",
+        "book"
+      ]
+    },
+    {
+      "pre": ". The dentist checks her ",
+      "ans": "teeth",
+      "opts": [
+        "teeth",
+        "shoes",
+        "hair"
+      ]
+    },
+    {
+      "pre": " gently. It does not hurt, and Ella feels ",
+      "ans": "proud",
+      "opts": [
+        "proud",
+        "angry",
+        "cold"
+      ]
+    },
+    {
+      "pre": " because she is brave.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "dentist",
+      "치과 의사",
+      "Ella has a <b>dentist</b> visit today.",
+      "a doctor for your teeth"
+    ],
+    [
+      "scared",
+      "무서워하는",
+      "She is <b>scared</b>, and her hands shake.",
+      "afraid"
+    ],
+    [
+      "breath",
+      "숨",
+      "Ella takes a deep <b>breath</b> and opens her mouth.",
+      "the air you take into your body"
+    ],
+    [
+      "gently",
+      "살살, 부드럽게",
+      "The dentist checks her teeth <b>gently</b>.",
+      "in a soft and careful way"
+    ],
+    [
+      "hurt",
+      "아프다",
+      "It does not <b>hurt</b> at all!",
+      "to give pain"
+    ],
+    [
+      "brave",
+      "용감한",
+      "Ella feels proud because she is <b>brave</b>.",
+      "not afraid to do something hard"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why do Ella's hands shake?",
+      "qko": "엘라의 손은 왜 떨리나요?",
+      "opts": [
+        "She is cold.",
+        "She is scared.",
+        "She is very happy."
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "She is scared, and her hands shake.",
+        "Ella has a dentist visit today.",
+        "The dentist checks her teeth gently.",
+        "It does not hurt at all!"
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«She is scared, and her hands shake.» 에서 엘라가 무서워서 손이 떨린다는 것을 알 수 있어요.",
+        "The sentence says she is scared, and her hands shake."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "\"The dentist checks her teeth gently.\" What does \"gently\" mean here?",
+      "qko": "«The dentist checks her teeth gently.» 에서 «gently» 는 무슨 뜻일까요?",
+      "opts": [
+        "fast and hard",
+        "softly and carefully",
+        "very loudly"
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "It does not hurt at all!",
+        "Ella has a dentist visit today.",
+        "She is scared, and her hands shake.",
+        "Ella takes a deep breath and opens her mouth."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "«It does not hurt at all!» 하나도 아프지 않았으니, 의사 선생님이 살살 조심히 봐 주었다는 뜻이에요.",
+        "It does not hurt at all, so the dentist checks her teeth softly and carefully."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why does Ella feel proud at the end?",
+      "qko": "엘라는 마지막에 왜 뿌듯해하나요?",
+      "opts": [
+        "She is scared, but she is brave.",
+        "The dentist gives her a toy.",
+        "She does not go to the dentist."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "She is scared, and her hands shake.",
+        "Ella feels proud because she is brave.",
+        "Ella has a dentist visit today.",
+        "The dentist checks her teeth gently."
+      ],
+      "ev": [
+        0,
+        1
+      ],
+      "why": [
+        "처음에는 무서웠지만(«She is scared...») 용기를 냈기 때문에 뿌듯해요(«Ella feels proud because she is brave.»).",
+        "She is scared at first, but she is brave, so she feels proud."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Ella goes back to the dentist next year and is not scared.",
+      "엘라는 다음 해에 다시 치과에 가고, 이번에는 무서워하지 않는다.",
+      "Ella's Second Visit"
+    ],
+    [
+      "B",
+      "Ella helps her little brother at his first dentist visit.",
+      "엘라는 처음 치과에 가는 남동생을 도와준다.",
+      "Ella Helps Her Brother"
+    ]
+  ],
+  "write": {
+    "pre": "I think",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "cl",
+      "cl"
+    ],
+    "src": "“I think <u>Ella is brave</u> because <u>she opens her mouth</u>.”",
+    "slotKo": [
+      "내 생각",
+      "그렇게 생각한 이유"
+    ],
+    "slotEn": [
+      "my idea",
+      "my reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «내 생각 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write your own idea and your reason in English.",
+    "chips": [
+      {
+        "a": "I am brave",
+        "b": "I try new things",
+        "label": "brave"
+      },
+      {
+        "a": "my mom is kind",
+        "b": "she holds my hand",
+        "label": "mom"
+      },
+      {
+        "a": "the dentist is nice",
+        "b": "it does not hurt",
+        "label": "dentist"
+      }
+    ],
+    "aria": [
+      "what you think",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because he is smiling)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because he is smiling)"
+  },
+  "img": {
+    "style": "cg3d",
+    "cover": "A girl with short black hair in a yellow shirt sits in a dentist chair and smiles, while a woman with long brown hair in a blue dress stands beside her and a smiling dentist in a white coat holds a small mirror.",
+    "scenes": {
+      "1": "In a dentist office, a woman with long brown hair in a blue dress holds the hand of a worried girl with short black hair in a yellow shirt, and the girl takes a deep breath.",
+      "2": "A girl with short black hair in a yellow shirt sits in a dentist chair with a big proud smile and gives a thumbs up, while a smiling dentist in a white coat stands beside her."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Mom holds worried Ella's hand.",
+    "2": "Ella smiles proudly in the dentist chair.",
+    "cover": "Ella smiles in the dentist chair with Mom and the dentist."
+  }
+}

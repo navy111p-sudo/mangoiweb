@@ -1,0 +1,311 @@
+{
+  "id": "s4-11",
+  "breaks": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "key": {
+    "P": 0,
+    "S": 11
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «많은 언어가 사라질 위험에 놓여 있다(문제)» 와 «사라져 가는 언어를 지키는 것은 인류의 지식과 문화 다양성을 지키는 일(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (many languages are in danger of disappearing) and the conclusion (protecting them protects human knowledge and cultural diversity). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Problem",
+      "qko": "어떤 문제가 있나요?",
+      "qen": "What is the problem?",
+      "a": "Many of the world’s 7,000 languages may disappear"
+    },
+    {
+      "k": "What is lost",
+      "qko": "언어가 사라지면 무엇을 잃나요?",
+      "qen": "What is lost?",
+      "a": "Local knowledge, stories, traditions, and identity"
+    },
+    {
+      "k": "Hope",
+      "qko": "어떤 노력을 하고 있나요?",
+      "qen": "What is being done?",
+      "a": "Communities revive languages through schools, recordings, and apps"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Many of the world’s 7,000 languages are in danger of ",
+      "ans": "disappearing",
+      "opts": [
+        "disappearing",
+        "spreading",
+        "winning"
+      ]
+    },
+    {
+      "pre": ". Each language holds unique ",
+      "ans": "knowledge",
+      "opts": [
+        "knowledge",
+        "prices",
+        "rules"
+      ]
+    },
+    {
+      "pre": ", such as words for local plants and animals. Languages also give a community its ",
+      "ans": "identity",
+      "opts": [
+        "identity",
+        "wealth",
+        "borders"
+      ]
+    },
+    {
+      "pre": ". Some communities revive their languages through schools and ",
+      "ans": "recordings",
+      "opts": [
+        "recordings",
+        "factories",
+        "contests"
+      ]
+    },
+    {
+      "pre": ". Hawaiian came back into daily life with the help of immersion ",
+      "ans": "schools",
+      "opts": [
+        "schools",
+        "hospitals",
+        "farms"
+      ]
+    },
+    {
+      "pre": ". Protecting languages protects cultural diversity.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "generations",
+      "세대",
+      "built up over many <b>generations</b>",
+      "groups of people born at about the same time, like parents and children"
+    ],
+    [
+      "indigenous",
+      "토착의, 원주민의",
+      "many <b>indigenous</b> languages have detailed words for local plants",
+      "belonging to the first people who lived in a place"
+    ],
+    [
+      "identity",
+      "정체성",
+      "traditions that give a community its <b>identity</b>",
+      "who a person or group is and what makes them special"
+    ],
+    [
+      "ancestors",
+      "조상",
+      "When young people lose their <b>ancestors</b>' language",
+      "family members who lived long ago"
+    ],
+    [
+      "revive",
+      "되살리다",
+      "some communities are working to <b>revive</b> their languages",
+      "to bring something back to life or use"
+    ],
+    [
+      "diversity",
+      "다양성",
+      "protecting human knowledge and cultural <b>diversity</b>",
+      "many different kinds of something"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why might young people feel cut off from their own history?",
+      "qko": "왜 젊은이들은 자신의 역사와 단절된 느낌을 받을 수 있을까요?",
+      "opts": [
+        "because they have lost their ancestors' language",
+        "because they have moved to big cities",
+        "because scientists study their local plants"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Some have only a few elderly speakers left, and children are no longer learning them.",
+        "When young people lose their ancestors' language, they may feel cut off from their own history.",
+        "This knowledge can be valuable to scientists studying medicine or the environment.",
+        "Hawaiian, for instance, was once spoken by very few children, but immersion schools have helped bring it back into daily life."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "조상의 언어를 잃으면 자기 역사와 끊어진 느낌을 받을 수 있다고 했어요.",
+        "The text says that when young people lose their ancestors' language, they may feel cut off from their history."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the sentence about Hawaiian, what does \"bring it back into daily life\" mean?",
+      "qko": "하와이어 문장에서 «bring it back into daily life» 는 무슨 뜻인가요?",
+      "opts": [
+        "make people use the language again every day",
+        "take the language to another country",
+        "keep the language only in old books"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "When a language disappears, what exactly is lost?",
+        "Fortunately, some communities are working to revive their languages through schools, recordings, and apps.",
+        "Languages also carry stories, songs, and traditions that give a community its identity.",
+        "Each language contains a unique way of understanding the world, built up over many generations."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "바로 앞 문장에서 공동체들이 언어를 «되살리려고(revive)» 노력한다고 했어요. 하와이어는 그 예로, 다시 일상에서 쓰이게 된 거예요.",
+        "The sentence before says communities are working to revive their languages. Hawaiian is an example: people use it in daily life again."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "Why can losing a language also be a loss for science?",
+      "qko": "왜 언어를 잃는 것이 과학에도 손실이 될 수 있을까요?",
+      "opts": [
+        "Indigenous languages hold detailed knowledge of plants, animals, and weather.",
+        "Scientists can only speak indigenous languages.",
+        "Languages make laboratory tests cheaper."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "For example, many indigenous languages have detailed words for local plants, animals, and weather patterns.",
+        "Some have only a few elderly speakers left, and children are no longer learning them.",
+        "This knowledge can be valuable to scientists studying medicine or the environment.",
+        "Fortunately, some communities are working to revive their languages through schools, recordings, and apps."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "원주민 언어에는 지역 식물, 동물, 날씨에 대한 자세한 낱말이 있고, 이 지식은 의학이나 환경을 연구하는 과학자에게 소중해요.",
+        "Indigenous languages have detailed words for local plants, animals, and weather, and this knowledge is valuable to scientists."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Find out how immersion schools helped bring Hawaiian back.",
+      "몰입 학교가 하와이어를 어떻게 되살렸는지 알아봐요.",
+      "Bringing Hawaiian Back"
+    ],
+    [
+      "B",
+      "Learn about words in other languages that have no English match.",
+      "영어로 딱 맞는 말이 없는 다른 언어의 낱말을 알아봐요.",
+      "Words Without Translation"
+    ]
+  ],
+  "write": {
+    "pre": "It is important to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“It is important to <u>learn our grandparents’ stories</u> because <u>they show where we come from</u>.”",
+    "slotKo": [
+      "중요한 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "an important action",
+      "the reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «중요한 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write an important action and your reason in English.",
+    "chips": [
+      {
+        "a": "record my grandmother’s songs",
+        "b": "they may be forgotten one day",
+        "label": "songs"
+      },
+      {
+        "a": "learn a few words in a new language",
+        "b": "it helps me understand other people",
+        "label": "words"
+      },
+      {
+        "a": "visit the local history museum",
+        "b": "it shows how our town began",
+        "label": "museum"
+      }
+    ],
+    "aria": [
+      "an important action",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가/무엇이 + 어떻게 한다» 를 넣어 이유를 분명하게 써 보세요. (예: because songs carry our history)",
+    "moreEn": "One more step: after «because», write who or what + what it does to make your reason clear. (e.g. because songs carry our history)"
+  },
+  "img": {
+    "style": "editorial",
+    "cover": "An elderly woman and a young girl sitting together on a wooden porch, the woman speaking and the girl listening closely.",
+    "scenes": {
+      "1": "A village elder in a forest pointing to a leafy plant while a young person kneels beside him and listens.",
+      "3": "Young children sitting in a circle on the grass with a teacher outdoors under palm trees, singing together."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "An elder showing a plant to a young person in a forest",
+    "3": "Children and a teacher singing in a circle under palm trees",
+    "cover": "An elderly woman talking with a young girl"
+  }
+}

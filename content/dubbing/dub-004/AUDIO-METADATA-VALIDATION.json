@@ -1,0 +1,74 @@
+{
+  "status": "PASS_METADATA_ONLY",
+  "lines": 60,
+  "scenes": 6,
+  "sceneSec": 40,
+  "totalSec": 240,
+  "sampleRate": 48000,
+  "speakerTextIdMatches": 60,
+  "sampleFramePairsMatch": 60,
+  "overlaps": 0,
+  "outOfRange": 0,
+  "shotBoundaryCrossings": [
+    {
+      "lineId": "s1-l2",
+      "cutSec": 10,
+      "scene": 1
+    },
+    {
+      "lineId": "s1-l5",
+      "cutSec": 20,
+      "scene": 1
+    },
+    {
+      "lineId": "s3-l4",
+      "cutSec": 10,
+      "scene": 3
+    },
+    {
+      "lineId": "s3-l5",
+      "cutSec": 20,
+      "scene": 3
+    },
+    {
+      "lineId": "s3-l8",
+      "cutSec": 30,
+      "scene": 3
+    },
+    {
+      "lineId": "s4-l3",
+      "cutSec": 10,
+      "scene": 4
+    },
+    {
+      "lineId": "s4-l8",
+      "cutSec": 30,
+      "scene": 4
+    },
+    {
+      "lineId": "s5-l4",
+      "cutSec": 10,
+      "scene": 5
+    },
+    {
+      "lineId": "s5-l6",
+      "cutSec": 20,
+      "scene": 5
+    },
+    {
+      "lineId": "s6-l4",
+      "cutSec": 10,
+      "scene": 6
+    }
+  ],
+  "ready": false,
+  "mediaAccess": "HTTP403 preserved; no retry",
+  "notVerified": [
+    "audio files/checksums",
+    "listening",
+    "ASR rerun",
+    "lip sync",
+    "video completion/playback",
+    "actual mic/scoring/export"
+  ]
+}

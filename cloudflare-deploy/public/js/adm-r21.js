@@ -5,16 +5,26 @@
 (function(){
   'use strict';
 
+  /* 🌐 (2026-10-09) 영어 화면에서 계정 창의 배지·설명·메뉴 셋(비밀번호 변경·자료실·도움말)이
+     한국어로 남았다 — 이 창은 열 때마다 innerHTML 로 새로 그려서 adm-p3 사전 훑기가 못 닿는다.
+     그래서 그릴 때 언어를 보고 직접 쓴다. 판정 정본은 window.adminLang(CLAUDE.md 2장 «adminLang 키»). */
+  function EN(){
+    try { if (window.adminLang) return window.adminLang === 'en'; } catch(e){}
+    try { return localStorage.getItem('mangoi_lang') === 'en'; } catch(e){ return false; }
+  }
+  function T(ko, en){ return EN() ? en : ko; }
+
   var ROLE_INFO = {
-    'hq_exec':       { label: '👑 본사 · 경영진',    short:'경영진', color: 'rgba(217,119,6,0.4)',  text: '#FCD34D', desc: '최고 권한 — 전체 데이터' },
-    'hq_mgr':        { label: '🛠 본사 · 관리자',    short:'관리자', color: 'rgba(220,38,38,0.4)',  text: '#FECACA', desc: '운영 관리 — 전체 데이터' },
-    'admin':         { label: '🛠 본사 · 관리자',    short:'관리자', color: 'rgba(220,38,38,0.4)',  text: '#FECACA', desc: '운영 관리' },
-    'hq_t_001':      { label: '👨‍🏫 본사 · 강사',      short:'강사',  color: 'rgba(139,92,246,0.4)', text: '#C4B5FD', desc: '본인 수업 데이터만' },
-    'branch_busan':  { label: '🏬 지사 · 부산',      short:'지사',  color: 'rgba(245,158,11,0.4)', text: '#FCD34D', desc: '산하 대리점 데이터' },
-    'branch_daegu':  { label: '🏬 지사 · 대구',      short:'지사',  color: 'rgba(245,158,11,0.4)', text: '#FCD34D', desc: '산하 대리점' },
-    'agency_gn001':  { label: '🤝 대리점 · 강남001', short:'대리점',color: 'rgba(34,197,94,0.4)',  text: '#86EFAC', desc: '본인 학생만' },
-    'agency_sc002':  { label: '🤝 대리점 · 송파002', short:'대리점',color: 'rgba(34,197,94,0.4)',  text: '#86EFAC', desc: '본인 학생만' }
+    'hq_exec':       { label: '👑 본사 · 경영진',    label_en: '👑 HQ · Executive', short:'경영진', short_en:'Executive', color: 'rgba(217,119,6,0.4)',  text: '#FCD34D', desc: '최고 권한 — 전체 데이터', desc_en: 'Full access — all data' },
+    'hq_mgr':        { label: '🛠 본사 · 관리자',    label_en: '🛠 HQ · Admin',     short:'관리자', short_en:'Admin',     color: 'rgba(220,38,38,0.4)',  text: '#FECACA', desc: '운영 관리 — 전체 데이터', desc_en: 'Operations — all data' },
+    'admin':         { label: '🛠 본사 · 관리자',    label_en: '🛠 HQ · Admin',     short:'관리자', short_en:'Admin',     color: 'rgba(220,38,38,0.4)',  text: '#FECACA', desc: '운영 관리', desc_en: 'Operations' },
+    'hq_t_001':      { label: '👨‍🏫 본사 · 강사',      label_en: '👨‍🏫 HQ · Teacher',   short:'강사',  short_en:'Teacher',   color: 'rgba(139,92,246,0.4)', text: '#C4B5FD', desc: '본인 수업 데이터만', desc_en: 'Own classes only' },
+    'branch_busan':  { label: '🏬 지사 · 부산',      label_en: '🏬 Branch · Busan',  short:'지사',  short_en:'Branch',    color: 'rgba(245,158,11,0.4)', text: '#FCD34D', desc: '산하 대리점 데이터', desc_en: 'Agencies under this branch' },
+    'branch_daegu':  { label: '🏬 지사 · 대구',      label_en: '🏬 Branch · Daegu',  short:'지사',  short_en:'Branch',    color: 'rgba(245,158,11,0.4)', text: '#FCD34D', desc: '산하 대리점', desc_en: 'Agencies under this branch' },
+    'agency_gn001':  { label: '🤝 대리점 · 강남001', label_en: '🤝 Agency · Gangnam001', short:'대리점',short_en:'Agency', color: 'rgba(34,197,94,0.4)',  text: '#86EFAC', desc: '본인 학생만', desc_en: 'Own students only' },
+    'agency_sc002':  { label: '🤝 대리점 · 송파002', label_en: '🤝 Agency · Songpa002', short:'대리점',short_en:'Agency', color: 'rgba(34,197,94,0.4)',  text: '#86EFAC', desc: '본인 학생만', desc_en: 'Own students only' }
   };
+  function roleText(role, k){ return (EN() && role[k + '_en']) || role[k] || ''; }
 
   function getUser(){
     try { return JSON.parse(localStorage.getItem('admin_session') || 'null'); } catch(e){ return null; }
@@ -63,12 +73,12 @@
 
   function updateUserButton(btn){
     var user = getUser() || window.admIdentityOrPending();   // 🪪 (2026-08-15) 실명 fallback 제거
-    var role = ROLE_INFO[user.uid] || { short: '사용자' };
+    var role = ROLE_INFO[user.uid] || { short: '사용자', short_en: 'User' };
     var initial = (user.name || user.uid || 'U').charAt(0).toUpperCase();
     btn.innerHTML =
       '<span class="ph115-avatar">' + initial + '</span>' +
       '<span class="ph115-name">' + (user.name || user.uid) + '</span>' +
-      '<span class="ph115-role">' + role.short + '</span>';
+      '<span class="ph115-role">' + roleText(role, 'short') + '</span>';
   }
 
   window.ph115OpenModal = function(e){
@@ -84,22 +94,22 @@
         '<div class="ph115-mh-avatar">' + initial + '</div>' +
         '<div class="ph115-mh-name">' + (user.name || user.uid) + '</div>' +
         '<div class="ph115-mh-uid">@' + user.uid + '</div>' +
-        '<div class="ph115-mh-role" style="background:' + role.color + ';color:' + role.text + ';border-color:' + role.color + '">' + role.label + '</div>' +
+        '<div class="ph115-mh-role" style="background:' + role.color + ';color:' + role.text + ';border-color:' + role.color + '">' + roleText(role, 'label') + '</div>' +
         '<div class="ph115-mh-meta">' +
           '📧 ' + (user.email || '-') + '<br>' +
           '📞 ' + (user.phone || '-') + ' &nbsp;·&nbsp; 🏢 ' + (user.branch || '-') + '<br>' +
-          '<span style="opacity:0.85;font-size:10.5px;font-style:italic">' + role.desc + '</span>' +
+          '<span style="opacity:0.85;font-size:10.5px;font-style:italic">' + roleText(role, 'desc') + '</span>' +
         '</div>' +
       '</div>' +
       '<div class="ph115-menu">' +
-        '<a class="ph115-mi" href="/admin/mypage"><span class="ph115-mi-icon">👤</span>마이페이지</a>' +
-        '<a class="ph115-mi" href="javascript:void(0)" onclick="ph115ChangePw()"><span class="ph115-mi-icon">🔑</span>비밀번호 변경</a>' +
-        '<a class="ph115-mi" href="/docs/" target="_blank"><span class="ph115-mi-icon">📘</span>자료실 / 사용 안내서</a>' +
-        '<a class="ph115-mi" href="/admin/health" target="_blank"><span class="ph115-mi-icon">🩺</span>셀프 진단</a>' +
-        '<a class="ph115-mi" href="javascript:void(0)" onclick="ph115Help()"><span class="ph115-mi-icon">❓</span>도움말 / FAQ</a>' +
+        '<a class="ph115-mi" href="/admin/mypage"><span class="ph115-mi-icon">👤</span>' + T('마이페이지', 'My Page') + '</a>' +
+        '<a class="ph115-mi" href="javascript:void(0)" onclick="ph115ChangePw()"><span class="ph115-mi-icon">🔑</span>' + T('비밀번호 변경', 'Change Password') + '</a>' +
+        '<a class="ph115-mi" href="/docs/" target="_blank"><span class="ph115-mi-icon">📘</span>' + T('자료실 / 사용 안내서', 'Resources / Manuals') + '</a>' +
+        '<a class="ph115-mi" href="/admin/health" target="_blank"><span class="ph115-mi-icon">🩺</span>' + T('셀프 진단', 'Self Diagnosis') + '</a>' +
+        '<a class="ph115-mi" href="javascript:void(0)" onclick="ph115Help()"><span class="ph115-mi-icon">❓</span>' + T('도움말 / FAQ', 'Help / FAQ') + '</a>' +
         /* 🔐 (2026-07-14) 역할 전환·다른 계정 로그인 제거 — 역할 드리프트 방지 */
         '<div class="ph115-divider"></div>' +
-        '<a class="ph115-mi danger" href="javascript:void(0)" onclick="ph115Logout()"><span class="ph115-mi-icon">🚪</span>로그아웃</a>' +
+        '<a class="ph115-mi danger" href="javascript:void(0)" onclick="ph115Logout()"><span class="ph115-mi-icon">🚪</span>' + T('로그아웃', 'Log out') + '</a>' +
       '</div>';
     document.getElementById('ph115-modal-overlay').classList.add('show');
   };
@@ -112,10 +122,10 @@
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape') ph115CloseModal(); });
 
   window.ph115Logout = function(){
-    if (!confirm('정말 로그아웃 하시겠습니까?\n현재 세션이 종료됩니다.')) return;
+    if (!confirm(T('정말 로그아웃 하시겠습니까?\n현재 세션이 종료됩니다.', 'Log out now?\nYour current session will end.'))) return;
     try { localStorage.removeItem('admin_session'); sessionStorage.clear(); } catch(e){}
     if (typeof window.adminLogout === 'function') try { window.adminLogout(); } catch(e){}
-    alert('🚪 로그아웃 되었습니다.');
+    alert(T('🚪 로그아웃 되었습니다.', '🚪 You have been logged out.'));
     var lo = document.getElementById('admin-login-overlay');
     if (lo) lo.style.display = 'flex';
     else window.location.reload();
@@ -135,9 +145,9 @@
      ⚠️ 같은 껍데기가 adm-q9(ph111)·adm-r19(ph113)·adm-r20(ph114)에도 복제돼 있다. 넷 다 같이 고칠 것.
      길이 하한은 서버(/api/admin/change-password)·마이페이지와 같은 6자로 맞춘다. */
   window.ph115ChangePw = async function(){
-    var c=prompt('🔑 현재 비밀번호:'); if(!c)return;
-    var n=prompt('🔑 새 비밀번호 (6자 이상):'); if(!n||n.length<6){alert('비밀번호는 6자 이상');return;}
-    var c2=prompt('🔑 새 비밀번호 확인:'); if(n!==c2){alert('비밀번호 불일치');return;}
+    var c=prompt(T('🔑 현재 비밀번호:', '🔑 Current password:')); if(!c)return;
+    var n=prompt(T('🔑 새 비밀번호 (6자 이상):', '🔑 New password (6+ characters):')); if(!n||n.length<6){alert(T('비밀번호는 6자 이상', 'Password must be at least 6 characters'));return;}
+    var c2=prompt(T('🔑 새 비밀번호 확인:', '🔑 Confirm new password:')); if(n!==c2){alert(T('비밀번호 불일치', 'Passwords do not match'));return;}
     try{
       var r = await fetch('/api/admin/change-password', {
         method:'POST', credentials:'include',
@@ -145,14 +155,15 @@
         body: JSON.stringify({ current_password: c, new_password: n })
       });
       var j = await r.json().catch(function(){ return {}; });
-      if (j && j.ok) alert('🔐 비밀번호가 변경됐습니다. 다른 기기는 자동 로그아웃됩니다.');
-      else if (j && j.error === 'wrong_current_password') alert('⚠️ 현재 비밀번호가 올바르지 않습니다.');
-      else if (j && j.error === 'too_short') alert('⚠️ 새 비밀번호는 6자 이상이어야 합니다.');
-      else alert('⚠️ 변경에 실패했습니다 — ' + ((j && (j.message || j.error)) || ('HTTP ' + r.status)));
-    }catch(e){ alert('⚠️ 네트워크 오류 — ' + ((e && e.message) || e)); }
+      if (j && j.ok) alert(T('🔐 비밀번호가 변경됐습니다. 다른 기기는 자동 로그아웃됩니다.', '🔐 Password changed. Other devices will be logged out.'));
+      else if (j && j.error === 'wrong_current_password') alert(T('⚠️ 현재 비밀번호가 올바르지 않습니다.', '⚠️ The current password is incorrect.'));
+      else if (j && j.error === 'too_short') alert(T('⚠️ 새 비밀번호는 6자 이상이어야 합니다.', '⚠️ The new password must be at least 6 characters.'));
+      else alert(T('⚠️ 변경에 실패했습니다 — ', '⚠️ Could not change the password — ') + ((j && (j.message || j.error)) || ('HTTP ' + r.status)));
+    }catch(e){ alert(T('⚠️ 네트워크 오류 — ', '⚠️ Network error — ') + ((e && e.message) || e)); }
   };
   window.ph115Help = function(){
-    alert('❓ 망고아이 관리자 도움말\n\n▸ 좌측 사이드바 — 8개 그룹 73개 메뉴\n▸ 그룹 클릭 → 펼침/접힘\n▸ 하위 메뉴 클릭 → 해당 카드 자동 스크롤\n▸ 우측 상단 사용자 버튼 → 로그인/로그아웃/자료실\n\n문의: navy111p@gmail.com');
+    alert(T('❓ 망고아이 관리자 도움말\n\n▸ 좌측 사이드바 — 8개 그룹 73개 메뉴\n▸ 그룹 클릭 → 펼침/접힘\n▸ 하위 메뉴 클릭 → 해당 카드 자동 스크롤\n▸ 우측 상단 사용자 버튼 → 로그인/로그아웃/자료실\n\n문의: navy111p@gmail.com',
+            '❓ Mangoi Admin Help\n\n▸ Left sidebar — every menu, in groups\n▸ Click a group → open / close\n▸ Click a sub-menu → jumps to that card\n▸ Account button (top) → log out / resources\n\nContact: navy111p@gmail.com'));
   };
   window.ph115SwitchRole = function(){
     var roles = Object.keys(ROLE_INFO).map(function(k){ return k + ' — ' + ROLE_INFO[k].label; }).join('\n');
@@ -161,6 +172,11 @@
     saveUser({ uid: sel, name: name, phone:'010-1234-5678', email: sel+'@mangoi.com', branch: ROLE_INFO[sel].label, lastLogin: new Date().toLocaleString('ko-KR').slice(5,17) });
     alert('역할 전환 완료'); window.location.reload();
   };
+
+  /* 🌐 언어를 바꾸면 계정 버튼의 역할 글자도 다시 쓴다. ⚠️ 관리자 화면은 그 이벤트를 document 에서 쏜다(bubbles:false) — 둘 다 듣는다. */
+  function ph115Relang(){ var b = document.getElementById('ph115-user'); if (b) updateUserButton(b); }
+  document.addEventListener('mangoi:lang-changed', ph115Relang);
+  window.addEventListener('mangoi:lang-changed', ph115Relang);
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph115Mount);
   else ph115Mount();

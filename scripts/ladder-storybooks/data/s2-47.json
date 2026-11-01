@@ -1,0 +1,311 @@
+{
+  "id": "s2-47",
+  "breaks": [
+    3,
+    3,
+    3,
+    4
+  ],
+  "key": {
+    "P": 7,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "문제",
+      "en": "problem"
+    },
+    "S": {
+      "ko": "교훈",
+      "en": "lesson"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «아무도 글을 쓰지 않아서 도서관이 사라지고 있었다(문제)» 와 «모든 이야기에는 끝맺어 줄 사람이 필요하다(교훈)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the problem (the library was fading because no one writes anymore) and the lesson (every story needs someone to finish it). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Who",
+      "qko": "누가 나오나요?",
+      "qen": "Who is in the story?",
+      "a": "Seo-yeon, an old owl"
+    },
+    {
+      "k": "Problem",
+      "qko": "무슨 문제가 있었나요?",
+      "qen": "What is the problem?",
+      "a": "The magic library was fading because no one wrote anymore."
+    },
+    {
+      "k": "Solution",
+      "qko": "어떻게 해결했나요?",
+      "qen": "How is it solved?",
+      "a": "Seo-yeon wrote an ending for a story, and the floor came back."
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Seo-yeon found a small blue ",
+      "ans": "door",
+      "opts": [
+        "door",
+        "box",
+        "window"
+      ]
+    },
+    {
+      "pre": " at school and stepped into a library in the ",
+      "ans": "sky",
+      "opts": [
+        "sky",
+        "sea",
+        "forest"
+      ]
+    },
+    {
+      "pre": ". Books flew like birds, but the floor began to ",
+      "ans": "disappear",
+      "opts": [
+        "disappear",
+        "sing",
+        "grow"
+      ]
+    },
+    {
+      "pre": " because no one wrote stories anymore. Seo-yeon caught a book and wrote an ",
+      "ans": "ending",
+      "opts": [
+        "ending",
+        "apple",
+        "egg"
+      ]
+    },
+    {
+      "pre": " for it, and the library was saved. Now she ",
+      "ans": "writes",
+      "opts": [
+        "writes",
+        "sleeps",
+        "sings"
+      ]
+    },
+    {
+      "pre": " a little every day.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "hallway",
+      "복도",
+      "at the end of the third-floor <b>hallway</b>",
+      "a long, narrow space inside a building with rooms on its sides"
+    ],
+    [
+      "floated",
+      "떠 있었다",
+      "a library that <b>floated</b> in the sky",
+      "stayed up in the air or on water"
+    ],
+    [
+      "unfinished",
+      "끝나지 않은",
+      "Every book here is an <b>unfinished</b> story.",
+      "not done yet"
+    ],
+    [
+      "fading",
+      "희미해지는, 사라져 가는",
+      "The library is <b>fading</b> because no one writes anymore!",
+      "slowly becoming weaker until it is gone"
+    ],
+    [
+      "ending",
+      "결말",
+      "Quickly, she wrote an <b>ending</b> for the story inside.",
+      "the last part of a story"
+    ],
+    [
+      "bowed",
+      "고개 숙여 인사했다",
+      "The owl <b>bowed</b>.",
+      "bent the head or body forward to show respect"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why was the library fading?",
+      "qko": "도서관은 왜 사라져 가고 있었나요?",
+      "opts": [
+        "No one wrote stories anymore.",
+        "The owl was too old to take care of it.",
+        "It was raining too hard."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "One rainy afternoon, Seo-yeon saw the door open a little.",
+        "\"The library is fading because no one writes anymore!\" cried the owl.",
+        "Books flew around like birds.",
+        "There was a small blue door at the end of the third-floor hallway."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "부엉이가 «아무도 더 이상 글을 쓰지 않아서 도서관이 사라지고 있어!» 라고 외쳤어요. 비 때문이 아니에요.",
+        "The owl cried that the library was fading because no one writes anymore. It was not because of the rain."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "The owl says, \"Every book here is an unfinished story.\" What does unfinished mean?",
+      "qko": "부엉이가 \"Every book here is an unfinished story.\"라고 말해요. unfinished는 무슨 뜻인가요?",
+      "opts": [
+        "not ended yet",
+        "very old and dusty",
+        "too long to read"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Quickly, she wrote an ending for the story inside.",
+        "It was always locked, and no teacher talked about it.",
+        "Books flew around like birds.",
+        "The owl bowed. \"Come back anytime, young writer.\""
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "서연이가 책 속 이야기에 결말을 써 주었어요. 이야기에 아직 끝이 없었다는 뜻이니, unfinished는 «아직 끝나지 않은» 이에요.",
+        "Seo-yeon wrote an ending for the story. So unfinished means the story did not have an ending yet."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did Seo-yeon save the library?",
+      "qko": "서연이는 어떻게 도서관을 구했나요?",
+      "opts": [
+        "She wrote an ending for a story, and the floor came back.",
+        "She locked the blue door again.",
+        "The owl fixed the floor with magic."
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Quickly, she wrote an ending for the story inside.",
+        "She stepped inside, and suddenly she was standing in a library that floated in the sky.",
+        "The floor came back, bright and strong.",
+        "There was a small blue door at the end of the third-floor hallway."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "서연이가 책 속 이야기에 결말을 쓰자, 사라지던 바닥이 다시 밝고 튼튼하게 돌아왔어요. 두 문장을 이으면 답이 나와요.",
+        "Seo-yeon wrote an ending for the story, and the floor came back, bright and strong. Put these two clues together."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Seo-yeon brings her friends to the sky library to write together.",
+      "서연이가 친구들을 하늘 도서관에 데려가 함께 글을 써요.",
+      "The Writers' Club"
+    ],
+    [
+      "B",
+      "The owl visits Seo-yeon's classroom with a new unfinished book.",
+      "부엉이가 끝나지 않은 새 책을 들고 서연이네 교실에 찾아와요.",
+      "The Owl's Visit"
+    ]
+  ],
+  "write": {
+    "pre": "I want to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“I want to <u>write a story every day</u> because <u>every story needs an ending</u>.”",
+    "slotKo": [
+      "하고 싶은 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what you want to do",
+      "your reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «하고 싶은 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write what you want to do and your reason in English.",
+    "chips": [
+      {
+        "a": "read a mystery book",
+        "b": "I like solving puzzles",
+        "label": "mystery"
+      },
+      {
+        "a": "keep a diary",
+        "b": "I can remember happy days",
+        "label": "diary"
+      },
+      {
+        "a": "draw a comic",
+        "b": "my friends like funny pictures",
+        "label": "comic"
+      }
+    ],
+    "aria": [
+      "what you want to do",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «I want to» 뒤에는 동사(write, read, keep)를 바로 쓰고, «because» 뒤에는 «누가 + 무엇을» 을 쓰세요.",
+    "moreEn": "One more step: after «I want to», write a verb (write, read, keep). After «because», write who + what."
+  },
+  "img": {
+    "style": "webtoon",
+    "cover": "In a big library floating among white clouds, a girl with a long black braid and a purple headband in a yellow raincoat kneels on the floor and writes quickly in an open book with a pencil, while books with plain colorful covers fly around like birds, an old brown owl with round glasses watches from a tall shelf, and the floor near her breaks apart into floating blank pages.",
+    "scenes": {
+      "1": "a girl with a long black braid and a purple headband in a yellow raincoat steps through a small open blue door into a huge library floating in the sky, where books with plain colorful covers fly around like birds and an old brown owl with round glasses sits on a tall lamp.",
+      "3": "In the library floating in the sky, a shining golden floor comes back under the feet of a girl with a long black braid and a purple headband in a yellow raincoat, who hugs a closed book with a plain cover, while an old brown owl with round glasses bows to her."
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "3": 2
+    }
+  },
+  "alt": {
+    "1": "Seo-yeon steps into a library in the sky.",
+    "3": "The floor comes back, and the owl bows to Seo-yeon.",
+    "cover": "Seo-yeon writes an ending as the library floor fades."
+  }
+}

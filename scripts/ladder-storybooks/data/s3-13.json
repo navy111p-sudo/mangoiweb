@@ -1,0 +1,311 @@
+{
+  "id": "s3-13",
+  "breaks": [
+    4,
+    4,
+    3,
+    2
+  ],
+  "key": {
+    "P": 7,
+    "S": 12
+  },
+  "roleNames": {
+    "P": {
+      "ko": "발명",
+      "en": "invention"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «채륜이 가볍고 매끄러워 글쓰기 쉬운 종이를 만들었다(발명)» 와 «채륜의 단순한 발명이 지식을 온 세상에 퍼뜨렸다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the invention (Cai Lun made paper that was light, smooth, and easy to write on) and the conclusion (his simple invention helped knowledge spread to the whole world). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "How Cai Lun’s paper changed the world"
+    },
+    {
+      "k": "Key fact",
+      "qko": "채륜은 종이를 어떻게 만들었나요?",
+      "qen": "How did Cai Lun make paper?",
+      "a": "He mashed bark, cloth, and old nets in water"
+    },
+    {
+      "k": "Why it matters",
+      "qko": "종이는 왜 중요했나요?",
+      "qen": "Why did paper matter?",
+      "a": "Books became cheap, and knowledge spread"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "About 1,900 years ago, Chinese books were written on heavy bamboo or on very ",
+      "ans": "expensive",
+      "opts": [
+        "expensive",
+        "cheap",
+        "tiny"
+      ]
+    },
+    {
+      "pre": " silk. Cai Lun mashed bark, old cloth, and fishing nets in ",
+      "ans": "water",
+      "opts": [
+        "water",
+        "oil",
+        "sand"
+      ]
+    },
+    {
+      "pre": " and made light, smooth ",
+      "ans": "paper",
+      "opts": [
+        "paper",
+        "metal",
+        "stone"
+      ]
+    },
+    {
+      "pre": ". For over a thousand years, most paper was not made from ",
+      "ans": "wood",
+      "opts": [
+        "wood",
+        "rags",
+        "plants"
+      ]
+    },
+    {
+      "pre": ". Paper slowly traveled around the world, books became cheap, and ",
+      "ans": "knowledge",
+      "opts": [
+        "knowledge",
+        "money",
+        "sickness"
+      ]
+    },
+    {
+      "pre": " spread everywhere.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "records",
+      "기록",
+      "The emperor's <b>records</b> were written on heavy bamboo strips",
+      "written information kept for the future"
+    ],
+    [
+      "expensive",
+      "비싼",
+      "on silk, which was very <b>expensive</b>",
+      "costing a lot of money"
+    ],
+    [
+      "method",
+      "방법",
+      "he improved a clever <b>method</b>",
+      "a way of doing something"
+    ],
+    [
+      "mixture",
+      "혼합물",
+      "he spread the <b>mixture</b> thin",
+      "different things mixed together"
+    ],
+    [
+      "ordinary",
+      "보통의, 평범한",
+      "books became cheap enough for <b>ordinary</b> people",
+      "normal, not special"
+    ],
+    [
+      "invention",
+      "발명, 발명품",
+      "Cai Lun's simple <b>invention</b> helped knowledge spread",
+      "something new that someone creates"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why did Cai Lun want something light and cheap?",
+      "qko": "채륜이 가볍고 값싼 것을 원한 이유는 무엇인가요?",
+      "opts": [
+        "Because records were written on heavy bamboo strips or on very expensive silk",
+        "Because the emperor wanted books made from wood",
+        "Because fishing nets were too heavy to carry"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "The emperor's records were written on heavy bamboo strips or on silk, which was very expensive.",
+        "He mashed tree bark, old cloth, and even worn-out fishing nets in water.",
+        "Paper made from wood became common only in the 1800s.",
+        "Cai Lun's simple invention helped knowledge spread to the whole world."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "황제의 기록이 무거운 대나무 조각이나 아주 비싼 비단에 쓰였기 때문이라고 했어요.",
+        "The emperor's records were written on heavy bamboo strips or on silk, which was very expensive."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In \"even worn-out fishing nets,\" what does \"worn-out\" mean?",
+      "qko": "«even worn-out fishing nets» 에서 «worn-out» 은 무슨 뜻인가요?",
+      "opts": [
+        "old and damaged from long use",
+        "brand-new and shiny",
+        "made of strong wood"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "He mashed tree bark, old cloth, and even worn-out fishing nets in water.",
+        "Cai Lun wanted something light and cheap.",
+        "The result was paper that was light, smooth, and easy to write on.",
+        "Paper slowly traveled from China to Korea, Japan, the Middle East, and Europe, and books became cheap enough for ordinary people."
+      ],
+      "ev": [
+        0
+      ],
+      "why": [
+        "그물을 «old cloth(헌 옷감)» 와 함께 물에 짓이겼다고 했으니, «worn-out» 은 오래 써서 낡았다는 뜻이에요.",
+        "The nets are mashed together with «old cloth», so «worn-out» means old and damaged from long use."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "How did Cai Lun turn bark and old nets into paper?",
+      "qko": "채륜은 나무껍질과 낡은 그물을 어떻게 종이로 바꾸었나요?",
+      "opts": [
+        "He mashed them in water, then spread the mixture thin, pressed it, and dried it",
+        "He burned them and mixed the ash with silk",
+        "He cut them into thin strips like bamboo"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "He mashed tree bark, old cloth, and even worn-out fishing nets in water.",
+        "People used rags and plants, and Koreans made strong hanji from mulberry bark.",
+        "Then he spread the mixture thin, pressed it flat, and let it dry in the sun.",
+        "Paper slowly traveled from China to Korea, Japan, the Middle East, and Europe, and books became cheap enough for ordinary people."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "먼저 나무껍질, 헌 옷감, 낡은 그물을 물에 짓이기고, 그다음 얇게 펴서 납작하게 누른 뒤 햇볕에 말렸어요. 두 문장을 이어야 과정이 보여요.",
+        "First he mashed bark, cloth, and old nets in water, then he spread the mixture thin, pressed it flat, and dried it in the sun. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "How do people make Korean hanji from mulberry bark?",
+      "한지는 닥나무 껍질로 어떻게 만들까요?",
+      "The Secret of Hanji"
+    ],
+    [
+      "B",
+      "How did Korea print one of the oldest books with metal type?",
+      "세계에서 가장 오래된 금속 활자 책, 직지는 어떻게 만들었을까요?",
+      "Jikji and Metal Type"
+    ]
+  ],
+  "write": {
+    "pre": "It is important to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "src": "“It is important to <u>share good books</u> because <u>they help knowledge spread</u>.”",
+    "slotKo": [
+      "중요한 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "what is important",
+      "why"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «중요한 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write something important and the reason in English.",
+    "chips": [
+      {
+        "a": "read every day",
+        "b": "books make me smarter",
+        "label": "reading"
+      },
+      {
+        "a": "recycle paper",
+        "b": "it saves trees",
+        "label": "recycling"
+      },
+      {
+        "a": "write neatly",
+        "b": "others can read my notes",
+        "label": "writing"
+      }
+    ],
+    "aria": [
+      "what is important",
+      "why"
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «누가 + 무엇을» 넣어 이유를 분명하게 써 보세요. (예: because books became cheap for everyone)",
+    "moreEn": "One more step: after «because», write who + what to make your reason clear. (e.g. because books became cheap for everyone)"
+  },
+  "img": {
+    "style": "vintage",
+    "cover": "Worn-out rope fishing nets, strips of tree bark, and old cloth soaking in a large wooden tub, next to a neat stack of fresh handmade paper sheets in an old courtyard",
+    "scenes": {
+      "1": "A worker in ancient Chinese robes pressing a thin layer of wet mashed fibers flat on a wooden board, with finished sheets of paper drying in the sun behind him",
+      "2": "Thick cream-colored sheets of Korean hanji paper stacked in a traditional workshop, beside bundles of peeled mulberry bark and a tub of water"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "Pressing wet fibers into paper",
+    "2": "Korean hanji paper and mulberry bark",
+    "cover": "Old nets and bark soaking next to new paper"
+  }
+}

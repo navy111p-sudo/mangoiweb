@@ -1,0 +1,312 @@
+{
+  "id": "s4-39",
+  "breaks": [
+    6,
+    7,
+    4,
+    2
+  ],
+  "key": {
+    "P": 3,
+    "S": 17
+  },
+  "roleNames": {
+    "P": {
+      "ko": "흔한 생각",
+      "en": "common belief"
+    },
+    "S": {
+      "ko": "결론",
+      "en": "conclusion"
+    }
+  },
+  "keyWhy": {
+    "ko": "핵심은 «돈이 더 많으면 더 행복할 것이라는 많은 사람의 믿음(흔한 생각)» 과 «돈은 특히 기본적인 필요를 채워 어느 정도의 행복을 살 수 있지만, 그것이 전부는 아니다(결론)» 입니다. 초록색 문장이 정답이에요.",
+    "en": "The key ideas are the common belief (if people just had more money, they would be happier) and the conclusion (money can buy a certain amount of happiness, especially by meeting basic needs, but it is not the whole story). The green sentences are the answers."
+  },
+  "boxes": [
+    {
+      "k": "Topic",
+      "qko": "무엇에 관한 글인가요?",
+      "qen": "What is the text about?",
+      "a": "Whether money can buy happiness"
+    },
+    {
+      "k": "Key fact",
+      "qko": "돈은 언제 행복에 가장 큰 도움이 되나요?",
+      "qen": "When does money help happiness most?",
+      "a": "When basic needs are not met; the effect gets weaker as people grow richer"
+    },
+    {
+      "k": "Beyond money",
+      "qko": "돈 말고 무엇이 행복에 중요한가요?",
+      "qen": "What else matters for happiness?",
+      "a": "Experiences, giving to others, relationships, health, and purpose"
+    }
+  ],
+  "sumHowto": {
+    "ko": "먼저 위 세 칸을 보고, 빈칸에 알맞은 단어를 고르세요.",
+    "en": "Look at the three boxes, then choose the right word for each blank."
+  },
+  "sum": [
+    {
+      "pre": "Money clearly matters when people cannot pay for food, housing, or medical ",
+      "ans": "care",
+      "opts": [
+        "care",
+        "games",
+        "travel"
+      ]
+    },
+    {
+      "pre": ". However, its effect becomes ",
+      "ans": "weaker",
+      "opts": [
+        "weaker",
+        "stronger",
+        "faster"
+      ]
+    },
+    {
+      "pre": " as people grow richer. Economists explain this with the idea of diminishing ",
+      "ans": "returns",
+      "opts": [
+        "returns",
+        "prices",
+        "dreams"
+      ]
+    },
+    {
+      "pre": ". Spending on ",
+      "ans": "experiences",
+      "opts": [
+        "experiences",
+        "objects",
+        "taxes"
+      ]
+    },
+    {
+      "pre": " often brings more lasting joy than buying objects, and many things that strongly affect happiness, such as close relationships, cannot be ",
+      "ans": "bought",
+      "opts": [
+        "bought",
+        "enjoyed",
+        "shared"
+      ]
+    },
+    {
+      "pre": ". Money helps, but it is not the whole story.",
+      "ans": null
+    }
+  ],
+  "words": [
+    [
+      "complicated",
+      "복잡한",
+      "the answer is more <b>complicated</b> than a simple yes or no",
+      "having many parts and hard to explain simply"
+    ],
+    [
+      "constant",
+      "끊임없는",
+      "faces <b>constant</b> stress",
+      "happening all the time without stopping"
+    ],
+    [
+      "income",
+      "소득",
+      "extra <b>income</b> can greatly improve daily life and well-being",
+      "money that a person earns or receives"
+    ],
+    [
+      "diminishing",
+      "줄어드는, 감소하는",
+      "the idea of <b>diminishing</b> returns",
+      "becoming smaller or less"
+    ],
+    [
+      "lasting",
+      "오래 지속되는",
+      "often brings more <b>lasting</b> joy than buying objects",
+      "continuing for a long time"
+    ],
+    [
+      "purpose",
+      "목적, 삶의 의미",
+      "good health, and a sense of <b>purpose</b>",
+      "a reason or goal that makes life meaningful"
+    ]
+  ],
+  "qs": [
+    {
+      "type": [
+        "원인·결과",
+        "Cause & effect"
+      ],
+      "q": "Why can extra income greatly improve the lives of very poor families?",
+      "qko": "추가 소득은 왜 아주 가난한 가정의 삶을 크게 나아지게 할 수 있나요?",
+      "opts": [
+        "Because they already have everything they need",
+        "Because they cannot pay for basics like food and housing, which causes constant stress",
+        "Because they spend all their money on trips with friends"
+      ],
+      "ans": 1,
+      "evq": [
+        "근거 문장 1개를 고르세요.",
+        "Choose 1 evidence sentence."
+      ],
+      "evs": [
+        "Yet a well-known study from 1978 found that lottery winners were not much happier than people who had not won.",
+        "A family that cannot pay for food, housing, or medical care faces constant stress.",
+        "Research suggests that spending on experiences, such as trips with friends, often brings more lasting joy than buying objects.",
+        "In addition, many factors that strongly affect happiness cannot be bought, including close relationships, good health, and a sense of purpose."
+      ],
+      "ev": [
+        1
+      ],
+      "why": [
+        "음식, 집, 병원비를 낼 수 없는 가정은 늘 스트레스를 받아요. 그래서 이런 사람들에게는 추가 소득이 삶을 크게 나아지게 해요.",
+        "A family that cannot pay for food, housing, or medical care faces constant stress, so extra income helps them a lot."
+      ]
+    },
+    {
+      "type": [
+        "문맥상 의미",
+        "Meaning in context"
+      ],
+      "q": "In the text, what does 'diminishing returns' mean?",
+      "qko": "글에서 'diminishing returns(수확 체감)' 은 무슨 뜻인가요?",
+      "opts": [
+        "Each extra amount of money adds less happiness than before",
+        "People lose money as they become richer",
+        "Happiness always rises at the same speed as income"
+      ],
+      "ans": 0,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "However, the effect becomes weaker as people grow richer.",
+        "Interestingly, how people spend money may matter as much as how much they have.",
+        "Moving from very poor to comfortable makes a big difference, but moving from rich to very rich usually changes much less.",
+        "Imagine winning the lottery tomorrow."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "부자가 될수록 돈의 효과가 약해지고, 아주 가난하다가 넉넉해지는 것은 큰 차이를 만들지만 부자에서 큰 부자가 되는 것은 차이가 훨씬 작다고 해요. 돈이 늘어날수록 더해지는 행복은 줄어든다는 뜻이에요.",
+        "The effect becomes weaker as people grow richer: going from very poor to comfortable matters a lot, but going from rich to very rich changes much less."
+      ]
+    },
+    {
+      "type": [
+        "단서 연결",
+        "Connecting clues"
+      ],
+      "q": "What does the text suggest about how to spend money for more happiness?",
+      "qko": "더 행복해지려면 돈을 어떻게 쓰라고 글은 말하나요?",
+      "opts": [
+        "Save every coin and never spend it",
+        "Buy as many new objects as possible",
+        "Spend it on experiences and on other people"
+      ],
+      "ans": 2,
+      "evq": [
+        "근거 문장 2개를 고르세요.",
+        "Choose 2 evidence sentences."
+      ],
+      "evs": [
+        "Research suggests that spending on experiences, such as trips with friends, often brings more lasting joy than buying objects.",
+        "First, money clearly matters when people do not have enough of it.",
+        "Spending money on other people, for example by giving gifts or donating, can also increase happiness.",
+        "Economists often explain this with the idea of diminishing returns."
+      ],
+      "ev": [
+        0,
+        2
+      ],
+      "why": [
+        "친구와의 여행 같은 경험에 쓰면 오래가는 기쁨을 얻고, 선물이나 기부처럼 다른 사람을 위해 써도 행복이 커질 수 있어요. 두 문장을 합쳐야 해요.",
+        "Spending on experiences brings lasting joy, and spending on others can also increase happiness. You need both sentences."
+      ]
+    }
+  ],
+  "ends": [
+    [
+      "A",
+      "Why do experiences make us happier than things?",
+      "왜 물건보다 경험이 우리를 더 행복하게 할까?",
+      "Memories Over Things"
+    ],
+    [
+      "B",
+      "How can giving to others make us happier?",
+      "다른 사람에게 베푸는 일은 어떻게 우리를 더 행복하게 할까?",
+      "The Joy of Giving"
+    ]
+  ],
+  "write": {
+    "pre": "It is important to",
+    "mid": "because",
+    "sep": " ",
+    "slots": [
+      "vp",
+      "cl"
+    ],
+    "slotKo": [
+      "중요한 일",
+      "그 이유"
+    ],
+    "slotEn": [
+      "an important action",
+      "the reason"
+    ],
+    "howtoKo": "예문을 틀로 삼아, 빈칸 두 곳을 «중요한 일 + 그 이유» 로 바꿔 영어로 써 보세요.",
+    "howtoEn": "Use the example as a pattern. Write an important action and your reason in English.",
+    "aria": [
+      "an important action",
+      "why it is important"
+    ],
+    "src": "“It is important to <u>spend time with the people we love</u> because <u>close relationships cannot be bought</u>.”",
+    "chips": [
+      {
+        "a": "have dinner with our family",
+        "b": "it helps us feel close",
+        "label": "dinner"
+      },
+      {
+        "a": "save some of our allowance",
+        "b": "we may need it later",
+        "label": "allowance"
+      },
+      {
+        "a": "thank a friend who helped us",
+        "b": "it makes both of us happy",
+        "label": "thanks"
+      }
+    ],
+    "moreKo": "한 걸음 더: «because» 뒤에 «무엇이 + 어떤지» 를 넣어 이유를 분명하게 써 보세요. (예: because good memories last a long time)",
+    "moreEn": "One more step: after «because», write what + what it is like to make your reason clear. (e.g. because good memories last a long time)"
+  },
+  "img": {
+    "style": "webtoon",
+    "cover": "An open hand holding a few shiny coins in the foreground, and behind it, softly out of focus, a group of friends laughing together on a picnic blanket in a sunny park",
+    "scenes": {
+      "1": "A family of four unpacking fresh vegetables, bread, and rice from shopping bags onto a small kitchen table in a simple apartment, the parents smiling with relief and the children helping",
+      "2": "A group of teenage friends hiking together on a rocky mountain trail at sunrise, laughing as they reach a viewpoint above a sea of clouds"
+    },
+    "ver": {
+      "cover": 2,
+      "1": 2,
+      "2": 2
+    }
+  },
+  "alt": {
+    "1": "A family unpacking groceries in their kitchen",
+    "2": "Friends hiking above the clouds at sunrise",
+    "cover": "Coins in a hand and friends laughing in a park"
+  }
+}
