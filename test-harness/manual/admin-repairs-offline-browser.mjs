@@ -408,9 +408,16 @@ async function weekly(width) {
   check(width + ': undo restores all three fixture records including teacher', rows.every(row => row.date === day && row.start_time === '14:00' && row.teacher_id === '24'));
 
   conflict = true;
+  // A schedules request starting does not mean reloadAndRender has replaced the
+  // grid yet. Keep the old node so the retry waits for the actual DOM commit.
+  const beforeConflictReload = await page.locator(cell(14)).elementHandle();
+  assert(beforeConflictReload, 'Conflict source cell exists before reload');
   await drag(); await page.locator('button[onclick="confirmMoveDo()"]').click();
   await eventually('conflict presented', async () => moves.length === 3 && (await page.locator('.dnd-toast.bad').allTextContents()).some(text => text.includes('Fixture conflict')));
-  await eventually('conflict reload complete', () => state.apiRequests.filter(r => r.path.startsWith('/api/admin/schedules?')).length >= 4);
+  await eventually('conflict reload requested', () => state.apiRequests.filter(r => r.path.startsWith('/api/admin/schedules?')).length >= 4);
+  await page.waitForFunction(node => !node.isConnected, beforeConflictReload);
+  await beforeConflictReload.dispose();
+  await page.locator(cell(14)).waitFor({ state: 'visible' });
   check(width + ': 409 preserves the complete group and destination is empty', JSON.parse(decodeURIComponent(await group(14))).slot.ids.length === 3 && !(await group(15)) && rows.every(row => row.start_time === '14:00' && row.teacher_id === '24'));
   conflict = false;
   await drag(); await page.locator('button[onclick="confirmMoveDo()"]').click();
