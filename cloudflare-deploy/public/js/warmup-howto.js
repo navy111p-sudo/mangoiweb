@@ -59,7 +59,7 @@
         ['내 말을 못 알아들어요', '마이크 권한을 «허용» 했는지 보고, 조용한 곳에서 또박또박 말해 보세요. 카톡 안에서 열었다면 크롬으로 다시 열면 잘 돼요.'],
         ['너무 어렵거나 너무 쉬워요', '오른쪽 위 <b>⋮</b> 에서 수준을 바꾸거나, «연령·수준·교재 다시 고르기» 를 누르세요.']
       ],
-      close: '닫기', ok: '알겠어요', mute: '음성 끄기', unmute: '음성 듣기'
+      close: '닫기', ok: '알겠어요', mute: '음성 끄기', unmute: '음성 듣기', save: '📄 안내 글 저장 (.txt)'
     },
     en: {
       title: '📘 How to use A.i Speaking',
@@ -106,7 +106,7 @@
         ['It doesn’t hear me', 'Allow the microphone and speak clearly in a quiet place. If you opened it inside KakaoTalk, reopen it in Chrome.'],
         ['Too hard or too easy', 'Change the level with <b>⋮</b> at the top right, or tap “Change age · level · book”.']
       ],
-      close: 'Close', ok: 'Got it', mute: 'Turn voice off', unmute: 'Play voice guide (Korean)'
+      close: 'Close', ok: 'Got it', mute: 'Turn voice off', unmute: 'Play voice guide (Korean)', save: '📄 Save guide as text (.txt)'
     }
   };
   window.mgWarmupHowtoText = TXT;
@@ -151,7 +151,8 @@
       + P + ' details{border:1px solid rgba(148,163,184,.35);border-radius:12px;padding:8px 12px;margin:6px 0}'
       + P + ' summary{cursor:pointer;font-weight:800;color:#fff}'
       + P + ' details p{margin:6px 0 2px;font-size:14.5px;color:#cbd5e1}'
-      + P + ' .hw-ok{display:block;width:100%;margin-top:16px;padding:12px;border:0;border-radius:14px;background:linear-gradient(90deg,#38bdf8,#2563eb);color:#fff;font:inherit;font-weight:900;cursor:pointer}'
+      + P + ' .hw-save{display:block;width:100%;margin-top:16px;padding:11px;border:1px solid rgba(56,189,248,.6);border-radius:14px;background:rgba(56,189,248,.12);color:#bae6fd;font:inherit;font-weight:800;cursor:pointer}'
+      + P + ' .hw-ok{display:block;width:100%;margin-top:10px;padding:12px;border:0;border-radius:14px;background:linear-gradient(90deg,#38bdf8,#2563eb);color:#fff;font:inherit;font-weight:900;cursor:pointer}'
       + P + ' button:focus-visible,' + P + ' summary:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}'
       /* 🖥 PC 에서는 크게 (2026-10-03 사장님 «PC에서 잘 보이게 키워줘») — 창 폭·글자 모두 */
       + '@media(min-width:1024px){' + P + ' .hw-box{max-width:1040px;max-height:92vh;padding:34px 38px 28px;font-size:19px;line-height:1.65}'
@@ -185,8 +186,39 @@
     for (i = 0; i < t.autoTips.length; i++) o.push('<li>' + t.autoTips[i] + '</li>');
     o.push('</ul></div><h4>' + t.faqT + '</h4>');
     for (i = 0; i < t.faq.length; i++) o.push('<details><summary>' + t.faq[i][0] + '</summary><p>' + t.faq[i][1] + '</p></details>');
+    o.push('<button type="button" class="hw-save">' + t.save + '</button>');
     o.push('<button type="button" class="hw-ok">' + t.ok + '</button></div>');
     return o.join('');
+  }
+  /* 📄 안내 글을 텍스트 파일로 저장 (사장님 요청). 화면 HTML 을 다시 쓰지 않고 TXT 데이터에서 글만 뽑는다.
+     ⛔ window.open 을 쓰지 않는다 — 인앱 브라우저는 새 창을 못 열어 null 만 돌려준다. 같은 창에서 내려받기만 한다. */
+  function plain(s) {
+    var d = document.createElement('div');
+    d.innerHTML = String(s).replace(/<br\s*\/?>/gi, '\n');
+    return d.textContent;
+  }
+  function guideText() {
+    var t = T(), L = [], i;
+    L.push(plain(t.title), '', plain(t.lead), '', t.quickT);
+    for (i = 0; i < t.quick.length; i++) L.push('  ' + (i + 1) + '. ' + plain(t.quick[i]));
+    L.push('');
+    for (i = 0; i < t.steps.length; i++) L.push((i + 1) + '. ' + plain(t.steps[i][0]) + '\n   ' + plain(t.steps[i][1]));
+    L.push('', t.toolsT);
+    for (i = 0; i < t.tools.length; i++) L.push('- ' + plain(t.tools[i][0]) + ' ' + plain(t.tools[i][1]));
+    L.push('', t.autoT, plain(t.flow.join(' → ')) + ' → ' + plain(t.flowTail));
+    for (i = 0; i < t.autoTips.length; i++) L.push('  - ' + plain(t.autoTips[i]));
+    L.push('', t.faqT);
+    for (i = 0; i < t.faq.length; i++) L.push('Q. ' + plain(t.faq[i][0]) + '\nA. ' + plain(t.faq[i][1]), '');
+    return L.join('\n');
+  }
+  function saveText() {
+    var txt = guideText();
+    var blob = new Blob(['﻿' + txt], { type: 'text/plain;charset=utf-8' });   /* BOM: 메모장·엑셀 한글 깨짐 방지 */
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = (isEn() ? 'warmup-guide-en.txt' : 'ai-speaking-guide-ko.txt');
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1000);
   }
   /* 🔊 성우 음성 (2026-10-03 사장님) — 열면 바로 말한다. 옆 버튼으로 끄고 켠다(기기에 기억).
      ⚠️ 음성은 한국어 한 벌이라 영어 화면에서는 «꺼진 채» 시작하고 누르면 들려준다.
@@ -240,6 +272,7 @@
       o = document.createElement('div'); o.id = ID;
       o.addEventListener('click', function (e) {
         if (e.target.closest && e.target.closest('.hw-snd')) { toggleSnd(); return; }
+        if (e.target.closest && e.target.closest('.hw-save')) { saveText(); return; }
         if (e.target === o || (e.target.closest && e.target.closest('.hw-x,.hw-ok'))) close();
       });
       document.body.appendChild(o);
