@@ -347,6 +347,8 @@
   .wus-cm-short{display:none}
   .wus-cmode-tag{font-size:11.5px;font-weight:800;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:0 7px}
   @media (max-width:560px){ .wus-cmodes{grid-template-columns:1fr} }
+  /* ⏱️ 교정 방식 아래 응대 속도 안내(2026-11-01). wus-hint 를 쓰면 PC 박스(.wus-pcb .wus-hint)에서 숨겨지므로 따로 둔다. */
+  .wus-cm-speed{font-size:12.5px;color:var(--text2);line-height:1.5;margin:8px 2px 0}
   /* 📘💬 두 갈래로 시작 — «교재로» / «자유 대화로» (2026-09-16 · 시안 3안)
      ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요 — subtitle_meaning_harness 가 <style> 안
         홑낫표를 «한자 폰트(983KB)를 받는 화면» 으로 셉니다(CLAUDE.md 2장, 실제로 밟았습니다).
@@ -753,6 +755,8 @@
         <div class="wus-hint" data-ko="잘했을 때만 칭찬하고, 고칠 때는 고른 방식대로 도와줘요." data-en="Praise only when it's right; corrections follow the way you pick.">잘했을 때만 칭찬하고, 고칠 때는 고른 방식대로 도와줘요.</div>
         <span class="wus-cm-short" data-ko="교정" data-en="Fix">교정</span>
         <div class="wus-cmodes" id="wusCModes"></div>
+        <!-- ⏱️ (2026-11-01) 집중교정은 교정 여부를 답이 다 나와야 알 수 있어 스트리밍이 꺼진다 → 아바타 응대가 느릴 수 있다(src/warmup-stream.ts). -->
+        <div class="wus-cm-speed" data-ko="⏱️ 집중교정은 틀린 곳을 먼저 확인하느라 아바타 응대가 느릴 수 있어요." data-en="⏱️ Focused mode checks mistakes first, so the avatar may reply more slowly.">⏱️ 집중교정은 틀린 곳을 먼저 확인하느라 아바타 응대가 느릴 수 있어요.</div>
         </div>
 
         <!-- 🖥️ PC 3단계 카드(B안, 2026-10-18 사장님 «PC 에서 스크롤 없이 한 화면»).
