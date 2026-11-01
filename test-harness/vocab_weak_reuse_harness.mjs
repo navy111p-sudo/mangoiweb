@@ -442,10 +442,15 @@ console.log('\n── ⑨ A.i 친구 — 단어장 약점을 «낱말 (뜻)» �
   const stuSrc = sA >= 0 && sB > sA ? AI.slice(sA, sB + CATCH.length) : '';
   check('전제: stuCtx 조각을 오려 냈다', stuSrc.includes('friendWeakList'));
   const spy = [];
+  /* 🧑 (2026-11-01) 이름은 이제 조각 «밖» 에서 정본 studentCallName(st, uid) 로 만들어 callName 으로 들어온다
+     — 진짜 정본을 불러 같은 값을 넘긴다(손으로 흉내 내지 않는다). */
+  let CN = null;
+  try { CN = new Function(stripTypeScriptTypes(noImports(R('cloudflare-deploy/src/student-call-name.ts', 'CALLNAME_SRC'))) + '\nreturn studentCallName;')(); }
+  catch (e) { check('⑨ 학생 이름 정본 실행', false, e.message); }
   const stu = (st, wk, vw, lv) => {
     try {
-      return new Function('st', 'wk', vwName || '__none', 'lvSpec', 'friendWeakList', 'return (function(){ ' + stripTypeScriptTypes(stuSrc) + ' return stuCtx; })();')(
-        st, wk, vw, L ? L.aiFriendLevelSpec(lv) : { plain: false }, (...a) => { spy.push(a); return V.friendWeakList(...a); });
+      return new Function('st', 'wk', vwName || '__none', 'lvSpec', 'friendWeakList', 'callName', 'return (function(){ ' + stripTypeScriptTypes(stuSrc) + ' return stuCtx; })();')(
+        st, wk, vw, L ? L.aiFriendLevelSpec(lv) : { plain: false }, (...a) => { spy.push(a); return V.friendWeakList(...a); }, CN ? CN(st, 'kim01') : '');
     } catch (e) { return 'THREW:' + e.message; }
   };
   const GWK = { results: [{ item: 'tiger', ko: '호랑이' }] };
