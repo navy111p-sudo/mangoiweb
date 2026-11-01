@@ -65,6 +65,7 @@ import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // �
 import { logWarmupSessionStart, markWarmupFirstReply, warmupShouldMarkFirstReply } from './warmup-log';  // 📊 웜업 «몇 단계로 쓰는가» 기록
 import { warmupAnswerChips } from './warmup-answers';                    // 💬 웜업 «이렇게 대답해 보세요» 보기 칩
 import { backfillPastTenseFix } from './tense-backfill';
+import { focusedCandidate, focusedReplyFix, recoverFocusedFix, FOCUSED_DRAFT_RULE } from './focused-correction';
 import { WARMUP_CORRECTION_RULE, WARMUP_ZH_CORRECTION_RULE, ZH_MEANING_CHANGING_TAGS, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat, correctionLeadIn } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
 import { resolveWarmupHonest, warmupHonestRule, parseWarmupGrade, finalizeWarmupGrade, applyHonestPraise, gateFixForMode, ensureFocusedFixSpoken } from './warmup-honest';  // 🎯 정직한 칭찬 + 교정 모드(2026-10-29 시범 — 정본 그 파일)
 import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
@@ -4399,6 +4400,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
        ⛔ null 이면 아래 어디에서도 동작이 바뀌지 않는다(예전과 같음). 던지지 않는다. */
     const honest = await resolveWarmupHonest(env, sessionId, ctxUserId, { lang: ctxLang, chosen: body && body.correction_mode });
     if (honest) sys += '\n' + warmupHonestRule(honest.mode);
+    if (honest?.mode === 'focused') sys += '\n' + FOCUSED_DRAFT_RULE;
     sys += '\n' + warmupGuidanceRule(body, ctxLang);
     if (hasEleaderExpansion(request)) sys += ELEADER_EXPANSION_RULE;
     /* 🏷️ 첫 턴에는 «화면 인사» 를 모델 문맥에 넣어 준다 (2026-09-01).
@@ -4425,6 +4427,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
        파싱이 깨지면 fix 는 null 이고 reply 만 살아난다 = 고치기 전과 같은 동작. */
     let rawFix: any = null;
     let stagedFix: any = null;
+    let focusedFix: any = null;
     let rawHelp: any = null, stagedHelp: any = null;
     let rawGrade: any = null, stagedGrade: any = null;   // 🎯 시범 학원만 쓴다(warmup-honest.ts)
     /* ⚠️ 이 파일은 공동 금지구역이다(CLAUDE.md 4-2) — 2026-09-08 사장님
@@ -4533,7 +4536,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     /* 📡 P2 — 흘려보낼 문장을 «내보내기 직전» 에 같은 정본 판정(replyRejectReason·wrongSelfName)에 건다.
        걸리면 그 자리에서 미리보기를 멈춘다. 정본·이유는 src/warmup-stream.ts 머리말.
        🔁 이미 물은 질문(repeatOf)도 멈추되, 시간 예산을 넘긴 턴은 다시 안 뽑으니 멈추지도 않는다. */
-    const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput, fragQ, honest: !!honest,
+    const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput, fragQ, honest: !!honest, focused: honest?.mode === 'focused',
       repeatOf: qmem ? (sen) => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS && repeatedQuestions(sen, qmem).length > 0 : undefined }) : null;
     try {
       const result: any = await runWarmup(messages, 0.7, live);
@@ -4560,6 +4563,16 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
             안 재는 편이 낫다(길이 외 판정은 그대로 돈다). 글자 기준 상한은
             src/warmup-zh.ts 의 WARMUP_ZH_CHAR_CAP 에 적어 두었다 — 쓰려면 별건.
          (sanityCap 선언은 📡 P2 로 첫 호출 «앞» 으로 옮겼다 — 값은 그대로) */
+      // Lock a verified correction before conversational retries can replace it.
+      if (aiText && honest?.mode === 'focused') {
+        focusedFix = focusedCandidate(rawFix, studentInput)
+          || focusedCandidate(backfillPastTenseFix(studentInput), studentInput)
+          || focusedReplyFix(aiText, studentInput)
+          || await recoverFocusedFix(studentInput, (msgs) => runWarmup(msgs, 0.2));
+        if (focusedFix) { rawFix = focusedFix; aiText = focusedFix.now; }
+      }
+      // A correction is deliberately repeated later; it is not a new topic question.
+      if (!focusedFix) {
       let broke = aiText ? replyRejectReason(aiText, sanityCap) : '';
       if (broke) {
         /* ⚠️ 본문을 로그에 남기지 않는다 — 학생 이름·대화 내용이 섞입니다.
@@ -4635,6 +4648,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
       });
       if (rr.tries) console.warn('[warmup] repeat retry', 'tries=' + rr.tries, 'left=' + rr.left, 'lv=' + ctxDifficulty, rr.error || '');
       aiText = rr.text;
+      } // ordinary conversational validation
     } catch (e: any) {
       await logWarmupLatency('', 0);   // ⏱ 실패한 턴의 지연도 «사실» 이라 남긴다(ok=0)
       return new Response(JSON.stringify({ detail: 'AI 응답 생성 실패: ' + String(e?.message || e) }), { status: 502, headers: _MS_JSON });
@@ -4759,7 +4773,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     /* 🧭 (2026-10-31 사장님 「무조건 교정 후에 질문」) 교정 카드가 뜨는 턴이면, 답장은 고친 문장이 «질문보다 먼저»
        말해진 뒤에 질문으로 간다. 순서는 프롬프트에만 맡기지 않고 correctionLeadIn 이 보장한다.
        ⚠️ 히스토리 저장은 이 보정 «뒤» 에 한다 — 학생이 본 문장과 모델이 다음 턴에 읽는 문장을 같게 두기 위해서다. */
-    if (showFix) aiText = correctionLeadIn(aiText, showFix, ctxLang === 'zh' ? 'zh' : 'en');
+    // Focused speech is already canonical; an internal '?' must not add a fourth copy.
+    if (showFix && honest?.mode !== 'focused') aiText = correctionLeadIn(aiText, showFix, ctxLang === 'zh' ? 'zh' : 'en');
 
     // ── 히스토리 갱신(최근 N턴만) + 6시간 TTL 저장 ──
     try {
