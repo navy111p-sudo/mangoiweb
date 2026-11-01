@@ -39,7 +39,7 @@
   var ANDROID = /Android/i.test(navigator.userAgent || '');
 
   var S = {
-    armTimer: null, missTimer: null,
+    armTimer: null, missTimer: null, panelDeferred: false,
     session: false,   // 지금 열린 듣기가 «자동» 으로 연 것인가
     gotSend: false,   // 그 듣기(또는 이어지는 Whisper 재시도)에서 전송이 일어났나
     misses: 0, resting: false, opening: false,
@@ -93,6 +93,7 @@
     if (S.resting) return 'resting';
     if (document.hidden) return 'hidden';
     if (g('_warmPaused')) return 'paused';
+    if (window.MangoWarmupFlow && typeof MangoWarmupFlow.blocksRecording === 'function' && MangoWarmupFlow.blocksRecording()) return 'panel';
     if (g('sending')) return 'busy';
     if (g('_recognizing') || g('_whisperOn')) return 'listening';
     if (!g('_audioUnlocked')) return 'locked';          // 한 번도 안 눌렀으면 브라우저가 마이크를 막는다
@@ -119,6 +120,7 @@
       if (why) {
         if (why === 'busy' && tries < RETRY_MAX) { arm(tries + 1); return; }
         if (why === 'menu') menuNote();
+        if (why === 'panel') S.panelDeferred = true;
         if (S.phase === 'done') setPhase('');
         return;
       }
@@ -146,6 +148,16 @@
   /* ── warmup.html 이 보내는 신호 ─────────────────────────────── */
   function on(ev, a) {
     switch (ev) {
+      case 'panelOpen':
+        S.panelDeferred = isOn() && !!(S.panelDeferred || S.armTimer || S.session || g('_recognizing') || g('_whisperOn'));
+        clearArm();
+        if (S.missTimer) { clearTimeout(S.missTimer); S.missTimer = null; }
+        S.session = false; setPhase('');
+        break;
+      case 'panelClose':
+        var deferred = S.panelDeferred; S.panelDeferred = false;
+        if (deferred && isOn()) arm();
+        break;
       case 'aiStart':             // AI 가 말을 시작함 — 열 예정이면 취소, 열려 있으면 조용히 닫기
         clearArm();
         if (isOn() && S.session && (g('_recognizing') || g('_whisperOn'))) {

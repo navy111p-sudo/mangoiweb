@@ -999,7 +999,7 @@
     </div>
   </div>
 </dialog>
-<script src="/js/warmup-guide.js?v=8"></script>
+<script src="/js/warmup-guide.js?v=9"></script>
 <script src="/js/speech-preferences.js?v=3"></script>
 <script src="/js/speech-rate-request.js?v=1"></script>
 <script>
@@ -1048,7 +1048,7 @@ window.addEventListener('storage', function(ev){ if(ev && ev.key === 'mangoi_lan
 var _warmPaused=false, _warmEpoch=0, _warmControllers=[], _fixRepeatTimers=[], _warmMicCancel=null, _warmVoiceEpoch=0;
 var _repeatTarget=null;   // 🎤 «따라 말해 보기» 로 연 마이크의 목표 문장 — 다음 sendMsg 한 번이 채점에 쓴다(js/repeat-score.js)
 function warmupFetch(url, options){
-  if(_warmPaused) return Promise.reject(new Error('warmup paused'));
+  if(_warmPaused && !(String(url)==='/api/ai/class-ask' && window.MangoWarmupFlow && MangoWarmupFlow.helpActive())) return Promise.reject(new Error('warmup paused'));
   var c=new AbortController(); _warmControllers.push(c);
   var timer=setTimeout(function(){c.abort();},20000);
   /* 📝 2026-10-02 P4 — 같은 오리진 웜업 대화에만 로그인 토큰을 싣는다(서버가 «본인일 때만» 고쳐 준 표현을
@@ -1066,6 +1066,7 @@ function pauseWarmup(){
   if(_warmMicCancel){_warmMicCancel();_warmMicCancel=null;}
   _warmVoiceEpoch++;
   _fixRepeatTimers.splice(0).forEach(clearInterval);
+  document.querySelectorAll('[data-warm-repeat]').forEach(function(b){b.disabled=false;delete b.dataset.warmRepeat;});
   _repeatTarget=null;
   _micStopWanted=true;_micBase='';_micSess='';
   if(_recog){_recog.onstart=null;_recog.onresult=null;_recog.onend=null;_recog.onerror=null;try{_recog.abort();}catch(e){}}
@@ -1076,9 +1077,10 @@ function pauseWarmup(){
   var qb=document.getElementById('qsBtn');if(qb){qb.disabled=false;qb.textContent=wuT('💡 새 질문 추천','💡 Suggest new questions');}
   document.querySelectorAll('.typing').forEach(function(e){e.remove();});
   document.getElementById('wgState').textContent='말하기 연습을 잠시 멈췄어요. 마이크와 음성은 꺼져 있어요.';
+  if(typeof window!=='undefined' && window.MangoWarmupFlow) MangoWarmupFlow.onPause();
 }
 function resumeWarmup(){
-  if(document.getElementById('wgSummary').open) return;
+  if(document.getElementById('wgSummary').open || (window.MangoWarmupFlow && MangoWarmupFlow.blocksPractice())) return;
   _warmPaused=false;
   document.getElementById('wgState').textContent=wuT('준비되면 마이크를 누르거나 글로 답해 보세요.','When ready, use the microphone or type your answer.');
 }
@@ -1198,6 +1200,7 @@ var log = document.getElementById('log');
 function addMsg(text, who){
   var d = document.createElement('div');
   d.className = 'msg ' + who;
+  d._warmText = String(text || '');
   /* 🧑 이름표는 «지금 말하는 친구» 로 — Mango 로 하드코딩돼 있어서, Lily 를 골라도
      말풍선마다 「Mango」가 붙었다. 서버 프롬프트도 같은 이름을 받는다(withCtx 의 body.friend).
      ⚠️ 아이콘은 브랜드 캐릭터 그대로 둔다 — 얼굴은 왼쪽 큰 카드에 이미 있고, 여기까지
@@ -1248,6 +1251,7 @@ function addMsg(text, who){
   }
   log.appendChild(d); log.scrollTop = log.scrollHeight;
   if(window.MangoWarmupGuide) MangoWarmupGuide.onMessage(text,who);
+  if(typeof window!=='undefined' && window.MangoWarmupFlow) MangoWarmupFlow.onMessage(text,who);
   /* 🪞 (2026-08-12 강사 Shas 1번) 「학생이 입력한 글이 강사 화면에 보이지 않는다」
      웜업은 «학생 ↔ AI» 대화다(강사와의 채팅이 아니다). 그래서 강사에게 안 보이는 게
      당연했지만, 강사는 학생이 잘 하고 있는지 확인할 길이 아예 없었다.
@@ -1438,6 +1442,7 @@ function setVoiceMode(m, announce){
   if(!VOICE_MODES[m]) m = isZh() ? 'mei' : 'emma';
   var changed = (m !== _voiceMode);
   _voiceMode = m; _mixIdx = 0;
+  if(typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged(true);
   /* 🀄 «그 언어에서 고른 사람» 을 그 언어 칸에 적는다 — 한 칸으로 합치면 서로를 지운다
      (중국어에서 룽을 고르면 영어의 Lily 선택이 사라지는 식). */
   if(VOICE_MODES[m].zh){ _savedVoiceZh = m; try{ localStorage.setItem('mangoi_warmup_voice_zh', m); }catch(e){} }
@@ -1494,7 +1499,7 @@ function fetchMeaning(text){
   var key = String(text||'').trim();
   if(!key) return Promise.resolve('');
   if(_koCache[key] != null) return Promise.resolve(_koCache[key]);
-  return fetch('/api/translate', {
+  return warmupFetch('/api/translate', {
     method:'POST', headers:{'Content-Type':'application/json'},
     // mode:'learn' — 서버가 언어모델로 «뜻(의역)» 을 만든다. 모드 없는 기본 경로는 m2m100 직역.
     body: JSON.stringify({ texts:[key], target:'ko', mode:'learn' })
@@ -1850,6 +1855,7 @@ function setLevel(lv, announce){
   lv = parseInt(lv,10); if(!(lv>=1 && lv<=8)) lv = 3;
   var changed = (lv !== _warmLevel);
   _warmLevel = lv;
+  if(typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged(true);
   try{ localStorage.setItem('mangoi_warmup_level', String(lv)); }catch(e){}
   // 선택된 눈금 버튼 하이라이트
   var box=document.getElementById('lvlBtns');
@@ -1917,6 +1923,7 @@ function setWarmLang(l, announce){
   /* 🀄 친구도 그 언어의 사람으로 — 중국어면 메이, 영어면 «영어에서 마지막에 고른 사람».
      ⛔ announce 를 주지 마세요: 언어 안내 바로 뒤에 인사 음성까지 겹칩니다. */
   if(changed) applyVoiceForLang();
+  if(typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged(true);
   if(announce && changed && typeof addMsg==='function'){
     addMsg('🗣️ 이제 ' + langInfo(l).ko + '로 이야기해요. 다음 대화부터 바뀌어요!', 'sys');
   }
@@ -1961,6 +1968,7 @@ function setAge(id, announce){
   if(ageIds().indexOf(id) < 0) id = 'child';
   var changed = (id !== _warmAge);
   _warmAge = id;
+  if(typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged(true);
   try{ localStorage.setItem('mangoi_warmup_age', id); }catch(e){}
   var box=document.getElementById('ageBtns');
   if(box){ var bs=box.querySelectorAll('button');
@@ -1999,6 +2007,7 @@ function setCorrMode(id){
   var ok=false; for(var i=0;i<CMODE_CATALOG.length;i++) if(CMODE_CATALOG[i].id===id) ok=true;
   if(!ok) return false;
   _wuCorrMode = id;
+  if(typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged(true);
   try{ localStorage.setItem(WU_CMODE_KEY, id); }catch(e){}
   return true;
 }
@@ -2420,6 +2429,7 @@ function applyBtsBook(v, announce, syncBand){
   /* ⛔ SIU 는 과를 부르지 않습니다 — 한 권이 곧 한 과라 WCTX.textbook 이 이미 최종 이름입니다.
      부르면 서버가 «그런 코스 없음» 을 돌려줘 과 줄이 빈 채로 깜빡일 뿐입니다. */
   if(!isSiu) btsLoadLessons(b.v);
+  if(typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged(true);
   if(typeof updateTopicChip === 'function') updateTopicChip();
   if(announce && typeof addMsg === 'function'){
     addMsg((isSiu?'📗':'📘') + ' 오늘 교재를 «' + bookTitleOf(b) + ' · ' + b.ko + '» 로 정했어요'
@@ -2435,6 +2445,7 @@ function clearBtsBook(announce){
   _btsLessons = []; _btsLessonKey = ''; _btsFetchSeq++;
   try{ localStorage.removeItem(BTS_KEY); localStorage.removeItem(BTS_LSN_KEY); }catch(e){}
   btsRenderLessonRow();
+  if(typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged(true);
   if(typeof updateTopicChip === 'function') updateTopicChip();
   /* ⛔ 대화 단계는 되돌리지 않습니다 — 학생이 직접 고른 값일 수 있습니다. */
   if(announce && typeof addMsg === 'function') addMsg('💬 교재 없이 자유 대화로 이야기할게요!', 'sys');
@@ -2606,6 +2617,7 @@ function btsPickLesson(key, save){
       else localStorage.removeItem(BTS_LSN_KEY);
     }catch(e){}
   }
+  if(save===true && typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged(true);
   if(typeof updateTopicChip === 'function') updateTopicChip();
   btsRenderLessonRow();
 }
@@ -3583,7 +3595,7 @@ function toggleMic(){
 }
 function _startSttSession(){
   if(_warmPaused)return;
-  var micEpoch=_warmEpoch;
+  var micEpoch=_warmEpoch, micVoiceEpoch=_warmVoiceEpoch;
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   _recog=new SR();
   _recog.lang=isZh() ? 'zh-CN' : 'en-US';   // 🀄 고른 언어로 듣는다 (기본은 영어 연습)
@@ -3668,9 +3680,9 @@ function _startSttSession(){
     }
     return s;
   }
-  _recog.onstart=function(){if(_warmPaused || micEpoch!==_warmEpoch)return; _micBySilence=false; _micSess=''; setMicState(true); _armSilence(); };
+  _recog.onstart=function(){if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return; _micBySilence=false; _micSess=''; setMicState(true); _armSilence(); };
   _recog.onresult=function(e){
-    if(_warmPaused || micEpoch!==_warmEpoch)return;
+    if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return;
     /* 결과가 올 때마다 이번 녹음의 전체 결과 목록(0~끝)을 겹침 제거하며 처음부터 다시 조립
        → 이어붙일 버퍼가 없어 PC(조각형)·안드로이드(누적형) 모두 반복이 생길 수 없다 */
     var full='';
@@ -3682,7 +3694,7 @@ function _startSttSession(){
   };
   /* 오류 — no-speech(아직 말을 못 꺼냄)만 다시 듣기 허용, 나머지는 그대로 종료 */
   _recog.onerror=function(e){
-    if(_warmPaused || micEpoch!==_warmEpoch)return;
+    if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return;
     if(_silence) clearTimeout(_silence);
     if(e.error==='no-speech') return;  // onend 에서 다시 듣는다 (안내문으로 말을 끊지 않음)
     _micStopWanted=true;
@@ -3694,7 +3706,7 @@ function _startSttSession(){
       addMsg('🎤 마이크를 찾지 못했어요. 헤드셋·기기 연결을 확인해 주세요.', 'sys');
     } else if(e.error==='network'){
       // 음성인식 서버에 못 닿는 환경 — 녹음+Whisper 로 대신 시도
-      setTimeout(function(){ if(!_warmPaused && micEpoch===_warmEpoch)micViaWhisper(); }, 300);
+      setTimeout(function(){ if(!_warmPaused && micEpoch===_warmEpoch && micVoiceEpoch===_warmVoiceEpoch)micViaWhisper(); }, 300);
     }
   };
   /* 🎤 (2026-07-23) 브라우저가 제멋대로 끊은 경우 다시 듣기.
@@ -3703,7 +3715,7 @@ function _startSttSession(){
      → 우리 침묵 타이머가 부른 종료가 아니면 아직 말하는 중으로 보고, 들은 말을 유지한 채
        즉시 다시 듣는다. 끝내는 권한은 오직 침묵 타이머와 사용자의 ⏹ 뿐. */
   _recog.onend=function(){
-    if(_warmPaused || micEpoch!==_warmEpoch)return;
+    if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return;
     if(_silence) clearTimeout(_silence);
     /* 아직 한 마디도 못 들었으면 재시작을 3회로 제한 — 안드로이드는 start() 마다
        '삐' 소리가 나서, 학생이 말을 안 하는데 8번씩 재시작하면 그게 더 성가시다. */
@@ -3716,7 +3728,7 @@ function _startSttSession(){
       _micRestarts++;
       try{ _recog.start(); return; }   // UI 는 계속 '듣는 중' 유지
       catch(err){
-        setTimeout(function(){ if(_warmPaused || micEpoch!==_warmEpoch)return;try{ _recog.start(); }catch(e2){ _finishMic(); } }, 250);
+        setTimeout(function(){ if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return;try{ _recog.start(); }catch(e2){ _finishMic(); } }, 250);
         return;
       }
     }
@@ -3899,6 +3911,7 @@ function withCtx(body){
   return body;
 }
 function updateTopicChip(){
+  if(typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged();
   var t = document.getElementById('m-topic');
   if(!t) return;
   if(WCTX.textbook) t.textContent = '📚 ' + WCTX.textbook + (WCTX.lesson_no ? (' L' + WCTX.lesson_no) : '');
@@ -4219,6 +4232,7 @@ function _fixLabel(el, ko, en){
 }
 function showFixCard(fix, offerRepeat){
   fixCardClear();
+  if(typeof window!=='undefined' && window.MangoWarmupFlow) MangoWarmupFlow.onFix(fix);
   if(window.MangoWarmupGuide)MangoWarmupGuide.fix(fix);
   if(!fix || !fix.was || !fix.now) return;              // 서버가 «교정 없음» 이면 아무것도 안 그린다
   var card = document.createElement('div');
@@ -4239,8 +4253,9 @@ function showFixCard(fix, offerRepeat){
   card.appendChild(mk('이렇게', 'Better', String(fix.now), 'fix-now'));
 
   if(fix.why_ko){
-    var w = document.createElement('div'); w.className = 'fix-why';
-    w.textContent = '💡 ' + String(fix.why_ko);        // 한국어 설명 — 번역 대상이 아니다
+    var w = document.createElement('details'); w.className = 'fix-why';
+    var ws=document.createElement('summary');_fixLabel(ws,'💡 이유 보기','💡 Why this expression');w.appendChild(ws);
+    var wp=document.createElement('p');wp.textContent=String(fix.why_ko);w.appendChild(wp);        // 한국어 설명 — 번역 대상이 아니다
     card.appendChild(w);
   }
 
@@ -4269,17 +4284,19 @@ function showFixCard(fix, offerRepeat){
    ⚠️ 소리가 꺼져 있으면(_speechOn=false) 그 클래스가 아예 안 붙으므로 곧바로 마이크가 열린다(맞는 동작).
    ⚠️ 15초 안전망 — 신호를 놓쳐도 버튼이 영영 잠기지 않게 한다. */
 function fixSpeakThenMic(btn, text){
+  if(_warmPaused || btn.disabled)return;
+  _fixRepeatTimers.splice(0).forEach(clearInterval);
   var opened = false, epoch=_warmEpoch;
   var openMic = function(){
     if(opened || _warmPaused || epoch!==_warmEpoch)return; opened = true;
-    btn.disabled = false;
+    btn.disabled = false; delete btn.dataset.warmRepeat;
     _repeatTarget = { text: text, epoch: epoch, at: Date.now() };   // 🎤 다음에 보내는 말을 이 문장과 맞춰 본다
     try{
       if(typeof _recognizing !== 'undefined' && _recognizing) return;   // 이미 듣는 중
       if(typeof toggleMic === 'function') toggleMic();
     }catch(e){}
   };
-  btn.disabled = true;
+  btn.disabled = true; btn.dataset.warmRepeat = 'pending';
   try{ speak(text, btn); }catch(e){ openMic(); return; }
   var t0 = Date.now();
   var iv = setInterval(function(){
@@ -4410,6 +4427,7 @@ function saveApi(v){
 
 async function sendMsg(){
   await warmupRatePreference.ready;
+  if(typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged(true);
   if(_warmPaused)return;
   var epoch=_warmEpoch;
   var inp = document.getElementById('inp');
@@ -4682,10 +4700,14 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 <!-- BUILD:20260813015745 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 <script src="/js/repeat-score.js?v=1" defer></script><!-- 🎤 «따라 말해 보기» 채점 (2026-10-18) -->
-<script src="/js/warmup-auto-talk.js?v=7" defer></script><!-- ✨ 자동 말하기(베타) — 기본은 버튼 모드 -->
+<script src="/js/warmup-auto-talk.js?v=8" defer></script><!-- ✨ 자동 말하기(베타) — 기본은 버튼 모드 -->
 <script src="/js/warmup-facetalk.js?v=2" defer></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 자동 말하기 엔진을 켜고 모양만 바꿈) -->
 <script src="/js/warmup-touch-bar.js?v=1" defer></script><!-- 📱 터치 기기 전용 아래 3칸 바(도움·말하기·글쓰기) — 2026-09-26 시안 4 -->
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 <script defer src="/js/warmup-photo-icons.js?v=5"></script>
+<link rel="stylesheet" href="/css/warmup-flow.css?v=1" />
+<script defer src="/js/warmup-flow.js?v=3"></script>
+<link rel="stylesheet" href="/css/warmup-body.css?v=1" />
+<script defer src="/js/warmup-body.js?v=1"></script><!-- 🧍 AI 말하기 몸통·팔 레이어 (얼굴 캔버스 뒤, 2026-11-01) / torso layer behind the face canvas -->
 </body>
 </html>

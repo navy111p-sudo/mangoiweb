@@ -205,6 +205,7 @@
   /* «대답할 때 도움» — 뜻을 아직 안 열었으면 뜻부터(가장 가벼운 도움), 열었으면 대답 예시. */
   function offerHelp(byUser) {
     if (_warmPaused || sending || _recognizing) return;
+    if(typeof window!=='undefined' && window.MangoWarmupFlow && MangoWarmupFlow.hintStyle()==='example'){showAnswers();return;}
     if(!meaningOpen){
       if(byUser!==true){ nudge(); return; }        // 혼자 멈춘 지 오래 — 열지 않고 알리기만
       if(typeof openLatestMeaning==='function' && openLatestMeaning()) return;   // → meaningOpened()
@@ -242,7 +243,7 @@
       label($('wgProgress'), '내 답변 '+answers.length+'개 · 내 생각을 이어가요','My replies: '+answers.length+' · Keep sharing your ideas');
     }
     updateHistory();
-    if(who==='ai' && answers.length)requestAnimationFrame(function(){if(!document.hidden)$('wgWorkspace').scrollTop=$('wgWorkspace').scrollHeight;});
+    if(who==='ai' && answers.length)requestAnimationFrame(function(){if(!document.hidden){var all=$('log').querySelectorAll('.msg.ai');if(all.length)all[all.length-1].scrollIntoView({block:'nearest'});}});
   }
   function fix(f) { if(f && f.now){fixes.push(String(f.now).slice(0,200));if(fixes.length>3)fixes.shift();} }
   function start() {
@@ -251,6 +252,7 @@
     contextKey=key;startedAt=startedAt||Date.now();
     $('wgScenes').open=/goals?|dreams?|목표|꿈/i.test(LESSON_TOPIC||'');
     scene='';resetSceneMedia();$('wgScene').hidden=true;resetHelp();renderChoices();
+    if(typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged();
   }
   /* 🗑 «새로 시작» (2026-09-23) — 앞 대화의 답변·교정·경과시간을 버린다. 대화 자체를 지우는
      일은 warmup.html 의 newWarmupChat() 이 하고, 여기서는 이 모듈이 들고 있던 기록만 비운다. */
@@ -282,7 +284,7 @@
     }
     $('wgSummary').showModal();
   }
-  var guide=window.MangoWarmupGuide={start:start,onMessage:onMessage,receiveHelp:receiveHelp,offerHelp:offerHelp,meaningOpened:meaningOpened,fix:fix,finish:finish,pauseScene:pauseScene,reset:reset,
+  var guide=window.MangoWarmupGuide={start:start,onMessage:onMessage,receiveHelp:receiveHelp,showAnswers:showAnswers,offerHelp:offerHelp,meaningOpened:meaningOpened,fix:fix,finish:finish,pauseScene:pauseScene,reset:reset,
     scene:function(){return scene;}, metrics:function(){return {firstReplyMs:firstReplyMs,replies:answers.length};}};
   $('wgHistory').onclick=function(){historyOpen=!historyOpen;updateHistory();};
   $('wgHelpOpen').onclick=function(){offerHelp(true);}; $('wgHelpMore').onclick=showAnswers;
