@@ -1901,6 +1901,7 @@ function vcCleanupAllPeers() {
     // 🇵🇭 (2026-07-24) 순단으로 남겨 둔 '재연결 중' 유령 타일도 함께 정리
     //   (유령은 id 가 vcghost-* 로 바뀌어 있어 위의 vc-video-* 루프에 안 걸린다)
     try { vcSweepGhostTiles(); } catch(_) {}
+    try { window.vcScreenShareViewOff && vcScreenShareViewOff(); } catch(_) {}   // 🖥 공유 메인 보드도 닫기(idx-vc-ssboard.js)
 }
 let vcMicOn = true;
 let vcCamOn = true;
@@ -4129,6 +4130,8 @@ function vcHandleMessage(msg) {
             updateUserCount(msg.data.userCount);
             // 🌟 학생이면 (방·피어ID → 내 계정 uid) 를 서버에 등록 → 선생님이 별 누르면 서버가 내 계정에 확실히 적립.
             try { vcRegisterRosterIdentity(); setTimeout(vcRegisterRosterIdentity, 3000); } catch(e){}
+            // 🖥 공유 중 내 소켓이 재연결되면 학생 메인 보드가 닫혔다 — 다시 알린다(idx-vc-ssboard.js)
+            try { if (window.__vcScreenSharing && vcConn) vcConn.send({ type: 'screen-share-state', data: { on: true, resync: true } }); } catch(e){}
             break;
         }
 
@@ -4246,6 +4249,7 @@ function vcHandleMessage(msg) {
             //   'dropped'는 같은 사람이 곧 재입장할 가능성이 높으므로 수업 종료로 즉시 오인하면
             //   안 된다(2026-07-13 실사용 신고: 수업 도중 갑자기 수업 종료됨).
             vcRemovePeer(msg.data.userId, msg.data.reason);
+            try { if (window.__vcSSView && window.__vcSSView.uid === msg.data.userId) vcScreenShareViewOff(); } catch(e){}   // 🖥 공유자 퇴장 → 보드 닫기
             vcAddChatSystem(msg.data.reason === 'dropped'
                 ? `${msg.data.username} 님과 연결이 잠시 끊겼습니다. 재연결을 기다리는 중…`
                 : `${msg.data.username} 님이 퇴장했습니다.`);
@@ -4477,6 +4481,8 @@ function vcHandleMessage(msg) {
                     // 🧑‍🎓 (2026-08-12 Melca) 강사가 웜업 탭을 열어 주면 «강사 주도 웜업» 허가,
                     //   다른 탭으로 옮기면 허가 종료 (수업 중 학생 단독 웜업 차단의 예외 스위치)
                     window.__vcWarmupTeacherLed = (_tsTab === 'warmup');
+                    // 🖥 공유 화면이 메인 보드를 차지하는 동안엔 화면을 뺏지 않고 «복귀할 탭» 만 기억(idx-vc-ssboard.js)
+                    if (window.__vcSSView) { window.__vcSSView.prevTab = _tsTab; window.__vcSSView.prevCollapsed = false; break; }
                     window._vcTabSyncApplying = true;
                     /* 🔴 (2026-08-10 마이마이) 「교사가 칠판·교재로 옮겨도 학생은 얼굴 화면 그대로」
                        vcSwitchTab 은 .active 클래스만 바꾼다 — 학생이 탭을 두 번 눌러 콘텐츠를
@@ -4524,6 +4530,9 @@ function vcHandleMessage(msg) {
                         _ssBox.appendChild(_ssB);
                     }
                 }
+                // 🖥 받는 쪽 «메인 보드» 에 크게 — 본문은 idx-vc-ssboard.js(defer)
+                if (_ssOn) { if (window.vcScreenShareViewOn) vcScreenShareViewOn(_ssUid); }
+                else if (window.vcScreenShareViewOff) vcScreenShareViewOff();
             } catch(_){}
             break;
         }
