@@ -31,7 +31,7 @@ const server=http.createServer(async(req,res)=>{
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const origin='http://127.0.0.1:'+server.address().port;
 const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage'],
-  executablePath:process.env.PLAYWRIGHT_BROWSERS_PATH?path.join(process.env.PLAYWRIGHT_BROWSERS_PATH,'installed/chrome-linux/chrome'):undefined});
+  executablePath:process.env.CHROME_PATH || (process.env.PLAYWRIGHT_BROWSERS_PATH?path.join(process.env.PLAYWRIGHT_BROWSERS_PATH,'installed/chrome-linux/chrome'):undefined)});
 const rates=[0.5,0.65,0.8,1,1.25];let cases=0,assertions=0;const errors=[];
 async function context(viewport){
   const ctx=await browser.newContext({viewport});

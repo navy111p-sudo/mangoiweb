@@ -1,0 +1,35 @@
+name: AI speaking entry sandbox
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-deploy/public/ai-speaking.html'
+      - 'cloudflare-deploy/public/warmup.html'
+      - 'cloudflare-deploy/public/ai-friend.html'
+      - 'cloudflare-deploy/public/js/mango-avatar.js'
+      - 'cloudflare-deploy/public/js/eleader-entry.js'
+      - 'cloudflare-deploy/public/css/warmup-guide.css'
+      - 'test-harness/manual/ai-speaking-browser.mjs'
+      - '.github/workflows/ai-speaking-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: speaking-entry-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  entry-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install isolated Chromium
+        run: |
+          npm install --prefix "$RUNNER_TEMP/speaking-pw" playwright@1.58.2
+          "$RUNNER_TEMP/speaking-pw/node_modules/.bin/playwright" install --with-deps chromium
+      - name: 320 entry and return scenarios (localhost only)
+        env:
+          PW_DIR: ${{ runner.temp }}/speaking-pw
+        run: node test-harness/manual/ai-speaking-browser.mjs

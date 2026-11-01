@@ -109,7 +109,7 @@
     text-transform:uppercase}
   .menu-group{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.07)}
   .menu-group:first-of-type{margin-top:0;padding-top:0;border-top:0}
-  .menu-label{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;
+  .menu-label{display:flex;align-items:center;flex-wrap:wrap;justify-content:space-between;gap:8px;margin-bottom:10px;
     font-size:15px;font-weight:800;color:var(--text)}
   .rate-row{display:flex;align-items:center;gap:10px}
   .wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;
@@ -316,7 +316,7 @@
   .wus-nav{position:sticky;top:0;z-index:3;margin:-20px -16px 22px;padding:10px 16px;
     background:linear-gradient(180deg,rgba(23,38,72,.98),rgba(23,38,72,.86));
     backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
-  .wus-nav-in{display:flex;align-items:center;gap:8px;max-width:640px;margin:0 auto}
+  .wus-nav-in{display:flex;align-items:center;flex-wrap:wrap;gap:8px;max-width:640px;margin:0 auto}
   .wus-navbtn{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;
     appearance:none;-webkit-appearance:none;cursor:pointer;font-family:inherit;text-decoration:none;
     padding:8px 13px;border-radius:12px;font-size:14px;font-weight:800;line-height:1.2;white-space:nowrap;
@@ -654,9 +654,9 @@
 </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
 <script src="/js/avatar-visemes.js?v=5" defer></script>
-<script src="/js/mango-avatar.js?v=41" defer></script>
+<script src="/js/mango-avatar.js?v=42" defer></script>
 <script src="/js/game-track.js?v=4" defer></script>
-<script src="/js/eleader-entry.js?v=2" defer></script>
+<script src="/js/eleader-entry.js?v=3" defer></script>
 <script src="/js/eleader-l1.js?v=7" defer></script>
 <script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 </head>
@@ -670,6 +670,7 @@
     <!-- ⬅️🏠 이 화면이 상단바를 덮으므로 «나가는 길» 을 화면 안에 함께 둔다 -->
     <div class="wus-nav">
       <div class="wus-nav-in">
+        <a class="wus-navbtn" href="/ai-speaking.html"><span data-ko="모드 선택" data-en="Modes">모드 선택</span></a>
         <button type="button" class="wus-navbtn" id="wusNavBack" aria-label="뒤로 가기"><span data-ko="← 뒤로" data-en="← Back">← 뒤로</span></button>
         <a class="wus-navbtn" id="wusNavHome" href="/" aria-label="홈으로 가기"><span data-ko="🏠 홈" data-en="🏠 Home">🏠 홈</span></a>
         <!-- 🌐 화면 언어 KO/EN (2026-10-03) — 상단바는 폰에서 꽉 차서 여기와 ⋮ 머리에 둔다. 글자는 wuApplyStatic 이 쓴다 -->
@@ -1138,7 +1139,9 @@ var LESSON_TOPIC = Q.get('unit') || Q.get('topic') || '';
 // API_BASE: ?api → localStorage → '' (빈 값이면 같은 오리진 상대경로 사용)
 //   라이브(test.mangoi.co.kr)는 정적 페이지와 /api/warmup/chat 을 같은 워커가 서빙하므로
 //   아무 설정 없이 바로 AI 대화가 된다. (외부 백엔드로 바꾸려면 ?api= 또는 ⚙️설정)
-var API_BASE = (Q.get('api') || localStorage.getItem('mangoi_api_base') || '').replace(/\/$/,'');
+var savedApiBase = '';
+try { savedApiBase = localStorage.getItem('mangoi_api_base') || ''; } catch(e) {}
+var API_BASE = (Q.get('api') || savedApiBase).replace(/\/$/,'');
 if(Q.get('api')){ try{ localStorage.setItem('mangoi_api_base', API_BASE); }catch(e){} }
 var USE_RELATIVE = !API_BASE;                 // true = 같은 오리진(/api/warmup/chat)
 function warmupEndpoint(){ return (API_BASE || '') + '/api/warmup/chat'; }
@@ -4622,7 +4625,7 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
   .meta{ padding:4px 12px 0; }
 }
 </style>
-<link rel="stylesheet" href="/css/warmup-guide.css?v=7" />
+<link rel="stylesheet" href="/css/warmup-guide.css?v=8" />
 <!-- ══════════════════════════════════════════════════════════════
      📱 휴대폰·태블릿(터치) 전용 — 입력 묶음이 대화창을 가리지 않게 (2026-09-25 · 시안 A+C 중간안)
      사장님 「1번(입력 묶음)이 너무 커서 2번(선생님이 방금 한 말)이 안 보여」 → 시안 5종 중 A+C,

@@ -131,8 +131,8 @@ html.wu-zh body #tavatar-wrap{--av-w:min(180px, calc((100vh - 420px) * .8))}
 /* 좁은 폰(≤400)은 얼굴이 커진 만큼 옆 제목이 화면 밖으로 밀린다 → 제목 칸이 줄어들며 두 줄로 접히게 한다
    (「함께 말해 봐요」를 얼굴 아래로 내리면 작은 폰에서 대화칸이 25% 밑으로 줄어 그쪽은 버렸다) */
 @media(max-width:400px){
- html.wu-zh .wg-progress{min-width:0;flex:1 1 0}
- html.wu-zh .wg-progress strong{white-space:normal}
+ .wg-progress{min-width:0;flex:1 1 0}
+ .wg-progress strong{white-space:normal}
 }
 
 /* 🪜 (2026-10-02) 대답 도움 — 버튼을 줄였다. 문장 자체가 버튼(누르면 입력칸)이고,
