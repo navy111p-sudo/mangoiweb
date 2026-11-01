@@ -23,6 +23,7 @@ import { explainCorrection } from './correction-reason';   // 🔤 «왜 고쳤�
 import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint, aiFriendStudentAsked,
          aiFriendTrimSentences, aiFriendNormalizeLevel,
          AI_FRIEND_DEFAULT_LEVEL, AI_FRIEND_LEVELS } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
+import { studentCallName, scrubLoginId } from './student-call-name';   // 🧑 학생을 부를 이름 — 아이디 금지(2026-11-01)
 import { resolveFriendName, wrongSelfName, askedOwnName } from './ai-friends';   // 🧑 AI 친구 이름 정본 + «다른 이름으로 소개했나» 판정
 import { stripAddedKorean, hasAddedKorean } from './reply-korean';               // 🇰🇷 모델이 덧붙인 한국어 번역 제거 — 「뜻」 버튼 설계를 지킨다
 import { parseJsonBody } from './api-util';
@@ -30,11 +31,12 @@ import { assessPronFix } from './pron-focus';   // 🎯 집중교정 발음 교�
 /* ✏️ «교정 카드» 판정 정본 — 웜업과 «같은 한 벌» 을 쓴다 (2026-09-09 사장님 「A.i 친구도 똑같이」).
    ⛔ 파일 이름이 warmup 이라고 복제해 오지 말 것. 판정이 두 벌이 되면 한쪽만 고쳐진다. */
 import { backfillPastTenseFix } from './tense-backfill';
+import { focusedCandidate, focusedReplyFix, recoverFocusedFix, FOCUSED_DRAFT_RULE } from './focused-correction';
 import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
          decideWarmupFixShow, warmupShouldOfferRepeat, isRfRejection } from './warmup-correction';
 import type { MangoEnv } from './api-mango';
 import { recordAiFailure } from './ai-failure-log';
-import { correctionModeOf, gateFixForMode } from './warmup-honest';   // 🎚️ A.i 친구 교정 모드(자유대화·균형·집중교정, 기본 집중교정)
+import { correctionModeOf, gateFixForMode, ensureFocusedFixSpoken } from './warmup-honest';   // 🎚️ A.i 친구 교정 모드(자유대화·균형·집중교정, 기본 집중교정)
 import { handleClassAsk } from './class-ask';   // ✋ A.i 선생님 수업 — 학생 질문 즉답(2026-10-08)
 import { connectorRule, connectorPromptBlock, linkBandForFriendLevel } from './conversation-connectors';   // 🔗 연결 표현 정본(2026-10-28 · 세 화면 공용)
 import { handleStoryApi } from './story-correct';   // 📖 동화책 바꿔 쓰기 AI 한 번 더 보기·기록(2026-10-13)
@@ -743,14 +745,19 @@ Student text: """${text}"""`;
       /* 🎚 눈높이 규격 — 이 아래의 프롬프트·검사가 전부 이 하나를 봅니다(정본 src/ai-friend-level.ts).
          ⚠️ 여기서 만들어야 합니다 — 아래 stuCtx(약점 단어)가 lvSpec.plain 을 읽습니다. */
       const lvSpec = aiFriendLevelSpec(level);
+      let callName = '';
+      try { callName = studentCallName(st, uid); } catch { callName = ''; }
       let stuCtx = '';
       try {
-        const sname = String(st?.english_name || st?.korean_name || '').trim().slice(0, 40);
+        /* 🧑 (2026-11-01) 이름 칸에 아이디가 든 학생이 있어 「Yay, ysyt01!」 이 나갔다 — 정본 src/student-call-name.ts
+           ⛔ english_name 을 그대로 쓰지 말 것 · 이름이 없으면 아이디 대신 «이름 없이» 부른다. */
+        const sname = callName;
         const textbook = String(st?.textbook || '').trim().slice(0, 60);
         // 단어장 약점 먼저, 게임 약점 다음 — 합치기·정리 정본 friendWeakList(src/vocab-weak.ts)
         const weak = friendWeakList(vw || [], (wk?.results as any[]) || [], 5);
         const parts: string[] = [];
-        if (sname) parts.push(`Their name is "${sname}" — greet or cheer them by name sometimes.`);
+        if (sname) parts.push(`Their name is "${sname}" — greet or cheer them by name sometimes. Never call them by any username or login ID.`);
+        else parts.push(`You do not know their name — cheer them without a name (e.g. "Great job!"). Never call them by a username or login ID, and never make up a name.`);
         if (textbook) parts.push(`They study the textbook "${textbook}" — occasionally relate the chat to what they learn there.`);
         if (weak.length && !lvSpec.plain) parts.push(`Words they recently got wrong in their word book, games or quizzes: ${weak.join(', ')}. Once in a while, weave ONE of these words naturally into your reply or question (never quiz the whole list at once). Cheer loudly when they use one correctly.`);
         if (parts.length) stuCtx = `\nAbout THIS student (use naturally in conversation — never recite this list):\n- ${parts.join('\n- ')}`;
@@ -827,11 +834,15 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
 ${askedLine}- A short answer is a GOOD answer. "Yes.", "Movies!", "I like it." are complete — just reply happily and keep the chat going. Only ask them to repeat when the message truly breaks off mid-word ("I", "and my"), and NEVER ask twice in a row: if your last reply already asked them to repeat, answer whatever you did understand this time.
 - If the student asks you to slow down, repeat, or speak more simply (in English or Korean), FIRST say yes to that request and then do it — use shorter, easier sentences right away. Never ignore the request and carry on with your own topic.
 - Never break character. Never say you are an AI. Never use words far above the student's level.
-${AI_FRIEND_CORRECTION_RULE}`;
+${AI_FRIEND_CORRECTION_RULE}
+${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
 
       const messages: any[] = [{ role: 'system', content: system }];
       for (const h of history) {
-        messages.push({ role: h.role === 'user' ? 'user' : 'assistant', content: h.content });
+        /* 🧑 예전 답장에 남은 아이디(「Yay, ysyt01!」)를 모델이 따라 하지 않게 «보여 줄 사본» 에서만 이름으로 바꾼다.
+           ⚠️ D1 기록은 그대로 둔다. */
+        const content = h.role === 'user' ? h.content : scrubLoginId(h.content, uid, callName || 'friend');
+        messages.push({ role: h.role === 'user' ? 'user' : 'assistant', content });
       }
       /* 🎤/🐢 이번 발화가 '잘린 조각' 이거나 '천천히 해달라'는 부탁이면, 그 사실을 모델에게
          명시적으로 알려준다. 규칙만으로는 모델이 직전 답변을 그대로 복사해 버린다. */
@@ -881,6 +892,7 @@ ${AI_FRIEND_CORRECTION_RULE}`;
          있는데 파싱하자마자 덮으면 화면의 답장은 옛것인데 카드만 새 답장의 것이 된다. */
       let rawFix: any = null;
       let stagedFix: any = null;
+      let focusedFix: any = null;
       let friendPlain = 0;   // 모델이 «평문» 을 준 횟수 — 조용히 옛 동작으로 돌아가지 않게 남긴다
       let friendEmpty = 0;   // 빈 응답 — 위와 «다른 사실» 이라 한 숫자로 뭉치지 않는다
       let friendRF = true;   // response_format 을 거부하는 모델이면 한 번 끄고 다시(선례: 웜업)
@@ -938,6 +950,7 @@ ${AI_FRIEND_CORRECTION_RULE}`;
       let streamHalt = '';
       const liveSend = (sen: string) => {
         if (streamHalt) return;
+        if (friendMode === 'focused') { streamHalt = 'focused'; return; }
         let stop = false;
         try { stop = !!qmem && Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS && repeatedQuestions(sen, qmem).length > 0; } catch { stop = true; }
         if (stop) { streamHalt = 'repeat'; return; }
@@ -1012,7 +1025,15 @@ ${AI_FRIEND_CORRECTION_RULE}`;
          ⚠️ 그쪽은 시간 예산(FRAG_RETRY_BUDGET_MS) 안에서만, 최대 두 번 다시 뽑는다.
          ⚠️ 다시 뽑은 것이 «같은 질문이 없거나 줄었고» 글자 반복도 아닐 때만 받는다 — 아니면 원래 답(대화를 끊지 않는다).
          ⚠️ 던지지 않는다 — 모델이 던지면 거기서 멈추고 지금까지의 답을 쓴다. */
-      if (reply && usedModel) {
+      if (reply && usedModel && immediateFix) {
+        focusedFix = focusedCandidate(rawFix, msg)
+          || focusedCandidate(backfillPastTenseFix(msg), msg)
+          || focusedCandidate(konglishFix(msg), msg)
+          || focusedReplyFix(reply, msg)
+          || await recoverFocusedFix(msg, (msgs) => runFriend(usedModel, msgs, 480, 0.2));
+        if (focusedFix) { rawFix = focusedFix; reply = focusedFix.now; }
+      }
+      if (reply && usedModel && !focusedFix) {
         const rr = await retryRepeatedQuestion({
           text: reply, textRepeat: aiFriendIsRepeat(reply, history),
           repeatsOf: (t) => repeatedQuestions(t, qmem),
@@ -1085,7 +1106,7 @@ ${AI_FRIEND_CORRECTION_RULE}`;
          ⛔ 이름만 갈아 끼우지 않습니다 — 뒤따르는 말과 앞뒤가 안 맞을 수 있습니다.
          ⚠️ 두 번째도 어기면 그냥 내보냅니다 — 이름 한 번 틀린 것이 대화가 끊기는 것보다 낫습니다. */
       const badName = wrongSelfName(reply, friendName, { askedName: askedOwnName(msg) });
-      if (badName && usedModel) {
+      if (badName && usedModel && !focusedFix) {
         console.warn('[chat-friend] wrong self-name:', badName, 'expected=' + friendName);
         try {
           const again: any = await runFriend(usedModel, messages.concat([
@@ -1111,7 +1132,7 @@ ${AI_FRIEND_CORRECTION_RULE}`;
          ⛔ 문장 «안» 의 단어는 자르지 마세요 — 아이가 그대로 따라 읽는 문장이라 깨진 영어를 배웁니다.
          ⛔ 다시 뽑은 것을 무조건 받지 마세요 — 빈 답이나 더 긴 답으로 바꾸면 고치려던 것이 나빠집니다. */
       const lvBefore = aiFriendMeasureReply(reply, level, { answering: studentAsked });
-      if (!lvBefore.ok) {
+      if (!lvBefore.ok && !focusedFix) {
         if (usedModel) {
           try {
             const shorter: any = await runFriend(usedModel, messages.concat([
@@ -1152,6 +1173,72 @@ ${AI_FRIEND_CORRECTION_RULE}`;
          ⚠️ 이 화면과 웜업은 «같은 판정» 을 써야 한다 — 한쪽만 고치면 화면마다 답이 달라진다
             (정본 src/warmup-empathy.ts 하나. 하니스가 두 화면의 배선을 함께 본다). */
       reply = applyEmpathyGuard(msg, reply) || reply;
+
+      /* ✏️ 교정 카드 (2026-09-09) — 웜업과 «같은 판정 한 벌» 을 쓴다(warmup-correction.ts).
+         모델이 준 fix 를 믿지 않고 ① 검증하고 ② 보여 줄지까지 정한다.
+         ⛔ 매 턴 고치지 않는다 — 2026-09-03 이 화면에서 「주제를 벗어나지 마」를 세 겹으로 넣었다가
+            「정해진 문장 안에서만 한다」는 현장 제보를 받고 되돌린 전례가 있다. 교정도 같다.
+         ⚠️ 이 블록은 절대 던지면 안 된다 — 여기서 던지면 멀쩡한 대화가 통째로 500 이 된다.
+            실패하면 fix 없이(= 고치기 전과 똑같이) 내려간다. */
+      let showFix: any = null;
+      let offerRepeat = false;
+      try {
+        /* 🇰🇷 모델이 고친 것이 없으면(뜻이 통해 넘어간 경우) 콩글리시 표로 한 번 더 본다.
+           ⛔ 모델의 교정이 있으면 그것이 먼저다 — 표는 «모델이 놓친 것» 만 받는다. */
+        const verified = verifyWarmupFix(rawFix, msg) || verifyWarmupFix(backfillPastTenseFix(msg), msg) || konglishFix(msg);
+        /* ⚠️ 프롬프트가 「그 넷은 반드시 고쳐」로 바뀌면서 fix 생성이 잦아집니다 — 그러면
+           «모델은 줬는데 우리가 버렸다» 가 주요 실패 모양이 됩니다(지어낸 교정·한글 섞임·
+           낱말 안 겹침…). 평문·빈 응답에는 이미 로그가 있는데 이것만 없었습니다.
+           ⛔ 학생 발화나 교정 문장을 로그에 싣지 마세요 — «버렸다» 는 사실만 남깁니다. */
+        if (!verified && rawFix) console.warn('[chat-friend] fix rejected by verify');
+        if (verified) {
+          /* 이번 답장까지 세어 1부터 시작한다.
+             🔴 2026-09-09 까지는 turnNo 가 1 이면 게이트가 «막았습니다» — `turnCount - lastShownTurn(0) < 2`
+                가 1-0=1 로 걸려 «학생의 맨 첫 마디» 는 원리상 교정해 줄 수 없었습니다(정본을 돌려 실측).
+                지금은 «한 번도 안 보여줬으면 간격이 성립하지 않는다» 로 고쳤습니다(decideWarmupFixShow).
+             ⚠️ 그래도 이 조회가 «계속» 실패하면 turnNo 가 1 에 고정됩니다. 뜻이 달라지는 교정(major)은
+                그래도 뜨지만 «작은 실수는 두 번째부터» 쪽은 간격에 걸려 멎습니다 — 조용해서 아무도
+                모르므로 로그를 남깁니다.
+                ⛔ 「조회가 실패해도 전부 통과한다」고 적지 마세요 — major 만 통과합니다. */
+          if (!turns) console.warn('[chat-friend] turn count query failed — 작은 실수 교정이 계속 막힙니다');
+          const turnNo = Number((turns && (turns as any).n) || 0) + 1;
+          const mkey = 'aifriendfix:' + uid;
+          let memoIn: any = null;
+          try {
+            const rawMemo = (env as any).SESSION_STATE ? await (env as any).SESSION_STATE.get(mkey) : null;
+            if (rawMemo != null) memoIn = JSON.parse(rawMemo);
+          } catch (e: any) {
+            /* ⚠️ 읽기가 조용히 실패하면 memo 가 늘 null 이라 «연달아 교정 안 하기»·
+               «minor 는 두 번째부터» 가 통째로 풀려 «매 턴 교정» 이 됩니다 — 화면은 멀쩡해 보입니다.
+               쓰기 쪽에만 로그가 있고 읽기 쪽에 없던 것을 함정 대조가 잡았습니다. */
+            console.warn('[chat-friend] fix memo read failed:', e?.message || e);
+          }
+          // 🇰🇷 최근 14일에 이미 고쳐 준 관사·복수·전치사는 «한 번 센 것» 으로 이어 받는다(정본 recent-mistakes.ts).
+          //    작은 실수일 때만 조회한다 — 큰 실수는 원래 바로 고친다.
+          if (verified && verified.severity !== 'major') memoIn = carryRepeatTags(memoIn, await loadRecentFixTags(env.DB, uid, Date.now()));
+          const decided = decideWarmupFixShow(verified, memoIn, turnNo, { immediate: immediateFix });
+          // 🎚️ 모드별 게이트 — 자유대화는 따라 말하기 없음, 집중교정은 검증된 교정을 매번(warmup-honest gateFixForMode).
+          showFix = gateFixForMode(friendMode, verified, decided.show, false).show;
+          // 🔁 보여 준 교정은 남겨 다음 대화에서 다시 쓰게 한다(KV 메모는 6시간 «간격» 만 기억). 던지지 않는다.
+          if (showFix) await logAiFriendFix(env.DB, uid, showFix, Date.now());
+          offerRepeat = warmupShouldOfferRepeat(decided.show, decided.memo, turnNo);
+          if (friendMode === 'free_talk') offerRepeat = false;
+          else if (friendMode === 'focused') offerRepeat = !!showFix;
+          try {
+            if ((env as any).SESSION_STATE) {
+              await (env as any).SESSION_STATE.put(mkey, JSON.stringify(decided.memo), { expirationTtl: 6 * 3600 });
+            }
+          } catch (e: any) {
+            /* 조용히 실패하면 «연달아 교정하지 않기»·«두 번째부터 보여주기» 가 통째로 풀려
+               매 턴 교정이 뜬다 — 그런데 화면은 멀쩡해 보인다. 반드시 한 줄 남긴다. */
+            console.warn('[chat-friend] fix memo save failed:', e?.message || e);
+          }
+        }
+      } catch (e: any) {
+        console.warn('[chat-friend] fix gate skipped:', e?.message || e);
+      }
+      // Final speech and saved history use the same verified correction, exactly three times.
+      reply = ensureFocusedFixSpoken(reply, friendMode, null, usedFallback ? null : showFix);
 
       // ⚠️ 이 저장은 반드시 기다린다 — 바로 아래 gam 스냅샷("오늘 몇 번째 대화")이
       //   이 INSERT 가 끝난 뒤의 개수를 세어야 정확하다. 백그라운드로 미루면 그 숫자가
@@ -1232,69 +1319,6 @@ ${AI_FRIEND_CORRECTION_RULE}`;
         console.error('[chat-friend] gamification failed:', e?.message || e);
       }
 
-      /* ✏️ 교정 카드 (2026-09-09) — 웜업과 «같은 판정 한 벌» 을 쓴다(warmup-correction.ts).
-         모델이 준 fix 를 믿지 않고 ① 검증하고 ② 보여 줄지까지 정한다.
-         ⛔ 매 턴 고치지 않는다 — 2026-09-03 이 화면에서 「주제를 벗어나지 마」를 세 겹으로 넣었다가
-            「정해진 문장 안에서만 한다」는 현장 제보를 받고 되돌린 전례가 있다. 교정도 같다.
-         ⚠️ 이 블록은 절대 던지면 안 된다 — 여기서 던지면 멀쩡한 대화가 통째로 500 이 된다.
-            실패하면 fix 없이(= 고치기 전과 똑같이) 내려간다. */
-      let showFix: any = null;
-      let offerRepeat = false;
-      try {
-        /* 🇰🇷 모델이 고친 것이 없으면(뜻이 통해 넘어간 경우) 콩글리시 표로 한 번 더 본다.
-           ⛔ 모델의 교정이 있으면 그것이 먼저다 — 표는 «모델이 놓친 것» 만 받는다. */
-        const verified = verifyWarmupFix(rawFix, msg) || verifyWarmupFix(backfillPastTenseFix(msg), msg) || konglishFix(msg);
-        /* ⚠️ 프롬프트가 「그 넷은 반드시 고쳐」로 바뀌면서 fix 생성이 잦아집니다 — 그러면
-           «모델은 줬는데 우리가 버렸다» 가 주요 실패 모양이 됩니다(지어낸 교정·한글 섞임·
-           낱말 안 겹침…). 평문·빈 응답에는 이미 로그가 있는데 이것만 없었습니다.
-           ⛔ 학생 발화나 교정 문장을 로그에 싣지 마세요 — «버렸다» 는 사실만 남깁니다. */
-        if (!verified && rawFix) console.warn('[chat-friend] fix rejected by verify');
-        if (verified) {
-          /* 이번 답장까지 세어 1부터 시작한다.
-             🔴 2026-09-09 까지는 turnNo 가 1 이면 게이트가 «막았습니다» — `turnCount - lastShownTurn(0) < 2`
-                가 1-0=1 로 걸려 «학생의 맨 첫 마디» 는 원리상 교정해 줄 수 없었습니다(정본을 돌려 실측).
-                지금은 «한 번도 안 보여줬으면 간격이 성립하지 않는다» 로 고쳤습니다(decideWarmupFixShow).
-             ⚠️ 그래도 이 조회가 «계속» 실패하면 turnNo 가 1 에 고정됩니다. 뜻이 달라지는 교정(major)은
-                그래도 뜨지만 «작은 실수는 두 번째부터» 쪽은 간격에 걸려 멎습니다 — 조용해서 아무도
-                모르므로 로그를 남깁니다.
-                ⛔ 「조회가 실패해도 전부 통과한다」고 적지 마세요 — major 만 통과합니다. */
-          if (!turns) console.warn('[chat-friend] turn count query failed — 작은 실수 교정이 계속 막힙니다');
-          const turnNo = Number((turns && (turns as any).n) || 0) + 1;
-          const mkey = 'aifriendfix:' + uid;
-          let memoIn: any = null;
-          try {
-            const rawMemo = (env as any).SESSION_STATE ? await (env as any).SESSION_STATE.get(mkey) : null;
-            if (rawMemo != null) memoIn = JSON.parse(rawMemo);
-          } catch (e: any) {
-            /* ⚠️ 읽기가 조용히 실패하면 memo 가 늘 null 이라 «연달아 교정 안 하기»·
-               «minor 는 두 번째부터» 가 통째로 풀려 «매 턴 교정» 이 됩니다 — 화면은 멀쩡해 보입니다.
-               쓰기 쪽에만 로그가 있고 읽기 쪽에 없던 것을 함정 대조가 잡았습니다. */
-            console.warn('[chat-friend] fix memo read failed:', e?.message || e);
-          }
-          // 🇰🇷 최근 14일에 이미 고쳐 준 관사·복수·전치사는 «한 번 센 것» 으로 이어 받는다(정본 recent-mistakes.ts).
-          //    작은 실수일 때만 조회한다 — 큰 실수는 원래 바로 고친다.
-          if (verified && verified.severity !== 'major') memoIn = carryRepeatTags(memoIn, await loadRecentFixTags(env.DB, uid, Date.now()));
-          const decided = decideWarmupFixShow(verified, memoIn, turnNo, { immediate: immediateFix });
-          // 🎚️ 모드별 게이트 — 자유대화는 따라 말하기 없음, 집중교정은 검증된 교정을 매번(warmup-honest gateFixForMode).
-          showFix = gateFixForMode(friendMode, verified, decided.show, false).show;
-          // 🔁 보여 준 교정은 남겨 다음 대화에서 다시 쓰게 한다(KV 메모는 6시간 «간격» 만 기억). 던지지 않는다.
-          if (showFix) await logAiFriendFix(env.DB, uid, showFix, Date.now());
-          offerRepeat = warmupShouldOfferRepeat(decided.show, decided.memo, turnNo);
-          if (friendMode === 'free_talk') offerRepeat = false;
-          else if (friendMode === 'focused') offerRepeat = !!showFix;
-          try {
-            if ((env as any).SESSION_STATE) {
-              await (env as any).SESSION_STATE.put(mkey, JSON.stringify(decided.memo), { expirationTtl: 6 * 3600 });
-            }
-          } catch (e: any) {
-            /* 조용히 실패하면 «연달아 교정하지 않기»·«두 번째부터 보여주기» 가 통째로 풀려
-               매 턴 교정이 뜬다 — 그런데 화면은 멀쩡해 보인다. 반드시 한 줄 남긴다. */
-            console.warn('[chat-friend] fix memo save failed:', e?.message || e);
-          }
-        }
-      } catch (e: any) {
-        console.warn('[chat-friend] fix gate skipped:', e?.message || e);
-      }
       if (friendPlain || friendEmpty) {
         /* 조용해지지 않게 남긴다 — 「교정이 한 번도 안 뜬다」의 1순위 원인이 이것이었다. */
         console.warn('[chat-friend] model output: plain=' + friendPlain + ' empty=' + friendEmpty + ' rf=' + friendRF);
