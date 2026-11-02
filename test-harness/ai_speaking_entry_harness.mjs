@@ -17,6 +17,13 @@ for (const [id, destination] of [['textbook-mode', '/warmup.html'], ['friend-mod
   assert.ok(existsSync(new URL(destination.slice(1), pub)), 'destination exists');
   assert.ok(read(destination.slice(1)).includes('href="/ai-speaking.html"'), 'can return to mode selection');
 }
+// 2026-11-02: free talk goes straight into the conversation (no setup screen), free_talk mode for this visit only.
+const freeTag = hub.match(/<a\b[^>]*id="free-talk-mode"[^>]*>/)?.[0] || '';
+const freeHref = (freeTag.match(/href="([^"]+)"/)?.[1] || '').replace(/&amp;/g, '&');
+const freeUrl = new URL(freeHref, 'https://x.test/');
+assert.equal(freeUrl.pathname, '/warmup.html', 'free talk opens warmup');
+assert.equal(freeUrl.searchParams.get('cmode'), 'free_talk', 'free talk passes free_talk mode');
+assert.equal(freeUrl.searchParams.get('setup'), '0', 'free talk skips setup screen');
 assert.ok(!hub.includes('localStorage.setItem'), 'entrance does not overwrite learning settings');
 assert.ok(!/fetch\(|getUserMedia\(/.test(hub), 'entrance does not start a conversation or microphone');
 const drawer = home.slice(home.indexOf('id="mg-drawer"'), home.indexOf('</aside>', home.indexOf('id="mg-drawer"')));
