@@ -100,4 +100,3 @@ export function zipStore(files: Array<{ name: string; text: string }>): Uint8Arr
   for (const c of chunks) { out.set(c, p); p += c.length; }
   return out;
 }
-
