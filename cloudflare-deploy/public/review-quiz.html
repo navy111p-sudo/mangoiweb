@@ -615,6 +615,24 @@
       if(!el) return; var dur=750, t0=performance.now();
       (function step(now){ var p=Math.min(1,(now-t0)/dur); var v=Math.round(to*(1-Math.pow(1-p,3))); el.textContent=v+(suffix||''); if(p<1) requestAnimationFrame(step); })(t0);
     }
+    /* 🪙 (2026-11-02) «획득 포인트» 옆에 «왜 이만큼(또는 0)» 인지 — 서버가 실어 준 칸만 읽습니다(지어내지 않음).
+       서버가 그 칸을 안 보내면(옛 서버) 아무 말도 안 합니다. */
+    function rqPtsNote(r, en){
+      if(!r || r.practice) return '';
+      if(r.points_unknown) return '⚠️ '+(en?'Could not check points this time.':'이번엔 포인트를 확인하지 못했어요.');
+      if(r.points_guest) return '🔑 '+(en?'Log in to save points to your account.':'로그인하면 포인트가 내 계정에 쌓여요.');
+      if(r.points_dup) return en?'Points for this result were already given.':'이 결과로는 이미 포인트를 받았어요.';
+      var full=Number(r.points_full), got=Number(r.awarded)||0;
+      if(r.points_cap && isFinite(full) && full>got){
+        var why = r.points_cap==='quiz'
+          ? (en?'the review-quiz daily limit (500)':'복습퀴즈 하루 한도(500점)')
+          : (en?"today's point limit (games 30 · all 100)":'오늘 포인트 한도(게임·퀴즈 30점 · 전체 100점)');
+        return '🌙 '+(en?('Earned '+full+' but got +'+got+' because of '+why+'. More tomorrow!')
+                         :('원래 '+full+'점인데 '+why+' 때문에 +'+got+'점만 받았어요. 내일 또 받아요!'));
+      }
+      if(r.points_full!=null && full===0) return en?'Get answers right to earn points (10 each).':'정답을 맞히면 1문제당 10점을 받아요.';
+      return '';
+    }
     function showResult(r) {
       var qz = state.quiz;
       var color = r.percent >= 80 ? '#10b981' : (r.percent >= 50 ? '#fbbf24' : '#ef4444');
@@ -647,12 +665,14 @@
 
       // 🎁 보상 카드 (연습 모드는 숨김)
       var rewards='', stamp='';
+      var ptsNote = rqPtsNote(r, isEn());
       if (!r.practice){
         rewards = '<div class="rq-reward-row">'
           + '<div class="rq-reward"><div class="rv" style="color:var(--gold)" id="rvPts">+0</div><div class="rl">'+(isEn()?'Points earned':'획득 포인트')+'</div></div>'
           + (r.streak>=2 ? '<div class="rq-reward"><div class="rv" style="color:#fb7185">🔥 '+r.streak+'</div><div class="rl">'+(isEn()?'Day streak':'연속 복습일')+'</div></div>' : '')
           + (state.maxCombo>=2 ? '<div class="rq-reward"><div class="rv" style="color:#a78bfa">⚡ '+state.maxCombo+'</div><div class="rl">'+(isEn()?'Best combo':'최고 콤보')+'</div></div>' : '')
           + '</div>'
+          + (ptsNote ? '<div class="rq-ptsnote" style="font-size:12.5px;color:var(--text2);margin-top:8px;line-height:1.5">'+ptsNote+'</div>' : '')
           + (r.balance!=null ? '<div style="font-size:12px;color:var(--text2);margin-top:8px">'+(isEn()?'Total points: ':'총 보유 포인트: ')+'<b style="color:var(--gold)">'+r.balance+'</b></div>' : '');
         var sc = r.percent>=80?'#10b981':(r.percent>=50?'#fbbf24':'#94a3b8');
         stamp = '<div class="rq-stamp" style="color:'+sc+';border-color:'+sc+'">'+emo+' '+(r.first_clear?(isEn()?'FIRST CLEAR!':'첫 클리어!'):(isEn()?'CLEARED':'클리어'))+'</div>';
