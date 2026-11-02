@@ -50,6 +50,15 @@ ok('A-1 (자동) 끝난 문장이면 2초 안에 보낸다(옛 2.6초보다 빠�
 ok('A-2 (자동) 그래도 1.2초보다는 기다린다(숨 한 번 쉬는 사이에 잘리지 않게)', done1 >= 1200, done1);
 ok('A-3 (자동·짝) 덜 끝난 문장(“I like …”)은 여전히 4초 넘게 기다린다', run('I like') >= 4000 && run('I want to') >= 4000, { a: run('I like'), b: run('I want to') });
 ok('A-4 (자동·짝) 아직 아무 말 없으면 여전히 8초 넘게 기다린다', run('') >= 8000, run(''));
+// 🙋 2026-11-02 — 얼굴 크게(자동 말하기)에서 학생 «질문» 이 5초씩 기다리던 것
+const qDone = ['What is this', 'Do you like it', 'How about you', 'What do you like', 'Is this your dog', 'Why do you like it', 'Can you say it again'];
+const qWaits = qDone.map(run);
+ok('A-7 (자동) 끝난 질문(you·it·this·like 로 끝남)은 2초 안에 보낸다', qWaits.every((v) => v <= 2000), Object.fromEntries(qDone.map((q, i) => [q, qWaits[i]])));
+ok('A-8 (자동) 인식기가 물음표를 붙이면 끝난 질문으로 본다', run('Do you have a') >= 4000 && run('Do you have a cat?') <= 2000 && run('Is that a?') <= 2000, { a: run('Do you have a'), b: run('Do you have a cat?') });
+const qHold = ['Why do you', 'What do you', 'Do you want to', 'Can you', 'How do you', 'What is the'];
+const qHoldW = qHold.map(run);
+ok('A-9 (자동·짝) 덜 끝난 질문(주어 you·to·the 로 끝남)은 여전히 4초 넘게 기다린다', qHoldW.every((v) => v >= 4000), Object.fromEntries(qHold.map((q, i) => [q, qHoldW[i]])));
+ok('A-10 (자동·짝) 질문이 아닌 문장은 예전 판정 그대로(“I love you” 는 기다린다)', run('I love you') >= 4000 && run('I like it') >= 4000 && run('My name is Minsu') <= 2000, { a: run('I love you'), b: run('I like it'), c: run('My name is Minsu') });
 ok('A-5 (수동) 끝난 문장이어도 침묵 20초 안에는 끝내지 않는다', runM('I like pizza') >= 20000, runM('I like pizza'));
 ok('A-6 (수동) 덜 끝난 문장·빈 말도 20초 넘게 기다린다', runM('I like') >= 20000 && runM('') >= 20000, { a: runM('I like'), b: runM('') });
 
