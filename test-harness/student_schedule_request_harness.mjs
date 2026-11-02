@@ -64,6 +64,27 @@ ok('못 세었으면(null) 막지 않는다', g({ recentCount: null }).ok === tr
 ok('같은 수업·회차에 대기 요청이 있으면 409 already_pending', g({ pendingDup: true }).error === 'already_pending' && g({ pendingDup: true }).status === 409);
 ok('대기 요청이 없으면 받는다(짝)', g({ pendingDup: false }).ok === true);
 ok('중복을 못 봤으면(null) 막지 않는다', g({ pendingDup: null }).ok === true);
+/* ⏰ (2026-11-02 사장님) 학생이 직접은 수업 시작 30분 전까지만 — 경계값 짝 */
+{
+  const START = Date.parse('2026-10-01T19:00:00+09:00');
+  const at = m => g({ classStartMs: START, nowMs: START - m * 60000 });
+  ok('시작 31분 전이면 받는다', at(31).ok === true, at(31));
+  ok('시작 정확히 30분 전이면 받는다(30분 «전까지»)', at(30).ok === true, at(30));
+  ok('시작 29분 전이면 409 too_late', at(29).error === 'too_late' && at(29).status === 409, at(29));
+  ok('이미 시작한 수업도 too_late', at(-5).error === 'too_late', at(-5));
+  ok('변경(change)도 같은 규칙', g({ requestType: 'change', classStartMs: START, nowMs: START - 10 * 60000 }).error === 'too_late');
+  ok('시작 시각을 모르면 막지 않는다(fail-open)', g({ classStartMs: null, nowMs: START }).ok === true);
+  ok('늦은 요청은 중복보다 먼저 too_late', g({ classStartMs: START, nowMs: START, pendingDup: true }).error === 'too_late');
+  const api = SRC('src/api-mango.ts');
+  const gi = api.indexOf('const gate = studentRequestGate({');
+  const call = gi >= 0 ? api.slice(gi, api.indexOf('});', gi)) : '';
+  ok('라우트가 시작 시각·지금을 판정에 넘긴다', /classStartMs/.test(call) && /nowMs/.test(call), call);
+  const pre = gi >= 0 ? api.slice(Math.max(0, gi - 900), gi) : '';
+  ok('시작 시각은 수업표 start_time 과 KST(+09:00)로 만든다', /cs\.start_time/.test(pre) && /\+09:00/.test(pre));
+  const page = readFileSync(join(ROOT, 'cloudflare-deploy/public/lesson-postpone-demo.html'), 'utf8');
+  ok('학생 화면은 too_late 를 사람 말로 알린다', /saved\.error === 'too_late'/.test(page));
+  ok('학생 화면에 «30분 전 이후 유료» 옛 규칙 문구가 없다', !/시작 30분 전까지 무료 · 이후 유료/.test(page));
+}
 
 /* ── ② 라우트를 오려 내 진짜 SQLite 로 ── */
 console.log('\n② 라우트 실제 실행');
@@ -76,12 +97,15 @@ ok('라우트 몸통을 오려 냈다', body.length > 500);
 ok('관리자 전용 경로를 부르지 않는다', !/api\/admin\/schedule-requests/.test(body.replace(/\/\*[\s\S]*?\*\//g, '')));
 body = body.replace(/ as any/g, '').replace(/\b(let|const) (\w+): [^=;]+=/g, '$1 $2 =').replace(/\((\w+): any\)/g, '($1)');
 
-function makeDb() {
+/* ⏰ (2026-11-02) 날짜 지정 예시 수업은 «앞으로» 의 날짜여야 한다 — 지난 날짜면 30분 규칙(too_late)에 걸린다. */
+const DATED = new Date(Date.now() + 9 * 3600e3 + 7 * 864e5).toISOString().slice(0, 10);
+function makeDb(extraSql) {
   const db = new DatabaseSync(':memory:');
   db.exec(`CREATE TABLE teachers (id INTEGER PRIMARY KEY, name TEXT, active INTEGER DEFAULT 1)`);
   db.exec(`CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, user_id TEXT, student_name TEXT, scheduled_date TEXT, start_time TEXT, teacher_id TEXT, status TEXT)`);
   db.exec(`INSERT INTO teachers VALUES (29,'중국어 강선생님',1),(16,'KRYSTEL',1),(21,'KARL',1)`);
-  db.exec(`INSERT INTO class_schedules VALUES (849,'jeong','정우영',NULL,'19:20','29','active'),(4385,'jeong','정우영','2026-10-01','16:00','16','active'),(9000,'kim','김민수',NULL,'15:00','29','active')`);
+  db.exec(`INSERT INTO class_schedules VALUES (849,'jeong','정우영',NULL,'19:20','29','active'),(4385,'jeong','정우영','${DATED}','16:00','16','active'),(9000,'kim','김민수',NULL,'15:00','29','active')`);
+  if (extraSql) db.exec(extraSql);
   const wrap = sql => {
     const st = db.prepare(sql);
     const exec = args => ({
@@ -97,8 +121,8 @@ const versionSrc = SRC('src/class-schedule-move.ts');
 const scheduleMoveVersion = new Function('row', blockAt(versionSrc, versionSrc.indexOf('export function scheduleMoveVersion')));
 const json = (o, status = 200) => ({ status, body: o });
 const autoCalls = [];
-async function call({ tok, payload, pre }) {
-  const { db, D1 } = makeDb();
+async function call({ tok, payload, pre, extraSql }) {
+  const { db, D1 } = makeDb(extraSql);
   const env = { DB: D1 };
   if (pre) await pre(env, db);
   const request = { json: async () => payload };
@@ -135,6 +159,19 @@ const plus = n => new Date(Date.parse(today + 'T00:00:00Z') + n * 864e5).toISOSt
   ok('관리자 알림 1건', notes.length === 1 && notes[0].type === 'schedule_request');
 }
 {
+  /* ⏰ 시작 10분 뒤 수업 — 학생이 직접은 못 한다(409 too_late · 저장 0 · 자동 승인도 안 부름) */
+  const soon = new Date(Date.now() + 10 * 60000 + 9 * 3600e3);
+  const sd = soon.toISOString().slice(0, 10), st = soon.toISOString().slice(11, 16);
+  const later = new Date(Date.now() + 90 * 60000 + 9 * 3600e3);
+  const ld = later.toISOString().slice(0, 10), lt = later.toISOString().slice(11, 16);
+  const extraSql = `INSERT INTO class_schedules VALUES (7001,'jeong','정우영','${sd}','${st}','16','active'),(7002,'jeong','정우영','${ld}','${lt}','16','active')`;
+  const a1 = await call({ tok: 'jeong', extraSql, payload: { schedule_id: 7001, request_type: 'postpone', new_date: plus(4), new_time: '14:00' } });
+  ok('시작 10분 전 수업 연기 → 409 too_late · 저장 0', a1.res.status === 409 && a1.res.body.error === 'too_late' && a1.rows.length === 0, a1.res);
+  ok('늦은 요청은 자동 승인도 부르지 않는다', autoCalls.length === 0, autoCalls);
+  const a2 = await call({ tok: 'jeong', extraSql, payload: { schedule_id: 7002, request_type: 'postpone', new_date: plus(4), new_time: '14:00' } });
+  ok('시작 90분 전 수업은 받는다(짝)', a2.res.status === 200 && a2.res.body.ok === true && a2.rows.length === 1, a2.res);
+}
+{
   const { res, rows } = await call({ tok: null, payload: { schedule_id: 849, orig_date: plus(1) } });
   ok('토큰 없으면 401 · 저장 0', res.status === 401 && rows.length === 0, res);
 }
@@ -145,7 +182,7 @@ const plus = n => new Date(Date.parse(today + 'T00:00:00Z') + n * 864e5).toISOSt
 {
   const { rows } = await call({ tok: 'jeong', payload: { schedule_id: 4385, request_type: 'postpone', new_date: plus(4), new_time: '14:00', teacher_name: 'karl' } });
   ok('이름으로 고른 강사가 원부와 같으면(대소문자 무시) «희망 강사 번호» 로 — 담당 강사 칸은 그대로', rows[0] && rows[0].teacher_name === 'KRYSTEL' && rows[0].new_teacher_id === '21' && /희망 강사: KARL/.test(rows[0].reason || ''), rows[0]);
-  ok('날짜 지정 수업은 수업표 날짜', rows[0] && rows[0].orig_date === '2026-10-01');
+  ok('날짜 지정 수업은 수업표 날짜', rows[0] && rows[0].orig_date === DATED);
 }
 {
   const { rows } = await call({ tok: 'jeong', payload: { schedule_id: 4385, request_type: 'postpone', new_date: plus(4), new_time: '14:00', teacher_name: 'Teacher Ana' } });

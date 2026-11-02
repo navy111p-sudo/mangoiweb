@@ -10,6 +10,7 @@
      · 신원은 학생 토큰(mango_token)으로만 — 본문의 uid·이름은 믿지 않는다.
      · 그 수업(schedule_id)이 «그 학생의 것» 일 때만 받는다(남의 수업 연기 금지).
      · 원래 일시·학생 이름·담당 강사는 서버가 class_schedules 에서 읽는다.
+     · ⏰ 수업 시작 30분 전까지만 받는다(2026-11-02 — 그 뒤는 학생이 직접 못 함, too_late).
      · 요청은 «접수» 일 뿐 — 승인은 관리자가 기존 /decide 로 한다(수업을 여기서 옮기지 않는다).
        ⏩ 예외(2026-10-06): 날짜 지정 수업의 «무료 연기» 는 접수 직후 자동 승인된다 — 조건·검사는
           student-auto-postpone.ts 한 곳. 반복 수업·유료·강사 변경·겹침은 여전히 관리자 승인.
@@ -29,7 +30,15 @@ export type StudentReqInput = {
   /* 같은 수업·같은 회차에 이미 «대기 중» 요청이 있는가(true/false, null = 못 봄).
      2026-10-01 jeong 이 같은 4건을 2분 사이 두 번 보내 대기 요청이 8건 쌓였다. */
   pendingDup?: boolean | null;
+  /* ⏰ (2026-11-02 사장님 「학생이 직접 하는건 수업시간 30분 전까지만 연기할 수 있어」)
+     그 회차의 시작 시각(ms)·지금(ms). 둘 다 숫자일 때만 판정한다 — 못 구했으면 막지 않는다
+     (시각을 못 읽는 것은 데이터 문제라 학생 요청을 조용히 막는 쪽보다 접수가 낫다. 승인 판정은 따로 있다). */
+  classStartMs?: number | null;
+  nowMs?: number | null;
 };
+
+/** 학생이 직접 연기·변경할 수 있는 마지막 시각 = 수업 시작 30분 전(그 시각 포함). */
+export const STUDENT_REQ_LEAD_MIN = 30;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}$/;
@@ -50,6 +59,10 @@ export function studentRequestGate(i: StudentReqInput): StudentReqGate {
   /* 정확일치 — 대소문자만 다른 계정이 실재한다(Kim/kim). */
   if (String(i.schedule.user_id || '') !== i.tokUid) return { ok: false, error: 'not_your_class', status: 403 };
   if (String(i.schedule.status || 'active') === 'cancelled') return { ok: false, error: 'class_cancelled', status: 409 };
+  /* ⏰ 시작 30분 전이 지났으면(이미 시작한 수업 포함) 학생이 직접은 못 한다 — 관리자·카카오 상담으로. */
+  if (typeof i.classStartMs === 'number' && Number.isFinite(i.classStartMs)
+      && typeof i.nowMs === 'number' && Number.isFinite(i.nowMs)
+      && i.classStartMs - i.nowMs < STUDENT_REQ_LEAD_MIN * 60000) return { ok: false, error: 'too_late', status: 409 };
   /* 반복 수업이면 «어느 회차» 인지 화면이 알려 줘야 한다 — 오늘~60일 안의 날짜만. */
   if (!i.schedule.scheduled_date) {
     if (!i.origDate || !DATE_RE.test(i.origDate)) return { ok: false, error: 'orig_date_required', status: 400 };

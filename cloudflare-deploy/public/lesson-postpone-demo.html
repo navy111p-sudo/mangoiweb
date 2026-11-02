@@ -1112,7 +1112,7 @@ button:focus-visible{outline:3px solid #236ccd;outline-offset:3px}
           <div class="mc-icon">⏰</div>
           <div class="mc-label">수업 연기하기</div>
         </div>
-        <div class="mc-desc">이번 주 수업을 다음 주로 미루기.<br>수업 횟수는 그대로 보존됩니다.<br><span style="color:#986000">시작 30분 전까지 무료 · 이후 유료</span></div>
+        <div class="mc-desc">이번 주 수업을 다음 주로 미루기.<br>수업 횟수는 그대로 보존됩니다.<br><span style="color:#986000" id="mob-lead-rule"></span></div>
         <div class="mc-cta">시작하기 →</div>
       </button>
 
@@ -1285,6 +1285,19 @@ let CURRENT_SCHEDULE = __buildCurrentSchedule();
    ⛔ 로그인한 학생에게 예시 수업을 «내 수업» 처럼 보여 주지 말 것 — 그것이 이 사고였다. */
 let __MOB_REAL = false;
 let __MOB_STATE = 'loading';
+/* ⏰ (2026-11-02 사장님 「학생이 직접 하는건 수업시간 30분 전까지만 연기할 수 있어」)
+   시작 30분 전이 지난 수업 — 연기·변경 목록에서 빼고 «왜 없는지» 만 따로 보여 준다.
+   ⛔ 서버(studentRequestGate · STUDENT_REQ_LEAD_MIN)가 최종 판정 — 화면은 미리 알려 줄 뿐. */
+const __MOB_LEAD_MIN = 30;
+let __MOB_LATE = [];
+function __mobTooLate(iso, hh){
+  var ms = Date.parse(iso + 'T' + String(hh).slice(0,5) + ':00+09:00');
+  return !isNaN(ms) && (ms - Date.now()) < __MOB_LEAD_MIN * 60000;
+}
+function __mobLeadRule(){
+  var el = document.getElementById('mob-lead-rule');
+  if (el) el.textContent = __mobT('수업 시작 30분 전까지만 직접 할 수 있어요', 'Only up to 30 min before class starts');
+}
 function __mobEn(){ try { return (window.getLang ? window.getLang() : localStorage.getItem('mangoi_lang')) === 'en'; } catch(e){ return false; } }
 function __mobT(ko, en){ return __mobEn() ? en : ko; }
 /* 로그인 정본은 칸 이름이 자리마다 다르다({uid} · {user_id}) — 둘 다 받는다(CLAUDE.md 2장). */
@@ -1318,6 +1331,8 @@ async function __loadRealCurrentSchedule(){
       return { teacherId: tobj ? tobj.id : ('real:' + tn), teacherName: tn, ico: tobj ? tobj.ico : '',
                date: date, hour: hh, schedule_id: it.schedule_id || null, recurring: !it.scheduled_date };
     }).filter(Boolean);
+    __MOB_LATE = mapped.filter(function(c){ return __mobTooLate(c.date, c.hour); });
+    mapped = mapped.filter(function(c){ return !__mobTooLate(c.date, c.hour); });
     CURRENT_SCHEDULE = mapped;
     __MOB_REAL = mapped.length > 0;
     __MOB_STATE = mapped.length ? 'real' : 'empty';
@@ -1394,6 +1409,10 @@ function __mobPersist(){
   });
 }
 window.__mobLastFee = null;
+
+/* ⏰ 규칙 문구 — 정적 글자로 두면 i18n 사전에 없어 EN 화면에도 한국어가 남는다. */
+try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', __mobLeadRule, { once:true }); else __mobLeadRule(); } catch(e){}
+try { window.addEventListener('mangoi:lang-changed', __mobLeadRule); document.addEventListener('mangoi:lang-changed', __mobLeadRule); } catch(e){}
 
 /* 관리자 실제 강사 비동기 로드 */
 (async function __loadRealTeachers(){
@@ -1562,6 +1581,8 @@ function showCompletion(saved){
       ? __mobT('로그인이 만료됐어요. 홈에서 다시 로그인한 뒤 해 주세요.', 'Your login expired. Please sign in again from Home.')
       : saved.error === 'already_pending'
       ? __mobT('이 수업은 이미 요청을 보내 관리자 확인을 기다리는 중이에요. 다시 보내지 않아도 돼요.', 'A request for this class is already waiting for staff review.')
+      : saved.error === 'too_late'
+      ? __mobT('수업 시작 30분 전이 지나 직접 연기·변경할 수 없어요. 카카오 상담으로 알려 주세요.', 'It is less than 30 min before class, so you cannot change it yourself. Please contact us on KakaoTalk.')
       : saved.error === 'too_many_requests'
       ? __mobT('오늘 요청이 너무 많아요. 카카오 상담으로 알려 주세요.', 'Too many requests today. Please contact us on KakaoTalk.')
       : __mobT('수업은 아직 그대로이니 카카오 상담으로 알려 주세요.', 'Your classes are unchanged — please contact us on KakaoTalk.');
@@ -1710,9 +1731,19 @@ async function pushBackAll(){
 /* ════════════════════════════════════════════════════════════
    본문 렌더
    ════════════════════════════════════════════════════════════ */
-function renderCurrentLesson(){
+function __mobLateNote(){
+  if (!__MOB_LATE.length) return '';
+  var rows = __MOB_LATE.map(function(c){
+    return '<div class="cl-item">🔒 <b>' + c.teacherName + '</b> <span class="cl-meta">· ' + fmtMD(c.date) + ' (' + fmtDOW(c.date) + ') ' + c.hour + '</span></div>';
+  }).join('');
+  return '<div class="cur-lesson"><div class="cl-tag">⏰ ' + __mobT('시작 30분 전이 지나 직접 연기·변경할 수 없는 수업', 'Too close to start (under 30 min) to change yourself') + '</div>' + rows
+    + '<div class="cl-item" style="font-size:12px">' + __mobT('이 수업은 카카오 상담으로 알려 주세요.', 'Please contact us on KakaoTalk for this class.') + '</div></div>';
+}
+function renderCurrentLesson(){ return __mobRenderCurrent() + __mobLateNote(); }
+function __mobRenderCurrent(){
   /* 🔧 (2026-09-30) 진짜 수업이 아니면 그 사실을 먼저 말한다 — 예시를 «현재 수업» 으로 보이지 않게. */
   if (__MOB_STATE === 'loading') return '<div class="cur-lesson"><div class="cl-tag">⏳ ' + __mobT('내 수업을 불러오는 중…', 'Loading your classes…') + '</div></div>';
+  if (__MOB_STATE === 'empty' && __MOB_LATE.length) return '';   // 수업은 있는데 전부 30분 안 — 아래 안내가 말한다
   if (__MOB_STATE === 'empty') return '<div class="cur-lesson"><div class="cl-tag">📌 ' + __mobT('현재 수업', 'Your classes') + '</div><div class="cl-item">' + __mobT('앞으로 예약된 수업이 없어요.', 'No upcoming classes.') + '</div></div>';
   if (__MOB_STATE === 'error') return '<div class="cur-lesson"><div class="cl-tag">⚠️ ' + __mobT('수업을 불러오지 못했어요', 'Could not load your classes') + '</div><div class="cl-item">' + __mobT('잠시 뒤 다시 열어 주세요.', 'Please try again shortly.') + '</div></div>';
   var tag = __MOB_STATE === 'demo'

@@ -2597,9 +2597,20 @@ export async function handleMangoApi(
           pendingDupId = dr && dr.id ? Number(dr.id) : null;
         }
       } catch { pendingDup = null; }
+      /* ⏰ (2026-11-02) 그 회차의 시작 시각 — 날짜 지정 수업은 수업표 날짜, 반복 수업은 화면이 보낸 회차 날짜. */
+      let classStartMs: number | null = null;
+      try {
+        const sd = cs && cs.scheduled_date ? String(cs.scheduled_date).replace(/\//g, '-').slice(0, 10) : bodyOrigDate;
+        const st = cs ? String(cs.start_time || '').slice(0, 5) : '';
+        if (sd && /^\d{4}-\d{2}-\d{2}$/.test(sd) && /^\d{2}:\d{2}$/.test(st)) {
+          const ms = Date.parse(`${sd}T${st}:00+09:00`);
+          classStartMs = isNaN(ms) ? null : ms;
+        }
+      } catch { classStartMs = null; }
       const gate = studentRequestGate({
         tokUid, schedule: cs, requestType: reqType, origDate: bodyOrigDate,
         newDate, newTime, todayKst, recentCount: recent, pendingDup,
+        classStartMs, nowMs,
       });
       if (!gate.ok) {
         /* ⏩ (2026-10-06) 이미 대기 중인 같은 요청이 «자동 승인 대상» 이면 지금 반영한다 —
