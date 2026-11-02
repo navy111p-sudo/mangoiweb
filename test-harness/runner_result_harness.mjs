@@ -29,6 +29,7 @@ for (const text of [
   'PASS 5 FAIL 0', 'PASS 5 / FAIL 0', '5 passed, 0 failed', '통과 5 · 실패 0',
   '총 5건 중 ✅ 5 통과 / ❌ 0 실패', '결과: PASS 5 / FAIL 0',
   'PASS: literal "PASS 5 / FAIL 1" was rejected', 'expected 1 FAIL was caught',
+  '✅ 실패 1회 안내', '✅ 실패 2회 안내', '✅ 실패 3회 안내', '✅ 실패 1건이 집계된다',
   'PASS 1 "1 FAIL" sample handled', 'FAILURE_COUNT=1 example', '1 실패방지 통과',
 ]) check('no false failure '+JSON.stringify(text),()=>assert.equal(classify(result(text)),'PASS'));
 check('stderr failure summary',()=>assert.equal(classify({status:0,stdout:'ok',stderr:'PASS 5 / FAIL 1'}),'FAIL'));

@@ -10,7 +10,7 @@ export function hasReportedFailures(output) {
       ? plain : plain.replace(/^[^"'`{}\[\]\n]*?:\s*/, ''))
       .replace(/^(?:\s*총\s*\d+건\s*중)/, '').replace(/^[^\p{L}\p{N}]*/u, '');
     if (!/^(?:(?:PASS|FAIL|passed|failed)\b|통과|실패|\d+\s*(?:건\s*)?(?:PASS\b|FAIL\b|passed\b|failed\b|통과|실패))/i.test(prefix)) continue;
-    const labeled = [...line.matchAll(/(?:^|[^\w가-힣])(PASS|FAIL|passed|failed|통과|실패)\s*(?:[:=]\s*)?(\d+)(?:건)?(?=$|[^\d])/gi)];
+    const labeled = [...line.matchAll(/(?:^|[^\w가-힣])(PASS|FAIL|passed|failed|통과|실패)\s*(?:[:=]\s*)?(\d+)(?:건)?(?=$|[\s/|,;:).·—–])/gi)];
     if (labeled.some(m => /^(?:FAIL|failed|실패)$/i.test(m[1]) && Number(m[2]) > 0)) return true;
     for (const m of line.matchAll(/(?:^|[^\d])(\d+)\s*(?:건\s*)?(FAIL\b|failed\b|실패(?![가-힣\w]))/gi)) {
       const numberAt = m.index + m[0].indexOf(m[1]);
