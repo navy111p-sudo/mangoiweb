@@ -3363,7 +3363,10 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
       .then(function(j){
         if (!j || !j.ok) throw new Error((j && j.error) || 'failed');
         close();
-        toast(T('Request sent. Your manager will review it.','요청을 보냈습니다. 매니저가 확인합니다.'));
+        /* ⏩ (2026-11-02) 내 수업이면 서버가 바로 반영한다(auto_applied) — 못 옮기면(겹침 등) 예전처럼 매니저 확인. */
+        toast(j.auto_applied
+          ? T('Done — your timetable is updated.','반영됐습니다 — 시간표가 바로 바뀌었어요.')
+          : T('Request sent. Your manager will review it.','요청을 보냈습니다. 매니저가 확인합니다.'));
       })
       .catch(function(){
         btn.disabled = false;

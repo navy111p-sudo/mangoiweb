@@ -324,9 +324,11 @@ ok('🔄 앞으로 계속은 series-move 에 apply:true 로 보낸다', /series-
 const mSendRole = taRun.match(/requester_role: *'([^']+)'/);
 ok('화면은 자기를 admin 으로 밝힌다', !!mSendRole && mSendRole[1] === 'admin', mSendRole && mSendRole[1]);
 
-/* 반쪽 성공 — 접수는 됐는데 승인이 실패하면 «어디서 마저 하는지» 를 말해야 한다. */
-ok('승인이 실패하면 «요청은 저장됐다 + 어디서 마저 하는지» 를 말한다',
-   /요청은 저장됐습니다/.test(taRun) && /수업 연기·변경 요청/.test(taRun));
+/* 반쪽 성공 — 접수는 됐는데 반영이 실패하면 «그대로다» 를 말하고 요청을 대기로 남기지 않는다.
+   🔁 (2026-11-02 사장님 「승인 자체가 필요 없어」) 옛 경계 «요청은 저장됐다 + 어디서 마저 승인» 을 옮겨 적었다 —
+   관리자가 누른 것은 승인 대기열에 쌓이면 안 된다(mvDropReq 가 reject 로 닫는다). */
+ok('반영이 실패하면 요청을 대기로 남기지 않고(mvDropReq) «수업은 그대로» 를 말한다',
+   /mvDropReq\(mk\.j\.id, nm\)/.test(taRun) && /수업은 그대로입니다/.test(taRun) && !/에서 승인해 주세요/.test(taRun));
 
 /* 💰 「연기」는 강사 수업료에 닿는다 — 확인창이 그 말을 하는가(사전 연기 지급률, 기본 0). */
 const mFee = taRun.match(/var feeWarn = ([\s\S]*?)\n      : '';/);

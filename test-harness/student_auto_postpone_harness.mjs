@@ -371,7 +371,9 @@ if (process.env.SMRS_CHILD === '1') {
   ok('⑩ 취소 등 다른 종류는 막음', autoPostponeEligible({ ...good, request_type:'cancel' }, csx) === 'not_postpone_or_change');
   ok('⑩ 강사 변경(새 일시 있음) 통과', autoPostponeEligible({ ...good, new_teacher_id:'2' }, csx) === null);
   ok('⑩ 강사 변경인데 새 일시 없음은 막음', autoPostponeEligible({ ...good, new_teacher_id:'2', new_date:null, new_time:null }, csx) === 'teacher_change_invalid');
-  ok('⑩ 강사(관리자) 요청은 막음', autoPostponeEligible({ ...good, requester_role:'teacher' }, csx) === 'not_student');
+  /* 👨‍🏫 (2026-11-02 사장님 「승인 자체가 필요 없어」) 강사 요청도 자동 반영 — 담당 확인은 부르는 쪽(api-admin.ts)이 한다. */
+  ok('⑩ 강사 요청도 통과(2026-11-02)', autoPostponeEligible({ ...good, requester_role:'teacher' }, csx) === null);
+  ok('⑩ 관리자(admin) 요청은 막음 — 관리자 창이 /decide 를 직접 부른다', autoPostponeEligible({ ...good, requester_role:'admin' }, csx) === 'not_student');
   ok('⑩ 스냅샷 없으면 막음', autoPostponeEligible({ ...good, schedule_snapshot:null }, csx) === 'schedule_changed');
   ok('⑩ 스냅샷 다르면 막음', autoPostponeEligible(good, { ...csx, start_time:'11:00' }) === 'schedule_changed');
   ok('⑩ 연기보강도 통과', autoPostponeEligible({ ...good, end_makeup:'연기보강' }, csx) === null);

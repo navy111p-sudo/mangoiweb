@@ -263,22 +263,22 @@ if (process.env.SMRS_CHILD === '1') {
 
   // ════ 2. 연기·변경 요청 + 승인 ════
   r = await callAdmin('POST', '/api/admin/schedule-requests', { cookie: 'tok_beta', body: { schedule_id: A, request_type: 'change', new_date: TODAY, new_time: '18:00', teacher_name: 'BETA', reason: 'h' } });
-  ok('2a 변경 요청 접수', r.status === 200 && r.body.ok, JSON.stringify(r));
+  /* 🔁 (2026-11-02 사장님 「승인 자체가 필요 없어」) 강사가 «자기 수업» 에 낸 요청은 접수 즉시 반영된다 —
+     옛 경계 «접수 → 관리자 승인 → moved» 를 «접수만으로 moved» 로 옮겨 적었다. */
+  ok('2a 강사 변경 요청 → 즉시 반영(auto_applied=moved)', r.status === 200 && r.body.ok && r.body.auto_applied === 'moved' && r.body.status === 'approved', JSON.stringify(r));
   const reqId = r.body.id;
   r = await callAdmin('POST', '/api/admin/schedule-requests/decide', { cookie: 'tok_admin', body: { id: reqId, action: 'approve' } });
-  ok('2a 승인 → applied=moved', r.status === 200 && r.body.applied === 'moved', JSON.stringify(r));
+  ok('2a 이미 반영된 요청은 다시 승인할 것이 없다(409 already_decided)', r.status === 409 && r.body.error === 'already_decided', JSON.stringify(r));
   await both('2a 변경 승인 후', A, 'stu_a', 'tok_beta', 'tok_alpha', { present: true, time: '18:00' });
 
   r = await callAdmin('POST', '/api/admin/schedule-requests', { cookie: 'tok_beta', body: { schedule_id: A, request_type: 'change', new_date: '2026-10-01', new_time: '09:00', teacher_name: 'BETA' } });
-  r = await callAdmin('POST', '/api/admin/schedule-requests/decide', { cookie: 'tok_admin', body: { id: r.body.id, action: 'approve' } });
-  ok('2b 다른 날로 변경 승인 → moved', r.body.applied === 'moved', JSON.stringify(r));
+  ok('2b 다른 날로 변경 → 즉시 moved', r.body.auto_applied === 'moved', JSON.stringify(r));
   await both('2b 모레로 변경 → 오늘 둘 다 없음', A, 'stu_a', 'tok_beta', null, { present: false });
   // 되돌림
   sq.prepare(`UPDATE class_schedules SET scheduled_date=?, start_time='18:00' WHERE id=?`).run(TODAY, A);
 
   r = await callAdmin('POST', '/api/admin/schedule-requests', { cookie: 'tok_alpha', body: { schedule_id: C, request_type: 'postpone', teacher_name: 'ALPHA' } });
-  r = await callAdmin('POST', '/api/admin/schedule-requests/decide', { cookie: 'tok_admin', body: { id: r.body.id, action: 'approve' } });
-  ok('2c 연기 승인 → applied=postponed', r.body.applied === 'postponed', JSON.stringify(r));
+  ok('2c 강사 연기 → 즉시 postponed', r.body.auto_applied === 'postponed', JSON.stringify(r));
   {
     const p = await portal('tok_alpha'); const s = await studentToday('stu_c');
     const tc = (p.classes || []).find((c) => Number(c.schedule_id) === C);
