@@ -102,6 +102,14 @@
   .menu-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
     margin:0 -5px;padding:0 5px}
   .menu-panel.open{opacity:1;transform:scale(1) translateY(0);pointer-events:auto}
+  /* ↔ 설정 패널 왼쪽 손잡이 — 끌면 패널이 넓어진다(폭은 JS 가 인라인 style.width 로 정함) */
+  .menu-resize{position:absolute;left:0;top:14px;bottom:14px;width:14px;z-index:1;
+    cursor:ew-resize;touch-action:none;display:flex;align-items:center;justify-content:center;
+    border-radius:18px 0 0 18px;outline:none}
+  .menu-resize::before{content:"";width:4px;height:44px;border-radius:4px;
+    background:rgba(56,189,248,.45);transition:background .15s}
+  .menu-resize:hover::before,.menu-resize:focus-visible::before,.menu-resize.drag::before{background:rgba(56,189,248,.95)}
+  .menu-resize:focus-visible{box-shadow:inset 2px 0 0 var(--accent)}
   .menu-caret{position:absolute;top:-7px;right:20px;width:14px;height:14px;
     background:#182a4e;border-left:1px solid rgba(56,189,248,.28);border-top:1px solid rgba(56,189,248,.28);
     transform:rotate(45deg)}
@@ -807,6 +815,9 @@
       <!-- ⚙️ 듣기 속도 + 대화 레벨을 이 드롭다운 안으로 정리 (평소엔 숨겨져 화면이 넓게) -->
       <div id="menuPanel" class="menu-panel" role="menu" aria-label="말하기 연습 설정">
         <div class="menu-caret"></div>
+        <div class="menu-resize" id="menuResize" role="separator" aria-orientation="vertical" tabindex="0"
+          aria-valuemin="280" aria-valuemax="640" aria-valuenow="300"
+          aria-label="패널 너비 조절" data-ko-aria="패널 너비 조절" data-en-aria="Resize panel width"></div>
         <div class="menu-head"><span data-ko="⚙️ 말하기 연습 설정" data-en="⚙️ Speaking practice settings">⚙️ 말하기 연습 설정</span>
           <button type="button" class="wu-langbtn wu-langbtn-sm" onclick="wuToggleUiLang()">🌐 English</button></div>
 
@@ -3446,6 +3457,72 @@ document.addEventListener('DOMContentLoaded', function(){
   if(p) p.addEventListener('click', function(ev){ ev.stopPropagation(); });
 });
 document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeMenu(); });
+
+/* ── ↔ 설정 패널 왼쪽 손잡이: 끌면 넓어진다 ───────────────────────
+   패널은 오른쪽에 붙어 있으므로 손잡이를 왼쪽으로 끌수록 넓어진다.
+   폭은 style.width 로만 바꾼다(기본값은 CSS 가 정한다). 저장은 localStorage 에
+   두고, 저장이 안 돼도(시크릿 모드 등) 드래그는 그대로 동작한다. */
+var MENU_W_MIN=280, MENU_W_MAX_CAP=640;
+function menuWMax(){ return Math.max(MENU_W_MIN, Math.min(MENU_W_MAX_CAP, window.innerWidth-24)); }
+function menuWClamp(w){ return Math.round(Math.min(menuWMax(), Math.max(MENU_W_MIN, w))); }
+function menuWApply(w){
+  var p=document.getElementById('menuPanel'), h=document.getElementById('menuResize');
+  var c=menuWClamp(w);
+  if(p) p.style.width=c+'px';
+  if(h) h.setAttribute('aria-valuenow', String(c));
+}
+function menuWSave(w){ try{ localStorage.setItem('warmup_menu_w', String(menuWClamp(w))); }catch(e){} }
+function menuWLoad(){
+  try{ var v=parseInt(localStorage.getItem('warmup_menu_w'), 10); return isNaN(v)?null:v; }
+  catch(e){ return null; }
+}
+function menuResizeInit(){
+  var p=document.getElementById('menuPanel'), h=document.getElementById('menuResize');
+  if(!p || !h) return;
+  var saved=menuWLoad();
+  if(saved!==null) menuWApply(saved);
+  var drag=null;
+  h.addEventListener('pointerdown', function(ev){
+    if(ev.button!==undefined && ev.button!==0) return;
+    drag={x:ev.clientX, w:p.getBoundingClientRect().width};
+    try{ h.setPointerCapture(ev.pointerId); }catch(e){}
+    h.classList.add('drag');
+    ev.preventDefault();
+  });
+  h.addEventListener('pointermove', function(ev){
+    if(!drag) return;
+    menuWApply(drag.w + (drag.x - ev.clientX));
+  });
+  function dragEnd(){
+    if(!drag) return;
+    drag=null;
+    h.classList.remove('drag');
+    menuWSave(p.getBoundingClientRect().width);
+  }
+  h.addEventListener('pointerup', dragEnd);
+  h.addEventListener('pointercancel', dragEnd);
+  /* 두 번 누르면 기본 폭으로 되돌린다 */
+  h.addEventListener('dblclick', function(){
+    p.style.width='';
+    try{ localStorage.removeItem('warmup_menu_w'); }catch(e){}
+    h.setAttribute('aria-valuenow', String(Math.round(p.getBoundingClientRect().width)));
+  });
+  /* 키보드: 왼쪽·오른쪽 화살표로 16px 씩 */
+  h.addEventListener('keydown', function(ev){
+    if(ev.key!=='ArrowLeft' && ev.key!=='ArrowRight') return;
+    ev.preventDefault();
+    var cur=p.getBoundingClientRect().width;
+    var next=menuWClamp(cur + (ev.key==='ArrowLeft' ? 16 : -16));
+    menuWApply(next);
+    menuWSave(next);
+  });
+  /* 창 크기가 바뀌면 최대 폭을 다시 맞춘다 */
+  window.addEventListener('resize', function(){
+    if(p.style.width) menuWApply(parseFloat(p.style.width));
+  });
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', menuResizeInit);
+else menuResizeInit();
 
 /* ══════════════════════════════════════════════════════════════════
    🎤 말하기(STT) — webkitSpeechRecognition 으로 영어 발화 인식 → 자동 전송
