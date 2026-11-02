@@ -7,6 +7,7 @@
 //   라우트: /api/parent/* + /api/admin/parent-chat/* + /api/student/{register,login,lookup,set-password}
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
+import { pointsByTool } from './today-points';   // 🪙 오늘 받은 포인트를 활동별로(2026-11-02)
 import { ensureStartsOnColumn, startsOnSel, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { json } from './api-util';
 import { authUidFromRequest as authUidGlobal, signUidToken, startSession, inspectSession } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)+토큰 발급+세션 사유 조회
@@ -637,8 +638,8 @@ ${MANGOI_KNOWLEDGE}`;
             WHERE user_id = ? AND room_id LIKE 'c24-%' AND date BETWEEN ? AND ? LIMIT 40`
         ).bind(exactUid, weekStartYmd, weekEndYmd).all<any>().catch(() => empty),
         env.DB.prepare(
-          `SELECT COALESCE(SUM(amount),0) s FROM point_transactions WHERE user_id = ? AND type = 'earn' AND created_at >= ?`
-        ).bind(exactUid, d0).first<any>().catch(() => null),
+          `SELECT rule_code, amount, meta FROM point_transactions WHERE user_id = ? AND type = 'earn' AND created_at >= ? LIMIT 2000`
+        ).bind(exactUid, d0).all<any>().catch(() => null),
         // AI 활동 연속일 — 60일치 KST 날짜 집합(도구 9종 합집합)
         ...([
           [`warmup_session_log`, `user_id`, `started_at`],
@@ -722,7 +723,10 @@ ${MANGOI_KNOWLEDGE}`;
         uid: exactUid,
         name: String(stu.student_name || stu.korean_name || '').trim(),
         today: k.ymd,
-        points_today: Number(ptRow?.s || 0),
+        /* 🪙 (2026-11-02) 오늘 받은 포인트 + 활동별 나눔(정본 today-points.ts). 조회 실패면 null = 화면이 «—»(0 으로 지어내지 않음). */
+        ...(() => { if (!ptRow) return { points_today: null, points_by_tool: null };
+          const pb = pointsByTool(((ptRow as any).results || []) as any[]);
+          return { points_today: pb.total, points_by_tool: pb.by_tool }; })(),
         ai_streak: aiStreak(dates, k.ymd),
         plan,
         // 🎌 오늘 휴강으로 뺀 수업이 있을 때만 — 홈 「수업 입장」 버튼 아래 한 줄(idx-cta-status.js)

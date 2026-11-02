@@ -744,6 +744,36 @@ function mgAcctName(){
   if (!nm) { try { var u = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (u && (u.name || u.user_name)) nm = u.name || u.user_name; } catch(e){} }
   return (nm && String(nm) !== String(mgAcctUid() || '')) ? nm : '';
 }
+/* 🪙 (2026-11-02) 세트 완주 «받은 포인트» 상자 — 축하 배지는 2초 뒤 사라지고 상태 줄은 다음 녹음이 덮어써서
+   «받았는지·왜 못 받았는지» 가 남지 않았다. 서버 응답만 읽는다(⛔ 금액이 없으면 지어내지 않는다 — 예전엔 20P 로 채웠음).
+   status: 'got' | 'cap' | 'login' | 'fail' */
+function speechPtsView(st, d, badgeLabel, en){
+  badgeLabel = String(badgeLabel || '').replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; });
+  if (st === 'login') return '🔑 ' + (en ? 'Log in to earn Mango points for finishing a set.' : '로그인하면 세트를 끝낼 때마다 망고 포인트가 쌓여요.');
+  var amt = Number(d && d.ok && d.rule && d.rule.amount);
+  if (st === 'got' && amt > 0) return '🏅 ' + badgeLabel + ' — ' + (en ? 'Mango points ' : '망고 포인트 ') + '<b>+' + amt + 'P</b>';
+  if (st === 'cap') {
+    var err = String(d && d.error || '');
+    var msg = err === 'daily_cap_reached'
+      ? (en ? 'Set-completion points: ' + (d.cap || 5) + ' times a day — all used today.' : '발음 세트 완주 포인트는 하루 ' + (d.cap || 5) + '번까지예요 — 오늘은 다 받았어요.')
+      : ((en ? d.message_en : d.message_ko) || (en ? "Today's point limit reached." : '오늘 받을 수 있는 포인트를 다 받았어요.'));
+    return '🌙 ' + badgeLabel + ' — ' + msg;
+  }
+  return '⚠️ ' + (en ? 'Could not check points this time.' : '이번엔 포인트를 확인하지 못했어요.');
+}
+function showSpeechPts(html, anchorId){
+  try {
+    var box = document.getElementById('sc-ptsbox');
+    if (!box) {
+      var a = document.getElementById(anchorId); if (!a || !a.parentNode) return;
+      box = document.createElement('div'); box.id = 'sc-ptsbox';
+      box.setAttribute('role', 'status');
+      box.style.cssText = 'margin:10px auto 0;max-width:520px;padding:10px 38px 10px 14px;border-radius:12px;background:rgba(251,191,36,.14);border:1px solid rgba(251,191,36,.55);font-weight:700;font-size:14px;line-height:1.5;position:relative;text-align:center';
+      a.parentNode.insertBefore(box, a.nextSibling);
+    }
+    box.innerHTML = html + '<button type="button" aria-label="닫기" onclick="this.parentNode.remove()" style="position:absolute;right:6px;top:6px;width:26px;height:26px;border:0;border-radius:8px;background:transparent;color:inherit;font-size:15px;cursor:pointer">✕</button>';
+  } catch(e){}
+}
 /* 세트 완주 보상 — 로컬 배지 저장 + 서버 포인트 적립(로그인 시) */
 function awardSpeechPoints(setId, badgeLabel){
   try {
@@ -752,13 +782,18 @@ function awardSpeechPoints(setId, badgeLabel){
   } catch(e){}
   try {
     var uid = mgAcctUid();
+    var __en = !!(window.getLang && getLang() === 'en');
+    if (!uid) showSpeechPts(speechPtsView('login', null, badgeLabel, __en), 'rec-status');
     if (uid) {
       fetch('/api/points/earn-by-rule', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: uid, token: (function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })(), rule_code: 'speech_master', meta: { set: setId, badge: badgeLabel } })
       }).then(function(r){ return r.json(); }).then(function(d){
-        if (d && d.ok) { var rs = document.getElementById('rec-status'); if (rs) rs.textContent = '🏅 ' + badgeLabel + ' · +' + (d.rule ? d.rule.amount : 20) + 'P 적립!'; }
-      }).catch(function(){});
+        var __amt = Number(d && d.ok && d.rule && d.rule.amount);
+        if (d && d.ok && __amt > 0) { var rs = document.getElementById('rec-status'); if (rs) rs.textContent = '🏅 ' + badgeLabel + ' · +' + __amt + 'P 적립!'; showSpeechPts(speechPtsView('got', d, badgeLabel, __en), 'rec-status'); }
+        else if (d && /cap/.test(String(d.error || ''))) showSpeechPts(speechPtsView('cap', d, badgeLabel, __en), 'rec-status');
+        else showSpeechPts(speechPtsView('fail', d, badgeLabel, __en), 'rec-status');
+      }).catch(function(){ showSpeechPts(speechPtsView('fail', null, badgeLabel, __en), 'rec-status'); });
     }
   } catch(e){}
 }

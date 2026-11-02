@@ -2588,7 +2588,8 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
   background:#fff; border:2px solid var(--gold); }
 .ef-picks select{ flex:1 1 auto; min-width:0; width:100%; min-height:42px; color-scheme:dark;
   background:#14213b; color:#f1f5f9; border:1px solid rgba(251,191,36,0.45); border-radius:12px;
-  padding:8px 10px; font-size:14px; font-weight:700; font-family:inherit; cursor:pointer; }
+  padding:8px 10px; font-size:14px; font-weight:700; font-family:inherit; cursor:pointer;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .ef-picks select:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
 .ef-picks option{ background:#14213b; color:#f1f5f9; }
 /* 그림 열기 + 빠른 버튼 — 한 줄. 열면 카드 줄(.ef-more[open])이 맨 아래 한 줄을 통째로 쓴다. */
