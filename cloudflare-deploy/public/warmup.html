@@ -3549,9 +3549,22 @@ var _micBase='', _micSess='', _micBySilence=false, _micStopWanted=false, _micRes
    (아이들은 "I ... 음 ... like ... 음 ... dogs" 처럼 중간에 오래 쉰다) */
 var MIC_DANGLING=/^(i|a|an|and|or|but|to|the|my|your|his|her|our|their|is|are|am|was|were|be|been|do|does|did|can|could|will|would|should|want|wants|like|likes|love|loves|have|has|had|in|on|at|of|for|with|about|that|this|these|those|it|he|she|they|we|you|because|so|very|really|going|gonna|there|when|what|where|who|how|why|im|its|dont|doesnt|lets|wanna)$/i;
 function micUnfinished(s){
-  var w=String(s||'').trim().split(/\s+/).filter(Boolean);
+  var raw=String(s||'').trim();
+  var w=raw.split(/\s+/).filter(Boolean);
   if(w.length<3) return true;
-  return MIC_DANGLING.test(w[w.length-1].replace(/[^a-z']/gi,''));
+  /* 🙋 (2026-11-02 사장님 「얼굴 크게(자동 말하기)에서 내가 질문하면 늦게 답한다」)
+     질문은 «you·it·this·like» 로 끝나는 게 정상인데 위 목록이 그것을 «덜 끝남» 으로 봐서 5초를 기다렸다.
+     질문 모양(의문사·조동사로 시작)일 때만 끝난 질문으로 본다. ⛔ «Why do you» 처럼 주어 자리 you 는 여전히 기다린다.
+     ⛔ 이 함수 밖의 변수를 쓰지 않는다 — warmup_reply_speed_harness 가 이 함수만 오려 내 돌린다. */
+  var bare=function(x){ return String(x||'').replace(/[^a-z']/gi,'').toLowerCase(); };
+  var first=bare(w[0]), prev=bare(w[w.length-2]), last=bare(w[w.length-1]);
+  if(/\?\s*$/.test(raw)) return false;   // 인식기가 물음표를 붙여 주면 끝난 질문
+  if(/^(what|why|how|where|who|when|which|do|does|did|can|could|will|would|should|is|are|was|were|have|has)$/.test(first)){
+    if(/^(it|this|that|these|those)$/.test(last)) return false;   // What is this · Do you like it
+    if(last==='you' && !/^(do|does|did|can|could|will|would|should|are|were|have|has|is|was|am|and|but|or|to|for|with|if|than|when)$/.test(prev)) return false;   // How about you
+    if(/^(what|which|who)$/.test(first) && /^(like|likes|love|loves|want|wants|have|has|do|does|did|eat|play|need|mean|means)$/.test(last)) return false;   // What do you like
+  }
+  return MIC_DANGLING.test(last);
 }
 function sttSupported(){ return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
 /* 🎤 C — 브라우저 인식이 빈손일 때 서버 Whisper 로 «한 번만» 다시 듣기 위한 표시. */
