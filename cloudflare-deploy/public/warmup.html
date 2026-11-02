@@ -4691,6 +4691,20 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
   .talk-switch .ts-lbl{ display:none; }
 }
 </style>
+<!-- 📱 휴대폰(세로, 터치) 말풍선 우선 배치 (2026-11-02 · 1안)
+     사장님 「휴대폰에서 선생님 얼굴을 올려야만 글이 보인다」 → 실측(390×844): 머리글 113px(한 줄 넘침)
+     · 얼굴 170px · 대화창 354px 중 말풍선이 하단 바에 가려짐.
+     조치: ① 머리글 한 줄(제목만 숨김 — 「모드 선택」 링크는 그대로) ② 얼굴 170→95px(--av-w) ③ 칩 줄 숨김.
+     기능·버튼은 그대로 두고 자리만 바꿉니다. 마우스 PC·가로 화면은 건드리지 않습니다.
+     ⚠️ 얼굴 크기는 warmup-flow.css 의 #wfStage 규칙(136px)을 이기려고 #wfStage 까지 적었습니다. -->
+<style id="phone-fit-2026-11-02">
+@media (hover:none) and (pointer:coarse) and (max-width:640px) and (min-height:600px){
+  body #wfStage>#tavatar-wrap{ --av-w:76px!important; }
+  body .meta{ display:none!important; }
+  body .top{ flex-wrap:nowrap!important; gap:6px!important; }
+  body .top h1{ display:none!important; }
+}
+</style>
 <script defer src="/js/mangoi-voice-input.js?v=6"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/voice-has-speech.js?v=1"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
 <script defer src="/js/ai-diff.js?v=2"></script>
