@@ -2003,6 +2003,11 @@ try{
   var _cm0 = String(localStorage.getItem(WU_CMODE_KEY) || '').trim();
   for(var _ci=0;_ci<CMODE_CATALOG.length;_ci++) if(CMODE_CATALOG[_ci].id===_cm0) _wuCorrMode = _cm0;
 }catch(e){}
+/* 입구 카드(ai-speaking)가 준 교정 방식 — 저장하지 않고 이번 화면에서만 씁니다. */
+try{
+  var _cmq = String(Q.get('cmode')||'').trim();
+  for(var _cj=0;_cj<CMODE_CATALOG.length;_cj++) if(CMODE_CATALOG[_cj].id===_cmq) _wuCorrMode = _cmq;
+}catch(e){}
 function setCorrMode(id){
   var ok=false; for(var i=0;i<CMODE_CATALOG.length;i++) if(CMODE_CATALOG[i].id===id) ok=true;
   if(!ok) return false;
