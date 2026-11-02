@@ -1743,6 +1743,21 @@
     }
     let _lastCorrected = '';
     const _norm = s => String(s || '').toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, ' ').trim();
+    // 🪙 따라 쓰기 +5P — 서버 답을 «받았다 / 한도 / 로그인 필요 / 확인 못 함» 한 줄로(지어내지 않음)
+    function rewritePtsView(d, guest){
+      if (guest) return { cls: 'guest', ko: '🪙 로그인하면 따라 쓰기로 +5P를 받아요', en: '🪙 Log in to earn +5P for copying' };
+      if (d && d.ok === true && d.rule && Number(d.rule.amount) > 0) {
+        const bal = d.newBalance != null ? Number(d.newBalance) : null;
+        return { cls: 'got', ko: '🪙 따라 쓰기 포인트 +' + Number(d.rule.amount) + 'P' + (bal != null ? ' (잔액 ' + bal + 'P)' : ''),
+                 en: '🪙 Copy points +' + Number(d.rule.amount) + 'P' + (bal != null ? ' (balance ' + bal + 'P)' : '') };
+      }
+      if (d && d.ok === false && d.error === 'daily_cap_reached')
+        return { cls: 'none', ko: '🪙 따라 쓰기 포인트는 하루 ' + (Number(d.cap) || 5) + '번까지 받아요. 내일 다시 받을 수 있어요!',
+                 en: '🪙 Copy points are given up to ' + (Number(d.cap) || 5) + ' times a day. Try again tomorrow!' };
+      if (d && d.ok === false && (d.error === 'daily_total_cap_reached' || d.error === 'game_daily_cap_reached') && d.message_ko)
+        return { cls: 'none', ko: '🪙 ' + d.message_ko, en: '🪙 ' + (d.message_en || d.message_ko) };
+      return { cls: 'unknown', ko: '🪙 따라 쓰기 포인트를 확인하지 못했어요. 포인트 내역에서 확인해 주세요.', en: "🪙 Couldn't confirm your copy points. Please check your point history." };
+    }
     window.checkRewrite = async function(){
       const inp = document.getElementById('rewriteInput');
       const out = document.getElementById('rewriteResult');
@@ -1753,18 +1768,22 @@
         inp.disabled = true;
         document.getElementById('rewriteCheckBtn').disabled = true;
         fireConfetti();
-        // 로그인 사용자 +5P (하루 5회)
+        // 로그인 사용자 +5P (하루 5회) — 결과를 «그 자리에» 글자로 남긴다(2026-11-02). 토스트는 몇 초 뒤 사라진다.
         const uid = getUid();
-        if (uid && !uid.startsWith('guest_') && getToken()) {
+        const isGuest = !(uid && !uid.startsWith('guest_') && getToken());
+        let rwRes = null;
+        if (!isGuest) {
           try {
             const r = await fetch('/api/points/earn-by-rule', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ user_id: uid, token: getToken(), rule_code: 'ai_writing_rewrite', meta: { via: 'ai-write' } })
             });
-            const d = await r.json();
-            if (d.ok && d.rule) showToast(`+${d.rule.amount}P 고쳐쓰기 완료!`);
-          } catch(e){}
+            rwRes = await r.json().catch(function(){ return null; });
+            if (rwRes && rwRes.ok === true && rwRes.rule) showToast(`+${rwRes.rule.amount}P 고쳐쓰기 완료!`);
+          } catch(e){ rwRes = null; }
         }
+        const pv = rewritePtsView(rwRes, isGuest);
+        out.insertAdjacentHTML('beforeend', `<div class="aw-points ${pv.cls}" id="awRewritePts"><span data-ko="${escapeHtml(pv.ko)}" data-en="${escapeHtml(pv.en)}">${escapeHtml(awTr(pv.ko, pv.en))}</span></div>`);
       } else {
         out.innerHTML = '<span class="rewrite-diff">🤏 조금 달라요! 초록 문장을 잘 보고 다시 써보세요.</span>';
       }
