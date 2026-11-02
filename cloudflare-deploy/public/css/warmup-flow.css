@@ -78,3 +78,23 @@ html.tb-on #tbTabs button{min-width:0;max-width:100%;}
 html.tb-on .wf-tools{position:static;}
 html.tb-on .wg-history-bar{display:none;}
 @media(prefers-reduced-motion:reduce){.wf-panel,.wf-stage{scroll-behavior:auto;}}
+
+/* ── 진한 남색 바탕을 반투명으로 (2026-11-02 사장님 «버튼 카드 말고 배경색은 반투명해서 장면이 보이게»)
+   대상: 상단 헤더·버튼 줄(.wf-tools)·하단 입력 영역(.wg-composer, .inbar).
+   버튼 카드(.wf-button, .wg-btn, .talk-switch 버튼)와 말풍선(.msg)은 그대로 둔다 — 글자 읽기 보호. */
+body .top{
+  background:linear-gradient(180deg,rgba(23,38,72,.45),rgba(18,31,63,.3));
+  backdrop-filter:blur(4px);
+}
+body .wf-tools{
+  background:rgba(17,37,63,.35);
+  backdrop-filter:blur(4px);
+}
+body .wg-composer{
+  background:rgba(18,33,62,.35);
+  border-color:rgba(59,85,123,.5);
+  backdrop-filter:blur(4px);
+}
+body .inbar{
+  background:rgba(20,33,59,.35)!important;
+}
