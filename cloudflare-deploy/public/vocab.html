@@ -170,6 +170,7 @@
   .flash-correct{background:linear-gradient(135deg,#10b981,#059669);color:#fff}
 
   .q-box{background:linear-gradient(135deg,#1a3266,#142950);border:1px solid rgba(79,124,255,0.3);border-radius:22px;padding:34px 24px;text-align:center;min-height:170px;display:flex;flex-direction:column;justify-content:center;box-shadow:0 12px 32px -10px rgba(0,0,0,0.4)}
+  .q-awk{align-self:center;display:inline-block;margin:0 auto 12px;padding:4px 12px;border-radius:99px;background:#fbbf24;color:#422006;font-size:13px;font-weight:800;line-height:1.4;max-width:100%}
   .q-word{font-size:clamp(36px,6vw,52px);font-weight:800;color:#fbbf24;word-break:break-all}
   .q-word .blank{color:#60a5fa;border-bottom:4px solid #60a5fa;padding:0 4px;margin:0 2px}
   .q-hint{margin-top:10px;font-size:16px;color:#a3b3d1}
@@ -1147,6 +1148,12 @@ function distractors(w, key, n){
   });
   return out;
 }
+// 🏷️ AI 영작에서 «어색한 표현» 을 원어민 표현으로 고친 카드 — 복습 퀴즈에서도 표시(2026-11-02, 단어장 목록과 같은 tag)
+function awkQuizTag(w){
+  if (!w || w.tag !== 'awkward') return '';
+  const en = (typeof window.getLang === 'function' && window.getLang() === 'en');
+  return `<div class="q-awk">✨ ${en ? 'Natural expression — fixed from awkward English in A.i Writing' : '원어민 표현 — A.i 영작에서 어색한 표현을 고친 카드'}</div>`;
+}
 function hudHtml(){
   const comboTag = S.combo >= 2 ? `<span class="combo-tag">🔥 ${S.combo} COMBO</span>` : '';
   return `<div class="hud">
@@ -1174,6 +1181,7 @@ function renderFlashQ(w){
   const el = document.getElementById('flash-content');
   el.innerHTML = hudHtml() + `
     <div class="flash" id="card">
+      ${awkQuizTag(w)}
       <div class="flash-front">${esc(w.word)}</div>
       <div class="flash-back">🇰🇷 ${esc(w.korean||(w.meaning_pending?'뜻을 확인하고 있어요. 잠시 후 다시 열어 주세요.':'-'))}</div>
       <div class="flash-example">💬 ${esc(w.example||'')}</div>
@@ -1208,6 +1216,7 @@ function renderChoiceQ(w){
   el.innerHTML = hudHtml() + `
     <div class="timer-bar"><i id="tbar"></i></div>
     <div class="q-box">
+      ${awkQuizTag(w)}
       <div class="q-word">${esc(w.word)}</div>
       <div class="q-hint">이 단어의 뜻은? ⏱️</div>
     </div>
@@ -1226,6 +1235,7 @@ function renderReverseQ(w){
   el.innerHTML = hudHtml() + `
     <div class="timer-bar"><i id="tbar"></i></div>
     <div class="q-box">
+      ${awkQuizTag(w)}
       <div class="q-word" style="font-size:clamp(28px,5vw,40px)">🇰🇷 ${esc(w.korean)}</div>
       <div class="q-hint">이 뜻의 영어 단어는? ⏱️</div>
     </div>
@@ -1251,6 +1261,7 @@ function renderSpellQ(w){
   el.innerHTML = hudHtml() + `
     <div class="timer-bar"><i id="tbar"></i></div>
     <div class="q-box">
+      ${awkQuizTag(w)}
       <div class="q-word">${shown}</div>
       <div class="q-hint">🇰🇷 ${esc(w.korean||'')} — 빈칸에 들어갈 글자는? ⏱️</div>
     </div>

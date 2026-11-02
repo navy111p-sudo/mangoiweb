@@ -60,14 +60,24 @@ const AI = read('src/api-ai.ts');
   ok('②-5 판단력 오답 기록은 여전히 오류만', /const jList = issues\.length/.test(AI));
 }
 
-console.log('[ ③ 목록 API 가 꼬리표를 싣는가 ]');
+console.log('[ ③ 목록·복습 API 가 꼬리표를 싣는가 — 헬퍼를 실제로 돌림 ]');
 const G = read('src/api-games.ts');
 {
-  const i = G.indexOf("path === '/api/vocab/list'");
-  const blk = G.slice(i, G.indexOf('\n    }\n', i));
-  ok('③-1 목록에서 꼬리표를 읽는다', /loadVocabTags\(env\.DB, uid\)/.test(blk));
-  ok('③-2 카드에 tag 를 붙인다', /w\.tag = t/.test(blk));
-  ok('③-3 응답 words 가 꼬리표 붙은 그 배열', /words, trial: gate\.trial/.test(blk));
+  const blockOf = (route) => { const i = G.indexOf(`path === '${route}'`); return i < 0 ? '' : G.slice(i, G.indexOf('\n    }\n', i)); };
+  const list = blockOf('/api/vocab/list'), due = blockOf('/api/vocab/due');
+  ok('③-1 목록 응답이 꼬리표 헬퍼를 지난다', /words = await attachVocabTags\(await readableVocab\(/.test(list) && /words, trial: gate\.trial/.test(list));
+  ok('③-2 복습 퀴즈 응답도 같은 헬퍼를 지난다', /words: await attachVocabTags\(await readableVocab\(/.test(due));
+  // 헬퍼 몸통을 오려 가짜 loadVocabTags 로 실제 실행 — 꼬리표 있는 카드에만 tag
+  const m = G.match(/const attachVocabTags = async \(words: any\[\], uid: string\) => \{([\s\S]*?)\n    \};/);
+  ok('③-3 헬퍼를 찾았다', !!m);
+  let out = [];
+  try {
+    const body = m[1].replace(/ as any\[\]/g, '');
+    const fn = new Function('loadVocabTags', 'env', 'return async (words, uid) => {' + body + '};')(
+      async (_db, uid) => new Map(uid === 'kim' ? [[1, 'awkward']] : []), { DB: {} });
+    out = await fn([{ id: 1, word: 'a' }, { id: 2, word: 'b' }], 'kim');
+  } catch (e) { console.log('   ', e.message); }
+  ok('③-4 꼬리표 카드에만 tag', out[0]?.tag === 'awkward' && out[1]?.tag === undefined);
 }
 
 console.log('[ ④ 화면이 따로 그리는가 — 짝 검사 ]');
@@ -90,6 +100,24 @@ const H = read('public/vocab.html');
   ok('④-4 영어 화면은 영어로', /Natural/.test(e) && !/원어민 표현/.test(e));
   ok('④-5 머리글에 개수 줄', /awkN \?/.test(body) && /w\.tag === 'awkward'/.test(body));
   ok('④-6 표시 CSS 가 있다', /\.dexc \.awk-badge\{/.test(H) && /\.dexc\.awk\{/.test(H));
+}
+
+console.log('[ ⑤ 복습 퀴즈 화면 — 네 문제 모양 모두, 짝 검사 ]');
+{
+  const fm = H.match(/function awkQuizTag\(w\)\{([\s\S]*?)\n\}/);
+  ok('⑤-1 표시 함수를 찾았다', !!fm);
+  let raw = null;
+  try { raw = new Function('window', 'w', fm[1]); } catch (e) { console.log('   ', e.message); }
+  const tag = (w, lang = 'ko') => { try { return raw ? raw({ getLang: () => lang }, w) : '<err>'; } catch (e) { return '<err:' + e.message + '>'; } };
+  ok('⑤-2 원어민 표현 카드에 표시', /q-awk/.test(tag({ tag: 'awkward' })) && /원어민 표현/.test(tag({ tag: 'awkward' })));
+  ok('⑤-3 일반 카드는 표시 없음(짝)', tag({ word: 'apple' }) === '' && tag(null) === '');
+  ok('⑤-3b 영어 화면은 영어로', /Natural expression/.test(tag({ tag: 'awkward' }, 'en')) && !/원어민/.test(tag({ tag: 'awkward' }, 'en')));
+  for (const fn of ['renderFlashQ', 'renderChoiceQ', 'renderReverseQ', 'renderSpellQ']) {
+    const i = H.indexOf('function ' + fn + '(w)');
+    const b = i < 0 ? '' : H.slice(i, H.indexOf('\nfunction ', i + 10));
+    ok(`⑤-4 ${fn} 가 표시를 그린다`, /\$\{awkQuizTag\(w\)\}/.test(b));
+  }
+  ok('⑤-5 표시 CSS', /\.q-awk\{/.test(H));
 }
 
 console.log(`\n${fail ? '⚠' : '🎉'} vocab_awkward_tag_harness — PASS ${pass} / FAIL ${fail}`);

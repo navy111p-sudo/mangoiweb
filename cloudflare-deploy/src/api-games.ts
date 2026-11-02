@@ -386,6 +386,12 @@ export async function handleGamesApi(
     };
 
     // Owner-gated legacy repair. Preserve original values and concurrent teacher edits.
+    // 🏷️ 카드에 꼬리표(tag) 붙이기 — 단어장 목록·복습 퀴즈가 같은 것을 씀(2026-11-02). 못 읽으면 표시만 빠짐.
+    const attachVocabTags = async (words: any[], uid: string) => {
+      const tags = await loadVocabTags(env.DB, uid);
+      if (tags.size) for (const w of words as any[]) { const t = tags.get(Number(w?.id)); if (t) w.tag = t; }
+      return words;
+    };
     const readableVocab = async (rows: any[], uid: string) => {
       const clean = await readableKoreanVocabulary(rows, env.AI);
       const changed = clean.map((row, i) => ({ row, before: rows[i].korean }))
@@ -591,10 +597,7 @@ export async function handleGamesApi(
       const gate = await gateVocabOwner(uid);
       if (!gate.allow) return json({ ok: false, error: gate.error, message: gate.message }, 401);
       const rs = await env.DB.prepare(`SELECT id, word, korean, example, level, next_review_at, correct_count, wrong_count, created_at FROM vocabulary WHERE user_id = ? ORDER BY created_at DESC LIMIT 500`).bind(uid).all();
-      const words = await readableVocab((rs.results || []) as any[], uid);
-      // 🏷️ AI 영작에서 온 «🟡 어색한 표현» 카드 표시(2026-11-02) — 꼬리표를 못 읽으면 표시만 빠짐
-      const tags = await loadVocabTags(env.DB, uid);
-      if (tags.size) for (const w of words as any[]) { const t = tags.get(Number(w?.id)); if (t) w.tag = t; }
+      const words = await attachVocabTags(await readableVocab((rs.results || []) as any[], uid), uid);
       return json({ ok: true, count: rs.results?.length || 0, words, trial: gate.trial });
     }
 
@@ -607,7 +610,8 @@ export async function handleGamesApi(
       if (!gate.allow) return json({ ok: false, error: gate.error, message: gate.message }, 401);
       const now = Date.now();
       const rs = await env.DB.prepare(`SELECT id, word, korean, example, level FROM vocabulary WHERE user_id = ? AND next_review_at <= ? ORDER BY next_review_at ASC LIMIT 20`).bind(uid, now).all();
-      return json({ ok: true, due_count: rs.results?.length || 0, words: await readableVocab((rs.results || []) as any[], uid), trial: gate.trial });
+      // 🏷️ 복습 퀴즈도 «원어민 표현» 카드를 표시(2026-11-02) — 목록과 같은 꼬리표
+      return json({ ok: true, due_count: rs.results?.length || 0, words: await attachVocabTags(await readableVocab((rs.results || []) as any[], uid), uid), trial: gate.trial });
     }
 
     // ── POST /api/vocab/review — 단어 복습 결과 (correct/wrong → 다음 복습 일정 자동 조정) ──
