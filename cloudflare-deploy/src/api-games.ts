@@ -1829,6 +1829,10 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const percent = total ? Math.round((score / total) * 100) : 0;
       // 🎁 게임 경제 연동 — 복습퀴즈도 포인트 적립 (정답 10P + 만점 50P + 첫 클리어 30P, 일일 상한 500P)
       let awarded = 0, balance: number | null = null, streak = 0, firstClear = false;
+      /* 🪙 (2026-11-02) 결과 화면이 «왜 이만큼(또는 0)» 인지 말하게 — 계산 그대로 실어 보낸다(지어내지 않음).
+         points_full = 한도 전 금액 · points_cap = 'quiz'(복습퀴즈 하루 500) | 'daily'(게임 30·전체 100) | null
+         points_dup = 같은 결과로 이미 받음 · points_unknown = 적립 단계가 실패해 모름 */
+      let pointsFull = 0, pointsCap: string | null = null, pointsDup = false, pointsUnknown = false;
       try {
         const dayStart = Math.floor((now + 32400000) / 86400000) * 86400000 - 32400000;
         const resultId = (insRes && insRes.meta && insRes.meta.last_row_id) ? insRes.meta.last_row_id : now;
@@ -1836,8 +1840,11 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         const prev: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM review_quiz_results WHERE quiz_id = ? AND user_id = ? AND id < ?`).bind(quizId, userId, resultId).first();
         firstClear = (Number(prev?.n) || 0) === 0 && score > 0;
         let amount = score * 10 + (percent === 100 ? 50 : 0) + (firstClear ? 30 : 0);
+        pointsFull = amount;
         const used: any = await env.DB.prepare(`SELECT COALESCE(SUM(amount),0) AS t FROM review_quiz_rewards WHERE user_id = ? AND created_at >= ?`).bind(userId, dayStart).first();
         amount = Math.max(0, Math.min(amount, 500 - (Number(used?.t) || 0)));
+        if (amount < pointsFull) pointsCap = 'quiz';
+        const beforeDaily = amount;
       /* 🧢 (2026-09-01 사장님 결정) 하루 총량 100점을 **이 경로도 지난다.**
          그전에는 이 표의 자기 상한(단어장 400 · 복습퀴즈 500)만 걸려서, 정책이 「하루 100점」
          이라고 적혀 있는데 실제로는 열 배가 나가고 있었다(실효 1,050점).
@@ -1845,6 +1852,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
             한 판을 다 풀고 0점을 받는 쪽이 더 나쁘다.
          ⚠️ 상한 조회가 실패하면 전액을 돌려주므로 «조회 실패로 점수를 잃는» 일은 없다. */
         amount = Math.min(amount, await dailyAllowance(env as any, userId, 'review_quiz_done'));
+        if (amount < beforeDaily) pointsCap = 'daily';
         if (amount > 0) {
           const ins2: any = await env.DB.prepare(`INSERT OR IGNORE INTO review_quiz_rewards (award_id, user_id, amount, created_at) VALUES (?,?,?,?)`)
             .bind(`rq:${quizId}:${userId}:${resultId}`, userId, amount, now).run();
@@ -1859,7 +1867,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
               meta: { quiz_id: quizId, score, percent, first_clear: firstClear },
             });
             awarded = amount;
-          }
+          } else pointsDup = true;
         }
         const bal: any = await env.DB.prepare(`SELECT balance FROM student_points WHERE user_id = ?`).bind(userId).first();
         balance = bal ? Number(bal.balance) : null;
@@ -1868,7 +1876,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         const ds = (((days.results as any[]) || [])).map((r: any) => Number(r.d));
         const today = Math.floor((now + 32400000) / 86400000);
         if (ds.length && (ds[0] === today || ds[0] === today - 1)) { streak = 1; for (let i = 1; i < ds.length && ds[i] === ds[i - 1] - 1; i++) streak++; }
-      } catch {}
+      } catch { if (!awarded) pointsUnknown = true; }
       // 🧠 [판단력 D3] 복습퀴즈 채점 = 판단 이벤트. detail(정/오답)을 그대로 기록(재-LLM 없음).
       //   guest 는 제외(파밍/노이즈 방지). refId=결과행 id 로 멱등.
       try {
@@ -1890,7 +1898,9 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         }
       } catch (e: any) { console.warn('[review-quiz] judgment capture skip:', e?.message); }
 
-      return json({ ok: true, score, total, percent, detail, awarded, balance, streak, first_clear: firstClear });
+      return json({ ok: true, score, total, percent, detail, awarded, balance, streak, first_clear: firstClear,
+        points_full: pointsFull, points_cap: pointsCap, points_dup: pointsDup, points_unknown: pointsUnknown,
+        points_guest: /^guest/i.test(userId) });
     }
 
     // ── POST /api/review-quiz/check — 학생: 문항 1개 즉석 채점 (실시간 피드백, 답안 미기록) ──
