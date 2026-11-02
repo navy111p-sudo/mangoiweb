@@ -4694,15 +4694,33 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 <!-- 📱 휴대폰(세로, 터치) 말풍선 우선 배치 (2026-11-02 · 1안)
      사장님 「휴대폰에서 선생님 얼굴을 올려야만 글이 보인다」 → 실측(390×844): 머리글 113px(한 줄 넘침)
      · 얼굴 170px · 대화창 354px 중 말풍선이 하단 바에 가려짐.
-     조치: ① 머리글 한 줄(제목만 숨김 — 「모드 선택」 링크는 그대로) ② 얼굴 170→95px(--av-w) ③ 칩 줄 숨김.
-     기능·버튼은 그대로 두고 자리만 바꿉니다. 마우스 PC·가로 화면은 건드리지 않습니다.
-     ⚠️ 얼굴 크기는 warmup-flow.css 의 #wfStage 규칙(136px)을 이기려고 #wfStage 까지 적었습니다. -->
+     조치: ① 머리글 한 줄(제목만 숨김 — 「모드 선택」 링크는 그대로) ② 얼굴 170→120px(--av-w 96px)
+     ③ 세션·서버 칩만 숨김(「자유 대화」 주제 칩은 그대로).
+     같은 날 추가: 좁은 화면(≤640px, 마우스 기기 포함)에서 아래 입력 묶음·버튼 줄을 줄여 얼굴과 말풍선 자리를 넓힘
+     (실측 540px · 자동 듣는 중: 입력 묶음 248→152px). 기능·버튼은 그대로 두고 크기만 줄입니다.
+     ⚠️ 얼굴 크기는 warmup-flow.css 의 #wfStage 규칙(136px)을 이기려고 #wfStage 까지 적었습니다.
+     ⚠️ 터치 기기의 아래 3칸 바(#tbBar, js/warmup-touch-bar.js)는 id 규칙이라 아래 축소 규칙보다 우선합니다. -->
 <style id="phone-fit-2026-11-02">
 @media (hover:none) and (pointer:coarse) and (max-width:640px) and (min-height:600px){
-  body #wfStage>#tavatar-wrap{ --av-w:76px!important; }
-  body .meta{ display:none!important; }
+  body #wfStage>#tavatar-wrap{ --av-w:96px!important; }
+  body .meta .chip.dim{ display:none!important; }
   body .top{ flex-wrap:nowrap!important; gap:6px!important; }
   body .top h1{ display:none!important; }
+}
+@media (max-width:640px){
+  .wg-composer{ padding:6px!important; }
+  .talk-switch{ margin:0 auto 4px!important; gap:5px!important; }
+  .talk-switch button{ min-height:30px!important; padding:3px 10px!important; font-size:12.5px!important; }
+  /* 듣는 동안에는 «준비되면…» 안내를 감춘다 — 같은 뜻을 #listening 이 이미 말한다 */
+  .wg-composer:has(#listening[style*="flex"]) #wgState{ display:none!important; }
+  body #listening{ padding:5px 10px!important; margin:0 2px 5px!important; font-size:12.5px!important; }
+  .wg-state{ font-size:12.5px!important; margin:0 4px 4px!important; min-height:0!important; }
+  body .inbar{ padding:2px!important; gap:6px!important; }
+  body .inbar input{ padding:9px 11px!important; font-size:15px!important; }
+  body .inbar button{ min-height:42px!important; padding:0 12px!important; font-size:14px!important; }
+  .wg-composer .hint{ font-size:12px!important; padding:2px 4px 0!important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  body .qs-row{ padding:4px 12px 6px!important; gap:6px!important; }
+  body .qs-row .qs-get, body .qs-row .wg-btn{ min-height:34px!important; padding:4px 12px!important; font-size:13px!important; }
 }
 </style>
 <script defer src="/js/mangoi-voice-input.js?v=6"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
