@@ -614,8 +614,13 @@
     .meta{font-size:12px;padding:8px 12px 2px;gap:6px}
     .meta .chip{padding:3px 9px}
     .meta .chip.topic{font-size:13px}
-    .menu-panel{width:284px;right:-2px;padding:14px;
-      max-height:calc(100vh - 68px);max-height:calc(100svh - 68px)}
+    /* 휴대폰: ⋮ 버튼은 헤더 가운데쯤에 있어 버튼 기준으로 붙이면 패널이 화면 왼쪽 밖으로 나간다.
+       그래서 기준을 헤더(.top, sticky 라 absolute 기준이 된다)로 옮기고 화면 오른쪽에 고정한다.
+       폭은 284px 로 시작해 손잡이를 왼쪽으로 끌면 넓어진다. 꼬리표는 버튼을 가리키지 않으므로 숨긴다. */
+    .menu-wrap{position:static}
+    .menu-panel{width:284px;right:8px;top:calc(100% + 8px);padding:14px;
+      max-height:calc(100vh - 76px);max-height:calc(100svh - 76px)}
+    .menu-caret{display:none}
     .wus-ctabar{margin:0 -12px -24px;padding:2px 12px 16px}
     .msg{font-size:16px;padding:10px 13px;max-width:88%}
     .msg.sys{font-size:13px}
