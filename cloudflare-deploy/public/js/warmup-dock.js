@@ -24,6 +24,10 @@
   var handle = null;      // 손잡이 버튼
   var manual = null;      // null = 자동, true = 접기 고정, false = 펼치기 고정
   var lastAuto = null;    // 직전 자동 판정(바뀔 때만 수동 선택을 푼다)
+  var manualAt = 0;       // 손잡이를 마지막으로 누른 시각
+  // 손잡이를 누른 직후 잠깐(1.5초)은 자동 판정이 바뀌어도 사용자 선택을 지우지 않는다.
+  // 첫 터치 때 앱이 인사말을 다시 읽어 말하기 상태가 잠깐 흔들리는데, 그 떨림에 방금 누른 선택이 뒤집히는 것을 막는다.
+  var GRACE_MS = 1500;
 
   function avatarSpeaking() {
     var w = document.getElementById('tavatar-wrap');
@@ -57,6 +61,7 @@
     h.setAttribute('aria-label', '아래 말하기 버튼 줄 열기·닫기 / Show or hide the talk buttons');
     h.addEventListener('click', function () {
       manual = !isCollapsed();   // 지금 접혀 있으면 펼치고, 펼쳐 있으면 접는다
+      manualAt = Date.now();
       sync();
     });
     d.setAttribute('data-dock', '');
@@ -68,7 +73,10 @@
   function sync() {
     if (!dock || !handle) return;
     var auto = !studentListening() && avatarSpeaking();   // 학생 말하기가 우선
-    if (auto !== lastAuto) { lastAuto = auto; manual = null; }
+    if (auto !== lastAuto) {
+      lastAuto = auto;
+      if (Date.now() - manualAt > GRACE_MS) manual = null;   // 방금 누른 선택은 잠깐 지키고, 그 뒤의 자동 전환부터 자동 규칙을 따른다
+    }
     var collapsed = (manual === null ? auto : manual) && mq.matches;
     dock.classList.toggle('dock-collapsed', collapsed);
     handle.setAttribute('aria-expanded', String(!collapsed));
