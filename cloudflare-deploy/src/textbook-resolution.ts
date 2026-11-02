@@ -22,27 +22,34 @@ export type ImgSize = { width: number; height: number; format: 'jpeg' | 'png' | 
 
 /** 이미지 머리 바이트에서 가로·세로를 읽는다. 모르면 null. (순수 함수 — 하니스가 직접 돌린다) */
 export function imageSizeFromHeader(b: Uint8Array): ImgSize | null {
-  if (!b || b.length < 24) return null;
+  if (!b || b.length < 2) return null;
+  const matches = (at: number, bytes: number[]) =>
+    at + bytes.length <= b.length && bytes.every((v, i) => b[at + i] === v);
+  const dimensions = (width: number, height: number, format: ImgSize['format']): ImgSize | null =>
+    width > 0 && height > 0 ? { width, height, format } : null;
   // PNG: 89 50 4E 47 … IHDR 의 너비·높이(빅엔디언 4바이트씩, 오프셋 16·20)
-  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) {
+  if (b.length >= 24 && matches(0, [0x89, 0x50, 0x4e, 0x47, 13, 10, 26, 10]) &&
+      matches(8, [0, 0, 0, 13, 73, 72, 68, 82])) {
     const w = (b[16] << 24 | b[17] << 16 | b[18] << 8 | b[19]) >>> 0;
     const h = (b[20] << 24 | b[21] << 16 | b[22] << 8 | b[23]) >>> 0;
-    return (w > 0 && h > 0) ? { width: w, height: h, format: 'png' } : null;
+    return dimensions(w, h, 'png');
   }
   // WebP: RIFF....WEBP + VP8 / VP8L / VP8X
-  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
-      b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50 && b.length >= 30) {
+  if (b.length >= 20 && matches(0, [82, 73, 70, 70]) && matches(8, [87, 69, 66, 80])) {
     const c = String.fromCharCode(b[12], b[13], b[14], b[15]);
     if (c === 'VP8 ') {
+      if (b.length < 30 || (b[20] & 1) !== 0 || !matches(23, [0x9d, 0x01, 0x2a])) return null;
       const w = (b[26] | b[27] << 8) & 0x3fff, h = (b[28] | b[29] << 8) & 0x3fff;
-      return (w > 0 && h > 0) ? { width: w, height: h, format: 'webp' } : null;
+      return dimensions(w, h, 'webp');
     }
     if (c === 'VP8L') {
+      if (b.length < 25 || b[20] !== 0x2f || (b[24] & 0xe0) !== 0) return null;
       const w = 1 + (((b[22] & 0x3f) << 8) | b[21]);
       const h = 1 + (((b[24] & 0x0f) << 10) | (b[23] << 2) | ((b[22] & 0xc0) >> 6));
       return { width: w, height: h, format: 'webp' };
     }
     if (c === 'VP8X') {
+      if (b.length < 30) return null;
       const w = 1 + (b[24] | b[25] << 8 | b[26] << 16), h = 1 + (b[27] | b[28] << 8 | b[29] << 16);
       return { width: w, height: h, format: 'webp' };
     }
@@ -51,16 +58,22 @@ export function imageSizeFromHeader(b: Uint8Array): ImgSize | null {
   // JPEG: FF D8 … SOFn(C0~CF, 단 C4·C8·CC 제외) 의 높이·너비
   if (b[0] === 0xff && b[1] === 0xd8) {
     let i = 2;
-    while (i + 9 < b.length) {
+    while (i + 1 < b.length) {
       if (b[i] !== 0xff) { i++; continue; }
       const m = b[i + 1];
       if (m === 0xff) { i++; continue; }                 // 채움 바이트
       if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { i += 2; continue; } // 길이 없는 표식
+      // SOF must precede compressed scan data and the end-of-image marker.
+      if (m === 0xda || m === 0xd9 || i + 4 > b.length) return null;
       const len = (b[i + 2] << 8) | b[i + 3];
       if (len < 2) return null;
       if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) {
+        // Precision + height + width + component count must fit the SOF segment.
+        if (len < 8 || i + 10 > b.length) return null;
+        const components = b[i + 9];
+        if (!components || len !== 8 + 3 * components) return null;
         const h = (b[i + 5] << 8) | b[i + 6], w = (b[i + 7] << 8) | b[i + 8];
-        return (w > 0 && h > 0) ? { width: w, height: h, format: 'jpeg' } : null;
+        return dimensions(w, h, 'jpeg');
       }
       i += 2 + len;
     }
