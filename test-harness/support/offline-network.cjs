@@ -40,3 +40,31 @@ globalThis.fetch = function (input, init) {
   }
   return originalFetch(input, init);
 };
+// Check ordinary HTTP(S) logical destinations before an environment proxy can
+// normalize the physical TCP destination to a loopback relay. This still cannot
+// infer arbitrary forwarding implemented by a trusted local fixture server.
+const localHost = host => ['localhost','127.0.0.1','::1','[::1]'].includes(host);
+function checkHttpOptions(options) {
+  if (!options || typeof options !== 'object') return;
+  for (const key of ['hostname','host']) {
+    if (options[key] !== undefined && !localHost(options[key])) throw new Error('OFFLINE_TEST: external HTTP destination blocked');
+  }
+  if (String(options.method || '').toUpperCase() === 'CONNECT') throw new Error('OFFLINE_TEST: HTTP tunnel blocked');
+  if (typeof options.path === 'string' && /^https?:\/\//i.test(options.path) && !localHost(new URL(options.path).hostname)) {
+    throw new Error('OFFLINE_TEST: external HTTP proxy target blocked');
+  }
+}
+for (const protocol of ['node:http','node:https']) {
+  const client = require(protocol);
+  for (const method of ['request','get']) {
+    const original = client[method];
+    client[method] = function (...args) {
+      const input = args[0];
+      if (typeof input === 'string' || input instanceof URL) {
+        if (!localHost(new URL(input).hostname)) throw new Error('OFFLINE_TEST: external HTTP URL blocked');
+        checkHttpOptions(args[1]);
+      } else checkHttpOptions(input);
+      return original.apply(this,args);
+    };
+  }
+}

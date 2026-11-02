@@ -5,6 +5,11 @@ const net = require('node:net');
 let connects = 0, fetches = 0, pass = 0;
 net.Socket.prototype.connect = function () { connects++; return this; };
 globalThis.fetch = async () => { fetches++; return 'stub'; };
+let httpCalls = 0;
+for (const protocol of ['node:http','node:https']) {
+  const client=require(protocol);
+  for (const method of ['request','get']) client[method]=function(){httpCalls++;return {end(){return this;},destroy(){}};};
+}
 require('./offline-network.cjs');
 function blocked(name, invoke) {
   const before = connects; assert.throws(invoke, /OFFLINE_TEST:/, name); assert.equal(connects, before, name); pass++;
@@ -35,6 +40,20 @@ for(const host of ['127.0.0.1','::1','localhost']) {
 allowed('default host',()=>net.createConnection(1));
 allowed('pipe path',()=>socket().connect('/tmp/mock-socket'));
 allowed('object pipe path',()=>net.createConnection({path:'/tmp/mock-socket'}));
+for (const protocol of ['node:http','node:https']) for (const method of ['request','get']) {
+  const call=require(protocol)[method];
+  const scheme=protocol==='node:http'?'http:':'https:';
+  for (const args of [
+    [scheme+'//example.invalid/path'], [new URL(scheme+'//example.invalid/path')],
+    [{hostname:'example.invalid',port:443}], [{host:'example.invalid'}],
+    [scheme+'//127.0.0.1/',{hostname:'example.invalid'}],
+    [{hostname:'127.0.0.1',path:'https://example.invalid/path'}],
+    [{hostname:'127.0.0.1',method:'CONNECT',path:'example.invalid:443'}],
+  ]) { const before=httpCalls;assert.throws(()=>call(...args),/OFFLINE_TEST/);assert.equal(httpCalls,before);pass++; }
+  for (const args of [[scheme+'//127.0.0.1/'],[new URL(scheme+'//localhost/')],[{hostname:'127.0.0.1',path:'/mock'}]]) {
+    const before=httpCalls;call(...args);assert.equal(httpCalls,before+1);pass++;
+  }
+}
 (async()=>{
   for(const input of ['https://203.0.113.1/test',new URL('https://example.invalid/test'),new Request('https://example.invalid/test')]) {
     const before=fetches;await assert.rejects(fetch(input),/OFFLINE_TEST/);assert.equal(fetches,before);pass++;
@@ -42,5 +61,5 @@ allowed('object pipe path',()=>net.createConnection({path:'/tmp/mock-socket'}));
   for(const input of ['http://127.0.0.1:1/',new URL('http://localhost:1/'),new Request('http://[::1]:1/')]) {
     const before=fetches;assert.equal(await fetch(input),'stub');assert.equal(fetches,before+1);pass++;
   }
-  console.log('PASS '+pass+' guarded overloads; original connect and fetch were stubs, no networking');
+  console.log('PASS '+pass+' guarded overloads; original connect, fetch, HTTP(S) request/get were stubs, no networking');
 })().catch(e=>{console.error(e);process.exitCode=1;});
