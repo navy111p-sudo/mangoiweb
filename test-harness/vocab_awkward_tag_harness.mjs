@@ -152,6 +152,27 @@ console.log('[ ⑦ 원어민 표현 카드만 복습 퀴즈 — 판정·배선 ]
   ok('⑦-8 단어장 «원어민 표현만» 화면에 퀴즈 단추', /onclick="startAwkwardReview\(\)"/.test(H) && /function startAwkwardReview\(\)\{ window\._autoAwkwardReview = true; switchTab\('flash'\); \}/.test(H));
 }
 
+console.log('[ ⑧ 결과 화면 «받은 포인트» — 서버가 실제로 준 점수 ]');
+{
+  const fm = H.match(/function earnedView\(rd, earn\)\{([\s\S]*?)\n\}\nfunction paintEarned/);
+  ok('⑧-1 earnedView 를 찾았다', !!fm);
+  let ev = () => ({});
+  try { const f = new Function('rd', 'earn', fm[1]); ev = (rd, earn) => { try { return f(rd, earn); } catch (e) { return { pt: '<err>', note: e.message }; } }; } catch (e) { console.log('   ', e.message); }
+  const full = ev({ ok: true, awarded: 50 }, 50);
+  ok('⑧-2 다 받았으면 그 점수 · 안내 없음', full.pt === '+50P' && full.note === '');
+  const part = ev({ ok: true, awarded: 30 }, 50);
+  ok('⑧-3 한도에 걸리면 «실제로 받은» 30P 와 이유', part.pt === '+30P' && /30P만/.test(part.note) && /50P/.test(part.note));
+  const zero = ev({ ok: true, awarded: 0, daily_cap: true }, 40);
+  ok('⑧-4 0점이면 +0P 와 «내일 다시»', zero.pt === '+0P' && /내일/.test(zero.note));
+  const fail = ev(null, 40), bad = ev({ ok: false, error: 'auth_required' }, 40);
+  ok('⑧-5 확인 못 하면 계산한 점수를 지어내지 않는다', fail.pt === '—' && bad.pt === '—' && !/40/.test(fail.pt));
+  ok('⑧-6 이미 받은 판은 그렇게 말한다', /이미 받았/.test(ev({ ok: true, awarded: 0, duplicate: true }, 40).note));
+  const es = H.slice(H.indexOf('async function endSession'), H.indexOf('async function loadRank'));
+  ok('⑧-7 결과 화면이 계산값을 «받은 포인트» 로 바로 그리지 않는다', !/id="earn-pt">\+\$\{earn\}P/.test(es) && /받은 포인트/.test(es));
+  ok('⑧-8 서버 응답으로 다시 그린다', /paintEarned\(rd, earn\)/.test(es) && /rd = rr\.ok \? await rr\.json\(\) : null/.test(es));
+  ok('⑧-9 미션 보너스도 실제 지급액', /보너스 \+' \+ Number\(md\.awarded\) \+ 'P/.test(es) && !/보너스 \+50P/.test(es));
+}
+
 console.log('[ ⑤ 복습 퀴즈 화면 — 네 문제 모양 모두, 짝 검사 ]');
 {
   const fm = H.match(/function awkQuizTag\(w\)\{([\s\S]*?)\n\}/);
