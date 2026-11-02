@@ -6603,7 +6603,7 @@ window.hqDelete = hqDelete;
 //      → 서버 페이징 50건 + 서버 검색. 검색은 '이 페이지 50행'이 아니라 921건 전체 대상.
 //   💳 pt = 결제유형 필터('' | 'B2B' | 'B2C' | 'NONE'). counts 는 서버가 준 유형별 건수.
 //   ↕ sort/dir = 머리글 정렬(2026-10-28). 서버가 «실제로 적용한» 값으로 덮는다(모르는 열쇠는 '').
-var _ctState = { q: '', offset: 0, limit: 50, total: 0, pt: '', fid: '', counts: null, sort: '', dir: '' };
+var _ctState = { q: '', qf: 'name', offset: 0, limit: 50, total: 0, pt: '', fid: '', counts: null, sort: '', dir: '' };
 /* 💰 수강료 상수 — 표 안 칸(_tuCell)과 수정 폼(ct-tuition)이 «같은 값» 을 써야 해서
    함수 밖으로 올렸다(2026-09-11). ⚠️ 18,000 은 서버 HQ_UNIT_KRW 와 짝이다
    (org-settlement.ts) — 한쪽만 고치면 화면이 통과시킨 값을 서버가 거절한다. */
@@ -6628,6 +6628,8 @@ function _ctSyncLoginFields() {
 async function loadCenters(opts) {
   opts = opts || {};
   if (opts.q !== undefined) { _ctState.q = String(opts.q || '').trim(); _ctState.offset = 0; }
+  // 🔎 (2026-11-02) 검색 대상 — 'name' = 대리점·학원명만(기본), 'all' = 원장·주소·지사까지
+  if (opts.qf !== undefined) { _ctState.qf = opts.qf === 'all' ? 'all' : 'name'; _ctState.offset = 0; }
   if (opts.pt !== undefined) { _ctState.pt = String(opts.pt || ''); _ctState.offset = 0; }
   if (opts.fid !== undefined) { _ctState.fid = String(opts.fid || ''); _ctState.offset = 0; }
   if (opts.sort !== undefined) { _ctState.sort = String(opts.sort || ''); _ctState.dir = String(opts.dir || ''); _ctState.offset = 0; }
@@ -6636,7 +6638,7 @@ async function loadCenters(opts) {
   if (!tb) return;
   _ensureFranchiseSelect();
   const qs = '?limit=' + _ctState.limit + '&offset=' + _ctState.offset
-           + (_ctState.q ? '&q=' + encodeURIComponent(_ctState.q) : '')
+           + (_ctState.q ? '&q=' + encodeURIComponent(_ctState.q) + '&qf=' + _ctState.qf : '')
            + (_ctState.pt ? '&payment_type=' + encodeURIComponent(_ctState.pt) : '')
            + (_ctState.fid ? '&franchise_id=' + encodeURIComponent(_ctState.fid) : '')
            + (_ctState.sort ? '&sort=' + encodeURIComponent(_ctState.sort) + '&dir=' + (_ctState.dir === 'desc' ? 'desc' : 'asc') : '');
@@ -6888,6 +6890,8 @@ function ctSearch(v) {
   clearTimeout(_ctSearchTimer);
   _ctSearchTimer = setTimeout(() => loadCenters({ q: v }), 250);
 }
+function ctSearchField(v) { clearTimeout(_ctSearchTimer); loadCenters({ qf: v, q: (document.getElementById('ct-q') || {}).value || '' }); }
+window.ctSearchField = ctSearchField;
 // ✏️ (2026-09-11) 수정 모드 — 0 이면 등록, >0 이면 그 id 를 고치는 중.
 //    🏯 본사 관리(hqEdit/saveHqOrg/_hqSetBtnLabel)와 같은 방식이라 그대로 본떴다.
 var _ctEditId = 0;
