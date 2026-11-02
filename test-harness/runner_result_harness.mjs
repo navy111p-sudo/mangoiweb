@@ -33,5 +33,22 @@ for (const text of [
   'PASS 1 "1 FAIL" sample handled', 'FAILURE_COUNT=1 example', '1 실패방지 통과',
 ]) check('no false failure '+JSON.stringify(text),()=>assert.equal(classify(result(text)),'PASS'));
 check('stderr failure summary',()=>assert.equal(classify({status:0,stdout:'ok',stderr:'PASS 5 / FAIL 1'}),'FAIL'));
+// Adjacent totals may use either direction, independently, without a slash.
+for (const [passed, failed] of [['PASS','FAIL'], ['passed','failed'], ['통과','실패']]) {
+  for (const prefix of ['', 'Summary: ', '결과: ']) for (const separator of [' ', ' / ', ' · ', ', ', ' | ', '; ']) {
+    for (const passFirst of [true,false]) for (const failFirst of [true,false]) for (const count of [0,1,12]) {
+      const left=passFirst ? passed+' 5' : '5 '+passed;
+      const right=failFirst ? failed+' '+count : count+' '+failed;
+      const text=prefix+left+separator+right;
+      check('bidirectional totals '+text,()=>assert.equal(classify(result(text)),count?'FAIL':'PASS'));
+    }
+  }
+}
+for (const text of ['PASS5 FAIL0','PASS5 FAIL1','PASS5 / 0 FAIL','5 PASS FAIL0','5 PASS FAIL1']) {
+  check('compact label totals '+text,()=>assert.equal(classify(result(text)),text.includes('1')?'FAIL':'PASS'));
+}
+for (const text of ['✅ 실패 1회 안내','✅ 실패 1건이 집계된다','PASS: example "5 PASS 1 FAIL" rejected','expected 5 PASS 1 FAIL was caught']) {
+  check('passing explanation remains passing '+text,()=>assert.equal(classify(result(text)),'PASS'));
+}
 console.log(`PASS ${pass} / FAIL ${fail}`);
 process.exitCode = fail ? 1 : 0;

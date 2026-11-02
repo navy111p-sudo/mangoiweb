@@ -9,14 +9,21 @@ export function hasReportedFailures(output) {
     const prefix = (/^(?:PASS|FAIL|passed|failed|통과|실패)\s*[:=]\s*\d/i.test(plain)
       ? plain : plain.replace(/^[^"'`{}\[\]\n]*?:\s*/, ''))
       .replace(/^(?:\s*총\s*\d+건\s*중)/, '').replace(/^[^\p{L}\p{N}]*/u, '');
-    if (!/^(?:(?:PASS|FAIL|passed|failed)\b|통과|실패|\d+\s*(?:건\s*)?(?:PASS\b|FAIL\b|passed\b|failed\b|통과|실패))/i.test(prefix)) continue;
+    if (!/^(?:(?:PASS|FAIL|passed|failed)(?=\s|\d|[:=]|$)|통과|실패|\d+\s*(?:건\s*)?(?:PASS\b|FAIL\b|passed\b|failed\b|통과|실패))/i.test(prefix)) continue;
     const labeled = [...line.matchAll(/(?:^|[^\w가-힣])(PASS|FAIL|passed|failed|통과|실패)\s*(?:[:=]\s*)?(\d+)(?:건)?(?=$|[\s/|,;:).·—–])/gi)];
-    if (labeled.some(m => /^(?:FAIL|failed|실패)$/i.test(m[1]) && Number(m[2]) > 0)) return true;
-    for (const m of line.matchAll(/(?:^|[^\d])(\d+)\s*(?:건\s*)?(FAIL\b|failed\b|실패(?![가-힣\w]))/gi)) {
-      const numberAt = m.index + m[0].indexOf(m[1]);
-      // "PASS 5 FAIL 0" must not turn the passing count 5 into "5 FAIL".
-      if (labeled.some(label => numberAt >= label.index && numberAt < label.index + label[0].length)) continue;
-      if (Number(m[1]) > 0) return true;
+    const counted = [...line.matchAll(/(?:^|[^\d])(\d+)\s*(?:건\s*)?(PASS\b|FAIL\b|passed\b|failed\b|통과(?![가-힣\w])|실패(?![가-힣\w]))/gi)];
+    // Consume non-overlapping result/count pairs from left to right. In "5 PASS 1 FAIL",
+    // "5 PASS" owns PASS, so the overlapping "PASS 1" cannot swallow the real failing 1.
+    // Conversely, "PASS 5" owns 5 in "PASS 5 FAIL 0", preventing a spurious "5 FAIL".
+    const totals = [
+      ...labeled.map(m => ({ start:m.index, end:m.index+m[0].length, label:m[1], count:Number(m[2]) })),
+      ...counted.map(m => ({ start:m.index, end:m.index+m[0].length, label:m[2], count:Number(m[1]) })),
+    ].sort((a,b) => a.start-b.start);
+    let end = -1;
+    for (const total of totals) {
+      if (total.start < end) continue;
+      end = total.end;
+      if (/^(?:FAIL|failed|실패)$/i.test(total.label) && total.count > 0) return true;
     }
   }
   return false;
