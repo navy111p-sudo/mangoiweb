@@ -9,6 +9,7 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { isReadableKo, looksGarbledKo } from './ko-readable';   // 🔤 깨진 한국어 거르기(2026-11-01)
+import { loadVocabTags } from './vocab-tags';   // 🏷️ 단어장 «어색한 표현» 꼬리표(2026-11-02)
 import { json } from './api-util';
 import { KOREAN_GLOSS_RULE, hasForeignGloss, normalizeKoreanGloss, isKoreanGloss, repairKoreanGlosses, readableKoreanVocabulary } from './korean-vocab';
 import { applyPointTransaction } from './api-points';   // 🧾 포인트는 원장(point_transactions)을 거친다
@@ -590,7 +591,11 @@ export async function handleGamesApi(
       const gate = await gateVocabOwner(uid);
       if (!gate.allow) return json({ ok: false, error: gate.error, message: gate.message }, 401);
       const rs = await env.DB.prepare(`SELECT id, word, korean, example, level, next_review_at, correct_count, wrong_count, created_at FROM vocabulary WHERE user_id = ? ORDER BY created_at DESC LIMIT 500`).bind(uid).all();
-      return json({ ok: true, count: rs.results?.length || 0, words: await readableVocab((rs.results || []) as any[], uid), trial: gate.trial });
+      const words = await readableVocab((rs.results || []) as any[], uid);
+      // 🏷️ AI 영작에서 온 «🟡 어색한 표현» 카드 표시(2026-11-02) — 꼬리표를 못 읽으면 표시만 빠짐
+      const tags = await loadVocabTags(env.DB, uid);
+      if (tags.size) for (const w of words as any[]) { const t = tags.get(Number(w?.id)); if (t) w.tag = t; }
+      return json({ ok: true, count: rs.results?.length || 0, words, trial: gate.trial });
     }
 
     // ── GET /api/vocab/due?uid=X — 오늘 복습할 단어 (게스트=하루10분·총3일 체험) ──

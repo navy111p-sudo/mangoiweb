@@ -212,6 +212,10 @@
   .dexc .k{font-size:14px;color:#cbd5e1;margin-top:4px;min-height:20px}
   .dexc .stars{margin-top:8px;font-size:13px;letter-spacing:2px}
   .dexc .rar{position:absolute;top:8px;left:10px;font-size:10.5px;font-weight:900;padding:2px 8px;border-radius:99px}
+  /* ✨ 어색한 표현 → 원어민 표현 카드 (2026-11-02) */
+  .dexc.awk{border-color:rgba(251,191,36,0.75);box-shadow:0 0 0 1px rgba(251,191,36,0.25) inset}
+  .dexc .awk-badge{position:absolute;top:8px;right:10px;font-size:10.5px;font-weight:900;padding:2px 8px;border-radius:99px;background:#fbbf24;color:#422006;white-space:nowrap}
+  .dex-head .awk-note{display:block;color:#fbbf24;margin-top:4px}
   .dexc .dx-tools{display:flex;gap:6px;justify-content:center;margin-top:10px}
   .dexc .dx-tools button{padding:6px 12px;border-radius:8px;border:0;cursor:pointer;font-size:13px;background:rgba(255,255,255,0.1);color:#e6ecff}
   .dexc .dx-tools .dl{background:rgba(239,68,68,0.15);color:#f87171;font-size:12px}
@@ -1504,15 +1508,21 @@ async function loadCollection(){
       el.innerHTML = '<div class="empty">아직 카드가 없어요.<br>+ 단어 추가 탭에서 첫 카드를 수집해 보세요!</div>'; return;
     }
     const mastered = d.words.filter(w => (w.level||0) >= 5).length;
+    // 🏷️ AI 영작에서 «어색한 표현» 을 원어민 표현으로 고친 카드(서버 tag='awkward') — 따로 표시(2026-11-02)
+    const _en = (typeof window.getLang === 'function' && window.getLang() === 'en');
+    const awkN = d.words.filter(w => w.tag === 'awkward').length;
     el.innerHTML = `<div class="dex-head">
         <span class="t">📖 내 단어 카드</span>
         <span class="c">${d.words.length}장 수집 · 🥇 마스터 ${mastered}장 — 복습에서 맞힐수록 카드가 진화해요!</span>
+        ${awkN ? `<span class="c awk-note">${_en ? `✨ ${awkN} natural expression${awkN>1?'s':''} — fixed from awkward English in A.i Writing` : `✨ 원어민 표현 ${awkN}장 — A.i 영작에서 어색한 표현을 고친 카드예요`}</span>` : ''}
       </div>
       <div class="dex">` + d.words.map(w => {
         const rr = rarity(w.level||0);
         const lv = Math.min(w.level||0, 7);
-        return `<div class="dexc ${rr.cls}">
+        const awk = w.tag === 'awkward';
+        return `<div class="dexc ${rr.cls}${awk ? ' awk' : ''}">
           <span class="rar">${rr.tag}</span>
+          ${awk ? `<span class="awk-badge" title="${_en ? 'Fixed from an awkward expression in A.i Writing' : 'A.i 영작에서 어색한 표현을 원어민 표현으로 고친 카드'}">✨ ${_en ? 'Natural' : '원어민 표현'}</span>` : ''}
           <div class="w">${esc(w.word)}</div>
           <div class="k">${esc(w.korean||(w.meaning_pending?'뜻 확인 중':'-'))}</div>
           <div class="stars">${rr.stars.repeat(Math.max(1, Math.ceil((lv+1)/2)))} <span style="color:#8b9bbd;font-size:11px">Lv${lv}</span></div>
