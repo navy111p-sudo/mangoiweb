@@ -5,7 +5,7 @@
 //   ① ◀(크게)·▶(작게) · 키보드(←→ Home End Enter) · 끌기 · 두 번 누르기(원래대로)
 //   ② 얼굴 보호 상한 — 끝까지 끌어도 오른쪽 칸 전체 가로÷세로가 1.25 를 안 넘는다 · 그때 ◀ 비활성
 //   ③ 짝: 수업이 흘러 대답 보기가 떴다 사라져도 칸 폭이 그대로(6초 동안 1px 도 안 움직임)
-//   ④ 창 크기를 바꿔도 고른 값 그대로 다시 잰다 · 폰(390)에서는 손잡이가 숨는다
+//   ④ 창 크기를 바꿔도 고른 값 그대로 다시 잰다 · 폰(세로 390·가로 740)에서도 손잡이가 보이고 눌린다(2026-11-02)
 //   ⑤ 화살표가 수업 단축키로 새지 않는다 · 페이지 오류 0
 // 실패하면 종료코드 1.
 import http from 'node:http';
@@ -74,9 +74,36 @@ try {
   await p.evaluate(() => window.__aiClassTeacherW.set(0.4, true));
   await p.setViewportSize({ width: 1920, height: 1000 }); await p.waitForTimeout(400); s = await st();
   ok('④ 큰 창 — 고른 값(40%) 그대로', Math.abs(s.want - 0.4) < 0.002 && s.side <= 1.26, JSON.stringify(s));
-  await p.setViewportSize({ width: 390, height: 844 }); await p.waitForTimeout(400);
-  const disp = await p.evaluate(() => getComputedStyle(document.getElementById('tSplit')).display);
-  ok('④ 폰(390)에서는 손잡이가 숨는다', disp === 'none', disp);
+  // 📱 2026-11-02 사장님 «폰에도 손잡이 보이게» — 옛 「폰(390)에서는 손잡이가 숨는다」를 새 경계로 옮겨 적음
+  await p.setViewportSize({ width: 390, height: 844 }); await p.waitForTimeout(500);
+  const ph = await p.evaluate(() => {
+    const sp = document.getElementById('tSplit'), big = document.getElementById('tBig'), t = document.getElementById('tTile');
+    big.scrollIntoView({ block: 'center' });
+    const r = big.getBoundingClientRect(), tr = t.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return { who: e && (e.id || e.className || e.tagName), disp: getComputedStyle(sp).display, bw: Math.round(r.width), top: e === big, txt: big.textContent, edge: Math.round(r.left + r.width / 2 - tr.right), inView: r.top >= 0 && r.bottom <= innerHeight };
+  });
+  ok('④ 폰 세로(390): 손잡이가 보인다', ph.disp !== 'none', JSON.stringify(ph));
+  ok('④ 폰 세로: 버튼이 28px · 맨 위라 눌린다', ph.bw >= 28 && ph.top, JSON.stringify(ph));
+  ok('④ 폰 세로: 선생님 칸 «오른쪽» 경계에 붙고 ▶ 가 크게', Math.abs(ph.edge) <= 6 && ph.txt === '▶', JSON.stringify(ph));
+  const w1 = await p.evaluate(() => document.getElementById('tTile').offsetWidth);
+  await p.click('#tBig'); await p.waitForTimeout(300);
+  const w2 = await p.evaluate(() => document.getElementById('tTile').offsetWidth);
+  ok('④ 폰 세로: ▶(크게)를 누르면 선생님 칸이 넓어진다', w2 > w1, w1 + ' → ' + w2);
+  await p.click('#tSmall'); await p.click('#tSmall'); await p.waitForTimeout(300);
+  const w3 = await p.evaluate(() => document.getElementById('tTile').offsetWidth);
+  ok('④ 폰 세로: ◀(작게)를 누르면 좁아진다', w3 < w2, w2 + ' → ' + w3);
+  await p.setViewportSize({ width: 740, height: 360 }); await p.waitForTimeout(500);
+  const pl = await p.evaluate(() => {
+    const big = document.getElementById('tBig'), t = document.getElementById('tTile'); big.scrollIntoView({ block: 'center' }); const r = big.getBoundingClientRect(), tr = t.getBoundingClientRect();
+    const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return { who: e && (e.id || e.className || e.tagName), disp: getComputedStyle(document.getElementById('tSplit')).display, top: e === big, txt: big.textContent, edge: Math.round(r.left + r.width / 2 - tr.left) };
+  });
+  ok('④ 폰 가로(740x360): 손잡이가 선생님 칸 «왼쪽» 경계 · ◀ 가 크게 · 눌린다', pl.disp !== 'none' && pl.top && pl.txt === '◀' && Math.abs(pl.edge) <= 6, JSON.stringify(pl));
+  const w4 = await p.evaluate(() => document.getElementById('tTile').offsetWidth);
+  await p.click('#tBig'); await p.waitForTimeout(300);
+  const w5 = await p.evaluate(() => document.getElementById('tTile').offsetWidth);
+  ok('④ 폰 가로: ◀(크게)를 누르면 넓어진다', w5 > w4, w4 + ' → ' + w5);
+  await p.evaluate(() => window.__aiClassTeacherW.set(0.4, true));
   await p.setViewportSize({ width: 1383, height: 786 }); await p.waitForTimeout(400); s = await st();
   ok('④ PC 로 돌아오면 고른 값 그대로', Math.abs(s.frac - 0.4) < 0.003, JSON.stringify(s));
   // ③ 출렁임 없음 — 수업이 흐르는 동안(대답 보기가 떴다 사라짐) 6초간 폭을 잰다

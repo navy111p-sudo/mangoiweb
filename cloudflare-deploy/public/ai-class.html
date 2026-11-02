@@ -360,6 +360,28 @@ select.pill{max-width:min(100%,280px)}
   .tsplit .tstip{position:absolute;left:50%;top:clamp(48px,22%,150px);transform:translate(-50%,-130%);white-space:nowrap;background:rgba(6,9,15,.92);color:#fff;border:1px solid var(--c-gold);border-radius:8px;padding:3px 8px;font-size:12px;pointer-events:none}
   body.tsdrag,body.tsdrag *{cursor:col-resize!important;user-select:none!important}
 }
+/* 📱 폰에도 손잡이(2026-11-02 사장님 «폰에도 손잡이 보이게»). 선생님 칸(grid-area:t) 경계에 붙인다.
+   폰 가로: 선생님이 오른쪽 → 왼쪽 경계 · 폰 세로: 선생님이 교재 아래 왼쪽 → 오른쪽 경계(방향이 반대라 JS 가 ◀·▶ 뜻을 바꾼다).
+   하한·남길 폭은 JS 의 PH_LIM 과 짝(가로 120/200 · 세로 90/140) */
+@media (max-width:760px){
+  .stage{position:relative}
+  .tsplit{display:block;position:absolute;grid-area:t;top:0;bottom:0;left:-11px;width:16px;z-index:6;touch-action:none}
+  .tsplit .tsbar{position:absolute;inset:0;outline:none}
+  .tsplit .tsbar:focus-visible{outline:2px solid var(--c-gold);outline-offset:-2px;border-radius:4px}
+  .tsplit .grip{position:absolute;left:50%;top:clamp(8px,18%,60px);transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:1px;background:var(--c-panel);border:1px solid var(--c-line);border-radius:999px;padding:2px;box-shadow:0 2px 8px rgba(0,0,0,.45)}
+  .tsplit.drag .grip{border-color:var(--c-gold)}
+  .tsplit .grip button{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:0;border-radius:50%;background:transparent;color:#e2e8f0;font:inherit;font-size:13px;line-height:1;padding:0;cursor:pointer}
+  .tsplit .grip button:disabled{opacity:.35;cursor:default}
+  .tsplit .grip .dots{color:var(--c-dim);font-size:11px;line-height:.6;letter-spacing:-1px;user-select:none}
+  .tsplit .tstip{position:absolute;left:50%;top:clamp(8px,18%,60px);transform:translate(-50%,-110%);white-space:nowrap;background:rgba(6,9,15,.92);color:#fff;border:1px solid var(--c-gold);border-radius:8px;padding:3px 8px;font-size:11px;pointer-events:none;z-index:7}
+  .stage.tw{grid-template-columns:minmax(0,1fr) clamp(120px,var(--tw),calc(100% - 200px))}
+  body.tsdrag,body.tsdrag *{user-select:none!important}
+}
+@media (max-width:760px) and (orientation:portrait){
+  .tsplit{left:auto;right:-11px}
+  .tsplit .tstip{left:0;transform:translate(0,-110%)}
+  .stage.tw{grid-template-columns:clamp(90px,var(--tw),calc(100% - 140px)) minmax(0,1fr)}
+}
 </style>
 </head>
 <body>
@@ -1384,7 +1406,8 @@ select.pill{max-width:min(100%,280px)}
   // 🖐 선생님 화면 크기(2026-10-19 사장님 «교사화면 크게 작게») — 교재·선생님 사이 경계를 끌거나 ◀(크게)·▶(작게).
   //    값 = 선생님 칸 폭 ÷ 교실 폭(0.20~0.60). null = 원래 레이아웃(31%). 비율로 기억하므로 창 크기가 바뀌어도 같은 비율이다.
   //    ⚠️ PC 확대(--z, CSS zoom) 중엔 화면 좌표(clientX·getBoundingClientRect)와 칸 좌표(offsetWidth)가 다르다 — 화면 좌표끼리만 나눈다.
-  //    ⛔ 폰(≤760)에서는 손잡이가 숨고(.tsplit display:none) 폭 규칙(.stage.tw)도 안 걸린다 — 저장값이 있어도 폰 배치는 그대로.
+  //    📱 폰(≤760)에도 손잡이가 있다(2026-11-02). 폭 범위는 PH_LIM(CSS 폰 .stage.tw clamp 와 짝). 폰 «세로» 는 선생님이 왼쪽이라
+  //       ◀·▶ 뜻·키보드 방향·끌기 계산이 반대다(flip). 저장값(비율)은 PC·폰이 함께 쓰고, 화면마다 그 범위로 잘라 건다.
   //    🔒 얼굴 보호(TW_SIDE_MAX): 선생님 그림은 칸을 «덮어» 채우므로, 칸이 높이에 비해 너무 넓어지면 얼굴이 확대돼 «눈만» 남는다
   //       (PC 큰 화면은 칸 높이가 화면에 묶여 폭만 는다 — 1383x786 에서 60% 로 넓히면 실측 그림 695x239 = 가로÷세로 2.9).
   //       그래서 오른쪽 «칸 전체»(선생님·자막·대답) 가로÷세로가 1.25 를 넘지 않는 데까지만 넓힌다
@@ -1395,10 +1418,13 @@ select.pill{max-width:min(100%,280px)}
   var TW = (function(){
     var stage = $('tSplit').parentNode, side = stage.querySelector('.side'), tile = $('tTile'), sp = $('tSplit'), bar = $('tSplitBar'), tip = $('tSplitTip');
     var MIN = 0.2, MAX = 0.6, STEP = 0.05, BOOK_MIN = 320, T_MIN = 220, KEY = 'aiClassTeacherW', HINT_KEY = 'aiClassTeacherHint';   // ⚠️ T_MIN·BOOK_MIN 은 CSS .stage.tw 의 clamp 와 짝
+    var PH_LIM = { land: [120, 200, 0.45], port: [90, 140, 0.55] };   // [선생님 최소 px, 남길 폭 px, 최대 비율] — CSS 폰 .stage.tw clamp 와 짝
     var frac = null, want = null, drag = null, tipTO = 0;
+    function mode(){ try { if (!window.matchMedia || !window.matchMedia('(max-width:760px)').matches) return 'pc'; return window.matchMedia('(orientation:portrait)').matches ? 'port' : 'land'; } catch (er) { return 'pc'; } }
+    function flip(){ return mode() === 'port'; }   // 폰 세로: 선생님이 왼쪽 → ▶ 가 «크게»
     function shown(){ return getComputedStyle(sp).display !== 'none'; }
-    function bounds(){ var w = stage.offsetWidth || 1; return [Math.max(MIN, T_MIN / w), Math.max(MIN, Math.min(MAX, (w - BOOK_MIN) / w))]; }
-    function now(){ return (stage.offsetWidth && side.offsetWidth / stage.offsetWidth) || 0.31; }   // 지금 실제로 그려진 비율
+    function bounds(){ var w = stage.offsetWidth || 1, m = mode(), L = m === 'pc' ? [T_MIN, BOOK_MIN, MAX] : PH_LIM[m]; return [Math.max(MIN, L[0] / w), Math.max(MIN, Math.min(L[2], (w - L[1]) / w))]; }
+    function now(){ var el = side.offsetWidth ? side : tile; return (stage.offsetWidth && el.offsetWidth / stage.offsetWidth) || 0.31; }   // 폰은 .side 가 display:contents 라 폭이 0 → 그림 칸으로 잰다   // 지금 실제로 그려진 비율
     function aspect(){ return tile.offsetHeight > 0 ? tile.offsetWidth / tile.offsetHeight : 0; }
     function sideAspect(){ return side.offsetHeight > 0 ? side.offsetWidth / side.offsetHeight : 0; }
     function capped(){ return frac != null && shown() && sideAspect() >= TW_SIDE_MAX - 0.01; }   // 얼굴 상한에 닿았나(기억해 두지 않고 매번 잰다 — 창 크기가 바뀌면 답도 바뀜)
@@ -1408,6 +1434,8 @@ select.pill{max-width:min(100%,280px)}
       var atTop = capped();
       bar.setAttribute('aria-valuetext', '선생님 화면 ' + pct + '%' + (frac == null ? ' (기본)' : atTop ? ' (최대)' : ''));
       $('tBig').disabled = atTop || now() >= bd[1] - 0.004; $('tSmall').disabled = now() <= bd[0] + 0.004;
+      var fl = flip(); $('tBig').textContent = fl ? '▶' : '◀'; $('tSmall').textContent = fl ? '◀' : '▶';
+      bar.setAttribute('aria-label', '선생님 화면 크기 — ' + (fl ? '→ 크게 · ← 작게' : '← 크게 · → 작게') + ' · Enter 원래대로 / Teacher view size');
       return pct;
     }
     function showTip(stay){
@@ -1447,7 +1475,7 @@ select.pill{max-width:min(100%,280px)}
       if (!drag || e.pointerId !== drag.id) return;
       var r = stage.getBoundingClientRect(), z = (stage.offsetWidth && r.width / stage.offsetWidth) || 1;
       var half = (parseFloat(getComputedStyle(stage).columnGap) || 8) / 2 * z;   // 경계 = 칸 사이 틈의 가운데
-      set((r.right - e.clientX - half) / r.width, false); showTip(true);
+      set((flip() ? e.clientX - r.left - half : r.right - e.clientX - half) / r.width, false); showTip(true);
     });
     function end(e){
       if (!drag || (e && e.pointerId != null && e.pointerId !== drag.id)) return;
@@ -1458,8 +1486,9 @@ select.pill{max-width:min(100%,280px)}
     sp.addEventListener('dblclick', function(e){ if (e.target.closest && e.target.closest('button')) return; set(null, true); showTip(); });
     bar.addEventListener('keydown', function(e){
       var k = e.key;
-      if (k === 'ArrowLeft' || k === 'ArrowUp') step(STEP);
-      else if (k === 'ArrowRight' || k === 'ArrowDown') step(-STEP);
+      var d = flip() ? -STEP : STEP;
+      if (k === 'ArrowLeft' || k === 'ArrowUp') step(d);
+      else if (k === 'ArrowRight' || k === 'ArrowDown') step(-d);
       else if (k === 'Home') { set(MAX, true); showTip(); }
       else if (k === 'End') { set(MIN, true); showTip(); }
       else if (k === 'Enter') { set(null, true); showTip(); }
@@ -1469,10 +1498,10 @@ select.pill{max-width:min(100%,280px)}
     $('tBig').addEventListener('click', function(){ step(STEP); });
     $('tSmall').addEventListener('click', function(){ step(-STEP); });
     (function(){ var v = parseFloat(lsGet(KEY)); if (v >= MIN && v <= MAX) set(v, false); else paint(); })();
-    // 처음 한 번만 「◀ 크게 · 작게 ▶」 안내를 5초 띄운다 — 손잡이가 어디 있는지 모르고 지나가는 일을 줄인다(PC 전용: 폰은 손잡이가 없다)
+    // 처음 한 번만 「◀ 크게 · 작게 ▶」 안내를 5초 띄운다 — 손잡이가 어디 있는지 모르고 지나가는 일을 줄인다(폰 세로는 방향이 반대)
     (function(){
       if (!shown() || lsGet(HINT_KEY)) return;
-      tip.textContent = '◀ 크게 · 작게 ▶ — 선생님 화면 크기 / Teacher view size'; tip.hidden = false;
+      tip.textContent = (flip() ? '◀ 작게 · 크게 ▶' : '◀ 크게 · 작게 ▶') + ' — 선생님 화면 크기 / Teacher view size'; tip.hidden = false;
       clearTimeout(tipTO); tipTO = setTimeout(function(){ tip.hidden = true; }, 5000);
       lsSet(HINT_KEY, '1');
     })();
