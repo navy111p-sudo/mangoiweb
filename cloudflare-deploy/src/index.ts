@@ -3263,7 +3263,7 @@ const warmupSystem = (friendName: string) => [
    함께 들어간다. 잘리면 교정이 통째로 사라지고(파서가 안전하게 버린다) 본문도 문장 중간에서
    끊긴다. ⚠️ 지연·비용은 «실제로 생성한 만큼» 만 늘어난다(상한은 «넘지 마라» 이지 «채워라» 가 아님).
    ⚠️ 「보통 답장이 몇 토큰인가」는 재지 않았다 — 재려면 배포 뒤 Workers 로그를 보아야 한다. */
-const WARMUP_MAX_TOKENS = 320;
+const WARMUP_MAX_TOKENS = 240;  // 2026-11-02 사장님 지시: 320 → 240 (지연 감소). 200 은 교정 카드가 잘려 불가.
 const WARMUP_HELP_TOKENS = 120; // Bounded help fields in the same response.
 const WARMUP_MAX_TURNS = 20;   // 저장할 최근 대화(사용자/AI) 최대 개수
 /* 🔴 2026-09-03 — 12(=6턴)에서 20(=10턴)으로 넓혔다. 벨잉글리시 원장님 제보
