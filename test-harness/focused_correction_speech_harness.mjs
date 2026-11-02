@@ -113,7 +113,7 @@ async function uiTurn(mode, stream, { sound = true, pron = false, replaced = fal
     currentSub: 'on', currentVoice: 'emma', _ttsLangSet: false, _pendingVoice: false, _lastRecBlob: null,
     _lastAiText: '', _repeatTarget: null, _stmGen: 0, _stmChain: Promise.resolve(), _stmSpoke: false, _stmRow: null,
     window: { FriendAutoTalk: auto }, FriendAutoTalk: auto, setTimeout: () => 0, isSoundOn: () => sound, isEn: () => false,
-    maybeAdjustRate() {}, getAuth: async () => ({ uid: 'test', token: 'fake' }), fixCardClear() {},
+    maybeAdjustRate() {}, friendPanelFold() {}, getAuth: async () => ({ uid: 'test', token: 'fake' }), fixCardClear() {},
     appendMsg: (who, text) => { if (who === 'ai') row._speakBody = text; }, appendTyping() {}, removeTyping() {},
     sndPop() {}, personNow: () => 'emma', applyGam() {}, showFixCard: () => events.push('fix-card'),
     appendNotice: () => events.push('notice'),
