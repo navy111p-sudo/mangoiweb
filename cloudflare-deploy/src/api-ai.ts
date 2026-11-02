@@ -20,6 +20,7 @@ import { processAiCommand, executeAction, processStudentCommand } from './ai-com
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
 import { checkAdminSession } from './auth-admin';
 import { triageIssues, isReadableKo, isEnglishReply } from './write-issue-triage';
+import { markVocabTag, VOCAB_TAG_AWKWARD } from './vocab-tags';   // 🏷️ 단어장 «어색한 표현» 꼬리표(2026-11-02)
 import { looksGarbledKo } from './ko-readable';   // 🔤 수업 중 질문의 한국어 뜻 거르기(2026-11-01)   // 🚦 고칠 곳 3단계 판정(오류·참고·인정) — «왜» 설명은 그 안에서 correction-reason 을 씀
 import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint, aiFriendStudentAsked,
          aiFriendTrimSentences, aiFriendNormalizeLevel,
@@ -319,15 +320,18 @@ Student text: """${text}"""`;
           const nowV = Date.now();
           // 🔴 오류 먼저, 그다음 🟡 어색한 표현(원어민 표현으로 고친 것)도 단어장에 — 2026-11-02 사장님 지시.
           //    ⚠️ 판단력 오답 기록(jList)은 그대로 «오류만» 입니다 — 🟡 는 틀린 것이 아니라서.
-          for (const iss of [...issues.slice(0, 6), ...suggestions.slice(0, 6)]) {
+          const vocabCands = [...issues.slice(0, 6).map((iss: any) => ({ iss, awkward: false })), ...suggestions.slice(0, 6).map((iss: any) => ({ iss, awkward: true }))];
+          for (const { iss, awkward } of vocabCands) {
             if (vocabSaved.length >= 3) break;
             const sug = String(iss?.suggested || '').trim();
             const reason = String(iss?.reason || '').trim().slice(0, 80);
             if (!sug || sug.length > 40 || !/[a-zA-Z]/.test(sug)) continue;
             const dup: any = await env.DB.prepare(`SELECT id FROM vocabulary WHERE user_id=? AND LOWER(word)=LOWER(?) LIMIT 1`).bind(uid, sug).first();
             if (dup) continue;
-            await env.DB.prepare(`INSERT INTO vocabulary (user_id, word, korean, example, level, next_review_at, created_at) VALUES (?,?,?,?,0,?,?)`)
+            const vIns: any = await env.DB.prepare(`INSERT INTO vocabulary (user_id, word, korean, example, level, next_review_at, created_at) VALUES (?,?,?,?,0,?,?)`)
               .bind(uid, sug, reason || '영작 첨삭에서 배운 표현', corrected.slice(0, 120), nowV, nowV).run();
+            // 🏷️ 🟡 어색한 표현이면 단어장 화면이 따로 표시하도록 꼬리표(던지지 않음 — 실패해도 카드는 저장됨)
+            if (awkward) await markVocabTag(env.DB, Number(vIns?.meta?.last_row_id), uid, VOCAB_TAG_AWKWARD);
             vocabSaved.push(sug);
           }
         } catch (e: any) { console.error('[write-correct] vocab save failed:', e?.message || e); }
