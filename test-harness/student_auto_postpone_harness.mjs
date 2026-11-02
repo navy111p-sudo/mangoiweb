@@ -255,13 +255,20 @@ if (process.env.SMRS_CHILD === '1') {
     let audit = -1; try { audit = sq.prepare("SELECT COUNT(*) n FROM class_audit_log WHERE schedule_id=? AND source='schedule-request-auto'").get(s1).n; } catch { audit = -1; }
     ok(trial+' ① 변경 이력에 남음', audit===1, 'n='+audit);
 
-    // ② 유료(30분 이내) → 2026-10-07 부터 즉시 반영 + 유료 표시는 요청에 남는다
+    // ② 시작 30분 안(10분 전) → 2026-11-02 사장님 「학생이 직접 하는건 수업시간 30분 전까지만」
+    //    학생이 직접은 못 한다: 409 too_late · 요청 0 · 수업표 그대로 (옛 2026-10-07 «유료도 즉시 반영» 을 대신함)
     reset(); setNow(TODAY, '09:50');
     const s2 = mkClass(uid,'one_off',null,TODAY,'10:00','1');
     r = await studentCall(uid,'POST','/api/class/schedule/request',{request_type:'postpone',schedule_id:s2,new_date:addDays(TODAY,1),new_time:'10:00'});
-    ok(trial+' ② 유료도 즉시 반영', r.status===200&&r.body.status==='approved'&&r.body.auto_applied==='moved'&&r.body.fee_type==='paid', JSON.stringify(r.body));
-    ok(trial+' ② 유료도 수업표가 옮겨짐', row(s2).scheduled_date===addDays(TODAY,1)&&row(s2).start_time==='10:00', JSON.stringify(row(s2)));
-    ok(trial+' ② 유료 표시는 요청에 그대로', reqRow(r.body.id)?.fee_type==='paid');
+    ok(trial+' ② 30분 안이면 409 too_late', r.status===409&&r.body.error==='too_late', JSON.stringify(r.body));
+    ok(trial+' ② 수업표는 그대로', row(s2).scheduled_date===TODAY&&row(s2).start_time==='10:00'&&row(s2).status==='active', JSON.stringify(row(s2)));
+    let n2 = -1; try { n2 = sq.prepare('SELECT COUNT(*) n FROM schedule_change_requests WHERE schedule_id=?').get(s2).n; } catch { n2 = -1; }
+    ok(trial+' ② 요청도 안 남는다', n2===0, 'n='+n2);
+    // ②-b 짝: 정확히 30분 전이면 받는다(«30분 전까지»)
+    reset(); setNow(TODAY, '09:30');
+    const s2b = mkClass(uid,'one_off',null,TODAY,'10:00','1');
+    r = await studentCall(uid,'POST','/api/class/schedule/request',{request_type:'postpone',schedule_id:s2b,new_date:addDays(TODAY,1),new_time:'10:00'});
+    ok(trial+' ②-b 정확히 30분 전은 즉시 반영', r.status===200&&r.body.status==='approved'&&r.body.auto_applied==='moved', JSON.stringify(r.body));
 
     // ③ 반복 수업 → 대기(recorded 경로라 자동으로 안 함)
     reset(); setNow(TODAY,'08:00');
