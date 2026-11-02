@@ -1247,7 +1247,9 @@ Judge ${learnerPoss.toLowerCase()} REASONING (not just the choice). Return STRIC
 
   await logPerf(env, 'judgment_answer', input.studentUid, Date.now() - t0, 0, 'ok', { optimal: isOptimal, difficulty, choice: choiceScore, band: askedBand, band_moved: bandOut.band_moved ?? 0 });
   return {
-    ok: true, correct: !!isOptimal, choice_score: choiceScore, reasoning_score: reasoningScore,
+    ok: true, correct: !!isOptimal, choice_score: choiceScore,
+    // 🪙 정답지를 서버 KV 에서 찾았는가 — 포인트(judgment-points.ts)는 이것이 참일 때만. 라우트가 응답에서 뗍니다.
+    _answer_key_trusted: trusted, reasoning_score: reasoningScore,
     register_awareness: registerAwareness, misconception, best_option: correct || null, difficulty,
     ...bandOut,
     // 📊 선택지 채점표 — 답을 낸 뒤이므로 공개해도 정답 노출 문제가 없고,

@@ -13,6 +13,7 @@ import type { MangoEnv } from './api-mango';
 import { isPrivateDubbingKey } from './api-dubbing';
 // 🪙 포인트 정책 정본(2026-08-07 사장님 승인 7가지) — 금액·상한·유효기간·교환최소는 여기 한 곳에서만 정한다
 import { POINT_POLICY, checkEarnAllowed, syncApprovedRuleAmounts, praiseCountForRoom } from './point-policy';
+import { awardJudgmentPoint } from './judgment-points';   // 🪙 판단력 훈련 정답 2P(2026-11-02)
 /* 🍯 맛보기 상한 판정 정본 — 라우트는 «부르기만» 한다(하니스가 그 함수를 실제로 돌린다) */
 import { SAMPLE_SCENARIO_CAP, sampleScenarioAllowed } from './judgment-sample-gate';
 import { runJudgmentAnalysis, exportJudgmentEnvelopes, markJudgmentMigrated, getGrowthReport, runGrowthSnapshot, generatePersonalizedScenario, evaluateJudgmentAnswer, sha256hex, getReadingBandFor } from './api-judgment';
@@ -908,7 +909,8 @@ Return STRICT JSON only, in BOTH Korean and English:
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
       /* 🔐 (2026-08-28) 남의 아이디로 오답을 밀어 넣어 그 학생의 판단력 지수를 떨어뜨리는 것을 막는다
          — 그 지수는 학부모에게 나가는 주간 문자에 실린다(api-students 위클리 다이제스트). */
-      if ((await resolveOwnerScope(request, url, env as any, uid, body)) === 'deny') {
+      const ansScope = await resolveOwnerScope(request, url, env as any, uid, body);
+      if (ansScope === 'deny') {
         return json({ ok: false, error: 'auth_required' }, 401);
       }
       if (!Array.isArray(body.options) || body.options.length < 2) return json({ ok: false, error: 'options_required' }, 400);
@@ -922,6 +924,13 @@ Return STRICT JSON only, in BOTH Korean and English:
           reasoning: String(body.reasoning || ''), lang: body.lang || 'en',
           optionScores: body.option_scores, difficulty: body.difficulty, sid: body.sid || null,
         });
+        /* 🪙 정답 1문제당 2P — 정본 judgment-points.ts(서버 정답지·문항당 한 번·본인만·하루 상한). 던지지 않음. */
+        const trustedKey = !!(r && r._answer_key_trusted);
+        if (r && typeof r === 'object') delete r._answer_key_trusted;
+        r.points = await awardJudgmentPoint(env, {
+          uid, scope: ansScope, sid: body.sid ? String(body.sid) : null, trusted: trustedKey,
+          correct: !!(r && r.correct), studentName: body.student_name || null,
+        }, { checkEarnAllowed, applyPointTransaction, ensurePointTables });
         return json(r);
       } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
     }
