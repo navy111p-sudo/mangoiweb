@@ -2003,6 +2003,11 @@ try{
   var _cm0 = String(localStorage.getItem(WU_CMODE_KEY) || '').trim();
   for(var _ci=0;_ci<CMODE_CATALOG.length;_ci++) if(CMODE_CATALOG[_ci].id===_cm0) _wuCorrMode = _cm0;
 }catch(e){}
+/* AI 말하기 첫 화면의 «자유대화» 카드(/warmup.html?cmode=free_talk)로 들어오면 교정 방식을 그 값으로 맞춘다. 목록에 없는 값은 무시. */
+try{
+  var _cmQ = String(new URLSearchParams(location.search).get('cmode')||'').trim();
+  for(var _cq=0;_cq<CMODE_CATALOG.length;_cq++) if(CMODE_CATALOG[_cq].id===_cmQ){ _wuCorrMode=_cmQ; try{ localStorage.setItem(WU_CMODE_KEY,_cmQ); }catch(e){} }
+}catch(e){}
 function setCorrMode(id){
   var ok=false; for(var i=0;i<CMODE_CATALOG.length;i++) if(CMODE_CATALOG[i].id===id) ok=true;
   if(!ok) return false;
