@@ -58,6 +58,7 @@ import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 �
 /* 🔗 1회용 연장 링크 — 학부모 폰에 학생 로그인이 없어도 «이 학생의 연장» 만 되게 하는 좁은 권한.
       ⛔ 로그인이 아니다. authUidGlobal 은 이 토큰을 모른다(개인정보 API 에 안 통한다). */
 import { resolveRenewToken, markRenewLinkUsed, type RenewTokenScope } from './renew-link';
+import { b2bPayBlockBody } from './b2b-student-pay-block';   // 🏫 B2B 대리점 학생 직접 결제 차단 — import 없는 파일이라 원칙의 예외 아님
 import { writeClassAudit } from './class-audit';
 import { loadTeacherNameOf } from './student-schedule-summary';   // 👩‍🏫 강사 이름 정본(원부 번호 → 계정 연결)
 import { findScheduleConflicts, activeRowsFor, findLongClassCapBlock } from './schedule-conflict';
@@ -1405,6 +1406,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
     if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+    { const _b2b = await b2bPayBlockBody(env, uid); if (_b2b) return json(_b2b, 403); }   // 🏫 B2B 대리점 학생 직접 결제 차단
     const p = enrollParse(body);
     if (p.error) return json({ ok: false, error: p.error }, 400);
     return await createEnrollOrder(env, uid, p, 'new');
@@ -1465,6 +1467,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
       if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
     }
 
+    { const _b2b = await b2bPayBlockBody(env, uid); if (_b2b) return json(_b2b, 403); }   // 🏫 B2B 대리점 학생 직접 결제 차단(문자 링크로 와도)
     const cur = await currentEnrollment(env, uid);
     // 🔁 (2026-08-24) 이미 끝난 수강도 60일 안이면 이어받는다(renewable) — 재등록이 가장 필요한 순간이다.
     if (!cur.renewable) return json({ ok: false, error: 'no_active_enrollment', message: '연장할 수업이 없습니다. 새로 신청해 주세요.' }, 400);
