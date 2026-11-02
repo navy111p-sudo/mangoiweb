@@ -38,7 +38,7 @@ function fnSrc(src, name) {
 }
 const stripComments = s => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 
-const NAMES = ['T', 'isEn', 'hhmm', 'mvReq', 'mvErrOf', 'mvMsgOf', 'mvMe',
+const NAMES = ['T', 'isEn', 'hhmm', 'mvReq', 'mvErrOf', 'mvMsgOf', 'mvMe', 'mvDayLabel',
   'bulkPlan', 'bulkWhy', 'bulkEarly', 'bulkChecked', 'bulkMark', 'bulkOne', 'bulkRun'];
 const parts = NAMES.map(n => fnSrc(MOD, n));
 ok('필요한 함수를 전부 오려 냈다 (전제)', parts.every(Boolean), NAMES.filter((n, i) => !parts[i]).join(','));
@@ -106,8 +106,8 @@ function fakeFetch(plan) {
 }
 let idSeq = 100;
 const okPlan = (url, body) => url.endsWith('/decide')
-  ? { st: 200, j: { ok: true, applied: 'postponed' } }
-  : { st: 200, j: { ok: true, id: ++idSeq } };
+  ? { st: 200, j: { ok: true, applied: 'moved' } }
+  : { st: 200, j: { ok: true, id: ++idSeq, new_date: '2026-12-02', new_time: '18:00', end_makeup: '연기보강 (11월 2일 연기)' } };
 {
   const f = fakeFetch(okPlan);
   const m = make({ fetch: f, $: () => null, window: {} });
@@ -116,8 +116,11 @@ const okPlan = (url, body) => url.endsWith('/decide')
     ok('성공이면 ok', res.ok === true, JSON.stringify(res));
     ok('요청은 정확히 두 번', f.log.length === 2, f.log.length);
     ok('첫 요청은 schedule-requests', f.log[0] && f.log[0].url === '/api/admin/schedule-requests' && f.log[0].method === 'POST');
-    ok('⛔ request_type 은 postpone (cancel 이 아니다 — 급여)', f.log[0] && f.log[0].body.request_type === 'postpone');
-    ok('날짜·시각을 싣지 않는다 (날짜 미정 연기)', f.log[0] && !('new_date' in f.log[0].body) && !('new_time' in f.log[0].body));
+    /* ⏩ (2026-11-02 사장님) 일괄도 «한 회 뒤로 밀기(끝에 보강)» — 날짜는 서버가 계산한다. */
+    ok('⏩ «한 회 뒤로 밀기» 로 보낸다 (end_makeup:true)', f.log[0] && f.log[0].body.end_makeup === true);
+    ok('⛔ cancel·날짜 미정 postpone 이 아니다', f.log[0] && f.log[0].body.request_type !== 'cancel' && f.log[0].body.request_type !== 'postpone');
+    ok('날짜·시각을 화면이 정하지 않는다 (서버 계산)', f.log[0] && !('new_date' in f.log[0].body) && !('new_time' in f.log[0].body));
+    ok('결과에 옮긴 날짜를 말한다', /12/.test(res.text) && /18:00/.test(res.text), res.text);
     ok('수업 번호·사유·학생이 실린다', f.log[0] && f.log[0].body.schedule_id === 55 && f.log[0].body.reason === '학원 휴원' && f.log[0].body.student_uid === 'kim1');
     ok('둘째는 decide approve — 첫 응답의 id 로', f.log[1] && f.log[1].url.endsWith('/decide') && f.log[1].body.action === 'approve' && f.log[1].body.id === idSeq);
     ok('처리한 사람 이름이 남는다', f.log[1] && f.log[1].body.decided_by === '관리자A');
@@ -139,7 +142,7 @@ const okPlan = (url, body) => url.endsWith('/decide')
   const m = make({ fetch: f, $: () => null, window: {} });
   if (m) {
     const res = await m.bulkOne({ schedule_id: 9 }, 'x', '');
-    ok('서버가 «연기» 로 적지 않았으면 성공으로 세지 않는다', res.ok === false, JSON.stringify(res));
+    ok('서버가 «옮김» 으로 적지 않았으면 성공으로 세지 않는다', res.ok === false, JSON.stringify(res));
   }
 }
 {
@@ -190,7 +193,7 @@ function fakeDom(sids) {
     ok('사유는 모든 줄에 같이 (앞뒤 공백 없이)', f.log.filter(l => !l.url.endsWith('/decide')).every(l => l.body.reason === '휴원'));
     ok('성공한 줄은 체크가 풀리고 잠긴다 (다시 안 보냄)', dom.cbs[0].disabled === true && dom.cbs[2].disabled === true);
     ok('실패한 줄은 다시 누를 수 있게 남는다 (짝)', dom.cbs[1].disabled === false && dom.cbs[1].checked === true);
-    ok('줄마다 결과가 적힌다', /연기/.test(dom.res['11'].textContent) && dom.res['12'].textContent !== '', JSON.stringify(dom.res['12']));
+    ok('줄마다 결과가 적힌다', /→/.test(dom.res['11'].textContent) && dom.res['12'].textContent !== '', JSON.stringify(dom.res['12']));
     ok('합계를 말한다 (성공 2 · 실패 1)', /2건/.test(dom.els['tc-bk-msg'].textContent) && /1건/.test(dom.els['tc-bk-msg'].textContent), dom.els['tc-bk-msg'].textContent);
     ok('실행 버튼이 다시 풀린다', dom.els['tc-bk-go'].disabled === false);
   }
@@ -222,7 +225,7 @@ function fakeDom(sids) {
   const m = make({ fetch: fakeFetch(okPlan), $: dom.$, window: { confirm: q => { asked = q; return false; } } });
   if (m) {
     m.bulkRun([{ schedule_id: 41, start_ts: now + 3 * 3600000 }, { schedule_id: 42, start_ts: now + 10 * 60000 }], '2026-09-23');
-    ok('사전 연기(급여) 경고가 «몇 건» 인지 말한다', /1건은 시작 30분보다/.test(asked), asked);
+    ok('한 회 뒤로 미는 것이라 «사전 연기» 급여 경고를 안 한다', !/사전 연기/.test(asked) && /뒤로/.test(asked), asked);
   }
 }
 

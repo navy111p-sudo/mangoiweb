@@ -1988,18 +1988,36 @@
         btn.disabled = false; btn.innerHTML = '✨ AI 첨삭 받기';
       }
     }
-    /* 🟡 «참고» 상자 — 결과 화면·지난 기록 두 곳이 같은 함수를 씁니다(한쪽만 다르게 그리지 않게).
-       ⛔ 취소선·빨간색 금지: 학생 표현은 «틀리지 않았다» 가 이 상자의 전제입니다. */
+    /* 🟡 «어색한 표현 → 원어민 표현» 상자 — 결과 화면·지난 기록 두 곳이 같은 함수를 씁니다(한쪽만 다르게 그리지 않게).
+       ✏️ 2026-11-02 사장님 결정: «참고» 가 아니라 «고쳐 주기» — 문법은 맞아도 원어민이 안 쓰는 표현은 다시 배워야 합니다.
+          대표 표현 1개(먼저 익힐 것) + 같은 뜻의 다른 표현이 있으면 최대 3개(«이렇게도 말해요») + 오늘 꼭 기억할 표현.
+       ⛔ 취소선·빨간색은 여전히 쓰지 않습니다 — 문법 «오류» 가 아니라서, 오류 개수에도 안 셉니다. */
     function awSuggestHtml(list) {
       const arr = Array.isArray(list) ? list.filter(s => s && s.original && s.suggested) : [];
       if (!arr.length) return '';
+      const altHtml = (s) => {
+        const alts = Array.isArray(s.alternatives) ? s.alternatives.filter(a => a && a.text).slice(0, 3) : [];
+        if (!alts.length) return '';
+        return '<div style="font-size:12px;color:var(--text2);margin-top:5px">'
+          + '<span data-ko="💬 이렇게도 말해요" data-en="💬 You can also say">' + escapeHtml(awTr('💬 이렇게도 말해요', '💬 You can also say')) + '</span>'
+          + alts.map(a => '<div style="margin:2px 0 0 14px">· <span style="color:#fde68a">' + escapeHtml(a.text) + '</span>'
+            + (a.when ? ' <span style="color:var(--text2)">(' + escapeHtml(a.when) + ')</span>' : '') + '</div>').join('')
+          + '</div>';
+      };
+      const keep = arr.slice(0, 3).map(s => '<div style="margin:2px 0">· <b style="color:#fde68a">' + escapeHtml(s.suggested) + '</b></div>').join('');
       return '<div style="font-size:11.5px;color:var(--text2);font-weight:700;margin:4px 0 6px">'
-        + '<span data-ko="🟡 참고 · 지금 표현도 맞아요" data-en="🟡 For reference · Yours is fine too">' + escapeHtml(awTr('🟡 참고 · 지금 표현도 맞아요', '🟡 For reference · Yours is fine too')) + '</span></div>'
-        + '<div style="margin-bottom:15px">' + arr.map(s =>
+        + '<span data-ko="🟡 어색한 표현 · 원어민 표현으로 고쳤어요" data-en="🟡 Awkward · Fixed to natural English">' + escapeHtml(awTr('🟡 어색한 표현 · 원어민 표현으로 고쳤어요', '🟡 Awkward · Fixed to natural English')) + '</span>'
+        + ' (' + arr.length + ')</div>'
+        + '<div style="margin-bottom:10px">' + arr.map(s =>
           `<div style="padding:10px 12px;background:rgba(251,191,36,0.10);border-left:3px solid #fbbf24;border-radius:6px;margin-bottom:6px">
-            <div style="font-size:13px"><span style="color:var(--text)">${escapeHtml(s.original)}</span> <span style="color:var(--text2)">·</span> <span style="color:#fde68a">${escapeHtml(s.suggested)}</span></div>
-            <div style="font-size:11.5px;color:var(--text2);margin-top:3px">💬 ${escapeHtml(s.reason || '')}</div>
-          </div>`).join('') + '</div>';
+            <div style="font-size:13px"><span style="color:var(--text2)">${escapeHtml(s.original)}</span> <span style="color:var(--text2)">→</span> <b style="color:#fde68a">✅ ${escapeHtml(s.suggested)}</b></div>
+            <div style="font-size:11px;color:#fbbf24;margin-top:2px"><span data-ko="← 이 표현을 먼저 익히세요" data-en="← Learn this one first">${escapeHtml(awTr('← 이 표현을 먼저 익히세요', '← Learn this one first'))}</span></div>
+            ${altHtml(s)}
+            <div style="font-size:11.5px;color:var(--text2);margin-top:3px">💡 ${escapeHtml(s.reason || '')}</div>
+          </div>`).join('') + '</div>'
+        + '<div style="margin-bottom:15px;padding:10px 12px;background:rgba(251,191,36,0.06);border:1px dashed rgba(251,191,36,0.45);border-radius:8px;font-size:12.5px">'
+        + '<div style="font-weight:800;color:#fbbf24;margin-bottom:4px"><span data-ko="📌 오늘 꼭 기억할 표현" data-en="📌 Expressions to remember today">' + escapeHtml(awTr('📌 오늘 꼭 기억할 표현', '📌 Expressions to remember today')) + '</span></div>'
+        + keep + '</div>';
     }
     function renderResult(d) {
       const sc = d.score || 0;
@@ -2009,8 +2027,8 @@
           <span class="issue-orig">${escapeHtml(i.original)}</span> → <span class="issue-sug">${escapeHtml(i.suggested)}</span>
           <div class="issue-reason">💡 ${escapeHtml(i.reason)}</div>
         </div>`).join('');
-      /* 🟡 참고(2026-11-01 원장님 피드백) — «틀리진 않지만 이렇게도 써요». 빨간 줄·취소선을 쓰지 않습니다
-         (아이가 «내가 틀렸다» 로 읽지 않게). 서버 정본 write-issue-triage.ts 가 오류와 따로 보내 줍니다. */
+      /* 🟡 어색한 표현(2026-11-02 사장님 결정 — «참고» 가 아니라 원어민 표현으로 «고쳐 주기»). 빨간 줄·취소선은 안 씁니다
+         (문법 오류가 아니라서). 서버 정본 write-issue-triage.ts 가 오류와 따로 보내 줍니다. */
       const suggestHtml = awSuggestHtml(d.suggestions);
       // ⬆️ 어휘 업그레이드 — 단순한 단어를 더 자연스러운 원어민 표현으로 (3단계 정밀 첨삭)
       const upgradesHtml = (d.upgrades || []).length ? `

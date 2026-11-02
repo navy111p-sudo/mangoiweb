@@ -11,6 +11,7 @@
    [어떻게] CDP 직접(playwright 없음). ⚠️ /json/new 새 탭은 스크립트를 안 돌린다 → /json/list 의 탭.
    ═══════════════════════════════════════════════════════════════════════════ */
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -18,7 +19,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const PUBLIC = join(ROOT, 'cloudflare-deploy', 'public');
 const PORT = Number(process.env.TCP_PORT || 8941);
 const CDP = Number(process.env.TCP_CDP || 9351);
-const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const CHROME = process.env.CHROME || ['/opt/pw-browsers/chromium-1243/chrome-linux64/chrome','/opt/pw-browsers/chromium-1243/chrome-linux/chrome','/opt/pw-browsers/chromium-1194/chrome-linux/chrome'].find(p => { try { return existsSync(p); } catch (e) { return false; } });
 
 let PASS = 0, FAIL = 0;
 const check = (n, ok, why) => {
@@ -61,9 +62,9 @@ const BOOT = `
       if (s.indexOf('/api/admin/schedule-requests') >= 0) {
         var b = {}; try { b = JSON.parse((o && o.body) || '{}'); } catch(e){}
         (window.__bkLog = window.__bkLog || []).push({ u: s.split('/api/')[1], b: b });
-        if (s.indexOf('/decide') >= 0) return Promise.resolve(ok({ ok:true, applied:'postponed' }));
+        if (s.indexOf('/decide') >= 0) return Promise.resolve(ok({ ok:true, applied:'moved' }));
         if (b.schedule_id === 2) return Promise.resolve(new Response(JSON.stringify({ ok:false, error:'forbidden_scope' }), { status:403, headers:{'content-type':'application/json'} }));
-        return Promise.resolve(ok({ ok:true, id: 900 + b.schedule_id }));
+        return Promise.resolve(ok({ ok:true, id: 900 + b.schedule_id, new_date:'2026-10-07', new_time:'18:00' }));
       }
       if (s.indexOf('/api/admin/me') >= 0) return Promise.resolve(ok({ ok:true, username:'admin', role:'hq', scope_type:'hq', name:'Admin' }));
       if (s.indexOf('/api/') >= 0) return Promise.resolve(ok({ ok:true }));
@@ -93,7 +94,7 @@ async function main() {
     `--remote-debugging-port=${CDP}`, '--window-size=1500,1000', 'about:blank'], { stdio: 'ignore' });
   const bye = () => { try { br.kill(); } catch (e) {} try { srv.kill(); } catch (e) {} };
   process.on('exit', bye);
-  await sleep(2200);
+  for (let t = 0; t < 40; t++) { await sleep(250); try { await fetch(`http://127.0.0.1:${CDP}/json/version`); break; } catch (e) {} }
 
   const c = await cdp();
   await c.send('Page.enable'); await c.send('Runtime.enable');
@@ -189,10 +190,10 @@ async function main() {
   const L = JSON.parse(log || '[]');
   check('   1번은 접수→승인 두 요청, 2번은 접수만(거절) — 순서대로',
     L.map(x => x.u + '#' + (x.b.schedule_id || x.b.id)).join(',') === 'admin/schedule-requests#1,admin/schedule-requests/decide#901,admin/schedule-requests#2', log);
-  check('   ⛔ request_type 은 postpone 이고 사유가 실린다', L.length && L[0].b.request_type === 'postpone' && L[0].b.reason === '학원 휴원', log.slice(0, 200));
+  check('   ⏩ «한 회 뒤로 밀기»(end_makeup) 로 보내고 사유가 실린다', L.length && L[0].b.end_makeup === true && L[0].b.reason === '학원 휴원', log.slice(0, 200));
   const res = await ev('[...document.querySelectorAll("#tc-bulk-modal [data-bk-res]")].map(e=>e.textContent).join("|")');
-  check('   줄마다 결과(성공·실패 이유)가 적힌다', /연기됨/.test(res) && /권한/.test(res), res);
-  check('   합계를 말한다', /연기 1건/.test(await ev('document.getElementById("tc-bk-msg").textContent')), await ev('document.getElementById("tc-bk-msg").textContent'));
+  check('   줄마다 결과(성공·실패 이유)가 적힌다', /→/.test(res) && /권한/.test(res), res);
+  check('   합계를 말한다', /뒤로 밀기 1건/.test(await ev('document.getElementById("tc-bk-msg").textContent')), await ev('document.getElementById("tc-bk-msg").textContent'));
   const hits0 = await ev('window.__tcHits');
   await ev('document.getElementById("tc-bk-close").click()'); await sleep(500);
   check('   닫으면 목록을 다시 불러온다', (await ev('window.__tcHits')) > hits0);
