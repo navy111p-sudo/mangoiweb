@@ -142,26 +142,38 @@ export const CLASS_ASK_MODELS = [
   '@cf/meta/llama-3.1-8b-instruct',
 ];
 
-/** 라우트 본체 — api-ai.ts 는 이것을 «부르기만» 합니다. */
-export async function handleClassAsk(request: Request, env: any, deps: {
+export type ClassAskDeps = {
   json: (o: any, s?: number) => Response;
   recordFailure?: (f: any) => Promise<void>;
   linkRule?: string;   // 🔗 연결 표현 규칙 — buildClassAskMessages 머리말
   /** 🔤 한국어 뜻이 읽을 만한가(2026-11-01) — 이 파일은 import 0 을 지키므로 부르는 쪽(api-ai.ts)이 넘겨 줍니다. false 면 뜻을 비웁니다. */
   koOk?: (s: string) => boolean;
-}): Promise<Response> {
+};
+
+/** 공통 관문 — 입력 검사 + 하루 상한. 통과하면 { a }, 막히면 { res }(그대로 돌려줄 응답).
+ *  ⚠️ 일반 응답과 스트리밍 응답이 이 한 곳을 같이 지납니다(상한을 두 벌로 만들지 않기 위함). */
+export async function admitClassAsk(request: Request, env: any, deps: ClassAskDeps): Promise<{ a: ClassAskInput } | { res: Response }> {
   const { json } = deps;
   const b: any = await request.json().catch(() => ({}));
   const a = cleanAsk(b);
-  if (!a) return json({ ok: false, error: 'q_required' }, 400);
-  if (!env.AI) return json({ ok: false, error: 'ai_unavailable' }, 503);
+  if (!a) return { res: json({ ok: false, error: 'q_required' }, 400) };
+  if (!env.AI) return { res: json({ ok: false, error: 'ai_unavailable' }, 503) };
 
   // 💸 하루 상한 — 부르기 «전» 에 셉니다(동시 요청이 서로를 보게)
   const capKey = classAskCapKey(request.headers.get('cf-connecting-ip'), Date.now());
   let used: any = null;
   try { used = await env.SESSION_STATE?.get?.(capKey); } catch {}
-  if (!classAskAllowed(used)) return json({ ok: false, error: 'daily_cap' }, 429);
+  if (!classAskAllowed(used)) return { res: json({ ok: false, error: 'daily_cap' }, 429) };
   try { await env.SESSION_STATE?.put?.(capKey, String((Number(used) || 0) + 1), { expirationTtl: 172800 }); } catch { /* KV 장애로 막지 않음 */ }
+  return { a };
+}
+
+/** 라우트 본체 — api-ai.ts 는 이것을 «부르기만» 합니다. */
+export async function handleClassAsk(request: Request, env: any, deps: ClassAskDeps): Promise<Response> {
+  const { json } = deps;
+  const adm = await admitClassAsk(request, env, deps);
+  if ('res' in adm) return adm.res;
+  const a = adm.a;
 
   const msgs = buildClassAskMessages(a, deps.linkRule);
   let lastErr: any = null, plain = 0;

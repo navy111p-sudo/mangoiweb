@@ -106,7 +106,9 @@ const idx = rd(resolve(SRC, 'index.ts'));
 ok(/path === '\/api\/ai\/class-ask'/.test(strip(idx)), 'src/index.ts 라우팅 허용목록에 있다(없으면 404)');
 const ai = strip(rd(resolve(SRC, 'api-ai.ts')));
 ok(/import\s*\{\s*handleClassAsk\s*\}\s*from\s*'\.\/class-ask'/.test(ai), 'api-ai.ts 가 정본을 import 한다');
-ok(/path === '\/api\/ai\/class-ask'\)\s*\{\s*return handleClassAsk\(/.test(ai), 'api-ai.ts 는 «부르기만» 한다');
+ok(/path === '\/api\/ai\/class-ask'\)\s*\{[\s\S]*?return handleClassAsk\(request, env, askDeps\)/.test(ai), 'api-ai.ts 는 «부르기만» 한다(스트리밍 분기 뒤의 일반 경로)');
+ok(/import\s*\{\s*handleClassAskStream,\s*wantsClassAskStream\s*\}\s*from\s*'\.\/class-ask-stream'/.test(ai), 'api-ai.ts 가 스트리밍 정본을 import 한다');
+ok(/wantsClassAskStream\(peek\)\)\s*return handleClassAskStream\(request, env, askDeps\)/.test(ai), '(짝) stream 표시가 있을 때만 스트리밍 경로로 간다');
 ok(!/classAskAllowed|CLASS_ASK_MAX_PER_IP_DAY/.test(ai), '상한 판정을 라우트에 복제하지 않았다');
 
 console.log('⑥ 화면 — 질문 판정·배선을 오려 내 실제로 돌림');
@@ -142,6 +144,84 @@ ok(/listen\(lastListen\)/.test(asrc), '대답 뒤 하던 차례로 돌아간다'
 ok(/askLines\(\)/.test(asrc), '지금 교재 쪽 문장을 함께 보낸다');
 ok(/id="askBtn"/.test(html) && /id="askBox"/.test(html), '질문 버튼·창이 있다');
 ok(!/‍/.test(html), 'ZWJ 조합 이모지 없음(Win10 에서 쪼개짐)');
+
+console.log('⑥ 스트리밍 — 영어 답을 생성되는 즉시 흘려보낸다');
+// 정본 두 파일을 타입만 벗겨 실제로 돌린다. stream 파일의 './class-ask' 는 방금 만든 정본 모듈로 바꿔 잇는다.
+let S = null;
+try {
+  const askUrl = 'data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(rd(resolve(SRC, 'class-ask.ts')))).toString('base64');
+  const streamJs = stripTypeScriptTypes(rd(resolve(SRC, 'class-ask-stream.ts'))).replace("'./class-ask'", JSON.stringify(askUrl));
+  S = await import('data:text/javascript;base64,' + Buffer.from(streamJs).toString('base64'));
+} catch (e) { console.log('  (스트림 정본 로드 실패) ' + e.message); }
+ok(!!(S && S.handleClassAskStream && S.wantsClassAskStream && S.partialClassAskEn), '전제: 스트림 정본을 불러왔다');
+if (S) {
+  ok(S.wantsClassAskStream({ stream: 1 }) && S.wantsClassAskStream({ stream: '1' }) && S.wantsClassAskStream({ stream: true }), 'stream 1·"1"·true 를 받는다');
+  ok(!S.wantsClassAskStream({}) && !S.wantsClassAskStream({ stream: 0 }) && !S.wantsClassAskStream({ stream: 'yes' }) && !S.wantsClassAskStream(null), '(짝) 그 밖의 값이면 예전 응답 그대로');
+  ok(S.partialClassAskEn('EN: Hel') === 'Hel', '영어 줄이 덜 와도 지금까지 글자를 보인다');
+  ok(S.partialClassAskEn('EN: Hello.\nKO: 안녕') === 'Hello.', '줄이 끝나면 KO 는 섞이지 않는다');
+  ok(S.partialClassAskEn('EN: Hi 안녕') === 'Hi', '영어 칸에 한글이 나오면 거기서 자른다');
+  ok(S.partialClassAskEn('KO: 안녕') === '' && S.partialClassAskEn('') === '', '(짝) EN 줄이 없으면 아무것도 안 보인다');
+
+  // SSE 조각을 흉내 낸 Workers AI 스트림
+  const sse = (chunks) => new ReadableStream({
+    start(ctl) {
+      const enc = new TextEncoder();
+      for (const t of chunks) ctl.enqueue(enc.encode('data: ' + JSON.stringify({ response: t }) + '\n\n'));
+      ctl.enqueue(enc.encode('data: [DONE]\n\n'));
+      ctl.close();
+    },
+  });
+  const readSse = async (resp) => {
+    const txt = await resp.text();
+    return txt.split('\n\n').filter((x) => x.startsWith('data:')).map((x) => { try { return JSON.parse(x.slice(5)); } catch { return null; } }).filter(Boolean);
+  };
+  const sReq = (body) => new Request('https://x.test/api/ai/class-ask', { method: 'POST', headers: { 'Content-Type': 'application/json', 'cf-connecting-ip': '9.9.9.9' }, body: JSON.stringify(body) });
+  const deps = { json: jsonF, koOk: () => true };
+
+  // ① 정상: 영어가 조각째 흐르고, 끝에 정본 판정(done)이 온다
+  const pieces = ['EN: Gla', 'd means ', 'happy.\nKO: 기', '쁘다는 뜻이에요.'];
+  const envOk = { SESSION_STATE: {}, AI: { run: async () => sse(pieces) } };
+  const rOk = await S.handleClassAskStream(sReq({ q: 'What is glad?', stream: 1 }), envOk, deps);
+  ok(rOk.status === 200 && /text\/event-stream/.test(rOk.headers.get('content-type')), '스트림 응답은 text/event-stream');
+  const evOk = await readSse(rOk);
+  const partials = evOk.filter((e) => e.partial).map((e) => e.en);
+  ok(partials.length >= 2 && partials[0].length < partials[partials.length - 1].length, '영어가 점점 길어지며 여러 번 흘러간다');
+  const doneOk = evOk.find((e) => e.done);
+  ok(doneOk && doneOk.ok === true && doneOk.en === 'Glad means happy.' && doneOk.ko === '기쁘다는 뜻이에요.', '마지막 done 이 정본 판정 결과를 준다');
+  ok(evOk.indexOf(doneOk) === evOk.length - 1, '(짝) done 은 맨 마지막에 온다');
+
+  // ② 형식을 못 지킨 답(영어 없음·객체 문자열) → done 은 ok:false, 답인 척 안 함
+  const envBad = { SESSION_STATE: {}, AI: { run: async () => sse(['[object Object]']) } };
+  const evBad = await readSse(await S.handleClassAskStream(sReq({ q: 'hi', stream: 1 }), envBad, deps));
+  const doneBad = evBad.find((e) => e.done);
+  ok(doneBad && doneBad.ok === false && doneBad.error === 'ai_unavailable', '(짝) 못 읽은 답은 done ok:false — 고정 문구로 메우지 않는다');
+
+  // ③ 한국어 뜻이 못 읽을 만하면 뜻만 비운다(koOk 판정 존중)
+  const envKo = { SESSION_STATE: {}, AI: { run: async () => sse(['EN: Yes!\nKO: 네!']) } };
+  const doneKo = (await readSse(await S.handleClassAskStream(sReq({ q: 'yes?', stream: 1 }), envKo, { json: jsonF, koOk: () => false }))).find((e) => e.done);
+  ok(doneKo && doneKo.ok === true && doneKo.en === 'Yes!' && doneKo.ko === '', 'koOk 가 false 면 뜻을 비운다');
+
+  // ④ 상한·입력 검사는 스트림에서도 똑같이 지킨다(관문을 두 벌로 두지 않음)
+  const capped = { SESSION_STATE: { get: async () => String(M.CLASS_ASK_MAX_PER_IP_DAY) }, AI: { run: async () => { throw new Error('must not call'); } } };
+  const rCap = await S.handleClassAskStream(sReq({ q: 'hi', stream: 1 }), capped, deps);
+  ok(rCap.status === 429, '(짝) 상한에 닿으면 스트림도 429 로 막는다');
+  let called = 0;
+  const countEnv = { SESSION_STATE: {}, AI: { run: async () => { called++; return sse(['EN: x']); } } };
+  const rEmpty = await S.handleClassAskStream(sReq({ q: '   ', stream: 1 }), countEnv, deps);
+  ok(rEmpty.status === 400 && called === 0, '빈 질문은 400, 모델을 부르지 않는다');
+
+  // ⑤ 모델이 시작부터 실패하면 503 JSON(예전 응답과 같은 모양)
+  const boom = { SESSION_STATE: {}, AI: { run: async () => { throw new Error('upstream'); } } };
+  const rBoom = await S.handleClassAskStream(sReq({ q: 'hi', stream: 1 }), boom, deps);
+  ok(rBoom.status === 503 && (await rBoom.json()).error === 'ai_unavailable', '모델 시작 실패는 503 ai_unavailable');
+
+  // ⑥ 학생 질문 원문은 로그에 남지 않는다(실패 기록은 이유 코드만)
+  let rec = null;
+  const secret = 'My secret question 98765';
+  const envRec = { SESSION_STATE: {}, AI: { run: async () => sse(['안녕하세요 형식이 없어요']) } };
+  await readSse(await S.handleClassAskStream(sReq({ q: secret, stream: 1 }), envRec, { json: jsonF, recordFailure: async (f) => { rec = f; } }));
+  ok(rec && !JSON.stringify(rec).includes('98765'), '실패 기록에 질문 원문이 들어가지 않는다');
+}
 
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`);
 process.exit(FAIL ? 1 : 0);
