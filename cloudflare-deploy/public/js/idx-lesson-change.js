@@ -36,7 +36,8 @@
 
   // 🆕 (2026-07-14) 연기/취소/변경을 서버에 실제 기록 + 유료/무료 자동 태깅 + 관리자 알림.
   //   그동안 학생 연기/변경은 데모(로컬)뿐이라 어디에도 안 남았음 → 이제 /api/admin/schedule-requests 로 저장.
-  //   유료/무료: 원 수업 시작 30분 전보다 일찍=무료, 이내=유료 (연기·취소만. 변경은 24h 룰이라 요금대상 아님).
+  //   ⏰ (2026-11-02 사장님) 학생이 직접은 원 수업 시작 30분 전까지만 — 그 뒤는 서버가 거절(too_late).
+  //   (옛 규칙: 30분 전보다 일찍=무료, 이내=유료 — 학생 경로에서는 더 이상 «유료 연기» 가 없다.)
   window.lcComputeFee = function(origStartMs){
     var mins = Math.round((origStartMs - Date.now())/60000);
     return { minutes_before: mins, fee_type: mins > 30 ? 'free' : 'paid' };
@@ -221,7 +222,8 @@
     var msg = L
       ? '실력 향상을 위해선 꾸준한 수업이 가장 중요합니다!<br><br>그래도 연기하시겠습니까?'
       : 'Consistent practice is the key to improvement!<br><br>Are you sure you want to postpone?';
-    // 🆕 (2026-07-22) 학부모 컴플레인 #2: 연기 확정 전에 30분 무료/유료 규정을 반드시 보여준다.
+    // 🆕 (2026-07-22) 학부모 컴플레인 #2: 연기 확정 전에 30분 규정을 반드시 보여준다.
+    // ⏰ (2026-11-02) «이후 유료» → «30분 전까지만»(그 뒤는 직접 못 함 · 카카오 상담).
     //   원 수업 시작까지 남은 시간으로 무료/유료를 미리 계산해 명시.
     var feeLine = '';
     try {
@@ -230,10 +232,10 @@
       var isPaid = !(minsBefore > 30);
       if (window.hasUnlimitedLessonPermission && window.hasUnlimitedLessonPermission('postpone')) isPaid = false;
       feeLine = '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(251,191,36,.35);font-size:15px">'
-        + (L ? '📋 연기 규정: 수업 시작 30분 전까지 무료 · 이후 유료<br>' : '📋 Policy: free until 30 min before class · fee applies after<br>')
+        + (L ? '📋 연기 규정: 수업 시작 30분 전까지만 직접 연기할 수 있어요<br>' : '📋 Policy: you can postpone yourself only until 30 min before class<br>')
         + (isPaid
-            ? '<b style="color:#f87171">' + (L ? '⚠️ 지금 연기하면 유료로 처리됩니다.' : '⚠️ This postponement will incur a fee.') + '</b>'
-            : '<b style="color:#34d399">' + (L ? '✅ 지금 연기하면 무료입니다.' : '✅ This postponement is free.') + '</b>')
+            ? '<b style="color:#f87171">' + (L ? '⚠️ 시작 30분 전이 지나 직접 연기할 수 없어요. 카카오 상담으로 알려 주세요.' : '⚠️ It is less than 30 min before class — please contact us on KakaoTalk.') + '</b>'
+            : '<b style="color:#34d399">' + (L ? '✅ 지금 연기할 수 있어요.' : '✅ You can postpone now.') + '</b>')
         + '</div>';
     } catch(e){}
     var html = '<div class="encourage-wrap" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;overflow-y:auto" onclick="if(event.target===this)closeEncourage()">'+
