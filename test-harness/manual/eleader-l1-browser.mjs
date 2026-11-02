@@ -43,10 +43,11 @@ try {
   await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
   ok('ed: Level 1 panel visible', await p.locator('#eleaderL1').isVisible());
   ok('ed: panel title', /엘리더잼 Level 1 기본과정/.test(await p.locator('#eleaderL1').innerText()));
-  ok('ed: 2 books in select', await p.locator('#eleaderL1Book option').count() === 2);
+  ok('ed: 2 books in list', await p.locator('#eleaderL1 .l1-item').count() === 2);
+  ok('ed: no level tabs when server sends no levels (old server)', await p.locator('#eleaderL1 .l1-tab').count() === 0);
   ok('ed: books request carries token', log.books === 1);
   ok('quota: panel says daily max and today count', /하루 최대 200번 대화할 수 있어요 · 오늘 0번 했어요/.test(await p.locator('#eleaderL1').innerText()), await p.locator('#eleaderL1').innerText());
-  await p.selectOption('#eleaderL1Book', 'books-v1-b02');
+  await p.click('#eleaderL1 .l1-item[data-id="books-v1-b02"]');
   await p.click('#eleaderL1 .l1-go');
   await p.waitForFunction(() => document.getElementById('wuSetup').hidden || getComputedStyle(document.getElementById('wuSetup')).display === 'none', null, { timeout: 5000 }).catch(() => {});
   await p.waitForTimeout(800);
@@ -195,6 +196,67 @@ try {
     await send(p, 'hello');
     ok(name + ': uses normal warmup chat', log.warm.length >= 1 && log.l1.length === 0);
     ok(name + ': no page errors', errors.length === 0, errors.join(' | '));
+    await c.close();
+  }
+  // ⑥ 📚 Level 2~5 캐피 주제(2026-11-02) — 서버가 levels 를 주면 탭·검색·목록으로 그리고, 주제 대화는 eleader_topic 만 싣는다
+  {
+    const require2 = createRequire(root + '/cloudflare-deploy/package.json');
+    const { build } = require2('esbuild');
+    const { tmpdir } = await import('node:os'); const { pathToFileURL } = await import('node:url');
+    const outf = tmpdir() + '/eleader-capi-pub-' + process.pid + '.mjs';
+    await build({ entryPoints: [root + '/cloudflare-deploy/src/eleader-capi-topics.ts'], bundle: true, platform: 'node', format: 'esm', outfile: outf, logLevel: 'silent' });
+    const LEVELS = (await import(pathToFileURL(outf))).eleaderCapiPublic();
+    const body = { ok: true, books: BOOKS, levels: LEVELS, daily_cap: 200, used_today: 0 };
+    ({ c, p, log, errors } = await open({ token: 'tok-ed', booksBody: body }));
+    await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+    ok('levels: 5 tabs (Level 1~5)', await p.locator('#eleaderL1 .l1-tab').count() === 5);
+    ok('levels: tab names', /Level 2 · 캐피 기본 레벨5 \(25\)/.test(await p.locator('#eleaderL1 .l1-tabs').innerText()) && /Level 5 · 캐피 심화3 \(30\)/.test(await p.locator('#eleaderL1 .l1-tabs').innerText()));
+    await p.click('#eleaderL1 .l1-tab[data-lv="l3"]');
+    ok('levels: L3 title', /엘리더잼 Level 3 캐피 심화1/.test(await p.locator('#eleaderL1 h3').innerText()));
+    ok('levels: L3 shows 30 units', await p.locator('#eleaderL1 .l1-item').count() === 30 && /총 30단원/.test(await p.locator('#eleaderL1').innerText()));
+    await p.fill('#eleaderL1 .l1-search', '길을');
+    ok('search: filters to matching units', await p.locator('#eleaderL1 .l1-item').count() === 1 && /길을 잃어버린 경험/.test(await p.locator('#eleaderL1 .l1-list').innerText()));
+    ok('search: input keeps focus while typing', await p.evaluate(() => document.activeElement && document.activeElement.classList.contains('l1-search')));
+    await p.fill('#eleaderL1 .l1-search', 'zzzz');
+    ok('search: empty result says so', /찾는 이름이 없어요/.test(await p.locator('#eleaderL1 .l1-list').innerText()));
+    await p.fill('#eleaderL1 .l1-search', '');
+    await p.click('#eleaderL1 .l1-item[data-id="c3-02"]');
+    ok('pick: selected line shows topic', /고른 것: 방학에 여행 갔던 일/.test(await p.locator('#eleaderL1 .l1-pick').innerText()));
+    ok('pick: start button says topic', /이 주제로 말하기 시작/.test(await p.locator('#eleaderL1 .l1-go').innerText()));
+    await p.click('#eleaderL1 .l1-go'); await p.waitForTimeout(800);
+    const k = log.l1[0]?.b || {};
+    ok('topic: kickoff to l1 route with eleader_topic only', k.kickoff === 1 && k.eleader_topic === 'c3-02' && k.eleader_book === undefined && k.eleader_q === undefined, JSON.stringify(k));
+    ok('topic: client topic/textbook not sent', k.lesson_topic === undefined && k.textbook === undefined);
+    ok('topic: bar shows level and topic (no question count)', /Level 3 · 02단원 방학에 여행 갔던 일/.test(await p.locator('#eleaderL1Bar').innerText()) && !/질문 \d/.test(await p.locator('#eleaderL1Bar').innerText()));
+    await send(p, 'I went to Jeju.');
+    const t2 = log.l1.at(-1)?.b || {};
+    ok('topic: next turn still eleader_topic · no question number', log.l1.length === 2 && t2.eleader_topic === 'c3-02' && t2.eleader_q === undefined && t2.kickoff === undefined);
+    ok('topic: bar quota follows server (today 2 / 200)', /오늘 2 \/ 200/.test(await p.locator('#eleaderL1Bar').innerText()));
+    await p.click('#eleaderL1Bar button:has-text("주제 안내")');
+    ok('topic: tip shows English topic', /a trip you took during vacation/.test(await p.locator('#eleaderL1Bar').innerText()));
+    await p.click('#eleaderL1Bar button:has-text("주제 그만하기")');
+    await send(p, 'hello');
+    ok('topic leave: free talk uses normal warmup chat', log.warm.length === 1 && log.l1.length === 2);
+    ok('levels: no page errors', errors.length === 0, errors.join(' | '));
+    await p.reload(); await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+    ok('remember: last level tab reopened after reload (L3)', await p.locator('#eleaderL1 .l1-tab[aria-selected="true"]').getAttribute('data-lv') === 'l3');
+    await c.close();
+    // Level 2 — 요점 원문이 목록에 보이고, 고른 탭은 다음에 열어도 그대로(localStorage)
+    ({ c, p, log, errors } = await open({ token: 'tok-ed', booksBody: body }));
+    await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+    await p.click('#eleaderL1 .l1-tab[data-lv="l2"]');
+    ok('L2: 25 books with key questions', await p.locator('#eleaderL1 .l1-item').count() === 25 && /지진에 대해 듣거나 경험해 본 적이 있나\?/.test(await p.locator('#eleaderL1 .l1-list').innerText()));
+    await c.close();
+    // 영어 화면 — 탭·주제가 영어로
+    ({ c, p } = await open({ token: 'tok-ed', lang: 'en', booksBody: body }));
+    await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+    await p.click('#eleaderL1 .l1-tab[data-lv="l4"]');
+    ok('en: level title and topics in English', /Eleader Jam Level 4 CAPI Advanced 2/.test(await p.locator('#eleaderL1 h3').innerText()) && /what you want to be in the future/.test(await p.locator('#eleaderL1 .l1-list').innerText()));
+    ok('en: start button in English', /Start talking about this topic/.test(await p.locator('#eleaderL1 .l1-go').innerText()));
+    // 폰 폭 — 가로로 넘치지 않는다(탭은 상자 안에서 옆으로 민다)
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.waitForTimeout(200);
+    ok('mobile: panel does not overflow page width', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
     await c.close();
   }
 } finally { await browser.close(); srv.kill(); }
