@@ -144,7 +144,7 @@
     if(!window.MangoiVoice || !MangoiVoice.supported()){askState.textContent=tr('질문 마이크를 쓸 수 없어요. 글로 입력해 주세요.','Question microphone unavailable. Please type.');return;}
     cancelVoice();var seq=++voiceId,epoch=_warmEpoch,heard=false;recording=true;paintBusy();
     try{
-      var said=await MangoiVoice.record({lang:'ko',silenceMs:1600,maxMs:20000,onState:function(s){
+      var said=await MangoiVoice.record({lang:'ko',silenceMs:1000,maxMs:20000,onState:function(s){
         if(seq!==voiceId || !ask.open)return;
         if(s==='speaking')heard=true;
         askState.textContent=s==='thinking'?tr('말한 질문을 받아 적는 중…','Transcribing your question…'):s==='error'?tr('음성 입력에 실패했어요. 글로 입력해 주세요.','Voice input failed. Please type.'):tr('질문을 듣는 중… 녹음 마치기를 눌러 끝내세요.','Listening to your question… tap Finish recording when done.');
