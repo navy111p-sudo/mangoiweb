@@ -259,6 +259,8 @@ Student text: """${text}"""`;
       let earnedBadges: any[] = [];
       const vocabSaved: string[] = [];
       const awAuthUid = await authUidGlobal(request, url, env, b);
+      // 🪙 결과 화면이 «왜 포인트가 없는지» 를 말할 수 있게 — 로그인 안 한(또는 남의 아이디) 첨삭은 적립 대상이 아니다(2026-11-02)
+      const pointsGuest = !(awAuthUid && awAuthUid === uid && !uid.startsWith('guest_'));
       if (awAuthUid && awAuthUid === uid && !uid.startsWith('guest_')) {
         // 규칙 기반 적립 인라인 헬퍼 — 쿨다운/일일한도는 point_rule_log 기준(KST 자정 경계)
         const earnWritingRule = async (code: string, label: string, amount: number, dailyCap: number, description: string, cooldownSec = 0) => {
@@ -369,7 +371,7 @@ Student text: """${text}"""`;
         ok: true,
         corrected, score, issues, suggestions, tip, reply, upgrades, level,
         mission_words: missionWords, mission_used: missionUsed,
-        points: pointsEarned, mission_bonus: missionBonus, streak_bonus: streakBonus,
+        points: pointsEarned, mission_bonus: missionBonus, streak_bonus: streakBonus, points_guest: pointsGuest,
         earned_badges: earnedBadges, vocab_saved: vocabSaved,
         topic_recorded: topicRecorded,
         ...(raw ? {} : { ai_unavailable: true, fallback: true }),
