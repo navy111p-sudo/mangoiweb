@@ -148,6 +148,7 @@
 
 | 함정 | 실제로 이렇습니다 |
 |---|---|
+| 러너가 PASS 요약을 FAIL로 오인하거나, 주석의 import로 검사를 건너뜀 | `PASS 5 FAIL 0`의 5는 실패 수가 아닙니다. `runner-result.mjs`는 출력 전체의 결과형 줄을 방향별로 파싱하며, «✅ 실패 1회 안내» 같은 통과 항목 문구는 실패 집계가 아닙니다. `runner-source.mjs`는 TypeScript 구문 트리로 실제 literal import/require를 보므로 주석·문자열 예문을 브라우저 검사로 오인하지 않습니다. 검증용 네트워크 hook은 net.createConnection의 normalized array도 검사해야 하며 OS 전체 egress 차단과 같다고 보고하지 마세요. |
 | 회귀 러너가 시간 초과·한국어 실패를 초록불로 숨김 / 바이트 테스트가 잘못된 입력만 검사함 | 비브라우저 하니스의 timeout은 FAIL입니다(`runner-result.mjs`). JS 정규식의 `\b`는 한글 뒤 경계가 아니므로 `1 실패` 검사를 영어와 분리합니다. `Uint8Array`는 `Array.flat()`으로 펼쳐지지 않습니다 — 합성 이미지 복사는 `Array.from`으로 실제 바이트를 보존하고, 서명·길이 방어를 지운 변이가 실제 FAIL인지 확인하세요. 회귀: `runner_result_harness`·`image_header_bounds_harness`. |
 | AI 말하기에서 말하지 않은 문장이 사용자 말풍선이 됨 | 순간 peak 감지는 클릭도 잡으므로 발화 증거가 아니다. AI 친구는 자동·버튼 모드 모두 공용 녹음 파일 검사 후 업로드·전송한다. turbo의 정상 빈 응답을 구 Whisper로 재전사하지 말 것. strict 채팅 요청은 인식기 장애도 조용히 구 모델로 폴백하지 않는다. 낮은 신뢰도 차단은 발음 채점과 구분한다. `ai_friend_silence_harness.mjs`가 실제 화면 함수·서버 라우트를 실행해 막힘/정상 발화 보존을 함께 본다. |
 | Postponed restore vs permanent time change | Keep PR #1889: dated postponement moves the same schedule ID; no-date postponement remains postponed. Do not remove status checks or restore an active moved target. HQ restore must reject started/attended/conflicting classes and atomically guard availability, room overrides and attendance with its audit. Scoped managers rebook first, then use the existing permanent-change flow. Regression: schedule_group_move_harness + schedule_move_room_sync_harness. |
