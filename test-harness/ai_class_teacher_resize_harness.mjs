@@ -46,11 +46,21 @@ const css = (html.match(/<style>[\s\S]*?<\/style>/g) || []).join('\n');
 const mediaAt = css.indexOf('@media (min-width:761px){\n  .stage{position:relative}');
 const before = mediaAt > 0 ? css.slice(0, mediaAt) : '';
 ok(mediaAt > 0, '② 손잡이 규칙이 761px 이상 미디어쿼리 안에 있다(전제)');
-ok(/\.tsplit\{display:none\}/.test(before), '② 기본(폰)은 손잡이가 숨는다 — 미디어쿼리 «밖» 에 display:none');
+ok(/\.tsplit\{display:none\}/.test(before), '② 기본은 손잡이를 숨기고(미디어쿼리 «밖» display:none) 화면 폭별 미디어쿼리에서만 켠다');
 const inMedia = mediaAt > 0 ? css.slice(mediaAt, mediaAt + 4000) : '';
 const clampM = inMedia.match(/\.stage\.tw\{grid-template-columns:minmax\(0,1fr\) clamp\((\d+)px,var\(--tw\),calc\(100% - (\d+)px\)\)\}/);
 ok(!!clampM, '② 폭 규칙(.stage.tw)이 미디어쿼리 안에만 있다');
-ok(!/\.stage\.tw\{/.test(before), '② 폰 배치에는 폭 규칙이 안 걸린다(미디어쿼리 밖에 .stage.tw 없음)');
+ok(!/\.stage\.tw\{/.test(before), '② 폭 규칙(.stage.tw)은 미디어쿼리 «밖» 에 없다');
+// 📱 2026-11-02 사장님 «폰에도 손잡이 보이게» — 옛 「폰은 손잡이가 숨는다」 단정을 새 경계로 옮겨 적음
+const phAt = css.indexOf('@media (max-width:760px){\n  .stage{position:relative}');
+const phBlock = phAt > 0 ? css.slice(phAt, css.indexOf('\n}', phAt)) : '';
+const portAt = css.indexOf('@media (max-width:760px) and (orientation:portrait){\n  .tsplit{');
+const portBlock = portAt > 0 ? css.slice(portAt, css.indexOf('\n}', portAt)) : '';
+ok(/\.tsplit\{display:block;[^}]*grid-area:t/.test(phBlock), '② 폰(≤760)에서는 손잡이가 보이고 선생님 칸(grid-area:t)에 붙는다');
+ok(/\.tsplit\{left:auto;right:-\d+px\}/.test(portBlock), '② 폰 세로에서는 손잡이가 선생님 칸 «오른쪽» 경계에 붙는다');
+const phLand = phBlock.match(/\.stage\.tw\{grid-template-columns:minmax\(0,1fr\) clamp\((\d+)px,var\(--tw\),calc\(100% - (\d+)px\)\)\}/);
+const phPort = portBlock.match(/\.stage\.tw\{grid-template-columns:clamp\((\d+)px,var\(--tw\),calc\(100% - (\d+)px\)\) minmax\(0,1fr\)\}/);
+ok(!!phLand && !!phPort, '② 폰 가로·세로 폭 규칙이 각 미디어쿼리 안에 있다');
 ok(/\[hidden\]|tip\.hidden/.test(html), '② 크기 표시(%)는 hidden 으로 감춘다(전제)');
 
 // ── JS 모듈 오려 내기 ─────────────────────────────────────────────
@@ -61,6 +71,8 @@ const maxM = html.match(/var TW_SIDE_MAX = ([\d.]+);/);
 ok(!!twSrc && !!maxM, '전제: 크기 조절 모듈(TW)과 상한 상수를 오려 냈다');
 const tMin = (twSrc.match(/T_MIN = (\d+)/) || [])[1], bMin = (twSrc.match(/BOOK_MIN = (\d+)/) || [])[1];
 ok(clampM && tMin === clampM[1] && bMin === clampM[2], `② JS 하한·교재 최소폭(${tMin}/${bMin})이 CSS clamp(${clampM && clampM[1]}/${clampM && clampM[2]})와 짝이다`);
+const phLim = twSrc.match(/land: \[(\d+), (\d+), ([\d.]+)\], port: \[(\d+), (\d+), ([\d.]+)\]/);
+ok(phLim && phLand && phPort && phLim[1] === phLand[1] && phLim[2] === phLand[2] && phLim[4] === phPort[1] && phLim[5] === phPort[2], `② 폰 JS 범위(PH_LIM)가 CSS clamp 와 짝이다(가로 ${phLim && phLim[1]}/${phLim && phLim[2]} · 세로 ${phLim && phLim[4]}/${phLim && phLim[5]})`);
 const twCode = stripJs(twSrc);
 ok(/\.observe\(stage\)/.test(twCode) && !/\.observe\(tile\)/.test(twCode), '⑦ 다시 재는 감시는 교실 칸(stage)을 본다 — 그림 칸(tile)을 보면 대답 보기마다 출렁임');
 const applyBody = (twCode.match(/function apply\(f\)\{[\s\S]*?\n    \}/) || [''])[0];
@@ -71,7 +83,7 @@ ok(!/localStorage\./.test(twCode), '⑤ localStorage 를 직접 만지지 않는
 
 // ── 가짜 화면에서 실제로 돌리기 ──────────────────────────────────
 function makeWorld(o) {
-  const W = { stageW: o.stageW, sideH: o.sideH, tileH: o.tileH, shown: o.shown !== false, store: Object.assign({}, o.store || {}), ro: null };
+  const W = { stageW: o.stageW, sideH: o.sideH, tileH: o.tileH, shown: o.shown !== false, store: Object.assign({}, o.store || {}), ro: null, mode: o.mode || 'pc' };
   const cls = (set) => ({ add: (c) => set.add(c), remove: (c) => set.delete(c), contains: (c) => set.has(c) });
   // ⚠️ Object.assign 은 getter 를 «값» 으로 복사한다 — 크기가 안 바뀌는 가짜가 되어 검사가 헛돈다. 설명자째 옮긴다.
   const el = (extra) => Object.defineProperties({ attrs: {}, disabled: false, hidden: true, textContent: '', setAttribute(k, v) { this.attrs[k] = v; }, addEventListener() {}, setPointerCapture() {} }, Object.getOwnPropertyDescriptors(extra || {}));
@@ -82,14 +94,22 @@ function makeWorld(o) {
     const f = parseFloat(stage.style.props['--tw']) / 100;
     return Math.round(Math.min(Math.max(220, f * W.stageW), W.stageW - 320));
   };
-  const side = el({ get offsetWidth() { return W.shown ? sideW() : 0; }, get offsetHeight() { return W.shown ? W.sideH : 0; } });
-  const tile = el({ get offsetWidth() { return side.offsetWidth; }, get offsetHeight() { return W.tileH; } });
+  // 폰은 .side 가 display:contents(폭·높이 0) — 그림 칸이 칸 폭을 가진다
+  const phW = () => {
+    const d = W.mode === 'port' ? 0.30 : 0.32, L = W.mode === 'port' ? [90, 140] : [120, 200];
+    if (!stageCls.has('tw')) return Math.round(W.stageW * d);
+    const f = parseFloat(stage.style.props['--tw']) / 100;
+    return Math.round(Math.min(Math.max(L[0], f * W.stageW), W.stageW - L[1]));
+  };
+  const side = el({ get offsetWidth() { return W.mode !== 'pc' ? 0 : W.shown ? sideW() : 0; }, get offsetHeight() { return W.mode !== 'pc' ? 0 : W.shown ? W.sideH : 0; } });
+  const tile = el({ get offsetWidth() { return W.mode !== 'pc' ? phW() : side.offsetWidth; }, get offsetHeight() { return W.tileH; } });
   const sp = el({ parentNode: stage, classList: cls(new Set()) });
   stage.querySelector = (s) => (s === '.side' ? side : null);
   const ids = { tSplit: sp, tTile: tile, tSplitBar: el(), tSplitTip: el(), tBig: el(), tSmall: el() };
   const $ = (id) => ids[id];
   const getComputedStyle = (e) => (e === sp ? { display: W.shown ? 'block' : 'none' } : { columnGap: '8px' });
   const window = { ResizeObserver: function (cb) { this.observe = (t) => { W.ro = { cb, target: t }; }; } };
+  if (o.mode) window.matchMedia = (q) => ({ matches: q.indexOf('760') >= 0 ? W.mode !== 'pc' : q.indexOf('portrait') >= 0 ? W.mode === 'port' : false });
   const lsGet = (k) => (k in W.store ? W.store[k] : null);
   const lsSet = (k, v) => { W.store[k] = v; };
   const fn = new Function('$', 'lsGet', 'lsSet', 'markHL', 'getComputedStyle', 'window', 'document', 'requestAnimationFrame', 'setTimeout', 'clearTimeout', 'ResizeObserver',
@@ -136,13 +156,32 @@ try {
   ok(Math.abs(TW.get() - Math.min(capBig, TW.want())) <= 0.002, `③ 창이 바뀌면 같은 고른 값으로 다시 잰다(${TW.get()})`);
 } catch (e) { ok(false, '가짜 화면에서 모듈 실행 실패: ' + (e && e.message)); }
 
-// ⑥ 폰(손잡이 숨김)에서 불러오기 — 저장값이 이상한 값으로 바뀌지 않아야 한다
+// ⑥ 손잡이가 숨는 상황(shown=false)에서 불러오기 — 저장값이 이상한 값으로 바뀌지 않아야 한다
 try {
   const ph = makeWorld({ stageW: 348, sideH: 0, tileH: 129, shown: false, store: { aiClassTeacherW: '0.4' } });
-  ok(Math.abs(ph.TW.get() - 0.4) < 0.0015, `⑥ 폰에서 불러와도 고른 값(40%)을 그대로 기억한다 — ${ph.TW.get()}`);
+  ok(Math.abs(ph.TW.get() - 0.4) < 0.0015, `⑥ 손잡이가 숨은 상태에서 불러와도 고른 값(40%)을 그대로 기억한다 — ${ph.TW.get()}`);
   ph.W.shown = true; ph.W.stageW = 1158; ph.W.sideH = 421; ph.TW.refit();
   ok(Math.abs(ph.TW.get() - 0.4) < 0.0015, '⑥ PC 로 돌아오면 그 값이 걸린다');
-} catch (e) { ok(false, '⑥ 폰 시나리오 실행 실패: ' + (e && e.message)); }
+} catch (e) { ok(false, '⑥ 숨김 시나리오 실행 실패: ' + (e && e.message)); }
+
+// ⑧ 📱 폰 — 손잡이가 실제로 일하는가(세로는 방향이 반대) · PC 는 예전 그대로(짝)
+try {
+  const pt = makeWorld({ mode: 'port', stageW: 362, sideH: 0, tileH: 135 });
+  ok(Math.abs(pt.TW.now() - 0.3) < 0.01, `⑧ 폰 세로: 지금 비율을 그림 칸으로 잰다(.side 폭 0 이어도) — ${pt.TW.now()}`);
+  ok(pt.ids.tBig.textContent === '▶' && pt.ids.tSmall.textContent === '◀', '⑧ 폰 세로: 선생님이 왼쪽이라 ▶ 가 «크게», ◀ 가 «작게»');
+  pt.TW.set(0.45, true);
+  ok(Math.abs(pt.TW.get() - 0.45) < 0.0015 && pt.stage.classList.contains('tw'), `⑧ 폰 세로: 고른 값(45%)이 걸린다 — ${pt.TW.get()}`);
+  pt.TW.set(0.9, true);
+  ok(pt.TW.get() <= 0.55 + 0.0005 && pt.ids.tBig.disabled === true, `⑧ 폰 세로: 상한(55%)까지만 · 크게 비활성 — ${pt.TW.get()}`);
+  const ld = makeWorld({ mode: 'land', stageW: 700, sideH: 0, tileH: 220 });
+  ok(ld.ids.tBig.textContent === '◀' && ld.ids.tSmall.textContent === '▶', '⑧ 폰 가로: 선생님이 오른쪽이라 ◀ 가 «크게»(PC 와 같음)');
+  ld.TW.set(0.9, true);
+  ok(ld.TW.get() <= 0.45 + 0.0005, `⑧ 폰 가로: 상한(45%)까지만 — ${ld.TW.get()}`);
+  const pc = makeWorld({ mode: 'pc', stageW: 1158, sideH: 421, tileH: 239 });
+  ok(pc.ids.tBig.textContent === '◀' && pc.ids.tSmall.textContent === '▶', '⑧ PC 는 예전 그대로 ◀ 크게 · ▶ 작게(짝)');
+  pc.TW.set(0.35, true);
+  ok(Math.abs(pc.TW.get() - 0.35) < 0.0015, '⑧ PC 범위는 그대로(35% 그대로 걸림)');
+} catch (e) { ok(false, '⑧ 폰 시나리오 실행 실패: ' + (e && e.message)); }
 
 console.log(fails.map(f => '  ❌ ' + f).join('\n'));
 console.log(`결과: PASS ${pass} / FAIL ${fail}`);
