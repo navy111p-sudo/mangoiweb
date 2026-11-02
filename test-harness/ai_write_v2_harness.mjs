@@ -83,6 +83,11 @@ check('오려 냄: escapeHtml', !!ESC);
 const goHasKo = (HTML.match(/const goHasKo = [^\n]+\n/) || [''])[0];
 const goIsEn = (HTML.match(/const goIsEn  = [^\n]+\n/) || [''])[0];
 check('오려 냄: goHasKo · goIsEn', !!goHasKo && !!goIsEn);
+// 🔔 첨삭 완료 알림 블록(소리·이동 헬퍼)은 submitText 가 부르므로 같이 오려 낸다
+const SOUND_START = HTML.indexOf('    /* 🔔 첨삭 완료 알림');
+const SOUND_END = HTML.indexOf('    async function submitText() {');
+check('오려 냄: 완료 알림 블록(awUnlockSound ~ submitText 앞)', SOUND_START > 0 && SOUND_END > SOUND_START);
+const SOUND = SOUND_START > 0 && SOUND_END > SOUND_START ? HTML.slice(SOUND_START, SOUND_END) : '';
 const SUBMIT = cutFn('    async function submitText() {', 'submitText');
 const RESET = cutFn('    window.resetForm = function(){', 'resetForm');
 
@@ -142,6 +147,7 @@ function makeWorld({ lang = 'ko', uid = 'kid01' } = {}) {
     function alert(m) { env.toasts.push('ALERT ' + m); }
     function confirm(m) { env.confirms.push(m); return env.confirmAnswer; }
     ${V2}
+    ${SOUND}
     ${SUBMIT}
     ${RESET}
     return {

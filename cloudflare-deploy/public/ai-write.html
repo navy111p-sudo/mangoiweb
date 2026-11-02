@@ -1937,8 +1937,47 @@
           </div>
         </div>`;
     }
+    /* 🔔 첨삭 완료 알림 — 소리 + 첨삭결과(2번)로 이동.
+       EN: Chime and jump to the feedback result when grading completes.
+       KO: 첨삭이 끝나면 알림음을 내고 첨삭결과 칸으로 옮겨 준다.
+       ⛔ 브라우저는 사용자 클릭 안에서 만든 오디오만 재생을 허락하므로, 소리 칸은 «AI 첨삭 받기» 클릭 때 먼저 깨운다. */
+    let _awAudio = null;
+    function awUnlockSound() {
+      try {
+        _awAudio = _awAudio || new (window.AudioContext || window.webkitAudioContext)();
+        if (_awAudio.state === 'suspended') _awAudio.resume();
+      } catch (e) { /* EN: no audio support / KO: 소리를 못 쓰는 기기는 조용히 넘어간다 */ }
+    }
+    function awPlayDoneChime() {
+      try {
+        if (!_awAudio) return;
+        [880, 1175].forEach((freq, i) => {
+          const t0 = _awAudio.currentTime + i * 0.15;
+          const osc = _awAudio.createOscillator();
+          const gain = _awAudio.createGain();
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.0001, t0);
+          gain.gain.exponentialRampToValueAtTime(0.2, t0 + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4);
+          osc.connect(gain).connect(_awAudio.destination);
+          osc.start(t0);
+          osc.stop(t0 + 0.45);
+        });
+      } catch (e) { /* EN: ignore / KO: 소리 실패는 첨삭 결과에 영향 없음 */ }
+    }
+    function awShowFeedbackResult() {
+      try {
+        const box = document.getElementById('resultBox');
+        if (!box) return;
+        const head = document.querySelector('.top');
+        const off = (head ? head.getBoundingClientRect().height : 0) + 12;
+        const y = box.getBoundingClientRect().top + (window.pageYOffset || 0) - off;
+        window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+      } catch (e) { /* EN: scroll is a nicety / KO: 이동이 안 돼도 첨삭 결과는 이미 그려져 있다 */ }
+    }
     async function submitText() {
       stopDictation();
+      awUnlockSound();                       // 🔔 클릭 안에서 소리 칸을 먼저 깨운다(뒤의 await 전)
       const textEl = document.getElementById('text');
       const text = (textEl.value || '').trim();
       if (text.length < 3) { alert('3글자 이상 입력하세요.'); return; }
@@ -1973,6 +2012,8 @@
         if (d && d.ok) {
           awNoteRound(text, Number(d.score) || 0, currentLevel);   // 🔁 몇 차 첨삭인지 · 지난 점수
           renderResult(d);
+          awPlayDoneChime();                 // 🔔 첨삭이 완성되면 소리
+          awShowFeedbackResult();            // 🔔 첨삭결과(2번) 칸으로 자동 이동
           if (d.topic_recorded === true) awMarkHwDone(awTopicIdNow());   // 📅 서버가 «적었다» 고 말할 때만 ✓
           await loadHistory();
         } else {
