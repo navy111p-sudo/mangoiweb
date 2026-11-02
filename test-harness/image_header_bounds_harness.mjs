@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 const js = stripTypeScriptTypes(readFileSync(process.env.IMAGE_HEADER_SRC || new URL('../cloudflare-deploy/src/textbook-resolution.ts', import.meta.url), 'utf8'));
 const { imageSizeFromHeader: size, textbookResolutionReport } = await import('data:text/javascript;base64,' + Buffer.from(js).toString('base64'));
-const bytes = (...a) => new Uint8Array(a.flat());
+const bytes = (...a) => new Uint8Array(a.flatMap(v => typeof v === 'number' ? [v] : Array.from(v)));
 const be16 = n => [n >> 8 & 255, n & 255];
 const be32 = n => [n >>> 24, n >>> 16 & 255, n >>> 8 & 255, n & 255];
 const png = () => bytes([137,80,78,71,13,10,26,10], be32(13), [73,72,68,82], be32(1600), be32(900));
@@ -22,6 +22,7 @@ check('PNG must begin with IHDR', () => { const b = png(); b[12] = 0; assert.equ
 check('PNG IHDR length', () => { const b = png(); b[11] = 1; assert.equal(size(b), null); });
 check('JPEG minimal full SOF', () => assert.deepEqual(size(jpeg()), { width:1600,height:900,format:'jpeg' }));
 check('JPEG declared segment too short', () => { const b = bytes(jpeg(), Array(10).fill(0)); b[5] = 2; assert.equal(size(b), null); });
+check('JPEG SOF component count matches segment length', () => { const b = jpeg(); b[11] = 1; assert.equal(size(b), null); });
 check('JPEG stops at end of image', () => assert.equal(size(bytes([255,216,255,217], jpeg().slice(2), Array(10).fill(0))), null));
 check('JPEG does not scan compressed data after SOS', () => assert.equal(size(bytes([255,216,255,218,0,2], jpeg().slice(2), Array(10).fill(0))), null));
 check('VP8 dimensions', () => assert.deepEqual(size(vp8()), { width:1600,height:900,format:'webp' }));
