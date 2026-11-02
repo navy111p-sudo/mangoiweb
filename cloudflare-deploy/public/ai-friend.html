@@ -496,6 +496,9 @@
   <div id="wodCard" hidden></div>
   <div class="chat" id="chat"></div>
   <div class="input-bar">
+    <!-- 📱 손잡이 (휴대폰) — 말하는 방법 줄을 접고 펼친다. 대화가 시작되면 접히고, AI 가 질문하면 다시 펼쳐진다. -->
+    <button type="button" class="friend-panel-handle" id="friendPanelHandle" onclick="friendPanelToggle()"
+      aria-expanded="true" aria-label="말하는 방법 접기·펼치기" data-ko-aria="말하는 방법 접기·펼치기" data-en-aria="Show or hide how to talk"></button>
     <div id="friendTalkSwitch" class="friend-talk-switch" role="group" aria-label="말하는 방법"></div>
     <div id="friendTalkStatus" class="friend-talk-status" role="status" aria-live="polite"></div>
     <!-- 💡 도움 칩 — 눌렀을 때만 열린다. 늘 떠 있으면 «고르는 학습» 이 되어 버린다 -->
@@ -1093,8 +1096,24 @@
       chat.scrollTop = chat.scrollHeight;
     }
 
+    /* 📱 말하는 방법 줄 접기/펼치기 — 대화가 시작되면 접고, AI 가 질문하면 다시 펼친다. */
+    function friendPanelFold(folded) {
+      const bar = document.querySelector('.input-bar');
+      const h = document.getElementById('friendPanelHandle');
+      if (bar) bar.classList.toggle('panel-folded', !!folded);
+      if (h) h.setAttribute('aria-expanded', String(!folded));
+    }
+    function friendPanelToggle() {
+      const bar = document.querySelector('.input-bar');
+      friendPanelFold(!(bar && bar.classList.contains('panel-folded')));
+    }
+    function friendAiAsksQuestion(content) {
+      const t = String(content || '').replace(/[\s\p{Extended_Pictographic}]+$/u, '');
+      return /\?$/.test(t);
+    }
     function appendMsg(role, content, hasFix) {
       if (role === 'ai') _lastAiText = String(content || '');
+      if (role === 'ai' && friendAiAsksQuestion(content)) friendPanelFold(false);
       const chat = document.getElementById('chat');
       if (role === 'user') {
         const m = document.createElement('div');
@@ -1819,6 +1838,7 @@
       stmReset();
       try { input.dispatchEvent(new Event('mangoi:turn-sent')); } catch(e){}   // ⏹ 다음 답변에도 끼어들 수 있게
       appendMsg('user', msg);
+      friendPanelFold(true);   /* 대화가 시작됐으니 「말하는 방법」 줄을 접어 위쪽 대화를 보이게 한다 */
       /* 🎤 «따라 말해 보기» 뒤에 보낸 말이면 낱말 단위로 채점해 보여 준다(js/repeat-score.js). 90초가 지나면 안 잰다. */
       { const _rt = _repeatTarget; _repeatTarget = null;
         if (_rt && Date.now() - _rt.at < 90000 && window.MangoRepeatScore) {
@@ -2321,6 +2341,14 @@
 
 /* 📱 휴대폰 마이크 버튼 56px — 사장님 요청 (세로·가로 모두). 폭 760px 미만에서만 적용. PC 값(58px)은 그대로. */
 @media (max-width:759px){ .mic-btn{ width:56px; height:56px; font-size:22px; } }
+/* 📱 휴대폰: 대화가 시작되면 «말하는 방법» 줄을 접어 위쪽 대화가 보이게 한다. 손잡이로 언제든 펼칠 수 있다. */
+.friend-panel-handle{display:none}
+@media (max-width:759px){
+  .friend-panel-handle{display:flex;justify-content:center;align-items:center;width:100%;min-height:22px;margin:0 0 4px;padding:0;border:0;background:transparent;cursor:pointer}
+  .friend-panel-handle::before{content:'';display:block;width:44px;height:5px;border-radius:99px;background:#64748b}
+  .input-bar.panel-folded #friendTalkSwitch,
+  .input-bar.panel-folded #friendTalkStatus{display:none}
+}
 
 /* ② A안 «말끔한 한 줄» — 2026-09-09 사장님 결정 ─────────────────────────
    설정 25개(레벨8·스타일4·속도5·친구5·자막3)와 퀘스트 4개를 헤더에서 내리고
