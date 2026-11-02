@@ -340,7 +340,7 @@ console.log('\n════════ E-3. 연기된 수업 창 — 서버가 
 const openFn = fnAt(modal, 'function tcOpenMoveModal(r, opt)');
 ok(/var pp = \(r\.postponed === true\);/.test(openFn), '연기된 줄을 r.postponed 로 가른다');
 ok(/\(pp \? '<span id="tc-mv-series-off"[\s\S]*?: mvBtn\('series'/.test(openFn), '연기된 줄은 «🔄 앞으로 계속» 버튼 대신 «다시 잡은 뒤에» 안내(서버 schedule_postponed 와 같은 말)');
-ok(/\(pp \? '' : mvSubBtn\('hold'/.test(openFn), '연기된 줄에 «완전히 연기» 를 또 두지 않는다(요청만 하나 더 쌓인다)');
+ok(!/mvSubBtn\('hold'/.test(openFn), '«완전히 연기» 를 창에 두지 않는다(2026-11-02 사장님 지시로 아예 뺌 — 연기된 줄에 또 쌓이던 문제도 함께 사라짐)');
 ok(/mvSubBtn\('date', T\('지정한 날짜로 연기', 'Postpone to a date'\), pp\)/.test(openFn), '연기된 줄은 «지정한 날짜로 연기»(=다시 잡기)가 처음부터 눌려 있다');
 const ldFn = fnAt(modal, 'function mvLoadTeachers(r)');
 ok(/if \(r\.postponed === true\) \{ box\.innerHTML = ppMsg; return; \}/.test(ldFn), '연기된 줄은 강사 목록을 묻지 않고 사실대로 말한다(서버가 일부러 거절)');

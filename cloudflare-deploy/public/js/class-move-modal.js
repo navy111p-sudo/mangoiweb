@@ -184,7 +184,8 @@
     if (mode !== 'postpone') return mode;
     var sb = box.querySelector('[data-mv-sub][aria-pressed="true"]');
     var sv = sb && sb.getAttribute('data-mv-sub');
-    return sv === 'date' ? 'date' : sv === 'end' ? 'end' : 'hold';
+    /* ⏩ (2026-11-02 사장님 「'완전히 연기' 는 없애줘 — 단순 연기면 하루씩 뒤로 밀려야」) 기본 = 끝에 보강. */
+    return sv === 'date' ? 'date' : sv === 'hold' ? 'hold' : 'end';
   }
   function mvChip(kind, val, label, on) {
     return '<button type="button" data-mv-' + kind + '="' + esc(val) + '" aria-pressed="' + (on ? 'true' : 'false') + '" '
@@ -249,12 +250,15 @@
               : mvBtn('series', T('🔄 변경 <small style="font-weight:500">앞으로 계속</small>', '🔄 Change <small style="font-weight:500">from now on</small>'), false))
       +   (canCancel ? mvBtn('cancel', T('수업 취소', 'Cancel class'), false) : '')
       + '</div>'
-      /* ⏸ 연기 = «이번 한 번». 두 갈래: 날짜 미정 / 지정한 날짜 (2026-09-23 사장님 샘플 C). */
+      /* ⏸ 연기 = «이번 한 번». (2026-09-23 사장님 샘플 C)
+         ⏩ (2026-11-02 사장님 「'완전히 연기'라는 건 없애줘. 단순 연기를 하면 당연히 하루씩 수업이 뒤로 밀려야」)
+            «완전히 연기(날짜 미정)» 버튼을 뺐다. 기본은 «한 회 뒤로 밀기(끝에 보강)» — 이 회가 마지막 수업 다음
+            수업일로 가므로 남은 수업이 한 회씩 뒤로 밀린 것과 날짜가 같다(회차 수 보존).
+            ⛔ 되살리지 말 것. 'hold' 경로 코드는 «학원 오늘 수업 한꺼번에 연기» 가 아직 쓴다. */
       + '<div id="tc-mv-sub" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'
-      +   (pp ? '' : mvSubBtn('hold', T('완전히 연기 (날짜 미정)', 'Postpone (no new date)'), true))
-      +   mvSubBtn('date', T('지정한 날짜로 연기', 'Postpone to a date'), pp)
       /* ⏸ (2026-10-02 사장님 제안) 연기보강 — 이 회를 수업 «끝» 다음 수업일로. 날짜는 서버가 정한다. */
-      +   mvSubBtn('end', T('끝에 보강 (연기보강)', 'Make up at the end'), false)
+      +   mvSubBtn('end', T('한 회 뒤로 밀기 (끝에 보강)', 'Push back one class (make up at the end)'), !pp)
+      +   mvSubBtn('date', T('지정한 날짜로 연기', 'Postpone to a date'), pp)
       + '</div>'
       + '<div id="tc-mv-when" hidden style="display:none;margin-bottom:10px">'
       +   '<div id="tc-mv-when-l" style="font-size:12px;font-weight:700;color:#344054;margin-bottom:4px"></div>'
@@ -526,7 +530,7 @@
     if (_mvEnd.ok !== true) return T('<b>연기보강을 정하지 못했습니다</b> — ', '<b>Could not plan a make-up</b> — ') + esc(_mvEnd.err || '')
       + T('. «지정한 날짜로 연기» 를 써 주세요.', '. Use «Postpone to a date» instead.');
     var j = _mvEnd.j;
-    return T('<b>이번 회만</b> — ' + esc(when) + ' 수업을 수업 끝(마지막 ' + esc(mvDayLabel(j.last_date)) + ') 다음 수업일 <b>' + esc(mvDayLabel(j.new_date) + ' ' + j.new_time) + '</b> 로 옮기고 «' + esc(j.label) + '» 로 표시합니다. 다른 회차는 그대로입니다.',
+    return T('<b>한 회 뒤로</b> — 수업이 한 회씩 뒤로 밀린 것과 같습니다. ' + esc(when) + ' 수업을 수업 끝(마지막 ' + esc(mvDayLabel(j.last_date)) + ') 다음 수업일 <b>' + esc(mvDayLabel(j.new_date) + ' ' + j.new_time) + '</b> 로 옮기고 «' + esc(j.label) + '» 로 표시합니다. 다른 회차는 그대로입니다.',
              '<b>This class only</b> — ' + esc(when) + ' moves to the next class day after the last class (' + esc(mvDayLabel(j.last_date)) + '): <b>' + esc(mvDayLabel(j.new_date) + ' ' + j.new_time) + '</b>, marked as a make-up. Other classes stay as they are.');
   }
   function mvEndLoad(r, day) {
