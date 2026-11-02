@@ -225,7 +225,7 @@ sec('[ E. 배선 — api-ai.ts ]');
   check('E5 프롬프트가 category 를 요구한다', /"category":"error"/.test(AI));
   check('E6 응답에 suggestions 를 싣는다', /corrected, score, issues, suggestions,/.test(AI));
   check('E7 기록(feedback)에도 suggestions 를 남긴다', /JSON\.stringify\(\{ issues, suggestions,/.test(AI));
-  check('E8 단어장 저장은 «오류(issues)» 만 돈다', /for \(const iss of issues\.slice\(0, 6\)\)/.test(AI) && !/for \(const iss of suggestions/.test(AI));
+  check('E8 단어장 저장은 «오류» 먼저, 그다음 «어색한 표현» 도 돈다', /for \(const iss of \[\.\.\.issues\.slice\(0, 6\), \.\.\.suggestions\.slice\(0, 6\)\]\)/.test(AI));
   check('E9 판단력 오답 기록도 «오류(issues)» 만', /const jList = issues\.length/.test(AI) && !/suggestions\.slice\(0, 3\)\.map/.test(AI));
   check('E10 ⛔ 옛 «원문과 같은 수정안도 통과» 필터가 남아 있지 않다', !/it\.original && it\.suggested && it\.reason\)/.test(AI));
   check('E11 🟡 응답에 alternatives 를 싣는다', /_tri\.suggestions\.map\(\(\{ original, suggested, reason, alternatives \}\) => \(\{ original, suggested, reason, alternatives: alternatives \|\| \[\] \}\)\)/.test(AI));

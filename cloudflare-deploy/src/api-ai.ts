@@ -167,7 +167,7 @@ Student text: """${text}"""`;
          🔴 오류만 issues(빨간 줄)로, 🟡 «문법은 맞지만 원어민이 안 쓰는 표현» 은 suggestions 로 가릅니다.
          ✏️ [2026-11-02 사장님 결정] 🟡 는 «참고» 가 아니라 «원어민 표현으로 고쳐 주기» 입니다 — corrected 에도 반영되고,
             대표 표현 1개 + 말투·상황이 다른 표현 최대 2개(alternatives, «언제 쓰는지» 와 함께)를 보냅니다.
-         ⚠️ issues 는 아래에서 단어장 저장·판단력 오답 기록에 쓰입니다 — «참고» 는 거기 넣지 않습니다
+         ⚠️ issues 는 아래에서 단어장 저장·판단력 오답 기록에 쓰입니다 — 단어장에는 🟡 도 넣고(2026-11-02), 판단력 오답 기록에는 🟡 를 넣지 않습니다
             (맞게 쓴 표현을 오답으로 기록하면 원장님이 지적한 그 일이 기록에서 되풀이됩니다). */
       const _tri = triageIssues(text, parsed.issues);
       const issues = _tri.issues.map(({ original, suggested, reason }) => ({ original, suggested, reason }));
@@ -317,7 +317,9 @@ Student text: """${text}"""`;
         try {
           await env.DB.exec(`CREATE TABLE IF NOT EXISTS vocabulary (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, word TEXT NOT NULL, korean TEXT, example TEXT, level INTEGER DEFAULT 0, next_review_at INTEGER NOT NULL, last_reviewed_at INTEGER, correct_count INTEGER DEFAULT 0, wrong_count INTEGER DEFAULT 0, created_at INTEGER NOT NULL);`);
           const nowV = Date.now();
-          for (const iss of issues.slice(0, 6)) {
+          // 🔴 오류 먼저, 그다음 🟡 어색한 표현(원어민 표현으로 고친 것)도 단어장에 — 2026-11-02 사장님 지시.
+          //    ⚠️ 판단력 오답 기록(jList)은 그대로 «오류만» 입니다 — 🟡 는 틀린 것이 아니라서.
+          for (const iss of [...issues.slice(0, 6), ...suggestions.slice(0, 6)]) {
             if (vocabSaved.length >= 3) break;
             const sug = String(iss?.suggested || '').trim();
             const reason = String(iss?.reason || '').trim().slice(0, 80);
