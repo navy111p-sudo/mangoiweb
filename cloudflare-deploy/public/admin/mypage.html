@@ -1588,7 +1588,9 @@
             .then(function(r){ return r.json(); })
             .then(function(j){
               if (j && j.ok){
-                alert(en?'📨 Request sent. Your manager will review it.':'📨 요청을 보냈어요. 매니저가 확인 후 처리합니다.');
+                alert(j.auto_applied
+                  ? (en?'✅ Done — your timetable is updated.':'✅ 반영됐어요 — 시간표가 바로 바뀌었어요.')
+                  : (en?'📨 Request sent. Your manager will review it.':'📨 요청을 보냈어요. 매니저가 확인 후 처리합니다.'));
                 var ta = document.getElementById('sr-reason'); if (ta) ta.value = '';
                 loadMine();
               } else alert('⚠️ ' + ((j&&j.error)||(en?'Failed':'실패')));

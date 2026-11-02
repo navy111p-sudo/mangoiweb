@@ -3173,8 +3173,10 @@ export async function handleAdminApi(
       let studentName = (body.student_name || '').trim() || null;
       const scheduleId = parseInt(body.schedule_id, 10) || null;
       let scheduleSnapshot: string | null = null;
+      let _srcCs: any = null;   // 👨‍🏫 강사 자동 반영의 담당 확인에 쓴다(아래)
       if (scheduleId) {
         const cs: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(scheduleId).first().catch(() => null);
+        _srcCs = cs || null;
         if (cs) {
           scheduleSnapshot = scheduleMoveVersion(cs);
           origDate = String(cs.scheduled_date || origDate || '').replace(/\//g, '-').slice(0, 10) || origDate;
@@ -3212,6 +3214,23 @@ export async function handleAdminApi(
         requesterName2, requesterUid, teacherName, studentName,
         origDate, origTime, newDate, newTime, feeType, minutesBefore, (body.reason || '').trim() || null, now, scheduleSnapshot, _endMk
       ).run();
+      /* 👨‍🏫 (2026-11-02 사장님 「연기·변경 요청은 승인 자체가 필요 없어」) 강사가 «자기 수업» 에 낸
+         연기·변경은 접수 즉시 반영한다 — 검사·저장은 학생 자동 반영과 같은 정본(student-auto-postpone.ts).
+         🔒 근거는 서버 세션뿐: 진짜 강사 세션(isTeacher) + 그 수업의 담당(teacherOwnsSchedule — 모르면 false).
+            body 의 requester_role 은 안 믿는다. 담당이 아니거나 겹침 등으로 못 옮기면 예전처럼 «대기».
+         ⛔ 취소(cancel)는 여기서 반영하지 않는다(관리자 경로). */
+      const _newReqId: number | null = r?.meta?.last_row_id ? Number(r.meta.last_row_id) : null;
+      let _auto: { applied: string | null; reason: string | null } = { applied: null, reason: null };
+      /* ⛔ 관리자 창(class-move-modal)은 requester_role:'admin' 으로 보내고 곧바로 /decide 를 부른다 — 여기서 먼저 반영하면 그 /decide 가 409. */
+      if (requesterRole === 'teacher' && body.requester_role !== 'admin' && reqType !== 'cancel' && _newReqId && _srcCs
+          && _srcActor.ok === true && _srcActor.isTeacher === true) {
+        try {
+          if (await teacherOwnsSchedule(env as any, _srcActor as any, _srcCs)) {
+            const { autoApproveStudentPostpone } = await import('./student-auto-postpone');
+            _auto = await autoApproveStudentPostpone(env as any, _newReqId);
+          } else _auto = { applied: null, reason: 'not_your_class' };
+        } catch (e: any) { _auto = { applied: null, reason: 'apply_failed' }; console.warn('[schedule-requests] teacher auto-apply failed:', e?.message || e); }
+      }
       // 🔔 실시간 알림 — 관리자 카톡(나에게 보내기=kakao_memo 큐). 대시보드 배지는 GET pending_count 로 별도 표시.
       try {
         const typeKo = reqType === 'cancel' ? '취소' : reqType === 'change' ? '변경' : '연기';
@@ -3219,13 +3238,13 @@ export async function handleAdminApi(
         const whenKo = (origDate && origTime) ? `${origDate} ${String(origTime).slice(0, 5)}` : '';
         await enqueueNotification(env, {
           type: 'schedule_request',
-          title: `📅 수업 ${typeKo} 요청 ${feeKo}`.trim(),
-          body: `${studentName || requesterName2 || '학생'} 님 · 강사 ${teacherName}${whenKo ? ` · 원수업 ${whenKo}` : ''}${reqType === 'change' && newDate ? ` → ${newDate} ${String(newTime || '').slice(0, 5)}` : ''}. ${_byAdmin ? '관리자가 직접 접수한 요청입니다.' : '관리자 페이지에서 승인/거절하세요.'}`,
+          title: `📅 수업 ${typeKo} ${_auto.applied ? '자동 반영' : '요청'} ${feeKo}`.trim(),
+          body: `${studentName || requesterName2 || '학생'} 님 · 강사 ${teacherName}${whenKo ? ` · 원수업 ${whenKo}` : ''}${reqType === 'change' && newDate ? ` → ${newDate} ${String(newTime || '').slice(0, 5)}` : ''}. ${_byAdmin ? '관리자가 직접 접수한 요청입니다.' : _auto.applied ? '강사 요청이 시간표에 바로 반영됐습니다.' : '관리자 페이지에서 승인/거절하세요.'}`,
           meta: { request_id: r?.meta?.last_row_id || null, request_type: reqType, requester_role: requesterRole, fee_type: feeType, minutes_before: minutesBefore, student_name: studentName, teacher_name: teacherName },
           channel: 'kakao_memo'
         });
       } catch (e: any) { console.warn('[schedule-requests] notify skipped:', e?.message || e); }
-      return json({ ok: true, id: r?.meta?.last_row_id || null, status: 'pending', fee_type: feeType, minutes_before: minutesBefore, created_at: now, ...(_endMk ? { end_makeup: _endMk, new_date: newDate, new_time: newTime } : {}) });
+      return json({ ok: true, id: r?.meta?.last_row_id || null, status: _auto.applied ? 'approved' : 'pending', auto_applied: _auto.applied, auto_reason: _auto.reason, fee_type: feeType, minutes_before: minutesBefore, created_at: now, ...(_endMk ? { end_makeup: _endMk, new_date: newDate, new_time: newTime } : {}) });
     }
 
     // ── GET /api/admin/schedule-requests?status=&teacher_name=&limit= — 요청 목록 ──

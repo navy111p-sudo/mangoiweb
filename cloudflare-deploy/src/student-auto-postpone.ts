@@ -36,6 +36,10 @@ import { ensureStartsOnColumn } from './class-start-date';
 import { kstToday } from './schedule-split';
 
 export const AUTO_POSTPONE_DECIDER = '자동승인(학생 연기·변경)';
+/* 👨‍🏫 (2026-11-02 사장님 「승인 자체가 필요 없어」) 강사가 «자기 수업» 에 낸 연기·변경도 즉시 반영.
+   담당 확인은 부르는 쪽(api-admin.ts POST /api/admin/schedule-requests)이 teacherOwnsSchedule 로 한다 —
+   여기는 «학생·강사 요청인가» 만 본다. ⛔ 'admin' 요청은 여기서 안 다룬다(관리자 창이 /decide 를 직접 부른다). */
+export const AUTO_POSTPONE_DECIDER_TEACHER = '자동승인(강사 연기·변경)';
 
 export type AutoPostponeResult = { applied: 'moved' | 'postponed' | null; reason: string | null };
 
@@ -52,7 +56,7 @@ export function autoPostponeEligible(row: any, cs: any, mode: 'all' | 'free_post
   if (mode === 'off') return 'auto_off';
   if (!row) return 'request_not_found';
   if (row.status !== 'pending') return 'not_pending';
-  if (row.requester_role !== 'student') return 'not_student';
+  if (row.requester_role !== 'student' && row.requester_role !== 'teacher') return 'not_student';
   if (row.request_type !== 'postpone' && row.request_type !== 'change') return 'not_postpone_or_change';
   if (mode === 'free_postpone') {
     if (row.request_type !== 'postpone') return 'not_postpone';
@@ -159,14 +163,14 @@ export async function autoApproveStudentPostpone(env: any, requestId: number | n
     }
 
     const decision = env.DB.prepare(`UPDATE schedule_change_requests SET status = 'approved', decided_by = ?, decided_at = ?, decide_memo = ? WHERE id = ? AND status = 'pending'`)
-      .bind(AUTO_POSTPONE_DECIDER, now, 'auto', requestId);
+      .bind(row.requester_role === 'teacher' ? AUTO_POSTPONE_DECIDER_TEACHER : AUTO_POSTPONE_DECIDER, now, 'auto', requestId);
     await commitScheduleRequestDecision(env, guards, mutations, decision);
 
     await writeClassAudit(env, {
       action: row.request_type === 'change' ? 'reschedule' : 'postpone', schedule_id: row.schedule_id,
       teacher_name: row.teacher_name || null, student_name: row.student_name || null,
       lesson_date: row.orig_date || null, lesson_time: row.orig_time || null,
-      actor: row.requester_name || row.requester_uid || '학생', actor_role: 'student',
+      actor: row.requester_name || row.requester_uid || (row.requester_role === 'teacher' ? '강사' : '학생'), actor_role: row.requester_role === 'teacher' ? 'teacher' : 'student',
       source: 'schedule-request-auto', reason: row.reason || null,
       detail: (row.new_date || row.new_time) ? `→ ${row.new_date || ''} ${row.new_time || ''}`.trim() + ' · 자동승인' : '자동승인',
     } as any);

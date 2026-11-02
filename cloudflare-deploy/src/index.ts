@@ -2714,6 +2714,18 @@ const worker = {
         }
       }
 
+      /* 🧹 지난 «대기» 연기·변경 요청 자동 정리 (2026-11-02 사장님) — 원래 수업 시각이 지나면 닫는다.
+         정본 src/schedule-request-expire.ts(던지지 않음). 15분 트리거에만 얹는다(새 cron 금지 · hour 비교 금지). */
+      if (isWatchdogTick) {
+        try {
+          const { runScheduleRequestExpire } = await import('./schedule-request-expire');
+          const sx = await runScheduleRequestExpire(env as any);
+          if (sx.closed > 0 || !sx.ok) console.log('[schedule-request-expire]', JSON.stringify(sx));
+        } catch (err) {
+          console.error('[schedule-request-expire] error', err);
+        }
+      }
+
       // ── UTC 18:00 — retention purge
       if (cronIs('0 18 * * *')) {
         /* 🌙 (2026-08-31) 이 블록은 «하나의 순차 체인» 이라, CPU·subrequest 한도를 넘기면

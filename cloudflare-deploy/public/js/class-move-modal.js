@@ -103,6 +103,14 @@
       return rs.json().catch(function () { return null; }).then(function (j) { return { st: rs.status, j: j }; });
     });
   }
+  /* 🧹 (2026-11-02 사장님 「승인 자체가 필요 없어」) 관리자가 누른 연기·변경이 반영되지 못했으면
+     (겹침·근무불가 등) 그 요청을 «대기» 로 남기지 않고 바로 닫는다 — 승인 대기열에 쌓이지 않게.
+     ⚠️ 닫기도 실패하면(연결 끊김) 남는다 — 원래 수업 시각이 지나면 서버 정리가 닫는다. */
+  function mvDropReq(id, nm) {
+    if (!id) return Promise.resolve(false);
+    return mvReq('POST', '/api/admin/schedule-requests/decide', { id: Number(id), action: 'reject', decided_by: nm || undefined })
+      .then(function (x) { return !!(x.j && x.j.ok === true); }, function () { return false; });
+  }
   function tcMoveModalClose() {
     var b = $('tc-move-modal');
     if (b && b.parentNode) b.parentNode.removeChild(b);
@@ -669,8 +677,10 @@
       return mvReq('POST', '/api/admin/schedule-requests/decide', { id: Number(mk.j.id), action: 'approve', decided_by: nm || undefined }).then(function (res) {
         _mvChanged = true;
         if (!res.j || res.j.ok !== true) {
-          bad(mvErrOf(res.st, res.j) + ' ' + T('요청은 저장됐습니다 — 「수업 연기·변경 요청」에서 승인해 주세요.', 'The request is saved — approve it in the schedule requests.'));
-          go.disabled = false; return;
+          return mvDropReq(mk.j.id, nm).then(function () {
+            bad(mvErrOf(res.st, res.j) + ' ' + T('수업은 그대로입니다.', 'The class is unchanged.'));
+            go.disabled = false;
+          });
         }
         if (res.j.applied === 'moved') {
           msg.style.color = '#047857';
@@ -860,8 +870,9 @@
         return mvReq('POST', '/api/admin/schedule-requests/decide', { id: Number(mk.j.id), action: 'approve', decided_by: nm || undefined }).then(function (res) {
           _mvChanged = true;
           if (!res.j || res.j.ok !== true) {
-            return rollback(mvErrOf(res.st, res.j) + ' ' + T('요청은 저장됐습니다 — 「수업 연기·변경 요청」에서 승인해 주세요.',
-                                                  'The request is saved — approve it in the schedule requests.'));
+            return mvDropReq(mk.j.id, nm).then(function () {
+              return rollback(mvErrOf(res.st, res.j) + ' ' + T('수업은 그대로입니다.', 'The class is unchanged.'));
+            });
           }
           var m = mvMsgOf(res.j);
           /* 강사까지 바꿨는데 «옮겨지지» 않았으면(겹침·반복) 강사를 되돌린다. */
@@ -1004,7 +1015,7 @@
       return mvReq('POST', '/api/admin/schedule-requests/decide', { id: Number(mk.j.id), action: 'approve', decided_by: nm || undefined })
         .then(function (res) {
           _bkChanged = true;
-          if (!res.j || res.j.ok !== true) return { ok: false, text: mvErrOf(res.st, res.j) + ' ' + T('(요청은 저장됨)', '(request saved)') };
+          if (!res.j || res.j.ok !== true) return mvDropReq(mk.j.id, nm).then(function () { return { ok: false, text: mvErrOf(res.st, res.j) + ' ' + T('(그대로)', '(unchanged)') }; });
           var m = mvMsgOf(res.j);
           return { ok: m.ok && res.j.applied === 'postponed', text: res.j.applied === 'postponed' ? T('✓ 연기됨', '✓ postponed') : m.s };
         });
