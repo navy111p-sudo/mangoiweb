@@ -50,5 +50,21 @@ for (const text of ['PASS5 FAIL0','PASS5 FAIL1','PASS5 / 0 FAIL','5 PASS FAIL0',
 for (const text of ['✅ 실패 1회 안내','✅ 실패 1건이 집계된다','PASS: example "5 PASS 1 FAIL" rejected','expected 5 PASS 1 FAIL was caught']) {
   check('passing explanation remains passing '+text,()=>assert.equal(classify(result(text)),'PASS'));
 }
+// Defined summary labels permit a separating space or colon, not arbitrary prose prefixes.
+for (const prefix of ['결과 ', '요약 ', 'TOTAL ', 'Summary ', 'RESULT ', 'RESULTS ', 'summary: ', 'TOTAL: ']) {
+  for (const [passed, failed] of [['PASS','FAIL'], ['통과','실패']]) for (const count of [0,1,12]) {
+    for (const direction of [true,false]) {
+      const text=prefix+(direction ? '5 '+passed+' / '+count+' '+failed : passed+' 5 '+failed+' '+count);
+      check('explicit summary prefix '+text,()=>assert.equal(classify(result(text)),count?'FAIL':'PASS'));
+    }
+  }
+}
+for (const text of [
+  'TOTAL PASS0 FAIL0', '결과 5 통과, 0 실패', 'SUMMARY PASS 5 FAIL 0',
+  'TOTALITY 5 PASS / 1 FAIL', 'Summary expected 1 FAIL was caught',
+  '결과표 5 통과 / 1 실패', '결과 1 실패방지 검사 통과',
+  'Summary: example "5 PASS / 1 FAIL" rejected',
+]) check('summary-prefix negative control '+text,()=>assert.equal(classify(result(text)),'PASS'));
+for (const text of ['결과 5 통과, 1 실패', 'TOTAL 5 PASS / 1 FAIL']) check('review exact reproduction '+text,()=>assert.equal(classify(result(text)),'FAIL'));
 console.log(`PASS ${pass} / FAIL ${fail}`);
 process.exitCode = fail ? 1 : 0;
