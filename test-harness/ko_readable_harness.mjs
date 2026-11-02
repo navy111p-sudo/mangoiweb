@@ -135,7 +135,7 @@ sec('[ C. 배선 — 다섯 기능이 정본을 실제로 쓴다(주석 벗긴 �
   check('C8 수업 중 질문: class-ask.ts 는 여전히 import 0(class_ask_harness 전제)', !/^\s*import\s/m.test(ask));
   check('C9 학부모 번역: 깨지면 «못 만들었다» 갈래로', /const hasKo = \/\[가-힣\]\/\.test\(outKo\) && !looksGarbledKo\(outKo\)/.test(mango));
   check('C10 학부모 번역: 정본 import', /import \{ looksGarbledKo \} from '\.\/ko-readable'/.test(mango));
-  check('C11 영작 첨삭: 판정 정본이 공용 정본을 쓴다', /import \{ isReadableKo, isEnglishReply \} from '\.\/ko-readable'/.test(rd('write-issue-triage.ts')));
+  check('C11 영작 첨삭: 판정 정본이 공용 정본을 쓴다', (() => { const m = rd('write-issue-triage.ts').match(/import \{([^}]*)\} from '\.\/ko-readable'/); return !!m && /\bisReadableKo\b/.test(m[1]) && /\bisEnglishReply\b/.test(m[1]); })());
   check('C12 정본은 import 0(하니스가 그대로 돌림)', !/^\s*import\s/m.test(KO_SRC));
 }
 

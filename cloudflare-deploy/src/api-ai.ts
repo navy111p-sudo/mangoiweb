@@ -84,11 +84,12 @@ export async function handleAiApi(
       if (text.length > 2000) return json({ ok: false, error: 'text_too_long' }, 400);
 
       const prompt = `You are Mango, a friendly English writing tutor for a Korean student at CEFR level ${level}. The student wrote the following text. Your job:
-1. Provide a corrected version (preserve student's meaning). Fix ONLY the problems you list in "issues"; keep every other word exactly as the student wrote it.
+1. Provide a corrected version (preserve student's meaning). Fix ALL the problems you list in "issues" (both "error" and "unnatural" items) and ONLY those; keep every other word exactly as the student wrote it.
 2. Provide a numeric score 0-100 for overall quality.
 3. List ONLY real problems (0-5 items — an EMPTY list is correct when the writing has no problems). Each item: original phrase (copied EXACTLY from the student's text), suggested phrase, category, and a REQUIRED brief reason IN KOREAN (one short, simple, grammatical Korean sentence ending in "~요." that explains WHY, e.g. tense, article, preposition, word order). Never leave "reason" empty. If you cannot write natural Korean, write the reason in simple English instead.
    - category "error": grammar, spelling, or a wrong word.
-   - category "unnatural": grammatical, but a native speaker would clearly not say it this way.
+   - category "unnatural": grammatical, but a native speaker would clearly not say it this way (often a word-for-word translation from Korean). These MUST be corrected too, not just mentioned: "suggested" is the ONE most common native expression closest to the student's meaning and tone. Example: "My condition is not good today." -> "I'm not feeling well today." (reason: "condition" usually means a medical state; natives say "I'm not feeling well.").
+     Optional "alternatives" (0-2 items, unnatural only): other natural ways to say it, ONLY when the tone or situation is different from "suggested" (casual vs formal, softer, idiom). Each item: {"text":"<English only>","when":"<short Korean note on when to use it, e.g. 친구와 가볍게 말할 때>"}. Do not list near-identical expressions; use an empty list if there is nothing different.
    - Do NOT list phrasing that is already correct and natural just because another way exists. Examples to leave alone: "When the water boils" (do not change to "Once the water has boiled"); "I'll teach you how to make it" (do not change "teach" to "show").
    - Never list an item whose suggested phrase is the same as the original.
 4. Provide one encouraging tip in natural Korean (1-2 short sentences ending in "~요.").
@@ -99,7 +100,7 @@ Respond in this strict JSON format only, no markdown:
 {
   "corrected": "...",
   "score": 85,
-  "issues": [{"original":"...","suggested":"...","category":"error","reason":"..."}],
+  "issues": [{"original":"...","suggested":"...","category":"error","reason":"..."},{"original":"...","suggested":"...","category":"unnatural","reason":"...","alternatives":[{"text":"...","when":"..."}]}],
   "tip": "...",
   "reply": "...",
   "upgrades": [{"from":"...","to":"...","why":"..."}]
@@ -163,12 +164,14 @@ Student text: """${text}"""`;
          ⛔ 분류가 안 되면 null 을 돌려주고, 그때만 일반 문구를 쓴다 — 지어내지 않는다. */
       /* 🚦 [2026-11-01 엘리더잼 원장님 피드백] 맞게 쓴 표현까지 «고칠 곳» 으로 띄우던 것을 막습니다.
          정본은 `src/write-issue-triage.ts` — 원문과 같은 수정안·학생이 안 쓴 말은 버리고,
-         🔴 오류만 issues(빨간 줄)로, 🟡 «틀리진 않지만 어색함» 은 suggestions(참고)로 가릅니다.
+         🔴 오류만 issues(빨간 줄)로, 🟡 «문법은 맞지만 원어민이 안 쓰는 표현» 은 suggestions 로 가릅니다.
+         ✏️ [2026-11-02 사장님 결정] 🟡 는 «참고» 가 아니라 «원어민 표현으로 고쳐 주기» 입니다 — corrected 에도 반영되고,
+            대표 표현 1개 + 말투·상황이 다른 표현 최대 2개(alternatives, «언제 쓰는지» 와 함께)를 보냅니다.
          ⚠️ issues 는 아래에서 단어장 저장·판단력 오답 기록에 쓰입니다 — «참고» 는 거기 넣지 않습니다
             (맞게 쓴 표현을 오답으로 기록하면 원장님이 지적한 그 일이 기록에서 되풀이됩니다). */
       const _tri = triageIssues(text, parsed.issues);
       const issues = _tri.issues.map(({ original, suggested, reason }) => ({ original, suggested, reason }));
-      const suggestions = _tri.suggestions.map(({ original, suggested, reason }) => ({ original, suggested, reason }));
+      const suggestions = _tri.suggestions.map(({ original, suggested, reason, alternatives }) => ({ original, suggested, reason, alternatives: alternatives || [] }));
       if (_tri.dropped.length) console.log('[write-correct] triage dropped:', JSON.stringify(_tri.dropped.map(d => d.why)));
       /* 🔤 [2026-11-01 실사고] 한국어에 약한 보조 모델이 «낱말 조각» 을 늘어놓은 글(「지도 알는 어 지도 었다…」)이
          그대로 학생 화면에 나갔습니다. 읽을 수 있는 한국어가 아니면 기본 문구로 바꿉니다(정본 isReadableKo). */
