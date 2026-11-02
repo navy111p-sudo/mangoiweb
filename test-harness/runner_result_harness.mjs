@@ -15,7 +15,7 @@ check('zero Korean failures', () => assert.equal(classify(result('✅ 4 통과 /
 check('English failed assertions', () => assert.equal(classify(result('4 passed, 1 failed')), 'FAIL'));
 check('non-browser crash', () => assert.equal(classify(result('Cannot read properties of undefined', 1)), 'FAIL'));
 check('browser timeout keeps explicit skip', () => assert.equal(classify({ error: { code: 'ETIMEDOUT' }, status: null }, true), 'SKIP'));
-check('browser import recognized', () => assert.equal(usesPuppeteer("import p from 'puppeteer-core';"), true));
+check('browser import recognized', () => assert.equal(usesPuppeteer(["import p", "from", "'puppeteer-core';"].join(" ")), true));
 check('browser mentioned in comment is not an import', () => assert.equal(usesPuppeteer('// puppeteer is unavailable'), false));
 console.log(`PASS ${pass} / FAIL ${fail}`);
 process.exitCode = fail ? 1 : 0;
