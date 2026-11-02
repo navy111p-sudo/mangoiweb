@@ -10,8 +10,9 @@
  *  C. 학생이 안 쓴 말·대소문자 오인용·중복·상한·이상한 입력
  *  D. 퍼즈 — 무작위 입력 수천 건으로 불변식(같은 수정 0건 · 안 쓴 말 0건 · 던지지 않음 · 결정론)
  *  E. 배선 — api-ai.ts 가 정본 결과를 쓰고, 단어장·판단력 기록엔 «오류» 만 들어간다
- *  F. 화면 — ai-write.html 의 «참고» 상자를 오려 내 실제로 그려 본다(취소선 없음 · 이스케이프)
+ *  F. 화면 — ai-write.html 의 🟡 «원어민 표현» 상자를 오려 내 실제로 그려 본다(취소선 없음 · 이스케이프)
  *  G. 변이시험 — 정본을 일부러 고장 내면 위 검사가 실제로 FAIL 나는가(조건 뒤집기 포함)
+ *  I. 🟡 «원어민 표현으로 고쳐 주기»(2026-11-02 사장님 결정) — 대표 1개 + «이렇게도 말해요» 최대 3개(있을 때만)
  *
  *  ⚠️ 문자열 검사만으로는 «무슨 답이 나오는가» 를 못 봅니다 — 정본을 타입 제거해 실제로 돌립니다.
  *  환경변수 TRIAGE_SEED 로 퍼즈 씨앗을 바꿉니다(반복 실행용). 기본 20261101.
@@ -108,8 +109,16 @@ function coreScenarios(M) {
   t('C6 이상한 입력에도 던지지 않는다', !threw);
   r = tri('I go there yesterday.', [{ original: 'I go there yesterday', suggested: 'I went there yesterday', category: 'unnatural' }]);
   t('C7 규칙상 오류면 모델이 unnatural 이라 해도 오류(빨간 줄)', r.issues.length === 1 && r.suggestions.length === 0);
+  r = tri('My condition is not good today.', [{ original: 'My condition is not good today', suggested: "I'm not feeling well today", category: 'unnatural', reason: '원어민은 컨디션을 이렇게 말해요.',
+    alternatives: [{ text: "I don't feel great today.", when: '친구와 가볍게 말할 때' }, { text: "I'm feeling under the weather.", when: '조금 아플 때 쓰는 관용 표현' }, { text: 'I feel a bit off today.', when: '살짝 안 좋을 때' }, { text: "I'm not feeling good today.", when: '네 번째는 넘쳐요' }] }]);
+  t('C9 🟡 사장님 예시 → 고친 표현 + 대안은 최대 3개', r.suggestions.length === 1 && r.suggestions[0].suggested === "I'm not feeling well today" && r.suggestions[0].alternatives.length === M.MAX_ALTERNATIVES);
+  r = tri('My condition is not good today.', [{ original: 'My condition is not good today', suggested: "I'm not feeling well today", category: 'unnatural',
+    alternatives: [{ text: "I'm not feeling well today.", when: '같은 말' }, { text: '오늘 아파요', when: '한국어' }, { text: "I’m feeling sick.", when: '' }, { text: 'I feel bad.', when: '지도 알는 어 지도 었다 알 지도 었다' }] }]);
+  { const al = r.suggestions[0]?.alternatives || [];
+    t('C10 대안: 대표와 같음·한국어는 버리고, 설명 없음·깨진 설명은 «설명만» 비움', r.suggestions.length === 1 && al.length === 2 && al.every(a => a.when === ''));
+    t('C10b 곡선 따옴표는 곧은 따옴표로 받는다', al[0]?.text === "I'm feeling sick."); }
   r = tri('Hello there my friend.', [{ original: 'Hello there', suggested: 'Hi there', category: 'unnatural', reason: '' }]);
-  t('C8 참고의 이유가 비면 «지금도 맞다» 문구', r.suggestions.length === 1 && r.suggestions[0].reason === M.SUGGEST_FALLBACK_KO);
+  t('C8 🟡 이유가 비면 «문법은 맞지만 원어민은…» 문구', r.suggestions.length === 1 && r.suggestions[0].reason === M.SUGGEST_FALLBACK_KO);
   // H — 깨진 한국어(2026-11-01 운영 화면 실사고 문장 그대로)
   const GARBLED = ['신호 입력를 지도신.', '어 신린 있다 없다', '지도 알는 어 지도 었다 알 지도 었다.', '있다 어 알는 사람 었다 알 있다 어 있는 어 알는 사람 었다.'];
   t('H1 깨진 한국어 4종을 «못 읽음» 으로 판정', GARBLED.every(g => !M.isReadableKo(g)));
@@ -124,7 +133,7 @@ function coreScenarios(M) {
   r = tri('I have many homework.', [{ original: 'many homework', suggested: 'a lot of homework', category: 'error', reason: '어 신린 있다 없다' }]);
   t('H5b 서버도 설명 못 하면 기본 문구', r.issues.length === 1 && r.issues[0].reason === M.ERROR_FALLBACK_KO);
   r = tri('Hello there my friend.', [{ original: 'Hello there', suggested: 'Hi there', category: 'unnatural', reason: '지도 알는 어 지도 었다 알 지도 었다.' }]);
-  t('H6 참고의 깨진 이유 → «지금도 맞다» 문구', r.suggestions.length === 1 && r.suggestions[0].reason === M.SUGGEST_FALLBACK_KO);
+  t('H6 🟡 깨진 이유 → «문법은 맞지만 원어민은…» 문구', r.suggestions.length === 1 && r.suggestions[0].reason === M.SUGGEST_FALLBACK_KO);
   r = tri('when his friends give him lots of presents, he was very happy', [{ original: 'he was', suggested: 'he is', reason: '어 신린 있다 없다' }]);
   t('H7 was → is 는 «시제» 로 설명(주어 탓이 아님)', r.issues.length === 1 && /시제/.test(r.issues[0].reason) && !/주어에 맞는/.test(r.issues[0].reason));
   t('H8 답장 칸: 깨진 한국어·한글 섞임은 거절, 영어는 통과(짝)',
@@ -219,6 +228,10 @@ sec('[ E. 배선 — api-ai.ts ]');
   check('E8 단어장 저장은 «오류(issues)» 만 돈다', /for \(const iss of issues\.slice\(0, 6\)\)/.test(AI) && !/for \(const iss of suggestions/.test(AI));
   check('E9 판단력 오답 기록도 «오류(issues)» 만', /const jList = issues\.length/.test(AI) && !/suggestions\.slice\(0, 3\)\.map/.test(AI));
   check('E10 ⛔ 옛 «원문과 같은 수정안도 통과» 필터가 남아 있지 않다', !/it\.original && it\.suggested && it\.reason\)/.test(AI));
+  check('E11 🟡 응답에 alternatives 를 싣는다', /_tri\.suggestions\.map\(\(\{ original, suggested, reason, alternatives \}\) => \(\{ original, suggested, reason, alternatives: alternatives \|\| \[\] \}\)\)/.test(AI));
+  check('E12 프롬프트: 🟡 도 corrected 에서 반드시 고친다', /Fix ALL the problems you list in "issues" \(both "error" and "unnatural" items\)/.test(AI) && /These MUST be corrected too/.test(AI));
+  check('E13 프롬프트: 대안은 «있으면» 0-3개 · 대표 표현 반복 금지 · when 은 한국어', /"alternatives" \(0-3 items, unnatural only\)/.test(AI) && /if any exist/.test(AI) && /Do not repeat "suggested"/.test(AI) && /short Korean note/.test(AI) && /Choose only the MOST suitable ones/.test(AI));
+  check('E14 프롬프트: 과잉 교정 금지 예시가 그대로 있다', /Do NOT list phrasing that is already correct and natural/.test(AI));
 }
 
 sec('[ F. 화면 — ai-write.html «참고» 상자를 오려 내 실제로 그림 ]');
@@ -227,11 +240,13 @@ sec('[ F. 화면 — ai-write.html «참고» 상자를 오려 내 실제로 그
   check('F0 awSuggestHtml 이 스크립트 최상위(들여쓰기 4칸)에 있다', i > 0);
   let fnSrc = '';
   if (i > 0) { const end = HTML.indexOf('\n    }\n', i); fnSrc = HTML.slice(i, end + 6); }
-  let html = '', empty = 'x', ok = false;
+  let html = '', altHtml = '', empty = 'x', ok = false;
   try {
     const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const f = new Function('escapeHtml', 'awTr', fnSrc + '\nreturn awSuggestHtml;')(esc, (ko) => ko);
     html = f([{ original: 'When the water boils', suggested: '<b>Once</b>', reason: '참고예요' }]);
+    altHtml = f([{ original: 'My condition is not good today', suggested: "I'm not feeling well today", reason: 'x',
+      alternatives: [{ text: "I don't feel great today.", when: '친구와 가볍게' }, { text: 'Second', when: '' }, { text: 'Third <i>', when: 'y' }, { text: 'Fourth', when: 'z' }] }]);
     empty = f([]) + f(null) + f([{ original: '', suggested: 'x' }]);
     ok = true;
   } catch (e) { ok = false; }
@@ -239,7 +254,13 @@ sec('[ F. 화면 — ai-write.html «참고» 상자를 오려 내 실제로 그
   check('F2 학생 원문이 그대로 보인다', html.includes('When the water boils'));
   check('F3 ⛔ 취소선·빨간 줄을 쓰지 않는다', !/line-through|var\(--red\)|issue-orig/.test(html));
   check('F4 HTML 을 이스케이프한다', html.includes('&lt;b&gt;Once') && !html.includes('<b>Once'));
-  check('F5 KO/EN 라벨이 «글자만 담은 span» 에 달려 있다', /<span data-ko="🟡 참고 · 지금 표현도 맞아요" data-en="🟡 For reference · Yours is fine too">/.test(html));
+  check('F5 KO/EN 라벨이 «글자만 담은 span» 에 달려 있다', /<span data-ko="🟡 어색한 표현 · 원어민 표현으로 고쳤어요" data-en="🟡 Awkward · Fixed to natural English">/.test(html));
+  check('F5b ⛔ «지금 표현도 맞아요»(참고로만) 문구가 화면에 없다', !/지금 표현도 맞아요|Yours is fine too/.test(html + altHtml));
+  check('F9 «이 표현을 먼저 익히세요» 표시', /data-ko="← 이 표현을 먼저 익히세요"/.test(html));
+  check('F10 «이렇게도 말해요» 를 그리고 설명(when)을 붙인다', /data-ko="💬 이렇게도 말해요"/.test(altHtml) && altHtml.includes("feel great today.") && altHtml.includes('(친구와 가볍게)'));
+  check('F11 대안은 화면에서도 최대 3개 · 이스케이프', altHtml.includes('Third &lt;i&gt;') && !altHtml.includes('Fourth'));
+  check('F12 대안이 없으면 «이렇게도 말해요» 를 안 그린다', !/이렇게도 말해요/.test(html));
+  check('F13 «오늘 꼭 기억할 표현» 에 대표 표현이 들어간다', /data-ko="📌 오늘 꼭 기억할 표현"/.test(altHtml) && /📌[\s\S]*feeling well today/.test(altHtml));
   check('F6 빈 목록이면 아무것도 안 그린다', empty === '');
   check('F7 결과 화면이 상자를 부른다', /const suggestHtml = awSuggestHtml\(d\.suggestions\)/.test(HTML) && /\$\{suggestHtml\}/.test(HTML));
   check('F8 지난 기록 보기도 같은 함수를 부른다', /awSuggestHtml\(feedback\.suggestions\)/.test(HTML));
@@ -259,6 +280,9 @@ sec('[ G. 변이시험 — 정본을 일부러 고장 내면 실제로 FAIL 나�
     ['끝맺음 검사 제거(깨진 한국어 통과)', "if (!/(요|니다)[.!?~\\s]*$/.test(s)) return false;", '', 'ko'],
     ['틀린 조사 검사 제거', "if (m[2] === '를' && hasJong(m[1])) return true;", '', 'ko'],
     ['반복 검사 제거', 'if (cnt[t] >= limit) return true;', '', 'ko'],
+    ['대안 상한 제거', 'if (out.length >= MAX_ALTERNATIVES) break;', ''],
+    ['대안 설명(when) 검사 제거', "const when = (/[가-힣]/.test(whenRaw) && whenRaw.length >= 2 && !looksGarbledKo(whenRaw)) ? whenRaw : '';", 'const when = whenRaw;'],
+    ['대안을 버리고 안 보냄', "out.suggestions.push({ original, suggested, reason, kind: 'suggest', alternatives });", "out.suggestions.push({ original, suggested, reason, kind: 'suggest', alternatives: [] });"],
     ['규칙 설명 대신 AI 문장 우선', 'const reason = ruleBacked ? (det as string) : (isReadableKo(modelReason) ? modelReason : (det || ERROR_FALLBACK_KO));', 'const reason = isReadableKo(modelReason) ? modelReason : (det || ERROR_FALLBACK_KO);'],
   ];
   for (const [name, from, to, where] of MUT) {
