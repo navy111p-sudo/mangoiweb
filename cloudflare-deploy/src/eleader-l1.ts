@@ -13,9 +13,14 @@
  *  ↩️ 답을 못 준 턴(엔진 오류·스트림이 빈손으로 끊김)은 한 칸 돌려준다 — 화면이 같은 말을 다시 보내면
  *     두 번 세던 것(2026-10-28 원장님 「첫마디 외에 반응이 없어요」 — 상한 120 에 걸려 있었다).
  *     돌려주기도 하루 ELEADER_L1_REFUND_MAX 번까지 — 엔진이 계속 실패해도 비용이 끝없이 나가지 않게.
+ *  📚 (2026-11-02) Level 2~5(캐피 기본 레벨5 · 캐피 심화 1·2·3) 주제 말하기를 «같은 통로» 에 붙였다 —
+ *     books 응답에 levels 를 덧붙이고, chat 본문에 eleader_topic(주제 id)이 오면 그 주제의 지시로 대화한다
+ *     (정본 src/eleader-capi-topics.ts). 허용 목록·하루 상한·환급은 Level 1 과 «같은 것» 을 쓴다(한 줄도 따로 없음).
+ *     eleader_topic 이 없으면 예전 Level 1 경로 그대로다.
  */
 import { verifyUidToken } from './auth-token';
 import { ELEADER_BOOK_UNITS } from './eleader-book-pack';
+import { eleaderCapiTopic, eleaderCapiPrompt, eleaderCapiPublic } from './eleader-capi-topics';
 import { replyBreakReason } from './reply-sanity';
 import { QM_STOP, QM_KEEP, questionSlot, questionCovered, questionNorm, questionRepeats, questionMemory, askedQuestionsLine, type QuestionMemory } from './question-memory';
 
@@ -504,6 +509,7 @@ export async function handleEleaderL1(request: Request, url: URL, env: L1Env, wa
     try { used = await usedToday(env.DB, uid, day); } catch { used = null; }
     return reply({
       ok: true, subject: uid, course: { ko: 'Level 1 기본과정', en: 'Level 1 Basic Course' },
+      levels: eleaderCapiPublic(),   // 📚 Level 2~5 주제(화면이 레벨 탭으로 그린다). 옛 화면은 이 칸을 모르고 그대로 동작한다.
       daily_cap: cap, used_today: used,
       books: ELEADER_BOOK_UNITS.map(b => ({
         id: b.id, title: b.title, book: b.book,
@@ -520,13 +526,22 @@ export async function handleEleaderL1(request: Request, url: URL, env: L1Env, wa
   const kickoff = b.kickoff === 1;
   const input = typeof b.student_input === 'string' ? b.student_input.trim().slice(0, 600) : '';
   const said = kickoff ? '' : input;
-  if (!eleaderL1Topic(b.eleader_book, b.eleader_q, kickoff, said)) return reply({ error: 'invalid_question' }, 400);
+  // 📚 Level 2~5 주제 대화 — 본문에 eleader_topic 이 «있으면» 그 주제만 본다(모르는 id 는 400, Level 1 로 흘려보내지 않는다).
+  const capi = b.eleader_topic === undefined ? null : eleaderCapiTopic(b.eleader_topic);
+  if (b.eleader_topic !== undefined && !capi) return reply({ error: 'invalid_topic' }, 400);
+  if (!capi && !eleaderL1Topic(b.eleader_book, b.eleader_q, kickoff, said)) return reply({ error: 'invalid_question' }, 400);
   const session = typeof b.session_id === 'string' ? b.session_id.trim().slice(0, 120) : '';
   if (!input || !session) return reply({ error: 'invalid_turn' }, 400);
-  const wish = await learnerWish(env, `eleaderl1wish:${uid}:${session}:${b.eleader_book}`, said);
   const memory = await learnerMemory(env, session, said);   // 🔁 이미 물은 질문(같은 질문 두 번 금지)
-  const topic = eleaderL1Topic(b.eleader_book, b.eleader_q, kickoff, said, wish, memory) as string;
-  const asks = eleaderL1Asks(b.eleader_book, b.eleader_q, kickoff, wish, memory);
+  let topic: string, wish = '', asks: number | null = null, difficulty = 1, ageGroup: string = 'kid';
+  if (capi) {
+    topic = eleaderCapiPrompt(capi.topic.id, kickoff, said, l1AskedLine(memory && memory.asked.length ? memory : null)) as string;
+    difficulty = capi.level.difficulty; ageGroup = capi.level.age;
+  } else {
+    wish = await learnerWish(env, `eleaderl1wish:${uid}:${session}:${b.eleader_book}`, said);
+    topic = eleaderL1Topic(b.eleader_book, b.eleader_q, kickoff, said, wish, memory) as string;
+    asks = eleaderL1Asks(b.eleader_book, b.eleader_q, kickoff, wish, memory);
+  }
   let used: number | null;
   try { used = await reserveTurn(env.DB, uid, day, cap); } catch { return reply({ error: 'limit_unavailable' }, 503); }
   if (used === null) {
@@ -537,7 +552,7 @@ export async function handleEleaderL1(request: Request, url: URL, env: L1Env, wa
 
   const inner: Record<string, unknown> = {
     session_id: session, student_input: input, user_id: uid,
-    difficulty: 1, age_group: 'kid', lang: 'en', guided: 1, lesson_topic: topic,
+    difficulty, age_group: ageGroup, lang: 'en', guided: 1, lesson_topic: topic,
   };
   if (kickoff) inner.kickoff = 1;
   if (b.stream === 1) inner.stream = 1;
