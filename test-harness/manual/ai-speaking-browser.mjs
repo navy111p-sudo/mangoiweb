@@ -44,7 +44,7 @@ try {
     const requests=[];page.on('request',r=>requests.push(r.url()));
     try {
       await page.goto(origin+'/ai-speaking.html');
-      check(await page.locator('.mode').count()===2,'two modes');
+      check(await page.locator('.mode').count()===3,'three modes');
       check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'hub has no horizontal overflow');
       check(await page.locator('html').getAttribute('lang')===(storage==='unavailable'?'ko':language),'language or safe fallback');
       check(!requests.some(u=>u.includes('/api/')),'hub makes no API calls');
@@ -59,9 +59,9 @@ try {
       // Actual pointer hit-testing, not JS .click(): catches links obscured by onboarding.
       await page.locator('a[href="/ai-speaking.html"]:visible').first().click();
       await page.waitForURL('**/ai-speaking.html');
-      check(await page.locator('.mode').count()===2,'round trip returns to choice');
+      check(await page.locator('.mode').count()===3,'round trip returns to choice');
       await page.reload();
-      check(await page.locator('.mode').count()===2,'reload keeps choice usable');
+      check(await page.locator('.mode').count()===3,'reload keeps choice usable');
       if(storage==='saved') {
         const saved=await page.evaluate(()=>[localStorage.getItem('mangoi_aifriend_level'),localStorage.getItem('mangoi_aifriend_correction')]);
         check(saved[0]==='5'&&saved[1]==='balanced','mode switching preserves saved level and correction');
