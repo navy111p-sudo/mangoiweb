@@ -1990,13 +1990,13 @@
     }
     /* 🟡 «어색한 표현 → 원어민 표현» 상자 — 결과 화면·지난 기록 두 곳이 같은 함수를 씁니다(한쪽만 다르게 그리지 않게).
        ✏️ 2026-11-02 사장님 결정: «참고» 가 아니라 «고쳐 주기» — 문법은 맞아도 원어민이 안 쓰는 표현은 다시 배워야 합니다.
-          대표 표현 1개(먼저 익힐 것) + 말투·상황이 다른 표현 최대 2개(«이렇게도 말해요») + 오늘 꼭 기억할 표현.
+          대표 표현 1개(먼저 익힐 것) + 같은 뜻의 다른 표현이 있으면 최대 3개(«이렇게도 말해요») + 오늘 꼭 기억할 표현.
        ⛔ 취소선·빨간색은 여전히 쓰지 않습니다 — 문법 «오류» 가 아니라서, 오류 개수에도 안 셉니다. */
     function awSuggestHtml(list) {
       const arr = Array.isArray(list) ? list.filter(s => s && s.original && s.suggested) : [];
       if (!arr.length) return '';
       const altHtml = (s) => {
-        const alts = Array.isArray(s.alternatives) ? s.alternatives.filter(a => a && a.text).slice(0, 2) : [];
+        const alts = Array.isArray(s.alternatives) ? s.alternatives.filter(a => a && a.text).slice(0, 3) : [];
         if (!alts.length) return '';
         return '<div style="font-size:12px;color:var(--text2);margin-top:5px">'
           + '<span data-ko="💬 이렇게도 말해요" data-en="💬 You can also say">' + escapeHtml(awTr('💬 이렇게도 말해요', '💬 You can also say')) + '</span>'

@@ -21,8 +21,9 @@
 //   [2026-11-02 사장님 결정 — 🟡 는 «참고» 가 아니라 «고쳐 주기»]
 //     「My condition is not good today.」 는 문법은 맞지만 원어민이 안 씁니다(→ I'm not feeling well today.).
 //     «참고» 로만 보여 주면 아이는 «내 표현도 써도 된다» 고 받아들여 그대로 다시 씁니다.
-//     그래서 🟡 는 대표 표현 1개로 «고쳐 주고»(corrected 에도 반영), 다른 자연스러운 표현은
-//     말투·상황이 다를 때만 최대 2개(alternatives — «언제 쓰는지» 한 줄과 함께) 덧붙입니다.
+//     그래서 🟡 는 대표 표현 1개로 «고쳐 주고»(corrected 에도 반영), 같은 뜻의 다른 자연스러운 표현이
+//     «있으면» 최대 3개(alternatives — 예: I'm happy → I feel great / I'm so glad) 덧붙입니다(같은 날 사장님 추가 지시).
+//     «언제 쓰는지» 한 줄은 있으면 붙이고, 깨진 한국어면 그 줄만 뺍니다.
 //     ⚠️ 오류 개수·단어장·판단력 오답 기록에는 여전히 넣지 않습니다(문법은 맞게 썼기 때문).
 //     ⛔ 과잉 교정은 그대로 막습니다 — «다르게도 쓸 수 있다» 수준은 🟢(버림)입니다.
 // ═══════════════════════════════════════════════════════════════════════
@@ -37,8 +38,8 @@ export interface TriageResult { issues: TriagedIssue[]; suggestions: TriagedIssu
 
 export const MAX_ERRORS = 5;
 export const MAX_SUGGESTIONS = 3;
-/** 🟡 하나에 덧붙이는 «이렇게도 말해요» 최대 개수 — 많으면 무엇을 외울지 헷갈립니다. */
-export const MAX_ALTERNATIVES = 2;
+/** 🟡 하나에 덧붙이는 «이렇게도 말해요» 최대 개수(2026-11-02 사장님 «최대 3개») — 더 많으면 무엇을 외울지 헷갈립니다. */
+export const MAX_ALTERNATIVES = 3;
 /** 모델 이유가 없을 때 🟡 에 붙이는 문구 — «문법은 맞다» 와 «원어민 표현으로 익히자» 를 함께 말합니다.
  *  ⛔ 「지금 표현도 써도 된다」로 읽히는 말은 쓰지 않습니다(2026-11-02 사장님 결정). */
 export const SUGGEST_FALLBACK_KO = '문법은 맞지만 원어민은 보통 이렇게 말해요. 고친 표현으로 익혀 두세요.';
@@ -88,7 +89,8 @@ export { isReadableKo, isEnglishReply };
  * 🟡 의 «이렇게도 말해요» 를 거릅니다(순수 함수 — 던지지 않습니다).
  *   · 영어만(한글·한자가 섞이면 버림 — 학생이 «따라 쓸 영어» 입니다)
  *   · 대표 표현·학생 원문·서로와 같으면 버림(같은 말을 두 번 보여 주지 않음)
- *   · «언제 쓰는지» 가 없거나 깨진 한국어면 버림 — 설명 없는 대안은 «무엇이 다른가» 를 못 가르칩니다
+ *   · «언제 쓰는지»(when)는 있으면 붙이고, 한글이 없거나 깨진 한국어면 그 설명만 비웁니다
+ *   · 곡선 따옴표(I’m)는 곧은 따옴표로 바꿔 받습니다(멀쩡한 대안이 버려지지 않게)
  *   · 최대 MAX_ALTERNATIVES 개
  */
 export function cleanAlternatives(raw: any, original: string, suggested: string): IssueAlternative[] {
@@ -97,12 +99,12 @@ export function cleanAlternatives(raw: any, original: string, suggested: string)
   const seen = new Set<string>([normForCompare(original).toLowerCase(), normForCompare(suggested).toLowerCase()]);
   for (const a of raw.slice(0, 6)) {
     if (out.length >= MAX_ALTERNATIVES) break;
-    const text = String((a && typeof a === 'object' ? a.text : a) || '').trim().slice(0, 120);
-    const when = String((a && typeof a === 'object' ? (a.when ?? a.note ?? a.usage) : '') || '').trim().slice(0, 80);
+    const text = String((a && typeof a === 'object' ? a.text : a) || '').replace(/[‘’ʼ′]/g, "'").trim().slice(0, 120);
+    const whenRaw = String((a && typeof a === 'object' ? (a.when ?? a.note ?? a.usage) : '') || '').trim().slice(0, 80);
     if (!text || !/^[A-Za-z][A-Za-z0-9' ,.!?;:-]*$/.test(text)) continue;
     const k = normForCompare(text).toLowerCase();
     if (!k || seen.has(k)) continue;
-    if (!/[가-힣]/.test(when) || when.length < 2 || looksGarbledKo(when)) continue;
+    const when = (/[가-힣]/.test(whenRaw) && whenRaw.length >= 2 && !looksGarbledKo(whenRaw)) ? whenRaw : '';
     seen.add(k);
     out.push({ text, when });
   }
