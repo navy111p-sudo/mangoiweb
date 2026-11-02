@@ -1389,7 +1389,7 @@
       window._lastResult = d;
       _autoSay = true;
       renderResult(d); reEnter();
-      if(d.correct){ confetti(); xpPop('+'+(d.choice_score!=null?d.choice_score:'💯')); }
+      if(d.correct){ confetti(); xpPop((d.points && d.points.status==='got') ? '+'+d.points.amount+'P 🥭' : '+'+(d.choice_score!=null?d.choice_score:'💯')); }
     }catch(e){
       stage.innerHTML = '<div class="center">'+T('채점에 실패했어요.','Grading failed.','批改失败了。')+'<br><button class="btn ghost" style="max-width:260px;margin:18px auto 0" onclick="location.reload()">'+T('다시 시도','Try again','再试一次')+'</button></div>';
     }
@@ -1423,6 +1423,24 @@
     }).join('');
     return '<div class="ot"><div class="ot-h">'+T('표현마다 몇 점일까요?','How each option scores','每个表达得几分？')+'</div>'+rows+'</div>';
   }
+  /* 🪙 받은 망고 포인트 (2026-11-02 · 정답 1문제당 2P) — 서버 d.points(정본 judgment-points.ts)만 그립니다.
+     ⛔ 지어내지 않습니다: 서버가 그 칸을 안 보내면(옛 서버) 아무것도 안 그립니다. */
+  function judgPtsView(p){
+    if(!p || !p.status) return '';
+    var tod = (p.earned_today!=null && isFinite(Number(p.earned_today)) && Number(p.earned_today)>0)
+      ? ' · '+T('오늘 판단력 훈련 ','Today in Judgment ','今天判断力训练 ')+'+'+Number(p.earned_today)+'P' : '';
+    var h;
+    if(p.status==='got') h='🥭 '+T('망고 포인트','Mango points','芒果积分')+' <b>+'+Number(p.amount)+'P</b>'+tod;
+    else if(p.status==='none') h='🥭 '+T('정답을 맞히면 망고 포인트 2P를 받아요','Get it right to earn 2 Mango points','答对可得2个芒果积分')+tod;
+    else if(p.status==='capped') h='🌙 '+(p.cap_error==='game_daily_cap_reached'
+        ? T('게임·퀴즈 포인트는 하루 '+(p.cap||30)+'점까지예요. 내일 또 받아요!','Game & quiz points are capped at '+(p.cap||30)+' a day. More tomorrow!','游戏·测验积分每天最多'+(p.cap||30)+'分，明天再来！')
+        : T('오늘 받을 수 있는 포인트를 다 받았어요. 내일 또 받아요!',"You've earned today's maximum. More tomorrow!",'今天的积分已经领满了，明天再来！'))+tod;
+    else if(p.status==='dup') h='🥭 '+T('이 문제는 이미 포인트를 받았어요','Points for this question were already given','这道题已经领过积分了')+tod;
+    else if(p.status==='guest') h='🔑 '+T('로그인하면 정답마다 망고 포인트 2P가 쌓여요','Log in to earn 2 Mango points per correct answer','登录后每答对一题得2个芒果积分');
+    else if(p.status==='not_trusted') h='⚠️ '+T('이 문제는 포인트를 확인하지 못했어요 — 새 문제로 받아 보세요','Could not verify points for this question — try a new one','这道题无法确认积分，请换一道新题');
+    else h='⚠️ '+T('포인트를 확인하지 못했어요','Could not check points','无法确认积分');
+    return '<div class="lvlnote jpts">'+h+'</div>';
+  }
   function renderResult(d){
     view='result';
     var ok = !!d.correct;
@@ -1454,6 +1472,7 @@
     stage.innerHTML =
       '<div class="res">'+
         '<div class="banner '+(ok?'ok':'no')+'">'+bannerText(ok, d.choice_score)+'</div>'+
+        judgPtsView(d.points)+
         mvNote+
         myPick+
         best+
