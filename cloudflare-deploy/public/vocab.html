@@ -215,8 +215,15 @@
   .dexc .rar{position:absolute;top:8px;left:10px;font-size:10.5px;font-weight:900;padding:2px 8px;border-radius:99px}
   /* ✨ 어색한 표현 → 원어민 표현 카드 (2026-11-02) */
   .dexc.awk{border-color:rgba(251,191,36,0.75);box-shadow:0 0 0 1px rgba(251,191,36,0.25) inset}
+  /* 원어민 표현은 «문장» 이라 길다 — 배지 둘 아래에서 시작하고, 낱말 중간에서 끊지 않음 */
+  .dexc.awk{padding-top:36px}
+  .dexc.awk .w{font-size:17px;line-height:1.3;word-break:normal;overflow-wrap:anywhere}
   .dexc .awk-badge{position:absolute;top:8px;right:10px;font-size:10.5px;font-weight:900;padding:2px 8px;border-radius:99px;background:#fbbf24;color:#422006;white-space:nowrap}
   .dex-head .awk-note{display:block;color:#fbbf24;margin-top:4px}
+  .dex-filter{display:flex;flex-wrap:wrap;gap:8px;margin:-6px 0 14px}
+  .dex-filter .dxf{padding:7px 14px;border-radius:99px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#cbd5e1;font-size:14px;font-weight:700;cursor:pointer}
+  .dex-filter .dxf.on{background:#4f7cff;border-color:#4f7cff;color:#fff}
+  .dex-filter .dxf.awk.on{background:#fbbf24;border-color:#fbbf24;color:#422006}
   .dexc .dx-tools{display:flex;gap:6px;justify-content:center;margin-top:10px}
   .dexc .dx-tools button{padding:6px 12px;border-radius:8px;border:0;cursor:pointer;font-size:13px;background:rgba(255,255,255,0.1);color:#e6ecff}
   .dexc .dx-tools .dl{background:rgba(239,68,68,0.15);color:#f87171;font-size:12px}
@@ -1518,16 +1525,38 @@ async function loadCollection(){
     if (!d.words || !d.words.length) {
       el.innerHTML = '<div class="empty">아직 카드가 없어요.<br>+ 단어 추가 탭에서 첫 카드를 수집해 보세요!</div>'; return;
     }
+    _dexWords = d.words;
+    renderDex();
+  } catch(e){ el.innerHTML = '<div class="empty">로드 실패</div>'; }
+}
+// 🔎 «원어민 표현만» 모아 보기(2026-11-02) — 받은 목록을 다시 받지 않고 화면에서만 거름
+var _dexWords = [];
+var _dexFilter = 'all';   // 'all' | 'awkward'
+function setDexFilter(f){ _dexFilter = (f === 'awkward') ? 'awkward' : 'all'; renderDex(); }
+function renderDex(){
+  const el = document.getElementById('list-content');
+  if (!el) return;
+  const d = { words: _dexWords || [] };
+  try {
     const mastered = d.words.filter(w => (w.level||0) >= 5).length;
     // 🏷️ AI 영작에서 «어색한 표현» 을 원어민 표현으로 고친 카드(서버 tag='awkward') — 따로 표시(2026-11-02)
     const _en = (typeof window.getLang === 'function' && window.getLang() === 'en');
     const awkN = d.words.filter(w => w.tag === 'awkward').length;
+    // 원어민 표현 카드가 0장이면(지우는 등) 필터를 «전체» 로 되돌림 — 빈 화면으로 남지 않게
+    if (!awkN) _dexFilter = 'all';
+    const onlyAwk = _dexFilter === 'awkward';
+    const shown = onlyAwk ? d.words.filter(w => w.tag === 'awkward') : d.words;
+    const filterBar = awkN ? `<div class="dex-filter" role="group" aria-label="${_en ? 'Card filter' : '카드 모아 보기'}">
+        <button type="button" class="dxf${onlyAwk ? '' : ' on'}" aria-pressed="${onlyAwk ? 'false' : 'true'}" onclick="setDexFilter('all')">${_en ? 'All' : '전체'} ${d.words.length}</button>
+        <button type="button" class="dxf awk${onlyAwk ? ' on' : ''}" aria-pressed="${onlyAwk ? 'true' : 'false'}" onclick="setDexFilter('awkward')">✨ ${_en ? 'Natural expressions' : '원어민 표현만'} ${awkN}</button>
+      </div>` : '';
     el.innerHTML = `<div class="dex-head">
         <span class="t">📖 내 단어 카드</span>
         <span class="c">${d.words.length}장 수집 · 🥇 마스터 ${mastered}장 — 복습에서 맞힐수록 카드가 진화해요!</span>
         ${awkN ? `<span class="c awk-note">${_en ? `✨ ${awkN} natural expression${awkN>1?'s':''} — fixed from awkward English in A.i Writing` : `✨ 원어민 표현 ${awkN}장 — A.i 영작에서 어색한 표현을 고친 카드예요`}</span>` : ''}
       </div>
-      <div class="dex">` + d.words.map(w => {
+      ${filterBar}
+      <div class="dex">` + shown.map(w => {
         const rr = rarity(w.level||0);
         const lv = Math.min(w.level||0, 7);
         const awk = w.tag === 'awkward';

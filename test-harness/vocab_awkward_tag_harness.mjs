@@ -86,7 +86,7 @@ const H = read('public/vocab.html');
   const i = H.indexOf('async function loadCollection');
   const j = H.indexOf('async function delWord', i);
   const body = H.slice(i, j);
-  const cardFn = body.match(/d\.words\.map\(w => \{([\s\S]*?)\n      \}\)\.join/);
+  const cardFn = body.match(/(?:d\.words|shown)\.map\(w => \{([\s\S]*?)\n      \}\)\.join/);
   ok('④-1 카드 그리기를 찾았다', !!cardFn);
   let render = null;
   try { render = new Function('w', 'esc', 'rarity', '_en', cardFn[1]); } catch (e) { console.log('   ', e.message); }
@@ -100,6 +100,35 @@ const H = read('public/vocab.html');
   ok('④-4 영어 화면은 영어로', /Natural/.test(e) && !/원어민 표현/.test(e));
   ok('④-5 머리글에 개수 줄', /awkN \?/.test(body) && /w\.tag === 'awkward'/.test(body));
   ok('④-6 표시 CSS 가 있다', /\.dexc \.awk-badge\{/.test(H) && /\.dexc\.awk\{/.test(H));
+}
+
+console.log('[ ⑥ «원어민 표현만» 모아 보기 — renderDex 를 실제로 돌림 ]');
+{
+  const m = H.match(/function renderDex\(\)\{([\s\S]*?)\n\}\nasync function delWord/);
+  ok('⑥-1 renderDex 를 찾았다', !!m);
+  const run = (words, filter, lang = 'ko') => {
+    const el = { innerHTML: '' };
+    let after = filter;
+    try {
+      const body = m[1].replace(/_dexFilter = 'all';/, "_dexFilter = 'all'; __set('all');");
+      new Function('document', 'window', 'esc', 'rarity', '_dexWords', '_dexFilter', '__set', body)(
+        { getElementById: () => el }, { getLang: () => lang }, (x) => String(x),
+        () => ({ cls: 'r-seed', tag: '새싹', stars: '🌱' }), words, filter, (v) => { after = v; });
+    } catch (e) { return { html: '<err:' + e.message + '>', after }; }
+    return { html: el.innerHTML, after };
+  };
+  const W = [{ id: 1, word: 'apple', level: 0 }, { id: 2, word: "I'm not feeling well today.", level: 0, tag: 'awkward' }, { id: 3, word: 'go', level: 0 }];
+  const cards = (h) => (h.match(/class="dexc /g) || []).length;
+  const all = run(W, 'all'), only = run(W, 'awkward');
+  ok('⑥-2 «전체» 는 카드 3장', cards(all.html) === 3);
+  ok('⑥-3 «원어민 표현만» 은 그 카드 1장뿐', cards(only.html) === 1 && /feeling well/.test(only.html) && !/apple/.test(only.html));
+  ok('⑥-4 필터 단추와 개수가 보인다(짝: 전체/원어민)', /setDexFilter\('all'\)/.test(all.html) && /setDexFilter\('awkward'\)/.test(all.html) && /원어민 표현만 1/.test(all.html) && /전체 3/.test(all.html));
+  ok('⑥-5 누른 쪽이 켜짐 표시', /class="dxf awk on" aria-pressed="true"/.test(only.html) && /class="dxf on" aria-pressed="true"/.test(all.html));
+  const none = run([{ id: 1, word: 'apple', level: 0 }], 'awkward');
+  ok('⑥-6 원어민 카드가 0장이면 단추 없음 · 전체로 되돌림(빈 화면 금지)', !/dex-filter/.test(none.html) && cards(none.html) === 1 && none.after === 'all');
+  ok('⑥-7 영어 화면은 영어 단추', /Natural expressions 1/.test(run(W, 'all', 'en').html));
+  ok('⑥-8 필터를 바꿔도 다시 받지 않는다(화면에서만 거름)', /function setDexFilter\(f\)\{[^}]*renderDex\(\);/.test(H) && !/function setDexFilter[^}]*fetch/.test(H));
+  ok('⑥-9 필터 CSS', /\.dex-filter \.dxf\.awk\.on\{/.test(H));
 }
 
 console.log('[ ⑤ 복습 퀴즈 화면 — 네 문제 모양 모두, 짝 검사 ]');
