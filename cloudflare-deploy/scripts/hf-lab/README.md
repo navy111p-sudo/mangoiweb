@@ -15,3 +15,22 @@
 - **Rules:** never send live WebRTC audio; use public or consented samples only.
 - **Run:** see the command above. The default inference base URL is unverified; override with `HF_INFERENCE_BASE`.
 - **Test:** `node --test scripts/hf-lab/asr-compare.test.mjs` (offline, fake fetch).
+
+## 보고서 항목 매핑 (허깅페이스 제안보고서 6장)
+
+| 항목 | 도구 | 상태 |
+|---|---|---|
+| B. 아이 음성 인식 정확도 | `asr-compare.mjs` (WER) | 구현·테스트 완료. 샘플·토큰 필요 |
+| D. 교정 품질 | `correction-compare.mjs` (정답 일치율) | 구현·테스트 완료. 샘플·토큰 필요 |
+| A. 입모양 개선 (비공개 Space) | — | 보류: 사람 승인 필요 (PRO 구독 $9/월) |
+| C. 중국어 음성 | — | HF 작업 없음 (보고서상 Azure→MeloTTS→Google 순서는 개발 담당 확인 후) |
+
+### 교정 비교 실행
+- **샘플:** `samples.jsonl` 한 줄 = `{"student":"I goed to school","reference":"I went to school."}`. 동의받은 샘플 또는 가공 문장만 씁니다.
+- **실행:** `HF_API_TOKEN=... node scripts/hf-lab/correction-compare.mjs samples.jsonl <모델1,모델2>`
+- **엔드포인트:** `HF_CHAT_BASE` 로 덮어쓸 수 있습니다. 기본값은 **이 컨테이너에서 실측하지 않았습니다.**
+- **테스트:** `node --test scripts/hf-lab/correction-compare.test.mjs`
+
+## English
+- Section mapping above follows the Hugging Face proposal report (section 6).
+- Item A and PRO subscription need explicit approval; no HF calls are made for them.
