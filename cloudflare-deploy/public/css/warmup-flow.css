@@ -98,3 +98,25 @@ body .wg-composer{
 body .inbar{
   background:rgba(20,33,59,.35)!important;
 }
+
+/* ── 세로(폰, 640px 이하) 화면 (2026-11-02 사장님 요청) ──
+   ① 위 헤더 높이를 절반 가까이 줄인다.
+   ② 아래 버튼 줄은 손잡이만 남기고 접혔다 펼쳐진다 — 동작은 js/warmup-dock.js. */
+@media (max-width:640px){
+  html{--wf-header-height:32px;}
+  body .top{padding:3px 8px!important;min-height:0!important;gap:4px!important;}
+  body .top :is(.icon-btn,.back){width:26px!important;height:26px!important;min-width:26px!important;min-height:26px!important;font-size:13px!important;border-radius:8px!important;}
+  body .top>a:first-child{padding:2px 4px!important;font-size:11px!important;min-height:26px!important;}
+  body .top h1{font-size:13px!important;line-height:1.2!important;}
+}
+/* 손잡이: 아래 버튼 줄의 맨 위 얇은 띠. 폰 세로에서만 보인다 */
+.dock-handle{display:none;}
+@media (max-width:640px){
+  .dock-handle{display:flex;align-items:center;justify-content:center;width:100%;min-height:22px;height:22px;margin:0;padding:0;border:0;background:transparent;cursor:pointer;flex:0 0 auto;}
+  .dock-handle::before{content:"";width:48px;height:5px;border-radius:3px;background:#7dd3fc;opacity:.85;}
+  .dock-handle:focus-visible{outline:3px solid #ffd56a;outline-offset:-3px;}
+  [data-dock]{overflow:hidden;transition:max-height .25s ease,padding .25s ease;}
+  [data-dock].dock-collapsed{max-height:22px!important;padding-top:0!important;padding-bottom:0!important;}
+  [data-dock].dock-collapsed>:not(.dock-handle){display:none!important;}
+}
+@media (prefers-reduced-motion:reduce){ [data-dock]{transition:none!important;} }
