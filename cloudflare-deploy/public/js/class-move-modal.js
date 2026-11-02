@@ -892,15 +892,16 @@
   }
   /* ══════════════════════════════════════════════════════════════════════
      🏫 (2026-09-23 매니저 Karl 제안 2단계) «이 학원 오늘 수업 한꺼번에 연기».
-     [무엇] 학원 드롭다운으로 고른 줄들을 한 번에 «완전히 연기(날짜 미정)» 한다.
-     ⚠️ 새 서버 경로가 없다 — 단건 «완전히 연기» 와 **같은 두 요청**을 줄마다 차례로 보낸다:
-        POST /schedule-requests(postpone) → POST /schedule-requests/decide(approve)
+     [무엇] 학원 드롭다운으로 고른 줄들을 한 번에 «한 회 뒤로 밀기(끝에 보강)» 한다.
+       ⏩ (2026-11-02 사장님 「그 두 곳도 한 회 뒤로 밀기로」) 예전엔 «완전히 연기(날짜 미정)» 였다 — 되살리지 말 것.
+     ⚠️ 새 서버 경로가 없다 — 단건 «한 회 뒤로 밀기» 와 **같은 두 요청**을 줄마다 차례로 보낸다:
+        POST /schedule-requests(end_makeup:true — 날짜는 서버가 계산) → POST /schedule-requests/decide(approve)
         (스코프 재확인·강사 차단·반복 수업 보호·변경이력을 서버가 그대로 한다.)
      ⛔ 일괄 «취소» 는 두지 않는다 — 되돌릴 수 없는 조작을 여러 건 한꺼번에 하지 않는다.
      ⛔ 여기서 안 옮기는 줄 — 이유를 사람에게 보인다(조용히 빠지면 «다 연기됐다» 로 읽힌다):
         · 카페24 수업(망고아이 행이 없다) · 매주 반복(can_move!==true — 한 행이 «매주» 다)
         · 이미 끝난 수업(ended) · 지금 진행 중(live — 수업 한가운데를 연기하지 않는다)
-     💰 급여는 서버 규칙 그대로: 시작 30분보다 이르면 «사전 연기»(지급률 기본 0) — 확인창이 몇 건인지 말한다.
+     💰 날짜를 옮기는 것(change)이라 «사전 연기» 지급률을 타지 않는다(서버가 change 에는 fee_type 을 안 매김).
      ══════════════════════════════════════════════════════════════════════ */
   function bulkPlan(rows) {
     var go = [], skip = [];
@@ -970,8 +971,8 @@
       + '<div style="font-weight:800;font-size:15px;margin-bottom:4px">🏫 ' + T('한꺼번에 연기', 'Postpone together') + '</div>'
       + '<div style="font-size:12.5px;color:#475467;margin-bottom:10px">' + esc(title) + (title ? ' · ' : '') + esc(day) + '</div>'
       + '<div style="font-size:12px;line-height:1.55;color:#101828;background:#fff4e0;border:1px solid #f5c98b;border-radius:8px;padding:8px 10px;margin-bottom:10px">'
-      +   T('체크한 수업을 <b>«연기» 상태</b>로 바꿉니다(날짜 미정 — 새 날짜는 나중에 한 건씩 잡습니다). 다음 주 수업은 그대로입니다.',
-            'Checked classes become <b>«postponed»</b> (no new date — rebook each later). Next week’s classes are unchanged.')
+      +   T('체크한 수업을 <b>한 회씩 뒤로</b> 밉니다 — 각 수업이 그 학생의 마지막 수업 다음 수업일로 옮겨지고 «연기보강» 으로 표시됩니다(회차 수는 그대로). 그 시간에 다른 수업이 있으면 그 줄만 안 옮기고 알려 드립니다.',
+            'Checked classes are <b>pushed back one class</b> — each moves to the next class day after that student’s last class, marked as a make-up (count unchanged). If that slot is taken, that line is not moved and you are told.')
       + '</div>'
       + '<div id="tc-bk-list" style="font-size:12.5px;line-height:1.5;max-height:46vh;overflow-y:auto">' + goHtml + skipHtml + '</div>'
       + '<label style="display:block;font-size:12px;color:#475467;margin-top:10px">' + T('사유 (선택 · 모든 건에 같이 적힘)', 'Reason (optional · saved on every class)') + '<br>'
@@ -980,7 +981,7 @@
       + '<div id="tc-bk-msg" style="font-size:12.5px;font-weight:700;margin-top:10px;min-height:1em"></div>'
       + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">'
       +   '<button type="button" id="tc-bk-close" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;background:#f9fafb;color:#111827;cursor:pointer">' + T('닫기', 'Close') + '</button>'
-      +   (plan.go.length ? '<button type="button" id="tc-bk-go" style="padding:8px 16px;border:0;border-radius:8px;background:#b45309;color:#fff;font-weight:800;cursor:pointer">' + T('⏸ 연기 실행', '⏸ Postpone') + '</button>' : '')
+      +   (plan.go.length ? '<button type="button" id="tc-bk-go" style="padding:8px 16px;border:0;border-radius:8px;background:#b45309;color:#fff;font-weight:800;cursor:pointer">' + T('⏩ 한 회 뒤로 밀기', '⏩ Push back one class') + '</button>' : '')
       + '</div></div>';
     document.body.appendChild(box);
     box.addEventListener('click', function (e) { if (e.target === box) bulkClose(); });
@@ -1002,12 +1003,12 @@
     var cb = box.querySelector('[data-bk-sid="' + String(sid) + '"]');
     if (cb && ok) { cb.checked = false; cb.disabled = true; }   /* 된 줄은 다시 보내지 않는다 */
   }
-  /* 한 줄 = 단건 «완전히 연기» 와 같은 두 요청. 결과는 {ok, text}. */
+  /* 한 줄 = 단건 «한 회 뒤로 밀기(끝에 보강)» 와 같은 두 요청. 결과는 {ok, text}. */
   function bulkOne(r, nm, reason) {
     var sid = Number(r.schedule_id);
     return mvReq('POST', '/api/admin/schedule-requests', {
       schedule_id: sid,
-      request_type: 'postpone',
+      end_makeup: true,
       requester_role: 'admin',
       requester_name: nm || undefined,
       teacher_name: r.teacher_name || nm || T('관리자', 'admin'),
@@ -1021,7 +1022,8 @@
           _bkChanged = true;
           if (!res.j || res.j.ok !== true) return mvDropReq(mk.j.id, nm).then(function () { return { ok: false, text: mvErrOf(res.st, res.j) + ' ' + T('(그대로)', '(unchanged)') }; });
           var m = mvMsgOf(res.j);
-          return { ok: m.ok && res.j.applied === 'postponed', text: res.j.applied === 'postponed' ? T('✓ 연기됨', '✓ postponed') : m.s };
+          var moved = res.j.applied === 'moved';
+          return { ok: m.ok && moved, text: moved ? T('✓ → ', '✓ → ') + mvDayLabel(mk.j.new_date) + ' ' + (mk.j.new_time || '') : (res.j.message || m.s) };
         });
     }).catch(function () { return { ok: false, text: T('연결 끊김 — 목록에서 확인', 'network error — check the list') }; });
   }
@@ -1030,12 +1032,8 @@
     var msg = $('tc-bk-msg'), go = $('tc-bk-go');
     var pick = bulkChecked(list);
     if (!pick.length) { msg.style.color = '#b91c1c'; msg.textContent = T('연기할 수업을 체크하세요.', 'Check the classes to postpone.'); return; }
-    var now = Date.now();
-    var early = pick.filter(function (r) { return bulkEarly(r, now); }).length;
-    var ask = T(pick.length + '건을 연기할까요? (' + day + ')\n\n· 모두 «연기» 상태가 됩니다(날짜 미정).\n· 되돌리려면 시간표에서 한 건씩 고쳐야 합니다.',
-                'Postpone ' + pick.length + ' class(es)? (' + day + ')\n\n· All become «postponed» (no new date).\n· To undo, fix each one in the timetable.')
-      + (early ? T('\n\n⚠ ' + early + '건은 시작 30분보다 일러 «사전 연기» 로 기록됩니다.\n   그 수업의 강사 수업료가 급여 규칙 «사전 연기 지급률» 을 따릅니다 — 0원일 수 있습니다.',
-                  '\n\n⚠ ' + early + ' are more than 30 min away — recorded as EARLY postponement.\n   Teacher pay for those follows «postponed_early_pay_percent» — it may be 0.') : '');
+    var ask = T(pick.length + '건을 한 회씩 뒤로 밀까요? (' + day + ')\n\n· 각 수업이 그 학생의 마지막 수업 다음 수업일로 옮겨집니다(«연기보강»).\n· 그 시간에 다른 수업이 있으면 그 줄만 안 옮기고 알려 드립니다.\n· 되돌리려면 시간표에서 한 건씩 고쳐야 합니다.',
+                'Push back ' + pick.length + ' class(es) one class each? (' + day + ')\n\n· Each moves to the next class day after that student’s last class (make-up).\n· If that slot is taken, that line is not moved and you are told.\n· To undo, fix each one in the timetable.');
     if (!window.confirm(ask)) return;
     _bkBusy = true; if (go) go.disabled = true;
     var me = mvMe();
@@ -1049,7 +1047,7 @@
         _bkBusy = false;
         if (go) go.disabled = false;
         msg.style.color = badN ? '#92400e' : '#047857';
-        msg.textContent = T('연기 ' + okN + '건' + (badN ? ' · 못 함 ' + badN + '건(줄마다 이유)' : '') + ' — 닫으면 목록을 다시 불러옵니다.',
+        msg.textContent = T('뒤로 밀기 ' + okN + '건' + (badN ? ' · 못 함 ' + badN + '건(줄마다 이유)' : '') + ' — 닫으면 목록을 다시 불러옵니다.',
                             okN + ' postponed' + (badN ? ' · ' + badN + ' not done (see each line)' : '') + ' — closing reloads the list.');
         return;
       }
