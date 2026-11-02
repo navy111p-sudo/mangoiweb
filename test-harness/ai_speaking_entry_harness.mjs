@@ -11,7 +11,7 @@ const end = home.indexOf('];', start);
 const items = new Function('aifSvg', home.slice(start, end + 2) + ';return ITEMS;')(() => 'icon');
 assert.equal(items.filter(i => i.url === '/ai-speaking.html').length, 1, 'one speaking card');
 assert.equal(items.filter(i => ['/warmup.html', '/ai-friend.html'].includes(i.url)).length, 0, 'no competing top-level cards');
-for (const [id, destination] of [['textbook-mode', '/warmup.html'], ['friend-mode', '/ai-friend.html']]) {
+for (const [id, destination] of [['textbook-mode', '/warmup.html'], ['topic-mode', '/warmup.html'], ['friend-mode', '/ai-friend.html']]) {
   const tag = hub.match(new RegExp('<a\\b[^>]*id="' + id + '"[^>]*>'))?.[0];
   assert.ok(tag?.includes('href="' + destination + '"'), id + ' has a real link (works without JS)');
   assert.ok(existsSync(new URL(destination.slice(1), pub)), 'destination exists');
