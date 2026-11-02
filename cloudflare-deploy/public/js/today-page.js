@@ -155,6 +155,17 @@
     try { if (lk.warmup && !localStorage.getItem('mangoi_warmup_level')) localStorage.setItem('mangoi_warmup_level', lk.warmup); } catch (e) {}
     try { if (lk.aifriend && !localStorage.getItem('mangoi_aifriend_level')) localStorage.setItem('mangoi_aifriend_level', lk.aifriend); } catch (e) {}
   }
+  /* 🪙 (2026-11-02) 오늘 받은 포인트 — 서버 값만(정본 src/today-points.ts). null = 조회 실패 → «—»(0 으로 지어내지 않음). */
+  function todayPtsChip(v, en) {
+    if (v == null || !isFinite(Number(v))) return '⭐ ' + (en ? 'Points today —' : '오늘 포인트 —');
+    return '⭐ ' + (en ? '+' + Number(v) + 'P today' : '오늘 +' + Number(v) + 'P');
+  }
+  /* 활동 카드마다 «이 활동으로 오늘 받은 포인트» — 0 이면 안 그린다(«안 했다» 로 읽히지 않게). */
+  function stepPtsHtml(by, key, en) {
+    var n = by && key ? Number(by[key]) : 0;
+    if (!(n > 0)) return '';
+    return '<span class="pts-got">⭐ ' + (en ? '+' + n + 'P today' : '오늘 +' + n + 'P') + '</span> ';
+  }
   function goUrl(s, i, n) {
     var u = s.url;
     return u + (u.indexOf('?') >= 0 ? '&' : '?') + 'from=today&step=' + (i + 1) + '&total=' + n;
@@ -241,7 +252,7 @@
        그 화면에서는 «너는 아무것도 안 했다» 로 읽힌다(맛보기는 남의 기록이 없는 화면이다). */
     if (!d.sample) {
       chips.push('<span class="chip streak">🔥 ' + T('연속 ' + d.ai_streak + '일', d.ai_streak + '-day streak') + '</span>');
-      chips.push('<span class="chip pts">⭐ ' + T('오늘 +' + d.points_today + 'P', '+' + d.points_today + 'P today') + '</span>');
+      chips.push('<span class="chip pts">' + todayPtsChip(d.points_today, en) + '</span>');
     }
     $('td-chips').innerHTML = chips.join('');
 
@@ -261,6 +272,7 @@
         '<span class="slot ' + esc(s.slot) + '">' + esc(en ? sl[1] : sl[0]) + '</span>' +
         '<p class="name">' + esc(s.icon) + ' ' + esc(en ? s.en : s.ko) + '</p>' +
         '<p class="why">' + esc(en ? s.whyEn : s.whyKo) + '</p>' +
+        stepPtsHtml(d.points_by_tool, s.key, en) +
         '<a class="go" href="' + esc(goUrl(s, i, n)) + '">' + (s.done ? T('한 번 더', 'Once more') : T('시작 ▶', 'Start ▶')) + '</a>' +
         ' <span class="min">' + T('약 ' + s.minutes + '분', '~' + s.minutes + ' min') + '</span>' +
       '</div>';
