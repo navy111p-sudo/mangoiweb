@@ -120,3 +120,17 @@ body .inbar{
   [data-dock].dock-collapsed>:not(.dock-handle){display:none!important;}
 }
 @media (prefers-reduced-motion:reduce){ [data-dock]{transition:none!important;} }
+
+/* ── 휴대폰 세로(640px 이하): 말풍선 Emma 얼굴은 크게, 선생님 큰 얼굴은 절반으로 (2026-11-02 사장님 캡처 지시)
+   ① 1번: 말풍선 이름 옆 작은 얼굴(.who-ava) 28px → 44px
+   ② 2번: 위쪽 큰 선생님 얼굴(#tavatar-wrap --av-w) 기존 96 / 72 / 52px 의 50% → 48 / 36 / 26px */
+@media (max-width:640px){
+  body .msg .who-ava{width:44px!important;height:44px!important;}
+  body #wfStage>#tavatar-wrap{ --av-w:48px!important; }
+}
+@media (max-width:640px) and (max-height:780px){
+  body #wfStage>#tavatar-wrap{ --av-w:36px!important; }
+}
+@media (max-width:640px) and (max-height:620px){
+  body #wfStage>#tavatar-wrap{ --av-w:26px!important; }
+}
