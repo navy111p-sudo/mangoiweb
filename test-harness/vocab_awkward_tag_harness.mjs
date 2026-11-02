@@ -128,7 +128,28 @@ console.log('[ ⑥ «원어민 표현만» 모아 보기 — renderDex 를 실�
   ok('⑥-6 원어민 카드가 0장이면 단추 없음 · 전체로 되돌림(빈 화면 금지)', !/dex-filter/.test(none.html) && cards(none.html) === 1 && none.after === 'all');
   ok('⑥-7 영어 화면은 영어 단추', /Natural expressions 1/.test(run(W, 'all', 'en').html));
   ok('⑥-8 필터를 바꿔도 다시 받지 않는다(화면에서만 거름)', /function setDexFilter\(f\)\{[^}]*renderDex\(\);/.test(H) && !/function setDexFilter[^}]*fetch/.test(H));
+  ok('⑥-10 «원어민 표현만» 일 때만 퀴즈 단추(짝)', /startAwkwardReview/.test(only.html) && !/startAwkwardReview/.test(all.html));
   ok('⑥-9 필터 CSS', /\.dex-filter \.dxf\.awk\.on\{/.test(H));
+}
+
+console.log('[ ⑦ 원어민 표현 카드만 복습 퀴즈 — 판정·배선 ]');
+{
+  const fm = H.match(/function awkwardCards\(\)\{([^\n]*)\}/);
+  ok('⑦-1 awkwardCards 를 찾았다', !!fm);
+  let pick = () => [];
+  try { pick = (bank) => new Function('BANK', fm[1])(bank); } catch (e) { console.log('   ', e.message); }
+  let got = [];
+  try { got = pick([{ id: 1, tag: 'awkward' }, { id: 2 }, null, { id: 3, tag: 'other' }, { id: 4, tag: 'awkward' }]); } catch (e) { console.log('   ', e.message); }
+  ok('⑦-2 원어민 카드만 고른다(짝: 일반·다른 꼬리표·빈칸 제외)', got.map(w => w.id).join() === '1,4');
+  ok('⑦-3 단어장이 비어도 빈 배열', (() => { try { return pick(null).length === 0; } catch { return false; } })());
+  const sp = H.slice(H.indexOf('function renderReviewScopePicker'), H.indexOf('function pickReviewScope'));
+  ok('⑦-4 복습 범위에 «원어민 표현만» 이 있다', /awkward: awkOnes/.test(sp) && /pickReviewScope\('awkward'\)/.test(sp) && /awkOnes\.length \?/.test(sp));
+  ok('⑦-5 범위 단추 켜짐 표시에 awkward 포함', /\['all','wrong','stale','awkward'\]/.test(H));
+  const ph = H.slice(H.indexOf('function renderPlayHome'), H.indexOf('function trialBannerHtml'));
+  const iAuto = ph.indexOf('if (window._autoAwkwardReview)'), iEmpty = ph.indexOf('if (!words.length)');
+  ok('⑦-6 단어장에서 온 경우 «오늘 복습 끝» 보다 먼저 바로 시작', iAuto > 0 && iEmpty > iAuto && /window\._autoAwkwardReview = false;/.test(ph) && /startSession\(awk\)/.test(ph));
+  ok('⑦-7 복습할 단어가 없어도 원어민 카드는 풀 수 있다', /awkN \? `<button class="big-btn awk-start" onclick="ac\(\);startSession\(awkwardCards\(\)\)"/.test(ph));
+  ok('⑦-8 단어장 «원어민 표현만» 화면에 퀴즈 단추', /onclick="startAwkwardReview\(\)"/.test(H) && /function startAwkwardReview\(\)\{ window\._autoAwkwardReview = true; switchTab\('flash'\); \}/.test(H));
 }
 
 console.log('[ ⑤ 복습 퀴즈 화면 — 네 문제 모양 모두, 짝 검사 ]');
