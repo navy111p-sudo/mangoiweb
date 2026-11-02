@@ -38,6 +38,7 @@
       + '#eleaderL1 select{width:100%;padding:10px;font-size:15px;border:1px solid #86efac;border-radius:10px;background:#fff;color:#14532d;margin-bottom:8px}'
       + '#eleaderL1 .l1-go{width:100%;padding:12px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:16px;font-weight:700;cursor:pointer}'
       + '#eleaderL1Bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 8px;padding:8px 12px;border-radius:12px;background:#f0fdf4;border:1px solid #86efac;color:#14532d;font-size:14px}'
+      + '#eleaderL1Bar.l1-in-composer{margin:0 0 10px}'
       + '#eleaderL1Bar b{font-weight:700}#eleaderL1Bar button{border:1px solid #86efac;background:#fff;color:#14532d;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer}'
       + '#eleaderL1Bar .l1-hint{flex-basis:100%;color:#166534}#eleaderL1Bar .l1-hint[hidden]{display:none}'
       + '#eleaderL1 .l1-quota{margin:-4px 0 10px;font-size:13px;font-weight:700;color:#166534}'
@@ -192,10 +193,7 @@
   function drawBar() {
     if (state && state.topic) return drawTopicBar();
     var b = current(); if (!b) { if (bar) bar.remove(); bar = null; return; }
-    var log = document.getElementById('log');
-    if (!log || !log.parentNode) return;
-    css();
-    if (!bar) { bar = document.createElement('div'); bar.id = 'eleaderL1Bar'; bar.setAttribute('role', 'status'); log.parentNode.insertBefore(bar, log); }
+    if (!barEl()) return;
     var i = Math.min(state.q, b.questions.length - 1), q = b.questions[i];
     var done = state.q >= b.questions.length;
     var t = document.createElement('span');
@@ -214,14 +212,21 @@
     bar.replaceChildren(t, quotaEl(false), hb, out, hint);
   }
 
-  /* 📚 Level 2~5 주제 대화 막대 — 문항 번호가 없다. 💡 은 주제 안내(Level 2 는 책 요점 원문). */
+  /* 📍 진행 막대 자리(2026-11-02 사장님 「중간에 있으니 이상해」 → B안 «입력칸 위»).
+     예전엔 #log 바로 앞이라 무대(아바타·대화창) 한가운데 떠 보였다. 이제 답하는 칸(.wg-composer) 맨 위 —
+     질문 보고 → 💡 힌트 → 바로 답하기가 한곳에 모인다. 그 칸이 없는 화면(옛 판)이면 예전 자리(#log 앞)로. */
   function barEl() {
-    var log = document.getElementById('log');
-    if (!log || !log.parentNode) return null;
+    var comp = document.querySelector('.wg-composer'), log = document.getElementById('log');
+    var host = comp || (log && log.parentNode);
+    if (!host) return null;
     css();
-    if (!bar) { bar = document.createElement('div'); bar.id = 'eleaderL1Bar'; bar.setAttribute('role', 'status'); log.parentNode.insertBefore(bar, log); }
+    if (!bar) { bar = document.createElement('div'); bar.id = 'eleaderL1Bar'; bar.setAttribute('role', 'status'); }
+    if (comp) { if (bar.parentNode !== comp || comp.firstChild !== bar) comp.insertBefore(bar, comp.firstChild); bar.className = 'l1-in-composer'; }
+    else if (!bar.parentNode) log.parentNode.insertBefore(bar, log);
     return bar;
   }
+
+  /* 📚 Level 2~5 주제 대화 막대 — 문항 번호가 없다. 💡 은 주제 안내(Level 2 는 책 요점 원문). */
   function drawTopicBar() {
     if (!barEl()) return;
     var t = document.createElement('span');
