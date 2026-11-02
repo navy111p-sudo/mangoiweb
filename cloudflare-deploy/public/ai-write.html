@@ -460,6 +460,9 @@
     .aw-praise-top { margin: 0 0 14px; padding: 12px 14px; border-radius: 12px; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.45); }
     .aw-praise-top .t { font-size: 13px; font-weight: 900; color: var(--gold); margin-bottom: 4px; }
     .aw-praise-top ul { margin: 0; padding-left: 20px; font-size: 14.5px; font-weight: 700; line-height: 1.6; color: var(--text); }
+    /* 🪙 받은 포인트 줄 (2026-11-02) — 밝은·어두운 화면 모두 같은 변수로 */
+    .aw-points { margin: 10px 0 12px; padding: 9px 13px; border-radius: 10px; font-size: 13.5px; font-weight: 700; line-height: 1.5; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.35); color: var(--text); }
+    .aw-points.none, .aw-points.guest, .aw-points.unknown { background: rgba(127,127,127,0.08); border-color: rgba(127,127,127,0.25); color: var(--text2); }
     .go-pick-lbl { display: block; font-size: 13px; font-weight: 800; color: var(--text2); margin: 2px 0 7px; }
     .go-cur-swap { flex-basis: 100%; font-size: 12.5px; color: #fef3c7; } /* #fde68a 는 이 바탕에서 대비 4.48 — 4.5 미달(2026-10-16 실측) */
     /* ═══ 🧠 그래픽 오가나이저 (브레인스토밍) ═══ */
@@ -2106,6 +2109,7 @@
               <div style="font-size:14px;font-weight:800;color:${color}">${sc>=85?'훌륭해요! 🎉':sc>=70?'좋아요 💪':'더 연습해보세요 🌱'}</div>
             </div>
           </div>
+          ${awPointsHtml(d)}
           ${awRoundHtml(_awRoundNow)}
           ${replyHtml}
           <div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px">✅ 수정된 문장</div>
@@ -2152,6 +2156,37 @@
       if (sc >= 90 || (d.earned_badges || []).length) fireConfetti();
       // 결과 표시 후 history/통계/랭킹 자동 갱신 (방금 저장된 항목 포함)
       setTimeout(() => { loadHistory(); loadStats(); loadLeaderboard(); }, 500);
+    }
+    /* 🪙 결과 화면 «받은 포인트» (2026-11-02) — 서버가 실제로 적립한 것만 더한다(토스트는 몇 초 뒤 사라져서 남지 않음).
+       서버 응답: points / mission_bonus / streak_bonus = {amount,label,newBalance} | {capped,cap,used?} | {cooldown} | null
+       · capped 에 used 가 있으면 하루 전체·게임 묶음 한도, 없으면 «영작 하루 N번» 횟수 한도
+       · points_guest = 로그인하지 않아 적립 대상이 아님. 그 밖의 null = 확인 못 함(지어내지 않음) */
+    function awPointsView(d){
+      if (!d) return null;
+      if (d.points_guest) return { cls: 'guest', ko: '🪙 로그인하면 영작할 때마다 포인트를 받아요', en: '🪙 Log in to earn points every time you write' };
+      const parts = [], partsEn = [];
+      let total = 0, bal = null;
+      const add = (x, ko, en) => { if (x && Number(x.amount) > 0) { total += Number(x.amount); parts.push(ko + ' +' + Number(x.amount)); partsEn.push(en + ' +' + Number(x.amount)); if (x.newBalance != null) bal = Number(x.newBalance); } };
+      add(d.points, '첨삭', 'Feedback');
+      add(d.mission_bonus, '미션 단어', 'Mission words');
+      add(d.streak_bonus, '연속 영작', 'Streak');
+      const p = d.points;
+      let whyKo = '', whyEn = '';
+      if (p && p.capped) {
+        if (p.used != null) { whyKo = '오늘 받을 수 있는 포인트 한도에 닿았어요. 내일 다시 받을 수 있어요!'; whyEn = "You've reached today's point limit. You can earn again tomorrow!"; }
+        else { whyKo = '영작 포인트는 하루 ' + (Number(p.cap) || 5) + '번까지 받아요. 내일 다시 받을 수 있어요!'; whyEn = 'Writing points are given up to ' + (Number(p.cap) || 5) + ' times a day. Try again tomorrow!'; }
+      } else if (!p && !total) {
+        return { cls: 'unknown', ko: '🪙 포인트를 확인하지 못했어요. 포인트 내역에서 확인해 주세요.', en: "🪙 Couldn't confirm your points. Please check your point history." };
+      }
+      const balKo = bal != null ? ' (잔액 ' + bal + 'P)' : '', balEn = bal != null ? ' (balance ' + bal + 'P)' : '';
+      return { cls: total ? 'got' : 'none',
+        ko: '🪙 받은 포인트 +' + total + 'P' + (parts.length > 1 ? ' — ' + parts.join(' · ') : '') + balKo + (whyKo ? ' · ' + whyKo : ''),
+        en: '🪙 Points earned +' + total + 'P' + (partsEn.length > 1 ? ' — ' + partsEn.join(' · ') : '') + balEn + (whyEn ? ' · ' + whyEn : '') };
+    }
+    function awPointsHtml(d){
+      const v = awPointsView(d);
+      if (!v) return '';
+      return `<div class="aw-points ${v.cls}" id="awPoints"><span data-ko="${escapeHtml(v.ko)}" data-en="${escapeHtml(v.en)}">${escapeHtml(awTr(v.ko, v.en))}</span></div>`;
     }
     let _allHistory = [];
     let _viewMode = 'date'; // 'date' or 'list'

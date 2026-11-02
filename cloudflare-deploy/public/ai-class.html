@@ -353,7 +353,7 @@ select.pill{max-width:min(100%,280px)}
   .tsplit .tsbar:focus-visible{outline:2px solid var(--c-gold);outline-offset:-2px;border-radius:4px}
   .tsplit .grip{position:absolute;left:50%;top:clamp(48px,22%,150px);transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:1px;background:var(--c-panel);border:1px solid var(--c-line);border-radius:999px;padding:3px 2px;box-shadow:0 2px 8px rgba(0,0,0,.45)}
   .tsplit:hover .grip,.tsplit.drag .grip{border-color:var(--c-gold)}
-  .tsplit .grip button{display:flex;align-items:center;justify-content:center;width:20px;height:20px;border:0;border-radius:50%;background:transparent;color:#e2e8f0;font:inherit;font-size:11px;line-height:1;padding:0;cursor:pointer}
+  .tsplit .grip button{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:0;border-radius:50%;background:transparent;color:#e2e8f0;font:inherit;font-size:13px;line-height:1;padding:0;cursor:pointer}
   .tsplit .grip button:hover{background:var(--c-gold);color:#1a1300}
   .tsplit .grip button:disabled{opacity:.35;cursor:default;background:transparent;color:#e2e8f0}
   .tsplit .grip .dots{color:var(--c-dim);font-size:12px;line-height:.6;letter-spacing:-1px;cursor:col-resize;user-select:none}
@@ -1394,7 +1394,7 @@ select.pill{max-width:min(100%,280px)}
   var TW_SIDE_MAX = 1.25;
   var TW = (function(){
     var stage = $('tSplit').parentNode, side = stage.querySelector('.side'), tile = $('tTile'), sp = $('tSplit'), bar = $('tSplitBar'), tip = $('tSplitTip');
-    var MIN = 0.2, MAX = 0.6, STEP = 0.05, BOOK_MIN = 320, T_MIN = 220, KEY = 'aiClassTeacherW';   // ⚠️ T_MIN·BOOK_MIN 은 CSS .stage.tw 의 clamp 와 짝
+    var MIN = 0.2, MAX = 0.6, STEP = 0.05, BOOK_MIN = 320, T_MIN = 220, KEY = 'aiClassTeacherW', HINT_KEY = 'aiClassTeacherHint';   // ⚠️ T_MIN·BOOK_MIN 은 CSS .stage.tw 의 clamp 와 짝
     var frac = null, want = null, drag = null, tipTO = 0;
     function shown(){ return getComputedStyle(sp).display !== 'none'; }
     function bounds(){ var w = stage.offsetWidth || 1; return [Math.max(MIN, T_MIN / w), Math.max(MIN, Math.min(MAX, (w - BOOK_MIN) / w))]; }
@@ -1469,6 +1469,13 @@ select.pill{max-width:min(100%,280px)}
     $('tBig').addEventListener('click', function(){ step(STEP); });
     $('tSmall').addEventListener('click', function(){ step(-STEP); });
     (function(){ var v = parseFloat(lsGet(KEY)); if (v >= MIN && v <= MAX) set(v, false); else paint(); })();
+    // 처음 한 번만 「◀ 크게 · 작게 ▶」 안내를 5초 띄운다 — 손잡이가 어디 있는지 모르고 지나가는 일을 줄인다(PC 전용: 폰은 손잡이가 없다)
+    (function(){
+      if (!shown() || lsGet(HINT_KEY)) return;
+      tip.textContent = '◀ 크게 · 작게 ▶ — 선생님 화면 크기 / Teacher view size'; tip.hidden = false;
+      clearTimeout(tipTO); tipTO = setTimeout(function(){ tip.hidden = true; }, 5000);
+      lsSet(HINT_KEY, '1');
+    })();
     // 교실 칸 크기는 창 크기 말고도 바뀐다(PC 확대 --z 등) — 그때도 상한을 다시 건다. 같은 값이면 크기가 안 바뀌어 여기서 멈춘다.
     //  ⛔ 선생님 그림 칸(tTile)을 지켜보지 마세요 — 대답 보기가 뜰 때마다 다시 재서 칸이 출렁입니다(위 TW_SIDE_MAX 주석).
     if (window.ResizeObserver) {

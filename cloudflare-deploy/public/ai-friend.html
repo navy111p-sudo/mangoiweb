@@ -446,7 +446,7 @@
     <span class="hud-chip hud-lv" id="lvChip">🥭 <span id="lvName">Lv.1 새싹 망고</span>
       <span class="xp-track"><span class="xp-fill" id="xpFill"></span></span></span>
     <span class="hud-chip hud-streak" id="streakChip" title="연속 대화 일수">🔥 <span id="streakN">0</span><span data-ko="일 연속" data-en="-day streak">일 연속</span></span>
-    <span class="hud-chip hud-pts" id="ptsChip" title="오늘 획득 포인트">⭐ <span data-ko="오늘" data-en="Today">오늘</span> +<span id="ptsN">0</span>P</span>
+    <span class="hud-chip hud-pts" id="ptsChip" title="오늘 받은 포인트">⭐ <span data-ko="오늘 받은 포인트" data-en="Points today">오늘 받은 포인트</span> <span id="ptsN">—</span></span>
     <span class="hud-chip hud-wod" id="wodChip" onclick="hearWod()" title="눌러서 발음 듣기 — 대화에 쓰면 +5P!">
       ✨ <span data-ko="오늘의 단어" data-en="Word of the day">오늘의 단어</span>:
       <span class="wod-en" id="wodEn">—</span> <span class="wod-ko" id="wodKo"></span> <span id="wodEmoji"></span>
@@ -496,6 +496,9 @@
   <div id="wodCard" hidden></div>
   <div class="chat" id="chat"></div>
   <div class="input-bar">
+    <!-- 📱 손잡이 (휴대폰) — 말하는 방법 줄을 접고 펼친다. 대화가 시작되면 접히고, AI 가 질문하면 다시 펼쳐진다. -->
+    <button type="button" class="friend-panel-handle" id="friendPanelHandle" onclick="friendPanelToggle()"
+      aria-expanded="true" aria-label="말하는 방법 접기·펼치기" data-ko-aria="말하는 방법 접기·펼치기" data-en-aria="Show or hide how to talk"></button>
     <div id="friendTalkSwitch" class="friend-talk-switch" role="group" aria-label="말하는 방법"></div>
     <div id="friendTalkStatus" class="friend-talk-status" role="status" aria-live="polite"></div>
     <!-- 💡 도움 칩 — 눌렀을 때만 열린다. 늘 떠 있으면 «고르는 학습» 이 되어 버린다 -->
@@ -949,14 +952,28 @@
       const pct = next ? Math.min(100, Math.round((lifetime - cur.at) / (next.at - cur.at) * 100)) : 100;
       return { n: idx + 1, name: cur.name, nameEn: MANGO_LEVELS_EN[idx], pct };
     }
-    let gamState = { today: 0, lifetime: 0, streak: 0, word: null, sessionPts: 0, wordDone: false, voiceDone: false, listenDone: false };
+    let gamState = { today: 0, lifetime: 0, streak: 0, word: null, earnedToday: null, guest: false, chatCapped: null, wordDone: false, voiceDone: false, listenDone: false };
+    /* 🪙 (2026-11-02) «오늘 받은 포인트» 칸 — 서버가 «실제로 적립한» 값만 그립니다(정본 earned_today).
+       ⛔ 지어내지 않습니다: 예전엔 «오늘 대화 수 × 2» 를 추정해 그렸습니다. 모르면 «—».
+       반환 { text, title } — 글자는 칩에, 이유는 title(마우스)과 토스트로. */
+    function aiFriendPtsView(g, en) {
+      if (g && g.guest) return { text: en ? 'Log in to earn' : '로그인하면 적립', title: en ? 'Guests do not earn points.' : '체험(게스트)은 포인트가 쌓이지 않아요.' };
+      const n = g ? Number(g.earnedToday) : NaN;
+      if (!g || g.earnedToday == null || !Number.isFinite(n)) return { text: '—', title: en ? 'Could not check points right now.' : '지금은 포인트를 확인하지 못했어요.' };
+      let title = en ? 'Points actually added today in AI Friend.' : 'AI 친구에서 오늘 실제로 적립된 포인트예요.';
+      if (g.chatCapped === 'daily') title += en ? ' Chat points: 10 times a day — all used today.' : ' 대화 포인트는 하루 10번까지 — 오늘은 다 받았어요.';
+      else if (g.chatCapped === 'total') title += en ? ' Daily point limit reached for today.' : ' 오늘 하루 포인트 한도에 닿았어요.';
+      return { text: '+' + n + 'P', title: title };
+    }
     function updateHUD() {
       const g = gamState;
       const lv = calcLevel(g.lifetime);
       document.getElementById('lvName').textContent = 'Lv.' + lv.n + ' ' + (isEn() ? lv.nameEn : lv.name);
       document.getElementById('xpFill').style.width = lv.pct + '%';
       document.getElementById('streakN').textContent = g.streak;
-      document.getElementById('ptsN').textContent = g.sessionPts;
+      const pv = aiFriendPtsView(g, isEn());
+      document.getElementById('ptsN').textContent = pv.text;
+      document.getElementById('ptsChip').title = pv.title;
       if (g.word) {
         document.getElementById('wodEn').textContent = g.word.w;
         document.getElementById('wodKo').textContent = '(' + g.word.ko + ')';
@@ -1042,13 +1059,16 @@
       gamState.lifetime = g.lifetime || 0;
       gamState.streak = g.streak || 0;
       if (g.word) gamState.word = g.word;
+      gamState.guest = !!g.guest;
+      gamState.earnedToday = (g.earned_today == null) ? null : Number(g.earned_today);
+      const prevCapped = gamState.chatCapped;
+      gamState.chatCapped = g.chat_capped || null;
       let earned = 0;
       if (g.awarded) earned += g.awarded;
       if (g.voice_bonus) { earned += g.voice_bonus; gamState.voiceDone = true; }
       if (g.word_bonus) { earned += g.word_bonus; gamState.wordDone = true; }
       // 🎧 자막 없이 들은 덤 — 켠 학생에게 벌점이 아니라 끈 학생에게 덤이다
       if (g.listen_bonus) { earned += g.listen_bonus; gamState.listenDone = true; }
-      gamState.sessionPts += earned;
       updateHUD();
       const newLevel = calcLevel(gamState.lifetime);
       if (newLevel.n > prevLevel && gamState.lifetime > 1) {
@@ -1062,6 +1082,11 @@
           isEn() ? 'You are on fire today!' : '오늘 영어 실력이 불타오르고 있어요!');
       } else if (earned > 0) {
         ptToast('+' + earned + 'P ⭐');
+      } else if (gamState.chatCapped && !prevCapped && !gamState.guest) {
+        // 🪙 대화 포인트가 처음 멈춘 턴에 한 번만 — 0P 가 «고장» 으로 읽히지 않게
+        ptToast(gamState.chatCapped === 'daily'
+          ? (isEn() ? 'Chat points: all 10 used today' : '오늘 대화 포인트 10번 다 받았어요')
+          : (isEn() ? "Today's point limit reached" : '오늘 포인트 한도에 닿았어요'));
       }
     }
 
@@ -1093,8 +1118,24 @@
       chat.scrollTop = chat.scrollHeight;
     }
 
+    /* 📱 말하는 방법 줄 접기/펼치기 — 대화가 시작되면 접고, AI 가 질문하면 다시 펼친다. */
+    function friendPanelFold(folded) {
+      const bar = document.querySelector('.input-bar');
+      const h = document.getElementById('friendPanelHandle');
+      if (bar) bar.classList.toggle('panel-folded', !!folded);
+      if (h) h.setAttribute('aria-expanded', String(!folded));
+    }
+    function friendPanelToggle() {
+      const bar = document.querySelector('.input-bar');
+      friendPanelFold(!(bar && bar.classList.contains('panel-folded')));
+    }
+    function friendAiAsksQuestion(content) {
+      const t = String(content || '').replace(/[\s\p{Extended_Pictographic}]+$/u, '');
+      return /\?$/.test(t);
+    }
     function appendMsg(role, content, hasFix) {
       if (role === 'ai') _lastAiText = String(content || '');
+      if (role === 'ai' && friendAiAsksQuestion(content)) friendPanelFold(false);
       const chat = document.getElementById('chat');
       if (role === 'user') {
         const m = document.createElement('div');
@@ -1819,6 +1860,7 @@
       stmReset();
       try { input.dispatchEvent(new Event('mangoi:turn-sent')); } catch(e){}   // ⏹ 다음 답변에도 끼어들 수 있게
       appendMsg('user', msg);
+      friendPanelFold(true);   /* 대화가 시작됐으니 「말하는 방법」 줄을 접어 위쪽 대화를 보이게 한다 */
       /* 🎤 «따라 말해 보기» 뒤에 보낸 말이면 낱말 단위로 채점해 보여 준다(js/repeat-score.js). 90초가 지나면 안 잰다. */
       { const _rt = _repeatTarget; _repeatTarget = null;
         if (_rt && Date.now() - _rt.at < 90000 && window.MangoRepeatScore) {
@@ -2048,7 +2090,8 @@
           gamState.lifetime = d.gam.lifetime || 0;
           gamState.streak = d.gam.streak || 0;
           gamState.word = d.gam.word || null;
-          gamState.sessionPts = Math.min(gamState.today, 10) * 2;   // 오늘 수다 기본적립 추정치
+          gamState.guest = !!d.gam.guest;
+          gamState.earnedToday = (d.gam.earned_today == null) ? null : Number(d.gam.earned_today);   // 서버가 센 실제 적립
         }
         if (d.ok && d.items && d.items.length) {
           d.items.forEach(it => appendMsg(it.role === 'assistant' ? 'ai' : 'user', it.content));
@@ -2317,6 +2360,17 @@
   .input-bar button{ padding:9px 14px; font-size:14px; }
   .input-bar button[type=submit]{ font-size:14px; }
   .mic-btn{ width:40px; height:40px; font-size:17px; }
+}
+
+/* 📱 휴대폰 마이크 버튼 56px — 사장님 요청 (세로·가로 모두). 폭 760px 미만에서만 적용. PC 값(58px)은 그대로. */
+@media (max-width:759px){ .mic-btn{ width:56px; height:56px; font-size:22px; } }
+/* 📱 휴대폰: 대화가 시작되면 «말하는 방법» 줄을 접어 위쪽 대화가 보이게 한다. 손잡이로 언제든 펼칠 수 있다. */
+.friend-panel-handle{display:none}
+@media (max-width:759px){
+  .friend-panel-handle{display:flex;justify-content:center;align-items:center;width:100%;min-height:22px;margin:0 0 4px;padding:0;border:0;background:transparent;cursor:pointer}
+  .friend-panel-handle::before{content:'';display:block;width:44px;height:5px;border-radius:99px;background:#64748b}
+  .input-bar.panel-folded #friendTalkSwitch,
+  .input-bar.panel-folded #friendTalkStatus{display:none}
 }
 
 /* ② A안 «말끔한 한 줄» — 2026-09-09 사장님 결정 ─────────────────────────

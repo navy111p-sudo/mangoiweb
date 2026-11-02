@@ -170,6 +170,7 @@
   .flash-correct{background:linear-gradient(135deg,#10b981,#059669);color:#fff}
 
   .q-box{background:linear-gradient(135deg,#1a3266,#142950);border:1px solid rgba(79,124,255,0.3);border-radius:22px;padding:34px 24px;text-align:center;min-height:170px;display:flex;flex-direction:column;justify-content:center;box-shadow:0 12px 32px -10px rgba(0,0,0,0.4)}
+  .q-awk{align-self:center;display:inline-block;margin:0 auto 12px;padding:4px 12px;border-radius:99px;background:#fbbf24;color:#422006;font-size:13px;font-weight:800;line-height:1.4;max-width:100%}
   .q-word{font-size:clamp(36px,6vw,52px);font-weight:800;color:#fbbf24;word-break:break-all}
   .q-word .blank{color:#60a5fa;border-bottom:4px solid #60a5fa;padding:0 4px;margin:0 2px}
   .q-hint{margin-top:10px;font-size:16px;color:#a3b3d1}
@@ -197,6 +198,7 @@
   .finish h2{font-size:30px;margin:14px 0 6px}
   .finish .earn{font-size:22px;font-weight:900;color:#fbbf24;margin:10px 0}
   .finish-grid{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:16px 0}
+  .earn-note{color:#fde68a;font-size:14px;margin:-4px 0 8px;min-height:0}
   .finish-grid .fg{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 22px;min-width:110px}
   .finish-grid .fg b{display:block;font-size:24px;color:#fff}
   .finish-grid .fg span{font-size:13px;color:#a3b3d1}
@@ -214,8 +216,17 @@
   .dexc .rar{position:absolute;top:8px;left:10px;font-size:10.5px;font-weight:900;padding:2px 8px;border-radius:99px}
   /* ✨ 어색한 표현 → 원어민 표현 카드 (2026-11-02) */
   .dexc.awk{border-color:rgba(251,191,36,0.75);box-shadow:0 0 0 1px rgba(251,191,36,0.25) inset}
+  /* 원어민 표현은 «문장» 이라 길다 — 배지 둘 아래에서 시작하고, 낱말 중간에서 끊지 않음 */
+  .dexc.awk{padding-top:36px}
+  .dexc.awk .w{font-size:17px;line-height:1.3;word-break:normal;overflow-wrap:anywhere}
   .dexc .awk-badge{position:absolute;top:8px;right:10px;font-size:10.5px;font-weight:900;padding:2px 8px;border-radius:99px;background:#fbbf24;color:#422006;white-space:nowrap}
   .dex-head .awk-note{display:block;color:#fbbf24;margin-top:4px}
+  .dex-filter{display:flex;flex-wrap:wrap;gap:8px;margin:-6px 0 14px}
+  .dex-filter .dxf{padding:7px 14px;border-radius:99px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#cbd5e1;font-size:14px;font-weight:700;cursor:pointer}
+  .dex-filter .dxf.on{background:#4f7cff;border-color:#4f7cff;color:#fff}
+  .dex-filter .dxf.awk.on{background:#fbbf24;border-color:#fbbf24;color:#422006}
+  .dex-filter .dxf.quiz{background:#22c55e;border-color:#22c55e;color:#052e16}
+  .big-btn.awk-start{margin-bottom:12px}
   .dexc .dx-tools{display:flex;gap:6px;justify-content:center;margin-top:10px}
   .dexc .dx-tools button{padding:6px 12px;border-radius:8px;border:0;cursor:pointer;font-size:13px;background:rgba(255,255,255,0.1);color:#e6ecff}
   .dexc .dx-tools .dl{background:rgba(239,68,68,0.15);color:#f87171;font-size:12px}
@@ -1038,10 +1049,18 @@ function renderPlayHome(){
     BANK = (list && list.words) || [];
     const words = (due && due.words) || [];
     window._reviewTrial = (due && due.trial) || (list && list.trial) || null;
+    // ✨ 단어장의 «이 카드로 복습 퀴즈» 단추로 들어왔으면 원어민 표현 카드로 바로 시작(2026-11-02)
+    if (window._autoAwkwardReview) {
+      window._autoAwkwardReview = false;
+      const awk = awkwardCards();
+      if (awk.length) { ac(); startSession(awk); return; }
+    }
     if (!words.length) {
+      const awkN = awkwardCards().length;
       el.innerHTML = `<div class="play-hero">
         <h2>🎉 오늘 복습 끝!</h2>
         <p>복습할 단어가 없어요. 새 단어를 추가하거나 내일 다시 만나요!</p>
+        ${awkN ? `<button class="big-btn awk-start" onclick="ac();startSession(awkwardCards())">✨ 원어민 표현 ${awkN}장 복습하기</button><br>` : ''}
         <button class="big-btn" onclick="switchTab('add')">+ 단어 추가하러 가기</button>
       </div>`;
       return;
@@ -1084,7 +1103,9 @@ function renderReviewScopePicker(dueWords){
   const wrongOnes = withMeta.filter(w => (w.wrong_count||0) > 0);
   // due 는 서버가 이미 next_review_at ASC(가장 밀린 순)로 내려주므로, 앞쪽 절반이 곧 "오래된 것"
   const staleOnes = withMeta.slice(0, Math.max(1, Math.ceil(withMeta.length/2)));
-  window._reviewScopes = { all: withMeta, wrong: wrongOnes, stale: staleOnes };
+  // ✨ 원어민 표현 카드 — 오늘 복습 날짜와 상관없이 «전부» (AI 영작에서 고쳐 받은 표현을 따로 익히는 용도)
+  const awkOnes = awkwardCards();
+  window._reviewScopes = { all: withMeta, wrong: wrongOnes, stale: staleOnes, awkward: awkOnes };
   window._reviewScopePick = 'all';
   const trial = window._reviewTrial;
   el.innerHTML = `${trialBannerHtml(trial)}<div class="play-hero">
@@ -1094,6 +1115,7 @@ function renderReviewScopePicker(dueWords){
       <button class="tool-btn active" id="scope-all" onclick="pickReviewScope('all')">📚 전체 (${withMeta.length})</button>
       <button class="tool-btn" id="scope-wrong" onclick="pickReviewScope('wrong')" ${wrongOnes.length?'':'disabled'}>❌ 틀렸던 것만 (${wrongOnes.length})</button>
       <button class="tool-btn" id="scope-stale" onclick="pickReviewScope('stale')">⏳ 오래된 것만 (${staleOnes.length})</button>
+      ${awkOnes.length ? `<button class="tool-btn" id="scope-awkward" onclick="pickReviewScope('awkward')">✨ 원어민 표현만 (${awkOnes.length})</button>` : ''}
     </div>
     <button class="big-btn" id="start-btn">▶ 게임 시작!</button>
   </div>`;
@@ -1103,8 +1125,12 @@ function renderReviewScopePicker(dueWords){
 function pickReviewScope(k){
   if (!window._reviewScopes || !window._reviewScopes[k] || !window._reviewScopes[k].length) return;
   window._reviewScopePick = k;
-  ['all','wrong','stale'].forEach(x => { const b = document.getElementById('scope-'+x); if (b) b.classList.toggle('active', x===k); });
+  ['all','wrong','stale','awkward'].forEach(x => { const b = document.getElementById('scope-'+x); if (b) b.classList.toggle('active', x===k); });
 }
+// ✨ 원어민 표현 카드(서버 tag='awkward') — 단어장 전체(BANK)에서 고름. 판정은 tag 하나.
+function awkwardCards(){ return (BANK || []).filter(w => w && w.tag === 'awkward'); }
+// 단어장 «원어민 표현만» 화면에서 바로 퀴즈로 — 복습 탭을 열면 그 카드로 시작
+function startAwkwardReview(){ window._autoAwkwardReview = true; switchTab('flash'); }
 
 function startSession(words){
   S = {
@@ -1147,6 +1173,12 @@ function distractors(w, key, n){
   });
   return out;
 }
+// 🏷️ AI 영작에서 «어색한 표현» 을 원어민 표현으로 고친 카드 — 복습 퀴즈에서도 표시(2026-11-02, 단어장 목록과 같은 tag)
+function awkQuizTag(w){
+  if (!w || w.tag !== 'awkward') return '';
+  const en = (typeof window.getLang === 'function' && window.getLang() === 'en');
+  return `<div class="q-awk">✨ ${en ? 'Natural expression — fixed from awkward English in A.i Writing' : '원어민 표현 — A.i 영작에서 어색한 표현을 고친 카드'}</div>`;
+}
 function hudHtml(){
   const comboTag = S.combo >= 2 ? `<span class="combo-tag">🔥 ${S.combo} COMBO</span>` : '';
   return `<div class="hud">
@@ -1174,6 +1206,7 @@ function renderFlashQ(w){
   const el = document.getElementById('flash-content');
   el.innerHTML = hudHtml() + `
     <div class="flash" id="card">
+      ${awkQuizTag(w)}
       <div class="flash-front">${esc(w.word)}</div>
       <div class="flash-back">🇰🇷 ${esc(w.korean||(w.meaning_pending?'뜻을 확인하고 있어요. 잠시 후 다시 열어 주세요.':'-'))}</div>
       <div class="flash-example">💬 ${esc(w.example||'')}</div>
@@ -1208,6 +1241,7 @@ function renderChoiceQ(w){
   el.innerHTML = hudHtml() + `
     <div class="timer-bar"><i id="tbar"></i></div>
     <div class="q-box">
+      ${awkQuizTag(w)}
       <div class="q-word">${esc(w.word)}</div>
       <div class="q-hint">이 단어의 뜻은? ⏱️</div>
     </div>
@@ -1226,6 +1260,7 @@ function renderReverseQ(w){
   el.innerHTML = hudHtml() + `
     <div class="timer-bar"><i id="tbar"></i></div>
     <div class="q-box">
+      ${awkQuizTag(w)}
       <div class="q-word" style="font-size:clamp(28px,5vw,40px)">🇰🇷 ${esc(w.korean)}</div>
       <div class="q-hint">이 뜻의 영어 단어는? ⏱️</div>
     </div>
@@ -1251,6 +1286,7 @@ function renderSpellQ(w){
   el.innerHTML = hudHtml() + `
     <div class="timer-bar"><i id="tbar"></i></div>
     <div class="q-box">
+      ${awkQuizTag(w)}
       <div class="q-word">${shown}</div>
       <div class="q-hint">🇰🇷 ${esc(w.korean||'')} — 빈칸에 들어갈 글자는? ⏱️</div>
     </div>
@@ -1417,6 +1453,26 @@ async function trySpeak(w){
 }
 
 /* ── 세션 종료: 축하 + 보상 지급 + 미션 + 배지 ── */
+/* 결과 화면의 «받은 포인트» — 서버 응답(awarded)만 믿는다. 판정은 이 함수 하나(하니스가 실제로 돌림).
+   rd: /api/vocab/reward 응답(실패면 null) · earn: 화면이 계산한 점수(정답×10 + 콤보) */
+function earnedView(rd, earn){
+  if (!rd || rd.ok !== true || typeof rd.awarded !== 'number') {
+    return { pt: '—', note: '포인트를 확인하지 못했어요. 잠시 뒤 포인트 내역에서 확인해 주세요.' };
+  }
+  const got = Math.max(0, Math.round(rd.awarded));
+  if (rd.duplicate) return { pt: '+' + got + 'P', note: '이 복습의 포인트는 이미 받았어요.' };
+  if (got < earn) {
+    return { pt: '+' + got + 'P', note: got === 0
+      ? '오늘 받을 수 있는 게임·퀴즈 포인트를 다 받았어요. 내일 다시 받을 수 있어요! (맞힌 점수 ' + earn + 'P)'
+      : '오늘 포인트 한도에 닿아 ' + got + 'P만 들어갔어요. (맞힌 점수 ' + earn + 'P)' };
+  }
+  return { pt: '+' + got + 'P', note: '' };
+}
+function paintEarned(rd, earn){
+  const v = earnedView(rd, earn);
+  const a = document.getElementById('earn-pt'); if (a) a.textContent = v.pt;
+  const n = document.getElementById('earn-note'); if (n) n.textContent = v.note;
+}
 async function endSession(){
   cancelVocabSpeak();
   stopTimer();
@@ -1430,19 +1486,26 @@ async function endSession(){
     <div class="finish-grid">
       <div class="fg"><b>${S.correct}/${total}</b><span>정답</span></div>
       <div class="fg"><b>🔥 ${S.maxCombo}</b><span>최고 콤보</span></div>
-      <div class="fg"><b id="earn-pt">+${earn}P</b><span>획득 포인트</span></div>
+      <div class="fg"><b id="earn-pt">${earn > 0 ? '…' : '+0P'}</b><span>받은 포인트</span></div>
     </div>
+    <div id="earn-note" class="earn-note"></div>
     <div id="mission-slot"></div>
     <p style="color:#a3b3d1;font-size:15px;margin-top:6px">다음 복습 일정은 망각곡선에 맞춰 자동으로 잡혔어요.</p>
     <div style="margin-top:18px">
       <button class="big-btn" onclick="renderPlayHome();loadDueCount()">확인</button>
     </div>
   </div>`;
-  // 포인트 지급 (서버 멱등/상한)
+  // 포인트 지급 (서버 멱등/상한) — 화면에는 «서버가 실제로 준 점수» 를 그린다(2026-11-02).
+  //   하루 상한(게임·퀴즈 묶음·하루 총량)에 걸리면 정답×10P 보다 적게 들어가므로, 계산한 값을 그대로 보여 주면 거짓말이 된다.
   try {
     if (earn > 0) {
-      await fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: UID, token: __mgTok(), student_name: getName(), kind: 'session', correct_count: S.correct, bonus: S.bonus, session_id: S.id }) });
+      let rd = null;
+      try {
+        const rr = await fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ user_id: UID, token: __mgTok(), student_name: getName(), kind: 'session', correct_count: S.correct, bonus: S.bonus, session_id: S.id }) });
+        rd = rr.ok ? await rr.json() : null;
+      } catch (_) { rd = null; }
+      paintEarned(rd, earn);
     }
     // 일일 미션 (10단어) — 서버가 검증
     const sr = await fetch('/api/vocab/stats?uid='+encodeURIComponent(UID));
@@ -1452,7 +1515,7 @@ async function endSession(){
         body: JSON.stringify({ user_id: UID, token: __mgTok(), student_name: getName(), kind: 'mission' }) });
       const md = await mr.json();
       if (md.ok && md.awarded > 0) {
-        document.getElementById('mission-slot').innerHTML = '<div class="mission-banner">🎯 오늘의 미션 완료! 보너스 +50P</div>';
+        document.getElementById('mission-slot').innerHTML = '<div class="mission-banner">🎯 오늘의 미션 완료! 보너스 +' + Number(md.awarded) + 'P</div>';
         sndFanfare(); confetti();
       }
     }
@@ -1507,16 +1570,40 @@ async function loadCollection(){
     if (!d.words || !d.words.length) {
       el.innerHTML = '<div class="empty">아직 카드가 없어요.<br>+ 단어 추가 탭에서 첫 카드를 수집해 보세요!</div>'; return;
     }
+    _dexWords = d.words;
+    renderDex();
+  } catch(e){ el.innerHTML = '<div class="empty">로드 실패</div>'; }
+}
+// 🔎 «원어민 표현만» 모아 보기(2026-11-02) — 받은 목록을 다시 받지 않고 화면에서만 거름
+var _dexWords = [];
+var _dexFilter = 'all';   // 'all' | 'awkward'
+function setDexFilter(f){ _dexFilter = (f === 'awkward') ? 'awkward' : 'all'; renderDex(); }
+function renderDex(){
+  const el = document.getElementById('list-content');
+  if (!el) return;
+  const d = { words: _dexWords || [] };
+  try {
     const mastered = d.words.filter(w => (w.level||0) >= 5).length;
     // 🏷️ AI 영작에서 «어색한 표현» 을 원어민 표현으로 고친 카드(서버 tag='awkward') — 따로 표시(2026-11-02)
     const _en = (typeof window.getLang === 'function' && window.getLang() === 'en');
     const awkN = d.words.filter(w => w.tag === 'awkward').length;
+    // 원어민 표현 카드가 0장이면(지우는 등) 필터를 «전체» 로 되돌림 — 빈 화면으로 남지 않게
+    if (!awkN) _dexFilter = 'all';
+    const onlyAwk = _dexFilter === 'awkward';
+    const shown = onlyAwk ? d.words.filter(w => w.tag === 'awkward') : d.words;
+    const quizBtn = (onlyAwk && awkN) ? `<button type="button" class="dxf quiz" onclick="startAwkwardReview()">▶ ${_en ? 'Quiz these cards' : '이 카드로 복습 퀴즈'}</button>` : '';
+    const filterBar = awkN ? `<div class="dex-filter" role="group" aria-label="${_en ? 'Card filter' : '카드 모아 보기'}">
+        <button type="button" class="dxf${onlyAwk ? '' : ' on'}" aria-pressed="${onlyAwk ? 'false' : 'true'}" onclick="setDexFilter('all')">${_en ? 'All' : '전체'} ${d.words.length}</button>
+        <button type="button" class="dxf awk${onlyAwk ? ' on' : ''}" aria-pressed="${onlyAwk ? 'true' : 'false'}" onclick="setDexFilter('awkward')">✨ ${_en ? 'Natural expressions' : '원어민 표현만'} ${awkN}</button>
+        ${quizBtn}
+      </div>` : '';
     el.innerHTML = `<div class="dex-head">
         <span class="t">📖 내 단어 카드</span>
         <span class="c">${d.words.length}장 수집 · 🥇 마스터 ${mastered}장 — 복습에서 맞힐수록 카드가 진화해요!</span>
         ${awkN ? `<span class="c awk-note">${_en ? `✨ ${awkN} natural expression${awkN>1?'s':''} — fixed from awkward English in A.i Writing` : `✨ 원어민 표현 ${awkN}장 — A.i 영작에서 어색한 표현을 고친 카드예요`}</span>` : ''}
       </div>
-      <div class="dex">` + d.words.map(w => {
+      ${filterBar}
+      <div class="dex">` + shown.map(w => {
         const rr = rarity(w.level||0);
         const lv = Math.min(w.level||0, 7);
         const awk = w.tag === 'awkward';

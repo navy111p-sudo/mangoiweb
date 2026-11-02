@@ -11764,7 +11764,14 @@ LIMIT $limit`;
         const binds: any[] = [];
         // 🔒 스코프가 맨 앞 — 아래 검색어·결제유형·지사 필터가 무엇이든 이 울타리 안에서만 논다
         if (_cCond.cond) { where.push(_cCond.cond); binds.push(..._cCond.binds); }
-        if (q) {
+        /* 🔎 (2026-11-02 사장님 「대리점 이름 검색이 있어야 하는데 지사 이름까지 걸려 필터링이 어렵다」)
+           qf=name 이면 «대리점·학원명» 만 찾는다(「직영」 → 「본사직영지사」 소속 47곳이 다 걸리던 것).
+           qf 가 없으면 예전 그대로(대리점·원장·주소·지사) — 다른 호출부의 뜻을 안 바꾼다. */
+        const qf = url.searchParams.get('qf') === 'name' ? 'name' : 'all';
+        if (q && qf === 'name') {
+          where.push(`c.name LIKE ?`);
+          binds.push(`%${q}%`);
+        } else if (q) {
           where.push(`(c.name LIKE ? OR c.manager LIKE ? OR c.address LIKE ? OR f.name LIKE ?)`);
           const like = `%${q}%`;
           binds.push(like, like, like, like);

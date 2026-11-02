@@ -259,6 +259,8 @@ Student text: """${text}"""`;
       let earnedBadges: any[] = [];
       const vocabSaved: string[] = [];
       const awAuthUid = await authUidGlobal(request, url, env, b);
+      // 🪙 결과 화면이 «왜 포인트가 없는지» 를 말할 수 있게 — 로그인 안 한(또는 남의 아이디) 첨삭은 적립 대상이 아니다(2026-11-02)
+      const pointsGuest = !(awAuthUid && awAuthUid === uid && !uid.startsWith('guest_'));
       if (awAuthUid && awAuthUid === uid && !uid.startsWith('guest_')) {
         // 규칙 기반 적립 인라인 헬퍼 — 쿨다운/일일한도는 point_rule_log 기준(KST 자정 경계)
         const earnWritingRule = async (code: string, label: string, amount: number, dailyCap: number, description: string, cooldownSec = 0) => {
@@ -369,7 +371,7 @@ Student text: """${text}"""`;
         ok: true,
         corrected, score, issues, suggestions, tip, reply, upgrades, level,
         mission_words: missionWords, mission_used: missionUsed,
-        points: pointsEarned, mission_bonus: missionBonus, streak_bonus: streakBonus,
+        points: pointsEarned, mission_bonus: missionBonus, streak_bonus: streakBonus, points_guest: pointsGuest,
         earned_badges: earnedBadges, vocab_saved: vocabSaved,
         topic_recorded: topicRecorded,
         ...(raw ? {} : { ai_unavailable: true, fallback: true }),
@@ -575,7 +577,19 @@ Student text: """${text}"""`;
       while (days.has(todayIdx - streak)) streak++;
       // 오늘 아직 안 보냈어도 어제까지의 스트릭은 이어짐 표시 (끊긴 건 아님)
       if (streak === 0 && days.has(todayIdx - 1)) { let s = 0; while (days.has(todayIdx - 1 - s)) s++; streak = s; }
-      return { today: tc?.c || 0, lifetime: lc?.c || 0, streak, word: aiFriendWordOfDay() };
+      /* 🪙 (2026-11-02) 오늘 «실제로» 적립된 AI 친구 포인트 — 화면 «오늘 받은 포인트» 칸의 정본.
+         ⛔ 추정하지 않습니다(예전 화면은 «오늘 대화 수 × 2» 를 지어냈습니다). 못 세면 null = 화면이 «—».
+         게스트는 적립하지 않으므로 guest:true 로 알립니다. */
+      const guest = /^guest/i.test(uid);
+      let earnedToday: number | null = guest ? 0 : null;
+      if (!guest) {
+        try {
+          const er: any = await env.DB.prepare(`SELECT COALESCE(SUM(amount),0) AS s FROM point_rule_log WHERE user_id=? AND rule_code IN ('ai_friend_chat','ai_friend_word','ai_friend_voice','ai_friend_listen') AND triggered_at>=?`).bind(uid, todayMs).first();
+          const n = Number(er?.s);
+          if (Number.isFinite(n)) earnedToday = n;
+        } catch { /* 표가 아직 없거나 조회 실패 — «모름» */ }
+      }
+      return { today: tc?.c || 0, lifetime: lc?.c || 0, streak, word: aiFriendWordOfDay(), guest, earned_today: earnedToday };
     };
 
     /* 🔁 (2026-07-23 제보) "I 한 마디만 했는데 지난번 답을 그대로 길게 다시 한다".
@@ -1336,6 +1350,9 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
           if (wantWord && wordUsed < 1 && await logAward('ai_friend_word', 5, `오늘의 단어(${wod.w}) 사용`)) gam.word_bonus = 5;
           if (wantVoice && voiceUsed < 5 && await logAward('ai_friend_voice', 1, '영어로 말하기')) gam.voice_bonus = 1;
           if (wantListen && listenUsed < 5 && await logAward('ai_friend_listen', 1, '자막 없이 듣기')) gam.listen_bonus = 1;
+          /* 🪙 이번 턴에 대화 포인트를 못 받은 이유 — 화면이 «왜 0P 인지» 를 말하게. 'daily'=오늘 10번 다 받음 · 'total'=하루 전체 상한 */
+          gam.chat_capped = chatUsed >= 10 ? 'daily' : (gam.awarded ? null : 'total');
+          if (gam.earned_today != null) gam.earned_today = Number(gam.earned_today) + gam.awarded + gam.word_bonus + gam.voice_bonus + gam.listen_bonus;
         }
       } catch (e: any) {
         console.error('[chat-friend] gamification failed:', e?.message || e);

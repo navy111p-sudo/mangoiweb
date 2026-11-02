@@ -18,6 +18,7 @@ import { checkAdminSession } from './auth-admin';
 import { sendPlainSms } from './solapi-client';
 import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnrollOrder, priceForUid, teacherRateFor, enrollQuoteCalc, ENROLL_WEEKLY, addDays, authUidOrAdminSession, renewStartDate, enrollTimeToMin } from './enroll-ops';
 import { authUidFromRequest } from './auth-token';
+import { b2bPayBlockBody } from './b2b-student-pay-block';   // 🏫 B2B 대리점 학생은 직접 결제 못 함(2026-11-02) — 판정 정본
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서 (사전고지 문자)
 import { handleRefundApi } from './api-pay-refund';   // 💸 환불 실행·기록 (2026-08-25 신설)
 import { activateB2bAiInvoicePayment, mgbAmountNow } from './ai-billing';   // 🏢 대리점 AI 사용료 일괄결제 활성화 (MGB- 주문 전용, 2026-09-10)
@@ -527,6 +528,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
       return json({ ok: false, error: 'uid_mismatch', message: '로그인 정보가 일치하지 않습니다. 다시 로그인해 주세요.' }, 403);
     }
     const verifiedUid = authUid;
+    { const _b2b = await b2bPayBlockBody(env, verifiedUid); if (_b2b) return json(_b2b, 403); }   // 🏫 B2B 대리점 학생 직접 결제 차단
 
     // 서버 생성 주문번호(추측 어렵게). 시각은 요청 헤더 기반이 아닌 Date.now() 사용.
     const rnd = bytesHex(crypto.getRandomValues(new Uint8Array(6)));
@@ -580,6 +582,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
       return json({ ok: false, error: 'uid_mismatch', message: '로그인 정보가 일치하지 않습니다. 다시 로그인해 주세요.' }, 403);
     }
     const verifiedUid2 = authUid;
+    { const _b2b = await b2bPayBlockBody(env, verifiedUid2); if (_b2b) return json(_b2b, 403); }   // 🏫 B2B 대리점 학생 직접 결제 차단
 
     // 금액: 서버 가격표가 정본. 가격표에 없는 상담형(other) 만 입력 금액을 받는다.
     const priced = PRICES[program];
@@ -1023,6 +1026,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     const body = await parseJsonBody(request) || {};
     const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
+    { const _b2b = await b2bPayBlockBody(env, authUid); if (_b2b) return json(_b2b, 403); }   // 🏫 B2B 대리점 학생 직접 결제 차단
     await ensureSubscriptionsSchema(env);
     /* 🤖 (2026-09-29) A.i 이용권 매달 자동결제 — 수업이 없어도 신청할 수 있다(수업 견적을 안 탄다). */
     if (String(body.plan || '') === AI_PASS_PLAN) {
@@ -1052,6 +1056,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     const body = await parseJsonBody(request) || {};
     const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
+    { const _b2b = await b2bPayBlockBody(env, authUid); if (_b2b) return json(_b2b, 403); }   // 🏫 B2B 대리점 학생 직접 결제 차단
     const authKey = String(body.authKey || '').trim();
     const customerKey = String(body.customerKey || '').trim();
     if (!authKey || !customerKey) return json({ ok: false, error: 'missing_fields' }, 400);
@@ -1116,6 +1121,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     const body = await parseJsonBody(request) || {};
     const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
+    { const _b2b = await b2bPayBlockBody(env, authUid); if (_b2b) return json(_b2b, 403); }   // 🏫 B2B 대리점 학생 직접 결제 차단
     const months = Number(body.months || 1);
     if (![1, 3, 6, 12].includes(months)) return json({ ok: false, error: 'bad_months' }, 400);
     await ensureSubscriptionsSchema(env);

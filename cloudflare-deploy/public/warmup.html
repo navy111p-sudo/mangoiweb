@@ -4692,20 +4692,102 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 }
 </style>
 <!-- 📱 휴대폰(세로, 터치) 말풍선 우선 배치 (2026-11-02 · 1안)
-     사장님 「휴대폰에서 선생님 얼굴을 올려야만 글이 보인다」 → 실측(390×844): 머리글 113px(한 줄 넘침)
+     사장님 «휴대폰에서 선생님 얼굴을 올려야만 글이 보인다» → 실측(390×844): 머리글 113px(한 줄 넘침)
      · 얼굴 170px · 대화창 354px 중 말풍선이 하단 바에 가려짐.
-     조치: ① 머리글 한 줄(제목만 숨김 — 「모드 선택」 링크는 그대로) ② 얼굴 170→120px(--av-w 96px)
-     ③ 세션·서버 칩만 숨김(「자유 대화」 주제 칩은 그대로).
+     조치: ① 머리글 한 줄(제목만 숨김 — «모드 선택» 링크는 그대로) ② 얼굴 170→120px(--av-w 96px)
+     ③ 세션·서버 칩만 숨김(«자유 대화» 주제 칩은 그대로).
      같은 날 추가: 좁은 화면(≤640px, 마우스 기기 포함)에서 아래 입력 묶음·버튼 줄을 줄여 얼굴과 말풍선 자리를 넓힘
      (실측 540px · 자동 듣는 중: 입력 묶음 248→152px). 기능·버튼은 그대로 두고 크기만 줄입니다.
      ⚠️ 얼굴 크기는 warmup-flow.css 의 #wfStage 규칙(136px)을 이기려고 #wfStage 까지 적었습니다.
      ⚠️ 터치 기기의 아래 3칸 바(#tbBar, js/warmup-touch-bar.js)는 id 규칙이라 아래 축소 규칙보다 우선합니다. -->
 <style id="phone-fit-2026-11-02">
-@media (hover:none) and (pointer:coarse) and (max-width:640px) and (min-height:600px){
+/* 퍼즈 검사(폭 11 × 높이 5 × 터치/마우스 × 상태) 결과로 넓힘: 짧은 폰(568px)·좁은 마우스 창에서도
+   얼굴이 아래 버튼에 가리지 않고 말풍선 첫 줄이 보이도록, 얼굴 크기를 화면 높이에 따라 단계로 줄인다. */
+@media (max-width:640px){
   body #wfStage>#tavatar-wrap{ --av-w:96px!important; }
   body .meta .chip.dim{ display:none!important; }
   body .top{ flex-wrap:nowrap!important; gap:6px!important; }
   body .top h1{ display:none!important; }
+}
+@media (max-width:640px) and (max-height:780px){
+  body #wfStage>#tavatar-wrap{ --av-w:72px!important; }
+}
+@media (max-width:640px) and (max-height:620px){
+  body #wfStage>#tavatar-wrap{ --av-w:52px!important; }
+}
+/* 좁은 마우스 창(≤400px): 머리글 버튼 7개(44px)가 380px 라 한 줄 고정 시 가로로 넘쳤다 → 34px 로.
+   터치 기기는 손가락 크기(44px)를 지키려고 건드리지 않는다. */
+@media (max-width:400px) and (hover:hover) and (pointer:fine){
+  body .top{ gap:4px!important; padding-left:8px!important; padding-right:8px!important; }
+  body .top .back, body .top .icon-btn{ width:34px!important; height:34px!important; min-width:34px!important; min-height:34px!important; font-size:16px!important; }
+  body .top>a:first-child{ font-size:12px!important; padding:6px 2px!important; }
+  /* 입력칸·🎤·보내기를 한 줄로(두 줄로 접히면 말풍선 자리가 사라진다) */
+  body .inbar{ flex-wrap:nowrap!important; }
+  body .inbar input{ flex:1 1 auto!important; min-width:0!important; }
+  body .inbar button{ padding:0 10px!important; }
+}
+/* 짧은 좁은 마우스 창(높이 ≤760px): 말풍선 자리를 만들려고 부제·사용법 줄을 감추고 위쪽 버튼 줄을 낮춘다. */
+@media (max-width:640px) and (max-height:760px) and (hover:hover) and (pointer:fine){
+  body .wg-progress span{ display:none!important; }
+  body .wg-composer .hint{ display:none!important; }
+  body .wg-history-bar .wg-btn, body .wf-tools .wf-button{ min-height:34px!important; padding-top:4px!important; padding-bottom:4px!important; font-size:13px!important; }
+}
+/* 더 낮은 좁은 마우스 창(높이 ≤700px): 얼굴 밑 이름표를 감추고 탭 줄을 한 줄로 */
+@media (max-width:640px) and (max-height:700px) and (hover:hover) and (pointer:fine){
+  body #tavatar-status{ display:none!important; }
+  body .qs-row .qs-get, body .qs-row .wg-btn{ min-height:30px!important; }
+  body .wf-tools{ flex-wrap:nowrap!important; }
+  body .wf-tools .wf-button{ flex:1 1 0; min-width:0; font-size:12px!important; padding-left:6px!important; padding-right:6px!important; }
+}
+/* 작은 폰(높이 ≤620px)에서 글쓰기 중에는 얼굴 밑 이름표를 감춰 말풍선 자리를 만든다 */
+@media (max-width:640px) and (max-height:620px){
+  body:has(.wg-composer.tb-typing) #tavatar-status{ display:none!important; }
+}
+/* 낮은 PC 화면(높이 <820px): 얼굴이 입력칸에 가리지 않도록 위아래 줄을 줄인다(수정 전에도 가리던 크기) */
+@media (min-width:1100px) and (max-height:819px) and (hover:hover) and (pointer:fine){
+  body .wg-progress span{ display:none!important; }
+  body .wg-composer .hint{ display:none!important; }
+  body .wg-history-bar .wg-btn, body .wf-tools .wf-button{ min-height:36px!important; padding-top:5px!important; padding-bottom:5px!important; }
+  body #listening{ padding:5px 10px!important; margin-bottom:5px!important; }
+  body .talk-switch button{ min-height:30px!important; }
+  /* «말하는 방법» 스위치와 «듣는 중» 을 한 줄에 — 터치 기기(touch-compact)와 같은 배치 */
+  body .wg-composer{ display:flex; flex-wrap:wrap; align-items:center; column-gap:8px; }
+  body .wg-composer > *{ flex:1 1 100%; min-width:0; }
+  body .wg-composer > .talk-switch{ flex:0 1 auto; margin:0 0 5px!important; }
+  body .wg-composer > #listening, body .wg-composer > #wgState{ flex:1 1 240px; margin-bottom:5px!important; }
+}
+/* 아주 작은 마우스 창(≤400×620): 진행 줄까지 감춰 말풍선 첫 줄 자리를 만든다 */
+@media (max-width:400px) and (max-height:620px) and (hover:hover) and (pointer:fine){
+  body .wg-header .wg-progress{ display:none!important; }
+}
+/* 🖥️ PC(마우스, 1100px 이상): 대화 화면을 넓히고 선생님 얼굴을 키운다(2026-11-02 사장님 «PC에서 아바타 얼굴을 더 크게»).
+   얼굴은 화면 높이에 따라 단계로 — 낮은 노트북(<820px)은 아래 입력칸에 가리지 않도록 예전 크기(160px) 유지.
+   (warmup-flow.css 가 이 블록보다 뒤에 로드되므로 html body / #wfStage 로 명시도를 올렸다) */
+@media (min-width:1100px) and (hover:hover) and (pointer:fine){
+  html body .wrap{ max-width:1240px; }
+  body .wg-composer:has(#listening[style*="flex"]) #wgState{ display:none!important; }
+  body .inbar input{ padding-top:10px!important; padding-bottom:10px!important; }
+  body .inbar button{ min-height:48px!important; }
+  body .wf-panel:has(#wfLargeText){ width:min(640px,calc(100vw - 36px)); }
+  body #wfLargeText{ font-size:clamp(34px,3.2vw,52px); line-height:1.4; }
+  /* 얼굴을 무대 위쪽에 붙인다 — 가운데 정렬이면 무대가 화면보다 길 때 얼굴이 아래 입력칸에 걸린다 */
+  body #wfStage>#tavatar-wrap{ align-self:start; }
+}
+@media (min-width:1100px) and (min-height:820px) and (hover:hover) and (pointer:fine){
+  html body .wrap{ max-width:1360px; }
+  body #wfStage>#tavatar-wrap{ --av-w:176px!important; }
+  body #wfStage{ grid-template-columns:196px minmax(0,1fr); }
+}
+@media (min-width:1100px) and (min-height:900px) and (hover:hover) and (pointer:fine){
+  body #wfStage>#tavatar-wrap{ --av-w:196px!important; }
+  body #wfStage{ grid-template-columns:216px minmax(0,1fr); }
+}
+@media (min-width:1600px) and (min-height:900px) and (hover:hover) and (pointer:fine){
+  html body .wrap{ max-width:1480px; }
+}
+@media (min-width:1100px) and (min-height:1000px) and (hover:hover) and (pointer:fine){
+  body #wfStage>#tavatar-wrap{ --av-w:260px!important; }
+  body #wfStage{ grid-template-columns:280px minmax(0,1fr); }
 }
 @media (max-width:640px){
   .wg-composer{ padding:6px!important; }
