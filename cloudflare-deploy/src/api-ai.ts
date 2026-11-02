@@ -39,7 +39,8 @@ import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
 import type { MangoEnv } from './api-mango';
 import { recordAiFailure } from './ai-failure-log';
 import { correctionModeOf, gateFixForMode, ensureFocusedFixSpoken } from './warmup-honest';   // 🎚️ A.i 친구 교정 모드(자유대화·균형·집중교정, 기본 집중교정)
-import { handleClassAsk } from './class-ask';   // ✋ A.i 선생님 수업 — 학생 질문 즉답(2026-10-08)
+import { handleClassAsk } from './class-ask';
+import { handleClassAskStream, wantsClassAskStream } from './class-ask-stream';   // ✋ A.i 선생님 수업 — 학생 질문 즉답(2026-10-08)
 import { connectorRule, connectorPromptBlock, linkBandForFriendLevel } from './conversation-connectors';   // 🔗 연결 표현 정본(2026-10-28 · 세 화면 공용)
 import { handleStoryApi } from './story-correct';   // 📖 동화책 바꿔 쓰기 AI 한 번 더 보기·기록(2026-10-13)
 import { recordAiLatency } from './ai-latency-log';   // ⏱ «학생이 얼마나 기다리는가» (A-3)
@@ -680,7 +681,11 @@ Student text: """${text}"""`;
 
     // ✋ A.i 선생님 수업 — 학생 질문 즉답. 판정·상한·파싱은 전부 class-ask.ts 정본(여기는 부르기만)
     if (method === 'POST' && path === '/api/ai/class-ask') {
-      return handleClassAsk(request, env, { json, recordFailure: (f: any) => recordAiFailure(env, f), linkRule: connectorRule('beginner'), koOk: (s: string) => !looksGarbledKo(s) });
+      const askDeps = { json, recordFailure: (f: any) => recordAiFailure(env, f), linkRule: connectorRule('beginner'), koOk: (s: string) => !looksGarbledKo(s) };
+      // 📡 `stream: 1` 이면 영어 답을 생성되는 즉시 흘려보냅니다(없으면 예전 응답 그대로)
+      const peek: any = await request.clone().json().catch(() => ({}));
+      if (wantsClassAskStream(peek)) return handleClassAskStream(request, env, askDeps);
+      return handleClassAsk(request, env, askDeps);
     }
 
     if (method === 'POST' && path === '/api/ai/chat-friend') {

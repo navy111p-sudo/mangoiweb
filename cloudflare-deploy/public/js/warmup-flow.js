@@ -144,7 +144,7 @@
     if(!window.MangoiVoice || !MangoiVoice.supported()){askState.textContent=tr('질문 마이크를 쓸 수 없어요. 글로 입력해 주세요.','Question microphone unavailable. Please type.');return;}
     cancelVoice();var seq=++voiceId,epoch=_warmEpoch,heard=false;recording=true;paintBusy();
     try{
-      var said=await MangoiVoice.record({lang:'ko',silenceMs:1600,maxMs:20000,onState:function(s){
+      var said=await MangoiVoice.record({lang:'ko',silenceMs:1000,maxMs:20000,onState:function(s){
         if(seq!==voiceId || !ask.open)return;
         if(s==='speaking')heard=true;
         askState.textContent=s==='thinking'?tr('말한 질문을 받아 적는 중…','Transcribing your question…'):s==='error'?tr('음성 입력에 실패했어요. 글로 입력해 주세요.','Voice input failed. Please type.'):tr('질문을 듣는 중… 녹음 마치기를 눌러 끝내세요.','Listening to your question… tap Finish recording when done.');
@@ -155,16 +155,42 @@
     }catch(e){if(seq===voiceId)askState.textContent=tr('질문 녹음에 실패했어요. 글로 입력해 주세요.','Question recording failed. Please type.');}
     finally{if(seq===voiceId){recording=false;paintBusy();}}
   }
+  /* 📡 class-ask 스트림 읽기 — {partial,en} 은 onPartial 로, {done,…} 은 마지막 값으로 돌려줍니다.
+     ⚠️ 끝까지 done 이 없으면 null 을 돌려주고, 호출하는 쪽이 실패로 봅니다(거짓 성공 금지). */
+  async function readClassAskStream(resp, onPartial){
+    var rd=resp.body.getReader(), dec=new TextDecoder(), buf='', fin=null;
+    for(;;){
+      var c=await rd.read(); if(c.done) break;
+      buf+=dec.decode(c.value,{stream:true});
+      var k; while((k=buf.indexOf('\n\n'))>=0){
+        var ev=buf.slice(0,k); buf=buf.slice(k+2);
+        var line=ev.split('\n').find(function(x){return x.indexOf('data:')===0;});
+        if(!line) continue;
+        var o; try{ o=JSON.parse(line.slice(5)); }catch(e){ continue; }
+        if(o.done) fin=o; else if(o.partial && typeof o.en==='string' && onPartial) onPartial(o.en);
+      }
+    }
+    return fin;
+  }
   async function sendQuestion(){
     if(!ask.open || busy || recording || (snapshot&&snapshot.pending))return;var q=input.value.trim();if(!q){input.focus();return;}
     if(!snapshot || snapshot.key!==contextKey()){if(!questionReference)questionReference=displayedSentence();capture();answer.replaceChildren();}
     var ctx=snapshot,seq=++requestId;busy=true;paintBusy();answer.replaceChildren();askState.textContent=tr('질문을 보내고 설명을 만드는 중…','Sending your question and preparing an explanation…');
     try{
-      var r=await warmupFetch('/api/ai/class-ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:q,title:ctx.title,lines:ctx.lines,lang:ctx.lang,audience:_warmAge})});
-      var d=await r.json();if(seq!==requestId || !ask.open || ctx.key!==contextKey() || document.hidden)return;
-      if(!r.ok || !d.ok)throw new Error(d.error==='daily_cap'?'daily_cap':'failed');
-      var primary=ctx.lang==='zh'?d.zh:d.en;if(typeof primary!=='string' || !primary.trim())throw new Error('failed');
-      var a=element('p');a.textContent=primary;var ko=element('p');ko.textContent=String(d.ko||'');answer.replaceChildren(a,ko);
+      /* 📡 영어 연습은 영어 답을 생성되는 즉시 보여 줍니다(stream:1). 중국어는 예전 JSON 응답 그대로. */
+      var streamOn=ctx.lang!=='zh';
+      var r=await warmupFetch('/api/ai/class-ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:q,title:ctx.title,lines:ctx.lines,lang:ctx.lang,audience:_warmAge,stream:streamOn?1:0})});
+      var a=element('p'),ko=element('p');
+      var isSse=/text\/event-stream/.test(r.headers.get('content-type')||'');
+      var d;
+      if(isSse){
+        answer.replaceChildren(a,ko);
+        d=await readClassAskStream(r,function(en){ if(seq===requestId && ask.open) a.textContent=en; });
+      }else d=await r.json();
+      if(seq!==requestId || !ask.open || ctx.key!==contextKey() || document.hidden)return;
+      if(!r.ok || !d || !d.ok){ answer.replaceChildren(); throw new Error(d&&d.error==='daily_cap'?'daily_cap':'failed'); }
+      var primary=ctx.lang==='zh'?d.zh:d.en;if(typeof primary!=='string' || !primary.trim()){ answer.replaceChildren(); throw new Error('failed'); }
+      a.textContent=primary;ko.textContent=String(d.ko||'');answer.replaceChildren(a,ko);
       askState.textContent=tr('설명이 도착했어요. 돌아가면 같은 연습을 이어갈 수 있어요.','Explanation ready. Return to continue the same practice.');
     }catch(e){if(seq===requestId && ask.open)askState.textContent=e.message==='daily_cap'?tr('오늘 질문 한도에 도달했어요. 본 말하기 연습은 계속할 수 있어요.','Today’s question limit was reached. Speaking practice is still available.'):tr('설명을 받지 못했어요. 질문은 그대로예요. 다시 보내거나 취소해 주세요.','Could not get an explanation. Your question is still here. Retry or cancel.');}
     finally{if(seq===requestId){busy=false;paintBusy();if(ctx.key!==contextKey())askState.textContent=tr('연습 문맥이 바뀌었어요. 새 문맥으로 다시 보내 주세요.','Practice context changed. Send again with the new context.');}}
