@@ -198,6 +198,7 @@
   .finish h2{font-size:30px;margin:14px 0 6px}
   .finish .earn{font-size:22px;font-weight:900;color:#fbbf24;margin:10px 0}
   .finish-grid{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:16px 0}
+  .earn-note{color:#fde68a;font-size:14px;margin:-4px 0 8px;min-height:0}
   .finish-grid .fg{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 22px;min-width:110px}
   .finish-grid .fg b{display:block;font-size:24px;color:#fff}
   .finish-grid .fg span{font-size:13px;color:#a3b3d1}
@@ -1452,6 +1453,26 @@ async function trySpeak(w){
 }
 
 /* ── 세션 종료: 축하 + 보상 지급 + 미션 + 배지 ── */
+/* 결과 화면의 «받은 포인트» — 서버 응답(awarded)만 믿는다. 판정은 이 함수 하나(하니스가 실제로 돌림).
+   rd: /api/vocab/reward 응답(실패면 null) · earn: 화면이 계산한 점수(정답×10 + 콤보) */
+function earnedView(rd, earn){
+  if (!rd || rd.ok !== true || typeof rd.awarded !== 'number') {
+    return { pt: '—', note: '포인트를 확인하지 못했어요. 잠시 뒤 포인트 내역에서 확인해 주세요.' };
+  }
+  const got = Math.max(0, Math.round(rd.awarded));
+  if (rd.duplicate) return { pt: '+' + got + 'P', note: '이 복습의 포인트는 이미 받았어요.' };
+  if (got < earn) {
+    return { pt: '+' + got + 'P', note: got === 0
+      ? '오늘 받을 수 있는 게임·퀴즈 포인트를 다 받았어요. 내일 다시 받을 수 있어요! (맞힌 점수 ' + earn + 'P)'
+      : '오늘 포인트 한도에 닿아 ' + got + 'P만 들어갔어요. (맞힌 점수 ' + earn + 'P)' };
+  }
+  return { pt: '+' + got + 'P', note: '' };
+}
+function paintEarned(rd, earn){
+  const v = earnedView(rd, earn);
+  const a = document.getElementById('earn-pt'); if (a) a.textContent = v.pt;
+  const n = document.getElementById('earn-note'); if (n) n.textContent = v.note;
+}
 async function endSession(){
   cancelVocabSpeak();
   stopTimer();
@@ -1465,19 +1486,26 @@ async function endSession(){
     <div class="finish-grid">
       <div class="fg"><b>${S.correct}/${total}</b><span>정답</span></div>
       <div class="fg"><b>🔥 ${S.maxCombo}</b><span>최고 콤보</span></div>
-      <div class="fg"><b id="earn-pt">+${earn}P</b><span>획득 포인트</span></div>
+      <div class="fg"><b id="earn-pt">${earn > 0 ? '…' : '+0P'}</b><span>받은 포인트</span></div>
     </div>
+    <div id="earn-note" class="earn-note"></div>
     <div id="mission-slot"></div>
     <p style="color:#a3b3d1;font-size:15px;margin-top:6px">다음 복습 일정은 망각곡선에 맞춰 자동으로 잡혔어요.</p>
     <div style="margin-top:18px">
       <button class="big-btn" onclick="renderPlayHome();loadDueCount()">확인</button>
     </div>
   </div>`;
-  // 포인트 지급 (서버 멱등/상한)
+  // 포인트 지급 (서버 멱등/상한) — 화면에는 «서버가 실제로 준 점수» 를 그린다(2026-11-02).
+  //   하루 상한(게임·퀴즈 묶음·하루 총량)에 걸리면 정답×10P 보다 적게 들어가므로, 계산한 값을 그대로 보여 주면 거짓말이 된다.
   try {
     if (earn > 0) {
-      await fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: UID, token: __mgTok(), student_name: getName(), kind: 'session', correct_count: S.correct, bonus: S.bonus, session_id: S.id }) });
+      let rd = null;
+      try {
+        const rr = await fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ user_id: UID, token: __mgTok(), student_name: getName(), kind: 'session', correct_count: S.correct, bonus: S.bonus, session_id: S.id }) });
+        rd = rr.ok ? await rr.json() : null;
+      } catch (_) { rd = null; }
+      paintEarned(rd, earn);
     }
     // 일일 미션 (10단어) — 서버가 검증
     const sr = await fetch('/api/vocab/stats?uid='+encodeURIComponent(UID));
@@ -1487,7 +1515,7 @@ async function endSession(){
         body: JSON.stringify({ user_id: UID, token: __mgTok(), student_name: getName(), kind: 'mission' }) });
       const md = await mr.json();
       if (md.ok && md.awarded > 0) {
-        document.getElementById('mission-slot').innerHTML = '<div class="mission-banner">🎯 오늘의 미션 완료! 보너스 +50P</div>';
+        document.getElementById('mission-slot').innerHTML = '<div class="mission-banner">🎯 오늘의 미션 완료! 보너스 +' + Number(md.awarded) + 'P</div>';
         sndFanfare(); confetti();
       }
     }
