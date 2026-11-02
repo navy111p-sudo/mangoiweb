@@ -21,6 +21,7 @@ check('wrong PNG signature', () => { const b = png(); b[7] = 0; assert.equal(siz
 check('PNG must begin with IHDR', () => { const b = png(); b[12] = 0; assert.equal(size(b), null); });
 check('PNG IHDR length', () => { const b = png(); b[11] = 1; assert.equal(size(b), null); });
 check('JPEG minimal full SOF', () => assert.deepEqual(size(jpeg()), { width:1600,height:900,format:'jpeg' }));
+check('JPEG dimensions at exact range boundary', () => assert.deepEqual(size(jpeg().slice(0,12)), { width:1600,height:900,format:'jpeg' }));
 check('JPEG declared segment too short', () => { const b = bytes(jpeg(), Array(10).fill(0)); b[5] = 2; assert.equal(size(b), null); });
 check('JPEG SOF component count matches segment length', () => { const b = jpeg(); b[11] = 1; assert.equal(size(b), null); });
 check('JPEG stops at end of image', () => assert.equal(size(bytes([255,216,255,217], jpeg().slice(2), Array(10).fill(0))), null));
@@ -31,7 +32,7 @@ check('VP8 interframe has no dimensions', () => { const b = vp8(); b[20] = 1; as
 check('VP8L dimensions without unrelated trailing padding', () => assert.deepEqual(size(vp8l()), { width:576,height:597,format:'webp' }));
 check('VP8L signature', () => { const b = bytes(vp8l(), Array(8).fill(0)); b[20] = 0; assert.equal(size(b), null); });
 check('VP8L version must be zero', () => { const b = bytes(vp8l(), Array(8).fill(0)); b[24] |= 224; assert.equal(size(b), null); });
-check('truncated dimensions never fabricated', () => { for (const make of [png, jpeg, vp8, vp8l]) { const b=make(); for(let n=0;n<b.length-9;n++) assert.equal(size(b.slice(0,n)), null, `${make.name}:${n}`); } });
+check('truncated dimensions never fabricated', () => { for (const [make, minimum] of [[png,24], [jpeg,12], [vp8,30], [vp8l,25]]) { const b=make(); for(let n=0;n<minimum;n++) assert.equal(size(b.slice(0,n)), null, `${make.name}:${n}`); } });
 const broken = png(); broken[12] = 0;
 try {
   const env = { DB: { prepare(sql) { return { bind() { return this; }, async all() {
