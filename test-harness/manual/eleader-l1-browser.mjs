@@ -57,6 +57,7 @@ try {
   ok('start: client topic/textbook not sent', log.l1[0] && log.l1[0].b.lesson_topic === undefined && log.l1[0].b.textbook === undefined);
   ok('start: no free warmup chat call', log.warm.length === 0);
   ok('start: AI reply shown', /Reply 1/.test(await p.locator('#log').innerText()));
+  ok('place B: bar is first in the answer area (.wg-composer), not inside the stage', await p.evaluate(() => { const b = document.getElementById('eleaderL1Bar'), c = document.querySelector('.wg-composer'), w = document.getElementById('wgWorkspace'); return !!(b && c && c.firstElementChild === b && !(w && w.contains(b))); }));
   ok('start: bar shows question 1/20', /질문 1 \/ 20/.test(await p.locator('#eleaderL1Bar').innerText()));
   ok('quota: bar shows today 1 / 200 (from server header)', /오늘 1 \/ 200/.test(await p.locator('#eleaderL1Bar').innerText()), await p.locator('#eleaderL1Bar').innerText());
   ok('start: level set to 1', await p.evaluate(() => window._warmLevel) === 1);
@@ -227,6 +228,7 @@ try {
     const k = log.l1[0]?.b || {};
     ok('topic: kickoff to l1 route with eleader_topic only', k.kickoff === 1 && k.eleader_topic === 'c3-02' && k.eleader_book === undefined && k.eleader_q === undefined, JSON.stringify(k));
     ok('topic: client topic/textbook not sent', k.lesson_topic === undefined && k.textbook === undefined);
+    ok('place B: topic bar also above the input', await p.evaluate(() => { const b = document.getElementById('eleaderL1Bar'), c = document.querySelector('.wg-composer'), w = document.getElementById('wgWorkspace'); return !!(b && c && c.firstElementChild === b && !(w && w.contains(b))); }));
     ok('topic: bar shows level and topic (no question count)', /Level 3 · 02단원 방학에 여행 갔던 일/.test(await p.locator('#eleaderL1Bar').innerText()) && !/질문 \d/.test(await p.locator('#eleaderL1Bar').innerText()));
     await send(p, 'I went to Jeju.');
     const t2 = log.l1.at(-1)?.b || {};
