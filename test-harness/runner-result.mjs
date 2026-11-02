@@ -1,19 +1,32 @@
 /** Pure classification shared by the aggregate runner and its regression fixtures. */
-/** 이 하니스가 정말 브라우저(E2E)를 쓰는가 — **실제 import/require 로만** 판정한다.
- *  ⚠️ 예전엔 /puppeteer/ 로 본문 아무 데나 찾았다. 그래서 주석에 그 단어를 한 번 쓴
- *     순수 정적 하니스가 통째로 SKIP 됐다 — 게이트가 조용히 꺼진 것이다(2026-08-09 실제 발생).
- *     「검사가 사라져도 FAIL 은 0」 이라 초록불로 보인다. 이름 언급과 실제 사용을 구분한다. */
-export function usesPuppeteer(body) {
-  return /\bfrom\s+['"]puppeteer(?:-\w+)?['"]|\brequire\(\s*['"]puppeteer(?:-\w+)?['"]\s*\)|\bimport\(\s*['"]puppeteer(?:-\w+)?['"]\s*\)/.test(body);
+/** Only count result-shaped lines; quoted examples and ordinary prose are not summaries. */
+export function hasReportedFailures(output) {
+  for (const raw of String(output).split(/\r?\n/)) {
+    const line = raw.replace(/\x1b\[[0-9;]*m/g, '')
+      .replace(/"[^"\n]*"|'[^'\n]*'|`[^`\n]*`/g, '');
+    // Optional suite title, result label and emoji/punctuation; require a count/result at the start.
+    const plain = line.replace(/^[^\p{L}\p{N}]*/u, '');
+    const prefix = (/^(?:PASS|FAIL|passed|failed|통과|실패)\s*[:=]\s*\d/i.test(plain)
+      ? plain : plain.replace(/^[^"'`{}\[\]\n]*?:\s*/, ''))
+      .replace(/^(?:\s*총\s*\d+건\s*중)/, '').replace(/^[^\p{L}\p{N}]*/u, '');
+    if (!/^(?:(?:PASS|FAIL|passed|failed)\b|통과|실패|\d+\s*(?:건\s*)?(?:PASS\b|FAIL\b|passed\b|failed\b|통과|실패))/i.test(prefix)) continue;
+    const labeled = [...line.matchAll(/(?:^|[^\w가-힣])(PASS|FAIL|passed|failed|통과|실패)\s*(?:[:=]\s*)?(\d+)(?:건)?(?=$|[^\d])/gi)];
+    if (labeled.some(m => /^(?:FAIL|failed|실패)$/i.test(m[1]) && Number(m[2]) > 0)) return true;
+    for (const m of line.matchAll(/(?:^|[^\d])(\d+)\s*(?:건\s*)?(FAIL\b|failed\b|실패(?![가-힣\w]))/gi)) {
+      const numberAt = m.index + m[0].indexOf(m[1]);
+      // "PASS 5 FAIL 0" must not turn the passing count 5 into "5 FAIL".
+      if (labeled.some(label => numberAt >= label.index && numberAt < label.index + label[0].length)) continue;
+      if (Number(m[1]) > 0) return true;
+    }
+  }
+  return false;
 }
 
 export function classifyHarnessResult(r, isE2E) {
   const out = (r.stdout || '') + '\n' + (r.stderr || '');
   const timedOut = !!(r.error && (r.error.code === 'ETIMEDOUT' || r.error.signal === 'SIGTERM'));
-  const tail = out.split('\n').slice(-25).join('\n');
   const crash = /ERR_CONNECTION_REFUSED|puppeteer|Cannot read properties|Protocol error|net::|TargetCloseError|Navigation timeout/i.test(out);
-  // 실제 '0 아닌' 실패 카운트만 잡는다 ("0 실패"/"0 FAIL" 은 통과)
-  const failCount = /(?:^|[^\d])([1-9]\d*)\s*(?:FAIL\b|실패(?![가-힣\w]))/.test(tail) || /passed,\s*[1-9]/.test(tail);
+  const failCount = hasReportedFailures(out);
   // 🖥 puppeteer(브라우저 E2E) 하니스는 활성 화상수업/특정 DOM 상태가 없으면 UI 단언이 실패하는데
   //   exit 0 으로 끝내는 경우가 있다(브라우저는 떴으니 crash 아님). 헤드리스로는 원래 불가한 검사이므로
   //   'puppeteer 를 쓰는데 실패 카운트만 있는' 경우는 진짜 회귀가 아니라 E2E → SKIP.

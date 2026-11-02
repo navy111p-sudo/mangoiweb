@@ -5,7 +5,8 @@
 //       ⏭ SKIP(E2E)    — 활성 화상수업/브라우저 상태가 필요한 E2E (헤드리스로는 원래 불가)
 //       ⚠ FAIL         — 실제 확인 필요 (리팩토링 노후화 아님)
 //   · 실제 FAIL 이 하나라도 있으면 exit 1. 실행:  node test-harness/run.mjs
-import { classifyHarnessResult, usesPuppeteer } from './runner-result.mjs';
+import { classifyHarnessResult } from './runner-result.mjs';
+import { usesPuppeteer } from './runner-source.mjs';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
@@ -50,16 +51,17 @@ if (!FAST) {
 const files = readdirSync(__dir).filter(f => f.endsWith('_harness.mjs')).sort();
 const rows = [];
 for (const f of files) {
+  const body = readFileSync(join(__dir, f), 'utf8');
+  const isE2E = usesPuppeteer(body);
   if (FAST) {
     // 게이트 제외: git worktree==HEAD 무결성 검사가 있어 커밋 전 게이트에선 미커밋 변경으로 항상 실패(오탐)
     if (GATE_EXCLUDE.has(f)) { rows.push({ f, cat: 'SKIP', note: '⏭ 게이트 제외(git 상태 의존)' }); continue; }
-    let body = ''; try { body = readFileSync(join(__dir, f), 'utf8'); } catch {}
-    if (usesPuppeteer(body)) { rows.push({ f, cat: 'SKIP', note: '⏭ E2E(fast 제외)' }); continue; }
+    if (isE2E) { rows.push({ f, cat: 'SKIP', note: '⏭ E2E(fast 제외)' }); continue; }
   }
   process.stdout.write('  ▶ ' + f + ' … ');
-  let [cat, note, out] = runHarness(f);
+  let [cat, note, out] = runHarness(f, isE2E);
   // 일시적 라이브 blip(동시 배포 등) 흡수: 실패면 1회 재시도, 두 번 실패해야 진짜 FAIL
-  if (cat === 'FAIL') { const [c2, n2, o2] = runHarness(f); if (c2 !== 'FAIL') { cat = c2; note = n2 + ' (재시도 통과)'; out = o2; } }
+  if (cat === 'FAIL') { const [c2, n2, o2] = runHarness(f, isE2E); if (c2 !== 'FAIL') { cat = c2; note = n2 + ' (재시도 통과)'; out = o2; } }
   rows.push({ f, cat, note, out });
   console.log(note);
   // 🔊 실패하면 «왜» 를 여기서 바로 보여 준다.
@@ -74,10 +76,9 @@ for (const f of files) {
   }
 }
 
-function runHarness(f) {
+function runHarness(f, isE2E) {
   const r = spawnSync(process.execPath, [join(__dir, f)], { encoding: 'utf8', timeout: 90000, cwd: dirname(__dir) });
-  const body = readFileSync(join(__dir, f), 'utf8');
-  return classifyHarnessResult(r, usesPuppeteer(body));
+  return classifyHarnessResult(r, isE2E);
 }
 if (served) server.close();
 

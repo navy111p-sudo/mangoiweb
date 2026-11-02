@@ -25,6 +25,7 @@ check('JPEG dimensions at exact range boundary', () => assert.deepEqual(size(jpe
 check('JPEG declared segment too short', () => { const b = bytes(jpeg(), Array(10).fill(0)); b[5] = 2; assert.equal(size(b), null); });
 check('JPEG SOF component count matches segment length', () => { const b = jpeg(); b[11] = 1; assert.equal(size(b), null); });
 check('JPEG stops at end of image', () => assert.equal(size(bytes([255,216,255,217], jpeg().slice(2), Array(10).fill(0))), null));
+check('JPEG EOI never resumes at a later fake SOF', () => assert.equal(size(bytes([255,216,255,217,0,2], jpeg().slice(2), Array(10).fill(0))), null));
 check('JPEG does not scan compressed data after SOS', () => assert.equal(size(bytes([255,216,255,218,0,2], jpeg().slice(2), Array(10).fill(0))), null));
 check('VP8 dimensions', () => assert.deepEqual(size(vp8()), { width:1600,height:900,format:'webp' }));
 check('VP8 keyframe signature', () => { const b = vp8(); b[23] = 0; assert.equal(size(b), null); });
