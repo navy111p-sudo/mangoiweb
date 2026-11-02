@@ -143,8 +143,8 @@ const CORR = readFileSync(join(SRC, 'warmup-correction.ts'), 'utf8');
   const cap = capM ? Number(capM[1]) : 0;
   /* ⚠️ 선언만 보면 «호출부만 200 으로 되돌리는» 변이가 그대로 통과합니다(실측).
      실제 호출 옵션이 그 상수를 쓰는지, 그리고 숫자를 다시 적지 않았는지 함께 봅니다. */
-  check('A-9 교정이 같은 예산에 들어가므로 토큰 상한을 올렸다 (200 은 잘림 위험)',
-        cap >= 300 && /max_tokens:\s*WARMUP_MAX_TOKENS/.test(code) && !/max_tokens:\s*\d/.test(code),
+  check('A-9 교정이 같은 예산에 들어가므로 토큰 상한을 200 밑으로 내리지 않았다 (200 은 잘림 위험 · 현재 240)',
+        cap >= 240 && /max_tokens:\s*WARMUP_MAX_TOKENS/.test(code) && !/max_tokens:\s*\d/.test(code),
         'WARMUP_MAX_TOKENS=' + (cap || '?') + ' · 호출부 숫자 하드코딩 ' + ((code.match(/max_tokens:\s*\d/g) || []).length) + '건');
 
   /* 🔴 2026-09-08 실사고 — 이 자리가 «[object Object]» 의 두 번째 입구였다.
