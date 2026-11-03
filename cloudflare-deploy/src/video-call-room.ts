@@ -44,7 +44,23 @@ interface VcAttachment {
    *  ⚠️ role 은 클라이언트가 join-room 에 실어 보내는 값이라 학생도 'observer' 를 적을 수 있다.
    *     강사 답장(handleObserverWhisperReply)은 «진짜 참관자» 에게만 가야 하므로 이 표시로 가른다. */
   ghost?: boolean;
+  /** 🔁 (2026-11-04) 이 소켓이 입장한 시각(ms). 순단 유예 중에 «새로» 들어온 사람에게만
+   *  돌아온 사람의 user-joined 를 따로 알려 주는 데 쓴다(handleJoinRoom 의 dropRec 갈래). */
+  joinedAt?: number;
 }
+
+/** 🔁 (2026-11-04) 순단 유예 기록 — storage 의 'drop:<userId>' 에 둔다(hibernation 을 넘어 산다). */
+interface PendingDrop {
+  userId: string;
+  username: string;
+  role: string;
+  clientId: string;
+  /** 소켓이 닫힌 시각(ms) */
+  at: number;
+}
+
+/** 🗂 (2026-11-04) 칠판·교재 판서 «모아 쓰기» 로그 한 칸 */
+interface LogOp { t: string; d: any }
 
 export class VideoCallRoom {
   private state: DurableObjectState;
@@ -144,6 +160,37 @@ export class VideoCallRoom {
      ⛔ 그러니 «조용하다» 를 그 정본 없이 단정하지 말 것 — 근거가 없으면 끊지 말고 더 기다린다.
         영원히 살려 두지는 않는다(유령이 남으면 2026-08-20 사고가 되살아난다). */
   private static readonly LIVENESS_NOPING_STALE_MS = 600 * 1000;
+  /* 🔁 (2026-11-04 Kaye 제보 「인터넷이 잠깐만 흔들려도 바로 수업에서 튕긴다」) 순단 유예.
+     [사고] 소켓이 닫히는 «순간» user-left(dropped) 를 방송하면 상대 화면은 그 자리에서
+       PeerConnection 을 닫는다(idx-main.js vcRemovePeer → pc.close()). 영상 길(P2P)은 멀쩡해도
+       화면이 끊기고, 다시 붙을 때 옛 소켓은 이미 joined:false 라 무중단 재연결(stickyUid)이
+       신원을 못 물려받아 «새 사람» 으로 처음부터 다시 맺는다 = 사람 눈엔 «튕김».
+     [설계] 같은 브라우저(clientId)의 순단이면 방송을 DROP_GRACE_MS 만큼 미룬다.
+       · 그 안에 같은 clientId 로 돌아오면 옛 userId 를 그대로 물려받고 아무것도 방송하지 않는다
+         → 상대 화면의 연결이 살아 있으면 영상이 끊기지 않는다.
+       · 안 돌아오면 알람이 예전과 똑같이 user-left(dropped) 를 방송한다.
+     ⚠️ 기록은 메모리가 아니라 storage('drop:<userId>') — hibernation 으로 인스턴스가 내려가도 산다.
+     ⛔ 'left'(명시적 나가기)는 미루지 않는다 — leave-room 이 joined:false 를 먼저 적는다.
+     ⛔ stickyUid 가 꺼져 있으면 미루지 않는다(물려받을 수 없으니 기다릴 이유가 없다).
+     클라이언트 재연결 간격이 1·2·4·8초라 20초면 15초 안쪽의 순단을 덮는다. */
+  private static readonly DROP_GRACE_MS = 20 * 1000;
+  /* 🗂 (2026-11-04 Kaye 제보 「재접속한 학생이 교재 화면·칠판에 적은 질문을 못 본다」)
+     칠판(wbOps)·교재 판서(pdfAnnoOps)는 메모리에만 있었다. 이 DO 는 Hibernation 을 쓰고
+     ping 은 자동응답이라 DO 를 깨우지 않으므로, 수업 중에도 10초만 조용하면 인스턴스가 내려가고
+     (Cloudflare 문서 «Durable Object Lifecycle») 그 버퍼가 통째로 빈다 — 재입장자에게 줄 것이 없다.
+     → 1.5초 모아 storage 에 한 번에 쓴다. 예약된 setTimeout 이 있는 동안은 hibernation 이 일어나지
+       않으므로(같은 문서) 모아 둔 것을 잃지 않는다. 점 하나마다 쓰면 쓰기 횟수가 너무 많다. */
+  private static readonly LOG_FLUSH_MS = 1500;
+  private static readonly WB_LOG = 'wbl:';
+  private static readonly PDF_ANNO_LOG = 'pal:';
+  private logPending: Record<string, LogOp[]> = {};
+  private logTimer: any = null;
+  private logSeq = 0;
+  /** storage 의 로그를 메모리로 읽어 왔는가(false = 깨어난 직후라 메모리 버퍼가 불완전할 수 있다) */
+  private wbLoaded = false;
+  private pdfAnnoLoaded = false;
+  /** 📡 (2026-11-04) 강사가 마지막으로 연 탭(칠판/교재/동영상…). 재입장자를 그 화면으로 데려간다. */
+  private tabState: string = '';
   /** 소켓별 마지막 수신 시각(메모리). hibernation 으로 비면 autoResponse 시각·attachment 로 대체한다. */
   private lastSeen: Map<WebSocket, number> = new Map();
   /** 👁 (2026-09-23) 참관 서명 검증용 — verifyGhostObserveSig 가 시크릿(ROOM_JWT_SECRET)을 읽는다.
@@ -173,6 +220,7 @@ export class VideoCallRoom {
       for (const k of ['bgLock', 'micLock', 'focusLock', 'drawLock'] as const) {
         this.lockState[k] = (await this.state.storage.get<boolean>(k)) || false;
       }
+      this.tabState = (await this.state.storage.get<string>('tabState')) || '';
       const rid = await this.state.storage.get<string>('roomId');
       if (rid) this.roomId = rid;
     });
@@ -346,30 +394,208 @@ export class VideoCallRoom {
      알람은 «입장한 사람이 한 명이라도 있을 때만» 다시 걸린다. */
   private scheduleLivenessAlarm(): void {
     try {
-      void this.state.storage.setAlarm(Date.now() + VideoCallRoom.LIVENESS_ALARM_MS);
+      /* 🔁 (2026-11-04) 알람 «안» 에서는 다음 알람을 그대로 건다(지금 도는 알람은 이미 소진됐다).
+         알람 «밖»(입장 등)에서는 더 이른 알람을 밀어내지 않는다 — 순단 유예(20초) 알람이
+         누가 들어올 때마다 45초 뒤로 밀리면 user-left 가 그만큼 늦게 나간다. */
+      if (this.inAlarm) void this.state.storage.setAlarm(Date.now() + VideoCallRoom.LIVENESS_ALARM_MS);
+      else void this.ensureAlarmBy(Date.now() + VideoCallRoom.LIVENESS_ALARM_MS);
     } catch {}
+  }
+  private inAlarm = false;
+
+  /** 💓 ping 자동응답이 마지막으로 나간 시각(ms, 0 = 근거 없음).
+      🔴 (2026-11-04) 정본은 **DurableObjectState** 의 `getWebSocketAutoResponseTimestamp(ws)` 다
+         (Cloudflare 문서 «Durable Object State» — `Date | null` 을 돌려준다).
+         2026-08-20 부터 이 자리는 `ws.getAutoResponseTimestamp()` 를 불렀는데 **WebSocket 에는 그런
+         메서드가 없다** → `?.()` 가 늘 undefined → ping 이 «한 번도» 생존 근거로 안 쓰였다.
+         그래서 ping 외의 메시지를 안 보내는 조용한 참가자는 살아 있어도
+         · 2026-09-15 전: 입장 120초 뒤마다 끊겼고(«2분마다 끊김»),
+         · 그 뒤: 600초(LIVENESS_NOPING_STALE_MS) 뒤마다 끊겼다.
+         실측 2026-11-03 class-4065: 학생 재접속 간격 633초(=600초+알람 주기 안쪽).
+      ⛔ `(ws as any).getAutoResponseTimestamp` 로 되돌리지 말 것 — 에러 없이 늘 0 이다. */
+  private autoRespAt(ws: WebSocket): number {
+    try {
+      const st: any = this.state as any;
+      if (typeof st.getWebSocketAutoResponseTimestamp !== 'function') return 0;
+      const auto = st.getWebSocketAutoResponseTimestamp(ws);
+      if (auto) return auto instanceof Date ? auto.getTime() : Number(auto) || 0;
+    } catch {}
+    return 0;
   }
 
   /** 이 소켓이 마지막으로 살아 있던 시각. 셋 중 가장 최근 값을 쓴다(어느 하나가 비어도 안전). */
   private lastSeenOf(ws: WebSocket, att: VcAttachment | null): number {
     let t = this.lastSeen.get(ws) || 0;
-    try {
-      const auto = (ws as any).getAutoResponseTimestamp?.();
-      if (auto) t = Math.max(t, auto instanceof Date ? auto.getTime() : Number(auto) || 0);
-    } catch {}
+    t = Math.max(t, this.autoRespAt(ws));
     if (att && att.seenAt) t = Math.max(t, att.seenAt);
     return t;
   }
 
   /** ping 자동응답이 «실제로 한 번이라도» 일어난 시각(0 = 근거 없음).
       ⚠️ 위 lastSeenOf 와 같은 값을 읽지만 묻는 것이 다르다 — 저기는 «가장 최근이 언제인가»,
-         여기는 «ping 근거를 쓸 수 있는가» 다. 한쪽만 고치지 말 것. */
+         여기는 «ping 근거를 쓸 수 있는가» 다. 둘 다 autoRespAt() 한 곳에서 읽는다. */
   private autoSeenOf(ws: WebSocket): number {
+    return this.autoRespAt(ws);
+  }
+
+  /** 알람을 «늦어도 due 까지» 로 당긴다(이미 더 이른 알람이 있으면 그대로 둔다). */
+  private async ensureAlarmBy(due: number): Promise<void> {
     try {
-      const auto = (ws as any).getAutoResponseTimestamp?.();
-      if (auto) return auto instanceof Date ? auto.getTime() : Number(auto) || 0;
-    } catch {}
-    return 0;
+      const cur = await this.state.storage.getAlarm();
+      if (!cur || cur > due) await this.state.storage.setAlarm(due);
+    } catch (e) { console.warn('[VideoChat][alarm] 예약 실패', (e as any)?.message); }
+  }
+
+  /** 🔁 순단이면 user-left 방송을 미룬다. true = 미뤘다(호출자는 방송하지 말 것).
+      저장이 실패하면 false — 예전처럼 즉시 방송한다(상대 화면에 유령이 남는 쪽보다 낫다). */
+  private async holdDrop(ws: WebSocket, att: VcAttachment | null): Promise<boolean> {
+    if (!this.stickyUid || !att || !att.joined || !att.clientId || !att.userId) return false;
+    if ((att.role || '').toLowerCase() === 'observer') return false;
+    const key = 'drop:' + att.userId;
+    try {
+      /* webSocketError 뒤에 webSocketClose 가 또 올 수 있다 — 첫 기록의 시각을 지킨다(멱등). */
+      const prev = await this.state.storage.get<PendingDrop>(key);
+      const rec: PendingDrop = prev || {
+        userId: att.userId, username: att.username || '', role: att.role || 'student',
+        clientId: att.clientId, at: Date.now(),
+      };
+      if (!prev) await this.state.storage.put(key, rec);
+      /* 이미 닫힌 소켓이라 거절될 수 있다 — 그래도 위 storage 기록이 멱등이라 두 번 방송되지 않는다. */
+      try { ws.serializeAttachment({ ...att, joined: false } as VcAttachment); }
+      catch (e) { console.warn('[VideoChat][drop] 닫힌 소켓 attachment 갱신 실패(무해)', (e as any)?.message); }
+      await this.ensureAlarmBy(rec.at + VideoCallRoom.DROP_GRACE_MS);
+      console.log(`[VideoChat][drop] room=${this.roomId || '-'} uid=${att.userId} role=${att.role || '-'} → ${VideoCallRoom.DROP_GRACE_MS / 1000}초 유예`);
+      return true;
+    } catch (e) {
+      console.warn('[VideoChat][drop] 유예 기록 실패 → 즉시 방송', (e as any)?.message);
+      return false;
+    }
+  }
+
+  /** 🔁 같은 clientId 의 순단 기록을 꺼낸다(꺼내면 지운다). 없거나 못 물려받으면 null. */
+  private async takeDrop(clientId: string): Promise<PendingDrop | null> {
+    try {
+      const m = await this.state.storage.list<PendingDrop>({ prefix: 'drop:' });
+      let best: [string, PendingDrop] | null = null;
+      for (const [k, v] of m) {
+        if (v && v.clientId === clientId && (!best || v.at > best[1].at)) best = [k, v];
+      }
+      if (!best) return null;
+      await this.state.storage.delete(best[0]);
+      const rec = best[1];
+      /* 그 id 를 지금 다른 소켓이 쓰고 있으면 물려받지 않는다(메시지 오배송 방지). */
+      if (this.isJoined(rec.userId)) return null;
+      /* 알람이 한참 못 돌았던 경우 — 너무 오래된 기록은 «떠났다» 로 마저 처리하고 새로 들어온다. */
+      if (Date.now() - rec.at > VideoCallRoom.DROP_GRACE_MS * 6) {
+        this.handleLeaveRoom(rec.userId, undefined, rec.username, 'dropped');
+        return null;
+      }
+      return rec;
+    } catch { return null; }
+  }
+
+  /** 🔁 유예가 끝난 순단을 예전처럼 user-left(dropped) 로 방송한다. 남은 것 중 가장 이른 마감(0 = 없음). */
+  private async flushExpiredDrops(now: number): Promise<number> {
+    let next = 0;
+    try {
+      const m = await this.state.storage.list<PendingDrop>({ prefix: 'drop:' });
+      for (const [k, v] of m) {
+        if (!v) { await this.state.storage.delete(k); continue; }
+        const due = v.at + VideoCallRoom.DROP_GRACE_MS;
+        if (now < due) { next = next ? Math.min(next, due) : due; continue; }
+        await this.state.storage.delete(k);
+        if (!this.isJoined(v.userId)) {
+          console.log(`[VideoChat][drop] room=${this.roomId || '-'} uid=${v.userId} 유예 만료 → dropped 방송`);
+          this.handleLeaveRoom(v.userId, undefined, v.username, 'dropped');
+        }
+      }
+    } catch (e) { console.warn('[VideoChat][drop] 유예 정리 실패', (e as any)?.message); }
+    return next;
+  }
+
+  /* ── 🗂 모아 쓰기 로그(칠판·교재 판서) ─────────────────────────────────── */
+  private logAppend(prefix: string, op: LogOp): void {
+    (this.logPending[prefix] = this.logPending[prefix] || []).push(op);
+    if (!this.logTimer) {
+      this.logTimer = setTimeout(() => { this.logTimer = null; void this.logFlush(); }, VideoCallRoom.LOG_FLUSH_MS);
+    }
+  }
+
+  private async logFlush(): Promise<void> {
+    if (this.logTimer) { try { clearTimeout(this.logTimer); } catch {} this.logTimer = null; }
+    const pend = this.logPending;
+    this.logPending = {};
+    for (const prefix of Object.keys(pend)) {
+      const ops = pend[prefix];
+      if (!ops || !ops.length) continue;
+      /* 키는 시각+순번 — list() 가 키 사전순으로 돌려주므로 순서가 그대로 보존된다. */
+      const key = prefix + String(Date.now()).padStart(14, '0') + ':' + String(this.logSeq++ % 1000000).padStart(6, '0');
+      try { await this.state.storage.put(key, ops); }
+      catch (e) { console.warn('[VideoChat][log] 저장 실패', prefix, (e as any)?.message); }
+    }
+  }
+
+  /** storage 에 쌓인 로그 + 아직 안 쓴 것까지, 순서대로 */
+  private async logLoad(prefix: string): Promise<LogOp[]> {
+    const out: LogOp[] = [];
+    try {
+      const m = await this.state.storage.list<LogOp[]>({ prefix });
+      for (const v of m.values()) if (Array.isArray(v)) out.push(...v);
+    } catch (e) { console.warn('[VideoChat][log] 읽기 실패', prefix, (e as any)?.message); }
+    out.push(...(this.logPending[prefix] || []));
+    return out;
+  }
+
+  private async logClear(prefix: string): Promise<void> {
+    this.logPending[prefix] = [];
+    try {
+      const keys = [...(await this.state.storage.list({ prefix })).keys()];
+      for (let i = 0; i < keys.length; i += 128) await this.state.storage.delete(keys.slice(i, i + 128));
+    } catch (e) { console.warn('[VideoChat][log] 지우기 실패', prefix, (e as any)?.message); }
+  }
+
+  /** 재입장자에게 돌려주기 전에 — 깨어난 직후면 storage 에서 칠판·교재 판서를 다시 읽는다. */
+  private async ensureLogsLoaded(): Promise<void> {
+    if (!this.wbLoaded) {
+      const ops = await this.logLoad(VideoCallRoom.WB_LOG);
+      this.wbOps = ops.slice(-VideoCallRoom.WB_OPS_MAX);
+      this.wbLoaded = true;
+    }
+    if (!this.pdfAnnoLoaded) {
+      const raw = await this.logLoad(VideoCallRoom.PDF_ANNO_LOG);
+      this.pdfAnnoOps = []; this.pdfAnnoStrokes = {};
+      for (const o of raw) this.recordPdfAnno(o.t, o.d, false);
+      this.pdfAnnoLoaded = true;
+    }
+  }
+
+  /** 칠판 기록을 메모리·storage 모두에서 지운다(지우기 버튼 · 새 수업). */
+  private clearWb(): void {
+    this.wbOps = [];
+    this.wbLoaded = true;
+    void this.logClear(VideoCallRoom.WB_LOG);
+  }
+
+  /** 교재 판서 기록을 메모리·storage 모두에서 지운다(다른 교재 · 새 수업). */
+  private clearPdfAnno(): void {
+    this.pdfAnnoOps = []; this.pdfAnnoStrokes = {};
+    this.pdfAnnoLoaded = true;
+    void this.logClear(VideoCallRoom.PDF_ANNO_LOG);
+  }
+
+  /** 📡 강사 탭 기억 — 재입장자를 강사가 지금 보는 화면으로 데려가려고. */
+  private rememberTab(data: any): void {
+    const tab = String((data && data.tab) || '').slice(0, 40);
+    if (!/^[\w-]+$/.test(tab)) return;
+    if (tab === this.tabState) return;
+    this.tabState = tab;
+    void this.state.storage.put('tabState', tab);
+  }
+
+  private clearTab(): void {
+    if (!this.tabState) return;
+    this.tabState = '';
+    void this.state.storage.delete('tabState');
   }
 
   /** 「이 소켓을 끊어도 되는가」 판정. 'alive' = 살아 있음 · 'grace' = 근거가 없어 더 기다림 · 'kill' = 정리.
@@ -387,8 +613,15 @@ export class VideoCallRoom {
   }
 
   async alarm(): Promise<void> {
+    this.inAlarm = true;
+    try { await this.alarmBody(); } finally { this.inAlarm = false; }
+  }
+
+  private async alarmBody(): Promise<void> {
     const now = Date.now();
     let alive = 0, killed = 0;
+    /* 🔁 (2026-11-04) 유예가 끝난 순단부터 마저 «떠났다» 로 알린다(holdDrop 주석 참고). */
+    const dropDue = await this.flushExpiredDrops(now);
     for (const ws of this.state.getWebSockets()) {
       const att = this.attOf(ws);
       if (!att) continue;
@@ -431,6 +664,20 @@ export class VideoCallRoom {
     }
     if (alive > 0) this.scheduleLivenessAlarm();
     else if (killed > 0) console.log(`[VideoChat][liveness] room=${this.roomId || '-'} 빈 방 — 알람 중지`);
+    /* 🔁 아직 유예 중인 순단이 있으면 그 마감에 맞춰 다시 깬다(사람이 0명이어도). */
+    if (dropDue) await this.ensureAlarmBy(dropDue);
+    /* 🗂 방이 «다음 수업» 으로 넘어갈 만큼 비어 있었으면 칠판·교재 판서·탭 기억을 치운다.
+       (입장 때도 같은 기준으로 치우지만, 아무도 다시 안 오는 방의 storage 가 영원히 남지 않게)
+       ⚠️ 마감이 이미 지난 시각을 다시 예약하면 알람이 무한히 돈다 — «아직 안 지났을 때만» 예약한다. */
+    if (alive === 0 && !dropDue && this.emptyAt && this.joinedUsers().length === 0) {
+      const cleanAt = this.emptyAt + VideoCallRoom.NEW_CLASS_GAP_MS;
+      if (now >= cleanAt) {
+        this.clearWb(); this.clearPdfAnno(); this.clearTab();
+        try { console.log(`[VideoChat][log] room=${this.roomId || '-'} 빈 방 ${Math.round((now - this.emptyAt) / 1000)}초 — 판서·탭 기억 정리`); } catch {}
+      } else {
+        await this.ensureAlarmBy(cleanAt + 1000);
+      }
+    }
   }
 
   // ── Hibernation 핸들러 ──
@@ -455,7 +702,7 @@ export class VideoCallRoom {
       const userId = att.userId;
 
       switch (msg.type) {
-        case 'join-room':       this.handleJoinRoom(ws, userId, msg.data as any); break;
+        case 'join-room':       await this.handleJoinRoom(ws, userId, msg.data as any); break;
         case 'join-observe':    await this.handleJoinObserve(ws, userId, msg.data as any); break;
         case 'leave-room':
           this.handleLeaveRoom(userId, ws, att.username, 'left');
@@ -531,6 +778,9 @@ export class VideoCallRoom {
           if (msg.type.startsWith('pdf-anno-')) {
             this.recordPdfAnno(msg.type, msg.data);
           }
+          /* 📡 (2026-11-04) 강사가 연 탭을 기억한다 — 재입장자를 그 화면으로 데려간다(handleJoinRoom 끝).
+             학생이 보낸 tab-sync 는 기억하지 않는다(받는 쪽도 학생 것은 무시한다). */
+          if (msg.type === 'tab-sync' && this.isStaffAtt(att)) this.rememberTab(msg.data);
           this.broadcast(userId, { type: msg.type, data: msg.data });
           break;
         case 'bg-lock':              // 🔒 강사 → 학생 수업 통제 잠금 4종 (공통 처리)
@@ -599,23 +849,29 @@ export class VideoCallRoom {
     try {
       console.log(`[VideoChat][close] room=${this.roomId || '-'} uid=${att?.userId || '-'} role=${att?.role || '-'} code=${code} reason=${reason || '-'}`);
     } catch {}
-    if (att && att.joined) this.handleLeaveRoom(att.userId, ws, att.username, 'dropped');
+    /* 🔁 (2026-11-04) 순단은 곧바로 방송하지 않고 DROP_GRACE_MS 기다린다(holdDrop 주석 참고).
+       미루지 못한 경우(스위치 꺼짐·clientId 없음·저장 실패)만 예전처럼 즉시 방송. */
+    if (att && att.joined && !(await this.holdDrop(ws, att))) this.handleLeaveRoom(att.userId, ws, att.username, 'dropped');
     try { ws.close(code, reason); } catch {}
   }
 
   async webSocketError(ws: WebSocket): Promise<void> {
     const att = this.attOf(ws);
     try { console.log(`[VideoChat][error] room=${this.roomId || '-'} uid=${att?.userId || '-'} role=${att?.role || '-'}`); } catch {}
-    if (att && att.joined) this.handleLeaveRoom(att.userId, ws, att.username, 'dropped');
+    if (att && att.joined && !(await this.holdDrop(ws, att))) this.handleLeaveRoom(att.userId, ws, att.username, 'dropped');
   }
 
   // ── 비즈니스 로직 ──
-  private handleJoinRoom(ws: WebSocket, userId: string, data: any): void {
+  private async handleJoinRoom(ws: WebSocket, userId: string, data: any): Promise<void> {
     const { username, role, clientId } = data || {};
     if (!username) {
       this.send(userId, { type: 'error-msg', data: { message: 'username required' } });
       return;
     }
+    /* 🔁 (2026-11-04) 순단 유예 중에 같은 브라우저가 돌아왔다 → 옛 userId 를 그대로 물려받는다.
+       상대 화면은 user-left 를 받은 적이 없으므로 연결이 살아 있으면 영상이 끊기지 않는다. */
+    let dropRec: PendingDrop | null = null;
+    if (clientId && this.stickyUid) dropRec = await this.takeDrop(String(clientId));
 
     // 🧹 유령 타일 방지 — 같은 브라우저(clientId)가 재연결/새로고침으로 새 소켓을 열면,
     //   서버는 접속마다 새 랜덤 userId 를 발급하므로 옛 소켓이 로스터에 좀비로 남아 중복 타일이 된다.
@@ -627,6 +883,8 @@ export class VideoCallRoom {
     //   스위치 OFF(기본)면 inherited 는 계속 false 라 아래 흐름이 예전과 100% 동일하다.
     let effectiveUserId = userId;
     let inherited = false;
+    /* 🔁 (2026-11-04) dropRec 은 stickyUid 가 켜졌을 때만 생긴다 — 꺼져 있으면 위 두 줄 그대로(예전과 동일). */
+    if (dropRec) { effectiveUserId = dropRec.userId; inherited = true; }
     if (clientId) {
       for (const other of this.state.getWebSockets()) {
         if (other === ws) continue;
@@ -652,13 +910,16 @@ export class VideoCallRoom {
     const roomLimit = (this.roomId === SHARED_PRACTICE_ROOM) ? SHARED_ROOM_MAX_USERS : MAX_USERS;
     if (this.joinedUsers().length >= roomLimit) {
       this.send(userId, { type: 'room-full', data: { roomId: this.roomId, limit: roomLimit, shared: this.roomId === SHARED_PRACTICE_ROOM } });
+      /* 🔁 유예 기록을 이미 꺼냈는데 못 들어온다 → 그 옛 신원은 여기서 마저 «떠났다» 로 알린다
+         (안 알리면 상대 화면에 멈춘 타일이 영영 남는다). */
+      if (dropRec) this.handleLeaveRoom(dropRec.userId, ws, dropRec.username, 'dropped');
       try { ws.close(1000, 'room-full'); } catch {}
       return;
     }
 
     // attachment 에 사용자명/joined 기록 (재기동에도 유지) — 인계 시엔 물려받은 userId 사용
     const att = this.attOf(ws) || { userId: effectiveUserId, roomId: this.roomId };
-    ws.serializeAttachment({ ...att, userId: effectiveUserId, roomId: this.roomId, username, role: role || 'student', joined: true, clientId: clientId || att.clientId, seenAt: Date.now() } as VcAttachment);
+    ws.serializeAttachment({ ...att, userId: effectiveUserId, roomId: this.roomId, username, role: role || 'student', joined: true, clientId: clientId || att.clientId, seenAt: Date.now(), joinedAt: Date.now() } as VcAttachment);
     // 💓 (2026-08-20) 죽은 소켓 청소 알람 시작 — 사람이 있는 동안만 스스로 이어 건다.
     this.lastSeen.set(ws, Date.now());
     this.scheduleLivenessAlarm();
@@ -679,14 +940,19 @@ export class VideoCallRoom {
       this.pdfState = null;
       this.videoState = null;
       this.mediaAt = 0;
-      this.wbOps = [];   // 🖍 지난 수업 판서도 같은 기준으로 버린다(새로고침·순단은 여기 안 걸린다)
-      this.pdfAnnoOps = []; this.pdfAnnoStrokes = {};   // ✍️ 교재 판서도 함께
+      this.clearWb();        // 🖍 지난 수업 판서도 같은 기준으로 버린다(새로고침·순단은 여기 안 걸린다)
+      this.clearPdfAnno();   // ✍️ 교재 판서도 함께(2026-11-04 부터 storage 에도 있으므로 거기서도 지운다)
+      this.clearTab();       // 📡 지난 수업 강사 탭 기억도
       void this.state.storage.delete('pdfState');
       void this.state.storage.delete('videoState');
       void this.state.storage.delete('mediaAt');
       console.log(`[VideoChat] Stale shared media cleared on first join in room ${this.roomId}`
         + (_newClass ? ` (new class — room was empty for ${Math.round(_emptyGap / 1000)}s)` : ' (age)'));
     }
+    /* 🗂 (2026-11-04) 칠판·교재 판서·탭 기억은 이제 storage 에도 남는다(hibernation 대비).
+       위 블록은 «교재/영상이 있을 때만» 돌므로, 그것이 없던 방에서는 지난 수업 칠판이 다음 수업으로
+       넘어간다 — 메모리에만 있던 시절엔 잠들면 저절로 사라져 티가 안 났던 구멍. «새 수업» 이면 따로 치운다. */
+    if (userCount <= 1 && _newClass) { this.clearWb(); this.clearPdfAnno(); this.clearTab(); }
     // 🔒 지난 수업의 통제 잠금(배경/음소거/집중)도 새 수업 첫 입장 시엔 해제 상태로 시작
     if (userCount <= 1) this.clearAllLocks();
     /* 방에 사람이 있으니 «비어 있던 시각» 은 지운다 — 다음에 다시 비면 그때 새로 찍는다. */
@@ -714,8 +980,19 @@ export class VideoCallRoom {
           try { other.send(JSON.stringify({ type: 'observer-user-joined', data: { userId: effectiveUserId, username } })); } catch {}
         }
       }
+    } else if (dropRec) {
+      /* 🔁 유예 «중에» 새로 들어온 사람은 이 사람을 모른다(그때 명단에 없었다) — 그들에게만 알린다.
+         유예 전부터 있던 사람에게는 보내지 않는다(그쪽은 연결이 살아 있고, 보내면 «입장했습니다» 가 도배된다). */
+      const uj = JSON.stringify({ type: 'user-joined', data: { userId: effectiveUserId, username, role: role || 'student', userCount } });
+      for (const other of this.state.getWebSockets()) {
+        if (other === ws || other.readyState !== WebSocket.OPEN) continue;
+        const oa = this.attOf(other);
+        if (oa && oa.joined && (oa.joinedAt || 0) > dropRec.at) { try { other.send(uj); } catch {} }
+      }
     }
 
+    /* 🗂 (2026-11-04) 깨어난 직후면 메모리 버퍼가 비어 있다 — storage 에서 다시 읽고 돌려준다. */
+    await this.ensureLogsLoaded();
     /* 🖍 (2026-08-08) 지금까지의 칠판 판서를 새 입장자에게 한 번에 돌려준다.
        교재(pdf-sync)와 같은 자리·같은 이유다. 강사가 학생보다 늦게 들어오는 경우가 신고의 핵심. */
     if (this.wbOps.length) {
@@ -728,6 +1005,11 @@ export class VideoCallRoom {
     if (this.pdfState) this.send(effectiveUserId, { type: 'pdf-sync', data: this.pdfState });
     // 🎬 공유 중인 동영상도 새 입장자에게 재전송 (예전엔 방송 1회뿐 → 늦게 온 학생은 영영 못 봄)
     if (this.videoState) this.send(effectiveUserId, { type: 'video-share', data: this.videoState });
+    /* 📡 (2026-11-04 Kaye) 강사가 지금 보고 있는 탭으로 데려간다 — 반드시 pdf-sync·video-share «뒤».
+       pdf-sync 는 학생을 교재 탭으로 끌어오므로(vcApplySharedPdf), 강사가 칠판에 질문을 적어 둔
+       상태였다면 이 신호가 마지막에 와야 재입장한 학생이 칠판을 본다.
+       받는 쪽(idx-main.js tab-sync)은 학생만 따라가고 강사·관리자는 무시한다. */
+    if (this.tabState) this.send(effectiveUserId, { type: 'tab-sync', data: { tab: this.tabState, resync: true } });
     // 🔒 통제 잠금(배경/음소거/집중/필기) 상태를 늦게 입장한 사람에게 즉시 적용.
     //   (2026-08-12 Melca) 켜짐만 보내던 것을 «꺼짐도» 보낸다 — 이전 수업에서 잠금을 겪은
     //   클라이언트는 localStorage/전역에 true 가 굳어 있는데, 「해제됨」 신호가 없으면
@@ -851,6 +1133,8 @@ export class VideoCallRoom {
     if (userCount === 0 && !this.emptyAt) {
       this.emptyAt = Date.now();
       void this.state.storage.put('emptyAt', this.emptyAt);
+      /* 🗂 (2026-11-04) 아무도 다시 안 오면 «다음 수업» 기준 시각에 판서 로그를 치우러 깨어난다(alarm 끝). */
+      void this.ensureAlarmBy(this.emptyAt + VideoCallRoom.NEW_CLASS_GAP_MS + 1000);
     }
     // 🔒 방이 비면 통제 잠금도 전부 해제 — 다음 수업이 잠긴 채로 시작하지 않게
     if (userCount === 0) this.clearAllLocks();
@@ -1088,7 +1372,7 @@ export class VideoCallRoom {
   private handleWhiteboardClear(userId: string, att: VcAttachment): void {
     if (!this.isJoined(userId)) return;
     if (this.lockState.drawLock && !this.isStaffAtt(att)) return;
-    this.wbOps = [];
+    this.clearWb();   // 🗂 (2026-11-04) storage 에 모아 둔 칠판 로그도 함께 지운다
     this.broadcast(userId, { type: 'whiteboard-clear' });
   }
 
@@ -1141,26 +1425,36 @@ export class VideoCallRoom {
       if (this.wbOps.length > VideoCallRoom.WB_OPS_MAX) {
         this.wbOps.splice(0, this.wbOps.length - VideoCallRoom.WB_OPS_MAX);
       }
+      /* 🗂 (2026-11-04) 위 «잠들면 사라진다» 의 수리 — storage 에도 모아 쓴다(LOG_FLUSH_MS 주석). */
+      this.logAppend(VideoCallRoom.WB_LOG, { t: type, d: data });
     } catch {}
   }
 
   /* ✍️ (2026-08-12 Melca) 교재 판서 기록 — 점은 획 안에 압축, 사라지는 펜은 제외.
      clear/undo 는 순서대로 함께 기록해 재생 시 같은 결과가 나오게 한다. */
-  private recordPdfAnno(type: string, data: any): void {
+  /** @param persist false = storage 에서 되읽어 메모리만 다시 짓는 중(ensureLogsLoaded) — 다시 쓰지 않는다. */
+  private recordPdfAnno(type: string, data: any, persist: boolean = true): void {
     try {
       if (!data) return;
+      /* 🗂 (2026-11-04) 원본 메시지 그대로 모아 쓴다 — 점(point)이 획 안에 쌓이므로 «완성된 획» 을 쓸 시점이
+         따로 없다. 되읽을 때 이 함수에 다시 흘려 넣으면 같은 획이 다시 지어진다.
+         기록 안 하는 것(사라지는 펜·모르는 획의 점)은 여기서도 안 쓴다. */
+      let keep = false;
       if (type === 'pdf-anno-start') {
         if (data.tool === 'vanish') return;
         const s = { page: data.page, tool: data.tool, color: data.color, size: data.size, id: data.id, points: [data.point] };
         this.pdfAnnoOps.push({ t: 'stroke', d: s });
         if (data.id != null) this.pdfAnnoStrokes[data.id] = s;
+        keep = true;
       } else if (type === 'pdf-anno-point') {
         const s = (data.id != null) ? this.pdfAnnoStrokes[data.id] : null;
-        if (s) s.points.push(data.point);
+        if (s) { s.points.push(data.point); keep = true; }
       } else if (type === 'pdf-anno-text' || type === 'pdf-anno-shape'
               || type === 'pdf-anno-clear' || type === 'pdf-anno-undo') {
         this.pdfAnnoOps.push({ t: type, d: data });
+        keep = true;
       }
+      if (keep && persist) this.logAppend(VideoCallRoom.PDF_ANNO_LOG, { t: type, d: data });
       if (this.pdfAnnoOps.length > VideoCallRoom.PDF_ANNO_OPS_MAX) {
         const dropped = this.pdfAnnoOps.splice(0, this.pdfAnnoOps.length - VideoCallRoom.PDF_ANNO_OPS_MAX);
         for (const o of dropped) { if (o.t === 'stroke' && o.d && o.d.id != null) delete this.pdfAnnoStrokes[o.d.id]; }
@@ -1181,7 +1475,7 @@ export class VideoCallRoom {
     const { url, currentPage, kind, name } = data || {};
     if (!url) return;
     // ✍️ 교재가 «다른 것» 으로 바뀌면 이전 교재의 판서 버퍼는 버린다 (페이지 번호가 다른 책과 섞임)
-    if (this.pdfState && this.pdfState.url !== url) { this.pdfAnnoOps = []; this.pdfAnnoStrokes = {}; }
+    if (this.pdfState && this.pdfState.url !== url) this.clearPdfAnno();
     this.pdfState = { url, currentPage: currentPage || 1, kind: kind || '', name: name || '' };
     this.mediaAt = Date.now();
     await this.state.storage.put('pdfState', this.pdfState);

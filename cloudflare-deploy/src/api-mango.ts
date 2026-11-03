@@ -3425,6 +3425,9 @@ ${numbered}`;
          ℹ️ 각 반복은 서로 독립이다 — `map` 은 문장마다 다른 키에 쓰고, KV 키도 문장마다 다르다.
             `dbg` 만 마지막 것이 남는데 그건 ?debug=1 전용이라 무해하다. */
       const TRANSLATE_CONCURRENCY = 4;
+      /* 💬 (2026-11-04) chat 모드 언어모델에 쓰는 «총» 시간(재시도 포함) — 화면은 8초를 기다린다
+         (idx-vc-chat.js WAIT_MS). 5초 + m2m100 ~1초 = 화면 상한 안쪽. 둘을 함께 고칠 것. */
+      const CHAT_LLM_TIMEOUT_MS = 5000;
       if (need.length && ai) {
         const queue = need.slice();
         const runOne = async (t: string) => {
@@ -3462,7 +3465,31 @@ ${numbered}`;
               out = joinLearnLead(lead.leadKo, src);
             } else {
               let mt = '';
-              if (chatMode || learnMode) {
+              if (chatMode) {
+                /* 💬 (2026-11-04 Kaye 「한국어 번역을 켰는데 채팅이 번역되지 않는다」)
+                   [실측 2026-11-03 class-4065] 같은 영어 문장이 9초 간격으로 두 번 «번역 없이» 나갔다.
+                   두 번째도 안 됐으니 «느렸다» 만이 아니라 «실패했다» 다 — 첫 번째가 늦게라도 성공했다면
+                   180일 캐시에 남아 두 번째는 즉시 나갔어야 한다.
+                   ① 언어모델 호출이 던지면(일시적 용량 초과 등) 한 번만 다시 부른다.
+                   ② 화면(idx-vc-chat.js)이 기다리는 시간 안에 답하도록 상한을 둔다 — 넘기면 아래 m2m100 이 받는다.
+                   ⛔ learn 모드에는 걸지 않는다(게임이 한 번에 50문장을 물어 상한에 걸리면 직역으로 떨어진다). */
+                const chatDeadline = Date.now() + CHAT_LLM_TIMEOUT_MS;
+                for (let attempt = 0; attempt < 2 && !mt; attempt++) {
+                  const left = chatDeadline - Date.now();
+                  if (left < 800) break;   // 재시도할 시간이 없다 — m2m100 으로
+                  let timedOut = false;
+                  try {
+                    mt = await Promise.race([
+                      chatTranslate(src),
+                      new Promise<string>((_, rej) => setTimeout(() => { timedOut = true; rej(new Error('chat-timeout')); }, left)),
+                    ]);
+                  } catch (e: any) {
+                    dbg.err = 'chat#' + (attempt + 1) + ':' + String(e?.message || e);
+                    console.warn('[translate:chat] 언어모델 실패', attempt + 1, String(e?.message || e).slice(0, 120));
+                    if (timedOut) break;   // 시간을 다 썼다 — 재시도 대신 빠른 m2m100 으로
+                  }
+                }
+              } else if (learnMode) {
                 try { mt = await chatTranslate(src); }
                 catch (e: any) { dbg.err = 'chat:' + String(e?.message || e); }
               }
@@ -3490,8 +3517,11 @@ ${numbered}`;
         );
       } else if (need.length) { for (const c of need) map[c] = c; }
       // Failed translations must not expose mixed-script source text as a Korean meaning.
+      /* 💬 (2026-11-04) chat 모드는 이 안내문을 쓰지 않는다 — 화면이 map 값을 «그대로 채팅으로 보낸다».
+         중국어 → 한국어 번역이 실패하면 강사 메시지 대신 「뜻을 불러오지 못했어요…」가 학생에게 나갔다.
+         원문을 돌려주면 화면이 «번역 실패» 로 알아보고 원문을 보내며 강사에게 그 사실을 말한다. */
       if (target === 'ko') for (const t of texts) {
-        if (hasForeignGloss(map[t])) map[t] = '뜻을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
+        if (hasForeignGloss(map[t])) map[t] = chatMode ? t : '뜻을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
       }
       if (url.searchParams.get('debug') === '1') return json({ ok: true, map, _debug: dbg });
       return json({ ok: true, map });

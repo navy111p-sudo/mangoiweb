@@ -81,8 +81,17 @@ ok('ping 자동응답을 걸어 DO 를 깨우지 않고 생존 시각을 남긴�
    /setWebSocketAutoResponse/.test(DO) && /\{"type":"ping"\}/.test(DO));
 ok('자동응답이 안 먹는 클라이언트를 위해 기존 ping 핸들러도 남아 있다',
    /case 'ping':\s*this\.send\(userId, \{ type: 'pong'/.test(DO));
+/* 🔴 (2026-11-04) 예전 검사는 «getAutoResponseTimestamp 라는 글자가 있는가» 였다 — 그래서
+   `ws.getAutoResponseTimestamp()`(WebSocket 에 없는 메서드 → 늘 0)를 2026-08-20 부터 초록불로 통과시켰다.
+   정본은 DurableObjectState.getWebSocketAutoResponseTimestamp(ws). 실제 동작은
+   kaye_class_issues_261104_harness ③-A 가 DO 를 «실행해» 본다. 여기서는 배선만 본다. */
 ok('생존 시각은 세 곳 중 «가장 최근» 을 쓴다(하나가 비어도 오판 안 함)',
-   /lastSeenOf\(ws[\s\S]{0,420}getAutoResponseTimestamp/.test(DO));
+   /lastSeenOf\(ws[\s\S]{0,420}this\.autoRespAt\(ws\)/.test(DO));
+/* ⚠️ 부정 검사는 주석을 벗긴 사본으로 — 「되돌리지 말 것」이라 적은 주석이 그 글자를 담고 있다. */
+const DO_BARE = DO.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+ok('ping 자동응답 시각은 DurableObjectState 의 정본 API 로 읽는다(WebSocket 에는 그 메서드가 없다)',
+   /private autoRespAt\([\s\S]{0,500}st\.getWebSocketAutoResponseTimestamp\(ws\)/.test(DO)
+   && !/\.getAutoResponseTimestamp\b/.test(DO_BARE));
 // 🔴 메모리 Map 에만 적으면 hibernation 때 통째로 비고, 남는 바닥값이 «입장 시각» 뿐이라
 //    **멀쩡한 수업 전원이 120초에 끊긴다.** attachment 는 hibernation 을 넘어 살아남는다.
 ok('생존 시각을 attachment 에도 주기적으로 적는다(hibernation 대비)',
@@ -170,7 +179,13 @@ const blockAt = (src, i) => pairAt(src, i, '{', '}');
    ⓒ 가 제일 나쁘다 — **모든** 소켓이 600초 유예를 받아 2026-08-20 유령 보호가 통째로 풀리는데
    «고치려던 것과 반대 방향» 사고다. 그래서 «부르는가» 가 아니라 «무엇을 넘기는가» 로 묻는다. */
 {
-  const ai = DO.indexOf('async alarm()');
+  /* (2026-11-04) alarm() 은 inAlarm 표시만 하고 몸통을 alarmBody() 에 맡긴다 — 몸통이 있으면 그쪽을 본다. */
+  const bi = DO.indexOf('private async alarmBody()');
+  const ai = bi > 0 ? bi : DO.indexOf('async alarm()');
+  if (bi > 0) {
+    const shell = blockAt(DO, DO.indexOf('{', DO.indexOf('async alarm()')));
+    ok('alarm() 이 alarmBody() 를 실제로 부른다(안 부르면 청소가 통째로 멈춘다)', /await this\.alarmBody\(\)/.test(shell));
+  }
   const alarmBody = ai > 0 ? blockAt(DO, DO.indexOf('{', ai)) : '';
   ok('알람 몸통을 중괄호 짝으로 잘라 냈다(전제 — 못 자르면 아래가 빈 문자열을 보고 조용히 통과)',
      alarmBody.length > 200);
