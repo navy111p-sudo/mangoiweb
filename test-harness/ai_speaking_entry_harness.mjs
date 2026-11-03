@@ -111,31 +111,87 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
 }
 // 2026-11-03 owner (A안 · ①설명형): one line under «교정 정도» says what the picked level really does.
 // The wording is paired with the server (src/warmup-honest.ts) — change one, change the other.
+// 2026-11-03 follow-up (trap-check): the server side is checked by RUNNING the real functions (types stripped),
+// and renderSettings is cut out of the page and RUN on a fake DOM — «the text exists» checks let
+// a swapped ko/en or an `if (false && …)` pass.
 {
-  const btn = id => hub.match(new RegExp('<button[^>]*data-corr="' + id + '"[^>]*>'))?.[0] || '';
-  const hint = (id, l) => (btn(id).match(new RegExp('data-hint-' + l + '="([^"]*)"')) || [])[1] || '';
-  const wh = readFileSync(new URL('../cloudflare-deploy/src/warmup-honest.ts', import.meta.url), 'utf8');
-  const reps = Number((wh.match(/export const FOCUSED_FIX_REPEATS = (\d+);/) || [])[1]);
-  assert.ok(reps > 0, 'server repeat count (FOCUSED_FIX_REPEATS) found');
-  for (const id of ['free_talk', 'balanced', 'focused']) {
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const { stripTypeScriptTypes } = await import('node:module');
+  const { pathToFileURL, fileURLToPath } = await import('node:url');
+  let n = 0; const ok = (v, m) => { n++; assert.ok(v, m); };
+  const LV = ['free_talk', 'balanced', 'focused'];
+  const attrs = tag => Object.fromEntries([...tag.matchAll(/([\w-]+)="([^"]*)"/g)].map(m => [m[1], m[2]]));
+  const tags = LV.map(id => hub.match(new RegExp('<button[^>]*data-corr="' + id + '"[^>]*>'))?.[0] || '');
+  const hint = (id, l) => attrs(tags[LV.indexOf(id)])['data-hint-' + l] || '';
+
+  // ① the copy itself
+  for (const id of LV) {
     for (const l of ['ko', 'en']) {
-      const h = hint(id, l);
-      assert.ok(h.length > 0, id + ' ' + l + ' hint exists');
-      assert.ok(!/\p{Extended_Pictographic}/u.test(h), id + ' ' + l + ' hint has no emoji (old Windows)');
+      ok(hint(id, l).length > 0, id + ' ' + l + ' hint exists');
+      ok(!/\p{Extended_Pictographic}/u.test(hint(id, l)), id + ' ' + l + ' hint has no emoji (old Windows)');
     }
-    assert.ok([...hint(id, 'ko')].length <= 24, id + ' ko hint stays one short line');
+    ok([...hint(id, 'ko')].length <= 24, id + ' ko hint stays one short line on phones');
   }
-  // focused: every mistake fixed, the fixed sentence said FOCUSED_FIX_REPEATS times — «최대 N번 고쳐요» would be false
-  assert.ok(hint('focused', 'ko').includes(reps + '번') && hint('focused', 'en').includes(reps + ' times'), 'focused hint says the server repeat count');
-  assert.ok(!/최대/.test(hint('focused', 'ko')) && !/up to/i.test(hint('focused', 'en')), 'focused hint does not cap the number of fixes');
-  assert.ok(/따라 말/.test(hint('focused', 'ko')), 'focused hint mentions repeat-after-me');
-  // balanced: key mistakes only, repeat once · free talk: no repeat-after-me (gateFixForMode repeat:false)
-  assert.ok(hint('balanced', 'ko').includes('1번') && /\bonce\b/.test(hint('balanced', 'en')), 'balanced hint: repeat once');
-  assert.ok(/따라 말하기 없이/.test(hint('free_talk', 'ko')) && /no repeat/i.test(hint('free_talk', 'en')), 'free talk hint: no repeat-after-me');
-  assert.ok(/if \(mode === 'free_talk'\) return \{ show: decidedShow \|\| null, repeat: false \}/.test(wh), 'server: free talk never asks to repeat (pairs with the hint)');
-  // the line is drawn from the picked button, in the screen language
-  const rs = hub.slice(hub.indexOf('function renderSettings(){'), hub.indexOf('function say('));
-  assert.ok(/corrState/.test(rs) && /data-hint-en/.test(rs) && /data-hint-ko/.test(rs), 'renderSettings shows the picked hint');
-  assert.ok(/aria-describedby="corrState"/.test(hub), 'the button group is described by the hint line');
-  console.log('PASS: correction hint line (A안 · ①설명형) paired with server behaviour');
+
+  // ② pair with the server: load src/warmup-honest.ts (types stripped) and run it
+  const SRC = fileURLToPath(new URL('../cloudflare-deploy/src/', import.meta.url));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aisp-hint-'));
+  for (const [from, to] of [['warmup-empathy.ts', 'warmup-empathy.mjs'], ['warmup-shop-mode.ts', 'warmup-shop-mode.mjs'], ['warmup-honest.ts', 'warmup-honest.mjs']]) {
+    const js = stripTypeScriptTypes(fs.readFileSync(path.join(SRC, from), 'utf8'))
+      .replace(/from '\.\/warmup-empathy'/g, "from './warmup-empathy.mjs'").replace(/from '\.\/warmup-shop-mode'/g, "from './warmup-shop-mode.mjs'");
+    fs.writeFileSync(path.join(tmp, to), js);
+  }
+  const H = await import(pathToFileURL(path.join(tmp, 'warmup-honest.mjs')).href);
+  const reps = H.FOCUSED_FIX_REPEATS;
+  ok(Number.isInteger(reps) && reps > 0, 'server repeat count loaded from the real module');
+  const FIX = { was: 'I go to the park.', now: 'I went to the park.' };
+  const spoken = H.ensureFocusedFixSpoken('Nice! What did you do?', 'focused', 'partial', FIX);
+  ok(spoken.split(FIX.now).length - 1 === reps && /say it with me/i.test(spoken), 'server: focused says the fixed sentence N times, then repeat-after-me');
+  // focused: the number is how many times it is SAID — «N번 고쳐요» / «최대 N번» would be false
+  ok(hint('focused', 'ko').includes(reps + '번 들려') && hint('focused', 'en').includes('says it ' + reps + ' times'), 'focused hint ties the server count to «hearing it»');
+  ok(!/(\d+|세)\s*번\s*(까지\s*)?고(치|쳐)|최대/.test(hint('focused', 'ko')) && !/up to|fixes \d/i.test(hint('focused', 'en')), 'focused hint does not read the count as «number of fixes»');
+  ok(/따라 말/.test(hint('focused', 'ko')) && /repeat/i.test(hint('focused', 'en')), 'focused hint mentions repeat-after-me');
+  // free talk: the server never asks to repeat, whatever the other gates decided
+  let freeRepeats = 0;
+  for (const shown of [FIX, null]) for (const rep of [true, false]) if (H.gateFixForMode('free_talk', FIX, shown, rep).repeat) freeRepeats++;
+  ok(freeRepeats === 0, 'server: free talk never asks to repeat (gateFixForMode run 4 ways)');
+  ok(/따라 말하기 없이/.test(hint('free_talk', 'ko')) && /no repeat/i.test(hint('free_talk', 'en')), 'free talk hint: no repeat-after-me (pairs with the server)');
+  ok(hint('balanced', 'ko').includes('1번') && /\bonce\b/.test(hint('balanced', 'en')), 'balanced hint: repeat once');
+  fs.rmSync(tmp, { recursive: true, force: true });
+
+  // ③ renderSettings cut out of the page and run on a fake DOM — the picked level's line, in the screen language
+  const fnSrc = name => {
+    const s = hub.indexOf('function ' + name + '(');
+    if (s < 0) return '';
+    let d = 0, i = hub.indexOf('{', s);
+    for (; i < hub.length; i++) { if (hub[i] === '{') d++; else if (hub[i] === '}' && --d === 0) break; }
+    return hub.slice(s, i + 1);
+  };
+  const body = ['T', 'esc', 'renderSettings'].map(fnSrc);
+  ok(body.every(b => b.length > 20) && body[2].includes('corrState'), 'renderSettings / T / esc cut out of the page');
+  const run = (lang, corr) => {
+    const a = tags.map(attrs);
+    const buttons = a.map(o => ({ getAttribute: k => (k in o ? o[k] : null), setAttribute: (k, v) => { o[k] = String(v); } }));
+    const el = { corrState: { textContent: '' }, setLevel: { innerHTML: '' } };
+    const document = {
+      getElementById: id => el[id] || null,
+      querySelectorAll: sel => (sel === '[data-corr]' ? buttons : []),
+      querySelector: sel => { const m = /^\[data-corr="([^"]+)"\]$/.exec(sel); return m ? buttons.find(b => b.getAttribute('data-corr') === m[1]) || null : null; }
+    };
+    const SET = { read: () => ({ level: 0, corr, lang }), LEVELS: [] };
+    new Function('document', 'SET', 'LS', 'ui', body.join('\n') + '\nrenderSettings();')(document, SET, {}, lang);
+    return { text: el.corrState.textContent, pressed: a.map(o => o['aria-pressed']) };
+  };
+  for (const lang of ['ko', 'en']) {
+    for (const id of LV) {
+      const r = run(lang, id);
+      ok(r.text === hint(id, lang), lang + '/' + id + ': the line is that level\'s hint in the screen language → ' + JSON.stringify(r.text));
+      ok(r.pressed.join() === LV.map(x => String(x === id)).join(), lang + '/' + id + ': only the picked button is pressed');
+    }
+    ok(/화면마다 다름|Differs by screen/.test(run(lang, 'mixed').text), lang + ': mixed keeps the old «differs by screen» line');
+    ok(/아직 안 정함|Not set/.test(run(lang, '').text), lang + ': unset keeps the old «not set» line');
+  }
+  ok(run('en', 'focused').text !== run('ko', 'focused').text, 'ko and en lines differ (catches a swapped language)');
+  ok(/aria-describedby="corrState"/.test(hub), 'the button group is described by the hint line');
+  console.log('PASS: correction hint line (A안 · ①설명형) — ' + n + ' checks, server run + page function run');
 }
