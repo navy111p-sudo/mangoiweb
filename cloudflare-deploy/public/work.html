@@ -412,6 +412,15 @@ html.dark .findlab{color:#8b98a8}
   border:1px solid #0f6b4f;background:#fff;color:#0f6b4f;cursor:pointer
 }
 html.dark .findcsv{background:#16202c}
+/* 📒 장부 미리보기·PDF·엑셀·인쇄(2026-11-02) — CSV 버튼과 같은 모양. ⚠️ .findcsv 는 CSV 전용으로 남겨 둔다(수동 검사가 첫 .findcsv 를 CSV 로 본다) */
+.ledexp{justify-content:flex-end}
+.ledxbtn{padding:8px 13px;font-size:13px;font-weight:600;border-radius:7px;border:1px solid #0f6b4f;background:#fff;color:#0f6b4f;cursor:pointer}
+.ledxbtn.main{background:#0f6b4f;color:#fff}
+html.dark .ledxbtn{background:#16202c}
+html.dark .ledxbtn.main{background:#0f6b4f}
+.ledexp .findcsv{margin-left:0}
+.ledxlbl{font-size:13px;font-weight:600;color:#475467;margin-left:6px}
+.ledxnote{flex-basis:100%;text-align:right;font-size:12px;color:#667085}
 .findmore{
   display:block;width:100%;margin-top:8px;padding:11px;font-size:14px;font-weight:600;
   border-radius:8px;border:1px solid #bcc6d2;background:#fff;color:#2f3d4d;cursor:pointer
@@ -2143,9 +2152,17 @@ function paintLed(){
   h += '<div class="ledviews">' + vt('sum', 'Summary', '요약') + vt('people', 'By person', '사람별') +
        vt('cmp', 'Compare', '지난 기간과 비교') + vt('shop', 'Shops · big items', '가게·큰 지출') +
        vt('chk', 'Check' + ledChkCount(d), '빠진 것 점검' + ledChkCount(d)) + vt('list', 'All rows', '장부 목록') + '</div>';
-  /* 📤 이 장부 그대로 엑셀 — 같은 기간·같은 범위(서버가 같은 식으로 만든다). */
-  h += '<div class="findrow"><button type="button" class="findcsv" onclick="ledCsv()">' +
-       esc(T('Excel (this ledger)', '엑셀 내려받기 (이 장부)')) + '</button></div>';
+  /* 📒 이 장부 — 미리보기(PDF처럼 보기) · 다운로드 PDF · 엑셀(정식 장부 .xlsx) · 인쇄(2026-11-02 사장님 지시).
+     세 가지 모두 «지금 받은 이 응답» 그대로 만든다(같은 줄·같은 합계 — js/work-ledger-export.js).
+     📤 CSV(원본 줄)는 서버가 만드는 그대로 남겨 둔다 — 다른 프로그램에 붙여 넣을 때 쓴다. */
+  var xb = function(kind, en, ko, main){
+    return '<button type="button" class="ledxbtn' + (main ? ' main' : '') + '" onclick="ledExport(\'' + kind + '\')">' + esc(T(en, ko)) + '</button>';
+  };
+  h += '<div class="findrow ledexp">' + xb('preview', 'Preview', '미리보기', true) +
+       '<span class="ledxlbl">' + esc(T('Download:', '다운로드:')) + '</span>' +
+       xb('pdf', 'PDF', 'PDF') + xb('xlsx', 'Excel', '엑셀') + xb('print', 'Print', '인쇄') +
+       '<button type="button" class="findcsv" onclick="ledCsv()">CSV</button>' +
+       (LED.xnote ? '<span class="ledxnote" role="status">' + esc(LED.xnote) + '</span>' : '') + '</div>';
   var A = d.analysis || null;
   if (LED.view !== 'list') {
     h += (LED.view === 'people') ? ledPeopleHtml(d, A)
@@ -2454,6 +2471,34 @@ function ledAllIn(totals){
 }
 
 window.ledCsv = function(){ location.href = '/api/approval/requests?' + ledQuery(LED.per) + '&format=csv'; };
+/* 📒 미리보기·PDF·엑셀·인쇄 — 만드는 코드는 처음 누를 때만 받는다(pdf.js 와 같은 방식, 첫 화면 무게 그대로).
+   ⛔ 원·페소 «보기»(LED.show)와 무관 — 문서·엑셀은 원래 통화(환산은 «오늘 환율 참고값» 으로만 적는다).
+   ⚠️ js/work-ledger-export.js 를 고치면 아래 ?v= 를 «손으로» 올리세요 — asset_version_harness 는
+      loadScript 문자열을 추적하지 않습니다(2026-11-02 실측: 원장에 0건). 안 올리면 옛 파일이 캐시에 남습니다. */
+var LEDX_P = null;
+function loadLedExport(){
+  if (window.MangoiLedgerExport) return Promise.resolve(window.MangoiLedgerExport);
+  if (!LEDX_P) LEDX_P = loadScript('/js/work-ledger-export.js?v=1').then(function(){
+    if (!window.MangoiLedgerExport) throw new Error('not loaded');
+    return window.MangoiLedgerExport;
+  }, function(e){ LEDX_P = null; throw e; });
+  return LEDX_P;
+}
+window.ledExport = function(kind){
+  var d = LED.data[LED.per];
+  if (!d || d.err || !Array.isArray(d.ledger)) return;
+  var setNote = function(t){ LED.xnote = t || ''; paintLed(); };
+  loadLedExport().then(function(X){
+    var r = X.run(kind, d, {
+      en: EN(), scopeAll: !!(D && D.can_approve), perKey: LED.per,
+      who: (D && D.me && (D.me.name || D.me.username)) || '', fx: d.fx || LED.fx || null,
+    });
+    setNote(r && r.note);
+  }).catch(function(e){
+    console.warn('[ledger export]', e);
+    setNote(T('Could not prepare the file. Check the connection and try again.', '파일을 만들지 못했습니다. 연결을 확인하고 다시 눌러 주세요.'));
+  });
+};
 
 /** 통화별 금액을 «한 줄» 로. ⛔ 절대 더해서 하나로 만들지 않는다. */
 function repMoney(list){
