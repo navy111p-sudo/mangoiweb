@@ -4164,37 +4164,42 @@ function vcObserverStallReason() {
 /** 다자간 통화 메시지 처리 */
 // Queue replay/live annotations until the matching document has committed.
 // A discarded/failed document never receives buffered annotations.
+
+
+
+// The deferred receiver may still be downloading when a socket snapshot arrives.
+window.__vcPdfAnnotationModuleLoading = true;
+function vcEnsurePdfAnnotationModule() {
+    if (window.__vcPdfAnnotationModuleReady || window.__vcPdfAnnotationModuleLoading) return;
+    if ((window.__vcPdfAnnotationModuleRetries || 0) >= 3) return;
+    window.__vcPdfAnnotationModuleLoading = true;
+    var script = document.createElement('script');
+    script.src = '/js/idx-vc-pdf-annotations.js?v=1';
+    script.onerror = vcPdfAnnotationModuleError;
+    document.head.appendChild(script);
+}
+function vcPdfAnnotationModuleError() {
+    window.__vcPdfAnnotationModuleLoading = false;
+    window.__vcPdfAnnotationModuleRetries = (window.__vcPdfAnnotationModuleRetries || 0) + 1;
+    if ((window.__vcEarlyPdfAnnotations || []).length && window.__vcPdfAnnotationModuleRetries < 3) setTimeout(vcEnsurePdfAnnotationModule, 3000);
+    try { showToast('필기 복원을 잠시 사용할 수 없습니다. 연결 후 다시 시도해 주세요.'); } catch (_) {}
+}
+try { window.addEventListener('online', function(){ window.__vcPdfAnnotationModuleRetries = 0; vcEnsurePdfAnnotationModule(); }); } catch (_) {}
 function vcPdfAnnotationGate(msg) {
     if (!/^pdf-anno-(start|point|text|shape|clear|undo|replay)$/.test(msg.type)) return false;
-    var ctx = window.__vcPdfAnnoContext;
-    if (ctx && !ctx.current()) return true;
-    if (typeof msg.data?.annotationSession === 'number' && msg.data.annotationSession !== window.__vcPdfAnnotationSession) return true;
-    var url = msg.data && msg.data.documentUrl;
-    var expected = ctx ? ctx.url : window._vcCurrentPdfUrl;
-    if (url && expected) {
-        try { if (new URL(url, location.origin).href !== new URL(expected, location.origin).href) return true; }
-        catch (_) { return true; }
+    var queue = window.__vcEarlyPdfAnnotations = window.__vcEarlyPdfAnnotations || [];
+    var bytes = new TextEncoder().encode(JSON.stringify(msg)).byteLength;
+    if (queue.length >= 2000 || (window.__vcEarlyPdfAnnotationBytes || 0) + bytes > 4 * 1024 * 1024) {
+        window.__vcEarlyPdfAnnotations = []; window.__vcEarlyPdfAnnotationBytes = 0;
+        if (!window.__vcEarlyPdfAnnotationOverflow) { try { showToast('필기가 많아 자동 복원을 보류했습니다.'); } catch (_) {} }
+        window.__vcEarlyPdfAnnotationOverflow = true; return true;
     }
-    if (ctx && ctx.pending) {
-        if (ctx.failed) return true;
-        var bytes;
-        try { bytes = new TextEncoder().encode(JSON.stringify(msg)).byteLength; } catch (_) { return true; }
-        if (ctx.queue.length >= 2000 || ctx.bytes + bytes > 4 * 1024 * 1024) {
-            ctx.queue = []; ctx.bytes = 0; ctx.failed = true;
-            try { showToast('필기 복원에 실패했습니다. 다시 입장해 주세요.'); } catch (_) {}
-            return true;
-        }
-        ctx.queue.push(msg); ctx.bytes += bytes;
-        return true;
+    if (!window.__vcEarlyPdfAnnotationOverflow) {
+        queue.push({ msg: msg, room: vcRoomId, self: vcUserId, conn: vcConn, account: vcAccountSnapshot(), url: msg.data?.documentUrl || window.__vcPdfAnnoContext?.url || window._vcCurrentPdfUrl });
+        window.__vcEarlyPdfAnnotationBytes = (window.__vcEarlyPdfAnnotationBytes || 0) + bytes;
     }
-    return typeof pdfDoc !== 'undefined' && !pdfDoc;
-}
-function vcFlushPdfAnnotations() {
-    var ctx = window.__vcPdfAnnoContext;
-    if (!ctx || !ctx.current() || ctx.failed) return;
-    ctx.pending = false;
-    var queue = ctx.queue; ctx.queue = []; ctx.bytes = 0;
-    queue.forEach(function(msg) { vcHandleMessage(msg); });
+    vcEnsurePdfAnnotationModule();
+    return true;
 }
 
 function vcHandleMessage(msg) {
@@ -4218,6 +4223,7 @@ function vcHandleMessage(msg) {
             vcUserId = msg.data.userId;
             window.__vcPdfAnnotationSession = msg.data.annotationSession;
             window.__vcPdfAnnotationSource = ''; window.__vcPdfAnnoContext = null;
+            window.__vcEarlyPdfAnnotations = []; window.__vcEarlyPdfAnnotationBytes = 0; window.__vcEarlyPdfAnnotationOverflow = false; window.__vcEarlyPdfPointer = null; window.__vcPdfAnnotationModuleRetries = 0;
             window._vcJoinedRoomId = msg.data.roomId || vcRoomId;   // ★ 이때부터 room-media 폴링 적용 허용
             updateUserCount(msg.data.userCount);
             // 🌟 학생이면 (방·피어ID → 내 계정 uid) 를 서버에 등록 → 선생님이 별 누르면 서버가 내 계정에 확실히 적립.
@@ -4294,16 +4300,17 @@ function vcHandleMessage(msg) {
         }
 
         case 'user-joined':
-            // A server-confirmed return invalidates an earlier departure, without declaring ICE healthy.
-            window.__vcPeerLeftExplicit = false;
-            window.__vcRateLeaveEpoch = (window.__vcRateLeaveEpoch || 0) + 1;
-            window.__vcRateLeaveScope = null;
             console.log('[vc] user-joined:', msg.data.userId, msg.data.username);
             // 🇵🇭 (2026-07-24 재점검) 새 참가자가 들어왔다 = 끊겼던 사람이 새 id 로 돌아온 것일 수 있다.
             //   여기서 유령 타일을 먼저 치우지 않으면 아래 vcEnsureParticipantBox 가 박스를 하나 더
             //   만들어, 1:1 수업인데 타일이 3개가 되고(그리드가 세로 3분할로 축소) PIP 주화면이
             //   '정지된 유령' 으로 선택되는 사고가 난다. 영상 도착(vcAddRemoteVideo)까지 기다리면 늦다.
             try { vcSweepGhostTiles(); } catch(e){}
+            // A server-confirmed return invalidates an earlier departure, without declaring ICE healthy.
+            window.__vcPeerLeftExplicit = false;
+            window.__vcRateLeaveEpoch = (window.__vcRateLeaveEpoch || 0) + 1;
+            window.__vcRateLeaveScope = null;
+
             // 📷 내 카메라가 꺼져 있다면 새로 들어온 사람에게도 알려 준다.
             //   안 알리면 그 사람 화면에서는 '이유 없는 검은 화면' 이 되고 워치독이 재협상을 시도한다.
             try { if (window.vcCamOn === false) vcBroadcastCamState(false, 'user'); } catch(e){}
@@ -4507,41 +4514,10 @@ function vcHandleMessage(msg) {
             if (typeof msg.data?.annotationSession === 'number' && (typeof window.__vcPdfAnnotationSession !== 'number' || msg.data.annotationSession > window.__vcPdfAnnotationSession)) window.__vcPdfAnnotationSession = msg.data.annotationSession;
             try { showToast('필기를 공유하거나 저장하지 못했습니다. 교재 연결을 확인해 주세요.'); } catch (_) {}
             break;
-        case 'pdf-anno-replay': {
-            try {
-                // Unversioned legacy logs have no ACK/revision barrier. Never replay clear/undo
-                // over an already populated local document and risk deleting newer work.
-                if (typeof msg.data?.annotationSession !== 'number' && Object.keys(pdfAnnotations).some(function(page){ return (pdfAnnotations[page] || []).length > 0; })) {
-                    try { showToast('기존 필기를 보호하기 위해 자동 덮어쓰기를 보류했습니다.'); } catch (_) {}
-                    break;
-                }
-                if (typeof msg.data?.annotationSession === 'number') { pdfAnnotations = {}; _pdfRemoteStrokes = {}; }
-                window.__pdfAnnoReplaying = true;   // 재생 중에는 «다른 페이지 필기» 알림을 끈다
-                var _parOps = (msg.data && msg.data.ops) || [];
-                _parOps.forEach(function(op){
-                    try {
-                        if (op.t === 'stroke') {
-                            var _ps = op.d || {};
-                            var _pts = _ps.points || [];
-                            if (!_pts.length) return;
-                            /* 재접속(스티키)으로 이미 갖고 있는 획은 건너뛴다 — 이중 그리기 방지 */
-                            if (_ps.id != null && typeof _pdfRemoteStrokes !== 'undefined' && _pdfRemoteStrokes[_ps.id]) return;
-                            var _mine = (pdfAnnotations[_ps.page] || []).some(function(st){ return st && st._id === _ps.id; });
-                            if (_ps.id != null && _mine) return;
-                            pdfReceiveAnnoStart({ page: _ps.page, tool: _ps.tool, color: _ps.color, size: _ps.size, id: _ps.id, point: _pts[0] });
-                            for (var _pi = 1; _pi < _pts.length; _pi++) pdfReceiveAnnoPoint({ id: _ps.id, page: _ps.page, point: _pts[_pi] });
-                        }
-                        else if (op.t === 'pdf-anno-text')  pdfReceiveAnnoText(op.d);
-                        else if (op.t === 'pdf-anno-shape') pdfReceiveAnnoShape(op.d);
-                        else if (op.t === 'pdf-anno-clear') pdfReceiveAnnoClear(op.d);
-                        else if (op.t === 'pdf-anno-undo')  pdfReceiveAnnoUndo(op.d);
-                    } catch(_){}
-                });
-                console.log('[pdf-anno] 교재 판서 재생:', _parOps.length, '개 op');
-            } catch(_){}
-            window.__pdfAnnoReplaying = false;
+        case 'pdf-anno-replay':
+            vcReplayPdfAnnotations(msg.data);
             break;
-        }
+
         case 'pdf-pointer':
             pdfReceivePointer(msg.data);
             break;
@@ -12094,6 +12070,12 @@ async function pdfLoad(url, kind) {
     }
     if ((typeof isCurrent === 'function' && !isCurrent()) || generation !== pdfLoadGeneration
         || roomAtStart !== (typeof vcRoomId === 'undefined' ? '' : vcRoomId || '')) return false;
+    if (typeof isCurrent !== 'function') {
+        window.__vcPdfAnnoContext = null;
+        window.__vcSharedPdfRequest = (window.__vcSharedPdfRequest || 0) + 1;
+        window.__vcSharedPdfPendingKey = ''; window.__vcSharedPdfPendingCurrent = null;
+        window._vcShownPdfKey = ''; window._vcShownPdfUrl = '';
+    }
     pdfDoc = nextDoc;
     window._vcCurrentPdfUrl = url;
     window._vcCurrentPdfKind = kind || '';
@@ -12606,57 +12588,10 @@ function pdfAnnoElForPage(page) {
 // 원격 진행 중인 획을 id 로 빠르게 잇기 위한 캐시
 let _pdfRemoteStrokes = {};
 
-/* 🔔 (2026-08-12 Melca) 받은 판서가 «지금 내 화면에 없는 페이지» 면 예전엔 조용히 사라졌다
-   (획은 pdfAnnotations 에 쌓이지만 화면엔 영영 안 보임) — "잠금을 풀어도 학생 필기가 안 보인다"
-   신고의 실제 원인 중 하나. 강사에게 어느 페이지인지 알려 준다(8초 스로틀). */
-function _pdfAnnoOffPageNotify(page){
-    try {
-        if (window.__pdfAnnoReplaying) return;
-        if (typeof window.vcCanControlTextbook === 'function' && !window.vcCanControlTextbook()) return;
-        var now = Date.now();
-        if (window.__pdfAnnoOffPageAt && now - window.__pdfAnnoOffPageAt < 8000) return;
-        window.__pdfAnnoOffPageAt = now;
-        var en = (typeof getLang === 'function' && getLang() === 'en');
-        if (typeof showToast === 'function') showToast(en
-            ? ('✍️ A student is writing on page ' + page + ' — turn to that page to see it.')
-            : ('✍️ 학생이 ' + page + '쪽에 필기하고 있어요 — 그 페이지로 넘기면 보여요.'));
-    } catch(_){}
-}
-function pdfReceiveAnnoStart(d) {
-    if (!pdfAnnotations[d.page]) pdfAnnotations[d.page] = [];
-    var stroke = { tool: d.tool, color: d.color, size: d.size, points: [d.point], _id: d.id, _t: Date.now() };
-    pdfAnnotations[d.page].push(stroke);
-    _pdfRemoteStrokes[d.id] = stroke;
-    var el = pdfAnnoElForPage(d.page);
-    if (el) pdfRedrawAnno(el, d.page);
-    else _pdfAnnoOffPageNotify(d.page);
-}
-function pdfReceiveAnnoPoint(d) {
-    var stroke = _pdfRemoteStrokes[d.id];
-    if (!stroke) {
-        // start 를 놓친 경우 보강 생성
-        if (!pdfAnnotations[d.page]) pdfAnnotations[d.page] = [];
-        stroke = { tool: 'pen', color: '#ef4444', size: 3, points: [], _id: d.id };
-        pdfAnnotations[d.page].push(stroke);
-        _pdfRemoteStrokes[d.id] = stroke;
-    }
-    stroke.points.push(d.point);
-    stroke._t = Date.now();                    // ✨ 사라지는 펜: 받는 쪽도 같은 기준으로 수명 계산
-    var el = pdfAnnoElForPage(d.page);
-    if (el) pdfRedrawAnno(el, d.page);
-}
-function pdfReceiveAnnoText(d) {
-    if (!pdfAnnotations[d.page]) pdfAnnotations[d.page] = [];
-    pdfAnnotations[d.page].push(d.stroke);
-    var el = pdfAnnoElForPage(d.page);
-    if (el) pdfRedrawAnno(el, d.page);
-}
-function pdfReceiveAnnoClear(d) {
-    pdfApplyClear(d.pages || []);
-}
-function pdfReceiveAnnoUndo(d) {
-    pdfApplyUndo(d.page);
-}
+
+
+
+
 
 // ✨ 교재 펜 자유선 → 도형/축 자동 정리 (로컬)
 function pdfTryBeautify(anno, stroke) {
@@ -12682,17 +12617,7 @@ function pdfTryBeautify(anno, stroke) {
     } catch(_){}
 }
 // 상대가 정리한 교재 도형 수신 — 같은 id 의 (스트리밍된) 원본 획을 도형으로 교체
-function pdfReceiveAnnoShape(d) {
-    if (!pdfAnnotations[d.page]) pdfAnnotations[d.page] = [];
-    const arr = pdfAnnotations[d.page];
-    const shapeStroke = { tool: 'shape', shape: d.shape, color: d.color, size: d.size, _id: d.id };
-    let replaced = false;
-    for (let i = 0; i < arr.length; i++) { if (arr[i]._id === d.id) { arr[i] = shapeStroke; replaced = true; break; } }
-    if (!replaced) arr.push(shapeStroke);
-    if (typeof _pdfRemoteStrokes !== 'undefined') delete _pdfRemoteStrokes[d.id];
-    const el = pdfAnnoElForPage(d.page);
-    if (el) pdfRedrawAnno(el, d.page);
-}
+
 
 // 되돌리기 — 현재 페이지의 마지막 획 제거(로컬) + 전송
 function pdfApplyUndo(page) {
@@ -12766,41 +12691,6 @@ function pdfBindLaser(anno) {
     });
 }
 let _pdfLaserTimers = {};
-function pdfReceivePointer(d) {
-    var page = d.page;
-    var el = pdfAnnoElForPage(page);
-    if (!el) return;
-    var wrap = el.parentElement;
-    var safe = String(d.name || 'x').replace(/[^a-zA-Z0-9가-힣]/g, '_');
-    /* 레이저(따라다니다 사라짐) / 콕 찍기(그 자리에 머무름) / 내 화면용 에코는 서로 다른 요소로 관리.
-       같은 id 를 쓰면 내 에코가 상대 표시를 덮어써서 둘 중 하나가 사라진다. */
-    var key = (d.sticky ? 'mgArrow_' : 'mgLaser_') + (d.self ? 'me_' : '') + safe;
-    var dot = document.getElementById(key);
-    if (d.hide) { if (dot) dot.remove(); return; }
-    if (!dot) {
-        var c  = d.color || '#ef4444';
-        var op = d.self ? '.5' : '.85';   // 내 화면에 보이는 내 포인터는 흐리게 = "나가고 있다"는 확인용
-        dot = document.createElement('div');
-        dot.id = key;
-        dot.style.cssText = 'position:absolute;z-index:50;pointer-events:none;transform:translate(-50%,-50%);transition:left .05s linear,top .05s linear;';
-        dot.innerHTML = '<span class="laser-core"></span><span class="laser-name"></span>';
-        wrap.appendChild(dot);
-        // 콕 찍기는 '속이 빈 굵은 링' — 꽉 찬 레이저 점과 한눈에 구분되고, 링 중심이 정확히 찍은 지점이다
-        dot.querySelector('.laser-core').style.cssText = d.sticky
-            ? 'display:block;box-sizing:border-box;width:26px;height:26px;border-radius:50%;border:3px solid ' + c + ';box-shadow:0 0 0 2px rgba(255,255,255,.55),0 0 8px 2px ' + c + ';opacity:' + op + ';'
-            : 'display:block;width:16px;height:16px;border-radius:50%;background:' + c + ';box-shadow:0 0 10px 3px ' + c + ';opacity:' + op + ';';
-        dot.querySelector('.laser-name').style.cssText = 'position:absolute;left:' + (d.sticky ? 20 : 14) + 'px;top:-2px;white-space:nowrap;font-size:11px;font-weight:700;color:#fff;background:' + c + ';padding:1px 6px;border-radius:8px;opacity:' + op + ';';
-        dot.querySelector('.laser-name').textContent = d.name || '';
-    }
-    // wrap 이 anno 캔버스와 같은 크기라고 가정(top:0,left:0 오버레이)
-    dot.style.left = (d.x * el.clientWidth) + 'px';
-    dot.style.top  = (d.y * el.clientHeight) + 'px';
-    if (_pdfLaserTimers[key]) { clearTimeout(_pdfLaserTimers[key]); delete _pdfLaserTimers[key]; }
-    // 레이저만 자동 소멸. 콕 찍기는 다음에 찍거나 🗑 지우기 전까지 남는다(그게 이 도구의 목적).
-    if (!d.sticky) {
-        _pdfLaserTimers[key] = setTimeout(function(){ var x = document.getElementById(key); if (x) x.remove(); }, 1600);
-    }
-}
 
 /* ✨ 사라지는 펜 — 그린 뒤 일정 시간이 지난 획을 양쪽 화면에서 함께 걷어낸다.
    전용 메시지를 새로 만들지 않고 '마지막으로 점이 찍힌 시각(_t)' 하나로 각자 지운다.
@@ -13306,6 +13196,8 @@ function pdfStopShare() {
     /* 📚 (2026-08-12 Melca 7번) 학생이 누르면 **반 전체의 교재가 사라진다** — 강사·관리자만. */
     if (!window.vcCanControlTextbook()) { window.vcTextbookDenied(); return; }
     var stoppedDocument = { annotationSession: window.__vcPdfAnnotationSession, documentUrl: window.__vcPdfAnnotationSource || window._vcCurrentPdfUrl };
+    window.__vcEarlyPdfPointer = null;
+    window.__vcEarlyPdfAnnotations = []; window.__vcEarlyPdfAnnotationBytes = 0; window.__vcEarlyPdfAnnotationOverflow = false;
     window.__vcPdfAnnoContext = null;
     window.__vcPdfAnnotationSession = undefined; window.__vcPdfAnnotationSource = '';
     ++pdfLoadGeneration;
@@ -14398,3 +14290,10 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+
+function pdfReceivePointer(d) {
+    if (!d) return;
+    if (typeof pdfReceivePointerReady === 'function') return pdfReceivePointerReady(d);
+    window.__vcEarlyPdfPointer = d.hide ? null : { data: d, at: Date.now(), room: vcRoomId, self: vcUserId, conn: vcConn, account: vcAccountSnapshot(), url: window._vcCurrentPdfUrl };
+    vcEnsurePdfAnnotationModule();
+}

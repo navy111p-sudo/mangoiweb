@@ -167,7 +167,8 @@ export class VideoCallRoom {
       생성자 인자로만 들어오고 그동안 저장하지 않아, 그전엔 이 클래스 안에서 시크릿에 닿을 방법이 없었다. */
   private env: any;
 
-  constructor(state: DurableObjectState, env?: any, localTestOptions?: { replayPrototype: boolean }) {
+  constructor(state: DurableObjectState, env?: any) {
+    const localTestOptions = arguments[2] as { replayPrototype: boolean } | undefined;
     this.state = state;
     this.roomId = '';
     this.env = env;
@@ -746,7 +747,7 @@ export class VideoCallRoom {
     //   로 "정체성 유지됨 → 살아있는 연결 보존"을 판단한다.
     this.send(effectiveUserId, {
       type: 'room-joined',
-      data: { annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined, roomId: this.roomId, userId: effectiveUserId, userCount, pdfState: this.pdfState }
+      data: { roomId: this.roomId, userId: effectiveUserId, userCount, pdfState: this.pdfState, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined }
     });
 
     const existingUsers = this.joinedUsers().filter(u => u.userId !== effectiveUserId);
