@@ -120,7 +120,8 @@ async function main() {
     if (r.exceptionDetails) throw new Error(r.exceptionDetails.text + ' ' + (r.exceptionDetails.exception || {}).description);
     return r.result.value;
   };
-  const names = () => ev('[...document.querySelectorAll("#tc-body tbody tr td:nth-child(4) b")].map(e=>e.textContent.trim()).join(",")');
+  /* ⚠️ (2026-11-03) 상태 옆에 «취소 · 연기» 칸이 생겨 학생 칸이 5번째가 됐다(th·td 순서는 짝 — adm-today-classes.js). */
+  const names = () => ev('[...document.querySelectorAll("#tc-body tbody tr td:nth-child(5) b")].map(e=>e.textContent.trim()).join(",")');
   const setQ = async v => ev(`(function(){var e=document.getElementById("tc-q");e.value=${JSON.stringify(v)};e.dispatchEvent(new Event("input",{bubbles:true}));})()`);
   const setSrc = async v => ev(`(function(){var e=document.getElementById("tc-source");e.value=${JSON.stringify(v)};e.dispatchEvent(new Event("change",{bubbles:true}));})()`);
 

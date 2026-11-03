@@ -76,7 +76,11 @@ console.log('\n①③ 오늘 수업 줄');
   const si = MGR.indexOf('      if (simple) {');
   const simpleSrc = si > 0 ? MGR.slice(si, MGR.indexOf('\n      }\n', si) + 8) : '';
   let sg = null;
-  try { sg = new Function('r', 'esc', 'T', 'var t="",simple=true;' + pill + simpleSrc + ' return "";'); } catch (e) { ok('간단히 보기 줄을 만들 수 있다', false, e.message); }
+  /* 🧾 (2026-11-03) 간단히 보기에 «취소 · 연기» 칸(taChangeCell)이 붙었다 — 그 함수도 함께 오려 넣는다. */
+  const ck = MGR.indexOf('  function taChangeCell(r, full){');
+  const chg = ck > 0 ? MGR.slice(ck, MGR.indexOf('\n  }\n', ck) + 4) : '';
+  ok('전제: taChangeCell 을 오려 냈다', /label_ko/.test(chg));
+  try { sg = new Function('r', 'esc', 'T', 'var t="",simple=true;' + pill + chg + simpleSrc + ' return "";'); } catch (e) { ok('간단히 보기 줄을 만들 수 있다', false, e.message); }
   if (sg) {
     ok('간단히 보기: 날짜 지정 줄에 📅 연기·변경(data-ta)', /data-ta="7"/.test(sg({ schedule_id: 7, can_move: true }, esc, T)));
     ok('짝: 간단히 보기도 매주 반복 줄(can_split 아님)에는 안 준다', !/data-ta=/.test(sg({ schedule_id: 8, can_move: false }, esc, T)));

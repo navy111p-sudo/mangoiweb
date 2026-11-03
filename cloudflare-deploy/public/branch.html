@@ -241,6 +241,8 @@ body.is-off .card{opacity:.82}
 .tag{display:inline-block;font-size:11px;font-weight:800;padding:2px 7px;border-radius:999px;
      background:#eef1f5;color:#4a5765;white-space:nowrap}
 .tag.hot{background:#fdecea;color:#8c1d18}
+/* 🧾 (2026-11-03) 오늘 수업 — 취소 줄은 흐리게, 단 «취소 · 연기» 를 말하는 칸(.ta-st)은 또렷하게(manager.html 과 같은 규칙) */
+.row.ta-cx>*:not(.ta-st){opacity:.6}
 .tag.ok{background:#e7f5ee;color:#0b7a3d}
 
 /* 🔔 오늘 봐야 할 것 — 문제가 있을 때만 뜬다. 없으면 아예 자리를 차지하지 않는다. */
@@ -2469,6 +2471,19 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       .catch(function(e){ failBox(el, e); });
   };
 
+  /* 🧾 (2026-11-03 매니저 «취소해도 지우지 말고, 취소·연기 상태를 칸으로») «취소 · 연기» 한 줄 — manager.html taChangeCell 과
+     **같은 서버 값**(r.change — 정본 src/class-change-state.ts 가 KO/EN 글자까지 만들어 준다). 여기는 그리기만 한다.
+     누가·사유는 서버가 본사·내부직원에게만 싣는다(지사 계정에는 «언제» 까지만 온다). 말할 것이 없으면 ''. */
+  function taChangeLine(r){
+    var c = r && r.change;
+    if (!c || !c.kind) c = (r && r.cancelled) ? { kind: 'cancelled', label_ko: '✕ 취소됨', label_en: '✕ Cancelled' }
+      : ((r && r.postponed) ? { kind: 'postponed', label_ko: '⏸ 연기됨 — 새 날짜 미정', label_en: '⏸ Postponed — no new date' } : null);
+    var label = c ? T(c.label_en || '', c.label_ko || '') : '';
+    if (!label) return '';
+    var tail = [c.by || '', c.at_kst || ''].filter(Boolean).join(' · ');
+    return '<span class="tag' + (c.kind === 'moved' ? '' : ' hot') + '">' + esc(label) + '</span>'
+      + (tail ? ' ' + esc(tail) : '') + (c.reason ? ' · ' + esc(c.reason) : '');
+  }
   function paintTodayAll(){
     var j = D.todayAll || {};
     var rows = (j.sessions || []).slice();
@@ -2496,10 +2511,12 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       + (cnote ? esc(cnote) + '<br>' : '')
       + esc(T((j.date || '') + ' · ' + rows.length + ' total'
                 + (c.cafe24 ? ' · ' + c.cafe24 + ' on cafe24' : '')
-                + (c.joinable ? ' · ' + c.joinable + ' joinable' : ''),
+                + (c.joinable ? ' · ' + c.joinable + ' joinable' : '')
+                + (c.cancelled ? ' · ' + c.cancelled + ' cancelled' : '') + (c.postponed ? ' · ' + c.postponed + ' postponed' : ''),
               (j.date || '') + ' · 전체 ' + rows.length + '건'
                 + (c.cafe24 ? ' · 카페24 ' + c.cafe24 + '건' : '')
-                + (c.joinable ? ' · 입장가능 ' + c.joinable + '건' : ''))) + '</div>';
+                + (c.joinable ? ' · 입장가능 ' + c.joinable + '건' : '')
+                + (c.cancelled ? ' · 취소 ' + c.cancelled + '건' : '') + (c.postponed ? ' · 연기 ' + c.postponed + '건' : ''))) + '</div>';
     hqRows('todayAllBody', rows, function(r){
       var t = esc(r.start_time || '');
       var who = esc(r.student_name || r.student_uid || '-');
@@ -2570,6 +2587,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       if (r.postponed) act = '<span class="tag hot">' + esc(T('⏸ Postponed', '⏸ 연기됨')) + '</span>';
       /* 🎌 (2026-10-09) 공휴일 휴강 — 서버가 status='holiday'·join_open=false 로 보낸다(중국어 수업은 그대로 열림). */
       if (r.holiday) act = '<span class="tag">' + esc(T('🎌 Holiday — no class', '🎌 공휴일 휴강')) + '</span>';
+      /* ✕ (2026-11-03) 취소된 수업 — 서버가 status='cancelled'·join_open=false 로 보낸다. 줄은 남기고 «취소됨» 을 글자로. */
+      if (r.cancelled) act = '<span class="tag hot ta-st">' + esc(T('✕ Cancelled — no class', '✕ 취소됨 — 수업 없음')) + '</span>';
       /* 📋 (2026-09-23 매니저 요청) 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결 — admin.html 「오늘 수업」 표와
          **같은 API·같은 칸**(서버 정본 src/class-today-extras.ts). 모르면 «—». 색이 아니라 글자·이모지로 뜻을 전한다. */
       var hm = function (ts) { try { return new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' }); } catch (e) { return ''; } };
@@ -2584,21 +2603,26 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         : te.state === 'pending' ? T('not yet', '아직 전')
         : te.state === 'postponed' ? '⏸ ' + T('postponed', '연기됨')
         : te.state === 'holiday' ? '🎌 ' + T('holiday', '휴강')
+        : te.state === 'cancelled' ? '✕ ' + T('cancelled', '취소됨')
         : te.state === 'none' ? '⚠ ' + T('no entry record', '입장 기록 없음')
         : te.state === 'cafe24' ? T('cafe24 · n/a', '카페24 · 기록 없음') : T('unknown', '확인 불가');
       ex.push(esc(T('Instructor in: ', '강사 입장: ')) + esc(teTxt));
       var AT = { attended: ['✅', 'Attended', '출석'], late: ['⏰', 'Late', '지각'], absent: ['❌', 'Absent (no entry)', '결석(입장 기록 없음)'],
                  waiting: ['⏳', 'Not in yet', '아직 입장 안 함'], not_yet: ['', 'Not started', '시작 전'], postponed: ['⏸', 'Postponed', '연기됨'], holiday: ['🎌', 'Holiday', '휴강'],
+                 cancelled: ['✕', 'Cancelled', '취소됨'],
                  unknown: ['❔', 'Unknown', '확인 불가'], cafe24: ['', 'cafe24 · n/a', '카페24 · 기록 없음'] }[at && at.state];
       var atTxt = AT ? ((AT[0] ? AT[0] + ' ' : '') + T(AT[1], AT[2]) + (at.at ? ' ' + hm(at.at) : '')
                    + (at.state === 'late' && at.late_min != null ? ' (+' + at.late_min + T('m', '분') + ')' : '')) : '—';
       ex.push(esc(T('Student: ', '학생 출결: ')) + esc(atTxt));
       /* 🔒 (2026-09-23) 지사·대리점에는 서버가 평가를 안 싣는다 — «없음» 이 아니라 «본사 전용» */
       var ev = function (e) { if (r.eval_hidden) return esc(T('HQ only', '본사 전용')); return e ? esc((e.date || '') + (e.score != null ? ' ⭐' + e.score + '/' + (e.max || '') : '') + (e.text ? ' · ' + e.text : '')) : '—'; };
-      var exLine = '<span class="muted" style="display:block;font-size:11px;line-height:1.55">' + ex.join(' · ')
+      // 🧾 (2026-11-03) «취소 · 연기» 줄 — 말할 것이 없으면 안 붙는다
+      var chgLine = taChangeLine(r);
+      var exLine = '<span class="muted" style="display:block;font-size:11px;line-height:1.55">'
+        + (chgLine ? esc(T('Cancelled · Postponed: ', '취소 · 연기: ')) + chgLine + '<br>' : '') + ex.join(' · ')
         + '<br>' + esc(T('Last feedback: ', '지난 평가: ')) + ev(r.last_eval)
         + '<br>' + esc(T("Today's feedback: ", '오늘 평가: ')) + ev(r.today_eval) + '</span>';
-      return '<div class="row"><b>' + t + '</b><span>' + who + subLine + exLine + '</span>' + resch
+      return '<div class="row' + (r.cancelled ? ' ta-cx' : '') + '"><b>' + (r.cancelled ? '<s>' + t + '</s>' : t) + '</b><span class="ta-st">' + who + subLine + exLine + '</span>' + resch
            + tea + telLine + tags + act + '</div>';
     }, T('No classes on this date.', '이 날짜에는 수업이 없습니다.'));
     var box = document.getElementById('todayAllBody');
@@ -2689,7 +2713,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       for (var i = 0; i < qs.length; i++) qs[i](got);
     };
     var sc = document.createElement('script');
-    sc.src = '/js/class-move-modal.js?v=15';
+    sc.src = '/js/class-move-modal.js?v=16';
     sc.onload = function(){ done(true); };
     sc.onerror = function(){ done(false); };
     document.head.appendChild(sc);

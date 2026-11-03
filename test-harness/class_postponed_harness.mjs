@@ -188,14 +188,16 @@ const ADM_S = strip(ADM);
   /* 🎌 (2026-10-09) 식에 공휴일 휴강(_holOff)이 더해졌다 — 인자로 받되 이 절의 시험은 «휴강 아님»(false) 으로 돌린다.
      휴강 쪽 판정은 holiday_closure_harness ⑨ 가 본다. 식에 그 이름이 없어도(옛 판) 그대로 돈다. */
   let jf0 = null;
-  try { jf0 = jm ? new Function('_postponed', 'nowMs', 'open_at_ts', 'close_at_ts', '_holOff', 'return (' + jm[1] + ');') : null; } catch (e) { jf0 = null; }
-  if (jf0) jf = (p, n, o, c) => jf0(p, n, o, c, false);
+  /* ✕ (2026-11-03) 취소된 회차(_cancelled)도 더해졌다 — 같은 방식으로 인자로 받고 기본은 «취소 아님». */
+  try { jf0 = jm ? new Function('_postponed', 'nowMs', 'open_at_ts', 'close_at_ts', '_holOff', '_cancelled', 'return (' + jm[1] + ');') : null; } catch (e) { jf0 = null; }
+  if (jf0) jf = (p, n, o, c) => jf0(p, n, o, c, false, false);
   ok('전제: join_open 식을 오려 냈다', typeof jf === 'function', jm && jm[1]);
   if (jf) {
     ok('연기면 입장 시간대 안이어도 닫힌다', jf(true, 100, 50, 200) === false);
     ok('짝: 연기 아니면 시간대 안에서 열린다', jf(false, 100, 50, 200) === true);
     ok('짝: 연기 아니어도 시간대 밖은 닫힌다', jf(false, 300, 50, 200) === false);
-    if (/_holOff/.test(jm[1])) ok('짝: 공휴일 휴강이면 시간대 안이어도 닫힌다', jf0(false, 100, 50, 200, true) === false);
+    if (/_holOff/.test(jm[1])) ok('짝: 공휴일 휴강이면 시간대 안이어도 닫힌다', jf0(false, 100, 50, 200, true, false) === false);
+    if (/_cancelled/.test(jm[1])) ok('짝: 취소된 회차면 시간대 안이어도 닫힌다', jf0(false, 100, 50, 200, false, true) === false);
   }
   ok('postponed 칸을 내려준다', /postponed:\s*_postponed,/.test(blk));
 }

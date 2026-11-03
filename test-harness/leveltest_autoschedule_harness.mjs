@@ -157,7 +157,8 @@ check('어느 날짜를 주든 그 주 «월요일» 로 맞춘다', /const mond
 check('반복 수업도 넣는다 (여기는 «내 시간표» 다)', /dowMatches\(s\.day_of_week, dow\) && recurStartedOn\(s, date\)/.test(tapi));
 check('일회성 수업도 넣는다', /String\(s\.scheduled_date\)\.slice\(0, 10\) === date/.test(tapi));
 check('주간이 그 판정·줄 모양을 실제로 쓴다',
-  /for \(const day of weekDays\) if \(hitsOn\(s, day\.date, day\.dow\)\) day\.items\.push\(calendarItemOf\(s, day\.date, _postponed\)\)/.test(tapi));
+  /* ✕ (2026-11-03) 취소된 날짜 회차도 시간표에 남기려고 넷째 인자(_cancelled)가 붙을 수 있다 — 뜻(같은 함수로 펼친다)은 그대로. */
+  /for \(const day of weekDays\) if \(hitsOn\(s, day\.date, day\.dow\)\) day\.items\.push\(calendarItemOf\(s, day\.date, _postponed(?:, _cancelled)?\)\)/.test(tapi));
 check('🔑 D1 을 다시 조회하지 않는다 (같은 rows 를 펼치기만)',
   /같은 rows 를 요일로 펼치기만/.test(tapi));
 const weekPushStart = tapi.indexOf('const calendarItemOf = ');

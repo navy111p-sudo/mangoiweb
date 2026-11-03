@@ -234,8 +234,10 @@ console.log('\n[ ③ 월 보기 — 서버 ?part=month ]');
   ok(ctx.calendarItemOf({ id: 8, user_id: 'lms', start_time: '9:5' }, '2026-10-01', true).class_state === 'postponed'
     && ctx.calendarItemOf({ id: 8, user_id: 'lms', start_time: '9:5' }, '2026-10-01', false).kind === 'lms',
     '연기·LMS 점유 슬롯도 주간과 같은 규칙');
-  ok(/for \(const day of weekDays\) if \(hitsOn\(s, day\.date, day\.dow\)\) day\.items\.push\(calendarItemOf\(s, day\.date, _postponed\)\)/.test(tapi)
-    && /for \(const day of monthDays\) if \(hitsOn\(s, day\.date, day\.dow\)\) day\.items\.push\(calendarItemOf\(s, day\.date, _postponed\)\)/.test(tapi),
+  /* ✕ (2026-11-03) 취소된 날짜 회차도 남기려고 넷째 인자(_cancelled)가 붙을 수 있다 — «둘이 같은 식» 인지는 그대로 묻는다. */
+  ok(/for \(const day of weekDays\) if \(hitsOn\(s, day\.date, day\.dow\)\) day\.items\.push\(calendarItemOf\(s, day\.date, _postponed(?:, _cancelled)?\)\)/.test(tapi)
+    && /for \(const day of monthDays\) if \(hitsOn\(s, day\.date, day\.dow\)\) day\.items\.push\(calendarItemOf\(s, day\.date, _postponed(?:, _cancelled)?\)\)/.test(tapi)
+    && (tapi.match(/day\.items\.push\(calendarItemOf\(s, day\.date, _postponed, _cancelled\)\)/g) || []).length !== 1,
     '🔑 주간과 월간이 «같은» 판정·줄 모양을 쓴다(한쪽만 고쳐지는 사고를 막는다)');
   ok(!/weekDays\[wi\]/.test(tapi), '⛔ 주간 전용 옛 판정 복제본이 남아 있지 않다');
   // 날짜 칸 만들기를 실제로 돌린다

@@ -97,6 +97,7 @@ import { cleanAnalysis, cleanScore, foreignFields, parseAnalysisJson, recoverNex
 import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid, ATTENDANCE_ACCOUNT_KEY, ATTENDANCE_BY_UID_LIST, attUidListBinds } from './attendance-uid';   // 📌 attendance 를 학생 계정으로 찾는 정본
 import { ensureStartsOnColumn, startsOnSel, normStartsOn, kstYmdOfMs, recurSkippedOn, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { isPostponedOccurrence, REACTIVATE_POSTPONED_SQL } from './class-postponed';
+import { isCancelledOccurrence, liveOrCancelledInRangeSql, judgeClassChange, loadClassChangeAudits } from './class-change-state';
 import { loadHolidayClosure, isHolidayClosedFor, type HolidayClosure } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 import { kstMonthBounds, kstMidnight, kstDateStr, activeBinds, activeCountSql, overdueSql, absentSql, classDaysSql, ATTENDED_ON_DATE_SQL, trendPct, briefingSanity, KPI_DEF_VERSION, OVERDUE_GRACE_DAYS, ABSENT_DAYS, ACTIVE_WINDOW_DAYS } from './kpi-active';   // 📊 경영 지표 분모·기간 정본(2026-10-13)
 import { diagnoseStudentDay } from './class-diagnose';   // 🔎 학생 하루 수업 진단(읽기 전용, 2026-10-01)   // ⏸ 연기된 회차 판정 정본(2026-10-01)
@@ -3609,16 +3610,20 @@ export async function handleAdminApi(
       const _ctStu = scopeStudentCond(_ctScope, 'se');       // 본사·내부직원은 빈 조건(=전체)
 
       let rows: any = { results: [] };
+      /* ✕ (2026-11-03 매니저 «취소해도 지우지 말고 취소·연기 상태를 칸으로») 취소된 회차도 «그 날짜면» 받는다.
+         예전엔 `status != 'cancelled'` 로 통째로 걸러, 취소한 수업이 목록에서 사라졌다(데이터는 남아 있었다).
+         ⛔ 날짜가 정해진 취소 행만 — 매주 반복 행의 cancelled 는 «회차» 가 아니다(정본 class-change-state.ts 규칙 ①).
+         ⚠️ 바인드 순서: 이 조각의 (date, date) 가 스코프 바인드보다 «앞» 이다. */
       try {
         rows = await env.DB.prepare(
           `SELECT cs.*, t.name AS t_name, se.level AS se_level, se.textbook AS se_textbook, se.shop_name AS se_shop, se.korean_name AS se_name
              FROM class_schedules cs
              LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
              LEFT JOIN students_erp se ON se.user_id = cs.user_id
-            WHERE COALESCE(cs.status,'active') != 'cancelled'
+            WHERE ${liveOrCancelledInRangeSql('cs')}
               AND LOWER(COALESCE(cs.user_id,'')) NOT IN ('lms','type_seed')
               ${_ctStu.cond ? `AND (${_ctStu.cond})` : ''}`
-        ).bind(..._ctStu.binds).all<any>();
+        ).bind(dateStr, dateStr, ..._ctStu.binds).all<any>();
       } catch {
         /* students_erp 는 스키마 드리프트가 있는 표다 — 조인이 깨지면 조인 없이 다시 한 번.
            ⚠️ 단 **스코프가 걸린 요청은 폴백하지 않는다**: 조건이 사라지면 남의 지사 학생까지 나간다.
@@ -3626,9 +3631,9 @@ export async function handleAdminApi(
         if (_ctStu.cond) { rows = { results: [] } as any; }
         else rows = await env.DB.prepare(
           `SELECT * FROM class_schedules
-            WHERE COALESCE(status,'active') != 'cancelled'
+            WHERE ${liveOrCancelledInRangeSql()}
               AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')`
-        ).all<any>().catch(() => ({ results: [] } as any));
+        ).bind(dateStr, dateStr).all<any>().catch(() => ({ results: [] } as any));
       }
 
       /* 🔄 (2026-08-28) 이 날짜의 1회성 대체강사 오버레이 — schedule_id → 대체강사 id/이름.
@@ -3682,7 +3687,12 @@ export async function handleAdminApi(
       const _ctHol = await loadHolidayClosure(env.DB, dateStr);
 
       const sessions: any[] = [];
+      // 🧾 「취소·연기」 칸 판정용 — schedule_id → 원본 행(상태·날짜·시각). 아래 «목록 완성 뒤» 에서 쓴다.
+      const _ctRowById = new Map<string, any>();
       for (const s of (rows.results || [])) {
+        /* ⛔ 매주 반복 행의 cancelled 는 «회차» 가 아니다 — 위 조회 조각이 이미 거르지만, 그 조각이 바뀌어도
+           «취소된 매주 수업이 열린 수업으로 되살아나는» 일이 없게 여기서 한 번 더 막는다(정본 class-change-state.ts 규칙 ①). */
+        if (String(s.status || '').trim().toLowerCase() === 'cancelled' && !isCancelledOccurrence(s)) continue;
         // 오늘 열리는 수업인가? (일회성=날짜 일치 / 반복=요일 일치)
         let occurs = false;
         if (s.scheduled_date) occurs = (String(s.scheduled_date).slice(0, 10) === dateStr);
@@ -3703,6 +3713,9 @@ export async function handleAdminApi(
         else if (nowMs < start_ts) status = 'open';
         else if (nowMs <= close_at_ts) status = 'live';
         else status = 'ended';
+        /* ✕ (2026-11-03) 취소된 회차 — 연기와 같은 원칙: 줄은 지우지 않고 상태를 'cancelled' 로, 입장·참관·옮기기는 닫는다.
+           정본 src/class-change-state.ts(날짜가 정해진 행만). 취소가 «사실» 이라 아래 연기·휴강보다 나중에 덮어쓴다. */
+        const _cancelled = isCancelledOccurrence(s);
         /* ⏸ (2026-10-01) 연기된 회차 — 줄은 지우지 않고(지우면 «수업이 없어졌다» 로 읽힌다)
            상태를 'postponed' 로, 입장은 닫는다. 정본 src/class-postponed.ts. */
         const _postponed = isPostponedOccurrence(s);
@@ -3714,12 +3727,14 @@ export async function handleAdminApi(
         // 🎌 휴강 — 그날 실제로 가르칠 강사(대체강사가 있으면 그쪽)로 판정한다. 연기가 먼저(연기는 이미 «안 열림»).
         const _holOff = !_postponed && isHolidayClosedFor(_ctHol, sub ? sub.id : s.teacher_id);
         if (_holOff) status = 'holiday';
+        if (_cancelled) status = 'cancelled';
+        _ctRowById.set(String(s.id), { status: s.status, scheduled_date: s.scheduled_date, start_time: s.start_time });
         const origTeacherName = s.t_name || s.teacher_name || null;
 
         sessions.push({
           schedule_id: s.id,
           source: 'mangoi',            // 🏷 망고아이 예약 = 우리 방이 있다 → 입장·참관 가능
-          observable: true,
+          observable: !_cancelled,     // ✕ 취소된 회차는 참관할 수업이 없다(빈 방을 열지 않는다)
           room_id: `class-${s.id}-${ymd}`,
           student_uid: s.user_id || null,
           // 🏷 (2026-09-28) 이름 칸이 빈 행(학생 상세 화면 등록분)은 명부 이름으로 보충 — 주간 스케줄과 같은 규칙
@@ -3742,10 +3757,14 @@ export async function handleAdminApi(
           start_time: s.start_time || null,
           duration_min: dur,
           start_ts, end_ts, status,
-          join_open: !_postponed && !_holOff && nowMs >= open_at_ts && nowMs <= close_at_ts,
+          join_open: !_postponed && !_holOff && !_cancelled && nowMs >= open_at_ts && nowMs <= close_at_ts,
           postponed: _postponed,
-          holiday: _holOff,
-          holiday_name: _holOff ? (_ctHol.name || null) : null,
+          /* ✕ 취소된 회차 — 화면은 이 칸을 «휴강·연기보다 먼저» 본다(입장·참관·연기 버튼 대신 «취소됨»).
+             「취소·연기」 칸의 누가·언제는 아래 «목록 완성 뒤» change 로 붙인다. */
+          cancelled: _cancelled,
+          change: null,
+          holiday: _holOff && !_cancelled,
+          holiday_name: (_holOff && !_cancelled) ? (_ctHol.name || null) : null,
           /* 🧪 (2026-08-06 마이마이 요청) "레벨테스트와 일반수업을 한 화면에서 보고 싶다".
              레벨테스트도 예약을 잡는 순간 class_schedules 의 일회성(one_off) 행이 되므로
              목록은 이미 하나다. 다만 **구분이 안 돼서** 따로 있는 것처럼 보였다.
@@ -3761,7 +3780,8 @@ export async function handleAdminApi(
                 서버는 'recorded'(자동 이동 불가)를 돌려준다.
              🔴 반복(매주) 수업에 «취소» 를 허용하면 **그 주만이 아니라 모든 주가 죽는다**
                 (class_schedules 한 행이 매주를 뜻하므로). 그래서 화면이 아예 안 준다. */
-          can_move: !!s.scheduled_date,
+          // ✕ 취소된 회차는 옮길 수 없다 — 서버 이동도 'schedule_not_movable' 로 거절한다(«눌러도 안 되는 버튼» 금지).
+          can_move: !!s.scheduled_date && !_cancelled,
           /* 📅 (2026-10-08 매니저 「매니저는 그날만 연기할 수 있나? 아무 때나 연기하게 해줘」)
              매주 반복 줄도 «날짜별로 나누기»(src/schedule-split.ts) 를 먼저 하면 그 날 하나만 옮길 수 있다.
              연기·변경 창(js/class-move-modal.js)이 이 칸이 참일 때만 «나눈 뒤 처리» 를 준다.
@@ -3864,6 +3884,16 @@ export async function handleAdminApi(
       // Join/observe and room-linked enrichment must use the student/teacher room for this date.
       await applyRoomOverrides(env.DB, sessions.filter(s => s.source === 'mangoi'), ymd);
 
+      /* 🧾 (2026-11-03) 「취소·연기」 칸 — 정본 class-change-state.ts(취소 > 연기 > 다른 날짜·시각에서 옮겨 옴).
+         누가·왜는 연락처·평가와 같은 청중(_ctSeeContact = 본사·내부직원)에게만 싣는다 — 지사·대리점에 본사 직원 이름·
+         내부 사유가 나가지 않게. 이력 조회가 실패해도 «취소·연기» 자체는 행 상태로 말한다(누가·언제만 비고,
+         change_history='failed' 로 «못 물어봤다» 를 알린다). ⛔ 던지지 않는다 — 이 칸 때문에 목록이 죽으면 안 된다. */
+      const _ctMg = sessions.filter(x => x.source === 'mangoi' && x.schedule_id != null);
+      const _ctAu = await loadClassChangeAudits(env.DB, _ctMg.map(x => x.schedule_id));
+      for (const x of _ctMg) {
+        x.change = judgeClassChange(_ctRowById.get(String(x.schedule_id)), _ctAu.bySchedule.get(String(x.schedule_id)), { showActor: _ctSeeContact });
+      }
+
       /* ☎ 연락처 — 본사·내부직원(_ctSeeContact)일 때만, 이미 스코프로 잘린 이 목록(두 갈래 모두)에만 붙인다.
          정본이 «다 물어봤나»(complete)를 함께 주므로, 조회가 실패하면 화면이 «번호가 없다» 가 아니라
          «확인하지 못했다» 고 말한다(contact_source='failed'). ⛔ 던지지 않는다 — 연락처 때문에 목록이 죽으면 안 된다. */
@@ -3893,6 +3923,8 @@ export async function handleAdminApi(
       const res = json({
         ok: true,
         contact_source: contactSource,
+        // 🧾 「취소·연기」 칸의 누가·언제 근거 — 'ok' | 'failed'(이력을 못 읽어 «취소·연기» 만 말한다)
+        change_history: _ctAu.complete ? 'ok' : 'failed',
         contact_missing: sessions.filter(x => !x.contact_phone).length,
         // 🔁 `today` 는 옛 화면이 읽던 이름이라 그대로 둔다(값은 «조회한 날짜»). `date` 가 새 이름.
         today: dateStr, date: dateStr, is_today: dateStr === todayStr,
@@ -3905,6 +3937,10 @@ export async function handleAdminApi(
           cafe24_slot_duplicates_hidden: c24SlotDuplicates.hidden,
           joinable: sessions.filter(x => x.join_open).length,
           holiday: sessions.filter(x => x.holiday).length,
+          // ✕⏸📅 (2026-11-03) 「취소·연기」 칸이 말하는 줄 수 — 화면 머리 줄이 «오늘 취소 N건» 을 말한다.
+          cancelled: sessions.filter(x => x.cancelled).length,
+          postponed: sessions.filter(x => x.postponed).length,
+          moved: sessions.filter(x => x.change && x.change.kind === 'moved').length,
         },
         // 🎌 그날이 휴강일이면 이름과 쉬는 건수(화면이 머리 줄에 한 번 말한다). 평일이면 null.
         holiday: _ctHol.closed ? { name: _ctHol.name || null, closed: sessions.filter(x => x.holiday).length } : null,

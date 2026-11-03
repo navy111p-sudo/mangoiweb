@@ -375,7 +375,8 @@ sec('D. 서버 classes/today 의 can_split');
     ok('지사·대리점은 거짓 (짝)', ['franchise', 'branch', 'agency'].every(t => call({ scheduled_date: null, source: 'x' }, t) === false));
     ok('날짜 수업은 거짓 (나눌 필요 없음 — can_move 쪽)', call({ scheduled_date: '2026-10-12', source: 'x' }, 'hq') === false);
   }
-  ok('can_move 는 그대로 «날짜가 있는가»', /can_move:\s*!!s\.scheduled_date,/.test(ts));
+  // ✕ (2026-11-03) 단 취소된 회차는 옮길 수 없다(_cancelled) — 근거 칸은 여전히 «날짜가 있는가» 하나.
+  ok('can_move 는 그대로 «날짜가 있는가»', /can_move:\s*!!s\.scheduled_date(?: && !_cancelled)?,/.test(ts));
   const route = blockFrom(ts, "if (method === 'POST' && /^\\/api\\/admin\\/class-schedules\\/\\d+$/.test(path))");
   ok('전제 — 나누기 라우트를 잘라 냈다', route.length > 500, route.length);
   ok('나누기는 본사 전용(enrollAdminHqOnly)이 «먼저»', route.indexOf('enrollAdminHqOnly') > 0 && route.indexOf('enrollAdminHqOnly') < route.indexOf('runScheduleSplit'));

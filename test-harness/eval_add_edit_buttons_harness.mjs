@@ -202,7 +202,8 @@ ok('D-9b 세 화면 모두 서버 회차(prev_classes)를 창에 넘긴다', /pr
 ok('D-9c 강사: 다시그리기 지문에 지난 회차 목록이 있다(캐시 뒤 서버 응답에서 버튼이 뜨게)', /sc\.prev_classes\.length/.test(TCH));
 ok('D-10 manager·teacher 는 공용 창을 정적 <script src> 로 싣지 않는다(외부 리소스 0개)',
   !/<script[^>]+src="\/js\/eval-quick-view/.test(MGR) && !/<script[^>]+src="\/js\/eval-quick-view/.test(TCH));
-ok('D-11 관리자 CSS: 버튼 색은 조상 id 로(인라인은 카드 규칙에 눌린다)', /admin-inline-c\.css\?v=85/.test(ADMIN_HTML)
+// ⚠️ 판 번호는 «그 규칙이 들어간 판(85) 이상» 으로 묻는다 — 뒤에 다른 규칙이 붙어 판이 오를 때마다 빨간불이 되지 않게(2026-11-03 v=86).
+ok('D-11 관리자 CSS: 버튼 색은 조상 id 로(인라인은 카드 규칙에 눌린다)', Number((ADMIN_HTML.match(/admin-inline-c\.css\?v=(\d+)/) || [])[1] || 0) >= 85
   && /#sm-today-classes span\.tc-evq-act\{/.test(readFileSync(join(PUB, 'css', 'admin-inline-c.css'), 'utf8')));
 
 console.log('\n결과: PASS ' + PASS + ' / FAIL ' + FAIL);

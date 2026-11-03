@@ -156,6 +156,13 @@ html.dark .kpi-arrow{color:#7c8899}
 .row.ta-s{display:grid;grid-template-columns:minmax(115px,1fr) minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr);gap:8px;flex-wrap:nowrap}
 /* 📅 (2026-10-20) 간단히 보기에도 «연기·변경» — 다섯째 칸(옮길 수 없는 줄은 빈 칸) */
 .row.ta-s.ta-s5{grid-template-columns:minmax(115px,1fr) minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr) auto}
+/* 🧾 (2026-11-03) 간단히 보기 «취소 · 연기» 칸 — 이동 칩 앞. 취소 줄은 흐리게, 단 그 칸(.ta-st)은 또렷하게(왜 흐린지 읽혀야 한다). */
+.row.ta-s.ta-s6{grid-template-columns:minmax(115px,1fr) minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr) auto auto}
+/* 📱 폰에서는 그 칸을 줄 «아래» 로 내린다 — 한 줄에 두면 글자 칸(auto)이 자리를 먼저 차지해 학생 이름·아이디·강사 칸이
+   0 폭으로 눌려 사라졌다(2026-11-03 390px 실측). 말할 것이 없는 줄은 빈 칸을 아예 숨겨 줄 높이를 늘리지 않는다. */
+@media (max-width:600px){.row.ta-s.ta-s6{grid-template-columns:minmax(115px,1fr) minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr) auto}
+  .row.ta-s.ta-s6>.ta-st{order:1;grid-column:1 / -1}.row.ta-s.ta-s6>.ta-st:empty{display:none}}
+.row.ta-cx>*:not(.ta-st){opacity:.6}
 .row.ta-s>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row.ta-s b{flex:none}
 .ta-mode{cursor:pointer;display:inline-block;margin-left:6px;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700;border:1px solid #cbd5e1;background:#fff;color:#344054}
@@ -3846,6 +3853,21 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     return '<span class="tag ta-open" role="button" tabindex="0" data-ta="' + esc(r.schedule_id) + '">'
          + esc(T('📅 Move', '📅 연기·변경')) + '</span>';
   }
+  /* 🧾 (2026-11-03 매니저 «취소해도 지우지 말고, 취소·연기 상태를 칸으로») 「취소 · 연기」 — admin.html(js/adm-today-classes.js xChange)과
+     **같은 서버 값**(r.change — 정본 src/class-change-state.ts: 취소 > 연기 > 다른 날짜·시각에서 옮겨 옴). 이 화면은 외부 스크립트
+     0개 계약이라 두 벌이다 — 판정은 서버가 하고 여기는 글자만 고른다. 누가·사유는 서버가 본사·내부직원에게만 싣는다.
+     full=true 면 누가·언제·사유까지(자세히 보기). 말할 것이 없으면 ''. */
+  function taChangeCell(r, full){
+    var c = r && r.change;
+    if (!c || !c.kind) c = (r && r.cancelled) ? { kind: 'cancelled', label_ko: '✕ 취소됨', label_en: '✕ Cancelled' }
+      : ((r && r.postponed) ? { kind: 'postponed', label_ko: '⏸ 연기됨 — 새 날짜 미정', label_en: '⏸ Postponed — no new date' } : null);
+    var label = c ? T(c.label_en || '', c.label_ko || '') : '';
+    if (!label) return '';
+    var h = '<span class="tag' + (c.kind === 'moved' ? '' : ' hot') + '">' + esc(label) + '</span>';
+    if (!full) return h;
+    var tail = [c.by || '', c.at_kst || ''].filter(Boolean).join(' · ');
+    return h + (tail ? ' ' + esc(tail) : '') + (c.reason ? ' · ' + esc(c.reason) : '');
+  }
   /* 📋 (2026-10-07 사장님) 기본은 «간단히»(시간·이름·아이디·강사). 연기·입장·평가 등은 «자세히» 에 그대로 있다.
      ⛔ 자세히 보기를 없애지 말 것 — 매니저 요청(연기·변경·교재 배정·캘린더)이 전부 그쪽에 있다.
      저장은 이 기기 편의(localStorage) — 못 읽으면 간단히. */
@@ -3917,6 +3939,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         + '<br>'
       : '';
     j._shown = rows; j._shownAc = acSel;
+    // ✕⏸ (2026-11-03) 취소·연기 건수 — «표시된 줄» 기준(거르는 중이면 눈앞의 목록을 말한다)
+    var nCx = rows.filter(function (r) { return r.cancelled; }).length;
+    var nPp = rows.filter(function (r) { return r.postponed; }).length;
     var simple = taSimple();
     var head = '<div class="muted" style="padding-bottom:6px">'
       /* 🎌 휴강일이면 맨 위에 한 줄 — 서버가 준 이름·건수만 쓴다(판정은 서버 holiday-closure.ts). */
@@ -3926,19 +3951,23 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       + (cnote && !simple ? esc(cnote) + '<br>' : '')
       + esc(T((j.date || '') + ' · ' + rows.length + ' total'
                 + (c.cafe24 ? ' · ' + c.cafe24 + ' on cafe24' : '')
-                + (c.joinable ? ' · ' + c.joinable + ' joinable' : ''),
+                + (c.joinable ? ' · ' + c.joinable + ' joinable' : '')
+                + (nCx ? ' · ' + nCx + ' cancelled' : '') + (nPp ? ' · ' + nPp + ' postponed' : ''),
               (j.date || '') + ' · 전체 ' + rows.length + '건'
                 + (c.cafe24 ? ' · 카페24 ' + c.cafe24 + '건' : '')
-                + (c.joinable ? ' · 입장가능 ' + c.joinable + '건' : '')))
+                + (c.joinable ? ' · 입장가능 ' + c.joinable + '건' : '')
+                + (nCx ? ' · 취소 ' + nCx + '건' : '') + (nPp ? ' · 연기 ' + nPp + '건' : '')))
       + '<a href="#" class="ta-mode" onclick="return taToggleDetail()">' + esc(simple ? T('Show details', '자세히 보기') : T('Simple view', '간단히 보기')) + '</a></div>';
     hqRows('todayAllBody', rows, function(r){
       var t = esc(MangoiClassDisplay.range(r));
       var who = esc(r.student_name || r.student_uid || '-');
       if (simple) {
-        return '<div class="row ta-s ta-s5"><b>' + t + '</b><span>' + esc(r.student_name || '—') + '</span>'
+        /* 🧾 (2026-11-03) 다섯째 칸 «취소 · 연기» — 취소한 수업은 지우지 않고 그 자리에 «✕ 취소됨» 으로 남는다(시간엔 취소선). */
+        return '<div class="row ta-s ta-s6' + (r.cancelled ? ' ta-cx' : '') + '"><b>' + (r.cancelled ? '<s>' + t + '</s>' : t) + '</b><span>' + esc(r.student_name || '—') + '</span>'
           + '<span class="muted">' + esc(r.student_uid || '—') + '</span>'
           + (r.teacher_name ? '<span>' + esc(r.teacher_name) + '</span>'
              : '<span style="color:#b45309;font-weight:800">' + esc(T('unassigned', '미배정')) + '</span>')
+          + '<span class="ta-st">' + taChangeCell(r) + '</span>'
           + '<span>' + taMovePill(r) + '</span></div>';
       }
       /* ⚠️ 강사 미배정은 매니저가 가장 먼저 봐야 하는 줄이다 — 회색(.muted) 안에 넣으면
@@ -4012,7 +4041,12 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       if (r.postponed) act = '<span class="tag hot">' + esc(T('⏸ Postponed', '⏸ 연기됨')) + '</span>';
       /* 🎌 (2026-10-09) 공휴일 휴강 — 서버가 status='holiday'·join_open=false 로 보낸다(중국어 수업은 그대로 열림). */
       if (r.holiday) act = '<span class="tag">' + esc(T('🎌 Holiday — no class', '🎌 공휴일 휴강')) + '</span>';
-      if (r.source === 'cafe24' && !r.schedule_id) {
+      /* ✕ (2026-11-03) 취소된 수업 — 서버가 status='cancelled'·join_open=false·can_move=false 로 보낸다. 줄은 남기고 «취소됨» 을 글자로,
+         옮기기 칩·«매주 반복» 안내는 주지 않는다(취소된 회차는 옮길 수 없다 — 서버도 거절). */
+      if (r.cancelled) act = '<span class="tag hot ta-st">' + esc(T('✕ Cancelled — no class', '✕ 취소됨 — 수업 없음')) + '</span>';
+      if (r.cancelled) {
+        resch = '';
+      } else if (r.source === 'cafe24' && !r.schedule_id) {
         /* ❔ (2026-10-01 매니저 질문 «why other classes don't have move button?») 카페24(LMS) 줄은 망고아이 예약표에
            행이 없어 여기서 옮길 수 없다 — 버튼이 «없다» 대신 그 이유를 글자로 적는다(폰엔 hover 가 없다). */
         resch = '<span class="tag">' + esc(T('LMS class — change in cafe24', '카페24 수업 — 카페24에서 변경')) + '</span>';
@@ -4042,11 +4076,13 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         : te.state === 'pending' ? T('not yet', '아직 전')
         : te.state === 'postponed' ? '⏸ ' + T('postponed', '연기됨')
         : te.state === 'holiday' ? '🎌 ' + T('holiday', '휴강')
+        : te.state === 'cancelled' ? '✕ ' + T('cancelled', '취소됨')
         : te.state === 'none' ? '⚠ ' + T('no entry record', '입장 기록 없음')
         : te.state === 'cafe24' ? T('cafe24 · n/a', '카페24 · 기록 없음') : T('unknown', '확인 불가');
       ex.push(esc(T('Instructor in: ', '강사 입장: ')) + esc(teTxt));
       var AT = { attended: ['✅', 'Attended', '출석'], late: ['⏰', 'Late', '지각'], absent: ['❌', 'Absent (no entry)', '결석(입장 기록 없음)'],
                  waiting: ['⏳', 'Not in yet', '아직 입장 안 함'], not_yet: ['', 'Not started', '시작 전'], postponed: ['⏸', 'Postponed', '연기됨'], holiday: ['🎌', 'Holiday', '휴강'],
+                 cancelled: ['✕', 'Cancelled', '취소됨'],
                  unknown: ['❔', 'Unknown', '확인 불가'], cafe24: ['', 'cafe24 · n/a', '카페24 · 기록 없음'] }[at && at.state];
       var atTxt = AT ? ((AT[0] ? AT[0] + ' ' : '') + T(AT[1], AT[2]) + (at.at ? ' ' + hm(at.at) : '')
                    + (at.state === 'late' && at.late_min != null ? ' (+' + at.late_min + T('m', '분') + ')' : '')) : '—';
@@ -4068,7 +4104,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         return ' <span class="evq-act evq-add" role="button" tabindex="0" data-evq-new="' + which + '" data-room="' + esc(r.room_id) + '" data-uid="' + esc(r.student_uid) + '">'
           + esc(which === 'last' ? T('➕ Add last', '➕ 지난 피드백 추가') : T('➕ Add today', '➕ 오늘 피드백 추가')) + '</span>';
       };
-      var exLine = '<span class="muted" style="display:block;font-size:11px;line-height:1.55">' + ex.join(' · ')
+      /* 🧾 (2026-11-03) «취소 · 연기» 줄 — 누가·언제·사유까지(서버가 본사·내부직원에게만 싣는 값). 말할 것이 없으면 안 붙는다. */
+      var chgLine = taChangeCell(r, true);
+      var exLine = '<span class="muted" style="display:block;font-size:11px;line-height:1.55">'
+        + (chgLine ? esc(T('Cancelled · Postponed: ', '취소 · 연기: ')) + chgLine + '<br>' : '') + ex.join(' · ')
         + '<br>' + esc(T('Last feedback: ', '지난 평가: ')) + ev(r.last_eval) + evAct('last')
         + '<br>' + esc(T("Today's feedback: ", '오늘 평가: ')) + ev(r.today_eval) + evAct('today') + '</span>';
       /* 📅 (2026-09-23 사장님 «매니저 화면에도 똑같이») 이번 주 7칸 + 「📅 캘린더」 → 학생 상세 스케줄 탭 창.
@@ -4096,7 +4135,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
           + '<span class="tag" role="button" tabindex="0" style="cursor:pointer" data-calpin="' + esc(r.student_uid) + '" data-calwho="' + esc(r.student_name || r.student_uid) + '">'
           + esc(T('📅 Calendar', '📅 캘린더')) + '</span></span>';
       }
-      return '<div class="row"><b>' + t + '</b><span>' + who + subLine + exLine + calLine + '</span>' + resch
+      return '<div class="row' + (r.cancelled ? ' ta-cx' : '') + '"><b>' + (r.cancelled ? '<s>' + t + '</s>' : t) + '</b><span class="ta-st">' + who + subLine + exLine + calLine + '</span>' + resch
            + tea + telLine + tags + act + '</div>';
     }, (acSel || teSel)
       /* 🏫 거르는 중 0건은 «원래 없음» 과 다르다 — 그렇게 말한다 */
@@ -4191,7 +4230,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       for (var i = 0; i < qs.length; i++) qs[i](got);
     };
     var sc = document.createElement('script');
-    sc.src = '/js/class-move-modal.js?v=15';
+    sc.src = '/js/class-move-modal.js?v=16';
     sc.onload = function(){ done(true); };
     sc.onerror = function(){ done(false); };
     document.head.appendChild(sc);

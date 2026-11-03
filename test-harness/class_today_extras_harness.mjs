@@ -271,7 +271,9 @@ const adm = readFileSync(join(PUB, 'js', 'adm-today-classes.js'), 'utf8');
 // 머리칸은 '<th>' 글자 또는 tcTh(...) 호출(2026-09-28 정렬 머리글) — 둘 다 «thead 안» 에서 센다.
 const thead = adm.slice(adm.indexOf("'<thead><tr>'"), adm.indexOf("'</tr></thead>"));
 const th = (thead.match(/'<th>'/g) || []).length + (thead.match(/\btcTh\(/g) || []).length;
-const tb = adm.slice(adm.indexOf("return '<tr>'"), adm.indexOf("'</tr>';", adm.indexOf("return '<tr>'")));
+// ✕ (2026-11-03) 줄 여는 태그에 클래스가 붙을 수 있다(취소 줄 «tc-row-cancelled») — «return '<tr» 로 찾는다.
+const tr0 = adm.indexOf("return '<tr");
+const tb = adm.slice(tr0, adm.indexOf("'</tr>';", tr0));
 const td = (tb.match(/'<td[ >]/g) || []).length;
 ok('관리자 표: th 수 = 한 줄의 td 수', th === td && th >= 15, { th, td });
 // ↕ (2026-09-28) 머리글 정렬 — 거른 «뒤» 의 줄을 정렬해 그리는가 · 날짜는 start_ts 숫자로 비교하는가
@@ -311,7 +313,7 @@ const modal = cut(adm, 'function tcOpenCalModal(uid, who)');
 ok('캘린더 창이 학생 상세의 스케줄 탭을 연다', /\/admin\/student\.html\?uid=' \+ encodeURIComponent\(uid\) \+ '&tab=schedule'/.test(modal));
 ok('캘린더 창: 새 탭은 <a target=_blank> (window.open 금지)', /target="_blank" rel="noopener"/.test(modal) && !/window\.open/.test(modal));
 ok('캘린더 창: vh 단위를 쓰지 않는다(zoom 1.3)', !/\d+vh/.test(modal));
-const rend = adm.slice(adm.indexOf("return '<tr>'"));
+const rend = adm.slice(adm.indexOf("return '<tr"));   // ✕ (2026-11-03) 줄 태그에 클래스가 붙을 수 있다
 ok('칩에 클릭·키보드 리스너를 단다', /querySelectorAll\('\.tc-cal-pin'\)[\s\S]{0,600}tcOpenCalModal\(uid/.test(rend) && /querySelectorAll\('\.tc-cal-pin'\)[\s\S]{0,900}keydown/.test(rend));
 {
   const stu = readFileSync(join(PUB, 'admin', 'student.html'), 'utf8');
@@ -343,7 +345,7 @@ for (const k of ['r.teacher_entry', 'r.attendance', 'r.pay_type', 'r.sched_label
 // 📅 매니저 화면 «수업 캘린더»(2026-09-23 «매니저 화면에도 똑같이») — calLine 블록을 오려 내 «실제로» 돌린다
 {
   const c0 = mgr.indexOf('var calLine = \'\';');
-  const c1 = mgr.indexOf("return '<div class=\"row\">", c0);
+  const c1 = mgr.indexOf("return '<div class=\"row", c0);   // ✕ (2026-11-03) 취소 줄 클래스(ta-cx)가 붙을 수 있다
   const blk = c0 > 0 && c1 > c0 ? mgr.slice(c0, c1) : '';
   ok('매니저: calLine 블록을 오려 냈다', blk.length > 300);
   let mk2 = null;

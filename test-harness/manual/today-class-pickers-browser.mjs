@@ -119,7 +119,8 @@ async function main() {
   await ev('(function(){var d=document.getElementById("sm-today-classes"); if(d) d.open=true;})()');
   await ev('typeof tcLoadToday === "function" ? tcLoadToday() : Promise.reject("tcLoadToday 없음")');
   await sleep(900);
-  const names = () => ev('[...document.querySelectorAll("#tc-body tbody tr td:nth-child(4) b")].map(e=>e.textContent.trim()).sort().join(",")');
+  /* ⚠️ (2026-11-03) 상태 옆에 «취소 · 연기» 칸이 생겨 학생 칸이 5번째가 됐다(th·td 순서는 짝 — adm-today-classes.js). */
+  const names = () => ev('[...document.querySelectorAll("#tc-body tbody tr td:nth-child(5) b")].map(e=>e.textContent.trim()).sort().join(",")');
 
   console.log('\n── A① 관리자: 드롭다운이 툴바에 있고 «그날 줄» 로 채워지는가 ──');
   check('학원·강사 드롭다운이 있다', await ev('!!document.getElementById("tc-academy") && !!document.getElementById("tc-teacher")'));

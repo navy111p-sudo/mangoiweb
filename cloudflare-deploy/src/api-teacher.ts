@@ -33,6 +33,7 @@ import { applyRoomOverrides } from './class-room-override';   // 🚪 「오늘�
 import { applyStudentElsewhere } from './teacher-student-elsewhere';   // 🚪 «학생이 다른 방에 있어요»(2026-10-21) — 방을 갈아 끼운 «뒤» 에 본다
 import { loadHoldRanges, heldOnFor } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25) — 강사에게 «기다리지 말라» 를 알린다
 import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
+import { isCancelledOccurrence, liveOrCancelledInRangeSql } from './class-change-state';   // ✕ 취소된 회차 판정 정본(2026-11-03)
 import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 import { loadHandovers } from './teacher-handover';   // 🤝 강사 인수인계 카드(2026-10-10)
 import { loadActiveGoals, setStudentGoal, goalByKey, GOALS } from './student-goal';   // 🗓 4주 목표(2026-10-10)
@@ -110,7 +111,8 @@ const resolveStudentName = (s: any): string | null => {
 /* 🎌 달력 줄(주간·월간)에 공휴일 휴강을 입힌다 — 판정 정본은 holiday-closure.ts, 여기는 «입히기» 한 곳.
    연기된 회차는 이미 «안 열림» 이라 건드리지 않는다. 중국어 수업(예외 강사)은 isHolidayClosedFor 가 거른다. */
 function applyHolidayToItems(items: any[], holiday: any): void {
-  for (const it of items) if (it.class_state !== 'postponed' && isHolidayClosedFor(holiday, it.teacher_id)) {
+  // ✕ (2026-11-03) 취소된 회차는 «휴강» 으로 덮지 않는다 — 취소가 사실이다(연기와 같은 원칙).
+  for (const it of items) if (it.class_state !== 'postponed' && it.class_state !== 'cancelled' && isHolidayClosedFor(holiday, it.teacher_id)) {
     it.status = 'holiday'; it.holiday_name = holiday.name;
   }
 }
@@ -614,9 +616,13 @@ export async function handleTeacherApi(
        예전엔 여기서 통째로 뺐다. 그런데 강사 입장에서는 «내 수업이 그냥 없어진» 것으로 보인다 —
        취소를 본 적이 없으니 「왜 없어졌지」가 된다.
        → 받아 와서 «오늘 것만» 회색으로 남기고, 내일부터는 그리지 않는다(아래 class_state).
-       ⚠️ 주간 시간표(weekDays)·앞으로 7일(upcoming)에는 넣지 않는다 — 거기는 «앞으로 할 일» 이라
-          취소된 것이 섞이면 시간표를 잘못 읽는다. */
-    const whereSql = `(cs.status IS NULL OR cs.status <> 'cancelled' OR cs.scheduled_date = ?) AND (${conds.join(' OR ')})`;
+       ⚠️ 앞으로 7일(upcoming)에는 넣지 않는다 — 거기는 «앞으로 할 일» 이라 취소된 것이 섞이면 잘못 읽는다.
+       ✕ (2026-11-03 매니저 «취소해도 지우지 말고 취소·연기 상태를 보여 달라») 주간·월간 시간표에도 넣는다 —
+          8/19 에는 «시간표를 잘못 읽는다» 고 뺐는데, 그 결과 어제 취소한 수업이 시간표에서 «통째로 사라졌다» 는
+          제보가 됐다. 그래서 «빼지 않고» 회색·취소선·«취소됨» 글자로 갈라 그린다(teacher.html).
+          받아 오는 범위 = 오늘 + 보고 있는 주 + 보고 있는 달(날짜가 정해진 취소 행만 — 정본 class-change-state.ts). */
+    const _cxDays = [todayStr, ...weekDates, ...monthDays.map((d: any) => String(d.date))].sort();
+    const whereSql = `${liveOrCancelledInRangeSql('cs')} AND (${conds.join(' OR ')})`;
     const _soSel = startsOnSel(await ensureStartsOnColumn(env), 'cs');   // 📅 매주 반복의 시작일
     // 교재·레벨은 students_erp 에서 — 스키마 드리프트가 있는 테이블이라 실패하면 조인 없이 재시도.
     const sqlJoin =
@@ -633,8 +639,8 @@ export async function handleTeacherApi(
               cs.duration_min, cs.notes, cs.class_type, cs.source, cs.status AS sched_status${_soSel}
          FROM class_schedules cs WHERE ${whereSql}`;
     let rows: any;
-    // ⚠️ whereSql 맨 앞에 취소-예외용 ? 하나가 늘었다 — 바인드 순서를 반드시 맞춘다.
-    const bindsAll = [todayStr, ...binds];
+    // ⚠️ whereSql 맨 앞에 취소-예외용 ? 두 개(범위 from·to)가 있다 — 바인드 순서를 반드시 맞춘다.
+    const bindsAll = [_cxDays[0], _cxDays[_cxDays.length - 1], ...binds];
     try { rows = await env.DB.prepare(sqlJoin).bind(...bindsAll).all<any>(); }
     catch { try { rows = await env.DB.prepare(sqlPlain).bind(...bindsAll).all<any>(); } catch { rows = { results: [] }; } }
     // 🪪 이름 칸이 비었거나 «아이디 그대로» 면 명부(students_erp)의 이름으로 채운다 — resolveStudentName 참고.
@@ -706,7 +712,7 @@ export async function handleTeacherApi(
     const hitsOn = (s: any, date: string, dow: number): boolean => s.scheduled_date
       ? (String(s.scheduled_date).slice(0, 10) === date)
       : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, dow) && recurStartedOn(s, date));
-    const calendarItemOf = (s: any, date: string, postponed: boolean): any => {
+    const calendarItemOf = (s: any, date: string, postponed: boolean, cancelled?: boolean): any => {
       const [wh, wm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
       return {
         id: s.id,
@@ -716,8 +722,9 @@ export async function handleTeacherApi(
         class_date: date,
         room_id: 'class-' + s.id + '-' + date.replace(/-/g, ''),
         start_ts: Date.parse(date + 'T' + pad(wh || 0) + ':' + pad(wm || 0) + ':00+09:00'),
-        class_state: postponed ? 'postponed' : undefined,
-        status: postponed ? 'postponed' : (date > todayStr ? 'early' : 'done'),
+        // ✕ 취소 > 연기 — 취소된 회차는 «취소됨» 으로(입장·피드백 작성 없음). teacher.html 이 회색·취소선으로 그린다.
+        class_state: cancelled ? 'cancelled' : (postponed ? 'postponed' : undefined),
+        status: cancelled ? 'cancelled' : (postponed ? 'postponed' : (date > todayStr ? 'early' : 'done')),
         start_time: `${pad(wh || 0)}:${pad(wm || 0)}`,
         duration_min: Number(s.duration_min) || 30,
         level: s.level || null,
@@ -736,13 +743,15 @@ export async function handleTeacherApi(
       /* 🗓 주간 스케줄 — 오늘/앞으로 판정과 «별개» 로 먼저 채운다.
          반복 수업도 넣는다: 여기는 «내 시간표» 라 그게 본래 목적이다.
          (앞의 upcoming 목록에는 일부러 안 넣었다 — 거기는 «특별한 한 건» 을 띄우는 자리다) */
-      // 🗓 취소된 수업은 «오늘 목록» 에만 회색으로 남긴다 — 시간표·앞으로 7일에는 넣지 않는다.
+      // 🗓 취소된 수업 — 오늘 목록·주간·월간 시간표에는 회색으로 남기고, 앞으로 7일(upcoming)에는 넣지 않는다.
       const _cancelled = String(s.sched_status || '') === 'cancelled';
       /* Postponed occurrences remain visible in the weekly calendar, without join actions. */
       const _postponed = isPostponedOccurrence(s);
-      if (!_cancelled) {   // cancelled schedules stay out of the timetable
-        for (const day of weekDays) if (hitsOn(s, day.date, day.dow)) day.items.push(calendarItemOf(s, day.date, _postponed));
-        for (const day of monthDays) if (hitsOn(s, day.date, day.dow)) day.items.push(calendarItemOf(s, day.date, _postponed));
+      /* ✕ (2026-11-03) 취소된 «날짜 회차» 도 시간표에 남긴다. ⛔ 매주 반복 행의 cancelled 는 «회차» 가 아니라
+         넣지 않는다(나누기·수강 종료가 내린 원본 줄 — 매주 «취소됨» 이 영원히 뜬다). 정본 isCancelledOccurrence. */
+      if (!_cancelled || isCancelledOccurrence(s)) {
+        for (const day of weekDays) if (hitsOn(s, day.date, day.dow)) day.items.push(calendarItemOf(s, day.date, _postponed, _cancelled));
+        for (const day of monthDays) if (hitsOn(s, day.date, day.dow)) day.items.push(calendarItemOf(s, day.date, _postponed, _cancelled));
       }
 
       if (seen.has(s.id)) continue;
@@ -1129,7 +1138,7 @@ export async function handleTeacherApi(
         try { await enrichClassesToday(env as any, real, day.date, now, { evals: false, attendanceOnly: true }); }
         catch { /* records stay unknown */ }
       }
-      if (day.date > todayStr) for (const it of real) it.attendance = { state: it.holiday_name ? 'holiday' : it.class_state === 'postponed' ? 'postponed' : 'not_yet' };
+      if (day.date > todayStr) for (const it of real) it.attendance = { state: it.class_state === 'cancelled' ? 'cancelled' : it.holiday_name ? 'holiday' : it.class_state === 'postponed' ? 'postponed' : 'not_yet' };
     }
     await attachCalendarRecords(env, weekDays.flatMap((d: any) => d.items.filter((it: any) => it.kind === 'class')));
   }

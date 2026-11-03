@@ -43,8 +43,8 @@ export function kstYmd(ms: number): string {
 /* ── 순수 판정 (하니스가 그대로 돌린다) ─────────────────────────────────── */
 
 export type TeacherEntry = {
-  /** on_time · late · none(입장 기록 없음) · pending(아직 시작 전·기록 없음) · unknown(이름으로 못 가림) · cafe24 · postponed(연기된 수업) */
-  state: 'on_time' | 'late' | 'none' | 'pending' | 'unknown' | 'cafe24' | 'postponed' | 'holiday';
+  /** on_time · late · none(입장 기록 없음) · pending(아직 시작 전·기록 없음) · unknown(이름으로 못 가림) · cafe24 · postponed(연기된 수업) · cancelled(취소된 수업) */
+  state: 'on_time' | 'late' | 'none' | 'pending' | 'unknown' | 'cafe24' | 'postponed' | 'holiday' | 'cancelled';
   at: number | null;
   late_min: number | null;
 };
@@ -58,6 +58,8 @@ export function judgeTeacherEntry(
   if (status === 'postponed' && !(presence && presence.present && presence.from)) return { state: 'postponed', at: null, late_min: null };
   // 🎌 공휴일 휴강 — 안 들어온 것은 «입장 기록 없음(⚠)» 이 아니라 «휴강» 이 사실이다(들어왔으면 그 사실을 그대로).
   if (status === 'holiday' && !(presence && presence.present && presence.from)) return { state: 'holiday', at: null, late_min: null };
+  // ✕ (2026-11-03) 취소된 수업 — 안 들어온 것은 «입장 기록 없음(⚠)» 이 아니라 «취소» 가 사실이다(들어왔으면 그 사실을 그대로).
+  if (status === 'cancelled' && !(presence && presence.present && presence.from)) return { state: 'cancelled', at: null, late_min: null };
   if (!presence || presence.present === null) return { state: 'unknown', at: null, late_min: null };
   if (presence.present === false || !presence.from) {
     // 시작 전이면 «아직» — 기록이 없는 것이 정상이다.
@@ -69,8 +71,8 @@ export function judgeTeacherEntry(
 }
 
 export type StudentAttendance = {
-  /** attended · late · absent · waiting(수업 중·아직 안 옴) · not_yet(시작 전) · unknown(누군지 못 가린 접속) · cafe24 · postponed(연기된 수업) */
-  state: 'attended' | 'late' | 'absent' | 'waiting' | 'not_yet' | 'unknown' | 'cafe24' | 'postponed' | 'holiday';
+  /** attended · late · absent · waiting(수업 중·아직 안 옴) · not_yet(시작 전) · unknown(누군지 못 가린 접속) · cafe24 · postponed(연기된 수업) · cancelled(취소된 수업) */
+  state: 'attended' | 'late' | 'absent' | 'waiting' | 'not_yet' | 'unknown' | 'cafe24' | 'postponed' | 'holiday' | 'cancelled';
   at: number | null;
   late_min: number | null;
 };
@@ -91,6 +93,8 @@ export function judgeStudentAttendance(
   if (status === 'postponed') return { state: 'postponed', at: null, late_min: null };
   // 🎌 공휴일 휴강에 안 들어온 것도 «결석» 이 아니다.
   if (status === 'holiday') return { state: 'holiday', at: null, late_min: null };
+  // ✕ (2026-11-03) 취소된 수업에 안 들어온 것도 «결석» 이 아니다.
+  if (status === 'cancelled') return { state: 'cancelled', at: null, late_min: null };
   if (status === 'early' || status === 'open') return { state: 'not_yet', at: null, late_min: null };
   if (status === 'live') return { state: 'waiting', at: null, late_min: null };
   return { state: 'absent', at: null, late_min: null };

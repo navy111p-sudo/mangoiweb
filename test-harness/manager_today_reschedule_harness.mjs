@@ -281,7 +281,10 @@ if (mCan && mDated) {
   const col = (s) => (s.match(/\b(scheduled_date|day_of_week|schedule_kind)\b/g) || []).sort().join(',');
   ok('둘 다 scheduled_date 를 근거로 삼는다', col(mCan[1]) === 'scheduled_date' && col(mDated[1]) === 'scheduled_date',
      mCan[1] + '  /  ' + mDated[1]);
-  const g = new Function('s', 'return ' + mCan[1] + ';');
+  /* ✕ (2026-11-03) 식에 «취소된 회차는 못 옮긴다»(_cancelled) 가 더해졌다 — 인자로 받되 기존 시험은 «취소 아님»(false). */
+  const g0 = new Function('s', '_cancelled', 'return ' + mCan[1] + ';');
+  const g = (s) => g0(s, false);
+  if (/_cancelled/.test(mCan[1])) ok('짝: 취소된 날짜 회차는 false (서버 이동도 schedule_not_movable 로 거절)', g0({ scheduled_date: '2026-09-22' }, true) === false);
   ok('날짜가 있으면 true', g({ scheduled_date: '2026-09-22' }) === true);
   ok('날짜가 없으면 false (매주 반복) (짝)', g({ scheduled_date: null, day_of_week: 'Thu' }) === false);
   ok('빈 문자열도 false (짝)', g({ scheduled_date: '' }) === false);

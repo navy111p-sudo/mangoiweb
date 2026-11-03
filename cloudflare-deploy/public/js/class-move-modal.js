@@ -810,8 +810,10 @@
     var flipLine = mvFlip(hhmm(r.start_ts), newTime) ? '\n\n' + mvFlipLine(hhmm(r.start_ts), newTime) : '';
     var ppLine = r.postponed === true ? T('\n· 연기 상태가 풀리고 새 시각에 다시 열린 수업이 됩니다.', '\n· It is no longer postponed — it opens again at the new time.') : '';
     var ask = mode === 'cancel'
-      ? T('이 수업을 취소할까요?\n\n' + who + ' · ' + when + '\n\n· 목록에서 사라집니다.\n· 되돌리려면 시간표에서 직접 고쳐야 합니다.',
-          'Cancel this class?\n\n' + who + ' · ' + when + '\n\n· It disappears from the lists.\n· To undo it you must fix it in the timetable.')
+      /* ✕ (2026-11-03) 취소한 수업은 이제 목록에서 사라지지 않는다 — «✕ 취소됨» 으로 그 자리에 남는다(api-admin.ts classes/today ·
+         강사 시간표 api-teacher.ts). 확인창도 그 사실을 말한다(«사라집니다» 로 두면 화면과 말이 어긋난다). */
+      ? T('이 수업을 취소할까요?\n\n' + who + ' · ' + when + '\n\n· 목록에서 지워지지 않고 «✕ 취소됨» 으로 남습니다(입장은 닫힘).\n· 되돌리려면 시간표에서 직접 고쳐야 합니다.',
+          'Cancel this class?\n\n' + who + ' · ' + when + '\n\n· It stays in the lists, marked «✕ Cancelled» (no entry).\n· To undo it you must fix it in the timetable.')
       : mode === 'change'
       ? T('이번 한 번만 옮길까요? (지정한 날짜로 연기)\n\n' + who + '\n' + when + '  →  ' + newDate + ' ' + mvHmFull(newTime) + '\n\n· 다음 회부터는 원래 시간표 그대로입니다.\n· 그 시간에 다른 수업이 있으면 안 옮기고 알려 드립니다.' + ppLine + swapLine + flipLine,
           'Move just this one class? (postpone to a date)\n\n' + who + '\n' + when + '  →  ' + newDate + ' ' + mvHmFull(newTime) + '\n\n· Later classes keep the usual timetable.\n· If that slot is taken it will not move — you will be told.' + ppLine + swapLine + flipLine)
