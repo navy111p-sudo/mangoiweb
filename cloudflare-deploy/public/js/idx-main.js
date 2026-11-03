@@ -609,7 +609,8 @@ window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName, fromTe
     var key = sUrl + '|' + pg;
     if (key === window._vcShownPdfKey) return;  // 이미 같은 교재/페이지 표시 중
     // 같은 교재인데 페이지만 다르면 → 전체 재로드 없이 페이지 이동만(깜빡임 방지)
-    if (sUrl === window._vcShownPdfUrl) {
+    if (sUrl === window._vcShownPdfUrl && !(window.__vcSharedPdfPendingKey && window.__vcSharedPdfPendingKey !== key)) {
+      window.__vcSharedPdfRequest = (window.__vcSharedPdfRequest || 0) + 1; // supersede an in-flight different book
       /* 🔒 (2026-07-29) 방금 내가 넘긴 직후라면 폴링이 끌어가지 못하게 한다.
          [문제] 넘긴 내용이 서버에 아직 반영되지 않았거나 전송이 막힌 경우, 3초 폴링이
                 옛 페이지(대개 1페이지)로 되돌려 버렸다. 강사가 "넘겨도 첫 페이지만 보인다"고
@@ -627,23 +628,43 @@ window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName, fromTe
       if (/textbook-files|\.(jpe?g|png|webp|gif|bmp)(\?|$)/i.test(sUrl)) k = 'image';
       else if (/\.pdf(\?|$)/i.test(sUrl)) k = 'pdf';
     }
+    var request = window.__vcSharedPdfRequest = (window.__vcSharedPdfRequest || 0) + 1;
+    var room = vcRoomId, self = vcUserId, conn = vcConn, account = vcAccountSnapshot();
+    function current(){
+      return window.__vcSharedPdfRequest === request && vcRoomId === room && vcUserId === self
+        && vcConn === conn && vcAccountSnapshot() === account;
+    }
+    function loadCurrent(kind){
+      try { return Promise.resolve(current() ? pdfLoad(sUrl, kind) : undefined); }
+      catch (e) { return Promise.reject(e); }
+    }
     window._vcShownPdfKey = key;
+    window.__vcSharedPdfPendingKey = key;
     try { if (typeof pdfCurrentId !== 'undefined') pdfCurrentId = sPid || sUrl; } catch(_){}
     try { if (typeof vcSwitchTab === 'function') vcSwitchTab('pdf'); } catch(_){}
     try { if (typeof showToast === 'function') showToast('📥 교재 수신 — 여는 중 (' + (k || '자동') + ')'); } catch(_){}
-    Promise.resolve(pdfLoad(sUrl, k || undefined)).then(function(){
+    loadCurrent(k || undefined).then(function(loaded){
+      if (!current()) return;
+      window.__vcSharedPdfPendingKey = '';
+      if (loaded === false) { window._vcShownPdfKey = ''; window._vcShownPdfUrl = ''; return; }
       window._vcShownPdfUrl = sUrl;  // 현재 교재 URL 기록 (이후 페이지 이동은 재로드 없이)
       try { if (typeof pdfPageNum !== 'undefined') pdfPageNum = currentPage || 1; } catch(_){}
       try { if (typeof pdfRender === 'function') pdfRender(); } catch(_){}
       try { if (typeof showToast === 'function') showToast('✅ 교재 표시됨'); } catch(_){}
     }).catch(function(){
+      if (!current()) return;
       var alt = (k === 'image') ? 'pdf' : 'image';
-      Promise.resolve(pdfLoad(sUrl, alt)).then(function(){
+      loadCurrent(alt).then(function(loaded){
+        if (!current()) return;
+        window.__vcSharedPdfPendingKey = '';
+        if (loaded === false) { window._vcShownPdfKey = ''; window._vcShownPdfUrl = ''; return; }
         window._vcShownPdfUrl = sUrl;
         try { if (typeof pdfPageNum !== 'undefined') pdfPageNum = currentPage || 1; } catch(_){}
         try { if (typeof pdfRender === 'function') pdfRender(); } catch(_){}
         try { if (typeof showToast === 'function') showToast('✅ 교재 표시됨(재시도)'); } catch(_){}
       }).catch(function(e2){
+        if (!current()) return;
+        window.__vcSharedPdfPendingKey = '';
         window._vcShownPdfKey = '';  // 실패 시 키 초기화 → 다음 폴링에서 재시도
         try { if (typeof showToast === 'function') showToast('❌ 교재 로드 실패: ' + (e2 && e2.message || e2)); } catch(_){}
       });
@@ -656,6 +677,7 @@ window.vcStartPdfPoll = function(){
     //   같은 교재가 '이미 표시 중'으로 잘못 판단돼 페이지 이동만 하고 실제 로드를 건너뜀(학생 흰 화면 회귀).
     window._vcShownPdfKey = '';
     window._vcShownPdfUrl = '';
+    window.__vcSharedPdfPendingKey = '';
     window._vcShownVideoUrl = '';
     window._vcJoinedRoomId = '';   // ★ (2026-07-20) room-joined 수신 전엔 폴링 미적용 (아래 참조)
     if (window._vcPdfPollTimer) clearInterval(window._vcPdfPollTimer);
@@ -4189,12 +4211,7 @@ function vcHandleMessage(msg) {
                 }
                 if (/^blob:/i.test(jUrl)) { /* 로컬 blob 은 다른 기기에서 못 엶 — 무시 */ }
                 else if (/^https?:\/\//i.test(jUrl) || jUrl.charAt(0) === '/') {
-                    pdfCurrentId = jUrl;
-                    vcSwitchTab('pdf');
-                    Promise.resolve(pdfLoad(jUrl, jKind || undefined)).then(function(){ pdfPageNum = msg.data.pdfState.currentPage || 1; pdfRender(); }).catch(function(e){
-                        var alt = (jKind === 'image') ? 'pdf' : 'image';
-                        Promise.resolve(pdfLoad(jUrl, alt)).then(function(){ pdfPageNum = msg.data.pdfState.currentPage || 1; pdfRender(); }).catch(function(){});
-                    });
+                    window.vcApplySharedPdf(jUrl, jKind, msg.data.pdfState.currentPage, msg.data.pdfState.pdfId, msg.data.pdfState.name);
                 } else {
                     var epdfId = msg.data.pdfState.pdfId || jUrl.replace('/api/video-call/pdf/', '');
                     if (epdfId) pdfLoadRemote(epdfId, msg.data.pdfState.currentPage, jKind);

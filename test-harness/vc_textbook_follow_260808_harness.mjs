@@ -47,6 +47,7 @@ function makeCtx(pre = {}) {
   const tabs = [], toasts = [], loaded = [];
   const ctx = {
     console, Promise,
+    vcRoomId: 'fixture', vcUserId: 'student', vcConn: {}, vcAccountSnapshot: () => '',
     location: { origin: 'https://x' },
     vcSwitchTab: (t) => tabs.push(t),
     showToast: (m) => toasts.push(m),
