@@ -91,7 +91,7 @@
     if (!data) {
       if (!notice) { box.hidden = true; box.replaceChildren(); panelQuota = null; return; }
       css();
-      var nh = document.createElement('h3'); nh.textContent = '📗 ' + T('엘리더잼 Level 1 기본과정', 'Eleader Jam Level 1 Basic Course');
+      var nh = document.createElement('h3'); nh.textContent = '📗 ' + T('엘리더잼 기본과정', 'Eleader Jam Basic Course');
       var np = document.createElement('p'); np.textContent = notice;
       box.replaceChildren(nh, np); panelQuota = null; box.hidden = false; return;
     }
