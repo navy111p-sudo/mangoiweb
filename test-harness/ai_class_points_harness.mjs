@@ -99,7 +99,7 @@ ok(/<script src="\/js\/ai-class-points\.js\?v=\d+" defer><\/script>/.test(htmlLi
 const se = html.indexOf('function showEnd(e){'); const seEnd = html.indexOf('\n  }', se);
 const body = se > 0 ? html.slice(se, seEnd).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '') : '';
 ok(se > 0 && /__mgAiClassPts\.run\(\{\s*early:\s*!!e\.early,\s*stars:\s*e\.stars,\s*targets:\s*e\.targets/.test(body), 'showEnd 가 별·문항·early 를 넘겨 실제로 부른다');
-ok(!/if\s*\(\s*(false|0)\s*&&[^)]*__mgAiClassPts/.test(body), '그 호출을 죽은 조건으로 막지 않았다');
+ok(/window\.__mgAiClassPts\s*&&\s*window\.__mgAiClassPts\.run\(/.test(body) && !/(if\s*\(\s*(false|0|null)\s*[)&|])|((false|0)\s*&&\s*window\.__mgAiClassPts)/.test(body), '그 호출은 «파일이 실렸는가» 만 묻는다(죽은 조건 없음)');
 const eb = html.indexOf("$('endBtn').addEventListener('click'"); const ebBlk = eb > 0 ? html.slice(eb, html.indexOf('});', eb)) : '';
 ok(/showEnd\(\{[^}]*early:\s*true/.test(ebBlk), '«🚪 끝내기» 버튼은 early:true 로 연다(중간 종료에 포인트 없음)');
 const ce = html.indexOf('if (o.end) showEnd(o.end);');
