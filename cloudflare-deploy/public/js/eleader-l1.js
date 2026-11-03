@@ -116,7 +116,7 @@
       lvs.forEach(function (l) {
         var b = document.createElement('button'); b.type = 'button'; b.className = 'l1-tab'; b.setAttribute('role', 'tab');
         b.setAttribute('aria-selected', String(l.id === lv.id)); b.dataset.lv = l.id;
-        b.textContent = (l.id === 'l1' ? '' : l.label + ' · ') + T(l.ko, l.en) + ' (' + l.items.length + ')';
+        b.textContent = l.label + ' · ' + (l.id === 'l1' ? T('캐피 기본과정', 'Capi Basic Course') : T(l.ko, l.en)) + ' (' + l.items.length + ')';   // L1 탭은 «Level 1 · 캐피 기본과정»(2026-11-03 사장님) — 제목은 «엘리더잼 기본과정» 그대로
         b.onclick = function () { if (ui.lv === l.id) return; ui.lv = l.id; ui.pick = null; ui.q = ''; saveLv(); render(); };
         tabs.appendChild(b);
       });
