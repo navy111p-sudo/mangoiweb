@@ -134,6 +134,47 @@ export async function historyLmsLessons(db: D1Database, uid: string, from: strin
     previous: last && evaluationKstDate(last.date) ? lesson(last) : null, namesUnread };
 }
 
+/* 🎌 월 달력의 공휴일 이름표 (2026-11-03 강사 건의 «Summary / Calendar 에 매니저 화면 같은 월 보기»)
+   매니저 학생 화면 달력(admin/student.html mgsEnsureHolidays)과 같은 근거 셋을 «이 달만» 읽는다:
+     ① holidays(KR·PH — 수강 운영 › 공휴일 동기화) ② enroll_holidays(수강 운영 › 공휴일 직접 지정, KR 로 표시)
+     ③ calendar_events 의 event_type='holiday'(기간이면 날마다 펼침, 60일 상한 — 매니저와 같음).
+   [원칙] 이름표는 «장식» 이다 — 수업 상태(휴강·결석)는 원장(buildStudentLedger)이 정하고 여기서는 안 바꾼다.
+          그래서 표가 없거나 읽기가 실패하면 «이름표 없음» 으로 조용히 넘어간다(경고를 늘리지 않는다).
+   읽기 전용. 감시: test-harness/teacher_student_history_harness.mjs (공휴일 절) */
+export async function historyHolidays(db: D1Database, from: string, end: string): Promise<{ date: string; name: string; country: 'KR' | 'PH' }[]> {
+  const out: { date: string; name: string; country: 'KR' | 'PH' }[] = [], seen = new Set<string>();
+  // 같은 날 이름이 다른 공휴일은 둘 다 둔다(대체공휴일 + 원래 공휴일 — 매니저 달력과 같음). 같은 이름은 한 번만.
+  const add = (date: unknown, name: unknown, country: unknown) => {
+    const d = String(date ?? '').slice(0, 10), c: 'KR' | 'PH' = country === 'PH' ? 'PH' : 'KR';
+    const n = String(name ?? '').trim().slice(0, 80), key = d + '|' + (n || c);
+    if (!validHistoryDate(d) || d < from || d >= end || seen.has(key)) return;
+    seen.add(key); out.push({ date: d, name: n, country: c });
+  };
+  try {
+    const rs = await db.prepare(`SELECT date, name, country FROM holidays WHERE country IN ('KR','PH') AND date >= ? AND date < ? LIMIT 200`)
+      .bind(from, end).all<any>();
+    for (const r of rs.results || []) add(r.date, r.name, r.country);
+  } catch { /* 표 없음 — 이름표 없이 */ }
+  try {
+    const rs = await db.prepare(`SELECT day, name FROM enroll_holidays WHERE day >= ? AND day < ? LIMIT 200`).bind(from, end).all<any>();
+    for (const r of rs.results || []) add(r.day, r.name, 'KR');
+  } catch { /* 표 없음 */ }
+  try {
+    const rs = await db.prepare(`SELECT title, date, end_date, country FROM calendar_events
+      WHERE event_type = 'holiday' AND date < ? AND COALESCE(end_date, date) >= ? LIMIT 200`).bind(end, from).all<any>();
+    for (const r of rs.results || []) {
+      const first = String(r.date || '').slice(0, 10), last = String(r.end_date || r.date || '').slice(0, 10);
+      if (!validHistoryDate(first)) continue;
+      for (let i = 0, ms = Date.parse(first + 'T00:00:00Z'); i < 60; i++, ms += 86400000) {
+        const d = new Date(ms).toISOString().slice(0, 10);
+        if (d > last) break;
+        add(d, r.title, r.country);
+      }
+    }
+  } catch { /* 표 없음 */ }
+  return out.sort((a, b) => a.date.localeCompare(b.date) || a.country.localeCompare(b.country));
+}
+
 /* 👥 쌍둥이 계정 이력 (2026-10-28 사장님 「쌍둥이 수업 요약·캘린더 이력도 고쳐줘」)
    [왜] 카페24에 같은 학생이 `X` 와 `mangoai_X` 두 계정으로 있고(운영 D1 실측 9명), 예약표는 `X`, 옛 LMS 출석은
         `mangoai_X` 로 갈려 있다. 이력은 계정 하나로만 읽어서, 예약 줄로 열면 옛 LMS 수업·일지가, LMS 줄로 열면
@@ -228,6 +269,8 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
     const row = schedules.get(it.schedule_id);
     return row && (row.scheduled_date || recurStartedOn(row, it.date, { createdFallback: true }));
   });
+  // The month grid labels a lesson by its type, like the manager's calendar (regular · trial · level test · make-up).
+  for (const it of items) { const t = String(schedules.get(it.schedule_id)?.class_type || ''); if (t) it.class_type = t; }
   await attachCalendarRecords(env, items);
   // Old-LMS lessons, minus the ones a Mangoi reservation already shows at the exact same slot (same rule as the class list).
   // Only a reservation that itself says «done» may hide one: the ledger never counts c24 attendance, so a same-slot
@@ -308,5 +351,6 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
     if (sub) { it.teacher_name = sub.teacher_name || nameOf(sub.substitute_teacher_id) || null; it.teacher_changed = true; }
   }
   items.sort((a, b) => (a.date + (a.start || '')).localeCompare(b.date + (b.start || '')));
-  return { ok: true, month, before, items, previous: summary, warnings: ledger.warnings || [] };
+  const holidays = await historyHolidays(env.DB, from, end);   // never throws — labels only
+  return { ok: true, month, before, items, previous: summary, holidays, warnings: ledger.warnings || [] };
 }

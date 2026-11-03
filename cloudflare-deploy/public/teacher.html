@@ -2641,7 +2641,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     function show(){window.MangoiTeacherHistory.open(context);}
     if(window.MangoiTeacherHistory){show();return;}
     if(button.disabled)return;button.disabled=true;
-    var script=document.createElement('script');script.src='/js/teacher-student-history.js?v=4';
+    var script=document.createElement('script');script.src='/js/teacher-student-history.js?v=5';
     script.onload=function(){button.disabled=false;show();};
     script.onerror=function(){button.disabled=false;script.remove();alert(T('Could not load class history. Please try again.','수업 이력을 불러오지 못했습니다. 다시 시도해 주세요.'));};
     document.head.appendChild(script);
