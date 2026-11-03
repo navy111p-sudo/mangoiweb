@@ -38,6 +38,7 @@ import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
          decideWarmupFixShow, warmupShouldOfferRepeat, isRfRejection } from './warmup-correction';
 import type { MangoEnv } from './api-mango';
 import { recordAiFailure } from './ai-failure-log';
+import { retryFriendModels, type FriendRetryResult } from './friend-retry';   // 🔁 모델 전부 실패 → 같은 요청 안에서 한 번 더(2026-11-04)
 import { correctionModeOf, gateFixForMode, ensureFocusedFixSpoken } from './warmup-honest';   // 🎚️ A.i 친구 교정 모드(자유대화·균형·집중교정, 기본 집중교정)
 import { handleClassAsk } from './class-ask';
 import { handleClassAskStream, wantsClassAskStream } from './class-ask-stream';   // ✋ A.i 선생님 수업 — 학생 질문 즉답(2026-10-08)
@@ -1061,6 +1062,39 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
           console.error(`[chat-friend] model ${m} failed:`, e?.message || e);
         }
       }
+      /* 🔁 모델이 «전부» 실패했으면 잠깐 기다렸다 같은 요청 안에서 한 번 더 (2026-11-04 사장님 지시) — 정본 src/friend-retry.ts.
+         Every model failed → wait briefly and retry once inside the same request.
+         ⛔ 화면이 다시 보내게 하지 않습니다 — 학생 발화 저장·대화 포인트·발음 채점이 «두 번» 됩니다(그 파일 머리말).
+         ⚠️ 이 자리는 «집중교정·같은 질문 다시 뽑기» 보다 앞이어야 합니다 — 살아난 답도 그 검사를 똑같이 지납니다.
+         ⚠️ 첫 시도가 이미 오래 걸렸으면(9초 예산) 안 합니다. 던지지 않습니다.
+         📏 살아난 턴은 ai_failure_log 에 'chat-friend-rescued' 로 남깁니다(학생 발화·답변 없이) —
+            안 남기면 «첫 시도 실패» 가 통째로 안 보여 실패가 줄어든 것처럼 읽힙니다. */
+      let friendRetry: FriendRetryResult | null = null;
+      if (!reply) {
+        friendRetry = await retryFriendModels({
+          models, startedAt: latT0,
+          call: (rm) => runFriend(rm, messages, 300, 0.8),
+          take: (r) => takeFriendReply(r),
+          onError: (rm, e: any) => { lastErr = e; console.error(`[chat-friend] retry model ${rm} failed:`, e?.message || e); },
+        });
+        console.warn('[chat-friend] retry', 'rescued=' + (friendRetry.reply ? 1 : 0), 'tries=' + friendRetry.tried, friendRetry.skipped);
+        if (friendRetry.reply) {
+          reply = friendRetry.reply; usedModel = friendRetry.model; commitFix();
+          try {
+            await recordAiFailure(env, {
+              feature: 'chat-friend-rescued',
+              models: models.join(','),
+              err: String(lastErr?.message || lastErr || 'unknown'),
+              rf: friendRF ? 1 : 0,
+              plain: friendPlain,
+              empty: friendEmpty,
+              level,
+            });
+          } catch (e: any) {
+            console.error('[chat-friend] recordAiFailure(rescued) failed:', e?.message || e);
+          }
+        }
+      }
       /* 🔁 직전 답변과 (거의) 같은 말이 또 나오면 1회 재생성 — temperature 를 올리고 명시적으로 지시.
          (웜업 handleWarmupChat 과 동일한 방식. "I" 한 마디에 지난 답이 그대로 나오던 문제)
          🔁 (2026-10-28) «말만 바꾼 같은 질문»(big↔small · 방금 들은 white 되묻기)도 잡는다 — 판정·순서 정본 src/question-memory.ts.
@@ -1120,7 +1154,9 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
         try {
           await recordAiFailure(env, {
             feature: 'chat-friend',
-            models: models.join(','),
+            // 🔁 재시도까지 했는지 함께 — «다시 해도 실패» 와 «시간이 넘어 안 함(budget)» 을 가릅니다(2026-11-04).
+            //    ⚠️ 그래서 plain·empty 는 첫 시도 + 재시도를 합친 횟수입니다(최대 6).
+            models: models.join(',') + (friendRetry ? ' | retry:' + (friendRetry.skipped || 'tried=' + friendRetry.tried) : ''),
             err: String(lastErr?.message || lastErr || 'unknown'),
             rf: friendRF ? 1 : 0,
             plain: friendPlain,
