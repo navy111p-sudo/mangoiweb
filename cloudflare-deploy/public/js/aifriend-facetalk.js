@@ -104,7 +104,9 @@
     + '@keyframes ftkDot{0%,100%{opacity:.3}50%{opacity:1}}'
     /* 유리판 */
     + '#ftk .ftk-glass{position:absolute;left:0;right:0;bottom:0;z-index:4;color:#eef1ff;'
-    + ' background:rgba(8,12,32,.74);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);'
+    /* 🎞 (2026-11-03) 흐림(backdrop-filter) 제거 — 얼굴이 매 프레임 다시 그려질 때 그 위를 매번 다시 흐리게 칠해야 해서
+       느린 기기에 부담. 대신 바탕을 더 짙게 해 글자가 그대로 읽히게 한다(warmup·ai-friend 두 얼굴 화면이 같은 모양). */
+    + ' background:rgba(8,12,32,.9);'
     + ' border-top:3px solid var(--st);border-radius:20px 20px 0 0;padding-bottom:env(safe-area-inset-bottom,0px);'
     + ' max-height:62%;overflow:hidden;transition:transform .4s ease,border-color .35s}'
     + '#ftk .ftk-grab{display:block;width:100%;border:0;background:none;padding:10px 0 12px;cursor:pointer}'
