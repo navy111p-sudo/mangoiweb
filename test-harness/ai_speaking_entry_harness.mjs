@@ -109,3 +109,33 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   assert.ok(/SIT\.url\(s\)/.test(fn), 'list links use the table url (English)');
   console.log('PASS: no Chinese situation names in the list');
 }
+// 2026-11-03 owner (A안 · ①설명형): one line under «교정 정도» says what the picked level really does.
+// The wording is paired with the server (src/warmup-honest.ts) — change one, change the other.
+{
+  const btn = id => hub.match(new RegExp('<button[^>]*data-corr="' + id + '"[^>]*>'))?.[0] || '';
+  const hint = (id, l) => (btn(id).match(new RegExp('data-hint-' + l + '="([^"]*)"')) || [])[1] || '';
+  const wh = readFileSync(new URL('../cloudflare-deploy/src/warmup-honest.ts', import.meta.url), 'utf8');
+  const reps = Number((wh.match(/export const FOCUSED_FIX_REPEATS = (\d+);/) || [])[1]);
+  assert.ok(reps > 0, 'server repeat count (FOCUSED_FIX_REPEATS) found');
+  for (const id of ['free_talk', 'balanced', 'focused']) {
+    for (const l of ['ko', 'en']) {
+      const h = hint(id, l);
+      assert.ok(h.length > 0, id + ' ' + l + ' hint exists');
+      assert.ok(!/\p{Extended_Pictographic}/u.test(h), id + ' ' + l + ' hint has no emoji (old Windows)');
+    }
+    assert.ok([...hint(id, 'ko')].length <= 24, id + ' ko hint stays one short line');
+  }
+  // focused: every mistake fixed, the fixed sentence said FOCUSED_FIX_REPEATS times — «최대 N번 고쳐요» would be false
+  assert.ok(hint('focused', 'ko').includes(reps + '번') && hint('focused', 'en').includes(reps + ' times'), 'focused hint says the server repeat count');
+  assert.ok(!/최대/.test(hint('focused', 'ko')) && !/up to/i.test(hint('focused', 'en')), 'focused hint does not cap the number of fixes');
+  assert.ok(/따라 말/.test(hint('focused', 'ko')), 'focused hint mentions repeat-after-me');
+  // balanced: key mistakes only, repeat once · free talk: no repeat-after-me (gateFixForMode repeat:false)
+  assert.ok(hint('balanced', 'ko').includes('1번') && /\bonce\b/.test(hint('balanced', 'en')), 'balanced hint: repeat once');
+  assert.ok(/따라 말하기 없이/.test(hint('free_talk', 'ko')) && /no repeat/i.test(hint('free_talk', 'en')), 'free talk hint: no repeat-after-me');
+  assert.ok(/if \(mode === 'free_talk'\) return \{ show: decidedShow \|\| null, repeat: false \}/.test(wh), 'server: free talk never asks to repeat (pairs with the hint)');
+  // the line is drawn from the picked button, in the screen language
+  const rs = hub.slice(hub.indexOf('function renderSettings(){'), hub.indexOf('function say('));
+  assert.ok(/corrState/.test(rs) && /data-hint-en/.test(rs) && /data-hint-ko/.test(rs), 'renderSettings shows the picked hint');
+  assert.ok(/aria-describedby="corrState"/.test(hub), 'the button group is described by the hint line');
+  console.log('PASS: correction hint line (A안 · ①설명형) paired with server behaviour');
+}
