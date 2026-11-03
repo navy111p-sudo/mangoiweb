@@ -6,57 +6,219 @@
   <title>AI 말하기 — 망고아이</title>
   <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
-  <meta name="theme-color" content="#122350">
+  <meta name="theme-color" content="#dbeafe">
+  <!-- 2026-11-03 개편 — 사장님 휴대폰 시안(카드 3장 + 아래 공통 설정).
+       📘 교재로 연습 → /warmup.html · 🎯 상황별 말하기 → 이 화면 안 상황 목록 → /warmup.html?sit=… ·
+       👫 AI 친구하기 → /ai-friend.html. 💬 자유대화 카드는 사장님 지시로 없앴다(교재 연습 화면의 «교정 정도: 자유대화» 로 같은 대화가 된다).
+       상황 목록은 5단계 · 대화 언어 영어/중국어 · 공통 설정은 이모지 타일 · 카드·상황 그림은 저장소에 이미 있는 AI 생성 사진.
+       상황 표 정본 js/ai-situations.js · 공통 설정 정본 js/ai-speaking-settings.js.
+       ⛔ 이 화면은 로그인·AI 호출·마이크를 쓰지 않는다. 설정은 «사람이 고를 때만» 저장한다. -->
   <style>
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at top,#284b91,#122350 70%);color:#eef3ff;font-family:MangoiHanSC,system-ui,sans-serif;line-height:1.6}
-    header{max-width:1040px;margin:auto;padding:24px;display:flex;align-items:center;gap:12px}header img{width:48px;height:48px;object-fit:contain}header strong{font-size:20px}a{color:inherit}header a{margin-left:auto;text-decoration:none;padding:8px 14px;border:1px solid #52658a;border-radius:12px}
-    main{max-width:960px;margin:36px auto;padding:0 24px 48px}.eyebrow{color:#fde68a;font-weight:700;margin:0}h1{font-size:clamp(28px,5vw,42px);line-height:1.3;word-break:keep-all;margin:12px 0}main>p{color:#c5d3ee;margin:0 0 30px}.modes{display:grid;grid-template-columns:1fr 1fr;gap:22px}.mode{display:flex;flex-direction:column;padding:30px;border-radius:24px;background:#192f59;border:1px solid #58749f;text-decoration:none;min-width:0}.mode:hover{background:#213d6b}.mode:focus-visible,a:focus-visible{outline:3px solid #fde68a;outline-offset:5px}.mode .icon{font-size:36px;height:64px;display:flex;align-items:center}.icon img{width:64px;height:64px;object-fit:contain}.tag{font-size:13px;color:#bcd3f5;margin-top:16px}h2{font-size:25px;line-height:1.4;margin:8px 0 12px}.mode p{color:#c5d3ee;margin:0 0 20px}.mode ul{padding-left:20px;margin:0 0 28px;color:#dce6fa}.cta{margin-top:auto;padding:12px 18px;border-radius:12px;background:#d4edff;color:#142747;font-weight:800;text-align:center}.modes-3{grid-template-columns:repeat(3,1fr)}.free{border-color:#6d9fd6}.free .cta{background:#a9d4ff}.friend{border-color:#9e8b5e}.friend .cta{background:#fbd879}.note{margin:24px 0 0;color:#b8c9e4;font-size:14px;text-align:center}
-    @media(max-width:600px){header{padding:18px 20px}main{margin-top:20px;padding:0 20px 32px}.modes{grid-template-columns:1fr;gap:16px}.mode{padding:24px}h2{font-size:23px}}
+    :root{--bg1:#e9f3ff;--bg2:#f5f9ff;--ink:#14213d;--sub:#475467;--line:#d0dcef;--sheet:#ffffff;
+      --c1:#dbeafe;--c1b:#93c5fd;--c2:#ffedd5;--c2b:#fdba74;--c3:#d1fae5;--c3b:#6ee7b7;--accent:#1d4ed8;--focus:#b45309}
+    @media (prefers-color-scheme: dark){:root{--bg1:#0f1d3a;--bg2:#13254a;--ink:#eef3ff;--sub:#c5d3ee;--line:#3b5684;--sheet:#172c55;
+      --c1:#1e3a6b;--c1b:#3f6fb5;--c2:#4a2f17;--c2b:#b5763a;--c3:#123f35;--c3b:#2f9877;--accent:#93c5fd;--focus:#fde68a}}
+    *{box-sizing:border-box}[hidden]{display:none!important}
+    body{margin:0;min-height:100vh;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--ink);
+      font-family:MangoiHanSC,system-ui,sans-serif;line-height:1.5;word-break:keep-all;overflow-wrap:anywhere}
+    a{color:inherit}a:focus-visible,button:focus-visible,select:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+    .wrap{max-width:1040px;margin:0 auto;padding:16px 18px calc(24px + env(safe-area-inset-bottom))}
+    header{display:flex;align-items:center;gap:10px;min-height:48px}
+    header h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-.3px}
+    header .mascot{width:52px;height:52px;object-fit:contain;margin-left:auto}
+    header .home{text-decoration:none;font-size:14px;padding:7px 12px;border:1px solid var(--line);border-radius:12px;background:var(--sheet)}
+    .lead{margin:6px 0 14px;color:var(--sub);font-size:15px}
+    .modes{display:grid;gap:12px}
+    .mode{position:relative;display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;min-height:104px;padding:14px 16px;
+      border-radius:20px;border:1.5px solid var(--c1b);background:var(--c1);text-decoration:none;min-width:0}
+    .mode.situ{background:var(--c2);border-color:var(--c2b)} .mode.friend{background:var(--c3);border-color:var(--c3b)}
+    .mode:hover{filter:brightness(.98)}
+    .mode h2{margin:0 0 4px;font-size:20px;font-weight:900;display:flex;align-items:center;gap:6px}
+    .mode p{margin:0;color:var(--sub);font-size:14px}
+    .mode .art{width:76px;height:76px;border-radius:18px;display:flex;align-items:center;justify-content:center;overflow:hidden;
+      background:rgba(255,255,255,.55)}
+    .mode .art img{width:100%;height:100%;object-fit:cover}
+    .mode .go{display:none}
+    .mode[aria-expanded="true"]{box-shadow:0 0 0 3px var(--c2b) inset}
+    /* 🎯 상황 목록 */
+    #situations{margin-top:12px;padding:14px;border-radius:18px;background:var(--sheet);border:1px solid var(--line)}
+    #situations h3.title{margin:0 0 4px;font-size:17px}
+    #situations .hint{margin:0 0 6px;color:var(--sub);font-size:13px}
+    .sit-g{margin:12px 0 6px;font-size:14px;color:var(--sub);font-weight:800}
+    .sit-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .sit{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;border:1px solid var(--c2b);background:var(--c2);text-decoration:none;min-width:0}
+    .sit-ic{font-size:26px;flex:0 0 auto;width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.6)}.sit-ic img{width:100%;height:100%;object-fit:cover}.sit b{display:block;font-size:15px}.sit small{display:block;color:var(--sub);font-size:12.5px}
+    .sit-t{min-width:0}
+    /* ⚙️ 공통 설정 */
+    .sheet{margin-top:16px;padding:12px 14px 14px;border-radius:20px 20px 16px 16px;background:var(--sheet);border:1px solid var(--line);
+      box-shadow:0 -4px 18px rgba(20,33,61,.06)}
+    .sheet .grip{width:40px;height:4px;border-radius:4px;background:var(--line);margin:0 auto 8px}
+    .sheet h2{margin:0 0 8px;font-size:16px}
+    .set-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .tile{display:flex;flex-direction:column;align-items:stretch;gap:5px;min-width:0;padding:10px;border-radius:16px;border:1px solid var(--line);background:var(--bg2)}
+    .tile .emo{font-size:30px;line-height:1;text-align:center}
+    .tile .lab{font-size:13px;font-weight:800;color:var(--sub);text-align:center}
+    .tile select{width:100%;min-height:40px;padding:6px 8px;border-radius:12px;border:1px solid var(--line);background:var(--sheet);color:var(--ink);font:inherit;font-size:14px}
+    .seg{display:flex;gap:4px}
+    .seg button{flex:1;min-width:0;min-height:44px;padding:4px 2px;border:1px solid var(--line);border-radius:12px;background:var(--sheet);color:var(--ink);font:inherit;font-size:13px;cursor:pointer;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15}
+    .seg button .e{font-size:18px}
+    .seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:800}
+    @media (prefers-color-scheme: dark){.seg button[aria-pressed="true"]{color:#0f1d3a}}
+    .state{font-size:11.5px;color:var(--sub);text-align:center;min-height:1em}
+    .zh-only{display:block;margin-top:4px;font-size:12.5px;font-weight:700;color:var(--sub)}
+    .note{margin:8px 0 0;font-size:12.5px;color:var(--sub)}
+    #setMsg{margin:6px 0 0;font-size:13px;font-weight:700;min-height:1em}
+    /* 💻 PC — 카드 3장 가로 */
+    @media (min-width:900px){
+      .wrap{padding-top:28px}header h1{font-size:28px}.lead{font-size:16px;margin-bottom:20px}
+      .modes{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+      .mode{grid-template-columns:1fr;grid-template-rows:auto 1fr auto;align-items:start;min-height:230px;padding:20px}
+      .mode .art{order:-1;width:84px;height:84px;font-size:46px}
+      .mode h2{font-size:22px;margin-top:6px}.mode p{font-size:15px}
+      .mode .go{display:block;margin-top:14px;font-weight:800;color:var(--accent)}
+      .sit-list{grid-template-columns:repeat(3,minmax(0,1fr))}
+    }
+    @media (max-width:560px){.set-row{grid-template-columns:1fr 1fr}.set-row .tile:last-child{grid-column:1/-1}}
+    @media (max-width:420px){.sit-list{grid-template-columns:1fr}
+      .mode{min-height:96px;padding:12px 14px}.mode .art{width:60px;height:60px;font-size:34px}}
   </style>
 </head>
 <body>
-  <header><img src="/img/mango-char.png" alt=""><strong data-ko="AI 말하기" data-en="AI Speaking">AI 말하기</strong><a href="/" data-ko="홈으로" data-en="Home">홈으로</a></header>
-  <main>
-    <p class="eyebrow" data-ko="조금씩, 자신 있게" data-en="A little practice, more confidence">조금씩, 자신 있게</p>
-    <h1 data-ko="오늘은 어떻게 말해 볼까요?" data-en="How would you like to practice today?">오늘은 어떻게 말해 볼까요?</h1>
-    <p data-ko="교재 속 표현을 연습하거나, AI 친구와 좋아하는 이야기를 나눠요." data-en="Practice textbook expressions or chat about your interests with an AI friend.">교재 속 표현을 연습하거나, AI 친구와 좋아하는 이야기를 나눠요.</p>
-    <div class="modes modes-3">
-      <a class="mode" id="textbook-mode" href="/warmup.html">
-        <span class="icon" aria-hidden="true">📘</span>
-        <span class="tag" data-ko="수업 준비 · 복습" data-en="Prepare · Review">수업 준비 · 복습</span>
-        <h2 data-ko="교재로 연습하기" data-en="Practice with a textbook">교재로 연습하기</h2>
-        <p data-ko="오늘 배운 표현을 자신 있게 말해요." data-en="Say what you learned with confidence.">오늘 배운 표현을 자신 있게 말해요.</p>
-        <ul><li data-ko="교재와 수준에 맞춰 연습해요" data-en="Practice with your textbook and level">교재와 수준에 맞춰 연습해요</li><li data-ko="AI가 먼저 질문하고, 막히면 대답 힌트를 줘요" data-en="AI asks first, with answer hints when you need them">AI가 먼저 질문하고, 막히면 대답 힌트를 줘요</li></ul>
-        <span class="cta" data-ko="교재 연습 시작 →" data-en="Start textbook practice →">교재 연습 시작 →</span>
-      </a>
-      <a class="mode free" id="free-talk-mode" href="/warmup.html?cmode=free_talk&amp;setup=0">
-        <span class="icon" aria-hidden="true">💬</span>
-        <span class="tag" data-ko="편하게 · 흐름 우선" data-en="Relaxed · Flow first">편하게 · 흐름 우선</span>
-        <h2 data-ko="자유대화" data-en="Free talk">자유대화</h2>
-        <p data-ko="흐름을 끊지 않고 바른 문장을 들려줘요." data-en="Keep the flow going and hear the right sentence.">흐름을 끊지 않고 바른 문장을 들려줘요.</p>
-        <ul><li data-ko="따라 말하기는 시키지 않아요" data-en="No repeat-after-me">따라 말하기는 시키지 않아요</li><li data-ko="교재 표현으로 자연스럽게 이어가요" data-en="Keep talking naturally with textbook expressions">교재 표현으로 자연스럽게 이어가요</li></ul>
-        <span class="cta" data-ko="자유대화 시작 →" data-en="Start free talk →">자유대화 시작 →</span>
-      </a>
-      <a class="mode friend" id="friend-mode" href="/ai-friend.html">
-        <span class="icon"><img src="/img/mango-char.png" alt=""></span>
-        <span class="tag" data-ko="관심 주제 · 자유 대화" data-en="Your interests · Free conversation">관심 주제 · 자유 대화</span>
-        <h2 data-ko="AI 친구와 이야기하기" data-en="Chat with an AI friend">AI 친구와 이야기하기</h2>
-        <p data-ko="좋아하는 주제로 편하게 이야기해요." data-en="Talk about the things you enjoy.">좋아하는 주제로 편하게 이야기해요.</p>
-        <ul><li data-ko="마음에 드는 친구와 주제를 골라요" data-en="Choose a friend and a topic you like">마음에 드는 친구와 주제를 골라요</li><li data-ko="내 생각을 영어 문장으로 말해 봐요" data-en="Put your own thoughts into English">내 생각을 영어 문장으로 말해 봐요</li></ul>
-        <span class="cta" data-ko="친구와 대화 시작 →" data-en="Start chatting →">친구와 대화 시작 →</span>
-      </a>
+<div class="wrap">
+  <header>
+    <a class="home" href="/" data-ko="← 홈" data-en="← Home">← 홈</a>
+    <h1 data-ko="AI 말하기" data-en="AI Speaking">AI 말하기</h1>
+    <img class="mascot" src="/img/mango-char.png" alt="">
+  </header>
+  <p class="lead" data-ko="오늘은 어떻게 말해 볼까요?" data-en="How would you like to practice today?">오늘은 어떻게 말해 볼까요?</p>
+
+  <div class="modes">
+    <a class="mode" id="textbook-mode" href="/warmup.html">
+      <span class="txt"><h2><span aria-hidden="true">📘</span><span data-ko="교재로 연습" data-en="Textbook practice">교재로 연습</span></h2>
+        <p data-ko="수업에서 배운 표현을 교재와 함께 연습해요" data-en="Practice what you learned with your textbook">수업에서 배운 표현을 교재와 함께 연습해요</p>
+        <span class="go" data-ko="시작하기 →" data-en="Start →">시작하기 →</span></span>
+      <span class="art"><img src="/img/warmup-photos/book.webp" alt="" loading="lazy"></span>
+    </a>
+    <a class="mode situ" id="situation-mode" href="#situations" aria-controls="situations" aria-expanded="false">
+      <span class="txt"><h2><span aria-hidden="true">🎯</span><span data-ko="상황별 말하기" data-en="Real-life situations">상황별 말하기</span></h2>
+        <p data-ko="카페 주문, 길 묻기 등 실제 상황에서 말해 봐요" data-en="Order at a cafe, ask for directions and more">카페 주문, 길 묻기 등 실제 상황에서 말해 봐요</p>
+        <span class="go" data-ko="상황 고르기 →" data-en="Choose a situation →">상황 고르기 →</span></span>
+      <span class="art"><img src="/img/write-scenes/bakery.webp" alt="" loading="lazy"></span>
+    </a>
+    <a class="mode friend" id="friend-mode" href="/ai-friend.html">
+      <span class="txt"><h2><span aria-hidden="true">👫</span><span data-ko="AI 친구하기" data-en="AI friend">AI 친구하기</span></h2>
+        <p data-ko="원하는 주제로 AI 친구와 편하게 대화해요" data-en="Chat with an AI friend about anything you like">원하는 주제로 AI 친구와 편하게 대화해요</p>
+        <small class="zh-only" id="friendZhNote" hidden data-ko="🀄 AI 친구는 아직 영어로만 대화해요" data-en="🀄 AI friend speaks English only for now">🀄 AI 친구는 아직 영어로만 대화해요</small>
+        <span class="go" data-ko="대화 시작 →" data-en="Start chatting →">대화 시작 →</span></span>
+      <span class="art"><img src="/img/menu/ai-friend.webp" alt="" loading="lazy"></span>
+    </a>
+  </div>
+
+  <section id="situations" aria-labelledby="sitTitle">
+    <h3 class="title" id="sitTitle" data-ko="🎯 어떤 상황에서 말해 볼까요?" data-en="🎯 Which situation would you like to try?">🎯 어떤 상황에서 말해 볼까요?</h3>
+    <p class="hint" data-ko="AI 가 점원·친구·의사가 되어 먼저 말을 걸어요. 수준은 아래 공통 설정을 따라요." data-en="The AI plays the clerk, friend or doctor and speaks first. Your level follows the settings below.">AI 가 점원·친구·의사가 되어 먼저 말을 걸어요. 수준은 아래 공통 설정을 따라요.</p>
+    <div id="sitBody"><p class="hint" data-ko="상황 목록을 불러오지 못했어요. 새로고침해 주세요." data-en="Could not load the list. Please refresh.">상황 목록을 불러오지 못했어요. 새로고침해 주세요.</p></div>
+  </section>
+
+
+  <section class="sheet" aria-labelledby="setTitle">
+    <div class="grip" aria-hidden="true"></div>
+    <h2 id="setTitle" data-ko="공통 설정" data-en="Common settings">공통 설정</h2>
+    <div class="set-row">
+      <div class="tile"><span class="emo" aria-hidden="true">🌐</span><span class="lab" id="langLab" data-ko="언어" data-en="Language">언어</span>
+        <div class="seg" role="group" aria-labelledby="langLab">
+          <button type="button" data-lang="en" aria-pressed="false"><span class="e" aria-hidden="true">🔤</span><span data-ko="영어" data-en="English">영어</span></button>
+          <button type="button" data-lang="zh" aria-pressed="false"><span class="e" aria-hidden="true">🀄</span><span data-ko="중국어" data-en="Chinese">중국어</span></button>
+        </div></div>
+      <div class="tile"><span class="emo" aria-hidden="true">📊</span><label class="lab" for="setLevel" data-ko="수준" data-en="Level">수준</label><select id="setLevel"></select></div>
+      <div class="tile"><span class="emo" aria-hidden="true">🛠️</span><span class="lab" id="corrLab" data-ko="교정 정도" data-en="Corrections">교정 정도</span>
+        <div class="seg seg3" role="group" aria-labelledby="corrLab" id="corrSeg">
+          <button type="button" data-corr="free_talk" aria-pressed="false"><span class="e" aria-hidden="true">💬</span><span data-ko="자유" data-en="Free">자유</span></button>
+          <button type="button" data-corr="balanced" aria-pressed="false"><span class="e" aria-hidden="true">⚖️</span><span data-ko="균형" data-en="Balanced">균형</span></button>
+          <button type="button" data-corr="focused" aria-pressed="false"><span class="e" aria-hidden="true">🎯</span><span data-ko="집중" data-en="Focused">집중</span></button>
+        </div>
+        <small class="state" id="corrState"></small></div>
     </div>
-    <p class="note" data-ko="교정 방식과 말하기 수준은 각 연습 화면에서 고를 수 있어요." data-en="Choose your correction mode and speaking level in each practice screen.">교정 방식과 말하기 수준은 각 연습 화면에서 고를 수 있어요.</p>
-  </main>
-  <script>
-    // UI language only: choosing an entrance must not start an AI session or change learning settings.
-    try {
-      if ((localStorage.getItem('mangoi_lang') || '').indexOf('en') === 0) {
-        document.documentElement.lang = 'en';
-        document.title = 'AI Speaking — Mangoi';
-        document.querySelectorAll('[data-en]').forEach(function(el){ el.textContent = el.getAttribute('data-en'); });
-      }
-    } catch (_) {}
-  </script>
+    <p id="setMsg" role="status" aria-live="polite"></p>
+    <p class="note" data-ko="수준·교정은 교재 연습·상황별 말하기·AI 친구에 함께 적용돼요. 목소리·말 빠르기는 각 화면에서 바꿀 수 있어요." data-en="Level and corrections apply to all three. Voice and speed can be changed in each practice screen.">수준·교정은 교재 연습·상황별 말하기·AI 친구에 함께 적용돼요. 목소리·말 빠르기는 각 화면에서 바꿀 수 있어요.</p>
+  </section>
+</div>
+<script src="/js/ai-situations.js?v=1"></script>
+<script src="/js/ai-speaking-settings.js?v=1"></script>
+<script>
+(function(){
+  'use strict';
+  // 저장소가 막힌 기기(접근만 해도 던짐)에서도 화면은 떠야 한다 → 없는 저장소로 대신한다.
+  var LS = (function(){ try { var s = window.localStorage; s.getItem('x'); return s; } catch(e) {
+    return { getItem:function(){return null;}, setItem:function(){ throw new Error('storage unavailable'); } }; } })();
+  var SET = window.AiSpeakSettings, SIT = window.MangoiSituations;
+  // 화면 글자 언어(한/영)는 사이트 공용 키를 «읽기만» 한다. 대화 언어(영어/중국어)는 공통 설정이 정한다.
+  var ui = 'ko'; try { ui = String(LS.getItem('mangoi_lang') || '').indexOf('en') === 0 ? 'en' : 'ko'; } catch(e) {}
+  function T(ko, en){ return ui === 'en' ? en : ko; }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  var memLang = '';   // 저장이 막힌 기기에서도 «방금 고른 언어» 로 링크를 만든다
+  function talkLang(){ var l = memLang || (SET ? SET.read(LS).lang : ''); return l === 'zh' ? 'zh' : 'en'; }   // 안 정함 = 영어(예전 동작)
+  function applyUi(){
+    document.documentElement.lang = ui;
+    document.title = T('AI 말하기 — 망고아이', 'AI Speaking — Mangoi');
+    document.querySelectorAll('[data-ko][data-en]').forEach(function(el){ el.textContent = el.getAttribute(ui === 'en' ? 'data-en' : 'data-ko'); });
+  }
+  function renderSituations(){
+    var box = document.getElementById('sitBody'); if(!box || !SIT) return;
+    var tl = talkLang();
+    box.innerHTML = SIT.steps.map(function(st){
+      var items = SIT.list.filter(function(s){ return s.step === st.n; });
+      return '<h4 class="sit-g">' + esc(T(st.ko, st.en)) + '</h4><div class="sit-list">' + items.map(function(s){
+        var pic = s.img ? '<img src="' + esc(s.img) + '" alt="" loading="lazy">' : s.ic;
+        var name = T(s.ko, s.en);   // 사장님 2026-11-03 「상황에 대한 중국어 빼기」 — 목록에는 중국어 이름을 안 씁니다(대화는 고른 언어로)
+        return '<a class="sit" data-sit="' + esc(s.id) + '" href="' + esc(SIT.url(s, tl)) + '"><span class="sit-ic" aria-hidden="true">' + pic + '</span>'
+          + '<span class="sit-t"><b>' + esc(name) + '</b><small>' + esc(T(s.dko, s.den)) + '</small></span></a>';
+      }).join('') + '</div>';
+    }).join('');
+  }
+  function renderSettings(){
+    if(!SET) return;
+    var cur = SET.read(LS);
+    var tl = talkLang();
+    var tb = document.getElementById('textbook-mode'); if(tb) tb.setAttribute('href', tl === 'zh' ? '/warmup.html?lang=zh' : '/warmup.html');
+    document.querySelectorAll('[data-lang]').forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-lang') === tl ? 'true' : 'false'); });
+    var fz = document.getElementById('friendZhNote'); if(fz) fz.hidden = tl !== 'zh';
+    var lv = document.getElementById('setLevel');
+    var lvHead = cur.level === 'mixed' ? T('화면마다 다름 — 고르면 맞춰요', 'Differs by screen — pick one') : T('아직 안 정함 (화면 기본)', 'Not set (screen default)');
+    lv.innerHTML = (typeof cur.level === 'number' ? '' : '<option value="" selected>' + esc(lvHead) + '</option>')
+      + SET.LEVELS.map(function(L){ return '<option value="' + L.n + '"' + (cur.level === L.n ? ' selected' : '') + '>' + L.n + T('단계 · ', ' · ') + esc(T(L.ko, L.en)) + '</option>'; }).join('');
+    document.querySelectorAll('[data-corr]').forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-corr') === cur.corr ? 'true' : 'false'); });
+    var cs = document.getElementById('corrState');
+    if(cs) cs.textContent = cur.corr === 'mixed' ? T('화면마다 다름 — 누르면 맞춰요', 'Differs by screen — tap one') : (cur.corr ? '' : T('아직 안 정함 (화면 기본)', 'Not set (screen default)'));
+  }
+  function say(ok){
+    var m = document.getElementById('setMsg'); if(!m) return;
+    m.textContent = ok ? T('✅ 저장했어요 — 세 가지 연습에 함께 적용돼요', '✅ Saved — applies to all three practices')
+                       : T('⚠️ 이 기기에서는 저장이 안 돼요. 각 연습 화면에서 골라 주세요.', '⚠️ Could not save on this device. Please choose in each practice screen.');
+  }
+  function wire(){
+    var sitCard = document.getElementById('situation-mode'), panel = document.getElementById('situations');
+    if(panel) panel.hidden = true;
+    if(sitCard && panel) sitCard.addEventListener('click', function(e){
+      e.preventDefault();
+      var open = panel.hidden; panel.hidden = !open;
+      sitCard.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if(open) try { panel.scrollIntoView({ behavior:'smooth', block:'nearest' }); } catch(_) {}
+    });
+    document.querySelectorAll('[data-lang]').forEach(function(b){ b.addEventListener('click', function(){
+      memLang = b.getAttribute('data-lang');
+      var ok = SET ? SET.chooseLang(LS, memLang) : false;
+      renderSettings(); renderSituations(); say(ok);
+    }); });
+    document.querySelectorAll('[data-corr]').forEach(function(b){ b.addEventListener('click', function(){
+      var ok = SET ? SET.chooseCorr(LS, b.getAttribute('data-corr')) : false; renderSettings(); say(ok);
+    }); });
+    var lv = document.getElementById('setLevel');
+    if(lv) lv.addEventListener('change', function(){ if(!lv.value) return; var ok = SET.chooseLevel(LS, Number(lv.value)); renderSettings(); say(ok); });
+  }
+  applyUi(); renderSituations(); renderSettings(); wire();
+})();
+</script>
 </body>
 </html>

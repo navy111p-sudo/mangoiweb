@@ -1023,6 +1023,7 @@
 <script src="/js/warmup-guide.js?v=9"></script>
 <script src="/js/speech-preferences.js?v=3"></script>
 <script src="/js/speech-rate-request.js?v=1"></script>
+<script src="/js/ai-situations.js?v=1"></script><!-- 🎯 상황별 말하기 표(?sit=) — 정본은 그 파일 하나 -->
 <script>
 /* ── 1. URL 파라미터 / 저장값에서 설정 읽기 ─────────────────────── */
 var Q = new URLSearchParams(location.search);
@@ -1165,6 +1166,16 @@ var SESSION_ID = Q.get('room') || Q.get('session') || (function(){
 })();
 // lesson_topic: ?unit 또는 ?topic (없으면 null=자유 대화)
 var LESSON_TOPIC = Q.get('unit') || Q.get('topic') || '';
+/* 🎯 상황별 말하기(2026-11-03) — ?sit=<id> 면 화면에는 짧은 상황 이름을, 서버에는 역할 지시(role)를 보낸다.
+   ⛔ 모르는 id·표를 못 읽음 → null → 예전 그대로(자유 대화). ?unit=/?topic= 이 있으면 그쪽이 이긴다. */
+var SITUATION = null;
+try{ if(!LESSON_TOPIC && window.MangoiSituations) SITUATION = window.MangoiSituations.find(Q.get('sit')); }catch(e){ SITUATION = null; }
+/* 🀄 상황 대화의 언어는 주소의 lang 이 정한다(ai-speaking.html 공통 설정 → MangoiSituations.url). 모르면 영어. */
+var SIT_ZH = !!SITUATION && String(Q.get('lang')||'').toLowerCase() === 'zh';
+var SIT_TITLE = SITUATION ? (SIT_ZH ? SITUATION.zh : SITUATION.en) : '';
+if(SITUATION) LESSON_TOPIC = SIT_TITLE;
+/* 지금 대화가 «상황» 인가 — 학생이 나중에 교재를 고르면 LESSON_TOPIC 이 바뀌어 저절로 false 가 된다 */
+function situationActive(){ return !!(SITUATION && LESSON_TOPIC === SIT_TITLE); }
 // API_BASE: ?api → localStorage → '' (빈 값이면 같은 오리진 상대경로 사용)
 //   라이브(test.mangoi.co.kr)는 정적 페이지와 /api/warmup/chat 을 같은 워커가 서빙하므로
 //   아무 설정 없이 바로 AI 대화가 된다. (외부 백엔드로 바꾸려면 ?api= 또는 ⚙️설정)
@@ -2749,6 +2760,7 @@ function btsRenderLessonRow(){
    ⚠️ 저장값이 없으면 아무 일도 하지 않습니다 = 예전 그대로 자유 대화. */
 (function restoreBtsBook(){
   if(WCTX.textbook) return;
+  if(SITUATION) return;   /* 🎯 상황 대화는 저장된 교재로 덮지 않는다(저장값은 그대로 둠) */
   var v = 0; try{ v = bookIdOf(localStorage.getItem(BTS_KEY)||'0'); }catch(e){}
   if(btsBookOf(v)) applyBtsBook(v, false, false);
 })();
@@ -3966,6 +3978,15 @@ function _friendLabelNow(){
   catch(e){ return 'Mango'; }
 }
 function fallbackGreeting(){
+  /* 🎯 상황별 말하기 — AI 역할의 첫 말(표의 open)로 연다. 서버 역할 지시(role)가 «이미 이렇게 말했다» 고 알고 있어 짝이 맞는다. */
+  if(situationActive()){
+    var _so = isZh() ? SITUATION.zhOpen : SITUATION.open;
+    _koCache[_so] = SITUATION.openKo;
+    addMsg(_so, 'ai');
+    addMsg('🎯 ' + wuT('상황: ', 'Situation: ') + wuT(SITUATION.ko, SITUATION.en) + wuT(' — AI 의 말에 대답해 보세요', ' — answer the AI'), 'sys');
+    if(_warmLevel <= 3) showAnswerChips(isZh() ? SITUATION.zhChips : SITUATION.chips);
+    return;
+  }
   var g = (isZh() ? BEGINNER_GREETINGS_ZH : BEGINNER_GREETINGS)[_warmLevel];
   if(g){
     // 「뜻」 버튼은 손으로 다듬은 의역을 쓴다 — 미리 넣어 두면 fetchMeaning 이 번역 서버를 안 부른다
@@ -4012,7 +4033,7 @@ function withCtx(body){
   if(WCTX.textbook) body.textbook = WCTX.textbook;
   if(WCTX.level) body.level = WCTX.level;
   if(WCTX.lesson_no) body.lesson_no = WCTX.lesson_no;
-  if(LESSON_TOPIC) body.lesson_topic = LESSON_TOPIC;
+  if(LESSON_TOPIC) body.lesson_topic = situationActive() ? (isZh() ? SITUATION.zhRole : SITUATION.role) : LESSON_TOPIC;   // 🎯 상황이면 역할 지시를 보낸다
   return body;
 }
 function updateTopicChip(){
@@ -4046,7 +4067,8 @@ async function initGreeting(){
       var r = await warmupFetch((API_BASE||'') + '/api/warmup/context?' + qs.toString());
       if(r.ok){
         var d = await r.json();
-        if(d && d.ok){
+        /* 🎯 상황 대화는 서버가 알려 준 «내 교재» 로 덮지 않는다(그러면 교재 질문으로 시작한다). 기록용 호출은 그대로 간다. */
+        if(d && d.ok && !situationActive()){
           if(d.textbook) WCTX.textbook = d.textbook;
           if(d.level) WCTX.level = d.level;
           if(d.lesson_no) WCTX.lesson_no = d.lesson_no;
@@ -4074,7 +4096,7 @@ async function initGreeting(){
      ⚠️ 중국어 게임 기록이 없으면 d.weak 가 비어 이 줄이 «아예 안 뜬다» — 영어 단어가
         중국어 수업에 올라오는 일은 그 자리에서 사라진다. 없는 것을 지어내지 않는다. */
   (function(){
-    var ruid = getLoginId(); if(!ruid) return;
+    var ruid = getLoginId(); if(!ruid || situationActive()) return;   // 🎯 상황 대화 중엔 게임 단어 안내를 끼우지 않는다
     var rlang = isZh() ? 'zh' : 'en';
     fetch((API_BASE||'') + '/api/games/recommend?user_id=' + encodeURIComponent(ruid) + '&lang=' + rlang)
       .then(function(r){ return r.ok ? r.json() : null; })
