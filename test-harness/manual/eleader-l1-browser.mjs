@@ -42,7 +42,7 @@ try {
   let { c, p, log, errors } = await open({ token: 'tok-ed' });
   await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
   ok('ed: Level 1 panel visible', await p.locator('#eleaderL1').isVisible());
-  ok('ed: panel title', /엘리더잼 Level 1 기본과정/.test(await p.locator('#eleaderL1').innerText()));
+  ok('ed: panel title', /엘리더잼 기본과정/.test(await p.locator('#eleaderL1').innerText()));
   ok('ed: 2 books in list', await p.locator('#eleaderL1 .l1-item').count() === 2);
   ok('ed: no level tabs when server sends no levels (old server)', await p.locator('#eleaderL1 .l1-tab').count() === 0);
   ok('ed: books request carries token', log.books === 1);
@@ -183,7 +183,7 @@ try {
   // ④ 영어 화면
   ({ c, p } = await open({ token: 'tok-ed', lang: 'en' }));
   await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
-  ok('en: panel in English', /Eleader Jam Level 1 Basic Course/.test(await p.locator('#eleaderL1').innerText()));
+  ok('en: panel in English', /Eleader Jam Basic Course/.test(await p.locator('#eleaderL1').innerText()));
   ok('en: daily limit in English', /You can talk up to 200 times a day · 0 used today/.test(await p.locator('#eleaderL1').innerText()));
   await c.close();
 
