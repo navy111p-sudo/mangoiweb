@@ -103,7 +103,10 @@ const measure = () => {
   /* 빈 자리 칸의 «위» = 그 열에서 바로 앞에 끝나는 카드의 «아래» (관리자 화면은 body zoom 1.3 이라 px 상수를 못 쓴다) */
   const gaps = Array.from(document.querySelectorAll('#ph54-cal-track .ph54-gap')).map((g) => {
     const r = g.getBoundingClientRect();
-    const prevBottom = Math.max(...Array.from(g.parentElement.querySelectorAll('.ph54-ev')).map((e) => e.getBoundingClientRect().bottom).filter((b) => b <= r.top + 6), -1);
+    /* 🪤 (2026-11-04) 예전엔 «없음» 을 -1 로 두고 Math.max 를 했다 — 캘린더가 화면 위로 스크롤돼 좌표가 음수가 되면
+       진짜 카드 바닥(-319)보다 -1 이 커서 «앞 카드 없음» 으로 읽혔다(스크롤 위치에 따라 통과·실패가 갈림). 없으면 null. */
+    const bs = Array.from(g.parentElement.querySelectorAll('.ph54-ev')).map((e) => e.getBoundingClientRect().bottom).filter((b) => b <= r.top + 6);
+    const prevBottom = bs.length ? Math.max(...bs) : null;
     return { t: g.textContent.trim(), top: r.top, prevBottom, col: g.parentElement.dataset.teacher };
   });
   const hourLbl = document.querySelector('#ph54-cal-track .ph54-cal-hourlabel');
@@ -159,7 +162,7 @@ const measure = () => {
     check('ZEE 열에 «빈 40분» (14:20~15:00)', !!zeeGap && /빈 40분/.test(zeeGap.t), JSON.stringify(m.gaps));
     /* 20분 카드는 최소 높이 22px(=26분)로 그려져 «시간상 끝» 보다 몇 px 아래까지 내려온다 — 빈 자리는 시간상 끝(14:20)에서
        시작하므로 카드 아래보다 «조금 위» 에서 시작하는 것이 맞다(카드가 위에 덮여 보인다). zoom 1.3 까지 감안해 -10~+6px. */
-    check('그 칸이 14:00 카드 «바로 아래» 에서 시작한다(카드 최소높이 22px 만큼은 겹침 허용)', !!zeeGap && zeeGap.prevBottom > 0 && zeeGap.top - zeeGap.prevBottom >= -10 && zeeGap.top - zeeGap.prevBottom < 6, zeeGap ? JSON.stringify([zeeGap.top, zeeGap.prevBottom]) : '');
+    check('그 칸이 14:00 카드 «바로 아래» 에서 시작한다(카드 최소높이 22px 만큼은 겹침 허용)', !!zeeGap && zeeGap.prevBottom != null && zeeGap.top - zeeGap.prevBottom >= -10 && zeeGap.top - zeeGap.prevBottom < 6, zeeGap ? JSON.stringify([zeeGap.top, zeeGap.prevBottom]) : '');
     check('FAR 열에 «빈 50분»(21:10~22:00) — 겹친 뒤는 늦게 끝나는 카드 뒤부터', m.gaps.some((g) => g.col === '2' && /빈 50분/.test(g.t)), JSON.stringify(m.gaps.filter((g) => g.col === '2')));
     check('ZEE 15:20~15:30 의 10분 틈은 안 그린다', m.gaps.filter((g) => g.col === '1').length === 1);
     console.log('\n[ ⑦ 카페24 카드 ]');

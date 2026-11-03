@@ -32,9 +32,11 @@ let L;
   const src = [fn('ph54LayoutItems'), fn('ph54LaneStyle'), fn('ph54GapHtml'), fn('ph54FoldGradient')].join('\n');
   const gapMin = (Q6.match(/var PH54_GAP_MIN = (\d+);/) || [])[1];
   check('배치 함수 4개를 소스에서 오려 냈다', src.length > 800 && !!gapMin, `len=${src.length} gapMin=${gapMin}`);
-  const mk = new Function('PH54_START_H', 'PH54_END_H', 'PH54_HOUR_PX', 'PH54_GAP_MIN', 'ph54T', 'ph54Pad',
+  const labMin = (Q6.match(/var PH54_GAP_LABEL_MIN = (\d+);/) || [])[1];
+  check('«빈 N분» 글자 자리 최소 분(PH54_GAP_LABEL_MIN)을 소스에서 읽었다', !!labMin, `labMin=${labMin}`);
+  const mk = new Function('PH54_START_H', 'PH54_END_H', 'PH54_HOUR_PX', 'PH54_GAP_MIN', 'PH54_GAP_LABEL_MIN', 'ph54T', 'ph54Pad',
     src + '\nreturn { ph54LayoutItems, ph54LaneStyle, ph54GapHtml, ph54FoldGradient };');
-  L = mk(6, 24, 50, Number(gapMin), (ko) => ko, (n) => (n < 10 ? '0' + n : '' + n));
+  L = mk(6, 24, 50, Number(gapMin), Number(labMin), (ko) => ko, (n) => (n < 10 ? '0' + n : '' + n));
   const it = (st, du, k) => ({ st, du, k });
 
   // ① 안 겹치면 전부 폭 전체
@@ -214,7 +216,41 @@ console.log('\n[ D. 취소·연기 카드 — 실제로 돌린다 ]');
   check('D-4 범례가 «모름» 을 «?» 로(0 이라고 단정하지 않는다)', /\(!ph54State\.offComplete && !offEvents\.length\) \? '\?'/.test(render));
   check('D-4 범례 한/영(✕ 취소 · ⏸ 연기 / ✕ Cancelled · ⏸ Postponed)', /✕ 취소 · ⏸ 연기/.test(render) && /✕ Cancelled · ⏸ Postponed/.test(render));
   const jsV2 = Number((HTML.match(/adm-q6\.js\?v=(\d+)/) || [])[1] || 0);
-  check('D-4 admin.html 의 adm-q6.js ?v= 가 20 이상', jsV2 >= 20, `v=${jsV2}`);
+  check('D-4 admin.html 의 adm-q6.js ?v= 가 21 이상', jsV2 >= 21, `v=${jsV2}`);
+
+  // D-7 (2026-11-04 사장님 「빈 N분 점선 상자도 같이 보이게 해줘」) 취소·연기 칸은 빈 자리를 «점유» 하지 않는다 — 실제로 돌린다
+  {
+    const R = (st, du) => ({ kind: 'rec', st, du }), O = (st, du) => ({ kind: 'off', st, du });
+    let r = L.ph54LayoutItems([R(780, 20), O(820, 40), R(900, 20)]);   // 13:00 수업 · 13:40~14:20 취소 · 15:00 수업
+    check('🔴 D-7 취소 칸이 있어도 수업 사이 빈 자리를 그린다(13:20~15:00 = 100분)', r.gaps.length === 1 && r.gaps[0].st === 800 && r.gaps[0].du === 100, JSON.stringify(r.gaps));
+    check('D-7 그 취소 칸은 «빈 자리 안» 표시(inGap)', r.items.find((x) => x.kind === 'off').inGap === true);
+    check('🔴 D-7 글자는 카드에 안 덮인 가장 긴 구간(14:20~15:00, 40분)에', r.gaps[0].lst === 860 && r.gaps[0].ldu === 40 && !r.gaps[0].tag, JSON.stringify(r.gaps[0]));
+    r = L.ph54LayoutItems([R(780, 20), O(800, 40), R(840, 20)]);   // 취소 카드가 빈 자리를 꽉 채움
+    check('🔴 D-7 카드가 빈 자리를 꽉 채우면 꼬리표(tag)로 — 글자가 카드 밑에 묻히지 않게', r.gaps.length === 1 && r.gaps[0].du === 40 && r.gaps[0].tag === true, JSON.stringify(r.gaps));
+    r = L.ph54LayoutItems([R(780, 20), O(800, 30), R(840, 20)]);   // 덮이지 않은 구간 10분(< 글자 최소)
+    check('D-7 덮이지 않은 구간이 짧으면(10분) 꼬리표', r.gaps[0] && r.gaps[0].tag === true, JSON.stringify(r.gaps));
+    r = L.ph54LayoutItems([R(780, 20), R(840, 20)]);
+    check('D-7 취소 칸이 없으면 예전 그대로(가운데 글자 — lst·tag 없음)', r.gaps.length === 1 && r.gaps[0].lst == null && !r.gaps[0].tag, JSON.stringify(r.gaps));
+    r = L.ph54LayoutItems([R(780, 40), O(790, 20), R(900, 20)]);   // 수업 시간과 겹친 취소 칸은 빈 자리 밖
+    check('D-7 수업과 같은 시간의 취소 칸은 «빈 자리 안» 이 아니다', r.items.find((x) => x.kind === 'off').inGap === false && r.gaps.length === 1 && r.gaps[0].st === 820, JSON.stringify(r));
+    r = L.ph54LayoutItems([O(800, 40)]);
+    check('D-7 취소 칸만 있으면 빈 자리 없음(앞뒤는 세지 않는다)', r.gaps.length === 0);
+    const again = [R(780, 20), O(800, 40), R(840, 20), R(900, 20)];
+    const first = L.ph54LayoutItems(again).items.find((x) => x.kind === 'off').inGap;
+    again[1].st = 845; again[1].du = 10;   // 같은 객체를 수업(840~860) 안으로 옮겨 다시 배치
+    const r2 = L.ph54LayoutItems(again);
+    check('D-7 다시 배치하면 inGap 을 지운다(같은 객체를 두 번 배치하는 강사 필터 경로)', first === true && r2.items.find((x) => x.kind === 'off').inGap === false, JSON.stringify(r2.items));
+    const tagH = L.ph54GapHtml({ st: 800, du: 40, tag: true }), labH = L.ph54GapHtml({ st: 800, du: 100, lst: 860, ldu: 40 });
+    check('D-7 꼬리표 HTML — .ph54-gap-tag · 카드 위(z-index) · «빈 40분»', /class="ph54-gap-tag"/.test(tagH) && /z-index:3/.test(tagH) && /빈 40분/.test(tagH), tagH);
+    check('D-7 구간 글자 HTML — .ph54-gap-lab 이 덮이지 않은 구간 위치(48px)에', /class="ph54-gap-lab"/.test(labH) && /top:48\.0px/.test(labH) && /빈 100분/.test(labH), labH);
+  }
+  if (C) {
+    const inG = C({ off: 'cancelled', start_time: '14:00', duration_min: 40, type: '1on1', students: [{ name: 'x' }], change: {} }, { inGap: true, lanes: 1 });
+    const inG2 = C({ off: 'cancelled', start_time: '14:00', duration_min: 40, type: '1on1', students: [{ name: 'x' }], change: {} }, { inGap: true, lanes: 2, lane: 0 });
+    const outG = C({ off: 'cancelled', start_time: '14:00', duration_min: 40, type: '1on1', students: [{ name: 'x' }], change: {} }, { inGap: false, lanes: 1 });
+    check('D-7 빈 자리 안의 혼자인 취소 카드는 안쪽으로(점선이 양옆에 보이게)', /left:7px;right:7px;/.test(inG) && !/left:7px/.test(outG));
+    check('D-7 자리를 나눈 카드는 안쪽으로 안 민다(lane 폭을 깨지 않게)', !/left:7px/.test(inG2));
+  }
 
   // D-6 (2026-11-04 사장님 「강사 열 빼는 것도 해줘」) 전체 보기에서 «취소·연기만» 있는 강사는 열이 없다 — 판정을 실제로 돌린다
   const laneSrc = fn('ph54ShowsLane');
