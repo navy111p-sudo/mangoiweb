@@ -601,6 +601,27 @@ PW_DIR=/tmp/pw node test-harness/manual/recording-storage-kpi-browser.mjs
 
 ---
 
+## observer-whisper-alert-browser.mjs — 강사가 «놓칠 수 없는» 귓속말 카드 + 답장 (25건)
+
+**언제 부르나** — `js/idx-whisper.js` 의 강사 카드·답장·읽음, 또는 수업 화면 위에 뜨는 다른 상자
+(사용법 안내 창 `#vc-guide-ov` 등)의 z-index·위치를 건드렸을 때.
+
+**왜 손으로 만들었나** — 2026-11-04 필리핀 매니저 「선생님께 보냈는데 못 봤다. BODA 처럼 알림이 바로 떠서
+바로 답하게」. 메시지는 도착했는데(delivered=1) 강사 화면 표시가 «구석·남색·8초» 였다. 자동 하니스
+(`observer_whisper_reply_harness`)는 가짜 DOM 이라 «맨 위에 보이나» 를 못 잰다.
+
+**무엇을 재나** — 진짜 `index.html` 수업 화면(`showView('view-videocall-call')`)에서 카드가 맨 위인지
+(`elementsFromPoint`) · 상단바 아래에서 시작하는지 · 9초 뒤에도 남는지 · **사용법 안내 창이 열려 있어도
+맨 위인지**(같은 z-index 면 덮인다 — 실측으로 잡음) · 「확인」 버튼이 전역 CSS 에 안 먹히는지 · 실제 클릭·탭으로
+답장·읽음이 «한 번만» 나가는지 · 폰 390px 에서 안 넘치는지 · EN 화면 · 학생 화면은 예전 그대로인지 ·
+참관자 화면에 답장 카드가 뜨는지.
+
+```
+node test-harness/manual/observer-whisper-alert-browser.mjs          # SHOT_DIR=<폴더> 를 붙이면 스크린샷 4장
+```
+
+---
+
 ## observer-whisper-browser.mjs — 참관 중 귓속말 (22건)
 
 **언제 부르나** — 참관(`/?observe=`) 귓속말, 채팅 대상 칩(`vcChatTarget`·`vcRefreshChatTargets`),
