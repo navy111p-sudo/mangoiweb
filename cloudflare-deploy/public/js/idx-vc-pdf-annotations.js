@@ -64,6 +64,7 @@ function vcPdfAnnotationGate(msg) {
         catch (_) { return true; }
     }
     if (ctx && ctx.pending) {
+        if (!ctx.failed && Date.now() - ctx.createdAt > 30000) { ctx.failed = true; ctx.queue = []; ctx.bytes = 0; try { showToast('필기 복원이 지연되어 자동 적용을 보류했습니다.'); } catch (_) {} }
         if (ctx.failed) return true;
         var bytes;
         try { bytes = new TextEncoder().encode(JSON.stringify(msg)).byteLength; } catch (_) { return true; }
@@ -80,8 +81,10 @@ function vcPdfAnnotationGate(msg) {
 
 function vcFlushPdfAnnotations() {
     var ctx = window.__vcPdfAnnoContext;
-    if (!ctx || !ctx.current() || ctx.failed) return;
+    if (!ctx || !ctx.current()) return;
+    if (ctx.pending && Date.now() - ctx.createdAt > 30000) { ctx.failed = true; try { showToast('필기 복원이 지연되어 자동 적용을 보류했습니다.'); } catch (_) {} }
     ctx.pending = false;
+    if (ctx.failed) { ctx.queue = []; ctx.bytes = 0; return; }
     var queue = ctx.queue; ctx.queue = []; ctx.bytes = 0;
     queue.forEach(function(msg) { vcHandleMessage(msg); });
 }
@@ -181,7 +184,9 @@ window.__vcPdfAnnotationModuleReady = true;
 window.__vcPdfAnnotationModuleLoading = false;
 var earlyPdfAnnotations = window.__vcEarlyPdfAnnotations || [];
 window.__vcEarlyPdfAnnotations = []; window.__vcEarlyPdfAnnotationBytes = 0;
-if (!window.__vcEarlyPdfAnnotationOverflow) earlyPdfAnnotations.forEach(function(entry) {
+var earlyPdfExpired = earlyPdfAnnotations.some(function(entry){ return Date.now() - entry.at > 30000; });
+if (earlyPdfExpired) { try { showToast('필기 복원이 지연되어 자동 적용을 보류했습니다.'); } catch (_) {} }
+if (!window.__vcEarlyPdfAnnotationOverflow && !earlyPdfExpired) earlyPdfAnnotations.forEach(function(entry) {
     var currentUrl = window.__vcPdfAnnoContext?.url || window._vcCurrentPdfUrl;
     try { if (entry.url && currentUrl && new URL(entry.url, location.origin).href !== new URL(currentUrl, location.origin).href) return; } catch (_) { return; }
     if (entry.room === vcRoomId && entry.self === vcUserId && entry.conn === vcConn && entry.account === vcAccountSnapshot()) vcHandleMessage(entry.msg);

@@ -645,8 +645,8 @@ window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName, fromTe
     window.__vcSharedPdfPendingKey = key;
     window.__vcSharedPdfPendingCurrent = current;
     var priorAnnotations = window.__vcPdfAnnoContext;
-    var sameAnnotations = priorAnnotations && priorAnnotations.current() && priorAnnotations.url === sUrl;
-    var annotationContext = { url: sUrl, pending: true, failed: false,
+    var sameAnnotations = priorAnnotations && priorAnnotations.current() && priorAnnotations.pending && !priorAnnotations.failed && priorAnnotations.url === sUrl && priorAnnotations.session === annotationSession;
+    var annotationContext = { url: sUrl, session: annotationSession, pending: true, failed: false, createdAt: sameAnnotations ? priorAnnotations.createdAt : Date.now(),
       current: function(){ return window.__vcPdfAnnoContext === annotationContext && vcRoomId === room && vcUserId === self
         && vcConn === conn && vcAccountSnapshot() === account; },
       queue: sameAnnotations ? priorAnnotations.queue : [], bytes: sameAnnotations ? priorAnnotations.bytes : 0 };
@@ -4195,7 +4195,7 @@ function vcPdfAnnotationGate(msg) {
         window.__vcEarlyPdfAnnotationOverflow = true; return true;
     }
     if (!window.__vcEarlyPdfAnnotationOverflow) {
-        queue.push({ msg: msg, room: vcRoomId, self: vcUserId, conn: vcConn, account: vcAccountSnapshot(), url: msg.data?.documentUrl || window.__vcPdfAnnoContext?.url || window._vcCurrentPdfUrl });
+        queue.push({ msg: msg, at: Date.now(), room: vcRoomId, self: vcUserId, conn: vcConn, account: vcAccountSnapshot(), url: msg.data?.documentUrl || window.__vcPdfAnnoContext?.url || window._vcCurrentPdfUrl });
         window.__vcEarlyPdfAnnotationBytes = (window.__vcEarlyPdfAnnotationBytes || 0) + bytes;
     }
     vcEnsurePdfAnnotationModule();
