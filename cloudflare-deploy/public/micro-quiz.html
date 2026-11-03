@@ -787,7 +787,7 @@ function __mgTok(){ try { return localStorage.getItem('mango_token') || ''; } ca
           if (uid.indexOf('guest_') !== 0) {
             fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
               body: JSON.stringify({ user_id: uid, token: __mgTok(), student_name: getName(), kind: 'speak', session_id: 'mq:' + Q.serverId + ':speak' }) })
-              .then(r => r.json()).then(function(d){ if (d.ok && d.awarded > 0) fb.innerHTML += ' <span class="xp-plus">💰 +20P</span>'; }).catch(function(){});
+              .then(r => r.json()).then(function(d){ if (d.ok && d.awarded > 0) fb.innerHTML += ' <span class="xp-plus">💰 +'+Number(d.awarded)+'P</span>'; }).catch(function(){});
           }
         } catch(e){}
         if (autoAdvTimer) clearTimeout(autoAdvTimer);
@@ -942,6 +942,27 @@ function __mgTok(){ try { return localStorage.getItem('mango_token') || ''; } ca
       renderQuiz();
     }
 
+    /* 🪙 결과 화면의 «받은 포인트» (2026-11-03) — 서버 응답(awarded)만 믿는다. 판정은 이 함수 하나(하니스가 실제로 돌림).
+       d: /api/vocab/reward 응답(실패면 null) · expect: 맞힌 개수로 받을 수 있는 점수(정답×10P, 서버와 같은 20개 상한)
+       ⛔ 지어내지 않는다 — 못 물어봤으면 «확인 못 함», 한도로 덜 들어갔으면 그 사실을 함께 말한다. */
+    function mqEarnView(d, expect) {
+      if (d && d.ok === false && d.error === 'auth_required') {
+        return { cls: 'hint', html: tt('🔑 로그인이 풀렸어요 — 다시 로그인하면 정답 포인트가 쌓여요','🔑 You were logged out — log in again to earn points') };
+      }
+      if (!d || d.ok !== true || typeof d.awarded !== 'number') {
+        return { cls: 'hint', html: tt('⚠️ 포인트를 확인하지 못했어요. 잠시 뒤 포인트 내역에서 확인해 주세요.',"⚠️ Couldn't check your points. Please check your point history later.") };
+      }
+      var got = Math.max(0, Math.round(d.awarded));
+      if (d.duplicate) return { cls: 'hint', html: tt('🥭 이 퀴즈의 포인트는 이미 받았어요','🥭 Points for this quiz were already given') };
+      if (got <= 0) return { cls: 'hint', html: tt('🌙 오늘 받을 수 있는 포인트를 다 받았어요 — 내일 또 만나요! (맞힌 점수 '+expect+'P)','🌙 Daily point cap reached — see you tomorrow! ('+expect+'P scored)') };
+      var bal = (typeof d.balance === 'number') ? '<span class="bal">'+tt('내 포인트','Balance')+' '+Number(d.balance).toLocaleString()+'P</span>' : '';
+      var note = got < expect ? '<div class="mq-hint">'+tt('오늘 포인트 한도에 닿아 '+got+'P만 들어갔어요 (맞힌 점수 '+expect+'P)','Hit today\'s cap — only '+got+'P added ('+expect+'P scored)')+'</div>' : '';
+      return { cls: 'earn', html: '<span class="amt">💰 +'+got+'P</span><span>'+tt('받은 포인트','earned')+'</span>'+bal, note: note };
+    }
+    function mqPaintEarn(slot, v) {
+      slot.innerHTML = v.cls === 'earn' ? '<div class="mq-earn">'+v.html+'</div>'+(v.note||'') : '<div class="mq-hint">'+v.html+'</div>';
+    }
+
     /* ── 💰 포인트 적립 (기존 /api/vocab/reward 재사용 — 서버 멱등·일일상한) ── */
     async function awardPoints(correct) {
       const slot = document.getElementById('mqReward');
@@ -952,16 +973,18 @@ function __mgTok(){ try { return localStorage.getItem('mango_token') || ''; } ca
         return;
       }
       const sessionId = 'mq:' + (serverQuizzesRaw[0] && serverQuizzesRaw[0].id || Date.now()) + (retryCount ? ':r' + retryCount : '');
+      const expect = Math.min(correct, 20) * 10;   // 서버와 같은 계산(정답 20개 상한 · 정답당 10P)
+      slot.innerHTML = `<div class="mq-hint">${tt('💰 포인트 받는 중…','💰 Getting your points…')}</div>`;
       try {
-        const r = await fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ user_id: uid, token: __mgTok(), student_name: getName(), kind: 'session', correct_count: correct, session_id: sessionId }) });
-        const d = await r.json();
-        if (d.ok && d.awarded > 0) {
-          slot.innerHTML = `<div class="mq-earn"><span class="amt">💰 +${d.awarded}P</span><span>${tt('적립!','earned!')}</span><span class="bal">${tt('내 포인트','Balance')} ${Number(d.balance).toLocaleString()}P</span></div>`;
-          sfx('star');
-        } else if (d.ok && d.daily_cap) {
-          slot.innerHTML = `<div class="mq-hint">${tt('오늘 포인트 상한에 도달했어요 — 내일 또 만나요! 🌙','Daily point cap reached — see you tomorrow! 🌙')}</div>`;
-        }
+        let d = null;
+        try {
+          const r = await fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ user_id: uid, token: __mgTok(), student_name: getName(), kind: 'session', correct_count: correct, session_id: sessionId }) });
+          d = await r.json().catch(() => null);
+        } catch (_) { d = null; }
+        const v = mqEarnView(d, expect);
+        mqPaintEarn(slot, v);
+        if (v.cls === 'earn') sfx('star');
         // 일일 미션(하루 10단어) — 서버가 검증, 퀴즈 답도 복습으로 집계됨
         const sr = await fetch('/api/vocab/stats?uid=' + encodeURIComponent(uid));
         const sd = await sr.json();
@@ -970,7 +993,7 @@ function __mgTok(){ try { return localStorage.getItem('mango_token') || ''; } ca
             body: JSON.stringify({ user_id: uid, token: __mgTok(), student_name: getName(), kind: 'mission' }) });
           const md = await mr.json();
           if (md.ok && md.awarded > 0) {
-            slot.innerHTML += `<div class="mq-mission">🎯 ${tt('오늘의 미션 완료! 보너스 +50P','Daily mission complete! Bonus +50P')}</div>`;
+            slot.innerHTML += `<div class="mq-mission">🎯 ${tt('오늘의 미션 완료! 보너스 +'+Number(md.awarded)+'P','Daily mission complete! Bonus +'+Number(md.awarded)+'P')}</div>`;
             confetti(); sfx('star');
           }
         }
