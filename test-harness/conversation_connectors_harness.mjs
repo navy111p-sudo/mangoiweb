@@ -266,6 +266,7 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
 {
   for (const [d, band] of [[1, 'beginner'], [2, 'beginner'], [5, 'intermediate'], [7, 'advanced'], [0, 'beginner']]) {
     const r = await post('/api/warmup/chat', { session_id: 'w' + d, student_input: 'I went camping with my brother.', difficulty: d || undefined });
+    ok(r.sys.includes(C.AVATAR_NATURAL_OPENERS), '아바타 실제 요청에 자연스러운 말머리·명료한 발화·교정 우선 규칙이 실린다');
     ok(r.status === 200 && has(r.sys, band) && ['beginner', 'intermediate', 'advanced'].filter((x) => x !== band).every((x) => !has(r.sys, x)), `웜업 난이도 ${d || '미지정'} → ${band} 규칙만 실린다`, r.status);
   }
   replyText = 'Great try! Do you like cats?';
@@ -278,7 +279,7 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
   const lastLine = (r3.sys.match(/Your last replies[^\n]{0,200}/) || [''])[0];
   ok(/Your last replies started with "So,"\./.test(lastLine) && !/Great try!/.test(lastLine), '웜업: 지난 답장들의 실제 시작 말을 지시에 싣는다(최근 것부터·칭찬 말머리는 뺀 채)', r3.sys.slice(-260));
   const zh = await post('/api/warmup/chat', { session_id: 'w-zh', student_input: '你好', difficulty: 2, lang: 'zh' });
-  ok(zh.status === 200 && zh.sys.length > 0 && !zh.sys.includes('[연결 표현]') && !zh.sys.includes('LINKING WORDS'), '(짝) 중국어 웜업에는 싣지 않는다', zh.status);
+  ok(zh.status === 200 && zh.sys.length > 0 && !zh.sys.includes('[연결 표현]') && !zh.sys.includes('LINKING WORDS') && !zh.sys.includes(C.AVATAR_NATURAL_OPENERS), '(짝) 중국어 웜업에는 싣지 않는다', zh.status);
 }
 // A.i 선생님 수업
 {
@@ -286,6 +287,7 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
   AI.run = async (model, o) => { seen.push(o); return { response: 'EN: "Tired" means you need rest.\nKO: 쉬어야 한다는 뜻이에요.' }; };
   const r = await post('/api/ai/class-ask', { q: 'tired 가 무슨 뜻이에요?', title: 'Feelings', lines: ['I am tired.'] });
   ok(r.status === 200 && r.j && r.j.ok === true && has(r.sys, 'beginner'), 'A.i 선생님 수업: 즉답 지시에 초급 규칙이 실리고 답이 나온다', { s: r.status, j: r.j });
+  ok(!r.sys.includes(C.AVATAR_NATURAL_OPENERS), '수업 즉답에는 아바타 말머리 규칙을 추가하지 않는다');
   const iR = r.sys.indexOf('LINKING WORDS'), iF = r.sys.indexOf('6. Reply in EXACTLY this format');
   ok(iR > 0 && iF > iR, 'A.i 선생님 수업: 출력 형식(EN/KO 두 줄) 규칙보다 «앞»');
 }
@@ -297,8 +299,11 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
   if (g.j && g.j.token) {
     for (const [lv, band] of [['S2', 'beginner'], ['S5', 'intermediate'], ['S7', 'advanced']]) {
       const r = await post('/api/ai/chat-friend', { uid: g.j.uid, msg: 'I stayed home yesterday.', level: lv, friend: 'lily' }, g.j.token);
-      ok(r.status === 200 && has(r.sys, band) && ['beginner', 'intermediate', 'advanced'].filter((x) => x !== band).every((x) => !has(r.sys, x)), `AI 친구 ${lv} → ${band} 규칙만 실린다`, r.status);
+      ok(r.sys.includes(C.AVATAR_NATURAL_OPENERS), '아바타 실제 요청에 자연스러운 말머리·명료한 발화·교정 우선 규칙이 실린다');
+    ok(r.status === 200 && has(r.sys, band) && ['beginner', 'intermediate', 'advanced'].filter((x) => x !== band).every((x) => !has(r.sys, x)), `AI 친구 ${lv} → ${band} 규칙만 실린다`, r.status);
     }
+    const voice = await post('/api/ai/chat-friend', { uid: g.j.uid, msg: 'Can we talk about dogs?', level: 'S5', friend: 'lily', via: 'voice' }, g.j.token);
+    ok(voice.status === 200 && voice.sys.includes(C.AVATAR_NATURAL_OPENERS) && voice.sys.includes('A short contextual opener') && !voice.sys.includes('skip filler'), '친구 음성 모드도 말머리를 허용하되 기존 발화 길이를 유지한다');
     replyText = 'Great try! Do you like dogs?';
     await post('/api/ai/chat-friend', { uid: g.j.uid, msg: 'I like animals.', level: 'S3', friend: 'lily' }, g.j.token);
     const r = await post('/api/ai/chat-friend', { uid: g.j.uid, msg: 'Yes, I do.', level: 'S3', friend: 'lily' }, g.j.token);

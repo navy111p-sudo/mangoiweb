@@ -72,7 +72,8 @@ import { resolveWarmupHonest, warmupHonestRule, parseWarmupGrade, finalizeWarmup
 import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
 import { fragmentQuestions, fragmentQuestionHint, checksFragmentQuestions, fullQuestionRule, FRAG_RETRY_BUDGET_MS } from './reply-questions';   // 🧩 기초 단계 «조각 질문»(like space?) 막기
 import { questionMemory, askedQuestionsLine, ASKED_LINE_HEAD, repeatedQuestions, retryRepeatedQuestion } from './question-memory';   // 🔁 같은 질문 두 번 금지(말만 바꾼 것·반대말 포함)
-import { connectorPromptBlock, linkBandForStep } from './conversation-connectors';   // 🔗 연결 표현(2026-10-28 · 세 화면 공용 정본)
+import { connectorPromptBlock, linkBandForStep } from './conversation-connectors';
+import { AVATAR_NATURAL_OPENERS } from './conversation-connectors';   // 🔗 연결 표현(2026-10-28 · 세 화면 공용 정본)
 import { normalizeWarmupLang, warmupZhSystem, WARMUP_ZH_LEVELS, zhWarmupSentences, zhStudentByTeacher,
          warmupZhAnswerChips, WARMUP_ZH_FALLBACK_QUESTIONS, WARMUP_ZH_QUESTION_LANG } from './warmup-zh';  // 🀄 중국어 대화 정본(2026-09-13) — 영어 규칙은 한 글자도 안 건드린다
 import { applyEmpathyGuard, WARMUP_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)
@@ -4412,6 +4413,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     /* 🔗 (2026-10-28 사장님 지시) 연결 표현 규칙 + 최근 답장과 다른 말로 시작하기 — 정본 src/conversation-connectors.ts(부르기만).
        ⛔ 중국어 대화·엘리더잼 예시형 계약(형식 고정 «You could say: …»)에는 싣지 않는다. 던지지 않는다(못 만들면 빈 문자열). */
     if (ctxLang !== 'zh' && !hasEleaderExpansion(request)) sys += '\n[연결 표현]\n' + connectorPromptBlock(linkBandForStep(ctxDifficulty), history);
+    if (ctxLang !== 'zh' && !hasEleaderExpansion(request)) sys += '\n' + AVATAR_NATURAL_OPENERS;
     /* ✏️ 교정 카드 (2026-09-08) — 답장과 «같은 한 번의 호출» 에서 JSON 으로 함께 받는다.
        따로 부르면 왕복이 하나 더 붙어 한 턴이 두 배가 된다. 판정 정본은 src/warmup-correction.ts.
        ⚠️ 이 절이 출력 형식을 평문 → JSON 으로 바꾸므로, 아래 모든 추출 자리는 반드시
