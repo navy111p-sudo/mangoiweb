@@ -9,6 +9,9 @@
  *    「지금 손봐야 할 방」이 그 값을 쓴다. 이 파일은 «덧붙이기» 만 한다.
  * ⚠️ role 은 «접속한 기기가 보낸 값» 이다(js/idx-vc-qlog.js — vcIsTeacherRole() 이면 'teacher',
  *    아니면 저장된 역할이나 'student'). 화면 «표시» 에만 쓴다.
+ *    ⚠️ vcIsTeacherRole() 은 admin·hq 역할도 참으로 본다(idx-main.js) — 본사·사장님이 «직접 입장» 하면
+ *       그 기기는 'teacher' 로 보내 «강사» 줄에 섞인다(그래서 «강사 2명» 이 나올 수 있다).
+ *       «기타» 는 기기가 teacher·student·빈 값이 아닌 글자를 보낸 드문 경우뿐이다.
  *    ⛔ 출석·노쇼·급여 판정에 쓰지 말 것(CLAUDE.md 2장 — 판정 근거는 이름 일치뿐).
  * ⚠️ 표본이 없으면 «모름»(null) 이다 — samples=0 인 1분의 avg_loss(0) 와 avg_rtt=0 은 평균에서 뺀다.
  *    0 으로 섞으면 카메라를 끈 사람이 «회선이 제일 좋은 사람» 으로 보인다(CLAUDE.md 2장).
@@ -23,8 +26,8 @@ export type LineRole = 'teacher' | 'student' | 'other';
 /** 화면에 그리는 순서 — 강사가 먼저 */
 export const LINE_ROLE_ORDER: readonly LineRole[] = ['teacher', 'student', 'other'];
 
-/** 역할을 세 칸으로 묶는다 — 'teacher' 만 강사, 빈 값·'student' 는 학생, 나머지(관리자 세션 등)는 기타.
- *  ⛔ 방 단위 쿼리와 «같은 WHERE» 를 쓴다(같은 행을 묶는 축만 다르다). */
+/** 역할을 세 칸으로 묶는다 — 'teacher' 만 강사, 빈 값·'student' 는 학생, 그 밖의 글자는 기타.
+ *  ⛔ 방 단위 쿼리와 «같은 WHERE» 를 쓴다(같은 행을 묶는 축만 다르다 — vc_quality_live_role_harness ① 이 대조). */
 export const LIVE_ROLE_SQL = `SELECT room,
          CASE WHEN LOWER(TRIM(COALESCE(role, ''))) = 'teacher' THEN 'teacher'
               WHEN LOWER(TRIM(COALESCE(role, ''))) IN ('', 'student') THEN 'student'

@@ -55,6 +55,14 @@ const liveAt = ADMIN.indexOf("if (url.searchParams.get('live') === '1')", qStart
 const liveBlock = blockFrom(ADMIN, liveAt);
 ok(!!createSql && /\bsamples\b/.test(createSql), '전제: api-admin.ts 의 vc_quality 스키마를 읽었다(samples 칸 포함)');
 ok(liveBlock.length > 200 && /LIVE_ROLE_SQL/.test(liveBlock), '전제: api-admin.ts 의 live=1 블록을 중괄호 짝으로 잘라 냈다');
+/* 정본 약속 «방 단위 쿼리와 같은 WHERE» — 두 SQL 의 WHERE 를 소스에서 읽어 글자 그대로 대조한다 */
+{
+  const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+  const whereOf = (sql) => norm((String(sql).match(/WHERE([\s\S]*?)GROUP BY/) || [])[1]);
+  const roomSql = (liveBlock.match(/SELECT room, COUNT\(\*\) AS windows[\s\S]*?`/) || [''])[0];
+  const wRoom = whereOf(roomSql), wRole = whereOf(M.LIVE_ROLE_SQL);
+  ok(!!wRoom && wRoom === wRole, `역할별 SQL 의 WHERE 가 방 단위 SQL 과 같다 (방 «${wRoom}» · 역할 «${wRole}»)`);
+}
 
 /* ── 진짜 SQLite — 방 두 개, 강사·학생·기타, 카메라 끈 1분, 창 밖 오래된 행 ── */
 const NOW = Date.now();
@@ -71,8 +79,11 @@ function mkDb() {
   ins.run(NOW - 90000, R, 's_lee', 'Lee', '', 3.0, 5.0, 200, 0, 25);
   // 카메라 끈 1분 — samples 0 · avg_rtt 0 (화면이 보내는 «표본 없음» 모양). 평균에 넣으면 학생이 좋아 보인다
   ins.run(NOW - 30000, R, 's_kim', 'Kim', 'student', 0, 0, 0, 0, 0);
-  // 관리자 세션 등 — 기타
+  // 기기가 teacher·student·빈 값이 아닌 글자를 보낸 드문 경우 — 기타
+  //   (⚠️ 본사·사장님 «직접 입장» 은 vcIsTeacherRole() 이 참이라 기기가 'teacher' 로 보낸다 → 강사 줄)
   ins.run(NOW - 60000, R, 'hq_x', 'HQ', 'hq_admin', 0.5, 0.5, 100, 0, 10);
+  // 음수 손실 행 — 수집 경로가 무인증이라 들어올 수는 있다. 방 단위·역할별 둘 다 같은 WHERE 로 빼야 한다
+  ins.run(NOW - 45000, R, 't_len', 'LEN', 'teacher', -1, 0, 9999, 0, 40);
   // 창 밖(10분 전) — 안 섞여야 한다
   ins.run(NOW - 600000, R, 't_len', 'LEN', 'teacher', 50, 60, 900, 0, 40);
   // 다른 방 — 강사만, 그것도 표본이 하나도 없다
@@ -96,10 +107,11 @@ console.log('① 정본 SQL 을 진짜 SQLite 에 돌린다');
   const T = get('class-4405-20261103', 'teacher'), S = get('class-4405-20261103', 'student'), O = get('class-4405-20261103', 'other');
   ok(T && T.avg_rtt === 254 && T.avg_loss === 0.1 && T.people === 1, `강사 = 254ms · 0.1% · 1명 (실측 ${JSON.stringify(T)})`);
   ok(T && T.avg_rtt !== 900, '(짝) 5분 창 밖의 행은 안 섞인다');
+  ok(T && T.avg_rtt !== 9999 && T.avg_loss >= 0, '(짝) 음수 손실 행(avg_loss < 0)은 방 단위와 같은 조건으로 빠진다');
   ok(S && S.people === 2, `역할 빈 값(옛 기기)도 학생으로 센다 — 학생 2명 (실측 ${S && S.people})`);
   ok(S && S.avg_loss === 2 && S.avg_rtt === 190, `표본 없는 1분(samples 0·rtt 0)은 평균에서 뺀다 — 학생 190ms · 2% (실측 ${S && S.avg_rtt}ms · ${S && S.avg_loss}%)`);
   ok(S && S.avg_loss !== 1.3 && S.avg_rtt !== 127, '(짝) 뺐기 때문에 «0 이 섞여 좋아 보이는» 값(127ms·1.3%)이 아니다');
-  ok(O && O.people === 1 && O.avg_rtt === 100, `강사·학생이 아닌 역할(hq_admin)은 «기타» (실측 ${JSON.stringify(O)})`);
+  ok(O && O.people === 1 && O.avg_rtt === 100, `teacher·student·빈 값이 아닌 글자(hq_admin)는 «기타» (실측 ${JSON.stringify(O)})`);
   const B = get('class-7657-20261103', 'teacher');
   ok(B && B.avg_rtt === null && B.avg_loss === null, `대소문자가 달라도 강사('Teacher') · 표본이 하나도 없으면 null(«모름») — 0 이 아니다 (실측 ${JSON.stringify(B)})`);
 }
