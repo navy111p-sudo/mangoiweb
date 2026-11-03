@@ -607,7 +607,7 @@ window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName, fromTe
     try { if (typeof pdfSyncSeqIdx === 'function') pdfSyncSeqIdx(sUrl); } catch(_){}
     var pg = currentPage || 1;
     var key = sUrl + '|' + pg;
-    if (key === window._vcShownPdfKey) return;  // 이미 같은 교재/페이지 표시 중
+    if (key === window._vcShownPdfKey && (!window.__vcSharedPdfPendingCurrent || window.__vcSharedPdfPendingCurrent())) return;  // 이미 같은 교재/페이지 표시 중
     // 같은 교재인데 페이지만 다르면 → 전체 재로드 없이 페이지 이동만(깜빡임 방지)
     if (sUrl === window._vcShownPdfUrl && !(window.__vcSharedPdfPendingKey && window.__vcSharedPdfPendingKey !== key)) {
       window.__vcSharedPdfRequest = (window.__vcSharedPdfRequest || 0) + 1; // supersede an in-flight different book
@@ -635,17 +635,19 @@ window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName, fromTe
         && vcConn === conn && vcAccountSnapshot() === account;
     }
     function loadCurrent(kind){
-      try { return Promise.resolve(current() ? pdfLoad(sUrl, kind) : undefined); }
+      try { return Promise.resolve(current() ? pdfLoad(sUrl, kind, current) : undefined); }
       catch (e) { return Promise.reject(e); }
     }
     window._vcShownPdfKey = key;
     window.__vcSharedPdfPendingKey = key;
+    window.__vcSharedPdfPendingCurrent = current;
     try { if (typeof pdfCurrentId !== 'undefined') pdfCurrentId = sPid || sUrl; } catch(_){}
     try { if (typeof vcSwitchTab === 'function') vcSwitchTab('pdf'); } catch(_){}
     try { if (typeof showToast === 'function') showToast('📥 교재 수신 — 여는 중 (' + (k || '자동') + ')'); } catch(_){}
     loadCurrent(k || undefined).then(function(loaded){
       if (!current()) return;
       window.__vcSharedPdfPendingKey = '';
+      window.__vcSharedPdfPendingCurrent = null;
       if (loaded === false) { window._vcShownPdfKey = ''; window._vcShownPdfUrl = ''; return; }
       window._vcShownPdfUrl = sUrl;  // 현재 교재 URL 기록 (이후 페이지 이동은 재로드 없이)
       try { if (typeof pdfPageNum !== 'undefined') pdfPageNum = currentPage || 1; } catch(_){}
@@ -657,6 +659,7 @@ window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName, fromTe
       loadCurrent(alt).then(function(loaded){
         if (!current()) return;
         window.__vcSharedPdfPendingKey = '';
+      window.__vcSharedPdfPendingCurrent = null;
         if (loaded === false) { window._vcShownPdfKey = ''; window._vcShownPdfUrl = ''; return; }
         window._vcShownPdfUrl = sUrl;
         try { if (typeof pdfPageNum !== 'undefined') pdfPageNum = currentPage || 1; } catch(_){}
@@ -665,6 +668,7 @@ window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName, fromTe
       }).catch(function(e2){
         if (!current()) return;
         window.__vcSharedPdfPendingKey = '';
+      window.__vcSharedPdfPendingCurrent = null;
         window._vcShownPdfKey = '';  // 실패 시 키 초기화 → 다음 폴링에서 재시도
         try { if (typeof showToast === 'function') showToast('❌ 교재 로드 실패: ' + (e2 && e2.message || e2)); } catch(_){}
       });
@@ -678,6 +682,7 @@ window.vcStartPdfPoll = function(){
     window._vcShownPdfKey = '';
     window._vcShownPdfUrl = '';
     window.__vcSharedPdfPendingKey = '';
+      window.__vcSharedPdfPendingCurrent = null;
     window._vcShownVideoUrl = '';
     window._vcJoinedRoomId = '';   // ★ (2026-07-20) room-joined 수신 전엔 폴링 미적용 (아래 참조)
     if (window._vcPdfPollTimer) clearInterval(window._vcPdfPollTimer);
@@ -11974,7 +11979,7 @@ async function pdfUpload(input) {
     }, true);
 })();
 
-async function pdfLoad(url, kind) {
+async function pdfLoad(url, kind, isCurrent) {
     const generation = ++pdfLoadGeneration;
     const roomAtStart = typeof vcRoomId === 'undefined' ? '' : vcRoomId || '';
     const pendingText = document.getElementById('ph265-textinput');
@@ -12015,7 +12020,7 @@ async function pdfLoad(url, kind) {
             disableStream: false
         }).promise;
     }
-    if (generation !== pdfLoadGeneration
+    if ((typeof isCurrent === 'function' && !isCurrent()) || generation !== pdfLoadGeneration
         || roomAtStart !== (typeof vcRoomId === 'undefined' ? '' : vcRoomId || '')) return false;
     pdfDoc = nextDoc;
     window._vcCurrentPdfUrl = url;
@@ -13221,6 +13226,9 @@ window.pdfClosePageList = pdfClosePageList;
 function pdfStopShare() {
     /* 📚 (2026-08-12 Melca 7번) 학생이 누르면 **반 전체의 교재가 사라진다** — 강사·관리자만. */
     if (!window.vcCanControlTextbook()) { window.vcTextbookDenied(); return; }
+    ++pdfLoadGeneration;
+    window.__vcSharedPdfRequest = (window.__vcSharedPdfRequest || 0) + 1;
+    window._vcShownPdfKey = ''; window._vcShownPdfUrl = ''; window.__vcSharedPdfPendingKey = ''; window.__vcSharedPdfPendingCurrent = null;
     pdfDoc = null;
     pdfCurrentId = null;
     document.getElementById('pdf-canvas').getContext('2d').clearRect(0, 0, 9999, 9999);
@@ -13228,6 +13236,9 @@ function pdfStopShare() {
     if (vcConn) vcConn.send({ type: 'pdf-stop-share', data: {} });
 }
 function pdfClearRemote() {
+    ++pdfLoadGeneration;
+    window.__vcSharedPdfRequest = (window.__vcSharedPdfRequest || 0) + 1;
+    window._vcShownPdfKey = ''; window._vcShownPdfUrl = ''; window.__vcSharedPdfPendingKey = ''; window.__vcSharedPdfPendingCurrent = null;
     pdfDoc = null; pdfCurrentId = null;
     document.getElementById('pdf-canvas').getContext('2d').clearRect(0, 0, 9999, 9999);
     document.getElementById('pdf-page-info').textContent = '-';
@@ -14211,13 +14222,15 @@ function vcSetChatTarget(userId, username) {
         const panel = document.getElementById('vc-chat-panel');
         if (panel && !panel.classList.contains('open') && typeof vcToggleChat === 'function') vcToggleChat();
     } catch(_) {}
+    vcRefreshChatPlaceholder();
     const input = document.getElementById('vc-chat-input');
-    if (input) {
-        input.placeholder = window.vcChatTarget
-            ? ('🔒 ' + window.vcChatTarget.username + ' 에게만 보내기…')
-            : (input.getAttribute(miIsEn() ? 'data-en-ph' : 'data-ko-ph') || '메시지 입력...');
-        try { input.focus(); } catch(_) {}
-    }
+    if (input) { try { input.focus(); } catch(_) {} }
+}
+function vcRefreshChatPlaceholder() {
+    const input = document.getElementById('vc-chat-input');
+    if (input) input.placeholder = window.vcChatTarget
+        ? ('🔒 ' + window.vcChatTarget.username + ' 에게만 보내기…')
+        : (input.getAttribute(miIsEn() ? 'data-en-ph' : 'data-ko-ph') || '메시지 입력...');
 }
 
 function vcRefreshChatTargets() {

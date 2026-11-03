@@ -41,6 +41,7 @@ interface VcAttachment {
    *  hibernation 으로 DO 가 메모리에서 내려가도 attachment 는 살아남으므로,
    *  깨어난 알람이 «언제부터 조용한가» 를 판단할 바닥값으로 쓴다. */
   seenAt?: number;
+  wbReplayBlocked?: boolean;
 }
 
 export class VideoCallRoom {
@@ -94,6 +95,9 @@ export class VideoCallRoom {
   private wbHistory: RoomWhiteboardHistory | null = null;
   private wbAt = 0;
   private wbResetPending = false;
+  private wbDirty = false;
+  private wbRestorePending = false;
+  private wbHistoryEnabled = false;
 
   /** ✍️ (2026-08-12 Melca) 교재(PDF) 판서도 칠판과 같은 이유로 버퍼 —
    *  "학생 필기가 강사 화면에 안 보인다" 신고의 한 갈래가 «늦게 들어온·새로고침한 강사» 였다.
@@ -168,12 +172,16 @@ export class VideoCallRoom {
     this.state.blockConcurrencyWhile(async () => {
       try {
         const sql = (this.state.storage as any).sql;
-        if (sql) {
+        this.wbHistoryEnabled = (env as any)?.VC_WHITEBOARD_HISTORY === 'on';
+        if (sql && this.wbHistoryEnabled) {
           this.wbHistory = new RoomWhiteboardHistory(sql, VideoCallRoom.WB_OPS_MAX, body => this.state.storage.transactionSync(body));
           const saved = this.wbHistory.read();
           this.wbOps = saved.ops; this.wbAt = saved.at;
         }
-      } catch { this.wbHistory = null; this.wbResetPending = true; console.warn('[VideoChat] whiteboard replay restore failed'); }
+      } catch { this.wbHistory = null; this.wbRestorePending = true; console.warn('[VideoChat] whiteboard replay restore failed'); }
+      if (this.state.getWebSockets().some(ws => this.attOf(ws)?.wbReplayBlocked)) {
+        this.wbOps = []; this.wbResetPending = true;
+      }
       this.pdfState = (await this.state.storage.get<PdfShareData>('pdfState')) || null;
       this.videoState = (await this.state.storage.get<{ url: string; type?: string }>('videoState')) || null;
       this.mediaAt = (await this.state.storage.get<number>('mediaAt')) || 0;
@@ -665,6 +673,8 @@ export class VideoCallRoom {
     this.lastSeen.set(ws, Date.now());
     this.scheduleLivenessAlarm();
 
+    this.retryWhiteboardRestore();
+    if (this.wbResetPending) this.setWhiteboardFence(true);
     const userCount = this.joinedUsers().length;
 
     // 🧹 (2026-07-20 → 2026-08-06 수정) 첫 입장자에게 «낡은» 공유 상태만 버린다.
@@ -676,16 +686,17 @@ export class VideoCallRoom {
        새로고침·순단은 몇 초 만에 돌아오므로 여기 걸리지 않는다(그 보호는 그대로 유지). */
     const _emptyGap = this.emptyAt ? (Date.now() - this.emptyAt) : 0;
     const _newClass = this.emptyAt > 0 && _emptyGap > VideoCallRoom.NEW_CLASS_GAP_MS;
+    if (_newClass && this.wbRestorePending) { this.wbResetPending = true; this.setWhiteboardFence(true); }
     // A board-only class has the same new-class/age cleanup as shared media.
     if (userCount <= 1 && this.wbOps.length && (_newClass || !this.wbAt || Date.now() - this.wbAt > VideoCallRoom.SHARE_KEEP_MS)) {
-      if (!this.clearWhiteboardHistory()) { this.wbOps = []; this.wbResetPending = true; }
+      if (!this.clearWhiteboardHistory()) { this.wbOps = []; this.wbResetPending = true; this.setWhiteboardFence(true); }
     }
     if (userCount <= 1 && (this.pdfState || this.videoState) &&
         (_newClass || !this.mediaAt || (Date.now() - this.mediaAt) > VideoCallRoom.SHARE_KEEP_MS)) {
       this.pdfState = null;
       this.videoState = null;
       this.mediaAt = 0;
-      if (!this.clearWhiteboardHistory()) { this.wbOps = []; this.wbResetPending = true; } // keep failed cleanup pending
+      if (!this.clearWhiteboardHistory()) { this.wbOps = []; this.wbResetPending = true; this.setWhiteboardFence(true); } // keep failed cleanup pending
       this.pdfAnnoOps = []; this.pdfAnnoStrokes = {};   // ✍️ 교재 판서도 함께
       void this.state.storage.delete('pdfState');
       void this.state.storage.delete('videoState');
@@ -1064,18 +1075,46 @@ export class VideoCallRoom {
    *     요점이 바로 **소켓이 붙어 있는 채로 인스턴스를 내리는 것**입니다.
    *     즉 방이 비지 않아도 잠들 수 있고, 깨어나면 이 버퍼는 빈 상태입니다
    *     (당시 생성자가 복원한 것은 pdfState·videoState·mediaAt·emptyAt·잠금 4종뿐).
-   *  2026-11-03: wbOps now restores from bounded SQLite history; pdfAnnoOps remains memory-only.
+   *  2026-11-03: wbOps now restores from bounded SQLite history only with VC_WHITEBOARD_HISTORY=on; pdfAnnoOps remains memory-only.
    *     ⟹ 수업 중에 학생이 새로고침하거나 늦게 들어오면 그때까지 그려진 것이 안 갑니다 —
    *        2026-08-08 에 고치려던 그 증상이 «잠들었다 깨어난 뒤» 에는 다시 납니다.
    *     ⚠️ 얼마나 자주 잠드는지는 측정하지 못했습니다(Cloudflare 가 정하고 로그로만 보입니다).
    */
+  private retryWhiteboardRestore(): boolean {
+    if (!this.wbRestorePending) return true;
+    try {
+      const sql = (this.state.storage as any).sql;
+      if (!sql) return false;
+      const history = new RoomWhiteboardHistory(sql, VideoCallRoom.WB_OPS_MAX, body => this.state.storage.transactionSync(body));
+      const saved = history.read();
+      if (!this.wbResetPending) {
+        this.wbOps = [...saved.ops, ...this.wbOps].slice(-VideoCallRoom.WB_OPS_MAX);
+        this.wbAt = Math.max(saved.at, this.wbAt);
+      }
+      this.wbHistory = history; this.wbRestorePending = false;
+      return true;
+    } catch { return false; }
+  }
+
   private clearWhiteboardHistory(): boolean {
     try {
-      if (this.wbResetPending && !this.wbHistory) return false;
+      if (this.wbHistoryEnabled && !this.wbHistory) {
+        const sql = (this.state.storage as any).sql;
+        if (!sql) return false;
+        this.wbHistory = new RoomWhiteboardHistory(sql, VideoCallRoom.WB_OPS_MAX, body => this.state.storage.transactionSync(body));
+      }
       if (this.wbHistory) this.wbHistory.clear();
-      this.wbOps = []; this.wbAt = 0; this.wbResetPending = false;
+      if (this.wbResetPending && this.emptyAt) { this.emptyAt = 0; void this.state.storage.delete('emptyAt'); }
+      this.wbOps = []; this.wbAt = 0; this.wbResetPending = false; this.wbDirty = false; this.wbRestorePending = false; this.setWhiteboardFence(false);
       return true;
     } catch { console.warn('[VideoChat] whiteboard replay clear failed'); return false; }
+  }
+
+  private setWhiteboardFence(blocked: boolean): void {
+    for (const ws of this.state.getWebSockets()) {
+      const att = this.attOf(ws);
+      if (att) ws.serializeAttachment({ ...att, wbReplayBlocked: blocked });
+    }
   }
 
   private recordWb(type: string, data: any, persistable = true): void {
@@ -1084,15 +1123,18 @@ export class VideoCallRoom {
     let keep = VideoCallRoom.WB_OPS_MAX;
     try {
       if (!persistable) throw new Error('frame exceeds replay budget');
+      if (!this.retryWhiteboardRestore()) throw new Error('restore pending');
+      if (this.wbResetPending) {
+        const live = this.wbOps.slice();
+        if (!this.clearWhiteboardHistory()) throw new Error('reset pending');
+        this.wbOps = live; this.wbDirty = live.length > 0;
+      }
       if (this.wbHistory) {
-        if (this.wbResetPending) {
-          this.wbHistory.clear(); this.wbResetPending = false;
-          if (this.emptyAt) { this.emptyAt = 0; void this.state.storage.delete('emptyAt'); }
-        }
-        keep = this.wbHistory.append(op, at);
+        keep = this.wbDirty ? this.wbHistory.replace([...this.wbOps, op], at) : this.wbHistory.append(op, at);
+        this.wbDirty = false;
       }
     }
-    catch { console.warn('[VideoChat] whiteboard replay save failed; live relay continues'); }
+    catch { this.wbDirty = true; console.warn('[VideoChat] whiteboard replay save failed; live relay continues'); }
     this.wbOps.push(op); this.wbAt = at;
     if (this.wbOps.length > keep) this.wbOps.splice(0, this.wbOps.length - keep);
   }

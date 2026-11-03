@@ -30,12 +30,10 @@ export class RoomWhiteboardHistory {
     }
     return { ops, at };
   }
-  append(op: { t: string; d: any }, at: number): number {
+  private insert(op: { t: string; d: any }, at: number): void {
     const payload = JSON.stringify(op);
     const bytes = new TextEncoder().encode(payload).byteLength;
     if (bytes > RoomWhiteboardHistory.MAX_BYTES) throw new Error('whiteboard operation exceeds replay budget');
-    const count = this.transaction(() => {
-      if (!this.ready) this.ensure();
       const split = payload.length > RoomWhiteboardHistory.PART_CHARS;
       const row = this.sql.exec('INSERT INTO vc_whiteboard_history(payload, bytes, at) VALUES(?,?,?) RETURNING seq', split ? '' : payload, bytes, at).one();
       if (split) for (let i = 0, part = 0; i < payload.length; part++) {
@@ -44,6 +42,23 @@ export class RoomWhiteboardHistory {
         this.sql.exec('INSERT INTO vc_whiteboard_parts(seq, part, payload) VALUES(?,?,?)', row.seq, part, payload.slice(i, end));
         i = end;
       }
+  }
+  append(op: { t: string; d: any }, at: number): number {
+    const count = this.transaction(() => {
+      if (!this.ready) this.ensure();
+      this.insert(op, at);
+      this.prune();
+      return Number(this.sql.exec('SELECT COUNT(*) AS n FROM vc_whiteboard_history').one().n);
+    });
+    this.ready = true;
+    return count;
+  }
+  replace(ops: { t: string; d: any }[], at: number): number {
+    const count = this.transaction(() => {
+      if (!this.ready) this.ensure();
+      this.sql.exec('DELETE FROM vc_whiteboard_history');
+      this.sql.exec('DELETE FROM vc_whiteboard_parts');
+      for (const op of ops) this.insert(op, at);
       this.prune();
       return Number(this.sql.exec('SELECT COUNT(*) AS n FROM vc_whiteboard_history').one().n);
     });

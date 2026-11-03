@@ -216,7 +216,7 @@
       input.placeholder = isKo() ? '번역 중…' : 'Translating…';
       function done(){
         busy = false;
-        try { input.placeholder = ph; } catch(_){}
+        try { if (typeof window.vcRefreshChatPlaceholder === 'function') window.vcRefreshChatPlaceholder(); else input.placeholder = sameScope(sentScope, scope()) ? ph : (isKo() ? '메시지 입력...' : 'Message…'); } catch(_){}
       }
       translate([text], tgt).then(function(map){
         if (!sameScope(sentScope, scope()) || sentConn !== (typeof vcConn === 'undefined' ? null : vcConn) || target() !== tgt || input !== document.getElementById('vc-chat-input') || input.value.trim() !== text) {
