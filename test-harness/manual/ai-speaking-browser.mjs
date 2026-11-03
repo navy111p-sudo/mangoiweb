@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
 import { createRequire } from 'node:module';
+import { browserJobs, runPool } from '../helpers/browser-pool.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PW_DIR + '/node_modules/playwright');
 const root = path.resolve('cloudflare-deploy/public');
@@ -21,11 +22,19 @@ const browser = await chromium.launch({headless:true, executablePath:process.env
 const sizes = [[320,568],[360,640],[375,667],[390,844],[430,932],[768,1024],[820,1180],[1024,768],[1366,768],[1920,1080]];
 let cases=0, assertions=0; const failures=[];
 function check(value,message) { assertions++; assert.ok(value,message); }
+// 사례마다 새 컨텍스트(저장소가 따로)라 동시에 돌려도 서로를 못 봅니다(helpers/browser-pool.mjs).
+// CASE_FILTER·CASE_LIMIT 는 예전과 같은 뜻 — 순서대로 거른 뒤 앞에서부터 N개.
+let matrix=[];
+for(const [width,height] of sizes) for(const language of ['ko','en']) for(const storage of ['empty','saved','blocked','unavailable']) for(const mode of ['textbook','friend']) for(const keyboard of [false,true]) {
+  const name = `${width}x${height}/${language}/${storage}/${mode}/${keyboard?'keyboard':'pointer'}`;
+  if(process.env.CASE_FILTER && !name.includes(process.env.CASE_FILTER)) continue;
+  matrix.push({width,height,language,storage,mode,keyboard,name});
+}
+if (process.env.CASE_LIMIT) matrix=matrix.slice(0,Number(process.env.CASE_LIMIT));
+const jobs=browserJobs();
+console.log(`speaking sandbox: ${matrix.length} cases, ${jobs} at a time`);
 try {
-  for(const [width,height] of sizes) for(const language of ['ko','en']) for(const storage of ['empty','saved','blocked','unavailable']) for(const mode of ['textbook','friend']) for(const keyboard of [false,true]) {
-    if (process.env.CASE_LIMIT && cases >= Number(process.env.CASE_LIMIT)) break;
-    const name = `${width}x${height}/${language}/${storage}/${mode}/${keyboard?'keyboard':'pointer'}`;
-    if(process.env.CASE_FILTER && !name.includes(process.env.CASE_FILTER)) continue;
+  await runPool(matrix,jobs,async({width,height,language,storage,mode,keyboard,name},index)=>{
     const ctx = await browser.newContext({viewport:{width,height}});
     await ctx.route('**/*',route=>new URL(route.request().url()).origin===origin?route.continue():route.abort());
     await ctx.addInitScript(({language,storage})=>{
@@ -67,11 +76,13 @@ try {
         check(saved[0]==='5'&&saved[1]==='balanced','mode switching preserves saved level and correction');
       }
       check(errors.length===0,'practice JS errors: '+errors.join(';'));
-    }catch(e){failures.push({name,error:e.message});console.log('FAIL '+name+' '+e.message.split('\n')[0]);}
+    }catch(e){failures.push({index,name,error:e.message});console.log('FAIL '+name+' '+e.message.split('\n')[0]);}
     finally {await ctx.close();cases++;}
     if(cases%20===0)console.log(`speaking sandbox: ${cases} cases, ${failures.length} failed`);
-  }
+  });
 }finally {await browser.close();await new Promise(r=>server.close(r));}
+// 동시에 돌면 끝나는 순서가 섞이므로 보고는 사례 순서로 되돌립니다.
+failures.sort((a,b)=>a.index-b.index).forEach(f=>delete f.index);
 if(!process.env.CASE_LIMIT&&!process.env.CASE_FILTER) assert.equal(cases,320,'entire matrix must execute');
 console.log(JSON.stringify({suite:'AI speaking real-browser sandbox',cases,assertions,failed:failures.length,failures},null,2));
 process.exitCode=failures.length?1:0;
