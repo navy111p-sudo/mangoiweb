@@ -4,6 +4,7 @@
 //   포함: Phase P1(포인트+기프티콘)+P4(기프티쇼 비즈) + 별점평가·AI피드백 — 29매처
 //   ensurePointTables·applyPointTransaction 은 export — api-mango 게임보상 2곳 사용.
 // ═══════════════════════════════════════════════════════════════════════
+import { AI_CLASS_POINT_RULE, AI_CLASS_POINT_AMOUNT, AI_CLASS_POINT_DAILY_CAP, aiClassPointGate } from './ai-class-points';   // 🧑‍🏫 A.i 선생님 수업 포인트 정본(2026-11-03)
 import { WARMUP_POINT_RULE, WARMUP_POINT_AMOUNT, WARMUP_POINT_DAILY_CAP, WARMUP_POINT_MIN_TURNS, warmupPointGate } from './warmup-points';   // 🗣️ 웜업 포인트 정본(2026-11-03)
 import { json, today } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
@@ -343,6 +344,15 @@ export async function handlePointsApi(
         const g = warmupPointGate({ sessionId: sid, historyRaw, userId, sessionOwner });
         if (!g.ok) return json({ ok: false, error: g.error, have: g.have, need: WARMUP_POINT_MIN_TURNS });
         body.meta = { session_id: sid, turns: g.have };
+      }
+      // 🧑‍🏫 A.i 선생님 수업 — 수업을 끝까지 마치고 별 1개 이상이면 한 번. 정본 src/ai-class-points.ts (2026-11-03).
+      //   ⚠️ 진행이 화면에서만 돌아 서버가 완주를 검증 못 한다 — 그래서 5P · 하루 1번으로 묶었다(사장님 승인).
+      if (ruleCode === AI_CLASS_POINT_RULE) {
+        await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES (?,'A.i 선생님 수업 완주',?,0,?,1,'A.i 선생님 수업을 끝까지 마치고 별을 1개 이상 받으면 지급(하루 1번)',?) ON CONFLICT(code) DO NOTHING`)
+          .bind(AI_CLASS_POINT_RULE, AI_CLASS_POINT_AMOUNT, AI_CLASS_POINT_DAILY_CAP, Date.now()).run();
+        const g = aiClassPointGate(body.meta);
+        if (!g.ok) return json({ ok: false, error: g.error });
+        body.meta = { lesson: g.lesson, stars: g.stars, targets: g.targets };
       }
       const rule: any = await env.DB.prepare(`SELECT * FROM point_rules WHERE code=? AND enabled=1`).bind(ruleCode).first();
       if (!rule) return json({ ok: false, error: 'rule_not_found_or_disabled', code: ruleCode }, 404);
