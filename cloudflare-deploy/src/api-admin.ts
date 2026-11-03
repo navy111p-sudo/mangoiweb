@@ -56,6 +56,7 @@ import { c24ExpenseDrop, C24_HANGUL_CYPHER_RE, C24_LETTER_CYPHER_RE } from './c2
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance, ensureCenterOverrideTables, ensureFranchiseOverrideTable } from './cafe24-sync';
 import { buildMangoiClassesNow, mergeClassesNow, dropMirroredCafe24, dropHolidayClosed, EXEMPT_BY_NAME, cafe24HolidayTeacher, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
 import { findRoomMismatches } from './room-mismatch';   // 🚨 «같은 수업인데 서로 다른 방» 감시(2026-10-07 delaware)
+import { LIVE_ROLE_SQL, attachRoleSplit } from './vc-quality-live';   // 📶 관제탑 회선 칸 «강사 / 학생» 나눔(2026-11-03)
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
 import { sendPlainSms } from './solapi-client';
@@ -655,6 +656,9 @@ export async function handleAdminApi(
               묶는 축만 다르다 — 새 표를 만들지 않는다.
            ⚠️ avg_loss 가 음수인 행은 «영상이 없던 틱»(loss = -1 로 넘어온 것)이라 평균에서 뺀다.
               넣으면 영상이 죽은 사람이 «회선이 제일 좋은 사람» 으로 뒤집힌다(CLAUDE.md 2장).
+              ℹ️ (2026-11-03 코드 확인) 지금 화면(js/idx-vc-qlog.js)은 음수를 안 보낸다 — 영상 표본이 없던
+                 1분은 avg_loss 0 · samples 0 으로 온다. 그래서 이 조건은 사실상 아무것도 안 거른다.
+                 역할별 나눔(by_role)은 samples > 0 으로 따로 거른다(src/vc-quality-live.ts). 방 단위 값은 예전 그대로.
            ⚠️ novideo 칸은 ALTER 로 나중에 붙은 것이라 첫 로그 전에는 없다 — 여기서 읽지 않는다. */
         if (url.searchParams.get('live') === '1') {
           const mins = Math.max(1, Math.min(60, parseInt(url.searchParams.get('mins') || '5', 10) || 5));
@@ -667,7 +671,12 @@ export async function handleAdminApi(
               WHERE ts >= ? AND room IS NOT NULL AND room <> '' AND avg_loss >= 0
               GROUP BY room ORDER BY avg_loss DESC LIMIT 200`
           ).bind(liveSince).all();
-          return json({ ok: true, mins, rooms: lr.results || [] });
+          /* 👥 (2026-11-03) 강사·학생으로 나눈 값 — 정본 src/vc-quality-live.ts.
+             ⚠️ 실패해도 방 단위 값은 그대로 나간다(by_role 만 빠짐 → 관제탑은 예전 한 줄로 그린다). */
+          let roleRows: any[] = [];
+          try { roleRows = ((await env.DB.prepare(LIVE_ROLE_SQL).bind(liveSince).all()) as any).results || []; }
+          catch (e: any) { console.warn('[vc-quality live] 역할별 집계 실패', e?.message); }
+          return json({ ok: true, mins, rooms: attachRoleSplit(lr.results || [], roleRows) });
         }
         const days = Math.max(1, Math.min(90, parseInt(url.searchParams.get('days') || '7', 10) || 7));
         const since = Date.now() - days * 86400000;

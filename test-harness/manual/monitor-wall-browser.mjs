@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const PUB = join(ROOT, 'cloudflare-deploy', 'public');
-const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const CHROME = process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';   // 컨테이너마다 판이 달라 CHROME=… 로 덮을 수 있다
 const PORT = 8931, CDP = 9331;
 
 let pass = 0, fail = 0;
@@ -58,7 +58,8 @@ window.fetch = function (url, opt) {
     { room_id: 'class-182-20260830', alert_type: 'silence_20s', acknowledged_at: null }
   ] }));
   if (u.indexOf('/api/admin/vc/quality') === 0) return Promise.resolve(J({ ok: true, mins: 5, rooms: [
-    { room: 'class-190-20260830', avg_loss: 0.4, worst_loss: 1.1, avg_rtt: 88, windows: 4 },
+    { room: 'class-190-20260830', avg_loss: 0.4, worst_loss: 1.1, avg_rtt: 88, windows: 4, by_role: [   /* 2026-11-03 강사·학생 나눔 */
+      { role: 'teacher', people: 1, avg_rtt: 254, avg_loss: 0.1 }, { role: 'student', people: 2, avg_rtt: null, avg_loss: null }] },
     { room: 'class-182-20260830', avg_loss: 9.2, worst_loss: 14, avg_rtt: 610, windows: 3 }
   ] }));
   if (u.indexOf('/api/admin/live-classes') === 0) return Promise.resolve(J({ ok: true, rooms: {
@@ -144,6 +145,15 @@ async function main() {
 
     const noSample = await c.evalJs(`document.querySelector('#rooms tr[data-room="class-187-20260830"]').querySelectorAll('td.n')[1].textContent.trim()`);
     check(`①-5 표본이 없는 방은 «—» (0% 로 채우지 않는다) (실측 «${noSample}»)`, noSample === '—');
+
+    /* 👥 (2026-11-03) 회선 칸 강사·학생 나눔 — by_role 이 있으면 줄을 나누고, 없으면(위 ①-4) 예전 한 줄 */
+    const split = await c.evalJs(`Array.from(document.querySelectorAll('#rooms tr[data-room="class-190-20260830"] .sig-r')).map(function(d){ return d.textContent.trim(); })`);
+    check(`①-5b 회선 칸이 «강사 / 학생» 두 줄로 나뉜다 (실측 ${JSON.stringify(split)})`,
+      split.length === 2 && split[0] === '강사 🟡 254ms · 0.1%' && split[1] === '학생 2명 —');
+    const splitTip = await c.evalJs(`(document.querySelector('#rooms tr[data-room="class-190-20260830"] .sig-r') || {}).parentNode.getAttribute('title')`);
+    check(`①-5c 방 전체 평균은 툴팁에 남는다 (실측 «${splitTip}»)`, splitTip === '최근 5분 · 방 전체 88ms · 0.4%');
+    const splitWrap = await c.evalJs(`Array.from(document.querySelectorAll('#rooms .sig-r')).every(function(d){ return d.getBoundingClientRect().height < 40; })`);
+    check('①-5d 나눈 줄이 한 줄씩 그려진다(줄바꿈으로 칸이 부풀지 않는다)', splitWrap === true);
 
     const chips = await c.evalJs(`document.getElementById('chips').textContent`);
     check(`①-6 상태등 줄에 «영상 중계 정상» 이 뜬다 (x-turn-source 헤더)`, /영상 중계 정상/.test(chips));
