@@ -99,6 +99,7 @@ export class VideoCallRoom {
   private wbDirty = false;
   private wbRestorePending = false;
   private wbHistoryEnabled = false;
+  private replayPrototypeAllowed = false;
   private wbOffQuarantined = false;
   private wbResetGeneration: number | undefined;
 
@@ -169,6 +170,7 @@ export class VideoCallRoom {
 
   constructor(state: DurableObjectState, env?: any) {
     const localTestOptions = arguments[2] as { replayPrototype: boolean } | undefined;
+    this.replayPrototypeAllowed = localTestOptions?.replayPrototype === true;
     this.state = state;
     this.roomId = '';
     this.env = env;
@@ -185,9 +187,9 @@ export class VideoCallRoom {
     // 재기동 시 교재 공유 상태 복원
     this.state.blockConcurrencyWhile(async () => {
       try {
-        const sql = (this.state.storage as any).sql;
-        // Hard interlock: the platform supplies only state/env. Known prototype faults forbid runtime activation.
-        this.wbHistoryEnabled = localTestOptions?.replayPrototype === true && (env as any)?.VC_WHITEBOARD_HISTORY === 'on';
+        // Hard interlock: normal runtime never opens the experimental SQL store.
+        this.wbHistoryEnabled = this.replayPrototypeAllowed && (env as any)?.VC_WHITEBOARD_HISTORY === 'on';
+        const sql = this.wbHistoryEnabled ? (this.state.storage as any).sql : null;
         if (sql && this.wbHistoryEnabled) {
           this.wbHistory = new RoomWhiteboardHistory(sql, VideoCallRoom.WB_OPS_MAX, body => this.state.storage.transactionSync(body));
           const saved = this.wbHistory.read();
@@ -207,7 +209,7 @@ export class VideoCallRoom {
           || (!this.emptyAt && !activeBoardPeer && this.wbAt > 0 && Date.now() - this.wbAt > VideoCallRoom.SHARE_KEEP_MS))) {
         this.wbOps = []; this.wbResetPending = true; this.setWhiteboardFence(true);
       }
-      this.pdfHistoryEnabled = localTestOptions?.replayPrototype === true && this.env?.VC_PDF_HISTORY === 'on';
+      this.pdfHistoryEnabled = this.replayPrototypeAllowed && this.env?.VC_PDF_HISTORY === 'on';
       if (this.pdfHistoryEnabled) this.restorePdfHistory();
       else if (this.pdfState) delete this.pdfState.annotationSession;
       for (const k of ['bgLock', 'micLock', 'focusLock', 'drawLock'] as const) {
@@ -1134,7 +1136,7 @@ export class VideoCallRoom {
   }
 
   private quarantineDisabledHistory(): void {
-    if (this.wbHistoryEnabled || this.wbOffQuarantined) return;
+    if (!this.replayPrototypeAllowed || this.wbHistoryEnabled || this.wbOffQuarantined) return;
     const sql = (this.state.storage as any).sql;
     if (sql) {
       const history = new RoomWhiteboardHistory(sql, VideoCallRoom.WB_OPS_MAX, body => this.state.storage.transactionSync(body));
@@ -1279,7 +1281,7 @@ export class VideoCallRoom {
     for (const op of this.pdfAnnoOps) if (op.t === 'stroke' && op.d?.id != null) this.pdfAnnoStrokes[op.d.id] = op.d;
   }
   private quarantineDisabledPdfHistory(): void {
-    if (this.pdfHistoryEnabled || this.pdfOffQuarantined || !(this.state.storage as any).sql) return;
+    if (!this.replayPrototypeAllowed || this.pdfHistoryEnabled || this.pdfOffQuarantined || !(this.state.storage as any).sql) return;
     const h = this.openPdfHistory();
     if (h.hasHistory()) h.markResetPending();
     this.pdfOffQuarantined = true;
