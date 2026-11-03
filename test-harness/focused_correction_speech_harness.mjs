@@ -48,7 +48,7 @@ const final = H.ensureFocusedFixSpoken(question, 'focused', 'partial', fix);
 check('avatar correction is first, exactly three times, no next question', () => {
   assert.ok(final.startsWith('You can say... "' + fix.now + '"'));
   assert.equal(final.split(fix.now).length - 1, 3);
-  assert.equal(final.match(/You can say/g).length, 3);
+  assert.equal(final.match(/You can say/g).length, 1);
   assert.ok(!final.includes(question));
   assert.ok(final.endsWith('Can you say it with me?'));
 });

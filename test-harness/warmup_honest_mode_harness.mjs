@@ -147,7 +147,7 @@ console.log('⑥-2 집중교정 음성 순서 — 교정 문장이 답장보다 
   ok('다음 질문은 교정 턴에 나오지 않는다', !out.includes(REPLY));
   const repeats = out.split(corrected).length - 1;
   ok('고친 문장은 추가 선행 발화 없이 총 3번', repeats === 3 && H.FOCUSED_FIX_REPEATS === 3, repeats);
-  ok('You can say 안내도 3번', (out.match(/You can say/g) || []).length === 3);
+  ok('You can say 안내는 처음에 한 번만', (out.match(/You can say/g) || []).length === 1);
   ok('세 번 뒤 따라 말하기로 끝난다', out.endsWith('Can you say it with me?'));
   ok('모델이 이미 교정을 말해도 총 3번', H.ensureFocusedFixSpoken('Good. I went to the park yesterday. Where?', 'focused', 'partial', FIX) === out);
   ok('완벽이면 건드리지 않는다', H.ensureFocusedFixSpoken(REPLY, 'focused', 'perfect', FIX) === REPLY);
