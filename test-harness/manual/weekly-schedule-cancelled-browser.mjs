@@ -184,9 +184,10 @@ await page.evaluate(() => window.toggleLang());
 await page.evaluate(() => { viewMode = 'day'; curDow = 1; render(); });
 const en = await page.evaluate(() => {
   const td = [...document.querySelectorAll('td.slot.slot-off')].find(t => /이병엽/.test(t.textContent));
-  return { title: td && td.title, stOff: document.getElementById('st-off').textContent };
+  return { title: td && td.title, stOff: document.getElementById('st-off').textContent, sumTitle: document.getElementById('st-off').closest('[data-ko-title]').title };
 });
 check('5-1 EN: 칸 설명이 «✕ Cancelled» · 통계 «3»', /✕ Cancelled/.test(en.title || '') && en.stOff === '3', JSON.stringify(en));
+check('5-1b EN: 요약 칸 설명(title)도 영어 — data-en-title 을 실제로 씀', /Classes cancelled or postponed/.test(en.sumTitle || ''), en.sumTitle);
 tt = await hoverText('이병엽');
 check('5-2 EN 툴팁: Cancelled · Postponed / Open — click to add', /Cancelled/.test(tt.text) && /Open — click to add/.test(tt.text), tt.text.slice(0, 160));
 await page.screenshot({ path: join(SHOT, 'day-en.png'), fullPage: false });
@@ -200,7 +201,7 @@ check('6-1 이력·취소 조회를 못 했으면 0 이 아니라 «?»', unk ==
 await ctx.close();
 ({ ctx, page } = await open({ ok: true, week: D(0), items: ITEMS, schedules: ITEMS }));
 const old = await page.evaluate(() => ({ off: document.getElementById('st-off').textContent, cells: document.querySelectorAll('.tl-seg.s-off').length, live: document.querySelectorAll('.tl-seg.s-1on1').length }));
-check('6-2 옛 서버(off_items 없음): 취소 칸 0 · 수업은 그대로', old.off === '0건' && old.cells === 0 && old.live === 2, JSON.stringify(old));
+check('6-2 옛 서버(off_items 없음): 취소 칸 0 · 수업은 그대로 · 건수는 «0건» 이라 단정하지 않고 «?»', old.off === '?' && old.cells === 0 && old.live === 2, JSON.stringify(old));
 await ctx.close();
 
 check('7 페이지 스크립트 오류 0', errs.length === 0, errs.slice(0, 3).join(' | '));

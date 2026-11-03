@@ -6605,7 +6605,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
             if (dateToDow[d] === want) {
               /* ⏭ (2026-11-03) «그 주 하루만» 연기·변경한 반복 수업은 그 날 열리지 않는다(정본 class-start-date.ts
                  recurSkippedOn — 학생 입장·강사 화면·오늘 수업이 이미 따르는 규칙). 이 캘린더만 몰라서 연기한 날에도
-                 «그대로 있는 수업» 으로 그렸다. 그 자리의 «연기됨» 은 아래 off_items 가 말한다.
+                 «그대로 있는 수업» 으로 그렸다. 새 날짜 없이 연기했으면 그 자리에 postponed 자리표시 행이 있어
+                 아래 off_items 가 «연기됨» 을 말한다. ⚠️ 새 날짜로 옮겼으면(recurring-one-week.ts) 원래 날짜에는
+                 행이 없어 빈칸이고, 이력도 부모 반복 행 id 로만 남아 보강 칸에 «옮겨 옴» 설명이 안 붙는다(별건).
                  ⛔ starts_on(시작일 전) 판정은 일부러 안 넣었다 — 이 화면이 «시작 전 반복 수업» 을 어떻게 그릴지는 별건. */
               if (recurSkippedOn(r, d)) continue;
               items.push({ ...base, date: d, start_date: weekStartISO, end_date: weekEndISO });
@@ -6621,15 +6623,21 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
                   cancelled 는 «회차» 가 아니다(나누기·수강 종료가 원본 매주 줄을 내린다).
                 ② LMS·시드 자리표시는 안 싣는다(수업이 아니다 — 정리 버튼이 cancelled 로 내린 658행).
                 ③ **`items` 와 섞지 않는다** — 열려 있던 옛 화면(배포 전에 연 탭)은 off 를 몰라서, 섞으면
-                  취소된 수업을 «살아 있는 수업» 으로 그리고 끌어 옮기기까지 한다. 새 화면만 이 칸을 읽는다.
+                  취소·연기된 수업을 «살아 있는 수업» 으로 그린다. 그 칸을 끌면 /move 가 취소 행은 409 로
+                  거절하지만 **연기 행은 받아서 active 로 되살린다**(class-schedule-move.ts). 새 화면만 이 칸을 읽는다.
                 ④ id·move_field 를 안 싣는다 — 이 칸으로는 아무것도 옮기거나 지울 수 없게.
                 ⑤ 따로 조회한다 — 실패해도 위 캘린더는 그대로 뜨고 off_complete=false 로 «못 물어봤다» 를 알린다.
-         누가·사유는 «오늘 수업» 과 같은 청중(본사·내부직원)에게만(judgeClassChange showActor). */
+         누가·사유는 «오늘 수업» 과 같은 청중(본사·내부직원)에게만(judgeClassChange showActor).
+         ⛔ 스코프만 보면 강사가 샌다 — 이 API 는 강사 차단 목록에 없고, 강사 계정의 스코프는 'none'(autoSeedOne
+            기본값)이나 잘못 세팅된 'hq' 일 수 있다(index.ts 의 «항상 role 기준» 주석). 그래서 역할(isTeacher)로 한 번 더
+            끈다. 역할을 못 읽으면 끈다(같은 이력 API /class-audit 도 강사에겐 본인 것만). */
       const offItems: any[] = [];
       let offComplete = true;
       let _offScope: any = null;
       try { _offScope = await getScope(env as any, request); } catch { _offScope = null; }
-      const _offShowActor = !!_offScope && (_offScope.type === 'hq' || _offScope.type === 'none');
+      let _offIsTeacher = true;
+      try { const _offActor = await getAdminActor(request, env as any); _offIsTeacher = !_offActor || !_offActor.ok || !!_offActor.isTeacher; } catch { _offIsTeacher = true; }
+      const _offShowActor = !_offIsTeacher && !!_offScope && (_offScope.type === 'hq' || _offScope.type === 'none');
       try {
         const or: any = await env.DB.prepare(
           `SELECT * FROM class_schedules

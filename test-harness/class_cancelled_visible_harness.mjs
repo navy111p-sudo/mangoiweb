@@ -132,7 +132,12 @@ if (process.env.CCV_CHILD === '1') {
   ins(`INSERT INTO admin_account (username, password_hash, name, created_at, updated_at) VALUES ('agency_mgr','x','Agency Manager',?,?)`, T0, T0);
   ins(`INSERT OR REPLACE INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES ('agency_mgr','agency','owned-shop',?)`, T0);
   ins(`INSERT INTO teacher_account_links (username, teacher_id, teacher_name, linked_by, linked_at) VALUES ('t_alpha','1','ALPHA','h',?)`, T0);
-  for (const [tok, u] of [['tok_admin', 'admin'], ['tok_alpha', 't_alpha'], ['tok_agency', 'agency_mgr']]) {
+  // 🔒 스코프가 'hq'·'none' 인 강사(아이디 규칙 hq_t_* · 이름에 «교사») — 스코프만 보면 본사로 읽히는 계정들.
+  ins(`INSERT INTO admin_account (username, password_hash, name, created_at, updated_at) VALUES ('hq_t_beta','x','BETA',?,?)`, T0, T0);
+  ins(`INSERT OR REPLACE INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES ('hq_t_beta','hq',NULL,?)`, T0);
+  ins(`INSERT INTO admin_account (username, password_hash, name, created_at, updated_at) VALUES ('t_gamma','x','교사 Gamma',?,?)`, T0, T0);
+  ins(`INSERT OR REPLACE INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES ('t_gamma','none',NULL,?)`, T0);
+  for (const [tok, u] of [['tok_admin', 'admin'], ['tok_alpha', 't_alpha'], ['tok_agency', 'agency_mgr'], ['tok_beta', 'hq_t_beta'], ['tok_gamma', 't_gamma']]) {
     ins(`INSERT INTO admin_sessions (token, username, created_at, expires_at, last_seen_at) VALUES (?,?,?,?,?)`, tok, u, T0, FAR, T0);
   }
   for (const s of ['stu_a', 'stu_b', 'stu_c', 'stu_d', 'stu_f']) ins(`INSERT INTO students_erp (user_id, korean_name, shop_name, created_at) VALUES (?,?,'owned-shop',?)`, s, '학생' + s, T0);
@@ -251,6 +256,13 @@ if (process.env.CCV_CHILD === '1') {
   const wt = await callAdmin('GET', '/api/admin/schedules?week=2026-11-02', { cookie: 'tok_alpha' });
   const tx = ((wt.body && wt.body.off_items) || []).find(o => (o.students || []).some(s => s.uid === 'stu_a'));
   ok('G12 🔒 본사·내부직원이 아니면 누가·사유는 안 실린다(언제는 실린다)', !!tx && tx.change.by === null && tx.change.reason === null && !!tx.change.at_kst, JSON.stringify(tx && tx.change));
+  for (const [tok, lbl] of [['tok_beta', "스코프 'hq' 인 hq_t_* 강사"], ['tok_gamma', "스코프 'none' 인 «교사» 이름 계정"]]) {
+    const wb = await callAdmin('GET', '/api/admin/schedules?week=2026-11-02', { cookie: tok });
+    const bx = ((wb.body && wb.body.off_items) || []).find(o => (o.students || []).some(s => s.uid === 'stu_a'));
+    const bz = ((wb.body && wb.body.items) || []).find(i => Number(i.id) === Z);
+    ok('G13 🔒 강사(' + lbl + ')에게도 취소 칸의 누가·사유는 안 실린다 — 스코프가 아니라 역할로', wb.status === 200 && !!bx && bx.change.by === null && bx.change.reason === null && !!bx.change.at_kst, JSON.stringify(bx && bx.change));
+    ok('G14 🔒 강사(' + lbl + ')에게 «옮겨 옴» 설명도 누가·사유 없이', !!bz && !!bz.change && bz.change.by === null && bz.change.reason === null, JSON.stringify(bz && bz.change));
+  }
   void L;
 
   process.stdout.write('\n@@RESULTS@@' + JSON.stringify({ results }) + '\n');
@@ -317,7 +329,11 @@ const MUTANTS = [
   { name: '주간 시간표: LMS 자리표시 거르기를 뺌', expect: /G7 /,
     edits: [['api-admin.ts', "if (['lms', 'type_seed'].includes(String(r.user_id || '').trim().toLowerCase())) return false;\n          return isCancelledOccurrence", 'return isCancelledOccurrence']] },
   { name: '주간 시간표: 누구에게나 누가·사유를 실음', expect: /G12 /,
-    edits: [['api-admin.ts', "const _offShowActor = !!_offScope && (_offScope.type === 'hq' || _offScope.type === 'none');", 'const _offShowActor = true;']] },
+    edits: [['api-admin.ts', "const _offShowActor = !_offIsTeacher && !!_offScope && (_offScope.type === 'hq' || _offScope.type === 'none');", 'const _offShowActor = true;']] },
+  { name: '주간 시간표: 역할은 안 보고 스코프만 봄(hq·none 스코프 강사에게 누가·사유가 샘)', expect: /G13 |G14 /,
+    edits: [['api-admin.ts', 'const _offShowActor = !_offIsTeacher && !!_offScope', 'const _offShowActor = !!_offScope']] },
+  { name: '주간 시간표: 역할 판정을 꺼 버림(강사도 본사처럼 봄)', expect: /G13 |G14 /,
+    edits: [['api-admin.ts', '_offIsTeacher = !_offActor || !_offActor.ok || !!_offActor.isTeacher;', '_offIsTeacher = !!(_offActor && _offActor.ok && _offActor.isTeacher) && false;']] },
   { name: '주간 시간표: 조건 뒤집기 — 취소 회차를 거꾸로 거름', expect: /G1 |G5 /,
     edits: [['api-admin.ts', 'return isCancelledOccurrence(r) || isPostponedOccurrence(r);', 'return !(isCancelledOccurrence(r) || isPostponedOccurrence(r));']] },
 ];

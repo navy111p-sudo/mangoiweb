@@ -952,6 +952,7 @@ function applyLang(lang){
   document.documentElement.lang=currentLang;
   document.querySelectorAll('[data-ko]').forEach(function(el){var v=el.getAttribute('data-'+currentLang);if(v!==null)el.textContent=v;});
   document.querySelectorAll('[data-ko-placeholder]').forEach(function(el){var v=el.getAttribute('data-'+currentLang+'-placeholder');if(v)el.placeholder=v;});
+  document.querySelectorAll('[data-ko-title]').forEach(function(el){var v=el.getAttribute('data-'+currentLang+'-title');if(v)el.title=v;});   // 요약 칸 설명(title)도 언어를 따른다
   var lbl=document.getElementById('lang-label');if(lbl)lbl.textContent=currentLang==='ko'?'EN':'KO';
   try{localStorage.setItem('mangoi_lang',currentLang);}catch(e){}
   render();
@@ -1008,7 +1009,7 @@ var TEACHERS=[],SLOTS={},activeCategory='all',searchQuery='';
       드래그·이동·삭제·통계·가동률) 취소된 수업이 시간을 계속 막고 끌어 옮겨지기까지 한다.
       따로 두면 기존 판정은 한 줄도 안 바뀌고, 그리는 곳(일간 칸·주간 막대·툴팁)만 이 표를 읽는다.
    ✅ 그 시간은 «빈 시간» 이다 — 회색 칸을 눌러 새 수업을 넣을 수 있다(LMS·시드 자리표시와 같은 뜻). */
-var OFF_SLOTS={}, OFF_COMPLETE=true;
+var OFF_SLOTS={}, OFF_COMPLETE=false;
 function getOffAt(tid,d,startMin){return OFF_SLOTS[tid+'__'+d+'__'+startMin];}
 function offsOfDay(tid,d){
   var pre=tid+'__'+d+'__',out=[];
@@ -1134,7 +1135,7 @@ function loadDemoData(){
 }
 
 async function loadData(){
-  OFF_SLOTS={}; OFF_COMPLETE=true;   // 🧾 주를 옮기면 지난 주 취소 칸이 남지 않게 — 언제나 먼저 비운다
+  OFF_SLOTS={}; OFF_COMPLETE=false;   // 🧾 주를 옮기면 지난 주 취소 칸이 남지 않게 — 언제나 먼저 비운다. «모름» 으로 시작(서버가 ok 라고 말할 때만 0건이라고 말한다)
   // URL ?demo=1 -> 무조건 데모 모드 (실 API 시도 안 함)
   var forceDemo=new URLSearchParams(location.search).get('demo')==='1';
   if(forceDemo){ loadDemoData(); return; }
@@ -1152,7 +1153,7 @@ async function loadData(){
             var slots=Array.isArray(sd)?sd:(sd.schedules||sd.data||sd.items||[]);
             SLOTS={};
             /* 🧾 취소·연기 회차는 OFF_SLOTS 로만(위 선언 주석). 시각은 아래 수업과 같은 규칙(start_time 의 «시:분», 10분 격자). */
-            OFF_COMPLETE=!(sd&&sd.off_complete===false);
+            OFF_COMPLETE=!!(sd&&sd.off_complete===true);   // 칸이 없는 옛 서버·조회 실패 = «모름»(?) — 0건이라고 단정하지 않는다
             ((sd&&Array.isArray(sd.off_items))?sd.off_items:[]).forEach(function(o){
               if(!o||o.teacher_id==null||!o.date)return;
               var om=/(?:^|[T ])(\d{1,2}):(\d{2})/.exec(String(o.start_time||''));
