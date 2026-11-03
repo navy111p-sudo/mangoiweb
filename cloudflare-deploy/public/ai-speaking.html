@@ -19,7 +19,9 @@
        행성 그림은 Higgsfield(GPT Image 2.5) 로 만든 투명 그림을 320px WebP 로 줄여 저장소에 넣었다
        (/img/ai-speaking/planet-{textbook,situation,friend}.webp — 외부 주소를 쓰지 않는다. CLAUDE.md 2장).
        카드 제목의 이모지는 그림과 겹쳐 뺐다.
-       ⛔ 아래 스크립트(설정 읽기·쓰기·상황 목록)는 1차와 한 글자도 다르지 않다 — 동작은 그대로다. -->
+       ⛔ 아래 스크립트(설정 읽기·쓰기·상황 목록)는 1차와 한 글자도 다르지 않다 — 동작은 그대로다.
+       💬 2026-11-03 3차 — «교정 정도» 버튼 바로 아래에 고른 단계의 뜻을 한 줄로 보여 준다(사장님 확정 A안 · ①설명형).
+       바뀐 것은 renderSettings 의 #corrState 한 곳뿐이고, 저장 동작은 그대로다. 문구는 버튼의 data-hint-ko/en 에 있다. -->
   <style>
     :root{--sky:#0b1026;--card:#161d3f;--card2:#1c2550;--line:#283160;--ring:#5b6bb5;--ink:#ffffff;--sub:#b8c1e6;--soft:#dde3ff;
       --lime:#c6f432;--orange:#ff9a3c;--cyan:#4dd8ff;--on:#0b1026;--focus:#fde68a}
@@ -86,7 +88,7 @@
     .seg button{flex:1;min-width:0;min-height:44px;padding:4px 6px;border:0;border-radius:999px;background:transparent;color:var(--soft);
       font:inherit;font-size:14px;font-weight:800;cursor:pointer}
     .seg button[aria-pressed="true"]{background:var(--lime);color:var(--on)}
-    .state{font-size:12px;color:var(--sub);min-height:1em}
+    .state{padding:0 6px;font-size:13px;color:var(--sub);min-height:1em}
     .note{margin:12px 0 0;font-size:13px;color:var(--sub)}
     #setMsg{margin:10px 0 0;font-size:13.5px;font-weight:700;color:var(--soft);min-height:1em}
     /* 💻 PC — 행성 카드 3장 가로 */
@@ -157,10 +159,15 @@
         </div></div>
       <div class="tile"><label class="lab" for="setLevel"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-5"/><path d="M12 20V10"/><path d="M19 20V4"/></svg><span data-ko="수준" data-en="Level">수준</span></label><select id="setLevel"></select></div>
       <div class="tile"><span class="lab" id="corrLab"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9"/><path d="M17 7h3"/><circle cx="15" cy="7" r="2"/><path d="M4 17h3"/><path d="M11 17h9"/><circle cx="9" cy="17" r="2"/></svg><span data-ko="교정 정도" data-en="Corrections">교정 정도</span></span>
-        <div class="seg seg3" role="group" aria-labelledby="corrLab" id="corrSeg">
-          <button type="button" data-corr="free_talk" aria-pressed="false"><span data-ko="자유" data-en="Free">자유</span></button>
-          <button type="button" data-corr="balanced" aria-pressed="false"><span data-ko="균형" data-en="Balanced">균형</span></button>
-          <button type="button" data-corr="focused" aria-pressed="false"><span data-ko="집중" data-en="Focused">집중</span></button>
+        <!-- 💬 고른 단계의 뜻(아래 #corrState 한 줄). 문구는 서버 동작과 «짝» 이다 — src/warmup-honest.ts
+             자유 free_talk = 따라 말하기 없음(흐름을 끊지 않음) · 균형 balanced = 꼭 필요한 것만 고치고 따라 말하기 1번
+             · 집중 focused = 실수를 모두 고친 문장을 FOCUSED_FIX_REPEATS(3)번 들려주고 따라 말하기.
+             ⚠️ 서버 동작을 바꾸면 이 문구도 함께 바꾸세요 — ai_speaking_entry_harness 가 숫자를 서버 상수와 대조합니다.
+             ⛔ «최대 3번 고쳐요» 로 쓰지 마세요: 집중은 실수 개수에 상한이 없고, 3은 «들려주는 횟수» 입니다. -->
+        <div class="seg seg3" role="group" aria-labelledby="corrLab" aria-describedby="corrState" id="corrSeg">
+          <button type="button" data-corr="free_talk" aria-pressed="false" data-hint-ko="따라 말하기 없이 대화를 이어가요" data-hint-en="No repeat-after-me. Just keep talking."><span data-ko="자유" data-en="Free">자유</span></button>
+          <button type="button" data-corr="balanced" aria-pressed="false" data-hint-ko="꼭 필요한 것만 고치고 1번 따라 말해요" data-hint-en="Fixes key mistakes, then you repeat once."><span data-ko="균형" data-en="Balanced">균형</span></button>
+          <button type="button" data-corr="focused" aria-pressed="false" data-hint-ko="모두 고쳐서 3번 들려주고 따라 말해요" data-hint-en="Fixes all, says it 3 times, you repeat."><span data-ko="집중" data-en="Focused">집중</span></button>
         </div>
         <small class="state" id="corrState"></small></div>
     </div>
@@ -208,7 +215,13 @@
       + SET.LEVELS.map(function(L){ return '<option value="' + L.n + '"' + (cur.level === L.n ? ' selected' : '') + '>' + L.n + T('단계 · ', ' · ') + esc(T(L.ko, L.en)) + '</option>'; }).join('');
     document.querySelectorAll('[data-corr]').forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-corr') === cur.corr ? 'true' : 'false'); });
     var cs = document.getElementById('corrState');
-    if(cs) cs.textContent = cur.corr === 'mixed' ? T('화면마다 다름 — 누르면 맞춰요', 'Differs by screen — tap one') : (cur.corr ? '' : T('아직 안 정함 (화면 기본)', 'Not set (screen default)'));
+    if(cs){
+      // 💬 고른 단계의 뜻 한 줄(A안). cur.corr 는 SET.CORR 세 값 중 하나만 오므로 선택자에 그대로 써도 안전하다.
+      var picked = cur.corr && cur.corr !== 'mixed' ? document.querySelector('[data-corr="' + cur.corr + '"]') : null;
+      cs.textContent = cur.corr === 'mixed' ? T('화면마다 다름 — 누르면 맞춰요', 'Differs by screen — tap one')
+        : picked ? picked.getAttribute(ui === 'en' ? 'data-hint-en' : 'data-hint-ko')
+        : T('아직 안 정함 (화면 기본)', 'Not set (screen default)');
+    }
   }
   function say(ok){
     var m = document.getElementById('setMsg'); if(!m) return;

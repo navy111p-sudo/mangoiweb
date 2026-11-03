@@ -319,7 +319,12 @@ console.log('① 장면 — 실제 핸들러');
 }
 {
   const { res } = await dogTalk([new Error('model down')]);
-  ok('①-10 모델이 전부 실패해도 죽지 않고 «AI 를 못 불렀다» 고 밝힌다', res.ok === true && res.ai_unavailable === true && res.calls.length === 3, { ok: res.ok, un: res.ai_unavailable, n: res.calls.length });
+  /* 🔁 (2026-11-04) 모델이 전부 실패하면 서버가 잠깐 기다렸다 같은 목록을 «한 번 더» 돕니다(src/friend-retry.ts).
+     그래서 호출은 3 이 아니라 3 + 3 = 6 이고, 뒤 세 번은 앞 세 번과 같은 모델·같은 순서여야 합니다. */
+  const ms = res.calls.map((c) => c.model);
+  ok('①-10 모델이 전부 실패해도 죽지 않고 «AI 를 못 불렀다» 고 밝힌다(첫 시도 3번 + 재시도 3번)',
+     res.ok === true && res.ai_unavailable === true && ms.length === 6 && ms.slice(3).join() === ms.slice(0, 3).join(),
+     { ok: res.ok, un: res.ai_unavailable, n: ms.length, models: ms });
 }
 {
   const { res } = await dogTalk(['Nice! What does your dog eat?']);
