@@ -4413,6 +4413,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         if (reason !== 'left') { window.__vcPeerLeftExplicit = false; return r; }
         var leaveRoom = typeof vcRoomId === 'undefined' ? '' : vcRoomId;
         var leaveSelf = typeof vcUserId === 'undefined' ? '' : vcUserId;
+        window.__vcRateLeaveScope = { room: leaveRoom, self: leaveSelf };
         window.__vcPeerLeftExplicit = true;
         setTimeout(function(){
           if (leaveEpoch !== window.__vcRateLeaveEpoch || !window.__vcPeerLeftExplicit) return;
@@ -4499,6 +4500,14 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
     var iv = setInterval(function(){
       try {
         if (STATE.triggered) { clearInterval(iv); return; }
+        var leaveScope = window.__vcRateLeaveScope;
+        if (window.__vcPeerLeftExplicit && (!leaveScope
+            || leaveScope.room !== (typeof vcRoomId === 'undefined' ? '' : vcRoomId)
+            || leaveScope.self !== (typeof vcUserId === 'undefined' ? '' : vcUserId))) {
+          window.__vcPeerLeftExplicit = false;
+          window.__vcRateLeaveEpoch = (window.__vcRateLeaveEpoch || 0) + 1;
+          zeroStreak = 0; silentTicks = 0; everHadPeer = false;
+        }
         if (!document.body || !document.body.classList.contains('vc-in-call')) {
           zeroStreak = 0; everHadPeer = false; silentTicks = 0;
           window.__vcPeerLeftExplicit = false; window.__vcPeerGraceWait = false;
