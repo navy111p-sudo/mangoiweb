@@ -214,7 +214,38 @@ console.log('\n[ D. 취소·연기 카드 — 실제로 돌린다 ]');
   check('D-4 범례가 «모름» 을 «?» 로(0 이라고 단정하지 않는다)', /\(!ph54State\.offComplete && !offEvents\.length\) \? '\?'/.test(render));
   check('D-4 범례 한/영(✕ 취소 · ⏸ 연기 / ✕ Cancelled · ⏸ Postponed)', /✕ 취소 · ⏸ 연기/.test(render) && /✕ Cancelled · ⏸ Postponed/.test(render));
   const jsV2 = Number((HTML.match(/adm-q6\.js\?v=(\d+)/) || [])[1] || 0);
-  check('D-4 admin.html 의 adm-q6.js ?v= 가 18 이상', jsV2 >= 18, `v=${jsV2}`);
+  check('D-4 admin.html 의 adm-q6.js ?v= 가 19 이상', jsV2 >= 19, `v=${jsV2}`);
+
+  // D-5 (2026-11-03 후속) 함정 대조가 찾은 셋 — 클릭 길 · «N개 이상» 문구 · 수업 수에 안 섞이는가(«위치» 가 아니라 «몸통» 으로)
+  const blkSrc = fn('ph54CardBlocksClick');
+  check('D-5 ph54CardBlocksClick 을 소스에서 오려 냈다', blkSrc.length > 60, `len=${blkSrc.length}`);
+  let B = null;
+  try { B = new Function(blkSrc + '\nreturn ph54CardBlocksClick;')(); } catch (e) { check('D-5 클릭 판정 실행 준비', false, String(e)); }
+  if (B) {
+    const el = (cls) => { const c = { classList: { contains: (k) => cls.split(' ').includes(k) } }; return { closest: (sel) => (sel === '.ph54-ev' && cls ? c : null) }; };
+    check('🔴 D-5 진짜 수업 카드 위 클릭은 막는다(드래그·상세와 안 겹치게)', B(el('ph54-ev')) === true);
+    check('🔴 D-5 취소·연기 카드 위 클릭은 통과(그 시간은 비어 있다 — 차단할 수 있어야)', B(el('ph54-ev ph54-off ph54-locked')) === false);
+    check('D-5 카드 밖 클릭은 통과', B(el('')) === false && B(null) === false);
+  }
+  const blkCalls = (Q6.match(/if \(ph54CardBlocksClick\(ev\.target\)\) return;/g) || []).length;
+  check('D-5 빈 칸 클릭 두 곳(차단 창·안내)이 그 판정을 쓴다', blkCalls === 2, `calls=${blkCalls}`);
+  check('D-5 옛 «카드면 무조건 무시» 가 그 두 곳에 남아 있지 않다', !/ev\.target\.closest\('\.ph54-ev'\)\) return;/.test(Q6));
+  const fe = render.indexOf("offEvents.forEach(function(e){");
+  let feBody = '';
+  if (fe >= 0) { let d = 0, i = render.indexOf('{', fe); const st = i; for (; i < render.length; i++) { if (render[i] === '{') d++; else if (render[i] === '}') { d--; if (!d) break; } } feBody = render.slice(st, i + 1); }
+  check('D-5 취소 칸을 강사 열에 넣는 몸통을 잘라 냈다', /kind: 'off'/.test(feBody), `len=${feBody.length}`);
+  check('🔴 D-5 그 몸통은 수업 수·분(b.n·b.mins)을 안 건드린다', feBody && !/\bb\.n\b|\bb\.mins\b/.test(feBody), feBody.slice(0, 200));
+  const cntExpr = (render.match(/\(\(!ph54State\.offComplete && !offEvents\.length\) \? '\?' : \(offEvents\.length \+ ph54T\('개',''\)\)\)/) || [''])[0];
+  check('D-5 범례 건수 식을 오려 냈다', cntExpr.length > 40, cntExpr);
+  if (cntExpr) {
+    const run = (complete, n) => { try { return new Function('ph54State', 'offEvents', 'ph54T', 'return ' + cntExpr + ';')({ offComplete: complete }, new Array(n), (ko) => ko); } catch (e) { return 'ERR ' + e; } };
+    check('🔴 D-5 모름 + 0줄 → «?»(0 이라고 단정 안 함)', run(false, 0) === '?', run(false, 0));
+    check('D-5 다 읽음 + 0줄 → «0개»', run(true, 0) === '0개', run(true, 0));
+    check('🔴 D-5 일부만(누가·사유) + 3줄 → «3개»(줄은 다 왔으니 건수는 정확 — «이상» 이라 하지 않는다)', run(false, 3) === '3개', run(false, 3));
+    check('D-5 다 읽음 + 3줄 → «3개»', run(true, 3) === '3개', run(true, 3));
+  }
+  check('D-5 일부만일 때 설명이 «누가·사유 일부 + 건수는 정확» 을 말한다', /누가·언제·사유를 일부 불러오지 못했습니다 \(건수는 정확합니다\)/.test(render) && /the count is exact/.test(render));
+  check('D-5 EN 카드는 유형 이름도 영어(학생이 없을 때)', /typeEn\[s\.type\]/.test(cardSrc));
 }
 
 console.log('\n════════════════════════════════════════');

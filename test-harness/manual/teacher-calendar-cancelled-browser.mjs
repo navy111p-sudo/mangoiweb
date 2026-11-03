@@ -133,6 +133,10 @@ const readCards = (page) => page.evaluate(() => {
     offs: offs.map((c) => ({ text: c.textContent.replace(/\s+/g, ' ').trim(), title: c.getAttribute('title') || '', kind: c.getAttribute('data-off'),
       drag: c.getAttribute('draggable'), idx: c.getAttribute('data-idx'), blk: c.getAttribute('data-block'), dup: c.classList.contains('ph54-dup'),
       box: box(c), color: getComputedStyle(c).color, bg: getComputedStyle(c).backgroundColor,
+      /* 글자는 «안쪽 줄» 마다 따로 잰다 — 카드 자체 color 는 테마 규칙이 덮을 수 있고, 줄마다 opacity 가 걸릴 수 있다 */
+      kids: ['.ph54-ev-time', '.ph54-ev-name', '.ph54-ev-type'].map((sel) => { const k = c.querySelector(sel); if (!k) return null;
+        let a = 1; for (let n = k; n && n.nodeType === 1; n = n.parentElement) a *= Number(getComputedStyle(n).opacity || 1);
+        return { sel, color: getComputedStyle(k).color, opacity: a }; }).filter(Boolean),
       strike: getComputedStyle(c.querySelector('.ph54-ev-time')).textDecorationLine, col: (c.closest('.ph54-cal-col') || {}).getAttribute && c.closest('.ph54-cal-col').getAttribute('data-teacher') })),
     real: real.map((c) => ({ text: c.textContent.replace(/\s+/g, ' ').trim(), drag: c.getAttribute('draggable'), dup: c.classList.contains('ph54-dup'), box: box(c),
       col: c.closest('.ph54-cal-col') && c.closest('.ph54-cal-col').getAttribute('data-teacher') })),
@@ -194,11 +198,18 @@ const readCards = (page) => page.evaluate(() => {
     check('⑤ 범례에 «✕ 취소 · ⏸ 연기» 와 «취소·연기 3개»', /✕ 취소 · ⏸ 연기/.test(c.legend) && /취소·연기 3개/.test(c.legend), c.legend.slice(-260));
 
     console.log('\n[ ⑧ 읽힘 · 오류 ]');
+    /* 바탕은 빗금의 «가장 어두운 줄»(#e2e8f0)로 잰다 — 밝은 줄로 재면 실제보다 좋게 나온다. 연기 카드는 단색 #f8fafc. */
+    const DARKEST = { cancelled: [226, 232, 240], postponed: [248, 250, 252] };
     for (const o of [cx, pp]) {
       if (!o) continue;
-      const fg = parseRgb(o.color), bg = parseRgb(o.bg);
-      const r = (Math.max(relLum(fg), relLum(bg)) + 0.05) / (Math.min(relLum(fg), relLum(bg)) + 0.05);
-      check(`⑧ ${o.kind} 카드 글자 대비 4.5:1 이상`, r >= 4.5, { fg: o.color, bg: o.bg, r: Math.round(r * 100) / 100 });
+      const bg = DARKEST[o.kind];
+      check(`⑧ ${o.kind} 카드 안 글자 줄을 재었다(시각·이름·상태)`, o.kids.length === 3, o.kids);
+      for (const k of o.kids) {
+        const f0 = parseRgb(k.color), fg = f0.map((v, i) => v * k.opacity + bg[i] * (1 - k.opacity));
+        const r = (Math.max(relLum(fg), relLum(bg)) + 0.05) / (Math.min(relLum(fg), relLum(bg)) + 0.05);
+        console.log(`     · ${o.kind} ${k.sel} ${k.color} × opacity ${k.opacity} 대 ${bg} → ${Math.round(r * 100) / 100}:1`);
+        check(`⑧ ${o.kind} ${k.sel} 대비 4.5:1 이상(가장 어두운 바탕·opacity 포함)`, r >= 4.5, { fg: k.color, opacity: k.opacity, bg, r: Math.round(r * 100) / 100 });
+      }
     }
 
     console.log('\n[ ⑦ 강사 필터 ]');
@@ -207,12 +218,20 @@ const readCards = (page) => page.evaluate(() => {
     const f = await readCards(A.page);
     check('⑦ HANNAH 만 보면 HANNAH 취소·연기 2장만(BELLE 것은 안 그림)', f.offs.length === 2 && !f.offs.some((o) => /lby학생/.test(o.text)), f.offs.map((o) => o.text));
     check('⑦ 필터 모드 범례도 «취소·연기 2개»', /취소·연기 2개/.test(f.legend), f.legend.slice(-200));
-    /* 필터 모드에서 취소 카드를 눌러도 «차단» 창이 안 뜬다(빈 칸 클릭만 차단) */
-    const dlg = await A.page.evaluate(() => {
-      const c0 = document.querySelector('#ph54-sched-wrap .ph54-off'); if (c0) c0.click();
-      const d = document.getElementById('ph54-blk-dlg'); const had = !!d; if (d) d.remove(); return had;
-    });
-    check('⑦ 필터 모드에서 취소 카드를 눌러도 차단 창이 안 뜬다', dlg === false, dlg);
+    /* 🔁 (2026-11-03 후속) 취소·연기 카드는 «비어 있는 시간» 이다 — 고치기 전에는 그 자리가 빈칸이라 눌러서 차단할 수 있었다.
+       그래서 필터 모드에서 그 카드를 누르면 «차단» 창이 떠야 하고, 진짜 수업 카드를 누르면 여전히 안 떠야 한다(짝). */
+    const clickAt = (sel) => A.page.evaluate((sel) => {
+      document.querySelectorAll('#ph54-blk-dlg').forEach((d) => d.remove());
+      const c0 = document.querySelector(sel); if (!c0) return 'no-card';
+      const r = c0.getBoundingClientRect();
+      c0.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }));
+      const d = document.getElementById('ph54-blk-dlg'); const had = !!d; const txt = d ? d.textContent.replace(/\s+/g, ' ') : ''; if (d) d.remove(); return had ? ('open ' + txt) : 'none';
+    }, sel);
+    const offClick = await clickAt('#ph54-sched-wrap .ph54-off');
+    check('🔴 ⑦ 필터 모드에서 취소·연기 카드를 누르면 그 시간 «차단» 창이 뜬다(빈 시간이라)', /^open /.test(offClick), offClick.slice(0, 160));
+    const realClick = await clickAt('#ph54-sched-wrap .ph54-ev:not(.ph54-off):not(.ph54-c24)');
+    check('⑦ 진짜 수업 카드를 누르면 차단 창이 안 뜬다(짝 — 그 카드가 실제로 있어야 한다)', realClick === 'none', realClick.slice(0, 120));
+    check('⑦ 취소 카드 위 마우스 모양이 «칸»(cursor:cell)', f.offs.length > 0 && (await A.page.evaluate(() => getComputedStyle(document.querySelector('#ph54-sched-wrap .ph54-off')).cursor)) === 'cell');
     check('⑧ 페이지 스크립트 오류 0', A.errors.length === 0, A.errors.slice(0, 3));
     await A.ctx.close();
 
@@ -221,7 +240,7 @@ const readCards = (page) => page.evaluate(() => {
     await renderCalendar(P.page);
     const p = await readCards(P.page);
     check('⑥ off_complete:false + 0건 → «취소·연기 ?»', /취소·연기 \?/.test(p.legend) && !/취소·연기 0/.test(p.legend), p.legend.slice(-200));
-    check('⑥ 그때 설명이 «다 불러오지 못했습니다» 라고 말한다', /다 불러오지 못했습니다/.test(p.countTitle), p.countTitle);
+    check('⑥ 그때 설명이 «불러오지 못했습니다 — 모릅니다» 라고 말한다', /불러오지 못했습니다/.test(p.countTitle) && /모릅니다/.test(p.countTitle), p.countTitle);
     await P.ctx.close();
     const O = await open(browser, { oldServer: true });
     await renderCalendar(O.page);
@@ -232,7 +251,9 @@ const readCards = (page) => page.evaluate(() => {
     const P2 = await open(browser, { partial: true });
     await renderCalendar(P2.page);
     const p2 = await readCards(P2.page);
-    check('⑥ off_complete:false + 3건 → «3개 이상» (정확한 건수라고 단정하지 않는다)', /취소·연기 3개 이상/.test(p2.legend), p2.legend.slice(-200));
+    /* 서버는 «줄» 조회가 실패하면 줄을 하나도 안 싣는다 — 줄이 왔으면 건수는 정확하고, 비는 것은 누가·사유뿐이다(weekly-schedule 의 «N건» 과 같은 말) */
+    check('⑥ off_complete:false + 3건 → «3개»(«이상» 이라고 말하지 않는다)', /취소·연기 3개/.test(p2.legend) && !/3개 이상/.test(p2.legend), p2.legend.slice(-200));
+    check('⑥ 그때 설명이 «누가·사유 일부 + 건수는 정확» 이라고 말한다', /건수는 정확합니다/.test(p2.countTitle), p2.countTitle);
     await P2.ctx.close();
 
     console.log('\n[ ⑧ EN ]');

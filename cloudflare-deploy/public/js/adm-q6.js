@@ -691,6 +691,13 @@
      · 끌 수 없고(draggable 없음), records 인덱스·차단 번호를 안 단다 — 클릭·드롭 핸들러가 그 둘로 돌기 때문이다.
      · 글자(취소됨/연기됨)·누가·언제·사유는 서버가 만든 것만 쓴다(judgeClassChange — 누가·사유는 본사·내부직원에게만 실린다).
      · 색은 밝은 회색 무늬 — adm-light-surfaces 가 «어두운 그라데이션» 으로 보고 덮지 않게 밝은 색만 쓴다(CLAUDE.md 2장). */
+  /* 🧾 클릭이 «카드 위» 라서 무시해야 하는가. 취소·연기 카드는 «비어 있는 시간» 이라 통과시킨다 —
+     고치기 전에는 그 자리가 빈칸이라 눌러서 차단할 수 있었다(함정 대조 2026-11-03: 카드가 그 길을 막고 있었다). */
+  function ph54CardBlocksClick(t){
+    var c = t && t.closest && t.closest('.ph54-ev');
+    return !!c && !c.classList.contains('ph54-off');
+  }
+
   function ph54OffCard(s, lay){
     var pp       = s.off === 'postponed';
     var startMin = ph54MinOf(s);
@@ -698,8 +705,9 @@
     var top      = Math.max(0, (startMin - PH54_START_H*60) / 60 * PH54_HOUR_PX);
     var height   = Math.max(dur / 60 * PH54_HOUR_PX, 22);
     var timeTxt  = ph54FmtMin(startMin) + ' · ' + dur + ph54T('분', 'm');
+    var typeEn   = { '1on1':'Regular', 'group':'Regular group', 'temp':'Make-up', 'trial':'Trial', 'leveltest':'Level test' };
     var who      = (s.students || []).map(function(x){ return x && x.name; }).filter(Boolean).join(', ')
-                 || PH54_TYPE_LABEL[s.type] || ph54T('수업', 'Class');
+                 || (ph54En() ? typeEn[s.type] : PH54_TYPE_LABEL[s.type]) || ph54T('수업', 'Class');
     var ch       = s.change || {};
     var label    = ph54En() ? (ch.label_en || (pp ? '⏸ Postponed' : '✕ Cancelled'))
                             : (ch.label_ko || (pp ? '⏸ 연기됨' : '✕ 취소됨'));
@@ -707,13 +715,15 @@
     var tip = label + ' · ' + timeTxt + ' · ' + who
       + (by ? '\n' + ph54T('처리: ', 'By: ') + by : '')
       + (ch.reason ? '\n' + ph54T('사유: ', 'Reason: ') + ch.reason : '')
-      + '\n' + ph54T('지우지 않고 남겨 둔 칸입니다 — 옮기거나 지울 수 없습니다. 이 시간은 비어 있습니다.',
-                     'Kept on the calendar, not deleted — it cannot be moved or deleted. This time is open.');
+      + '\n' + ph54T('지우지 않고 남겨 둔 칸입니다 — 옮기거나 지울 수 없습니다. 이 시간은 비어 있습니다 (강사를 고른 화면에서는 눌러서 이 시간을 차단할 수 있어요).',
+                     'Kept on the calendar, not deleted — it cannot be moved or deleted. This time is open (with an instructor selected, click to block this time).');
     var look = pp
       ? 'background-color:#f8fafc;border:1.5px dashed #64748b;font-style:italic;'
       : 'background-color:#f1f5f9;background-image:repeating-linear-gradient(135deg,#f1f5f9,#f1f5f9 5px,#e2e8f0 5px,#e2e8f0 10px);border:1.5px solid #94a3b8;';
     return '<div class="ph54-ev ph54-off ph54-locked' + (pp ? ' ph54-off-pp' : '') + '" data-off="' + (pp ? 'postponed' : 'cancelled') + '"'
-      + ' style="top:'+top+'px;height:'+height+'px;'+ph54LaneStyle(lay)+'cursor:default;box-shadow:none;color:#475467;'+look+'"'
+      /* 글자색 #475467 은 «테마 규칙이 없을 때» 의 값이다 — ivory/slate 에서는 admin-inline-c.css 의
+         [id^="card-"] … div{color:#101828!important} 가 이겨 실제로는 #101828 로 그려진다(실측). 둘 다 밝은 바탕에서 읽힌다. */
+      + ' style="top:'+top+'px;height:'+height+'px;'+ph54LaneStyle(lay)+'cursor:cell;box-shadow:none;color:#475467;'+look+'"'
       + ' title="'+ph54Esc(tip)+'">'
       +   '<div class="ph54-ev-time"' + (pp ? '' : ' style="text-decoration:line-through;text-decoration-color:#64748b"') + '>' + ph54Esc(timeTxt) + '</div>'
       +   '<div class="ph54-ev-name">' + ph54Esc(who) + '</div>'
@@ -1021,13 +1031,14 @@
       +     ph54T('수업 ','Classes ')+nReal+ph54T('개','')
       +     (nOther ? '<b class="ph54-count-warn"> · '+ph54T('LMS 점유·시드 ','LMS busy / seed ')+nOther+ph54T('개','')+'</b>' : '')
       /* 🧾 취소·연기 건수 — 서버가 «다 읽었다»(off_complete) 고 말하지 않으면 0 이 아니라 «?» (모르는 것을 0건이라고 단정하지 않는다) */
-      +     '<span class="ph54-off-count" title="'+ph54Esc(ph54State.offComplete
-              ? ph54T('이 주에 취소·연기된 수업 (지우지 않고 남긴 칸)','Cancelled or postponed classes this week (kept on the calendar)')
-              : ph54T('취소·연기 기록을 다 불러오지 못했습니다 — 실제로는 더 있을 수 있습니다','Could not load all cancelled/postponed records — there may be more'))+'"> · '
+      /*   서버는 «줄» 조회가 실패하면 줄을 하나도 안 싣고, «이력(누가·사유)» 조회만 실패하면 줄은 전부 싣고 off_complete:false 로 준다.
+           그래서 «모름 + 0줄» 만 «?», 줄이 있으면 건수는 정확하다 — 비는 것은 누가·사유뿐(weekly-schedule.html 의 «N건» 과 같은 말). */
+      +     '<span class="ph54-off-count" title="'+ph54Esc(
+              ph54State.offComplete ? ph54T('이 주에 취소·연기된 수업 (지우지 않고 남긴 칸)','Cancelled or postponed classes this week (kept on the calendar)')
+            : offEvents.length      ? ph54T('누가·언제·사유를 일부 불러오지 못했습니다 (건수는 정확합니다)','Could not load some who/when/reason details (the count is exact)')
+                                    : ph54T('취소·연기 기록을 불러오지 못했습니다 — 있는지 없는지 모릅니다','Could not load cancelled/postponed records — unknown'))+'"> · '
       +       ph54T('취소·연기 ','Cancelled/postponed ')
-      +       ((!ph54State.offComplete && !offEvents.length) ? '?'
-              : ph54State.offComplete ? (offEvents.length + ph54T('개',''))
-              : ph54T(offEvents.length + '개 이상', offEvents.length + '+'))
+      +       ((!ph54State.offComplete && !offEvents.length) ? '?' : (offEvents.length + ph54T('개','')))
       +     '</span>'
       +     (ph54State.c24On && c24Ahead
               ? ' · '+ph54T('카페24 대기 ','Cafe24 pending ')+c24Ahead+ph54T('개','') : '')
@@ -1136,7 +1147,7 @@
     if (calTrack0 && !filterId && !calTrack0._blkHintBound){
       calTrack0._blkHintBound = true;
       calTrack0.addEventListener('click', function(ev){
-        if (ev.target.closest && ev.target.closest('.ph54-ev')) return;
+        if (ph54CardBlocksClick(ev.target)) return;
         if (!(ev.target.closest && ev.target.closest('.ph54-cal-col'))) return;
         ph54Toast(ph54T('💡 먼저 위에서 강사를 선택하면 빈 칸을 눌러 그 시간을 막을 수 있어요.',
                         '💡 Pick an instructor above first — then click an empty slot to block that time.'));
@@ -1144,7 +1155,7 @@
     }
     if (calTrack0 && filterId){
       calTrack0.addEventListener('click', function(ev){
-        if (ev.target.closest && ev.target.closest('.ph54-ev')) return;   // 카드 위 클릭은 무시
+        if (ph54CardBlocksClick(ev.target)) return;   // 카드 위 클릭은 무시(취소·연기 카드는 «빈 시간» 이라 통과)
         var col = ev.target.closest && ev.target.closest('.ph54-cal-col');
         if (!col) return;
         var rect = col.getBoundingClientRect();
