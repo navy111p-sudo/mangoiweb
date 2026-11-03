@@ -22,6 +22,17 @@ const shotDir=process.env.WARMUP_SCREENSHOTS;
 if(shotDir)await mkdir(shotDir,{recursive:true});
 let pass=0;
 function ck(name,condition){assert.ok(condition,name);pass++;console.log('PASS '+name);}
+/* ⋮ 메뉴로 옮긴 「그림 골라 이야기하기」(#wgScenes): 메뉴를 열고 카드를 펼친다. 이미 열려 있으면 그대로. */
+async function openScenePicker(page){
+  if(!(await page.locator('#menuPanel').evaluate(e=>e.classList.contains('open')))) await page.locator('#menuBtn').click();
+  await page.locator('#wgScenes').evaluate(e=>e.open=true);
+}
+/* 그림을 고르고 메뉴를 닫는다 — 열린 메뉴의 가리개가 대화 버튼을 가로막기 때문이다. */
+async function pickScene(page,id){
+  await openScenePicker(page);
+  await page.locator('[data-scene='+id+']').click();
+  await page.evaluate(()=>{if(typeof closeMenu==='function')closeMenu();});
+}
 async function setup(w,h,query=''){
   const page=await browser.newPage({viewport:{width:w,height:h}}), requests=[],errors=[],mediaRequests=[];
   page.on('pageerror',e=>errors.push(e.message));
@@ -64,7 +75,7 @@ try{
     if(shotDir)await page.screenshot({path:join(shotDir,'review-'+w+'.png'),fullPage:true});
     ck(w+' microphone initially reachable',await page.locator('#micBtn').evaluate(e=>{const r=e.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}));
     ck(w+' no help or full example on arrival',await page.locator('#wgHelp').isHidden());
-    await page.locator('[data-scene=cooking]').click();
+    await pickScene(page,'cooking');
     await page.waitForFunction(()=>!sending&&document.querySelector('#wgScene:not([hidden])'));
     ck(w+' selecting picture is not a student answer',await page.locator('#log .msg.me').count()===0);
     ck(w+' scene selection reaches history API',requests.some(r=>r.pick&&r.scene_id==='cooking'));
@@ -122,13 +133,14 @@ try{
     ];
     ck(lang+' ten distinct scene choices',await page.locator('#wgChoices button').count()===10 &&
       await page.locator('#wgChoices button').evaluateAll(bs=>new Set(bs.map(b=>b.dataset.scene)).size===10));
+    await openScenePicker(page);
     ck(lang+' scene picker has a bounded scroll area',await page.locator('#wgChoices').evaluate(e=>e.scrollHeight>e.clientHeight&&e.clientHeight<=200));
     await page.evaluate(()=>{_warmLevel=1;});
     for(const [id,en,zh] of topics){
-      await page.locator('#wgScenes').evaluate(e=>e.open=true);
+      await openScenePicker(page);
       const choice=page.locator('[data-scene='+id+']');await choice.scrollIntoViewIfNeeded();
       await choice.locator('img').evaluate(img=>img.decode());
-      await choice.click();await page.waitForFunction(()=>!sending);
+      await choice.click();await page.evaluate(()=>closeMenu());await page.waitForFunction(()=>!sending);
       const q=lang==='zh'?'你喜欢'+zh+'吗？':'Do you like '+en+'?';
       ck(lang+' '+id+' sends its own easy question and scene',requests.some(r=>r.scene_id===id&&r.pick===q)&&
         (await page.locator('#log .msg.ai:visible').innerText()).includes(q));
@@ -146,8 +158,7 @@ try{
     ck(lang+' exploring scenes never submits student answers',await page.locator('#log .msg.me').count()===0);
     if(lang==='zh')ck('Chinese scene selection never preloads videos',mediaRequests.length===0);
     await page.evaluate(()=>{_warmLevel=3;});
-    await page.locator('#wgScenes').evaluate(e=>e.open=true);
-    await page.locator('[data-scene=music]').click();await page.waitForFunction(()=>!sending);
+    await pickScene(page,'music');await page.waitForFunction(()=>!sending);
     await page.locator('#wgHelpOpen').click();await page.locator('#wgHelpMore').click();
     ck(lang+' goal example matches music scene',(await page.locator('#wgHelpActions').innerText()).includes(lang==='zh'?'我想学弹钢琴。':'I want to learn to play the piano.'));
     ck(lang+' all ten scenes have no runtime errors',errors.length===0);
@@ -194,7 +205,7 @@ try{
   {
     const {page,mediaRequests,errors}=await setup(390,844);
     const video=page.locator('#wgSceneVideo');
-    await page.locator('[data-scene=cooking]').click();await page.waitForFunction(()=>!sending);
+    await pickScene(page,'cooking');await page.waitForFunction(()=>!sending);
     ck('scene video is not fetched on arrival or picture selection',mediaRequests.length===0);
     await page.locator('#wgScenePlay').click();
     await page.waitForFunction(()=>document.querySelector('#wgSceneVideo').currentTime>0.1);
@@ -207,7 +218,7 @@ try{
     ck('scene video cannot start during recording',await video.evaluate(v=>v.paused));
     await page.evaluate(()=>{pauseWarmup();resumeWarmup();});
     await page.locator('#wgScenePlay').click();await page.waitForFunction(()=>!document.querySelector('#wgSceneVideo').paused);
-    await page.locator('#wgScenes summary').click();await page.locator('[data-scene=soccer]').click();await page.waitForFunction(()=>!sending);
+    await pickScene(page,'soccer');await page.waitForFunction(()=>!sending);
     ck('changing scene stops and unloads the previous clip',await video.evaluate(v=>v.paused&&!v.getAttribute('src')));
     await page.locator('#wgScenePlay').click();await page.waitForFunction(()=>document.querySelector('#wgSceneVideo').currentTime>0.1);
     await page.locator('#wgFinish').click();
@@ -217,7 +228,7 @@ try{
     await page.locator('#wgSceneClose').click();
     ck('closing picture unloads scene video',await video.evaluate(v=>!v.getAttribute('src')));
     await page.route('**/video/warmup-scenes/train.mp4',route=>route.abort());
-    await page.locator('#wgScenes summary').click();await page.locator('[data-scene=train]').click();await page.waitForFunction(()=>!sending);
+    await pickScene(page,'train');await page.waitForFunction(()=>!sending);
     await page.locator('#wgScenePlay').click();await page.waitForFunction(()=>document.querySelector('#wgVideoNotice').textContent.includes('불러오지'));
     ck('video failure falls back to usable picture',await page.locator('#wgSceneImage').isVisible()&&await video.isHidden());
     await page.locator('#inp').fill('I like travelling.');await page.locator('#sendBtn').click();await page.waitForFunction(()=>!sending);

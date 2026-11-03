@@ -36,7 +36,6 @@
     /* 흩어져 있던 줄은 감춘다 — 전부 «💡 도움» 시트 안에 있다 */
     'html.tb-on .wg-history-bar,html.tb-on .qs-row,html.tb-on .wg-composer .hint,'
     + 'html.tb-on .wg-composer #wgState,html.tb-on .wg-composer #listening,html.tb-on .wg-composer .autotalk-pill{display:none!important}'
-    + 'html.tb-on #wgScenes:not([data-tb-show]){display:none!important}'
     /* 입력칸은 «⌨ 글쓰기» 를 눌렀을 때만. 🎤 는 가운데 칸이 맡는다 */
     + 'html.tb-on .wg-composer:not(.tb-typing){display:none!important}'
     + 'html.tb-on .wg-composer.tb-typing{display:block!important;padding:4px!important}'
@@ -137,7 +136,6 @@
   function openSheet() {
     var hist = $('wgHistory'), histOpen = hist && hist.getAttribute('aria-expanded') === 'true';
     var items = [
-      ['tbScenes', '🖼️ ' + T('그림 골라 이야기하기', 'Talk about a picture'), !!$('wgScenes')],
       ['tbHist', '🕘 ' + (histOpen ? T('이전 대화 접기', 'Hide earlier talk') : T('이전 대화 보기', 'Earlier conversation')), !!hist],
       ['tbAns', '🙋 ' + T('대답할 때 도움', 'Help me answer'), !!$('wgHelpOpen')],
       ['tbQs', '💡 ' + T('새 질문 추천', 'Suggest a new question'), !!$('qsBtn')],
@@ -157,11 +155,8 @@
     if (t.id === 'tbSheetClose') { closeSheet(); return; }
     var k = t.getAttribute('data-tb'); if (!k) return;
     closeSheet();
-    if (k === 'tbScenes') {
-      var sc = $('wgScenes'); if (!sc) return;
-      sc.setAttribute('data-tb-show', '1'); sc.open = true;
-      try { sc.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e2) {}
-    } else if (k === 'tbHist') click('wgHistory');
+    // 그림 고르기(#wgScenes)는 ⋮ 메뉴로 옮겼다 — 여기서는 다루지 않는다
+    if (k === 'tbHist') click('wgHistory');
     else if (k === 'tbAns') click('wgHelpOpen');
     else if (k === 'tbQs') click('qsBtn');
     else if (k === 'tbFin') click('wgFinish');
@@ -201,8 +196,6 @@
       if (on) { var inp = $('inp'); if (inp) try { inp.focus(); } catch (e) {} }
       repaint();
     });
-    var sc = $('wgScenes');
-    if (sc) sc.addEventListener('toggle', function () { if (!sc.open) sc.removeAttribute('data-tb-show'); });
 
     // 원래 버튼·알약이 바뀌면 따라 그린다 — composer 하나만 본다(⛔ body 관찰 금지)
     try {
