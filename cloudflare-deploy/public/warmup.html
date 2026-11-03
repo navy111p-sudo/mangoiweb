@@ -1170,9 +1170,8 @@ var LESSON_TOPIC = Q.get('unit') || Q.get('topic') || '';
    ⛔ 모르는 id·표를 못 읽음 → null → 예전 그대로(자유 대화). ?unit=/?topic= 이 있으면 그쪽이 이긴다. */
 var SITUATION = null;
 try{ if(!LESSON_TOPIC && window.MangoiSituations) SITUATION = window.MangoiSituations.find(Q.get('sit')); }catch(e){ SITUATION = null; }
-/* 🀄 상황 대화의 언어는 주소의 lang 이 정한다(ai-speaking.html 공통 설정 → MangoiSituations.url). 모르면 영어. */
-var SIT_ZH = !!SITUATION && String(Q.get('lang')||'').toLowerCase() === 'zh';
-var SIT_TITLE = SITUATION ? (SIT_ZH ? SITUATION.zh : SITUATION.en) : '';
+/* 상황 대화는 영어만(사장님 2026-11-03 「중국어 빼기」) — 주소에 lang=en 이 함께 실린다. */
+var SIT_TITLE = SITUATION ? SITUATION.en : '';
 if(SITUATION) LESSON_TOPIC = SIT_TITLE;
 /* 지금 대화가 «상황» 인가 — 학생이 나중에 교재를 고르면 LESSON_TOPIC 이 바뀌어 저절로 false 가 된다 */
 function situationActive(){ return !!(SITUATION && LESSON_TOPIC === SIT_TITLE); }
@@ -3979,12 +3978,11 @@ function _friendLabelNow(){
 }
 function fallbackGreeting(){
   /* 🎯 상황별 말하기 — AI 역할의 첫 말(표의 open)로 연다. 서버 역할 지시(role)가 «이미 이렇게 말했다» 고 알고 있어 짝이 맞는다. */
-  if(situationActive()){
-    var _so = isZh() ? SITUATION.zhOpen : SITUATION.open;
-    _koCache[_so] = SITUATION.openKo;
-    addMsg(_so, 'ai');
+  if(situationActive() && !isZh()){
+    _koCache[SITUATION.open] = SITUATION.openKo;
+    addMsg(SITUATION.open, 'ai');
     addMsg('🎯 ' + wuT('상황: ', 'Situation: ') + wuT(SITUATION.ko, SITUATION.en) + wuT(' — AI 의 말에 대답해 보세요', ' — answer the AI'), 'sys');
-    if(_warmLevel <= 3) showAnswerChips(isZh() ? SITUATION.zhChips : SITUATION.chips);
+    if(_warmLevel <= 3) showAnswerChips(SITUATION.chips);
     return;
   }
   var g = (isZh() ? BEGINNER_GREETINGS_ZH : BEGINNER_GREETINGS)[_warmLevel];
@@ -4033,7 +4031,7 @@ function withCtx(body){
   if(WCTX.textbook) body.textbook = WCTX.textbook;
   if(WCTX.level) body.level = WCTX.level;
   if(WCTX.lesson_no) body.lesson_no = WCTX.lesson_no;
-  if(LESSON_TOPIC) body.lesson_topic = situationActive() ? (isZh() ? SITUATION.zhRole : SITUATION.role) : LESSON_TOPIC;   // 🎯 상황이면 역할 지시를 보낸다
+  if(LESSON_TOPIC) body.lesson_topic = situationActive() ? SITUATION.role : LESSON_TOPIC;   // 🎯 상황이면 역할 지시를 보낸다
   return body;
 }
 function updateTopicChip(){

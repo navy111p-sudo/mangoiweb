@@ -4,9 +4,8 @@
      수준  웜업 mangoi_warmup_level = '1'~'8'   ·  AI 친구 mangoi_aifriend_level = 'S1'~'S8'
      교정  웜업 mangoi_warmup_correction        ·  AI 친구 mangoi_aifriend_correction
            (둘 다 free_talk · balanced · focused)
-     언어  대화 언어 영어/중국어(2026-11-03 사장님) — 웜업 mangoi_warmup_lang = 'en'|'zh'
-           ⚠️ AI 친구는 아직 영어만 됩니다(중국어 엔진 없음) — 화면이 그 사실을 말합니다.
-           ⛔ 화면 글자 언어(mangoi_lang)는 여기서 바꾸지 않습니다.
+     언어  화면 글자 한국어/English — mangoi_lang (mango-i18n.js setLang(l,'user') 과 같은 세 키)
+           📜 대화 언어 영어/중국어 안은 사장님 2026-11-03 「중국어 빼기」로 취소. 대화는 영어입니다.
    그래서 여기서 «사람이 고를 때만» 두 화면 키를 «함께» 씁니다.
    ⛔ 화면을 열거나 그리기만 할 때는 한 글자도 쓰지 않습니다 — 기본값을 미리 써 두면
       «학생이 고른 것» 으로 굳어 나중에 기본값을 못 바꿉니다(CLAUDE.md 2장).
@@ -17,7 +16,7 @@
   var K = {
     wl: 'mangoi_warmup_level', al: 'mangoi_aifriend_level',
     wc: 'mangoi_warmup_correction', ac: 'mangoi_aifriend_correction',
-    lang: 'mangoi_warmup_lang'
+    lang: 'mangoi_lang'
   };
   var CORR = ['free_talk', 'balanced', 'focused'];
   /* AI 친구의 옛 저장값(ai-friend.html AIF_LEGACY 와 같은 표) */
@@ -45,8 +44,8 @@
     var wc = CORR.indexOf(get(ls, K.wc)) >= 0 ? get(ls, K.wc) : '';
     var ac = CORR.indexOf(get(ls, K.ac)) >= 0 ? get(ls, K.ac) : '';
     var corr = (!wc && !ac) ? '' : (wc && ac && wc !== ac) ? 'mixed' : (wc || ac);
-    var l = get(ls, K.lang).toLowerCase();
-    return { level: level, corr: corr, lang: (l === 'zh' || l === 'en') ? l : '' };   // '' = 아직 안 정함(영어로 시작)
+    var l = get(ls, K.lang);
+    return { level: level, corr: corr, lang: l.indexOf('en') === 0 ? 'en' : 'ko' };
   }
   function chooseLevel(ls, n) {
     n = Number(n); if (!(n >= 1 && n <= 8 && Math.floor(n) === n)) return false;
@@ -59,8 +58,14 @@
     return a && b;
   }
   function chooseLang(ls, l) {
-    if (l !== 'en' && l !== 'zh') return false;
-    return set(ls, K.lang, l);
+    if (l !== 'ko' && l !== 'en') return false;
+    var ok = set(ls, K.lang, l);
+    set(ls, 'mangoi_lang_by', 'user');   // «사람이 직접 고름» — 계정 자동판정보다 우선(mango-i18n.js 와 같음)
+    try {
+      var s = JSON.parse(get(ls, 'mangoi_admin_session') || '{}') || {};
+      set(ls, 'mangoi_lang_uid', String(s.uid || ''));
+    } catch (e) {}
+    return ok;
   }
   root.AiSpeakSettings = { KEYS: K, LEVELS: LEVELS, CORR: CORR, read: read,
     chooseLevel: chooseLevel, chooseCorr: chooseCorr, chooseLang: chooseLang };

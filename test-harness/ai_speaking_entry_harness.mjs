@@ -43,24 +43,25 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
 
   // 2) situation table — one source for hub and warmup
   const S = run('js/ai-situations.js').MangoiSituations;
-  ok(S.list.length === 15 && S.steps.length === 5, 'fifteen situations in five steps');
-  for (const st of S.steps) ok(S.list.filter(s => s.step === st.n).length === 3, 'step ' + st.n + ' has three');
+  // 2026-11-03 owner: step 5 cancelled; five child/teen situations per step; English only (no Chinese)
+  ok(S.list.length === 20 && S.steps.length === 4, 'twenty situations in four steps');
+  for (const st of S.steps) ok(S.list.filter(s => s.step === st.n).length === 5, 'step ' + st.n + ' has five');
+  ok(!/[\u4e00-\u9fff]/.test(read('js/ai-situations.js')), 'situation table has no Chinese characters');
+  ok(!/[\u4e00-\u9fff]/.test(hub), 'hub has no Chinese characters');
   ok(new Set(S.list.map(s => s.id)).size === S.list.length, 'unique ids');
   for (const s of S.list) {
     ok(/^[a-z0-9-]+$/.test(s.id), s.id + ' id is url-safe');
     ok(S.steps.some(g => g.n === s.step), s.id + ' step known');
-    ok(!s.zhRole.includes("'") && s.zhRole.includes(s.zhOpen) && /중국어/.test(s.zhRole), s.id + ' Chinese role');
-    ok(/[\u4e00-\u9fff]/.test(s.zh + s.zhOpen) && s.zhChips.length === 2 && s.zhChips.every(c => /^[\u3000-\u303f\u4e00-\u9fff\uff00-\uffef0-9a-zA-Z ]+$/.test(c)), s.id + ' Chinese chips are Chinese only (no pinyin/Korean)');
+    ok(/어린이|청소년/.test(s.role) && /영어 대화/.test(s.role), s.id + ' role targets kids/teens in English');
     ok(!s.img || existsSync(new URL(s.img.slice(1), pub)), s.id + ' picture exists');
     ok(!s.role.includes("'"), s.id + ' role has no single quote (server wraps it in quotes)');
     ok(s.role.includes(s.open), s.id + ' role tells the server what the AI already said');
     ok(!/[‍]/.test(s.ic) && [...s.ic].every(c => c.codePointAt(0) < 0x1FA70), s.id + ' icon is old-Windows safe');
     ok(Array.isArray(s.chips) && s.chips.length === 2 && s.chips.every(c => /^[\x20-\x7e]+$/.test(c)), s.id + ' chips are plain English (sent as speech)');
-    for (const lg of ['en', 'zh']) { const u = new URL(S.url(s, lg), 'https://x.test/');
-      ok(u.pathname === '/warmup.html' && u.searchParams.get('sit') === s.id && u.searchParams.get('setup') === '0' && u.searchParams.get('lang') === lg, s.id + ' url ' + lg); }
-    ok(new URL(S.url(s, 'xx'), 'https://x.test/').searchParams.get('lang') === 'en', s.id + ' unknown language -> en');
+    const u = new URL(S.url(s), 'https://x.test/');
+    ok(u.pathname === '/warmup.html' && u.searchParams.get('sit') === s.id && u.searchParams.get('setup') === '0' && u.searchParams.get('lang') === 'en', s.id + ' url (English)');
   }
-  ok(S.find('CAFE') && S.find('CAFE').id === 'cafe', 'find ignores case');
+  ok(S.find('BAKERY') && S.find('BAKERY').id === 'bakery', 'find ignores case');
   ok(S.find('nope') === null && S.find('') === null, 'unknown id -> null (free talk)');
 
   // 3) warmup consumes ?sit= : run the real block from warmup.html
@@ -68,17 +69,17 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   ok(wu.indexOf('/js/ai-situations.js') > 0 && wu.indexOf('/js/ai-situations.js') < wu.indexOf("var LESSON_TOPIC = Q.get('unit')"), 'warmup loads the table before reading ?sit');
   const a = wu.indexOf("var LESSON_TOPIC = Q.get('unit')"), b = wu.indexOf('function situationActive()');
   const block = wu.slice(a, wu.indexOf('\n', b));
-  const evalSit = (qs) => { const ctx = { window: { MangoiSituations: S }, Q: new URLSearchParams(qs) }; vm.createContext(ctx); vm.runInContext(block + ';this.out={t:LESSON_TOPIC,s:SITUATION&&SITUATION.id,act:situationActive(),zh:SIT_ZH};', ctx); return ctx.out; };
-  let r = evalSit('sit=cafe'); ok(r.s === 'cafe' && r.t === 'Ordering at a cafe' && r.act, '?sit=cafe -> short topic + active');
-  r = evalSit('sit=cafe&lang=zh'); ok(r.zh && r.t === S.find('cafe').zh && r.act, 'lang=zh -> Chinese title');
+  const evalSit = (qs) => { const ctx = { window: { MangoiSituations: S }, Q: new URLSearchParams(qs) }; vm.createContext(ctx); vm.runInContext(block + ';this.out={t:LESSON_TOPIC,s:SITUATION&&SITUATION.id,act:situationActive()};', ctx); return ctx.out; };
+  let r = evalSit('sit=bakery'); ok(r.s === 'bakery' && r.t === 'Ordering at a bakery' && r.act, '?sit=bakery -> short topic + active');
   r = evalSit('sit=zzz'); ok(r.s === null && r.t === '' && !r.act, 'unknown sit -> free talk (old behaviour)');
-  r = evalSit('topic=Pets&sit=cafe'); ok(r.s === null && r.t === 'Pets', '?topic= wins over ?sit=');
+  r = evalSit('topic=Pets&sit=bakery'); ok(r.s === null && r.t === 'Pets', '?topic= wins over ?sit=');
   r = evalSit(''); ok(r.s === null && r.t === '' && !r.act, 'no params -> unchanged');
-  ok(/body\.lesson_topic = situationActive\(\) \? \(isZh\(\) \? SITUATION\.zhRole : SITUATION\.role\) : LESSON_TOPIC/.test(wu), 'server gets the role text (per language) only while the situation is active');
+  ok(/body\.lesson_topic = situationActive\(\) \? SITUATION\.role : LESSON_TOPIC/.test(wu), 'server gets the role text only while the situation is active');
+  ok(!/SIT_ZH|zhRole|zhOpen|zhChips/.test(wu), 'warmup has no Chinese situation code');
   const rb = wu.slice(wu.indexOf('(function restoreBtsBook(){'), wu.indexOf('})();', wu.indexOf('(function restoreBtsBook(){')));
   ok(/if\(SITUATION\) return;/.test(rb), 'saved textbook does not override a situation');
   const fg = wu.slice(wu.indexOf('function fallbackGreeting(){'), wu.indexOf('var g = (isZh()', wu.indexOf('function fallbackGreeting(){')));
-  ok(/if\(situationActive\(\)\)\{/.test(fg) && /isZh\(\) \? SITUATION\.zhOpen : SITUATION\.open/.test(fg) && /isZh\(\) \? SITUATION\.zhChips : SITUATION\.chips/.test(fg) && fg.includes('return;'), 'greeting opens with the role line in the right language');
+  ok(/if\(situationActive\(\) && !isZh\(\)\)/.test(fg) && fg.includes("addMsg(SITUATION.open, 'ai')") && fg.includes('showAnswerChips(SITUATION.chips)') && fg.includes('return;'), 'greeting opens with the role line');
   ok(/if\(d && d\.ok && !situationActive\(\)\)/.test(wu), 'server textbook does not hijack a situation');
 
   // 4) common settings: never writes unless a person chooses; writes both screens' keys
@@ -87,18 +88,17 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
     getItem: k => (m.has(k) ? m.get(k) : null),
     setItem: (k, v) => { if (opts.block) throw new Error('quota'); writes.push(k); if (!opts.ignore) m.set(k, String(v)); } }; };
   let ls = mkLS(); let st = SET.read(ls);
-  ok(st.level === 0 && st.corr === '' && st.lang === '' && ls.writes.length === 0, 'reading writes nothing; unset stays unset');
+  ok(st.level === 0 && st.corr === '' && st.lang === 'ko' && ls.writes.length === 0, 'reading writes nothing; unset stays unset');
   ok(SET.chooseLevel(ls, 5) === true && ls.getItem('mangoi_warmup_level') === '5' && ls.getItem('mangoi_aifriend_level') === 'S5', 'level writes both screens');
   ok(SET.chooseCorr(ls, 'balanced') && ls.getItem('mangoi_warmup_correction') === 'balanced' && ls.getItem('mangoi_aifriend_correction') === 'balanced', 'correction writes both screens');
   const before = ls.writes.length;
-  ok(!SET.chooseLevel(ls, 9) && !SET.chooseLevel(ls, 0) && !SET.chooseLevel(ls, 2.5) && !SET.chooseCorr(ls, 'loud') && !SET.chooseLang(ls, 'ko') && ls.writes.length === before, 'bad values rejected without writing');
+  ok(!SET.chooseLevel(ls, 9) && !SET.chooseLevel(ls, 0) && !SET.chooseLevel(ls, 2.5) && !SET.chooseCorr(ls, 'loud') && !SET.chooseLang(ls, 'zh') && ls.writes.length === before, 'bad values rejected without writing');
   st = SET.read(mkLS({ mangoi_warmup_level: '3', mangoi_aifriend_level: 'S6' })); ok(st.level === 'mixed', 'different saved levels -> mixed');
   st = SET.read(mkLS({ mangoi_aifriend_level: 'B1' })); ok(st.level === 4, 'legacy AI-friend level B1 -> 4');
   st = SET.read(mkLS({ mangoi_warmup_correction: 'focused', mangoi_aifriend_correction: 'free_talk' })); ok(st.corr === 'mixed', 'different corrections -> mixed');
   ok(SET.chooseLevel(mkLS({}, { block: true }), 3) === false, 'blocked storage -> false, no throw');
   ok(SET.chooseCorr(mkLS({}, { ignore: true }), 'focused') === false, 'storage that silently ignores writes -> false');
-  ls = mkLS(); ok(SET.chooseLang(ls, 'zh') && ls.getItem('mangoi_warmup_lang') === 'zh' && ls.getItem('mangoi_lang') === null, 'talk language = warmup language key; UI language untouched');
-  ok(SET.read(mkLS({ mangoi_warmup_lang: 'zh' })).lang === 'zh', 'reads Chinese');
+  ls = mkLS(); ok(SET.chooseLang(ls, 'en') && ls.getItem('mangoi_lang') === 'en' && ls.getItem('mangoi_lang_by') === 'user' && ls.getItem('mangoi_warmup_lang') === null, 'language = screen text (shared key like setLang(l,"user")); talk language untouched');
   ok(!hub.includes('localStorage.setItem'), 'hub page itself never writes storage directly');
   console.log('PASS: redesign (' + n + ' checks) — cards, situations, warmup ?sit, common settings');
 }
@@ -106,6 +106,6 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
 {
   const fn = hub.slice(hub.indexOf('function renderSituations(){'), hub.indexOf('function renderSettings(){'));
   assert.ok(fn.length > 100 && !/s\.zh\b/.test(fn), 'situation list does not print Chinese names');
-  assert.ok(/SIT\.url\(s, tl\)/.test(fn), 'list links still carry the chosen talk language');
+  assert.ok(/SIT\.url\(s\)/.test(fn), 'list links use the table url (English)');
   console.log('PASS: no Chinese situation names in the list');
 }
