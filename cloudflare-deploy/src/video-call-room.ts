@@ -990,9 +990,12 @@ export class VideoCallRoom {
      ⛔ 보내는 쪽 — 수업에 들어온(joined) staff 만. 학생이 참관자에게 몰래 말을 거는 통로가 되면 안 된다.
      ⛔ 받는 쪽 — 서명 토큰으로 들어온 진짜 참관자(ghost)만. 학생·다른 강사에게는 «절대» 안 간다
         (이 경로가 학생에게 열리면 «학생 몰래 하는 1:1 대화» 가 된다).
-     ⚠️ 번호(toUserId)는 재접속하면 죽는다 — 참관자 «이름» 으로 한 번 더 찾되, 완전일치이고
-        후보가 정확히 하나일 때만 쓴다(CLAUDE.md 2장 「번호(peer id)로 콕 집는 기능」).
-     ⚠️ 못 찾으면 delivered:0 으로 강사에게 정직하게 회신한다 — «보낸 척» 하지 않는다.
+     ⛔ 대상은 «번호(toUserId)» 로만 찾는다 — 이름으로 다시 찾지 않는다.
+        참관자 이름은 화면이 늘 '관찰자' 로 보내는 고정값이라(idx-main.js join-observe) «신원» 이 아니다.
+        이름으로 찾으면 원래 참관자가 나갔을 때 남은 «다른» 참관자(다른 매니저·관제탑 순회 창)에게 간다.
+        (2026-11-04 함정 대조가 잡음 — 처음엔 «이름 완전일치 + 후보 하나» 폴백을 두었다.)
+        덤으로 번호를 모르면 아무에게도 닿지 않으므로 «학생이 강사 역할을 신고하고 참관자를 더듬는» 길도 좁아진다.
+     ⚠️ 못 찾으면 delivered:0 + reason 으로 강사에게 정직하게 회신한다 — «보낸 척» 하지 않는다.
      ℹ️ 받는 쪽 메시지 타입은 일부러 기존 'admin-whisper' 를 쓴다 — idx-main.js(첫 화면 blocking
         예산)의 분기를 건드리지 않고, 옛 화면(캐시)도 «귓속말 상자» 로 그대로 보여 준다. */
   private handleObserverWhisperReply(userId: string, att: VcAttachment, data: any): void {
@@ -1001,7 +1004,6 @@ export class VideoCallRoom {
     const read = !text && !!data && data.read === true;
     if (!text && !read) return;
     const toUserId = String((data && data.toUserId) || '').trim();
-    const toName = String((data && data.toName) || '').trim();
 
     const isGhost = (a: VcAttachment | null): boolean =>
       !!a && a.ghost === true && a.joined !== true && (a.role || '').toLowerCase() === 'observer';
@@ -1010,17 +1012,13 @@ export class VideoCallRoom {
       if (ws.readyState !== WebSocket.OPEN) continue;
       if (isGhost(this.attOf(ws))) ghosts.push(ws);
     }
-    let target: WebSocket | null = null;
-    if (toUserId) target = ghosts.find(ws => this.attOf(ws)?.userId === toUserId) || null;
-    if (!target && toName) {
-      const hits = ghosts.filter(ws => (this.attOf(ws)?.username || '') === toName);
-      if (hits.length === 1) target = hits[0];          // 둘 이상이면 붙이지 않는다
-    }
+    const target: WebSocket | null = toUserId ? (ghosts.find(ws => this.attOf(ws)?.userId === toUserId) || null) : null;
 
     const ta = target ? this.attOf(target) : null;
     const at = Date.now();
     const ref = Number(data && data.ref) || 0;           // 어느 귓속말에 대한 답인지(보낸 시각)
     let delivered = 0;
+    let reason = target && ta ? '' : 'not_found';      // 나갔거나 다시 접속해 번호가 바뀜
     if (target && ta) {
       const payload = {
         kind: read ? 'read' : 'reply',
@@ -1036,15 +1034,14 @@ export class VideoCallRoom {
         toStaff: true,       //    받는 사람은 참관자(직원)다 — «학생에게는 보이지 않습니다» 가 맞는 말
       };
       try { target.send(JSON.stringify({ type: 'admin-whisper', data: payload })); delivered = 1; }
-      catch { /* delivered:0 으로 정직하게 회신된다 */ }
+      catch { reason = 'send_failed'; /* delivered:0 으로 정직하게 회신된다 */ }
     }
     if (read) return;                                    // 읽음 표시는 회신 없이 끝낸다
     this.send(userId, {
       type: 'admin-whisper-ack',
       data: {
-        kind: 'reply-ack', delivered, at, ref,
+        kind: 'reply-ack', delivered, reason, at, ref,
         to: (ta && ta.userId) || toUserId,
-        toName: (ta && ta.username) || toName,
         message: text,
       },
     });

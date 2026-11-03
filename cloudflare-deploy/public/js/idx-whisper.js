@@ -275,15 +275,18 @@
 
   /* 다른 탭·다른 창에 있을 때 — 탭 제목 깜빡임 + (권한이 있으면) 브라우저 알림.
      ⚠️ 깜빡임 타이머는 «안 보이는 동안만» 돈다 — 보이면 그 자리에서 멈춘다(상주 타이머 금지). */
-  var flashTimer = 0, baseTitle = '', flashText = '';
+  var flashTimer = 0, baseTitle = '', flashText = '', lastSet = '';
   function away() {
     try { return document.hidden === true || (typeof document.hasFocus === 'function' && !document.hasFocus()); }
     catch (e) { return false; }
   }
+  /* ⚠️ 되돌릴 때 «지금 깜빡이는 글자» 가 아니라 «내가 마지막으로 써 넣은 글자» 와 견준다 —
+     깜빡이는 도중 두 번째 귓속말이 와 flashText 가 바뀌면, 화면 제목은 아직 옛 글자라
+     «새 메시지 (1)» 이 영영 남았다(2026-11-04 함정 대조가 잡음). 남이 바꾼 제목은 건드리지 않는다. */
   function stopFlash() {
     if (flashTimer) { clearInterval(flashTimer); flashTimer = 0; }
-    try { if (flashText && document.title === flashText && baseTitle) document.title = baseTitle; } catch (e) {}
-    flashText = '';
+    try { if (lastSet && document.title === lastSet && baseTitle) document.title = baseTitle; } catch (e) {}
+    flashText = ''; lastSet = '';
   }
   function startFlash(label) {
     try {
@@ -294,7 +297,7 @@
       flashTimer = setInterval(function () {
         if (!away()) { stopFlash(); return; }
         on = !on;
-        try { document.title = on ? flashText : baseTitle; } catch (e) {}
+        try { document.title = lastSet = (on ? flashText : baseTitle); } catch (e) {}
       }, 1000);
     } catch (e) {}
   }
@@ -303,6 +306,21 @@
     window.addEventListener('focus', function () { stopFlash(); });
   } catch (e) {}
 
+  /* 브라우저 알림 — 「확인」을 누르면 함께 닫는다(requireInteraction 이라 안 닫으면 바탕화면에 남는다). */
+  var lastNote = null;
+  function closeNote() {
+    try { if (lastNote && lastNote.close) lastNote.close(); } catch (e) {}
+    lastNote = null;
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
+        navigator.serviceWorker.getRegistration().then(function (r) {
+          if (r && r.getNotifications) r.getNotifications({ tag: 'vc-whisper' }).then(function (l) {
+            for (var i = 0; i < l.length; i++) { try { l[i].close(); } catch (_) {} }
+          }).catch(function () {});
+        }).catch(function () {});
+      }
+    } catch (e) {}
+  }
   function osNotify(title, body) {
     try {
       if (!('Notification' in window) || Notification.permission !== 'granted') return;
@@ -310,6 +328,7 @@
       try {
         var n = new Notification(title, opt);
         n.onclick = function () { try { window.focus(); n.close(); } catch (e) {} };
+        lastNote = n;
         return;
       } catch (e) { /* 안드로이드 크롬은 new Notification 을 막는다 — 아래 서비스워커로 */ }
       if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
@@ -318,6 +337,33 @@
         }).catch(function () {});
       }
     } catch (e) {}
+  }
+
+  /* 화면 공유 중인가 — idx-main.js 가 공유를 시작·멈출 때 세우는 표시(window.__vcScreenSharing).
+     공유 중이면 카드가 학생 화면에 그대로 비친다 → 내용을 가려 두고 강사가 눌러야 보이게 한다. */
+  function sharing() {
+    try { return window.__vcScreenSharing === true; } catch (e) { return false; }
+  }
+
+  /* 수업을 나가면 카드를 치운다 — 카드가 «떠 있는 동안만» 2초마다 body class 를 «읽어서» 본다.
+     ⛔ MutationObserver 로 body class 를 지켜보지 않는다(홈이 두 번 멎은 전력 — CLAUDE.md 2장).
+     ⛔ 상주 타이머가 아니다 — 카드가 없어지면 그 자리에서 멈춘다.
+     ⚠️ «수업 중에 그렸던 카드» 만 치운다 — 처음부터 vc-in-call 이 없던 화면에서 그린 카드를
+        2초 만에 지우면 「못 봤다」가 그대로 재현된다. */
+  var leaveTimer = 0;
+  function inCall() {
+    try { return !!(document.body && document.body.classList && document.body.classList.contains('vc-in-call')); }
+    catch (e) { return false; }
+  }
+  function watchLeave() {
+    if (leaveTimer || !inCall()) return;
+    leaveTimer = setInterval(function () {
+      if (!document.getElementById(CARD_ID)) { clearInterval(leaveTimer); leaveTimer = 0; return; }
+      if (!inCall()) {
+        clearInterval(leaveTimer); leaveTimer = 0;
+        pending = []; killCard(); stopFlash(); closeNote();   // 나갔으니 «읽음» 은 보내지 않는다
+      }
+    }, 2000);
   }
   function alertAway(title, body) {
     if (!away()) return;
@@ -328,11 +374,20 @@
   /* 확인 안 한 귓속말 — 카드는 «가장 최근 것» 을 보여 주고, 앞의 것은 채팅창에 남아 있다. */
   var pending = [];
 
+  /* 참관자 이름 — 지금 화면은 참관 입장 때 늘 '관찰자' 를 보낸다(idx-main.js join-observe).
+     그 기본값을 사람 이름처럼 이어 붙이면 「관찰자 관찰자 님의 메시지」·영어 화면에 한글이 된다
+     (2026-11-04 함정 대조가 잡음). 기본값이면 «수업 관찰자» 로 일반화하고, 진짜 이름이 오면 그 이름을 쓴다. */
+  var OBS_DEFAULT = { '': 1, '관찰자': 1, 'observer': 1, 'Observer': 1 };
+  function obsName(d) {
+    var n = String((d && d.from) || '').trim().slice(0, 40);
+    return OBS_DEFAULT[n] ? '' : n;
+  }
   function headOf(d, en) {
     var from = String((d && d.from) || '').slice(0, 40);
     if (d && d.observer === true) {
-      return en ? ('📢 Message from ' + (from || 'the observer') + ' (observer)')
-                : ('📢 관찰자 ' + (from ? from + ' 님의' : '의') + ' 메시지');
+      var who = obsName(d);
+      return en ? (who ? ('📢 Message from ' + who + ' (observer)') : '📢 Message from the class observer')
+                : (who ? ('📢 관찰자 ' + who + ' 님의 메시지') : '📢 수업 관찰자의 메시지');
     }
     return en ? ('📢 Message from ' + (from || 'the office'))
               : (from ? ('📢 ' + from + ' 님의 메시지') : '📢 사무실에서 보낸 메시지');
@@ -347,13 +402,14 @@
       if (!id || id === exceptId || seen[id]) continue;
       seen[id] = 1;
       sendWs({ type: 'observer-whisper-reply',
-               data: { toUserId: id, toName: String(d.from || ''), read: true, ref: Number(d.at) || 0 } });
+               data: { toUserId: id, read: true, ref: Number(d.at) || 0 } });
     }
   }
   function closeStaffCard() {
     pending = [];
     killCard();
     stopFlash();
+    closeNote();
   }
 
   function renderStaffCard() {
@@ -390,6 +446,9 @@
     card.setAttribute('role', 'alertdialog');
     card.setAttribute('aria-live', 'assertive');
     card.setAttribute('aria-label', headOf(d, en));
+    /* 자동 번역(i18n-sweep)이 보낸 사람의 글을 사전 문구로 바꿔 끼우지 않게 한다 — 표준 옵트아웃. */
+    card.setAttribute('translate', 'no');
+    card.className = 'notranslate';
     /* 카드 안에서 치는 글자가 수업 화면 단축키로 새지 않게 막는다. */
     ['keydown', 'keyup', 'keypress', 'pointerdown', 'mousedown'].forEach(function (ev) {
       card.addEventListener(ev, function (e) { e.stopPropagation(); });
@@ -401,7 +460,25 @@
     card.appendChild(top);
 
     var b = el('div', 'font-size:17px;font-weight:800;word-break:break-word;white-space:pre-wrap;margin:2px 0 6px');
-    b.textContent = text;                        // ⚠️ textContent — 보낸 사람이 쓴 글을 HTML 로 넣지 않는다
+    /* 🖥 화면 공유 중이면 이 카드가 학생 화면에 그대로 비친다 — 내용을 가려 두고, 강사가 눌러야 보인다.
+       (2026-11-04 함정 대조: 카드가 「확인」 전까지 남게 되면서 노출 시간이 길어졌다) */
+    var masked = sharing();
+    if (masked) {
+      card.appendChild(el('div', 'font-size:12px;font-weight:800;color:#a61b12;margin:2px 0 6px',
+        en ? '⚠ You are sharing your screen — the message is hidden so students cannot read it.'
+           : '⚠ 화면 공유 중 — 학생 화면에 비칠 수 있어 내용을 가려 두었어요.'));
+      var reveal = el('button',
+        'padding:7px 12px;border-radius:10px;border:1.5px solid #b58a2a;background:#fff;color:#4a3b12;font-size:13px;font-weight:800',
+        en ? '👁 Show message' : '👁 내용 보기');
+      reveal.type = 'button';
+      reveal.setAttribute('data-vcw-reveal', '1');
+      tap(reveal, function () {
+        try { b.textContent = text; if (reveal.parentNode) reveal.parentNode.removeChild(reveal); } catch (_) {}
+      });
+      b.appendChild(reveal);
+    } else {
+      b.textContent = text;                      // ⚠️ textContent — 보낸 사람이 쓴 글을 HTML 로 넣지 않는다
+    }
     card.appendChild(b);
 
     if (pending.length > 1) {
@@ -417,7 +494,7 @@
       var t = String(msg || '').trim().slice(0, 500);
       if (!t) return false;
       var ok = sendWs({ type: 'observer-whisper-reply',
-                        data: { toUserId: String(d.fromId), toName: String(d.from || ''), message: t, ref: Number(d.at) || 0 } });
+                        data: { toUserId: String(d.fromId), message: t, ref: Number(d.at) || 0 } });
       if (!ok) {
         fail(en ? 'Not sent — the class connection is down. Please try again.'
                 : '수업 연결이 끊겨 보내지 못했어요. 다시 눌러 주세요.');
@@ -430,8 +507,10 @@
 
     if (canReply) {
       card.appendChild(el('div', 'font-size:11.5px;font-weight:700;color:#5f5a4c;margin:2px 0 6px',
-        en ? '🔒 Reply goes to the observer only · students cannot see it'
-           : '🔒 답장은 관찰자에게만 갑니다 · 학생에게는 보이지 않습니다'));
+        masked ? (en ? '🔒 Reply goes to the observer only (not sent to students)'
+                     : '🔒 답장은 관찰자에게만 갑니다 (학생에게는 안 보냅니다)')
+               : (en ? '🔒 Reply goes to the observer only · students cannot see it'
+                     : '🔒 답장은 관찰자에게만 갑니다 · 학생에게는 보이지 않습니다')));
       var quick = el('div', 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px');
       var QUICK = en ? ['👍 OK', '✅ Got it, thank you', '⏳ One moment, please']
                      : ['👍 네', '✅ 확인했습니다', '⏳ 잠시만요'];
@@ -465,7 +544,7 @@
       });
       row.appendChild(inp); row.appendChild(send);
       card.appendChild(row);
-    } else {
+    } else if (!masked) {
       card.appendChild(el('div', 'font-size:11.5px;font-weight:700;color:#5f5a4c;margin:2px 0 4px',
         en ? '🔒 Students cannot see this message' : '🔒 학생에게는 보이지 않는 메시지입니다'));
     }
@@ -506,6 +585,7 @@
         if (ni) { ni.value = draft; if (draftFocus) ni.focus(); }
       } catch (e) {}
     }
+    watchLeave();
   }
 
   /* 강사·직원에게 온 귓속말 — 카드 + 소리 + (다른 탭이면) 제목 깜빡임·브라우저 알림 + 채팅창 기록 */
@@ -515,11 +595,15 @@
     var en = isEn();
     pending.push(d);
     if (pending.length > 20) pending.shift();
-    chatLine(headOf(d, en) + ': “' + text + '”');
+    /* 화면 공유 중이면 채팅창·브라우저 알림에도 내용을 싣지 않는다(둘 다 공유 화면에 비칠 수 있다). */
+    var masked = sharing();
+    chatLine(headOf(d, en) + (masked
+      ? (en ? ' (hidden while screen sharing — open it on the card)' : ' (화면 공유 중이라 내용은 카드에서 확인)')
+      : (': “' + text + '”')));
     renderStaffCard();
     ding(String(d.urgency || 'normal') === 'urgent');
     alertAway(en ? ('📢 New message (' + pending.length + ')') : ('📢 새 메시지 (' + pending.length + ')'),
-              headOf(d, en) + ' — ' + text);
+              masked ? headOf(d, en) : (headOf(d, en) + ' — ' + text));
   }
 
   /* ── 참관자 화면 — 강사가 보낸 답장·읽음 표시 ───────────────────────────────── */
@@ -543,6 +627,8 @@
     card.setAttribute('role', 'alertdialog');
     card.setAttribute('aria-live', 'assertive');
     card.setAttribute('aria-label', head);
+    card.setAttribute('translate', 'no');
+    card.className = 'notranslate';
     var top = el('div', 'display:flex;align-items:baseline;gap:8px;margin-bottom:4px');
     top.appendChild(el('div', 'flex:1;min-width:0;font-size:13px;font-weight:900;color:#1d6b3c', head));
     top.appendChild(el('div', 'flex:0 0 auto;font-size:11.5px;font-weight:700;color:#5c6b61', hhmm(d.at)));
@@ -563,6 +649,7 @@
     foot.appendChild(okb);
     card.appendChild(foot);
     document.body.appendChild(card);
+    watchLeave();
 
     ding(false);
     alertAway(en ? '💬 Teacher replied' : '💬 강사 답장', head + ' — ' + text);
@@ -588,10 +675,17 @@
     var who = String(d.toName || d.to || '').trim() || (en ? 'that person' : '그 사람');
     var line;
     if (d.kind === 'reply-ack') {
-      line = n > 0
-        ? (en ? ('Reply sent to ' + who + ' (observer) only.') : (who + ' 님(관찰자)에게만 답장했습니다.'))
-        : (en ? (who + ' has left the room, so the reply was not delivered.')
-              : (who + ' 님이 방을 나가 답장이 전달되지 않았습니다.'));
+      /* 참관자 이름은 늘 '관찰자' 라(obsName 주석) 이름 대신 «관찰자» 로 말한다.
+         실패는 서버가 준 이유(reason)로 갈라 말한다 — 문구 하나로 뭉치면 «왜» 를 알 수 없다. */
+      if (n > 0) {
+        line = en ? 'Reply sent to the observer only.' : '관찰자에게만 답장했습니다.';
+      } else if (d.reason === 'send_failed') {
+        line = en ? 'The reply could not be sent because of a connection error. Please try again.'
+                  : '연결 오류로 답장이 가지 않았습니다. 다시 보내 주세요.';
+      } else {
+        line = en ? 'The observer has left or reconnected, so the reply was not delivered. You can reply when they message again.'
+                  : '관찰자가 방을 나갔거나 다시 접속해 답장이 전달되지 않았습니다. 관찰자가 다시 보내면 답할 수 있어요.';
+      }
     } else if (d.to) {
       line = n > 0
         ? (en ? ('Sent to ' + who + ' only.') : (who + ' 님에게만 전달했습니다.'))

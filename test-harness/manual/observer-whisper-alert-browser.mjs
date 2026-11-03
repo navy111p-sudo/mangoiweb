@@ -19,11 +19,15 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { requireBrowser } from './_pw.mjs';
+import { readFileSync } from 'node:fs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const PUB = join(ROOT, 'cloudflare-deploy', 'public');
 const PORT = 8941;
 const SHOT = process.env.SHOT_DIR || '';
+/* 참관 입장 때 화면이 실제로 보내는 이름(지금은 늘 '관찰자') — 하니스에 손으로 적지 않고 읽어 온다. */
+const OBS = (readFileSync(join(PUB, 'js', 'idx-main.js'), 'utf8')
+  .match(/type:\s*'join-observe',\s*data:\s*\{\s*username:\s*'([^']*)'/) || [])[1] || '관찰자';
 
 let pass = 0, fail = 0;
 const ok = (label, cond, detail) => {
@@ -48,7 +52,8 @@ async function openClass(page, { role, me, observer, lang }) {
   await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForFunction(() => typeof window.vcWhisperOn === 'function' && typeof window.vcAddChatSystem === 'function',
                              null, { timeout: 30000 });
-  await page.evaluate(({ role, me, observer }) => {
+  await page.evaluate(({ role, me, observer, obs }) => {
+    window.__OBS = obs;                  // 참관자 실제 이름 — 브라우저 안 코드가 쓴다
     /* 실제 입장과 같은 순서 — 수업 화면을 띄운 뒤 vc-in-call (idx-main.js vcJoinRoom) */
     try { if (typeof window.showView === 'function') window.showView('view-videocall-call'); } catch (e) {}
     document.body.classList.add('vc-in-call');
@@ -57,7 +62,7 @@ async function openClass(page, { role, me, observer, lang }) {
     vcUserId = me;                       // let 이라 window 에 없다 — 스코프 체인으로 대입
     window.__sent = [];
     window.vcConn = { send: (m) => { window.__sent.push(m); return true; } };
-  }, { role, me, observer });
+  }, { role, me, observer, obs: OBS });
 }
 
 /* 카드가 «맨 위» 에 있는가 — 카드 가운데 점을 눌렀을 때 잡히는 것이 카드 안인가 */
@@ -89,7 +94,7 @@ try {
   const p1 = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await openClass(p1, { role: 'teacher', me: 't1' });
   await p1.evaluate(() => window.vcWhisperOn('admin-whisper',
-    { message: 'Hello teacher', from: 'Maimai', fromId: 'o1', observer: true, at: Date.now() }));
+    { message: 'Hello teacher', from: window.__OBS, fromId: 'o1', observer: true, at: Date.now() }));
   await p1.waitForTimeout(300);
   const m1 = await p1.evaluate(measure, '#vc-whisper-alert');
   ok('카드가 뜬다', !!m1, m1 ? m1.text.replace(/\n/g, ' / ').slice(0, 120) : '(없음)');
@@ -123,7 +128,7 @@ try {
 
   // 직접 입력 + 보내기
   await p1.evaluate(() => window.vcWhisperOn('admin-whisper',
-    { message: 'Can you speak a bit slower?', from: 'Maimai', fromId: 'o1', observer: true, at: Date.now() }));
+    { message: 'Can you speak a bit slower?', from: window.__OBS, fromId: 'o1', observer: true, at: Date.now() }));
   await p1.fill('#vc-whisper-alert [data-vcw-input]', 'Sure, I will');
   await p1.click('#vc-whisper-alert [data-vcw-send]');
   const s2 = await p1.evaluate(() => window.__sent.filter(m => m.data && m.data.message === 'Sure, I will').length);
@@ -131,7 +136,7 @@ try {
 
   // 확인 버튼 → 읽음
   await p1.evaluate(() => { window.__sent.length = 0; window.vcWhisperOn('admin-whisper',
-    { message: '수고하셨어요', from: 'Maimai', fromId: 'o1', observer: true, at: Date.now() }); });
+    { message: '수고하셨어요', from: window.__OBS, fromId: 'o1', observer: true, at: Date.now() }); });
   await p1.click('#vc-whisper-alert [data-vcw-ok]');
   const s3 = await p1.evaluate(() => window.__sent);
   ok('「확인」을 누르면 읽음 표시가 참관자에게 간다', s3.length === 1 && s3[0].data.read === true && s3[0].data.toUserId === 'o1', JSON.stringify(s3));
@@ -143,7 +148,7 @@ try {
   const p2 = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   await openClass(p2, { role: 'teacher', me: 't1' });
   await p2.evaluate(() => window.vcWhisperOn('admin-whisper',
-    { message: 'Hello teacher — please check the student mic, she cannot hear you well.', from: 'Maimai', fromId: 'o1', observer: true, at: Date.now() }));
+    { message: 'Hello teacher — please check the student mic, she cannot hear you well.', from: window.__OBS, fromId: 'o1', observer: true, at: Date.now() }));
   await p2.waitForTimeout(300);
   const m2 = await p2.evaluate(measure, '#vc-whisper-alert');
   ok('카드가 뜬다', !!m2);
@@ -157,7 +162,7 @@ try {
   ok('폰에서 탭 한 번에 답장이 «한 번만» 나간다 (touchend+click 이중 실행 없음)', s4.length === 1, JSON.stringify(s4));
   if (SHOT) {
     await p2.evaluate(() => window.vcWhisperOn('admin-whisper',
-      { message: 'Hello teacher — please check the student mic.', from: 'Maimai', fromId: 'o1', observer: true, at: Date.now() }));
+      { message: 'Hello teacher — please check the student mic.', from: window.__OBS, fromId: 'o1', observer: true, at: Date.now() }));
     await p2.screenshot({ path: join(SHOT, 'whisper-teacher-phone.png') });
   }
   await p2.close();
@@ -167,18 +172,33 @@ try {
   const p3 = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await openClass(p3, { role: 'teacher', me: 't1', lang: 'en' });
   await p3.evaluate(() => window.vcWhisperOn('admin-whisper',
-    { message: 'Hello teacher', from: 'Maimai', fromId: 'o1', observer: true, at: Date.now() }));
+    { message: 'Hello teacher', from: window.__OBS, fromId: 'o1', observer: true, at: Date.now() }));
   const t3 = await p3.evaluate(() => (document.getElementById('vc-whisper-alert') || {}).innerText || '');
-  ok('영어로 말한다 (EN)', /Message from Maimai/.test(t3) && /OK, got it/.test(t3) && /Send/.test(t3) && !/확인|보내기/.test(t3), t3.replace(/\n/g, ' / '));
+  ok('영어로 말한다 (EN) — 한글이 안 섞인다', /class observer/.test(t3) && /OK, got it/.test(t3) && /Send/.test(t3) && !/[\uac00-\ud7a3]/.test(t3), t3.replace(/\n/g, ' / '));
   if (SHOT) await p3.screenshot({ path: join(SHOT, 'whisper-teacher-en.png') });
   await p3.close();
+
+  // ── ③-2 화면 공유 중 — 내용을 가려 둔다 ──
+  console.log('\n③-2 화면 공유 중: 카드가 학생 화면에 비칠 수 있어 내용을 가린다');
+  const p32 = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await openClass(p32, { role: 'teacher', me: 't1' });
+  await p32.evaluate(() => { window.__vcScreenSharing = true; window.vcWhisperOn('admin-whisper',
+    { message: 'SECRET NOTE', from: '관찰자', fromId: 'o1', observer: true, at: Date.now() }); });
+  const sh = await p32.evaluate(() => ({ card: (document.getElementById('vc-whisper-alert') || {}).innerText || '',
+    chat: document.getElementById('vc-chat-messages').textContent }));
+  ok('공유 중이면 카드에 내용이 안 보인다 (경고만)', !/SECRET NOTE/.test(sh.card) && /화면 공유 중/.test(sh.card), sh.card.replace(/\n/g, ' / '));
+  ok('공유 중이면 채팅창 기록에도 내용이 없다', !/SECRET NOTE/.test(sh.chat));
+  if (SHOT) await p32.screenshot({ path: join(SHOT, 'whisper-teacher-sharing.png') });
+  await p32.click('#vc-whisper-alert [data-vcw-reveal]');
+  ok('「내용 보기」를 누르면 그때 보인다', await p32.evaluate(() => /SECRET NOTE/.test(document.getElementById('vc-whisper-alert').innerText)));
+  await p32.close();
 
   // ── ④ 학생 화면 — 바뀌지 않았다 ──
   console.log('\n④ 학생 화면: 예전 그대로');
   const p4 = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await openClass(p4, { role: 'student', me: 's1' });
   const st = await p4.evaluate(() => {
-    window.vcWhisperOn('admin-whisper', { message: '강사용 지시', from: 'Maimai', fromId: 'o1', observer: true });
+    window.vcWhisperOn('admin-whisper', { message: '강사용 지시', from: window.__OBS, fromId: 'o1', observer: true });
     const a = !!document.getElementById('vc-whisper-alert') || !!document.getElementById('vc-whisper-box');
     window.vcWhisperOn('admin-whisper', { message: '마이크를 확인해 주세요', direct: true, to: 's1', toStaff: false, from: '', fromId: '' });
     return { leaked: a, box: !!document.getElementById('vc-whisper-box'), card: !!document.getElementById('vc-whisper-alert') };

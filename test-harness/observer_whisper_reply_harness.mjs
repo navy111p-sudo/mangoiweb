@@ -47,8 +47,14 @@ const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/
 
 const DO_SRC = R('cloudflare-deploy/src/video-call-room.ts');
 const WH_SRC = R('cloudflare-deploy/public/js/idx-whisper.js');
+/* 참관자 이름 — 화면이 참관 입장 때 실제로 보내는 값을 «읽어 온다»(하니스에 손으로 적지 않는다).
+   2026-11-04 함정 대조: 처음엔 'Maimai' 로 시험해 «늘 '관찰자'» 인 실제 값에서 나는 문제를 원리상 못 봤다. */
+const MAIN_SRC = R('cloudflare-deploy/public/js/idx-main.js');
+const OBS_M = MAIN_SRC.match(/type:\s*'join-observe',\s*data:\s*\{\s*username:\s*'([^']*)'/);
+const OBS_NAME = OBS_M ? OBS_M[1] : null;
 
 console.log('\n════════ ↩📢 참관자 귓속말 알림·답장 하니스 ════════');
+check('(전제) 참관 입장 때 보내는 실제 이름을 idx-main.js 에서 읽었다', OBS_NAME !== null, '읽기 실패 — 아래 검사가 실제 값을 못 본다');
 
 /* ═════════════════ A. 서버 — 답장이 «진짜 참관자 한 사람» 에게만 간다 ═════════════════ */
 console.log('\n[ A. 서버: handleObserverWhisperReply 를 실제로 돌린다 ]');
@@ -79,8 +85,8 @@ function room(sockets) {
 }
 const T = () => sock({ userId: 't1', username: 'Teacher Len', role: 'teacher', joined: true });
 const S = () => sock({ userId: 's1', username: 'delaware', role: 'student', joined: true });
-const O = (id = 'o1', name = 'Maimai') => sock({ userId: id, username: name, role: 'observer', joined: false, ghost: true });
-const FAKE_O = () => sock({ userId: 'fx', username: 'Maimai', role: 'observer', joined: false });   // role 만 적어 보낸 소켓
+const O = (id = 'o1', name = OBS_NAME) => sock({ userId: id, username: name, role: 'observer', joined: false, ghost: true });
+const FAKE_O = () => sock({ userId: 'fx', username: OBS_NAME, role: 'observer', joined: false });   // role 만 적어 보낸 소켓
 
 let ran = 0;
 if (Room) {
@@ -118,18 +124,28 @@ if (Room) {
     room([t, f]).handleObserverWhisperReply('t1', t.att, { toUserId: 'fx', toName: 'Maimai', message: 'x' });
     check('A4 서명 토큰 없이 role 만 observer 인 소켓에는 안 간다', f.sent.length === 0, JSON.stringify(f.sent));
   }
-  // A5 참관자가 재접속해 번호가 바뀌어도 이름이 «하나» 면 찾는다
+  // A5 원래 참관자가 나가고 «다른» 참관자 하나만 남았다 — 이름이 같아도(늘 '관찰자') 그 사람에게 가면 안 된다
   {
-    const t = T(), o = O('o2', 'Maimai');
-    room([t, o]).handleObserverWhisperReply('t1', t.att, { toUserId: 'o1-old', toName: 'Maimai', message: 'again' });
-    check('A5 옛 번호여도 이름이 정확히 하나면 그 참관자에게 간다', o.sent.length === 1, JSON.stringify(o.sent));
+    const t = T(), other = O('o2');
+    room([t, other]).handleObserverWhisperReply('t1', t.att, { toUserId: 'o1-left', toName: OBS_NAME, message: 'again' });
+    check('A5 원래 참관자가 나가면 남은 «다른» 참관자에게 가지 않는다 (이름은 신원이 아니다)', other.sent.length === 0, JSON.stringify(other.sent));
+    const a = t.sent[0];
+    check('A5 강사에게 «못 갔다» + 이유(not_found) 를 회신한다', a && a.data.delivered === 0 && a.data.reason === 'not_found', JSON.stringify(t.sent));
   }
-  // A6 같은 이름이 둘이면 붙이지 않는다
+  // A6 번호를 모르면(빈 값) 이름만으로는 아무에게도 안 간다 — 학생이 강사 역할을 신고하고 참관자를 더듬는 길
   {
-    const t = T(), o1 = O('o2', 'Maimai'), o2 = O('o3', 'Maimai');
-    room([t, o1, o2]).handleObserverWhisperReply('t1', t.att, { toUserId: 'gone', toName: 'Maimai', message: 'who?' });
-    check('A6 이름 후보가 둘이면 아무에게도 안 보낸다', o1.sent.length === 0 && o2.sent.length === 0);
-    check('A6 이름 후보가 둘이면 delivered=0', t.sent[0] && t.sent[0].data.delivered === 0, JSON.stringify(t.sent));
+    const t = T(), o1 = O('o2'), o2 = O('o3');
+    room([t, o1, o2]).handleObserverWhisperReply('t1', t.att, { toUserId: '', toName: OBS_NAME, message: 'who?' });
+    check('A6 번호 없이 이름만으로는 어떤 참관자에게도 안 간다', o1.sent.length === 0 && o2.sent.length === 0);
+    check('A6 그때 delivered=0', t.sent[0] && t.sent[0].data.delivered === 0, JSON.stringify(t.sent));
+  }
+  // A12 보내다 소켓이 던지면 «보낸 척» 하지 않고 이유(send_failed)를 말한다
+  {
+    const t = T(), o = O();
+    o.send = () => { throw new Error('closed'); };
+    room([t, o]).handleObserverWhisperReply('t1', t.att, { toUserId: 'o1', message: 'x' });
+    const a = t.sent[0];
+    check('A12 보내기가 실패하면 delivered=0 + reason=send_failed', a && a.data.delivered === 0 && a.data.reason === 'send_failed', JSON.stringify(t.sent));
   }
   // A7 읽음 표시
   {
@@ -186,8 +202,12 @@ console.log('\n[ A-배선 ]');
   const join = blockAt(code, 'private async handleJoinObserve(');
   const v = join.indexOf('verifyGhostObserveSig'), g = join.indexOf('ghost: true');
   check('ghost:true 는 handleJoinObserve 안, 서명 확인 «뒤» 에 붙는다', v >= 0 && g > v, `verify@${v} ghost@${g}`);
-  check('ghost:true 를 붙이는 곳은 파일 전체에 한 곳뿐이다', (code.match(/ghost:\s*true/g) || []).length === 1,
-        String((code.match(/ghost:\s*true/g) || []).length));
+  /* «ghost: true» 글자만 세면 join-room 이 클라이언트 값을 믿는 «ghost: !!data.ghost» 를 못 본다(함정 대조 실측).
+     ghost 에 «무엇이든» 값을 넣는 자리를 센다 — 인터페이스 선언(ghost?:)은 이 식에 안 걸린다. */
+  check('ghost 에 값을 넣는 곳은 파일 전체에 한 곳뿐이다 (ghost:true)', (code.match(/\bghost\s*:/g) || []).length === 1
+        && (code.match(/\bghost\s*:\s*true\b/g) || []).length === 1, String((code.match(/\bghost\s*:/g) || []).length));
+  const joinRoom = blockAt(code, 'private handleJoinRoom(');
+  check('일반 입장(join-room)은 ghost 를 읽지도 쓰지도 않는다', !!joinRoom && !/\bghost\b/.test(joinRoom), !joinRoom ? 'handleJoinRoom 을 못 찾음' : '');
 }
 
 /* ═════════════════ B. 화면 — 가짜 DOM 으로 idx-whisper.js 를 실제로 돌린다 ═════════════════ */
@@ -228,16 +248,23 @@ function makeEnv(opts = {}) {
   }
   const root = new El('html'), head = new El('head'), body = new El('body');
   root.appendChild(head); root.appendChild(body);
+  const st = { focus: opts.focus !== false, inCall: opts.inCall !== false };
+  body.classList = { contains: (c) => (c === 'vc-in-call' ? st.inCall : false) };
+  const dl = {}, wl = {};
   Object.assign(doc, {
-    documentElement: root, head, body, title: 'Mangoi', hidden: false, activeElement: null,
+    documentElement: root, head, body, title: 'Mangoi', hidden: !!opts.hidden, activeElement: null,
     createElement: (t) => new El(t),
     getElementById: (id) => root.querySelector('#' + id),
     querySelector: (s) => root.querySelector(s),
     querySelectorAll: (s) => root.querySelectorAll(s),
-    hasFocus: () => true,
-    addEventListener() {},
+    hasFocus: () => st.focus,
+    addEventListener(t, f) { (dl[t] = dl[t] || []).push(f); },
   });
-  const chat = [], toasts = [], sent = [], timers = [];
+  const chat = [], toasts = [], sent = [], timers = [], notes = [];
+  const intervals = new Map(); let ivSeq = 100;
+  function Notif(title, opt) { const n = { title, opt, closed: false }; notes.push(n); this.close = () => { n.closed = true; }; }
+  Notif.permission = opts.notif || 'denied';
+  Notif.requestPermission = () => Promise.resolve('granted');
   let osc = 0;
   const ac = { state: 'running', currentTime: 0, destination: {},
     createOscillator: () => ({ type: '', frequency: { value: 0 }, connect() {}, start() { osc++; }, stop() {} }),
@@ -248,22 +275,28 @@ function makeEnv(opts = {}) {
     _vcObserverMode: !!opts.observer,
     innerHeight: 800,
     __vcWhisperQ: opts.queue || undefined,
-    addEventListener() {},
+    __vcScreenSharing: !!opts.sharing,
+    addEventListener(t, f) { (wl[t] = wl[t] || []).push(f); },
   };
+  if (opts.notif) win.Notification = Notif;      // 'Notification' in window 가 참이 되게
   const conn = { send: (m) => { sent.push(m); return opts.sendOk !== false; } };
   const fn = new Function('window', 'document', 'getLang', 'vcUserId', 'vcConn', 'vcGetSharedAC', 'showToast',
-                          'setTimeout', 'setInterval', 'clearInterval', 'navigator', WH_SRC);
+                          'setTimeout', 'setInterval', 'clearInterval', 'navigator', 'Notification', WH_SRC);
   fn(win, doc, () => (opts.lang || 'ko'), opts.me || '', conn, () => ac, (t) => toasts.push(String(t)),
-     (f, ms) => { timers.push({ f, ms }); return timers.length; }, () => 1, () => {}, {});
+     (f, ms) => { timers.push({ f, ms }); return timers.length; },
+     (f, ms) => { const id = ++ivSeq; intervals.set(id, { f, ms }); return id; },
+     (id) => { intervals.delete(id); }, {}, opts.notif ? Notif : undefined);
   return {
-    win, doc, chat, toasts, sent, timers, osc: () => osc,
+    win, doc, chat, toasts, sent, timers, notes, st, intervals, osc: () => osc,
+    tick: () => { for (const [, v] of [...intervals]) { try { v.f(); } catch (_) {} } },
+    fireDoc: (t) => { for (const f of (dl[t] || [])) f({}); },
     card: () => doc.getElementById('vc-whisper-alert'),
     box: () => doc.getElementById('vc-whisper-box'),
     runTimers: () => { const list = timers.splice(0); for (const t of list) { try { t.f(); } catch (_) {} } },
     on: (type, data) => win.vcWhisperOn(type, data),
   };
 }
-const W = (extra) => Object.assign({ message: 'Hello teacher', from: 'Maimai', fromId: 'o1', observer: true, at: Date.now() }, extra || {});
+const W = (extra) => Object.assign({ message: 'Hello teacher', from: OBS_NAME, fromId: 'o1', observer: true, at: Date.now() }, extra || {});
 const btn = (card, attr) => card && card.querySelector('[' + attr + ']');
 
 let ranB = 0;
@@ -289,7 +322,7 @@ try {
     btn(e.card(), 'data-vcw-quick').fire('click');
     const m = e.sent[0] || {};
     check('B2 빠른 답장이 소켓으로 나간다 (observer-whisper-reply)', e.sent.length === 1 && m.type === 'observer-whisper-reply', JSON.stringify(e.sent));
-    check('B2 받는 사람이 보낸 참관자다 (toUserId=o1)', m.data && m.data.toUserId === 'o1' && m.data.toName === 'Maimai', JSON.stringify(m.data));
+    check('B2 받는 사람이 보낸 참관자다 (toUserId=o1)', m.data && m.data.toUserId === 'o1', JSON.stringify(m.data));
     check('B2 답장 내용이 실린다', m.data && /네/.test(m.data.message), JSON.stringify(m.data));
     check('B2 보내면 카드가 닫힌다', !e.card());
   }
@@ -318,7 +351,7 @@ try {
   {
     const e = makeEnv({ role: 'teacher', me: 't1' });
     e.on('admin-whisper', W());
-    e.on('admin-whisper', W({ message: 'Please check the mic', from: 'Kim', fromId: 'o2' }));
+    e.on('admin-whisper', W({ message: 'Please check the mic', fromId: 'o2' }));
     check('B5 카드가 최근 글을 보여 주고 «2개» 를 말한다', /check the mic/.test(e.card().textContent) && /2개/.test(e.card().textContent),
           e.card().textContent.slice(0, 120));
     btn(e.card(), 'data-vcw-ok').fire('click');
@@ -344,7 +377,7 @@ try {
     btn(e.card(), 'data-vcw-input').value = '쓰는 중';
     e.on('admin-whisper', W({ message: 'one more' }));
     check('B7 같은 참관자의 새 글이 와도 쓰던 답장이 남는다', btn(e.card(), 'data-vcw-input').value === '쓰는 중');
-    e.on('admin-whisper', W({ message: 'from Kim', from: 'Kim', fromId: 'o2' }));
+    e.on('admin-whisper', W({ message: 'from another observer', fromId: 'o2' }));
     check('B7 다른 참관자의 글이 오면 쓰던 답장을 그쪽으로 옮기지 않는다', btn(e.card(), 'data-vcw-input').value === '');
   }
   // B8 관리자 «수업 관찰» 화면(방 밖)에서 온 귓속말 — 답장 대상이 없으니 답장 칸 없이 확인만
@@ -394,10 +427,12 @@ try {
   // B12 강사 화면의 답장 회신(reply-ack)
   {
     const e = makeEnv({ role: 'teacher', me: 't1' });
-    e.on('admin-whisper-ack', { kind: 'reply-ack', delivered: 1, toName: 'Maimai', message: '👍 OK' });
-    e.on('admin-whisper-ack', { kind: 'reply-ack', delivered: 0, toName: 'Maimai', message: 'late' });
-    check('B12 답장이 갔으면 채팅창에 «답장했습니다» + 내용', e.chat.some(l => /Maimai/.test(l) && /답장했습니다/.test(l) && /OK/.test(l)), JSON.stringify(e.chat));
-    check('B12 못 갔으면 정직하게 «전달되지 않았습니다»', e.chat.some(l => /전달되지 않았습니다/.test(l)), JSON.stringify(e.chat));
+    e.on('admin-whisper-ack', { kind: 'reply-ack', delivered: 1, message: '👍 OK' });
+    e.on('admin-whisper-ack', { kind: 'reply-ack', delivered: 0, reason: 'not_found', message: 'late' });
+    e.on('admin-whisper-ack', { kind: 'reply-ack', delivered: 0, reason: 'send_failed', message: 'oops' });
+    check('B12 답장이 갔으면 채팅창에 «관찰자에게만 답장했습니다» + 내용', e.chat.some(l => /관찰자에게만 답장했습니다/.test(l) && /OK/.test(l)), JSON.stringify(e.chat));
+    check('B12 참관자가 나갔으면 그 이유로 말한다', e.chat.some(l => /나갔거나 다시 접속/.test(l) && /late/.test(l)), JSON.stringify(e.chat));
+    check('B12 보내기 오류는 다른 문구로 말한다 (한 문구로 뭉치지 않는다)', e.chat.some(l => /연결 오류/.test(l) && /oops/.test(l)), JSON.stringify(e.chat));
   }
   // B13 파일이 늦게 와도 — 큐에 쌓인 귓속말을 카드로 띄운다
   {
@@ -409,7 +444,77 @@ try {
     const e = makeEnv({ role: 'teacher', me: 't1', lang: 'en' });
     e.on('admin-whisper', W());
     const t = e.card() ? e.card().textContent : '';
-    check('B14 영어 화면은 영어로 말한다 (EN/KO)', /Message from Maimai/.test(t) && /OK, got it/.test(t) && /Send/.test(t), t.slice(0, 160));
+    check('B14 영어 화면은 영어로 말한다 (EN/KO)', /class observer/.test(t) && /OK, got it/.test(t) && /Send/.test(t), t.slice(0, 160));
+    const head = e.card() ? e.card().children[0].textContent : '';
+    check('B14 영어 머리글에 한글이 섞이지 않는다 (참관자 기본 이름이 한글이어도)', !/[\uac00-\ud7a3]/.test(head), head);
+    const k = makeEnv({ role: 'teacher', me: 't1' });
+    k.on('admin-whisper', W());
+    const kh = k.card() ? k.card().children[0].textContent : '';
+    check('B14 한국어 머리글이 이름을 두 번 말하지 않는다 («관찰자 관찰자» 금지)', !!kh && !/관찰자\s*관찰자/.test(kh) && !new RegExp(OBS_NAME + '\\s*님').test(kh), kh);
+  }
+  // B15 자리를 비웠을 때(다른 탭·창) — 제목 깜빡임 + 브라우저 알림 / 보고 있으면 둘 다 없음
+  {
+    const e = makeEnv({ role: 'teacher', me: 't1', focus: false, notif: 'granted' });
+    e.on('admin-whisper', W());
+    check('B15 자리를 비웠으면 브라우저 알림을 띄운다 (내용 포함)', e.notes.length === 1 && /Hello teacher/.test(e.notes[0].opt.body), JSON.stringify(e.notes));
+    e.tick();
+    check('B15 자리를 비웠으면 탭 제목이 깜빡인다', /새 메시지/.test(e.doc.title), e.doc.title);
+    btn(e.card(), 'data-vcw-ok').fire('click');
+    check('B15 「확인」을 누르면 브라우저 알림도 닫힌다', e.notes[0] && e.notes[0].closed === true);
+    check('B15 「확인」을 누르면 제목이 원래대로 돌아온다', e.doc.title === 'Mangoi', e.doc.title);
+    const f = makeEnv({ role: 'teacher', me: 't1', focus: true, notif: 'granted' });
+    f.on('admin-whisper', W());
+    f.tick();
+    check('B15 보고 있으면 브라우저 알림을 띄우지 않는다', f.notes.length === 0, JSON.stringify(f.notes));
+    check('B15 보고 있으면 제목을 건드리지 않는다', f.doc.title === 'Mangoi', f.doc.title);
+    const g = makeEnv({ role: 'teacher', me: 't1', focus: false, notif: 'default' });
+    g.on('admin-whisper', W());
+    check('B15 알림 권한이 없으면 브라우저 알림을 만들지 않는다', g.notes.length === 0, JSON.stringify(g.notes));
+  }
+  // B16 깜빡이는 도중 두 번째 글이 와도 돌아오면 제목이 원래대로
+  {
+    const e = makeEnv({ role: 'teacher', me: 't1', focus: false });
+    e.on('admin-whisper', W());
+    e.tick();                                    // 제목 = «새 메시지 (1)»
+    e.on('admin-whisper', W({ message: 'second' }));
+    e.st.focus = true;
+    e.fireDoc('visibilitychange');
+    check('B16 두 번째 글 뒤 돌아와도 제목이 원래대로 돌아온다', e.doc.title === 'Mangoi', e.doc.title);
+  }
+  // B17 화면 공유 중 — 카드·채팅·알림에 내용을 싣지 않고, 눌러야 보인다
+  {
+    const e = makeEnv({ role: 'teacher', me: 't1', sharing: true, focus: false, notif: 'granted' });
+    e.on('admin-whisper', W({ message: 'SECRET NOTE' }));
+    const c = e.card();
+    check('B17 화면 공유 중이면 카드에 내용이 안 보인다', !!c && !/SECRET NOTE/.test(c.textContent), c ? c.textContent.slice(0, 120) : '(없음)');
+    check('B17 화면 공유 중이라는 경고가 보인다', !!c && /화면 공유 중/.test(c.textContent));
+    check('B17 채팅창 기록에도 내용이 없다', !e.chat.some(l => /SECRET NOTE/.test(l)), JSON.stringify(e.chat));
+    check('B17 브라우저 알림에도 내용이 없다', e.notes.length === 1 && !/SECRET NOTE/.test(e.notes[0].opt.body), JSON.stringify(e.notes));
+    btn(c, 'data-vcw-reveal').fire('click');
+    check('B17 「내용 보기」를 누르면 그때 보인다', /SECRET NOTE/.test(e.card().textContent));
+    const n = makeEnv({ role: 'teacher', me: 't1' });
+    n.on('admin-whisper', W({ message: 'PLAIN NOTE' }));
+    check('B17 (짝) 공유 중이 아니면 바로 보인다', /PLAIN NOTE/.test(n.card().textContent) && !btn(n.card(), 'data-vcw-reveal'));
+  }
+  // B18 수업을 나가면 카드를 치운다 — 다만 «수업 중에 그린» 카드만
+  {
+    const e = makeEnv({ role: 'teacher', me: 't1', inCall: true });
+    e.on('admin-whisper', W());
+    e.st.inCall = false;
+    e.tick();
+    check('B18 수업을 나가면 카드가 사라진다', !e.card());
+    check('B18 나가서 치울 때는 «읽음» 을 보내지 않는다', e.sent.length === 0, JSON.stringify(e.sent));
+    check('B18 카드가 없어지면 확인 타이머도 멈춘다', e.intervals.size === 0, String(e.intervals.size));
+    const f = makeEnv({ role: 'teacher', me: 't1', inCall: false });
+    f.on('admin-whisper', W());
+    f.tick();
+    check('B18 (짝) 처음부터 수업 표시가 없던 화면의 카드는 저절로 안 지운다', !!f.card());
+  }
+  // B19 자동 번역이 보낸 사람의 글을 바꾸지 않게
+  {
+    const e = makeEnv({ role: 'teacher', me: 't1' });
+    e.on('admin-whisper', W());
+    check('B19 카드에 translate="no" 가 붙는다', e.card() && e.card().getAttribute('translate') === 'no');
   }
   ranB++;
 } catch (e) {
@@ -425,7 +530,6 @@ console.log('\n[ C. 화면 정적 안전장치 ]');
   check('opacity:0 으로 시작하지 않는다 (백그라운드 탭에서 «영영 안 보임»)', !/opacity\s*:\s*0\s*[;'"]/.test(code));
   check('브라우저 알림 권한을 «저절로» 묻지 않는다 (버튼 안에서만)',
         (code.match(/requestPermission\(\)/g) || []).length === 1 && /tap\(nb,[\s\S]{0,120}?requestPermission\(\)/.test(code));
-  check('제목 깜빡임 타이머는 보이면 멈춘다 (상주 setInterval 금지)', /if \(!away\(\)\) \{ stopFlash\(\); return; \}/.test(code));
   check('index.html 이 새 버전(?v=)으로 부른다 (defer)', /idx-whisper\.js\?v=([4-9]|\d{2,})"\s+defer/.test(R('cloudflare-deploy/public/index.html')));
 }
 
