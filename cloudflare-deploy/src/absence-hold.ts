@@ -43,6 +43,18 @@ import { recurStartedOn } from './class-start-date';
 import { siteUrl } from './site-url';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN 목록은 공용 헬퍼로(D1 바인드 100개 한도)
 
+/* ⛔ (2026-11-03 사장님 결정) «2회 연속 결석 → 자동 보류» 를 없앤다.
+   「결석은 따로 관리해야지, 보류하면 수업을 진행하는 것도 안 하는 것도 아니게 된다.」
+   그래서 이 모듈의 «효과» 를 전부 끈다 — 새 보류를 안 걸고(maybeHoldStudent), 이미 걸린 보류도
+   아무 데서도 안 읽히게 한다(loadHoldRanges 가 빈 Map). 강사 화면 «ON HOLD»·급여 0%·결석 감지 건너뛰기·
+   수업 대장 «결석 보류»·아침 요약·매니저 알림판이 전부 예전(보류 없음) 동작으로 돌아간다.
+   · 결석 자체는 그대로 기록된다(class_no_show — absent-sweep) — «결석 관리» 는 그 기록으로 한다.
+   · ⛔ class_absence_hold 표의 행은 지우지 않는다(되돌릴 수 있게 · D1 쓰기 없음).
+   · 다시 켜려면 Worker 변수 ABSENCE_HOLD='on'(사람이 정할 일). 하니스는 env 로 켜서 옛 동작을 검사한다. */
+export function absenceHoldEnabled(env: any): boolean {
+  return String(env?.ABSENCE_HOLD ?? '').trim().toLowerCase() === 'on';
+}
+
 export const ABSENCE_HOLD_STREAK = 2;      // 사장님 결정: 결석 2회 연속
 const LOOKBACK_DAYS = 45;                  // 회차를 거꾸로 볼 기간
 const KAKAO_CHANNEL = 'https://pf.kakao.com/_xlqnSxd';   // ⛔ 뒤에 /chat 을 붙이지 말 것(비로그인 PC 가 로그인으로 튕김)
@@ -115,7 +127,7 @@ export async function ensureAbsenceHoldTable(env: any): Promise<void> {
 /** 보류 기록 전부(학생 uid 소문자 → 행 목록). 못 읽으면 빈 Map — «보류 없음» 으로 떨어진다(예전과 같음). */
 export async function loadHoldRanges(env: any): Promise<Map<string, any[]>> {
   const m = new Map<string, any[]>();
-  if (!env?.DB) return m;
+  if (!env?.DB || !absenceHoldEnabled(env)) return m;   // ⛔ 보류 기능 꺼짐(2026-11-03) — 옛 보류 행도 «없음»
   try {
     const rs = await env.DB.prepare(
       `SELECT id, student_uid, held_after, resumed_on, state FROM class_absence_hold WHERE state IN ('held','ended','resumed')`
@@ -346,6 +358,7 @@ async function notifyStaff(env: any, h: { student_name: string; teacher_id: any;
 export async function maybeHoldStudent(env: any, c: { user_id: any; student_name?: any; teacher_id?: any; teacher_name?: any }, now: number, opts: { dry?: boolean } = {}): Promise<any> {
   const uid = String(c.user_id || '').trim();
   if (!uid || !env?.DB) return { status: 'no_uid' };
+  if (!absenceHoldEnabled(env)) return { status: 'disabled' };   // ⛔ 보류 기능 꺼짐(2026-11-03)
   try {
     if (await kvOff(env, 'absence_hold')) return { status: 'switch_off' };
     await ensureAbsenceHoldTable(env);
@@ -387,6 +400,7 @@ export async function maybeHoldStudent(env: any, c: { user_id: any; student_name
  */
 export async function autoResumeReturning(env: any, now: number): Promise<number> {
   let n = 0;
+  if (!absenceHoldEnabled(env)) return n;   // ⛔ 보류 기능 꺼짐(2026-11-03) — 풀 것도 없다(D1 쓰기 안 함)
   try {
     // «그만둠(ended)» 도 본다 — 매니저가 그만둠을 눌렀는데 학생이 돌아오면 그 뒤 수업이 영영 0원이 된다.
     const rs = await env.DB.prepare(`SELECT id, student_uid, held_after FROM class_absence_hold WHERE state IN ('held','ended')`).all();
@@ -445,6 +459,7 @@ export function holdDays(heldAfter: string, todayYmd: string): number | null {
 
 export async function maybeSendHoldDigest(env: any, now: number, opts: { dry?: boolean } = {}): Promise<any> {
   const out: any = { sent: false };
+  if (!absenceHoldEnabled(env)) { out.why = 'disabled'; return out; }   // ⛔ 보류 기능 꺼짐(2026-11-03)
   try {
     const ymd = holdDigestSlot(now);
     if (!ymd) { out.why = 'outside_window'; return out; }
@@ -581,6 +596,8 @@ export async function absenceHoldRouter(env: any, request: Request, url: URL, p:
   if (scopeType === 'teacher' || deps.isOrgScopedRole(scopeType)) return J({ ok: false, error: 'forbidden_scope' }, 403);
   if (p === 'absence-holds') {
     if (request.method !== 'GET') return J({ ok: false, error: 'method_not_allowed' }, 405);
+    // ⛔ 보류 기능 꺼짐(2026-11-03) — 효과 없는 옛 보류를 «보류 중» 으로 보여 주지 않는다
+    if (!absenceHoldEnabled(env)) return J({ ok: true, items: [], disabled: true });
     try { return J({ ok: true, items: await listHolds(env, url.searchParams.get('state') === 'all' ? 'all' : 'open') }); }
     catch (e: any) { return J({ ok: false, error: 'list_failed', message: String(e?.message || e).slice(0, 120) }, 500); }
   }

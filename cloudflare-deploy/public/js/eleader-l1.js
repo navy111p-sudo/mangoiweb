@@ -91,7 +91,7 @@
     if (!data) {
       if (!notice) { box.hidden = true; box.replaceChildren(); panelQuota = null; return; }
       css();
-      var nh = document.createElement('h3'); nh.textContent = '📗 ' + T('엘리더잼 Level 1 기본과정', 'Eleader Jam Level 1 Basic Course');
+      var nh = document.createElement('h3'); nh.textContent = '📗 ' + T('엘리더잼 기본과정', 'Eleader Jam Basic Course');
       var np = document.createElement('p'); np.textContent = notice;
       box.replaceChildren(nh, np); panelQuota = null; box.hidden = false; return;
     }
@@ -100,7 +100,8 @@
     ui.lv = lv.id;
     if (!itemOf(lv, ui.pick)) ui.pick = lv.items.length ? lv.items[0].id : null;   // 레벨을 바꾸면 그 레벨 첫 항목(예전 select 기본값과 같은 동작)
     var h = document.createElement('h3');
-    h.textContent = '📗 ' + T('엘리더잼 ' + lv.label + ' ' + lv.ko, 'Eleader Jam ' + lv.label + ' ' + lv.en);
+    var lvPre = lv.id === 'l1' ? '' : lv.label + ' ';   // 기본과정은 «Level 1» 을 안 붙인다(2026-11-03 사장님)
+    h.textContent = '📗 ' + T('엘리더잼 ' + lvPre + lv.ko, 'Eleader Jam ' + lvPre + lv.en);
     var p = document.createElement('p');
     p.textContent = lv.id === 'l1'
       ? T('책을 고르면 선생님이 책 질문을 하나씩 물어봐요. 마이크로 답하거나 글로 적어 보세요.',
@@ -115,7 +116,7 @@
       lvs.forEach(function (l) {
         var b = document.createElement('button'); b.type = 'button'; b.className = 'l1-tab'; b.setAttribute('role', 'tab');
         b.setAttribute('aria-selected', String(l.id === lv.id)); b.dataset.lv = l.id;
-        b.textContent = l.label + ' · ' + T(l.ko, l.en) + ' (' + l.items.length + ')';
+        b.textContent = l.label + ' · ' + (l.id === 'l1' ? T('캐피 기본과정', 'Capi Basic Course') : T(l.ko, l.en)) + ' (' + l.items.length + ')';   // L1 탭은 «Level 1 · 캐피 기본과정»(2026-11-03 사장님) — 제목은 «엘리더잼 기본과정» 그대로
         b.onclick = function () { if (ui.lv === l.id) return; ui.lv = l.id; ui.pick = null; ui.q = ''; saveLv(); render(); };
         tabs.appendChild(b);
       });

@@ -42,7 +42,7 @@ try {
   let { c, p, log, errors } = await open({ token: 'tok-ed' });
   await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
   ok('ed: Level 1 panel visible', await p.locator('#eleaderL1').isVisible());
-  ok('ed: panel title', /엘리더잼 Level 1 기본과정/.test(await p.locator('#eleaderL1').innerText()));
+  ok('ed: panel title', /엘리더잼 기본과정/.test(await p.locator('#eleaderL1').innerText()));
   ok('ed: 2 books in list', await p.locator('#eleaderL1 .l1-item').count() === 2);
   ok('ed: no level tabs when server sends no levels (old server)', await p.locator('#eleaderL1 .l1-tab').count() === 0);
   ok('ed: books request carries token', log.books === 1);
@@ -183,7 +183,7 @@ try {
   // ④ 영어 화면
   ({ c, p } = await open({ token: 'tok-ed', lang: 'en' }));
   await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
-  ok('en: panel in English', /Eleader Jam Level 1 Basic Course/.test(await p.locator('#eleaderL1').innerText()));
+  ok('en: panel in English', /Eleader Jam Basic Course/.test(await p.locator('#eleaderL1').innerText()));
   ok('en: daily limit in English', /You can talk up to 200 times a day · 0 used today/.test(await p.locator('#eleaderL1').innerText()));
   await c.close();
 
@@ -211,6 +211,9 @@ try {
     ({ c, p, log, errors } = await open({ token: 'tok-ed', booksBody: body }));
     await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
     ok('levels: 5 tabs (Level 1~5)', await p.locator('#eleaderL1 .l1-tab').count() === 5);
+    { const t = await p.locator('#eleaderL1').innerText();   // 2026-11-03 — 기본과정에는 «Level 1» 을 안 붙인다(제목·탭)
+      ok('levels: real header is «엘리더잼 기본과정» (no Level 1)', /엘리더잼 기본과정/.test(t) && !/엘리더잼 Level 1/.test(t));
+      ok('levels: L1 tab is «Level 1 · 캐피 기본과정 (N)»', /(^|\n)Level 1 · 캐피 기본과정 \(\d+\)/.test(await p.locator('#eleaderL1 .l1-tabs').innerText())); }
     ok('levels: tab names', /Level 2 · 캐피 기본 레벨5 \(25\)/.test(await p.locator('#eleaderL1 .l1-tabs').innerText()) && /Level 5 · 캐피 심화3 \(30\)/.test(await p.locator('#eleaderL1 .l1-tabs').innerText()));
     await p.click('#eleaderL1 .l1-tab[data-lv="l3"]');
     ok('levels: L3 title', /엘리더잼 Level 3 캐피 심화1/.test(await p.locator('#eleaderL1 h3').innerText()));
