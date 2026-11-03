@@ -154,8 +154,9 @@ console.log('\n[1] 칠판 — 학생 획이 지워지지 않고 강사 화면에
   check('서버가 새 입장자에게 칠판을 재전송한다 (교재 pdf-sync 와 같은 자리)',
         /whiteboard-replay/.test(doTs));
   check('전체 지우기·지난 수업이면 서버 기록도 비운다',
-        /handleWhiteboardClear[\s\S]{0,200}this\.wbOps\s*=\s*\[\]/.test(doTs) &&
-        /this\.wbOps\s*=\s*\[\][\s\S]{0,200}storage\.delete\('pdfState'\)/.test(doTs));
+        /private handleWhiteboardClear[\s\S]*?clearWhiteboardHistory\(\)/.test(doTs) &&
+        /private clearWhiteboardHistory[\s\S]*?this\.wbOps\s*=\s*\[\]/.test(doTs) &&
+        /private handleJoinRoom[\s\S]*?clearWhiteboardHistory\(\)[\s\S]*?storage\.delete\('pdfState'\)/.test(doTs));
   check('클라이언트가 whiteboard-replay 를 받아 다시 그린다',
         /case 'whiteboard-replay'/.test(html) && /wbRedrawAll\(\)/.test(html));
   check('서버 기록에 상한이 있다 (DO 메모리 폭주 방지)', /WB_OPS_MAX/.test(doTs));

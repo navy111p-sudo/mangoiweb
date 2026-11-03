@@ -12,6 +12,7 @@
 
 import { WebSocketMessage, PdfShareData } from './types';
 import { verifyGhostObserveSig } from './auth-token';
+import { RoomWhiteboardHistory } from './room-whiteboard-history';
 
 const MAX_USERS = 10;
 
@@ -87,9 +88,12 @@ export class VideoCallRoom {
     { 'bg-lock': 'bgLock', 'mic-lock': 'micLock', 'focus-lock': 'focusLock', 'pdf-drawlock': 'drawLock' };
 
   /** 🖍 (2026-08-08) 칠판 획 — 늦게 들어온 사람에게 지금까지의 판서를 돌려주기 위한 메모리 버퍼.
-   *  storage 에 넣지 않는다(수업이 끝나면 값어치 없음 · 수천 개까지 늘어남). 상한을 넘으면 오래된 것부터 버린다. */
+   *  SQLite journal restores it across hibernation. Replay retains the newest 4000 ops / 4 MiB. */
   private wbOps: { t: string; d: any }[] = [];
   private static readonly WB_OPS_MAX = 4000;
+  private wbHistory: RoomWhiteboardHistory | null = null;
+  private wbAt = 0;
+  private wbResetPending = false;
 
   /** ✍️ (2026-08-12 Melca) 교재(PDF) 판서도 칠판과 같은 이유로 버퍼 —
    *  "학생 필기가 강사 화면에 안 보인다" 신고의 한 갈래가 «늦게 들어온·새로고침한 강사» 였다.
@@ -162,6 +166,14 @@ export class VideoCallRoom {
     } catch {}
     // 재기동 시 교재 공유 상태 복원
     this.state.blockConcurrencyWhile(async () => {
+      try {
+        const sql = (this.state.storage as any).sql;
+        if (sql) {
+          this.wbHistory = new RoomWhiteboardHistory(sql, VideoCallRoom.WB_OPS_MAX, body => this.state.storage.transactionSync(body));
+          const saved = this.wbHistory.read();
+          this.wbOps = saved.ops; this.wbAt = saved.at;
+        }
+      } catch { this.wbHistory = null; this.wbResetPending = true; console.warn('[VideoChat] whiteboard replay restore failed'); }
       this.pdfState = (await this.state.storage.get<PdfShareData>('pdfState')) || null;
       this.videoState = (await this.state.storage.get<{ url: string; type?: string }>('videoState')) || null;
       this.mediaAt = (await this.state.storage.get<number>('mediaAt')) || 0;
@@ -471,7 +483,7 @@ export class VideoCallRoom {
           }
           this.handleChatMessage(userId, msg.data as any);
           break;
-        case 'whiteboard-draw': this.handleWhiteboardDraw(userId, msg.data as any); break;
+        case 'whiteboard-draw': this.handleWhiteboardDraw(userId, msg.data as any, text.length <= RoomWhiteboardHistory.MAX_BYTES); break;
         case 'whiteboard-clear':this.handleWhiteboardClear(userId, att); break;
         case 'pdf-share':       await this.handlePdfShare(userId, att, msg.data as any); break;
         case 'pdf-page-change': await this.handlePdfPageChange(userId, att, msg.data as any); break;
@@ -515,7 +527,7 @@ export class VideoCallRoom {
              포인터(whiteboard-pointer)·교재 판서(pdf-anno-*)는 여기 대상이 아니다:
              포인터는 1.6초 뒤 사라지고, 교재 판서는 클라이언트가 페이지별로 따로 들고 있다. */
           if (msg.type === 'whiteboard-text' || msg.type === 'whiteboard-shape' || msg.type === 'whiteboard-stroke') {
-            this.recordWb(msg.type, msg.data);
+            this.recordWb(msg.type, msg.data, text.length <= RoomWhiteboardHistory.MAX_BYTES);
           }
           /* ✍️ (2026-08-12 Melca) 교재 판서도 기록 — 늦게 들어온 강사에게 pdf-anno-replay 로 돌려준다 */
           if (msg.type.startsWith('pdf-anno-')) {
@@ -664,12 +676,16 @@ export class VideoCallRoom {
        새로고침·순단은 몇 초 만에 돌아오므로 여기 걸리지 않는다(그 보호는 그대로 유지). */
     const _emptyGap = this.emptyAt ? (Date.now() - this.emptyAt) : 0;
     const _newClass = this.emptyAt > 0 && _emptyGap > VideoCallRoom.NEW_CLASS_GAP_MS;
+    // A board-only class has the same new-class/age cleanup as shared media.
+    if (userCount <= 1 && this.wbOps.length && (_newClass || !this.wbAt || Date.now() - this.wbAt > VideoCallRoom.SHARE_KEEP_MS)) {
+      if (!this.clearWhiteboardHistory()) { this.wbOps = []; this.wbResetPending = true; }
+    }
     if (userCount <= 1 && (this.pdfState || this.videoState) &&
         (_newClass || !this.mediaAt || (Date.now() - this.mediaAt) > VideoCallRoom.SHARE_KEEP_MS)) {
       this.pdfState = null;
       this.videoState = null;
       this.mediaAt = 0;
-      this.wbOps = [];   // 🖍 지난 수업 판서도 같은 기준으로 버린다(새로고침·순단은 여기 안 걸린다)
+      if (!this.clearWhiteboardHistory()) { this.wbOps = []; this.wbResetPending = true; } // keep failed cleanup pending
       this.pdfAnnoOps = []; this.pdfAnnoStrokes = {};   // ✍️ 교재 판서도 함께
       void this.state.storage.delete('pdfState');
       void this.state.storage.delete('videoState');
@@ -680,7 +696,7 @@ export class VideoCallRoom {
     // 🔒 지난 수업의 통제 잠금(배경/음소거/집중)도 새 수업 첫 입장 시엔 해제 상태로 시작
     if (userCount <= 1) this.clearAllLocks();
     /* 방에 사람이 있으니 «비어 있던 시각» 은 지운다 — 다음에 다시 비면 그때 새로 찍는다. */
-    if (this.emptyAt) { this.emptyAt = 0; void this.state.storage.delete('emptyAt'); }
+    if (this.emptyAt && !this.wbResetPending) { this.emptyAt = 0; void this.state.storage.delete('emptyAt'); }
 
     // room-joined 는 반드시 물려받은 userId 로 회신한다 — 클라이언트가 이 값이 '직전 vcUserId 와 같은가'
     //   로 "정체성 유지됨 → 살아있는 연결 보존"을 판단한다.
@@ -992,9 +1008,9 @@ export class VideoCallRoom {
     });
   }
 
-  private handleWhiteboardDraw(userId: string, data: any): void {
+  private handleWhiteboardDraw(userId: string, data: any, persistable = true): void {
     if (!this.isJoined(userId)) return;
-    this.recordWb('whiteboard-draw', data);
+    this.recordWb('whiteboard-draw', data, persistable);
     this.broadcast(userId, { type: 'whiteboard-draw', data });
   }
 
@@ -1006,7 +1022,7 @@ export class VideoCallRoom {
   private handleWhiteboardClear(userId: string, att: VcAttachment): void {
     if (!this.isJoined(userId)) return;
     if (this.lockState.drawLock && !this.isStaffAtt(att)) return;
-    this.wbOps = [];
+    if (!this.clearWhiteboardHistory()) return; // never acknowledge a durable clear that failed
     this.broadcast(userId, { type: 'whiteboard-clear' });
   }
 
@@ -1041,25 +1057,44 @@ export class VideoCallRoom {
    *  칠판은 «지금 연결된 사람에게만 중계» 였다 — 늦게 들어오거나 새로고침한 사람에게는
    *  그때까지 그려진 것이 하나도 가지 않는다. 교재(pdfState)는 이미 이렇게 재전송하고 있는데
    *  칠판만 빠져 있었다. 강사가 학생보다 늦게 들어오면(=신고 상황) 학생 판서가 통째로 안 보인다.
-   *  ⚠️ storage 에 넣지 않는다 — 획은 수천 개까지 늘어나고, 수업이 끝나면 값어치가 없다.
+   *  Historical behavior before 2026-11-03: storage 에 넣지 않는다 — 획은 수천 개까지 늘어났다.
    *  🔴 (2026-09-01 정정) 「DO 가 잠들면 사라지는 것이 맞다(그때는 방도 비어 있다)」고
    *     적혀 있었는데 **뒷말이 사실이 아닙니다.** 이 DO 는 WebSocket Hibernation 을 쓰고
    *     (생성자의 setWebSocketAutoResponse, webSocketMessage/Close 핸들러), Hibernation 의
    *     요점이 바로 **소켓이 붙어 있는 채로 인스턴스를 내리는 것**입니다.
    *     즉 방이 비지 않아도 잠들 수 있고, 깨어나면 이 버퍼는 빈 상태입니다
-   *     (생성자가 복원하는 것은 pdfState·videoState·mediaAt·emptyAt·잠금 4종뿐).
+   *     (당시 생성자가 복원한 것은 pdfState·videoState·mediaAt·emptyAt·잠금 4종뿐).
+   *  2026-11-03: wbOps now restores from bounded SQLite history; pdfAnnoOps remains memory-only.
    *     ⟹ 수업 중에 학생이 새로고침하거나 늦게 들어오면 그때까지 그려진 것이 안 갑니다 —
    *        2026-08-08 에 고치려던 그 증상이 «잠들었다 깨어난 뒤» 에는 다시 납니다.
    *     ⚠️ 얼마나 자주 잠드는지는 측정하지 못했습니다(Cloudflare 가 정하고 로그로만 보입니다).
    */
-  private recordWb(type: string, data: any): void {
+  private clearWhiteboardHistory(): boolean {
     try {
-      if (!data) return;
-      this.wbOps.push({ t: type, d: data });
-      if (this.wbOps.length > VideoCallRoom.WB_OPS_MAX) {
-        this.wbOps.splice(0, this.wbOps.length - VideoCallRoom.WB_OPS_MAX);
+      if (this.wbResetPending && !this.wbHistory) return false;
+      if (this.wbHistory) this.wbHistory.clear();
+      this.wbOps = []; this.wbAt = 0; this.wbResetPending = false;
+      return true;
+    } catch { console.warn('[VideoChat] whiteboard replay clear failed'); return false; }
+  }
+
+  private recordWb(type: string, data: any, persistable = true): void {
+    if (!data) return;
+    const op = { t: type, d: data }, at = Date.now();
+    let keep = VideoCallRoom.WB_OPS_MAX;
+    try {
+      if (!persistable) throw new Error('frame exceeds replay budget');
+      if (this.wbHistory) {
+        if (this.wbResetPending) {
+          this.wbHistory.clear(); this.wbResetPending = false;
+          if (this.emptyAt) { this.emptyAt = 0; void this.state.storage.delete('emptyAt'); }
+        }
+        keep = this.wbHistory.append(op, at);
       }
-    } catch {}
+    }
+    catch { console.warn('[VideoChat] whiteboard replay save failed; live relay continues'); }
+    this.wbOps.push(op); this.wbAt = at;
+    if (this.wbOps.length > keep) this.wbOps.splice(0, this.wbOps.length - keep);
   }
 
   /* ✍️ (2026-08-12 Melca) 교재 판서 기록 — 점은 획 안에 압축, 사라지는 펜은 제외.
