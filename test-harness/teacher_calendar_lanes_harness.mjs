@@ -214,7 +214,24 @@ console.log('\n[ D. 취소·연기 카드 — 실제로 돌린다 ]');
   check('D-4 범례가 «모름» 을 «?» 로(0 이라고 단정하지 않는다)', /\(!ph54State\.offComplete && !offEvents\.length\) \? '\?'/.test(render));
   check('D-4 범례 한/영(✕ 취소 · ⏸ 연기 / ✕ Cancelled · ⏸ Postponed)', /✕ 취소 · ⏸ 연기/.test(render) && /✕ Cancelled · ⏸ Postponed/.test(render));
   const jsV2 = Number((HTML.match(/adm-q6\.js\?v=(\d+)/) || [])[1] || 0);
-  check('D-4 admin.html 의 adm-q6.js ?v= 가 19 이상', jsV2 >= 19, `v=${jsV2}`);
+  check('D-4 admin.html 의 adm-q6.js ?v= 가 20 이상', jsV2 >= 20, `v=${jsV2}`);
+
+  // D-6 (2026-11-04 사장님 「강사 열 빼는 것도 해줘」) 전체 보기에서 «취소·연기만» 있는 강사는 열이 없다 — 판정을 실제로 돌린다
+  const laneSrc = fn('ph54ShowsLane');
+  check('D-6 ph54ShowsLane 을 소스에서 오려 냈다', laneSrc.length > 40, `len=${laneSrc.length}`);
+  let SL = null;
+  try { SL = new Function(laneSrc + '\nreturn ph54ShowsLane;')(); } catch (e) { check('D-6 판정 실행 준비', false, String(e)); }
+  if (SL) {
+    const T = (...kinds) => ({ items: kinds.map((k) => ({ kind: k })) });
+    check('🔴 D-6 취소·연기만 있으면 열을 안 준다', SL(T('off')) === false && SL(T('off', 'off')) === false);
+    check('🔴 D-6 수업이 하나라도 있으면 열을 준다(짝 — «전부 빼기» 를 막는다)', SL(T('off', 'rec')) === true && SL(T('rec')) === true);
+    check('D-6 카페24 겹쳐보기만 있어도 열을 준다', SL(T('c24', 'off')) === true);
+    check('D-6 빈 묶음·이상한 값은 열을 안 준다(던지지 않는다)', SL(T()) === false && SL(null) === false && SL({}) === false);
+  }
+  check('🔴 D-6 열을 빼는 것은 «전체 보기» 에서만(강사 필터에서는 그 강사의 취소 카드를 볼 유일한 자리)', /var tlist = accordion \? tall\.filter\(ph54ShowsLane\) : tall;/.test(render));
+  check('🔴 D-6 취소·연기 건수는 뺀 강사까지 센다(머리글이 사실을 말한다)', /offn: tall\.reduce\(/.test(render) && /hidOffn: thid\.reduce\(/.test(render));
+  check('D-6 펼친 요일 머리글이 «열 없음 N» 을 말한다(한/영)', /그중 ' \+ bd\.hidOffn \+ '개는 열 없음/.test(render) && /without a column/.test(render));
+  check('D-6 «펼친 요일» 고르기는 열이 있는 것만 센다(total 은 보이는 강사 기준)', /total: tlist\.reduce\(/.test(render));
 
   // D-5 (2026-11-03 후속) 함정 대조가 찾은 셋 — 클릭 길 · «N개 이상» 문구 · 수업 수에 안 섞이는가(«위치» 가 아니라 «몸통» 으로)
   const blkSrc = fn('ph54CardBlocksClick');

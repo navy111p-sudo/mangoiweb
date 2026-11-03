@@ -691,6 +691,11 @@
      · 끌 수 없고(draggable 없음), records 인덱스·차단 번호를 안 단다 — 클릭·드롭 핸들러가 그 둘로 돌기 때문이다.
      · 글자(취소됨/연기됨)·누가·언제·사유는 서버가 만든 것만 쓴다(judgeClassChange — 누가·사유는 본사·내부직원에게만 실린다).
      · 색은 밝은 회색 무늬 — adm-light-surfaces 가 «어두운 그라데이션» 으로 보고 덮지 않게 밝은 색만 쓴다(CLAUDE.md 2장). */
+  /* 🙈 전체 보기에서 이 강사에게 열을 줄 것인가 — 수업·차단·카페24 중 하나라도 있으면 준다(«취소·연기만» 이면 안 준다). */
+  function ph54ShowsLane(t){
+    return !!(t && t.items && t.items.some(function(it){ return it && it.kind !== 'off'; }));
+  }
+
   /* 🧾 클릭이 «카드 위» 라서 무시해야 하는가. 취소·연기 카드는 «비어 있는 시간» 이라 통과시킨다 —
      고치기 전에는 그 자리가 빈칸이라 눌러서 차단할 수 있었다(함정 대조 2026-11-03: 카드가 그 길을 막고 있었다). */
   function ph54CardBlocksClick(t){
@@ -867,14 +872,22 @@
         var ia = (a in rosterIdx) ? rosterIdx[a] : 9999, ib = (b in rosterIdx) ? rosterIdx[b] : 9999;
         return ia - ib || (a < b ? -1 : a > b ? 1 : 0);
       });
-      var tlist = order.map(function(k){
+      var tall = order.map(function(k){
         var t = map[k]; t.lay = ph54LayoutItems(t.items);
         t.dup = t.lay.items.some(function(it){ return it.dup; });
         return t;
       });
+      /* 🙈 (2026-11-04 사장님 「강사 열 빼는 것도 해줘」) 전체 보기에서는 그날 «취소·연기만» 있는 강사에게 열을 만들지 않는다 —
+         수업이 0회인 열이 늘어나 정작 수업 중인 강사 칸이 좁아진다. 정본 ph54ShowsLane 하나로 판정.
+         ⛔ 강사 필터(한 강사 주간)에서는 빼지 않는다 — 그 강사의 취소 카드를 볼 유일한 자리다.
+         ⛔ 건수에서도 빼지 않는다 — 머리글이 «열 없음 N» 으로 사실을 말한다(감추기만 하면 «취소가 없나 보다» 로 읽힌다). */
+      var tlist = accordion ? tall.filter(ph54ShowsLane) : tall;
+      var thid = tall.filter(function(t){ return tlist.indexOf(t) < 0; });
       byDay.push({ teachers: tlist,
                    n: tlist.reduce(function(a, t){ return a + t.n; }, 0),
-                   offn: tlist.reduce(function(a, t){ return a + t.offn; }, 0),
+                   offn: tall.reduce(function(a, t){ return a + t.offn; }, 0),
+                   hidOffn: thid.reduce(function(a, t){ return a + t.offn; }, 0),
+                   hidT: thid.length,
                    total: tlist.reduce(function(a, t){ return a + t.items.length; }, 0) });
     }
 
@@ -914,11 +927,17 @@
         headCells += '<div class="ph54-cal-dayhead ph54-open' + (isToday ? ' today' : '') + '" style="grid-column:span ' + Math.max(1, bd.teachers.length) + '">'
           + dayLabel[i] + ' <span class="ph54-cal-date">' + dateTxt(i) + '</span>'
           + ' <span class="ph54-cal-cnt">· ' + ph54T('수업 ', 'classes ') + bd.n + ph54T('개', '') + ' · ' + ph54T('강사 ', 'instructors ') + bd.teachers.length + ph54T('명', '')
-          + (bd.offn ? ' · ' + ph54T('취소·연기 ', 'cancelled/postponed ') + bd.offn + ph54T('개', '') : '') + '</span></div>';
+          + (bd.offn ? ' · ' + ph54T('취소·연기 ', 'cancelled/postponed ') + bd.offn + ph54T('개', '') : '')
+          + (bd.hidOffn ? ' <span class="ph54-off-hid" title="' + ph54Esc(ph54T(
+              '그날 수업은 없고 취소·연기만 있는 강사 ' + bd.hidT + '명은 열을 만들지 않았습니다 — 위에서 그 강사를 고르면 주간 화면에 보입니다.',
+              bd.hidT + ' instructor(s) with only cancelled/postponed classes that day get no column — pick that instructor above to see them.'))
+              + '">' + ph54T('(그중 ' + bd.hidOffn + '개는 열 없음)', '(' + bd.hidOffn + ' without a column)') + '</span>' : '')
+          + '</span></div>';
       } else {
         headCells += '<div class="ph54-cal-dayhead ph54-cal-fold-head' + (isToday ? ' today' : '') + '" data-day="' + i + '" role="button" tabindex="0" title="'
           + ph54Esc(dayLabel[i] + ' ' + dateTxt(i) + ' · ' + ph54T('수업 ' + bd.n + '개', bd.n + ' classes')
               + (bd.offn ? ph54T(' · 취소·연기 ' + bd.offn + '개', ' · ' + bd.offn + ' cancelled/postponed') : '')
+              + (bd.hidOffn ? ph54T(' (그중 ' + bd.hidOffn + '개는 수업 없는 강사 — 펼쳐도 열 없음)', ' (' + bd.hidOffn + ' from instructors with no classes — no column)') : '')
               + ph54T(' — 누르면 펼칩니다', ' — click to open')) + '">'
           + dayLabel[i] + '<br><span class="ph54-cal-date">' + dateTxt(i) + '</span></div>';
       }

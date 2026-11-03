@@ -14,6 +14,7 @@
  *   ⑥ off_complete 가 아니면 «0개» 가 아니라 «?» · 옛 서버(칸 없음)도 «?»
  *   ⑦ 강사 필터를 걸면 다른 강사의 취소 카드는 안 그린다
  *   ⑧ EN 으로 그리면 영어로 말한다 · 글자 대비 4.5:1 이상 · 페이지 오류 0
+ *   ⑨ (2026-11-04) 그날 «취소·연기만» 있는 강사는 전체 보기에서 열이 없다 — 건수는 «열 없음 N» 으로 말하고, 그 강사를 고르면 보인다
  *
  * [돌리는 법] 게이트는 이 파일을 물어 가지 않는다(사람이 부른다).
  *   node test-harness/manual/teacher-calendar-cancelled-browser.mjs    (전역 playwright 가 있으면 그대로)
@@ -76,6 +77,10 @@ const OFF = [
     students: [{ name: '그룹B', uid: 'gb' }], change: CH_CANCEL },
 ];
 
+/* KAYE — 그날 수업은 하나도 없고 취소만 하나(⑨) */
+const OFF_KAYE = { off: 'cancelled', teacher_id: 31, date: TUE, hour: 15, start_time: '15:00', type: '1on1', duration_min: 20,
+  students: [{ name: '카예학생', uid: 'stu_kaye' }], change: CH_CANCEL };
+
 async function open(browser, opt = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1600, height: 950 } });
   const page = await ctx.newPage();
@@ -85,10 +90,11 @@ async function open(browser, opt = {}) {
     const u = route.request().url();
     const j = (o, s = 200) => route.fulfill({ status: s, contentType: 'application/json', body: JSON.stringify(o) });
     if (u.includes('/api/admin/reports/c24-mirror')) return j({ ok: true, rows: [] });
-    if (u.includes('/api/admin/teachers')) return j({ ok: true, items: TEACHERS });
+    if (u.includes('/api/admin/teachers')) return j({ ok: true, items: opt.offOnly ? TEACHERS.concat([{ id: '31', name: 'KAYE' }]) : TEACHERS });
     if (u.includes('/api/admin/schedules')) {
       if (opt.oldServer) return j({ ok: true, schedules: SCHED });                         // off_items 칸이 없는 옛 서버
-      return j({ ok: true, schedules: SCHED, off_items: opt.noOff ? [] : OFF, off_complete: opt.partial ? false : true });
+      const off = opt.noOff ? [] : opt.offOnly ? OFF.concat([OFF_KAYE]) : OFF;
+      return j({ ok: true, schedules: SCHED, off_items: off, off_complete: opt.partial ? false : true });
     }
     if (u.includes('/api/admin/me')) return j({ ok: true, username: 'admin', role: 'hq', scope: { type: 'hq' } });
     return j({ ok: true, items: [], schedules: [], events: [] });
@@ -266,6 +272,26 @@ const readCards = (page) => page.evaluate(() => {
     check('⑧ EN: 범례 «Cancelled · ⏸ Postponed» 와 «Cancelled/postponed 3»', /Cancelled · ⏸ Postponed/.test(e.legend) && /Cancelled\/postponed 3/.test(e.legend), e.legend.slice(-260));
     check('⑧ EN 페이지 오류 0', E.errors.length === 0, E.errors.slice(0, 3));
     await E.ctx.close();
+
+    console.log('\n[ ⑨ 취소·연기만 있는 강사는 열 없음 ]');
+    const K = await open(browser, { offOnly: true });
+    await renderCalendar(K.page);
+    const kc = await readCards(K.page);
+    const kayeCol = await K.page.evaluate(() => document.querySelectorAll('#ph54-sched-wrap .ph54-cal-col[data-teacher="31"]').length);
+    check('🔴 ⑨ 전체 보기: KAYE(취소만) 강사 열이 없다', kayeCol === 0, kayeCol);
+    check('⑨ 전체 보기: 강사 머리글에 KAYE 가 없다', !kc.heads.some((h) => /KAYE/.test(h)), kc.heads);
+    check('⑨ 수업 있는 두 강사(HANNAH·BELLE) 열은 그대로', kc.heads.some((h) => /HANNAH/.test(h)) && kc.heads.some((h) => /BELLE/.test(h)), kc.heads);
+    check('⑨ 그려진 취소·연기 카드는 3장(KAYE 것은 열이 없어 안 그림)', kc.offs.length === 3 && !kc.offs.some((o) => /카예학생/.test(o.text)), kc.offs.map((o) => o.text));
+    check('🔴 ⑨ 펼친 요일 머리글은 4개로 세고 «그중 1개는 열 없음» 이라 말한다(감추기만 하지 않는다)', /취소·연기 4개/.test(kc.dayhead) && /그중 1개는 열 없음/.test(kc.dayhead), kc.dayhead);
+    const hidTitle = await K.page.evaluate(() => (document.querySelector('#ph54-sched-wrap .ph54-off-hid') || { title: '' }).title);
+    check('⑨ 그 표시에 «강사를 고르면 보인다» 설명', /고르면 주간 화면에 보입니다/.test(hidTitle), hidTitle);
+    check('⑨ 범례 총계도 4개', /취소·연기 4개/.test(kc.legend), kc.legend.slice(-200));
+    await K.page.evaluate(() => { const s = document.getElementById('ph54-teacher-filter'); if (s) { s.value = '31'; s.dispatchEvent(new Event('change')); } });
+    await K.page.waitForTimeout(500);
+    const kf = await readCards(K.page);
+    check('🔴 ⑨ KAYE 를 고르면 그 취소 카드가 보인다(필터에서는 빼지 않는다 — 짝)', kf.offs.length === 1 && /카예학생/.test(kf.offs[0].text), kf.offs.map((o) => o.text));
+    check('⑨ 페이지 오류 0', K.errors.length === 0, K.errors.slice(0, 3));
+    await K.ctx.close();
   } finally {
     await browser.close().catch(() => {});
     if (srv) srv.kill();
