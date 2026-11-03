@@ -23,7 +23,9 @@ permissions:
   contents: read
 jobs:
   browser:
-    runs-on: ubuntu-latest
+    # ubuntu-latest 는 2026-10-19 부터 Ubuntu 26 으로 옮겨 가는 중이라 러너마다 OS 가 다를 수 있습니다.
+    # 아래 playwright@1.58.2 를 검증해 온 24.04 로 고정합니다(admin-repairs-offline-browser.yml 과 같은 방식).
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4

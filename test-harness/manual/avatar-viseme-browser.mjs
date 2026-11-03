@@ -36,7 +36,9 @@ const server=http.createServer((req,res)=>{
  try{const f=join(root,new URL(req.url,'http://local').pathname);res.setHeader('Content-Type',extname(f)==='.js'?'text/javascript':extname(f)==='.webp'?'image/webp':'image/png');res.end(readFileSync(f));}catch{res.statusCode=404;res.end();}
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
-const browser=await pw.chromium.launch({executablePath:exe,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--no-zygote','--single-process','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--autoplay-policy=no-user-gesture-required']});
+// ⚠️ '--single-process'·'--no-zygote' 는 넣지 마세요 — Chromium 이 지원하지 않는 모드입니다. 2026-11-03 실측: 원격 컨테이너에서
+//    넣으면 브라우저가 뜨자마자 SIGTRAP 으로 죽고, 빼면 18/18 통과. CI 에서도 PR #1985·#1988 이 이 단계에서만 실패했고 같은 코드가 #1992 에선 통과.
+const browser=await pw.chromium.launch({executablePath:exe,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--autoplay-policy=no-user-gesture-required']});
 let pass=0;
 try{
  const page=await browser.newPage();let errors=[];page.on('pageerror',e=>errors.push(e.message));
