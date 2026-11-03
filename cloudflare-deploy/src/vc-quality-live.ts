@@ -5,8 +5,8 @@
  *      직원이 「강사 쪽인가, 학생 쪽인가?」를 물어도 답할 수 없었다(사장님 「역할별로 나눠 보이게 고쳐줘」).
  *      같은 vc_quality 행을 역할로 한 번 더 묶어 방마다 by_role 로 붙인다 — 새 표를 만들지 않는다.
  *
- * ⛔ 방 단위 값(api-admin.ts live=1 의 avg_loss·avg_rtt)은 건드리지 않는다 — 툴팁·옛 한 줄·역할 줄이
- *    «모름» 일 때의 심각도가 그 값을 쓴다. 이 파일은 «덧붙이기» 만 한다.
+ * ⛔ 방 단위 쿼리(api-admin.ts live=1)는 그대로 «방» 으로 묶는다 — 툴팁·옛 한 줄·역할 줄이 «모름» 일 때의
+ *    심각도가 그 값을 쓴다. 이 파일은 역할별 값을 «덧붙이고», 평균 규칙(LIVE_AVG_SQL)을 두 쿼리에 함께 준다.
  *    (2026-11-03 후속) 심각도·「지금 손봐야 할 방」은 화면(js/monitor-wall.js worst())이 «가장 나쁜 줄» 로 정한다.
  * ⚠️ role 은 «접속한 기기가 보낸 값» 이다(js/idx-vc-qlog.js — vcIsTeacherRole() 이면 'teacher',
  *    아니면 저장된 역할이나 'student'). 화면 «표시» 에만 쓴다.
@@ -16,8 +16,8 @@
  *    ⛔ 출석·노쇼·급여 판정에 쓰지 말 것(CLAUDE.md 2장 — 판정 근거는 이름 일치뿐).
  * ⚠️ 표본이 없으면 «모름»(null) 이다 — samples=0 인 1분의 avg_loss(0) 와 avg_rtt=0 은 평균에서 뺀다.
  *    0 으로 섞으면 카메라를 끈 사람이 «회선이 제일 좋은 사람» 으로 보인다(CLAUDE.md 2장).
- *    ℹ️ 방 단위 값은 예전 그대로 그 1분들을 0 으로 섞는다 — 고칠지는 사람이 정할 일
- *       (docs/작업기록/261103_관제탑_회선칸_강사학생_나눠보기.md).
+ *    (2026-11-03 후속, 사장님 「방 단위 값도 표본 없는 1분 빼고」) 방 단위 쿼리도 같은 규칙 —
+ *    그 규칙은 아래 LIVE_AVG_SQL «한 곳» 에 두고 두 쿼리가 함께 쓴다(한쪽만 고치면 둘이 어긋난다).
  * ⚠️ 이 집계가 실패해도 방 단위 응답은 그대로 나가야 한다(by_role 만 빠짐 → 화면은 예전 한 줄).
  *    그래서 부르는 쪽(api-admin.ts)이 try 로 감싼다.
  */
@@ -27,6 +27,10 @@ export type LineRole = 'teacher' | 'student' | 'other';
 /** 화면에 그리는 순서 — 강사가 먼저 */
 export const LINE_ROLE_ORDER: readonly LineRole[] = ['teacher', 'student', 'other'];
 
+/** 손실·RTT 평균 — «표본 있는 1분만». 방 단위(api-admin.ts)·역할별 쿼리가 함께 쓴다 */
+export const LIVE_AVG_SQL = `ROUND(AVG(CASE WHEN samples > 0 THEN avg_loss END), 1) AS avg_loss,
+         ROUND(AVG(CASE WHEN avg_rtt > 0 THEN avg_rtt END)) AS avg_rtt`;
+
 /** 역할을 세 칸으로 묶는다 — 'teacher' 만 강사, 빈 값·'student' 는 학생, 그 밖의 글자는 기타.
  *  ⛔ 방 단위 쿼리와 «같은 WHERE» 를 쓴다(같은 행을 묶는 축만 다르다 — vc_quality_live_role_harness ① 이 대조). */
 export const LIVE_ROLE_SQL = `SELECT room,
@@ -34,8 +38,7 @@ export const LIVE_ROLE_SQL = `SELECT room,
               WHEN LOWER(TRIM(COALESCE(role, ''))) IN ('', 'student') THEN 'student'
               ELSE 'other' END AS rk,
          COUNT(DISTINCT uid) AS people,
-         ROUND(AVG(CASE WHEN samples > 0 THEN avg_loss END), 1) AS avg_loss,
-         ROUND(AVG(CASE WHEN avg_rtt > 0 THEN avg_rtt END)) AS avg_rtt
+         ${LIVE_AVG_SQL}
     FROM vc_quality
    WHERE ts >= ? AND room IS NOT NULL AND room <> '' AND avg_loss >= 0
    GROUP BY room, rk

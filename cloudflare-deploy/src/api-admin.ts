@@ -56,7 +56,7 @@ import { c24ExpenseDrop, C24_HANGUL_CYPHER_RE, C24_LETTER_CYPHER_RE } from './c2
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance, ensureCenterOverrideTables, ensureFranchiseOverrideTable } from './cafe24-sync';
 import { buildMangoiClassesNow, mergeClassesNow, dropMirroredCafe24, dropHolidayClosed, EXEMPT_BY_NAME, cafe24HolidayTeacher, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
 import { findRoomMismatches } from './room-mismatch';   // 🚨 «같은 수업인데 서로 다른 방» 감시(2026-10-07 delaware)
-import { LIVE_ROLE_SQL, attachRoleSplit } from './vc-quality-live';   // 📶 관제탑 회선 칸 «강사 / 학생» 나눔(2026-11-03)
+import { LIVE_AVG_SQL, LIVE_ROLE_SQL, attachRoleSplit } from './vc-quality-live';   // 📶 관제탑 회선 칸 «강사 / 학생» 나눔(2026-11-03)
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
 import { sendPlainSms } from './solapi-client';
@@ -657,16 +657,18 @@ export async function handleAdminApi(
            ⚠️ avg_loss 가 음수인 행은 «영상이 없던 틱»(loss = -1 로 넘어온 것)이라 평균에서 뺀다.
               넣으면 영상이 죽은 사람이 «회선이 제일 좋은 사람» 으로 뒤집힌다(CLAUDE.md 2장).
               ℹ️ (2026-11-03 코드 확인) 지금 화면(js/idx-vc-qlog.js)은 음수를 안 보낸다 — 영상 표본이 없던
-                 1분은 avg_loss 0 · samples 0 으로 온다. 그래서 이 조건은 사실상 아무것도 안 거른다.
-                 역할별 나눔(by_role)은 samples > 0 으로 따로 거른다(src/vc-quality-live.ts). 방 단위 값은 예전 그대로.
+                 1분은 avg_loss 0 · samples 0 · avg_rtt 0 으로 온다. 그래서 이 조건은 사실상 아무것도 안 거른다.
+              ✅ (2026-11-03 사장님 「방 단위 값도 표본 없는 1분 빼고」) 평균은 LIVE_AVG_SQL(samples > 0 · avg_rtt > 0
+                 만)로, 최악 손실도 samples > 0 인 1분만 본다. 표본이 하나도 없으면 null(«모름») → 화면은 «—».
+                 windows 는 «기록된 1분 수» 그대로 센다(표본 없는 1분 포함).
            ⚠️ novideo 칸은 ALTER 로 나중에 붙은 것이라 첫 로그 전에는 없다 — 여기서 읽지 않는다. */
         if (url.searchParams.get('live') === '1') {
           const mins = Math.max(1, Math.min(60, parseInt(url.searchParams.get('mins') || '5', 10) || 5));
           const liveSince = Date.now() - mins * 60000;
           const lr: any = await env.DB.prepare(
             `SELECT room, COUNT(*) AS windows,
-                    ROUND(AVG(avg_loss), 1) AS avg_loss, ROUND(MAX(max_loss), 1) AS worst_loss,
-                    ROUND(AVG(avg_rtt)) AS avg_rtt, MAX(ts) AS last_ts
+                    ${LIVE_AVG_SQL},
+                    ROUND(MAX(CASE WHEN samples > 0 THEN max_loss END), 1) AS worst_loss, MAX(ts) AS last_ts
                FROM vc_quality
               WHERE ts >= ? AND room IS NOT NULL AND room <> '' AND avg_loss >= 0
               GROUP BY room ORDER BY avg_loss DESC LIMIT 200`

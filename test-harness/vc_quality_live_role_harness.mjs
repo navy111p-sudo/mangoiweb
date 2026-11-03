@@ -45,7 +45,7 @@ try {
   const code = stripTypeScriptTypes(rd(resolve(SRC, 'vc-quality-live.ts')));
   M = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
 } catch (e) { console.log('  (정본 로드 실패) ' + e.message); }
-ok(!!(M && M.LIVE_ROLE_SQL && M.attachRoleSplit), '전제: 정본 src/vc-quality-live.ts 를 불러왔다');
+ok(!!(M && M.LIVE_ROLE_SQL && M.LIVE_AVG_SQL && M.attachRoleSplit), '전제: 정본 src/vc-quality-live.ts 를 불러왔다');
 if (!M) done();
 
 const ADMIN = rd(resolve(SRC, 'api-admin.ts'));
@@ -62,6 +62,7 @@ ok(liveBlock.length > 200 && /LIVE_ROLE_SQL/.test(liveBlock), '전제: api-admin
   const roomSql = (liveBlock.match(/SELECT room, COUNT\(\*\) AS windows[\s\S]*?`/) || [''])[0];
   const wRoom = whereOf(roomSql), wRole = whereOf(M.LIVE_ROLE_SQL);
   ok(!!wRoom && wRoom === wRole, `역할별 SQL 의 WHERE 가 방 단위 SQL 과 같다 (방 «${wRoom}» · 역할 «${wRole}»)`);
+  ok(/\$\{LIVE_AVG_SQL\}/.test(roomSql) && M.LIVE_ROLE_SQL.includes(M.LIVE_AVG_SQL), '평균 규칙(표본 있는 1분만)은 LIVE_AVG_SQL 한 곳 — 방 단위·역할별 쿼리가 함께 쓴다');
 }
 
 /* ── 진짜 SQLite — 방 두 개, 강사·학생·기타, 카메라 끈 1분, 창 밖 오래된 행 ── */
@@ -142,21 +143,28 @@ console.log('\n③ 서버 배선 — api-admin.ts live=1 블록을 오려 내 �
 {
   let run = null;
   try {
-    const js = stripTypeScriptTypes('export async function run(url, env, json, LIVE_ROLE_SQL, attachRoleSplit) {\n' + liveBlock + '\nreturn null; }');
+    const js = stripTypeScriptTypes('export async function run(url, env, json, LIVE_ROLE_SQL, attachRoleSplit, LIVE_AVG_SQL) {\n' + liveBlock + '\nreturn null; }');
     run = (await import('data:text/javascript;base64,' + Buffer.from(js).toString('base64'))).run;
   } catch (e) { console.log('  (블록 변환 실패) ' + e.message); }
   ok(typeof run === 'function', '전제: 그 블록이 실행 가능한 함수가 됐다');
   if (run) {
     const url = new URL('https://mangoi.ai/api/admin/vc/quality?live=1&mins=5');
     const json = (o) => o;
-    const r1 = await run(url, { DB: d1(mkDb()) }, json, M.LIVE_ROLE_SQL, M.attachRoleSplit);
+    const r1 = await run(url, { DB: d1(mkDb()) }, json, M.LIVE_ROLE_SQL, M.attachRoleSplit, M.LIVE_AVG_SQL);
     const R = r1 && r1.rooms && r1.rooms.find(x => x.room === 'class-4405-20261103');
     ok(r1 && r1.ok === true && R && Array.isArray(R.by_role) && R.by_role.length === 3, `응답의 방에 by_role 이 붙는다 (실측 ${R && R.by_role && R.by_role.map(x => x.role).join(',')})`);
     ok(R && R.by_role[0].role === 'teacher' && R.by_role[0].avg_rtt === 254, '(짝) 강사 칸 = 254ms');
-    ok(R && typeof R.avg_rtt === 'number' && typeof R.avg_loss === 'number' && R.windows === 6, `방 단위 값도 예전 그대로 함께 나간다 (windows ${R && R.windows})`);
+    ok(R && typeof R.avg_rtt === 'number' && typeof R.avg_loss === 'number' && R.windows === 6, `방 단위 값도 함께 나간다 · windows 는 기록된 1분 수 그대로 (windows ${R && R.windows})`);
+    // 🔢 (2026-11-03 사장님 「방 단위 값도 표본 없는 1분 빼고」) 방 평균도 카메라 끈 1분을 뺀다
+    ok(R && R.avg_rtt === 198 && R.avg_loss === 0.9, `방 평균 = 표본 있는 1분만 — 198ms · 0.9% (실측 ${R && R.avg_rtt}ms · ${R && R.avg_loss}%)`);
+    ok(R && R.avg_rtt !== 165 && R.avg_loss !== 0.8, '(짝) 카메라 끈 1분을 0 으로 섞은 옛 값(165ms·0.8%)이 아니다');
+    ok(R && R.worst_loss === 5, `최악 손실도 표본 있는 1분에서 (실측 ${R && R.worst_loss})`);
+    const RB = r1 && r1.rooms && r1.rooms.find(x => x.room === 'class-7657-20261103');
+    ok(RB && RB.avg_rtt === null && RB.avg_loss === null && RB.worst_loss === null && RB.windows === 1,
+      `표본이 하나도 없는 방은 null(«모름») — 0 이 아니다 · 줄은 남는다 (실측 ${JSON.stringify(RB)})`);
     const warn = console.warn; console.warn = () => {};
     let r2 = null, threw = false;
-    try { r2 = await run(url, { DB: d1(mkDb(), { failRole: true }) }, json, M.LIVE_ROLE_SQL, M.attachRoleSplit); } catch (e) { threw = true; }
+    try { r2 = await run(url, { DB: d1(mkDb(), { failRole: true }) }, json, M.LIVE_ROLE_SQL, M.attachRoleSplit, M.LIVE_AVG_SQL); } catch (e) { threw = true; }
     console.warn = warn;
     const R2 = r2 && r2.rooms && r2.rooms.find(x => x.room === 'class-4405-20261103');
     ok(!threw && r2 && r2.ok === true && R2 && !('by_role' in R2) && typeof R2.avg_rtt === 'number',
@@ -200,6 +208,7 @@ console.log('\n④ 화면 — js/monitor-wall.js 의 회선 칸을 오려 내 �
   const old = text(ko.sigHtml('r-old'));
   ok(old === '🔴 610ms · 9.2%', `by_role 이 없으면 예전 한 줄 그대로 (실측 «${old}»)`);
   ok(text(ko.sigHtml('nope')) === '—', '(짝) 그 방 자료가 아예 없으면 «—»');
+  ok(text(mk(false, { quality: { z: { avg_rtt: null, avg_loss: null, windows: 3 } }, alerts: {} }).sigHtml('z')) === '—', '방 단위 값이 «모름»(null) 이면 «—» — 초록불이 아니다');
   // 기준 한 곳 — 경계 앞뒤
   const L1 = ko.lvl;
   ok(L1({ avg_loss: 4.9, avg_rtt: 399 }) === 1 && L1({ avg_loss: 5, avg_rtt: 0 }) === 2 && L1({ avg_loss: 0, avg_rtt: 400 }) === 2, '나쁨(2) 경계: 손실 5% · RTT 400ms');
