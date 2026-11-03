@@ -205,8 +205,19 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
+      # ⚡ 체크아웃 빠르게 (2026-11-03) — 지난번 .git 을 캐시에서 되살리면 아래 checkout 이 «바뀐 것만» 받습니다.
+      #    이 잡도 «읽기만» 합니다. 저장은 맨 아래 git-cache 잡 하나(이유는 그 잡 주석).
+      - name: Restore .git cache (faster checkout)
+        uses: actions/cache/restore@v4
+        with:
+          path: .git
+          key: repo-git-v1-${{ github.run_id }}
+          restore-keys: repo-git-v1-
+
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -528,3 +539,51 @@ jobs:
               echo "커밋: \`${{ github.sha }}\`"
             fi
           } >> $GITHUB_STEP_SUMMARY
+
+  # ─── ⚡ git 캐시 저장 — 한 주에 한 번, «새로 받은» .git 만 (2026-11-03) ──────────────
+  #  왜: checkout 이 매번 저장소 전체(약 1.9GB — 대부분 public/media·library·img)를 새로 받아
+  #      46~307초가 걸렸다(2026-11-03 실측). 모든 워크플로가 checkout 앞에서 이 잡이 저장한 .git 을
+  #      되살리면 checkout 이 «그 사이 바뀐 것만» 받는다(실측 되살리기+checkout 15~33초).
+  #      받은 뒤의 파일은 전과 같다 — checkout 이 clean·reset 하고 정확한 sha 를 다시 checkout 한다.
+  #  ⛔ 저장은 «이 잡 하나» — 그리고 이 잡은 checkout 말고 아무것도 돌리지 않는다.
+  #     ① 배포 잡에서 저장하면 npm ci 설치 스크립트·wrangler 같은 남의 코드가 «저장 전에» .git 을
+  #        건드릴 수 있고(hooks·config·객체), 그것이 캐시를 타고 모든 PR·다음 배포의 checkout 에 실린다.
+  #     ② PR 이 저장하면 PR 마다 1.5GB 가 쌓여 캐시 한도(10GB)를 밀어내고 npm 캐시까지 지운다.
+  #  ⛔ 지난 캐시를 되살려 «이어» 저장하지 않는다 — 매주 GitHub 에서 «새로» 받는다.
+  #     이어 붙이면 옛 객체가 영영 안 지워져 캐시가 한 달에 약 1GB 씩 커지고(추정),
+  #     한 번 오염되면 그 오염도 매주 이어진다.
+  #  ⚠️ 열쇠는 «주 단위» — 그 주에 이미 있으면(lookup-only) 아무것도 안 받고 끝난다.
+  #     그래서 이 잡은 그 주 첫 실행에서만 checkout(46~307초)+저장(약 6초)을 하고, 나머지는 몇 초다.
+  #     배포 잡과 다른 러너에서 동시에 돌아 배포를 늦추지 않는다.
+  #  감시: test-harness/git_cache_checkout_harness.mjs
+  git-cache:
+    name: Save weekly .git cache (faster checkout)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Pick weekly .git cache key
+        id: gitkey
+        run: echo "key=repo-git-v1-$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Is this week's .git cache already saved?
+        id: lookup
+        uses: actions/cache/restore@v4
+        with:
+          path: .git
+          key: ${{ steps.gitkey.outputs.key }}
+          lookup-only: true
+
+      - name: Fresh checkout for the cache
+        if: steps.lookup.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Save .git cache
+        if: steps.lookup.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .git
+          key: ${{ steps.gitkey.outputs.key }}
