@@ -11,7 +11,10 @@ const home=read('cloudflare-deploy/public/js/ai-dubbing-home.js');
 const main=read('cloudflare-deploy/public/js/ai-dubbing.js');
 const tick=()=>new Promise(r=>setImmediate(r));
 function deferred(){let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return{promise,resolve,reject};}
-async function until(check){for(let i=0;i<30;i++){if(check())return;await tick();}assert.fail('Timed out waiting for the player to settle');}
+// «최소 30틱 + 최대 5초» 기다린다 / wait ≥30 ticks, up to 5 s.
+//   예전엔 30틱(setImmediate 30번)만 기다렸다. 파일 해시처럼 스레드풀에서 끝나는 일은 CPU 가 바쁘면
+//   30틱 안에 안 끝나 거짓 FAIL 이 났다(2026-11-03 하니스 동시 실행 실측: 8개 동시 3/8 실패 → 이 수정 뒤 0).
+async function until(check){const end=Date.now()+5000;for(let i=0;;i++){if(check())return;if(i>=30&&Date.now()>end)break;await tick();}assert.fail('Timed out waiting for the player to settle');}
 class El {
   constructor(tag='div'){this.tagName=tag;this.children=[];this.events=new Map();this.attrs={};this.style={};this.hidden=false;this.disabled=false;this.checked=false;this.value='';this.innerHTML='';this._text='';this.classes=new Set();this.classList={add:(...xs)=>xs.forEach(x=>this.classes.add(x)),remove:(...xs)=>xs.forEach(x=>this.classes.delete(x)),contains:x=>this.classes.has(x),toggle:(x,on)=>{if(on===undefined)on=!this.classes.has(x);on?this.classes.add(x):this.classes.delete(x);}};}
   set textContent(v){this._text=String(v);this.children=[];} get textContent(){return this._text+this.children.map(x=>x.textContent).join('');}

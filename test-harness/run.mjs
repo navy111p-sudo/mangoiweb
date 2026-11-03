@@ -1,13 +1,28 @@
 // run.mjs — 하니스 전체 러너 (2026-07-19)
 //   · 정적 서버(8791) 자동 기동 → puppeteer 하니스가 localhost:8791 로 로컬 페이지 로드
-//   · 모든 *_harness.mjs 를 순차 실행하고 결과를 3분류로 요약:
+//   · 모든 *_harness.mjs 를 실행하고 결과를 3분류로 요약:
 //       ✅ PASS         — 통과
 //       ⏭ SKIP(E2E)    — 활성 화상수업/브라우저 상태가 필요한 E2E (헤드리스로는 원래 불가)
 //       ⚠ FAIL         — 실제 확인 필요 (리팩토링 노후화 아님)
 //   · 실제 FAIL 이 하나라도 있으면 exit 1. 실행:  node test-harness/run.mjs
+//
+// ⚡ 동시 실행 (2026-11-03) / Parallel run
+//   그전엔 하니스 660여 개를 «하나씩» 돌려 CI 배포 게이트 한 번에 약 7분이 걸렸다
+//   (PR 검사 7분 + 병합 후 배포에서 같은 게이트 7분 = 사람은 15분 넘게 기다렸다).
+//   하니스끼리는 서로 독립이라 fast 모드는 CPU 수만큼 «동시에» 돌린다. 검사 목록·판정·
+//   재시도·기준선은 하나도 바뀌지 않는다 — 바뀌는 것은 «언제 도는가» 뿐이다.
+//   · 동시 개수: fast 기본 = CPU 수, full(브라우저 E2E) 기본 = 1(예전 그대로)
+//       바꾸기 --jobs=N 또는 HARNESS_JOBS=N · 예전처럼 하나씩 --serial
+//   · ⛔ 저장소 안 공용 자리에 파일을 «쓰는» 하니스는 EXCLUSIVE 에 넣어 «혼자» 먼저 돌린다
+//       (예: 소스 폴더에 변이 사본을 잠깐 만들면, 같은 순간 소스 폴더를 훑는 옆 하니스가
+//        그 사본을 보고 거짓 FAIL 이 난다). 새 하니스가 그런 일을 하면 거기에 이름을 더할 것.
+//   · 동시 실행 중 FAIL 난 하니스는 마지막에 «혼자» 한 번 더 돌린다 — 옆 하니스 탓이었으면
+//       통과하고, 진짜 고장이면 두 번 다 FAIL 이다. 혼자 돌려야만 통과한 이름은 요약에 따로
+//       찍는다(EXCLUSIVE 에 넣어야 할 후보라는 신호).
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
+import { availableParallelism, cpus } from 'node:os';
 import http from 'node:http';
 import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -52,9 +67,37 @@ if (!FAST) {
   console.log('⚡ fast 모드 — puppeteer E2E 제외, 소스/fetch 하니스만');
 }
 
-// ── 하니스 순차 실행 ──
+// ── 동시 실행 개수 / How many harnesses run at once ──
+const JOBS = (() => {
+  if (process.argv.includes('--serial')) return 1;
+  const a = process.argv.find(x => x.startsWith('--jobs='));
+  const n = Number(a ? a.slice('--jobs='.length) : process.env.HARNESS_JOBS);
+  if (Number.isInteger(n) && n >= 1) return n;
+  if (!FAST) return 1;   // 브라우저 E2E 를 여러 개 띄우면 서로 느려져 시간초과(SKIP)가 늘어난다 — 예전 그대로
+  const cpu = typeof availableParallelism === 'function' ? availableParallelism() : cpus().length;
+  return Math.max(1, cpu);
+})();
+
+// ── 혼자 돌려야 하는 하니스 / Must run alone (before the parallel pool) ──
+//   저장소 안 «여럿이 함께 읽는 자리» 에 파일을 만들거나 지우거나 고치는 하니스들이다.
+//   2026-11-03 에 하니스마다 실행 전후 저장소 파일·폴더 mtime 을 비교해 찾았다(실측).
+//   ⛔ 이 목록에서 빼려면 그 하니스가 더는 저장소에 쓰지 않는다는 것을 먼저 확인할 것.
+const EXCLUSIVE = new Set([
+  'asset_version_harness.mjs',            // 새 ?v= 를 만나면 asset-versions.json 을 고쳐 쓴다 — recording_diagnosis·today_plan 이 그 파일을 읽는다
+  'correction_reason_harness.mjs',        // cloudflare-deploy/src/__cr_mutant.ts 를 잠깐 만든다 — src 를 훑는 하니스가 함께 보면 거짓 FAIL
+  'pii_mask_harness.mjs',                 // test-harness/.build/ 에 빌드한다 …
+  'recordings_cleanup_harness.mjs',       // … 그리고 이 하니스가 끝에 test-harness/.build/ 를 통째로 지운다
+  'azure_pronunciation_harness.mjs',      // test-harness/.azure-pron*.mjs 를 만들었다 지운다 ┐ harness_portability 가 test-harness/*.mjs 를
+  'teacher_legacy_login_harness.mjs',     // test-harness/.legacy-teacher-auth.built.mjs     │ 전부 읽는다 — 목록에 잡힌 뒤 지워지면 ENOENT 로 죽는다
+  'voice_acoustic_harness.mjs',           // test-harness/.voice-acoustic.built.mjs          │
+  'voice_score_calibration_harness.mjs',  // test-harness/.calib-voice-score.mjs             │
+  'voice_score_harness.mjs',              // test-harness/.voice-score.built.mjs             ┘
+]);
+
+// ── 실행할 하니스 고르기 / Pick harnesses ──
 const files = readdirSync(__dir).filter(f => f.endsWith('_harness.mjs')).sort();
 const rows = [];
+const tasks = [];
 for (const f of files) {
   if (FAST) {
     // 게이트 제외: git worktree==HEAD 무결성 검사가 있어 커밋 전 게이트에선 미커밋 변경으로 항상 실패(오탐)
@@ -62,28 +105,96 @@ for (const f of files) {
     let body = ''; try { body = readFileSync(join(__dir, f), 'utf8'); } catch {}
     if (usesPuppeteer(body)) { rows.push({ f, cat: 'SKIP', note: '⏭ E2E(fast 제외)' }); continue; }
   }
-  process.stdout.write('  ▶ ' + f + ' … ');
-  let [cat, note, out] = runHarness(f);
-  // 일시적 라이브 blip(동시 배포 등) 흡수: 실패면 1회 재시도, 두 번 실패해야 진짜 FAIL
-  if (cat === 'FAIL') { const [c2, n2, o2] = runHarness(f); if (c2 !== 'FAIL') { cat = c2; note = n2 + ' (재시도 통과)'; out = o2; } }
-  rows.push({ f, cat, note, out });
-  console.log(note);
+  tasks.push(f);
+}
+const solo = tasks.filter(f => EXCLUSIVE.has(f));
+const pool = tasks.filter(f => !EXCLUSIVE.has(f));
+const t0 = Date.now();
+console.log(`  ⚙ 동시 실행 ${JOBS}개 · 혼자 먼저 ${solo.length}개 + 동시 ${pool.length}개`);
+
+// 한 줄 결과 + 실패 출력 / Print one result line (+ failure tail)
+function report(r) {
+  console.log('  ▶ ' + r.f + ' … ' + r.note);
   // 🔊 실패하면 «왜» 를 여기서 바로 보여 준다.
   //   그전엔 분류만 찍고 하니스 출력을 버렸다. 로컬에서는 그 하니스를 직접 다시 돌리면 되지만
   //   **CI 에서는 그럴 수가 없다** — 2026-08-10 에 CI 만 실패했을 때 로그에 이유가 한 줄도 없어
   //   원인을 추측으로 좁혀야 했다. 진단 없는 게이트는 사람을 막을 뿐 돕지 않는다.
-  if (cat === 'FAIL') {
-    const tail = String(out || '').split('\n').filter(l => l.trim()).slice(-14);
+  if (r.cat === 'FAIL') {
+    const tail = String(r.out || '').split('\n').filter(l => l.trim()).slice(-14);
     console.log('    ┌─ 실패 출력(마지막 14줄) ' + '─'.repeat(24));
     tail.forEach(l => console.log('    │ ' + l.slice(0, 160)));
     console.log('    └' + '─'.repeat(48));
   }
 }
 
+// 한 번 돌리고, FAIL 이면 한 번 더 / Run once; on FAIL retry once
+//   일시적 라이브 blip(동시 배포 등) 흡수: 두 번 실패해야 진짜 FAIL
+async function runWithRetry(f) {
+  let [cat, note, out] = await runHarness(f);
+  if (cat === 'FAIL') { const [c2, n2, o2] = await runHarness(f); if (c2 !== 'FAIL') { cat = c2; note = n2 + ' (재시도 통과)'; out = o2; } }
+  return { f, cat, note, out };
+}
+
+// ① 혼자 돌려야 하는 것부터 하나씩 / Exclusive ones first, one by one
+for (const f of solo) { const r = await runWithRetry(f); rows.push(r); report(r); }
+
+// ② 나머지는 JOBS 개씩 동시에 — 결과 줄은 이름 순서대로 찍는다(로그가 매번 같은 모양)
+//    Rest in parallel; lines are printed in name order so the log reads the same every run
+const done = new Array(pool.length);
+let nextPrint = 0, nextRun = 0;
+async function worker() {
+  while (nextRun < pool.length) {
+    const i = nextRun++;
+    done[i] = await runWithRetry(pool[i]);
+    while (nextPrint < pool.length && done[nextPrint]) report(done[nextPrint++]);
+  }
+}
+await Promise.all(Array.from({ length: Math.min(JOBS, pool.length) }, worker));
+
+// ③ 동시에 돌다 FAIL 난 것은 «혼자» 한 번 더 — 옆 하니스 탓인지 가려낸다
+//    Re-run pool FAILs alone: interference passes, real breakage fails again
+const soloPassed = [];
+for (let i = 0; i < done.length; i++) {
+  if (JOBS > 1 && done[i].cat === 'FAIL') {
+    const r = await runWithRetry(done[i].f);
+    if (r.cat !== 'FAIL') { r.note += ' (혼자 다시 돌려 통과)'; soloPassed.push(r.f); }
+    console.log('  ↻ 혼자 다시: ' + r.f + ' … ' + r.note);
+    done[i] = r;
+  }
+  rows.push(done[i]);
+}
+rows.sort((a, b) => (a.f < b.f ? -1 : a.f > b.f ? 1 : 0));
+
 function runHarness(f) {
-  const r = spawnSync('node', [join(__dir, f)], { encoding: 'utf8', timeout: 90000, cwd: dirname(__dir) });
+  return new Promise((res) => {
+    let child;
+    const so = [], se = [];
+    let timedOut = false, settled = false, killTimer = null;
+    const finish = (status, error) => {
+      if (settled) return; settled = true;
+      clearTimeout(timer); clearTimeout(killTimer);
+      res(classify(f, { status, error, timedOut,
+        stdout: Buffer.concat(so).toString('utf8'), stderr: Buffer.concat(se).toString('utf8') }));
+    };
+    // 90초가 지나면 끝낸다(예전 spawnSync timeout 과 같은 값). 안 죽으면 5초 뒤 강제 종료.
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try { child.kill('SIGTERM'); } catch {}
+      killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, 5000);
+    }, 90000);
+    try {
+      child = spawn('node', [join(__dir, f)], { cwd: dirname(__dir), stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (e) { finish(null, e); return; }
+    child.stdout.on('data', (d) => so.push(d));
+    child.stderr.on('data', (d) => se.push(d));
+    child.on('error', (e) => finish(null, e));
+    child.on('close', (code) => finish(code, null));
+  });
+}
+
+function classify(f, r) {
   const out = (r.stdout || '') + '\n' + (r.stderr || '');
-  const timedOut = !!(r.error && (r.error.code === 'ETIMEDOUT' || r.error.signal === 'SIGTERM'));
+  const timedOut = !!r.timedOut;
   const tail = out.split('\n').slice(-25).join('\n');
   const crash = /ERR_CONNECTION_REFUSED|puppeteer|Cannot read properties|Protocol error|net::|TargetCloseError|Navigation timeout/i.test(out);
   // 실제 '0 아닌' 실패 카운트만 잡는다 ("0 실패"/"0 FAIL" 은 통과)
@@ -117,6 +228,12 @@ const fails = rows.filter(r => r.cat === 'FAIL');
 if (fails.length) { console.log('\n  ⚠ 실제 확인 필요:'); fails.forEach(r => console.log('    - ' + r.f)); }
 const skips = rows.filter(r => r.cat === 'SKIP');
 if (skips.length) { console.log('\n  ⏭ E2E(정상 — 라이브 화상수업/브라우저 상태 필요, 헤드리스 제외):'); skips.forEach(r => console.log('    - ' + r.f)); }
+if (soloPassed.length) {
+  // 동시에 돌 때만 실패 = 옆 하니스와 저장소 안 파일을 함께 쓰고 있을 가능성이 크다 → EXCLUSIVE 후보
+  console.log('\n  🔀 동시 실행에서만 실패하고 혼자 돌리니 통과 (run.mjs EXCLUSIVE 에 넣을 후보):');
+  soloPassed.forEach(f => console.log('    - ' + f));
+}
+console.log(`\n  ⏱ 걸린 시간 ${((Date.now() - t0) / 1000).toFixed(0)}초 · 동시 ${JOBS}개`);
 console.log('═'.repeat(60));
 
 // ── 기준선(baseline) 검사 ── (2026-08-09 신설)
