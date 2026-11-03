@@ -1071,15 +1071,18 @@
       if (g.listen_bonus) { earned += g.listen_bonus; gamState.listenDone = true; }
       updateHUD();
       const newLevel = calcLevel(gamState.lifetime);
+      /* 🪙 (2026-11-03) 축하 배너가 뜨는 턴에도 «이번에 받은 포인트» 를 함께 — 예전엔 축하가 «+2P» 알림 자리를
+         대신해서 그 턴 포인트가 안 보였다. 금액은 서버가 이번 턴에 실제로 준 값(earned)만. 0 이면 붙이지 않는다. */
+      const ptsTag = earned > 0 ? '  ⭐ +' + earned + 'P' : '';
       if (newLevel.n > prevLevel && gamState.lifetime > 1) {
         celebrate('🥭', (isEn() ? 'LEVEL UP! ' : '레벨 업! ') + 'Lv.' + newLevel.n + ' ' + (isEn() ? newLevel.nameEn : newLevel.name),
-          isEn() ? 'Your Mango is growing!' : '망고가 무럭무럭 자라고 있어요!');
+          (isEn() ? 'Your Mango is growing!' : '망고가 무럭무럭 자라고 있어요!') + ptsTag);
       } else if (g.word_bonus) {
-        celebrate('✨', isEn() ? "Today's word used! +5P" : '오늘의 단어 사용! +5P',
-          '"' + (gamState.word ? gamState.word.w : '') + '" — ' + (isEn() ? 'Great vocabulary!' : '멋진 단어 실력이에요!'));
+        celebrate('✨', isEn() ? "Today's word used!" : '오늘의 단어 사용!',
+          '"' + (gamState.word ? gamState.word.w : '') + '" — ' + (isEn() ? 'Great vocabulary!' : '멋진 단어 실력이에요!') + ptsTag);
       } else if (prevToday < 5 && gamState.today >= 5) {
         celebrate('🏆', isEn() ? 'Quest complete: 5 chats!' : '퀘스트 달성: 영어 수다 5번!',
-          isEn() ? 'You are on fire today!' : '오늘 영어 실력이 불타오르고 있어요!');
+          (isEn() ? 'You are on fire today!' : '오늘 영어 실력이 불타오르고 있어요!') + ptsTag);
       } else if (earned > 0) {
         ptToast('+' + earned + 'P ⭐');
       } else if (gamState.chatCapped && !prevCapped && !gamState.guest) {
