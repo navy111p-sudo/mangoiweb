@@ -20,16 +20,29 @@
  *
  * 실행: node test-harness/inline_js_syntax_harness.mjs
  *      MANGOI_ROOT=<폴더> 로 대상 교체 (역검증용)
+ *
+ * ⚡ 동시 검사 (2026-11-03) / Parallel check
+ *   조각 1,500여 개를 하나씩 `node --check` 하느라 CI 에서 41초(로컬 47초)가 걸렸다.
+ *   검사 방법(조각마다 `node --check`)은 그대로 두고, CPU 수만큼 «동시에» 띄운다.
+ *   결과는 원래 순서대로 모아 찍으므로 출력도 예전과 같다.
+ *   동시 개수 바꾸기: SYNTAX_JOBS=N (1 = 예전처럼 하나씩)
  */
 import { readFileSync, readdirSync, statSync, writeFileSync, mkdtempSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, extname } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpdir, availableParallelism, cpus } from 'node:os';
 
+const execFileAsync = promisify(execFile);
 const ROOT = process.env.MANGOI_ROOT || join(dirname(fileURLToPath(import.meta.url)), '..');
 const PUB = join(ROOT, 'cloudflare-deploy', 'public');
 const TMP = mkdtempSync(join(tmpdir(), 'mangoi-syntax-'));
+const JOBS = (() => {
+  const n = Number(process.env.SYNTAX_JOBS);
+  if (Number.isInteger(n) && n >= 1) return n;
+  return Math.max(1, typeof availableParallelism === 'function' ? availableParallelism() : cpus().length);
+})();
 
 let checked = 0, failed = 0;
 const failures = [];
@@ -48,12 +61,14 @@ function listFiles(dir, out = []) {
   return out;
 }
 
-/** node --check 로 한 조각을 검사. 통과=null, 실패=에러 첫 줄들 */
-function syntaxError(code, tag) {
-  const f = join(TMP, tag.replace(/[^\w.-]/g, '_') + '.js');
+/** node --check 로 한 조각을 검사. 통과=null, 실패=에러 첫 줄들
+ *  ⚠️ 임시 파일 이름 앞에 순번(seq)을 붙인다 — 동시에 돌 때 «/ 를 _ 로 바꾼» 이름이 우연히
+ *     같은 두 조각(js/a_b.js 와 js_a/b.js)이 서로의 파일을 덮어쓰지 않게. */
+async function syntaxError(code, tag, seq) {
+  const f = join(TMP, seq + '_' + tag.replace(/[^\w.-]/g, '_') + '.js');
   writeFileSync(f, code, 'utf8');
   try {
-    execFileSync(process.execPath, ['--check', f], { stdio: 'pipe' });
+    await execFileAsync(process.execPath, ['--check', f]);
     return null;
   } catch (e) {
     const raw = (e.stderr && e.stderr.toString('utf8')) || String(e.message || e);
@@ -73,6 +88,10 @@ const files = listFiles(PUB);
 const htmls = files.filter(f => extname(f).toLowerCase() === '.html');
 const jss = files.filter(f => extname(f).toLowerCase() === '.js');
 
+// 검사할 조각을 먼저 «순서대로» 모은 뒤(①②) 한꺼번에 동시에 검사한다(③).
+// Collect fragments in order first, then check them concurrently.
+const jobs = [];
+
 // ── ① HTML 안의 인라인 <script> ──────────────────────────────────────
 //   src= 가 있는 건 외부 파일이라 여기선 건너뛴다(아래 ②에서 따로 본다).
 //   type 이 module/JSON/템플릿인 것도 제외 — JS 문법으로 볼 대상이 아니다.
@@ -90,11 +109,7 @@ for (const f of htmls) {
     const type = typeM ? typeM[1].toLowerCase() : '';
     if (type && !/^(text\/javascript|application\/javascript|module)$/.test(type)) continue;
     checked++;
-    const err = syntaxError(body, `${rel.replace(/\//g, '_')}_${idx}`);
-    if (err) {
-      failed++;
-      failures.push({ file: rel, where: `인라인 script #${idx}`, ...err });
-    }
+    jobs.push({ file: rel, where: `인라인 script #${idx}`, code: body, tag: `${rel.replace(/\//g, '_')}_${idx}` });
   }
 }
 
@@ -105,8 +120,22 @@ for (const f of jss) {
   // ESM(import/export)은 --check 가 CJS 로 파싱해 오탐 → 모듈로 저장해 검사
   const isModule = /^\s*(import|export)\s/m.test(code);
   checked++;
-  const err = isModule ? null : syntaxError(code, rel.replace(/\//g, '_'));
-  if (err) { failed++; failures.push({ file: rel, where: '파일 전체', ...err }); }
+  if (!isModule) jobs.push({ file: rel, where: '파일 전체', code, tag: rel.replace(/\//g, '_') });
+}
+
+// ── ③ 모은 조각을 JOBS 개씩 동시에 검사 → 결과는 모은 순서대로 ─────────
+const results = new Array(jobs.length);
+let nextJob = 0;
+async function worker() {
+  while (nextJob < jobs.length) {
+    const i = nextJob++;
+    results[i] = await syntaxError(jobs[i].code, jobs[i].tag, i);
+  }
+}
+await Promise.all(Array.from({ length: Math.min(JOBS, jobs.length) }, worker));
+for (let i = 0; i < jobs.length; i++) {
+  const err = results[i];
+  if (err) { failed++; failures.push({ file: jobs[i].file, where: jobs[i].where, ...err }); }
 }
 
 console.log(`  검사한 조각: ${checked}개  (HTML ${htmls.length}개 · JS ${jss.length}개)`);
