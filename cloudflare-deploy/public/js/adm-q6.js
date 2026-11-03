@@ -729,6 +729,22 @@
     return !!(t && t.items && t.items.some(function(it){ return it && it.kind !== 'off'; }));
   }
 
+  /* 📜 달력 칸의 스크롤 위치를 넣는다 — 다시 그린 «직후» 에 부른다.
+     ⚠️ 이 카드는 `#legacy-cards details{content-visibility:auto}`(admin-inline-c.css — 화면 밖 카드 렌더 생략) 안에 있다.
+     카드가 렌더 생략 상태인데 포커스(접힌 요일 머리글 — tabindex=0 이라 마우스로 눌러도 포커스가 간다)만으로 살아 있다가
+     그 포커스 요소를 innerHTML 로 지우면, 바로 뒤의 scrollTop 대입을 크로미움이 조용히 무시한다(2026-11-03 실측: 넣은 직후
+     다시 읽으면 0 · 그 규칙을 끄면 안 남 · scrollHeight 를 한 번 읽고 넣으면 들어감) → 보던 시간대가 맨 위(06시)로 튀었다.
+     사람이 카드를 보며 누를 때는 카드가 화면 안이라 거의 안 닿는다 — 그래도 상태와 무관하게 지키려고 배치를 먼저 읽어
+     확정하고 넣고, 그래도 안 들어갔으면 다음 화면 갱신 때 한 번 더 넣는다. */
+  function ph54SetScrollTop(el, v){
+    if (!el || typeof v !== 'number' || !(v >= 0)) return;   // ⚠️ null >= 0 은 참 — 숫자인지 먼저
+    void el.scrollHeight;
+    el.scrollTop = v;
+    if (Math.abs(el.scrollTop - v) > 1 && v <= el.scrollHeight - el.clientHeight && window.requestAnimationFrame){
+      requestAnimationFrame(function(){ if (el.isConnected) el.scrollTop = v; });
+    }
+  }
+
   /* 🧾 클릭이 «카드 위» 라서 무시해야 하는가. 취소·연기 카드는 «비어 있는 시간» 이라 통과시킨다 —
      고치기 전에는 그 자리가 빈칸이라 눌러서 차단할 수 있었다(함정 대조 2026-11-03: 카드가 그 길을 막고 있었다). */
   function ph54CardBlocksClick(t){
@@ -1115,11 +1131,11 @@
     wrap.innerHTML = html;
     var calBody = document.getElementById('ph54-cal-body');
     if (calBody){
-      if (keepTop >= 0) calBody.scrollTop = keepTop;
+      if (keepTop >= 0) ph54SetScrollTop(calBody, keepTop);
       else {
         var firstSt = -1, src = accordion ? byDay[openDay].teachers : byDay.reduce(function(a, b){ return a.concat(b.teachers); }, []);
         src.forEach(function(t){ t.items.forEach(function(it){ if (firstSt < 0 || it.st < firstSt) firstSt = it.st; }); });
-        if (firstSt >= 0) calBody.scrollTop = Math.max(0, (firstSt - 60 - PH54_START_H*60) / 60 * PH54_HOUR_PX);
+        if (firstSt >= 0) ph54SetScrollTop(calBody, Math.max(0, (firstSt - 60 - PH54_START_H*60) / 60 * PH54_HOUR_PX));
       }
     }
     // 🗂 접힌 요일(띠·머리글) → 펼치기 / 강사 머리글 → 그 강사만 보기

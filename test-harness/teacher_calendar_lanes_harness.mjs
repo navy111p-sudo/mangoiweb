@@ -111,7 +111,10 @@ console.log('\n[ B. 렌더 배선 — 함수가 «있는가» 가 아니라 «�
   check('접힌 띠·머리글 클릭 → 그 요일 펼침', /querySelectorAll\('\.ph54-cal-fold, \.ph54-cal-fold-head'\)/.test(render) && /ph54State\.openDay = parseInt\(el\.getAttribute\('data-day'\), 10\); ph54Render\(\);/.test(render));
   check('강사 머리글 클릭 → 그 강사만', /querySelectorAll\('\.ph54-cal-subhead\[data-teacher\]'\)/.test(render) && /ph54State\.teacherFilter = el\.getAttribute\('data-teacher'\)/.test(render));
   check('키보드(Enter·Space)로도 열린다', (render.match(/e\.key === 'Enter' \|\| e\.key === ' '/g) || []).length >= 2);
-  check('다시 그려도 스크롤 위치를 지킨다', /var keepTop = prevBody \? prevBody\.scrollTop : -1;/.test(render) && /if \(keepTop >= 0\) calBody\.scrollTop = keepTop;/.test(render));
+  // 2026-11-04: 직접 대입(calBody.scrollTop = keepTop)은 렌더 생략된 카드에서 무시될 때가 있어 ph54SetScrollTop 으로 — [E] 에서 실제로 돌린다
+  check('다시 그려도 스크롤 위치를 지킨다(이전 값을 읽어 ph54SetScrollTop 으로 넣는다)', /var keepTop = prevBody \? prevBody\.scrollTop : -1;/.test(render) && /if \(keepTop >= 0\) ph54SetScrollTop\(calBody, keepTop\);/.test(render));
+  check('처음 그릴 때(첫 수업 한 시간 위)도 같은 도우미로 넣는다', /if \(firstSt >= 0\) ph54SetScrollTop\(calBody, /.test(render));
+  check('렌더 안에서 calBody.scrollTop 에 «직접» 대입하는 줄이 없다', !/calBody\.scrollTop\s*=(?!=)/.test(render));
   check('드롭 자리에 접힌 띠도 포함(.ph54-cal-col, .ph54-cal-fold)', /var PH54_DROP_SEL = '\.ph54-cal-col, \.ph54-cal-fold';/.test(render) && (render.match(/closest\(PH54_DROP_SEL\)/g) || []).length >= 4);
   check('접힌 띠에 놓으면 그 요일을 펼친다', /if \(col\.classList\.contains\('ph54-cal-fold'\)\) ph54State\.openDay = newCol;/.test(render));
   // 2026-10-10: 드롭이 옛 단건 PATCH(day_of_week 만 보냄 → 날짜 지정 수업은 날짜가 안 바뀌던 버그)에서
@@ -216,7 +219,7 @@ console.log('\n[ D. 취소·연기 카드 — 실제로 돌린다 ]');
   check('D-4 범례가 «모름» 을 «?» 로(0 이라고 단정하지 않는다)', /\(!ph54State\.offComplete && !offEvents\.length\) \? '\?'/.test(render));
   check('D-4 범례 한/영(✕ 취소 · ⏸ 연기 / ✕ Cancelled · ⏸ Postponed)', /✕ 취소 · ⏸ 연기/.test(render) && /✕ Cancelled · ⏸ Postponed/.test(render));
   const jsV2 = Number((HTML.match(/adm-q6\.js\?v=(\d+)/) || [])[1] || 0);
-  check('D-4 admin.html 의 adm-q6.js ?v= 가 21 이상', jsV2 >= 21, `v=${jsV2}`);
+  check('D-4 admin.html 의 adm-q6.js ?v= 가 22 이상', jsV2 >= 22, `v=${jsV2}`);
 
   // D-7 (2026-11-04 사장님 「빈 N분 점선 상자도 같이 보이게 해줘」) 취소·연기 칸은 빈 자리를 «점유» 하지 않는다 — 실제로 돌린다
   {
@@ -299,6 +302,42 @@ console.log('\n[ D. 취소·연기 카드 — 실제로 돌린다 ]');
   }
   check('D-5 일부만일 때 설명이 «누가·사유 일부 + 건수는 정확» 을 말한다', /누가·언제·사유를 일부 불러오지 못했습니다 \(건수는 정확합니다\)/.test(render) && /the count is exact/.test(render));
   check('D-5 EN 카드는 유형 이름도 영어(학생이 없을 때)', /typeEn\[s\.type\]/.test(cardSrc));
+}
+
+console.log('\n[ E. 스크롤 위치 넣기 도우미 — 실제로 돌린다 ]');
+{
+  /* 2026-11-04 사장님 「스크롤 위치 유지 실패도 고쳐줘」. 카드가 content-visibility:auto 로 렌더 생략된 상태에서
+     포커스 요소(접힌 요일 머리글)를 지운 직후엔 scrollTop 대입이 무시된다 — 배치(scrollHeight)를 «먼저» 읽으면 들어간다(실측).
+     가짜 요소: scrollHeight 를 읽기 «전» 의 대입은 무시한다(그 상태를 흉내). */
+  const src = fn('ph54SetScrollTop');
+  check('E ph54SetScrollTop 을 소스에서 오려 냈다', src.length > 80, `len=${src.length}`);
+  let S = null, rafQ = [];
+  try { S = new Function('window', 'requestAnimationFrame', src + '\nreturn ph54SetScrollTop;')({ requestAnimationFrame: 1 }, (cb) => rafQ.push(cb)); }
+  catch (e) { check('E 도우미 실행 준비', false, String(e)); }
+  const mkEl = (opt = {}) => ({ _st: 0, _laid: !!opt.laid, _stuck: !!opt.stuck, isConnected: true, clientHeight: 560,
+    get scrollHeight(){ this._laid = true; return 999; },
+    get scrollTop(){ return this._st; },
+    set scrollTop(v){ if (this._laid && !this._stuck) this._st = Math.max(0, Math.min(v, 999 - 560)); } });
+  if (S) {
+    let e = mkEl(); rafQ = [];
+    try { S(e, 250); } catch (er) { check('E 도우미가 던지지 않는다', false, String(er)); }
+    check('🔴 E 배치가 늦은 칸에도 «그 자리에서» 들어간다(250)', e.scrollTop === 250, String(e.scrollTop));
+    check('E 들어갔으면 다음 화면 갱신 때 다시 넣지 않는다', rafQ.length === 0, String(rafQ.length));
+    e = mkEl({ laid: true }); rafQ = []; S(e, 300);
+    check('E 평소(배치가 된 칸)도 그대로 들어간다(300)', e.scrollTop === 300 && rafQ.length === 0, JSON.stringify([e.scrollTop, rafQ.length]));
+    e = mkEl({ stuck: true }); rafQ = []; S(e, 200);
+    check('E 그래도 안 들어갔으면 다음 화면 갱신 때 한 번 더 넣는다(대기 1건)', e.scrollTop === 0 && rafQ.length === 1, JSON.stringify([e.scrollTop, rafQ.length]));
+    e._stuck = false; rafQ.forEach((cb) => cb());
+    check('E 그 한 번 더에서 들어간다(200)', e.scrollTop === 200, String(e.scrollTop));
+    e = mkEl({ stuck: true }); rafQ = []; S(e, 200); e.isConnected = false; e._stuck = false; rafQ.forEach((cb) => cb());
+    check('E 그 사이 다시 그려져 떨어진 칸에는 안 넣는다', e.scrollTop === 0, String(e.scrollTop));
+    e = mkEl({ stuck: true }); rafQ = []; S(e, 5000);
+    check('E 스크롤 끝보다 큰 값은 다시 시도하지 않는다(끝까지 간 것이 정상)', rafQ.length === 0, String(rafQ.length));
+    e = mkEl({ laid: true }); e._st = 120; rafQ = []; S(e, -1); S(e, null); S(null, 100);
+    check('E 값이 없거나(-1·null) 칸이 없으면 아무것도 안 한다', e.scrollTop === 120 && rafQ.length === 0, JSON.stringify([e.scrollTop, rafQ.length]));
+    e = mkEl({ laid: true }); e._st = 120; rafQ = []; S(e, 0);
+    check('E 0 은 정당한 값 — 맨 위로 넣는다', e.scrollTop === 0, String(e.scrollTop));
+  }
 }
 
 console.log('\n════════════════════════════════════════');

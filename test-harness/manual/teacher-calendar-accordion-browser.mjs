@@ -169,13 +169,44 @@ const measure = () => {
     check('카페24 카드가 Hannah(8) 열에 · draggable 없음', m.c24.length === 1 && m.c24[0].col === '8' && m.c24[0].draggable === null, JSON.stringify(m.c24));
 
     console.log('\n[ ⑤ 접힌 요일 펼치기 ]');
+    /* ⚠️ page.click() 을 쓰지 마세요 — 누르기 전에 그 머리글을 «화면에 보이게» 하려고 스크롤하는데, 머리글이
+       달력 칸(#ph54-cal-body) «안» 의 sticky 라 그 칸을 0 으로 되돌립니다(누르기 «전» 에 0 — 2026-11-03 이벤트 기록으로 확인).
+       사람이 누를 때는 sticky 머리글이 이미 보이는 자리에 있어 스크롤이 안 일어나므로, 실제 클릭·Enter 와 같은
+       이벤트를 «스크롤 없이» 보냅니다. 화면 코드(ph54Render 의 keepTop → ph54SetScrollTop)가 그 값을 지키는지가 이 절의 질문입니다.
+       🔴 마우스로 누르면 머리글(tabindex=0)이 «포커스» 를 받습니다. 카드가 `content-visibility:auto` 로 렌더 생략된 상태(이 검사
+       화면이 실행마다 그렇게 될 때가 있음)에서 그 포커스 요소가 다시 그리기로 지워지면 바로 뒤의 scrollTop 대입을 크로미움이
+       무시합니다(실측 — 그 규칙을 끄면 안 남). 그래서 «포커스 → 클릭» 으로 진짜 마우스와 같은 상태를 만듭니다(포커스를 빼면 안 보임). */
+    const clickNoScroll = (sel) => page.evaluate((s) => { const el = document.querySelector(s); if (!el) return false; el.focus({ preventScroll: true }); el.click(); return true; }, sel);
     await page.evaluate(() => { document.getElementById('ph54-cal-body').scrollTop = 300; });
     const nextIdx = (TODAY_IDX + 1) % 7;
-    await page.click(`#ph54-cal-head .ph54-cal-fold-head[data-day="${nextIdx}"]`);
+    const clicked = await clickNoScroll(`#ph54-cal-head .ph54-cal-fold-head[data-day="${nextIdx}"]`);
     await page.waitForTimeout(400);
     m = await page.evaluate(measure);
+    check('전제: 접힌 요일 머리글을 찾아 눌렀다', clicked);
     check('다음 날이 펼쳐지고 강사 열 2개', m.teacherCols === 2 && m.folds === 6, JSON.stringify([m.teacherCols, m.folds, m.openHead]));
     check('스크롤 위치가 유지된다(300)', Math.abs(m.scrollTop - 300) < 2, String(m.scrollTop));
+    // 키보드(Enter)로 펼쳐도 같은 자리 — 머리글에 포커스만 주고(스크롤 없이) Enter
+    const nextIdx2 = (TODAY_IDX + 2) % 7;
+    await page.evaluate((i) => { document.getElementById('ph54-cal-body').scrollTop = 250;
+      const h = document.querySelector('#ph54-cal-head .ph54-cal-fold-head[data-day="' + i + '"]'); if (h) h.focus({ preventScroll: true }); }, nextIdx2);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(400);
+    const kb = await page.evaluate((i) => ({ st: document.getElementById('ph54-cal-body').scrollTop,
+      open: !document.querySelector('#ph54-cal-head .ph54-cal-fold-head[data-day="' + i + '"]') }), nextIdx2);
+    check('Enter 로 펼쳐도 스크롤 위치가 유지된다(250)', kb.open && Math.abs(kb.st - 250) < 2, JSON.stringify(kb));
+    /* ⚠️ 그 무시는 «카드가 렌더 생략 상태일 때» 만 나서 실행마다 들쭉날쭉합니다 — 옛 코드(직접 대입)로 되돌려 돌리면
+       6번 중 4번 FAIL(실패 3건), 나머지는 통과합니다(2026-11-03 실측). 이 절이 초록이라고 «옛 코드도 괜찮다» 가 아닙니다.
+       요일을 바꿔 가며 여러 번 펼쳐 «매번» 지키는지 봅니다. */
+    //   다음 날·모레만 번갈아 연다(오늘은 안 건드림 — 뒤 절이 «오늘의 접힌 띠» 를 누르므로, 끝나면 앞과 같은 모레가 열린 상태).
+    const roll = [];
+    for (let k = 0; k < 6; k++) {
+      const want = 120 + k * 40, day = k % 2 === 0 ? nextIdx : nextIdx2;
+      roll.push(await page.evaluate(([w, i]) => { const b = document.getElementById('ph54-cal-body'); b.scrollTop = w;
+        const h = document.querySelector('#ph54-cal-head .ph54-cal-fold-head[data-day="' + i + '"]'); if (!h) return 'no-head:' + i;
+        h.focus({ preventScroll: true }); h.click(); return Math.round(document.getElementById('ph54-cal-body').scrollTop) + '/' + w; }, [want, day]));
+      await page.waitForTimeout(120);
+    }
+    check('요일을 바꿔 6번 펼쳐도 매번 보던 자리 그대로', roll.every((r) => { const [a, w] = String(r).split('/'); return w && Math.abs(Number(a) - Number(w)) < 2; }), JSON.stringify(roll));
     await page.click(`#ph54-cal-track .ph54-cal-fold[data-day="${TODAY_IDX}"]`);
     await page.waitForTimeout(400);
     m = await page.evaluate(measure);
