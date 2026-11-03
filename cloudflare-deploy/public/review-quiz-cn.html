@@ -653,7 +653,7 @@
 
       var rewards='', stamp='';
       rewards = '<div class="rq-reward-row">'
-        + '<div class="rq-reward"><div class="rv" style="color:#60a5fa" id="rvPts">+0</div><div class="rl">획득 포인트</div></div>'
+        + '<div class="rq-reward"><div class="rv" style="color:#60a5fa" id="rvPts">+'+(Number(r.awarded)||0)+'</div><div class="rl">획득 포인트</div></div>'
         + (r.streak>=2 ? '<div class="rq-reward"><div class="rv" style="color:#fb7185">🔥 '+r.streak+'</div><div class="rl">연속 復習일</div></div>' : '')
         + (state.maxCombo>=2 ? '<div class="rq-reward"><div class="rv" style="color:#a78bfa">⚡ '+state.maxCombo+'</div><div class="rl">最高 콤보</div></div>' : '')
         + '</div>'
