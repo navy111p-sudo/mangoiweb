@@ -6,110 +6,145 @@
   <title>AI 말하기 — 망고아이</title>
   <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
-  <meta name="theme-color" content="#dbeafe">
+  <meta name="theme-color" content="#0b1026">
   <!-- 2026-11-03 개편 — 사장님 휴대폰 시안(카드 3장 + 아래 공통 설정).
        📘 교재로 연습 → /warmup.html · 🎯 상황별 말하기 → 이 화면 안 상황 목록 → /warmup.html?sit=… ·
        👫 AI 친구하기 → /ai-friend.html. 💬 자유대화 카드는 사장님 지시로 없앴다(교재 연습 화면의 «교정 정도: 자유대화» 로 같은 대화가 된다).
-       상황 목록은 4단계 × 5개(어린이·청소년, 영어만) · 언어 칸은 화면 글자 한/영 · 공통 설정은 이모지 타일 · 카드·상황 그림은 저장소에 이미 있는 AI 생성 사진.
+       상황 목록은 4단계 × 5개(어린이·청소년, 영어만) · 언어 칸은 화면 글자 한/영 · 상황 그림은 저장소에 이미 있는 AI 생성 사진.
        상황 표 정본 js/ai-situations.js · 공통 설정 정본 js/ai-speaking-settings.js.
-       ⛔ 이 화면은 로그인·AI 호출·마이크를 쓰지 않는다. 설정은 «사람이 고를 때만» 저장한다. -->
+       ⛔ 이 화면은 로그인·AI 호출·마이크를 쓰지 않는다. 설정은 «사람이 고를 때만» 저장한다.
+       🪐 2026-11-03 2차 — 디자인 시안 C-4-1 «우주 탐험형»(초·중등 공용) 으로 겉모습만 바꿨다.
+       밤하늘 배경 + 말하기 3가지를 «행성» 으로(교재=라임·고리, 상황=주황·달, AI 친구=하늘·위성).
+       항상 어두운 화면이다(시스템 라이트 모드에서도) — 시안이 다크 전용이라서. 대비는 본문 7:1 이상.
+       행성은 CSS 로 그렸다(외부 그림 없음). 카드 제목의 이모지는 그림과 겹쳐 뺐다.
+       ⛔ 아래 스크립트(설정 읽기·쓰기·상황 목록)는 1차와 한 글자도 다르지 않다 — 동작은 그대로다. -->
   <style>
-    :root{--bg1:#e9f3ff;--bg2:#f5f9ff;--ink:#14213d;--sub:#475467;--line:#d0dcef;--sheet:#ffffff;
-      --c1:#dbeafe;--c1b:#93c5fd;--c2:#ffedd5;--c2b:#fdba74;--c3:#d1fae5;--c3b:#6ee7b7;--accent:#1d4ed8;--focus:#b45309}
-    @media (prefers-color-scheme: dark){:root{--bg1:#0f1d3a;--bg2:#13254a;--ink:#eef3ff;--sub:#c5d3ee;--line:#3b5684;--sheet:#172c55;
-      --c1:#1e3a6b;--c1b:#3f6fb5;--c2:#4a2f17;--c2b:#b5763a;--c3:#123f35;--c3b:#2f9877;--accent:#93c5fd;--focus:#fde68a}}
+    :root{--sky:#0b1026;--card:#161d3f;--card2:#1c2550;--line:#283160;--ring:#5b6bb5;--ink:#ffffff;--sub:#b8c1e6;--soft:#dde3ff;
+      --lime:#c6f432;--orange:#ff9a3c;--cyan:#4dd8ff;--moon:#ffd7b0;--sat:#9be8ff;--on:#0b1026;--focus:#fde68a}
     *{box-sizing:border-box}[hidden]{display:none!important}
-    body{margin:0;min-height:100vh;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--ink);
+    html{background:var(--sky);color-scheme:dark}
+    body{margin:0;min-height:100vh;background:var(--sky);color:var(--ink);
       font-family:MangoiHanSC,system-ui,sans-serif;line-height:1.5;word-break:keep-all;overflow-wrap:anywhere}
+    /* ✨ 별 — 2px 점 하나에 그림자로 흩뿌림(그림자는 스크롤 폭에 안 잡힌다) */
+    body::before{content:"";position:fixed;left:0;top:0;width:2px;height:2px;border-radius:50%;pointer-events:none;z-index:0;
+      box-shadow:6vw 8vh #fff,18vw 3vh rgba(255,255,255,.6),34vw 12vh var(--lime),52vw 5vh rgba(255,255,255,.7),66vw 15vh #fff,
+        78vw 40vh rgba(255,255,255,.5),92vw 30vh var(--cyan),3vw 46vh rgba(255,255,255,.6),24vw 64vh rgba(255,255,255,.5),
+        60vw 72vh rgba(255,255,255,.45),96vw 58vh #fff,8vw 88vh var(--orange),48vw 95vh rgba(255,255,255,.6),88vw 92vh #fff}
     a{color:inherit}a:focus-visible,button:focus-visible,select:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
-    .wrap{max-width:1040px;margin:0 auto;padding:16px 18px calc(24px + env(safe-area-inset-bottom))}
-    header{display:flex;align-items:center;gap:10px;min-height:48px}
-    header h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-.3px}
-    header .mascot{width:52px;height:52px;object-fit:contain;margin-left:auto}
-    header .home{text-decoration:none;font-size:14px;padding:7px 12px;border:1px solid var(--line);border-radius:12px;background:var(--sheet)}
-    .lead{margin:6px 0 14px;color:var(--sub);font-size:15px}
+    .ic{width:20px;height:20px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .wrap{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:16px 18px calc(28px + env(safe-area-inset-bottom))}
+    /* 🧭 머리 */
+    header{display:flex;align-items:center;gap:12px;min-height:56px}
+    header h1{margin:0;flex:1;min-width:0;font-size:28px;font-weight:900;letter-spacing:-.5px;line-height:1.2}
+    header .home{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:999px;
+      border:1px solid var(--line);background:var(--card);text-decoration:none;font-size:15px;font-weight:700}
+    .orbit{position:relative;flex:0 0 auto;width:68px;height:68px;border-radius:50%;border:2px dashed #3a4580;display:flex;align-items:center;justify-content:center}
+    .orbit::after{content:"";position:absolute;right:2px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--lime)}
+    .orbit .mascot{width:48px;height:48px;object-fit:contain;border-radius:50%;background:var(--card)}
+    .lead{display:flex;align-items:flex-start;gap:6px;margin:10px 0 16px;color:var(--soft);font-size:15px;font-weight:600}
+    .lead .star{width:18px;height:18px;margin-top:2px;fill:var(--lime);stroke:none}
+    /* 🪐 말하기 3가지 — 휴대폰: 가로 한 줄 카드 */
     .modes{display:grid;gap:12px}
-    .mode{position:relative;display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;min-height:104px;padding:14px 16px;
-      border-radius:20px;border:1.5px solid var(--c1b);background:var(--c1);text-decoration:none;min-width:0}
-    .mode.situ{background:var(--c2);border-color:var(--c2b)} .mode.friend{background:var(--c3);border-color:var(--c3b)}
-    .mode:hover{filter:brightness(.98)}
-    .mode h2{margin:0 0 4px;font-size:20px;font-weight:900;display:flex;align-items:center;gap:6px}
+    .mode{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;min-width:0;
+      padding:12px 14px 12px 8px;border-radius:26px;border:1px solid var(--line);background:var(--card);text-decoration:none;
+      transition:border-color .15s}
+    .mode:hover{border-color:var(--ring)}
+    .mode[aria-expanded="true"]{border-color:var(--orange);box-shadow:0 0 0 2px var(--orange) inset}
+    .mode h2{margin:0 0 4px;font-size:18px;font-weight:900;line-height:1.3}
     .mode p{margin:0;color:var(--sub);font-size:14px}
-    .mode .art{width:76px;height:76px;border-radius:18px;display:flex;align-items:center;justify-content:center;overflow:hidden;
-      background:rgba(255,255,255,.55)}
-    .mode .art img{width:100%;height:100%;object-fit:cover}
-    .mode .go{display:none}
-    .mode[aria-expanded="true"]{box-shadow:0 0 0 3px var(--c2b) inset}
+    .txt{min-width:0}
+    .go{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:var(--lime);color:var(--on)}
+    .situ .go{background:var(--orange)} .friend .go{background:var(--cyan)}
+    .go .ic{width:18px;height:18px;stroke-width:2.6}
+    .go-t{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+    /* 행성 그림(장식) — 고리는 공 뒤에 둔다 */
+    .art{position:relative;flex:0 0 auto;width:84px;height:72px}
+    .art .ball{position:absolute;left:13px;top:7px;width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--on);background:var(--lime)}
+    .situ .art .ball{background:var(--orange)} .friend .art .ball{background:var(--cyan)}
+    .art .ball .ic{width:30px;height:30px}
+    .art .ring{position:absolute;left:0;top:27px;width:84px;height:20px;border:3px solid var(--ring);border-radius:50%;transform:rotate(-14deg)}
+    .art .moon{position:absolute;right:4px;top:2px;width:18px;height:18px;border-radius:50%;background:var(--moon)}
+    .art .sat1{position:absolute;right:6px;top:8px;width:8px;height:8px;border-radius:50%;background:#fff}
+    .art .sat2{position:absolute;left:6px;bottom:4px;width:11px;height:11px;border-radius:50%;background:var(--sat)}
     /* 🎯 상황 목록 */
-    #situations{margin-top:12px;padding:14px;border-radius:18px;background:var(--sheet);border:1px solid var(--line)}
-    #situations h3.title{margin:0 0 4px;font-size:17px}
-    #situations .hint{margin:0 0 6px;color:var(--sub);font-size:13px}
-    .sit-g{margin:12px 0 6px;font-size:14px;color:var(--sub);font-weight:800}
-    .sit-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-    .sit{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;border:1px solid var(--c2b);background:var(--c2);text-decoration:none;min-width:0}
-    .sit-ic{font-size:26px;flex:0 0 auto;width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.6)}.sit-ic img{width:100%;height:100%;object-fit:cover}.sit b{display:block;font-size:15px}.sit small{display:block;color:var(--sub);font-size:12.5px}
+    #situations{margin-top:16px;padding:18px;border-radius:26px;background:var(--card);border:1px solid var(--line)}
+    #situations h3.title{margin:0 0 4px;font-size:18px;font-weight:900}
+    #situations .hint{margin:0 0 6px;color:var(--sub);font-size:13.5px}
+    .sit-g{margin:14px 0 8px;font-size:14px;color:var(--soft);font-weight:800}
+    .sit-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .sit{display:flex;align-items:center;gap:10px;min-width:0;padding:10px 12px;border-radius:18px;border:1px solid var(--line);background:var(--card2);text-decoration:none;transition:border-color .15s}
+    .sit:hover{border-color:var(--orange)}
+    .sit-ic{font-size:26px;flex:0 0 auto;width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#24305f}
+    .sit-ic img{width:100%;height:100%;object-fit:cover}
+    .sit b{display:block;font-size:15px}.sit small{display:block;color:var(--sub);font-size:12.5px}
     .sit-t{min-width:0}
     /* ⚙️ 공통 설정 */
-    .sheet{margin-top:16px;padding:12px 14px 14px;border-radius:20px 20px 16px 16px;background:var(--sheet);border:1px solid var(--line);
-      box-shadow:0 -4px 18px rgba(20,33,61,.06)}
-    .sheet .grip{width:40px;height:4px;border-radius:4px;background:var(--line);margin:0 auto 8px}
-    .sheet h2{margin:0 0 8px;font-size:16px}
-    .set-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-    .tile{display:flex;flex-direction:column;align-items:stretch;gap:5px;min-width:0;padding:10px;border-radius:16px;border:1px solid var(--line);background:var(--bg2)}
-    .tile .emo{font-size:30px;line-height:1;text-align:center}
-    .tile .lab{font-size:13px;font-weight:800;color:var(--sub);text-align:center}
-    .tile select{width:100%;min-height:40px;padding:6px 8px;border-radius:12px;border:1px solid var(--line);background:var(--sheet);color:var(--ink);font:inherit;font-size:14px}
-    .seg{display:flex;gap:4px}
-    .seg button{flex:1;min-width:0;min-height:44px;padding:4px 2px;border:1px solid var(--line);border-radius:12px;background:var(--sheet);color:var(--ink);font:inherit;font-size:13px;cursor:pointer;
-      display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15}
-    .seg button .e{font-size:18px}
-    .seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:800}
-    @media (prefers-color-scheme: dark){.seg button[aria-pressed="true"]{color:#0f1d3a}}
-    .state{font-size:11.5px;color:var(--sub);text-align:center;min-height:1em}
-    .note{margin:8px 0 0;font-size:12.5px;color:var(--sub)}
-    #setMsg{margin:6px 0 0;font-size:13px;font-weight:700;min-height:1em}
-    /* 💻 PC — 카드 3장 가로 */
+    .sheet{margin-top:18px;padding:20px;border-radius:26px;background:var(--card);border:1px solid var(--line)}
+    .sheet h2{margin:0 0 14px;font-size:18px;font-weight:900}
+    .set-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+    .tile{display:flex;flex-direction:column;gap:8px;min-width:0}
+    .lab{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:800;color:var(--soft)}
+    .lab .ic{width:18px;height:18px;color:var(--lime)}
+    .tile select{width:100%;min-height:48px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--sky);color:var(--ink);font:inherit;font-size:15px}
+    .seg{display:flex;gap:4px;padding:4px;border-radius:999px;border:1px solid var(--line);background:var(--sky)}
+    .seg button{flex:1;min-width:0;min-height:44px;padding:4px 6px;border:0;border-radius:999px;background:transparent;color:var(--soft);
+      font:inherit;font-size:14px;font-weight:800;cursor:pointer}
+    .seg button[aria-pressed="true"]{background:var(--lime);color:var(--on)}
+    .state{font-size:12px;color:var(--sub);min-height:1em}
+    .note{margin:12px 0 0;font-size:13px;color:var(--sub)}
+    #setMsg{margin:10px 0 0;font-size:13.5px;font-weight:700;color:var(--soft);min-height:1em}
+    /* 💻 PC — 행성 카드 3장 가로 */
     @media (min-width:900px){
-      .wrap{padding-top:28px}header h1{font-size:28px}.lead{font-size:16px;margin-bottom:20px}
-      .modes{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
-      .mode{grid-template-columns:1fr;grid-template-rows:auto 1fr auto;align-items:start;min-height:230px;padding:20px}
-      .mode .art{order:-1;width:84px;height:84px;font-size:46px}
-      .mode h2{font-size:22px;margin-top:6px}.mode p{font-size:15px}
-      .mode .go{display:block;margin-top:14px;font-weight:800;color:var(--accent)}
+      .wrap{padding-top:32px}
+      header h1{font-size:42px}
+      .orbit{width:120px;height:120px}.orbit::after{right:8px;top:14px;width:14px;height:14px}.orbit .mascot{width:84px;height:84px}
+      .lead{font-size:18px;margin:12px 0 26px}.lead .star{width:20px;height:20px}
+      .modes{grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+      .mode{display:flex;flex-direction:column;align-items:flex-start;gap:14px;padding:26px;border-radius:32px}
+      .mode h2{font-size:24px;margin-bottom:6px}.mode p{font-size:16px}
+      .txt{flex:1}
+      .go{align-self:stretch;width:auto;height:54px;gap:8px;border-radius:999px;font-size:17px;font-weight:900}
+      .go-t{position:static;width:auto;height:auto;overflow:visible;clip:auto}
+      .art{width:156px;height:118px}
+      .art .ball{left:30px;top:12px;width:96px;height:96px}.art .ball .ic{width:46px;height:46px}
+      .art .ring{top:44px;width:156px;height:34px;border-width:4px}
+      .art .moon{right:6px;top:4px;width:28px;height:28px}
+      .art .sat1{right:14px;top:16px;width:12px;height:12px}.art .sat2{left:8px;bottom:6px;width:16px;height:16px}
       .sit-list{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .sheet,#situations{padding:26px 28px}
     }
-    @media (max-width:560px){.set-row{grid-template-columns:1fr 1fr}.set-row .tile:last-child{grid-column:1/-1}}
-    @media (max-width:420px){.sit-list{grid-template-columns:1fr}
-      .mode{min-height:96px;padding:12px 14px}.mode .art{width:60px;height:60px;font-size:34px}}
+    @media (max-width:640px){.set-row{grid-template-columns:1fr}}
+    @media (max-width:420px){.sit-list{grid-template-columns:1fr}header h1{font-size:24px}}
+    @media (prefers-reduced-motion:reduce){.mode,.sit{transition:none}}
   </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <a class="home" href="/" data-ko="← 홈" data-en="← Home">← 홈</a>
+    <a class="home" href="/"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg><span data-ko="홈" data-en="Home">홈</span></a>
     <h1 data-ko="AI 말하기" data-en="AI Speaking">AI 말하기</h1>
-    <img class="mascot" src="/img/mango-char.png" alt="">
+    <span class="orbit" aria-hidden="true"><img class="mascot" src="/img/mango-char.png" alt=""></span>
   </header>
-  <p class="lead" data-ko="오늘은 어떻게 말해 볼까요?" data-en="How would you like to practice today?">오늘은 어떻게 말해 볼까요?</p>
+  <p class="lead"><svg class="star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 16.8 6.2 20l1.4-6.4L2.7 9.2l6.5-.7z"/></svg><span data-ko="오늘은 어떤 말하기 행성으로 떠나 볼까요?" data-en="Which speaking planet will you visit today?">오늘은 어떤 말하기 행성으로 떠나 볼까요?</span></p>
 
   <div class="modes">
     <a class="mode" id="textbook-mode" href="/warmup.html">
-      <span class="txt"><h2><span aria-hidden="true">📘</span><span data-ko="교재로 연습" data-en="Textbook practice">교재로 연습</span></h2>
-        <p data-ko="수업에서 배운 표현을 교재와 함께 연습해요" data-en="Practice what you learned with your textbook">수업에서 배운 표현을 교재와 함께 연습해요</p>
-        <span class="go" data-ko="시작하기 →" data-en="Start →">시작하기 →</span></span>
-      <span class="art"><img src="/img/warmup-photos/book.webp" alt="" loading="lazy"></span>
+      <span class="art" aria-hidden="true"><span class="ring"></span><span class="ball"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5.5A1.5 1.5 0 0 1 4.5 4H9a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5h-5A1.5 1.5 0 0 1 3 16z"/><path d="M21 5.5A1.5 1.5 0 0 0 19.5 4H15a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5h5A1.5 1.5 0 0 0 21 16z"/></svg></span></span>
+      <span class="txt"><h2 data-ko="교재로 연습" data-en="Textbook practice">교재로 연습</h2>
+        <p data-ko="수업에서 배운 표현을 교재와 함께 연습해요" data-en="Practice what you learned with your textbook">수업에서 배운 표현을 교재와 함께 연습해요</p></span>
+      <span class="go"><span class="go-t" data-ko="시작하기" data-en="Start">시작하기</span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></span>
     </a>
     <a class="mode situ" id="situation-mode" href="#situations" aria-controls="situations" aria-expanded="false">
-      <span class="txt"><h2><span aria-hidden="true">🎯</span><span data-ko="상황별 말하기" data-en="Real-life situations">상황별 말하기</span></h2>
-        <p data-ko="카페 주문, 길 묻기 등 실제 상황에서 말해 봐요" data-en="Order at a cafe, ask for directions and more">카페 주문, 길 묻기 등 실제 상황에서 말해 봐요</p>
-        <span class="go" data-ko="상황 고르기 →" data-en="Choose a situation →">상황 고르기 →</span></span>
-      <span class="art"><img src="/img/write-scenes/bakery.webp" alt="" loading="lazy"></span>
+      <span class="art" aria-hidden="true"><span class="ball"><svg class="ic" viewBox="0 0 24 24"><path d="M4 9h12v4.5A5.5 5.5 0 0 1 10.5 19h-1A5.5 5.5 0 0 1 4 13.5z"/><path d="M16 10.5h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3.5v2.5"/><path d="M12 3.5v2.5"/><path d="M3 21h14"/></svg></span><span class="moon"></span></span>
+      <span class="txt"><h2 data-ko="상황별 말하기" data-en="Real-life situations">상황별 말하기</h2>
+        <p data-ko="카페 주문, 길 묻기 등 실제 상황에서 말해 봐요" data-en="Order at a cafe, ask for directions and more">카페 주문, 길 묻기 등 실제 상황에서 말해 봐요</p></span>
+      <span class="go"><span class="go-t" data-ko="상황 고르기" data-en="Choose a situation">상황 고르기</span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></span>
     </a>
     <a class="mode friend" id="friend-mode" href="/ai-friend.html">
-      <span class="txt"><h2><span aria-hidden="true">👫</span><span data-ko="AI 친구하기" data-en="AI friend">AI 친구하기</span></h2>
-        <p data-ko="원하는 주제로 AI 친구와 편하게 대화해요" data-en="Chat with an AI friend about anything you like">원하는 주제로 AI 친구와 편하게 대화해요</p>
-        <span class="go" data-ko="대화 시작 →" data-en="Start chatting →">대화 시작 →</span></span>
-      <span class="art"><img src="/img/menu/ai-friend.webp" alt="" loading="lazy"></span>
+      <span class="art" aria-hidden="true"><span class="ball"><svg class="ic" viewBox="0 0 24 24"><rect x="4.5" y="8" width="15" height="11" rx="3.5"/><path d="M12 4.5V8"/><circle cx="12" cy="3.5" r="1"/><path d="M9.5 12.5v1"/><path d="M14.5 12.5v1"/><path d="M10 16h4"/><path d="M2.5 12.5v2"/><path d="M21.5 12.5v2"/></svg></span><span class="sat1"></span><span class="sat2"></span></span>
+      <span class="txt"><h2 data-ko="AI 친구하기" data-en="AI friend">AI 친구하기</h2>
+        <p data-ko="원하는 주제로 AI 친구와 편하게 대화해요" data-en="Chat with an AI friend about anything you like">원하는 주제로 AI 친구와 편하게 대화해요</p></span>
+      <span class="go"><span class="go-t" data-ko="대화 시작" data-en="Start chatting">대화 시작</span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></span>
     </a>
   </div>
 
@@ -121,20 +156,19 @@
 
 
   <section class="sheet" aria-labelledby="setTitle">
-    <div class="grip" aria-hidden="true"></div>
     <h2 id="setTitle" data-ko="공통 설정" data-en="Common settings">공통 설정</h2>
     <div class="set-row">
-      <div class="tile"><span class="emo" aria-hidden="true">🌐</span><span class="lab" id="langLab" data-ko="언어" data-en="Language">언어</span>
+      <div class="tile"><span class="lab" id="langLab"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg><span data-ko="언어" data-en="Language">언어</span></span>
         <div class="seg" role="group" aria-labelledby="langLab">
-          <button type="button" data-lang="ko" aria-pressed="false"><span class="e" aria-hidden="true">🗨️</span><span>한국어</span></button>
-          <button type="button" data-lang="en" aria-pressed="false"><span class="e" aria-hidden="true">🔤</span><span>English</span></button>
+          <button type="button" data-lang="ko" aria-pressed="false">한국어</button>
+          <button type="button" data-lang="en" aria-pressed="false">English</button>
         </div></div>
-      <div class="tile"><span class="emo" aria-hidden="true">📊</span><label class="lab" for="setLevel" data-ko="수준" data-en="Level">수준</label><select id="setLevel"></select></div>
-      <div class="tile"><span class="emo" aria-hidden="true">🛠️</span><span class="lab" id="corrLab" data-ko="교정 정도" data-en="Corrections">교정 정도</span>
+      <div class="tile"><label class="lab" for="setLevel"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-5"/><path d="M12 20V10"/><path d="M19 20V4"/></svg><span data-ko="수준" data-en="Level">수준</span></label><select id="setLevel"></select></div>
+      <div class="tile"><span class="lab" id="corrLab"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9"/><path d="M17 7h3"/><circle cx="15" cy="7" r="2"/><path d="M4 17h3"/><path d="M11 17h9"/><circle cx="9" cy="17" r="2"/></svg><span data-ko="교정 정도" data-en="Corrections">교정 정도</span></span>
         <div class="seg seg3" role="group" aria-labelledby="corrLab" id="corrSeg">
-          <button type="button" data-corr="free_talk" aria-pressed="false"><span class="e" aria-hidden="true">💬</span><span data-ko="자유" data-en="Free">자유</span></button>
-          <button type="button" data-corr="balanced" aria-pressed="false"><span class="e" aria-hidden="true">⚖️</span><span data-ko="균형" data-en="Balanced">균형</span></button>
-          <button type="button" data-corr="focused" aria-pressed="false"><span class="e" aria-hidden="true">🎯</span><span data-ko="집중" data-en="Focused">집중</span></button>
+          <button type="button" data-corr="free_talk" aria-pressed="false"><span data-ko="자유" data-en="Free">자유</span></button>
+          <button type="button" data-corr="balanced" aria-pressed="false"><span data-ko="균형" data-en="Balanced">균형</span></button>
+          <button type="button" data-corr="focused" aria-pressed="false"><span data-ko="집중" data-en="Focused">집중</span></button>
         </div>
         <small class="state" id="corrState"></small></div>
     </div>
