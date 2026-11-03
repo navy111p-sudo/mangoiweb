@@ -16,11 +16,13 @@
        🪐 2026-11-03 2차 — 디자인 시안 C-4-1 «우주 탐험형»(초·중등 공용) 으로 겉모습만 바꿨다.
        밤하늘 배경 + 말하기 3가지를 «행성» 으로(교재=라임·고리, 상황=주황·달, AI 친구=하늘·위성).
        항상 어두운 화면이다(시스템 라이트 모드에서도) — 시안이 다크 전용이라서. 대비는 본문 7:1 이상.
-       행성은 CSS 로 그렸다(외부 그림 없음). 카드 제목의 이모지는 그림과 겹쳐 뺐다.
+       행성 그림은 Higgsfield(GPT Image 2.5) 로 만든 투명 그림을 320px WebP 로 줄여 저장소에 넣었다
+       (/img/ai-speaking/planet-{textbook,situation,friend}.webp — 외부 주소를 쓰지 않는다. CLAUDE.md 2장).
+       카드 제목의 이모지는 그림과 겹쳐 뺐다.
        ⛔ 아래 스크립트(설정 읽기·쓰기·상황 목록)는 1차와 한 글자도 다르지 않다 — 동작은 그대로다. -->
   <style>
     :root{--sky:#0b1026;--card:#161d3f;--card2:#1c2550;--line:#283160;--ring:#5b6bb5;--ink:#ffffff;--sub:#b8c1e6;--soft:#dde3ff;
-      --lime:#c6f432;--orange:#ff9a3c;--cyan:#4dd8ff;--moon:#ffd7b0;--sat:#9be8ff;--on:#0b1026;--focus:#fde68a}
+      --lime:#c6f432;--orange:#ff9a3c;--cyan:#4dd8ff;--on:#0b1026;--focus:#fde68a}
     *{box-sizing:border-box}[hidden]{display:none!important}
     html{background:var(--sky);color-scheme:dark}
     body{margin:0;min-height:100vh;background:var(--sky);color:var(--ink);
@@ -57,15 +59,9 @@
     .situ .go{background:var(--orange)} .friend .go{background:var(--cyan)}
     .go .ic{width:18px;height:18px;stroke-width:2.6}
     .go-t{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-    /* 행성 그림(장식) — 고리는 공 뒤에 둔다 */
-    .art{position:relative;flex:0 0 auto;width:84px;height:72px}
-    .art .ball{position:absolute;left:13px;top:7px;width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--on);background:var(--lime)}
-    .situ .art .ball{background:var(--orange)} .friend .art .ball{background:var(--cyan)}
-    .art .ball .ic{width:30px;height:30px}
-    .art .ring{position:absolute;left:0;top:27px;width:84px;height:20px;border:3px solid var(--ring);border-radius:50%;transform:rotate(-14deg)}
-    .art .moon{position:absolute;right:4px;top:2px;width:18px;height:18px;border-radius:50%;background:var(--moon)}
-    .art .sat1{position:absolute;right:6px;top:8px;width:8px;height:8px;border-radius:50%;background:#fff}
-    .art .sat2{position:absolute;left:6px;bottom:4px;width:11px;height:11px;border-radius:50%;background:var(--sat)}
+    /* 행성 그림(장식) — 정사각 투명 WebP */
+    .art{flex:0 0 auto;width:80px;height:80px}
+    .art img{display:block;width:100%;height:100%;object-fit:contain}
     /* 🎯 상황 목록 */
     #situations{margin-top:16px;padding:18px;border-radius:26px;background:var(--card);border:1px solid var(--line)}
     #situations h3.title{margin:0 0 4px;font-size:18px;font-weight:900}
@@ -105,11 +101,7 @@
       .txt{flex:1}
       .go{align-self:stretch;width:auto;height:54px;gap:8px;border-radius:999px;font-size:17px;font-weight:900}
       .go-t{position:static;width:auto;height:auto;overflow:visible;clip:auto}
-      .art{width:156px;height:118px}
-      .art .ball{left:30px;top:12px;width:96px;height:96px}.art .ball .ic{width:46px;height:46px}
-      .art .ring{top:44px;width:156px;height:34px;border-width:4px}
-      .art .moon{right:6px;top:4px;width:28px;height:28px}
-      .art .sat1{right:14px;top:16px;width:12px;height:12px}.art .sat2{left:8px;bottom:6px;width:16px;height:16px}
+      .art{width:150px;height:150px}
       .sit-list{grid-template-columns:repeat(3,minmax(0,1fr))}
       .sheet,#situations{padding:26px 28px}
     }
@@ -129,19 +121,19 @@
 
   <div class="modes">
     <a class="mode" id="textbook-mode" href="/warmup.html">
-      <span class="art" aria-hidden="true"><span class="ring"></span><span class="ball"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5.5A1.5 1.5 0 0 1 4.5 4H9a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5h-5A1.5 1.5 0 0 1 3 16z"/><path d="M21 5.5A1.5 1.5 0 0 0 19.5 4H15a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5h5A1.5 1.5 0 0 0 21 16z"/></svg></span></span>
+      <span class="art" aria-hidden="true"><img src="/img/ai-speaking/planet-textbook.webp" alt="" width="160" height="160" decoding="async"></span>
       <span class="txt"><h2 data-ko="교재로 연습" data-en="Textbook practice">교재로 연습</h2>
         <p data-ko="수업에서 배운 표현을 교재와 함께 연습해요" data-en="Practice what you learned with your textbook">수업에서 배운 표현을 교재와 함께 연습해요</p></span>
       <span class="go"><span class="go-t" data-ko="시작하기" data-en="Start">시작하기</span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></span>
     </a>
     <a class="mode situ" id="situation-mode" href="#situations" aria-controls="situations" aria-expanded="false">
-      <span class="art" aria-hidden="true"><span class="ball"><svg class="ic" viewBox="0 0 24 24"><path d="M4 9h12v4.5A5.5 5.5 0 0 1 10.5 19h-1A5.5 5.5 0 0 1 4 13.5z"/><path d="M16 10.5h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3.5v2.5"/><path d="M12 3.5v2.5"/><path d="M3 21h14"/></svg></span><span class="moon"></span></span>
+      <span class="art" aria-hidden="true"><img src="/img/ai-speaking/planet-situation.webp" alt="" width="160" height="160" decoding="async"></span>
       <span class="txt"><h2 data-ko="상황별 말하기" data-en="Real-life situations">상황별 말하기</h2>
         <p data-ko="카페 주문, 길 묻기 등 실제 상황에서 말해 봐요" data-en="Order at a cafe, ask for directions and more">카페 주문, 길 묻기 등 실제 상황에서 말해 봐요</p></span>
       <span class="go"><span class="go-t" data-ko="상황 고르기" data-en="Choose a situation">상황 고르기</span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></span>
     </a>
     <a class="mode friend" id="friend-mode" href="/ai-friend.html">
-      <span class="art" aria-hidden="true"><span class="ball"><svg class="ic" viewBox="0 0 24 24"><rect x="4.5" y="8" width="15" height="11" rx="3.5"/><path d="M12 4.5V8"/><circle cx="12" cy="3.5" r="1"/><path d="M9.5 12.5v1"/><path d="M14.5 12.5v1"/><path d="M10 16h4"/><path d="M2.5 12.5v2"/><path d="M21.5 12.5v2"/></svg></span><span class="sat1"></span><span class="sat2"></span></span>
+      <span class="art" aria-hidden="true"><img src="/img/ai-speaking/planet-friend.webp" alt="" width="160" height="160" decoding="async"></span>
       <span class="txt"><h2 data-ko="AI 친구하기" data-en="AI friend">AI 친구하기</h2>
         <p data-ko="원하는 주제로 AI 친구와 편하게 대화해요" data-en="Chat with an AI friend about anything you like">원하는 주제로 AI 친구와 편하게 대화해요</p></span>
       <span class="go"><span class="go-t" data-ko="대화 시작" data-en="Start chatting">대화 시작</span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></span>
