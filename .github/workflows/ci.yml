@@ -43,6 +43,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      # ⚡ 체크아웃 빠르게 (2026-11-03) — 지난번 .git 을 캐시에서 되살리면 아래 checkout 이 «바뀐 것만» 받습니다.
+      #    PR·브라우저 검사는 «읽기만» 합니다(저장은 deploy.yml 이 한 주에 한 번). 설명: deploy.yml «git 캐시» 주석.
+      - name: Restore .git cache (faster checkout)
+        uses: actions/cache@v4   # TEMP-PROBE: 이 PR 안에서만 저장해 «되살리기» 속도를 잰다 — 병합 전 restore 로 되돌림
+        with:
+          path: .git
+          key: repo-git-v1-probe
+          restore-keys: repo-git-v1-
       - name: Checkout repository
         uses: actions/checkout@v4
 

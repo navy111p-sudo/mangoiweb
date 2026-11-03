@@ -205,8 +205,38 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
+      # ─── ⚡ git 캐시 — 체크아웃 빠르게 (2026-11-03) ─────────────────────────
+      #  왜: checkout 이 매번 저장소 전체(약 1.9GB — 대부분 public/media·library·img)를
+      #      새로 받아 46~280초가 걸렸다(2026-11-03 실측 — 같은 날에도 느린 때는 다섯 배).
+      #      지난번 .git 을 캐시에서 되살리면 checkout 이 «그 사이 바뀐 것만» 받는다
+      #      (로컬 실측: 이틀 묵은 shallow .git 에 depth=1 fetch → 객체 58개 · 2초).
+      #  ✅ 받은 뒤의 파일은 전과 «똑같다» — checkout 이 clean·reset 하고 정확한 sha 를
+      #     다시 checkout 한다. 부분 체크아웃(sparse)과 달리 빠지는 파일이 없다.
+      #     (sparse 는 버렸다 — 하니스 5개가 media·library·videos 의 실제 파일 크기를 잰다.)
+      #  ⛔ 저장은 «여기서만» — PR 워크플로가 저장하면 PR 마다 1.5GB 가 쌓여
+      #     저장소 캐시 한도(10GB)를 밀어내고 npm 캐시까지 지운다. 다른 워크플로는
+      #     actions/cache/restore 로 «읽기만» 한다(감시 test-harness/git_cache_checkout_harness.mjs).
+      #  ⛔ 열쇠는 «주 단위» — 실행마다 저장하면 배포마다 1.5GB 를 올린다.
+      #     restore-keys 가 가장 최근 것을 고르므로 그 주 첫 배포 하나만 올리고 나머지는 읽는다.
+      #  ⚠️ 아래 checkout 은 persist-credentials: false — 토큰이 .git/config 에 남은 채
+      #     캐시에 실리지 않게(이 작업은 checkout 뒤에 git 인증을 쓰지 않는다).
+      #  ⚠️ 이 단계는 cloudflare-deploy/ 가 아직 없을 때 돌므로 working-directory 를 «.» 로 덮는다.
+      - name: Pick weekly .git cache key
+        id: gitkey
+        working-directory: .
+        run: echo "key=repo-git-v1-$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore .git cache, save once a week (faster checkout)
+        uses: actions/cache@v4
+        with:
+          path: .git
+          key: ${{ steps.gitkey.outputs.key }}
+          restore-keys: repo-git-v1-
+
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
