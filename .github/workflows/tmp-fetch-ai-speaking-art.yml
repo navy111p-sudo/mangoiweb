@@ -1,0 +1,42 @@
+# ⚠️ 임시 워크플로 — 이 브랜치에서만 돕니다. main 에 올리지 않고 브랜치째 지웁니다(CLAUDE.md 2장).
+# AI 말하기 행성 그림(Higgsfield 생성, 투명 PNG 6장)을 러너가 받아 이 브랜치에 커밋합니다.
+name: TMP fetch ai-speaking planet art
+on:
+  push:
+    branches: [tmp-fetch-ai-speaking-art]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download six planet images
+        run: |
+          set -euo pipefail
+          mkdir -p tmp-art
+          B=https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k
+          printf '%s\n' \
+            "textbook-0 $B/hf_20261103_154203_a481c155-95d0-4b7e-b0fe-49ed1c473a66.png" \
+            "textbook-1 $B/hf_20261103_154206_afb47513-ed21-4e40-bc87-1d2cddb9e2e6.png" \
+            "situation-2 $B/hf_20261103_154202_ff43359e-b421-41cf-9aca-35bdac4cf288.png" \
+            "situation-3 $B/hf_20261103_154204_487043a0-83dc-4c1f-b623-75b965ae744c.png" \
+            "friend-4 $B/hf_20261103_154203_1936a196-b448-4812-8793-d59ad63260e4.png" \
+            "friend-5 $B/hf_20261103_154204_098a6da1-0a81-452a-8ff0-f4ed2823a404.png" \
+            > tmp-art/list.txt
+          echo "list lines: $(wc -l < tmp-art/list.txt)"
+          n=0
+          while read -r name url; do
+            curl -fsSL --retry 3 -o "tmp-art/$name.png" "$url"
+            n=$((n+1))
+          done < tmp-art/list.txt
+          ls -la tmp-art
+          test "$n" -eq 6
+      - name: Commit to this temporary branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add tmp-art
+          git commit -m "tmp: fetched ai-speaking planet art (temporary branch, do not merge)"
+          git push origin HEAD:tmp-fetch-ai-speaking-art
