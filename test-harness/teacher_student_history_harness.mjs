@@ -365,6 +365,44 @@ INSERT INTO class_schedules(id,user_id,teacher_id,status,scheduled_date,start_ti
   globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_a',name:'Teacher A',role:'teacher'};
 }
 Date.now=realNow;
+// 🎌 Month-grid labels (2026-11-03 teacher suggestion «month option at Summary / Calendar like the manager's page»): the history
+// carries the month's KR/PH holidays from the same three sources as the manager's calendar, and each reservation's lesson type.
+// Holidays are labels only — an unread table means «no label», never a failed history or a changed lesson state.
+{
+  db.exec(`CREATE TABLE holidays(id INTEGER PRIMARY KEY,country TEXT,date TEXT,name TEXT,source TEXT);
+INSERT INTO holidays(country,date,name) VALUES('KR','2026-10-03','National Foundation Day'),('KR','2026-10-09','Hangeul Day'),
+  ('KR','2026-10-05','Observed Day'),('PH','2026-10-31','All Saints Eve'),('KR','2026-11-01','Next Month Day'),('JP','2026-10-12','Not a KR/PH day');
+ALTER TABLE enroll_holidays ADD COLUMN name TEXT;
+INSERT INTO enroll_holidays VALUES('2026-10-14','Academy closed'),('2026-10-15',NULL);
+CREATE TABLE calendar_events(id INTEGER PRIMARY KEY,event_type TEXT,title TEXT,date TEXT,end_date TEXT,country TEXT);
+INSERT INTO calendar_events(event_type,title,date,end_date,country) VALUES('holiday','Chuseok','2026-09-29','2026-10-02','KR'),
+  ('holiday','Substitute Holiday','2026-10-05',NULL,'KR'),('holiday','National Foundation Day','2026-10-03',NULL,'KR'),
+  ('vacation','Teacher trip','2026-10-20',NULL,NULL);
+ALTER TABLE class_schedules ADD COLUMN class_type TEXT;
+UPDATE class_schedules SET class_type='trial' WHERE id=1;`);
+  const labels = r => r.data.holidays.map(h => h.date + ' ' + h.country + ' ' + h.name);
+  const base = await request();assert.equal(base.status,200);
+  assert.deepEqual(labels(base), ['2026-10-01 KR Chuseok','2026-10-02 KR Chuseok','2026-10-03 KR National Foundation Day',
+    '2026-10-05 KR Observed Day','2026-10-05 KR Substitute Holiday','2026-10-09 KR Hangeul Day','2026-10-14 KR Academy closed','2026-10-15 KR ','2026-10-31 PH All Saints Eve'],
+    'this month only · KR/PH only · a multi-day event per day · the same name once · two names on one day both stay');
+  assert.equal(base.data.items.find(i => i.schedule_id === 1).class_type, 'trial', 'reservation carries its lesson type');
+  assert.ok(base.data.items.filter(i => i.schedule_id === 5).every(i => !('class_type' in i)), 'unknown type is left out, never guessed');
+  const sep = await request({month:'2026-09'});
+  assert.deepEqual(labels(sep), ['2026-09-29 KR Chuseok','2026-09-30 KR Chuseok'], 'the other month gets its own days of the same event');
+  // Each source fails alone; all failing still gives the same lessons and no new warning.
+  const mine = /FROM (holidays|enroll_holidays|calendar_events)\b/;
+  const ownQuery = sql => mine.test(sql) && !/^\s*SELECT day FROM enroll_holidays/.test(sql);   // the ledger's own holiday read is not a label read
+  globalThis.__historyFail = sql => ownQuery(sql) && /FROM holidays\b/.test(sql);
+  const oneDown = await request();
+  globalThis.__historyFail = sql => ownQuery(sql);
+  const allDown = await request();
+  globalThis.__historyFail = undefined;
+  assert.equal(oneDown.status,200);assert.ok(!labels(oneDown).some(l => /Hangeul|All Saints/.test(l)) && labels(oneDown).includes('2026-10-05 KR Substitute Holiday'), 'one source down, the others still label');
+  assert.equal(allDown.status,200,'labels never fail the history');assert.deepEqual(allDown.data.holidays,[]);
+  assert.deepEqual(allDown.data.items.map(i => i.date + i.state), base.data.items.map(i => i.date + i.state), 'lesson states do not depend on labels');
+  assert.deepEqual(allDown.data.warnings, base.data.warnings, 'no warning for a missing label');
+  db.exec(`DELETE FROM enroll_holidays;DROP TABLE holidays;DROP TABLE calendar_events;UPDATE class_schedules SET class_type=NULL;`);
+}
 assert.ok(executed.every(sql=>/^\s*(SELECT\b|PRAGMA table_info\b)/.test(sql)),'LMS history only reads data and schema');
 // Read-only compatibility: fresh canonical schema, then legacy schema with eval_at in another month.
 db.exec(`ALTER TABLE student_evaluations RENAME TO full_evaluations;
@@ -444,6 +482,67 @@ assert.equal((await request()).status,503,'database failure is an error, never a
   assert.ok(/other account/.test(twinShown) && /Some records/.test(twinShown), 'twin_account: generic + other-account line');
   const lmsShown = await screenFor(['lms_attendance']);
   assert.ok(/Some records/.test(lmsShown) && !/other account/.test(lmsShown), 'other warnings do not mention the other account');
+  // 🗓 Month grid like the manager's calendar (2026-11-03): each lesson card shows type · time range · teacher · [status] · report,
+  // holidays are labelled (KR red / PH blue), and «This month» jumps back. Real renderer + the page's real time helper.
+  {
+    const helper = vm.createContext({});
+    vm.runInContext("var mode='12';" + block('  function time(value){') + '\n' + block('  function range(c){'), helper);
+    dctx.window.MangoiClassDisplay = { time: helper.time, range: helper.range };
+    const tree = el => [el, ...el.children.flatMap(tree)];
+    const dlg = dctx.document.body.children.at(-1);
+    const cls = (el, c) => String(el.className || '').split(' ').includes(c);
+    reply = { ok: true, before: '2026-10-29', warnings: [], previous: null,
+      holidays: [{ date: '2026-10-03', name: 'National Foundation Day', country: 'KR' }, { date: '2026-10-31', name: 'All Saints Eve', country: 'PH' },
+        { date: '2026-10-15', name: '', country: 'KR' }],
+      items: [
+        { date: '2026-10-01', start: '17:50', duration_min: 20, class_type: 'regular', teacher_name: 'KAYE', state: 'student_absent', label_en: 'Student absent', label_ko: '학생 결석', report_loaded: true },
+        { date: '2026-10-06', start: '17:50', duration_min: 20, class_type: 'regular', teacher_name: 'KAYE', state: 'absence_hold', label_en: 'Paused (absences)', label_ko: '결석 보류', report_loaded: true },
+        { date: '2026-10-08', start: '17:50', duration_min: 20, class_type: 'trial', teacher_name: 'KAYE', state: 'done', label_en: 'Done', label_ko: '완료', feedback: { note_en: 'Great' } },
+        { date: '2026-10-13', start: '17:50', duration_min: 20, teacher_name: null, state: 'done', label_en: 'Done', label_ko: '완료', report_loaded: false, teacher_changed: true },
+        { date: '2026-10-20', start: '13:00', duration_min: null, teacher_name: 'Teacher A', teacher_source: 'lms', state: 'done', label_en: 'Attended (old LMS)', label_ko: '출석 (옛 LMS)' },
+        { date: '2026-10-29', start: '19:40', duration_min: 20, class_type: 'regular', teacher_name: 'KAYE', state: 'upcoming', label_en: 'Upcoming', label_ko: '예정' }] };
+    const openOct = async () => { api.open({ scheduleId: '5', roomId: '', studentUid: '', date: '2026-10-29', name: 'S' });
+      for (let i = 0; i < 5; i++) await new Promise(r => setTimeout(r, 0)); };
+    await openOct();
+    const chips = () => tree(dlg).filter(e => cls(e, 'cal-chip'));
+    const chipOn = date => chips().find(c => (c.attrs['aria-label'] || '').startsWith(date));
+    const text = date => chipOn(date).textContent;
+    assert.equal(chips().length, 6, 'one card per lesson');
+    assert.match(text('2026-10-01'), /Regular class.*5:50pm – 6:10pm · 20 min.*KAYE.*Student absent.*Report: not written/, 'card lines in the manager order');
+    assert.ok(!/Report/.test(text('2026-10-06')), 'a paused day owes no report');
+    assert.match(text('2026-10-08'), /Trial class.*Report: written/, 'written feedback shows, with the lesson type');
+    assert.match(text('2026-10-13'), /^5:50pm – 6:10pm · 20 min Teacher not recorded Done · Teacher changed Report: could not check$/, 'no guessed type · unread report says so');
+    assert.match(text('2026-10-20'), /^1:00pm Teacher A Attended \(old LMS\) Report: not written$/, 'old-LMS row: start time only (no duration)');
+    assert.ok(/7:40pm – 8:00pm · 20 min/.test(text('2026-10-29')) && !/Report/.test(text('2026-10-29')), 'upcoming: no report line yet');
+    assert.match(chipOn('2026-10-01').attrs['aria-label'], /^2026-10-01 · Regular class · 5:50pm – 6:10pm · 20 min · KAYE · Student absent · Report: not written$/, 'screen readers get the same lines');
+    // Holidays: cells, names, colours (a KR holiday turns the day number red even on a Saturday; PH does not).
+    const cell = day => tree(dlg).find(e => cls(e, 'cal-day') && e.children[0] && e.children[0].textContent === String(day));
+    assert.ok(cls(cell(3), 'cal-hol') && !cls(cell(3), 'cal-hol-ph') && /National Foundation Day/.test(cell(3).textContent), 'KR holiday cell + name');
+    assert.ok(cls(cell(3).children[0], 'cal-sun'), 'KR holiday: red day number on a Saturday');
+    assert.ok(cls(cell(31), 'cal-hol-ph') && cls(cell(31).children[0], 'cal-sat') && /All Saints Eve/.test(cell(31).textContent), 'PH holiday: blue cell, number keeps its weekday colour');
+    assert.ok(/^15 Holiday$/.test(cell(15).textContent), 'unnamed holiday says «Holiday»');
+    assert.ok(!cls(cell(4), 'cal-hol'), 'ordinary day is not a holiday');
+    // A card opens the List view at its day; the view bar follows.
+    const viewButtons = tree(dlg).find(e => cls(e, 'history-view')).children;
+    chipOn('2026-10-08').onclick();
+    assert.equal(viewButtons[1].attrs['aria-pressed'], 'true', 'card → List view');
+    assert.ok(tree(dlg).some(e => cls(e, 'history-day') && /^2026-10-08/.test(e.textContent)), 'List view shows that day');
+    viewButtons[0].onclick();assert.equal(viewButtons[0].attrs['aria-pressed'], 'true');
+    // «This month»: from another month, one tap loads the current KST month; on the current month it does nothing.
+    const navButtons = tree(dlg).find(e => e.tagName === 'nav').children.filter(e => e.tagName === 'button');
+    const thisMonth = navButtons.find(b => b.textContent === 'This month');
+    assert.ok(thisMonth, '«This month» button is in the month bar');
+    const nowMonth = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 7), before = urls.length;
+    thisMonth.onclick();for (let i = 0; i < 5; i++) await new Promise(r => setTimeout(r, 0));
+    assert.equal(urls.length, before + (nowMonth === '2026-10' ? 0 : 1));
+    assert.equal(new URLSearchParams(urls.at(-1).split('?')[1]).get('month'), nowMonth, 'requests the current KST month');
+    const again = urls.length;thisMonth.onclick();assert.equal(urls.length, again, 'already on this month: no extra request');
+    // Korean page: same cards in Korean.
+    dctx.document.documentElement.lang = 'ko';await openOct();
+    assert.match(text('2026-10-01'), /정규수업.*KAYE.*학생 결석.*보고서: 미작성/);
+    assert.ok(navButtons.some(b => b.textContent === '이번 달') && /공휴일/.test(cell(15).textContent), 'Korean labels');
+    dctx.document.documentElement.lang = 'en';
+  }
 }
 console.log(`PASS: ${matrix} distinct matrix scenarios plus integration cases: real SQLite history, cross-teacher records, report-free previous teacher, substitutes, leap dates, month boundaries, orphan/legacy reports, authorization, read failures and SELECT-only reads.`);
 db.close();

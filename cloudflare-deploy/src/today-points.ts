@@ -14,7 +14,8 @@ export function toolForRule(code: string | null | undefined, meta: string | null
   if (c === 'speech_master') return 'speech';
   if (c === 'judgment_correct') return 'judgment';
   if (/^ai_writing/.test(c)) return 'write';
-  if (c === 'warmup_talk') return 'warmup';   // 🗣️ A.i 말하기(2026-11-03, 정본 warmup-points.ts)
+  if (c === 'warmup_talk') return 'warmup';
+  if (c === 'scene_words_done') return 'scene';   // ✍️ 교재 낱말 쓰기 숙제(2026-11-03, 정본 scene-words-points.ts)   // 🗣️ A.i 말하기(2026-11-03, 정본 warmup-points.ts)
   if (c === 'rescue_sentence' || c === 'game_score') return 'games';
   return 'other';
 }

@@ -17,6 +17,11 @@
     c24On: true,           // 「카페24 수업 함께 보기」 체크박스
     c24Msg: '',            // 못 읽었을 때 이유(빈 화면을 «수업 없음» 으로 오해하지 않게)
     c24Cache: {},          // 주(월요일) → { t, rows, msg }
+    /* 🧾 (2026-11-03 사장님 «주간 시간표도 똑같이») 취소·연기된 «날짜 회차» — 서버 /api/admin/schedules 의 off_items.
+       records 와 섞지 않는다(카페24 와 같은 이유 — 드래그·차단 삭제가 records 인덱스로 돈다).
+       offComplete 가 true 일 때만 «0건» 이라고 말한다(칸이 없는 옛 서버·조회 실패 = «모름»). */
+    off: [],               // [{off:'cancelled'|'postponed', teacher_id, date, start_time, duration_min, type, students, change}]
+    offComplete: false,
     /* 🗂 (2026-09-02 사장님 선택 B-1) 전체 보기에서 «펼친 요일»(0=월 … 6=일).
        null 이면 렌더 때 오늘(이번 주가 아니면 수업이 있는 첫 요일)로 정한다. 주를 옮기면 null 로 되돌린다. */
     openDay: null
@@ -156,10 +161,37 @@
         var j = await r.json();
         var arr = (j && (j.schedules || j.items)) || [];
         ph54State.records = Array.isArray(arr) ? arr : [];
+        ph54State.off = ph54MergeOff(j && j.off_items);
+        ph54State.offComplete = !!(j && j.off_complete === true);
         return;
       }
     } catch(e){ console.warn('[ph54] schedules load', e); }
     ph54State.records = [];   // 실패 시 빈 상태(가짜 데이터로 채우지 않음)
+    ph54State.off = []; ph54State.offComplete = false;   // 못 읽었다 = «모름» (0건이라고 단정하지 않는다)
+  }
+
+  /* 🧾 취소·연기 회차 묶기 — 그룹 수업은 «학생마다 한 행» 이라 같은 강사·날짜·시각·상태면 학생만 합친다
+     (weekly-schedule.html 의 OFF_SLOTS 로더와 같은 규칙). 모양이 이상한 줄은 버린다(아무 칸에나 놓지 않는다). */
+  function ph54MergeOff(list){
+    var out = [], byKey = {};
+    (Array.isArray(list) ? list : []).forEach(function(o){
+      if (!o || o.teacher_id == null || o.teacher_id === '' || !o.date) return;
+      var kind = o.off === 'postponed' ? 'postponed' : 'cancelled';
+      var k = String(o.teacher_id) + '|' + String(o.date).slice(0, 10) + '|' + String(o.start_time || o.hour || '') + '|' + kind;
+      var prev = byKey[k];
+      if (prev){
+        var have = {};
+        prev.students.forEach(function(x){ have[(x && (x.uid || x.name)) || ''] = 1; });
+        (o.students || []).forEach(function(x){ var id = (x && (x.uid || x.name)) || ''; if (id && !have[id]){ prev.students.push(x); have[id] = 1; } });
+        return;
+      }
+      var rec = { off: kind, teacher_id: o.teacher_id, teacher_name: o.teacher_name || '', date: String(o.date).slice(0, 10),
+                  start_time: o.start_time || '', hour: o.hour, type: o.type || '1on1',
+                  duration_min: Number(o.duration_min) > 0 ? Number(o.duration_min) : 20,
+                  students: (o.students || []).slice(), change: o.change || null };
+      byKey[k] = rec; out.push(rec);
+    });
+    return out;
   }
 
   /* 🪞 (2026-08-31 사장님) 「카페24에 있는 수업이 mangoi.ai 에도 잡히도록. 바로 잡는 게
@@ -510,7 +542,10 @@
     if (cluster.length) flush();
     // 겹침 표시 — 짝마다 시간이 겹치는지 본다. 군집은 «앞 카드가 끝나기 전에 시작한 카드» 로만 자라므로
     //   둘 이상인 군집의 구성원은 반드시 누군가와 겹친다(= 군집 크기>1 과 같은 뜻. 짝 검사는 그 사실을 그대로 적은 것)
+    //   🧾 취소·연기 칸(kind 'off')은 «수업이 둘» 이 아니다 — 취소한 자리에 새 수업을 넣은 것은 겹침이 아니므로 빼고 센다.
+    //      (자리(lane)는 함께 나눈다 — 두 카드가 같은 자리에 포개지지 않게.)
     for (var i = 0; i < list.length; i++) for (var j = i + 1; j < list.length; j++){
+      if (list[i].kind === 'off' || list[j].kind === 'off') continue;
       if (list[i].st < list[j].st + list[j].du && list[j].st < list[i].st + list[i].du){ list[i].dup = true; list[j].dup = true; }
     }
     // 빈 자리 — 연속 점유 사이 PH54_GAP_MIN 분 이상(차단 카드도 «점유» 로 본다)
@@ -651,6 +686,51 @@
       + '</div>';
   }
 
+  /* 🧾 (2026-11-03 사장님 «주간 시간표도 똑같이») 취소·연기된 수업 카드 — **보기 전용**.
+     · 지우지 않고 그 자리에 남긴다(빗금 + 취소선 = 취소, 점선 + 기울임 = 연기) — 매니저 제보 「취소했더니 통째로 사라졌다」.
+     · 끌 수 없고(draggable 없음), records 인덱스·차단 번호를 안 단다 — 클릭·드롭 핸들러가 그 둘로 돌기 때문이다.
+     · 글자(취소됨/연기됨)·누가·언제·사유는 서버가 만든 것만 쓴다(judgeClassChange — 누가·사유는 본사·내부직원에게만 실린다).
+     · 색은 밝은 회색 무늬 — adm-light-surfaces 가 «어두운 그라데이션» 으로 보고 덮지 않게 밝은 색만 쓴다(CLAUDE.md 2장). */
+  /* 🧾 클릭이 «카드 위» 라서 무시해야 하는가. 취소·연기 카드는 «비어 있는 시간» 이라 통과시킨다 —
+     고치기 전에는 그 자리가 빈칸이라 눌러서 차단할 수 있었다(함정 대조 2026-11-03: 카드가 그 길을 막고 있었다). */
+  function ph54CardBlocksClick(t){
+    var c = t && t.closest && t.closest('.ph54-ev');
+    return !!c && !c.classList.contains('ph54-off');
+  }
+
+  function ph54OffCard(s, lay){
+    var pp       = s.off === 'postponed';
+    var startMin = ph54MinOf(s);
+    var dur      = s.duration_min || 20;
+    var top      = Math.max(0, (startMin - PH54_START_H*60) / 60 * PH54_HOUR_PX);
+    var height   = Math.max(dur / 60 * PH54_HOUR_PX, 22);
+    var timeTxt  = ph54FmtMin(startMin) + ' · ' + dur + ph54T('분', 'm');
+    var typeEn   = { '1on1':'Regular', 'group':'Regular group', 'temp':'Make-up', 'trial':'Trial', 'leveltest':'Level test' };
+    var who      = (s.students || []).map(function(x){ return x && x.name; }).filter(Boolean).join(', ')
+                 || (ph54En() ? typeEn[s.type] : PH54_TYPE_LABEL[s.type]) || ph54T('수업', 'Class');
+    var ch       = s.change || {};
+    var label    = ph54En() ? (ch.label_en || (pp ? '⏸ Postponed' : '✕ Cancelled'))
+                            : (ch.label_ko || (pp ? '⏸ 연기됨' : '✕ 취소됨'));
+    var by       = [ch.by || '', ch.at_kst || ''].filter(Boolean).join(' · ');
+    var tip = label + ' · ' + timeTxt + ' · ' + who
+      + (by ? '\n' + ph54T('처리: ', 'By: ') + by : '')
+      + (ch.reason ? '\n' + ph54T('사유: ', 'Reason: ') + ch.reason : '')
+      + '\n' + ph54T('지우지 않고 남겨 둔 칸입니다 — 옮기거나 지울 수 없습니다. 이 시간은 비어 있습니다 (강사를 고른 화면에서는 눌러서 이 시간을 차단할 수 있어요).',
+                     'Kept on the calendar, not deleted — it cannot be moved or deleted. This time is open (with an instructor selected, click to block this time).');
+    var look = pp
+      ? 'background-color:#f8fafc;border:1.5px dashed #64748b;font-style:italic;'
+      : 'background-color:#f1f5f9;background-image:repeating-linear-gradient(135deg,#f1f5f9,#f1f5f9 5px,#e2e8f0 5px,#e2e8f0 10px);border:1.5px solid #94a3b8;';
+    return '<div class="ph54-ev ph54-off ph54-locked' + (pp ? ' ph54-off-pp' : '') + '" data-off="' + (pp ? 'postponed' : 'cancelled') + '"'
+      /* 글자색 #475467 은 «테마 규칙이 없을 때» 의 값이다 — ivory/slate 에서는 admin-inline-c.css 의
+         [id^="card-"] … div{color:#101828!important} 가 이겨 실제로는 #101828 로 그려진다(실측). 둘 다 밝은 바탕에서 읽힌다. */
+      + ' style="top:'+top+'px;height:'+height+'px;'+ph54LaneStyle(lay)+'cursor:cell;box-shadow:none;color:#475467;'+look+'"'
+      + ' title="'+ph54Esc(tip)+'">'
+      +   '<div class="ph54-ev-time"' + (pp ? '' : ' style="text-decoration:line-through;text-decoration-color:#64748b"') + '>' + ph54Esc(timeTxt) + '</div>'
+      +   '<div class="ph54-ev-name">' + ph54Esc(who) + '</div>'
+      +   '<div class="ph54-ev-type">' + ph54Esc(label) + '</div>'
+      + '</div>';
+  }
+
   function ph54Render(){
     var wrap = document.getElementById('ph54-sched-wrap');
     if (!wrap) return;
@@ -699,6 +779,14 @@
       if (String(r.date) < c24Today) c24Past++;
       else if (r.verdict === 'conflict') c24Clash++;
       else c24Ahead++;
+    });
+
+    /* 🧾 취소·연기 회차(보기 전용) — 그 주·그 강사(필터)만. 수업 수·분·밀도에는 안 센다(수업이 아니다). */
+    var offEvents = [];
+    (ph54State.off || []).forEach(function(r){
+      if (!r || !(r.date in dateToCol)) return;
+      if (filterId && String(r.teacher_id) !== String(filterId)) return;
+      offEvents.push({ rec: r, col: dateToCol[r.date] });
     });
 
     // ── 컨트롤 바
@@ -753,7 +841,7 @@
       var map = {}, order = [];
       var bucket = function(tid, name){
         var k = String(tid == null ? '' : tid);
-        if (!map[k]){ map[k] = { tid: k, name: name || '', items: [], n: 0, mins: 0, c24n: 0, dup: false }; order.push(k); }
+        if (!map[k]){ map[k] = { tid: k, name: name || '', items: [], n: 0, mins: 0, c24n: 0, offn: 0, dup: false }; order.push(k); }
         return map[k];
       };
       events.forEach(function(e){
@@ -769,6 +857,12 @@
         b.items.push({ kind: 'c24', rec: r, st: ph54MinOf(r), du: r.duration_min || 20 });
         b.c24n++;
       });
+      offEvents.forEach(function(e){
+        if (e.col !== ci) return;
+        var r = e.rec, b = bucket(r.teacher_id, ph54TeacherName(r.teacher_id, r.teacher_name));
+        b.items.push({ kind: 'off', rec: r, st: ph54MinOf(r), du: r.duration_min || 20 });
+        b.offn++;
+      });
       order.sort(function(a, b){
         var ia = (a in rosterIdx) ? rosterIdx[a] : 9999, ib = (b in rosterIdx) ? rosterIdx[b] : 9999;
         return ia - ib || (a < b ? -1 : a > b ? 1 : 0);
@@ -780,6 +874,7 @@
       });
       byDay.push({ teachers: tlist,
                    n: tlist.reduce(function(a, t){ return a + t.n; }, 0),
+                   offn: tlist.reduce(function(a, t){ return a + t.offn; }, 0),
                    total: tlist.reduce(function(a, t){ return a + t.items.length; }, 0) });
     }
 
@@ -818,10 +913,13 @@
       if (i === openDay){
         headCells += '<div class="ph54-cal-dayhead ph54-open' + (isToday ? ' today' : '') + '" style="grid-column:span ' + Math.max(1, bd.teachers.length) + '">'
           + dayLabel[i] + ' <span class="ph54-cal-date">' + dateTxt(i) + '</span>'
-          + ' <span class="ph54-cal-cnt">· ' + ph54T('수업 ', 'classes ') + bd.n + ph54T('개', '') + ' · ' + ph54T('강사 ', 'instructors ') + bd.teachers.length + ph54T('명', '') + '</span></div>';
+          + ' <span class="ph54-cal-cnt">· ' + ph54T('수업 ', 'classes ') + bd.n + ph54T('개', '') + ' · ' + ph54T('강사 ', 'instructors ') + bd.teachers.length + ph54T('명', '')
+          + (bd.offn ? ' · ' + ph54T('취소·연기 ', 'cancelled/postponed ') + bd.offn + ph54T('개', '') : '') + '</span></div>';
       } else {
         headCells += '<div class="ph54-cal-dayhead ph54-cal-fold-head' + (isToday ? ' today' : '') + '" data-day="' + i + '" role="button" tabindex="0" title="'
-          + ph54Esc(dayLabel[i] + ' ' + dateTxt(i) + ' · ' + ph54T('수업 ' + bd.n + '개 — 누르면 펼칩니다', bd.n + ' classes — click to open')) + '">'
+          + ph54Esc(dayLabel[i] + ' ' + dateTxt(i) + ' · ' + ph54T('수업 ' + bd.n + '개', bd.n + ' classes')
+              + (bd.offn ? ph54T(' · 취소·연기 ' + bd.offn + '개', ' · ' + bd.offn + ' cancelled/postponed') : '')
+              + ph54T(' — 누르면 펼칩니다', ' — click to open')) + '">'
           + dayLabel[i] + '<br><span class="ph54-cal-date">' + dateTxt(i) + '</span></div>';
       }
     });
@@ -841,13 +939,14 @@
           var tipTxt = (t.name || ph54T('강사 미정', 'No instructor')) + ' · ' + t.n + ph54T('회 ', ' classes ') + t.mins + ph54T('분', 'm')
             + (its.length ? ' · ' + ph54FmtMin(first) + '~' + ph54FmtMin(last) : '')
             + (t.c24n ? ' · ' + ph54T('카페24 ', 'Cafe24 ') + t.c24n : '')
+            + (t.offn ? ' · ' + ph54T('취소·연기 ', 'cancelled/postponed ') + t.offn : '')
             + (t.dup ? ph54T(' · ⚠ 같은 시각에 수업이 둘', ' · ⚠ two classes at the same time') : '')
             + (t.tid && (t.tid in rosterIdx) ? ph54T(' — 누르면 이 강사만 봅니다', ' — click to show only this instructor') : '');
           headCells += '<div class="ph54-cal-subhead' + (j === 0 ? ' ph54-daysep' : '') + (t.dup ? ' ph54-dup-head' : '') + '"'
             + (t.tid && (t.tid in rosterIdx) ? ' data-teacher="' + ph54Esc(t.tid) + '" role="button" tabindex="0"' : '')
             + ' title="' + ph54Esc(tipTxt) + '">'
             + '<b>' + ph54Esc(t.name || ph54T('강사 미정', 'No instructor')) + (t.dup ? ' ⚠' : '') + '</b>'
-            + '<small>' + t.n + ph54T('회', 'x') + ' · ' + t.mins + ph54T('분', 'm') + (t.c24n ? ' · C24 ' + t.c24n : '') + '</small>'
+            + '<small>' + t.n + ph54T('회', 'x') + ' · ' + t.mins + ph54T('분', 'm') + (t.c24n ? ' · C24 ' + t.c24n : '') + (t.offn ? ' · ✕' + t.offn : '') + '</small>'
             + '<span class="ph54-load"><span style="width:' + Math.round(t.mins / maxMins * 100) + '%"></span></span>'
             + '</div>';
         });
@@ -865,6 +964,7 @@
       var out = lay.gaps.map(ph54GapHtml).join('');
       lay.items.forEach(function(it){
         if (it.kind === 'rec') out += ph54EventCard(it.idx, it.rec, it);
+        else if (it.kind === 'off') out += ph54OffCard(it.rec, it);   // 🧾 취소·연기 — 보기 전용
         else { it.rec.__lay = it; out += ph54C24Card(it.rec); it.rec.__lay = null; }
       });
       return out;
@@ -875,7 +975,8 @@
       var isToday2 = ph54FmtDate(days[ci2]) === todayStr, bd2 = byDay[ci2], tcls = isToday2 ? ' today' : '';
       if (accordion && ci2 !== openDay){
         var allItems = [];
-        bd2.teachers.forEach(function(t){ allItems = allItems.concat(t.items); });
+        // 밀도는 «수업» 만 — 취소·연기 칸(off)은 그 시간이 비어 있으므로 진하게 칠하지 않는다
+        bd2.teachers.forEach(function(t){ allItems = allItems.concat(t.items.filter(function(it){ return it.kind !== 'off'; })); });
         cols += '<div class="ph54-cal-fold' + tcls + '" data-day="' + ci2 + '" role="button" tabindex="0" style="height:' + bodyH + 'px;' + ph54FoldGradient(allItems) + '" title="'
           + ph54Esc(dayLabel[ci2] + ' ' + dateTxt(ci2) + ' · ' + ph54T('수업 ' + bd2.n + '개 — 누르면 펼칩니다 (카드를 끌어다 놓으면 이 요일로 옮깁니다)', bd2.n + ' classes — click to open (drop a card here to move it to this day)')) + '"></div>';
         continue;
@@ -920,6 +1021,8 @@
       +   '<span><i class="ph54-legend-nonclass"></i>'+ph54T('LMS 점유·시드 (수업 아님)','LMS busy / seed (not a class)')+'</span>'
       +   '<span><i class="ph54-legend-gap"></i>'+ph54T('수업 사이 빈 30분 이상','30+ min free between classes')+'</span>'
       +   '<span><i class="ph54-legend-dup"></i>'+ph54T('같은 강사 · 같은 시각 겹침','Same instructor, same time')+'</span>'
+      +   '<span><i style="background-color:#f1f5f9;background-image:repeating-linear-gradient(135deg,#f1f5f9,#f1f5f9 3px,#cbd5e1 3px,#cbd5e1 6px);border:1px solid #94a3b8;box-sizing:border-box"></i>'
+      +     ph54T('✕ 취소 · ⏸ 연기 (지우지 않고 남김 · 옮길 수 없음)','✕ Cancelled · ⏸ Postponed (kept, cannot be moved)')+'</span>'
       +   (ph54State.c24On
             ? '<span><i style="background-color:#dbeafe;background-image:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(15,23,42,.2) 3px,rgba(15,23,42,.2) 6px);border:1px dashed #2563eb;box-sizing:border-box"></i>'
               + ph54T('카페24 수업 (지난 것은 기록, 앞으로 것만 대기)','Cafe24 class (past = record, upcoming = pending)')+'</span>'
@@ -927,6 +1030,16 @@
       +   '<span class="ph54-legend-count">'
       +     ph54T('수업 ','Classes ')+nReal+ph54T('개','')
       +     (nOther ? '<b class="ph54-count-warn"> · '+ph54T('LMS 점유·시드 ','LMS busy / seed ')+nOther+ph54T('개','')+'</b>' : '')
+      /* 🧾 취소·연기 건수 — 서버가 «다 읽었다»(off_complete) 고 말하지 않으면 0 이 아니라 «?» (모르는 것을 0건이라고 단정하지 않는다) */
+      /*   서버는 «줄» 조회가 실패하면 줄을 하나도 안 싣고, «이력(누가·사유)» 조회만 실패하면 줄은 전부 싣고 off_complete:false 로 준다.
+           그래서 «모름 + 0줄» 만 «?», 줄이 있으면 건수는 정확하다 — 비는 것은 누가·사유뿐(weekly-schedule.html 의 «N건» 과 같은 말). */
+      +     '<span class="ph54-off-count" title="'+ph54Esc(
+              ph54State.offComplete ? ph54T('이 주에 취소·연기된 수업 (지우지 않고 남긴 칸)','Cancelled or postponed classes this week (kept on the calendar)')
+            : offEvents.length      ? ph54T('누가·언제·사유를 일부 불러오지 못했습니다 (건수는 정확합니다)','Could not load some who/when/reason details (the count is exact)')
+                                    : ph54T('취소·연기 기록을 불러오지 못했습니다 — 있는지 없는지 모릅니다','Could not load cancelled/postponed records — unknown'))+'"> · '
+      +       ph54T('취소·연기 ','Cancelled/postponed ')
+      +       ((!ph54State.offComplete && !offEvents.length) ? '?' : (offEvents.length + ph54T('개','')))
+      +     '</span>'
       +     (ph54State.c24On && c24Ahead
               ? ' · '+ph54T('카페24 대기 ','Cafe24 pending ')+c24Ahead+ph54T('개','') : '')
       +     (ph54State.c24On && c24Clash
@@ -1034,7 +1147,7 @@
     if (calTrack0 && !filterId && !calTrack0._blkHintBound){
       calTrack0._blkHintBound = true;
       calTrack0.addEventListener('click', function(ev){
-        if (ev.target.closest && ev.target.closest('.ph54-ev')) return;
+        if (ph54CardBlocksClick(ev.target)) return;
         if (!(ev.target.closest && ev.target.closest('.ph54-cal-col'))) return;
         ph54Toast(ph54T('💡 먼저 위에서 강사를 선택하면 빈 칸을 눌러 그 시간을 막을 수 있어요.',
                         '💡 Pick an instructor above first — then click an empty slot to block that time.'));
@@ -1042,7 +1155,7 @@
     }
     if (calTrack0 && filterId){
       calTrack0.addEventListener('click', function(ev){
-        if (ev.target.closest && ev.target.closest('.ph54-ev')) return;   // 카드 위 클릭은 무시
+        if (ph54CardBlocksClick(ev.target)) return;   // 카드 위 클릭은 무시(취소·연기 카드는 «빈 시간» 이라 통과)
         var col = ev.target.closest && ev.target.closest('.ph54-cal-col');
         if (!col) return;
         var rect = col.getBoundingClientRect();

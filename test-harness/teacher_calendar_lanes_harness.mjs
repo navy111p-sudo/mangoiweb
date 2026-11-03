@@ -135,6 +135,119 @@ console.log('\n[ C. CSS · 캐시 ]');
   check('admin.html 의 admin-inline-c.css ?v= 가 67 이상', cssV >= 67, `v=${cssV}`);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   [D] 🧾 (2026-11-03 사장님 «주간 시간표도 똑같이») 취소·연기 회차를 «지우지 않고» 남긴다.
+       서버 /api/admin/schedules 의 off_items(PR #2000) 를 이 캘린더도 읽는다 — 보기 전용 카드.
+       함수를 오려 내 **실제로 돌린다**. 화면 확인은 test-harness/manual/teacher-calendar-cancelled-browser.mjs.
+   ───────────────────────────────────────────────────────────────────────────── */
+console.log('\n[ D. 취소·연기 카드 — 실제로 돌린다 ]');
+{
+  const it = (st, du, k, kind) => ({ st, du, k, kind });
+  // D-1 배치: 취소 칸은 «겹침» 이 아니다 — 그래도 자리는 나눈다(포개지지 않게)
+  let r = L.ph54LayoutItems([it(840, 20, 'live', 'rec'), it(840, 20, 'gone', 'off')]);
+  const lv = r.items.find((v) => v.k === 'live'), gn = r.items.find((v) => v.k === 'gone');
+  check('🔴 D-1 취소한 자리에 넣은 새 수업은 dup 가 아니다', !lv.dup && !gn.dup, JSON.stringify(r.items));
+  check('D-1 그래도 두 카드는 자리를 나눈다(lanes=2 · 서로 다른 lane)', lv.lanes === 2 && gn.lanes === 2 && lv.lane !== gn.lane, JSON.stringify(r.items));
+  r = L.ph54LayoutItems([it(840, 20, 'a', 'rec'), it(840, 20, 'b', 'rec'), it(840, 20, 'c', 'off')]);
+  check('D-1 진짜 수업 둘이 겹치면 여전히 dup(취소 칸이 끼어도)', r.items.filter((v) => v.kind === 'rec').every((v) => v.dup) && !r.items.find((v) => v.kind === 'off').dup, JSON.stringify(r.items));
+
+  // D-2 묶기: 그룹(학생마다 한 행) 합치기 · 모양이 이상한 줄은 버림
+  const mergeSrc = fn('ph54MergeOff');
+  check('D-2 ph54MergeOff 를 소스에서 오려 냈다', mergeSrc.length > 300, `len=${mergeSrc.length}`);
+  let M = null;
+  try { M = new Function(mergeSrc + '\nreturn ph54MergeOff;')(); } catch (e) { check('D-2 묶기 함수 실행 준비', false, String(e)); }
+  if (M) {
+    const out = M([
+      { off: 'cancelled', teacher_id: 24, date: '2026-11-03', start_time: '18:00', duration_min: 40, students: [{ name: 'A', uid: 'a' }] },
+      { off: 'cancelled', teacher_id: 24, date: '2026-11-03', start_time: '18:00', duration_min: 40, students: [{ name: 'B', uid: 'b' }] },
+      { off: 'cancelled', teacher_id: 24, date: '2026-11-03', start_time: '18:00', duration_min: 40, students: [{ name: 'A', uid: 'a' }] },
+      { off: 'postponed', teacher_id: 24, date: '2026-11-03', start_time: '18:00', duration_min: 40, students: [{ name: 'P', uid: 'p' }] },
+      { off: 'cancelled', teacher_id: null, date: '2026-11-03', start_time: '19:00' },
+      { off: 'cancelled', teacher_id: 24, start_time: '19:00' },
+      null,
+    ]);
+    check('D-2 같은 강사·날짜·시각·상태는 한 장(학생 A·B, 중복 A 는 한 번)', out.length === 2 && out[0].students.map((s) => s.name).join(',') === 'A,B', JSON.stringify(out));
+    check('D-2 상태가 다르면(취소 vs 연기) 따로', out.some((o) => o.off === 'postponed'), JSON.stringify(out));
+    check('D-2 강사·날짜 없는 줄·null 은 버린다(아무 칸에나 놓지 않는다)', out.every((o) => o.teacher_id != null && o.date), JSON.stringify(out));
+    check('D-2 모르는 상태는 «취소» 로, 길이 없으면 20분', M([{ off: 'zz', teacher_id: 1, date: '2026-11-03' }])[0].off === 'cancelled' && M([{ teacher_id: 1, date: '2026-11-03' }])[0].duration_min === 20);
+    check('D-2 배열이 아니면 빈 목록(옛 서버)', M(undefined).length === 0 && M({}).length === 0);
+  }
+
+  // D-3 카드: 보기 전용 — draggable·data-idx·data-block 없음, 글자는 서버 것
+  const cardSrc = fn('ph54OffCard');
+  check('D-3 ph54OffCard 를 소스에서 오려 냈다', cardSrc.length > 600, `len=${cardSrc.length}`);
+  let C = null;
+  try {
+    C = new Function('PH54_START_H', 'PH54_HOUR_PX', 'PH54_TYPE_LABEL', 'ph54MinOf', 'ph54FmtMin', 'ph54T', 'ph54En', 'ph54Esc', 'ph54LaneStyle',
+      cardSrc + '\nreturn ph54OffCard;')(6, 50, { '1on1': '정규' },
+      (s) => { const m = String(s.start_time).match(/(\d+):(\d+)/); return (+m[1]) * 60 + (+m[2]); },
+      (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'),
+      (ko) => ko, () => false, (x) => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'),
+      L.ph54LaneStyle);
+  } catch (e) { check('D-3 카드 함수 실행 준비', false, String(e)); }
+  if (C) {
+    const cx = C({ off: 'cancelled', start_time: '14:00', duration_min: 20, type: '1on1', students: [{ name: 'lby' }],
+      change: { label_ko: '✕ 취소됨', label_en: '✕ Cancelled', by: 'Maimai', at_kst: '11/02 14:22', reason: '학생 요청' } }, null);
+    const pp = C({ off: 'postponed', start_time: '16:00', duration_min: 20, type: '1on1', students: [],
+      change: { label_ko: '⏸ 연기됨 — 새 날짜 미정', label_en: '⏸ Postponed — no new date', by: null, at_kst: null, reason: null } }, null);
+    check('🔴 D-3 draggable 이 없다', !/draggable/.test(cx) && !/draggable/.test(pp));
+    check('🔴 D-3 data-idx·data-block 이 없다(드래그·차단 삭제가 그 둘로 돈다)', !/data-idx|data-block/.test(cx + pp));
+    check('D-3 .ph54-ev .ph54-off .ph54-locked + data-off', /class="ph54-ev ph54-off ph54-locked"/.test(cx) && /data-off="cancelled"/.test(cx) && /data-off="postponed"/.test(pp));
+    check('D-3 글자는 서버 것(✕ 취소됨 / ⏸ 연기됨 — 새 날짜 미정)', />✕ 취소됨</.test(cx) && />⏸ 연기됨 — 새 날짜 미정</.test(pp));
+    check('D-3 툴팁에 처리·사유(서버가 실었을 때만)', /처리: Maimai · 11\/02 14:22/.test(cx) && /사유: 학생 요청/.test(cx) && !/처리:/.test(pp) && !/사유:/.test(pp));
+    check('D-3 취소는 시각에 취소선, 연기는 점선 테두리', /line-through/.test(cx) && !/line-through/.test(pp) && /dashed/.test(pp));
+    check('D-3 학생이 없으면 유형 이름으로(빈 카드 금지)', />정규</.test(pp));
+    check('D-3 색은 밝은 회색만(어두운 그라데이션이면 페인터가 덮는다)', !/rgba\(15,23,42/.test(cx + pp) && /#f1f5f9/.test(cx));
+  }
+
+  // D-4 배선 — 그 자리에서 쓰는가
+  const render = (Q6.match(/function ph54Render\(\)\{[\s\S]*?\n  \}\n/) || [''])[0];
+  const loader = (Q6.match(/async function ph54LoadSchedules\(\)\{[\s\S]*?\n  \}/) || [''])[0];
+  check('D-4 불러올 때 off_items 를 묶어 둔다', /ph54State\.off = ph54MergeOff\(j && j\.off_items\);/.test(loader));
+  check('🔴 D-4 «다 읽었다» 는 서버가 off_complete === true 라고 말할 때만', /ph54State\.offComplete = !!\(j && j\.off_complete === true\);/.test(loader));
+  check('D-4 못 읽으면 비우고 «모름»', /ph54State\.off = \[\]; ph54State\.offComplete = false;/.test(loader));
+  check('D-4 그 주·그 강사(필터)만', /\(ph54State\.off \|\| \[\]\)\.forEach\(function\(r\)\{\s*if \(!r \|\| !\(r\.date in dateToCol\)\) return;\s*if \(filterId && String\(r\.teacher_id\) !== String\(filterId\)\) return;\s*offEvents\.push/.test(render));
+  check('D-4 강사 열에 kind:off 로 넣고 따로 센다(offn)', /b\.items\.push\(\{ kind: 'off'/.test(render) && /b\.offn\+\+/.test(render));
+  check('🔴 D-4 수업 수·분에는 안 센다(n·mins 는 rec 에서만)', !/kind: 'off'[^\n]*b\.n\+\+/.test(render));
+  check('D-4 카드 그리기가 off 를 ph54OffCard 로', /else if \(it\.kind === 'off'\) out \+= ph54OffCard\(it\.rec, it\);/.test(render));
+  check('D-4 접힌 띠 밀도에서 off 를 뺀다', /t\.items\.filter\(function\(it\)\{ return it\.kind !== 'off'; \}\)/.test(render));
+  check('D-4 범례가 «모름» 을 «?» 로(0 이라고 단정하지 않는다)', /\(!ph54State\.offComplete && !offEvents\.length\) \? '\?'/.test(render));
+  check('D-4 범례 한/영(✕ 취소 · ⏸ 연기 / ✕ Cancelled · ⏸ Postponed)', /✕ 취소 · ⏸ 연기/.test(render) && /✕ Cancelled · ⏸ Postponed/.test(render));
+  const jsV2 = Number((HTML.match(/adm-q6\.js\?v=(\d+)/) || [])[1] || 0);
+  check('D-4 admin.html 의 adm-q6.js ?v= 가 19 이상', jsV2 >= 19, `v=${jsV2}`);
+
+  // D-5 (2026-11-03 후속) 함정 대조가 찾은 셋 — 클릭 길 · «N개 이상» 문구 · 수업 수에 안 섞이는가(«위치» 가 아니라 «몸통» 으로)
+  const blkSrc = fn('ph54CardBlocksClick');
+  check('D-5 ph54CardBlocksClick 을 소스에서 오려 냈다', blkSrc.length > 60, `len=${blkSrc.length}`);
+  let B = null;
+  try { B = new Function(blkSrc + '\nreturn ph54CardBlocksClick;')(); } catch (e) { check('D-5 클릭 판정 실행 준비', false, String(e)); }
+  if (B) {
+    const el = (cls) => { const c = { classList: { contains: (k) => cls.split(' ').includes(k) } }; return { closest: (sel) => (sel === '.ph54-ev' && cls ? c : null) }; };
+    check('🔴 D-5 진짜 수업 카드 위 클릭은 막는다(드래그·상세와 안 겹치게)', B(el('ph54-ev')) === true);
+    check('🔴 D-5 취소·연기 카드 위 클릭은 통과(그 시간은 비어 있다 — 차단할 수 있어야)', B(el('ph54-ev ph54-off ph54-locked')) === false);
+    check('D-5 카드 밖 클릭은 통과', B(el('')) === false && B(null) === false);
+  }
+  const blkCalls = (Q6.match(/if \(ph54CardBlocksClick\(ev\.target\)\) return;/g) || []).length;
+  check('D-5 빈 칸 클릭 두 곳(차단 창·안내)이 그 판정을 쓴다', blkCalls === 2, `calls=${blkCalls}`);
+  check('D-5 옛 «카드면 무조건 무시» 가 그 두 곳에 남아 있지 않다', !/ev\.target\.closest\('\.ph54-ev'\)\) return;/.test(Q6));
+  const fe = render.indexOf("offEvents.forEach(function(e){");
+  let feBody = '';
+  if (fe >= 0) { let d = 0, i = render.indexOf('{', fe); const st = i; for (; i < render.length; i++) { if (render[i] === '{') d++; else if (render[i] === '}') { d--; if (!d) break; } } feBody = render.slice(st, i + 1); }
+  check('D-5 취소 칸을 강사 열에 넣는 몸통을 잘라 냈다', /kind: 'off'/.test(feBody), `len=${feBody.length}`);
+  check('🔴 D-5 그 몸통은 수업 수·분(b.n·b.mins)을 안 건드린다', feBody && !/\bb\.n\b|\bb\.mins\b/.test(feBody), feBody.slice(0, 200));
+  const cntExpr = (render.match(/\(\(!ph54State\.offComplete && !offEvents\.length\) \? '\?' : \(offEvents\.length \+ ph54T\('개',''\)\)\)/) || [''])[0];
+  check('D-5 범례 건수 식을 오려 냈다', cntExpr.length > 40, cntExpr);
+  if (cntExpr) {
+    const run = (complete, n) => { try { return new Function('ph54State', 'offEvents', 'ph54T', 'return ' + cntExpr + ';')({ offComplete: complete }, new Array(n), (ko) => ko); } catch (e) { return 'ERR ' + e; } };
+    check('🔴 D-5 모름 + 0줄 → «?»(0 이라고 단정 안 함)', run(false, 0) === '?', run(false, 0));
+    check('D-5 다 읽음 + 0줄 → «0개»', run(true, 0) === '0개', run(true, 0));
+    check('🔴 D-5 일부만(누가·사유) + 3줄 → «3개»(줄은 다 왔으니 건수는 정확 — «이상» 이라 하지 않는다)', run(false, 3) === '3개', run(false, 3));
+    check('D-5 다 읽음 + 3줄 → «3개»', run(true, 3) === '3개', run(true, 3));
+  }
+  check('D-5 일부만일 때 설명이 «누가·사유 일부 + 건수는 정확» 을 말한다', /누가·언제·사유를 일부 불러오지 못했습니다 \(건수는 정확합니다\)/.test(render) && /the count is exact/.test(render));
+  check('D-5 EN 카드는 유형 이름도 영어(학생이 없을 때)', /typeEn\[s\.type\]/.test(cardSrc));
+}
+
 console.log('\n════════════════════════════════════════');
 console.log(`  ${FAIL ? '⚠' : '✅'} 실패 ${FAIL}건 / 통과 ${PASS}건`);
 if (FAIL) { FAILS.forEach((f) => console.log('   ❌ ' + f)); process.exitCode = 1; }
