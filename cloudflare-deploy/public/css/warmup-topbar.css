@@ -1,0 +1,175 @@
+/* 📱 A.i 말하기 연습 — 휴대폰 «위쪽 버튼 한 줄» (2026-11-03 사장님 선택: 세로 B · 가로 C)
+   짝: js/warmup-topbar.js — 그 파일이 html 에 .wu-tb(.wu-tb-p 세로 / .wu-tb-l 가로) 를 붙일 때만 적용된다.
+   PC·태블릿에는 클래스가 안 붙으므로 이 파일의 어떤 규칙도 걸리지 않는다.
+   ⚠️ warmup.html 본문 <style> 블록들(phone-fit 등)이 !important 를 쓰므로 html.wu-tb + id 로 명시도를 올렸다.
+   ⚠️ .wg-history-bar 의 display 에는 !important 를 쓰지 않는다 — 터치 기기에서는 html.tb-on 규칙이 감춰야 한다
+      (같은 버튼이 아래 💡 도움 시트에 있다). */
+
+#wuTbSlot, #wuTbMenu, #wuTbHide, #wuTbShow { display: none; }
+
+/* ── 공통(세로·가로): 한 줄 머리글 ───────────────────────────── */
+html.wu-tb body .top { flex-wrap: nowrap !important; }
+html.wu-tb body .top h1 { display: none !important; }
+/* 진행 문구가 메뉴로 가면 그 줄(.wg-header)은 빈다. 얼굴이 아직 그 안에 있으면(:has) 그대로 둔다 */
+html.wu-tb body .wg-header:not(:has(*)) { display: none !important; }
+
+html.wu-tb #wuTbSlot {
+  display: flex; align-items: center; justify-content: center; gap: 3px;
+  flex: 1 1 auto; min-width: 0;
+  /* 아주 좁은 화면에서 넘치면 줄이 깨지는 대신 이 칸만 옆으로 밀린다 */
+  overflow-x: auto; scrollbar-width: none;
+}
+html.wu-tb #wuTbSlot::-webkit-scrollbar { display: none; }
+
+/* 주제·콤보 칩 */
+html.wu-tb #wuTbSlot .meta {
+  display: flex !important; flex-wrap: nowrap; align-items: center; gap: 3px;
+  flex: 0 1 auto; min-width: 0; padding: 0 !important; margin: 0;
+}
+html.wu-tb #wuTbSlot .meta .chip {
+  flex: 0 0 auto; white-space: nowrap; line-height: 1.45;
+  font-size: 11px !important; padding: 1px 7px !important;
+}
+html.wu-tb #wuTbSlot .meta .chip.dim { display: none !important; }
+html.wu-tb #wuTbSlot .meta .chip.topic {
+  flex: 0 1 auto; min-width: 28px; max-width: 96px; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* 도구 줄(질문하기 · 배경/속도 · 문장 크게) + 이전 대화 · 대답 도움 → 아이콘 버튼 */
+html.wu-tb #wuTbSlot .wf-tools {
+  position: static !important; display: flex; flex-wrap: nowrap !important; flex: 0 0 auto;
+  gap: 2px; padding: 2px !important; margin: 0; border-radius: 9px;
+  background: rgba(0, 0, 0, .25) !important; backdrop-filter: none;
+}
+html.wu-tb #wuTbSlot .wg-history-bar {
+  flex-wrap: nowrap; flex: 0 0 auto; gap: 2px; margin: 0; padding: 0;
+}
+html.wu-tb #wuTbSlot :is(.wf-button, .wg-btn) {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 auto !important; box-sizing: border-box;
+  width: 26px !important; min-width: 26px !important; max-width: 26px;
+  height: 26px !important; min-height: 26px !important;
+  padding: 0 !important; margin: 0 !important; border-radius: 8px !important;
+  font-size: 0 !important; line-height: 0 !important;   /* 글자는 남기고(화면낭독기·툴팁) 그림만 보인다 */
+  color: #dbe4ff; background: transparent; border: 1px solid transparent;
+}
+/* 손가락이 닿는 범위는 위아래로 넓힌다(보이는 크기만 작게) */
+html.wu-tb #wuTbSlot :is(.wf-button, .wg-btn)::after { content: ""; position: absolute; inset: -6px 0; }
+html.wu-tb #wuTbSlot :is(.wf-button, .wg-btn)::before {
+  content: ""; width: 16px; height: 16px; flex: none; background: currentColor;
+  -webkit-mask: var(--wu-ic) center / contain no-repeat; mask: var(--wu-ic) center / contain no-repeat;
+}
+html.wu-tb #wuTbSlot .wf-tools .wf-button:first-child { color: #fff; background: #12855a; border-color: #3fd39a; }
+html.wu-tb #wuTbSlot #wgHelpOpen { color: #ffd36b; background: rgba(245, 179, 1, .14); border-color: rgba(245, 179, 1, .6); }
+html.wu-tb #wuTbSlot :is(.wf-button, .wg-btn):focus-visible { outline: 3px solid #ffd56a; outline-offset: 1px; }
+
+/* 아이콘(선 그림) */
+#wfAskOpen { --wu-ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z'/%3E%3Cpath d='M9.8 9.6a2.2 2.2 0 1 1 3 2c-.6.3-.8.7-.8 1.3'/%3E%3Cpath d='M12 16.2v.1'/%3E%3C/svg%3E"); }
+#wfPreferencesOpen { --wu-ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Cpath d='M3 16l5-5 4 4 3-3 6 6'/%3E%3C/svg%3E"); }
+#wfExpandOpen { --wu-ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-4-4M11 8v6M8 11h6'/%3E%3C/svg%3E"); }
+#wgHistory { --wu-ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3.5 8.5'/%3E%3Cpath d='M3.5 4v4.5H8'/%3E%3Cpath d='M12 8v4.5l3 2'/%3E%3C/svg%3E"); }
+#wgHelpOpen { --wu-ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 18h5M10.5 21h3M12 3a6 6 0 0 0-3.7 10.7c.7.6 1.2 1.4 1.2 2.3h5c0-.9.5-1.7 1.2-2.3A6 6 0 0 0 12 3z'/%3E%3C/svg%3E"); }
+#wuTbHide { --wu-ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 15l6-6 6 6'/%3E%3C/svg%3E"); }
+#wuTbShow { --wu-ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); }
+
+/* ⋮ 메뉴 맨 위: 진행 문구(+ 세로에서는 빠른 줄) */
+html.wu-tb #wuTbMenu {
+  display: block; padding: 2px 2px 10px; margin: 0 0 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+}
+html.wu-tb #wuTbMenu .wg-progress {
+  display: block !important; margin: 0; text-align: left; line-height: 1.45; font-size: 12px !important;
+}
+html.wu-tb #wuTbMenu .wg-progress strong { display: block; font-size: 14px !important; white-space: normal; }
+html.wu-tb #wuTbMenu .wg-progress span { display: block !important; }
+#wuTbQuick { display: none; }
+
+/* ── 세로(B): 32px 한 줄 ─────────────────────────────────────── */
+html.wu-tb-p body .top { padding: 2px 6px !important; gap: 3px !important; }
+html.wu-tb-p body .top .wu-photo-icon { width: 18px; height: 18px; }
+html.wu-tb-p #wuTbSlot .wf-tools { padding: 1px !important; }
+/* 콤보 칩은 «🔥4» 로 줄인다 — 그 자리를 주제 칩(자유 대화)에 준다. 글자(콤보)는 남아 화면낭독기가 읽는다 */
+html.wu-tb-p #wuTbSlot .meta .chip.combo { font-size: 0 !important; padding: 1px 6px !important; }
+html.wu-tb-p #wuTbSlot .meta .chip.combo::before { content: "\1F525"; font-size: 10px; margin-right: 1px; }
+html.wu-tb-p #wuTbSlot .meta .chip.combo b { font-size: 11px; }
+/* ⋮ 메뉴 빠른 줄 — 모드 선택 · 🏠 · 🔄 · 🔊 (원래 버튼을 옮겨 온 것) */
+html.wu-tb-p #wuTbQuick { display: flex; flex-wrap: wrap; align-items: stretch; gap: 4px; margin-top: 10px; }
+html.wu-tb-p #wuTbQuick :is(.icon-btn, .back) {
+  flex-direction: column; gap: 3px;
+  width: auto !important; height: auto !important; min-width: 46px !important; min-height: 48px !important;
+  padding: 6px 4px 5px !important; border-radius: 10px !important; font-size: 18px !important;
+}
+html.wu-tb-p #wuTbQuick :is(.icon-btn, .back)::after {
+  content: attr(data-wu-cap); font-size: 11px; font-weight: 700; line-height: 1; color: #dbe4ff;
+}
+html.wu-tb-p #wuTbQuick .wu-photo-icon { width: 22px; height: 22px; }
+html.wu-tb-p #wuTbQuick > a {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 48px;
+  padding: 0 9px !important; border-radius: 10px; font-size: 13px !important; font-weight: 700;
+  border: 1px solid var(--border, #3b557b); background: rgba(255, 255, 255, .05);
+}
+html.wu-tb-p #wuTbQuick > [hidden] { display: none !important; }
+
+/* ── 가로(C): 화면 위에 반투명하게 떠 있는 바 + 숨기기 ──────────── */
+html.wu-tb-l body .top {
+  position: fixed !important; z-index: 50;
+  top: max(6px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
+  box-sizing: border-box; height: 38px; min-height: 0 !important; padding: 0 4px !important; gap: 3px !important;
+  border-radius: 12px; border: 1px solid rgba(255, 255, 255, .16) !important;
+  background: rgba(9, 20, 56, .62) !important; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+  transition: transform .2s ease, opacity .2s ease, visibility 0s;
+}
+html.wu-tb-l body .top :is(.icon-btn, .back) {
+  width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important;
+  font-size: 15px !important; border-radius: 8px !important;
+}
+html.wu-tb-l body .top .wu-photo-icon { width: 18px; height: 18px; }
+html.wu-tb-l body .top > a:first-child { font-size: 12px !important; padding: 4px 4px !important; white-space: nowrap; }
+/* 머리글이 떠 있으므로 대화 영역은 화면 맨 위부터 — 바 높이만큼만 비운다 */
+html.wu-tb-l body .wrap {
+  box-sizing: border-box; height: var(--wf-viewport-height, 100dvh) !important;
+  padding-top: calc(max(6px, env(safe-area-inset-top)) + 44px) !important;
+}
+/* 가로는 세로가 짧다 — 시안 C처럼 얼굴은 왼쪽, 대화는 오른쪽. 대화를 내려 읽어도 얼굴은 위에 붙어 남는다 */
+html.wu-tb-l body #wfStage {
+  display: grid !important; grid-template-columns: auto minmax(0, 1fr); align-items: start; column-gap: 12px;
+}
+html.wu-tb-l body #wfStage > #tavatar-wrap {
+  grid-column: 1; grid-row: 1; position: sticky !important; top: 0; align-self: start; --av-w: 120px !important;
+}
+html.wu-tb-l body #wfStage > #log { grid-column: 2; grid-row: 1; }
+html.wu-tb-l #wuTbHide {
+  display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; position: relative;
+  width: 28px; height: 28px; padding: 0; margin: 0; border-radius: 8px; cursor: pointer;
+  color: #fff; background: rgba(255, 255, 255, .1); border: 1px solid transparent;
+}
+html.wu-tb-l #wuTbHide::before {
+  content: ""; width: 16px; height: 16px; background: currentColor;
+  -webkit-mask: var(--wu-ic) center / contain no-repeat; mask: var(--wu-ic) center / contain no-repeat;
+}
+html.wu-tb-l #wuTbHide::after { content: ""; position: absolute; inset: -5px 0; }
+
+/* 숨김: 바는 위로 사라지고, 위 가운데 «메뉴» 손잡이만 남는다 */
+html.wu-tb-l.wu-tb-hidden body .top {
+  transform: translateY(calc(-100% - 14px)); opacity: 0; visibility: hidden; pointer-events: none;
+  transition: transform .2s ease, opacity .2s ease, visibility 0s .2s;
+}
+html.wu-tb-l.wu-tb-hidden body .wrap { padding-top: calc(max(4px, env(safe-area-inset-top)) + 26px) !important; }
+html.wu-tb-l.wu-tb-hidden #wuTbShow {
+  display: inline-flex; align-items: center; gap: 4px; position: fixed; z-index: 50;
+  top: 0; left: 50%; transform: translateX(-50%);
+  height: 26px; padding: 0 14px; margin: 0; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, .18); border-top: 0; border-radius: 0 0 12px 12px;
+  background: rgba(9, 20, 56, .78); color: #fff; font: inherit; font-size: 12px; font-weight: 700; line-height: 1;
+}
+html.wu-tb-l.wu-tb-hidden #wuTbShow::before {
+  content: ""; width: 14px; height: 14px; background: currentColor;
+  -webkit-mask: var(--wu-ic) center / contain no-repeat; mask: var(--wu-ic) center / contain no-repeat;
+}
+html.wu-tb-l.wu-tb-hidden #wuTbShow::after { content: ""; position: absolute; inset: 0 0 -12px; }
+:is(#wuTbHide, #wuTbShow):focus-visible { outline: 3px solid #ffd56a; outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  html.wu-tb-l body .top, html.wu-tb-l.wu-tb-hidden body .top { transition: none !important; }
+}

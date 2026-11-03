@@ -36,7 +36,10 @@ const server=http.createServer((req,res)=>{
  try{const f=join(root,new URL(req.url,'http://local').pathname);res.setHeader('Content-Type',extname(f)==='.js'?'text/javascript':extname(f)==='.webp'?'image/webp':'image/png');res.end(readFileSync(f));}catch{res.statusCode=404;res.end();}
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
-const browser=await pw.chromium.launch({executablePath:exe,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--no-zygote','--single-process','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--autoplay-policy=no-user-gesture-required']});
+// '--single-process'·'--no-zygote' 는 Chromium 이 지원하지 않는 모드라 넣지 않습니다(다른 브라우저 검사도 안 씀).
+// 2026-11-03 실측: Claude 원격 컨테이너에서는 넣으면 실행 즉시 SIGTRAP 으로 죽어 이 검사를 아예 못 돌렸습니다.
+// (CI 러너에서는 그 옵션으로도 떴습니다 — CI 간헐 실패의 원인은 아래 «미리 재생» 주석 참고.)
+const browser=await pw.chromium.launch({executablePath:exe,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--autoplay-policy=no-user-gesture-required']});
 let pass=0;
 try{
  const page=await browser.newPage();let errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -51,6 +54,13 @@ try{
  assert.equal(await page.evaluate(()=>window.assetsPrepared),false,'speech preparation waits for delayed mouth textures');
  releaseAtlas();await page.waitForFunction(()=>window.assetsPrepared);
  console.log('PASS: delayed mouth atlas gates speech preparation');
+ // ⏱ 미리 재생(lead-in) — 2026-11-03: 관측 구간(F·D·G·H)은 실제 «입이 그 모양인» 시간이 오디오 0.2~0.3초뿐이고
+ //    1.3배속이면 벽시계 0.16~0.23초입니다. 재생 위치를 옮기면(seek) mango-avatar.js 가 'seeking' 에서 입을 닫고
+ //    'playing' 이 와야 다시 그리므로, 느린 CI 러너에서는 다시 그리기 전에 구간이 지나가 30초 시간초과가 났습니다
+ //    (PR #1784·#1985·#1988 — 매번 다른 배우·배속·입모양). 그래서 재생을 «바로 앞 입모양 구간» 에서 시작해
+ //    그리기가 돌기 시작한 뒤 관측 구간에 들어가게 합니다. 관측은 여전히 «그 입모양 그림 + 그 구간 시각» 일 때만
+ //    기록되므로 앞 구간 그림으로는 통과할 수 없습니다(아래 missing-H 대조가 그것을 확인).
+ //    CPU 감속 실측: 30배 옛 시작점 3회 중 2회 실패 → 3회 모두 통과 · 40배 3회 모두 실패 → 3회 모두 통과.
  async function playCue(pose,from,to,time){
   await page.evaluate(async cue=>{a.pause();window.cueWatch={...cue,seen:null};a.currentTime=cue.time;await a.play();},{pose,from,to,time});
  }
@@ -73,28 +83,28 @@ try{
    }
    // Match the production playback contract: decode the selected actor's assets
    // before starting a short cue window (CI runners can decode slower than local).
-   a.pause();await MangoAvatar.prepare(a);window.cueWatch={pose:6,from:.6,to:1,seen:null};a.currentTime=.65;a.playbackRate=rate;await a.play();
+   a.pause();await MangoAvatar.prepare(a);window.cueWatch={pose:6,from:.6,to:1,seen:null};a.currentTime=.4;a.playbackRate=rate;await a.play();
   },{character,rate});
   await observedCue(5000); // F at .6-1 seconds, regardless of rate.
   await page.evaluate(()=>a.pause());await page.waitForFunction(()=>window.pose===0&&window.lastSprite==='anchor');
-  await playCue(4,.3,.6,.35);await observedCue();
+  await playCue(4,.3,.6,.05);await observedCue();
   await page.evaluate(()=>MangoAvatar.plainStop());assert.equal(await page.evaluate(()=>window.pose),0);
-  await playCue(7,1.3,1.6,1.4);await observedCue();
-  await playCue(8,1.6,2,1.7);await observedCue();
+  await playCue(7,1.3,1.6,1.05);await observedCue();
+  await playCue(8,1.6,2,1.35);await observedCue();
   await page.evaluate(async()=>{a.pause();window.transitionSeen=false;a.currentTime=.5;await a.play();});
   await page.waitForFunction(()=>window.transitionSeen,{},{timeout:5000});
   assert((await page.evaluate(()=>window.transitionTile))<288,'real canvas used a valid inbetween');
   await page.evaluate(()=>a.pause());pass++;console.log('PASS:',character,rate,width,'anchors + optical-flow transitions');
  }
  // Delayed observation must retain a real H draw even after the audio closes the mouth.
- await playCue(8,1.6,2,1.7);
+ await playCue(8,1.6,2,1.35);
  await page.waitForFunction(()=>a.ended);
  await page.waitForFunction(()=>window.pose===0);
  assert.equal(await page.evaluate(()=>window.cueWatch?.seen?.pose),8,'H was drawn before delayed observation');
  console.log('PASS: delayed H observation retains real cue evidence after audio ends');
  // A prior successful playback cannot satisfy a new playback whose H is actually missing.
  await page.evaluate(()=>{window.suppressH=true;window.suppressedH=0;});
- await playCue(8,1.6,2,1.7);
+ await playCue(8,1.6,2,1.35);
  await page.waitForFunction(()=>a.ended);
  assert.ok(await page.evaluate(()=>window.suppressedH>0),'negative control actually substituted a rendered H tile');
  await assert.rejects(page.waitForFunction(()=>!!window.cueWatch?.seen,{},{timeout:500}),/Timeout/);
