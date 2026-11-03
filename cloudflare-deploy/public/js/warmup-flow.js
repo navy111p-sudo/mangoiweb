@@ -270,6 +270,8 @@
   function currentSentence(){var msgs=$('log').querySelectorAll('.msg.ai');return msgs.length?msgs[msgs.length-1]._warmText||msgs[msgs.length-1].querySelector('.wu-text')?.textContent||'':'';}
   var flow=window.MangoWarmupFlow={
     blocksPractice:function(){return ask.open;},blocksRecording:active,helpActive:function(){return ask.open;},hintStyle:function(){return prefs.hints;},
+    /* ✋ 얼굴 화면(js/warmup-facetalk.js)에서도 같은 «질문하기» 창을 연다 — 여는 길은 openPanel 하나(얼굴 화면 끄기·연습 멈추기 포함). 열렸으면 true */
+    openAsk:function(src){openPanel('wfAsk',src||askButton);return !!ask.open;},
     onPause:onPause,contextChanged:contextChanged,
     onMessage:function(t,who){contextChanged();
       // Only explicit topic-change requests are signals; ordinary replies and AI wording never rotate scenes.

@@ -1070,6 +1070,27 @@ var StoryCore = (function(){
   function save(){ try { localStorage.setItem(KEY, JSON.stringify(st)); } catch(e){} }
   function paidKey(){ return 'story_' + STORY_ID + '_paid_' + StoryCore.kstDay(); }
   function paidToday(){ try { return localStorage.getItem(paidKey()) === '1'; } catch(e){ return false; } }
+  // 🪙 STORY-REOPEN — 받은 결과(받음/한도)를 그날 이 기기에 남겨, 다시 열면 그대로 말합니다. ⛔ 잔액은 남기지 않습니다(그새 바뀝니다).
+  function viewKey(){ return paidKey() + '_view'; }
+  function saveView(v){
+    var keep = v.kind === 'ok' ? { kind: 'ok', amount: Number(v.amount) } : { kind: 'cap', ko: String(v.ko || ''), en: String(v.en || '') };
+    try { localStorage.setItem(viewKey(), JSON.stringify(keep)); } catch(e){}
+  }
+  function savedView(){
+    var v = null;
+    try { v = JSON.parse(localStorage.getItem(viewKey()) || 'null'); } catch(e){ v = null; }
+    if (v && v.kind === 'ok' && Number(v.amount) > 0) return { kind: 'ok', amount: Number(v.amount) };
+    if (v && v.kind === 'cap') return { kind: 'cap', ko: String(v.ko || ''), en: String(v.en || '') };
+    return null;
+  }
+  function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function againHtml(saved){
+    var again = '<p class="dim">' + t('이미 완주한 이야기예요. 아래 «처음부터 다시» 를 누르면 도장을 다시 모을 수 있어요.','You already finished this story. Press “Start over” below to collect stamps again.') + '</p>';
+    if (saved && saved.kind === 'ok') return '<p class="big">+' + saved.amount + 'P</p><p>' + t('오늘 이 이야기로 받은 포인트예요.','Points you got for this story today.') + '</p>' + again;
+    if (saved && saved.kind === 'cap') return '<p>' + esc(en() ? (saved.en || 'You reached today’s point limit.') : (saved.ko || '오늘 받을 수 있는 포인트를 다 채웠어요.')) + '</p>' + again;
+    if (paidToday()) return '<p>' + t('오늘은 이 이야기 포인트를 이미 받았어요.','You already got points for this story today.') + '</p>' + again;
+    return again;
+  }
 
   var board = document.getElementById('stampBoard');
   function paint(popKey){
@@ -1132,6 +1153,7 @@ var StoryCore = (function(){
     else if (view.kind === 'login') h = '<p>' + t('로그인하면 포인트가 쌓여요. 로그인한 뒤 이 화면을 다시 열어 주세요.','Log in to save points, then open this page again.') + '</p>';
     else if (view.kind === 'sample') h = '<p>' + t('여기는 미리보기 화면이라 포인트가 쌓이지 않아요. 망고아이 사이트에서 하면 +' + STORY_POINTS + 'P!','This is a preview, so no points here. On the Mangoi site you get +' + STORY_POINTS + 'P!') + '</p>';
     else if (view.kind === 'off') h = '<p>' + t('지금은 동화책 포인트가 꺼져 있어요.','Story points are turned off right now.') + '</p>';
+    else if (view.kind === 'again') h = againHtml(view.saved);
     else h = '<p>' + t('포인트를 받지 못했어요. 잠시 뒤 «다시 받기» 를 눌러 주세요.','Could not add points. Try “Get points” again in a moment.') + '</p>' +
              '<div class="btns"><button type="button" class="b" id="earnRetry">' + t('다시 받기','Get points') + '</button></div>';
     fin.innerHTML = '<div class="fin-card fin-' + (view ? view.kind : 'wait') + '">' + h + '</div>';
@@ -1156,7 +1178,7 @@ var StoryCore = (function(){
       .then(function(d){ return StoryCore.earnView(d, null, ON_SITE); }, function(e){ return StoryCore.earnView(null, e || true, ON_SITE); })
       .then(function(v){
         clearTimeout(to); inflight = false;
-        if (v.kind === 'ok' || v.kind === 'cap') { try { localStorage.setItem(paidKey(), '1'); } catch(e){} }
+        if (v.kind === 'ok' || v.kind === 'cap') { try { localStorage.setItem(paidKey(), '1'); } catch(e){} saveView(v); }
         window.__storyLastEarn = v; finishMsg(v);
       });
   }
@@ -1165,14 +1187,15 @@ var StoryCore = (function(){
     st[k] = Date.now(); save(); paint(k); chime(false);
     if (StoryCore.allDone(st)) { setTimeout(function(){ chime(true); confetti(); }, 250); if (paidToday()) finishMsg({ kind: 'cap', ko: '오늘은 이 이야기 포인트를 이미 받았어요.', en: 'You already got points for this story today.' }); else earn(); }
   }
-  function reset(){ st = {}; save(); paint(); if (fin) fin.innerHTML = ''; }
+  function reset(){ st = {}; save(); paint(); window.__storyLastEarn = null; if (fin) fin.innerHTML = ''; }
   var rb = document.getElementById('stampReset');
   if (rb) rb.addEventListener('click', function(){ reset(); try { if (window.__storyPickOff) window.__storyPickOff(); if (window.__storyWordsReset) window.__storyWordsReset(); if (window.__storyReadReset) window.__storyReadReset(); } catch(e){} var el = document.getElementById('story'); if (el) el.scrollIntoView({ behavior: 'smooth' }); });
   (document.getElementById('lang') || document.createElement('i')).addEventListener('click', function(){ setTimeout(function(){ paint(); if (window.__storyLastEarn) finishMsg(window.__storyLastEarn); }, 0); });
   window.StoryFun = { done: done, state: function(){ return st; }, reset: reset, earn: earn };
   paint();
   // ⛔ 다시 열었다고 포인트를 보내지 않습니다 — 적립은 «6번째 도장을 찍는 순간» 한 번뿐입니다.
-  if (StoryCore.allDone(st) && fin) fin.innerHTML = '<div class="fin-card fin-again"><p>' + t('이미 완주한 이야기예요. 아래 «처음부터 다시» 를 누르면 도장을 다시 모을 수 있어요.','You already finished this story. Press “Start over” below to collect stamps again.') + '</p></div>';
+  // 🪙 다시 열어도 «오늘 이 이야기로 받은 포인트» 를 보여 줍니다(2026-11-03). 그 결과는 받은 날(KST) 이 기기에만 기억합니다.
+  if (StoryCore.allDone(st) && fin) { window.__storyLastEarn = { kind: 'again', saved: savedView() }; finishMsg(window.__storyLastEarn); }
 })();
 </script>
 </body></html>

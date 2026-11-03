@@ -55,6 +55,11 @@
     + '#ftk .ftk-x{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);right:12px;z-index:5;width:44px;height:44px;border-radius:50%;'
     + ' border:0;background:rgba(0,0,0,.45);color:#fff;font-size:20px;cursor:pointer;display:grid;place-items:center}'
     + '#ftk .ftk-x:focus-visible{outline:3px solid #fff;outline-offset:2px}'
+    /* ✋ 질문하기 — 얼굴 화면에는 질문 버튼이 없어서 질문이 «따라 말하기» 답으로 들어갔다(2026-11-03) */
+    + '#ftk .ftk-ask{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);left:12px;z-index:5;height:44px;padding:0 16px;border-radius:22px;'
+    + ' border:0;background:rgba(0,0,0,.45);color:#fff;font-size:16px;font-weight:700;cursor:pointer}'
+    + '#ftk .ftk-ask:focus-visible{outline:3px solid #fff;outline-offset:2px}'
+    + '#ftk .ftk-ask[hidden]{display:none}'
     + '#ftk .ftk-bars{position:absolute;left:50%;transform:translateX(-50%);display:flex;gap:5px;align-items:flex-end;height:24px;z-index:4;'
     + ' bottom:calc(var(--gl-h,64px) + 16px);transition:bottom .4s}'
     + '#ftk .ftk-bars span{width:6px;height:6px;border-radius:3px;background:var(--st)}'
@@ -65,7 +70,9 @@
     + '@keyframes ftkDot{0%,100%{opacity:.3}50%{opacity:1}}'
     /* 유리판 */
     + '#ftk .ftk-glass{position:absolute;left:0;right:0;bottom:0;z-index:4;color:#eef1ff;'
-    + ' background:rgba(8,12,32,.74);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);'
+    /* 🎞 (2026-11-03) 흐림(backdrop-filter) 제거 — 얼굴이 매 프레임 다시 그려질 때 그 위를 매번 다시 흐리게 칠해야 해서
+       느린 기기에 부담. 대신 바탕을 더 짙게 해 글자가 그대로 읽히게 한다(warmup·ai-friend 두 얼굴 화면이 같은 모양). */
+    + ' background:rgba(8,12,32,.9);'
     + ' border-top:3px solid var(--st);border-radius:20px 20px 0 0;padding-bottom:env(safe-area-inset-bottom,0px);'
     + ' max-height:62%;overflow:hidden;transition:transform .4s ease,border-color .35s}'
     + '#ftk .ftk-grab{display:block;width:100%;border:0;background:none;padding:10px 0 12px;cursor:pointer}'
@@ -103,6 +110,7 @@
   var state = 'pause', open = false, active = false, homeParent = null, homeNext = null;
   var poll = null, idleSince = 0, rearmedForIdle = false, stuckShownAt = -1;
   var prevMode = null, speechForced = false, lastTeacher = '', lastMe = '';
+  var backAfterAsk = false;                    // ✋ 질문 창을 얼굴 화면에서 열었나 — 닫히면 얼굴 화면으로 돌아온다
 
   function build() {
     if (root) return;
@@ -115,6 +123,7 @@
       + '<div class="ftk-stage" id="ftkStage"></div>'
       + '<div class="ftk-edge"></div>'
       + '<button type="button" class="ftk-x" id="ftkX">✕</button>'
+      + '<button type="button" class="ftk-ask" id="ftkAsk"></button>'
       + '<div class="ftk-bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div>'
       + '<div class="ftk-glass" id="ftkGlass">'
       + '  <button type="button" class="ftk-grab" id="ftkGrab"><i></i></button>'
@@ -131,6 +140,7 @@
     noteEl = root.querySelector('#ftkNote'); chipsEl = root.querySelector('#ftkChips');
 
     root.querySelector('#ftkX').addEventListener('click', exit);
+    root.querySelector('#ftkAsk').addEventListener('click', function (e) { e.stopPropagation(); askQuestion(); });
     root.querySelector('#ftkGrab').addEventListener('click', function () { setOpen(!open, true); });
     var y0 = null;
     glass.addEventListener('pointerdown', function (e) { y0 = e.clientY; });
@@ -148,6 +158,10 @@
     x.setAttribute('aria-label', t('얼굴 대화 끝내기', 'Close face chat'));
     x.title = t('끝내기', 'Close');
     root.setAttribute('aria-label', t('선생님 얼굴과 대화하기', 'Face-to-face chat'));
+    var ab = root.querySelector('#ftkAsk');
+    ab.textContent = '✋ ' + t('질문', 'Ask');
+    ab.setAttribute('aria-label', t('선생님께 질문하기', 'Ask the teacher a question'));
+    ab.hidden = !askAvailable();
     root.querySelector('#ftkGrab').setAttribute('aria-label', open ? t('글 닫기', 'Hide text') : t('글 보기', 'Show text'));
   }
   function setState(s, heard) {
@@ -276,6 +290,27 @@
     setState(s, s === 'listen' && S.phase === 'speak');
   }
 
+  /* ✋ 질문하기 — 일반 화면의 «질문하기» 창을 그대로 연다(js/warmup-flow.js · MangoWarmupFlow.openAsk).
+     그 창이 얼굴 화면을 끄고 연습을 멈춘다(판정은 그쪽 하나). 창이 닫히면 얼굴 화면으로 돌아온다.
+     ⛔ 여기서 질문 API 를 따로 부르지 않는다 — 질문 경로가 두 벌이 되면 한쪽만 고쳐진다. */
+  function askAvailable() { var F = window.MangoWarmupFlow; return !!(F && typeof F.openAsk === 'function'); }
+  function askQuestion() {
+    if (!active || !askAvailable()) return;
+    var dlg = document.getElementById('wfAsk');
+    if (dlg && !dlg.__ftkBack) {
+      dlg.__ftkBack = true;
+      dlg.addEventListener('close', function () {
+        if (!backAfterAsk) return;
+        backAfterAsk = false;
+        setTimeout(function () { if (!active) enter(); }, 0);   // 질문 창이 연습을 다시 켠 뒤에 들어간다
+      });
+    }
+    backAfterAsk = true;
+    var opened = false;
+    try { opened = !!window.MangoWarmupFlow.openAsk(root.querySelector('#ftkAsk')); } catch (e) { opened = false; }
+    if (!opened) backAfterAsk = false;   // 창이 안 열렸으면(다른 창이 떠 있음 등) 나중 닫힘에 끌려 들어오지 않게
+    try { window.UXT && UXT.hit('ux:warmup-facetalk-ask'); } catch (e) {}
+  }
   function pickChip(txt) {
     if (g('sending')) return;
     try { if (typeof window._micAbortQuiet === 'function') window._micAbortQuiet(); } catch (e) {}
@@ -315,7 +350,7 @@
     try { AT().setMode('auto'); } catch (e) {}
     try { window.UXT && UXT.hit('ux:warmup-facetalk-open'); } catch (e) {}
     lastTeacher = lastMe = ''; stuckShownAt = -1; idleSince = 0; rearmedForIdle = false;
-    clearHelp(); fillText();
+    clearHelp(); fillText(); labels();
     setState('think');
     setOpen(false, false);
     root.querySelector('#ftkX').focus({ preventScroll: true });
