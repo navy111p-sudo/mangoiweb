@@ -338,6 +338,37 @@ console.log('\n[ E. 스크롤 위치 넣기 도우미 — 실제로 돌린다 ]'
     e = mkEl({ laid: true }); e._st = 120; rafQ = []; S(e, 0);
     check('E 0 은 정당한 값 — 맨 위로 넣는다', e.scrollTop === 0, String(e.scrollTop));
   }
+
+  /* E-2 렌더 배선 — 위는 «도우미» 만 돌린다. ph54Render 가 그 값을 «실제로 넘기는가» 는 이 절이 돌린다
+     (함정 대조 2026-11-04: `if (false && calBody)` · `keepTop = -1` 덧붙이기가 글자 검사만으로는 둘 다 통과했다).
+     이전 칸을 읽는 줄부터 `if (calBody){…}` 블록 끝까지를 중괄호 짝으로 오려 가짜 document·도우미로 실행한다. */
+  const render = (Q6.match(/function ph54Render\(\)\{[\s\S]*?\n  \}\n/) || [''])[0];
+  const st0 = render.indexOf("var prevBody = document.getElementById('ph54-cal-body');");
+  const ifAt = st0 >= 0 ? render.indexOf('if (calBody){', st0) : -1;
+  let wireSrc = '';
+  if (ifAt >= 0) {
+    let d = 0, i = render.indexOf('{', ifAt);
+    for (; i < render.length; i++) { if (render[i] === '{') d++; else if (render[i] === '}') { d--; if (d === 0) break; } }
+    wireSrc = render.slice(st0, i + 1);
+  }
+  check('E-2 전제: 렌더의 스크롤 배선 블록을 오려 냈다', wireSrc.length > 200 && /ph54SetScrollTop\(calBody, keepTop\)/.test(wireSrc), `len=${wireSrc.length}`);
+  const runWire = (prev, items) => {
+    const calls = [], nb = { id: 'new' };
+    const doc = { getElementById: (id) => (id !== 'ph54-cal-body' ? null : (doc._done ? nb : prev)), _done: false };
+    const wrap = {}; Object.defineProperty(wrap, 'innerHTML', { set(){ doc._done = true; } });
+    const byDay = [{ teachers: [{ items }] }];
+    try {
+      new Function('document', 'wrap', 'html', 'accordion', 'byDay', 'openDay', 'PH54_START_H', 'PH54_HOUR_PX', 'ph54SetScrollTop', wireSrc)
+        (doc, wrap, '<x>', true, byDay, 0, 6, 50, (el, v) => calls.push([el === nb ? 'new' : (el && el.id) || String(el), v]));
+    } catch (er) { return 'ERR ' + er; }
+    return JSON.stringify(calls);
+  };
+  // 이전 칸이 300 이면 «새 칸» 에 300
+  check('🔴 E-2 다시 그리면 이전 칸의 위치(300)를 «새 칸» 에 넘긴다', runWire({ scrollTop: 300 }, [{ st: 600 }]) === '[["new",300]]', runWire({ scrollTop: 300 }, [{ st: 600 }]));
+  check('E-2 이전 위치가 0 이어도 0 을 넘긴다(맨 위가 정당한 자리)', runWire({ scrollTop: 0 }, [{ st: 600 }]) === '[["new",0]]', runWire({ scrollTop: 0 }, [{ st: 600 }]));
+  // 처음(이전 칸 없음)이면 첫 수업 한 시간 위 — 10:00 수업 → 09:00 = (600-60-360)/60*50 = 150
+  check('E-2 처음 그릴 때는 첫 수업 한 시간 위(10:00 → 150px)', runWire(null, [{ st: 700 }, { st: 600 }]) === '[["new",150]]', runWire(null, [{ st: 700 }, { st: 600 }]));
+  check('E-2 처음인데 수업이 없으면 아무것도 안 넣는다', runWire(null, []) === '[]', runWire(null, []));
 }
 
 console.log('\n════════════════════════════════════════');

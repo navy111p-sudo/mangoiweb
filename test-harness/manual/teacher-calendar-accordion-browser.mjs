@@ -194,8 +194,9 @@ const measure = () => {
     const kb = await page.evaluate((i) => ({ st: document.getElementById('ph54-cal-body').scrollTop,
       open: !document.querySelector('#ph54-cal-head .ph54-cal-fold-head[data-day="' + i + '"]') }), nextIdx2);
     check('Enter 로 펼쳐도 스크롤 위치가 유지된다(250)', kb.open && Math.abs(kb.st - 250) < 2, JSON.stringify(kb));
-    /* ⚠️ 그 무시는 «카드가 렌더 생략 상태일 때» 만 나서 실행마다 들쭉날쭉합니다 — 옛 코드(직접 대입)로 되돌려 돌리면
-       6번 중 4번 FAIL(실패 3건), 나머지는 통과합니다(2026-11-03 실측). 이 절이 초록이라고 «옛 코드도 괜찮다» 가 아닙니다.
+    /* ⚠️ 그 무시는 «누르기 전에 카드가 이미 렌더 생략 상태일 때» 만 나서 실행마다 들쭉날쭉합니다 — 옛 코드(직접 대입)로
+       되돌려 돌리면 그때 6번 중 4번 FAIL(실패 3건)이었고, 함정 대조가 다시 돌렸을 때는 6/6 FAIL 이었습니다(고정된 비율이 아님).
+       이 절이 초록이라고 «옛 코드도 괜찮다» 가 아닙니다 — 매번 잡는 것은 자동 하니스 [E](도우미)·[E-2](렌더 배선)입니다.
        요일을 바꿔 가며 여러 번 펼쳐 «매번» 지키는지 봅니다. */
     //   다음 날·모레만 번갈아 연다(오늘은 안 건드림 — 뒤 절이 «오늘의 접힌 띠» 를 누르므로, 끝나면 앞과 같은 모레가 열린 상태).
     const roll = [];
@@ -203,10 +204,13 @@ const measure = () => {
       const want = 120 + k * 40, day = k % 2 === 0 ? nextIdx : nextIdx2;
       roll.push(await page.evaluate(([w, i]) => { const b = document.getElementById('ph54-cal-body'); b.scrollTop = w;
         const h = document.querySelector('#ph54-cal-head .ph54-cal-fold-head[data-day="' + i + '"]'); if (!h) return 'no-head:' + i;
-        h.focus({ preventScroll: true }); h.click(); return Math.round(document.getElementById('ph54-cal-body').scrollTop) + '/' + w; }, [want, day]));
+        h.focus({ preventScroll: true }); h.click();
+        // 짝: «정말 다시 그려져 그 요일이 펼쳐졌나» — 누르기가 아무 일도 안 하면 넣어 둔 값이 그대로 남아 통과해 버린다(함정 대조 2026-11-04)
+        const opened = !document.querySelector('#ph54-cal-head .ph54-cal-fold-head[data-day="' + i + '"]');
+        return Math.round(document.getElementById('ph54-cal-body').scrollTop) + '/' + w + (opened ? '' : '/NOT-OPENED'); }, [want, day]));
       await page.waitForTimeout(120);
     }
-    check('요일을 바꿔 6번 펼쳐도 매번 보던 자리 그대로', roll.every((r) => { const [a, w] = String(r).split('/'); return w && Math.abs(Number(a) - Number(w)) < 2; }), JSON.stringify(roll));
+    check('요일을 바꿔 6번 펼쳐도 매번 보던 자리 그대로(그리고 매번 실제로 펼쳐졌다)', roll.every((r) => { const [a, w, bad] = String(r).split('/'); return w && !bad && Math.abs(Number(a) - Number(w)) < 2; }), JSON.stringify(roll));
     await page.click(`#ph54-cal-track .ph54-cal-fold[data-day="${TODAY_IDX}"]`);
     await page.waitForTimeout(400);
     m = await page.evaluate(measure);
