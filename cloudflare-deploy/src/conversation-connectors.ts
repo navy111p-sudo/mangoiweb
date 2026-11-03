@@ -96,7 +96,8 @@ const MULTI_MARKERS: readonly string[] = [
   'good job', 'great job', 'nice job', 'well done', 'you got it', 'well said', 'i see', 'i love that', 'i like that',
   "that's great", "that's right", "that's cool", "that's awesome", 'of course', 'no worries', "don't worry",
   // 🗣️ (2026-11-04) ④ 의 첫마디 — 「Oh, …」 가 전부 «Oh,» 한 열쇠로 묶이면 «최근 시작 말 피하기» 가 후보를 다 지워 버린다
-  'oh nice', 'oh really', 'oh cool', 'oh wow', 'oh i see', 'oh okay', 'oh no', "oh i'm sorry", "oh that's too bad",
+  'oh nice', 'oh really', 'oh cool', 'oh wow', 'oh great', 'oh i see', 'oh okay', 'oh no', "oh i'm sorry", "oh that's too bad",
+  'how fun', 'no way',
   'good question', 'great question', "that's okay", 'no problem', 'let me think', 'all right', 'okay then', 'got it',
 ].slice().sort((a, b) => b.length - a.length);
 /** 앞에 낄 수 있는 것 — 공백·이모지·따옴표(글자는 안 된다). */
@@ -174,7 +175,7 @@ export function openerAvoidLine(openers: string[]): string {
 /* ── ④ 이번 턴 «첫마디» (2026-11-04 사장님 「well, wow, by the way, anyway … 문장 앞에서 말하게」) ──────────
  *  [왜 서버가 정하나] «가끔 써라» 만 주면 모델이 거의 안 쓴다(첫 판 PR #2025 뒤 사장님 체감 「아직 안 됐어?」).
  *     서버가 «이번 턴에 쓴다/쉰다» 와 «상황별 후보 한 개씩» 을 정하고, 지금 어느 상황인지(슬픔·부탁·질문·모름·
- *     예/아니오·그 밖)는 모델이 학생 말을 보고 고른다 — 학생 말을 서버가 다시 판정하지 않아 정본이 둘이 되지 않는다.
+ *     좋은 소식·놀라운 말·평범한 정보)는 모델이 학생 말을 보고 고른다 — 학생 말을 서버가 다시 판정하지 않아 정본이 둘이 되지 않는다.
  *  [빈도] 바로 앞 AI 답장이 첫마디로 시작했으면 이번엔 쉰다 ⟹ 대략 «두 턴에 한 번».
  *     ⚠️ «AI 답장 개수의 홀짝» 으로 정하지 마세요 — AI 친구 기록은 최근 20줄만 읽어 개수가 어느 순간 멈추고,
  *        그러면 «늘 쓴다» 나 «영영 안 쓴다» 로 굳습니다. 앞 답장의 실제 시작을 보면 모델이 한 번 어겨도 다음 턴에 바로 맞춰집니다.
@@ -183,7 +184,7 @@ export function openerAvoidLine(openers: string[]): string {
  *  ⚡ 속도: 이미 읽어 온 기록만 본다 — 새 조회·새 모델 호출이 없다. 후보는 모두 기초 문법 검사·조각 질문 검사를
  *     통과하는 모양이라(하니스 ⑧) «다시 뽑기» 를 부르지 않는다.
  *  ⛔ 소리형(hmm·aww·ooh·uh·um) 금지 · ⛔ 후처리로 덧붙이지 않는다(모델이 쓴다). */
-type OpenerCase = 'sad' | 'request' | 'asked' | 'lost' | 'yesno' | 'other';
+type OpenerCase = 'sad' | 'request' | 'asked' | 'lost' | 'good' | 'surprise' | 'info';
 /*  ⚠️ 칸마다 후보 «4개» — 최근 시작 말(③)은 3개까지 피하므로, 3개 이하면 전부 지워져 「다르게 시작해」 줄과 부딪힌다(하니스 ⑧ 실측).
  *  ⚠️ 후보끼리 «시작 말 열쇠»(앞 두 낱말)가 달라야 한다 — 「Oh, that's too bad.」·「Oh, that's hard.」 처럼 겹치면 같은 말로 본다. */
 export const TURN_OPENERS: Readonly<Record<OpenerCase, readonly string[]>> = {
@@ -191,8 +192,11 @@ export const TURN_OPENERS: Readonly<Record<OpenerCase, readonly string[]>> = {
   request: ['Sure!', 'Okay!', 'Of course!', 'All right!'],
   asked: ['Good question!', 'Well,', 'Let me think.', 'Great question!'],
   lost: ["That's okay!", 'No problem!', "Don't worry!", 'No worries!'],
-  yesno: ['Oh, okay.', 'I see.', 'Got it.', 'Okay then.'],
-  other: ['Oh, nice!', 'Oh, really?', 'Oh, cool!', 'Oh, I see.'],
+  // 🎯 (2026-11-04 사장님 「최대한 자연스럽게 문맥에 맞게」) «그 밖» 한 칸을 뜻으로 셋으로 나눴다 —
+  //    「I ate rice.」에 「Oh, nice!」가 아니라 「Oh, I see.」가 나오게(좋은 소식 · 놀라운 말 · 평범한 정보·짧은 대답)
+  good: ['Oh, nice!', 'Oh, cool!', 'Oh, great!', 'How fun!'],
+  surprise: ['Oh, really?', 'Oh, wow!', 'No way!', 'Really?'],
+  info: ['Oh, I see.', 'Oh, okay.', 'I see.', 'Got it.'],
 };
 /** 「앞 답장이 첫마디로 시작했나」 판정용 열쇠 — 위 후보 + 모델이 스스로 쓰는 같은 갈래(Oh …·Well·By the way·Anyway). */
 let OPENER_KEYS: Set<string> | null = null;
@@ -236,11 +240,14 @@ export function turnOpenerLine(history: any): string {
     const avoid = new Set(recentOpeners(rows).map(openerKey));
     const seed = textSeed(last);
     const q = (c: OpenerCase) => JSON.stringify(pickOpener(TURN_OPENERS[c], seed, avoid));
-    const other = q('other') + (seed % 3 === 0 ? ', then ask a new related question that starts with "By the way,"' : '');
+    /* 🎯 «문맥에 맞게» — 어느 칸인지는 모델이 학생 말을 보고 고르고, 딱 맞는 것이 없으면 «같은 느낌의 다른 짧은 말» 을 허락한다.
+       By the way 는 «새 질문으로 넘어갈 때만» (억지로 화제를 바꾸게 하지 않는다) — 그것도 세 턴에 한 번쯤만 권한다. */
     return '- THIS TURN\'S OPENER: start with the one that fits what the learner just said. Sad or hard news: ' + q('sad')
       + '; a request: ' + q('request') + '; a question to you: ' + q('asked')
       + '; "I don\'t know" or confused: ' + q('lost') + ', then start your next question with "Anyway,"'
-      + '; a short yes or no: ' + q('yesno') + '; anything else: ' + other + '.';
+      + '; good or fun news: ' + q('good') + '; something surprising: ' + q('surprise')
+      + '; a short answer or plain information: ' + q('info') + '. If none fits, use another short one with the same feeling.'
+      + (seed % 3 === 0 ? ' If you then move to a new related question, start it with "By the way,".' : '');
   } catch { return ''; }
 }
 

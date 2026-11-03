@@ -238,9 +238,9 @@ ok(!/export function (connectorIssues|replyOpener)[\s\S]{0,0}/.test(ai + idx) &&
 console.log('⑧ 이번 턴 첫마디');
 {
   const T = C.TURN_OPENERS;
-  const CASES = ['sad', 'request', 'asked', 'lost', 'yesno', 'other'];
+  const CASES = ['sad', 'request', 'asked', 'lost', 'good', 'surprise', 'info'];
   ok(!!T && CASES.every((k) => Array.isArray(T[k]) && T[k].length >= 4) && typeof C.turnOpenerLine === 'function' && typeof C.isTurnOpener === 'function',
-    '전제: 정본의 첫마디 표(상황 6칸 · 칸마다 후보 4개 이상 — 최근 시작 말 3개를 피해도 하나가 남게)와 함수를 읽었다', T && Object.keys(T));
+    '전제: 정본의 첫마디 표(상황 7칸 · 칸마다 후보 4개 이상 — 최근 시작 말 3개를 피해도 하나가 남게)와 함수를 읽었다', T && Object.keys(T));
   const ALL = CASES.flatMap((k) => T[k]);
   const turnOf = (sys) => (String(sys).split('\n').find((l) => l.startsWith("- THIS TURN'S OPENER:")) || '');
   const quoted = (l) => [...String(l).matchAll(/"([^"]+)"/g)].map((m) => m[1]);
@@ -267,9 +267,9 @@ console.log('⑧ 이번 턴 첫마디');
   const forms = [];
   for (const o of ALL) forms.push(o + ' Do you like cats?');
   for (const o of T.lost) forms.push(o + ' Anyway, do you like dogs?');
-  for (const o of T.other) forms.push(o + ' By the way, do you have a pet?');
+  for (const o of [...T.good, ...T.info]) forms.push(o + ' By the way, do you have a pet?');
   for (const o of T.asked) forms.push(o + ' I like pizza. Do you like pizza?');
-  for (const o of T.other) forms.push(o + ' By the way, do you have a little brother?');   // S1 상한(7)을 «연결어 빼고» 세는가
+  for (const o of T.good) forms.push(o + ' By the way, do you have a little brother?');   // S1 상한(7)을 «연결어 빼고» 세는가
   const badForms = [];
   for (const f of forms) {
     if (RQ && RQ.fragmentQuestions(f).length) badForms.push(['frag', f]);
@@ -288,7 +288,7 @@ console.log('⑧ 이번 턴 첫마디');
   }
   { const lostReply = T.lost[0] + ' Anyway, do you like dogs?';
     ok(C.connectorIssues(lostReply, { band: 'beginner', studentSaid: "I don't know" }).length === 0
-      && C.connectorIssues(T.other[0] + ' By the way, do you have a pet?', { band: 'beginner', studentSaid: 'I like dogs.' }).length === 0,
+      && C.connectorIssues(T.good[0] + ' By the way, do you have a pet?', { band: 'beginner', studentSaid: 'I like dogs.' }).length === 0,
       '측정기 기준으로도 문제 0(반응 뒤의 By the way · «모르겠다» 턴의 Anyway)', [C.connectorIssues(lostReply, { band: 'beginner', studentSaid: "I don't know" })]); }
 
   // ⑧-4 지시 길이 — 첫 판(PR #2025)의 고정 규칙 1,221자보다 길어지지 않는다(지시가 길수록 모델의 첫 글자가 늦다)
@@ -336,8 +336,11 @@ console.log('⑧ 이번 턴 첫마디');
   ok(clash.length === 0, '고른 첫마디가 «최근 시작 말» 과 안 겹친다 — 「다르게 시작해」 줄과 서로 다른 말을 하지 않는다', clash.slice(0, 3));
   ok(disobeyTried > 0 && disobeyFixed === disobeyTried, '모델이 한 번 어기면 다음 턴에 바로 다시 싣는다(스스로 맞춰진다)', [disobeyFixed, disobeyTried]);
   { const lines = new Set(); let btw = 0, any = 0;
-    for (let i = 0; i < 300; i++) { const l = C.turnOpenerLine([{ role: 'assistant', content: 'Plain ' + i + '. Do you like it?' }]); lines.add(quoted(l).filter((x) => ALL.includes(x)).join('|')); if (/starts with "By the way,"/.test(l)) btw++; if (/with "Anyway,"/.test(l)) any++; }
-    ok(lines.size >= 4 && btw > 30 && btw < 200 && any === 300, '후보가 돌아가며 바뀌고, By the way 는 «그 밖» 칸에서 가끔(약 1/3), Anyway 는 «모르겠다» 칸에 늘 있다', { combos: lines.size, btw, any }); }
+    for (let i = 0; i < 300; i++) { const l = C.turnOpenerLine([{ role: 'assistant', content: 'Plain ' + i + '. Do you like it?' }]); lines.add(quoted(l).filter((x) => ALL.includes(x)).join('|')); if (/start it with "By the way,"/.test(l)) btw++; if (/with "Anyway,"/.test(l)) any++; }
+    ok(lines.size >= 4 && btw > 30 && btw < 200 && any === 300, '후보가 돌아가며 바뀌고, By the way 는 «새 질문으로 넘어갈 때만» 가끔(약 1/3), Anyway 는 «모르겠다» 칸에 늘 있다', { combos: lines.size, btw, any }); }
+    { const l = C.turnOpenerLine([{ role: 'assistant', content: 'Plain 1. Do you like it?' }]);
+      ok(/Sad or hard news: .*good or fun news: .*something surprising: .*a short answer or plain information: .*If none fits, use another short one with the same feeling\./.test(l),
+        '«문맥에 맞게» — 좋은 소식·놀라운 말·평범한 정보를 «뜻으로» 나눠 주고, 딱 맞는 것이 없으면 같은 느낌의 다른 말을 허락한다', l); }
   { const boomH = [{ role: 'assistant', content: { toString() { throw new Error('x'); } } }];
     let th = false; try { C.turnOpenerLine(boomH); C.turnOpenerLine({ length: 2 }); C.isTurnOpener(null); } catch { th = true; }
     ok(!th, '첫마디 줄은 어떤 입력에도 던지지 않는다'); }
