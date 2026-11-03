@@ -1804,7 +1804,7 @@ function offChangeRows(ch){
    ⚠️ 위 수업 칸 핸들러는 data-slot 이 없으면 툴팁을 닫는다 — 이 핸들러가 «그 뒤» 에 등록돼야 열린 채 남는다. */
 document.addEventListener('mousemove',function(e){
   var t=e.target.closest&&e.target.closest('.slot');
-  if(!t||t.dataset.slot||!t.dataset.off)return;
+  if(!t||!t.dataset.off)return;  /* data-off 칸은 render 가 data-slot 을 안 단다(살아 있는 수업이 있으면 그 칸이 이긴다) */
   var data; try{ data=JSON.parse(decodeURIComponent(t.dataset.off)); }catch(_){ return; }
   var o=data.off||{}, L=currentLang==='ko';
   var dur=Number(o.duration_min)>0?Number(o.duration_min):SLOT_STEP, st=data.hour*60+(data.minute||0);
