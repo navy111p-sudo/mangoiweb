@@ -4,6 +4,7 @@
 //   포함: Phase P1(포인트+기프티콘)+P4(기프티쇼 비즈) + 별점평가·AI피드백 — 29매처
 //   ensurePointTables·applyPointTransaction 은 export — api-mango 게임보상 2곳 사용.
 // ═══════════════════════════════════════════════════════════════════════
+import { WARMUP_POINT_RULE, WARMUP_POINT_AMOUNT, WARMUP_POINT_DAILY_CAP, WARMUP_POINT_MIN_TURNS, warmupPointGate } from './warmup-points';   // 🗣️ 웜업 포인트 정본(2026-11-03)
 import { json, today } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession, getAdminActor, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
@@ -325,6 +326,23 @@ export async function handlePointsApi(
       //   ⚠️ 화면(/story-red-umbrella.html)의 STORY_POINTS 와 금액이 같아야 합니다 — story_red_umbrella_harness 가 대조.
       if (ruleCode === 'story_read') {
         await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES ('story_read','A.i 동화책 한 편 완주',10,0,2,1,'동화책 한 편의 활동 6가지를 모두 마치면 지급(하루 2번까지)',?) ON CONFLICT(code) DO NOTHING`).bind(Date.now()).run();
+      }
+      // 🗣️ A.i 말하기(웜업) — «끝내고 요약 보기» 때 한 번. 정본 src/warmup-points.ts (2026-11-03).
+      //   ⛔ 화면이 보낸 횟수를 믿지 않는다 — 서버 대화 기록(KV)에서 학생이 직접 말한 횟수를 센다.
+      if (ruleCode === WARMUP_POINT_RULE) {
+        await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES (?,'A.i 말하기 연습',?,0,?,1,'한 대화에서 학생이 직접 3번 이상 말하고 «끝내고 요약 보기» 를 누르면 지급(하루 1번)',?) ON CONFLICT(code) DO NOTHING`)
+          .bind(WARMUP_POINT_RULE, WARMUP_POINT_AMOUNT, WARMUP_POINT_DAILY_CAP, Date.now()).run();
+        const sid = String(body.meta?.session_id || '').trim();
+        let historyRaw: string | null | undefined = undefined;
+        let sessionOwner: string | null | undefined = undefined;
+        try { historyRaw = (env as any).SESSION_STATE && sid ? await (env as any).SESSION_STATE.get('warmup:' + sid) : null; } catch { historyRaw = undefined; }
+        try {
+          const row: any = sid ? await env.DB.prepare(`SELECT user_id FROM warmup_session_log WHERE session_id = ?`).bind(sid).first() : null;
+          sessionOwner = row && row.user_id ? String(row.user_id) : null;
+        } catch (e: any) { sessionOwner = /no such table/i.test(String(e?.message || e)) ? null : undefined; }
+        const g = warmupPointGate({ sessionId: sid, historyRaw, userId, sessionOwner });
+        if (!g.ok) return json({ ok: false, error: g.error, have: g.have, need: WARMUP_POINT_MIN_TURNS });
+        body.meta = { session_id: sid, turns: g.have };
       }
       const rule: any = await env.DB.prepare(`SELECT * FROM point_rules WHERE code=? AND enabled=1`).bind(ruleCode).first();
       if (!rule) return json({ ok: false, error: 'rule_not_found_or_disabled', code: ruleCode }, 404);
