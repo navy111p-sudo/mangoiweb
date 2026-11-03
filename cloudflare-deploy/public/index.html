@@ -4409,9 +4409,15 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         //   'dropped'(강사 네트워크 끊김·재접속 교체)·사유 미상은 즉시 종료하지 않고
         //   아래 폴링 안전망의 유예(약 60초)에 맡긴다 — 학생 연결이 멀쩡해도
         //   강사 쪽이 잠깐 끊기면 connHealthy() 만으로는 못 거르기 때문.
-        if (reason !== 'left') return r;
+        var leaveEpoch = window.__vcRateLeaveEpoch = (window.__vcRateLeaveEpoch || 0) + 1;
+        if (reason !== 'left') { window.__vcPeerLeftExplicit = false; return r; }
+        var leaveRoom = typeof vcRoomId === 'undefined' ? '' : vcRoomId;
+        var leaveSelf = typeof vcUserId === 'undefined' ? '' : vcUserId;
         window.__vcPeerLeftExplicit = true;
         setTimeout(function(){
+          if (leaveEpoch !== window.__vcRateLeaveEpoch || !window.__vcPeerLeftExplicit) return;
+          if (leaveRoom !== (typeof vcRoomId === 'undefined' ? '' : vcRoomId)
+              || leaveSelf !== (typeof vcUserId === 'undefined' ? '' : vcUserId)) return;
           if (STATE.triggered) return;
           if (!isStudentInClass()) return;
           if (!connHealthy()) return;                 // 재연결 중이면 폴링 안전망(아래)에 맡김
@@ -4503,7 +4509,9 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         var c = remoteCount();
         if (c > 0) {
           everHadPeer = true;
-          if (zeroStreak || silentTicks) { window.__vcPeerLeftExplicit = false; window.__vcPeerGraceWait = false; try { vcHideReconnecting(); } catch(e){} }
+          if (window.__vcPeerLeftExplicit) window.__vcRateLeaveEpoch = (window.__vcRateLeaveEpoch || 0) + 1;
+          window.__vcPeerLeftExplicit = false;
+          if (zeroStreak || silentTicks) { window.__vcPeerGraceWait = false; try { vcHideReconnecting(); } catch(e){} }
           zeroStreak = 0; silentTicks = 0;
           try { hideTeacherGoneNotice(); } catch(e){}   // 강사 복귀 → 안내 카드 자동 제거
           return;
