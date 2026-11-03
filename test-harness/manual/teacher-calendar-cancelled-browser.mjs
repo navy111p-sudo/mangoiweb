@@ -15,6 +15,7 @@
  *   ⑦ 강사 필터를 걸면 다른 강사의 취소 카드는 안 그린다
  *   ⑧ EN 으로 그리면 영어로 말한다 · 글자 대비 4.5:1 이상 · 페이지 오류 0
  *   ⑨ (2026-11-04) 그날 «취소·연기만» 있는 강사는 전체 보기에서 열이 없다 — 건수는 «열 없음 N» 으로 말하고, 그 강사를 고르면 보인다
+ *   ⑩ (2026-11-04) «빈 N분» 점선 상자가 취소 카드 자리에도 그려진다 — 글자는 카드에 안 덮이는 자리에, 꽉 덮이면 꼬리표로
  *
  * [돌리는 법] 게이트는 이 파일을 물어 가지 않는다(사람이 부른다).
  *   node test-harness/manual/teacher-calendar-cancelled-browser.mjs    (전역 playwright 가 있으면 그대로)
@@ -81,6 +82,15 @@ const OFF = [
 const OFF_KAYE = { off: 'cancelled', teacher_id: 31, date: TUE, hour: 15, start_time: '15:00', type: '1on1', duration_min: 20,
   students: [{ name: '카예학생', uid: 'stu_kaye' }], change: CH_CANCEL };
 
+/* ⑩ 빈 자리 — HANNAH 15:00 수업을 더해 15:20~21:00(340분) 빈 자리 안에 16:00 연기·18:00 그룹 취소가 들어간다.
+   BELLE 12:40 수업 + 13:00~13:50 취소 → 13:00~14:00(60분) 빈 자리가 거의 다 덮인다(남는 10분 < 글자 자리) → 꼬리표 */
+const SCHED_GAP = [
+  { id: 903, teacher_id: '24', date: TUE, start_time: '15:00', type: '1on1', duration_min: 20, students: [{ name: '앞수업', uid: 'stu_a' }] },
+  { id: 904, teacher_id: '30', date: TUE, start_time: '12:40', type: '1on1', duration_min: 20, students: [{ name: '점심전', uid: 'stu_b' }] },
+];
+const OFF_GAP = [{ off: 'cancelled', teacher_id: 30, date: TUE, hour: 13, start_time: '13:00', type: '1on1', duration_min: 50,
+  students: [{ name: '꽉찬취소', uid: 'stu_full' }], change: CH_CANCEL }];
+
 async function open(browser, opt = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1600, height: 950 } });
   const page = await ctx.newPage();
@@ -94,7 +104,7 @@ async function open(browser, opt = {}) {
     if (u.includes('/api/admin/schedules')) {
       if (opt.oldServer) return j({ ok: true, schedules: SCHED });                         // off_items 칸이 없는 옛 서버
       const off = opt.noOff ? [] : opt.offOnly ? OFF.concat([OFF_KAYE]) : OFF;
-      return j({ ok: true, schedules: SCHED, off_items: off, off_complete: opt.partial ? false : true });
+      return j({ ok: true, schedules: opt.gap ? SCHED.concat(SCHED_GAP) : SCHED, off_items: opt.gap ? off.concat(OFF_GAP) : off, off_complete: opt.partial ? false : true });
     }
     if (u.includes('/api/admin/me')) return j({ ok: true, username: 'admin', role: 'hq', scope: { type: 'hq' } });
     return j({ ok: true, items: [], schedules: [], events: [] });
@@ -272,6 +282,38 @@ const readCards = (page) => page.evaluate(() => {
     check('⑧ EN: 범례 «Cancelled · ⏸ Postponed» 와 «Cancelled/postponed 3»', /Cancelled · ⏸ Postponed/.test(e.legend) && /Cancelled\/postponed 3/.test(e.legend), e.legend.slice(-260));
     check('⑧ EN 페이지 오류 0', E.errors.length === 0, E.errors.slice(0, 3));
     await E.ctx.close();
+
+    console.log('\n[ ⑩ «빈 N분» 상자도 함께 ]');
+    const G = await open(browser, { gap: true });
+    await renderCalendar(G.page);
+    const gp = await G.page.evaluate(() => {
+      const R = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height }; };
+      const col = (t) => document.querySelector('#ph54-sched-wrap .ph54-cal-col[data-teacher="' + t + '"]');
+      const pack = (t) => { const c = col(t); if (!c) return null;
+        return { gaps: Array.from(c.querySelectorAll('.ph54-gap')).map((g) => { const lab = g.querySelector('.ph54-gap-lab'), tag = g.querySelector('.ph54-gap-tag');
+                   return { t: g.textContent.replace(/\s+/g, ' '), box: R(g), lab: lab && R(lab), tag: tag && R(tag), tagZ: tag && getComputedStyle(tag).zIndex,
+                            tagColor: tag && getComputedStyle(tag).color, tagBg: tag && getComputedStyle(tag).backgroundColor }; }),
+                 offs: Array.from(c.querySelectorAll('.ph54-off')).map((o) => ({ t: o.textContent.replace(/\s+/g, ' '), box: R(o), z: getComputedStyle(o).zIndex })) }; };
+      return { han: pack('24'), bel: pack('30') };
+    });
+    const hit = (a, b) => a && b && a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+    const hg = gp.han && gp.han.gaps.find((g) => /빈 340분/.test(g.t));
+    check('🔴 ⑩ HANNAH 열에 «빈 340분» 점선 상자(취소·연기 카드가 안에 있어도 그린다)', !!hg, gp.han && gp.han.gaps.map((g) => g.t));
+    check('🔴 ⑩ 그 글자는 어느 취소·연기 카드에도 안 덮인다', !!hg && !!hg.lab && gp.han.offs.every((o) => !hit(hg.lab, o.box)), { lab: hg && hg.lab, offs: gp.han && gp.han.offs.map((o) => o.box) });
+    check('⑩ 글자는 그 상자 안에 있다', !!hg && !!hg.lab && hg.lab.t >= hg.box.t - 1 && hg.lab.b <= hg.box.b + 1, hg);
+    check('⑩ 상자 안 취소·연기 카드는 안쪽으로 들어가 점선이 양옆에 보인다', !!hg && gp.han.offs.length === 2 && gp.han.offs.every((o) => o.box.l - hg.box.l >= 3 && hg.box.r - o.box.r >= 3), { box: hg && hg.box, offs: gp.han && gp.han.offs.map((o) => o.box) });
+    const bg = gp.bel && gp.bel.gaps.find((g) => /빈 60분/.test(g.t));
+    check('🔴 ⑩ BELLE 열 «빈 60분» — 취소 카드가 거의 다 덮어 꼬리표로 그린다', !!bg && !!bg.tag, gp.bel && gp.bel.gaps);
+    const full = gp.bel && gp.bel.offs.find((o) => /꽉찬취소/.test(o.t));
+    check('🔴 ⑩ 꼬리표는 카드 «위» 에 얹힌다(z-index 가 카드보다 높고 카드와 겹친다)', !!bg && !!bg.tag && !!full && Number(bg.tagZ) >= 1 && (full.z === 'auto' || Number(full.z) < Number(bg.tagZ)) && hit(bg.tag, full.box), { tagZ: bg && bg.tagZ, cardZ: full && full.z });
+    if (bg && bg.tag) {
+      const fg = parseRgb(bg.tagColor), b0 = parseRgb(bg.tagBg);
+      const r = (Math.max(relLum(fg), relLum(b0)) + 0.05) / (Math.min(relLum(fg), relLum(b0)) + 0.05);
+      check('⑩ 꼬리표 글자 대비 4.5:1 이상', r >= 4.5, { fg: bg.tagColor, bg: bg.tagBg, r: Math.round(r * 100) / 100 });
+    }
+    check('⑩ 원래 기능 — 취소 카드에 겹침 표시 없음', !(await G.page.evaluate(() => document.querySelector('#ph54-sched-wrap .ph54-off.ph54-dup'))));
+    check('⑩ 페이지 오류 0', G.errors.length === 0, G.errors.slice(0, 3));
+    await G.ctx.close();
 
     console.log('\n[ ⑨ 취소·연기만 있는 강사는 열 없음 ]');
     const K = await open(browser, { offOnly: true });

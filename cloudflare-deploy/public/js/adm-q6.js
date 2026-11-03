@@ -519,6 +519,7 @@
      [속도] 한 번 그리고 끝 — 스크롤·호버에 JS 없음. 군집 계산은 «같은 열 안» 에서만 하므로 O(n) 에 가깝다.
      샘플·비교: docs/강사캘린더_강사별열_B안_세갈래_2026-09-02.html · 감시: test-harness/teacher_calendar_lanes_harness.mjs */
   var PH54_GAP_MIN = 30;   // 이보다 짧은 빈틈은 «빈 자리» 로 안 그린다(20분 수업 사이 10분은 쉬는 시간)
+  var PH54_GAP_LABEL_MIN = 15;   // «빈 N분» 글자가 들어갈 만한 덮이지 않은 구간(15분 = 12.5px — 9px 글자 한 줄)
 
   /* 한 열(=한 강사·하루)의 카드 배치. items: [{st, du, ...}] (분 단위)
      → 같은 배열 요소에 lane/lanes/dup 를 써 넣고, 빈 자리 목록을 함께 돌려준다. */
@@ -535,7 +536,7 @@
       cluster = []; maxEnd = -1;
     };
     list.forEach(function(it){
-      it.dup = false;
+      it.dup = false; it.inGap = false;
       if (cluster.length && it.st >= maxEnd) flush();
       cluster.push(it); maxEnd = Math.max(maxEnd, it.st + it.du);
     });
@@ -549,10 +550,30 @@
       if (list[i].st < list[j].st + list[j].du && list[j].st < list[i].st + list[i].du){ list[i].dup = true; list[j].dup = true; }
     }
     // 빈 자리 — 연속 점유 사이 PH54_GAP_MIN 분 이상(차단 카드도 «점유» 로 본다)
+    //   🧾 (2026-11-04 사장님 「빈 N분 점선 상자도 같이 보이게 해줘」) 취소·연기 칸은 «점유» 가 아니다 — 그 시간은 비어 있다.
+    //      그래서 빈 자리를 셀 때 빼고, 그 칸은 점선 상자 «안» 에 들어간다(inGap — 카드가 조금 안쪽으로 들어가 점선이 보인다).
+    //      글자 «빈 N분» 은 카드에 안 덮이는 가장 긴 구간(PH54_GAP_LABEL_MIN 분 이상)에 두고, 그런 구간이 없으면
+    //      상자 오른쪽 아래 작은 꼬리표(tag)로 카드 위에 얹는다 — 어느 경우든 글자가 가려지지 않는다.
     var gaps = [], end = -1;
     list.forEach(function(it){
+      if (it.kind === 'off') return;
       if (end >= 0 && it.st - end >= PH54_GAP_MIN) gaps.push({ st: end, du: it.st - end });
       end = Math.max(end, it.st + it.du);
+    });
+    gaps.forEach(function(g){
+      var offs = list.filter(function(it){ return it.kind === 'off' && it.st < g.st + g.du && it.st + it.du > g.st; });
+      if (!offs.length) return;
+      offs.forEach(function(it){ it.inGap = true; });
+      var segs = [], cur = g.st;
+      offs.slice().sort(function(a, b){ return a.st - b.st; }).forEach(function(it){
+        if (it.st > cur) segs.push({ st: cur, du: it.st - cur });
+        cur = Math.max(cur, it.st + it.du);
+      });
+      if (cur < g.st + g.du) segs.push({ st: cur, du: g.st + g.du - cur });
+      var best = null;
+      segs.forEach(function(sg){ if (!best || sg.du > best.du) best = sg; });
+      if (best && best.du >= PH54_GAP_LABEL_MIN){ g.lst = best.st; g.ldu = best.du; }
+      else g.tag = true;
     });
     return { items: list, gaps: gaps };
   }
@@ -565,8 +586,20 @@
   // 빈 자리 점선 칸 HTML
   function ph54GapHtml(g){
     var top = (g.st - PH54_START_H*60) / 60 * PH54_HOUR_PX, h = g.du / 60 * PH54_HOUR_PX;
-    return '<div class="ph54-gap" style="top:' + (top + 2) + 'px;height:' + Math.max(h - 4, 10) + 'px">'
-      + ph54T('빈 ' + g.du + '분', g.du + 'm free') + '</div>';
+    var boxH = Math.max(h - 4, 10);   // 상자는 위아래 2px 씩 안쪽 — 글자 자리도 이 높이 안에서 잰다
+    var lab = ph54T('빈 ' + g.du + '분', g.du + 'm free');
+    var inner = lab;
+    if (g.tag){
+      // 상자가 취소 카드로 거의 다 덮였다 — 오른쪽 아래 꼬리표로 카드 위에 얹는다(눌림은 그대로 통과: 상자가 pointer-events:none)
+      inner = '<span class="ph54-gap-tag" style="position:absolute;right:2px;bottom:1px;z-index:3;padding:0 3px;border-radius:3px;line-height:12px;background-color:#ffffff;border:1px dashed #94a3b8">' + lab + '</span>';
+    } else if (g.lst != null){
+      // 취소 카드에 안 덮인 가장 긴 구간에 글자를 둔다(상자 위쪽 끝 2px 를 뺀 자리 기준 · 상자 밖으로 안 나가게)
+      var lt = Math.max(0, (g.lst - g.st) / 60 * PH54_HOUR_PX - 2);
+      var lh = Math.max(0, Math.min(g.ldu / 60 * PH54_HOUR_PX, boxH - 2 - lt));   // −2 = 상자 위아래 테두리(1px×2 · border-box)
+      inner = '<span class="ph54-gap-lab" style="position:absolute;left:0;right:0;display:flex;align-items:center;justify-content:center;top:'
+        + lt.toFixed(1) + 'px;height:' + lh.toFixed(1) + 'px">' + lab + '</span>';
+    }
+    return '<div class="ph54-gap" style="top:' + (top + 2) + 'px;height:' + boxH + 'px">' + inner + '</div>';
   }
   /* 접힌 요일의 밀도 — 20분 칸마다 «그 시간에 걸친 카드 수» 를 보라 농도로. div 수십 개가 아니라
      그라데이션 «한 장» 이다(요소 수를 늘리지 않는다). 모든 칸에 stop 을 두어야 사이가 번지지 않는다.
@@ -728,7 +761,8 @@
     return '<div class="ph54-ev ph54-off ph54-locked' + (pp ? ' ph54-off-pp' : '') + '" data-off="' + (pp ? 'postponed' : 'cancelled') + '"'
       /* 글자색 #475467 은 «테마 규칙이 없을 때» 의 값이다 — ivory/slate 에서는 admin-inline-c.css 의
          [id^="card-"] … div{color:#101828!important} 가 이겨 실제로는 #101828 로 그려진다(실측). 둘 다 밝은 바탕에서 읽힌다. */
-      + ' style="top:'+top+'px;height:'+height+'px;'+ph54LaneStyle(lay)+'cursor:cell;box-shadow:none;color:#475467;'+look+'"'
+      // 빈 자리 상자 안이면 혼자일 때 조금 안쪽으로(점선 테두리가 카드 양옆에 보이게)
+      + ' style="top:'+top+'px;height:'+height+'px;'+ph54LaneStyle(lay)+((lay && lay.inGap && !(lay.lanes > 1)) ? 'left:7px;right:7px;' : '')+'cursor:cell;box-shadow:none;color:#475467;'+look+'"'
       + ' title="'+ph54Esc(tip)+'">'
       +   '<div class="ph54-ev-time"' + (pp ? '' : ' style="text-decoration:line-through;text-decoration-color:#64748b"') + '>' + ph54Esc(timeTxt) + '</div>'
       +   '<div class="ph54-ev-name">' + ph54Esc(who) + '</div>'
