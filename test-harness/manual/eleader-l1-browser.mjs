@@ -213,7 +213,7 @@ try {
     ok('levels: 5 tabs (Level 1~5)', await p.locator('#eleaderL1 .l1-tab').count() === 5);
     { const t = await p.locator('#eleaderL1').innerText();   // 2026-11-03 — 기본과정에는 «Level 1» 을 안 붙인다(제목·탭)
       ok('levels: real header is «엘리더잼 기본과정» (no Level 1)', /엘리더잼 기본과정/.test(t) && !/엘리더잼 Level 1/.test(t));
-      ok('levels: L1 tab is «기본과정 (N)» (no Level 1)', /(^|\n)기본과정 \(\d+\)/.test(await p.locator('#eleaderL1 .l1-tabs').innerText()) && !/Level 1 ·/.test(t)); }
+      ok('levels: L1 tab is «Level 1 · 캐피 기본과정 (N)»', /(^|\n)Level 1 · 캐피 기본과정 \(\d+\)/.test(await p.locator('#eleaderL1 .l1-tabs').innerText())); }
     ok('levels: tab names', /Level 2 · 캐피 기본 레벨5 \(25\)/.test(await p.locator('#eleaderL1 .l1-tabs').innerText()) && /Level 5 · 캐피 심화3 \(30\)/.test(await p.locator('#eleaderL1 .l1-tabs').innerText()));
     await p.click('#eleaderL1 .l1-tab[data-lv="l3"]');
     ok('levels: L3 title', /엘리더잼 Level 3 캐피 심화1/.test(await p.locator('#eleaderL1 h3').innerText()));
