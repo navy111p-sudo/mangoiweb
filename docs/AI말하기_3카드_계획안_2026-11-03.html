@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>A.i 말하기 3카드 계획안</title>
+<style>
+@page{size:A4;margin:14mm 14mm 16mm}
+*{box-sizing:border-box}
+body{font-family:'Noto Sans KR','Malgun Gothic','WenQuanYi Zen Hei',sans-serif;color:#14213d;font-size:11pt;line-height:1.6;margin:0;word-break:keep-all}
+h1{font-size:22pt;margin:0 0 4px} h2{font-size:15pt;margin:22px 0 8px;padding-bottom:4px;border-bottom:2px solid #93c5fd;page-break-after:avoid}
+h3{font-size:12.5pt;margin:14px 0 6px;page-break-after:avoid}
+.sub{color:#475467;margin:0 0 14px}
+.cover{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:16px;background:linear-gradient(135deg,#dbeafe,#e9f3ff);margin-bottom:14px}
+.cover img{width:64px;height:64px}
+.box{border:1px solid #d0dcef;border-radius:12px;padding:10px 14px;margin:8px 0;background:#f8fbff;page-break-inside:avoid}
+.done{background:#ecfdf5;border-color:#6ee7b7} .warn{background:#fff7ed;border-color:#fdba74}
+table{width:100%;border-collapse:collapse;margin:6px 0 10px;font-size:10pt;page-break-inside:auto}
+th,td{border:1px solid #d0dcef;padding:5px 7px;text-align:left;vertical-align:top} th{background:#eef4ff}
+tr{page-break-inside:avoid}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:8px 0}
+.card{border-radius:14px;padding:10px 12px;border:1.5px solid}
+.c1{background:#dbeafe;border-color:#93c5fd}.c2{background:#ffedd5;border-color:#fdba74}.c3{background:#d1fae5;border-color:#6ee7b7}
+.card b{font-size:12pt}
+.shots{display:flex;gap:10px;justify-content:center;margin:8px 0;page-break-inside:avoid}
+.shots figure{margin:0;text-align:center;font-size:9pt;color:#475467}
+.shots img{width:180px;border:1px solid #d0dcef;border-radius:12px}
+.pc img{width:100%;border:1px solid #d0dcef;border-radius:10px}
+.small{font-size:9.5pt;color:#475467}
+ol,ul{margin:4px 0 8px;padding-left:20px}
+.pb{page-break-before:always}
+</style></head><body>
+
+<div class="cover"><img src="../cloudflare-deploy/public/img/mango-char.png" alt="">
+<div><h1>A.i 말하기 — 3카드 개편 계획안</h1>
+<p class="sub" style="margin:0">교재로 연습 · 상황별 말하기 · AI 친구하기 + 공통 설정 &nbsp;|&nbsp; 2026-11-03 &nbsp;|&nbsp; 망고아이</p></div></div>
+
+<h2>1. 한눈에 보기</h2>
+<div class="box done"><b>무엇을 바꾸나</b> — 학생이 «AI 말하기» 를 누르면 나오는 첫 화면을 휴대폰 시안처럼 <b>카드 3장 + 아래 공통 설정</b>으로 바꿉니다.
+첫 단계(화면 개편 + 상황별 말하기 20개)는 <b>만들어서 검사까지 마쳤고</b>, 이 문서는 전체 계획과 다음 단계를 정리합니다.</div>
+<div class="cards">
+ <div class="card c1"><b>📘 교재로 연습</b><br>수업에서 배운 표현을 교재와 함께 연습<br><span class="small">→ 기존 웜업 화면</span></div>
+ <div class="card c2"><b>🎯 상황별 말하기</b><br>빵집 주문·길 묻기 등 실제 상황을 영어로<br><span class="small">→ 새 기능 · 4단계 × 5개</span></div>
+ <div class="card c3"><b>👫 AI 친구하기</b><br>원하는 주제로 AI 친구와 편하게 대화<br><span class="small">→ 기존 AI 친구 화면</span></div>
+</div>
+<table><tr><th style="width:26%">사장님 결정</th><th>반영</th></tr>
+<tr><td>자유대화 카드</td><td>없애고 «상황별 말하기» 로 교체 (같은 대화는 교재 연습 화면의 «교정 정도: 자유» 로 가능)</td></tr>
+<tr><td>대상</td><td>어린이·청소년 — 상황도 학교·놀이·가족 생활 중심</td></tr>
+<tr><td>상황 단계</td><td>5단계 취소 → <b>4단계, 단계마다 5개 = 20개</b></td></tr>
+<tr><td>중국어</td><td>뺐습니다 — 상황 대화는 영어만, 화면에 한자 없음</td></tr>
+<tr><td>언어 칸</td><td>화면 글자 <b>한국어 / English</b> (추천안)</td></tr>
+<tr><td>공통 설정</td><td>이모지 타일(🌐 언어 · 📊 수준 · 🛠️ 교정 정도)</td></tr>
+<tr><td>그림</td><td>힉스필드 asset 사용 — <b>남은 일</b>(8장 참고)</td></tr></table>
+
+<h2>2. 바뀌는 화면</h2>
+<h3>2-1. 지금 화면의 문제 (PC 캡처 기준)</h3>
+<ul>
+<li>카드 제목 끝 한 글자만 다음 줄로 내려감(「이야기하<b>기</b>」), 목록도 「연습해 / <b>요</b>」 처럼 끊김</li>
+<li>카드 한 장에 층이 다섯 개(태그·제목·설명·목록·버튼)라 길고, 폰에서는 카드 하나가 화면 절반</li>
+<li>설정은 「각 화면에서 고르세요」 한 줄뿐 — 교재 연습과 AI 친구의 수준·교정이 따로 저장됨</li>
+</ul>
+<h3>2-2. 새 화면</h3>
+<div class="shots">
+<figure><img src="AI말하기_3카드_계획안_img/phone-home.jpg"><figcaption>폰 첫 화면 — 카드 3장</figcaption></figure>
+<figure><img src="AI말하기_3카드_계획안_img/phone-situations.jpg"><figcaption>상황별 말하기 목록</figcaption></figure>
+<figure><img src="AI말하기_3카드_계획안_img/phone-settings.jpg"><figcaption>공통 설정 (이모지)</figcaption></figure>
+</div>
+<div class="pc"><img src="AI말하기_3카드_계획안_img/pc-home.jpg"></div>
+<p class="small">PC 1366×768 — 카드 3장 가로. 폰은 세로 줄 카드이고 360×640 작은 폰에서도 카드 3장이 첫 화면에 다 보입니다(실측).</p>
+
+<h2 class="pb">3. 카드별 계획</h2>
+<h3>📘 교재로 연습</h3>
+<ul><li>기존 웜업 화면(<code>/warmup.html</code>)을 그대로 엽니다 — 교재·과 고르기, AI 가 먼저 질문, 대답 힌트, 교정 카드.</li>
+<li>바뀌는 것은 첫 화면 카드 모양뿐. 수준·교정은 공통 설정 값을 그대로 이어 받습니다.</li></ul>
+<h3>🎯 상황별 말하기 (새 기능)</h3>
+<ol>
+<li>카드를 누르면 같은 화면 안에 <b>4단계 × 5개 = 20개</b> 상황 목록이 펼쳐집니다(사진 + 한 줄 설명).</li>
+<li>상황을 고르면 웜업 엔진으로 바로 대화가 시작됩니다. <b>AI 가 역할(점원·친구·선생님·의사 등)의 첫 말</b>을 먼저 합니다. 예) 빵집 점원: 「Hi! Welcome to Mango Bakery. What would you like?」</li>
+<li>낮은 수준(1~3단계) 학생에게는 대답 보기 2개가 뜹니다.</li>
+<li>서버에는 «끝까지 그 역할로, 어린이·청소년에게 쉽게, 한 번에 하나씩 물어라» 는 역할 지시가 함께 갑니다.</li>
+<li>상황 대화 중에는 학생에게 저장된 교재 이야기로 새지 않습니다. 학생이 직접 교재를 고르면 그때 교재 대화로 바뀝니다.</li>
+<li>교정 카드·같은 질문 반복 금지·마이크·말 빠르기 등 웜업 기능이 전부 그대로 따라옵니다.</li>
+</ol>
+<h3>👫 AI 친구하기</h3>
+<ul><li>기존 AI 친구 화면(<code>/ai-friend.html</code>)을 그대로 엽니다. 수준·교정은 공통 설정 값을 이어 받습니다.</li></ul>
+
+<h2>4. 상황별 말하기 20개</h2>
+<table><tr><th style="width:13%">단계</th><th style="width:24%">상황</th><th style="width:24%">AI 역할</th><th>AI 첫 말</th></tr><tr><td rowspan="5"><b>1단계 · 첫걸음</b></td><td>🙋 새 친구에게 자기소개<br><span class="small">이름과 좋아하는 것을 말해요</span></td><td>학교에서 처음 만난 새 친구</td><td>Hi! I am new here. What is your name?</td></tr><tr><td>🎂 생일 축하하기<br><span class="small">생일을 축하하고 선물을 줘요</span></td><td>오늘 생일인 친구</td><td>Hi! Thank you for coming to my birthday party!</td></tr><tr><td>🦁 동물원 구경하기<br><span class="small">보이는 동물에 대해 말해요</span></td><td>친절한 동물원 사육사</td><td>Welcome to the zoo! Which animal do you want to see first?</td></tr><tr><td>🧺 공원에서 소풍<br><span class="small">음식을 나누고 기분을 말해요</span></td><td>함께 소풍 온 친구</td><td>What a sunny day! Do you want a sandwich or some fruit?</td></tr><tr><td>🛒 가게에서 물건 사기<br><span class="small">물건을 찾고 값을 물어요</span></td><td>가게 직원</td><td>Hello! Can I help you find something?</td></tr><tr><td rowspan="5"><b>2단계 · 기초</b></td><td>🥐 빵집에서 주문하기<br><span class="small">빵과 음료를 고르고 계산해요</span></td><td>빵집 점원</td><td>Hi! Welcome to Mango Bakery. What would you like?</td></tr><tr><td>🍽️ 식당에서 주문하기<br><span class="small">메뉴를 고르고 원하는 것을 말해요</span></td><td>식당 직원</td><td>Hello! Here is your menu. What would you like to eat?</td></tr><tr><td>📚 도서관에서 책 빌리기<br><span class="small">책을 찾고 빌려요</span></td><td>도서관 사서</td><td>Hello! What kind of book are you looking for today?</td></tr><tr><td>🎨 미술 시간에 말하기<br><span class="small">필요한 것을 부탁하고 그림을 설명해요</span></td><td>미술 선생님</td><td>Wow, nice drawing! What are you drawing today?</td></tr><tr><td>🐠 아쿠아리움 표 사기<br><span class="small">표 수와 가격을 물어요</span></td><td>아쿠아리움 매표소 직원</td><td>Hello! How many tickets would you like?</td></tr><tr><td rowspan="5"><b>3단계 · 초급</b></td><td>🗺️ 길 묻기<br><span class="small">가고 싶은 곳을 묻고 길을 들어요</span></td><td>길에서 만난 친절한 어른</td><td>Hi there! You look a little lost. Can I help you?</td></tr><tr><td>📞 전화로 약속 잡기<br><span class="small">만날 날짜와 시간을 정해요</span></td><td>전화를 받은 친구</td><td>Hello? Oh, hi! Do you want to play this weekend?</td></tr><tr><td>⚽ 축구부 들어가기<br><span class="small">잘하는 것과 연습 시간을 이야기해요</span></td><td>학교 축구부 코치</td><td>Hi! Do you want to join our soccer team?</td></tr><tr><td>🎸 학교 밴드 오디션<br><span class="small">연주하는 악기와 좋아하는 노래를 말해요</span></td><td>학교 밴드 선생님</td><td>Welcome to band practice! Which instrument do you play?</td></tr><tr><td>⛺ 캠핑 계획 세우기<br><span class="small">가져갈 것과 할 일을 정해요</span></td><td>함께 캠핑 가는 친구</td><td>Our camping trip is this Saturday! What should we bring?</td></tr><tr><td rowspan="5"><b>4단계 · 중급</b></td><td>🏥 병원에서 증상 말하기<br><span class="small">어디가 아픈지 설명해요</span></td><td>친절한 소아과 의사</td><td>Hello, please have a seat. How are you feeling today?</td></tr><tr><td>🔄 물건 교환하기<br><span class="small">산 물건의 문제를 설명해요</span></td><td>가게 직원</td><td>Hi, how can I help you today?</td></tr><tr><td>🚆 기차표 사기<br><span class="small">시간과 자리를 골라 표를 사요</span></td><td>기차역 매표소 직원</td><td>Good morning! Where would you like to go today?</td></tr><tr><td>🤖 과학관 체험하기<br><span class="small">로봇과 과학에 대해 질문해요</span></td><td>과학관 안내원</td><td>Welcome to the science museum! This robot can talk. What do you want to ask it?</td></tr><tr><td>🏅 운동회 인터뷰<br><span class="small">경기와 그때 기분을 이야기해요</span></td><td>학교 방송부 기자</td><td>Congratulations! You ran so fast. How do you feel right now?</td></tr></table>
+<p class="small">«단계» 는 목록 묶음입니다. 대화 난이도는 공통 설정의 수준(1~8)이 정합니다 — 엔진이 8단계라 바꾸면 기존 학생 저장값이 어긋나므로 그대로 둡니다.</p>
+
+<h2 class="pb">5. 공통 설정</h2>
+<table><tr><th style="width:18%">칸</th><th>고를 수 있는 것</th><th>저장</th></tr>
+<tr><td>🌐 언어</td><td>🗨️ 한국어 / 🔤 English (화면 글자)</td><td>사이트 공용 언어 키 — 다른 화면 언어도 같이 따라감</td></tr>
+<tr><td>📊 수준</td><td>1~8단계 (첫걸음 … 최상급)</td><td>교재 연습·AI 친구 두 화면에 함께</td></tr>
+<tr><td>🛠️ 교정 정도</td><td>💬 자유 / ⚖️ 균형 / 🎯 집중</td><td>교재 연습·AI 친구 두 화면에 함께</td></tr></table>
+<ul>
+<li><b>학생이 고를 때만 저장합니다.</b> 안 고른 값은 「아직 안 정함 (화면 기본)」, 두 화면 값이 다르면 「화면마다 다름」으로 보여 줍니다.</li>
+<li>저장이 막힌 기기(시크릿 창 등)에서는 「⚠️ 저장이 안 돼요」라고 사실대로 말합니다.</li>
+<li>목소리·말 빠르기는 지금처럼 각 연습 화면에서 바꿉니다(2차에 묶을 수 있음).</li>
+</ul>
+
+<h2>6. 만드는 방법 (기술 요약)</h2>
+<table><tr><th style="width:34%">파일</th><th>역할</th></tr>
+<tr><td><code>public/ai-speaking.html</code></td><td>첫 화면(카드 3장·상황 목록·공통 설정)</td></tr>
+<tr><td><code>public/js/ai-situations.js</code></td><td>상황 20개 표(정본) — 이름·설명·사진·AI 첫 말·대답 보기·역할</td></tr>
+<tr><td><code>public/js/ai-speaking-settings.js</code></td><td>공통 설정 읽기·저장(정본)</td></tr>
+<tr><td><code>public/warmup.html</code></td><td><code>?sit=&lt;상황&gt;</code> 을 받아 역할극으로 시작</td></tr>
+<tr><td><code>test-harness/ai_speaking_entry_harness.mjs</code></td><td>자동 검사</td></tr></table>
+<ul><li>서버(공동 금지구역 <code>src/index.ts</code>)는 <b>고치지 않았습니다</b> — 웜업이 이미 받는 «대화 주제» 통로로 역할 지시를 보냅니다.</li>
+<li>홈·메뉴의 «AI 말하기» 입구는 이미 이 화면을 가리키므로 그대로입니다.</li></ul>
+
+<h2>7. 진행 단계</h2>
+<table><tr><th style="width:14%">단계</th><th>내용</th><th style="width:18%">상태</th></tr>
+<tr><td>1단계</td><td>카드 3장 화면 · 상황 20개 · 공통 설정 · 웜업 연결 · 검사</td><td>✅ 완료(배포 대기)</td></tr>
+<tr><td>2단계</td><td>그림을 힉스필드 asset 으로 교체</td><td>⏳ 그림 전달 필요</td></tr>
+<tr><td>3단계</td><td>상황마다 «목표 문장 3개» 체크 + 끝나면 「주문 성공!」 결과 카드</td><td>서버 지시 추가 — 승인 필요</td></tr>
+<tr><td>4단계</td><td>역할 바꾸기(학생이 점원) · 상황별 진도 기록 · 포인트</td><td>3단계 뒤</td></tr></table>
+
+<h2>8. 확인한 것 · 남은 일</h2>
+<div class="box done"><b>확인한 것</b><ul>
+<li>자동 검사 220여 종 통과 · 일부러 망가뜨린 버전 12종을 검사가 모두 잡아냄</li>
+<li>실제 브라우저 6크기(폰 3·가로폰·PC 2) × 한/영 — 가로 넘침 없음, 폰 첫 화면에 카드 3장, 상황 목록 4×5, 화면에 한자 없음, 설정 저장·언어 전환 동작</li>
+<li>전체 회귀 검사에서 새로 깨진 것 0건(원래부터 이 환경에서 실패하던 35건 제외)</li></ul></div>
+<div class="box warn"><b>남은 일</b><ul>
+<li><b>그림(힉스필드)</b> — 작업 환경에서 힉스필드 asset 과 보내 주신 공유 링크(share.google)에 접근할 수 없었습니다(연결 도구 없음·네트워크 차단). 지금은 저장소에 이미 있는 AI 생성 장면 사진을 넣었고, 사진이 없는 2개(길 묻기·전화)는 아이콘입니다. 쓰실 그림을 내려받아 보내 주시거나 세션 네트워크에서 share.google·higgsfield 를 허용해 주시면 바꿔 끼웁니다.</li>
+<li><b>실제 AI 대화</b> — AI 가 역할을 끝까지 지키는지는 배포 뒤 실제 대화 10회 정도로 확인이 필요합니다.</li></ul></div>
+</body></html>
