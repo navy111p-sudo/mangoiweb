@@ -611,9 +611,9 @@
       var score=detail.filter(function(d){return d.correct;}).length, total=detail.length;
       showResult({ ok:true, score:score, total:total, percent: total?Math.round(score/total*100):0, detail:detail, awarded:0, balance:null, streak:0, first_clear:false, practice:true });
     }
-    function countUp(el, to, suffix){
+    function countUp(el, to, suffix, prefix){
       if(!el) return; var dur=750, t0=performance.now();
-      (function step(now){ var p=Math.min(1,(now-t0)/dur); var v=Math.round(to*(1-Math.pow(1-p,3))); el.textContent=v+(suffix||''); if(p<1) requestAnimationFrame(step); })(t0);
+      (function step(now){ var p=Math.min(1,(now-t0)/dur); var v=Math.round(to*(1-Math.pow(1-p,3))); el.textContent=(prefix||'')+v+(suffix||''); if(p<1) requestAnimationFrame(step); })(t0);
     }
     /* 🪙 (2026-11-02) «획득 포인트» 옆에 «왜 이만큼(또는 0)» 인지 — 서버가 실어 준 칸만 읽습니다(지어내지 않음).
        서버가 그 칸을 안 보내면(옛 서버) 아무 말도 안 합니다. */
@@ -700,7 +700,7 @@
         '</div>';
       window.scrollTo(0,0);
       countUp(document.getElementById('rvScore'), r.score, '');
-      if(!r.practice) countUp(document.getElementById('rvPts'), (r.awarded||0), '');
+      if(!r.practice) countUp(document.getElementById('rvPts'), (Number(r.awarded)||0), '', '+');
       if (r.percent>=50){ confetti(); sfxWin(); }
     }
 
