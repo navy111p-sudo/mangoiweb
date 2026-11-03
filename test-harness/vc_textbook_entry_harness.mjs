@@ -81,8 +81,14 @@ console.log('\n▶ 2. mediaAt 스탬프');
 {
   const share = DO.slice(DO.indexOf('private async handlePdfShare'), DO.indexOf('private async handlePdfStopShare'));
   check('⑥ 교재 공유 시 mediaAt 저장', /mediaAt = Date\.now\(\)[\s\S]{0,300}put\('mediaAt'/.test(share));
+  const tree = ts.createSourceFile('room.ts', DO, ts.ScriptTarget.Latest, true);
+  let pageBody = '';
+  function findPage(n) { if (ts.isMethodDeclaration(n) && n.name.getText(tree) === 'handlePdfPageChange') pageBody = n.body.getText(tree); ts.forEachChild(n, findPage); }
+  findPage(tree);
   check('⑦ 페이지 넘김도 mediaAt 갱신 (수업 진행 중 증거)',
-    /pdfState\.currentPage = pageNum;[\s\S]{0,300}mediaAt = Date\.now\(\)/.test(DO));
+    pageBody.indexOf('this.pdfState.currentPage = pageNum') >= 0
+      && pageBody.indexOf('this.mediaAt = Date.now()') > pageBody.indexOf('this.pdfState.currentPage = pageNum')
+      && pageBody.includes("put('mediaAt', this.mediaAt)"));
   check('⑧ 재기동 복원 시 mediaAt 도 읽는다',
     /storage\.get<number>\('mediaAt'\)/.test(DO));
   check('⑨ 동영상 공유도 mediaAt 갱신', /videoState = \{ url, type[\s\S]{0,200}mediaAt = Date\.now\(\)/.test(DO));

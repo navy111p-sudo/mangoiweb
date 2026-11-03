@@ -42,6 +42,7 @@ interface VcAttachment {
    *  깨어난 알람이 «언제부터 조용한가» 를 판단할 바닥값으로 쓴다. */
   seenAt?: number;
   wbReplayBlocked?: boolean;
+  wbResetGeneration?: number;
 }
 
 export class VideoCallRoom {
@@ -98,6 +99,8 @@ export class VideoCallRoom {
   private wbDirty = false;
   private wbRestorePending = false;
   private wbHistoryEnabled = false;
+  private wbOffQuarantined = false;
+  private wbResetGeneration: number | undefined;
 
   /** ✍️ (2026-08-12 Melca) 교재(PDF) 판서도 칠판과 같은 이유로 버퍼 —
    *  "학생 필기가 강사 화면에 안 보인다" 신고의 한 갈래가 «늦게 들어온·새로고침한 강사» 였다.
@@ -106,6 +109,16 @@ export class VideoCallRoom {
    *  ✨ 사라지는 펜(vanish)은 기록하지 않는다(재입장 때 옛 획이 되살아나는 것 방지). */
   private pdfAnnoOps: { t: string; d: any }[] = [];
   private pdfAnnoStrokes: Record<string, any> = {};
+  private pdfAnnoDocUrl = '';
+  private pdfHistory: RoomWhiteboardHistory | null = null;
+  private pdfHistoryEnabled = false;
+  private pdfHistoryPending = false;
+  private pdfRestoreFailed = false;
+  private pdfVanishStrokes = new Set<string>();
+  private pdfDocuments = new Map<string, { t: string; d: any }[]>();
+  private pdfOffQuarantined = false;
+  private pdfGeneration = 0;
+
   private static readonly PDF_ANNO_OPS_MAX = 2000;
 
   // 🔁 (2026-07-24) 무중단 재연결 스위치. wrangler.toml 의 VC_STICKY_UID='on' 일 때만 켜진다.
@@ -154,7 +167,7 @@ export class VideoCallRoom {
       생성자 인자로만 들어오고 그동안 저장하지 않아, 그전엔 이 클래스 안에서 시크릿에 닿을 방법이 없었다. */
   private env: any;
 
-  constructor(state: DurableObjectState, env?: any) {
+  constructor(state: DurableObjectState, env?: any, localTestOptions?: { replayPrototype: boolean }) {
     this.state = state;
     this.roomId = '';
     this.env = env;
@@ -172,20 +185,30 @@ export class VideoCallRoom {
     this.state.blockConcurrencyWhile(async () => {
       try {
         const sql = (this.state.storage as any).sql;
-        this.wbHistoryEnabled = (env as any)?.VC_WHITEBOARD_HISTORY === 'on';
+        // Hard interlock: the platform supplies only state/env. Known prototype faults forbid runtime activation.
+        this.wbHistoryEnabled = localTestOptions?.replayPrototype === true && (env as any)?.VC_WHITEBOARD_HISTORY === 'on';
         if (sql && this.wbHistoryEnabled) {
           this.wbHistory = new RoomWhiteboardHistory(sql, VideoCallRoom.WB_OPS_MAX, body => this.state.storage.transactionSync(body));
           const saved = this.wbHistory.read();
-          this.wbOps = saved.ops; this.wbAt = saved.at;
+          this.wbOps = saved.ops; this.wbAt = saved.at; this.wbResetPending = !!saved.blocked; this.wbResetGeneration = saved.generation;
         }
       } catch { this.wbHistory = null; this.wbRestorePending = true; console.warn('[VideoChat] whiteboard replay restore failed'); }
-      if (this.state.getWebSockets().some(ws => this.attOf(ws)?.wbReplayBlocked)) {
+      if (this.state.getWebSockets().some(ws => { const a = this.attOf(ws); return a?.wbReplayBlocked && !(typeof a.wbResetGeneration === 'number' && typeof this.wbResetGeneration === 'number' && this.wbResetGeneration > a.wbResetGeneration && !this.wbResetPending); })) {
         this.wbOps = []; this.wbResetPending = true;
       }
       this.pdfState = (await this.state.storage.get<PdfShareData>('pdfState')) || null;
+      this.pdfAnnoDocUrl = this.pdfState?.url || '';
       this.videoState = (await this.state.storage.get<{ url: string; type?: string }>('videoState')) || null;
       this.mediaAt = (await this.state.storage.get<number>('mediaAt')) || 0;
       this.emptyAt = (await this.state.storage.get<number>('emptyAt')) || 0;
+      const activeBoardPeer = this.state.getWebSockets().some(ws => { const a = this.attOf(ws); return a?.joined && !a.wbReplayBlocked; });
+      if (this.wbHistoryEnabled && ((this.emptyAt > 0 && Date.now() - this.emptyAt > VideoCallRoom.NEW_CLASS_GAP_MS)
+          || (!this.emptyAt && !activeBoardPeer && this.wbAt > 0 && Date.now() - this.wbAt > VideoCallRoom.SHARE_KEEP_MS))) {
+        this.wbOps = []; this.wbResetPending = true; this.setWhiteboardFence(true);
+      }
+      this.pdfHistoryEnabled = localTestOptions?.replayPrototype === true && this.env?.VC_PDF_HISTORY === 'on';
+      if (this.pdfHistoryEnabled) this.restorePdfHistory();
+      else if (this.pdfState) delete this.pdfState.annotationSession;
       for (const k of ['bgLock', 'micLock', 'focusLock', 'drawLock'] as const) {
         this.lockState[k] = (await this.state.storage.get<boolean>(k)) || false;
       }
@@ -495,7 +518,7 @@ export class VideoCallRoom {
         case 'whiteboard-clear':this.handleWhiteboardClear(userId, att); break;
         case 'pdf-share':       await this.handlePdfShare(userId, att, msg.data as any); break;
         case 'pdf-page-change': await this.handlePdfPageChange(userId, att, msg.data as any); break;
-        case 'pdf-stop-share':  await this.handlePdfStopShare(userId, att); break;
+        case 'pdf-stop-share':  await this.handlePdfStopShare(userId, att, msg.data); break;
         case 'video-share':
         case 'video-sync':      await this.handleVideoShare(userId, att, msg.data as any); break;
         case 'video-stop-share':await this.handleVideoStopShare(userId, att); break;
@@ -539,9 +562,11 @@ export class VideoCallRoom {
           }
           /* ✍️ (2026-08-12 Melca) 교재 판서도 기록 — 늦게 들어온 강사에게 pdf-anno-replay 로 돌려준다 */
           if (msg.type.startsWith('pdf-anno-')) {
-            this.recordPdfAnno(msg.type, msg.data);
+            if (!this.pdfState) { if (this.pdfHistoryEnabled) this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfGeneration } }); break; } // stopped documents have no live annotation channel
+            if (this.pdfHistoryEnabled && (this.pdfHistoryPending || msg.data?.annotationSession !== this.pdfGeneration || msg.data?.documentUrl !== this.pdfAnnoDocUrl)) { this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); break; }
+            if (!this.recordPdfAnno(msg.type, msg.data)) break;
           }
-          this.broadcast(userId, { type: msg.type, data: msg.data });
+          this.broadcast(userId, { type: msg.type, data: msg.type.startsWith('pdf-anno-') ? { ...msg.data, documentUrl: this.pdfState!.url, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } : msg.data });
           break;
         case 'bg-lock':              // 🔒 강사 → 학생 수업 통제 잠금 4종 (공통 처리)
         case 'mic-lock':             //    🎤 전체 음소거
@@ -674,7 +699,10 @@ export class VideoCallRoom {
     this.lastSeen.set(ws, Date.now());
     this.scheduleLivenessAlarm();
 
-    this.retryWhiteboardRestore();
+    if (!this.retryWhiteboardRestore() && !hadJoinedPeers) {
+      this.wbOps = []; this.wbResetPending = true;
+      this.clearWhiteboardHistory(); // unreadable previous session must not reappear on a later join
+    }
     if (this.wbResetPending) this.setWhiteboardFence(true);
     const userCount = this.joinedUsers().length;
 
@@ -687,9 +715,11 @@ export class VideoCallRoom {
        새로고침·순단은 몇 초 만에 돌아오므로 여기 걸리지 않는다(그 보호는 그대로 유지). */
     const _emptyGap = this.emptyAt ? (Date.now() - this.emptyAt) : 0;
     const _newClass = this.emptyAt > 0 && _emptyGap > VideoCallRoom.NEW_CLASS_GAP_MS;
+    if (this.pdfRestoreFailed && !this.restorePdfHistory() && !hadJoinedPeers) this.resetPdfHistory();
     if (_newClass && this.wbRestorePending) { this.wbResetPending = true; this.setWhiteboardFence(true); }
     // Age alone is not a class boundary while a participant remains or briefly reconnects.
     const ageCleanup = !hadJoinedPeers && !this.emptyAt;
+    if (_newClass && userCount <= 1) this.resetPdfHistory();
     // A board-only class has the same new-class/age cleanup as shared media.
     if (userCount <= 1 && this.wbOps.length && (_newClass || (ageCleanup && (!this.wbAt || Date.now() - this.wbAt > VideoCallRoom.SHARE_KEEP_MS)))) {
       if (!this.clearWhiteboardHistory()) { this.wbOps = []; this.wbResetPending = true; this.setWhiteboardFence(true); }
@@ -700,7 +730,7 @@ export class VideoCallRoom {
       this.videoState = null;
       this.mediaAt = 0;
       if (!this.clearWhiteboardHistory()) { this.wbOps = []; this.wbResetPending = true; this.setWhiteboardFence(true); } // keep failed cleanup pending
-      this.pdfAnnoOps = []; this.pdfAnnoStrokes = {};   // ✍️ 교재 판서도 함께
+      this.resetPdfHistory();   // ✍️ 교재 판서도 함께
       void this.state.storage.delete('pdfState');
       void this.state.storage.delete('videoState');
       void this.state.storage.delete('mediaAt');
@@ -710,17 +740,18 @@ export class VideoCallRoom {
     // 🔒 지난 수업의 통제 잠금(배경/음소거/집중)도 새 수업 첫 입장 시엔 해제 상태로 시작
     if (userCount <= 1) this.clearAllLocks();
     /* 방에 사람이 있으니 «비어 있던 시각» 은 지운다 — 다음에 다시 비면 그때 새로 찍는다. */
-    if (this.emptyAt && !this.wbResetPending) { this.emptyAt = 0; void this.state.storage.delete('emptyAt'); }
+    if (this.emptyAt && !this.wbResetPending && !this.pdfHistoryPending) { this.emptyAt = 0; void this.state.storage.delete('emptyAt'); }
 
     // room-joined 는 반드시 물려받은 userId 로 회신한다 — 클라이언트가 이 값이 '직전 vcUserId 와 같은가'
     //   로 "정체성 유지됨 → 살아있는 연결 보존"을 판단한다.
     this.send(effectiveUserId, {
       type: 'room-joined',
-      data: { roomId: this.roomId, userId: effectiveUserId, userCount, pdfState: this.pdfState }
+      data: { annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined, roomId: this.roomId, userId: effectiveUserId, userCount, pdfState: this.pdfState }
     });
 
     const existingUsers = this.joinedUsers().filter(u => u.userId !== effectiveUserId);
     this.send(effectiveUserId, { type: 'existing-users', data: { users: existingUsers, pdfState: this.pdfState } });
+    if (this.pdfHistoryEnabled && this.pdfHistoryPending) this.send(effectiveUserId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfGeneration } });
 
     // 🔁 인계(재연결)면 상대 입장에서 '새 사람'이 아니다 → user-joined 방송과 '입장했습니다' 안내를 생략한다.
     //   (안 그러면 재연결마다 상대 화면에 새 타일이 생기고 "님이 입장했습니다"가 도배된다.)
@@ -738,12 +769,12 @@ export class VideoCallRoom {
 
     /* 🖍 (2026-08-08) 지금까지의 칠판 판서를 새 입장자에게 한 번에 돌려준다.
        교재(pdf-sync)와 같은 자리·같은 이유다. 강사가 학생보다 늦게 들어오는 경우가 신고의 핵심. */
-    if (this.wbOps.length) {
+    if (!this.wbResetPending && this.wbOps.length) {
       this.send(effectiveUserId, { type: 'whiteboard-replay', data: { ops: this.wbOps } });
     }
     /* ✍️ (2026-08-12 Melca) 교재 판서도 돌려준다 — 칠판만 replay 되고 교재는 빠져 있던 구멍 */
-    if (this.pdfAnnoOps.length) {
-      this.send(effectiveUserId, { type: 'pdf-anno-replay', data: { ops: this.pdfAnnoOps } });
+    if (this.pdfState && this.pdfAnnoOps.length) {
+      this.send(effectiveUserId, { type: 'pdf-anno-replay', data: { ops: this.pdfAnnoOps, documentUrl: this.pdfAnnoDocUrl, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } });
     }
     if (this.pdfState) this.send(effectiveUserId, { type: 'pdf-sync', data: this.pdfState });
     // 🎬 공유 중인 동영상도 새 입장자에게 재전송 (예전엔 방송 1회뿐 → 늦게 온 학생은 영영 못 봄)
@@ -841,10 +872,10 @@ export class VideoCallRoom {
     /* 👁 observers / observerMax — 참관 화면이 «지금 몇 명이 보고 있나» 를 알 수 있게 함께 보낸다.
        (2026-09-02) 상한을 4 로 올리면서 붙였다. 화면은 이 값으로 «회선 부담» 을 안내할 수 있고,
        관제탑은 /api/active-rooms 의 observerCount 로 «들어가기 전에» 같은 것을 판단한다. */
-    this.send(userId, { type: 'room-joined', data: { roomId: this.roomId, userId, userCount: users.length, pdfState: this.pdfState, observer: true, observers: observers + 1, observerMax: OBSERVER_MAX } });
+    this.send(userId, { type: 'room-joined', data: { roomId: this.roomId, userId, userCount: users.length, pdfState: this.pdfState, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined, observer: true, observers: observers + 1, observerMax: OBSERVER_MAX } });
     this.send(userId, { type: 'existing-users', data: { users, pdfState: this.pdfState } });
-    if (this.wbOps.length) this.send(userId, { type: 'whiteboard-replay', data: { ops: this.wbOps } });
-    if (this.pdfAnnoOps.length) this.send(userId, { type: 'pdf-anno-replay', data: { ops: this.pdfAnnoOps } });
+    if (!this.wbResetPending && this.wbOps.length) this.send(userId, { type: 'whiteboard-replay', data: { ops: this.wbOps } });
+    if (this.pdfState && this.pdfAnnoOps.length) this.send(userId, { type: 'pdf-anno-replay', data: { ops: this.pdfAnnoOps, documentUrl: this.pdfAnnoDocUrl, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } });
     if (this.pdfState) this.send(userId, { type: 'pdf-sync', data: this.pdfState });
     if (this.videoState) this.send(userId, { type: 'video-share', data: this.videoState });
     console.log(`[VideoChat] 👁 Observer joined room ${this.roomId} (uid=${userId}, watching ${users.length})`);
@@ -869,8 +900,8 @@ export class VideoCallRoom {
        «잠깐 나갔다 온 것(초 단위)» 과 «다음 수업(분 단위)» 을 가른다.
        이미 찍혀 있으면 덮지 않는다 — 마지막 한 명이 나간 그 시각이 기준이어야 한다. */
     if (userCount === 0 && !this.emptyAt) {
-      this.emptyAt = Date.now();
-      void this.state.storage.put('emptyAt', this.emptyAt);
+      this.emptyAt = (this.wbResetPending || this.pdfHistoryPending) ? Date.now() - VideoCallRoom.NEW_CLASS_GAP_MS - 1 : Date.now();
+      void this.state.storage.put('emptyAt', this.emptyAt).catch(() => { console.warn('[VideoChat] empty-room boundary save failed'); });
     }
     // 🔒 방이 비면 통제 잠금도 전부 해제 — 다음 수업이 잠긴 채로 시작하지 않게
     if (userCount === 0) this.clearAllLocks();
@@ -1078,7 +1109,7 @@ export class VideoCallRoom {
    *     요점이 바로 **소켓이 붙어 있는 채로 인스턴스를 내리는 것**입니다.
    *     즉 방이 비지 않아도 잠들 수 있고, 깨어나면 이 버퍼는 빈 상태입니다
    *     (당시 생성자가 복원한 것은 pdfState·videoState·mediaAt·emptyAt·잠금 4종뿐).
-   *  2026-11-03: wbOps now restores from bounded SQLite history only with VC_WHITEBOARD_HISTORY=on; pdfAnnoOps remains memory-only.
+   *  2026-11-03: wbOps now restores from bounded SQLite history only in local replayPrototype tests with VC_WHITEBOARD_HISTORY=on; pdfAnnoOps remains memory-only by default; local replayPrototype tests with VC_PDF_HISTORY=on restore scoped snapshots.
    *     ⟹ 수업 중에 학생이 새로고침하거나 늦게 들어오면 그때까지 그려진 것이 안 갑니다 —
    *        2026-08-08 에 고치려던 그 증상이 «잠들었다 깨어난 뒤» 에는 다시 납니다.
    *     ⚠️ 얼마나 자주 잠드는지는 측정하지 못했습니다(Cloudflare 가 정하고 로그로만 보입니다).
@@ -1090,6 +1121,8 @@ export class VideoCallRoom {
       if (!sql) return false;
       const history = new RoomWhiteboardHistory(sql, VideoCallRoom.WB_OPS_MAX, body => this.state.storage.transactionSync(body));
       const saved = history.read();
+      this.wbResetGeneration = saved.generation;
+      if (saved.blocked) { this.wbOps = []; this.wbResetPending = true; }
       if (!this.wbResetPending) {
         this.wbOps = [...saved.ops, ...this.wbOps].slice(-VideoCallRoom.WB_OPS_MAX);
         this.wbAt = Math.max(saved.at, this.wbAt);
@@ -1099,32 +1132,52 @@ export class VideoCallRoom {
     } catch { return false; }
   }
 
+  private quarantineDisabledHistory(): void {
+    if (this.wbHistoryEnabled || this.wbOffQuarantined) return;
+    const sql = (this.state.storage as any).sql;
+    if (sql) {
+      const history = new RoomWhiteboardHistory(sql, VideoCallRoom.WB_OPS_MAX, body => this.state.storage.transactionSync(body));
+      if (history.hasHistory()) history.markResetPending();
+    }
+    this.wbOffQuarantined = true;
+  }
+
   private clearWhiteboardHistory(): boolean {
     try {
+      this.quarantineDisabledHistory();
       if (this.wbHistoryEnabled && !this.wbHistory) {
         const sql = (this.state.storage as any).sql;
         if (!sql) return false;
         this.wbHistory = new RoomWhiteboardHistory(sql, VideoCallRoom.WB_OPS_MAX, body => this.state.storage.transactionSync(body));
       }
-      if (this.wbHistory) this.wbHistory.clear();
+      if (this.wbHistory) {
+        this.wbResetGeneration = undefined;
+        this.wbResetGeneration = this.wbHistory.markResetPending();
+        this.wbHistory.clear();
+      }
       if (this.wbResetPending && this.emptyAt) { this.emptyAt = 0; void this.state.storage.delete('emptyAt'); }
       this.wbOps = []; this.wbAt = 0; this.wbResetPending = false; this.wbDirty = false; this.wbRestorePending = false; this.setWhiteboardFence(false);
       return true;
-    } catch { console.warn('[VideoChat] whiteboard replay clear failed'); return false; }
+    } catch { this.wbResetPending = true; this.setWhiteboardFence(true); console.warn('[VideoChat] whiteboard replay clear failed'); return false; }
   }
 
   private setWhiteboardFence(blocked: boolean): void {
     for (const ws of this.state.getWebSockets()) {
       const att = this.attOf(ws);
-      if (att) ws.serializeAttachment({ ...att, wbReplayBlocked: blocked });
+      if (att) { try { ws.serializeAttachment({ ...att, wbReplayBlocked: blocked, wbResetGeneration: blocked ? this.wbResetGeneration : undefined }); } catch { console.warn('[VideoChat] whiteboard socket fence update failed; durable reset marker remains authoritative'); } }
     }
   }
 
   private recordWb(type: string, data: any, persistable = true): void {
     if (!data) return;
     const op = { t: type, d: data }, at = Date.now();
+    if (!persistable || new TextEncoder().encode(JSON.stringify(op)).byteLength > RoomWhiteboardHistory.MAX_BYTES) {
+      this.broadcastAll({ type: 'whiteboard-replay-status', data: { saved: false, reason: 'operation_too_large' } });
+      return;
+    }
     let keep = VideoCallRoom.WB_OPS_MAX;
     try {
+      this.quarantineDisabledHistory();
       if (!persistable) throw new Error('frame exceeds replay budget');
       if (!this.retryWhiteboardRestore()) throw new Error('restore pending');
       if (this.wbResetPending) {
@@ -1144,26 +1197,114 @@ export class VideoCallRoom {
 
   /* ✍️ (2026-08-12 Melca) 교재 판서 기록 — 점은 획 안에 압축, 사라지는 펜은 제외.
      clear/undo 는 순서대로 함께 기록해 재생 시 같은 결과가 나오게 한다. */
-  private recordPdfAnno(type: string, data: any): void {
+  private recordPdfAnno(type: string, data: any): boolean {
+    const previousOps = this.pdfAnnoOps, previousStrokes = this.pdfAnnoStrokes;
     try {
-      if (!data) return;
+      if (!data || !this.pdfState || this.pdfHistoryPending) return false;
+      if (this.pdfHistoryEnabled && type !== 'pdf-anno-clear' && (!Number.isInteger(data.page) || data.page < 1)) throw new Error('PDF page invalid');
+      if (this.pdfHistoryEnabled) { this.pdfAnnoOps = JSON.parse(JSON.stringify(previousOps)); this.reindexPdfStrokes(); }
+      else this.quarantineDisabledPdfHistory();
       if (type === 'pdf-anno-start') {
-        if (data.tool === 'vanish') return;
+        if (data.tool === 'vanish') {
+          if (this.pdfHistoryEnabled) { this.pdfVanishStrokes.add(data.page + ':' + data.id); if (this.pdfVanishStrokes.size > 512) this.pdfVanishStrokes.delete(this.pdfVanishStrokes.values().next().value!); }
+          return true;
+        }
+        if (this.pdfHistoryEnabled && this.pdfAnnoStrokes[data.id] && this.pdfAnnoStrokes[data.id].page !== data.page) throw new Error('PDF stroke page mismatch');
         const s = { page: data.page, tool: data.tool, color: data.color, size: data.size, id: data.id, points: [data.point] };
         this.pdfAnnoOps.push({ t: 'stroke', d: s });
         if (data.id != null) this.pdfAnnoStrokes[data.id] = s;
       } else if (type === 'pdf-anno-point') {
+        if (this.pdfHistoryEnabled && this.pdfVanishStrokes.has(data.page + ':' + data.id)) return true;
         const s = (data.id != null) ? this.pdfAnnoStrokes[data.id] : null;
+        if (this.pdfHistoryEnabled && (!s || s.page !== data.page)) throw new Error('PDF point has no matching page/stroke');
         if (s) s.points.push(data.point);
+      } else if (this.pdfHistoryEnabled && type === 'pdf-anno-clear') {
+        if (!Array.isArray(data.pages) || data.pages.some((p: any) => !Number.isInteger(p) || p < 1)) throw new Error('PDF clear pages invalid');
+        const pages = new Set(data.pages);
+        this.pdfAnnoOps = this.pdfAnnoOps.filter(op => !pages.has(op.d?.page));
+      } else if (this.pdfHistoryEnabled && type === 'pdf-anno-undo') {
+        for (let i = this.pdfAnnoOps.length - 1; i >= 0; i--) if (this.pdfAnnoOps[i].d?.page === data.page) { this.pdfAnnoOps.splice(i, 1); break; }
+      } else if (this.pdfHistoryEnabled && type === 'pdf-anno-shape') {
+        const index = this.pdfAnnoOps.findIndex(op => op.d?.page === data.page && op.d?.id === data.id);
+        const shape = { t: type, d: data };
+        if (index < 0) this.pdfAnnoOps.push(shape); else this.pdfAnnoOps[index] = shape;
       } else if (type === 'pdf-anno-text' || type === 'pdf-anno-shape'
               || type === 'pdf-anno-clear' || type === 'pdf-anno-undo') {
         this.pdfAnnoOps.push({ t: type, d: data });
       }
+      if (this.pdfHistoryEnabled) this.reindexPdfStrokes();
+      if (this.pdfHistoryEnabled && this.pdfAnnoOps.length > VideoCallRoom.PDF_ANNO_OPS_MAX) throw new Error('PDF snapshot operation budget');
       if (this.pdfAnnoOps.length > VideoCallRoom.PDF_ANNO_OPS_MAX) {
         const dropped = this.pdfAnnoOps.splice(0, this.pdfAnnoOps.length - VideoCallRoom.PDF_ANNO_OPS_MAX);
         for (const o of dropped) { if (o.t === 'stroke' && o.d && o.d.id != null) delete this.pdfAnnoStrokes[o.d.id]; }
       }
-    } catch {}
+      if (this.pdfHistoryEnabled) this.savePdfHistory();
+      return true;
+    } catch {
+      this.pdfAnnoOps = previousOps; this.pdfAnnoStrokes = previousStrokes;
+      this.broadcastAll({ type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } });
+      return false;
+    }
+  }
+
+  private restorePdfHistory(): boolean {
+    try {
+      this.pdfHistory = this.openPdfHistory();
+      const saved = this.pdfHistory.read();
+      this.pdfGeneration = saved.generation || 0;
+      this.pdfHistoryPending = !!saved.blocked || (this.emptyAt > 0 && Date.now() - this.emptyAt > VideoCallRoom.NEW_CLASS_GAP_MS);
+      const snapshot = saved.ops.at(-1)?.d;
+      if (snapshot && (snapshot.schema !== 1 || snapshot.session !== this.pdfGeneration
+          || !Array.isArray(snapshot.documents) || snapshot.documents.some((entry: any) => !Array.isArray(entry) || typeof entry[0] !== 'string' || !Array.isArray(entry[1]))
+          || (snapshot.shared && (!snapshot.pdfState || snapshot.pdfState.url !== snapshot.documentUrl || snapshot.pdfState.annotationSession !== this.pdfGeneration)))) throw new Error('PDF snapshot schema/session mismatch');
+      this.pdfState = !this.pdfHistoryPending && snapshot?.shared ? snapshot.pdfState : null;
+      this.pdfAnnoDocUrl = !this.pdfHistoryPending && snapshot?.documentUrl || '';
+      this.pdfDocuments = !this.pdfHistoryPending && Array.isArray(snapshot?.documents) ? new Map(snapshot.documents) : new Map();
+      this.pdfAnnoOps = !this.pdfHistoryPending ? this.pdfDocuments.get(this.pdfAnnoDocUrl) || (Array.isArray(snapshot?.ops) ? snapshot.ops : []) : [];
+      this.mediaAt = Math.max(this.mediaAt, saved.at);
+      this.reindexPdfStrokes(); this.pdfRestoreFailed = false;
+      return true;
+    } catch { this.pdfState = null; this.pdfAnnoOps = []; this.pdfAnnoStrokes = {}; this.pdfDocuments.clear(); this.pdfHistoryPending = true; this.pdfRestoreFailed = true; return false; }
+  }
+
+  private openPdfHistory(): RoomWhiteboardHistory {
+    const sql = (this.state.storage as any).sql;
+    if (!sql) throw new Error('PDF recovery requires room SQLite');
+    // Fixed internal table namespace; bound user payloads are never rewritten.
+    return new RoomWhiteboardHistory({ exec: (query: string, ...args: any[]) => sql.exec(query.replaceAll('vc_whiteboard_', 'vc_pdf_'), ...args) }, 1, body => this.state.storage.transactionSync(body));
+  }
+  private reindexPdfStrokes(): void {
+    this.pdfAnnoStrokes = Object.create(null);
+    for (const op of this.pdfAnnoOps) if (op.t === 'stroke' && op.d?.id != null) this.pdfAnnoStrokes[op.d.id] = op.d;
+  }
+  private quarantineDisabledPdfHistory(): void {
+    if (this.pdfHistoryEnabled || this.pdfOffQuarantined || !(this.state.storage as any).sql) return;
+    const h = this.openPdfHistory();
+    if (h.hasHistory()) h.markResetPending();
+    this.pdfOffQuarantined = true;
+  }
+  private savePdfHistory(): void {
+    if (!this.pdfHistory) this.pdfHistory = this.openPdfHistory();
+    if (this.pdfHistoryPending || !this.pdfGeneration) {
+      this.pdfGeneration = this.pdfHistory.markResetPending();
+      this.pdfHistory.clear();
+      this.pdfHistoryPending = false;
+    }
+    if (this.pdfState) this.pdfState.annotationSession = this.pdfGeneration;
+    const documents = new Map(this.pdfDocuments);
+    if (this.pdfAnnoDocUrl) documents.set(this.pdfAnnoDocUrl, this.pdfAnnoOps);
+    if (documents.size > VideoCallRoom.PDF_ANNO_OPS_MAX || [...documents.values()].reduce((n, ops) => n + ops.length, 0) > VideoCallRoom.PDF_ANNO_OPS_MAX) throw new Error('PDF snapshot document/operation budget');
+    this.pdfHistory.append({ t: 'pdf-snapshot', d: { schema: 1, session: this.pdfGeneration, documentUrl: this.pdfAnnoDocUrl, shared: !!this.pdfState, pdfState: this.pdfState, documents: [...documents] } }, Date.now());
+    this.pdfDocuments = documents;
+  }
+  private resetPdfHistory(): void {
+    this.pdfAnnoOps = []; this.pdfAnnoStrokes = {}; this.pdfAnnoDocUrl = ''; this.pdfVanishStrokes.clear(); this.pdfDocuments.clear();
+    if (!this.pdfHistoryEnabled) { try { this.quarantineDisabledPdfHistory(); } catch { console.warn('[VideoChat] PDF history quarantine failed'); } return; }
+    try {
+      if (!this.pdfHistory) this.pdfHistory = this.openPdfHistory();
+      this.pdfGeneration = this.pdfHistory.markResetPending();
+      this.pdfHistory.clear(); this.pdfHistoryPending = false; this.pdfRestoreFailed = false;
+    } catch { this.pdfHistoryPending = true; this.pdfState = null; }
   }
 
   // 📎 (2026-08-12 Melca) 교재/영상 공유·중지는 반 전체를 움직인다 — pdf-page-change 와
@@ -1178,13 +1319,24 @@ export class VideoCallRoom {
     if (!this.staffOnly(userId, att)) return;
     const { url, currentPage, kind, name } = data || {};
     if (!url) return;
+    if (this.pdfRestoreFailed && !this.restorePdfHistory()) { this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfGeneration } }); return; }
+    if (this.pdfHistoryEnabled && data?.annotationSession !== this.pdfGeneration) { this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); return; }
     // ✍️ 교재가 «다른 것» 으로 바뀌면 이전 교재의 판서 버퍼는 버린다 (페이지 번호가 다른 책과 섞임)
-    if (this.pdfState && this.pdfState.url !== url) { this.pdfAnnoOps = []; this.pdfAnnoStrokes = {}; }
+    const previous = { state: this.pdfState, ops: this.pdfAnnoOps, strokes: this.pdfAnnoStrokes, url: this.pdfAnnoDocUrl };
+    if (this.pdfAnnoDocUrl !== url) { this.pdfAnnoOps = this.pdfHistoryEnabled ? this.pdfDocuments.get(url) || [] : []; this.reindexPdfStrokes(); this.pdfVanishStrokes.clear(); }
+    this.pdfAnnoDocUrl = url;
     this.pdfState = { url, currentPage: currentPage || 1, kind: kind || '', name: name || '' };
+    try { if (this.pdfHistoryEnabled) this.savePdfHistory(); else this.quarantineDisabledPdfHistory(); }
+    catch { this.pdfState = previous.state; this.pdfAnnoOps = previous.ops; this.pdfAnnoStrokes = previous.strokes; this.pdfAnnoDocUrl = previous.url; this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); return; }
+    const committed = this.pdfState;
+
     this.mediaAt = Date.now();
-    await this.state.storage.put('pdfState', this.pdfState);
-    await this.state.storage.put('mediaAt', this.mediaAt);
+    try { await this.state.storage.put('pdfState', this.pdfState); await this.state.storage.put('mediaAt', this.mediaAt); }
+    catch (e) { if (!this.pdfHistoryEnabled) throw e; console.warn('[VideoChat] PDF compatibility write failed; SQLite snapshot remains authoritative'); }
+    if (this.pdfState !== committed) return;
+    if (this.pdfHistoryEnabled) this.send(userId, { type: 'pdf-sync', data: this.pdfState });
     this.broadcast(userId, { type: 'pdf-sync', data: this.pdfState });
+    if (this.pdfHistoryEnabled) this.broadcastAll({ type: 'pdf-anno-replay', data: { ops: this.pdfAnnoOps, documentUrl: this.pdfAnnoDocUrl, annotationSession: this.pdfGeneration } });
     console.log(`[VideoChat] PDF shared in room ${this.roomId}: ${url}`);
   }
 
@@ -1195,24 +1347,35 @@ export class VideoCallRoom {
   private async handlePdfPageChange(userId: string, att: VcAttachment, data: any): Promise<void> {
     const senderRole = (att.role || '').toLowerCase();
     if (!this.isJoined(userId) || (senderRole !== 'teacher' && senderRole !== 'admin')) return;
+    if (this.pdfHistoryEnabled && (!this.pdfState || data?.annotationSession !== this.pdfGeneration || data?.documentUrl !== this.pdfAnnoDocUrl)) { this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); return; }
+    const committed = this.pdfState;
     const pageNum = (typeof data === 'number') ? data
       : (typeof data?.pageNum === 'number' ? data.pageNum
         : (typeof data?.currentPage === 'number' ? data.currentPage : NaN));
     if (typeof pageNum !== 'number' || isNaN(pageNum)) return;
     if (this.pdfState) {
+      const previousPage = this.pdfState.currentPage;
       this.pdfState.currentPage = pageNum;
+      try { if (this.pdfHistoryEnabled) this.savePdfHistory(); else this.quarantineDisabledPdfHistory(); }
+      catch { this.pdfState.currentPage = previousPage; this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); return; }
       // 페이지를 넘기는 것도 «수업이 진행 중»이라는 증거 → 보존 시계를 다시 감는다.
       this.mediaAt = Date.now();
-      await this.state.storage.put('pdfState', this.pdfState);
-      await this.state.storage.put('mediaAt', this.mediaAt);
+      try { await this.state.storage.put('pdfState', this.pdfState); await this.state.storage.put('mediaAt', this.mediaAt); }
+      catch (e) { if (!this.pdfHistoryEnabled) throw e; console.warn('[VideoChat] PDF page compatibility write failed; SQLite snapshot remains authoritative'); }
     }
+    if (committed && this.pdfState !== committed) return;
     this.broadcast(userId, { type: 'pdf-page-change', data: { pageNum, currentPage: pageNum } });
   }
 
-  private async handlePdfStopShare(userId: string, att: VcAttachment): Promise<void> {
+  private async handlePdfStopShare(userId: string, att: VcAttachment, data?: any): Promise<void> {
     if (!this.staffOnly(userId, att)) return;
-    this.pdfState = null;
-    await this.state.storage.delete('pdfState');
+    if (this.pdfHistoryEnabled && (data?.annotationSession !== this.pdfGeneration || data?.documentUrl !== this.pdfAnnoDocUrl)) { this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); return; }
+    const previous = this.pdfState; this.pdfState = null;
+    try { if (this.pdfHistoryEnabled) this.savePdfHistory(); else this.quarantineDisabledPdfHistory(); }
+    catch { this.pdfState = previous; this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); return; }
+    try { await this.state.storage.delete('pdfState'); }
+    catch (e) { if (!this.pdfHistoryEnabled) throw e; console.warn('[VideoChat] PDF compatibility delete failed; SQLite snapshot remains authoritative'); }
+    if (this.pdfState) return;
     this.broadcast(userId, { type: 'pdf-stop-share' });
     console.log(`[VideoChat] PDF sharing stopped in room ${this.roomId}`);
   }
