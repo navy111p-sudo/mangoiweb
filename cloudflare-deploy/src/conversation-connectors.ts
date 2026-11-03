@@ -70,6 +70,15 @@ export function connectorRule(band: LinkBand): string {
   return CORE_RULE + '\n' + BAND_RULE[b];
 }
 
+/** Speaking practice and AI friend only; completed replies, never waiting audio. */
+export const AVATAR_NATURAL_OPENERS = [
+  'NATURAL AVATAR OPENERS: Occasionally start the completed answer with ONE short, context-appropriate expression. Vary it using the recent-opener rule; many replies need none.',
+  '- Well = a thoughtful or qualified answer; Maybe = a tentative suggestion, never uncertainty about a known fact or correction; Sure = accepting a request, not blindly agreeing; Oh or Oh I see = understanding; Wow = genuine positive surprise, never distress or praise for an incorrect answer. Do not invent experiences.',
+  '- Speak clear standard English: normal spelling and complete grammar. Never stretch letters (weeell, oooh), spell words phonetically, insert stage directions/SSML, or use repeated punctuation or ellipses to imitate hesitation. Use ordinary sentence punctuation for a short natural pause; never add waiting speech.',
+  '- LEVEL, word/sentence limits and empathy rules win. Include the opener within the existing reply budget; omit it if it crowds out the answer or question. At beginner level use only a simple short expression allowed by LEVEL.',
+  '- Focused correction takes priority: no opener before You can say, no expression inside the corrected sentence, and no changes to the required one introduction and three exact repetitions.',
+].join('\n');
+
 /* ── ② 최근 답장의 «시작 말» ───────────────────────────────────────────────────
  *  📏 «시작 말» = 답장 맨 앞의 연결 표현·감탄·칭찬, 없으면 첫 낱말.
  *     · 아래 목록의 여러 낱말 표지(By the way · Oh, and · That sounds …)는 그 전체를 한 덩어리로 본다
