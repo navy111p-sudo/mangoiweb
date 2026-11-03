@@ -2,7 +2,7 @@
 // 화면 함수 aiFriendPtsView 를 오려 내 실제로 돌리고, 서버 earned_today 계산·배선을 확인합니다.
 import fs from 'node:fs';
 const root = new URL('..', import.meta.url).pathname;
-const html = fs.readFileSync(root + 'cloudflare-deploy/public/ai-friend.html', 'utf8');
+const html = fs.readFileSync(process.env.AIF_SRC || (root + 'cloudflare-deploy/public/ai-friend.html'), 'utf8');
 const ts = fs.readFileSync(root + 'cloudflare-deploy/src/api-ai.ts', 'utf8');
 let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) { pass++; } else { fail++; console.log('❌ FAIL', n); } };
@@ -40,5 +40,35 @@ const snap = bodyAt(ts, 'const aiFriendGamSnapshot = async (uid: string) =>');
 ok('⑨ 스냅샷이 point_rule_log 의 ai_friend_* 합을 셈', /SUM\(amount\)[\s\S]*point_rule_log[\s\S]*ai_friend_chat/.test(snap) && /earned_today: earnedToday/.test(snap));
 ok('⑨ 조회 실패는 null(모름)', /let earnedToday: number \| null = guest \? 0 : null/.test(snap));
 ok('⑩ 이번 턴 적립을 더함 + 사유', /gam\.chat_capped = chatUsed >= 10 \? 'daily'/.test(ts) && /gam\.earned_today = Number\(gam\.earned_today\) \+ gam\.awarded/.test(ts));
+// ⑪ (2026-11-03) 축하 배너가 뜨는 턴에도 «이번에 받은 포인트» 를 함께 — applyGam 을 오려 내 실제로 돌림
+{
+  const ag2 = bodyAt(html, 'function applyGam(');
+  const mk = () => { try { return new Function('st', `
+    var gamState = { today: st.today0, lifetime: st.life0, streak: 0, word: { w: 'brave' } };
+    function calcLevel(n){ return { n: n >= 100 ? 2 : 1, name: 'L', nameEn: 'L' }; }
+    function updateHUD(){} function isEn(){ return st.en; }
+    function celebrate(big, title, sub){ st.cel.push({ title: title, sub: sub }); }
+    function ptToast(t){ st.toast.push(t); }
+    ${ag2}
+    return applyGam;`); } catch (e) { return null; } };
+  const go = (g, o = {}) => {
+    const st = { today0: o.today0 ?? 0, life0: o.life0 ?? 0, en: !!o.en, cel: [], toast: [] };
+    const f = mk(); if (!f) return { st, err: 'build' };
+    try { f(st)(g); } catch (e) { return { st, err: e.message }; }
+    return { st };
+  };
+  let r = go({ today: 1, lifetime: 120, awarded: 2 }, { life0: 98 });
+  ok('⑪ 레벨업 턴: 축하에 +2P', r.st.cel.length === 1 && /\+2P/.test(r.st.cel[0].sub) && !r.err);
+  r = go({ today: 1, lifetime: 10, awarded: 2, word_bonus: 5, voice_bonus: 1 }, { life0: 8 });
+  ok('⑪ 오늘의 단어 턴: 실제 합계 +8P(하드코딩 +5P 아님)', r.st.cel.length === 1 && /\+8P/.test(r.st.cel[0].sub) && !/\+5P/.test(r.st.cel[0].title + r.st.cel[0].sub));
+  r = go({ today: 5, lifetime: 10, awarded: 2 }, { today0: 4, life0: 8 });
+  ok('⑪ 퀘스트 달성 턴: 축하에 +2P', r.st.cel.length === 1 && /\+2P/.test(r.st.cel[0].sub));
+  r = go({ today: 5, lifetime: 10, awarded: 0, chat_capped: 'daily' }, { today0: 4, life0: 8 });
+  ok('⑪ 짝: 0P 턴의 축하에는 +0P 를 붙이지 않음', r.st.cel.length === 1 && !/\+\d+P/.test(r.st.cel[0].sub));
+  r = go({ today: 2, lifetime: 10, awarded: 2 }, { today0: 1, life0: 8 });
+  ok('⑪ 짝: 축하 없는 턴은 예전처럼 알림 +2P', r.st.cel.length === 0 && r.st.toast[0] === '+2P ⭐');
+  r = go({ today: 1, lifetime: 120, awarded: 2 }, { life0: 98, en: true });
+  ok('⑪ 영어 축하에도 +2P', /\+2P/.test(r.st.cel[0] && r.st.cel[0].sub));
+}
 console.log(`aifriend_points_view_harness — PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
