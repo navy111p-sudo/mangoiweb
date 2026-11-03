@@ -64,7 +64,9 @@ ok(M.isHeldOn({ held_after: '2026-09-22', resumed_on: '2026-09-25' }, '2026-09-2
 ok(M.isHeldOn({ held_after: '2026-09-22', resumed_on: '2026-09-25' }, '2026-09-24') === true, '(짝) 재개 전날까지는 보류');
 
 console.log('\n② 진짜 SQLite 로 보류 걸기');
-function mkEnv(kv = {}) {
+// ⛔ 2026-11-03 사장님 결정으로 보류 기능은 «기본 꺼짐» 이다(ABSENCE_HOLD 변수가 'on' 일 때만).
+//    아래 ②~ 절은 «켜면 옛 동작이 그대로인가» 를 보므로 기본으로 켠다. 꺼짐 검사는 ⓪절.
+function mkEnv(kv = {}, holdOn = true) {
   const db = new DatabaseSync(':memory:');
   db.exec(`CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, user_id TEXT, student_name TEXT, day_of_week TEXT, scheduled_date TEXT, start_time TEXT, duration_min INTEGER, teacher_id TEXT, status TEXT, starts_on TEXT)`);
   db.exec(`CREATE TABLE class_no_show (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, schedule_id INTEGER, missing_role TEXT, created_at INTEGER)`);
@@ -88,6 +90,7 @@ function mkEnv(kv = {}) {
     },
     SESSION_STATE: { get: async (k) => kv[k] ?? null },
   };
+  if (holdOn) env.ABSENCE_HOLD = 'on';
   return { db, env };
 }
 const at = (ymd, hm) => Date.parse(`${ymd}T${hm}:00+09:00`);
@@ -207,11 +210,50 @@ const attend = (db, ymd, uid = 'kim01') => db.prepare(`INSERT INTO attendance (r
 }
 {
   // 조회가 죽으면 보류하지 않는다(던지지도 않는다)
-  const env = { DB: { exec: async () => { throw Error('x'); }, prepare: () => { throw Error('x'); } }, SESSION_STATE: { get: async () => null } };
+  const env = { DB: { exec: async () => { throw Error('x'); }, prepare: () => { throw Error('x'); } }, SESSION_STATE: { get: async () => null }, ABSENCE_HOLD: 'on' };
   const r = await M.maybeHoldStudent(env, { user_id: 'kim01' }, NOW);
   ok(r.status === 'error', 'DB 가 죽으면 «보류 안 함» 으로 떨어지고 던지지 않는다');
   const R = await M.loadHoldRanges(env);
   ok(R.size === 0, '(짝) 못 읽으면 «보류 없음» — 급여·강사화면은 예전 그대로');
+}
+
+console.log('\n⓪ 보류 기능 꺼짐(2026-11-03 사장님 «2번 결석하면 보류하는 것을 없애줘»)');
+{
+  const seedHold = (db) => {
+    db.exec(`CREATE TABLE IF NOT EXISTS class_absence_hold (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, teacher_id TEXT, teacher_name TEXT, held_after TEXT NOT NULL, resumed_on TEXT, streak INTEGER, state TEXT NOT NULL DEFAULT 'held', notify_json TEXT, decided_by TEXT, decided_at INTEGER, note TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`);
+    db.prepare(`INSERT INTO class_absence_hold (student_uid, student_name, held_after, state, created_at, updated_at) VALUES ('kim01','김서윤','2026-09-22','held',1,1)`).run();
+  };
+  // 기본(변수 없음) = 꺼짐
+  for (const [label, flag] of [['변수 없음', undefined], ['off', 'off'], ['빈 값', '']]) {
+    const { db, env } = mkEnv({}, false); seed(db);
+    if (flag !== undefined) env.ABSENCE_HOLD = flag;
+    ok(M.absenceHoldEnabled(env) === false, `꺼짐 판정(${label})`);
+    absent(db, '2026-09-18'); absent(db, '2026-09-22');
+    const sms0 = calls.sms.length, alim0 = calls.alim.length;
+    const r = await M.maybeHoldStudent(env, { user_id: 'kim01', student_name: '김서윤', teacher_id: '8' }, NOW);
+    const n = (() => { try { return db.prepare(`SELECT COUNT(*) n FROM class_absence_hold`).get().n; } catch { return 0; } })();
+    ok(r.status === 'disabled' && n === 0 && calls.sms.length === sms0 && calls.alim.length === alim0, `연속 결석 2회여도 보류를 안 건다·문자 안 보냄(${label})`);
+  }
+  {
+    const { db, env } = mkEnv({}, false); seed(db); seedHold(db);
+    const R = await M.loadHoldRanges(env);
+    ok(R.size === 0 && M.heldOnFor(R, 'kim01', '2026-09-24') === null, '이미 걸린 옛 보류도 아무 데서도 안 읽힌다(강사 화면·급여·결석감지·대장 = 예전 동작)');
+    attend(db, '2026-09-28');
+    ok(await M.autoResumeReturning(env, at('2026-09-28', '20:00')) === 0
+       && db.prepare(`SELECT state FROM class_absence_hold`).get().state === 'held', '자동 재개도 안 돈다 — D1 을 안 바꾼다(옛 행은 그대로)');
+    const dg = await M.maybeSendHoldDigest(env, at('2026-09-25', '10:30'));
+    ok(dg.sent === false && dg.why === 'disabled', '아침 보류 요약도 안 보낸다');
+    const dep = { getAdminActor: async () => ({ ok: true, role: 'hq', isTeacher: false, username: 'mgr_karl' }), isOrgScopedRole: () => false };
+    const g = await M.absenceHoldRouter(env, new Request('https://x/api/admin/reports/absence-holds'), new URL('https://x/?state=open'), 'absence-holds', dep);
+    const gj = await g.json();
+    ok(g.status === 200 && gj.ok === true && Array.isArray(gj.items) && gj.items.length === 0 && gj.disabled === true, '매니저 알림판 목록은 비어 있다(효과 없는 보류를 «보류 중» 으로 안 보여 줌)');
+  }
+  {
+    // (짝) 켜면 같은 행이 예전처럼 읽힌다 — «전부 없애기» 와 «스위치» 를 가른다
+    const { db, env } = mkEnv(); seed(db); seedHold(db);
+    const R = await M.loadHoldRanges(env);
+    ok(M.absenceHoldEnabled(env) === true && !!M.heldOnFor(R, 'kim01', '2026-09-24'), '(짝) ABSENCE_HOLD=on 이면 같은 보류가 예전처럼 읽힌다');
+  }
 }
 
 console.log('\n③ 매니저 결정 API 게이트');
@@ -346,7 +388,7 @@ console.log('\n⑤ 아침 보류 요약(매니저) — 창·하루 1통·0건이
   const before = calls.push.length;
   r = await M.maybeSendHoldDigest(env3, T, { dry: true });
   ok(r.why === 'dry' && calls.push.length === before, 'dry 는 보내지도 선점하지도 않는다');
-  const envBoom = { DB: { exec: async () => { throw new Error('boom'); }, prepare: () => { throw new Error('boom'); } }, SESSION_STATE: { get: async () => null } };
+  const envBoom = { DB: { exec: async () => { throw new Error('boom'); }, prepare: () => { throw new Error('boom'); } }, SESSION_STATE: { get: async () => null }, ABSENCE_HOLD: 'on' };
   let threw = false; try { r = await M.maybeSendHoldDigest(envBoom, T); } catch { threw = true; }
   ok(!threw && r.why === 'error', 'DB 가 죽어도 던지지 않는다(15분 감시 작업 보호)');
 }
