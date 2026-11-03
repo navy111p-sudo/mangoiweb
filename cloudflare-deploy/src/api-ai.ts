@@ -41,7 +41,7 @@ import { recordAiFailure } from './ai-failure-log';
 import { correctionModeOf, gateFixForMode } from './warmup-honest';   // 🎚️ A.i 친구 교정 모드(자유대화·균형·집중교정, 기본 집중교정)
 /* 🎚️ (2026-11-03) 모드별 «교정을 말로 들려주기»·정직한 칭찬·균형 다시 묻기·미리듣기 문 — 정본 한 파일.
    ⛔ 같은 판정을 이 파일에 다시 적지 말 것(두 벌이 되면 한쪽만 고쳐진다). */
-import { planFriendTurn, createFriendPreviewGate, recheckBalancedFix, finishFriendReply } from './friend-correction-flow';
+import { planFriendTurn, createFriendPreviewGate, recheckBalancedFix, finishFriendReply, waitAtMost, RECHECK_EXTRA_WAIT_MS } from './friend-correction-flow';
 import { handleClassAsk } from './class-ask';
 import { handleClassAskStream, wantsClassAskStream } from './class-ask-stream';   // ✋ A.i 선생님 수업 — 학생 질문 즉답(2026-10-08)
 import { connectorRule, connectorPromptBlock, linkBandForFriendLevel } from './conversation-connectors';
@@ -1060,7 +1060,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
             겹친 시간까지 더하면 model_ms 가 전체 ms 보다 커져 «우리 코드 몫» 이 음수가 된다.
          ⛔ recheckBalancedFix 는 던지지 않는다(실패 = 교정 없음 = 고치기 전과 같음). */
       const recheckP: Promise<any> | null = turnPlan.recheck
-        ? recheckBalancedFix(msg, async (msgs: any[]) => await runFriend(models[0], msgs, 220, 0.2, true))
+        ? recheckBalancedFix(msg, async (msgs: any[]) => await runFriend(models[0], msgs, 480, 0.2, true))   // 480 = 집중교정 recoverFocusedFix 와 같은 여유(JSON 잘림 방지)
         : null;
       if (recheckP) recheckP.then((f: any) => previewGate.recheck(!!f));
       for (const m of models) {
@@ -1254,8 +1254,20 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
         /* 🇰🇷 모델이 고친 것이 없으면(뜻이 통해 넘어간 경우) 규칙 보완(과거형·콩글리시 표)으로 한 번 더 본다.
            🎚️ 그래도 없으면 균형 «다시 묻기» 결과(이미 본 호출과 동시에 돌고 있다 — 안 겹친 나머지만 기다린다).
            ⛔ 모델의 교정이 있으면 그것이 먼저다 — 보완·다시 묻기는 «모델이 놓친 것» 만 받는다.
-           ⚠️ 규칙 보완의 정본은 friend-correction-flow.ts 의 deterministicFriendFix(turnPlan.detFix) 하나다. */
-        const waitRecheck = async () => { const w0 = Date.now(); try { return await recheckP; } finally { latModelMs += Date.now() - w0; } };
+           ⚠️ 이 식의 규칙 보완은 friend-correction-flow.ts 의 deterministicFriendFix(turnPlan.detFix)다.
+              집중교정 경로(위 focusedCandidate 줄)는 아직 backfill·konglish 를 «같은 순서로» 직접 부른다 —
+              규칙을 더할 때 두 자리를 함께 볼 것(합치는 것은 집중교정 하니스가 걸린 별건).
+           ⏱ 다시 묻기는 «본 답이 끝난 뒤» 최대 RECHECK_EXTRA_WAIT_MS 만 더 기다린다(함정 대조 2026-11-03 — 상한이 없었다).
+              모델이 다 실패한 폴백 턴이면 기다리지 않는다(학생이 못 볼 교정을 «보여 줬다» 로 남기지 않게). */
+        const waitRecheck = async () => {
+          if (usedFallback || !recheckP) return null;
+          const w0 = Date.now();
+          try {
+            const got = await waitAtMost(recheckP, RECHECK_EXTRA_WAIT_MS);
+            if (!got) previewGate.recheck(false);   // 시간이 다 됐으면 잡아 둔 미리듣기를 놓아준다(늦은 결과는 문이 무시)
+            return got;
+          } finally { latModelMs += Date.now() - w0; }
+        };
         const verified = verifyWarmupFix(rawFix, msg) || turnPlan.detFix || (recheckP ? await waitRecheck() : null);
         verifiedFix = verified;
         /* ⚠️ 프롬프트가 「그 넷은 반드시 고쳐」로 바뀌면서 fix 생성이 잦아집니다 — 그러면

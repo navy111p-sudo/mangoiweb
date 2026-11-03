@@ -117,6 +117,14 @@ console.log('\nC. 균형 «다시 묻기»(recheckBalancedFix) — 가짜 모델
   calls = 0;
   await F.recheckBalancedFix('Yes.', asker({ reply: 'Checked.', fix: FIX }));
   ok('C-8 다시 물을 문장이 아니면 모델을 부르지도 않는다(비용)', calls === 0, String(calls));
+  const art = { was: 'I have a dog and cat at home.', now: 'I have a dog and a cat at home.', why_ko: '셀 수 있는 낱말 앞에는 a 를 붙여요.', severity: 'major' };
+  ok('C-9 태그 other + severity major(사소한 실수)는 받지 않는다', (await F.recheckBalancedFix(art.was, asker({ reply: 'Checked.', fix: { ...art, tag: 'other' } }))) === null);
+  ok('C-10 태그 article 도 받지 않는다(뜻이 달라지는 넷만)', (await F.recheckBalancedFix(art.was, asker({ reply: 'Checked.', fix: { ...art, tag: 'article' } }))) === null);
+  const garbled = await F.recheckBalancedFix(SAID, asker({ reply: 'Checked.', fix: { ...FIX, why_ko: '지도 알는 어 지도 었다 알 지도 었다.' } }));
+  ok('C-11 설명이 깨진 한국어면 태그별 결정론 설명으로 바꾼다', !!garbled && garbled.now === FIX.now && garbled.why_ko === '언제 일어난 일인지에 맞게 동사의 때를 바꿔요.', garbled);
+  const clean = await F.recheckBalancedFix(SAID, asker({ reply: 'Checked.', fix: FIX }));
+  ok('C-12 짝: 읽을 수 있는 설명은 그대로 둔다', !!clean && clean.why_ko === FIX.why_ko, clean);
+  ok('C-13 지시에 severity 를 묻지 않는다(판정은 태그로 — 모델의 major 를 안 믿는다)', !/severity/.test(F.BALANCED_RECHECK_RULE) && !/\|other/.test(F.BALANCED_RECHECK_RULE));
 }
 
 console.log('\nD. 미리듣기 문(createFriendPreviewGate)');
@@ -175,15 +183,24 @@ console.log('\nE. 진짜 Worker 라우트(/api/ai/chat-friend) — 메모리 D1 
     catch { const z = { all: async () => ({ results: [] }), first: async () => null, run: async () => ({ meta: { changes: 0 } }) }; return { ...z, bind: () => z }; }
   }, exec: d1ExecLikeProd(raw), batch: async (ss) => Promise.all(ss.map((s) => s.run())) };
   const cache = new Map();
-  let main = null, recheckFix = null, rechecks = 0;
+  let main = null, recheckFix = null, rechecks = 0, recheckDelay = 0, recheckTag = null, retryDelay = 0, retryEndAt = 0;
+  const evs = [];
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const env = { DB, ROOM_JWT_SECRET: 'balanced-local-fixture-only',
     SESSION_STATE: { get: async (k) => cache.get(k) ?? null, put: async (k, v) => cache.set(k, String(v)), list: async () => ({ keys: [] }) },
     AI: { run: async (_model, opts) => {
       const sys = String(opts.messages?.[0]?.content || '');
       if (sys.includes('BALANCED_CORRECTION_CHECK')) {
         rechecks++;
-        return { response: JSON.stringify({ reply: 'Checked.', fix: recheckFix }) };
+        evs.push('rc:start');
+        if (recheckDelay) await sleep(recheckDelay);
+        evs.push('rc:end');
+        return { response: JSON.stringify({ reply: 'Checked.', fix: recheckTag ? { ...recheckFix, tag: recheckTag } : recheckFix }) };
       }
+      evs.push('main:start');
+      if (main === 'THROW') throw new Error('fixture: model unavailable');
+      /* 본 답 «뒤» 의 다시 뽑기(눈높이·이름 등 — 마지막 user 가 괄호 지시)는 retryDelay 만큼 늦게 끝낸다. */
+      if (retryDelay && /^\(/.test(String(opts.messages?.at(-1)?.content || ''))) { await sleep(retryDelay); retryEndAt = Date.now(); }
       const response = JSON.stringify(main);
       if (!opts.stream) return { response };
       return new ReadableStream({ start(c) {
@@ -194,15 +211,32 @@ console.log('\nE. 진짜 Worker 라우트(/api/ai/chat-friend) — 메모리 D1 
   const post = (route, body, token) => worker.fetch(new Request('https://mangoi.ai' + route, { method: 'POST', headers: {
     'Content-Type': 'application/json', Origin: 'https://mangoi.ai', ...(token ? { Authorization: 'Bearer ' + token } : {}),
   }, body: JSON.stringify(body) }), env, { waitUntil() {}, passThroughOnException() {} });
-  async function turn(mode, msg, stream) {
-    rechecks = 0;
+  async function turn(mode, msg, stream, level = 'S6') {
+    rechecks = 0; evs.length = 0;
+    const t0 = Date.now();
     const auth = await (await post('/api/ai/chat-guest-token', {})).json();
-    const res = await post('/api/ai/chat-friend', { uid: auth.uid, msg, correction_mode: mode, stream, level: 'S6' }, auth.token);
-    let body, events = [];
-    if (stream) { events = (await res.text()).split('\n').filter((s) => s.startsWith('data:')).map((s) => JSON.parse(s.slice(5))); body = events.find((e) => e.done); }
-    else body = await res.json();
+    const res = await post('/api/ai/chat-friend', { uid: auth.uid, msg, correction_mode: mode, stream, level }, auth.token);
+    let body, events = [], firstTAt = 0;
+    if (stream) {
+      /* 이벤트가 «도착한 시각» 도 잰다 — 미리듣기가 다른 처리보다 먼저 나갔는지 보려고. */
+      const rd = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
+      for (;;) {
+        const { value, done } = await rd.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+          if (!line.startsWith('data:')) continue;
+          const e = JSON.parse(line.slice(5));
+          if (e.t && !firstTAt) firstTAt = Date.now();
+          events.push(e);
+        }
+      }
+      body = events.find((e) => e.done);
+    } else body = await res.json();
     const saved = raw.prepare("SELECT content FROM ai_friend_chats WHERE student_uid=? AND role='assistant' ORDER BY id DESC").get(auth.uid)?.content;
-    return { status: res.status, body: body || {}, t: events.filter((e) => e.t).map((e) => e.t), saved };
+    return { status: res.status, body: body || {}, t: events.filter((e) => e.t).map((e) => e.t), saved, uid: auth.uid, ms: Date.now() - t0, firstTAt };
   }
   // ① 사장님 화면 — 모델이 교정을 놓쳤다(fix:null) → 균형 다시 묻기가 줍는다
   main = { reply: "Wait, that's not possible! " + Q, fix: null };
@@ -251,6 +285,53 @@ console.log('\nE. 진짜 Worker 라우트(/api/ai/chat-friend) — 메모리 D1 
     const r = await turn('focused', SAID, 1);
     ok('E-15 집중교정: 고친 문장 3번 (기존 그대로)', count(r.body.reply, FIX.now) === 3, r.body.reply);
     ok('E-16 집중교정: 균형 다시 묻기는 안 부른다', rechecks === 0, String(rechecks));
+  }
+  // ⑥ 동시 실행 — 다시 묻기가 끝나기 «전에» 본 호출이 시작한다(차례로 돌면 기다림이 «합» 이 된다)
+  main = { reply: "Wait, that's not possible! " + Q, fix: null };
+  recheckFix = FIX; recheckDelay = 150;
+  {
+    const r = await turn('balanced', SAID, 0);
+    ok('E-17 다시 묻기와 본 호출이 «동시에» 돈다(본 호출 시작이 다시 묻기 끝보다 먼저)', evs.indexOf('main:start') >= 0 && evs.indexOf('main:start') < evs.indexOf('rc:end'), evs.join(','));
+    const lat = raw.prepare("SELECT ms, model_ms FROM ai_latency_log WHERE feature='chat-friend' ORDER BY rowid DESC LIMIT 1").get();
+    ok('E-18 지연 기록: 모델 시간이 전체 시간을 넘지 않는다(겹친 시간을 두 번 안 셈)', !!lat && lat.model_ms <= lat.ms, lat);
+    ok('E-19 지연 기록: 다시 묻기를 «기다린» 시간은 모델 시간에 들어간다', !!lat && lat.model_ms >= 100, lat);
+    ok('E-20 그 턴도 교정은 그대로 준다', r.body.fix && r.body.fix.now === FIX.now, r.body.fix);
+  }
+  // ⑦ 잘린 말 — 교정할 문장이 아니라 다시 묻지 않는다(배선: 잘린 말 판정이 계획에 실제로 들어가는가)
+  recheckDelay = 0;
+  {
+    const r = await turn('balanced', 'My birthday was', 0);
+    ok('E-21 잘린 말("My birthday was")에는 다시 묻기를 부르지 않는다', rechecks === 0, String(rechecks));
+  }
+  // ⑧ 기다림 상한 — 다시 묻기만 느리면 상한만큼만 기다리고 «교정 없음» 으로 간다
+  recheckDelay = F.RECHECK_EXTRA_WAIT_MS + 2500;
+  {
+    const r = await turn('balanced', SAID, 1);
+    ok('E-22 다시 묻기가 느리면 상한(RECHECK_EXTRA_WAIT_MS)만큼만 기다린다', r.ms < F.RECHECK_EXTRA_WAIT_MS + 1500 && r.body.fix === null, { ms: r.ms, fix: r.body.fix });
+    ok('E-23 상한이 지나면 잡아 둔 미리듣기를 놓아준다', r.t.length >= 1, r.t);
+  }
+  // ⑨ 모델이 다 실패한 폴백 턴 — 다시 묻기를 기다리지 않고, 학생이 못 볼 교정을 «보여 줬다» 로 남기지 않는다
+  main = 'THROW'; recheckDelay = 300;
+  {
+    const r = await turn('balanced', SAID, 0);
+    ok('E-24 폴백 턴: 안내만, 교정 카드 없음', r.body.ai_unavailable === true && r.body.fix === null, r.body);
+    ok('E-25 폴백 턴: 다시 묻기 결과로 «보여 준 교정» 기억(KV)을 남기지 않는다', !cache.get('aifriendfix:' + r.uid), cache.get('aifriendfix:' + r.uid));
+  }
+  // ⑪ 다시 묻기가 «교정 없음» 으로 끝나는 순간 미리듣기를 놓아준다 — 본 답 뒤 다시 뽑기(눈높이)가 길어도 그걸 기다리지 않는다
+  main = { reply: "That sounds like a fun day for you and your family. Is it your birthday tomorrow? Tell me about your party plans and your friends.", fix: null };
+  recheckFix = null; recheckDelay = 100; retryDelay = 600; retryEndAt = 0;
+  {
+    const r = await turn('balanced', 'My dog is very cute.', 1, 'S1');
+    ok('E-27 (전제) 본 답 뒤 다시 뽑기가 실제로 돌았다', retryEndAt > 0, String(retryEndAt));
+    ok('E-28 다시 묻기 결과가 오면 «바로» 미리듣기를 흘린다(뒤 처리 끝까지 안 기다림)', r.firstTAt > 0 && retryEndAt > 0 && r.firstTAt < retryEndAt, { firstTAt: r.firstTAt, retryEndAt });
+  }
+  retryDelay = 0;
+  // ⑩ 사소한 실수(관사)를 모델이 major 로 달아도 다시 묻기로는 받지 않는다(균형의 «작은 실수 간격» 을 지킨다)
+  main = { reply: 'Do you walk them?', fix: null }; recheckDelay = 0;
+  recheckFix = { was: 'I have a dog and cat at home.', now: 'I have a dog and a cat at home.', why_ko: '셀 수 있는 낱말 앞에는 a 를 붙여요.', tag: 'other', severity: 'major' };
+  {
+    const r = await turn('balanced', 'I have a dog and cat at home.', 0);
+    ok('E-26 관사 같은 사소한 실수는 다시 묻기로 카드·음성을 만들지 않는다', r.body.fix === null && !r.body.reply.includes('a cat'), [r.body.fix, r.body.reply]);
   }
   raw.close();
 }
