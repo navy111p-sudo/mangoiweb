@@ -11979,7 +11979,8 @@ async function pdfUpload(input) {
     }, true);
 })();
 
-async function pdfLoad(url, kind, isCurrent) {
+async function pdfLoad(url, kind) {
+    const isCurrent = arguments[2]; // Optional shared-request guard; existing two-argument callers are unchanged.
     const generation = ++pdfLoadGeneration;
     const roomAtStart = typeof vcRoomId === 'undefined' ? '' : vcRoomId || '';
     const pendingText = document.getElementById('ph265-textinput');

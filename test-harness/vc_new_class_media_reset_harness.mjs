@@ -14,6 +14,7 @@
  * 실행: node test-harness/vc_new_class_media_reset_harness.mjs
  */
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -54,15 +55,26 @@ check('버릴 때 동영상·교재·판서를 함께 버린다',
 
 /* ── 2) 동작: 판정식을 실제로 돌려 본다 ── */
 //   소스의 조건을 그대로 옮겨 «같은 식» 인지 눈으로 확인할 수 있게 둔다.
-const condInSrc = /_newClass \|\| !this\.mediaAt \|\| \(Date\.now\(\) - this\.mediaAt\) > VideoCallRoom\.SHARE_KEEP_MS/.test(src);
-check('버림 조건에 «새 수업» 이 포함돼 있다', condInSrc);
-
-function willClear({ emptyForMs, mediaAgeMs, userCount = 1 }) {
+const ts = createRequire(new URL('../cloudflare-deploy/package.json', import.meta.url))('typescript');
+const ast = ts.createSourceFile('room.ts', src, ts.ScriptTarget.Latest, true);
+let expression;
+function visit(n) {
+  if (ts.isIfStatement(n)) {
+    const text = n.expression.getText(ast);
+    if (text.includes('(this.pdfState || this.videoState)') && text.includes('_newClass')) expression = text;
+  }
+  ts.forEachChild(n, visit);
+}
+visit(ast);
+check('실제 media 정리 조건에 새 수업/진행 중 보호가 포함된다', !!expression && expression.includes('ageCleanup'));
+const predicate = expression && Function('VideoCallRoom', 'Date', 'userCount', '_newClass', 'ageCleanup', 'return (' + expression + ')');
+function willClear({ emptyForMs, mediaAgeMs, userCount = 1, hadJoinedPeers = false }) {
   const now = 1_000_000_000;
   const emptyAt = emptyForMs === null ? 0 : now - emptyForMs;
   const mediaAt = now - mediaAgeMs;
   const newClass = emptyAt > 0 && (now - emptyAt) > GAP;
-  return userCount <= 1 && (newClass || !mediaAt || (now - mediaAt) > KEEP);
+  const ageCleanup = !hadJoinedPeers && !emptyAt;
+  return predicate ? predicate.call({pdfState: {}, videoState: null, mediaAt}, {SHARE_KEEP_MS: KEEP}, {now: () => now}, userCount, newClass, ageCleanup) : null;
 }
 
 console.log('\n  ── 상황별 판정 ──');
@@ -79,11 +91,16 @@ check('④ 쉬는 시간 10분 뒤 다음 수업 → 버린다',
 check('⑤ 방이 빈 적 없이 계속 이어진 수업(늦게 온 학생) → 유지',
       willClear({ emptyForMs: null, mediaAgeMs: 15 * 60_000 }) === false,
       '수업 중 늦게 들어온 학생은 지금 보고 있는 교재를 받아야 한다');
-check('⑥ 3시간 넘은 화면은 빈 적이 없어도 버린다(기존 규칙 유지)',
+check('⑥ 활성 참가자와 짧은 빈방 증거가 없는 낡은 화면은 정리한다',
       willClear({ emptyForMs: null, mediaAgeMs: KEEP + 60_000 }) === true);
 check('⑦ 방에 이미 여러 명이면 절대 버리지 않는다',
       willClear({ emptyForMs: 60 * 60_000, mediaAgeMs: 90 * 60_000, userCount: 2 }) === false,
       '수업 중인 방의 교재를 지우면 대형 사고다');
+
+check('⑧ 단독 참가자가 진행 중인 3시간 넘은 수업은 지우지 않는다',
+      willClear({ emptyForMs: null, mediaAgeMs: KEEP + 60_000, hadJoinedPeers: true }) === false);
+check('⑨ 오래된 필기여도 8초 재입장에서는 지우지 않는다',
+      willClear({ emptyForMs: 8_000, mediaAgeMs: KEEP + 60_000 }) === false);
 
 console.log('\n──────────────────────────────────────────');
 console.log(`  ✅ PASS ${pass}    ❌ FAIL ${fail}`);

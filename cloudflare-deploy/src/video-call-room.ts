@@ -621,6 +621,7 @@ export class VideoCallRoom {
 
   // ── 비즈니스 로직 ──
   private handleJoinRoom(ws: WebSocket, userId: string, data: any): void {
+    const hadJoinedPeers = this.joinedUsers().length > 0;
     const { username, role, clientId } = data || {};
     if (!username) {
       this.send(userId, { type: 'error-msg', data: { message: 'username required' } });
@@ -687,12 +688,14 @@ export class VideoCallRoom {
     const _emptyGap = this.emptyAt ? (Date.now() - this.emptyAt) : 0;
     const _newClass = this.emptyAt > 0 && _emptyGap > VideoCallRoom.NEW_CLASS_GAP_MS;
     if (_newClass && this.wbRestorePending) { this.wbResetPending = true; this.setWhiteboardFence(true); }
+    // Age alone is not a class boundary while a participant remains or briefly reconnects.
+    const ageCleanup = !hadJoinedPeers && !this.emptyAt;
     // A board-only class has the same new-class/age cleanup as shared media.
-    if (userCount <= 1 && this.wbOps.length && (_newClass || !this.wbAt || Date.now() - this.wbAt > VideoCallRoom.SHARE_KEEP_MS)) {
+    if (userCount <= 1 && this.wbOps.length && (_newClass || (ageCleanup && (!this.wbAt || Date.now() - this.wbAt > VideoCallRoom.SHARE_KEEP_MS)))) {
       if (!this.clearWhiteboardHistory()) { this.wbOps = []; this.wbResetPending = true; this.setWhiteboardFence(true); }
     }
     if (userCount <= 1 && (this.pdfState || this.videoState) &&
-        (_newClass || !this.mediaAt || (Date.now() - this.mediaAt) > VideoCallRoom.SHARE_KEEP_MS)) {
+        (_newClass || (ageCleanup && (!this.mediaAt || (Date.now() - this.mediaAt) > VideoCallRoom.SHARE_KEEP_MS)))) {
       this.pdfState = null;
       this.videoState = null;
       this.mediaAt = 0;
