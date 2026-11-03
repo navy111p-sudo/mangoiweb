@@ -18,6 +18,8 @@ const srv=createServer(async(q,s)=>{try{const p=decodeURIComponent(new URL(q.url
 await new Promise(r=>srv.listen(0,r));const base='http://127.0.0.1:'+srv.address().port;
 const {chromium,exe}=requireBrowser();
 let pass=0,fail=0;const ok=(n,c,d)=>{if(c){pass++;console.log('  ✅ '+n+(d?'  '+d:''));}else{fail++;console.log('  ❌ FAIL '+n+(d?'  '+d:''));}};
+// 누르기: 다른 것이 덮어 못 누르면 하니스가 죽지 않고 «깔끔한 FAIL» 로 남긴다(30초 타임아웃 크래시는 ❌ 0건으로 위장한다)
+const tap=async(page,sel)=>{try{await page.click(sel,{timeout:3000});return true;}catch(e){ok(sel+' 를 누를 수 있다(다른 요소가 덮지 않는다)',false,String(e.message||e).split('\n').find(l=>/intercepts/.test(l))||String(e.message||e).slice(0,120));return false;}};
 const browser=await chromium.launch({executablePath:exe});
 const AI="You're optimistic about their chances! Who's your favorite player on the team?";
 
@@ -118,13 +120,13 @@ for(const [w,h,touch,name] of [[1280,800,false,'PC 1280'],[1024,768,true,'태블
 // ④ 가로 숨기기·보이기
 { const {ctx,page,errs}=await open(844,390,true);
   const y0=await page.evaluate(()=>document.getElementById('wfStage').getBoundingClientRect().top);
-  await page.click('#wuTbHide');await page.waitForTimeout(400);
+  await tap(page,'#wuTbHide');await page.waitForTimeout(400);
   const hid=await page.evaluate(()=>{const s=document.getElementById('wuTbShow');const r=s.getBoundingClientRect();
     return {vis:getComputedStyle(document.querySelector('.top')).visibility,show:getComputedStyle(s).display,showTop:Math.round(r.top),
       y:document.getElementById('wfStage').getBoundingClientRect().top,stored:localStorage.getItem('mangoi_warmup_topbar_hidden'),focus:document.activeElement&&document.activeElement.id};});
-  await page.click('#wuTbShow');await page.waitForTimeout(400);
+  await tap(page,'#wuTbShow');await page.waitForTimeout(400);
   const back=await page.evaluate(()=>({vis:getComputedStyle(document.querySelector('.top')).visibility,show:getComputedStyle(document.getElementById('wuTbShow')).display,focus:document.activeElement&&document.activeElement.id}));
-  await page.click('#menuBtn');await page.waitForTimeout(200);
+  await tap(page,'#menuBtn');await page.waitForTimeout(200);
   const mo=await page.evaluate(()=>document.getElementById('menuPanel').classList.contains('open'));
   await page.evaluate(()=>document.getElementById('wuTbHide').click());await page.waitForTimeout(200);
   const mc=await page.evaluate(()=>document.getElementById('menuPanel').classList.contains('open'));
@@ -142,7 +144,7 @@ for(const [w,h,touch,name] of [[1280,800,false,'PC 1280'],[1024,768,true,'태블
 // ⑤ 세로 ⋮ 메뉴(진행 문구 + 빠른 줄) — 한국어/영어
 for(const en of [false,true]){
   const {ctx,page,errs}=await open(390,844,true,en);
-  await page.click('#menuBtn');await page.waitForTimeout(400);
+  await tap(page,'#menuBtn');await page.waitForTimeout(400);
   const m=await page.evaluate(()=>{const vis=e=>!!e&&getComputedStyle(e).display!=='none'&&e.getBoundingClientRect().height>0;
     const onTop=e=>{const r=e.getBoundingClientRect();const t=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return !!t&&e.contains(t);};
     return {prog:vis(document.querySelector('#wuTbMenu .wg-progress')),
@@ -159,16 +161,93 @@ for(const en of [false,true]){
 
 // ⑥ 옮긴 버튼이 원래 일을 그대로 한다
 { const {ctx,page,errs}=await open(360,780,false);
-  await page.click('#wfAskOpen');await page.waitForTimeout(300);
+  await tap(page,'#wfAskOpen');await page.waitForTimeout(300);
   const a=await page.evaluate(()=>document.getElementById('wfAsk').open);
   await page.keyboard.press('Escape');await page.waitForTimeout(200);
-  await page.click('#wgHistory');await page.waitForTimeout(200);
+  await tap(page,'#wgHistory');await page.waitForTimeout(200);
   const h=await page.evaluate(()=>document.getElementById('wgHistory').getAttribute('aria-expanded'));
   console.log('▶ 옮긴 버튼 동작');
   ok('질문하기 아이콘 → 질문 패널이 열린다', a===true);
   ok('이전 대화 아이콘 → 펼쳐진다', h==='true', h);
   ok('스크립트 오류 없음', errs.length===0, errs.join(' | ').slice(0,200));
   await ctx.close(); }
+
+// ⑦ 가로: 도구 버튼에 짧은 글자 (2026-11-03 사장님 «가로 화면 도구 버튼에 글자도 넣어줘»)
+//    짝으로 둔다: «세로는 그대로 아이콘만» · «한 줄에 안 들어가면 단계적으로 줄고, 그때 칸이 넘치지 않는다»
+//    · «자리가 돌아오면 다시 글자가 붙는다» · «화면낭독기 이름은 원래 긴 이름 그대로(짧은 글자가 안 덧붙는다)».
+//    기대 글자는 하니스에 베끼지 않고 js 의 LABELS 표에서 읽는다.
+{ const src=await readFile(join(root,'js/warmup-topbar.js'),'utf8');
+  const LBL={};for(const m of src.matchAll(/^\s*(wf\w+|wg\w+):\s*\['([^']+)',\s*'([^']+)'\]/gm))LBL[m[1]]={ko:m[2],en:m[3]};
+  const hist=/'대화 접기',\s*'([^']+)'\)\s*:\s*tr\('([^']+)',\s*'([^']+)'\)/.exec(src);
+  ok('전제: LABELS 표를 소스에서 읽었다(질문·배경·크게·도움)', ['wfAskOpen','wfPreferencesOpen','wfExpandOpen','wgHelpOpen'].every(k=>LBL[k]), JSON.stringify(LBL));
+  ok('전제: 이전 대화 글자(닫힘/열림)를 소스에서 읽었다', !!hist);
+  const labels=page=>page.evaluate(()=>{const s=document.getElementById('wuTbSlot');
+    const vis=e=>!!e&&getComputedStyle(e).display!=='none'&&e.getBoundingClientRect().width>0;
+    const strip=c=>{const m=/^"([^"]*)"/.exec(c||'');return m?m[1]:'';};   // '"질문" / ""' → 질문
+    const tp=s.querySelector('.meta .chip.topic');
+    return {mode:WarmupTopbar.mode(),steps:['wu-tb-cshort','wu-tb-hshort','wu-tb-iconly'].filter(c=>document.documentElement.classList.contains(c)),
+      over:s.scrollWidth-s.clientWidth, topicSqueezed:!!tp&&tp.scrollWidth>tp.clientWidth+1&&tp.getBoundingClientRect().width<parseFloat(getComputedStyle(tp).maxWidth)-1,
+      btns:Object.fromEntries([...s.querySelectorAll('.wf-button,.wg-btn')].filter(vis).map(b=>[b.id,{w:Math.round(b.getBoundingClientRect().width),lbl:strip(getComputedStyle(b,'::after').content)}]))};});
+  // 7-1 폰 가로 KO/EN: 세 도구 버튼에 그 언어 글자, 한 줄에 들어감, 이름은 원래 이름 그대로
+  for(const en of [false,true]){
+    const {ctx,page,errs}=await open(844,390,true,en);
+    const L=await labels(page);
+    const name=await page.getByRole('button',{name:en?'Ask a question':'질문하기',exact:true}).count();
+    const tag=en?'(EN)':'(KO)';
+    console.log('▶ 가로 도구 버튼 글자 '+tag+' 844x390 — '+JSON.stringify(L.btns));
+    for(const id of ['wfAskOpen','wfPreferencesOpen','wfExpandOpen']){
+      const want=LBL[id]&&(en?LBL[id].en:LBL[id].ko);
+      ok(tag+' '+id+' 에 글자 «'+want+'» 가 보인다', !!L.btns[id]&&L.btns[id].lbl===want&&L.btns[id].w>40, JSON.stringify(L.btns[id]));
+    }
+    ok(tag+' 줄이기 단계 없이 한 줄에 들어간다', L.steps.length===0&&L.over<=1, JSON.stringify(L.steps)+' over '+L.over);
+    ok(tag+' 화면낭독기 이름은 원래 긴 이름 그대로(짧은 글자가 안 덧붙음)', name===1, String(name));
+    ok(tag+' 스크립트 오류 없음', errs.length===0, errs.join(' | ').slice(0,200));
+    await ctx.close();
+  }
+  // 7-2 짝: 세로는 그대로 아이콘만
+  { const {ctx,page}=await open(390,844,true);const L=await labels(page);
+    console.log('▶ 세로는 글자 없이 아이콘만');
+    ok('세로: 도구 버튼에 글자가 안 붙는다(26px 아이콘)', Object.values(L.btns).length>=3&&Object.values(L.btns).every(b=>b.lbl===''&&b.w<=26), JSON.stringify(L.btns));
+    await ctx.close(); }
+  // 7-3 마우스 가로 800x360: 이전 대화·도움에도 글자, 이전 대화를 펼치면 글자가 바뀐다
+  { const {ctx,page,errs}=await open(800,360,false);const L=await labels(page);
+    console.log('▶ 마우스 가로 800x360 — '+JSON.stringify(L.steps));
+    ok('800: 이전 대화·도움에도 글자', L.btns.wgHistory&&L.btns.wgHistory.lbl===(hist&&hist[2])&&L.btns.wgHelpOpen&&L.btns.wgHelpOpen.lbl===LBL.wgHelpOpen.ko, JSON.stringify([L.btns.wgHistory,L.btns.wgHelpOpen]));
+    ok('800: 칸이 넘치지 않고 주제 칩도 안 눌린다', L.over<=1&&!L.topicSqueezed, 'over '+L.over+' squeezed '+L.topicSqueezed);
+    await tap(page,'#wgHistory');await page.waitForTimeout(300);
+    const L2=await labels(page);
+    ok('800: 이전 대화를 펼치면 글자가 «대화 접기»', L2.btns.wgHistory&&L2.btns.wgHistory.lbl==='대화 접기', JSON.stringify(L2.btns.wgHistory));
+    ok('800: 스크립트 오류 없음', errs.length===0, errs.join(' | ').slice(0,200));
+    await ctx.close(); }
+  // 7-4 좁은 마우스 가로 641x400(이전 대화 줄 + 콤보): 다 줄여 아이콘만, 칸은 안 넘친다 → 넓히면 글자가 돌아온다
+  { const {ctx,page,errs}=await open(641,400,false);const L=await labels(page);
+    console.log('▶ 좁은 가로 641x400 — '+JSON.stringify(L.steps));
+    ok('641: 한 줄에 안 들어가 아이콘만으로 되돌아간다', L.steps.includes('wu-tb-iconly')&&Object.values(L.btns).every(b=>b.lbl===''&&b.w<=26), JSON.stringify(L.btns));
+    ok('641: 그래도 칸이 넘치지 않고 주제 칩이 안 눌린다', L.over<=1&&!L.topicSqueezed, 'over '+L.over+' squeezed '+L.topicSqueezed);
+    await page.setViewportSize({width:1024,height:500});await page.waitForTimeout(400);
+    const L2=await labels(page);
+    ok('창을 넓히면(1024x500, 아직 가로) 글자가 다시 붙는다', L2.mode==='l'&&L2.steps.length===0&&L2.btns.wfAskOpen&&L2.btns.wfAskOpen.lbl===LBL.wfAskOpen.ko, JSON.stringify(L2.steps)+' '+JSON.stringify(L2.btns.wfAskOpen));
+    ok('641→1024: 스크립트 오류 없음', errs.length===0, errs.join(' | ').slice(0,200));
+    await ctx.close(); }
+  // 7-5 콤보 칩이 «나중에» 나타나면 다시 잰다(EN 667x375 — 콤보가 뜨면 콤보만 «🔥N» 으로 줄어든다)
+  { const {ctx,page}=await open(667,375,true,true);
+    await page.evaluate(()=>{document.getElementById('comboChip').style.display='none';});await page.waitForTimeout(200);
+    const a=await labels(page);
+    await page.evaluate(()=>{document.getElementById('comboChip').style.display='';document.getElementById('comboN').textContent='12';});await page.waitForTimeout(200);
+    const b=await labels(page);
+    console.log('▶ 콤보 칩이 나중에 뜰 때 — 전 '+JSON.stringify(a.steps)+' / 후 '+JSON.stringify(b.steps));
+    ok('667(EN): 콤보 칩이 없을 때는 줄이기 없음', a.steps.length===0&&a.over<=1, JSON.stringify(a.steps));
+    ok('667(EN): 콤보 칩이 뜨면 다시 재어 콤보만 줄인다(글자는 남음)', b.steps.length===1&&b.steps[0]==='wu-tb-cshort'&&b.over<=1&&!b.topicSqueezed&&b.btns.wfAskOpen&&b.btns.wfAskOpen.lbl===LBL.wfAskOpen.en, JSON.stringify(b));
+    await ctx.close(); }
+  // 7-6 🌐 언어를 바꾸면 글자도 바뀐다
+  { const {ctx,page,errs}=await open(844,390,true);
+    await page.evaluate(()=>{try{wuToggleUiLang();}catch(e){}});await page.waitForTimeout(300);
+    const L=await labels(page);
+    console.log('▶ 🌐 언어 전환');
+    ok('KO→EN 전환 뒤 도구 버튼 글자가 영어', L.btns.wfAskOpen&&L.btns.wfAskOpen.lbl===LBL.wfAskOpen.en&&L.btns.wfExpandOpen&&L.btns.wfExpandOpen.lbl===LBL.wfExpandOpen.en, JSON.stringify(L.btns));
+    ok('언어 전환: 스크립트 오류 없음', errs.length===0, errs.join(' | ').slice(0,200));
+    await ctx.close(); }
+}
 
 console.log(`\n합계 PASS ${pass} / FAIL ${fail}`);
 await browser.close();srv.close();

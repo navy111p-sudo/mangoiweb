@@ -11,6 +11,7 @@
  *   - 세로에서는 폭이 모자라 «모드 선택 · 🏠 · 🔄 · 🔊» 를 ⋮ 메뉴 맨 위 «빠른 줄» 로 옮긴다
  *     (🔄·🎚️ 와 같은 기능은 원래 ⋮ 메뉴에도 있다. 🎚️ 와 ⋮ 는 한 줄에 남는다).
  *   - 가로에서는 머리글을 화면 위에 반투명하게 띄우고, ⌃ 로 숨기면 위 가운데 «메뉴» 손잡이만 남는다.
+ *     도구 버튼에는 짧은 글자(질문·배경·속도·크게·이전 대화·도움)를 함께 보이되, 한 줄에 안 들어가면 아이콘만으로 되돌린다.
  *
  * 원칙
  *   - 휴대폰 크기에서만 켠다 — 세로 (max-width:640px) / 가로 (orientation:landscape) and (max-height:520px).
@@ -54,6 +55,14 @@
     $('spkToggle')                                       // 🔊
   ];
   var CAPTIONS = { newChatTop: ['새 대화', 'New chat'], spkToggle: ['소리', 'Sound'] };
+  // 가로 화면 도구 버튼에 함께 보이는 짧은 글자(2026-11-03 사장님 «가로 화면 도구 버튼에 글자도 넣어줘»).
+  // 긴 원래 이름은 버튼 본문·툴팁에 그대로 남는다. 이전 대화는 펼침 상태에 따라 paint() 가 따로 정한다.
+  var LABELS = {
+    wfAskOpen: ['질문', 'Ask'],
+    wfPreferencesOpen: ['배경·속도', 'Scene·Pace'],
+    wfExpandOpen: ['크게', 'Zoom'],
+    wgHelpOpen: ['도움', 'Help']
+  };
 
   function make(tag, id) { var e = doc.createElement(tag); e.id = id; return e; }
 
@@ -123,6 +132,36 @@
     Array.prototype.forEach.call(slot.querySelectorAll('.wf-button,.wg-btn'), function (b) {
       var t = (b.textContent || '').trim(); if (t) b.title = t;
     });
+    Object.keys(LABELS).forEach(function (id) {
+      var b = $(id); if (b) b.setAttribute('data-wu-label', tr(LABELS[id][0], LABELS[id][1]));
+    });
+    var hb = $('wgHistory');
+    if (hb) hb.setAttribute('data-wu-label', hb.getAttribute('aria-expanded') === 'true' ? tr('대화 접기', 'Hide') : tr('이전 대화', 'History'));
+    fit();
+  }
+
+  // ── 가로: 글자를 붙여 보고, 한 줄에 «실제로» 안 들어갈 때만 덜 중요한 것부터 줄인다
+  //    (폭·언어·콤보 칩·마우스 기기의 이전 대화 줄에 따라 경계가 달라 숫자로 못 박지 않는다)
+  //    ① 콤보 칩 «🔥N» → ② 이전 대화·도움 아이콘만 → ③ 전부 아이콘만. 단계 클래스는 쌓인다.
+  var FIT_STEPS = ['wu-tb-cshort', 'wu-tb-hshort', 'wu-tb-iconly'];
+  function crowded() {
+    if (slot.scrollWidth > slot.clientWidth + 1) return true;
+    // 주제 칩이 «자리가 없어» 눌렸는가 — 원래 길어서(max-width) 줄임표가 붙은 것은 세지 않는다
+    var tp = slot.querySelector('.meta .chip.topic');
+    if (!tp || !tp.offsetWidth || tp.scrollWidth <= tp.clientWidth + 1) return false;
+    var maxW = parseFloat(getComputedStyle(tp).maxWidth);
+    return !(maxW > 0) || tp.getBoundingClientRect().width < maxW - 1;
+  }
+  function fit() {
+    FIT_STEPS.forEach(function (c) { root.classList.remove(c); });
+    if (mode !== 'l') return;
+    for (var i = 0; i < FIT_STEPS.length && crowded(); i++) root.classList.add(FIT_STEPS[i]);
+  }
+  var fitQueued = false;
+  function fitSoon() {
+    if (fitQueued) return;
+    fitQueued = true;
+    requestAnimationFrame(function () { fitQueued = false; fit(); });
   }
 
   // ── 지금 화면에 맞게 배치
@@ -131,7 +170,7 @@
     var next = mqPortrait.matches ? 'p' : (mqLandscape.matches ? 'l' : '');
     if (next === mode) return;
     unparkAll();
-    root.classList.remove('wu-tb', 'wu-tb-p', 'wu-tb-l', 'wu-tb-hidden');
+    root.classList.remove('wu-tb', 'wu-tb-p', 'wu-tb-l', 'wu-tb-hidden', 'wu-tb-cshort', 'wu-tb-hshort', 'wu-tb-iconly');
     mode = next;
     if (!mode) return;
     park(META, slot);
@@ -153,6 +192,14 @@
   // 언어 전환·«이전 대화 보기/접기» 처럼 글자가 바뀐 뒤에 툴팁을 다시 단다
   window.addEventListener('mangoi:lang-changed', function () { setTimeout(paint, 0); });
   slot.addEventListener('click', function () { setTimeout(paint, 80); });
+  // 가로 폭이 바뀌거나(창 크기) 글꼴이 늦게 오거나 콤보 칩이 나타나면 한 줄에 들어가는지 다시 잰다.
+  // ⚠️ 콤보 칩 하나의 style 만 본다 — fit() 은 그 칩을 안 건드려 되먹임이 없다(body 관찰은 금지).
+  window.addEventListener('resize', function () { if (mode === 'l') fitSoon(); });
+  try { if (doc.fonts && doc.fonts.addEventListener) doc.fonts.addEventListener('loadingdone', function () { if (mode === 'l') fitSoon(); }); } catch (e) {}
+  var combo = $('comboChip');
+  if (combo && window.MutationObserver) {
+    try { new MutationObserver(function () { if (mode === 'l') fitSoon(); }).observe(combo, { attributes: true, attributeFilter: ['style', 'hidden'] }); } catch (e) {}
+  }
 
   apply();
   window.WarmupTopbar = { apply: apply, mode: function () { return mode; }, setHidden: setHidden };
