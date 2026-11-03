@@ -1,0 +1,6 @@
+textbook-0 https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261103_154203_a481c155-95d0-4b7e-b0fe-49ed1c473a66.png
+textbook-1 https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261103_154206_afb47513-ed21-4e40-bc87-1d2cddb9e2e6.png
+situation-2 https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261103_154202_ff43359e-b421-41cf-9aca-35bdac4cf288.png
+situation-3 https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261103_154204_487043a0-83dc-4c1f-b623-75b965ae744c.png
+friend-4 https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261103_154203_1936a196-b448-4812-8793-d59ad63260e4.png
+friend-5 https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k/hf_20261103_154204_098a6da1-0a81-452a-8ff0-f4ed2823a404.png
