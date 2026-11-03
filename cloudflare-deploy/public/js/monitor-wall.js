@@ -39,7 +39,7 @@
   function pollMs(){ return (parseInt($('sel-poll').value, 10) || 0) * 1000; }
   function dwellSec(){ return parseInt($('sel-dwell').value, 10) || 20; }
 
-  /* ── 데이터 수집 — 실패는 각자 조용히, 있는 것만 그린다 ───────────── */
+  /* ── 데이터 수집 — 실패는 각자 조용히, 있는 것만 그린다 ── */
   function load(){
     var pAR = fetch('/api/active-rooms', { credentials:'include' })
       .then(function(r){ return r.json(); }).catch(function(){ return null; });
@@ -103,7 +103,7 @@
     }).catch(function(){ /* 조용히 — 상태등만 비워 둔다 */ });
   }
 
-  /* ── 검색·정렬 ───────────────────────────────────────────────────── */
+  /* ── 검색·정렬 ── */
   function roomText(rm){
     var sc = state.names[String(rm.roomId)] || {};
     return [rm.roomId, sc.teacher_name, sc.student_name,
@@ -112,7 +112,7 @@
   function severity(rm){
     var rid = String(rm.roomId);
     if (state.alerts[rid]) return 3;
-    if (lvl(state.quality[rid]) > 1) return 2;
+    if (lvl(worst(state.quality[rid])) > 1) return 2;
     if (rm.userCount === 1) return 1;
     return 0;
   }
@@ -153,7 +153,7 @@
     });
   }
 
-  /* ── 그리기 ──────────────────────────────────────────────────────── */
+  /* ── 그리기 ── */
   /* 🔢 요약 띠(D안) — 타일 = «라벨<b>숫자</b>» 한 덩어리. meet_room_split ⑩ 이 그 모양을 읽는다(사이에 태그 금지) */
   function renderChips(){
     var alertCount = Object.keys(state.alerts).length;
@@ -181,7 +181,8 @@
   function reasonHtml(rm){
     var rid = String(rm.roomId), al = state.alerts[rid], q = state.quality[rid];
     if (al) return '<span class="why">🚨 ' + esc(al.alert_type || 'alert') + '</span>';
-    if (lvl(q) > 1) return '<span class="why">📶 ' + L('회선 나쁨', 'bad line') + ' · ' + fmt(q) + '</span>';
+    var w = worst(q), lb = w && ROLE_LB[w.role];
+    if (lvl(w) > 1) return '<span class="why">📶 ' + (lb ? L(lb[0] + ' ', lb[1] + ' ') : '') + L('회선 나쁨', 'bad line') + ' · ' + fmt(w) + '</span>';
     return '<span class="why warn">⚠ ' + L('혼자 대기중 (1명)', 'waiting alone (1 person)') + '</span>';
   }
   function renderUrgent(){
@@ -325,6 +326,12 @@
 
   /* 📶 회선 기준 한 곳 — 손실 5%·RTT 400ms 이상 = 2 나쁨, 2%·250ms = 1 주의. null(모름)은 안 걸린다 */
   function lvl(q){ return !q ? 0 : (q.avg_loss >= 5 || q.avg_rtt >= 400) ? 2 : (q.avg_loss >= 2 || q.avg_rtt >= 250) ? 1 : 0; }
+  /* 🚨 (2026-11-03) 심각도 = «가장 나쁜 줄»(역할별 중 최악 · 같으면 강사 먼저 · 방 전체 이상일 때) */
+  function worst(q){
+    var w = null;
+    ((q && q.by_role) || []).forEach(function(x){ if (!w || lvl(x) > lvl(w)) w = x; });
+    return (w && lvl(w) >= lvl(q)) ? w : q;
+  }
   function fmt(q){ return (q.avg_rtt != null ? q.avg_rtt + 'ms' : '—') + ' · ' + (q.avg_loss != null ? q.avg_loss + '%' : '—'); }
   /* 표본이 없으면 «—» 로 둔다(0% 로 적지 않는다: 표본 없음과 손실 0% 는 다른 사실이고,
      0 으로 적으면 영상이 죽은 방이 «제일 좋은 방» 이 된다). */
@@ -334,7 +341,7 @@
     return '<span class="sig-' + ['ok', 'warn', 'bad'][v] + '">' + ['🟢', '🟡', '🔴'][v] + ' ' + fmt(q) + '</span>';
   }
   /* 👥 (2026-11-03) 강사·학생 나눔 — 정본 src/vc-quality-live.ts 의 by_role(역할=기기가 보낸 값, 표시용).
-     없으면 예전 한 줄 · 방 전체 값은 툴팁(심각도는 그 값) */
+     없으면 예전 한 줄 · 방 전체 값은 툴팁 */
   var ROLE_LB = { teacher: ['강사', 'Teacher'], student: ['학생', 'Student'], other: ['기타', 'Other'] };
   function sigHtml(rid){
     var q = state.quality[String(rid)], br = q && q.by_role;
@@ -419,7 +426,7 @@
       + conn + btn + '</div>';
   }
 
-  /* ── 참관 / 입장 / 종료 — «클릭된 요소» 의 data-room 을 읽는다(위임) ────── */
+  /* ── 참관 / 입장 / 종료 — «클릭된 요소» 의 data-room 을 읽는다(위임) ── */
   function openTab(url){
     /* 🔴 'noopener' 를 기능 문자열로 주면 탭은 열려도 반환값이 null — 빼고 w.opener=null 로 막는다(CLAUDE.md 2장 window.open 줄) */
     var w = null;
@@ -588,7 +595,7 @@
     $('rb-stop').addEventListener('click', rotStop);
   }
 
-  /* ── 폴링 — 탭이 숨겨지면 멈추고, 돌아오면 즉시 갱신 ─────────────── */
+  /* ── 폴링 — 탭이 숨겨지면 멈추고, 돌아오면 즉시 갱신 ── */
   var timer = null;
   function tick(){ if (!document.hidden) load(); }
   function startPoll(){

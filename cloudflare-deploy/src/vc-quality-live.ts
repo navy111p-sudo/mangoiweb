@@ -5,8 +5,9 @@
  *      직원이 「강사 쪽인가, 학생 쪽인가?」를 물어도 답할 수 없었다(사장님 「역할별로 나눠 보이게 고쳐줘」).
  *      같은 vc_quality 행을 역할로 한 번 더 묶어 방마다 by_role 로 붙인다 — 새 표를 만들지 않는다.
  *
- * ⛔ 방 단위 값(api-admin.ts live=1 의 avg_loss·avg_rtt)은 건드리지 않는다 — 신호등 심각도와
- *    「지금 손봐야 할 방」이 그 값을 쓴다. 이 파일은 «덧붙이기» 만 한다.
+ * ⛔ 방 단위 값(api-admin.ts live=1 의 avg_loss·avg_rtt)은 건드리지 않는다 — 툴팁·옛 한 줄·역할 줄이
+ *    «모름» 일 때의 심각도가 그 값을 쓴다. 이 파일은 «덧붙이기» 만 한다.
+ *    (2026-11-03 후속) 심각도·「지금 손봐야 할 방」은 화면(js/monitor-wall.js worst())이 «가장 나쁜 줄» 로 정한다.
  * ⚠️ role 은 «접속한 기기가 보낸 값» 이다(js/idx-vc-qlog.js — vcIsTeacherRole() 이면 'teacher',
  *    아니면 저장된 역할이나 'student'). 화면 «표시» 에만 쓴다.
  *    ⚠️ vcIsTeacherRole() 은 admin·hq 역할도 참으로 본다(idx-main.js) — 본사·사장님이 «직접 입장» 하면

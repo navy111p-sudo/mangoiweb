@@ -169,8 +169,8 @@ console.log('\n④ 화면 — js/monitor-wall.js 의 회선 칸을 오려 내 �
   const W = rd(resolve(PUB, 'js/monitor-wall.js'));
   const fn = (name) => blockFrom(W, W.indexOf('function ' + name + '('));
   const roleLb = (W.match(/var ROLE_LB = \{[^\n]*\};/) || [''])[0];
-  const parts = ['lvl', 'fmt', 'sigOne', 'sigHtml', 'severity', 'reasonHtml'].map(fn);
-  ok(parts.every(Boolean) && !!roleLb, '전제: lvl·fmt·sigOne·sigHtml·severity·reasonHtml·ROLE_LB 를 잘라 냈다');
+  const parts = ['lvl', 'worst', 'fmt', 'sigOne', 'sigHtml', 'severity', 'reasonHtml'].map(fn);
+  ok(parts.every(Boolean) && !!roleLb, '전제: lvl·worst·fmt·sigOne·sigHtml·severity·reasonHtml·ROLE_LB 를 잘라 냈다');
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const mk = (en, state) => new Function('state', 'L', 'esc',
     roleLb + '\n' + parts.join('\n') + '\nreturn { lvl, fmt, sigOne, sigHtml, severity, reasonHtml };')(
@@ -182,7 +182,10 @@ console.log('\n④ 화면 — js/monitor-wall.js 의 회선 칸을 오려 내 �
       { role: 'student', people: 2, avg_rtt: 88, avg_loss: 0 },
       { role: 'other', people: 1, avg_rtt: null, avg_loss: null }] },
     'r-old': { avg_rtt: 610, avg_loss: 9.2 },
-    'r-bad-teacher': { avg_rtt: 300, avg_loss: 1, by_role: [{ role: 'teacher', people: 1, avg_rtt: 520, avg_loss: 6 }] },
+    'r-bad-teacher': { avg_rtt: 300, avg_loss: 1, by_role: [{ role: 'teacher', people: 1, avg_rtt: 520, avg_loss: 6 }, { role: 'student', people: 1, avg_rtt: 90, avg_loss: 0 }] },
+    'r-bad-student': { avg_rtt: 260, avg_loss: 1, by_role: [{ role: 'teacher', people: 1, avg_rtt: 90, avg_loss: 0 }, { role: 'student', people: 1, avg_rtt: 450, avg_loss: 1 }] },
+    'r-all-bad': { avg_rtt: 500, avg_loss: 6, by_role: [{ role: 'teacher', people: 1, avg_rtt: 480, avg_loss: 5 }, { role: 'student', people: 1, avg_rtt: 700, avg_loss: 9 }] },
+    'r-unknown-roles': { avg_rtt: 500, avg_loss: 1, by_role: [{ role: 'teacher', people: 1, avg_rtt: null, avg_loss: null }] },
   };
   const ko = mk(false, { quality: q, alerts: {} }), en = mk(true, { quality: q, alerts: {} });
   const h = ko.sigHtml('r-split');
@@ -202,10 +205,19 @@ console.log('\n④ 화면 — js/monitor-wall.js 의 회선 칸을 오려 내 �
   ok(L1({ avg_loss: 4.9, avg_rtt: 399 }) === 1 && L1({ avg_loss: 5, avg_rtt: 0 }) === 2 && L1({ avg_loss: 0, avg_rtt: 400 }) === 2, '나쁨(2) 경계: 손실 5% · RTT 400ms');
   ok(L1({ avg_loss: 1.9, avg_rtt: 249 }) === 0 && L1({ avg_loss: 2, avg_rtt: 0 }) === 1 && L1({ avg_loss: 0, avg_rtt: 250 }) === 1, '주의(1) 경계: 손실 2% · RTT 250ms');
   ok(L1({ avg_loss: null, avg_rtt: null }) === 0 && L1(undefined) === 0, '(짝) 모름(null)·자료 없음은 어느 기준에도 안 걸린다');
-  // 심각도는 «방 단위» 값 그대로 — 나눠 그린다고 「손봐야 할 방」 판정이 바뀌지 않는다
-  ok(ko.severity({ roomId: 'r-old', userCount: 2 }) === 2, '심각도: 방 단위가 나쁘면 2');
-  ok(ko.severity({ roomId: 'r-bad-teacher', userCount: 2 }) === 0, '(짝) 심각도는 방 단위 값으로만 — 강사 칸만 빨개도 바뀌지 않는다(예전 동작 유지)');
-  ok(/회선 나쁨 · 610ms · 9.2%/.test(text(ko.reasonHtml({ roomId: 'r-old', userCount: 2 }))), '「손봐야 할 방」 사유 문구도 같은 기준·같은 표기');
+  // 🚨 (2026-11-03 사장님 「심각도도 가장 나쁜 역할 기준으로」) — 「손봐야 할 방」·줄의 🔴 가 «가장 나쁜 줄» 을 따른다
+  const sev = (rid) => ko.severity({ roomId: rid, userCount: 2 });
+  const why = (k, rid) => text(k.reasonHtml({ roomId: rid, userCount: 2 }));
+  ok(sev('r-bad-teacher') === 2, '방 평균은 주의 이하여도 강사 줄이 나쁘면 심각도 2 (「손봐야 할 방」에 뜬다)');
+  ok(why(ko, 'r-bad-teacher') === '📶 강사 회선 나쁨 · 520ms · 6%', `사유가 «누구» 인지 말한다 (실측 «${why(ko, 'r-bad-teacher')}»)`);
+  ok(sev('r-bad-student') === 2 && why(ko, 'r-bad-student') === '📶 학생 회선 나쁨 · 450ms · 1%', `학생 줄만 나빠도 2 · 사유는 학생 (실측 «${why(ko, 'r-bad-student')}»)`);
+  ok(why(en, 'r-bad-teacher') === '📶 Teacher bad line · 520ms · 6%', `EN 사유 (실측 «${why(en, 'r-bad-teacher')}»)`);
+  ok(sev('r-all-bad') === 2 && /^📶 (강사|학생) 회선 나쁨/.test(why(ko, 'r-all-bad')), '둘 다 나쁘면 심각도 2 · 역할 하나를 짚는다');
+  ok(why(ko, 'r-all-bad') === '📶 강사 회선 나쁨 · 480ms · 5%', `(짝) 단계가 같으면 강사 먼저 (실측 «${why(ko, 'r-all-bad')}»)`);
+  ok(sev('r-split') === 0, '(짝) 가장 나쁜 줄이 «주의»(🟡) 면 심각도는 안 오른다 — 나쁨(🔴)만 올린다');
+  ok(sev('r-old') === 2 && why(ko, 'r-old') === '📶 회선 나쁨 · 610ms · 9.2%', '(짝) by_role 이 없으면 예전처럼 방 전체로 판정·표기(역할 이름 없음)');
+  ok(sev('r-unknown-roles') === 2 && why(ko, 'r-unknown-roles') === '📶 회선 나쁨 · 500ms · 1%', '(짝) 역할 줄이 «모름» 뿐이면 방 전체 값으로 판정한다(모름이 나쁨을 가리지 않는다)');
+  ok(ko.severity({ roomId: 'nope', userCount: 2 }) === 0, '(짝) 자료가 없는 방은 0');
   // 배선 — 표의 회선 칸이 이 함수를 부른다
   const row = fn('rowHtml');
   ok(/'<td class="n">' \+ sigHtml\(rid\) \+ '<\/td>'/.test(row), '표의 «회선» 칸이 sigHtml(rid) 를 부른다');
