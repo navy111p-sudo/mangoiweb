@@ -141,6 +141,12 @@ const sse = (body) => {
 };
 const AI = {
   run: async (model, o) => {
+    /* 🎚️ (2026-11-03) 균형 «교정만 다시 묻기»(src/friend-correction-flow.ts)는 대화 답이 아니다 —
+       대본(script)을 쓰지 않고 «교정 없음» 으로 답하며 호출 수에도 안 센다.
+       ⛔ 이것을 대본으로 넘기면 그 호출이 'first' 로 잡혀 대본 순서가 한 칸씩 밀린다(실제로 밟음). */
+    if (String(o?.messages?.[0]?.content || '').includes('BALANCED_CORRECTION_CHECK')) {
+      return { response: JSON.stringify({ reply: 'Checked.', fix: null }) };
+    }
     calls.push({ model, o });
     const r = await script(o, calls.length, model);
     if (r instanceof Error) throw r;

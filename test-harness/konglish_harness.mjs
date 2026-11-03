@@ -70,17 +70,28 @@ if (K) {
 // ── 배선: AI 친구 ──
 {
   check('AI 친구가 모듈을 불러온다', /import \{ konglishFix, konglishPromptLine \} from '\.\/konglish'/.test(AI));
+  /* 🎚️ (2026-11-03) 규칙 보완(과거형·콩글리시 표)의 정본이 friend-correction-flow.ts 의 deterministicFriendFix 로
+     옮겨 갔다(미리듣기 문과 교정 판정이 «같은 한 벌» 을 보게). 식은 `모델 교정 || turnPlan.detFix || 균형 다시 묻기`. */
+  const FLOW = P('cloudflare-deploy/src/friend-correction-flow.ts', 'FLOW_SRC');
   const m = AI.match(/const verified = (.+);\n/);
-  check('모델 교정이 «먼저», 표는 그 뒤(||)', !!m && /^verifyWarmupFix\(rawFix, msg\)\s*\|\|\s*(verifyWarmupFix\(backfillPastTenseFix\(msg\), msg\)\s*\|\|\s*)?konglishFix\(msg\)$/.test(m[1].trim()), m && m[1]);
-  // 그 식을 실제로 평가 — 모델 교정이 있으면 표를 안 쓴다 / 없으면 표를 쓴다
+  check('모델 교정이 «먼저», 규칙 보완(turnPlan.detFix)은 그 뒤(||)', !!m && /^verifyWarmupFix\(rawFix, msg\)\s*\|\|\s*turnPlan\.detFix\b/.test(m[1].trim()), m && m[1]);
+  const dm = FLOW.match(/export function deterministicFriendFix\(msg: string\): WarmupFix \| null \{\s*try \{\s*return (.+);/);
+  check('규칙 보완 정본: 과거형 보완 → 콩글리시 표 순서', !!dm && /^verifyWarmupFix\(backfillPastTenseFix\(msg\), msg\)\s*\|\|\s*konglishFix\(msg\)$/.test(dm[1].trim()), dm && dm[1]);
+  check('계획(turnPlan)이 그 정본을 쓴다', /detFix = deterministicFriendFix\(msg\)/.test(FLOW) && /const turnPlan = planFriendTurn\(/.test(AI));
+  // 두 식을 실제로 평가 — 모델 교정이 있으면 표를 안 쓴다 / 없으면 표를 쓴다
   // 2026-10-31: 과거형 보완(tense-backfill)이 식에 끼었다 — 정본을 실제로 불러 넘긴다
   const TB_SRC = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/src/tense-backfill.ts'), 'utf8');
   const backfillPastTenseFix = new Function(stripTypeScriptTypes(TB_SRC).replace(/^export\s+/gm, '') + '\nreturn backfillPastTenseFix;')();
-  if (m) {
-    const ev = (model) => new Function('verifyWarmupFix', 'konglishFix', 'backfillPastTenseFix', 'rawFix', 'msg', 'return ' + m[1])(() => model, K ? K.konglishFix : () => null, backfillPastTenseFix, null, 'I lost my handphone.');
+  if (m && dm) {
+    const AsyncFn = Object.getPrototypeOf(async function () {}).constructor;
+    const ev = async (model) => {
+      const msg = 'I lost my handphone.';
+      const detFix = new Function('verifyWarmupFix', 'konglishFix', 'backfillPastTenseFix', 'msg', 'return ' + dm[1])(() => model, K ? K.konglishFix : () => null, backfillPastTenseFix, msg);
+      return new AsyncFn('verifyWarmupFix', 'turnPlan', 'recheckP', 'waitRecheck', 'rawFix', 'msg', 'return ' + m[1])(() => model, { detFix }, null, async () => null, null, msg);
+    };
     const mine = { was: 'go', now: 'went', tag: 'past_tense', severity: 'major', why_ko: 'x' };
-    check('식 실행: 모델 교정이 있으면 그것', ev(mine) === mine);
-    const r = ev(null);
+    check('식 실행: 모델 교정이 있으면 그것', (await ev(mine)) === mine);
+    const r = await ev(null);
     check('식 실행 짝: 모델 교정이 없으면 표의 교정', !!r && r.now === 'cell phone', r);
   }
   check('프롬프트 한 줄을 만든다', /const konglishCtx = konglishPromptLine\(msg\);/.test(AI));

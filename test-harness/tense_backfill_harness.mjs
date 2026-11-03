@@ -66,11 +66,16 @@ console.log('\nB. 서버 배선');
   const a = INDEX.indexOf('const verified = verifyWarmupFix(rawFix || (ctxLang');
   check('B-1 index.ts 웜업 경로: 모델 fix 우선, 없을 때만 보완', a > 0);
   check('B-2 index.ts 웜업 경로: 중국어는 보완을 쓰지 않는다', a > 0 && INDEX.slice(a, a + 200).includes("ctxLang === 'zh' ? null"));
-  check('B-3 api-ai.ts AI 친구 경로: 모델 fix 를 먼저 검증하고, 그게 안 되면 보완을 쓴다',
-    API_AI.includes('verifyWarmupFix(rawFix, msg) || verifyWarmupFix(backfillPastTenseFix(msg), msg)'));
-  check('B-4 보완 함수를 두 파일 모두 import', INDEX.includes("from './tense-backfill'") && API_AI.includes("from './tense-backfill'"));
+  /* 🎚️ (2026-11-03) AI 친구의 규칙 보완 정본이 friend-correction-flow.ts 의 deterministicFriendFix 로 옮겨 갔다
+     (식: 모델 교정 || turnPlan.detFix || 균형 다시 묻기). 보완 «안» 의 순서(과거형 → 콩글리시)는 그 정본에서 본다. */
+  const FLOW = readFileSync(join(SRC, 'friend-correction-flow.ts'), 'utf8');
+  check('B-3 api-ai.ts AI 친구 경로: 모델 fix 를 먼저 검증하고, 그게 안 되면 보완(turnPlan.detFix)을 쓴다',
+    API_AI.includes('verifyWarmupFix(rawFix, msg) || turnPlan.detFix')
+    && FLOW.includes('return verifyWarmupFix(backfillPastTenseFix(msg), msg) || konglishFix(msg);'));
+  check('B-4 보완 함수를 두 경로 모두 import', INDEX.includes("from './tense-backfill'") && API_AI.includes("from './tense-backfill'") && FLOW.includes("from './tense-backfill'"));
   check('B-5 「모델 fix 를 덮어쓰지 않는다」: 보완이 rawFix 앞에 오지 않는다',
-    !INDEX.includes('backfillPastTenseFix(studentInput) || rawFix') && !API_AI.includes('backfillPastTenseFix(msg) || rawFix'));
+    !INDEX.includes('backfillPastTenseFix(studentInput) || rawFix') && !API_AI.includes('backfillPastTenseFix(msg) || rawFix')
+    && !API_AI.includes('turnPlan.detFix || verifyWarmupFix(rawFix'));
   check('B-6 카드 미표시 원인을 로그에 남긴다 (발화·교정 문장은 싣지 않음)',
     INDEX.includes("console.warn('[warmup-fix] no card:'") && !/console\.warn\('\[warmup-fix\][^;]*studentInput/.test(INDEX));
 }

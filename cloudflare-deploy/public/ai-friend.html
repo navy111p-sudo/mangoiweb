@@ -414,8 +414,9 @@
     <!-- 🎚️ 교정 방식 (2026-10-31 사장님 「A.i친구도 말하기처럼 자유대화·균형·집중교정」).
          기본은 집중교정 — 서버 correctionModeOf 의 기본값과 «짝». 값은 localStorage 에 기억한다. -->
     <span class="corr-label" style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px" data-ko="교정:" data-en="Correction:">교정:</span>
-    <button class="opt" data-cmode="free_talk" title="흐름을 끊지 않고 바른 문장을 자연스럽게 들려줘요" data-ko-title="흐름을 끊지 않고 바른 문장을 자연스럽게 들려줘요" data-en-title="Keeps the flow and simply models the right sentence" data-ko="자유대화" data-en="Free talk">자유대화</button>
-    <button class="opt" data-cmode="balanced" title="핵심 표현이나 되풀이되는 실수만 따라 말해요" data-ko-title="핵심 표현이나 되풀이되는 실수만 따라 말해요" data-en-title="Repeat-after-me only for key phrases or repeated mistakes" data-ko="균형" data-en="Balanced">균형</button>
+    <!-- 🎚️ (2026-11-03) 설명을 실제 동작에 맞춤 — 자유: 교정 카드만 · 균형: 고친 문장을 먼저 한 번 말함 · 집중: 고친 문장 3번(정본 src/friend-correction-flow.ts) -->
+    <button class="opt" data-cmode="free_talk" title="대화는 그대로, 틀린 곳은 교정 카드로만 보여줘요" data-ko-title="대화는 그대로, 틀린 곳은 교정 카드로만 보여줘요" data-en-title="Keeps chatting; mistakes appear only as a correction card" data-ko="자유대화" data-en="Free talk">자유대화</button>
+    <button class="opt" data-cmode="balanced" title="틀리면 바른 문장을 먼저 한 번 말해 주고 대화를 이어가요" data-ko-title="틀리면 바른 문장을 먼저 한 번 말해 주고 대화를 이어가요" data-en-title="Says the corrected sentence once first, then keeps chatting" data-ko="균형" data-en="Balanced">균형</button>
     <button class="opt active" data-cmode="focused" title="틀릴 때마다 바른 문장을 듣고 따라 말해요" data-ko-title="틀릴 때마다 바른 문장을 듣고 따라 말해요" data-en-title="Every mistake: hear the right sentence and say it back" data-ko="집중교정" data-en="Focused">집중교정</button>
     <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px">🔊 <span data-ko="속도:" data-en="Speed:">속도:</span></span>
     <button class="opt" data-rate="0.5" data-ko="🐢 아주 느리게" data-en="🐢 Very slow">🐢 아주 느리게</button>
