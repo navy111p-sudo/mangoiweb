@@ -6535,6 +6535,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         const src = String(r.source || '');
         const sd = String(r.scheduled_date || '');
         if (!src || !sd) continue;
+        /* 🧾 (2026-11-03) 취소·연기 행은 «코스 기간» 을 넓히지 않는다 — rows 에는 원래 active 만 오지만,
+           아래 «취소·연기» 조회를 rows 에 합치는 사람이 생겨도 기간이 틀리지 않게 한 겹 둔다. */
+        if (String(r.status || 'active').trim().toLowerCase() !== 'active') continue;
         /* 🪞 (2026-08-31) 카페24 미러 행은 이 «기간 묶기» 에서 뺀다.
            위 계산은 «같은 source = 같은 수강신청» 을 전제로 하는데(enroll-activate 가
            신청마다 source 를 다르게 단다), 미러는 학생·날짜가 달라도 source 가 전부
@@ -6600,11 +6603,84 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           if (!want) continue;
           for (const d of weekDates) {
             if (dateToDow[d] === want) {
+              /* ⏭ (2026-11-03) «그 주 하루만» 연기·변경한 반복 수업은 그 날 열리지 않는다(정본 class-start-date.ts
+                 recurSkippedOn — 학생 입장·강사 화면·오늘 수업이 이미 따르는 규칙). 이 캘린더만 몰라서 연기한 날에도
+                 «그대로 있는 수업» 으로 그렸다. 그 자리의 «연기됨» 은 아래 off_items 가 말한다.
+                 ⛔ starts_on(시작일 전) 판정은 일부러 안 넣었다 — 이 화면이 «시작 전 반복 수업» 을 어떻게 그릴지는 별건. */
+              if (recurSkippedOn(r, d)) continue;
               items.push({ ...base, date: d, start_date: weekStartISO, end_date: weekEndISO });
             }
           }
         }
       }
+
+      /* 🧾 (2026-11-03 사장님 「주간 시간표도 똑같이」) 취소·연기된 «날짜 회차» 를 지우지 않고 따로 내려준다.
+         [왜] 위 조회가 `status IS NULL OR status='active'` 라 수업을 취소하거나 연기하면 이 캘린더에서
+              통째로 사라졌다 — «오늘 수업» 과 강사 시간표에서 고친 바로 그 사고(class-change-state.ts 머리말).
+         [규칙] ① 날짜가 정해진 행만(정본 isCancelledOccurrence / isPostponedOccurrence) — 매주 반복 행의
+                  cancelled 는 «회차» 가 아니다(나누기·수강 종료가 원본 매주 줄을 내린다).
+                ② LMS·시드 자리표시는 안 싣는다(수업이 아니다 — 정리 버튼이 cancelled 로 내린 658행).
+                ③ **`items` 와 섞지 않는다** — 열려 있던 옛 화면(배포 전에 연 탭)은 off 를 몰라서, 섞으면
+                  취소된 수업을 «살아 있는 수업» 으로 그리고 끌어 옮기기까지 한다. 새 화면만 이 칸을 읽는다.
+                ④ id·move_field 를 안 싣는다 — 이 칸으로는 아무것도 옮기거나 지울 수 없게.
+                ⑤ 따로 조회한다 — 실패해도 위 캘린더는 그대로 뜨고 off_complete=false 로 «못 물어봤다» 를 알린다.
+         누가·사유는 «오늘 수업» 과 같은 청중(본사·내부직원)에게만(judgeClassChange showActor). */
+      const offItems: any[] = [];
+      let offComplete = true;
+      let _offScope: any = null;
+      try { _offScope = await getScope(env as any, request); } catch { _offScope = null; }
+      const _offShowActor = !!_offScope && (_offScope.type === 'hq' || _offScope.type === 'none');
+      try {
+        const or: any = await env.DB.prepare(
+          `SELECT * FROM class_schedules
+            WHERE status IN ('cancelled','postponed')
+              AND substr(COALESCE(scheduled_date,''),1,10) BETWEEN ? AND ?`
+        ).bind(weekStartISO, weekEndISO).all();
+        const offRows: any[] = ((or && or.results) || []).filter((r: any) => {
+          if (r.teacher_id == null || r.teacher_id === '') return false;
+          if (['lms', 'type_seed'].includes(String(r.user_id || '').trim().toLowerCase())) return false;
+          return isCancelledOccurrence(r) || isPostponedOccurrence(r);
+        });
+        /* 이력(누가·언제·사유) — 실패해도 칸은 상태만 말한다(정본 loadClassChangeAudits 는 안 던진다). */
+        const au = await loadClassChangeAudits(env.DB, offRows.map((r: any) => r.id));
+        if (!au.complete) offComplete = false;
+        for (const r of offRows) {
+          const tnum = Number(r.teacher_id);
+          const uid = String(r.user_id || '').trim();
+          const nm = String(r.student_name || '').trim() || nameByUid.get(uid) || uid;
+          const change = judgeClassChange(r, au.bySchedule.get(String(r.id)), { showActor: _offShowActor });
+          if (!change) continue;
+          offItems.push({
+            off: change.kind,                          // 'cancelled' | 'postponed'
+            teacher_id: Number.isFinite(tnum) ? tnum : r.teacher_id,
+            date: String(r.scheduled_date || '').slice(0, 10),
+            hour: hourOf(r.start_time),
+            start_time: r.start_time,
+            type: mapType(r.class_type),
+            students: nm ? [{ name: nm, uid }] : [],
+            duration_min: r.duration_min || DEFAULT_CLASS_MINUTES,
+            note: r.notes || '',
+            change,
+          });
+        }
+      } catch { offComplete = false; /* 취소·연기 조회 실패가 캘린더 전체를 막지 않게 */ }
+
+      /* 📅 다른 날짜·시각에서 «옮겨 온» 날짜 회차에는 그 사실을 붙인다(«오늘 수업» 의 「취소 · 연기」 칸과 같은 정본).
+         화면은 hover 설명에만 쓴다 — 칸 색·옮기기·지우기는 그대로. 이력을 못 읽으면 그냥 안 붙인다. */
+      try {
+        const datedRows = rows.filter((r: any) => r.scheduled_date && String(r.scheduled_date).slice(0, 10) >= weekStartISO && String(r.scheduled_date).slice(0, 10) <= weekEndISO);
+        if (datedRows.length) {
+          const au2 = await loadClassChangeAudits(env.DB, datedRows.map((r: any) => r.id));
+          const rowById = new Map<string, any>(datedRows.map((r: any) => [String(r.id), r]));
+          for (const it of items) {
+            if (it.id == null || it.source === 'unavailability') continue;
+            const row = rowById.get(String(it.id));
+            if (!row) continue;
+            const ch = judgeClassChange(row, au2.bySchedule.get(String(it.id)), { showActor: _offShowActor });
+            if (ch && ch.kind === 'moved') it.change = ch;
+          }
+        }
+      } catch { /* 이동 표시는 덤 — 실패해도 캘린더는 그대로 */ }
 
       /* 🚫 (2026-08-08 마이마이 요청) 「강사가 언더타임이라 수업을 못 할 때 매니저가 그 시간을
          막을 수 있으면 좋겠다」 — 막는 기능(teacher_unavailability)은 이미 있었는데
@@ -6648,7 +6724,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         }
       } catch { /* 휴식시간 조회 실패가 수업 캘린더 전체를 막지 않게 한다 */ }
 
-      return json({ ok: true, week: weekStartISO, count: items.length, items, schedules: items });
+      return json({ ok: true, week: weekStartISO, count: items.length, items, schedules: items,
+        off_items: offItems, off_complete: offComplete });
     }
 
     // 🥭 Phase WS-2 — GET /api/admin/unassigned-students

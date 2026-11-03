@@ -218,6 +218,41 @@ if (process.env.CCV_CHILD === '1') {
   const st = await studentToday('stu_a');
   ok('E1 학생 오늘 수업에는 취소 줄이 없다(빈 방 입장 방지)', !(st.sessions || []).some(s => Number(s.schedule_id) === X), JSON.stringify((st.sessions || []).map(s => s.schedule_id)));
 
+  // ── G. 관리자 «주간 시간표»(/api/admin/schedules) — 2026-11-03 「주간 시간표도 똑같이」 ──
+  //    취소·연기 회차는 items 가 아니라 off_items 로(옛 화면이 «살아 있는 수업» 으로 그리지 않게), 옮길 id 없이.
+  //    ⏭ «그 주 하루만» 빠진 반복 수업은 그 날 items 에 안 뜬다(정본 recurSkippedOn) — 짝: 다른 요일 반복은 뜬다.
+  if (!sq.prepare('PRAGMA table_info(class_schedules)').all().some(c => c.name === 'skip_dates')) sq.exec('ALTER TABLE class_schedules ADD COLUMN skip_dates TEXT');
+  const R = mkClass('stu_r', 'recurring', 'Tue', null, '18:00');    // 매주 화 — 11/03 만 빠짐
+  sq.prepare('UPDATE class_schedules SET skip_dates=? WHERE id=?').run(TODAY, R);
+  const R2 = mkClass('stu_r2', 'recurring', 'Wed', null, '18:00');  // 매주 수 — 짝(그대로 뜬다)
+  const L = Number(ins(`INSERT INTO class_schedules (user_id, schedule_kind, class_type, scheduled_date, start_time, duration_min, teacher_id, status, source, created_at)
+     VALUES ('lms','one_off','regular',?,'12:00',20,'1','cancelled','lms_import_w26',?)`, TOMORROW, T0).lastInsertRowid);   // 정리된 LMS 자리표시
+  const wk = await callAdmin('GET', '/api/admin/schedules?week=2026-11-02', { cookie: 'tok_admin' });
+  const offs = (wk.body && wk.body.off_items) || [], its = (wk.body && wk.body.items) || [];
+  const offOf = (uid) => offs.find(o => (o.students || []).some(s => s.uid === uid));
+  ok('G0 주간 시간표 200 ok · off_items 배열 · 이력 완전', wk.status === 200 && wk.body.ok === true && Array.isArray(wk.body.off_items) && wk.body.off_complete === true, JSON.stringify(wk.body).slice(0, 300));
+  const gx = offOf('stu_a');
+  ok('G1 🔑 취소한 수업이 주간 시간표에서 «사라지지 않고» off_items 로', !!gx && gx.off === 'cancelled' && gx.date === TODAY && /^14:00/.test(gx.start_time) && gx.change && gx.change.label_ko === '✕ 취소됨' && gx.change.label_en === '✕ Cancelled', JSON.stringify(gx));
+  ok('G2 본사에는 누가·사유·언제가 실린다', !!gx && !!gx.change.by && gx.change.reason === 'harness reason' && !!gx.change.at_kst, JSON.stringify(gx && gx.change));
+  ok('G3 ⛔ 취소 줄은 «수업 칸»(items)에 안 섞인다 — 옛 화면이 살아 있는 수업으로 그리지 않게', !its.some(i => Number(i.id) === X), JSON.stringify(its.map(i => i.id)));
+  ok('G4 ⛔ off_items 에는 옮길 id·move_field 가 없다(끌어 옮기기·삭제 불가)', offs.length > 0 && offs.every(o => o.id === undefined && o.move_field === undefined), JSON.stringify(offs.map(o => Object.keys(o))));
+  const gy = offOf('stu_c');
+  ok('G5 날짜 없이 연기한 수업 = off_items postponed', !!gy && gy.off === 'postponed' && /연기됨/.test(gy.change.label_ko) && !its.some(i => Number(i.id) === Y), JSON.stringify(gy));
+  ok('G6 ⛔ 매주 행의 cancelled 는 어디에도 안 뜬다(회차가 아니다)', !offOf('stu_b') && !its.some(i => Number(i.id) === W));
+  ok('G7 ⛔ 정리된 LMS 자리표시(cancelled)는 off_items 에 안 싣는다(수업이 아니다)', !offs.some(o => (o.students || []).length === 0 || o.date === TOMORROW && /^12:00/.test(o.start_time)), JSON.stringify(offs.map(o => [o.date, o.start_time])));
+  const gz = its.find(i => Number(i.id) === Z);
+  ok('G8 다른 날에서 옮겨 온 수업 = 수업 칸 그대로 + change moved(원래 날짜)', !!gz && gz.date === TODAY && gz.change && gz.change.kind === 'moved' && gz.change.from_date === TOMORROW && !offOf('stu_d'), JSON.stringify(gz && gz.change));
+  const rDays = its.filter(i => Number(i.id) === R).map(i => i.date), r2Days = its.filter(i => Number(i.id) === R2).map(i => i.date);
+  ok('G9 ⏭ «그 주 하루만» 빠진 반복 수업은 그 날 수업 칸에 안 뜬다', !rDays.includes(TODAY), JSON.stringify(rDays));
+  ok('G10 짝: 다른 요일 반복 수업은 그대로 뜬다', r2Days.length === 1 && r2Days[0] === TOMORROW, JSON.stringify(r2Days));
+  const wn = await callAdmin('GET', '/api/admin/schedules?week=2026-11-09', { cookie: 'tok_admin' });
+  const wnOffs = (wn.body && wn.body.off_items) || [];
+  ok('G11 다음 주 조회: 그 주에 취소한 F 가 남고 이번 주 취소 X 는 안 섞인다', wnOffs.some(o => (o.students || []).some(s => s.uid === 'stu_f')) && !wnOffs.some(o => (o.students || []).some(s => s.uid === 'stu_a')), JSON.stringify(wnOffs.map(o => o.date)));
+  const wt = await callAdmin('GET', '/api/admin/schedules?week=2026-11-02', { cookie: 'tok_alpha' });
+  const tx = ((wt.body && wt.body.off_items) || []).find(o => (o.students || []).some(s => s.uid === 'stu_a'));
+  ok('G12 🔒 본사·내부직원이 아니면 누가·사유는 안 실린다(언제는 실린다)', !!tx && tx.change.by === null && tx.change.reason === null && !!tx.change.at_kst, JSON.stringify(tx && tx.change));
+  void L;
+
   process.stdout.write('\n@@RESULTS@@' + JSON.stringify({ results }) + '\n');
   process.exit(0);
 }
@@ -273,6 +308,18 @@ const MUTANTS = [
     edits: [['api-teacher.ts', 'if (!_cancelled || isCancelledOccurrence(s)) {', 'if (!_cancelled) {']] },
   { name: '출결 판정이 «취소» 를 모름(결석으로 말함)', expect: /A6 /,
     edits: [['class-today-extras.ts', "if (status === 'cancelled') return { state: 'cancelled', at: null, late_min: null };", '']] },
+  { name: '주간 시간표: 취소·연기 회차를 안 실음(옛 동작)', expect: /G1 |G5 /,
+    edits: [['api-admin.ts', 'if (!change) continue;\n          offItems.push({', 'if (!change || true) continue;\n          offItems.push({']] },
+  { name: '주간 시간표: 취소 회차를 items 에 섞음(옛 화면이 살아 있는 수업으로 그림)', expect: /G3 /,
+    edits: [['api-admin.ts', "`SELECT * FROM class_schedules WHERE (status IS NULL OR status='active')`", "`SELECT * FROM class_schedules WHERE (status IS NULL OR status='active' OR scheduled_date IS NOT NULL)`"]] },
+  { name: '주간 시간표: «그 주 하루만» 빠진 날에도 반복 수업을 그림', expect: /G9 /,
+    edits: [['api-admin.ts', 'if (recurSkippedOn(r, d)) continue;\n              items.push', 'items.push']] },
+  { name: '주간 시간표: LMS 자리표시 거르기를 뺌', expect: /G7 /,
+    edits: [['api-admin.ts', "if (['lms', 'type_seed'].includes(String(r.user_id || '').trim().toLowerCase())) return false;\n          return isCancelledOccurrence", 'return isCancelledOccurrence']] },
+  { name: '주간 시간표: 누구에게나 누가·사유를 실음', expect: /G12 /,
+    edits: [['api-admin.ts', "const _offShowActor = !!_offScope && (_offScope.type === 'hq' || _offScope.type === 'none');", 'const _offShowActor = true;']] },
+  { name: '주간 시간표: 조건 뒤집기 — 취소 회차를 거꾸로 거름', expect: /G1 |G5 /,
+    edits: [['api-admin.ts', 'return isCancelledOccurrence(r) || isPostponedOccurrence(r);', 'return !(isCancelledOccurrence(r) || isPostponedOccurrence(r));']] },
 ];
 for (const m of MUTANTS) {
   const dir = join(tmp, 'm-' + MUTANTS.indexOf(m));

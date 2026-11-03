@@ -324,6 +324,15 @@ tr:hover .tl-td-day{background:rgba(251,191,36,.07)}
 /* 🏷 (2026-08-21) LMS 점유·시연 시드 — 위 .slot-ghost 와 같은 뜻(진짜 수업 아님), 주간 타임라인용 */
 .tl-seg.s-ghost{background:repeating-linear-gradient(45deg,rgba(251,191,36,.55),rgba(251,191,36,.55) 3px,rgba(180,83,9,.65) 3px,rgba(180,83,9,.65) 6px)}
 .tl-seg.s-free{background:rgba(16,185,129,.30);border-left:2.5px solid #059669}
+/* 🧾 (2026-11-03) 취소·연기된 날짜 회차 — 지우지 않고 회색으로 남긴다(서버 off_items).
+   ⚠️ 진짜 수업 칸이 아니다 — 끌기·지우기·이동이 안 붙고, 그 시간은 «빈 시간» 으로 쳐서 새 수업을 넣을 수 있다.
+   ⚠️ 이 화면은 adm-light-theme.css 로 늘 밝다 — 밝은 바탕 + 어두운 글자로 고른다(흰 글자 금지). */
+.tl-seg.s-off{background:repeating-linear-gradient(135deg,#e2e8f0,#e2e8f0 3px,#cbd5e1 3px,#cbd5e1 6px);border-left:2.5px solid #64748b;opacity:.9}
+.tl-seg.s-off.s-pp{background:#f1f5f9;border-left:2.5px dashed #64748b}
+.tl-scroll td.slot.slot-off{background:repeating-linear-gradient(135deg,#f1f5f9,#f1f5f9 4px,#e2e8f0 4px,#e2e8f0 8px);
+  color:#475467;font-weight:700;text-decoration:line-through;text-decoration-color:#64748b;cursor:cell}
+.tl-scroll td.slot.slot-off.slot-off-postponed{background:#f8fafc;text-decoration:none;font-style:italic;
+  box-shadow:inset 0 0 0 1px #94a3b8}
 html[data-admin-theme="ivory"] .tl-seg.s-1on1{background:var(--cell-1on1)}
 html[data-admin-theme="ivory"] .tl-seg.s-group{background:var(--cell-group)}
 html[data-admin-theme="ivory"] .tl-seg.s-temp{background:var(--cell-temp)}
@@ -843,6 +852,8 @@ body.dragging{cursor:crosshair}
     <button type="button" id="st-ghost-purge" class="ghost-purge-btn" hidden
             data-ko-title="LMS·시드 자리표시를 한 번에 정리합니다" data-en-title="Clear LMS/Demo placeholders"
             data-ko="정리" data-en="Clear">정리</button></div>
+  <!-- 🧾 (2026-11-03) 취소·연기된 날짜 회차 — 캘린더에서 사라지지 않고 회색으로 남는다. 이 숫자는 «총 수업» 에 안 든다. -->
+  <div class="sm" data-ko-title="이번 주에 취소·연기된 날짜 수업 — 회색 칸으로 남고, 그 시간은 새 수업을 넣을 수 있습니다" data-en-title="Classes cancelled or postponed this week — shown as gray cells; the time is open for a new class" title="이번 주에 취소·연기된 날짜 수업 — 회색 칸으로 남고, 그 시간은 새 수업을 넣을 수 있습니다"><span data-ko="취소·연기" data-en="Cancelled/Postponed">취소·연기</span><b id="st-off">—</b></div>
   <div class="lgs">
     <span><i style="background:#fde68a;border-left:3px solid #b45309"></i><span data-ko="정규 1:1" data-en="Regular 1:1">정규 1:1</span></span>
     <span><i style="background:#f4abce;border-left:3px solid #db2777"></i><span data-ko="정규 그룹" data-en="Regular group">정규 그룹</span></span>
@@ -851,6 +862,7 @@ body.dragging{cursor:crosshair}
     <span><i style="background:#93c5fd;border-left:3px solid #1d4ed8"></i><span data-ko="레벨테스트" data-en="Level test">레벨테스트</span></span>
     <span><i style="background:repeating-linear-gradient(45deg,#94a3b8,#94a3b8 3px,#64748b 3px,#64748b 6px)"></i><span data-ko="휴무" data-en="Off">휴무</span></span>
     <span><i style="background:repeating-linear-gradient(45deg,rgba(251,191,36,.55),rgba(251,191,36,.55) 3px,rgba(180,83,9,.65) 3px,rgba(180,83,9,.65) 6px)"></i><span data-ko="LMS·시드" data-en="LMS/Demo">LMS·시드</span></span>
+    <span><i style="background:repeating-linear-gradient(135deg,#e2e8f0,#e2e8f0 3px,#cbd5e1 3px,#cbd5e1 6px);border-left:3px solid #64748b"></i><span data-ko="✕ 취소 · ⏸ 연기" data-en="✕ Cancelled · ⏸ Postponed">✕ 취소 · ⏸ 연기</span></span>
   </div>
 </section>
 <section class="controls one-line">
@@ -991,6 +1003,33 @@ async function loadHolidays(){
   }catch(e){}
 }
 var TEACHERS=[],SLOTS={},activeCategory='all',searchQuery='';
+/* 🧾 (2026-11-03 사장님 «주간 시간표도 똑같이») 취소·연기된 «날짜 회차» — 서버 /api/admin/schedules 의 off_items.
+   ⛔ SLOTS 에 넣지 말 것 — SLOTS 에 있는 칸은 «수업이 있는 칸» 으로 읽혀(cellBusy·hourHasSlot·rangeHasSlot·
+      드래그·이동·삭제·통계·가동률) 취소된 수업이 시간을 계속 막고 끌어 옮겨지기까지 한다.
+      따로 두면 기존 판정은 한 줄도 안 바뀌고, 그리는 곳(일간 칸·주간 막대·툴팁)만 이 표를 읽는다.
+   ✅ 그 시간은 «빈 시간» 이다 — 회색 칸을 눌러 새 수업을 넣을 수 있다(LMS·시드 자리표시와 같은 뜻). */
+var OFF_SLOTS={}, OFF_COMPLETE=true;
+function getOffAt(tid,d,startMin){return OFF_SLOTS[tid+'__'+d+'__'+startMin];}
+function offsOfDay(tid,d){
+  var pre=tid+'__'+d+'__',out=[];
+  for(var k in OFF_SLOTS){
+    if(k.indexOf(pre)!==0)continue;
+    var st=parseInt(k.slice(pre.length),10);
+    if(!isNaN(st))out.push({startMin:st,off:OFF_SLOTS[k]});
+  }
+  return out.sort(function(a,b){return a.startMin-b.startMin;});
+}
+/** 화면 글자 — 서버가 만든 label_ko/label_en 을 고르기만 한다(⛔ 문구를 여기서 다시 만들지 말 것). */
+function offLabel(o){
+  var ch=(o&&o.change)||{};
+  if(currentLang==='en')return ch.label_en||(o&&o.off==='postponed'?'⏸ Postponed':'✕ Cancelled');
+  return ch.label_ko||(o&&o.off==='postponed'?'⏸ 연기됨':'✕ 취소됨');
+}
+function offWho(o){
+  var s=(o&&o.students)||[];
+  if(!s.length)return '';
+  return s.length===1?s[0].name:((currentLang==='ko'?'그룹 ':'Group ')+s.length);
+}
 // 📊 타임라인 뷰 상태 (2026-07-28)
 var viewMode='week';                    // 'week' = 개요 / 'day' = 작업면
 var curDow=(function(){var g=new Date().getDay();return g===0?6:g-1;})();  // 월=0
@@ -1095,6 +1134,7 @@ function loadDemoData(){
 }
 
 async function loadData(){
+  OFF_SLOTS={}; OFF_COMPLETE=true;   // 🧾 주를 옮기면 지난 주 취소 칸이 남지 않게 — 언제나 먼저 비운다
   // URL ?demo=1 -> 무조건 데모 모드 (실 API 시도 안 함)
   var forceDemo=new URLSearchParams(location.search).get('demo')==='1';
   if(forceDemo){ loadDemoData(); return; }
@@ -1111,6 +1151,25 @@ async function loadData(){
             var sd=await sRes.json();
             var slots=Array.isArray(sd)?sd:(sd.schedules||sd.data||sd.items||[]);
             SLOTS={};
+            /* 🧾 취소·연기 회차는 OFF_SLOTS 로만(위 선언 주석). 시각은 아래 수업과 같은 규칙(start_time 의 «시:분», 10분 격자). */
+            OFF_COMPLETE=!(sd&&sd.off_complete===false);
+            ((sd&&Array.isArray(sd.off_items))?sd.off_items:[]).forEach(function(o){
+              if(!o||o.teacher_id==null||!o.date)return;
+              var om=/(?:^|[T ])(\d{1,2}):(\d{2})/.exec(String(o.start_time||''));
+              var oh=om?parseInt(om[1],10):(Number(o.hour)||0), omm=om?parseInt(om[2],10):0;
+              if(isNaN(oh))return;
+              omm=Math.round(omm/SLOT_STEP)*SLOT_STEP; if(omm>=60){oh+=1;omm-=60;}
+              var ok=o.teacher_id+'__'+o.date+'__'+(oh*60+omm);
+              var prev=OFF_SLOTS[ok];
+              if(prev){   // 그룹 수업은 «학생마다 한 행» — 같은 칸이면 학생만 합친다(아래 수업 로더와 같은 이유)
+                var have={};(prev.students||[]).forEach(function(x){have[x.uid||x.name]=1;});
+                (o.students||[]).forEach(function(x){if(!have[x.uid||x.name]){prev.students.push(x);have[x.uid||x.name]=1;}});
+                return;
+              }
+              OFF_SLOTS[ok]={off:o.off==='postponed'?'postponed':'cancelled',type:o.type||'1on1',
+                students:(o.students||[]).slice(),duration_min:Number(o.duration_min)>0?Number(o.duration_min):20,
+                note:o.note||'',change:o.change||null};
+            });
             slots.forEach(function(s){
               /* ⏱ (2026-08-12) 분을 버리지 말 것. 예전엔 getHours() 만 써서 19:20 수업이
                  19:00 으로 그려졌고, duration_min 도 옮겨 담지 않아 길이가 항상 기본값이었다.
@@ -1173,7 +1232,9 @@ async function loadData(){
                 /* 🚚 드래그 이동 때 고칠 칸 — **서버가 정해 준다**(api-admin.ts 의 move_field).
                    ⛔ 여기서 `recurring` 으로 다시 판정하지 말 것: 그 칸은 근무불가 차단에만
                       실려서 진짜 수업은 언제나 false 다 → 반복 행에 날짜가 박혀 «매주» 가 죽는다. */
-                moveField:s.move_field
+                moveField:s.move_field,
+                /* 📅 (2026-11-03) 다른 날짜·시각에서 옮겨 온 회차면 서버가 붙여 준다(change.kind='moved') — 툴팁에만 쓴다 */
+                change:(s.change&&s.change.kind==='moved')?s.change:null
               },mm);
             });
             // 슬롯도 정상이고 teachers도 있으면 실 데이터 사용
@@ -1286,6 +1347,9 @@ function render(){
      «눌러도 아무 일도 안 일어나는 버튼» 이 된다. */
   var purgeBtn=document.getElementById('st-ghost-purge');
   if(purgeBtn)purgeBtn.hidden=!(s.ghost>0);
+  /* 🧾 취소·연기 회차 수 — «총 수업» 에는 안 든다. 서버가 «못 물어봤다» 고 하면 0 대신 «?» (모르는 것을 0 으로 말하지 않기) */
+  var offEl=document.getElementById('st-off');
+  if(offEl){ var nOff=Object.keys(OFF_SLOTS).length; offEl.textContent=(!OFF_COMPLETE&&!nOff)?'?':(nOff+(currentLang==='ko'?'건':'')); }
   syncCatSelect(s.byCat);
   var q=searchQuery.toLowerCase().trim();
   function tMatch(t){
@@ -1299,6 +1363,14 @@ function render(){
         var stu=sl.students[i];
         if((stu.name||'').toLowerCase().includes(q))return true;
         if((stu.uid||'').toLowerCase().includes(q))return true;
+      }
+    }
+    /* 🧾 취소·연기된 수업의 학생으로 찾아도 그 강사가 나온다 — «어디 갔지?» 를 찾는 사람이 바로 그 학생을 친다 */
+    for(var k2 in OFF_SLOTS){
+      if(!k2.startsWith(t.id+'__'))continue;
+      var os=OFF_SLOTS[k2].students||[];
+      for(var j=0;j<os.length;j++){
+        if((os[j].name||'').toLowerCase().includes(q)||(os[j].uid||'').toLowerCase().includes(q))return true;
       }
     }
     return false;
@@ -1462,6 +1534,17 @@ function weekStripHTML(t,iso){
     });
     return out;
   }
+  /* 🧾 취소·연기 회차를 «먼저» 그린다 — 같은 시각에 새 수업이 들어 있으면 그 막대가 위에 덮인다(나중이 위).
+     ⛔ freeMode(빈자리 찾기)에서는 안 그린다 — 그 시간은 «비어 있다» 가 사실이다(위 freeMode 분기는 SLOTS 만 본다). */
+  offsOfDay(t.id,iso).forEach(function(it){
+    var o=it.off, dur=Number(o.duration_min)>0?Number(o.duration_min):20;
+    var left=(it.startMin-DAY0)/SPAN_MIN*100, w=dur/SPAN_MIN*100;
+    if(left<0||left>=100)return;
+    var who=offWho(o);
+    var title=offLabel(o)+' · '+tName(t)+' · '+iso+' '+minLabel(it.startMin)+' ('+dur+(L?'분':'m')+')'+(who?' · '+who:'');
+    out+='<span class="tl-seg s-off'+(o.off==='postponed'?' s-pp':'')+'" data-off-seg="'+o.off+'" style="left:'+left.toFixed(2)+'%;width:'+Math.max(0.6,w-0.15).toFixed(2)+
+      '%" title="'+escapeHtml(title)+'"></span>';
+  });
   items.forEach(function(it){
     var s=it.slot;
     var dur=Number(s.duration_min)>0?Number(s.duration_min):20;
@@ -1533,6 +1616,26 @@ function renderDayGrid(list){
       var base=' data-tid="'+escapeHtml(t.id)+'" data-date="'+iso+'" data-hour="'+h3+'" data-min="'+m3+'"';
       var todayCls=isToday?' col-today':'';
       var edge=(m3===0)?' dg-hour-edge':'';
+      /* 🧾 (2026-11-03) 취소·연기 회차 — 수업이 없는 칸에만, 빈자리 찾기가 아닐 때만 회색으로 그린다.
+         ⛔ data-slot 을 달지 말 것 — 달면 «수업이 있는 칸» 이 되어(cellBusy·드래그 이동·우클릭·상세·삭제)
+            취소된 수업을 끌어 옮기거나 다시 지우게 된다. data-off 는 툴팁만 읽는다.
+         ✅ 그래서 이 칸은 «빈 칸» 과 똑같이 눌러 새 수업을 넣을 수 있다(data-tid/date/hour/min 계약 그대로). */
+      var off=(!s&&!freeMode)?getOffAt(t.id,iso,startMin):null;
+      if(off){
+        var oDur=Number(off.duration_min)>0?Number(off.duration_min):SLOT_STEP;
+        var oSpan=Math.max(1,Math.ceil(oDur/SLOT_STEP));
+        if(step+oSpan>TOTAL_STEPS)oSpan=TOTAL_STEPS-step;
+        // 그 사이에 진짜 수업이 시작하면 거기서 끊는다 — 진짜 수업 칸을 가리지 않게
+        for(var oq=1;oq<oSpan;oq++){ if(getSlotAt(t.id,iso,startMin+oq*SLOT_STEP)){ oSpan=oq; break; } }
+        var oPay=encodeURIComponent(JSON.stringify({teacher:nm,date:iso,hour:h3,minute:m3,off:off}));
+        var oWho=offWho(off);
+        body+='<td colspan="'+oSpan+'" class="slot slot-off slot-off-'+off.off+(blockedDay?' slot-blocked-day':'')+todayCls+edge+'"'+base+
+          ' title="'+escapeHtml(offLabel(off)+' · '+minLabel(startMin)+'~'+minLabel(startMin+oDur)+(oWho?' · '+oWho:''))+'"'+
+          (blockedDay?' data-blockdate="'+iso+'"':'')+   // 종일 차단일이면 빈 칸과 똑같이 배정 경고(holidayGuard)
+          ' data-off="'+oPay+'">'+escapeHtml((off.off==='postponed'?'⏸ ':'✕ ')+oWho)+'</td>';
+        skip=oSpan-1;
+        continue;
+      }
       if(!s){
         var dim=(freeMode&&blockedDay)?' dimmed':'';
         var hit=(freeMode&&!blockedDay)?' freehit':'';
@@ -1675,12 +1778,47 @@ document.addEventListener('mousemove',function(e){
   if(s.start_date||s.end_date){
     html+='<div class="tooltip-dates"><div class="tooltip-date start"><div class="dlbl">📅 '+(L?'시작일':'Start')+'</div><div class="dval">'+(s.start_date||'-')+'</div></div><div class="tooltip-date end"><div class="dlbl">🏁 '+(L?'종료일':'End')+'</div><div class="dval">'+(s.end_date||'-')+'</div></div></div>';
   }
+  /* 📅 (2026-11-03) 다른 날짜·시각에서 옮겨 온 회차 — 서버 정본 글자(change.label_*)와 누가·언제(본사·내부직원에게만) */
+  if(s.change&&s.change.kind==='moved')html+=offChangeRows(s.change);
+  _ttShow(html,e);
+});
+/* 🧾 툴팁 띄우기(위치 계산) — 수업 칸·취소/연기 칸이 함께 쓴다 */
+function _ttShow(html,e){
   tooltip.innerHTML=html;tooltip.classList.add('show');
   var tw=tooltip.offsetWidth,th=tooltip.offsetHeight;
   var x=e.clientX+16,y=e.clientY+12;
   if(x+tw>window.innerWidth-8)x=e.clientX-tw-16;
   if(y+th>window.innerHeight-8)y=e.clientY-th-12;
   tooltip.style.left=Math.max(8,x)+'px';tooltip.style.top=Math.max(8,y)+'px';
+}
+/* 🧾 «취소·연기·옮김» 줄 — 글자는 서버가 만든 것(label_ko/label_en)만 쓴다. 누가·사유는 서버가 본사·내부직원에게만 싣는다. */
+function offChangeRows(ch){
+  var L=currentLang==='ko';
+  var h='<div class="tooltip-row"><span class="k">'+(L?'취소 · 연기':'Cancelled · Postponed')+'</span><span class="v">'+escapeHtml(L?(ch.label_ko||''):(ch.label_en||''))+'</span></div>';
+  var who=[ch.by||'',ch.at_kst||''].filter(Boolean).join(' · ');
+  if(who)h+='<div class="tooltip-row"><span class="k">'+(L?'처리':'By')+'</span><span class="v">'+escapeHtml(who)+'</span></div>';
+  if(ch.reason)h+='<div class="tooltip-row"><span class="k">'+(L?'사유':'Reason')+'</span><span class="v">'+escapeHtml(ch.reason)+'</span></div>';
+  return h;
+}
+/* 🧾 (2026-11-03) 취소·연기 칸(data-off) 툴팁 — 수업 칸 툴팁과 같은 모양, 맨 위에 «취소됨/연기됨».
+   ⚠️ 위 수업 칸 핸들러는 data-slot 이 없으면 툴팁을 닫는다 — 이 핸들러가 «그 뒤» 에 등록돼야 열린 채 남는다. */
+document.addEventListener('mousemove',function(e){
+  var t=e.target.closest&&e.target.closest('.slot');
+  if(!t||t.dataset.slot||!t.dataset.off)return;
+  var data; try{ data=JSON.parse(decodeURIComponent(t.dataset.off)); }catch(_){ return; }
+  var o=data.off||{}, L=currentLang==='ko';
+  var dur=Number(o.duration_min)>0?Number(o.duration_min):SLOT_STEP, st=data.hour*60+(data.minute||0);
+  var html='<div class="tooltip-title">'+escapeHtml(offLabel(o))+'</div>';
+  html+='<div class="tooltip-row"><span class="k">'+(L?'교사':'Teacher')+'</span><span class="v">'+escapeHtml(data.teacher)+'</span></div>';
+  html+='<div class="tooltip-row"><span class="k">'+(L?'일시':'When')+'</span><span class="v">'+data.date+' · '+minLabel(st)+' ~ '+minLabel(st+dur)+'</span></div>';
+  if(o.change)html+=offChangeRows(o.change);
+  if(o.students&&o.students.length){
+    html+='<div class="tooltip-students"><div class="ttl">'+(L?'학생':'Students')+' ('+o.students.length+(L?'명':'')+')</div>';
+    o.students.forEach(function(stu){html+='<div class="tooltip-student"><span>👤 <b>'+escapeHtml(stu.name)+'</b></span><span class="uid">'+escapeHtml(stu.uid||'')+'</span></div>';});
+    html+='</div>';
+  }
+  html+='<div class="tooltip-row"><span class="k">'+(L?'이 시간':'This time')+'</span><span class="v">'+(L?'비어 있음 — 눌러서 새 수업을 넣을 수 있어요':'Open — click to add a new class')+'</span></div>';
+  _ttShow(html,e);
 });
 document.addEventListener('scroll',function(){tooltip.classList.remove('show');},true);
 document.addEventListener('mouseleave',function(){tooltip.classList.remove('show');});
@@ -2036,7 +2174,7 @@ document.addEventListener('mousemove', function(e){
     document.body.appendChild(dnd.ghost);
     // [기능2] 비어있는 '수업 가능' 셀들을 녹색 점선으로 강조
     // ⚠️ 선택자를 .mini-cal 에 묶지 말 것 — 레이아웃이 바뀌면 표시가 조용히 사라진다
-    document.querySelectorAll('td.slot.slot-empty, td.slot.slot-weekend').forEach(function(c){c.classList.add('drop-ready');});
+    document.querySelectorAll('td.slot.slot-empty, td.slot.slot-weekend, td.slot.slot-off').forEach(function(c){c.classList.add('drop-ready');});
   }
   if(!dnd.active)return;
   // Ghost 위치 업데이트
@@ -4611,7 +4749,7 @@ var PRESET_KEYS = ['week','today','teacher','student','free'];
         '<div class="gh-sub">'+(L?'빈 셀에 놓아 배정':'Drop on empty slot')+'</div></div>';
       document.body.appendChild(pdnd.ghost);
       // [기능2] 비어있는 '수업 가능' 셀들을 녹색 점선으로 강조
-      document.querySelectorAll('td.slot.slot-empty, td.slot.slot-weekend').forEach(function(c){c.classList.add('drop-ready');});
+      document.querySelectorAll('td.slot.slot-empty, td.slot.slot-weekend, td.slot.slot-off').forEach(function(c){c.classList.add('drop-ready');});
     }
     if(!pdnd.active) return;
     if(pdnd.ghost){ pdnd.ghost.style.left = e.clientX+'px'; pdnd.ghost.style.top = (e.clientY-10)+'px'; }
