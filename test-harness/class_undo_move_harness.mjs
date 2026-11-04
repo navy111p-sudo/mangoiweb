@@ -8,7 +8,7 @@
  *   C. 두 화면(admin.html js/adm-today-classes.js · manager.html)의 버튼 함수를 «오려 내 실제로 돌려» —
  *      본사만 · 못 하면 사유 글자 · 누르면 action:'undo_move' + from_date 를 보내는가 · 배선
  *   변이시험 — 고친 자리를 되돌린 사본에서 이 하니스가 정말 빨간불이 되는가.
- * HTTP 경로(본사 게이트·응답 모양)와 «오늘 수업» 응답의 undo 칸은 class_cancelled_visible_harness U절이 진짜 핸들러로 잰다.
+ *   E. (e2e 자식) 진짜 handleAdminApi 로 — «오늘 수업» 응답의 undo 칸 · POST {action:'undo_move'} 의 본사 게이트 · 실제로 돌아오는가.
  */
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, cpSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -51,6 +51,145 @@ function stripComments(src) {
     out += c;
   }
   return out;
+}
+
+/* ═════════════════════════ 자식(e2e): 진짜 핸들러로 HTTP 경로 ═════════════════════════
+   «오늘 수업» 응답의 undo 칸 · POST {action:'undo_move'} 의 본사 게이트 · 실제로 돌아오는가 — api-admin.ts 의 진짜 handleAdminApi.
+   ⏱ 무거운 모듈(api-admin.ts)을 부르므로 «기본 실행» 과 e2e 변이에서만 돈다. 처음엔 이 절을 class_cancelled_visible_harness 에
+     넣었는데, 그 하니스는 변이마다 시나리오 전체를 다시 돌려 CI 에서 90초 상한(run.mjs)을 넘겨 SKIP 으로 빠졌다
+     (2026-11-04 PR #2093 — SKIP 20→21 «기준선 이탈»). 그래서 여기로 옮겼다. 준비 방식은 그 하니스와 같다. */
+if (process.env.CUM_CHILD === '1' && process.env.CUM_MODE === 'e2e') {
+  const SRC = process.env.CUM_SRC;
+  const results = [];
+  const ok = (name, cond, why) => results.push({ name, pass: !!cond, why: cond ? '' : String(why ?? '') });
+  let NOW = 0;
+  const RealDate = Date;
+  class FakeDate extends RealDate {
+    constructor(...a) { if (a.length === 0) super(NOW); else super(...a); }
+    static now() { return NOW; }
+  }
+  globalThis.Date = FakeDate;
+  const setNow = (ymd, hm) => { NOW = RealDate.parse(`${ymd}T${hm}:00+09:00`); };
+  console.warn = () => {};
+  globalThis.fetch = async () => { throw new Error('External network is forbidden in this harness'); };
+
+  const { DatabaseSync } = await import('node:sqlite');
+  const sq = new DatabaseSync(':memory:');
+  const norm = (v) => (v === undefined ? null : (typeof v === 'boolean' ? (v ? 1 : 0) : v));
+  const mkStmt = (sql, args) => ({
+    bind: (...b) => mkStmt(sql, b.map(norm)),
+    async first(col) { const r = sq.prepare(sql).get(...args); if (!r) return null; const o = { ...r }; return col ? o[col] : o; },
+    async all() { return { results: sq.prepare(sql).all(...args).map((r) => ({ ...r })), success: true, meta: {} }; },
+    async run() { const r = sq.prepare(sql).run(...args); return { success: true, meta: { last_row_id: Number(r.lastInsertRowid), changes: Number(r.changes) } }; },
+    async raw() { return sq.prepare(sql).all(...args).map((r) => Object.values(r)); },
+  });
+  const DB = {
+    prepare: (sql) => mkStmt(sql, []),
+    async exec(sql) { sq.exec(sql); return { count: 1 }; },
+    async batch(stmts) { sq.exec('BEGIN IMMEDIATE'); try { const out = []; for (const s of stmts) out.push(await s.run()); sq.exec('COMMIT'); return out; } catch (e) { sq.exec('ROLLBACK'); throw e; } },
+  };
+  const kvMap = new Map();
+  const KV = {
+    async get(k, t) { const v = kvMap.get(k); if (v == null) return null; return t === 'json' ? JSON.parse(v) : v; },
+    async put(k, v) { kvMap.set(k, String(v)); }, async delete(k) { kvMap.delete(k); },
+    async list() { return { keys: [...kvMap.keys()].map((name) => ({ name })), list_complete: true }; },
+  };
+  const env = new Proxy({ DB, ADMIN_PASSWORD: 'harness-pw' }, {
+    get(t, p) { if (p in t) return t[p]; if (typeof p === 'string' && /^[A-Z_]+$/.test(p) && /KV|STATE|CACHE|SESS/.test(p)) return KV; return undefined; },
+  });
+  const imp = (f) => import(pathToFileURL(join(SRC, f)).href);
+  const { handleAdminApi } = await imp('api-admin.ts');
+  const { handleMangoApi } = await imp('api-mango.ts');
+  const { checkAdminSession } = await imp('auth-admin.ts');
+  const { getScope } = await imp('scope.ts');
+  const { scheduleMoveVersion } = await imp('class-schedule-move.ts');
+  const adminSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const BASE = 'https://mangoi.ai';
+  const req = (method, path, { cookie, body } = {}) => {
+    const headers = { 'content-type': 'application/json' };
+    if (cookie) headers.cookie = `mango_admin_session=${cookie}`;
+    return new Request(BASE + path, { method, headers, body: body == null ? undefined : JSON.stringify(body) });
+  };
+  const callAdmin = async (method, path, opts) => {
+    const r = req(method, path, opts);
+    const res = await handleAdminApi(r, new URL(r.url), env, { waitUntil() {}, passThroughOnException() {} });
+    return res ? { status: res.status, body: await res.json().catch(() => ({})) } : { status: 0, body: { error: 'no_route' } };
+  };
+
+  // 스키마: 핸들러가 스스로 만드는 것은 핸들러에게, 나머지는 소스의 CREATE 문을 읽어서(하니스에 베끼지 않는다)
+  setNow('2026-12-02', '08:00');
+  try {
+    await checkAdminSession(req('GET', '/x', { cookie: 'prime' }), env);
+    await getScope(env, req('GET', '/x'));
+    await handleMangoApi(req('GET', '/api/class/sessions/today?user_id=prime'), new URL(BASE + '/api/class/sessions/today?user_id=prime'), env, {});
+  } catch (e) { ok('E0 전제: 스키마 준비', false, e.message); }
+  const cutCreate = (src, name, mustContain) => {
+    const re = new RegExp('`(CREATE TABLE IF NOT EXISTS ' + name + '\\s*\\([\\s\\S]*?\\);?)`', 'g');
+    let m; while ((m = re.exec(src))) { if (!mustContain || m[1].includes(mustContain)) return m[1]; }
+    return null;
+  };
+  const tIdx = adminSrc.indexOf('`CREATE TABLE IF NOT EXISTS teachers (`');
+  const tEnd = adminSrc.indexOf("].join(' ')", tIdx);
+  const ddls = [
+    tIdx > 0 && tEnd > tIdx ? [...adminSrc.slice(tIdx, tEnd).matchAll(/`([^`]*)`/g)].map((m) => m[1]).join(' ') : null,
+    cutCreate(adminSrc, 'students_erp', 'user_id TEXT PRIMARY KEY, korean_name'),
+    cutCreate(adminSrc, 'teacher_account_links'),
+    cutCreate(adminSrc, 'attendance', 'room_id TEXT NOT NULL'),
+    cutCreate(readFileSync(join(SRC, 'student-schedule-request.ts'), 'utf8'), 'schedule_change_requests'),
+  ];
+  ok('E0 전제: teachers·students_erp·teacher_account_links·attendance·schedule_change_requests CREATE 를 소스에서 읽었다', ddls.every(Boolean));
+  for (const d of ddls) if (d) sq.exec(d);
+  // 운영 명부의 칸(소스 CREATE 에는 없고 나중에 ALTER) — 없으면 «오늘 수업» 조인이 폴백으로 돌고 지사 계정은 0건이 된다
+  for (const col of ['shop_name', 'level', 'textbook']) {
+    if (!sq.prepare('PRAGMA table_info(students_erp)').all().some(c => c.name === col)) sq.exec(`ALTER TABLE students_erp ADD COLUMN ${col} TEXT`);
+  }
+  const T0 = RealDate.parse('2026-09-01T00:00:00Z'), FAR = RealDate.parse('2030-01-01T00:00:00Z');
+  const ins = (sql, ...a) => sq.prepare(sql).run(...a);
+  ins(`INSERT INTO teachers (id, name, active, created_at, updated_at) VALUES (1,'ALPHA',1,?,?)`, T0, T0);
+  ins(`INSERT INTO admin_account (username, password_hash, name, created_at, updated_at) VALUES ('t_alpha','x','ALPHA',?,?)`, T0, T0);
+  ins(`INSERT OR REPLACE INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES ('t_alpha','teacher',NULL,?)`, T0);
+  ins(`INSERT OR REPLACE INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES ('admin','hq',NULL,?)`, T0);
+  ins(`INSERT INTO admin_account (username, password_hash, name, created_at, updated_at) VALUES ('agency_mgr','x','Agency Manager',?,?)`, T0, T0);
+  ins(`INSERT OR REPLACE INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES ('agency_mgr','agency','owned-shop',?)`, T0);
+  ins(`INSERT INTO teacher_account_links (username, teacher_id, teacher_name, linked_by, linked_at) VALUES ('t_alpha','1','ALPHA','h',?)`, T0);
+  for (const [tok, u] of [['tok_admin', 'admin'], ['tok_alpha', 't_alpha'], ['tok_agency', 'agency_mgr']]) {
+    ins(`INSERT INTO admin_sessions (token, username, created_at, expires_at, last_seen_at) VALUES (?,?,?,?,?)`, tok, u, T0, FAR, T0);
+  }
+  ins(`INSERT INTO students_erp (user_id, korean_name, shop_name, created_at) VALUES ('stu_un','학생stu_un','owned-shop',?)`, T0);
+  const mkClass = (user, date, time) => Number(ins(
+    `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, source, created_at)
+     VALUES (?,?, 'one_off', 'regular', NULL, ?, ?, 20, '1', 'active', 'harness', ?)`, user, '학생' + user, date, time, T0).lastInsertRowid);
+  const row = (id) => ({ ...sq.prepare('SELECT * FROM class_schedules WHERE id=?').get(id) });
+  const S = (b, id) => ((b && b.sessions) || []).find(s => Number(s.schedule_id) === id);
+
+  const UD = '2026-12-02', UN = '2026-12-09';   // 수요일 → 다음 주 수요일
+  const U1 = mkClass('stu_un', UD, '20:00');
+  const U2 = mkClass('stu_un', UD, '10:00');
+  const mvU = (id) => callAdmin('PATCH', '/api/admin/class-schedules/move', { cookie: 'tok_admin', body: { ids: [id], expected: { [id]: scheduleMoveVersion(row(id)) }, patch: { scheduled_date: UN } } });
+  const r1 = await mvU(U1), r2 = await mvU(U2);
+  ok('E0b 전제: 두 수업(20:00·10:00)을 끌어 옮기기로 12/09 로(진짜 PATCH 경로)', r1.status === 200 && r2.status === 200 && row(U1).scheduled_date === UN && row(U2).scheduled_date === UN, JSON.stringify({ r1, r2 }));
+  setNow(UD, '18:30');
+  const d0 = await callAdmin('GET', `/api/admin/classes/today?date=${UD}`, { cookie: 'tok_admin' });
+  ok('E0c 전제: «오늘 수업» 이 조인 경로로 돌았다(학원 칸이 실렸다)', d0.status === 200 && (d0.body.sessions || []).some(s => s.academy === 'owned-shop'), JSON.stringify(d0).slice(0, 300));
+  const g1 = S(d0.body, U1), g2 = S(d0.body, U2);
+  ok('E1 🔑 원래 날짜 줄에 «되돌릴 수 있음» 이 실린다(원래 12/02 20:00)', !!g1 && g1.moved_away === true && g1.undo && g1.undo.ok === true && g1.undo.reason === null
+    && g1.undo.from_date === UD && g1.undo.from_time === '20:00', JSON.stringify(g1 && g1.undo));
+  ok('E1b 짝: 원래 시각(10:00)이 지난 줄은 «못 함 · orig_passed»', !!g2 && g2.moved_away === true && g2.undo && g2.undo.ok === false && g2.undo.reason === 'orig_passed', JSON.stringify(g2 && g2.undo));
+  const ra = await callAdmin('POST', `/api/admin/class-schedules/${U1}`, { cookie: 'tok_agency', body: { action: 'undo_move', from_date: UD } });
+  const rt = await callAdmin('POST', `/api/admin/class-schedules/${U1}`, { cookie: 'tok_alpha', body: { action: 'undo_move', from_date: UD } });
+  ok('E2 🔒 지사·강사 세션의 되돌리기는 403 · 행 그대로(본사 전용 — 연기 취소와 같은 선)', ra.status === 403 && rt.status === 403 && row(U1).scheduled_date === UN, JSON.stringify({ ra, rt }));
+  const rp = await callAdmin('POST', `/api/admin/class-schedules/${U2}`, { cookie: 'tok_admin', body: { action: 'undo_move', from_date: UD } });
+  ok('E3 원래 시각이 지난 수업은 본사가 눌러도 409 orig_passed · 행 그대로', rp.status === 409 && rp.body.error === 'orig_passed' && row(U2).scheduled_date === UN, JSON.stringify(rp));
+  const rh = await callAdmin('POST', `/api/admin/class-schedules/${U1}`, { cookie: 'tok_admin', body: { action: 'undo_move', from_date: UD } });
+  ok('E4 🔑 본사 되돌리기 200 · 같은 행이 12/02 20:00 · active 로', rh.status === 200 && rh.body.ok === true && row(U1).scheduled_date === UD && row(U1).start_time === '20:00' && row(U1).status === 'active', JSON.stringify(rh));
+  const d1 = await callAdmin('GET', `/api/admin/classes/today?date=${UD}`, { cookie: 'tok_admin' });
+  const s1 = (d1.body.sessions || []).filter(s => Number(s.schedule_id) === U1);
+  ok('E5 원래 날짜에는 «옮겨 감» 줄 대신 진짜 수업 한 줄(취소·연기 칸 비어 있음)', s1.length === 1 && !s1[0].moved_away && !s1[0].change, JSON.stringify(s1.map(s => ({ mv: s.moved_away, ch: s.change }))));
+  const d2 = await callAdmin('GET', `/api/admin/classes/today?date=${UN}`, { cookie: 'tok_admin' });
+  ok('E6 짝: 새 날짜(12/09)에는 그 수업이 «옮겨 감» 줄로도 안 남는다(U2 는 그대로 그 날 수업)', !S(d2.body, U1) && !!S(d2.body, U2), JSON.stringify((d2.body.sessions || []).map(s => [s.schedule_id, s.moved_away])));
+
+  process.stdout.write('\n@@RESULTS@@' + JSON.stringify({ results }) + '\n');
+  process.exit(0);
 }
 
 /* ═════════════════════════════ 자식: 시나리오 실행 ═════════════════════════════ */
@@ -404,10 +543,10 @@ export async function resolve(spec, ctx, next) {
 }`);
 writeFileSync(join(tmp, 'reg.mjs'), `import { register } from 'node:module'; register('./hooks.mjs', import.meta.url);`);
 
-function runChild(srcDir, pubDir) {
+function runChild(srcDir, pubDir, mode = 'unit') {
   return new Promise(resolve => {
     const cp = spawn(process.execPath, ['--experimental-strip-types', '--no-warnings', '--import', pathToFileURL(join(tmp, 'reg.mjs')).href, SELF],
-      { env: { ...process.env, CUM_CHILD: '1', CUM_SRC: srcDir, CUM_PUB: pubDir } });
+      { env: { ...process.env, CUM_CHILD: '1', CUM_SRC: srcDir, CUM_PUB: pubDir, CUM_MODE: mode } });
     let so = '', se = '';
     cp.stdout.on('data', d => { so += d; });
     cp.stderr.on('data', d => { se += d; });
@@ -424,10 +563,11 @@ function runChild(srcDir, pubDir) {
 let pass = 0, fail = 0;
 try {
   console.log('\n═ ↩ 옮긴 수업 되돌리기 (실제 모듈 · SQLite · 두 화면 함수 실행) ═');
-  const base = await runChild(REAL_SRC, REAL_PUB);
-  if (base.crashed) { fail++; console.log('  FAIL 자식 실행이 죽었다:\n' + base.err); }
-  else for (const t of base.results) {
-    if (t.pass) { pass++; console.log('  PASS ' + t.name); } else { fail++; console.log('  FAIL ' + t.name + (t.why ? ' — ' + t.why : '')); }
+  for (const base of await Promise.all([runChild(REAL_SRC, REAL_PUB, 'unit'), runChild(REAL_SRC, REAL_PUB, 'e2e')])) {
+    if (base.crashed) { fail++; console.log('  FAIL 자식 실행이 죽었다:\n' + base.err); continue; }
+    for (const t of base.results) {
+      if (t.pass) { pass++; console.log('  PASS ' + t.name); } else { fail++; console.log('  FAIL ' + t.name + (t.why ? ' — ' + t.why : '')); }
+    }
   }
 
   /* ── 변이시험: 고친 자리를 되돌린 사본에서 정말 빨간불이 되는가(«조건 뒤집기» 포함) ── */
@@ -461,8 +601,17 @@ try {
       edits: [['pub', 'manager.html', "if (!u || !r.schedule_id || !IS_HQ) return '';", "if (!u || !r.schedule_id) return '';"]] },
     { name: 'manager 화면: 간단히 보기에 버튼을 안 붙임', expect: /^C7 /,
       edits: [['pub', 'manager.html', "(r.moved_away ? taUndoPill(r) : taMovePill(r))", "taMovePill(r)"]] },
+    { name: '오늘 수업: 원래 날짜 줄에 되돌리기 판정(undo)을 안 실음', expect: /^E1 /, mode: 'e2e',
+      edits: [['src', 'api-admin.ts', 'undo: _undo ? { ok: _undo.ok, reason: _undo.reason, from_date: _undo.from_date, from_time: _undo.from_time } : null,', '']] },
+    { name: '되돌리기 경로: 본사 게이트 없이 받음', expect: /^E2 /, mode: 'e2e',
+      edits: [['src', 'api-admin.ts', "      const deny = await enrollAdminHqOnly(request, env);\n      if (deny) return deny;\n      const body: any = await request.json().catch(() => ({}));\n      /* ↩ (2026-11-04",
+               "      const body: any = await request.json().catch(() => ({}));\n      /* ↩ (2026-11-04"]] },
   ];
-  const runs = MUTANTS.map(async (m, k) => {
+  /* ⏱ 변이는 4개씩만 동시에 — 무거운 e2e 자식(api-admin.ts)이 한꺼번에 뜨면 CI 러너에서 90초 상한(run.mjs)에 가까워진다. */
+  const LIMIT = Math.max(1, Number(process.env.CUM_JOBS) || 4);
+  let active = 0; const waiters = [];
+  const slot = async (fn) => { while (active >= LIMIT) await new Promise(r => waiters.push(r)); active++; try { return await fn(); } finally { active--; const w = waiters.shift(); if (w) w(); } };
+  const runs = MUTANTS.map((m, k) => slot(async () => {
     const dir = join(tmp, 'm' + k), src = join(dir, 'src'), pub = join(dir, 'pub');
     mkdirSync(dir, { recursive: true });
     cpSync(REAL_SRC, src, { recursive: true });
@@ -475,8 +624,8 @@ try {
       if (!t.includes(from)) return { m, applied: false };
       writeFileSync(p, t.replace(from, to));
     }
-    return { m, applied: true, r: await runChild(src, pub) };
-  });
+    return { m, applied: true, r: await runChild(src, pub, m.mode || 'unit') };
+  }));
   for (const { m, applied, r } of await Promise.all(runs)) {
     if (!applied) { fail++; console.log('  FAIL 변이를 못 넣음(소스가 바뀜 — 하니스를 고칠 것) «' + m.name + '»'); continue; }
     if (r.crashed) { fail++; console.log('  FAIL 변이 실행이 죽음 «' + m.name + '» — ' + r.err.split('\n').slice(-3).join(' | ')); continue; }
