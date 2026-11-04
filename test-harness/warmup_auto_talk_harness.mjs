@@ -343,7 +343,7 @@ function bodyOf(src, head) {
   return null;
 }
 const speakSrc = bodyOf(HTML, 'function speak(text, btn){');
-const stopSrc = bodyOf(HTML, 'function _stopSpeak(){');
+const stopSrc = bodyOf(HTML, 'function _stopSpeak(keepThought){');
 ok('H-0 전제: speak()·_stopSpeak() 를 오려 냈다', !!speakSrc && !!stopSrc);
 function runSpeak({ speechOn = true, btn = null, interrupt = false, synth = false }) {
   let synthDone = null;
@@ -351,7 +351,7 @@ function runSpeak({ speechOn = true, btn = null, interrupt = false, synth = fals
   const audio = { play: () => ({ then: (f) => ({ catch() {} }) }), pause() {} };
   const ctx = {
     warmupRatePreference: { loaded: true },
-    hooks, _warmPaused: false, _speechOn: speechOn, _speakSeq: 0, _ttsAudio: null, _lastAiSpeak: null,
+    warmThought() {}, hooks, _warmPaused: false, _speechOn: speechOn, _speakSeq: 0, _ttsAudio: null, _lastAiSpeak: null,
     _speechEverStarted: false, AUDIO_RATE: { 3: 1 }, _rateLevel: 3, ZH_MALE_PITCH: 0.78,
     _ttsCache: { 'emma|hi there': 'blob:x' }, _ttsEng: { 'emma|hi there': 'azure' },
     window: {}, Audio: function () { return audio; },
