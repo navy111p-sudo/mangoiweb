@@ -360,7 +360,7 @@ console.log('⑧-6 첫마디 = 칭찬 한 자리 · 틀린 문장엔 칭찬 없�
     ok(P.every((o) => !C.isTurnOpener(C.replyOpener(o + ' Do you like it?'))) && P.every((o) => C.turnOpenerLine([{ role: 'assistant', content: o + ' Do you like it?' }]) !== ''),
       '칭찬으로 시작한 다음 턴은 «쉬지 않는다» — 쉬게 하면 쉬는 턴의 칭찬 규칙과 이어져 칭찬이 연달아 붙던 예전 모양이 돌아온다');
     const l = C.turnOpenerLine([{ role: 'assistant', content: 'Plain 1. Do you like it?' }]);
-    ok(/It is your reaction and cheer: add no other cheer, and never praise English with a mistake\./.test(l), '이번 턴 줄이 «이것이 반응이자 칭찬 — 칭찬을 더하지 말고, 틀린 영어는 칭찬하지 마» 를 말한다', l.slice(0, 220));
+    ok(/It is your whole reaction and cheer: add no other, and never praise English with a mistake\./.test(l), '이번 턴 줄이 «이것이 반응이자 칭찬 전부 — 더하지 말고, 틀린 영어는 칭찬하지 마» 를 말한다', l.slice(0, 220));
     const pm = /they fixed a mistake or said it right: "([^"]+)"/.exec(l), im = /a mistake, a short answer or plain information: "([^"]+)"/.exec(l);
     ok(!!pm && P.includes(pm[1]), '«고쳐서 맞게 말했을 때» 칸 — 후보는 칭찬 표(TURN_PRAISE)에서 고른다', pm && pm[1]);
     ok(!!im && T.info.includes(im[1]), '«실수가 있을 때» 는 칭찬이 아닌 «평범한 정보» 칸으로 받는다', im && im[1]);
@@ -368,15 +368,27 @@ console.log('⑧-6 첫마디 = 칭찬 한 자리 · 틀린 문장엔 칭찬 없�
       const m = /they fixed a mistake or said it right: "([^"]+)"/.exec(C.turnOpenerLine(h));
       ok(!!m && !['Great job!', 'Well done!', 'You got it!'].includes(m[1]), '칭찬 후보도 «최근 시작 말» 을 피한다(같은 칭찬 연달아 금지)', m && m[1]); }
     // 서버 «떼기» — 칭찬 같은 첫마디는 떼고, 칭찬 아닌 첫마디는 그대로(짝). 이 판정이 «틀린 문장에서 반드시 막기» 의 정본이다.
-    const PRAISEY = [...P, ...T.good, 'Oh, wow!'];
-    const PLAIN = [...T.sad, ...T.request, ...T.asked, ...T.lost, ...T.info, 'Oh, really?', 'No way!', 'Really?', 'Oh no.'];
+    // 모델이 스스로 고를 수 있는 칭찬 같은 첫마디(후보 표에는 없다) — 「Oh!」·「Oh.」 처럼 끊어 써도 칭찬이다.
+    const PRAISEY = [...P, 'Oh, nice!', 'Oh, cool!', 'Oh, great!', 'How fun!', 'Oh, wow!', 'Oh! Wow!', 'Oh. Nice!', 'Oh!! Great job!'];
+    const PLAIN = [...Object.values(T).flat(), 'Oh no.', 'Oh! I see.', 'Oh. Okay.'];
     const notStripped = PRAISEY.filter((o) => E.stripCheerLead(o + ' Do you like cats?') !== 'Do you like cats?');
-    ok(notStripped.length === 0, `칭찬 같은 첫마디 ${PRAISEY.length}개(칭찬 칸·좋은 소식 칸·「Oh, wow!」)를 틀린 문장 턴에 서버가 «전부» 뗀다`, notStripped);
+    ok(notStripped.length === 0, `칭찬 같은 첫마디 ${PRAISEY.length}개(칭찬 칸 · 모델이 스스로 쓰는 「Oh, nice!」「Oh! Wow!」 류)를 틀린 문장 턴에 서버가 «전부» 뗀다`, notStripped);
     const wrongly = PLAIN.filter((o) => E.stripCheerLead(o + ' Do you like cats?') !== o + ' Do you like cats?');
-    ok(wrongly.length === 0, `(짝) 칭찬이 아닌 첫마디 ${PLAIN.length}개(위로·부탁·질문·모르겠다·평범한 정보·놀람)는 그대로 둔다`, wrongly);
+    ok(wrongly.length === 0, `(짝) 칭찬이 아닌 첫마디 ${PLAIN.length}개(후보 표 전부 — 위로·부탁·질문·모르겠다·좋은 소식·놀람·평범한 정보)는 그대로 둔다`, wrongly);
     ok(E.stripCheerLead('Oh, nice sentence you wrote.') === 'Oh, nice sentence you wrote.' && !E.CHEER_LEADS.includes('oh'),
       '(짝) «Oh, nice» 뒤가 이어진 문장이면 안 뗀다 · «Oh» 만으로는 떼지 않는다');
   }
+  /* ⑧-7 🎧 속도 — 첫마디 후보는 미리듣기 문을 멈추지 않는다(2026-11-04 함정 대조: 「Oh, nice!」 류가 칭찬 판정에 걸려
+     등급을 알 때까지 미리듣기가 멈췄다). 판정은 미리듣기 문 두 곳이 쓰는 정본 previewMayBeCheer 로 잰다.
+     짝: 칭찬 칸(TURN_PRAISE)은 멈춘다 — 틀린 문장이면 떼야 하므로(그 대가는 #2036 전과 같다). */
+  if (E && typeof E.previewMayBeCheer === 'function') {
+    const ALLO = Object.values(T).flat();
+    const stops = ALLO.filter((o) => E.previewMayBeCheer(o) || E.previewMayBeCheer(o + ' Do you like cats?'));
+    ok(stops.length === 0, `첫마디 후보 ${ALLO.length}개는 미리듣기 문을 멈추지 않는다 — #2036 때처럼 첫 문장이 바로 나간다`, stops);
+    ok(P.every((o) => E.previewMayBeCheer(o)), '(짝) 칭찬 칸 후보는 미리듣기 문이 멈춘다(등급을 알기 전엔 안 읽는다)', P.filter((o) => !E.previewMayBeCheer(o)));
+    ok(E.isBareCheerHead('Oh!') && E.isBareCheerHead(' oh. ') && E.previewMayBeCheer('Oh!') && !E.isBareCheerHead('Oh, I see.') && !E.isBareCheerHead('Oh no.'),
+      '「Oh!」 한마디는 «아직 모름»(다음 문장과 함께 판정) · 「Oh, I see.」「Oh no.」 는 한마디가 아니다');
+  } else ok(false, '전제: 미리듣기 판정 정본(previewMayBeCheer·isBareCheerHead)을 읽었다');
 }
 
 // ── ⑥ 진짜 워커로 세 화면 요청 → «모델이 받는 지시» ───────────────────────────────
@@ -500,6 +512,8 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
       const tl = (ro.sys.split('\n').find((l) => l.startsWith("- THIS TURN'S OPENER:")) || '');
       ok(!!tl && !ro.sys.includes('Rotate freely:') && ro.sys.includes("THIS TURN'S OPENER (below) is your whole reaction and cheer"),
         'AI 친구 첫마디 턴: 칭찬 목록(Rotate freely)을 빼고 «첫마디가 곧 반응이자 칭찬» 이라고만 말한다 — 두 지시가 첫 자리를 다투지 않는다', ro.sys.slice(-900));
+      ok(ro.sys.includes('add no other reaction after it, so the reply is not longer') && !ro.sys.includes('you may add a few words'),
+        'AI 친구 첫마디 턴: 첫마디 뒤에 반응을 하나 더 붙이지 않게 한다 — S1(최대 2문장)이 «다시 뽑기» 로 늦어지지 않게(2026-11-04 함정 대조)');
       ok(ro.sys.includes('level, sentence limit, opener or cheer, emojis, one question') && !ro.sys.includes('sentence limit, cheer, emojis'),
         'AI 친구: 맨 끝 출력 형식 줄도 «cheer» 가 아니라 «opener or cheer» — 마지막 지시가 칭찬만 시키지 않는다');
       replyText = 'Oh, I see. Do you like dogs?';
@@ -523,6 +537,52 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
       const rk = await post('/api/ai/chat-friend', { uid: g.j.uid, msg: 'I like dogs a lot.', level: 'S5', friend: 'lily' }, g.j.token);
       ok(rk.status === 200 && String(rk.j && rk.j.reply || '') === 'Oh, nice! Do you like dogs?', '(짝) AI 친구: 교정이 없는(맞는) 문장이면 그대로 둔다', rk.j && rk.j.reply);
       AI.run = saveRun; }
+  }
+}
+
+// ── ⑥-5 🎧 미리듣기 문 두 곳을 «실제로» 돌린다 — 첫마디는 바로 나가고, 칭찬·「Oh! Wow!」 는 등급·교정을 알 때까지 안 나간다 ──
+console.log('⑥-5 미리듣기 문(웜업·AI 친구) 실행');
+{
+  const gout = join(tmp, 'gates.mjs');
+  let G = null;
+  try {
+    await esbuild.build({ stdin: { contents: "export { createWarmupLive } from './src/warmup-stream'; export { createFriendPreviewGate } from './src/friend-correction-flow';", resolveDir: resolve(ROOT, 'cloudflare-deploy') },
+      bundle: true, platform: 'node', format: 'esm', outfile: gout, logLevel: 'silent', external: ['cloudflare:*'] });
+    G = await import(pathToFileURL(gout).href);
+  } catch (e) { ok(false, '전제: 미리듣기 문 두 곳을 묶었다', String(e?.message || e).slice(0, 300)); }
+  if (G) {
+    const T = C.TURN_OPENERS, P = C.TURN_PRAISE;
+    const warm = (sens, honest = true) => {
+      const sent = [];
+      const live = G.createWarmupLive((o) => sent.push(o.t), { lang: 'en', cap: 0, friend: 'Lily', studentInput: 'I like cats.', honest, focused: false });
+      for (const x of sens) live.push(x);
+      return { sent, halt: live.halted() };
+    };
+    const opens = Object.values(T).flat().filter((o) => { const r = warm([o, 'Do you like cats?']); return r.sent[0] !== o; });
+    ok(opens.length === 0, `웜업(정직한 칭찬 모드): 첫마디 후보 ${Object.values(T).flat().length}개는 첫 문장으로 «바로» 나간다`, opens);
+    const praiseOut = P.filter((o) => warm([o, 'Do you like cats?']).sent.length);
+    ok(praiseOut.length === 0, '(짝) 웜업: 칭찬 칸으로 시작하면 등급을 알 때까지 미리 읽지 않는다', praiseOut);
+    { const r = warm(['Oh!', 'Wow!', 'Do you like cats?']);
+      ok(r.sent.length === 0 && r.halt === 'praise', '웜업: 「Oh!」「Wow!」 로 끊어 써도 칭찬 — 하나도 먼저 읽지 않는다(최종본도 뗀다)', r); }
+    { const r = warm(['Oh!', 'I see.', 'Do you like cats?']);
+      ok(r.sent[0] === 'Oh! I see.' && r.sent.length === 2 && !r.halt, '(짝) 웜업: 「Oh!」 뒤가 칭찬이 아니면 두 문장을 이어 바로 내보낸다', r); }
+    { const r = warm(['Oh!', 'Wow!'], false);
+      ok(r.sent[0] === 'Oh!', '(짝) 웜업: 정직한 칭찬 모드가 아닌 턴(중국어 등)은 예전처럼 바로 내보낸다', r); }
+    const friend = (sens, fixRaw = null) => {
+      const sent = [];
+      const gate = G.createFriendPreviewGate({ mode: 'free_talk', detFix: null, recheck: false }, (x) => sent.push(x));
+      for (const x of sens) gate.push(x);
+      if (fixRaw != null) gate.streamEnd(fixRaw);
+      return { sent, halt: gate.halted() };
+    };
+    const fOpens = Object.values(T).flat().filter((o) => friend([o, 'Do you like cats?']).sent[0] !== o);
+    ok(fOpens.length === 0, 'AI 친구 자유대화: 첫마디 후보는 첫 문장으로 «바로» 나간다(교정 칸을 기다리지 않는다)', fOpens);
+    { const r = friend(['Great job!', 'Do you like cats?']);
+      ok(r.sent.length === 0, '(짝) AI 친구 자유대화: 칭찬으로 시작하면 교정 칸을 볼 때까지 잡아 둔다', r); }
+    { const r = friend(['Oh!', 'Wow!', 'Do you like cats?'], '{"reply":"x","fix":{"was":"a","now":"b"}}');
+      ok(r.sent.length === 0 && r.halt === 'praise', 'AI 친구: 「Oh!」「Wow!」 + 교정 있음 → 하나도 먼저 읽지 않는다', r); }
+    { const r = friend(['Oh!', 'I see.', 'Do you like cats?']);
+      ok(r.sent[0] === 'Oh!' && r.sent[1] === 'I see.' && r.sent.length === 3, '(짝) AI 친구: 「Oh!」 뒤가 칭찬이 아니면 기다리지 않고 바로 내보낸다', r); }
   }
 }
 

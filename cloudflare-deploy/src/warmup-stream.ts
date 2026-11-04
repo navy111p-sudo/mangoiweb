@@ -34,7 +34,7 @@ import { createJsonTextTap, takeSentences } from './stream-json-text';
 import { replyRejectReason } from './reply-sanity';
 import { fragmentQuestions } from './reply-questions';
 import { wrongSelfName, askedOwnName } from './ai-friends';
-import { studentSoundsNegative, stripCheerLead } from './warmup-empathy';
+import { studentSoundsNegative, isBareCheerHead, previewMayBeCheer } from './warmup-empathy';
 
 /** 화면이 스트리밍을 원하는가 — A.i 친구하기(api-ai.ts)와 «같은 값» 만 받습니다. */
 export function wantsWarmupStream(body: any): boolean {
@@ -138,11 +138,12 @@ export function createWarmupLive(
   /* 판정이 던지면 «흘려보내지 않는» 쪽으로 — 최종본은 done 으로 그대로 갑니다. */
   let negative = true;
   try { negative = studentSoundsNegative(o.studentInput); } catch { negative = true; }
+  let head = '';   // 🎧 들고 있는 첫 문장 «Oh!» 한마디(아래 push)
   let askedName = false;
   try { askedName = askedOwnName(o.studentInput); } catch { askedName = false; }
   return {
     push(sen: string): boolean {
-      const s = String(sen == null ? '' : sen).trim();
+      let s = String(sen == null ? '' : sen).trim();
       if (!s || halt) return false;
       // Correction is only known after the model finishes: no question may be spoken first.
       if (o.focused) { halt = 'focused'; return false; }
@@ -150,7 +151,13 @@ export function createWarmupLive(
       /* 🎯 (2026-10-29) 정직한 칭찬 시범(src/warmup-honest.ts) — 등급은 답이 «다 끝나야» 정해지므로, 첫 문장이 칭찬 말머리로
          시작하면 미리 읽지 않는다(틀린 문장에 「Great!」 를 먼저 들려주는 것이 바로 고치려는 사고다). 최종본은 done 으로 간다. */
       if (o.honest && !n) {
-        try { const probe = s + ' Ok'; if (stripCheerLead(probe) !== probe) { halt = 'praise'; return false; } } catch { halt = 'gate_error'; return false; }
+        /* 🎧 (2026-11-04) 첫 문장이 「Oh!」 한마디뿐이면 다음 문장까지 들고 있다가 함께 판정한다 — 「Oh! Wow!」 는 칭찬이다.
+           판정 정본은 warmup-empathy.ts 의 previewMayBeCheer(칭찬 떼기 표와 같은 판정) — 여기에 다시 적지 않는다. */
+        try {
+          if (!head && isBareCheerHead(s)) { head = s; return false; }
+          if (head) { s = head + ' ' + s; head = ''; }
+          if (previewMayBeCheer(s)) { halt = 'praise'; return false; }
+        } catch { halt = 'gate_error'; return false; }
       }
       const cand = text ? text + ' ' + s : s;
       let why = '';

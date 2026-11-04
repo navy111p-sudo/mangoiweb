@@ -109,12 +109,15 @@ export const CHEER_LEADS: readonly string[] = [
 /* 긴 것부터 맞춰야 「good job」 이 「good」 으로 잘리지 않는다 */
 const LEAD_KEYS = [...CHEER_LEADS].sort((a, b) => b.length - a.length);
 const escRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** «Oh» 머리 — 「Oh, nice!」「Oh! Wow!」「Oh. Nice.」 모두 칭찬 머리로 본다. ⚠️ 아래 isBareCheerHead 와 «같은» 조각을 쓴다(한쪽만 넓히면 미리듣기와 최종본이 어긋난다). */
+const OH_HEAD = 'oh[,!.]*';
 /** 낱말 경계 — 「Nice」 가 「Nicely」 를 물면 안 된다. 아포스트로피 두 종류 모두 허용
  *  🗣️ (2026-11-04 사장님 「틀린 문장에선 반드시 칭찬을 막아줘」) 앞에 «Oh,» 가 붙은 칭찬도 칭찬이다 —
  *     아바타 첫마디(「Oh, nice!」「Oh, cool!」「Oh, great!」「Oh, wow!」)가 이 판정을 비켜 가면 틀린 문장에도 칭찬이 남는다.
  *     ⛔ «Oh» 만으로는 떼지 않는다 — 「Oh, I see.」「Oh, really?」「Oh no.」 는 칭찬이 아니다(뒤가 목록에 있어야 한다). */
 const CHEER_RE = new RegExp(
-  '^((?:oh[,!]?\\s+)?(?:' + LEAD_KEYS.map((k) => escRe(k).replace(/'/g, "['’]")).join('|') + '))(?![A-Za-z\'’])', 'i');
+  '^((?:' + OH_HEAD + '\\s+)?(?:' + LEAD_KEYS.map((k) => escRe(k).replace(/'/g, "['’]")).join('|') + '))(?![A-Za-z\'’])', 'i');
+const BARE_HEAD_RE = new RegExp('^' + OH_HEAD + '$', 'i');
 /** 앞에 낄 수 있는 것: 공백·이모지 (글자·문장부호는 안 된다) */
 const GAP_RE = /^[\s‍️\u{1f3fb}-\u{1f3ff}\p{Extended_Pictographic}]*/u;
 /** 상투구 뒤에 반드시 있어야 하는 종결부호. 없으면 «문장의 일부» 로 보고 떼지 않는다
@@ -158,6 +161,28 @@ export function stripCheerLead(reply: any): string {
     if (j >= 0 && j <= 3) rest = rest.slice(0, j) + rest.charAt(j).toUpperCase() + rest.slice(j + 1);
     return rest;
   } catch { return typeof reply === 'string' ? reply : ''; }   // 모르면 «고치기 전과 같이»
+}
+
+/**
+ * 🎧 첫 문장이 «Oh!» 같은 머리 한마디뿐인가 — 뒤 문장과 이어 「Oh! Wow!」 가 될 수 있어 혼자서는 칭찬인지 모른다.
+ *    미리듣기 문(웜업 warmup-stream.ts · AI 친구 friend-correction-flow.ts)은 이것이면 «다음 문장까지» 들고 있다가 함께 판정한다
+ *    (그냥 흘리면 「Oh!」「Wow!」 를 먼저 들려주고 최종본은 그 칭찬을 뗀다 — 2026-11-04 함정 대조가 재현).
+ */
+export function isBareCheerHead(text: any): boolean {
+  try { return BARE_HEAD_RE.test(String(text == null ? '' : text).trim()); } catch { return false; }
+}
+
+/**
+ * 🎧 미리듣기 문 두 곳의 «이 글이 칭찬으로 시작할 수 있나» 정본 — 칭찬 떼기 표(stripCheerLead)와 «같은» 판정 + 머리 한마디는 «모름».
+ *    ⛔ 던지지 않는다. 모르면 true(미리 읽지 않는 쪽 — 최종본은 done 으로 간다). ⛔ 미리듣기 문에 이 판정을 다시 적지 말 것.
+ */
+export function previewMayBeCheer(text: any): boolean {
+  try {
+    const s = String(text == null ? '' : text).trim();
+    if (isBareCheerHead(s)) return true;
+    const probe = s + ' Ok';
+    return stripCheerLead(probe) !== probe;
+  } catch { return true; }
 }
 
 /**
