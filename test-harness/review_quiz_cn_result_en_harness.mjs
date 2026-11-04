@@ -54,5 +54,52 @@ ok('KO: 축하 효과는 한 번', ko.fx === 1);
   els.resultView.style.display = 'none'; els.resultView.innerHTML = ''; lang.cur = 'ko'; L.forEach(f => f());
   ok('🌐 짝: 결과 화면이 안 보이면 다시 그리지 않는다', els.resultView.innerHTML === '');
 }
+// 🌐 (2026-11-04) 실제 데이터 모양 — 한국어 문제 글·«정답: 韩国人 (한국인)» 해설·한국어 듣기 보기·한국어 제목
+//    EN: 한국어 조각만 번역 요청 → 다시 그리면 한국어 0글자 + 중국어는 그대로 / KO: 요청 없음(짝) / 실패: 원문 그대로
+const TR = { '새 친구는 어느 나라 사람인가요?': 'Which country is the new friend from?', '자기소개 · 새 친구': 'Self-intro · New friend',
+  '한국인': 'Korean', '잘 듣고 무슨 뜻인지 고르세요.': 'Listen and choose the meaning.',
+  '반 친구들은 모두 그를 좋아해서 자주 민호라고 불러요.': 'His classmates all like him and often call him Minho.',
+  '새 학기가 시작되었고, 반에 새 친구가 왔어요.': 'A new semester began and a new friend joined the class.',
+  '제1과 · 자기소개 · 새 친구': 'Lesson 1 · Self-intro · New friend' };
+async function real(cur, mapFn, toggle) {
+  const lang = { cur }, sent = []; let fx = 0;
+  const els = { resultView: { style: {}, innerHTML: '' }, playView: { style: {} } };
+  const document = { documentElement: { lang: 'ko' }, getElementById: id => els[id] || null, addEventListener() {} };
+  const window = { getLang: () => lang.cur, addEventListener() {}, scrollTo() {} };
+  const state = { quiz: { title: '[제1과 · 자기소개 · 새 친구] 복습퀴즈', questions: [
+    { type: 'choice', q: '[자기소개 · 새 친구] 📖 새 친구는 어느 나라 사람인가요?', opts: ['中国人', '韩国人'] },
+    { type: 'listen', q: '🎧 잘 듣고 무슨 뜻인지 고르세요.', opts: ['새 학기가 시작되었고, 반에 새 친구가 왔어요.', '반 친구들은 모두 그를 좋아해서 자주 민호라고 불러요.'] } ] }, maxCombo: 0 };
+  const fetchFn = async (u, o) => { const b = JSON.parse(o.body); sent.push(b); return { json: async () => mapFn(b) }; };
+  const r = { score: 1, total: 2, percent: 50, awarded: 10, streak: 0, detail: [
+    { type: 'choice', correct: true, your_answer: 1, answer: 1, explain: '정답: 韩国人 (한국인)' },
+    { type: 'listen', correct: false, your_answer: 0, answer: 1, explain: '同学们都很喜欢他，常常叫他民浩。 (Tóngxuémen dōu hěn xǐhuan tā.)' } ] };
+  try {
+    const api = new Function('window', 'document', 'state', 'ABC', 'TYPE_ICON', 'esc', 'confetti', 'sfxWin', 'fetch',
+      h.slice(i, j) + '; return { showResult };')(window, document, state, ['A', 'B'], {}, s => String(s), () => fx++, () => {}, fetchFn);
+    api.showResult(r);
+    els.resultView.style.display = 'block';
+    if (toggle) { lang.cur = 'en'; api.showResult(r, true); }
+    for (let k = 0; k < 3; k++) await new Promise(z => setTimeout(z, 0));
+  } catch (e) { return { err: e.message, html: '', sent, fx }; }
+  return { html: els.resultView.innerHTML, sent, fx };
+}
+const txt = x => (x || '').replace(/<[^>]+>/g, ' ');
+{
+  const map = b => ({ ok: true, map: Object.fromEntries((b.texts || []).map(t => [t, TR[t] || t])) });
+  const a = await real('en', map);
+  ok('실데이터 EN: 번역 요청 1번 · 중국어가 섞인 글은 «한국어 조각만» 보낸다', a.sent.length === 1 && a.sent[0].target === 'en' && a.sent[0].texts.every(t => !/[㐀-鿿]/.test(t)) && !a.sent[0].texts.includes('정답:'));
+  ok('실데이터 EN: 다시 그리면 한국어 0글자', !a.err && !HANGUL.test(txt(a.html)));
+  if (a.err || HANGUL.test(txt(a.html))) console.log('  ', a.err || (txt(a.html).match(/[가-힣][^<]{0,20}/) || [''])[0]);
+  ok('실데이터 EN: 중국어·병음은 그대로 + 해설은 «Answer: 韩国人 (Korean)»', /Answer: 韩国人 \(Korean\)/.test(a.html) && /同学们都很喜欢他/.test(a.html) && /Review Quiz/.test(a.html));
+  ok('실데이터 EN: 듣기 보기(한국어 뜻)도 영어로', /call him Minho/.test(a.html) && /new semester/.test(a.html));
+  ok('실데이터 EN: 번역 뒤 다시 그려도 축하는 1번', a.fx === 1);
+  const k = await real('ko', map);
+  ok('실데이터 KO(짝): 번역을 묻지 않고 한국어 그대로', k.sent.length === 0 && /새 친구는 어느 나라/.test(k.html) && /정답: 韩国人 \(한국인\)/.test(k.html));
+  const g = await real('ko', map, true);
+  ok('실데이터 🌐(KO→EN): 그 자리에서 번역해 영어로', g.sent.length === 1 && !HANGUL.test(txt(g.html)) && g.fx === 1);
+  const f = await real('en', () => ({ ok: false }));
+  ok('실데이터 EN: 번역 실패면 원문 그대로(지어내지 않음, 화면은 남음)', !f.err && /새 친구는 어느 나라/.test(f.html) && /Points earned/.test(f.html));
+  ok('틀린 문제 다시 버튼: onclick 따옴표가 닫힌다', /onclick="retryWrong\(\[1\]\)">🎯/.test(a.html));
+}
 console.log(`review_quiz_cn_result_en_harness — PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
