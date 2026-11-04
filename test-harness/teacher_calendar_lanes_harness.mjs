@@ -32,9 +32,11 @@ let L;
   const src = [fn('ph54LayoutItems'), fn('ph54LaneStyle'), fn('ph54GapHtml'), fn('ph54FoldGradient')].join('\n');
   const gapMin = (Q6.match(/var PH54_GAP_MIN = (\d+);/) || [])[1];
   check('배치 함수 4개를 소스에서 오려 냈다', src.length > 800 && !!gapMin, `len=${src.length} gapMin=${gapMin}`);
-  const mk = new Function('PH54_START_H', 'PH54_END_H', 'PH54_HOUR_PX', 'PH54_GAP_MIN', 'ph54T', 'ph54Pad',
+  const labMin = (Q6.match(/var PH54_GAP_LABEL_MIN = (\d+);/) || [])[1];
+  check('«빈 N분» 글자 자리 최소 분(PH54_GAP_LABEL_MIN)을 소스에서 읽었다', !!labMin, `labMin=${labMin}`);
+  const mk = new Function('PH54_START_H', 'PH54_END_H', 'PH54_HOUR_PX', 'PH54_GAP_MIN', 'PH54_GAP_LABEL_MIN', 'ph54T', 'ph54Pad',
     src + '\nreturn { ph54LayoutItems, ph54LaneStyle, ph54GapHtml, ph54FoldGradient };');
-  L = mk(6, 24, 50, Number(gapMin), (ko) => ko, (n) => (n < 10 ? '0' + n : '' + n));
+  L = mk(6, 24, 50, Number(gapMin), Number(labMin), (ko) => ko, (n) => (n < 10 ? '0' + n : '' + n));
   const it = (st, du, k) => ({ st, du, k });
 
   // ① 안 겹치면 전부 폭 전체
@@ -109,7 +111,10 @@ console.log('\n[ B. 렌더 배선 — 함수가 «있는가» 가 아니라 «�
   check('접힌 띠·머리글 클릭 → 그 요일 펼침', /querySelectorAll\('\.ph54-cal-fold, \.ph54-cal-fold-head'\)/.test(render) && /ph54State\.openDay = parseInt\(el\.getAttribute\('data-day'\), 10\); ph54Render\(\);/.test(render));
   check('강사 머리글 클릭 → 그 강사만', /querySelectorAll\('\.ph54-cal-subhead\[data-teacher\]'\)/.test(render) && /ph54State\.teacherFilter = el\.getAttribute\('data-teacher'\)/.test(render));
   check('키보드(Enter·Space)로도 열린다', (render.match(/e\.key === 'Enter' \|\| e\.key === ' '/g) || []).length >= 2);
-  check('다시 그려도 스크롤 위치를 지킨다', /var keepTop = prevBody \? prevBody\.scrollTop : -1;/.test(render) && /if \(keepTop >= 0\) calBody\.scrollTop = keepTop;/.test(render));
+  // 2026-11-04: 직접 대입(calBody.scrollTop = keepTop)은 렌더 생략된 카드에서 무시될 때가 있어 ph54SetScrollTop 으로 — [E] 에서 실제로 돌린다
+  check('다시 그려도 스크롤 위치를 지킨다(이전 값을 읽어 ph54SetScrollTop 으로 넣는다)', /var keepTop = prevBody \? prevBody\.scrollTop : -1;/.test(render) && /if \(keepTop >= 0\) ph54SetScrollTop\(calBody, keepTop\);/.test(render));
+  check('처음 그릴 때(첫 수업 한 시간 위)도 같은 도우미로 넣는다', /if \(firstSt >= 0\) ph54SetScrollTop\(calBody, /.test(render));
+  check('렌더 안에서 calBody.scrollTop 에 «직접» 대입하는 줄이 없다', !/calBody\.scrollTop\s*=(?!=)/.test(render));
   check('드롭 자리에 접힌 띠도 포함(.ph54-cal-col, .ph54-cal-fold)', /var PH54_DROP_SEL = '\.ph54-cal-col, \.ph54-cal-fold';/.test(render) && (render.match(/closest\(PH54_DROP_SEL\)/g) || []).length >= 4);
   check('접힌 띠에 놓으면 그 요일을 펼친다', /if \(col\.classList\.contains\('ph54-cal-fold'\)\) ph54State\.openDay = newCol;/.test(render));
   // 2026-10-10: 드롭이 옛 단건 PATCH(day_of_week 만 보냄 → 날짜 지정 수업은 날짜가 안 바뀌던 버그)에서
@@ -214,7 +219,58 @@ console.log('\n[ D. 취소·연기 카드 — 실제로 돌린다 ]');
   check('D-4 범례가 «모름» 을 «?» 로(0 이라고 단정하지 않는다)', /\(!ph54State\.offComplete && !offEvents\.length\) \? '\?'/.test(render));
   check('D-4 범례 한/영(✕ 취소 · ⏸ 연기 / ✕ Cancelled · ⏸ Postponed)', /✕ 취소 · ⏸ 연기/.test(render) && /✕ Cancelled · ⏸ Postponed/.test(render));
   const jsV2 = Number((HTML.match(/adm-q6\.js\?v=(\d+)/) || [])[1] || 0);
-  check('D-4 admin.html 의 adm-q6.js ?v= 가 19 이상', jsV2 >= 19, `v=${jsV2}`);
+  check('D-4 admin.html 의 adm-q6.js ?v= 가 22 이상', jsV2 >= 22, `v=${jsV2}`);
+
+  // D-7 (2026-11-04 사장님 「빈 N분 점선 상자도 같이 보이게 해줘」) 취소·연기 칸은 빈 자리를 «점유» 하지 않는다 — 실제로 돌린다
+  {
+    const R = (st, du) => ({ kind: 'rec', st, du }), O = (st, du) => ({ kind: 'off', st, du });
+    let r = L.ph54LayoutItems([R(780, 20), O(820, 40), R(900, 20)]);   // 13:00 수업 · 13:40~14:20 취소 · 15:00 수업
+    check('🔴 D-7 취소 칸이 있어도 수업 사이 빈 자리를 그린다(13:20~15:00 = 100분)', r.gaps.length === 1 && r.gaps[0].st === 800 && r.gaps[0].du === 100, JSON.stringify(r.gaps));
+    check('D-7 그 취소 칸은 «빈 자리 안» 표시(inGap)', r.items.find((x) => x.kind === 'off').inGap === true);
+    check('🔴 D-7 글자는 카드에 안 덮인 가장 긴 구간(14:20~15:00, 40분)에', r.gaps[0].lst === 860 && r.gaps[0].ldu === 40 && !r.gaps[0].tag, JSON.stringify(r.gaps[0]));
+    r = L.ph54LayoutItems([R(780, 20), O(800, 40), R(840, 20)]);   // 취소 카드가 빈 자리를 꽉 채움
+    check('🔴 D-7 카드가 빈 자리를 꽉 채우면 꼬리표(tag)로 — 글자가 카드 밑에 묻히지 않게', r.gaps.length === 1 && r.gaps[0].du === 40 && r.gaps[0].tag === true, JSON.stringify(r.gaps));
+    r = L.ph54LayoutItems([R(780, 20), O(800, 30), R(840, 20)]);   // 덮이지 않은 구간 10분(< 글자 최소)
+    check('D-7 덮이지 않은 구간이 짧으면(10분) 꼬리표', r.gaps[0] && r.gaps[0].tag === true, JSON.stringify(r.gaps));
+    r = L.ph54LayoutItems([R(780, 20), R(840, 20)]);
+    check('D-7 취소 칸이 없으면 예전 그대로(가운데 글자 — lst·tag 없음)', r.gaps.length === 1 && r.gaps[0].lst == null && !r.gaps[0].tag, JSON.stringify(r.gaps));
+    r = L.ph54LayoutItems([R(780, 40), O(790, 20), R(900, 20)]);   // 수업 시간과 겹친 취소 칸은 빈 자리 밖
+    check('D-7 수업과 같은 시간의 취소 칸은 «빈 자리 안» 이 아니다', r.items.find((x) => x.kind === 'off').inGap === false && r.gaps.length === 1 && r.gaps[0].st === 820, JSON.stringify(r));
+    r = L.ph54LayoutItems([O(800, 40)]);
+    check('D-7 취소 칸만 있으면 빈 자리 없음(앞뒤는 세지 않는다)', r.gaps.length === 0);
+    const again = [R(780, 20), O(800, 40), R(840, 20), R(900, 20)];
+    const first = L.ph54LayoutItems(again).items.find((x) => x.kind === 'off').inGap;
+    again[1].st = 845; again[1].du = 10;   // 같은 객체를 수업(840~860) 안으로 옮겨 다시 배치
+    const r2 = L.ph54LayoutItems(again);
+    check('D-7 다시 배치하면 inGap 을 지운다(같은 객체를 두 번 배치하는 강사 필터 경로)', first === true && r2.items.find((x) => x.kind === 'off').inGap === false, JSON.stringify(r2.items));
+    const tagH = L.ph54GapHtml({ st: 800, du: 40, tag: true }), labH = L.ph54GapHtml({ st: 800, du: 100, lst: 860, ldu: 40 });
+    check('D-7 꼬리표 HTML — .ph54-gap-tag · 카드 위(z-index) · «빈 40분»', /class="ph54-gap-tag"/.test(tagH) && /z-index:3/.test(tagH) && /빈 40분/.test(tagH), tagH);
+    check('D-7 구간 글자 HTML — .ph54-gap-lab 이 덮이지 않은 구간 위치(48px)에', /class="ph54-gap-lab"/.test(labH) && /top:48\.0px/.test(labH) && /빈 100분/.test(labH), labH);
+  }
+  if (C) {
+    const inG = C({ off: 'cancelled', start_time: '14:00', duration_min: 40, type: '1on1', students: [{ name: 'x' }], change: {} }, { inGap: true, lanes: 1 });
+    const inG2 = C({ off: 'cancelled', start_time: '14:00', duration_min: 40, type: '1on1', students: [{ name: 'x' }], change: {} }, { inGap: true, lanes: 2, lane: 0 });
+    const outG = C({ off: 'cancelled', start_time: '14:00', duration_min: 40, type: '1on1', students: [{ name: 'x' }], change: {} }, { inGap: false, lanes: 1 });
+    check('D-7 빈 자리 안의 혼자인 취소 카드는 안쪽으로(점선이 양옆에 보이게)', /left:7px;right:7px;/.test(inG) && !/left:7px/.test(outG));
+    check('D-7 자리를 나눈 카드는 안쪽으로 안 민다(lane 폭을 깨지 않게)', !/left:7px/.test(inG2));
+  }
+
+  // D-6 (2026-11-04 사장님 「강사 열 빼는 것도 해줘」) 전체 보기에서 «취소·연기만» 있는 강사는 열이 없다 — 판정을 실제로 돌린다
+  const laneSrc = fn('ph54ShowsLane');
+  check('D-6 ph54ShowsLane 을 소스에서 오려 냈다', laneSrc.length > 40, `len=${laneSrc.length}`);
+  let SL = null;
+  try { SL = new Function(laneSrc + '\nreturn ph54ShowsLane;')(); } catch (e) { check('D-6 판정 실행 준비', false, String(e)); }
+  if (SL) {
+    const T = (...kinds) => ({ items: kinds.map((k) => ({ kind: k })) });
+    check('🔴 D-6 취소·연기만 있으면 열을 안 준다', SL(T('off')) === false && SL(T('off', 'off')) === false);
+    check('🔴 D-6 수업이 하나라도 있으면 열을 준다(짝 — «전부 빼기» 를 막는다)', SL(T('off', 'rec')) === true && SL(T('rec')) === true);
+    check('D-6 카페24 겹쳐보기만 있어도 열을 준다', SL(T('c24', 'off')) === true);
+    check('D-6 빈 묶음·이상한 값은 열을 안 준다(던지지 않는다)', SL(T()) === false && SL(null) === false && SL({}) === false);
+  }
+  check('🔴 D-6 열을 빼는 것은 «전체 보기» 에서만(강사 필터에서는 그 강사의 취소 카드를 볼 유일한 자리)', /var tlist = accordion \? tall\.filter\(ph54ShowsLane\) : tall;/.test(render));
+  check('🔴 D-6 취소·연기 건수는 뺀 강사까지 센다(머리글이 사실을 말한다)', /offn: tall\.reduce\(/.test(render) && /hidOffn: thid\.reduce\(/.test(render));
+  check('D-6 펼친 요일 머리글이 «열 없음 N» 을 말한다(한/영)', /그중 ' \+ bd\.hidOffn \+ '개는 열 없음/.test(render) && /without a column/.test(render));
+  check('D-6 «펼친 요일» 고르기는 열이 있는 것만 센다(total 은 보이는 강사 기준)', /total: tlist\.reduce\(/.test(render));
 
   // D-5 (2026-11-03 후속) 함정 대조가 찾은 셋 — 클릭 길 · «N개 이상» 문구 · 수업 수에 안 섞이는가(«위치» 가 아니라 «몸통» 으로)
   const blkSrc = fn('ph54CardBlocksClick');
@@ -246,6 +302,73 @@ console.log('\n[ D. 취소·연기 카드 — 실제로 돌린다 ]');
   }
   check('D-5 일부만일 때 설명이 «누가·사유 일부 + 건수는 정확» 을 말한다', /누가·언제·사유를 일부 불러오지 못했습니다 \(건수는 정확합니다\)/.test(render) && /the count is exact/.test(render));
   check('D-5 EN 카드는 유형 이름도 영어(학생이 없을 때)', /typeEn\[s\.type\]/.test(cardSrc));
+}
+
+console.log('\n[ E. 스크롤 위치 넣기 도우미 — 실제로 돌린다 ]');
+{
+  /* 2026-11-04 사장님 「스크롤 위치 유지 실패도 고쳐줘」. 카드가 content-visibility:auto 로 렌더 생략된 상태에서
+     포커스 요소(접힌 요일 머리글)를 지운 직후엔 scrollTop 대입이 무시된다 — 배치(scrollHeight)를 «먼저» 읽으면 들어간다(실측).
+     가짜 요소: scrollHeight 를 읽기 «전» 의 대입은 무시한다(그 상태를 흉내). */
+  const src = fn('ph54SetScrollTop');
+  check('E ph54SetScrollTop 을 소스에서 오려 냈다', src.length > 80, `len=${src.length}`);
+  let S = null, rafQ = [];
+  try { S = new Function('window', 'requestAnimationFrame', src + '\nreturn ph54SetScrollTop;')({ requestAnimationFrame: 1 }, (cb) => rafQ.push(cb)); }
+  catch (e) { check('E 도우미 실행 준비', false, String(e)); }
+  const mkEl = (opt = {}) => ({ _st: 0, _laid: !!opt.laid, _stuck: !!opt.stuck, isConnected: true, clientHeight: 560,
+    get scrollHeight(){ this._laid = true; return 999; },
+    get scrollTop(){ return this._st; },
+    set scrollTop(v){ if (this._laid && !this._stuck) this._st = Math.max(0, Math.min(v, 999 - 560)); } });
+  if (S) {
+    let e = mkEl(); rafQ = [];
+    try { S(e, 250); } catch (er) { check('E 도우미가 던지지 않는다', false, String(er)); }
+    check('🔴 E 배치가 늦은 칸에도 «그 자리에서» 들어간다(250)', e.scrollTop === 250, String(e.scrollTop));
+    check('E 들어갔으면 다음 화면 갱신 때 다시 넣지 않는다', rafQ.length === 0, String(rafQ.length));
+    e = mkEl({ laid: true }); rafQ = []; S(e, 300);
+    check('E 평소(배치가 된 칸)도 그대로 들어간다(300)', e.scrollTop === 300 && rafQ.length === 0, JSON.stringify([e.scrollTop, rafQ.length]));
+    e = mkEl({ stuck: true }); rafQ = []; S(e, 200);
+    check('E 그래도 안 들어갔으면 다음 화면 갱신 때 한 번 더 넣는다(대기 1건)', e.scrollTop === 0 && rafQ.length === 1, JSON.stringify([e.scrollTop, rafQ.length]));
+    e._stuck = false; rafQ.forEach((cb) => cb());
+    check('E 그 한 번 더에서 들어간다(200)', e.scrollTop === 200, String(e.scrollTop));
+    e = mkEl({ stuck: true }); rafQ = []; S(e, 200); e.isConnected = false; e._stuck = false; rafQ.forEach((cb) => cb());
+    check('E 그 사이 다시 그려져 떨어진 칸에는 안 넣는다', e.scrollTop === 0, String(e.scrollTop));
+    e = mkEl({ stuck: true }); rafQ = []; S(e, 5000);
+    check('E 스크롤 끝보다 큰 값은 다시 시도하지 않는다(끝까지 간 것이 정상)', rafQ.length === 0, String(rafQ.length));
+    e = mkEl({ laid: true }); e._st = 120; rafQ = []; S(e, -1); S(e, null); S(null, 100);
+    check('E 값이 없거나(-1·null) 칸이 없으면 아무것도 안 한다', e.scrollTop === 120 && rafQ.length === 0, JSON.stringify([e.scrollTop, rafQ.length]));
+    e = mkEl({ laid: true }); e._st = 120; rafQ = []; S(e, 0);
+    check('E 0 은 정당한 값 — 맨 위로 넣는다', e.scrollTop === 0, String(e.scrollTop));
+  }
+
+  /* E-2 렌더 배선 — 위는 «도우미» 만 돌린다. ph54Render 가 그 값을 «실제로 넘기는가» 는 이 절이 돌린다
+     (함정 대조 2026-11-04: `if (false && calBody)` · `keepTop = -1` 덧붙이기가 글자 검사만으로는 둘 다 통과했다).
+     이전 칸을 읽는 줄부터 `if (calBody){…}` 블록 끝까지를 중괄호 짝으로 오려 가짜 document·도우미로 실행한다. */
+  const render = (Q6.match(/function ph54Render\(\)\{[\s\S]*?\n  \}\n/) || [''])[0];
+  const st0 = render.indexOf("var prevBody = document.getElementById('ph54-cal-body');");
+  const ifAt = st0 >= 0 ? render.indexOf('if (calBody){', st0) : -1;
+  let wireSrc = '';
+  if (ifAt >= 0) {
+    let d = 0, i = render.indexOf('{', ifAt);
+    for (; i < render.length; i++) { if (render[i] === '{') d++; else if (render[i] === '}') { d--; if (d === 0) break; } }
+    wireSrc = render.slice(st0, i + 1);
+  }
+  check('E-2 전제: 렌더의 스크롤 배선 블록을 오려 냈다', wireSrc.length > 200 && /ph54SetScrollTop\(calBody, keepTop\)/.test(wireSrc), `len=${wireSrc.length}`);
+  const runWire = (prev, items) => {
+    const calls = [], nb = { id: 'new' };
+    const doc = { getElementById: (id) => (id !== 'ph54-cal-body' ? null : (doc._done ? nb : prev)), _done: false };
+    const wrap = {}; Object.defineProperty(wrap, 'innerHTML', { set(){ doc._done = true; } });
+    const byDay = [{ teachers: [{ items }] }];
+    try {
+      new Function('document', 'wrap', 'html', 'accordion', 'byDay', 'openDay', 'PH54_START_H', 'PH54_HOUR_PX', 'ph54SetScrollTop', wireSrc)
+        (doc, wrap, '<x>', true, byDay, 0, 6, 50, (el, v) => calls.push([el === nb ? 'new' : (el && el.id) || String(el), v]));
+    } catch (er) { return 'ERR ' + er; }
+    return JSON.stringify(calls);
+  };
+  // 이전 칸이 300 이면 «새 칸» 에 300
+  check('🔴 E-2 다시 그리면 이전 칸의 위치(300)를 «새 칸» 에 넘긴다', runWire({ scrollTop: 300 }, [{ st: 600 }]) === '[["new",300]]', runWire({ scrollTop: 300 }, [{ st: 600 }]));
+  check('E-2 이전 위치가 0 이어도 0 을 넘긴다(맨 위가 정당한 자리)', runWire({ scrollTop: 0 }, [{ st: 600 }]) === '[["new",0]]', runWire({ scrollTop: 0 }, [{ st: 600 }]));
+  // 처음(이전 칸 없음)이면 첫 수업 한 시간 위 — 10:00 수업 → 09:00 = (600-60-360)/60*50 = 150
+  check('E-2 처음 그릴 때는 첫 수업 한 시간 위(10:00 → 150px)', runWire(null, [{ st: 700 }, { st: 600 }]) === '[["new",150]]', runWire(null, [{ st: 700 }, { st: 600 }]));
+  check('E-2 처음인데 수업이 없으면 아무것도 안 넣는다', runWire(null, []) === '[]', runWire(null, []));
 }
 
 console.log('\n════════════════════════════════════════');

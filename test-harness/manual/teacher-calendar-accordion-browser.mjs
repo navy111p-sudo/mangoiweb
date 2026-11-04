@@ -103,7 +103,10 @@ const measure = () => {
   /* 빈 자리 칸의 «위» = 그 열에서 바로 앞에 끝나는 카드의 «아래» (관리자 화면은 body zoom 1.3 이라 px 상수를 못 쓴다) */
   const gaps = Array.from(document.querySelectorAll('#ph54-cal-track .ph54-gap')).map((g) => {
     const r = g.getBoundingClientRect();
-    const prevBottom = Math.max(...Array.from(g.parentElement.querySelectorAll('.ph54-ev')).map((e) => e.getBoundingClientRect().bottom).filter((b) => b <= r.top + 6), -1);
+    /* 🪤 (2026-11-04) 예전엔 «없음» 을 -1 로 두고 Math.max 를 했다 — 캘린더가 화면 위로 스크롤돼 좌표가 음수가 되면
+       진짜 카드 바닥(-319)보다 -1 이 커서 «앞 카드 없음» 으로 읽혔다(스크롤 위치에 따라 통과·실패가 갈림). 없으면 null. */
+    const bs = Array.from(g.parentElement.querySelectorAll('.ph54-ev')).map((e) => e.getBoundingClientRect().bottom).filter((b) => b <= r.top + 6);
+    const prevBottom = bs.length ? Math.max(...bs) : null;
     return { t: g.textContent.trim(), top: r.top, prevBottom, col: g.parentElement.dataset.teacher };
   });
   const hourLbl = document.querySelector('#ph54-cal-track .ph54-cal-hourlabel');
@@ -159,20 +162,55 @@ const measure = () => {
     check('ZEE 열에 «빈 40분» (14:20~15:00)', !!zeeGap && /빈 40분/.test(zeeGap.t), JSON.stringify(m.gaps));
     /* 20분 카드는 최소 높이 22px(=26분)로 그려져 «시간상 끝» 보다 몇 px 아래까지 내려온다 — 빈 자리는 시간상 끝(14:20)에서
        시작하므로 카드 아래보다 «조금 위» 에서 시작하는 것이 맞다(카드가 위에 덮여 보인다). zoom 1.3 까지 감안해 -10~+6px. */
-    check('그 칸이 14:00 카드 «바로 아래» 에서 시작한다(카드 최소높이 22px 만큼은 겹침 허용)', !!zeeGap && zeeGap.prevBottom > 0 && zeeGap.top - zeeGap.prevBottom >= -10 && zeeGap.top - zeeGap.prevBottom < 6, zeeGap ? JSON.stringify([zeeGap.top, zeeGap.prevBottom]) : '');
+    check('그 칸이 14:00 카드 «바로 아래» 에서 시작한다(카드 최소높이 22px 만큼은 겹침 허용)', !!zeeGap && zeeGap.prevBottom != null && zeeGap.top - zeeGap.prevBottom >= -10 && zeeGap.top - zeeGap.prevBottom < 6, zeeGap ? JSON.stringify([zeeGap.top, zeeGap.prevBottom]) : '');
     check('FAR 열에 «빈 50분»(21:10~22:00) — 겹친 뒤는 늦게 끝나는 카드 뒤부터', m.gaps.some((g) => g.col === '2' && /빈 50분/.test(g.t)), JSON.stringify(m.gaps.filter((g) => g.col === '2')));
     check('ZEE 15:20~15:30 의 10분 틈은 안 그린다', m.gaps.filter((g) => g.col === '1').length === 1);
     console.log('\n[ ⑦ 카페24 카드 ]');
     check('카페24 카드가 Hannah(8) 열에 · draggable 없음', m.c24.length === 1 && m.c24[0].col === '8' && m.c24[0].draggable === null, JSON.stringify(m.c24));
 
     console.log('\n[ ⑤ 접힌 요일 펼치기 ]');
+    /* ⚠️ page.click() 을 쓰지 마세요 — 누르기 전에 그 머리글을 «화면에 보이게» 하려고 스크롤하는데, 머리글이
+       달력 칸(#ph54-cal-body) «안» 의 sticky 라 그 칸을 0 으로 되돌립니다(누르기 «전» 에 0 — 2026-11-03 이벤트 기록으로 확인).
+       사람이 누를 때는 sticky 머리글이 이미 보이는 자리에 있어 스크롤이 안 일어나므로, 실제 클릭·Enter 와 같은
+       이벤트를 «스크롤 없이» 보냅니다. 화면 코드(ph54Render 의 keepTop → ph54SetScrollTop)가 그 값을 지키는지가 이 절의 질문입니다.
+       🔴 마우스로 누르면 머리글(tabindex=0)이 «포커스» 를 받습니다. 카드가 `content-visibility:auto` 로 렌더 생략된 상태(이 검사
+       화면이 실행마다 그렇게 될 때가 있음)에서 그 포커스 요소가 다시 그리기로 지워지면 바로 뒤의 scrollTop 대입을 크로미움이
+       무시합니다(실측 — 그 규칙을 끄면 안 남). 그래서 «포커스 → 클릭» 으로 진짜 마우스와 같은 상태를 만듭니다(포커스를 빼면 안 보임). */
+    const clickNoScroll = (sel) => page.evaluate((s) => { const el = document.querySelector(s); if (!el) return false; el.focus({ preventScroll: true }); el.click(); return true; }, sel);
     await page.evaluate(() => { document.getElementById('ph54-cal-body').scrollTop = 300; });
     const nextIdx = (TODAY_IDX + 1) % 7;
-    await page.click(`#ph54-cal-head .ph54-cal-fold-head[data-day="${nextIdx}"]`);
+    const clicked = await clickNoScroll(`#ph54-cal-head .ph54-cal-fold-head[data-day="${nextIdx}"]`);
     await page.waitForTimeout(400);
     m = await page.evaluate(measure);
+    check('전제: 접힌 요일 머리글을 찾아 눌렀다', clicked);
     check('다음 날이 펼쳐지고 강사 열 2개', m.teacherCols === 2 && m.folds === 6, JSON.stringify([m.teacherCols, m.folds, m.openHead]));
     check('스크롤 위치가 유지된다(300)', Math.abs(m.scrollTop - 300) < 2, String(m.scrollTop));
+    // 키보드(Enter)로 펼쳐도 같은 자리 — 머리글에 포커스만 주고(스크롤 없이) Enter
+    const nextIdx2 = (TODAY_IDX + 2) % 7;
+    await page.evaluate((i) => { document.getElementById('ph54-cal-body').scrollTop = 250;
+      const h = document.querySelector('#ph54-cal-head .ph54-cal-fold-head[data-day="' + i + '"]'); if (h) h.focus({ preventScroll: true }); }, nextIdx2);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(400);
+    const kb = await page.evaluate((i) => ({ st: document.getElementById('ph54-cal-body').scrollTop,
+      open: !document.querySelector('#ph54-cal-head .ph54-cal-fold-head[data-day="' + i + '"]') }), nextIdx2);
+    check('Enter 로 펼쳐도 스크롤 위치가 유지된다(250)', kb.open && Math.abs(kb.st - 250) < 2, JSON.stringify(kb));
+    /* ⚠️ 그 무시는 «누르기 전에 카드가 이미 렌더 생략 상태일 때» 만 나서 실행마다 들쭉날쭉합니다 — 옛 코드(직접 대입)로
+       되돌려 돌리면 그때 6번 중 4번 FAIL(실패 3건)이었고, 함정 대조가 다시 돌렸을 때는 6/6 FAIL 이었습니다(고정된 비율이 아님).
+       이 절이 초록이라고 «옛 코드도 괜찮다» 가 아닙니다 — 매번 잡는 것은 자동 하니스 [E](도우미)·[E-2](렌더 배선)입니다.
+       요일을 바꿔 가며 여러 번 펼쳐 «매번» 지키는지 봅니다. */
+    //   다음 날·모레만 번갈아 연다(오늘은 안 건드림 — 뒤 절이 «오늘의 접힌 띠» 를 누르므로, 끝나면 앞과 같은 모레가 열린 상태).
+    const roll = [];
+    for (let k = 0; k < 6; k++) {
+      const want = 120 + k * 40, day = k % 2 === 0 ? nextIdx : nextIdx2;
+      roll.push(await page.evaluate(([w, i]) => { const b = document.getElementById('ph54-cal-body'); b.scrollTop = w;
+        const h = document.querySelector('#ph54-cal-head .ph54-cal-fold-head[data-day="' + i + '"]'); if (!h) return 'no-head:' + i;
+        h.focus({ preventScroll: true }); h.click();
+        // 짝: «정말 다시 그려져 그 요일이 펼쳐졌나» — 누르기가 아무 일도 안 하면 넣어 둔 값이 그대로 남아 통과해 버린다(함정 대조 2026-11-04)
+        const opened = !document.querySelector('#ph54-cal-head .ph54-cal-fold-head[data-day="' + i + '"]');
+        return Math.round(document.getElementById('ph54-cal-body').scrollTop) + '/' + w + (opened ? '' : '/NOT-OPENED'); }, [want, day]));
+      await page.waitForTimeout(120);
+    }
+    check('요일을 바꿔 6번 펼쳐도 매번 보던 자리 그대로(그리고 매번 실제로 펼쳐졌다)', roll.every((r) => { const [a, w, bad] = String(r).split('/'); return w && !bad && Math.abs(Number(a) - Number(w)) < 2; }), JSON.stringify(roll));
     await page.click(`#ph54-cal-track .ph54-cal-fold[data-day="${TODAY_IDX}"]`);
     await page.waitForTimeout(400);
     m = await page.evaluate(measure);

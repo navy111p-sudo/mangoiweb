@@ -139,7 +139,7 @@ export const WARMUP_ZH_CORRECTION_RULE = [
 export const AI_FRIEND_CORRECTION_RULE = [
   'OUTPUT FORMAT — this rule OVERRIDES every rule above about how to lay out your message.',
   'Reply with ONE JSON object and nothing else: no greeting, no explanation, no code fence. Start with { and end with }.',
-  fixJsonLine('<your English message to the student — obey EVERY rule above: level, sentence limit, cheer, emojis, one question>'),
+  fixJsonLine('<your English message to the student — obey EVERY rule above: level, sentence limit, opener or cheer, emojis, one question>'),
   'Everything the student reads is inside "reply". All the rules above apply to that text and to nothing else.',
   '⛔ NEVER put a Korean grammar tip inside "reply". The correction goes in "fix" only — the student sees it as its own card next to your message.',
   '"why_ko" must be Hangul only (no 한자, no Japanese): one short warm sentence a 10-year-old understands.',

@@ -228,7 +228,9 @@
       } catch(e){ return { uid:'guest', name:'게스트' }; }
     }
     function esc(s) { return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
-    function isEn(){ return (window.langCurrent === 'en') || (document.documentElement.lang === 'en'); }
+    /* 🌐 (2026-11-04) 판정 정본은 getLang()(공용 i18n 엔진). 옛 window.langCurrent 는 어디서도 안 정해져 늘 KO 였다.
+       엔진(defer)이 아직 없으면 <html lang> 으로 떨어진다. */
+    function isEn(){ try { if (typeof window.getLang === 'function') return window.getLang() === 'en'; } catch(e){} return document.documentElement.lang === 'en'; }
     var ME = getUser();
     var state = { quiz:null, idx:0, answers:[], fb:[], combo:0, maxCombo:0, correctCount:0, animate:-1 };
     var ABC = ['A','B','C','D','E','F'];
@@ -263,7 +265,9 @@
     var CHEER_OK   = { ko:['정답이야! 🎉','완벽해! 🌟','대단한데?! 👏','바로 그거야! 🔥','천재인가 봐! 🧠','최고야! 😆'], en:["Correct! 🎉","Perfect! 🌟","Awesome! 👏","That's it! 🔥","Genius! 🧠","The best! 😆"] };
     var CHEER_HOT  = { ko:['불타오른다! 🔥','멈추지 마! ⚡','연속 정답 대박! 🚀','완전 물올랐어! 🌊'], en:["On fire! 🔥","Unstoppable! ⚡","Combo streak! 🚀","You're in the zone! 🌊"] };
     var CHEER_NO   = { ko:['아쉬워! 정답을 볼까? 👀','괜찮아, 다음엔 맞힐 거야! 💪','이건 꼭 기억해두자! 📌','조금만 더! 다시 도전! 🙌'], en:["So close! Here's the answer 👀","It's okay, next one! 💪","Let's remember this! 📌","Almost! Try again! 🙌"] };
-    function pickLine(set){ var arr=set[isEn()?'en':'ko']; return arr[Math.floor(Math.random()*arr.length)]; }
+    /* 응원 대사는 «몇 번째 줄» 만 기억하고 언어는 그릴 때 정한다 — 🌐 를 누르면 같은 말이 그 언어로 바뀐다. */
+    function pickLine(set){ return { s:set, k:Math.floor(Math.random()*set.ko.length) }; }
+    function lineText(l){ if(!l) return ''; if(typeof l==='string') return l; return l.s[isEn()?'en':'ko'][l.k] || ''; }
 
     // ━━━ +점수 플로팅 ━━━
     function floatPop(text, x, y){
@@ -352,7 +356,7 @@
           if (q.best_score != null) meta += '<span class="qi-best">🏆 ' + (isEn()?'Best ':'최고 ') + q.best_score + '/' + q.question_count + ' · ' + q.attempts + (isEn()?' tries':'회 도전') + '</span>';
           return '<button class="quiz-item" onclick="startQuiz(' + q.id + ')">' +
             '<span class="qi-icon">🧠</span><span class="qi-body">' +
-            '<div class="qi-title">' + esc(q.title) + '</div>' +
+            '<div class="qi-title">' + esc(rqTitle(q.title)) + '</div>' +
             (q.description ? '<div class="qi-desc">' + esc(q.description) + '</div>' : '') +
             '<div class="qi-meta">' + meta + '</div></span>' +
             '<span class="qi-go">' + (isEn()?'Start ▶':'풀기 ▶') + '</span></button>';
@@ -381,9 +385,10 @@
     }
     var TYPE_ICON = { choice:'📝', listen:'🎧', write:'✍️', speak:'🎤' };
     var TYPE_KO = { choice:'객관식', listen:'듣기', write:'쓰기', speak:'말하기' };
+    var TYPE_EN = { choice:'Multiple choice', listen:'Listening', write:'Writing', speak:'Speaking' };
     var rec = { mr:null, chunks:[], idx:-1 };
     function answered(i){ var a = state.answers[i]; return !(a==null || a===''); }
-    function renderQ() {
+    function renderQ(redraw) {
       var qz = state.quiz, i = state.idx, q = qz.questions[i], total = qz.questions.length;
       var typ = q.type || 'choice';
       var fb = state.fb[i];
@@ -450,7 +455,7 @@
         if (typ==='write' || typ==='speak') extra += '<div class="rq-a rq-ok" style="font-size:13px;margin-top:6px">'+(isEn()?'Target: ':'정답: ')+esc(fb.answer_text||'')+(fb.accuracy!=null?' ('+fb.accuracy+'%)':'')+'</div>';
         fbHtml = '<div class="rq-mascot '+(animate?(ok?'react':'sad'):'')+'">'
           + '<img src="'+MANGO_IMG+'" alt="" onerror="this.style.display=\'none\'">'
-          + '<div class="rq-bubble '+(ok?'ok':'no')+' show">'+esc(fb.line||'')+'</div></div>'
+          + '<div class="rq-bubble '+(ok?'ok':'no')+' show">'+esc(lineText(fb.line))+'</div></div>'
           + (fb.explain ? '<div class="rq-explain-inline">💡 '+esc(fb.explain)+'</div>' : '')
           + (extra ? '<div style="margin-top:2px">'+extra+'</div>' : '');
       }
@@ -465,7 +470,7 @@
 
       var html = hud + track +
         '<div class="quiz-card">' +
-        '<div class="q-num">' + esc(qz.title) + ' — ' + TYPE_ICON[typ] + ' ' + (isEn()?typ:TYPE_KO[typ]) + ' · Q' + (i+1) + ' / ' + total + '</div>' +
+        '<div class="q-num">' + esc(rqTitle(qz.title)) + ' — ' + TYPE_ICON[typ] + ' ' + (isEn()?TYPE_EN[typ]:TYPE_KO[typ]) + ' · Q' + (i+1) + ' / ' + total + '</div>' +
         inner + fbHtml +
         '<div class="nav-btns">' +
         (i > 0 ? '<button class="nav-btn" onclick="moveQ(-1)">← ' + (isEn()?'Prev':'이전') + '</button>' : '') +
@@ -474,7 +479,7 @@
         '<div style="margin-top:10px;text-align:center"><button class="nav-btn" style="flex:none;padding:9px 18px;font-size:12px" onclick="backToList()">' + (isEn()?'Quit':'그만두기') + '</button></div>' +
         '</div>';
       document.getElementById('playView').innerHTML = html;
-      if (typ==='listen' && !graded) setTimeout(function(){ playAudio(i, true); }, 350);
+      if (typ==='listen' && !graded && !redraw) setTimeout(function(){ playAudio(i, true); }, 350);   /* 🌐 다시 그릴 땐 음성을 또 틀지 않음 */
     }
     function refreshNext(){}
     window.setText = function(v){ state.answers[state.idx]=v; };
@@ -611,9 +616,9 @@
       var score=detail.filter(function(d){return d.correct;}).length, total=detail.length;
       showResult({ ok:true, score:score, total:total, percent: total?Math.round(score/total*100):0, detail:detail, awarded:0, balance:null, streak:0, first_clear:false, practice:true });
     }
-    function countUp(el, to, suffix){
+    function countUp(el, to, suffix, prefix){
       if(!el) return; var dur=750, t0=performance.now();
-      (function step(now){ var p=Math.min(1,(now-t0)/dur); var v=Math.round(to*(1-Math.pow(1-p,3))); el.textContent=v+(suffix||''); if(p<1) requestAnimationFrame(step); })(t0);
+      (function step(now){ var p=Math.min(1,(now-t0)/dur); var v=Math.round(to*(1-Math.pow(1-p,3))); el.textContent=(prefix||'')+v+(suffix||''); if(p<1) requestAnimationFrame(step); })(t0);
     }
     /* 🪙 (2026-11-02) «획득 포인트» 옆에 «왜 이만큼(또는 0)» 인지 — 서버가 실어 준 칸만 읽습니다(지어내지 않음).
        서버가 그 칸을 안 보내면(옛 서버) 아무 말도 안 합니다. */
@@ -633,7 +638,32 @@
       if(r.points_full!=null && full===0) return en?'Get answers right to earn points (10 each).':'정답을 맞히면 1문제당 10점을 받아요.';
       return '';
     }
-    function showResult(r) {
+    /* 🌐 (2026-11-04) 영어 모드 결과 화면 — 문제 글·해설은 AI 가 «한국어로» 만들어 D1 에 들어 있다.
+       결과를 먼저 그리고, 한국어 줄만 /api/translate(target:en)로 한 번 물어 받으면 다시 그린다.
+       못 받으면 원문 그대로(지어내지 않음). 같은 글은 다시 묻지 않는다(_koAsked). */
+    var _koEn = {}, _koAsked = {};
+    function rqTitle(t){ t = String(t||''); return isEn() ? t.replace(/\s*복습\s*퀴즈/g, ' Review Quiz').replace(/\s*복수전/g, ' Rematch') : t; }
+    function tEn(s){ s = String(s==null?'':s); return (isEn() && _koEn[s]) ? _koEn[s] : s; }
+    function koTranslateResult(r){
+      if (!isEn() || !r || !r.detail || !state.quiz) return;
+      var qs = state.quiz.questions || [], need = [];
+      function add(x){ x = String(x||'').trim(); if (x && /[가-힣]/.test(x) && !_koEn[x] && !_koAsked[x]) { _koAsked[x] = 1; need.push(x); } }
+      r.detail.forEach(function(d, i){ add(qs[i] && qs[i].q); add(d.explain); });
+      add(rqTitle(state.quiz.title));
+      if (!need.length) return;
+      fetch('/api/translate', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ texts: need.slice(0, 50), target:'en', mode:'chat' }) })
+        .then(function(x){ return x.json(); })
+        .then(function(d){
+          var m = (d && d.ok !== false && d.map) || {}, got = 0;
+          need.forEach(function(k){ var v = m[k]; if (typeof v === 'string' && v.trim() && !/[가-힣]/.test(v)) { _koEn[k] = v.trim(); got++; } });
+          var rv = document.getElementById('resultView');
+          if (got && _lastResult === r && isEn() && rv && rv.style.display !== 'none') showResult(r, true);
+        }).catch(function(){});
+    }
+    var _lastResult = null;
+    function showResult(r, redraw) {
+      _lastResult = r;
       var qz = state.quiz;
       var color = r.percent >= 80 ? '#10b981' : (r.percent >= 50 ? '#fbbf24' : '#ef4444');
       var msg, emo;
@@ -657,9 +687,9 @@
             '<div class="rq-a rq-ok">' + (isEn()?'Target: ':'정답: ') + esc(d.answer_text||'') + '</div>';
         }
         return '<div class="review-q">' +
-          '<div class="rq-t">' + (d.correct?'<span class="badge-ok">⭕</span>':'<span class="badge-no">❌</span>') + ' ' + (TYPE_ICON[typ]||'') + ' Q' + (i+1) + '. ' + esc(q.q) + '</div>' +
+          '<div class="rq-t">' + (d.correct?'<span class="badge-ok">⭕</span>':'<span class="badge-no">❌</span>') + ' ' + (TYPE_ICON[typ]||'') + ' Q' + (i+1) + '. ' + esc(tEn(q.q)) + '</div>' +
           body +
-          (d.explain ? '<div class="rq-explain">💡 ' + esc(d.explain) + '</div>' : '') +
+          (d.explain ? '<div class="rq-explain">💡 ' + esc(tEn(d.explain)) + '</div>' : '') +
           '</div>';
       }).join('');
 
@@ -684,7 +714,7 @@
       rv.innerHTML =
         '<div class="quiz-card result-card">' +
         '<img src="'+MANGO_IMG+'" alt="" onerror="this.style.display=\'none\'" style="width:74px;height:74px;object-fit:contain;margin-bottom:2px">' +
-        '<div style="font-size:13px;color:var(--text2);font-weight:700;margin-bottom:6px">' + esc(qz.title) + '</div>' +
+        '<div style="font-size:13px;color:var(--text2);font-weight:700;margin-bottom:6px">' + esc(tEn(rqTitle(qz.title))) + '</div>' +
         '<div class="result-score" style="color:' + color + '"><span id="rvScore">0</span> / ' + r.total + '</div>' +
         '<div class="result-label">' + (isEn()?'Score':'점수') + ' ' + r.percent + (isEn()?' pts':'점') + ' (100' + (isEn()?' max':'점 만점') + ')</div>' +
         stamp +
@@ -698,11 +728,34 @@
         (wrongBtn ? '<button class="nav-btn" style="width:100%;margin-top:8px" onclick="backToList()">📋 '+(isEn()?'Quiz list':'퀴즈 목록')+'</button>' : '') +
         '<button class="nav-btn primary" style="width:100%;margin-top:10px" onclick="window.MangoFlow&&MangoFlow.open(\'quiz\')">🚀 ' + (isEn()?'Choose next activity':'다음 활동 고르기') + '</button>' +
         '</div>';
+      if (redraw) {   /* 🌐 언어만 바꿔 다시 그릴 때는 숫자를 바로 채우고 축하·소리·스크롤을 되풀이하지 않음 */
+        var _s=document.getElementById('rvScore'); if(_s) _s.textContent=String(r.score);
+        var _p=document.getElementById('rvPts'); if(_p) _p.textContent='+'+(Number(r.awarded)||0);
+        koTranslateResult(r);
+        return;
+      }
+      koTranslateResult(r);
       window.scrollTo(0,0);
       countUp(document.getElementById('rvScore'), r.score, '');
-      if(!r.practice) countUp(document.getElementById('rvPts'), (r.awarded||0), '');
+      if(!r.practice) countUp(document.getElementById('rvPts'), (Number(r.awarded)||0), '', '+');
       if (r.percent>=50){ confetti(); sfxWin(); }
     }
+
+    /* 🌐 (2026-11-04) 언어가 바뀌면 지금 보이는 화면을 그 자리에서 다시 그린다.
+       ① 🌐 토글 — 엔진마다 window·document 한쪽에서만 발행되므로 양쪽에 단다.
+       ② 첫 화면 — 이 스크립트는 공용 엔진(defer)보다 먼저 돌아 getLang() 이 아직 없다(EN 학생도 KO 로 그려짐).
+          DOMContentLoaded(=defer 실행 뒤)에 한 번 더 그린다. */
+    (function(){
+      function shown(id){ var el=document.getElementById(id); return !!(el && el.style.display==='block'); }
+      function relang(){
+        if(_lastResult && shown('resultView')) showResult(_lastResult, true);
+        else if(state.quiz && shown('playView')) { if(!rec.mr) renderQ(true); }   /* 녹음 중이면 버튼을 갈아치우지 않음 */
+        else { var lv=document.getElementById('listView'); if(lv && lv.style.display!=='none') loadList(); }
+      }
+      window.addEventListener('mangoi:lang-changed', relang);
+      document.addEventListener('mangoi:lang-changed', relang);
+      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', relang, { once:true });
+    })();
 
     loadList();
   </script>
@@ -711,7 +764,7 @@
 <div id="rq-video-pop" style="display:none;position:fixed;top:64px;right:14px;z-index:99998;width:220px;background:rgba(13,20,40,0.97);border:1px solid rgba(251,191,36,0.45);border-radius:18px;box-shadow:0 14px 40px -6px rgba(0,0,0,0.6);overflow:hidden;font-family:MangoiHanSC,'Noto Sans KR',-apple-system,sans-serif;backdrop-filter:blur(8px)">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px 6px;border-bottom:1px solid rgba(255,255,255,0.08)">
     <span style="font-size:12.5px;font-weight:800;color:#fbbf24;display:flex;align-items:center;gap:5px">❓👩‍🏫 <span data-ko="선생님 영상 메시지" data-en="Teacher's Video Message">선생님 영상 메시지</span></span>
-    <button id="rq-vp-x" type="button" aria-label="닫기" style="background:rgba(255,255,255,0.10);border:0;color:#e2e8f0;width:24px;height:24px;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;line-height:1">✕</button>
+    <button id="rq-vp-x" type="button" aria-label="닫기" data-ko-aria="닫기" data-en-aria="Close" style="background:rgba(255,255,255,0.10);border:0;color:#e2e8f0;width:24px;height:24px;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;line-height:1">✕</button>
   </div>
   <div style="position:relative">
     <video id="rq-vp-video" src="/video/review-quiz-teacher.mp4" playsinline preload="auto" style="display:block;width:100%;aspect-ratio:1/1;object-fit:contain;background:#000"></video>

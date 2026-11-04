@@ -47,7 +47,9 @@ console.log('▶ 1. Durable Object — 공유 상태 보존');
   check('② 퇴장에서 videoState 도 삭제하지 않는다',
     leave.length > 100 && !/storage\.delete\('videoState'\)/.test(leave));
 
-  const join = DO.slice(DO.indexOf('private handleJoinRoom'), DO.indexOf('private handleLeaveRoom'));
+  /* (2026-11-04) handleJoinRoom 이 async 가 됐다(순단 유예 기록을 storage 에서 꺼낸다) — 둘 다 받는다. */
+  const _ji = DO.search(/private (async )?handleJoinRoom\(/);
+  const join = DO.slice(_ji, DO.indexOf('private handleLeaveRoom'));
   /* 🪤 (2026-08-11) 예전엔 «userCount<=1 로부터 200자 안에 mediaAt» 이라는 글자 거리로 봤다.
      그래서 조건을 하나 더 늘리는 «옳은» 수정(빈 시간 기준 추가)에 이 검사가 깨졌다.
      지켜야 할 규칙은 거리가 아니라 «무조건 지우지 않는다» 이다 —

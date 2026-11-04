@@ -264,7 +264,7 @@ const i0 = api.indexOf("path === '/api/admin/classes/today'");
 const iE = api.indexOf('await enrichClassesToday(', i0);
 const iJ = api.indexOf('const res = json({', i0);
 ok('classes/today 가 정본을 «응답 전» 에 부른다', i0 > 0 && iE > i0 && iE < iJ);
-ok('classes/today 는 평가를 연락처와 같은 판정(본사·내부직원만)으로 넘긴다', /enrichClassesToday\(env as any, sessions, dateStr, nowMs, \{ evals: _ctSeeContact, dowMatches: admDowMatches \}\)/.test(api)
+ok('classes/today 는 평가를 연락처와 같은 판정(본사·내부직원만)으로 넘긴다', /enrichClassesToday\(env as any, sessions(?:\.filter\(x => !x\.moved_away\))?, dateStr, nowMs, \{ evals: _ctSeeContact, dowMatches: admDowMatches \}\)/.test(api)   // ⏸ (2026-11-04) «원래 날짜» 칸(moved_away)은 보강에서 뺀다 — class_cancelled_visible H4 가 실제로 돌려 봄
    && /const _ctSeeContact = _ctScope\.type === 'hq' \|\| _ctScope\.type === 'none';/.test(api));
 ok('그 호출은 조건 없이 try 로 감싸여 있다(목록이 통째로 안 사라짐)', /\n[ \t]*try \{ await enrichClassesToday\(/.test(api));
 const adm = readFileSync(join(PUB, 'js', 'adm-today-classes.js'), 'utf8');

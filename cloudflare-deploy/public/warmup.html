@@ -2022,10 +2022,13 @@ var _warmStarted = false;      // 첫 인사가 이미 나갔는가(= 대화가 
 function setupEl(){ return document.getElementById('wuSetup'); }
 /* 🎚️ 교정 방식 — 제안서(2026-10-29)의 세 모드. id 는 서버 WARMUP_MODES 와 짝(src/warmup-honest.ts).
    ⛔ 고르지 않았으면 '' 로 둔다(서버에 안 보냄 = 예전 동작). «기본» 을 저장해 두지 않는다 —
-      저장하면 «아직 안 정함» 과 «사람이 골랐음» 이 같아져 나중에 기본을 바꿀 수 없다. */
+      저장하면 «아직 안 정함» 과 «사람이 골랐음» 이 같아져 나중에 기본을 바꿀 수 없다.
+   ⚖️ 균형 설명 (2026-11-04) — 서버 동작 그대로: 큰 실수는 매번·작은 실수는 연달아 안 고치고(src/warmup-correction.ts)
+      따라 말하기는 WARMUP_REPEAT_GAP_TURNS(3)턴에 한 번까지 → «위주로 · 가끔». 입구(ai-speaking.html)의 균형 한 줄과 같은 말.
+      ⛔ «핵심 표현·되풀이되는 실수만» 으로 되돌리지 말 것 — 서버는 그 기준으로 고르지 않는다. */
 var CMODE_CATALOG = [
-  { id:'free_talk', ic:'💬', ko:'자유대화', en:'Free talk', d:'흐름을 끊지 않고 바른 문장을 자연스럽게 들려줘요. 저학년·초급·흥미 위주에 좋아요.', de:'Keeps the flow and simply models the right sentence. Good for young or beginner learners.' },
-  { id:'balanced',  ic:'⚖️', ko:'균형', en:'Balanced', d:'핵심 표현이나 되풀이되는 실수만 따라 말해요. 대부분의 수업에 맞아요.', de:'Repeat-after-me only for key phrases or repeated mistakes. Fits most classes.', },
+  { id:'free_talk', ic:'💬', ko:'자유대화', en:'Free talk', d:'대화는 그대로, 틀린 곳은 교정 카드로만 보여줘요(고친 문장을 말로 하지 않아요). 저학년·초급·흥미 위주에 좋아요.', de:'Keeps chatting; mistakes appear only as a correction card (no spoken correction). Good for young or beginner learners.' },
+  { id:'balanced',  ic:'⚖️', ko:'균형', en:'Balanced', d:'중요한 실수 위주로 고치고 가끔 따라 말해요. 대부분의 수업에 맞아요.', de:'Mostly key mistakes; repeat-after-me sometimes. Fits most classes.', },
   { id:'focused',   ic:'🎯', ko:'집중교정', en:'Focused', d:'틀릴 때마다 바른 문장을 듣고 따라 말해요. 정확도·시험 대비에 좋아요.', de:'Every mistake: hear the right sentence and say it back. Good for accuracy and tests.' , dflt:true }
 ];
 var WU_CMODE_KEY = 'mangoi_warmup_correction';
@@ -2044,7 +2047,14 @@ function setCorrMode(id){
   if(!ok) return false;
   _wuCorrMode = id;
   if(typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged(true);
-  try{ localStorage.setItem(WU_CMODE_KEY, id); }catch(e){}
+  /* 🔁 2026-11-04 사장님 「반대 방향도 맞춰줘」 — 입구(ai-speaking.html)의 교정 정도는 «웜업·AI 친구 한 설정» 이다.
+     여기서 사람이 고르면 정본(js/ai-speaking-settings.js chooseCorr)으로 두 화면 키를 함께 써서,
+     입구로 돌아가도 «화면마다 다름» 이 아니라 같은 값이 보인다(입구는 pageshow·storage 때 다시 읽는다).
+     ⛔ 열거나 그리기만 할 때는 부르지 않는다 — 부르는 곳은 사람이 고르는 자리뿐(설정 카드·warmup-flow 패널).
+     정본이 아직 없으면(옛 캐시·불러오기 실패) 예전처럼 웜업 키만. */
+  var S = (typeof window!=='undefined') ? window.AiSpeakSettings : null;
+  if(S && S.chooseCorr) S.chooseCorr(localStorage, id);
+  else try{ localStorage.setItem(WU_CMODE_KEY, id); }catch(e){}
   return true;
 }
 function cmodesHtml(){
@@ -3101,8 +3111,37 @@ function _ttsPrefetch(text, spk){
 /* ⚡ (2026-10-20) 입모양 분석기(모델 37.8MB, 기기에 한 번 받으면 1년 캐시)를 화면이 열릴 때 미리 켠다 —
    연령·수준을 고르는 동안 준비돼 첫 인사부터 정확한 입모양이 나오게. 재생은 이것을 기다리지 않는다
    (mango-avatar.js v20 — 분석은 250ms 까지만 기다림). 이미 켜져 있으면 아무 일도 안 한다. */
+/* 📱 (2026-11-04 「처음 들어가면 특히 폰에서 아바타 말이 늦다」) 폰·느린 회선은 «첫 인사를 다 말할 때까지»
+   입모양 엔진을 켜지 않는다 — 켜는 순간 약 28.7MB(압축) 다운로드와 WASM 엔진 띄우기가 첫 인사의 AI 답·음성 받기와
+   같은 회선·CPU 를 나눠 쓴다. 그동안 입은 소리 크기로 움직이고(예전부터 있던 폴백), 첫 인사가 끝나면(aiDone) 켠다.
+   ⚠️ 공용 파일(js/avatar-visemes.js)은 안 건드리고 이 화면에서만 prepare·boot 를 감싼다 — 다른 화면은 예전 그대로.
+   ⚠️ 안전망: 30초 뒤에는 무조건 켠다(소리를 꺼 두었거나 인사가 안 나온 경우). 끄기: 주소에 ?visemes=now */
+var _visHold = (function(){
+  try{
+    if(/[?&]visemes=now\b/.test(location.search)) return false;
+    var c = navigator.connection;
+    if(c && (c.saveData || /2g|3g/.test(String(c.effectiveType||'')))) return true;
+    return !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+  }catch(e){ return false; }
+})();
+function _visemeRelease(){
+  if(!_visHold) return;
+  _visHold = false;
+  try{ var V = window.AvatarVisemes; if(V && V.boot) V.boot(); }catch(e){}
+}
+function _visemeWrap(){
+  var V = window.AvatarVisemes;
+  if(!V || V.__warmHold || typeof V.prepare!=='function' || typeof V.boot!=='function') return;
+  var p = V.prepare, b = V.boot;
+  V.prepare = function(){ return _visHold ? Promise.resolve(null) : p.apply(V, arguments); };
+  V.boot = function(){ if(!_visHold) return b.apply(V, arguments); };
+  V.__warmHold = true;
+}
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _visemeWrap); else _visemeWrap();
 window.addEventListener('load', function(){
-  setTimeout(function(){ try{ window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); }catch(e){} }, 1000);
+  _visemeWrap();
+  setTimeout(function(){ try{ window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); }catch(e){} }, 1000);   // 붙잡혀 있으면 아무 일도 안 한다
+  if(_visHold) setTimeout(_visemeRelease, 30000);
 });
 /* 🎙️ 영어 «남자» 목소리(Jake·Noah)는 너무 늘이지 않는다 (2026-10-02 피드백 「제이크랑 노아는 보이스가 어색함」).
    «보통» 이 0.8배라 브라우저가 소리를 늘여 재생하는데, 이 늘이기는 낮은 남자 목소리에서 «뚜벅뚜벅» 끊김이
@@ -3348,8 +3387,9 @@ function _stmSentence(L, sen, typing){
   if(_warmPaused || L.epoch!==_warmEpoch){ L.dead=1; return; }
   try{ typing.remove(); }catch(e){}
   if(!L.n){
-    L.mix0=_mixIdx; L.label=_friendLabelNow(); _autoHook('reply');
-    _latCur={ t0:L.lt0, t1:Date.now(), wait:(L.ls?L.ls.wait:null), tStop:(L.ls?L.ls.at:null) };   // ⏱ 첫 소리가 나면 _latMark 가 닫는다
+    L.mix0=_mixIdx; L.label=_friendLabelNow();
+    if(!L.kick) _autoHook('reply');               // 🚀 첫 인사(kickoff)는 «학생 말에 대한 답» 이 아니다 — 예전처럼 알리지 않는다
+    if(!L.kick) _latCur={ t0:L.lt0, t1:Date.now(), wait:(L.ls?L.ls.wait:null), tStop:(L.ls?L.ls.at:null) };   // ⏱ 첫 소리가 나면 _latMark 가 닫는다
   }
   L.n++; L.text=(L.text ? L.text+' ' : '')+sen;
   _stmShow(L);
@@ -3394,9 +3434,11 @@ async function _stmRead(r, onSen, L){
   finally{ clearTimeout(idle); }
   return fin;
 }
-/* 한 차례 — 'retry'(아무것도 못 받음 → 예전 방식으로 다시) 또는 'done'. */
-async function _stmTurn(r, epoch, typing, lt0, ls){
-  var L={ q:[], i:0, pf:[], n:0, text:'', epoch:epoch, lt0:lt0, ls:ls };
+/* 한 차례 — 'retry'(아무것도 못 받음 → 예전 방식으로 다시) 또는 'done'.
+   🚀 kick=true(첫 인사 — 2026-11-04 「처음 들어가면 폰에서 늦게 나온다」): 학생 말에 대한 답이 아니므로
+   자동 말하기 알림·지연 측정·교정 카드·등급을 건너뛰고, 실패하면 'fail' 을 돌려 부르는 쪽이 고정 인사말로 떨어진다. */
+async function _stmTurn(r, epoch, typing, lt0, ls, kick){
+  var L={ q:[], i:0, pf:[], n:0, text:'', epoch:epoch, lt0:lt0, ls:ls, kick:!!kick };
   var d=await _stmRead(r, function(s){ _stmSentence(L, s, typing); }, L);
   if(_warmPaused || epoch!==_warmEpoch){ _stmDrop(L); return 'done'; }
   if(!d){
@@ -3410,10 +3452,11 @@ async function _stmTurn(r, epoch, typing, lt0, ls){
   if(!d.ok || d.status!==200){
     if(spoken && !interrupted) _stopSpeak();
     _stmDrop(L);
+    if(L.kick) return 'fail';
     addMsg('답변을 받아오지 못했어요. 잠시 후 다시 시도해 주세요.', 'sys');
     return 'done';
   }
-  if(!L.n){ _autoHook('reply'); _latCur={ t0:lt0, t1:Date.now(), wait:(ls?ls.wait:null), tStop:(ls?ls.at:null) }; }
+  if(!L.n && !L.kick){ _autoHook('reply'); _latCur={ t0:lt0, t1:Date.now(), wait:(ls?ls.wait:null), tStop:(ls?ls.at:null) }; }
   var finalText=d.ai_response || '(응답이 비어 있어요)';
   _stmDrop(L);
   if(spoken && (!d.replaced || interrupted)){
@@ -3429,9 +3472,11 @@ async function _stmTurn(r, epoch, typing, lt0, ls){
     if(L.mix0!=null) _mixIdx=L.mix0;
     addMsg(finalText, 'ai');
   }
-  if(d.cut) addMsg('답변이 중간에 끊겼어요. 이어서 말해 주세요.', 'sys');
-  showFixCard(d.fix, d.repeat);
-  wuApplyGrade(d);
+  if(d.cut && !L.kick) addMsg('답변이 중간에 끊겼어요. 이어서 말해 주세요.', 'sys');
+  if(!L.kick){                 // 🚀 첫 인사는 학생 말이 아니다 — 교정·등급 없음
+    showFixCard(d.fix, d.repeat);
+    wuApplyGrade(d);
+  }
   showAnswerChips(d.answer_chips, d.speaking_help);
   return 'done';
 }
@@ -3688,7 +3733,9 @@ function _blobHasVoice(blob){
 }
 /* ✨ 자동 말하기(베타, 2026-09-24) — 켜는 «시점» 만 js/warmup-auto-talk.js 가 정한다.
    듣기·말 끝 판단·전송은 이 파일의 기존 코드 그대로다. 모듈이 없거나 죽어도 버튼 모드는 그대로 돈다. */
-function _autoHook(ev, a){ try{ window.WarmupAutoTalk && WarmupAutoTalk.on(ev, a); }catch(e){} }
+function _autoHook(ev, a){ try{
+  if(ev==='aiDone') _visemeRelease();   // 📱 첫 인사를 다 말했다 — 미뤄 둔 입모양 엔진을 이제 켠다(_visemeRelease 는 스스로 try)
+  window.WarmupAutoTalk && WarmupAutoTalk.on(ev, a); }catch(e){} }
 /* 듣던 것을 «보내지 않고» 닫는다 — 자동으로 열려 있는데 AI 가 다시 말을 시작할 때만 쓴다
    (그대로 두면 AI 목소리를 학생 말로 받아 적는다). sendMsg 의 «먼저 보냄» 정리와 같은 방식. */
 function _micAbortQuiet(){
@@ -4125,7 +4172,19 @@ async function initGreeting(){
         ? " I am a beginner: keep every sentence under 8 Chinese characters, and make the question a yes/no (吗) question or an A还是B question so the answer is inside your question. Add pinyin and the Korean meaning in parentheses."
         : " I am a beginner: keep every sentence under 7 words, and make the question a yes/no question or an either/or question so the answer is inside your question.";
       var body = withCtx({ session_id: SESSION_ID, kickoff: 1, student_input: kick });
+      /* 📡 (2026-11-04 「처음 들어가면 특히 폰에서 늦게 나온다」) 첫 인사도 다른 대답처럼 문장 단위로 받는다 —
+         예전에는 답 «전체» 가 만들어질 때까지 기다린 뒤에야 음성을 받기 시작했다. 스트림이 아무것도 못 주면
+         예전 방식(한 번에 받기)으로 한 번 더, 정본이 실패면 아래 고정 인사말로 떨어진다. */
+      var kStm = _stmWanted(); if(kStm) body.stream = 1;
       var kr = await warmupFetch(warmupEndpoint(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      if(kStm && kr.ok && kr.body && String(kr.headers.get('content-type')||'').indexOf('text/event-stream')>=0){
+        var kres = await _stmTurn(kr, epoch, typing, Date.now(), null, true);
+        if(kres === 'done') return;
+        if(_warmPaused || epoch!==_warmEpoch) return;
+        if(kres !== 'retry') throw new Error('kickoff_failed');   // 'fail' — 고정 인사말로
+        delete body.stream;
+        kr = await warmupFetch(warmupEndpoint(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      }
       typing.remove();
       if(kr.ok){
         var kd = await kr.json();
@@ -4933,7 +4992,7 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 <script defer src="/js/mangoi-voice-input.js?v=6"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/voice-has-speech.js?v=1"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
 <script defer src="/js/ai-diff.js?v=2"></script>
-<script defer src="/js/warmup-howto.js?v=9"></script><!-- 📘 A.i말하기 사용방법 쉽게 알기 안내창 (2026-10-03) --><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
+<script defer src="/js/warmup-howto.js?v=11"></script><!-- 📘 A.i말하기 사용방법 쉽게 알기 안내창 (2026-10-03) --><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=23"></script>
 <!-- BUILD:20260813015745 -->
@@ -4943,13 +5002,14 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 <script src="/js/warmup-facetalk.js?v=4" defer></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 자동 말하기 엔진을 켜고 모양만 바꿈) -->
 <script src="/js/warmup-touch-bar.js?v=2" defer></script>
 <script src="/js/warmup-dock.js?v=2" defer></script><!-- 📱 세로 화면: 아래 버튼 줄 자동 접힘·손잡이 (2026-11-02) --><!-- 📱 터치 기기 전용 아래 3칸 바(도움·말하기·글쓰기) — 2026-09-26 시안 4 -->
+<script src="/js/ai-speaking-settings.js?v=1" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — setCorrMode 가 씀 (2026-11-04) -->
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 <script defer src="/js/warmup-photo-icons.js?v=5"></script>
 <link rel="stylesheet" href="/css/warmup-flow.css?v=6" />
 <script defer src="/js/warmup-flow.js?v=5"></script>
 <script defer src="/js/warmup-points.js?v=1"></script><!-- 🪙 «끝내고 요약 보기» 창에 받은 포인트 한 줄 (2026-11-03) / points line in the summary -->
-<link rel="stylesheet" href="/css/warmup-topbar.css?v=1" />
-<script defer src="/js/warmup-topbar.js?v=1"></script><!-- 📱 휴대폰 위쪽 버튼 한 줄 — 세로 B(아이콘 한 줄) · 가로 C(떠 있는 바 + 숨기기) (2026-11-03) / one-row top bar on phones -->
+<link rel="stylesheet" href="/css/warmup-topbar.css?v=2" />
+<script defer src="/js/warmup-topbar.js?v=2"></script><!-- 📱 휴대폰 위쪽 버튼 한 줄 — 세로 B(아이콘 한 줄) · 가로 C(떠 있는 바 + 숨기기) (2026-11-03) / one-row top bar on phones -->
 <link rel="stylesheet" href="/css/warmup-body.css?v=1" />
 <script defer src="/js/warmup-body.js?v=1"></script><!-- 🧍 AI 말하기 몸통·팔 레이어 (얼굴 캔버스 뒤, 2026-11-01) / torso layer behind the face canvas -->
 </body>

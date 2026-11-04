@@ -170,8 +170,11 @@
     ph54State.off = []; ph54State.offComplete = false;   // 못 읽었다 = «모름» (0건이라고 단정하지 않는다)
   }
 
-  /* 🧾 취소·연기 회차 묶기 — 그룹 수업은 «학생마다 한 행» 이라 같은 강사·날짜·시각·상태면 학생만 합친다
-     (weekly-schedule.html 의 OFF_SLOTS 로더와 같은 규칙). 모양이 이상한 줄은 버린다(아무 칸에나 놓지 않는다). */
+  /* 🧾 취소·연기 회차 묶기 — 그룹 수업은 «학생마다 한 행» 이라 같은 강사·날짜·시각·상태면 학생만 합친다.
+     모양이 이상한 줄은 버린다(아무 칸에나 놓지 않는다).
+     ⚠️ (2026-11-04) weekly-schedule.html 의 OFF_SLOTS 로더와는 이제 «다른» 규칙이다 — 그쪽은 칸 하나에 «부분» 을 두고
+        열쇠가 «상태 + 서버 글자» 라 새 날짜가 다른 두 연기(→ 11/11 · → 11/12)를 갈라 말한다. 여기는 열쇠가 «상태» 까지라
+        그 둘이 한 카드(첫 글자)로 합쳐진다. 카드 배치(군집 폭 나누기)가 걸려 별건으로 남겼다(작업기록 261104 §9). */
   function ph54MergeOff(list){
     var out = [], byKey = {};
     (Array.isArray(list) ? list : []).forEach(function(o){
@@ -519,6 +522,7 @@
      [속도] 한 번 그리고 끝 — 스크롤·호버에 JS 없음. 군집 계산은 «같은 열 안» 에서만 하므로 O(n) 에 가깝다.
      샘플·비교: docs/강사캘린더_강사별열_B안_세갈래_2026-09-02.html · 감시: test-harness/teacher_calendar_lanes_harness.mjs */
   var PH54_GAP_MIN = 30;   // 이보다 짧은 빈틈은 «빈 자리» 로 안 그린다(20분 수업 사이 10분은 쉬는 시간)
+  var PH54_GAP_LABEL_MIN = 15;   // «빈 N분» 글자가 들어갈 만한 덮이지 않은 구간(15분 = 12.5px — 9px 글자 한 줄)
 
   /* 한 열(=한 강사·하루)의 카드 배치. items: [{st, du, ...}] (분 단위)
      → 같은 배열 요소에 lane/lanes/dup 를 써 넣고, 빈 자리 목록을 함께 돌려준다. */
@@ -535,7 +539,7 @@
       cluster = []; maxEnd = -1;
     };
     list.forEach(function(it){
-      it.dup = false;
+      it.dup = false; it.inGap = false;
       if (cluster.length && it.st >= maxEnd) flush();
       cluster.push(it); maxEnd = Math.max(maxEnd, it.st + it.du);
     });
@@ -549,10 +553,30 @@
       if (list[i].st < list[j].st + list[j].du && list[j].st < list[i].st + list[i].du){ list[i].dup = true; list[j].dup = true; }
     }
     // 빈 자리 — 연속 점유 사이 PH54_GAP_MIN 분 이상(차단 카드도 «점유» 로 본다)
+    //   🧾 (2026-11-04 사장님 「빈 N분 점선 상자도 같이 보이게 해줘」) 취소·연기 칸은 «점유» 가 아니다 — 그 시간은 비어 있다.
+    //      그래서 빈 자리를 셀 때 빼고, 그 칸은 점선 상자 «안» 에 들어간다(inGap — 카드가 조금 안쪽으로 들어가 점선이 보인다).
+    //      글자 «빈 N분» 은 카드에 안 덮이는 가장 긴 구간(PH54_GAP_LABEL_MIN 분 이상)에 두고, 그런 구간이 없으면
+    //      상자 오른쪽 아래 작은 꼬리표(tag)로 카드 위에 얹는다 — 어느 경우든 글자가 가려지지 않는다.
     var gaps = [], end = -1;
     list.forEach(function(it){
+      if (it.kind === 'off') return;
       if (end >= 0 && it.st - end >= PH54_GAP_MIN) gaps.push({ st: end, du: it.st - end });
       end = Math.max(end, it.st + it.du);
+    });
+    gaps.forEach(function(g){
+      var offs = list.filter(function(it){ return it.kind === 'off' && it.st < g.st + g.du && it.st + it.du > g.st; });
+      if (!offs.length) return;
+      offs.forEach(function(it){ it.inGap = true; });
+      var segs = [], cur = g.st;
+      offs.slice().sort(function(a, b){ return a.st - b.st; }).forEach(function(it){
+        if (it.st > cur) segs.push({ st: cur, du: it.st - cur });
+        cur = Math.max(cur, it.st + it.du);
+      });
+      if (cur < g.st + g.du) segs.push({ st: cur, du: g.st + g.du - cur });
+      var best = null;
+      segs.forEach(function(sg){ if (!best || sg.du > best.du) best = sg; });
+      if (best && best.du >= PH54_GAP_LABEL_MIN){ g.lst = best.st; g.ldu = best.du; }
+      else g.tag = true;
     });
     return { items: list, gaps: gaps };
   }
@@ -565,8 +589,20 @@
   // 빈 자리 점선 칸 HTML
   function ph54GapHtml(g){
     var top = (g.st - PH54_START_H*60) / 60 * PH54_HOUR_PX, h = g.du / 60 * PH54_HOUR_PX;
-    return '<div class="ph54-gap" style="top:' + (top + 2) + 'px;height:' + Math.max(h - 4, 10) + 'px">'
-      + ph54T('빈 ' + g.du + '분', g.du + 'm free') + '</div>';
+    var boxH = Math.max(h - 4, 10);   // 상자는 위아래 2px 씩 안쪽 — 글자 자리도 이 높이 안에서 잰다
+    var lab = ph54T('빈 ' + g.du + '분', g.du + 'm free');
+    var inner = lab;
+    if (g.tag){
+      // 상자가 취소 카드로 거의 다 덮였다 — 오른쪽 아래 꼬리표로 카드 위에 얹는다(눌림은 그대로 통과: 상자가 pointer-events:none)
+      inner = '<span class="ph54-gap-tag" style="position:absolute;right:2px;bottom:1px;z-index:3;padding:0 3px;border-radius:3px;line-height:12px;background-color:#ffffff;border:1px dashed #94a3b8">' + lab + '</span>';
+    } else if (g.lst != null){
+      // 취소 카드에 안 덮인 가장 긴 구간에 글자를 둔다(상자 위쪽 끝 2px 를 뺀 자리 기준 · 상자 밖으로 안 나가게)
+      var lt = Math.max(0, (g.lst - g.st) / 60 * PH54_HOUR_PX - 2);
+      var lh = Math.max(0, Math.min(g.ldu / 60 * PH54_HOUR_PX, boxH - 2 - lt));   // −2 = 상자 위아래 테두리(1px×2 · border-box)
+      inner = '<span class="ph54-gap-lab" style="position:absolute;left:0;right:0;display:flex;align-items:center;justify-content:center;top:'
+        + lt.toFixed(1) + 'px;height:' + lh.toFixed(1) + 'px">' + lab + '</span>';
+    }
+    return '<div class="ph54-gap" style="top:' + (top + 2) + 'px;height:' + boxH + 'px">' + inner + '</div>';
   }
   /* 접힌 요일의 밀도 — 20분 칸마다 «그 시간에 걸친 카드 수» 를 보라 농도로. div 수십 개가 아니라
      그라데이션 «한 장» 이다(요소 수를 늘리지 않는다). 모든 칸에 stop 을 두어야 사이가 번지지 않는다.
@@ -691,6 +727,27 @@
      · 끌 수 없고(draggable 없음), records 인덱스·차단 번호를 안 단다 — 클릭·드롭 핸들러가 그 둘로 돌기 때문이다.
      · 글자(취소됨/연기됨)·누가·언제·사유는 서버가 만든 것만 쓴다(judgeClassChange — 누가·사유는 본사·내부직원에게만 실린다).
      · 색은 밝은 회색 무늬 — adm-light-surfaces 가 «어두운 그라데이션» 으로 보고 덮지 않게 밝은 색만 쓴다(CLAUDE.md 2장). */
+  /* 🙈 전체 보기에서 이 강사에게 열을 줄 것인가 — 수업·차단·카페24 중 하나라도 있으면 준다(«취소·연기만» 이면 안 준다). */
+  function ph54ShowsLane(t){
+    return !!(t && t.items && t.items.some(function(it){ return it && it.kind !== 'off'; }));
+  }
+
+  /* 📜 달력 칸의 스크롤 위치를 넣는다 — 다시 그린 «직후» 에 부른다.
+     ⚠️ 이 카드는 `#legacy-cards details{content-visibility:auto}`(admin-inline-c.css — 화면 밖 카드 렌더 생략) 안에 있다.
+     카드가 렌더 생략 상태인데 포커스(접힌 요일 머리글 — tabindex=0 이라 마우스로 눌러도 포커스가 간다)만으로 살아 있다가
+     그 포커스 요소를 innerHTML 로 지우면, 바로 뒤의 scrollTop 대입을 크로미움이 조용히 무시한다(2026-11-03 실측: 넣은 직후
+     다시 읽으면 0 · 그 규칙을 끄면 안 남 · scrollHeight 를 한 번 읽고 넣으면 들어감) → 보던 시간대가 맨 위(06시)로 튀었다.
+     사람이 카드를 보며 누를 때는 카드가 화면 안이라 거의 안 닿는다고 본다(추론 — 사람 화면에서는 못 쟀다) — 그래도 상태와 무관하게 지키려고 배치를 먼저 읽어
+     확정하고 넣고, 그래도 안 들어갔으면 다음 화면 갱신 때 한 번 더 넣는다. */
+  function ph54SetScrollTop(el, v){
+    if (!el || typeof v !== 'number' || !(v >= 0)) return;   // ⚠️ null >= 0 은 참 — 숫자인지 먼저
+    void el.scrollHeight;
+    el.scrollTop = v;
+    if (Math.abs(el.scrollTop - v) > 1 && v <= el.scrollHeight - el.clientHeight && window.requestAnimationFrame){
+      requestAnimationFrame(function(){ if (el.isConnected) el.scrollTop = v; });
+    }
+  }
+
   /* 🧾 클릭이 «카드 위» 라서 무시해야 하는가. 취소·연기 카드는 «비어 있는 시간» 이라 통과시킨다 —
      고치기 전에는 그 자리가 빈칸이라 눌러서 차단할 수 있었다(함정 대조 2026-11-03: 카드가 그 길을 막고 있었다). */
   function ph54CardBlocksClick(t){
@@ -723,7 +780,8 @@
     return '<div class="ph54-ev ph54-off ph54-locked' + (pp ? ' ph54-off-pp' : '') + '" data-off="' + (pp ? 'postponed' : 'cancelled') + '"'
       /* 글자색 #475467 은 «테마 규칙이 없을 때» 의 값이다 — ivory/slate 에서는 admin-inline-c.css 의
          [id^="card-"] … div{color:#101828!important} 가 이겨 실제로는 #101828 로 그려진다(실측). 둘 다 밝은 바탕에서 읽힌다. */
-      + ' style="top:'+top+'px;height:'+height+'px;'+ph54LaneStyle(lay)+'cursor:cell;box-shadow:none;color:#475467;'+look+'"'
+      // 빈 자리 상자 안이면 혼자일 때 조금 안쪽으로(점선 테두리가 카드 양옆에 보이게)
+      + ' style="top:'+top+'px;height:'+height+'px;'+ph54LaneStyle(lay)+((lay && lay.inGap && !(lay.lanes > 1)) ? 'left:7px;right:7px;' : '')+'cursor:cell;box-shadow:none;color:#475467;'+look+'"'
       + ' title="'+ph54Esc(tip)+'">'
       +   '<div class="ph54-ev-time"' + (pp ? '' : ' style="text-decoration:line-through;text-decoration-color:#64748b"') + '>' + ph54Esc(timeTxt) + '</div>'
       +   '<div class="ph54-ev-name">' + ph54Esc(who) + '</div>'
@@ -867,14 +925,22 @@
         var ia = (a in rosterIdx) ? rosterIdx[a] : 9999, ib = (b in rosterIdx) ? rosterIdx[b] : 9999;
         return ia - ib || (a < b ? -1 : a > b ? 1 : 0);
       });
-      var tlist = order.map(function(k){
+      var tall = order.map(function(k){
         var t = map[k]; t.lay = ph54LayoutItems(t.items);
         t.dup = t.lay.items.some(function(it){ return it.dup; });
         return t;
       });
+      /* 🙈 (2026-11-04 사장님 「강사 열 빼는 것도 해줘」) 전체 보기에서는 그날 «취소·연기만» 있는 강사에게 열을 만들지 않는다 —
+         수업이 0회인 열이 늘어나 정작 수업 중인 강사 칸이 좁아진다. 정본 ph54ShowsLane 하나로 판정.
+         ⛔ 강사 필터(한 강사 주간)에서는 빼지 않는다 — 그 강사의 취소 카드를 볼 유일한 자리다.
+         ⛔ 건수에서도 빼지 않는다 — 머리글이 «열 없음 N» 으로 사실을 말한다(감추기만 하면 «취소가 없나 보다» 로 읽힌다). */
+      var tlist = accordion ? tall.filter(ph54ShowsLane) : tall;
+      var thid = tall.filter(function(t){ return tlist.indexOf(t) < 0; });
       byDay.push({ teachers: tlist,
                    n: tlist.reduce(function(a, t){ return a + t.n; }, 0),
-                   offn: tlist.reduce(function(a, t){ return a + t.offn; }, 0),
+                   offn: tall.reduce(function(a, t){ return a + t.offn; }, 0),
+                   hidOffn: thid.reduce(function(a, t){ return a + t.offn; }, 0),
+                   hidT: thid.length,
                    total: tlist.reduce(function(a, t){ return a + t.items.length; }, 0) });
     }
 
@@ -914,11 +980,17 @@
         headCells += '<div class="ph54-cal-dayhead ph54-open' + (isToday ? ' today' : '') + '" style="grid-column:span ' + Math.max(1, bd.teachers.length) + '">'
           + dayLabel[i] + ' <span class="ph54-cal-date">' + dateTxt(i) + '</span>'
           + ' <span class="ph54-cal-cnt">· ' + ph54T('수업 ', 'classes ') + bd.n + ph54T('개', '') + ' · ' + ph54T('강사 ', 'instructors ') + bd.teachers.length + ph54T('명', '')
-          + (bd.offn ? ' · ' + ph54T('취소·연기 ', 'cancelled/postponed ') + bd.offn + ph54T('개', '') : '') + '</span></div>';
+          + (bd.offn ? ' · ' + ph54T('취소·연기 ', 'cancelled/postponed ') + bd.offn + ph54T('개', '') : '')
+          + (bd.hidOffn ? ' <span class="ph54-off-hid" title="' + ph54Esc(ph54T(
+              '그날 수업은 없고 취소·연기만 있는 강사 ' + bd.hidT + '명은 열을 만들지 않았습니다 — 위에서 그 강사를 고르면 주간 화면에 보입니다.',
+              bd.hidT + ' instructor(s) with only cancelled/postponed classes that day get no column — pick that instructor above to see them.'))
+              + '">' + ph54T('(그중 ' + bd.hidOffn + '개는 열 없음)', '(' + bd.hidOffn + ' without a column)') + '</span>' : '')
+          + '</span></div>';
       } else {
         headCells += '<div class="ph54-cal-dayhead ph54-cal-fold-head' + (isToday ? ' today' : '') + '" data-day="' + i + '" role="button" tabindex="0" title="'
           + ph54Esc(dayLabel[i] + ' ' + dateTxt(i) + ' · ' + ph54T('수업 ' + bd.n + '개', bd.n + ' classes')
               + (bd.offn ? ph54T(' · 취소·연기 ' + bd.offn + '개', ' · ' + bd.offn + ' cancelled/postponed') : '')
+              + (bd.hidOffn ? ph54T(' (그중 ' + bd.hidOffn + '개는 수업 없는 강사 — 펼쳐도 열 없음)', ' (' + bd.hidOffn + ' from instructors with no classes — no column)') : '')
               + ph54T(' — 누르면 펼칩니다', ' — click to open')) + '">'
           + dayLabel[i] + '<br><span class="ph54-cal-date">' + dateTxt(i) + '</span></div>';
       }
@@ -1062,11 +1134,11 @@
     wrap.innerHTML = html;
     var calBody = document.getElementById('ph54-cal-body');
     if (calBody){
-      if (keepTop >= 0) calBody.scrollTop = keepTop;
+      if (keepTop >= 0) ph54SetScrollTop(calBody, keepTop);
       else {
         var firstSt = -1, src = accordion ? byDay[openDay].teachers : byDay.reduce(function(a, b){ return a.concat(b.teachers); }, []);
         src.forEach(function(t){ t.items.forEach(function(it){ if (firstSt < 0 || it.st < firstSt) firstSt = it.st; }); });
-        if (firstSt >= 0) calBody.scrollTop = Math.max(0, (firstSt - 60 - PH54_START_H*60) / 60 * PH54_HOUR_PX);
+        if (firstSt >= 0) ph54SetScrollTop(calBody, Math.max(0, (firstSt - 60 - PH54_START_H*60) / 60 * PH54_HOUR_PX));
       }
     }
     // 🗂 접힌 요일(띠·머리글) → 펼치기 / 강사 머리글 → 그 강사만 보기

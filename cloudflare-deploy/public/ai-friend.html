@@ -414,8 +414,9 @@
     <!-- 🎚️ 교정 방식 (2026-10-31 사장님 「A.i친구도 말하기처럼 자유대화·균형·집중교정」).
          기본은 집중교정 — 서버 correctionModeOf 의 기본값과 «짝». 값은 localStorage 에 기억한다. -->
     <span class="corr-label" style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px" data-ko="교정:" data-en="Correction:">교정:</span>
-    <button class="opt" data-cmode="free_talk" title="흐름을 끊지 않고 바른 문장을 자연스럽게 들려줘요" data-ko-title="흐름을 끊지 않고 바른 문장을 자연스럽게 들려줘요" data-en-title="Keeps the flow and simply models the right sentence" data-ko="자유대화" data-en="Free talk">자유대화</button>
-    <button class="opt" data-cmode="balanced" title="핵심 표현이나 되풀이되는 실수만 따라 말해요" data-ko-title="핵심 표현이나 되풀이되는 실수만 따라 말해요" data-en-title="Repeat-after-me only for key phrases or repeated mistakes" data-ko="균형" data-en="Balanced">균형</button>
+    <!-- 🎚️ (2026-11-03) 설명을 실제 동작에 맞춤 — 자유: 교정 카드만 · 균형: 고친 문장을 먼저 한 번 말함 · 집중: 고친 문장 3번(정본 src/friend-correction-flow.ts) -->
+    <button class="opt" data-cmode="free_talk" title="대화는 그대로, 틀린 곳은 교정 카드로만 보여줘요" data-ko-title="대화는 그대로, 틀린 곳은 교정 카드로만 보여줘요" data-en-title="Keeps chatting; mistakes appear only as a correction card" data-ko="자유대화" data-en="Free talk">자유대화</button>
+    <button class="opt" data-cmode="balanced" title="틀리면 바른 문장을 먼저 한 번 말해 주고 대화를 이어가요" data-ko-title="틀리면 바른 문장을 먼저 한 번 말해 주고 대화를 이어가요" data-en-title="Says the corrected sentence once first, then keeps chatting" data-ko="균형" data-en="Balanced">균형</button>
     <button class="opt active" data-cmode="focused" title="틀릴 때마다 바른 문장을 듣고 따라 말해요" data-ko-title="틀릴 때마다 바른 문장을 듣고 따라 말해요" data-en-title="Every mistake: hear the right sentence and say it back" data-ko="집중교정" data-en="Focused">집중교정</button>
     <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px">🔊 <span data-ko="속도:" data-en="Speed:">속도:</span></span>
     <button class="opt" data-rate="0.5" data-ko="🐢 아주 느리게" data-en="🐢 Very slow">🐢 아주 느리게</button>
@@ -448,7 +449,7 @@
     <span class="hud-chip hud-streak" id="streakChip" title="연속 대화 일수">🔥 <span id="streakN">0</span><span data-ko="일 연속" data-en="-day streak">일 연속</span></span>
     <span class="hud-chip hud-pts" id="ptsChip" title="오늘 받은 포인트">⭐ <span data-ko="오늘 받은 포인트" data-en="Points today">오늘 받은 포인트</span> <span id="ptsN">—</span></span>
     <span class="hud-chip hud-wod" id="wodChip" onclick="hearWod()" title="눌러서 발음 듣기 — 대화에 쓰면 +5P!">
-      ✨ <span data-ko="오늘의 단어" data-en="Word of the day">오늘의 단어</span>:
+      <span class="wod-lab"><span data-ko="오늘의 단어" data-en="Word of the day">오늘의 단어</span></span>
       <span class="wod-en" id="wodEn">—</span> <span class="wod-ko" id="wodKo"></span> <span id="wodEmoji"></span>
     </span>
   </div>
@@ -650,7 +651,12 @@
         if (AIF_CORR_VALUES.indexOf(b.dataset.cmode) < 0) return;
         currentCorr = b.dataset.cmode;
         paintCorrMode();
-        try { localStorage.setItem(AIF_CORR_KEY, currentCorr); } catch(e){}
+        /* 🔁 2026-11-04 사장님 「반대 방향도 맞춰줘」 — 입구(ai-speaking.html)의 교정 정도는 «웜업·AI 친구 한 설정».
+           사람이 고르면 정본(js/ai-speaking-settings.js chooseCorr)으로 두 화면 키를 함께 쓴다 → 입구가 같은 값을 보인다.
+           정본이 아직 없으면(옛 캐시·불러오기 실패) 예전처럼 AI 친구 키만. */
+        const S = window.AiSpeakSettings;
+        if (S && S.chooseCorr) S.chooseCorr(localStorage, currentCorr);
+        else try { localStorage.setItem(AIF_CORR_KEY, currentCorr); } catch(e){}
       };
     });
     /* 🎙 친구 고르기 — 고르면 목소리(Aura-2 speaker)와 얼굴(아바타)이 함께 바뀐다. localStorage 로 기억.
@@ -1749,74 +1755,201 @@
       chat.appendChild(box);
       chat.scrollTop = chat.scrollHeight;
     }
+    /* 🎨 (2026-11-03 사장님 «A안 단계형 카드») 빈 화면 아이콘 — 이모지 대신 선 아이콘(색은 currentColor).
+       📐 고치기 전: 마스코트·제목·부제·차이 칩·오늘의 단어·드롭다운 2개·버튼 4개가 «같은 무게» 로 쌓여
+          어디부터 눌러야 할지 안 보였고(사장님 «가독성이 떨어지고 복잡하다»), 친구 드롭다운은
+          «Emma · 엠마 (다정하게 …» 처럼 글자가 잘렸다.
+       ✅ 순서를 화면에 그대로 적는다 — ① 친구 → ② 주제 → 노란 버튼 하나(말 걸기). 노란색은 그 버튼에만.
+       ⛔ 버튼마다 이모지를 되살리지 말 것 — 이번 개편의 출발이 «정신없다» 였다. */
+    const EFA_ICON = (function () {
+      const svg = (w, body) => '<svg width="' + w + '" height="' + w + '" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+        + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + body + '</svg>';
+      return {
+        help: svg(16, '<circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path>'),
+        star: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'
+          + '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>',
+        msg: svg(20, '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path>'),
+        arrow: svg(18, '<path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path>'),
+        book: svg(17, '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>'),
+        bulb: svg(17, '<path d="M9 18h6"></path><path d="M10 22h4"></path>'
+          + '<path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"></path>'),
+        image: svg(15, '<rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"></path>'),
+        shuffle: svg(20, '<path d="M16 3h5v5"></path><path d="M4 20 21 3"></path><path d="M21 16v5h-5"></path><path d="M15 15l6 6"></path><path d="M4 4l5 5"></path>'),
+        check: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"'
+          + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>'
+      };
+    })();
+    /* 🧑 화면에 쓰는 «친구 이름» — 번갈아(mix)는 사람이 아니라 «방식» 이라 KO/EN 이름표를 쓴다. */
+    function efFriendLabel(f, en) { return f.v === 'mix' ? (en ? f.en : f.ko) : f.name; }
+    /* 노란 버튼 글자 — «학생이 AI 를 부르는» 버튼이라 지금 말할 친구의 이름이 들어간다. */
+    function efCtaText(p, en) { return en ? ('Say hi to ' + p.name) : (p.name + '에게 말 걸기'); }
+    /* 📐 노란 버튼 글자 맞추기(2026-11-04 사장님 폰 «Emma에게 말 걸기 글자가 짤렸어») — 잰 것: 폭 320px 기기
+       (삼성 «화면 확대» 등)에서 버튼이 100px 인데 글자+아이콘이 9~20px 넘쳤다. 영어도 같다.
+       ✅ «실제로 넘칠 때만» 줄인다 — 이름을 최대한 살린다: 원래 글자 → 화살표 빼기 → 아이콘 빼기 →
+          짧은 글자(아이콘 함께) → 화살표 빼기 → 아이콘 빼기. 이름은 바로 위 «Hi! I'm Emma» 에도 있다.
+          기기 글꼴·확대에 따라 폭이 달라 숫자로 못 박지 않고 그려 놓고 잰다.
+       ⚠️ 짧은 글자를 쓰면 버튼 이름(aria-label)은 원래 글자로 둔다 — 보이는 글자가 그 안에 «이어서» 든다(WCAG 2.5.3).
+       ⚠️ 버튼이 안 보일 때(폭 0)는 재지 않고 원래 글자로 둔다. */
+    function efFitCta() {
+      const btn = document.querySelector('#chat .efa .efa-cta');
+      const s = document.getElementById('efCta');
+      if (!btn || !s) return;
+      const en = isEn();
+      const full = efCtaText(friendOf(personNow()), en);
+      const short = en ? 'Say hi' : '말 걸기';
+      const steps = [[full, ''], [full, 'efa-cta-noarrow'], [full, 'efa-cta-noicon'],
+                     [short, ''], [short, 'efa-cta-noarrow'], [short, 'efa-cta-noicon']];
+      /* ⚠️ scrollWidth·clientWidth 는 정수로 반올림돼 «1px 미만» 넘침을 못 본다 — 그런데 «…» 는 0.3px 만 넘쳐도
+         그려진다(2026-11-04 실측 320px «말 …»). 그래서 글자를 잠깐 «줄지 않게» 두고 소수점 폭으로 잰다. */
+      const cs = getComputedStyle(btn);
+      const fits = () => {
+        const r = btn.getBoundingClientRect();
+        if (!r.width) return true;
+        const inner = r.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+          - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth);
+        const kids = Array.prototype.filter.call(btn.children, k => k.getBoundingClientRect().width > 0);
+        let need = (kids.length - 1) * (parseFloat(cs.columnGap) || 0);
+        kids.forEach(k => { need += k.getBoundingClientRect().width; });
+        return need <= inner + 0.01;
+      };
+      s.style.flex = '0 0 auto';
+      for (let i = 0; i < steps.length; i++) {
+        s.textContent = steps[i][0];
+        btn.classList.remove('efa-cta-noarrow', 'efa-cta-noicon');
+        if (steps[i][1]) btn.classList.add(steps[i][1]);
+        if (fits()) break;
+      }
+      s.style.flex = '';
+      if (s.textContent !== full) btn.setAttribute('aria-label', full);
+      else btn.removeAttribute('aria-label');
+    }
+    /* 화면 크기가 바뀌거나(돌리기·창 크기) 글꼴이 늦게 오면 한 번 다시 잰다. ⛔ 상주 타이머·관찰자 금지. */
+    (function () {
+      let raf = 0;
+      const again = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(efFitCta); };
+      window.addEventListener('resize', again);
+      window.addEventListener('load', again);
+      if (document.fonts) {
+        if (document.fonts.ready) document.fonts.ready.then(again);
+        if (document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', again);
+      }
+    })();
+    function efDescHtml(f, en) {
+      return '<b>' + escapeHtml(efFriendLabel(f, en)) + '</b> · ' + escapeHtml(en ? f.d_en : f.d_ko);
+    }
+    /* 노란 버튼 — 누르는 «순간» 의 친구로 인사한다(그린 뒤 친구를 바꿔도 옛 이름으로 부르지 않게). */
+    function efSayHi() {
+      quickSend('Hi ' + friendOf(personNow()).name + '! How are you today?');
+    }
     function renderEmpty() {
       const chat = document.getElementById('chat');
       const en = isEn();
+      const p = friendOf(personNow());
       const cards = TOPICS.map((t, i) => topicCardHtml(t, i, en)).join('');
-      chat.innerHTML = '<div class="empty-state">'
+      /* 🛟 다시 그리기 «직전» 에 오늘의 단어 칩을 밖으로 피신시킨다.
+         📐 고치기 전: 첫 화면에서 KO↔EN 을 바꾸면 이 innerHTML 이 #wodSlot 안의 칩을 통째로 파괴해
+            오늘의 단어가 사라지고 updateHUD 가 «Cannot set properties of null» 로 던졌다(2026-11-03 실측). */
+      if (window.wodPark) window.wodPark();
+      chat.innerHTML = '<div class="empty-state efa" data-lang="' + (en ? 'en' : 'ko') + '">'
+        /* ① 인사 — Mr.mango(공식 캐릭터 · CLAUDE.md 0장)는 제목 왼쪽 «작은» 자리에. 바로 위에 강사 얼굴이 크게 있다. */
+        + '<div class="efa-head">'
         + '<div class="hero-mango"><img src="/img/mango-char.png" alt="Mango" loading="lazy" decoding="async"/></div>'
-        + "<h2>👋 Hi! I'm " + friendOf(personNow()).name + "</h2>"
-        + '<p>' + (en ? "Let's chat in English! Every message earns points ⭐" : "Let's chat in English! 한 마디 할 때마다 포인트가 쌓여요 ⭐") + '</p>'
-        /* 💡 「A.i말하기와 A.i친구하기 차이」 (2026-09-26 사장님) — 안내창 본체는 js/ai-diff.js 한 곳 */
-        + '<button type="button" class="aidiff-chip" onclick="window.mgOpenAiDiff&&mgOpenAiDiff()">'
-        + (en ? "💡 Speaking vs. Friend: what's different?" : '💡 A.i말하기와 A.i친구하기 차이') + '</button>'
-        /* 🧑 친구 고르기를 주제보다 «먼저» 둔다 — 누구와 이야기할지가 먼저고 무슨 이야기를 할지가 그다음이다.
-           고르지 않고 주제만 눌러도 그대로 진행된다(관문이 아니라 안내). */
-        /* ✨ 오늘의 단어 — 인사 바로 아래. 여기는 «칩이 들어올 빈 자리» 이고
-           칩 자체는 wodSync() 가 옮겨 온다(새로 만들면 updateHUD 가 던진다). */
+        + '<div class="efa-hi"><h2>Hi! I\'m <span class="efa-name" id="efName">' + escapeHtml(p.name) + '</span></h2>'
+        + '<p class="efa-sub">' + (en ? "Let's chat in English!" : '영어로 함께 이야기해요!')
+        + ' <span class="efa-pts">' + EFA_ICON.star + (en ? 'Every message earns points' : '말할 때마다 포인트가 쌓여요') + '</span></p></div>'
+        /* 💡 «A.i말하기와 A.i친구하기 차이» (2026-09-26 사장님) — 안내창 본체는 js/ai-diff.js 한 곳.
+           칩이 아니라 작은 글자 링크로 낮춘다(눌러야 할 «첫 버튼» 이 아니다). */
+        + '<button type="button" class="aidiff-chip" onclick="window.mgOpenAiDiff&&mgOpenAiDiff()">' + EFA_ICON.help
+        + '<span>' + (en ? 'AI Talk vs. AI Friend?' : 'AI 말하기와 뭐가 달라요?') + '</span></button>'
+        + '</div>'
+        /* ✨ 오늘의 단어 — 여기는 «칩이 들어올 빈 자리» 이고 칩 자체는 wodSync() 가 옮겨 온다
+           (새로 만들면 updateHUD 가 던진다). */
         + '<div class="wod-card" id="wodSlot"></div>'
-        /* 📐 (2026-10-18 사장님 «한 장에 스크롤 없이 · 드롭다운으로» — A안)
-           친구 카드 5장 + 주제 카드 10장이 세로로 쌓여 빈 화면이 대화창보다 길었다(PC·폰 모두 스크롤).
-           → 둘을 «드롭다운 한 줄» 로 접는다. 고르는 순간 하는 일은 예전 카드와 «똑같다»
-             (친구 = setFriend(v,true) · 주제 = topicSend(i)). 판정·저장을 새로 만들지 않는다.
-           ⚠️ 그림 카드(topicCardHtml)는 지우지 않고 «그림으로 고르기» 접이칸 안에 남긴다 —
-              그림을 보고 고르는 아이가 있고, 카드 마크업 정본이 한 곳(topicCardHtml)이라는 약속도 그대로다.
-           ⚠️ 친구 카드(friendCards)는 대화 도중 «이름 눌러 친구 바꾸기»(showFriendPicker)가 계속 쓴다. */
-        + efPicksHtml(en)
-        /* 「그림 카드」 열기와 빠른 버튼 3개를 «한 줄» 에 둔다(.ef-foot) — 열면 카드가 그 줄 아래로 펼쳐진다. */
-        + '<div class="ef-foot"><details class="ef-more"><summary>' + (en ? '🖼 Topics by picture' : '🖼 그림으로 주제 고르기') + '</summary>'
-        + '<div class="topics">' + cards + '</div></details>'
-        + '<div class="quick">'
-        /* 🧑 이 버튼은 «학생이 AI 를 부르는» 말이라 이름이 들어간다 — 고른 친구로.
-           바로 위 인사를 「Hi! I'm Lily」로 고쳐 놓고 여기만 Mango 면 한 화면이 두 이름을 말한다. */
-        + '<button onclick="quickSend(\'Hi ' + friendOf(personNow()).name + '! How are you today?\')">Hi '
-        + friendOf(personNow()).name + '! 👋</button>'
-        + '<button onclick="quickSend(\'Can you teach me a new word?\')">' + (en ? 'New word 📚' : '새 단어 📚') + '</button>'
-        + '<button onclick="quickSend(\'Tell me a fun fact!\')">' + (en ? 'Fun fact 🌟' : '재미난 사실 🌟') + '</button>'
-        + '</div></div></div>';
+        /* ② 친구 · ③ 주제 — 고르는 순간 하는 일은 예전과 «똑같다»
+           (친구 = setFriend(v,true) · 주제 = topicSend(i)). 판정·저장을 새로 만들지 않는다. */
+        + efPicksHtml(en, cards)
+        /* ④ 시작 — 노란 버튼 하나 + 보조 버튼 둘. «.quick» 안의 버튼 셋은 하니스가 센다. */
+        + '<div class="quick efa-go">'
+        + '<button type="button" class="efa-cta" onclick="efSayHi()">' + EFA_ICON.msg
+        + '<span id="efCta">' + escapeHtml(efCtaText(p, en)) + '</span>' + EFA_ICON.arrow + '</button>'
+        + '<button type="button" class="efa-more-btn" onclick="quickSend(\'Can you teach me a new word?\')">' + EFA_ICON.book
+        + '<span>' + (en ? 'New word' : '새 단어') + '</span></button>'
+        + '<button type="button" class="efa-more-btn" onclick="quickSend(\'Tell me a fun fact!\')">' + EFA_ICON.bulb
+        + '<span>' + (en ? 'Fun fact' : '재미난 사실') + '</span></button>'
+        + '</div></div>';
+        efFitCta();
     }
-    /* 📐 빈 화면의 «친구 ▾ · 주제 ▾» 한 줄 (2026-10-18 A안).
-       ⛔ 여기서 새 판정·저장을 만들지 않는다 — 친구는 setFriend, 주제는 topicSend 를 그대로 부른다.
-       ⚠️ 친구 옆 얼굴(#efFace)은 setFriend 가 함께 갱신한다(efSyncFriend). */
-    function efPicksHtml(en) {
+    /* 📐 빈 화면의 «① 친구 · ② 주제» (2026-11-03 A안 — 2026-10-18 드롭다운을 바꾼 것).
+       ✅ 드롭다운 대신 한 번에 보이고 한 번에 누르는 버튼. 친구는 얼굴, 주제는 작은 사진.
+       ⚠️ «한 장에 스크롤 없이»(2026-10-18 사장님)는 그대로 지킨다 — 폰·세로가 짧은 화면에서는
+          주제를 «가로로 미는 한 줄» 로 접는다(CSS).
+       ⚠️ 그림 카드(topicCardHtml)는 지우지 않고 «그림으로 크게 보기» 안에 남긴다 —
+          그림을 보고 고르는 아이가 있고, 카드 마크업 정본이 한 곳(topicCardHtml)이라는 약속도 그대로다.
+       ⚠️ 친구 카드(friendCards)는 대화 도중 «이름 눌러 친구 바꾸기»(showFriendPicker)가 계속 쓴다. */
+    function efPicksHtml(en, cards) {
       const cur = friendOf(currentVoice);
-      const fOpts = FRIENDS.map(f => '<option value="' + f.v + '"' + (f.v === cur.v ? ' selected' : '') + '>'
-        + escapeHtml(f.emoji + ' ' + (en ? f.en : (f.name + ' · ' + f.ko)) + ' (' + (en ? f.d_en : f.d_ko) + ')')
-        + '</option>').join('');
-      const tOpts = '<option value="">' + (en ? '🗺 Choose a topic' : '🗺 주제 고르기') + '</option>'
-        + TOPICS.map((t, i) => '<option value="' + i + '">' + escapeHtml(t.e + ' ' + (en ? t.en : t.ko)) + '</option>').join('');
-      const face = cur.face
-        ? '<img class="ef-face" id="efFace" src="' + cur.face + '" alt="" width="36" height="36" decoding="async"'
-          + ' onerror="this.hidden=true">'
-        : '<img class="ef-face" id="efFace" alt="" width="36" height="36" hidden>';
-      return '<div class="ef-picks">'
-        + '<label class="ef-pick"><span class="ef-lab"><span class="ef-l">🧑 ' + (en ? 'Who do you want to talk with?' : '오늘은 누구랑 이야기할까요?') + '</span>'
-        + '<span class="ef-s">🧑 ' + (en ? 'Friend' : '친구') + '</span></span>'
-        + '<span class="ef-row">' + face
-        + '<select id="efFriend" aria-label="' + (en ? 'Friend' : '친구') + '" onchange="setFriend(this.value, true)">' + fOpts + '</select></span></label>'
-        + '<label class="ef-pick"><span class="ef-lab"><span class="ef-l">🗺 ' + (en ? 'Pick an adventure topic:' : '모험 주제를 골라볼까요?') + '</span>'
-        + '<span class="ef-s">🗺 ' + (en ? 'Topic' : '주제') + '</span></span>'
-        + '<span class="ef-row"><select id="efTopic" aria-label="' + (en ? 'Topic' : '주제') + '" onchange="if(this.value!==\'\')topicSend(+this.value)">' + tOpts + '</select></span></label>'
+      const fBtns = FRIENDS.map(f => {
+        const on = f.v === cur.v;
+        const face = f.face
+          ? '<img class="efa-face" src="' + f.face + '" alt="" width="40" height="40" decoding="async"'
+            + ' onerror="this.hidden=true;this.nextSibling.hidden=false">'
+            + '<span class="efa-face efa-face-x" hidden>' + escapeHtml(f.name.charAt(0)) + '</span>'
+          : '<span class="efa-face efa-face-x">' + EFA_ICON.shuffle + '</span>';
+        return '<button type="button" class="efa-friend' + (on ? ' on' : '') + '" data-v="' + f.v + '"'
+          + ' aria-pressed="' + (on ? 'true' : 'false') + '" title="' + escapeHtml(en ? f.d_en : f.d_ko) + '"'
+          + ' onclick="setFriend(\'' + f.v + '\', true)">'
+          + '<span class="efa-facebox">' + face + '<span class="efa-check">' + EFA_ICON.check + '</span></span>'
+          + '<span class="efa-fname">' + escapeHtml(efFriendLabel(f, en)) + '</span></button>';
+      }).join('');
+      const tBtns = TOPICS.map((t, i) => topicChipHtml(t, i, en)).join('');
+      /* 라벨은 두 벌 — 긴 질문(.efa-l)과 세로가 짧은 화면에서 줄 왼쪽에 붙는 짧은 이름(.efa-s). */
+      return '<div class="efa-step">'
+        + '<div class="efa-lab"><span class="efa-num">1</span><span class="efa-l">' + (en ? 'Who do you want to talk with?' : '누구랑 이야기할까요?') + '</span>'
+        + '<span class="efa-s">' + (en ? 'Friend' : '친구') + '</span></div>'
+        + '<div class="efa-friends" role="group" aria-label="' + (en ? 'Friend' : '친구') + '">' + fBtns + '</div>'
+        + '<p class="efa-desc" id="efDesc">' + efDescHtml(cur, en) + '</p>'
+        + '</div>'
+        + '<div class="efa-step">'
+        + '<div class="efa-lab"><span class="efa-num">2</span><span class="efa-l">' + (en ? 'Pick a topic' : '어떤 주제로 이야기할까요?') + '</span>'
+        + '<span class="efa-s">' + (en ? 'Topic' : '주제') + '</span>'
+        + '<span class="efa-tip">' + (en ? 'Tap to start' : '누르면 바로 시작해요') + '</span>'
+        + '<button type="button" class="efa-big-btn" aria-expanded="false" aria-controls="efaBig" onclick="efToggleBig(this)">'
+        + EFA_ICON.image + '<span>' + (en ? 'Big pictures' : '그림으로 크게 보기') + '</span></button></div>'
+        + '<div class="efa-topics">' + tBtns + '</div>'
+        + '<div class="topics efa-big" id="efaBig" hidden>' + cards + '</div>'
         + '</div>';
     }
+    /* 주제 «칩» — 누르면 예전 카드와 똑같이 topicSend(i). 사진이 없으면 이름만 남긴다(빈 칸이 제일 나쁘다). */
+    function topicChipHtml(t, i, en) {
+      const pic = t.pic
+        ? '<img class="efa-tpic" src="/img/topics/' + t.pic + '.webp" alt="" width="24" height="24" decoding="async" onerror="this.hidden=true">'
+        : '';
+      return '<button type="button" class="efa-topic" onclick="topicSend(' + i + ')">' + pic
+        + '<span>' + escapeHtml(en ? t.en : t.ko) + '</span></button>';
+    }
+    /* «그림으로 크게 보기» — 큰 그림 카드 줄을 열고 닫는다. ⚠️ .topics 는 display:grid 라
+       hidden 만으로는 안 숨는다 — CSS 에 .efa-big[hidden]{display:none!important} 를 함께 둔다. */
+    function efToggleBig(btn) {
+      const box = document.getElementById('efaBig');
+      if (!box) return;
+      box.hidden = !box.hidden;
+      if (btn) btn.setAttribute('aria-expanded', box.hidden ? 'false' : 'true');
+    }
+    /* 친구를 바꾸면 빈 화면의 «고른 표시 · 제목 이름 · 노란 버튼 이름 · 설명» 을 함께 맞춘다.
+       ⚠️ setFriend 와 설정 줄의 목소리 버튼 «둘 다» 가 부른다. 그림을 새로 그리지 않는다(오늘의 단어 칩이 산다). */
     function efSyncFriend(f) {
-      const s = document.getElementById('efFriend');
-      if (s && s.value !== f.v) s.value = f.v;
-      const im = document.getElementById('efFace');
-      if (im) {
-        if (f.face) { if (im.getAttribute('src') !== f.face) im.src = f.face; im.hidden = false; }
-        else im.hidden = true;
-      }
+      document.querySelectorAll('.efa-friend[data-v]').forEach(b => {
+        const on = b.dataset.v === f.v;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      const en = isEn();
+      const p = friendOf(personNow());
+      const nm = document.getElementById('efName');
+      if (nm) nm.textContent = p.name;
+      efFitCta();   // 노란 버튼 글자 — 이름이 바뀌면 길이도 바뀌니 다시 잰다
+      const d = document.getElementById('efDesc');
+      if (d) d.innerHTML = efDescHtml(f, en);
     }
     function topicSend(i) {
       const t = TOPICS[i];
@@ -2160,6 +2293,13 @@
       renderTopicBar();
       if (document.querySelector('.empty-state')) renderEmpty();
     });
+    /* 🌐 (2026-11-03) 첫 그림이 i18n 엔진(js/mango-i18n.js · defer)보다 먼저 그려지면 EN 학생에게도
+       빈 화면이 한국어로 남았다(실측 390x844 — 헤더는 영어, 빈 화면 라벨만 한국어). 위 이벤트는 «바꿀 때» 만 오므로
+       다 실린 뒤 «한 번만» 그려 둔 언어와 지금 언어를 대조해 다르면 다시 그린다. ⛔ 상주 감시를 두지 않는다. */
+    window.addEventListener('load', () => {
+      const es = document.querySelector('.empty-state');
+      if (es && es.dataset.lang && es.dataset.lang !== (isEn() ? 'en' : 'ko')) renderEmpty();
+    });
     loadHistory().then(function () {
       function mountDubbingPractice() {
         if (!window.MangoiDubPractice) return;
@@ -2296,6 +2436,7 @@
 <script defer src="/js/mg-sidebar.js?v=20261101"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 <script src="/js/repeat-score.js?v=1" defer></script><!-- 🎤 «따라 말해 보기» 채점 (2026-10-18) -->
+<script src="/js/ai-speaking-settings.js?v=1" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — 교정 버튼이 씀 (2026-11-04) -->
 <script defer src="/js/flow.js?v=23"></script><!-- 🚀 다음으로 이동(MangoFlow) -->
 
 <!-- ══════════════════════════════════════════════════════════════
@@ -2424,7 +2565,16 @@ body.sheet-open .opts-toggle{ background:rgba(251,191,36,0.18); border-color:rgb
   white-space:nowrap; box-shadow:0 8px 20px -8px rgba(0,0,0,.6); z-index:60; }
 .opts-toggle[data-hint]{ position:relative; }
 
-/* 설정 시트 — 폰은 아래에서 올라오고, 넓은 화면은 오른쪽 아래 패널 */
+/* 설정 시트 — 폰은 아래에서 올라오고, 넓은 화면은 오른쪽 «위» 패널
+   📜 2026-11-04 사장님 «설정을 스크롤 안하고 바로 전체 모두 볼 수 있게 최대한 위로 올려줘»
+   ⚠️ 이 주석에 CJK 홑낫표를 쓰지 말 것 — subtitle_meaning_harness 가 style 안에서 센다.
+      잰 것: 시트 내용 높이 916px 인데 PC 는 «오른쪽 아래 · 최대 660px» 라 1920x1080 에서도
+      아래 절반(속도·친구·자막·대화 초기화)이 스크롤 밖이었다. 화면 위쪽은 통째로 비어 있었다.
+   ✅ 그래서 ① 위에 붙이고(top) 화면 높이만큼 늘 수 있게 하고 ② 넓은 화면(≥760px)에서는
+      «2단» 으로 접어 높이를 반으로 줄인다(아래 .sheet-body 그리드). 글자 크기는 그대로다 —
+      «PC에서 글자가 너무 작다»(2026-07-13 지시)를 되돌리지 않으려고 줄이지 않았다.
+   ⚠️ overflow-y:auto 는 남긴다 — 아주 낮은 창에서는 그래도 넘칠 수 있고, 그때 잘려 사라지는
+      것보다 스크롤되는 편이 낫다. */
 .sheet-scrim{ position:fixed; inset:0; background:rgba(6,11,24,0.58);
   opacity:0; pointer-events:none; transition:opacity .24s; z-index:2147483090; }
 body.sheet-open .sheet-scrim{ opacity:1; pointer-events:auto; }
@@ -2432,14 +2582,39 @@ body.sheet-open .sheet-scrim{ opacity:1; pointer-events:auto; }
   background:#16213e; border-top:1px solid var(--border);
   border-radius:18px 18px 0 0;
   padding:9px 14px calc(16px + env(safe-area-inset-bottom, 0px));
-  max-height:86dvh; overflow-y:auto; overscroll-behavior:contain;
+  /* 폰: 아래에서 올라오되 «최대한 위까지» — 위 12px 만 남겨 시트라는 것이 보이게 한다 */
+  max-height:calc(100vh - 12px); max-height:calc(100dvh - 12px);
+  overflow-y:auto; overscroll-behavior:contain;
   transform:translateY(101%); transition:transform .26s cubic-bezier(.22,.8,.3,1);
   box-shadow:0 -16px 40px -16px rgba(0,0,0,0.75); }
 body.sheet-open .opts-sheet{ transform:translateY(0); }
 @media (min-width:760px){
-  .opts-sheet{ left:auto; right:16px; bottom:16px; width:430px;
+  /* ⚠️ 닫힘은 «화면 아래로 내려 보내기» 그대로다 — 위에 붙였으므로 자기 높이(100%)만큼
+     내리면 낮은 시트는 화면 안에 남는다. 그래서 «화면 높이» 만큼 내린다. */
+  .opts-sheet{ left:auto; right:16px; top:12px; bottom:auto;
     border-radius:16px; border:1px solid var(--border);
-    max-height:min(78dvh,660px); transform:translateY(calc(100% + 24px)); }
+    max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px);
+    transform:translateY(calc(100vh + 24px)); }
+}
+/* 넓은 화면 «2단» — 왼쪽: 소리·오늘의 할 일·레벨 상태·대화 초기화 / 오른쪽: 설정 전부.
+   ⛔ 감싸는 div 를 새로 만들지 말 것 — 폰(1단)에서는 «위험한 조작은 맨 아래» 순서가
+      지켜져야 하는데, 묶으면 대화 초기화가 설정 위로 올라간다. DOM 순서는 그대로 두고
+      그리드 자리만 정한다.
+   ⚠️ 오른쪽(.opts)이 왼쪽보다 길다. 마지막 1fr 줄이 그 차이를 받아 왼쪽 칸 사이가 벌어지지 않는다.
+   ⚠️ 시트에 새 자식을 넣으면 여기서 자리(grid-column/row)도 함께 정할 것 — 안 정하면 브라우저가
+      아무 칸에나 놓아 «위험한 조작은 맨 아래» 순서가 PC 에서 깨질 수 있다.
+   ℹ️ 폭은 아래 블록의 min(800px, 100vw - 32px) 하나다(예전 430px 는 지웠다 — 두 블록에 두면 앞이 죽은 값).
+   ⚠️ 기준 폭은 위 패널 블록과 같은 760px — 그 사이(760~899px)를 1단으로 두면 916px 짜리
+      시트가 낮은 창에서 다시 스크롤된다(800x600 실측). */
+@media (min-width:760px){
+  .opts-sheet{ width:min(800px, calc(100vw - 32px)); }
+  .opts-sheet .sheet-body{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);
+    grid-template-rows:auto auto auto auto 1fr; column-gap:22px; align-items:start; }
+  .opts-sheet .sheet-body > .sheet-quick { grid-column:1; grid-row:1; }
+  .opts-sheet .sheet-body > .quests      { grid-column:1; grid-row:2; }
+  .opts-sheet .sheet-body > .hud         { grid-column:1; grid-row:3; }
+  .opts-sheet .sheet-body > .sheet-danger{ grid-column:1; grid-row:4; }
+  .opts-sheet .sheet-body > .opts        { grid-column:2; grid-row:1 / -1; }
 }
 .sheet-grip{ width:36px; height:4px; border-radius:99px; background:rgba(255,255,255,.28);
   margin:0 auto 10px; }
@@ -2455,12 +2630,67 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
   background:transparent; border:0; padding:0; margin:0;
   display:flex; flex-wrap:wrap; gap:6px; }
 .opts-sheet .quests, .opts-sheet .hud{ padding-bottom:10px; }
-/* 라벨(레벨:·스타일:·속도:…)마다 줄을 바꿔 섹션이 눈에 들어오게.
-   ⚠️ 기존 .opts>span 규칙이 !important 라 여기서도 !important 가 필요하다. */
-.opts-sheet .opts > span{ flex:0 0 100% !important; margin:12px 0 1px !important;
+/* 설정 한 줄 = «이름표 + 그 버튼들» 묶음(.opt-row — init 의 groupOptRows 가 만든다).
+   넓은 화면: 이름표가 위, 버튼이 아래(예전 모양 그대로 — 섹션 사이 18px · 이름표와 버튼 사이 7px).
+   ⚠️ 이름표 span 에 인라인 style(font-size·margin)이 있어 여기서도 !important 가 필요하다. */
+.opts-sheet .opt-row{ flex:0 0 100%; min-width:0; }
+.opts-sheet .opt-row > span{ display:block; white-space:nowrap; margin:12px 0 7px !important;
   font-size:12.5px !important; font-weight:700; color:var(--text2); }
-.opts-sheet .opts > span:first-child{ margin-top:2px !important; }
+.opts-sheet .opt-row:first-child > span{ margin-top:2px !important; }
+.opts-sheet .opt-list{ display:flex; flex-wrap:wrap; gap:6px; }
 .opts-sheet .opt{ font-size:12.5px; padding:7px 11px; }
+/* 위험한 조작 줄의 🗑 대화 초기화 — 예전 스타일이 «.top .clear-btn» 에만 있어 시트로 옮겨진 뒤
+   브라우저 기본(흰 네모) 버튼으로 보였다(2026-11-04 폰 화면에서 발견). 같은 색으로 되살린다. */
+.sheet-danger .clear-btn{ background:rgba(239,68,68,0.15); color:#fca5a5;
+  border:1px solid rgba(239,68,68,0.3); border-radius:9px; height:34px; padding:0 12px;
+  font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap; }
+
+/* 📱 폰(<760px) — 시트를 «스크롤 없이 한 화면» 에 담는다.
+   📜 2026-11-04 사장님 «폰도 스크롤 없이 보이게 해줘»
+      잰 것(헤드리스): 시트 내용 390폭 865px · 360폭 912px 인데, 실제 폰 브라우저 창은 주소창 때문에
+      대략 640~780px 다. 가장 큰 몫은 이름표(레벨:·속도:…)가 섹션마다 한 줄씩 통째로 먹는 것이었다.
+   ✅ ① 설정은 «이름표 칸 | 버튼 칸» 두 열 — 이름표 칸 폭은 가장 긴 이름표에 저절로 맞는다
+        (max-content — «Correction:» 처럼 영어가 길어도 겹치지 않는다).
+      ② 🔊 AI 목소리 듣기와 레벨 상태(Lv 칩)를 한 줄에(자리가 모자라면 저절로 다음 줄).
+      ③ 오늘의 퀘스트는 이름표를 한 줄로 두고 칩을 두 개씩.
+      ④ 손잡이·아래 줄 여백을 조금씩 줄인다.
+   ⛔ 글자를 줄여서 맞추지 않았다 — 버튼 글자 12.5px 그대로다.
+   ⚠️ display:contents 로 묶음 상자를 없애 이름표·버튼 칸을 .opts 그리드에 바로 올린다.
+   ⚠️ 그래도 넘치는 아주 작은 폰(320x568 등)은 시트의 overflow-y:auto 가 받는다. */
+@media (max-width:759.98px){
+  .sheet-grip{ margin-bottom:4px; }
+  .opts-sheet .sheet-body{ display:flex; flex-wrap:wrap; column-gap:12px; align-items:center; }
+  .opts-sheet .sheet-body > *{ flex:0 0 100%; min-width:0; }
+  .opts-sheet .sheet-body > .sheet-quick { order:1; flex:0 0 auto; padding-bottom:6px; }
+  .opts-sheet .sheet-body > .hud         { order:2; flex:1 1 auto; padding-bottom:6px; }
+  .opts-sheet .sheet-body > .quests      { order:3; }
+  .opts-sheet .sheet-body > .opts        { order:4; }
+  .opts-sheet .sheet-body > .sheet-danger{ order:5; }
+  .opts-sheet .quests > .q-label{ flex:0 0 100%; }
+  /* 퀘스트 칩 두 개가 한 줄에 — 영어(«Chat 5 times» + «Use today's word»)가 6px 간격이면 1px 넘쳤다 */
+  .opts-sheet .quests{ gap:5px; }
+  /* Lv 칩의 경험치 막대를 줄여 «AI 목소리 듣기» 옆에 들어가게 한다(360폭 실측: 칩 197px → 막대만 줄여 169px) */
+  .opts-sheet .hud-lv .xp-track{ width:36px; }
+  .opts-sheet .opts{ display:grid; grid-template-columns:max-content minmax(0,1fr);
+    column-gap:8px; row-gap:7px; align-items:center; }
+  .opts-sheet .opt-row{ display:contents; }
+  .opts-sheet .opt-row > span,
+  .opts-sheet .opt-row:first-child > span{ margin:0 !important; }
+  .opts-sheet .opt-list{ gap:5px; }
+  /* 좌우 여백만 줄인다 — 자막 세 칸(보이기·가리기·완전 끄기)이 360폭에서 한 줄에 들어가는 폭 */
+  .opts-sheet .opt{ padding:7px 8px; }
+  /* 레벨 여덟 칸은 한 줄에 — 칸을 똑같이 나눠 버튼 칸 폭 안에 넣는다 */
+  .opts-sheet .opt-row[data-kind="level"] .opt-list{ flex-wrap:nowrap; gap:4px; }
+  .opts-sheet .opt-row[data-kind="level"] .opt{ flex:1 1 0; min-width:0; padding:6px 0; }
+  /* ⚠️ «.opts-sheet» 를 앞에 붙여 특이성을 올린다 — 아래쪽 기본 .sheet-danger 규칙(0,1,0)이 문서상 뒤라
+     같은 특이성이면 그쪽이 이겨 이 줄이 안 먹었다(2026-11-04 함정 대조가 실측으로 잡음). */
+  .opts-sheet .sheet-danger{ margin-top:8px; padding-top:8px; }
+}
+/* 📱 아주 좁은 폰(≤340px) — 레벨 여덟 칸을 이름표 옆에 두면 칸이 23~26px 로 좁아진다(320폭 실측).
+   레벨 줄만 이름표 아래 «한 줄 전체» 로 내려 칸 폭을 지킨다(약 33px). */
+@media (max-width:340px){
+  .opts-sheet .opt-row[data-kind="level"] .opt-list{ grid-column:1 / -1; }
+}
 /* 헤더 안으로 합쳐진 공용 바(🏠 홈 · 🌐 EN).
    ⚠️ 그 버튼들은 인라인 style 로 그려지므로 !important 가 아니면 못 이긴다.
    ⚠️ 좁은 폰에서는 «글자» 만 접고 아이콘은 남긴다 — 홈·언어는 없애면 안 되는 문이다. */
@@ -2549,106 +2779,210 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
       (CLAUDE.md «el.hidden 인데 그대로 보임»). */
 #wodCard{ display:none !important; }   /* 주차장 — 늘 숨김. 높이를 먹지 않는다 */
 .wod-card{ display:flex; justify-content:center; margin:2px 0 14px; }
-/* 카드 안으로 «옮겨 온» 칩은 헤더 칩이 아니라 «카드» 로 보이게 키웁니다.
-   ⛔ 색·테두리는 .hud-wod 가 이미 갖고 있으니 다시 칠하지 않습니다(두 세대가 겹칩니다). */
-.wod-card .hud-wod{ font-size:14px !important; padding:10px 16px !important;
-  border-radius:14px; cursor:pointer; max-width:100%; }
-.wod-card .hud-wod .wod-ko{ font-size:12.5px !important; }
-/* 👂 «눌러서 들어요» — title 툴팁은 폰에 hover 가 없어 안 뜹니다(CLAUDE.md).
-   그래서 글자로 그리되, 가상요소라 i18n 엔진의 textContent 갈아끼우기와 무관합니다. */
-.wod-card .hud-wod::after{ content:attr(data-tap); margin-left:8px;
-  font-size:11.5px; font-weight:700; color:var(--text2); }
-@media (max-width:380px){
-  .wod-card{ padding:5px 8px 2px; }
-  .wod-card .hud-wod{ font-size:12.5px !important; padding:8px 12px !important; }
-  .wod-card .hud-wod::after{ margin-left:5px; font-size:10.5px; }
-}
+/* 카드 안으로 «옮겨 온» 칩은 헤더 칩이 아니라 «한 줄 띠» 로 보이게 합니다(2026-11-03 A안).
+   이름표(오늘의 단어) | 단어 · 뜻 · 오른쪽 끝 «듣기» 버튼 — 칩 전체를 눌러도 들리는 것은 예전 그대로입니다.
+   ⚠️ 띠 안에서는 크게 키우는 hover 를 끕니다(한 줄 전체가 출렁입니다). */
+.wod-card .hud-wod{ display:flex; align-items:center; gap:12px; width:100%; box-sizing:border-box;
+  font-size:15px !important; padding:8px 8px 8px 16px !important; border-radius:14px; cursor:pointer;
+  background:rgba(59,130,246,0.14); border:1px solid rgba(96,165,250,0.35); }
+.wod-card .hud-wod:hover{ transform:none; border-color:rgba(147,197,253,0.75); }
+.wod-card .hud-wod.done{ background:rgba(16,185,129,0.16); border-color:rgba(52,211,153,0.55); }
+.wod-card .hud-wod .wod-lab{ font-size:12.5px; font-weight:800; color:var(--text2);
+  padding-right:12px; border-right:1px solid rgba(255,255,255,0.16); }
+.wod-card .hud-wod .wod-en{ font-size:20px; letter-spacing:.01em; }
+.wod-card .hud-wod .wod-ko{ font-size:13.5px !important; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+/* 🔊 «듣기» — title 툴팁은 폰에 hover 가 없어 안 뜹니다(CLAUDE.md).
+   그래서 글자로 그리되, 가상요소라 i18n 엔진의 textContent 갈아끼우기와 무관합니다.
+   스피커 그림은 배경(SVG)으로 — 이모지를 쓰지 않습니다. */
+.wod-card .hud-wod::after{ content:attr(data-tap); margin-left:auto; flex:0 0 auto;
+  display:inline-flex; align-items:center; min-height:36px; padding:0 14px 0 34px; border-radius:999px;
+  background:#0d1a3a url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5'/%3E%3Cpath d='M15.54 8.46a5 5 0 0 1 0 7.07'/%3E%3Cpath d='M19.07 4.93a10 10 0 0 1 0 14.14'/%3E%3C/svg%3E") no-repeat 12px 50% / 16px 16px;
+  color:#fff; font-size:13px; font-weight:800; }
 
 /* ③ 대화창이 확실히 주인공이 되게 — 남는 높이를 모두 가져간다 */
 .chat{ flex:1 1 auto; min-height:0; }
 
-/* ④ 첫 화면 한 장에 — 2026-10-18 사장님 «스크롤 없애고 다 들어가게 · 드롭다운으로» (A안)
-   📐 고치기 전: 빈 화면이 마스코트 + 친구 카드 5장 + 주제 카드 10장 + 빠른 버튼을 세로로 쌓아
-      PC 1920x1080 에서도 대화창 안에서 스크롤해야 친구·주제가 다 보였다.
-   ✅ 친구·주제를 드롭다운 한 줄로, 마스코트는 작게(위에 강사 얼굴이 이미 크게 있다),
-      그림 카드는 접이칸 안으로. 대화창 높이·아바타 크기·헤더는 한 픽셀도 안 건드린다.
-   ⚠️ 이 화면은 어두운 테마 고정이라 select 에 color-scheme:dark 를 준다 —
-      안 주면 펼친 목록(option)이 흰 바탕에 흰 글자로 나오는 브라우저가 있다.
+/* ④ 첫 화면 — 2026-11-03 사장님 «A안 단계형 카드» (2026-10-18 드롭다운 판을 바꾼 것)
+   📐 고치기 전: 마스코트·제목·부제·차이 칩·오늘의 단어·드롭다운 2개·버튼 4개가 가운데 정렬로 «같은 무게»
+      로 쌓였고, 테두리 색이 금색·파랑·회색으로 제각각이었으며, 친구 드롭다운은 글자가 잘렸다.
+   ✅ 왼쪽 정렬 한 장 — 인사 / 오늘의 단어 띠 / ① 친구(얼굴 버튼) / ② 주제(사진 칩) / 노란 버튼 하나.
+      노란색은 «말 걸기» 버튼에만 쓴다. 나머지는 테두리만 있는 보조 모양.
+   ⚠️ «한 장에 스크롤 없이»(2026-10-18 사장님)는 그대로 지킨다 — 세로가 짧은 화면·폰에서는
+      부제·설명을 접고 주제를 «가로로 미는 한 줄» 로 둔다. 대화창 높이·아바타·헤더는 한 픽셀도 안 건드린다.
    ⚠️ 이 주석에 CJK 홑낫표를 쓰지 말 것(한자 폰트 검사) — « » 를 쓴다. */
-#chat .empty-state{ padding:8px 12px 10px; }
-#chat .empty-state .hero-mango{ width:46px; height:46px; margin:0 auto 4px; border-width:2px; animation:none; }
-#chat .empty-state h2{ margin:0 0 2px; }
-#chat .empty-state p{ margin:2px 0; }
-#chat .empty-state .wod-card{ margin:4px 0 6px; }
-.ef-picks{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;
-  max-width:640px; margin:6px auto 0; text-align:left; }
-.ef-pick{ display:flex; flex-direction:column; gap:5px; min-width:0; }
-.ef-lab{ font-size:12.5px; font-weight:800; color:var(--text2); white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis; }
-.ef-s{ display:none; }
-.ef-row{ display:flex; align-items:center; gap:8px; min-width:0; flex:1 1 auto; }
-.ef-face{ width:36px; height:36px; flex:0 0 auto; border-radius:50%; object-fit:cover;
-  background:#fff; border:2px solid var(--gold); }
-.ef-picks select{ flex:1 1 auto; min-width:0; width:100%; min-height:42px; color-scheme:dark;
-  background:#14213b; color:#f1f5f9; border:1px solid rgba(251,191,36,0.45); border-radius:12px;
-  padding:8px 10px; font-size:14px; font-weight:700; font-family:inherit; cursor:pointer;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.ef-picks select:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
-.ef-picks option{ background:#14213b; color:#f1f5f9; }
-/* 그림 열기 + 빠른 버튼 — 한 줄. 열면 카드 줄(.ef-more[open])이 맨 아래 한 줄을 통째로 쓴다. */
-.ef-foot{ display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px;
-  max-width:640px; margin:8px auto 0; }
-.ef-foot .quick{ display:contents; }
-.ef-more summary{ display:inline-flex; align-items:center; cursor:pointer; list-style:none;
-  font-size:12.5px; font-weight:700; color:var(--text2); padding:8px 12px; line-height:1.2;
-  border:1px solid rgba(255,255,255,0.18); border-radius:999px; }
-.ef-more summary::-webkit-details-marker{ display:none; }
-.ef-more[open]{ order:2; flex:0 0 100%; }
-.ef-more[open] summary{ color:var(--gold); border-color:rgba(251,191,36,0.5); }
-.ef-more .topics{ margin:10px auto 0; }
-@media (min-width:760px){
-  #chat .empty-state .hero-mango{ width:56px; height:56px; }
-  #chat .empty-state h2{ font-size:26px; }
-  #chat .empty-state p{ font-size:15.5px; }
-  .ef-lab{ font-size:14px; }
-  .ef-picks select{ font-size:16px; min-height:46px; }
-  .ef-face{ width:42px; height:42px; }
-}
-/* 세로가 짧은 화면(노트북 1366x650 등) — 📐 잰 것: 1366x650 에서 대화창이 237px 뿐이다.
-   마스코트·부제는 접고(바로 위에 강사 얼굴이 있다), 인사·차이·오늘의 단어를 한 줄에,
-   친구·주제는 짧은 라벨을 왼쪽에 붙인 한 줄로 둔다. */
-@media (max-height:760px){
-  #chat .empty-state{ padding-top:0; }
-  #chat .empty-state .hero-mango{ display:none; }
-  #chat .empty-state > p{ display:none; }
-  #chat .empty-state h2{ font-size:22px; display:inline-block; vertical-align:middle; margin:2px 6px; }
-  #chat .empty-state .aidiff-chip{ vertical-align:middle; margin:2px 4px; }
-  #chat .empty-state .wod-card{ display:inline-flex; vertical-align:middle; margin:2px 4px; }
-  .ef-pick{ flex-direction:row; align-items:center; gap:8px; }
-  .ef-l{ display:none; }
-  .ef-s{ display:inline; }
-  .ef-lab{ flex:0 0 auto; }
-  .ef-picks select{ min-height:40px; }
-  .ef-face{ width:34px; height:34px; }
-  .ef-foot{ margin-top:6px; }
+/* ⚠️ width:100% + min-width:0 — 주제 줄이 «가로로 미는 한 줄»(nowrap)일 때 그 길이만큼 카드가 넓어져
+      폰에서 화면 밖으로 밀려났다(2026-11-03 실측). 폭은 부모가 정하고, 넘치는 것은 주제 줄 안에서만 민다. */
+#chat .empty-state.efa{ display:flex; flex-direction:column; gap:14px; width:100%; max-width:700px; min-width:0;
+  box-sizing:border-box; margin:0 auto; padding:10px 16px 12px; text-align:left; color:var(--text2); }
+#chat .efa button{ font-family:inherit; }
+#chat .efa button:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+/* ① 인사 */
+.efa-head{ display:flex; align-items:center; gap:12px; }
+#chat .efa .hero-mango{ width:48px; height:48px; flex:0 0 auto; margin:0; border-width:2px; animation:none; box-shadow:none; }
+.efa-hi{ flex:1 1 auto; min-width:0; }
+#chat .efa h2{ margin:0; font-size:26px; line-height:1.15; font-weight:900; color:#fff; }
+.efa-name{ color:var(--gold); }
+#chat .efa .efa-sub{ margin:3px 0 0; font-size:14.5px; line-height:1.45; color:var(--text2); }
+.efa-pts{ display:inline-flex; align-items:center; gap:4px; margin-left:4px; color:#fde68a; font-weight:700; white-space:nowrap; }
+.efa-pts svg{ color:var(--gold); }
+/* «차이» 안내 — 첫 버튼이 아니라 작은 글자 링크. ai-diff.js 가 입히는 금색 칩 모양을 여기서 덮는다. */
+#chat .efa .aidiff-chip{ flex:0 0 auto; align-self:flex-start; margin:0; gap:5px; min-height:36px; padding:0 4px;
+  background:none; border:0; border-radius:8px; color:var(--text2); font-size:13px; font-weight:700;
+  text-decoration:underline; text-underline-offset:3px; }
+#chat .efa .aidiff-chip:hover{ background:none; color:#fff; }
+#chat .efa .aidiff-chip:focus-visible{ background:none; color:#fff; outline:2px solid var(--gold); outline-offset:2px; }
+#chat .efa .wod-card{ margin:0; }
+/* ② · ③ 단계 */
+.efa-step{ display:flex; flex-direction:column; gap:8px; min-width:0; }
+.efa-lab{ display:flex; align-items:center; gap:8px; font-size:15px; font-weight:800; color:#fff; }
+.efa-num{ display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; flex:0 0 auto;
+  border-radius:50%; background:#2c4386; color:#fff; font-size:12.5px; font-weight:900; }
+.efa-s{ display:none; }
+.efa-tip{ font-size:12.5px; font-weight:600; color:var(--text2); }
+.efa-big-btn{ margin-left:auto; display:inline-flex; align-items:center; gap:5px; min-height:32px; padding:0 11px;
+  background:none; border:1px dashed rgba(255,255,255,0.3); border-radius:999px; color:var(--text2);
+  font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.efa-big-btn[aria-expanded="true"]{ color:var(--gold); border-style:solid; border-color:rgba(251,191,36,0.55); }
+/* 친구 — 얼굴 버튼. 고른 친구는 금색 테두리 + 체크 */
+.efa-friends{ display:flex; flex-wrap:wrap; gap:8px; }
+.efa-friend{ display:inline-flex; align-items:center; gap:8px; min-height:48px; padding:4px 15px 4px 4px;
+  background:rgba(255,255,255,0.05); border:2px solid rgba(255,255,255,0.14); border-radius:999px;
+  color:#fff; font-size:14.5px; font-weight:800; cursor:pointer; }
+.efa-friend:hover{ border-color:rgba(251,191,36,0.5); }
+.efa-friend.on{ border-color:var(--gold); background:rgba(251,191,36,0.14); }
+.efa-facebox{ position:relative; display:inline-flex; flex:0 0 auto; }
+.efa-face{ display:block; width:36px; height:36px; border-radius:50%; object-fit:cover; background:#fff; }
+.efa-face-x{ display:flex; align-items:center; justify-content:center; background:#2c4386; color:#fff; font-size:15px; font-weight:900; }
+/* ⚠️ display 를 정한 요소라 hidden 만으로는 안 숨는다(CLAUDE.md «el.hidden 인데 그대로 보임»). */
+.efa-face[hidden], .efa-tpic[hidden], .efa-big[hidden]{ display:none !important; }
+.efa-check{ position:absolute; right:-3px; bottom:-3px; display:none; width:17px; height:17px; border-radius:50%;
+  align-items:center; justify-content:center; background:var(--gold); color:#1a1a1a; box-shadow:0 0 0 2px #14213b; }
+.efa-friend.on .efa-check{ display:inline-flex; }
+#chat .efa .efa-desc{ margin:0; font-size:13px; line-height:1.4; color:var(--text2); }
+.efa-desc b{ color:#fff; }
+/* 주제 — 작은 사진 칩. 누르면 바로 그 주제로 시작한다(topicSend). */
+.efa-topics{ display:flex; flex-wrap:wrap; gap:8px; }
+.efa-topic{ display:inline-flex; align-items:center; gap:7px; min-height:40px; padding:3px 14px 3px 4px;
+  background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.18); border-radius:999px;
+  color:#fff; font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.efa-topic:hover{ border-color:var(--gold); background:rgba(251,191,36,0.12); }
+.efa-tpic{ display:block; width:30px; height:30px; flex:0 0 auto; border-radius:50%; object-fit:cover; }
+#chat .efa .efa-big{ margin:2px 0 0; max-width:none; }
+/* ④ 시작 — 노란 버튼 하나 + 보조 둘 */
+#chat .efa .efa-go{ display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr); gap:10px; margin:2px 0 0; }
+#chat .efa .efa-go button{ display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:52px;
+  padding:0 14px; border-radius:14px; font-weight:800; cursor:pointer; white-space:nowrap; }
+#chat .efa .efa-cta{ background:var(--gold); color:#1a1a1a; border:0; font-size:17px;
+  box-shadow:0 8px 22px -10px rgba(251,191,36,0.75); }
+#chat .efa .efa-cta:hover{ background:#fcd34d; }
+/* 글자가 버튼 밖으로 나가지 않게 — 넘치면 efFitCta() 가 짧은 글자로 바꾼다(그래도 남으면 «…»). */
+#chat .efa .efa-cta{ min-width:0; overflow:hidden; }
+#chat .efa .efa-cta > svg{ flex:0 0 auto; }
+#chat .efa #efCta{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
+#chat .efa .efa-cta.efa-cta-noarrow > svg:last-child, #chat .efa .efa-cta.efa-cta-noicon > svg{ display:none; }
+#chat .efa .efa-more-btn{ background:transparent; color:#fff; border:1.5px solid rgba(255,255,255,0.22); font-size:15px; }
+#chat .efa .efa-more-btn:hover{ border-color:rgba(251,191,36,0.55); color:#fde68a; }
+/* 세로가 짧은 화면(노트북 1366x768 등) — 📐 잰 것(2026-11-03): 1366x768 에서 대화창이 295px 뿐이다.
+   부제·설명·안내 글자를 접고, 단계 라벨을 «짧은 이름» 으로 줄 왼쪽에 붙이고, 주제를 가로로 미는 한 줄로 둔다.
+   ⚠️ 폰(520px 이하)은 아래 규칙이 다시 세로로 쌓는다 — 줄 왼쪽에 라벨을 붙일 폭이 없다. */
+@media (max-height:800px){
+  #chat .empty-state.efa{ gap:6px; padding-top:2px; }
+  #chat .efa .hero-mango{ width:36px; height:36px; }
+  #chat .efa h2{ font-size:21px; }
+  #chat .efa .efa-sub, #chat .efa .efa-desc, .efa-tip, .efa-l{ display:none; }
+  .efa-s{ display:inline; }
+  .efa-step{ flex-direction:row; align-items:center; gap:10px; }
+  .efa-lab{ flex:0 0 auto; font-size:14px; }
+  .efa-friends, .efa-topics{ min-width:0; }
+  .efa-big-btn{ margin-left:0; padding:0 8px; }
+  .efa-big-btn span{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  /* 큰 그림 카드를 열면 줄을 바꿔 아래로 — 그래서 단계 줄은 늘 wrap, 칩 줄은 기준 폭 0 에서 늘어난다. */
+  .efa-step{ flex-wrap:wrap; }
+  .efa-friends, .efa-topics{ flex:1 1 0; }
+  .efa-big{ flex:0 0 100%; }
+  .efa-friend{ min-height:40px; }
+  .efa-face{ width:32px; height:32px; }
+  .efa-topics{ flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
+  .efa-topics::-webkit-scrollbar{ display:none; }
+  .efa-topic{ flex:0 0 auto; min-height:38px; }
+  .efa-tpic{ width:28px; height:28px; }
+  #chat .efa .efa-go button{ min-height:42px; }
+  .wod-card .hud-wod{ padding-top:4px !important; padding-bottom:4px !important; }
+  .wod-card .hud-wod::after{ min-height:32px; }
 }
 /* 폰 — 왼쪽 가장자리 «메뉴» 손잡이(x 2~46px)가 세로 가운데에 떠 있어 그 밑으로 들어가면 가려진다.
    ⚠️ AI 말풍선이 x=50 에서 시작하는 것과 같은 이유로 양쪽을 46px 비운다(가운데정렬이 안 틀어지게 «양쪽»).
-   친구·주제 드롭다운은 라벨 없이 나란히 — 고른 값(이모지+이름 / 주제 고르기)이 곧 라벨이다(aria-label 은 있다). */
+   친구는 다섯 칸 격자(얼굴 위·이름 아래), 주제는 가로로 미는 한 줄, 노란 버튼은 한 줄을 통째로. */
 @media (max-width:520px){
-  #chat .empty-state{ padding:0 46px 8px; }
-  #chat .empty-state .hero-mango{ display:none; }
-  #chat .empty-state > p{ display:none; }
-  #chat .empty-state h2{ font-size:20px; display:block; margin:0 0 2px; }
-  #chat .empty-state .aidiff-chip{ font-size:12.5px; padding:5px 11px; white-space:nowrap; margin:2px auto; }
-  #chat .empty-state .wod-card{ display:flex; margin:4px 0 2px; }
-  .ef-picks{ gap:6px; margin-top:6px; }
-  .ef-lab{ display:none; }
-  .ef-face{ display:none; }
-  .ef-picks select{ font-size:13px; padding:7px 6px; min-height:40px; }
-  .ef-foot{ gap:6px; }
-  .ef-more summary{ padding:6px 10px; font-size:12px; }
-  #chat .empty-state .quick button{ padding:6px 10px; font-size:12px; }
+  /* 📐 잰 것(2026-11-03, 390x844): 대화창 423px 안에 빈 화면이 들어가야 한다 — 설명 줄은 접는다(얼굴 버튼의
+     title 과 버튼 이름으로 남는다). 세로가 짧은 폰(<=800px)에서 위 «한 줄 라벨» 규칙이 걸려도 여기서 세로로 되돌린다. */
+  #chat .empty-state.efa{ padding:0 46px 4px; gap:6px; }
+  #chat .efa .hero-mango{ display:none; }
+  .efa-head{ gap:6px; }
+  #chat .efa h2{ font-size:20px; }
+  #chat .efa .efa-sub, .efa-tip, .efa-s, #chat .efa .efa-desc{ display:none; }
+  .efa-l{ display:inline; }
+  .efa-step{ flex-direction:column; align-items:stretch; flex-wrap:nowrap; gap:6px; }
+  .efa-friends, .efa-topics{ flex:none; }
+  .efa-big-btn{ margin-left:auto; }
+  #chat .efa .aidiff-chip{ width:36px; justify-content:center; padding:0; }
+  #chat .efa .aidiff-chip svg{ width:20px; height:20px; }
+  /* 글자는 화면에서만 감춘다 — 화면낭독기는 그대로 읽는다(버튼 이름). */
+  #chat .efa .aidiff-chip span, .efa-big-btn span{ position:absolute; width:1px; height:1px; overflow:hidden;
+    clip:rect(0 0 0 0); white-space:nowrap; }
+  .efa-big-btn{ padding:0 9px; min-height:28px; }
+  .efa-lab{ font-size:13.5px; gap:6px; }
+  .efa-num{ width:20px; height:20px; font-size:11.5px; }
+  .efa-friends{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:4px; }
+  .efa-friend{ flex-direction:column; justify-content:center; gap:2px; min-height:0; padding:4px 0 3px;
+    border-radius:14px; font-size:11.5px; }
+  .efa-face{ width:34px; height:34px; }
+  .efa-topics{ flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
+  .efa-topics::-webkit-scrollbar{ display:none; }
+  .efa-topic{ flex:0 0 auto; font-size:13.5px; min-height:38px; }
+  .efa-tpic{ width:28px; height:28px; }
+  #chat .efa .efa-go{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px; margin-top:0; }
+  #chat .efa .efa-cta{ grid-column:1 / -1; font-size:16.5px; }
+  #chat .efa .efa-more-btn{ font-size:14px; }
+  /* ⚠️ 높이는 «#chat .efa .efa-go button»(1,2,1)을 이겨야 해서 button.클래스 로 적는다. */
+  #chat .efa .efa-go button.efa-cta{ min-height:46px; }
+  #chat .efa .efa-go button.efa-more-btn{ min-height:40px; }
+  /* 오늘의 단어 띠 — 한 줄이면 뜻(아주 맛있는)이 잘린다(2026-11-03 실측 390px: 뜻 칸 18px).
+     이름표를 윗줄로 올리고 «단어 · 뜻 · 그림» 을 아랫줄에, 듣기 버튼은 오른쪽에 두 줄을 걸쳐 둔다. */
+  /* ⚠️ 칸 규칙(2026-11-04): 뜻 칸이 «먼저» 줄고(…) 그림(🍕)은 안 준다. 예전 «auto auto 1fr auto» 는 좁거나 글꼴이 넓은
+     폰에서 그림 칸이 0 이 되어 🍕 가 듣기 버튼 밑에 깔렸다(사장님 폰 사진). 넷째 칸은 남는 자리 채우기. */
+  .wod-card .hud-wod{ display:grid; grid-template-columns:auto minmax(0,max-content) auto minmax(0,1fr) auto; align-items:center;
+    column-gap:6px; row-gap:0; padding:4px 5px 4px 12px !important; }
+  .wod-card .hud-wod .wod-lab{ grid-column:1 / 5; grid-row:1; font-size:11px; line-height:1.25; padding-right:0; border-right:0; }
+  .wod-card .hud-wod .wod-en{ grid-column:1; grid-row:2; font-size:17px; line-height:1.25; }
+  .wod-card .hud-wod .wod-ko{ grid-column:2; grid-row:2; font-size:12px !important; white-space:nowrap; }
+  .wod-card .hud-wod #wodEmoji{ grid-column:3; grid-row:2; }
+  .wod-card .hud-wod::after{ grid-column:5; grid-row:1 / 3; font-size:0; padding:0; width:34px; min-height:34px; background-position:50% 50%; }
+}
+/* 세로가 짧은 폰(375x667 등) — 📐 잰 것(2026-11-03): 대화창이 265px 뿐이다.
+   단계 라벨을 접고(얼굴·사진이 곧 «친구»·«주제» 다), 보조 버튼 둘은 그림만 남겨 노란 버튼과 한 줄에 둔다.
+   보조 버튼 글자는 화면에서만 감춘다 — 버튼 이름으로는 그대로 읽힌다. */
+@media (max-width:520px) and (max-height:760px){
+  #chat .empty-state.efa{ padding-bottom:4px; gap:5px; }
+  #chat .efa .aidiff-chip{ min-height:30px; }
+  .efa-face{ width:30px; height:30px; }
+  /* 오늘의 단어 띠는 다시 한 줄 — 이름표는 화면에서만 감춘다(파란 띠 색이 곧 «오늘의 단어» 자리다). */
+  .wod-card .hud-wod .wod-lab{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  .wod-card .hud-wod .wod-en, .wod-card .hud-wod .wod-ko, .wod-card .hud-wod #wodEmoji{ grid-row:1; }
+  .wod-card .hud-wod::after{ grid-row:1; width:30px; min-height:30px; }
+  .efa-lab{ display:none; }
+  #chat .efa .efa-go{ grid-template-columns:minmax(0,1fr) 44px 44px; gap:6px; }
+  #chat .efa .efa-cta{ grid-column:auto; }
+  #chat .efa .efa-go button.efa-more-btn{ min-height:46px; padding:0; }
+  #chat .efa .efa-more-btn span{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+}
+/* 친구 이름은 «낱말 사이» 에서만 줄을 바꾼다 — 좁은 칸에서 «번갈\n아» 처럼 낱말이 쪼개지지 않게, 영어 «All four» 는
+   «All fo…» 로 잘리지 않고 두 줄로(2026-11-04 실측 320px). 그래도 넘치면 «…». */
+#chat .efa .efa-fname{ max-width:100%; word-break:keep-all; overflow-wrap:normal; line-height:1.15; overflow:hidden; text-overflow:ellipsis; }
+/* 아주 좁은 폰(380px 이하 · 삼성 «화면 확대» 기기는 320px) — 메뉴 손잡이는 «왼쪽» 에만 있으니
+   오른쪽 여백은 줄여 칸을 넓힌다(320px: 내용 폭 200 → 234px). 왼쪽 46px 는 그대로 — 손잡이에 가린다. */
+@media (max-width:380px){
+  #chat .empty-state.efa{ padding-right:12px; }
 }
 
 /* 🚀 (2026-08-02) 하단 '다음 활동 고르기' — 입력줄 바로 아래 한 줄.
@@ -2779,6 +3113,39 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
     window.addEventListener('mangoi:lang-changed', function(){ syncWodTap(); });
   }
 
+  /* ②-2 시트 안 설정을 «이름표 + 그 버튼들» 한 묶음씩 감싼다(.opt-row > span + .opt-list).
+     📜 2026-11-04 사장님 «폰도 스크롤 없이 보이게 해줘» — 폰에서 이름표(레벨:·속도:…)가 줄을
+        하나씩 통째로 먹어 시트가 화면보다 길었다. 묶어 두면 폰에서는 «이름표 칸 | 버튼 칸» 두 열로
+        놓아 섹션마다 한 줄씩 아끼고(CSS max-width:759.98px), PC 에서는 예전처럼 이름표가 위에 온다.
+     ⚠️ 버튼을 찾는 코드는 전부 «자손» 선택(.opt[data-level] · .opts .opt…)이라 감싸도 그대로 동작한다.
+     ⛔ 시트 «밖» 에서 부르지 말 것 — 시트를 못 만든 화면(.top 없음)은 옛 한 줄 배치 그대로여야 한다.
+     ⚠️ 새 설정 줄은 «이름표 span 다음에 버튼들» 모양으로만 넣을 것 — span 이 묶음의 시작 표시다. */
+  function groupOptRows(opts){
+    var KINDS = ['level', 'persona', 'cmode', 'rate', 'voice', 'sub'];
+    var kids = Array.prototype.slice.call(opts.children), row = null, list = null, n = 0;
+    kids.forEach(function(el){
+      if (el.tagName === 'SPAN') {
+        row = document.createElement('div');
+        row.className = 'opt-row';
+        row.setAttribute('role', 'group');
+        if (!el.id) el.id = 'optLab' + (++n);
+        row.setAttribute('aria-labelledby', el.id);
+        list = document.createElement('div');
+        list.className = 'opt-list';
+        opts.insertBefore(row, el);
+        row.appendChild(el);
+        row.appendChild(list);
+      } else if (list) {
+        if (!row.getAttribute('data-kind')) {
+          for (var i = 0; i < KINDS.length; i++) {
+            if (el.hasAttribute('data-' + KINDS[i])) { row.setAttribute('data-kind', KINDS[i]); break; }
+          }
+        }
+        list.appendChild(el);
+      }
+    });
+  }
+
   function init(){
     wireWod();                                  // ✨ 시트가 없어도(=아래 return) 카드는 살아야 한다
     var top = document.querySelector('.top');
@@ -2820,9 +3187,10 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
     var wodCard = document.getElementById('wodCard');
     if (wodChip && wodCard) {
       wodCard.appendChild(wodChip);          // ⛔ 새로 만들지 않는다 — «옮긴다»(일단 주차장)
-      wodChip.setAttribute('data-tap', '👂 눌러서 들어요');
-      wodChip.setAttribute('data-ko-tap', '👂 눌러서 들어요');
-      wodChip.setAttribute('data-en-tap', '👂 Tap to hear');
+      /* 🔊 (2026-11-03 A안) 띠 오른쪽 끝의 «듣기» 버튼 글자 — 스피커 그림은 CSS 배경이라 이모지를 안 붙인다. */
+      wodChip.setAttribute('data-tap', '듣기');
+      wodChip.setAttribute('data-ko-tap', '듣기');
+      wodChip.setAttribute('data-en-tap', 'Listen');
       syncWodTap();
       wodSync();
     }
@@ -2847,6 +3215,7 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
     if (quests) body.appendChild(quests);
     if (hud)    body.appendChild(hud);
     if (opts)   body.appendChild(opts);
+    if (opts)   groupOptRows(opts);
 
     /* ③ 위험하거나 드물게 쓰는 것은 시트 맨 아래로.
           «다음 활동» 은 입력줄 아래 .next-bottom 버튼이 늘 있으므로 길이 사라지지 않는다. */

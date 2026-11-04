@@ -2,7 +2,7 @@ import { parseWarmupOutput, verifyWarmupFix, type WarmupFix } from './warmup-cor
 import { replyBreakReason } from './reply-sanity';
 
 // The model supplies one correction; the server, not the model, repeats it.
-export const FOCUSED_DRAFT_RULE = '[집중교정 출력 계약 — 앞의 답장 규칙보다 우선] 첫 턴부터 사소한 오류도 fix에 담아. 교정이 있으면 reply에는 고친 문장을 한 번만 적고 질문·인사·칭찬을 넣지 마. 3번 반복과 You can say... 및 Can you say it with me?는 서버가 붙인다. 반복 때문에 fix JSON이 잘리지 않게 해. 교정이 없으면 자연스럽게 대화해.';
+export const FOCUSED_DRAFT_RULE = '[집중교정 출력 계약 — 앞의 답장 규칙보다 우선] 첫 턴부터 사소한 오류도 fix에 담아. 교정이 있으면 reply에는 고친 문장을 한 번만 적고 질문·인사·칭찬을 넣지 마. 교정 문장만 총 3번 반복하고, 처음의 You can say... 한 번 및 마지막 Can you say it with me?는 서버가 붙인다. 반복 때문에 fix JSON이 잘리지 않게 해. 교정이 없으면 자연스럽게 대화해.';
 
 export function focusedCandidate(raw: unknown, input: string): WarmupFix | null {
   const fix = verifyWarmupFix(raw, input);

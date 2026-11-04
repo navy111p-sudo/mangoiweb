@@ -115,12 +115,15 @@ export async function resolveWarmupHonest(
       지시만으로는 안 지켜지므로 서버가 등급을 다시 확인하고 칭찬 말머리를 떼어 낸다(applyHonestPraise).
    ───────────────────────────────────────────────────────────── */
 const MODE_LINES: Record<WarmupMode, string> = {
+  /* 💬 (2026-11-04 사장님 「교재 연습 자유대화도 교정 말 없이 카드만」) — A.i 친구 자유대화와 같은 약속.
+     ⚠️ 위 WARMUP_CORRECTION_RULE 이 «모든 모드» 에 「고친 문장을 따옴표로 먼저 말해」를 시키므로 여기서 «우선» 한다고 덮는다.
+        서버도 같은 판정으로 고친 문장을 앞에 붙이지 않는다(warmupSpeaksFixLead). */
   free_talk:
-    '[교정 모드: 자유대화] 오류가 있어도 지적하지 말고, 바른 문장으로 자연스럽게 되받아 말한 뒤(recast) 대화를 이어가. 따라 말하라고 시키지 마.',
+    '[교정 모드: 자유대화 — 위 [교정] 규칙보다 «우선» 한다] 이 모드는 «교정 카드만» 이야. 위 [교정] 규칙의 「고친 문장을 따옴표로 먼저 말하기」는 이 모드에서 하지 마. 교정은 "fix" 칸에만 적어 — 화면이 교정 카드로 따로 보여 준다. 답장(reply)에서는 오류를 지적하거나 고친 문장을 따로 말하지 말고 대화만 자연스럽게 이어가. 따라 말하라고 시키지 마.',
   balanced:
     '[교정 모드: 균형] 기본은 바른 문장으로 자연스럽게 되받아 말하기(recast). 같은 실수가 되풀이되면 고친 문장을 또박또박 말해 주고 한 번 따라 말해 보자고 해.',
   focused:
-    '[교정 모드: 집중교정] 이 모드에서는 「한 번에 한 가지만 고쳐」 규칙을 적용하지 마 — 학생 문장의 오류를 하나도 빠뜨리지 말고 전부 고쳐. 아래 문법 항목을 한 문장씩 빠짐없이 점검해(어느 것도 생략 금지): ① 대소문자 — 문장 첫 글자, 문장 가운데 불필요한 대문자(not Secret→not secret), 고유명사 ② 구두점 — 마침표·물음표·쉼표·따옴표 ③ 관사 a/an/the(없어야 할 곳 포함) ④ 명사 — 가산·불가산, 단수·복수형, 소유격 어포스트로피-s ⑤ 대명사 — 주격·목적격·소유격, 재귀대명사, 관계대명사 who/which/that/whom/whose ⑥ 동사 — 시제(현재·과거·현재완료·과거진행 등), 동사꼴, 주어와 동사의 수 일치, 조동사(can·will·should 등)와 뒤 동사원형, 수동태, 명령문 ⑦ 준동사 — 동명사(-ing 명사)와 to부정사, 그 쓰임 구별 ⑧ 형용사·부사 — 형용사 자리, 부사 자리, 비교급·최상급 ⑨ 전치사 — 시간·장소 전치사 선택(in/on/at), 전치사 뒤 동명사 ⑩ 접속사·관계부사 — and/but/because/so/when/if 등의 선택과 어순, 관계부사 where/when/why ⑪ 의문문·부정문 어순(do/does/did, be동사 도치) ⑫ 낱말 고르기(의미는 통하지만 어색한 낱말). 하나라도 틀렸으면 fix 는 null 이 아니어야 하고, fix 의 now 에는 학생 문장 전체를 위 항목을 모두 고친 완성 문장으로 적어(was 는 학생이 실제로 말한 문장 전체). 한 카드에 모두 담을 수 있게 — 「사소하니 넘어가」는 이 모드에서 금지다. 교정이 있으면 reply에는 고친 문장을 한 번만 적어. 서버가 인사·칭찬·다음 질문보다 먼저 "You can say..."와 고친 문장을 총 3번 반복하고 "Can you say it with me?"를 붙인다. 모델은 반복하지 마 — 반복으로 출력 예산을 쓰면 뒤의 fix JSON이 잘린다. 다음 질문은 학생이 따라 말한 뒤에 이어가.',
+    '[교정 모드: 집중교정] 이 모드에서는 「한 번에 한 가지만 고쳐」 규칙을 적용하지 마 — 학생 문장의 오류를 하나도 빠뜨리지 말고 전부 고쳐. 아래 문법 항목을 한 문장씩 빠짐없이 점검해(어느 것도 생략 금지): ① 대소문자 — 문장 첫 글자, 문장 가운데 불필요한 대문자(not Secret→not secret), 고유명사 ② 구두점 — 마침표·물음표·쉼표·따옴표 ③ 관사 a/an/the(없어야 할 곳 포함) ④ 명사 — 가산·불가산, 단수·복수형, 소유격 어포스트로피-s ⑤ 대명사 — 주격·목적격·소유격, 재귀대명사, 관계대명사 who/which/that/whom/whose ⑥ 동사 — 시제(현재·과거·현재완료·과거진행 등), 동사꼴, 주어와 동사의 수 일치, 조동사(can·will·should 등)와 뒤 동사원형, 수동태, 명령문 ⑦ 준동사 — 동명사(-ing 명사)와 to부정사, 그 쓰임 구별 ⑧ 형용사·부사 — 형용사 자리, 부사 자리, 비교급·최상급 ⑨ 전치사 — 시간·장소 전치사 선택(in/on/at), 전치사 뒤 동명사 ⑩ 접속사·관계부사 — and/but/because/so/when/if 등의 선택과 어순, 관계부사 where/when/why ⑪ 의문문·부정문 어순(do/does/did, be동사 도치) ⑫ 낱말 고르기(의미는 통하지만 어색한 낱말). 하나라도 틀렸으면 fix 는 null 이 아니어야 하고, fix 의 now 에는 학생 문장 전체를 위 항목을 모두 고친 완성 문장으로 적어(was 는 학생이 실제로 말한 문장 전체). 한 카드에 모두 담을 수 있게 — 「사소하니 넘어가」는 이 모드에서 금지다. 교정이 있으면 reply에는 고친 문장을 한 번만 적어. 서버가 인사·칭찬·다음 질문보다 먼저 "You can say..."는 처음에 한 번만 말하고 고친 문장만 총 3번 반복하고 "Can you say it with me?"를 붙인다. 모델은 반복하지 마 — 반복으로 출력 예산을 쓰면 뒤의 fix JSON이 잘린다. 다음 질문은 학생이 따라 말한 뒤에 이어가.',
 };
 
 export function warmupHonestRule(mode: WarmupMode): string {
@@ -129,7 +132,7 @@ export function warmupHonestRule(mode: WarmupMode): string {
     '[평가 — 답장을 쓰기 «전에» 먼저 해] 학생의 마지막 말을 질문에 비추어 냉정하게 평가해서 JSON 에 "grade" 키를 하나 더 넣어.',
     '"grade": "perfect" = 뜻이 통하고 문법 오류가 하나도 없는 문장 · "partial" = 문장이지만 오류가 하나 이상 · "incomplete" = 낱말 나열, 끝나지 않은 문장, 질문과 상관없는 답.',
     '음성인식 잡음(um, 대소문자, 문장부호)은 무시해. 너그럽게 봐주지 마 — 오류가 하나라도 있으면 perfect 가 아니야.',
-    '[칭찬 — 위 [칭찬] 규칙보다 «우선» 한다] grade 가 perfect 일 때만 칭찬해. 칭찬은 "Great!" 같은 빈말 대신 «무엇을 잘했는지» 구체적으로(예: "Nice! You used the past tense correctly."). 직전 칭찬과 같은 말은 쓰지 마.',
+    '[칭찬 — 위 [칭찬] 규칙보다 «우선» 한다] grade 가 perfect 일 때만 칭찬해. 칭찬은 "Great!" 같은 빈말 대신 «무엇을 잘했는지» 구체적으로(예: "Nice! You used the past tense correctly."). 직전 칭찬과 같은 말은 쓰지 마. 칭찬은 답장 맨 앞 «한 번» 뿐 — [연결 표현] 에 «THIS TURN\'S OPENER» 줄이 있는 턴이면 그 첫마디 자리가 곧 칭찬 자리라, 첫마디 뒤에 칭찬을 또 붙이지 마.',
     'grade 가 perfect 가 아니면 Great, Excellent, Perfect, Amazing, Awesome, Wow 같은 최상급 칭찬을 절대 쓰지 마. partial 이면 바로 바른 문장으로 되받아 말해(예: 학생 "I go park yesterday." → "Oh, you went to the park yesterday? What did you do there?"). incomplete 이면 문장으로 말해 보자고 다정하게 부탁하고 짧은 문장 시작(예: "I went to ...")을 줘.',
     MODE_LINES[m],
   ].join('\n');
@@ -206,8 +209,22 @@ export function gateFixForMode(
 }
 
 /**
+ * 🗣️ 교정 카드가 뜨는 턴에 «고친 문장을 답장 앞에 말로 붙일지»(correctionLeadIn) — 교재 연습(웜업) 정본.
+ *    / Should the warmup reply speak the corrected sentence first on a card turn?
+ *   free_talk : 안 붙인다 — 카드만(2026-11-04 사장님 「교재 연습 자유대화도 교정 말 없이 카드만」,
+ *               A.i 친구 자유대화와 같은 약속 — friend-correction-flow.ts 머리말).        / card only
+ *   focused   : 안 붙인다 — ensureFocusedFixSpoken 이 이미 «3번» 으로 앞에 말했다(네 번째가 붙으면 안 된다). / already spoken 3×
+ *   balanced  : 붙인다 — 질문보다 먼저 한 번.                                                 / spoken once, first
+ *   null      : 붙인다 — 중국어 대화처럼 모드가 없는 턴은 예전 동작 그대로.                    / legacy
+ * ⛔ 모르는 값도 «붙인다»(예전 동작) — 모르는 모드 때문에 교정 음성이 조용히 꺼지지 않게.
+ */
+export function warmupSpeaksFixLead(mode: unknown): boolean {
+  return !(mode === 'free_talk' || mode === 'focused');
+}
+
+/**
  * 집중교정 — 검증된 교정이 있으면 아바타가 «고친 문장을 먼저» 말하게 한다.
- *   순서: "You can say..." + 고친 문장을 총 3번 → 따라 말하자. 다음 질문은 학생이 따라 말한 뒤에 한다.
+ *   순서: "You can say..." 한 번 + 고친 문장만 총 3번 → 따라 말하자. 다음 질문은 학생이 따라 말한 뒤에 한다.
  *   · 답장에 고친 문장이 이미 들어 있어도 이 순서는 항상 지킨다(답장이 먼저 나오면 교정이 뒤로 밀린다).
  *   · 문장을 새로 지어내지 않는다 — 서버가 검증을 통과시킨 fix.now 만 쓴다.
  *   · 완벽(perfect)이면 고칠 것이 없으니 건드리지 않는다.
@@ -233,7 +250,7 @@ export function ensureFocusedFixSpoken(
     if (mode !== 'focused' || !fix || grade === 'perfect') return reply;
     const now = String(fix.now == null ? '' : fix.now).trim();
     if (!now) return reply;
-    const repeated = Array.from({ length: FOCUSED_FIX_REPEATS }, () => `You can say... "${now}"`).join(' ');
-    return `${repeated} Can you say it with me?`;
+    const repeated = Array.from({ length: FOCUSED_FIX_REPEATS }, () => `"${now}"`).join(' ');
+    return `You can say... ${repeated} Can you say it with me?`;
   } catch { return reply; }
 }

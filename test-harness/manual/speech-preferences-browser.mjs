@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { createSpeechSandbox } from '../helpers/speech-sandbox.mjs';
+import { browserJobs, runPool } from '../helpers/browser-pool.mjs';
 const require=createRequire(import.meta.url);
 const pwRoot=process.env.PW_DIR || process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES;
 const {chromium}=require(pwRoot+(process.env.PW_DIR?'/node_modules/playwright':'/playwright'));
@@ -30,6 +31,13 @@ const server=http.createServer(async(req,res)=>{
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const origin='http://127.0.0.1:'+server.address().port;
+const viewports=[{width:1366,height:900},{width:1920,height:1080},{width:390,height:844},{width:430,height:932},{width:820,height:1180}];
+// 사례마다 컨텍스트·계정(uid)이 따로라 동시에 돌려도 서로를 못 봅니다(helpers/browser-pool.mjs).
+// uid 는 «몇 번째 사례인가»(index)로 — 예전 순차 실행과 같은 이름입니다.
+const matrix=[];
+for(const viewport of viewports)for(const app of ['warmup','friend'])for(let level=1;level<=5;level++)matrix.push({viewport,app,level});
+const jobs=browserJobs();
+console.log('speech browser sandbox: '+matrix.length+' cases, '+jobs+' at a time');
 const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage'],
   executablePath:process.env.CHROME_PATH || (process.env.PLAYWRIGHT_BROWSERS_PATH?path.join(process.env.PLAYWRIGHT_BROWSERS_PATH,'installed/chrome-linux/chrome'):undefined)});
 const rates=[0.5,0.65,0.8,1,1.25];let cases=0,assertions=0;const errors=[];
@@ -68,9 +76,8 @@ async function saved(uid,app,level){
   assert.fail('server did not persist '+uid+' '+app+' '+level);
 }
 try{
-  const viewports=[{width:1366,height:900},{width:1920,height:1080},{width:390,height:844},{width:430,height:932},{width:820,height:1180}];
-  for(const viewport of viewports)for(const app of ['warmup','friend'])for(let level=1;level<=5;level++){
-    const uid='Sandbox_'+cases,ctx=await context(viewport),page=await ctx.newPage();
+  await runPool(matrix,jobs,async({viewport,app,level},index)=>{
+    const uid='Sandbox_'+index,ctx=await context(viewport),page=await ctx.newPage();
     page.on('pageerror',e=>errors.push({app,message:e.message}));
     await page.goto(origin+'/warmup.html',{waitUntil:'domcontentloaded'});await login(page,uid);await load(page,app);
     await choose(page,app,level);await saved(uid,app,level);await expectLevel(page,app,level);
@@ -81,7 +88,8 @@ try{
     await login(page,uid);await load(page,app);await expectLevel(page,app,level);
     await other.close();await ctx.close();cases++;
     if(cases%10===0)console.log('speech browser sandbox: '+cases+' account/device cases passed');
-  }
+  });
+  assert.equal(cases,matrix.length,'entire matrix must execute');
   assert.deepEqual(errors,[],'production page JavaScript errors');
   console.log(JSON.stringify({suite:'Chromium full pages + real signed auth + isolated SQLite',cases,assertions,failed:0}));
 }finally{await browser.close();await new Promise(r=>server.close(r));sandbox.close();}

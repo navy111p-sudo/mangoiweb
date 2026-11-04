@@ -157,21 +157,39 @@
   //   MutationObserver 로 '영원히' 돌리던 것을 제거. data-admin-theme 이 항상 'dark' 라 매번
   //   '정리 분기'만 타며 카드 전체 하위요소를 재스캔(리플로우)하던 순수 오버헤드였음(버벅임 잔여 원인).
   //   과거 ivory 잔여 인라인 정리를 위해 로드 시 1회만 실행(신규 로드엔 정리할 것도 없어 즉시 반환).
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ ivoryLighten(); });
-  else ivoryLighten();
-
-  /* 🎨 (2026-07-22) 카드를 펼칠 때 그 카드만 다시 칠한다.
-     이유: 카드 내용 상당수가 펼침 시점에 JS 로 그려지는데, 그 마크업엔 남색 배경이
-     인라인(style=)으로 박혀 있다. 밝은 테마에선 글자만 진해져 '남색 위 진한 글자'가
-     되어 안 보인다. 로드 시 1회 페인트로는 이 늦게 생긴 내용을 못 잡는다.
-     ⚠️ 과거의 1.5초 인터벌 + 전역 MutationObserver 방식은 성능 문제로 제거됐다(26-07-18).
-        되살리지 말 것 — 아래처럼 '사용자가 펼친 카드 하나'만, 그 순간에만 칠한다. */
-  /* 로드 후 JS 로 그려지는 카드(권한 표·학생 목록 등)는 위 1회 페인트를 놓친다.
-     → 1.5초 뒤 '딱 한 번' 더 훑는다. ⚠️ 과거의 1.5초 '반복' 인터벌과 다르다.
-        반복으로 되돌리지 말 것(26-07-18 성능 문제의 원인이었다). */
-  setTimeout(function(){
-    if (document.documentElement.getAttribute('data-admin-theme') === 'ivory') ivoryLighten();
-  }, 1500);
+  /* ⚡ (2026-11-04) «보이는 카드만» 칠한다 — 로딩 시간 단축.
+     옛 방식은 로드 때(그리고 1.5초 뒤 한 번 더) 카드 100장의 «모든» 하위 요소에
+     getComputedStyle 을 걸었다. 화면에 안 보이는 카드(IA6 가 한 번에 한 장만 보여 줌 ·
+     content-visibility:auto)까지 스타일을 강제 계산해, 실측(헤드리스, CPU 저하 없음)
+     이 파일 하나가 2.2초 · CPU 4배 저하에서 약 9초를 먹었다(관리자 화면이 «너무 느림» 의 주범).
+     ✅ 지금은 카드가 화면 근처에 «처음 들어올 때» 그 카드만 칠하고(IntersectionObserver),
+        1.5초 뒤 그 카드만 한 번 더 칠한다(늦게 그려지는 표·목록 — 옛 «1회 더» 와 같은 뜻).
+     ⛔ 전체 재스캔 · 반복 인터벌 · 전역 MutationObserver 로 되돌리지 말 것.
+     ⚠️ IntersectionObserver 가 없는 옛 브라우저는 예전처럼 전체를 한 번 칠한다. */
+  function isIvory(){ return document.documentElement.getAttribute('data-admin-theme') === 'ivory'; }
+  function paintLazily(){
+    if (!isIvory()) { ivoryLighten(); return; }      /* 다크: 정리 분기(예전과 같음) */
+    if (typeof IntersectionObserver !== 'function') {
+      ivoryLighten();
+      setTimeout(function(){ if (isIvory()) ivoryLighten(); }, 1500);
+      return;
+    }
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if (!en.isIntersecting) return;
+        var card = en.target;
+        io.unobserve(card);
+        if (card.__ivSeen) return;
+        card.__ivSeen = true;
+        if (!isIvory()) return;
+        ivoryLighten(card);
+        setTimeout(function(){ if (isIvory()) ivoryLighten(card); }, 1500);
+      });
+    }, { rootMargin: '400px 0px' });
+    Array.prototype.forEach.call(document.querySelectorAll('[id^="card-"]'), function(card){ io.observe(card); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paintLazily);
+  else paintLazily();
 
   document.addEventListener('toggle', function(e){
     var card = e.target;

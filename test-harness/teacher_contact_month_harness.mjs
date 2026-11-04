@@ -267,7 +267,20 @@ console.log('\n[ ③ 월 보기 — 서버 ?part=month ]');
     const c3 = vm.createContext({ asked,
       isHolidayClosedFor: (h, tid) => !!(h && h.closed) && String(tid) !== '29',
       loadHolidayClosure: async (db, date) => { asked.push(date); inflight++; maxInflight = Math.max(maxInflight, inflight); await new Promise(r => setTimeout(r, 1)); inflight--; return date === '2026-10-09' ? { closed: true, name: 'Hangeul Day' } : { closed: false, name: null }; },
-      _holiday: { closed: false, name: 'TODAY' }, env: { DB: {} } });
+      _holiday: { closed: false, name: 'TODAY' }, env: { DB: {} },
+      // ⏸ (2026-11-04) 다른 날로 옮긴 수업의 «원래 날짜» 칸 — 이 루프가 휴강 판정 «뒤» 에 넣는다(아래 짝 검사).
+      _mvAwayItems: [{ date: '2026-10-09', item: { kind: 'class', teacher_id: '5', class_state: 'moved_away', start_time: '09:00' } }] });
+    /* (2026-11-04) 「원래 날짜」 칸을 넣는 줄이 «같은 자리 빼기»(mvShadowed — 매주 수업의 «그 주 하루만» 칸)를 부른다.
+       흉내 내지 않고 소스에서 그 판정(+ 정본 slotKeyOf·movedAwayBlocked)을 오려 와 함께 돌린다. */
+    const ccs = rd(resolve(SRC, 'class-change-state.ts'));
+    const ccsFns = ['function ymd(', 'function hhmm(', 'export function slotKeyOf(', 'export function movedAwayBlocked('].map(n => braceBody(ccs, ccs.indexOf(n)).replace(/^export /, ''));
+    const mvsAt = tapi.indexOf('const mvShadowed = ');
+    // 몸통이 여러 줄이고 인자 타입에도 «{» 가 있어 «=> {» 부터 중괄호 짝으로 자른다(첫 «;» 로 자르면 몸통 중간에서 끊긴다).
+    const mvsArrow = mvsAt > 0 ? tapi.indexOf('=> {', mvsAt) : -1;
+    const mvsBody = mvsArrow > 0 ? braceBody(tapi, mvsArrow) : '';
+    const mvsSrc = mvsBody ? 'var ' + tapi.slice(mvsAt + 'const '.length, mvsArrow) + mvsBody + ';' : '';
+    ok(ccsFns.every(Boolean) && !!mvsSrc, '전제: 같은 자리 빼기(mvShadowed)·slotKeyOf 를 소스에서 오려 냈다');
+    vm.runInContext(stripTypeScriptTypes(ccsFns.join('\n') + '\n' + mvsSrc), c3);
     vm.runInContext(stripTypeScriptTypes(applySrc) + '\nasync function __m(monthDays){\n' + stripTypeScriptTypes(loopSrc) + '\nreturn monthDays;}', c3);
     const md = [
       { date: '2026-10-08', is_today: false, items: [] },
@@ -282,6 +295,8 @@ console.log('\n[ ③ 월 보기 — 서버 ?part=month ]');
     ok(d9[0].status === 'holiday' && d9[0].holiday_name === 'Hangeul Day' && d9[1].status !== 'holiday' && d9[2].status !== 'holiday' && d9[3].status !== 'holiday',
       '휴강일: 수업은 «휴강», 중국어 예외 강사·연기된 회차·LMS 점유는 그대로', d9);
     ok(outDays[2].items[0].status !== 'holiday', '(짝) 평일은 휴강 아님');
+    const gh = outDays[1].items.find(x => x.class_state === 'moved_away');
+    ok(!!gh && gh.status !== 'holiday', '⏸ «원래 날짜» 칸은 휴강 판정 «뒤» 에 들어간다(휴강으로 덮이지 않는다)', gh);
   }
   ok(tapi.indexOf("error: 'bad_month'") > tapi.indexOf("error: 'not_a_teacher'") && tapi.indexOf("error: 'bad_month'") > tapi.indexOf('const actor = await getAdminActor('),
     'month 형식 검사는 로그인 확인 «뒤» — 미인증은 400 이 아니라 401(무해 프로브가 오독하지 않게)');

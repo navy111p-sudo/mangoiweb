@@ -68,11 +68,12 @@ import { warmupAnswerChips } from './warmup-answers';                    // 💬
 import { backfillPastTenseFix } from './tense-backfill';
 import { focusedCandidate, focusedReplyFix, recoverFocusedFix, FOCUSED_DRAFT_RULE } from './focused-correction';
 import { WARMUP_CORRECTION_RULE, WARMUP_ZH_CORRECTION_RULE, ZH_MEANING_CHANGING_TAGS, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat, correctionLeadIn } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
-import { resolveWarmupHonest, warmupHonestRule, parseWarmupGrade, finalizeWarmupGrade, applyHonestPraise, gateFixForMode, ensureFocusedFixSpoken } from './warmup-honest';  // 🎯 정직한 칭찬 + 교정 모드(2026-10-29 시범 — 정본 그 파일)
+import { resolveWarmupHonest, warmupHonestRule, parseWarmupGrade, finalizeWarmupGrade, applyHonestPraise, gateFixForMode, ensureFocusedFixSpoken, warmupSpeaksFixLead } from './warmup-honest';  // 🎯 정직한 칭찬 + 교정 모드(2026-10-29 시범 — 정본 그 파일)
 import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
 import { fragmentQuestions, fragmentQuestionHint, checksFragmentQuestions, fullQuestionRule, FRAG_RETRY_BUDGET_MS } from './reply-questions';   // 🧩 기초 단계 «조각 질문»(like space?) 막기
 import { questionMemory, askedQuestionsLine, ASKED_LINE_HEAD, repeatedQuestions, retryRepeatedQuestion } from './question-memory';   // 🔁 같은 질문 두 번 금지(말만 바꾼 것·반대말 포함)
-import { connectorPromptBlock, linkBandForStep } from './conversation-connectors';   // 🔗 연결 표현(2026-10-28 · 세 화면 공용 정본)
+import { connectorPromptBlock, linkBandForStep } from './conversation-connectors';
+import { AVATAR_NATURAL_OPENERS, turnOpenerLine } from './conversation-connectors';   // 🔗 연결 표현(2026-10-28 · 세 화면 공용 정본)
 import { normalizeWarmupLang, warmupZhSystem, WARMUP_ZH_LEVELS, zhWarmupSentences, zhStudentByTeacher,
          warmupZhAnswerChips, WARMUP_ZH_FALLBACK_QUESTIONS, WARMUP_ZH_QUESTION_LANG } from './warmup-zh';  // 🀄 중국어 대화 정본(2026-09-13) — 영어 규칙은 한 글자도 안 건드린다
 import { applyEmpathyGuard, WARMUP_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)
@@ -88,6 +89,7 @@ import { nightlyCafe24Refresh } from './cafe24-sync';  // 🔄 카페24→D1 야
 import { handleSpaceMonsterApi } from './api-space-monster';  // 🛸 Space Monster Hunter 게임 API
 import { logWarmupFix } from './warmup-parent';            // 📝 학부모 화면용 «고쳐 준 표현» 기록 (2026-10-02 P4)
 import { logWarmupFixTrace, type WarmupFixTraceReason } from './warmup-fix-trace';   // 🔎 교정 판정 사유 기록 (2026-10-31)
+import { replyStartOf, openerTurnState } from './warmup-reply-start';   // 🔎 답장 «시작 말 종류» — 그 기록에 함께 싣는다 (2026-11-04)
 import { authUidFromRequest } from './auth-token';          //    ↑ 본인 확인용(토큰 uid == 요청 user_id 일 때만 기록)
 import { retiredDomainResponse } from './retired-domain';    // 🚫 폐지 주소(test.mangoi.co.kr) → 안내문만 (2026-10-16)
 import { handleDubbingApi, isPrivateDubbingKey } from './api-dubbing'; // 🎬 계정별 더빙 작품·이어하기 (기존 녹화와 분리)
@@ -3254,13 +3256,21 @@ const WARMUP_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
    예전에는 '망고(Mango)' 로 하드코딩돼 있어서, 화면이 "Hi! I'm Lily." 라고 인사해 놓고
    학생이 이름을 물으면 AI 가 다른 이름을 대는 어긋남이 있었다(2026-08-31 사장님 제보).
    ⛔ 화면이 보낸 문자열을 그대로 끼우지 말 것 — 정본 표(src/ai-friends.ts)를 거친 이름만 넣는다. */
+/* 🏅 [칭찬] 규칙 — 두 벌(2026-11-04 사장님 「웜업 index.ts 칭찬 목록도 첫마디 턴엔 빼줘」).
+   · 평소(첫 답장·쉬는 턴): 아래 WARMUP_PRAISE_RULE(돌려 쓸 칭찬 목록) 그대로.
+   · «이번 턴 첫마디» 줄이 실리는 턴: 목록을 빼고 WARMUP_PRAISE_OPENER_TURN 한 줄 — 첫마디와 칭찬은 답의 «같은 첫 자리» 라
+     둘 다 시키면 모델이 더 구체적인 칭찬 목록을 고른다(AI 친구에서 실측 — api-ai.ts reactRule 과 같은 결정). 지시도 더 짧다.
+   ⚠️ 바꿔 끼우기는 handleWarmupChat 의 [연결 표현] 바로 뒤 한 줄(첫마디 줄과 «같은 조건») — 상수를 통째로 바꾸므로 목록 문장을 고쳐도 그대로 동작한다.
+   ⚠️ warmup_empathy 하니스 D 가 이 파일의 [칭찬] 문자열을 «전부» 읽어 칭찬 떼기 표와 대조한다(순서 무관 · 웜업 쪽만으로 5개 이상). */
+const WARMUP_PRAISE_RULE = "[칭찬] 학생이 잘 대답하면 크게 기뻐하며 칭찬한 뒤 다음 질문으로 이어가줘. 칭찬 말은 «직전 두 번과 다른 것» 으로 골라 써 — Wow!, Awesome!, Nice one!, That's great!, Yes!, Perfect!, Cool!, You got it!, Well said!, I love that!, Amazing!, Haha nice! 처럼 돌려 쓰고 같은 말을 연달아 반복하지 마.";
+const WARMUP_PRAISE_OPENER_TURN = "[칭찬] 이번 턴은 아래 [연결 표현] 의 «THIS TURN'S OPENER» 한 마디가 반응이자 칭찬 전부야 — 칭찬 말을 따로 덧붙이지 말고, 틀린 영어는 칭찬하지 마.";
 const warmupSystem = (friendName: string) => [
   `너는 망고아이의 AI 대화 친구 '${friendName}' 야. 수업 전에 학생의 입을 풀어 주는 영어 말하기 상대야. 밝고 장난기 많은 단짝 친구처럼 신나게 리액션해줘.`,
   `[이름] 학생이 이름을 물으면 반드시 '${friendName}' 라고 답해. 다른 이름을 지어내지 마.`,
   "[언어] 네 대사는 반드시 영어로 말해. 한국어가 꼭 필요하면 영어 문장 뒤 «괄호 안» 에만 짧게 덧붙여 — 괄호 안은 음성으로 읽히지 않고 자막에만 보인다. 괄호 밖에 한국어를 쓰면 영어 목소리가 그대로 읽어서 소리가 뭉개진다.",
   "[길이] 한 번에 2문장을 넘기지 마. 그리고 질문은 «한 번에 하나만» 해 — 두세 개를 몰아 묻지 마.",
   "[형식] 사람이 말하듯 평문으로만 써. 마크다운(**, *, #, 목록)·'Mango:' 같은 이름표·(웃으며) 같은 지문은 쓰지 마. 이모지는 1~2개까지.",
-  "[칭찬] 학생이 잘 대답하면 크게 기뻐하며 칭찬한 뒤 다음 질문으로 이어가줘. 칭찬 말은 «직전 두 번과 다른 것» 으로 골라 써 — Wow!, Awesome!, Nice one!, That's great!, Yes!, Perfect!, Cool!, You got it!, Well said!, I love that!, Amazing!, Haha nice! 처럼 돌려 쓰고 같은 말을 연달아 반복하지 마.",
+  WARMUP_PRAISE_RULE,
   /* 💛 (2026-09-09 사장님 지시 B안) 바로 위 [칭찬] 규칙의 «짝». 이것만으로는 안 지켜지므로
      서버가 답장에서 칭찬 말머리를 한 번 더 떼어 낸다 — 정본 src/warmup-empathy.ts */
   WARMUP_EMPATHY_RULE,
@@ -4412,6 +4422,9 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     /* 🔗 (2026-10-28 사장님 지시) 연결 표현 규칙 + 최근 답장과 다른 말로 시작하기 — 정본 src/conversation-connectors.ts(부르기만).
        ⛔ 중국어 대화·엘리더잼 예시형 계약(형식 고정 «You could say: …»)에는 싣지 않는다. 던지지 않는다(못 만들면 빈 문자열). */
     if (ctxLang !== 'zh' && !hasEleaderExpansion(request)) sys += '\n[연결 표현]\n' + connectorPromptBlock(linkBandForStep(ctxDifficulty), history);
+    if (ctxLang !== 'zh' && !hasEleaderExpansion(request)) sys += '\n' + AVATAR_NATURAL_OPENERS;
+    /* 🏅 첫마디 줄이 실린 턴엔 [칭찬] 목록을 «첫마디가 곧 칭찬» 한 줄로 바꿔 끼운다(위 WARMUP_PRAISE_RULE 주석). 조건은 첫마디 줄과 같다. */
+    if (ctxLang !== 'zh' && !hasEleaderExpansion(request) && turnOpenerLine(history)) sys = sys.replace(WARMUP_PRAISE_RULE, () => WARMUP_PRAISE_OPENER_TURN);
     /* ✏️ 교정 카드 (2026-09-08) — 답장과 «같은 한 번의 호출» 에서 JSON 으로 함께 받는다.
        따로 부르면 왕복이 하나 더 붙어 한 턴이 두 배가 된다. 판정 정본은 src/warmup-correction.ts.
        ⚠️ 이 절이 출력 형식을 평문 → JSON 으로 바꾸므로, 아래 모든 추출 자리는 반드시
@@ -4789,14 +4802,23 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     } catch (e: any) {
       console.warn('[warmup] fix gate skipped:', e?.message || e);
     }
-    // 🔎 판정 사유 한 줄 — 실패해도 대화는 계속된다(정본은 던지지 않는다).
-    await logWarmupFixTrace(env, { userId: ctxUserId, sessionId, lang: ctxLang, mode: honest ? honest.mode : '', reason: traceReason, tag: traceTag });
 
     /* 🧭 (2026-10-31 사장님 「무조건 교정 후에 질문」) 교정 카드가 뜨는 턴이면, 답장은 고친 문장이 «질문보다 먼저»
        말해진 뒤에 질문으로 간다. 순서는 프롬프트에만 맡기지 않고 correctionLeadIn 이 보장한다.
        ⚠️ 히스토리 저장은 이 보정 «뒤» 에 한다 — 학생이 본 문장과 모델이 다음 턴에 읽는 문장을 같게 두기 위해서다. */
     // Focused speech is already canonical; an internal '?' must not add a fourth copy.
-    if (showFix && honest?.mode !== 'focused') aiText = correctionLeadIn(aiText, showFix, ctxLang === 'zh' ? 'zh' : 'en');
+    // 💬 자유대화는 카드만 — 고친 문장을 말로 붙이지 않는다(2026-11-04 · 판정 정본 warmupSpeaksFixLead).
+    if (showFix && warmupSpeaksFixLead(honest?.mode)) aiText = correctionLeadIn(aiText, showFix, ctxLang === 'zh' ? 'zh' : 'en');
+
+    /* 🔎 판정 사유 + 답장 «시작 말 종류» 한 줄 — 실패해도 대화는 계속된다(정본은 던지지 않는다).
+       ⚠️ 교정 앞머리까지 붙은 «최종» 답장을 본다(학생이 들은 그대로). 답장 본문은 싣지 않는다 — 정본 src/warmup-reply-start.ts.
+       첫마디 판정 조건은 위 [연결 표현] 줄과 같다(하니스가 대조). */
+    const traceStart = replyStartOf(aiText);
+    await logWarmupFixTrace(env, {
+      userId: ctxUserId, sessionId, lang: ctxLang, mode: honest ? honest.mode : '', reason: traceReason, tag: traceTag,
+      openerTurn: openerTurnState(ctxLang !== 'zh' && !hasEleaderExpansion(request), history),
+      startKind: traceStart.kind, startWord: traceStart.word, grade: honestGrade ? String(honestGrade) : '',
+    });
 
     // ── 히스토리 갱신(최근 N턴만) + 6시간 TTL 저장 ──
     try {

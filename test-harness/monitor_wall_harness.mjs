@@ -193,8 +193,10 @@ check('⑮ classes-now 가 forbidden_teacher 면 목록을 그리지 않는다',
 
 /* ── ⑰ 회선 신호등 — 표본이 없을 때 «0%» 로 적지 않는다.
        0 으로 적으면 영상이 죽은 방이 «회선이 제일 좋은 방» 이 된다(CLAUDE.md 2장) ── */
+/*    (2026-11-03) 강사·학생 나눔으로 sigOne 이 «값이 둘 다 null» 도 «—» 로 그린다 — 모양이 넓어져 정규식도 넓혔다.
+      «실제로 그렇게 그리는가» 는 vc_quality_live_role_harness ④ 가 함수를 오려 내 돌려 본다. */
 check('⑰ 회선 표본이 없으면 «—» 로 둔다 (0 으로 채우지 않는다)',
-      /if \(!q\) return '<span style="color:var\(--muted\)">—<\/span>'/.test(bare));
+      /if \(!q(?: \|\| \([^)]*\))?\) return '<span style="color:var\(--muted\)">—<\/span>'/.test(bare));
 {
   const api = readFileSync(join(PUB, '..', 'src', 'api-admin.ts'), 'utf8');
   check('⑰-2 서버 집계가 음수 손실(영상 없던 틱)을 평균에서 뺀다 (avg_loss >= 0)',

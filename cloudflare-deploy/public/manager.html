@@ -2716,10 +2716,12 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     return key;
   }
   /* 🎚️ A.i 말하기 교정 방식 (2026-10-31) — 서버 /api/admin/ai-billing/correction-mode(정본 src/warmup-shop-mode-api.ts).
-     ⛔ 화면이 «바꿀 수 있는가» 를 판정하지 않는다 — 서버가 줄마다 editable 을 준다(대리점=자기 학원·본사=전부·지사=보기만). */
+     ⛔ 화면이 «바꿀 수 있는가» 를 판정하지 않는다 — 서버가 줄마다 editable 을 준다(대리점=자기 학원·본사=전부·지사=보기만).
+     ⚖️ 균형 설명(2026-11-04)은 입구(ai-speaking.html)·웜업 카드(warmup.html)와 같은 말 — 서버: 큰 실수 매번·작은 실수 연달아 안·
+        따라 말하기 3턴에 한 번까지(src/warmup-correction.ts). warmup_honest_mode_harness ⑨ 가 세 화면을 대조. */
   var CMODES = [
-    { k: 'free_talk', en: 'Free talk', ko: '자유대화', den: 'Keeps the chat flowing; repeats the right sentence naturally, no repeat-after-me.', dko: '대화 흐름 우선 — 바른 문장을 자연스럽게 다시 말해 주고 따라 말하기는 시키지 않아요.' },
-    { k: 'balanced', en: 'Balanced', ko: '균형', den: 'Corrects important mistakes; small ones now and then.', dko: '중요한 실수는 바로, 작은 실수는 가끔 고쳐 줘요.' },
+    { k: 'free_talk', en: 'Free talk', ko: '자유대화', den: 'Keeps the chat flowing; mistakes appear only as a correction card — no spoken correction, no repeat-after-me.', dko: '대화 흐름 우선 — 틀린 곳은 교정 카드로만 보여 주고, 고친 문장을 말로 하거나 따라 말하라고 시키지 않아요.' },
+    { k: 'balanced', en: 'Balanced', ko: '균형', den: 'Mostly key mistakes; repeat-after-me sometimes.', dko: '중요한 실수 위주로 고치고 가끔 따라 말해요.' },
     { k: 'focused', en: 'Focused correction', ko: '집중교정', den: 'Corrects every mistake it finds and asks the student to say it again.', dko: '찾은 실수마다 고쳐 주고 바른 문장을 따라 말하게 해요.' }
   ];
   function cmodeName(k){ for (var i = 0; i < CMODES.length; i++) { if (CMODES[i].k === k) return T(CMODES[i].en, CMODES[i].ko); } return ''; }
@@ -3942,6 +3944,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     // ✕⏸ (2026-11-03) 취소·연기 건수 — «표시된 줄» 기준(거르는 중이면 눈앞의 목록을 말한다)
     var nCx = rows.filter(function (r) { return r.cancelled; }).length;
     var nPp = rows.filter(function (r) { return r.postponed; }).length;
+    // ⏸ (2026-11-04) 이 날에서 다른 날로 연기·변경해 «원래 날짜» 에 남은 줄 — 서버 moved_away(정본 class-change-state.ts)
+    var nMv = rows.filter(function (r) { return r.moved_away; }).length;
     var simple = taSimple();
     var head = '<div class="muted" style="padding-bottom:6px">'
       /* 🎌 휴강일이면 맨 위에 한 줄 — 서버가 준 이름·건수만 쓴다(판정은 서버 holiday-closure.ts). */
@@ -3952,18 +3956,20 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       + esc(T((j.date || '') + ' · ' + rows.length + ' total'
                 + (c.cafe24 ? ' · ' + c.cafe24 + ' on cafe24' : '')
                 + (c.joinable ? ' · ' + c.joinable + ' joinable' : '')
-                + (nCx ? ' · ' + nCx + ' cancelled' : '') + (nPp ? ' · ' + nPp + ' postponed' : ''),
+                + (nCx ? ' · ' + nCx + ' cancelled' : '') + (nPp ? ' · ' + nPp + ' postponed' : '') + (nMv ? ' · ' + nMv + ' moved to another day' : ''),
               (j.date || '') + ' · 전체 ' + rows.length + '건'
                 + (c.cafe24 ? ' · 카페24 ' + c.cafe24 + '건' : '')
                 + (c.joinable ? ' · 입장가능 ' + c.joinable + '건' : '')
-                + (nCx ? ' · 취소 ' + nCx + '건' : '') + (nPp ? ' · 연기 ' + nPp + '건' : '')))
+                + (nCx ? ' · 취소 ' + nCx + '건' : '') + (nPp ? ' · 연기 ' + nPp + '건' : '') + (nMv ? ' · 다른 날로 옮김 ' + nMv + '건' : '')))
       + '<a href="#" class="ta-mode" onclick="return taToggleDetail()">' + esc(simple ? T('Show details', '자세히 보기') : T('Simple view', '간단히 보기')) + '</a></div>';
     hqRows('todayAllBody', rows, function(r){
       var t = esc(MangoiClassDisplay.range(r));
       var who = esc(r.student_name || r.student_uid || '-');
       if (simple) {
         /* 🧾 (2026-11-03) 다섯째 칸 «취소 · 연기» — 취소한 수업은 지우지 않고 그 자리에 «✕ 취소됨» 으로 남는다(시간엔 취소선). */
-        return '<div class="row ta-s ta-s6' + (r.cancelled ? ' ta-cx' : '') + '"><b>' + (r.cancelled ? '<s>' + t + '</s>' : t) + '</b><span>' + esc(r.student_name || '—') + '</span>'
+        /* ⏸ (2026-11-04) 다른 날로 연기·변경한 수업도 «원래 날짜» 에 남는다 — 흐리게·시간 취소선, 칸에 «⏸ 연기됨 → 새 날짜». */
+        var gone = r.cancelled || r.moved_away;
+        return '<div class="row ta-s ta-s6' + (gone ? ' ta-cx' : '') + '"><b>' + (gone ? '<s>' + t + '</s>' : t) + '</b><span>' + esc(r.student_name || '—') + '</span>'
           + '<span class="muted">' + esc(r.student_uid || '—') + '</span>'
           + (r.teacher_name ? '<span>' + esc(r.teacher_name) + '</span>'
              : '<span style="color:#b45309;font-weight:800">' + esc(T('unassigned', '미배정')) + '</span>')
@@ -3982,7 +3988,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
          한쪽만 눌리면 「눌러도 아무 일 없다」 제보가 여기서 다시 올라온다.
          ⛔ <button> 이 아니라 span+role — 이 화면은 .tag 로 모양을 잡는다(버튼 기본 스타일 회피).
          ⚠️ 학생 아이디가 없으면 누를 것을 주지 않는다: 누구인지 모르면 창이 «전체» 로 흐른다. */
-      if (!r.textbook_assigned) {
+      /* ⏸ (2026-11-04) 다른 날로 옮긴 줄에는 «교재 미배정» 배지를 안 단다 — 그 수업은 새 날짜 줄에서 본다(같은 학생이 두 번 세어짐). */
+      if (!r.textbook_assigned && !r.moved_away) {
         // 📚 IS_HQ 일 때만 누를 수 있게 — /api/admin/textbook-files 는 지사·대리점 허용목록에 없다(403).
         var canPin = IS_HQ && !!(r.student_uid && String(r.student_uid).trim());
         tags += '<span class="tag hot"' + (canPin
@@ -4044,7 +4051,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       /* ✕ (2026-11-03) 취소된 수업 — 서버가 status='cancelled'·join_open=false·can_move=false 로 보낸다. 줄은 남기고 «취소됨» 을 글자로,
          옮기기 칩·«매주 반복» 안내는 주지 않는다(취소된 회차는 옮길 수 없다 — 서버도 거절). */
       if (r.cancelled) act = '<span class="tag hot ta-st">' + esc(T('✕ Cancelled — no class', '✕ 취소됨 — 수업 없음')) + '</span>';
-      if (r.cancelled) {
+      /* ⏸ (2026-11-04 매니저 Mai) 다른 날로 연기·변경한 수업 — «원래 날짜» 에 남긴 줄(서버 moved_away). 이 날 이 방에는 수업이 없다.
+         입장·관찰·옮기기 칩은 주지 않는다(서버도 join_open·can_move=false). 글자는 서버가 만든 것(change.label_*). */
+      if (r.moved_away) act = '<span class="tag hot ta-st">' + esc(T(((r.change && r.change.label_en) || '⏸ Moved to another day') + ' — no class this day',
+                                                                  ((r.change && r.change.label_ko) || '⏸ 다른 날로 옮김') + ' — 이 날은 수업 없음')) + '</span>';
+      if (r.cancelled || r.moved_away) {
         resch = '';
       } else if (r.source === 'cafe24' && !r.schedule_id) {
         /* ❔ (2026-10-01 매니저 질문 «why other classes don't have move button?») 카페24(LMS) 줄은 망고아이 예약표에
@@ -4135,7 +4146,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
           + '<span class="tag" role="button" tabindex="0" style="cursor:pointer" data-calpin="' + esc(r.student_uid) + '" data-calwho="' + esc(r.student_name || r.student_uid) + '">'
           + esc(T('📅 Calendar', '📅 캘린더')) + '</span></span>';
       }
-      return '<div class="row' + (r.cancelled ? ' ta-cx' : '') + '"><b>' + (r.cancelled ? '<s>' + t + '</s>' : t) + '</b><span class="ta-st">' + who + subLine + exLine + calLine + '</span>' + resch
+      return '<div class="row' + ((r.cancelled || r.moved_away) ? ' ta-cx' : '') + '"><b>' + ((r.cancelled || r.moved_away) ? '<s>' + t + '</s>' : t) + '</b><span class="ta-st">' + who + subLine + exLine + calLine + '</span>' + resch
            + tea + telLine + tags + act + '</div>';
     }, (acSel || teSel)
       /* 🏫 거르는 중 0건은 «원래 없음» 과 다르다 — 그렇게 말한다 */
@@ -4230,7 +4241,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       for (var i = 0; i < qs.length; i++) qs[i](got);
     };
     var sc = document.createElement('script');
-    sc.src = '/js/class-move-modal.js?v=16';
+    sc.src = '/js/class-move-modal.js?v=17';
     sc.onload = function(){ done(true); };
     sc.onerror = function(){ done(false); };
     document.head.appendChild(sc);

@@ -56,6 +56,7 @@ import { c24ExpenseDrop, C24_HANGUL_CYPHER_RE, C24_LETTER_CYPHER_RE } from './c2
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance, ensureCenterOverrideTables, ensureFranchiseOverrideTable } from './cafe24-sync';
 import { buildMangoiClassesNow, mergeClassesNow, dropMirroredCafe24, dropHolidayClosed, EXEMPT_BY_NAME, cafe24HolidayTeacher, classesNowScanDates, liveOverlaps } from './classes-now';   // 🔴 「예약 기준 지금 수업」 판정 정본(수강신청 + 카페24)
 import { findRoomMismatches } from './room-mismatch';   // 🚨 «같은 수업인데 서로 다른 방» 감시(2026-10-07 delaware)
+import { LIVE_AVG_SQL, LIVE_ROLE_SQL, attachRoleSplit } from './vc-quality-live';   // 📶 관제탑 회선 칸 «강사 / 학생» 나눔(2026-11-03)
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
 import { sendPlainSms } from './solapi-client';
@@ -97,7 +98,7 @@ import { cleanAnalysis, cleanScore, foreignFields, parseAnalysisJson, recoverNex
 import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid, ATTENDANCE_ACCOUNT_KEY, ATTENDANCE_BY_UID_LIST, attUidListBinds } from './attendance-uid';   // 📌 attendance 를 학생 계정으로 찾는 정본
 import { ensureStartsOnColumn, startsOnSel, normStartsOn, kstYmdOfMs, recurSkippedOn, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { isPostponedOccurrence, REACTIVATE_POSTPONED_SQL } from './class-postponed';
-import { isCancelledOccurrence, liveOrCancelledInRangeSql, judgeClassChange, loadClassChangeAudits } from './class-change-state';
+import { isCancelledOccurrence, liveOrCancelledInRangeSql, judgeClassChange, loadClassChangeAudits, loadMovedAwayEvents, judgeMovedAway, movedAwayKey, loadRecurWeekChildren, recurWeekChildFor, slotKeyOf, movedAwayBlocked, movedAwayOrder } from './class-change-state';
 import { loadHolidayClosure, isHolidayClosedFor, type HolidayClosure } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 import { kstMonthBounds, kstMidnight, kstDateStr, activeBinds, activeCountSql, overdueSql, absentSql, classDaysSql, ATTENDED_ON_DATE_SQL, trendPct, briefingSanity, KPI_DEF_VERSION, OVERDUE_GRACE_DAYS, ABSENT_DAYS, ACTIVE_WINDOW_DAYS } from './kpi-active';   // 📊 경영 지표 분모·기간 정본(2026-10-13)
 import { diagnoseStudentDay } from './class-diagnose';   // 🔎 학생 하루 수업 진단(읽기 전용, 2026-10-01)   // ⏸ 연기된 회차 판정 정본(2026-10-01)
@@ -655,19 +656,29 @@ export async function handleAdminApi(
               묶는 축만 다르다 — 새 표를 만들지 않는다.
            ⚠️ avg_loss 가 음수인 행은 «영상이 없던 틱»(loss = -1 로 넘어온 것)이라 평균에서 뺀다.
               넣으면 영상이 죽은 사람이 «회선이 제일 좋은 사람» 으로 뒤집힌다(CLAUDE.md 2장).
+              ℹ️ (2026-11-03 코드 확인) 지금 화면(js/idx-vc-qlog.js)은 음수를 안 보낸다 — 영상 표본이 없던
+                 1분은 avg_loss 0 · samples 0 · avg_rtt 0 으로 온다. 그래서 이 조건은 사실상 아무것도 안 거른다.
+              ✅ (2026-11-03 사장님 「방 단위 값도 표본 없는 1분 빼고」) 평균은 LIVE_AVG_SQL(samples > 0 · avg_rtt > 0
+                 만)로, 최악 손실도 samples > 0 인 1분만 본다. 표본이 하나도 없으면 null(«모름») → 화면은 «—».
+                 windows 는 «기록된 1분 수» 그대로 센다(표본 없는 1분 포함).
            ⚠️ novideo 칸은 ALTER 로 나중에 붙은 것이라 첫 로그 전에는 없다 — 여기서 읽지 않는다. */
         if (url.searchParams.get('live') === '1') {
           const mins = Math.max(1, Math.min(60, parseInt(url.searchParams.get('mins') || '5', 10) || 5));
           const liveSince = Date.now() - mins * 60000;
           const lr: any = await env.DB.prepare(
             `SELECT room, COUNT(*) AS windows,
-                    ROUND(AVG(avg_loss), 1) AS avg_loss, ROUND(MAX(max_loss), 1) AS worst_loss,
-                    ROUND(AVG(avg_rtt)) AS avg_rtt, MAX(ts) AS last_ts
+                    ${LIVE_AVG_SQL},
+                    ROUND(MAX(CASE WHEN samples > 0 THEN max_loss END), 1) AS worst_loss, MAX(ts) AS last_ts
                FROM vc_quality
               WHERE ts >= ? AND room IS NOT NULL AND room <> '' AND avg_loss >= 0
               GROUP BY room ORDER BY avg_loss DESC LIMIT 200`
           ).bind(liveSince).all();
-          return json({ ok: true, mins, rooms: lr.results || [] });
+          /* 👥 (2026-11-03) 강사·학생으로 나눈 값 — 정본 src/vc-quality-live.ts.
+             ⚠️ 실패해도 방 단위 값은 그대로 나간다(by_role 만 빠짐 → 관제탑은 예전 한 줄로 그린다). */
+          let roleRows: any[] = [];
+          try { roleRows = ((await env.DB.prepare(LIVE_ROLE_SQL).bind(liveSince).all()) as any).results || []; }
+          catch (e: any) { console.warn('[vc-quality live] 역할별 집계 실패', e?.message); }
+          return json({ ok: true, mins, rooms: attachRoleSplit(lr.results || [], roleRows) });
         }
         const days = Math.max(1, Math.min(90, parseInt(url.searchParams.get('days') || '7', 10) || 7));
         const since = Date.now() - days * 86400000;
@@ -3894,6 +3905,84 @@ export async function handleAdminApi(
         x.change = judgeClassChange(_ctRowById.get(String(x.schedule_id)), _ctAu.bySchedule.get(String(x.schedule_id)), { showActor: _ctSeeContact });
       }
 
+      /* ⏸ (2026-11-04 매니저 Mai «Can we add another column state it is cancelled or postponed») 날짜를 정해 연기·변경한 수업은
+         «같은 행» 이 새 날짜로 옮겨 가서(PR #1889 규칙 — 되돌리지 말 것) 원래 날짜 목록에서 통째로 사라졌다.
+         원래 날짜에 «⏸ 연기됨 → 새 날짜» 줄을 «읽기 전용» 으로 남긴다 — 판정 정본 class-change-state.ts judgeMovedAway.
+         🔒 행은 위 목록과 «같은 스코프 조건» 으로만 읽는다(지사·대리점에 남의 학생이 안 나가게 — 실패하면 줄을 안 만든다).
+         ⛔ 입장·참관·옮기기 없음(join_open·observable·can_move·can_split=false, room_id=null) — 그 날 그 방에는 수업이 없다.
+         ⛔ enrichClassesToday(출결·강사 입장)를 안 태운다 — 원래 방의 «입장 기록 없음» 을 «결석» 으로 그리면 거짓이다.
+         ⛔ 던지지 않는다 — 이 줄 때문에 목록이 죽으면 안 된다(실패하면 change_history='failed'). */
+      let _mvAwayOk = true;
+      try {
+        const _mvEv = await loadMovedAwayEvents(env.DB, dateStr, dateStr);
+        _mvAwayOk = _mvEv.complete;
+        const _onToday = new Set(sessions.filter(x => x.source === 'mangoi' && x.schedule_id != null).map(x => String(x.schedule_id)));
+        const _mvIds = Array.from(new Set(Array.from(_mvEv.byKey.values()).map(e => Number(e.schedule_id))))
+          .filter(n => Number.isSafeInteger(n) && n > 0 && !_onToday.has(String(n)));
+        if (_mvIds.length) {
+          const _mvRows = await selectInChunks<any>(env.DB, _mvIds,
+            (ph) => `SELECT cs.*, t.name AS t_name, se.level AS se_level, se.textbook AS se_textbook, se.shop_name AS se_shop, se.korean_name AS se_name
+                       FROM class_schedules cs
+                       LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
+                       LEFT JOIN students_erp se ON se.user_id = cs.user_id
+                      WHERE cs.id IN (${ph})
+                        AND LOWER(COALESCE(cs.user_id,'')) NOT IN ('lms','type_seed')
+                        ${_ctStu.cond ? `AND (${_ctStu.cond})` : ''}`,
+            { tail: _ctStu.binds });
+          /* 🔁 매주 반복 수업을 «그 주 하루만» 옮긴 경우(2026-11-04) — 옮겨 간 곳은 그 하루짜리 줄이다(판정 정본 judgeMovedAway).
+             같은 학생·같은 시각에 이 날 줄(연기 기록 줄·새로 잡은 수업)이 이미 있으면 반복 행 줄은 안 만든다(한 자리에 두 줄 금지).
+             «옮겨 감» 줄끼리도 한 자리에 하나 — 날짜 지정 행을 먼저 넣고(movedAwayOrder) 넣을 때마다 그 자리를 적는다(movedAwayBlocked). */
+          const _rwIds = _mvRows.filter((s: any) => !s.scheduled_date).map((s: any) => s.id);
+          const _rw = _rwIds.length ? await loadRecurWeekChildren(env.DB, _rwIds) : null;
+          if (_rw && !_rw.complete) _mvAwayOk = false;
+          const _taken = new Set(sessions.filter(x => x.source === 'mangoi').map(x => slotKeyOf(dateStr, x.start_time, x.student_uid)));
+          const _ghostAt = new Set<string>();
+          for (const s of [..._mvRows].sort((a: any, b: any) => movedAwayOrder(a) - movedAwayOrder(b))) {
+            const _isRecur = !s.scheduled_date;
+            const ch = judgeMovedAway(s, _mvEv.byKey.get(movedAwayKey(s.id, dateStr)), { showActor: _ctSeeContact },
+              _isRecur ? recurWeekChildFor(_rw ? _rw.byParent.get(String(s.id)) : null, dateStr) : null);
+            if (!ch) continue;
+            const _slot = slotKeyOf(dateStr, ch.from_time || s.start_time, s.user_id);
+            if (movedAwayBlocked(_slot, _isRecur, _taken, _ghostAt)) continue;
+            if (_slot) _ghostAt.add(_slot);
+            const [mh, mm] = String(ch.from_time || s.start_time || '00:00').split(':').map((x: string) => Number(x));
+            const start_ts = Date.UTC(kY, kMo, kD, mh || 0, mm || 0, 0) - KST;
+            const dur = Number(s.duration_min || s.duration_minutes) || 30;
+            sessions.push({
+              schedule_id: s.id,
+              source: 'mangoi',
+              moved_away: true,            // ⏸ 이 날에서 다른 날로 옮겨 간 회차 — 화면은 버튼 없이 «연기됨 → 새 날짜» 만 그린다
+              observable: false,
+              room_id: null,
+              student_uid: s.user_id || null,
+              student_name: s.student_name || s.se_name || null,
+              academy: s.se_shop || null,
+              contact_phone: null,
+              level: s.se_level || null,
+              textbook: s.se_textbook || null,
+              textbook_assigned: !!String(s.se_textbook || '').trim(),
+              teacher_id: s.teacher_id || null,
+              teacher_name: s.t_name || s.teacher_name || null,
+              substituted: false, substituted_from: null,
+              start_time: ch.from_time || s.start_time || null,
+              duration_min: dur,
+              start_ts, end_ts: start_ts + dur * 60000,
+              status: 'moved_away',
+              join_open: false, postponed: false, cancelled: false,
+              change: ch,
+              holiday: false, holiday_name: null,
+              schedule_kind: s.schedule_kind || null,
+              can_move: false, can_split: false,
+              is_level_test: /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || '')),
+              // enrichClassesToday 를 안 태우므로 그 칸들을 «모름» 으로 채워 둔다(화면이 «—» 를 그린다)
+              class_date: dateStr, teacher_entry: null, attendance: null, pay_type: null,
+              sched_label_ko: null, sched_label_en: null, last_eval: null, today_eval: null,
+              eval_hidden: !_ctSeeContact, week_days: null, week_dates: null,
+            });
+          }
+        }
+      } catch (e: any) { _mvAwayOk = false; console.warn('[classes/today] moved-away rows:', e?.message); }
+
       /* ☎ 연락처 — 본사·내부직원(_ctSeeContact)일 때만, 이미 스코프로 잘린 이 목록(두 갈래 모두)에만 붙인다.
          정본이 «다 물어봤나»(complete)를 함께 주므로, 조회가 실패하면 화면이 «번호가 없다» 가 아니라
          «확인하지 못했다» 고 말한다(contact_source='failed'). ⛔ 던지지 않는다 — 연락처 때문에 목록이 죽으면 안 된다. */
@@ -3911,7 +4000,7 @@ export async function handleAdminApi(
          절대 던지지 않는다(실패하면 그 칸만 null → 화면 «—»). */
       /* 🔒 (2026-09-23 사장님 지시) 평가 내용은 본사·내부직원에게만 — 지사·대리점(manager.html)에는 안 싣는다.
          판정은 연락처와 같은 _ctSeeContact(hq·none). 그 밖은 전부 숨김(모르는 스코프도 숨기는 쪽). */
-      try { await enrichClassesToday(env as any, sessions, dateStr, nowMs, { evals: _ctSeeContact, dowMatches: admDowMatches }); } catch (e: any) { console.warn('[classes/today] extras:', e?.message); }
+      try { await enrichClassesToday(env as any, sessions.filter(x => !x.moved_away), dateStr, nowMs, { evals: _ctSeeContact, dowMatches: admDowMatches }); } catch (e: any) { console.warn('[classes/today] extras:', e?.message); }
       sessions.sort((a, b) => a.start_ts - b.start_ts);
       const c24Count = sessions.filter(x => x.source === 'cafe24').length;
       /* ☎️ 화면이 «왜 번호가 대부분 비어 있는지» 를 사람에게 말할 수 있도록 근거를 함께 준다.
@@ -3924,13 +4013,14 @@ export async function handleAdminApi(
         ok: true,
         contact_source: contactSource,
         // 🧾 「취소·연기」 칸의 누가·언제 근거 — 'ok' | 'failed'(이력을 못 읽어 «취소·연기» 만 말한다)
-        change_history: _ctAu.complete ? 'ok' : 'failed',
-        contact_missing: sessions.filter(x => !x.contact_phone).length,
+        change_history: (_ctAu.complete && _mvAwayOk) ? 'ok' : 'failed',
+        contact_missing: sessions.filter(x => !x.contact_phone && !x.moved_away).length,   // ⏸ 다른 날로 옮긴 줄은 이 날 수업이 아니다
         // 🔁 `today` 는 옛 화면이 읽던 이름이라 그대로 둔다(값은 «조회한 날짜»). `date` 가 새 이름.
         today: dateStr, date: dateStr, is_today: dateStr === todayStr,
         now: nowMs, count: sessions.length, sessions,
         counts: {
-          mangoi: sessions.length - c24Count,
+          // ⏸ «다른 날로 옮겨 간» 줄(moved_away)은 이 날 열리는 수업이 아니라 망고아이 수업 수에서 뺀다
+          mangoi: sessions.length - c24Count - sessions.filter(x => x.moved_away).length,
           cafe24: c24Count,
           // 🪞 미러 줄이 있어 뺀 카페24 «복사본» 수(위 dropMirroredCafe24) — 숫자가 줄어든 이유를 사람이 볼 수 있게
           cafe24_mirrored_hidden: c24MirroredHidden,
@@ -3941,10 +4031,12 @@ export async function handleAdminApi(
           cancelled: sessions.filter(x => x.cancelled).length,
           postponed: sessions.filter(x => x.postponed).length,
           moved: sessions.filter(x => x.change && x.change.kind === 'moved').length,
+          // ⏸ (2026-11-04) 이 날에서 다른 날로 연기·변경해 «원래 날짜» 에 남긴 줄 수
+          moved_away: sessions.filter(x => x.moved_away).length,
         },
         // 🎌 그날이 휴강일이면 이름과 쉬는 건수(화면이 머리 줄에 한 번 말한다). 평일이면 null.
         holiday: _ctHol.closed ? { name: _ctHol.name || null, closed: sessions.filter(x => x.holiday).length } : null,
-        level_test_count: sessions.filter(x => x.is_level_test).length,
+        level_test_count: sessions.filter(x => x.is_level_test && !x.moved_away).length,
       });
       /* 🔒 이제 이 응답에 학생 전화번호가 실린다 — 공유 캐시에 앉으면 한 사람 것이 남에게 나간다
          (CLAUDE.md 2장 「자격증명을 응답에 실을 때」의 PII 판). 지금 CF 기본값은 /api/ 를
@@ -3982,6 +4074,13 @@ export async function handleAdminApi(
       const allowed = ['postpone', 'reschedule', 'remove', 'end', 'restore'];
       const action = String(body.action || '').trim();
       if (!allowed.includes(action)) return json({ ok: false, error: 'invalid_action', allowed }, 400);
+      /* 🔒 (2026-11-04 함정 대조) 연기·변경·취소·복구 «이력» 은 화면에 줄을 만든다 — 원래 날짜 «⏸ 연기됨 →» 줄(class-change-state.ts
+         loadMovedAwayEvents)·새 날짜 «📅 …에서 옮김» 글자. 이 경로로 강사가 아무 수업·아무 날짜로 적으면 그 줄을 지어낼 수 있다.
+         서버가 직접 옮기는 경로(class-schedule-move·변경 요청 승인·AI 명령·수강 운영)는 writeClassAudit 를 «직접» 부르므로
+         이 차단과 무관하다. 화면에서 이 POST 로 그 넷을 적는 곳은 0곳(2026-11-04 grep). ⛔ 'end' 는 그대로 둔다. */
+      if (_cawActor.isTeacher && ['postpone', 'reschedule', 'remove', 'restore'].includes(action)) {
+        return json(forbiddenTeacherBody(_cawActor, '강사는 수업 연기·변경·취소 이력을 직접 적을 수 없습니다.', 'Teachers cannot write class postpone/change/cancel history directly.'), 403);
+      }
       await writeClassAudit(env, {
         action,
         schedule_id: body.schedule_id ?? null,
@@ -6673,6 +6772,64 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         }
       } catch { offComplete = false; /* 취소·연기 조회 실패가 캘린더 전체를 막지 않게 */ }
 
+      /* ⏸ (2026-11-04 매니저 Mai «Can we add another column state it is cancelled or postponed» — 주간 시간표 판)
+         날짜를 정해 연기·변경한 회차는 «같은 행» 이 새 날짜로 옮겨 가(PR #1889 — 되돌리지 말 것) 원래 날짜 칸이 그냥 비었다.
+         원래 날짜 칸에 «⏸ 연기됨 → 새 날짜» 를 «보기 전용» 으로 남긴다 — 판정 정본 class-change-state.ts judgeMovedAway
+         («오늘 수업»·강사 시간표와 같은 함수). 매주 반복 수업을 «그 주 하루만» 옮긴 경우도 같은 판정이 맡는다.
+         off:'postponed' 로 싣는다 — 두 화면(admin/weekly-schedule.html · js/adm-q6.js ph54OffCard)이 이미 change.label_* 를
+         그대로 그리므로 화면은 안 고친다. ④ 그대로 id·move_field 없음(이 칸으로는 아무것도 못 옮긴다).
+         ⚠️ 칸은 «지금 행의 담당 강사» 줄에 놓인다(옮기며 강사를 바꿨으면 새 강사 줄 — 기록에 옛 강사 번호가 없다).
+         스코프·누가·사유는 위 취소·연기 칸과 같다(이 API 는 학생 스코프로 자르지 않는다 — 기존 동작 그대로).
+         ⛔ 던지지 않는다 — 실패하면 off_complete=false. */
+      try {
+        const _mvW = await loadMovedAwayEvents(env.DB, weekStartISO, weekEndISO);
+        if (!_mvW.complete) offComplete = false;
+        const _mvWIds = Array.from(new Set(Array.from(_mvW.byKey.values()).map(e => Number(e.schedule_id))))
+          .filter(n => Number.isSafeInteger(n) && n > 0);
+        if (_mvWIds.length) {
+          const _mvWRows = await selectInChunks<any>(env.DB, _mvWIds, (ph) => `SELECT * FROM class_schedules WHERE id IN (${ph})`);
+          const _mvWById = new Map<string, any>(_mvWRows.map((r: any) => [String(r.id), r]));
+          const _rwW = await loadRecurWeekChildren(env.DB, _mvWRows.filter((r: any) => !r.scheduled_date).map((r: any) => r.id));
+          if (!_rwW.complete) offComplete = false;
+          const _takenW = new Set<string>();
+          for (const x of [...items, ...offItems]) {
+            if (!x || x.source === 'unavailability') continue;
+            for (const st of (x.students || [])) _takenW.add(slotKeyOf(x.date, x.start_time, st && st.uid));
+          }
+          const _ghostW = new Set<string>();
+          const _evW = Array.from(_mvW.byKey.values())
+            .sort((a, b) => movedAwayOrder(_mvWById.get(String(a.schedule_id))) - movedAwayOrder(_mvWById.get(String(b.schedule_id))));
+          for (const ev of _evW) {
+            const r = _mvWById.get(String(ev.schedule_id));
+            if (!r || r.teacher_id == null || r.teacher_id === '') continue;
+            const uid = String(r.user_id || '').trim();
+            if (['lms', 'type_seed'].includes(uid.toLowerCase())) continue;
+            const _recur = !r.scheduled_date;
+            const ch = judgeMovedAway(r, ev, { showActor: _offShowActor },
+              _recur ? recurWeekChildFor(_rwW.byParent.get(String(r.id)), ev.from_date) : null);
+            if (!ch) continue;
+            const st = ch.from_time || r.start_time;
+            const _slotW = slotKeyOf(ev.from_date, st, uid);
+            if (movedAwayBlocked(_slotW, _recur, _takenW, _ghostW)) continue;   // 한 자리에 하나(«오늘 수업» 과 같은 규칙)
+            if (_slotW) _ghostW.add(_slotW);
+            const tnum = Number(r.teacher_id);
+            const nm = String(r.student_name || '').trim() || nameByUid.get(uid) || uid;
+            offItems.push({
+              off: 'postponed', moved_away: true,
+              teacher_id: Number.isFinite(tnum) ? tnum : r.teacher_id,
+              date: ev.from_date,
+              hour: hourOf(st),
+              start_time: st,
+              type: mapType(r.class_type),
+              students: nm ? [{ name: nm, uid }] : [],
+              duration_min: r.duration_min || DEFAULT_CLASS_MINUTES,
+              note: r.notes || '',
+              change: ch,
+            });
+          }
+        }
+      } catch { offComplete = false; /* 옮겨 간 칸 조회 실패가 캘린더 전체를 막지 않게 */ }
+
       /* 📅 다른 날짜·시각에서 «옮겨 온» 날짜 회차에는 그 사실을 붙인다(«오늘 수업» 의 「취소 · 연기」 칸과 같은 정본).
          화면은 hover 설명에만 쓴다 — 칸 색·옮기기·지우기는 그대로. 이력을 못 읽으면 그냥 안 붙인다. */
       try {
@@ -7748,6 +7905,14 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       if (!id) return json({ ok: false, error: 'invalid_id' }, 400);
       // 📜 삭제 전 수업 정보 확보(이력에 남기기 위해) + 행위자
       const _delActor = await getAdminActor(request, env as any);
+      /* 🔒 (2026-11-04 사장님 «권한 분리») 수업 «취소» 는 본사 계정만 — 화면(연기·변경 창)은 강사·지사에게 취소 버튼을
+         안 주는데(canCancel), 서버는 강사 세션의 직접 호출을 막지 않았다(이 경로는 강사 차단 접두사에 없다 —
+         강사는 같은 경로의 PATCH(옮기기)를 쓴다). 지사·대리점은 index.ts 스코프 관문이 이미 403 이다.
+         ⚠️ 역할 기준(isTeacher)으로 막는다 — 강사 계정 스코프가 잘못 'hq' 로 세팅된 사례가 있다(index.ts «항상 role 기준»).
+         ⛔ 역할을 못 읽으면(ok=false) 막는다 — 되돌릴 수 없는 쪽은 «모르면 막기». 화면은 403 을 «본사 계정에서 합니다» 로 읽는다. */
+      if (!_delActor || !_delActor.ok || _delActor.isTeacher) {
+        return json(forbiddenTeacherBody(_delActor, '수업 «취소» 는 본사 계정에서 합니다.', 'Cancelling a class is done by an HQ account.'), 403);
+      }
       const _delRow: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(id).first().catch(() => null);
       let _delReason: string | null = null;
       try { const b: any = await request.json(); _delReason = (b && b.reason) ? String(b.reason).slice(0, 300) : null; } catch {}

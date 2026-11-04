@@ -12,6 +12,7 @@ on:
       - 'test-harness/manual/avatar-viseme-browser.mjs'
       - 'test-harness/manual/speech-preferences-browser.mjs'
       - 'test-harness/helpers/speech-sandbox.mjs'
+      - 'test-harness/helpers/browser-pool.mjs'
       - 'cloudflare-deploy/public/js/warmup-guide.js'
       - 'cloudflare-deploy/public/css/warmup-guide.css'
       - 'cloudflare-deploy/public/video/warmup-scenes/**'
@@ -23,12 +24,30 @@ permissions:
   contents: read
 jobs:
   browser:
+    # 2026-11-03: 두 갈래를 «다른 러너» 에서 동시에 돌립니다(예전엔 한 러너에서 차례로 약 5분 30초~7분).
+    #   wiring — 아바타 입모양 시계 + 웜업 화면 배선·변이. ⚠️ 아바타는 시각에 민감해 «혼자» 돕니다:
+    #            같은 러너에서 다른 검사와 CPU 를 나누면 짧은 입모양 구간을 놓칩니다(CLAUDE.md 그 함정).
+    #   speech — 계정 말빠르기 50건. 사례끼리 독립이라 탭 4개로 동시에(helpers/browser-pool.mjs).
+    # ⛔ 갈래를 늘리거나 합칠 때 검사를 빠뜨리지 마세요 — 아래 각 단계의 if 가 «어느 갈래에서 도는가» 입니다.
+    name: browser (${{ matrix.part }})
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [wiring, speech]
     # ubuntu-latest 는 2026-10-19 부터 Ubuntu 26 으로 옮겨 가는 중이라 러너마다 OS 가 다를 수 있습니다.
     # 아래 playwright@1.58.2 를 검증해 온 24.04 로 고정합니다(admin-repairs-offline-browser.yml 과 같은 방식).
     # 예방 조치입니다 — 2026-11-03 아바타 단계 실패는 이미 24.04 러너에서 났고 원인은 검사 쪽(미리 재생)이었습니다.
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
+      # ⚡ 체크아웃 빠르게 (2026-11-03) — 지난번 .git 을 캐시에서 되살리면 아래 checkout 이 «바뀐 것만» 받습니다.
+      #    PR·브라우저 검사는 «읽기만» 합니다(저장은 deploy.yml 이 한 주에 한 번). 설명: deploy.yml «git 캐시» 주석.
+      - name: Restore .git cache (faster checkout)
+        uses: actions/cache/restore@v4
+        with:
+          path: .git
+          key: repo-git-v1-${{ github.run_id }}
+          restore-keys: repo-git-v1-
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -40,12 +59,14 @@ jobs:
           mkdir -p "$RUNNER_TEMP/warmup-browser/installed/chrome-linux"
           PW_ROOT="$RUNNER_TEMP/warmup-pw" node -e 'const {chromium}=require(process.env.PW_ROOT+"/node_modules/playwright");require("fs").symlinkSync(chromium.executablePath(),process.env.RUNNER_TEMP+"/warmup-browser/installed/chrome-linux/chrome");'
       - name: Avatar cue clock, speed and cancellation (18 browser cases)
+        if: matrix.part == 'wiring'
         env:
           PW_DIR: ${{ runner.temp }}/warmup-pw
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/warmup-browser
         run: node test-harness/manual/avatar-viseme-browser.mjs
 
       - name: Browser baseline and broken-wiring regression
+        if: matrix.part == 'wiring'
         env:
           PW_DIR: ${{ runner.temp }}/warmup-pw
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/warmup-browser
@@ -67,6 +88,7 @@ jobs:
           node test-harness/manual/warmup-two-way-mutation.mjs
 
       - name: Account speech preferences sandbox (50 full-page cases)
+        if: matrix.part == 'speech'
         env:
           PW_DIR: ${{ runner.temp }}/warmup-pw
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/warmup-browser
