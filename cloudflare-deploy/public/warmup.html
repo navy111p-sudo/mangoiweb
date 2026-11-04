@@ -397,7 +397,8 @@
   .wus-find{margin:10px 0 14px;background:rgba(251,191,36,.13);border-color:rgba(251,191,36,.42)}
   .wus-find:hover{background:rgba(251,191,36,.24)}
   .wus-find .wus-name{color:#fcd34d}
-  /* 🚀 시작 버튼은 «바닥에 붙여» 둔다 — 수준이 8줄이라 휴대폰에서는 끝까지 내려야 보인다.
+  /* 🚀 시작 버튼은 «바닥에 붙여» 둔다 — 고를 칸이 여럿이라 휴대폰에서는 끝까지 내려야 보인다
+     (대화 수준은 2026-11-04 부터 드롭다운이라 짧아졌지만 나이대·교정·말하는 방법이 남아 있다).
      스크롤 상자가 .wu-setup 자신이라 sticky 가 그 안에서 정상 동작한다
      (CLAUDE.md 2장의 «html/body overflow 로 sticky 가 죽는» 자리가 아니다).
      ⚠️ 이 주석에 홑낫표를 쓰지 말 것 — admin_lazyload/subtitle 하니스가 <style> 안 장식 문자를
@@ -471,9 +472,24 @@
     .wus-booknow{bottom:53px;font-size:13px;padding:10px 12px}
     .wus-two-nm{font-size:14px} .wus-two-ds{font-size:11.5px} .wus-twoc{padding:12px 8px}
   }
+  /* 🎚️ 드롭다운(나이대·대화 수준) — 모양은 폰·PC 공용 한 벌 (2026-11-04).
+     대화 수준은 폰에서도 드롭다운이다(사장님: 8칸 목록이 공간을 너무 많이 차지하고 복잡하다).
+     나이대 드롭다운은 PC(B안)에서만 켠다 — 폰은 사진 카드 그대로.
+     ⚠️ 목록(#wusLevels)은 감추기만 한다 — 드롭다운이 그 버튼을 «대신 눌러» 저장·판정이 그대로 돈다(wireSelects).
+     ⚠️ 글자 16px 미만이면 아이폰이 누를 때 화면을 확대한다 — 17px 아래로 내리지 마세요.
+     ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요(한자 폰트 하니스). */
+  .wus-sel{display:none;width:100%;appearance:none;-webkit-appearance:none;cursor:pointer;
+    font-family:inherit;font-size:17px;font-weight:800;color:#f8fafc;border-radius:14px;padding:12px 44px 12px 16px;
+    border:1px solid rgba(148,163,184,.4);
+    background:#0f1c3f url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%237dd3fc' stroke-width='2' fill='none'/%3E%3C/svg%3E") no-repeat right 16px center}
+  .wus-sel:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
+  .wus-sel option{background:#0f1c3f;color:#f8fafc}
+  .wus-selnote{display:none;margin-top:6px;font-size:14px;line-height:1.45;color:var(--text2)}
+  #wusLevelSel,#wusLevelNote{display:block}
+  #wusLevels{display:none}
+  #wusGLevel .wus-find{margin:12px 0 0;padding:10px 14px}
   /* 🖥️ PC 3단계 카드 (B안 · 2026-10-18). 폰·좁은 창은 아래 규칙이 하나도 안 걸린다.
      ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요(한자 폰트 하니스). */
-  .wus-pcsel,.wus-pcnote{display:none}
   .wus-pc3[hidden]{display:none!important}
   @media (min-width:1100px) and (min-height:620px){
     .wu-setup{padding:16px 28px 22px}
@@ -525,15 +541,10 @@
     #wusPcB1 #wusTalkBtns .wus-card{text-align:center;padding:14px 8px}
     #wusPcB1 #wusTalkBtns .wus-name{justify-content:center;font-size:16px}
     #wusPcB1 #wusTalkBtns .wus-desc{display:none}
-    /* 2 · 나이대·수준 — 드롭다운 */
-    #wusPcB2 #wusAges,#wusPcB2 #wusLevels{display:none}
-    #wusPcB2 .wus-pcsel{display:block;width:100%;appearance:none;-webkit-appearance:none;cursor:pointer;
-      font-family:inherit;font-size:18px;font-weight:800;color:#f8fafc;border-radius:14px;padding:12px 44px 12px 16px;
-      border:1px solid rgba(148,163,184,.4);
-      background:#0f1c3f url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%237dd3fc' stroke-width='2' fill='none'/%3E%3C/svg%3E") no-repeat right 16px center}
-    #wusPcB2 .wus-pcsel:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
-    #wusPcB2 .wus-pcsel option{background:#0f1c3f;color:#f8fafc}
-    #wusPcB2 .wus-pcnote{display:block;margin-top:6px;font-size:14px;line-height:1.45;color:var(--text2)}
+    /* 2 · 나이대·수준 — 드롭다운(모양은 위 .wus-sel 공용 규칙. 여기서는 나이대까지 켜고 글자만 키운다) */
+    #wusPcB2 #wusAges{display:none}
+    #wusPcB2 .wus-sel{display:block;font-size:18px}
+    #wusPcB2 .wus-selnote{display:block}
     #wusPcB2 .wus-find{margin:14px 0 0;padding:10px 14px}
     #wusPcB2 .wus-find .wus-name{font-size:16px}
     #wusPcB2 .wus-find .wus-desc{font-size:13.5px}
@@ -570,7 +581,7 @@
     #wusPcB3 #wusBooksSec{max-height:120px;min-height:0}
     #wusPcB1 #wusLangs .wu-photo-icon{width:34px;height:34px}
     #wusPcB1 #wusTalkBtns .wus-card{padding:10px 8px}
-    #wusPcB2 .wus-pcsel{padding:10px 44px 10px 14px;font-size:17px}
+    #wusPcB2 .wus-sel{padding:10px 44px 10px 14px;font-size:17px}
     #wusPcB2 .wus-find{margin-top:10px;padding:8px 12px}
     .wus-pcn{width:32px;height:32px;font-size:16px}
     .wus-title{font-size:26px;margin:0}
@@ -748,15 +759,17 @@
         <div class="wus-hint" data-ko="고른 나이대에 맞춰 이야기 소재와 말투가 달라져요. (영어 수준과는 별개예요)" data-en="Topics and tone follow the age group you pick. (Separate from English level.)">고른 나이대에 맞춰 이야기 소재와 말투가 달라져요. (영어 수준과는 별개예요)</div>
         <div class="wus-grid" id="wusAges"></div>
         <!-- 🖥️ PC(B안) 전용 드롭다운 — 고르면 위 숨은 버튼을 «대신 눌러» 기존 처리 그대로 탄다 -->
-        <select id="wusAgeSel" class="wus-pcsel" aria-label="나이대"></select>
-        <div class="wus-pcnote" id="wusAgeNote"></div>
+        <select id="wusAgeSel" class="wus-sel" aria-label="나이대"></select>
+        <div class="wus-selnote" id="wusAgeNote"></div>
         </div>
 
         <div id="wusGLevel">
         <div class="wus-sub" data-ko="🎚️ 대화 수준" data-en="🎚️ Conversation level">🎚️ 대화 수준</div>
         <div class="wus-hint" data-ko="고른 수준에 맞춰 AI가 쓰는 단어와 문장 길이가 달라져요." data-en="The AI's words and sentence length follow the level you pick.">고른 수준에 맞춰 AI가 쓰는 단어와 문장 길이가 달라져요.</div>
-        <select id="wusLevelSel" class="wus-pcsel" aria-label="대화 수준"></select>
-        <div class="wus-pcnote" id="wusLevelNote"></div>
+        <!-- 🎚️ 폰·PC 모두 드롭다운(2026-11-04) — 고르면 아래 숨은 목록 버튼을 «대신 눌러» 기존 처리 그대로 탄다.
+             ⛔ 목록(#wusLevels)을 지우지 마세요 — 저장·판정·⋮ 메뉴 갱신이 그 버튼의 위임 처리에 있습니다. -->
+        <select id="wusLevelSel" class="wus-sel" aria-label="대화 수준"></select>
+        <div class="wus-selnote" id="wusLevelNote"></div>
         <button type="button" class="wus-find" id="wusFind">
           <span class="wus-name" data-ko="🎯 내 수준 찾아줄까요?" data-en="🎯 Find my level?">🎯 내 수준 찾아줄까요?</span>
           <span class="wus-desc" data-ko="영어 문장 3개만 보면 끝나요. (약 30초)" data-en="Just look at 3 English sentences. (About 30 seconds)">영어 문장 3개만 보면 끝나요. (약 30초)</span>
@@ -2114,7 +2127,7 @@ function renderSetup(){
   /* 🔒 «펼친 순간» 의 수준으로 정렬한다 — 넘기지 않으면 수준을 고를 때마다 위쪽이 흔들린다. */
   if(bks && !isZh()) bks.innerHTML = btsListHtml(btsSortLevel(), true);
   renderTwoWay();
-  wusPcSync();          // 🖥️ PC 드롭다운 값·설명을 지금 상태로
+  wusSelSync();         // 🎚️ 드롭다운(수준: 폰·PC · 나이대: PC) 값·설명을 지금 상태로
   wusPcLayout();        // 🖥️ PC 면 3단계 카드로 옮긴다(자동 말하기 칸이 늦게 생겨도 여기서 따라옴)
   btsRenderBookNow();   // 📘 시작 버튼 위 «지금 교재» 줄 — 언어 전환·첫 그리기에서 함께
   var cta = document.getElementById('wusStart');
@@ -2217,7 +2230,8 @@ function wusPcLayout(){
     if(talk && cta && pc3.contains(talk)) cta.parentNode.insertBefore(talk, cta);
   }
 }
-function wusPcSync(){
+/* 🎚️ 드롭다운 두 개를 지금 상태로 채운다 — 대화 수준은 폰·PC 모두, 나이대는 PC(B안)에서만 보인다(CSS .wus-sel). */
+function wusSelSync(){
   var as = document.getElementById('wusAgeSel'), ls = document.getElementById('wusLevelSel');
   var esc = function(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;'); };
   if(as){
@@ -2234,10 +2248,12 @@ function wusPcSync(){
     if(ln) ln.textContent = cur ? (isZh() ? (cur.dz||cur.d) : wuT(cur.d, cur.de||cur.d)) : '';
   }
 }
-(function wirePcSelects(){
+/* ⛔ 드롭다운에 판정·저장을 새로 만들지 않는다 — 숨은 목록 버튼을 «대신 눌러» 기존 위임 처리(wireSetup)를 그대로 탄다.
+      (숨은 버튼도 el.click() 은 그대로 클릭 이벤트를 낸다.) */
+(function wireSelects(){
   var press = function(sel){ var b = document.querySelector(sel); if(b) b.click(); };
   var as = document.getElementById('wusAgeSel'), ls = document.getElementById('wusLevelSel');
-  if(as) as.addEventListener('change', function(){ press('#wusAges [data-age="'+as.value+'"]'); wusPcSync(); });
+  if(as) as.addEventListener('change', function(){ press('#wusAges [data-age="'+as.value+'"]'); wusSelSync(); });
   if(ls) ls.addEventListener('change', function(){ press('#wusLevels [data-lvl="'+ls.value+'"]'); });
   if(WUS_PC_MQ){ var on = function(){ wusPcLayout(); }; if(WUS_PC_MQ.addEventListener) WUS_PC_MQ.addEventListener('change', on); else if(WUS_PC_MQ.addListener) WUS_PC_MQ.addListener(on); }
   document.addEventListener('DOMContentLoaded', function(){ wusPcLayout(); });

@@ -17,7 +17,7 @@ await pg.click('#wuSetup .wu-langbtn');
 await pg.waitForTimeout(200);
 console.log('EN:', (await txt()).slice(0,260));
 await pg.click('#wusAges [data-age="adult"]');
-await pg.click('#wusLevels [data-lvl="5"]');
+await pg.selectOption('#wusLevelSel', '5');   // 2026-11-04 — 폰에서도 대화 수준은 드롭다운(목록 버튼은 숨어 click 이 시간초과)
 await pg.click('#wusTwoWay [data-way="book"]').catch(e=>console.log('book click', e.message.slice(0,80)));
 await pg.waitForTimeout(200);
 const after = await txt();

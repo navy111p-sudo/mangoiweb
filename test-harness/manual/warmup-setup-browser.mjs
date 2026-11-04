@@ -59,8 +59,17 @@ const browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbo
 
 /* 2026-10-18 — 1100px 이상(높이 620 이상) PC 는 «3단계 카드(B안)» 로 바뀌어 연령·수준 버튼이 숨고
    드롭다운이 대신합니다(사장님 선택). 아래 1~9절은 «버튼 배치» 를 재므로 그 배치가 그대로인 1024px 에서 잽니다.
-   PC 배치는 맨 끝 «B안» 절이 따로 잽니다. ⛔ TAB_W 를 1100 이상으로 올리지 마세요(숨은 버튼을 눌러 30초 타임아웃). */
+   PC 배치는 맨 끝 «B안» 절이 따로 잽니다. ⛔ TAB_W 를 1100 이상으로 올리지 마세요(숨은 버튼을 눌러 30초 타임아웃).
+   📌 2026-11-04 — 대화 수준은 «모든 폭» 에서 드롭다운입니다(사장님: 폰에서 8칸 목록이 공간을 너무 차지함).
+      그래서 수준은 page.click('#wusLevels …') 이 아니라 page.selectOption('#wusLevelSel', …) 으로 고릅니다
+      (목록 버튼은 숨어 있어 click 이 30초 타임아웃). 폰 배치는 5절이 잽니다. */
 const TAB_W = 1024;
+/* 🎚️ 대화 수준 고르기 — 드롭다운이 안 보이면(예: CSS 회귀로 목록이 되살아남) selectOption 이 30초를 기다리다
+   하니스째 죽어 결과 줄이 안 나온다(변이시험에서 실제로 그랬다). 짧게 기다리고 FAIL 로 남긴 뒤 계속 간다. */
+async function pickLevel(page, value) {
+  try { await page.selectOption('#wusLevelSel', value, { timeout: 3000 }); return true; }
+  catch (e) { check('대화 수준 드롭다운이 보여서 고를 수 있다', false, String(e.message).split('\n')[0]); return false; }
+}
 async function openWarmup(width, height, url = '/warmup.html') {
   // ⚠️ isMobile 은 켜지 않는다 — 폭만 좁히면 되는 검사에서 좌표가 어긋난다(CLAUDE.md 2장)
   const ctx = await browser.newContext({ viewport: { width, height } });
@@ -92,8 +101,10 @@ console.log('\n[ 1. 열자마자 — 고르기 화면이 먼저 뜨고, 대화�
   check('설정 화면이 떠 있다', seen.hidden === false && seen.display !== 'none', JSON.stringify(seen));
   check('화면을 덮고 맨 위에 있다', seen.covers && seen.onTop, JSON.stringify(seen));
   check('연령대 4개가 그려졌다', seen.ages === 4, String(seen.ages));
-  check('대화 수준 8단계가 그려졌다', seen.levels === 8, String(seen.levels));
-  check('시작 버튼이 «시작하기» 로 보인다', /웜업 시작하기/.test(seen.cta), seen.cta);
+  check('대화 수준 8단계 버튼이 있다(드롭다운이 대신 누르는 자리)', seen.levels === 8, String(seen.levels));
+  // 문구가 «🚀 이 설정으로 말하기 연습 시작하기» 로 바뀐 뒤에도 옛 «웜업 시작하기» 를 기대해 늘 FAIL 이었다 —
+  // 이 검사의 뜻은 «계속하기 가 아니라 시작하기» 다.
+  check('시작 버튼이 «시작하기» 로 보인다', /시작하기/.test(seen.cta) && !/계속하기/.test(seen.cta), seen.cta);
   check('아직 대화가 시작되지 않았다(말풍선 0개)', seen.logMsgs === 0, String(seen.logMsgs));
   check('아직 웜업 대화 API 를 부르지 않았다', !apiHits.some((h) => h === '/api/warmup/chat'), apiHits.join(','));
   await ctx.close();
@@ -107,7 +118,7 @@ console.log('\n[ 2. 골라서 시작 — 고른 값이 그대로 서버 요청�
     if (r.url().includes('/api/warmup/chat')) { try { sent.push(JSON.parse(r.postData() || '{}')); } catch { sent.push({}); } }
   });
   await page.click('#wusAges [data-age="adult"]');
-  await page.click('#wusLevels [data-lvl="6"]');
+  await pickLevel(page, '6');   // 수준은 모든 폭에서 드롭다운(2026-11-04)
   const marked = await page.evaluate(() => ({
     age: !!document.querySelector('#wusAges [data-age="adult"].on'),
     lvl: !!document.querySelector('#wusLevels [data-lvl="6"].on'),
@@ -208,23 +219,53 @@ console.log('\n[ 4. 대화 중 ⋮ 로 다시 고르기 — 대화를 새로 시
   await ctx.close();
 }
 
-console.log('\n[ 5. 휴대폰 폭(390) — 넘치지 않고 글자가 쪼개지지 않는다 ]');
+console.log('\n[ 5. 휴대폰 폭(390) — 넘치지 않고 글자가 쪼개지지 않는다 · 대화 수준은 드롭다운 ]');
 {
   const { ctx, page } = await openWarmup(390, 844);
   const m = await page.evaluate(() => {
     const overflow = document.documentElement.scrollWidth > innerWidth + 1;
     // 「낱글자로 쪼개짐」 판정 — 라벨 한 줄짜리가 3줄 이상이면 쪼개진 것이다
-    const worst = [...document.querySelectorAll('#wusAges .wus-name, #wusLevels .wus-name')].map((el) => {
+    // (대화 수준 라벨은 이제 드롭다운 안 글자라 여기서 재지 않는다 — 숨은 버튼은 높이 0 이라 늘 통과해 헛돈다)
+    const worst = [...document.querySelectorAll('#wusAges .wus-name')].map((el) => {
       const cs = getComputedStyle(el);
       const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.4;
       return { t: el.textContent.trim().slice(0, 18), lines: Math.round(el.getBoundingClientRect().height / lh) };
     }).sort((a, b) => b.lines - a.lines)[0];
     const cta = document.getElementById('wusStart').getBoundingClientRect();
-    return { overflow, worst, ctaW: Math.round(cta.width), inner: innerWidth };
+    const vis = (id) => { const e = document.getElementById(id); return !!e && getComputedStyle(e).display !== 'none'; };
+    const sel = document.getElementById('wusLevelSel');
+    return { overflow, worst, ctaW: Math.round(cta.width), inner: innerWidth,
+      lvlSel: vis('wusLevelSel'), lvlList: vis('wusLevels'), ageSel: vis('wusAgeSel'), ages: vis('wusAges'),
+      selW: Math.round(sel.getBoundingClientRect().width), selFont: parseFloat(getComputedStyle(sel).fontSize),
+      opts: sel.options.length, cefr: [...sel.options].map((o) => (o.textContent.match(/·\s*(\S+)/) || [])[1] || '').join(','),
+      note: (document.getElementById('wusLevelNote') || {}).textContent || '',
+      blockH: Math.round(document.getElementById('wusGLevel').getBoundingClientRect().height) };
   });
   check('문서가 가로로 넘치지 않는다', !m.overflow);
   check('라벨이 낱글자로 쪼개지지 않는다(3줄 미만)', m.worst && m.worst.lines < 3, JSON.stringify(m.worst));
   check('시작 버튼이 화면 폭 안에 있다', m.ctaW <= m.inner, `${m.ctaW}/${m.inner}`);
+  check('폰에서 대화 수준은 드롭다운으로 보이고 8칸 목록은 숨는다', m.lvlSel && !m.lvlList, JSON.stringify(m));
+  check('드롭다운에 8단계가 다 들어 있고 CEFR 도 함께 보인다', m.opts === 8 && m.cefr === 'A1,A2,A2+,B1,B1+,B2,B2+,C1', `${m.opts} · ${m.cefr}`);
+  check('나이대는 폰에서 그대로 사진 카드다(나이대 드롭다운은 PC 전용)', m.ages && !m.ageSel, JSON.stringify(m));
+  check('드롭다운 글자가 16px 이상이다(아이폰이 누를 때 화면을 확대하지 않는다)', m.selFont >= 16, String(m.selFont));
+  check('드롭다운이 화면 폭 안에 있다', m.selW > 0 && m.selW <= m.inner, `${m.selW}/${m.inner}`);
+  check('고른 수준의 설명 줄이 보인다', m.note.trim().length > 0, m.note);
+  check('대화 수준 묶음이 짧다(8칸 목록 757px → 300px 이하)', m.blockH > 0 && m.blockH <= 300, String(m.blockH));
+  // 폰 드롭다운으로 고르면 숨은 버튼 선택·설명·⋮ 메뉴·저장이 그대로 따라오는가(짝) — 판정을 새로 만들지 않았다는 확인
+  await pickLevel(page, '2');
+  const picked = await page.evaluate(() => ({
+    on: !!document.querySelector('#wusLevels [data-lvl="2"].on'),
+    selVal: document.getElementById('wusLevelSel').value,
+    note: (document.getElementById('wusLevelNote') || {}).textContent || '',
+    menuLvl: (document.getElementById('lvlVal') || {}).textContent || '',
+  }));
+  check('폰 드롭다운으로 고르면 기존 버튼 선택도 바뀐다(짝)', picked.on && picked.selVal === '2', JSON.stringify(picked));
+  check('설명 줄이 고른 단계로 바뀐다', /5~7단어/.test(picked.note), picked.note);
+  check('⋮ 메뉴 표시도 함께 바뀐다', /2단계/.test(picked.menuLvl), picked.menuLvl);
+  await page.click('#wusStart');
+  await page.waitForTimeout(1200);
+  const savedLvl = await page.evaluate(() => localStorage.getItem('mangoi_warmup_level'));
+  check('폰에서 고른 수준이 저장된다', savedLvl === '2', String(savedLvl));
   await ctx.close();
 }
 
