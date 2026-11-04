@@ -2150,7 +2150,14 @@ function setCorrMode(id){
   if(!ok) return false;
   _wuCorrMode = id;
   if(typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged(true);
-  try{ localStorage.setItem(WU_CMODE_KEY, id); }catch(e){}
+  /* 🔁 2026-11-04 사장님 「반대 방향도 맞춰줘」 — 입구(ai-speaking.html)의 교정 정도는 «웜업·AI 친구 한 설정» 이다.
+     여기서 사람이 고르면 정본(js/ai-speaking-settings.js chooseCorr)으로 두 화면 키를 함께 써서,
+     입구로 돌아가도 «화면마다 다름» 이 아니라 같은 값이 보인다(입구는 pageshow·storage 때 다시 읽는다).
+     ⛔ 열거나 그리기만 할 때는 부르지 않는다 — 부르는 곳은 사람이 고르는 자리뿐(설정 카드·warmup-flow 패널).
+     정본이 아직 없으면(옛 캐시·불러오기 실패) 예전처럼 웜업 키만. */
+  var S = (typeof window!=='undefined') ? window.AiSpeakSettings : null;
+  if(S && S.chooseCorr) S.chooseCorr(localStorage, id);
+  else try{ localStorage.setItem(WU_CMODE_KEY, id); }catch(e){}
   return true;
 }
 function cmodesHtml(){
@@ -5065,6 +5072,7 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 <script src="/js/warmup-facetalk.js?v=4" defer></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 자동 말하기 엔진을 켜고 모양만 바꿈) -->
 <script src="/js/warmup-touch-bar.js?v=2" defer></script>
 <script src="/js/warmup-dock.js?v=2" defer></script><!-- 📱 세로 화면: 아래 버튼 줄 자동 접힘·손잡이 (2026-11-02) --><!-- 📱 터치 기기 전용 아래 3칸 바(도움·말하기·글쓰기) — 2026-09-26 시안 4 -->
+<script src="/js/ai-speaking-settings.js?v=1" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — setCorrMode 가 씀 (2026-11-04) -->
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 <script defer src="/js/warmup-photo-icons.js?v=5"></script>
 <link rel="stylesheet" href="/css/warmup-flow.css?v=6" />
