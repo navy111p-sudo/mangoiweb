@@ -98,6 +98,8 @@ export function makeHandoverEnv(ts, { now = Date.parse('2026-11-04T10:00:00Z'), 
 
 /** 팀 보고판 시험용 하루치 자료 — 2026-11-04(수) · KST 19:00. 사람마다 상태가 하나씩 다르다. */
 export const DRAFT_SECRET = '초안비밀문장-보이면안됨';
+export const DRAFT_FILE = '초안첨부-비밀.pdf';
+const LBY_FILE_ID = '11111111-1111-4111-8111-111111111111', DRAFT_FILE_ID = '22222222-2222-4222-8222-222222222222';
 export async function seedBoardDay(t) {
   const { db, api } = t;
   const people = [
@@ -122,7 +124,13 @@ export async function seedBoardDay(t) {
   report.run(day, 'mgr_melca', 'Melca', 'mgr_jjw', p({ work: 'Updated teacher schedules for next week' }), 'submitted', 2, at, at, null, null, '', 'k2');
   report.run(day, 'staff_a', '본사 직원 A', 'mgr_jjw', p({ work: '지사 정산 자료 정리' }), 'acknowledged', 3, at, at, at + 60000, 'mgr_jjw', '', 'k3');
   report.run(day, 'staff_b', '본사 직원 B', 'mgr_jjw', p({ work: '교재 배송 확인' }), 'changes_requested', 3, at, at, at + 60000, 'mgr_jjw', '배송 송장 번호를 적어 주세요', 'k4');
-  report.run(day, 'staff_c', '본사 직원 C', 'mgr_jjw', p({ work: DRAFT_SECRET }), 'draft', 1, at, null, null, null, '', 'k5');
+  // 첨부 짝: 낸 보고의 첨부는 보이고(«견적서»), 초안의 첨부는 이름조차 안 나가야 한다(DRAFT_FILE).
+  //   ⚠️ 초안 첨부가 없으면 «SQL 의 초안 거르기» 가 빠져도 아무 검사도 안 걸린다(함정 대조가 실제로 잡음 — 순수 함수가 본문만 한 번 더 거른다).
+  const file = db.prepare(`INSERT INTO daily_handover_files(id,username,report_date,name,mime,size,object_key,created_at) VALUES(?,?,?,?,?,?,?,?)`);
+  file.run(LBY_FILE_ID, 'mgr_lby', day, '견적서.pdf', 'application/pdf', 1024, 'daily-handover/' + LBY_FILE_ID, at);
+  file.run(DRAFT_FILE_ID, 'staff_c', day, DRAFT_FILE, 'application/pdf', 1024, 'daily-handover/' + DRAFT_FILE_ID, at);
+  db.prepare(`UPDATE daily_handovers SET payload=json_set(payload,'$.attachments',json_array(?)) WHERE username='mgr_lby' AND report_date=?`).run(LBY_FILE_ID, day);
+  report.run(day, 'staff_c', '본사 직원 C', 'mgr_jjw', p({ work: DRAFT_SECRET, attachments: [DRAFT_FILE_ID] }), 'draft', 1, at, null, null, null, '', 'k5');
   report.run(day, 'staff_y', '본사 직원 Y', 'admin', p({ work: '명단 밖이지만 보고를 냈다', priority: 'urgent' }), 'submitted', 2, at, at, null, null, '', 'k6');
   report.run('2026-11-03', 'mgr_jjw', '장지웅 부장', 'admin', p({ work: '어제 보고' }), 'submitted', 2, at - 86400000, at - 86400000, null, null, '', 'k7');
   db.exec(`CREATE TABLE sales_reps(id INTEGER PRIMARY KEY, name TEXT, admin_username TEXT, active INTEGER DEFAULT 1);

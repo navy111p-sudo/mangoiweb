@@ -10,7 +10,7 @@
 // ⛔ 운영 D1 은 안 건드린다.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT, loadTypescript, loadTsModule, makeHandoverEnv, seedBoardDay, DRAFT_SECRET, BOARD_SRC } from './helpers/handover-env.mjs';
+import { ROOT, loadTypescript, loadTsModule, makeHandoverEnv, seedBoardDay, DRAFT_SECRET, DRAFT_FILE, BOARD_SRC, HANDOVER_SRC } from './helpers/handover-env.mjs';
 
 const ts = loadTypescript();
 if (!ts) { console.log('⏭  typescript 없음 — 건너뜀'); process.exit(0); }
@@ -83,12 +83,15 @@ const duty = (username, required = true, extra = {}) => ({ username, name: usern
   ok('B2 정렬 맨 위 = 이병엽 이사(문제 적힌 미확인)', a.rows && a.rows[0].username === 'mgr_lby' && a.rows[0].state === 'issue');
   ok('B3 ⛔ 초안 본문이 응답 어디에도 없다', !JSON.stringify(a).includes(DRAFT_SECRET));
   ok('B4 초안 쓴 사람은 «미제출»', a.rows.find(r => r.username === 'staff_c').state === 'missing');
+  ok('B4b 짝: 낸 보고의 첨부는 files 에 실린다', (a.files || []).some(f => f.name === '견적서.pdf'), JSON.stringify(a.files));
+  // 순수 함수는 «본문» 만 한 번 더 거른다 — 첨부 목록(files)을 지키는 것은 SQL 의 status<>'draft' 하나뿐이다.
+  ok('B4c ⛔ 초안의 첨부는 이름조차 안 나간다(SQL 초안 거르기가 지키는 자리)', !JSON.stringify(a).includes(DRAFT_FILE));
   ok('B5 요약(작성 대상 6 · 제출 4 · 미제출 2 · 문제 1 · 미확인 3)', a.summary.required === 6 && a.summary.submitted === 4 && a.summary.missing === 2
     && a.summary.issue === 1 && a.summary.awaiting === 3, JSON.stringify(a.summary));
   ok('B6 영업일지 JOIN 이 실제로 돈다 — 오늘 것만(방문1·시연1·전화1)', lby.sales && lby.sales.total === 3 && lby.sales.counts.visit === 1
     && lby.sales.counts.demo === 1 && lby.sales.counts.call === 1, JSON.stringify(lby.sales));
-  ok('B7 학원 이름은 후보 학원 → 없으면 제목으로', lby.sales.items.some(i => i.lead === 'A학원') && lby.sales.items.some(i => i.lead === 'B학원'));
-  ok('B8 영업 담당자이지만 0건이면 0, 담당자가 아니면 null', a.rows.find(r => r.username === 'mgr_jjw').sales.total === 0
+  ok('B7 학원 이름은 후보 학원 → 없으면 제목으로', !!lby.sales && lby.sales.items.some(i => i.lead === 'A학원') && lby.sales.items.some(i => i.lead === 'B학원'));
+  ok('B8 영업 담당자이지만 0건이면 0, 담당자가 아니면 null', a.rows.find(r => r.username === 'mgr_jjw').sales?.total === 0
     && a.rows.find(r => r.username === 'mgr_melca').sales === null);
   ok('B9 남은 일 기한 지남 표시', lby.open && lby.open.overdue === true);
   ok('B10 명단 밖 계정 = 직원 X 만(보고 낸 Y·본인 제외)', a.not_on_roster.map(x => x.username).join() === 'staff_x', JSON.stringify(a.not_on_roster));
@@ -133,13 +136,91 @@ const duty = (username, required = true, extra = {}) => ({ username, name: usern
   const keys = [...js.matchAll(/count:\s*'([a-z]+)'/g)].map(m => m[1]);
   const summaryKeys = Object.keys(B.buildHandoverBoard({ me: '', alsoSees: [], now: NOW, sales: null, members: [], duty: [], reports: [] }).summary);
   ok('C6 요약 칸 5개가 전부 서버 요약 키를 읽는다', keys.length === 5 && keys.every(k => summaryKeys.includes(k)), keys.join(','));
-  ok('C7 403 이면 칸을 숨긴다', /e\.status === 403[^\n]*box\.hidden = true/.test(js));
-  ok('C8 성공 판정은 «ok === true»(404 본문을 성공으로 안 읽음)', /j\.ok === true/.test(js));
-  ok('C9 보고판 → 받은 보고: 이벤트를 쏘고, 받은 보고가 듣는다', /dispatchEvent\(new CustomEvent\('mh:handover-changed', \{ detail: \{ from: 'board' \} \}\)\)/.test(js)
-    && /addEventListener\('mh:handover-changed',function\(e\)\{if\(me&&!\(e\.detail&&e\.detail\.from==='inbox'\)\)loadList\(\)/.test(main));
-  ok('C10 받은 보고 → 보고판: 확인·보완 요청 뒤 이벤트를 쏜다', /dispatchEvent\(new CustomEvent\('mh:handover-changed',\{detail:\{from:'inbox'\}\}\)\)/.test(main)
-    && /addEventListener\('mh:handover-changed', function \(e\) \{ if \(!\(e\.detail && e\.detail\.from === 'board'\)/.test(js));
-  ok('C11 확인은 기존 /ack·/return 을 부른다(새 판정 없음)', /call\('\/' \+ kind, \{ id: row\.report\.id, version: row\.report\.version, feedback: feedback \}\)/.test(js));
+  // C7~C11 은 «글자» 가 아니라 함수를 오려 내 «실제로 실행» 한다 — 글자 검사는 `if (0)`·`&& false`·주석에 걸려 헛돌았다(함정 대조 실측).
+  const cut = (src, anchor) => { const s = src.indexOf(anchor); if (s < 0) return ''; let d = 0;
+    for (let i = src.indexOf('{', s); i < src.length; i++) { if (src[i] === '{') d++; else if (src[i] === '}' && --d === 0) return src.slice(s, i + 1); } return ''; };
+  const code = js.split('\n').map(l => l.replace(/\s\/\/.*$/, '')).join('\n'); // 줄 주석을 벗긴 사본(주석에 걸리는 검사 방지)
+  class FakeEvent { constructor(type, init) { this.type = type; this.detail = init && init.detail; } }
+  const loadSrc = cut(code, 'async function load(');
+  const runLoad = async (callImpl, S0, hidden = true) => {
+    const box = { hidden }, said = [], painted = [];
+    const S = Object.assign({ today: '', day: '', data: null, seq: 0, loading: false }, S0 || {});
+    await new Function('S', 'call', 'box', 'paint', 'say', loadSrc + '\nreturn load;')(S, callImpl, box, () => painted.push(1), (m, bad) => said.push(bad))('');
+    return { box, said, painted, S };
+  };
+  const failWith = s => async () => { const e = new Error('x'); e.status = s; throw e; };
+  const r403 = await runLoad(failWith(403)), r200 = await runLoad(async () => ({ ok: true, day: '2026-11-04', rows: [] }));
+  ok('C7 403(경영진 아님)이면 칸을 숨긴다 · 짝: 성공이면 보이고 그린다·오늘을 서버에서 받는다', loadSrc && r403.box.hidden === true
+    && r200.box.hidden === false && r200.painted.length === 1 && r200.S.today === '2026-11-04');
+  const blip = await runLoad(failWith(500), { data: { rows: [] }, day: '2026-11-04', today: '2026-11-04' }, false);
+  ok('C7b 보이던 보고판이 잠깐 실패하면 숨기지 않고 «못 읽었다» 고 말한다', blip.box.hidden === false && blip.said.includes(true));
+  // 첫 조회의 403 은 «원래 숨어 있던» 칸이라 숨기는 줄을 지워도 통과한다(함정 대조 변이로 실측) — «보이던 칸이 403» 을 따로 잰다.
+  const revoked = await runLoad(failWith(403), { data: { rows: [] }, day: '2026-11-04', today: '2026-11-04' }, false);
+  ok('C7c 보이던 보고판도 403(권한이 빠짐)이면 숨긴다', revoked.box.hidden === true);
+
+  const callSrc = cut(code, 'async function call(') + '\n' + cut(code, 'function errorText(');
+  const runCall = async (status, body) => {
+    const fetch = async () => ({ status, ok: status >= 200 && status < 300, json: async () => body });
+    try { return { ok: true, v: await new Function('fetch', 'API', 'location', callSrc + '\nreturn call;')(fetch, '/api', {})('/board') }; }
+    catch (e) { return { ok: false, status: e.status }; }
+  };
+  const c200 = await runCall(200, { ok: true, rows: [] }), cFalse = await runCall(200, { ok: false, error: 'x' }), c404 = await runCall(404, { error: 'Not Found' });
+  ok('C8 성공은 «200 이고 ok === true» 일 때만 — 200+ok:false 도, ok 칸 없는 404 도 실패', c200.ok && !cFalse.ok && !c404.ok && c404.status === 404);
+
+  const respondSrc = cut(code, 'async function respond(');
+  const runRespond = async (callImpl, kind = 'ack', answer = '') => {
+    const events = [], calls = [], loads = [], btn = { disabled: false };
+    const doc = { dispatchEvent: e => events.push(e) };
+    await new Function('prompt', 'call', 'say', 'document', 'CustomEvent', 'load', 'current', respondSrc + '\nreturn respond;')(
+      () => answer, async (p, b) => { calls.push([p, b]); return callImpl(p, b); }, () => {}, doc, FakeEvent, async d => loads.push(d), () => '')(
+      { name: 'X', report: { id: 7, version: 3 } }, kind, btn);
+    return { events, calls, loads, btn };
+  };
+  const good = await runRespond(async () => ({ ok: true })), bad = await runRespond(failWith(409));
+  ok('C9 보고판 확인 성공 → «board» 이벤트를 쏘고 다시 읽는다 · 짝: 실패면 안 쏘고 버튼을 되살린다',
+    good.events.length === 1 && good.events[0].type === 'mh:handover-changed' && good.events[0].detail.from === 'board' && good.loads.length === 1
+    && bad.events.length === 0 && bad.btn.disabled === false);
+  ok('C11 확인은 기존 /ack 를 그대로 부른다(id·version·feedback — 새 판정 없음)', good.calls.length === 1 && good.calls[0][0] === '/ack'
+    && good.calls[0][1].id === 7 && good.calls[0][1].version === 3 && good.calls[0][1].feedback === '');
+  const noReason = await runRespond(async () => ({ ok: true }), 'return', '  ');
+  const withReason = await runRespond(async () => ({ ok: true }), 'return', '송장 번호 적어 주세요');
+  ok('C11b 보완 요청은 사유가 없으면 안 보내고, 있으면 /return 으로', noReason.calls.length === 0 && withReason.calls[0][0] === '/return'
+    && withReason.calls[0][1].feedback === '송장 번호 적어 주세요');
+
+  // 이웃 화면과의 배선 — 양쪽 듣는 쪽·쏘는 쪽을 실제로 돌린다(자기 이벤트는 무시해야 끝없이 돌지 않는다).
+  const listen = (src, anchor, names, values) => { const handlers = []; const body = cut(src, anchor);
+    new Function('document', ...names, body + ');')({ addEventListener: (t, f) => handlers.push([t, f]) }, ...values); return body ? handlers : []; };
+  const boardLoads = [];
+  const bh = listen(code, "document.addEventListener('mh:handover-changed'", ['S', 'load', 'current'], [{ data: {} }, d => boardLoads.push(d), () => '']);
+  bh.forEach(([, f]) => { f({ detail: { from: 'inbox' } }); f({ detail: { from: 'board' } }); });
+  ok('C10 받은 보고에서 바뀌면 보고판이 다시 읽고, 자기 이벤트는 무시한다', bh.length === 1 && bh[0][0] === 'mh:handover-changed' && boardLoads.length === 1);
+  const inboxLoads = [];
+  const mh = listen(main, "document.addEventListener('mh:handover-changed',function(e){", ['me', 'loadList'],
+    [{ username: 'admin' }, () => { inboxLoads.push(1); return Promise.resolve(); }]);
+  mh.forEach(([, f]) => { f({ detail: { from: 'board' } }); f({ detail: { from: 'inbox' } }); });
+  ok('C10b 보고판에서 바뀌면 받은 보고가 다시 읽고, 자기 이벤트는 무시한다', mh.length === 1 && inboxLoads.length === 1);
+  const actSrc = cut(main, 'async function act(r,kind,button){');
+  const runAct = async callImpl => { const events = [], lists = [];
+    await new Function('prompt', 'call', 'document', 'CustomEvent', 'loadList', 'networkError', actSrc + '\nreturn act;')(
+      () => '', callImpl, { dispatchEvent: e => events.push(e) }, FakeEvent, async () => lists.push(1), () => {})({ id: 1, version: 2 }, 'ack', { disabled: false });
+    return { events, lists }; };
+  const aGood = await runAct(async () => ({ ok: true })), aBad = await runAct(failWith(409));
+  ok('C10c 받은 보고에서 확인 성공 → «inbox» 이벤트 · 짝: 실패면 안 쏜다', aGood.events.length === 1 && aGood.events[0].detail.from === 'inbox'
+    && aBad.events.length === 0);
+
+  // C13 /board 의 영업일지 SQL 이 읽는 칸이 «정본 CREATE»(api-sales-hr.ts)에 실제로 있다 — 하니스 표는 손으로 적었으므로 정본과 대조한다.
+  const hr = readFileSync(join(ROOT, 'cloudflare-deploy/src/api-sales-hr.ts'), 'utf8');
+  const colsOf = tbl => { const s = hr.indexOf('CREATE TABLE IF NOT EXISTS ' + tbl + ' ('); return s < 0 ? new Set()
+    : new Set([...hr.slice(s, hr.indexOf('].join', s)).matchAll(/`\s+([a-z_]+)\s+[A-Z]/g)].map(m => m[1])); };
+  const canon = { r: colsOf('sales_reps'), a: colsOf('sales_activities'), l: colsOf('sales_leads') };
+  const routeSrc = readFileSync(HANDOVER_SRC.startsWith('/') ? HANDOVER_SRC : join(ROOT, HANDOVER_SRC), 'utf8'); // 변이시험은 절대 경로로 넘긴다
+  const blk = routeSrc.slice(routeSrc.indexOf("route === '/board'"), routeSrc.indexOf("route === '/closed-days'"));
+  const refs = [...blk.matchAll(/\b([ral])\.([a-z_]+)\b/g)].map(m => [m[1], m[2]]);
+  const repsQ = (blk.match(/FROM sales_reps\s+WHERE([^`]*)`/) || [, ''])[1];
+  const repsCols = [...repsQ.matchAll(/\b([a-z_]+)\s*(?:=|<>|IS\b)/g)].map(m => m[1]);
+  const bad13 = [...refs.filter(([t, c]) => !canon[t].has(c)).map(x => x.join('.')), ...repsCols.filter(c => !canon.r.has(c)).map(c => 'sales_reps.' + c)];
+  ok('C13 영업일지 SQL 의 칸이 전부 정본 CREATE 에 있다', canon.r.size > 5 && canon.a.size > 5 && refs.length >= 8 && repsCols.length >= 2 && !bad13.length,
+    bad13.join(',') + ` refs=${refs.length} reps=${repsCols.join('/')}`);
 
   // C12 10초 읽기 잠금을 «실제로 실행» — 버튼은 화면에 붙기 «전» 에 잠금이 걸린다(브라우저 검사가 잡은 사고).
   const start = js.indexOf('function armReadGate(');

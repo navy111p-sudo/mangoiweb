@@ -191,7 +191,7 @@
       await call('/' + kind, { id: row.report.id, version: row.report.version, feedback: feedback });
       say(kind === 'ack' ? '✓ ' + row.name + ' 보고를 확인했습니다. / Acknowledged.' : '↩ ' + row.name + '에게 보완 요청을 보냈습니다. / Change request sent.');
       document.dispatchEvent(new CustomEvent('mh:handover-changed', { detail: { from: 'board' } }));
-      await load(S.day);
+      await load(current());
     } catch (e) { say(e.message, true); button.disabled = false; }
   }
 
@@ -272,15 +272,17 @@
     } finally { if (seq === S.seq) S.loading = false; }
   }
   function go(day) { if (!day || day > S.today) return; S.open = null; say(''); load(day); }
+  // «오늘» 을 보고 있으면 날짜 없이 묻는다 — 서버가 오늘(KST)을 정하므로, 화면을 연 채 자정을 넘기면 새 날로 넘어간다.
+  function current() { return S.day === S.today ? '' : S.day; }
 
   $('prev').onclick = function () { go(shiftDay(S.day, -1)); };
   $('next').onclick = function () { go(shiftDay(S.day, 1)); };
-  $('today').onclick = function () { go(S.today); };
+  $('today').onclick = function () { S.open = null; say(''); load(''); };
   $('date').onchange = function () { if (/^\d{4}-\d{2}-\d{2}$/.test(this.value)) go(this.value); };
-  $('refresh').onclick = function () { say(''); load(S.day); };
+  $('refresh').onclick = function () { say(''); load(current()); };
   $('show-all').onclick = function () { S.filter = 'all'; S.open = null; paint(); };
-  document.addEventListener('mh:handover-changed', function (e) { if (!(e.detail && e.detail.from === 'board') && S.data) load(S.day); });
-  setInterval(function () { if (S.data && !document.hidden && !S.loading) load(S.day); }, 60000);
+  document.addEventListener('mh:handover-changed', function (e) { if (!(e.detail && e.detail.from === 'board') && S.data) load(current()); });
+  setInterval(function () { if (S.data && !document.hidden && !S.loading) load(current()); }, 60000);
 
   // 첫 조회는 «오늘» 로 연다(오늘이 언제인지는 서버가 정한다 — KST). ?date= 로 왔으면 그 날짜를 이어서 연다.
   (async function init() {
