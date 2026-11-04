@@ -9,6 +9,9 @@
  *    가짜 모델 스트림으로 실제로 돌려** 화면에 보낸 이벤트를 확인합니다.
  */
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 const SRV = readFileSync(new URL('../cloudflare-deploy/src/api-ai.ts', import.meta.url), 'utf8');
 const UI  = readFileSync(new URL('../cloudflare-deploy/public/ai-friend.html', import.meta.url), 'utf8');
@@ -74,7 +77,19 @@ const gi = SRV.indexOf("let streamHalt = '';");
 const ge = gi >= 0 ? SRV.indexOf('const runFriendStreaming', gi) : -1;
 const gateSrc = gi >= 0 && ge > gi ? SRV.slice(gi, ge) : '';
 ok('미리듣기 멈춤 문(liveSend)을 오려 냈다 (전제)', /const liveSend = \(sen/.test(gateSrc), String(gateSrc.length));
-const gateJs = gateSrc.replace(/\(sen: string\)/, '(sen)');
+const gateJs = gateSrc.replace(/\(sen: string\)/g, '(sen)');
+/* 🎚️ (2026-11-03) 그 구간에 «미리듣기 문»(previewGate — 교정이 정해질 때까지 잡아 두기)이 생겼다.
+   정본 모듈을 그대로 불러 넣는다(⛔ 사본 금지). */
+const CF = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'cloudflare-deploy');
+const FL = (() => {
+  const esbuild = createRequire(path.join(CF, 'package.json'))('esbuild');
+  const js = esbuild.buildSync({ entryPoints: [path.join(CF, 'src', 'friend-correction-flow.ts')], bundle: true,
+    write: false, platform: 'node', format: 'cjs', logLevel: 'silent' }).outputFiles[0].text;
+  const m = { exports: {} };
+  new Function('module', 'exports', 'require', js)(m, m.exports, createRequire(path.join(CF, 'package.json')));
+  return m.exports;
+})();
+ok('미리듣기 문(previewGate)이 오려 낸 구간 안에 있다 (전제)', /const previewGate = createFriendPreviewGate\(turnPlan,/.test(gateSrc));
 
 /** 가짜 모델 스트림 — 조각을 «아주 잘게» 쪼개 넣습니다(경계 처리를 실제로 시험). */
 function fakeAiStream(chunks) {
@@ -96,7 +111,8 @@ async function runStream(modelRaw, gate = {}) {
     const sseSend = (o) => sent.push(o);
     const friendAIOpts = () => ({});
     const env = { AI: { run: async () => stream } };
-    const friendMode = gate.mode || 'balanced';
+    const friendMode = gate.mode || 'free_talk';   // 문장 쪼개기·멈춤 검사는 «바로 흘리는» 자유대화로(균형은 아래 따로)
+    const turnPlan = gate.plan || FL.planFriendTurn(friendMode, gate.msg || 'Yes.', {});
     const qmem = gate.qmem === undefined ? null : gate.qmem;
     const latT0 = gate.t0 === undefined ? Date.now() : gate.t0;
     const FRAG_RETRY_BUDGET_MS = 9000;
@@ -104,10 +120,11 @@ async function runStream(modelRaw, gate = {}) {
     ${gateJs}
     ${fnJs}
     return (async () => { const r = await runFriendStreaming('m', [], 300, 0.8);
-      return { resp: r, streamedText, latTries, latModelMs, halt: streamHalt }; })();
+      return { resp: r, streamedText: () => streamedText, latTries, latModelMs, halt: streamHalt, pg: previewGate }; })();
   `;
-  const f = new Function('sent', 'stream', 'gate', 'createJsonTextTap', 'takeSentences', 'TextDecoder', body);
-  const out = await f(sent, fakeAiStream(sseLines(modelRaw)), gate, TAPMOD.createJsonTextTap, TAPMOD.takeSentences, TextDecoder);
+  const f = new Function('sent', 'stream', 'gate', 'createJsonTextTap', 'takeSentences', 'TextDecoder', 'FL', 'createFriendPreviewGate', body);
+  const out = await f(sent, fakeAiStream(sseLines(modelRaw)), gate, TAPMOD.createJsonTextTap, TAPMOD.takeSentences, TextDecoder, FL, FL.createFriendPreviewGate);
+  out.streamedText = out.streamedText();
   return { sent, ...out };
 }
 
@@ -146,6 +163,21 @@ ok('시간 예산을 넘긴 턴은 멈추지 않는다 (다시 안 뽑으니)', 
 /* 판정이 던지면 «멈추는» 쪽 — 최종본은 done 으로 그대로 간다. */
 const r6 = await runStream(modelJson, { qmem: {}, rep: () => { throw new Error('boom'); } });
 ok('판정이 던지면 멈춘다 (흘려보내지 않는 쪽)', r6.sent.filter(e => e.t).length === 0 && r6.resp.response === modelJson, JSON.stringify(r6.sent));
+
+/* 🎚️ (2026-11-03) 균형 — 교정이 정해질 때까지 미리듣기를 잡아 둔다(정본 friend-correction-flow.ts).
+   사장님 화면: 교정이 있으면 «질문을 먼저 들려주고 다시 처음부터 읽는» 대신 «고친 문장 먼저» 한 번에 읽어야 한다. */
+const balPlan = (recheck) => ({ mode: 'balanced', detFix: null, recheck });
+const rb1 = await runStream(modelJson, { mode: 'balanced', plan: balPlan(true) });
+ok('균형: 모델 교정(fix 객체)이 있으면 한 문장도 안 흘린다', rb1.sent.filter(e => e.t).length === 0 && rb1.pg.halted() === 'correction', JSON.stringify(rb1.sent));
+ok('균형: 그래도 원문 전체는 돌려준다 (뒤 처리가 fix 를 읽어야 함)', rb1.resp && rb1.resp.response === modelJson);
+ok('균형: 안 보낸 문장은 streamedText 에 없다 (replaced 판정)', rb1.streamedText === '', rb1.streamedText);
+const noFixJson = '{"reply":"Hello there. How are you today? I am happy!","fix":null}';
+const rb2 = await runStream(noFixJson, { mode: 'balanced', plan: balPlan(true) });
+ok('균형: 교정 없음 + 다시 묻기 대기 중이면 아직 안 흘린다(잡아 둠)', rb2.sent.filter(e => e.t).length === 0 && rb2.pg.held() === 3, JSON.stringify(rb2.sent));
+rb2.pg.recheck(false);
+ok('균형 짝: 다시 묻기도 «없음» 이면 잡아 둔 문장을 순서대로 흘린다', JSON.stringify(rb2.sent.filter(e => e.t).map(e => e.t)) === JSON.stringify(['Hello there.', 'How are you today?', 'I am happy!']), JSON.stringify(rb2.sent));
+const rb3 = await runStream(noFixJson, { mode: 'balanced', plan: balPlan(false) });
+ok('균형 짝: 다시 묻기가 없는 턴은 fix:null 이 보이는 순간 흘린다', rb3.sent.filter(e => e.t).length === 3 && rb3.streamedText === 'Hello there. How are you today? I am happy!', JSON.stringify(rb3.sent));
 
 console.log('\n② 서버 — 옛 화면은 «한 글자도» 안 바뀐다');
 const S = strip(SRV);

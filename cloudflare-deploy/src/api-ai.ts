@@ -39,7 +39,10 @@ import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
 import type { MangoEnv } from './api-mango';
 import { recordAiFailure } from './ai-failure-log';
 import { retryFriendModels, type FriendRetryResult } from './friend-retry';   // 🔁 모델 전부 실패 → 같은 요청 안에서 한 번 더(2026-11-04)
-import { correctionModeOf, gateFixForMode, ensureFocusedFixSpoken } from './warmup-honest';   // 🎚️ A.i 친구 교정 모드(자유대화·균형·집중교정, 기본 집중교정)
+import { correctionModeOf, gateFixForMode } from './warmup-honest';   // 🎚️ A.i 친구 교정 모드(자유대화·균형·집중교정, 기본 집중교정)
+/* 🎚️ (2026-11-03) 모드별 «교정을 말로 들려주기»·정직한 칭찬·균형 다시 묻기·미리듣기 문 — 정본 한 파일.
+   ⛔ 같은 판정을 이 파일에 다시 적지 말 것(두 벌이 되면 한쪽만 고쳐진다). */
+import { planFriendTurn, createFriendPreviewGate, recheckBalancedFix, finishFriendReply, waitAtMost, RECHECK_EXTRA_WAIT_MS } from './friend-correction-flow';
 import { handleClassAsk } from './class-ask';
 import { handleClassAskStream, wantsClassAskStream } from './class-ask-stream';   // ✋ A.i 선생님 수업 — 학생 질문 즉답(2026-10-08)
 import { connectorRule, connectorPromptBlock, linkBandForFriendLevel } from './conversation-connectors';
@@ -947,9 +950,11 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       /* ⛔ 재시도는 «제약이 원인일 때» 만 — 판정 정본은 warmup-correction.ts 의 isRfRejection.
          `if (!friendRF) throw` 로만 가르면 429·타임아웃까지 이 분기로 들어와, 일시 장애 한 번에
          JSON 모드가 꺼지고 그 요청의 남은 경로가 통째로 옛 동작이 된다. */
-      const runFriend = async (model: string, msgs: any[], maxTokens: number, temperature: number): Promise<any> => {
+      const runFriend = async (model: string, msgs: any[], maxTokens: number, temperature: number, overlap = false): Promise<any> => {
         /* ⏱ 모델 호출만 따로 잽니다 — 전체 시간에서 이것을 빼면 «우리 코드가 쓴 시간» 이 나옵니다.
-           ⚠️ 실패한 호출도 셉니다(그 시간도 학생은 기다립니다). finally 로 두는 이유입니다. */
+           ⚠️ 실패한 호출도 셉니다(그 시간도 학생은 기다립니다). finally 로 두는 이유입니다.
+           🎚️ overlap = 본 호출과 «동시에» 도는 호출(균형 다시 묻기) — 그 시간은 여기서 안 더한다.
+              겹친 시간까지 더하면 model_ms 가 전체 ms 보다 커진다. 안 겹친 나머지는 기다리는 쪽이 더한다. */
         const mT0 = Date.now();
         latTries++;
         try {
@@ -961,7 +966,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
           latTries++;
           return await env.AI.run(model, friendAIOpts(msgs, maxTokens, temperature));
         } finally {
-          latModelMs += Date.now() - mT0;
+          if (!overlap) latModelMs += Date.now() - mT0;
         }
       };
       /* ⚠️ 정본에 «응답 객체» 를 통째로 넘기면 안 된다 — JSON 모드에서는 response 가 이미
@@ -986,19 +991,28 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
          ⛔ 문장이 끝나기 «전» 에는 안 보냅니다 — 운율이 문장 단위라 토막 내 읽으면 소리가 깨집니다. */
       let streamedText = '';
       let streamTried = false;
+      /* 🎚️ (2026-11-03) 이 턴의 계획 — 규칙으로 잡힌 교정·칭찬 위험·균형 «다시 묻기» 여부(순수 함수, 던지지 않음).
+         ⚠️ 잘린 말·«천천히 말해 줘» 같은 부탁은 교정할 문장이 아니다(cut). */
+      const turnPlan = planFriendTurn(friendMode, msg, { cut: aiFriendLooksCut(msg) || aiFriendIsMetaAsk(msg) });
       /* 🔁 미리듣기 멈춤 — 이 대화에서 이미 물은 질문이 나오면 그 문장부터 안 흘려보낸다(최종본은 아래에서 다시 뽑힌다).
          안 멈추면 학생이 같은 질문을 «먼저 듣고», 그다음 바뀐 답을 또 듣는다.
          ⚠️ 시간 예산을 넘긴 턴은 다시 안 뽑으니 멈추지도 않는다(웜업 createWarmupLive 와 같은 규칙).
          ⚠️ 판정이 던지면 «멈추는» 쪽 — 최종본은 done 으로 그대로 간다. */
       let streamHalt = '';
+      /* 🎚️ (2026-11-03) 교정이 올지 모르는 동안 미리듣기를 «잡아 두는» 문 — 정본 src/friend-correction-flow.ts.
+         균형: 교정이 있으면 미리듣기를 접고 정본(고친 문장 먼저)을 한 번에 읽힌다 / 없으면 잡아 둔 문장을 바로 보낸다.
+         ⚠️ «실제로 보낸» 문장만 streamedText 에 넣는다(replaced 판정). */
+      const previewGate = createFriendPreviewGate(turnPlan, (sen: string) => {
+        streamedText += (streamedText ? ' ' : '') + sen;
+        if (sseSend) sseSend({ t: sen });
+      });
       const liveSend = (sen: string) => {
         if (streamHalt) return;
         if (friendMode === 'focused') { streamHalt = 'focused'; return; }
         let stop = false;
         try { stop = !!qmem && Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS && repeatedQuestions(sen, qmem).length > 0; } catch { stop = true; }
         if (stop) { streamHalt = 'repeat'; return; }
-        streamedText += (streamedText ? ' ' : '') + sen;
-        if (sseSend) sseSend({ t: sen });
+        previewGate.push(sen);
       };
       const runFriendStreaming = async (model: string, msgs: any[], maxTokens: number, temperature: number): Promise<any> => {
         const mT0 = Date.now();
@@ -1030,15 +1044,26 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
               const cut = takeSentences(pend);
               pend = cut.rest;
               for (const sen of cut.out) liveSend(sen);
+              previewGate.raw(raw);   // 🎚️ fix 칸이 null 인지 객체인지 보이는 순간 미리듣기를 열거나 접는다
             }
           }
           const tail = String(pend || '').trim();
           if (tail) liveSend(tail);
+          previewGate.streamEnd(raw);   // 🎚️ fix 칸을 못 봤으면 «없음» 으로 본다
           return { response: raw };
         } finally {
           latModelMs += Date.now() - mT0;
         }
       };
+      /* 🎚️ (2026-11-03) 균형 «교정만 다시 묻기» — 본 대화 호출과 «동시에» 시작한다(기다림이 합이 아니라 둘 중 긴 쪽).
+         [왜] "My birthday was tomorrow." 를 모델이 문법이 아니라 내용으로 받아 fix 를 비웠다(사장님 화면).
+         ⚠️ 모델 시간(latModelMs)에는 «본 호출과 안 겹친 나머지» 만 더한다(아래 교정 블록) —
+            겹친 시간까지 더하면 model_ms 가 전체 ms 보다 커져 «우리 코드 몫» 이 음수가 된다.
+         ⛔ recheckBalancedFix 는 던지지 않는다(실패 = 교정 없음 = 고치기 전과 같음). */
+      const recheckP: Promise<any> | null = turnPlan.recheck
+        ? recheckBalancedFix(msg, async (msgs: any[]) => await runFriend(models[0], msgs, 480, 0.2, true))   // 480 = 집중교정 recoverFocusedFix 와 같은 여유(JSON 잘림 방지)
+        : null;
+      if (recheckP) recheckP.then((f: any) => previewGate.recheck(!!f));
       for (const m of models) {
         try {
           /* 스트리밍은 «한 번만» 시도합니다 — 실패하면 같은 모델을 옛 방식으로 다시 불러
@@ -1259,11 +1284,28 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
          ⚠️ 이 블록은 절대 던지면 안 된다 — 여기서 던지면 멀쩡한 대화가 통째로 500 이 된다.
             실패하면 fix 없이(= 고치기 전과 똑같이) 내려간다. */
       let showFix: any = null;
+      let verifiedFix: any = null;   // 🎚️ 검증을 통과한 교정(카드를 보여 주든 말든) — 정직한 칭찬의 «틀렸는가» 근거
       let offerRepeat = false;
       try {
-        /* 🇰🇷 모델이 고친 것이 없으면(뜻이 통해 넘어간 경우) 콩글리시 표로 한 번 더 본다.
-           ⛔ 모델의 교정이 있으면 그것이 먼저다 — 표는 «모델이 놓친 것» 만 받는다. */
-        const verified = verifyWarmupFix(rawFix, msg) || verifyWarmupFix(backfillPastTenseFix(msg), msg) || konglishFix(msg);
+        /* 🇰🇷 모델이 고친 것이 없으면(뜻이 통해 넘어간 경우) 규칙 보완(과거형·콩글리시 표)으로 한 번 더 본다.
+           🎚️ 그래도 없으면 균형 «다시 묻기» 결과(이미 본 호출과 동시에 돌고 있다 — 안 겹친 나머지만 기다린다).
+           ⛔ 모델의 교정이 있으면 그것이 먼저다 — 보완·다시 묻기는 «모델이 놓친 것» 만 받는다.
+           ⚠️ 이 식의 규칙 보완은 friend-correction-flow.ts 의 deterministicFriendFix(turnPlan.detFix)다.
+              집중교정 경로(위 focusedCandidate 줄)는 아직 backfill·konglish 를 «같은 순서로» 직접 부른다 —
+              규칙을 더할 때 두 자리를 함께 볼 것(합치는 것은 집중교정 하니스가 걸린 별건).
+           ⏱ 다시 묻기는 «본 답이 끝난 뒤» 최대 RECHECK_EXTRA_WAIT_MS 만 더 기다린다(함정 대조 2026-11-03 — 상한이 없었다).
+              모델이 다 실패한 폴백 턴이면 기다리지 않는다(학생이 못 볼 교정을 «보여 줬다» 로 남기지 않게). */
+        const waitRecheck = async () => {
+          if (usedFallback || !recheckP) return null;
+          const w0 = Date.now();
+          try {
+            const got = await waitAtMost(recheckP, RECHECK_EXTRA_WAIT_MS);
+            if (!got) previewGate.recheck(false);   // 시간이 다 됐으면 잡아 둔 미리듣기를 놓아준다(늦은 결과는 문이 무시)
+            return got;
+          } finally { latModelMs += Date.now() - w0; }
+        };
+        const verified = verifyWarmupFix(rawFix, msg) || turnPlan.detFix || (recheckP ? await waitRecheck() : null);
+        verifiedFix = verified;
         /* ⚠️ 프롬프트가 「그 넷은 반드시 고쳐」로 바뀌면서 fix 생성이 잦아집니다 — 그러면
            «모델은 줬는데 우리가 버렸다» 가 주요 실패 모양이 됩니다(지어낸 교정·한글 섞임·
            낱말 안 겹침…). 평문·빈 응답에는 이미 로그가 있는데 이것만 없었습니다.
@@ -1315,8 +1357,11 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       } catch (e: any) {
         console.warn('[chat-friend] fix gate skipped:', e?.message || e);
       }
-      // Final speech and saved history use the same verified correction, exactly three times.
-      reply = ensureFocusedFixSpoken(reply, friendMode, null, usedFallback ? null : showFix);
+      /* 🎚️ (2026-11-03) 최종 답장 조립 — 정본 friend-correction-flow.ts 의 finishFriendReply 한 곳.
+         순서: 정직한 칭찬(틀렸으면 칭찬 말머리 떼기) → 균형: 고친 문장을 질문보다 먼저 1번 → 집중: 고친 문장 3번.
+         Final speech and saved history use the same verified correction (focused: exactly three times).
+         ⚠️ 저장(아래 INSERT)·응답 «전» 이어야 학생이 들은 문장과 다음 턴이 읽는 기록이 같다. */
+      reply = finishFriendReply(reply, { mode: friendMode, verified: verifiedFix, shown: showFix, msg, fallback: usedFallback });
 
       // ⚠️ 이 저장은 반드시 기다린다 — 바로 아래 gam 스냅샷("오늘 몇 번째 대화")이
       //   이 INSERT 가 끝난 뒤의 개수를 세어야 정확하다. 백그라운드로 미루면 그 숫자가

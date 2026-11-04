@@ -40,6 +40,10 @@ interface VcAttachment {
    *  hibernation 으로 DO 가 메모리에서 내려가도 attachment 는 살아남으므로,
    *  깨어난 알람이 «언제부터 조용한가» 를 판단할 바닥값으로 쓴다. */
   seenAt?: number;
+  /** 👁 (2026-11-04) 참관 «서명 토큰» 을 통과해 들어온 소켓 — handleJoinObserve 에서만 true 가 된다.
+   *  ⚠️ role 은 클라이언트가 join-room 에 실어 보내는 값이라 학생도 'observer' 를 적을 수 있다.
+   *     강사 답장(handleObserverWhisperReply)은 «진짜 참관자» 에게만 가야 하므로 이 표시로 가른다. */
+  ghost?: boolean;
 }
 
 export class VideoCallRoom {
@@ -471,6 +475,12 @@ export class VideoCallRoom {
           }
           this.handleChatMessage(userId, msg.data as any);
           break;
+        /* ↩ (2026-11-04 필리핀 매니저 「BODA 처럼 강사가 바로 보고 답하게」)
+           강사 → 참관자 답장·읽음 확인. 참관자는 «유령»(joined:false)이라 일반 1:1 채팅으로는
+           닿지 않고(handleChatMessage 의 usernameOf 게이트), 방 채팅으로 답하면 학생 전원이 본다. */
+        case 'observer-whisper-reply':
+          this.handleObserverWhisperReply(userId, att, msg.data as any);
+          break;
         case 'whiteboard-draw': this.handleWhiteboardDraw(userId, msg.data as any); break;
         case 'whiteboard-clear':this.handleWhiteboardClear(userId, att); break;
         case 'pdf-share':       await this.handlePdfShare(userId, att, msg.data as any); break;
@@ -801,7 +811,7 @@ export class VideoCallRoom {
     }
 
     const att = this.attOf(ws) || { userId, roomId: this.roomId };
-    ws.serializeAttachment({ ...att, userId, roomId: this.roomId, username: (data && data.username) || '관찰자', role: 'observer', joined: false, seenAt: Date.now() } as VcAttachment);
+    ws.serializeAttachment({ ...att, userId, roomId: this.roomId, username: (data && data.username) || '관찰자', role: 'observer', joined: false, ghost: true, seenAt: Date.now() } as VcAttachment);
     // 💓 (2026-08-20) 참관자도 청소 대상 — 죽은 참관 소켓이 남으면 정원 2자리를 계속 먹는다.
     this.lastSeen.set(ws, Date.now());
     this.scheduleLivenessAlarm();
@@ -909,6 +919,11 @@ export class VideoCallRoom {
     const at = Date.now();
     const fromName = String(att.username || '관찰자').slice(0, 40);
     const toUserId = String((data && data.toUserId) || '').trim();
+    /* ↩ (2026-11-04) 강사가 «이 참관자에게» 답장할 수 있게 보낸 사람 번호를 함께 싣는다.
+       ⛔ staff 에게만 싣는다 — 학생 화면은 참관자의 존재조차 모르는 «투명 유령» 설계다.
+       ⛔ 서명 토큰으로 들어온 진짜 참관자(att.ghost)일 때만 — role 만 'observer' 로 적어 보낸
+          소켓이 «참관자인 척» 답장을 받아 가지 못하게 한다. */
+    const replyId = att.ghost === true ? userId : '';
 
     /* 🎯 (2026-08-26 사장님 지시) 대상을 콕 집었으면 «그 한 사람» 에게만 간다 — 학생도 받는다.
        화면에서 채팅 대상 칩(🔒 이름)을 고르면 toUserId 가 실려 온다(idx-main.js vcSendChat).
@@ -928,6 +943,7 @@ export class VideoCallRoom {
           message_type: 'text',
           urgency: 'normal',
           from: staff ? fromName : '',
+          fromId: staff ? replyId : '',   // ↩ 답장 대상 — 학생에게는 빈 값
           at,
           observer: true,
           direct: true,        // 🔒 받는 쪽 이중 방어 ① — «콕 집어 보낸 것» 표시
@@ -950,6 +966,7 @@ export class VideoCallRoom {
       message_type: 'text',
       urgency: 'normal',
       from: fromName,
+      fromId: replyId,     // ↩ 강사 전원(staff)에게만 가는 경로라 그대로 싣는다
       at,
       observer: true,
     };
@@ -963,6 +980,71 @@ export class VideoCallRoom {
     }
     // 참관자 본인에게 «몇 명에게 갔는지» 회신
     this.send(userId, { type: 'admin-whisper-ack', data: { delivered, at, message: body } });
+  }
+
+  /* ↩ 강사 → 참관자 답장·읽음 확인  (2026-11-04 필리핀 매니저 「BODA 처럼 강사가 바로 보고 답하게」)
+     [왜] 참관자 귓속말은 강사에게 «도착» 은 했지만 강사가 답할 길이 없었다.
+          참관자는 «유령»(joined:false)이라 1:1 채팅은 「상대방이 방에 없어」로 끝나고,
+          방 채팅으로 답하면 학생 전원이 본다.
+     [무엇을] 강사가 보낸 답장(message) 또는 «읽음»(read:true)을 그 참관자 소켓 «하나» 에만 보낸다.
+     ⛔ 보내는 쪽 — 수업에 들어온(joined) staff 만. 학생이 참관자에게 몰래 말을 거는 통로가 되면 안 된다.
+     ⛔ 받는 쪽 — 서명 토큰으로 들어온 진짜 참관자(ghost)만. 학생·다른 강사에게는 «절대» 안 간다
+        (이 경로가 학생에게 열리면 «학생 몰래 하는 1:1 대화» 가 된다).
+     ⛔ 대상은 «번호(toUserId)» 로만 찾는다 — 이름으로 다시 찾지 않는다.
+        참관자 이름은 화면이 늘 '관찰자' 로 보내는 고정값이라(idx-main.js join-observe) «신원» 이 아니다.
+        이름으로 찾으면 원래 참관자가 나갔을 때 남은 «다른» 참관자(다른 매니저·관제탑 순회 창)에게 간다.
+        (2026-11-04 함정 대조가 잡음 — 처음엔 «이름 완전일치 + 후보 하나» 폴백을 두었다.)
+        덤으로 번호를 모르면 아무에게도 닿지 않으므로 «학생이 강사 역할을 신고하고 참관자를 더듬는» 길도 좁아진다.
+     ⚠️ 못 찾으면 delivered:0 + reason 으로 강사에게 정직하게 회신한다 — «보낸 척» 하지 않는다.
+     ℹ️ 받는 쪽 메시지 타입은 일부러 기존 'admin-whisper' 를 쓴다 — idx-main.js(첫 화면 blocking
+        예산)의 분기를 건드리지 않고, 옛 화면(캐시)도 «귓속말 상자» 로 그대로 보여 준다. */
+  private handleObserverWhisperReply(userId: string, att: VcAttachment, data: any): void {
+    if (att.joined !== true || !this.isStaffAtt(att)) return;      // 🔒 수업 중인 강사·관리자만
+    const text = String((data && data.message) || '').trim().slice(0, 500);
+    const read = !text && !!data && data.read === true;
+    if (!text && !read) return;
+    const toUserId = String((data && data.toUserId) || '').trim();
+
+    const isGhost = (a: VcAttachment | null): boolean =>
+      !!a && a.ghost === true && a.joined !== true && (a.role || '').toLowerCase() === 'observer';
+    const ghosts: WebSocket[] = [];
+    for (const ws of this.state.getWebSockets()) {
+      if (ws.readyState !== WebSocket.OPEN) continue;
+      if (isGhost(this.attOf(ws))) ghosts.push(ws);
+    }
+    const target: WebSocket | null = toUserId ? (ghosts.find(ws => this.attOf(ws)?.userId === toUserId) || null) : null;
+
+    const ta = target ? this.attOf(target) : null;
+    const at = Date.now();
+    const ref = Number(data && data.ref) || 0;           // 어느 귓속말에 대한 답인지(보낸 시각)
+    let delivered = 0;
+    let reason = target && ta ? '' : 'not_found';      // 나갔거나 다시 접속해 번호가 바뀜
+    if (target && ta) {
+      const payload = {
+        kind: read ? 'read' : 'reply',
+        message: text,
+        message_type: 'text',
+        urgency: 'normal',
+        from: String(att.username || '강사').slice(0, 40),
+        fromId: userId,
+        at,
+        ref,
+        direct: true,        // 🔒 받는 쪽 이중 방어 — 내 id 가 아니면 화면이 그리지 않는다
+        to: ta.userId,
+        toStaff: true,       //    받는 사람은 참관자(직원)다 — «학생에게는 보이지 않습니다» 가 맞는 말
+      };
+      try { target.send(JSON.stringify({ type: 'admin-whisper', data: payload })); delivered = 1; }
+      catch { reason = 'send_failed'; /* delivered:0 으로 정직하게 회신된다 */ }
+    }
+    if (read) return;                                    // 읽음 표시는 회신 없이 끝낸다
+    this.send(userId, {
+      type: 'admin-whisper-ack',
+      data: {
+        kind: 'reply-ack', delivered, reason, at, ref,
+        to: (ta && ta.userId) || toUserId,
+        message: text,
+      },
+    });
   }
 
   private handleChatMessage(userId: string, data: any): void {

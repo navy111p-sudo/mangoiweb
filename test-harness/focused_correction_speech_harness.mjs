@@ -23,6 +23,8 @@ function load(file) {
 const H = load('warmup-honest.ts');
 const S = load('warmup-stream.ts');
 const F = load('focused-correction.ts');
+const FL = load('friend-correction-flow.ts');   // 🎚️ (2026-11-03) 모드별 최종 조립·미리듣기 문 정본
+const flowSrc = fs.readFileSync(path.join(CF, 'src/friend-correction-flow.ts'), 'utf8');
 const api = fs.readFileSync(path.join(CF, 'src/api-ai.ts'), 'utf8');
 const index = fs.readFileSync(path.join(CF, 'src/index.ts'), 'utf8');
 const html = fs.readFileSync(path.join(CF, 'public/ai-friend.html'), 'utf8');
@@ -79,20 +81,37 @@ check('avatar ordinary mode still streams', () => {
   assert.equal(sent[0].t, question);
 });
 const liveSend = named(api, 'liveSend', 'arrow');
+/* 🎚️ (2026-11-03) liveSend 는 이제 미리듣기 문(previewGate)을 지난다 — 정본 gate 를 그대로 넣어 돌린다.
+   균형은 «교정이 정해질 때까지» 잡아 둔다: fix.was 는 과거형 보완이 잡는 문장이라 교정이 «이미 있음» → 0문장. */
 for (const mode of ['focused', 'free_talk', 'balanced']) {
   check('friend server stream gate: ' + mode, () => {
     const sent = [];
-    const ctx = vm.createContext({ friendMode: mode, qmem: null, Date, latT0: Date.now(),
+    const previewGate = FL.createFriendPreviewGate(FL.planFriendTurn(mode, fix.was), s => sent.push({ t: s }));
+    const ctx = vm.createContext({ friendMode: mode, qmem: null, Date, latT0: Date.now(), previewGate,
       FRAG_RETRY_BUDGET_MS: 9000, repeatedQuestions: () => [], sseSend: o => sent.push(o) });
     vm.runInContext("let streamHalt = ''; let streamedText = ''; const emit = " + liveSend + '; emit(' + JSON.stringify(question) + ');', ctx);
-    assert.equal(sent.length, mode === 'focused' ? 0 : 1);
+    assert.equal(sent.length, mode === 'free_talk' ? 1 : 0);
   });
 }
+check('friend server stream gate: balanced without a correction still previews (pair)', () => {
+  const sent = [];
+  const previewGate = FL.createFriendPreviewGate(FL.planFriendTurn('balanced', 'I went to the park yesterday.'), s => sent.push({ t: s }));
+  const ctx = vm.createContext({ friendMode: 'balanced', qmem: null, Date, latT0: Date.now(), previewGate,
+    FRAG_RETRY_BUDGET_MS: 9000, repeatedQuestions: () => [], sseSend: o => sent.push(o) });
+  vm.runInContext("let streamHalt = ''; let streamedText = ''; const emit = " + liveSend + '; emit(' + JSON.stringify(question) + ');', ctx);
+  assert.equal(sent.length, 0);   // 아직 교정 여부를 모른다
+  previewGate.raw('{"reply":"x","fix":null}');
+  previewGate.recheck(false);
+  assert.deepEqual(sent, [{ t: question }]);
+});
 check('friend canonical correction is applied before persistence', () => {
-  const call = api.indexOf('reply = ensureFocusedFixSpoken(reply, friendMode, null, usedFallback ? null : showFix)');
+  /* 🎚️ (2026-11-03) 최종 조립이 finishFriendReply 한 곳으로 모였다 — 그 안에서 집중교정 3번(ensureFocusedFixSpoken)을 부른다. */
+  const call = api.indexOf('reply = finishFriendReply(reply, { mode: friendMode, verified: verifiedFix, shown: showFix, msg, fallback: usedFallback });');
   const save = api.indexOf(".bind(uid, 'assistant', reply");
   assert.ok(call > api.indexOf('let showFix: any = null;') && call < save);
-  assert.match(api, /import \{[^}]*ensureFocusedFixSpoken[^}]*\} from '.\/warmup-honest'/);
+  assert.match(flowSrc, /import \{[^}]*ensureFocusedFixSpoken[^}]*\} from '.\/warmup-honest'/);
+  assert.equal(FL.finishFriendReply(question, { mode: 'focused', verified: fix, shown: fix, msg: fix.was, fallback: false }), final);
+  assert.equal(FL.finishFriendReply(question, { mode: 'focused', verified: fix, shown: fix, msg: fix.was, fallback: true }), question);
 });
 
 const uiFunctions = ['stmRead', 'stmSpeak', 'stmReset', 'sayThrice', 'sendMsg'].map(n => named(inline, n)).join('\n');
