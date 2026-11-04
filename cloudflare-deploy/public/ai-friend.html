@@ -651,7 +651,12 @@
         if (AIF_CORR_VALUES.indexOf(b.dataset.cmode) < 0) return;
         currentCorr = b.dataset.cmode;
         paintCorrMode();
-        try { localStorage.setItem(AIF_CORR_KEY, currentCorr); } catch(e){}
+        /* 🔁 2026-11-04 사장님 「반대 방향도 맞춰줘」 — 입구(ai-speaking.html)의 교정 정도는 «웜업·AI 친구 한 설정».
+           사람이 고르면 정본(js/ai-speaking-settings.js chooseCorr)으로 두 화면 키를 함께 쓴다 → 입구가 같은 값을 보인다.
+           정본이 아직 없으면(옛 캐시·불러오기 실패) 예전처럼 AI 친구 키만. */
+        const S = window.AiSpeakSettings;
+        if (S && S.chooseCorr) S.chooseCorr(localStorage, currentCorr);
+        else try { localStorage.setItem(AIF_CORR_KEY, currentCorr); } catch(e){}
       };
     });
     /* 🎙 친구 고르기 — 고르면 목소리(Aura-2 speaker)와 얼굴(아바타)이 함께 바뀐다. localStorage 로 기억.
@@ -2431,6 +2436,7 @@
 <script defer src="/js/mg-sidebar.js?v=20261101"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 <script src="/js/repeat-score.js?v=1" defer></script><!-- 🎤 «따라 말해 보기» 채점 (2026-10-18) -->
+<script src="/js/ai-speaking-settings.js?v=1" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — 교정 버튼이 씀 (2026-11-04) -->
 <script defer src="/js/flow.js?v=23"></script><!-- 🚀 다음으로 이동(MangoFlow) -->
 
 <!-- ══════════════════════════════════════════════════════════════

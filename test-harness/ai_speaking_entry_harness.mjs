@@ -636,4 +636,76 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   s = boot({ ...SAVED }); s.click('focused');
   ok(!s.clickLink('/warmup.html', { ...START, target: '_blank' }).defaultPrevented && s.ls.writes.length === 0, 'G13: start link in a new tab (target) is left to the browser, nothing written');
   console.log('PASS: start links apply the picks (7차) — ' + (n - n1) + ' checks, same booted page');
+
+  // G14) 2026-11-04 사장님 «반대 방향도 맞춰줘» — 연습 화면(웜업·AI 친구)에서 사람이 교정 정도를 고르면 정본(chooseCorr)으로
+  //      두 화면 키를 함께 써서, 입구로 돌아와도 «화면마다 다름» 이 아니라 그 값이 보인다.
+  //      짝: 정본이 없으면 예전처럼 제 키만(안 던짐) · 모르는 값은 안 씀 · 화면을 열기만 하면 안 씀 · 수준 키는 안 건드림.
+  const n2 = n;
+  const wu = read('warmup.html'), af = read('ai-friend.html'), wflow = read('js/warmup-flow.js');
+  const noHtmlComments = s => s.replace(/<!--[\s\S]*?-->/g, '');
+  const hubV = (hub.match(/<script src="\/js\/ai-speaking-settings\.js\?v=(\d+)"/) || [])[1];
+  ok(!!hubV, 'G14 premise: the entry loads the settings module with a ?v=');
+  for (const [name, page] of [['warmup', wu], ['ai-friend', af]]) {
+    const tags = noHtmlComments(page).match(/<script\b[^>]*\bsrc="\/js\/ai-speaking-settings\.js[^"]*"[^>]*>/g) || [];
+    ok(tags.length === 1, 'G14: ' + name + ' loads the settings module exactly once, outside comments → ' + tags.length);
+    ok(tags.length === 1 && tags[0].includes('ai-speaking-settings.js?v=' + hubV + '"') && !/\btype=/.test(tags[0]), 'G14: ' + name + ' loads it as a normal script with the entry\'s ?v=' + hubV);
+  }
+  // ── 웜업: setCorrMode 를 오려 내 실제로 돌린다 ──
+  const cut = (src, re) => (src.match(re) || [''])[0];
+  const wuKey = cut(wu, /var WU_CMODE_KEY = '[^']+';/), wuCat = cut(wu, /var CMODE_CATALOG = \[[\s\S]*?\n\];/), wuSet = cut(wu, /function setCorrMode\(id\)\{[\s\S]*?\n\}/);
+  ok(!!(wuKey && wuCat && wuSet), 'G14 premise: cut WU_CMODE_KEY · CMODE_CATALOG · setCorrMode out of warmup.html');
+  const wuPicker = (ls, withSet) => {
+    const c = vm.createContext({ window: withSet ? { AiSpeakSettings: SET } : {}, localStorage: ls });
+    vm.runInContext(wuKey + '\nvar _wuCorrMode = "";\n' + wuCat + '\n' + wuSet, c, { timeout: 500 });
+    return id => { try { return vm.runInContext('setCorrMode(' + JSON.stringify(id) + ')', c, { timeout: 500 }); } catch (e) { return 'threw: ' + e.message; } };
+  };
+  const MIXED = { mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'free_talk', mangoi_aifriend_correction: 'focused' };
+  let ls2 = mkLS(MIXED);
+  ok(SET.read(ls2).corr === 'mixed', 'G14 premise: the two screens start out different («화면마다 다름»)');
+  ok(wuPicker(ls2, true)('balanced') === true, 'G14: warmup pick returns true');
+  ok(ls2.getItem('mangoi_warmup_correction') === 'balanced' && ls2.getItem('mangoi_aifriend_correction') === 'balanced', 'G14: warmup pick writes BOTH screen keys');
+  ok(SET.read(ls2).corr === 'balanced', 'G14: …so the entry reads one value, not «mixed»');
+  ok(ls2.writes.every(k => /_correction$/.test(k)), 'G14: …and touches no level key → ' + ls2.writes.join(','));
+  for (const id of CORR) { const l = mkLS(MIXED); wuPicker(l, true)(id); ok(SET.read(l).corr === id, 'G14: warmup pick ' + id + ' → entry reads ' + id); }
+  ls2 = mkLS(MIXED);
+  ok(wuPicker(ls2, true)('strict') === false && ls2.writes.length === 0, 'G14: an unknown value writes nothing');
+  ls2 = mkLS(MIXED);
+  ok(wuPicker(ls2, false)('balanced') === true && ls2.getItem('mangoi_warmup_correction') === 'balanced' && ls2.getItem('mangoi_aifriend_correction') === 'focused', 'G14: (pair) settings module missing -> warmup key only, as before, no throw');
+  // 사람이 고르는 자리에서만 부른다 — 열거나 그리기만 할 때 쓰면 «학생이 고른 것» 으로 굳는다
+  const wuCalls = wu.split('\n').filter(l => /setCorrMode\(/.test(l) && !/function setCorrMode\(/.test(l) && !/^\s*(\/\/|\/?\*)/.test(l));
+  ok(wuCalls.length === 1 && /if\(t\.getAttribute\('data-cmode'\)\) \{ setCorrMode\(/.test(wuCalls[0]), 'G14: in warmup.html setCorrMode is called only by the setup card click → ' + wuCalls.length);
+  const flowCalls = wflow.split('\n').filter(l => /setCorrMode\(/.test(l));
+  ok(flowCalls.length >= 1 && flowCalls.every(l => /function\s*\([^)]*\)\s*\{[^}]*setCorrMode\(/.test(l)), 'G14: warmup-flow.js calls setCorrMode only inside button / select handlers → ' + flowCalls.length);
+  // ── AI 친구: 교정 버튼 배선을 오려 내 실제로 돌린다 ──
+  const afBlock = cut(af, /const AIF_CORR_KEY = [\s\S]*?\n    \}\);\n/);
+  ok(!!afBlock && /\.opt\[data-cmode\]/.test(afBlock), 'G14 premise: cut the AI friend correction block out of ai-friend.html');
+  const afPage = (ls, withSet) => {
+    const btns = CORR.map(id => { const cls = new Set(); return { dataset: { cmode: id }, onclick: null, classList: { toggle: (k, on) => (on ? cls.add(k) : cls.delete(k)), has: k => cls.has(k) } }; });
+    const c = vm.createContext({ window: withSet ? { AiSpeakSettings: SET } : {}, localStorage: ls,
+      document: { querySelectorAll: sel => (sel === '.opt[data-cmode]' ? btns : []) } });
+    vm.runInContext(afBlock, c, { timeout: 500 });
+    return { press: id => { try { btns[CORR.indexOf(id)].onclick(); return true; } catch (e) { return 'threw: ' + e.message; } }, active: () => (btns.find(b => b.classList.has('active')) || {}).dataset?.cmode || '' };
+  };
+  ls2 = mkLS(MIXED);
+  let fp = afPage(ls2, true);
+  ok(ls2.writes.length === 0 && fp.active() === 'focused', 'G14: opening AI friend writes nothing and shows its saved value');
+  // ⚠️ 두 키 «어느 쪽과도 다른» 값으로 누른다 — 웜업 키와 같은 값이면 안 써도 통과한다(2026-11-04 변이시험에서 밟음)
+  ok(fp.press('balanced') === true && ls2.getItem('mangoi_aifriend_correction') === 'balanced' && ls2.getItem('mangoi_warmup_correction') === 'balanced', 'G14: AI friend pick writes BOTH screen keys');
+  ok(ls2.writes.includes('mangoi_warmup_correction') && ls2.writes.every(k => /_correction$/.test(k)), 'G14: …it really wrote the warmup key, and no level key → ' + ls2.writes.join(','));
+  ok(SET.read(ls2).corr === 'balanced' && fp.active() === 'balanced', 'G14: …the entry reads balanced and the button shows it');
+  ls2 = mkLS(MIXED); fp = afPage(ls2, false);
+  ok(fp.press('balanced') === true && ls2.getItem('mangoi_aifriend_correction') === 'balanced' && ls2.getItem('mangoi_warmup_correction') === 'free_talk', 'G14: (pair) settings module missing -> AI friend key only, as before');
+  // ── 입구: 연습 화면에서 고른 뒤 돌아오면(새로 열기 · 뒤로가기 보관 화면) 그 값이 보인다 ──
+  const pressed = s => CORR.filter((id, i) => s.corr[i].getAttribute('aria-pressed') === 'true');
+  s = boot({ ...SAVED });   // 입구에서 균형으로 들어감
+  ok(pressed(s).join() === 'balanced', 'G14 premise: the entry starts on balanced');
+  wuPicker(s.ls, true)('focused');   // 웜업 안에서 집중교정으로 바꿈(같은 기기 저장소)
+  s.pageshow(true);                   // 뒤로가기로 보관된 입구가 돌아옴
+  ok(pressed(s).join() === 'focused' && !s.leave().open, 'G14: back to the cached entry -> shows focused (changed inside warmup), no dialog');
+  ok(s.btn().state !== 'fail' && !s.bu().prevented, 'G14: …nothing counts as «not applied» (no leave prompt)');
+  const fresh = boot(Object.fromEntries(s.ls.m));
+  ok(pressed(fresh).join() === 'focused', 'G14: opening the entry again also shows focused');
+  afPage(fresh.ls, true).press('free_talk'); fresh.storageEvt();
+  ok(pressed(fresh).join() === 'free_talk', 'G14: AI friend pick in another tab -> the open entry follows (storage event)');
+  console.log('PASS: practice screens sync back to the entry (8차) — ' + (n - n2) + ' checks');
 }
