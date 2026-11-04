@@ -115,8 +115,11 @@ export async function resolveWarmupHonest(
       지시만으로는 안 지켜지므로 서버가 등급을 다시 확인하고 칭찬 말머리를 떼어 낸다(applyHonestPraise).
    ───────────────────────────────────────────────────────────── */
 const MODE_LINES: Record<WarmupMode, string> = {
+  /* 💬 (2026-11-04 사장님 「교재 연습 자유대화도 교정 말 없이 카드만」) — A.i 친구 자유대화와 같은 약속.
+     ⚠️ 위 WARMUP_CORRECTION_RULE 이 «모든 모드» 에 「고친 문장을 따옴표로 먼저 말해」를 시키므로 여기서 «우선» 한다고 덮는다.
+        서버도 같은 판정으로 고친 문장을 앞에 붙이지 않는다(warmupSpeaksFixLead). */
   free_talk:
-    '[교정 모드: 자유대화] 오류가 있어도 지적하지 말고, 바른 문장으로 자연스럽게 되받아 말한 뒤(recast) 대화를 이어가. 따라 말하라고 시키지 마.',
+    '[교정 모드: 자유대화 — 위 [교정] 규칙보다 «우선» 한다] 이 모드는 «교정 카드만» 이야. 위 [교정] 규칙의 「고친 문장을 따옴표로 먼저 말하기」는 이 모드에서 하지 마. 교정은 "fix" 칸에만 적어 — 화면이 교정 카드로 따로 보여 준다. 답장(reply)에서는 오류를 지적하거나 고친 문장을 따로 말하지 말고 대화만 자연스럽게 이어가. 따라 말하라고 시키지 마.',
   balanced:
     '[교정 모드: 균형] 기본은 바른 문장으로 자연스럽게 되받아 말하기(recast). 같은 실수가 되풀이되면 고친 문장을 또박또박 말해 주고 한 번 따라 말해 보자고 해.',
   focused:
@@ -203,6 +206,20 @@ export function gateFixForMode(
     if (mode === 'focused') return verifiedFix ? { show: verifiedFix, repeat: true } : { show: null, repeat: false };
     return { show: decidedShow || null, repeat: !!decidedRepeat };
   } catch { return { show: decidedShow || null, repeat: !!decidedRepeat }; }
+}
+
+/**
+ * 🗣️ 교정 카드가 뜨는 턴에 «고친 문장을 답장 앞에 말로 붙일지»(correctionLeadIn) — 교재 연습(웜업) 정본.
+ *    / Should the warmup reply speak the corrected sentence first on a card turn?
+ *   free_talk : 안 붙인다 — 카드만(2026-11-04 사장님 「교재 연습 자유대화도 교정 말 없이 카드만」,
+ *               A.i 친구 자유대화와 같은 약속 — friend-correction-flow.ts 머리말).        / card only
+ *   focused   : 안 붙인다 — ensureFocusedFixSpoken 이 이미 «3번» 으로 앞에 말했다(네 번째가 붙으면 안 된다). / already spoken 3×
+ *   balanced  : 붙인다 — 질문보다 먼저 한 번.                                                 / spoken once, first
+ *   null      : 붙인다 — 중국어 대화처럼 모드가 없는 턴은 예전 동작 그대로.                    / legacy
+ * ⛔ 모르는 값도 «붙인다»(예전 동작) — 모르는 모드 때문에 교정 음성이 조용히 꺼지지 않게.
+ */
+export function warmupSpeaksFixLead(mode: unknown): boolean {
+  return !(mode === 'free_talk' || mode === 'focused');
 }
 
 /**
