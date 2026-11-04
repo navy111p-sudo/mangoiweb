@@ -28,7 +28,7 @@
         ['누가 연습하나요?', '<b>유아·초등 저학년</b>(놀이·동물·가족) · <b>초등 고학년·중학생</b>(학교·친구·취미, 기본) · <b>고등학생</b>(관심사·진로) · <b>성인</b>(직장·주말·여행). 나이는 «이야기 소재» 만 바꿔요.'],
         ['대화 수준', '8단계예요. 위로 갈수록 짧고 쉬워요 — 예) 첫걸음 “I like apples.” · 기초 “I can ride my bike now.” 잘 모르겠으면 <b>🔍 내 수준 찾아줄까요?</b>를 누르세요. 짧게 몇 번 이야기한 뒤 알맞은 단계를 정해 줘요.'],
         ['어떻게 말할까요? (말하는 방법)', '<b>🎤 버튼으로 말하기</b>(기본): 말할 때마다 마이크를 눌러요.<br><b>✨ 자동으로 말하기</b>(베타): <b>AI 말이 끝나면 마이크가 저절로 켜지고</b>, 말을 멈추면 저절로 보내져요. 이어폰을 쓰면 더 정확해요. 한 번 고르면 다음에도 기억해요.'],
-        ['틀린 말은 어떻게 고쳐 줄까요? (교정 방식)', '<b>🎯 집중교정</b>: 틀릴 때마다 바른 문장을 듣고 따라 말해요. 정확도·시험 대비에 좋아요.<br><b>⚖️ 균형</b>: 핵심 표현이나 되풀이되는 실수만 따라 말해요. 대부분의 수업에 맞아요.<br><b>💬 자유대화</b>: 대화는 그대로, 틀린 곳은 교정 카드로만 보여줘요(고친 문장을 말로 하지 않아요). 저학년·초급·흥미 위주에 좋아요. 언제든 바꿀 수 있어요.'],
+        ['틀린 말은 어떻게 고쳐 줄까요? (교정 방식)', '<b>🎯 집중교정</b>: 틀릴 때마다 바른 문장을 듣고 따라 말해요. 정확도·시험 대비에 좋아요.<br><b>⚖️ 균형</b>: 중요한 실수 위주로 고치고 가끔 따라 말해요. 대부분의 수업에 맞아요.<br><b>💬 자유대화</b>: 대화는 그대로, 틀린 곳은 교정 카드로만 보여줘요(고친 문장을 말로 하지 않아요). 저학년·초급·흥미 위주에 좋아요. 언제든 바꿀 수 있어요.'],
         ['시작하기', '<b>🚀 이 설정으로 말하기 연습 시작하기</b>를 눌러요. 버튼 아래 «고른 것» 한 줄이 맞는지 확인하세요.'],
         ['AI 와 이야기하기', 'AI 선생님이 먼저 인사해요. 버튼으로를 골랐으면 🎤 를 누르고, 자동으로를 골랐으면 그냥 말하면 돼요. 마이크 사용을 물으면 «허용» 을 눌러 주세요.']
       ],
@@ -75,7 +75,7 @@
         ['Who is practicing?', '<b>Young kids</b> (play, animals, family) · <b>Older kids / middle school</b> (school, friends, hobbies; default) · <b>High school</b> (interests, future) · <b>Adults</b> (work, weekends, travel). Age only changes the topics.'],
         ['Conversation level', '8 levels; higher up = shorter and easier — e.g. “I like apples.”, “I can ride my bike now.” Not sure? Tap <b>🔍 Find my level</b>.'],
         ['How do you want to talk?', '<b>🎤 Tap mic</b> (default): tap the mic each time you speak.<br><b>✨ Auto talk</b> (beta): <b>the mic turns on by itself when the AI finishes</b>, and sends when you stop talking. Earphones make it more accurate. Your choice is remembered.'],
-        ['How should mistakes be corrected?', '<b>🎯 Focused</b>: every mistake, hear the right sentence and say it back. Good for accuracy and tests.<br><b>⚖️ Balanced</b>: repeat only key phrases or repeated mistakes. Fits most classes.<br><b>💬 Free talk</b>: keeps chatting; mistakes appear only as a correction card (no spoken correction). Good for young or beginner learners. You can change it anytime.'],
+        ['How should mistakes be corrected?', '<b>🎯 Focused</b>: every mistake, hear the right sentence and say it back. Good for accuracy and tests.<br><b>⚖️ Balanced</b>: mostly key mistakes; repeat-after-me sometimes. Fits most classes.<br><b>💬 Free talk</b>: keeps chatting; mistakes appear only as a correction card (no spoken correction). Good for young or beginner learners. You can change it anytime.'],
         ['Start', 'Tap <b>🚀 Start speaking practice</b>. Check the one-line summary under the button.'],
         ['Talk with the AI', 'The AI greets you first. With Tap mic, tap 🎤 and answer; with Auto, just speak. If asked for microphone access, choose “Allow”.']
       ],

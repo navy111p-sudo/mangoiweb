@@ -194,8 +194,11 @@ export const TURN_OPENERS: Readonly<Record<OpenerCase, readonly string[]>> = {
   lost: ["That's okay!", 'No problem!', "Don't worry!", 'No worries!'],
   // 🎯 (2026-11-04 사장님 「최대한 자연스럽게 문맥에 맞게」) «그 밖» 한 칸을 뜻으로 셋으로 나눴다 —
   //    「I ate rice.」에 「Oh, nice!」가 아니라 「Oh, I see.」가 나오게(좋은 소식 · 놀라운 말 · 평범한 정보·짧은 대답)
-  good: ['Oh, nice!', 'Oh, cool!', 'Oh, great!', 'How fun!'],
-  surprise: ['Oh, really?', 'Oh, wow!', 'No way!', 'Really?'],
+  // 🎧 (2026-11-04 후속) «좋은 소식»·«놀라운 말» 은 학생 영어가 아니라 «내용» 에 반응하는 말로 둔다 — 「Oh, nice!」「Oh, wow!」 류는
+  //    칭찬 떼기 표(warmup-empathy.ts CHEER_LEADS · «Oh,» 머리)에 걸려 등급을 알 때까지 미리듣기가 멈춘다(속도 손해).
+  //    이 말들은 그 표에 안 걸려 미리듣기가 #2036 때처럼 바로 나가고, 틀린 문장에도 «영어 칭찬» 이 되지 않는다(하니스 ⑧-7).
+  good: ['Sounds fun!', 'Oh, fun!', 'Sounds nice!', 'Sounds great!'],
+  surprise: ['Oh, really?', 'No way!', 'Really?', 'Oh my!'],
   info: ['Oh, I see.', 'Oh, okay.', 'I see.', 'Got it.'],
 };
 /** 🏅 (2026-11-04 사장님 「칭찬 규칙이랑 합쳐」) «잘 해냈을 때» 칸 — 고친 문장을 제대로 말했거나 어려운 문장을 맞게 말했을 때.
@@ -250,7 +253,7 @@ export function turnOpenerLine(history: any): string {
        By the way 는 «새 질문으로 넘어갈 때만» (억지로 화제를 바꾸게 하지 않는다) — 그것도 세 턴에 한 번쯤만 권한다. */
     /* 🏅 (2026-11-04) 칭찬 규칙과 «한 자리» — 이 줄이 이번 턴의 반응이자 칭찬이다(따로 칭찬을 더하지 않는다).
        ⛔ 사장님 「틀린 문장에선 반드시 칭찬을 막아줘」 — 실수가 있으면 «평범한 정보» 칸으로 받게 하고, 그래도 칭찬하면 서버가 뗀다. */
-    return '- THIS TURN\'S OPENER: start with the one that fits what the learner just said. It is your reaction and cheer: add no other cheer, and never praise English with a mistake. Sad or hard news: ' + q('sad')
+    return '- THIS TURN\'S OPENER: start with the one that fits what the learner just said. It is your whole reaction and cheer: add no other, and never praise English with a mistake. Sad or hard news: ' + q('sad')
       + '; a request: ' + q('request') + '; a question to you: ' + q('asked')
       + '; "I don\'t know" or confused: ' + q('lost') + ', then start your next question with "Anyway,"'
       + '; they fixed a mistake or said it right: ' + JSON.stringify(pickOpener(TURN_PRAISE, seed, avoid))

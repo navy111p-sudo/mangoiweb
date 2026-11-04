@@ -9,6 +9,7 @@ import { dropCafe24SlotDuplicates } from './cafe24-slot-duplicates';
 import { selectInChunks } from './d1-chunk';
 import { twinCandidate } from './student-alias';
 import { confirmedTwinName } from './teacher-cafe24-duplicates';
+import { sameTeacherByWord } from './no-show-truth';
 
 const KST = 9 * 3600000;
 const day = (ms: number) => new Date(ms + KST).toISOString().slice(0, 10);
@@ -272,27 +273,54 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
   // The month grid labels a lesson by its type, like the manager's calendar (regular · trial · level test · make-up).
   for (const it of items) { const t = String(schedules.get(it.schedule_id)?.class_type || ''); if (t) it.class_type = t; }
   await attachCalendarRecords(env, items);
-  // Old-LMS lessons, minus the ones a Mangoi reservation already shows at the exact same slot (same rule as the class list).
-  // Only a reservation that itself says «done» may hide one: the ledger never counts c24 attendance, so a same-slot
-  // reservation without it reads «unknown»/«absent» — hiding the attended LMS row there would replace evidence with
-  // «no record». In that case both rows stay (each source says what it knows).
-  const slots = items.filter((it: any) => it.state === 'done' && hhmmKey(it.start)).map((it: any) => ({ source: 'mangoi',
-    student_uid: uid, start_ts: Date.parse(`${it.date}T${hhmmKey(it.start)}:00+09:00`), status: it.state }));
+  // Old-LMS lessons at the exact slot of a Mangoi reservation (student + absolute start — the class list's rule) are the
+  // same lesson recorded by two systems, so the month grid shows ONE card (2026-11-04 Kaye screenshot: every Wednesday
+  // showed «Regular class · Unknown» beside «Attended (old LMS)» at the same 9:00am):
+  //   · reservation «done»    → the LMS row is hidden (the reservation already says the lesson happened)
+  //   · reservation «unknown» → the ledger never reads c24 attendance, so «unknown» only means «no Mangoi record»; the LMS
+  //                             attendance IS that record — the reservation card shows it (state, label, c24 room).
+  //                             Display only: the ledger's own fields (deduct · carry) stay as the ledger said.
+  //   · anything else (student absent, postponed, …) → both stay: the two sources disagree, each says what it knows.
+  //   · the TEACHER disagrees (a substitute in the old LMS · a stale mirror reservation) → both stay too, or the card would
+  //     say «B attended» while the LMS says A taught. Judged on the name finally shown (after substitutes), see the end.
   // Both accounts are one student here, so the slot key is that student (uid) for every row; the owner stays on the item.
+  const slotOf = (it: any) => ({ source: 'mangoi', student_uid: uid,
+    start_ts: Date.parse(`${it.date}T${hhmmKey(it.start)}:00+09:00`), status: it.state });
+  const doneSlots = items.filter((it: any) => it.state === 'done' && hhmmKey(it.start)).map(slotOf);
+  // An unknown LMS teacher (ambiguous payroll number) has nothing to lose; otherwise the canonical «same teacher» rule
+  // (no-show-truth: role prefix stripped, whole words, never substrings — «KAYE» = «TEACHER KAYE», «ANNA» ≠ «HANNAH»).
+  const teacherAgrees = (shown: unknown, lmsName: unknown) => !lmsName || (!!shown && sameTeacherByWord(shown, lmsName));
+  // (A merged card turns «done», so a second LMS room at the same slot never merges into it again.)
+  // Two unknown reservations at one slot: prefer the one whose teacher agrees with the LMS.
+  const sameSlotUnknown = (row: any) => {
+    const found = items.filter((it: any) => it.state === 'unknown' && hhmmKey(it.start)
+      && dropCafe24SlotDuplicates([row], [slotOf(it)]).hidden === 1);
+    return found.find((it: any) => teacherAgrees(it.teacher_name, row.lesson.teacher_name)) || found[0];
+  };
+  const merged = new Map<any, { lesson: any; owner: string; was: any }>();
   const lmsRows: { user_id: string; joined_at: number; lesson: any; owner: string }[] = [];
   for (const [part, owner] of [[lms, uid], [twinLms, twin]] as [any, string | null][]) {
     if (owner) for (const x of part?.items || []) lmsRows.push({ user_id: uid, joined_at: x.joined_at, lesson: x.lesson, owner });
   }
   const lmsRooms = new Set<string>();
-  for (const x of dropCafe24SlotDuplicates(lmsRows, slots).kept) {
+  for (const x of dropCafe24SlotDuplicates(lmsRows, doneSlots).kept) {
     if (lmsRooms.has(x.lesson.room_id)) continue;   // one c24 room is one lesson, whichever account it was recorded under
-    lmsRooms.add(x.lesson.room_id); items.push({ ...x.lesson, student_uid: x.owner });
+    lmsRooms.add(x.lesson.room_id);
+    const reservation = sameSlotUnknown(x);
+    if (reservation) {
+      merged.set(reservation, { lesson: x.lesson, owner: x.owner,
+        was: { state: reservation.state, label_en: reservation.label_en, label_ko: reservation.label_ko } });
+      Object.assign(reservation, { state: 'done', label_en: x.lesson.label_en, label_ko: x.lesson.label_ko,
+        attendance_source: 'lms', lms_room_id: x.lesson.room_id });
+    } else items.push({ ...x.lesson, student_uid: x.owner });
   }
   const used = new Set<number>();
+  // A c24 room is one lesson, so its report matches by room even if the report was dated on another day.
+  const byRoom = (room: unknown) => room ? allReports.find((r: any) => r.room_id === room) : null;
   for (const it of items) {
-    // A c24 room is one lesson, so its report matches by room even if the report was dated on another day.
-    const report = (it.teacher_source === 'lms' ? allReports.find((r: any) => r.room_id === it.room_id) : null)
+    const report = (it.teacher_source === 'lms' ? byRoom(it.room_id) : null)
       || reports.find((r: any) => reportDate(r) === it.date && r.room_id === it.room_id)
+      || byRoom(it.lms_room_id)   // a merged card also owns the report written in the old LMS room
       || (items.filter(x => x.date === it.date).length === 1
         ? reports.find((r: any) => reportDate(r) === it.date && !r.room_id) : null);
     if (report) {
@@ -304,7 +332,8 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
   for (const report of reports) {
     if (used.has(Number(report.id))) continue;
     // Duplicate revisions of the same room are one occurrence; show its newest report.
-    if (report.room_id && items.some(i => i.room_id === report.room_id && i.date === reportDate(report))) continue;
+    if (report.room_id && items.some(i => (i.room_id === report.room_id || i.lms_room_id === report.room_id)
+      && i.date === reportDate(report))) continue;
     const rm = /^class-(\d+)-\d{8}$/.exec(String(report.room_id || ''));
     items.push({ date: reportDate(report), start: null, schedule_id: rm ? Number(rm[1]) : null,
       room_id: report.room_id, teacher_name: report.teacher_name || null, teacher_source: 'feedback',
@@ -349,6 +378,14 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
     if (it.teacher_source === 'feedback') continue;
     const sub = (subs.results || []).find((s: any) => Number(s.schedule_id) === it.schedule_id && s.sub_date === it.date);
     if (sub) { it.teacher_name = sub.teacher_name || nameOf(sub.substitute_teacher_id) || null; it.teacher_changed = true; }
+  }
+  // The teacher is only final now (reports · teacher changes · substitutes above). A merged card whose shown teacher
+  // disagrees with the LMS teacher goes back to two cards. A written report is the strongest teacher record — kept.
+  // (No report can be lost by splitting: a merged card without feedback found none in either room.)
+  for (const [it, m] of merged) {
+    if (it.teacher_source === 'feedback' || teacherAgrees(it.teacher_name, m.lesson.teacher_name)) continue;
+    Object.assign(it, m.was); delete it.attendance_source; delete it.lms_room_id;
+    items.push({ ...m.lesson, student_uid: m.owner });
   }
   items.sort((a, b) => (a.date + (a.start || '')).localeCompare(b.date + (b.start || '')));
   const holidays = await historyHolidays(env.DB, from, end);   // never throws — labels only
