@@ -677,17 +677,14 @@
 <script src="/js/eleader-l1.js?v=12" defer></script>
 <script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 <style>
-#warmThought{position:absolute;z-index:8;right:5%;top:14%;width:42px;height:36px;pointer-events:none;color:#d3f1ff;filter:drop-shadow(0 1px 3px #1239)}
+#warmThought{display:flex;align-items:center;gap:8px;flex:none;margin:5px 12px;color:var(--text);font-size:14px;font-weight:700}
 #warmThought[hidden]{display:none!important}
-#warmThought i,#warmThought b,#warmThought b::before,#warmThought b::after{position:absolute;background:currentColor;border-radius:50%}
-#warmThought i{left:0;bottom:0;width:5px;height:5px;animation:warmBubble 2.4s ease-in-out infinite}
-#warmThought i+i{left:6px;bottom:6px;width:7px;height:7px;animation-delay:.22s}
-#warmThought b{left:10px;bottom:14px;width:31px;height:14px;border-radius:12px;transform-origin:15% 85%;animation:warmCloud 2.4s .42s ease-in-out infinite}
-#warmThought b::before,#warmThought b::after{content:'';width:16px;height:16px;left:6px;top:-7px}
-#warmThought b::after{width:11px;height:11px;left:17px;top:-4px}
-@keyframes warmBubble{0%,85%,100%{transform:translate(-2px,2px) scale(.62);opacity:.35}35%,58%{transform:translate(1px,-2px) scale(1);opacity:1}}
-@keyframes warmCloud{0%,100%{transform:translateY(1px) scale(.92)}48%{transform:translate(2px,-4px) scale(1.08)}}
-@media(prefers-reduced-motion:reduce){#warmThought i,#warmThought b{animation:none}}
+#warmThought .thought-dots{display:inline-flex;gap:4px;padding:8px 10px;background:#284354;border-radius:12px 12px 12px 3px}
+#warmThought i{width:5px;height:5px;border-radius:50%;background:#ffe19a;animation:warmDots 1.25s ease-in-out infinite}
+#warmThought i:nth-child(2){animation-delay:.14s}
+#warmThought i:nth-child(3){animation-delay:.28s}
+@keyframes warmDots{0%,55%,100%{transform:translateY(0);opacity:.6}25%{transform:translateY(-3px);opacity:1}}
+@media(prefers-reduced-motion:reduce){#warmThought i{animation:none}}
 </style>
 </head>
 <body>
@@ -939,7 +936,6 @@
     <div class="wg-header">
     <div id="tavatar-wrap">
       <div id="tavatar-ring">
-        <span id="warmThought" hidden aria-hidden="true"><i></i><i></i><b></b></span>
         <canvas id="tavatar-canvas" width="320" height="400" aria-label="강사"></canvas>
         <video id="tavatar-video" muted loop playsinline preload="auto" disablepictureinpicture crossorigin="anonymous">
           <!-- ⚠️ (2026-08-31) 옛 <source> 두 줄을 뺐습니다 — 캐릭터는 mango-avatar.js 가 «항상»
@@ -979,6 +975,7 @@
       <button id="wgHistory" class="wg-btn" type="button" aria-expanded="false" aria-controls="log" data-ko="이전 대화 보기" data-en="Earlier conversation">이전 대화 보기</button>
       <button id="wgHelpOpen" class="wg-btn" type="button" aria-controls="wgHelp" data-ko="대답할 때 도움이 필요해요" data-en="Help me answer">대답할 때 도움이 필요해요</button>
     </div>
+    <div id="warmThought" hidden role="status"><span id="warmThoughtName"></span><span class="thought-dots" aria-hidden="true"><i></i><i></i><i></i></span><span data-ko="생각 중이에요" data-en="Thinking…">생각 중이에요</span></div>
     <div id="log" aria-label="말하기 연습 대화"></div>
     <div id="wgHelp" class="wg-help" hidden>
       <ol id="wgHelpSteps" class="wg-steps" aria-label="도움 단계"></ol>
@@ -2954,8 +2951,9 @@ function _zhDeepen(u){
    _stopSpeak 이 이 번호를 올리므로, 늦게 도착한 응답은 스스로 물러난다. */
 var _speakSeq=0;
 function warmThought(show){
-  var cloud=document.getElementById('warmThought');
-  if(cloud) cloud.hidden=!show;
+  var indicator=document.getElementById('warmThought');
+  if(show) document.getElementById('warmThoughtName').textContent=_friendLabelNow();
+  indicator.hidden=!show;
 }
 function _stopSpeak(keepThought){
   if(!keepThought) warmThought(false);
