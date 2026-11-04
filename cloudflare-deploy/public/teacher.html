@@ -4998,7 +4998,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
       + '<h3>' + esc(T('Class Log','수업 일지')) + '</h3>'
       + '<p class="sub">' + esc((c.class_date || c.date || DATA.today) + ' · ' + stuLabelText(c, T('(name not set)','(이름 미등록)')) + ' · ' + MangoiClassDisplay.range(c)) + '</p>'
       + (lvEditable
-          ? '<div class="fld feedback-level"><label for="ev-lv">' + esc(T('BTS student level (CEFR) — pick to change (asks before saving)','학생 레벨 — 고르면 한 번 묻고 저장해요')) + '</label>'
+          ? '<div class="fld feedback-level"><label for="ev-lv">' + esc(T('BTS student level (CEFR) — pick to change (asks before saving)','BTS 학생 레벨 (CEFR) — 고르면 한 번 묻고 저장해요')) + '</label>'
             + '<select id="ev-lv">' + levelOptions() + '</select>' + '<div class="mini" id="ev-lv-msg" aria-live="polite"></div></div>'
           : '<p class="sub feedback-level"><b>' + esc(T('Student level','학생 레벨')) + '</b>: ' + esc(btsLevelText(c.level) || T('Not set','미등록')) + '</p>'
             + (lvBlocked ? '<div class="mini lv-lock" role="note">🔒 ' + esc(lvErrText(lvBlocked === 'out_of_window' ? 'level_window_closed' : lvBlocked, DATA && DATA.level_past_days)) + '</div>' : ''))
