@@ -142,6 +142,29 @@ try{
   await openPrefs(p);await p.locator('#wfBackgroundLock').uncheck();await p.waitForFunction(()=>document.getElementById('wfStage').dataset.background==='space');await p.locator('#wfPreferencesClose').click();ck(true,'unlock auto selects appropriate situation');
   await F.close();
  }
+ // Recovered user-owned backgrounds must decode and remain selectable on each layout.
+ if(group==='all'||group==='extra-backgrounds'){
+  for(const [w,h,touch] of [[390,844,true],[768,1024,true],[1366,900,false]]){
+   const F=await fixture(w,h,'en',touch),{page:p,S}=F;await openPrefs(p);
+   const session=await p.evaluate(()=>SESSION_ID),turns=S.chat.length;
+   for(const key of ['runway','raft']){
+    await p.locator('#wfBackground').selectOption(key);
+    await p.waitForFunction(k=>document.getElementById('wfStage').dataset.background===k,key);
+    ck(await p.locator('#wfStage').evaluate((e,k)=>e.style.backgroundImage.includes('hf-'+k+'.webp'),key),w+' '+key+' actual image decodes and paints');
+    ck(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),w+' '+key+' no horizontal overflow');
+   }
+   ck(await p.evaluate(()=>SESSION_ID)===session&&S.chat.length===turns,w+' background selection preserves session without AI calls');
+   await p.locator('#wfPreferencesClose').click();await p.reload();await p.waitForFunction(()=>window.MangoWarmupFlow&&!sending&&document.getElementById('wfStage').dataset.background==='raft');
+   ck(true,w+' new background preference survives reload');
+   await openPrefs(p);await p.locator('#wfBackgroundMode').selectOption('auto');await p.locator('#wfPreferencesClose').click();
+   for(const [key,topic] of [['runway',"Let's talk about a runway"],['raft',"Let's talk about a raft"],['runway','现在聊聊跑道'],['raft','现在聊聊木筏']]){
+    await p.evaluate(t=>MangoWarmupFlow.onMessage(t,'me'),topic);await p.waitForFunction(k=>document.getElementById('wfStage').dataset.background===k,key);
+    ck(true,w+' explicit topic '+topic+' selects '+key);
+   }
+   if(shots)await p.screenshot({path:join(shots,'extra-background-'+w+'.png'),fullPage:true});
+   ck(!F.errors.length,w+' new backgrounds have no JavaScript errors');await F.close();
+  }
+ }
  // Presets are explicit; custom changes and the existing automatic-mic choice survive.
  if(group==='all'||group==='accessibility'){
   const F=await fixture(390,844,'en',true),{page:p}=F;await p.evaluate(()=>{WarmupAutoTalk.setMode('button');setRate(4);});await openPrefs(p);await p.locator('#wfSettingsDetail').evaluate(e=>e.open=true);await p.locator('#wfRate').selectOption('2');await p.locator('#wfCorrection').selectOption('balanced');await p.locator('#wfPreferencesClose').click();

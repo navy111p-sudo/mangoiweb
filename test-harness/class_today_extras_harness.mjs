@@ -2,6 +2,7 @@
 //   날짜 · 강사 입장 · 결제유형 · 일정 · 지난/오늘 평가 · 학생 출결
 //   정본 src/class-today-extras.ts 를 node 타입 제거로 «실제로» 돌린다(컴파일 없음).
 //   ⚠️ 판정마다 «잡는다» 와 «함부로 안 잡는다» 를 짝으로 둔다 — 한쪽만 두면 «전부 X» 가 통과한다.
+import { btsFixtureSource } from './bts-fixture.mjs';
 import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -404,7 +405,7 @@ let body = '';
 if (fi > 0) { let d = 0, i = th2.indexOf('{', fi); const st = i; for (; i < th2.length; i++) { if (th2[i] === '{') d++; else if (th2[i] === '}') { d--; if (!d) break; } } body = th2.slice(st + 1, i); }
 ok('teacher.html extrasHtml 을 오려 냈다', body.length > 200);
 let run = null;
-try { run = new Function('T', 'esc', 'hhmm', 'c', 'wi', 'asParts', body); } catch (e) { ok('extrasHtml 컴파일', false, e.message); }
+try { run = new Function('T', 'esc', 'hhmm', 'c', 'wi', 'asParts', btsFixtureSource(th2) + body); } catch (e) { ok('extrasHtml 컴파일', false, e.message); }
 if (run) {
   const T = (en) => en, esc = (x) => String(x), hhmm = () => '14:07';
   const call = (c) => { try { return run(T, esc, hhmm, c); } catch (e) { return 'THROW ' + e.message; } };

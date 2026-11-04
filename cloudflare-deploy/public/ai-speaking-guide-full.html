@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="ko" data-lang="ko"
+      data-file-base="AI-Speaking-Guide"
+      data-title-ko="AI 말하기 사용 안내서 — 망고아이" data-title-en="AI Speaking Full Guide — Mangoi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>AI 말하기 사용 안내서 — 망고아이</title>
+  <meta name="description" content="AI 말하기 사용 방법을 학생과 원장님이 쉽게 볼 수 있도록 정리한 안내서 (KO/EN)">
+  <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#0b1026">
+  <!--
+    📖 AI 말하기 사용 안내서 — 자세한 판 (2026-11-04 사장님 지시) · 한 장 판: /ai-speaking-guide.html
+    원장님·선생님용 표(학생 유형별 추천 설정 · 15분 루틴 · 첫 수업 체크리스트)와 Q&A 10개.
+    · 글자는 KO/EN 짝(.ko/.en) — data-ko/data-en 을 쓰지 않는다(CLAUDE.md 2장). 이모지 없음 · 외부 주소 없음.
+    · 교정 정도 설명은 /ai-speaking.html 버튼의 data-hint-ko/en 과 같은 글자(ai_speaking_guide_harness 가 대조).
+    · 화면 사진 /img/ai-speaking/guide-screen.webp 는 2026-11-04 운영 화면 캡처 — 화면이 크게 바뀌면 다시 찍고 번호 위치도.
+    · PDF·Word(/guide/ai-speaking/) 는 scripts/ai-speaking-guide/build.js 로 이 페이지에서 만든다.
+  -->
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+  <link rel="stylesheet" href="/css/ai-speaking-guide.css?v=1">
+  <link rel="stylesheet" href="/css/ai-speaking-guide-full.css?v=1">
+</head>
+<body>
+
+<!-- ============ 상단 바: 언어 전환 + 인쇄/다운로드 ============ -->
+<header class="topbar" data-export="skip">
+  <div class="wrap topbar__inner">
+    <a class="brand" href="#top">
+      <img src="/img/mango-char.png" alt="" width="34" height="34">
+      <span class="ko">AI 말하기 안내서</span><span class="en">AI Speaking Guide</span>
+    </a>
+    <div class="toolbar">
+      <a class="btn btn--ghost" href="/ai-speaking.html" data-standalone-only>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+        <span class="ko">AI 말하기</span><span class="en">AI Speaking</span>
+      </a>
+      <a class="btn btn--ghost" href="/ai-speaking-guide.html" data-lang-link><span class="ko">한 장 요약</span><span class="en">One-page</span></a>
+      <div class="seg" role="group" aria-label="언어 / Language">
+        <button type="button" class="seg__btn" data-lang-btn="ko" aria-pressed="true">KO</button>
+        <button type="button" class="seg__btn" data-lang-btn="en" aria-pressed="false">EN</button>
+      </div>
+      <button type="button" class="btn btn--ghost" data-action="print">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 9V3h10v6M7 17H4v-7h16v7h-3M7 14h10v7H7z"/></svg>
+        <span class="ko">인쇄</span><span class="en">Print</span>
+      </button>
+      <a class="btn btn--ghost" data-download="pdf" href="/guide/ai-speaking/AI-Speaking-Guide_KO.pdf" download>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v3h16v-3"/></svg>PDF
+      </a>
+      <a class="btn btn--ghost" data-download="docx" href="/guide/ai-speaking/AI-Speaking-Guide_KO.docx" download>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v3h16v-3"/></svg>Word
+      </a>
+    </div>
+  </div>
+</header>
+
+<main id="top" class="wrap">
+
+  <!-- ============ 표지 ============ -->
+  <section class="hero">
+    <div class="hero__text">
+      <p class="eyebrow"><span class="ko">학생 · 원장님용 사용 설명서</span><span class="en">For students &amp; academy directors</span></p>
+      <h1><span class="ko">AI 말하기 사용 안내서</span><span class="en">AI Speaking Guide</span></h1>
+      <p class="lead">
+        <span class="ko">AI와 영어로 말하며 연습하는 곳이에요. 이 안내서만 보면 처음이어도 혼자서 시작할 수 있어요.</span>
+        <span class="en">Practice speaking English with AI. With this guide, you can start on your own, even on day one.</span>
+      </p>
+      <nav class="jump" aria-label="목차 / Contents" data-export="skip">
+        <a href="#ready"><span class="ko">준비</span><span class="en">Get ready</span></a>
+        <a href="#screen"><span class="ko">화면 보기</span><span class="en">Screen tour</span></a>
+        <a href="#modes"><span class="ko">3가지 말하기</span><span class="en">3 ways to talk</span></a>
+        <a href="#settings"><span class="ko">설정</span><span class="en">Settings</span></a>
+        <a href="#directors"><span class="ko">원장님께</span><span class="en">For directors</span></a>
+        <a href="#qna">Q&amp;A</a>
+      </nav>
+    </div>
+    <div class="hero__art" data-export="skip" aria-hidden="true">
+      <div class="orbit"><img src="/img/mango-char.png" alt="" width="108" height="106"></div>
+    </div>
+  </section>
+
+  <!-- ============ 1. 시작 전 준비 ============ -->
+  <section class="sec" id="ready">
+    <h2><span class="ko">시작 전 준비</span><span class="en">Before you start</span></h2>
+    <ul class="prep">
+      <li>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2M4 14h3v6H4zM17 14h3v6h-3z"/></svg>
+        <div><strong class="ko">마이크 준비</strong><strong class="en">Get a mic</strong>
+          <p><span class="ko">마이크가 달린 이어폰이 가장 좋아요.</span><span class="en">Earphones with a mic work best.</span></p></div>
+      </li>
+      <li>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10zM17 9l4 6M21 9l-4 6"/></svg>
+        <div><strong class="ko">조용한 곳</strong><strong class="en">Find a quiet place</strong>
+          <p><span class="ko">주변이 조용해야 AI가 내 말을 잘 들어요.</span><span class="en">The AI hears you better when it's quiet.</span></p></div>
+      </li>
+      <li>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        <div><strong class="ko">마이크 허용</strong><strong class="en">Allow the mic</strong>
+          <p><span class="ko">‘마이크 사용’ 창이 뜨면 [허용]을 눌러요.</span><span class="en">When a pop-up asks to use the mic, tap [Allow].</span></p></div>
+      </li>
+      <li>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10zM16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+        <div><strong class="ko">소리 크기</strong><strong class="en">Check the volume</strong>
+          <p><span class="ko">AI 목소리가 잘 들리게 볼륨을 맞춰요.</span><span class="en">Make sure you can hear the AI clearly.</span></p></div>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ============ 2. 화면 한눈에 보기 ============ -->
+  <section class="sec" id="screen">
+    <h2><span class="ko">화면 한눈에 보기</span><span class="en">The screen at a glance</span></h2>
+    <figure class="shot">
+      <div class="shot__frame">
+        <img src="/img/ai-speaking/guide-screen.webp" alt="AI 말하기 첫 화면 / AI Speaking main screen" width="910" height="705">
+        <span class="pin" style="left:2.4%;top:6.1%">1</span>
+        <span class="pin" style="left:2.4%;top:22.8%">2</span>
+        <span class="pin" style="left:9.9%;top:75.6%">3</span>
+        <span class="pin" style="left:41.8%;top:75.6%">4</span>
+        <span class="pin" style="left:75.3%;top:75.6%">5</span>
+        <span class="pin" style="left:74.5%;top:89.4%">6</span>
+      </div>
+      <figcaption>
+        <ol class="legend">
+          <li><b class="ko">← 홈</b><b class="en">← Home</b> <span class="ko">처음 화면으로 돌아가요.</span><span class="en">Go back to the main screen.</span></li>
+          <li><b class="ko">말하기 행성 3개</b><b class="en">3 speaking planets</b> <span class="ko">오늘 할 연습을 골라요.</span><span class="en">Choose today's practice.</span></li>
+          <li><b class="ko">언어</b><b class="en">Language</b> <span class="ko">화면 글자를 한국어 또는 English로 봐요.</span><span class="en">See screen text in Korean or English.</span></li>
+          <li><b class="ko">수준</b><b class="en">Level</b> <span class="ko">내 실력에 맞는 단계를 골라요.</span><span class="en">Pick the level that fits you.</span></li>
+          <li><b class="ko">교정 정도</b><b class="en">Correction</b> <span class="ko">AI가 실수를 얼마나 고쳐 줄지 정해요.</span><span class="en">Decide how much the AI corrects your mistakes.</span></li>
+          <li><b class="ko">[확인]</b><b class="en">[Confirm]</b> <span class="ko">수준·교정을 고른 뒤 눌러서 저장해요.</span><span class="en">Tap it to save your level and corrections.</span></li>
+        </ol>
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- ============ 3. 3가지 말하기 ============ -->
+  <section class="sec" id="modes">
+    <h2><span class="ko">3가지 말하기</span><span class="en">3 ways to talk</span></h2>
+    <div class="modes">
+
+      <article class="mode mode--lime">
+        <div class="mode__art"><img src="/img/ai-speaking/planet-textbook.webp" alt="" width="160" height="160"></div>
+        <h3><span class="ko">교재로 연습</span><span class="en">Textbook practice</span></h3>
+        <p class="mode__when"><span class="ko">수업에서 배운 표현을 복습할 때 좋아요.</span><span class="en">Best for reviewing what you learned in class.</span></p>
+        <ol class="steps">
+          <li><span class="ko"><span class="chip">시작하기 →</span>를 눌러요</span><span class="en">Tap <span class="chip">Start →</span></span></li>
+          <li><span class="ko">연령·수준·교재를 골라요</span><span class="en">Choose your age, level and book</span></li>
+          <li><span class="ko">듣고 따라 말해요</span><span class="en">Listen and repeat</span></li>
+        </ol>
+        <p class="say">“How was your weekend?”</p>
+      </article>
+
+      <article class="mode mode--orange">
+        <div class="mode__art"><img src="/img/ai-speaking/planet-situation.webp" alt="" width="160" height="160"></div>
+        <h3><span class="ko">상황별 말하기</span><span class="en">Real-life situations</span></h3>
+        <p class="mode__when"><span class="ko">카페 주문, 길 묻기처럼 실제로 쓸 영어를 연습할 때 좋아요.</span><span class="en">Best for real-life English, like ordering at a café or asking for directions.</span></p>
+        <ol class="steps">
+          <li><span class="ko"><span class="chip">상황 고르기 →</span>를 눌러요</span><span class="en">Tap <span class="chip">Choose a situation →</span></span></li>
+          <li><span class="ko">연습하고 싶은 상황을 골라요</span><span class="en">Pick the situation you want</span></li>
+          <li><span class="ko">AI가 점원·친구가 되어 먼저 말을 걸어요</span><span class="en">The AI plays the clerk or friend and speaks first</span></li>
+        </ol>
+        <p class="say">“Can I get a hot chocolate, please?”</p>
+      </article>
+
+      <article class="mode mode--cyan">
+        <div class="mode__art"><img src="/img/ai-speaking/planet-friend.webp" alt="" width="160" height="160"></div>
+        <h3><span class="ko">AI 친구하기</span><span class="en">AI friend</span></h3>
+        <p class="mode__when"><span class="ko">좋아하는 주제로 편하게 이야기하고 싶을 때 좋아요.</span><span class="en">Best for chatting freely about topics you like.</span></p>
+        <ol class="steps">
+          <li><span class="ko"><span class="chip">대화 시작 →</span>을 눌러요</span><span class="en">Tap <span class="chip">Start chatting →</span></span></li>
+          <li><span class="ko">이야기할 주제를 정해요</span><span class="en">Choose a topic to talk about</span></li>
+          <li><span class="ko">자유롭게 묻고 답해요</span><span class="en">Ask and answer freely</span></li>
+        </ol>
+        <p class="say">“I like soccer. What about you?”</p>
+      </article>
+
+    </div>
+    <p class="tip">
+      <b class="ko">꿀팁</b><b class="en">Tip</b>
+      <span class="ko">짧아도 괜찮아요. 끝까지 말해 보는 게 제일 중요해요!</span>
+      <span class="en">Short answers are fine. Finishing your sentence matters most!</span>
+    </p>
+    <!-- 추가 기능: 누르면 펼쳐짐 (인쇄·PDF·Word에서는 펼친 상태) -->
+    <details class="more">
+      <summary>
+        <span class="ko">알아 두면 좋은 추가 기능</span><span class="en">More handy features</span>
+        <small class="hint" data-export="skip"><span class="ko">누르면 보여요</span><span class="en">Tap to see</span></small>
+      </summary>
+      <ul class="more__list">
+        <li>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 11v2"/></svg>
+          <div><b class="ko">목소리 바꾸기</b><b class="en">Change the voice</b>
+            <p><span class="ko">연습 화면에서 AI 목소리를 바꿀 수 있어요.</span><span class="en">Change the AI's voice on the practice screen.</span></p></div>
+        </li>
+        <li>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 18a8 8 0 1 1 16 0M12 18l4-6"/></svg>
+          <div><b class="ko">말 빠르기</b><b class="en">Speaking speed</b>
+            <p><span class="ko">AI 말이 빠르면 연습 화면에서 속도를 느리게 바꿔요.</span><span class="en">Too fast? Slow it down on the practice screen.</span></p></div>
+        </li>
+        <li>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3M18 3v4h-4M6 21v-4h4"/></svg>
+          <div><b class="ko">한 번에 맞추기</b><b class="en">Set once, use everywhere</b>
+            <p><span class="ko">수준·교정은 3가지 말하기에 함께 적용돼요. ‘화면마다 다름’이 보이면 하나를 고르고 [확인]을 눌러요.</span><span class="en">They apply to all 3 practices. “Differs by screen”? Pick one, tap [Confirm].</span></p></div>
+        </li>
+        <li>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5M10 20v-6h4v6"/></svg>
+          <div><b class="ko">← 홈</b><b class="en">← Home</b>
+            <p><span class="ko">왼쪽 위 ‘← 홈’을 누르면 처음 화면으로 돌아가요.</span><span class="en">Tap “← Home” (top left) to go back.</span></p></div>
+        </li>
+      </ul>
+    </details>
+  </section>
+
+  <!-- ============ 4. 공통 설정 ============ -->
+  <section class="sec" id="settings">
+    <h2><span class="ko">공통 설정</span><span class="en">Common settings</span></h2>
+    <p class="sec__intro">
+      <span class="ko">여기서 정한 <b>수준·교정 정도</b>는 3가지 말하기에 모두 똑같이 적용돼요. 둘을 고른 뒤 <b>[확인]</b>을 누르거나 바로 연습(교재로 연습·상황·AI 친구하기)을 시작하면 저장되고, <b>언어</b>는 누르면 바로 저장돼요. <b>목소리·말 빠르기</b>는 각 연습 화면에서 바꿔요.</span>
+      <span class="en"><b>Level and corrections</b> apply to all three practices. Choose both, then tap <b>[Confirm]</b> or just start a practice to save; <b>language</b> saves right away. Change <b>voice and speed</b> on each practice screen.</span>
+    </p>
+
+    <dl class="settings">
+      <div class="setting">
+        <dt><span class="ko">언어</span><span class="en">Language</span></dt>
+        <dd>
+          <p class="opts"><span class="opt">한국어</span><span class="opt">English</span></p>
+          <p><span class="ko">화면 글자를 한국어·English 중에서 골라요. AI와의 대화는 영어로 해요.</span><span class="en">Choose Korean or English for the screen text. You always talk with the AI in English.</span></p>
+        </dd>
+      </div>
+      <div class="setting">
+        <dt><span class="ko">수준</span><span class="en">Level</span></dt>
+        <dd>
+          <p class="opts"><span class="opt"><span class="ko">예) 4단계 · 초중급</span><span class="en">e.g. Level 4 · Low-intermediate</span></span></p>
+          <p><span class="ko">AI 말을 <b>80% 정도</b> 알아들으면 딱 맞는 단계예요. 쉬우면 한 단계 올리고, 어려우면 한 단계 내려요.</span><span class="en">The right level is when you understand <b>about 80%</b> of what the AI says. Too easy? Go up one. Too hard? Go down one.</span></p>
+        </dd>
+      </div>
+      <div class="setting">
+        <dt><span class="ko">교정 정도</span><span class="en">Correction</span></dt>
+        <dd>
+          <div class="table-scroll">
+            <table class="tbl">
+              <thead>
+                <tr><th><span class="ko">선택</span><span class="en">Option</span></th><th><span class="ko">AI는 이렇게 해요</span><span class="en">What the AI does</span></th><th><span class="ko">이런 친구에게</span><span class="en">Good for</span></th></tr>
+              </thead>
+              <tbody>
+                <tr data-corr-guide="free_talk"><td><b class="ko">자유</b><b class="en">Free</b></td><td><span class="ko">따라 말하기 없이 대화를 이어가요</span><span class="en">No repeat-after-me. Just keep talking.</span></td><td><span class="ko">처음 하는 친구, 말하기가 부끄러운 친구</span><span class="en">Beginners and shy speakers</span></td></tr>
+                <tr data-corr-guide="balanced"><td><b class="ko">균형</b><b class="en">Balanced</b></td><td><span class="ko">중요한 실수 위주로 고치고 가끔 따라 말해요</span><span class="en">Mostly key mistakes. Repeat sometimes.</span></td><td><span class="ko">대부분의 친구 (추천)</span><span class="en">Most students (recommended)</span></td></tr>
+                <tr data-corr-guide="focused"><td><b class="ko">집중</b><b class="en">Focused</b></td><td><span class="ko">모두 고쳐서 3번 들려주고 따라 말해요</span><span class="en">Fixes all, says it 3 times, you repeat.</span></td><td><span class="ko">시험·발표를 준비하는 친구</span><span class="en">Students preparing for tests or presentations</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">
+            <span class="ko"><b>‘화면마다 다름’이 보이면?</b> 3가지 말하기의 설정이 서로 다르다는 뜻이에요. 하나를 고르고 [확인]을 누르면 모두 같게 맞춰져요.</span>
+            <span class="en"><b>See “Differs by screen”?</b> The three practices have different settings. Pick one and tap [Confirm] to match them all.</span>
+          </p>
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <!-- ============ 5. 원장님·선생님께 ============ -->
+  <section class="sec" id="directors">
+    <h2><span class="ko">원장님 · 선생님께</span><span class="en">For directors &amp; teachers</span></h2>
+
+    <h3 class="sub"><span class="ko">학생 유형별 추천 설정</span><span class="en">Recommended settings by student</span></h3>
+    <div class="table-scroll">
+      <table class="tbl">
+        <thead>
+          <tr><th><span class="ko">학생 유형</span><span class="en">Student</span></th><th><span class="ko">수준</span><span class="en">Level</span></th><th><span class="ko">교정</span><span class="en">Correction</span></th><th><span class="ko">언어</span><span class="en">Language</span></th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="ko">처음 시작 · 초등 저학년</span><span class="en">New starters · Lower elementary</span></td><td><span class="ko">실력보다 한 단계 낮게</span><span class="en">One level below their skill</span></td><td><span class="ko">자유</span><span class="en">Free</span></td><td><span class="ko">한국어</span><span class="en">Korean</span></td></tr>
+          <tr><td><span class="ko">초등 고학년 · 중등 일반</span><span class="en">Upper elementary · Middle school</span></td><td><span class="ko">현재 실력</span><span class="en">Current level</span></td><td><span class="ko">균형</span><span class="en">Balanced</span></td><td><span class="ko">한국어 또는 English</span><span class="en">Korean or English</span></td></tr>
+          <tr><td><span class="ko">상위권 · 시험/발표 준비</span><span class="en">Advanced · Test or speech prep</span></td><td><span class="ko">현재 또는 한 단계 높게</span><span class="en">Current or one level up</span></td><td><span class="ko">집중</span><span class="en">Focused</span></td><td>English</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="sub"><span class="ko">15분 추천 루틴</span><span class="en">15-minute routine</span></h3>
+    <ol class="routine">
+      <li class="routine__step routine__step--lime">
+        <span class="routine__time"><span class="ko">5분</span><span class="en">5 min</span></span>
+        <b><span class="ko">교재로 연습</span><span class="en">Textbook practice</span></b>
+        <span><span class="ko">오늘 배운 표현 복습</span><span class="en">Review today's expressions</span></span>
+      </li>
+      <li class="routine__step routine__step--orange">
+        <span class="routine__time"><span class="ko">5분</span><span class="en">5 min</span></span>
+        <b><span class="ko">상황별 말하기</span><span class="en">Real-life situations</span></b>
+        <span><span class="ko">배운 표현을 실전처럼</span><span class="en">Use them in a real situation</span></span>
+      </li>
+      <li class="routine__step routine__step--cyan">
+        <span class="routine__time"><span class="ko">5분</span><span class="en">5 min</span></span>
+        <b><span class="ko">AI 친구하기</span><span class="en">AI friend</span></b>
+        <span><span class="ko">자유 대화로 자신감 쌓기</span><span class="en">Free talk to build confidence</span></span>
+      </li>
+    </ol>
+
+    <h3 class="sub"><span class="ko">첫 수업 체크리스트</span><span class="en">First-day checklist</span></h3>
+    <ul class="checks">
+      <li><span class="ko">기기마다 마이크·이어폰이 잘 되는지 확인해요.</span><span class="en">Test the mic and earphones on every device.</span></li>
+      <li><span class="ko">학생별로 수준과 교정 정도를 정해 줘요.</span><span class="en">Set the level and correction for each student.</span></li>
+      <li><span class="ko">아래 ‘안전 약속’을 학생과 함께 읽어요.</span><span class="en">Read the “Safety promises” below with students.</span></li>
+      <li><span class="ko">처음 2주는 ‘자유’나 ‘균형’으로 말하기 자신감부터 키워요.</span><span class="en">For the first 2 weeks, use Free or Balanced to build confidence first.</span></li>
+    </ul>
+  </section>
+
+  <!-- ============ 6. 안전 약속 ============ -->
+  <section class="sec" id="safety">
+    <h2><span class="ko">안전 약속</span><span class="en">Safety promises</span></h2>
+    <ul class="promises">
+      <li><span class="ko"><b>이름 전체, 주소, 전화번호, 학교, 비밀번호</b>는 AI에게 말하지 않아요.</span><span class="en">Never tell the AI your <b>full name, address, phone number, school, or passwords</b>.</span></li>
+      <li><span class="ko">AI도 틀릴 수 있어요. 이상하거나 불편한 말이 나오면 멈추고 선생님께 알려요.</span><span class="en">AI can make mistakes. If something feels strange or uncomfortable, stop and tell your teacher.</span></li>
+      <li><span class="ko">정해진 시간만큼만 연습해요.</span><span class="en">Practice only for the time you're given.</span></li>
+    </ul>
+  </section>
+
+  <!-- ============ 7. Q&A ============ -->
+  <section class="sec" id="qna">
+    <h2>Q&amp;A</h2>
+    <div class="qna">
+      <details>
+        <summary><span class="ko">마이크가 안 켜져요.</span><span class="en">My mic doesn't work.</span></summary>
+        <p><span class="ko">주소창 왼쪽의 자물쇠(사이트 설정)를 눌러 마이크를 ‘허용’으로 바꾸고 새로고침해요. 줌 같은 다른 앱이 마이크를 쓰고 있다면 먼저 꺼 주세요.</span><span class="en">Tap the lock icon (site settings) next to the address bar, set the mic to “Allow,” and refresh. If another app like Zoom is using the mic, close it first.</span></p>
+      </details>
+      <details>
+        <summary><span class="ko">AI가 내 말을 잘 못 알아들어요.</span><span class="en">The AI doesn't understand me.</span></summary>
+        <p><span class="ko">마이크를 입 가까이 두고, 조용한 곳에서 천천히 또박또박 말해요. 긴 문장은 한 문장씩 나눠 말하면 더 잘 알아들어요.</span><span class="en">Keep the mic close, find a quiet place, and speak slowly and clearly. Say long ideas one sentence at a time.</span></p>
+      </details>
+      <details>
+        <summary><span class="ko">AI 말이 너무 빨라요.</span><span class="en">The AI talks too fast.</span></summary>
+        <p><span class="ko">연습 화면에서 속도(듣기 속도)를 느리게 바꿀 수 있어요.</span><span class="en">You can slow down the speed on each practice screen.</span></p>
+      </details>
+      <details>
+        <summary><span class="ko">너무 어렵거나 너무 쉬워요.</span><span class="en">It's too hard or too easy.</span></summary>
+        <p><span class="ko">첫 화면의 ‘수준’을 한 단계씩 바꾸고 [확인]을 눌러요. AI 말을 80% 정도 알아들으면 딱 맞는 단계예요.</span><span class="en">Change the Level on the main screen one step at a time and tap [Confirm]. If you understand about 80% of what the AI says, it's the right level.</span></p>
+      </details>
+      <details>
+        <summary><span class="ko">틀릴까 봐 말하기가 무서워요.</span><span class="en">I'm afraid of making mistakes.</span></summary>
+        <p><span class="ko">교정 정도를 ‘자유’로 바꿔 보세요. AI는 틀려도 웃지 않아요. 끝까지 말해 보는 게 먼저예요!</span><span class="en">Try setting Correction to Free. The AI never laughs at mistakes. Finishing your sentence comes first!</span></p>
+      </details>
+      <details>
+        <summary><span class="ko">‘화면마다 다름’은 무슨 뜻인가요?</span><span class="en">What does “Differs by screen” mean?</span></summary>
+        <p><span class="ko">3가지 말하기의 설정이 서로 다르게 정해져 있다는 뜻이에요. 하나를 고르고 [확인]을 누르면 모두 같게 맞춰져요.</span><span class="en">The three practices have different settings. Pick one and tap [Confirm] to make them all the same.</span></p>
+      </details>
+      <details>
+        <summary><span class="ko">설정을 바꾸면 어디에 적용되나요?</span><span class="en">Where do my settings apply?</span></summary>
+        <p><span class="ko">[확인]을 누르거나 연습을 시작하면 수준과 교정 정도가 교재로 연습·상황별 말하기·AI 친구하기에 모두 적용돼요. 목소리와 속도는 각 연습 화면에서 따로 바꿔요.</span><span class="en">When you tap [Confirm] or start a practice, level and corrections apply to all three practices. Voice and speed are changed on each practice screen.</span></p>
+      </details>
+      <details>
+        <summary><span class="ko">(원장님) 어떤 기기와 브라우저가 좋나요?</span><span class="en">(Directors) Which devices and browsers work best?</span></summary>
+        <p><span class="ko">마이크가 있는 PC·태블릿·휴대폰이면 돼요. 최신 크롬·엣지·사파리를 권장하고, 교실에서는 주변 소리를 줄이도록 마이크 달린 이어폰을 추천해요.</span><span class="en">Any PC, tablet, or phone with a mic works. We recommend the latest Chrome, Edge, or Safari, and earphones with a mic to cut classroom noise.</span></p>
+      </details>
+      <details>
+        <summary><span class="ko">(원장님) 하루에 얼마나 하면 좋을까요?</span><span class="en">(Directors) How long should students practice each day?</span></summary>
+        <p><span class="ko">초등은 10~15분, 중등은 15~20분을 권장해요. 한 번에 오래 하기보다 매일 짧게 하는 것이 효과적이에요.</span><span class="en">About 10–15 minutes for elementary and 15–20 minutes for middle school. Short daily practice works better than one long session.</span></p>
+      </details>
+      <details>
+        <summary><span class="ko">처음 화면으로 돌아가려면요?</span><span class="en">How do I go back to the main screen?</span></summary>
+        <p><span class="ko">왼쪽 위의 ‘← 홈’ 버튼을 눌러요.</span><span class="en">Tap the “← Home” button at the top left.</span></p>
+      </details>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot wrap">
+  <p><span class="ko">2026년 11월 기준 · 화면은 업데이트에 따라 조금 달라질 수 있어요.</span><span class="en">As of November 2026 · Screens may change slightly with updates.</span></p>
+</footer>
+
+<script src="/js/ai-speaking-guide.js?v=2"></script>
+</body>
+</html>

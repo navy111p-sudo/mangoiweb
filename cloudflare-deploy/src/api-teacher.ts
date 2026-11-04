@@ -33,7 +33,7 @@ import { applyRoomOverrides } from './class-room-override';   // 🚪 「오늘�
 import { applyStudentElsewhere } from './teacher-student-elsewhere';   // 🚪 «학생이 다른 방에 있어요»(2026-10-21) — 방을 갈아 끼운 «뒤» 에 본다
 import { loadHoldRanges, heldOnFor } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25) — 강사에게 «기다리지 말라» 를 알린다
 import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
-import { isCancelledOccurrence, liveOrCancelledInRangeSql, loadMovedAwayEvents, judgeMovedAway } from './class-change-state';   // ✕ 취소된 회차 판정 정본(2026-11-03)
+import { isCancelledOccurrence, liveOrCancelledInRangeSql, loadMovedAwayEvents, judgeMovedAway, recurWeekChildFor, slotKeyOf, movedAwayBlocked, RECUR_WEEK_CHILD_PREFIX } from './class-change-state';   // ✕ 취소된 회차 판정 정본(2026-11-03)
 import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 import { loadHandovers } from './teacher-handover';   // 🤝 강사 인수인계 카드(2026-10-10)
 import { loadActiveGoals, setStudentGoal, goalByKey, GOALS } from './student-goal';   // 🗓 4주 목표(2026-10-10)
@@ -575,7 +575,18 @@ export async function handleTeacherApi(
   const classes: any[] = [];
   let cafe24DedupeSchedules: any[] = [];
   /* ⏸ (2026-11-04) «원래 날짜» 에 남기는 달력 칸 — 아래 «주간·월간» 후처리가 끝난 «뒤» 에 넣는다(출결·피드백 판정을 안 태우게). */
-  const _mvAwayItems: { date: string; item: any }[] = [];
+  const _mvAwayItems: { date: string; item: any; recur?: boolean }[] = [];
+  /* 🔁 한 자리에 하나(관리자 «오늘 수업»·주간 시간표와 같은 정본 movedAwayBlocked) — 반복 행에서 온 줄은 그 날 «같은 학생·같은 시각»
+     줄(연기 기록 줄·새로 잡은 수업)이 이미 있으면 안 넣고, «옮겨 감» 줄끼리도 겹치면 안 넣는다.
+     ⚠️ 날짜 지정 행의 줄이 먼저 들어가야 한다 — 아래에서 _mvAwayItems 를 그 차례로 정렬한다. */
+  const mvShadowed = (day: any, m: { date: string; item: any; recur?: boolean }): boolean => {
+    const taken = new Set<string>(), ghosts = new Set<string>();
+    for (const x of (day.items || [])) {
+      if (!x || x.kind !== 'class') continue;
+      (x.moved_away ? ghosts : taken).add(slotKeyOf(m.date, x.start_time, x.student_uid));
+    }
+    return movedAwayBlocked(slotKeyOf(m.date, m.item.start_time, m.item.student_uid), !!m.recur, taken, ghosts);
+  };
   // 📅 앞으로 7일 안의 일회성 수업 — 선언은 여기(반환문과 같은 스코프). 채우는 건 아래 루프.
   const upcoming: any[] = [];
 
@@ -897,18 +908,32 @@ export async function handleTeacherApi(
       if (_mvList.length) {
         const _mvEv = await loadMovedAwayEvents(env.DB, _mvList[0], _mvList[_mvList.length - 1]);
         const _mvById = new Map<string, any>();
-        for (const r of (rows.results || [])) _mvById.set(String(r.id), r);
+        /* 🔁 «그 주 하루만» 옮긴 매주 수업의 하루짜리 줄 — 이 강사의 조회 결과 안에서만 찾는다(강사를 바꿔 옮겼으면 못 찾고,
+           그때는 판정이 기록의 새 날짜로 떨어진다). */
+        const _mvKids = new Map<string, any[]>();
+        for (const r of (rows.results || [])) {
+          _mvById.set(String(r.id), r);
+          const src = String(r.source || '');
+          if (src.indexOf(RECUR_WEEK_CHILD_PREFIX) === 0) {
+            const pid = src.slice(RECUR_WEEK_CHILD_PREFIX.length);
+            if (!_mvKids.has(pid)) _mvKids.set(pid, []);
+            _mvKids.get(pid)!.push({ ...r, status: r.sched_status });
+          }
+        }
         for (const ev of _mvEv.byKey.values()) {
           if (!_mvDates.has(ev.from_date)) continue;
           const r = _mvById.get(String(ev.schedule_id));
           if (!r) continue;
-          const ch = judgeMovedAway({ ...r, status: r.sched_status }, ev, { showActor: false });
+          const _recur = !r.scheduled_date;
+          const ch = judgeMovedAway({ ...r, status: r.sched_status }, ev, { showActor: false },
+            _recur ? recurWeekChildFor(_mvKids.get(String(r.id)), ev.from_date) : null);
           if (!ch) continue;
           const it = calendarItemOf({ ...r, start_time: ch.from_time || r.start_time }, ev.from_date, false, false);
           Object.assign(it, { class_state: 'moved_away', status: 'moved_away', moved_away: true, room_id: null,
             moved_label_ko: ch.label_ko, moved_label_en: ch.label_en, moved_to_date: ch.to_date, moved_to_time: ch.to_time });
-          _mvAwayItems.push({ date: ev.from_date, item: it });
+          _mvAwayItems.push({ date: ev.from_date, item: it, recur: _recur });
         }
+        _mvAwayItems.sort((a, b) => Number(!!a.recur) - Number(!!b.recur));   // 날짜 지정 행 먼저(movedAwayOrder 와 같은 차례)
       }
     } catch (e) { console.warn('[teacher-portal] moved-away:', (e as any)?.message); }
 
@@ -1172,7 +1197,7 @@ export async function handleTeacherApi(
     }
     await attachCalendarRecords(env, weekDays.flatMap((d: any) => d.items.filter((it: any) => it.kind === 'class')));
     // ⏸ (2026-11-04) «원래 날짜» 칸은 출결·피드백 판정 «뒤» 에 넣는다 — 원래 방의 «입장 기록 없음» 을 결석으로 그리지 않게.
-    for (const m of _mvAwayItems) { const d = weekDays.find((x: any) => x.date === m.date); if (d) d.items.push({ ...m.item }); }
+    for (const m of _mvAwayItems) { const d = weekDays.find((x: any) => x.date === m.date); if (d && !mvShadowed(d, m)) d.items.push({ ...m.item }); }
   }
 
   /* 🚫 노쇼 — 끝난 수업 중 «누군가 안 온» 기록이 있으면 라벨을 no_show 로 올린다.
@@ -1389,7 +1414,7 @@ export async function handleTeacherApi(
       if (real.length) applyHolidayToItems(real, day.is_today ? _holiday : await loadHolidayClosure(env.DB, day.date));
     }
     // ⏸ (2026-11-04) «원래 날짜» 칸 — 휴강 판정 «뒤» 에 넣는다(그 날 열리는 수업이 아니다).
-    for (const m of _mvAwayItems) { const d = monthDays.find((x: any) => x.date === m.date); if (d) d.items.push({ ...m.item }); }
+    for (const m of _mvAwayItems) { const d = monthDays.find((x: any) => x.date === m.date); if (d && !mvShadowed(d, m)) d.items.push({ ...m.item }); }
     return json({
       ok: true, now, today: todayStr,
       me: { identity_unlinked: identityUnlinked, identity_ambiguous: identityAmbiguous, is_manager: isManager },

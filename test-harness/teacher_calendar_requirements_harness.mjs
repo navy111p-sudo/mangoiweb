@@ -1,4 +1,5 @@
 // Execute the real display functions and real previous-lesson SQL in isolated SQLite.
+import { btsFixtureSource } from './bts-fixture.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -13,6 +14,7 @@ function fn(name){const a=html.indexOf('  function '+name+'(');const b=html.inde
 const elements={'portal-search':{value:''},'portal-academy':{value:''},'class-time-sort':{value:'asc'}};
 const ctx={document:{getElementById:id=>elements[id],addEventListener(){},querySelectorAll:()=>[]},window:{addEventListener(){}},localStorage:{getItem:()=>null},stuName:c=>c.student_name,stuUid:c=>c.student_uid,EN:()=>true,T:en=>en,esc:x=>String(x??'').replaceAll('<','&lt;').replaceAll('>','&gt;')};
 vm.createContext(ctx);
+  vm.runInContext(btsFixtureSource(html), ctx);
 vm.runInContext(html.match(/<script>\s*\/\* Class display:[\s\S]*?<\/script>/)[0].replace(/^<script>|<\/script>$/g,''),ctx);
 ctx.MangoiClassDisplay=ctx.window.MangoiClassDisplay;
 ctx.clsToday=()=>'2026-10-28';

@@ -462,7 +462,7 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   // G3 changed, not confirmed -> asked; «적용하고 이동» saves both screens and goes; no second (browser) prompt
   s = boot({ ...SAVED });
   s.level(3); s.click('focused');
-  e = s.clickLink('/warmup.html');
+  e = s.clickLink('/');   // 7차: 연습 시작 링크(data-start)는 묻지 않고 저장 후 간다(G13) — 묻는 것은 홈처럼 «연습을 안 하고 나가는» 링크
   ok(e.defaultPrevented && s.leave().open && s.nav() === '', 'G3: changed but not confirmed -> the link is held and the dialog opens');
   ok(s.leave().title === '설정을 아직 적용하지 않았어요' && /«확인»을 눌러야/.test(s.leave().body) && s.leave().pick === '고른 설정: 수준 3단계 · 교정 집중', 'G3: dialog says what is not applied and what was picked → ' + JSON.stringify(s.leave()));
   ok(s.leave().go === '적용하고 이동' && s.leave().skip === '적용 안 하고 이동' && s.leave().stay === '머무르기' && !s.leave().stayHidden, 'G3: three choices');
@@ -471,7 +471,7 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   ok(s.ls.writes.length === 0, 'G3: asking writes nothing');
   s.els.leaveGo.fire('click');
   ok(s.ls.getItem('mangoi_warmup_level') === '3' && s.ls.getItem('mangoi_aifriend_level') === 'S3' && s.ls.getItem('mangoi_warmup_correction') === 'focused' && s.ls.getItem('mangoi_aifriend_correction') === 'focused', 'G3: «적용하고 이동» saves level + corrections to both screens');
-  ok(s.nav() === 'http://localhost/warmup.html' && !s.leave().open, 'G3: …and goes where the link pointed → ' + s.nav());
+  ok(s.nav() === 'http://localhost/' && !s.leave().open, 'G3: …and goes where the link pointed → ' + s.nav());
   ok(!s.bu().prevented && s.btn().state === 'saved', 'G3: …with no second browser prompt');
   // G4 «적용 안 하고 이동» -> nothing written, goes, the browser prompt does not ask again
   s = boot({ ...SAVED }); s.click('focused');
@@ -578,7 +578,7 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   s = boot({ ...SAVED });
   s.level(3);
   s.ls.m.set('mangoi_warmup_correction', 'focused'); s.ls.m.set('mangoi_aifriend_correction', 'focused');   // other tab, no event
-  s.clickLink('/warmup.html');
+  s.clickLink('/');
   ok(s.leave().pick === '고른 설정: 수준 3단계 · 교정 집중', 'G12: the dialog shows the untouched field as it is now saved → ' + s.leave().pick);
   s.els.leaveGo.fire('click');
   ok(s.ls.getItem('mangoi_warmup_level') === '3' && s.ls.getItem('mangoi_aifriend_correction') === 'focused' && s.ls.getItem('mangoi_warmup_correction') === 'focused', 'G12: «적용하고 이동» writes this tab\'s level and keeps the other tab\'s corrections (no overwrite with stale values)');
@@ -591,4 +591,121 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   s.ls.m.set('mangoi_warmup_correction', 'free_talk'); s.ls.m.set('mangoi_aifriend_correction', 'free_talk'); s.confirm();
   ok(s.ls.getItem('mangoi_aifriend_correction') === 'free_talk' && s.ls.getItem('mangoi_aifriend_level') === 'S3', 'G12: plain «확인» also keeps the other tab\'s untouched corrections');
   console.log('PASS: leave without 확인 (6차) — ' + (n - n0) + ' checks, same booted page');
+
+  // G13) 2026-11-04 7차(사장님 «자유·균형·집중을 바꾸고 버튼 누르면 교재로 연습 안에서도 똑같이 자동으로») —
+  //      «연습 시작» 링크(data-start)는 묻지 않고 «확인» 과 같은 저장을 한 뒤 그대로 간다.
+  //      짝: 시작 링크 «자동 저장» 옆에 홈 링크 «묻기»(G3) · 안 바꿈 «안 씀» · 확인 잠김 «묻기» · 저장 막힘 «머묾».
+  const n1 = n;
+  const tagOf = id => (markup.match(new RegExp('<a\\b[^>]*id="' + id + '"[^>]*>')) || [''])[0];
+  ok(/\sdata-start[\s>]/.test(tagOf('textbook-mode')) && /\sdata-start[\s>]/.test(tagOf('friend-mode')), 'G13: the textbook and AI friend cards are start links (data-start)');
+  ok(!/data-start/.test(tagOf('situation-mode')) && !/data-start/.test((markup.match(/<a class="home"[^>]*>/) || [''])[0]), 'G13: (pair) the situations toggle and the home link are not start links');
+  ok(/<a class="sit" data-sit="' \+ esc\(s\.id\) \+ '" data-start href=/.test(fnSrc('renderSituations')), 'G13: each situation link is drawn as a start link');
+  const START = { 'data-start': '' };
+  for (const [href, label] of [['/warmup.html', 'textbook'], ['/ai-friend.html', 'AI friend'], ['/warmup.html?setup=0&lang=en&sit=cafe', 'situation']]) {
+    for (const id of CORR) {
+      if (id === 'balanced') continue;   // SAVED is already balanced — picking it is «unchanged»
+      s = boot({ ...SAVED }); s.click(id);
+      e = s.clickLink(href, START);
+      ok(!e.defaultPrevented && !s.leave().open, 'G13: ' + label + ' start link with ' + id + ' picked -> not held, no dialog');
+      ok(s.ls.getItem('mangoi_warmup_correction') === id && s.ls.getItem('mangoi_aifriend_correction') === id, 'G13: …' + id + ' is saved for both screens before going (the practice opens with it)');
+      ok(s.ls.getItem('mangoi_warmup_level') === '5' && s.ls.getItem('mangoi_aifriend_level') === 'S5', 'G13: …the untouched level stays as saved');
+      ok(!s.bu().prevented && s.btn().state === 'saved', 'G13: …no browser prompt while leaving');
+    }
+  }
+  s = boot({ ...SAVED }); s.level(3); s.click('free_talk');
+  e = s.clickLink('/warmup.html', START);
+  ok(!e.defaultPrevented && s.ls.getItem('mangoi_warmup_level') === '3' && s.ls.getItem('mangoi_aifriend_level') === 'S3' && s.ls.getItem('mangoi_warmup_correction') === 'free_talk', 'G13: level + corrections both changed -> both saved on the start link');
+  s = boot({ ...SAVED });
+  e = s.clickLink('/warmup.html', START);
+  ok(!e.defaultPrevented && s.ls.writes.length === 0, 'G13: nothing changed -> the start link writes nothing (no «picked by the student» stamp)');
+  s = boot({ ...SAVED }); s.click('focused'); s.click('balanced');
+  e = s.clickLink('/warmup.html', START);
+  ok(!e.defaultPrevented && s.ls.writes.length === 0, 'G13: changed back to the saved value -> writes nothing');
+  s = boot({}); s.click('balanced');
+  e = s.clickLink('/warmup.html', START);
+  ok(e.defaultPrevented && s.leave().open && /수준을 골라야/.test(s.leave().body) && s.ls.writes.length === 0, 'G13: 확인 locked (no level yet) -> the start link asks what to pick, writes nothing');
+  s = boot({ ...SAVED }, { block: true }); s.click('focused');
+  e = s.clickLink('/warmup.html', START);
+  ok(e.defaultPrevented && !s.leave().open && s.btn().state === 'fail' && s.active() === s.els.setOk, 'G13: cannot save -> stays, «⚠️» shown and focused (not a silent start with the old setting)');
+  e = s.clickLink('/warmup.html', START);
+  ok(!e.defaultPrevented && !s.leave().open, 'G13: …next tap goes without asking again');
+  s = boot({ ...SAVED }); s.level(3);
+  s.ls.m.set('mangoi_warmup_correction', 'focused'); s.ls.m.set('mangoi_aifriend_correction', 'focused');   // other tab, no event
+  s.clickLink('/ai-friend.html', START);
+  ok(s.ls.getItem('mangoi_warmup_level') === '3' && s.ls.getItem('mangoi_warmup_correction') === 'focused' && s.ls.getItem('mangoi_aifriend_correction') === 'focused', 'G13: two tabs — the start link saves this tab\'s level and keeps the other tab\'s corrections');
+  s = boot({ ...SAVED }); s.click('focused');
+  ok(!s.clickLink('/warmup.html', { ...START, target: '_blank' }).defaultPrevented && s.ls.writes.length === 0, 'G13: start link in a new tab (target) is left to the browser, nothing written');
+  console.log('PASS: start links apply the picks (7차) — ' + (n - n1) + ' checks, same booted page');
+
+  // G14) 2026-11-04 사장님 «반대 방향도 맞춰줘» — 연습 화면(웜업·AI 친구)에서 사람이 교정 정도를 고르면 정본(chooseCorr)으로
+  //      두 화면 키를 함께 써서, 입구로 돌아와도 «화면마다 다름» 이 아니라 그 값이 보인다.
+  //      짝: 정본이 없으면 예전처럼 제 키만(안 던짐) · 모르는 값은 안 씀 · 화면을 열기만 하면 안 씀 · 수준 키는 안 건드림.
+  const n2 = n;
+  const wu = read('warmup.html'), af = read('ai-friend.html'), wflow = read('js/warmup-flow.js');
+  const noHtmlComments = s => s.replace(/<!--[\s\S]*?-->/g, '');
+  const hubV = (hub.match(/<script src="\/js\/ai-speaking-settings\.js\?v=(\d+)"/) || [])[1];
+  ok(!!hubV, 'G14 premise: the entry loads the settings module with a ?v=');
+  for (const [name, page] of [['warmup', wu], ['ai-friend', af]]) {
+    const tags = noHtmlComments(page).match(/<script\b[^>]*\bsrc="\/js\/ai-speaking-settings\.js[^"]*"[^>]*>/g) || [];
+    ok(tags.length === 1, 'G14: ' + name + ' loads the settings module exactly once, outside comments → ' + tags.length);
+    ok(tags.length === 1 && tags[0].includes('ai-speaking-settings.js?v=' + hubV + '"') && !/\btype=/.test(tags[0]), 'G14: ' + name + ' loads it as a normal script with the entry\'s ?v=' + hubV);
+  }
+  // ── 웜업: setCorrMode 를 오려 내 실제로 돌린다 ──
+  const cut = (src, re) => (src.match(re) || [''])[0];
+  const wuKey = cut(wu, /var WU_CMODE_KEY = '[^']+';/), wuCat = cut(wu, /var CMODE_CATALOG = \[[\s\S]*?\n\];/), wuSet = cut(wu, /function setCorrMode\(id\)\{[\s\S]*?\n\}/);
+  ok(!!(wuKey && wuCat && wuSet), 'G14 premise: cut WU_CMODE_KEY · CMODE_CATALOG · setCorrMode out of warmup.html');
+  const wuPicker = (ls, withSet) => {
+    const c = vm.createContext({ window: withSet ? { AiSpeakSettings: SET } : {}, localStorage: ls });
+    vm.runInContext(wuKey + '\nvar _wuCorrMode = "";\n' + wuCat + '\n' + wuSet, c, { timeout: 500 });
+    return id => { try { return vm.runInContext('setCorrMode(' + JSON.stringify(id) + ')', c, { timeout: 500 }); } catch (e) { return 'threw: ' + e.message; } };
+  };
+  const MIXED = { mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'free_talk', mangoi_aifriend_correction: 'focused' };
+  let ls2 = mkLS(MIXED);
+  ok(SET.read(ls2).corr === 'mixed', 'G14 premise: the two screens start out different («화면마다 다름»)');
+  ok(wuPicker(ls2, true)('balanced') === true, 'G14: warmup pick returns true');
+  ok(ls2.getItem('mangoi_warmup_correction') === 'balanced' && ls2.getItem('mangoi_aifriend_correction') === 'balanced', 'G14: warmup pick writes BOTH screen keys');
+  ok(SET.read(ls2).corr === 'balanced', 'G14: …so the entry reads one value, not «mixed»');
+  ok(ls2.writes.every(k => /_correction$/.test(k)), 'G14: …and touches no level key → ' + ls2.writes.join(','));
+  for (const id of CORR) { const l = mkLS(MIXED); wuPicker(l, true)(id); ok(SET.read(l).corr === id, 'G14: warmup pick ' + id + ' → entry reads ' + id); }
+  ls2 = mkLS(MIXED);
+  ok(wuPicker(ls2, true)('strict') === false && ls2.writes.length === 0, 'G14: an unknown value writes nothing');
+  ls2 = mkLS(MIXED);
+  ok(wuPicker(ls2, false)('balanced') === true && ls2.getItem('mangoi_warmup_correction') === 'balanced' && ls2.getItem('mangoi_aifriend_correction') === 'focused', 'G14: (pair) settings module missing -> warmup key only, as before, no throw');
+  // 사람이 고르는 자리에서만 부른다 — 열거나 그리기만 할 때 쓰면 «학생이 고른 것» 으로 굳는다
+  const wuCalls = wu.split('\n').filter(l => /setCorrMode\(/.test(l) && !/function setCorrMode\(/.test(l) && !/^\s*(\/\/|\/?\*)/.test(l));
+  ok(wuCalls.length === 1 && /if\(t\.getAttribute\('data-cmode'\)\) \{ setCorrMode\(/.test(wuCalls[0]), 'G14: in warmup.html setCorrMode is called only by the setup card click → ' + wuCalls.length);
+  const flowCalls = wflow.split('\n').filter(l => /setCorrMode\(/.test(l));
+  ok(flowCalls.length >= 1 && flowCalls.every(l => /function\s*\([^)]*\)\s*\{[^}]*setCorrMode\(/.test(l)), 'G14: warmup-flow.js calls setCorrMode only inside button / select handlers → ' + flowCalls.length);
+  // ── AI 친구: 교정 버튼 배선을 오려 내 실제로 돌린다 ──
+  const afBlock = cut(af, /const AIF_CORR_KEY = [\s\S]*?\n    \}\);\n/);
+  ok(!!afBlock && /\.opt\[data-cmode\]/.test(afBlock), 'G14 premise: cut the AI friend correction block out of ai-friend.html');
+  const afPage = (ls, withSet) => {
+    const btns = CORR.map(id => { const cls = new Set(); return { dataset: { cmode: id }, onclick: null, classList: { toggle: (k, on) => (on ? cls.add(k) : cls.delete(k)), has: k => cls.has(k) } }; });
+    const c = vm.createContext({ window: withSet ? { AiSpeakSettings: SET } : {}, localStorage: ls,
+      document: { querySelectorAll: sel => (sel === '.opt[data-cmode]' ? btns : []) } });
+    vm.runInContext(afBlock, c, { timeout: 500 });
+    return { press: id => { try { btns[CORR.indexOf(id)].onclick(); return true; } catch (e) { return 'threw: ' + e.message; } }, active: () => (btns.find(b => b.classList.has('active')) || {}).dataset?.cmode || '' };
+  };
+  ls2 = mkLS(MIXED);
+  let fp = afPage(ls2, true);
+  ok(ls2.writes.length === 0 && fp.active() === 'focused', 'G14: opening AI friend writes nothing and shows its saved value');
+  // ⚠️ 두 키 «어느 쪽과도 다른» 값으로 누른다 — 웜업 키와 같은 값이면 안 써도 통과한다(2026-11-04 변이시험에서 밟음)
+  ok(fp.press('balanced') === true && ls2.getItem('mangoi_aifriend_correction') === 'balanced' && ls2.getItem('mangoi_warmup_correction') === 'balanced', 'G14: AI friend pick writes BOTH screen keys');
+  ok(ls2.writes.includes('mangoi_warmup_correction') && ls2.writes.every(k => /_correction$/.test(k)), 'G14: …it really wrote the warmup key, and no level key → ' + ls2.writes.join(','));
+  ok(SET.read(ls2).corr === 'balanced' && fp.active() === 'balanced', 'G14: …the entry reads balanced and the button shows it');
+  ls2 = mkLS(MIXED); fp = afPage(ls2, false);
+  ok(fp.press('balanced') === true && ls2.getItem('mangoi_aifriend_correction') === 'balanced' && ls2.getItem('mangoi_warmup_correction') === 'free_talk', 'G14: (pair) settings module missing -> AI friend key only, as before');
+  // ── 입구: 연습 화면에서 고른 뒤 돌아오면(새로 열기 · 뒤로가기 보관 화면) 그 값이 보인다 ──
+  const pressed = s => CORR.filter((id, i) => s.corr[i].getAttribute('aria-pressed') === 'true');
+  s = boot({ ...SAVED });   // 입구에서 균형으로 들어감
+  ok(pressed(s).join() === 'balanced', 'G14 premise: the entry starts on balanced');
+  wuPicker(s.ls, true)('focused');   // 웜업 안에서 집중교정으로 바꿈(같은 기기 저장소)
+  s.pageshow(true);                   // 뒤로가기로 보관된 입구가 돌아옴
+  ok(pressed(s).join() === 'focused' && !s.leave().open, 'G14: back to the cached entry -> shows focused (changed inside warmup), no dialog');
+  ok(s.btn().state !== 'fail' && !s.bu().prevented, 'G14: …nothing counts as «not applied» (no leave prompt)');
+  const fresh = boot(Object.fromEntries(s.ls.m));
+  ok(pressed(fresh).join() === 'focused', 'G14: opening the entry again also shows focused');
+  afPage(fresh.ls, true).press('free_talk'); fresh.storageEvt();
+  ok(pressed(fresh).join() === 'free_talk', 'G14: AI friend pick in another tab -> the open entry follows (storage event)');
+  console.log('PASS: practice screens sync back to the entry (8차) — ' + (n - n2) + ' checks');
 }

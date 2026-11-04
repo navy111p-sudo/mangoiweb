@@ -43,6 +43,7 @@
 
   // ──── 모달 ────
   function showModal(html) {
+    tgClose();   // 👨‍🏫 강사 소개(넓은 창)에서 다른 정보 창으로 바뀔 때 폭·영상 정리
     // 매 모달마다 기본 폭으로 초기화 (성적표 등에서 넓혔던 폭이 다른 모달에 새지 않게)
     try { modalBox.style.maxWidth = '600px'; } catch(e){}
     modalContent.innerHTML = html;
@@ -66,6 +67,7 @@
   } catch(e){}
   window.closeInfoModal = function(){
     modal.style.display = 'none';
+    tgClose();   // 👨‍🏫 강사 소개 영상이 숨은 창에서 계속 소리 나지 않게
     // 🎥 모달 때문에 눌러뒀던 AI 상담원 영상 원상복구 (showModal 참조)
     try { document.body.classList.remove('mg-modal-open'); } catch(e){}
     // 모달 닫을 때 음성 재생 중이면 중지 (TTS + mp3 둘 다)
@@ -80,231 +82,32 @@
     if (e.key === 'Escape' && modal.style.display !== 'none') closeInfoModal();
   });
 
-  // 👨‍🏫 강사 소개 모달 — ERP 등록 강사로 동적 갱신 (DOM API 만 사용해 syntax 에러 방지)
-  window.loadDynamicTeacherGallery = async function() {
-    const box = document.getElementById('ph-gallery-dynamic');
-    if (!box) return;
-    async function tryFetch(url) {
-      try {
-        const r = await fetch(url, { credentials: 'include' });
-        const ct = (r.headers.get('content-type') || '').toLowerCase();
-        if (!ct.includes('json')) return null;
-        const d = await r.json().catch(() => null);
-        if (!d) return null;
-        const items = d.items || d.rows || [];
-        return Array.isArray(items) ? items : null;
-      } catch (e) { return null; }
-    }
-    let teachers = await tryFetch('/api/teacher-profiles?limit=100');
-    if (!teachers || !teachers.length) {
-      teachers = await tryFetch('/api/admin/teacher-profiles');
-    }
-    if (!teachers || !teachers.length) return;  // 폴백 — 기존 정적 6명 그대로 유지
-
-    const GRADS = ['#fcd34d,#f59e0b','#86efac,#10b981','#f9a8d4,#ec4899','#93c5fd,#3b82f6','#c4b5fd,#8b5cf6','#fda4af,#f43f5e','#a7f3d0,#06b6d4','#fde68a,#ea580c'];
-    const EMOJIS = ['👩🏻‍🏫','👨🏻‍🏫','👩🏻‍🎓','🧑🏻‍🏫','👩🏻‍💼','👨🏻‍🎓'];
-
-    function teacherCat(t){ var o=((t.origin_region||t.active_region||'')+''); if(/미국|캐나다|usa|canada/i.test(o))return 'us'; if(/영국|호주|영연방|uk|britain|australia/i.test(o))return 'gb'; if(/중국|중화|china|chin/i.test(o))return 'cn'; return 'ph'; }
-    // 🏳 국기는 이모지가 아니라 SVG (Windows 에서 이모지는 'PH'·'US' 문자로 표시됨)
-    var FLAG={ph:'/img/flag-ph.svg?v=1',us:'/img/flag-us.svg?v=1',gb:'/img/flag-gb.svg?v=1',cn:'/img/flag-cn.svg?v=1'};
-    function flagImg(cat,alt){ return '<img src="'+(FLAG[cat]||FLAG.ph)+'" alt="'+(alt||'')+'">'; }
-    var CATLABEL={all:'🌏 전체 강사진',ph:'필리핀 강사진',us:'미국·캐나다 강사진',gb:'영국·호주 강사진',cn:'중국어 강사진'};
-    window.__teacherCat = teacherCat;
-    window.__renderTeacherGallery = function(cat){
-    cat = cat || 'all';
-    var list = (cat==='all') ? teachers : teachers.filter(function(t){ return teacherCat(t)===cat; });
-    var hd = document.getElementById('ph-gallery-heading');
-    if (hd) hd.textContent = (CATLABEL[cat]||CATLABEL.all) + ' (' + list.length + '명)';
-    document.querySelectorAll('.info-tile[data-cat]').forEach(function(el){ el.style.outline = (el.getAttribute('data-cat')===cat) ? '2px solid #fbbf24' : ''; el.style.cursor='pointer'; });
-    box.innerHTML = '';
-    if (!list.length) { var emp=document.createElement('div'); emp.style.cssText='grid-column:1/-1;text-align:center;color:#94a3b8;font-size:13px;padding:18px'; emp.textContent='해당 국적의 강사가 아직 없습니다.'; box.appendChild(emp); }
-    list.forEach((t, i) => {
-      const card = document.createElement('div');
-      card.className = 'ph-card';
-      card.style.cursor = 'pointer';
-      card.addEventListener('click', () => { if (window.openTeacherDetail) window.openTeacherDetail(t); });
-
-      const photo = document.createElement('div');
-      photo.className = 'ph-photo';
-      photo.style.position = 'relative';
-      if (t.image_url) {
-        // CSS url() 안에서 안전하게 escape
-        const safeUrl = String(t.image_url).split("'").join("\\'");
-        photo.style.backgroundImage = "url('" + safeUrl + "')";
-        photo.style.backgroundSize = 'cover';
-        photo.style.backgroundPosition = 'center';
-      } else {
-        photo.style.background = 'linear-gradient(135deg,' + GRADS[i % GRADS.length] + ')';
-        const emo = document.createElement('span');
-        emo.className = 'ph-emoji';
-        emo.textContent = EMOJIS[i % EMOJIS.length];
-        photo.appendChild(emo);
-      }
-      const flag = document.createElement('span');
-      flag.className = 'ph-flag';
-      flag.innerHTML = flagImg(teacherCat(t));
-      photo.appendChild(flag);
-
-      if (t.intro_video_url) {
-        const vbtn = document.createElement('button');
-        vbtn.textContent = '▶';
-        vbtn.title = '소개 영상';
-        vbtn.style.cssText = 'position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,0.6);color:#fff;border:0;border-radius:50%;width:24px;height:24px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center';
-        vbtn.addEventListener('click', (ev) => {
-          ev.stopPropagation();
-          if (window.openTeacherDetail) window.openTeacherDetail(t);
-        });
-        photo.appendChild(vbtn);
-      }
-      card.appendChild(photo);
-
-      const name = t.english_name || t.korean_name || '강사';
-      /* 🔴 (2026-07-30) group_name(재택/사무실 등 내부 인사 분류)을 프론트에 노출하지 않는다.
-         "Office Teacher"/"Home-based" 같은 값이 학부모 화면에 그대로 떴었다(제보) — 학부모·학생
-         이 알 필요 없는 내부 배정 정보. DB 값·관리자 화면은 그대로 두고 여기서만 안 보여준다. */
-      const spec = t.certifications || '영어 회화';
-      const career = t.career || '';
-      const careerStr = career ? (career + (/^\d+$/.test(career) ? '년차' : '')) : '';
-      const star = '⭐ 4.9' + (careerStr ? ' · ' + careerStr : '');
-
-      const nameEl = document.createElement('div'); nameEl.className = 'ph-name'; nameEl.textContent = name; card.appendChild(nameEl);
-      const specEl = document.createElement('div'); specEl.className = 'ph-spec'; specEl.textContent = spec; card.appendChild(specEl);
-      const starEl = document.createElement('div'); starEl.className = 'ph-star'; starEl.textContent = star; card.appendChild(starEl);
-
-      box.appendChild(card);
-    });
-
-    // ERP 표시 뱃지
-    const badge = document.createElement('div');
-    badge.style.cssText = 'grid-column:1/-1;text-align:center;font-size:11px;color:#10b981;margin-top:6px';
-    badge.textContent = '✓ 본사 ERP 등록 강사 ' + teachers.length + '명' + (cat==='all' ? ' 전체 표시' : ' 중 ' + list.length + '명 표시');
-    box.appendChild(badge);
-    };  // end __renderTeacherGallery
-    window.__filterTeacherCat = function(cat){ if (window.__renderTeacherGallery) window.__renderTeacherGallery(cat); };
-    window.__renderTeacherGallery('all');
-  };
-
-  // 강사 카드 클릭 시 상세 모달 (사진·학력·경력·자격증·영상)
-  window.openTeacherDetail = function(t) {
-    if (!t || typeof t !== 'object') return;
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px';
-    overlay.addEventListener('click', () => overlay.remove());
-
-    const box = document.createElement('div');
-    box.style.cssText = 'background:linear-gradient(135deg,#0f172a,#1e293b);border:1px solid rgba(251,191,36,0.4);border-radius:16px;padding:24px;max-width:560px;width:100%;max-height:90vh;overflow:auto;color:#e2e8f0;position:relative';
-    box.addEventListener('click', (ev) => ev.stopPropagation());
-
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕';
-    closeBtn.style.cssText = 'position:absolute;top:12px;right:12px;background:transparent;border:0;color:#94a3b8;font-size:22px;cursor:pointer';
-    closeBtn.addEventListener('click', () => overlay.remove());
-    box.appendChild(closeBtn);
-
-    // 헤더 (사진 + 이름)
-    const head = document.createElement('div');
-    head.style.cssText = 'display:flex;align-items:center;gap:16px;margin-bottom:14px';
-    if (t.image_url) {
-      const img = document.createElement('img');
-      img.src = t.image_url;
-      img.style.cssText = 'width:120px;height:120px;border-radius:50%;object-fit:cover;border:3px solid #fbbf24';
-      img.onerror = function() { this.style.display = 'none'; };
-      head.appendChild(img);
-    } else {
-      const ph = document.createElement('div');
-      ph.style.cssText = 'width:120px;height:120px;border-radius:50%;background:linear-gradient(135deg,#fcd34d,#f59e0b);display:flex;align-items:center;justify-content:center;font-size:60px';
-      ph.textContent = '👩🏻‍🏫';
-      head.appendChild(ph);
-    }
-    const headInfo = document.createElement('div');
-    const nameDiv = document.createElement('div');
-    nameDiv.style.cssText = 'font-size:20px;font-weight:800;color:#fbbf24';
-    nameDiv.textContent = t.english_name || t.korean_name || '강사';
-    headInfo.appendChild(nameDiv);
-    const specDiv = document.createElement('div');
-    specDiv.style.cssText = 'font-size:13px;color:#94a3b8;margin-top:4px';
-    /* 🔴 (2026-07-30) 여기도 group_name 노출 지점이었다 — 카드 목록과 동일하게 제거. */
-    (function(){ var _f={ph:'/img/flag-ph.svg?v=1',us:'/img/flag-us.svg?v=1',gb:'/img/flag-gb.svg?v=1',cn:'/img/flag-cn.svg?v=1'}; var _c=(window.__teacherCat?window.__teacherCat(t):'ph'); var _n=document.createTextNode(' ' + (t.certifications || '영어 회화')); var _i=document.createElement('img'); _i.src=_f[_c]||_f.ph; _i.alt=''; _i.className='spec-flag'; specDiv.appendChild(_i); specDiv.appendChild(_n); })();
-    headInfo.appendChild(specDiv);
-    const statDiv = document.createElement('div');
-    statDiv.style.cssText = 'font-size:12px;color:#10b981;margin-top:2px';
-    statDiv.textContent = '● ' + (t.status || '활동중');
-    headInfo.appendChild(statDiv);
-    head.appendChild(headInfo);
-    box.appendChild(head);
-
-    // 🎥 수업 입장 — 공용 수업방(빈 방코드)으로 모두 통일 → 교사·학생이 무조건 같은 방에서 만남
-    (function(){
-      var joinBtn = document.createElement('button');
-      joinBtn.textContent = '🎥 수업 입장 — ' + (t.korean_name || t.english_name || '') + ' 선생님과 같은 방에서 만나요';
-      joinBtn.style.cssText = 'width:100%;margin-top:14px;padding:14px;border:0;border-radius:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a0f08;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 8px 22px -6px rgba(245,158,11,0.55)';
-      joinBtn.onclick = function(){
-        try { overlay.remove(); } catch(e){}
-        if (window.mangoiJoinClass) window.mangoiJoinClass('');   // 공용 수업방
-      };
-      box.appendChild(joinBtn);
-    })();
-
-    // 💬 선생님 한마디 (소개글) — 눈에 띄게 상단 표시
-    if (t.notes) {
-      const cmt = document.createElement('div');
-      cmt.style.cssText = 'margin-top:14px;padding:12px 14px;background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.35);border-radius:10px;color:#fde68a;font-size:13.5px;line-height:1.65;font-style:italic';
-      cmt.textContent = '“' + t.notes + '”';
-      box.appendChild(cmt);
-    }
-
-    // 필드 표
-    const fields = [
-      ['🎓 학력', t.education],
-      ['💼 경력', t.career],
-      ['📜 자격증', t.certifications],
-      ['🌏 출신', t.origin_region],
-      ['📅 가능 요일', t.available_days],
-      ['⏰ 가능 시간', t.available_hours],
-      // 🔴 (2026-07-30) '👥 그룹' 행 삭제 — 재택/사무실 등 내부 인사 분류라 학부모·학생용이 아님(제보 #5).
-      //    데이터(teacher_profiles.group_name)와 관리자 화면은 그대로 유지, 여기서만 안 보여준다.
-    ].filter(function(p) { return p[1]; });
-
-    if (fields.length > 0) {
-      const fieldsBox = document.createElement('div');
-      fieldsBox.style.marginTop = '14px';
-      fields.forEach(function(p) {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;font-size:13px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06)';
-        const label = document.createElement('div');
-        label.style.cssText = 'min-width:100px;color:#94a3b8;font-weight:600';
-        label.textContent = p[0];
-        row.appendChild(label);
-        const val = document.createElement('div');
-        val.style.color = '#e2e8f0';
-        val.textContent = p[1];
-        row.appendChild(val);
-        fieldsBox.appendChild(row);
-      });
-      box.appendChild(fieldsBox);
-    }
-
-    // 소개 영상 (있을 때)
-    if (t.intro_video_url) {
-      const url = t.intro_video_url;
-      let video;
-      if (/youtube\.com|youtu\.be/.test(url)) {
-        video = document.createElement('iframe');
-        video.src = url.replace('watch?v=', 'embed/');
-        video.allowFullscreen = true;
-        video.style.cssText = 'width:100%;aspect-ratio:16/9;border:0;border-radius:10px;margin-top:12px';
-      } else {
-        video = document.createElement('video');
-        video.src = url;
-        video.controls = true;
-        video.style.cssText = 'width:100%;border-radius:10px;margin-top:12px';
-      }
-      box.appendChild(video);
-    }
-
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
-  };
+  // 👨‍🏫 강사 소개 — 시안 A(스플릿 뷰). 화면·데이터·KO/EN 은 전부 js/teacher-gallery.js 가 맡는다.
+  //   (2026-11-04) 옛 창(폭 600px·본문 10.5px)은 PC 에서 글씨가 작아 프로필을 읽을 수 없었다(사장님).
+  //   이 파일은 «처음 열 때» 그 모듈을 불러와 붙이기만 한다 — 홈 첫 화면에는 한 바이트도 안 실린다.
+  //   ⚠️ teacher-gallery.js 를 고치면 아래 ?v= 를 올리고 asset-versions.json 의 같은 키를 갱신(teacher_gallery_harness ①).
+  var TG_SRC = '/js/teacher-gallery.js?v=1';
+  function tgClose() { try { if (window.MangoiTeacherGallery) window.MangoiTeacherGallery.close(); } catch (e) {} }
+  function tgBootMsg(kind) {
+    var en = (typeof window.getLang === 'function' && window.getLang() === 'en');
+    if (kind === 'error') return en ? "We couldn't open the teacher list. Please try again." : '강사 소개를 열지 못했어요. 다시 시도해 주세요.';
+    return en ? 'Loading teachers…' : '강사 소개를 불러오는 중…';
+  }
+  function openTeacherGallery() {
+    // 불러오는 사이 창을 닫았거나 다른 창으로 바꿨으면 붙이지 않는다(숨은 창에 그려지는 것 방지).
+    function stillWaiting() { return modal.style.display !== 'none' && !!document.getElementById('tg-boot'); }
+    function mount() { if (stillWaiting() && window.MangoiTeacherGallery) window.MangoiTeacherGallery.open(); }
+    if (window.MangoiTeacherGallery) return mount();
+    var s = document.createElement('script');
+    s.src = TG_SRC; s.async = true;
+    s.onload = mount;
+    s.onerror = function () {
+      try { s.remove(); } catch (e) {}
+      var b = document.getElementById('tg-boot');
+      if (b) b.textContent = tgBootMsg('error');
+    };
+    document.head.appendChild(s);
+  }
 
   // 🔊 가맹점 감성 호소문 — 사전 녹음 mp3 우선, 실패 시 Web Speech API 폴백
   let _franchiseAudio = null;
@@ -838,92 +641,8 @@
   //   → 정확한 수치가 확정되면 그때 다시 넣을 것. 확인 없이 숫자를 넣지 말 것.
   //   ⚠️ 이 설명을 HTML 주석(<!-- -->)으로 쓰지 말 것 — 템플릿 문자열 안에 넣으면 그대로
   //      브라우저까지 실려 나가서, 지우려던 문구가 소스보기에 남는다(실제로 한 번 그랬다).
-  const TEACHERS = `
-    <h2>👨‍🏫 강사 소개</h2>
-    <p>엄격하게 검증된 정규 강사진이 매일 수업을 진행합니다.</p>
-    <h3>🌍 강사 구성</h3>
-    <div class="info-grid">
-      <div class="info-tile" data-cat="all" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('all')"><b>🌏 전체</b><span>모든 강사</span></div>
-      <div class="info-tile" data-cat="ph" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('ph')"><img class="tt-flag" src="/img/flag-ph.svg?v=1" alt=""><b>필리핀</b><span>현지 원어민 강사</span></div>
-      <div class="info-tile" data-cat="us" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('us')"><img class="tt-flag" src="/img/flag-us.svg?v=1" alt=""><b>미국·캐나다</b><span>원어민</span></div>
-      <div class="info-tile" data-cat="gb" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('gb')"><img class="tt-flag" src="/img/flag-gb.svg?v=1" alt=""><b>영국·호주</b><span>원어민 <em style="display:inline-block;margin-left:4px;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#b45309;font-size:10px;font-weight:800;font-style:normal;vertical-align:middle;border:1px solid #fcd34d;white-space:nowrap">준비중</em></span></div>
-      <div class="info-tile" data-cat="cn" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('cn')"><img class="tt-flag" src="/img/flag-cn.svg?v=1" alt=""><b>중국어</b><span>이중언어</span></div>
-    </div>
-
-    <h3 id="ph-gallery-heading" style="margin-top:14px">🌏 전체 강사진</h3>
-    <div class="ph-gallery" id="ph-gallery-dynamic">
-      <div class="ph-card">
-        <div class="ph-photo" style="background:linear-gradient(135deg,#fcd34d,#f59e0b)">
-          <span class="ph-emoji">👩🏻‍🏫</span>
-          <span class="ph-flag"><img src="/img/flag-ph.svg?v=1" alt="필리핀"></span>
-        </div>
-        <div class="ph-name">Maria Santos</div>
-        <div class="ph-spec">Daily Conversation</div>
-        <div class="ph-star">⭐ 4.9 · 7년차</div>
-      </div>
-      <div class="ph-card">
-        <div class="ph-photo" style="background:linear-gradient(135deg,#86efac,#10b981)">
-          <span class="ph-emoji">👨🏻‍🏫</span>
-          <span class="ph-flag"><img src="/img/flag-ph.svg?v=1" alt="필리핀"></span>
-        </div>
-        <div class="ph-name">James Cruz</div>
-        <div class="ph-spec">Business English</div>
-        <div class="ph-star">⭐ 4.8 · 5년차</div>
-      </div>
-      <div class="ph-card">
-        <div class="ph-photo" style="background:linear-gradient(135deg,#f9a8d4,#ec4899)">
-          <span class="ph-emoji">👩🏻‍🎓</span>
-          <span class="ph-flag"><img src="/img/flag-ph.svg?v=1" alt="필리핀"></span>
-        </div>
-        <div class="ph-name">Anna Reyes</div>
-        <div class="ph-spec">Kids English</div>
-        <div class="ph-star">⭐ 5.0 · 6년차</div>
-      </div>
-      <div class="ph-card">
-        <div class="ph-photo" style="background:linear-gradient(135deg,#93c5fd,#3b82f6)">
-          <span class="ph-emoji">🧑🏻‍🏫</span>
-          <span class="ph-flag"><img src="/img/flag-ph.svg?v=1" alt="필리핀"></span>
-        </div>
-        <div class="ph-name">Carlos Lim</div>
-        <div class="ph-spec">Pronunciation</div>
-        <div class="ph-star">⭐ 4.9 · 8년차</div>
-      </div>
-      <div class="ph-card">
-        <div class="ph-photo" style="background:linear-gradient(135deg,#c4b5fd,#8b5cf6)">
-          <span class="ph-emoji">👩🏻‍💼</span>
-          <span class="ph-flag"><img src="/img/flag-ph.svg?v=1" alt="필리핀"></span>
-        </div>
-        <div class="ph-name">Sofia Garcia</div>
-        <div class="ph-spec">TOEIC·OPIc</div>
-        <div class="ph-star">⭐ 4.8 · 4년차</div>
-      </div>
-      <div class="ph-card">
-        <div class="ph-photo" style="background:linear-gradient(135deg,#fda4af,#f43f5e)">
-          <span class="ph-emoji">👨🏻‍🎓</span>
-          <span class="ph-flag"><img src="/img/flag-ph.svg?v=1" alt="필리핀"></span>
-        </div>
-        <div class="ph-name">Daniel Tan</div>
-        <div class="ph-spec">Travel English</div>
-        <div class="ph-star">⭐ 4.9 · 6년차</div>
-      </div>
-    </div>
-    <p style="color:#94a3b8;font-size:11px;margin:6px 0 14px;text-align:center">
-      <img class="tag-flag" src="/img/flag-ph.svg?v=1" alt="">망고아이 필리핀 본사 검증 강사 · TESOL/CELTA 자격 + 평균 5년+ 경력
-    </p>
-    <h3>✅ 채용 기준</h3>
-    <ul>
-      <li>대학 졸업 이상 (영어 관련 학과 우대)</li>
-      <li>TESOL/CELTA/TEFL 자격증 보유</li>
-      <li>최소 2년 영어 교육 경험</li>
-      <li>망고아이 자체 4단계 시범 수업 통과</li>
-      <li>분기별 학생 평가 4.0/5.0 이상 유지</li>
-    </ul>
-    <h3>⭐ 강사 평가 시스템</h3>
-    <ul>
-      <li>매 수업 후 학생 5단계 평가</li>
-      <li>월별 동료/매니저 모니터링</li>
-      <li>S·A·B·C 등급 기반 인센티브</li>
-    </ul>`;
+  // 강사 소개 창이 뜨는 즉시 보일 한 줄 — 모듈이 붙으면 그 자리를 통째로 바꾼다(id="tg-boot" 가 «아직 기다리는 중» 표시).
+  const TEACHERS_BOOT = () => '<div id="tg-boot" translate="no" style="padding:48px 12px;text-align:center;color:#cbd5e1;font-size:16px">👨‍🏫 ' + tgBootMsg('loading') + '</div>';
 
   const REVIEWS = `
     <h2>⭐ 수업 후기</h2>
@@ -1236,9 +955,8 @@
     speech:      () => { closeGrid(); location.href = '/speech-coach.html'; },
     teachers:    () => {
       closeGrid();
-      showModal(TEACHERS);
-      // 모달 렌더 후 ERP 등록 강사로 갤러리 동적 갱신
-      setTimeout(() => { if (window.loadDynamicTeacherGallery) window.loadDynamicTeacherGallery(); }, 200);
+      showModal(TEACHERS_BOOT());
+      openTeacherGallery();   // 👨‍🏫 시안 A — js/teacher-gallery.js
       // 🔊 강사 소개 안내 음성 (15초) — 무음 토글 + 배경음악 줄임(볼륨 0.55)
       try {
         var MK = 'mangoi_voice_muted';

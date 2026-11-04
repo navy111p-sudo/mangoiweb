@@ -25,6 +25,7 @@
 
 import { isPostponedOccurrence } from './class-postponed';
 import { selectInChunks } from './d1-chunk';
+import { normSkipDates } from './class-start-date';
 
 /** 날짜가 정해진 회차가 «취소» 됐는가. 매주 반복 행은 언제나 false(위 규칙 ①). */
 export function isCancelledOccurrence(r: any): boolean {
@@ -185,7 +186,12 @@ export async function loadClassChangeAudits(db: any, scheduleIds: any[]): Promis
    [규칙]
      ① **지금 행이 결정한다** — 날짜가 정해진 행(scheduled_date)이고, 그 날짜가 이 날과 «다를 때만».
         같은 날로 돌아왔으면(되돌림·같은 날 시각만 변경) 줄을 안 만든다(그 행이 그 날 목록에 이미 있다).
-        ⛔ 매주 반복 행(scheduled_date 없음)은 «옮겨 간 회차» 가 아니다 — 그 주 하루 연기는 자리표시 행이 이미 그 날에 있다.
+        🔁 매주 반복 행(scheduled_date 없음)은 «그 주 하루만» 옮긴 경우만 줄을 만든다(2026-11-04 — recurring-one-week.ts):
+           반복 행의 skip_dates 에 그 날이 «있을 때만»(없으면 «앞으로 계속» 시간표 변경이거나 기록만 남은 옛 요청 — 그 날
+           수업은 그대로 열린다). 옮겨 간 곳은 그 하루짜리 줄(source='recurring-week:<반복 id>', notes 의 «<원래 날짜> 회차»)의
+           «지금 자리» 다. 그 줄이 원래 날짜에 있으면(날짜 없이 연기 — status='postponed' 기록 줄) 그 줄이 이미 «⏸ 연기됨»
+           으로 보이므로 null(두 줄이 되지 않게). 그 줄을 못 찾으면 기록의 «새 날짜» 로, 그것도 없으면 «이 날은 수업 없음»
+           까지만 말한다(날짜를 지어내지 않는다).
      ② 글자는 «지금 자리» 로 만든다 — 기록의 new_date 가 아니라(그 뒤 또 옮겼을 수 있다). 늦은 날이면 «⏸ 연기됨 →»,
         이른 날이면 «📅 앞당김 →»(앞당긴 것을 «연기» 라 부르면 거짓이다). 지금 행이 취소·연기 상태면 그 사실을 덧붙인다.
      ③ 누가·왜는 본사·내부직원에게만(showActor) — judgeClassChange 와 같은 규칙.
@@ -201,6 +207,19 @@ export interface MovedAwayEvent {
   at: number | null;
   by: string | null;
   reason: string | null;
+  /** 그때 적힌 «새 날짜·시각»(요청의 new_date·new_time / 이력 detail 의 «→ 날짜 시각»). 매주 반복 수업에서
+   *  옮겨 간 하루짜리 줄을 못 찾았을 때만 쓴다 — 날짜 지정 행은 언제나 «지금 행» 이 정본이다. */
+  to_date?: string | null;
+  to_time?: string | null;
+}
+
+/** 이력 detail 의 «→ 2026-11-12 09:30» — prepareRecurringOneWeek·자동승인 경로가 적는 모양(api-admin.ts decide). */
+const MOVE_TO_RE = /→\s*(\d{4}-\d{2}-\d{2})(?:\s+(\d{1,2}:\d{2}))?/;
+
+function moveToOf(detail: any): { to_date: string | null; to_time: string | null } {
+  const m = MOVE_TO_RE.exec(String(detail ?? ''));
+  const d = m ? ymd(m[1]) : '';
+  return { to_date: d || null, to_time: d ? (hhmm(m![2]) || null) : null };
 }
 
 /** 키 — 한 수업이 한 날짜에서 한 번만 «옮겨 간» 줄을 갖는다. */
@@ -230,7 +249,7 @@ export async function loadMovedAwayEvents(db: any, fromDate: string, toDate: str
   const CAP = 3000;
   try {
     const rs: any = await db.prepare(
-      `SELECT schedule_id, orig_date, orig_time, decided_by, decided_at, reason
+      `SELECT schedule_id, orig_date, orig_time, new_date, new_time, decided_by, decided_at, reason
          FROM schedule_change_requests
         WHERE status = 'approved' AND created_at >= ? AND schedule_id IS NOT NULL
           AND substr(COALESCE(orig_date,''),1,10) BETWEEN ? AND ?
@@ -240,13 +259,14 @@ export async function loadMovedAwayEvents(db: any, fromDate: string, toDate: str
     if (list.length > CAP) complete = false;
     for (const r of list.slice(0, CAP)) {
       put({ schedule_id: String(r.schedule_id ?? '').trim(), from_date: ymd(r.orig_date), from_time: hhmm(r.orig_time) || null,
-        at: Number(r.decided_at) > 0 ? Number(r.decided_at) : null, by: str(r.decided_by, 80), reason: str(r.reason, 300) });
+        at: Number(r.decided_at) > 0 ? Number(r.decided_at) : null, by: str(r.decided_by, 80), reason: str(r.reason, 300),
+        to_date: ymd(r.new_date) || null, to_time: hhmm(r.new_time) || null });
     }
   } catch { complete = false; }
   try {
     const acts = MOVE_ACTIONS.map(a => `'${a}'`).join(',');
     const rs: any = await db.prepare(
-      `SELECT schedule_id, lesson_date, lesson_time, actor, reason, created_at
+      `SELECT schedule_id, lesson_date, lesson_time, actor, reason, detail, created_at
          FROM class_audit_log
         WHERE action IN (${acts}) AND created_at >= ? AND schedule_id IS NOT NULL
           AND substr(COALESCE(lesson_date,''),1,10) BETWEEN ? AND ?
@@ -256,27 +276,124 @@ export async function loadMovedAwayEvents(db: any, fromDate: string, toDate: str
     if (list.length > CAP) complete = false;
     for (const r of list.slice(0, CAP)) {
       put({ schedule_id: String(r.schedule_id ?? '').trim(), from_date: ymd(r.lesson_date), from_time: hhmm(r.lesson_time) || null,
-        at: Number(r.created_at) > 0 ? Number(r.created_at) : null, by: str(r.actor, 80), reason: str(r.reason, 300) });
+        at: Number(r.created_at) > 0 ? Number(r.created_at) : null, by: str(r.actor, 80), reason: str(r.reason, 300),
+        ...moveToOf(r.detail) });
     }
   } catch { complete = false; }
   return { byKey, complete };
 }
 
-/** 원래 날짜(ev.from_date)에 남길 「취소 · 연기」 칸. 남길 것이 없으면 null(규칙 ①~④). */
-export function judgeMovedAway(row: any, ev: MovedAwayEvent | null | undefined, opt: { showActor: boolean }): ClassChange | null {
+/* 🔁 «그 주 하루만» 옮긴 매주 반복 수업의 하루짜리 줄(recurring-one-week.ts 가 만든다).
+   source='recurring-week:<반복 id>', notes='반복수업 <원래 날짜> 회차를 옮김(…)' / '… 회차 연기(…)'. */
+export const RECUR_WEEK_CHILD_PREFIX = 'recurring-week:';
+
+/** 🗂️ (2026-11-04) `class_schedules.source` 색인 — 아래 `source IN (...)` 가 표를 통째로 훑지 않게.
+ *  [잰 것 — 운영 D1] 7,575행 · 그 조회 한 번에 rows_read 7,575(색인 없음). «오늘 수업»·주간 시간표를 열 때마다 돈다.
+ *  다른 조회도 이 색인을 받는다 — `source = ?`(수강신청 묶음 adm-enroll:*·enroll:* 등, 대상이 좁다) · `id = ? AND source = ?`(PK 가 이김).
+ *  ⚠️ 새 조회를 쓸 때 — 운영 D1 에 통계(sqlite_stat1)가 없고 [잰 것 — 2026-11-04] `source` 값이 한쪽으로 몰려 있다
+ *     (c24-mirror 5,915 / 7,575행). 그래서 «넓은 source 값 + 좁은 색인 칸»(예: `user_id = ? AND source = 'c24-mirror'`)을
+ *     함께 걸면 플래너가 좋은 색인을 버리고 이 색인으로 c24-mirror 행 전체를 훑을 수 있다(로컬 SQLite 실행 계획으로 확인 — 2026-11-04
+ *     함정 대조). 지금 그런 모양의 조회는 없다. 쓰게 되면 EXPLAIN QUERY PLAN 으로 확인하고, 필요하면 `+source`(색인 안 쓰기)로 쓸 것.
+ *  ⛔ exec 로 바꾸지 말 것 — D1 exec 는 줄마다 따로 실행한다(한 줄 prepare().run()).
+ *  한 isolate 에 한 번만 시도(성공·실패 모두 — 이미 있으면 IF NOT EXISTS 가 아무 일도 안 한다). 실패해도 조회는 그대로(색인은 속도일 뿐). */
+let _sourceIdxTried = false;
+export async function ensureScheduleSourceIndex(db: any): Promise<void> {
+  if (_sourceIdxTried || !db) return;
+  _sourceIdxTried = true;
+  try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_sched_source ON class_schedules(source)').run(); } catch { /* 색인이 없어도 조회는 된다 */ }
+}
+
+/** 반복 행 번호들 → 그 하루짜리 줄 목록. 실패하면 complete=false(그 줄만 «새 날짜 모름» 으로 떨어진다). 던지지 않는다. */
+export async function loadRecurWeekChildren(db: any, parentIds: any[]): Promise<{ byParent: Map<string, any[]>; complete: boolean }> {
+  const byParent = new Map<string, any[]>();
+  let complete = true;
+  const srcs = Array.from(new Set((parentIds || []).map(x => String(x ?? '').trim()).filter(x => /^\d+$/.test(x))))
+    .map(x => RECUR_WEEK_CHILD_PREFIX + x);
+  if (!srcs.length || !db) return { byParent, complete: !db && srcs.length ? false : true };
+  await ensureScheduleSourceIndex(db);
+  try {
+    const rows = await selectInChunks<any>(db, srcs,
+      (ph) => `SELECT id, scheduled_date, start_time, status, source, notes, teacher_id, user_id FROM class_schedules WHERE source IN (${ph})`,
+      { swallowErrors: true, onChunkError: () => { complete = false; } });
+    for (const r of rows || []) {
+      const pid = String(r.source || '').slice(RECUR_WEEK_CHILD_PREFIX.length);
+      if (!byParent.has(pid)) byParent.set(pid, []);
+      byParent.get(pid)!.push(r);
+    }
+  } catch { complete = false; }
+  return { byParent, complete };
+}
+
+/** 그 원래 날짜의 하루짜리 줄 하나(같은 날이 둘이면 «나중에 만든 것» = id 큰 것). 없으면 null. */
+export function recurWeekChildFor(list: any[] | null | undefined, fromDate: string): any | null {
+  const d = ymd(fromDate);
+  if (!d || !Array.isArray(list)) return null;
+  const hit = list.filter(c => String(c?.notes ?? '').includes(`${d} 회차`));
+  if (!hit.length) return null;
+  hit.sort((a, b) => (Number(b?.id) || 0) - (Number(a?.id) || 0));
+  return hit[0];
+}
+
+/** «같은 자리» 열쇠 — 날짜|HH:MM|학생. 원래 날짜에 이미 줄(연기 기록 줄·새로 잡은 수업)이 있으면 반복 행의 줄은 안 만든다.
+ *  날짜나 학생을 모르면 '' — 아래 movedAwayBlocked 는 빈 열쇠로 아무것도 안 막는다(모르는 둘을 하나로 합치면 남의 줄을 숨긴다). */
+export function slotKeyOf(date: any, time: any, uid: any): string {
+  const d = ymd(date), u = String(uid ?? '').trim();
+  if (!d || !u) return '';
+  return d + '|' + hhmm(time) + '|' + u;
+}
+
+/** «한 자리에 하나» — 원래 날짜에 «옮겨 감» 줄을 넣기 «전» 에 묻는다(관리자 «오늘 수업»·주간 시간표·강사 달력이 같은 규칙).
+ *  taken: 그 날 이미 있는 진짜 줄의 자리 — 매주 반복 행에서 온 줄만 비켜 간다(날짜 지정 행의 줄은 예전 동작 그대로).
+ *  ghosts: 이미 넣은 «옮겨 감» 줄의 자리 — 누구든 비켜 간다. 같은 회차가 «반복 행 승인 기록» 과 «하루짜리 줄을 다시 옮긴 기록»
+ *  두 번 잡히는 경우가 있다(날짜 없이 연기 → 그 기록 줄을 나중에 다시 잡음 — 2026-11-04 함정 대조가 실제 핸들러로 재현).
+ *  ⚠️ 넣을 때마다 ghosts 에 더해야 하고, 넣는 차례는 movedAwayOrder 로(날짜 지정 행 먼저). */
+export function movedAwayBlocked(key: string, recur: boolean, taken: Set<string>, ghosts: Set<string>): boolean {
+  if (!key) return false;
+  return ghosts.has(key) || (recur && taken.has(key));
+}
+
+/** 넣는 차례 — 날짜 지정 행(그 회차의 «지금 자리» 를 가진 행) 먼저 0, 매주 반복 행 나중 1. 겹치면 반복 행 쪽이 빠진다. */
+export function movedAwayOrder(row: any): number {
+  return ymd(row && row.scheduled_date) ? 0 : 1;
+}
+
+/** 원래 날짜(ev.from_date)에 남길 「취소 · 연기」 칸. 남길 것이 없으면 null(규칙 ①~④).
+ *  child — 매주 반복 행일 때만: 그 날짜의 «그 주 하루만» 줄(recurWeekChildFor). 날짜 지정 행에는 안 쓴다. */
+export function judgeMovedAway(row: any, ev: MovedAwayEvent | null | undefined, opt: { showActor: boolean }, child?: any): ClassChange | null {
   if (!row || !ev) return null;
   const from = ymd(ev.from_date);
-  const cur = ymd(row.scheduled_date);
-  if (!from || !cur || cur === from) return null;                 // ① 매주 반복 행·아직 그 날에 있는 행은 아니다
+  if (!from) return null;
   if (String(row.id ?? ev.schedule_id) !== String(ev.schedule_id)) return null;
-  const curTime = hhmm(row.start_time);
-  const to = cur.slice(5).replace('-', '/') + (curTime ? ' ' + curTime : '');
-  const later = cur > from;
-  let ko = later ? `⏸ 연기됨 → ${to}` : `📅 앞당김 → ${to}`;
-  let en = later ? `⏸ Postponed → ${to}` : `📅 Moved earlier → ${to}`;
-  const st = String(row.status ?? row.sched_status ?? 'active').trim().toLowerCase();
-  if (st === 'cancelled') { ko += ' · 그 뒤 취소됨'; en += ' · later cancelled'; }
-  else if (st === 'postponed') { ko += ' · 그 뒤 다시 연기(날짜 미정)'; en += ' · postponed again (no date)'; }
+  const cur = ymd(row.scheduled_date);
+  let toDate = '', toTime = '', st = '';
+  if (cur) {
+    if (cur === from) return null;                                // ① 아직 그 날에 있는 행 — 그 날 목록에 이미 있다
+    toDate = cur; toTime = hhmm(row.start_time);
+    st = String(row.status ?? row.sched_status ?? 'active').trim().toLowerCase();
+  } else {
+    /* 🔁 매주 반복 행 — «그 주 하루만» 옮겼을 때만(skip_dates 에 그 날이 있어야). 없으면 그 날 수업은 그대로 열린다. */
+    if (!normSkipDates(row.skip_dates).includes(from)) return null;
+    const cDate = child ? ymd(child.scheduled_date) : '';
+    if (cDate === from) return null;                              // 날짜 없이 연기 — 그 날의 «⏸ 연기됨» 기록 줄이 이미 있다
+    if (cDate) {
+      toDate = cDate; toTime = hhmm(child.start_time);
+      st = String(child.status ?? 'active').trim().toLowerCase();
+    } else {
+      const td = ymd(ev.to_date);
+      if (td && td !== from) { toDate = td; toTime = hhmm(ev.to_time); }
+    }
+  }
+  let ko: string, en: string;
+  if (toDate) {
+    const to = toDate.slice(5).replace('-', '/') + (toTime ? ' ' + toTime : '');
+    const later = toDate > from;
+    ko = later ? `⏸ 연기됨 → ${to}` : `📅 앞당김 → ${to}`;
+    en = later ? `⏸ Postponed → ${to}` : `📅 Moved earlier → ${to}`;
+    if (st === 'cancelled') { ko += ' · 그 뒤 취소됨'; en += ' · later cancelled'; }
+    else if (st === 'postponed') { ko += ' · 그 뒤 다시 연기(날짜 미정)'; en += ' · postponed again (no date)'; }
+  } else {
+    ko = '⏸ 연기됨 — 이 날은 수업 없음'; en = '⏸ Postponed — no class this day';
+  }
   const at = Number(ev.at) > 0 ? Number(ev.at) : null;
   return {
     kind: 'moved_away', at,
@@ -284,6 +401,6 @@ export function judgeMovedAway(row: any, ev: MovedAwayEvent | null | undefined, 
     reason: (opt.showActor && ev.reason) ? String(ev.reason).slice(0, 300) : null,
     from_date: from, from_time: hhmm(ev.from_time) || null, via: null,
     label_ko: ko, label_en: en, at_kst: kstShort(at),
-    to_date: cur, to_time: curTime || null,
+    to_date: toDate || null, to_time: toTime || null,
   };
 }

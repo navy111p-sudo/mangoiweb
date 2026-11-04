@@ -204,6 +204,59 @@ const old = await page.evaluate(() => ({ off: document.getElementById('st-off').
 check('6-2 옛 서버(off_items 없음): 취소 칸 0 · 수업은 그대로 · 건수는 «0건» 이라 단정하지 않고 «?»', old.off === '?' && old.cells === 0 && old.live === 2, JSON.stringify(old));
 await ctx.close();
 
+// ═══ 8. (2026-11-04) 같은 칸에 «취소» 와 다른 학생의 «옮겨 감» — 둘 다 말한다 ═══
+console.log('\n═ 8. 같은 칸에 취소 + 옮겨 감(그룹) ═');
+const MIX = (uid, name, off, ko, en) => ({ off, moved_away: off === 'postponed', teacher_id: 2, date: TUE, hour: 17, start_time: '17:00', type: 'group',
+  students: [{ name, uid }], duration_min: 20, note: '', change: { kind: off, at: 1, at_kst: null, by: null, reason: null, label_ko: ko, label_en: en } });
+const OFF2 = OFF.concat([
+  MIX('mx_a', '취소학생', 'cancelled', '✕ 취소됨', '✕ Cancelled'),
+  MIX('mx_b', '연기학생', 'postponed', '⏸ 연기됨 → 11/11 15:50', '⏸ Postponed → 11/11 15:50'),
+  MIX('mx_c', '연기친구', 'postponed', '⏸ 연기됨 → 11/11 15:50', '⏸ Postponed → 11/11 15:50'),
+]);
+({ ctx, page } = await open({ ok: true, week: D(0), items: ITEMS, schedules: ITEMS, off_items: OFF2, off_complete: true }));
+await page.evaluate(() => { viewMode = 'day'; curDow = 1; render(); });
+const mix = await page.evaluate(() => {
+  const td = [...document.querySelectorAll('td.slot.slot-off')].find(t => t.dataset.tid === '2' && t.dataset.hour === '17');
+  const cs = td && getComputedStyle(td);
+  return { text: td && td.textContent, cls: td && td.className, title: td && td.title, deco: cs && cs.textDecorationLine, slot: td && td.hasAttribute('data-slot'),
+           busy: td ? window.cellBusy(td) : null, stOff: document.getElementById('st-off').textContent };
+});
+check('8-1 섞인 칸: 기호 둘(✕⏸) · 그룹 3명 · slot-off-mixed', /✕⏸\s*그룹 3/.test(mix.text || '') && /slot-off-mixed/.test(mix.cls || ''), JSON.stringify({ t: mix.text, c: mix.cls }));
+check('8-2 섞인 칸에는 취소선이 없다(연기된 학생 이름까지 그어지지 않게) · 여전히 data-slot 없음·빈 시간', mix.deco === 'none' && mix.slot === false && mix.busy === false, JSON.stringify({ d: mix.deco, s: mix.slot, b: mix.busy }));
+check('8-3 칸 설명(title)에 두 사정이 다', /✕ 취소됨 · ⏸ 연기됨 → 11\/11 15:50/.test(mix.title || ''), mix.title);
+check('8-4 통계는 사정 수(기존 3 + 이 칸 2 = 5건)', mix.stOff === '5건', mix.stOff);
+const mixBox = await page.evaluate(() => {
+  const td = [...document.querySelectorAll('td.slot.slot-off')].find(t => t.dataset.tid === '2' && t.dataset.hour === '17');
+  td.scrollIntoView({ block: 'center', inline: 'center' }); const r = td.getBoundingClientRect(); return { x: r.left + 5, y: r.top + r.height / 2 };
+});
+await page.mouse.move(mixBox.x, mixBox.y); await page.mouse.move(mixBox.x + 1, mixBox.y); await page.waitForTimeout(80);
+const mtt = await page.evaluate(() => {
+  const t = document.getElementById('tooltip');
+  const parts = [...t.querySelectorAll('.tooltip-off-part')].map(x => x.textContent);
+  const lists = [...t.querySelectorAll('.tooltip-students')].map(x => [...x.querySelectorAll('.uid')].map(u => u.textContent));
+  return { shown: t.classList.contains('show'), parts, lists };
+});
+check('8-5 툴팁: 사정마다 한 묶음(2) — 첫 묶음은 ✕ 취소됨만, 둘째는 ⏸ 연기됨 → 11/11 15:50만 · 같은 글자가 한 묶음에 두 번 안 나온다',
+  mtt.shown && mtt.parts.length === 2 && /✕ 취소됨/.test(mtt.parts[0]) && !/연기됨/.test(mtt.parts[0]) && /⏸ 연기됨 → 11\/11 15:50/.test(mtt.parts[1]) && !/취소됨/.test(mtt.parts[1])
+  && mtt.parts.every(t => (t.match(/(취소됨|연기됨)/g) || []).length === 1), JSON.stringify(mtt.parts));
+check('8-6 툴팁: 학생은 «자기 사정» 아래 — 취소엔 mx_a, 연기엔 mx_b·mx_c(같은 글자는 한 묶음)', JSON.stringify(mtt.lists) === JSON.stringify([['mx_a'], ['mx_b', 'mx_c']]), JSON.stringify(mtt.lists));
+await page.screenshot({ path: join(SHOT, 'day-mixed-ko.png'), fullPage: false });
+await page.evaluate(() => { viewMode = 'week'; render(); });
+const mseg = await page.evaluate(() => {
+  const segs = [...document.querySelectorAll('.tl-seg.s-off')];
+  const m = segs.find(s => s.dataset.offSeg === 'mixed');
+  return { n: segs.length, title: m && m.title, pp: m && m.classList.contains('s-pp') };
+});
+check('8-7 주간 막대: 섞인 칸 하나(data-off-seg=mixed) · 설명에 두 사정', mseg.n === 4 && /✕ 취소됨 · ⏸ 연기됨 → 11\/11 15:50/.test(mseg.title || '') && mseg.pp === false, JSON.stringify(mseg));
+await page.evaluate(() => window.toggleLang());
+await page.evaluate(() => { viewMode = 'day'; curDow = 1; render(); });
+const men = await page.evaluate(() => {
+  const td = [...document.querySelectorAll('td.slot.slot-off')].find(t => t.dataset.tid === '2' && t.dataset.hour === '17');
+  return td && td.title;
+});
+check('8-8 EN: ✕ Cancelled · ⏸ Postponed → 11/11 15:50', /✕ Cancelled · ⏸ Postponed → 11\/11 15:50/.test(men || ''), men);
+await ctx.close();
+
 check('7 페이지 스크립트 오류 0', errs.length === 0, errs.slice(0, 3).join(' | '));
 await browser.close(); server.close();
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}   (스크린샷: ${SHOT})`);
