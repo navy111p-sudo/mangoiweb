@@ -290,6 +290,10 @@ export const RECUR_WEEK_CHILD_PREFIX = 'recurring-week:';
 /** 🗂️ (2026-11-04) `class_schedules.source` 색인 — 아래 `source IN (...)` 가 표를 통째로 훑지 않게.
  *  [잰 것 — 운영 D1] 7,575행 · 그 조회 한 번에 rows_read 7,575(색인 없음). «오늘 수업»·주간 시간표를 열 때마다 돈다.
  *  다른 조회도 이 색인을 받는다 — `source = ?`(수강신청 묶음 adm-enroll:*·enroll:* 등, 대상이 좁다) · `id = ? AND source = ?`(PK 가 이김).
+ *  ⚠️ 새 조회를 쓸 때 — 운영 D1 에 통계(sqlite_stat1)가 없고 [잰 것 — 2026-11-04] `source` 값이 한쪽으로 몰려 있다
+ *     (c24-mirror 5,915 / 7,575행). 그래서 «넓은 source 값 + 좁은 색인 칸»(예: `user_id = ? AND source = 'c24-mirror'`)을
+ *     함께 걸면 플래너가 좋은 색인을 버리고 이 색인으로 c24-mirror 행 전체를 훑을 수 있다(로컬 SQLite 실행 계획으로 확인 — 2026-11-04
+ *     함정 대조). 지금 그런 모양의 조회는 없다. 쓰게 되면 EXPLAIN QUERY PLAN 으로 확인하고, 필요하면 `+source`(색인 안 쓰기)로 쓸 것.
  *  ⛔ exec 로 바꾸지 말 것 — D1 exec 는 줄마다 따로 실행한다(한 줄 prepare().run()).
  *  한 isolate 에 한 번만 시도(성공·실패 모두 — 이미 있으면 IF NOT EXISTS 가 아무 일도 안 한다). 실패해도 조회는 그대로(색인은 속도일 뿐). */
 let _sourceIdxTried = false;
