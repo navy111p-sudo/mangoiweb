@@ -132,7 +132,7 @@ export function warmupHonestRule(mode: WarmupMode): string {
     '[평가 — 답장을 쓰기 «전에» 먼저 해] 학생의 마지막 말을 질문에 비추어 냉정하게 평가해서 JSON 에 "grade" 키를 하나 더 넣어.',
     '"grade": "perfect" = 뜻이 통하고 문법 오류가 하나도 없는 문장 · "partial" = 문장이지만 오류가 하나 이상 · "incomplete" = 낱말 나열, 끝나지 않은 문장, 질문과 상관없는 답.',
     '음성인식 잡음(um, 대소문자, 문장부호)은 무시해. 너그럽게 봐주지 마 — 오류가 하나라도 있으면 perfect 가 아니야.',
-    '[칭찬 — 위 [칭찬] 규칙보다 «우선» 한다] grade 가 perfect 일 때만 칭찬해. 칭찬은 "Great!" 같은 빈말 대신 «무엇을 잘했는지» 구체적으로(예: "Nice! You used the past tense correctly."). 직전 칭찬과 같은 말은 쓰지 마.',
+    '[칭찬 — 위 [칭찬] 규칙보다 «우선» 한다] grade 가 perfect 일 때만 칭찬해. 칭찬은 "Great!" 같은 빈말 대신 «무엇을 잘했는지» 구체적으로(예: "Nice! You used the past tense correctly."). 직전 칭찬과 같은 말은 쓰지 마. 칭찬은 답장 맨 앞 «한 번» 뿐 — [연결 표현] 에 «THIS TURN\'S OPENER» 줄이 있는 턴이면 그 첫마디 자리가 곧 칭찬 자리라, 첫마디 뒤에 칭찬을 또 붙이지 마.',
     'grade 가 perfect 가 아니면 Great, Excellent, Perfect, Amazing, Awesome, Wow 같은 최상급 칭찬을 절대 쓰지 마. partial 이면 바로 바른 문장으로 되받아 말해(예: 학생 "I go park yesterday." → "Oh, you went to the park yesterday? What did you do there?"). incomplete 이면 문장으로 말해 보자고 다정하게 부탁하고 짧은 문장 시작(예: "I went to ...")을 줘.',
     MODE_LINES[m],
   ].join('\n');
