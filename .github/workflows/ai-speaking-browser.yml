@@ -9,6 +9,7 @@ on:
       - 'cloudflare-deploy/public/js/eleader-entry.js'
       - 'cloudflare-deploy/public/css/warmup-guide.css'
       - 'test-harness/manual/ai-speaking-browser.mjs'
+      - 'test-harness/manual/ai-speaking-pc-scale-browser.mjs'
       - 'test-harness/helpers/browser-pool.mjs'
       - '.github/workflows/ai-speaking-browser.yml'
   workflow_dispatch:
@@ -42,3 +43,8 @@ jobs:
         env:
           PW_DIR: ${{ runner.temp }}/speaking-pw
         run: node test-harness/manual/ai-speaking-browser.mjs
+      # 🖥️ 큰 PC 화면 배율(9차, 2026-11-04) — 창마다 걸린 배율 · 한 화면에 들어오는가 · 노트북은 그대로(짝) · 나가기 창
+      - name: Big PC screen scale (localhost only)
+        env:
+          PW_DIR: ${{ runner.temp }}/speaking-pw
+        run: node test-harness/manual/ai-speaking-pc-scale-browser.mjs

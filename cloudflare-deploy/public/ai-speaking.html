@@ -39,7 +39,9 @@
        📖 2026-11-04 8차(사장님 「적당한 곳에 누르면 보이게」) — «오늘은 …» 줄 오른쪽 «사용 안내» 버튼이
        사용 안내서(/ai-speaking-guide.html · 한 장 판, 초등 눈높이 · KO/EN · 인쇄·PDF·Word)를 이 화면 위 창(dialog)에 연다.
        화면 언어(ui)를 ?lang= 으로 넘기고, 창을 열 때만 iframe 을 불러온다(첫 화면 비용 0). 창을 못 여는 옛 브라우저는 같은 탭으로 간다.
-       ⛔ 이 변경은 설정 읽기·쓰기·상황 목록 코드를 건드리지 않는다. -->
+       ⛔ 이 변경은 설정 읽기·쓰기·상황 목록 코드를 건드리지 않는다.
+       🖥️ 같은 날 9차(사장님 «PC 화면에 적합하게 지금보다 크게») — 큰 PC 화면에서만 본문을 넓히고 비율대로 키운다(겉모습만, 스크립트는 그대로).
+       자세한 규칙은 아래 CSS 의 «큰 PC 화면» 주석. -->
   <style>
     :root{--sky:#0b1026;--card:#161d3f;--card2:#1c2550;--line:#283160;--ring:#5b6bb5;--ink:#ffffff;--sub:#b8c1e6;--soft:#dde3ff;
       --lime:#c6f432;--orange:#ff9a3c;--cyan:#4dd8ff;--on:#0b1026;--focus:#fde68a}
@@ -133,7 +135,7 @@
     /* 🚪 확인 안 누르고 나갈 때 묻는 창 — 이 화면엔 다른 떠 있는 창이 없어 z-index 50 이면 맨 위다(.wrap 은 1) */
     .leave{position:fixed;top:0;right:0;bottom:0;left:0;z-index:50;display:flex;align-items:center;justify-content:center;
       padding:18px;background:rgba(5,8,22,.8)}
-    .leave-box{width:100%;max-width:420px;max-height:calc(100vh - 36px);max-height:calc(100dvh - 36px);overflow-y:auto;padding:22px;border-radius:26px;
+    .leave-box{width:100%;max-width:420px;max-height:calc((100vh - 36px) / var(--z,1));max-height:calc((100dvh - 36px) / var(--z,1));overflow-y:auto;padding:22px;border-radius:26px;
       background:var(--card);border:1px solid var(--ring);box-shadow:0 18px 50px rgba(0,0,0,.55)}
     .leave-box h2{margin:0 0 8px;font-size:19px;font-weight:900;line-height:1.35}
     .leave-box p{margin:0 0 8px;color:var(--soft);font-size:15px}
@@ -162,6 +164,29 @@
       .sit-list{grid-template-columns:repeat(3,minmax(0,1fr))}
       .sheet,#situations{padding:26px 28px}
     }
+    /* 🖥️ 큰 PC 화면 — 9차(2026-11-04 사장님 «PC 화면에 적합하게 지금보다 크게»). 1920 모니터를 80% 로 보면 창이 2400×1150 인데
+       본문이 1120px 이라 화면의 45% 만 썼다. 노트북(1366·1440·1536 폭)과 휴대폰은 그대로 둔다.
+       ① 1600px 이상: 본문 1280px(카드 설명이 대개 한 줄이 된다) + 세로 여백을 조금 줄인다(위 32 → 24 · 안내줄 위아래 · 카드 안 간격 · 설정 칸 위 · 확인 위 · 아래 28 → 12).
+       ② 그 위로 .wrap 에 zoom 을 단계로 건다(글자·카드·버튼을 같은 비율로 — stories.html 과 같은 방식).
+          단계 조건은 폭과 높이 둘 다다:  폭 = 1280 × z 가 창 폭의 80% 안 → min-width 1600 × z
+                                           높이 = 문서 전체 875 × z 가 창 높이 안 → 확인 버튼까지 스크롤 없이 한 화면
+          875 = ①의 문서 높이 «최악의 경우» 실측 867 + 여유. 넓은 글꼴(DejaVu Sans — CI 러너 기본)에서는 영어 설명이 두 줄이 되어
+          867, 보통 글꼴(한국어 전부 · 영어 Inter·Liberation)은 한 줄이라 843 이다(8차 «사용 안내» 버튼 40px 가 안내줄에 든 상태). 작은 단계부터 적어 «맞는 것 중 가장 큰 단계» 가 이긴다.
+       ③ 나가기 창(.leave-box)도 같은 배율. zoom 은 vh 에도 배율을 곱하므로(크로미움 실측) 위 max-height 를 var(--z) 로 나눠 둔다.
+       ⛔ 단계 숫자를 바꾸면 ai_speaking_entry_harness 의 PC 절과 manual/ai-speaking-pc-scale-browser.mjs 가 다시 잰다. */
+    @media (min-width:1600px){.wrap{max-width:1280px;padding-top:24px;padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+      .lead{margin:4px 0 14px}.mode{gap:12px}.sheet{margin-top:14px}.set-foot{margin-top:14px}}
+    .wrap,.leave-box{zoom:var(--z,1)}
+    @media (min-width:1760px) and (min-height:965px){:root{--z:1.1}}
+    @media (min-width:1920px) and (min-height:1050px){:root{--z:1.2}}
+    @media (min-width:2080px) and (min-height:1140px){:root{--z:1.3}}
+    @media (min-width:2240px) and (min-height:1225px){:root{--z:1.4}}
+    @media (min-width:2400px) and (min-height:1315px){:root{--z:1.5}}
+    @media (min-width:2560px) and (min-height:1400px){:root{--z:1.6}}
+    @media (min-width:2880px) and (min-height:1575px){:root{--z:1.8}}
+    @media (min-width:3200px) and (min-height:1750px){:root{--z:2}}
+    @media (min-width:3520px) and (min-height:1925px){:root{--z:2.2}}
+    @media (min-width:3840px) and (min-height:2100px){:root{--z:2.4}}
     @media (max-width:640px){.set-row{grid-template-columns:1fr}.ok-btn{width:100%;min-width:0}}
     @media (max-width:420px){.sit-list{grid-template-columns:1fr}header h1{font-size:24px}}
     @media (max-width:640px){#guideDlg{width:100vw;height:100vh;height:100dvh;border-radius:0;border:0}}
