@@ -401,41 +401,42 @@ ok('speak: 큐 모드는 다시 듣기(btn)에는 안 쓴다', /if\(live && !btn
 const am = strip(fnSrc(H, 'addMsg'));
 ok('addMsg: 조용히 모드면 speak 대신 다시 듣기 글만 맞춘다', /if\(_addMsgQuiet\)\{[^}]*_lastAiSpeak=/.test(am) && /else speak\(text\)/.test(am));
 
-console.log('\n[C7] 폰은 첫 인사를 다 말할 때까지 입모양 엔진을 미룬다');
+console.log('\n[C7] 입모양 분석 엔진은 이 화면에서 «켜지 않는다» — 속도 우선(2026-11-05 사장님)');
+// 📜 2026-11-04 판은 «폰만 첫 인사까지 미룸» 이었다. 이제 PC·폰 모두, 끝까지(aiDone 에도 안 푼다). ?visemes=now 만 예외.
 const vHold = /var _visHold = \(function\(\)\{[\s\S]*?\}\)\(\);/.exec(H);
-const vParts = ['_visemeRelease', '_visemeWrap', '_autoHook'].map(n => fnSrc(H, n));
-ok('전제: 붙잡기 코드를 오려 냈다', !!vHold && vParts.every(x => x.length > 20));
+const vParts = ['_visemeWrap', '_autoHook'].map(n => fnSrc(H, n));
+// load 때 «미리 켜기» 줄 — 글자로 못 박지 않고 그 리스너를 오려 내 실제로 돌린다
+const vLoadAt = H.indexOf("window.addEventListener('load', function(){\n  _visemeWrap();");
+const vLoad = vLoadAt >= 0 ? H.slice(vLoadAt, H.indexOf('});', vLoadAt) + 3) : '';
+ok('전제: 붙잡기 코드·load 리스너를 오려 냈다', !!vHold && vParts.every(x => x.length > 20) && vLoad.length > 40);
 function visBox(coarse, search) {
   const V = { boots: 0, preps: 0, boot() { this.boots++; }, prepare() { this.preps++; return Promise.resolve(['cue']); } };
-  const env = { V };
-  const f = new Function('window', 'navigator', 'location', 'matchMedia',
-    vHold[0] + '\n' + vParts.join('\n') + '\nreturn { wrap:_visemeWrap, hook:_autoHook, get hold(){ return _visHold; } };');
-  const win = { AvatarVisemes: V, matchMedia: () => ({ matches: coarse }) };
-  env.api = f(win, {}, { search: search || '' }, win.matchMedia);
+  const env = { V, loads: [], timers: [] };
+  const f = new Function('window', 'navigator', 'location', 'matchMedia', 'setTimeout', 'AvatarVisemes',
+    vHold[0] + '\n' + vParts.join('\n') + '\n' + vLoad + '\nreturn { wrap:_visemeWrap, hook:_autoHook, get hold(){ return _visHold; } };');
+  const win = { AvatarVisemes: V, matchMedia: () => ({ matches: coarse }), addEventListener: (ev, fn) => { if (ev === 'load') env.loads.push(fn); } };
+  env.api = f(win, { connection: { saveData: false, effectiveType: '4g' } }, { search: search || '' }, win.matchMedia, (fn) => env.timers.push(fn), V);
+  env.runLoad = () => { env.loads.forEach((fn) => fn()); env.timers.splice(0).forEach((fn) => fn()); };
   return env;
 }
 if (vHold) {
-  let b = attempt('폰 샌드박스', () => visBox(true));
-  if (b) {
-    b.api.wrap();
+  for (const [label, coarse] of [['폰', true], ['PC', false]]) {
+    const b = attempt(label + ' 샌드박스', () => visBox(coarse));
+    if (!b) continue;
+    b.runLoad();
+    ok(label + ': 화면이 열려도(load) 엔진을 미리 켜지 않는다', b.api.hold === true && b.V.boots === 0);
     b.V.boot(); const pr = await b.V.prepare('blob:x');
-    ok('폰: 첫 인사 전에는 boot·prepare 가 엔진을 안 켠다(prepare 는 null — 소리 크기 입모양)', b.api.hold === true && b.V.boots === 0 && b.V.preps === 0 && pr === null);
-    b.api.hook('reply');
-    ok('폰: 다른 알림으로는 안 푼다', b.api.hold === true && b.V.boots === 0);
-    b.api.hook('aiDone');
-    ok('폰: 첫 인사를 다 말하면(aiDone) 풀고 엔진을 켠다', b.api.hold === false && b.V.boots === 1);
+    ok(label + ': boot·prepare 가 엔진을 안 켠다(prepare 는 곧바로 null — 소리 크기 입모양, 재생이 안 기다림)', b.V.boots === 0 && b.V.preps === 0 && pr === null);
+    b.api.hook('aiDone'); b.api.hook('reply');
     const pr2 = await b.V.prepare('blob:y');
-    ok('폰: 푼 뒤에는 prepare 가 원래대로', b.V.preps === 1 && Array.isArray(pr2));
+    ok(label + ': 첫 인사가 끝나도(aiDone) 풀지 않는다', b.api.hold === true && b.V.boots === 0 && b.V.preps === 0 && pr2 === null);
   }
-  b = attempt('PC 샌드박스', () => visBox(false));
+  const b = attempt('?visemes=now 샌드박스', () => visBox(true, '?visemes=now'));
   if (b) {
-    b.api.wrap(); b.V.boot(); await b.V.prepare('blob:z');
-    ok('(짝) PC: 붙잡지 않는다 — 예전처럼 바로 켠다', b.api.hold === false && b.V.boots === 1 && b.V.preps === 1);
+    b.runLoad(); const pr = await b.V.prepare('blob:z');
+    ok('(짝) ?visemes=now 면 예전처럼 미리 켜고 prepare 도 원래대로(비교·되돌리기용)', b.api.hold === false && b.V.boots === 1 && b.V.preps === 1 && Array.isArray(pr));
   }
-  b = attempt('?visemes=now 샌드박스', () => visBox(true, '?visemes=now'));
-  if (b) ok('?visemes=now 면 폰도 안 붙잡는다', b.api.hold === false);
 }
-ok('안전망: 30초 뒤에는 무조건 푼다', /if\(_visHold\) setTimeout\(_visemeRelease, 30000\)/.test(H));
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);

@@ -3153,27 +3153,17 @@ function _ttsPrefetch(text, spk){
     })
     .catch(function(){ return null; });
 }
-/* ⚡ (2026-10-20) 입모양 분석기(모델 37.8MB, 기기에 한 번 받으면 1년 캐시)를 화면이 열릴 때 미리 켠다 —
-   연령·수준을 고르는 동안 준비돼 첫 인사부터 정확한 입모양이 나오게. 재생은 이것을 기다리지 않는다
-   (mango-avatar.js v20 — 분석은 250ms 까지만 기다림). 이미 켜져 있으면 아무 일도 안 한다. */
-/* 📱 (2026-11-04 「처음 들어가면 특히 폰에서 아바타 말이 늦다」) 폰·느린 회선은 «첫 인사를 다 말할 때까지»
-   입모양 엔진을 켜지 않는다 — 켜는 순간 약 28.7MB(압축) 다운로드와 WASM 엔진 띄우기가 첫 인사의 AI 답·음성 받기와
-   같은 회선·CPU 를 나눠 쓴다. 그동안 입은 소리 크기로 움직이고(예전부터 있던 폴백), 첫 인사가 끝나면(aiDone) 켠다.
-   ⚠️ 공용 파일(js/avatar-visemes.js)은 안 건드리고 이 화면에서만 prepare·boot 를 감싼다 — 다른 화면은 예전 그대로.
-   ⚠️ 안전망: 30초 뒤에는 무조건 켠다(소리를 꺼 두었거나 인사가 안 나온 경우). 끄기: 주소에 ?visemes=now */
+/* 🏎️ 입모양 분석 엔진(Rhubarb) — 이 화면은 «켜지 않는다» (2026-11-05 사장님 「입모양 일치하지 않아도 좋으니
+   최대한 빨리 답변하게 해줘」) / Speed first: this page never boots the lip-sync analyser.
+   [왜] 켜 두면 ① 대답마다 재생 «전» 에 분석을 최대 0.25초 기다리고(mango-avatar.js CUE_WAIT_MS)
+        ② 약 28.7MB(압축) 다운로드와 WASM 분석이 AI 답·음성 받기와 같은 회선·CPU 를 나눠 쓴다(폰에서 특히 큼).
+   그래서 prepare 는 곧바로 null(→ 입은 소리 크기로 움직임 — 예전부터 있던 폴백), boot 는 아무 일도 안 한다.
+   📜 2026-10-20 «화면 열 때 미리 켜기» → 2026-11-04 «폰은 첫 인사까지 미루기» → 이제 PC·폰 모두 «끝까지 끔».
+   ⚠️ 공용 파일(js/avatar-visemes.js·js/mango-avatar.js)은 안 건드린다 — A.i 친구 등 다른 화면은 예전 그대로.
+   🔧 정확한 입모양으로 되돌려 비교: 주소에 ?visemes=now */
 var _visHold = (function(){
-  try{
-    if(/[?&]visemes=now\b/.test(location.search)) return false;
-    var c = navigator.connection;
-    if(c && (c.saveData || /2g|3g/.test(String(c.effectiveType||'')))) return true;
-    return !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
-  }catch(e){ return false; }
+  try{ return !/[?&]visemes=now\b/.test(location.search); }catch(e){ return true; }
 })();
-function _visemeRelease(){
-  if(!_visHold) return;
-  _visHold = false;
-  try{ var V = window.AvatarVisemes; if(V && V.boot) V.boot(); }catch(e){}
-}
 function _visemeWrap(){
   var V = window.AvatarVisemes;
   if(!V || V.__warmHold || typeof V.prepare!=='function' || typeof V.boot!=='function') return;
@@ -3185,8 +3175,7 @@ function _visemeWrap(){
 if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _visemeWrap); else _visemeWrap();
 window.addEventListener('load', function(){
   _visemeWrap();
-  setTimeout(function(){ try{ window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); }catch(e){} }, 1000);   // 붙잡혀 있으면 아무 일도 안 한다
-  if(_visHold) setTimeout(_visemeRelease, 30000);
+  if(!_visHold) setTimeout(function(){ try{ window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); }catch(e){} }, 1000);   // ?visemes=now 일 때만 미리 켠다
 });
 /* 🎙️ 영어 «남자» 목소리(Jake·Noah)는 너무 늘이지 않는다 (2026-10-02 피드백 「제이크랑 노아는 보이스가 어색함」).
    «보통» 이 0.8배라 브라우저가 소리를 늘여 재생하는데, 이 늘이기는 낮은 남자 목소리에서 «뚜벅뚜벅» 끊김이
@@ -3659,6 +3648,10 @@ var MIC_DANGLING=/^(i|a|an|and|or|but|to|the|my|your|his|her|our|their|is|are|am
 function micUnfinished(s){
   var raw=String(s||'').trim();
   var w=raw.split(/\s+/).filter(Boolean);
+  /* ⚡ (2026-11-05 사장님 「내가 답하면 최대한 빨리」) 아이들의 가장 흔한 대답(Yes·No·Okay·Thank you·I'm fine·Me too)은
+     두 낱말 이하라 아래 «3낱말 미만 = 덜 끝남» 에 걸려 5초를 기다렸다. 그 자체로 «끝난» 짧은 대답만 끝난 말로 본다.
+     ⛔ 목록에 없는 짧은 말(I · My dog · Yesterday)은 예전처럼 기다린다. */
+  if(w.length<3 && /^(yes|yeah|yep|yup|no|nope|nah|ok|okay|sure|fine|good|great|cool|nice|awesome|perfect|thanks|thank you|hello|hi|hey|bye|goodbye|bye bye|me too|you too|me neither|not really|not yet|of course|yes please|no thanks|i see|i know|got it|im fine|im good|im okay|im ok|im great|all right|alright|sounds good|why not|thats right|good job|nothing|never|always)$/.test(raw.toLowerCase().replace(/[^a-z\s]/g,'').replace(/\s+/g,' ').trim())) return false;
   if(w.length<3) return true;
   /* 🙋 (2026-11-02 사장님 「얼굴 크게(자동 말하기)에서 내가 질문하면 늦게 답한다」)
      질문은 «you·it·this·like» 로 끝나는 게 정상인데 위 목록이 그것을 «덜 끝남» 으로 봐서 5초를 기다렸다.
@@ -3673,6 +3666,17 @@ function micUnfinished(s){
     if(/^(what|which|who)$/.test(first) && /^(like|likes|love|loves|want|wants|have|has|do|does|did|eat|play|need|mean|means)$/.test(last)) return false;   // What do you like
   }
   return MIC_DANGLING.test(last);
+}
+/* ⚡ (2026-11-05) 한 낱말 대답(«Pizza» · «Blue» · «Ten») — «Do you like pizza or chicken?» 같은 양자택일 질문의 가장 흔한 답인데
+   위 판정으로는 «덜 끝남» 이라 5초를 기다렸다. 그런 한 낱말은 중간 대기(SIL_MID)로 보낸다 / one-word answers wait less.
+   ⛔ 뒤에 말이 붙기 쉬운 첫 낱말(I'm · Yesterday · Um · Well · Maybe)은 예전처럼 기다린다.
+   ⛔ 중국어(띄어쓰기 없음)는 낱말을 못 세므로 여기 안 걸린다(예전 그대로). MIC_DANGLING 말고는 밖의 변수를 쓰지 않는다. */
+function micOneWordReply(s){
+  var w=String(s||'').trim().split(/\s+/).filter(Boolean);
+  if(w.length!==1) return false;
+  var x=w[0].toLowerCase().replace(/[^a-z]/g,'');   // I'm → im · It's → its (MIC_DANGLING 이 그 꼴로 적혀 있다)
+  if(!x || MIC_DANGLING.test(x)) return false;
+  return !/^(um+|uh+|er+|hm+|ah+|oh|well|so|actually|maybe|yesterday|today|tomorrow|tonight|usually|sometimes|often|first|then|after|before|last|next|every|also|just|now|wait|id|ill|ive|youre|theyre|were|hes|shes|thats|theres|whats|wheres|let)$/.test(x);
 }
 function sttSupported(){ return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
 /* 🎤 C — 브라우저 인식이 빈손일 때 서버 Whisper 로 «한 번만» 다시 듣기 위한 표시. */
@@ -3780,9 +3784,7 @@ function _blobHasVoice(blob){
 }
 /* ✨ 자동 말하기(베타, 2026-09-24) — 켜는 «시점» 만 js/warmup-auto-talk.js 가 정한다.
    듣기·말 끝 판단·전송은 이 파일의 기존 코드 그대로다. 모듈이 없거나 죽어도 버튼 모드는 그대로 돈다. */
-function _autoHook(ev, a){ try{
-  if(ev==='aiDone') _visemeRelease();   // 📱 첫 인사를 다 말했다 — 미뤄 둔 입모양 엔진을 이제 켠다(_visemeRelease 는 스스로 try)
-  window.WarmupAutoTalk && WarmupAutoTalk.on(ev, a); }catch(e){} }
+function _autoHook(ev, a){ try{ window.WarmupAutoTalk && WarmupAutoTalk.on(ev, a); }catch(e){} }
 /* 듣던 것을 «보내지 않고» 닫는다 — 자동으로 열려 있는데 AI 가 다시 말을 시작할 때만 쓴다
    (그대로 두면 AI 목소리를 학생 말로 받아 적는다). sendMsg 의 «먼저 보냄» 정리와 같은 방식. */
 function _micAbortQuiet(){
@@ -3824,13 +3826,27 @@ function _startSttSession(){
         「음…」 하고 쉬는 동안 끊겨 보내지는 2026-07-23 사고가 그 둘로 막혀 있다.
      감시는 test-harness/warmup_reply_speed_harness.mjs (판정을 오려 내 실제로 돌림). */
   /* ⚡ (2026-10-02 사장님 「학생이 답하면 빠르게 다시 질문」) SIL_DONE 1.5초 → 1.3초. 1.2초 아래로는 안 내린다(숨 한 번). */
-  var SIL_FIRST=9000, SIL_SHORT=5000, SIL_DONE=1300;
+  /* ⚡ (2026-11-05 사장님 「최대한 빨리」) SIL_DONE 1.3초 → 1.2초(위 「1.2초 아래로는 안 내린다」 하한까지) ·
+     한 낱말 대답은 SIL_MID 2초(micOneWordReply). SIL_SHORT·SIL_FIRST 는 그대로다. */
+  var SIL_FIRST=9000, SIL_SHORT=5000, SIL_MID=2000, SIL_DONE=1200;
   function _micHeard(){ return _tidySpeech(_mergeSpeech(_micBase, _micSess)); }
+  /* ⚡ (2026-11-05) 침묵 시계는 «새 말이 들렸을 때» 부터 잰다 / the silence clock restarts only when new words arrive.
+     [왜] 예전에는 인식 결과가 «올 때마다» 처음부터 다시 셌는데, 인식기는 말이 끝난 뒤에도 같은 문장을 또 보낸다
+          (중간 결과 → 최종 확정 · 잡음에 흔들린 같은 글자 · 안드로이드 재시작). 그때마다 대기가 처음부터 다시 돌아
+          입력칸에 「we played soccer」 가 다 적혔는데도 «듣는 중» 이 길게 남았다(2026-11-05 사장님 화면).
+     ✅ 말 단위(영어 낱말·중국어 글자)가 «늘었을 때만» 시계를 새로 시작한다. 고쳐 적기(같은 수)는 시계를 이어 가되
+        판정(끝남·덜 끝남)은 새 글자로 다시 한다.
+     ⛔ 아직 아무 말도 없을 때(0)는 예전처럼 매번 새로 센다 — 생각할 시간(SIL_FIRST)을 줄이지 않는다. */
+  var _silUnits=0, _silAt=0;
+  function _micUnits(t){ return (String(t||'').replace(/[.,!?;:\u3002\uff0c\uff01\uff1f\u3001\u2026"\u201c\u201d]/g,'').match(/[\u3400-\u9fff]|[^\s\u3400-\u9fff]+/g)||[]).length; }
   function _armSilence(){
     if(_silence) clearTimeout(_silence);
     var t=_micHeard();
-    var ms = _micManual() ? MIC_MANUAL_IDLE : (!t ? SIL_FIRST : (micUnfinished(t) ? SIL_SHORT : SIL_DONE));
-    _silence=setTimeout(function(){ _micBySilence=true; _latSilence={ wait:ms, at:Date.now() }; try{ _recog && _recog.stop(); }catch(e){} }, ms);
+    var ms = _micManual() ? MIC_MANUAL_IDLE : (!t ? SIL_FIRST : (micUnfinished(t) ? (micOneWordReply(t) ? SIL_MID : SIL_SHORT) : SIL_DONE));
+    var n=_micUnits(t), now=Date.now();
+    if(!n || n>_silUnits) _silAt=now;   // 첫 말도 여기 걸린다(_silUnits 가 0 에서 시작)
+    _silUnits=n;
+    _silence=setTimeout(function(){ _micBySilence=true; _latSilence={ wait:ms, at:Date.now() }; try{ _recog && _recog.stop(); }catch(e){} }, Math.max(150, ms-(now-_silAt)));
   }
   /* 🎤 진짜로 말이 끝났을 때만 여기로 온다 → 들은 말을 합쳐서 전송 */
   function _finishMic(){
@@ -3900,7 +3916,7 @@ function _startSttSession(){
     _micSess=full;
     if(full) _autoHook('phase','speak');
     document.getElementById('inp').value=_tidySpeech(_mergeSpeech(_micBase, _micSess));
-    _armSilence();                     // 말할 때마다 종료 타이머 리셋 → 계속 말하면 절대 안 끊김
+    _armSilence();                     // 판정은 매번 새 글자로 · 대기 시계는 «새 말» 이 들렸을 때만 처음부터(위 _armSilence) → 계속 말하면 안 끊김
   };
   /* 오류 — no-speech(아직 말을 못 꺼냄)만 다시 듣기 허용, 나머지는 그대로 종료 */
   _recog.onerror=function(e){
