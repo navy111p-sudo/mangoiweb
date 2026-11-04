@@ -173,6 +173,70 @@ assert.equal(slot[0].label_en,'Attended (old LMS)');assert.equal(slot[0].label_k
 assert.equal(slot[0].attendance_source,'lms');assert.equal(slot[0].lms_room_id,'c24-900');
 assert.equal(slot[0].schedule_id,80,'the card is still the reservation (type · schedule · teacher)');
 assert.equal(slot[0].teacher_source,'schedule');
+assert.equal(slot[0].teacher_name,'Teacher A','reservation teacher = LMS teacher (payroll 184) — they agree');
+assert.equal(slot[0].deduct,false,'display only: the ledger fields stay as the ledger said (unknown → no deduction)');
+assert.equal(slot[0].carry,false);
+// The teacher disagrees (trap-check 2026-11-04: a substitute in the old LMS / a stale mirror reservation) → both stay,
+// or the one card would read «Teacher B attended» while the LMS says Teacher A taught.
+db.exec(`UPDATE class_schedules SET teacher_id='2' WHERE id=80`);
+slot=await slotOf();
+assert.deepEqual(slot.map(i=>i.room_id).sort(),['c24-900','class-80-20261027'],'teacher B reservation + teacher A LMS: two cards');
+assert.equal(slot.find(i=>i.room_id==='class-80-20261027').state,'unknown');
+assert.equal(slot.find(i=>i.room_id==='class-80-20261027').label_en,'Unknown','…the reservation says what the ledger said');
+assert.equal(slot.find(i=>i.room_id==='class-80-20261027').lms_room_id,undefined);
+assert.equal(slot.find(i=>i.room_id==='class-80-20261027').attendance_source,undefined);
+assert.equal(slot.find(i=>i.room_id==='c24-900').teacher_name,'Teacher A','the LMS teacher stays visible');
+assert.equal(slot.find(i=>i.room_id==='c24-900').state,'done');
+// A substitute that makes the shown teacher agree → one card again (judged on the name finally shown).
+db.exec(`INSERT INTO class_substitutions VALUES(80,'2026-10-27','1','2','active')`);
+slot=await slotOf();
+assert.deepEqual(slot.map(i=>i.room_id),['class-80-20261027'],'substitute = LMS teacher: one card');
+assert.equal(slot[0].teacher_name,'Teacher A');assert.equal(slot[0].lms_room_id,'c24-900');
+db.exec(`DELETE FROM class_substitutions WHERE schedule_id=80; UPDATE class_schedules SET teacher_id='1' WHERE id=80`);
+// …and one that makes it disagree after the merge → split back (the teacher is only final after substitutes).
+db.exec(`INSERT INTO class_substitutions VALUES(80,'2026-10-27','2','1','active')`);
+slot=await slotOf();
+assert.deepEqual(slot.map(i=>i.room_id).sort(),['c24-900','class-80-20261027'],'substitute ≠ LMS teacher: two cards');
+assert.equal(slot.find(i=>i.room_id==='class-80-20261027').teacher_name,'Teacher B');
+assert.equal(slot.find(i=>i.room_id==='class-80-20261027').state,'unknown');
+assert.equal(slot.filter(i=>i.room_id==='c24-900').length,1,'the LMS lesson comes back once');
+db.exec(`DELETE FROM class_substitutions WHERE schedule_id=80`);
+// Same teacher, different spelling («KAYE» vs «TEACHER KAYE» on the 2026-11-04 screenshot) → still one card.
+db.exec(`UPDATE teachers SET name='TEACHER Teacher A' WHERE id=1`);
+const spelled=await lms();assert.equal(spelled.status,200);
+slot=spelled.data.items.filter(i=>i.date==='2026-10-27');
+assert.deepEqual(slot.map(i=>i.room_id),['class-80-20261027'],'role prefix spelling difference is the same teacher');
+db.exec(`UPDATE teachers SET name='Teacher A' WHERE id=1`);
+// Two unknown reservations at one slot: the LMS attendance goes to the one whose teacher agrees — even when the
+// disagreeing one (80 → Teacher B, a stale mirror row) comes first.
+db.exec(`UPDATE class_schedules SET teacher_id='2' WHERE id=80;
+INSERT INTO class_schedules(id,user_id,teacher_id,status,scheduled_date,start_time,duration_min,source,created_at) VALUES
+(79,'mangoai_lms','1','active','2026-10-27','13:00',20,'c24-mirror',1);`);
+slot=await slotOf();
+assert.equal(slot.find(i=>i.room_id==='class-79-20261027')?.lms_room_id,'c24-900','merged into the agreeing reservation');
+assert.equal(slot.find(i=>i.room_id==='class-80-20261027')?.state,'unknown');
+assert.ok(!slot.some(i=>i.room_id==='c24-900'),'…so the LMS lesson is not shown a second time');
+db.exec(`DELETE FROM class_schedules WHERE id=79; UPDATE class_schedules SET teacher_id='1' WHERE id=80`);
+// A report with no room on that day attaches to the (single) merged card.
+db.exec(`INSERT INTO student_evaluations VALUES(33,'mangoai_lms',NULL,NULL,'2026-10-27','Teacher A','teacher_a',1793075000000,'Roomless report',NULL,NULL,NULL)`);
+slot=await slotOf();
+assert.deepEqual(slot.map(i=>i.room_id),['class-80-20261027']);assert.equal(slot[0].feedback?.note_en,'Roomless report','one card that day → a room-less report attaches');
+db.exec(`DELETE FROM student_evaluations WHERE id=33`);
+// Reports in both rooms: the reservation's own room wins; the LMS-room one adds no row.
+db.exec(`INSERT INTO student_evaluations VALUES
+(34,'mangoai_lms',NULL,'class-80-20261027','2026-10-27','Teacher A','teacher_a',1793075000000,'Reservation room report',NULL,NULL,NULL),
+(35,'mangoai_lms',NULL,'c24-900','2026-10-27','Teacher A','teacher_a',1793076000000,'LMS room report',NULL,NULL,NULL);`);
+slot=await slotOf();
+assert.deepEqual(slot.map(i=>i.room_id),['class-80-20261027']);
+assert.equal(slot[0].feedback?.note_en,'Reservation room report','own room first');
+db.exec(`DELETE FROM student_evaluations WHERE id IN (34,35)`);
+// A report-backed merged card keeps one card even if the shown teacher would disagree (the report is the strongest record).
+db.exec(`UPDATE class_schedules SET teacher_id='2' WHERE id=80;
+INSERT INTO student_evaluations VALUES(36,'mangoai_lms',NULL,'class-80-20261027','2026-10-27','Teacher B','teacher_b',1793075000000,'B wrote it',NULL,NULL,NULL);`);
+slot=await slotOf();
+assert.deepEqual(slot.map(i=>i.room_id),['class-80-20261027'],'feedback teacher is the teacher of record (same precedence as the list view)');
+assert.equal(slot[0].feedback?.note_en,'B wrote it');assert.equal(slot[0].teacher_source,'feedback');
+db.exec(`DELETE FROM student_evaluations WHERE id=36; UPDATE class_schedules SET teacher_id='1' WHERE id=80`);
 // A report written in the old-LMS room belongs to the merged card — newest revision once, never an extra «not recorded» row.
 db.exec(`INSERT INTO student_evaluations VALUES
 (31,'mangoai_lms',NULL,'c24-900','2026-10-27','Teacher A','teacher_a',1793075000000,'Merged slot feedback (old)',NULL,NULL,NULL),
