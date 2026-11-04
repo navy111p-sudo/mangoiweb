@@ -250,7 +250,7 @@ function sandbox() {
       appendChild:function(c){ e.children.push(c); }, querySelector:function(){ return { set innerHTML(v){ e.text=v; } }; } }; return e; }
     var document={ createElement:function(){ return mkEl(); } };
     var log=mkEl(); log.scrollTop=0; log.scrollHeight=0;
-    function escapeHtml(s){ return String(s); } function renderMsg(s){ return String(s); }
+    function escapeHtml(s){ return String(s); } function renderAiMsg(s){ return String(s); }
     function _speechText(s){ return String(s).trim(); }
     function _friendLabelNow(){ return 'Emma'; }
     function _enMaleGapMs(){ return 0; }
