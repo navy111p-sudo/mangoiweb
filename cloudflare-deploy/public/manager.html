@@ -2716,10 +2716,12 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     return key;
   }
   /* 🎚️ A.i 말하기 교정 방식 (2026-10-31) — 서버 /api/admin/ai-billing/correction-mode(정본 src/warmup-shop-mode-api.ts).
-     ⛔ 화면이 «바꿀 수 있는가» 를 판정하지 않는다 — 서버가 줄마다 editable 을 준다(대리점=자기 학원·본사=전부·지사=보기만). */
+     ⛔ 화면이 «바꿀 수 있는가» 를 판정하지 않는다 — 서버가 줄마다 editable 을 준다(대리점=자기 학원·본사=전부·지사=보기만).
+     ⚖️ 균형 설명(2026-11-04)은 입구(ai-speaking.html)·웜업 카드(warmup.html)와 같은 말 — 서버: 큰 실수 매번·작은 실수 연달아 안·
+        따라 말하기 3턴에 한 번까지(src/warmup-correction.ts). warmup_honest_mode_harness ⑨ 가 세 화면을 대조. */
   var CMODES = [
     { k: 'free_talk', en: 'Free talk', ko: '자유대화', den: 'Keeps the chat flowing; mistakes appear only as a correction card — no spoken correction, no repeat-after-me.', dko: '대화 흐름 우선 — 틀린 곳은 교정 카드로만 보여 주고, 고친 문장을 말로 하거나 따라 말하라고 시키지 않아요.' },
-    { k: 'balanced', en: 'Balanced', ko: '균형', den: 'Corrects important mistakes; small ones now and then.', dko: '중요한 실수는 바로, 작은 실수는 가끔 고쳐 줘요.' },
+    { k: 'balanced', en: 'Balanced', ko: '균형', den: 'Mostly key mistakes; repeat-after-me sometimes.', dko: '중요한 실수 위주로 고치고 가끔 따라 말해요.' },
     { k: 'focused', en: 'Focused correction', ko: '집중교정', den: 'Corrects every mistake it finds and asks the student to say it again.', dko: '찾은 실수마다 고쳐 주고 바른 문장을 따라 말하게 해요.' }
   ];
   function cmodeName(k){ for (var i = 0; i < CMODES.length; i++) { if (CMODES[i].k === k) return T(CMODES[i].en, CMODES[i].ko); } return ''; }
@@ -3958,7 +3960,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
               (j.date || '') + ' · 전체 ' + rows.length + '건'
                 + (c.cafe24 ? ' · 카페24 ' + c.cafe24 + '건' : '')
                 + (c.joinable ? ' · 입장가능 ' + c.joinable + '건' : '')
-                + (nCx ? ' · 취소 ' + nCx + '건' : '') + (nPp ? ' · 연기 ' + nPp + '건' : '') + (nMv ? ' · 다른 날로 연기 ' + nMv + '건' : '')))
+                + (nCx ? ' · 취소 ' + nCx + '건' : '') + (nPp ? ' · 연기 ' + nPp + '건' : '') + (nMv ? ' · 다른 날로 옮김 ' + nMv + '건' : '')))
       + '<a href="#" class="ta-mode" onclick="return taToggleDetail()">' + esc(simple ? T('Show details', '자세히 보기') : T('Simple view', '간단히 보기')) + '</a></div>';
     hqRows('todayAllBody', rows, function(r){
       var t = esc(MangoiClassDisplay.range(r));
@@ -4052,7 +4054,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       /* ⏸ (2026-11-04 매니저 Mai) 다른 날로 연기·변경한 수업 — «원래 날짜» 에 남긴 줄(서버 moved_away). 이 날 이 방에는 수업이 없다.
          입장·관찰·옮기기 칩은 주지 않는다(서버도 join_open·can_move=false). 글자는 서버가 만든 것(change.label_*). */
       if (r.moved_away) act = '<span class="tag hot ta-st">' + esc(T(((r.change && r.change.label_en) || '⏸ Moved to another day') + ' — no class this day',
-                                                                  ((r.change && r.change.label_ko) || '⏸ 다른 날로 연기됨') + ' — 이 날은 수업 없음')) + '</span>';
+                                                                  ((r.change && r.change.label_ko) || '⏸ 다른 날로 옮김') + ' — 이 날은 수업 없음')) + '</span>';
       if (r.cancelled || r.moved_away) {
         resch = '';
       } else if (r.source === 'cafe24' && !r.schedule_id) {

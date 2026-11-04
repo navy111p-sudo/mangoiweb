@@ -27,7 +27,11 @@
        (교재 연습·상황별 말하기·AI 친구 두 화면 키 함께).
        수준·교정이 비었거나 «화면마다 다름» 이면 버튼이 잠기고 무엇을 고를지 말한다. 저장 정본 js/ai-speaking-settings.js 는 그대로.
        🌐 같은 날 5차(사장님 「언어는 바로 저장되게 되돌려줘」) — 언어만 예전처럼 누르는 즉시 저장한다(확인과 무관).
-       📖 2026-11-04 6차(사장님 「적당한 곳에 누르면 보이게」) — «오늘은 …» 줄 오른쪽 «사용 안내» 버튼이
+       🚪 같은 날 6차(사장님 「확인 안 누르고 나가면 물어보게 해줘」) — 수준·교정을 바꿔 놓고 «확인» 없이 나가면 묻는다.
+       화면 안 링크(홈·교재 연습·AI 친구·상황 카드)는 아래 #leaveAsk 창(적용하고 이동 · 적용 안 하고 이동 · 머무르기),
+       뒤로가기·새로고침·탭 닫기는 브라우저 기본 확인창(beforeunload — 문구는 브라우저가 정한다. 아이폰 사파리는 이 창을 안 띄우는 것으로 알려져 있다 · 이 저장소에서 못 잼).
+       사람이 이 화면에서 «만진» 칸만 묻는다(다른 탭이 바꾼 값을 «안 적용» 으로 보지 않는다).
+       📖 2026-11-04 7차(사장님 「적당한 곳에 누르면 보이게」) — «오늘은 …» 줄 오른쪽 «사용 안내» 버튼이
        사용 안내서(/ai-speaking-guide.html · 한 장 판, 초등 눈높이 · KO/EN · 인쇄·PDF·Word)를 이 화면 위 창(dialog)에 연다.
        화면 언어(ui)를 ?lang= 으로 넘기고, 창을 열 때만 iframe 을 불러온다(첫 화면 비용 0). 창을 못 여는 옛 브라우저는 같은 탭으로 간다.
        ⛔ 이 변경은 설정 읽기·쓰기·상황 목록 코드를 건드리지 않는다. -->
@@ -121,6 +125,22 @@
     .ok-btn[data-state="saved"]{background:transparent;color:var(--lime)}
     .ok-btn[data-state="fail"]{background:transparent;border-color:var(--orange);color:var(--orange)}
     .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+    /* 🚪 확인 안 누르고 나갈 때 묻는 창 — 이 화면엔 다른 떠 있는 창이 없어 z-index 50 이면 맨 위다(.wrap 은 1) */
+    .leave{position:fixed;top:0;right:0;bottom:0;left:0;z-index:50;display:flex;align-items:center;justify-content:center;
+      padding:18px;background:rgba(5,8,22,.8)}
+    .leave-box{width:100%;max-width:420px;max-height:calc(100vh - 36px);max-height:calc(100dvh - 36px);overflow-y:auto;padding:22px;border-radius:26px;
+      background:var(--card);border:1px solid var(--ring);box-shadow:0 18px 50px rgba(0,0,0,.55)}
+    .leave-box h2{margin:0 0 8px;font-size:19px;font-weight:900;line-height:1.35}
+    .leave-box p{margin:0 0 8px;color:var(--soft);font-size:15px}
+    .leave-box .leave-pick{color:var(--lime);font-weight:800}
+    .leave-acts{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+    .leave-acts .ok-btn{width:100%;min-width:0}
+    .leave-btn{min-height:48px;padding:6px 18px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--ink);
+      font:inherit;font-size:15px;font-weight:800;cursor:pointer}
+    .leave-btn.stay{border-color:transparent;color:var(--sub)}
+    /* 낮은 화면(가로 폰) — 창이 한 화면에 들어오게 조인다 */
+    @media (max-height:420px){.leave-box{padding:14px 18px}.leave-box h2{font-size:17px;margin-bottom:4px}.leave-box p{font-size:14px;margin-bottom:4px}
+      .leave-acts{gap:6px;margin-top:8px}.leave-acts .ok-btn,.leave-btn{min-height:44px}}
     /* 💻 PC — 행성 카드 3장 가로 */
     @media (min-width:900px){
       .wrap{padding-top:32px}
@@ -208,12 +228,27 @@
     <p id="setMsg" class="sr" role="status" aria-live="polite"></p>
   </section>
 </div>
-<!-- 📖 사용 안내 창 — iframe 주소는 열 때 openGuide 가 넣는다(그 전에는 아무것도 안 불러옴) -->
+<!-- 📖 사용 안내 창(7차) — iframe 주소와 글자(제목·닫기)는 열 때 openGuide 가 T() 로 쓴다(번역 속성을 달지 않는다: i18n 루프가 본문을 갈아끼움).
+     #leaveAsk «앞» 에 둔다 — 그 창 검사(ai_speaking_entry_harness G절)가 #leaveAsk 부터 페이지 끝까지를 «그 창» 으로 읽는다. -->
 <dialog id="guideDlg" aria-labelledby="guideDlgTitle">
-  <div class="gd-head"><h2 id="guideDlgTitle" data-ko="AI 말하기 사용 안내" data-en="AI Speaking guide">AI 말하기 사용 안내</h2>
+  <div class="gd-head"><h2 id="guideDlgTitle">AI 말하기 사용 안내</h2>
     <button type="button" class="gd-x" id="guideClose" aria-label="닫기"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <iframe id="guideFrame" title="AI 말하기 사용 안내"></iframe>
 </dialog>
+<!-- 🚪 확인 안 누르고 나갈 때 묻는 창(6차). .wrap «밖» 에 둔다 — 열리면 .wrap 을 inert 로 막기 때문.
+     글자는 스크립트가 T() 로 쓴다(data-ko/en 을 달지 않는다: i18n 루프가 본문을 갈아끼움). -->
+<div class="leave" id="leaveAsk" hidden>
+  <div class="leave-box" role="dialog" aria-modal="true" aria-labelledby="leaveTitle" aria-describedby="leaveBody">
+    <h2 id="leaveTitle"></h2>
+    <p id="leaveBody"></p>
+    <p class="leave-pick" id="leavePick"></p>
+    <div class="leave-acts">
+      <button type="button" class="ok-btn" id="leaveGo"></button>
+      <button type="button" class="leave-btn" id="leaveSkip"></button>
+      <button type="button" class="leave-btn stay" id="leaveStay"></button>
+    </div>
+  </div>
+</div>
 <script src="/js/ai-situations.js?v=1"></script>
 <script src="/js/ai-speaking-settings.js?v=1"></script>
 <script>
@@ -221,7 +256,7 @@
   'use strict';
   // 저장소가 막힌 기기(접근만 해도 던짐)에서도 화면은 떠야 한다 → 없는 저장소로 대신한다.
   var LS = (function(){ try { var s = window.localStorage; s.getItem('x'); return s; } catch(e) {
-    return { getItem:function(){return null;}, setItem:function(){ throw new Error('storage unavailable'); } }; } })();
+    return { dead:true, getItem:function(){return null;}, setItem:function(){ throw new Error('storage unavailable'); } }; } })();
   var SET = window.AiSpeakSettings, SIT = window.MangoiSituations;
   // 🌐 언어 칸 = 화면 글자 한/영(사이트 공용 키 mangoi_lang). 대화는 영어입니다.
   var ui = SET ? SET.read(LS).lang : 'ko';
@@ -248,6 +283,8 @@
   // ✅ 고른 값(draft) — 버튼을 눌러도 여기만 바뀐다. 저장은 confirmSettings 한 곳(«확인»).
   function readDraft(){ var c = SET ? SET.read(LS) : { level: 0, corr: '' }; return { level: c.level, corr: c.corr }; }
   var draft = readDraft();
+  // 이 화면에서 사람이 만진 칸 — 안 만진 칸은 저장소를 따른다(다른 탭·화면이 그 사이 바꿨을 수 있다. 6차 함정 대조)
+  var touched = { level: false, corr: false };
   var okState = '';   // '' 아직 · 'saved' 저장됨 · 'fail' 저장 못 함 — 무엇이든 다시 고르면 ''
   function renderSettings(){
     if(!SET){ renderOk(); return; }
@@ -288,18 +325,82 @@
       : T('확인', 'Confirm');
   }
   function status(s){ var m = document.getElementById('setMsg'); if(m) m.textContent = s; }
-  function pick(k, v){ draft[k] = v; okState = ''; status(''); renderSettings(); }
+  function pick(k, v){ draft[k] = v; touched[k] = true; okState = ''; status(''); renderSettings(); syncLeaveGuard(); }
+  // 안 만진 칸을 저장소 값으로 — 그래야 «확인»·«적용하고 이동» 이 다른 탭이 새로 정한 값을 옛 값으로 덮지 않는다
+  function syncUntouched(){ if(!SET) return; var c = SET.read(LS); if(!touched.level) draft.level = c.level; if(!touched.corr) draft.corr = c.corr; }
   // 확인 — 수준·교정을 두 화면 키에 함께 쓴다. 언어는 누를 때 이미 저장했으므로 여기서 쓰지 않는다
   // (확인 때 다시 쓰면 계정 자동판정 언어가 «사람이 고름» 으로 굳는다 — mangoi_lang_by).
   function confirmSettings(){
-    if(!SET || draftMissing()) return false;
+    if(!SET) return false;
+    syncUntouched();
+    if(draftMissing()) return false;
     var a = SET.chooseLevel(LS, draft.level), c = SET.chooseCorr(LS, draft.corr);
     var ok = !!(a && c);
     okState = ok ? 'saved' : 'fail';
-    renderSettings();
+    if(ok) touched = { level: false, corr: false };
+    renderSettings(); syncLeaveGuard();
     status(ok ? T('저장했어요. 교재 연습·상황별 말하기·AI 친구에 함께 적용돼요.', 'Saved. Applies to all three practices.')
               : T('이 기기에서는 저장이 안 돼요. 각 연습 화면에서 골라 주세요.', 'Could not save on this device. Please choose in each practice screen.'));
     return ok;
+  }
+  // 🚪 6차 — 확인 안 누르고 나가면 묻는다. «안 적용» = 화면에 고른 수준·교정(draft)이 저장된 값과 다름(되돌려 같아지면 안 묻는다).
+  //    사람이 «만진» 칸만 본다 — 안 만진 칸이 저장소와 다른 것은 다른 탭이 바꾼 것이지 이 화면이 바꾼 것이 아니다.
+  //    ⛔ 저장이 안 되는 기기(저장소 없음 · «⚠️ 저장이 안 돼요» 상태)는 묻지 않는다 — 다시 물어도 저장할 수 없다.
+  //    ⛔ renderSettings·renderOk 안에서 부르지 않는다: 하니스가 그 둘만 오려 «저장소를 안 읽는다» 를 확인한다.
+  var leaving = false, guardOn = false, leaveHref = '', leaveFrom = null;
+  function unapplied(){
+    if(!SET || LS.dead || okState === 'fail') return false;
+    var s = SET.read(LS);
+    return (touched.level && draft.level !== s.level) || (touched.corr && draft.corr !== s.corr);
+  }
+  // 뒤로가기·새로고침·탭 닫기 — 브라우저 기본 창. 바꾼 것이 있을 때만 건다(MDN 권고: 늘 걸어 두면 «뒤로가기 보관»(bfcache)을 막는 브라우저가 있다 — 이 저장소에서 재지는 않음).
+  function onBeforeUnload(e){ if(leaving || !unapplied()) return; e.preventDefault(); e.returnValue = 'unapplied'; return 'unapplied'; }
+  function syncLeaveGuard(){
+    var need = unapplied(); if(need === guardOn) return;
+    guardOn = need;
+    window[need ? 'addEventListener' : 'removeEventListener']('beforeunload', onBeforeUnload);
+  }
+  function corrName(id){ return id === 'free_talk' ? T('자유', 'Free') : id === 'balanced' ? T('균형', 'Balanced') : id === 'focused' ? T('집중', 'Focused') : ''; }
+  function setText(id, s){ var e = document.getElementById(id); if(e) e.textContent = s; return e; }
+  function hideLeave(){
+    var box = document.getElementById('leaveAsk'); if(box) box.hidden = true;
+    var w = document.querySelector('.wrap'); if(w) w.removeAttribute('inert');
+  }
+  function focusEl(el){ if(el) try { el.focus(); if(el.scrollIntoView) el.scrollIntoView({ block:'center' }); } catch(_) {} }
+  function closeLeave(){ var f = leaveFrom; leaveFrom = null; hideLeave(); if(f) try { f.focus(); } catch(_) {} }
+  function openLeave(href, from){
+    var box = document.getElementById('leaveAsk'); if(!box) return false;
+    leaveHref = href; leaveFrom = from || null;
+    syncUntouched();
+    var miss = draftMissing();   // 'level'·'corr' — 바꾼 것이 있는데 나머지를 안 골라 «확인» 이 잠긴 경우
+    setText('leaveTitle', T('설정을 아직 적용하지 않았어요', 'Your settings are not applied yet'));
+    setText('leaveBody', miss === 'level' ? T('수준을 골라야 «확인»할 수 있어요. 이대로 나가면 바꾼 교정 정도가 적용되지 않아요.', 'Choose a level to confirm. If you leave now, your new corrections will not apply.')
+      : miss === 'corr' ? T('교정 정도를 골라야 «확인»할 수 있어요. 이대로 나가면 바꾼 수준이 적용되지 않아요.', 'Choose corrections to confirm. If you leave now, your new level will not apply.')
+      : T('바꾼 수준·교정 정도는 «확인»을 눌러야 교재 연습·상황별 말하기·AI 친구에 적용돼요.', 'Your new level and corrections apply to all three practices only after you confirm.'));
+    var parts = [];
+    if(typeof draft.level === 'number' && draft.level >= 1) parts.push(T('수준 ' + draft.level + '단계', 'Level ' + draft.level));
+    if(corrName(draft.corr)) parts.push(T('교정 ', 'Corrections: ') + corrName(draft.corr));
+    var pk = setText('leavePick', parts.length ? T('고른 설정: ', 'Your picks: ') + parts.join(' · ') : '');
+    if(pk) pk.hidden = !parts.length;
+    setText('leaveGo', miss ? T('고르러 가기', 'Choose now') : T('적용하고 이동', 'Apply and go'));
+    setText('leaveSkip', T('적용 안 하고 이동', 'Go without applying'));
+    var st = setText('leaveStay', T('머무르기', 'Stay here'));
+    if(st) st.hidden = !!miss;   // 잠긴 경우엔 «고르러 가기» 가 곧 머무르기
+    box.hidden = false;
+    var w = document.querySelector('.wrap'); if(w) w.setAttribute('inert', '');
+    // 창 안을 맨 위로 두고 «스크롤 없이» 포커스 — scrollIntoView 를 쓰면 낮은 화면에서 제목이 위로 잘린다(568×320 실측)
+    var lb = box.querySelector ? box.querySelector('.leave-box') : null; if(lb) lb.scrollTop = 0;
+    var g = document.getElementById('leaveGo'); if(g) try { g.focus({ preventScroll: true }); } catch(_) {}
+    return true;
+  }
+  // 브라우저는 이동을 «시작할 때» beforeunload 를 쏜다 — 그 뒤 이동이 멈추거나 실패해 이 화면에 남으면 다시 묻도록 표시를 되돌린다.
+  function goTo(href){ leaving = true; hideLeave(); window.location.href = href; try { window.setTimeout(function(){ leaving = false; }, 3000); } catch(_) {} }
+  function leaveGo(){
+    var miss = draftMissing();
+    if(miss){ leaveFrom = null; hideLeave(); focusEl(miss === 'level' ? document.getElementById('setLevel') : document.querySelectorAll('[data-corr]')[0]); return; }
+    if(confirmSettings()){ goTo(leaveHref); return; }
+    // 저장 못 함 — 머물러서 버튼의 «⚠️ 이 기기에선 저장이 안 돼요» 를 보인다. 다음에 누르면 묻지 않고 간다(okState 'fail').
+    leaveFrom = null; hideLeave(); focusEl(document.getElementById('setOk'));
   }
   function wire(){
     var sitCard = document.getElementById('situation-mode'), panel = document.getElementById('situations');
@@ -316,7 +417,7 @@
       var l = b.getAttribute('data-lang'); if(l === ui) return;
       var ok = SET ? SET.chooseLang(LS, l) : false;
       ui = l; if(!ok) okState = 'fail';
-      applyUi(); renderSituations(); renderSettings();
+      applyUi(); renderSituations(); renderSettings(); syncLeaveGuard();
       status(ok ? '' : T('이 기기에서는 언어 저장이 안 돼요. 다른 화면에서는 예전 언어로 보여요.', 'Could not save the language on this device. Other screens keep the old language.'));
     }); });
     document.querySelectorAll('[data-corr]').forEach(function(b){ b.addEventListener('click', function(){
@@ -326,6 +427,46 @@
     if(lv) lv.addEventListener('change', function(){ if(!lv.value) return; pick('level', Number(lv.value)); });
     var okBtn = document.getElementById('setOk');
     if(okBtn) okBtn.addEventListener('click', function(){ confirmSettings(); });
+    // 🚪 화면 안 링크로 나갈 때 — 위임(상황 카드는 나중에 그려진다). 새 탭·같은 화면 안(#)·이미 막힌 클릭은 건드리지 않는다.
+    document.addEventListener('click', function(e){
+      if(e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      var a = e.target && e.target.closest ? e.target.closest('a[href]') : null; if(!a) return;
+      var href = a.getAttribute('href') || '';
+      if(!href || href.charAt(0) === '#' || a.getAttribute('target') || a.hasAttribute('download')) return;
+      if(!unapplied() || !document.getElementById('leaveAsk')) return;
+      e.preventDefault();
+      openLeave(a.href || href, a);
+    });
+    var goBtn = document.getElementById('leaveGo'), skipBtn = document.getElementById('leaveSkip'), stayBtn = document.getElementById('leaveStay');
+    var box = document.getElementById('leaveAsk');
+    if(goBtn) goBtn.addEventListener('click', leaveGo);
+    if(skipBtn) skipBtn.addEventListener('click', function(){ goTo(leaveHref); });
+    if(stayBtn) stayBtn.addEventListener('click', closeLeave);
+    if(box){
+      box.addEventListener('click', function(e){ if(e.target === box) closeLeave(); });   // 어두운 바깥 = 머무르기
+      // 문서에 건다 — 창 안 글자를 누르면 포커스가 body 로 빠져 창에 건 keydown 은 안 온다(함정 대조 실측)
+      document.addEventListener('keydown', function(e){
+        if(box.hidden) return;
+        if(e.key === 'Escape'){ e.preventDefault(); closeLeave(); return; }
+        if(e.key !== 'Tab') return;   // 창 안에서만 돈다 — inert 만으로는 마지막 버튼 다음에 창 밖(주소창)으로 빠진다
+        var bs = [goBtn, skipBtn, stayBtn].filter(function(b){ return b && !b.hidden; }), last = bs.length - 1, i = bs.indexOf(document.activeElement);
+        if(i < 0 || (e.shiftKey && i === 0) || (!e.shiftKey && i === last)){ e.preventDefault(); bs[e.shiftKey ? last : 0].focus(); }
+      });
+    }
+    // 뒤로가기로 «보관된 화면» 이 돌아오면 — 그 사이 다른 화면이 설정을 바꿨을 수 있으니 저장된 값으로 다시 그린다.
+    window.addEventListener('pageshow', function(e){
+      if(!e.persisted) return;
+      leaving = false; leaveFrom = null; hideLeave();
+      if(SET) ui = SET.read(LS).lang;
+      draft = readDraft(); touched = { level: false, corr: false }; okState = ''; status('');
+      applyUi(); renderSituations(); renderSettings(); syncLeaveGuard();
+    });
+    // 다른 탭이 설정을 바꾸면 — 안 만진 칸은 그 값으로 다시 그리고, «✅ 적용됐어요» 는 더 이상 사실이 아닐 수 있으니 거둔다
+    window.addEventListener('storage', function(){
+      if(!SET) return;
+      syncUntouched(); if(okState === 'saved') okState = '';
+      renderSettings(); syncLeaveGuard();
+    });
   }
   // 📖 사용 안내 — 안내서를 창 안에 연다. 화면 언어(ui)를 ?lang= 으로 넘긴다(안내서가 그 언어로 뜬다).
   //    창(dialog)을 못 여는 옛 브라우저는 같은 탭으로 간다 — 안내서 위쪽에 «AI 말하기» 로 돌아오는 링크가 있다.
@@ -335,7 +476,9 @@
     var dlg = document.getElementById('guideDlg'), fr = document.getElementById('guideFrame'), href = guideHref();
     if(!dlg || !fr || typeof dlg.showModal !== 'function'){ location.href = href; return; }
     if(fr.getAttribute('src') !== href) fr.setAttribute('src', href);
-    fr.setAttribute('title', T('AI 말하기 사용 안내', 'AI Speaking guide'));
+    var title = T('AI 말하기 사용 안내', 'AI Speaking guide');
+    fr.setAttribute('title', title);
+    var h = document.getElementById('guideDlgTitle'); if(h) h.textContent = title;
     var x = document.getElementById('guideClose'); if(x) x.setAttribute('aria-label', T('닫기', 'Close'));
     if(dlg.open) return;
     try { dlg.showModal(); } catch(_) { location.href = href; }

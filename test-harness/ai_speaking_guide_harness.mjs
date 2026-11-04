@@ -67,6 +67,13 @@ ok(/^<button\b/.test(tagOf('guideBtn')), '사용 안내 버튼이 있다(<button
 ok(!/data-ko|data-en/.test(tagOf('guideBtn')), '버튼 자체에는 data-ko/en 이 없다(있으면 i18n 루프가 아이콘을 지움)');
 ok(/<span data-ko="사용 안내" data-en="How to use">/.test(hub), '버튼 글자는 안쪽 span 에 KO/EN');
 ok(/^<dialog\b/.test(tagOf('guideDlg')) && /^<button\b/.test(tagOf('guideClose')), '창(dialog)과 닫기 버튼이 있다');
+{ // 창 안 글자에는 data-ko/en 이 없다(i18n 루프가 갈아끼움) · 나가기 확인 창(#leaveAsk)보다 앞(그 창 검사가 거기서 페이지 끝까지를 읽음)
+  const gi = hub.indexOf('<dialog id="guideDlg"'), ge = hub.indexOf('</dialog>', gi);
+  ok(gi > 0 && !/data-ko|data-en/.test(hub.slice(gi, ge)), '사용 안내 창 안에는 data-ko/en 이 없다');
+  const li = hub.indexOf('id="leaveAsk"');
+  ok(li < 0 || gi < li, '사용 안내 창은 나가기 확인 창보다 앞에 있다');
+  ok((hub.match(/<\/body>/g) || []).length === 1, '</body> 글자는 한 번뿐(주석에 쓰면 그 창 검사가 거기서 잘림)');
+}
 ok(/^<iframe\b/.test(tagOf('guideFrame')) && !/\bsrc=/.test(tagOf('guideFrame')), 'iframe 은 처음에 src 가 없다(열 때만 불러옴 — 첫 화면 비용 0)');
 const lead = hub.slice(hub.indexOf('<p class="lead">'), hub.indexOf('</p>', hub.indexOf('<p class="lead">')));
 ok(lead.includes('id="guideBtn"'), '버튼은 «오늘은 …» 줄 안에 있다');
@@ -92,7 +99,7 @@ function fakePage({ showModal = true, throws = false } = {}) {
   const dlg = el('guideDlg'); dlg.open = false; dlg.shown = 0;
   if (showModal) dlg.showModal = function () { if (throws) throw new Error('x'); this.open = true; this.shown++; };
   dlg.close = function () { this.open = false; (this.listeners.close || []).forEach((f) => f()); };
-  const nodes = { guideDlg: dlg, guideFrame: el('guideFrame'), guideClose: el('guideClose'), guideBtn: el('guideBtn') };
+  const nodes = { guideDlg: dlg, guideFrame: el('guideFrame'), guideClose: el('guideClose'), guideBtn: el('guideBtn'), guideDlgTitle: el('guideDlgTitle') };
   const doc = { getElementById: (id) => nodes[id] || null };
   const loc = { href: '/ai-speaking.html' };
   return { nodes, doc, loc, ev };
@@ -104,6 +111,7 @@ function fakePage({ showModal = true, throws = false } = {}) {
   ok(P.nodes.guideFrame.getAttribute('src') === '/ai-speaking-guide.html?lang=en', 'iframe 에 화면 언어(en) 안내서를 넣는다');
   ok(P.loc.href === '/ai-speaking.html', '창이 열리면 같은 탭으로 이동하지 않는다');
   ok(P.nodes.guideClose.getAttribute('aria-label') === 'Close', '닫기 버튼 이름도 화면 언어로');
+  ok(P.nodes.guideDlgTitle.textContent === 'AI Speaking guide', '창 제목도 화면 언어로(글자는 스크립트가 씀)');
   G.openGuide();
   ok(P.nodes.guideDlg.shown === 1, '이미 열린 창을 또 열지 않는다');
 }

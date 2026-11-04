@@ -222,15 +222,23 @@ export async function loadMovedAwayEvents(db: any, fromDate: string, toDate: str
     if (!old || (Number(e.at) || 0) > (Number(old.at) || 0) || ((Number(e.at) || 0) === (Number(old.at) || 0) && !old.by && e.by)) byKey.set(k, e);
   };
   const str = (v: any, n: number) => { const x = String(v ?? '').trim(); return x ? x.slice(0, n) : null; };
+  /* 💰 비용(2026-11-04 함정 대조): orig_date·lesson_date 는 substr 비교라 인덱스를 못 탄다 — 그대로면 «지금까지의 승인·이동
+     전부» 를 매번 훑는다(강사 포털은 자동 새로고침마다). 두 표 모두 (status|action, created_at) 인덱스가 있으므로
+     «원래 날짜보다 400일 넘게 앞서 적힌 기록» 을 잘라 범위 스캔으로 만든다 — 1년 넘게 미리 잡은 연기는 실재하지 않는다. */
+  const since = Date.parse(f + 'T00:00:00+09:00') - 400 * 86400000;
+  /* ⚠️ 잘렸으면 «다 물어봤다» 가 아니다 — LIMIT 을 넘긴 만큼은 줄이 빠지므로 complete=false 로 알린다. */
+  const CAP = 3000;
   try {
     const rs: any = await db.prepare(
       `SELECT schedule_id, orig_date, orig_time, decided_by, decided_at, reason
          FROM schedule_change_requests
-        WHERE status = 'approved' AND schedule_id IS NOT NULL
+        WHERE status = 'approved' AND created_at >= ? AND schedule_id IS NOT NULL
           AND substr(COALESCE(orig_date,''),1,10) BETWEEN ? AND ?
-        LIMIT 3000`
-    ).bind(f, t).all();
-    for (const r of ((rs?.results as any[]) || [])) {
+        LIMIT ${CAP + 1}`
+    ).bind(since, f, t).all();
+    const list: any[] = (rs?.results as any[]) || [];
+    if (list.length > CAP) complete = false;
+    for (const r of list.slice(0, CAP)) {
       put({ schedule_id: String(r.schedule_id ?? '').trim(), from_date: ymd(r.orig_date), from_time: hhmm(r.orig_time) || null,
         at: Number(r.decided_at) > 0 ? Number(r.decided_at) : null, by: str(r.decided_by, 80), reason: str(r.reason, 300) });
     }
@@ -240,11 +248,13 @@ export async function loadMovedAwayEvents(db: any, fromDate: string, toDate: str
     const rs: any = await db.prepare(
       `SELECT schedule_id, lesson_date, lesson_time, actor, reason, created_at
          FROM class_audit_log
-        WHERE action IN (${acts}) AND schedule_id IS NOT NULL
+        WHERE action IN (${acts}) AND created_at >= ? AND schedule_id IS NOT NULL
           AND substr(COALESCE(lesson_date,''),1,10) BETWEEN ? AND ?
-        LIMIT 3000`
-    ).bind(f, t).all();
-    for (const r of ((rs?.results as any[]) || [])) {
+        LIMIT ${CAP + 1}`
+    ).bind(since, f, t).all();
+    const list: any[] = (rs?.results as any[]) || [];
+    if (list.length > CAP) complete = false;
+    for (const r of list.slice(0, CAP)) {
       put({ schedule_id: String(r.schedule_id ?? '').trim(), from_date: ymd(r.lesson_date), from_time: hhmm(r.lesson_time) || null,
         at: Number(r.created_at) > 0 ? Number(r.created_at) : null, by: str(r.actor, 80), reason: str(r.reason, 300) });
     }
