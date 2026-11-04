@@ -149,6 +149,20 @@ for (const [tag, w, h] of SIZES) {
     /* 📜 2026-11-04 «스크롤 안 하고 전체가 보이게, 최대한 위로» — probe 가 굴리기 «전» 에 잰다 */
     const fit = { top: Math.round(r.top), noScroll: sh.scrollHeight <= sh.clientHeight + 1,
       sh: sh.scrollHeight, ch: sh.clientHeight };
+    /* 📜 2026-11-04 «폰도 스크롤 없이» — 설정은 «이름표 + 버튼들» 묶음(.opt-row).
+       폰은 이름표가 버튼 줄 «왼쪽», PC 는 «위». 묶음마다 둘의 자리를 잰다. */
+    const rows = [...sh.querySelectorAll('.opts .opt-row')].map(row => {
+      const lab = row.querySelector(':scope > span'), list = row.querySelector(':scope > .opt-list');
+      if (!lab || !list) return { ok: false };
+      const a = lab.getBoundingClientRect(), l = list.getBoundingClientRect();
+      const named = row.getAttribute('role') === 'group'
+        && document.getElementById(row.getAttribute('aria-labelledby')) === lab;
+      return { ok: true, named,
+        beside: a.right <= l.left + 1 && a.top < l.bottom && l.top < a.bottom,
+        above: a.bottom <= l.top + 1 };
+    });
+    const cb = sh.querySelector('.clear-btn');
+    const clearBg = cb ? getComputedStyle(cb).backgroundColor : '';
     /* ⚠️ 시트는 길어서 아래쪽 버튼이 «화면 밖» 일 수 있다 — 그건 «가려짐» 이 아니라
        «스크롤하면 닿음» 이다. 둘을 섞으면 멀쩡한 화면이 실패로 나온다(실제로 그랬다).
        그래서 먼저 그 자리로 굴린 뒤 «맨 위가 나인가» 를 묻는다. */
@@ -161,7 +175,7 @@ for (const [tag, w, h] of SIZES) {
       const t = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
       return !!(t && sh.contains(t));
     };
-    return { fit, shown: r.top < innerHeight - 20,
+    return { fit, rows, clearBg, shown: r.top < innerHeight - 20,
       level: probe('#optsSheet .opt[data-level="S1"]'),
       sub:   probe('#optsSheet .opt[data-sub="off"]'),
       voice: probe('#optsSheet .opt[data-voice="jake"]'),
@@ -170,19 +184,40 @@ for (const [tag, w, h] of SIZES) {
   });
   ok(o.shown && o.expanded === 'true', '⚙ 를 누르면 시트가 열린다');
   /* PC(가로 ≥760px)는 위에 붙고 2단이라 스크롤 없이 전부 보여야 한다.
-     ⚠️ 폰은 내용(865~912px)이 화면보다 길어 스크롤이 남는 것이 정상이다 — 대신 «최대한 위로» 만 본다.
+     📜 2026-11-04 «폰도 스크롤 없이» — 폰(폭 360 이상)도 스크롤 없이 전부 보여야 한다.
+        ⚠️ 320폭은 퀘스트 칩·버튼이 한 줄씩 더 넘어가 여전히 길다 — 거기서는 «최대한 위로» 만 본다.
      ⚠️ 짝: 위에 붙었는가(top) 와 안 넘치는가(noScroll) — 하나만 보면 «아래 붙은 채 길어지기» 나
         «위에 붙었는데 여전히 스크롤» 이 통과한다. */
   if (w >= 760) {
     ok(o.fit.top <= 24, `PC 설정 시트가 화면 위에 붙는다 (top ${o.fit.top}px)`);
     ok(o.fit.noScroll, `PC 설정 시트를 스크롤 없이 전부 본다 (내용 ${o.fit.sh}px / 칸 ${o.fit.ch}px)`);
+  } else if (w >= 360) {
+    ok(o.fit.noScroll, `폰 설정 시트를 스크롤 없이 전부 본다 (내용 ${o.fit.sh}px / 칸 ${o.fit.ch}px)`);
   } else {
     ok(o.fit.top <= 24 || o.fit.noScroll,
-      `폰 설정 시트가 최대한 위까지 올라온다 (top ${o.fit.top}px)`);
+      `작은 폰 설정 시트가 최대한 위까지 올라온다 (top ${o.fit.top}px)`);
   }
+  /* 설정 묶음 — 여섯 줄(레벨·스타일·교정·속도·친구·자막)이 전부 «이름 붙은 묶음» 이고,
+     폰은 이름표가 왼쪽 · PC 는 위. ⚠️ 짝으로 본다 — 한쪽만 보면 «전부 왼쪽» 이 PC 에서도 통과한다. */
+  ok(o.rows.length === 6 && o.rows.every(x => x.ok && x.named),
+    '설정 여섯 줄이 «이름표 + 버튼들» 묶음(role=group · aria-labelledby)이다', JSON.stringify(o.rows));
+  if (w >= 760) ok(o.rows.every(x => x.above), 'PC 는 이름표가 버튼 줄 위에 있다(예전 모양)', JSON.stringify(o.rows));
+  else          ok(o.rows.every(x => x.beside), '폰은 이름표가 버튼 줄 왼쪽에 있다', JSON.stringify(o.rows));
+  /* 🗑 대화 초기화 — 시트로 옮겨진 뒤 흰 기본 버튼으로 보이던 것(2026-11-04) */
+  ok(/239,\s*68,\s*68/.test(o.clearBg), '«대화 초기화» 버튼이 빨간 스타일이다(브라우저 기본 버튼이 아니다)', o.clearBg);
   ok(o.level === true && o.sub === true && o.voice === true && o.snd === true,
     '시트 안 레벨·자막·친구·소리 버튼이 실제로 눌린다',
     `레벨 ${o.level} 자막 ${o.sub} 친구 ${o.voice} 소리 ${o.snd}`);
+  /* 묶음(.opt-list) 안으로 옮겨진 버튼이 «눌러서 실제로 바뀌는가» — 자리만 보면 핸들러가 끊겨도 통과한다 */
+  let rateOk = false;
+  try {
+    await p.click('#optsSheet .opt[data-rate="0.65"]', { timeout: 3000 });
+    rateOk = await p.evaluate(() => {
+      const on = [...document.querySelectorAll('#optsSheet .opt[data-rate].active')].map(b => b.dataset.rate);
+      return on.length === 1 && on[0] === '0.65';
+    });
+  } catch (e) { rateOk = false; }
+  ok(rateOk, '시트 안 속도 버튼(느리게)을 누르면 그것만 켜진다');
 
   await p.keyboard.press('Escape');
   await p.waitForTimeout(420);
