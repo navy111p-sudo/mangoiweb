@@ -50,7 +50,7 @@
       pick: '강사를 고르면 프로필이 여기에 보여요.',
       video: '소개 영상 보기', join: '수업 입장', subjectDefault: '영어 회화',
       years: function (n) { return n + '년차'; },
-      notes: '선생님 한마디', about: '소개', education: '학력', experience: '경력',
+      about: '선생님 한마디', education: '학력', experience: '경력',
       days: '가능 요일', hours: '가능 시간', subject: '담당',
       noIntro: '아직 등록된 소개 글이 없어요.',
       prev: '이전 강사', next: '다음 강사', of: function (i, n) { return i + ' / ' + n; },
@@ -72,7 +72,7 @@
       pick: 'Select a teacher to see their profile here.',
       video: 'Watch intro video', join: 'Join class', subjectDefault: 'English Conversation',
       years: function (n) { return n + (Number(n) === 1 ? ' yr' : ' yrs'); },
-      notes: "Teacher's note", about: 'About', education: 'Education', experience: 'Experience',
+      about: 'In their words', education: 'Education', experience: 'Experience',
       days: 'Available days', hours: 'Available hours', subject: 'Subject',
       noIntro: 'No introduction yet.',
       prev: 'Previous teacher', next: 'Next teacher', of: function (i, n) { return i + ' / ' + n; },
@@ -117,7 +117,14 @@
   function subjectOf(t, lang) { return clean(t.certifications) || tr('subjectDefault', lang); }
   /* career 칸은 «숫자(년차)» 이거나 «자유 글(좌우명·경력 설명)» 이다 — 둘을 갈라 쓴다. */
   function yearsOf(t) { var c = clean(t.career); return /^\d{1,2}$/.test(c) ? Number(c) : null; }
-  function aboutOf(t) { var c = clean(t.career); return c && yearsOf(t) === null ? c : ''; }
+  /* 강사가 입력칸에 라벨째 적은 경우가 있다 — 「Motto: …」·「Full Name: Janice … Motto: "…"」(실측 3명).
+     라벨은 화면에 안 보이게 «Motto:» 뒤만 쓴다. */
+  function aboutOf(t) {
+    var c = clean(t.career);
+    if (!c || yearsOf(t) !== null) return '';
+    var m = c.match(/\bmotto\s*:\s*([\s\S]+)$/i);
+    return m ? m[1].trim() : c;
+  }
 
   /* 남이 넣은 주소는 http(s) 만 쓴다(javascript: 등 차단). 상대경로(/로 시작)는 우리 사이트라 허용. */
   function safeUrl(u) {
@@ -214,9 +221,10 @@
     } else {
       media = '<div class="tg-d-cover"' + cover + '>' + photoHTML(t, 'tg-d-photo') + '</div>';
     }
-    var notes = clean(t.notes), about = aboutOf(t), y = yearsOf(t);
+    /* ⛔ t.notes 를 그리지 마세요 — «선생님 한마디» 가 아니라 내부 관리 메모(로그인 아이디·프랜차이즈·평점·
+       작업 메모)입니다(2026-11-05 사장님 캡처). 강사가 직접 쓴 말은 career 칸뿐입니다. */
+    var about = aboutOf(t), y = yearsOf(t);
     var intro = '';
-    if (notes) intro += '<figure class="tg-quote"><figcaption>' + esc(tr('notes', lang)) + '</figcaption><blockquote>' + esc(notes) + '</blockquote></figure>';
     if (about) intro += '<figure class="tg-quote tg-quote-about"><figcaption>' + esc(tr('about', lang)) + '</figcaption><blockquote>' + esc(about) + '</blockquote></figure>';
     if (!intro) intro = '<p class="tg-empty-line">' + esc(tr('noIntro', lang)) + '</p>';
     var facts = factHTML(tr('subject', lang), subjectOf(t, lang)) +
