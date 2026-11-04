@@ -115,11 +115,13 @@ body .inbar{
   .dock-handle{display:flex;align-items:center;justify-content:center;width:100%;min-height:22px;height:22px;margin:0;padding:0;border:0;background:transparent;cursor:pointer;flex:0 0 auto;}
   .dock-handle::before{content:"";width:48px;height:5px;border-radius:3px;background:#7dd3fc;opacity:.85;}
   .dock-handle:focus-visible{outline:3px solid #ffd56a;outline-offset:-3px;}
-  [data-dock]{overflow:hidden;transition:max-height .25s ease,padding .25s ease;}
-  [data-dock].dock-collapsed{max-height:22px!important;padding-top:0!important;padding-bottom:0!important;}
-  [data-dock].dock-collapsed>:not(.dock-handle){display:none!important;}
+  [data-dock]{overflow:hidden;interpolate-size:allow-keywords;height:auto;transition:height .18s ease-out,padding .18s ease-out;}
+  [data-dock].dock-collapsed{height:22px!important;min-height:0!important;padding-top:0!important;padding-bottom:0!important;}
+  [data-dock].dock-collapsed>:not(.dock-handle){visibility:hidden!important;}
+  .dock-thinking>.dock-handle::before{animation:dock-thinking-bounce .52s ease-in-out infinite alternate;}
+  @keyframes dock-thinking-bounce{from{transform:translateY(-3px)}to{transform:translateY(3px)}}
 }
-@media (prefers-reduced-motion:reduce){ [data-dock]{transition:none!important;} }
+@media (prefers-reduced-motion:reduce){ [data-dock]{transition:none!important;} .dock-thinking>.dock-handle::before{animation:none;} }
 
 /* ── 휴대폰 세로(640px 이하) — 사장님 캡처 지시 (2026-11-02, 최신)
    ① 1번(위쪽 머리글·버튼 줄): 최대한 작게 — 부제 숨김, 글자·버튼 높이 축소

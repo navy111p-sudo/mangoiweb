@@ -2940,6 +2940,7 @@ function _zhDeepen(u){
    _stopSpeak 이 이 번호를 올리므로, 늦게 도착한 응답은 스스로 물러난다. */
 var _speakSeq=0;
 function _stopSpeak(){
+  document.documentElement.removeAttribute('data-warmup-narrating');
   _speakSeq++;
   try{ if(_replayWho){ _replayWho=null; applyVoiceFace(); } }catch(e){}   // 🔁 다시 듣기를 끊으면 얼굴도 원래대로
   try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
@@ -3236,6 +3237,7 @@ function speak(text, btn){
   _stopSpeak();
   _replayWho = (btn && btn.__who && typeof _replayFits==='function' && _replayFits(btn.__who)) ? btn.__who : null;   // 🔁 _stopSpeak 이 비운 뒤에 세운다
   if(btn) _latCur=null;   // ⏱ 다시 듣기는 «대화 차례» 가 아니다 — 재지 않는다
+  document.documentElement.setAttribute('data-warmup-narrating', '');
   var _atSeq=_speakSeq; _autoHook('aiStart');   // ✨ AI 가 말하는 동안에는 자동으로 듣지 않는다
   if(btn) btn.classList.add('playing');
   /* 🐛→✅ (2026-07-27) 예전엔 여기서 바로 plainStart() 를 불러 그리기 루프를 켰다.
@@ -3246,7 +3248,9 @@ function speak(text, btn){
      흘러나와도 아무도 그리기를 다시 켜지 않아 "소리는 나는데 입은 안 움직임"으로 보였다.
      이제 plainStart() 는 실제 재생이 막 시작되는 시점(아래 play() 안, _synthSpeak 안)
      에서만 부른다 — 워치독이 재는 무음 시간이 실제 재생 이후로만 좁혀진다. */
-  var done=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){}
+  var done=function(){
+    if(_atSeq===_speakSeq) document.documentElement.removeAttribute('data-warmup-narrating');
+    if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){}
     /* 🔁 다시 듣기가 끝나면 얼굴을 «지금 고른 친구» 로 되돌린다 — 그 사이 다른 말이 시작됐으면 손대지 않는다 */
     if(btn && _replayWho && _atSeq===_speakSeq){ _replayWho=null; try{ applyVoiceFace(); }catch(e){} }
     /* ✨ «끝까지 읽은» 대화 차례의 낭독만 알린다 — 다시 듣기(btn)·중간에 끊긴 낭독(_speakSeq 가 오름)은 제외 */
@@ -5001,11 +5005,11 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 <script src="/js/warmup-auto-talk.js?v=8" defer></script><!-- ✨ 자동 말하기(베타) — 기본은 버튼 모드 -->
 <script src="/js/warmup-facetalk.js?v=4" defer></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 자동 말하기 엔진을 켜고 모양만 바꿈) -->
 <script src="/js/warmup-touch-bar.js?v=2" defer></script>
-<script src="/js/warmup-dock.js?v=2" defer></script><!-- 📱 세로 화면: 아래 버튼 줄 자동 접힘·손잡이 (2026-11-02) --><!-- 📱 터치 기기 전용 아래 3칸 바(도움·말하기·글쓰기) — 2026-09-26 시안 4 -->
+<script src="/js/warmup-dock.js?v=3" defer></script><!-- 📱 세로 화면: 아래 버튼 줄 자동 접힘·손잡이 (2026-11-02) --><!-- 📱 터치 기기 전용 아래 3칸 바(도움·말하기·글쓰기) — 2026-09-26 시안 4 -->
 <script src="/js/ai-speaking-settings.js?v=1" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — setCorrMode 가 씀 (2026-11-04) -->
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 <script defer src="/js/warmup-photo-icons.js?v=5"></script>
-<link rel="stylesheet" href="/css/warmup-flow.css?v=6" />
+<link rel="stylesheet" href="/css/warmup-flow.css?v=7" />
 <script defer src="/js/warmup-flow.js?v=5"></script>
 <script defer src="/js/warmup-points.js?v=1"></script><!-- 🪙 «끝내고 요약 보기» 창에 받은 포인트 한 줄 (2026-11-03) / points line in the summary -->
 <link rel="stylesheet" href="/css/warmup-topbar.css?v=2" />
