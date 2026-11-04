@@ -72,7 +72,11 @@
 
   function sync() {
     if (!dock || !handle) return;
-    var auto = !studentListening() && avatarSpeaking();   // 학생 말하기가 우선
+    var speaking = avatarSpeaking();
+    var waiting = !!document.querySelector('#log > .typing') && !speaking;
+    var narrating = document.documentElement.hasAttribute('data-warmup-narrating');
+    var auto = waiting || (!studentListening() && (speaking || narrating));
+    dock.classList.toggle('dock-thinking', waiting && mq.matches);
     if (auto !== lastAuto) {
       lastAuto = auto;
       if (Date.now() - manualAt > GRACE_MS) manual = null;   // 방금 누른 선택은 잠깐 지키고, 그 뒤의 자동 전환부터 자동 규칙을 따른다
@@ -89,6 +93,14 @@
 
   function start() {
     tick();
+    var observer = new MutationObserver(sync);
+    observer.observe(document.documentElement, {attributes:true, attributeFilter:['data-warmup-narrating']});
+    var log = document.getElementById('log');
+    if (log) observer.observe(log, {childList:true});
+    ['tavatar-wrap', 'tbMic', 'listening'].forEach(function (id) {
+      var element = document.getElementById(id);
+      if (element) observer.observe(element, {attributes:true, attributeFilter:['class', 'style']});
+    });
     setInterval(tick, 500);
     try { mq.addEventListener('change', sync); } catch (e) { /* 구형 브라우저 — 주기 갱신이 맡는다 */ }
   }
