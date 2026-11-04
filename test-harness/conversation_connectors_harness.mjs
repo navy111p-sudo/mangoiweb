@@ -189,6 +189,16 @@ const bodyOf = (text, head, opener = '{') => { const a = text.indexOf(head); if 
   ok(p > a && p < b && deadAt(idx, p, a) === '', '웜업: handleWarmupChat 안에서 연결 규칙을 싣는다(중국어·예시형 계약 제외 · 난이도·기록을 넘긴다) — 주석 밖', { a, p, b });
   const corr = idx.indexOf("sys += '\\n' + (ctxLang === 'zh' ? WARMUP_ZH_CORRECTION_RULE", a);
   ok(p > 0 && corr > p, '웜업: 출력 형식(JSON) 규칙보다 «앞» 에 싣는다(형식이 마지막 지시)');
+  /* 🏅 (2026-11-04 사장님 「웜업 index.ts 칭찬 목록도 첫마디 턴엔 빼줘」) [칭찬] 목록 바꿔 끼우기 — 첫마디 줄과 «같은 조건» + 첫마디 줄이 있을 때만.
+     조건을 소스에서 «읽어» 대조한다(⛔ 손으로 적지 않는다 — 한쪽만 바뀌면 «[연결 표현] 이 없는데 아래를 보라» 가 된다). */
+  const sw = idx.indexOf('sys = sys.replace(WARMUP_PRAISE_RULE,', a);
+  const swLine = sw > 0 ? idx.slice(idx.lastIndexOf('\n', sw) + 1, idx.indexOf('\n', sw)) : '';
+  const condOf = (line, tail) => { const m = line.match(/^\s*if \((.*)\) sys /); return m ? m[1].replace(tail, '') : null; };
+  const linkCond = condOf(call, ''), swCond = condOf(swLine, ' && turnOpenerLine(history)');
+  ok(sw > p && sw < corr && sw < b && deadAt(idx, sw, a) === '', '웜업: [칭찬] 목록 바꿔 끼우기가 handleWarmupChat 안, 연결 규칙 «뒤» · 출력 형식 «앞» 에 살아 있다 — 주석 밖', { p, sw, corr });
+  ok(!!linkCond && swCond === linkCond && /sys = sys\.replace\(\s*WARMUP_PRAISE_RULE\s*,\s*(?:\(\)\s*=>\s*)?WARMUP_PRAISE_OPENER_TURN\s*\)/.test(swLine),
+    '웜업: 바꿔 끼우기 조건 = 연결 규칙 조건 + «이번 턴 첫마디 줄이 있다»', [linkCond, swCond]);
+  ok(/^import \{ AVATAR_NATURAL_OPENERS, turnOpenerLine \} from '\.\/conversation-connectors';/m.test(idx), '웜업: 첫마디 판정도 정본에서 import 한다(복제 없음)');
   ok(/^import \{ connectorPromptBlock, linkBandForStep \} from '\.\/conversation-connectors';/m.test(idx), '웜업: 정본을 import 한다');
 }
 {
@@ -450,6 +460,16 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
   await post('/api/warmup/chat', { session_id: 'w-op', student_input: 'I like pizza.', difficulty: 3 });
   const r4 = await post('/api/warmup/chat', { session_id: 'w-op', student_input: 'Yes, I do.', difficulty: 3 });
   ok(r4.status === 200 && !turnLineIn(r4.sys) && r4.sys.includes(C.AVATAR_NATURAL_OPENERS), '(짝) 웜업: 앞 답장이 첫마디(Oh, I see.)로 시작했으면 이번 턴은 쉰다', r4.status);
+  /* 🏅 첫마디 턴엔 [칭찬] 목록 대신 «첫마디가 곧 칭찬» 한 줄 — 진짜 워커가 모델에게 넘기는 지시로 잰다. 짝: 쉬는 턴·첫 요청은 목록 그대로. */
+  const PR_FULL = (idx.match(/const WARMUP_PRAISE_RULE = "([^"]+)";/) || [])[1] || '';
+  const PR_TURN = (idx.match(/const WARMUP_PRAISE_OPENER_TURN = "([^"]+)";/) || [])[1] || '';
+  ok(PR_FULL.length > 50 && /Haha nice!/.test(PR_FULL) && /THIS TURN'S OPENER/.test(PR_TURN) && /칭찬하지 마/.test(PR_TURN), '웜업 [칭찬] 두 벌을 소스에서 읽었다(전제 — 목록 + «첫마디 턴» 한 줄)');
+  ok(!!PR_TURN && r3.sys.includes(PR_TURN) && !r3.sys.includes(PR_FULL) && !/I love that!, Amazing!/.test(r3.sys), '웜업: 첫마디 줄이 실린 턴엔 [칭찬] 목록이 빠지고 «첫마디가 곧 칭찬» 한 줄이 실린다', r3.sys.slice(0, 900));
+  ok(r3.sys.indexOf(PR_TURN) >= 0 && r3.sys.indexOf(PR_TURN) < r3.sys.indexOf('[연결 표현]') && r3.sys.indexOf('[연결 표현]') < r3.sys.indexOf("- THIS TURN'S OPENER:"), '웜업: 그 한 줄이 가리키는 «아래 [연결 표현] 의 첫마디» 가 실제로 그 아래에 있다');
+  const praiseHeads = (sys) => String(sys).split('\n').filter((l) => l.startsWith('[칭찬]')).length;   // ⚠️ 줄 머리만 센다 — 정직한 칭찬 규칙의 «위 [칭찬] 규칙보다» 는 줄 가운데라 안 센다
+  ok(praiseHeads(r3.sys) === 1 && praiseHeads(r4.sys) === 1, '웜업: 첫마디 턴에도 [칭찬] 줄은 한 번뿐(목록과 한 줄이 함께 실리지 않는다)', [praiseHeads(r3.sys), praiseHeads(r4.sys)]);
+  ok(PR_TURN.length < PR_FULL.length, '(속도) 바꿔 끼우는 한 줄이 목록보다 짧다 — 첫마디 턴 지시가 늘지 않는다', [PR_TURN.length, PR_FULL.length]);
+  ok(!!PR_FULL && r4.sys.includes(PR_FULL) && !r4.sys.includes(PR_TURN), '(짝) 웜업: 쉬는 턴(첫마디 줄 없음)은 [칭찬] 목록 그대로', r4.sys.slice(0, 900));
   /* ⑥-2 🏅 틀린 문장엔 칭찬 없음 — A.i 말하기 세 카드 중 «교재로 연습»·«상황별 말하기» 가 쓰는 같은 서버 길(진짜 워커).
      「Oh, nice!」 는 예전 칭찬 떼기 표에 없어서 틀린 문장에도 그대로 나갈 수 있었다. 짝: 맞는 문장 + 완벽 등급이면 그대로 둔다. */
   { const saveRun = AI.run;
@@ -472,7 +492,8 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
     ok(w4.status === 200 && String(w4.j && w4.j.ai_response || '').startsWith('Oh, nice!'), '(짝) 웜업: 맞는 문장 + 완벽 등급이면 «Oh, nice!» 를 그대로 둔다(칭찬을 통째로 없애지 않는다)', w4.j && w4.j.ai_response);
     AI.run = saveRun; }
   { const w0 = await post('/api/warmup/chat', { session_id: 'w-first', student_input: 'Hello!', difficulty: 2 });
-    ok(w0.status === 200 && !turnLineIn(w0.sys), '웜업: 첫 요청(인사)에는 첫마디 줄이 없다'); }
+    ok(w0.status === 200 && !turnLineIn(w0.sys), '웜업: 첫 요청(인사)에는 첫마디 줄이 없다');
+    ok(!!PR_FULL && w0.sys.includes(PR_FULL) && !w0.sys.includes(PR_TURN), '(짝) 웜업: 첫 요청은 [칭찬] 목록 그대로'); }
   const zh = await post('/api/warmup/chat', { session_id: 'w-zh', student_input: '你好', difficulty: 2, lang: 'zh' });
   ok(zh.status === 200 && zh.sys.length > 0 && !zh.sys.includes('[연결 표현]') && !zh.sys.includes('LINKING WORDS') && !zh.sys.includes(C.AVATAR_NATURAL_OPENERS), '(짝) 중국어 웜업에는 싣지 않는다', zh.status);
 }
