@@ -2585,7 +2585,7 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
 @media (min-width:760px){
   /* ⚠️ 닫힘은 «화면 아래로 내려 보내기» 그대로다 — 위에 붙였으므로 자기 높이(100%)만큼
      내리면 낮은 시트는 화면 안에 남는다. 그래서 «화면 높이» 만큼 내린다. */
-  .opts-sheet{ left:auto; right:16px; top:12px; bottom:auto; width:430px;
+  .opts-sheet{ left:auto; right:16px; top:12px; bottom:auto;
     border-radius:16px; border:1px solid var(--border);
     max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px);
     transform:translateY(calc(100vh + 24px)); }
@@ -2595,6 +2595,9 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
       지켜져야 하는데, 묶으면 대화 초기화가 설정 위로 올라간다. DOM 순서는 그대로 두고
       그리드 자리만 정한다.
    ⚠️ 오른쪽(.opts)이 왼쪽보다 길다. 마지막 1fr 줄이 그 차이를 받아 왼쪽 칸 사이가 벌어지지 않는다.
+   ⚠️ 시트에 새 자식을 넣으면 여기서 자리(grid-column/row)도 함께 정할 것 — 안 정하면 브라우저가
+      아무 칸에나 놓아 «위험한 조작은 맨 아래» 순서가 PC 에서 깨질 수 있다.
+   ℹ️ 폭은 아래 블록의 min(800px, 100vw - 32px) 하나다(예전 430px 는 지웠다 — 두 블록에 두면 앞이 죽은 값).
    ⚠️ 기준 폭은 위 패널 블록과 같은 760px — 그 사이(760~899px)를 1단으로 두면 916px 짜리
       시트가 낮은 창에서 다시 스크롤된다(800x600 실측). */
 @media (min-width:760px){
