@@ -151,9 +151,15 @@ ok('자유대화: 「고친 문장을 따옴표로 먼저 말하기」를 하지
   /우선/.test(H.warmupHonestRule('free_talk').split('\n').pop()) && /따옴표로 먼저 말하기」는 이 모드에서 하지 마/.test(H.warmupHonestRule('free_talk')));
 ok('자유대화: 교정은 fix 칸에만(카드로) — 답장에서 고친 문장을 따로 말하지 않음',
   /"fix" 칸에만/.test(H.warmupHonestRule('free_talk')) && /고친 문장을 따로 말하지 말고/.test(H.warmupHonestRule('free_talk')));
-/* 짝 — 그 덮기가 균형·집중교정에 새면 «균형도 말을 안 한다» 가 된다 */
-ok('균형·집중교정에는 «카드만» 덮기가 없다',
-  !/교정 카드만/.test(H.warmupHonestRule('balanced')) && !/교정 카드만/.test(H.warmupHonestRule('focused')));
+/* 짝 — 그 덮기가 균형·집중교정에 새면 «균형도 말을 안 한다» 가 된다.
+   ⛔ «교정 카드만» 한 낱말만 찾지 않는다 — 덮기를 공통 줄로 옮기거나 그 낱말 없이 균형 줄에 넣어도 통과했다(함정 대조 실측). */
+const OVERRIDE_RE = /따옴표로 먼저 말하기|카드만|"fix" 칸에만|고친 문장을 따로 말하지/;
+ok('균형·집중교정 규칙 «어디에도» 덮기 문장이 없다',
+  !OVERRIDE_RE.test(H.warmupHonestRule('balanced')) && !OVERRIDE_RE.test(H.warmupHonestRule('focused')));
+ok('자유대화에서도 덮기는 «모드 줄» 에만 — 모든 모드가 받는 공통 줄에는 없다', (() => {
+  const ls = H.warmupHonestRule('free_talk').split('\n');
+  return ls.length > 1 && ls.slice(0, -1).every((l) => !OVERRIDE_RE.test(l)) && OVERRIDE_RE.test(ls[ls.length - 1]);
+})());
 ok('모르는 모드 → 균형', /교정 모드: 균형/.test(H.warmupHonestRule('weird')));
 
 console.log('⑥-2 집중교정 음성 순서 — 교정 문장이 답장보다 먼저(ensureFocusedFixSpoken)');
@@ -199,7 +205,27 @@ ok('스트림: 첫 문장이 칭찬 말머리면 미리 읽지 않음', /if \(o\
   const codeOnly = body.split('\n').filter((l) => !/^\s*(\/\/|\/\*|\*)/.test(l));
   const leadLines = codeOnly.filter((l) => /correctionLeadIn\(/.test(l));
   ok('⑦-2 핸들러 안 correctionLeadIn 호출은 «한 곳» 뿐(옆길로 붙이는 곳 없음)', leadLines.length === 1, leadLines.map((l) => l.trim()));
-  const stmt = (leadLines[0] || '').trim();
+  /* 🪤 함정 대조(2026-11-04)가 뚫은 두 옆길 — ① 핸들러 안에 같은 이름의 판정을 따로 만들기(아래 실행은 정본을 주입하므로
+        그것만으로는 못 본다) ② correctionLeadIn 을 안 부르고 lead-in 문구·고친 문장을 글자로 직접 붙이기. */
+  const code = codeOnly.join('\n');
+  const importOk = /import\s*\{[^}]*\bwarmupSpeaksFixLead\b[^}]*\}\s*from\s*'\.\/warmup-honest'/.test(idx);
+  const localDef = /\bfunction\s+warmupSpeaksFixLead\b|\b(?:const|let|var)\s+warmupSpeaksFixLead\b|\bwarmupSpeaksFixLead\s*=(?!=)/.test(idx);
+  ok('⑦-2 그 줄의 판정은 정본에서 import 한 것(index.ts 안에 같은 이름을 따로 만들지 않음)', importOk && !localDef, { importOk, localDef });
+  const bypass = /say it like this|我们可以这样说/i.test(code) || /\b(?:showFix|rawFix|verified)\s*(?:\.\s*now|\[\s*['"]now['"]\s*\])/.test(code);
+  ok('⑦-2 고친 문장을 글자로 직접 붙이는 옆길이 없다(lead-in 문구·showFix/rawFix/verified 의 now 를 핸들러가 직접 쓰지 않음)', !bypass);
+  /* 그 문장을 «여러 줄로 나눠 써도» 오려 낼 수 있게 — 줄 하나가 아니라 if 부터 문장 끝까지(중괄호 짝) */
+  let stmt = '';
+  {
+    const callAt = code.indexOf('correctionLeadIn(');
+    const ifAt = callAt >= 0 ? code.lastIndexOf('if (', callAt) : -1;
+    const semi = callAt >= 0 ? code.indexOf(';', callAt) : -1;
+    if (ifAt >= 0 && semi > callAt && !code.slice(ifAt, callAt).includes(';')) {
+      stmt = code.slice(ifAt, semi + 1);
+      const bal = (s) => (s.match(/\{/g) || []).length - (s.match(/\}/g) || []).length;
+      let end = semi + 1;
+      while (bal(stmt) > 0) { const nx = code.indexOf('}', end); if (nx < 0) break; stmt = code.slice(ifAt, nx + 1); end = nx + 1; }
+    } else stmt = (leadLines[0] || '').trim();
+  }
   let runLead = null;
   try {
     runLead = new Function('showFix', 'honest', 'aiText', 'ctxLang', 'warmupSpeaksFixLead', 'correctionLeadIn',
@@ -209,7 +235,10 @@ ok('스트림: 첫 문장이 칭찬 말머리면 미리 읽지 않음', /if \(o\
     const F = { was: 'I go park yesterday', now: 'I went to the park yesterday' };
     const R = 'What did you do there?';
     const lead = (t, f) => 'LEAD:' + f.now + ' ' + t;
-    const go = (mode, fix = F, lang = 'en') => runLead(fix, mode === null ? null : { mode }, R, lang, H.warmupSpeaksFixLead, lead);
+    const go = (mode, fix = F, lang = 'en') => {
+      try { return runLead(fix, mode === null ? null : { mode }, R, lang, H.warmupSpeaksFixLead, lead); }
+      catch (e) { return 'THROW:' + String(e && e.message || e); }   // 다른 이름을 부르면 여기로 — 하니스가 죽지 않고 FAIL 로 남긴다
+    };
     ok('⑦-2 자유대화 + 교정 카드 → 답장 그대로(고친 문장을 말로 안 붙임)', go('free_talk') === R, go('free_talk'));
     ok('⑦-2 균형 + 교정 카드 → 고친 문장을 앞에 붙임(짝)', go('balanced') === lead(R, F), go('balanced'));
     ok('⑦-2 집중교정 → 네 번째를 붙이지 않음', go('focused') === R, go('focused'));
