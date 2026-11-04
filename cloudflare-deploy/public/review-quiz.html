@@ -356,7 +356,7 @@
           if (q.best_score != null) meta += '<span class="qi-best">🏆 ' + (isEn()?'Best ':'최고 ') + q.best_score + '/' + q.question_count + ' · ' + q.attempts + (isEn()?' tries':'회 도전') + '</span>';
           return '<button class="quiz-item" onclick="startQuiz(' + q.id + ')">' +
             '<span class="qi-icon">🧠</span><span class="qi-body">' +
-            '<div class="qi-title">' + esc(q.title) + '</div>' +
+            '<div class="qi-title">' + esc(rqTitle(q.title)) + '</div>' +
             (q.description ? '<div class="qi-desc">' + esc(q.description) + '</div>' : '') +
             '<div class="qi-meta">' + meta + '</div></span>' +
             '<span class="qi-go">' + (isEn()?'Start ▶':'풀기 ▶') + '</span></button>';
@@ -470,7 +470,7 @@
 
       var html = hud + track +
         '<div class="quiz-card">' +
-        '<div class="q-num">' + esc(qz.title) + ' — ' + TYPE_ICON[typ] + ' ' + (isEn()?TYPE_EN[typ]:TYPE_KO[typ]) + ' · Q' + (i+1) + ' / ' + total + '</div>' +
+        '<div class="q-num">' + esc(rqTitle(qz.title)) + ' — ' + TYPE_ICON[typ] + ' ' + (isEn()?TYPE_EN[typ]:TYPE_KO[typ]) + ' · Q' + (i+1) + ' / ' + total + '</div>' +
         inner + fbHtml +
         '<div class="nav-btns">' +
         (i > 0 ? '<button class="nav-btn" onclick="moveQ(-1)">← ' + (isEn()?'Prev':'이전') + '</button>' : '') +
@@ -638,6 +638,29 @@
       if(r.points_full!=null && full===0) return en?'Get answers right to earn points (10 each).':'정답을 맞히면 1문제당 10점을 받아요.';
       return '';
     }
+    /* 🌐 (2026-11-04) 영어 모드 결과 화면 — 문제 글·해설은 AI 가 «한국어로» 만들어 D1 에 들어 있다.
+       결과를 먼저 그리고, 한국어 줄만 /api/translate(target:en)로 한 번 물어 받으면 다시 그린다.
+       못 받으면 원문 그대로(지어내지 않음). 같은 글은 다시 묻지 않는다(_koAsked). */
+    var _koEn = {}, _koAsked = {};
+    function rqTitle(t){ t = String(t||''); return isEn() ? t.replace(/\s*복습\s*퀴즈/g, ' Review Quiz').replace(/\s*복수전/g, ' Rematch') : t; }
+    function tEn(s){ s = String(s==null?'':s); return (isEn() && _koEn[s]) ? _koEn[s] : s; }
+    function koTranslateResult(r){
+      if (!isEn() || !r || !r.detail || !state.quiz) return;
+      var qs = state.quiz.questions || [], need = [];
+      function add(x){ x = String(x||'').trim(); if (x && /[가-힣]/.test(x) && !_koEn[x] && !_koAsked[x]) { _koAsked[x] = 1; need.push(x); } }
+      r.detail.forEach(function(d, i){ add(qs[i] && qs[i].q); add(d.explain); });
+      add(rqTitle(state.quiz.title));
+      if (!need.length) return;
+      fetch('/api/translate', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ texts: need.slice(0, 50), target:'en', mode:'chat' }) })
+        .then(function(x){ return x.json(); })
+        .then(function(d){
+          var m = (d && d.ok !== false && d.map) || {}, got = 0;
+          need.forEach(function(k){ var v = m[k]; if (typeof v === 'string' && v.trim() && !/[가-힣]/.test(v)) { _koEn[k] = v.trim(); got++; } });
+          var rv = document.getElementById('resultView');
+          if (got && _lastResult === r && isEn() && rv && rv.style.display !== 'none') showResult(r, true);
+        }).catch(function(){});
+    }
     var _lastResult = null;
     function showResult(r, redraw) {
       _lastResult = r;
@@ -664,9 +687,9 @@
             '<div class="rq-a rq-ok">' + (isEn()?'Target: ':'정답: ') + esc(d.answer_text||'') + '</div>';
         }
         return '<div class="review-q">' +
-          '<div class="rq-t">' + (d.correct?'<span class="badge-ok">⭕</span>':'<span class="badge-no">❌</span>') + ' ' + (TYPE_ICON[typ]||'') + ' Q' + (i+1) + '. ' + esc(q.q) + '</div>' +
+          '<div class="rq-t">' + (d.correct?'<span class="badge-ok">⭕</span>':'<span class="badge-no">❌</span>') + ' ' + (TYPE_ICON[typ]||'') + ' Q' + (i+1) + '. ' + esc(tEn(q.q)) + '</div>' +
           body +
-          (d.explain ? '<div class="rq-explain">💡 ' + esc(d.explain) + '</div>' : '') +
+          (d.explain ? '<div class="rq-explain">💡 ' + esc(tEn(d.explain)) + '</div>' : '') +
           '</div>';
       }).join('');
 
@@ -691,7 +714,7 @@
       rv.innerHTML =
         '<div class="quiz-card result-card">' +
         '<img src="'+MANGO_IMG+'" alt="" onerror="this.style.display=\'none\'" style="width:74px;height:74px;object-fit:contain;margin-bottom:2px">' +
-        '<div style="font-size:13px;color:var(--text2);font-weight:700;margin-bottom:6px">' + esc(qz.title) + '</div>' +
+        '<div style="font-size:13px;color:var(--text2);font-weight:700;margin-bottom:6px">' + esc(tEn(rqTitle(qz.title))) + '</div>' +
         '<div class="result-score" style="color:' + color + '"><span id="rvScore">0</span> / ' + r.total + '</div>' +
         '<div class="result-label">' + (isEn()?'Score':'점수') + ' ' + r.percent + (isEn()?' pts':'점') + ' (100' + (isEn()?' max':'점 만점') + ')</div>' +
         stamp +
@@ -708,8 +731,10 @@
       if (redraw) {   /* 🌐 언어만 바꿔 다시 그릴 때는 숫자를 바로 채우고 축하·소리·스크롤을 되풀이하지 않음 */
         var _s=document.getElementById('rvScore'); if(_s) _s.textContent=String(r.score);
         var _p=document.getElementById('rvPts'); if(_p) _p.textContent='+'+(Number(r.awarded)||0);
+        koTranslateResult(r);
         return;
       }
+      koTranslateResult(r);
       window.scrollTo(0,0);
       countUp(document.getElementById('rvScore'), r.score, '');
       if(!r.practice) countUp(document.getElementById('rvPts'), (Number(r.awarded)||0), '', '+');

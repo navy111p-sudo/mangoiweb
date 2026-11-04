@@ -71,10 +71,11 @@ const fbOk = { correct: true, answer: 0, your: 0, line: 'PICK' };
 const c = draw('ko', 0, fbOk, 1);
 if (c.err) { ok('🌐: 다시 그리면 응원 문구가 같은 줄로 영어가 된다', false); }
 else {
+  // (가짜 esc 는 그대로 돌려준다 — 기대값을 &#39; 로 바꾸면 «That's it» 줄에서만 거짓 FAIL 이 났다)
   const kLine = c.api.CHEER_OK.ko.find(t => c.html.includes(t));
   const k = c.api.CHEER_OK.ko.indexOf(kLine);
   c.E.L.cur = 'en'; c.api.renderQ(true);
-  ok('🌐: 다시 그리면 응원 문구가 같은 줄로 영어가 된다', k >= 0 && c.E.els.playView.innerHTML.includes(c.api.CHEER_OK.en[k].replace("'", '&#39;')));
+  ok('🌐: 다시 그리면 응원 문구가 같은 줄로 영어가 된다', k >= 0 && c.E.els.playView.innerHTML.includes(c.api.CHEER_OK.en[k]));
 }
 const ls = draw('en', 1, null, 0);
 const first = ls.counts && ls.counts.played;
@@ -109,6 +110,48 @@ ok('목록 EN: 빈 목록 문구도 영어', /No quizzes yet/.test(lEmpty) && !H
   } catch (e) { msg = e.message; }
   ok('결과 🌐: 영어로 다시 그리고, 폭죽은 1번만, 숫자는 바로 채움', okR);
   if (!okR) console.log('  ', msg);
+}
+// 결과: 문제 글·해설·제목이 한국어(AI 생성 데이터)면 EN 에서는 번역해 다시 그린다 — KO 는 묻지 않는다(짝)
+async function koResult(cur, mapFn, toggle) {
+  const E = env(cur), counts = { played: 0, conf: 0 }, sent = [];
+  E.els.resultView.style.display = 'block';
+  const KQ = [
+    { type: 'listen', q: '잘 듣고 알맞은 답을 고르세요.', opts: ['I am happy', 'I am sad'] },
+    { type: 'write', q: '다음 뜻의 영어 문장을 쓰세요: 나는 행복하다' },
+  ];
+  const state = { quiz: { id: 20, title: '[AI] SIU BOOKS 복습퀴즈', questions: KQ }, idx: 0, maxCombo: 0 };
+  const fetchFn = async (u, o) => {
+    const body = o && o.body ? JSON.parse(o.body) : {};
+    sent.push({ u, body });
+    return { json: async () => mapFn(body) };
+  };
+  try {
+    const api = new Function(...NAMES, lang + cheer + list + types + rq + res + '; return { showResult };')(
+      E.window, E.document, state, ['A', 'B', 'C', 'D'], s => String(s == null ? '' : s), { muted: false }, '/m.png',
+      () => {}, f => f(), fetchFn, { uid: 'u1' }, () => {}, { getItem: () => '' }, () => counts.conf++, () => {}, () => {}, { now: () => 0 });
+    const r = { ok: true, score: 1, total: 2, percent: 50, awarded: 10, balance: 10, streak: 0, detail: [
+      { type: 'listen', correct: true, your_answer: 0, answer: 0, explain: '행복한 감정을 영어로 표현한 문장입니다.' },
+      { type: 'write', correct: false, your_text: 'I happy', answer_text: 'I am happy', explain: '' } ] };
+    api.showResult(r);
+    if (toggle) { E.L.cur = 'en'; api.showResult(r, true); }
+    await new Promise(z => setTimeout(z, 0)); await new Promise(z => setTimeout(z, 0));
+    return { html: E.els.resultView.innerHTML, sent, conf: counts.conf };
+  } catch (e) { return { err: e.message, html: '', sent, conf: counts.conf }; }
+}
+const TR = { '잘 듣고 알맞은 답을 고르세요.': 'Listen and choose the right answer.', '다음 뜻의 영어 문장을 쓰세요: 나는 행복하다': 'Write the English sentence for: I am happy', '행복한 감정을 영어로 표현한 문장입니다.': 'This sentence expresses feeling happy.' };
+{
+  const a = await koResult('en', b => ({ ok: true, map: Object.fromEntries((b.texts || []).map(t => [t, TR[t] || t])) }));
+  const tr = a.sent.filter(x => /\/api\/translate/.test(x.u));
+  ok('결과 EN: 한국어 문제 글·해설을 번역 요청 1번(target:en)', tr.length === 1 && tr[0].body.target === 'en' && tr[0].body.texts.length === 3);
+  ok('결과 EN: 받은 뒤 다시 그리면 한국어 0글자(제목은 Review Quiz)', !a.err && !HANGUL.test(text(a.html)) && /Review Quiz/.test(a.html) && /Listen and choose/.test(a.html) && /feeling happy/.test(a.html));
+  ok('결과 EN: 번역 뒤 다시 그려도 폭죽은 1번만', a.conf === 1);
+  if (a.err || HANGUL.test(text(a.html))) console.log('  ', a.err || (text(a.html).match(/[가-힣][^<]{0,20}/) || [''])[0]);
+  const k = await koResult('ko', () => ({ ok: true, map: {} }));
+  ok('결과 KO(짝): 번역을 묻지 않고 한국어 그대로', k.sent.filter(x => /\/api\/translate/.test(x.u)).length === 0 && /잘 듣고/.test(k.html) && /복습퀴즈/.test(k.html));
+  const g = await koResult('ko', b => ({ ok: true, map: Object.fromEntries((b.texts || []).map(t => [t, TR[t] || t])) }), true);
+  ok('결과 🌐(KO→EN 토글): 그 자리에서 번역을 묻고 영어로 다시 그린다', !g.err && g.sent.filter(x => /\/api\/translate/.test(x.u)).length === 1 && !HANGUL.test(text(g.html)) && g.conf === 1);
+  const f = await koResult('en', () => ({ ok: false }));
+  ok('결과 EN: 번역 실패면 지어내지 않고 원문 그대로(화면은 남음)', !f.err && /잘 듣고/.test(f.html) && /Score/.test(f.html));
 }
 // 배선: 🌐 이벤트(window·document) + 첫 화면(DOMContentLoaded) 에서 다시 그린다
 {
