@@ -119,6 +119,17 @@ if (T.safeUrl) {
   check('safeUrl: javascript:·data:·//남의주소 는 빈 값', T.safeUrl('javascript:alert(1)') === '' && T.safeUrl('data:text/html,x') === '' && T.safeUrl('//evil.com/x.jpg') === '');
 }
 
+console.log('\n[ ②-2 근거 없는 평점을 그리지 않는다 (2026-11-04 사장님 결정) ]');
+if (T.cardHTML) {
+  // 옛 창은 모든 강사에게 «⭐ 4.9» 를 고정으로 박아 보여 줬다. 실제 평점 집계가 생기기 전까지는 그리지 않는다.
+  const plain = { id: 7, english_name: 'E', career: '' };
+  const vet = { id: 8, english_name: 'F', career: '6' };
+  const html = [run(T.cardHTML, plain, 0, false, 'ko'), run(T.cardHTML, vet, 1, false, 'en'),
+    run(T.detailHTML, plain, { index: 0, total: 2 }, 'ko'), run(T.detailHTML, vet, { index: 1, total: 2 }, 'en')].join('\n');
+  check('카드·프로필 어디에도 «4.9»·별점 기호가 없다', !/4\.9|★|⭐/.test(html));
+  check('대신 년차가 있으면 카드에 보인다 (짝 — 줄을 통째로 지운 것이 아님)', /6 yrs/.test(run(T.cardHTML, vet, 1, false, 'en')) && /6년차/.test(run(T.cardHTML, vet, 1, false, 'ko')));
+}
+
 console.log('\n[ ③ 판정 — 국가 칸 · 년차/소개 · 유튜브 · 검색 ]');
 if (T.regionOf) {
   const r = (o) => T.regionOf({ origin_region: o });

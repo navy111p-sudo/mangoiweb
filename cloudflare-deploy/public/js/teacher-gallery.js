@@ -170,9 +170,11 @@
       : '';
     return '<span class="' + cls + (url ? '' : ' tg-nophoto') + '">' + inner + '</span>';
   }
-  function ratingHTML(t, lang) {
+  /* 카드 아래 한 줄 — 년차가 있을 때만. ⛔ 평점을 지어내 넣지 말 것: 옛 창은 모든 강사에게 «⭐ 4.9» 를
+     고정으로 박아 보여 줬다(근거 없는 숫자). 2026-11-04 사장님 결정으로 뺐다 — 실제 평점 집계가 생기면 그때. */
+  function metaHTML(t, lang) {
     var y = yearsOf(t);
-    return '<span class="tg-meta"><span class="tg-star" aria-hidden="true">★</span> 4.9' + (y !== null ? ' · ' + esc(tr('years', lang, y)) : '') + '</span>';
+    return y !== null ? '<span class="tg-meta">' + esc(tr('years', lang, y)) + '</span>' : '';
   }
 
   function cardHTML(t, i, selected, lang) {
@@ -181,7 +183,7 @@
       '<span class="tg-ph-wrap">' + photoHTML(t, 'tg-ph') + flagImg(r, 'tg-flag tg-flag-badge') + '</span>' +
       '<span class="tg-name">' + esc(nameOf(t, lang)) + '</span>' +
       '<span class="tg-subj">' + esc(subjectOf(t, lang)) + '</span>' +
-      ratingHTML(t, lang) +
+      metaHTML(t, lang) +
       '</button>';
   }
 
@@ -231,7 +233,6 @@
       '<div class="tg-d-body">' +
         '<p class="tg-d-kicker">' + flagImg(r.id) + '<span>' + esc(regionLabel(r, lang)) + ' · ' + esc(regionDesc(r, lang)) + '</span></p>' +
         '<h3 class="tg-d-name" id="tg-d-name">' + esc(nameOf(t, lang)) + '</h3>' +
-        ratingHTML(t, lang) +
         '<div class="tg-d-actions">' +
           (video && !ctx.playing ? '<button type="button" class="tg-btn tg-btn-primary" data-tg="video">' + ICON_PLAY + '<span>' + esc(tr('video', lang)) + '</span></button>' : '') +
           '<button type="button" class="tg-btn tg-btn-ghost" data-tg="join">🎥 <span>' + esc(tr('join', lang)) + '</span></button>' +
@@ -597,8 +598,7 @@
     '.tg-flag-badge{position:absolute;right:-.15em;bottom:.2em;width:1.55em;height:1.05em;box-shadow:0 0 0 2px var(--tg-bg)}',
     '.tg-name{font-size:1.12em;font-weight:700;color:#fff;line-height:1.3;word-break:keep-all;overflow-wrap:anywhere}',
     '.tg-subj{font-size:.95em;color:var(--tg-text2);line-height:1.35}',
-    '.tg-meta{display:inline-flex;align-items:center;gap:.25em;margin-top:.35em;font-size:.92em;font-weight:600;color:var(--tg-text);font-variant-numeric:tabular-nums}',
-    '.tg-star{color:var(--tg-mango)}',
+    '.tg-meta{display:inline-flex;align-items:center;gap:.25em;margin-top:.35em;padding:.1em .6em;border-radius:999px;background:rgba(255,194,61,.12);font-size:.85em;font-weight:600;color:#FFD064;font-variant-numeric:tabular-nums}',
     /* 불러오는 중 뼈대 */
     '.tg-skel{pointer-events:none}',
     '.tg-skel .tg-ph{background:var(--tg-s2);box-shadow:none}',
@@ -623,7 +623,6 @@
     '.tg-d.is-playing .tg-d-body{padding-top:1.2em}',
     '#info-modal-content .tg .tg-d-kicker{display:flex;align-items:center;gap:.5em;margin:0;color:var(--tg-text2);font-size:.9em}',
     '#info-modal-content .tg .tg-d-name{margin:-.2em 0 0;color:#fff;font-size:1.75em;font-weight:800;line-height:1.2;word-break:keep-all;overflow-wrap:anywhere}',
-    '.tg-d .tg-meta{margin-top:-.4em;font-size:.95em}',
     '.tg-d-actions{display:flex;flex-wrap:wrap;gap:.5em}',
     '.tg-btn{display:inline-flex;align-items:center;justify-content:center;gap:.5em;min-height:2.75em;padding:0 1.1em;border-radius:12px;font-size:.95em;font-weight:700;border:1px solid transparent}',
     '.tg-btn-primary{background:var(--tg-mango);color:var(--tg-ink)!important}',
