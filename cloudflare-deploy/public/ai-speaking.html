@@ -31,7 +31,12 @@
        화면 안 링크(홈·교재 연습·AI 친구·상황 카드)는 아래 #leaveAsk 창(적용하고 이동 · 적용 안 하고 이동 · 머무르기),
        뒤로가기·새로고침·탭 닫기는 브라우저 기본 확인창(beforeunload — 문구는 브라우저가 정한다. 아이폰 사파리는 이 창을 안 띄우는 것으로 알려져 있다 · 이 저장소에서 못 잼).
        사람이 이 화면에서 «만진» 칸만 묻는다(다른 탭이 바꾼 값을 «안 적용» 으로 보지 않는다).
-       📖 2026-11-04 7차(사장님 「적당한 곳에 누르면 보이게」) — «오늘은 …» 줄 오른쪽 «사용 안내» 버튼이
+       ▶ 같은 날 7차(사장님 「자유·균형·집중을 바꾸고 버튼 누르면 교재로 연습 안에서도 똑같이 자동으로」) —
+       «연습 시작» 링크(data-start: 교재로 연습 · AI 친구하기 · 펼친 상황 하나하나)는 묻지 않고 «확인» 과 같은 저장을 한 뒤 그대로 간다.
+       그래서 들어간 화면의 교정 정도가 여기서 고른 것과 같다. 홈(←) 처럼 «연습을 안 하고 나가는» 링크만 위 창으로 묻는다.
+       수준·교정 중 하나가 비어 «확인» 이 잠긴 경우는 시작 링크도 창으로 묻는다(무엇을 고를지 말해야 하므로).
+       저장이 막힌 기기면 머물러 «⚠️ 이 기기에선 저장이 안 돼요» 를 보이고, 다시 누르면 그대로 간다(6차 «적용하고 이동» 과 같다).
+       📖 2026-11-04 8차(사장님 「적당한 곳에 누르면 보이게」) — «오늘은 …» 줄 오른쪽 «사용 안내» 버튼이
        사용 안내서(/ai-speaking-guide.html · 한 장 판, 초등 눈높이 · KO/EN · 인쇄·PDF·Word)를 이 화면 위 창(dialog)에 연다.
        화면 언어(ui)를 ?lang= 으로 넘기고, 창을 열 때만 iframe 을 불러온다(첫 화면 비용 0). 창을 못 여는 옛 브라우저는 같은 탭으로 간다.
        ⛔ 이 변경은 설정 읽기·쓰기·상황 목록 코드를 건드리지 않는다. -->
@@ -174,7 +179,7 @@
     <button type="button" class="guide-btn" id="guideBtn" aria-haspopup="dialog" aria-controls="guideDlg"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20v3H6.5A2.5 2.5 0 0 1 4 20.5z"/><path d="M9 7.5h7M9 11h5"/></svg><span data-ko="사용 안내" data-en="How to use">사용 안내</span></button></p>
 
   <div class="modes">
-    <a class="mode" id="textbook-mode" href="/warmup.html">
+    <a class="mode" id="textbook-mode" href="/warmup.html" data-start>
       <span class="art" aria-hidden="true"><img src="/img/ai-speaking/planet-textbook.webp" alt="" width="160" height="160" decoding="async"></span>
       <span class="txt"><h2 data-ko="교재로 연습" data-en="Textbook practice">교재로 연습</h2>
         <p data-ko="수업에서 배운 표현을 교재와 함께 연습해요" data-en="Practice what you learned with your textbook">수업에서 배운 표현을 교재와 함께 연습해요</p></span>
@@ -186,7 +191,7 @@
         <p data-ko="카페 주문, 길 묻기 등 실제 상황에서 말해 봐요" data-en="Order at a cafe, ask for directions and more">카페 주문, 길 묻기 등 실제 상황에서 말해 봐요</p></span>
       <span class="go"><span class="go-t" data-ko="상황 고르기" data-en="Choose a situation">상황 고르기</span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></span>
     </a>
-    <a class="mode friend" id="friend-mode" href="/ai-friend.html">
+    <a class="mode friend" id="friend-mode" href="/ai-friend.html" data-start>
       <span class="art" aria-hidden="true"><img src="/img/ai-speaking/planet-friend.webp" alt="" width="160" height="160" decoding="async"></span>
       <span class="txt"><h2 data-ko="AI 친구하기" data-en="AI friend">AI 친구하기</h2>
         <p data-ko="원하는 주제로 AI 친구와 편하게 대화해요" data-en="Chat with an AI friend about anything you like">원하는 주제로 AI 친구와 편하게 대화해요</p></span>
@@ -275,7 +280,7 @@
       return '<h4 class="sit-g">' + esc(T(st.ko, st.en)) + '</h4><div class="sit-list">' + items.map(function(s){
         var pic = s.img ? '<img src="' + esc(s.img) + '" alt="" loading="lazy">' : s.ic;
         var name = T(s.ko, s.en);
-        return '<a class="sit" data-sit="' + esc(s.id) + '" href="' + esc(SIT.url(s)) + '"><span class="sit-ic" aria-hidden="true">' + pic + '</span>'
+        return '<a class="sit" data-sit="' + esc(s.id) + '" data-start href="' + esc(SIT.url(s)) + '"><span class="sit-ic" aria-hidden="true">' + pic + '</span>'
           + '<span class="sit-t"><b>' + esc(name) + '</b><small>' + esc(T(s.dko, s.den)) + '</small></span></a>';
       }).join('') + '</div>';
     }).join('');
@@ -434,6 +439,14 @@
       var href = a.getAttribute('href') || '';
       if(!href || href.charAt(0) === '#' || a.getAttribute('target') || a.hasAttribute('download')) return;
       if(!unapplied() || !document.getElementById('leaveAsk')) return;
+      // ▶ 7차 — 연습 시작 링크는 묻지 않고 «확인» 과 같은 저장을 한 뒤 그대로 간다(고른 교정 정도로 시작).
+      //    저장이 되면 unapplied() 가 거짓이 되어 beforeunload 도 안 묻는다. 막지 않으므로 링크 기본 이동이 그대로 일어난다.
+      //    ⛔ «확인» 이 잠긴 경우(draftMissing)는 아래 창으로 — 무엇을 고를지 말해야 한다.
+      if(a.hasAttribute('data-start') && !draftMissing()){
+        if(confirmSettings()) return;
+        e.preventDefault(); focusEl(document.getElementById('setOk'));   // 저장 못 함 — 머물러 «⚠️» 를 보인다. 다시 누르면 그대로 간다(okState 'fail')
+        return;
+      }
       e.preventDefault();
       openLeave(a.href || href, a);
     });

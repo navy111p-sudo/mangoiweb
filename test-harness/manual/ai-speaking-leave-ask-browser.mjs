@@ -7,6 +7,9 @@
 // 변이시험(2026-11-04): 안 묻기 · 늘 묻기 · leaving 표시 제거 · beforeunload 제거 · 창 z-index 0 · 창 높이 상한 제거 · 스크롤하는 포커스(제목 잘림) ·
 //   Tab 가두기 제거 · keydown 을 창에만 · storage 리스너 제거 · 글자 대비 낮추기 → 실제 FAIL. 등가라 못 잡는 것: «만진 칸 무시»·«쓰기 전 다시 읽기 제거»
 //   (진짜 브라우저는 storage 이벤트가 먼저 맞춤 — 이벤트를 놓친 경우는 자동 하니스 G12) · «낮은 화면 조이기»(없어도 창 안 스크롤로 기준 통과).
+// ▶ 7차(같은 날 사장님 «버튼 누르면 교재로 연습 안에서도 똑같이 자동으로»): 연습 시작 링크(교재·상황·AI 친구 — data-start)는 이제 묻지 않고
+//    저장 후 간다. 그래서 «묻는 창» 은 홈(a.home) 링크로 잽니다(②③④⑤). 시작 링크는 ⑤-2·⑦·⑨ 가 «안 묻고 저장» 을 봅니다.
+//    연습 화면이 실제로 그 교정 정도를 그리는지는 manual/ai-speaking-start-apply-browser.mjs.
 // ⚠️ 정정(같은 날 함정 대조): 처음엔 «크로미움은 inert 만으로 Tab 을 가둔다» 고 적었는데 틀렸습니다 — Tab 을 4번 누른 «뒤에만» 재서
 //    (버튼 3개 + 창 밖 1칸 = 한 바퀴) 우연히 통과한 것이었습니다. 이제 Tab·Shift+Tab 을 «한 번씩» 눌러 매 칸이 창 안인지 잽니다.
 import assert from 'node:assert/strict';
@@ -92,7 +95,7 @@ try {
       // ② 바꿈 -> 묻는다 · 창이 맨 위 · 화면 안 · 버튼 44px 이상
       s = await open({ width, height, lang });
       await pickChange(s.page);
-      await s.page.click('#friend-mode');
+      await s.page.click('a.home');
       ok(await shown(s.page), tag + ' ② changed -> the ask dialog is shown');
       ok(new URL(s.page.url()).pathname === '/ai-speaking.html', tag + ' ② …and the page did not leave');
       const h = await hit(s.page);
@@ -114,20 +117,26 @@ try {
       await s.page.click('#leaveBody');
       await s.page.keyboard.press('Escape');
       ok(!(await shown(s.page)), tag + ' ③ Escape works after tapping the dialog text');
-      await s.page.click('#friend-mode');
+      await s.page.click('a.home');
       await s.page.keyboard.press('Escape');
-      ok(!(await shown(s.page)) && await s.page.evaluate(() => document.activeElement && document.activeElement.id === 'friend-mode'), tag + ' ③ Escape closes it and focus returns to the card');
+      ok(!(await shown(s.page)) && await s.page.evaluate(() => document.activeElement && document.activeElement.classList.contains('home')), tag + ' ③ Escape closes it and focus returns to the link');
       // ④ «적용 안 하고 이동» -> 저장 안 함 · 감 · 브라우저 창이 두 번째로 안 뜬다
-      await s.page.click('#friend-mode'); await s.page.click('#leaveSkip'); await s.page.waitForURL('**/ai-friend.html');
+      await s.page.click('a.home'); await s.page.click('#leaveSkip'); await s.page.waitForURL(origin + '/');
       ok(await ls(s.page, 'mangoi_warmup_level') === '5' && await ls(s.page, 'mangoi_aifriend_correction') === 'balanced', tag + ' ④ «go without applying» writes nothing');
       ok(s.dialogs.length === 0, tag + ' ④ …and no second (browser) prompt');
       ok(s.errors.length === 0, tag + ' no JS errors: ' + s.errors.join(';'));
       await s.ctx.close();
       // ⑤ «적용하고 이동» -> 두 화면 키 저장 · 감
       s = await open({ width, height, lang });
-      await pickChange(s.page); await s.page.click('#textbook-mode'); await s.page.click('#leaveGo'); await s.page.waitForURL('**/warmup.html');
+      await pickChange(s.page); await s.page.click('a.home'); await s.page.click('#leaveGo'); await s.page.waitForURL(origin + '/');
       ok(await ls(s.page, 'mangoi_warmup_level') === '3' && await ls(s.page, 'mangoi_aifriend_level') === 'S3' && await ls(s.page, 'mangoi_aifriend_correction') === 'focused', tag + ' ⑤ «apply and go» saves both screens and goes');
       ok(s.dialogs.length === 0, tag + ' ⑤ …no browser prompt');
+      await s.ctx.close();
+      // ⑤-2 7차 — 연습 시작 버튼은 묻지 않고 저장 후 간다
+      s = await open({ width, height, lang });
+      await pickChange(s.page); await s.page.click('#textbook-mode'); await s.page.waitForURL('**/warmup.html');
+      ok(!(await s.page.evaluate(() => !!document.getElementById('leaveAsk'))) && await ls(s.page, 'mangoi_warmup_level') === '3' && await ls(s.page, 'mangoi_warmup_correction') === 'focused' && await ls(s.page, 'mangoi_aifriend_correction') === 'focused', tag + ' ⑤-2 textbook card: not asked, picks saved for both screens, goes');
+      ok(s.dialogs.length === 0, tag + ' ⑤-2 …no browser prompt');
       await s.ctx.close();
       } catch (e) { ok(false, tag + ' threw (a step never happened): ' + String(e.message).split('\n')[0]); }
       finally { for (const c of browser.contexts()) await c.close().catch(() => {}); }
@@ -150,15 +159,14 @@ try {
   } catch (e) { ok(false, '⑥ threw (a step never happened): ' + String(e.message).split('\n')[0]); }
   finally { for (const c of browser.contexts()) await c.close().catch(() => {}); }
   try {
-  // ⑦ 상황 카드(#situations)는 화면 안이라 안 묻고 펼친다 · 펼친 상황 링크는 묻는다
+  // ⑦ 상황 카드(#situations)는 화면 안이라 안 묻고 펼친다 · 펼친 상황 링크는 7차부터 «연습 시작» 이라 안 묻고 저장 후 간다
   s = await open({ width: 390, height: 844 });
   await pickChange(s.page);
   await s.page.click('#situation-mode');
   ok(!(await shown(s.page)) && await s.page.evaluate(() => !document.getElementById('situations').hidden), '⑦ the situations card opens in place, not asked');
   await s.page.click('#sitBody a.sit');
-  ok(await shown(s.page) && new URL(s.page.url()).pathname === '/ai-speaking.html', '⑦ a situation link is asked');
-  await s.page.click('#leaveStay');
-  ok(!(await shown(s.page)), '⑦ «stay» closes it');
+  await s.page.waitForURL('**/warmup.html?**');
+  ok(await ls(s.page, 'mangoi_warmup_correction') === 'focused' && await ls(s.page, 'mangoi_warmup_level') === '3' && s.dialogs.length === 0, '⑦ a situation link is not asked — picks saved, goes → ' + s.page.url());
   await s.ctx.close();
   } catch (e) { ok(false, '⑦ threw (a step never happened): ' + String(e.message).split('\n')[0]); }
   finally { for (const c of browser.contexts()) await c.close().catch(() => {}); }
@@ -192,10 +200,8 @@ try {
     await A.goto(origin + '/ai-speaking.html');
     await A.selectOption('#setLevel', '3');
     await B.reload(); await B.click('[data-corr="free_talk"]'); await B.click('#setOk');
-    await A.click('#textbook-mode');
-    ok(await shown(A), '⑨ tab A changed the level -> asked');
-    await A.click('#leaveGo'); await A.waitForURL('**/warmup.html');
-    ok(await ls(A, 'mangoi_warmup_level') === '3' && await ls(A, 'mangoi_aifriend_correction') === 'free_talk', '⑨ «apply and go» saved A\'s level and kept B\'s corrections');
+    await A.click('#textbook-mode'); await A.waitForURL('**/warmup.html');
+    ok(await ls(A, 'mangoi_warmup_level') === '3' && await ls(A, 'mangoi_aifriend_correction') === 'free_talk', '⑨ tab A changed the level -> the start card saved A\'s level and kept B\'s corrections (7차: not asked)');
     await ctx.close();
   } catch (e) { ok(false, '⑨ threw (a step never happened): ' + String(e.message).split('\n')[0]); }
 } finally { await browser.close(); await new Promise(r => server.close(r)); }
