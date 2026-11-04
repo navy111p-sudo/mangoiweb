@@ -22,3 +22,19 @@ export function publicTeacherNotes(notes: unknown): string | null {
 export function publicTeacherRow<T extends { notes?: unknown }>(row: T): T {
   return { ...row, notes: publicTeacherNotes(row && row.notes) };
 }
+
+/* 🧑‍💼 (2026-11-05 사장님 「매니저는 빼줘」) 수업을 안 하는 매니저는 공개 강사 목록에 안 싣는다.
+ *   근거는 데이터 두 가지(운영 D1 실측 — 활동중 25명 중 매니저 3명):
+ *   ① 메모에 「역할: 관리자(수업 안 함)」 — Melca·Maimai
+ *   ② 명부 분류(group_name)가 «Head Teacher» — Maimai·Karl (Karl 은 메모가 비어 있어 ①로는 안 잡힌다)
+ *   ⚠️ 나중에 «수업하는» Head Teacher 가 생기면 이 규칙이 그 사람도 뺀다 — 그때는 분류를 바꾸거나 이 줄을 고친다.
+ *   ⚠️ 원본 행(메모 원문 포함)으로 판정해야 한다 — publicTeacherRow 를 거친 뒤에는 메모가 평점 조각뿐이다.
+ *   ℹ️ 관리자 명부·수업·급여에는 영향 없다(이 함수는 공개 목록에서만 부른다). */
+export function isPublicTeacher(row: { group_name?: unknown; notes?: unknown } | null | undefined): boolean {
+  if (!row) return false;
+  const g = typeof row.group_name === 'string' ? row.group_name.trim().toLowerCase() : '';
+  if (g === 'head teacher') return false;
+  const n = typeof row.notes === 'string' ? row.notes : '';
+  if (/역할\s*:\s*관리자/.test(n) || /수업\s*안\s*함/.test(n)) return false;
+  return true;
+}
