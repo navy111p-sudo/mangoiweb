@@ -46,7 +46,7 @@
     cancelled: { ko: '✕ 취소됨', en: '✕ Cancelled', bg: '#fdecea', fg: '#b42318', bd: '#f3a8a0' },
     /* ⏸ (2026-11-04 매니저 Mai «취소·연기를 지우지 말고 칸으로») 이 날에서 다른 날로 연기·변경한 수업 — 원래 날짜에 남는 줄.
        서버가 'moved_away' 로 보낸다(api-admin.ts classes/today · 정본 class-change-state.ts judgeMovedAway). 버튼 없음. */
-    moved_away: { ko: '⏸ 다른 날로 연기', en: '⏸ Moved to another day', bg: '#fff4e0', fg: '#b45309', bd: '#f5c98a' }
+    moved_away: { ko: '⏸ 다른 날로 옮김', en: '⏸ Moved to another day', bg: '#fff4e0', fg: '#b45309', bd: '#f5c98a' }
   };
 
   /* 📋 (2026-09-23 매니저 요청) 일곱 칸 — 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결.
@@ -1115,7 +1115,7 @@
       /* 🧪 (2026-08-06 마이마이 요청) 레벨테스트도 이 목록에 함께 있다는 것을 숫자로 먼저 알린다.
          "레벨테스트는 어디서 보나요"가 반복 질문이었는데, 실제로는 같은 목록에 섞여 있었고
          구분 표시가 없어서 못 찾았을 뿐이다. */
-      var lt = _rows.filter(function (s) { return s.is_level_test; }).length;
+      var lt = _rows.filter(function (s) { return s.is_level_test && !s.moved_away; }).length;   // ⏸ 다른 날로 옮긴 줄은 이 날 레벨테스트가 아니다
       /* 🏷 (2026-08-25) 카페24 건수를 «따로» 센다. 합계만 보여 주면 「목록엔 많은데 왜 다 입장이 안 되나」가 된다 —
          숫자가 갈려 있어야 «들어갈 수 있는 것»과 «카페24에서 도는 것»이 다르다는 게 먼저 읽힌다. */
       var c24 = _rows.filter(function (s) { return s.source === 'cafe24'; }).length;
@@ -1133,7 +1133,7 @@
         shown + _rows.length + '건 · 지금 입장가능 ' + live + '건' + (c24 ? ' · 카페24 ' + c24 + '건' : '')
           + (mg ? ' · 망고아이 ' + mg + '건' : '')
           + (lt ? ' · 레벨테스트 ' + lt + '건' : '')
-          + (cx ? ' · 취소 ' + cx + '건' : '') + (pp ? ' · 연기 ' + pp + '건' : '') + (mv ? ' · 다른 날로 연기 ' + mv + '건' : ''),
+          + (cx ? ' · 취소 ' + cx + '건' : '') + (pp ? ' · 연기 ' + pp + '건' : '') + (mv ? ' · 다른 날로 옮김 ' + mv + '건' : ''),
         shown + _rows.length + ' total · ' + live + ' joinable now' + (c24 ? ' · ' + c24 + ' on cafe24' : '')
           + (mg ? ' · ' + mg + ' on Mangoi' : '')
           + (lt ? ' · ' + lt + ' level test' : '')
@@ -1144,7 +1144,9 @@
     /* 🚪 (2026-07-24 강사 피드백) "입장 버튼이 학생 이름과 멀리 떨어져 있어 다른 방에 잘못 들어간다"
        → 액션 버튼을 별도 맨 끝 열이 아니라 학생 이름 칸 바로 옆에 붙여, 줄을 눈으로 훑지 않고
        같은 칸만 보고 누를 수 있게 한다. */
-    var note = contactNote(rows.filter(function (s) { return !s.contact_phone; }).length, rows.length);
+    // ⏸ «다른 날로 옮긴» 줄은 이 날 수업이 아니라 연락처 건수에서 뺀다(같은 학생을 두 번 세지 않게).
+    var _cRows = rows.filter(function (s) { return !s.moved_away; });
+    var note = contactNote(_cRows.filter(function (s) { return !s.contact_phone; }).length, _cRows.length);
     /* 🌒 «표시된 줄» 기준으로 센다 — 거르는 중이면 눈앞의 목록을 말해야 한다(교재 줄과 같은 규칙) */
     var nNote = nightNote(night,
       rows.filter(isDawn).length,
@@ -1154,7 +1156,7 @@
     // ✕ 취소된 수업은 교재를 챙길 수업이 아니다 — 미배정 셈에서 뺀다(2026-11-03).
     var missing = rows.filter(function (s) { return !s.textbook_assigned && !s.is_level_test && !s.cancelled && !s.moved_away; }).length;
     /* 🧪 «미배정인 레벨테스트» 만 센다 — 배정된 레벨테스트는 애초에 셈에 안 들어와 말할 것이 없다 */
-    var ltSkipped = rows.filter(function (s) { return !s.textbook_assigned && s.is_level_test; }).length;
+    var ltSkipped = rows.filter(function (s) { return !s.textbook_assigned && s.is_level_test && !s.moved_away; }).length;
     var bookLine = bookNoteHtml(missing, rows.length, ltSkipped);
     /* 🏫 학원을 골랐으면 «그 학원 오늘 한눈에» 한 줄 — 연기할 대상(몇 건·어디서·강사 몇 명)을 먼저 읽게.
        ⚠️ 카페24 줄은 여기서 옮길 수 없다는 사실도 함께(버튼이 없는 이유). */
@@ -1227,7 +1229,7 @@
                입장·참관·초대 링크·연기·대체강사 버튼은 주지 않는다(서버도 join_open·observable·can_move 를 false 로 보낸다).
                새 날짜에서 옮기려면 그 날짜 목록에서 하면 된다. 글자는 서버가 만든 것(change.label_*)을 그대로 쓴다. */
             act = '<span style="color:#b45309;font-size:11.5px;font-weight:700;margin-right:4px">'
-              + esc(T((s.change && s.change.label_ko) || '⏸ 다른 날로 연기됨', (s.change && s.change.label_en) || '⏸ Moved to another day'))
+              + esc(T((s.change && s.change.label_ko) || '⏸ 다른 날로 옮김', (s.change && s.change.label_en) || '⏸ Moved to another day'))
               + T(' — 이 날은 수업 없음', ' — no class this day') + '</span>';
           } else if (s.cancelled) {
             /* ✕ (2026-11-03) 취소된 수업 — 줄은 남기되(지우면 «수업이 없어졌다» 로 읽힌다) 입장·참관·초대 링크·연기 버튼은
@@ -1314,7 +1316,8 @@
              (본사 전용 · 받아 둔 번호 먼저 · 하나도 안 닿으면 «못 보냈다» 고 말함).
              ⛔ 강사·지사·대리점에는 안 그린다(서버도 403) — «눌러도 안 되는 버튼» 을 만들지 않는다.
              ⛔ <button> 대신 span[role=button] — 카드 안 전역 button 규칙이 파란 알약으로 덮는다. */
-          if (s.student_uid && tcCanMessage()) {
+          // ⏸ «다른 날로 옮긴» 줄에는 안 붙인다 — 원래 시각(data-time)으로 안내가 나가 거짓이 된다. 새 날짜 줄에서 보내면 된다.
+          if (s.student_uid && tcCanMessage() && !s.moved_away) {
             act += '<span class="tc-msg-pin" role="button" tabindex="0" data-uid="' + esc(s.student_uid) + '" '
               + 'data-name="' + esc(s.student_name || s.student_uid) + '" data-teacher="' + esc(s.teacher_name || '') + '" '
               + 'data-time="' + esc(s.start_time || '') + '" '
@@ -1333,7 +1336,8 @@
              ⚠️ 학생 아이디가 없으면 누를 것을 주지 않는다 — 누구에게 배정할지 모르면
                 열어 봐야 «전체» 로 흐른다(그게 이 기능이 막으려는 바로 그 사고다). */
           var canPin = !s.textbook_assigned && !!(s.student_uid && String(s.student_uid).trim());
-          var bookTag = s.textbook_assigned
+          var bookTag = s.moved_away ? ''   // ⏸ «다른 날로 옮긴» 줄 — 매니저·지사 화면처럼 교재 칩을 안 그린다(그 날 수업이 아니다)
+            : s.textbook_assigned
             ? '<span style="font-size:11px;color:#6b7280">📚 ' + esc(s.textbook) + '</span>'
             : '<span' + (canPin
                   ? ' class="tc-book-pin" role="button" tabindex="0"'

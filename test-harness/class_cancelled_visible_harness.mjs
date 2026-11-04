@@ -344,6 +344,47 @@ if (process.env.CCV_CHILD === '1') {
   const stp = await studentToday('stu_p');
   ok('H18 학생 오늘 수업에는 원래 날짜 줄이 없다', !(stp.sessions || []).some(s => Number(s.schedule_id) === P1), JSON.stringify((stp.sessions || []).map(s => s.schedule_id)));
 
+  /* ── 후속(2026-11-04 함정 대조) ── */
+  // H19 강사가 POST /api/admin/class-audit 로 «연기 이력» 을 지어내 원래 날짜 줄을 만들 수 없다 — 짝: 본사는 그대로 적는다
+  {
+    const nBefore = sq.prepare(`SELECT COUNT(*) n FROM class_audit_log`).get().n;
+    const tr = await callAdmin('POST', '/api/admin/class-audit', { cookie: 'tok_alpha', body: { action: 'postpone', schedule_id: P2, lesson_date: '2026-11-03', lesson_time: '09:00', reason: 'forged' } });
+    const nMid = sq.prepare(`SELECT COUNT(*) n FROM class_audit_log`).get().n;
+    ok('H19 강사는 연기·변경 이력을 직접 못 적는다(403 · 행 안 늘어남)', tr.status === 403 && tr.body.error === 'forbidden_teacher' && nMid === nBefore, JSON.stringify(tr));
+    const te = await callAdmin('POST', '/api/admin/class-audit', { cookie: 'tok_alpha', body: { action: 'end', room_id: 'x' } });
+    const ar = await callAdmin('POST', '/api/admin/class-audit', { cookie: 'tok_admin', body: { action: 'end', room_id: 'x' } });
+    ok('H19b 짝: 강사의 «end» 기록과 본사의 기록은 그대로 된다', te.status === 200 && ar.status === 200, JSON.stringify([te, ar]));
+  }
+  // H20 원래 날짜 줄은 «연락처 없음» 건수·레벨테스트 건수에 안 섞인다
+  {
+    const r = await callAdmin('GET', '/api/admin/classes/today?date=' + TODAY, { cookie: 'tok_admin' });
+    const ss = r.body.sessions || [];
+    const want = ss.filter(x => !x.contact_phone && !x.moved_away).length;
+    ok('H20 contact_missing·level_test_count 는 원래 날짜 줄을 빼고 센다',
+      ss.some(x => x.moved_away) && r.body.contact_missing === want && r.body.level_test_count === ss.filter(x => x.is_level_test && !x.moved_away).length,
+      JSON.stringify({ cm: r.body.contact_missing, want, lt: r.body.level_test_count }));
+  }
+  // H21 조회가 상한(3000)에 걸리면 «다 물어봤다» 가 아니다 — 짝: 상한 안이면 complete
+  {
+    const { loadMovedAwayEvents } = await imp('class-change-state.ts');
+    const insReq = sq.prepare(`INSERT INTO schedule_change_requests (schedule_id, request_type, status, orig_date, orig_time, created_at) VALUES (?, 'postpone', 'approved', '2027-02-02', '10:00', ?)`);
+    const CT = RealDate.parse('2027-01-20T00:00:00Z');
+    sq.exec('BEGIN'); for (let i = 0; i < 3001; i++) insReq.run(900000 + i, CT); sq.exec('COMMIT');
+    const big = await loadMovedAwayEvents(DB, '2027-02-02', '2027-02-02');
+    sq.exec(`DELETE FROM schedule_change_requests WHERE schedule_id = 900000`);
+    const fit = await loadMovedAwayEvents(DB, '2027-02-02', '2027-02-02');
+    ok('H21 상한에 걸리면 complete=false — 짝: 상한 안이면 true', big.complete === false && fit.complete === true && fit.byKey.size === 3000, JSON.stringify({ big: big.complete, fit: fit.complete, n: fit.byKey.size }));
+    sq.exec(`DELETE FROM schedule_change_requests WHERE schedule_id >= 900000`);
+    // H22 원래 날짜보다 400일 넘게 앞서 적힌 기록은 안 읽는다(범위 스캔) — 짝: 그 안이면 읽는다
+    sq.prepare(`INSERT INTO schedule_change_requests (schedule_id, request_type, status, orig_date, orig_time, created_at) VALUES (?, 'postpone', 'approved', '2027-03-01', '10:00', ?)`)
+      .run(910001, RealDate.parse('2025-12-01T00:00:00Z'));
+    sq.prepare(`INSERT INTO schedule_change_requests (schedule_id, request_type, status, orig_date, orig_time, created_at) VALUES (?, 'postpone', 'approved', '2027-03-01', '10:00', ?)`)
+      .run(910002, RealDate.parse('2027-02-20T00:00:00Z'));
+    const old = await loadMovedAwayEvents(DB, '2027-03-01', '2027-03-01');
+    ok('H22 400일 넘게 앞선 기록은 빼고, 그 안의 기록은 읽는다', !old.byKey.has('910001|2027-03-01') && old.byKey.has('910002|2027-03-01'), JSON.stringify([...old.byKey.keys()]));
+    sq.exec(`DELETE FROM schedule_change_requests WHERE schedule_id >= 910000`);
+  }
+
   process.stdout.write('\n@@RESULTS@@' + JSON.stringify({ results }) + '\n');
   process.exit(0);
 }
@@ -416,9 +457,9 @@ const MUTANTS = [
   { name: '원래 날짜 줄: 판정 조건 뒤집기(같은 날짜일 때만 줄을 만듦)', expect: /H1 |H2 |H5 /,
     edits: [['class-change-state.ts', "if (!from || !cur || cur === from) return null;", "if (!from || !cur || cur !== from) return null;"]] },
   { name: '원래 날짜 줄: 요청 승인 기록을 안 읽음', expect: /H1b /,
-    edits: [['class-change-state.ts', "WHERE status = 'approved' AND schedule_id IS NOT NULL", "WHERE status = 'never' AND schedule_id IS NOT NULL"]] },
+    edits: [['class-change-state.ts', "WHERE status = 'approved' AND created_at >= ?", "WHERE status = 'never' AND created_at >= ?"]] },
   { name: '원래 날짜 줄: 끌어 옮기기 이력을 안 읽음', expect: /H2 /,
-    edits: [['class-change-state.ts', "WHERE action IN (${acts}) AND schedule_id IS NOT NULL", "WHERE action IN ('never') AND schedule_id IS NOT NULL"]] },
+    edits: [['class-change-state.ts', "WHERE action IN (${acts}) AND created_at >= ?", "WHERE action IN ('never') AND created_at >= ?"]] },
   { name: '원래 날짜 줄: 출결 판정을 태움(결석으로 그릴 수 있음)', expect: /H4 /,
     edits: [['api-admin.ts', 'sessions.filter(x => !x.moved_away), dateStr', 'sessions, dateStr']] },
   { name: '원래 날짜 줄: 지사에도 누가·사유를 실음', expect: /H11 /,
@@ -432,6 +473,16 @@ const MUTANTS = [
     edits: [['api-teacher.ts', 'for (const m of _mvAwayItems) { const d = weekDays.find((x: any) => x.date === m.date); if (d) d.items.push({ ...m.item }); }', '']] },
   { name: '강사 월간 달력: 원래 날짜 줄을 안 넣음', expect: /H17 /,
     edits: [['api-teacher.ts', 'for (const m of _mvAwayItems) { const d = monthDays.find((x: any) => x.date === m.date); if (d) d.items.push({ ...m.item }); }', '']] },
+  { name: '후속: 강사의 연기 이력 직접 쓰기를 다시 열어 둠', expect: /H19 /,
+    edits: [['api-admin.ts', "if (_cawActor.isTeacher && ['postpone', 'reschedule', 'remove', 'restore'].includes(action)) {", "if (false && _cawActor.isTeacher) {"]] },
+  { name: '후속: 강사의 모든 기록을 막음(end 까지)', expect: /H19b /,
+    edits: [['api-admin.ts', "if (_cawActor.isTeacher && ['postpone', 'reschedule', 'remove', 'restore'].includes(action)) {", "if (_cawActor.isTeacher) {"]] },
+  { name: '후속: 연락처 없음 건수에 원래 날짜 줄을 섞음', expect: /H20 /,
+    edits: [['api-admin.ts', 'contact_missing: sessions.filter(x => !x.contact_phone && !x.moved_away).length,', 'contact_missing: sessions.filter(x => !x.contact_phone).length,']] },
+  { name: '후속: 잘려도 complete 를 참으로 둠', expect: /H21 /,
+    edits: [['class-change-state.ts', "if (list.length > CAP) complete = false;\n    for (const r of list.slice(0, CAP)) {\n      put({ schedule_id: String(r.schedule_id ?? '').trim(), from_date: ymd(r.orig_date)", "for (const r of list.slice(0, CAP)) {\n      put({ schedule_id: String(r.schedule_id ?? '').trim(), from_date: ymd(r.orig_date)"]] },
+  { name: '후속: 400일 경계를 거꾸로(옛 기록만 읽음)', expect: /H22 /,
+    edits: [['class-change-state.ts', "WHERE status = 'approved' AND created_at >= ?", "WHERE status = 'approved' AND created_at < ?"]] },
   { name: '주간 시간표: 조건 뒤집기 — 취소 회차를 거꾸로 거름', expect: /G1 |G5 /,
     edits: [['api-admin.ts', 'return isCancelledOccurrence(r) || isPostponedOccurrence(r);', 'return !(isCancelledOccurrence(r) || isPostponedOccurrence(r));']] },
 ];
