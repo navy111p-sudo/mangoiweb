@@ -3834,11 +3834,12 @@ function _startSttSession(){
      [왜] 예전에는 인식 결과가 «올 때마다» 처음부터 다시 셌는데, 인식기는 말이 끝난 뒤에도 같은 문장을 또 보낸다
           (중간 결과 → 최종 확정 · 잡음에 흔들린 같은 글자 · 안드로이드 재시작). 그때마다 대기가 처음부터 다시 돌아
           입력칸에 「we played soccer」 가 다 적혔는데도 «듣는 중» 이 길게 남았다(2026-11-05 사장님 화면).
-     ✅ 말 단위(영어 낱말·중국어 글자)가 «늘었을 때만» 시계를 새로 시작한다. 고쳐 적기(같은 수)는 시계를 이어 가되
+     ✅ 말 단위(띄어 쓴 ASCII 낱말 1 · 그 밖의 글자는 한 글자에 1 — 중국어는 글자마다)가 «늘었을 때만» 시계를 새로 시작한다.
+        ⛔ 한자 범위 정규식을 여기 쓰지 않는다 — 영어 판정 정본은 서버(src/warmup-graph.ts) 하나다(english_only_harness). 고쳐 적기(같은 수)는 시계를 이어 가되
         판정(끝남·덜 끝남)은 새 글자로 다시 한다.
      ⛔ 아직 아무 말도 없을 때(0)는 예전처럼 매번 새로 센다 — 생각할 시간(SIL_FIRST)을 줄이지 않는다. */
   var _silUnits=0, _silAt=0;
-  function _micUnits(t){ return (String(t||'').replace(/[.,!?;:\u3002\uff0c\uff01\uff1f\u3001\u2026"\u201c\u201d]/g,'').match(/[\u3400-\u9fff]|[^\s\u3400-\u9fff]+/g)||[]).length; }
+  function _micUnits(t){ return (String(t||'').replace(/[.,!?;:\u3002\uff0c\uff01\uff1f\u3001\u2026"\u201c\u201d]/g,'').match(/[^\x00-\x7f]|[\x21-\x7e]+/g)||[]).length; }
   function _armSilence(){
     if(_silence) clearTimeout(_silence);
     var t=_micHeard();
