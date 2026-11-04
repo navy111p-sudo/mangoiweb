@@ -261,12 +261,15 @@ export function stripPraiseLead(reply: string): string {
    ───────────────────────────────────────────────────────────── */
 export function finishFriendReply(
   reply: string,
-  o: { mode: WarmupMode; verified: WarmupFix | null; shown: WarmupFix | null; msg: string; fallback: boolean },
+  o: { mode: WarmupMode; verified: WarmupFix | null; shown: WarmupFix | null; msg: string; fallback: boolean; suspect?: boolean },
 ): string {
   const orig = String(reply == null ? '' : reply);
   if (o.fallback) return orig;
   let out = orig;
-  try { if (o.verified) out = stripPraiseLead(out); } catch { /* 그대로 */ }
+  /* 🏅 (2026-11-04 사장님 「틀린 문장에선 반드시 칭찬을 막아줘」) suspect = 모델이 교정을 내놨다(검증에서 떨어졌어도).
+     모델 스스로 «틀렸다» 고 본 턴이라 칭찬을 남길 근거가 없다 — 미리듣기 문(mainFix 'some')과 같은 기준이다.
+     ⚠️ 거꾸로 «떼지 않아도 되는 칭찬» 을 뗄 수는 있다(지어낸 교정) — 잃는 것은 칭찬 한마디뿐이라 이쪽으로 실패한다. */
+  try { if (o.verified || o.suspect) out = stripPraiseLead(out); } catch { /* 그대로 */ }
   try { if (o.mode === 'balanced' && o.shown) out = correctionLeadIn(out, o.shown, 'en') || out; } catch { /* 그대로 */ }
   try { out = ensureFocusedFixSpoken(out, o.mode, null, o.shown); } catch { /* 그대로 */ }
   return out;

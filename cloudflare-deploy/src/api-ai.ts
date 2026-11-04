@@ -45,7 +45,7 @@ import { correctionModeOf, gateFixForMode } from './warmup-honest';   // 🎚️
 import { planFriendTurn, createFriendPreviewGate, recheckBalancedFix, finishFriendReply, waitAtMost, RECHECK_EXTRA_WAIT_MS } from './friend-correction-flow';
 import { handleClassAsk } from './class-ask';
 import { handleClassAskStream, wantsClassAskStream } from './class-ask-stream';   // ✋ A.i 선생님 수업 — 학생 질문 즉답(2026-10-08)
-import { connectorRule, connectorPromptBlock, linkBandForFriendLevel } from './conversation-connectors';
+import { connectorRule, connectorPromptBlock, linkBandForFriendLevel, turnOpenerLine } from './conversation-connectors';
 import { AVATAR_NATURAL_OPENERS } from './conversation-connectors';   // 🔗 연결 표현 정본(2026-10-28 · 세 화면 공용)
 import { handleStoryApi } from './story-correct';   // 📖 동화책 바꿔 쓰기 AI 한 번 더 보기·기록(2026-10-13)
 import { recordAiLatency } from './ai-latency-log';   // ⏱ «학생이 얼마나 기다리는가» (A-3)
@@ -859,6 +859,15 @@ Student text: """${text}"""`;
          정본 src/conversation-connectors.ts — 웜업·A.i 선생님 수업과 «같은 규칙». 최근 답장의 시작 말은 이 학생 기록(history)에서 읽는다.
          ⛔ 답장에 연결어를 덧붙이거나 바꿔 쓰는 후처리는 하지 않는다. ⛔ 던지지 않는다(못 만들면 빈 문자열 → 예전 그대로). */
       const connectorCtx = connectorPromptBlock(linkBandForFriendLevel(level), history);
+      /* 🏅 (2026-11-04 사장님 「칭찬 규칙이랑 합쳐」) 첫마디와 칭찬은 «답의 같은 첫 자리» 다 — 둘을 다 시키면 모델은 더 구체적인
+         칭찬 목록을 고른다(배포 직후 실측: 첫마디 지시가 실린 두 턴이 다 「Nice sentence!」「Great job!」). 그래서
+         · 첫마디 줄이 실리는 턴: 칭찬 목록을 빼고 «첫마디가 곧 반응이자 칭찬» 이라고만 말한다(지시도 더 짧다 — 속도 그대로)
+         · 쉬는 턴(앞 답이 첫마디로 시작): 예전 칭찬·반응 규칙 그대로
+         ⛔ 틀린 문장은 어느 쪽이든 칭찬하지 않는다 — 지시가 말하고, 그래도 칭찬하면 finishFriendReply 가 뗀다.
+         ⚠️ 칭찬 목록은 반드시 «Rotate…» 뒤 «한 줄 끝까지» — warmup_empathy 하니스가 그 줄을 읽어 CHEER_LEADS 와 대조한다(이 주석에 그 낱말을 그대로 적으면 하니스가 주석을 먼저 읽는다). */
+      const reactRule = turnOpenerLine(history)
+        ? "- When the student writes in English, THIS TURN'S OPENER (below) is your whole reaction and cheer; after it you may add a few words about their idea."
+        : `- When the student writes in English, open with a SHORT, real reaction to what they said — a few words about their idea ("A quiet day can be nice.", "Camping with your brother sounds fun!") or, when they did well, a cheer (never cheer English that has a mistake). Do not open every reply the same way; when you cheer, pick a DIFFERENT one from the last two you used. Rotate freely: Nice!, Great try!, Ooh nice one!, That's right!, Wow!, Yes!, Perfect!, Cool!, Awesome!, You got it!, Well said!, Nice sentence!, I like that!, Good one!, Haha nice!`;
       // Voice turns should reach the next question quickly without truncating JSON,
       // dropping answers, changing the model, or overriding the student's level.
       const voiceTurnRule = b.via === 'voice'
@@ -869,7 +878,7 @@ Rules:
 - Ground your response in the student's actual words and the recent conversation. Never invent a preference, event, or answer for them. If a fragment is ambiguous (for example "You"), ask ONE simple clarification instead of guessing its meaning or changing the subject. A short clear answer such as "Yes" or "No" is valid in context.
 - Your name is ${friendName}. If the student asks your name, say "${friendName}" — never invent a different name.
 - LEVEL — this is the MOST IMPORTANT rule. Obey it even if it means dropping something else you wanted to say. ${lvSpec.rule}${studentAsked ? ' (Exception for THIS reply only: you may use one extra sentence so that your answer fits. Keep every word limit above.)' : ''}
-${answerRule}${askRule}${voiceTurnRule}- When the student writes in English, open with a SHORT, real reaction to what they said — a few words about their idea ("A quiet day can be nice.", "Camping with your brother sounds fun!") or, when they did well, a cheer. Do not open every reply the same way; when you cheer, pick a DIFFERENT one from the last two you used. Rotate freely: Nice!, Great try!, Ooh nice one!, That's right!, Wow!, Yes!, Perfect!, Cool!, Awesome!, You got it!, Well said!, Nice sentence!, I like that!, Good one!, Haha nice!
+${answerRule}${askRule}${voiceTurnRule}${reactRule}
 ${FRIEND_EMPATHY_RULE}
 ${AVATAR_NATURAL_OPENERS}\n${connectorCtx ? connectorCtx + '\n' : ''}- Use 1-2 fun emojis per reply. Kids love them.
 - If the student writes Korean, warmly invite them to try English and give one simple example sentence they can copy.
@@ -1361,7 +1370,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
          순서: 정직한 칭찬(틀렸으면 칭찬 말머리 떼기) → 균형: 고친 문장을 질문보다 먼저 1번 → 집중: 고친 문장 3번.
          Final speech and saved history use the same verified correction (focused: exactly three times).
          ⚠️ 저장(아래 INSERT)·응답 «전» 이어야 학생이 들은 문장과 다음 턴이 읽는 기록이 같다. */
-      reply = finishFriendReply(reply, { mode: friendMode, verified: verifiedFix, shown: showFix, msg, fallback: usedFallback });
+      reply = finishFriendReply(reply, { mode: friendMode, verified: verifiedFix, shown: showFix, msg, fallback: usedFallback, suspect: !!rawFix });
 
       // ⚠️ 이 저장은 반드시 기다린다 — 바로 아래 gam 스냅샷("오늘 몇 번째 대화")이
       //   이 INSERT 가 끝난 뒤의 개수를 세어야 정확하다. 백그라운드로 미루면 그 숫자가

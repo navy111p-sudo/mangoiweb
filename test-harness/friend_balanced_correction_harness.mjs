@@ -338,7 +338,8 @@ console.log('\nE. 진짜 Worker 라우트(/api/ai/chat-friend) — 메모리 D1 
 
 console.log('\nF. 배선 — 한 곳에서, 저장 전에');
 {
-  const call = API.indexOf('reply = finishFriendReply(reply, { mode: friendMode, verified: verifiedFix, shown: showFix, msg, fallback: usedFallback });');
+  // 🏅 (2026-11-04) 인자 끝에 suspect(모델이 교정을 내놓은 턴 — 칭찬을 뗀다)가 붙었다 — 인자 «모양» 이 아니라 «저장 전에 부르는가» 를 본다
+  const call = API.indexOf('reply = finishFriendReply(reply, { mode: friendMode, verified: verifiedFix, shown: showFix, msg, fallback: usedFallback');
   const save = API.indexOf(".bind(uid, 'assistant', reply");
   ok('F-1 최종 조립을 «저장 전» 에 부른다', call > 0 && save > call, [call, save]);
   ok('F-2 최종 조립은 한 번만 부른다', count(API, 'finishFriendReply(reply') === 1);

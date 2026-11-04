@@ -106,7 +106,8 @@ check('friend server stream gate: balanced without a correction still previews (
 });
 check('friend canonical correction is applied before persistence', () => {
   /* 🎚️ (2026-11-03) 최종 조립이 finishFriendReply 한 곳으로 모였다 — 그 안에서 집중교정 3번(ensureFocusedFixSpoken)을 부른다. */
-  const call = api.indexOf('reply = finishFriendReply(reply, { mode: friendMode, verified: verifiedFix, shown: showFix, msg, fallback: usedFallback });');
+  // 🏅 (2026-11-04) 인자 끝에 suspect 가 붙었다 — 인자 «모양» 이 아니라 «저장 전에 부르는가» 를 본다
+  const call = api.indexOf('reply = finishFriendReply(reply, { mode: friendMode, verified: verifiedFix, shown: showFix, msg, fallback: usedFallback');
   const save = api.indexOf(".bind(uid, 'assistant', reply");
   assert.ok(call > api.indexOf('let showFix: any = null;') && call < save);
   assert.match(flowSrc, /import \{[^}]*ensureFocusedFixSpoken[^}]*\} from '.\/warmup-honest'/);

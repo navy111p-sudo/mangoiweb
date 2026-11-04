@@ -78,7 +78,7 @@ export function connectorRule(band: LinkBand): string {
  *  ⚡ 속도: 첫마디는 «짧은 반응·칭찬 자리» 를 대신한다 — 답이 길어지지 않는다. 이 글 + ④ 한 줄을 합쳐도
  *     첫 판(1,221자)보다 짧다(하니스 ⑧이 잰다 — 지시가 길수록 첫 글자가 늦다). */
 export const AVATAR_NATURAL_OPENERS = [
-  'NATURAL OPENERS: real people often start with a short word that shows they heard you. Use one only when a THIS TURN\'S OPENER line asks for it; it takes the place of your short reaction or cheer, so the reply is not longer. On other turns do not start with Oh, Well, By the way or Anyway.',
+  'NATURAL OPENERS: real people often start with a short word that shows they heard you. Use one only when a THIS TURN\'S OPENER line asks for it. On other turns do not start with Oh, Well, By the way or Anyway.',
   '- Clear standard English: normal spelling, no stretched letters (weeell, oooh), no sound words (hmm, aww, ooh, uh, um), no stage directions, SSML or "...". Never invent experiences.',
   '- LEVEL and empathy rules win. Focused correction comes first: no opener before "You can say", none inside the corrected sentence or its repetitions.',
 ].join('\n');
@@ -198,6 +198,12 @@ export const TURN_OPENERS: Readonly<Record<OpenerCase, readonly string[]>> = {
   surprise: ['Oh, really?', 'Oh, wow!', 'No way!', 'Really?'],
   info: ['Oh, I see.', 'Oh, okay.', 'I see.', 'Got it.'],
 };
+/** 🏅 (2026-11-04 사장님 「칭찬 규칙이랑 합쳐」) «잘 해냈을 때» 칸 — 고친 문장을 제대로 말했거나 어려운 문장을 맞게 말했을 때.
+ *  ⚠️ 위 표(TURN_OPENERS)와 «따로» 둔다 — 이 말로 시작한 다음 턴은 쉬지 않는다(isTurnOpener 가 이 열쇠를 모른다).
+ *     쉬게 하면 칭찬 → (쉬는 턴의 칭찬 규칙) → 칭찬 으로 상투 칭찬이 연달아 붙던 예전 모양이 돌아온다.
+ *  ⛔ 틀린 문장에는 이 칸을 쓰지 않는다 — 지시가 «실수가 있으면 칭찬하지 마» 를 함께 말하고, 그래도 쓰면
+ *     서버가 뗀다(이 말들은 전부 warmup-empathy.ts 의 CHEER_LEADS 에 있다 — 하니스 ⑨가 대조한다). */
+export const TURN_PRAISE: readonly string[] = ['Great job!', 'Nice sentence!', 'You got it!', 'Well done!', 'Perfect!'];
 /** 「앞 답장이 첫마디로 시작했나」 판정용 열쇠 — 위 후보 + 모델이 스스로 쓰는 같은 갈래(Oh …·Well·By the way·Anyway). */
 let OPENER_KEYS: Set<string> | null = null;
 function openerKeys(): Set<string> {
@@ -242,11 +248,14 @@ export function turnOpenerLine(history: any): string {
     const q = (c: OpenerCase) => JSON.stringify(pickOpener(TURN_OPENERS[c], seed, avoid));
     /* 🎯 «문맥에 맞게» — 어느 칸인지는 모델이 학생 말을 보고 고르고, 딱 맞는 것이 없으면 «같은 느낌의 다른 짧은 말» 을 허락한다.
        By the way 는 «새 질문으로 넘어갈 때만» (억지로 화제를 바꾸게 하지 않는다) — 그것도 세 턴에 한 번쯤만 권한다. */
-    return '- THIS TURN\'S OPENER: start with the one that fits what the learner just said. Sad or hard news: ' + q('sad')
+    /* 🏅 (2026-11-04) 칭찬 규칙과 «한 자리» — 이 줄이 이번 턴의 반응이자 칭찬이다(따로 칭찬을 더하지 않는다).
+       ⛔ 사장님 「틀린 문장에선 반드시 칭찬을 막아줘」 — 실수가 있으면 «평범한 정보» 칸으로 받게 하고, 그래도 칭찬하면 서버가 뗀다. */
+    return '- THIS TURN\'S OPENER: start with the one that fits what the learner just said. It is your reaction and cheer: add no other cheer, and never praise English with a mistake. Sad or hard news: ' + q('sad')
       + '; a request: ' + q('request') + '; a question to you: ' + q('asked')
       + '; "I don\'t know" or confused: ' + q('lost') + ', then start your next question with "Anyway,"'
+      + '; they fixed a mistake or said it right: ' + JSON.stringify(pickOpener(TURN_PRAISE, seed, avoid))
       + '; good or fun news: ' + q('good') + '; something surprising: ' + q('surprise')
-      + '; a short answer or plain information: ' + q('info') + '. If none fits, use another short one with the same feeling.'
+      + '; a mistake, a short answer or plain information: ' + q('info') + '. If none fits, use another short one with the same feeling.'
       + (seed % 3 === 0 ? ' If you then move to a new related question, start it with "By the way,".' : '');
   } catch { return ''; }
 }
