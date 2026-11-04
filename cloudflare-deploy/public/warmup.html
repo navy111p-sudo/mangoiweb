@@ -1034,7 +1034,7 @@
 <script src="/js/warmup-guide.js?v=9"></script>
 <script src="/js/speech-preferences.js?v=3"></script>
 <script src="/js/speech-rate-request.js?v=1"></script>
-<script src="/js/ai-situations.js?v=1"></script><!-- 🎯 상황별 말하기 표(?sit=) — 정본은 그 파일 하나 -->
+<script src="/js/ai-situations.js?v=2"></script><!-- 🎯 상황별 말하기 표(?sit=) — 정본은 그 파일 하나 -->
 <script>
 /* ── 1. URL 파라미터 / 저장값에서 설정 읽기 ─────────────────────── */
 var Q = new URLSearchParams(location.search);
@@ -1255,7 +1255,7 @@ function addMsg(text, who){
   /* 👁 AI 본문은 .wu-text 로 감싼다 — 자막 단계가 이 span 하나만 건드리고, 이름표·버튼은 늘 남는다.
      .sub-veil 은 「완전 끄기」일 때 그 자리에 뜨는 안내(탭하면 열린다). */
   d.innerHTML = whoHtml + (who==='ai'
-    ? '<span class="wu-text">' + renderMsg(text) + '</span>'
+    ? '<span class="wu-text">' + renderAiMsg(text) + '</span>'
       + '<span class="sub-veil">🔊 듣고 맞혀 보세요 (탭하면 보여요)</span>'
       + '<span class="sub-hint">👁 자막을 가려 뒀어요 — 눌러서 보기</span>'
     : renderMsg(text));
@@ -1314,6 +1314,14 @@ function addMsg(text, who){
 function escapeHtml(s){ return String(s).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
 // 🥭 이모지(빨간/주황 망고 그림)를 우리 망고아이 캐릭터 이미지로 치환 —
 // 하드코딩 인사말은 물론 AI 응답 텍스트에 망고가 나와도 자동으로 브랜드 캐릭터로 렌더된다.
+function renderAiMsg(s){
+  if(situationActive() && SITUATION.id === 'restaurant'){
+    s = String(s).replace(/\b(your total is )nine dollars(?=[.!?]|$)/gi, function(_, prefix){
+      return prefix + '$9.00';
+    });
+  }
+  return renderMsg(s);
+}
 function renderMsg(s){
   return escapeHtml(s).replace(/🥭/g,
     '<img class="mango-inline" src="/img/mango-char.png" alt="Mango 캐릭터" />');
@@ -3397,7 +3405,7 @@ function _stmShow(L){
       +'<span class="wu-text"></span><span class="sub-veil">🔊 듣고 맞혀 보세요 (탭하면 보여요)</span>';
     log.appendChild(d); L.el=d;
   }
-  var t=L.el.querySelector('.wu-text'); if(t) t.innerHTML=renderMsg(L.text);
+  var t=L.el.querySelector('.wu-text'); if(t) t.innerHTML=renderAiMsg(L.text);
   log.scrollTop=log.scrollHeight;
 }
 function _stmDrop(L){ try{ if(L.el) L.el.remove(); }catch(e){} L.el=null; }

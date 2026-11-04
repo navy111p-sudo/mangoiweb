@@ -115,6 +115,10 @@
       chips: ['I feel very happy and tired.', 'I practiced every day for this race.'], ai: '학교 방송부 기자', st: '운동회에서 달린 학생' })
   ];
   L.forEach(function (s) { s.role = role(s.ko, s.ai, s.st, s.open); });
+  var restaurant = find('restaurant');
+  restaurant.role += ' 딸기 도넛은 개당 2달러 50센트, 라지 아메리카노는 한 잔에 4달러야. ' +
+    '학생이 주문한 수량대로 합산하고 가격은 항상 영어 단어로 말해. 딸기 도넛을 복수로만 주문하면 2개로 계산해. ' +
+    '딸기 도넛 2개와 라지 아메리카노 1잔만 주문했을 때 계산 대사는 "Your total is nine dollars."야.';
   var STEPS = [
     { n: 1, ko: '1단계 · 첫걸음', en: 'Step 1 · First steps' },
     { n: 2, ko: '2단계 · 기초', en: 'Step 2 · Basic' },
