@@ -119,6 +119,10 @@ export function fragmentQuestionHint(bad: string[], difficulty: number): string 
     'e.g. "Do you like space?". Keep it short and keep the same JSON format.)';
 }
 
-/** 조각 질문 재시도는 이 턴이 이미 이만큼 걸렸으면 하지 않는다(ms) — 한 번에 받는 경로는 화면이 20초에 끊는다
- *  (warmup.html). 그 턴은 앞에서 빈 응답·무너짐·이름 재시도가 이미 돌았을 수 있다. 넘으면 원래 답을 그대로 둔다. */
-export const FRAG_RETRY_BUDGET_MS = 9000;
+/** 조각 질문·같은 질문 «다시 뽑기» 는 이 턴이 이미 이만큼 걸렸으면 하지 않는다(ms) — 넘으면 원래 답을 그대로 둔다.
+ *  ⚡ (2026-11-05 사장님 「휴대폰에서 무조건 빨리 답변」) 9초 → 5초. [잰 것 — D1 ai_latency_log, 최근 7일 웜업 514턴]
+ *     모델을 한 번 부른 턴은 서버 5.4초, 다시 뽑은 턴은 7.5초(2번)·9.7초(3번)였고 초급(S1)은 35% 가 다시 뽑았다.
+ *     예산이 9초면 이미 8초 걸린 턴도 다시 뽑아 12초를 넘겼다. 이제 첫 답이 «빨리» 왔을 때만 다시 뽑는다.
+ *  ⚠️ 맞바꿈: 첫 답이 5초를 넘긴 턴은 조각 질문(«like space?»)·같은 질문이 남을 수 있다 — 속도를 고른 사람의 결정.
+ *  ⛔ 빈 응답·무너진 출력·이름 재시도에는 이 예산이 안 걸린다(그건 «답이 망가진» 경우라 그대로 다시 뽑는다). */
+export const FRAG_RETRY_BUDGET_MS = 5000;

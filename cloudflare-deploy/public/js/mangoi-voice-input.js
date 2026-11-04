@@ -1,15 +1,7 @@
 /*!
  * 🎤 mangoi-voice-input.js — 녹음 → 서버 Whisper 전사 (브라우저 음성인식의 폴백/정확 모드)
- *
- * 왜 필요한가 (2026-07-23):
- *   webkitSpeechRecognition 은 **앱 WebView·카카오 인앱 브라우저·구형 iOS 에 아예 없다.**
- *   그동안 그 학생들에게는 "이 브라우저는 지원하지 않아요" 안내만 나가서 마이크를 못 썼다.
- *   서버에는 이미 /api/voice/transcribe (Workers AI @cf/openai/whisper) 가 살아 있다.
- *   Whisper 는 한국 학생의 억양 섞인 영어에도 브라우저 인식보다 강하고, 우리가 녹음 길이를
- *   직접 통제하므로 "말 중간에 꺼지는" 문제도 없다.
- *
- * ⚠️ 브라우저 음성인식과 **동시에 쓰지 말 것.** 안드로이드 일부 기기는 오디오 입력 세션을
- *    하나만 허용해서, 병행하면 오히려 음성인식이 죽는다. 반드시 둘 중 하나만.
+ *   브라우저 인식이 없는 앱 WebView·인앱·구형 iOS 도 마이크를 쓰게(2026-07-23). 내력: docs/작업기록/261105_*.
+ * ⚠️ 브라우저 음성인식과 **동시에 쓰지 말 것** — 일부 안드로이드는 입력 세션이 하나뿐이라 둘 다 죽는다.
  *
  * 사용:
  *   MangoiVoice.supported()                     // 이 브라우저에서 녹음이 가능한가
@@ -39,6 +31,20 @@
     try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
   }
 
+  /* 🔇 말소리/조용함 판정(2026-11-05) — 고정 문턱(peak>8)만 보면 폰 자동음량이 키운 소음이 늘 «말소리» 라
+     시끄러운 곳에서 20초(상한)까지 녹음됐다. 최근 3초 «소음 바닥»(0.2초 칸 최솟값)에 맞춰 가른다.
+     바닥이 낮은 조용한 방은 예전(>8 / ≤8)과 같다. 1 말소리 · -1 조용 · 0 애매(그대로 둠). */
+  function endGate() {
+    var mins = [], cur = 1e9, t0 = -1;
+    return function (p, now) {
+      if (t0 < 0) t0 = now;
+      if (now - t0 >= 200) { mins.push(cur); if (mins.length > 15) mins.shift(); cur = 1e9; t0 = now; }
+      if (p < cur) cur = p;
+      var f = Math.min.apply(null, mins.concat(cur));
+      return p > Math.max(8, f * 3) ? 1 : (p <= Math.max(8, f * 2) ? -1 : 0);
+    };
+  }
+
   /**
    * 녹음 → 전사. 말이 끝나고 조용해지면 스스로 멈춘다.
    * @returns {Promise<string>} 전사된 텍스트 (실패하면 빈 문자열)
@@ -54,10 +60,7 @@
     if (cur) { try { cur.cancel(); } catch (e) {} }
 
     return new Promise(function (resolve) {
-      /* ⏹ 는 **언제 눌러도** 들어야 한다.
-         (2026-07-23) 예전에는 stop/cancel 을 getUserMedia 가 끝난 뒤에야 붙여서,
-         마이크 권한 대기 중에 ⏹ 를 누르면 아무 반응이 없고 버튼이 '듣는 중'에 굳었다.
-         → 지금 바로 정의해 두고, 녹음기가 준비되면 밀린 요청을 반영한다. */
+      /* ⏹ 는 권한 대기 중에도 들어야 한다(2026-07-23 — 늦게 붙이면 '듣는 중'에 굳었다). 지금 정의, 준비되면 반영. */
       var session = { canceled: false, wantStop: false, _stopRec: null };
       session.stop = function () { session.wantStop = true; if (session._stopRec) session._stopRec(); };
       session.cancel = function () { session.canceled = true; session.wantStop = true; if (session._stopRec) session._stopRec(); };
@@ -75,9 +78,7 @@
       }).then(function (stream) {
         if (session.canceled) { stopTracks(stream); return finish(''); }
 
-        /* 🍎 iOS 사파리는 webm 을 못 만들고 audio/mp4 로 녹음한다.
-           형식을 확인하지 않고 무조건 'speech.webm' 으로 보내면 서버가 형식을 오인할 수 있다.
-           → 이 브라우저가 실제로 지원하는 형식을 골라 쓰고, 파일 이름도 그 형식에 맞춘다. */
+        /* 🍎 iOS 사파리는 webm 대신 mp4 — 지원 형식을 골라 쓰고 파일 이름도 맞춘다(서버 형식 오인 방지). */
         var chunks = [], mr, pickedMime = '';
         try {
           var CAND = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/aac', 'audio/ogg'];
@@ -140,8 +141,7 @@
         maxTimer = setTimeout(stopRec, MAX_MS);
         firstTimer = setTimeout(function () { if (!heardSpeech) stopRec(); }, FIRST_MS);
 
-        /* 말이 끝났는지 판정 — 소리 크기를 보고 조용해지면 종료.
-           AudioContext 를 못 쓰는 환경이면 상한(MAX_MS)까지 녹음하고 끝낸다. */
+        /* 말 끝 판단(endGate) — AudioContext 가 없으면 상한(MAX_MS)까지 녹음. */
         try {
           var AC = window.AudioContext || window.webkitAudioContext;
           ac = new AC();
@@ -149,16 +149,17 @@
           var an = ac.createAnalyser();
           an.fftSize = 1024;
           src.connect(an);
-          var buf = new Uint8Array(an.fftSize);
+          var buf = new Uint8Array(an.fftSize), gate = endGate();
           var tick = function () {
             if (stopped) return;
             an.getByteTimeDomainData(buf);
             var peak = 0;
             for (var i = 0; i < buf.length; i++) { var v = Math.abs(buf[i] - 128); if (v > peak) peak = v; }
-            if (peak > 8) {                       // 사람 목소리로 볼 만한 크기
+            var st = gate(peak, Date.now());
+            if (st > 0) {                         // 말소리(소음 바닥보다 확실히 큼)
               if (!heardSpeech) { heardSpeech = true; onState('speaking', {}); }
               if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
-            } else if (heardSpeech && !silenceTimer) {
+            } else if (st < 0 && heardSpeech && !silenceTimer) {
               silenceTimer = setTimeout(stopRec, SILENCE_MS);
             }
             raf = requestAnimationFrame(tick);
