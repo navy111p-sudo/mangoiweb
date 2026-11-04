@@ -101,8 +101,26 @@ check('헤더에 고른 친구 이름이 뜬다', /id="friendName"/.test(aif) &&
 check('헤더 이름을 누르면 다시 고를 수 있다', /onclick="showFriendPicker\(\)"/.test(aif));
 check('이름이 버튼인 줄 알 수 있게 안내가 붙어 있다', /눌러서 친구 바꾸기/.test(aif));
 check('설정 줄 라벨이 「목소리」가 아니라 「친구」다', /data-ko="친구:"/.test(aif) && !/data-ko="목소리:"/.test(aif));
+/* 2026-11-03 A안 — 첫 화면의 드롭다운(«모험 주제를 골라볼까요?»)이 «① 친구 → ② 주제» 단계 카드로 바뀌었다.
+   ⚠️ 문구로 못 박지 말고 «순서» 를 묻는다: 첫 화면(renderEmpty)이 정본 efPicksHtml 을 부르고,
+      그 함수가 친구 줄(.efa-friends)을 주제 줄(.efa-topics)보다 «먼저» 그리는가.
+   ⚠️ 함수 몸통은 중괄호 짝으로 자른다(«다음 함수 이름까지» 로 자르면 옆 함수가 딸려 온다). */
+const fnBody = (name) => {
+  const i = aif.search(new RegExp('function\\s+' + name + '\\s*\\('));
+  if (i < 0) return '';
+  const st = aif.indexOf('{', i);
+  let d = 0;
+  for (let k = st; k < aif.length; k++) {
+    if (aif[k] === '{') d++;
+    else if (aif[k] === '}' && --d === 0) return aif.slice(st, k + 1);
+  }
+  return '';
+};
+const efBody = fnBody('efPicksHtml');
 check('첫 화면(빈 화면)에서 친구를 먼저 고르게 한다',
-  /오늘은 누구랑 이야기할까요\?/.test(aif) && aif.indexOf('friendCards()') < aif.indexOf('모험 주제를 골라볼까요?'));
+  /\befPicksHtml\s*\(/.test(fnBody('renderEmpty'))
+  && efBody.indexOf('efa-friends') > 0 && efBody.indexOf('efa-topics') > efBody.indexOf('efa-friends')
+  && /onclick="setFriend\(/.test(efBody) && /onclick="topicSend\(/.test(aif));
 check('고르면 지금 고른 카드에 표시가 옮겨간다(정적 카드도)',
   /friend-card\[data-v\][\s\S]{0,120}classList\.toggle\('on'/.test(aif));
 /* ⚠️ 「식 모양」을 글자 그대로 못 박지 말 것 — 2026-09-10 에 «인사 중복»(누를 때마다 쌓임)을
