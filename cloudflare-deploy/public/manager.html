@@ -3855,6 +3855,27 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     return '<span class="tag ta-open" role="button" tabindex="0" data-ta="' + esc(r.schedule_id) + '">'
          + esc(T('📅 Move', '📅 연기·변경')) + '</span>';
   }
+  /* ↩ (2026-11-04 매니저 Mai «I postpone the class but there's no restore or undo postponement option») «다른 날로 옮김» 줄의
+     「↩ 원래대로」 — admin.html(js/adm-today-classes.js tcUndoMoveHtml)과 **같은 서버 값**(r.undo — 정본 class-change-state.ts
+     judgeMovedAwayUndo). 이 화면은 외부 스크립트 0개 계약이라 두 벌이다 — 판정은 서버가 하고 여기는 그리기만.
+     ok 면 버튼, 아니면 «왜 못 하는지» 를 글자로(누르면 거절되는 버튼을 두지 않는다). 🔒 본사(IS_HQ)만 — 서버도 본사 전용. */
+  var TA_UNDO_WHY = {
+    orig_passed: ['Original time has passed — cannot undo', '원래 시각이 지나 되돌릴 수 없음'],
+    target_started: ['Already started on the new date — cannot undo', '새 날짜 수업이 이미 시작됨 — 되돌릴 수 없음'],
+    target_not_active: ['Cancelled or postponed again — handle it on the new date', '그 뒤 취소·다시 연기됨 — 새 날짜에서 처리'],
+    no_target: ['Cannot undo here — move it from the new date', '자동으로 되돌릴 수 없음 — 새 날짜에서 옮기세요'],
+    no_time: ['Original time unknown — move it from the new date', '원래 시각을 몰라 되돌릴 수 없음 — 새 날짜에서 옮기세요']
+  };
+  function taUndoPill(r){
+    var u = r && r.undo;
+    if (!u || !r.schedule_id || !IS_HQ) return '';
+    if (u.ok !== true) {
+      var w = TA_UNDO_WHY[u.reason] || TA_UNDO_WHY.no_target;
+      return '<span class="tag">' + esc(T(w[0], w[1])) + '</span>';
+    }
+    return '<span class="tag ta-open" role="button" tabindex="0" data-undomv="' + esc(r.schedule_id) + '">'
+         + esc(T('↩ Undo move', '↩ 원래대로')) + '</span>';
+  }
   /* 🧾 (2026-11-03 매니저 «취소해도 지우지 말고, 취소·연기 상태를 칸으로») 「취소 · 연기」 — admin.html(js/adm-today-classes.js xChange)과
      **같은 서버 값**(r.change — 정본 src/class-change-state.ts: 취소 > 연기 > 다른 날짜·시각에서 옮겨 옴). 이 화면은 외부 스크립트
      0개 계약이라 두 벌이다 — 판정은 서버가 하고 여기는 글자만 고른다. 누가·사유는 서버가 본사·내부직원에게만 싣는다.
@@ -3974,7 +3995,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
           + (r.teacher_name ? '<span>' + esc(r.teacher_name) + '</span>'
              : '<span style="color:#b45309;font-weight:800">' + esc(T('unassigned', '미배정')) + '</span>')
           + '<span class="ta-st">' + taChangeCell(r) + '</span>'
-          + '<span>' + taMovePill(r) + '</span></div>';
+          + '<span>' + (r.moved_away ? taUndoPill(r) : taMovePill(r)) + '</span></div>';
       }
       /* ⚠️ 강사 미배정은 매니저가 가장 먼저 봐야 하는 줄이다 — 회색(.muted) 안에 넣으면
          부모 색에 묻혀 «그냥 한 줄» 로 보인다(2026-08-25 브라우저 실측에서 잡음). 상자를 갈라 둔다. */
@@ -4056,7 +4077,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       if (r.moved_away) act = '<span class="tag hot ta-st">' + esc(T(((r.change && r.change.label_en) || '⏸ Moved to another day') + ' — no class this day',
                                                                   ((r.change && r.change.label_ko) || '⏸ 다른 날로 옮김') + ' — 이 날은 수업 없음')) + '</span>';
       if (r.cancelled || r.moved_away) {
-        resch = '';
+        resch = r.moved_away ? taUndoPill(r) : '';   // ↩ 다른 날로 옮긴 줄은 «원래대로» 하나만(본사)
       } else if (r.source === 'cafe24' && !r.schedule_id) {
         /* ❔ (2026-10-01 매니저 질문 «why other classes don't have move button?») 카페24(LMS) 줄은 망고아이 예약표에
            행이 없어 여기서 옮길 수 없다 — 버튼이 «없다» 대신 그 이유를 글자로 적는다(폰엔 hover 가 없다). */
@@ -4270,6 +4291,48 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       });
     });
   }
+  /* ↩ 「원래대로」 — 서버(POST /class-schedules/:id {action:'undo_move'})가 원래 자리를 이동 기록에서 다시 찾는다.
+     거절되면 그 사유를 사람 말로(조용히 실패하지 않는다). 모르는 코드면 서버 문장(message) 그대로. */
+  function taUndoMove(el){
+    if (!el || el._busy) return;
+    var sid = el.getAttribute('data-undomv');
+    var r = taRowOf(sid), u = r && r.undo;
+    if (!u || u.ok !== true) return;
+    var md = function(d){ return /^\d{4}-\d{2}-\d{2}/.test(String(d || '')) ? String(d).slice(5, 10).replace('-', '/') : ''; };
+    var back = (md(u.from_date) + ' ' + (u.from_time || '')).trim();
+    var ch = r.change || {};
+    var now = (md(ch.to_date) + ' ' + (ch.to_time || '')).trim();
+    var who = r.student_name || r.student_uid || '';
+    if (!confirm(T('Undo this move?\n\n' + who + (now ? ' · now ' + now : '') + ' → back to ' + back
+                   + '\n\n· The same class returns to its original date and time and opens again.\n· The teacher stays as it is now.',
+                   '연기·변경을 취소할까요?\n\n' + who + (now ? ' · 지금 ' + now : '') + ' → 원래 ' + back
+                   + '\n\n· 같은 수업이 원래 날짜·시각으로 돌아가 다시 열린 수업이 됩니다.\n· 담당 강사는 지금 그대로입니다.'))) return;
+    el._busy = true;
+    var old = el.textContent;
+    el.textContent = T('Restoring…', '되돌리는 중…');
+    fetch('/api/admin/class-schedules/' + encodeURIComponent(sid), {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'undo_move', from_date: u.from_date })
+    }).then(function(res){
+      return res.json().then(function(j){ return { ok: res.ok, j: j }; }, function(){ return { ok: res.ok, j: null }; });
+    }, function(){ return { ok: false, j: null }; }).then(function(x){
+      el._busy = false;
+      var j = x.j;
+      if (x.ok && j && j.ok === true) { taMarkStale(); try { window.loadTodayAll(); } catch (e) {} return; }
+      el.textContent = old;
+      var err = j && j.error, known = TA_UNDO_WHY[err];
+      var stale = err === 'not_moved' || err === 'no_move_record' || err === 'schedule_changed';
+      var why = known ? T(known[0], known[1])
+        : (err === 'slot_taken' || err === 'conflict') ? T('The student or teacher already has another class at the original time. Move it to another time from the new date.', '원래 시각에 학생이나 강사의 다른 수업이 이미 있습니다. 새 날짜 수업에서 다른 시각으로 옮겨 주세요.')
+        : err === 'teacher_unavailable' ? T('The teacher is on leave or unavailable at the original time. Move it from the new date instead.', '원래 시각이 강사의 휴가·근무불가 시간입니다. 새 날짜 수업에서 다른 시각으로 옮겨 주세요.')
+        : err === 'class_already_attended' ? T('This class already has attendance records, so it cannot be moved back. Please check its history.', '이 수업에 이미 출석 기록이 있어 되돌릴 수 없습니다. 본사에서 이력을 확인해 주세요.')
+        : stale ? T('The class changed in the meantime. Refreshing the list.', '그 사이 수업이 바뀌었습니다. 목록을 새로고침합니다.')
+        : (j && (j.message || j.error)) ? String(j.message || j.error)
+        : T('Could not undo. Please try again shortly.', '되돌리지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      alert('↩ ' + why);
+      if (stale) { taMarkStale(); try { window.loadTodayAll(); } catch (e) {} }
+    });
+  }
   /* 🏫 한꺼번에 연기 — 눈앞의 줄(paintTodayAll 이 남긴 _shown)을 창에 넘긴다. */
   function taBulk(){
     var j = D.todayAll || {};
@@ -4345,6 +4408,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       if (cal) { ev.preventDefault(); mgCalOpen(cal.getAttribute('data-calpin'), cal.getAttribute('data-calwho')); return; }
       var bk = t && t.closest && t.closest('[data-bulk]');
       if (bk) { ev.preventDefault(); taBulk(); return; }
+      var um = t && t.closest && t.closest('[data-undomv]');
+      if (um) { ev.preventDefault(); taUndoMove(um); return; }
       var open = t && t.closest && t.closest('[data-ta]');
       if (!open) return;
       ev.preventDefault();
@@ -4354,7 +4419,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     // role="button" 은 키보드(Enter·Space)도 받아야 한다 — 안 그러면 마우스 전용이 된다.
     box.addEventListener('keydown', function(ev){
       if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
-      if (!(ev.target && ev.target.closest && ev.target.closest('[data-ta],[data-calpin],[data-bulk]'))) return;
+      if (!(ev.target && ev.target.closest && ev.target.closest('[data-ta],[data-calpin],[data-bulk],[data-undomv]'))) return;
       onTap(ev);
     });
   }

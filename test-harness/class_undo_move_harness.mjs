@@ -1,0 +1,490 @@
+/**
+ * ↩ 옮긴 수업 되돌리기 (2026-11-04 매니저 Mai «I postpone the class but there's no restore or undo postponement option»)
+ *
+ * 무엇을 재나 — 실제 모듈(class-undo-move.ts · class-change-state.ts · class-schedule-move.ts)을 진짜 SQLite 로 돌린다.
+ *   A. 판정 정본 judgeMovedAwayUndo — 되돌릴 수 있나(시각·대상 상태·매주 반복의 하루짜리 줄)
+ *   B. undoMovedClass — 실제로 원래 날짜·시각으로 돌아가는가 · 같은 행인가 · 기록이 'restore' 라 새 날짜에 «옮겨 감» 줄이
+ *      안 생기는가 · 겹침·휴가·출석·동시 수정·조회 실패(모르면 막기)·매주 반복 하루짜리 줄
+ *   C. 두 화면(admin.html js/adm-today-classes.js · manager.html)의 버튼 함수를 «오려 내 실제로 돌려» —
+ *      본사만 · 못 하면 사유 글자 · 누르면 action:'undo_move' + from_date 를 보내는가 · 배선
+ *   변이시험 — 고친 자리를 되돌린 사본에서 이 하니스가 정말 빨간불이 되는가.
+ * HTTP 경로(본사 게이트·응답 모양)와 «오늘 수업» 응답의 undo 칸은 class_cancelled_visible_harness U절이 진짜 핸들러로 잰다.
+ */
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, cpSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { spawn } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const REAL_SRC = join(ROOT, 'cloudflare-deploy/src');
+const REAL_PUB = join(ROOT, 'cloudflare-deploy/public');
+const SELF = fileURLToPath(import.meta.url);
+
+/* JS 소스에서 «여는 자리부터 짝이 맞는 닫는 중괄호까지» 를 오린다(문자열·주석 안의 괄호는 건너뜀). */
+function cutBlock(src, startNeedle) {
+  const s = src.indexOf(startNeedle);
+  if (s < 0) return '';
+  let i = src.indexOf('{', s), depth = 0;
+  for (; i < src.length; i++) {
+    const c = src[i], n = src[i + 1];
+    if (c === '/' && n === '/') { i = src.indexOf('\n', i); if (i < 0) return ''; continue; }
+    if (c === '/' && n === '*') { i = src.indexOf('*/', i + 2) + 1; continue; }
+    if (c === "'" || c === '"' || c === '`') { for (i++; i < src.length && src[i] !== c; i++) if (src[i] === '\\') i++; continue; }
+    if (c === '{') depth++;
+    else if (c === '}' && --depth === 0) return src.slice(s, i + 1);
+  }
+  return '';
+}
+/* 주석을 벗긴 사본(배선 검사가 «설명 주석» 에 걸려 헛돌지 않게) — 문자열 안은 그대로 둔다. */
+function stripComments(src) {
+  let out = '';
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i], n = src[i + 1];
+    if (c === '/' && n === '/') { const e = src.indexOf('\n', i); i = e < 0 ? src.length : e - 1; continue; }
+    if (c === '/' && n === '*') { const e = src.indexOf('*/', i + 2); i = e < 0 ? src.length : e + 1; continue; }
+    if (c === "'" || c === '"' || c === '`') {
+      const st = i;
+      for (i++; i < src.length && src[i] !== c; i++) if (src[i] === '\\') i++;
+      out += src.slice(st, i + 1); continue;
+    }
+    out += c;
+  }
+  return out;
+}
+
+/* ═════════════════════════════ 자식: 시나리오 실행 ═════════════════════════════ */
+if (process.env.CUM_CHILD === '1') {
+  const SRC = process.env.CUM_SRC, PUB = process.env.CUM_PUB;
+  const results = [];
+  const ok = (name, cond, why) => results.push({ name, pass: !!cond, why: cond ? '' : String(why ?? '') });
+
+  let NOW = 0;
+  const RealDate = Date;
+  class FakeDate extends RealDate {
+    constructor(...a) { if (a.length === 0) super(NOW); else super(...a); }
+    static now() { return NOW; }
+  }
+  globalThis.Date = FakeDate;
+  const setNow = (ymd, hm) => { NOW = RealDate.parse(`${ymd}T${hm}:00+09:00`); };
+  setNow('2026-11-04', '18:30');   // 스크린샷 그 날 — Maimai 가 18:03 에 20:00 수업을 11/11 로 옮김
+  console.warn = () => {};
+  globalThis.fetch = async () => { throw new Error('External network is forbidden in this harness'); };
+
+  const { DatabaseSync } = await import('node:sqlite');
+  const sq = new DatabaseSync(':memory:');
+  let failOn = null, beforeBatch = null;
+  const norm = v => v === undefined ? null : typeof v === 'boolean' ? Number(v) : v;
+  const statement = (sql, args = []) => ({
+    sql, args,
+    bind: (...a) => statement(sql, a.map(norm)),
+    async first(col) {
+      if (failOn && failOn.test(sql)) throw new Error('injected read failure');
+      const r = sq.prepare(sql).get(...args);
+      return r ? (col ? r[col] : { ...r }) : null;
+    },
+    async all() {
+      if (failOn && failOn.test(sql)) throw new Error('injected read failure');
+      return { success: true, results: sq.prepare(sql).all(...args).map(r => ({ ...r })), meta: {} };
+    },
+    async run() {
+      const r = sq.prepare(sql).run(...args);
+      return { success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) }, results: [] };
+    },
+  });
+  const DB = {
+    prepare: s => statement(s),
+    async exec(s) { sq.exec(s); return { count: 1 }; },
+    async batch(stmts) {
+      if (beforeBatch) { const h = beforeBatch; beforeBatch = null; h(); }
+      const out = [];
+      sq.exec('BEGIN IMMEDIATE');
+      try { for (const s of stmts) out.push(await s.run()); sq.exec('COMMIT'); }
+      catch (e) { sq.exec('ROLLBACK'); throw e; }
+      return out;
+    },
+  };
+  const env = { DB };
+  const actor = { ok: true, username: 'admin', name: 'Maimai', isTeacher: false };
+  const imp = f => import(pathToFileURL(join(SRC, f)).href);
+  const { undoMovedClass } = await imp('class-undo-move.ts');
+  const { judgeMovedAwayUndo, judgeMovedAway, loadMovedAwayEvents, movedAwayKey, judgeClassChange, loadClassChangeAudits } = await imp('class-change-state.ts');
+  const { moveSchedulesAtomically, scheduleMoveVersion } = await imp('class-schedule-move.ts');
+  const { ensureClassAuditTable } = await imp('class-audit.ts');
+  const { ensureRoomOverrideTable } = await imp('class-room-override.ts');
+
+  /* 스키마는 정본 소스의 CREATE 문을 읽어서 만든다(하니스에 베끼지 않는다). */
+  const adminSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const ddl = (src, table, needs = '') => {
+    for (const m of src.matchAll(new RegExp('`(CREATE TABLE IF NOT EXISTS ' + table + '\\s*\\([\\s\\S]*?\\);?)`', 'g'))) if (m[1].includes(needs)) return m[1];
+    throw new Error('Production DDL not found: ' + table);
+  };
+  sq.exec(ddl(adminSrc, 'class_schedules', 'duration_min INTEGER DEFAULT 20'));
+  const cols = new Set(sq.prepare('PRAGMA table_info(class_schedules)').all().map(c => c.name));
+  for (const [c, t] of [['starts_on', 'TEXT'], ['skip_dates', 'TEXT'], ['notes', 'TEXT'], ['student_name', 'TEXT'], ['schedule_kind', 'TEXT']]) if (!cols.has(c)) sq.exec(`ALTER TABLE class_schedules ADD COLUMN ${c} ${t}`);
+  sq.exec(ddl(readFileSync(join(SRC, 'scope.ts'), 'utf8'), 'admin_scope'));
+  const ti = adminSrc.indexOf('`CREATE TABLE IF NOT EXISTS teachers (`');
+  sq.exec([...adminSrc.slice(ti, adminSrc.indexOf("].join(' ')", ti)).matchAll(/`([^`]*)`/g)].map(m => m[1]).join(' '));
+  sq.exec(ddl(adminSrc, 'teacher_unavailability'));
+  sq.exec(ddl(readFileSync(join(SRC, 'api-lessons.ts'), 'utf8'), 'calendar_events'));
+  sq.exec(ddl(adminSrc, 'attendance', 'room_id TEXT NOT NULL'));
+  sq.exec(ddl(readFileSync(join(SRC, 'student-schedule-request.ts'), 'utf8'), 'schedule_change_requests'));
+  await ensureClassAuditTable(env);
+  await ensureRoomOverrideTable(DB);
+
+  const insert = (table, data) => {
+    const keys = Object.keys(data);
+    return Number(sq.prepare(`INSERT INTO ${table} (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')})`).run(...Object.values(data).map(norm)).lastInsertRowid);
+  };
+  for (const [id, name] of [[1, 'ALPHA'], [2, 'BETA']]) insert('teachers', { id, name, active: 1, created_at: NOW, updated_at: NOW });
+  insert('admin_scope', { username: 'admin', scope_type: 'hq', updated_at: NOW });
+
+  const row = id => ({ ...sq.prepare('SELECT * FROM class_schedules WHERE id=?').get(id) });
+  const rowCount = () => Number(sq.prepare('SELECT count(*) AS n FROM class_schedules').get().n);
+  const audits = id => sq.prepare('SELECT * FROM class_audit_log WHERE schedule_id=? ORDER BY id').all(id).map(r => ({ ...r }));
+  const seed = (o = {}) => insert('class_schedules', {
+    user_id: 'stu_a', student_name: 'Jung Seo Yoon', schedule_kind: 'dated', class_type: 'regular', day_of_week: null,
+    scheduled_date: '2026-11-11', start_time: '20:00', duration_min: 20, teacher_id: '1', status: 'active', source: 'harness',
+    created_at: NOW, updated_at: null, ...o,
+  });
+  const auditMove = (id, from, fromTime, action = 'postpone', detail = '') => insert('class_audit_log', {
+    action, schedule_id: id, teacher_name: 'ALPHA', student_name: 'Jung Seo Yoon', lesson_date: from, lesson_time: fromTime,
+    actor: 'Maimai (Head Office Manager)', actor_role: 'admin', source: 'ui', reason: null, detail, created_at: NOW - 1800000,
+  });
+  /* 스크린샷 그대로 — 11/04 20:00 수업을 11/11 20:00 으로 연기(옮긴 행 = 같은 id, 원래 자리는 이력에만) */
+  const moved = (o = {}, from = '2026-11-04', fromTime = '20:00') => { const id = seed(o); auditMove(id, from, fromTime); return id; };
+  const reset = () => {
+    failOn = beforeBatch = null;
+    sq.exec('DELETE FROM class_schedules; DELETE FROM class_audit_log; DELETE FROM schedule_change_requests; DELETE FROM attendance; DELETE FROM calendar_events; DELETE FROM teacher_unavailability; DELETE FROM class_room_override;');
+    setNow('2026-11-04', '18:30');
+  };
+  const evOn = async (id, d) => (await loadMovedAwayEvents(DB, d, d)).byKey.get(movedAwayKey(id, d));
+  const unchanged = (id, before) => JSON.stringify(row(id)) === JSON.stringify(before);
+
+  /* ── A. 판정 정본 judgeMovedAwayUndo ── */
+  {
+    const ch = (o = {}) => ({ kind: 'moved_away', from_date: '2026-11-04', from_time: '20:00', ...o });
+    const r0 = { id: 7, scheduled_date: '2026-11-11', start_time: '20:00', status: 'active' };
+    const nowMs = RealDate.parse('2026-11-04T18:30:00+09:00');
+    let u = judgeMovedAwayUndo(r0, ch(), null, nowMs);
+    ok('A1 🔑 원래 시각(11/04 20:00) 전 · 새 자리 active · 시작 전 → 되돌릴 수 있음(대상 = 그 행)',
+      u && u.ok === true && u.reason === null && u.target_id === '7' && u.from_date === '2026-11-04' && u.from_time === '20:00', JSON.stringify(u));
+    u = judgeMovedAwayUndo(r0, ch(), null, RealDate.parse('2026-11-04T20:00:00+09:00'));
+    ok('A2 원래 시각이 «시작된 순간» 부터는 orig_passed(지난 시각에 예정 수업을 만들지 않는다)', u && u.ok === false && u.reason === 'orig_passed', JSON.stringify(u));
+    u = judgeMovedAwayUndo(r0, ch(), null, RealDate.parse('2026-11-04T19:59:00+09:00'));
+    ok('A2b 짝: 1분 전이면 아직 된다', u && u.ok === true, JSON.stringify(u));
+    u = judgeMovedAwayUndo({ ...r0, status: 'cancelled' }, ch(), null, nowMs);
+    ok('A3 옮긴 뒤 취소된 수업 → target_not_active(새 날짜에서 처리)', u && u.ok === false && u.reason === 'target_not_active', JSON.stringify(u));
+    u = judgeMovedAwayUndo({ ...r0, status: 'postponed' }, ch(), null, nowMs);
+    ok('A3b 옮긴 뒤 다시 «날짜 없이 연기» → target_not_active', u && u.reason === 'target_not_active', JSON.stringify(u));
+    u = judgeMovedAwayUndo({ ...r0, scheduled_date: '2026-11-04', start_time: '09:00' }, ch({ from_date: '2026-11-05', from_time: '10:00' }), null, nowMs);
+    ok('A4 앞당겨 이미 끝난 수업(11/04 09:00) → target_started(지난 수업을 다시 끌어오지 않는다)', u && u.ok === false && u.reason === 'target_started', JSON.stringify(u));
+    const parent = { id: 50, scheduled_date: null, day_of_week: 'Wed', start_time: '20:00', status: 'active', skip_dates: '2026-11-04' };
+    u = judgeMovedAwayUndo(parent, ch(), { id: 51, scheduled_date: '2026-11-13', start_time: '20:00', status: 'active' }, nowMs);
+    ok('A5 🔁 매주 반복 «그 주 하루만» → 대상은 하루짜리 줄(반복 행이 아니다)', u && u.ok === true && u.target_id === '51', JSON.stringify(u));
+    u = judgeMovedAwayUndo(parent, ch(), null, nowMs);
+    ok('A6 하루짜리 줄을 못 찾으면 no_target(무엇을 옮길지 모른다 — 지어내지 않는다)', u && u.ok === false && u.reason === 'no_target' && u.target_id === null, JSON.stringify(u));
+    u = judgeMovedAwayUndo(r0, ch({ from_time: null }), null, nowMs);
+    ok('A7 원래 시각을 모르면 no_time', u && u.ok === false && u.reason === 'no_time', JSON.stringify(u));
+    ok('A8 «옮겨 감» 줄이 아니면 판정 없음(null)',
+      judgeMovedAwayUndo(r0, null, null, nowMs) === null && judgeMovedAwayUndo(r0, { ...ch(), kind: 'moved' }, null, nowMs) === null, '');
+  }
+
+  /* ── B. undoMovedClass — 실제로 돌려 본다 ── */
+  reset();
+  {
+    const id = moved();
+    const n0 = rowCount(), a0 = audits(id).length;
+    ok('B0 전제: 원래 날짜(11/04)에 «⏸ 연기됨 → 11/11 20:00» 줄이 생기는 상태',
+      (judgeMovedAway(row(id), await evOn(id, '2026-11-04'), { showActor: true }) || {}).label_en === '⏸ Postponed → 11/11 20:00', JSON.stringify(row(id)));
+    const r = await undoMovedClass(env, actor, id, '2026-11-04');
+    const after = row(id), log = audits(id);
+    ok('B1 🔑 되돌리기 → 같은 행이 11/04 20:00 · active 로 돌아온다', r.ok === true && r.status === 200 && after.scheduled_date === '2026-11-04' && after.start_time === '20:00' && after.status === 'active', JSON.stringify({ r, after }));
+    ok('B1b 새 행을 만들지 않는다(PR #1889 — 같은 id 가 옮겨 다닌다)', rowCount() === n0 && r.id === id, String(rowCount()));
+    const last = log[log.length - 1] || {};
+    ok('B1c 기록은 \'restore\'(undo_move 표시) · 그때 자리(11/11 20:00)를 lesson_date 로',
+      log.length === a0 + 1 && last.action === 'restore' && last.lesson_date === '2026-11-11' && /"undo_move":true/.test(String(last.detail)), JSON.stringify(last));
+    ok('B1d 🔑 원래 날짜(11/04)의 «옮겨 감» 줄이 사라진다(진짜 수업 한 줄로 돌아옴)', judgeMovedAway(after, await evOn(id, '2026-11-04'), { showActor: true }) === null, '');
+    ok('B1e 🔑 짝: 새 날짜(11/11)에 «옮겨 감» 줄이 새로 생기지 않는다', !(await evOn(id, '2026-11-11')), '');
+    const au = await loadClassChangeAudits(DB, [id]);
+    ok('B1f 원래 날짜 줄에 «📅 … 에서 옮김» 글자도 안 붙는다', judgeClassChange(after, au.bySchedule.get(String(id)), { showActor: true }) === null, '');
+    const r2 = await undoMovedClass(env, actor, id, '2026-11-04');
+    ok('B1g 두 번 눌러도 한 번만 — 두 번째는 not_moved · 기록 안 늘어남', r2.ok === false && r2.status === 409 && r2.error === 'not_moved' && audits(id).length === a0 + 1, JSON.stringify(r2));
+  }
+  reset();
+  {
+    const id = seed();
+    insert('schedule_change_requests', { schedule_id: id, request_type: 'postpone', status: 'approved', orig_date: '2026-11-04', orig_time: '20:00',
+      new_date: '2026-11-11', new_time: '20:00', decided_by: 'Maimai', decided_at: NOW - 3600000, created_at: NOW - 7200000 });
+    const r = await undoMovedClass(env, actor, id, '2026-11-04');
+    ok('B2 이력 줄 없이 «승인된 변경 요청» 만 있어도 되돌린다', r.ok === true && row(id).scheduled_date === '2026-11-04' && row(id).start_time === '20:00', JSON.stringify(r));
+  }
+  reset();
+  {
+    const id = moved();
+    seed({ scheduled_date: '2026-11-04', start_time: '20:00', teacher_id: '2' });   // 같은 학생 · 원래 시각에 다른 수업
+    const b = row(id), r = await undoMovedClass(env, actor, id, '2026-11-04');
+    ok('B3 원래 시각에 같은 학생의 다른 수업 → 거절 · 행·기록 그대로', r.ok === false && r.status === 409 && ['conflict', 'slot_taken'].includes(r.error) && unchanged(id, b) && audits(id).length === 1, JSON.stringify(r));
+  }
+  reset();
+  {
+    const id = moved();
+    const other = seed({ user_id: 'stu_b', student_name: 'Other', scheduled_date: '2026-11-04', start_time: '20:00' });   // 같은 강사 · 같은 자리(그룹 자리)
+    const b = row(id), r = await undoMovedClass(env, actor, id, '2026-11-04');
+    ok('B3b 🔑 같은 강사의 «같은 자리» 수업이 있으면 slot_taken — 되돌리기는 그룹에 끼워 넣지 않는다(연기 취소와 같은 선)',
+      r.ok === false && r.error === 'slot_taken' && unchanged(id, b), JSON.stringify(r));
+    const plain = await moveSchedulesAtomically(env, actor, { ids: [String(id)], expected: { [id]: scheduleMoveVersion(row(id)) }, patch: { destination_date: '2026-11-04', start_time: '20:00' } });
+    ok('B3c 짝: 일반 «옮기기» 는 그 자리(그룹)로 갈 수 있다 — 막는 것은 되돌리기만', plain.ok === true && row(id).scheduled_date === '2026-11-04' && row(other).status === 'active', JSON.stringify(plain));
+  }
+  reset();
+  {
+    const id = moved();
+    insert('calendar_events', { event_type: 'vacation', title: 'Leave', teacher_name: 'ALPHA', date: '2026-11-04', created_at: NOW });
+    const b = row(id), r = await undoMovedClass(env, actor, id, '2026-11-04');
+    ok('B4 원래 날짜가 강사 휴가 → teacher_unavailable · 그대로', r.ok === false && r.error === 'teacher_unavailable' && unchanged(id, b), JSON.stringify(r));
+  }
+  reset();
+  {
+    const id = moved();
+    insert('attendance', { room_id: `class-${id}-20261111`, user_id: 'stu_a', role: 'student', status: 'present', joined_at: NOW });
+    const b = row(id), r = await undoMovedClass(env, actor, id, '2026-11-04');
+    ok('B5 새 날짜 방에 출석 기록이 있으면 class_already_attended · 그대로', r.ok === false && r.error === 'class_already_attended' && unchanged(id, b), JSON.stringify(r));
+  }
+  reset();
+  {
+    const id = moved({}, '2026-11-04', '10:00');   // 원래 10:00 — 지금(18:30)보다 앞
+    const b = row(id), r = await undoMovedClass(env, actor, id, '2026-11-04');
+    ok('B6 원래 시각이 지났으면 orig_passed · 그대로', r.ok === false && r.status === 409 && r.error === 'orig_passed' && unchanged(id, b), JSON.stringify(r));
+    const id2 = moved({ scheduled_date: '2026-11-04', start_time: '09:00' }, '2026-11-05', '10:00');   // 앞당겨 이미 끝남
+    const b2 = row(id2), r2 = await undoMovedClass(env, actor, id2, '2026-11-05');
+    ok('B6b 앞당겨 이미 끝난 수업은 target_started · 그대로', r2.ok === false && r2.error === 'target_started' && unchanged(id2, b2), JSON.stringify(r2));
+    const id3 = moved({ status: 'cancelled' });
+    const b3 = row(id3), r3 = await undoMovedClass(env, actor, id3, '2026-11-04');
+    ok('B6c 옮긴 뒤 취소됐으면 target_not_active · 그대로', r3.ok === false && r3.error === 'target_not_active' && unchanged(id3, b3), JSON.stringify(r3));
+  }
+  reset();
+  {
+    const id = seed();
+    const r = await undoMovedClass(env, actor, id, '2026-11-04');
+    ok('B7 이동 기록이 없으면 no_move_record(지어내지 않는다)', r.ok === false && r.status === 409 && r.error === 'no_move_record', JSON.stringify(r));
+    const r2 = await undoMovedClass(env, actor, id, '11/04');
+    const r3 = await undoMovedClass(env, actor, 999999, '2026-11-04');
+    ok('B8 날짜 모양이 틀리면 400 · 없는 수업이면 404', r2.status === 400 && r2.error === 'invalid_from_date' && r3.status === 404, JSON.stringify({ r2, r3 }));
+  }
+  reset();
+  {
+    const id = moved();
+    failOn = /FROM class_audit_log|FROM schedule_change_requests/;
+    const b = row(id), r = await undoMovedClass(env, actor, id, '2026-11-04');
+    failOn = null;
+    ok('B9 🔒 이력 조회가 실패하면 «기록 없음» 이 아니라 lookup_failed(503) · 그대로(모르면 막는다)', r.ok === false && r.status === 503 && r.error === 'lookup_failed' && unchanged(id, b), JSON.stringify(r));
+  }
+  reset();
+  {
+    const pid = seed({ user_id: 'stu_r', schedule_kind: 'recurring', scheduled_date: null, day_of_week: 'Wed', skip_dates: '2026-11-04' });
+    const cid = seed({ user_id: 'stu_r', schedule_kind: 'one_off', scheduled_date: '2026-11-13', start_time: '20:00', source: 'recurring-week:' + pid,
+      notes: '반복수업 2026-11-04 회차를 옮김(→ 2026-11-13 20:00)' });
+    insert('schedule_change_requests', { schedule_id: pid, request_type: 'postpone', status: 'approved', orig_date: '2026-11-04', orig_time: '20:00',
+      new_date: '2026-11-13', new_time: '20:00', decided_by: 'Maimai', decided_at: NOW - 3600000, created_at: NOW - 7200000 });
+    const pb = row(pid), r = await undoMovedClass(env, actor, pid, '2026-11-04');
+    const c = row(cid);
+    ok('B10 🔁 매주 반복 «그 주 하루만» 옮긴 수업 → 하루짜리 줄이 11/04 20:00 으로 · 반복 행은 그대로',
+      r.ok === true && r.id === cid && c.scheduled_date === '2026-11-04' && c.start_time === '20:00' && c.status === 'active' && unchanged(pid, pb), JSON.stringify({ r, c }));
+    ok('B10b 그 뒤 원래 날짜에 «옮겨 감» 줄이 없다(하루짜리 줄이 그 날 진짜 수업)',
+      judgeMovedAway(row(pid), await evOn(pid, '2026-11-04'), { showActor: true }, c) === null, '');
+    const pid2 = seed({ user_id: 'stu_q', schedule_kind: 'recurring', scheduled_date: null, day_of_week: 'Wed', start_time: '21:00', skip_dates: '2026-11-04' });
+    insert('schedule_change_requests', { schedule_id: pid2, request_type: 'postpone', status: 'approved', orig_date: '2026-11-04', orig_time: '21:00',
+      new_date: '2026-11-13', new_time: '21:00', decided_by: 'Maimai', decided_at: NOW - 3600000, created_at: NOW - 7200000 });
+    const p2b = row(pid2), r2 = await undoMovedClass(env, actor, pid2, '2026-11-04');
+    ok('B11 하루짜리 줄을 못 찾으면 no_target · 반복 행 그대로(반복 행을 날짜로 옮기지 않는다)', r2.ok === false && r2.error === 'no_target' && unchanged(pid2, p2b), JSON.stringify(r2));
+  }
+  reset();
+  {
+    const id = moved();
+    beforeBatch = () => sq.prepare('UPDATE class_schedules SET start_time = ?, updated_at = ? WHERE id = ?').run('20:30', NOW + 5, id);
+    const r = await undoMovedClass(env, actor, id, '2026-11-04');
+    ok('B12 확인하는 사이 다른 사람이 그 수업을 바꾸면 schedule_changed · 되돌리지 않는다',
+      r.ok === false && r.error === 'schedule_changed' && row(id).scheduled_date === '2026-11-11' && row(id).start_time === '20:30', JSON.stringify(r));
+  }
+
+  /* ── C. 두 화면 — 버튼 함수를 오려 내 실제로 돌린다 ── */
+  const admJs = readFileSync(join(PUB, 'js/adm-today-classes.js'), 'utf8');
+  const mgrHtml = readFileSync(join(PUB, 'manager.html'), 'utf8');
+  {
+    const code = [cutBlock(admJs, 'var TC_UNDO_WHY = {') + ';', cutBlock(admJs, 'function tcMd('), cutBlock(admJs, 'function tcUndoMoveHtml('), cutBlock(admJs, 'async function tcUndoMove(')].join('\n');
+    ok('C0 전제: admin 화면에서 네 조각을 오려 냈다', code.includes('tcUndoMoveHtml') && code.includes('tcUndoMove(el)') && code.includes('TC_UNDO_WHY'), code.slice(0, 200));
+    const mk = (hq, ko = true) => {
+      const calls = { fetch: [], alerts: [], reload: 0, confirm: true };
+      const win = { tcLoadToday: () => { calls.reload++; } };
+      const f = new Function('T', 'esc', 'tcCanMessage', 'confirm', 'alert', 'fetch', 'window', code + '\nreturn { tcUndoMoveHtml, tcUndoMove };');
+      const api = f((k, e) => (ko ? k : e), s => String(s ?? '').replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';'), () => hq,
+        () => calls.confirm, m => calls.alerts.push(m),
+        async (url, init) => { calls.fetch.push({ url, init }); return calls.respond(url, init); }, win);
+      return { api, calls };
+    };
+    const S = (u, o = {}) => ({ schedule_id: 41, student_name: 'Jung Seo Yoon', moved_away: true, change: { to_date: '2026-11-11', to_time: '20:00' }, undo: u, ...o });
+    let { api } = mk(true);
+    const h = api.tcUndoMoveHtml(S({ ok: true, reason: null, from_date: '2026-11-04', from_time: '20:00' }));
+    ok('C1 🔑 admin: 되돌릴 수 있으면 «↩ 원래대로» 버튼(그 줄 번호·원래 날짜를 싣는다)',
+      /class="tc-undo-pin"/.test(h) && /data-sid="41"/.test(h) && /data-from="2026-11-04"/.test(h) && /↩ 원래대로/.test(h), h);
+    ok('C1b admin: 못 하면 버튼 대신 사유 글자(누르면 거절되는 버튼을 두지 않는다)',
+      (() => { const t = api.tcUndoMoveHtml(S({ ok: false, reason: 'orig_passed', from_date: '2026-11-04', from_time: '10:00' })); return !/tc-undo-pin/.test(t) && /원래 시각이 지나/.test(t); })(), '');
+    ok('C1c 🔒 admin: 본사가 아니면(지사·대리점·강사) 아무것도 안 그린다', mk(false).api.tcUndoMoveHtml(S({ ok: true, reason: null, from_date: '2026-11-04', from_time: '20:00' })) === '', '');
+    ok('C1d admin: 영어 화면은 «↩ Undo move»', /↩ Undo move/.test(mk(true, false).api.tcUndoMoveHtml(S({ ok: true, reason: null, from_date: '2026-11-04', from_time: '20:00' }))), '');
+    // 누르기 — 가짜 요소
+    const el = attrs => ({ _busy: false, textContent: '↩ 원래대로', getAttribute: k => attrs[k] ?? null });
+    let m = mk(true);
+    m.calls.respond = async () => ({ ok: true, json: async () => ({ ok: true, id: 41 }) });
+    await m.api.tcUndoMove(el({ 'data-sid': '41', 'data-from': '2026-11-04', 'data-back': '11/04 20:00', 'data-now': '11/11 20:00', 'data-name': 'Jung Seo Yoon' }));
+    const sent = m.calls.fetch[0] || {};
+    let body = {}; try { body = JSON.parse(sent.init.body); } catch {}
+    ok('C2 🔑 admin: 누르면 POST /class-schedules/41 { action:\'undo_move\', from_date:\'2026-11-04\' } · 성공하면 목록을 다시 받는다',
+      m.calls.fetch.length === 1 && sent.url === '/api/admin/class-schedules/41' && sent.init.method === 'POST' && body.action === 'undo_move' && body.from_date === '2026-11-04' && m.calls.reload === 1,
+      JSON.stringify({ sent, body, reload: m.calls.reload }));
+    m = mk(true); m.calls.confirm = false; m.calls.respond = async () => ({ ok: true, json: async () => ({ ok: true }) });
+    await m.api.tcUndoMove(el({ 'data-sid': '41', 'data-from': '2026-11-04' }));
+    ok('C2b 짝: 확인창에서 취소하면 아무것도 안 보낸다', m.calls.fetch.length === 0, '');
+    m = mk(true); m.calls.respond = async () => ({ ok: false, json: async () => ({ ok: false, error: 'slot_taken' }) });
+    const e1 = el({ 'data-sid': '41', 'data-from': '2026-11-04' });
+    await m.api.tcUndoMove(e1);
+    ok('C2c admin: 거절되면 사유를 사람 말로(조용히 실패하지 않음) · 버튼 글자 원래대로', m.calls.alerts.length === 1 && /다른 수업/.test(m.calls.alerts[0]) && e1.textContent === '↩ 원래대로' && m.calls.reload === 0, JSON.stringify(m.calls.alerts));
+    // 배선 — 주석을 벗긴 사본에서
+    const admS = stripComments(admJs);
+    const mvBranch = cutBlock(admS, '} else if (s.moved_away) {'.slice(2));
+    ok('C3 admin 배선: «다른 날로 옮김» 갈래가 tcUndoMoveHtml(s) 를 붙이고, .tc-undo-pin 을 tcUndoMove 에 묶는다',
+      /tcUndoMoveHtml\(s\)/.test(mvBranch) && /querySelectorAll\('\.tc-undo-pin'\)[\s\S]{0,260}tcUndoMove\(el\)/.test(admS), mvBranch.slice(0, 300));
+  }
+  {
+    const code = [cutBlock(mgrHtml, 'var TA_UNDO_WHY = {') + ';', cutBlock(mgrHtml, 'function taUndoPill('), cutBlock(mgrHtml, 'function taUndoMove(')].join('\n');
+    ok('C4 전제: manager 화면에서 세 조각을 오려 냈다', code.includes('taUndoPill') && code.includes('taUndoMove(el)'), code.slice(0, 200));
+    const mk = (hq) => {
+      const calls = { fetch: [], alerts: [], reload: 0, stale: 0 };
+      const rows = { 41: { schedule_id: 41, student_name: 'Jung Seo Yoon', moved_away: true, change: { to_date: '2026-11-11', to_time: '20:00' }, undo: { ok: true, reason: null, from_date: '2026-11-04', from_time: '20:00' } } };
+      const win = { loadTodayAll: () => { calls.reload++; } };
+      const f = new Function('T', 'esc', 'IS_HQ', 'confirm', 'alert', 'fetch', 'window', 'taRowOf', 'taMarkStale', code + '\nreturn { taUndoPill, taUndoMove };');
+      const api = f((en, ko) => ko, s => String(s ?? ''), hq, () => true, a => calls.alerts.push(a),
+        (url, init) => { calls.fetch.push({ url, init }); return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) }); },
+        win, sid => rows[sid] || null, () => { calls.stale++; });
+      return { api, calls, rows };
+    };
+    const { api, rows } = mk(true);
+    const p = api.taUndoPill(rows[41]);
+    ok('C5 🔑 manager: 본사면 «↩ 원래대로» 버튼(data-undomv=그 줄 번호)', /data-undomv="41"/.test(p) && /↩ 원래대로/.test(p), p);
+    ok('C5b 🔒 manager: 본사가 아니면 아무것도 안 그린다', mk(false).api.taUndoPill(rows[41]) === '', '');
+    ok('C5c manager: 못 하면 사유 글자', (() => { const t = api.taUndoPill({ ...rows[41], undo: { ok: false, reason: 'target_started' } }); return !/data-undomv/.test(t) && /이미 시작됨/.test(t); })(), '');
+    const m = mk(true);
+    m.api.taUndoMove({ _busy: false, textContent: 'x', getAttribute: k => (k === 'data-undomv' ? '41' : null) });
+    await new Promise(r => setTimeout(r, 10));
+    const sent = m.calls.fetch[0] || {};
+    let body = {}; try { body = JSON.parse(sent.init.body); } catch {}
+    ok('C6 🔑 manager: 누르면 POST { action:\'undo_move\', from_date } · 성공하면 낡은 목록 표시 + 다시 받기',
+      sent.url === '/api/admin/class-schedules/41' && body.action === 'undo_move' && body.from_date === '2026-11-04' && m.calls.reload === 1 && m.calls.stale === 1,
+      JSON.stringify({ sent, body, c: m.calls }));
+    const mgrS = stripComments(mgrHtml);
+    ok('C7 manager 배선: 간단히·자세히 두 보기 모두 «다른 날로 옮김» 줄에 taUndoPill · 클릭·키보드 위임이 data-undomv 를 받는다',
+      /r\.moved_away \? taUndoPill\(r\) : taMovePill\(r\)/.test(mgrS) && /resch = r\.moved_away \? taUndoPill\(r\) : ''/.test(mgrS)
+      && /closest\('\[data-undomv\]'\)[\s\S]{0,80}taUndoMove\(um\)/.test(mgrS) && /closest\('\[data-ta\],\[data-calpin\],\[data-bulk\],\[data-undomv\]'\)/.test(mgrS), '');
+  }
+
+  process.stdout.write('\n@@RESULTS@@' + JSON.stringify({ results }) + '\n');
+  process.exit(0);
+}
+
+/* ═════════════════════════════ 부모: 준비·실행·변이 ═════════════════════════════ */
+const tmp = mkdtempSync(join(tmpdir(), 'cum-'));
+writeFileSync(join(tmp, 'hooks.mjs'), `
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+export async function resolve(spec, ctx, next) {
+  if ((spec.startsWith('./') || spec.startsWith('../')) && !/\\.(ts|js|mjs|json)$/.test(spec) && ctx.parentURL) {
+    const u = new URL(spec + '.ts', ctx.parentURL);
+    if (existsSync(fileURLToPath(u))) return next(u.href, ctx);
+  }
+  return next(spec, ctx);
+}`);
+writeFileSync(join(tmp, 'reg.mjs'), `import { register } from 'node:module'; register('./hooks.mjs', import.meta.url);`);
+
+function runChild(srcDir, pubDir) {
+  return new Promise(resolve => {
+    const cp = spawn(process.execPath, ['--experimental-strip-types', '--no-warnings', '--import', pathToFileURL(join(tmp, 'reg.mjs')).href, SELF],
+      { env: { ...process.env, CUM_CHILD: '1', CUM_SRC: srcDir, CUM_PUB: pubDir } });
+    let so = '', se = '';
+    cp.stdout.on('data', d => { so += d; });
+    cp.stderr.on('data', d => { se += d; });
+    const t = setTimeout(() => { try { cp.kill('SIGKILL'); } catch {} }, 120000);
+    cp.on('close', () => {
+      clearTimeout(t);
+      const i = so.lastIndexOf('@@RESULTS@@');
+      if (i < 0) return resolve({ crashed: true, err: (se + so).split('\n').filter(Boolean).slice(-20).join('\n') });
+      try { resolve(JSON.parse(so.slice(i + '@@RESULTS@@'.length).trim().split('\n')[0])); } catch (e) { resolve({ crashed: true, err: String(e) }); }
+    });
+  });
+}
+
+let pass = 0, fail = 0;
+try {
+  console.log('\n═ ↩ 옮긴 수업 되돌리기 (실제 모듈 · SQLite · 두 화면 함수 실행) ═');
+  const base = await runChild(REAL_SRC, REAL_PUB);
+  if (base.crashed) { fail++; console.log('  FAIL 자식 실행이 죽었다:\n' + base.err); }
+  else for (const t of base.results) {
+    if (t.pass) { pass++; console.log('  PASS ' + t.name); } else { fail++; console.log('  FAIL ' + t.name + (t.why ? ' — ' + t.why : '')); }
+  }
+
+  /* ── 변이시험: 고친 자리를 되돌린 사본에서 정말 빨간불이 되는가(«조건 뒤집기» 포함) ── */
+  console.log('\n─ 변이시험 (복사본만 바꾼다) ─');
+  const MUTANTS = [
+    { name: '판정: 원래 시각 지남 검사를 뺌', expect: /^A2 |^B6 /,
+      edits: [['src', 'class-change-state.ts', "if (!Number.isFinite(origStart) || origStart <= nowMs) return out('orig_passed');", '']] },
+    { name: '판정: 원래 시각 조건 뒤집기(<= → >)', expect: /^A1 |^B1 /,
+      edits: [['src', 'class-change-state.ts', 'origStart <= nowMs) return out', 'origStart > nowMs) return out']] },
+    { name: '판정: 새 자리 시작 검사를 뺌', expect: /^A4 |^B6b /,
+      edits: [['src', 'class-change-state.ts', "if (!Number.isFinite(curStart) || curStart <= nowMs) return out('target_started');", '']] },
+    { name: '판정: 취소·재연기 대상 검사를 뺌', expect: /^A3 |^B6c /,
+      edits: [['src', 'class-change-state.ts', "if (st && st !== 'active') return out('target_not_active');", '']] },
+    { name: '이동: 되돌리기의 «그룹 자리 끼워 넣기 금지» 를 뺌', expect: /^B3b /,
+      edits: [['src', 'class-schedule-move.ts', "if (undo && slotTaken(dest)) return fail(409, 'slot_taken', 'Another class already uses the original time. Rebook to a different date or time.');", '']] },
+    { name: '이동: 기록을 옛 \'reschedule\' 로(되돌리기를 restore 로 안 적음)', expect: /^B1c |^B1e /,
+      edits: [['src', 'class-schedule-move.ts', "VALUES ('${guarded ? 'restore' : 'reschedule'}'", "VALUES ('${restore ? 'restore' : 'reschedule'}'"]] },
+    { name: '이동: 출석 기록 검사를 연기 취소에만', expect: /^B5 /,
+      edits: [['src', 'class-schedule-move.ts', '      if (guarded) {\n        const attendanceTable', '      if (restore) {\n        const attendanceTable']] },
+    { name: '경로: 매주 반복도 반복 행 자체를 옮김(하루짜리 줄 무시)', expect: /^B10 /,
+      edits: [['src', 'class-undo-move.ts', 'const target = child || row;', 'const target = row;']] },
+    { name: '경로: 이력 조회 실패를 «기록 없음» 으로(모르면 막기 → 그냥 409)', expect: /^B9 /,
+      edits: [['src', 'class-undo-move.ts', ": fail(503, 'lookup_failed', 'Could not check the change history right now. Please try again shortly.');", ": fail(409, 'no_move_record', 'x');"]] },
+    { name: 'admin 화면: 본사 확인을 뺌', expect: /^C1c /,
+      edits: [['pub', 'js/adm-today-classes.js', "if (!u || !s.schedule_id || !tcCanMessage()) return '';", "if (!u || !s.schedule_id) return '';"]] },
+    { name: 'admin 화면: 엉뚱한 동작(restore)을 보냄', expect: /^C2 /,
+      edits: [['pub', 'js/adm-today-classes.js', "body: JSON.stringify({ action: 'undo_move', from_date: from })", "body: JSON.stringify({ action: 'restore' })"]] },
+    { name: 'admin 화면: «다른 날로 옮김» 갈래에 버튼을 안 붙임', expect: /^C3 /,
+      edits: [['pub', 'js/adm-today-classes.js', "+ T(' — 이 날은 수업 없음', ' — no class this day') + '</span>'\n              + tcUndoMoveHtml(s);", "+ T(' — 이 날은 수업 없음', ' — no class this day') + '</span>';"]] },
+    { name: 'manager 화면: 본사 확인을 뺌', expect: /^C5b /,
+      edits: [['pub', 'manager.html', "if (!u || !r.schedule_id || !IS_HQ) return '';", "if (!u || !r.schedule_id) return '';"]] },
+    { name: 'manager 화면: 간단히 보기에 버튼을 안 붙임', expect: /^C7 /,
+      edits: [['pub', 'manager.html', "(r.moved_away ? taUndoPill(r) : taMovePill(r))", "taMovePill(r)"]] },
+  ];
+  const runs = MUTANTS.map(async (m, k) => {
+    const dir = join(tmp, 'm' + k), src = join(dir, 'src'), pub = join(dir, 'pub');
+    mkdirSync(dir, { recursive: true });
+    cpSync(REAL_SRC, src, { recursive: true });
+    mkdirSync(join(pub, 'js'), { recursive: true });
+    cpSync(join(REAL_PUB, 'js/adm-today-classes.js'), join(pub, 'js/adm-today-classes.js'));
+    cpSync(join(REAL_PUB, 'manager.html'), join(pub, 'manager.html'));
+    for (const [where, file, from, to] of m.edits) {
+      const p = join(where === 'src' ? src : pub, file);
+      const t = readFileSync(p, 'utf8');
+      if (!t.includes(from)) return { m, applied: false };
+      writeFileSync(p, t.replace(from, to));
+    }
+    return { m, applied: true, r: await runChild(src, pub) };
+  });
+  for (const { m, applied, r } of await Promise.all(runs)) {
+    if (!applied) { fail++; console.log('  FAIL 변이를 못 넣음(소스가 바뀜 — 하니스를 고칠 것) «' + m.name + '»'); continue; }
+    if (r.crashed) { fail++; console.log('  FAIL 변이 실행이 죽음 «' + m.name + '» — ' + r.err.split('\n').slice(-3).join(' | ')); continue; }
+    const caught = r.results.filter(t => !t.pass && m.expect.test(t.name));
+    if (caught.length) { pass++; console.log('  PASS 변이 잡힘 «' + m.name + '» → ' + caught[0].name); }
+    else { fail++; console.log('  FAIL 변이를 못 잡음 «' + m.name + '» (실패한 검사: ' + (r.results.filter(t => !t.pass).map(t => t.name.split(' ')[0]).join(',') || '없음') + ')'); }
+  }
+} finally { rmSync(tmp, { recursive: true, force: true }); }
+
+console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
+process.exit(fail ? 1 : 0);

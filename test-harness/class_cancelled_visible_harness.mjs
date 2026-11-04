@@ -563,6 +563,38 @@ if (process.env.CCV_CHILD === '1') {
     sq.exec(`DELETE FROM class_schedules WHERE id = 940001`);
   }
 
+  /* ── U. ↩ 옮긴 수업 되돌리기(2026-11-04 매니저 Mai «no restore or undo postponement option») — 진짜 핸들러 ──
+     «오늘 수업» 의 원래 날짜 줄에 undo 판정이 실리는가 · POST {action:'undo_move'} 가 본사에만 열리는가 · 실제로 돌아오는가.
+     판정·이동의 세부(겹침·휴가·출석·매주 반복·조회 실패)는 class_undo_move_harness 가 잰다. */
+  {
+    const UD = '2026-12-02', UN = '2026-12-09';   // 수요일 → 다음 주 수요일
+    ins(`INSERT INTO students_erp (user_id, korean_name, shop_name, created_at) VALUES ('stu_un','학생stu_un','owned-shop',?)`, T0);
+    setNow(UD, '08:00');
+    const U1 = mkClass('stu_un', 'one_off', null, UD, '20:00');
+    const U2 = mkClass('stu_un', 'one_off', null, UD, '10:00');
+    const mvU = (id) => callAdmin('PATCH', '/api/admin/class-schedules/move', { cookie: 'tok_admin', body: { ids: [id], expected: { [id]: scheduleMoveVersion(row(id)) }, patch: { scheduled_date: UN } } });
+    const r1 = await mvU(U1), r2 = await mvU(U2);
+    ok('U0 전제: 두 수업(20:00·10:00)을 끌어 옮기기로 12/09 로', r1.status === 200 && r2.status === 200 && row(U1).scheduled_date === UN && row(U2).scheduled_date === UN, JSON.stringify({ r1, r2 }));
+    setNow(UD, '18:30');
+    const d0 = await callAdmin('GET', `/api/admin/classes/today?date=${UD}`, { cookie: 'tok_admin' });
+    const g1 = S(d0.body, U1), g2 = S(d0.body, U2);
+    ok('U1 🔑 원래 날짜 줄에 «되돌릴 수 있음» 이 실린다(원래 12/02 20:00)', !!g1 && g1.moved_away === true && g1.undo && g1.undo.ok === true && g1.undo.reason === null
+      && g1.undo.from_date === UD && g1.undo.from_time === '20:00', JSON.stringify(g1 && g1.undo));
+    ok('U1b 짝: 원래 시각(10:00)이 지난 줄은 «못 함 · orig_passed»', !!g2 && g2.moved_away === true && g2.undo && g2.undo.ok === false && g2.undo.reason === 'orig_passed', JSON.stringify(g2 && g2.undo));
+    const ra = await callAdmin('POST', `/api/admin/class-schedules/${U1}`, { cookie: 'tok_agency', body: { action: 'undo_move', from_date: UD } });
+    const rt = await callAdmin('POST', `/api/admin/class-schedules/${U1}`, { cookie: 'tok_alpha', body: { action: 'undo_move', from_date: UD } });
+    ok('U2 🔒 지사·강사 세션의 되돌리기는 403 · 행 그대로(본사 전용 — 연기 취소와 같은 선)', ra.status === 403 && rt.status === 403 && row(U1).scheduled_date === UN, JSON.stringify({ ra, rt }));
+    const rp = await callAdmin('POST', `/api/admin/class-schedules/${U2}`, { cookie: 'tok_admin', body: { action: 'undo_move', from_date: UD } });
+    ok('U3 원래 시각이 지난 수업은 본사가 눌러도 409 orig_passed · 행 그대로', rp.status === 409 && rp.body.error === 'orig_passed' && row(U2).scheduled_date === UN, JSON.stringify(rp));
+    const rh = await callAdmin('POST', `/api/admin/class-schedules/${U1}`, { cookie: 'tok_admin', body: { action: 'undo_move', from_date: UD } });
+    ok('U4 🔑 본사 되돌리기 200 · 같은 행이 12/02 20:00 · active 로', rh.status === 200 && rh.body.ok === true && row(U1).scheduled_date === UD && row(U1).start_time === '20:00' && row(U1).status === 'active', JSON.stringify(rh));
+    const d1 = await callAdmin('GET', `/api/admin/classes/today?date=${UD}`, { cookie: 'tok_admin' });
+    const s1 = (d1.body.sessions || []).filter(s => Number(s.schedule_id) === U1);
+    ok('U5 원래 날짜에는 «옮겨 감» 줄 대신 진짜 수업 한 줄(취소·연기 칸 비어 있음)', s1.length === 1 && !s1[0].moved_away && !s1[0].change, JSON.stringify(s1.map(s => ({ mv: s.moved_away, ch: s.change }))));
+    const d2 = await callAdmin('GET', `/api/admin/classes/today?date=${UN}`, { cookie: 'tok_admin' });
+    ok('U6 짝: 새 날짜(12/09)에는 그 수업이 «옮겨 감» 줄로도 안 남는다', !S(d2.body, U1) && !!S(d2.body, U2), JSON.stringify((d2.body.sessions || []).map(s => [s.schedule_id, s.moved_away])));
+  }
+
   process.stdout.write('\n@@RESULTS@@' + JSON.stringify({ results }) + '\n');
   process.exit(0);
 }
@@ -745,6 +777,11 @@ const MUTANTS = [
              "  await ensureScheduleSourceIndex(db);\n  const srcs = Array.from(new Set((parentIds || []).map(x => String(x ?? '').trim()).filter(x => /^\\d+$/.test(x))))"]] },
   { name: '주간 시간표: 옮겨 간 칸에 누구에게나 누가·사유', expect: /I11 /,
     edits: [['api-admin.ts', 'const ch = judgeMovedAway(r, ev, { showActor: _offShowActor },', 'const ch = judgeMovedAway(r, ev, { showActor: true },']] },
+  { name: '오늘 수업: 원래 날짜 줄에 되돌리기 판정(undo)을 안 실음', expect: /U1 /,
+    edits: [['api-admin.ts', 'undo: _undo ? { ok: _undo.ok, reason: _undo.reason, from_date: _undo.from_date, from_time: _undo.from_time } : null,', '']] },
+  { name: '되돌리기 경로: 본사 게이트 없이 받음', expect: /U2 /,
+    edits: [['api-admin.ts', "      const deny = await enrollAdminHqOnly(request, env);\n      if (deny) return deny;\n      const body: any = await request.json().catch(() => ({}));\n      /* ↩ (2026-11-04",
+             "      const body: any = await request.json().catch(() => ({}));\n      /* ↩ (2026-11-04"]] },
 ];
 const prepared = MUTANTS.map((m, idx) => {
   const dir = join(tmp, 'm-' + idx);
