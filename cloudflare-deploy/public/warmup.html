@@ -684,7 +684,26 @@
 #warmThought i:nth-child(2){animation-delay:.14s}
 #warmThought i:nth-child(3){animation-delay:.28s}
 @keyframes warmDots{0%,55%,100%{transform:translateY(0);opacity:.6}25%{transform:translateY(-3px);opacity:1}}
-@media(prefers-reduced-motion:reduce){#warmThought i{animation:none}}
+/* The mobile conversation keeps its own scroll viewport. Put the cue on the visible speaker row. */
+body:has(#log .msg.ai .who) #warmThought:not([hidden]){
+  position:absolute;width:1px;height:1px;padding:0;margin:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap
+}
+body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::after{
+  content:"";display:inline-block;flex:none;width:38px;height:22px;border-radius:11px 11px 11px 3px;
+  background-color:#284354;
+  background-image:radial-gradient(circle,#ffe19a 2.5px,transparent 3px),radial-gradient(circle,#ffe19a 2.5px,transparent 3px),radial-gradient(circle,#ffe19a 2.5px,transparent 3px);
+  background-size:8px 8px;background-repeat:no-repeat;background-position:6px 8px,15px 8px,24px 8px;
+  animation:warmHeaderDots 1.25s ease-in-out infinite
+}
+@keyframes warmHeaderDots{
+  0%,70%,100%{background-position:6px 8px,15px 8px,24px 8px}
+  18%{background-position:6px 4px,15px 8px,24px 8px}
+  35%{background-position:6px 8px,15px 4px,24px 8px}
+  52%{background-position:6px 8px,15px 8px,24px 4px}
+}
+@media(prefers-reduced-motion:reduce){
+  #warmThought i,body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::after{animation:none}
+}
 </style>
 </head>
 <body>
