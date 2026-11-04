@@ -471,11 +471,15 @@
   // 📖 사용 안내 — 안내서를 창 안에 연다. 화면 언어(ui)를 ?lang= 으로 넘긴다(안내서가 그 언어로 뜬다).
   //    창(dialog)을 못 여는 옛 브라우저는 같은 탭으로 간다 — 안내서 위쪽에 «AI 말하기» 로 돌아오는 링크가 있다.
   var GUIDE_URL = '/ai-speaking-guide.html';
-  function guideHref(){ return GUIDE_URL + '?lang=' + (ui === 'en' ? 'en' : 'ko'); }
+  function guideLang(){ return ui === 'en' ? 'en' : 'ko'; }
+  function guideHref(){ return GUIDE_URL + '?lang=' + guideLang(); }
   function openGuide(){
     var dlg = document.getElementById('guideDlg'), fr = document.getElementById('guideFrame'), href = guideHref();
     if(!dlg || !fr || typeof dlg.showModal !== 'function'){ location.href = href; return; }
-    if(fr.getAttribute('src') !== href) fr.setAttribute('src', href);
+    // 처음엔 src 로 넣는다. 다시 열 때 언어가 바뀌었으면 replace — src 를 다시 쓰면 방문 기록이 하나 늘어 «뒤로» 가 한 번 헛돈다
+    if(!fr.getAttribute('src')) fr.setAttribute('src', href);
+    else if(fr.getAttribute('data-lang') !== guideLang()){ try { fr.contentWindow.location.replace(href); } catch(_) { fr.setAttribute('src', href); } }
+    fr.setAttribute('data-lang', guideLang());
     var title = T('AI 말하기 사용 안내', 'AI Speaking guide');
     fr.setAttribute('title', title);
     var h = document.getElementById('guideDlgTitle'); if(h) h.textContent = title;
@@ -491,6 +495,11 @@
     // 창 바깥(어두운 곳)을 누르면 닫는다 — 창 안(머리·iframe)을 누르면 e.target 이 dialog 자신이 아니다
     dlg.addEventListener('click', function(e){ if(e.target === dlg) dlg.close(); });
     dlg.addEventListener('close', function(){ if(btn) try { btn.focus(); } catch(_) {} });
+    // 포커스가 창 안(iframe)에 있으면 dialog 가 Esc 를 못 받는다 → 안내서가 알려 오면 닫는다(같은 오리진 · 그 iframe 에서 온 것만)
+    var fr = document.getElementById('guideFrame');
+    window.addEventListener('message', function(e){
+      if(e.data === 'ai-speaking-guide:close' && e.origin === location.origin && fr && e.source === fr.contentWindow && dlg.open) dlg.close();
+    });
   }
   applyUi(); renderSituations(); renderSettings(); wire(); wireGuide();
 })();

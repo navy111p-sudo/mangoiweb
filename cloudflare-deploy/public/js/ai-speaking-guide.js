@@ -7,6 +7,9 @@
    3) 다른 안내서로 가는 링크([data-lang-link])에 지금 언어를 붙임
    4) 인쇄할 때 접힌 칸(Q&A·추가 기능)을 모두 펼침
    5) 창(iframe) 밖에서 열렸을 때만 «AI 말하기로» 링크를 보여 줌
+   6) 창 안에서는: 언어를 저장하지 않음(저장하면 부모 화면 storage 이벤트가 «✅ 적용됐어요» 를 거둠) ·
+      Esc 를 부모에게 알림(포커스가 iframe 안이면 dialog 가 Esc 를 못 받음) ·
+      다른 안내서 링크는 replace 로(창을 닫은 뒤 «뒤로» 가 안 보이는 iframe 만 되돌리지 않게)
    서버를 부르지 않는다(로그인 불필요 · 누구나 열람).
    ========================================================= */
 (function () {
@@ -88,14 +91,28 @@
     try { return window.self !== window.top; } catch (e) { return true; }
   }
 
+  var IN_FRAME = inFrame();
+
   function bindEvents() {
     document.querySelectorAll("[data-lang-btn]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var lang = btn.getAttribute("data-lang-btn");
         applyLang(lang);
-        writeOwnLang(lang);
+        if (!IN_FRAME) writeOwnLang(lang);
       });
     });
+    if (IN_FRAME) {
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") return;
+        try { window.parent.postMessage("ai-speaking-guide:close", location.origin); } catch (err) { /* 무시 */ }
+      });
+      document.querySelectorAll("[data-lang-link]").forEach(function (a) {
+        a.addEventListener("click", function (e) {
+          e.preventDefault();
+          location.replace(a.getAttribute("href"));
+        });
+      });
+    }
     document.querySelectorAll('[data-action="print"]').forEach(function (btn) {
       btn.addEventListener("click", function () { window.print(); });
     });
@@ -103,7 +120,7 @@
     window.addEventListener("afterprint", restoreAfterPrint);
   }
 
-  document.querySelectorAll("[data-standalone-only]").forEach(function (el) { el.hidden = inFrame(); });
+  document.querySelectorAll("[data-standalone-only]").forEach(function (el) { el.hidden = IN_FRAME; });
   applyLang(initialLang());
   bindEvents();
 })();

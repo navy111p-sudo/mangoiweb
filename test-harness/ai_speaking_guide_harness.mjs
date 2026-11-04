@@ -84,12 +84,19 @@ const s0 = hub.indexOf('  var GUIDE_URL');
 const s1 = hub.indexOf('\n  applyUi(); renderSituations();', s0) + 1;
 ok(s0 > 0 && s1 > s0, '배선 코드를 오려 냈다(전제)');
 const callLine = hub.slice(s1, hub.indexOf('\n', s1));
-ok(/\bwireGuide\(\)/.test(callLine), '화면 시작 줄에서 wireGuide() 를 실제로 부른다');
-const make = new Function('ui', 'T', 'document', 'location', hub.slice(s0, s1) + '\nreturn { guideHref, openGuide, wireGuide, GUIDE_URL };');
+{ // 그 줄을 실제로 실행한다 — 모든 이름을 «부르면 기록만 하는 함수» 로 바꿔 끼운 with 범위에서.
+  // 글자 일치로 보면 `// wireGuide();`·`false && wireGuide();` 도 통과한다(함정 대조가 실제로 뚫음).
+  const calls = [];
+  const scope = new Proxy({}, { has: () => true, get: (_, k) => (k === Symbol.unscopables ? undefined : () => { calls.push(k); }) });
+  try { new Function('scope', 'with (scope) {\n' + callLine + '\n}')(scope); } catch (e) { calls.push('THROW:' + e.message); }
+  ok(calls.includes('wireGuide'), '화면 시작 줄을 실행하면 wireGuide() 가 실제로 불린다 → ' + calls.join(','));
+  ok(calls.includes('wire'), '같은 줄에서 기존 wire() 도 그대로 불린다(전제)');
+}
+const make = new Function('ui', 'T', 'document', 'location', 'window', hub.slice(s0, s1) + '\nreturn { guideHref, openGuide, wireGuide, GUIDE_URL };');
 const T = (ko, en) => ko;
-ok(exists(make('ko', T, {}, {}).GUIDE_URL), '안내서 주소의 파일이 실제로 있다');
+ok(exists(make('ko', T, {}, {}, {}).GUIDE_URL), '안내서 주소의 파일이 실제로 있다');
 for (const [ui, want] of [['ko', 'ko'], ['en', 'en'], ['zz', 'ko'], [undefined, 'ko']]) {
-  ok(make(ui, T, {}, {}).guideHref() === '/ai-speaking-guide.html?lang=' + want, `화면 언어 ${ui} → 안내서 ?lang=${want}`);
+  ok(make(ui, T, {}, {}, {}).guideHref() === '/ai-speaking-guide.html?lang=' + want, `화면 언어 ${ui} → 안내서 ?lang=${want}`);
 }
 function fakePage({ showModal = true, throws = false } = {}) {
   const ev = {};
@@ -100,12 +107,15 @@ function fakePage({ showModal = true, throws = false } = {}) {
   if (showModal) dlg.showModal = function () { if (throws) throw new Error('x'); this.open = true; this.shown++; };
   dlg.close = function () { this.open = false; (this.listeners.close || []).forEach((f) => f()); };
   const nodes = { guideDlg: dlg, guideFrame: el('guideFrame'), guideClose: el('guideClose'), guideBtn: el('guideBtn'), guideDlgTitle: el('guideDlgTitle') };
+  const replaced = [];
+  nodes.guideFrame.contentWindow = { location: { replace: (u) => replaced.push(u) } };
   const doc = { getElementById: (id) => nodes[id] || null };
-  const loc = { href: '/ai-speaking.html' };
-  return { nodes, doc, loc, ev };
+  const loc = { href: '/ai-speaking.html', origin: 'https://mangoi.ai' };
+  const win = { listeners: {}, addEventListener(t, f) { (this.listeners[t] = this.listeners[t] || []).push(f); } };
+  return { nodes, doc, loc, ev, win, replaced };
 }
 { // 정상: 창을 열고 iframe 에 안내서를 넣는다 — 같은 탭 이동 없음
-  const P = fakePage(); const G = make('en', (k, e) => e, P.doc, P.loc);
+  const P = fakePage(); const G = make('en', (k, e) => e, P.doc, P.loc, P.win);
   G.openGuide();
   ok(P.nodes.guideDlg.open && P.nodes.guideDlg.shown === 1, '버튼을 누르면 창이 열린다');
   ok(P.nodes.guideFrame.getAttribute('src') === '/ai-speaking-guide.html?lang=en', 'iframe 에 화면 언어(en) 안내서를 넣는다');
@@ -114,18 +124,27 @@ function fakePage({ showModal = true, throws = false } = {}) {
   ok(P.nodes.guideDlgTitle.textContent === 'AI Speaking guide', '창 제목도 화면 언어로(글자는 스크립트가 씀)');
   G.openGuide();
   ok(P.nodes.guideDlg.shown === 1, '이미 열린 창을 또 열지 않는다');
+  ok(P.replaced.length === 0, '같은 언어로 다시 열면 안내서를 다시 불러오지 않는다');
+}
+{ // 다른 언어로 다시 열면 — src 를 다시 쓰지 않고 replace(방문 기록이 늘면 «뒤로» 가 한 번 헛돎)
+  const P = fakePage();
+  make('ko', T, P.doc, P.loc, P.win).openGuide(); P.nodes.guideDlg.close();
+  make('en', (k, e) => e, P.doc, P.loc, P.win).openGuide();
+  ok(P.replaced.length === 1 && P.replaced[0] === '/ai-speaking-guide.html?lang=en', '언어가 바뀌면 iframe 주소를 replace 로 바꾼다');
+  ok(P.nodes.guideFrame.getAttribute('src') === '/ai-speaking-guide.html?lang=ko', '그때 src 는 다시 쓰지 않는다(기록 한 줄 더 안 생김)');
+  ok(P.nodes.guideFrame.getAttribute('data-lang') === 'en', '지금 창 언어를 적어 둔다');
 }
 { // 창을 못 여는 옛 브라우저 → 같은 탭
-  const P = fakePage({ showModal: false }); make('ko', T, P.doc, P.loc).openGuide();
+  const P = fakePage({ showModal: false }); make('ko', T, P.doc, P.loc, P.win).openGuide();
   ok(P.loc.href === '/ai-speaking-guide.html?lang=ko', 'dialog 를 못 쓰면 같은 탭에서 안내서로 간다');
   ok(P.nodes.guideFrame.getAttribute('src') === null, '그때 iframe 은 건드리지 않는다');
 }
 { // showModal 이 던지면 → 같은 탭
-  const P = fakePage({ throws: true }); make('ko', T, P.doc, P.loc).openGuide();
+  const P = fakePage({ throws: true }); make('ko', T, P.doc, P.loc, P.win).openGuide();
   ok(P.loc.href === '/ai-speaking-guide.html?lang=ko', 'showModal 이 실패해도 안내서는 열린다(같은 탭)');
 }
 { // 배선: 버튼 → 열기, 닫기 → 닫기, 바깥 → 닫기, 안쪽 → 그대로, 닫으면 버튼으로 포커스
-  const P = fakePage(); const G = make('ko', T, P.doc, P.loc); G.wireGuide();
+  const P = fakePage(); const G = make('ko', T, P.doc, P.loc, P.win); G.wireGuide();
   (P.nodes.guideBtn.listeners.click || []).forEach((f) => f());
   ok(P.nodes.guideDlg.open, 'wireGuide 가 버튼 click 에 열기를 단다');
   (P.nodes.guideDlg.listeners.click || []).forEach((f) => f({ target: P.nodes.guideFrame }));
@@ -135,6 +154,14 @@ function fakePage({ showModal = true, throws = false } = {}) {
   ok(P.ev.focused === 'guideBtn', '닫히면 포커스가 사용 안내 버튼으로 돌아온다');
   G.openGuide(); (P.nodes.guideClose.listeners.click || []).forEach((f) => f());
   ok(!P.nodes.guideDlg.open, '닫기(✕) 버튼이 창을 닫는다');
+  // 창 안(iframe)에서 Esc → 안내서가 보낸 메시지로 닫힌다. 다른 곳에서 온 것은 무시(짝)
+  const send = (data, origin, source) => (P.win.listeners.message || []).forEach((f) => f({ data, origin, source }));
+  G.openGuide(); send('ai-speaking-guide:close', 'https://evil.example', P.nodes.guideFrame.contentWindow);
+  ok(P.nodes.guideDlg.open, '다른 오리진의 «닫아» 메시지는 무시');
+  send('ai-speaking-guide:close', 'https://mangoi.ai', {});
+  ok(P.nodes.guideDlg.open, '그 iframe 이 아닌 곳에서 온 «닫아» 는 무시');
+  send('ai-speaking-guide:close', 'https://mangoi.ai', P.nodes.guideFrame.contentWindow);
+  ok(!P.nodes.guideDlg.open, '창 안 안내서가 보낸 «닫아»(Esc)로 창이 닫힌다');
 }
 
 // ── D. 안내서 공용 스크립트를 가짜 DOM 에서 돌린다 ───────────────────────────
@@ -152,12 +179,15 @@ function runGuide({ search = '', store = {}, inFrame = false, fileBase = 'AI-Spe
   const writes = [];
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { writes.push(k); store[k] = String(v); } };
   const match = (el, sel) => { const m = sel.match(/^\[([a-z-]+)(?:="([^"]*)")?\]$/); return m ? (m[1] in el.attrs && (m[2] === undefined || el.attrs[m[1]] === m[2])) : false; };
-  const document = { documentElement: root, title: '', querySelectorAll: (sel) => els.filter((e) => match(e, sel)) };
-  const win = { localStorage: ls, addEventListener() {}, print() {} };
+  const docListeners = {};
+  const document = { documentElement: root, title: '', querySelectorAll: (sel) => els.filter((e) => match(e, sel)),
+    addEventListener(t, f) { (docListeners[t] = docListeners[t] || []).push(f); } };
+  const posted = [], replaced = [];
+  const win = { localStorage: ls, addEventListener() {}, print() {}, parent: { postMessage: (m, o) => posted.push([m, o]) } };
   win.self = win; win.top = inFrame ? {} : win;
-  const ctx = { window: win, document, location: { search }, URLSearchParams, console };
+  const ctx = { window: win, document, location: { search, origin: 'https://mangoi.ai', replace: (u) => replaced.push(u) }, URLSearchParams, console };
   vm.createContext(ctx); vm.runInContext(guideJs, ctx);
-  return { root, els, writes, store, doc: document };
+  return { root, els, writes, store, doc: document, docListeners, posted, replaced };
 }
 {
   ok(runGuide({ search: '?lang=en', store: { 'aiSpeakingGuide.lang': 'ko', mangoi_lang: 'ko' } }).root.getAttribute('data-lang') === 'en', '주소 ?lang= 이 가장 먼저');
@@ -181,6 +211,20 @@ function runGuide({ search = '', store = {}, inFrame = false, fileBase = 'AI-Spe
   ok(!R.writes.includes('mangoi_lang'), '⛔ 사이트 공용 키 mangoi_lang 에는 쓰지 않는다');
   ok(R.els.find((e) => 'data-standalone-only' in e.attrs).hidden === false, '혼자 열면 «AI 말하기로» 링크가 보인다');
   ok(runGuide({ inFrame: true }).els.find((e) => 'data-standalone-only' in e.attrs).hidden === true, '창(iframe) 안에서는 그 링크를 숨긴다');
+
+  // 창 안에서는: 언어를 저장하지 않는다(부모 storage 이벤트가 «✅ 적용됐어요» 를 거둠) · Esc 를 부모에 알린다 · 안쪽 링크는 replace
+  const F = runGuide({ inFrame: true, search: '?lang=ko' });
+  (F.els.find((e) => e.attrs['data-lang-btn'] === 'en').listeners.click || []).forEach((f) => f());
+  ok(F.root.getAttribute('data-lang') === 'en' && F.writes.length === 0, '창 안에서 EN 을 눌러도 화면만 바뀌고 저장소에는 안 쓴다');
+  (F.docListeners.keydown || []).forEach((f) => f({ key: 'a' }));
+  ok(F.posted.length === 0, '다른 키는 부모에 안 알린다');
+  (F.docListeners.keydown || []).forEach((f) => f({ key: 'Escape' }));
+  ok(F.posted.length === 1 && F.posted[0][0] === 'ai-speaking-guide:close' && F.posted[0][1] === 'https://mangoi.ai', '창 안에서 Esc → 부모에 «닫아» (같은 오리진으로만)');
+  const link = F.els.find((e) => 'data-lang-link' in e.attrs); let prevented = false;
+  (link.listeners.click || []).forEach((f) => f({ preventDefault() { prevented = true; } }));
+  ok(prevented && F.replaced[0] === '/ai-speaking-guide-full.html?lang=en', '창 안 «자세한 안내서» 링크는 replace 로(기록 안 늘림)');
+  const S = runGuide({ search: '?lang=ko' });
+  ok(!(S.docListeners.keydown || []).length && !(S.els.find((e) => 'data-lang-link' in e.attrs).listeners.click || []).length, '혼자 열었을 때는 Esc·링크를 가로채지 않는다');
 }
 
 // ── E. 규칙 ─────────────────────────────────────────────────────────────
@@ -192,7 +236,9 @@ for (const [name, html] of [['한 장', one], ['자세한 판', full]]) {
   ok(/<html[^>]*data-file-base="AI-Speaking-(OnePage|Guide)"/.test(html), name + ': 다운로드 파일 이름표(data-file-base)');
   ok(html.includes('/js/ai-speaking-guide.js?v='), name + ': 공용 스크립트를 싣는다');
 }
-ok(/\[hidden\]\s*\{\s*display:\s*none\s*!important/.test(css[0]), '[hidden] 강제 숨김(.btn 이 기본 [hidden] 을 이기는 함정)');
+const cssLive = css[0].replace(/\/\*[\s\S]*?\*\//g, ''); // 주석으로 죽인 규칙은 «없음» (함정 대조가 실제로 뚫음)
+for (const [name, html] of [['한 장', one], ['자세한 판', full]]) ok(html.includes('이름 전체') && html.includes('full name'), name + ': 안전 약속은 «이름 전체»(AI 친구가 이름을 부르는 기능과 맞춤)');
+ok(/\[hidden\]\s*\{\s*display:\s*none\s*!important/.test(cssLive), '[hidden] 강제 숨김(.btn 이 기본 [hidden] 을 이기는 함정)');
 
 console.log(`결과: PASS ${pass} / FAIL ${fail}`);
 if (fail) process.exit(1);

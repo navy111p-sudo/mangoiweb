@@ -140,8 +140,9 @@ async function main() {
         const tab = await context.newPage();
         await tab.goto(`${origin}/${page.html}?lang=${lang}`, { waitUntil: "load" });
         await tab.evaluate(() => document.fonts.ready);
-        await buildDocx(tab, page, lang);
+        // ⚠️ PDF 먼저 — buildDocx 가 Word 용으로 탭 안 그림을 320px 로 줄이므로, 뒤에 찍으면 PDF 그림이 흐려진다
         const pages = await buildPdf(tab, page, lang);
+        await buildDocx(tab, page, lang);
         await tab.close();
         console.log(`✔ ${page.fileBase}_${lang.toUpperCase()}  PDF ${pages}쪽 + Word`);
       }
