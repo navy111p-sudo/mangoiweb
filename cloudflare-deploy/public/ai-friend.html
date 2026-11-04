@@ -2559,7 +2559,16 @@ body.sheet-open .opts-toggle{ background:rgba(251,191,36,0.18); border-color:rgb
   white-space:nowrap; box-shadow:0 8px 20px -8px rgba(0,0,0,.6); z-index:60; }
 .opts-toggle[data-hint]{ position:relative; }
 
-/* 설정 시트 — 폰은 아래에서 올라오고, 넓은 화면은 오른쪽 아래 패널 */
+/* 설정 시트 — 폰은 아래에서 올라오고, 넓은 화면은 오른쪽 «위» 패널
+   📜 2026-11-04 사장님 «설정을 스크롤 안하고 바로 전체 모두 볼 수 있게 최대한 위로 올려줘»
+   ⚠️ 이 주석에 CJK 홑낫표를 쓰지 말 것 — subtitle_meaning_harness 가 style 안에서 센다.
+      잰 것: 시트 내용 높이 916px 인데 PC 는 «오른쪽 아래 · 최대 660px» 라 1920x1080 에서도
+      아래 절반(속도·친구·자막·대화 초기화)이 스크롤 밖이었다. 화면 위쪽은 통째로 비어 있었다.
+   ✅ 그래서 ① 위에 붙이고(top) 화면 높이만큼 늘 수 있게 하고 ② 넓은 화면(≥760px)에서는
+      «2단» 으로 접어 높이를 반으로 줄인다(아래 .sheet-body 그리드). 글자 크기는 그대로다 —
+      «PC에서 글자가 너무 작다»(2026-07-13 지시)를 되돌리지 않으려고 줄이지 않았다.
+   ⚠️ overflow-y:auto 는 남긴다 — 아주 낮은 창에서는 그래도 넘칠 수 있고, 그때 잘려 사라지는
+      것보다 스크롤되는 편이 낫다. */
 .sheet-scrim{ position:fixed; inset:0; background:rgba(6,11,24,0.58);
   opacity:0; pointer-events:none; transition:opacity .24s; z-index:2147483090; }
 body.sheet-open .sheet-scrim{ opacity:1; pointer-events:auto; }
@@ -2567,14 +2576,39 @@ body.sheet-open .sheet-scrim{ opacity:1; pointer-events:auto; }
   background:#16213e; border-top:1px solid var(--border);
   border-radius:18px 18px 0 0;
   padding:9px 14px calc(16px + env(safe-area-inset-bottom, 0px));
-  max-height:86dvh; overflow-y:auto; overscroll-behavior:contain;
+  /* 폰: 아래에서 올라오되 «최대한 위까지» — 위 12px 만 남겨 시트라는 것이 보이게 한다 */
+  max-height:calc(100vh - 12px); max-height:calc(100dvh - 12px);
+  overflow-y:auto; overscroll-behavior:contain;
   transform:translateY(101%); transition:transform .26s cubic-bezier(.22,.8,.3,1);
   box-shadow:0 -16px 40px -16px rgba(0,0,0,0.75); }
 body.sheet-open .opts-sheet{ transform:translateY(0); }
 @media (min-width:760px){
-  .opts-sheet{ left:auto; right:16px; bottom:16px; width:430px;
+  /* ⚠️ 닫힘은 «화면 아래로 내려 보내기» 그대로다 — 위에 붙였으므로 자기 높이(100%)만큼
+     내리면 낮은 시트는 화면 안에 남는다. 그래서 «화면 높이» 만큼 내린다. */
+  .opts-sheet{ left:auto; right:16px; top:12px; bottom:auto;
     border-radius:16px; border:1px solid var(--border);
-    max-height:min(78dvh,660px); transform:translateY(calc(100% + 24px)); }
+    max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px);
+    transform:translateY(calc(100vh + 24px)); }
+}
+/* 넓은 화면 «2단» — 왼쪽: 소리·오늘의 할 일·레벨 상태·대화 초기화 / 오른쪽: 설정 전부.
+   ⛔ 감싸는 div 를 새로 만들지 말 것 — 폰(1단)에서는 «위험한 조작은 맨 아래» 순서가
+      지켜져야 하는데, 묶으면 대화 초기화가 설정 위로 올라간다. DOM 순서는 그대로 두고
+      그리드 자리만 정한다.
+   ⚠️ 오른쪽(.opts)이 왼쪽보다 길다. 마지막 1fr 줄이 그 차이를 받아 왼쪽 칸 사이가 벌어지지 않는다.
+   ⚠️ 시트에 새 자식을 넣으면 여기서 자리(grid-column/row)도 함께 정할 것 — 안 정하면 브라우저가
+      아무 칸에나 놓아 «위험한 조작은 맨 아래» 순서가 PC 에서 깨질 수 있다.
+   ℹ️ 폭은 아래 블록의 min(800px, 100vw - 32px) 하나다(예전 430px 는 지웠다 — 두 블록에 두면 앞이 죽은 값).
+   ⚠️ 기준 폭은 위 패널 블록과 같은 760px — 그 사이(760~899px)를 1단으로 두면 916px 짜리
+      시트가 낮은 창에서 다시 스크롤된다(800x600 실측). */
+@media (min-width:760px){
+  .opts-sheet{ width:min(800px, calc(100vw - 32px)); }
+  .opts-sheet .sheet-body{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);
+    grid-template-rows:auto auto auto auto 1fr; column-gap:22px; align-items:start; }
+  .opts-sheet .sheet-body > .sheet-quick { grid-column:1; grid-row:1; }
+  .opts-sheet .sheet-body > .quests      { grid-column:1; grid-row:2; }
+  .opts-sheet .sheet-body > .hud         { grid-column:1; grid-row:3; }
+  .opts-sheet .sheet-body > .sheet-danger{ grid-column:1; grid-row:4; }
+  .opts-sheet .sheet-body > .opts        { grid-column:2; grid-row:1 / -1; }
 }
 .sheet-grip{ width:36px; height:4px; border-radius:99px; background:rgba(255,255,255,.28);
   margin:0 auto 10px; }
