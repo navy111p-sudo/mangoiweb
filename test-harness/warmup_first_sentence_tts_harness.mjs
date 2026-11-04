@@ -232,9 +232,9 @@ const iAi = sm.search(/addMsg\(d\.ai_response/);
 check('sendMsg 가 AI 답장을 «그리기 직전» 에 잴 준비를 한다(그리면 곧바로 읽기 시작)', iLat > 0 && iAi > iLat && iAi - iLat < 400);
 check('침묵 타이머가 끊은 시각을 적는다', /_latSilence=\{\s*wait:ms,\s*at:Date\.now\(\)\s*\}/.test(HTML));
 check('첫 소리가 나면 재기를 닫는다(원어민 음성·기기 음성 둘 다)',
-  /_ttsAudio\.play\(\)\.then\(function\(\)\{ _speechEverStarted=true; _latMark\(\); \}\)/.test(HTML) && /u\.onstart=function\(\)\{ _speechEverStarted=true; _latMark\(\); \};/.test(HTML));
+  /_ttsAudio\.play\(\)\.then\(function\(\)\{[^}]*warmThought\(false\); _speechEverStarted=true; _latMark\(\); \}\)/.test(HTML) && /u\.onstart=function\(\)\{[^}]*warmThought\(false\); _speechEverStarted=true; _latMark\(\); \};/.test(HTML));
 check('다시 듣기(btn)는 재지 않는다', /\n  if\(btn\) _latCur=null;/.test(strip(bodyOf(HTML, 'speak'))));
-check('소리를 안 내는 차례는 재기를 버린다', /if\(_warmPaused \|\| !_speechOn \|\| !text\)\{\n\s*_latCur=null;/.test(strip(bodyOf(HTML, 'speak'))));
+check('소리를 안 내는 차례는 재기를 버린다', /if\(_warmPaused \|\| !_speechOn \|\| !text\)\{\n\s*warmThought\(false\);\s*_latCur=null;/.test(strip(bodyOf(HTML, 'speak'))));
 const L4 = latRun({ t0: now - 30000, t1: now - 20000, wait: 1500, tStop: now - 31000 }, '?lat=1');
 check('15초 넘게 늦은 재생(탭해서 다시 읽음)은 기록하지 않는다', L4.rows.length === 0, JSON.stringify(L4.rows));
 
