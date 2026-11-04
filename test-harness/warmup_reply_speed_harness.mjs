@@ -64,16 +64,17 @@ const qHoldW = qHold.map(run);
 ok('A-9 (자동·짝) 덜 끝난 질문(주어 you·to·the 로 끝남)은 여전히 4초 넘게 기다린다', qHoldW.every((v) => v >= 4000), Object.fromEntries(qHold.map((q, i) => [q, qHoldW[i]])));
 ok('A-10 (자동·짝) 질문이 아닌 문장은 예전 판정 그대로(“I love you” 는 기다린다)', run('I love you') >= 4000 && run('I like it') >= 4000 && run('My name is Minsu') <= 2000, { a: run('I love you'), b: run('I like it'), c: run('My name is Minsu') });
 // ⚡ 2026-11-05 사장님 「내가 답하면 최대한 빨리」 — 짧은 대답이 5초씩 기다리던 것
-const shortDone = ['Yes', 'No.', 'Okay', 'OK', 'Thank you', "I'm fine", 'Me too', 'Yes!', 'Of course'];
+const shortDone = ['Yes', 'No.', 'Okay', 'OK', 'Thank you', "I'm fine", 'Me too', 'Yes!', 'Of course', "I'm fine, thank you.", 'Nice to meet you'];
 const shortDoneW = shortDone.map(run);
 ok('A-11 (자동) 그 자체로 끝난 짧은 대답(Yes·No·Thank you·I\'m fine)은 2초 안에 보낸다', shortDoneW.every((v) => v <= 2000), Object.fromEntries(shortDone.map((q, i) => [q, shortDoneW[i]])));
-const oneW = ['Pizza', 'Blue.', 'Ten', 'Soccer', 'Chicken'];
+const oneW = ['Pizza', 'Blue.', 'Ten', '10', 'Soccer', 'Chicken', 'Hello', 'Hi', 'Never'];   // Hello·Hi·Never 는 뒤에 말이 붙기 쉬워 1.2초가 아니라 2초
 const oneWW = oneW.map(run);
 ok('A-12 (자동) 한 낱말 대답(Pizza·Blue)은 3초 안에 보내되 끝난 문장보다는 더 기다린다', oneWW.every((v) => v <= 3000 && v > done1), Object.fromEntries(oneW.map((q, i) => [q, oneWW[i]])));
 const holdShort = ['I', "I'm", "It's", 'My dog', 'Yesterday', 'Um', 'Well', 'Maybe', 'Because', 'The', 'My'];
 const holdShortW = holdShort.map(run);
 ok('A-13 (자동·짝) 뒤에 말이 붙기 쉬운 짧은 말(I\'m·Yesterday·My dog·Um)은 여전히 4초 넘게 기다린다', holdShortW.every((v) => v >= 4000), Object.fromEntries(holdShort.map((q, i) => [q, holdShortW[i]])));
 ok('A-14 (자동·짝) 중국어(띄어쓰기 없음)는 예전 판정 그대로(한 낱말 대기로 빠지지 않는다)', run('我喜欢吃披萨') === run('I like'), { zh: run('我喜欢吃披萨'), en: run('I like') });
+ok('A-16 (자동·짝) 끝난 인사 목록이 «덜 끝난» 말까지 삼키지 않는다(5낱말 상한·I love you 는 기다림)', run('I love you') >= 4000 && run('Thank you and') >= 4000 && run('Nice to meet you and') >= 4000, { a: run('I love you'), b: run('Thank you and'), c: run('Nice to meet you and') });
 ok('A-15 (수동·짝) 짧은 대답도 수동이면 침묵으로 안 끝낸다', runM('Yes') >= 20000 && runM('Pizza') >= 20000, { a: runM('Yes'), b: runM('Pizza') });
 ok('A-5 (수동) 끝난 문장이어도 침묵 20초 안에는 끝내지 않는다', runM('I like pizza') >= 20000, runM('I like pizza'));
 ok('A-6 (수동) 덜 끝난 문장·빈 말도 20초 넘게 기다린다', runM('I like') >= 20000 && runM('') >= 20000, { a: runM('I like'), b: runM('') });
@@ -133,7 +134,8 @@ console.log('\n[D] 침묵 «시계» — 같은 글자가 다시 와도 처음�
 const armBody = bodyAt(HTML, 'function _armSilence(){');
 const unitsFn = bodyAt(HTML, 'function _micUnits(t){');
 const silVars = HTML.match(/var _silUnits=[^;]*;/);
-ok('D-0 (전제) _armSilence·_micUnits·시계 변수를 오려 냈다', !!(armBody && unitsFn && silVars && consts && unfin));
+const onstartM = HTML.match(/_recog\.onstart=function\(\)\{([^\n]*?)\};/);
+ok('D-0 (전제) _armSilence·_micUnits·시계 변수·onstart 를 오려 냈다', !!(armBody && unitsFn && silVars && consts && unfin && onstartM));
 function clockBox(isManual) {
   const S = { now: 0, timer: null, stops: 0, heard: '' };
   const fakeDate = { now: () => S.now };
@@ -152,9 +154,15 @@ function clockBox(isManual) {
      ${silVars[0]}
      ${unitsFn}
      ${armBody}
-     return { arm:_armSilence };`)(S, fakeDate, fakeSet, fakeClear, isManual);
+     var _warmPaused=false, micEpoch=0, _warmEpoch=0, micVoiceEpoch=0, _warmVoiceEpoch=0, _micSess='';
+     function setMicState(){}
+     var onstart=function(){ ${onstartM ? onstartM[1] : ''} };
+     return { arm:_armSilence, onstart:onstart, get lat(){ return _latSilence; } };`)(S, fakeDate, fakeSet, fakeClear, isManual);
   // 시각 at 에 글자 txt 로 «결과가 왔다» → arm
   S.say = (at, txt) => { S.now = at; S.heard = txt; api.arm(); };
+  // 시각 at 에 인식기가 세션을 (다시) 켰다 — 안드로이드는 확정 뒤 스스로 끊고 다시 켠다(들은 말은 그대로)
+  S.restart = (at) => { S.now = at; api.onstart(); };
+  S.api = api;
   // 멈출 때까지 시계를 돌려 «언제 멈췄나» 를 돌려준다
   S.fireAt = () => (S.timer ? S.timer.at : null);
   return S;
@@ -173,17 +181,31 @@ if (ck) {
   ck.say(0, 'I like'); ck.say(1000, "I'd like");    // 고쳐 적기(같은 낱말 수) — 시계는 이어 가되 판정은 새 글자로
   ok('D-3 고쳐 적기(같은 낱말 수)는 시계를 이어 간다', ck.fireAt() === run("I'd like"), { fireAt: ck.fireAt(), want: run("I'd like") });
   ck = clockBox(false);
+  ck.say(0, 'yes'); ck.say(500, 'yesterday');   // 같은 1단위인데 «끝남(1.2초)» → «덜 끝남(5초)»
+  ok('D-3b (짝) 같은 낱말 수라도 판정은 새 글자로 다시 한다(yes→yesterday 는 1.2초에 안 끊김)', ck.fireAt() === run('yesterday') && run('yesterday') > run('yes'), { fireAt: ck.fireAt(), want: run('yesterday') });
+  ck = clockBox(false);
   ck.say(0, ''); ck.say(3000, '');
   ok('D-4 (짝) 아직 아무 말도 없으면 매번 새로 센다(생각할 시간을 안 줄임)', ck.fireAt() === 3000 + run(''), { fireAt: ck.fireAt() });
   ck = clockBox(false);
   ck.say(0, '我喜欢'); ck.say(1500, '我喜欢吃披萨');
   ok('D-5 (짝) 중국어는 글자가 늘면 새 말로 본다(띄어쓰기가 없어도)', ck.fireAt() === 1500 + run('我喜欢吃披萨'), { fireAt: ck.fireAt() });
   ck = clockBox(false);
+  ck.say(0, '我喜欢'); ck.say(1500, '我喜欢');
+  ok('D-5b 중국어도 같은 글자가 다시 오면 시계를 이어 간다(글자 단위로 셈)', ck.fireAt() === run('我喜欢'), { fireAt: ck.fireAt(), want: run('我喜欢') });
+  ck = clockBox(false);
   ck.say(0, 'I like pizza'); ck.say(5000, 'I like pizza');
   ok('D-6 이미 지난 대기여도 바로(최소 0.15초 뒤) 멈춘다 — 음수 대기 없음', ck.fireAt() === 5150, ck.fireAt());
   ck = clockBox(true);
   ck.say(0, 'I like pizza'); ck.say(10000, 'I like pizza.');
   ok('D-7 (수동) 같은 글자가 다시 와도 «새 말이 없던» 시간을 이어서 센다', ck.fireAt() === Number(manualSrc && manualSrc[1]), ck.fireAt());
+  ck = clockBox(false);
+  ck.say(0, 'I like pizza'); ck.restart(1000);
+  ok('D-8 (짝) 인식기가 세션을 다시 켜면 새로 충분히 듣는다(재시작 공백을 침묵으로 안 셈)', ck.fireAt() === 1000 + run('I like pizza'), { fireAt: ck.fireAt(), want: 1000 + run('I like pizza') });
+  ck = clockBox(false);
+  ck.say(0, 'we played soccer'); ck.say(5000, 'We played soccer.');   // 늦게 다시 온 같은 문장 — 0.15초 하한이 걸려 «실제» 와 «명목(1.2초)» 이 갈린다
+  ck.now = ck.fireAt(); try { ck.timer.fn(); } catch (e) {}
+  const lat = ck.api.lat;
+  ok('D-9 멈추면 인식을 끄고, ?lat=1 «기다림» 에는 마지막 새 말부터 «실제로» 기다린 시간을 적는다(명목값이 아니라)', ck.stops === 1 && lat && lat.wait === 5150 && lat.wait !== done, { stops: ck.stops, lat });
 }
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);

@@ -3650,8 +3650,10 @@ function micUnfinished(s){
   var w=raw.split(/\s+/).filter(Boolean);
   /* ⚡ (2026-11-05 사장님 「내가 답하면 최대한 빨리」) 아이들의 가장 흔한 대답(Yes·No·Okay·Thank you·I'm fine·Me too)은
      두 낱말 이하라 아래 «3낱말 미만 = 덜 끝남» 에 걸려 5초를 기다렸다. 그 자체로 «끝난» 짧은 대답만 끝난 말로 본다.
-     ⛔ 목록에 없는 짧은 말(I · My dog · Yesterday)은 예전처럼 기다린다. */
-  if(w.length<3 && /^(yes|yeah|yep|yup|no|nope|nah|ok|okay|sure|fine|good|great|cool|nice|awesome|perfect|thanks|thank you|hello|hi|hey|bye|goodbye|bye bye|me too|you too|me neither|not really|not yet|of course|yes please|no thanks|i see|i know|got it|im fine|im good|im okay|im ok|im great|all right|alright|sounds good|why not|thats right|good job|nothing|never|always)$/.test(raw.toLowerCase().replace(/[^a-z\s]/g,'').replace(/\s+/g,' ').trim())) return false;
+     («I'm fine thank you» · «Nice to meet you» 처럼 you 로 끝나 «덜 끝남» 이 되던 흔한 인사도 함께 — 5낱말까지)
+     ⛔ 목록에 없는 짧은 말(I · My dog · Yesterday)은 예전처럼 기다린다. ⛔ Hello·Hi·Never·Always 는 «Hello… my name is» 처럼
+        뒤에 말이 붙기 쉬워 여기 넣지 않는다(한 낱말 대답 2초로 간다). */
+  if(w.length<=5 && /^(yes|yeah|yep|yup|no|nope|nah|ok|okay|sure|fine|good|great|cool|nice|awesome|perfect|thanks|thank you|thank you so much|bye|goodbye|bye bye|me too|you too|me neither|not really|not yet|of course|yes please|no thanks|i see|i know|got it|im fine|im good|im okay|im ok|im great|im fine thank you|im good thank you|fine thank you|all right|alright|sounds good|why not|thats right|good job|nice to meet you|nice to meet you too|see you|see you later)$/.test(raw.toLowerCase().replace(/[^a-z\s]/g,'').replace(/\s+/g,' ').trim())) return false;
   if(w.length<3) return true;
   /* 🙋 (2026-11-02 사장님 「얼굴 크게(자동 말하기)에서 내가 질문하면 늦게 답한다」)
      질문은 «you·it·this·like» 로 끝나는 게 정상인데 위 목록이 그것을 «덜 끝남» 으로 봐서 5초를 기다렸다.
@@ -3674,7 +3676,7 @@ function micUnfinished(s){
 function micOneWordReply(s){
   var w=String(s||'').trim().split(/\s+/).filter(Boolean);
   if(w.length!==1) return false;
-  var x=w[0].toLowerCase().replace(/[^a-z]/g,'');   // I'm → im · It's → its (MIC_DANGLING 이 그 꼴로 적혀 있다)
+  var x=w[0].toLowerCase().replace(/[^a-z0-9]/g,'');   // I'm → im · It's → its (MIC_DANGLING 이 그 꼴로 적혀 있다) · 크롬은 숫자를 «10» 으로 적는다
   if(!x || MIC_DANGLING.test(x)) return false;
   return !/^(um+|uh+|er+|hm+|ah+|oh|well|so|actually|maybe|yesterday|today|tomorrow|tonight|usually|sometimes|often|first|then|after|before|last|next|every|also|just|now|wait|id|ill|ive|youre|theyre|were|hes|shes|thats|theres|whats|wheres|let)$/.test(x);
 }
@@ -3847,7 +3849,7 @@ function _startSttSession(){
     var n=_micUnits(t), now=Date.now();
     if(!n || n>_silUnits) _silAt=now;   // 첫 말도 여기 걸린다(_silUnits 가 0 에서 시작)
     _silUnits=n;
-    _silence=setTimeout(function(){ _micBySilence=true; _latSilence={ wait:ms, at:Date.now() }; try{ _recog && _recog.stop(); }catch(e){} }, Math.max(150, ms-(now-_silAt)));
+    _silence=setTimeout(function(){ _micBySilence=true; _latSilence={ wait:Date.now()-_silAt, at:Date.now() }; try{ _recog && _recog.stop(); }catch(e){} }, Math.max(150, ms-(now-_silAt)));
   }
   /* 🎤 진짜로 말이 끝났을 때만 여기로 온다 → 들은 말을 합쳐서 전송 */
   function _finishMic(){
@@ -3907,7 +3909,7 @@ function _startSttSession(){
     }
     return s;
   }
-  _recog.onstart=function(){if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return; _micBySilence=false; _micSess=''; setMicState(true); _armSilence(); };
+  _recog.onstart=function(){if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return; _micBySilence=false; _micSess=''; setMicState(true); _silUnits=0; _armSilence(); };   // _silUnits=0: (다시) 켜진 세션은 시계를 새로 — 안드로이드 재시작 공백(삐 소리)을 침묵으로 세지 않는다
   _recog.onresult=function(e){
     if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return;
     /* 결과가 올 때마다 이번 녹음의 전체 결과 목록(0~끝)을 겹침 제거하며 처음부터 다시 조립
