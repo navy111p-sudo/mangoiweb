@@ -195,8 +195,15 @@ console.log('\n[ ③-B 순단 유예 — 20초 안에 돌아오면 상대 화면
   const s2 = await w.join('fresh-id', 'juju', 'student', 'cS');
   const rj = s2.out.find(o => o.type === 'room-joined');
   ok('같은 브라우저(clientId)로 돌아오면 옛 userId 를 그대로 받는다(무중단 재연결)', !!rj && rj.data.userId === sid);
-  ok('돌아왔을 때 강사에게 user-joined·«입장했습니다» 를 다시 보내지 않는다',
-     !t.types().includes('user-joined') && !t.out.some(o => o.type === 'chat-message' && /입장/.test(o.data?.message || '')));
+  /* 🔁 리뷰 반영(2026-11-04): 서버는 «같은 페이지 재연결» 과 «20초 안 새로고침» 을 가를 수 없다.
+     새로고침이면 새 페이지는 상대의 카메라 꺼짐·화면공유 상태를 모르므로, 상대가 그것을 다시 알리게 user-joined(rejoin) 를 보낸다.
+     받는 쪽은 PC 가 있으면 부수지 않는다(idx-main.js user-joined — offer 안전장치는 PC 가 없을 때만). */
+  const ujr = t.out.find(o => o.type === 'user-joined');
+  ok('돌아왔을 때 강사에게 user-joined(rejoin) 를 보내 상태 재알림을 받게 한다(새로고침 대비)',
+     !!ujr && ujr.data.userId === sid && ujr.data.rejoin === true);
+  ok('짝 — 서버 «입장했습니다» 채팅 방송은 하지 않는다(재연결마다 도배 방지)',
+     !t.out.some(o => o.type === 'chat-message' && /입장/.test(o.data?.message || '')));
+  ok('짝 — 돌아온 사이 user-left 는 나가지 않았다(상대 타일을 «재연결 중» 으로 만들지 않는다)', !t.types().includes('user-left'));
   ok('유예 기록은 꺼내면서 지운다', !w.storage.m.has('drop:' + sid));
   NOW += 30_000; await w.room.alarm(); await flush();
   ok('돌아온 뒤 알람이 돌아도 user-left 가 나가지 않는다', !t.types().includes('user-left'));
@@ -243,7 +250,54 @@ console.log('\n[ ③-B 순단 유예 — 20초 안에 돌아오면 상대 화면
   NOW += 2_000;
   await w.join('fresh', 'juju', 'student', 'cS');
   ok('유예 «중» 에 들어온 사람에게는 돌아온 학생의 user-joined 를 알려 준다', u.types().includes('user-joined'));
-  ok('그 전부터 있던 강사에게는 보내지 않는다(연결이 살아 있다)', !t.types().includes('user-joined'));
+  ok('그 전부터 있던 강사에게도 user-joined(rejoin) 를 보낸다(상태 재알림)',
+     t.out.some(o => o.type === 'user-joined' && o.data.rejoin === true));
+}
+{
+  /* 👁 리뷰 반영: 참관자는 joined:false 라 user-joined 대상이 아니다. 유예 «전» 부터 보던 참관자(새로고침이면 옛 PC 가 죽음)와
+     유예 «중» 에 들어온 참관자(이 학생을 아예 모름) 모두 «떠났다 → 들어왔다» 를 순서대로 받아야 다시 붙는다. */
+  const w = makeWorld(); await w.boot();
+  const t = await w.join('t1', 'Teacher Kaye', 'teacher', 'cT');
+  const s = await w.join('s1', 'juju', 'student', 'cS');
+  const sid = s.att.userId;
+  const ob1 = new FakeWS({ userId: 'o1', roomId: 'class-1-20261103', joined: false, role: 'observer', ghost: true, seenAt: NOW }); w.sockets.push(ob1);
+  await w.close(s, 1006);
+  NOW += 3_000;
+  const ob2 = new FakeWS({ userId: 'o2', roomId: 'class-1-20261103', joined: false, role: 'observer', ghost: true, seenAt: NOW }); w.sockets.push(ob2);
+  ob1.out = []; ob2.out = []; t.out = [];
+  NOW += 2_000;
+  await w.join('fresh', 'juju', 'student', 'cS');
+  for (const [nm, ob] of [['유예 전부터 보던', ob1], ['유예 중에 들어온', ob2]]) {
+    const iL = ob.out.findIndex(o => o.type === 'observer-user-left' && o.data.userId === sid);
+    const iJ = ob.out.findIndex(o => o.type === 'observer-user-joined' && o.data.userId === sid);
+    ok(nm + ' 참관자는 돌아온 학생에게 «떠났다 → 들어왔다» 를 순서대로 받아 다시 붙는다', iL >= 0 && iJ > iL);
+    ok('짝 — ' + nm + ' 참관자에게 user-joined(수업 참가자용) 를 보내지 않는다', !ob.types().includes('user-joined'));
+  }
+  ok('짝 — 수업 참가자(강사)에게 observer-user-* 를 보내지 않는다',
+     !t.types().some(x => /^observer-user-/.test(x)));
+}
+{
+  /* 리뷰 반영: webSocketError 뒤 attachment 갱신이 거절되고 그 소켓이 getWebSockets 에 남아도(닫히는 중)
+     유예가 끝나면 user-left 가 나가야 한다 — «입장 중» 판정은 열린 소켓만 센다(joinedOpen). */
+  const w = makeWorld(); await w.boot();
+  const t = await w.join('t1', 'Teacher Kaye', 'teacher', 'cT');
+  const s = await w.join('s1', 'juju', 'student', 'cS');
+  t.out = [];
+  s.serializeAttachment = () => { throw new Error('socket closed'); };
+  s.readyState = 2;                                   // 닫히는 중 — getWebSockets 에 남아 있다
+  await w.room.webSocketError(s, new Error('net')); await flush();
+  ok('닫히는 소켓의 attachment 가 그대로(joined:true)여도 곧바로는 방송하지 않는다', !t.types().includes('user-left'));
+  NOW += 21_000; await w.room.alarm(); await flush();
+  const ul = t.out.find(o => o.type === 'user-left');
+  ok('짝 — 유예가 끝나면 «열린 소켓» 이 없으므로 user-left(dropped) 가 나간다', !!ul && ul.data.reason === 'dropped');
+}
+{
+  const SRC2 = readFileSync(join(CF, 'src', 'video-call-room.ts'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  const jo = SRC2.slice(SRC2.indexOf('private async handleJoinObserve('), SRC2.indexOf("type: 'whiteboard-replay'", SRC2.indexOf('private async handleJoinObserve(')));
+  ok('잠든 뒤 들어온 참관자도 판서를 받는다 — 참관 입장이 replay 전에 storage 를 다시 읽는다', /await this\.ensureLogsLoaded\(\)/.test(jo));
+  ok('알람 «안» 의 퇴장은 빈 방 정리 알람을 따로 잡지 않는다(45초 점검을 5분으로 덮는 경합 방지)',
+     /if \(!this\.inAlarm\) void this\.ensureAlarmBy\(this\.emptyAt \+ VideoCallRoom\.NEW_CLASS_GAP_MS/.test(SRC2));
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -333,14 +387,21 @@ async function translateWith(ai, texts, target) {
   ok('짝 — 재시도는 «한 번» 만(무한 재시도로 화면을 붙잡지 않는다)', calls === 2);
 }
 {
+  const ai = { async run(model) { if (/llama/.test(model)) return { response: '안녕하세요, 반가워요.' }; return { translated_text: '(m2m)' }; } };
+  const { env } = await translateWith(ai, ['Hello, nice to meet you.'], 'ko');
+  ok('언어모델 번역은 180일 캐시에 남긴다(같은 문장은 다음에 즉시)', [...env.SESSION_STATE.m.keys()].some(k => /^trc4:ko:/.test(k)));
+}
+{
   let llama = 0, m2m = 0;
   const ai = { run(model) {
     if (/llama/.test(model)) { llama++; return new Promise(() => {}); }   // 영영 답이 없다
     m2m++; return Promise.resolve({ translated_text: '쇼 앤 텔에 심사위원이 있습니까?' });
   } };
-  const { body } = await translateWith(ai, ['Is there a judge?'], 'ko');
+  const { body, env: envT } = await translateWith(ai, ['Is there a judge?'], 'ko');
   ok('언어모델이 답을 안 주면 상한에서 끊고 대체 번역(m2m100)으로 한국어를 낸다', /심사위원/.test(body.map['Is there a judge?'] || ''));
   ok('짝 — 시간 초과는 재시도하지 않는다(화면이 기다리는 시간을 넘기지 않게)', llama === 1 && m2m === 1);
+  ok('대체 번역(m2m100) 결과는 캐시하지 않는다 — 직역이 180일 굳지 않게(다음엔 언어모델을 다시 시도)',
+     ![...envT.SESSION_STATE.m.keys()].some(k => /^trc4:/.test(k)));
 }
 {
   const ai = { async run() { throw new Error('down'); } };

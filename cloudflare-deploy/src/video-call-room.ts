@@ -44,9 +44,6 @@ interface VcAttachment {
    *  ⚠️ role 은 클라이언트가 join-room 에 실어 보내는 값이라 학생도 'observer' 를 적을 수 있다.
    *     강사 답장(handleObserverWhisperReply)은 «진짜 참관자» 에게만 가야 하므로 이 표시로 가른다. */
   ghost?: boolean;
-  /** 🔁 (2026-11-04) 이 소켓이 입장한 시각(ms). 순단 유예 중에 «새로» 들어온 사람에게만
-   *  돌아온 사람의 user-joined 를 따로 알려 주는 데 쓴다(handleJoinRoom 의 dropRec 갈래). */
-  joinedAt?: number;
 }
 
 /** 🔁 (2026-11-04) 순단 유예 기록 — storage 의 'drop:<userId>' 에 둔다(hibernation 을 넘어 산다). */
@@ -416,11 +413,31 @@ export class VideoCallRoom {
   private autoRespAt(ws: WebSocket): number {
     try {
       const st: any = this.state as any;
-      if (typeof st.getWebSocketAutoResponseTimestamp !== 'function') return 0;
+      if (typeof st.getWebSocketAutoResponseTimestamp !== 'function') {
+        /* 이번에 고친 «에러 없이 늘 0» 과 같은 모양이 되지 않게, 없으면 한 번은 말한다. */
+        if (!this.autoRespWarned) { this.autoRespWarned = true; console.warn('[VideoChat][liveness] getWebSocketAutoResponseTimestamp 없음 → ping 근거 0'); }
+        return 0;
+      }
       const auto = st.getWebSocketAutoResponseTimestamp(ws);
       if (auto) return auto instanceof Date ? auto.getTime() : Number(auto) || 0;
-    } catch {}
+    } catch (e) {
+      if (!this.autoRespWarned) { this.autoRespWarned = true; console.warn('[VideoChat][liveness] 자동응답 시각 읽기 실패', (e as any)?.message); }
+    }
     return 0;
+  }
+  private autoRespWarned = false;
+
+  /** 🔁 드롭 판정 전용 — «열린» 소켓으로 입장해 있는가.
+      ⚠️ isJoined(usernameOf)는 readyState 를 안 본다. webSocketError 뒤 attachment 갱신이 거절된 소켓이
+         getWebSockets 에 남으면 «아직 입장 중» 으로 보여 유예가 끝나도 user-left 가 영영 안 나간다.
+         그 판정이 걸린 두 곳(takeDrop·flushExpiredDrops)에서만 이것을 쓴다. */
+  private joinedOpen(userId: string): boolean {
+    for (const w of this.state.getWebSockets()) {
+      if (w.readyState !== WebSocket.OPEN) continue;
+      const a = this.attOf(w);
+      if (a && a.userId === userId && a.joined) return true;
+    }
+    return false;
   }
 
   /** 이 소켓이 마지막으로 살아 있던 시각. 셋 중 가장 최근 값을 쓴다(어느 하나가 비어도 안전). */
@@ -484,14 +501,17 @@ export class VideoCallRoom {
       await this.state.storage.delete(best[0]);
       const rec = best[1];
       /* 그 id 를 지금 다른 소켓이 쓰고 있으면 물려받지 않는다(메시지 오배송 방지). */
-      if (this.isJoined(rec.userId)) return null;
+      if (this.joinedOpen(rec.userId)) return null;
       /* 알람이 한참 못 돌았던 경우 — 너무 오래된 기록은 «떠났다» 로 마저 처리하고 새로 들어온다. */
       if (Date.now() - rec.at > VideoCallRoom.DROP_GRACE_MS * 6) {
         this.handleLeaveRoom(rec.userId, undefined, rec.username, 'dropped');
         return null;
       }
       return rec;
-    } catch { return null; }
+    } catch (e) {
+      console.warn('[VideoChat][drop] 유예 기록 꺼내기 실패 → 새 id 로 입장', (e as any)?.message);
+      return null;
+    }
   }
 
   /** 🔁 유예가 끝난 순단을 예전처럼 user-left(dropped) 로 방송한다. 남은 것 중 가장 이른 마감(0 = 없음). */
@@ -504,7 +524,7 @@ export class VideoCallRoom {
         const due = v.at + VideoCallRoom.DROP_GRACE_MS;
         if (now < due) { next = next ? Math.min(next, due) : due; continue; }
         await this.state.storage.delete(k);
-        if (!this.isJoined(v.userId)) {
+        if (!this.joinedOpen(v.userId)) {
           console.log(`[VideoChat][drop] room=${this.roomId || '-'} uid=${v.userId} 유예 만료 → dropped 방송`);
           this.handleLeaveRoom(v.userId, undefined, v.username, 'dropped');
         }
@@ -919,7 +939,7 @@ export class VideoCallRoom {
 
     // attachment 에 사용자명/joined 기록 (재기동에도 유지) — 인계 시엔 물려받은 userId 사용
     const att = this.attOf(ws) || { userId: effectiveUserId, roomId: this.roomId };
-    ws.serializeAttachment({ ...att, userId: effectiveUserId, roomId: this.roomId, username, role: role || 'student', joined: true, clientId: clientId || att.clientId, seenAt: Date.now(), joinedAt: Date.now() } as VcAttachment);
+    ws.serializeAttachment({ ...att, userId: effectiveUserId, roomId: this.roomId, username, role: role || 'student', joined: true, clientId: clientId || att.clientId, seenAt: Date.now() } as VcAttachment);
     // 💓 (2026-08-20) 죽은 소켓 청소 알람 시작 — 사람이 있는 동안만 스스로 이어 건다.
     this.lastSeen.set(ws, Date.now());
     this.scheduleLivenessAlarm();
@@ -981,13 +1001,24 @@ export class VideoCallRoom {
         }
       }
     } else if (dropRec) {
-      /* 🔁 유예 «중에» 새로 들어온 사람은 이 사람을 모른다(그때 명단에 없었다) — 그들에게만 알린다.
-         유예 전부터 있던 사람에게는 보내지 않는다(그쪽은 연결이 살아 있고, 보내면 «입장했습니다» 가 도배된다). */
-      const uj = JSON.stringify({ type: 'user-joined', data: { userId: effectiveUserId, username, role: role || 'student', userCount } });
+      /* 🔁 순단 유예에서 돌아왔다 — 서버는 «같은 페이지의 재연결» 인지 «20초 안의 새로고침» 인지 모른다
+         (clientId 는 sessionStorage 라 새로고침해도 같다).
+         ① 방 안 «모든» 사람에게 user-joined(rejoin) 를 보낸다. 받는 쪽은 살아 있는 연결을 부수지 않고
+            (PC 가 있으면 offer 안전장치도 건너뜀) 자기 cam-state·화면공유 상태만 다시 알린다 —
+            새로고침이었다면 새 페이지는 그 상태를 모르므로 이것이 없으면 «이유 없는 검은 타일» 이 남는다.
+            대가: 상대 채팅창에 «입장했습니다» 한 줄(예전엔 «끊겼습니다» + «입장했습니다» 두 줄이었다).
+         ② 참관자는 joined:false 라 ①에 안 걸린다. 떠났다가 다시 들어온 것으로 알려 «다시 붙게» 한다 —
+            새로고침이면 옛 PC 는 죽어 있고, 유예 중에 들어온 참관자는 이 사람을 아예 모른다.
+            (참관 화면만 1~2초 다시 붙는다. 수업 화면은 무변화) */
+      const uj = JSON.stringify({ type: 'user-joined', data: { userId: effectiveUserId, username, role: role || 'student', userCount, rejoin: true } });
+      const ol = JSON.stringify({ type: 'observer-user-left', data: { userId: effectiveUserId } });
+      const oj = JSON.stringify({ type: 'observer-user-joined', data: { userId: effectiveUserId, username } });
       for (const other of this.state.getWebSockets()) {
         if (other === ws || other.readyState !== WebSocket.OPEN) continue;
         const oa = this.attOf(other);
-        if (oa && oa.joined && (oa.joinedAt || 0) > dropRec.at) { try { other.send(uj); } catch {} }
+        if (!oa) continue;
+        if (oa.joined) { try { other.send(uj); } catch {} }
+        else if (oa.role === 'observer') { try { other.send(ol); other.send(oj); } catch {} }
       }
     }
 
@@ -1105,6 +1136,7 @@ export class VideoCallRoom {
        관제탑은 /api/active-rooms 의 observerCount 로 «들어가기 전에» 같은 것을 판단한다. */
     this.send(userId, { type: 'room-joined', data: { roomId: this.roomId, userId, userCount: users.length, pdfState: this.pdfState, observer: true, observers: observers + 1, observerMax: OBSERVER_MAX } });
     this.send(userId, { type: 'existing-users', data: { users, pdfState: this.pdfState } });
+    await this.ensureLogsLoaded();   // 🗂 (2026-11-04) 잠든 뒤 들어온 참관자도 판서를 받게
     if (this.wbOps.length) this.send(userId, { type: 'whiteboard-replay', data: { ops: this.wbOps } });
     if (this.pdfAnnoOps.length) this.send(userId, { type: 'pdf-anno-replay', data: { ops: this.pdfAnnoOps } });
     if (this.pdfState) this.send(userId, { type: 'pdf-sync', data: this.pdfState });
@@ -1134,7 +1166,9 @@ export class VideoCallRoom {
       this.emptyAt = Date.now();
       void this.state.storage.put('emptyAt', this.emptyAt);
       /* 🗂 (2026-11-04) 아무도 다시 안 오면 «다음 수업» 기준 시각에 판서 로그를 치우러 깨어난다(alarm 끝). */
-      void this.ensureAlarmBy(this.emptyAt + VideoCallRoom.NEW_CLASS_GAP_MS + 1000);
+      /* ⚠️ 알람 «안» 에서 불렸으면(liveness 가 마지막 사람을 정리) 예약은 alarmBody 끝이 맡는다 —
+         여기서 getAlarm 을 읽고 쓰면 방금 건 45초 점검을 5분 뒤로 덮을 수 있다. */
+      if (!this.inAlarm) void this.ensureAlarmBy(this.emptyAt + VideoCallRoom.NEW_CLASS_GAP_MS + 1000);
     }
     // 🔒 방이 비면 통제 잠금도 전부 해제 — 다음 수업이 잠긴 채로 시작하지 않게
     if (userCount === 0) this.clearAllLocks();

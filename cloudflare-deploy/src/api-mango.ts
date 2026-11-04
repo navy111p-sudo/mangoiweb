@@ -3493,6 +3493,9 @@ ${numbered}`;
                 try { mt = await chatTranslate(src); }
                 catch (e: any) { dbg.err = 'chat:' + String(e?.message || e); }
               }
+              /* 💬 (2026-11-04) chat 모드에서 언어모델이 실패·시간초과해 m2m100 으로 떨어진 결과는 캐시하지 않는다 —
+                 180일 캐시에 직역(「숙제→job」 류)이 굳으면 다음에 언어모델이 살아나도 그 문장은 영영 직역이다. */
+              const chatFellBack = chatMode && !mt;
               if (!mt) {
                 const resp: any = await ai.run('@cf/meta/m2m100-1.2b', { text: src, source_lang: srcOf(src), target_lang: tgtLang });
                 if (dbg.raw == null) dbg.raw = JSON.stringify(resp).slice(0, 300);
@@ -3501,7 +3504,7 @@ ${numbered}`;
               if (target === 'ko' && hasForeignGloss(mt)) mt = '';
               // 🧹 learn 모드: 자모 반복을 걷어내고, 완성 음절이 없으면 «번역 실패» 로 본다(저장도 안 함).
               if (learnMode && target === 'ko' && mt) { mt = stripJamoRuns(mt); if (!isUsableKoMeaning(mt, src)) mt = ''; }
-              mtOk = !!mt;
+              mtOk = !!mt && !chatFellBack;
               // 번역이 없으면 원문(src)을 그대로 붙여 둔다 — 뗀 말머리만이라도 보여 주는 편이 낫다.
               // 다만 «다음에 다시 시도» 할 수 있게 캐시는 하지 않는다(mtOk=false).
               out = joinLearnLead(lead.leadKo, mt || src);
