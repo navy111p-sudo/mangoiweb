@@ -2651,7 +2651,7 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
    ⛔ 글자를 줄여서 맞추지 않았다 — 버튼 글자 12.5px 그대로다.
    ⚠️ display:contents 로 묶음 상자를 없애 이름표·버튼 칸을 .opts 그리드에 바로 올린다.
    ⚠️ 그래도 넘치는 아주 작은 폰(320x568 등)은 시트의 overflow-y:auto 가 받는다. */
-@media (max-width:759px){
+@media (max-width:759.98px){
   .sheet-grip{ margin-bottom:4px; }
   .opts-sheet .sheet-body{ display:flex; flex-wrap:wrap; column-gap:12px; align-items:center; }
   .opts-sheet .sheet-body > *{ flex:0 0 100%; min-width:0; }
@@ -2668,14 +2668,22 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
   .opts-sheet .opts{ display:grid; grid-template-columns:max-content minmax(0,1fr);
     column-gap:8px; row-gap:7px; align-items:center; }
   .opts-sheet .opt-row{ display:contents; }
-  .opts-sheet .opt-row > span{ margin:0 !important; }
+  .opts-sheet .opt-row > span,
+  .opts-sheet .opt-row:first-child > span{ margin:0 !important; }
   .opts-sheet .opt-list{ gap:5px; }
   /* 좌우 여백만 줄인다 — 자막 세 칸(보이기·가리기·완전 끄기)이 360폭에서 한 줄에 들어가는 폭 */
   .opts-sheet .opt{ padding:7px 8px; }
   /* 레벨 여덟 칸은 한 줄에 — 칸을 똑같이 나눠 버튼 칸 폭 안에 넣는다 */
   .opts-sheet .opt-row[data-kind="level"] .opt-list{ flex-wrap:nowrap; gap:4px; }
   .opts-sheet .opt-row[data-kind="level"] .opt{ flex:1 1 0; min-width:0; padding:6px 0; }
-  .sheet-danger{ margin-top:8px; padding-top:8px; }
+  /* ⚠️ «.opts-sheet» 를 앞에 붙여 특이성을 올린다 — 아래쪽 기본 .sheet-danger 규칙(0,1,0)이 문서상 뒤라
+     같은 특이성이면 그쪽이 이겨 이 줄이 안 먹었다(2026-11-04 함정 대조가 실측으로 잡음). */
+  .opts-sheet .sheet-danger{ margin-top:8px; padding-top:8px; }
+}
+/* 📱 아주 좁은 폰(≤340px) — 레벨 여덟 칸을 이름표 옆에 두면 칸이 23~26px 로 좁아진다(320폭 실측).
+   레벨 줄만 이름표 아래 «한 줄 전체» 로 내려 칸 폭을 지킨다(약 33px). */
+@media (max-width:340px){
+  .opts-sheet .opt-row[data-kind="level"] .opt-list{ grid-column:1 / -1; }
 }
 /* 헤더 안으로 합쳐진 공용 바(🏠 홈 · 🌐 EN).
    ⚠️ 그 버튼들은 인라인 style 로 그려지므로 !important 가 아니면 못 이긴다.
@@ -3102,7 +3110,7 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
   /* ②-2 시트 안 설정을 «이름표 + 그 버튼들» 한 묶음씩 감싼다(.opt-row > span + .opt-list).
      📜 2026-11-04 사장님 «폰도 스크롤 없이 보이게 해줘» — 폰에서 이름표(레벨:·속도:…)가 줄을
         하나씩 통째로 먹어 시트가 화면보다 길었다. 묶어 두면 폰에서는 «이름표 칸 | 버튼 칸» 두 열로
-        놓아 섹션마다 한 줄씩 아끼고(CSS max-width:759px), PC 에서는 예전처럼 이름표가 위에 온다.
+        놓아 섹션마다 한 줄씩 아끼고(CSS max-width:759.98px), PC 에서는 예전처럼 이름표가 위에 온다.
      ⚠️ 버튼을 찾는 코드는 전부 «자손» 선택(.opt[data-level] · .opts .opt…)이라 감싸도 그대로 동작한다.
      ⛔ 시트 «밖» 에서 부르지 말 것 — 시트를 못 만든 화면(.top 없음)은 옛 한 줄 배치 그대로여야 한다.
      ⚠️ 새 설정 줄은 «이름표 span 다음에 버튼들» 모양으로만 넣을 것 — span 이 묶음의 시작 표시다. */
