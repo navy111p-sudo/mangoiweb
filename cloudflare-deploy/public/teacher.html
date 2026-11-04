@@ -2093,7 +2093,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
       + '<span>' + stuLabelHtml(it, dim ? T('(slot taken)','(점유 슬롯)') : T('(name not set)','(이름 미등록)')) + '</span>'
       + kindPill(it).replace(/^ /, '')
       + portalContact(it)
-      + '<span class="wk-record">' + esc(T('Student level','학생 레벨')) + ': ' + esc(it.level || T('Not set','미등록')) + '</span>'
+      + '<span class="wk-record">' + esc(T('Student level','학생 레벨')) + ': ' + esc(btsLevelText(it.level) || T('Not set','미등록')) + '</span>'
       + (mv ? '' : previousLessonHtml(it))
       + weekRecordHtml(it)
       + '</div>';
@@ -2519,7 +2519,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     };
     return '<div class="cls-extra">' + row1.join(' &middot; ') + wkLine
       + '<br><b>' + esc(T('Last class feedback', '지난 수업 피드백')) + '</b> ' + esc(ev(lastFeedback)) + evOpen(lastFeedback) + addLast
-      + '<br><b>' + esc(T("Today's feedback", '오늘 피드백')) + '</b> <span class="feedback-level">' + esc(T('Student level','학생 레벨')) + ': ' + esc(c.level || T('Not set','미등록')) + '</span> · ' + esc(ev(todayFeedback)) + evOpen(todayFeedback)
+      + '<br><b>' + esc(T("Today's feedback", '오늘 피드백')) + '</b> <span class="feedback-level">' + esc(T('Student level','학생 레벨')) + ': ' + esc(btsLevelText(c.level) || T('Not set','미등록')) + '</span> · ' + esc(ev(todayFeedback)) + evOpen(todayFeedback)
       + writeBtn
       + '</div>';
   }
@@ -2902,7 +2902,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
       var notes = info ? '' : (goalHtml(c) + preqHtml(c) + handoverHtml(c));
       var rowCls = 'cls-tr' + (c.class_state === 'cancelled' ? ' cls-cancel' : (c.class_state === 'postponed' || c.class_state === 'moved_away') ? ' cls-postponed' : '')
         + (c.student_elsewhere ? ' cls-away-row' : '') + (info ? ' cls-info' : '');
-      var lvl = esc([c.level, c.textbook].filter(Boolean).join(' · ') || D);
+      var lvl = esc([btsLevelText(c.level), c.textbook].filter(Boolean).join(' · ') || D);
       if (opt.daySep) h += clsDaySepHtml(list, i, true);
       h += '<tr class="' + rowCls + '">'
         + td(0, '<b class="nw">' + esc(MangoiClassDisplay.range(c)) + '</b><div class="cls-sub nw">' + (x ? x.date : esc(c.class_date || '')) + '</div>')
@@ -3112,7 +3112,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
           + esc(T('🥭 Join on Mangoi — not the old LMS',
                   '🥭 망고아이에서 입장하세요 — 옛 LMS 아님')) + '</span>');
       }
-      if (c.level)    meta.push(esc(c.level));
+      if (c.level)    meta.push(esc(btsLevelText(c.level)));
       if (c.textbook) meta.push(esc(c.textbook));
       // 🎚️ 판단력 훈련의 읽기 난이도 — 수업 전에 "이 아이가 지금 어느 정도 문장을 읽나"를 알려준다.
       //   한 번도 훈련하지 않은 학생은 값이 없어 아무것도 붙지 않는다(빈 값을 기본값으로 채우지 않음).
@@ -3854,6 +3854,24 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
      옛 방으로 가지 않게. 못 찾으면(옛 캐시·안내 줄) 받은 줄 그대로 = 고치기 전과 같다. */
   /* 🎚 레벨을 정한 뒤 — 같은 학생이 보이는 모든 줄(오늘·앞으로 7일·주간)의 레벨을 함께 바꾸고 다시 그린다.
      ⚠️ 학생 아이디 «정확일치» 로만(Kim/kim 은 다른 계정). 이미 떠난 화면 읽기는 버린다(WK_READ++). */
+  // Mangoi Curriculum: BTS book numbers are stored in students_erp.level as "Lv N".
+  var btsLevels = [
+    [1, 4, 'A1', 'Beginner', '입문'], [5, 8, 'A2', 'Elementary', '초급'],
+    [9, 12, 'B1', 'Intermediate', '중급'], [13, 16, 'B2', 'Upper Intermediate', '중상급'],
+    [17, 20, 'C1', 'Advance', '고급'], [21, 24, 'C1', 'Advance', '고급'],
+    [25, 28, 'C2', 'Mastery', '숙달'], [29, 34, 'C2', 'Mastery', '숙달']
+  ];
+  function btsLevelIndex(value){
+    var match = /^Lv (\d+)$/.exec(String(value || '').trim());
+    var book = match ? Number(match[1]) : 0;
+    return btsLevels.findIndex(function(row){ return book >= row[0] && book <= row[1]; });
+  }
+  function btsLevelText(value){
+    var index = btsLevelIndex(value);
+    if (index < 0) return value || '';
+    var row = btsLevels[index];
+    return T('Level ', '레벨 ') + (index + 1) + ' · ' + T(row[3], row[4]) + ' (' + row[2] + ')';
+  }
   function setLevelOnScreen(c, level){
     var uid = String((c && c.student_uid) || '');
     if (!uid) return;
@@ -4562,7 +4580,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
         +   '<div class="cls-name">' + esc(it.student_name || '-')
         +     ' <span class="cls-meta">' + esc(it.lesson_date || '')
         +       (att ? ' · ' + att[0] + ' ' + esc(T(att[1], att[2])) : '')
-        +       (it.student_level ? ' · ' + esc(T('Level: ', '레벨: ') + it.student_level) : '')
+        +       (it.student_level ? ' · ' + esc(T('Level: ', '레벨: ') + btsLevelText(it.student_level)) : '')
         +       (it.score_overall != null ? ' · ⭐ ' + esc(String(it.score_overall)) + '/5' : '')
         +     '</span></div>'
         +   (txt ? '<div class="draft-txt">' + esc(txt) + '</div>' : '')
@@ -4947,10 +4965,10 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
         : T('on time', '정시');
       return T('Entry record: joined', '입장 기록:') + (autoAtt.at ? ' ' + hhmm(autoAtt.at) + T('', ' 입장') : '') + ' (' + how + ')' + tail;
     }
-    /* 🎚 (2026-10-27 사장님 「강사가 일지에서 레벨을 직접 입력하게 해줘」) 학생 레벨 — 고르면 한 번 묻고(확인창) 저장한다.
+    /* 🎚 (2026-10-27 사장님 「강사가 일지에서 레벨을 직접 입력하게 해줘」) BTS 학생 레벨 (CEFR) — 고르면 한 번 묻고(확인창) 저장한다.
        일지 «보내기» 와 따로 저장하는 이유: 레벨은 이 일지가 아니라 «학생» 의 값이라 다른 화면(판단력 훈련·오늘의 학습)도
        함께 읽는다. 저장 정본은 서버 src/teacher-student-level.ts(Lv 1~34 만 · 변경 기록 · 이 강사의 학생만).
-       목록은 서버가 내려준 DATA.level_scale 로만 그린다 — 없으면(옛 응답) 예전처럼 글자만 보여 준다. */
+       서버의 DATA.level_scale 이 있을 때 BTS 교육과정 단계로 표시한다 — 없으면(옛 응답) 예전처럼 글자만 보여 준다. */
     var lvScale = (DATA && Array.isArray(DATA.level_scale)) ? DATA.level_scale : [];
     var lvCur = String(c.level || '').trim();
     /* 🔐 (2026-10-28 사장님 「1번 확인창 전에 범위 밖이면 막아줘」) 서버가 이 학생을 «바꿀 수 없음» 으로 미리 실어 보냈으면
@@ -4958,22 +4976,20 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
        → 확인창이 아예 안 뜬다. 값이 없거나 모르는 값이면 예전처럼 고르게 두고 최종 판정은 서버 POST 가 한다(여기서 판정하지 않는다). */
     var lvBlocked = (c.level_scope === 'out_of_window' || c.level_scope === 'not_your_student') ? c.level_scope : '';
     var lvEditable = lvScale.length > 0 && !!c.student_uid && !lvBlocked;
-    function levelPicker(){
-      var known = false, groups = '', i, n, v, sc;
-      for (i = 0; i < lvScale.length; i++){
-        sc = lvScale[i];
-        groups += '<optgroup label="' + esc(T(sc.en, sc.ko) + ' (Lv ' + sc.from + '–' + sc.to + ')') + '">';
-        for (n = Number(sc.from); n <= Number(sc.to); n++){
-          v = 'Lv ' + n;
-          if (v === lvCur) known = true;
-          groups += '<option value="' + v + '"' + (v === lvCur ? ' selected' : '') + '>' + v + '</option>';
-        }
-        groups += '</optgroup>';
-      }
+    function levelOptions(){
+      var currentIndex = btsLevelIndex(lvCur);
+      var known = currentIndex >= 0;
+      var groups = btsLevels.map(function(row, index){
+        // Keep the exact current book. Moving to another level starts at its first book.
+        var selected = index === currentIndex;
+        var value = selected ? lvCur : 'Lv ' + row[0];
+        var label = btsLevelText(value) + ' · BTS ' + row[0] + '–' + row[1];
+        return '<option value="' + esc(value) + '"' + (selected ? ' selected' : '') + '>' + esc(label) + '</option>';
+      }).join('');
       // 목록에 없는 지금 값(옛 표기 등)은 지우지 않고 «지금 값» 으로 맨 위에 보여 준다 — 고르기 전에는 아무것도 안 바뀐다.
       var head = known ? '' : '<option value="" selected>'
         + esc(lvCur ? lvCur + T(' (current)', ' (지금 값)') : T('Not set — choose a level', '미등록 — 레벨을 골라 주세요')) + '</option>';
-      return '<select id="ev-lv">' + head + groups + '</select>';
+      return head + groups;
     }
     var mask = document.createElement('div');
     mask.className = 'mask';
@@ -4982,9 +4998,9 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
       + '<h3>' + esc(T('Class Log','수업 일지')) + '</h3>'
       + '<p class="sub">' + esc((c.class_date || c.date || DATA.today) + ' · ' + stuLabelText(c, T('(name not set)','(이름 미등록)')) + ' · ' + MangoiClassDisplay.range(c)) + '</p>'
       + (lvEditable
-          ? '<div class="fld feedback-level"><label for="ev-lv">' + esc(T('Student level — pick to change (asks before saving)','학생 레벨 — 고르면 한 번 묻고 저장해요')) + '</label>'
-            + levelPicker() + '<div class="mini" id="ev-lv-msg" aria-live="polite"></div></div>'
-          : '<p class="sub feedback-level"><b>' + esc(T('Student level','학생 레벨')) + '</b>: ' + esc(c.level || T('Not set','미등록')) + '</p>'
+          ? '<div class="fld feedback-level"><label for="ev-lv">' + esc(T('BTS student level (CEFR) — pick to change (asks before saving)','BTS 학생 레벨 (CEFR) — 고르면 한 번 묻고 저장해요')) + '</label>'
+            + '<select id="ev-lv">' + levelOptions() + '</select>' + '<div class="mini" id="ev-lv-msg" aria-live="polite"></div></div>'
+          : '<p class="sub feedback-level"><b>' + esc(T('Student level','학생 레벨')) + '</b>: ' + esc(btsLevelText(c.level) || T('Not set','미등록')) + '</p>'
             + (lvBlocked ? '<div class="mini lv-lock" role="note">🔒 ' + esc(lvErrText(lvBlocked === 'out_of_window' ? 'level_window_closed' : lvBlocked, DATA && DATA.level_past_days)) + '</div>' : ''))
       + '<div class="fld"><label>' + esc(T('Class status — tap to confirm or change','수업 출결 — 눌러서 확인하거나 바꿔요')) + '</label><div id="ev-att">'
       +   attChip('attended', '✅', T('Attended','출석'))
@@ -5095,7 +5111,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
       var who = stuLabelText(c, '');
       var askMsg = T('Change this student\'s level?', '이 학생의 레벨을 바꿀까요?')
         + (who ? '\n' + who : '')
-        + '\n\n' + (before || T('Not set', '미등록')) + '  →  ' + want
+        + '\n\n' + (btsLevelText(before) || T('Not set', '미등록')) + '  →  ' + btsLevelText(want) + ' · BTS ' + want.slice(3)
         + '\n\n' + T('Next time the student opens Judgment training, it restarts at this level (the student\'s chosen mode and age group, e.g. adult, go back to default).',
                        '학생이 다음에 판단력 훈련을 열 때 이 레벨부터 다시 시작해요(학생이 고른 모드·나이대(예: 성인)는 기본값으로 돌아가요).');
       if (!window.confirm(askMsg)){
@@ -5113,11 +5129,9 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
           if (!j || j.ok !== true || !j.level) throw (j || {});
           lvCur = j.level;
           setLevelOnScreen(c, j.level);
-          var head = lvSel.querySelector('option[value=""]');
-          if (head) head.parentNode.removeChild(head);   // 한 번 정하면 «미등록» 줄은 더 이상 사실이 아니다
-          lvSel.value = j.level;
-          lvSay(false, '✅ ' + T('Saved: ', '저장했어요: ') + j.level
-            + (j.previous && j.previous !== j.level ? T(' (was ', ' (전: ') + j.previous + ')' : ''));
+          lvSel.innerHTML = levelOptions();
+          lvSay(false, '✅ ' + T('Saved: ', '저장했어요: ') + btsLevelText(j.level)
+            + (j.previous && j.previous !== j.level ? T(' (was ', ' (전: ') + btsLevelText(j.previous) + ')' : ''));
         })
         .catch(function(e){
           // 저장이 안 됐으면 칸도 옛 값으로 되돌린다 — «바뀐 것처럼» 보이면 안 된다.
