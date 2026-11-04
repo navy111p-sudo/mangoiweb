@@ -143,6 +143,7 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
     fs.writeFileSync(path.join(tmp, to), js);
   }
   const H = await import(pathToFileURL(path.join(tmp, 'warmup-honest.mjs')).href);
+  ok(typeof H.ensureFocusedFixSpoken === 'function' && typeof H.gateFixForMode === 'function', 'server: warmup-honest functions loaded (renamed export → clean FAIL, not a crash)');
   const reps = H.FOCUSED_FIX_REPEATS;
   ok(Number.isInteger(reps) && reps > 0, 'server repeat count loaded from the real module');
   const FIX = { was: 'I go to the park.', now: 'I went to the park.' };
@@ -162,7 +163,9 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   const C = await import(pathToFileURL(path.join(tmp, 'warmup-correction.mjs')).href);
   const gap = C.WARMUP_REPEAT_GAP_TURNS;
   ok(Number.isInteger(gap) && gap > 1, 'server: balanced repeat gap loaded from the real module (' + gap + ' turns)');
+  ok(typeof C.decideWarmupFixShow === 'function' && typeof C.warmupShouldOfferRepeat === 'function' && typeof H.gateFixForMode === 'function', 'server: decideWarmupFixShow / warmupShouldOfferRepeat / gateFixForMode loaded');
   const MAJOR = { was: 'I go to the park yesterday.', now: 'I went to the park yesterday.', tag: 'past_tense', severity: 'major' };
+  const MINOR = { was: 'I saw cat.', now: 'I saw a cat.', tag: 'article', severity: 'minor' };
   let memo = null, shows = 0, reps2 = 0;
   for (let turn = 1; turn <= 6; turn++) {
     const d = C.decideWarmupFixShow(MAJOR, memo, turn, { immediate: false });
@@ -171,10 +174,55 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
     memo = d.memo;
   }
   ok(shows === 6 && reps2 >= 1 && reps2 < shows, 'server: balanced fixes a big mistake every turn but asks to repeat only some turns (' + shows + ' fixes, ' + reps2 + ' repeats)');
+  // small mistakes are fixed too, just not on back-to-back turns → «mostly key mistakes», not «only key mistakes»
+  let mm = null, minorShows = 0;
+  for (let turn = 1; turn <= 6; turn++) { const d = C.decideWarmupFixShow(MINOR, mm, turn, { immediate: false }); if (H.gateFixForMode('balanced', MINOR, d.show, false).show) minorShows++; mm = d.memo; }
+  ok(minorShows >= 1 && minorShows < 6, 'server: balanced fixes small mistakes on some turns, not every turn (' + minorShows + '/6)');
+  ok(/위주|주로|대부분/.test(hint('balanced', 'ko')) && /mostly|mainly|chiefly/i.test(hint('balanced', 'en')), 'balanced hint says «mostly» key mistakes (small ones are fixed too)');
+  ok(!/만\s*고치|만 고쳐/.test(hint('balanced', 'ko')) && !/\bonly\b/i.test(hint('balanced', 'en')), 'balanced hint does not say «only» key mistakes');
+
+  // wiring — the two screens' OWN lines, cut out of the server source (types stripped) and run turn by turn.
+  // The functions above can be right while a screen ignores them (e.g. `offerRepeat = !!showFix`) — this catches that.
+  const SRCF = f => fs.readFileSync(path.join(SRC, f), 'utf8');
+  const cutLines = (src, startMark, endMark) => { const a = src.indexOf(startMark); if (a < 0) return ''; const e = src.indexOf(endMark, a); if (e < 0) return ''; const nl = src.indexOf('\n', e); return src.slice(a, nl < 0 ? src.length : nl); };
+  const IDX = SRCF('index.ts'), AIF = SRCF('api-ai.ts');
+  const wSnip = cutLines(IDX, 'const decided = decideWarmupFixShow(verified, memoIn, turnCount', 'if (honest) { const g = gateFixForMode(');
+  const fSnip = cutLines(AIF, 'const immediateFix = friendMode', 'const immediateFix = friendMode') + '\n'
+    + cutLines(AIF, 'const decided = decideWarmupFixShow(verified, memoIn, turnNo', "else if (friendMode === 'focused') offerRepeat");
+  ok(wSnip.includes('warmupShouldOfferRepeat(') && fSnip.includes('warmupShouldOfferRepeat(') && fSnip.includes('const immediateFix'), 'wiring: decide→repeat lines cut out of src/index.ts (warmup) and src/api-ai.ts (AI friend)');
+  let wire = ''; try { wire = stripTypeScriptTypes(
+    'export async function warm(decideWarmupFixShow, warmupShouldOfferRepeat, gateFixForMode, verified, memoIn, turnCount, honest, ctxUserId) {\n'
+    + "  let showFix = null, traceTag = '', traceReason = 'shown', offerRepeat = false;\n" + wSnip + '\n  return { showFix, offerRepeat, memo: decided.memo };\n}\n'
+    + 'export async function friend(decideWarmupFixShow, warmupShouldOfferRepeat, gateFixForMode, verified, memoIn, turnNo, friendMode, logAiFriendFix, env, uid) {\n'
+    + '  let showFix = null, offerRepeat = false;\n' + fSnip + '\n  return { showFix, offerRepeat, memo: decided.memo };\n}\n'); } catch (e) { wire = ''; }
+  fs.writeFileSync(path.join(tmp, 'wire.mjs'), wire);
+  let W = null; try { if (!wire) throw new Error('strip failed'); W = await import(pathToFileURL(path.join(tmp, 'wire.mjs')).href); } catch (e) { W = null; }
+  ok(W && typeof W.warm === 'function' && typeof W.friend === 'function', 'wiring: the cut lines compile and load');
+  const runScreen = async (screen, mode, fix) => {
+    let m = null, sh = 0, rp = 0;
+    try {
+      for (let t = 1; t <= 6; t++) {
+        const r = screen === 'warmup'
+          ? await W.warm(C.decideWarmupFixShow, C.warmupShouldOfferRepeat, H.gateFixForMode, fix, m, t, { mode }, '')
+          : await W.friend(C.decideWarmupFixShow, C.warmupShouldOfferRepeat, H.gateFixForMode, fix, m, t, mode, async () => {}, { DB: null }, 'u1');
+        if (r.showFix) sh++; if (r.offerRepeat) rp++; m = r.memo;
+      }
+    } catch (e) { return { sh: -1, rp: -1, err: String((e && e.message) || e) }; }
+    return { sh, rp };
+  };
+  for (const screen of (W ? ['warmup', 'AI friend'] : [])) {
+    const b = await runScreen(screen, 'balanced', MAJOR), f = await runScreen(screen, 'focused', MAJOR), fr = await runScreen(screen, 'free_talk', MAJOR);
+    ok(b.sh === 6 && b.rp >= 1 && b.rp < b.sh, 'wiring: ' + screen + ' balanced fixes every turn, repeat only some turns (' + JSON.stringify(b) + ')');
+    // pairs — prove the run sees the mode (otherwise «never repeat» or «always repeat» could pass the line above by luck)
+    ok(f.sh === 6 && f.rp === 6, 'wiring: ' + screen + ' focused repeats every turn (' + JSON.stringify(f) + ')');
+    ok(fr.rp === 0, 'wiring: ' + screen + ' free talk never repeats (' + JSON.stringify(fr) + ')');
+    const bm = await runScreen(screen, 'balanced', MINOR);   // «mostly key mistakes»: small ones are fixed, but not on back-to-back turns
+    ok(bm.sh >= 1 && bm.sh < 6, 'wiring: ' + screen + ' balanced fixes small mistakes on some turns, not every turn (' + JSON.stringify(bm) + ')');
+  }
   // so the hint must say «sometimes», not «every time / once after each fix»
   ok(/따라 말/.test(hint('balanced', 'ko')) && /repeat/i.test(hint('balanced', 'en')), 'balanced hint mentions repeat-after-me');
   ok(/가끔|때때로|이따금|때로/.test(hint('balanced', 'ko')) && /sometimes|now and then|occasionally|from time to time/i.test(hint('balanced', 'en')), 'balanced hint says the repeat is occasional (pairs with the server gap)');
-  ok(!/1\s*번|한\s*번|매번|항상/.test(hint('balanced', 'ko')) && !/\bonce\b|every|always|then you repeat/i.test(hint('balanced', 'en')), 'balanced hint does not promise a repeat after every fix');
+  ok(!/1\s*번|한\s*번|매번|항상|꼭|마다|(^|\s)늘(\s|$)/.test(hint('balanced', 'ko')) && !/\bonce\b|every|\beach\b|always|then you repeat/i.test(hint('balanced', 'en')), 'balanced hint does not promise a repeat after every fix');
   fs.rmSync(tmp, { recursive: true, force: true });
 
   // ③ renderSettings cut out of the page and run on a fake DOM — the picked level's line, in the screen language
