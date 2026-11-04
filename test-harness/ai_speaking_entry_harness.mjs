@@ -198,7 +198,8 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
 }
 // 2026-11-04 owner: the «✅ 저장했어요 — 세 가지 연습에 함께 적용돼요» line and the note under it were removed and a
 // «확인» button added. Picking language / level / corrections only changes the on-screen choice (draft); «확인»
-// saves all three at once (level·corrections → both screens' keys, language → only when it differs from storage).
+// saves level + corrections at once (both screens' keys). Same day, owner: «언어는 바로 저장되게 되돌려줘» — language
+// is saved the moment it is tapped (as before), independent of «확인».
 // The page's WHOLE inline script (its own declarations and its own boot line) is RUN on a fake DOM with the real
 // settings module, so «clicking a button no longer writes» and «확인 writes» are both measured, not grepped.
 // 2026-11-04 trap-check: the first version cut out functions and wrote its own boot line — dropping `wire();` or
@@ -229,8 +230,10 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   ok(/<p id="setMsg" class="sr" role="status"/.test(markup), 'status line kept only for screen readers (visually hidden)');
   ok(!/id="setOkTxt"[^>]*data-ko/.test(markup), 'button label has no data-ko/en (the i18n loop would overwrite it)');
   // wiring guard: only confirmSettings may call the storage writers
-  const writers = s => (s.match(/SET\.choose(Level|Corr|Lang)\(/g) || []).length;
-  ok(writers(hub) === writers(fnSrc('confirmSettings')) && writers(hub) === 3, 'storage is written only inside confirmSettings (3 writers)');
+  const writers = (s, re = /SET\.choose(Level|Corr)\(/g) => (s.match(re) || []).length;
+  ok(writers(hub) === writers(fnSrc('confirmSettings')) && writers(hub) === 2, 'level / corrections are written only inside confirmSettings');
+  const langWriters = s => writers(s, /SET\.chooseLang\(/g);
+  ok(langWriters(hub) === 1 && langWriters(fnSrc('confirmSettings')) === 0 && langWriters(fnSrc('wire')) === 1, 'language is written only by its own click handler (in wire), not by 확인');
 
   const ctx = { console }; ctx.window = ctx; ctx.globalThis = ctx; vm.createContext(ctx);
   vm.runInContext(read('js/ai-speaking-settings.js'), ctx);
@@ -305,24 +308,27 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   s = boot({ mangoi_warmup_level: '2', mangoi_warmup_correction: 'focused', mangoi_aifriend_correction: 'free_talk' });
   ok(s.btn().disabled && s.btn().text === '교정 정도를 골라 주세요', 'C: mixed correction -> locked, asks for corrections');
 
-  // D) language: preview immediately, save on 확인 only
-  s = boot({ mangoi_lang: 'ko', mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' });
+  // D) language: saved the moment it is tapped (owner 2026-11-04), independent of «확인»
+  s = boot({});
   s.lang[1].fire('click');
-  ok(s.document.documentElement.lang === 'en' && s.btn().text === 'Confirm', 'D: English shows at once (preview), button in English');
-  ok(s.ls.writes.length === 0 && s.ls.getItem('mangoi_lang') === 'ko', 'D: choosing a language does not save it');
+  ok(s.document.documentElement.lang === 'en' && s.ls.getItem('mangoi_lang') === 'en' && s.ls.getItem('mangoi_lang_by') === 'user', 'D: tapping English saves it at once — even with level/corrections not picked (button locked)');
+  ok(s.btn().disabled && s.btn().text === 'Choose a level and corrections', 'D: …the confirm button stays about level/corrections, in English');
+  ok(!s.ls.writes.some(k => /level|correction/.test(k)), 'D: a language tap writes no level/correction');
+  s = boot({ mangoi_lang: 'ko', mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' });
   s.confirm();
-  ok(s.ls.getItem('mangoi_lang') === 'en' && s.ls.getItem('mangoi_lang_by') === 'user', 'D: 확인 saves the language as the person\'s choice');
-  ok(s.btn().text === '✅ Applied' && /Saved/.test(s.els.setMsg.textContent), 'D: applied label in English');
-  // after saving, switching language again is an unsaved change: back to «확인», status cleared (not «Applied»)
+  ok(s.btn().text === '✅ 적용됐어요' && !s.ls.writes.includes('mangoi_lang'), 'D: 확인 does not rewrite the language (keeps auto-detect flag)');
+  s.lang[1].fire('click');
+  ok(s.ls.getItem('mangoi_lang') === 'en' && s.btn().text === '✅ Applied' && s.btn().state === 'saved', 'D: language tap after 확인 saves at once; level/corrections stay «applied» (label in English)');
+  s.lang[1].fire('click');
+  ok(s.ls.writes.filter(k => k === 'mangoi_lang').length === 1, 'D: tapping the current language again writes nothing');
+  s = boot({ mangoi_lang: 'en' });
+  ok(s.document.documentElement.lang === 'en', 'D: saved English opens in English');
   s.lang[0].fire('click');
-  ok(s.document.documentElement.lang === 'ko' && s.btn().text === '확인' && s.btn().state === '' && s.els.setMsg.textContent === '', 'D: language change after save -> «확인» again, status cleared');
-  ok(s.ls.getItem('mangoi_lang') === 'en', 'D: …and it is not saved yet');
-  s.confirm();
-  ok(s.ls.getItem('mangoi_lang') === 'ko', 'D: en saved -> pick 한국어 -> 확인 saves ko');
-  s = boot({ mangoi_lang: 'en', mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' });
-  ok(s.document.documentElement.lang === 'en' && s.btn().text === 'Confirm', 'D: saved English opens in English');
-  s.lang[0].fire('click'); s.confirm();
-  ok(s.ls.getItem('mangoi_lang') === 'ko' && s.ls.getItem('mangoi_lang_by') === 'user', 'D: from a fresh English page, 한국어 + 확인 saves ko');
+  ok(s.ls.getItem('mangoi_lang') === 'ko' && s.ls.getItem('mangoi_lang_by') === 'user', 'D: en saved -> tap 한국어 -> ko saved at once');
+  // language tap on a device that cannot save: screen still switches, failure is told (not silent)
+  s = boot({ mangoi_lang: 'ko', mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' }, { block: true });
+  s.lang[1].fire('click');
+  ok(s.document.documentElement.lang === 'en' && s.btn().state === 'fail' && /Could not save/.test(s.btn().text) && /language/.test(s.els.setMsg.textContent), 'D: blocked storage -> language shows but failure is told');
 
   // E) storage that throws: honest failure on the button, retry possible
   s = boot({ mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' }, { block: true });

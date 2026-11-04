@@ -23,9 +23,10 @@
        💬 2026-11-03 3차 — «교정 정도» 버튼 바로 아래에 고른 단계의 뜻을 한 줄로 보여 준다(사장님 확정 A안 · ①설명형).
        바뀐 것은 renderSettings 의 #corrState 한 곳뿐이고, 저장 동작은 그대로다. 문구는 버튼의 data-hint-ko/en 에 있다.
        ✅ 2026-11-04 4차(사장님) — 아래 «저장했어요» 줄과 안내문을 없애고 «확인» 버튼을 뒀다.
-       언어·수준·교정은 눌러도 화면에만 고른 값(draft)이고, «확인» 을 눌러야 세 값을 한꺼번에 저장한다
-       (수준·교정 = 교재 연습·상황별 말하기·AI 친구 두 화면 키 함께 · 언어 = 저장된 것과 다를 때만).
-       수준·교정이 비었거나 «화면마다 다름» 이면 버튼이 잠기고 무엇을 고를지 말한다. 저장 정본 js/ai-speaking-settings.js 는 그대로. -->
+       수준·교정은 눌러도 화면에만 고른 값(draft)이고, «확인» 을 눌러야 둘을 한꺼번에 저장한다
+       (교재 연습·상황별 말하기·AI 친구 두 화면 키 함께).
+       수준·교정이 비었거나 «화면마다 다름» 이면 버튼이 잠기고 무엇을 고를지 말한다. 저장 정본 js/ai-speaking-settings.js 는 그대로.
+       🌐 같은 날 5차(사장님 「언어는 바로 저장되게 되돌려줘」) — 언어만 예전처럼 누르는 즉시 저장한다(확인과 무관). -->
   <style>
     :root{--sky:#0b1026;--card:#161d3f;--card2:#1c2550;--line:#283160;--ring:#5b6bb5;--ink:#ffffff;--sub:#b8c1e6;--soft:#dde3ff;
       --lime:#c6f432;--orange:#ff9a3c;--cyan:#4dd8ff;--on:#0b1026;--focus:#fde68a}
@@ -261,13 +262,12 @@
   }
   function status(s){ var m = document.getElementById('setMsg'); if(m) m.textContent = s; }
   function pick(k, v){ draft[k] = v; okState = ''; status(''); renderSettings(); }
-  // 확인 — 수준·교정은 두 화면 키에 함께 쓴다. 언어는 «저장된 것과 다를 때만» 쓴다
-  // (그대로인데 쓰면 계정 자동판정 언어가 «사람이 고름» 으로 굳는다 — mangoi_lang_by).
+  // 확인 — 수준·교정을 두 화면 키에 함께 쓴다. 언어는 누를 때 이미 저장했으므로 여기서 쓰지 않는다
+  // (확인 때 다시 쓰면 계정 자동판정 언어가 «사람이 고름» 으로 굳는다 — mangoi_lang_by).
   function confirmSettings(){
     if(!SET || draftMissing()) return false;
     var a = SET.chooseLevel(LS, draft.level), c = SET.chooseCorr(LS, draft.corr);
-    var l = ui === SET.read(LS).lang ? true : SET.chooseLang(LS, ui);
-    var ok = !!(a && c && l);
+    var ok = !!(a && c);
     okState = ok ? 'saved' : 'fail';
     renderSettings();
     status(ok ? T('저장했어요. 교재 연습·상황별 말하기·AI 친구에 함께 적용돼요.', 'Saved. Applies to all three practices.')
@@ -283,10 +283,14 @@
       sitCard.setAttribute('aria-expanded', open ? 'true' : 'false');
       if(open) try { panel.scrollIntoView({ behavior:'smooth', block:'nearest' }); } catch(_) {}
     });
-    // 언어는 화면 글자를 바로 바꿔 보여 주되(미리보기) 저장은 «확인» 때
+    // 🌐 언어는 누르는 즉시 저장한다(사장님 2026-11-04 — 확인 버튼과 무관). 수준·교정의 «적용됨» 상태는 그대로 둔다.
+    //    저장이 막힌 기기면 화면 글자는 바뀌되 사실대로 말한다(버튼 «⚠️» + 화면낭독기 상태 줄).
     document.querySelectorAll('[data-lang]').forEach(function(b){ b.addEventListener('click', function(){
       var l = b.getAttribute('data-lang'); if(l === ui) return;
-      ui = l; okState = ''; status(''); applyUi(); renderSituations(); renderSettings();
+      var ok = SET ? SET.chooseLang(LS, l) : false;
+      ui = l; if(!ok) okState = 'fail';
+      applyUi(); renderSituations(); renderSettings();
+      status(ok ? '' : T('이 기기에서는 언어 저장이 안 돼요. 다른 화면에서는 예전 언어로 보여요.', 'Could not save the language on this device. Other screens keep the old language.'));
     }); });
     document.querySelectorAll('[data-corr]').forEach(function(b){ b.addEventListener('click', function(){
       pick('corr', b.getAttribute('data-corr'));
