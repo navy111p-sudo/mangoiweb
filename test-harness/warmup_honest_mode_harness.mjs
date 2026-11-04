@@ -302,6 +302,37 @@ ok('따라 말하기 «완벽» 이면 보상(등급을 받는 학생만)', /_wu
     ok('⑨ 사용법 안내: 자유대화 설명이 «교정 카드로만»(KO/EN)', /교정 카드로만/.test(ftHowKo) && /only as a correction card/.test(ftHowEn) && !oldPromise.test(ftHowKo + ftHowEn), [ftHowKo, ftHowEn]);
     ok('⑨ 원장님 설정 화면: 자유대화 설명이 «교정 카드로만»(KO/EN)', /교정 카드로만/.test(ftMgr) && /only as a correction card/.test(ftMgr) && !oldPromise.test(ftMgr), ftMgr);
   }
+  /* ⚖️ (2026-11-04) 균형 = 큰 실수는 매번·작은 실수는 연달아 안 고침 + 따라 말하기는 3턴에 한 번까지 → «위주로 · 가끔».
+     입구(ai-speaking.html)의 균형 한 줄과 «같은 말» 이어야 한다 — 두 화면이 다른 약속을 하면 한쪽은 거짓이다.
+     ⛔ 옛 «핵심 표현·되풀이되는 실수만» 은 서버가 쓰지 않는 기준이라 되살아나면 FAIL. */
+  {
+    const blCat = (cat.match(/\{ id:'balanced'[^\n]*/) || [''])[0];
+    const blKo = (blCat.match(/[\s,{]d:'([^']*)'/) || ['', ''])[1];
+    const blEn = (blCat.match(/[\s,{]de:'([^']*)'/) || ['', ''])[1];
+    const howto = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/public/js/warmup-howto.js'), 'utf8');
+    const blHowKo = (howto.match(/<b>⚖️ 균형<\/b>:([^<']*)/) || ['', ''])[1];
+    const blHowEn = (howto.match(/<b>⚖️ Balanced<\/b>:([^<']*)/) || ['', ''])[1];
+    const ap = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/public/ai-speaking.html'), 'utf8');
+    const apBtn = (ap.match(/<button[^>]*data-corr="balanced"[^>]*>/) || [''])[0];
+    const apKo = (apBtn.match(/data-hint-ko="([^"]*)"/) || ['', ''])[1];
+    const apEn = (apBtn.match(/data-hint-en="([^"]*)"/) || ['', ''])[1];
+    ok('⑨ 균형 전제: 카드·사용법·입구 문구를 오려 냈다(KO/EN)', !!(blKo && blEn && blHowKo && blHowEn && apKo && apEn), [blKo, blEn, blHowKo, blHowEn, apKo, apEn]);
+    /* 서버 값은 정본 소스에서 읽는다(⛔ 하니스에 베끼지 않는다) — 1이 되면 «가끔» 이 거짓이 된다 */
+    const CORR = fs.readFileSync(path.join(SRC, 'warmup-correction.ts'), 'utf8');
+    const fixGap = Number((CORR.match(/export const WARMUP_FIX_GAP_TURNS = (\d+);/) || [])[1]);
+    const repGap = Number((CORR.match(/export const WARMUP_REPEAT_GAP_TURNS = (\d+);/) || [])[1]);
+    ok('⑨ 균형 전제: 서버가 작은 실수·따라 말하기를 «매 턴» 하지 않는다(간격 ≥ 2)', fixGap >= 2 && repGap >= 2, [fixGap, repGap]);
+    ok('⑨ 균형: 교재 연습 카드(KO)가 입구 문구와 같은 말로 시작', !!apKo && blKo.startsWith(apKo), [blKo, apKo]);
+    ok('⑨ 균형: 사용법 안내(KO)도 입구 문구와 같은 말', !!apKo && blHowKo.trim().startsWith(apKo), [blHowKo, apKo]);
+    const enAll = [blEn, blHowEn, apEn];
+    ok('⑨ 균형(EN 세 곳): «mostly» + «sometimes»', enAll.every((s) => /\bmostly\b/i.test(s) && /\bsometimes\b/i.test(s)), enAll);
+    const koAll = [blKo, blHowKo, apKo];
+    ok('⑨ 균형(KO 세 곳): «위주» + «가끔»', koAll.every((s) => /위주/.test(s) && /가끔/.test(s)), koAll);
+    const oldOnly = /되풀이되는 실수만|핵심 표현이나|key phrases|repeated mistakes|repeat only|only for/i;
+    const tooOften = /매번|항상|마다|1\s*번|한\s*번|\bonce\b|\bevery\b|\beach\b|always/i;
+    ok('⑨ 균형: 옛 «핵심 표현·되풀이 실수만» 이 없다', ![...koAll, ...enAll].some((s) => oldOnly.test(s)), [...koAll, ...enAll]);
+    ok('⑨ 균형: «매번·한 번·every» 처럼 서버보다 센 약속이 없다', ![...koAll, ...enAll].some((s) => tooOften.test(s)), [...koAll, ...enAll]);
+  }
   ok('⑨ 클릭 위임이 data-cmode 를 받는다', /\[data-cmode\]'\)/.test(html) && /if\(t\.getAttribute\('data-cmode'\)\) \{ setCorrMode\(/.test(html));
   ok('⑨ PC 3단계 카드(1번)로 옮기고 되돌린다', /\['wusPcB1',\['wusGLang','wusTalkSec','wusGMode'\]\]/.test(html) && /'wusGLevel','wusGMode'\]\.forEach/.test(html));
   ok('⑨ 중국어에서는 감춘다', /gmode\.hidden = isZh\(\)/.test(html) && /#wusGMode\[hidden\]\{display:none!important\}/.test(html));
