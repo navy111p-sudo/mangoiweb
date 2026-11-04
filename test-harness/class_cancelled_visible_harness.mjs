@@ -14,6 +14,8 @@
  *   🟡 모형: 시계 고정 · KV 는 빈 가짜 · src/index.ts 라우팅 게이트는 거치지 않는다.
  *
  * 변이시험: src 를 임시 폴더로 «복사» 한 뒤 복사본만 바꿔 다시 돌린다 — ⛔ 저장소 파일은 안 건드린다.
+ * 🔒 (2026-11-04 «권한 분리») K절 — 수업 «취소»(DELETE /api/admin/class-schedules/:id)는 본사 계정만. 강사(스코프가 잘못 'hq'·'none'
+ *    인 계정 포함)·역할 모름은 403 이고 행·이력이 그대로인가, 짝으로 본사는 그대로 취소되는가.
  */
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, cpSync } from 'node:fs';
 import { join } from 'node:path';
@@ -385,6 +387,21 @@ if (process.env.CCV_CHILD === '1') {
     sq.exec(`DELETE FROM schedule_change_requests WHERE schedule_id >= 910000`);
   }
 
+  // ══ K. 🔒 수업 «취소»(DELETE) 는 본사 계정만 (2026-11-04 «권한 분리») ══
+  //    화면은 강사·지사에게 취소 버튼을 안 준다(canCancel). 이 절은 «URL 직접 호출» 을 서버가 막는지 잰다.
+  //    지사·대리점은 index.ts 스코프 관문이 막으므로(이 하니스는 그 관문을 안 거친다) 여기서는 강사 세 종류 + 로그인 없음.
+  const K1 = mkClass('stu_a', 'one_off', null, '2026-11-12', '09:00');
+  for (const [tok, lbl] of [['tok_alpha', '강사'], ['tok_beta', "스코프 'hq' 인 hq_t_* 강사"], ['tok_gamma', "스코프 'none' 인 «교사» 이름 계정"]]) {
+    const rr = await callAdmin('DELETE', `/api/admin/class-schedules/${K1}`, { cookie: tok });
+    ok('K1 🔒 ' + lbl + ' 세션의 취소(DELETE) 직접 호출은 403 · 행 그대로 · «본사 계정에서» 안내', rr.status === 403 && row(K1).status === 'active'
+      && /HQ account/.test(String(rr.body.message_en || '')) && /본사 계정/.test(String(rr.body.message || '')), JSON.stringify({ st: rr.status, b: rr.body, row: row(K1).status }));
+  }
+  const kNo = await callAdmin('DELETE', `/api/admin/class-schedules/${K1}`, {});
+  ok('K2 🔒 로그인 없이(역할을 못 읽으면) 막는다 · 행 그대로', kNo.status === 403 && row(K1).status === 'active', JSON.stringify({ st: kNo.status }));
+  ok('K3 🔒 막힌 시도는 이력에 «remove» 로 안 남는다', !sq.prepare(`SELECT 1 FROM class_audit_log WHERE schedule_id = ? AND action = 'remove'`).get(K1));
+  const kHq = await callAdmin('DELETE', `/api/admin/class-schedules/${K1}`, { cookie: 'tok_admin' });
+  ok('K4 짝: 본사 계정은 그대로 취소된다(행은 cancelled 로 남는다)', kHq.status === 200 && row(K1).status === 'cancelled', JSON.stringify(kHq));
+
   process.stdout.write('\n@@RESULTS@@' + JSON.stringify({ results }) + '\n');
   process.exit(0);
 }
@@ -485,6 +502,12 @@ const MUTANTS = [
     edits: [['class-change-state.ts', "WHERE status = 'approved' AND created_at >= ?", "WHERE status = 'approved' AND created_at < ?"]] },
   { name: '주간 시간표: 조건 뒤집기 — 취소 회차를 거꾸로 거름', expect: /G1 |G5 /,
     edits: [['api-admin.ts', 'return isCancelledOccurrence(r) || isPostponedOccurrence(r);', 'return !(isCancelledOccurrence(r) || isPostponedOccurrence(r));']] },
+  { name: '🔒 취소: 강사 막기를 걷어냄(옛 동작)', expect: /K1 /,
+    edits: [['api-admin.ts', 'if (!_delActor || !_delActor.ok || _delActor.isTeacher) {', 'if (false) {']] },
+  { name: '🔒 취소: 조건 뒤집기 — 본사를 막고 강사를 통과', expect: /K1 |K4 /,
+    edits: [['api-admin.ts', 'if (!_delActor || !_delActor.ok || _delActor.isTeacher) {', 'if (!_delActor || !_delActor.ok || !_delActor.isTeacher) {']] },
+  { name: '🔒 취소: 역할을 못 읽어도 통과(«모르면 막기» 해제)', expect: /K2 /,
+    edits: [['api-admin.ts', 'if (!_delActor || !_delActor.ok || _delActor.isTeacher) {', 'if (_delActor && _delActor.ok && _delActor.isTeacher) {']] },
 ];
 for (const m of MUTANTS) {
   const dir = join(tmp, 'm-' + MUTANTS.indexOf(m));
