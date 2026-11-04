@@ -14,6 +14,7 @@
     shopping:{file:'warmup-shopping',ko:'시장',en:'Market'},library:{file:'library',ko:'도서관',en:'Library'},
     playground:{file:'playground',ko:'놀이터',en:'Playground'},garden:{file:'warmup-gardening',ko:'정원',en:'Garden'},
     airport:{file:'airport',ko:'공항',en:'Airport'},train:{file:'train',ko:'기차 여행',en:'Train trip'},
+    runway:{file:'hf-runway',ko:'경비행기 활주로',en:'Airplane runway'},raft:{file:'hf-raft',ko:'바다 위 뗏목',en:'Ocean raft'},
     beach:{file:'beach',ko:'해변',en:'Beach'},space:{file:'space',ko:'우주',en:'Space'},
     castle:{file:'castle',ko:'성',en:'Castle'},camping:{file:'camping',ko:'캠핑',en:'Camping'},
     aquarium:{file:'aquarium',ko:'수족관',en:'Aquarium'},soccer:{file:'soccer',ko:'축구장',en:'Soccer field'}
@@ -202,6 +203,8 @@
     if(/castle|fantasy|princess|성곽|공주|城堡/.test(topic))return['castle'];
     if(/food|cook|bread|bakery|cafe|café|restaurant|order|음식|요리|주문|빵|咖啡|餐|做饭/.test(topic))return['bakery','restaurant'];
     if(/shop|market|buy|쇼핑|장보|买|商店/.test(topic))return['shopping'];
+    if(/\brunway\b|\bairstrip\b|활주로|跑道/.test(topic))return['runway'];
+    if(/\braft\b|뗏목|木筏/.test(topic))return['raft'];
     if(/travel|trip|holiday|train|airport|flight|여행|휴가|기차|비행|旅行|机场|飞机/.test(topic))return['airport','train','beach'];
     if(/school|study|book|read|학교|공부|독서|学校|图书/.test(topic))return young?['library','playground']:['library'];
     if(/soccer|football|축구|足球/.test(topic))return['soccer'];
