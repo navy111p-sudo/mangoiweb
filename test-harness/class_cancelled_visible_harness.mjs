@@ -19,8 +19,8 @@
  */
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, cpSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
-import { spawnSync } from 'node:child_process';
+import { tmpdir, availableParallelism } from 'node:os';
+import { spawnSync, spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -248,7 +248,9 @@ if (process.env.CCV_CHILD === '1') {
   ok('G6 ⛔ 매주 행의 cancelled 는 어디에도 안 뜬다(회차가 아니다)', !offOf('stu_b') && !its.some(i => Number(i.id) === W));
   ok('G7 ⛔ 정리된 LMS 자리표시(cancelled)는 off_items 에 안 싣는다(수업이 아니다)', !offs.some(o => (o.students || []).length === 0 || o.date === TOMORROW && /^12:00/.test(o.start_time)), JSON.stringify(offs.map(o => [o.date, o.start_time])));
   const gz = its.find(i => Number(i.id) === Z);
-  ok('G8 다른 날에서 옮겨 온 수업 = 수업 칸 그대로 + change moved(원래 날짜)', !!gz && gz.date === TODAY && gz.change && gz.change.kind === 'moved' && gz.change.from_date === TOMORROW && !offOf('stu_d'), JSON.stringify(gz && gz.change));
+  /* (2026-11-04) «옮겨 온» 수업은 새 날짜에 진짜 수업으로만 — 원래 날짜(11/04)에는 «📅 앞당김» 보기 전용 칸이 생기는 것이 맞다(I절). */
+  ok('G8 다른 날에서 옮겨 온 수업 = 수업 칸 그대로 + change moved(원래 날짜) · 새 날짜에는 off 칸이 없다', !!gz && gz.date === TODAY && gz.change && gz.change.kind === 'moved' && gz.change.from_date === TOMORROW
+    && !offs.some(o => (o.students || []).some(s => s.uid === 'stu_d') && (o.date === TODAY || !o.moved_away)), JSON.stringify({ ch: gz && gz.change, off: offs.filter(o => (o.students || []).some(s => s.uid === 'stu_d')) }));
   const rDays = its.filter(i => Number(i.id) === R).map(i => i.date), r2Days = its.filter(i => Number(i.id) === R2).map(i => i.date);
   ok('G9 ⏭ «그 주 하루만» 빠진 반복 수업은 그 날 수업 칸에 안 뜬다', !rDays.includes(TODAY), JSON.stringify(rDays));
   ok('G10 짝: 다른 요일 반복 수업은 그대로 뜬다', r2Days.length === 1 && r2Days[0] === TOMORROW, JSON.stringify(r2Days));
@@ -401,6 +403,102 @@ if (process.env.CCV_CHILD === '1') {
   ok('K3 🔒 막힌 시도는 이력에 «remove» 로 안 남는다', !sq.prepare(`SELECT 1 FROM class_audit_log WHERE schedule_id = ? AND action = 'remove'`).get(K1));
   const kHq = await callAdmin('DELETE', `/api/admin/class-schedules/${K1}`, { cookie: 'tok_admin' });
   ok('K4 짝: 본사 계정은 그대로 취소된다(행은 cancelled 로 남는다)', kHq.status === 200 && row(K1).status === 'cancelled', JSON.stringify(kHq));
+  /* ── I. 매주 반복 수업을 «그 주 하루만» 옮긴 경우 + 관리자 주간 시간표(2026-11-04 빈틈 두 개) ──
+     반복 행은 그대로 남고 그 날만 skip_dates 로 빠지며, 옮겨 간 곳은 하루짜리 새 줄(source='recurring-week:<id>')이다
+     (recurring-one-week.ts). 그래서 «지금 행이 새 날짜에 있다» 는 날짜 지정 규칙으로는 원래 날짜 줄이 안 생겼다. */
+  {
+    const { judgeMovedAway, recurWeekChildFor, loadMovedAwayEvents } = await imp('class-change-state.ts');
+    for (const u of ['stu_rw1', 'stu_rw2', 'stu_rw3', 'stu_rw4']) ins(`INSERT OR IGNORE INTO students_erp (user_id, korean_name, shop_name, created_at) VALUES (?,?,'owned-shop',?)`, u, '학생' + u, T0);
+    const reqApprove = async (id, uid, origTime, newDate, newTime) => {
+      const body = { schedule_id: id, teacher_name: 'ALPHA', student_name: '학생' + uid, request_type: 'postpone', orig_date: TOMORROW, orig_time: origTime, reason: 'rw' };
+      if (newDate) Object.assign(body, { new_date: newDate, new_time: newTime });
+      const a = await callAdmin('POST', '/api/admin/schedule-requests', { cookie: 'tok_admin', body });
+      if (a.body && a.body.status === 'pending' && a.body.id) return callAdmin('POST', '/api/admin/schedule-requests/decide', { cookie: 'tok_admin', body: { id: a.body.id, action: 'approve' } });
+      return a;
+    };
+    const kidsOf = (id) => sq.prepare('SELECT * FROM class_schedules WHERE source = ?').all('recurring-week:' + id).map(x => ({ ...x }));
+    // RW1 매주(수) 10:00 → 11/04 회차만 11/05 10:00 → 그 하루짜리 줄을 다시 11/06 으로 끌어 옮김(지금 자리 = 11/06)
+    const RW1 = mkClass('stu_rw1', 'recurring', 'Wed', null, '10:00');
+    let q = await reqApprove(RW1, 'stu_rw1', '10:00', '2026-11-05', '10:00');
+    const k1 = kidsOf(RW1)[0];
+    ok('I0 전제: RW1 은 skip_dates 에 11/04 · 하루짜리 줄이 11/05 에', String(row(RW1).skip_dates || '').includes(TOMORROW) && !!k1 && k1.scheduled_date === '2026-11-05' && row(RW1).scheduled_date == null, JSON.stringify({ q, rw1: row(RW1), k1 }));
+    q = await mv(k1.id, { scheduled_date: '2026-11-06' });
+    ok('I0b 전제: 그 하루짜리 줄을 11/06 으로 다시 옮겼다', q.status === 200 && row(k1.id).scheduled_date === '2026-11-06', JSON.stringify(q));
+    // RW2 매주(수) 12:00 → 11/04 회차만 «날짜 없이» 연기 → 원래 날짜에 postponed 기록 줄(그 줄이 이미 «연기됨» 을 말한다)
+    const RW2 = mkClass('stu_rw2', 'recurring', 'Wed', null, '12:00');
+    q = await reqApprove(RW2, 'stu_rw2', '12:00', null, null);
+    const k2 = kidsOf(RW2)[0];
+    ok('I0c 전제: RW2 는 11/04 12:00 에 postponed 기록 줄', !!k2 && k2.scheduled_date === TOMORROW && k2.status === 'postponed', JSON.stringify({ q, k2 }));
+    // RW3 매주(수) 13:00 → 11/06 13:00 으로 옮겼는데, 원래 자리(11/04 13:00)에 같은 학생 수업을 손으로 다시 넣었다(같은 자리)
+    const RW3 = mkClass('stu_rw3', 'recurring', 'Wed', null, '13:00');
+    q = await reqApprove(RW3, 'stu_rw3', '13:00', '2026-11-06', '13:00');
+    const M3 = mkClass('stu_rw3', 'one_off', null, TOMORROW, '13:00');
+    ok('I0d 전제: RW3 옮김 + 같은 자리에 손으로 넣은 수업', String(row(RW3).skip_dates || '').includes(TOMORROW) && row(M3).scheduled_date === TOMORROW, JSON.stringify(q));
+    // RW4 매주(수) 14:00 — «그 주만» 반영되지 않은 옛 승인 기록(기록만 남음 = skip_dates 없음) → 그 날 수업은 그대로 열린다
+    const RW4 = mkClass('stu_rw4', 'recurring', 'Wed', null, '14:00');
+    sq.prepare(`INSERT INTO schedule_change_requests (schedule_id, request_type, status, orig_date, orig_time, new_date, new_time, decided_by, decided_at, created_at) VALUES (?, 'postpone', 'approved', ?, '14:00', '2026-11-07', '14:00', 'h', ?, ?)`)
+      .run(RW4, TOMORROW, NOW, NOW);
+
+    const d4 = await callAdmin('GET', `/api/admin/classes/today?date=${TOMORROW}`, { cookie: 'tok_admin' });
+    const ss4 = d4.body.sessions || [];
+    const i1 = S(d4.body, RW1);
+    ok('I1 🔑 «그 주 하루만» 옮긴 매주 수업이 원래 날짜(11/04)에 «⏸ 연기됨 → 11/06 10:00»(하루짜리 줄의 «지금 자리»)',
+      !!i1 && i1.moved_away === true && i1.start_time === '10:00' && i1.change && i1.change.label_ko === '⏸ 연기됨 → 11/06 10:00' && i1.change.label_en === '⏸ Postponed → 11/06 10:00' && i1.change.to_date === '2026-11-06' && i1.join_open === false && i1.room_id === null,
+      JSON.stringify(i1 && { ch: i1.change, t: i1.start_time, j: i1.join_open }));
+    const h2 = ss4.filter(x => x.student_uid === 'stu_rw2');
+    ok('I2 짝: 날짜 없이 연기한 회차는 한 줄만(연기 기록 줄) — 원래 날짜 줄과 겹치지 않는다', h2.length === 1 && !h2[0].moved_away && h2[0].postponed === true, JSON.stringify(h2.map(x => ({ id: x.schedule_id, mv: x.moved_away, pp: x.postponed }))));
+    const h3 = ss4.filter(x => x.student_uid === 'stu_rw3');
+    ok('I3 같은 자리에 이미 수업이 있으면 반복 행의 원래 날짜 줄은 안 만든다(한 자리에 두 줄 금지)', h3.length === 1 && !h3[0].moved_away && Number(h3[0].schedule_id) === M3, JSON.stringify(h3.map(x => ({ id: x.schedule_id, mv: x.moved_away }))));
+    const h4 = ss4.filter(x => x.student_uid === 'stu_rw4');
+    ok('I4 ⛔ skip_dates 에 그 날이 없으면(옛 «기록만» 승인) 원래 날짜 줄 없음 — 그 날 수업은 그대로 열린다', h4.length === 1 && !h4[0].moved_away && Number(h4[0].schedule_id) === RW4, JSON.stringify(h4.map(x => ({ id: x.schedule_id, mv: x.moved_away }))));
+    ok('I5 이력 ok · moved_away 건수에 들어간다', d4.body.change_history === 'ok' && d4.body.counts && d4.body.counts.moved_away >= 1, JSON.stringify({ h: d4.body.change_history, c: d4.body.counts }));
+
+    // 강사 주간 달력 — 같은 판정(하루짜리 줄은 이 강사의 조회 결과 안에서 찾는다)
+    const p3 = await portal('tok_alpha');
+    const day4 = (((p3.week && p3.week.days) || []).find(d => d.date === TOMORROW) || {}).items || [];
+    const t1 = day4.find(it => Number(it.schedule_id) === RW1);
+    ok('I6 🔑 강사 주간 달력: 원래 날짜에 «⏸ 연기됨 → 11/06 10:00»(방 없음)', !!t1 && t1.class_state === 'moved_away' && t1.moved_label_ko === '⏸ 연기됨 → 11/06 10:00' && !t1.room_id, JSON.stringify(t1));
+    ok('I7 짝: 강사 달력에서도 날짜 없는 연기·같은 자리 수업은 한 줄만', day4.filter(it => it.student_uid === 'stu_rw2').length === 1 && !day4.some(it => it.student_uid === 'stu_rw2' && it.class_state === 'moved_away')
+      && day4.filter(it => it.student_uid === 'stu_rw3').length === 1 && !day4.some(it => it.student_uid === 'stu_rw3' && it.class_state === 'moved_away'),
+      JSON.stringify(day4.filter(it => /stu_rw/.test(it.student_uid || '')).map(it => [it.student_uid, it.class_state])));
+
+    // 관리자 주간 시간표 — off_items 에 «옮겨 간» 칸(off:'postponed', moved_away)
+    const w3 = await callAdmin('GET', '/api/admin/schedules?week=2026-11-02', { cookie: 'tok_admin' });
+    const o3 = (w3.body && w3.body.off_items) || [];
+    const ofU = (uid) => o3.filter(o => (o.students || []).some(s => s.uid === uid));
+    const wr1 = ofU('stu_rw1').find(o => o.moved_away);
+    ok('I8 🔑 주간 시간표: 매주 수업의 원래 날짜(11/04 10:00)에 «⏸ 연기됨 → 11/06 10:00» 보기 전용 칸', !!wr1 && wr1.off === 'postponed' && wr1.date === TOMORROW && /^10:00/.test(wr1.start_time) && wr1.change.label_ko === '⏸ 연기됨 → 11/06 10:00' && wr1.id === undefined && wr1.move_field === undefined && String(wr1.teacher_id) === '1', JSON.stringify(wr1));
+    const wp1 = ofU('stu_p').find(o => o.moved_away);
+    ok('I9 🔑 주간 시간표: 날짜 지정 수업도 원래 날짜(11/03)에 «⏸ 연기됨 → 11/10 18:30»', !!wp1 && wp1.date === TODAY && wp1.change.label_ko === '⏸ 연기됨 → 11/10 18:30' && !!wp1.change.by, JSON.stringify(wp1));
+    ok('I10 짝: 주간 시간표 — 날짜 없는 연기는 연기 기록 칸 하나 · 같은 자리 수업이 있으면 옮겨 간 칸 없음 · 옛 기록만 승인은 칸 없음',
+      ofU('stu_rw2').length === 1 && !ofU('stu_rw2')[0].moved_away && !ofU('stu_rw3').some(o => o.moved_away) && !ofU('stu_rw4').length && w3.body.off_complete === true,
+      JSON.stringify({ rw2: ofU('stu_rw2'), rw3: ofU('stu_rw3').map(o => o.moved_away), rw4: ofU('stu_rw4').length, c: w3.body.off_complete }));
+    const wt3 = await callAdmin('GET', '/api/admin/schedules?week=2026-11-02', { cookie: 'tok_alpha' });
+    const tr1 = ((wt3.body && wt3.body.off_items) || []).find(o => o.moved_away && (o.students || []).some(s => s.uid === 'stu_p'));
+    ok('I11 🔒 강사에게는 옮겨 간 칸의 누가·사유가 안 실린다', !!tr1 && tr1.change.by === null && tr1.change.reason === null, JSON.stringify(tr1 && tr1.change));
+
+    // 판정 정본 — 순수 함수
+    const ev0 = { schedule_id: '77', from_date: '2026-11-04', from_time: '10:00', at: NOW, by: 'x', reason: null };
+    const rec = { id: 77, scheduled_date: null, start_time: '10:00', status: 'active', skip_dates: '2026-11-04' };
+    ok('J1 반복 행: skip_dates 에 그 날이 없으면 null', judgeMovedAway({ ...rec, skip_dates: '2026-11-11' }, ev0, { showActor: false }, null) === null);
+    ok('J2 반복 행: 하루짜리 줄이 원래 날짜(날짜 없는 연기 기록)면 null', judgeMovedAway(rec, ev0, { showActor: false }, { id: 5, scheduled_date: '2026-11-04', start_time: '10:00', status: 'postponed' }) === null);
+    const j3 = judgeMovedAway(rec, ev0, { showActor: false }, null);
+    ok('J3 하루짜리 줄도 기록의 새 날짜도 없으면 «이 날은 수업 없음» — 날짜를 지어내지 않는다', !!j3 && j3.label_ko === '⏸ 연기됨 — 이 날은 수업 없음' && j3.label_en === '⏸ Postponed — no class this day' && j3.to_date === null, JSON.stringify(j3));
+    const j4 = judgeMovedAway(rec, { ...ev0, to_date: '2026-11-12', to_time: '09:30' }, { showActor: false }, null);
+    ok('J4 하루짜리 줄을 못 찾으면 기록의 새 날짜로', !!j4 && j4.label_ko === '⏸ 연기됨 → 11/12 09:30' && j4.to_date === '2026-11-12', JSON.stringify(j4));
+    const j5 = judgeMovedAway(rec, { ...ev0, to_date: '2026-11-12', to_time: '09:30' }, { showActor: false }, { id: 6, scheduled_date: '2026-11-13', start_time: '11:00', status: 'cancelled' });
+    ok('J5 하루짜리 줄이 있으면 그 «지금 자리» 가 기록보다 먼저 · 그 뒤 취소면 덧붙인다', !!j5 && j5.label_ko === '⏸ 연기됨 → 11/13 11:00 · 그 뒤 취소됨', JSON.stringify(j5));
+    const kids = [{ id: 5, notes: '반복수업 2026-11-04 회차를 옮김(원래 #77)' }, { id: 9, notes: '반복수업 2026-11-04 회차를 옮김(원래 #77)' }, { id: 12, notes: '반복수업 2026-11-11 회차를 옮김(원래 #77)' }];
+    ok('J6 하루짜리 줄 고르기: 그 날짜 것 중 나중 것(id 큰 것) · 다른 날짜 줄은 안 고른다', recurWeekChildFor(kids, '2026-11-04')?.id === 9 && recurWeekChildFor(kids, '2026-11-18') === null);
+    const ins7 = sq.prepare(`INSERT INTO class_audit_log (action, schedule_id, lesson_date, lesson_time, actor, detail, created_at) VALUES ('postpone', ?, '2027-04-07', '10:00', 'h', ?, ?)`);
+    ins7.run(930001, '→ 2027-04-09 09:30 · 자동승인', RealDate.parse('2027-04-01T00:00:00Z'));
+    ins7.run(930002, '자동승인', RealDate.parse('2027-04-01T00:00:00Z'));
+    const lj = await loadMovedAwayEvents(DB, '2027-04-07', '2027-04-07');
+    const e1 = lj.byKey.get('930001|2027-04-07'), e2 = lj.byKey.get('930002|2027-04-07');
+    ok('J7 이력 detail 의 «→ 날짜 시각» 을 읽는다 — 짝: 없으면 null', !!e1 && e1.to_date === '2027-04-09' && e1.to_time === '09:30' && !!e2 && e2.to_date === null, JSON.stringify({ e1, e2 }));
+    sq.exec(`DELETE FROM class_audit_log WHERE schedule_id >= 930000`);
+    void q;
+  }
 
   process.stdout.write('\n@@RESULTS@@' + JSON.stringify({ results }) + '\n');
   process.exit(0);
@@ -421,6 +519,26 @@ export async function resolve(spec, ctx, next) {
 }`);
 writeFileSync(join(tmp, 'reg.mjs'), `import { register } from 'node:module'; register('./hooks.mjs', import.meta.url);`);
 
+/* ⏱ (2026-11-04) 변이가 40종을 넘어 «하나씩» 돌리면 --fast 동시 실행에서 90초 상한을 넘었다 — 변이만 동시에 돌린다.
+   결과 줄은 원래 순서대로 찍는다(출력이 매번 같게). CCV_JOBS=1 이면 예전처럼 하나씩. */
+const parseChild = (stdout, stderr) => {
+  const out = stdout || '';
+  const i = out.lastIndexOf('@@RESULTS@@');
+  if (i < 0) return { crashed: true, err: ((stderr || '') + out).split('\n').filter(Boolean).slice(-22).join('\n') };
+  return JSON.parse(out.slice(i + '@@RESULTS@@'.length).trim().split('\n')[0]);
+};
+function runChildAsync(srcDir) {
+  return new Promise((resolve) => {
+    const cp = spawn(process.execPath,
+      ['--experimental-strip-types', '--no-warnings', '--import', pathToFileURL(join(tmp, 'reg.mjs')).href, SELF],
+      { env: { ...process.env, CCV_CHILD: '1', CCV_SRC: srcDir } });
+    let so = '', se = '';
+    cp.stdout.on('data', (d) => { so += d; });
+    cp.stderr.on('data', (d) => { se += d; });
+    const t = setTimeout(() => { try { cp.kill('SIGKILL'); } catch {} }, 180000);
+    cp.on('close', () => { clearTimeout(t); try { resolve(parseChild(so, se)); } catch (e) { resolve({ crashed: true, err: String(e) }); } });
+  });
+}
 function runChild(srcDir) {
   const r = spawnSync(process.execPath,
     ['--experimental-strip-types', '--no-warnings', '--import', pathToFileURL(join(tmp, 'reg.mjs')).href, SELF],
@@ -472,7 +590,7 @@ const MUTANTS = [
   { name: '주간 시간표: 역할 판정을 꺼 버림(강사도 본사처럼 봄)', expect: /G13 |G14 /,
     edits: [['api-admin.ts', '_offIsTeacher = !_offActor || !_offActor.ok || !!_offActor.isTeacher;', '_offIsTeacher = !!(_offActor && _offActor.ok && _offActor.isTeacher) && false;']] },
   { name: '원래 날짜 줄: 판정 조건 뒤집기(같은 날짜일 때만 줄을 만듦)', expect: /H1 |H2 |H5 /,
-    edits: [['class-change-state.ts', "if (!from || !cur || cur === from) return null;", "if (!from || !cur || cur !== from) return null;"]] },
+    edits: [['class-change-state.ts', "if (cur === from) return null;", "if (cur !== from) return null;"]] },
   { name: '원래 날짜 줄: 요청 승인 기록을 안 읽음', expect: /H1b /,
     edits: [['class-change-state.ts', "WHERE status = 'approved' AND created_at >= ?", "WHERE status = 'never' AND created_at >= ?"]] },
   { name: '원래 날짜 줄: 끌어 옮기기 이력을 안 읽음', expect: /H2 /,
@@ -480,16 +598,16 @@ const MUTANTS = [
   { name: '원래 날짜 줄: 출결 판정을 태움(결석으로 그릴 수 있음)', expect: /H4 /,
     edits: [['api-admin.ts', 'sessions.filter(x => !x.moved_away), dateStr', 'sessions, dateStr']] },
   { name: '원래 날짜 줄: 지사에도 누가·사유를 실음', expect: /H11 /,
-    edits: [['api-admin.ts', 'judgeMovedAway(s, _mvEv.byKey.get(movedAwayKey(s.id, dateStr)), { showActor: _ctSeeContact })', 'judgeMovedAway(s, _mvEv.byKey.get(movedAwayKey(s.id, dateStr)), { showActor: true })']] },
+    edits: [['api-admin.ts', 'judgeMovedAway(s, _mvEv.byKey.get(movedAwayKey(s.id, dateStr)), { showActor: _ctSeeContact },', 'judgeMovedAway(s, _mvEv.byKey.get(movedAwayKey(s.id, dateStr)), { showActor: true },']] },
   { name: '원래 날짜 줄: 스코프 조건을 뺌(지사에 남의 학생이 샘)', expect: /H11b /,
     edits: [['api-admin.ts', "AND LOWER(COALESCE(cs.user_id,'')) NOT IN ('lms','type_seed')\n                        ${_ctStu.cond ? `AND (${_ctStu.cond})` : ''}`,\n            { tail: _ctStu.binds });",
              "AND LOWER(COALESCE(cs.user_id,'')) NOT IN ('lms','type_seed')`,\n            { tail: [] });"]] },
   { name: '원래 날짜 줄: 망고아이 수업 수에 섞음', expect: /H8 /,
     edits: [['api-admin.ts', 'mangoi: sessions.length - c24Count - sessions.filter(x => x.moved_away).length,', 'mangoi: sessions.length - c24Count,']] },
   { name: '강사 주간 달력: 원래 날짜 줄을 안 넣음', expect: /H14 /,
-    edits: [['api-teacher.ts', 'for (const m of _mvAwayItems) { const d = weekDays.find((x: any) => x.date === m.date); if (d) d.items.push({ ...m.item }); }', '']] },
+    edits: [['api-teacher.ts', 'for (const m of _mvAwayItems) { const d = weekDays.find((x: any) => x.date === m.date); if (d && !mvShadowed(d, m)) d.items.push({ ...m.item }); }', '']] },
   { name: '강사 월간 달력: 원래 날짜 줄을 안 넣음', expect: /H17 /,
-    edits: [['api-teacher.ts', 'for (const m of _mvAwayItems) { const d = monthDays.find((x: any) => x.date === m.date); if (d) d.items.push({ ...m.item }); }', '']] },
+    edits: [['api-teacher.ts', 'for (const m of _mvAwayItems) { const d = monthDays.find((x: any) => x.date === m.date); if (d && !mvShadowed(d, m)) d.items.push({ ...m.item }); }', '']] },
   { name: '후속: 강사의 연기 이력 직접 쓰기를 다시 열어 둠', expect: /H19 /,
     edits: [['api-admin.ts', "if (_cawActor.isTeacher && ['postpone', 'reschedule', 'remove', 'restore'].includes(action)) {", "if (false && _cawActor.isTeacher) {"]] },
   { name: '후속: 강사의 모든 기록을 막음(end 까지)', expect: /H19b /,
@@ -508,9 +626,33 @@ const MUTANTS = [
     edits: [['api-admin.ts', 'if (!_delActor || !_delActor.ok || _delActor.isTeacher) {', 'if (!_delActor || !_delActor.ok || !_delActor.isTeacher) {']] },
   { name: '🔒 취소: 역할을 못 읽어도 통과(«모르면 막기» 해제)', expect: /K2 /,
     edits: [['api-admin.ts', 'if (!_delActor || !_delActor.ok || _delActor.isTeacher) {', 'if (_delActor && _delActor.ok && _delActor.isTeacher) {']] },
+  { name: '반복: skip_dates 확인을 뺌(옛 «기록만» 승인에도 원래 날짜 줄)', expect: /I4 |J1 /,
+    edits: [['class-change-state.ts', 'if (!normSkipDates(row.skip_dates).includes(from)) return null;', '']] },
+  { name: '반복: 판정 조건 뒤집기(skip_dates 에 «없을 때» 줄을 만듦)', expect: /I1 |I4 |J1 /,
+    edits: [['class-change-state.ts', 'if (!normSkipDates(row.skip_dates).includes(from)) return null;', 'if (normSkipDates(row.skip_dates).includes(from)) return null;']] },
+  { name: '반복: 하루짜리 줄이 원래 날짜(연기 기록)여도 줄을 만듦', expect: /J2 /,
+    edits: [['class-change-state.ts', 'if (cDate === from) return null;', '']] },
+  { name: '반복: 목적지를 모르면 원래 날짜를 «→» 로 지어냄', expect: /J3 /,
+    edits: [['class-change-state.ts', 'if (td && td !== from) { toDate = td; toTime = hhmm(ev.to_time); }', '{ toDate = td || from; toTime = hhmm(ev.to_time || ev.from_time); }']] },
+  { name: '반복: 기록 detail 의 새 날짜를 안 읽음', expect: /J7 /,
+    edits: [['class-change-state.ts', '        ...moveToOf(r.detail) });', '        });']] },
+  { name: '반복: 하루짜리 줄 조회를 안 함(오늘 수업 — 기록의 옛 새 날짜로 말함)', expect: /I1 /,
+    edits: [['api-admin.ts', 'const _rw = _rwIds.length ? await loadRecurWeekChildren(env.DB, _rwIds) : null;', 'const _rw = null;']] },
+  { name: '반복: 같은 자리 빼기를 뺌(오늘 수업)', expect: /I3 /,
+    edits: [['api-admin.ts', 'if (_isRecur && _taken.has(slotKeyOf(dateStr, ch.from_time || s.start_time, s.user_id))) continue;', '']] },
+  { name: '반복: 같은 자리 빼기를 뺌(강사 달력)', expect: /I7 /,
+    edits: [['api-teacher.ts', '=> !!m.recur\n    && (day.items', '=> false\n    && (day.items']] },
+  { name: '반복: 강사 달력이 하루짜리 줄을 안 넘김', expect: /I6 /,
+    edits: [['api-teacher.ts', "_recur ? recurWeekChildFor(_mvKids.get(String(r.id)), ev.from_date) : null);", 'null);']] },
+  { name: '주간 시간표: 옮겨 간 칸을 안 실음', expect: /I8 |I9 /,
+    edits: [['api-admin.ts', 'const ch = judgeMovedAway(r, ev, { showActor: _offShowActor },', 'const ch = null && judgeMovedAway(r, ev, { showActor: _offShowActor },']] },
+  { name: '주간 시간표: 같은 자리 빼기를 뺌', expect: /I10 /,
+    edits: [['api-admin.ts', 'if (_recur && _takenW.has(slotKeyOf(ev.from_date, st, uid))) continue;', '']] },
+  { name: '주간 시간표: 옮겨 간 칸에 누구에게나 누가·사유', expect: /I11 /,
+    edits: [['api-admin.ts', 'const ch = judgeMovedAway(r, ev, { showActor: _offShowActor },', 'const ch = judgeMovedAway(r, ev, { showActor: true },']] },
 ];
-for (const m of MUTANTS) {
-  const dir = join(tmp, 'm-' + MUTANTS.indexOf(m));
+const prepared = MUTANTS.map((m, idx) => {
+  const dir = join(tmp, 'm-' + idx);
   cpSync(REAL_SRC, dir, { recursive: true });
   let missing = '';
   for (const [f, from, to] of m.edits) {
@@ -518,8 +660,23 @@ for (const m of MUTANTS) {
     if (!s.includes(from)) { missing = f; break; }
     writeFileSync(p, s.replace(from, to));
   }
+  return { m, dir, missing };
+});
+const JOBS = Math.max(1, Number(process.env.CCV_JOBS) || Math.min(4, (availableParallelism && availableParallelism()) || 2));
+const outcomes = new Array(prepared.length);
+let next = 0;
+await Promise.all(Array.from({ length: JOBS }, async () => {
+  for (;;) {
+    const k = next++;
+    if (k >= prepared.length) return;
+    if (prepared[k].missing) continue;
+    outcomes[k] = await runChildAsync(prepared[k].dir);
+  }
+}));
+for (let k = 0; k < prepared.length; k++) {
+  const { m, missing } = prepared[k];
   if (missing) { fail++; console.log('  FAIL 변이 «' + m.name + '» — ' + missing + ' 에서 바꿀 자리를 못 찾았다(소스가 바뀌었으면 변이도 고칠 것)'); continue; }
-  const res = runChild(dir);
+  const res = outcomes[k] || { crashed: true, err: 'no result' };
   const failed = res.crashed ? ['(crash)'] : res.results.filter(t => !t.pass).map(t => t.name);
   const caught = !res.crashed && failed.some(n => m.expect.test(n));
   if (caught) { pass++; console.log('  PASS 변이 잡힘 «' + m.name + '» → ' + failed.filter(n => m.expect.test(n)).slice(0, 3).join(' · ')); }
