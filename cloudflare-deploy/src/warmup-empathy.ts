@@ -102,14 +102,19 @@ export const CHEER_LEADS: readonly string[] = [
   'you did it', 'high five', 'sweet', 'nice going', 'keep it up',
   // 🎯 (2026-10-29) 강남캐피 원장님이 실제로 들은 말 — 「It's great!」(정직한 칭찬 시범, src/warmup-honest.ts)
   "it's great", "it's good", "it's perfect", "it's awesome", "it's amazing",
+  // 🗣️ (2026-11-04) 아바타 첫마디의 «좋은 소식» 칸 — 「How fun!」(「Oh, nice!」 류는 아래 CHEER_RE 의 «Oh,» 머리로 잡는다)
+  'how fun', 'how cool', 'how nice',
 ];
 
 /* 긴 것부터 맞춰야 「good job」 이 「good」 으로 잘리지 않는다 */
 const LEAD_KEYS = [...CHEER_LEADS].sort((a, b) => b.length - a.length);
 const escRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-/** 낱말 경계 — 「Nice」 가 「Nicely」 를 물면 안 된다. 아포스트로피 두 종류 모두 허용 */
+/** 낱말 경계 — 「Nice」 가 「Nicely」 를 물면 안 된다. 아포스트로피 두 종류 모두 허용
+ *  🗣️ (2026-11-04 사장님 「틀린 문장에선 반드시 칭찬을 막아줘」) 앞에 «Oh,» 가 붙은 칭찬도 칭찬이다 —
+ *     아바타 첫마디(「Oh, nice!」「Oh, cool!」「Oh, great!」「Oh, wow!」)가 이 판정을 비켜 가면 틀린 문장에도 칭찬이 남는다.
+ *     ⛔ «Oh» 만으로는 떼지 않는다 — 「Oh, I see.」「Oh, really?」「Oh no.」 는 칭찬이 아니다(뒤가 목록에 있어야 한다). */
 const CHEER_RE = new RegExp(
-  '^(' + LEAD_KEYS.map((k) => escRe(k).replace(/'/g, "['’]")).join('|') + ')(?![A-Za-z\'’])', 'i');
+  '^((?:oh[,!]?\\s+)?(?:' + LEAD_KEYS.map((k) => escRe(k).replace(/'/g, "['’]")).join('|') + '))(?![A-Za-z\'’])', 'i');
 /** 앞에 낄 수 있는 것: 공백·이모지 (글자·문장부호는 안 된다) */
 const GAP_RE = /^[\s‍️\u{1f3fb}-\u{1f3ff}\p{Extended_Pictographic}]*/u;
 /** 상투구 뒤에 반드시 있어야 하는 종결부호. 없으면 «문장의 일부» 로 보고 떼지 않는다
