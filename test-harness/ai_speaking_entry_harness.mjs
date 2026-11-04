@@ -136,12 +136,14 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   // ② pair with the server: load src/warmup-honest.ts (types stripped) and run it
   const SRC = fileURLToPath(new URL('../cloudflare-deploy/src/', import.meta.url));
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aisp-hint-'));
-  for (const [from, to] of [['warmup-empathy.ts', 'warmup-empathy.mjs'], ['warmup-shop-mode.ts', 'warmup-shop-mode.mjs'], ['warmup-honest.ts', 'warmup-honest.mjs']]) {
+  for (const [from, to] of [['warmup-empathy.ts', 'warmup-empathy.mjs'], ['warmup-shop-mode.ts', 'warmup-shop-mode.mjs'], ['warmup-honest.ts', 'warmup-honest.mjs'], ['english-only.ts', 'english-only.mjs'], ['warmup-correction.ts', 'warmup-correction.mjs']]) {
     const js = stripTypeScriptTypes(fs.readFileSync(path.join(SRC, from), 'utf8'))
-      .replace(/from '\.\/warmup-empathy'/g, "from './warmup-empathy.mjs'").replace(/from '\.\/warmup-shop-mode'/g, "from './warmup-shop-mode.mjs'");
+      .replace(/from '\.\/warmup-empathy'/g, "from './warmup-empathy.mjs'").replace(/from '\.\/warmup-shop-mode'/g, "from './warmup-shop-mode.mjs'")
+      .replace(/from '\.\/english-only'/g, "from './english-only.mjs'");
     fs.writeFileSync(path.join(tmp, to), js);
   }
   const H = await import(pathToFileURL(path.join(tmp, 'warmup-honest.mjs')).href);
+  ok(typeof H.ensureFocusedFixSpoken === 'function' && typeof H.gateFixForMode === 'function', 'server: warmup-honest functions loaded (renamed export → clean FAIL, not a crash)');
   const reps = H.FOCUSED_FIX_REPEATS;
   ok(Number.isInteger(reps) && reps > 0, 'server repeat count loaded from the real module');
   const FIX = { was: 'I go to the park.', now: 'I went to the park.' };
@@ -156,7 +158,71 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   for (const shown of [FIX, null]) for (const rep of [true, false]) if (H.gateFixForMode('free_talk', FIX, shown, rep).repeat) freeRepeats++;
   ok(freeRepeats === 0, 'server: free talk never asks to repeat (gateFixForMode run 4 ways)');
   ok(/따라 말하기 없이/.test(hint('free_talk', 'ko')) && /no repeat/i.test(hint('free_talk', 'en')), 'free talk hint: no repeat-after-me (pairs with the server)');
-  ok(hint('balanced', 'ko').includes('1번') && /\bonce\b/.test(hint('balanced', 'en')), 'balanced hint: repeat once');
+  // balanced (2026-11-04 사장님 「균형 문구를 서버 동작에 맞게 약하게」): the server does NOT ask to repeat after every fix —
+  // warmupShouldOfferRepeat allows it at most once per WARMUP_REPEAT_GAP_TURNS turns. Run the real gate turn by turn.
+  const C = await import(pathToFileURL(path.join(tmp, 'warmup-correction.mjs')).href);
+  const gap = C.WARMUP_REPEAT_GAP_TURNS;
+  ok(Number.isInteger(gap) && gap > 1, 'server: balanced repeat gap loaded from the real module (' + gap + ' turns)');
+  ok(typeof C.decideWarmupFixShow === 'function' && typeof C.warmupShouldOfferRepeat === 'function' && typeof H.gateFixForMode === 'function', 'server: decideWarmupFixShow / warmupShouldOfferRepeat / gateFixForMode loaded');
+  const MAJOR = { was: 'I go to the park yesterday.', now: 'I went to the park yesterday.', tag: 'past_tense', severity: 'major' };
+  const MINOR = { was: 'I saw cat.', now: 'I saw a cat.', tag: 'article', severity: 'minor' };
+  let memo = null, shows = 0, reps2 = 0;
+  for (let turn = 1; turn <= 6; turn++) {
+    const d = C.decideWarmupFixShow(MAJOR, memo, turn, { immediate: false });
+    const g = H.gateFixForMode('balanced', MAJOR, d.show, C.warmupShouldOfferRepeat(d.show, d.memo, turn));
+    if (g.show) shows++; if (g.repeat) reps2++;
+    memo = d.memo;
+  }
+  ok(shows === 6 && reps2 >= 1 && reps2 < shows, 'server: balanced fixes a big mistake every turn but asks to repeat only some turns (' + shows + ' fixes, ' + reps2 + ' repeats)');
+  // small mistakes are fixed too, just not on back-to-back turns → «mostly key mistakes», not «only key mistakes»
+  let mm = null, minorShows = 0;
+  for (let turn = 1; turn <= 6; turn++) { const d = C.decideWarmupFixShow(MINOR, mm, turn, { immediate: false }); if (H.gateFixForMode('balanced', MINOR, d.show, false).show) minorShows++; mm = d.memo; }
+  ok(minorShows >= 1 && minorShows < 6, 'server: balanced fixes small mistakes on some turns, not every turn (' + minorShows + '/6)');
+  ok(/위주|주로|대부분/.test(hint('balanced', 'ko')) && /mostly|mainly|chiefly/i.test(hint('balanced', 'en')), 'balanced hint says «mostly» key mistakes (small ones are fixed too)');
+  ok(!/만\s*고치|만 고쳐/.test(hint('balanced', 'ko')) && !/\bonly\b/i.test(hint('balanced', 'en')), 'balanced hint does not say «only» key mistakes');
+
+  // wiring — the two screens' OWN lines, cut out of the server source (types stripped) and run turn by turn.
+  // The functions above can be right while a screen ignores them (e.g. `offerRepeat = !!showFix`) — this catches that.
+  const SRCF = f => fs.readFileSync(path.join(SRC, f), 'utf8');
+  const cutLines = (src, startMark, endMark) => { const a = src.indexOf(startMark); if (a < 0) return ''; const e = src.indexOf(endMark, a); if (e < 0) return ''; const nl = src.indexOf('\n', e); return src.slice(a, nl < 0 ? src.length : nl); };
+  const IDX = SRCF('index.ts'), AIF = SRCF('api-ai.ts');
+  const wSnip = cutLines(IDX, 'const decided = decideWarmupFixShow(verified, memoIn, turnCount', 'if (honest) { const g = gateFixForMode(');
+  const fSnip = cutLines(AIF, 'const immediateFix = friendMode', 'const immediateFix = friendMode') + '\n'
+    + cutLines(AIF, 'const decided = decideWarmupFixShow(verified, memoIn, turnNo', "else if (friendMode === 'focused') offerRepeat");
+  ok(wSnip.includes('warmupShouldOfferRepeat(') && fSnip.includes('warmupShouldOfferRepeat(') && fSnip.includes('const immediateFix'), 'wiring: decide→repeat lines cut out of src/index.ts (warmup) and src/api-ai.ts (AI friend)');
+  let wire = ''; try { wire = stripTypeScriptTypes(
+    'export async function warm(decideWarmupFixShow, warmupShouldOfferRepeat, gateFixForMode, verified, memoIn, turnCount, honest, ctxUserId) {\n'
+    + "  let showFix = null, traceTag = '', traceReason = 'shown', offerRepeat = false;\n" + wSnip + '\n  return { showFix, offerRepeat, memo: decided.memo };\n}\n'
+    + 'export async function friend(decideWarmupFixShow, warmupShouldOfferRepeat, gateFixForMode, verified, memoIn, turnNo, friendMode, logAiFriendFix, env, uid) {\n'
+    + '  let showFix = null, offerRepeat = false;\n' + fSnip + '\n  return { showFix, offerRepeat, memo: decided.memo };\n}\n'); } catch (e) { wire = ''; }
+  fs.writeFileSync(path.join(tmp, 'wire.mjs'), wire);
+  let W = null; try { if (!wire) throw new Error('strip failed'); W = await import(pathToFileURL(path.join(tmp, 'wire.mjs')).href); } catch (e) { W = null; }
+  ok(W && typeof W.warm === 'function' && typeof W.friend === 'function', 'wiring: the cut lines compile and load');
+  const runScreen = async (screen, mode, fix) => {
+    let m = null, sh = 0, rp = 0;
+    try {
+      for (let t = 1; t <= 6; t++) {
+        const r = screen === 'warmup'
+          ? await W.warm(C.decideWarmupFixShow, C.warmupShouldOfferRepeat, H.gateFixForMode, fix, m, t, { mode }, '')
+          : await W.friend(C.decideWarmupFixShow, C.warmupShouldOfferRepeat, H.gateFixForMode, fix, m, t, mode, async () => {}, { DB: null }, 'u1');
+        if (r.showFix) sh++; if (r.offerRepeat) rp++; m = r.memo;
+      }
+    } catch (e) { return { sh: -1, rp: -1, err: String((e && e.message) || e) }; }
+    return { sh, rp };
+  };
+  for (const screen of (W ? ['warmup', 'AI friend'] : [])) {
+    const b = await runScreen(screen, 'balanced', MAJOR), f = await runScreen(screen, 'focused', MAJOR), fr = await runScreen(screen, 'free_talk', MAJOR);
+    ok(b.sh === 6 && b.rp >= 1 && b.rp < b.sh, 'wiring: ' + screen + ' balanced fixes every turn, repeat only some turns (' + JSON.stringify(b) + ')');
+    // pairs — prove the run sees the mode (otherwise «never repeat» or «always repeat» could pass the line above by luck)
+    ok(f.sh === 6 && f.rp === 6, 'wiring: ' + screen + ' focused repeats every turn (' + JSON.stringify(f) + ')');
+    ok(fr.rp === 0, 'wiring: ' + screen + ' free talk never repeats (' + JSON.stringify(fr) + ')');
+    const bm = await runScreen(screen, 'balanced', MINOR);   // «mostly key mistakes»: small ones are fixed, but not on back-to-back turns
+    ok(bm.sh >= 1 && bm.sh < 6, 'wiring: ' + screen + ' balanced fixes small mistakes on some turns, not every turn (' + JSON.stringify(bm) + ')');
+  }
+  // so the hint must say «sometimes», not «every time / once after each fix»
+  ok(/따라 말/.test(hint('balanced', 'ko')) && /repeat/i.test(hint('balanced', 'en')), 'balanced hint mentions repeat-after-me');
+  ok(/가끔|때때로|이따금|때로/.test(hint('balanced', 'ko')) && /sometimes|now and then|occasionally|from time to time/i.test(hint('balanced', 'en')), 'balanced hint says the repeat is occasional (pairs with the server gap)');
+  ok(!/1\s*번|한\s*번|매번|항상|꼭|마다|(^|\s)늘(\s|$)/.test(hint('balanced', 'ko')) && !/\bonce\b|every|\beach\b|always|then you repeat/i.test(hint('balanced', 'en')), 'balanced hint does not promise a repeat after every fix');
   fs.rmSync(tmp, { recursive: true, force: true });
 
   // ③ renderSettings cut out of the page and run on a fake DOM — the picked level's line, in the screen language
@@ -167,8 +233,9 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
     for (; i < hub.length; i++) { if (hub[i] === '{') d++; else if (hub[i] === '}' && --d === 0) break; }
     return hub.slice(s, i + 1);
   };
-  const body = ['T', 'esc', 'renderSettings'].map(fnSrc);
-  ok(body.every(b => b.length > 20) && body[2].includes('corrState'), 'renderSettings / T / esc cut out of the page');
+  // 2026-11-04: renderSettings now draws the picked-but-unsaved «draft» (saved only on «확인»), and calls renderOk
+  const body = ['T', 'esc', 'renderSettings', 'renderOk', 'draftMissing'].map(fnSrc);
+  ok(body.every(b => b.length > 20) && body[2].includes('corrState'), 'renderSettings / T / esc / renderOk / draftMissing cut out of the page');
   const run = (lang, corr) => {
     const a = tags.map(attrs);
     const buttons = a.map(o => ({ getAttribute: k => (k in o ? o[k] : null), setAttribute: (k, v) => { o[k] = String(v); } }));
@@ -178,8 +245,8 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
       querySelectorAll: sel => (sel === '[data-corr]' ? buttons : []),
       querySelector: sel => { const m = /^\[data-corr="([^"]+)"\]$/.exec(sel); return m ? buttons.find(b => b.getAttribute('data-corr') === m[1]) || null : null; }
     };
-    const SET = { read: () => ({ level: 0, corr, lang }), LEVELS: [] };
-    new Function('document', 'SET', 'LS', 'ui', body.join('\n') + '\nrenderSettings();')(document, SET, {}, lang);
+    const SET = { read: () => { throw new Error('renderSettings must draw the draft, not storage'); }, LEVELS: [], CORR: LV };
+    new Function('document', 'SET', 'LS', 'ui', 'draft', 'okState', body.join('\n') + '\nrenderSettings();')(document, SET, {}, lang, { level: 0, corr }, '');
     return { text: el.corrState.textContent, pressed: a.map(o => o['aria-pressed']) };
   };
   for (const lang of ['ko', 'en']) {
@@ -194,4 +261,144 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   ok(run('en', 'focused').text !== run('ko', 'focused').text, 'ko and en lines differ (catches a swapped language)');
   ok(/aria-describedby="corrState"/.test(hub), 'the button group is described by the hint line');
   console.log('PASS: correction hint line (A안 · ①설명형) — ' + n + ' checks, server run + page function run');
+}
+// 2026-11-04 owner: the «✅ 저장했어요 — 세 가지 연습에 함께 적용돼요» line and the note under it were removed and a
+// «확인» button added. Picking language / level / corrections only changes the on-screen choice (draft); «확인»
+// saves all three at once (level·corrections → both screens' keys, language → only when it differs from storage).
+// The page's WHOLE inline script (its own declarations and its own boot line) is RUN on a fake DOM with the real
+// settings module, so «clicking a button no longer writes» and «확인 writes» are both measured, not grepped.
+// 2026-11-04 trap-check: the first version cut out functions and wrote its own boot line — dropping `wire();` or
+// `renderSettings();` from the page, or moving `var draft` below the boot, all still passed. Now the page boots itself.
+{
+  const vm = await import('node:vm');
+  let n = 0; const ok = (v, m) => { n++; assert.ok(v, m); };
+  const fnSrc = name => {
+    const s = hub.indexOf('function ' + name + '(');
+    if (s < 0) return '';
+    let d = 0, i = hub.indexOf('{', s);
+    for (; i < hub.length; i++) { if (hub[i] === '{') d++; else if (hub[i] === '}' && --d === 0) break; }
+    return hub.slice(s, i + 1);
+  };
+  // the one inline <script> (no src) — the page's own code, run as-is
+  const inline = [...hub.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+  ok(inline.length === 1 && inline[0].includes('confirmSettings') && /\}\)\(\);\s*$/.test(inline[0]), 'one inline script found (self-booting IIFE)');
+  // the visually-hidden rule really hides (otherwise the removed «…함께 적용돼요» line shows again under the button)
+  const css = hub.slice(hub.indexOf('<style>'), hub.indexOf('</style>'));
+  ok(/\.sr\{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect\(0 0 0 0\)/.test(css), '.sr rule is a real visually-hidden rule (1px + clip)');
+  ok(!/#setMsg\s*\{/.test(css), 'no #setMsg rule that could make the status line visible again');
+
+  // markup: the visible lines are gone, a real button and a screen-reader-only status remain
+  const markup = hub.replace(/<script[\s\S]*?<\/script>/g, '');
+  ok(!/class="note"/.test(markup) && !markup.includes('목소리·말 빠르기는 각 화면에서'), 'the note under the settings is removed');
+  ok(!markup.includes('함께 적용돼요'), 'no visible «함께 적용돼요» text left in the markup');
+  ok(/<button type="button" class="ok-btn" id="setOk"[^>]*>/.test(markup) && markup.includes('id="setOkTxt"'), 'the «확인» button exists');
+  ok(/<p id="setMsg" class="sr" role="status"/.test(markup), 'status line kept only for screen readers (visually hidden)');
+  ok(!/id="setOkTxt"[^>]*data-ko/.test(markup), 'button label has no data-ko/en (the i18n loop would overwrite it)');
+  // wiring guard: only confirmSettings may call the storage writers
+  const writers = s => (s.match(/SET\.choose(Level|Corr|Lang)\(/g) || []).length;
+  ok(writers(hub) === writers(fnSrc('confirmSettings')) && writers(hub) === 3, 'storage is written only inside confirmSettings (3 writers)');
+
+  const ctx = { console }; ctx.window = ctx; ctx.globalThis = ctx; vm.createContext(ctx);
+  vm.runInContext(read('js/ai-speaking-settings.js'), ctx);
+  const SET = ctx.AiSpeakSettings;
+  const CORR = ['free_talk', 'balanced', 'focused'];
+  const attrs = tag => Object.fromEntries([...tag.matchAll(/([\w-]+)="([^"]*)"/g)].map(m => [m[1], m[2]]));
+  const mkLS = (init = {}, opts = {}) => { const m = new Map(Object.entries(init)); const writes = []; return { writes, m,
+    getItem: k => (m.has(k) ? m.get(k) : null),
+    setItem: (k, v) => { if (opts.block) throw new Error('quota'); writes.push(k); m.set(k, String(v)); } }; };
+  const mkEl = (a = {}) => { const h = {}; const o = { ...a }; return { o, textContent: '', innerHTML: '', value: '', disabled: false, hidden: false,
+    getAttribute: k => (k in o ? o[k] : null), setAttribute: (k, v) => { o[k] = String(v); },
+    addEventListener: (ev, fn) => { (h[ev] = h[ev] || []).push(fn); }, fire: ev => (h[ev] || []).forEach(fn => fn({ preventDefault() {} })) }; };
+  const boot = (init, opts = {}) => {
+    const ls = mkLS(init, opts);
+    const corr = CORR.map(id => mkEl(attrs(hub.match(new RegExp('<button[^>]*data-corr="' + id + '"[^>]*>'))[0])));
+    const lang = ['ko', 'en'].map(l => mkEl({ 'data-lang': l }));
+    const els = { setLevel: mkEl(), corrState: mkEl(), setOk: mkEl(), setOkTxt: mkEl(), setMsg: mkEl() };
+    const document = { documentElement: { lang: '' }, title: '',
+      getElementById: id => els[id] || null,
+      querySelectorAll: sel => (sel === '[data-corr]' ? corr : sel === '[data-lang]' ? lang : []),
+      querySelector: sel => { const m = /^\[data-corr="([^"]+)"\]$/.exec(sel); return m ? corr.find(b => b.getAttribute('data-corr') === m[1]) || null : null; } };
+    const win = { AiSpeakSettings: SET, MangoiSituations: null };
+    if (opts.unavailable) Object.defineProperty(win, 'localStorage', { get() { throw new Error('SecurityError'); } });
+    else win.localStorage = ls;
+    const c = vm.createContext({ window: win, document, console });
+    vm.runInContext(inline[0], c);   // the page declares its state and boots itself (applyUi · renderSituations · renderSettings · wire)
+    const btn = () => ({ disabled: els.setOk.disabled, text: els.setOkTxt.textContent, state: els.setOk.getAttribute('data-state') || '' });
+    const click = id => corr[CORR.indexOf(id)].fire('click');
+    const level = v => { els.setLevel.value = String(v); els.setLevel.fire('change'); };
+    return { ls, els, btn, click, level, lang, document, confirm: () => els.setOk.fire('click') };
+  };
+
+  // A) empty storage: nothing is written until «확인»; the button says what is missing
+  let s = boot({});
+  ok(s.ls.writes.length === 0, 'A: opening the page writes nothing');
+  ok(s.btn().disabled && s.btn().text === '수준·교정 정도를 골라 주세요', 'A: nothing picked -> locked, asks for both → ' + JSON.stringify(s.btn()));
+  // level 0 (not set) must show the «not set» header — otherwise «1단계» looks picked and choosing 1 fires no change
+  ok(/^<option value="" selected>아직 안 정함/.test(s.els.setLevel.innerHTML) && !/value="1" selected/.test(s.els.setLevel.innerHTML), 'A: unset level shows the «not set» header selected, not level 1');
+  s.level(4);
+  ok(s.ls.writes.length === 0, 'A: picking a level does not save');
+  ok(s.btn().disabled && s.btn().text === '교정 정도를 골라 주세요', 'A: level picked -> still locked, asks for corrections');
+  s.click('focused');
+  ok(s.ls.writes.length === 0, 'A: picking a correction does not save');
+  ok(!s.btn().disabled && s.btn().text === '확인' && s.btn().state === '', 'A: both picked -> «확인» enabled');
+  s.confirm();
+  ok(s.ls.getItem('mangoi_warmup_level') === '4' && s.ls.getItem('mangoi_aifriend_level') === 'S4', 'A: 확인 saves the level to both screens');
+  ok(s.ls.getItem('mangoi_warmup_correction') === 'focused' && s.ls.getItem('mangoi_aifriend_correction') === 'focused', 'A: 확인 saves the correction to both screens');
+  ok(!s.ls.writes.includes('mangoi_lang') && !s.ls.writes.includes('mangoi_lang_by'), 'A: unchanged language is not rewritten (keeps auto-detect flag)');
+  ok(s.btn().text === '✅ 적용됐어요' && s.btn().state === 'saved' && !s.btn().disabled, 'A: after 확인 -> «✅ 적용됐어요» → ' + JSON.stringify(s.btn()));
+  ok(/세 가지|AI 친구/.test(s.els.setMsg.textContent), 'A: screen-reader status says it was saved');
+  const before = s.ls.writes.length;
+  s.click('balanced');
+  ok(s.ls.writes.length === before && s.ls.getItem('mangoi_warmup_correction') === 'focused', 'A: changing after save does not write until 확인 again');
+  ok(s.btn().text === '확인' && s.btn().state === '' && s.els.setMsg.textContent === '', 'A: a new pick resets the button to «확인»');
+  s.confirm();
+  ok(s.ls.getItem('mangoi_aifriend_correction') === 'balanced' && s.btn().state === 'saved', 'A: second 확인 saves the new pick');
+  s.level(6); s.els.setLevel.value = ''; s.els.setLevel.fire('change'); s.confirm();
+  ok(s.ls.getItem('mangoi_warmup_level') === '6', 'A: the «not set» header option does not clear the pick');
+
+  // B) already saved and the same on both screens: ready, but not claiming «applied» before a press
+  s = boot({ mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' });
+  ok(s.ls.writes.length === 0 && !s.btn().disabled && s.btn().text === '확인', 'B: saved values -> «확인» ready, nothing written on open');
+  ok(s.els.setLevel.innerHTML.includes('value="5" selected') && s.els.corrState.textContent === attrs(hub.match(/<button[^>]*data-corr="balanced"[^>]*>/)[0])['data-hint-ko'], 'B: shows the saved level and its correction line');
+
+  // C) the two screens differ -> must pick to unify; 확인 writes nothing even if fired while locked
+  s = boot({ mangoi_warmup_level: '3', mangoi_aifriend_level: 'S6', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' });
+  ok(s.btn().disabled && s.btn().text === '수준을 골라 주세요', 'C: mixed level -> locked, asks for a level');
+  s.confirm();
+  ok(s.ls.writes.length === 0, 'C: a locked 확인 writes nothing (guard inside confirmSettings, not just the disabled attribute)');
+  s.level(6); s.confirm();
+  ok(s.ls.getItem('mangoi_warmup_level') === '6' && s.ls.getItem('mangoi_aifriend_level') === 'S6', 'C: after picking, 확인 unifies both screens');
+  s = boot({ mangoi_warmup_level: '2', mangoi_warmup_correction: 'focused', mangoi_aifriend_correction: 'free_talk' });
+  ok(s.btn().disabled && s.btn().text === '교정 정도를 골라 주세요', 'C: mixed correction -> locked, asks for corrections');
+
+  // D) language: preview immediately, save on 확인 only
+  s = boot({ mangoi_lang: 'ko', mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' });
+  s.lang[1].fire('click');
+  ok(s.document.documentElement.lang === 'en' && s.btn().text === 'Confirm', 'D: English shows at once (preview), button in English');
+  ok(s.ls.writes.length === 0 && s.ls.getItem('mangoi_lang') === 'ko', 'D: choosing a language does not save it');
+  s.confirm();
+  ok(s.ls.getItem('mangoi_lang') === 'en' && s.ls.getItem('mangoi_lang_by') === 'user', 'D: 확인 saves the language as the person\'s choice');
+  ok(s.btn().text === '✅ Applied' && /Saved/.test(s.els.setMsg.textContent), 'D: applied label in English');
+  // after saving, switching language again is an unsaved change: back to «확인», status cleared (not «Applied»)
+  s.lang[0].fire('click');
+  ok(s.document.documentElement.lang === 'ko' && s.btn().text === '확인' && s.btn().state === '' && s.els.setMsg.textContent === '', 'D: language change after save -> «확인» again, status cleared');
+  ok(s.ls.getItem('mangoi_lang') === 'en', 'D: …and it is not saved yet');
+  s.confirm();
+  ok(s.ls.getItem('mangoi_lang') === 'ko', 'D: en saved -> pick 한국어 -> 확인 saves ko');
+  s = boot({ mangoi_lang: 'en', mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' });
+  ok(s.document.documentElement.lang === 'en' && s.btn().text === 'Confirm', 'D: saved English opens in English');
+  s.lang[0].fire('click'); s.confirm();
+  ok(s.ls.getItem('mangoi_lang') === 'ko' && s.ls.getItem('mangoi_lang_by') === 'user', 'D: from a fresh English page, 한국어 + 확인 saves ko');
+
+  // E) storage that throws: honest failure on the button, retry possible
+  s = boot({ mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' }, { block: true });
+  s.confirm();
+  ok(s.btn().state === 'fail' && s.btn().text === '⚠️ 이 기기에선 저장이 안 돼요' && !s.btn().disabled, 'E: blocked storage -> failure label, still pressable');
+  ok(/저장이 안 돼요/.test(s.els.setMsg.textContent), 'E: screen-reader status says it failed');
+  // F) storage that throws on access (page swaps in a dead store): page still boots, picks work, 확인 reports failure
+  s = boot({}, { unavailable: true });
+  ok(s.btn().disabled && s.btn().text === '수준·교정 정도를 골라 주세요', 'F: storage unavailable -> page still boots, locked');
+  s.level(3); s.click('free_talk'); s.confirm();
+  ok(s.btn().state === 'fail' && !s.btn().disabled, 'F: storage unavailable -> 확인 says it could not save');
+  console.log('PASS: confirm button (확인) — ' + n + ' checks, the page\'s own inline script booted and clicked on a fake DOM');
 }
