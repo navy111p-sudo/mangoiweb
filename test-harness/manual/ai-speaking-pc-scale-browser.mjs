@@ -3,7 +3,9 @@
 //   (PW_DIR 을 주면 그 playwright 를, 없으면 전역 playwright 를 씁니다)
 // 단계 숫자는 ai-speaking.html 의 CSS 에서 읽습니다(하니스에 베끼지 않음). 잰 것:
 //   ① 창마다 실제로 걸린 배율(.wrap · 나가기 창)이 CSS 단계와 같은가 · 가로 넘침 없음 · JS 오류 없음
-//   ② 1600px 이상: 본문 문서 높이(배율 1 기준)가 875px 이하(정적 하니스의 MEASURED_DOC_H 전제) · 카드 설명이 한 줄
+//   ② 1600px 이상: 본문 문서 높이(배율 1 기준)가 875px 이하(정적 하니스의 MEASURED_DOC_H 전제) · 카드 설명이 두 줄 이하
+//      글꼴마다 줄바꿈이 다르다 — 넓은 글꼴(DejaVu Sans, CI 러너 기본)에서는 영어 설명이 두 줄이다. 그래서 영어는
+//      «넓은 글꼴을 강제로 입힌 판» 도 함께 잰다(이 컨테이너 기본 Inter 로만 재면 한 줄이라 최악의 경우를 못 본다 — 첫 판이 그랬다).
 //   ③ 배율이 걸리면: 세로 스크롤 없이 «확인» 까지 한 화면 · 본문이 창 폭의 80% 안
 //   ④ (짝) 노트북(1366·1440·1536)·휴대폰은 예전 그대로(배율 1 · 본문 1120px 이하)
 //   ⑤ 사장님 창(2400×1149 = 1920 모니터를 80% 로): 카드가 노트북보다 40% 이상 크다
@@ -39,7 +41,8 @@ const browser = await chromium.launch({ headless: true, executablePath: process.
 let n = 0; const fails = [];
 const ok = (v, m) => { n++; if (!v) { fails.push(m); console.log('✗ ' + m); } };
 const SAVED = { mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' };
-async function open(width, height, lang, seed) {
+const WIDE_FONT = "body{font-family:MangoiHanSC,'DejaVu Sans',sans-serif!important}";
+async function open(width, height, lang, seed, wideFont = false) {
   const ctx = await browser.newContext({ viewport: { width, height } });
   await ctx.route('**/*', r => (new URL(r.request().url()).origin === origin ? r.continue() : r.abort()));
   await ctx.addInitScript(({ lang, seed }) => {
@@ -50,6 +53,7 @@ async function open(width, height, lang, seed) {
   const page = await ctx.newPage(); page.setDefaultTimeout(5000);
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await page.goto(origin + '/ai-speaking.html');
+  if (wideFont) await page.addStyleTag({ content: WIDE_FONT });
   await page.evaluate(() => document.fonts && document.fonts.ready);
   return { ctx, page, errors };
 }
@@ -67,9 +71,9 @@ try {
   const W0 = wide ? +wide[1] : 1600, M = wide ? +wide[2] : 1280;
   const windows = [[390, 844], [1366, 657], [1440, 900], [1536, 730], [1600, 780], [1760, 965], [1920, 919], [1920, 1080], [2133, 1021], [2400, 1149], [2560, 1300], [3200, 1750], [3840, 2100]];
   const cardAt = {};
-  for (const [W, H] of windows) for (const lang of ['ko', 'en']) for (const store of ['empty', 'saved']) {
+  for (const [W, H] of windows) for (const lang of ['ko', 'en', 'en-wide']) for (const store of ['empty', 'saved']) {
     const tag = `${W}x${H}/${lang}/${store}`;
-    const s = await open(W, H, lang, store === 'saved' ? SAVED : {});
+    const s = await open(W, H, lang === 'en-wide' ? 'en' : lang, store === 'saved' ? SAVED : {}, lang === 'en-wide');
     try {
       const m = await measure(s.page), z = eff(W, H);
       ok(Math.abs(m.z - z) < 1e-6 && Math.abs(m.boxZ - z) < 1e-6, tag + ' ① zoom on page and dialog = CSS tier ' + z + ' (got ' + m.z + ' / ' + m.boxZ + ')');
@@ -77,7 +81,7 @@ try {
       ok(s.errors.length === 0, tag + ' ① no JS errors: ' + s.errors.join(';'));
       if (W >= W0) {
         ok(m.wrapH / m.z <= 875, tag + ' ② page height at zoom 1 is ≤ 875 (tier rule premise) — ' + (m.wrapH / m.z).toFixed(1));
-        ok(m.lines.every(l => l === 1), tag + ' ② every card description is one line — ' + m.lines.join(','));
+        ok(m.lines.every(l => l >= 1 && l <= 2), tag + ' ② every card description is at most two lines — ' + m.lines.join(','));
       }
       if (z > 1) {
         ok(m.docH <= m.ih && m.okBottom <= m.ih, tag + ' ③ no vertical scroll; «확인» is on the first screen — doc ' + m.docH + ', ok ' + m.okBottom.toFixed(0) + ', window ' + m.ih);

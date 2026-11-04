@@ -608,7 +608,7 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   ok(css.includes('.sit-list{') && css.includes('.leave-acts{') && css.length > styleTxt.length * 0.5, 'premise: comment stripping kept the rules');
   const tiers = [...css.matchAll(/@media \(min-width:(\d+)px\) and \(min-height:(\d+)px\)\{:root\{--z:([\d.]+)\}\}/g)].map(m => ({ w: +m[1], h: +m[2], z: +m[3] }));
   ok(tiers.length >= 5, 'premise: read ' + tiers.length + ' zoom tiers from the CSS');
-  const wide = css.match(/@media \(min-width:(\d+)px\)\{\.wrap\{max-width:(\d+)px;padding-bottom:calc\((\d+)px \+ env\(safe-area-inset-bottom\)\)\}\}/);
+  const wide = css.match(/@media \(min-width:(\d+)px\)\{\.wrap\{max-width:(\d+)px;/);
   ok(!!wide, 'premise: the wide-body rule (min-width → .wrap max-width) is there');
   const W0 = +wide[1], M = +wide[2];
   // --z 를 정하는 곳은 위 단계뿐 · zoom 을 받는 것은 .wrap 과 나가기 창 둘뿐
@@ -619,7 +619,9 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   ok(/\.leave-box\{[^}]*max-height:calc\(\(100vh - 36px\) \/ var\(--z,1\)\);max-height:calc\(\(100dvh - 36px\) \/ var\(--z,1\)\)/.test(css), 'leave dialog max-height is divided by the zoom (vh and dvh)');
   // 같은 특이도라 «뒤에 적힌 것» 이 이긴다 — 실제 창마다 이기는 단계를 골라 본다
   const eff = (W, H) => { let z = 1; for (const t of tiers) if (W >= t.w && H >= t.h) z = t.z; return z; };
-  const MEASURED_DOC_H = 870;   // 1600px 이상 본문의 문서 높이(배율 1) — 브라우저 검사가 매번 다시 재서 875 이하인지 본다
+  // 1600px 이상 본문의 문서 높이(배율 1) «최악의 경우» — 넓은 글꼴(DejaVu Sans, CI 러너 기본)에서 영어 설명 두 줄 = 868.
+  // 브라우저 검사가 매번 다시 재서 875 이하인지 본다(2026-11-04 첫 판은 Inter 로만 재 870 을 적었다가 CI 에서 894 로 걸렸다).
+  const MEASURED_DOC_H = 868;
   let badW = [], badH = [], less = 0;
   for (let W = 900; W <= 4200; W += 10) for (let H = 500; H <= 2400; H += 10) {
     const z = eff(W, H);

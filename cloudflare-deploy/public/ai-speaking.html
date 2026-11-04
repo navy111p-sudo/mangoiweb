@@ -142,14 +142,16 @@
     }
     /* 🖥️ 큰 PC 화면 — 7차(2026-11-04 사장님 «PC 화면에 적합하게 지금보다 크게»). 1920 모니터를 80% 로 보면 창이 2400×1150 인데
        본문이 1120px 이라 화면의 45% 만 썼다. 노트북(1366·1440·1536 폭)과 휴대폰은 그대로 둔다.
-       ① 1600px 이상: 본문 1280px — 카드 설명이 한·영 모두 한 줄이 되어 카드가 오히려 24px 낮아진다(실측). 아래 여백 28 → 12.
+       ① 1600px 이상: 본문 1280px(카드 설명이 대개 한 줄이 된다) + 세로 여백을 조금 줄인다(위 32 → 24 · 안내줄 · 카드 안 간격 · 확인 위 · 아래 28 → 12).
        ② 그 위로 .wrap 에 zoom 을 단계로 건다(글자·카드·버튼을 같은 비율로 — stories.html 과 같은 방식).
           단계 조건은 폭과 높이 둘 다다:  폭 = 1280 × z 가 창 폭의 80% 안 → min-width 1600 × z
                                            높이 = 문서 전체 875 × z 가 창 높이 안 → 확인 버튼까지 스크롤 없이 한 화면
-          875 = ①의 문서 높이 실측 870(한·영, 저장 전·후 같음)에 글꼴 차이 여유 5px. 작은 단계부터 적어 «맞는 것 중 가장 큰 단계» 가 이긴다.
+          875 = ①의 문서 높이 «최악의 경우» 실측 868 + 여유. 넓은 글꼴(DejaVu Sans — CI 러너 기본)에서는 영어 설명이 두 줄이 되어
+          868, 보통 글꼴(한국어 전부 · 영어 Inter·Liberation)은 한 줄이라 844 다. 작은 단계부터 적어 «맞는 것 중 가장 큰 단계» 가 이긴다.
        ③ 나가기 창(.leave-box)도 같은 배율. zoom 은 vh 에도 배율을 곱하므로(크로미움 실측) 위 max-height 를 var(--z) 로 나눠 둔다.
        ⛔ 단계 숫자를 바꾸면 ai_speaking_entry_harness 의 PC 절과 manual/ai-speaking-pc-scale-browser.mjs 가 다시 잰다. */
-    @media (min-width:1600px){.wrap{max-width:1280px;padding-bottom:calc(12px + env(safe-area-inset-bottom))}}
+    @media (min-width:1600px){.wrap{max-width:1280px;padding-top:24px;padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+      .lead{margin:8px 0 20px}.mode{gap:12px}.set-foot{margin-top:14px}}
     .wrap,.leave-box{zoom:var(--z,1)}
     @media (min-width:1760px) and (min-height:965px){:root{--z:1.1}}
     @media (min-width:1920px) and (min-height:1050px){:root{--z:1.2}}
