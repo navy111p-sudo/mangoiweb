@@ -230,7 +230,9 @@ const mLat = sm.match(/\n[ \t]*_latCur=\{ ?t0:_lt0/);
 const iLat = mLat ? mLat.index : -1;
 const iAi = sm.search(/addMsg\(d\.ai_response/);
 check('sendMsg 가 AI 답장을 «그리기 직전» 에 잴 준비를 한다(그리면 곧바로 읽기 시작)', iLat > 0 && iAi > iLat && iAi - iLat < 400);
-check('침묵 타이머가 끊은 시각을 적는다', /_latSilence=\{\s*wait:ms,\s*at:Date\.now\(\)\s*\}/.test(HTML));
+/* ⚠️ «wait 에 무엇을 적는가» 는 여기서 글자로 못 박지 않는다 — 2026-11-05 부터 명목값(ms)이 아니라 «마지막 새 말부터 실제로
+   기다린 시간» 을 적고, 그 값은 warmup_reply_speed_harness D-9 가 시계를 실제로 돌려 본다. 여기서 묻는 것은 «끊은 시각» 이다. */
+check('침묵 타이머가 끊은 시각을 적는다', /_latSilence=\{\s*wait:[^,{}]+,\s*at:Date\.now\(\)\s*\}/.test(HTML));
 check('첫 소리가 나면 재기를 닫는다(원어민 음성·기기 음성 둘 다)',
   /_ttsAudio\.play\(\)\.then\(function\(\)\{[^}]*warmThought\(false\); _speechEverStarted=true; _latMark\(\); \}\)/.test(HTML) && /u\.onstart=function\(\)\{[^}]*warmThought\(false\); _speechEverStarted=true; _latMark\(\); \};/.test(HTML));
 check('다시 듣기(btn)는 재지 않는다', /\n  if\(btn\) _latCur=null;/.test(strip(bodyOf(HTML, 'speak'))));
