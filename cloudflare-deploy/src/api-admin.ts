@@ -4001,7 +4001,7 @@ export async function handleAdminApi(
         contact_source: contactSource,
         // 🧾 「취소·연기」 칸의 누가·언제 근거 — 'ok' | 'failed'(이력을 못 읽어 «취소·연기» 만 말한다)
         change_history: (_ctAu.complete && _mvAwayOk) ? 'ok' : 'failed',
-        contact_missing: sessions.filter(x => !x.contact_phone).length,
+        contact_missing: sessions.filter(x => !x.contact_phone && !x.moved_away).length,   // ⏸ 다른 날로 옮긴 줄은 이 날 수업이 아니다
         // 🔁 `today` 는 옛 화면이 읽던 이름이라 그대로 둔다(값은 «조회한 날짜»). `date` 가 새 이름.
         today: dateStr, date: dateStr, is_today: dateStr === todayStr,
         now: nowMs, count: sessions.length, sessions,
@@ -4023,7 +4023,7 @@ export async function handleAdminApi(
         },
         // 🎌 그날이 휴강일이면 이름과 쉬는 건수(화면이 머리 줄에 한 번 말한다). 평일이면 null.
         holiday: _ctHol.closed ? { name: _ctHol.name || null, closed: sessions.filter(x => x.holiday).length } : null,
-        level_test_count: sessions.filter(x => x.is_level_test).length,
+        level_test_count: sessions.filter(x => x.is_level_test && !x.moved_away).length,
       });
       /* 🔒 이제 이 응답에 학생 전화번호가 실린다 — 공유 캐시에 앉으면 한 사람 것이 남에게 나간다
          (CLAUDE.md 2장 「자격증명을 응답에 실을 때」의 PII 판). 지금 CF 기본값은 /api/ 를
@@ -4061,6 +4061,13 @@ export async function handleAdminApi(
       const allowed = ['postpone', 'reschedule', 'remove', 'end', 'restore'];
       const action = String(body.action || '').trim();
       if (!allowed.includes(action)) return json({ ok: false, error: 'invalid_action', allowed }, 400);
+      /* 🔒 (2026-11-04 함정 대조) 연기·변경·취소·복구 «이력» 은 화면에 줄을 만든다 — 원래 날짜 «⏸ 연기됨 →» 줄(class-change-state.ts
+         loadMovedAwayEvents)·새 날짜 «📅 …에서 옮김» 글자. 이 경로로 강사가 아무 수업·아무 날짜로 적으면 그 줄을 지어낼 수 있다.
+         서버가 직접 옮기는 경로(class-schedule-move·변경 요청 승인·AI 명령·수강 운영)는 writeClassAudit 를 «직접» 부르므로
+         이 차단과 무관하다. 화면에서 이 POST 로 그 넷을 적는 곳은 0곳(2026-11-04 grep). ⛔ 'end' 는 그대로 둔다. */
+      if (_cawActor.isTeacher && ['postpone', 'reschedule', 'remove', 'restore'].includes(action)) {
+        return json(forbiddenTeacherBody(_cawActor, '강사는 수업 연기·변경·취소 이력을 직접 적을 수 없습니다.', 'Teachers cannot write class postpone/change/cancel history directly.'), 403);
+      }
       await writeClassAudit(env, {
         action,
         schedule_id: body.schedule_id ?? null,

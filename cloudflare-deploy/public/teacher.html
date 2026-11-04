@@ -2089,7 +2089,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     return '<div class="wk-i' + ((cx || mv) ? ' wk-cx' : '') + '"' + (dim ? ' style="opacity:.55"' : '') + '>'
       + '<b>' + esc(MangoiClassDisplay.range(it)) + '</b>'
       + (cx ? '<span class="wk-cx-tag">✕ ' + esc(T('Cancelled','취소됨')) + '</span>' : '')
-      + (mv ? '<span class="wk-cx-tag wk-mv-tag">' + esc(T(it.moved_label_en || '⏸ Moved to another day', it.moved_label_ko || '⏸ 다른 날로 연기됨')) + '</span>' : '')
+      + (mv ? '<span class="wk-cx-tag wk-mv-tag">' + esc(T(it.moved_label_en || '⏸ Moved to another day', it.moved_label_ko || '⏸ 다른 날로 옮김')) + '</span>' : '')
       + '<span>' + stuLabelHtml(it, dim ? T('(slot taken)','(점유 슬롯)') : T('(name not set)','(이름 미등록)')) + '</span>'
       + kindPill(it).replace(/^ /, '')
       + portalContact(it)
@@ -2360,7 +2360,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
       : (it.kind !== 'class' ? ' dim' : (it.is_level_test ? ' lt' : ''))));
     var who = it.kind !== 'class' ? T('(slot taken)', '(점유 슬롯)') : stuLabelText(it, T('(name not set)', '(이름 미등록)'));
     var note = cx ? ' · ' + T('Cancelled', '취소됨')
-      : mv ? ' · ' + T(it.moved_label_en || '⏸ Moved to another day', it.moved_label_ko || '⏸ 다른 날로 연기됨')
+      : mv ? ' · ' + T(it.moved_label_en || '⏸ Moved to another day', it.moved_label_ko || '⏸ 다른 날로 옮김')
       : it.status === 'holiday' ? ' · ' + T('Holiday — no class', '공휴일 휴강')
       : (it.class_state === 'postponed' ? ' · ' + T('Postponed', '연기됨') : (it.is_level_test ? ' · ' + T('Level test', '레벨테스트') : ''));
     return '<span class="mo-i' + cls + '" title="' + esc(MangoiClassDisplay.range(it) + ' · ' + who + note) + '">'
@@ -2758,7 +2758,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     var st = c.class_state;
     if (st === 'cancelled') return ' <span class="pill p-cancel">' + esc(T('Cancelled','취소됨')) + '</span>';
     // ⏸ (2026-11-04) 다른 날로 연기·변경 — 원래 날짜에 남긴 줄. 글자는 서버가 만든 것(moved_label_*)
-    if (st === 'moved_away') return ' <span class="pill p-postponed">' + esc(T(c.moved_label_en || '⏸ Moved to another day', c.moved_label_ko || '⏸ 다른 날로 연기됨')) + '</span>';
+    if (st === 'moved_away') return ' <span class="pill p-postponed">' + esc(T(c.moved_label_en || '⏸ Moved to another day', c.moved_label_ko || '⏸ 다른 날로 옮김')) + '</span>';
     if (st === 'postponed' && c.holiday_name) return ' <span class="pill p-postponed">' + esc(T('Holiday','공휴일 휴강')) + '</span>';   // 🎌 2026-10-09
     if (st === 'postponed') return ' <span class="pill p-postponed">' + esc(T('Postponed','연기됨')) + '</span>';
     if (st === 'no_show'){

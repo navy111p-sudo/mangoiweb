@@ -3958,7 +3958,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
               (j.date || '') + ' · 전체 ' + rows.length + '건'
                 + (c.cafe24 ? ' · 카페24 ' + c.cafe24 + '건' : '')
                 + (c.joinable ? ' · 입장가능 ' + c.joinable + '건' : '')
-                + (nCx ? ' · 취소 ' + nCx + '건' : '') + (nPp ? ' · 연기 ' + nPp + '건' : '') + (nMv ? ' · 다른 날로 연기 ' + nMv + '건' : '')))
+                + (nCx ? ' · 취소 ' + nCx + '건' : '') + (nPp ? ' · 연기 ' + nPp + '건' : '') + (nMv ? ' · 다른 날로 옮김 ' + nMv + '건' : '')))
       + '<a href="#" class="ta-mode" onclick="return taToggleDetail()">' + esc(simple ? T('Show details', '자세히 보기') : T('Simple view', '간단히 보기')) + '</a></div>';
     hqRows('todayAllBody', rows, function(r){
       var t = esc(MangoiClassDisplay.range(r));
@@ -4052,7 +4052,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       /* ⏸ (2026-11-04 매니저 Mai) 다른 날로 연기·변경한 수업 — «원래 날짜» 에 남긴 줄(서버 moved_away). 이 날 이 방에는 수업이 없다.
          입장·관찰·옮기기 칩은 주지 않는다(서버도 join_open·can_move=false). 글자는 서버가 만든 것(change.label_*). */
       if (r.moved_away) act = '<span class="tag hot ta-st">' + esc(T(((r.change && r.change.label_en) || '⏸ Moved to another day') + ' — no class this day',
-                                                                  ((r.change && r.change.label_ko) || '⏸ 다른 날로 연기됨') + ' — 이 날은 수업 없음')) + '</span>';
+                                                                  ((r.change && r.change.label_ko) || '⏸ 다른 날로 옮김') + ' — 이 날은 수업 없음')) + '</span>';
       if (r.cancelled || r.moved_away) {
         resch = '';
       } else if (r.source === 'cafe24' && !r.schedule_id) {
