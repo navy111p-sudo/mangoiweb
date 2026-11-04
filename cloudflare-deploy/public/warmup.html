@@ -2022,10 +2022,13 @@ var _warmStarted = false;      // 첫 인사가 이미 나갔는가(= 대화가 
 function setupEl(){ return document.getElementById('wuSetup'); }
 /* 🎚️ 교정 방식 — 제안서(2026-10-29)의 세 모드. id 는 서버 WARMUP_MODES 와 짝(src/warmup-honest.ts).
    ⛔ 고르지 않았으면 '' 로 둔다(서버에 안 보냄 = 예전 동작). «기본» 을 저장해 두지 않는다 —
-      저장하면 «아직 안 정함» 과 «사람이 골랐음» 이 같아져 나중에 기본을 바꿀 수 없다. */
+      저장하면 «아직 안 정함» 과 «사람이 골랐음» 이 같아져 나중에 기본을 바꿀 수 없다.
+   ⚖️ 균형 설명 (2026-11-04) — 서버 동작 그대로: 큰 실수는 매번·작은 실수는 연달아 안 고치고(src/warmup-correction.ts)
+      따라 말하기는 WARMUP_REPEAT_GAP_TURNS(3)턴에 한 번까지 → «위주로 · 가끔». 입구(ai-speaking.html)의 균형 한 줄과 같은 말.
+      ⛔ «핵심 표현·되풀이되는 실수만» 으로 되돌리지 말 것 — 서버는 그 기준으로 고르지 않는다. */
 var CMODE_CATALOG = [
   { id:'free_talk', ic:'💬', ko:'자유대화', en:'Free talk', d:'대화는 그대로, 틀린 곳은 교정 카드로만 보여줘요(고친 문장을 말로 하지 않아요). 저학년·초급·흥미 위주에 좋아요.', de:'Keeps chatting; mistakes appear only as a correction card (no spoken correction). Good for young or beginner learners.' },
-  { id:'balanced',  ic:'⚖️', ko:'균형', en:'Balanced', d:'핵심 표현이나 되풀이되는 실수만 따라 말해요. 대부분의 수업에 맞아요.', de:'Repeat-after-me only for key phrases or repeated mistakes. Fits most classes.', },
+  { id:'balanced',  ic:'⚖️', ko:'균형', en:'Balanced', d:'중요한 실수 위주로 고치고 가끔 따라 말해요. 대부분의 수업에 맞아요.', de:'Mostly key mistakes; repeat-after-me sometimes. Fits most classes.', },
   { id:'focused',   ic:'🎯', ko:'집중교정', en:'Focused', d:'틀릴 때마다 바른 문장을 듣고 따라 말해요. 정확도·시험 대비에 좋아요.', de:'Every mistake: hear the right sentence and say it back. Good for accuracy and tests.' , dflt:true }
 ];
 var WU_CMODE_KEY = 'mangoi_warmup_correction';
@@ -4933,7 +4936,7 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 <script defer src="/js/mangoi-voice-input.js?v=6"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/voice-has-speech.js?v=1"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
 <script defer src="/js/ai-diff.js?v=2"></script>
-<script defer src="/js/warmup-howto.js?v=10"></script><!-- 📘 A.i말하기 사용방법 쉽게 알기 안내창 (2026-10-03) --><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
+<script defer src="/js/warmup-howto.js?v=11"></script><!-- 📘 A.i말하기 사용방법 쉽게 알기 안내창 (2026-10-03) --><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=23"></script>
 <!-- BUILD:20260813015745 -->
