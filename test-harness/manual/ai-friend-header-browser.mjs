@@ -146,6 +146,9 @@ for (const [tag, w, h] of SIZES) {
   const o = await p.evaluate(() => {
     const sh = document.getElementById('optsSheet');
     const r = sh.getBoundingClientRect();
+    /* 📜 2026-11-04 «스크롤 안 하고 전체가 보이게, 최대한 위로» — probe 가 굴리기 «전» 에 잰다 */
+    const fit = { top: Math.round(r.top), noScroll: sh.scrollHeight <= sh.clientHeight + 1,
+      sh: sh.scrollHeight, ch: sh.clientHeight };
     /* ⚠️ 시트는 길어서 아래쪽 버튼이 «화면 밖» 일 수 있다 — 그건 «가려짐» 이 아니라
        «스크롤하면 닿음» 이다. 둘을 섞으면 멀쩡한 화면이 실패로 나온다(실제로 그랬다).
        그래서 먼저 그 자리로 굴린 뒤 «맨 위가 나인가» 를 묻는다. */
@@ -158,7 +161,7 @@ for (const [tag, w, h] of SIZES) {
       const t = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
       return !!(t && sh.contains(t));
     };
-    return { shown: r.top < innerHeight - 20,
+    return { fit, shown: r.top < innerHeight - 20,
       level: probe('#optsSheet .opt[data-level="S1"]'),
       sub:   probe('#optsSheet .opt[data-sub="off"]'),
       voice: probe('#optsSheet .opt[data-voice="jake"]'),
@@ -166,6 +169,17 @@ for (const [tag, w, h] of SIZES) {
       expanded: document.getElementById('optsToggle').getAttribute('aria-expanded') };
   });
   ok(o.shown && o.expanded === 'true', '⚙ 를 누르면 시트가 열린다');
+  /* PC(가로 ≥760px)는 위에 붙고 2단이라 스크롤 없이 전부 보여야 한다.
+     ⚠️ 폰은 내용(865~912px)이 화면보다 길어 스크롤이 남는 것이 정상이다 — 대신 «최대한 위로» 만 본다.
+     ⚠️ 짝: 위에 붙었는가(top) 와 안 넘치는가(noScroll) — 하나만 보면 «아래 붙은 채 길어지기» 나
+        «위에 붙었는데 여전히 스크롤» 이 통과한다. */
+  if (w >= 760) {
+    ok(o.fit.top <= 24, `PC 설정 시트가 화면 위에 붙는다 (top ${o.fit.top}px)`);
+    ok(o.fit.noScroll, `PC 설정 시트를 스크롤 없이 전부 본다 (내용 ${o.fit.sh}px / 칸 ${o.fit.ch}px)`);
+  } else {
+    ok(o.fit.top <= 24 || o.fit.noScroll,
+      `폰 설정 시트가 최대한 위까지 올라온다 (top ${o.fit.top}px)`);
+  }
   ok(o.level === true && o.sub === true && o.voice === true && o.snd === true,
     '시트 안 레벨·자막·친구·소리 버튼이 실제로 눌린다',
     `레벨 ${o.level} 자막 ${o.sub} 친구 ${o.voice} 소리 ${o.snd}`);
