@@ -85,6 +85,17 @@ for (let t = 0; t < 50; t++) {
   if (t === 49) ok('자유대화 무작위 50회 중 따라 말하기 0회', true);
 }
 
+console.log('④-2 고친 문장을 말로 앞에 붙이나(warmupSpeaksFixLead) — 2026-11-04 «자유대화는 카드만»');
+ok('④-2 정본이 있다(전제)', typeof H.warmupSpeaksFixLead === 'function');
+if (typeof H.warmupSpeaksFixLead === 'function') {
+  ok('④-2 자유대화 → 안 붙인다(카드만)', H.warmupSpeaksFixLead('free_talk') === false);
+  ok('④-2 집중교정 → 안 붙인다(이미 3번 말함)', H.warmupSpeaksFixLead('focused') === false);
+  /* 짝 — 위 둘만 보면 «언제나 안 붙인다» 같은 엉터리 수리도 통과한다 */
+  ok('④-2 균형 → 붙인다(질문보다 먼저 한 번)', H.warmupSpeaksFixLead('balanced') === true);
+  ok('④-2 모드 없음(중국어 등 null/undefined) → 붙인다(예전 동작)', H.warmupSpeaksFixLead(null) === true && H.warmupSpeaksFixLead(undefined) === true);
+  ok('④-2 모르는 값 → 붙인다(조용히 끄지 않음)', H.warmupSpeaksFixLead('strict') === true && H.warmupSpeaksFixLead('') === true);
+}
+
 const mkEnv = (rows, { throwDb = false, kvInit = {} } = {}) => {
   const kv = new Map(Object.entries(kvInit)); let dbCalls = 0; const sqls = [];
   return {
@@ -135,6 +146,14 @@ ok('완벽이 아니면 최상급 칭찬 금지', /perfect 가 아니면 Great, 
 ok('기존 [칭찬] 규칙보다 우선한다고 밝힘', /\[칭찬 — 위 \[칭찬\] 규칙보다 «우선» 한다\]/.test(rule));
 ok('집중교정: 따라 말하자고 함', /집중교정/.test(rule) && /say it with me/i.test(rule));
 ok('자유대화: 따라 말하라고 시키지 말라', /따라 말하라고 시키지 마/.test(H.warmupHonestRule('free_talk')));
+/* 💬 2026-11-04 — 기본 [교정] 규칙이 «모든 모드» 에 「고친 문장을 따옴표로 먼저 말해」를 시키므로, 자유대화만 그것을 덮는다. */
+ok('자유대화: 「고친 문장을 따옴표로 먼저 말하기」를 하지 말라고 «우선» 해서 덮는다',
+  /우선/.test(H.warmupHonestRule('free_talk').split('\n').pop()) && /따옴표로 먼저 말하기」는 이 모드에서 하지 마/.test(H.warmupHonestRule('free_talk')));
+ok('자유대화: 교정은 fix 칸에만(카드로) — 답장에서 고친 문장을 따로 말하지 않음',
+  /"fix" 칸에만/.test(H.warmupHonestRule('free_talk')) && /고친 문장을 따로 말하지 말고/.test(H.warmupHonestRule('free_talk')));
+/* 짝 — 그 덮기가 균형·집중교정에 새면 «균형도 말을 안 한다» 가 된다 */
+ok('균형·집중교정에는 «카드만» 덮기가 없다',
+  !/교정 카드만/.test(H.warmupHonestRule('balanced')) && !/교정 카드만/.test(H.warmupHonestRule('focused')));
 ok('모르는 모드 → 균형', /교정 모드: 균형/.test(H.warmupHonestRule('weird')));
 
 console.log('⑥-2 집중교정 음성 순서 — 교정 문장이 답장보다 먼저(ensureFocusedFixSpoken)');
@@ -172,6 +191,32 @@ ok('스트림 미리읽기에 honest 를 넘긴다', /createWarmupLive\(sseSend,
 ok('honest 는 스트림보다 먼저 정해진다', at('const honest = await') < at('createWarmupLive('));
 const strm = fs.readFileSync(path.join(SRC, 'warmup-stream.ts'), 'utf8');
 ok('스트림: 첫 문장이 칭찬 말머리면 미리 읽지 않음', /if \(o\.honest && !n\)/.test(strm) && /halt = 'praise'/.test(strm));
+
+/* 💬 (2026-11-04) «자유대화는 카드만» 배선 — 그 한 줄을 오려 내 모드마다 «실제로» 돌린다.
+   ⛔ «warmupSpeaksFixLead 라는 글자가 있는가» 로 묻지 않는다 — 옛 조건(honest?.mode !== 'focused')으로
+      되돌려도 import 줄에 그 글자가 남아 통과한다. */
+{
+  const codeOnly = body.split('\n').filter((l) => !/^\s*(\/\/|\/\*|\*)/.test(l));
+  const leadLines = codeOnly.filter((l) => /correctionLeadIn\(/.test(l));
+  ok('⑦-2 핸들러 안 correctionLeadIn 호출은 «한 곳» 뿐(옆길로 붙이는 곳 없음)', leadLines.length === 1, leadLines.map((l) => l.trim()));
+  const stmt = (leadLines[0] || '').trim();
+  let runLead = null;
+  try {
+    runLead = new Function('showFix', 'honest', 'aiText', 'ctxLang', 'warmupSpeaksFixLead', 'correctionLeadIn',
+      stmt + '\nreturn aiText;');
+  } catch (e) { ok('⑦-2 그 줄을 실행할 수 있다(전제)', false, String(e)); }
+  if (runLead && typeof H.warmupSpeaksFixLead === 'function') {
+    const F = { was: 'I go park yesterday', now: 'I went to the park yesterday' };
+    const R = 'What did you do there?';
+    const lead = (t, f) => 'LEAD:' + f.now + ' ' + t;
+    const go = (mode, fix = F, lang = 'en') => runLead(fix, mode === null ? null : { mode }, R, lang, H.warmupSpeaksFixLead, lead);
+    ok('⑦-2 자유대화 + 교정 카드 → 답장 그대로(고친 문장을 말로 안 붙임)', go('free_talk') === R, go('free_talk'));
+    ok('⑦-2 균형 + 교정 카드 → 고친 문장을 앞에 붙임(짝)', go('balanced') === lead(R, F), go('balanced'));
+    ok('⑦-2 집중교정 → 네 번째를 붙이지 않음', go('focused') === R, go('focused'));
+    ok('⑦-2 모드 없음(중국어 등) → 예전처럼 붙임', go(null, F, 'zh') === lead(R, F), go(null, F, 'zh'));
+    ok('⑦-2 교정 카드가 없으면 어느 모드도 안 붙임', ['free_talk', 'balanced', 'focused'].every((m) => go(m, null) === R));
+  }
+}
 
 console.log('⑧ 화면 — warmup.html wuApplyGrade 를 실제로 돌린다');
 const html = fs.readFileSync(HTML, 'utf8');
@@ -244,6 +289,19 @@ ok('따라 말하기 «완벽» 이면 보상(등급을 받는 학생만)', /_wu
   // 서버 id 와 화면 id 가 같은 말을 하는가(짝)
   const ids = [...cat.matchAll(/id:'([a-z_]+)'/g)].map((m) => m[1]).sort().join(',');
   ok('⑨ 화면 모드 id == 서버 WARMUP_MODES', ids === [...H.WARMUP_MODES].sort().join(','), ids);
+  /* 💬 (2026-11-04) 자유대화 = 카드만 — 설명이 «바른 문장을 들려준다» 고 약속하면 화면이 거짓말을 한다(세 곳 같은 말). */
+  {
+    const ftCat = (cat.match(/\{ id:'free_talk'[^\n]*/) || [''])[0];
+    const howto = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/public/js/warmup-howto.js'), 'utf8');
+    const mgr = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/public/manager.html'), 'utf8');
+    const ftMgr = (mgr.match(/\{ k: 'free_talk'[^\n]*/) || [''])[0];
+    const ftHowKo = (howto.match(/<b>💬 자유대화<\/b>:[^']*/) || [''])[0];
+    const ftHowEn = (howto.match(/<b>💬 Free talk<\/b>:[^']*/) || [''])[0];
+    const oldPromise = /들려줘요|다시 말해 주고|models the right sentence|repeats the right sentence/;
+    ok('⑨ 교재 연습 화면: 자유대화 설명이 «교정 카드로만»(KO/EN)', /교정 카드로만/.test(ftCat) && /only as a correction card/.test(ftCat) && !oldPromise.test(ftCat), ftCat);
+    ok('⑨ 사용법 안내: 자유대화 설명이 «교정 카드로만»(KO/EN)', /교정 카드로만/.test(ftHowKo) && /only as a correction card/.test(ftHowEn) && !oldPromise.test(ftHowKo + ftHowEn), [ftHowKo, ftHowEn]);
+    ok('⑨ 원장님 설정 화면: 자유대화 설명이 «교정 카드로만»(KO/EN)', /교정 카드로만/.test(ftMgr) && /only as a correction card/.test(ftMgr) && !oldPromise.test(ftMgr), ftMgr);
+  }
   ok('⑨ 클릭 위임이 data-cmode 를 받는다', /\[data-cmode\]'\)/.test(html) && /if\(t\.getAttribute\('data-cmode'\)\) \{ setCorrMode\(/.test(html));
   ok('⑨ PC 3단계 카드(1번)로 옮기고 되돌린다', /\['wusPcB1',\['wusGLang','wusTalkSec','wusGMode'\]\]/.test(html) && /'wusGLevel','wusGMode'\]\.forEach/.test(html));
   ok('⑨ 중국어에서는 감춘다', /gmode\.hidden = isZh\(\)/.test(html) && /#wusGMode\[hidden\]\{display:none!important\}/.test(html));

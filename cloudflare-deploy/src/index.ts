@@ -68,7 +68,7 @@ import { warmupAnswerChips } from './warmup-answers';                    // 💬
 import { backfillPastTenseFix } from './tense-backfill';
 import { focusedCandidate, focusedReplyFix, recoverFocusedFix, FOCUSED_DRAFT_RULE } from './focused-correction';
 import { WARMUP_CORRECTION_RULE, WARMUP_ZH_CORRECTION_RULE, ZH_MEANING_CHANGING_TAGS, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat, correctionLeadIn } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
-import { resolveWarmupHonest, warmupHonestRule, parseWarmupGrade, finalizeWarmupGrade, applyHonestPraise, gateFixForMode, ensureFocusedFixSpoken } from './warmup-honest';  // 🎯 정직한 칭찬 + 교정 모드(2026-10-29 시범 — 정본 그 파일)
+import { resolveWarmupHonest, warmupHonestRule, parseWarmupGrade, finalizeWarmupGrade, applyHonestPraise, gateFixForMode, ensureFocusedFixSpoken, warmupSpeaksFixLead } from './warmup-honest';  // 🎯 정직한 칭찬 + 교정 모드(2026-10-29 시범 — 정본 그 파일)
 import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
 import { fragmentQuestions, fragmentQuestionHint, checksFragmentQuestions, fullQuestionRule, FRAG_RETRY_BUDGET_MS } from './reply-questions';   // 🧩 기초 단계 «조각 질문»(like space?) 막기
 import { questionMemory, askedQuestionsLine, ASKED_LINE_HEAD, repeatedQuestions, retryRepeatedQuestion } from './question-memory';   // 🔁 같은 질문 두 번 금지(말만 바꾼 것·반대말 포함)
@@ -4798,7 +4798,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
        말해진 뒤에 질문으로 간다. 순서는 프롬프트에만 맡기지 않고 correctionLeadIn 이 보장한다.
        ⚠️ 히스토리 저장은 이 보정 «뒤» 에 한다 — 학생이 본 문장과 모델이 다음 턴에 읽는 문장을 같게 두기 위해서다. */
     // Focused speech is already canonical; an internal '?' must not add a fourth copy.
-    if (showFix && honest?.mode !== 'focused') aiText = correctionLeadIn(aiText, showFix, ctxLang === 'zh' ? 'zh' : 'en');
+    // 💬 자유대화는 카드만 — 고친 문장을 말로 붙이지 않는다(2026-11-04 · 판정 정본 warmupSpeaksFixLead).
+    if (showFix && warmupSpeaksFixLead(honest?.mode)) aiText = correctionLeadIn(aiText, showFix, ctxLang === 'zh' ? 'zh' : 'en');
 
     // ── 히스토리 갱신(최근 N턴만) + 6시간 TTL 저장 ──
     try {
