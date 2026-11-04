@@ -144,6 +144,10 @@ const rule = H.warmupHonestRule('focused');
 ok('grade 키를 요구', /"grade"/.test(rule) && /perfect/.test(rule) && /partial/.test(rule) && /incomplete/.test(rule));
 ok('완벽이 아니면 최상급 칭찬 금지', /perfect 가 아니면 Great, Excellent, Perfect/.test(rule));
 ok('기존 [칭찬] 규칙보다 우선한다고 밝힘', /\[칭찬 — 위 \[칭찬\] 규칙보다 «우선» 한다\]/.test(rule));
+/* 🏅 (2026-11-04) 첫마디 턴과 «한 자리» — 이 규칙이 [칭찬] 보다 «우선» 이라 «구체적으로 칭찬해» 가 첫마디 뒤에 칭찬을 또 붙이게 했다(함정 대조).
+   세 모드 모두 같은 줄을 쓴다(정직한 칭찬 줄은 모드와 무관). */
+ok('칭찬은 맨 앞 한 번 — «THIS TURN\'S OPENER» 줄이 있으면 첫마디 뒤에 칭찬을 또 붙이지 말라(세 모드 모두)',
+  ['free_talk', 'balanced', 'focused'].every((m) => /THIS TURN'S OPENER/.test(H.warmupHonestRule(m)) && /첫마디 뒤에 칭찬을 또 붙이지 마/.test(H.warmupHonestRule(m))));
 ok('집중교정: 따라 말하자고 함', /집중교정/.test(rule) && /say it with me/i.test(rule));
 ok('자유대화: 따라 말하라고 시키지 말라', /따라 말하라고 시키지 마/.test(H.warmupHonestRule('free_talk')));
 /* 💬 2026-11-04 — 기본 [교정] 규칙이 «모든 모드» 에 「고친 문장을 따옴표로 먼저 말해」를 시키므로, 자유대화만 그것을 덮는다. */

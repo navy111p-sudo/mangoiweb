@@ -196,7 +196,7 @@ const bodyOf = (text, head, opener = '{') => { const a = text.indexOf(head); if 
   const condOf = (line, tail) => { const m = line.match(/^\s*if \((.*)\) sys /); return m ? m[1].replace(tail, '') : null; };
   const linkCond = condOf(call, ''), swCond = condOf(swLine, ' && turnOpenerLine(history)');
   ok(sw > p && sw < corr && sw < b && deadAt(idx, sw, a) === '', '웜업: [칭찬] 목록 바꿔 끼우기가 handleWarmupChat 안, 연결 규칙 «뒤» · 출력 형식 «앞» 에 살아 있다 — 주석 밖', { p, sw, corr });
-  ok(!!linkCond && swCond === linkCond && /&& turnOpenerLine\(history\)\) sys = sys\.replace\(WARMUP_PRAISE_RULE, \(\) => WARMUP_PRAISE_OPENER_TURN\);/.test(swLine),
+  ok(!!linkCond && swCond === linkCond && /sys = sys\.replace\(\s*WARMUP_PRAISE_RULE\s*,\s*(?:\(\)\s*=>\s*)?WARMUP_PRAISE_OPENER_TURN\s*\)/.test(swLine),
     '웜업: 바꿔 끼우기 조건 = 연결 규칙 조건 + «이번 턴 첫마디 줄이 있다»', [linkCond, swCond]);
   ok(/^import \{ AVATAR_NATURAL_OPENERS, turnOpenerLine \} from '\.\/conversation-connectors';/m.test(idx), '웜업: 첫마디 판정도 정본에서 import 한다(복제 없음)');
   ok(/^import \{ connectorPromptBlock, linkBandForStep \} from '\.\/conversation-connectors';/m.test(idx), '웜업: 정본을 import 한다');

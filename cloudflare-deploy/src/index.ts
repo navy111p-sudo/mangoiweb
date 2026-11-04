@@ -3260,7 +3260,7 @@ const WARMUP_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
    · «이번 턴 첫마디» 줄이 실리는 턴: 목록을 빼고 WARMUP_PRAISE_OPENER_TURN 한 줄 — 첫마디와 칭찬은 답의 «같은 첫 자리» 라
      둘 다 시키면 모델이 더 구체적인 칭찬 목록을 고른다(AI 친구에서 실측 — api-ai.ts reactRule 과 같은 결정). 지시도 더 짧다.
    ⚠️ 바꿔 끼우기는 handleWarmupChat 의 [연결 표현] 바로 뒤 한 줄(첫마디 줄과 «같은 조건») — 상수를 통째로 바꾸므로 목록 문장을 고쳐도 그대로 동작한다.
-   ⚠️ 목록은 반드시 «첫 번째» [칭찬] 문자열 — warmup_empathy 하니스가 그 줄을 읽어 칭찬 떼기 표와 대조한다. */
+   ⚠️ warmup_empathy 하니스 D 가 이 파일의 [칭찬] 문자열을 «전부» 읽어 칭찬 떼기 표와 대조한다(순서 무관 · 웜업 쪽만으로 5개 이상). */
 const WARMUP_PRAISE_RULE = "[칭찬] 학생이 잘 대답하면 크게 기뻐하며 칭찬한 뒤 다음 질문으로 이어가줘. 칭찬 말은 «직전 두 번과 다른 것» 으로 골라 써 — Wow!, Awesome!, Nice one!, That's great!, Yes!, Perfect!, Cool!, You got it!, Well said!, I love that!, Amazing!, Haha nice! 처럼 돌려 쓰고 같은 말을 연달아 반복하지 마.";
 const WARMUP_PRAISE_OPENER_TURN = "[칭찬] 이번 턴은 아래 [연결 표현] 의 «THIS TURN'S OPENER» 한 마디가 반응이자 칭찬 전부야 — 칭찬 말을 따로 덧붙이지 말고, 틀린 영어는 칭찬하지 마.";
 const warmupSystem = (friendName: string) => [

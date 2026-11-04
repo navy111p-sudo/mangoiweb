@@ -49,11 +49,12 @@ console.log('│ 💛 웜업·AI친구 공감 — 힘들다는 아이에게 칭�
 console.log('├────────────────────────────────────────────────');
 
 /* ── D. 두 프롬프트의 «돌려 쓸 칭찬» 을 소스에서 읽는다 (대조용) ──────────── */
+/* ⚠️ (2026-11-04) 웜업 [칭찬] 은 이제 두 벌(목록 · 첫마디 턴 한 줄)이다 — «첫 번째만» 읽으면 순서가 바뀌는 순간
+   목록을 못 읽고(0개) D-0 은 AI 친구 쪽만으로 «5개 이상» 을 채워 조용히 통과했다(함정 대조 실측). 그래서 «전부» 읽고 웜업 쪽만 따로 센다. */
 function cheersFromWarmup() {
-  const line = (INDEX.match(/"\[칭찬\][^"]*"/) || [])[0] || '';
-  const tail = line.split('돌려 쓰고')[0];
+  const lines = INDEX.match(/"\[칭찬\][^"]*"/g) || [];
   // 「Wow!, Awesome!, …」 처럼 «영문 + 종결부호 + 쉼표» 로 나열된 것만 뽑는다
-  return (tail.match(/[A-Za-z][A-Za-z' ]*[!.?]/g) || [])
+  return lines.flatMap((line) => (line.split('돌려 쓰고')[0].match(/[A-Za-z][A-Za-z' ]*[!.?]/g) || []))
     .map((s) => s.replace(/[!.?]+$/, '').trim().toLowerCase()).filter(Boolean);
 }
 function cheersFromFriend() {
@@ -66,6 +67,8 @@ function cheersFromFriend() {
 const promptCheers = [...new Set([...cheersFromWarmup(), ...cheersFromFriend()])];
 check('D-0 두 프롬프트에서 «돌려 쓸 칭찬» 목록을 실제로 읽어 냈다 (5개 이상)',
   promptCheers.length >= 5, `읽은 것: ${promptCheers.length}개`);
+check('D-0w 웜업 프롬프트«만» 으로도 5개 이상 읽었다 (AI 친구 쪽이 대신 채워 주지 않게)',
+  new Set(cheersFromWarmup()).size >= 5, `웜업 쪽: ${new Set(cheersFromWarmup()).size}개`);
 
 /* ── A~C·F. 정본을 타입 제거로 «실제로» 돌린다 ─────────────────────────── */
 const tmp = mkdtempSync(join(tmpdir(), 'wemp-'));
