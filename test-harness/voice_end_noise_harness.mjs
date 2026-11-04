@@ -93,7 +93,7 @@ console.log('\n[A] 조용한 방 — 예전과 같다');
   const soft = await runRecord((t) => (inAny(t, [[500, 2500]]) ? wobble(t, 9, 12) : 1));
   ok('A-3 (짝) 작은 목소리(9~12)도 예전처럼 «말소리» 로 듣는다', soft.spokeAt != null && Math.abs(soft.stopAt - (2500 + SILENCE)) <= 120, { spoke: soft.spokeAt, stop: soft.stopAt });
   // 아주 조용한 방(0~1)에 숨소리·딸깍(5~7)만 — 예전 문턱(8) 아래라 «말» 이 아니다. 말로 보면 1.6초 뒤 말하기도 전에 끊긴다.
-  const breath = await runRecord((t) => ((t % 1000) < 60 ? 5 + ((t / 20) % 3) : (t % 2)));
+  const breath = await runRecord((t) => ((t % 1000) < 60 ? 5 + ((t / 20) % 3) : 1));   // ⚠️ 방 소음을 0 으로 두면 «빈 프레임» 이라 바닥에서 빠져 이 검사가 힘을 잃는다(실제로 그랬다)
   ok('A-4 (짝) 아주 조용한 방의 숨소리·딸깍(8 아래)은 말소리로 안 본다 — «첫 마디 대기»(9초)까지 기다린다', breath.spokeAt == null && breath.stopAt >= 8900 && breath.stopAt <= 9300, { stop: breath.stopAt, spoke: breath.spokeAt });
 }
 
@@ -115,6 +115,37 @@ console.log('\n[B] 시끄러운 곳(폰 자동 음량이 키운 소음 10~20) �
   // ⚠️ 작은 말소리가 3초 창보다 길게 이어지면 그 크기가 새 «바닥» 이 되어, 끝난 뒤 침묵 시간보다 조금 일찍(약 1.2초) 멈출 수 있다 — 그건 «말이 끝난 뒤» 라 괜찮다.
   //    묻는 것은 «말하는 도중(4초 전)에 끊지 않는가» 다(애매를 조용으로 세면 약 3.1초에 끊긴다).
   ok('B-6 (짝) 크게 말하다 작게 이어 말하는 동안에는 안 끊는다(애매한 크기는 조용함이 아니다)', trail.stopAt >= 4000 + 400, trail.stopAt);
+}
+
+console.log('\n[D] 함정 대조가 찾은 것 — 빈 프레임·튀는 값·작은 목소리·완전 무음');
+{
+  const noise = (t) => wobble(t, 10, 20);
+  // 녹음을 켠 직후 분석기는 아직 소리를 못 받아 빈 값(0)을 낸다 — 그 0 이 «바닥» 이 되면 3초간 예전 문턱이라 소음이 «말» 이 되고,
+  // 3초 뒤엔 그 소음이 «조용» 이 되어 아이가 말하기도 전(약 4.8초)에 끊겼다(함정 대조 실측).
+  const startZero = (t) => (t < 120 ? 0 : noise(t));
+  const r1 = await runRecord((t) => (inAny(t, [[5500, 7500]]) ? speech(t) + 20 : startZero(t)));
+  ok('D-1 시작 빈 프레임(0)이 있어도 아이가 5.5초에 말하면 끝까지 듣고 그 뒤에 멈춘다', r1.spokeAt >= 5500 && r1.stopAt >= 7500 + SILENCE - 200 && r1.stopAt <= 7500 + SILENCE + 400, { spoke: r1.spokeAt, stop: r1.stopAt });
+  const r2 = await runRecord(startZero);
+  ok('D-2 (짝) 시작 빈 프레임 + 소음만이면 «첫 마디 대기»(9초)까지 기다리고 «말했다» 고 안 한다', r2.spokeAt == null && r2.stopAt >= 8900 && r2.stopAt <= 9300, { spoke: r2.spokeAt, stop: r2.stopAt });
+  // 녹음 중간의 빈 프레임 하나·튀는 낮은 값 하나(1)도 바닥을 끌어내리면 안 된다
+  const blip = (t) => (Math.abs(t - 2000) < 10 ? 0 : Math.abs(t - 3000) < 10 ? 1 : noise(t));
+  const r3 = await runRecord((t) => (inAny(t, [[5500, 7500]]) ? speech(t) + 20 : blip(t)));
+  ok('D-3 중간의 빈 프레임·튀는 낮은 값 한 번에 바닥이 안 흔들린다(말하기 전엔 안 끊김)', r3.spokeAt >= 5500 && r3.stopAt >= 7500 + SILENCE - 200, { spoke: r3.spokeAt, stop: r3.stopAt });
+  // 시끄러운 곳의 작은 목소리(23~28 — 바닥 10 의 2배 넘고 3배 아래)만으로 말함: 예전엔 소음이 «말» 을 켜 줬지만,
+  // 이제 그 목소리 자체를 말로 봐야 «첫 마디 대기» 가 말하는 도중에 끊지 않고, 화면의 «말소리 확인» 도 통과한다.
+  const r4 = await runRecord((t) => (inAny(t, [[500, 3000]]) ? wobble(t, 23, 28) : noise(t)));
+  ok('D-4 시끄러운 곳의 작은 목소리도 0.1초 이어지면 «말했다» 로 보고, 끝난 뒤 멈춘다', r4.spokeAt != null && r4.spokeAt <= 700 && r4.stopAt >= 3000 + SILENCE - 200 && r4.stopAt <= 3000 + SILENCE + 400, { spoke: r4.spokeAt, stop: r4.stopAt });
+  // ⚠️ 말에는 음절 사이 틈이 있다(0.22초 소리 · 0.08초 소음). 틈 없이 3초 넘게 «일정한» 소리는 새 소음 바닥(선풍기를 켬)으로 보는 것이 맞다.
+  const softTalk = (t) => ((t % 300) < 220 ? wobble(t, 23, 28) : noise(t));
+  const r5 = await runRecord((t) => (inAny(t, [[500, 11500]]) ? softTalk(t) : noise(t)), { firstMs: 9000 });
+  ok('D-5 (짝) 작은 목소리로 11초 말해도 «첫 마디 대기»(9초)·소음 바닥에 말하는 도중 끊기지 않는다', r5.stopAt >= 11500 + SILENCE - 200 && r5.stopAt <= 11500 + SILENCE + 400, { spoke: r5.spokeAt, stop: r5.stopAt });
+  // 소음 억제가 강한 폰은 말이 끝난 뒤 완전 무음(0)이 이어질 수 있다 — 그때도 «조용» 이라 끝을 잡아야 한다(빈 프레임을 «애매» 로 두면 20초까지 간다).
+  const r6 = await runRecord((t) => (inAny(t, [[500, 2500]]) ? speech(t) : t < 500 ? 2 : 0));
+  // 실제 소음은 한 프레임씩 튄다(문 닫는 소리·마이크 스침) — 바닥×2 를 넘는 «한 프레임» 은 말이 아니다(0.1초 이어져야 말).
+  const spiky = (t) => ((t % 400) === 200 ? 26 : noise(t));
+  const r7 = await runRecord(spiky);
+  ok('D-7 (짝) 소음이 한 프레임씩 튀어도 «말했다» 고 안 하고 «첫 마디 대기»(9초)까지 기다린다', r7.spokeAt == null && r7.stopAt >= 8900 && r7.stopAt <= 9300, { spoke: r7.spokeAt, stop: r7.stopAt });
+  ok('D-6 (짝) 말 끝난 뒤 완전 무음(0)이 이어져도 침묵 시간 뒤 멈춘다', Math.abs(r6.stopAt - (2500 + SILENCE)) <= 150, r6.stopAt);
 }
 
 console.log('\n[C] 소음이 중간에 커질 때(TV 를 켬)');

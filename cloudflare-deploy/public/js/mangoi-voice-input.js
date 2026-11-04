@@ -1,6 +1,6 @@
 /*!
  * 🎤 mangoi-voice-input.js — 녹음 → 서버 Whisper 전사 (브라우저 음성인식의 폴백/정확 모드)
- *   브라우저 인식이 없는 앱 WebView·인앱·구형 iOS 도 마이크를 쓰게(2026-07-23). 내력: docs/작업기록/261105_*.
+ *   인식이 없는 WebView·인앱·구형 iOS 용(2026-07-23). 내력: 작업기록 261105 «녹음말끝».
  * ⚠️ 브라우저 음성인식과 **동시에 쓰지 말 것** — 일부 안드로이드는 입력 세션이 하나뿐이라 둘 다 죽는다.
  *
  * 사용:
@@ -31,17 +31,19 @@
     try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
   }
 
-  /* 🔇 말소리/조용함 판정(2026-11-05) — 고정 문턱(peak>8)만 보면 폰 자동음량이 키운 소음이 늘 «말소리» 라
-     시끄러운 곳에서 20초(상한)까지 녹음됐다. 최근 3초 «소음 바닥»(0.2초 칸 최솟값)에 맞춰 가른다.
-     바닥이 낮은 조용한 방은 예전(>8 / ≤8)과 같다. 1 말소리 · -1 조용 · 0 애매(그대로 둠). */
+  /* 🔇 말/조용 판정(2026-11-05) — 고정 문턱(>8)이면 폰 자동음량이 키운 소음이 늘 «말» 이라 20초까지 녹음됐다.
+     최근 3초 소음 바닥(0.2초 칸의 둘째로 작은 값)에 맞춘다. 조용한 방은 예전과 같다. 0(빈 프레임)은 조용이되 바닥 제외.
+     바닥×2~3 은 0.1초 이어지면 말. 1 말·-1 조용·0 애매 */
   function endGate() {
-    var mins = [], cur = 1e9, t0 = -1;
+    var lows = [], a = 1e9, b = 1e9, t0 = -1, mid = 0;
     return function (p, now) {
-      if (t0 < 0) t0 = now;
-      if (now - t0 >= 200) { mins.push(cur); if (mins.length > 15) mins.shift(); cur = 1e9; t0 = now; }
-      if (p < cur) cur = p;
-      var f = Math.min.apply(null, mins.concat(cur));
-      return p > Math.max(8, f * 3) ? 1 : (p <= Math.max(8, f * 2) ? -1 : 0);
+      if (!p) { mid = 0; return -1; }
+      if (t0 < 0 || now < t0) t0 = now;
+      if (now - t0 >= 200) { lows.push(b < 1e9 ? b : a); if (lows.length > 15) lows.shift(); a = b = 1e9; t0 = now; }
+      if (p < a) { b = a; a = p; } else if (p < b) b = p;
+      var f = Math.min.apply(null, lows.concat(b < 1e9 ? b : a));
+      if (p <= Math.max(8, f * 2)) { mid = 0; return -1; }
+      return p > f * 3 || ++mid >= 5 ? 1 : 0;
     };
   }
 

@@ -232,7 +232,7 @@ ok('지연 기록에 글(본문)은 안 싣고 길이만', /chars:/.test(lwBody)
 /* ═══════════════ C. 화면 — 오려 내 실제로 돌린다 ═══════════════ */
 console.log('\n[C] 화면');
 const H = HTML;
-const names = ['_stopSpeak', '_stmWanted', '_speakLive', '_stmEnd', '_stmShow', '_stmDrop', '_stmSentence', '_stmRead', '_stmTurn'];
+const names = ['_stopSpeak', '_stmWanted', '_speakLive', '_stmEnd', '_stmShow', '_stmDrop', '_stmRest', '_stmSentence', '_stmRead', '_stmTurn'];
 const parts = {};
 for (const n of names) { parts[n] = fnSrc(H, n); ok('전제: ' + n + ' 를 오려 냈다', parts[n].length > 20); }
 
@@ -333,6 +333,16 @@ if (S) {
   ok('번갈아 모드: 말풍선 뒤 차례 번호를 «읽은 뒤» 값으로 복원', t.s.api.mix === 1);
   t = await runTurn([{ t: 'Do you like balls?' }, { done: 1, ok: true, status: 200, ai_response: 'Do you like dogs?', replaced: 1 }]);
   ok('(짝) 정본이 달라졌으면 멈추고 정본을 처음부터 읽는다', t.s.calls.addMsg.length === 1 && t.s.calls.addMsg[0].quiet === false && t.s.calls.speak.length === 2 && t.s.calls.speak[1] === 'Do you like dogs?', JSON.stringify(t.s.calls.speak));
+  /* ⚡ (2026-11-05) 미리듣기를 멈췄는데 다시 뽑지 않은 턴 — 정본이 «읽은 것 + 나머지» 면 나머지만 이어 읽는다(처음부터 다시 읽지 않음) */
+  t = await runTurn([{ t: 'Wow, pizza!' }, { done: 1, ok: true, status: 200, ai_response: 'Wow,  pizza! Do you like cheese?', replaced: 1, halted: 'repeat' }]);
+  t.s.calls.pending.splice(0).forEach((f) => f());
+  ok('정본이 «읽은 것 + 나머지» 면 처음부터 다시 읽지 않고 나머지만 이어 읽는다', t.s.calls.speak.length === 1 && t.s.calls.addMsg.length === 1 && t.s.calls.addMsg[0].quiet === true
+    && JSON.stringify(t.s.calls.play) === JSON.stringify(['Wow, pizza!', 'Do you like cheese?']), JSON.stringify({ speak: t.s.calls.speak, play: t.s.calls.play }));
+  t.s.calls.pending.splice(0).forEach((f) => f());
+  ok('이어 읽은 뒤 «다 읽었다» 를 한 번 알린다(자동 말하기가 그때 마이크를 연다)', t.s.api.done === 1, t.s.api.done);
+  t = await runTurn([{ t: 'Wow, pizza!' }, { done: 1, ok: true, status: 200, ai_response: 'Wow, pizza!', replaced: 1 }]);
+  t.s.calls.pending.splice(0).forEach((f) => f());
+  ok('(짝) 공백만 다른 같은 답이면 덧붙일 것 없이 끝낸다', t.s.calls.speak.length === 1 && t.s.calls.play.length === 1 && t.s.api.done === 1, JSON.stringify(t.s.calls.play));
   t = await runTurn([{ done: 1, ok: true, status: 200, ai_response: 'Hi!', replaced: 0, halted: 'empathy' }]);
   ok('하나도 안 흘렸으면(공감 가드 등) 예전처럼 읽는다', t.s.calls.addMsg.length === 1 && t.s.calls.addMsg[0].quiet === false && t.s.calls.speak[0] === 'Hi!' && t.s.calls.hooks[0] === 'reply');
   t = await runTurn([]);

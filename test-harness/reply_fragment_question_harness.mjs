@@ -108,6 +108,10 @@ ok('1·2단계 힌트는 의문사를 권하지 않는다', [1, 2].every((d) => 
 ok('3단계 지시·힌트는 의문사도 보인다(짝)', WH_RE.test(M.fullQuestionRule(3)) && WH_RE.test(M.fragmentQuestionHint(['Like space?'], 3)));
 ok('지시가 조각 예시와 «완전한 문장» 을 함께 말한다', [1, 2, 3].every((d) => /By the way, like space\?/.test(M.fullQuestionRule(d)) && /완전한 문장/.test(M.fullQuestionRule(d))));
 ok('재시도 시간 예산이 있다(화면 20초보다 넉넉히 짧게)', Number.isFinite(M.FRAG_RETRY_BUDGET_MS) && M.FRAG_RETRY_BUDGET_MS > 0 && M.FRAG_RETRY_BUDGET_MS <= 12000, M.FRAG_RETRY_BUDGET_MS);
+/* ⚡ 2026-11-05 사장님 「휴대폰에서 무조건 빨리」 — 웜업은 «모델 한 번 부른 턴의 서버 평균»(D1 실측 5.4초)보다 짧게,
+   A.i 친구는 화면이 «이어 읽기» 를 못 해 웜업보다 길게(짝). ⛔ 숫자를 못 박지 않고 «그 관계» 를 묻는다. */
+ok('웜업 다시 뽑기 예산은 한 번 부른 턴의 평균(5.4초)보다 짧다 — 이미 늦은 턴은 다시 안 뽑는다', M.FRAG_RETRY_BUDGET_MS > 0 && M.FRAG_RETRY_BUDGET_MS < 5400, M.FRAG_RETRY_BUDGET_MS);
+ok('(짝) A.i 친구 예산은 따로 있고 웜업보다 길다(그 화면은 멈춘 뒤 안 뽑으면 처음부터 다시 읽는다)', Number.isFinite(M.FRIEND_FRAG_RETRY_BUDGET_MS) && M.FRIEND_FRAG_RETRY_BUDGET_MS > M.FRAG_RETRY_BUDGET_MS && M.FRIEND_FRAG_RETRY_BUDGET_MS <= 12000, { w: M.FRAG_RETRY_BUDGET_MS, f: M.FRIEND_FRAG_RETRY_BUDGET_MS });
 
 // ── ④ 미리듣기(스트리밍) 차단 — 켜졌을 때만 멈추고, 안 켜면 예전 그대로(짝) ────────────────
 if (full) {
