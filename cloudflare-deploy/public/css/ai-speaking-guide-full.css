@@ -1,0 +1,195 @@
+/* =========================================================
+   AI 말하기 사용 안내서 자세한 판(/ai-speaking-guide-full.html) — 페이지 전용 스타일
+   레이아웃: 한 줄 읽기 흐름(최대 880px), 앱의 '우주/행성' 색을
+             3가지 모드 색 코드(라임·오렌지·시안)로 그대로 사용
+   공통 토큰·버튼·상단 바·접이식은 ai-speaking-guide.css
+   ========================================================= */
+
+/* ---------- 1. 표지 ---------- */
+.hero { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--gap); padding-block: clamp(28px, 6vw, 56px) 8px; }
+.hero__text { display: grid; gap: 14px; min-width: 0; }
+.eyebrow { font-size: var(--fs-small); font-weight: 700; color: var(--lime-ink); letter-spacing: 0.02em; }
+.hero h1 { font-size: var(--fs-h1); }
+.lead { font-size: 1.125rem; color: var(--muted); max-width: 34em; }
+.orbit {
+  width: 168px; aspect-ratio: 1; max-width: 100%;
+  display: grid; place-items: center;
+  border-radius: 50%; border: 2px dashed var(--line);
+}
+.orbit img { width: 112px; height: 112px; border-radius: 50%; background: var(--space-deep); }
+
+.jump { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.jump a {
+  padding: 6px 14px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line);
+  font-size: var(--fs-small); font-weight: 600; text-decoration: none;
+}
+.jump a:hover { border-color: var(--ink); }
+
+/* ---------- 2. 섹션 공통 ---------- */
+.sec { display: grid; gap: 18px; padding-block: clamp(28px, 5vw, 44px); border-top: 1px solid var(--line); }
+.hero + .sec { border-top: 0; }
+.sec h2 { font-size: var(--fs-h2); }
+.sec__intro { max-width: 40em; color: var(--muted); }
+.sub { font-size: var(--fs-h3); margin-top: 8px; }
+
+/* 준비물 */
+.prep { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.prep li { display: flex; gap: 12px; align-items: flex-start; padding: 16px; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--line); }
+.prep li > svg { width: 28px; height: 28px; color: var(--lime-ink); margin-top: 2px; }
+.prep strong { display: block; font-size: 1.05rem; }
+.prep p { font-size: var(--fs-small); color: var(--muted); }
+
+/* 화면 설명 (스크린샷 + 번호) */
+.shot { margin: 0; display: grid; gap: 16px; }
+.shot__frame { position: relative; border-radius: var(--radius); overflow: hidden; background: var(--space-deep); }
+.pin {
+  position: absolute; transform: translate(-50%, -50%);
+  width: clamp(20px, 3.2vw, 30px); aspect-ratio: 1;
+  display: grid; place-items: center; border-radius: 50%;
+  background: #ff5a8a; color: #ffffff; border: 2px solid #ffffff;
+  font: 700 clamp(0.7rem, 1.6vw, 0.95rem)/1 var(--font-body);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+.legend { margin: 0; padding: 0; list-style: none; counter-reset: pin; display: grid; gap: 8px; }
+.legend li { counter-increment: pin; display: grid; grid-template-columns: 24px 7.5em minmax(0, 1fr); align-items: baseline; gap: 2px 10px; }
+.legend li::before {
+  content: counter(pin);
+  display: inline-grid; place-items: center; flex: none;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: #ff5a8a; color: #ffffff; font-size: 0.8rem; font-weight: 700;
+  transform: translateY(-1px);
+}
+
+/* 3가지 말하기 카드 */
+.modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.mode { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.mode__art { display: grid; place-items: center; height: 136px; margin: -2px -4px 4px; background: var(--space); border-radius: 12px; }
+.mode__art img { width: auto; height: 118px; }
+.mode h3 { font-size: var(--fs-h3); }
+.mode__when { font-size: var(--fs-small); color: var(--muted); }
+.mode--lime   { --mode: var(--lime);   --mode-ink: var(--lime-ink); }
+.mode--orange { --mode: var(--orange); --mode-ink: var(--orange-ink); }
+.mode--cyan   { --mode: var(--cyan);   --mode-ink: var(--cyan-ink); }
+.mode h3 { color: var(--mode-ink); }
+
+.steps { margin: 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 8px; font-size: var(--fs-small); }
+.steps li { counter-increment: step; display: flex; gap: 10px; align-items: flex-start; }
+.steps li::before {
+  content: counter(step); flex: none;
+  display: grid; place-items: center; width: 22px; height: 22px; margin-top: 2px;
+  border-radius: 50%; border: 2px solid var(--mode-ink); color: var(--mode-ink);
+  font-size: 0.75rem; font-weight: 700;
+}
+.chip {
+  display: inline-block; padding: 1px 10px; border-radius: 999px;
+  background: var(--mode); color: var(--on-accent);
+  font-weight: 700; font-size: 0.85rem; white-space: nowrap;
+}
+.say {
+  margin-top: auto; padding: 10px 14px; border-radius: 12px;
+  background: color-mix(in srgb, var(--mode) 16%, var(--surface));
+  font-weight: 600; font-size: var(--fs-small); font-style: italic;
+}
+.tip { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; padding: 14px 18px; border-radius: var(--radius); background: var(--surface); border: 1.5px dashed var(--line); }
+.tip b { color: var(--lime-ink); }
+
+/* 공통 설정 */
+.settings { margin: 0; display: grid; gap: 12px; }
+.setting { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 16px; padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.setting dt { font-family: var(--font-display); font-size: var(--fs-h3); }
+.setting dd { margin: 0; display: grid; gap: 10px; min-width: 0; }
+.opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.opt { padding: 4px 14px; border-radius: 999px; border: 1.5px solid var(--line); font-size: var(--fs-small); font-weight: 700; }
+.note { font-size: var(--fs-small); color: var(--muted); }
+.note b { color: var(--ink); }
+
+/* 표 */
+.table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
+.tbl th, .tbl td { padding: 10px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+.tbl thead th { background: color-mix(in srgb, var(--space) 6%, var(--surface)); font-weight: 700; white-space: nowrap; }
+.tbl tbody tr:last-child td { border-bottom: 0; }
+
+/* 15분 루틴: 실제 시간 비율(5:5:5)로 그린 막대 */
+.routine { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.routine__step { display: grid; gap: 2px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); font-size: var(--fs-small); }
+.routine__step:first-child { border-radius: var(--radius) 6px 6px var(--radius); }
+.routine__step:last-child  { border-radius: 6px var(--radius) var(--radius) 6px; }
+.routine__time { justify-self: start; padding: 0 10px; border-radius: 999px; font-weight: 700; color: var(--on-accent); background: var(--step); }
+.routine__step b { font-size: 1rem; }
+.routine__step span:last-child { color: var(--muted); }
+.routine__step--lime { --step: var(--lime); }
+.routine__step--orange { --step: var(--orange); }
+.routine__step--cyan { --step: var(--cyan); }
+
+/* 체크리스트 · 약속 */
+.checks, .promises { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.checks li, .promises li { position: relative; padding-left: 30px; }
+.checks li::before {
+  content: ""; position: absolute; left: 2px; top: 0.35em;
+  width: 16px; height: 16px; border: 2px solid var(--lime-ink); border-radius: 4px;
+}
+.promises { padding: 18px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.promises li::before {
+  content: "!"; position: absolute; left: 0; top: 0.25em;
+  display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--orange); color: var(--on-accent); font-weight: 700; font-size: 0.8rem;
+}
+
+/* Q&A */
+.qna { display: grid; gap: 8px; }
+.qna details { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.qna summary {
+  display: flex; gap: 10px; align-items: baseline;
+  padding: 14px 18px; cursor: pointer; font-weight: 700; list-style: none;
+}
+.qna summary::-webkit-details-marker { display: none; }
+.qna summary::before { content: "Q"; font-family: var(--font-display); color: var(--cyan-ink); font-size: 1.15rem; }
+.qna summary::after { content: "+"; margin-left: auto; color: var(--muted); font-size: 1.3rem; line-height: 1; }
+.qna details[open] summary::after { content: "−"; }
+.qna details p { display: flex; gap: 10px; padding: 0 18px 16px; color: var(--muted); }
+.qna details p::before { content: "A"; font-family: var(--font-display); color: var(--lime-ink); font-size: 1.15rem; line-height: 1.5; }
+
+/* ---------- 3. 반응형 ---------- */
+@media (max-width: 760px) {
+  .modes { grid-template-columns: 1fr; }
+  .hero { grid-template-columns: 1fr; }
+  .hero__art { display: none; }
+}
+@media (max-width: 560px) {
+  .setting { grid-template-columns: 1fr; gap: 8px; }
+  .routine { grid-template-columns: 1fr; }
+  .routine__step, .routine__step:first-child, .routine__step:last-child { border-radius: 12px; }
+  .btn--ghost { padding: 0 10px; }
+  .prep { grid-template-columns: 1fr; }
+  .legend li { grid-template-columns: 24px minmax(0, 1fr); }
+  .legend li > :last-child { grid-column: 2; }
+  .tbl th, .tbl td { padding: 9px 10px; }
+  .tbl thead th { white-space: normal; }
+}
+
+/* ---------- 4. 인쇄 (PDF 생성에도 사용) ---------- */
+@page { size: A4; margin: 14mm 14mm 16mm; }
+@media print {
+  :root { --fs-body: 11pt; --fs-small: 10pt; --fs-h3: 13pt; --fs-h2: 17pt; --fs-h1: 24pt; }
+  .jump { display: none !important; }
+  .hero { padding-block: 0 4px; grid-template-columns: 1fr auto; }
+  .hero__art { display: block; }
+  .orbit { width: 120px; }
+  .orbit img { width: 84px; height: 84px; }
+  .sec { padding-block: 16px; gap: 12px; }
+  h2, h3, summary { break-after: avoid; }
+  .prep li, .mode, .setting, .table-scroll, .routine, .qna details, .promises, .shot { break-inside: avoid; }
+  .modes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .mode__art { height: 110px; }
+  .mode__art img { height: 96px; }
+  .table-scroll { overflow: visible; }
+  .prep { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .prep li { flex-direction: column; gap: 6px; }
+  .qna summary::after, .qna details[open] summary::after { content: none; }
+  .qna { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 8mm; }
+  .qna details { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; }
+  .qna summary { padding: 2mm 0 0.5mm; }
+  .qna details p { padding: 0 0 2mm; }
+}

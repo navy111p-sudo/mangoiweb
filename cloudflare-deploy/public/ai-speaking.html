@@ -26,7 +26,11 @@
        수준·교정은 눌러도 화면에만 고른 값(draft)이고, «확인» 을 눌러야 둘을 한꺼번에 저장한다
        (교재 연습·상황별 말하기·AI 친구 두 화면 키 함께).
        수준·교정이 비었거나 «화면마다 다름» 이면 버튼이 잠기고 무엇을 고를지 말한다. 저장 정본 js/ai-speaking-settings.js 는 그대로.
-       🌐 같은 날 5차(사장님 「언어는 바로 저장되게 되돌려줘」) — 언어만 예전처럼 누르는 즉시 저장한다(확인과 무관). -->
+       🌐 같은 날 5차(사장님 「언어는 바로 저장되게 되돌려줘」) — 언어만 예전처럼 누르는 즉시 저장한다(확인과 무관).
+       📖 2026-11-04 6차(사장님 「적당한 곳에 누르면 보이게」) — «오늘은 …» 줄 오른쪽 «사용 안내» 버튼이
+       사용 안내서(/ai-speaking-guide.html · 한 장 판, 초등 눈높이 · KO/EN · 인쇄·PDF·Word)를 이 화면 위 창(dialog)에 연다.
+       화면 언어(ui)를 ?lang= 으로 넘기고, 창을 열 때만 iframe 을 불러온다(첫 화면 비용 0). 창을 못 여는 옛 브라우저는 같은 탭으로 간다.
+       ⛔ 이 변경은 설정 읽기·쓰기·상황 목록 코드를 건드리지 않는다. -->
   <style>
     :root{--sky:#0b1026;--card:#161d3f;--card2:#1c2550;--line:#283160;--ring:#5b6bb5;--ink:#ffffff;--sub:#b8c1e6;--soft:#dde3ff;
       --lime:#c6f432;--orange:#ff9a3c;--cyan:#4dd8ff;--on:#0b1026;--focus:#fde68a}
@@ -52,6 +56,21 @@
     .orbit .mascot{width:48px;height:48px;object-fit:contain;border-radius:50%;background:var(--card)}
     .lead{display:flex;align-items:flex-start;gap:6px;margin:10px 0 16px;color:var(--soft);font-size:15px;font-weight:600}
     .lead .star{width:18px;height:18px;margin-top:2px;fill:var(--lime);stroke:none}
+    /* 📖 사용 안내 — «오늘은 …» 줄 오른쪽. 좁으면 다음 줄 오른쪽으로 내려간다 */
+    .lead{flex-wrap:wrap}
+    .guide-btn{margin-left:auto;align-self:center;flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;
+      border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:14px;font-weight:800;cursor:pointer;transition:border-color .15s}
+    .guide-btn:hover{border-color:var(--ring)}
+    .guide-btn .ic{width:18px;height:18px;color:var(--lime)}
+    #guideDlg{width:min(960px,calc(100vw - 24px));height:min(92vh,1100px);max-width:none;max-height:none;padding:0;
+      border:1px solid var(--line);border-radius:22px;background:var(--card);color:var(--ink);overflow:hidden}
+    #guideDlg[open]{display:flex;flex-direction:column}
+    #guideDlg::backdrop{background:rgba(5,8,22,.72)}
+    .gd-head{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 18px;border-bottom:1px solid var(--line)}
+    .gd-head h2{margin:0;flex:1;min-width:0;font-size:17px;font-weight:900}
+    .gd-x{flex:0 0 auto;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--sky);color:var(--ink);
+      cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+    #guideFrame{flex:1;min-height:0;width:100%;border:0;background:#fff}
     /* 🪐 말하기 3가지 — 휴대폰: 가로 한 줄 카드 */
     .modes{display:grid;gap:12px}
     .mode{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;min-width:0;
@@ -120,7 +139,8 @@
     }
     @media (max-width:640px){.set-row{grid-template-columns:1fr}.ok-btn{width:100%;min-width:0}}
     @media (max-width:420px){.sit-list{grid-template-columns:1fr}header h1{font-size:24px}}
-    @media (prefers-reduced-motion:reduce){.mode,.sit{transition:none}}
+    @media (max-width:640px){#guideDlg{width:100vw;height:100vh;height:100dvh;border-radius:0;border:0}}
+    @media (prefers-reduced-motion:reduce){.mode,.sit,.guide-btn{transition:none}}
   </style>
 </head>
 <body>
@@ -130,7 +150,8 @@
     <h1 data-ko="AI 말하기" data-en="AI Speaking">AI 말하기</h1>
     <span class="orbit" aria-hidden="true"><img class="mascot" src="/img/mango-char.png" alt=""></span>
   </header>
-  <p class="lead"><svg class="star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 16.8 6.2 20l1.4-6.4L2.7 9.2l6.5-.7z"/></svg><span data-ko="오늘은 어떤 말하기 행성으로 떠나 볼까요?" data-en="Which speaking planet will you visit today?">오늘은 어떤 말하기 행성으로 떠나 볼까요?</span></p>
+  <p class="lead"><svg class="star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 16.8 6.2 20l1.4-6.4L2.7 9.2l6.5-.7z"/></svg><span data-ko="오늘은 어떤 말하기 행성으로 떠나 볼까요?" data-en="Which speaking planet will you visit today?">오늘은 어떤 말하기 행성으로 떠나 볼까요?</span>
+    <button type="button" class="guide-btn" id="guideBtn" aria-haspopup="dialog" aria-controls="guideDlg"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20v3H6.5A2.5 2.5 0 0 1 4 20.5z"/><path d="M9 7.5h7M9 11h5"/></svg><span data-ko="사용 안내" data-en="How to use">사용 안내</span></button></p>
 
   <div class="modes">
     <a class="mode" id="textbook-mode" href="/warmup.html">
@@ -187,6 +208,12 @@
     <p id="setMsg" class="sr" role="status" aria-live="polite"></p>
   </section>
 </div>
+<!-- 📖 사용 안내 창 — iframe 주소는 열 때 openGuide 가 넣는다(그 전에는 아무것도 안 불러옴) -->
+<dialog id="guideDlg" aria-labelledby="guideDlgTitle">
+  <div class="gd-head"><h2 id="guideDlgTitle" data-ko="AI 말하기 사용 안내" data-en="AI Speaking guide">AI 말하기 사용 안내</h2>
+    <button type="button" class="gd-x" id="guideClose" aria-label="닫기"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <iframe id="guideFrame" title="AI 말하기 사용 안내"></iframe>
+</dialog>
 <script src="/js/ai-situations.js?v=1"></script>
 <script src="/js/ai-speaking-settings.js?v=1"></script>
 <script>
@@ -300,7 +327,29 @@
     var okBtn = document.getElementById('setOk');
     if(okBtn) okBtn.addEventListener('click', function(){ confirmSettings(); });
   }
-  applyUi(); renderSituations(); renderSettings(); wire();
+  // 📖 사용 안내 — 안내서를 창 안에 연다. 화면 언어(ui)를 ?lang= 으로 넘긴다(안내서가 그 언어로 뜬다).
+  //    창(dialog)을 못 여는 옛 브라우저는 같은 탭으로 간다 — 안내서 위쪽에 «AI 말하기» 로 돌아오는 링크가 있다.
+  var GUIDE_URL = '/ai-speaking-guide.html';
+  function guideHref(){ return GUIDE_URL + '?lang=' + (ui === 'en' ? 'en' : 'ko'); }
+  function openGuide(){
+    var dlg = document.getElementById('guideDlg'), fr = document.getElementById('guideFrame'), href = guideHref();
+    if(!dlg || !fr || typeof dlg.showModal !== 'function'){ location.href = href; return; }
+    if(fr.getAttribute('src') !== href) fr.setAttribute('src', href);
+    fr.setAttribute('title', T('AI 말하기 사용 안내', 'AI Speaking guide'));
+    var x = document.getElementById('guideClose'); if(x) x.setAttribute('aria-label', T('닫기', 'Close'));
+    if(dlg.open) return;
+    try { dlg.showModal(); } catch(_) { location.href = href; }
+  }
+  function wireGuide(){
+    var btn = document.getElementById('guideBtn'), dlg = document.getElementById('guideDlg'), x = document.getElementById('guideClose');
+    if(btn) btn.addEventListener('click', openGuide);
+    if(!dlg) return;
+    if(x) x.addEventListener('click', function(){ dlg.close(); });
+    // 창 바깥(어두운 곳)을 누르면 닫는다 — 창 안(머리·iframe)을 누르면 e.target 이 dialog 자신이 아니다
+    dlg.addEventListener('click', function(e){ if(e.target === dlg) dlg.close(); });
+    dlg.addEventListener('close', function(){ if(btn) try { btn.focus(); } catch(_) {} });
+  }
+  applyUi(); renderSituations(); renderSettings(); wire(); wireGuide();
 })();
 </script>
 </body>
