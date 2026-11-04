@@ -407,8 +407,8 @@ if (process.env.CCV_CHILD === '1') {
      반복 행은 그대로 남고 그 날만 skip_dates 로 빠지며, 옮겨 간 곳은 하루짜리 새 줄(source='recurring-week:<id>')이다
      (recurring-one-week.ts). 그래서 «지금 행이 새 날짜에 있다» 는 날짜 지정 규칙으로는 원래 날짜 줄이 안 생겼다. */
   {
-    const { judgeMovedAway, recurWeekChildFor, loadMovedAwayEvents } = await imp('class-change-state.ts');
-    for (const u of ['stu_rw1', 'stu_rw2', 'stu_rw3', 'stu_rw4']) ins(`INSERT OR IGNORE INTO students_erp (user_id, korean_name, shop_name, created_at) VALUES (?,?,'owned-shop',?)`, u, '학생' + u, T0);
+    const { judgeMovedAway, recurWeekChildFor, loadMovedAwayEvents, slotKeyOf, movedAwayBlocked, movedAwayOrder } = await imp('class-change-state.ts');
+    for (const u of ['stu_rw1', 'stu_rw2', 'stu_rw3', 'stu_rw4', 'stu_rw5']) ins(`INSERT OR IGNORE INTO students_erp (user_id, korean_name, shop_name, created_at) VALUES (?,?,'owned-shop',?)`, u, '학생' + u, T0);
     const reqApprove = async (id, uid, origTime, newDate, newTime) => {
       const body = { schedule_id: id, teacher_name: 'ALPHA', student_name: '학생' + uid, request_type: 'postpone', orig_date: TOMORROW, orig_time: origTime, reason: 'rw' };
       if (newDate) Object.assign(body, { new_date: newDate, new_time: newTime });
@@ -438,6 +438,15 @@ if (process.env.CCV_CHILD === '1') {
     const RW4 = mkClass('stu_rw4', 'recurring', 'Wed', null, '14:00');
     sq.prepare(`INSERT INTO schedule_change_requests (schedule_id, request_type, status, orig_date, orig_time, new_date, new_time, decided_by, decided_at, created_at) VALUES (?, 'postpone', 'approved', ?, '14:00', '2026-11-07', '14:00', 'h', ?, ?)`)
       .run(RW4, TOMORROW, NOW, NOW);
+    /* RW5 매주(수) 09:00 → 11/04 회차를 «날짜 없이» 연기(그 날 postponed 기록 줄 k5) → 나중에 그 기록 줄을 11/07 로 다시 잡음.
+       같은 회차가 «반복 행 승인 기록»(RW5, 11/04) 과 «하루짜리 줄을 옮긴 기록»(k5, 11/04) 두 번 잡힌다 — 원래 날짜 줄은 하나여야 한다
+       (2026-11-04 함정 대조가 실제 핸들러로 재현: 세 화면 모두 두 줄). 남는 쪽은 «지금 자리를 가진» 하루짜리 줄(k5)이다. */
+    const RW5 = mkClass('stu_rw5', 'recurring', 'Wed', null, '09:00');
+    q = await reqApprove(RW5, 'stu_rw5', '09:00', null, null);
+    const k5 = kidsOf(RW5)[0];
+    ok('I0e 전제: RW5 는 11/04 09:00 에 postponed 기록 줄', !!k5 && k5.status === 'postponed' && k5.scheduled_date === TOMORROW, JSON.stringify({ q, k5 }));
+    q = await mv(k5.id, { scheduled_date: '2026-11-07' });
+    ok('I0f 전제: 그 기록 줄을 11/07 로 다시 잡았다', q.status === 200 && row(k5.id).scheduled_date === '2026-11-07', JSON.stringify(q));
 
     const d4 = await callAdmin('GET', `/api/admin/classes/today?date=${TOMORROW}`, { cookie: 'tok_admin' });
     const ss4 = d4.body.sessions || [];
@@ -451,6 +460,10 @@ if (process.env.CCV_CHILD === '1') {
     ok('I3 같은 자리에 이미 수업이 있으면 반복 행의 원래 날짜 줄은 안 만든다(한 자리에 두 줄 금지)', h3.length === 1 && !h3[0].moved_away && Number(h3[0].schedule_id) === M3, JSON.stringify(h3.map(x => ({ id: x.schedule_id, mv: x.moved_away }))));
     const h4 = ss4.filter(x => x.student_uid === 'stu_rw4');
     ok('I4 ⛔ skip_dates 에 그 날이 없으면(옛 «기록만» 승인) 원래 날짜 줄 없음 — 그 날 수업은 그대로 열린다', h4.length === 1 && !h4[0].moved_away && Number(h4[0].schedule_id) === RW4, JSON.stringify(h4.map(x => ({ id: x.schedule_id, mv: x.moved_away }))));
+    const h5 = ss4.filter(x => x.student_uid === 'stu_rw5');
+    ok('I12 🔑 한 자리에 하나 — 반복 행 승인 기록과 하루짜리 줄 옮김 기록이 같은 회차면 «⏸ 연기됨 → 11/07 09:00» 한 줄(지금 자리를 가진 하루짜리 줄)',
+      h5.length === 1 && h5[0].moved_away === true && Number(h5[0].schedule_id) === k5.id && h5[0].change && h5[0].change.label_ko === '⏸ 연기됨 → 11/07 09:00',
+      JSON.stringify(h5.map(x => ({ id: x.schedule_id, mv: x.moved_away, l: x.change && x.change.label_ko }))));
     ok('I5 이력 ok · moved_away 건수에 들어간다', d4.body.change_history === 'ok' && d4.body.counts && d4.body.counts.moved_away >= 1, JSON.stringify({ h: d4.body.change_history, c: d4.body.counts }));
 
     // 강사 주간 달력 — 같은 판정(하루짜리 줄은 이 강사의 조회 결과 안에서 찾는다)
@@ -461,18 +474,25 @@ if (process.env.CCV_CHILD === '1') {
     ok('I7 짝: 강사 달력에서도 날짜 없는 연기·같은 자리 수업은 한 줄만', day4.filter(it => it.student_uid === 'stu_rw2').length === 1 && !day4.some(it => it.student_uid === 'stu_rw2' && it.class_state === 'moved_away')
       && day4.filter(it => it.student_uid === 'stu_rw3').length === 1 && !day4.some(it => it.student_uid === 'stu_rw3' && it.class_state === 'moved_away'),
       JSON.stringify(day4.filter(it => /stu_rw/.test(it.student_uid || '')).map(it => [it.student_uid, it.class_state])));
+    const t5 = day4.filter(it => it.student_uid === 'stu_rw5');
+    ok('I13 🔑 강사 달력도 한 자리에 하나(지금 자리를 가진 하루짜리 줄)', t5.length === 1 && t5[0].class_state === 'moved_away' && Number(t5[0].schedule_id) === k5.id && t5[0].moved_label_ko === '⏸ 연기됨 → 11/07 09:00',
+      JSON.stringify(t5.map(it => ({ id: it.schedule_id, st: it.class_state, l: it.moved_label_ko }))));
 
     // 관리자 주간 시간표 — off_items 에 «옮겨 간» 칸(off:'postponed', moved_away)
     const w3 = await callAdmin('GET', '/api/admin/schedules?week=2026-11-02', { cookie: 'tok_admin' });
     const o3 = (w3.body && w3.body.off_items) || [];
     const ofU = (uid) => o3.filter(o => (o.students || []).some(s => s.uid === uid));
-    const wr1 = ofU('stu_rw1').find(o => o.moved_away);
+    const wr1 = ofU('stu_rw1').find(o => o.moved_away && o.date === TOMORROW);   // 11/05 에는 하루짜리 줄을 다시 옮긴 칸이 따로 있다(날짜 지정 규칙)
     ok('I8 🔑 주간 시간표: 매주 수업의 원래 날짜(11/04 10:00)에 «⏸ 연기됨 → 11/06 10:00» 보기 전용 칸', !!wr1 && wr1.off === 'postponed' && wr1.date === TOMORROW && /^10:00/.test(wr1.start_time) && wr1.change.label_ko === '⏸ 연기됨 → 11/06 10:00' && wr1.id === undefined && wr1.move_field === undefined && String(wr1.teacher_id) === '1', JSON.stringify(wr1));
     const wp1 = ofU('stu_p').find(o => o.moved_away);
     ok('I9 🔑 주간 시간표: 날짜 지정 수업도 원래 날짜(11/03)에 «⏸ 연기됨 → 11/10 18:30»', !!wp1 && wp1.date === TODAY && wp1.change.label_ko === '⏸ 연기됨 → 11/10 18:30' && !!wp1.change.by, JSON.stringify(wp1));
     ok('I10 짝: 주간 시간표 — 날짜 없는 연기는 연기 기록 칸 하나 · 같은 자리 수업이 있으면 옮겨 간 칸 없음 · 옛 기록만 승인은 칸 없음',
       ofU('stu_rw2').length === 1 && !ofU('stu_rw2')[0].moved_away && !ofU('stu_rw3').some(o => o.moved_away) && !ofU('stu_rw4').length && w3.body.off_complete === true,
       JSON.stringify({ rw2: ofU('stu_rw2'), rw3: ofU('stu_rw3').map(o => o.moved_away), rw4: ofU('stu_rw4').length, c: w3.body.off_complete }));
+    const w5 = ofU('stu_rw5').filter(o => o.date === TOMORROW);
+    ok('I14 🔑 주간 시간표도 원래 날짜(11/04)에 칸 하나 — 하루짜리 줄의 칸(note 가 «회차»)',
+      w5.length === 1 && w5[0].moved_away === true && /09:00/.test(w5[0].start_time) && w5[0].change.label_ko === '⏸ 연기됨 → 11/07 09:00' && /2026-11-04 회차/.test(w5[0].note || ''),
+      JSON.stringify(w5.map(o => ({ t: o.start_time, n: o.note, l: o.change && o.change.label_ko }))));
     const wt3 = await callAdmin('GET', '/api/admin/schedules?week=2026-11-02', { cookie: 'tok_alpha' });
     const tr1 = ((wt3.body && wt3.body.off_items) || []).find(o => o.moved_away && (o.students || []).some(s => s.uid === 'stu_p'));
     ok('I11 🔒 강사에게는 옮겨 간 칸의 누가·사유가 안 실린다', !!tr1 && tr1.change.by === null && tr1.change.reason === null, JSON.stringify(tr1 && tr1.change));
@@ -497,6 +517,15 @@ if (process.env.CCV_CHILD === '1') {
     const e1 = lj.byKey.get('930001|2027-04-07'), e2 = lj.byKey.get('930002|2027-04-07');
     ok('J7 이력 detail 의 «→ 날짜 시각» 을 읽는다 — 짝: 없으면 null', !!e1 && e1.to_date === '2027-04-09' && e1.to_time === '09:30' && !!e2 && e2.to_date === null, JSON.stringify({ e1, e2 }));
     sq.exec(`DELETE FROM class_audit_log WHERE schedule_id >= 930000`);
+    const sk = slotKeyOf('2026-11-04', '9:00', 'stu_x');
+    ok('J8 자리 열쇠: 날짜|HH:MM|학생 · 학생이나 날짜를 모르면 빈 열쇠 — 빈 열쇠는 아무것도 안 막는다(모르는 둘을 하나로 합치지 않는다)',
+      sk === '2026-11-04|09:00|stu_x' && slotKeyOf('2026-11-04', '09:00', '  ') === '' && slotKeyOf(null, '09:00', 'stu_x') === ''
+      && movedAwayBlocked('', true, new Set(['']), new Set([''])) === false, sk);
+    ok('J9 한 자리에 하나: 옮겨 감 줄끼리는 누구든 비켜 감 · 진짜 줄은 반복 행에서 온 줄만 비켜 감(짝) · 차례는 날짜 지정 행 먼저',
+      movedAwayBlocked(sk, false, new Set(), new Set([sk])) === true && movedAwayBlocked(sk, true, new Set(), new Set([sk])) === true
+      && movedAwayBlocked(sk, true, new Set([sk]), new Set()) === true && movedAwayBlocked(sk, false, new Set([sk]), new Set()) === false
+      && movedAwayBlocked(sk, true, new Set(['x']), new Set(['y'])) === false
+      && movedAwayOrder({ scheduled_date: '2026-11-04' }) === 0 && movedAwayOrder({ scheduled_date: null }) === 1 && movedAwayOrder(undefined) === 1);
     void q;
   }
 
@@ -639,15 +668,35 @@ const MUTANTS = [
   { name: '반복: 하루짜리 줄 조회를 안 함(오늘 수업 — 기록의 옛 새 날짜로 말함)', expect: /I1 /,
     edits: [['api-admin.ts', 'const _rw = _rwIds.length ? await loadRecurWeekChildren(env.DB, _rwIds) : null;', 'const _rw = null;']] },
   { name: '반복: 같은 자리 빼기를 뺌(오늘 수업)', expect: /I3 /,
-    edits: [['api-admin.ts', 'if (_isRecur && _taken.has(slotKeyOf(dateStr, ch.from_time || s.start_time, s.user_id))) continue;', '']] },
+    edits: [['api-admin.ts', 'if (movedAwayBlocked(_slot, _isRecur, _taken, _ghostAt)) continue;', 'if (movedAwayBlocked(_slot, _isRecur, new Set(), _ghostAt)) continue;']] },
+  { name: '한 자리에 하나: 옮겨 감 줄끼리 겹침을 안 봄(오늘 수업 — 함정 대조가 찾은 두 줄)', expect: /I12 /,
+    edits: [['api-admin.ts', 'if (movedAwayBlocked(_slot, _isRecur, _taken, _ghostAt)) continue;', 'if (movedAwayBlocked(_slot, _isRecur, _taken, new Set())) continue;']] },
+  { name: '한 자리에 하나: 차례 정렬을 뺌(오늘 수업 — 반복 행 쪽이 남음)', expect: /I12 /,
+    edits: [['api-admin.ts', '[..._mvRows].sort((a: any, b: any) => movedAwayOrder(a) - movedAwayOrder(b))', '_mvRows']] },
+  { name: '한 자리에 하나: 조건 뒤집기(진짜 줄 비켜 가기를 날짜 지정 행에 걺)', expect: /I3 /,
+    edits: [['class-change-state.ts', 'return ghosts.has(key) || (recur && taken.has(key));', 'return ghosts.has(key) || (!recur && taken.has(key));']] },
+  { name: '한 자리에 하나: 차례 뒤집기(반복 행 먼저)', expect: /I12 |I14 |J9 /,
+    edits: [['class-change-state.ts', "return ymd(row && row.scheduled_date) ? 0 : 1;", "return ymd(row && row.scheduled_date) ? 1 : 0;"]] },
+  { name: '자리 열쇠: 학생을 몰라도 열쇠를 만듦', expect: /J8 /,
+    edits: [['class-change-state.ts', "if (!d || !u) return '';", '']] },
+  { name: '한 자리에 하나: 빈 열쇠도 막음', expect: /J8 /,
+    edits: [['class-change-state.ts', 'if (!key) return false;\n  return ghosts.has(key)', 'return ghosts.has(key)']] },
   { name: '반복: 같은 자리 빼기를 뺌(강사 달력)', expect: /I7 /,
-    edits: [['api-teacher.ts', '=> !!m.recur\n    && (day.items', '=> false\n    && (day.items']] },
+    edits: [['api-teacher.ts', 'm.item.student_uid), !!m.recur, taken, ghosts);', 'm.item.student_uid), !!m.recur, new Set(), ghosts);']] },
+  { name: '한 자리에 하나: 옮겨 감 줄끼리 겹침을 안 봄(강사 달력)', expect: /I13 /,
+    edits: [['api-teacher.ts', 'm.item.student_uid), !!m.recur, taken, ghosts);', 'm.item.student_uid), !!m.recur, taken, new Set());']] },
+  { name: '한 자리에 하나: 차례 정렬을 뺌(강사 달력)', expect: /I13 /,
+    edits: [['api-teacher.ts', '_mvAwayItems.sort((a, b) => Number(!!a.recur) - Number(!!b.recur));', '']] },
   { name: '반복: 강사 달력이 하루짜리 줄을 안 넘김', expect: /I6 /,
     edits: [['api-teacher.ts', "_recur ? recurWeekChildFor(_mvKids.get(String(r.id)), ev.from_date) : null);", 'null);']] },
   { name: '주간 시간표: 옮겨 간 칸을 안 실음', expect: /I8 |I9 /,
     edits: [['api-admin.ts', 'const ch = judgeMovedAway(r, ev, { showActor: _offShowActor },', 'const ch = null && judgeMovedAway(r, ev, { showActor: _offShowActor },']] },
   { name: '주간 시간표: 같은 자리 빼기를 뺌', expect: /I10 /,
-    edits: [['api-admin.ts', 'if (_recur && _takenW.has(slotKeyOf(ev.from_date, st, uid))) continue;', '']] },
+    edits: [['api-admin.ts', 'if (movedAwayBlocked(_slotW, _recur, _takenW, _ghostW)) continue;', 'if (movedAwayBlocked(_slotW, _recur, new Set(), _ghostW)) continue;']] },
+  { name: '주간 시간표: 옮겨 감 칸끼리 겹침을 안 봄', expect: /I14 /,
+    edits: [['api-admin.ts', 'if (movedAwayBlocked(_slotW, _recur, _takenW, _ghostW)) continue;', 'if (movedAwayBlocked(_slotW, _recur, _takenW, new Set())) continue;']] },
+  { name: '주간 시간표: 차례 정렬을 뺌', expect: /I14 /,
+    edits: [['api-admin.ts', '.sort((a, b) => movedAwayOrder(_mvWById.get(String(a.schedule_id))) - movedAwayOrder(_mvWById.get(String(b.schedule_id))));', ';']] },
   { name: '주간 시간표: 옮겨 간 칸에 누구에게나 누가·사유', expect: /I11 /,
     edits: [['api-admin.ts', 'const ch = judgeMovedAway(r, ev, { showActor: _offShowActor },', 'const ch = judgeMovedAway(r, ev, { showActor: true },']] },
 ];

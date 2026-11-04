@@ -317,9 +317,27 @@ export function recurWeekChildFor(list: any[] | null | undefined, fromDate: stri
   return hit[0];
 }
 
-/** «같은 자리» 열쇠 — 날짜|HH:MM|학생. 원래 날짜에 이미 줄(연기 기록 줄·새로 잡은 수업)이 있으면 반복 행의 줄은 안 만든다. */
+/** «같은 자리» 열쇠 — 날짜|HH:MM|학생. 원래 날짜에 이미 줄(연기 기록 줄·새로 잡은 수업)이 있으면 반복 행의 줄은 안 만든다.
+ *  날짜나 학생을 모르면 '' — 아래 movedAwayBlocked 는 빈 열쇠로 아무것도 안 막는다(모르는 둘을 하나로 합치면 남의 줄을 숨긴다). */
 export function slotKeyOf(date: any, time: any, uid: any): string {
-  return ymd(date) + '|' + hhmm(time) + '|' + String(uid ?? '').trim();
+  const d = ymd(date), u = String(uid ?? '').trim();
+  if (!d || !u) return '';
+  return d + '|' + hhmm(time) + '|' + u;
+}
+
+/** «한 자리에 하나» — 원래 날짜에 «옮겨 감» 줄을 넣기 «전» 에 묻는다(관리자 «오늘 수업»·주간 시간표·강사 달력이 같은 규칙).
+ *  taken: 그 날 이미 있는 진짜 줄의 자리 — 매주 반복 행에서 온 줄만 비켜 간다(날짜 지정 행의 줄은 예전 동작 그대로).
+ *  ghosts: 이미 넣은 «옮겨 감» 줄의 자리 — 누구든 비켜 간다. 같은 회차가 «반복 행 승인 기록» 과 «하루짜리 줄을 다시 옮긴 기록»
+ *  두 번 잡히는 경우가 있다(날짜 없이 연기 → 그 기록 줄을 나중에 다시 잡음 — 2026-11-04 함정 대조가 실제 핸들러로 재현).
+ *  ⚠️ 넣을 때마다 ghosts 에 더해야 하고, 넣는 차례는 movedAwayOrder 로(날짜 지정 행 먼저). */
+export function movedAwayBlocked(key: string, recur: boolean, taken: Set<string>, ghosts: Set<string>): boolean {
+  if (!key) return false;
+  return ghosts.has(key) || (recur && taken.has(key));
+}
+
+/** 넣는 차례 — 날짜 지정 행(그 회차의 «지금 자리» 를 가진 행) 먼저 0, 매주 반복 행 나중 1. 겹치면 반복 행 쪽이 빠진다. */
+export function movedAwayOrder(row: any): number {
+  return ymd(row && row.scheduled_date) ? 0 : 1;
 }
 
 /** 원래 날짜(ev.from_date)에 남길 「취소 · 연기」 칸. 남길 것이 없으면 null(규칙 ①~④).
