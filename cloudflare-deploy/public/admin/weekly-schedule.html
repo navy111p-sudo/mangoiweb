@@ -221,6 +221,7 @@ h1 .sub{font-size:13px;color:var(--tx2);font-weight:500;margin-left:4px}
 .tooltip-row .k{color:var(--tx2)}
 .tooltip-row .v{color:#fff;font-weight:600;text-align:right}
 .tooltip-students{margin-top:8px;padding-top:8px;border-top:1px solid var(--bd)}
+.tooltip-off-part+.tooltip-off-part{margin-top:8px;padding-top:6px;border-top:1px dashed var(--bd)}   /* 🧾 한 칸에 사정이 여럿이면 사정마다 한 묶음 */
 .tooltip-students .ttl{font-size:10.5px;color:var(--tx2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;font-weight:700}
 .tooltip-student{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:6px;padding:4px 8px;margin:3px 0;font-size:11.5px;color:#fde68a;display:flex;justify-content:space-between;gap:8px}
 .tooltip-student b{color:#fff}
@@ -333,6 +334,8 @@ tr:hover .tl-td-day{background:rgba(251,191,36,.07)}
   color:#475467;font-weight:700;text-decoration:line-through;text-decoration-color:#64748b;cursor:cell}
 .tl-scroll td.slot.slot-off.slot-off-postponed{background:#f8fafc;text-decoration:none;font-style:italic;
   box-shadow:inset 0 0 0 1px #94a3b8}
+/* 🧾 (2026-11-04) 같은 칸에 «취소» 와 «연기·옮겨 감» 이 섞인 그룹 칸 — 빗금은 두되 취소선은 안 긋는다(연기된 학생 이름까지 그어진다) */
+.tl-scroll td.slot.slot-off.slot-off-mixed{text-decoration:none;box-shadow:inset 0 0 0 1px #94a3b8}
 html[data-admin-theme="ivory"] .tl-seg.s-1on1{background:var(--cell-1on1)}
 html[data-admin-theme="ivory"] .tl-seg.s-group{background:var(--cell-group)}
 html[data-admin-theme="ivory"] .tl-seg.s-temp{background:var(--cell-temp)}
@@ -1021,10 +1024,24 @@ function offsOfDay(tid,d){
   return out.sort(function(a,b){return a.startMin-b.startMin;});
 }
 /** 화면 글자 — 서버가 만든 label_ko/label_en 을 고르기만 한다(⛔ 문구를 여기서 다시 만들지 말 것). */
-function offLabel(o){
+function offLabel1(o){
   var ch=(o&&o.change)||{};
   if(currentLang==='en')return ch.label_en||(o&&o.off==='postponed'?'⏸ Postponed':'✕ Cancelled');
   return ch.label_ko||(o&&o.off==='postponed'?'⏸ 연기됨':'✕ 취소됨');
+}
+/* 🧾 (2026-11-04) 한 칸 = 여러 «부분» — 그룹 수업에서 같은 강사·날짜·시각에 «취소» 와 다른 학생의 «연기됨 → 새 날짜» 가
+   함께 오면 한 칸에 둘 다 말한다(예전엔 먼저 온 쪽 글자 하나로 합쳐 나머지 학생의 사정이 사라졌다).
+   부분은 «상태 + 서버 글자» 가 같을 때만 합친다(학생만 더함). 부분이 하나면 예전과 글자·모양이 같다. */
+function offParts(o){return (o&&o.parts&&o.parts.length)?o.parts:[o];}
+function offLabel(o){
+  var ps=offParts(o);
+  if(ps.length<2)return offLabel1(ps[0]);
+  return ps.map(offLabel1).join(' · ');
+}
+function offGlyph(o){
+  var seen={},g='';
+  offParts(o).forEach(function(p){var c=(p&&p.off==='postponed')?'⏸':'✕';if(!seen[c]){seen[c]=1;g+=c;}});
+  return g+' ';
 }
 function offWho(o){
   var s=(o&&o.students)||[];
@@ -1161,15 +1178,29 @@ async function loadData(){
               if(isNaN(oh))return;
               omm=Math.round(omm/SLOT_STEP)*SLOT_STEP; if(omm>=60){oh+=1;omm-=60;}
               var ok=o.teacher_id+'__'+o.date+'__'+(oh*60+omm);
+              var okind=o.off==='postponed'?'postponed':'cancelled';
+              var oDurN=Number(o.duration_min)>0?Number(o.duration_min):20;
+              /* 부분 열쇠 = 상태 + 서버 글자. ⛔ 상태만으로 합치지 말 것 — «→ 11/11» 과 «→ 11/12» 가 한 글자로 뭉친다. */
+              var pkey=okind+'|'+((o.change&&(o.change.label_ko||o.change.label_en))||'');
               var prev=OFF_SLOTS[ok];
-              if(prev){   // 그룹 수업은 «학생마다 한 행» — 같은 칸이면 학생만 합친다(아래 수업 로더와 같은 이유)
+              if(prev){   // 그룹 수업은 «학생마다 한 행» — 같은 칸이면 학생을 합치되, 상태·글자가 다르면 «부분» 을 따로 둔다
+                var tgt=null;
+                prev.parts.forEach(function(pp){if(pp.key===pkey)tgt=pp;});
+                if(!tgt){tgt={key:pkey,off:okind,change:o.change||null,students:[]};prev.parts.push(tgt);if(prev.off!==okind)prev.off='mixed';}
                 var have={};(prev.students||[]).forEach(function(x){have[x.uid||x.name]=1;});
-                (o.students||[]).forEach(function(x){if(!have[x.uid||x.name]){prev.students.push(x);have[x.uid||x.name]=1;}});
+                var haveP={};tgt.students.forEach(function(x){haveP[x.uid||x.name]=1;});
+                (o.students||[]).forEach(function(x){
+                  var id=x.uid||x.name;
+                  if(!have[id]){prev.students.push(x);have[id]=1;}
+                  if(!haveP[id]){tgt.students.push(x);haveP[id]=1;}
+                });
+                if(oDurN>prev.duration_min)prev.duration_min=oDurN;   // 칸 길이는 가장 긴 수업에 맞춘다
                 return;
               }
-              OFF_SLOTS[ok]={off:o.off==='postponed'?'postponed':'cancelled',type:o.type||'1on1',
-                students:(o.students||[]).slice(),duration_min:Number(o.duration_min)>0?Number(o.duration_min):20,
-                note:o.note||'',change:o.change||null};
+              OFF_SLOTS[ok]={off:okind,type:o.type||'1on1',
+                students:(o.students||[]).slice(),duration_min:oDurN,
+                note:o.note||'',change:o.change||null,
+                parts:[{key:pkey,off:okind,change:o.change||null,students:(o.students||[]).slice()}]};
             });
             slots.forEach(function(s){
               /* ⏱ (2026-08-12) 분을 버리지 말 것. 예전엔 getHours() 만 써서 19:20 수업이
@@ -1350,7 +1381,7 @@ function render(){
   if(purgeBtn)purgeBtn.hidden=!(s.ghost>0);
   /* 🧾 취소·연기 회차 수 — «총 수업» 에는 안 든다. 서버가 «못 물어봤다» 고 하면 0 대신 «?» (모르는 것을 0 으로 말하지 않기) */
   var offEl=document.getElementById('st-off');
-  if(offEl){ var nOff=Object.keys(OFF_SLOTS).length; offEl.textContent=(!OFF_COMPLETE&&!nOff)?'?':(nOff+(currentLang==='ko'?'건':'')); }
+  if(offEl){ var nOff=0; for(var ko in OFF_SLOTS)nOff+=offParts(OFF_SLOTS[ko]).length; offEl.textContent=(!OFF_COMPLETE&&!nOff)?'?':(nOff+(currentLang==='ko'?'건':'')); }
   syncCatSelect(s.byCat);
   var q=searchQuery.toLowerCase().trim();
   function tMatch(t){
@@ -1633,7 +1664,7 @@ function renderDayGrid(list){
         body+='<td colspan="'+oSpan+'" class="slot slot-off slot-off-'+off.off+(blockedDay?' slot-blocked-day':'')+todayCls+edge+'"'+base+
           ' title="'+escapeHtml(offLabel(off)+' · '+minLabel(startMin)+'~'+minLabel(startMin+oDur)+(oWho?' · '+oWho:''))+'"'+
           (blockedDay?' data-blockdate="'+iso+'"':'')+   // 종일 차단일이면 빈 칸과 똑같이 배정 경고(holidayGuard)
-          ' data-off="'+oPay+'">'+escapeHtml((off.off==='postponed'?'⏸ ':'✕ ')+oWho)+'</td>';
+          ' data-off="'+oPay+'">'+escapeHtml(offGlyph(off)+oWho)+'</td>';
         skip=oSpan-1;
         continue;
       }
@@ -1812,12 +1843,19 @@ document.addEventListener('mousemove',function(e){
   var html='<div class="tooltip-title">'+escapeHtml(offLabel(o))+'</div>';
   html+='<div class="tooltip-row"><span class="k">'+(L?'교사':'Teacher')+'</span><span class="v">'+escapeHtml(data.teacher)+'</span></div>';
   html+='<div class="tooltip-row"><span class="k">'+(L?'일시':'When')+'</span><span class="v">'+data.date+' · '+minLabel(st)+' ~ '+minLabel(st+dur)+'</span></div>';
-  if(o.change)html+=offChangeRows(o.change);
-  if(o.students&&o.students.length){
-    html+='<div class="tooltip-students"><div class="ttl">'+(L?'학생':'Students')+' ('+o.students.length+(L?'명':'')+')</div>';
-    o.students.forEach(function(stu){html+='<div class="tooltip-student"><span>👤 <b>'+escapeHtml(stu.name)+'</b></span><span class="uid">'+escapeHtml(stu.uid||'')+'</span></div>';});
-    html+='</div>';
-  }
+  /* 🧾 (2026-11-04) 부분이 둘 이상이면 «사정마다» 글자·처리·학생을 따로 — 학생 이름 옆에 그 학생의 사정이 붙어야 읽힌다 */
+  var ps=offParts(o), multi=ps.length>1;
+  ps.forEach(function(p){
+    var stus=(multi?p.students:o.students)||[], h='';
+    if(p.change)h+=offChangeRows(p.change);   // 사정 글자(취소 · 연기)·처리·사유 — 서버 글자 그대로
+    else if(multi)h+='<div class="tooltip-row"><span class="k">'+(L?'취소 · 연기':'Cancelled · Postponed')+'</span><span class="v">'+escapeHtml(offLabel1(p))+'</span></div>';
+    if(stus.length){
+      h+='<div class="tooltip-students"><div class="ttl">'+(L?'학생':'Students')+' ('+stus.length+(L?'명':'')+')</div>';
+      stus.forEach(function(stu){h+='<div class="tooltip-student"><span>👤 <b>'+escapeHtml(stu.name)+'</b></span><span class="uid">'+escapeHtml(stu.uid||'')+'</span></div>';});
+      h+='</div>';
+    }
+    html+=multi?'<div class="tooltip-off-part">'+h+'</div>':h;
+  });
   html+='<div class="tooltip-row"><span class="k">'+(L?'이 시간':'This time')+'</span><span class="v">'+(L?'비어 있음 — 눌러서 새 수업을 넣을 수 있어요':'Open — click to add a new class')+'</span></div>';
   _ttShow(html,e);
 });

@@ -527,6 +527,40 @@ if (process.env.CCV_CHILD === '1') {
       && movedAwayBlocked(sk, true, new Set(['x']), new Set(['y'])) === false
       && movedAwayOrder({ scheduled_date: '2026-11-04' }) === 0 && movedAwayOrder({ scheduled_date: null }) === 1 && movedAwayOrder(undefined) === 1);
     void q;
+
+    // ── L. (2026-11-04) source 색인 — 하루짜리 줄 찾기 `source IN (...)` 가 표를 통째로 훑지 않게 ──
+    //    [잰 것 — 운영 D1] 7,575행 · 그 조회 한 번 rows_read 7,575. 정본 ensureScheduleSourceIndex(class-change-state.ts).
+    const idxRow = sq.prepare(`SELECT sql FROM sqlite_master WHERE type='index' AND name='idx_sched_source'`).get();
+    ok('L1 «오늘 수업» 을 열면(반복 행이 있을 때) source 색인이 생긴다 — class_schedules(source)',
+      !!idxRow && /ON\s+class_schedules\s*\(\s*source\s*\)/i.test(String(idxRow.sql || '')), JSON.stringify(idxRow || null));
+    const plan = sq.prepare(`EXPLAIN QUERY PLAN SELECT id, scheduled_date, start_time, status, source, notes, teacher_id, user_id FROM class_schedules WHERE source IN (?, ?)`)
+      .all('recurring-week:1', 'recurring-week:2').map(r => String(r.detail || '')).join(' / ');
+    ok('L2 하루짜리 줄 조회가 그 색인을 탄다(표를 통째로 훑지 않는다)', /USING (COVERING )?INDEX idx_sched_source/.test(plan) && !/^SCAN class_schedules$/m.test(plan), plan);
+    // 새 모듈 인스턴스(쿼리 문자열) — «한 isolate 에 한 번» 과 «실패해도 조회는 된다» 를 처음 상태에서 본다
+    const mkWrap = (opts) => {
+      let creates = 0;
+      return { db: { prepare: (sql) => { if (/CREATE INDEX/i.test(sql)) { creates++; if (opts && opts.throwOnCreate) throw new Error('D1_ERROR: harness create failure'); } return DB.prepare(sql); } },
+               get creates() { return creates; } };
+    };
+    const ccsA = await import(pathToFileURL(join(SRC, 'class-change-state.ts')).href + '?L=a');
+    const wA = mkWrap();
+    sq.prepare(`INSERT INTO class_schedules (id, user_id, start_time, status, source, notes, scheduled_date, created_at) VALUES (940001, 'stu_l', '10:00', 'active', 'recurring-week:940000', '반복수업 2027-05-05 회차를 옮김(원래 #940000)', '2027-05-07', ?)`).run(NOW);
+    const rA1 = await ccsA.loadRecurWeekChildren(wA.db, ['940000']);
+    const rA2 = await ccsA.loadRecurWeekChildren(wA.db, ['940000']);
+    ok('L3 색인 만들기는 한 isolate 에 한 번만 시도한다(요청마다 DDL 을 안 보낸다) — 짝: 조회 결과는 그대로',
+      wA.creates === 1 && (rA1.byParent.get('940000') || []).length === 1 && (rA2.byParent.get('940000') || []).length === 1 && rA2.complete === true,
+      JSON.stringify({ creates: wA.creates, a1: (rA1.byParent.get('940000') || []).length, a2: (rA2.byParent.get('940000') || []).length }));
+    const ccsB = await import(pathToFileURL(join(SRC, 'class-change-state.ts')).href + '?L=b');
+    const wB = mkWrap({ throwOnCreate: true });
+    let rB = null, errB = null;
+    try { rB = await ccsB.loadRecurWeekChildren(wB.db, ['940000']); } catch (e) { errB = String(e && e.message || e); }
+    ok('L4 색인 만들기가 실패해도 조회는 그대로 된다(색인은 속도일 뿐 — 던지지 않는다)',
+      !errB && !!rB && rB.complete === true && (rB.byParent.get('940000') || []).length === 1 && wB.creates === 1, JSON.stringify({ errB, creates: wB.creates }));
+    const wC = mkWrap();
+    const ccsC = await import(pathToFileURL(join(SRC, 'class-change-state.ts')).href + '?L=c');
+    await ccsC.loadRecurWeekChildren(wC.db, []);
+    ok('L5 반복 행이 없으면 아무것도 안 보낸다(조회도 색인 만들기도)', wC.creates === 0, String(wC.creates));
+    sq.exec(`DELETE FROM class_schedules WHERE id = 940001`);
   }
 
   process.stdout.write('\n@@RESULTS@@' + JSON.stringify({ results }) + '\n');
@@ -697,6 +731,18 @@ const MUTANTS = [
     edits: [['api-admin.ts', 'if (movedAwayBlocked(_slotW, _recur, _takenW, _ghostW)) continue;', 'if (movedAwayBlocked(_slotW, _recur, _takenW, new Set())) continue;']] },
   { name: '주간 시간표: 차례 정렬을 뺌', expect: /I14 /,
     edits: [['api-admin.ts', '.sort((a, b) => movedAwayOrder(_mvWById.get(String(a.schedule_id))) - movedAwayOrder(_mvWById.get(String(b.schedule_id))));', ';']] },
+  { name: '색인: 하루짜리 줄 조회 전에 색인을 안 만듦', expect: /L1 |L2 /,
+    edits: [['class-change-state.ts', '  await ensureScheduleSourceIndex(db);\n', '']] },
+  { name: '색인: 엉뚱한 칸에 만듦(notes)', expect: /L1 |L2 /,
+    edits: [['class-change-state.ts', "ON class_schedules(source)').run();", "ON class_schedules(notes)').run();"]] },
+  { name: '색인: 한 번만 시도하는 표시를 뺌(요청마다 DDL)', expect: /L3 /,
+    edits: [['class-change-state.ts', '  _sourceIdxTried = true;\n', '']] },
+  { name: '색인: 만들기 실패를 그대로 던짐', expect: /L4 /,
+    edits: [['class-change-state.ts', "  try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_sched_source ON class_schedules(source)').run(); } catch { /* 색인이 없어도 조회는 된다 */ }",
+             "  await db.prepare('CREATE INDEX IF NOT EXISTS idx_sched_source ON class_schedules(source)').run();"]] },
+  { name: '색인: 반복 행이 없어도 만들러 감(조건 앞으로)', expect: /L5 /,
+    edits: [['class-change-state.ts', "  const srcs = Array.from(new Set((parentIds || []).map(x => String(x ?? '').trim()).filter(x => /^\\d+$/.test(x))))",
+             "  await ensureScheduleSourceIndex(db);\n  const srcs = Array.from(new Set((parentIds || []).map(x => String(x ?? '').trim()).filter(x => /^\\d+$/.test(x))))"]] },
   { name: '주간 시간표: 옮겨 간 칸에 누구에게나 누가·사유', expect: /I11 /,
     edits: [['api-admin.ts', 'const ch = judgeMovedAway(r, ev, { showActor: _offShowActor },', 'const ch = judgeMovedAway(r, ev, { showActor: true },']] },
 ];
