@@ -447,7 +447,8 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   const leaveRule = ruleOf('.leave'), wrapRule = ruleOf('.wrap'), zOf = r => Number((/z-index:(-?\d+)/.exec(r) || [])[1]);
   ok(/position:fixed/.test(leaveRule) && /top:0/.test(leaveRule) && /right:0/.test(leaveRule) && /bottom:0/.test(leaveRule) && /left:0/.test(leaveRule) && !/inset:/.test(leaveRule), 'G: dialog covers the screen with top/right/bottom/left (no inset shorthand — old Safari) → ' + leaveRule);
   ok(zOf(leaveRule) > zOf(wrapRule), 'G: dialog z-index is above the page (.wrap) → ' + zOf(leaveRule) + ' > ' + zOf(wrapRule));
-  ok(/max-height:calc\(100vh[^;]*\);max-height:calc\(100dvh/.test(ruleOf('.leave-box')), 'G: box height fits the visible screen (100vh then 100dvh — iPhone toolbars)');
+  // 7차(2026-11-04): 큰 PC 화면 zoom 때문에 «(100vh − 36px) / 배율» 로 바뀌었다 — 여는 괄호 하나만 더 받는다(순서 검사는 그대로)
+  ok(/max-height:calc\(\(?100vh[^;]*\);max-height:calc\(\(?100dvh/.test(ruleOf('.leave-box')), 'G: box height fits the visible screen (100vh then 100dvh — iPhone toolbars)');
   ok(!/syncLeaveGuard|unapplied/.test(fnSrc('renderSettings') + fnSrc('renderOk')), 'G: renderSettings/renderOk do not read storage for the guard (block ③ runs them with a throwing store)');
   const SAVED = { mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' };
   // G1 nothing changed -> links go through
@@ -591,4 +592,48 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   s.ls.m.set('mangoi_warmup_correction', 'free_talk'); s.ls.m.set('mangoi_aifriend_correction', 'free_talk'); s.confirm();
   ok(s.ls.getItem('mangoi_aifriend_correction') === 'free_talk' && s.ls.getItem('mangoi_aifriend_level') === 'S3', 'G12: plain «확인» also keeps the other tab\'s untouched corrections');
   console.log('PASS: leave without 확인 (6차) — ' + (n - n0) + ' checks, same booted page');
+}
+
+// ── 2026-11-04 7차: 큰 PC 화면(사장님 «PC 화면에 적합하게 지금보다 크게») ──
+//    1600px 이상 본문 1280px + 폭·높이를 함께 보는 zoom 단계(:root --z). 단계 숫자는 CSS 에서 읽는다(하니스에 베끼지 않는다).
+//    실제 크로미움에서 «그 단계가 걸리는가 · 한 화면에 들어오는가» 는 manual/ai-speaking-pc-scale-browser.mjs 가 잰다.
+{
+  let n = 0; const ok = (v, m) => { n++; assert.ok(v, m); };
+  // 주석은 «줄 단위로 블록 안인가» 를 따라 벗긴다(정규식 한 줄은 짝 없는 여는 기호에 뒤를 통째로 먹는다 — CLAUDE.md 2장)
+  const styleTxt = hub.slice(hub.indexOf('<style>'), hub.indexOf('</style>'));
+  let inC = false; const css = styleTxt.split('\n').map(line => { let o = '', i = 0;
+    while (i < line.length) { if (inC) { const e = line.indexOf('*/', i); if (e < 0) { i = line.length; } else { inC = false; i = e + 2; } }
+      else { const s = line.indexOf('/*', i); if (s < 0) { o += line.slice(i); i = line.length; } else { o += line.slice(i, s); inC = true; i = s + 2; } } }
+    return o; }).join('\n');
+  ok(css.includes('.sit-list{') && css.includes('.leave-acts{') && css.length > styleTxt.length * 0.5, 'premise: comment stripping kept the rules');
+  const tiers = [...css.matchAll(/@media \(min-width:(\d+)px\) and \(min-height:(\d+)px\)\{:root\{--z:([\d.]+)\}\}/g)].map(m => ({ w: +m[1], h: +m[2], z: +m[3] }));
+  ok(tiers.length >= 5, 'premise: read ' + tiers.length + ' zoom tiers from the CSS');
+  const wide = css.match(/@media \(min-width:(\d+)px\)\{\.wrap\{max-width:(\d+)px;padding-bottom:calc\((\d+)px \+ env\(safe-area-inset-bottom\)\)\}\}/);
+  ok(!!wide, 'premise: the wide-body rule (min-width → .wrap max-width) is there');
+  const W0 = +wide[1], M = +wide[2];
+  // --z 를 정하는 곳은 위 단계뿐 · zoom 을 받는 것은 .wrap 과 나가기 창 둘뿐
+  ok((css.match(/--z:/g) || []).length === tiers.length, '--z is set only by the tiers');
+  const zoomSel = [...css.matchAll(/([^{}]*)\{[^{}]*\bzoom:/g)].map(m => m[1].trim());
+  ok(zoomSel.length === 1 && zoomSel[0] === '.wrap,.leave-box' && /\.wrap,\.leave-box\{zoom:var\(--z,1\)\}/.test(css), 'zoom only on .wrap and the leave dialog, from var(--z,1) — got: ' + zoomSel.join(' | '));
+  // zoom 은 vh 에도 배율을 곱한다 → 나가기 창 높이 상한을 배율로 나눠야 «화면 높이 − 36px» 가 된다(두 줄 모두)
+  ok(/\.leave-box\{[^}]*max-height:calc\(\(100vh - 36px\) \/ var\(--z,1\)\);max-height:calc\(\(100dvh - 36px\) \/ var\(--z,1\)\)/.test(css), 'leave dialog max-height is divided by the zoom (vh and dvh)');
+  // 같은 특이도라 «뒤에 적힌 것» 이 이긴다 — 실제 창마다 이기는 단계를 골라 본다
+  const eff = (W, H) => { let z = 1; for (const t of tiers) if (W >= t.w && H >= t.h) z = t.z; return z; };
+  const MEASURED_DOC_H = 870;   // 1600px 이상 본문의 문서 높이(배율 1) — 브라우저 검사가 매번 다시 재서 875 이하인지 본다
+  let badW = [], badH = [], less = 0;
+  for (let W = 900; W <= 4200; W += 10) for (let H = 500; H <= 2400; H += 10) {
+    const z = eff(W, H);
+    if (z > 1 && M * z > W * 0.8) badW.push(W + 'x' + H + ' z' + z);
+    if (z > 1 && MEASURED_DOC_H * z > H) badH.push(W + 'x' + H + ' z' + z);
+    const best = Math.max(1, ...tiers.filter(t => W >= t.w && H >= t.h).map(t => t.z));
+    if (z < best) less++;
+  }
+  ok(badW.length === 0, 'width: body ' + M + 'px × zoom stays within 80% of the window — ' + badW.slice(0, 3).join(' | '));
+  ok(badH.length === 0, 'height: the whole page (' + MEASURED_DOC_H + 'px × zoom) fits the window, so «확인» needs no scrolling — ' + badH.slice(0, 3).join(' | '));
+  ok(less === 0, 'tiers are written small → large, so the largest fitting tier wins (' + less + ' windows got less)');
+  ok(tiers.every(t => t.w >= W0) && W0 >= 1537 && M <= W0 * 0.8, 'zoom and the wide body start above laptops (1366·1440·1536 wide) — wide body ' + M + '/' + W0);
+  // (짝) 사장님 창(1920 모니터를 80% 로 = 약 2400×1149)은 커지고 · 노트북·휴대폰은 그대로
+  ok(eff(2400, 1149) >= 1.3 && eff(1920, 1080) >= 1.2, 'owner window 2400×1149 → ' + eff(2400, 1149) + ', 1920×1080 → ' + eff(1920, 1080));
+  ok(eff(1366, 657) === 1 && eff(1440, 900) === 1 && eff(1536, 864) === 1 && eff(1920, 919) === 1 && eff(390, 844) === 1, 'laptops, 1920 at 100% (919 high) and phones keep zoom 1');
+  console.log('PASS: big PC screens (7차) — ' + n + ' checks, ' + tiers.length + ' tiers read from the CSS');
 }
