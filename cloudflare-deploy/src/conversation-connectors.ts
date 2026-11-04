@@ -70,13 +70,17 @@ export function connectorRule(band: LinkBand): string {
   return CORE_RULE + '\n' + BAND_RULE[b];
 }
 
-/** Speaking practice and AI friend only; completed replies, never waiting audio. */
+/** Speaking practice and AI friend only; completed replies, never waiting audio.
+ *  🗣️ (2026-11-04 사장님 「아직 안 됐어?」) 첫 판(PR #2025)은 «가끔 써라 · 많은 답에는 없다 · 좁으면 빼라» 라서
+ *     모델이 거의 안 썼다. 이제 «이번 턴에 쓸지·무슨 말 후보인지» 는 서버가 정하고(아래 ④ turnOpenerLine),
+ *     이 글은 «어떻게 말하나» 만 말한다.
+ *  ⛔ 소리형(hmm·aww·ooh·uh·um)은 쓰지 않는다(2026-11-04 사장님 결정 — 음성 엔진 발음).
+ *  ⚡ 속도: 첫마디는 «짧은 반응·칭찬 자리» 를 대신한다 — 답이 길어지지 않는다. 이 글 + ④ 한 줄을 합쳐도
+ *     첫 판(1,221자)보다 짧다(하니스 ⑧이 잰다 — 지시가 길수록 첫 글자가 늦다). */
 export const AVATAR_NATURAL_OPENERS = [
-  'NATURAL AVATAR OPENERS: Occasionally start the completed answer with ONE short, context-appropriate expression. Vary it using the recent-opener rule; many replies need none.',
-  '- Well = a thoughtful or qualified answer; Maybe = a tentative suggestion, never uncertainty about a known fact or correction; Sure = accepting a request, not blindly agreeing; Oh or Oh I see = understanding; Wow = genuine positive surprise, never distress or praise for an incorrect answer. Do not invent experiences.',
-  '- Speak clear standard English: normal spelling and complete grammar. Never stretch letters (weeell, oooh), spell words phonetically, insert stage directions/SSML, or use repeated punctuation or ellipses to imitate hesitation. Use ordinary sentence punctuation for a short natural pause; never add waiting speech.',
-  '- LEVEL, word/sentence limits and empathy rules win. Include the opener within the existing reply budget; omit it if it crowds out the answer or question. At beginner level use only a simple short expression allowed by LEVEL.',
-  '- Focused correction takes priority: no opener before You can say, no expression inside the corrected sentence, and no changes to the required one introduction and three exact repetitions.',
+  'NATURAL OPENERS: real people often start with a short word that shows they heard you. Use one only when a THIS TURN\'S OPENER line asks for it; it takes the place of your short reaction or cheer, so the reply is not longer. On other turns do not start with Oh, Well, By the way or Anyway.',
+  '- Clear standard English: normal spelling, no stretched letters (weeell, oooh), no sound words (hmm, aww, ooh, uh, um), no stage directions, SSML or "...". Never invent experiences.',
+  '- LEVEL and empathy rules win. Focused correction comes first: no opener before "You can say", none inside the corrected sentence or its repetitions.',
 ].join('\n');
 
 /* ── ② 최근 답장의 «시작 말» ───────────────────────────────────────────────────
@@ -91,6 +95,10 @@ const MULTI_MARKERS: readonly string[] = [
   'that sounds', 'sounds like', 'great try', 'nice try', 'good try', 'ooh nice one', 'nice one', 'haha nice',
   'good job', 'great job', 'nice job', 'well done', 'you got it', 'well said', 'i see', 'i love that', 'i like that',
   "that's great", "that's right", "that's cool", "that's awesome", 'of course', 'no worries', "don't worry",
+  // 🗣️ (2026-11-04) ④ 의 첫마디 — 「Oh, …」 가 전부 «Oh,» 한 열쇠로 묶이면 «최근 시작 말 피하기» 가 후보를 다 지워 버린다
+  'oh nice', 'oh really', 'oh cool', 'oh wow', 'oh great', 'oh i see', 'oh okay', 'oh no', "oh i'm sorry", "oh that's too bad",
+  'how fun', 'no way',
+  'good question', 'great question', "that's okay", 'no problem', 'let me think', 'all right', 'okay then', 'got it',
 ].slice().sort((a, b) => b.length - a.length);
 /** 앞에 낄 수 있는 것 — 공백·이모지·따옴표(글자는 안 된다). */
 const LEAD_GAP = /^[\s"'“”‘’‍️\u{1f3fb}-\u{1f3ff}\p{Extended_Pictographic}]*/u;
@@ -164,11 +172,94 @@ export function openerAvoidLine(openers: string[]): string {
     '. Start this reply in a different way (a different word, or no linking word at all).';
 }
 
-/** 지시에 붙일 덩어리 — 규칙 + (기록이 있으면) 최근 시작 말 피하기. 던지지 않는다. */
+/* ── ④ 이번 턴 «첫마디» (2026-11-04 사장님 「well, wow, by the way, anyway … 문장 앞에서 말하게」) ──────────
+ *  [왜 서버가 정하나] «가끔 써라» 만 주면 모델이 거의 안 쓴다(첫 판 PR #2025 뒤 사장님 체감 「아직 안 됐어?」).
+ *     서버가 «이번 턴에 쓴다/쉰다» 와 «상황별 후보 한 개씩» 을 정하고, 지금 어느 상황인지(슬픔·부탁·질문·모름·
+ *     좋은 소식·놀라운 말·평범한 정보)는 모델이 학생 말을 보고 고른다 — 학생 말을 서버가 다시 판정하지 않아 정본이 둘이 되지 않는다.
+ *  [빈도] 바로 앞 AI 답장이 첫마디로 시작했으면 이번엔 쉰다 ⟹ 대략 «두 턴에 한 번».
+ *     ⚠️ «AI 답장 개수의 홀짝» 으로 정하지 마세요 — AI 친구 기록은 최근 20줄만 읽어 개수가 어느 순간 멈추고,
+ *        그러면 «늘 쓴다» 나 «영영 안 쓴다» 로 굳습니다. 앞 답장의 실제 시작을 보면 모델이 한 번 어겨도 다음 턴에 바로 맞춰집니다.
+ *  [후보] 최근 시작 말(③)과 겹치지 않는 것을 고른다 — 「다르게 시작해」 줄과 서로 다른 말을 하지 않게.
+ *  [첫 답장] 기록에 AI 답장이 없으면(인사·첫 응답) 정하지 않는다.
+ *  ⚡ 속도: 이미 읽어 온 기록만 본다 — 새 조회·새 모델 호출이 없다. 후보는 모두 기초 문법 검사·조각 질문 검사를
+ *     통과하는 모양이라(하니스 ⑧) «다시 뽑기» 를 부르지 않는다.
+ *  ⛔ 소리형(hmm·aww·ooh·uh·um) 금지 · ⛔ 후처리로 덧붙이지 않는다(모델이 쓴다). */
+type OpenerCase = 'sad' | 'request' | 'asked' | 'lost' | 'good' | 'surprise' | 'info';
+/*  ⚠️ 칸마다 후보 «4개» — 최근 시작 말(③)은 3개까지 피하므로, 3개 이하면 전부 지워져 「다르게 시작해」 줄과 부딪힌다(하니스 ⑧ 실측).
+ *  ⚠️ 후보끼리 «시작 말 열쇠»(앞 두 낱말)가 달라야 한다 — 「Oh, that's too bad.」·「Oh, that's hard.」 처럼 겹치면 같은 말로 본다. */
+export const TURN_OPENERS: Readonly<Record<OpenerCase, readonly string[]>> = {
+  sad: ['Oh no.', "Oh, I'm sorry.", "Oh, that's too bad.", "I'm sorry."],
+  request: ['Sure!', 'Okay!', 'Of course!', 'All right!'],
+  asked: ['Good question!', 'Well,', 'Let me think.', 'Great question!'],
+  lost: ["That's okay!", 'No problem!', "Don't worry!", 'No worries!'],
+  // 🎯 (2026-11-04 사장님 「최대한 자연스럽게 문맥에 맞게」) «그 밖» 한 칸을 뜻으로 셋으로 나눴다 —
+  //    「I ate rice.」에 「Oh, nice!」가 아니라 「Oh, I see.」가 나오게(좋은 소식 · 놀라운 말 · 평범한 정보·짧은 대답)
+  good: ['Oh, nice!', 'Oh, cool!', 'Oh, great!', 'How fun!'],
+  surprise: ['Oh, really?', 'Oh, wow!', 'No way!', 'Really?'],
+  info: ['Oh, I see.', 'Oh, okay.', 'I see.', 'Got it.'],
+};
+/** 「앞 답장이 첫마디로 시작했나」 판정용 열쇠 — 위 후보 + 모델이 스스로 쓰는 같은 갈래(Oh …·Well·By the way·Anyway). */
+let OPENER_KEYS: Set<string> | null = null;
+function openerKeys(): Set<string> {
+  if (!OPENER_KEYS) {
+    const ks = new Set<string>(['well', 'by the', 'anyway', 'sure', 'okay', 'i see', 'really', 'good question']);
+    for (const list of Object.values(TURN_OPENERS)) for (const o of list) ks.add(openerKey(replyOpener(o + ' Do you like it?')));
+    OPENER_KEYS = ks;
+  }
+  return OPENER_KEYS;
+}
+/** 그 시작 말이 «첫마디» 갈래인가(「Oh, …」 는 무엇이 붙어도 첫마디). */
+export function isTurnOpener(opener: any): boolean {
+  const k = openerKey(opener);
+  return !!k && (k === 'oh' || k.startsWith('oh ') || openerKeys().has(k));
+}
+function textSeed(s: string): number {
+  let h = 7;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 1000003;
+  return h;
+}
+function pickOpener(list: readonly string[], seed: number, avoid: Set<string>): string {
+  for (let k = 0; k < list.length; k++) {
+    const c = list[(seed + k) % list.length];
+    if (!avoid.has(openerKey(replyOpener(c + ' Do you like it?')))) return c;
+  }
+  return list[seed % list.length];
+}
+
+/** 이번 턴 첫마디 한 줄. 첫 답장이거나 «쉬는 턴» 이면 ''. 던지지 않는다. */
+export function turnOpenerLine(history: any): string {
+  try {
+    const rows = Array.isArray(history) ? history : [];
+    let last: string | null = null;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const h = rows[i];
+      if (h && h.role === 'assistant') { last = String(h.content == null ? '' : h.content); break; }
+    }
+    if (last == null) return '';
+    if (isTurnOpener(replyOpener(last))) return '';
+    const avoid = new Set(recentOpeners(rows).map(openerKey));
+    const seed = textSeed(last);
+    const q = (c: OpenerCase) => JSON.stringify(pickOpener(TURN_OPENERS[c], seed, avoid));
+    /* 🎯 «문맥에 맞게» — 어느 칸인지는 모델이 학생 말을 보고 고르고, 딱 맞는 것이 없으면 «같은 느낌의 다른 짧은 말» 을 허락한다.
+       By the way 는 «새 질문으로 넘어갈 때만» (억지로 화제를 바꾸게 하지 않는다) — 그것도 세 턴에 한 번쯤만 권한다. */
+    return '- THIS TURN\'S OPENER: start with the one that fits what the learner just said. Sad or hard news: ' + q('sad')
+      + '; a request: ' + q('request') + '; a question to you: ' + q('asked')
+      + '; "I don\'t know" or confused: ' + q('lost') + ', then start your next question with "Anyway,"'
+      + '; good or fun news: ' + q('good') + '; something surprising: ' + q('surprise')
+      + '; a short answer or plain information: ' + q('info') + '. If none fits, use another short one with the same feeling.'
+      + (seed % 3 === 0 ? ' If you then move to a new related question, start it with "By the way,".' : '');
+  } catch { return ''; }
+}
+
+/** 지시에 붙일 덩어리 — 규칙 + (기록이 있으면) 최근 시작 말 피하기 + (그 턴이면) 이번 턴 첫마디. 던지지 않는다.
+ *  ⚠️ 첫마디 줄은 «맨 끝» — 「다르게 시작해」 줄보다 뒤에 두어야 «이번 턴에 할 일» 로 읽힌다(후보는 이미 겹치지 않게 골랐다).
+ *  ℹ️ 이 함수는 A.i 말하기(index.ts)·AI 친구(api-ai.ts) 두 곳만 부른다 — 그래서 첫마디도 이 두 화면에만 실리고
+ *     A.i 선생님 수업 즉답(connectorRule 만 씀)·중국어·엘리더잼 예시형 계약에는 안 실린다(부르는 쪽이 이미 거른다). */
 export function connectorPromptBlock(band: LinkBand, history?: any): string {
   try {
     const avoid = openerAvoidLine(recentOpeners(history));
-    return connectorRule(band) + (avoid ? '\n' + avoid : '');
+    const turn = turnOpenerLine(history);
+    return connectorRule(band) + (avoid ? '\n' + avoid : '') + (turn ? '\n' + turn : '');
   } catch { return ''; }
 }
 
