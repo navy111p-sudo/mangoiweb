@@ -136,9 +136,10 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   // ② pair with the server: load src/warmup-honest.ts (types stripped) and run it
   const SRC = fileURLToPath(new URL('../cloudflare-deploy/src/', import.meta.url));
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aisp-hint-'));
-  for (const [from, to] of [['warmup-empathy.ts', 'warmup-empathy.mjs'], ['warmup-shop-mode.ts', 'warmup-shop-mode.mjs'], ['warmup-honest.ts', 'warmup-honest.mjs']]) {
+  for (const [from, to] of [['warmup-empathy.ts', 'warmup-empathy.mjs'], ['warmup-shop-mode.ts', 'warmup-shop-mode.mjs'], ['warmup-honest.ts', 'warmup-honest.mjs'], ['english-only.ts', 'english-only.mjs'], ['warmup-correction.ts', 'warmup-correction.mjs']]) {
     const js = stripTypeScriptTypes(fs.readFileSync(path.join(SRC, from), 'utf8'))
-      .replace(/from '\.\/warmup-empathy'/g, "from './warmup-empathy.mjs'").replace(/from '\.\/warmup-shop-mode'/g, "from './warmup-shop-mode.mjs'");
+      .replace(/from '\.\/warmup-empathy'/g, "from './warmup-empathy.mjs'").replace(/from '\.\/warmup-shop-mode'/g, "from './warmup-shop-mode.mjs'")
+      .replace(/from '\.\/english-only'/g, "from './english-only.mjs'");
     fs.writeFileSync(path.join(tmp, to), js);
   }
   const H = await import(pathToFileURL(path.join(tmp, 'warmup-honest.mjs')).href);
@@ -156,7 +157,24 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   for (const shown of [FIX, null]) for (const rep of [true, false]) if (H.gateFixForMode('free_talk', FIX, shown, rep).repeat) freeRepeats++;
   ok(freeRepeats === 0, 'server: free talk never asks to repeat (gateFixForMode run 4 ways)');
   ok(/따라 말하기 없이/.test(hint('free_talk', 'ko')) && /no repeat/i.test(hint('free_talk', 'en')), 'free talk hint: no repeat-after-me (pairs with the server)');
-  ok(hint('balanced', 'ko').includes('1번') && /\bonce\b/.test(hint('balanced', 'en')), 'balanced hint: repeat once');
+  // balanced (2026-11-04 사장님 「균형 문구를 서버 동작에 맞게 약하게」): the server does NOT ask to repeat after every fix —
+  // warmupShouldOfferRepeat allows it at most once per WARMUP_REPEAT_GAP_TURNS turns. Run the real gate turn by turn.
+  const C = await import(pathToFileURL(path.join(tmp, 'warmup-correction.mjs')).href);
+  const gap = C.WARMUP_REPEAT_GAP_TURNS;
+  ok(Number.isInteger(gap) && gap > 1, 'server: balanced repeat gap loaded from the real module (' + gap + ' turns)');
+  const MAJOR = { was: 'I go to the park yesterday.', now: 'I went to the park yesterday.', tag: 'past_tense', severity: 'major' };
+  let memo = null, shows = 0, reps2 = 0;
+  for (let turn = 1; turn <= 6; turn++) {
+    const d = C.decideWarmupFixShow(MAJOR, memo, turn, { immediate: false });
+    const g = H.gateFixForMode('balanced', MAJOR, d.show, C.warmupShouldOfferRepeat(d.show, d.memo, turn));
+    if (g.show) shows++; if (g.repeat) reps2++;
+    memo = d.memo;
+  }
+  ok(shows === 6 && reps2 >= 1 && reps2 < shows, 'server: balanced fixes a big mistake every turn but asks to repeat only some turns (' + shows + ' fixes, ' + reps2 + ' repeats)');
+  // so the hint must say «sometimes», not «every time / once after each fix»
+  ok(/따라 말/.test(hint('balanced', 'ko')) && /repeat/i.test(hint('balanced', 'en')), 'balanced hint mentions repeat-after-me');
+  ok(/가끔|때때로|이따금|때로/.test(hint('balanced', 'ko')) && /sometimes|now and then|occasionally|from time to time/i.test(hint('balanced', 'en')), 'balanced hint says the repeat is occasional (pairs with the server gap)');
+  ok(!/1\s*번|한\s*번|매번|항상/.test(hint('balanced', 'ko')) && !/\bonce\b|every|always|then you repeat/i.test(hint('balanced', 'en')), 'balanced hint does not promise a repeat after every fix');
   fs.rmSync(tmp, { recursive: true, force: true });
 
   // ③ renderSettings cut out of the page and run on a fake DOM — the picked level's line, in the screen language

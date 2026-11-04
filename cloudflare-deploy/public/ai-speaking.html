@@ -160,13 +160,13 @@
       <div class="tile"><label class="lab" for="setLevel"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-5"/><path d="M12 20V10"/><path d="M19 20V4"/></svg><span data-ko="수준" data-en="Level">수준</span></label><select id="setLevel"></select></div>
       <div class="tile"><span class="lab" id="corrLab"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9"/><path d="M17 7h3"/><circle cx="15" cy="7" r="2"/><path d="M4 17h3"/><path d="M11 17h9"/><circle cx="9" cy="17" r="2"/></svg><span data-ko="교정 정도" data-en="Corrections">교정 정도</span></span>
         <!-- 💬 고른 단계의 뜻(아래 #corrState 한 줄). 문구는 서버 동작과 «짝» 이다 — src/warmup-honest.ts
-             자유 free_talk = 따라 말하기 없음(흐름을 끊지 않음) · 균형 balanced = 꼭 필요한 것만 고치고 따라 말하기 1번
+             자유 free_talk = 따라 말하기 없음(흐름을 끊지 않음) · 균형 balanced = 뜻이 바뀌는 큰 실수는 매번·작은 실수는 연달아 안 고침, 따라 말하기는 WARMUP_REPEAT_GAP_TURNS(3)턴에 한 번까지(src/warmup-correction.ts) — 그래서 «가끔»
              · 집중 focused = 실수를 모두 고친 문장을 FOCUSED_FIX_REPEATS(3)번 들려주고 따라 말하기.
              ⚠️ 서버 동작을 바꾸면 이 문구도 함께 바꾸세요 — ai_speaking_entry_harness 가 숫자를 서버 상수와 대조합니다.
              ⛔ «최대 3번 고쳐요» 로 쓰지 마세요: 집중은 실수 개수에 상한이 없고, 3은 «들려주는 횟수» 입니다. -->
         <div class="seg seg3" role="group" aria-labelledby="corrLab" aria-describedby="corrState" id="corrSeg">
           <button type="button" data-corr="free_talk" aria-pressed="false" data-hint-ko="따라 말하기 없이 대화를 이어가요" data-hint-en="No repeat-after-me. Just keep talking."><span data-ko="자유" data-en="Free">자유</span></button>
-          <button type="button" data-corr="balanced" aria-pressed="false" data-hint-ko="꼭 필요한 것만 고치고 1번 따라 말해요" data-hint-en="Fixes key mistakes, then you repeat once."><span data-ko="균형" data-en="Balanced">균형</span></button>
+          <button type="button" data-corr="balanced" aria-pressed="false" data-hint-ko="중요한 실수 위주로 고치고 가끔 따라 말해요" data-hint-en="Fixes key mistakes. Repeat now and then."><span data-ko="균형" data-en="Balanced">균형</span></button>
           <button type="button" data-corr="focused" aria-pressed="false" data-hint-ko="모두 고쳐서 3번 들려주고 따라 말해요" data-hint-en="Fixes all, says it 3 times, you repeat."><span data-ko="집중" data-en="Focused">집중</span></button>
         </div>
         <small class="state" id="corrState"></small></div>
