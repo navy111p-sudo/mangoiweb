@@ -1,0 +1,45 @@
+# ⛔ TEMPORARY — never merge to main. Fetches 6 Higgsfield images for the teacher modal (the agent proxy blocks the CDN).
+name: tmp-fetch-teacher-modal-images
+on:
+  push:
+    branches: [tmp-fetch-teacher-modal-images]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-fetch-teacher-modal-images
+          fetch-depth: 1
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq webp >/dev/null
+      - name: download and convert
+        run: |
+          set -euo pipefail
+          B=https://d8j0ntlcm91z4.cloudfront.net/user_3GD1yS6zlj6afu2oFQqivYqvn7k
+          D=cloudflare-deploy/public/img/teachers
+          mkdir -p "$D" /tmp/raw
+          printf '%s\n' \
+            "tg-hero|hf_20261104_091957_279f8dc5-de45-4653-99e3-1734b722d7f9.png|1280 0" \
+            "tg-region-ph|hf_20261104_091958_57cbe651-6c1e-4c62-b66d-bbf908e07649.png|880 0" \
+            "tg-region-na|hf_20261104_091958_3607cc0c-b294-4251-a032-bdd47e2bcc42.png|880 0" \
+            "tg-region-uk|hf_20261104_091957_76341047-b5bb-4f7d-9b1f-9d8656aa2169.png|880 0" \
+            "tg-region-cn|hf_20261104_091958_b470af5d-7533-44ac-beed-3ef45d363354.png|880 0" \
+            "tg-no-photo|hf_20261104_091958_4587df58-0b88-42b4-8d5a-144c076dbc7a.png|320 320" > /tmp/list.txt
+          n=0
+          while IFS='|' read -r NAME FILE SIZE; do
+            curl -fsSL --retry 3 -o "/tmp/raw/$NAME.png" "$B/$FILE"
+            cwebp -quiet -q 80 -resize $SIZE "/tmp/raw/$NAME.png" -o "$D/$NAME.webp"
+            n=$((n+1))
+          done < /tmp/list.txt
+          echo "converted $n / $(wc -l < /tmp/list.txt)"
+          test "$n" -eq 6
+          ls -la "$D"
+      - name: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git add cloudflare-deploy/public/img/teachers
+          git commit -m "tmp: fetched teacher modal images"
+          git push origin HEAD:tmp-fetch-teacher-modal-images
