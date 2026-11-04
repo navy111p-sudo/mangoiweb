@@ -13,6 +13,13 @@
   var busy     = false;
   var seq      = 0;                       // 말풍선 표식 번호 (innerHTML 재생성에도 살아남는 유일한 끈)
   var lastSent = null;                    // { translated, original } — 내 말풍선에 원문을 붙이려고 기억
+  /* 💬 (2026-11-04 Kaye 「번역을 켰는데 채팅이 번역되지 않는다」)
+     예전엔 3초만 기다리고, 못 받으면 «아무 말 없이» 원문을 보냈다. 실측(11/3 class-4065)에서
+     같은 영어 문장이 두 번 번역 없이 나갔는데 강사 화면엔 아무 표시도 없었다.
+     → 서버(/api/translate chat 모드)가 재시도·대체 번역을 할 시간을 주고(8초),
+       그래도 안 되면 원문을 보내되 «번역 없이 보냈다» 고 강사에게 분명히 알린다.
+     ⚠️ 서버 상한(api-mango.ts CHAT_LLM_TIMEOUT_MS 5초 + m2m100)이 이 값보다 짧아야 한다. */
+  var WAIT_MS  = 8000;
 
   function isKo(){
     try {
@@ -72,7 +79,8 @@
   function paintBtn(){
     var b = document.getElementById(BTN_ID);
     if (!b) return;
-    b.textContent = label();
+    // 번역 중에는 버튼이 그 사실을 말한다 — 입력칸 안내문(placeholder)은 글이 들어 있으면 안 보인다
+    b.textContent = busy ? ('⏳ ' + (isKo() ? '번역 중' : 'Translating')) : label();
     var on = !!target();
     b.style.background = on ? 'rgba(251,191,36,0.18)' : 'rgba(148,163,184,0.12)';
     b.style.borderColor = on ? 'rgba(251,191,36,0.55)' : 'rgba(148,163,184,0.28)';
@@ -187,21 +195,25 @@
       }
       if (busy) return;                       // 엔터 연타 시 이중 전송 방지
       busy = true;
+      paintBtn();
       var ph = input.placeholder;
       input.placeholder = isKo() ? '번역 중…' : 'Translating…';
       var done = function(){
         busy = false;
+        paintBtn();
         try { input.placeholder = ph; input.focus(); } catch(_){}
       };
-      // 3초 안에 응답이 없으면 원문으로 보낸다 — 채팅이 멈춰 보이면 안 된다
+      // WAIT_MS 안에 응답이 없으면 원문으로 보낸다 — 채팅이 멈춰 보이면 안 된다(위 WAIT_MS 주석)
       var settled = false;
       var fire = function(out){
         if (settled) return; settled = true;
-        if (out && out !== text) { input.value = out; lastSent = { translated: out, original: text }; }
+        var ok = !!(out && out !== text);
+        if (ok) { input.value = out; lastSent = { translated: out, original: text }; }
         try { origSend.call(window); } catch(e){ console.warn('[chat-tr] send', e); }
         done();
+        if (!ok) warnUntranslated(tgt);
       };
-      setTimeout(function(){ fire(null); }, 3000);
+      setTimeout(function(){ fire(null); }, WAIT_MS);
       translate([text], tgt).then(function(map){ fire(map && map[text]); });
     };
   }
@@ -248,6 +260,32 @@
       } catch(e){ console.warn('[chat-tr] recv', e); }
       return r;
     };
+  }
+
+  /** 번역 없이 원문이 나갔다는 것을 강사에게 알린다(4.5초 뒤 사라짐). 조용히 실패하지 않는다. */
+  function warnUntranslated(tgt){
+    try {
+      var old = document.getElementById('vc-tr-warn');
+      if (old && old.parentNode) old.parentNode.removeChild(old);
+      var ko = isKo();
+      var d = document.createElement('div');
+      d.id = 'vc-tr-warn';
+      d.setAttribute('role', 'status');
+      d.textContent = ko
+        ? '⚠️ 번역이 안 돼 원문 그대로 보냈어요 (' + (NAME_KO[tgt] || tgt) + ')'
+        : '⚠️ Translation failed — sent as typed (' + (SHORT[tgt] || tgt) + ')';
+      d.style.cssText = 'position:fixed;z-index:2147483000;max-width:min(92vw,360px);padding:8px 12px;' +
+                        'border-radius:9px;background:#3b2a07;border:1px solid rgba(251,191,36,.6);' +
+                        'color:#fde68a;font-size:12.5px;font-weight:700;line-height:1.45;' +
+                        'box-shadow:0 10px 26px rgba(0,0,0,.45)';
+      document.body.appendChild(d);
+      var b = document.getElementById(BTN_ID);
+      var r = b ? b.getBoundingClientRect() : null;
+      var w = d.offsetWidth || 260;
+      d.style.left = Math.max(8, Math.min(r ? r.left : 8, window.innerWidth - w - 8)) + 'px';
+      d.style.top = ((r && r.top > 60) ? (r.top - (d.offsetHeight || 34) - 8) : 14) + 'px';
+      setTimeout(function(){ if (d.parentNode) d.parentNode.removeChild(d); }, 4500);
+    } catch(e){}
   }
 
   function addNote(trId, text, mine){

@@ -231,7 +231,10 @@ const Q_ONEWORD = new Set(['really', 'right', 'ok', 'okay', 'yes', 'no', 'yeah',
 const Q_AFTER_AUX = new Set(['i', 'you', 'he', 'she', 'it', 'we', 'they', 'there', 'this', 'that', 'these', 'those',
   'a', 'an', 'the', 'my', 'your', 'his', 'her', 'its', 'our', 'their',
   'any', 'some', 'many', 'much', 'one', 'two', 'three', 'both', 'all', 'everyone', 'everybody', 'anyone', 'anybody']);
-const Q_LEAD = new Set(['oh', 'ok', 'okay', 'so', 'well', 'hey', 'wow', 'hmm', 'and', 'but', 'great', 'nice', 'cool', 'yes', 'no']);
+/* 🗣️ (2026-11-04) 「Anyway, do you …?」·「By the way, do you …?」 도 앞머리로 넘깁니다 — 이제 초급에도 이번 턴 첫마디로
+   그 둘을 시키는데(conversation-connectors.ts ④), 여기서 «깨진 질문» 으로 보면 멀쩡한 답을 한 번 더 뽑느라 응답이 늦어집니다.
+   ⚠️ 넘기는 것은 «앞머리» 뿐 — 뒤가 「By the way, you like dogs?」면 여전히 걸립니다(하니스 ⑧). */
+const Q_LEAD = new Set(['oh', 'ok', 'okay', 'so', 'well', 'hey', 'wow', 'hmm', 'and', 'but', 'great', 'nice', 'cool', 'yes', 'no', 'anyway']);
 
 /**
  * 그 답변에서 «꼴이 깨진 의문문» 을 골라냅니다. 없으면 빈 배열.
@@ -247,7 +250,11 @@ export function aiFriendBrokenQuestions(reply: string, level: string): string[] 
     const raw = sent.match(/[A-Za-z][A-Za-z'’-]*/g) || [];
     if (!raw.length) continue;
     let i = 0;
-    while (i < raw.length - 1 && Q_LEAD.has(raw[i].toLowerCase())) i++;   // 「Oh, do you …?」
+    for (;;) {                                                            // 「Oh, do you …?」·「By the way, do you …?」
+      if (i < raw.length - 1 && Q_LEAD.has(raw[i].toLowerCase())) { i++; continue; }
+      if (i < raw.length - 3 && raw[i].toLowerCase() === 'by' && raw[i + 1].toLowerCase() === 'the' && raw[i + 2].toLowerCase() === 'way') { i += 3; continue; }
+      break;
+    }
     const first = raw[i].toLowerCase();
     if (raw.length - i === 1) { if (!Q_ONEWORD.has(first)) bad.push(sent); continue; }
     if (Q_WH.has(first)) continue;
@@ -272,7 +279,11 @@ export function aiFriendMeasureReply(reply: string, level: string, opts?: { answ
   const spec = aiFriendLevelSpec(level, opts);
   const parts = aiFriendSplitSentences(reply);
   let worst = 0;
-  for (const p of parts) worst = Math.max(worst, aiFriendCountWords(p));
+  /* 🗣️ (2026-11-04) 문장 앞 «By the way,»·«Anyway,» 는 낱말 수에서 뺍니다 — 연결 표현 정본이 이미
+     「연결어는 단어 수에 안 센다」고 말하는데(conversation-connectors.ts 초급 규칙) 여기만 세고 있어서,
+     S1(상한 7)의 「By the way, do you have a pet?」(8)이 «길다» 로 걸려 한 번 더 뽑느라 응답이 늦어졌습니다.
+     ⚠️ 쉼표가 붙은 «앞머리» 일 때만 — 문장 가운데의 낱말은 그대로 셉니다. */
+  for (const p of parts) worst = Math.max(worst, aiFriendCountWords(p.replace(/^\s*(?:by the way|anyway)\s*,\s*/i, '')));
   const broken = aiFriendBrokenQuestions(reply, level);
   const overSentences = Math.max(0, parts.length - spec.maxSentences);
   // ⚠️ 판정은 «목표» 가 아니라 «여유 상한» 으로 합니다 — 문법을 지키다 한두 낱말 넘는 것은 봐줍니다.

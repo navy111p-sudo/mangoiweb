@@ -206,7 +206,8 @@ console.log('\n[ A-배선 ]');
      ghost 에 «무엇이든» 값을 넣는 자리를 센다 — 인터페이스 선언(ghost?:)은 이 식에 안 걸린다. */
   check('ghost 에 값을 넣는 곳은 파일 전체에 한 곳뿐이다 (ghost:true)', (code.match(/\bghost\s*:/g) || []).length === 1
         && (code.match(/\bghost\s*:\s*true\b/g) || []).length === 1, String((code.match(/\bghost\s*:/g) || []).length));
-  const joinRoom = blockAt(code, 'private handleJoinRoom(');
+  /* (2026-11-04) handleJoinRoom 이 async 가 됐다(순단 유예 기록을 storage 에서 꺼낸다) — 둘 다 받는다. */
+  const joinRoom = blockAt(code, 'private async handleJoinRoom(') || blockAt(code, 'private handleJoinRoom(');
   check('일반 입장(join-room)은 ghost 를 읽지도 쓰지도 않는다', !!joinRoom && !/\bghost\b/.test(joinRoom), !joinRoom ? 'handleJoinRoom 을 못 찾음' : '');
 }
 
