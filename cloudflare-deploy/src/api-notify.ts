@@ -12,6 +12,7 @@ import { resolveNotifyPhones, partiesForRoom } from './notify-contacts';  // �
 import { pushToTeacher } from './teacher-push';   // 🔔 원부 강사 → 계정 → 구독 (정본, 2026-09-14)
 import { teacherLiveInRoom } from './no-show-truth';  // 🔔 강사가 이미 방에 있으면 「미입장」 알림을 안 보낸다
 import { checkSolapiBalance, getSolapiMode, sendKakaoAlimtalk, sendChatSummaryAlert, sendLessonEndAlert, sendLessonStartAlert, sendMentionAlert } from './solapi-client';
+import { siteUrl } from './site-url';   // 🔗 사람에게 나가는 링크는 한 곳에서 (CLAUDE.md 0장)
 
 let _notifSchemaReady = false;
 export async function ensureNotifSchema(env: { DB: D1Database }): Promise<void> {
@@ -380,7 +381,15 @@ export async function handleNotifyApi(
         `SELECT COUNT(*) AS c FROM chat_messages WHERE room_id = ? AND sent_at >= ?`
       ).bind(roomId, since).first();
       const messageCount = cnt?.c || 0;
-      const summaryUrl = `https://webrtc-unified-platform-prod.navy111p.workers.dev/admin/chat-summary.html?room=${encodeURIComponent(roomId)}`;
+      // 🔗 학생·학부모에게 그대로 나가는 주소라 정본 하나로 (CLAUDE.md 0장 · src/site-url.ts)
+      // ⛔ 여기에 워커 주소(*.workers.dev)를 다시 박지 마세요 — 받는 사람의 로그인(쿠키·localStorage)이
+      //    통째로 다른 오리진이 됩니다.
+      // 🔴 그런데 이 주소가 가리키는 `/admin/chat-summary.html` 은 **저장소에 없습니다**
+      //    (2026-10-30 실측 — git 이력에도 한 번도 없음). 게다가 `/admin/` 은 index.ts 의
+      //    default-deny 로그인 게이트라, 학부모가 눌러도 로그인 화면으로 튕깁니다.
+      //    ⟹ 오리진은 고쳤지만 **링크는 여전히 갈 곳이 없습니다.** 그 페이지를 만들지,
+      //    링크를 빼고 건수만 알릴지는 사람이 정할 일입니다(작업기록 261030 §5-2).
+      const summaryUrl = siteUrl(`/admin/chat-summary.html?room=${encodeURIComponent(roomId)}`);
       const studentName = body.student_name || '학생';
       const lessonTitle = body.lesson_title || '영어 수업';
       // 📵 번호는 서버가 계정으로 찾는다 — notify-contacts.ts

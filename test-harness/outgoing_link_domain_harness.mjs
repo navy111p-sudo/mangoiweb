@@ -23,7 +23,7 @@
  *   주석 안의 도메인 이름, 그리고 앱 시작 URL·스모크 테스트·워치독처럼 `test.mangoi.co.kr`
  *   을 **의도적으로** 붙박이로 쓰는 자리. 그건 앱 서명·assetlinks 까지 걸리는 별건이다.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -244,32 +244,34 @@ for (const [file, label] of DOCS) {
     !/운영 주소[^\n]*mango-i\.com/.test(md));
 }
 
-// ── ⑥ 갈린 워커 주소를 손으로 적어 두던 세 자리 (2026-10-30) ──────────
+// ── ⑥ 갈린 워커 주소를 손으로 적어 두던 네 자리 (2026-10-30) ──────────
 /* 2026-08-25 class-895 사고(학생·강사가 같은 방 번호인데 서로 못 봄)를 조사하다 찾았다.
    그 사고의 뿌리는 «워커가 두 벌이라 DO 가 갈린다» 인데, 그 갈린 워커 주소
    `webrtc-unified-platform.navy111p.workers.dev` 를 **사람에게 그대로 건네주는 자리가
    세 군데** 있었다(아래 ⑥-1~⑥-3). 거기로 들어가면 오리진이 달라 로그인(교사 쿠키는
    호스트 전용, 학생 mangoi_logged_user·mango_token 은 localStorage)이 통째로 갈리고,
    수업이면 «같은 방 번호인데 다른 교실» 이 그대로 재현된다.
+   같은 날 ⑥-4(채팅 요약 문자, `-prod` 주소)도 함께 고쳤다 — 그쪽은 DO 가 안 갈리지만
+   **학생·학부모 문자**로 조건 없이 나가므로 로그인이 갈리는 반경이 제일 넓다.
 
-   ②절은 «문자를 보내는 모듈» 만 보고 있어서 이 셋을 한 번도 안 봤다. 그래서 따로 둔다.
+   ②절은 «문자를 보내는 모듈» 만 보고 있어서 이 넷을 한 번도 안 봤다. 그래서 따로 둔다.
 
    ⚠️ 「그 주소가 이제 저장소에 없다」는 뜻이 아니다 — 여기서 보는 것은 «사람에게 건네는»
-      자리 셋뿐이다. 같은 비-prod 주소가 `public/js/idx-main.js` 에 2곳 더 있는데
+      자리 넷뿐이다. 같은 비-prod 주소가 `public/js/idx-main.js` 에 2곳 더 있는데
       (파일 공유·교재 업로드 안내), 둘 다 `if (location.protocol === 'file:')` 안이라
       https://mangoi.ai 에서는 **원리상 안 닿아** 일부러 안 고쳤다. idx-main.js 는
       blocking 이고 고치면 index.html 의 `?v=` 까지 걸리는 별건이다.
-      그리고 `-prod` 워커 주소를 쓰는 자리가 네 곳 더 있다(solapi-client.ts 3·
-      api-notify.ts 1 — DO 는 안 갈리지만 로그인은 갈린다). 작업기록 6장 참고.
+      그리고 `-prod` 워커 주소를 쓰는 자리가 **세 곳** 더 있다(solapi-client.ts 의
+      WORKER_BASE·입장URL 기본값 2 — DO 는 안 갈리지만 로그인은 갈린다). 작업기록 8장 ⓐ 참고.
       ⛔ 「전수로 다 고쳤다」로 읽지 마세요.
 
    ⛔ 이 절을 «src/public 전체에 workers.dev 가 없다» 로 넓히지 마세요 —
       CSP frame-ancestors·open-redirect 허용목록·아바타 TTS 처럼 **일부러** 워커 주소를
       쓰는 자리가 실재합니다(src/index.ts·eleader-trial-site.ts). 넓히면 멀쩡한 코드가
-      빨간불이 됩니다. 여기서 묻는 것은 «사람에게 건네주는 그 세 자리» 뿐입니다. */
-console.log('\n[ ⑥ 월간 리포트·경영 브리핑·학생 상세가 갈린 워커 주소를 건네지 않는다 ]');
+      빨간불이 됩니다. 여기서 묻는 것은 «사람에게 건네주는 그 네 자리» 뿐입니다. */
+console.log('\n[ ⑥ 월간 리포트·경영 브리핑·학생 상세·채팅 요약이 갈린 워커 주소를 건네지 않는다 ]');
 
-/* 🪤 아래 세 검사는 «식 모양» 을 글자로 못 박고 있다. 뜻이 더 센 수정이 와도 빨간불이 난다 —
+/* 🪤 아래 네 검사는 «식 모양» 을 글자로 못 박고 있다. 뜻이 더 센 수정이 와도 빨간불이 난다 —
       그때는 «검사가 헛돈 것» 이 아니라 «그 검사가 지키던 전제를 사람이 바꾼 것» 이니
       느슨하게 풀지 말고 **새 경계로 옮겨 적어라**(CLAUDE.md 2장).
       특히 알고 둘 것: `SITE_ORIGIN` → **`siteBase(env)`**(PUBLIC_BASE_URL 로 스테이징
@@ -327,6 +329,49 @@ const SPLIT_WORKER = /webrtc-unified-platform(?:-prod)?\.navy111p\.workers\.dev/
     href === '/', '실제 href: ' + String(href));
   check('학생 상세 — ⛔ 갈린 워커 주소가 화면에 없다',
     !SPLIT_WORKER.test(htmlCode));
+}
+
+/* ⑥-4 채팅 요약 문자 → 학생·학부모 (api-notify.ts)
+   `POST /api/notify/chat-summary` 는 수업이 끝나고 1.5초 뒤 `js/idx-main.js` 가 부르고,
+   서버가 계정으로 찾은 **학생 번호와 학부모 번호 둘 다**에 조건 없이 보낸다
+   (resolveNotifyPhones → sendChatSummaryAlert). 그래서 ⑥ 넷 중 반경이 제일 넓다.
+   🔴 다만 그 주소가 가리키는 `/admin/chat-summary.html` 은 **저장소에 없다**(2026-10-30 실측,
+      git 이력에도 없음). 게다가 `/admin/` 은 default-deny 로그인 게이트라 학부모가 눌러도
+      로그인 화면으로 튕긴다. 오리진은 고쳤지만 **링크는 여전히 갈 곳이 없다** —
+      페이지를 만들지/링크를 뺄지는 사람이 정할 일이라 FAIL 로 만들지 않고 ℹ️ 로 찍는다
+      (선례: popup_open_return_harness «사람 결정 대기»). */
+{
+  const code = codeOnly(SRC('api-notify.ts'));
+  check('채팅 요약 (api-notify.ts) — site-url 을 가져온다',
+    /from '\.\/site-url'/.test(code), '가져오는 줄이 없다');
+  check('채팅 요약 — 요약 주소를 siteUrl() 로 만든다',
+    /summaryUrl\s*=\s*siteUrl\(/.test(code),
+    '손으로 적은 주소가 남아 있다');
+  /* 짝 — 주소만 고치고 넘기는 곳을 지우면 링크가 통째로 사라진다.
+     ⚠️ 「그 이름이 파일에 있는가」로 묻지 않는다. 실제로 sendChatSummaryAlert 의
+        인자 묶음 «안» 에서 쓰는지를 본다(괄호 짝으로 자른다). */
+  const callAt = code.indexOf('sendChatSummaryAlert(env,');
+  let argBlock = '';
+  if (callAt >= 0) {
+    let d = 0, i = code.indexOf('(', callAt);
+    for (let k = i; k < code.length; k++) {
+      if (code[k] === '(') d++;
+      else if (code[k] === ')') { d--; if (d === 0) { argBlock = code.slice(i, k + 1); break; } }
+    }
+  }
+  check('채팅 요약 — 전제: 발송 호출을 잘라 냈다', argBlock.length > 0);
+  check('채팅 요약 — 그 주소를 실제로 발송에 넘긴다',
+    /\bsummaryUrl\b/.test(argBlock), '인자 묶음: ' + argBlock.slice(0, 120));
+  check('채팅 요약 — ⛔ 갈린 워커 주소가 코드에 없다',
+    !SPLIT_WORKER.test(code));
+
+  /* ℹ️ 사람 결정 대기 — 그 링크가 가리키는 페이지가 저장소에 있는가 */
+  const pagePath = resolve(__dir, '../cloudflare-deploy/public/admin/chat-summary.html');
+  if (!existsSync(pagePath)) {
+    console.log('  ℹ️ 사람 결정 대기 — 채팅 요약 문자가 가리키는 `/admin/chat-summary.html` 이');
+    console.log('     아직 저장소에 없습니다(게다가 /admin/ 은 로그인 게이트).');
+    console.log('     ⟹ 학생·학부모가 눌러도 갈 곳이 없습니다. 만들지/뺄지는 사람이 정할 일.');
+  }
 }
 
 console.log('\n────────────────────────────────');
