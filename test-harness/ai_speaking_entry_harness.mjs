@@ -199,8 +199,10 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
 // 2026-11-04 owner: the «✅ 저장했어요 — 세 가지 연습에 함께 적용돼요» line and the note under it were removed and a
 // «확인» button added. Picking language / level / corrections only changes the on-screen choice (draft); «확인»
 // saves all three at once (level·corrections → both screens' keys, language → only when it differs from storage).
-// The page's real functions — including wire() — are cut out and RUN on a fake DOM with the real settings module,
-// so «clicking a button no longer writes» and «확인 writes» are both measured, not grepped.
+// The page's WHOLE inline script (its own declarations and its own boot line) is RUN on a fake DOM with the real
+// settings module, so «clicking a button no longer writes» and «확인 writes» are both measured, not grepped.
+// 2026-11-04 trap-check: the first version cut out functions and wrote its own boot line — dropping `wire();` or
+// `renderSettings();` from the page, or moving `var draft` below the boot, all still passed. Now the page boots itself.
 {
   const vm = await import('node:vm');
   let n = 0; const ok = (v, m) => { n++; assert.ok(v, m); };
@@ -211,11 +213,13 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
     for (; i < hub.length; i++) { if (hub[i] === '{') d++; else if (hub[i] === '}' && --d === 0) break; }
     return hub.slice(s, i + 1);
   };
-  const NAMES = ['T', 'esc', 'applyUi', 'renderSituations', 'readDraft', 'renderSettings', 'renderOk', 'draftMissing', 'status', 'pick', 'confirmSettings', 'wire'];
-  const fns = NAMES.map(fnSrc);
-  ok(fns.every(f => f.length > 20), 'page functions cut out: ' + NAMES.filter((_, i) => fns[i].length <= 20).join(','));
-  const uiLine = hub.match(/var ui = [^\n]+/)?.[0] || '', draftLine = hub.match(/var draft = readDraft\(\);/)?.[0] || '', okLine = hub.match(/var okState = '';/)?.[0] || '';
-  ok(uiLine && draftLine && okLine, 'page declares ui / draft / okState the way the harness boots them');
+  // the one inline <script> (no src) — the page's own code, run as-is
+  const inline = [...hub.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+  ok(inline.length === 1 && inline[0].includes('confirmSettings') && /\}\)\(\);\s*$/.test(inline[0]), 'one inline script found (self-booting IIFE)');
+  // the visually-hidden rule really hides (otherwise the removed «…함께 적용돼요» line shows again under the button)
+  const css = hub.slice(hub.indexOf('<style>'), hub.indexOf('</style>'));
+  ok(/\.sr\{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect\(0 0 0 0\)/.test(css), '.sr rule is a real visually-hidden rule (1px + clip)');
+  ok(!/#setMsg\s*\{/.test(css), 'no #setMsg rule that could make the status line visible again');
 
   // markup: the visible lines are gone, a real button and a screen-reader-only status remain
   const markup = hub.replace(/<script[\s\S]*?<\/script>/g, '');
@@ -239,7 +243,7 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   const mkEl = (a = {}) => { const h = {}; const o = { ...a }; return { o, textContent: '', innerHTML: '', value: '', disabled: false, hidden: false,
     getAttribute: k => (k in o ? o[k] : null), setAttribute: (k, v) => { o[k] = String(v); },
     addEventListener: (ev, fn) => { (h[ev] = h[ev] || []).push(fn); }, fire: ev => (h[ev] || []).forEach(fn => fn({ preventDefault() {} })) }; };
-  const boot = (init, opts) => {
+  const boot = (init, opts = {}) => {
     const ls = mkLS(init, opts);
     const corr = CORR.map(id => mkEl(attrs(hub.match(new RegExp('<button[^>]*data-corr="' + id + '"[^>]*>'))[0])));
     const lang = ['ko', 'en'].map(l => mkEl({ 'data-lang': l }));
@@ -248,12 +252,15 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
       getElementById: id => els[id] || null,
       querySelectorAll: sel => (sel === '[data-corr]' ? corr : sel === '[data-lang]' ? lang : []),
       querySelector: sel => { const m = /^\[data-corr="([^"]+)"\]$/.exec(sel); return m ? corr.find(b => b.getAttribute('data-corr') === m[1]) || null : null; } };
-    const api = new Function('document', 'SET', 'LS', 'SIT', [uiLine, ...fns, draftLine, okLine,
-      'applyUi(); renderSituations(); renderSettings(); wire();', 'return { get ui(){ return ui; }, get draft(){ return draft; } };'].join('\n'))(document, SET, ls, null);
+    const win = { AiSpeakSettings: SET, MangoiSituations: null };
+    if (opts.unavailable) Object.defineProperty(win, 'localStorage', { get() { throw new Error('SecurityError'); } });
+    else win.localStorage = ls;
+    const c = vm.createContext({ window: win, document, console });
+    vm.runInContext(inline[0], c);   // the page declares its state and boots itself (applyUi · renderSituations · renderSettings · wire)
     const btn = () => ({ disabled: els.setOk.disabled, text: els.setOkTxt.textContent, state: els.setOk.getAttribute('data-state') || '' });
     const click = id => corr[CORR.indexOf(id)].fire('click');
     const level = v => { els.setLevel.value = String(v); els.setLevel.fire('change'); };
-    return { ls, els, api, btn, click, level, lang, document, confirm: () => els.setOk.fire('click') };
+    return { ls, els, btn, click, level, lang, document, confirm: () => els.setOk.fire('click') };
   };
 
   // A) empty storage: nothing is written until «확인»; the button says what is missing
@@ -280,8 +287,8 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   ok(s.btn().text === '확인' && s.btn().state === '' && s.els.setMsg.textContent === '', 'A: a new pick resets the button to «확인»');
   s.confirm();
   ok(s.ls.getItem('mangoi_aifriend_correction') === 'balanced' && s.btn().state === 'saved', 'A: second 확인 saves the new pick');
-  s.els.setLevel.value = ''; s.els.setLevel.fire('change');
-  ok(s.api.draft.level === 4, 'A: the «not set» header option does not clear the pick');
+  s.level(6); s.els.setLevel.value = ''; s.els.setLevel.fire('change'); s.confirm();
+  ok(s.ls.getItem('mangoi_warmup_level') === '6', 'A: the «not set» header option does not clear the pick');
 
   // B) already saved and the same on both screens: ready, but not claiming «applied» before a press
   s = boot({ mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' });
@@ -301,16 +308,31 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   // D) language: preview immediately, save on 확인 only
   s = boot({ mangoi_lang: 'ko', mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' });
   s.lang[1].fire('click');
-  ok(s.api.ui === 'en' && s.document.documentElement.lang === 'en' && s.btn().text === 'Confirm', 'D: English shows at once (preview), button in English');
+  ok(s.document.documentElement.lang === 'en' && s.btn().text === 'Confirm', 'D: English shows at once (preview), button in English');
   ok(s.ls.writes.length === 0 && s.ls.getItem('mangoi_lang') === 'ko', 'D: choosing a language does not save it');
   s.confirm();
   ok(s.ls.getItem('mangoi_lang') === 'en' && s.ls.getItem('mangoi_lang_by') === 'user', 'D: 확인 saves the language as the person\'s choice');
-  ok(s.btn().text === '✅ Applied', 'D: applied label in English');
+  ok(s.btn().text === '✅ Applied' && /Saved/.test(s.els.setMsg.textContent), 'D: applied label in English');
+  // after saving, switching language again is an unsaved change: back to «확인», status cleared (not «Applied»)
+  s.lang[0].fire('click');
+  ok(s.document.documentElement.lang === 'ko' && s.btn().text === '확인' && s.btn().state === '' && s.els.setMsg.textContent === '', 'D: language change after save -> «확인» again, status cleared');
+  ok(s.ls.getItem('mangoi_lang') === 'en', 'D: …and it is not saved yet');
+  s.confirm();
+  ok(s.ls.getItem('mangoi_lang') === 'ko', 'D: en saved -> pick 한국어 -> 확인 saves ko');
+  s = boot({ mangoi_lang: 'en', mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' });
+  ok(s.document.documentElement.lang === 'en' && s.btn().text === 'Confirm', 'D: saved English opens in English');
+  s.lang[0].fire('click'); s.confirm();
+  ok(s.ls.getItem('mangoi_lang') === 'ko' && s.ls.getItem('mangoi_lang_by') === 'user', 'D: from a fresh English page, 한국어 + 확인 saves ko');
 
   // E) storage that throws: honest failure on the button, retry possible
   s = boot({ mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' }, { block: true });
   s.confirm();
   ok(s.btn().state === 'fail' && s.btn().text === '⚠️ 이 기기에선 저장이 안 돼요' && !s.btn().disabled, 'E: blocked storage -> failure label, still pressable');
   ok(/저장이 안 돼요/.test(s.els.setMsg.textContent), 'E: screen-reader status says it failed');
-  console.log('PASS: confirm button (확인) — ' + n + ' checks, page functions + wiring run on a fake DOM');
+  // F) storage that throws on access (page swaps in a dead store): page still boots, picks work, 확인 reports failure
+  s = boot({}, { unavailable: true });
+  ok(s.btn().disabled && s.btn().text === '수준·교정 정도를 골라 주세요', 'F: storage unavailable -> page still boots, locked');
+  s.level(3); s.click('free_talk'); s.confirm();
+  ok(s.btn().state === 'fail' && !s.btn().disabled, 'F: storage unavailable -> 확인 says it could not save');
+  console.log('PASS: confirm button (확인) — ' + n + ' checks, the page\'s own inline script booted and clicked on a fake DOM');
 }
