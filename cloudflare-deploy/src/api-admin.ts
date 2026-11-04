@@ -7834,6 +7834,14 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       if (!id) return json({ ok: false, error: 'invalid_id' }, 400);
       // 📜 삭제 전 수업 정보 확보(이력에 남기기 위해) + 행위자
       const _delActor = await getAdminActor(request, env as any);
+      /* 🔒 (2026-11-04 사장님 «권한 분리») 수업 «취소» 는 본사 계정만 — 화면(연기·변경 창)은 강사·지사에게 취소 버튼을
+         안 주는데(canCancel), 서버는 강사 세션의 직접 호출을 막지 않았다(이 경로는 강사 차단 접두사에 없다 —
+         강사는 같은 경로의 PATCH(옮기기)를 쓴다). 지사·대리점은 index.ts 스코프 관문이 이미 403 이다.
+         ⚠️ 역할 기준(isTeacher)으로 막는다 — 강사 계정 스코프가 잘못 'hq' 로 세팅된 사례가 있다(index.ts «항상 role 기준»).
+         ⛔ 역할을 못 읽으면(ok=false) 막는다 — 되돌릴 수 없는 쪽은 «모르면 막기». 화면은 403 을 «본사 계정에서 합니다» 로 읽는다. */
+      if (!_delActor || !_delActor.ok || _delActor.isTeacher) {
+        return json(forbiddenTeacherBody(_delActor, '수업 «취소» 는 본사 계정에서 합니다.', 'Cancelling a class is done by an HQ account.'), 403);
+      }
       const _delRow: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(id).first().catch(() => null);
       let _delReason: string | null = null;
       try { const b: any = await request.json(); _delReason = (b && b.reason) ? String(b.reason).slice(0, 300) : null; } catch {}

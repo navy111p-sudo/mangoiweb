@@ -349,7 +349,12 @@ ok('따라 말하기 «완벽» 이면 보상(등급을 받는 학생만)', /_wu
     const apBtn = (ap.match(/<button[^>]*data-corr="balanced"[^>]*>/) || [''])[0];
     const apKo = (apBtn.match(/data-hint-ko="([^"]*)"/) || ['', ''])[1];
     const apEn = (apBtn.match(/data-hint-en="([^"]*)"/) || ['', ''])[1];
-    ok('⑨ 균형 전제: 카드·사용법·입구 문구를 오려 냈다(KO/EN)', !!(blKo && blEn && blHowKo && blHowEn && apKo && apEn), [blKo, blEn, blHowKo, blHowEn, apKo, apEn]);
+    /* 원장님 설정 화면(manager.html) — 학원 단위로 고르는 자리라 같은 말이어야 한다(2026-11-04) */
+    const mgrHtml = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/public/manager.html'), 'utf8');
+    const blMgr = (mgrHtml.match(/\{ k: 'balanced'[^\n]*/) || [''])[0];
+    const mgKo = (blMgr.match(/dko: '([^']*)'/) || ['', ''])[1];
+    const mgEn = (blMgr.match(/den: '([^']*)'/) || ['', ''])[1];
+    ok('⑨ 균형 전제: 카드·사용법·입구·원장님 화면 문구를 오려 냈다(KO/EN)', !!(blKo && blEn && blHowKo && blHowEn && apKo && apEn && mgKo && mgEn), [blKo, blEn, blHowKo, blHowEn, apKo, apEn, mgKo, mgEn]);
     /* 서버 값은 정본 소스에서 읽는다(⛔ 하니스에 베끼지 않는다) — 1이 되면 «가끔» 이 거짓이 된다 */
     const CORR = fs.readFileSync(path.join(SRC, 'warmup-correction.ts'), 'utf8');
     const fixGap = Number((CORR.match(/export const WARMUP_FIX_GAP_TURNS = (\d+);/) || [])[1]);
@@ -357,10 +362,12 @@ ok('따라 말하기 «완벽» 이면 보상(등급을 받는 학생만)', /_wu
     ok('⑨ 균형 전제: 서버가 작은 실수·따라 말하기를 «매 턴» 하지 않는다(간격 ≥ 2)', fixGap >= 2 && repGap >= 2, [fixGap, repGap]);
     ok('⑨ 균형: 교재 연습 카드(KO)가 입구 문구와 같은 말로 시작', !!apKo && blKo.startsWith(apKo), [blKo, apKo]);
     ok('⑨ 균형: 사용법 안내(KO)도 입구 문구와 같은 말', !!apKo && blHowKo.trim().startsWith(apKo), [blHowKo, apKo]);
-    const enAll = [blEn, blHowEn, apEn];
-    ok('⑨ 균형(EN 세 곳): «mostly» + «sometimes»', enAll.every((s) => /\bmostly\b/i.test(s) && /\bsometimes\b/i.test(s)), enAll);
-    const koAll = [blKo, blHowKo, apKo];
-    ok('⑨ 균형(KO 세 곳): «위주» + «가끔»', koAll.every((s) => /위주/.test(s) && /가끔/.test(s)), koAll);
+    ok('⑨ 균형: 원장님 설정 화면(KO)도 입구 문구와 같은 말', !!apKo && mgKo.startsWith(apKo), [mgKo, apKo]);
+    ok('⑨ 균형: 원장님 설정 화면(EN)은 웜업 카드(EN)와 같은 말', !!mgEn && blEn.startsWith(mgEn.replace(/\.$/, '')), [mgEn, blEn]);
+    const enAll = [blEn, blHowEn, apEn, mgEn];
+    ok('⑨ 균형(EN 네 곳): «mostly» + «sometimes»', enAll.every((s) => /\bmostly\b/i.test(s) && /\bsometimes\b/i.test(s)), enAll);
+    const koAll = [blKo, blHowKo, apKo, mgKo];
+    ok('⑨ 균형(KO 네 곳): «위주» + «가끔»', koAll.every((s) => /위주/.test(s) && /가끔/.test(s)), koAll);
     const oldOnly = /되풀이되는 실수만|핵심 표현이나|key phrases|repeated mistakes|repeat only|only for/i;
     const tooOften = /매번|항상|마다|1\s*번|한\s*번|\bonce\b|\bevery\b|\beach\b|always/i;
     ok('⑨ 균형: 옛 «핵심 표현·되풀이 실수만» 이 없다', ![...koAll, ...enAll].some((s) => oldOnly.test(s)), [...koAll, ...enAll]);

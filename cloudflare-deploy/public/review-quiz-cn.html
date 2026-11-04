@@ -618,6 +618,39 @@
     function T(ko, en){ return isEn() ? en : ko; }
     var _lastResult = null;
 
+    /* 🌐 (2026-11-04) 영어 모드 결과 화면 — 문제 글·해설·듣기 보기는 한국어로 저장돼 있고 중국어가 섞여 있다
+       (예: 「정답: 韩国人 (한국인)」). 중국어는 그대로 두고 «한국어 조각만» 영어로 바꾼다.
+       결과를 먼저 그리고 /api/translate(target:en)로 한 번 물어 받으면 다시 그린다. 못 받으면 원문 그대로(지어내지 않음). */
+    var _koEn = { '정답:':'Answer:', '정답':'Answer', '복습퀴즈':'Review Quiz', '복수전':'Retry' }, _koAsked = {};
+    var KO_RUN = /[가-힣][^\u3400-\u9fff()\[\]（）【】]*/g;
+    function koRuns(s){ return (String(s==null?'':s).match(KO_RUN) || []).map(function(x){ return x.trim(); }).filter(Boolean); }
+    function tKo(s){
+      s = String(s==null?'':s);
+      if (!isEn()) return s;
+      return s.replace(KO_RUN, function(run){ var k = run.trim(); var v = _koEn[k]; return v ? run.replace(k, v) : run; });
+    }
+    function optText(o){ return (o && typeof o === 'object') ? o.hz : o; }
+    function koTranslateResult(r){
+      if (!isEn() || !r || !r.detail || !state.quiz) return;
+      var qs = state.quiz.questions || [], need = [];
+      function add(x){ koRuns(x).forEach(function(k){ if (!_koEn[k] && !_koAsked[k]) { _koAsked[k] = 1; need.push(k); } }); }
+      add(state.quiz.title);
+      r.detail.forEach(function(d, i){
+        var q = qs[i] || {}; add(q.q); add(d.explain);
+        if (q.opts) { if (d.your_answer!=null) add(optText(q.opts[d.your_answer])); add(optText(q.opts[d.answer])); }
+      });
+      if (!need.length) return;
+      fetch('/api/translate', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ texts: need.slice(0, 50), target:'en', mode:'chat' }) })
+        .then(function(x){ return x.json(); })
+        .then(function(d){
+          var m = (d && d.ok !== false && d.map) || {}, got = 0;
+          need.forEach(function(k){ var v = m[k]; if (typeof v === 'string' && v.trim() && !/[가-힣]/.test(v)) { _koEn[k] = v.trim(); got++; } });
+          var rv = document.getElementById('resultView');
+          if (got && _lastResult === r && isEn() && rv && rv.style.display === 'block') showResult(r, true);
+        }).catch(function(){});
+    }
+
     /* 🪙 (2026-11-02) «획득 포인트» 옆에 «왜 이만큼(또는 0)» 인지 — 서버가 실어 준 칸만 읽습니다(지어내지 않음).
        서버가 그 칸을 안 보내면(옛 서버) 아무 말도 안 합니다. */
     function rqPtsNote(r, en){
@@ -652,8 +685,8 @@
         if(!d.correct) wrongPositions.push(i);
         var body='';
         if (typ==='choice' || typ==='listen') {
-          var your = (d.your_answer!=null && q.opts && q.opts[d.your_answer]!=null) ? (ABC[d.your_answer] + '. ' + (typeof q.opts[d.your_answer]==='object'?q.opts[d.your_answer].hz:q.opts[d.your_answer])) : T('(무응답)', '(no answer)');
-          var ans = (q.opts && q.opts[d.answer]!=null) ? (ABC[d.answer] + '. ' + (typeof q.opts[d.answer]==='object'?q.opts[d.answer].hz:q.opts[d.answer])) : '';
+          var your = (d.your_answer!=null && q.opts && q.opts[d.your_answer]!=null) ? (ABC[d.your_answer] + '. ' + tKo(optText(q.opts[d.your_answer]))) : T('(무응답)', '(no answer)');
+          var ans = (q.opts && q.opts[d.answer]!=null) ? (ABC[d.answer] + '. ' + tKo(optText(q.opts[d.answer]))) : '';
           body = '<div class="rq-a ' + (d.correct?'rq-ok':'rq-no') + '">' + L_MINE + esc(your) + '</div>' +
             (!d.correct ? '<div class="rq-a rq-ok">' + L_ANS + esc(ans) + '</div>' : '') +
             (typ==='listen' && d.audio_text ? '<div class="rq-a" style="color:var(--text2)">🎧 ' + esc(d.audio_text) + '</div>' : '');
@@ -662,9 +695,9 @@
             '<div class="rq-a rq-ok">' + L_ANS + esc(d.answer_text||'') + '</div>';
         }
         return '<div class="review-q">' +
-          '<div class="rq-t">' + (d.correct?'<span class="badge-ok">⭕</span>':'<span class="badge-no">❌</span>') + ' ' + (TYPE_ICON[typ]||'') + ' Q' + (i+1) + '. ' + esc(q.q) + '</div>' +
+          '<div class="rq-t">' + (d.correct?'<span class="badge-ok">⭕</span>':'<span class="badge-no">❌</span>') + ' ' + (TYPE_ICON[typ]||'') + ' Q' + (i+1) + '. ' + esc(tKo(q.q)) + '</div>' +
           body +
-          (d.explain ? '<div class="rq-explain">💡 ' + esc(d.explain) + '</div>' : '') +
+          (d.explain ? '<div class="rq-explain">💡 ' + esc(tKo(d.explain)) + '</div>' : '') +
           '</div>';
       }).join('');
 
@@ -678,11 +711,12 @@
         + (r.balance!=null ? '<div style="font-size:12px;color:var(--text2);margin-top:8px">'+T('總 보유 포인트','Total points')+': <b style="color:#60a5fa">'+r.balance+'</b></div>' : '');
       var sc = r.percent>=80?'#10b981':(r.percent>=50?'#60a5fa':'#94a3b8');
       stamp = '<div class="rq-stamp" style="color:'+sc+';border-color:'+sc+'">'+emo+' '+(r.first_clear?T('첫 클리어!','First clear!'):T('클리어','Cleared'))+'</div>';
-      var wrongBtn = wrongPositions.length ? '<button class="nav-btn" onclick="retryWrong(['+wrongPositions.join(',')+'])>🎯 '+T('틀린 문제만 다시','Retry wrong ones')+' ('+wrongPositions.length+')</button>' : '';
+      var wrongBtn = wrongPositions.length ? '<button class="nav-btn" onclick="retryWrong(['+wrongPositions.join(',')+'])">🎯 '+T('틀린 문제만 다시','Retry wrong ones')+' ('+wrongPositions.length+')</button>' : '';
 
       document.getElementById('playView').style.display = 'none';
       var rv = document.getElementById('resultView'); rv.style.display = 'block';
       rv.innerHTML = '<div class="quiz-card result-card">' +
+        '<div style="font-size:13px;color:var(--text2);font-weight:700;margin-bottom:6px">' + esc(tKo(qz.title||'')) + '</div>' +
         '<div class="result-score" style="color:'+color+'">' + r.score + ' / ' + r.total + '</div>' +
         '<div class="result-label">(' + r.percent + '%)</div>' +
         '<div class="result-msg">' + msg + '</div>' +
@@ -694,6 +728,7 @@
         wrongBtn +
         '<button class="nav-btn primary" onclick="backToList()">← '+T('목록으로','Back to list')+'</button>' +
         '</div></div>';
+      koTranslateResult(r);
       if (redraw) return;   /* 🌐 언어만 바꿔 다시 그릴 때는 축하·소리·스크롤을 되풀이하지 않음 */
       confetti();
       sfxWin();
