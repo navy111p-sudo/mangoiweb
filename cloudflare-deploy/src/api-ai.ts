@@ -53,7 +53,7 @@ import { createJsonTextTap, takeSentences } from './stream-json-text';   // 📡
 /* 🔁 «같은 질문 두 번 금지» 정본 — 엘리더잼·일반 A.i 말하기와 «같은 판정» (2026-10-28 사장님 「AI 영어친구에도 같은 질문 금지 적용해줘」).
    ⛔ 판정을 여기에 복제하지 말 것 — 이 화면은 부르기만 한다. */
 import { questionSession, questionMemory, askedQuestionsLine, repeatedQuestions, retryRepeatedQuestion, repeatQuestionHintEn, isReaskRequest } from './question-memory';
-import { FRAG_RETRY_BUDGET_MS } from './reply-questions';   // ⏱ 다시 뽑기 시간 예산(웜업과 같은 값)
+import { FRIEND_FRAG_RETRY_BUDGET_MS as FRAG_RETRY_BUDGET_MS } from './reply-questions';   // ⏱ 다시 뽑기 시간 예산 — A.i 친구는 9초(웜업 5초와 다름 · 이유는 reply-questions.ts)
 
 let _awTopicColTried = false;   // 📅 topic_id 지연 ALTER — 워커당 한 번
 export async function handleAiApi(

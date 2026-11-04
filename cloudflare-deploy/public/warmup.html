@@ -3417,6 +3417,13 @@ function _stmShow(L){
   log.scrollTop=log.scrollHeight;
 }
 function _stmDrop(L){ try{ if(L.el) L.el.remove(); }catch(e){} L.el=null; }
+/* ⚡ 이어 읽기(2026-11-05 「휴대폰에서 무조건 빨리」) — 서버가 미리듣기를 중간에 멈췄지만(같은 질문·길이 등) 다시 뽑지 않아
+   정본이 «이미 읽은 문장 + 나머지» 면, 처음부터 다시 읽지 않고 «나머지» 만 돌려준다 / continue instead of re-reading.
+   정본이 앞부분부터 달라졌으면(다시 뽑음·교정 말머리) null — 예전처럼 처음부터 읽는다. 다시 뽑기 예산(5초)을 줄이며 이 경우가 잦아졌다. */
+function _stmRest(said, full){
+  var a=String(said||'').replace(/\s+/g,' ').trim(), b=String(full||'').replace(/\s+/g,' ').trim();
+  return (a && b.indexOf(a)===0) ? b.slice(a.length).trim() : null;
+}
 function _stmSentence(L, sen, typing){
   if(L.dead) return;
   if(_warmPaused || L.epoch!==_warmEpoch){ L.dead=1; return; }
@@ -3495,13 +3502,18 @@ async function _stmTurn(r, epoch, typing, lt0, ls, kick){
   if(!L.n && !L.kick){ _autoHook('reply'); _latCur={ t0:lt0, t1:Date.now(), wait:(ls?ls.wait:null), tStop:(ls?ls.at:null) }; }
   var finalText=d.ai_response || '(응답이 비어 있어요)';
   _stmDrop(L);
-  if(spoken && (!d.replaced || interrupted)){
+  var rest=(spoken && d.replaced && !interrupted) ? _stmRest(L.text, finalText) : null;   // ⚡ 나머지만 이어 읽기(_stmRest)
+  if(spoken && (!d.replaced || interrupted || rest!==null)){
     /* 읽은 것이 정본과 같다(또는 학생이 끊었다) — 말풍선만 정본으로 바꾸고 다시 읽지 않는다.
        번갈아 모드: 이름표는 «그 문장을 읽은 사람» 이어야 하므로 그 차례로 잠깐 되돌렸다가 복원한다. */
     var mix1=_mixIdx; if(L.mix0!=null) _mixIdx=L.mix0;
     _addMsgQuiet=true; try{ addMsg(finalText, 'ai'); } finally{ _addMsgQuiet=false; }
     _mixIdx=mix1;
-    if(!interrupted) _stmEnd(L);
+    if(!interrupted){
+      var rs=rest ? _speechText(rest) : '';
+      if(rs){ L.q.push(rs); if(!_ttsCache[L.spk+'|'+rs]) L.pf[L.q.length-1]=_ttsPrefetch(rs, L.spk); }
+      _stmEnd(L);
+    }
   } else {
     /* 정본이 달라졌다(replaced) 또는 아직 안 읽었다 — 읽던 것을 멈추고 정본을 처음부터 읽는다 */
     if(spoken) _stopSpeak(true);
@@ -5058,7 +5070,7 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
   body .qs-row .qs-get, body .qs-row .wg-btn{ min-height:34px!important; padding:4px 12px!important; font-size:13px!important; }
 }
 </style>
-<script defer src="/js/mangoi-voice-input.js?v=6"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
+<script defer src="/js/mangoi-voice-input.js?v=8"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/voice-has-speech.js?v=1"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
 <script defer src="/js/ai-diff.js?v=2"></script>
 <script defer src="/js/warmup-howto.js?v=11"></script><!-- 📘 A.i말하기 사용방법 쉽게 알기 안내창 (2026-10-03) --><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
