@@ -244,6 +244,7 @@ function sandbox() {
     var _speakSeq=0, _ttsCache={}, _ttsEng={}, _mixIdx=0, _warmPaused=false, _warmEpoch=1, _speechOn=true, _latCur=null;
     var _ttsAudio=null, window={ ReadableStream:ReadableStream, TextDecoder:TextDecoder }, _speakLiveNext=null, _stmCur=null, _addMsgQuiet=false, location={search:''};
     var localStorage={getItem:function(){return null;}};
+    function warmThought(show){ C.thinking=show; }
     var ZHMALE=false; function _zhMaleWanted(){ return ZHMALE; }
     function mkEl(){ var e={ children:[], className:'', innerHTML:'', removed:false, remove:function(){ e.removed=true; },
       appendChild:function(c){ e.children.push(c); }, querySelector:function(){ return { set innerHTML(v){ e.text=v; } }; } }; return e; }
