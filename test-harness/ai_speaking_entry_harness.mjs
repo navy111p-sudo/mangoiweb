@@ -314,7 +314,7 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   const evt = (target, extra = {}) => { const e = { target, defaultPrevented: false, button: 0, ...extra }; e.preventDefault = () => { e.defaultPrevented = true; }; return e; };
   const mkEl = (a = {}) => { const h = {}; const o = { ...a }; const el = { o, textContent: '', innerHTML: '', value: '', disabled: false, hidden: false,
     getAttribute: k => (k in o ? o[k] : null), setAttribute: (k, v) => { o[k] = String(v); }, removeAttribute: k => { delete o[k]; }, hasAttribute: k => k in o,
-    focus: () => { active = el; }, scrollIntoView: () => {},
+    focus: o => { active = el; el.focusArg = o; }, scrollIntoView: () => {},
     addEventListener: (ev, fn) => { (h[ev] = h[ev] || []).push(fn); },
     fire: (ev, extra) => { const e = evt(el, extra); (h[ev] || []).forEach(fn => fn(e)); return e; } }; return el; };
   const boot = (init, opts = {}) => {
@@ -331,7 +331,8 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
       addEventListener: (ev, fn) => { (dh[ev] = dh[ev] || []).push(fn); },
       querySelectorAll: sel => (sel === '[data-corr]' ? corr : sel === '[data-lang]' ? lang : []),
       querySelector: sel => { if (sel === '.wrap') return wrap; const m = /^\[data-corr="([^"]+)"\]$/.exec(sel); return m ? corr.find(b => b.getAttribute('data-corr') === m[1]) || null : null; } };
-    const win = { AiSpeakSettings: SET, MangoiSituations: null, location: { href: '' },
+    const timers = [];
+    const win = { AiSpeakSettings: SET, MangoiSituations: null, location: { href: '' }, setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
       addEventListener: (ev, fn) => { (wh[ev] = wh[ev] || []).push(fn); },
       removeEventListener: (ev, fn) => { wh[ev] = (wh[ev] || []).filter(f => f !== fn); } };
     if (opts.unavailable) Object.defineProperty(win, 'localStorage', { get() { throw new Error('SecurityError'); } });
@@ -347,9 +348,12 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
     const clickLink = (href, a, extra = {}) => docClick({ ...extra, target: mkLink(href, a) });
     const bu = () => { const e = { defaultPrevented: false, returnValue: '' }; e.preventDefault = () => { e.defaultPrevented = true; }; (wh.beforeunload || []).forEach(fn => fn(e)); return { listeners: (wh.beforeunload || []).length, prevented: e.defaultPrevented }; };
     const pageshow = persisted => (wh.pageshow || []).forEach(fn => fn({ persisted }));
+    const storageEvt = () => (wh.storage || []).forEach(fn => fn({}));
+    const docKey = extra => { const e = evt(extra.target || null, extra); (dh.keydown || []).forEach(fn => fn(e)); return e; };
+    const runTimers = () => { timers.splice(0).forEach(t => t.fn()); };
     const leave = () => ({ open: !els.leaveAsk.hidden, title: els.leaveTitle.textContent, body: els.leaveBody.textContent, pick: els.leavePick.textContent,
       go: els.leaveGo.textContent, skip: els.leaveSkip.textContent, stay: els.leaveStay.textContent, stayHidden: els.leaveStay.hidden });
-    return { ls, els, btn, click, level, lang, document, corr, wrap, docClick, clickLink, bu, pageshow, leave,
+    return { ls, els, btn, click, level, lang, document, corr, wrap, docClick, clickLink, bu, pageshow, leave, storageEvt, docKey, runTimers, timers,
       nav: () => win.location.href, active: () => active, confirm: () => els.setOk.fire('click') };
   };
 
@@ -439,7 +443,11 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   ok(dlg && !/data-ko|data-en/.test(dlg), 'G: dialog texts have no data-ko/en (the page i18n loop would overwrite them) — the script writes them');
   const before_ = markup.slice(markup.indexOf('<body>'), dIdx);
   ok(dIdx > 0 && (before_.match(/<div\b/g) || []).length === (before_.match(/<\/div>/g) || []).length, 'G: the dialog sits outside .wrap (the page behind is made inert while it is open)');
-  ok(/\.leave\{position:fixed;top:0;right:0;bottom:0;left:0;z-index:50;display:flex/.test(css), 'G: dialog covers the screen (no inset shorthand — old Safari)');
+  const ruleOf = sel => { const m = css.match(new RegExp('(?:^|[}\\s])' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{([^}]*)\\}')); return m ? m[1] : ''; };
+  const leaveRule = ruleOf('.leave'), wrapRule = ruleOf('.wrap'), zOf = r => Number((/z-index:(-?\d+)/.exec(r) || [])[1]);
+  ok(/position:fixed/.test(leaveRule) && /top:0/.test(leaveRule) && /right:0/.test(leaveRule) && /bottom:0/.test(leaveRule) && /left:0/.test(leaveRule) && !/inset:/.test(leaveRule), 'G: dialog covers the screen with top/right/bottom/left (no inset shorthand — old Safari) → ' + leaveRule);
+  ok(zOf(leaveRule) > zOf(wrapRule), 'G: dialog z-index is above the page (.wrap) → ' + zOf(leaveRule) + ' > ' + zOf(wrapRule));
+  ok(/max-height:calc\(100vh[^;]*\);max-height:calc\(100dvh/.test(ruleOf('.leave-box')), 'G: box height fits the visible screen (100vh then 100dvh — iPhone toolbars)');
   ok(!/syncLeaveGuard|unapplied/.test(fnSrc('renderSettings') + fnSrc('renderOk')), 'G: renderSettings/renderOk do not read storage for the guard (block ③ runs them with a throwing store)');
   const SAVED = { mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' };
   // G1 nothing changed -> links go through
@@ -459,6 +467,7 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   ok(s.leave().title === '설정을 아직 적용하지 않았어요' && /«확인»을 눌러야/.test(s.leave().body) && s.leave().pick === '고른 설정: 수준 3단계 · 교정 집중', 'G3: dialog says what is not applied and what was picked → ' + JSON.stringify(s.leave()));
   ok(s.leave().go === '적용하고 이동' && s.leave().skip === '적용 안 하고 이동' && s.leave().stay === '머무르기' && !s.leave().stayHidden, 'G3: three choices');
   ok(s.wrap.getAttribute('inert') === '' && s.active() === s.els.leaveGo, 'G3: the page behind is inert, focus on the main choice');
+  ok(s.els.leaveGo.focusArg && s.els.leaveGo.focusArg.preventScroll === true, 'G3: …focused without scrolling (scrollIntoView cut the title on a 568×320 phone)');
   ok(s.ls.writes.length === 0, 'G3: asking writes nothing');
   s.els.leaveGo.fire('click');
   ok(s.ls.getItem('mangoi_warmup_level') === '3' && s.ls.getItem('mangoi_aifriend_level') === 'S3' && s.ls.getItem('mangoi_warmup_correction') === 'focused' && s.ls.getItem('mangoi_aifriend_correction') === 'focused', 'G3: «적용하고 이동» saves level + corrections to both screens');
@@ -469,22 +478,35 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   s.clickLink('/'); s.els.leaveSkip.fire('click');
   ok(s.ls.writes.length === 0 && s.nav() === 'http://localhost/' && !s.leave().open, 'G4: «적용 안 하고 이동» writes nothing and goes');
   ok(s.bu().listeners === 1 && !s.bu().prevented, 'G4: …the browser prompt stays quiet while leaving (no double ask)');
+  ok(s.timers.some(t => t.ms >= 1000), 'G4: a reset is scheduled in case the navigation is stopped');
+  s.runTimers();
+  ok(s.bu().prevented, 'G4: navigation stopped (still on this page) -> the browser prompt guards again');
   // G5 stay: button · Escape · backdrop; Tab stays inside
   s = boot({ ...SAVED }); s.click('focused');
   const L = s.clickLink('/ai-friend.html').target;
   s.els.leaveStay.fire('click');
   ok(!s.leave().open && s.nav() === '' && s.ls.writes.length === 0 && s.wrap.getAttribute('inert') === null && s.active() === L, 'G5: «머무르기» closes, stays, focus back on the link');
   ok(s.btn().text === '확인' && s.bu().prevented, 'G5: …the pick is kept, still unapplied (guard still on)');
-  s.clickLink('/ai-friend.html'); s.els.leaveAsk.fire('keydown', { key: 'Escape' });
+  s.clickLink('/ai-friend.html'); s.docKey({ key: 'Escape', target: s.els.leaveGo });
   ok(!s.leave().open && s.nav() === '', 'G5: Escape = stay');
+  s.clickLink('/ai-friend.html'); s.docKey({ key: 'Escape', target: null });
+  ok(!s.leave().open, 'G5: Escape works after tapping the text (focus fell to <body>)');
+  s.docKey({ key: 'Escape', target: null });
+  ok(!s.leave().open && s.nav() === '', 'G5: Escape with the dialog closed does nothing');
+  s.els.setOk.focus(); const kc = s.docKey({ key: 'Tab', target: s.els.setOk });
+  ok(!kc.defaultPrevented && s.active() === s.els.setOk, 'G5: with the dialog closed, Tab is the page\'s own (not pulled into the hidden dialog)');
   s.clickLink('/ai-friend.html'); s.els.leaveAsk.fire('click');
   ok(!s.leave().open && s.nav() === '', 'G5: tapping the dark backdrop = stay');
   s.clickLink('/ai-friend.html'); s.els.leaveAsk.fire('click', { target: s.els.leaveTitle });
   ok(s.leave().open, 'G5: tapping inside the box does not close it');
-  s.els.leaveStay.focus(); s.els.leaveAsk.fire('keydown', { key: 'Tab' });
-  ok(s.active() === s.els.leaveGo, 'G5: Tab on the last choice wraps to the first');
-  s.els.leaveAsk.fire('keydown', { key: 'Tab', shiftKey: true });
-  ok(s.active() === s.els.leaveStay, 'G5: Shift+Tab on the first choice wraps to the last');
+  s.els.leaveStay.focus(); let k = s.docKey({ key: 'Tab', target: s.els.leaveStay });
+  ok(s.active() === s.els.leaveGo && k.defaultPrevented, 'G5: Tab on the last choice wraps to the first');
+  k = s.docKey({ key: 'Tab', shiftKey: true, target: s.els.leaveGo });
+  ok(s.active() === s.els.leaveStay && k.defaultPrevented, 'G5: Shift+Tab on the first choice wraps to the last');
+  s.els.leaveGo.focus(); k = s.docKey({ key: 'Tab', target: s.els.leaveGo });
+  ok(!k.defaultPrevented && s.active() === s.els.leaveGo, 'G5: Tab in the middle is left to the browser');
+  s.els.leaveTitle.focus(); k = s.docKey({ key: 'Tab', target: null });
+  ok(s.active() === s.els.leaveGo && k.defaultPrevented, 'G5: Tab with focus outside the buttons comes back to the first');
   // G6 after 확인 -> not asked
   s = boot({ ...SAVED }); s.click('focused'); s.confirm();
   e = s.clickLink('/ai-friend.html');
@@ -505,6 +527,7 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   s = boot({ ...SAVED }); s.click('focused');
   ok(!s.clickLink('#situations').defaultPrevented && !s.leave().open, 'G8: in-page link (#situations) is not asked');
   ok(!s.clickLink('/ai-friend.html', {}, { ctrlKey: true }).defaultPrevented && !s.clickLink('/ai-friend.html', {}, { metaKey: true }).defaultPrevented && !s.leave().open, 'G8: ctrl/cmd-click (new tab) is not asked');
+  ok(!s.clickLink('/ai-friend.html', {}, { shiftKey: true }).defaultPrevented && !s.clickLink('/ai-friend.html', {}, { altKey: true }).defaultPrevented && !s.leave().open, 'G8: shift/alt-click (new window / download) is not asked');
   s.clickLink('/ai-friend.html', {}, { defaultPrevented: true });
   ok(!s.leave().open, 'G8: a click another handler already took is not asked');
   ok(!s.clickLink('/x.html', { target: '_blank' }).defaultPrevented && !s.leave().open, 'G8: target=_blank is not asked');
@@ -514,6 +537,12 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   s = boot({ ...SAVED, mangoi_lang: 'en' }); s.level(2); s.clickLink('/');
   ok(s.leave().title === 'Your settings are not applied yet' && s.leave().go === 'Apply and go' && s.leave().skip === 'Go without applying' && s.leave().stay === 'Stay here' && s.leave().pick === 'Your picks: Level 2 · Corrections: Balanced', 'G9: dialog in English → ' + JSON.stringify(s.leave()));
   ok(!/[가-힣]/.test([s.leave().title, s.leave().body, s.leave().pick, s.leave().go, s.leave().skip, s.leave().stay].join(' ')) && /confirm/i.test(s.leave().body), 'G9: no Korean left anywhere in the English dialog (title · body · picks · buttons)');
+  for (const [id, ko, en] of [['free_talk', '자유', 'Free'], ['balanced', '균형', 'Balanced'], ['focused', '집중', 'Focused']]) {
+    for (const lg of ['ko', 'en']) {
+      const t = boot({ ...SAVED, mangoi_lang: lg }); t.level(1); t.click(id); t.clickLink('/');
+      ok(t.leave().pick === (lg === 'en' ? 'Your picks: Level 1 · Corrections: ' + en : '고른 설정: 수준 1단계 · 교정 ' + ko), 'G9: picks line names ' + id + ' in ' + lg + ' → ' + t.leave().pick);
+    }
+  }
   s.els.leaveStay.fire('click'); s.lang[0].fire('click'); s.clickLink('/');
   ok(s.leave().title === '설정을 아직 적용하지 않았어요' && s.leave().stay === '머무르기', 'G9: switching to 한국어 -> the next ask is in Korean');
   // G10 cannot save: asked once, failure stays visible, next tap goes without asking
@@ -534,5 +563,32 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   ok(!s.clickLink('/').defaultPrevented && s.bu().listeners === 0, 'G11: …nothing stale is asked');
   s.click('focused');
   ok(s.bu().prevented && s.clickLink('/').defaultPrevented, 'G11: …and asking works again (leaving flag reset)');
+  s = boot({ ...SAVED }); s.click('focused'); s.clickLink('/');
+  s.ls.m.set('mangoi_lang', 'en');
+  s.pageshow(true);
+  ok(!s.leave().open && s.wrap.getAttribute('inert') === null, 'G11: restored while the dialog was open -> the dialog is closed, page usable');
+  ok(s.document.documentElement.lang === 'en', 'G11: …and the screen language is re-read (another screen switched it)');
+  // G12 two tabs (함정 대조 실측): a tab that changed nothing is not asked; untouched fields follow storage
+  s = boot({ ...SAVED });
+  s.ls.m.set('mangoi_warmup_level', '7'); s.ls.m.set('mangoi_aifriend_level', 'S7'); s.ls.m.set('mangoi_warmup_correction', 'focused'); s.ls.m.set('mangoi_aifriend_correction', 'focused');
+  e = s.clickLink('/ai-friend.html');
+  ok(!e.defaultPrevented && !s.leave().open && s.bu().listeners === 0, 'G12: another tab confirmed 7/집중, this tab touched nothing -> not asked (even without a storage event)');
+  s.storageEvt();
+  ok(s.els.setLevel.innerHTML.includes('value="7" selected') && s.corr[2].getAttribute('aria-pressed') === 'true', 'G12: storage event -> this tab now shows the other tab\'s values');
+  s = boot({ ...SAVED });
+  s.level(3);
+  s.ls.m.set('mangoi_warmup_correction', 'focused'); s.ls.m.set('mangoi_aifriend_correction', 'focused');   // other tab, no event
+  s.clickLink('/warmup.html');
+  ok(s.leave().pick === '고른 설정: 수준 3단계 · 교정 집중', 'G12: the dialog shows the untouched field as it is now saved → ' + s.leave().pick);
+  s.els.leaveGo.fire('click');
+  ok(s.ls.getItem('mangoi_warmup_level') === '3' && s.ls.getItem('mangoi_aifriend_correction') === 'focused' && s.ls.getItem('mangoi_warmup_correction') === 'focused', 'G12: «적용하고 이동» writes this tab\'s level and keeps the other tab\'s corrections (no overwrite with stale values)');
+  s = boot({ ...SAVED }); s.click('focused'); s.confirm();
+  s.ls.m.set('mangoi_warmup_level', '2'); s.ls.m.set('mangoi_aifriend_level', 'S2'); s.storageEvt();
+  ok(s.btn().text === '확인' && s.btn().state === '', 'G12: after another tab changed settings, «✅ 적용됐어요» is withdrawn');
+  s.ls.m.set('mangoi_warmup_correction', 'free_talk'); s.ls.m.set('mangoi_aifriend_correction', 'free_talk');
+  ok(!s.clickLink('/').defaultPrevented && !s.leave().open, 'G12: after «확인» this tab\'s picks are no longer «touched» — another tab changing them is not asked about');
+  s = boot({ ...SAVED }); s.level(3);
+  s.ls.m.set('mangoi_warmup_correction', 'free_talk'); s.ls.m.set('mangoi_aifriend_correction', 'free_talk'); s.confirm();
+  ok(s.ls.getItem('mangoi_aifriend_correction') === 'free_talk' && s.ls.getItem('mangoi_aifriend_level') === 'S3', 'G12: plain «확인» also keeps the other tab\'s untouched corrections');
   console.log('PASS: leave without 확인 (6차) — ' + (n - n0) + ' checks, same booted page');
 }

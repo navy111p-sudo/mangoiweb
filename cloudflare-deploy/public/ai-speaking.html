@@ -29,7 +29,8 @@
        🌐 같은 날 5차(사장님 「언어는 바로 저장되게 되돌려줘」) — 언어만 예전처럼 누르는 즉시 저장한다(확인과 무관).
        🚪 같은 날 6차(사장님 「확인 안 누르고 나가면 물어보게 해줘」) — 수준·교정을 바꿔 놓고 «확인» 없이 나가면 묻는다.
        화면 안 링크(홈·교재 연습·AI 친구·상황 카드)는 아래 #leaveAsk 창(적용하고 이동 · 적용 안 하고 이동 · 머무르기),
-       뒤로가기·새로고침·탭 닫기는 브라우저 기본 확인창(beforeunload — 문구는 브라우저가 정하고, 아이폰 사파리는 띄우지 않는다). -->
+       뒤로가기·새로고침·탭 닫기는 브라우저 기본 확인창(beforeunload — 문구는 브라우저가 정한다. 아이폰 사파리는 이 창을 안 띄우는 것으로 알려져 있다 · 이 저장소에서 못 잼).
+       사람이 이 화면에서 «만진» 칸만 묻는다(다른 탭이 바꾼 값을 «안 적용» 으로 보지 않는다). -->
   <style>
     :root{--sky:#0b1026;--card:#161d3f;--card2:#1c2550;--line:#283160;--ring:#5b6bb5;--ink:#ffffff;--sub:#b8c1e6;--soft:#dde3ff;
       --lime:#c6f432;--orange:#ff9a3c;--cyan:#4dd8ff;--on:#0b1026;--focus:#fde68a}
@@ -108,7 +109,7 @@
     /* 🚪 확인 안 누르고 나갈 때 묻는 창 — 이 화면엔 다른 떠 있는 창이 없어 z-index 50 이면 맨 위다(.wrap 은 1) */
     .leave{position:fixed;top:0;right:0;bottom:0;left:0;z-index:50;display:flex;align-items:center;justify-content:center;
       padding:18px;background:rgba(5,8,22,.8)}
-    .leave-box{width:100%;max-width:420px;max-height:calc(100vh - 36px);overflow-y:auto;padding:22px;border-radius:26px;
+    .leave-box{width:100%;max-width:420px;max-height:calc(100vh - 36px);max-height:calc(100dvh - 36px);overflow-y:auto;padding:22px;border-radius:26px;
       background:var(--card);border:1px solid var(--ring);box-shadow:0 18px 50px rgba(0,0,0,.55)}
     .leave-box h2{margin:0 0 8px;font-size:19px;font-weight:900;line-height:1.35}
     .leave-box p{margin:0 0 8px;color:var(--soft);font-size:15px}
@@ -118,6 +119,9 @@
     .leave-btn{min-height:48px;padding:6px 18px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--ink);
       font:inherit;font-size:15px;font-weight:800;cursor:pointer}
     .leave-btn.stay{border-color:transparent;color:var(--sub)}
+    /* 낮은 화면(가로 폰) — 창이 한 화면에 들어오게 조인다 */
+    @media (max-height:420px){.leave-box{padding:14px 18px}.leave-box h2{font-size:17px;margin-bottom:4px}.leave-box p{font-size:14px;margin-bottom:4px}
+      .leave-acts{gap:6px;margin-top:8px}.leave-acts .ok-btn,.leave-btn{min-height:44px}}
     /* 💻 PC — 행성 카드 3장 가로 */
     @media (min-width:900px){
       .wrap{padding-top:32px}
@@ -251,6 +255,8 @@
   // ✅ 고른 값(draft) — 버튼을 눌러도 여기만 바뀐다. 저장은 confirmSettings 한 곳(«확인»).
   function readDraft(){ var c = SET ? SET.read(LS) : { level: 0, corr: '' }; return { level: c.level, corr: c.corr }; }
   var draft = readDraft();
+  // 이 화면에서 사람이 만진 칸 — 안 만진 칸은 저장소를 따른다(다른 탭·화면이 그 사이 바꿨을 수 있다. 6차 함정 대조)
+  var touched = { level: false, corr: false };
   var okState = '';   // '' 아직 · 'saved' 저장됨 · 'fail' 저장 못 함 — 무엇이든 다시 고르면 ''
   function renderSettings(){
     if(!SET){ renderOk(); return; }
@@ -291,29 +297,35 @@
       : T('확인', 'Confirm');
   }
   function status(s){ var m = document.getElementById('setMsg'); if(m) m.textContent = s; }
-  function pick(k, v){ draft[k] = v; okState = ''; status(''); renderSettings(); syncLeaveGuard(); }
+  function pick(k, v){ draft[k] = v; touched[k] = true; okState = ''; status(''); renderSettings(); syncLeaveGuard(); }
+  // 안 만진 칸을 저장소 값으로 — 그래야 «확인»·«적용하고 이동» 이 다른 탭이 새로 정한 값을 옛 값으로 덮지 않는다
+  function syncUntouched(){ if(!SET) return; var c = SET.read(LS); if(!touched.level) draft.level = c.level; if(!touched.corr) draft.corr = c.corr; }
   // 확인 — 수준·교정을 두 화면 키에 함께 쓴다. 언어는 누를 때 이미 저장했으므로 여기서 쓰지 않는다
   // (확인 때 다시 쓰면 계정 자동판정 언어가 «사람이 고름» 으로 굳는다 — mangoi_lang_by).
   function confirmSettings(){
-    if(!SET || draftMissing()) return false;
+    if(!SET) return false;
+    syncUntouched();
+    if(draftMissing()) return false;
     var a = SET.chooseLevel(LS, draft.level), c = SET.chooseCorr(LS, draft.corr);
     var ok = !!(a && c);
     okState = ok ? 'saved' : 'fail';
+    if(ok) touched = { level: false, corr: false };
     renderSettings(); syncLeaveGuard();
     status(ok ? T('저장했어요. 교재 연습·상황별 말하기·AI 친구에 함께 적용돼요.', 'Saved. Applies to all three practices.')
               : T('이 기기에서는 저장이 안 돼요. 각 연습 화면에서 골라 주세요.', 'Could not save on this device. Please choose in each practice screen.'));
     return ok;
   }
   // 🚪 6차 — 확인 안 누르고 나가면 묻는다. «안 적용» = 화면에 고른 수준·교정(draft)이 저장된 값과 다름(되돌려 같아지면 안 묻는다).
+  //    사람이 «만진» 칸만 본다 — 안 만진 칸이 저장소와 다른 것은 다른 탭이 바꾼 것이지 이 화면이 바꾼 것이 아니다.
   //    ⛔ 저장이 안 되는 기기(저장소 없음 · «⚠️ 저장이 안 돼요» 상태)는 묻지 않는다 — 다시 물어도 저장할 수 없다.
   //    ⛔ renderSettings·renderOk 안에서 부르지 않는다: 하니스가 그 둘만 오려 «저장소를 안 읽는다» 를 확인한다.
   var leaving = false, guardOn = false, leaveHref = '', leaveFrom = null;
   function unapplied(){
     if(!SET || LS.dead || okState === 'fail') return false;
     var s = SET.read(LS);
-    return draft.level !== s.level || draft.corr !== s.corr;
+    return (touched.level && draft.level !== s.level) || (touched.corr && draft.corr !== s.corr);
   }
-  // 뒤로가기·새로고침·탭 닫기 — 브라우저 기본 창. 바꾼 것이 있을 때만 건다(걸려 있으면 일부 브라우저가 «뒤로가기 보관» 을 안 한다).
+  // 뒤로가기·새로고침·탭 닫기 — 브라우저 기본 창. 바꾼 것이 있을 때만 건다(MDN 권고: 늘 걸어 두면 «뒤로가기 보관»(bfcache)을 막는 브라우저가 있다 — 이 저장소에서 재지는 않음).
   function onBeforeUnload(e){ if(leaving || !unapplied()) return; e.preventDefault(); e.returnValue = 'unapplied'; return 'unapplied'; }
   function syncLeaveGuard(){
     var need = unapplied(); if(need === guardOn) return;
@@ -331,6 +343,7 @@
   function openLeave(href, from){
     var box = document.getElementById('leaveAsk'); if(!box) return false;
     leaveHref = href; leaveFrom = from || null;
+    syncUntouched();
     var miss = draftMissing();   // 'level'·'corr' — 바꾼 것이 있는데 나머지를 안 골라 «확인» 이 잠긴 경우
     setText('leaveTitle', T('설정을 아직 적용하지 않았어요', 'Your settings are not applied yet'));
     setText('leaveBody', miss === 'level' ? T('수준을 골라야 «확인»할 수 있어요. 이대로 나가면 바꾼 교정 정도가 적용되지 않아요.', 'Choose a level to confirm. If you leave now, your new corrections will not apply.')
@@ -347,10 +360,13 @@
     if(st) st.hidden = !!miss;   // 잠긴 경우엔 «고르러 가기» 가 곧 머무르기
     box.hidden = false;
     var w = document.querySelector('.wrap'); if(w) w.setAttribute('inert', '');
-    focusEl(document.getElementById('leaveGo'));
+    // 창 안을 맨 위로 두고 «스크롤 없이» 포커스 — scrollIntoView 를 쓰면 낮은 화면에서 제목이 위로 잘린다(568×320 실측)
+    var lb = box.querySelector ? box.querySelector('.leave-box') : null; if(lb) lb.scrollTop = 0;
+    var g = document.getElementById('leaveGo'); if(g) try { g.focus({ preventScroll: true }); } catch(_) {}
     return true;
   }
-  function goTo(href){ leaving = true; hideLeave(); window.location.href = href; }
+  // 브라우저는 이동을 «시작할 때» beforeunload 를 쏜다 — 그 뒤 이동이 멈추거나 실패해 이 화면에 남으면 다시 묻도록 표시를 되돌린다.
+  function goTo(href){ leaving = true; hideLeave(); window.location.href = href; try { window.setTimeout(function(){ leaving = false; }, 3000); } catch(_) {} }
   function leaveGo(){
     var miss = draftMissing();
     if(miss){ leaveFrom = null; hideLeave(); focusEl(miss === 'level' ? document.getElementById('setLevel') : document.querySelectorAll('[data-corr]')[0]); return; }
@@ -400,9 +416,11 @@
     if(stayBtn) stayBtn.addEventListener('click', closeLeave);
     if(box){
       box.addEventListener('click', function(e){ if(e.target === box) closeLeave(); });   // 어두운 바깥 = 머무르기
-      box.addEventListener('keydown', function(e){
+      // 문서에 건다 — 창 안 글자를 누르면 포커스가 body 로 빠져 창에 건 keydown 은 안 온다(함정 대조 실측)
+      document.addEventListener('keydown', function(e){
+        if(box.hidden) return;
         if(e.key === 'Escape'){ e.preventDefault(); closeLeave(); return; }
-        if(e.key !== 'Tab') return;   // 창 안에서만 돈다(뒤 화면은 inert)
+        if(e.key !== 'Tab') return;   // 창 안에서만 돈다 — inert 만으로는 마지막 버튼 다음에 창 밖(주소창)으로 빠진다
         var bs = [goBtn, skipBtn, stayBtn].filter(function(b){ return b && !b.hidden; }), last = bs.length - 1, i = bs.indexOf(document.activeElement);
         if(i < 0 || (e.shiftKey && i === 0) || (!e.shiftKey && i === last)){ e.preventDefault(); bs[e.shiftKey ? last : 0].focus(); }
       });
@@ -412,8 +430,14 @@
       if(!e.persisted) return;
       leaving = false; leaveFrom = null; hideLeave();
       if(SET) ui = SET.read(LS).lang;
-      draft = readDraft(); okState = ''; status('');
+      draft = readDraft(); touched = { level: false, corr: false }; okState = ''; status('');
       applyUi(); renderSituations(); renderSettings(); syncLeaveGuard();
+    });
+    // 다른 탭이 설정을 바꾸면 — 안 만진 칸은 그 값으로 다시 그리고, «✅ 적용됐어요» 는 더 이상 사실이 아닐 수 있으니 거둔다
+    window.addEventListener('storage', function(){
+      if(!SET) return;
+      syncUntouched(); if(okState === 'saved') okState = '';
+      renderSettings(); syncLeaveGuard();
     });
   }
   applyUi(); renderSituations(); renderSettings(); wire();
