@@ -43,7 +43,7 @@ jobs:
         env:
           PW_DIR: ${{ runner.temp }}/speaking-pw
         run: node test-harness/manual/ai-speaking-browser.mjs
-      # 🖥️ 큰 PC 화면 배율(7차, 2026-11-04) — 창마다 걸린 배율 · 한 화면에 들어오는가 · 노트북은 그대로(짝) · 나가기 창
+      # 🖥️ 큰 PC 화면 배율(9차, 2026-11-04) — 창마다 걸린 배율 · 한 화면에 들어오는가 · 노트북은 그대로(짝) · 나가기 창
       - name: Big PC screen scale (localhost only)
         env:
           PW_DIR: ${{ runner.temp }}/speaking-pw

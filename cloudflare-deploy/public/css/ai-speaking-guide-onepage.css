@@ -1,0 +1,131 @@
+/* =========================================================
+   AI 말하기 한 장 안내(/ai-speaking-guide.html) — 페이지 전용 스타일
+   레이아웃: A4 한 장(포스터형). 1·2·3 단계를 위에서 아래로,
+             Q&A는 접이식(누르면 답이 펼쳐짐)으로 공간 절약
+   공통 토큰·버튼·상단 바·접이식은 ai-speaking-guide.css
+   ========================================================= */
+
+/* ---------- 1. 종이(시트) ---------- */
+.sheet {
+  display: grid; gap: 14px;
+  margin-block: 20px 16px; padding: clamp(16px, 4vw, 28px);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.sheet__head { display: flex; align-items: center; gap: 16px; }
+.sheet__head > div { display: grid; gap: 4px; min-width: 0; }
+.sheet__mascot { width: 76px; height: 76px; flex: none; border-radius: 50%; background: var(--space-deep); }
+.sheet h1 { font-size: clamp(1.7rem, 1.3rem + 2vw, 2.4rem); }
+.sheet__head p { color: var(--muted); }
+
+/* ---------- 2. 단계 공통 ---------- */
+.step { display: grid; gap: 10px; padding-top: 12px; border-top: 1.5px dashed var(--line); }
+.step h2, .promise h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 1.4rem; }
+.num {
+  display: grid; place-items: center; flex: none;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--ink); color: var(--paper);
+  font-family: var(--font-display); font-size: 1.1rem;
+}
+.num--q { background: var(--cyan); color: var(--on-accent); }
+
+/* 1. 준비해요 */
+.ready { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ready li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--paper); font-weight: 600; line-height: 1.4; }
+.ready svg { width: 26px; height: 26px; color: var(--lime-ink); }
+
+/* 2. 골라요 (행성 3개) */
+.planets { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.planet { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 14px; background: var(--paper); }
+.planet img { width: 72px; height: 72px; flex: none; object-fit: contain; border-radius: 12px; background: var(--space); }
+.planet > div { display: grid; gap: 3px; justify-items: start; min-width: 0; }
+.planet h3 { font-size: 1.1rem; color: var(--mode-ink); }
+.planet p { font-size: var(--fs-small); line-height: 1.4; }
+.planet--lime   { --mode: var(--lime);   --mode-ink: var(--lime-ink); }
+.planet--orange { --mode: var(--orange); --mode-ink: var(--orange-ink); }
+.planet--cyan   { --mode: var(--cyan);   --mode-ink: var(--cyan-ink); }
+.chip {
+  display: inline-block; padding: 1px 10px; border-radius: 999px;
+  background: var(--mode); color: var(--on-accent);
+  font-size: 0.8rem; font-weight: 700; white-space: nowrap;
+}
+.say-tip { display: flex; flex-wrap: wrap; gap: 2px 8px; font-size: var(--fs-small); }
+.say-tip b { color: var(--lime-ink); }
+
+/* 3. 맞춰요 (설정 3칸) */
+.set { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr); gap: 8px; }
+.set > div { display: grid; align-content: start; gap: 4px; padding: 10px 12px; border-radius: 12px; background: var(--paper); }
+.set dt { font-family: var(--font-display); font-size: 1.1rem; }
+.set dd { margin: 0; font-size: var(--fs-small); line-height: 1.45; }
+.fix { display: grid; gap: 2px; }
+.fix b { display: inline-block; min-width: 3.2em; }
+
+/* ---------- 3. 궁금해요 (접이식 Q&A) ---------- */
+.faq { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 8px; align-items: start; }
+.faq details { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.faq summary {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; cursor: pointer; list-style: none;
+  font-weight: 700; font-size: var(--fs-small); line-height: 1.35;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::before { content: "Q"; font-family: var(--font-display); color: var(--cyan-ink); }
+.faq summary::after {
+  content: ""; margin-left: auto; flex: none;
+  width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg) translateY(-2px); transition: transform .2s ease;
+}
+.faq details[open] summary::after { transform: rotate(225deg) translate(-2px, 0); }
+.faq details p { padding: 0 12px 10px 32px; font-size: var(--fs-small); color: var(--muted); line-height: 1.45; }
+@media (prefers-reduced-motion: reduce) { .faq summary::after { transition: none; } }
+
+/* ---------- 4. 꼭 지켜요 · 바닥글 ---------- */
+.promise {
+  display: grid; gap: 6px; padding: 12px 14px; border-radius: 14px;
+  background: color-mix(in srgb, var(--orange) 14%, var(--surface));
+  border: 1.5px solid color-mix(in srgb, var(--orange) 45%, var(--surface));
+}
+.promise h2 { font-size: 1.2rem; color: var(--orange-ink); }
+.promise ul { margin: 0; padding-left: 1.2em; display: grid; gap: 2px; font-size: var(--fs-small); }
+.sheet__foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; font-size: 0.8125rem; color: var(--muted); }
+.sheet__foot b { color: var(--ink); margin-right: 6px; }
+
+
+/* ---------- 5. 반응형 ---------- */
+@media (max-width: 700px) {
+  .ready, .planets, .set, .faq { grid-template-columns: 1fr; }
+  .sheet__mascot { width: 56px; height: 56px; }
+}
+/* 좁은 화면(AI 말하기 창 안 포함): 위쪽 바는 버튼만 — 제목 글자는 아래 종이에 있다 */
+@media (max-width: 520px) { .brand > span { display: none; } }
+
+/* ---------- 6. 인쇄: A4 한 장 ---------- */
+@page { size: A4; margin: 9mm; }
+@media print {
+  /* 초등학생이 읽기 쉽게 글자를 키우고, 한 장에 맞춤 (빌드가 1쪽 초과 시 실패 처리) */
+  :root { --fs-body: 11pt; --fs-small: 10pt; }
+  /* 영어 문장이 더 길어 한 장을 넘으므로 영어판만 아주 조금 작게 (빌드가 1쪽 초과 시 실패) */
+  :root[data-lang="en"] { --fs-body: 10.2pt; --fs-small: 9.4pt; }
+  body { line-height: 1.45; }
+  .sheet { margin: 0; padding: 0; border: 0; gap: 3mm; }
+  .sheet h1 { font-size: 24pt; }
+  .sheet__mascot { width: 64px; height: 64px; }
+  .step, .promise { break-inside: avoid; }
+  .step { gap: 2mm; padding-top: 2.4mm; }
+  .step h2 { font-size: 15.5pt; }
+  .planet img { width: 64px; height: 64px; }
+  .planet h3 { font-size: 12.5pt; }
+  .set dt { font-size: 12.5pt; }
+  .chip { font-size: 9.5pt; }
+  /* 추가 기능: 종이에서는 펼친 상태로 짧게 (4칸 한 줄) */
+  .more summary { padding: 0 0 1.5mm; }
+  .more__list { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2mm; }
+  .more__list li { padding: 1.8mm 2.2mm; gap: 1.8mm; }
+  .more__list svg { width: 16px; height: 16px; }
+  .more__list b, .more__list p { font-size: 9.5pt; line-height: 1.35; }
+  .promise { padding: 2.4mm 3mm; gap: 1mm; }
+  /* 종이에서는 펼칠 수 없으므로 답을 짧게 붙여서 보여 줌 */
+  .faq details { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; }
+  .faq summary { padding: 1mm 0 0; }
+  .faq summary::after { content: none; }
+  .faq details p { padding: 0 0 1.2mm 20px; }
+}

@@ -1,4 +1,4 @@
-// AI 말하기 7차(2026-11-04 사장님 «PC 화면에 적합하게 지금보다 크게 해서 잘 보이게») — 진짜 크로미움으로 «큰 PC 화면» 을 잽니다.
+// AI 말하기 9차(2026-11-04 사장님 «PC 화면에 적합하게 지금보다 크게 해서 잘 보이게») — 진짜 크로미움으로 «큰 PC 화면» 을 잽니다.
 // CI: .github/workflows/ai-speaking-browser.yml 이 이 파일도 돌립니다(PW_DIR). 손으로:  node test-harness/manual/ai-speaking-pc-scale-browser.mjs
 //   (PW_DIR 을 주면 그 playwright 를, 없으면 전역 playwright 를 씁니다)
 // 단계 숫자는 ai-speaking.html 의 CSS 에서 읽습니다(하니스에 베끼지 않음). 잰 것:
@@ -11,9 +11,11 @@
 //   ⑤ 사장님 창(2400×1149 = 1920 모니터를 80% 로): 카드가 노트북보다 40% 이상 크다
 //   ⑥ 나가기 창도 같은 배율 · 화면 안 · 버튼이 맨 위 · 글이 아주 길어도 화면을 넘지 않고 창 안에서 스크롤(zoom 이 vh 에도 곱해지므로)
 //   ⑦ 상황 목록을 펼쳐도 가로 넘침 없음 · 3칸
-// 변이시험(2026-11-04, 이 검사 / 정적 하니스 ai_speaking_entry_harness 7차 절):
-//   zoom 줄 제거 31건/FAIL · max-height 를 배율로 안 나눔 2건/FAIL · 1.3 단계 높이를 1000 으로 4건/FAIL · 1280px 본문 제거 94건/FAIL ·
-//   1.1 단계를 맨 뒤로(순서 뒤집기) 1건/FAIL · 1280px 본문을 1300px 부터(노트북까지) 1건/FAIL.
+//   ⑧ 8차 «사용 안내» 버튼이 확대된 안내줄 안에 보이고, 연 창이 화면 안(창은 배율을 받지 않음)
+// 변이시험(2026-11-04, 이 검사 / 정적 하니스 ai_speaking_entry_harness 9차 절) — 전부 실제 FAIL:
+//   (첫 판) zoom 줄 제거 · max-height 를 배율로 안 나눔 · 1.3 단계 높이를 1000 으로 · 1280px 본문 제거 · 1.1 단계를 맨 뒤로(순서 뒤집기) ·
+//   1280px 본문을 1300px 부터(노트북까지). (main 의 7·8차를 병합한 뒤 다시) 1600px 세로 여백 축소 전부 되돌림 76건/FAIL(정적은 통과 —
+//   높이 상수를 쓰므로 이 검사가 잡는 몫) · max-height 미보정 2건/FAIL · zoom 줄 제거 45건/FAIL.
 //   «1.3 단계를 폭 1700 부터» 는 이 검사의 창 목록에 해당 창이 없어 통과하고 정적 하니스(창 크기 격자 전수)만 잡는다.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -100,7 +102,8 @@ try {
     const s = await open(2400, 1149, lang, SAVED);
     try {
       const z = eff(2400, 1149);
-      await s.page.selectOption('#setLevel', '3'); await s.page.click('[data-corr="focused"]'); await s.page.click('#friend-mode');
+      // 7차(시작 링크 자동 적용) 이후 연습 시작 링크는 묻지 않고 간다 — 묻는 창은 «홈(←)» 처럼 연습을 안 하고 나가는 링크에서 뜬다
+      await s.page.selectOption('#setLevel', '3'); await s.page.click('[data-corr="focused"]'); await s.page.click('a.home');
       ok(await s.page.evaluate(() => !document.getElementById('leaveAsk').hidden), tag + ' dialog opens');
       const d = await s.page.evaluate(() => {
         const w = document.querySelector('.wrap'), had = w.hasAttribute('inert'); w.removeAttribute('inert');
@@ -136,7 +139,24 @@ try {
     } catch (e) { ok(false, '2400x1149 ⑦ threw: ' + String(e.message).split('\n')[0]); }
     finally { await s.ctx.close(); }
   }
+
+  // ⑧ 8차 «사용 안내» — 확대된 화면에서 버튼이 보이고(안내줄 안) 눌러 연 창이 화면 안. 창은 .wrap 밖이라 배율을 받지 않는다(안내서 자체 화면)
+  for (const lang of ['ko', 'en']) {
+    const tag = '2400x1149/' + lang + ' ⑧';
+    const s = await open(2400, 1149, lang, SAVED);
+    try {
+      const b = await s.page.evaluate(() => { const r = document.getElementById('guideBtn').getBoundingClientRect(), l = document.querySelector('.lead').getBoundingClientRect();
+        return { inLead: r.top >= l.top - 0.5 && r.bottom <= l.bottom + 0.5, onScreen: r.right <= innerWidth && r.bottom <= innerHeight && r.width > 0 }; });
+      ok(b.inLead && b.onScreen, tag + ' guide button sits in the lead row, on screen — ' + JSON.stringify(b));
+      await s.page.click('#guideBtn');
+      const d = await s.page.evaluate(() => { const g = document.getElementById('guideDlg'), r = g.getBoundingClientRect();
+        return { open: g.open, inside: r.top >= 0 && r.left >= 0 && r.bottom <= innerHeight + 1 && r.right <= innerWidth + 1, zoom: Number(getComputedStyle(g).zoom) || 1 }; });
+      ok(d.open && d.inside && d.zoom === 1, tag + ' guide dialog opens inside the screen (not zoomed) — ' + JSON.stringify(d));
+      ok(s.errors.length === 0, tag + ' no JS errors: ' + s.errors.join(';'));
+    } catch (e) { ok(false, tag + ' threw: ' + String(e.message).split('\n')[0]); }
+    finally { await s.ctx.close(); }
+  }
 } finally { await browser.close(); await new Promise(r => server.close(r)); }
 
-console.log(JSON.stringify({ suite: 'AI speaking big PC screens (7차)', tiers: tiers.map(t => t.z).join(','), checks: n, failed: fails.length }, null, 2));
+console.log(JSON.stringify({ suite: 'AI speaking big PC screens (9차)', tiers: tiers.map(t => t.z).join(','), checks: n, failed: fails.length }, null, 2));
 process.exitCode = fails.length ? 1 : 0;
