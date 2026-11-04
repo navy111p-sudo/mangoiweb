@@ -167,7 +167,7 @@ console.log('\n[ ②-4 공개 API 가 내부 메모 원문을 안 내보낸다 (
   let P = {};
   try {
     const js = stripTypeScriptTypes(pubSrc).replace(/\bexport\s+/g, '');
-    P = new Function(js + '\nreturn { publicTeacherNotes, publicTeacherRow };')();
+    P = new Function(js + '\nreturn { publicTeacherNotes, publicTeacherRow, isPublicTeacher };')();
   } catch (e) { console.log('  (teacher-public.ts 실행 실패: ' + e.message + ')'); }
   const N = P.publicTeacherNotes || (() => '__MISSING__');
   check('실제 메모 → «평점: 5.0 (2 reviews)» 만 남는다', N(MEMO) === '평점: 5.0 (2 reviews)', N(MEMO));
@@ -191,7 +191,8 @@ console.log('\n[ ②-4 공개 API 가 내부 메모 원문을 안 내보낸다 (
     block = mango.slice(i + head.length, j);
   }
   check('(전제) 공개 강사 목록 라우트를 오려 냈다', block.length > 200);
-  check('api-mango.ts 가 teacher-public 을 불러 쓴다', /import\s*\{\s*publicTeacherRow\s*\}\s*from\s*'\.\/teacher-public'/.test(mango));
+  check('api-mango.ts 가 teacher-public 을 불러 쓴다', /import\s*\{[^}]*\bpublicTeacherRow\b[^}]*\}\s*from\s*'\.\/teacher-public'/.test(mango));
+  check('api-mango.ts 가 isPublicTeacher 도 불러 쓴다 (매니저 거르기)', /import\s*\{[^}]*\bisPublicTeacher\b[^}]*\}\s*from\s*'\.\/teacher-public'/.test(mango));
   const runRoute = async (opts) => {
     const sqls = [];
     const env = { DB: {
@@ -207,14 +208,19 @@ console.log('\n[ ②-4 공개 API 가 내부 메모 원문을 안 내보낸다 (
     const url = new URL('https://x/api/teacher-profiles?limit=50');
     try {
       // ⚠️ 함수로 «감싼 뒤» 벗긴다 — 블록만 벗기면 함수 밖 return 으로 실패해 이 절이 통째로 헛돈다(CLAUDE.md 2장).
-      const fn = new Function('path', 'method', 'url', 'env', 'json', 'publicTeacherRow',
+      const fn = new Function('path', 'method', 'url', 'env', 'json', 'publicTeacherRow', 'isPublicTeacher',
         'return ' + stripTypeScriptTypes('(async () => {' + block + '\n})') + '();');
-      return { body: await fn('/api/teacher-profiles', 'GET', url, env, json, P.publicTeacherRow), sqls };
+      return { body: await fn('/api/teacher-profiles', 'GET', url, env, json, P.publicTeacherRow, P.isPublicTeacher), sqls };
     } catch (e) { return { err: e.message, sqls }; }
   };
   const ROWS = [
     { id: 26, english_name: 'Teacher Janice', notes: MEMO, career: 'Motto: x', list_hidden: 0 },
     { id: 38, english_name: 'test teacher', notes: '[2026-09-01 사장님 지시 …]', list_hidden: 1 },
+    // 🧑‍💼 매니저 셋 — 운영 D1 실측 모양 그대로(2026-11-05)
+    { id: 19, english_name: 'Melca', group_name: null, notes: '아이디:mangoi_144 / 프랜차이즈:에듀비전 / 80분연강:제한 / 역할: 관리자(수업 안 함)', list_hidden: 0 },
+    { id: 25, english_name: 'Teacher Maimai', group_name: 'Head Teacher', notes: '아이디:mangoi_033 / 프랜차이즈:에듀비전 / 80분연강:제한 / 역할: 관리자(수업 안 함)', list_hidden: 0 },
+    { id: 33, english_name: 'Karl', group_name: 'Head Teacher', notes: null, list_hidden: 0 },
+    { id: 4, english_name: 'Teacher Belle', group_name: 'Home-based', notes: '아이디:mangoi_172 / 프랜차이즈:에듀비전 / 80분연강:제한 / 평점: 5.0 (4 reviews)', list_hidden: 0 },
   ];
   const a = await runRoute({ rows: ROWS });
   check('(전제) 라우트가 실제로 돌았다 (예외 없음)', !a.err && !!a.body, a.err);
@@ -223,10 +229,19 @@ console.log('\n[ ②-4 공개 API 가 내부 메모 원문을 안 내보낸다 (
   check('평점 조각은 남는다 (짝)', items.some((r) => r.notes === '평점: 5.0 (2 reviews)'));
   check('명부에서 숨긴 계정(list_hidden)은 공개 목록에 없다', !items.some((r) => r.id === 38));
   check('숨기지 않은 강사는 그대로 있다 (짝)', items.some((r) => r.id === 26));
+  check('수업 안 하는 매니저(Melca·Maimai·Karl)는 공개 목록에 없다 (2026-11-05 사장님 「매니저는 빼줘」)',
+    ![19, 25, 33].some((id) => items.some((r) => r.id === id)), items.map((r) => r.id).join(','));
+  check('일반 강사(Home-based·미국 오후반)는 그대로 있다 (짝 — «전부 빼기» 가 아님)', items.some((r) => r.id === 4) && items.some((r) => r.id === 26));
   const b = await runRoute({ rows: ROWS, noHiddenCol: true });
   const items2 = (b.body && b.body.items) || [];
-  check('list_hidden 칸이 없는 DB 면 예전처럼 거르지 않고 보여 준다 (빈 목록 금지)', items2.length === 2 && b.sqls.length === 2, b.err);
+  check('list_hidden 칸이 없는 DB 면 예전처럼 숨김을 거르지 않고 보여 준다 (빈 목록 금지)',
+    b.sqls.length === 2 && items2.some((r) => r.id === 38) && items2.some((r) => r.id === 26) && items2.some((r) => r.id === 4), b.err || items2.map((r) => r.id).join(','));
   check('그 경우에도 메모 원문은 안 나간다', !JSON.stringify(b.body || {}).includes('mangoi_026'));
+  check('그 경우에도 매니저는 빠진다', !((b.body && b.body.items) || []).some((r) => [19, 25, 33].includes(r.id)));
+  const IP = P.isPublicTeacher || (() => '__MISSING__');
+  check('isPublicTeacher: 분류 «Head Teacher»(대소문자·공백 무관) → 뺀다', IP({ group_name: ' head teacher ' }) === false && IP({ group_name: 'Head Teacher', notes: null }) === false);
+  check('isPublicTeacher: 메모 «역할: 관리자(수업 안 함)» → 뺀다', IP({ notes: '아이디:x / 역할: 관리자(수업 안 함)' }) === false);
+  check('isPublicTeacher: 평범한 강사 메모·분류는 남긴다 (짝)', IP({ group_name: 'Office Teacher', notes: MEMO }) === true && IP({ group_name: '중국어 강사' }) === true && IP({}) === true);
 }
 
 console.log('\n[ ③ 판정 — 국가 칸 · 년차/소개 · 유튜브 · 검색 ]');

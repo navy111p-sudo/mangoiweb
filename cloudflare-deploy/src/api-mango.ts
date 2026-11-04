@@ -85,7 +85,7 @@ import { isPostponedOccurrence } from './class-postponed';  // ⏸ 연기된 회
 import { resolveStudentTwins, pickTwinSessions } from './student-alias';  // 👥 카페24 쌍둥이 계정(X ↔ mangoai_X) — 학생 «내 수업» 찾기(2026-10-02 lby01)
 import { isUsableKoMeaning, stripJamoRuns } from './learn-meaning-check';  // 🧹 «뜻» 카드에 'ㅋㅋㅋㅋ' 가 나가지 않게(2026-10-02)
 import { handleWriteTopicsApi } from './write-topics';  // ✏️ 선생님 글감(AI 영작 «오늘의 글감» — 2026-10-19)
-import { publicTeacherRow } from './teacher-public';
+import { publicTeacherRow, isPublicTeacher } from './teacher-public';
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -633,7 +633,8 @@ export async function handleMangoApi(
           rs = await env.DB.prepare(`SELECT id, korean_name, english_name, image_url, intro_video_url, group_name, career, certifications, education, available_days, available_hours, status, origin_region, notes FROM teacher_profiles WHERE status = '활동중' ORDER BY korean_name ASC LIMIT ?`).bind(limit).all();
         }
         // 🔒 notes 는 내부 관리 메모(로그인 아이디 포함)라 «평점 조각» 만 남긴다 — src/teacher-public.ts
-        const rows = ((rs.results || []) as any[]).map(publicTeacherRow);
+        // 🧑‍💼 수업 안 하는 매니저는 뺀다(2026-11-05) — 메모 원문으로 판정하므로 소독 «전» 에 거른다.
+        const rows = ((rs.results || []) as any[]).filter(isPublicTeacher).map(publicTeacherRow);
         return json({ ok: true, items: rows, rows, count: rows.length });
       } catch (e: any) {
         return json({ ok: true, items: [], rows: [], count: 0, _err: String(e?.message || e) });
