@@ -866,7 +866,7 @@ Student text: """${text}"""`;
          ⛔ 틀린 문장은 어느 쪽이든 칭찬하지 않는다 — 지시가 말하고, 그래도 칭찬하면 finishFriendReply 가 뗀다.
          ⚠️ 칭찬 목록은 반드시 «Rotate…» 뒤 «한 줄 끝까지» — warmup_empathy 하니스가 그 줄을 읽어 CHEER_LEADS 와 대조한다(이 주석에 그 낱말을 그대로 적으면 하니스가 주석을 먼저 읽는다). */
       const reactRule = turnOpenerLine(history)
-        ? "- When the student writes in English, THIS TURN'S OPENER (below) is your whole reaction and cheer; after it you may add a few words about their idea."
+        ? "- When the student writes in English, THIS TURN'S OPENER (below) is your whole reaction and cheer; add no other reaction after it, so the reply is not longer."
         : `- When the student writes in English, open with a SHORT, real reaction to what they said — a few words about their idea ("A quiet day can be nice.", "Camping with your brother sounds fun!") or, when they did well, a cheer (never cheer English that has a mistake). Do not open every reply the same way; when you cheer, pick a DIFFERENT one from the last two you used. Rotate freely: Nice!, Great try!, Ooh nice one!, That's right!, Wow!, Yes!, Perfect!, Cool!, Awesome!, You got it!, Well said!, Nice sentence!, I like that!, Good one!, Haha nice!`;
       // Voice turns should reach the next question quickly without truncating JSON,
       // dropping answers, changing the model, or overriding the student's level.

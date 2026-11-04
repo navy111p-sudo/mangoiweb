@@ -25,7 +25,7 @@
 import { verifyWarmupFix, correctionLeadIn, parseWarmupOutput, MEANING_CHANGING_TAGS, type WarmupFix } from './warmup-correction';
 import { looksGarbledKo } from './ko-readable';
 import { applyHonestPraise, ensureFocusedFixSpoken, type WarmupMode } from './warmup-honest';
-import { stripCheerLead } from './warmup-empathy';
+import { isBareCheerHead, previewMayBeCheer } from './warmup-empathy';
 import { backfillPastTenseFix } from './tense-backfill';
 import { konglishFix } from './konglish';
 import { focusedCandidate } from './focused-correction';
@@ -166,8 +166,9 @@ export type FriendPreviewGate = {
 };
 
 const FIX_FIELD_RE = /"fix"\s*:\s*(null|\{)/;
+/* 🎧 판정 정본은 warmup-empathy.ts 의 previewMayBeCheer(칭찬 떼기 표와 같은 판정 + 「Oh!」 한마디는 «모름») — 웜업 미리듣기와 같은 것. */
 function startsWithCheer(text: string): boolean {
-  try { const probe = String(text || '') + ' Ok'; return stripCheerLead(probe) !== probe; } catch { return true; }
+  try { return previewMayBeCheer(text); } catch { return true; }
 }
 
 export function createFriendPreviewGate(plan: FriendTurnPlan, send: (sen: string) => void): FriendPreviewGate {
@@ -211,7 +212,9 @@ export function createFriendPreviewGate(plan: FriendTurnPlan, send: (sen: string
       if (!s || state === 'halt') return false;
       if (state === 'open') { emit(s); return true; }
       /* 자유대화: 칭찬 말머리가 아니면 기다릴 이유가 없다(교정을 말로 하지 않는다). */
-      if (plan.mode === 'free_talk' && !held.length && !startsWithCheer(s)) { state = 'open'; emit(s); return true; }
+      /* 🎧 (2026-11-04) 첫 문장이 「Oh!」 한마디뿐이면 들고 있다가 다음 문장과 «함께» 판정한다 — 「Oh! Wow!」 는 칭찬이다. */
+      const head = held.length === 1 && isBareCheerHead(held[0]) ? held[0] + ' ' : '';
+      if (plan.mode === 'free_talk' && (!held.length || head) && !startsWithCheer(head + s)) { held.push(s); open(); return true; }
       held.push(s);
       decide();
       return isOpen();   // decide() 가 state 를 바꿨을 수 있다(함수 호출 뒤라 TS 좁히기를 피해 함수로 읽는다)
