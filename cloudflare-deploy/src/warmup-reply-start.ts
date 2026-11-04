@@ -15,7 +15,8 @@ import { stripCheerLead } from './warmup-empathy';
 
 /** fix = 교정 앞머리(집중교정 «You can say…»·교정 카드 «Let's say it like this») · praise = 칭찬 상투구 · opener = 첫마디 · other = 그 밖 */
 export type ReplyStartKind = 'fix' | 'praise' | 'opener' | 'other' | '';
-/** on = 이번 턴 첫마디 줄이 실림 · rest = 앞 답이 첫마디라 쉬는 턴 · first = 세션 첫 답 · off = 연결 표현을 안 싣는 대화(중국어·엘리더잼 예시형) */
+/** on = 이번 턴 첫마디 줄이 실림 · rest = 앞 답이 첫마디라 쉬는 턴 · first = 세션 첫 답 · off = 연결 표현을 안 싣는 대화(중국어).
+ *  ⚠️ 엘리더잼 예시형도 조건상 off 지만 그 경로는 DB 없는 환경(ephemeralEleaderEnv)으로 돌아 기록 자체가 안 남는다. */
 export type OpenerTurnState = 'on' | 'rest' | 'first' | 'off' | '';
 
 /** 앞에 낄 수 있는 것 — 공백·따옴표·이모지(글자는 안 된다). conversation-connectors.ts 의 LEAD_GAP 과 같은 모양. */
@@ -46,9 +47,9 @@ function openerTables(): [string[], Map<string, string>] {
   return [OPENER_LIST, OPENER_BY_KEY];
 }
 /** 후보에 없는 같은 갈래 — 정해 둔 이름표만 남긴다(「Oh, …」 는 뒤에 무엇이 오든 'Oh'). */
-function familyLabel(k: string): string {
+function familyLabel(k: string, op: string): string {
   if (k === 'well') return 'Well,';
-  if (k === 'by the') return 'By the way,';
+  if (k === 'by the') return /^by the way/i.test(op) ? 'By the way,' : '';   // 「By the river,」 를 By the way 로 세지 않게
   if (k === 'anyway') return 'Anyway,';
   return k === 'oh' || k.startsWith('oh ') ? 'Oh' : '';
 }
@@ -78,7 +79,7 @@ export function replyStartOf(reply: unknown): { kind: ReplyStartKind; word: stri
         if (low.startsWith(lo) && !/[a-z']/.test(low.charAt(lo.length))) return { kind: 'opener', word: o };
       }
       const k = openerKey(op);
-      return { kind: 'opener', word: byKey.get(k) || familyLabel(k) };
+      return { kind: 'opener', word: byKey.get(k) || familyLabel(k, op) };
     }
     return { kind: 'other', word: '' };
   } catch { return { kind: '', word: '' }; }

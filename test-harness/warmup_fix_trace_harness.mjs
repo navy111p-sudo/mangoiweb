@@ -163,6 +163,97 @@ console.log('\n[7] ALTER 로도 안 되면 옛 일곱 칸으로라도 남긴다(
   ok('그 뒤 턴은 바로 옛 일곱 칸(새 칸 시도·ALTER 를 되풀이하지 않는다)', log.fullTries === 2 && log.alters === 4 && log.legacy.length === 2, log);
 }
 
+console.log('\n[7b] ALTER 뒤 다시 넣기가 «일시» 실패 — 굳히지 않고 다음 턴에 다시 시도(두 줄도 안 쓴다)');
+{
+  M = await load();
+  const log = { alters: 0, full: 0, legacy: 0, fullTries: 0 };
+  let cols = false, flaky = 1;
+  const db = { prepare: (sql) => ({
+    run: async () => { if (/ALTER/.test(sql)) { log.alters++; if (log.alters >= 4) cols = true; } return {}; },
+    bind: () => ({ run: async () => {
+      if (/opener_turn/.test(sql)) {
+        log.fullTries++;
+        if (!cols) throw new Error('table warmup_fix_trace has no column named opener_turn');
+        if (flaky-- > 0) throw new Error('Network connection lost.');
+        log.full++; return {};
+      }
+      log.legacy++; return {};
+    } }),
+  }) };
+  const warns = []; const ow = console.warn; console.warn = (...a) => warns.push(a.join(' '));
+  let threw = false;
+  try { await M.logWarmupFixTrace({ DB: db }, row); } catch { threw = true; }
+  ok('던지지 않고, 이번 턴은 옛 일곱 칸으로 «또» 쓰지 않는다(두 줄 방지)', !threw && log.legacy === 0 && log.full === 0, log);
+  ok('일시 실패를 경고로 남긴다', warns.some(w => /warmup-fix-trace/.test(w) && /Network connection lost/.test(w)), warns);
+  await M.logWarmupFixTrace({ DB: db }, row);
+  console.warn = ow;
+  ok('다음 턴엔 새 칸으로 다시 넣어 성공한다(옛 칸으로 굳지 않는다)', log.full === 1 && log.legacy === 0, log);
+}
+
+console.log('\n[7c] 정말로 못 붙이면(또 칸 없음) 옛 칸으로 내려가며 경고를 남긴다');
+{
+  M = await load();
+  const db = { prepare: (sql) => ({
+    run: async () => { if (/ALTER/.test(sql)) throw new Error('not authorized'); return {}; },
+    bind: () => ({ run: async () => { if (/opener_turn/.test(sql)) throw new Error('table warmup_fix_trace has no column named opener_turn'); return {}; } }),
+  }) };
+  const warns = []; const ow = console.warn; console.warn = (...a) => warns.push(a.join(' '));
+  await M.logWarmupFixTrace({ DB: db }, row);
+  console.warn = ow;
+  ok('«옛 일곱 칸으로 남긴다» 경고 한 줄', warns.some(w => /extra columns unavailable/.test(w)), warns);
+}
+
+console.log('\n[11] 진짜 SQLite — 운영의 옛 표(일곱 칸)에서 ALTER 가 실제로 먹고 네 칸이 채워진다');
+{
+  let DatabaseSync = null;
+  try { ({ DatabaseSync } = await import('node:sqlite')); } catch {}
+  ok('node:sqlite 를 쓸 수 있다(이 절의 전제)', !!DatabaseSync);
+  if (DatabaseSync) {
+    const OLD_DDL = `CREATE TABLE warmup_fix_trace (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL DEFAULT '', session_id TEXT NOT NULL DEFAULT '', lang TEXT NOT NULL DEFAULT 'en', mode TEXT NOT NULL DEFAULT '', reason TEXT NOT NULL, tag TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL)`;
+    const d1 = (db) => ({ prepare: (sql) => ({
+      run: async () => { db.prepare(sql).run(); return {}; },
+      bind: (...a) => ({ run: async () => { db.prepare(sql).run(...a); return {}; } }),
+    }) });
+    const cols = (db) => db.prepare('PRAGMA table_info(warmup_fix_trace)').all().map(r => r.name);
+    // ① 옛 표 → 첫 기록에서 ALTER → 네 칸 채워짐
+    {
+      M = await load();
+      const db = new DatabaseSync(':memory:');
+      db.exec(OLD_DDL);
+      db.prepare(`INSERT INTO warmup_fix_trace (user_id, session_id, lang, mode, reason, tag, created_at) VALUES ('old','s0','en','','shown','',1)`).run();
+      await M.logWarmupFixTrace({ DB: d1(db) }, { ...row, openerTurn: 'on', startKind: 'opener', startWord: 'Oh no.', grade: 'perfect' });
+      const c = cols(db);
+      ok('네 칸이 실제로 붙었다', ['opener_turn', 'start_kind', 'start_word', 'grade'].every(x => c.includes(x)), c);
+      const r = db.prepare(`SELECT * FROM warmup_fix_trace ORDER BY id DESC LIMIT 1`).get();
+      ok('새 줄에 네 칸 값이 들어갔다', r && r.opener_turn === 'on' && r.start_kind === 'opener' && r.start_word === 'Oh no.' && r.grade === 'perfect', r);
+      const old = db.prepare(`SELECT * FROM warmup_fix_trace WHERE user_id='old'`).get();
+      ok('옛 줄은 빈 값으로 남는다(기존 데이터 무변경)', old && old.opener_turn === '' && old.reason === 'shown', old);
+      await M.logWarmupFixTrace({ DB: d1(db) }, { ...row, startKind: 'praise', startWord: 'Great job!' });
+      ok('두 번째 턴도 새 칸으로', db.prepare(`SELECT COUNT(*) n FROM warmup_fix_trace WHERE start_kind='praise'`).get().n === 1);
+    }
+    // ② 다른 워커가 칸 일부를 먼저 붙인 경우 — 중복 칸 오류를 삼키고 나머지를 붙인다
+    {
+      M = await load();
+      const db = new DatabaseSync(':memory:');
+      db.exec(OLD_DDL);
+      db.exec(`ALTER TABLE warmup_fix_trace ADD COLUMN opener_turn TEXT NOT NULL DEFAULT ''`);
+      db.exec(`ALTER TABLE warmup_fix_trace ADD COLUMN start_kind TEXT NOT NULL DEFAULT ''`);
+      let threw = false;
+      try { await M.logWarmupFixTrace({ DB: d1(db) }, { ...row, openerTurn: 'rest', startKind: 'other', grade: 'partial' }); } catch { threw = true; }
+      const r = db.prepare(`SELECT * FROM warmup_fix_trace ORDER BY id DESC LIMIT 1`).get();
+      ok('일부가 이미 있어도 나머지를 붙여 새 칸으로 들어간다', !threw && r && r.opener_turn === 'rest' && r.grade === 'partial', r);
+    }
+    // ③ 새 DB — CREATE 한 번으로 네 칸까지
+    {
+      M = await load();
+      const db = new DatabaseSync(':memory:');
+      await M.logWarmupFixTrace({ DB: d1(db) }, { ...row, openerTurn: 'first', startKind: 'other' });
+      const r = db.prepare(`SELECT * FROM warmup_fix_trace`).get();
+      ok('새 DB 는 CREATE 만으로 네 칸이 있다', r && r.opener_turn === 'first', r);
+    }
+  }
+}
+
 console.log('\n[8] 칸 문제가 아닌 실패는 예전처럼 넘어간다(옛 일곱 칸으로 두 번 쓰지 않는다)');
 {
   M = await load();
@@ -219,6 +310,8 @@ if (R) {
   eq('부호만 바꾼 첫마디 «Oh no!» → 후보 «Oh no.» 로 남긴다', 'Oh no! What happened?', 'opener', 'Oh no.');
   eq('후보에 없는 «Oh, cute!» → «Oh» 만', 'Oh, cute! What is its name?', 'opener', 'Oh');
   eq('«Well, …» → «Well,»', 'Well, I like it too. Do you?', 'opener', 'Well,');
+  { const r = S('By the river, we can play. Do you like rivers?'); ok('«By the river,» 를 «By the way,» 로 세지 않는다', r.word !== 'By the way,', JSON.stringify(r)); }
+  eq('«By the way,» 는 그대로', 'By the way, do you have a pet?', 'opener', 'By the way,');
   // 목록과 정본의 짝 — 후보는 전부 «자기 말 그대로» 첫마디로, 칭찬 칸은 전부 칭찬으로 잡혀야 한다
   for (const [cs, list] of Object.entries(C.TURN_OPENERS)) for (const o of list) eq('첫마디 후보 ' + cs + ' «' + o + '»', o + ' Do you like it?', 'opener', o);
   for (const p of C.TURN_PRAISE) eq('칭찬 칸 «' + p + '» 는 칭찬', p + ' Do you like it?', 'praise', p);

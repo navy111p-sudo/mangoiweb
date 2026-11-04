@@ -90,7 +90,15 @@ export async function logWarmupFixTrace(
       catch (e: any) {
         if (!isMissingCol(e)) throw e;          // 칸 문제가 아니면 예전처럼 한 줄 남기고 넘어간다(아래 catch)
         await ensureExtraCols(env.DB);
-        try { await insertFull(); extraOk = true; return; } catch { extraOk = false; }
+        try { await insertFull(); extraOk = true; return; }
+        catch (e2: any) {
+          /* ⚠️ «또 칸 없음» 일 때만 이 인스턴스에서 새 칸을 포기한다. 네트워크·과부하 같은 일시 실패로 굳히면
+             칸은 DB 에 있는데 이 워커만 몇 시간 빈 값을 쓴다(함정 대조 실측). 일시 실패면 다음 턴에 다시 시도하고,
+             이번 턴은 옛 칸으로 «또» 넣지 않는다 — 다시 넣기가 실은 들어갔는데 응답만 끊겼으면 한 턴이 두 줄이 된다. */
+          if (!isMissingCol(e2)) { extraReady = null; throw e2; }
+          extraOk = false;
+          console.warn('[warmup-fix-trace] extra columns unavailable — logging legacy 7 columns:', e2?.message || e2);
+        }
       }
     }
     await env.DB.prepare(
