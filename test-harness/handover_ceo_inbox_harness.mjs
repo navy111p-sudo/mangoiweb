@@ -26,6 +26,7 @@ const context={module,exports:module.exports,console,crypto,Date:TestDate,Reques
  if(name==='./approval-policy')return{isHqStaff:a=>!!a.ok&&!a.isTeacher&&['hq','staff'].includes(a.role),isExec:a=>a.username==='admin'};
  if(name==='./once-per-isolate')return{oncePerIsolate:f=>f};
  if(name==='./handover-routing')return{approvalHints:()=>[],APPROVAL_PROMPT_RULE:''};
+ if(name==='./handover-board'){const m={exports:{}};vm.runInNewContext(ts.transpileModule(readFileSync('cloudflare-deploy/src/handover-board.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:m,exports:m.exports});return m.exports;} // 팀 보고판 모양(순수 함수) — 자체 하니스(handover_board)가 따로 본다
  if(name==='./auth-admin')return{PH_MANAGERS:[]};
  if(name==='./web-push')return{broadcastWebPush:async eps=>({sent:eps.length})};
  throw new Error(name);

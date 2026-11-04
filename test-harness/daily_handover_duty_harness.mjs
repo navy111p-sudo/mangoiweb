@@ -44,6 +44,7 @@ function setup({ withHolidays = true } = {}) {
       if (name === './once-per-isolate') return { oncePerIsolate: f => f };
       if (name === './auth-admin') return { PH_MANAGERS: [] };
       if (name === './handover-routing') return { approvalHints: () => [], APPROVAL_PROMPT_RULE: '' }; // 결재 길 안내 — 자체 하니스(handover_approval_route)가 따로 본다
+      if (name === './handover-board') {const m={exports:{}};vm.runInNewContext(ts.transpileModule(readFileSync('cloudflare-deploy/src/handover-board.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:m,exports:m.exports});return m.exports;} // 팀 보고판 모양 — 자체 하니스(handover_board)가 따로 본다
       if (name === './web-push') return { broadcastWebPush: async eps => ({ sent: eps.length }) };
       throw new Error(name);
     } });
