@@ -153,9 +153,14 @@ console.log('\n[1] 칠판 — 학생 획이 지워지지 않고 강사 화면에
   check('서버가 칠판 획을 모아 둔다', /recordWb\s*\(/.test(doTs) && /wbOps/.test(doTs));
   check('서버가 새 입장자에게 칠판을 재전송한다 (교재 pdf-sync 와 같은 자리)',
         /whiteboard-replay/.test(doTs));
+  /* (2026-11-04) 칠판 기록이 storage 에도 남게 되어(hibernation 대비) 지우기는 clearWb() 한 곳이
+     메모리(wbOps = [])와 storage 로그를 함께 비운다 — 옛 모양(직접 대입)과 새 모양을 둘 다 받는다. */
+  const _clearWbOk = /private clearWb\(\)[\s\S]{0,200}this\.wbOps\s*=\s*\[\][\s\S]{0,200}logClear\(/.test(doTs);
   check('전체 지우기·지난 수업이면 서버 기록도 비운다',
-        /handleWhiteboardClear[\s\S]{0,200}this\.wbOps\s*=\s*\[\]/.test(doTs) &&
-        /this\.wbOps\s*=\s*\[\][\s\S]{0,200}storage\.delete\('pdfState'\)/.test(doTs));
+        (/handleWhiteboardClear[\s\S]{0,200}this\.wbOps\s*=\s*\[\]/.test(doTs)
+          || (_clearWbOk && /handleWhiteboardClear[\s\S]{0,200}this\.clearWb\(\)/.test(doTs))) &&
+        (/this\.wbOps\s*=\s*\[\][\s\S]{0,200}storage\.delete\('pdfState'\)/.test(doTs)
+          || (_clearWbOk && /this\.clearWb\(\);[\s\S]{0,400}storage\.delete\('pdfState'\)/.test(doTs))));
   check('클라이언트가 whiteboard-replay 를 받아 다시 그린다',
         /case 'whiteboard-replay'/.test(html) && /wbRedrawAll\(\)/.test(html));
   check('서버 기록에 상한이 있다 (DO 메모리 폭주 방지)', /WB_OPS_MAX/.test(doTs));
