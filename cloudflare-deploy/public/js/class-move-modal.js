@@ -912,6 +912,9 @@
       var why = '';
       if (r.source === 'cafe24') why = 'cafe24';
       else if (!r.schedule_id) why = 'no_id';
+      /* ⏸✕ (2026-11-04) 원래 날짜에 남긴 «다른 날로 연기됨» 줄·취소된 줄은 이 날 수업이 아니다 — «매주 반복» 이라 말하면 거짓이다 */
+      else if (r.moved_away) why = 'moved_away';
+      else if (r.cancelled) why = 'cancelled';
       else if (r.can_move !== true) why = 'weekly';
       else if (r.status === 'ended') why = 'ended';
       else if (r.status === 'live') why = 'live';
@@ -926,6 +929,8 @@
     if (w === 'ended')  return T('이미 끝난 수업', 'already ended');
     if (w === 'live')   return T('지금 진행 중', 'in progress now');
     if (w === 'postponed') return T('이미 연기됨', 'already postponed');
+    if (w === 'moved_away') return T('이미 다른 날로 연기됨', 'already moved to another day');
+    if (w === 'cancelled') return T('취소된 수업', 'cancelled class');
     return T('수업 번호 없음', 'no schedule id');
   }
   /* 시작 30분보다 이르게 연기하면 서버가 «사전 연기» 로 매긴다 — 단건 창과 같은 판정. */

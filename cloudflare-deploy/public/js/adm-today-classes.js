@@ -43,7 +43,10 @@
     holiday: { ko: '🎌 공휴일 휴강', en: '🎌 Holiday', bg: '#f1f5f9', fg: '#475569', bd: '#cbd5e1' },
     /* ✕ (2026-11-03 매니저 «취소해도 지우지 말고 상태를 보여 달라») 취소된 수업 — 서버가 'cancelled' 로 보낸다
        (api-admin.ts classes/today · 정본 class-change-state.ts). 그전에는 목록에서 통째로 사라졌다. */
-    cancelled: { ko: '✕ 취소됨', en: '✕ Cancelled', bg: '#fdecea', fg: '#b42318', bd: '#f3a8a0' }
+    cancelled: { ko: '✕ 취소됨', en: '✕ Cancelled', bg: '#fdecea', fg: '#b42318', bd: '#f3a8a0' },
+    /* ⏸ (2026-11-04 매니저 Mai «취소·연기를 지우지 말고 칸으로») 이 날에서 다른 날로 연기·변경한 수업 — 원래 날짜에 남는 줄.
+       서버가 'moved_away' 로 보낸다(api-admin.ts classes/today · 정본 class-change-state.ts judgeMovedAway). 버튼 없음. */
+    moved_away: { ko: '⏸ 다른 날로 연기', en: '⏸ Moved to another day', bg: '#fff4e0', fg: '#b45309', bd: '#f5c98a' }
   };
 
   /* 📋 (2026-09-23 매니저 요청) 일곱 칸 — 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결.
@@ -180,7 +183,7 @@
     var lbl = esc(T(c.label_ko || '', c.label_en || ''));
     if (!lbl) return xDash();
     var head = c.kind === 'cancelled' ? xSmall(lbl, '', 'tc-st-cancelled')
-      : c.kind === 'postponed' ? xSmall(lbl, '', 'tc-st-postponed')
+      : (c.kind === 'postponed' || c.kind === 'moved_away') ? xSmall(lbl, '', 'tc-st-postponed')
       : xSmall(lbl, ';color:#1d4ed8;font-weight:700');
     var who = [c.by || '', c.at_kst || ''].filter(Boolean).map(esc).join(' · ');
     return head
@@ -643,7 +646,7 @@
   /* 📊 (2026-10-01 사장님 「여기에도 보이게」) 상태별 개수 칩 — 강사 «오늘의 수업» 의 요약 칩(B)과 같은 생각.
      누르면 그 상태만 보이고, 한 번 더 누르면 풀린다. ⏸ 연기는 0건이어도 늘 보인다(«연기가 됐나» 가 묻는 질문이라). */
   var _stSel = '';
-  var ST_ORDER = ['live', 'open', 'early', 'cancelled', 'postponed', 'holiday', 'ended'];
+  var ST_ORDER = ['live', 'open', 'early', 'cancelled', 'moved_away', 'postponed', 'holiday', 'ended'];
   function stChipsHtml(base) {
     var n = {}; for (var i = 0; i < base.length; i++) { var k = String(base[i].status || 'early'); n[k] = (n[k] || 0) + 1; }
     var h = '<div class="tc-st-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 2px 8px">';
@@ -1120,7 +1123,9 @@
          안 변한다」가 되고, 반대로 합계를 지우면 「수업이 사라졌다」로 읽힌다. 둘 다 보여 준다. */
       var shown = filtering ? T('표시 ' + rows.length + '건 / 전체 ', rows.length + ' shown / ') : '';
       /* 🥭 새로 넣은 수업 건수도 함께 — 사장님이 찾는 것이 대개 이쪽이다(카페24 142건에 파묻힌다) */
-      var mg = _rows.length - c24;
+      // ⏸ «다른 날로 옮겨 간» 줄은 이 날 열리는 수업이 아니다 — 망고아이 건수에서 빼고 따로 센다(2026-11-04).
+      var mv = _rows.filter(function (s) { return s.moved_away; }).length;
+      var mg = _rows.length - c24 - mv;
       /* ✕⏸ (2026-11-03) 취소·연기도 숫자로 — 줄이 «남아 있다» 는 것을 머리 줄에서 먼저 알린다(합계에 섞여 «입장가능» 과 헷갈리지 않게). */
       var cx = _rows.filter(function (s) { return s.cancelled; }).length;
       var pp = _rows.filter(function (s) { return s.postponed; }).length;
@@ -1128,11 +1133,11 @@
         shown + _rows.length + '건 · 지금 입장가능 ' + live + '건' + (c24 ? ' · 카페24 ' + c24 + '건' : '')
           + (mg ? ' · 망고아이 ' + mg + '건' : '')
           + (lt ? ' · 레벨테스트 ' + lt + '건' : '')
-          + (cx ? ' · 취소 ' + cx + '건' : '') + (pp ? ' · 연기 ' + pp + '건' : ''),
+          + (cx ? ' · 취소 ' + cx + '건' : '') + (pp ? ' · 연기 ' + pp + '건' : '') + (mv ? ' · 다른 날로 연기 ' + mv + '건' : ''),
         shown + _rows.length + ' total · ' + live + ' joinable now' + (c24 ? ' · ' + c24 + ' on cafe24' : '')
           + (mg ? ' · ' + mg + ' on Mangoi' : '')
           + (lt ? ' · ' + lt + ' level test' : '')
-          + (cx ? ' · ' + cx + ' cancelled' : '') + (pp ? ' · ' + pp + ' postponed' : '')
+          + (cx ? ' · ' + cx + ' cancelled' : '') + (pp ? ' · ' + pp + ' postponed' : '') + (mv ? ' · ' + mv + ' moved to another day' : '')
       );
     }
 
@@ -1147,7 +1152,7 @@
     /* 📚 «표시된 줄» 기준으로 센다 — 거르는 중이면 합계가 아니라 눈앞의 목록을 말해야 한다.
        (합계로 세면 「8건 보이는데 142건 미배정」 이 되어 무엇을 눌러야 하는지 흐려진다) */
     // ✕ 취소된 수업은 교재를 챙길 수업이 아니다 — 미배정 셈에서 뺀다(2026-11-03).
-    var missing = rows.filter(function (s) { return !s.textbook_assigned && !s.is_level_test && !s.cancelled; }).length;
+    var missing = rows.filter(function (s) { return !s.textbook_assigned && !s.is_level_test && !s.cancelled && !s.moved_away; }).length;
     /* 🧪 «미배정인 레벨테스트» 만 센다 — 배정된 레벨테스트는 애초에 셈에 안 들어와 말할 것이 없다 */
     var ltSkipped = rows.filter(function (s) { return !s.textbook_assigned && s.is_level_test; }).length;
     var bookLine = bookNoteHtml(missing, rows.length, ltSkipped);
@@ -1217,6 +1222,13 @@
                옮길 대상이 없다 — 버튼이 «없는» 대신 이유를 글자로(폰엔 hover 없음). manager.html 과 같은 말. */
             act += '<span style="display:inline-block;white-space:nowrap;font-size:10.5px;color:#475467;padding:2px 8px;border-radius:99px;background:#f1f5f9;border:1px solid #cbd5e1">'
               + T('카페24 수업 — 카페24에서 변경', 'LMS class — change in cafe24') + '</span>';
+          } else if (s.moved_away) {
+            /* ⏸ (2026-11-04) 이 날에서 다른 날로 연기·변경한 수업 — «원래 날짜» 에 남긴 줄. 이 날 이 방에는 수업이 없다.
+               입장·참관·초대 링크·연기·대체강사 버튼은 주지 않는다(서버도 join_open·observable·can_move 를 false 로 보낸다).
+               새 날짜에서 옮기려면 그 날짜 목록에서 하면 된다. 글자는 서버가 만든 것(change.label_*)을 그대로 쓴다. */
+            act = '<span style="color:#b45309;font-size:11.5px;font-weight:700;margin-right:4px">'
+              + esc(T((s.change && s.change.label_ko) || '⏸ 다른 날로 연기됨', (s.change && s.change.label_en) || '⏸ Moved to another day'))
+              + T(' — 이 날은 수업 없음', ' — no class this day') + '</span>';
           } else if (s.cancelled) {
             /* ✕ (2026-11-03) 취소된 수업 — 줄은 남기되(지우면 «수업이 없어졌다» 로 읽힌다) 입장·참관·초대 링크·연기 버튼은
                주지 않는다(서버도 join_open·observable·can_move 를 false 로 보낸다). 📩 메시지는 아래에서 그대로 붙는다 —
@@ -1374,12 +1386,12 @@
                 background #ffffff · color #344054 — 옆 참관 칩은 보라). 그 파일 9503·9710·9737 행에
                 같은 경고가 세 번 적혀 있다. 그래서 `tc-sub-act` 다. */
           // ✕ (2026-11-03) 취소된 수업에는 대체강사를 붙일 수업이 없다 — 버튼을 주지 않는다.
-          if (!isC24 && s.schedule_id && !s.cancelled && subAllowed()) {
+          if (!isC24 && s.schedule_id && !s.cancelled && !s.moved_away && subAllowed()) {
             teacher += '<button type="button" class="tc-act tc-sub-act" onclick="tcOpenSubModal(' + Number(s.schedule_id) + ')" '
               + 'title="' + T('대체강사 배정', 'Assign substitute teacher') + '">🔄</button>';
           }
           /* ✕ 취소 줄은 흐리게 — 지우지 않되 «열리는 수업» 과 한눈에 갈리게. 색은 클래스(css 끝 tc-row-cancelled). */
-          return '<tr' + (s.cancelled ? ' class="tc-row-cancelled"' : '') + '>'
+          return '<tr' + ((s.cancelled || s.moved_away) ? ' class="tc-row-cancelled"' : '') + '>'
             + '<td style="white-space:nowrap;font-size:11.5px">' + esc(s.class_date || '') + '</td>'
             + '<td style="white-space:nowrap" title="KST">' + esc(kstRange(s)) + '</td>'
             + '<td class="tc-td-st">' + badge(s.status) + '</td>'
