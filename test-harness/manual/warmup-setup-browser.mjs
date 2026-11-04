@@ -288,7 +288,10 @@ console.log('\n[ 5. 휴대폰 폭(390) — 넘치지 않고 글자가 쪼개지�
 }
 
 console.log('\n[ 5-2. 휴대폰 한 화면 — 스크롤 없이 시작 버튼까지 · 이름표가 고르는 칸과 안 겹친다 · 교정 3가지는 그대로 고를 수 있다 ]');
-for (const [w, h, lang] of [[390, 844, 'ko'], [390, 844, 'en'], [360, 740, 'ko'], [360, 740, 'en']]) {
+/* 320·340 은 «한 화면» 을 약속하지 않는다(조금 스크롤) — 대신 «옆으로 안 밀린다» 를 잰다.
+   2026-11-04 함정 대조가 실측으로 잡음: 한 화면 배치의 nowrap 이 320·340 영어에서 위쪽 이동 줄·주제 버튼을 화면 밖으로 밀었다
+   (#wuSetup scrollWidth 346/320). 버튼 안 글자 넘침(spill)만 재면 «칸이 통째로 넓어지는» 경우를 못 본다 — 상자 폭을 함께 잰다. */
+for (const [w, h, lang, oneScreen] of [[390, 844, 'ko', 1], [390, 844, 'en', 1], [360, 740, 'ko', 1], [360, 740, 'en', 1], [340, 640, 'en', 0], [320, 568, 'ko', 0], [320, 568, 'en', 0]]) {
   const ctx = await browser.newContext({ viewport: { width: w, height: h } });
   await ctx.addInitScript((l) => { try { localStorage.setItem('mangoi_lang', l); } catch (e) {} }, lang);
   const page = await ctx.newPage();
@@ -311,11 +314,23 @@ for (const [w, h, lang] of [[390, 844, 'ko'], [390, 844, 'en'], [360, 740, 'ko']
       .map((e) => e.id || e.getAttribute('data-cmode') || e.getAttribute('data-way') || e.className);
     const modes = [...document.querySelectorAll('#wusCModes [data-cmode]')];
     return { sh: s.scrollHeight, ch: s.clientHeight, fits: s.scrollHeight <= s.clientHeight + 1,
+      sw: s.scrollWidth, cw: s.clientWidth, dw: document.documentElement.scrollWidth, iw: innerWidth,
       startHit: hit(document.getElementById('wusStart')), overlaps, shortVis, spill,
       modes: modes.length, modesHit: modes.filter(hit).length,
       chips: [...document.querySelectorAll('#wuSetup .aidiff-chip, #wuSetup .howto-chip')].filter(hit).length };
   });
-  check(`${tag}: 스크롤 없이 한 화면에 들어간다`, r.fits, `${r.sh}/${r.ch}`);
+  if (!oneScreen) {
+    // 조금 스크롤하는 크기 — 교정 줄이 처음엔 sticky 시작 띠 밑일 수 있어, 그 줄을 화면 가운데로 옮긴 뒤 다시 잰다(사람도 그렇게 내린다)
+    r.modesHit = await page.evaluate(() => {
+      document.getElementById('wusCModes').scrollIntoView({ block: 'center' });
+      return [...document.querySelectorAll('#wusCModes [data-cmode]')].filter((el) => {
+        const b = el.getBoundingClientRect(); const t = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+        return !!t && (t === el || el.contains(t));
+      }).length;
+    });
+  }
+  if (oneScreen) check(`${tag}: 스크롤 없이 한 화면에 들어간다`, r.fits, `${r.sh}/${r.ch}`);
+  check(`${tag}: 옆으로 밀리지 않는다(설정 화면·문서 폭 = 화면 폭)`, r.sw <= r.cw + 1 && r.dw <= r.iw + 1, `${r.sw}/${r.cw} · ${r.dw}/${r.iw}`);
   check(`${tag}: 시작 버튼이 보이고 맨 위에서 눌린다`, r.startHit);
   check(`${tag}: 왼쪽 이름표 6개가 보이고 고르는 칸과 안 겹친다`, r.shortVis === 6 && !r.overlaps.length, `${r.shortVis} · ${r.overlaps.join(',')}`);
   check(`${tag}: 버튼·드롭다운 글자가 칸 밖으로 넘치지 않는다`, !r.spill.length, r.spill.join(','));

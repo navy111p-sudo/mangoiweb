@@ -476,7 +476,7 @@
      대화 수준은 폰에서도 드롭다운이다(사장님: 8칸 목록이 공간을 너무 많이 차지하고 복잡하다).
      나이대도 폰·PC 모두 드롭다운이다(같은 날 사장님: 나이대도 드롭다운으로 · 한 화면에).
      ⚠️ 목록(#wusLevels·#wusAges)은 감추기만 한다 — 드롭다운이 그 버튼을 «대신 눌러» 저장·판정이 그대로 돈다(wireSelects).
-     ⚠️ 글자 16px 미만이면 아이폰이 누를 때 화면을 확대한다 — 17px 아래로 내리지 마세요.
+     ⚠️ 글자 16px 미만이면 아이폰이 누를 때 화면을 확대한다 — 16px 아래로 내리지 마세요(한 화면 배치는 16px).
      ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요(한자 폰트 하니스). */
   .wus-sel{display:none;width:100%;appearance:none;-webkit-appearance:none;cursor:pointer;
     font-family:inherit;font-size:17px;font-weight:800;color:#f8fafc;border-radius:14px;padding:12px 44px 12px 16px;
@@ -498,7 +498,7 @@
      ⛔ 교정 방식 3가지는 첫 화면에서 «고를 수 있게» 둔다(2026-10-29 사장님 결정) — 줄만 접었다.
      ⚠️ 글자 16px 미만 드롭다운은 아이폰이 누를 때 화면을 확대한다 — 드롭다운은 16px.
      ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요(한자 폰트 하니스). */
-  @media (max-width:1099px), (max-height:619px){
+  @media (max-width:1099.98px), (max-height:619.98px){
     .wu-setup{padding:12px 12px 12px}
     .wus-nav{margin:-12px -12px 10px;padding:5px 12px}
     .wus-nav-in{flex-wrap:nowrap;gap:6px}
@@ -508,7 +508,7 @@
     .wus-title .mango-inline{width:30px;height:auto}
     .wus-lead{display:none}
     #wusMain>div[style*="text-align:center"]{display:flex;justify-content:center;gap:6px;margin-bottom:4px}
-    .aidiff-chip,.howto-chip{margin:0!important;padding:4px 11px!important;font-size:12.5px!important;white-space:nowrap}
+    #wusMain>div[style*="text-align:center"]>:is(.aidiff-chip,.howto-chip){margin:0!important;padding:4px 11px!important;font-size:12.5px!important;white-space:nowrap}
     :is(.aidiff-chip,.howto-chip,#wusFind) .wus-nm-l{display:none}
     :is(.aidiff-chip,.howto-chip,#wusFind) .wus-nm-s{display:inline}
     .aidiff-chip .wu-photo-icon,.howto-chip .wu-photo-icon{width:18px;height:18px}
@@ -530,10 +530,10 @@
     #wusTalkBtns .wus-nm-s{display:inline}
     #wusTalkBtns .at-beta{margin-left:0;padding:0 4px;font-size:10.5px}
     /* 주제 — 교재로 / 자유 대화 두 칸(그림·설명은 접는다. 고른 뒤의 사실은 아래 띠의 지금 교재 줄이 말한다) */
-    #wusTwoWay{gap:6px;margin:0}
+    #wusTwoWay{gap:6px;margin:0;grid-template-columns:repeat(2,minmax(0,1fr))}
     #wusTwoWay .wus-twoc{padding:8px 4px;border-radius:11px}
     #wusTwoWay :is(.wus-two-ic,.wus-two-ds){display:none}
-    #wusTwoWay .wus-two-nm{font-size:14.5px;white-space:nowrap}
+    #wusTwoWay .wus-two-nm{font-size:14.5px;line-height:1.2}
     #wusTwoWay .wus-now{padding:1px 6px;font-size:11px}
     #wusBooksSec{margin:2px 0 6px}
     /* 나이대·수준 — 드롭다운 + 고른 것 설명 한 줄 */
@@ -554,7 +554,8 @@
     #wusCModes .wus-card:has(.wus-cmode-tag){border-style:dashed;border-color:var(--accent)}
     #wusGMode .wus-selnote{display:block}
     #wusGMode .wus-cm-speed{display:none}
-    /* 시작 띠 */
+    /* 시작 띠 — ⚠️ 폭 640px 이하는 아래 @media (max-width:640px) 의 .wus-ctabar 가 뒤에 와서 margin·padding 을 이긴다
+       (배경만 여기 값). 그래서 이 margin·padding 은 641~1099px 에서만 먹는다 — 폰 값을 바꾸려면 그쪽을 고칠 것. */
     .wus-ctabar{bottom:-12px;margin:0 -12px -12px;padding:6px 12px 14px;
       background:linear-gradient(180deg,rgba(16,31,71,0),rgba(16,31,71,.96) 14px,#101f47 34px)}
     .wus-ctabar .wus-booknow{margin-bottom:6px;padding:7px 11px;font-size:13px}
@@ -564,6 +565,9 @@
   }
   @media (max-width:359px){
     :is(#wusTalkBtns,#wusLangs) .wu-photo-icon,#wusCModes .wus-cm-ic{display:none}
+    .wus-nav-in{flex-wrap:wrap;row-gap:4px}
+    .wus-navbtn{padding:5px 8px;font-size:12.5px}
+    .wus-navbtn .wu-photo-icon{display:none}
     #wusCModes .wus-name{font-size:12.5px}
     #wusCModes .wus-card{padding:8px 1px}
     :is(#wusLangs,#wusTalkBtns,#wusTwoWay) .wus-name,#wusTwoWay .wus-two-nm{font-size:13.5px}
@@ -2224,7 +2228,7 @@ function renderSetup(){
   /* 🔒 «펼친 순간» 의 수준으로 정렬한다 — 넘기지 않으면 수준을 고를 때마다 위쪽이 흔들린다. */
   if(bks && !isZh()) bks.innerHTML = btsListHtml(btsSortLevel(), true);
   renderTwoWay();
-  wusSelSync();         // 🎚️ 드롭다운(수준: 폰·PC · 나이대: PC) 값·설명을 지금 상태로
+  wusSelSync();         // 🎚️ 드롭다운(수준·나이대 — 폰·PC 모두) 값·설명을 지금 상태로
   wusPcLayout();        // 🖥️ PC 면 3단계 카드로 옮긴다(자동 말하기 칸이 늦게 생겨도 여기서 따라옴)
   btsRenderBookNow();   // 📘 시작 버튼 위 «지금 교재» 줄 — 언어 전환·첫 그리기에서 함께
   var cta = document.getElementById('wusStart');
