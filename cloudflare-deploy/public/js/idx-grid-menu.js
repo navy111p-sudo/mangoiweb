@@ -86,7 +86,7 @@
   //   (2026-11-04) 옛 창(폭 600px·본문 10.5px)은 PC 에서 글씨가 작아 프로필을 읽을 수 없었다(사장님).
   //   이 파일은 «처음 열 때» 그 모듈을 불러와 붙이기만 한다 — 홈 첫 화면에는 한 바이트도 안 실린다.
   //   ⚠️ teacher-gallery.js 를 고치면 아래 ?v= 를 올리고 asset-versions.json 의 같은 키를 갱신(teacher_gallery_harness ①).
-  var TG_SRC = '/js/teacher-gallery.js?v=1';
+  var TG_SRC = '/js/teacher-gallery.js?v=2';
   function tgClose() { try { if (window.MangoiTeacherGallery) window.MangoiTeacherGallery.close(); } catch (e) {} }
   function tgBootMsg(kind) {
     var en = (typeof window.getLang === 'function' && window.getLang() === 'en');

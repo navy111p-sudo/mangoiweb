@@ -85,6 +85,7 @@ import { isPostponedOccurrence } from './class-postponed';  // ⏸ 연기된 회
 import { resolveStudentTwins, pickTwinSessions } from './student-alias';  // 👥 카페24 쌍둥이 계정(X ↔ mangoai_X) — 학생 «내 수업» 찾기(2026-10-02 lby01)
 import { isUsableKoMeaning, stripJamoRuns } from './learn-meaning-check';  // 🧹 «뜻» 카드에 'ㅋㅋㅋㅋ' 가 나가지 않게(2026-10-02)
 import { handleWriteTopicsApi } from './write-topics';  // ✏️ 선생님 글감(AI 영작 «오늘의 글감» — 2026-10-19)
+import { publicTeacherRow } from './teacher-public';
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -623,10 +624,16 @@ export async function handleMangoApi(
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, korean_name TEXT NOT NULL, english_name TEXT, email TEXT, phone TEXT, kakao_id TEXT, dob TEXT, gender TEXT, image_url TEXT, intro_video_url TEXT, active_region TEXT, origin_region TEXT, fee_per_10min INTEGER, group_name TEXT, status TEXT DEFAULT '활동중', join_date TEXT, leave_date TEXT, education TEXT, career TEXT, certifications TEXT, available_days TEXT, available_hours TEXT, bank_name TEXT, bank_account TEXT, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER);`);
         const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get('limit') || '30', 10)));
-        const rs = await env.DB.prepare(
-          `SELECT id, korean_name, english_name, image_url, intro_video_url, group_name, career, certifications, education, available_days, available_hours, status, origin_region, notes FROM teacher_profiles WHERE status = '활동중' ORDER BY korean_name ASC LIMIT ?`
-        ).bind(limit).all();
-        const rows = (rs.results || []) as any[];
+        // 🙈 명부에서 숨긴 계정(시험용 등 — list_hidden)은 공개 목록에도 안 싣는다(2026-11-05).
+        //   그 칸은 관리자 화면이 지연 ALTER 로 만든다 — 없는 DB 에서는 예전처럼 거르지 않고 보여 준다(빈 목록보다 낫다).
+        let rs: any;
+        try {
+          rs = await env.DB.prepare(`SELECT id, korean_name, english_name, image_url, intro_video_url, group_name, career, certifications, education, available_days, available_hours, status, origin_region, notes FROM teacher_profiles WHERE status = '활동중' AND COALESCE(list_hidden, 0) = 0 ORDER BY korean_name ASC LIMIT ?`).bind(limit).all();
+        } catch {
+          rs = await env.DB.prepare(`SELECT id, korean_name, english_name, image_url, intro_video_url, group_name, career, certifications, education, available_days, available_hours, status, origin_region, notes FROM teacher_profiles WHERE status = '활동중' ORDER BY korean_name ASC LIMIT ?`).bind(limit).all();
+        }
+        // 🔒 notes 는 내부 관리 메모(로그인 아이디 포함)라 «평점 조각» 만 남긴다 — src/teacher-public.ts
+        const rows = ((rs.results || []) as any[]).map(publicTeacherRow);
         return json({ ok: true, items: rows, rows, count: rows.length });
       } catch (e: any) {
         return json({ ok: true, items: [], rows: [], count: 0, _err: String(e?.message || e) });
