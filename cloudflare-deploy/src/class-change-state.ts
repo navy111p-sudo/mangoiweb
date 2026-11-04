@@ -287,6 +287,18 @@ export async function loadMovedAwayEvents(db: any, fromDate: string, toDate: str
    source='recurring-week:<반복 id>', notes='반복수업 <원래 날짜> 회차를 옮김(…)' / '… 회차 연기(…)'. */
 export const RECUR_WEEK_CHILD_PREFIX = 'recurring-week:';
 
+/** 🗂️ (2026-11-04) `class_schedules.source` 색인 — 아래 `source IN (...)` 가 표를 통째로 훑지 않게.
+ *  [잰 것 — 운영 D1] 7,575행 · 그 조회 한 번에 rows_read 7,575(색인 없음). «오늘 수업»·주간 시간표를 열 때마다 돈다.
+ *  다른 조회도 이 색인을 받는다 — `source = ?`(수강신청 묶음 adm-enroll:*·enroll:* 등, 대상이 좁다) · `id = ? AND source = ?`(PK 가 이김).
+ *  ⛔ exec 로 바꾸지 말 것 — D1 exec 는 줄마다 따로 실행한다(한 줄 prepare().run()).
+ *  한 isolate 에 한 번만 시도(성공·실패 모두 — 이미 있으면 IF NOT EXISTS 가 아무 일도 안 한다). 실패해도 조회는 그대로(색인은 속도일 뿐). */
+let _sourceIdxTried = false;
+export async function ensureScheduleSourceIndex(db: any): Promise<void> {
+  if (_sourceIdxTried || !db) return;
+  _sourceIdxTried = true;
+  try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_sched_source ON class_schedules(source)').run(); } catch { /* 색인이 없어도 조회는 된다 */ }
+}
+
 /** 반복 행 번호들 → 그 하루짜리 줄 목록. 실패하면 complete=false(그 줄만 «새 날짜 모름» 으로 떨어진다). 던지지 않는다. */
 export async function loadRecurWeekChildren(db: any, parentIds: any[]): Promise<{ byParent: Map<string, any[]>; complete: boolean }> {
   const byParent = new Map<string, any[]>();
@@ -294,6 +306,7 @@ export async function loadRecurWeekChildren(db: any, parentIds: any[]): Promise<
   const srcs = Array.from(new Set((parentIds || []).map(x => String(x ?? '').trim()).filter(x => /^\d+$/.test(x))))
     .map(x => RECUR_WEEK_CHILD_PREFIX + x);
   if (!srcs.length || !db) return { byParent, complete: !db && srcs.length ? false : true };
+  await ensureScheduleSourceIndex(db);
   try {
     const rows = await selectInChunks<any>(db, srcs,
       (ph) => `SELECT id, scheduled_date, start_time, status, source, notes, teacher_id, user_id FROM class_schedules WHERE source IN (${ph})`,
