@@ -89,6 +89,7 @@ import { nightlyCafe24Refresh } from './cafe24-sync';  // 🔄 카페24→D1 야
 import { handleSpaceMonsterApi } from './api-space-monster';  // 🛸 Space Monster Hunter 게임 API
 import { logWarmupFix } from './warmup-parent';            // 📝 학부모 화면용 «고쳐 준 표현» 기록 (2026-10-02 P4)
 import { logWarmupFixTrace, type WarmupFixTraceReason } from './warmup-fix-trace';   // 🔎 교정 판정 사유 기록 (2026-10-31)
+import { replyStartOf, openerTurnState } from './warmup-reply-start';   // 🔎 답장 «시작 말 종류» — 그 기록에 함께 싣는다 (2026-11-04)
 import { authUidFromRequest } from './auth-token';          //    ↑ 본인 확인용(토큰 uid == 요청 user_id 일 때만 기록)
 import { retiredDomainResponse } from './retired-domain';    // 🚫 폐지 주소(test.mangoi.co.kr) → 안내문만 (2026-10-16)
 import { handleDubbingApi, isPrivateDubbingKey } from './api-dubbing'; // 🎬 계정별 더빙 작품·이어하기 (기존 녹화와 분리)
@@ -4801,8 +4802,6 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     } catch (e: any) {
       console.warn('[warmup] fix gate skipped:', e?.message || e);
     }
-    // 🔎 판정 사유 한 줄 — 실패해도 대화는 계속된다(정본은 던지지 않는다).
-    await logWarmupFixTrace(env, { userId: ctxUserId, sessionId, lang: ctxLang, mode: honest ? honest.mode : '', reason: traceReason, tag: traceTag });
 
     /* 🧭 (2026-10-31 사장님 「무조건 교정 후에 질문」) 교정 카드가 뜨는 턴이면, 답장은 고친 문장이 «질문보다 먼저»
        말해진 뒤에 질문으로 간다. 순서는 프롬프트에만 맡기지 않고 correctionLeadIn 이 보장한다.
@@ -4810,6 +4809,16 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     // Focused speech is already canonical; an internal '?' must not add a fourth copy.
     // 💬 자유대화는 카드만 — 고친 문장을 말로 붙이지 않는다(2026-11-04 · 판정 정본 warmupSpeaksFixLead).
     if (showFix && warmupSpeaksFixLead(honest?.mode)) aiText = correctionLeadIn(aiText, showFix, ctxLang === 'zh' ? 'zh' : 'en');
+
+    /* 🔎 판정 사유 + 답장 «시작 말 종류» 한 줄 — 실패해도 대화는 계속된다(정본은 던지지 않는다).
+       ⚠️ 교정 앞머리까지 붙은 «최종» 답장을 본다(학생이 들은 그대로). 답장 본문은 싣지 않는다 — 정본 src/warmup-reply-start.ts.
+       첫마디 판정 조건은 위 [연결 표현] 줄과 같다(하니스가 대조). */
+    const traceStart = replyStartOf(aiText);
+    await logWarmupFixTrace(env, {
+      userId: ctxUserId, sessionId, lang: ctxLang, mode: honest ? honest.mode : '', reason: traceReason, tag: traceTag,
+      openerTurn: openerTurnState(ctxLang !== 'zh' && !hasEleaderExpansion(request), history),
+      startKind: traceStart.kind, startWord: traceStart.word, grade: honestGrade ? String(honestGrade) : '',
+    });
 
     // ── 히스토리 갱신(최근 N턴만) + 6시간 TTL 저장 ──
     try {
