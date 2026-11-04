@@ -14,6 +14,7 @@
    ⚠️ 판정마다 «준다» 와 «안 준다» 를 짝으로 둔다 — 한쪽만 두면 «늘 준다/늘 안 준다» 가 통과한다.
    브라우저로 실제로 눌러 보는 검사는 test-harness/manual/eval-add-edit-browser.mjs (게이트 밖).
    ═══════════════════════════════════════════════════════════════════════════ */
+import { btsFixtureSource } from './bts-fixture.mjs';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -65,7 +66,7 @@ let admAct = null, mgrAct = null, tchExtras = null;
   const i = TCH.indexOf('  function extrasHtml(c, wi, asParts){');
   const src = i > 0 ? braceFrom(TCH, i) : '';
   ok('A-0e 전제: 강사 extrasHtml 을 오려 냈다', src.length > 200);
-  try { tchExtras = new Function('esc', 'T', 'hhmm', 'EN', 'function x(c, wi, asParts)' + src + ' return x;')(esc, (en) => en, () => '09:00', () => true); }
+  try { tchExtras = new Function('esc', 'T', 'hhmm', 'EN', btsFixtureSource(TCH) + 'function x(c, wi, asParts)' + src + ' return x;')(esc, (en) => en, () => '09:00', () => true); }
   catch (e) { ok('A-0f 강사 extrasHtml 을 만들 수 있다', false, e.message); }
 }
 const has = (h, re) => re.test(String(h || ''));

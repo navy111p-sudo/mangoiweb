@@ -1,4 +1,5 @@
 // Execute the shipped calendar actions and composer; never send a production request.
+import { btsFixtureSource } from './bts-fixture.mjs';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
@@ -16,6 +17,7 @@ const ctx={Date,Number,AbortSignal,Event,window:{addEventListener(){}},T:(en)=>e
  bandChip:()=>'',chip:()=>'',stars:()=>'',pick:()=>3,renderClasses(){},renderWeek(){},
  fetch:async(url,opts)=>{assert.equal(url,'/api/eval/manual-create');payload=JSON.parse(opts.body);return {ok:true,json:async()=>({ok:true,id:123})};}};
 vm.createContext(ctx);
+  vm.runInContext(btsFixtureSource(html), ctx);
 vm.runInContext([fn('weekRecordHtml'),fn('canWriteWeekFeedback'),fn('freshClass'),fn('openEval')].join('\n'),ctx);
 const base={kind:'class',schedule_id:1,student_uid:'student',student_name:'Student',room_id:'class-1-20261023',class_date:'2026-10-23',start_ts:clock-1000,report_loaded:true};
 assert(ctx.weekRecordHtml(base).includes('data-week-eval="class-1-20261023"'));

@@ -244,12 +244,13 @@ function sandbox() {
     var _speakSeq=0, _ttsCache={}, _ttsEng={}, _mixIdx=0, _warmPaused=false, _warmEpoch=1, _speechOn=true, _latCur=null;
     var _ttsAudio=null, window={ ReadableStream:ReadableStream, TextDecoder:TextDecoder }, _speakLiveNext=null, _stmCur=null, _addMsgQuiet=false, location={search:''};
     var localStorage={getItem:function(){return null;}};
+    function warmThought(show){ C.thinking=show; }
     var ZHMALE=false; function _zhMaleWanted(){ return ZHMALE; }
     function mkEl(){ var e={ children:[], className:'', innerHTML:'', removed:false, remove:function(){ e.removed=true; },
       appendChild:function(c){ e.children.push(c); }, querySelector:function(){ return { set innerHTML(v){ e.text=v; } }; } }; return e; }
     var document={ createElement:function(){ return mkEl(); } };
     var log=mkEl(); log.scrollTop=0; log.scrollHeight=0;
-    function escapeHtml(s){ return String(s); } function renderMsg(s){ return String(s); }
+    function escapeHtml(s){ return String(s); } function renderAiMsg(s){ return String(s); }
     function _speechText(s){ return String(s).trim(); }
     function _friendLabelNow(){ return 'Emma'; }
     function _enMaleGapMs(){ return 0; }

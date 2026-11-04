@@ -6,6 +6,7 @@
 //   C  teacher.html openEval — vm 안에서 창을 그리고 칩을 눌러 «보내기» 의 payload 를 본다
 //   D  «내가 쓴 일지» — 서버 SQL 의 지연 ALTER 폴백을 진짜 SQLite 로 · 화면 카드를 실제로 그림
 // ⚠️ «고른다» 옆에 «안 고른다(모름·대기·없음)» 를 짝으로 둔다 — 짝이 없으면 «언제나 출석» 도 통과한다.
+import { btsFixtureSource } from './bts-fixture.mjs';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -188,6 +189,7 @@ const ctx = {
   fetch: async (url, opts) => { payload = { url, body: JSON.parse(opts.body) }; return { ok: true, json: async () => ({ ok: true, id: 1 }) }; },
 };
 vm.createContext(ctx);
+  vm.runInContext(btsFixtureSource(HTML), ctx);
 vm.runInContext(fn('openEval'), ctx);
 const START = Date.parse('2026-10-27T12:30:00+09:00');
 const base = { kind: 'class', student_uid: 'kim01', student_name: 'Kim', room_id: 'class-9-20261027', class_date: '2026-10-27', start_ts: START };
@@ -234,7 +236,7 @@ try {
   ok(pickNew.sent && pickNew.sent.attendance_status === 'late', '판정이 없을 때 강사가 «지각» 을 고르면 late');
   // C-4 레벨 줄 — 값 · 미등록 · 이스케이프
   const lv = await openAndSend({ ...base, level: 'Lv 5' });
-  ok(/Student level<\/b>: Lv 5/.test(lv.html), '학생 레벨(Lv 5)이 창에 보인다');
+  ok(/Student level<\/b>: Level 2 · Elementary/.test(lv.html), '학생 레벨(Lv 5)이 창에 보인다');
   const nolv = await openAndSend({ ...base });
   ok(/Student level<\/b>: Not set/.test(nolv.html), '레벨이 없으면 «Not set»');
   const xss = await openAndSend({ ...base, level: '<img src=x onerror=1>' });
@@ -243,7 +245,7 @@ try {
   lang = 'ko';
   const ko = await openAndSend({ ...base, level: 'Lv 5', attendance: { state: 'late', at: START + 4 * 60000 + 6 * 60000, late_min: 10 } });
   ok(/수업 출결/.test(ko.html) && /출석/.test(ko.html) && /지각/.test(ko.html) && /결석/.test(ko.html), '한국어 화면: 수업 출결·출석·지각·결석');
-  ok(/학생 레벨<\/b>: Lv 5/.test(ko.html), '한국어 화면: 학생 레벨');
+  ok(/학생 레벨<\/b>: 레벨 2 · 초급/.test(ko.html), '한국어 화면: 학생 레벨');
   ok(/입장 기록: 12:40 입장 \(\+10분\)/.test(decode(ko.html)), '한국어 근거 안내: «입장 기록: 12:40 입장 (+10분)»');
   lang = 'en';
   const en = await openAndSend({ ...base });
@@ -295,13 +297,14 @@ try {
     ] } },
   };
   vm.createContext(ctx2);
+  vm.runInContext(btsFixtureSource(HTML), ctx2);
   vm.runInContext(fn('paintMyEvals') + '\npaintMyEvals();', ctx2);
   const parts = painted.split('<div class="draft"');
-  ok(/⏰ Late/.test(parts[1]) && /Level: Lv 5/.test(parts[1]), '카드: 출결(⏰ Late)·레벨(Level: Lv 5)이 보인다');
+  ok(/⏰ Late/.test(parts[1]) && /Level: Level 2 · Elementary/.test(parts[1]), '카드: 출결(⏰ Late)·레벨(Level: Lv 5)이 보인다');
   ok(!/Attended|Late|Absent|Level:/.test(parts[2]), '카드: 옛 일지(값 없음)에는 아무것도 안 그린다');
   ok(!/bogus|Attended|Late|Absent/.test(parts[3]), '카드: 모르는 값은 그리지 않는다');
   lang = 'ko'; vm.runInContext('paintMyEvals();', ctx2); lang = 'en';
-  ok(/⏰ 지각/.test(painted) && /레벨: Lv 5/.test(painted), '카드 한국어: ⏰ 지각 · 레벨: Lv 5');
+  ok(/⏰ 지각/.test(painted) && /레벨: 레벨 2 · 초급/.test(painted), '카드 한국어: ⏰ 지각 · 레벨: Lv 5');
 } catch (e) {
   ok(false, 'D 절 실행 중 예외: ' + (e && e.stack || e));
 }

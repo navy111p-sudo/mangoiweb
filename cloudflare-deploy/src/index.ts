@@ -3357,8 +3357,10 @@ async function warmupLessonContext(env: Env, o: { userId?: string; textbook?: st
       if (textbook && lessonNo) tries.push({ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER(textbook)=LOWER(?) AND lesson_no=? ORDER BY id DESC LIMIT 2`, binds: [textbook, lessonNo] });
       if (textbook) tries.push({ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER(textbook)=LOWER(?) ORDER BY id DESC LIMIT 2`, binds: [textbook] });
       if (level) tries.push({ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER(level)=LOWER(?) AND (textbook IS NULL OR textbook='') ORDER BY id DESC LIMIT 2`, binds: [level] });
-      for (const t of tries) {
-        const rs = await env.DB.prepare(t.sql).bind(...t.binds).all();
+      // ⚡ (2026-11-04) 질의는 동시에 보낸다 — 결과를 쓰는 순서·«4개면 멈춤» 은 예전 그대로. 하나가 실패해도 나머지는 쓴다.
+      const rsAll = await Promise.all(tries.map((t) => env.DB.prepare(t.sql).bind(...t.binds).all().catch(() => null)));
+      for (let ti = 0; ti < tries.length; ti++) {
+        const rs: any = rsAll[ti]; if (!rs) continue;
         for (const row of (((rs.results as any[]) || []))) {
           let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
           for (const q of qs) {
@@ -3426,6 +3428,8 @@ async function handleWarmupContext(request: Request, env: Env): Promise<Response
       try { if (await zhStudentByTeacher(env as any, userId)) hintLang = 'zh'; } catch {}
       return new Response(JSON.stringify({ ok: true, suggest_lang: hintLang }), { status: 200, headers: _MS_JSON });
     }
+    // ⚡ (2026-11-04) 언어 힌트 조회는 교재와 무관하다 — 교재 조회와 «동시에» 시작한다(아래에서 기다림).
+    const _zhP = zhStudentByTeacher(env as any, userId).catch(() => false);
     const ctx = await warmupLessonContext(env, {
       userId,
       textbook: (u.searchParams.get('textbook') || '').trim(),
@@ -3436,7 +3440,8 @@ async function handleWarmupContext(request: Request, env: Env): Promise<Response
     // 📊 세션 시작 기록 — 설정 화면을 «닫은 뒤» 오는 호출이라 여기 diff/age 가 학생이 고른 값이다.
     //    이 한 줄이 「낮은 단계 학생이 실제로 몇 단계로 쓰는가」와 「입을 뗐는가」의 분모다.
     //    실패는 조용히 삼킨다(src/warmup-log.ts) — 기록 때문에 웜업이 멈추면 안 된다.
-    await logWarmupSessionStart(env, {
+    // ⚡ (2026-11-04) 세션 기록(D1 쓰기)과 Neo4j 취약문장 조회를 «동시에» — 서로 기다릴 이유가 없다.
+    const _logP = logWarmupSessionStart(env, {
       sessionId: (u.searchParams.get('session_id') || '').trim(),
       userId,
       difficulty: parseInt(u.searchParams.get('diff') || '0', 10),
@@ -3450,13 +3455,14 @@ async function handleWarmupContext(request: Request, env: Env): Promise<Response
     if (userId && env.NEO4J_QUERY_URL) {
       try { weak = await getWeakSentences(env as any, userId, ctx.textbook || '', 5); } catch {}
     }
+    await _logP;
     /* 🀄 기본 언어 힌트(2026-09-13) — 중국어 강사 수업이 잡힌 학생이면 'zh'.
        ⚠️ «힌트» 일 뿐이다: 최종 결정은 화면에서 학생이 고른 값이고, 서버는 대화 요청에
           실려 온 lang 을 그대로 따른다. 못 읽으면 'en'(영어) 쪽으로 실패한다.
        ⚠️ 학생 명부의 교재 칸으로는 못 가린다 — 29,492행 전부 비어 있다(2026-09-13 실측).
        ℹ️ 이 조회는 페이지 로드당 1회다(대화 발화마다가 아니다). */
     let suggestLang = 'en';
-    try { if (await zhStudentByTeacher(env as any, userId)) suggestLang = 'zh'; } catch {}
+    try { if (await _zhP) suggestLang = 'zh'; } catch {}
     return new Response(JSON.stringify({ ok: true, ...ctx, weak_sentences: weak, suggest_lang: suggestLang }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
@@ -4313,28 +4319,12 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     /* 🔁 (2026-10-28 사장님 「일반 A.i 말하기에도 같은 질문 금지 적용해줘」) 이 대화에서 «이미 물은 질문 → 학생 답».
        정본 src/question-memory.ts(엘리더잼과 같은 판정). 영어만 — 중국어는 낱말을 못 뽑아 null 이고 예전 그대로다. */
     const qmem = ctxLang === 'zh' ? null : questionMemory(history, studentInput);
-
-    // 📊 웜업 기록(src/warmup-log.ts) — 세션당 INSERT 1 + 조건부 UPDATE 최대 2. 발화마다 쓰지 않는다.
-    //   ① 첫 턴의 INSERT 는 «안전망» 이다. 로그인 학생은 /api/warmup/context 에서 이미 잡히고,
-    //      비로그인·교재 미배정 세션만 여기서 처음 기록된다(INSERT OR IGNORE 라 겹쳐도 무해).
-    //   ② 「입을 뗐다」 판정은 히스토리가 비었는지로 하면 «틀린다» — kickoff 합성 발화가 이미
-    //      user 로 저장돼 있기 때문이다. 판정은 순수 함수 하나에 모아 두고 하니스가 직접 돌린다.
-    if (history.length === 0) {
-      await logWarmupSessionStart(env, {
-        sessionId, userId: ctxUserId, difficulty: ctxDifficulty, ageGroup: ctxAge,
-        textbook: ctxTextbook, level: ctxLevel,
-      });
-    }
-    if (warmupShouldMarkFirstReply(history, ctxKickoff)) await markWarmupFirstReply(env, sessionId);
-
-    // ── 시스템 프롬프트(주제 + 오늘 배울 교재 반영) + 히스토리 + 이번 발화로 messages 구성 ──
-    let sys = ctxLang === 'zh' ? warmupZhSystem(ctxFriend) : warmupSystem(ctxFriend);
-    sys += ' ' + warmupAgeLine(ctxAge);
-    if (ctxDifficulty) sys += ` [난이도] ${(ctxLang === 'zh' ? WARMUP_ZH_LEVELS : WARMUP_LEVELS)[ctxDifficulty]}`;
-    /* 🧩 (2026-10-28 사장님 「like space? 이런 식으로 나오지 말게」) 기초 단계는 «단어 수» 지시 때문에 모델이
-       질문의 앞부분(do you)을 떼어 낸다 — 문법이 먼저라고 예문으로 못 박는다. 정본·이유는 src/reply-questions.ts. */
-    if (checksFragmentQuestions(ctxDifficulty, ctxLang)) sys += ' ' + fullQuestionRule(ctxDifficulty);
-    if (lessonTopic) sys += ` 오늘의 대화 주제는 '${lessonTopic}' 이야.`;
+    /* ⚡ (2026-11-04 사장님 「처음 들어가면 특히 폰에서 늦다」 → 3번 «서버 병렬화») 모델을 부르기 전 조회 넷
+       (오늘 교재 문맥 · Neo4j 자주 틀린 문장 · 최근 교정 · 약점 낱말)을 «동시에» 시작한다 — 예전에는 하나씩 차례로 기다렸다.
+       ⚠️ 각 블록 본문은 글자 그대로 두고 «자기 문자열» 에만 쓴다. 아래 원래 자리에서 «같은 순서» 로 sys 에 붙이므로
+          프롬프트는 한 글자도 안 바뀐다(하니스 몇 개가 이 블록들을 오려 내 실행한다 — 본문을 고치지 말 것).
+       ⚠️ 블록마다 스스로 try 라 던지지 않고, 혹시 던져도 빈 문자열(그 줄만 안 붙음 — 예전과 같은 실패 방향). */
+    const _preLesson = (async () => { let sys = '';
     // 🗓️ 오늘 배울 교재 연동: 학생 배정 교재(students_erp) + 그 교재의 실제 문장(review_quizzes)으로 워밍업 질문
     if (ctxUserId || ctxTextbook || ctxLevel) {
       try {
@@ -4376,6 +4366,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         }
       } catch {}
     }
+    return sys; })().catch(() => '');
+    const _preMistake = (async () => { let sys = '';
     /* 🔁 (2026-10-18 개선안 1순위 ② · 사장님 승인 «웜업 쪽도 붙여줘») 최근 교정받은 표현을 다시 써 볼 기회.
        정본 src/recent-mistakes.ts(AI 친구와 같은 함수) — 영어 대화만, 세션당 1회 조회 후 KV 30분 캐시.
        ⛔ 던지지 않는다(실패하면 그냥 안 붙는다). 기초(1~2단계·미지정)는 1개만.
@@ -4396,6 +4388,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         }
       } catch (e: any) { console.warn('[warmup] recent mistakes skipped:', e?.message || e); }
     }
+    return sys; })().catch(() => '');
+    const _preWeakWord = (async () => { let sys = '';
     /* 🔁 (2026-10-18 · 사장님 승인 «약점 낱말 넣기») 단어장·게임에서 틀린 낱말을 대화에 «가끔 하나만» 섞어 쓰게.
        정본 src/vocab-weak.ts — 영어 대화만, 조회 결과는 KV 30분 캐시. 기초(1~2단계·미지정)는 1개만.
        ⛔ user_id 는 화면이 보내는 값이다 — 본인 확인을 «캐시를 읽기 전에» 매번 한다(캐시만 맞추면 남의 낱말이 붙지 않게).
@@ -4415,6 +4409,32 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         }
       } catch (e: any) { console.warn('[warmup] weak words skipped:', e?.message || e); }
     }
+    return sys; })().catch(() => '');
+
+    // 📊 웜업 기록(src/warmup-log.ts) — 세션당 INSERT 1 + 조건부 UPDATE 최대 2. 발화마다 쓰지 않는다.
+    //   ① 첫 턴의 INSERT 는 «안전망» 이다. 로그인 학생은 /api/warmup/context 에서 이미 잡히고,
+    //      비로그인·교재 미배정 세션만 여기서 처음 기록된다(INSERT OR IGNORE 라 겹쳐도 무해).
+    //   ② 「입을 뗐다」 판정은 히스토리가 비었는지로 하면 «틀린다» — kickoff 합성 발화가 이미
+    //      user 로 저장돼 있기 때문이다. 판정은 순수 함수 하나에 모아 두고 하니스가 직접 돌린다.
+    if (history.length === 0) {
+      await logWarmupSessionStart(env, {
+        sessionId, userId: ctxUserId, difficulty: ctxDifficulty, ageGroup: ctxAge,
+        textbook: ctxTextbook, level: ctxLevel,
+      });
+    }
+    if (warmupShouldMarkFirstReply(history, ctxKickoff)) await markWarmupFirstReply(env, sessionId);
+
+    // ── 시스템 프롬프트(주제 + 오늘 배울 교재 반영) + 히스토리 + 이번 발화로 messages 구성 ──
+    let sys = ctxLang === 'zh' ? warmupZhSystem(ctxFriend) : warmupSystem(ctxFriend);
+    sys += ' ' + warmupAgeLine(ctxAge);
+    if (ctxDifficulty) sys += ` [난이도] ${(ctxLang === 'zh' ? WARMUP_ZH_LEVELS : WARMUP_LEVELS)[ctxDifficulty]}`;
+    /* 🧩 (2026-10-28 사장님 「like space? 이런 식으로 나오지 말게」) 기초 단계는 «단어 수» 지시 때문에 모델이
+       질문의 앞부분(do you)을 떼어 낸다 — 문법이 먼저라고 예문으로 못 박는다. 정본·이유는 src/reply-questions.ts. */
+    if (checksFragmentQuestions(ctxDifficulty, ctxLang)) sys += ' ' + fullQuestionRule(ctxDifficulty);
+    if (lessonTopic) sys += ` 오늘의 대화 주제는 '${lessonTopic}' 이야.`;
+    sys += await _preLesson;   // ⚡ 위에서 미리 시작한 조회 — 붙이는 순서는 예전 그대로
+    sys += await _preMistake;
+    sys += await _preWeakWord;
     // 🔁 반복 방지: 직전에 했던 질문/문장을 그대로 다시 묻는 문제(한 문장 반복) 차단
     sys += ' [중요] 이전 대화에서 이미 했던 질문이나 문장을 그대로 반복하지 마. 매번 새로운 표현과 다른 각도의 질문으로 대화를 이어가.';
     // 🔁 이미 물은 질문 목록 — 엘리더잼은 lesson_topic 에 같은 머리말로 이미 실어 보내므로 두 번 싣지 않는다.

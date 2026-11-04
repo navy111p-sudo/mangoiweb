@@ -676,6 +676,35 @@
 <script src="/js/eleader-entry.js?v=3" defer></script>
 <script src="/js/eleader-l1.js?v=12" defer></script>
 <script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
+<style>
+#warmThought{display:flex;align-items:center;gap:8px;flex:none;margin:5px 12px;color:var(--text);font-size:14px;font-weight:700}
+#warmThought[hidden]{display:none!important}
+#warmThought .thought-dots{display:inline-flex;gap:4px;padding:8px 10px;background:#284354;border-radius:12px 12px 12px 3px}
+#warmThought i{width:5px;height:5px;border-radius:50%;background:#ffe19a;animation:warmDots 1.25s ease-in-out infinite}
+#warmThought i:nth-child(2){animation-delay:.14s}
+#warmThought i:nth-child(3){animation-delay:.28s}
+@keyframes warmDots{0%,55%,100%{transform:translateY(0);opacity:.6}25%{transform:translateY(-3px);opacity:1}}
+/* The mobile conversation keeps its own scroll viewport. Put the cue on the visible speaker row. */
+body:has(#log .msg.ai .who) #warmThought:not([hidden]){
+  position:absolute;width:1px;height:1px;padding:0;margin:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap
+}
+body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::after{
+  content:"";display:inline-block;flex:none;width:38px;height:22px;border-radius:11px 11px 11px 3px;
+  background-color:#284354;
+  background-image:radial-gradient(circle,#ffe19a 2.5px,transparent 3px),radial-gradient(circle,#ffe19a 2.5px,transparent 3px),radial-gradient(circle,#ffe19a 2.5px,transparent 3px);
+  background-size:8px 8px;background-repeat:no-repeat;background-position:6px 8px,15px 8px,24px 8px;
+  animation:warmHeaderDots 1.25s ease-in-out infinite
+}
+@keyframes warmHeaderDots{
+  0%,70%,100%{background-position:6px 8px,15px 8px,24px 8px}
+  18%{background-position:6px 4px,15px 8px,24px 8px}
+  35%{background-position:6px 8px,15px 4px,24px 8px}
+  52%{background-position:6px 8px,15px 8px,24px 4px}
+}
+@media(prefers-reduced-motion:reduce){
+  #warmThought i,body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::after{animation:none}
+}
+</style>
 </head>
 <body>
   <!-- ══ 🎚️ 시작 전 «연령·수준 고르기» — 이 화면을 닫아야 첫 인사가 나간다 (2026-08-26) ══
@@ -965,6 +994,7 @@
       <button id="wgHistory" class="wg-btn" type="button" aria-expanded="false" aria-controls="log" data-ko="이전 대화 보기" data-en="Earlier conversation">이전 대화 보기</button>
       <button id="wgHelpOpen" class="wg-btn" type="button" aria-controls="wgHelp" data-ko="대답할 때 도움이 필요해요" data-en="Help me answer">대답할 때 도움이 필요해요</button>
     </div>
+    <div id="warmThought" hidden role="status"><span id="warmThoughtName"></span><span class="thought-dots" aria-hidden="true"><i></i><i></i><i></i></span><span data-ko="생각 중이에요" data-en="Thinking…">생각 중이에요</span></div>
     <div id="log" aria-label="말하기 연습 대화"></div>
     <div id="wgHelp" class="wg-help" hidden>
       <ol id="wgHelpSteps" class="wg-steps" aria-label="도움 단계"></ol>
@@ -1023,7 +1053,7 @@
 <script src="/js/warmup-guide.js?v=9"></script>
 <script src="/js/speech-preferences.js?v=3"></script>
 <script src="/js/speech-rate-request.js?v=1"></script>
-<script src="/js/ai-situations.js?v=1"></script><!-- 🎯 상황별 말하기 표(?sit=) — 정본은 그 파일 하나 -->
+<script src="/js/ai-situations.js?v=2"></script><!-- 🎯 상황별 말하기 표(?sit=) — 정본은 그 파일 하나 -->
 <script>
 /* ── 1. URL 파라미터 / 저장값에서 설정 읽기 ─────────────────────── */
 var Q = new URLSearchParams(location.search);
@@ -1244,7 +1274,7 @@ function addMsg(text, who){
   /* 👁 AI 본문은 .wu-text 로 감싼다 — 자막 단계가 이 span 하나만 건드리고, 이름표·버튼은 늘 남는다.
      .sub-veil 은 「완전 끄기」일 때 그 자리에 뜨는 안내(탭하면 열린다). */
   d.innerHTML = whoHtml + (who==='ai'
-    ? '<span class="wu-text">' + renderMsg(text) + '</span>'
+    ? '<span class="wu-text">' + renderAiMsg(text) + '</span>'
       + '<span class="sub-veil">🔊 듣고 맞혀 보세요 (탭하면 보여요)</span>'
       + '<span class="sub-hint">👁 자막을 가려 뒀어요 — 눌러서 보기</span>'
     : renderMsg(text));
@@ -1303,6 +1333,14 @@ function addMsg(text, who){
 function escapeHtml(s){ return String(s).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
 // 🥭 이모지(빨간/주황 망고 그림)를 우리 망고아이 캐릭터 이미지로 치환 —
 // 하드코딩 인사말은 물론 AI 응답 텍스트에 망고가 나와도 자동으로 브랜드 캐릭터로 렌더된다.
+function renderAiMsg(s){
+  if(situationActive() && SITUATION.id === 'restaurant'){
+    s = String(s).replace(/\b(your total is )nine dollars(?=[.!?]|$)/gi, function(_, prefix){
+      return prefix + '$9.00';
+    });
+  }
+  return renderMsg(s);
+}
 function renderMsg(s){
   return escapeHtml(s).replace(/🥭/g,
     '<img class="mango-inline" src="/img/mango-char.png" alt="Mango 캐릭터" />');
@@ -2939,7 +2977,13 @@ function _zhDeepen(u){
    그 사이 학생이 다음 말을 보내면 옛 문장이 새 문장 위로 겹쳐 재생된다.
    _stopSpeak 이 이 번호를 올리므로, 늦게 도착한 응답은 스스로 물러난다. */
 var _speakSeq=0;
-function _stopSpeak(){
+function warmThought(show){
+  var indicator=document.getElementById('warmThought');
+  if(show) document.getElementById('warmThoughtName').textContent=_friendLabelNow();
+  indicator.hidden=!show;
+}
+function _stopSpeak(keepThought){
+  if(!keepThought) warmThought(false);
   _speakSeq++;
   try{ if(_replayWho){ _replayWho=null; applyVoiceFace(); } }catch(e){}   // 🔁 다시 듣기를 끊으면 얼굴도 원래대로
   try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
@@ -2964,7 +3008,8 @@ function _synthSpeak(text, btn, onDone){
     var _pit = (isZh() && _voiceGender()==='male') ? 0.85 : 1.02;
     u.lang=(_enVoice&&_enVoice.lang)||(isZh()?'zh-CN':'en-US'); u.rate=RATE_STEPS[_rateLevel]||0.95; u.pitch=_pit;
     if(_enVoice) u.voice=_enVoice;
-    u.onstart=function(){ _speechEverStarted=true; _latMark(); };
+    var utteranceSeq=_speakSeq;
+    u.onstart=function(){ if(utteranceSeq!==_speakSeq)return; warmThought(false); _speechEverStarted=true; _latMark(); };
     u.onend=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){} if(onDone) onDone(); };
     u.onerror=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){} if(onDone) onDone(); };
     window.speechSynthesis.cancel();
@@ -3226,14 +3271,15 @@ function speak(text, btn){
   /* 📡 P2 — 스트리밍 첫 문장이면 «큐 모드» 로 읽는다(_stmSentence 가 바로 앞에서 걸어 둠). 한 번 쓰고 비운다. */
   var live=(typeof _speakLiveNext!=='undefined' && _speakLiveNext) || null; if(live) _speakLiveNext=null;
   if(_warmPaused || !_speechOn || !text){
+    warmThought(false);
     _latCur=null;   // ⏱ 소리를 안 내는 차례는 재지 않는다(나중 재생에 엉뚱한 시간이 붙지 않게)
     if(!btn && !_warmPaused && !_speechOn && text) _autoHook('aiDone');   // ✨ 소리를 꺼 두었으면 «말이 끝난 것» 과 같다
     return;
   }
   if(window.MangoWarmupGuide)MangoWarmupGuide.pauseScene();
-  text=_speechText(text); if(!text){ if(btn) btn.classList.remove('playing'); return; }
+  text=_speechText(text); if(!text){ warmThought(false); if(btn) btn.classList.remove('playing'); return; }
   _lastAiSpeak=text;
-  _stopSpeak();
+  _stopSpeak(!btn);
   _replayWho = (btn && btn.__who && typeof _replayFits==='function' && _replayFits(btn.__who)) ? btn.__who : null;   // 🔁 _stopSpeak 이 비운 뒤에 세운다
   if(btn) _latCur=null;   // ⏱ 다시 듣기는 «대화 차례» 가 아니다 — 재지 않는다
   var _atSeq=_speakSeq; _autoHook('aiStart');   // ✨ AI 가 말하는 동안에는 자동으로 듣지 않는다
@@ -3246,7 +3292,7 @@ function speak(text, btn){
      흘러나와도 아무도 그리기를 다시 켜지 않아 "소리는 나는데 입은 안 움직임"으로 보였다.
      이제 plainStart() 는 실제 재생이 막 시작되는 시점(아래 play() 안, _synthSpeak 안)
      에서만 부른다 — 워치독이 재는 무음 시간이 실제 재생 이후로만 좁혀진다. */
-  var done=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){}
+  var done=function(){ if(_atSeq===_speakSeq) warmThought(false); if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){}
     /* 🔁 다시 듣기가 끝나면 얼굴을 «지금 고른 친구» 로 되돌린다 — 그 사이 다른 말이 시작됐으면 손대지 않는다 */
     if(btn && _replayWho && _atSeq===_speakSeq){ _replayWho=null; try{ applyVoiceFace(); }catch(e){} }
     /* ✨ «끝까지 읽은» 대화 차례의 낭독만 알린다 — 다시 듣기(btn)·중간에 끊긴 낭독(_speakSeq 가 오름)은 제외 */
@@ -3270,7 +3316,7 @@ function speak(text, btn){
       Promise.resolve(lipReady).catch(function(){}).then(function(){
         if(_atSeq!==_speakSeq || _ttsAudio.src!==u || fired)return;
         try{ window.MangoAvatar && MangoAvatar.plainStart(); }catch(e){}
-        return _ttsAudio.play().then(function(){ _speechEverStarted=true; _latMark(); });
+        return _ttsAudio.play().then(function(){ if(_atSeq!==_speakSeq)return; warmThought(false); _speechEverStarted=true; _latMark(); });
       })
         /* 자동재생 차단 — 첫 터치(unlockAudio)에서 «답장 전체» 를 다시 읽는다.
            ⚠️ 조각 모드에서도 다음 조각으로 넘어가지 않고 여기서 끝낸다 — 넘어가면 사람이 탭한 순간
@@ -3378,7 +3424,7 @@ function _stmShow(L){
       +'<span class="wu-text"></span><span class="sub-veil">🔊 듣고 맞혀 보세요 (탭하면 보여요)</span>';
     log.appendChild(d); L.el=d;
   }
-  var t=L.el.querySelector('.wu-text'); if(t) t.innerHTML=renderMsg(L.text);
+  var t=L.el.querySelector('.wu-text'); if(t) t.innerHTML=renderAiMsg(L.text);
   log.scrollTop=log.scrollHeight;
 }
 function _stmDrop(L){ try{ if(L.el) L.el.remove(); }catch(e){} L.el=null; }
@@ -3453,6 +3499,7 @@ async function _stmTurn(r, epoch, typing, lt0, ls, kick){
     if(spoken && !interrupted) _stopSpeak();
     _stmDrop(L);
     if(L.kick) return 'fail';
+    warmThought(false);
     addMsg('답변을 받아오지 못했어요. 잠시 후 다시 시도해 주세요.', 'sys');
     return 'done';
   }
@@ -3468,7 +3515,7 @@ async function _stmTurn(r, epoch, typing, lt0, ls, kick){
     if(!interrupted) _stmEnd(L);
   } else {
     /* 정본이 달라졌다(replaced) 또는 아직 안 읽었다 — 읽던 것을 멈추고 정본을 처음부터 읽는다 */
-    if(spoken) _stopSpeak();
+    if(spoken) _stopSpeak(true);
     if(L.mix0!=null) _mixIdx=L.mix0;
     addMsg(finalText, 'ai');
   }
@@ -4649,6 +4696,7 @@ async function sendMsg(){
      «완벽한 문장일 때·따라 말하기에 성공했을 때» 만 올린다(wuApplyGrade — 제안서 «팡파레는 맞게 말했을 때만»). */
   _wuSendBumped=false; if(!_wuGraded){ bumpCombo(); _wuSendBumped=true; }
   sending = true; document.getElementById('sendBtn').disabled = true;
+  warmThought(true);
   document.getElementById('wgState').textContent='AI 친구가 답변을 준비하고 있어요…';
 
   var typing = document.createElement('div');
@@ -4673,6 +4721,7 @@ async function sendMsg(){
     typing.remove();
     if(_warmPaused || epoch!==_warmEpoch)return;
     if(!r.ok){
+      warmThought(false);
       var errTxt = '';
       try{ var ej = await r.json(); errTxt = ej.detail || ''; }catch(e){}
       /* 📗 엘리더잼 통로(js/eleader-l1.js)가 사유(하루 횟수·로그인)를 이미 말했으면 겹쳐 쓰지 않는다
@@ -4690,6 +4739,7 @@ async function sendMsg(){
     }
   }catch(e){
     typing.remove();
+    if(epoch===_warmEpoch) warmThought(false);
     if(!_warmPaused && epoch===_warmEpoch)addMsg('답변을 받아오지 못했어요. 잠시 후 다시 시도해 주세요.', 'sys');
   }finally{
     if(epoch===_warmEpoch){
