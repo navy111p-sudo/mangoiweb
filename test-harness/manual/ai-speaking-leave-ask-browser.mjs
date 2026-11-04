@@ -1,0 +1,162 @@
+// AI 말하기 6차(2026-11-04 사장님 «확인 안 누르고 나가면 물어보게 해줘») — 진짜 크로미움으로 «묻는 창» 을 잽니다.
+// 자동으로 안 돕니다(manual/). 부르는 법:  node test-harness/manual/ai-speaking-leave-ask-browser.mjs
+//   (PW_DIR 을 주면 그 playwright 를, 없으면 전역 playwright 를 씁니다)
+// 잰 것: 창이 실제로 맨 위인가(elementFromPoint) · 화면 밖으로 안 넘치는가 · 세 갈래가 하는 일 · 키보드(Esc·Tab) ·
+//        뒤로가기·새로고침 때 브라우저 기본 창(beforeunload)이 «바꾼 것이 있을 때만» 뜨는가 · «적용 안 하고 이동» 뒤 두 번 안 묻는가 · 글자 대비.
+// 짝: «묻는다» 옆에 «안 묻는다»(안 바꿈 · 되돌림 · 확인 뒤)를 같은 크기·언어에서 함께 봅니다.
+// 변이시험(2026-11-04): 안 묻기 · 늘 묻기 · leaving 표시 제거 · beforeunload 제거 · 창 z-index 0 · 창 높이 상한 제거 · 글자 대비 낮추기 → 전부 실제 FAIL.
+// ⚠️ «Tab 이 창 안에서만 돈다» 는 여기서 못 잽니다 — 크로미움은 뒤 화면 inert 만으로 이미 가둬서, 스크립트의 Tab 가두기를 지워도 통과합니다
+//    (그 가두기는 inert 를 모르는 옛 사파리용). 그 줄은 자동 하니스 ai_speaking_entry_harness G5 가 잽니다.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import http from 'node:http';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { chromium } = process.env.PW_DIR ? require(process.env.PW_DIR + '/node_modules/playwright') : require('playwright');
+const root = path.resolve('cloudflare-deploy/public');
+const mime = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
+const server = http.createServer((req, res) => {
+  const url = new URL(req.url, 'http://localhost');
+  if (url.pathname.startsWith('/api/')) { res.setHeader('Content-Type', 'application/json'); res.end('{"ok":false}'); return; }
+  const file = path.resolve(root, '.' + (url.pathname === '/' ? '/index.html' : decodeURIComponent(url.pathname)));
+  if (!file.startsWith(root + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404).end(); return; }
+  // 홈·연습 화면은 무거우니 «도착했다» 만 알면 된다 — 빈 페이지로 대신한다
+  if (/\/(index|warmup|ai-friend)\.html$/.test(file)) { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end('<!doctype html><title>stub</title><p>' + path.basename(file)); return; }
+  res.setHeader('Content-Type', mime[path.extname(file)] || 'application/octet-stream'); res.end(fs.readFileSync(file));
+});
+await new Promise(r => server.listen(0, '127.0.0.1', r));
+const origin = 'http://127.0.0.1:' + server.address().port;
+const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || undefined });
+let n = 0; const fails = [];
+const ok = (v, m) => { n++; if (!v) { fails.push(m); console.log('✗ ' + m); } };
+const SAVED = { mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' };
+async function open({ width, height, lang = 'ko', seed = SAVED }) {
+  const ctx = await browser.newContext({ viewport: { width, height } });
+  await ctx.route('**/*', r => (new URL(r.request().url()).origin === origin ? r.continue() : r.abort()));
+  await ctx.addInitScript(({ lang, seed }) => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.clear(); localStorage.setItem('mangoi_lang', lang);
+    for (const [k, v] of Object.entries(seed)) localStorage.setItem(k, v);
+  }, { lang, seed });
+  const page = await ctx.newPage(); page.setDefaultTimeout(5000);
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  const dialogs = []; page.on('dialog', d => { dialogs.push(d.type()); d.dismiss().catch(() => {}); });
+  await page.goto(origin + '/ai-speaking.html');
+  return { ctx, page, errors, dialogs };
+}
+const ls = (page, k) => page.evaluate(k => localStorage.getItem(k), k);
+// 창의 각 버튼 가운데가 «그 버튼» 인가 + 창 상자가 화면 안인가
+// ⚠️ 뒤 화면(.wrap)은 inert 라 elementFromPoint 가 «건너뜁니다» — 그대로 재면 창이 뒤에 깔려도 통과한다.
+//    그래서 잴 때만 inert 를 잠깐 걷고 «그려진 순서» 로 묻습니다.
+const hit = page => page.evaluate(() => {
+  const w = document.querySelector('.wrap'), had = w.hasAttribute('inert'); w.removeAttribute('inert');
+  const box = document.querySelector('.leave-box').getBoundingClientRect();
+  const btns = ['leaveGo', 'leaveSkip', 'leaveStay'].map(id => document.getElementById(id)).filter(b => !b.hidden);
+  const out = {
+    inside: box.top >= 0 && box.left >= 0 && box.bottom <= innerHeight + 1 && box.right <= innerWidth + 1,
+    top: btns.every(b => { const r = b.getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return e === b || b.contains(e); }),
+    noScroll: document.documentElement.scrollWidth <= innerWidth + 1,
+    tall: btns.every(b => b.getBoundingClientRect().height >= 44),
+    inertWas: had,
+  };
+  if (had) w.setAttribute('inert', '');
+  return out;
+});
+const shown = page => page.evaluate(() => !document.getElementById('leaveAsk').hidden && getComputedStyle(document.getElementById('leaveAsk')).display !== 'none');
+const pickChange = async page => { await page.selectOption('#setLevel', '3'); await page.click('[data-corr="focused"]'); };
+const lum = c => { const [r, g, b] = c.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+
+try {
+  for (const [width, height] of [[320, 568], [360, 640], [390, 844], [640, 360], [568, 320], [768, 1024], [1366, 768], [1920, 1080]]) {
+    for (const lang of ['ko', 'en']) {
+      const tag = `${width}x${height}/${lang}`;
+      try {
+      // ① 안 바꿈 -> 안 묻는다(짝)
+      let s = await open({ width, height, lang });
+      await s.page.click('#friend-mode'); await s.page.waitForURL('**/ai-friend.html');
+      ok(s.dialogs.length === 0, tag + ' ① unchanged -> goes straight, no browser prompt');
+      await s.ctx.close();
+      // ② 바꿈 -> 묻는다 · 창이 맨 위 · 화면 안 · 버튼 44px 이상
+      s = await open({ width, height, lang });
+      await pickChange(s.page);
+      await s.page.click('#friend-mode');
+      ok(await shown(s.page), tag + ' ② changed -> the ask dialog is shown');
+      ok(new URL(s.page.url()).pathname === '/ai-speaking.html', tag + ' ② …and the page did not leave');
+      const h = await hit(s.page);
+      ok(h.inside && h.top && h.noScroll && h.tall && h.inertWas, tag + ' ② dialog inside the screen, every button on top and ≥44px → ' + JSON.stringify(h));
+      ok(await s.page.evaluate(() => document.activeElement && document.activeElement.id === 'leaveGo'), tag + ' ② focus starts on the main choice');
+      const txt = await s.page.evaluate(() => ['leaveTitle', 'leaveBody', 'leavePick', 'leaveGo'].map(id => document.getElementById(id).textContent).join(' | '));
+      ok(lang === 'en' ? !/[가-힣]/.test(txt) && /Level 3/.test(txt) : /수준 3단계/.test(txt) && /적용하고 이동/.test(txt), tag + ' ② texts in the screen language → ' + txt);
+      // 글자 대비(창 바탕은 불투명 --card)
+      const cr = await s.page.evaluate(() => { const bg = getComputedStyle(document.querySelector('.leave-box')).backgroundColor;
+        return ['leaveTitle', 'leaveBody', 'leavePick', 'leaveSkip', 'leaveStay'].map(id => [id, getComputedStyle(document.getElementById(id)).color, bg]); });
+      ok(cr.every(([, c, bg]) => ratio(c, bg) >= 4.5), tag + ' ② text contrast ≥ 4.5 → ' + cr.map(([id, c, bg]) => id + ':' + ratio(c, bg).toFixed(2)).join(' '));
+      // ③ Tab 은 창 안에서만 돈다 · Esc = 머무르기(포커스는 누른 카드로)
+      for (let i = 0; i < 4; i++) await s.page.keyboard.press('Tab');
+      ok(await s.page.evaluate(() => !!document.activeElement.closest('#leaveAsk')), tag + ' ③ Tab stays inside the dialog');
+      await s.page.keyboard.press('Escape');
+      ok(!(await shown(s.page)) && await s.page.evaluate(() => document.activeElement && document.activeElement.id === 'friend-mode'), tag + ' ③ Escape closes it and focus returns to the card');
+      // ④ «적용 안 하고 이동» -> 저장 안 함 · 감 · 브라우저 창이 두 번째로 안 뜬다
+      await s.page.click('#friend-mode'); await s.page.click('#leaveSkip'); await s.page.waitForURL('**/ai-friend.html');
+      ok(await ls(s.page, 'mangoi_warmup_level') === '5' && await ls(s.page, 'mangoi_aifriend_correction') === 'balanced', tag + ' ④ «go without applying» writes nothing');
+      ok(s.dialogs.length === 0, tag + ' ④ …and no second (browser) prompt');
+      ok(s.errors.length === 0, tag + ' no JS errors: ' + s.errors.join(';'));
+      await s.ctx.close();
+      // ⑤ «적용하고 이동» -> 두 화면 키 저장 · 감
+      s = await open({ width, height, lang });
+      await pickChange(s.page); await s.page.click('#textbook-mode'); await s.page.click('#leaveGo'); await s.page.waitForURL('**/warmup.html');
+      ok(await ls(s.page, 'mangoi_warmup_level') === '3' && await ls(s.page, 'mangoi_aifriend_level') === 'S3' && await ls(s.page, 'mangoi_aifriend_correction') === 'focused', tag + ' ⑤ «apply and go» saves both screens and goes');
+      ok(s.dialogs.length === 0, tag + ' ⑤ …no browser prompt');
+      await s.ctx.close();
+      } catch (e) { ok(false, tag + ' threw (a step never happened): ' + String(e.message).split('\n')[0]); }
+      finally { for (const c of browser.contexts()) await c.close().catch(() => {}); }
+    }
+  }
+  let s;
+  try {
+  // ⑥ 브라우저 기본 창 — 바꿨으면 새로고침에 뜨고(취소하면 남는다), 확인 뒤엔 안 뜬다(짝)
+  s = await open({ width: 390, height: 844 });
+  await pickChange(s.page);
+  const asked = new Promise(r => s.page.once('dialog', d => r(d.type())));
+  s.page.evaluate(() => location.reload()).catch(() => {});
+  ok(await Promise.race([asked, new Promise(r => setTimeout(() => r('none'), 3000))]) === 'beforeunload', '⑥ changed + reload -> the browser asks (beforeunload)');
+  await s.page.waitForTimeout(300);
+  ok(await s.page.evaluate(() => document.querySelector('[data-corr="focused"]').getAttribute('aria-pressed')) === 'true', '⑥ …cancel keeps the page and the pick');
+  await s.page.click('#setOk'); s.dialogs.length = 0;
+  await s.page.reload();
+  ok(s.dialogs.length === 0, '⑥ after «확인» a reload is not asked');
+  await s.ctx.close();
+  } catch (e) { ok(false, '⑥ threw (a step never happened): ' + String(e.message).split('\n')[0]); }
+  finally { for (const c of browser.contexts()) await c.close().catch(() => {}); }
+  try {
+  // ⑦ 상황 카드(#situations)는 화면 안이라 안 묻고 펼친다 · 펼친 상황 링크는 묻는다
+  s = await open({ width: 390, height: 844 });
+  await pickChange(s.page);
+  await s.page.click('#situation-mode');
+  ok(!(await shown(s.page)) && await s.page.evaluate(() => !document.getElementById('situations').hidden), '⑦ the situations card opens in place, not asked');
+  await s.page.click('#sitBody a.sit');
+  ok(await shown(s.page) && new URL(s.page.url()).pathname === '/ai-speaking.html', '⑦ a situation link is asked');
+  await s.page.click('#leaveStay');
+  ok(!(await shown(s.page)), '⑦ «stay» closes it');
+  await s.ctx.close();
+  } catch (e) { ok(false, '⑦ threw (a step never happened): ' + String(e.message).split('\n')[0]); }
+  finally { for (const c of browser.contexts()) await c.close().catch(() => {}); }
+  try {
+  // ⑧ 하나만 바꿔 «확인» 이 잠긴 경우 — «고르러 가기» 가 그 칸으로 데려간다
+  s = await open({ width: 360, height: 640, seed: {} });
+  await s.page.selectOption('#setLevel', '4');
+  await s.page.click('a.home');
+  const t8 = await s.page.evaluate(() => [document.getElementById('leaveGo').textContent, document.getElementById('leaveStay').hidden]);
+  ok(await shown(s.page) && t8[0] === '고르러 가기' && t8[1] === true, '⑧ level only -> «고르러 가기», no separate stay → ' + JSON.stringify(t8));
+  await s.page.click('#leaveGo');
+  ok(!(await shown(s.page)) && await s.page.evaluate(() => document.activeElement.getAttribute('data-corr')) === 'free_talk', '⑧ …focuses the corrections');
+  ok(await s.page.evaluate(() => { const r = document.activeElement.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }), '⑧ …and scrolls them into view');
+  await s.ctx.close();
+  } catch (e) { ok(false, '⑧ threw (a step never happened): ' + String(e.message).split('\n')[0]); }
+  finally { for (const c of browser.contexts()) await c.close().catch(() => {}); }
+} finally { await browser.close(); await new Promise(r => server.close(r)); }
+console.log(JSON.stringify({ suite: 'AI speaking — ask before leaving without 확인', checks: n, failed: fails.length }));
+process.exitCode = fails.length ? 1 : 0;
