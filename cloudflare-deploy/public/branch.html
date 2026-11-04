@@ -2512,11 +2512,13 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       + esc(T((j.date || '') + ' · ' + rows.length + ' total'
                 + (c.cafe24 ? ' · ' + c.cafe24 + ' on cafe24' : '')
                 + (c.joinable ? ' · ' + c.joinable + ' joinable' : '')
-                + (c.cancelled ? ' · ' + c.cancelled + ' cancelled' : '') + (c.postponed ? ' · ' + c.postponed + ' postponed' : ''),
+                + (c.cancelled ? ' · ' + c.cancelled + ' cancelled' : '') + (c.postponed ? ' · ' + c.postponed + ' postponed' : '')
+                + (c.moved_away ? ' · ' + c.moved_away + ' moved to another day' : ''),
               (j.date || '') + ' · 전체 ' + rows.length + '건'
                 + (c.cafe24 ? ' · 카페24 ' + c.cafe24 + '건' : '')
                 + (c.joinable ? ' · 입장가능 ' + c.joinable + '건' : '')
-                + (c.cancelled ? ' · 취소 ' + c.cancelled + '건' : '') + (c.postponed ? ' · 연기 ' + c.postponed + '건' : ''))) + '</div>';
+                + (c.cancelled ? ' · 취소 ' + c.cancelled + '건' : '') + (c.postponed ? ' · 연기 ' + c.postponed + '건' : '')
+                + (c.moved_away ? ' · 다른 날로 연기 ' + c.moved_away + '건' : ''))) + '</div>';
     hqRows('todayAllBody', rows, function(r){
       var t = esc(r.start_time || '');
       var who = esc(r.student_name || r.student_uid || '-');
@@ -2532,7 +2534,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
          한쪽만 눌리면 「눌러도 아무 일 없다」 제보가 여기서 다시 올라온다.
          ⛔ <button> 이 아니라 span+role — 이 화면은 .tag 로 모양을 잡는다(버튼 기본 스타일 회피).
          ⚠️ 학생 아이디가 없으면 누를 것을 주지 않는다: 누구인지 모르면 창이 «전체» 로 흐른다. */
-      if (!r.textbook_assigned) {
+      /* ⏸ (2026-11-04) 다른 날로 옮긴 줄에는 «교재 미배정» 배지를 안 단다 — 그 수업은 새 날짜 줄에서 본다. */
+      if (!r.textbook_assigned && !r.moved_away) {
         // 📚 IS_HQ 일 때만 누를 수 있게 — /api/admin/textbook-files 는 지사·대리점 허용목록에 없다(403).
         var canPin = IS_HQ && !!(r.student_uid && String(r.student_uid).trim());
         tags += '<span class="tag hot"' + (canPin
@@ -2589,6 +2592,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       if (r.holiday) act = '<span class="tag">' + esc(T('🎌 Holiday — no class', '🎌 공휴일 휴강')) + '</span>';
       /* ✕ (2026-11-03) 취소된 수업 — 서버가 status='cancelled'·join_open=false 로 보낸다. 줄은 남기고 «취소됨» 을 글자로. */
       if (r.cancelled) act = '<span class="tag hot ta-st">' + esc(T('✕ Cancelled — no class', '✕ 취소됨 — 수업 없음')) + '</span>';
+      /* ⏸ (2026-11-04 매니저 Mai) 다른 날로 연기·변경한 수업 — «원래 날짜» 에 남긴 줄(서버 moved_away). 이 날 이 방에는 수업이 없다.
+         글자는 서버가 만든 것(change.label_*) — manager.html 과 같은 값. */
+      if (r.moved_away) act = '<span class="tag hot ta-st">' + esc(T(((r.change && r.change.label_en) || '⏸ Moved to another day') + ' — no class this day',
+                                                                  ((r.change && r.change.label_ko) || '⏸ 다른 날로 연기됨') + ' — 이 날은 수업 없음')) + '</span>';
       /* 📋 (2026-09-23 매니저 요청) 날짜·강사 입장·결제유형·일정·지난/오늘 평가·출결 — admin.html 「오늘 수업」 표와
          **같은 API·같은 칸**(서버 정본 src/class-today-extras.ts). 모르면 «—». 색이 아니라 글자·이모지로 뜻을 전한다. */
       var hm = function (ts) { try { return new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' }); } catch (e) { return ''; } };
@@ -2622,7 +2629,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         + (chgLine ? esc(T('Cancelled · Postponed: ', '취소 · 연기: ')) + chgLine + '<br>' : '') + ex.join(' · ')
         + '<br>' + esc(T('Last feedback: ', '지난 평가: ')) + ev(r.last_eval)
         + '<br>' + esc(T("Today's feedback: ", '오늘 평가: ')) + ev(r.today_eval) + '</span>';
-      return '<div class="row' + (r.cancelled ? ' ta-cx' : '') + '"><b>' + (r.cancelled ? '<s>' + t + '</s>' : t) + '</b><span class="ta-st">' + who + subLine + exLine + '</span>' + resch
+      return '<div class="row' + ((r.cancelled || r.moved_away) ? ' ta-cx' : '') + '"><b>' + ((r.cancelled || r.moved_away) ? '<s>' + t + '</s>' : t) + '</b><span class="ta-st">' + who + subLine + exLine + '</span>' + resch
            + tea + telLine + tags + act + '</div>';
     }, T('No classes on this date.', '이 날짜에는 수업이 없습니다.'));
     var box = document.getElementById('todayAllBody');
@@ -2713,7 +2720,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       for (var i = 0; i < qs.length; i++) qs[i](got);
     };
     var sc = document.createElement('script');
-    sc.src = '/js/class-move-modal.js?v=16';
+    sc.src = '/js/class-move-modal.js?v=17';
     sc.onload = function(){ done(true); };
     sc.onerror = function(){ done(false); };
     document.head.appendChild(sc);

@@ -96,14 +96,15 @@ function pushBlocks(src) {
   return out;
 }
 const PUSHES = pushBlocks(HANDLER_NC);
-check('① sessions.push 가 두 갈래(망고아이·카페24) 있다', PUSHES.length === 2);
-check('①-a 두 갈래 모두 academy 를 싣는다', PUSHES.length === 2 && PUSHES.every(b => /\bacademy\s*:/.test(b)));
-check('①-b 두 갈래 모두 contact_phone 을 싣는다', PUSHES.length === 2 && PUSHES.every(b => /\bcontact_phone\s*:/.test(b)));
-check('①-c 두 갈래 모두 student_uid(아이디)를 싣는다', PUSHES.length === 2 && PUSHES.every(b => /\bstudent_uid\s*:/.test(b)));
+// ⏸ (2026-11-04) 세 번째 갈래 = «원래 날짜» 칸(moved_away — 다른 날로 연기·변경된 회차). 그 줄도 같은 스코프·같은 칸을 싣는다.
+check('① sessions.push 가 세 갈래(망고아이·카페24·⏸ 원래 날짜 칸) 있다', PUSHES.length === 3 && PUSHES.filter(b => /\bmoved_away:\s*true/.test(b)).length === 1);
+check('①-a 세 갈래 모두 academy 를 싣는다', PUSHES.length === 3 && PUSHES.every(b => /\bacademy\s*:/.test(b)));
+check('①-b 세 갈래 모두 contact_phone 을 싣는다', PUSHES.length === 3 && PUSHES.every(b => /\bcontact_phone\s*:/.test(b)));
+check('①-c 세 갈래 모두 student_uid(아이디)를 싣는다', PUSHES.length === 3 && PUSHES.every(b => /\bstudent_uid\s*:/.test(b)));
 
 // ── ② 학원은 students_erp.shop_name 에서 온다 (두 SELECT 모두) ──────────
 const selCount = (HANDLER_NC.match(/se\.shop_name\s+AS\s+se_shop/g) || []).length;
-check('② 두 조회(망고아이·카페24) 모두 se.shop_name 을 뽑는다', selCount === 2);
+check('② 세 조회(망고아이·카페24·⏸ 원래 날짜 칸) 모두 se.shop_name 을 뽑는다', selCount === 3);
 
 // ── ③ 연락처를 students_erp 의 phone 칸에서 읽지 않는다 ─────────────────
 /*  ⛔ 그 세 칸은 운영 D1 에서 0건이다 — 되살리면 «고쳤는데 안 나온다» 가 된다.
