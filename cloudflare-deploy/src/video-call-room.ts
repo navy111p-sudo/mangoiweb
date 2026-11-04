@@ -1654,11 +1654,19 @@ export class VideoCallRoom {
     return null;
   }
 
+  /** 🔁 (2026-11-04 Karl 재접속 시험 「칠판이 비었다」) 같은 userId 의 소켓이 둘일 수 있다 —
+   *  순단 유예(dropRec)로 물려받을 때는 옛 소켓을 stale- 로 바꾸지 않는데(이미 닫혔다), 닫히는 중/닫힌
+   *  소켓이 getWebSockets() 에 남으면(joinedUsers 주석과 같은 사정) 그쪽이 «먼저» 나온다. 그걸 고르면
+   *  send() 가 readyState 에서 조용히 버려 재입장자가 room-joined·whiteboard-replay 를 못 받는다
+   *  (교재는 HTTP 폴링으로 살아남아 «칠판만 빈» 모양이 된다). → 열린 소켓 먼저, 없으면 예전처럼 첫 번째. */
   private wsOf(userId: string): WebSocket | null {
+    let first: WebSocket | null = null;
     for (const ws of this.state.getWebSockets()) {
-      if (this.attOf(ws)?.userId === userId) return ws;
+      if (this.attOf(ws)?.userId !== userId) continue;
+      if (ws.readyState === WebSocket.OPEN) return ws;
+      if (!first) first = ws;
     }
-    return null;
+    return first;
   }
 
   private send(userId: string, msg: WebSocketMessage): void {
