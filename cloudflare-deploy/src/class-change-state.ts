@@ -43,7 +43,8 @@ export function liveOrCancelledInRangeSql(alias = ''): string {
   return `(COALESCE(${a}status,'active') <> 'cancelled' OR substr(COALESCE(${a}scheduled_date,''),1,10) BETWEEN ? AND ?)`;
 }
 
-export type ClassChangeKind = 'cancelled' | 'postponed' | 'moved';
+/* 'moved_away' (2026-11-04) = «이 날짜에서 다른 날로 옮겨 간» 회차 — 원래 날짜 목록에만 남기는 줄(아래 judgeMovedAway). */
+export type ClassChangeKind = 'cancelled' | 'postponed' | 'moved' | 'moved_away';
 
 export interface ClassChange {
   kind: ClassChangeKind;
@@ -63,6 +64,9 @@ export interface ClassChange {
   label_en: string;
   /** 처리 시각 KST «MM/DD HH:MM» — 없으면 null */
   at_kst: string | null;
+  /** moved_away 일 때 지금 자리(옮겨 간 날짜·시각) — 그 밖에는 없음 */
+  to_date?: string | null;
+  to_time?: string | null;
 }
 
 export interface AuditLite {
@@ -165,4 +169,121 @@ export async function loadClassChangeAudits(db: any, scheduleIds: any[]): Promis
     }
   } catch { complete = false; }
   return { bySchedule, complete };
+}
+
+/* ⏸ «원래 날짜» 에 남기는 줄 (2026-11-04)
+   ═══════════════════════════════════════════════════════════════════════════
+   [왜] 매니저(Mai) «취소·연기를 지우지 말고 칸으로 보여 달라» 의 두 번째 절반. 취소(2026-11-03)는 행이 그 날짜에
+        남아 «✕ 취소됨» 으로 보이는데, 날짜를 정해 연기한 수업(«한 회 뒤로 밀기», «지정한 날짜로 연기», 강사·학생 연기)은
+        **같은 schedule 행을 새 날짜로 옮긴다**(PR #1889 규칙 — 되돌리면 안 됨). 그래서 원래 날짜 목록에서는
+        수업이 «통째로 사라졌다»(D1 행은 새 날짜에 그대로 있다).
+   [무엇] 원래 날짜에 «⏸ 연기됨 → 11/11 15:50» 줄을 «읽기 전용» 으로 돌려준다. 행을 새로 만들지 않는다(D1 쓰기 0).
+   [근거] 둘 다 «옮긴 그 batch 안에서» 함께 저장되는 기록이다 —
+     · schedule_change_requests 승인 행(status='approved', orig_date·orig_time = 접수 때 서버가 적은 원래 자리)
+     · class_audit_log 'postpone'·'reschedule'(lesson_date·lesson_time = 옮기기 전 자리 — class-schedule-move.ts 는 batch 안)
+     ⛔ 'restore' 는 안 읽는다 — «연기 취소» 는 원래 자리로 «돌아온» 것이라 남길 줄이 없다.
+   [규칙]
+     ① **지금 행이 결정한다** — 날짜가 정해진 행(scheduled_date)이고, 그 날짜가 이 날과 «다를 때만».
+        같은 날로 돌아왔으면(되돌림·같은 날 시각만 변경) 줄을 안 만든다(그 행이 그 날 목록에 이미 있다).
+        ⛔ 매주 반복 행(scheduled_date 없음)은 «옮겨 간 회차» 가 아니다 — 그 주 하루 연기는 자리표시 행이 이미 그 날에 있다.
+     ② 글자는 «지금 자리» 로 만든다 — 기록의 new_date 가 아니라(그 뒤 또 옮겼을 수 있다). 늦은 날이면 «⏸ 연기됨 →»,
+        이른 날이면 «📅 앞당김 →»(앞당긴 것을 «연기» 라 부르면 거짓이다). 지금 행이 취소·연기 상태면 그 사실을 덧붙인다.
+     ③ 누가·왜는 본사·내부직원에게만(showActor) — judgeClassChange 와 같은 규칙.
+     ④ 기록이 없으면 줄도 없다 — 지어내지 않는다(옛 요청은 orig_date 가 비어 있을 수 있다).
+   ⛔ 이 줄에는 입장·참관·연기·대체강사·피드백 버튼을 주지 않는다(부르는 쪽이 moved_away:true 로 표시 — 그 방에는 수업이 없다).
+   ⛔ 학생 입장·결석 감지·리마인더·급여는 이 함수를 «안» 읽는다 — 보여 주기 전용이다. */
+
+export interface MovedAwayEvent {
+  schedule_id: string;
+  /** 원래 날짜(YYYY-MM-DD)·시각(HH:MM) */
+  from_date: string;
+  from_time: string | null;
+  at: number | null;
+  by: string | null;
+  reason: string | null;
+}
+
+/** 키 — 한 수업이 한 날짜에서 한 번만 «옮겨 간» 줄을 갖는다. */
+export function movedAwayKey(scheduleId: any, fromDate: string): string {
+  return String(scheduleId) + '|' + String(fromDate);
+}
+
+/** [from, to] 날짜 범위에서 «원래 자리였던» 이동 기록을 모은다. 실패하면 그 근거만 빠지고 complete=false. 던지지 않는다. */
+export async function loadMovedAwayEvents(db: any, fromDate: string, toDate: string): Promise<{ byKey: Map<string, MovedAwayEvent>; complete: boolean }> {
+  const byKey = new Map<string, MovedAwayEvent>();
+  let complete = true;
+  const f = ymd(fromDate), t = ymd(toDate);
+  if (!f || !t || !db) return { byKey, complete: !db ? false : true };
+  const put = (e: MovedAwayEvent) => {
+    if (!e.schedule_id || !/^\d+$/.test(e.schedule_id) || !e.from_date) return;
+    const k = movedAwayKey(e.schedule_id, e.from_date);
+    const old = byKey.get(k);
+    // 같은 자리 기록이 둘이면 «나중 것»(같은 시각이면 누가가 있는 것)
+    if (!old || (Number(e.at) || 0) > (Number(old.at) || 0) || ((Number(e.at) || 0) === (Number(old.at) || 0) && !old.by && e.by)) byKey.set(k, e);
+  };
+  const str = (v: any, n: number) => { const x = String(v ?? '').trim(); return x ? x.slice(0, n) : null; };
+  /* 💰 비용(2026-11-04 함정 대조): orig_date·lesson_date 는 substr 비교라 인덱스를 못 탄다 — 그대로면 «지금까지의 승인·이동
+     전부» 를 매번 훑는다(강사 포털은 자동 새로고침마다). 두 표 모두 (status|action, created_at) 인덱스가 있으므로
+     «원래 날짜보다 400일 넘게 앞서 적힌 기록» 을 잘라 범위 스캔으로 만든다 — 1년 넘게 미리 잡은 연기는 실재하지 않는다. */
+  const since = Date.parse(f + 'T00:00:00+09:00') - 400 * 86400000;
+  /* ⚠️ 잘렸으면 «다 물어봤다» 가 아니다 — LIMIT 을 넘긴 만큼은 줄이 빠지므로 complete=false 로 알린다. */
+  const CAP = 3000;
+  try {
+    const rs: any = await db.prepare(
+      `SELECT schedule_id, orig_date, orig_time, decided_by, decided_at, reason
+         FROM schedule_change_requests
+        WHERE status = 'approved' AND created_at >= ? AND schedule_id IS NOT NULL
+          AND substr(COALESCE(orig_date,''),1,10) BETWEEN ? AND ?
+        LIMIT ${CAP + 1}`
+    ).bind(since, f, t).all();
+    const list: any[] = (rs?.results as any[]) || [];
+    if (list.length > CAP) complete = false;
+    for (const r of list.slice(0, CAP)) {
+      put({ schedule_id: String(r.schedule_id ?? '').trim(), from_date: ymd(r.orig_date), from_time: hhmm(r.orig_time) || null,
+        at: Number(r.decided_at) > 0 ? Number(r.decided_at) : null, by: str(r.decided_by, 80), reason: str(r.reason, 300) });
+    }
+  } catch { complete = false; }
+  try {
+    const acts = MOVE_ACTIONS.map(a => `'${a}'`).join(',');
+    const rs: any = await db.prepare(
+      `SELECT schedule_id, lesson_date, lesson_time, actor, reason, created_at
+         FROM class_audit_log
+        WHERE action IN (${acts}) AND created_at >= ? AND schedule_id IS NOT NULL
+          AND substr(COALESCE(lesson_date,''),1,10) BETWEEN ? AND ?
+        LIMIT ${CAP + 1}`
+    ).bind(since, f, t).all();
+    const list: any[] = (rs?.results as any[]) || [];
+    if (list.length > CAP) complete = false;
+    for (const r of list.slice(0, CAP)) {
+      put({ schedule_id: String(r.schedule_id ?? '').trim(), from_date: ymd(r.lesson_date), from_time: hhmm(r.lesson_time) || null,
+        at: Number(r.created_at) > 0 ? Number(r.created_at) : null, by: str(r.actor, 80), reason: str(r.reason, 300) });
+    }
+  } catch { complete = false; }
+  return { byKey, complete };
+}
+
+/** 원래 날짜(ev.from_date)에 남길 「취소 · 연기」 칸. 남길 것이 없으면 null(규칙 ①~④). */
+export function judgeMovedAway(row: any, ev: MovedAwayEvent | null | undefined, opt: { showActor: boolean }): ClassChange | null {
+  if (!row || !ev) return null;
+  const from = ymd(ev.from_date);
+  const cur = ymd(row.scheduled_date);
+  if (!from || !cur || cur === from) return null;                 // ① 매주 반복 행·아직 그 날에 있는 행은 아니다
+  if (String(row.id ?? ev.schedule_id) !== String(ev.schedule_id)) return null;
+  const curTime = hhmm(row.start_time);
+  const to = cur.slice(5).replace('-', '/') + (curTime ? ' ' + curTime : '');
+  const later = cur > from;
+  let ko = later ? `⏸ 연기됨 → ${to}` : `📅 앞당김 → ${to}`;
+  let en = later ? `⏸ Postponed → ${to}` : `📅 Moved earlier → ${to}`;
+  const st = String(row.status ?? row.sched_status ?? 'active').trim().toLowerCase();
+  if (st === 'cancelled') { ko += ' · 그 뒤 취소됨'; en += ' · later cancelled'; }
+  else if (st === 'postponed') { ko += ' · 그 뒤 다시 연기(날짜 미정)'; en += ' · postponed again (no date)'; }
+  const at = Number(ev.at) > 0 ? Number(ev.at) : null;
+  return {
+    kind: 'moved_away', at,
+    by: (opt.showActor && ev.by) ? String(ev.by).slice(0, 80) : null,
+    reason: (opt.showActor && ev.reason) ? String(ev.reason).slice(0, 300) : null,
+    from_date: from, from_time: hhmm(ev.from_time) || null, via: null,
+    label_ko: ko, label_en: en, at_kst: kstShort(at),
+    to_date: cur, to_time: curTime || null,
+  };
 }

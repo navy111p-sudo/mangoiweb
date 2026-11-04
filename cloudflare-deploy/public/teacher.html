@@ -222,6 +222,8 @@ html[data-t="dark"] .wk-jump input[type="date"]{background:#1b2330;border-color:
 .mo-i.cx{background:#fdecea;border-color:#d92d20;color:#8c1d18;text-decoration:line-through}
 .wk-i.wk-cx{opacity:.6}.wk-i.wk-cx>b{text-decoration:line-through}
 .wk-cx-tag{font-size:11px;font-weight:800;color:#8c1d18;background:#fdecea;border-radius:99px;padding:1px 8px;white-space:nowrap}
+/* ⏸ (2026-11-04) 다른 날로 연기·변경 — «취소» 의 빨강과 갈라 주황으로(연기 .pp 와 같은 결) */
+.wk-cx-tag.wk-mv-tag{color:#8a4b00;background:#fff4e0}
 .mo-more{font-size:11px;color:#64748b;font-weight:700}
 .mo-tip,.cls-cnote{font-size:12.5px;line-height:1.45;color:#6b7783;margin:8px 0 0}
 .cls-cnote{margin:4px 0 8px}
@@ -241,6 +243,7 @@ html[data-t="dark"] .mo-i.lt{background:#123227}
 html[data-t="dark"] .mo-i.pp{background:#1b2330;color:#8a99a8}
 html[data-t="dark"] .mo-i.hol{background:#4a1f1f;color:#fecaca}
 html[data-t="dark"] .mo-i.cx,html[data-t="dark"] .wk-cx-tag{background:#3a201e;color:#f1a49e}
+html[data-t="dark"] .wk-cx-tag.wk-mv-tag{background:#3a2a10;color:#f5c98a}
 html[data-t="dark"] .mo-tip,html[data-t="dark"] .cls-cnote{color:#9dabb9}
 html[data-t="dark"] .wk-nav button{background:#1b2330;border-color:#2c3949;color:#c9d4e0}
 html[data-t="dark"] .wk-day{border-color:#2a3542}
@@ -1998,8 +2001,8 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     if(it.kind!=='class') return '';
     var btn = canWriteWeekFeedback(it) ? '<button type="button" class="tbtn" data-week-eval="'+esc(it.room_id)+'">'+esc(T('Write feedback','피드백 작성'))+'</button>' : '';
     if(btnOnly) return btn;
-    var state=it.class_state==='cancelled'?'cancelled':it.holiday_name?'holiday':it.class_state==='postponed'?'postponed':it.attendance&&it.attendance.state;
-    var labels={attended:['Attended','출석'],late:['Late','지각'],absent:['Absent','결석'],postponed:['Postponed','연기'],cancelled:['Cancelled','취소됨'],holiday:['Holiday','휴강'],waiting:['Waiting','입장 대기'],not_yet:['Upcoming','예정'],unknown:['Check needed','확인 필요'],cafe24:['No attendance record','출결 기록 없음']};
+    var state=it.class_state==='cancelled'?'cancelled':it.class_state==='moved_away'?'moved_away':it.holiday_name?'holiday':it.class_state==='postponed'?'postponed':it.attendance&&it.attendance.state;
+    var labels={attended:['Attended','출석'],late:['Late','지각'],absent:['Absent','결석'],postponed:['Postponed','연기'],moved_away:['No class this day','이 날은 수업 없음'],cancelled:['Cancelled','취소됨'],holiday:['Holiday','휴강'],waiting:['Waiting','입장 대기'],not_yet:['Upcoming','예정'],unknown:['Check needed','확인 필요'],cafe24:['No attendance record','출결 기록 없음']};
     var label=labels[state] || ['Check needed','확인 필요'];
     var ev=it.today_eval;
     return '<span class="wk-record">'+esc(T(label[0],label[1]))+(it.teacher_changed?' · '+esc(T('Teacher changed','강사 변경')):'')+'</span>'
@@ -2009,7 +2012,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
   function canWriteWeekFeedback(it){
     return !!(it && it.kind === 'class' && it.student_uid && it.room_id && it.report_loaded === true
       && !(it.today_eval && it.today_eval.id) && !it.eval_written && !it.holiday_name
-      && it.class_state !== 'postponed' && it.class_state !== 'cancelled'
+      && it.class_state !== 'postponed' && it.class_state !== 'cancelled' && it.class_state !== 'moved_away'
       && Number.isFinite(Number(it.start_ts)) && Number(it.start_ts) > 0 && now() >= Number(it.start_ts));
   }
   document.addEventListener('click',function(e){
@@ -2079,14 +2082,19 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     /* ✕ (2026-11-03 매니저 «취소해도 지우지 말고 상태를 보여 달라») 취소된 회차도 그 자리에 남긴다 — 흐리게·시간 취소선·«취소됨».
        서버가 class_state='cancelled' 로 보낸다(api-teacher.ts calendarItemOf · 정본 class-change-state.ts). */
     var cx = it.class_state === 'cancelled';
-    return '<div class="wk-i' + (cx ? ' wk-cx' : '') + '"' + (dim ? ' style="opacity:.55"' : '') + '>'
+    /* ⏸ (2026-11-04 매니저 Mai «연기해도 지우지 말고») 다른 날로 연기·변경한 회차 — «원래 날짜» 에도 남긴다.
+       서버가 class_state='moved_away' + moved_label_en/ko(«⏸ Postponed → 11/11 15:50»)로 보낸다(정본 class-change-state.ts judgeMovedAway).
+       이 날에는 방이 없다(room_id=null) — 입장·피드백 버튼은 저절로 안 생긴다. */
+    var mv = it.class_state === 'moved_away';
+    return '<div class="wk-i' + ((cx || mv) ? ' wk-cx' : '') + '"' + (dim ? ' style="opacity:.55"' : '') + '>'
       + '<b>' + esc(MangoiClassDisplay.range(it)) + '</b>'
       + (cx ? '<span class="wk-cx-tag">✕ ' + esc(T('Cancelled','취소됨')) + '</span>' : '')
+      + (mv ? '<span class="wk-cx-tag wk-mv-tag">' + esc(T(it.moved_label_en || '⏸ Moved to another day', it.moved_label_ko || '⏸ 다른 날로 옮김')) + '</span>' : '')
       + '<span>' + stuLabelHtml(it, dim ? T('(slot taken)','(점유 슬롯)') : T('(name not set)','(이름 미등록)')) + '</span>'
       + kindPill(it).replace(/^ /, '')
       + portalContact(it)
       + '<span class="wk-record">' + esc(T('Student level','학생 레벨')) + ': ' + esc(it.level || T('Not set','미등록')) + '</span>'
-      + previousLessonHtml(it)
+      + (mv ? '' : previousLessonHtml(it))
       + weekRecordHtml(it)
       + '</div>';
   }
@@ -2347,10 +2355,12 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
   function moItemHtml(it){
     // ✕ (2026-11-03) 취소된 회차 — 빨간 테두리·취소선(.cx), 제목에도 «취소됨». 취소가 휴강·연기보다 먼저(서버와 같은 순서).
     var cx = it.class_state === 'cancelled';
-    var cls = cx ? ' cx' : (it.status === 'holiday' ? ' hol' : (it.class_state === 'postponed' ? ' pp'
+    var mv = it.class_state === 'moved_away';   // ⏸ (2026-11-04) 다른 날로 연기·변경 — 원래 날짜 칸에 «연기됨 → 새 날짜»
+    var cls = cx ? ' cx' : (it.status === 'holiday' ? ' hol' : ((it.class_state === 'postponed' || mv) ? ' pp'
       : (it.kind !== 'class' ? ' dim' : (it.is_level_test ? ' lt' : ''))));
     var who = it.kind !== 'class' ? T('(slot taken)', '(점유 슬롯)') : stuLabelText(it, T('(name not set)', '(이름 미등록)'));
     var note = cx ? ' · ' + T('Cancelled', '취소됨')
+      : mv ? ' · ' + T(it.moved_label_en || '⏸ Moved to another day', it.moved_label_ko || '⏸ 다른 날로 옮김')
       : it.status === 'holiday' ? ' · ' + T('Holiday — no class', '공휴일 휴강')
       : (it.class_state === 'postponed' ? ' · ' + T('Postponed', '연기됨') : (it.is_level_test ? ' · ' + T('Level test', '레벨테스트') : ''));
     return '<span class="mo-i' + cls + '" title="' + esc(MangoiClassDisplay.range(it) + ' · ' + who + note) + '">'
@@ -2384,7 +2394,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
       var items = day.items || [], real = 0, hol = '';
       // 배지 = 그 날 «열리는» 수업 수 — 연기·취소·공휴일 휴강은 안 센다(줄은 회색·빨강으로 그대로 보인다)
       items.forEach(function(it){
-        if (it.kind === 'class' && it.class_state !== 'postponed' && it.class_state !== 'cancelled' && it.status !== 'holiday') real++;
+        if (it.kind === 'class' && it.class_state !== 'postponed' && it.class_state !== 'cancelled' && it.class_state !== 'moved_away' && it.status !== 'holiday') real++;
         if (!hol && it.holiday_name) hol = it.holiday_name;
       });
       var cls = 'mo-c' + (day.is_today ? ' today' : '') + (day.dow === 0 ? ' sun' : (day.dow === 6 ? ' sat' : '')) + (hol ? ' hol' : '');
@@ -2747,6 +2757,8 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
   function stPill(c, live, done, open){
     var st = c.class_state;
     if (st === 'cancelled') return ' <span class="pill p-cancel">' + esc(T('Cancelled','취소됨')) + '</span>';
+    // ⏸ (2026-11-04) 다른 날로 연기·변경 — 원래 날짜에 남긴 줄. 글자는 서버가 만든 것(moved_label_*)
+    if (st === 'moved_away') return ' <span class="pill p-postponed">' + esc(T(c.moved_label_en || '⏸ Moved to another day', c.moved_label_ko || '⏸ 다른 날로 옮김')) + '</span>';
     if (st === 'postponed' && c.holiday_name) return ' <span class="pill p-postponed">' + esc(T('Holiday','공휴일 휴강')) + '</span>';   // 🎌 2026-10-09
     if (st === 'postponed') return ' <span class="pill p-postponed">' + esc(T('Postponed','연기됨')) + '</span>';
     if (st === 'no_show'){
@@ -2888,7 +2900,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
           + ' <span class="pill p-info">' + esc(T('Not a Mangoi class', '망고아이 수업 아님')) + '</span>'
         : '<b>' + stuLabelHtml(c, T('(name not set)','(이름 미등록)')) + '</b>' + kindPill(c);
       var notes = info ? '' : (goalHtml(c) + preqHtml(c) + handoverHtml(c));
-      var rowCls = 'cls-tr' + (c.class_state === 'cancelled' ? ' cls-cancel' : c.class_state === 'postponed' ? ' cls-postponed' : '')
+      var rowCls = 'cls-tr' + (c.class_state === 'cancelled' ? ' cls-cancel' : (c.class_state === 'postponed' || c.class_state === 'moved_away') ? ' cls-postponed' : '')
         + (c.student_elsewhere ? ' cls-away-row' : '') + (info ? ' cls-info' : '');
       var lvl = esc([c.level, c.textbook].filter(Boolean).join(' · ') || D);
       if (opt.daySep) h += clsDaySepHtml(list, i, true);
