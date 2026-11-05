@@ -459,3 +459,28 @@
   } catch (_) { /* 이 절의 어떤 실패도 입장을 막지 않는다 */ }
 })();
 /* ENTRY-FAIL-HELP 끝 */
+
+/* 🔐 홈 ?login=1 — 로그인창을 바로 연다 (2026-11-05)
+ *   A.i 학습 화면의 로그인 안내(js/ai-login-gate.js)와 flow.js 의 recDoLogin 이 이 주소로 보내는데,
+ *   그동안 홈에 받는 곳이 없어 «홈만 뜨고 로그인창은 안 열리는» 상태였다.
+ *   이 파일은 ?v= 없이 홈에 defer 로 실리므로 index.html(공동 금지구역)을 안 건드리고 받을 수 있다.
+ *   ⛔ 홈이 아닌 화면에서는 아무것도 안 한다. 이미 로그인했으면 열지 않고 주소만 정리한다.
+ *   ⛔ login 만 지운다(다른 쿼리·해시 보존). */
+(function () {
+  try {
+    var p = location.pathname;
+    if (p !== '/' && p !== '/index.html') return;
+    var qs = new URLSearchParams(location.search);
+    if (qs.get('login') !== '1') return;
+    qs.delete('login'); qs.delete('next');
+    try { history.replaceState(null, '', p + (qs.toString() ? '?' + qs.toString() : '') + location.hash); } catch (_) {}
+    var logged = false;
+    try { var u = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null'); logged = !!(u && u.uid && !/^(guest|anon)[_-]/i.test(String(u.uid))); } catch (_) {}
+    if (logged) return;
+    var tries = 0;
+    (function open() {
+      if (typeof window.openLoginModal === 'function') { try { window.openLoginModal(); } catch (_) {} return; }
+      if (++tries < 20) setTimeout(open, 250);   // 홈 스크립트가 늦게 서도 5초까지만 기다린다
+    })();
+  } catch (_) {}
+})();
