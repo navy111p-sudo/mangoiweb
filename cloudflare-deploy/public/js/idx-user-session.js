@@ -426,7 +426,7 @@
           || (g.thumbnail_url && g.thumbnail_url.indexOf('/img/gifts/mangoi.svg') >= 0);
         var thumb = isMango
           ? '<div class="ps-thumb ps-thumb-mango"><img src="/img/Mangoi_Character.png" alt="망고아이"></div>'
-          : (g.thumbnail_url ? '<img class="ps-thumb" src="'+escapeLT(g.thumbnail_url)+'" alt="">' :
+          : (g.thumbnail_url ? '<img class="ps-thumb" src="'+escapeLT(g.thumbnail_url + (g.thumbnail_url.indexOf('/img/gifts/') === 0 ? (g.thumbnail_url.indexOf('?') >= 0 ? '&' : '?') + 'v=20261009-brand2' : ''))+'" alt="">' :
              '<div class="ps-thumb ps-thumb-fallback">🎁</div>');
         return '<div class="ps-card">'+
           thumb +
