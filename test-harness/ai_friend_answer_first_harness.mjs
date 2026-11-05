@@ -116,7 +116,11 @@ console.log('\nD. 배선 (api-ai.ts 의 chat-friend 핸들러 «안» 만)');
   const H = s > 0 && e > s ? AI.slice(s, e) : '';
   check('D-1 학생이 물었는지 정본으로 판정한다', /aiFriendStudentAsked\(msg\)/.test(H));
   check('D-2 🔴 물었으면 «먼저 답하라» 를 프롬프트에 넣는다',
-        /answerRule/.test(H) && /Answer it first/.test(H) && /\$\{answerRule\}/.test(H));
+        /answerRule/.test(H) && /Answer it in your FIRST sentence/.test(H) && /\$\{answerRule\}/.test(H));
+  /* 🙋 (2026-11-05) 첫마디 줄과 «먼저 대답» 이 첫 자리를 다퉜다(「What about you?」 대답 4번 중 1번 실측) —
+     «첫마디만 앞에 올 수 있다» 와 «되묻기엔 AI 자신에 대해 답한다» 를 함께 말한다. 실제 지시는 ai_friend_no_repeat_question ③-12 가 읽는다. */
+  check('D-2b 첫마디는 대답 «앞» 에 짧게만 · 「What/How about you?」 는 AI 자신에 대해 답한다',
+        /only the short opener \(if any\) may come before it/.test(H) && /answer that same question about YOURSELF/.test(H));
   check('D-3 ⛔ 되묻기 자체를 없애지 않았다 (기초 학생은 질문이 없으면 대화가 끝난다)',
         /follow-up question/.test(H));
   /* 길이 판정·트리밍이 그 자리를 모르면, 프롬프트가 시킨 대답을 코드가 도로 버린다. */
