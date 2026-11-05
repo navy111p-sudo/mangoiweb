@@ -4521,7 +4521,9 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     /* 📡 live(P2) 는 «첫 호출» 에만 넘긴다 — 재시도까지 흘리면 이미 보낸 문장과 새 답이 뒤섞인다
        (그때는 done 의 replaced:1 로 화면이 정본을 다시 읽는다). 스트림이 안 되면(모델·계정이
        지원 안 함·중간에 끊김) 같은 호출을 «예전 방식» 으로 다시 해 이득만 잃는다. */
-    const runWarmup = async (msgs: any[], temperature: number, live: any = null): Promise<any> => {
+    /* ⚡ overlap(2026-11-06) — 본 호출과 «동시에» 도는 호출(집중교정 다시 묻기)은 그 시간을 여기서 안 더한다.
+       겹친 시간까지 더하면 model_ms 가 전체 ms 보다 커진다 — 안 겹친 나머지는 기다리는 쪽(waitWarmupRecover)이 더한다(AI 친구와 같은 규칙). */
+    const runWarmup = async (msgs: any[], temperature: number, live: any = null, overlap = false): Promise<any> => {
       const mT0 = Date.now();   // ⏱ 실패한 호출도 센다(그 시간도 학생은 기다린다) — finally 인 이유
       latTries++;
       try {
@@ -4543,7 +4545,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         latTries++;
         return await env.AI.run(WARMUP_MODEL, warmupAIOpts(msgs, temperature));
       } finally {
-        latModelMs += Date.now() - mT0;
+        if (!overlap) latModelMs += Date.now() - mT0;
       }
     };
     const takeWarmupReply = (r: any): string => {
@@ -4593,6 +4595,24 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
        🔁 이미 물은 질문(repeatOf)도 멈추되, 시간 예산을 넘긴 턴은 다시 안 뽑으니 멈추지도 않는다. */
     const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput, fragQ, honest: !!honest, focused: honest?.mode === 'focused',
       repeatOf: qmem ? (sen) => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS && repeatedQuestions(sen, qmem).length > 0 : undefined }) : null;
+    /* ⚡ (2026-11-06 사장님 「휴대폰 A.i 말하기 3카드 모두 아바타가 더 빨리」 — 공동 금지구역이라 사장님 승인 «승인할테니 진행해»)
+       집중교정(기본값) «교정만 다시 묻기» 를 본 호출과 «동시에» 시작한다 / start the focused recheck alongside the main call.
+       [왜] 예전에는 본 답이 «다» 만들어진 뒤에 차례로 불렀다 — 집중교정은 미리듣기가 없어 그 시간을 학생이 통째로 기다렸다
+            (D1 warmup_fix_trace 7일: 집중교정 137턴 중 101턴이 «교정 없음» = 이 호출이 붙는 갈래 · ai_latency_log: 모델 두 번 턴이 +2.6초).
+       ⚠️ 쓰는 «순서» 는 그대로다(모델 교정 → 과거형 보완 → 답장 속 «You can say» → 이것). 과거형 보완이 잡는 문장이면 시작하지 않는다.
+          모델이 교정을 주면 결과를 버린다(짧은 JSON 호출 하나와 바꾼 기다림 — AI 친구 api-ai.ts focusedRecoverP 와 같은 결정).
+       ⚠️ 본 호출이 «먼저» 나가게 한 박자(마이크로태스크) 뒤에 시작한다 — 아래 try 가 await 없이 곧장 env.AI.run 을 부르므로 그다음 차례에 돈다.
+          가짜 모델 하니스들이 «첫 호출 = 대화 답» 으로 대본을 짜 두었다(CLAUDE.md 2장 «새 모델 호출을 더하면 대본이 한 칸 밀립니다»).
+       ⛔ 던지지 않는다 — recoverFocusedFix 가 스스로 삼키고 .catch 로 한 번 더 막는다(실패 = 교정 없음 = 예전과 같은 방향). */
+    const warmupRecoverP: Promise<any> | null =
+      (honest?.mode === 'focused' && !focusedCandidate(backfillPastTenseFix(studentInput), studentInput))
+        ? Promise.resolve().then(() => recoverFocusedFix(studentInput, (msgs) => runWarmup(msgs, 0.2, null, true))).catch(() => null)
+        : null;
+    const waitWarmupRecover = async (): Promise<any> => {
+      if (!warmupRecoverP) return await recoverFocusedFix(studentInput, (msgs) => runWarmup(msgs, 0.2));
+      const w0 = Date.now();
+      try { return await warmupRecoverP; } finally { latModelMs += Date.now() - w0; }
+    };
     try {
       const result: any = await runWarmup(messages, 0.7, live);
       aiText = takeWarmupReply(result); commitFix();
@@ -4623,7 +4643,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         focusedFix = focusedCandidate(rawFix, studentInput)
           || focusedCandidate(backfillPastTenseFix(studentInput), studentInput)
           || focusedReplyFix(aiText, studentInput)
-          || await recoverFocusedFix(studentInput, (msgs) => runWarmup(msgs, 0.2));
+          || await waitWarmupRecover();   // ⚡ 위에서 미리 시작한 다시 묻기(안 겹친 나머지만 기다림)
         if (focusedFix) { rawFix = focusedFix; aiText = focusedFix.now; }
       }
       // A correction is deliberately repeated later; it is not a new topic question.

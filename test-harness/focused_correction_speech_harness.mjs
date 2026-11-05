@@ -282,9 +282,9 @@ for (const kind of ['avatar', 'friend']) for (const mode of ['focused', 'balance
         assert.equal(spoken, H.ensureFocusedFixSpoken(question, mode, 'partial', routeFix));
         assert.equal(events.filter(e => e.t).length, 0);
         const needsCheck = ['omitted', 'invalid'].includes(variant);
-        /* ⚡ (2026-11-06) A.i 친구는 다시 묻기를 본 호출과 «동시에» 미리 시작한다(api-ai.ts focusedRecoverP) —
-           모델이 교정을 줘서 결과를 안 쓰는 턴에도 한 번은 불린다(호출 하나와 바꾼 기다림). 웜업(avatar)은 예전대로 «필요할 때만». */
-        const startsEarly = kind === 'friend';
+        /* ⚡ (2026-11-06) 다시 묻기를 본 호출과 «동시에» 미리 시작한다 — A.i 친구(api-ai.ts focusedRecoverP)·웜업(index.ts warmupRecoverP) 둘 다.
+           모델이 교정을 줘서 결과를 안 쓰는 턴에도 한 번은 불린다(호출 하나와 바꾼 기다림). */
+        const startsEarly = true;
         assert.equal(rechecks, needsCheck || startsEarly ? 1 : 0);
         assert.equal(modelCalls, needsCheck || startsEarly ? 2 : 1);
       } else if (mode === 'focused') {
