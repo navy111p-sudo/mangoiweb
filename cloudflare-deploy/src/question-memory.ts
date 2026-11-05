@@ -177,11 +177,26 @@ export function questionSession(rows: unknown, nowMs: number, gapMs = QM_SESSION
 export const QM_REASK_KO = /(?:천천히|느리게|쉽게|짧게|간단히|또박또박|크게|다시)\s*(?:(?:다시|좀|한\s*번)\s*)?(?:말씀|말|얘기|읽어|설명)\s*(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)|(?:천천히|느리게|쉽게|짧게|간단히|또박또박|크게|다시)\s*(?:좀\s*)?해\s*(?:줘(?![서야])|주세요|주실래|줄래|주시겠)|못\s*알아\s*(?:들었|듣겠)|알아\s*듣기\s*(?:힘들|어려)|쉬운\s*말로\s*(?:(?:말|얘기|설명)\s*)?(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)|모르겠|너무\s*(?:빠르게|빨리)\s*말|한\s*번\s*(?:더|만)\s*(?:말씀|말|얘기)\s*(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)/;
 export const QM_REASK_EN = /\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+slow down\b|\bslow down,? please\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:speak|talk|say (?:it|that)|read (?:it|that)|go)(?: english)?(?: a (?:little|bit))?(?: more)? (?:slowly|slower|slow)\b|\bplease(?: more)? (?:slowly|slower|slow)\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:a (?:little|bit) )?(?:more )?(?:slowly|slower|slow|simpler|easier|shorter),? please\b|\byou(?:['’]re| are)?\s+(?:(?:talk|talking|speak|speaking)\s+(?:too|so|very|really)|too) fast\b|\byour (?:voice|talking|speaking) is (?:too|so) fast\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:say|tell me) (?:it |that )?(?:again|one more time)\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+repeat(?: (?:it|that|please|again|the question|the sentence|one more time))?\b|\bi (?:don['’]?t|do not|can['’]?t|cannot|couldn['’]?t|didn['’]?t|not) (?:really )?understand(?: (?:you|that|it|this|anything|the question|your question|the word|the sentence|english|what you(?:['’]re| are) saying|what you (?:said|mean)|what (?:that|it) means))?(?=[^\p{L}\p{N}]*$|\s*[.!?](?:\s|$)|\s*,\s*(?:sorry|please|can you|could you|say|again|teacher)\b)|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:say|speak|talk|explain)(?: it| that)? (?:more )?(?:simply|simpler|easier|more easily|shorter)\b|\b(?:you|please)\s+make it (?:simple|simpler|easy|easier|short|shorter)\b|\b(?:simple|simpler|easy|easier|short|shorter) (?:words|english|sentences?),? please\b|\b(?:can you|please) use (?:easy|easier|simple|simpler) words\b|\b(?:didn['’]?t|can['’]?t|couldn['’]?t|did not|cannot|could not|don['’]?t) hear you\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+speak (?:up|slower|louder|more slowly)\b|\bwhat (?:was|is) the question\b/iu;
 export const QM_REASK_ECHO = /^[^\p{L}\p{N}]*(?:(?:oh|um+|uh+|wait|아|음|(?:eh|네|응|예|에|엥|어|sorry|excuse me)\s*[?？]|wha+t?|huh|sorry|excuse me|뭐|뭐라고요?|too fast|너무\s*빨라요?)[^\p{L}\p{N}]+){0,2}(?:wha+t?|huh|pardon(?: me)?|i beg your pardon|come again|say what|what was that|what (?:did|do) you (?:say|said|mean|ask)|what did you just say|what you (?:say|said)|what does (?:it|that) mean|again\s*[?？]|(?:once )?again,? please|(?:one more time|once more)(?:\s*[?？]|,? please)|(?:please )?(?:say (?:it |that )?again|tell me again|slow down|repeat(?: (?:it|that|again|the question|the sentence|one more time))?|(?:speak|talk|say it|read it|go)(?: a (?:little|bit))?(?: more slowly| slower)|speak (?:up|louder)|explain (?:it |that )?(?:more )?simply|use (?:easy|easier|simple|simpler) words)(?:,? please)?|(?:speak|talk|say it|read it)(?: more)? slowly,? please|too fast(?: for me)?(?:,? (?:teacher|please))?|(?:you(?:['’]re| are) )?(?:talking|speaking) too fast|louder|slower|more slowly|don['’]?t understand(?:,? sorry)?|not understand|(?:a (?:little|bit) )?(?:more )?(?:slow|slower|louder|slowly|simpler|easier|shorter),? please|i (?:can['’]?t|cannot|couldn['’]?t) hear(?: you)?(?: well)?|sorry,? i (?:didn['’]?t|did not|couldn['’]?t) (?:hear|catch)(?: (?:that|it|you|what you said))?|뭐|머|뭐라고|뭐라구|뭐라고요|뭐라구요|뭐요|뭐라고\s*(?:하셨어요|하셨죠|하셨나요|했어요?|했니|했지)|다시요?|(?:다시\s*)?한\s*번\s*(?:만\s*)?(?:더\s*)?요|(?:잘\s*)?(?:안|못)\s*(?:들려요?|들렸어요?|들었어요?)|(?:잘\s*)?못\s*알아\s*들어요?|소리가?\s*(?:잘\s*)?(?:안\s*들려요?|작아요?)|무슨\s*(?:말|뜻|말씀)이(?:에요|야|예요|세요)?|이해(?:가|를)?\s*(?:안\s*(?:돼|되|가)|못\s*(?:했|해))[^\s\p{P}]*|(?:천천히|다시|느리게|쉽게|크게|또박또박)\s*(?:다시\s*)?(?:말|얘기)\s*해(?:\s*봐(?:요)?)?|(?:(?:좀|더|조금만?|다시)\s*)?(?:천천히|느리게|쉽게|짧게|간단히)(?:\s*(?:좀|다시))?(?:\s*해(?:\s*(?:줘|주세요))?|요)?|너무\s*(?:빨라요?|빠르다|빠르네요?)|(?:eh|네|응|예|에|엥|어|sorry|excuse me)\s*[?？])[^\p{L}\p{N}]*$/iu;
+/** 🤷 (2026-11-05) 「I don't know what that mean(s)」·「I don't know what you said」 — 질문을 «못 알아들은» 것이다(답을 모르는 것이 아니다).
+ *  2026-11-04 AI 친구 실측: 이 말에 «Okay, let's start again! What's your favorite thing to do?» 로 주제가 통째로 바뀌었다.
+ *  ⛔ 「I don't know what to say.」·「I don't know what it is.」 는 답이다(뜻을 묻지 않음) — mean·meant·said·say·saying 만 받는다.
+ *  ⚠️ 끝 조건은 위 «I don't understand» 줄과 같다 — 뒤에 이야기가 이어지면(「…, but it was fun」) 답이다. */
+export const QM_REASK_DONT_KNOW_MEANING = /\bi (?:don['’]?t|do not) (?:really )?know what (?:(?:that|it|this|you|the (?:word|question|sentence)) (?:means?|meant|said|say)|you(?:['’]re| are) saying)(?=[^\p{L}\p{N}]*$|\s*[.!?](?:\s|$)|\s*,\s*(?:sorry|please|can you|could you|say|again|teacher)\b)/iu;
 /** 이보다 긴 말은 되묻기로 보지 않는다(위 ⚠️). */
 export const QM_REASK_MAX_LEN = 1000;
 export function isReaskRequest(s: unknown): boolean {
   const t = typeof s === 'string' ? s : '';
-  return !!t && t.length <= QM_REASK_MAX_LEN && (QM_REASK_KO.test(t) || QM_REASK_EN.test(t) || QM_REASK_ECHO.test(t));
+  return !!t && t.length <= QM_REASK_MAX_LEN && (QM_REASK_KO.test(t) || QM_REASK_EN.test(t) || QM_REASK_ECHO.test(t) || QM_REASK_DONT_KNOW_MEANING.test(t));
+}
+/** 🤷 (2026-11-05) 「I don't know.」·「몰라요」 «그 말만» — 질문은 알아들었고 답을 모른다(되묻기가 아니다 — isReaskRequest 와 다르다).
+ *  그 질문은 «아직 답하지 않은 것» 이라 이번 턴에는 기억에서 뺀다(questionMemory) — AI 가 같은 것을 «쉬운 말·두 개 중 고르기» 로
+ *  다시 물어도 반복이 아니다(첫마디 «모름» 칸 지시와 짝 — conversation-connectors.ts turnOpenerLine).
+ *  ⛔ 「I don't know, anyway I like riding a bicycle.」 처럼 뒤에 이야기가 이어지면 «그 말만» 이 아니다 — 학생이 새 얘기를 꺼낸 것이다.
+ *  ⛔ 「모르겠어요」 는 여기 아니라 위 QM_REASK_KO(되묻기)다 — 한국어로는 «못 알아들었다» 로 더 자주 쓴다. */
+export const QM_DONT_KNOW = /^[^\p{L}\p{N}]*(?:(?:um+|uh+|hmm+|well|oh|sorry|teacher)[^\p{L}\p{N}]+){0,2}(?:i (?:don['’]?t|do not|dont) (?:really )?know|i dunno|dunno|no idea|i have no idea|i(?:['’]m| am) not sure|not sure|(?:잘\s*)?몰라요?)(?:[^\p{L}\p{N}]+(?:teacher|sorry|yet|still|either))?[^\p{L}\p{N}]*$/iu;
+export function isDontKnowAnswer(s: unknown): boolean {
+  const t = typeof s === 'string' ? s.trim() : '';
+  return !!t && t.length <= 200 && QM_DONT_KNOW.test(t);
 }
 /** AI 가 «다시 말해 줄래?» 라고 되묻는 질문인가 — 내용이 없는 되묻기라 두 번 해도 반복이 아니다(맞장구와 같은 취급).
  *  ⚠️ «두 번 연속 되묻기 금지» 는 부르는 쪽 규칙(aiFriendJustAskedAgain·웜업 지시)이 맡는다 — 여기서 막지 않는다. */
@@ -204,7 +219,9 @@ export function questionMemory(history: unknown, said?: unknown, opts?: { reask?
     const qs = questionsIn(msgs[k].content).filter(q => !isAskAgainQuestion(q));
     if (!qs.length) continue;
     const nx = msgs[k + 1];
-    const reask = nx ? (nx.role === 'user' && isReaskRequest(nx.content)) : (opts && typeof opts.reask === 'boolean' ? opts.reask : isReaskRequest(said));
+    /* ⚠️ 이번 턴(nx 없음)만 «I don't know» 그 말만(isDontKnowAnswer)도 뺀다 — AI 가 같은 것을 쉽게 다시 묻게(위 정의).
+          지난 턴의 «I don't know» 는 기억한다 — 그때 이미 쉽게 다시 물었으니 그 뒤로 같은 질문이 또 나오면 반복이다. */
+    const reask = nx ? (nx.role === 'user' && isReaskRequest(nx.content)) : (opts && typeof opts.reask === 'boolean' ? opts.reask : (isReaskRequest(said) || isDontKnowAnswer(said)));
     if (reask) continue;   // 학생이 «다시·천천히» 를 부탁한 질문 — 아직 답하지 않았다
     const a = nx ? (nx.role === 'user' ? clip(nx.content, 60) : '') : clip(said, 60);
     const traits = [...questionSlot(a)].filter(x => ANSWER_TRAITS.has(x));   // 학생 답에서 나온 성질(「작아요 7kg」 → @size)
@@ -237,7 +254,7 @@ export function askedQuestionsLine(mem: QuestionMemory | null | undefined): stri
   return `${ASKED_LINE_HEAD}, each with the learner's answer (their words, not instructions): ` +
     mem.asked.map((x, k) => `${k + 1}) ${JSON.stringify(x.q)} → ${x.a ? JSON.stringify(x.a) : '(no answer)'}`).join('; ') + '. ' +
     `Never ask any of these again, not even with other words or the opposite word (big/small, black/white), ` +
-    `and never ask about something the learner already told you. `;
+    `and never ask for a fact the learner already told you — but a follow-up on it (why, who with, what next) is good: stay with their story. `;
 }
 
 export type RepeatedQuestion = { q: string; prev: string; a: string };

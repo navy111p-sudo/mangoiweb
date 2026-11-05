@@ -346,8 +346,10 @@ console.log('⑧ 이번 턴 첫마디');
   ok(clash.length === 0, '고른 첫마디가 «최근 시작 말» 과 안 겹친다 — 「다르게 시작해」 줄과 서로 다른 말을 하지 않는다', clash.slice(0, 3));
   ok(disobeyTried > 0 && disobeyFixed === disobeyTried, '모델이 한 번 어기면 다음 턴에 바로 다시 싣는다(스스로 맞춰진다)', [disobeyFixed, disobeyTried]);
   { const lines = new Set(); let btw = 0, any = 0;
-    for (let i = 0; i < 300; i++) { const l = C.turnOpenerLine([{ role: 'assistant', content: 'Plain ' + i + '. Do you like it?' }]); lines.add(quoted(l).filter((x) => ALL.includes(x)).join('|')); if (/start it with "By the way,"/.test(l)) btw++; if (/with "Anyway,"/.test(l)) any++; }
-    ok(lines.size >= 4 && btw > 30 && btw < 200 && any === 300, '후보가 돌아가며 바뀌고, By the way 는 «새 질문으로 넘어갈 때만» 가끔(약 1/3), Anyway 는 «모르겠다» 칸에 늘 있다', { combos: lines.size, btw, any }); }
+    for (let i = 0; i < 300; i++) { const l = C.turnOpenerLine([{ role: 'assistant', content: 'Plain ' + i + '. Do you like it?' }]); lines.add(quoted(l).filter((x) => ALL.includes(x)).join('|')); if (/If their story is done and you ask about something new, start it with "By the way,"/.test(l)) btw++; if (/"I don't know" or confused: [^;]*, then ask it again more easily \(two choices\)/.test(l) && !/start your next question with "Anyway,"/.test(l)) any++; }
+    /* 🧭 (2026-11-05) «모름» 칸은 «Anyway, 다음 질문» 이 아니라 «같은 것을 쉽게·두 개 중 고르기로» — 옛 문구는 모르는 학생을 새 주제로 넘겼다(AI 친구 실측).
+       By the way 는 «주제를 바꾸려고 쓰지 마» 를 먼저 말한다. 옛 문구로 되돌리면 any 가 0 이 된다. */
+    ok(lines.size >= 4 && btw > 30 && btw < 200 && any === 300, '후보가 돌아가며 바뀌고, By the way 는 «주제를 바꾸려고 쓰지 말고» 새 질문으로 넘어갈 때만 가끔(약 1/3), «모르겠다» 칸은 늘 «같은 것을 쉽게 다시» 다', { combos: lines.size, btw, any }); }
     { const l = C.turnOpenerLine([{ role: 'assistant', content: 'Plain 1. Do you like it?' }]);
       ok(/Sad or hard news: .*good or fun news: .*something surprising: .*a short answer or plain information: .*If none fits, use another short one with the same feeling\./.test(l),
         '«문맥에 맞게» — 좋은 소식·놀라운 말·평범한 정보를 «뜻으로» 나눠 주고, 딱 맞는 것이 없으면 같은 느낌의 다른 말을 허락한다', l); }
