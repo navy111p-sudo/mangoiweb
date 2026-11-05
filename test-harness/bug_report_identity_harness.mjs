@@ -30,7 +30,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-const SRC = process.env.BUG_SRC_FILE || join(__dir, '../cloudflare-deploy/src/api-admin.ts');
+const SRC = process.env.BUG_SRC_FILE || join(__dir, '../cloudflare-deploy/src/api-admin-bug-reports.ts');
 const JS = process.env.BUG_JS_FILE || join(__dir, '../cloudflare-deploy/public/js/adm-bugreports.js');
 const src = readFileSync(SRC, 'utf8');
 const js = readFileSync(JS, 'utf8');

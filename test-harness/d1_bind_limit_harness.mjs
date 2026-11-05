@@ -1,5 +1,5 @@
 // -*- coding: utf-8 -*-
-// 🔢 D1 바인드 파라미터 100개 한도 하니스 (의존성 없음 · node 로 바로 실행)
+// 🔢 D1 바인드 파라미터 100개 한도 하니스 (소스 검사에 프로젝트 TypeScript 파서 사용)
 //   실행:  node test-harness/d1_bind_limit_harness.mjs
 //   대상:  cloudflare-deploy/src/d1-chunk.ts (순수 모듈 — 가짜 D1 로 실제 실행)
 //
@@ -21,11 +21,27 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const SRC = resolve(__dir, '../cloudflare-deploy/src');
 const M = await import(pathToFileURL(join(SRC, 'd1-chunk.ts')).href);
 const { chunkBinds, selectInChunks, runInChunks, franchiseInClause, D1_MAX_BIND } = M;
+const ts = createRequire(import.meta.url)('../cloudflare-deploy/node_modules/typescript');
+
+function placeholderBuilderCount(source) {
+  const parsed = ts.createSourceFile('query-builders.ts', source, ts.ScriptTarget.Latest, true);
+  let count = 0;
+  function visit(node) {
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'map') {
+      const callback = node.arguments[0];
+      if (callback && ts.isArrowFunction(callback) && callback.parameters.length === 0 && ts.isStringLiteral(callback.body) && callback.body.text === '?') count++;
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(parsed);
+  return count;
+}
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond, extra) {
@@ -163,7 +179,12 @@ console.log('\nG. 회귀 감시 — src 의 손수 만든 IN 목록');
   // 아래는 «상한이 코드로 확실히 묶여 있어» 100개를 넘을 수 없는 곳들.
   // 새 항목을 여기 넣을 땐 왜 안전한지(상한이 어디서 걸리는지)를 반드시 적을 것.
   const ALLOW = {
-    'api-admin.ts': '강사 1명의 하루치 room_id / 요일 폼(최대 7) — 하루 수업 수로 상한',
+    // Existing builders moved out of api-admin.ts; both lists are code constants.
+    'api-admin-leveltest.ts': 'DOW_FORMS의 요일 표기 상수 배열 — 사용자 입력으로 늘지 않음',
+    'api-admin-organizations.ts': 'HQ_FIELDS 고정 9개 컬럼 + 생성/수정 시각 2개 — INSERT 바인드 11개',
+    'api-admin-class-monitor.ts': 'classesNowScanDates가 만든 짧은 조회 날짜 창 — classes_now_mangoi_harness가 경계 검사',
+    'api-admin-school-attendance.ts': 'GHOST_SHOPS 고정 4개 제외 목록 — 사용자 입력으로 늘지 않음',
+    'api-admin-scheduling.ts': 'UIDS는 lms/type_seed 고정 1~2개 제외 목록 — 사용자 입력으로 늘지 않음',
     'api-ai.ts': '바로 위 쿼리가 LIMIT 10',
     'api-mango.ts': '학생 1명의 이름 후보 4개(student_name·korean_name·english_name·username)',
     'index.ts': 'keys.slice(0, 50)',
@@ -187,10 +208,16 @@ console.log('\nG. 회귀 감시 — src 의 손수 만든 IN 목록');
     'api-teacher.ts': '로그인한 강사 본인의 teachers.id 후보(보통 0~1개) + username 1개 — teachers 표 전체가 100행 미만',
   };
   const offenders = [];
+  // A relocation must not silently allow additional builders in the new files.
+  const movedBuilderLimits = { 'api-admin-leveltest.ts': 1, 'api-admin-organizations.ts': 1, 'api-admin-class-monitor.ts': 1, 'api-admin-school-attendance.ts': 2, 'api-admin-scheduling.ts': 1 };
+  check('실제 placeholder 빌더를 센다', placeholderBuilderCount("const ph = ids.map(() => '?').join(',');") === 1);
+  check('큰따옴표 빌더도 센다', placeholderBuilderCount('const ph = ids.map(() => "?").join(",");') === 1);
+  check('주석·예제 문자열은 실행 코드로 세지 않는다', placeholderBuilderCount("// ids.map(() => '?')\nconst example = \"ids.map(() => '?')\";") === 0);
+  check('다른 값을 만드는 map은 placeholder 빌더가 아니다', placeholderBuilderCount("ids.map(() => 'name')") === 0);
   for (const f of readdirSync(SRC).filter(x => x.endsWith('.ts'))) {
     const body = readFileSync(join(SRC, f), 'utf8');
-    const hits = (body.match(/map\(\(\)\s*=>\s*'\?'\)/g) || []).length;
-    if (hits && !ALLOW[f]) offenders.push(`${f}(${hits})`);
+    const hits = placeholderBuilderCount(body);
+    if (hits && (!ALLOW[f] || hits > (movedBuilderLimits[f] ?? Infinity))) offenders.push(`${f}(${hits})`);
   }
   check('허용목록에 없는 새 IN 목록 없음', offenders.length === 0,
     offenders.length ? '새로 생김: ' + offenders.join(', ') + ' → selectInChunks 를 쓰거나 상한 근거를 ALLOW 에 적으세요' : '');

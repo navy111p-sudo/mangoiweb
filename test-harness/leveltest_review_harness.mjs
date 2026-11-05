@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /* ═══════════════════════════════════════════════════════════════════════
    📘 leveltest_review_harness — 레벨테스트 «틀린 문제 다시 보기»
 
@@ -133,7 +134,7 @@ try {
 /* ══════════ ② 문항은행을 «소스에서 오려 내» 쓴다 ══════════
    ⛔ 24문항을 하니스에 베껴 적지 않는다 — 문항이 바뀌면 그 복제가 조용히 낡는다. */
 console.log('\n② 문항은행을 소스에서 오려 낸다 (api-admin.ts 의 CEFR_BANK)');
-const adminSrc = SRC(ADMIN_SRC);
+const adminSrc = readAdminSourceFromFile(path.isAbsolute(ADMIN_SRC) ? ADMIN_SRC : path.join(ROOT, 'cloudflare-deploy', ADMIN_SRC));
 let BANK = null;
 try {
   const at = adminSrc.indexOf('const CEFR_BANK');

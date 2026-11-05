@@ -43,6 +43,25 @@ export function adminSrcFromFile(file) {
   return adminSrc({ 'api-admin.ts': readFileSync(path, 'utf8') }, dirname(path));
 }
 
+/** Select an executable route by its condition, never by a neighbouring comment.
+ * Missing or ambiguous routes fail rather than silently testing the wrong body.
+ */
+export function adminIfStatement(source, matches) {
+  const ts = createRequire(import.meta.url)('../cloudflare-deploy/node_modules/typescript');
+  const parsed = ts.createSourceFile('admin-graph.ts', source, ts.ScriptTarget.Latest, true);
+  const found = [];
+  function visit(node) {
+    if (ts.isIfStatement(node) && matches(node.expression.getText(parsed))) {
+      found.push(node.getText(parsed));
+      return;
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(parsed);
+  if (found.length !== 1) throw Error(`Expected exactly one admin route, found ${found.length}`);
+  return found[0];
+}
+
 export function allSrc() {
   try {
     return readdirSync(SRC_DIR)

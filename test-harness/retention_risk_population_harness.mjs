@@ -37,7 +37,7 @@ const _toUrl = (code) => 'data:text/javascript;base64,' + Buffer.from(code).toSt
 const _FD_URL = _toUrl(stripTypeScriptTypes(rd(resolve(SRC, 'forecast-dashboard.ts'))));
 const CC = await import(_toUrl(stripTypeScriptTypes(rd(resolve(SRC, 'care-contact.ts'))).replace(`'./forecast-dashboard'`, JSON.stringify(_FD_URL))));
 
-const adminSrc = rd(process.env.RISK_SRC || resolve(SRC, 'api-admin.ts'));
+const adminSrc = rd(process.env.RISK_SRC || resolve(SRC, 'api-admin-retention.ts'));
 const ANCHOR = "if (method === 'GET' && path === '/api/admin/retention/risk') {";
 const at = adminSrc.indexOf(ANCHOR);
 let block = '';

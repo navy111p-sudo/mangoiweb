@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /**
  * 📦 퇴사·비활동 강사의 «남은 수업 넘기기» + 🙈 숨긴 계정의 카페24 줄 표시 (2026-11-05)
  *
@@ -329,7 +330,7 @@ if (process.env.TCT_CHILD === '1') {
 let pass = 0, fail = 0;
 const ok = (name, cond, extra) => { if (cond) { pass++; console.log('PASS ' + name); } else { fail++; console.log('FAIL ' + name + (extra !== undefined ? ' — ' + extra : '')); } };
 const rd = p => readFileSync(join(ROOT, 'cloudflare-deploy', p), 'utf8');
-const admin = strip(rd('src/api-admin.ts'));
+const admin = strip(readAdminModuleGraph(file => rd('src/' + file)));
 // D1 라우트: teacher-profiles/:id 블록 «안» 에서 POST 를 정본으로 넘긴다
 const tpAt = admin.indexOf("const tpMatch = path.match(/^\\/api\\/admin\\/teacher-profiles\\/(\\d+)$/);");
 const tpBlock = tpAt >= 0 ? block(admin, admin.indexOf('if (tpMatch)', tpAt)) : '';
