@@ -232,7 +232,7 @@ ok('지연 기록에 글(본문)은 안 싣고 길이만', /chars:/.test(lwBody)
 /* ═══════════════ C. 화면 — 오려 내 실제로 돌린다 ═══════════════ */
 console.log('\n[C] 화면');
 const H = HTML;
-const names = ['_stopSpeak', '_stmWanted', '_speakLive', '_stmEnd', '_stmShow', '_stmDrop', '_stmSentence', '_stmRead', '_stmTurn'];
+const names = ['_stopSpeak', '_stmWanted', '_speakLive', '_stmEnd', '_stmShow', '_stmDrop', '_stmRest', '_stmSentence', '_stmRead', '_stmTurn'];
 const parts = {};
 for (const n of names) { parts[n] = fnSrc(H, n); ok('전제: ' + n + ' 를 오려 냈다', parts[n].length > 20); }
 
@@ -244,12 +244,13 @@ function sandbox() {
     var _speakSeq=0, _ttsCache={}, _ttsEng={}, _mixIdx=0, _warmPaused=false, _warmEpoch=1, _speechOn=true, _latCur=null;
     var _ttsAudio=null, window={ ReadableStream:ReadableStream, TextDecoder:TextDecoder }, _speakLiveNext=null, _stmCur=null, _addMsgQuiet=false, location={search:''};
     var localStorage={getItem:function(){return null;}};
+    function warmThought(show){ C.thinking=show; }
     var ZHMALE=false; function _zhMaleWanted(){ return ZHMALE; }
     function mkEl(){ var e={ children:[], className:'', innerHTML:'', removed:false, remove:function(){ e.removed=true; },
       appendChild:function(c){ e.children.push(c); }, querySelector:function(){ return { set innerHTML(v){ e.text=v; } }; } }; return e; }
     var document={ createElement:function(){ return mkEl(); } };
     var log=mkEl(); log.scrollTop=0; log.scrollHeight=0;
-    function escapeHtml(s){ return String(s); } function renderMsg(s){ return String(s); }
+    function escapeHtml(s){ return String(s); } function renderAiMsg(s){ return String(s); }
     function _speechText(s){ return String(s).trim(); }
     function _friendLabelNow(){ return 'Emma'; }
     function _enMaleGapMs(){ return 0; }
@@ -332,6 +333,16 @@ if (S) {
   ok('번갈아 모드: 말풍선 뒤 차례 번호를 «읽은 뒤» 값으로 복원', t.s.api.mix === 1);
   t = await runTurn([{ t: 'Do you like balls?' }, { done: 1, ok: true, status: 200, ai_response: 'Do you like dogs?', replaced: 1 }]);
   ok('(짝) 정본이 달라졌으면 멈추고 정본을 처음부터 읽는다', t.s.calls.addMsg.length === 1 && t.s.calls.addMsg[0].quiet === false && t.s.calls.speak.length === 2 && t.s.calls.speak[1] === 'Do you like dogs?', JSON.stringify(t.s.calls.speak));
+  /* ⚡ (2026-11-05) 미리듣기를 멈췄는데 다시 뽑지 않은 턴 — 정본이 «읽은 것 + 나머지» 면 나머지만 이어 읽는다(처음부터 다시 읽지 않음) */
+  t = await runTurn([{ t: 'Wow, pizza!' }, { done: 1, ok: true, status: 200, ai_response: 'Wow,  pizza! Do you like cheese?', replaced: 1, halted: 'repeat' }]);
+  t.s.calls.pending.splice(0).forEach((f) => f());
+  ok('정본이 «읽은 것 + 나머지» 면 처음부터 다시 읽지 않고 나머지만 이어 읽는다', t.s.calls.speak.length === 1 && t.s.calls.addMsg.length === 1 && t.s.calls.addMsg[0].quiet === true
+    && JSON.stringify(t.s.calls.play) === JSON.stringify(['Wow, pizza!', 'Do you like cheese?']), JSON.stringify({ speak: t.s.calls.speak, play: t.s.calls.play }));
+  t.s.calls.pending.splice(0).forEach((f) => f());
+  ok('이어 읽은 뒤 «다 읽었다» 를 한 번 알린다(자동 말하기가 그때 마이크를 연다)', t.s.api.done === 1, t.s.api.done);
+  t = await runTurn([{ t: 'Wow, pizza!' }, { done: 1, ok: true, status: 200, ai_response: 'Wow, pizza!', replaced: 1 }]);
+  t.s.calls.pending.splice(0).forEach((f) => f());
+  ok('(짝) 공백만 다른 같은 답이면 덧붙일 것 없이 끝낸다', t.s.calls.speak.length === 1 && t.s.calls.play.length === 1 && t.s.api.done === 1, JSON.stringify(t.s.calls.play));
   t = await runTurn([{ done: 1, ok: true, status: 200, ai_response: 'Hi!', replaced: 0, halted: 'empathy' }]);
   ok('하나도 안 흘렸으면(공감 가드 등) 예전처럼 읽는다', t.s.calls.addMsg.length === 1 && t.s.calls.addMsg[0].quiet === false && t.s.calls.speak[0] === 'Hi!' && t.s.calls.hooks[0] === 'reply');
   t = await runTurn([]);
@@ -342,7 +353,42 @@ if (S) {
   ok('문장만 오고 done 이 끊기면 받은 만큼을 보여 주고 «끊겼다» 고 말한다', t.r === 'done' && t.s.calls.addMsg.some(m => m.who === 'ai' && m.t === 'Partial answer.') && t.s.calls.addMsg.some(m => m.who === 'sys'));
   t = await runTurn([{ t: 'Hello.' }, { done: 1, ok: true, status: 200, ai_response: 'Hello.', replaced: 0 }], (a) => a.setSpeech(false));
   ok('소리를 꺼 두었으면 미리보기만 하고 정본 addMsg 가 알린다', t.s.calls.play.length === 0 && t.s.calls.addMsg[0].quiet === false);
+
+  console.log('\n[C6] 첫 인사(kickoff)도 문장 단위로 — 2026-11-04 「처음 들어가면 폰에서 늦다」');
+  const runKick = async (events) => {
+    const s2 = sandbox();
+    const r = await s2.api._stmTurn(sseResp(events), 1, typingEl(), Date.now(), null, true);
+    return { s: s2, r };
+  };
+  let k = await runKick([{ t: 'Hi there!' }, { t: 'Do you like cats?' }, { done: 1, ok: true, status: 200, ai_response: 'Hi there! Do you like cats?', replaced: 0, answer_chips: [] }]);
+  ok('첫 인사: 첫 문장이 오면 바로 읽는다(전체를 기다리지 않음)', k.r === 'done' && k.s.calls.play[0] === 'Hi there!');
+  ok('첫 인사: 대답 보기는 그린다', k.s.calls.chips === 1);
+  ok('첫 인사: 학생 말이 아니므로 교정 카드·reply 훅은 없다', k.s.calls.fix === 0 && k.s.calls.hooks.indexOf('reply') < 0, JSON.stringify(k.s.calls.hooks));
+  k = await runKick([{ done: 1, ok: false, status: 502 }]);
+  ok("첫 인사: 실패면 'fail'(오류 안내 없이 — 부르는 쪽이 고정 인사말로)", k.r === 'fail' && k.s.calls.addMsg.length === 0);
+  k = await runKick([]);
+  ok("첫 인사: 아무것도 못 받으면 'retry'", k.r === 'retry');
+  k = await runKick([{ t: 'Half.' }]);
+  ok('첫 인사: 끊겨도 «끊겼다» 안내는 안 한다', k.r === 'done' && !k.s.calls.addMsg.some(m => m.who === 'sys'));
+  // (짝) 학생 차례는 예전 그대로 — kick 을 안 넘기면 fail 이 아니라 오류 안내
+  const plain = await runTurn([{ done: 1, ok: false, status: 502 }]);
+  ok('(짝) 학생 차례 실패는 예전처럼 오류 안내(fail 아님)', plain.r === 'done' && plain.s.calls.addMsg.length === 1 && plain.s.calls.addMsg[0].who === 'sys');
 }
+
+console.log('\n[C6b] initGreeting 배선');
+const ig = strip(fnSrc(H, 'initGreeting'));
+ok('전제: initGreeting 을 오려 냈다', ig.length > 500);
+const km = /var kStm = ([^;]+);\s*if\(kStm\) body\.stream = 1;/.exec(ig);
+ok('첫 인사도 _stmWanted() 일 때 stream:1', !!km && /_stmWanted\(\)/.test(km[1]));
+const kc = /if\(([^{]*?kr\.ok[^{]*)\)\{\s*var kres = await _stmTurn\((.*?)\);/.exec(ig);
+ok('첫 인사 스트림은 kick=true 로 _stmTurn 을 부른다', !!kc && /,\s*true\s*$/.test(kc[2]));
+if (kc) {
+  const evk = (on, ct) => attempt('kick 조건', () => new Function('kStm', 'kr', 'String', 'return (' + kc[1] + ');')(on, { ok: true, body: {}, headers: { get: () => ct } }, String));
+  ok('첫 인사: 옵트인 + SSE 면 스트림 경로', evk(true, 'text/event-stream') === true);
+  ok('(짝) 첫 인사: JSON 응답이면 예전 경로', evk(true, 'application/json') === false && evk(false, 'text/event-stream') === false);
+}
+ok("첫 인사: 'done' 이면 거기서 끝", /if\(kres === 'done'\) return;/.test(ig));
+ok("첫 인사: retry 면 stream 을 빼고 다시, 그 밖(fail)은 던져 고정 인사말로", /if\(kres !== 'retry'\) throw/.test(ig) && /delete body\.stream;[\s\S]{0,200}warmupFetch\(/.test(ig) && /fallbackGreeting\(\)/.test(ig));
 
 console.log('\n[C5] sendMsg·speak·addMsg 배선');
 const send = strip(fnSrc(H, 'sendMsg'));
@@ -364,6 +410,43 @@ ok('speak: 큐 모드는 캐시·조각 나누기보다 앞, 중국어 기기 �
 ok('speak: 큐 모드는 다시 듣기(btn)에는 안 쓴다', /if\(live && !btn\)/.test(sp));
 const am = strip(fnSrc(H, 'addMsg'));
 ok('addMsg: 조용히 모드면 speak 대신 다시 듣기 글만 맞춘다', /if\(_addMsgQuiet\)\{[^}]*_lastAiSpeak=/.test(am) && /else speak\(text\)/.test(am));
+
+console.log('\n[C7] 입모양 분석 엔진은 이 화면에서 «켜지 않는다» — 속도 우선(2026-11-05 사장님)');
+// 📜 2026-11-04 판은 «폰만 첫 인사까지 미룸» 이었다. 이제 PC·폰 모두, 끝까지(aiDone 에도 안 푼다). ?visemes=now 만 예외.
+const vHold = /var _visHold = \(function\(\)\{[\s\S]*?\}\)\(\);/.exec(H);
+const vParts = ['_visemeWrap', '_autoHook'].map(n => fnSrc(H, n));
+// load 때 «미리 켜기» 줄 — 글자로 못 박지 않고 그 리스너를 오려 내 실제로 돌린다
+const vLoadAt = H.indexOf("window.addEventListener('load', function(){\n  _visemeWrap();");
+const vLoad = vLoadAt >= 0 ? H.slice(vLoadAt, H.indexOf('});', vLoadAt) + 3) : '';
+ok('전제: 붙잡기 코드·load 리스너를 오려 냈다', !!vHold && vParts.every(x => x.length > 20) && vLoad.length > 40);
+function visBox(coarse, search) {
+  const V = { boots: 0, preps: 0, boot() { this.boots++; }, prepare() { this.preps++; return Promise.resolve(['cue']); } };
+  const env = { V, loads: [], timers: [] };
+  const f = new Function('window', 'navigator', 'location', 'matchMedia', 'setTimeout', 'AvatarVisemes',
+    vHold[0] + '\n' + vParts.join('\n') + '\n' + vLoad + '\nreturn { wrap:_visemeWrap, hook:_autoHook, get hold(){ return _visHold; } };');
+  const win = { AvatarVisemes: V, matchMedia: () => ({ matches: coarse }), addEventListener: (ev, fn) => { if (ev === 'load') env.loads.push(fn); } };
+  env.api = f(win, { connection: { saveData: false, effectiveType: '4g' } }, { search: search || '' }, win.matchMedia, (fn) => env.timers.push(fn), V);
+  env.runLoad = () => { env.loads.forEach((fn) => fn()); env.timers.splice(0).forEach((fn) => fn()); };
+  return env;
+}
+if (vHold) {
+  for (const [label, coarse] of [['폰', true], ['PC', false]]) {
+    const b = attempt(label + ' 샌드박스', () => visBox(coarse));
+    if (!b) continue;
+    b.runLoad();
+    ok(label + ': 화면이 열려도(load) 엔진을 미리 켜지 않는다', b.api.hold === true && b.V.boots === 0);
+    b.V.boot(); const pr = await b.V.prepare('blob:x');
+    ok(label + ': boot·prepare 가 엔진을 안 켠다(prepare 는 곧바로 null — 소리 크기 입모양, 재생이 안 기다림)', b.V.boots === 0 && b.V.preps === 0 && pr === null);
+    b.api.hook('aiDone'); b.api.hook('reply');
+    const pr2 = await b.V.prepare('blob:y');
+    ok(label + ': 첫 인사가 끝나도(aiDone) 풀지 않는다', b.api.hold === true && b.V.boots === 0 && b.V.preps === 0 && pr2 === null);
+  }
+  const b = attempt('?visemes=now 샌드박스', () => visBox(true, '?visemes=now'));
+  if (b) {
+    b.runLoad(); const pr = await b.V.prepare('blob:z');
+    ok('(짝) ?visemes=now 면 예전처럼 미리 켜고 prepare 도 원래대로(비교·되돌리기용)', b.api.hold === false && b.V.boots === 1 && b.V.preps === 1 && Array.isArray(pr));
+  }
+}
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);

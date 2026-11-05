@@ -91,8 +91,10 @@ console.log('④ 화면 — 한 목록으로 합침 (2026-09-30)');
     for (let i = C.indexOf('{', i0); i0 > 0 && i < C.length; i++) { if (C[i] === '{') d++; else if (C[i] === '}') { d--; if (!d) { i1 = i; break; } } }
     return i1 > 0 ? C.slice(i0, i1 + 1) : '';
   };
+  /* 📋 (2026-11-05) 목록이 쓰는 칸 도우미(EN_COLS·_enTd·_enDay 등)도 정본에서 함께 오려 낸다 */
+  const HELP = (() => { const a = C.indexOf('const EN_COLS = '); const b = C.indexOf('function _enDirectList('); return (a > 0 && b > a) ? C.slice(a, b) : ''; })();
   const L = cut('_enDirectList'), R = cut('_enDirectRow'), RE = cut('_renderEnrollments');
-  ok(!!L && !!R && !!RE, '전제: _enDirectList·_enDirectRow·_renderEnrollments 를 오려 냈다');
+  ok(!!L && !!R && !!RE && !!HELP, '전제: _enDirectList·_enDirectRow·_renderEnrollments 를 오려 냈다');
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const G = [{ user_id: 'jjy2323', student_name: '장지웅', teacher_name: 'KARL', start_time: '16:40', duration_min: 20, kind: 'dated', dows: [2], first_date: '2026-09-29', last_date: '2026-09-29', count: 1, created_at: 200 }];
   const E = [
@@ -111,7 +113,7 @@ console.log('④ 화면 — 한 목록으로 합침 (2026-09-30)');
         'function _enDupKey(it){return String(it.student_user_id||"")+"|"+String(it.package||"");}\n' +
         'function _enSyncSelUI(){st.shown=__enShown;}\n' +
         'function _enPhoneCell(){return "";}\nfunction _enDurLabel(){return "";}\nfunction _enBtn(){return "";}\n' +
-        L + '\n' + R + '\n' + RE + '\nreturn _renderEnrollments;');
+        HELP + '\n' + L + '\n' + R + '\n' + RE + '\nreturn _renderEnrollments;');
       f(lang, items, direct, q, dup, esc, (t) => 'D' + t, doc, {},
         { confirmed: { ko: '확정', en: 'Confirmed', bg: '', fg: '' } }, ['pending', 'confirmed', 'active'], new Set(), st)();
     } catch (e) { return { html: 'ERR ' + e.message, shown: null }; }

@@ -14,6 +14,7 @@
      D. 강사 화면 「✍ 지금 쓰기」 — 시작 전·이미 쓴 것·연기된 것에는 안 준다(짝).
      E. 매니저 화면 — 카페24 줄에 «왜 버튼이 없는지» 를 글자로.
    ═══════════════════════════════════════════════════════════════════════════ */
+import { btsFixtureSource } from './bts-fixture.mjs';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -184,7 +185,7 @@ console.log('\n[D] 강사 화면 「✍ 지금 쓰기」');
   const src = i > 0 ? braceFrom(TCH, i) : '';
   ok('D-0 전제: extrasHtml(c, wi) 를 오려 냈다', src.length > 200);
   let f = null;
-  try { f = new Function('esc', 'T', 'hhmm', 'EN', 'function x(c, wi, asParts)' + src + ' return x;')(
+  try { f = new Function('esc', 'T', 'hhmm', 'EN', btsFixtureSource(TCH) + 'function x(c, wi, asParts)' + src + ' return x;')(
     (s) => String(s == null ? '' : s).replace(/</g, '&lt;'), (en) => en, () => '09:00', () => true); }
   catch (e) { ok('D-0b 만들 수 있다', false, e.message); }
   if (f) {

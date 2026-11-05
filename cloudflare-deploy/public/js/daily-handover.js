@@ -275,7 +275,7 @@
   function armReadGate(r,ack){var key=r.id+':'+r.version,start=openedAt[key]||Date.now(),label=ack.textContent;if(!openedAt[key])openedAt[key]=start;
     function tick(){if(!ack.isConnected)return;var left=Math.ceil((start+readMinSec*1000-Date.now())/1000);if(left>0){ack.disabled=true;ack.textContent='📖 '+left+'초 뒤 확인 가능 / Available in '+left+'s';setTimeout(tick,500);}else{ack.disabled=false;ack.textContent=label;}}
     tick();}
-  async function act(r,kind,button){var feedback='';if(kind==='return'){feedback=prompt('보완할 내용을 적어 주세요. / What needs clarification?')||'';if(!feedback.trim())return;}button.disabled=true;try{await call('/'+kind,{id:r.id,version:r.version,feedback:feedback});await loadList();}catch(e){networkError(e);button.disabled=false;}}
+  async function act(r,kind,button){var feedback='';if(kind==='return'){feedback=prompt('보완할 내용을 적어 주세요. / What needs clarification?')||'';if(!feedback.trim())return;}button.disabled=true;try{await call('/'+kind,{id:r.id,version:r.version,feedback:feedback});document.dispatchEvent(new CustomEvent('mh:handover-changed',{detail:{from:'inbox'}}));await loadList();}catch(e){networkError(e);button.disabled=false;}}
   async function loadList(){
     var date=$('list-date').value, wantRead=$('filter').value==='read', wantMine=$('filter').value==='mine', data=await Promise.all([call('/home?date='+encodeURIComponent(date)),call('/inbox'),wantRead?call('/read-history'):null,wantMine?call('/mine'):null]);
     if(date!==$('list-date').value)return;var j=data[0];reports=j.reports;inbox=data[1].reports;inboxTotal=data[1].total;reviewerOverdue=data[1].reviewer_overdue||[];readMinSec=Number(data[1].read_min_sec)||0;mergeFiles(j.files);mergeFiles(data[1].files);if(data[2]){readHistory=data[2].reports||[];mergeFiles(data[2].files);}if(data[3]){mine=data[3].reports||[];mergeFiles(data[3].files);}if(date===$('date').value)paintOwn(j.own);var listState=JSON.stringify([date,$('filter').value,reports,inbox,readHistory,mine]);if(listState!==lastListState){paintList();lastListState=listState;}
@@ -322,6 +322,8 @@
     j.days.forEach(function(d){var li=node('li',d.day+(d.name?' · '+d.name:'')+' '),del=node('button','삭제 / Remove');del.type='button';del.onclick=async function(){del.disabled=true;try{await call('/closed-days',{day:d.day,remove:true});$('closed-status').textContent='삭제했습니다 / Removed';await loadClosed();}catch(e){networkError(e);del.disabled=false;}};li.append(del);list.append(li);});
   }catch(e){$('closed').hidden=true;}}
   $('closed-add').onclick=async function(){var button=this,day=$('closed-day').value;if(!/^\d{4}-\d{2}-\d{2}$/.test(day)){$('closed-status').textContent='날짜를 골라 주세요 / Pick a date';return;}button.disabled=true;try{await call('/closed-days',{day:day,name:$('closed-name').value});$('closed-status').textContent='추가했습니다 — 마감에서 빠집니다 / Added — skipped by the deadline';$('closed-name').value='';await loadClosed();}catch(e){networkError(e);}finally{button.disabled=false;}};
+  // 👀 팀 보고판(daily-handover-board.js)에서 확인·보완 요청을 하면 받은 보고 목록도 바로 따라온다(2026-11-04).
+  document.addEventListener('mh:handover-changed',function(e){if(me&&!(e.detail&&e.detail.from==='inbox'))loadList().catch(function(){});});
   setInterval(function(){if(me&&!document.hidden&&!busy&&!uploading)loadList().catch(function(){$('inbox-message').textContent='새 보고 확인 실패 · 새로고침해 주세요. / Refresh to check new reports.';});},60000);
   init();
 })();

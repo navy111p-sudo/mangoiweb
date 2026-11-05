@@ -32,6 +32,7 @@ import { computeMonthlyFee, weeklyCountFromDays } from './enroll-fee';
 import { priceForUid, enrollAdminHqOnly } from './enroll-ops';   // 🏪 대리점 주1회 단가 — 기준가가 없을 때만 쓴다
 import { prepareScheduleRequestGuards, commitScheduleRequestDecision } from './schedule-request-atomic';
 import { moveSchedulesAtomically, scheduleMoveVersion } from './class-schedule-move';
+import { undoMovedClass } from './class-undo-move';   // ↩ 옮긴 수업 되돌리기(2026-11-04)
 import { findScheduleConflicts, findScheduleMoveConflicts, loadScheduleMoveFacts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { loadSchedSummaryMap, EMPTY_SCHED_SUMMARY } from './student-schedule-summary';  // 📘 「예약」 칸 정본 — erp-list 와 «같은» 값을 쓴다(복제 금지)
 import { attachRosterExtras } from './student-roster-extras';   // 💰📅 학생 목록 «최근 결제»·«다음 수업» 칸 정본(2026-10-13)
@@ -98,7 +99,7 @@ import { cleanAnalysis, cleanScore, foreignFields, parseAnalysisJson, recoverNex
 import { ATTENDANCE_BY_UID, attUidBinds, ensureAttendanceAccountUid, ATTENDANCE_ACCOUNT_KEY, ATTENDANCE_BY_UID_LIST, attUidListBinds } from './attendance-uid';   // 📌 attendance 를 학생 계정으로 찾는 정본
 import { ensureStartsOnColumn, startsOnSel, normStartsOn, kstYmdOfMs, recurSkippedOn, recurStartedOn } from './class-start-date';   // 📅 매주 반복 수업의 시작일 정본
 import { isPostponedOccurrence, REACTIVATE_POSTPONED_SQL } from './class-postponed';
-import { isCancelledOccurrence, liveOrCancelledInRangeSql, judgeClassChange, loadClassChangeAudits, loadMovedAwayEvents, judgeMovedAway, movedAwayKey, loadRecurWeekChildren, recurWeekChildFor, slotKeyOf, movedAwayBlocked, movedAwayOrder } from './class-change-state';
+import { isCancelledOccurrence, liveOrCancelledInRangeSql, judgeClassChange, loadClassChangeAudits, loadMovedAwayEvents, judgeMovedAway, judgeMovedAwayUndo, movedAwayKey, loadRecurWeekChildren, recurWeekChildFor, slotKeyOf, movedAwayBlocked, movedAwayOrder } from './class-change-state';
 import { loadHolidayClosure, isHolidayClosedFor, type HolidayClosure } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 import { kstMonthBounds, kstMidnight, kstDateStr, activeBinds, activeCountSql, overdueSql, absentSql, classDaysSql, ATTENDED_ON_DATE_SQL, trendPct, briefingSanity, KPI_DEF_VERSION, OVERDUE_GRACE_DAYS, ABSENT_DAYS, ACTIVE_WINDOW_DAYS } from './kpi-active';   // 📊 경영 지표 분모·기간 정본(2026-10-13)
 import { diagnoseStudentDay } from './class-diagnose';   // 🔎 학생 하루 수업 진단(읽기 전용, 2026-10-01)   // ⏸ 연기된 회차 판정 정본(2026-10-01)
@@ -3939,9 +3940,12 @@ export async function handleAdminApi(
           const _ghostAt = new Set<string>();
           for (const s of [..._mvRows].sort((a: any, b: any) => movedAwayOrder(a) - movedAwayOrder(b))) {
             const _isRecur = !s.scheduled_date;
-            const ch = judgeMovedAway(s, _mvEv.byKey.get(movedAwayKey(s.id, dateStr)), { showActor: _ctSeeContact },
-              _isRecur ? recurWeekChildFor(_rw ? _rw.byParent.get(String(s.id)) : null, dateStr) : null);
+            const _child = _isRecur ? recurWeekChildFor(_rw ? _rw.byParent.get(String(s.id)) : null, dateStr) : null;
+            const ch = judgeMovedAway(s, _mvEv.byKey.get(movedAwayKey(s.id, dateStr)), { showActor: _ctSeeContact }, _child);
             if (!ch) continue;
+            /* ↩ (2026-11-04) «원래대로» 버튼을 줄지 — 되돌리기 API 와 «같은» 판정 정본(judgeMovedAwayUndo). 화면은 ok 면 버튼,
+               아니면 reason 으로 «왜 못 하는지» 를 글자로(누르면 거절되는 버튼을 두지 않는다). 권한(본사)은 화면이 한 번 더 가린다. */
+            const _undo = judgeMovedAwayUndo(s, ch, _child, nowMs);
             const _slot = slotKeyOf(dateStr, ch.from_time || s.start_time, s.user_id);
             if (movedAwayBlocked(_slot, _isRecur, _taken, _ghostAt)) continue;
             if (_slot) _ghostAt.add(_slot);
@@ -3951,7 +3955,8 @@ export async function handleAdminApi(
             sessions.push({
               schedule_id: s.id,
               source: 'mangoi',
-              moved_away: true,            // ⏸ 이 날에서 다른 날로 옮겨 간 회차 — 화면은 버튼 없이 «연기됨 → 새 날짜» 만 그린다
+              moved_away: true,            // ⏸ 이 날에서 다른 날로 옮겨 간 회차 — 입장·옮기기 없음, 「↩ 원래대로」(undo)만
+              undo: _undo ? { ok: _undo.ok, reason: _undo.reason, from_date: _undo.from_date, from_time: _undo.from_time } : null,
               observable: false,
               room_id: null,
               student_uid: s.user_id || null,
@@ -7952,6 +7957,15 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const deny = await enrollAdminHqOnly(request, env);
       if (deny) return deny;
       const body: any = await request.json().catch(() => ({}));
+      /* ↩ (2026-11-04 매니저 Mai «no restore or undo postponement option») { action:'undo_move', from_date } — 날짜를 정해
+         연기·변경한 수업을 원래 날짜·시각으로 되돌린다(원래 날짜 «⏸ 연기됨 → 새 날짜» 줄의 「↩ 원래대로」 버튼).
+         판정·이동은 정본 src/class-undo-move.ts 한 곳 — 원래 자리는 화면 값이 아니라 서버의 이동 기록에서 찾는다.
+         🔒 본사 전용(위 enrollAdminHqOnly) — «연기 취소»(restore)와 같은 선. */
+      if (body && body.action === 'undo_move') {
+        const actor = await getAdminActor(request, env as any);
+        const result: any = await undoMovedClass(env, actor, id, body.from_date);
+        return json(result, result.status);
+      }
       /* ↩ (2026-10-07 매니저 요청 4) { action:'restore' } — 잘못 «수업 종료» 한 수업을 되살린다.
          학생 상세 「🗓️ 종료·연장」이 DELETE(=cancelled) 로 내린 행을 그 자리 그대로 active 로 돌린다.
          ⛔ source 는 안 바꾼다 — DELETE 가 미러 행에 찍은 'c24-mirror:manual' 이 남아야 미러가 그 행을

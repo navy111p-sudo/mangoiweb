@@ -1,6 +1,7 @@
 // Teacher week selection: execute source functions and UI listeners, with in-memory DOM/fetch only.
 // node test-harness/teacher_week_navigation_harness.mjs
 // TEACHER_HTML=/tmp/mutant.html ... allows mutation checks without editing the working tree.
+import { btsFixtureSource } from './bts-fixture.mjs';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import vm from 'node:vm';
@@ -57,6 +58,7 @@ function environment(instant = '2026-10-04T15:05:00Z', cache = null) {
     classTableHtml: list => '<table>' + list.map(c => '<tr>' + (c.student_name || '') + '</tr>').join('') + '</table>', stPill: () => '', weekRecordHtml: () => ''
   };
   vm.createContext(ui);
+  vm.runInContext(btsFixtureSource(source), ui);
   vm.runInContext([fn('now'), fn('todayKST'), fn('paintCached'), fn('saveCache'), fn('load'), fn('setStale'), fn('render'),
     fn('portalRows'), fn('portalContact'), fn('portalAcademies'), weekCode, fn('classKeys'), fn('autoRefreshTick'), languageCode, visibilityCode,
     // 2026-10-28: 날짜 목록의 «월» 선택이 월 달력의 달 이름·달 이동(moLabel·moShift)을 같이 쓴다 — 실제 페이지에서는 같은 스코프에 있다.

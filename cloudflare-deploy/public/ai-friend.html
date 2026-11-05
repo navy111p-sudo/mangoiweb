@@ -2427,7 +2427,7 @@
 }
 </style>
 <script defer src="/js/game-tts.js?v=8"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈. v4: getAudioEl(아바타 음량 립싱크). v6: 서버 실패 시 400ms 뒤 한 번 더 물어본 뒤에만 기기 목소리로 — 「목소리가 계속 변해」 -->
-<script defer src="/js/mangoi-voice-input.js?v=6"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
+<script defer src="/js/mangoi-voice-input.js?v=8"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/voice-has-speech.js?v=1"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
 <script defer src="/js/aifriend-auto-talk.js?v=1"></script>
 <script defer src="/js/aifriend-facetalk.js?v=6"></script><!-- 😊 얼굴 대화도 공용 friendRecordVoice로 무음·잡음 차단 -->
@@ -2630,12 +2630,67 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
   background:transparent; border:0; padding:0; margin:0;
   display:flex; flex-wrap:wrap; gap:6px; }
 .opts-sheet .quests, .opts-sheet .hud{ padding-bottom:10px; }
-/* 라벨(레벨:·스타일:·속도:…)마다 줄을 바꿔 섹션이 눈에 들어오게.
-   ⚠️ 기존 .opts>span 규칙이 !important 라 여기서도 !important 가 필요하다. */
-.opts-sheet .opts > span{ flex:0 0 100% !important; margin:12px 0 1px !important;
+/* 설정 한 줄 = «이름표 + 그 버튼들» 묶음(.opt-row — init 의 groupOptRows 가 만든다).
+   넓은 화면: 이름표가 위, 버튼이 아래(예전 모양 그대로 — 섹션 사이 18px · 이름표와 버튼 사이 7px).
+   ⚠️ 이름표 span 에 인라인 style(font-size·margin)이 있어 여기서도 !important 가 필요하다. */
+.opts-sheet .opt-row{ flex:0 0 100%; min-width:0; }
+.opts-sheet .opt-row > span{ display:block; white-space:nowrap; margin:12px 0 7px !important;
   font-size:12.5px !important; font-weight:700; color:var(--text2); }
-.opts-sheet .opts > span:first-child{ margin-top:2px !important; }
+.opts-sheet .opt-row:first-child > span{ margin-top:2px !important; }
+.opts-sheet .opt-list{ display:flex; flex-wrap:wrap; gap:6px; }
 .opts-sheet .opt{ font-size:12.5px; padding:7px 11px; }
+/* 위험한 조작 줄의 🗑 대화 초기화 — 예전 스타일이 «.top .clear-btn» 에만 있어 시트로 옮겨진 뒤
+   브라우저 기본(흰 네모) 버튼으로 보였다(2026-11-04 폰 화면에서 발견). 같은 색으로 되살린다. */
+.sheet-danger .clear-btn{ background:rgba(239,68,68,0.15); color:#fca5a5;
+  border:1px solid rgba(239,68,68,0.3); border-radius:9px; height:34px; padding:0 12px;
+  font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap; }
+
+/* 📱 폰(<760px) — 시트를 «스크롤 없이 한 화면» 에 담는다.
+   📜 2026-11-04 사장님 «폰도 스크롤 없이 보이게 해줘»
+      잰 것(헤드리스): 시트 내용 390폭 865px · 360폭 912px 인데, 실제 폰 브라우저 창은 주소창 때문에
+      대략 640~780px 다. 가장 큰 몫은 이름표(레벨:·속도:…)가 섹션마다 한 줄씩 통째로 먹는 것이었다.
+   ✅ ① 설정은 «이름표 칸 | 버튼 칸» 두 열 — 이름표 칸 폭은 가장 긴 이름표에 저절로 맞는다
+        (max-content — «Correction:» 처럼 영어가 길어도 겹치지 않는다).
+      ② 🔊 AI 목소리 듣기와 레벨 상태(Lv 칩)를 한 줄에(자리가 모자라면 저절로 다음 줄).
+      ③ 오늘의 퀘스트는 이름표를 한 줄로 두고 칩을 두 개씩.
+      ④ 손잡이·아래 줄 여백을 조금씩 줄인다.
+   ⛔ 글자를 줄여서 맞추지 않았다 — 버튼 글자 12.5px 그대로다.
+   ⚠️ display:contents 로 묶음 상자를 없애 이름표·버튼 칸을 .opts 그리드에 바로 올린다.
+   ⚠️ 그래도 넘치는 아주 작은 폰(320x568 등)은 시트의 overflow-y:auto 가 받는다. */
+@media (max-width:759.98px){
+  .sheet-grip{ margin-bottom:4px; }
+  .opts-sheet .sheet-body{ display:flex; flex-wrap:wrap; column-gap:12px; align-items:center; }
+  .opts-sheet .sheet-body > *{ flex:0 0 100%; min-width:0; }
+  .opts-sheet .sheet-body > .sheet-quick { order:1; flex:0 0 auto; padding-bottom:6px; }
+  .opts-sheet .sheet-body > .hud         { order:2; flex:1 1 auto; padding-bottom:6px; }
+  .opts-sheet .sheet-body > .quests      { order:3; }
+  .opts-sheet .sheet-body > .opts        { order:4; }
+  .opts-sheet .sheet-body > .sheet-danger{ order:5; }
+  .opts-sheet .quests > .q-label{ flex:0 0 100%; }
+  /* 퀘스트 칩 두 개가 한 줄에 — 영어(«Chat 5 times» + «Use today's word»)가 6px 간격이면 1px 넘쳤다 */
+  .opts-sheet .quests{ gap:5px; }
+  /* Lv 칩의 경험치 막대를 줄여 «AI 목소리 듣기» 옆에 들어가게 한다(360폭 실측: 칩 197px → 막대만 줄여 169px) */
+  .opts-sheet .hud-lv .xp-track{ width:36px; }
+  .opts-sheet .opts{ display:grid; grid-template-columns:max-content minmax(0,1fr);
+    column-gap:8px; row-gap:7px; align-items:center; }
+  .opts-sheet .opt-row{ display:contents; }
+  .opts-sheet .opt-row > span,
+  .opts-sheet .opt-row:first-child > span{ margin:0 !important; }
+  .opts-sheet .opt-list{ gap:5px; }
+  /* 좌우 여백만 줄인다 — 자막 세 칸(보이기·가리기·완전 끄기)이 360폭에서 한 줄에 들어가는 폭 */
+  .opts-sheet .opt{ padding:7px 8px; }
+  /* 레벨 여덟 칸은 한 줄에 — 칸을 똑같이 나눠 버튼 칸 폭 안에 넣는다 */
+  .opts-sheet .opt-row[data-kind="level"] .opt-list{ flex-wrap:nowrap; gap:4px; }
+  .opts-sheet .opt-row[data-kind="level"] .opt{ flex:1 1 0; min-width:0; padding:6px 0; }
+  /* ⚠️ «.opts-sheet» 를 앞에 붙여 특이성을 올린다 — 아래쪽 기본 .sheet-danger 규칙(0,1,0)이 문서상 뒤라
+     같은 특이성이면 그쪽이 이겨 이 줄이 안 먹었다(2026-11-04 함정 대조가 실측으로 잡음). */
+  .opts-sheet .sheet-danger{ margin-top:8px; padding-top:8px; }
+}
+/* 📱 아주 좁은 폰(≤340px) — 레벨 여덟 칸을 이름표 옆에 두면 칸이 23~26px 로 좁아진다(320폭 실측).
+   레벨 줄만 이름표 아래 «한 줄 전체» 로 내려 칸 폭을 지킨다(약 33px). */
+@media (max-width:340px){
+  .opts-sheet .opt-row[data-kind="level"] .opt-list{ grid-column:1 / -1; }
+}
 /* 헤더 안으로 합쳐진 공용 바(🏠 홈 · 🌐 EN).
    ⚠️ 그 버튼들은 인라인 style 로 그려지므로 !important 가 아니면 못 이긴다.
    ⚠️ 좁은 폰에서는 «글자» 만 접고 아이콘은 남긴다 — 홈·언어는 없애면 안 되는 문이다. */
@@ -3058,6 +3113,39 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
     window.addEventListener('mangoi:lang-changed', function(){ syncWodTap(); });
   }
 
+  /* ②-2 시트 안 설정을 «이름표 + 그 버튼들» 한 묶음씩 감싼다(.opt-row > span + .opt-list).
+     📜 2026-11-04 사장님 «폰도 스크롤 없이 보이게 해줘» — 폰에서 이름표(레벨:·속도:…)가 줄을
+        하나씩 통째로 먹어 시트가 화면보다 길었다. 묶어 두면 폰에서는 «이름표 칸 | 버튼 칸» 두 열로
+        놓아 섹션마다 한 줄씩 아끼고(CSS max-width:759.98px), PC 에서는 예전처럼 이름표가 위에 온다.
+     ⚠️ 버튼을 찾는 코드는 전부 «자손» 선택(.opt[data-level] · .opts .opt…)이라 감싸도 그대로 동작한다.
+     ⛔ 시트 «밖» 에서 부르지 말 것 — 시트를 못 만든 화면(.top 없음)은 옛 한 줄 배치 그대로여야 한다.
+     ⚠️ 새 설정 줄은 «이름표 span 다음에 버튼들» 모양으로만 넣을 것 — span 이 묶음의 시작 표시다. */
+  function groupOptRows(opts){
+    var KINDS = ['level', 'persona', 'cmode', 'rate', 'voice', 'sub'];
+    var kids = Array.prototype.slice.call(opts.children), row = null, list = null, n = 0;
+    kids.forEach(function(el){
+      if (el.tagName === 'SPAN') {
+        row = document.createElement('div');
+        row.className = 'opt-row';
+        row.setAttribute('role', 'group');
+        if (!el.id) el.id = 'optLab' + (++n);
+        row.setAttribute('aria-labelledby', el.id);
+        list = document.createElement('div');
+        list.className = 'opt-list';
+        opts.insertBefore(row, el);
+        row.appendChild(el);
+        row.appendChild(list);
+      } else if (list) {
+        if (!row.getAttribute('data-kind')) {
+          for (var i = 0; i < KINDS.length; i++) {
+            if (el.hasAttribute('data-' + KINDS[i])) { row.setAttribute('data-kind', KINDS[i]); break; }
+          }
+        }
+        list.appendChild(el);
+      }
+    });
+  }
+
   function init(){
     wireWod();                                  // ✨ 시트가 없어도(=아래 return) 카드는 살아야 한다
     var top = document.querySelector('.top');
@@ -3127,6 +3215,7 @@ body.sheet-open .opts-sheet{ transform:translateY(0); }
     if (quests) body.appendChild(quests);
     if (hud)    body.appendChild(hud);
     if (opts)   body.appendChild(opts);
+    if (opts)   groupOptRows(opts);
 
     /* ③ 위험하거나 드물게 쓰는 것은 시트 맨 아래로.
           «다음 활동» 은 입력줄 아래 .next-bottom 버튼이 늘 있으므로 길이 사라지지 않는다. */

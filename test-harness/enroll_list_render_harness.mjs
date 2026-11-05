@@ -20,6 +20,7 @@ const src = readFileSync(CORE, 'utf8').split(/\r?\n/);
 const start = src.findIndex(l => l.includes('const EN_STATUS_META'));
 const end   = src.findIndex(l => l.startsWith('function enSearch(v)'));
 const block = src.slice(start, end + 1).join('\n');
+const HTML = readFileSync(join(ROOT, 'cloudflare-deploy', 'public', 'admin.html'), 'utf8');
 
 // 스텁 — 실제 파일의 것과 동작이 같아야 의미가 있으므로 원본에서 그대로 가져온다
 const escLine  = src.find(l => l.startsWith('function _esc(s)'));
@@ -58,6 +59,16 @@ const run = new Function('document', 'adminLang', 'setTimeout', 'clearTimeout', 
 `);
 
 let fails = 0;
+// 📋 머리줄 칸 수 = EN_COLS (빈 줄·처리 패널 colspan 과 같은 값)
+{
+  const t0 = HTML.indexOf('data-gc="📋 신청 목록"');
+  const thead = HTML.slice(t0, HTML.indexOf('</thead>', t0));
+  const nTh = (thead.match(/<th[\s>]/g) || []).length;
+  const ec = Number((block.match(/const EN_COLS = (\d+);/) || [])[1]);
+  const okk = nTh === ec && /<td colspan="16" class="empty">/.test(HTML.slice(t0, t0 + 6000)) && /colspan="' \+ EN_COLS \+ '"/.test(block);
+  console.log((okk ? '  ✅ ' : '  ❌ ') + `머리줄 ${nTh}칸 = EN_COLS ${ec} = 빈 줄·패널 colspan`);
+  if (!okk) fails++;
+}
 const ok = (cond, label) => { console.log((cond ? '  ✅ ' : '  ❌ ') + label); if (!cond) fails++; };
 
 for (const lang of ['ko', 'en']) {
@@ -116,7 +127,11 @@ for (const lang of ['ko', 'en']) {
   ok(dupRows === 2, `중복 뱃지 2건만 (취소된 1건 제외) — 실제 ${dupRows}`);
 
   // 5) DB 에 있는데 버려지던 요일·시간·인원·강사가 보이는가
-  ok(row4.includes('화목 · 20:00 · 1:1') && row4.includes('Melca'), '요일·시간·인원방식·강사 표시');
+  // 📋 (2026-11-05 «기존 망고아이처럼») 한 칸에 한 사실 — 요일·시간 / 인원방식 / 회수 / 강사가 각자 칸
+  const cells4 = (row4.split('</tr>')[0].match(/<td[^>]*>([\s\S]*?)<\/td>/g) || []);
+  ok(row4.includes('화목 20:00') && row4.includes('>1:1<') && row4.includes('Melca'), '요일·시간·인원방식·강사 표시');
+  ok(row4.includes(lang === 'en' ? '2/wk' : '2회/주'), '회수/주 — 요일 글자에서 센다(화목 → 2)');
+  ok(cells4.length === 16, `한 줄 = 16칸(EN_COLS) — 실제 ${cells4.length}`);
 
   // 6) 강사 미배정 경고 — id=5 는 confirmed 인데 강사 없음
   const row5 = rows.find(r => r.includes('lee01'));

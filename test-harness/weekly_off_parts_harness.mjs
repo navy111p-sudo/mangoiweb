@@ -10,7 +10,9 @@
  *
  * 무엇이 «진짜» 인가
  *   ✅ 진짜: 화면 소스에서 로더(off_items.forEach 콜백)·offParts·offLabel1·offLabel·offGlyph·통계 줄을 «오려 내» 실행한다.
- *   🟡 모형: 그리기(칸·막대·툴팁)는 manual/weekly-schedule-cancelled-browser.mjs 8절(사람이 부르는 브라우저 검사)이 잰다.
+ *   ✅ 진짜: 툴팁 핸들러(data-off 칸 mousemove)도 오려 내 가짜 이벤트로 돌려 나온 HTML 을 잰다(G2 — 처음 판은 글자만 봐서
+ *      «첫 부분만 돌기»·«모든 학생을 모든 부분에» 변이가 통과했다, 2026-11-04 함정 대조).
+ *   🟡 모형: 그리기(칸·막대·실제 위치)는 manual/weekly-schedule-cancelled-browser.mjs 8절(사람이 부르는 브라우저 검사)이 잰다.
  *
  * 변이시험: 소스 문자열의 «사본» 만 바꿔 다시 돌린다 — ⛔ 저장소 파일은 안 건드린다.
  */
@@ -124,10 +126,58 @@ function runChecks(src) {
   api.setLang('ko');
 
   // G. 배선 — 그리는 곳이 새 함수를 실제로 부른다(옛 삼항식으로 되돌리면 칸 머리가 «먼저 온 줄» 기호 하나가 된다)
-  const live = src.replace(/\/\*[\s\S]*?\*\//g, '');
+  // 블록주석 + «줄 전체가 주석» 인 줄을 벗긴다(새 식을 // 주석으로만 남겨 두는 변이도 잡게 — 2026-11-04 함정 대조)
+  const live = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
   ok('G1 일간 칸 머리 = offGlyph(off) · 옛 삼항식이 남아 있지 않다',
     /escapeHtml\(offGlyph\(off\)\+oWho\)/.test(live) && !/\(off\.off==='postponed'\?'⏸ ':'✕ '\)\+oWho/.test(live));
-  ok('G2 툴팁은 부분마다 글자·학생을 그린다(offParts 를 돌며 offLabel1)', /var ps=offParts\(o\), multi=ps\.length>1;/.test(live) && /offLabel1\(p\)/.test(live));
+  // G2 — 툴팁 핸들러(data-off 칸 mousemove)를 «오려 내 실제로 돌린다». 글자 확인만으로는 «첫 부분만 돌기»·
+  //      «모든 학생을 모든 부분에» 같은 변이가 통과했다(2026-11-04 함정 대조 실측) — 그래서 나온 HTML 을 잰다.
+  const hAnchor = 'if(!t||!t.dataset.off)return;';
+  const hAt = src.indexOf(hAnchor);
+  const hFn = hAt < 0 ? -1 : src.lastIndexOf("document.addEventListener('mousemove',function(e){", hAt);
+  const hOpen = hFn < 0 ? -1 : src.indexOf('{', hFn + 40);
+  const hEnd = hOpen < 0 ? -1 : braceEnd(src, hOpen);
+  const line1 = (name) => { const m = new RegExp('^function ' + name + '\\(.*$', 'm').exec(src); return m ? m[0] : null; };
+  const helpers = ['escapeHtml', 'pad2', 'minLabel'].map(line1);
+  const ocr = fnSrc(src, 'offChangeRows');
+  let tip = null;
+  if (hEnd > 0 && helpers.every(Boolean) && ocr) {
+    try {
+      tip = new Function('ctx', `
+        var currentLang = ctx.lang, SLOT_STEP = 10, OFF_SLOTS = {}, _out = null;
+        ${fns.join('\n')}
+        ${helpers.join('\n')}
+        ${ocr}
+        function _ttShow(html){ _out = html; }
+        function load(list){ OFF_SLOTS = {}; list.forEach(function(o){ ${loBody} }); return OFF_SLOTS; }
+        var handler = function(e)${src.slice(hOpen, hEnd + 1)};
+        return function(list, key){
+          var S = load(list), off = S[key]; _out = null;
+          var payload = encodeURIComponent(JSON.stringify({ teacher: 'T', date: '2026-11-04', hour: 15, minute: 0, off: off }));
+          var cell = { dataset: { off: payload } };
+          handler({ target: { closest: function(){ return cell; } }, clientX: 0, clientY: 0 });
+          return _out;
+        };`)({ lang: 'ko' });
+    } catch (e) { tip = null; ok('G2-0 툴팁 핸들러를 오려 내 실행할 수 있다', false, String(e && e.message || e)); }
+  }
+  ok('G2-0 전제: 툴팁 핸들러·도우미를 오려 냈다', !!tip, JSON.stringify({ handler: hEnd > 0, helpers: helpers.map(Boolean), ocr: !!ocr }));
+  if (tip) {
+    const parse = (html) => {
+      const segs = String(html || '').split('<div class="tooltip-off-part">').slice(1);
+      return segs.map(sg => ({ uids: [...sg.matchAll(/<span class="uid">([^<]*)<\/span>/g)].map(m => m[1]), text: sg.replace(/<[^>]+>/g, '') }));
+    };
+    let html = null; try { html = tip([C('a', '가학생'), P('b', '나학생', '11/11 15:50', '11/11 15:50'), P('c', '다학생', '11/11 15:50', '11/11 15:50')], '1__2026-11-04__900'); } catch (e) { html = 'ERR ' + e.message; }
+    const pp = parse(html);
+    ok('G2 툴팁(실제 실행): 사정마다 한 묶음 — 취소 묶음엔 a 만, 연기 묶음엔 b·c 만 · 각 묶음 글자는 자기 사정 하나',
+      pp.length === 2 && JSON.stringify(pp.map(x => x.uids)) === JSON.stringify([['a'], ['b', 'c']])
+      && /✕ 취소됨/.test(pp[0].text) && !/연기됨/.test(pp[0].text) && /⏸ 연기됨 → 11\/11 15:50/.test(pp[1].text) && !/취소됨/.test(pp[1].text),
+      JSON.stringify(pp.map(x => ({ u: x.uids, t: x.text.slice(0, 40) }))) + ' ' + String(html).slice(0, 60));
+    let html1 = null; try { html1 = tip([C('a', '가학생'), C('z', '마학생')], '1__2026-11-04__900'); } catch (e) { html1 = 'ERR ' + e.message; }
+    ok('G2b 짝: 사정이 하나면 묶음 없이 예전 모양 — 학생 둘이 한 목록 · 사정 글자는 제목과 «취소 · 연기» 줄에 한 번씩',
+      !/tooltip-off-part/.test(String(html1)) && [...String(html1).matchAll(/<span class="uid">([^<]*)<\/span>/g)].map(m => m[1]).join() === 'a,z'
+      && (String(html1).replace(/<[^>]+>/g, '').match(/✕ 취소됨/g) || []).length === 2,   // 맨 위 제목 + 취소·연기 줄
+      String(html1).slice(0, 120));
+  }
   ok('G3 섞인 칸에는 취소선을 긋지 않는다(slot-off-mixed CSS)', /td\.slot\.slot-off\.slot-off-mixed\{text-decoration:none/.test(src));
   return out;
 }
@@ -153,6 +203,12 @@ const MUTANTS = [
   { name: '칸 길이를 안 늘림', expect: /^C2 /, from: 'if(oDurN>prev.duration_min)prev.duration_min=oDurN;', to: '' },
   { name: '일간 칸 머리를 옛 삼항식으로', expect: /^G1 /, from: 'escapeHtml(offGlyph(off)+oWho)', to: "escapeHtml((off.off==='postponed'?'⏸ ':'✕ ')+oWho)" },
   { name: '툴팁을 칸 전체 하나로(부분을 안 돎)', expect: /^G2 /, from: 'var ps=offParts(o), multi=ps.length>1;', to: 'var ps=[o], multi=false;' },
+  { name: '툴팁: 첫 부분만 돎', expect: /^G2 /, from: '  ps.forEach(function(p){\n    var stus=', to: '  [ps[0]].forEach(function(p){\n    var stus=' },
+  { name: '툴팁: 모든 학생을 모든 부분에', expect: /^G2 /, from: 'var stus=(multi?p.students:o.students)||[]', to: 'var stus=(o.students)||[]' },
+  { name: '툴팁: 묶음 상자를 안 씀', expect: /^G2 /, from: `html+=multi?'<div class="tooltip-off-part">'+h+'</div>':h;`, to: 'html+=h;' },
+  { name: '툴팁: 부분이 하나여도 묶음 상자(짝)', expect: /^G2b /, from: `html+=multi?'<div class="tooltip-off-part">'+h+'</div>':h;`, to: `html+='<div class="tooltip-off-part">'+h+'</div>';` },
+  { name: '일간 칸 머리 새 식을 // 주석으로만 남김', expect: /^G1 /, from: "          ' data-off=\"'+oPay+'\">'+escapeHtml(offGlyph(off)+oWho)+'</td>';",
+    to: "          ' data-off=\"'+oPay+'\">'+escapeHtml(off.off+oWho)+'</td>';\n          // escapeHtml(offGlyph(off)+oWho)" },
 ];
 console.log('\n─ 변이시험 (소스 사본만 바꾼다) ─');
 for (const m of MUTANTS) {

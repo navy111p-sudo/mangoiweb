@@ -17,7 +17,7 @@ function bodyOf(sig) {
   return '';
 }
 const fSpeak = bodyOf('function speak(text, btn){');
-const fStop = bodyOf('function _stopSpeak(){');
+const fStop = bodyOf('function _stopSpeak(keepThought){');
 const fTts = bodyOf('function _ttsSpeak(text, spk, key, btn, seq, done, play, tryNo){');
 const fFits = bodyOf('function _replayFits(p){');
 ok('전제: speak·_stopSpeak·_ttsSpeak·_replayFits 를 오려 냈다', !!(fSpeak && fStop && fTts && fFits));
@@ -33,7 +33,7 @@ function runSpeak(btn) {
     var window={ MangoAvatar:{ plainStop:function(){}, setCharacter:function(c){ LOG.faces.push(c); } }, speechSynthesis:null };
     var MangoAvatar = window.MangoAvatar;
     function isZh(){ return false; } function _voiceGender(){ return 'female'; } function _zhMaleVoiceReady(){ return false; }
-    function _zhMaleWanted(){ return false; } function _speechText(t){ return t; } function _autoHook(){}
+    function _zhMaleWanted(){ return false; } function _speechText(t){ return t; } function _autoHook(){} function warmThought(){}
     function applyVoiceFace(){ LOG.faces.push('restore'); }
     function nextSpeaker(){ LOG.nextCalls++; _mixIdx++; return 'thalia'; }
     function _speechChunks(t){ return [t]; } function _zhDeepen(){} function _zhDeepFailedOnce(){} function _synthSpeak(){}

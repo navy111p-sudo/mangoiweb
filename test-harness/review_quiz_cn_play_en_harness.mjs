@@ -117,9 +117,22 @@ ok('배선: 🌐 리스너가 문제 화면을 renderQ(true) 로 다시 그린�
   { const sent = []; const d = draw('en', 0, { correct: true, answer: 1, your: 1, line: 'PICK', explain: '同学们 해설입니다' }, 0, { qs: LQ, fetch: mk(sent, okMap) });
     await tick(); await tick();
     ok('EN 듣기: 풀고 난 뒤 해설의 한국어도 번역(중국어는 그대로)', /同学们 Explanation/.test(d.els.playView.innerHTML)); }
-  // 객관식(choice) 문항은 건드리지 않는다(요청 범위 밖) · 중국어 보기는 그대로
-  { const sent = []; const d = draw('en', 1, null, 0, { qs: LQ, fetch: mk(sent, okMap) }); await tick();
-    ok('짝: 객관식 문항은 번역 요청하지 않는다 · 중국어 보기 그대로', sent.length === 0 && /韩国人/.test(d.els.playView.innerHTML)); }
+  // 🌐 (2026-11-04) 객관식(choice) 문제 글도 번역 — 중국어 보기·정답 번호는 그대로
+  const CQ = [{ type: 'choice', q: '[자기소개 · 새 친구] 📖 새 친구는 어느 나라 사람인가요?', opts: ['中国人', '韩国人', '美国人'], answer: 1 }];
+  const TRC = { '자기소개 · 새 친구': 'Self-intro · New friend', '새 친구는 어느 나라 사람인가요?': 'Where is the new friend from?', '한국인': 'Korean' };
+  const okC = b => ({ ok: true, map: Object.fromEntries(b.texts.map(t => [t, TRC[t] || t])) });
+  { const sent = []; const d = draw('en', 0, null, 0, { qs: CQ, fetch: mk(sent, okC) }); await tick(); await tick();
+    const t = text(d.els.playView.innerHTML);
+    ok('EN 객관식: 문제 글의 한국어 조각만 번역 요청(중국어 보기는 안 보냄)', sent.length === 1 && sent[0].texts.length === 2 && !sent[0].texts.some(x => /[\u3400-\u9fff]/.test(x)));
+    ok('EN 객관식: 다시 그리면 문제 글 영어 · 중국어 보기 그대로 · 한국어 0', /Where is the new friend from\?/.test(t) && /Self-intro/.test(t) && /韩国人/.test(t) && /美国人/.test(t) && !HANGUL.test(t)); }
+  { const sent = []; const d = draw('ko', 0, null, 0, { qs: CQ, fetch: mk(sent, okC) }); await tick();
+    ok('KO 객관식(짝): 번역 요청 없음 · 한국어 문제 글 그대로', sent.length === 0 && /어느 나라 사람/.test(d.els.playView.innerHTML)); }
+  { const sent = []; const d = draw('en', 0, { correct: true, answer: 1, your: 1, line: 'PICK', explain: '정답: 韩国人 (한국인)' }, 0, { qs: CQ, fetch: mk(sent, okC) });
+    await tick(); await tick();
+    ok('EN 객관식: 풀고 난 뒤 해설도 영어(중국어는 그대로)', /Answer: 韩国人 \(Korean\)/.test(d.els.playView.innerHTML)); }
+  // 서술형(write) 문제는 이번 범위 밖 — 번역 요청 없음(짝)
+  { const sent = []; const d = draw('en', 0, null, 0, { qs: [{ type: 'write', q: '한자로 쓰세요', answer_text: '你' }], fetch: mk(sent, okC) }); await tick();
+    ok('짝: 서술형은 번역 요청하지 않는다', sent.length === 0); }
 }
 console.log(`review_quiz_cn_play_en_harness — PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);

@@ -4,6 +4,7 @@
    ③ 버튼은 넘겨준 함수(opt.act)가 그린다 — 안내용 줄(LMS)에는 버튼을 안 준다(짝)
    ④ 이전 강사·연락처·학원이 보인다 / 모르면 «—» ⑤ 옛 응답(칸 없음)에서도 던지지 않는다
    ⑥ 카드 보기 출력은 그대로다(asParts 를 안 주면 문자열). */
+import { btsFixtureSource } from './bts-fixture.mjs';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,7 +26,7 @@ ok('전제: 세 함수를 오려 냈다', src.every(s => s.length > 200), src.ma
 let api = null;
 try {
   api = new Function('MangoiClassDisplay', 'stuLabelHtml', 'stuLabelText', 'stuUid', 'kindPill', 'goalHtml', 'preqHtml', 'handoverHtml', 'todayKST', 'hhmm', 'T', 'esc',
-    src.join('\n') + '\nreturn { classTableHtml, extrasHtml, portalContact };')(
+    btsFixtureSource(html) + src.join('\n') + '\nreturn { classTableHtml, extrasHtml, portalContact };')(
     { range: c => c.start_time }, c => c.student_name || '', c => c.student_name || '', c => String(c.student_uid || ''), () => '',
     () => '', () => '', () => '', () => '2026-10-26', () => '09:00', en => en,
     x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'));
@@ -59,7 +60,7 @@ if (api) {
     && /<td class="c-st"[^>]*><i>ST<\/i>/.test(r0) && /<td class="c-prev"[^>]*>[^]*Last<\/span> [^<]*2026-10-20/.test(r0) && /<td class="c-act"[^>]*>[^]*class-7-20261026/.test(r0), r0.slice(0, 300));
   {
     const ko = new Function('MangoiClassDisplay', 'stuLabelHtml', 'stuLabelText', 'stuUid', 'kindPill', 'goalHtml', 'preqHtml', 'handoverHtml', 'todayKST', 'hhmm', 'T', 'esc',
-      src.join('\n') + '\nreturn { classTableHtml };')({ range: c => c.start_time }, c => c.student_name || '', c => c.student_name || '', c => String(c.student_uid || ''), () => '',
+      btsFixtureSource(html) + src.join('\n') + '\nreturn { classTableHtml };')({ range: c => c.start_time }, c => c.student_name || '', c => c.student_name || '', c => String(c.student_uid || ''), () => '',
       () => '', () => '', () => '', () => '2026-10-26', () => '09:00', (en, ko) => ko, x => String(x == null ? '' : x)).classTableHtml([row], {});
     ok('⑧ 한국어: 머리글·칸 이름(data-k)도 한국어(짝)', /<th>학생 · 연락처 · 학원<\/th>/.test(ko) && /data-k="강사 입장 · 학생 출결"/.test(ko) && !/data-k="Teacher/.test(ko));
   }

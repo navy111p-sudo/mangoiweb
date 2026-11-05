@@ -21,7 +21,7 @@ const write = (name, js) => writeFileSync(join(dir, name + '.mjs'), js.replace(/
 const real = n => write(n, stripTypeScriptTypes(readFileSync(join(ROOT, n + '.ts'), 'utf8')));
 const SRC_DH = process.env.DH_SRC || join(ROOT, 'daily-handover.ts');
 write('daily-handover', stripTypeScriptTypes(readFileSync(SRC_DH, 'utf8')));
-for (const n of ['approval-policy', 'handover-routing', 'once-per-isolate', 'd1-chunk']) real(n);
+for (const n of ['approval-policy', 'handover-routing', 'once-per-isolate', 'd1-chunk', 'handover-board']) real(n); // handover-board = 팀 보고판 모양(2026-11-04, import 0)
 // auth-admin 은 무겁다 — PH_MANAGERS 만 «정본 소스에서 읽어» 내보낸다(⛔ 손으로 베끼지 않음)
 const phSrc = readFileSync(join(ROOT, 'auth-admin.ts'), 'utf8').match(/export const PH_MANAGERS\s*=\s*(\[[^\]]*\])/);
 if (!phSrc) { console.log('❌ FAIL auth-admin 의 PH_MANAGERS 를 못 읽음'); process.exit(1); }

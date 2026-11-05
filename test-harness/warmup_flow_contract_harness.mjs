@@ -25,6 +25,8 @@ let retries=0;const broken={AI:{run:async()=>{retries++;return{response:'EN: Eng
 const failed=await M.handleClassAsk(request({q:'why',lang:'zh'}),broken,{json});ck(failed.status===503&&retries===M.CLASS_ASK_MODELS.length,'malformed Chinese is not shown as an explanation');
 const flow=readFileSync(new URL('../cloudflare-deploy/public/js/warmup-flow.js',import.meta.url),'utf8');
 const files=[...flow.matchAll(/file:'([^']+)'/g)].map(m=>m[1]);
-ck(files.length===14&&new Set(files).size===14,'14 distinct existing scene assets, no generated placeholders');
-for(const file of files){const url=new URL('../cloudflare-deploy/public/img/write-scenes/'+file+'.webp',import.meta.url);ck(existsSync(url)&&statSync(url).size<160000,'local static asset exists and is under 160KB: '+file);}
+const originalScenes=['bakery','restaurant','warmup-shopping','library','playground','warmup-gardening','airport','train','beach','space','castle','camping','aquarium','soccer'];
+ck(new Set(files).size===files.length&&originalScenes.every(file=>files.includes(file)),'original scene assets remain distinct and available');
+ck(files.includes('hf-runway')&&files.includes('hf-raft'),'recovered runway and raft are connected to the scene catalog');
+for(const file of files){const url=new URL('../cloudflare-deploy/public/img/write-scenes/'+file+'.webp',import.meta.url);ck(existsSync(url)&&statSync(url).size>0&&statSync(url).size<160000,'nonempty local static asset exists and is under 160KB: '+file);}
 console.log('warmup_flow_contract_harness PASS '+passed+' / FAIL 0');

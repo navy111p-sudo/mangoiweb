@@ -1230,7 +1230,8 @@
                새 날짜에서 옮기려면 그 날짜 목록에서 하면 된다. 글자는 서버가 만든 것(change.label_*)을 그대로 쓴다. */
             act = '<span style="color:#b45309;font-size:11.5px;font-weight:700;margin-right:4px">'
               + esc(T((s.change && s.change.label_ko) || '⏸ 다른 날로 옮김', (s.change && s.change.label_en) || '⏸ Moved to another day'))
-              + T(' — 이 날은 수업 없음', ' — no class this day') + '</span>';
+              + T(' — 이 날은 수업 없음', ' — no class this day') + '</span>'
+              + tcUndoMoveHtml(s);
           } else if (s.cancelled) {
             /* ✕ (2026-11-03) 취소된 수업 — 줄은 남기되(지우면 «수업이 없어졌다» 로 읽힌다) 입장·참관·초대 링크·연기 버튼은
                주지 않는다(서버도 join_open·observable·can_move 를 false 로 보낸다). 📩 메시지는 아래에서 그대로 붙는다 —
@@ -1502,6 +1503,16 @@
         });
       })(mss[si2]);
     }
+    var uds = box.querySelectorAll('.tc-undo-pin');
+    for (var ui = 0; ui < uds.length; ui++) {
+      (function (el) {
+        var go = function (ev) { if (ev) ev.preventDefault(); tcUndoMove(el); };
+        el.addEventListener('click', go);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') go(ev);
+        });
+      })(uds[ui]);
+    }
     var rss = box.querySelectorAll('.tc-restore-pin');
     for (var ri = 0; ri < rss.length; ri++) {
       (function (el) {
@@ -1545,6 +1556,76 @@
       });
     }
     announceCounts(rows.length);
+  }
+
+  /* ↩ (2026-11-04 매니저 Mai «I postpone the class but there's no restore or undo postponement option»)
+     «다른 날로 옮김» 줄의 「↩ 원래대로」 — 서버가 판정한 s.undo(정본 class-change-state.ts judgeMovedAwayUndo) 그대로 그린다.
+     ok 면 버튼, 아니면 «왜 못 하는지» 를 글자로(폰엔 hover 가 없다 · 누르면 거절되는 버튼을 두지 않는다).
+     🔒 서버가 본사 전용(enrollAdminHqOnly)이라 📩 메시지와 같은 역할 판정(tcCanMessage)으로 지사·대리점·강사에게는 안 그린다. */
+  var TC_UNDO_WHY = {
+    orig_passed: ['원래 시각이 지나 되돌릴 수 없음', 'Original time has passed — cannot undo'],
+    target_started: ['새 날짜 수업이 이미 시작됨 — 되돌릴 수 없음', 'Already started on the new date — cannot undo'],
+    target_not_active: ['그 뒤 취소·다시 연기됨 — 새 날짜에서 처리', 'Cancelled or postponed again — handle it on the new date'],
+    no_target: ['자동으로 되돌릴 수 없음 — 새 날짜에서 옮기세요', 'Cannot undo here — move it from the new date'],
+    no_time: ['원래 시각을 몰라 되돌릴 수 없음 — 새 날짜에서 옮기세요', 'Original time unknown — move it from the new date']
+  };
+  function tcMd(d) { return /^\d{4}-\d{2}-\d{2}/.test(String(d || '')) ? String(d).slice(5, 10).replace('-', '/') : ''; }
+  function tcUndoMoveHtml(s) {
+    var u = s && s.undo;
+    if (!u || !s.schedule_id || !tcCanMessage()) return '';
+    if (u.ok !== true) {
+      var w = TC_UNDO_WHY[u.reason] || TC_UNDO_WHY.no_target;
+      return '<span style="display:inline-block;margin-left:4px;color:#475467;font-size:11px">' + esc(T(w[0], w[1])) + '</span>';
+    }
+    var back = (tcMd(u.from_date) + ' ' + (u.from_time || '')).trim();
+    var ch = s.change || {};
+    var now = (tcMd(ch.to_date) + ' ' + (ch.to_time || '')).trim();
+    return '<span class="tc-undo-pin" role="button" tabindex="0" data-sid="' + esc(s.schedule_id) + '" '
+      + 'data-from="' + esc(u.from_date || '') + '" data-back="' + esc(back) + '" data-now="' + esc(now) + '" '
+      + 'data-name="' + esc(s.student_name || s.student_uid || '') + '" '
+      + 'title="' + esc(T('연기·변경을 취소하고 원래 날짜·시각(' + back + ')으로 되돌립니다', 'Undo the move — back to the original date and time (' + back + ')')) + '" '
+      + 'style="cursor:pointer;display:inline-block;white-space:nowrap;margin-left:4px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
+      + 'background:#fff7ed;color:#b45309;border:1px solid #fcd9a8">'
+      + T('↩ 원래대로', '↩ Undo move') + '</span>';
+  }
+  /* 서버가 거절하면 그 사유를 사람 말로(조용히 실패하지 않는다). 모르는 코드면 서버 문장(message)을 그대로. */
+  async function tcUndoMove(el) {
+    if (!el || el._busy) return;
+    var sid = el.getAttribute('data-sid'), from = el.getAttribute('data-from') || '';
+    var who = el.getAttribute('data-name') || '', back = el.getAttribute('data-back') || '', now = el.getAttribute('data-now') || '';
+    if (!confirm(T('연기·변경을 취소할까요?\n\n' + who + (now ? ' · 지금 ' + now : '') + ' → 원래 ' + back
+                   + '\n\n· 같은 수업이 원래 날짜·시각으로 돌아가 다시 열린 수업이 됩니다.\n· 담당 강사는 지금 그대로입니다.',
+                   'Undo this move?\n\n' + who + (now ? ' · now ' + now : '') + ' → back to ' + back
+                   + '\n\n· The same class returns to its original date and time and opens again.\n· The teacher stays as it is now.'))) return;
+    el._busy = true;
+    var old = el.textContent;
+    el.textContent = T('되돌리는 중…', 'Restoring…');
+    var j = null, httpOk = false;
+    try {
+      var r = await fetch('/api/admin/class-schedules/' + encodeURIComponent(sid), {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'undo_move', from_date: from })
+      });
+      httpOk = r.ok;
+      j = await r.json().catch(function () { return null; });
+    } catch (e) { j = null; }
+    el._busy = false;
+    if (httpOk && j && j.ok === true) {
+      try { window.tcLoadToday(); } catch (e) {}
+      return;
+    }
+    el.textContent = old;
+    var err = j && j.error;
+    var known = TC_UNDO_WHY[err];
+    var why = known ? T(known[0], known[1])
+      : (err === 'slot_taken' || err === 'conflict') ? T('원래 시각에 학생이나 강사의 다른 수업이 이미 있습니다. 새 날짜 수업에서 다른 시각으로 옮겨 주세요.', 'The student or teacher already has another class at the original time. Move it to another time from the new date.')
+      : err === 'teacher_unavailable' ? T('원래 시각이 강사의 휴가·근무불가 시간입니다. 새 날짜 수업에서 다른 시각으로 옮겨 주세요.', 'The teacher is on leave or unavailable at the original time. Move it from the new date instead.')
+      : err === 'class_already_attended' ? T('이 수업에 이미 출석 기록이 있어 되돌릴 수 없습니다. 본사에서 이력을 확인해 주세요.', 'This class already has attendance records, so it cannot be moved back. Please check its history.')
+      : (err === 'not_moved' || err === 'no_move_record' || err === 'schedule_changed') ? T('그 사이 수업이 바뀌었습니다. 목록을 새로고침합니다.', 'The class changed in the meantime. Refreshing the list.')
+      : (j && (j.message || j.error)) ? String(j.message || j.error)
+      : T('되돌리지 못했습니다. 잠시 후 다시 시도해 주세요.', 'Could not undo. Please try again shortly.');
+    alert('↩ ' + why);
+    if (err === 'not_moved' || err === 'no_move_record' || err === 'schedule_changed') { try { window.tcLoadToday(); } catch (e) {} }
   }
 
   /* ↩ 연기 취소 — 서버가 «왜 안 되는지» 를 말하면 그 사유를 사람 말로 보여 준다(조용히 실패하지 않는다). */

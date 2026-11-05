@@ -5,6 +5,7 @@ import { oncePerIsolate } from './once-per-isolate';
 import { broadcastWebPush } from './web-push';
 import { selectInChunks } from './d1-chunk';
 import { approvalHints, APPROVAL_PROMPT_RULE } from './handover-routing';
+import { buildHandoverBoard } from './handover-board';
 
 type Env = { DB: D1Database; AI?: any; [key: string]: any };
 const reply = (data: any, status = 200) => new Response(JSON.stringify(data), {
@@ -607,6 +608,31 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
         reader_mode:['admin','mgr_jjw'].includes(me),read_schedule,schedule,required:requiredRows,missed_staff,
         default_recipient: members.find(m=>m.username==='mgr_jjw'&&m.username!==me)?.username || members.find(m=>m.username==='admin'&&m.username!==me)?.username || '',
         ai_available:!!env.AI, can_review_all:all, also_sees:INBOX_ALSO_SEES[me]||[], read_min_sec:REVIEW_ENFORCED.includes(me)?REVIEW_MIN_READ_SEC:0});
+    }
+    // 👀 팀 보고판(2026-11-04 사장님 «매니저·본사 임직원 일일보고를 한 번에») — 경영진만.
+    //   모양은 handover-board.ts(순수 함수). ⛔ 초안은 «미제출» 로만(내용·존재 모두 감춤 — visible() 와 같은 약속).
+    //   영업일지는 읽기만 하고, 못 읽으면 sales=null(«모름») — 0건으로 지어내지 않는다.
+    if (request.method === 'GET' && route === '/board') {
+      if (!isExec(actor)) return reply({ok:false,error:'forbidden'},403);
+      const members = await accounts(env);
+      const raw = await env.DB.prepare(`SELECT * FROM daily_handovers WHERE report_date=? AND status<>'draft' ORDER BY updated_at DESC LIMIT 300`).bind(day).all();
+      const reports = await withFollowups(env, raw.results || []);
+      let duty: any[] = [], duty_known = true;
+      try { duty = await handoverDuty(env, day); } catch { duty_known = false; console.warn('[daily-handover] board duty unavailable'); }
+      let sales: any = null;
+      try {
+        const reps = await env.DB.prepare(`SELECT DISTINCT admin_username AS u FROM sales_reps
+          WHERE active=1 AND admin_username IS NOT NULL AND admin_username<>'' LIMIT 100`).all<any>();
+        const items = await env.DB.prepare(`SELECT r.admin_username AS username, a.kind AS kind,
+          COALESCE(l.name, a.title, '') AS lead, COALESCE(a.outcome, a.note, '') AS outcome
+          FROM sales_activities a JOIN sales_reps r ON r.id=a.rep_id LEFT JOIN sales_leads l ON l.id=a.lead_id
+          WHERE a.activity_date=? AND r.admin_username IS NOT NULL AND r.admin_username<>'' ORDER BY a.id LIMIT 400`).bind(day).all<any>();
+        sales = { reps: (reps.results || []).map((x: any) => String(x.u)), items: items.results || [] };
+      } catch { console.warn('[daily-handover] board sales unavailable'); }
+      const board = buildHandoverBoard({ me, alsoSees: INBOX_ALSO_SEES[me] || [], now: Date.now(), duty, reports, members, sales });
+      return reply({ ok:true, day, me:{ username:me, name:actor.name||me }, duty_known, ...board,
+        files: await attachmentsFor(env, raw.results || []),
+        read_min_sec: REVIEW_ENFORCED.includes(me) ? REVIEW_MIN_READ_SEC : 0 });
     }
     if (request.method === 'GET' && route === '/closed-days') {
       const r = await env.DB.prepare(`SELECT day,name FROM daily_handover_closed_days WHERE day>=? ORDER BY day ASC LIMIT 200`).bind(shiftDay(day,-60)).all<any>();
