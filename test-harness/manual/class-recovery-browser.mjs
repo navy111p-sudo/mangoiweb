@@ -14,11 +14,11 @@ try {
   const page = await browser.newPage({viewport:{width,height:800}});
   const errors = []; page.on('pageerror', e=>errors.push(e.message));
   const source = readFileSync(new URL('../../cloudflare-deploy/public/manager.html',import.meta.url),'utf8');
-  const code = ['var TA_UNDO_WHY = {','function taUndoPill(','function taUndoMove(','function taRestoreCancelledPill(','async function taRestoreCancelled('].map(n=>cut(source,n)+';').join('\n');
-  const posts = [], dialogs = [];
+  const code = ['var TA_UNDO_WHY = {','function taMd(','function taRestoreMovedPill(','async function taRestoreMoved(','function taUndoPill(','function taUndoMove(','function taRestoreCancelledPill(','async function taRestoreCancelled('].map(n=>cut(source,n)+';').join('\n');
+  const posts = [], dialogs = [], urls = [];
   let allow = true;
   page.on('dialog', async d=>{dialogs.push(d.message()); await (allow ? d.accept() : d.dismiss());});
-  await page.route('**/*', async route=>{ if (route.request().isNavigationRequest()) return route.fulfill({contentType:'text/html',body:'<main id="app"></main>'}); posts.push(route.request().postDataJSON()); await route.fulfill({json:{ok:true}}); });
+  await page.route('**/*', async route=>{ if (route.request().isNavigationRequest()) return route.fulfill({contentType:'text/html',body:'<main id="app"></main>'}); urls.push(route.request().url()); posts.push(route.request().postDataJSON()); await route.fulfill({json:{ok:true}}); });
   await page.goto('http://recovery.fixture/');
   await page.addScriptTag({content:`
    var IS_HQ=true, rows={}, refreshes=0;
@@ -29,6 +29,12 @@ try {
      rows[41]={schedule_id:41,student_name:'Fixture',cancelled,start_ts:Date.now()+86400000,change:{to_date:'2027-01-09',to_time:'20:00'},undo:{ok:false,reason:'orig_passed',historical_available:true,from_date:'2026-11-01',from_time:'10:00'}};
      document.getElementById('app').innerHTML=cancelled?taRestoreCancelledPill(rows[41]):taUndoPill(rows[41]);
      document.querySelector('[role=button]')?.addEventListener('click',e=>taUndoMove(e.currentTarget));
+   };
+   /* 2026-11-06: moved away, the new date was later cancelled, original time passed (owner screenshot) */
+   window.showMovedCancelled=function(){
+     rows[42]={schedule_id:42,student_name:'Fixture',moved_away:true,change:{to_date:'2027-01-09',to_time:'20:00'},undo:{ok:false,reason:'orig_passed',historical_available:false,restore_cancelled_available:true,target_id:'77',target_date:'2027-01-09',target_time:'20:00',from_date:'2026-11-01',from_time:'10:00'}};
+     document.getElementById('app').innerHTML=taUndoPill(rows[42]);
+     document.querySelector('[role=button]')?.addEventListener('click',e=>taUndoMove(e.currentTarget));
    };`});
   await page.evaluate(()=>showRecovery(false));
   allow=false; await page.getByRole('button').click(); assert.equal(posts.length,0); checks++;
@@ -37,8 +43,13 @@ try {
   await page.evaluate(()=>showRecovery(true)); await page.getByRole('button').click(); await page.waitForFunction(()=>refreshes===2);
   assert.equal(posts[1].action,'restore'); assert.match(dialogs.at(-1),/normal attendance and billing/); checks+=2;
   await page.evaluate(()=>{IS_HQ=false;showRecovery(true)}); assert.equal(await page.getByRole('button').count(),0); checks++;
+  await page.evaluate(()=>{IS_HQ=true;showMovedCancelled();});
+  assert.match(await page.getByRole('button').textContent(),/Restore class · 01\/09 20:00/); checks++;
+  await page.getByRole('button').click(); await page.waitForFunction(()=>refreshes===3);
+  assert.equal(posts.at(-1).action,'restore'); assert.match(urls.at(-1),/\/api\/admin\/class-schedules\/77$/); assert.match(dialogs.at(-1),/later cancelled/); assert.match(dialogs.at(-1),/cannot reopen at 2026-11-01 10:00/); checks+=4;
+  await page.evaluate(()=>{IS_HQ=false;showMovedCancelled();}); assert.equal(await page.getByRole('button').count(),0); checks++;
   const admin = readFileSync(new URL('../../cloudflare-deploy/public/js/adm-today-classes.js',import.meta.url),'utf8');
-  const adminCode = ['var TC_UNDO_WHY = {','function tcMd(','function tcUndoMoveHtml(','async function tcUndoMove(','async function tcRestorePostponed('].map(n=>cut(admin,n)+';').join('\n');
+  const adminCode = ['var TC_UNDO_WHY = {','function tcMd(','function tcUndoMoveHtml(','async function tcUndoMove(','function tcMovedRestoreWhy(','async function tcRestorePostponed('].map(n=>cut(admin,n)+';').join('\n');
   await page.addScriptTag({content:`
     IS_HQ=true; rows[41].cancelled=false; T=(ko,en)=>en; var tcCanMessage=()=>IS_HQ;
     window.tcLoadToday=()=>refreshes++;
@@ -46,9 +57,15 @@ try {
     document.getElementById('app').innerHTML=tcUndoMoveHtml(rows[41]);
     document.querySelector('[role=button]').addEventListener('click',e=>tcUndoMove(e.currentTarget));
   `});
-  await page.getByRole('button').click(); await page.waitForFunction(()=>refreshes===3);
-  assert.equal(posts[2].historical_correction,true); assert.match(dialogs.at(-1),/postponed/); checks+=2;
+  await page.getByRole('button').click(); await page.waitForFunction(()=>refreshes===4);
+  assert.equal(posts[3].historical_correction,true); assert.match(dialogs.at(-1),/postponed/); checks+=2;
   await page.evaluate(()=>{IS_HQ=false; document.getElementById('app').innerHTML=tcUndoMoveHtml(rows[41]);});
+  assert.equal(await page.getByRole('button').count(),0); checks++;
+  await page.evaluate(()=>{IS_HQ=true; document.getElementById('app').innerHTML=tcUndoMoveHtml(rows[42]); document.querySelector('[role=button]').addEventListener('click',e=>tcRestorePostponed(e.currentTarget));});
+  assert.match(await page.getByRole('button').textContent(),/Restore class · 01\/09 20:00/); checks++;
+  await page.getByRole('button').click(); await page.waitForFunction(()=>refreshes===5);
+  assert.equal(posts.at(-1).action,'restore'); assert.match(urls.at(-1),/\/api\/admin\/class-schedules\/77$/); assert.match(dialogs.at(-1),/later cancelled/); checks+=3;
+  await page.evaluate(()=>{IS_HQ=false; document.getElementById('app').innerHTML=tcUndoMoveHtml(rows[42]);});
   assert.equal(await page.getByRole('button').count(),0); checks++;
   assert.deepEqual(errors,[]); checks++; await page.close();
  }

@@ -1170,7 +1170,9 @@ export async function handleAdminApi(
               schedule_id: s.id,
               source: 'mangoi',
               moved_away: true,            // ⏸ 이 날에서 다른 날로 옮겨 간 회차 — 입장·옮기기 없음, 「↩ 원래대로」(undo)만
-              undo: _undo ? { ok: _undo.ok, reason: _undo.reason, historical_available: _undo.historical_available === true, from_date: _undo.from_date, from_time: _undo.from_time } : null,
+              undo: _undo ? { ok: _undo.ok, reason: _undo.reason, historical_available: _undo.historical_available === true, from_date: _undo.from_date, from_time: _undo.from_time,
+                /* ↩ (2026-11-06) 새 자리가 그 뒤 취소됐고 아직 시작 전 → 이 줄에서 «취소 수업 복원»(그 대상 행에 action:'restore') */
+                restore_cancelled_available: _undo.restore_cancelled_available === true, target_id: _undo.target_id, target_date: _undo.target_date ?? null, target_time: _undo.target_time ?? null } : null,
               observable: false,
               room_id: null,
               student_uid: s.user_id || null,
