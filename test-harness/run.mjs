@@ -21,6 +21,7 @@
 //   · 동시 실행 중 FAIL 난 하니스는 마지막에 «혼자» 한 번 더 돌린다 — 옆 하니스 탓이었으면
 //       통과하고, 진짜 고장이면 두 번 다 FAIL 이다. 혼자 돌려야만 통과한 이름은 요약에 따로
 //       찍는다(EXCLUSIVE 에 넣어야 할 후보라는 신호).
+//   · 동시 실행 중 «90초 시간초과» 도 같이 혼자 한 번 더 돌린다(2026-11-04) — CPU 다툼으로 느려진 것일 수 있다.
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
@@ -104,6 +105,10 @@ const EXCLUSIVE = new Set([
   'class_cancelled_visible_harness.mjs',  // 자식 프로세스 40여 개(동시 4) — 풀에서 겹치면 90초 상한을 넘어 SKIP
 ]);
 
+// 시간초과 표시 — classify 가 붙이고 ③ «혼자 다시» 가 이 값으로 알아본다(글자를 두 곳에 따로 적지 않게 한 벌).
+//   ⚠️ 여기(위쪽)에 둔다 — 아래 classify 옆에 두면 최상위 await 때문에 그 줄에 닿기 전에 불려 TDZ 오류가 난다.
+const TIMEOUT_NOTE = '⏱  timeout(90s) — netem 다중클라이언트 E2E';
+
 // ── 실행할 하니스 고르기 / Pick harnesses ──
 const files = readdirSync(__dir).filter(f => f.endsWith('_harness.mjs')).sort();
 const rows = [];
@@ -163,11 +168,16 @@ await Promise.all(Array.from({ length: Math.min(JOBS, pool.length) }, worker));
 
 // ③ 동시에 돌다 FAIL 난 것은 «혼자» 한 번 더 — 옆 하니스 탓인지 가려낸다
 //    Re-run pool FAILs alone: interference passes, real breakage fails again
+//    ⏱ «시간초과» 도 같이 다시 돌린다 (2026-11-04) — 시간초과는 SKIP 으로 분류돼 이 재시도를 못 받았는데,
+//      동시 실행의 CPU 다툼으로 느려진 것일 수 있다. 실측: class_cancelled_visible 이 혼자 50초 · 4개 동시
+//      CI 에서 90초 초과 → SKIP → 기준선 «SKIP 20 → 21» 로 무관한 PR 들의 게이트가 막혔다(#2828·#2068).
+//      ⛔ 판정은 그대로다 — 혼자 돌려도 시간초과면 SKIP(기준선이 잡음), 혼자 돌려 FAIL 이면 FAIL.
 const soloPassed = [];
+const timedOutInPool = (r) => r.cat === 'SKIP' && r.note === TIMEOUT_NOTE;
 for (let i = 0; i < done.length; i++) {
-  if (JOBS > 1 && done[i].cat === 'FAIL') {
+  if (JOBS > 1 && (done[i].cat === 'FAIL' || timedOutInPool(done[i]))) {
     const r = await runWithRetry(done[i].f);
-    if (r.cat !== 'FAIL') { r.note += ' (혼자 다시 돌려 통과)'; soloPassed.push(r.f); }
+    if (r.cat === 'PASS') { r.note += ' (혼자 다시 돌려 통과)'; soloPassed.push(r.f); }
     console.log('  ↻ 혼자 다시: ' + r.f + ' … ' + r.note);
     done[i] = r;
   }
@@ -215,7 +225,7 @@ function classify(f, r) {
   //   (실제 소스/fetch 하니스는 puppeteer 를 안 쓰므로 이 완화에 안 걸린다 = 진짜 FAIL 은 그대로 FAIL)
   let harnessBody = ''; try { harnessBody = readFileSync(join(__dir, f), 'utf8'); } catch {}
   const isE2E = usesPuppeteer(harnessBody);
-  if (timedOut) return ['SKIP', '⏱  timeout(90s) — netem 다중클라이언트 E2E', out];
+  if (timedOut) return ['SKIP', TIMEOUT_NOTE, out];
   // ⚠️ 2026-08-09 수정 — 이 완화들은 **E2E 하니스에만** 적용한다.
   //   그전엔 E2E 여부를 안 보고 crash 면 무조건 SKIP 이었다. 그래서
   //   순수 소스/fetch 하니스가 «Cannot read properties» 같은 **진짜 버그**로 죽어도
@@ -240,7 +250,8 @@ const skips = rows.filter(r => r.cat === 'SKIP');
 if (skips.length) { console.log('\n  ⏭ E2E(정상 — 라이브 화상수업/브라우저 상태 필요, 헤드리스 제외):'); skips.forEach(r => console.log('    - ' + r.f)); }
 if (soloPassed.length) {
   // 동시에 돌 때만 실패 = 옆 하니스와 저장소 안 파일을 함께 쓰고 있을 가능성이 크다 → EXCLUSIVE 후보
-  console.log('\n  🔀 동시 실행에서만 실패하고 혼자 돌리니 통과 (run.mjs EXCLUSIVE 에 넣을 후보):');
+  // 동시에 돌 때만 시간초과 = 무거워서 CPU 다툼에 90초를 넘긴다 → 하니스를 가볍게 할 후보
+  console.log('\n  🔀 동시 실행에서만 실패·시간초과하고 혼자 돌리니 통과 (실패=EXCLUSIVE 후보 · 시간초과=하니스를 가볍게 할 후보):');
   soloPassed.forEach(f => console.log('    - ' + f));
 }
 console.log(`\n  ⏱ 걸린 시간 ${((Date.now() - t0) / 1000).toFixed(0)}초 · 동시 ${JOBS}개`);

@@ -262,11 +262,15 @@
   function btnsHtml(cls) {
     var auto = readMode() === 'auto', en = uiEn();
     var now = '<span class="wus-now">' + (en ? 'Now' : '지금') + '</span>';
+    /* 📱 이름은 «긴 판·짧은 판» 두 벌(2026-11-04) — 설정 화면이 한 화면 배치(폰)일 때는 왼쪽 이름표가
+       이미 «말하기» 라고 말하므로 짧은 판(버튼으로·자동으로)만 보인다(warmup.html CSS .wus-nm-l / .wus-nm-s). */
     return '<button type="button" class="' + cls + (auto ? '' : ' on') + '" data-talk="button">'
-      + '<span class="wus-name">' + (en ? '🎤 Talk with the mic button' : '🎤 버튼으로 말하기') + (auto ? '' : now) + '</span>'
+      + '<span class="wus-name"><span class="wus-nm-l">' + (en ? '🎤 Talk with the mic button' : '🎤 버튼으로 말하기') + '</span>'
+      + '<span class="wus-nm-s">' + (en ? '🎤 Tap mic' : '🎤 버튼으로') + '</span>' + (auto ? '' : now) + '</span>'
       + '<span class="wus-desc">' + (en ? 'Tap the mic to talk (default)' : '마이크를 눌러서 말해요 (기본)') + '</span></button>'
       + '<button type="button" class="' + cls + (auto ? ' on' : '') + '" data-talk="auto">'
-      + '<span class="wus-name">' + (en ? '✨ Talk automatically' : '✨ 자동으로 말하기') + ' <span class="at-beta">' + (en ? 'beta' : '베타') + '</span>' + (auto ? now : '') + '</span>'
+      + '<span class="wus-name"><span class="wus-nm-l">' + (en ? '✨ Talk automatically' : '✨ 자동으로 말하기') + '</span>'
+      + '<span class="wus-nm-s">' + (en ? '✨ Auto' : '✨ 자동으로') + '</span> <span class="at-beta">' + (en ? 'beta' : '베타') + '</span>' + (auto ? now : '') + '</span>'
       + '<span class="wus-desc">' + (en ? 'The mic turns on by itself after the AI speaks · works better with earphones' : 'AI 말이 끝나면 마이크가 저절로 켜져요 · 이어폰을 쓰면 더 정확해요') + '</span></button>';
   }
   function paint() {
@@ -335,7 +339,9 @@
       var sec = document.createElement('div');
       sec.id = 'wusTalkSec';
       /* 🌐 2026-10-03 — 제목·안내는 data-ko/data-en 으로(warmup.html 의 wuApplyStatic 이 따라 바꾼다) */
-      sec.innerHTML = '<div class="wus-sub" data-ko="🎤 어떻게 말할까요?" data-en="🎤 How will you talk?">' + (uiEn() ? '🎤 How will you talk?' : '🎤 어떻게 말할까요?') + '</div>'
+      /* 📱 .wus-short — 한 화면 배치(폰)에서 왼쪽에 보이는 짧은 이름표(warmup.html CSS). 넓은 화면에서는 숨는다 */
+      sec.innerHTML = '<span class="wus-short" data-ko="말하기" data-en="Talk">' + (uiEn() ? 'Talk' : '말하기') + '</span>'
+        + '<div class="wus-sub" data-ko="🎤 어떻게 말할까요?" data-en="🎤 How will you talk?">' + (uiEn() ? '🎤 How will you talk?' : '🎤 어떻게 말할까요?') + '</div>'
         + '<div class="wus-hint" data-ko="자동으로 고르면 AI 말이 끝난 뒤 마이크가 저절로 켜지고, 말을 멈추면 저절로 보내져요." data-en="With Auto, the mic turns on after the AI finishes and sends when you stop talking.">'
         + (uiEn() ? 'With Auto, the mic turns on after the AI finishes and sends when you stop talking.' : '자동으로 고르면 AI 말이 끝난 뒤 마이크가 저절로 켜지고, 말을 멈추면 저절로 보내져요.') + '</div>'
         + '<div class="wus-grid" id="wusTalkBtns"></div>';

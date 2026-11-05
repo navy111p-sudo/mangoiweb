@@ -108,9 +108,12 @@ ok(cat && cat.join(',')===[1,2,3,4,5,6,7,8].map((n,i)=>n+':'+['첫걸음','기�
    +'/'+['A1','A2','A2+','B1','B1+','B2','B2+','C1'][i]).join(','), '이름·Lv·CEFR 이 전부 맞다', cat);
 /* 화면에도 실제로 그려지는가 — 목록만 맞고 렌더에서 빠지면 사람은 못 본다 */
 await ev(`(function(){try{localStorage.setItem('mangoi_admin_welcome_v1','1');}catch(e){}})()`);
-const shown = await ev(`(function(){var b=document.querySelectorAll('#wusLevels .wus-cefr');
-  return Array.prototype.map.call(b,function(x){return x.textContent.trim();});})()`);
-ok(shown && shown.length===8, `설정 화면에 CEFR 이 여덟 개 그려진다 (${shown?shown.length:0})`, shown);
+/* 📌 2026-11-04 — 대화 수준은 폰·PC 모두 드롭다운이라 사람이 보는 자리는 #wusLevelSel 의 보기 글자다
+   (8칸 목록 #wusLevels 는 드롭다운이 대신 누르는 숨은 버튼이 됐다 — 거기를 세면 «안 보이는 글자» 를 센다). */
+const shown = await ev(`(function(){var s=document.getElementById('wusLevelSel');
+  if(!s||getComputedStyle(s).display==='none') return null;
+  return Array.prototype.map.call(s.options,function(o){var m=o.textContent.match(/·\\s*(\\S+)/);return m?m[1]:'';});})()`);
+ok(shown && shown.join(',')==='A1,A2,A2+,B1,B1+,B2,B2+,C1', `설정 화면 수준 드롭다운에 CEFR 이 여덟 개 보인다 (${shown?shown.length:0})`, shown);
 /* ⋮ 설정 패널 — 학생이 대화 중에 실제로 보는 자리다(설정 화면은 처음 한 번만 본다).
    여기 첫 표시 글자가 HTML 에 손으로 박혀 있어서 눈금을 손볼 때마다 옛 값으로 남았다. */
 console.log('\n■ ⋮ 설정 패널이 CEFR 을 함께 말하는가');

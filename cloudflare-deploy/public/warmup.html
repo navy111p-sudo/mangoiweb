@@ -397,7 +397,8 @@
   .wus-find{margin:10px 0 14px;background:rgba(251,191,36,.13);border-color:rgba(251,191,36,.42)}
   .wus-find:hover{background:rgba(251,191,36,.24)}
   .wus-find .wus-name{color:#fcd34d}
-  /* 🚀 시작 버튼은 «바닥에 붙여» 둔다 — 수준이 8줄이라 휴대폰에서는 끝까지 내려야 보인다.
+  /* 🚀 시작 버튼은 «바닥에 붙여» 둔다 — 고를 칸이 여럿이라 휴대폰에서는 끝까지 내려야 보인다
+     (대화 수준은 2026-11-04 부터 드롭다운이라 짧아졌지만 나이대·교정·말하는 방법이 남아 있다).
      스크롤 상자가 .wu-setup 자신이라 sticky 가 그 안에서 정상 동작한다
      (CLAUDE.md 2장의 «html/body overflow 로 sticky 가 죽는» 자리가 아니다).
      ⚠️ 이 주석에 홑낫표를 쓰지 말 것 — admin_lazyload/subtitle 하니스가 <style> 안 장식 문자를
@@ -471,9 +472,108 @@
     .wus-booknow{bottom:53px;font-size:13px;padding:10px 12px}
     .wus-two-nm{font-size:14px} .wus-two-ds{font-size:11.5px} .wus-twoc{padding:12px 8px}
   }
+  /* 🎚️ 드롭다운(나이대·대화 수준) — 모양은 폰·PC 공용 한 벌 (2026-11-04).
+     대화 수준은 폰에서도 드롭다운이다(사장님: 8칸 목록이 공간을 너무 많이 차지하고 복잡하다).
+     나이대도 폰·PC 모두 드롭다운이다(같은 날 사장님: 나이대도 드롭다운으로 · 한 화면에).
+     ⚠️ 목록(#wusLevels·#wusAges)은 감추기만 한다 — 드롭다운이 그 버튼을 «대신 눌러» 저장·판정이 그대로 돈다(wireSelects).
+     ⚠️ 글자 16px 미만이면 아이폰이 누를 때 화면을 확대한다 — 16px 아래로 내리지 마세요(한 화면 배치는 16px).
+     ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요(한자 폰트 하니스). */
+  .wus-sel{display:none;width:100%;appearance:none;-webkit-appearance:none;cursor:pointer;
+    font-family:inherit;font-size:17px;font-weight:800;color:#f8fafc;border-radius:14px;padding:12px 44px 12px 16px;
+    border:1px solid rgba(148,163,184,.4);
+    background:#0f1c3f url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%237dd3fc' stroke-width='2' fill='none'/%3E%3C/svg%3E") no-repeat right 16px center}
+  .wus-sel:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
+  .wus-sel option{background:#0f1c3f;color:#f8fafc}
+  .wus-selnote{display:none;margin-top:6px;font-size:14px;line-height:1.45;color:var(--text2)}
+  #wusLevelSel,#wusLevelNote,#wusAgeSel,#wusAgeNote{display:block}
+  #wusLevels,#wusAges{display:none}
+  #wusGLevel .wus-find{margin:12px 0 0;padding:10px 14px}
+  .wus-short{display:none}
+  .wus-nm-s{display:none}
+  /* 📱 한 화면 배치 (2026-11-04 사장님: 나이대도 드롭다운으로 · 한 화면에 보이게).
+     PC 3단계 카드(B안)가 «아닌» 모든 화면 — 폰·태블릿·낮은 창. 아래 PC 블록과 정확히 «반대» 조건이다.
+     각 칸을 «왼쪽 짧은 이름표 + 오른쪽 고르는 줄» 한 줄로 접는다. 긴 질문·안내·카드 설명은 감추고,
+     고른 것의 설명은 칸 아래 한 줄(.wus-selnote)이 말한다 — 수준·나이대·교정 방식 모두 같은 모양.
+     ⛔ 버튼·드롭다운을 지우거나 새 판정을 만들지 않는다 — 모양만 바꾼다(저장·판정은 기존 위임 처리 그대로).
+     ⛔ 교정 방식 3가지는 첫 화면에서 «고를 수 있게» 둔다(2026-10-29 사장님 결정) — 줄만 접었다.
+     ⚠️ 글자 16px 미만 드롭다운은 아이폰이 누를 때 화면을 확대한다 — 드롭다운은 16px.
+     ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요(한자 폰트 하니스). */
+  @media (max-width:1099.98px), (max-height:619.98px){
+    .wu-setup{padding:12px 12px 12px}
+    .wus-nav{margin:-12px -12px 10px;padding:5px 12px}
+    .wus-nav-in{flex-wrap:nowrap;gap:6px}
+    .wus-navbtn{padding:5px 10px;font-size:13px;gap:4px}
+    .wus-navbtn .wu-photo-icon{width:20px;height:20px;margin-right:0}
+    .wus-title{font-size:18px;margin:0 0 4px}
+    .wus-title .mango-inline{width:30px;height:auto}
+    .wus-lead{display:none}
+    #wusMain>div[style*="text-align:center"]{display:flex;justify-content:center;gap:6px;margin-bottom:4px}
+    #wusMain>div[style*="text-align:center"]>:is(.aidiff-chip,.howto-chip){margin:0!important;padding:4px 11px!important;font-size:12.5px!important;white-space:nowrap}
+    :is(.aidiff-chip,.howto-chip,#wusFind) .wus-nm-l{display:none}
+    :is(.aidiff-chip,.howto-chip,#wusFind) .wus-nm-s{display:inline}
+    .aidiff-chip .wu-photo-icon,.howto-chip .wu-photo-icon{width:18px;height:18px}
+    :is(#wusGLang,#wusTwoSec,#wusGAge,#wusGLevel,#wusGMode,#wusTalkSec){display:grid;grid-template-columns:64px minmax(0,1fr);
+      column-gap:8px;align-items:center;margin:0;padding:7px 0;border-top:1px solid rgba(148,163,184,.16)}
+    #wusGLang{border-top:0}
+    :is(#wusGLang,#wusTwoSec,#wusGAge,#wusGLevel,#wusGMode,#wusTalkSec)>*{grid-column:2}
+    :is(#wusGLang,#wusTwoSec,#wusGAge,#wusGLevel,#wusGMode,#wusTalkSec)>.wus-short{display:block;grid-column:1;grid-row:1;
+      font-size:13px;font-weight:800;color:var(--accent);line-height:1.25;word-break:keep-all;overflow-wrap:anywhere}
+    :is(#wusGLang,#wusTwoSec,#wusGAge,#wusGLevel,#wusGMode,#wusTalkSec)>:is(.wus-sub,.wus-hint){display:none}
+    /* 언어·말하는 방법 — 두 칸 */
+    #wusLangs,#wusTalkBtns{grid-template-columns:1fr 1fr;gap:6px}
+    :is(#wusLangs,#wusTalkBtns,#wusCModes) .wus-card{text-align:center;padding:8px 4px;border-radius:11px}
+    :is(#wusLangs,#wusTalkBtns,#wusCModes) .wus-name{justify-content:center;gap:4px;font-size:14.5px;flex-wrap:nowrap;white-space:nowrap}
+    :is(#wusLangs,#wusTalkBtns,#wusCModes) .wus-desc{display:none}
+    :is(#wusLangs,#wusTalkBtns,#wusCModes) .wu-photo-icon{width:20px;height:20px;margin-right:0}
+    :is(#wusLangs,#wusTalkBtns) .wus-now{padding:1px 6px;font-size:11px}
+    #wusTalkBtns .wus-nm-l{display:none}
+    #wusTalkBtns .wus-nm-s{display:inline}
+    #wusTalkBtns .at-beta{margin-left:0;padding:0 4px;font-size:10.5px}
+    /* 주제 — 교재로 / 자유 대화 두 칸(그림·설명은 접는다. 고른 뒤의 사실은 아래 띠의 지금 교재 줄이 말한다) */
+    #wusTwoWay{gap:6px;margin:0;grid-template-columns:repeat(2,minmax(0,1fr))}
+    #wusTwoWay .wus-twoc{padding:8px 4px;border-radius:11px}
+    #wusTwoWay :is(.wus-two-ic,.wus-two-ds){display:none}
+    #wusTwoWay .wus-two-nm{font-size:14.5px;line-height:1.2}
+    #wusTwoWay .wus-now{padding:1px 6px;font-size:11px}
+    #wusBooksSec{margin:2px 0 6px}
+    /* 나이대·수준 — 드롭다운 + 고른 것 설명 한 줄 */
+    #wusGAge .wus-sel,#wusGLevel .wus-sel{font-size:16px;padding:8px 38px 8px 12px;border-radius:11px;background-position:right 12px center}
+    :is(#wusGAge,#wusGLevel,#wusGMode) .wus-selnote{margin-top:4px;font-size:12.5px;line-height:1.4}
+    #wusGLevel .wus-lvrow{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:4px}
+    #wusGLevel .wus-lvrow .wus-selnote{flex:1 1 130px;margin:0}
+    #wusGLevel .wus-find{flex:0 0 auto;width:auto;margin:0;padding:3px 10px 3px 5px;border-radius:999px}
+    #wusGLevel .wus-find .wus-name{font-size:13px;flex-wrap:nowrap;white-space:nowrap}
+    #wusGLevel .wus-find .wu-photo-icon{width:20px;height:20px}
+    #wusGLevel .wus-find .wus-desc{display:none}
+    /* 교정 — 세 칸 한 줄(카드 설명·기본·지금 표시는 접고 아래 설명 줄이 말한다) */
+    #wusCModes{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+    #wusCModes .wus-card{padding:8px 2px}
+    #wusCModes .wus-name{font-size:13.5px;gap:3px}
+    #wusCModes .wu-photo-icon{width:18px;height:18px}
+    #wusCModes :is(.wus-cmode-tag,.wus-now){display:none}
+    #wusCModes .wus-card:has(.wus-cmode-tag){border-style:dashed;border-color:var(--accent)}
+    #wusGMode .wus-selnote{display:block}
+    #wusGMode .wus-cm-speed{display:none}
+    /* 시작 띠 — ⚠️ 폭 640px 이하는 아래 @media (max-width:640px) 의 .wus-ctabar 가 뒤에 와서 margin·padding 을 이긴다
+       (배경만 여기 값). 그래서 이 margin·padding 은 641~1099px 에서만 먹는다 — 폰 값을 바꾸려면 그쪽을 고칠 것. */
+    .wus-ctabar{bottom:-12px;margin:0 -12px -12px;padding:6px 12px 14px;
+      background:linear-gradient(180deg,rgba(16,31,71,0),rgba(16,31,71,.96) 14px,#101f47 34px)}
+    .wus-ctabar .wus-booknow{margin-bottom:6px;padding:7px 11px;font-size:13px}
+    .wus-ctabar .wus-booknow .wu-photo-icon{width:20px;height:20px}
+    .wus-ctabar .wus-cta{padding:11px;font-size:16px}
+    .wus-ctabar .wus-hint2{margin-top:5px;font-size:12px}
+  }
+  @media (max-width:359px){
+    :is(#wusTalkBtns,#wusLangs) .wu-photo-icon,#wusCModes .wus-cm-ic{display:none}
+    .wus-nav-in{flex-wrap:wrap;row-gap:4px}
+    .wus-navbtn{padding:5px 8px;font-size:12.5px}
+    .wus-navbtn .wu-photo-icon{display:none}
+    #wusCModes .wus-name{font-size:12.5px}
+    #wusCModes .wus-card{padding:8px 1px}
+    :is(#wusLangs,#wusTalkBtns,#wusTwoWay) .wus-name,#wusTwoWay .wus-two-nm{font-size:13.5px}
+  }
   /* 🖥️ PC 3단계 카드 (B안 · 2026-10-18). 폰·좁은 창은 아래 규칙이 하나도 안 걸린다.
      ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요(한자 폰트 하니스). */
-  .wus-pcsel,.wus-pcnote{display:none}
   .wus-pc3[hidden]{display:none!important}
   @media (min-width:1100px) and (min-height:620px){
     .wu-setup{padding:16px 28px 22px}
@@ -525,15 +625,10 @@
     #wusPcB1 #wusTalkBtns .wus-card{text-align:center;padding:14px 8px}
     #wusPcB1 #wusTalkBtns .wus-name{justify-content:center;font-size:16px}
     #wusPcB1 #wusTalkBtns .wus-desc{display:none}
-    /* 2 · 나이대·수준 — 드롭다운 */
-    #wusPcB2 #wusAges,#wusPcB2 #wusLevels{display:none}
-    #wusPcB2 .wus-pcsel{display:block;width:100%;appearance:none;-webkit-appearance:none;cursor:pointer;
-      font-family:inherit;font-size:18px;font-weight:800;color:#f8fafc;border-radius:14px;padding:12px 44px 12px 16px;
-      border:1px solid rgba(148,163,184,.4);
-      background:#0f1c3f url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%237dd3fc' stroke-width='2' fill='none'/%3E%3C/svg%3E") no-repeat right 16px center}
-    #wusPcB2 .wus-pcsel:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
-    #wusPcB2 .wus-pcsel option{background:#0f1c3f;color:#f8fafc}
-    #wusPcB2 .wus-pcnote{display:block;margin-top:6px;font-size:14px;line-height:1.45;color:var(--text2)}
+    /* 2 · 나이대·수준 — 드롭다운(모양은 위 .wus-sel 공용 규칙. 여기서는 나이대까지 켜고 글자만 키운다) */
+    #wusPcB2 #wusAges{display:none}
+    #wusPcB2 .wus-sel{display:block;font-size:18px}
+    #wusPcB2 .wus-selnote{display:block}
     #wusPcB2 .wus-find{margin:14px 0 0;padding:10px 14px}
     #wusPcB2 .wus-find .wus-name{font-size:16px}
     #wusPcB2 .wus-find .wus-desc{font-size:13.5px}
@@ -570,7 +665,7 @@
     #wusPcB3 #wusBooksSec{max-height:120px;min-height:0}
     #wusPcB1 #wusLangs .wu-photo-icon{width:34px;height:34px}
     #wusPcB1 #wusTalkBtns .wus-card{padding:10px 8px}
-    #wusPcB2 .wus-pcsel{padding:10px 44px 10px 14px;font-size:17px}
+    #wusPcB2 .wus-sel{padding:10px 44px 10px 14px;font-size:17px}
     #wusPcB2 .wus-find{margin-top:10px;padding:8px 12px}
     .wus-pcn{width:32px;height:32px;font-size:16px}
     .wus-title{font-size:26px;margin:0}
@@ -729,9 +824,9 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
         <div class="wus-title"><img src="/img/mango-char.png" class="mango-inline" alt="망고"> <span data-ko="말하기 연습 설정" data-en="Speaking practice setup">말하기 연습 설정</span></div>
         <div class="wus-lead"><span data-ko="먼저 누가 · 어느 수준으로 이야기할지 정해요." data-en="First, choose who is practicing and at what level.">먼저 누가 · 어느 수준으로 이야기할지 정해요.</span><br><span data-ko="대화 중에도 오른쪽 위 ⋮ 에서 언제든 바꿀 수 있어요." data-en="You can change this anytime from ⋮ at the top right.">대화 중에도 오른쪽 위 ⋮ 에서 언제든 바꿀 수 있어요.</span></div>
         <!-- 💡 「A.i말하기와 A.i친구하기 차이」 (2026-09-26 사장님) — 안내창 본체는 js/ai-diff.js 한 곳 -->
-        <div style="text-align:center"><button type="button" class="aidiff-chip" onclick="window.mgOpenAiDiff&&mgOpenAiDiff()" data-ko="💡 A.i말하기와 A.i친구하기 차이" data-en="💡 Speaking vs. Friend: what's different?">💡 A.i말하기와 A.i친구하기 차이</button>
+        <div style="text-align:center"><button type="button" class="aidiff-chip" onclick="window.mgOpenAiDiff&&mgOpenAiDiff()"><span class="wus-nm-l" data-ko="💡 A.i말하기와 A.i친구하기 차이" data-en="💡 Speaking vs. Friend: what's different?">💡 A.i말하기와 A.i친구하기 차이</span><span class="wus-nm-s" data-ko="💡 친구하기와 차이" data-en="💡 vs. A.i Friend">💡 친구하기와 차이</span></button>
           <!-- 📘 사용방법 안내 (2026-10-03 사장님) — 안내창 본체는 js/warmup-howto.js 한 곳 -->
-          <button type="button" class="howto-chip" onclick="window.mgOpenWarmupHowto&&mgOpenWarmupHowto()" data-ko="📘 A.i말하기 사용방법 쉽게 알기" data-en="📘 How to use A.i Speaking">📘 A.i말하기 사용방법 쉽게 알기</button></div>
+          <button type="button" class="howto-chip" onclick="window.mgOpenWarmupHowto&&mgOpenWarmupHowto()"><span class="wus-nm-l" data-ko="📘 A.i말하기 사용방법 쉽게 알기" data-en="📘 How to use A.i Speaking">📘 A.i말하기 사용방법 쉽게 알기</span><span class="wus-nm-s" data-ko="📘 사용방법" data-en="📘 How to use">📘 사용방법</span></button></div>
 
         <!-- 🀄 대화 언어 (2026-09-13) — «무슨 말로 이야기하는가». 수준·나이대와 «독립» 인 축이다.
              ⚠️ 이 줄을 맨 위에 두는 이유: 아래 두 축(수준 설명·수준 찾기)의 «뜻» 이 언어에 따라
@@ -739,6 +834,7 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
                 설명이 말없이 바뀐다. -->
         <span id="wusPcHome" hidden></span>
         <div id="wusGLang">
+        <span class="wus-short" data-ko="언어" data-en="Language">언어</span>
         <div class="wus-sub" data-ko="🗣️ 무슨 말로 이야기할까요?" data-en="🗣️ Which language will you speak?">🗣️ 무슨 말로 이야기할까요?</div>
         <div class="wus-hint" data-ko="고른 언어로 AI 가 말하고, 마이크도 그 말을 듣습니다." data-en="The AI speaks in this language, and the mic listens for it.">고른 언어로 AI 가 말하고, 마이크도 그 말을 듣습니다.</div>
         <div class="wus-grid" id="wusLangs"></div>
@@ -754,6 +850,7 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
                고른 수준으로 권을 near/rest 로 가르므로 고르는 도중 목록이 눈앞에서 재정렬됩니다.
                그래서 «펼친 순간의 수준» 을 _btsSortLv 에 고정합니다(btsSortLevel). -->
         <div id="wusTwoSec">
+          <span class="wus-short" data-ko="주제" data-en="Topic">주제</span>
           <div class="wus-sub" data-ko="📚 오늘은 어떻게 이야기할까요?" data-en="📚 How do you want to talk today?">📚 오늘은 어떻게 이야기할까요?</div>
           <div class="wus-two" id="wusTwoWay"></div>
         </div>
@@ -773,23 +870,31 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
         </div>
 
         <div id="wusGAge">
+        <span class="wus-short" data-ko="나이대" data-en="Age">나이대</span>
         <div class="wus-sub" data-ko="🧑‍🎓 누가 연습하나요?" data-en="🧑‍🎓 Who is practicing?">🧑‍🎓 누가 연습하나요?</div>
         <div class="wus-hint" data-ko="고른 나이대에 맞춰 이야기 소재와 말투가 달라져요. (영어 수준과는 별개예요)" data-en="Topics and tone follow the age group you pick. (Separate from English level.)">고른 나이대에 맞춰 이야기 소재와 말투가 달라져요. (영어 수준과는 별개예요)</div>
         <div class="wus-grid" id="wusAges"></div>
-        <!-- 🖥️ PC(B안) 전용 드롭다운 — 고르면 위 숨은 버튼을 «대신 눌러» 기존 처리 그대로 탄다 -->
-        <select id="wusAgeSel" class="wus-pcsel" aria-label="나이대"></select>
-        <div class="wus-pcnote" id="wusAgeNote"></div>
+        <!-- 🧑‍🎓 폰·PC 모두 드롭다운(2026-11-04) — 고르면 위 숨은 카드 버튼을 «대신 눌러» 기존 처리 그대로 탄다.
+             ⛔ 카드(#wusAges)를 지우지 마세요 — 저장·판정·⋮ 메뉴 갱신이 그 버튼의 위임 처리에 있습니다. -->
+        <select id="wusAgeSel" class="wus-sel" aria-label="나이대"></select>
+        <div class="wus-selnote" id="wusAgeNote"></div>
         </div>
 
         <div id="wusGLevel">
+        <span class="wus-short" data-ko="수준" data-en="Level">수준</span>
         <div class="wus-sub" data-ko="🎚️ 대화 수준" data-en="🎚️ Conversation level">🎚️ 대화 수준</div>
         <div class="wus-hint" data-ko="고른 수준에 맞춰 AI가 쓰는 단어와 문장 길이가 달라져요." data-en="The AI's words and sentence length follow the level you pick.">고른 수준에 맞춰 AI가 쓰는 단어와 문장 길이가 달라져요.</div>
-        <select id="wusLevelSel" class="wus-pcsel" aria-label="대화 수준"></select>
-        <div class="wus-pcnote" id="wusLevelNote"></div>
+        <!-- 🎚️ 폰·PC 모두 드롭다운(2026-11-04) — 고르면 아래 숨은 목록 버튼을 «대신 눌러» 기존 처리 그대로 탄다.
+             ⛔ 목록(#wusLevels)을 지우지 마세요 — 저장·판정·⋮ 메뉴 갱신이 그 버튼의 위임 처리에 있습니다. -->
+        <select id="wusLevelSel" class="wus-sel" aria-label="대화 수준"></select>
+        <!-- 📱 설명 줄과 «내 수준 찾기» 를 한 묶음으로 — 한 화면 배치(폰)에서는 한 줄에 나란히 놓인다(넘치면 저절로 줄바꿈) -->
+        <div class="wus-lvrow">
+        <div class="wus-selnote" id="wusLevelNote"></div>
         <button type="button" class="wus-find" id="wusFind">
-          <span class="wus-name" data-ko="🎯 내 수준 찾아줄까요?" data-en="🎯 Find my level?">🎯 내 수준 찾아줄까요?</span>
+          <span class="wus-name"><span class="wus-nm-l" data-ko="🎯 내 수준 찾아줄까요?" data-en="🎯 Find my level?">🎯 내 수준 찾아줄까요?</span><span class="wus-nm-s" data-ko="🎯 내 수준 찾기" data-en="🎯 Find my level">🎯 내 수준 찾기</span></span>
           <span class="wus-desc" data-ko="영어 문장 3개만 보면 끝나요. (약 30초)" data-en="Just look at 3 English sentences. (About 30 seconds)">영어 문장 3개만 보면 끝나요. (약 30초)</span>
         </button>
+        </div>
         <div class="wus-list" id="wusLevels"></div>
         </div>
 
@@ -798,8 +903,10 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
         <div id="wusGMode">
         <div class="wus-sub" data-ko="🎚️ 틀린 말은 어떻게 고쳐 줄까요?" data-en="🎚️ How should mistakes be corrected?">🎚️ 틀린 말은 어떻게 고쳐 줄까요?</div>
         <div class="wus-hint" data-ko="잘했을 때만 칭찬하고, 고칠 때는 고른 방식대로 도와줘요." data-en="Praise only when it's right; corrections follow the way you pick.">잘했을 때만 칭찬하고, 고칠 때는 고른 방식대로 도와줘요.</div>
-        <span class="wus-cm-short" data-ko="교정" data-en="Fix">교정</span>
+        <span class="wus-cm-short wus-short" data-ko="교정" data-en="Fix">교정</span>
         <div class="wus-cmodes" id="wusCModes"></div>
+        <!-- 📱 좁은 화면(한 화면 배치)에서만 보이는 «고른 방식» 한 줄 — 카드 설명을 접은 대신 여기서 말한다(wusSelSync) -->
+        <div class="wus-selnote" id="wusCModeNote"></div>
         <!-- ⏱️ (2026-11-01) 집중교정은 교정 여부를 답이 다 나와야 알 수 있어 스트리밍이 꺼진다 → 아바타 응대가 느릴 수 있다(src/warmup-stream.ts). -->
         <div class="wus-cm-speed" data-ko="⏱️ 집중교정은 틀린 곳을 먼저 확인하느라 아바타 응대가 느릴 수 있어요." data-en="⏱️ Focused mode checks mistakes first, so the avatar may reply more slowly.">⏱️ 집중교정은 틀린 곳을 먼저 확인하느라 아바타 응대가 느릴 수 있어요.</div>
         </div>
@@ -2099,7 +2206,7 @@ function cmodesHtml(){
   return CMODE_CATALOG.map(function(m){
     var on = (m.id === _wuCorrMode);
     return '<button type="button" class="wus-card'+(on?' on':'')+'" data-cmode="'+m.id+'" aria-pressed="'+(on?'true':'false')+'" title="'+wuT(m.d, m.de)+'">'
-      + '<span class="wus-name">'+m.ic+' '+wuT(m.ko, m.en)
+      + '<span class="wus-name"><span class="wus-cm-ic">'+m.ic+' </span>'+wuT(m.ko, m.en)
       + (on ? '<span class="wus-now">'+wuT('지금','Now')+'</span>' : ((m.dflt && !_wuCorrMode) ? '<span class="wus-cmode-tag">'+wuT('기본','Default')+'</span>' : ''))
       + '</span><span class="wus-desc">'+wuT(m.d, m.de)+'</span></button>';
   }).join('');
@@ -2159,7 +2266,7 @@ function renderSetup(){
   /* 🔒 «펼친 순간» 의 수준으로 정렬한다 — 넘기지 않으면 수준을 고를 때마다 위쪽이 흔들린다. */
   if(bks && !isZh()) bks.innerHTML = btsListHtml(btsSortLevel(), true);
   renderTwoWay();
-  wusPcSync();          // 🖥️ PC 드롭다운 값·설명을 지금 상태로
+  wusSelSync();         // 🎚️ 드롭다운(수준·나이대 — 폰·PC 모두) 값·설명을 지금 상태로
   wusPcLayout();        // 🖥️ PC 면 3단계 카드로 옮긴다(자동 말하기 칸이 늦게 생겨도 여기서 따라옴)
   btsRenderBookNow();   // 📘 시작 버튼 위 «지금 교재» 줄 — 언어 전환·첫 그리기에서 함께
   var cta = document.getElementById('wusStart');
@@ -2262,7 +2369,21 @@ function wusPcLayout(){
     if(talk && cta && pc3.contains(talk)) cta.parentNode.insertBefore(talk, cta);
   }
 }
-function wusPcSync(){
+/* 🎚️ 드롭다운 두 개(나이대·대화 수준 — 폰·PC 모두)를 지금 상태로 채운다 + 교정 방식 설명 한 줄.
+   📱 교정 방식 설명 줄(#wusCModeNote)은 한 화면 배치(폰·태블릿)에서만 보인다 — 카드 설명을 접은 대신
+      «지금 무엇으로 고치는가» 를 여기서 말한다. 문장은 카탈로그 설명의 «첫 문장» 그대로(새 설명을 지어내지 않는다).
+   ⏱️ «실제로 쓰일» 방식(안 골랐으면 기본 dflt)이 집중교정이면 응대 속도 안내를 짧게 덧붙인다 —
+      한 화면 배치에서는 아래 긴 안내 상자(.wus-cm-speed)를 접기 때문이다(PC 는 그 상자가 그대로 보인다). */
+function wusFirstSentence(t){ t = String(t||''); var i = t.indexOf('. '); return i > 0 ? t.slice(0, i + 1) : t; }
+function wusSelSync(){
+  var cn = document.getElementById('wusCModeNote');
+  if(cn){
+    var cm = null, dm = null;
+    for(var ci=0; ci<CMODE_CATALOG.length; ci++){ if(CMODE_CATALOG[ci].id === _wuCorrMode) cm = CMODE_CATALOG[ci]; if(CMODE_CATALOG[ci].dflt) dm = CMODE_CATALOG[ci]; }
+    var em = cm || dm;
+    if(cn) cn.textContent = em ? ((cm ? '' : wuT('기본은 ' + em.ko + ' · ', 'Default: ' + em.en + ' · ')) + wusFirstSentence(wuT(em.d, em.de || em.d))
+      + (em.id === 'focused' ? wuT(' ⏱️ 응대가 조금 느릴 수 있어요.', ' ⏱️ Replies may be a bit slower.') : '')) : '';
+  }
   var as = document.getElementById('wusAgeSel'), ls = document.getElementById('wusLevelSel');
   var esc = function(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;'); };
   if(as){
@@ -2279,10 +2400,12 @@ function wusPcSync(){
     if(ln) ln.textContent = cur ? (isZh() ? (cur.dz||cur.d) : wuT(cur.d, cur.de||cur.d)) : '';
   }
 }
-(function wirePcSelects(){
+/* ⛔ 드롭다운에 판정·저장을 새로 만들지 않는다 — 숨은 목록 버튼을 «대신 눌러» 기존 위임 처리(wireSetup)를 그대로 탄다.
+      (숨은 버튼도 el.click() 은 그대로 클릭 이벤트를 낸다.) */
+(function wireSelects(){
   var press = function(sel){ var b = document.querySelector(sel); if(b) b.click(); };
   var as = document.getElementById('wusAgeSel'), ls = document.getElementById('wusLevelSel');
-  if(as) as.addEventListener('change', function(){ press('#wusAges [data-age="'+as.value+'"]'); wusPcSync(); });
+  if(as) as.addEventListener('change', function(){ press('#wusAges [data-age="'+as.value+'"]'); wusSelSync(); });
   if(ls) ls.addEventListener('change', function(){ press('#wusLevels [data-lvl="'+ls.value+'"]'); });
   if(WUS_PC_MQ){ var on = function(){ wusPcLayout(); }; if(WUS_PC_MQ.addEventListener) WUS_PC_MQ.addEventListener('change', on); else if(WUS_PC_MQ.addListener) WUS_PC_MQ.addListener(on); }
   document.addEventListener('DOMContentLoaded', function(){ wusPcLayout(); });
@@ -5079,7 +5202,7 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 <!-- BUILD:20260813015745 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 <script src="/js/repeat-score.js?v=1" defer></script><!-- 🎤 «따라 말해 보기» 채점 (2026-10-18) -->
-<script src="/js/warmup-auto-talk.js?v=8" defer></script><!-- ✨ 자동 말하기(베타) — 기본은 버튼 모드 -->
+<script src="/js/warmup-auto-talk.js?v=9" defer></script><!-- ✨ 자동 말하기(베타) — 기본은 버튼 모드 -->
 <script src="/js/warmup-facetalk.js?v=4" defer></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 자동 말하기 엔진을 켜고 모양만 바꿈) -->
 <script src="/js/warmup-touch-bar.js?v=2" defer></script>
 <script src="/js/warmup-dock.js?v=2" defer></script><!-- 📱 세로 화면: 아래 버튼 줄 자동 접힘·손잡이 (2026-11-02) --><!-- 📱 터치 기기 전용 아래 3칸 바(도움·말하기·글쓰기) — 2026-09-26 시안 4 -->
