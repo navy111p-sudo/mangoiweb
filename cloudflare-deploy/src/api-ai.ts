@@ -703,7 +703,7 @@ Student text: """${text}"""`;
          ⛔ warmup_session_log.first_reply_at 을 지연으로 읽지 마세요: 그 칸은 «학생이
             첫마디를 뗀» 시각(사람 반응 시간)이지 시스템 지연이 아닙니다. 정본 ai-latency-log.ts */
       const latT0 = Date.now();
-      let latModelMs = 0;   // 모델 호출에 실제로 든 시간의 «합»
+      let latModelMs = 0;   // 모델 대기 시간 — 동시에 돈 호출의 겹친 시간은 한 번만 센다
       let latTries = 0;     // 모델을 몇 번 불렀나 (폴백·재시도 포함)
       await ensureChatSchema();
       const b: any = await request.json().catch(() => ({}));
@@ -980,7 +980,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       const runFriend = async (model: string, msgs: any[], maxTokens: number, temperature: number, overlap = false): Promise<any> => {
         /* ⏱ 모델 호출만 따로 잽니다 — 전체 시간에서 이것을 빼면 «우리 코드가 쓴 시간» 이 나옵니다.
            ⚠️ 실패한 호출도 셉니다(그 시간도 학생은 기다립니다). finally 로 두는 이유입니다.
-           🎚️ overlap = 본 호출과 «동시에» 도는 호출(균형 다시 묻기) — 그 시간은 여기서 안 더한다.
+           🎚️ overlap = 본 호출과 «동시에» 도는 호출(균형·집중 다시 묻기) — 그 시간은 여기서 안 더한다.
               겹친 시간까지 더하면 model_ms 가 전체 ms 보다 커진다. 안 겹친 나머지는 기다리는 쪽이 더한다. */
         const mT0 = Date.now();
         latTries++;
@@ -1429,18 +1429,14 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       /* ⚡ (2026-11-06 사장님 「휴대폰 A.i 말하기 3카드 모두 더 빨리」) 최종 답을 «먼저» 보낸다 / Send the final reply first.
          [왜] 예전에는 아래 대화 저장(INSERT 2)·포인트(D1 조회·적립 여러 번 «차례로»)·지연 기록·발음 채점까지 «다» 끝난 뒤에야
               done 한 번으로 답을 보냈다. 집중교정(기본값)은 미리듣기가 없어서 그 시간을 학생이 통째로 기다렸다.
-         [어떻게] 답이 정해지는 이 자리에서 final 이벤트로 먼저 보내고, 나머지는 스트림을 연 채로 이어서 한다 —
+         [어떻게] 대화 저장을 기다린 뒤 final 이벤트로 먼저 보내고, 나머지는 스트림을 연 채로 이어서 한다 —
               응답 본문을 흘리는 동안은 워커가 살아 있다(Cloudflare 문서 «A Worker that is still streaming a response body
               remains active») 그래서 waitUntil 이 필요 없다. 포인트·발음(pron_fix)은 예전처럼 done 에 실린다.
-         ⚠️ 저장은 «답이 정해진 뒤» 그대로라 학생이 들은 문장과 다음 턴이 읽는 기록이 같다(아래 INSERT 는 이 reply 를 쓴다).
+         ⚠️ final 은 아래 INSERT 두 건의 저장 시도가 끝난 뒤 보낸다. 저장 오류는 기록하고 답은 계속 반환한다.
             화면은 done 이 올 때까지 보내기 버튼을 잠가 두므로 다음 턴이 저장보다 먼저 올 수 없다.
          ⛔ 옛 화면은 final 을 모른다 — data 줄을 «done 이 아니면 문장(t)» 으로만 읽어서 t 가 없는 이 이벤트는 그냥 지나간다(예전과 같음).
          ⛔ JSON 경로(stream 미사용)에는 보내지 않는다 — 응답 계약 그대로. */
       let latFinalMs = 0;   // ⏱ 학생이 «답» 을 받은 시각(스트리밍) — 지연 기록의 ms 는 이것(없으면 끝까지)
-      if (sseSend) {
-        sseSend({ final: 1, ok: true, reply, ...replyOut() });
-        latFinalMs = Date.now() - latT0;
-      }
 
       // ⚠️ 이 저장은 반드시 기다린다 — 바로 아래 gam 스냅샷("오늘 몇 번째 대화")이
       //   이 INSERT 가 끝난 뒤의 개수를 세어야 정확하다. 백그라운드로 미루면 그 숫자가
@@ -1462,6 +1458,13 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       } catch (e: any) {
         console.error('[chat-friend] DB insert failed:', e?.message || e);
         // DB 실패해도 reply는 반환
+      }
+
+      // 저장 시도가 끝난 뒤 답을 보낸다. 답을 듣고 앱을 닫아도 저장을 뒤로 남기지 않는다.
+      // 저장 실패 시에도 답은 반환하는 기존 정책은 유지한다.
+      if (sseSend) {
+        sseSend({ final: 1, ok: true, reply, ...replyOut() });
+        latFinalMs = Date.now() - latT0;
       }
 
       // 🎮 게임화 — 포인트/스트릭/오늘의 단어 보너스. 실패해도 채팅 응답은 정상 반환.
@@ -1536,8 +1539,8 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
         await recordAiLatency(env, {
           feature: 'chat-friend',
           model: usedModel || 'fallback',
-          /* ⏱ (2026-11-06) 스트리밍이면 «final 을 보낸 시각» — 그 뒤 저장·포인트는 학생이 기다리지 않는다.
-             ⚠️ 그래서 이날부터 chat-friend 의 ms 는 그 앞보다 «저장·포인트 시간만큼» 작게 나온다(재는 자리가 바뀐 것 — 비교할 때 감안). */
+          /* ⏱ (2026-11-06) 스트리밍이면 «final 을 보낸 시각» — 그 뒤 포인트·지연 기록은 학생이 기다리지 않는다.
+             ⚠️ 그래서 이날부터 chat-friend 의 ms 는 그 앞보다 «포인트 등 후처리 시간만큼» 작게 나온다(재는 자리가 바뀐 것 — 비교할 때 감안). */
           ms: latFinalMs || (Date.now() - latT0),
           model_ms: latModelMs,
           tries: latTries,

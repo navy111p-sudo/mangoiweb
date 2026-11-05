@@ -5,7 +5,7 @@
  * 무엇을 보나 (전부 «실제로 돌려서» — 글자가 있는가가 아니라 «언제 무엇이 일어나는가»)
  *  ① 서버 — 집중교정 «교정만 다시 묻기» 가 본 호출과 «동시에» 돈다(예전: 본 답이 끝난 뒤 차례로)
  *       짝: 규칙 보완이 잡는 문장·균형/자유대화에서는 안 부른다 · 첫 모델이 죽으면 그 모델로 다시 묻는다
- *  ② 서버 — 최종 답(final)이 대화 저장·포인트·지연 기록 «전» 에 나간다 · done 과 같은 답 · 포인트는 done 에만
+ *  ② 서버 — 최종 답(final)이 대화 저장 «뒤», 포인트·지연 기록 «전» 에 나간다 · done 과 같은 답 · 포인트는 done 에만
  *       짝: JSON 경로에는 final 이 없다 · 지연 기록 ms 는 final 시각이다
  *  ③ 화면 — final 을 받는 순간 그리고 읽는다(done 을 안 기다림) · 두 번 안 그린다 · 포인트·발음은 done 뒤
  *       짝: final 없는 옛 서버는 예전처럼 done 에서 그리고 읽는다 · final 뒤 done 이 깨져도 오류 말풍선을 안 띄운다
@@ -24,7 +24,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { d1ExecLikeProd } from './helpers/d1-exec-faithful.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const CF = path.join(ROOT, 'cloudflare-deploy');
+const CF = process.env.AIF_CF || path.join(ROOT, 'cloudflare-deploy');
 const require = createRequire(path.join(CF, 'package.json'));
 const ts = require('typescript');
 const esbuild = require('esbuild');
@@ -53,12 +53,12 @@ const worker = load('index.ts').default;
 const TB = load('tense-backfill.ts');
 const FC = load('focused-correction.ts');
 const raw = new DatabaseSync(':memory:');
-let slowSaveMs = 0;
+let slowSaveMs = 0, slowSnapshotMs = 0;
 const statement = sql => {
   const slow = /INSERT INTO ai_friend_chats/.test(sql);
   const mk = args => ({
     all: async () => ({ results: raw.prepare(sql).all(...args), success: true }),
-    first: async col => { const r = raw.prepare(sql).get(...args) ?? null; return col && r ? r[col] : r; },
+    first: async col => { if (slowSnapshotMs && /SELECT COUNT\(\*\) AS c FROM ai_friend_chats WHERE student_uid=\? AND role='user'$/.test(sql)) await sleep(slowSnapshotMs); const r = raw.prepare(sql).get(...args) ?? null; return col && r ? r[col] : r; },
     run: async () => {
       if (slow && slowSaveMs) await sleep(slowSaveMs);
       const r = raw.prepare(sql).run(...args); return { success: true, meta: { changes: r.changes, last_row_id: Number(r.lastInsertRowid) } };
@@ -102,7 +102,11 @@ async function sseTimed(resp, t0) {
     buf += dec.decode(value, { stream: true }); let nl;
     while ((nl = buf.indexOf('\n')) >= 0) {
       const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
-      if (line.startsWith('data:')) out.push({ at: Date.now() - t0, ev: JSON.parse(line.slice(5)) });
+      if (line.startsWith('data:')) {
+        const ev = JSON.parse(line.slice(5));
+        const saved = ev.final ? raw.prepare('SELECT role, content FROM ai_friend_chats ORDER BY id DESC LIMIT 2').all() : [];
+        out.push({ at: Date.now() - t0, ev, saved });
+      }
     }
   }
   return out;
@@ -118,6 +122,7 @@ async function friendTurn(msg, mode, { stream = 1, c = {} } = {}) {
     fin: evs.find(e => e.ev.final), done: evs.find(e => e.ev.done) };
 }
 
+function latency() { return raw.prepare("SELECT ms, model_ms, tries FROM ai_latency_log WHERE feature='chat-friend' ORDER BY id DESC LIMIT 1").get(); }
 const CORRECT = 'I like pizza very much.';
 const MAIN = 600, CHECK = 500;
 {
@@ -154,12 +159,31 @@ for (const mode of ['balanced', 'free_talk']) {
     assert.deepEqual(rc.map(x => x.model === FIRST), [true, false], JSON.stringify(rc.map(x => x.model))));
 }
 
+for (const [mainMs, checkMs] of [[400, 300], [300, 500]]) {
+  const r = await friendTurn(CORRECT, 'focused', { c: { mainMs, checkMs } });
+  const lat = latency();
+  await check('①-10/11 겹친 모델 시간을 한 번만 센다: ' + mainMs + '/' + checkMs, () => {
+    assert.ok(lat && lat.model_ms >= Math.max(mainMs, checkMs) - 30 && lat.model_ms < mainMs + checkMs - 100, JSON.stringify(lat));
+    assert.equal(lat.tries, 2);
+  });
+}
 {
-  slowSaveMs = 500;
+  const mainFix = { was: 'I likes pizza.', now: 'I like pizza.', why_ko: '동사 형태', tag: 'other', severity: 'major' };
+  const r = await friendTurn('I likes pizza.', 'focused', { c: { mainFix, checkFix: { ...mainFix, now: 'I enjoy pizza.' }, mainMs: 100, checkMs: 20 } });
+  await check('①-12 모델 자체 교정이 먼저 끝난 재확인 교정보다 우선한다', () => {
+    assert.ok(r.calls.some(x => x.kind === 'focused'));
+    assert.equal(r.fin.ev.fix?.now, mainFix.now);
+    assert.ok(!r.fin.ev.reply.includes('I enjoy pizza.'));
+  });
+  await check('①-13 자체 교정으로 재확인을 안 써도 tries 는 실제 호출 둘을 센다', () => assert.equal(latency()?.tries, 2));
+}
+{
+  slowSaveMs = 150;
+  slowSnapshotMs = 500;
   const r = await friendTurn(CORRECT, 'focused', { c: {} });
-  slowSaveMs = 0;
+  slowSaveMs = 0; slowSnapshotMs = 0;
   await check('②-1 final 이벤트가 있다', () => assert.ok(r.fin && r.done, JSON.stringify(r.evs.map(e => Object.keys(e.ev)))));
-  await check('②-2 final 이 대화 저장(느린 INSERT 500ms)을 «기다리지 않고» 먼저 나간다', () =>
+  await check('②-2 final 이 포인트 스냅샷(500ms)을 기다리지 않고 먼저 나간다', () =>
     assert.ok(r.done.at - r.fin.at >= 400, 'final ' + r.fin.at + 'ms · done ' + r.done.at + 'ms'));
   await check('②-3 final 과 done 이 같은 답·같은 교정·같은 replaced', () => {
     assert.equal(r.fin.ev.reply, r.done.ev.reply); assert.deepEqual(r.fin.ev.fix, r.done.ev.fix);
@@ -168,8 +192,12 @@ for (const mode of ['balanced', 'free_talk']) {
   await check('②-4 포인트(gam)는 done 에만 실린다', () => { assert.equal(r.fin.ev.gam, undefined); assert.ok('gam' in r.done.ev); });
   await check('②-5 저장은 그대로 된다 (학생이 들은 답 = 다음 턴이 읽는 기록)', () =>
     assert.equal(raw.prepare("SELECT content FROM ai_friend_chats WHERE student_uid=? AND role='assistant' ORDER BY id DESC").get(r.uid)?.content, r.fin.ev.reply));
-  const lat = raw.prepare("SELECT ms FROM ai_latency_log WHERE feature='chat-friend' ORDER BY id DESC LIMIT 1").get();
-  await check('②-6 지연 기록 ms 는 학생이 답을 받은 시각(final) — 저장 시간을 안 센다', () =>
+  await check('②-8 final 도착 시점에 두 대화가 이미 저장돼 있다', () => {
+    assert.ok(r.fin.at >= 280, 'save delay was not awaited: ' + r.fin.at);
+    assert.deepEqual(r.fin.saved.map(x => [x.role, x.content]), [['assistant', r.fin.ev.reply], ['user', CORRECT]]);
+  });
+  const lat = latency();
+  await check('②-6 지연 기록 ms 는 final 시각 — 저장은 포함, 포인트 후처리는 제외', () =>
     assert.ok(lat && lat.ms <= r.fin.at + 50 && lat.ms < r.done.at - 300, JSON.stringify({ lat, fin: r.fin.at, done: r.done.at })));
 }
 {
@@ -225,14 +253,18 @@ async function uiTurn({ withFinal = true, doneOk = true, pron = false, mode = 'f
   const p = vm.runInContext('sendMsg()', ctx);
   await sleep(30);                       // final 을 처리할 시간 — 아직 done 은 안 보냈다
   const beforeDone = log.slice();
+  const lockedBeforeDone = button.disabled;
   if (interrupt) vm.runInContext('stopSpeakingNow()', ctx);
   releaseDone(); await p; await vm.runInContext('_stmChain', ctx); await sleep(5);
-  return { beforeDone, log };
+  return { beforeDone, log, lockedBeforeDone, lockedAfterDone: button.disabled };
 }
 {
   const r = await uiTurn();
   await check('③-1 final 을 받는 순간 말풍선을 그리고 읽기 시작한다 (done 을 안 기다림)', () =>
     assert.ok(r.beforeDone.includes('ai-msg') && r.beforeDone.includes('speech:' + REPLY), JSON.stringify(r.beforeDone)));
+  await check('③-10 final 과 done 사이 전송 버튼은 잠기고 done 뒤 열린다', () => {
+    assert.equal(r.lockedBeforeDone, true); assert.equal(r.lockedAfterDone, false);
+  });
   await check('③-2 포인트는 done 이 온 «뒤» 에만', () => {
     assert.ok(!r.beforeDone.some(x => x.startsWith('gam:')), JSON.stringify(r.beforeDone));
     assert.ok(r.log.includes('gam:2'), JSON.stringify(r.log));
@@ -266,7 +298,7 @@ async function uiTurn({ withFinal = true, doneOk = true, pron = false, mode = 'f
 }
 {
   const r = await uiTurn({ doneOk: false });
-  await check('③-6 final 뒤 done 이 깨져도(저장 중 오류) 오류 말풍선을 안 띄운다 — 답은 이미 갔다', () => {
+  await check('③-6 final 뒤 done 이 깨져도(후처리 오류) 오류 말풍선을 안 띄운다 — 답은 이미 갔다', () => {
     assert.ok(r.log.includes('ai-msg') && !r.log.includes('error-msg'), JSON.stringify(r.log));
   });
 }
