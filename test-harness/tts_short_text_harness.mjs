@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 // 🔊 음성 서버 입구 — 짧은 영어 낱말을 «한 문장» 모양으로 (2026-09-24)
 //   게임·퀴즈 20곳이 /api/voice/tts 를 각자 부른다. 낱말 하나(`study`)를 받으면 Aura 가 어색하게 읽어서
 //   서버 입구 한 곳(src/tts-short-text.ts)에서 `Study.` 로 다듬는다.
@@ -5,7 +6,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 const root = new URL('../cloudflare-deploy/src/', import.meta.url);
 const modSrc = readFileSync(new URL('tts-short-text.ts', root), 'utf8');
-const games = readFileSync(new URL('api-games.ts', root), 'utf8');
+const games = gamesSrc();
 const exam = readFileSync(new URL('api-exam.ts', root), 'utf8');
 let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) { pass++; console.log('  ✅ ' + n); } else { fail++; console.log('  ❌ FAIL ' + n); } };

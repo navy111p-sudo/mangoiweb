@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 // voice_tts_cap_harness.mjs — 💸 무인증 /api/voice/tts 의 Azure 호출 상한 (2026-09-15)
 //
 // 왜 만들었나
@@ -47,7 +48,7 @@ import { fileURLToPath } from 'node:url';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dir, '..', 'cloudflare-deploy');
 const TS = readFileSync(join(ROOT, 'src', 'voice-tts-cap.ts'), 'utf8');
-const GAMES = readFileSync(join(ROOT, 'src', 'api-games.ts'), 'utf8');
+const GAMES = gamesSrc();
 
 let pass = 0, fail = 0;
 const ok = (cond, msg) => { if (cond) { pass++; console.log('  ✅ ' + msg); } else { fail++; console.log('  ❌ ' + msg); } };

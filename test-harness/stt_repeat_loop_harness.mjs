@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 // 🔁 Whisper 반복 환각(「oah, oah, oah …」) 거르기 — 2026-10-02 사장님 제보
 //   판정 함수를 실제로 돌리고, 서버 배선(turbo·폴백 둘 다)과 화면 안내를 함께 본다.
 import { readFileSync } from 'node:fs';
@@ -23,7 +24,7 @@ ok('긴 나열 문장', !f('I like pizza and I like chicken and I like cake too'
 ok('빈 값·null 에 안 죽는다', !f('') && !f(null) && !f(undefined));
 
 console.log('\n[ ③ 배선 ]');
-const G = readFileSync(P('src/api-games.ts'), 'utf8');
+const G = gamesSrc();
 ok('api-games 가 정본을 import 한다', /import \{ isSttRepeatLoop \} from '\.\/stt-loop'/.test(G));
 ok('turbo 결과를 거른다', /if \(ttRaw && isSttRepeatLoop\(ttRaw\)\)/.test(G));
 ok('구 whisper 폴백도 거른다 (짝)', /if \(isSttRepeatLoop\(baseText\)\)/.test(G));

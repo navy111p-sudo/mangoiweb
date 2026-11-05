@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 /* ═══════════════════════════════════════════════════════════════════════════
    🔐 무인증 노출 감시 (2026-08-28 신설)
 
@@ -54,7 +55,7 @@ const GATE = /(checkAdminSession|resolveOwnerScope|getAdminActor|denyTeacher|gat
 
 const lessons = rd(join(SRC, 'api-lessons.ts'));
 const points = rd(join(SRC, 'api-points.ts'));
-const games = rd(join(SRC, 'api-games.ts'));
+const games = gamesSrc();
 
 console.log('\n[ A. 학부모에게 문자를 보내는 경로는 인증을 거친다 ]');
 for (const [label, needle] of [

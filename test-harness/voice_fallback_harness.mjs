@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 /* voice_fallback_harness.mjs — 「고른 친구가 아닌 목소리가 난다」 감시 (2026-08-31)
  *
  * 왜 필요한가
@@ -29,7 +30,7 @@ const ok = (c, m, extra) => { c ? (pass++, console.log('  ✅ ' + m)) : (fail++,
 
 console.log('■ TTS 화자 폴백 — 「고른 친구가 아닌 목소리」 방지');
 
-const G = readFileSync(join(SRC, 'api-games.ts'), 'utf8');
+const G = gamesSrc();
 
 /* ── 서버의 «목록과 폴백 규칙» 을 소스에서 오려 내 실제로 돌린다 ────────────────
    문자열로 「asteria 가 없는가」 를 보면, 정상 경로의 asteria 까지 걸려 못 쓴다. */

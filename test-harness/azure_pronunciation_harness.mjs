@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { gamesSrc } from './_srcbundle.mjs';
 /**
  * 🎤 Azure 발음평가 하니스 (2026-08-08)
  *
@@ -149,7 +150,7 @@ const junk = V.applyAzurePronunciation(base, { accuracy: NaN, fluency: 50, compl
 ok('값이 이상하면 손대지 않는다', junk.pronunciation === base.pronunciation);
 
 // ── ⑦ ⛔ 모범문장이 Whisper 로 새지 않는다 ──
-const games = readFileSync(join(SRC, 'api-games.ts'), 'utf8');
+const games = gamesSrc();
 const turboBlock = games.slice(games.indexOf('const turboParams'), games.indexOf('const turboParams') + 900);
 ok('turboParams 에 paReference 가 없다 (정답유출 차단)', turboBlock.length > 0 && !turboBlock.includes('paReference'));
 ok('initial_prompt 는 여전히 hintPrompt 만 쓴다',

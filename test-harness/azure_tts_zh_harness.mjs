@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 /* 🀄 중국어 «진짜 남성 성우»(Azure Speech) 가드 — 2026-09-14
  *
  * 📜 사장님 「남자목소리를 가져올 방법??」 으로 붙인 길입니다.
@@ -20,7 +21,7 @@ import { createRequire } from 'node:module';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
 const TS = read('cloudflare-deploy/src/azure-tts.ts');
-const GAMES = read('cloudflare-deploy/src/api-games.ts');
+const GAMES = gamesSrc();
 const SAMPLE = (() => { try { return read('cloudflare-deploy/public/zh-voice-sample.html'); } catch { return null; } })();
 
 /* 🔴 부정·존재 검사는 «주석을 벗겨 낸 사본» 으로 판정한다 —

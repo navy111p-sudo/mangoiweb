@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 // Execute the real page function and server route with local doubles. No live AI/DB calls.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -96,7 +97,7 @@ for (const voice of [false, true, null]) {
   });
 }
 
-const api = read('src/api-games.ts');
+const api = gamesSrc();
 const start = api.indexOf("    if (method === 'POST' && path === '/api/voice/transcribe')");
 const end = api.indexOf('    // ── POST /api/voice/coach', start);
 const route = new Function('request', 'env', 'json', 'sttRejectReason', 'isSttRepeatLoop', 'assessPronunciation',
