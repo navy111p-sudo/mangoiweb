@@ -31,7 +31,10 @@
   if (window.WarmupAutoTalk) return;
 
   var KEY = 'mangoi_warmup_talk_mode';   // 'auto' | 'button' — 사람이 고를 때만 쓴다
-  var ARM_DELAY_MS = 600;                // AI 말이 끝난 뒤 이만큼 기다렸다 연다(잔향)
+  /* ⚡ (2026-11-05 사장님 「듣기 시간 최소화 — 특히 휴대폰」) 600 → 300ms. 마이크를 여는 데에도 시간이 들어
+     (권한 확인·getUserMedia·인식기 시작 0.1~0.5초) 실제로 듣기 시작하는 것은 이보다 늦다. 녹음 경로는 에코 제거가 켜져 있고
+     말/조용 판정이 소음 바닥에 맞춘다(mangoi-voice-input.js endGate). ⛔ 200ms 아래로 내리지 말 것(스피커 잔향을 말로 받음). */
+  var ARM_DELAY_MS = 300;                // AI 말이 끝난 뒤 이만큼 기다렸다 연다(잔향)
   var MISS_SETTLE_MS = 900;              // 듣기가 끝난 뒤 «Whisper 한 번 더» 가 이어지는지 기다림
   var MISS_LIMIT = 2;                    // 아무 말 없이 연속 N번이면 쉰다
 

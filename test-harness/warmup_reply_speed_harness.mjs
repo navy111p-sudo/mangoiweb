@@ -80,7 +80,8 @@ ok('A-5 (수동) 끝난 문장이어도 침묵 20초 안에는 끝내지 않는�
 ok('A-6 (수동) 덜 끝난 문장·빈 말도 20초 넘게 기다린다', runM('I like') >= 20000 && runM('') >= 20000, { a: runM('I like'), b: runM('') });
 
 console.log('\n[B] 녹음(Whisper) 경로');
-const rec = HTML.match(/MangoiVoice\.record\(\{([\s\S]*?)onState/);
+// ⚡ 2026-11-05 «미리 받아쓰기» — 호출이 MangoiVoice.record(_micEarly(manual, { … })) 로 감싸였다(감싸지 않은 옛 모양도 받는다)
+const rec = HTML.match(/MangoiVoice\.record\((?:_micEarly\(manual,\s*)?\{([\s\S]*?)onState/);
 const sm = rec && rec[1].match(/silenceMs:\s*([^,]+),/);
 ok('B-0 (전제) 웜업의 녹음 호출을 찾았다', !!(rec && sm));
 const evalSil = (isManual) => {
@@ -150,6 +151,7 @@ function clockBox(isManual) {
      ${oneWord ? oneWord[0] : ''}
      var _silence=null, _micBySilence=false, _latSilence=null;
      var _recog={ stop:function(){ S.stops++; } };
+     function _micFast(){ if(!S.fast) return false; S.fasts=(S.fasts||0)+1; return true; }   // 진짜 판정은 [E] 가 따로 돌린다
      function _micHeard(){ return S.heard; }
      ${silVars[0]}
      ${unitsFn}
@@ -206,7 +208,74 @@ if (ck) {
   ck.now = ck.fireAt(); try { ck.timer.fn(); } catch (e) {}
   const lat = ck.api.lat;
   ok('D-9 멈추면 인식을 끄고, ?lat=1 «기다림» 에는 마지막 새 말부터 «실제로» 기다린 시간을 적는다(명목값이 아니라)', ck.stops === 1 && lat && lat.wait === 5150 && lat.wait !== done, { stops: ck.stops, lat });
+  ck = clockBox(false); ck.fast = true;
+  ck.say(0, 'we played soccer');
+  ck.now = ck.fireAt(); try { ck.timer.fn(); } catch (e) {}
+  ok('D-10 (짝) 빠른 마무리(_micFast)가 맡으면 stop() 을 또 부르지 않는다(한 번만 끝냄)', ck.fasts === 1 && ck.stops === 0 && !!ck.api.lat, { fasts: ck.fasts, stops: ck.stops });
 }
+
+console.log('\n[E] ⚡ 빠른 마무리 _micFast — 보낼 말이 있으면 onend 를 기다리지 않는다(2026-11-05 「듣기 시간 최소화」)');
+// _micFast 를 소스에서 오려 내 가짜 인식기·가짜 _finishMic 으로 실제로 돌린다.
+const fastFn = bodyAt(HTML, 'function _micFast(byUser){');
+ok('E-0 (전제) _micFast 를 오려 냈다', !!fastFn);
+ok('E-0b (전제) 침묵 타이머가 _micFast 를 «먼저» 묻고, 맡지 않을 때만 stop() 한다', !!armBody && /if\(_micFast\(\)\) return; try\{ _recog && _recog\.stop\(\); \}/.test(armBody));
+function runFast(isManual, heard, noRecog, byUser) {
+  const L = { finished: 0, aborted: 0, stopped: 0 };
+  const r = noRecog ? null : { onresult() {}, onerror() {}, onend() {}, abort() { L.aborted++; }, stop() { L.stopped++; } };
+  try {
+    L.ret = new Function('isManual', 'heard', 'r', 'L', 'byUser',
+      `var _recog=r;
+       function _micManual(){ return isManual; }
+       function _micHeard(){ return heard; }
+       function _finishMic(){ L.finished++; }
+       ${fastFn}
+       return _micFast(byUser);`)(isManual, heard, r, L, !!byUser);
+  } catch (e) { L.err = String(e); }
+  L.detached = !!r && r.onresult === null && r.onend === null && r.onerror === null;
+  return L;
+}
+const f1 = runFast(false, 'I like pizza'), f2 = runFast(true, 'I like pizza'), f3 = runFast(false, ''), f4 = runFast(false, 'Yes', true);
+ok('E-1 자동 + 들은 말 있음 → 그 자리에서 보낸다(_finishMic 1번 · 인식기 abort · 결과·onend 떼기)', f1.ret === true && f1.finished === 1 && f1.aborted === 1 && f1.detached, f1);
+ok('E-2 (짝) 수동 → 맡지 않는다(⏹ 를 눌러야 보냄 · 인식기는 그대로)', f2.ret === false && f2.finished === 0 && f2.aborted === 0 && !f2.detached, f2);
+ok('E-3 (짝) 빈손 → 맡지 않는다(Whisper 한 번 더 듣기는 인식기가 다 닫힌 onend 뒤에)', f3.ret === false && f3.finished === 0 && f3.aborted === 0 && !f3.detached, f3);
+ok('E-4 인식기가 없으면 맡지 않는다(예외 없음)', f4.ret === false && !f4.err, f4);
+const f5 = runFast(true, 'I like pizza', false, true), f6 = runFast(true, '', false, true);
+ok('E-5 ⏹ 를 누름(수동이어도) + 들은 말 있음 → onend 를 안 기다리고 바로 보낸다', f5.ret === true && f5.finished === 1 && f5.aborted === 1 && f5.detached, f5);
+ok('E-6 (짝) ⏹ 를 눌렀는데 빈손 → 맡지 않는다(«다음부터 녹음 방식» 안내는 onend 뒤에)', f6.ret === false && f6.finished === 0 && f6.aborted === 0, f6);
+const tgl = bodyAt(HTML, 'function toggleMic(){');
+ok('E-7 ⏹ 배선 — toggleMic 이 «멈춤 표시 → 빠른 마무리 → (안 맡으면) stop()» 순서로 부른다',
+  /if\(_recognizing\)\{ _micStopWanted=true; _micUserStop=true; if\(_micFastStop && _micFastStop\(\)\) return; try\{ _recog && _recog\.stop\(\); \}catch\(e\)\{\} return; \}/.test(tgl), tgl.slice(0, 80));
+ok('E-8 ⏹ 배선 — 인식 세션이 «사람이 누름» 으로 _micFast 를 내보낸다', /_micFastStop=function\(\)\{ return _micFast\(true\); \};/.test(HTML));
+
+console.log('\n[F] ⚡ 미리 받아쓰기 배선 _micEarly — 녹음 경로가 실제로 감싸지는가');
+const earlyFn = bodyAt(HTML, 'function _micEarly(manual, o){');
+ok('F-0 (전제) _micEarly 를 오려 냈다', !!earlyFn);
+ok('F-0b 웜업 녹음 호출이 _micEarly(manual, …) 로 감싸여 있다', /MangoiVoice\.record\(_micEarly\(manual,\s*\{/.test(wh));
+ok('F-0c 미리 받아쓰기 모듈을 싣는다', /<script defer src="\/js\/mangoi-voice-early\.js\?v=\d+"><\/script>/.test(HTML));
+function runEarly(isManual, mod) {
+  const seen = {};
+  let out;
+  try {
+    out = new Function('isManual', 'mod', 'seen',
+      `${consts[0]}
+       var MIC_DANGLING=${dangling[1]};
+       ${unfin[0]}
+       var window={ MangoiVoiceEarly: mod }; var MangoiVoiceEarly=mod;
+       ${earlyFn}
+       return _micEarly(isManual, { silenceMs: 1600 });`)(isManual, mod, seen);
+  } catch (e) { return { err: String(e) }; }
+  return { out, seen };
+}
+const fakeMod = { wrap(o, cfg) { fakeMod.cfg = cfg; return Object.assign({ wrapped: true }, o); } };
+const e1 = runEarly(false, fakeMod), e1cfg = fakeMod.cfg;
+ok('F-1 자동 → 감싸고, «끝난 말» 판정을 넘긴다(브라우저 인식 경로와 같은 micUnfinished)',
+  e1.out && e1.out.wrapped && e1cfg && typeof e1cfg.accept === 'function' && e1cfg.accept('I like pizza.') === true && e1cfg.accept('I like') === false && e1cfg.accept('Yes.') === true, { out: e1.out, err: e1.err });
+const e2 = runEarly(true, fakeMod), e2cfg = fakeMod.cfg;
+ok('F-2 (짝) 수동 → 감싸되 «그 자리에서 끝내기» 는 안 넘긴다(⏹ 로만 끝남)', e2.out && e2.out.wrapped && e2cfg && !e2cfg.accept, { out: e2.out, cfg: e2cfg });
+const e3 = runEarly(false, undefined);
+ok('F-3 모듈이 없으면 예전 그대로(같은 opts)', e3.out && !e3.out.wrapped && e3.out.silenceMs === 1600, e3);
+const e4 = runEarly(false, { wrap() { throw new Error('boom'); } });
+ok('F-4 모듈이 던져도 예전 그대로(녹음은 계속된다)', e4.out && !e4.out.wrapped && e4.out.silenceMs === 1600, e4);
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 if (fail) process.exit(1);

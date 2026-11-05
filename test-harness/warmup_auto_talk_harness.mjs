@@ -84,7 +84,13 @@ function makeWorld({ embedded = false, android = false, mode = null, unlocked = 
   };
   return T;
 }
-const DELAY = 600;
+/* ⚡ 2026-11-05 600 → 300ms(사장님 「듣기 시간 최소화」). 값은 글자로 못 박지 않고 모듈에서 읽는다 —
+   숫자를 바로잡을 때마다 멀쩡한 검사가 빨간불이 되지 않게. 대신 «너무 짧지도 길지도 않다» 를 짝으로 본다. */
+const DELAY = Number((MOD_SRC.match(/var ARM_DELAY_MS = (\d+);/) || [])[1]);
+console.log('\n[0] 잔향 대기 값');
+ok('0-1 (전제) 잔향 대기(ARM_DELAY_MS)를 모듈에서 읽었다', Number.isFinite(DELAY), DELAY);
+ok('0-2 AI 말이 끝나고 0.4초 안에 마이크를 연다(빠르게)', DELAY <= 400, DELAY);
+ok('0-3 (짝) 그래도 0.2초는 기다린다(스피커 잔향을 학생 말로 받지 않게)', DELAY >= 200, DELAY);
 
 console.log('\n[A] 기본은 버튼 모드 — 기존 동작 보존');
 {
