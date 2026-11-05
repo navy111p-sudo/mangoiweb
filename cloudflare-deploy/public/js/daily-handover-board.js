@@ -17,6 +17,8 @@
   var params = new URLSearchParams(location.search);
   var S = { today: '', day: '', data: null, filter: 'all', open: null, focus: null, loading: false, seq: 0 };
   var openedAt = {};
+  // 🌐 한국어 번역 상태 — 보고 판(id:version)별. S 밖에 두는 이유: 60초마다 다시 읽어 그려도 번역이 풀리지 않게.
+  var KO = window.MangoiHandoverKo || null, ko = { on: {}, done: {}, busy: {}, err: {} };
 
   function $(id) { return box.querySelector('#mhb-' + id); }
   function el(tag, text, cls) { var n = document.createElement(tag); if (text != null) n.textContent = text; if (cls) n.className = cls; return n; }
@@ -81,7 +83,7 @@
     return bits.join(' · ');
   }
   function whatText(row) {
-    if (row.report) return row.headline || '—';
+    if (row.report) return headlineOf(row) || '—';
     if (row.state === 'missing') return '아직 제출하지 않음' + (row.due_time ? ' · 마감 ' + row.due_time : '') + ' / Not submitted yet';
     return '오늘은 보고 대상이 아닙니다 / No report due today';
   }
@@ -115,6 +117,44 @@
     });
     return wrap;
   }
+  /* 🌐 한국어로 번역 (2026-11-05 사장님 「한글번역 버튼을 적당한 곳에 설치해서 작동하게 해줘」 — 이 보고판 스크린샷)
+     자리: 펼친 보고의 맨 위 — 본문을 읽기 «전» 에 누르는 버튼이라서. 펼친 줄의 한 줄 요약(headline)도 함께 한국어가 된다.
+     번역 자체는 공용 js/handover-ko.js(읽기 화면과 같은 번역)가 한다 — ⛔ 여기에 번역 로직을 다시 만들지 말 것.
+     화면에만 보이고 저장된 보고는 안 바뀐다. 보고가 고쳐지면(version 이 바뀌면) 새 글이라 다시 번역한다. */
+  function koKey(r) { return r.id + ':' + r.version; }
+  function shown(r) { var k = koKey(r); return ko.on[k] && ko.done[k] ? ko.done[k] : (r.payload || {}); }
+  function headlineOf(row) {
+    var k = koKey(row.report);
+    if (!(ko.on[k] && ko.done[k])) return row.headline;
+    return (String(ko.done[k].work || '').split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean)[0] || '').slice(0, 120) || row.headline; // 서버 firstLine 과 같은 규칙
+  }
+  function koBar(row) {
+    var k = koKey(row.report), bar = el('div', null, 'mhb-ko'), done = ko.done[k];
+    var b = el('button', ko.busy[k] ? '번역 중… / Translating…' : ko.on[k] ? '🔤 원문 보기 / Original'
+      : ko.err[k] ? '⚠️ 번역 실패 · 다시 누르기 / Retry' : '🌐 한국어로 번역 / Translate to Korean');
+    b.type = 'button'; b.disabled = !!ko.busy[k]; b.setAttribute('aria-pressed', String(!!ko.on[k]));
+    b.onclick = function () { toggleKo(row); };
+    bar.append(b);
+    if (ko.on[k]) bar.append(el('small', 'AI 번역 · 이름·숫자는 원문으로 확인 / AI translation — check names & numbers in the original'
+      + (done.__failed ? ' · ' + done.__failed + '줄은 원문 그대로 / ' + done.__failed + ' line(s) left as written' : '')));
+    return bar;
+  }
+  async function toggleKo(row) {
+    var r = row.report, k = koKey(r);
+    if (ko.busy[k]) return;
+    if (ko.on[k]) { ko.on[k] = false; paint(); focusKo(row); return; }
+    if (!ko.done[k]) {
+      ko.busy[k] = true; ko.err[k] = false; say(''); paint();
+      try { ko.done[k] = await KO.translate(r.payload || {}); }
+      catch (e) { ko.err[k] = true; say('번역하지 못했습니다. 잠시 후 다시 눌러 주세요. / Could not translate — please try again.', true); }
+      ko.busy[k] = false;
+    }
+    ko.on[k] = !!ko.done[k];
+    paint(); focusKo(row);
+  }
+  // 다시 그리면 버튼이 새로 만들어져 키보드 포커스가 사라진다 — 같은 보고가 아직 펼쳐져 있으면 버튼으로 돌려놓는다.
+  function focusKo(row) { var b = S.open === row.username && box.querySelector('.mhb-ko button'); if (b) b.focus(); }
+
   function body(row) {
     var b = el('div', null, 'mhb-body'), r = row.report;
     if (!r) {
@@ -123,7 +163,8 @@
         : '오늘은 보고 대상이 아닙니다(휴무·근무일 아님). / Not due today (day off).', 'small'));
       return b;
     }
-    var d = r.payload || {};
+    if (KO && KO.needs(r.payload || {})) b.append(koBar(row));
+    var d = shown(r);
     b.append(field('오늘 한 일 / Work', d.work || '—'));
     b.append(field('문제와 조치 / Issue & action', d.no_issue ? '문제 없음 / No issues' : (d.issue || '—')));
     if (d.no_open) b.append(field('남은 일 / Open items', '없음 / None'));

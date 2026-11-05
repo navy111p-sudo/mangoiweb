@@ -35,6 +35,12 @@ async function openAs(who, { width = 1440, height = 1000 } = {}) {
   page.on('pageerror', e => errors.push(String(e)));
   await page.route('**/api/**', async route => {
     const req = route.request(), url = new URL(req.url());
+    // 🌐 번역 서버 흉내(⑤절) — 영어 문장 → «번역: 문장». 진짜 번역 품질은 여기서 안 잰다(그건 서버 몫).
+    if (url.pathname === '/api/translate') {
+      const body = JSON.parse(req.postData() || '{}'); calls.push('POST /api/translate ' + (body.texts || []).length);
+      const map = Object.fromEntries((body.texts || []).map(t => [t, '번역: ' + t]));
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, map }) });
+    }
     const m = url.pathname.match(/^\/api\/approval\/handover(\/.*)?$/);
     if (!m) return route.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"Not Found"}' });
     const path = (m[1] || '') + url.search;
@@ -136,6 +142,56 @@ console.log('④ 대표님 — 휴대폰(390px)');
     row: e.closest('.mhb-head').getBoundingClientRect().width, lh: parseFloat(getComputedStyle(e).lineHeight) || 26 }));
   ok('이름이 한 줄로 읽힌다(꼬리표에 밀려 꺾이지 않음)', nameFit.w >= nameFit.row * 0.6 && nameFit.h <= nameFit.lh * 1.5, JSON.stringify(nameFit));
   if (process.env.SHOT_DIR) await page.screenshot({ path: join(process.env.SHOT_DIR, 'board-mobile.png'), fullPage: false });
+  ok('콘솔 오류 0', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+console.log('⑤ 대표님 — 🌐 한국어로 번역(2026-11-05)');
+{
+  const { page, errors, calls } = await openAs('admin');
+  await page.waitForSelector('#mh-board:not([hidden]) .mhb-item');
+  await page.click('#mh-board .mhb-head[data-user="mgr_lby"]');
+  ok('짝: 한국어로 쓴 보고(이병엽)에는 번역 버튼이 없다', !(await page.$('#mh-board .mhb-body .mhb-ko')));
+  await page.click('#mh-board .mhb-head[data-user="mgr_melca"]');
+  const btn = '#mh-board .mhb-body .mhb-ko button';
+  await page.waitForSelector(btn);
+  ok('영어 보고(Melca)를 펼치면 맨 위에 «한국어로 번역» 버튼', /한국어로 번역/.test(await page.textContent(btn))
+    && await page.$eval('#mh-board .mhb-body', b => b.firstElementChild.classList.contains('mhb-ko')));
+  await page.click(btn);
+  await page.waitForFunction(() => /번역: Updated teacher schedules/.test(document.querySelector('#mh-board .mhb-body').textContent));
+  ok('누르면 본문이 한국어(번역본)로 바뀐다', true);
+  const head = () => page.$eval('#mh-board .mhb-head[data-user="mgr_melca"] .mhb-what', e => e.textContent);
+  ok('한 줄 요약도 한국어', /번역: Updated teacher schedules/.test(await head()), await head());
+  ok('버튼은 «원문 보기» 로 바뀌고 포커스를 지킨다', /원문 보기/.test(await page.textContent(btn))
+    && await page.evaluate(() => document.activeElement && document.activeElement.closest('.mhb-ko') !== null));
+  const asked = calls.filter(c => c.startsWith('POST /api/translate')).length;
+  await page.click('#mhb-refresh');
+  await page.waitForTimeout(500);
+  ok('새로고침(60초 자동 갱신과 같은 길) 뒤에도 번역이 풀리지 않는다', /번역: Updated/.test(await page.textContent('#mh-board .mhb-body')));
+  await page.click(btn);
+  ok('다시 누르면 원문 — 번역을 다시 묻지 않는다', !(await page.textContent('#mh-board .mhb-body')).includes('번역: ')
+    && calls.filter(c => c.startsWith('POST /api/translate')).length === asked);
+  // 읽기 화면(같은 페이지 아래 «받은 보고 확인»)도 같은 공용 번역(handover-ko.js)을 쓴다 — 보고판에서 한 번 번역한 문장은 다시 안 묻는다.
+  const melca = await page.$$eval('#mh-reports .mh-report-button', bs => bs.findIndex(b => b.textContent.includes('Melca')));
+  if (melca >= 0) {
+    await (await page.$$('#mh-reports .mh-report-button'))[melca].click();
+    await page.locator('#mh-report-detail button', { hasText: '한국어로 번역' }).click();
+    await page.waitForFunction(() => /번역: Updated/.test(document.querySelector('#mh-report-detail .mh-reading-text').textContent));
+    ok('읽기 화면 번역 버튼도 공용 번역으로 동작 · 보고판에서 번역한 문장은 다시 안 묻는다', calls.filter(c => c.startsWith('POST /api/translate')).length === asked);
+  } else ok('읽기 화면 목록에 Melca 보고가 있다', false, 'not found');
+  ok('콘솔 오류 0', errors.length === 0, errors.join(' | '));
+  if (process.env.SHOT_DIR) { await page.click(btn); await page.waitForTimeout(200); await page.screenshot({ path: join(process.env.SHOT_DIR, 'board-ko-pc.png'), fullPage: false }); }
+  await page.close();
+}
+{
+  const { page, errors } = await openAs('admin', { width: 390, height: 844 });
+  await page.waitForSelector('#mh-board:not([hidden]) .mhb-item');
+  await page.click('#mh-board .mhb-head[data-user="mgr_melca"]');
+  await page.click('#mh-board .mhb-body .mhb-ko button');
+  await page.waitForFunction(() => /번역: /.test(document.querySelector('#mh-board .mhb-body').textContent));
+  const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  ok('휴대폰(390px): 번역 켠 뒤에도 가로로 넘치지 않는다', over <= 0, 'overflow ' + over + 'px');
+  if (process.env.SHOT_DIR) await page.screenshot({ path: join(process.env.SHOT_DIR, 'board-ko-mobile.png'), fullPage: false });
   ok('콘솔 오류 0', errors.length === 0, errors.join(' | '));
   await page.close();
 }
