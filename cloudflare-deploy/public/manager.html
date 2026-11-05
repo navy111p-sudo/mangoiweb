@@ -3900,11 +3900,12 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var at = (String(u.target_date || '') + ' ' + (u.target_time || '')).trim();
     var back = (String(u.from_date || '') + ' ' + (u.from_time || '')).trim();
     var who = r.student_name || r.student_uid || '';
-    var past = u.reason === 'orig_passed';
-    if (!confirm(T('Restore this class?\n\n' + who + ' · ' + at + ' KST\n(postponed from ' + back + ', later cancelled)\n\n· It becomes an active class again at ' + at + ' and normal attendance and billing rules apply.\n· Existing attendance, payments and payroll records are unchanged.\n· '
-                     + (past ? 'The original time has passed, so it cannot reopen at ' + back + '.' : 'To move it back to ' + back + ' afterwards, use «↩ Undo move» on this row.'),
-                   '수업을 복원할까요?\n\n' + who + ' · ' + at + ' KST\n(' + back + ' 에서 연기 → 그 뒤 취소됨)\n\n· ' + at + ' 에 다시 열린 수업이 되어 정상 출석·과금 규칙이 적용됩니다.\n· 기존 출석·결제·급여 기록은 바뀌지 않습니다.\n· '
-                     + (past ? '원래 시각(' + back + ')은 이미 지나 그 자리에는 다시 열 수 없습니다.' : '그 뒤 원래 시각(' + back + ')으로 옮기려면 이 줄의 «↩ 원래대로» 를 누르세요.')))) return;
+    var past = u.reason === 'orig_passed', canUndo = u.reason === 'target_not_active';
+    /* 마지막 줄은 «사실인 것만» — 원래 시각을 모르면(no_time) 복원 뒤에도 «원래대로» 가 안 나오므로 약속하지 않는다. */
+    var tailEn = past ? '\n· The original time has passed, so it cannot reopen at ' + back + '.' : canUndo ? '\n· To move it back to ' + back + ' afterwards, use «↩ Undo move» on this row.' : '';
+    var tailKo = past ? '\n· 원래 시각(' + back + ')은 이미 지나 그 자리에는 다시 열 수 없습니다.' : canUndo ? '\n· 그 뒤 원래 시각(' + back + ')으로 옮기려면 이 줄의 «↩ 원래대로» 를 누르세요.' : '';
+    if (!confirm(T('Restore this class?\n\n' + who + ' · ' + at + ' KST\n(postponed from ' + back + ', later cancelled)\n\n· It becomes an active class again at ' + at + ' and normal attendance and billing rules apply.\n· Existing attendance, payments and payroll records are unchanged.' + tailEn,
+                   '수업을 복원할까요?\n\n' + who + ' · ' + at + ' KST\n(' + back + ' 에서 연기 → 그 뒤 취소됨)\n\n· ' + at + ' 에 다시 열린 수업이 되어 정상 출석·과금 규칙이 적용됩니다.\n· 기존 출석·결제·급여 기록은 바뀌지 않습니다.' + tailKo))) return;
     el._busy = true;
     var old = el.textContent;
     el.textContent = T('Restoring…', '복원하는 중…');

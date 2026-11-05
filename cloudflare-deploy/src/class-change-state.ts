@@ -464,8 +464,10 @@ export function judgeMovedAwayUndo(row: any, ch: ClassChange | null | undefined,
      + «Original time has passed — cannot undo»). 새 자리가 그 뒤 «취소» 됐고 아직 시작 전이면, 원래 날짜 줄에서 바로
      그 수업을 새 자리에 다시 열 수 있다 — 서버 정본 restore(restoreCancelled 엔진: 시작 여부·겹침·휴가·출석·동시 수정)를 그대로 탄다.
      ⛔ 지난 원래 시각에 «열린 수업» 을 만들지 않는다(결석 감지·급여 — PR #2109 가 버린 길). 복원 뒤에는 이 줄이 다시 판정되어
-        원래 시각이 미래면 «↩ 원래대로», 지났으면 «↩ 과거 기록 정정» 이 뜬다. ⛔ 날짜 없이 다시 연기(postponed)된 대상은 해당 없음. */
-  const restoreCancelled = !!target && target.id != null && tSt === 'cancelled' && Number.isFinite(tStart) && tStart > nowMs;
+        원래 시각이 미래면 «↩ 원래대로», 지났으면 «↩ 과거 기록 정정» 이 뜬다. ⛔ 날짜 없이 다시 연기(postponed)된 대상은 해당 없음.
+     ⚠️ 상태는 엔진(class-schedule-move.ts restoreCancelled: row.status === 'cancelled')과 «같은 정확일치» 로 본다 —
+        다듬어 비교하면 «버튼은 보이는데 누르면 not_cancelled» 가 생긴다. */
+  const restoreCancelled = !!target && target.id != null && target.status === 'cancelled' && Number.isFinite(tStart) && tStart > nowMs;
   const out = (reason: MovedAwayUndoBlock | null): MovedAwayUndo => ({
     ok: reason === null, reason, from_date: from, from_time: fromTime || null,
     target_id: target && target.id != null ? String(target.id) : null,

@@ -49,7 +49,7 @@ try {
   assert.equal(posts.at(-1).action,'restore'); assert.match(urls.at(-1),/\/api\/admin\/class-schedules\/77$/); assert.match(dialogs.at(-1),/later cancelled/); assert.match(dialogs.at(-1),/cannot reopen at 2026-11-01 10:00/); checks+=4;
   await page.evaluate(()=>{IS_HQ=false;showMovedCancelled();}); assert.equal(await page.getByRole('button').count(),0); checks++;
   const admin = readFileSync(new URL('../../cloudflare-deploy/public/js/adm-today-classes.js',import.meta.url),'utf8');
-  const adminCode = ['var TC_UNDO_WHY = {','function tcMd(','function tcUndoMoveHtml(','async function tcUndoMove(','async function tcRestorePostponed('].map(n=>cut(admin,n)+';').join('\n');
+  const adminCode = ['var TC_UNDO_WHY = {','function tcMd(','function tcUndoMoveHtml(','async function tcUndoMove(','function tcMovedRestoreWhy(','async function tcRestorePostponed('].map(n=>cut(admin,n)+';').join('\n');
   await page.addScriptTag({content:`
     IS_HQ=true; rows[41].cancelled=false; T=(ko,en)=>en; var tcCanMessage=()=>IS_HQ;
     window.tcLoadToday=()=>refreshes++;
