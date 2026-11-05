@@ -7788,8 +7788,14 @@ function _enToast(msg) {
 async function loadEnrollments() {
   const status = document.getElementById('en-status-filter').value;
   const url = '/api/admin/enrollments' + (status ? `?status=${status}` : '');
-  const r = await fetch(url,{cache:'no-store',credentials:'include'});
-  const d = await r.json().catch(()=>({}));
+  /* ⚠️ (2026-11-05) 실패를 «0건» 으로 그리지 않는다 — 예전엔 로그인 만료·403·서버 SQL 오류(warning)가
+     전부 「권한 범위에 표시할 수강신청이 없습니다」로 보여 «신청이 사라졌다» 로 읽혔다. */
+  let r = null, d = {};
+  try { r = await fetch(url,{cache:'no-store',credentials:'include'}); d = await r.json().catch(()=>({})); }
+  catch (e) { d = { _netErr: String(e && e.message || e) }; }
+  window.__enLoadErr = (!r || !r.ok || !d || d.ok !== true || !Array.isArray(d.items))
+    ? ((d && (d.error || d._netErr)) || (r ? ('HTTP ' + r.status) : 'network'))
+    : (d.warning ? ('server: ' + d.warning) : '');
   let items = (d && d.ok && Array.isArray(d.items)) ? d.items : [];
   // 🔐 RBAC 스코프 필터
   if (items.length && typeof window.adminScopeFilter === 'function') items = window.adminScopeFilter(items, 'enrollments');
@@ -8036,7 +8042,10 @@ function _renderEnrollments() {
   merged.sort((x, y) => (y.t - x.t) || ((x.g ? 1 : 0) - (y.g ? 1 : 0)));
   if (!merged.length) {
     tb.innerHTML = '<tr><td colspan="' + EN_COLS + '" class="empty">' +
-      (_enItems.length
+      (window.__enLoadErr && !_enItems.length
+        ? (en ? '⚠️ Could not load the list (' : '⚠️ 목록을 불러오지 못했습니다 (') + String(window.__enLoadErr).replace(/[<>&]/g, '').slice(0, 160) +
+          (en ? ') — reload the page or log in again' : ') — 새로고침하거나 다시 로그인해 주세요')
+        : _enItems.length
         ? (en ? 'Nothing matches this filter' : '이 조건에 맞는 신청이 없습니다')
         : (en ? 'No enrollments visible to your role' : '권한 범위에 표시할 수강신청이 없습니다')) +
       '</td></tr>';
