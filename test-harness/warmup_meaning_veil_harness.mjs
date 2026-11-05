@@ -53,7 +53,7 @@ ok('A-3 자모 덩어리만 걷어 내면 뜻이 남는다', M.stripJamoRuns('�
 ok('A-4 원문을 그대로 돌려준 «번역» 은 버린다', M.isUsableKoMeaning('Hello', 'Hello') === false);
 ok('A-5 한글이 한 글자도 없으면 버린다', M.isUsableKoMeaning('...', 'x') === false && M.isUsableKoMeaning('', 'x') === false);
 ok('A-6 (짝) 자모 한 글자(ㅇ)는 «덩어리» 가 아니다 — 2글자 이상만 걷는다', M.stripJamoRuns('네 ㅇ 좋아') === '네 ㅇ 좋아');
-const MANGO = strip(R('src/api-mango.ts'));
+const MANGO = strip(R('src/api-translate.ts'));
 ok('A-7 번역 처리기가 정본을 불러 쓴다(import)', /import \{[^}]*isUsableKoMeaning[^}]*\} from '\.\/learn-meaning-check'/.test(MANGO));
 ok('A-8 캐시에서 꺼낼 때도 거른다(옛 「ㅋㅋㅋㅋ」 가 180일 남아 있으므로)',
   /cached != null[^;]*learnMode && target === 'ko' && !isUsableKoMeaning\(cached, t\)/.test(MANGO));
