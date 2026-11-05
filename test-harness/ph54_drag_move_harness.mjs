@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /**
  * 강사 스케줄 캘린더(js/adm-q6.js «ph54») 드래그 이동 — 연기·변경 (2026-10-10)
  *
@@ -89,7 +90,7 @@ if (process.env.PH54_CHILD === '1') {
   const imp = f => import(pathToFileURL(join(SRC, f)).href);
   const { moveSchedulesAtomically: move, scheduleMoveVersion: version } = await imp('class-schedule-move.ts');
   const { ensureClassAuditTable } = await imp('class-audit.ts');
-  const adminSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const adminSrc = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
   const lessonSrc = readFileSync(join(SRC, 'api-lessons.ts'), 'utf8');
   const scopeSrc = readFileSync(join(SRC, 'scope.ts'), 'utf8');
   const ddl = (src, table, needs = '') => {
@@ -500,7 +501,7 @@ export async function resolve(spec, ctx, next) {
  } return next(spec, ctx);
 }`);
   writeFileSync(join(tmp, 'reg.mjs'), `import { register } from 'node:module'; register('./hooks.mjs', import.meta.url);`);
-  const child = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', '--import', join(tmp, 'reg.mjs'), SELF], {
+  const child = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', '--import', pathToFileURL(join(tmp, 'reg.mjs')).href, SELF], {
     encoding: 'utf8', env: { ...process.env, PH54_CHILD: '1', PH54_SRC_IN: Q6 }, timeout: 300000, maxBuffer: 32 * 1024 * 1024,
   });
   if (child.stderr) process.stderr.write(child.stderr.split('\n').filter(l => /\[ph54\]/.test(l)).join('\n') + '\n');

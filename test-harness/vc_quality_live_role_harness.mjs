@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 📶 관제탑 «회선» 칸 — 강사 / 학생 나눠 보기 (2026-11-03 사장님 「역할별로 나눠 보이게 고쳐줘」)
 //
 // 직원 질문: 「254ms · 0.1% 는 강사 쪽인가, 학생 쪽인가?」 → 답은 «방 전체 평균» 이라 알 수 없었다.
@@ -48,7 +49,7 @@ try {
 ok(!!(M && M.LIVE_ROLE_SQL && M.LIVE_AVG_SQL && M.attachRoleSplit), '전제: 정본 src/vc-quality-live.ts 를 불러왔다');
 if (!M) done();
 
-const ADMIN = rd(resolve(SRC, 'api-admin.ts'));
+const ADMIN = readAdminModuleGraph(adminModuleFile => rd(resolve(SRC, adminModuleFile)));
 const qStart = ADMIN.indexOf("path === '/api/admin/vc/quality'");
 const createSql = (ADMIN.slice(qStart).match(/CREATE TABLE IF NOT EXISTS vc_quality \([^`]*\)/) || [''])[0];
 const liveAt = ADMIN.indexOf("if (url.searchParams.get('live') === '1')", qStart);

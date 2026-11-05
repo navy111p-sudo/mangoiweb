@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 🔎 students_erp 에 없는 컬럼 `id` 참조 감시 — 2026-08-27
 //
 // [무엇이 문제였나]
@@ -95,7 +96,7 @@ runs('bulk-assign-textbook — 이력 INSERT 의 SELECT 부분',
 
 /* ══ ④ 되돌림 방지 — 고친 자리에 옛 패턴이 다시 들어오면 ②가 잡는다(그 전제 확인) ══ */
 console.log('\n④ 소스가 실제로 고쳐진 상태인가');
-const adm = strip(rd('../cloudflare-deploy/src/api-admin.ts'));
+const adm = strip(readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile)));
 const mango = strip(rd('../cloudflare-deploy/src/api-mango.ts'));
 check('verify-room 이 COALESCE(user_id, login_id) 를 쓴다',
   /SELECT COALESCE\(user_id, login_id\) AS uid FROM students_erp WHERE korean_name = \? OR username = \?/.test(mango));

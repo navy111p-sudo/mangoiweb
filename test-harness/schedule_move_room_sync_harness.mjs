@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /**
  * 수업을 옮긴 뒤 «강사와 학생이 같은 방·같은 시각» 을 받는가 — 샌드박스 끝-끝 검사
  * ─────────────────────────────────────────────────────────────────────────────
@@ -103,7 +104,7 @@ if (process.env.SMRS_CHILD === '1') {
   const { getScope } = await imp('scope.ts');
 
   const readSrc = (f) => readFileSync(join(SRC, f), 'utf8');
-  const adminSrc = readSrc('api-admin.ts');
+  const adminSrc = readAdminModuleGraph(adminModuleFile => readSrc(adminModuleFile));
 
   const BASE = 'https://mangoi.ai';
   const req = (method, path, { cookie, body } = {}) => {

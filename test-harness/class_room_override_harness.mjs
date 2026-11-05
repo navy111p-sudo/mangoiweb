@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /**
  * 「오늘은 이 방으로」 감시 — src/class-room-override.ts
  * ─────────────────────────────────────────────────────────────────────────────
@@ -27,7 +28,7 @@ const check = (t, cond, why) => (cond ? ok(t) : bad(t, why));
 
 const modSrc = readFileSync(join(SRC, 'class-room-override.ts'), 'utf8');
 const mangoSrc = readFileSync(join(SRC, 'api-mango.ts'), 'utf8');
-const adminSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+const adminSrc = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
 const modalSrc = readFileSync(join(PUB, 'js/idx-vc-room.js'), 'utf8');
 
 /* ── 정본을 «컴파일 없이» 실제로 돌린다 (node --experimental-strip-types) ───── */

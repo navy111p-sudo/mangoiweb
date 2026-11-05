@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 🔎 학생 상세 «학생 마스터 조회» 하니스 — 2026-09-14
 //
 // [무엇이 문제였나]
@@ -22,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const rd = (p) => { try { return readFileSync(resolve(__dir, p), 'utf8'); } catch { return ''; } };
 const mango = rd('../cloudflare-deploy/src/api-mango.ts');
-const admin = rd('../cloudflare-deploy/src/api-admin.ts');
+const admin = readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile));
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 const check = (name, ok, extra) => {

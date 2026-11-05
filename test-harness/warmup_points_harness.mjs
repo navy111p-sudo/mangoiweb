@@ -1,9 +1,10 @@
+import { fileURLToPath } from 'node:url';
 // 🪙 A.i 말하기(웜업) 포인트 — 서버 판정·라우트 배선·화면 문구 (2026-11-03)
 //   정본 src/warmup-points.ts 를 타입만 벗겨 «실제로» 돌리고, 화면 view() 를 오려 내 돌린다.
 //   변이시험: WP_SRC=<고친 warmup-points.ts> · WPJS_SRC=<고친 js> · WPAPI_SRC=<고친 api-points.ts>
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
-const ROOT = new URL('..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const R = p => readFileSync(ROOT + p, 'utf8');
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) { pass++; console.log('  ✅ ' + m); } else { fail++; console.log('  ❌ FAIL ' + m); } };

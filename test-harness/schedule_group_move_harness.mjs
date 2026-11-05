@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /**
  * Atomic group moves: actual production module and SQL, local SQLite only.
  * D1.batch is modelled as one real transaction with rollback, not Promise.all.
@@ -87,7 +88,7 @@ if (process.env.SGM_CHILD === '1') {
   const { moveSchedulesAtomically: move, scheduleMoveVersion: version } = await imp('class-schedule-move.ts');
   const { ensureClassAuditTable } = await imp('class-audit.ts');
   const { ensureRoomOverrideTable } = await imp('class-room-override.ts');
-  const adminSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const adminSrc = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
   const lessonSrc = readFileSync(join(SRC, 'api-lessons.ts'), 'utf8');
   const scopeSrc = readFileSync(join(SRC, 'scope.ts'), 'utf8');
   const ddl = (src, table, needs = '') => {

@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // ✋🎤 A.i 선생님 수업 — 질문 마이크 «수백 번» 반복 검사 (CDP 직접 · 무작위 타이밍) · 2026-10-13 (2차)
 // ⚠️ 자동으로 안 돕니다(manual/) — 사람이 부릅니다:  ITER=300 node test-harness/manual/ai-class-ask-mic-fuzz-browser.mjs
 // 사장님 제보(2차): 「글자를 입력하면 되는데 말하기가 안 돼 — 한국어·영어 둘 다」. 1차(#1542, 브라우저 음성인식을
@@ -20,7 +21,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-const DIR = path.dirname(new URL(import.meta.url).pathname);
+const DIR = path.dirname(fileURLToPath(new URL(import.meta.url)));
 const PUB = process.env.PUB || path.join(DIR, '..', '..', 'cloudflare-deploy', 'public');
 const ITER = Number(process.env.ITER || 60);
 const SEED0 = Number(process.env.SEED || Date.now() % 100000);

@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🧪 조직 그래프 트리 정산 엔진 테스트 하니스 (의존성 없음 · node 로 바로 실행)
 //   실행:  node test-harness/org_settlement_harness.mjs
@@ -458,7 +459,7 @@ console.log('\n[9] 수강료 → 본사 요율 파생');
     (OS.match(/CREATE TABLE IF NOT EXISTS settlement_rate_override/g) || []).length === 1);
 
   // 대리점 목록이 수강료를 함께 내려주고, 표를 먼저 보장하는가
-  const AA = readFileSync(new URL('../cloudflare-deploy/src/api-admin.ts', import.meta.url), 'utf8');
+  const AA = readAdminSourceFromFile(new URL('../cloudflare-deploy/src/api-admin.ts', import.meta.url));
   check('대리점 목록이 수강료를 함께 내려준다', /tuition_krw/.test(AA));
   check('🔑 조회 전에 표를 보장한다(없으면 목록이 통째로 깨진다)',
     /await ensureRateOverrideTable\(env\)/.test(AA));

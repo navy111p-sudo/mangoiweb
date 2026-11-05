@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // 📖 A.i 동화책 «The Red Umbrella» — 샌드박스(헤드리스 크로미움) 검사 · 2026-10-09
 // ⚠️ 자동으로 안 돕니다(manual/) — 사람이 부릅니다:
 //      REPS=4 node test-harness/manual/story-red-umbrella-browser.mjs
@@ -11,7 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-const DIR = path.dirname(new URL(import.meta.url).pathname);
+const DIR = path.dirname(fileURLToPath(new URL(import.meta.url)));
 const PUB = path.join(DIR, '..', '..', 'cloudflare-deploy', 'public');
 const REPS = +(process.env.REPS || 2);
 // 다른 동화책도 같은 틀이라 STORY_FILE=story-robot-dance.html 처럼 넘기면 그 권을 끝까지 눌러 봅니다(2026-10-13).

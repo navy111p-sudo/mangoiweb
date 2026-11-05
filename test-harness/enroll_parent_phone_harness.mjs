@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /**
  * 📞 enroll_parent_phone_harness — 수업 전 안내문자가 «받는 사람» 을 잃지 않는지
  * ═══════════════════════════════════════════════════════════════════════════
@@ -71,7 +72,7 @@ console.log('\n📞 수업 전 안내문자 — 받는 사람 번호 배선\n');
 const overrideTs = read(join(SRC, 'student-override.ts'));
 const notifyTs = read(join(SRC, 'notify-contacts.ts'));
 const reminderTs = read(join(SRC, 'lesson-reminder.ts'));
-const adminTs = read(join(SRC, 'api-admin.ts'));
+const adminTs = readAdminModuleGraph(adminModuleFile => read(join(SRC, adminModuleFile)));
 const coreJs = read(join(PUB, 'js', 'adm-core.js'));
 const adminHtml = read(join(PUB, 'admin.html'));
 const cssTxt = read(join(PUB, 'css', 'admin-inline-c.css'));

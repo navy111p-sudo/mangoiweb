@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // 2026-10-18 — «한 단계 올려(내려) 볼까요?» 제안 (개선안 2순위 ⑤)
 //   src/level-suggest.ts 를 타입만 벗겨 진짜 SQLite 로 돌리고, AI 친구 서버·화면 배선을 봅니다.
 //   짝: «제안한다» 옆에 «근거가 모자라면·최근에 답했으면·끝 단계면 제안하지 않는다».
@@ -6,7 +7,7 @@ import path from 'node:path';
 import { stripTypeScriptTypes } from 'node:module';
 import { DatabaseSync } from 'node:sqlite';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '..');
 const P = (rel, env) => fs.readFileSync(process.env[env] || path.join(ROOT, rel), 'utf8');
 const SRC = P('cloudflare-deploy/src/level-suggest.ts', 'LS_SRC');
 const AI = P('cloudflare-deploy/src/api-ai.ts', 'AI_SRC');

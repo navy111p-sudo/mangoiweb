@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // 2026-10-18 — 콩글리시 대조표 (개선안 2순위 ⑦)
 //   src/konglish.ts 를 타입만 벗겨 실제로 돌리고, AI 친구(api-ai.ts)가 «모델 교정이 없을 때만» 표를 쓰는지 봅니다.
 //   짝: «잡는다» 옆에 «뜻이 둘인 맞는 영어는 안 잡는다».
@@ -5,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { stripTypeScriptTypes } from 'node:module';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '..');
 const P = (rel, env) => fs.readFileSync(process.env[env] || path.join(ROOT, rel), 'utf8');
 const SRC = P('cloudflare-deploy/src/konglish.ts', 'KG_SRC');
 const AI = P('cloudflare-deploy/src/api-ai.ts', 'AI_SRC');

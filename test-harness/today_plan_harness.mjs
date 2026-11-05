@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 📅 «오늘의 학습» 회귀 감시 (2026-09-03)
 //
 //   왜 필요한가 —
@@ -225,12 +226,12 @@ if (mod) {
   console.log('\n[ ③ 요일 파서가 정본과 같은 답을 낸다 ]');
   {
     // api-admin.ts 의 admDowMatches 를 오려 내 함께 돌린다 — 두 함수가 같은 입력에 같은 답
-    const adminSrc = rd(join(CF, 'src', 'api-admin.ts'));
+    const adminSrc = readAdminModuleGraph(file => rd(join(CF, 'src', "" + file)));
     const mapAt = adminSrc.indexOf('const ADM_DOW_MAP');
     const fnAt = adminSrc.indexOf('function admDowMatches');
     const fnEnd = adminSrc.indexOf('\n}\n', fnAt) + 3;
     let ref = null;
-    try { ref = new Function(adminSrc.slice(mapAt, fnEnd).replace(/: Record<string, number>/, '').replace(/\(raw: any, target: number\): boolean/, '(raw, target)') + '\nreturn admDowMatches;')(); }
+    try { ref = new Function(adminSrc.slice(mapAt, fnEnd).replace('export function admDowMatches', 'function admDowMatches').replace(/: Record<string, number>/, '').replace(/\(raw: any, target: number\): boolean/, '(raw, target)') + '\nreturn admDowMatches;')(); }
     catch (e) { check('③ 정본 admDowMatches 를 오려 낼 수 있다', false, e.message); }
     if (ref) {
       const cases = ['4', 'Thu', 'thu', '목', '목요일', '1,3,5', 'Mon,Thu', 'Tue/Thu', '', null, 'Fri 5', '0', 'sunday'];

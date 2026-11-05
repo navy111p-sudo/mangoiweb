@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 📅 「신청하면 자동으로 수업이 잡히고 강사·관리자 화면에 뜬다」 하네스 (2026-08-06)
 //   실행: node test-harness/leveltest_autoschedule_harness.mjs
@@ -18,7 +19,7 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const rd = (p) => { try { return readFileSync(resolve(__dir, p), 'utf8'); } catch { return ''; } };
 
 const mod   = rd('../cloudflare-deploy/src/leveltest-schedule.ts');
-const api   = rd('../cloudflare-deploy/src/api-admin.ts');
+const api   = readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile));
 const tapi  = rd('../cloudflare-deploy/src/api-teacher.ts');
 const thtml = rd('../cloudflare-deploy/public/teacher.html');
 const q6    = rd('../cloudflare-deploy/public/js/adm-q6.js');

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /**
  * 🙈 student_hide_button_harness — 학생 «명부에서 숨기기 / 되살리기» 버튼 (2026-09-24)
  * ═══════════════════════════════════════════════════════════════════════════
@@ -23,7 +24,7 @@
 import { readFileSync, writeFileSync, mkdtempSync, copyFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -71,7 +72,7 @@ writeFileSync(join(TMP, 'student-override.ts'),
 copyFileSync(join(SRC, 'd1-chunk.ts'), join(TMP, 'd1-chunk.ts'));
 const CHILD = `
 import { DatabaseSync } from 'node:sqlite';
-const M = await import(${JSON.stringify(join(TMP, 'student-override.ts'))});
+const M = await import(${JSON.stringify(pathToFileURL(join(TMP, 'student-override.ts')).href)});
 const out = {};
 function d1(db, broken){
   const wrap = (sql, args) => ({
@@ -109,7 +110,7 @@ out.empty = await M.setStudentHidden(env, '  ', true, 'admin');
 // 모르면 null — 표·조회가 깨진 DB
 const bad = { DB: d1(new DatabaseSync(':memory:'), true) };
 // 표 보장 여부는 모듈 안 변수(_ensured)에 캐시된다 — «처음부터 깨진» 환경은 새 모듈 인스턴스로 잰다.
-const M2 = await import(${JSON.stringify(join(TMP, 'student-override.ts') + '?fresh')});
+const M2 = await import(${JSON.stringify(pathToFileURL(join(TMP, 'student-override.ts')).href + '?fresh')});
 out.brokenInfo = await M.getStudentHiddenInfo(bad, 'yahee1');
 out.brokenOnly = await M2.hiddenOnlyCond(bad, 's');
 out.brokenSet = await M.setStudentHidden(bad, 'yahee1', true, 'admin');
@@ -163,7 +164,7 @@ check('B-8 can_hide 는 강사·조직 계정에 거짓', /!a\.isTeacher\s*&&\s*
 const ENR = read(join(SRC, 'enroll-ops.ts'));
 check('B-9 enrollAdminHqOnly 를 내보낸다', /export\s+async\s+function\s+enrollAdminHqOnly/.test(ENR));
 
-const ADMIN = strip(read(join(SRC, 'api-admin.ts')));
+const ADMIN = strip(readAdminModuleGraph(adminModuleFile => read(join(SRC, adminModuleFile))));
 const iU = ADMIN.indexOf("path === '/api/admin/students/unified'");
 const uni = iU >= 0 ? blockAfter(ADMIN, iU) : '';
 check('B-10 전제: unified 블록', uni.length > 500);

@@ -1,3 +1,4 @@
+import { adminSrc as readAdminSource } from './_srcbundle.mjs';
 /**
  * Booked-class observation must resolve the same date-specific room as participants.
  * Real production route/body and helpers, real local SQLite, actual adm-s1 Observe
@@ -55,7 +56,7 @@ const scopes = compile(read('src/scope.ts'), {
   './d1-chunk': chunks,
   './auth-admin': { checkAdminSession() { throw new Error('No live authentication in fixtures'); } },
 });
-const api = process.env.CNRO_API_SRC ? readFileSync(process.env.CNRO_API_SRC, 'utf8') : read('src/api-admin.ts');
+const api = readAdminSource(process.env.CNRO_API_SRC ? { 'api-admin.ts': readFileSync(process.env.CNRO_API_SRC, 'utf8') } : {}, join(CF, 'src'));
 const apiTree = parse(api);
 const route = find(apiTree, n => ts.isIfStatement(n)
   && n.expression.getText(apiTree) === "method === 'GET' && path === '/api/admin/classes-now'").getText(apiTree);

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /**
  * ☎️🏫🆔 매니저 「오늘 수업」에 학생 아이디·연락처·학원 (2026-09-07)
  *
@@ -36,7 +37,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-const ADMIN_TS = readFileSync(join(__dir, '../cloudflare-deploy/src/api-admin.ts'), 'utf8');
+const ADMIN_TS = readAdminSourceFromFile(join(__dir, '../cloudflare-deploy/src/api-admin.ts'));
 const TCJS_PATH = join(__dir, '../cloudflare-deploy/public/js/adm-today-classes.js');
 const TCJS = readFileSync(TCJS_PATH, 'utf8');
 const MANAGER = readFileSync(join(__dir, '../cloudflare-deploy/public/manager.html'), 'utf8');

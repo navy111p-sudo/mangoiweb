@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { adminSrc as readAdminSource } from './_srcbundle.mjs';
 /* 📅 «아무 날짜나» 연기·변경·취소 — 2026-10-08 매니저 요청
    (「오늘 수업」에서 다음 주로 넘기면 버튼이 없다 / 학생 목록·스케줄 캘린더에도 달아 달라)
 
@@ -192,7 +193,7 @@ sec('C. runScheduleSplit(focusDate) — 진짜 SQLite × 400');
 /* 💰 급여 계산(computeLessonFeeMonth)의 «이 달 수업 전개» 를 정본에서 그대로 오려 낸다(⛔ 하니스에 베껴 적지 않는다).
    SELECT(살아 있는 줄) · 나눈 매주 줄 조회(splitPast) · 전개 루프까지 — 진짜 SQLite 에 실제로 돈다. */
 const PAY = (() => {
-  const ts = readFileSync(ADMIN_TS, 'utf8');
+  const ts = readAdminSource(process.env.ADMIN_SRC ? { 'api-admin.ts': readFileSync(ADMIN_TS, 'utf8') } : {});
   const a = ts.indexOf('const ls: any = await env.DB.prepare(', ts.indexOf('const computeLessonFeeMonth'));
   const b = ts.indexOf('instances.sort(', a);
   if (a < 0 || b < 0) return null;
@@ -355,7 +356,7 @@ const snap = (db) => JSON.stringify(db.prepare('SELECT * FROM class_schedules OR
 /* ══ D. 서버 can_split 식 — 오려 내 대입 ════════════════════════════════════ */
 sec('D. 서버 classes/today 의 can_split');
 {
-  const ts = readFileSync(ADMIN_TS, 'utf8');
+  const ts = readAdminSource(process.env.ADMIN_SRC ? { 'api-admin.ts': readFileSync(ADMIN_TS, 'utf8') } : {});
   const m = ts.match(/can_split:\s*([\s\S]*?),\s*\n\s*is_level_test/);
   ok('전제 — can_split 식을 찾았다', !!m);
   if (m) {

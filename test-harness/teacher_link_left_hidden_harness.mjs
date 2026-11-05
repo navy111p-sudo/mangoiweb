@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🔗 강사↔계정 연결 — 「퇴사 강사를 기본 목록에서 뺀다」 계약 검사 (2026-09-09)
 //
@@ -50,7 +51,7 @@ function strip(src) {
   return out.join('\n');
 }
 
-const API = strip(R('cloudflare-deploy/src/api-admin.ts'));
+const API = strip(readAdminModuleGraph(adminModuleFile => R("cloudflare-deploy/src/" + adminModuleFile)));
 
 console.log('\n[ ① 서버가 active 를 «뽑는가» — 안 뽑으면 화면이 거를 수조차 없다 ]');
 /* 두 화면의 roster 질의를 각각 콕 집는다.

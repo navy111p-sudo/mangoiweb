@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /* ═══════════════════════════════════════════════════════════════════════
    🎯 leveltest_track_split_harness — 레벨테스트 «화상수업 학생 / AI 전용 학생» 구분
 
@@ -147,7 +148,7 @@ try {
 }
 
 console.log('\n③ 진단 저장이 그 판정을 «실제로 쓰는가» (배선)');
-const adminSrc = SRC('src/api-admin.ts');
+const adminSrc = readAdminModuleGraph(adminModuleFile => SRC("src/" + adminModuleFile));
 const adminNoC = strip(adminSrc);
 const insIdx = adminNoC.indexOf("INSERT INTO leveltest_applications (student_name, student_uid, status, ai_score, final_level, source");
 ok(insIdx > 0, 'AI 진단 INSERT 문을 찾았다 (전제)');

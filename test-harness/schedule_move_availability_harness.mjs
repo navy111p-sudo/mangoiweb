@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /**
  * Stage 1: teacher reassignment availability, through the real admin handler.
  * Real TypeScript imports, real SQLite, real authentication and SQL. No live APIs.
@@ -77,7 +78,7 @@ if (process.env.SMAV_CHILD === '1') {
   await checkAdminSession(req('GET', '/prime', null, 'prime'), env);
   await getScope(env, req('GET', '/prime', null, null));
   await ensureClassAuditTable(env);
-  const adminSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const adminSrc = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
   const lessonSrc = readFileSync(join(SRC, 'api-lessons.ts'), 'utf8');
   const ddl = (src, table, needs = '') => {
     const re = new RegExp('`(CREATE TABLE IF NOT EXISTS ' + table + '\\s*\\([\\s\\S]*?\\);?)`', 'g');
@@ -280,7 +281,7 @@ export async function resolve(spec, ctx, next) {
  } return next(spec, ctx);
 }`);
   writeFileSync(join(tmp, 'reg.mjs'), `import { register } from 'node:module'; register('./hooks.mjs', import.meta.url);`);
-  const child = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', '--import', join(tmp, 'reg.mjs'), SELF],
+  const child = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', '--import', pathToFileURL(join(tmp, 'reg.mjs')).href, SELF],
     { encoding: 'utf8', env: { ...process.env, SMAV_CHILD: '1' }, timeout: 120000, maxBuffer: 16 * 1024 * 1024 });
   const marker = child.stdout?.lastIndexOf('@@RESULTS@@') ?? -1;
   if (marker < 0) { fail++; console.log('FAIL harness child crashed\n' + child.stderr + '\n' + child.stdout); }

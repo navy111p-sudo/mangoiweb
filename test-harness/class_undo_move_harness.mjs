@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /**
  * ↩ 옮긴 수업 되돌리기 (2026-11-04 매니저 Mai «I postpone the class but there's no restore or undo postponement option»)
  *
@@ -103,7 +104,7 @@ if (process.env.CUM_CHILD === '1' && process.env.CUM_MODE === 'e2e') {
   const { checkAdminSession } = await imp('auth-admin.ts');
   const { getScope } = await imp('scope.ts');
   const { scheduleMoveVersion } = await imp('class-schedule-move.ts');
-  const adminSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const adminSrc = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
   const BASE = 'https://mangoi.ai';
   const req = (method, path, { cookie, body } = {}) => {
     const headers = { 'content-type': 'application/json' };
@@ -260,7 +261,7 @@ if (process.env.CUM_CHILD === '1') {
   const { ensureRoomOverrideTable } = await imp('class-room-override.ts');
 
   /* 스키마는 정본 소스의 CREATE 문을 읽어서 만든다(하니스에 베끼지 않는다). */
-  const adminSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const adminSrc = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
   const ddl = (src, table, needs = '') => {
     for (const m of src.matchAll(new RegExp('`(CREATE TABLE IF NOT EXISTS ' + table + '\\s*\\([\\s\\S]*?\\);?)`', 'g'))) if (m[1].includes(needs)) return m[1];
     throw new Error('Production DDL not found: ' + table);

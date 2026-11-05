@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /**
  * payroll_cafe24_bridge_harness.mjs
  * ── 「카페24 급여를 이름으로 잇는다」 회귀 감시 (2026-08-18) ──
@@ -19,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const adminTs   = readFileSync(join(__dirname, '..', 'cloudflare-deploy', 'src', 'api-admin.ts'), 'utf8');
+const adminTs   = readAdminSourceFromFile(join(__dirname, '..', 'cloudflare-deploy', 'src', 'api-admin.ts'));
 const q3        = readFileSync(join(__dirname, '..', 'cloudflare-deploy', 'public', 'js', 'adm-q3.js'), 'utf8');
 const adminHtml = readFileSync(join(__dirname, '..', 'cloudflare-deploy', 'public', 'admin.html'), 'utf8');
 

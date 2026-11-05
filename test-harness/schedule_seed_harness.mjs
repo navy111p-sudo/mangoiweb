@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🗓 지난 수업에서 «수업 일정» 만들기 하니스 — 의존성 없음 · node 로 바로 실행
 //   실행:  node test-harness/schedule_seed_harness.mjs
@@ -29,7 +30,7 @@ const check = (name, ok) => {
   else { FAIL++; FAILS.push(name); console.log('  ❌ ' + name); }
 };
 
-const aapi = R('cloudflare-deploy/src/api-admin.ts');
+const aapi = readAdminModuleGraph(file => R("cloudflare-deploy/src/" + file));
 const idx = R('cloudflare-deploy/src/index.ts');
 const mango = R('cloudflare-deploy/src/api-mango.ts');
 const js = R('cloudflare-deploy/public/js/adm-schedule-seed.js');

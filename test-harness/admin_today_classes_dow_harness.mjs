@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /**
  * 📅 매니저 「오늘 수업」이 매일 비어 있던 것 — 요일 파서 (2026-08-06)
  *
@@ -35,7 +36,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const SRC = join(__dir, '../cloudflare-deploy/src');
-const ADMIN = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+const ADMIN = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
 const MANGO = readFileSync(join(SRC, 'api-mango.ts'), 'utf8');
 const TEACHER = readFileSync(join(SRC, 'api-teacher.ts'), 'utf8');
 const TCJS = readFileSync(join(__dir, '../cloudflare-deploy/public/js/adm-today-classes.js'), 'utf8');

@@ -1,9 +1,10 @@
+import { fileURLToPath } from 'node:url';
 // 🪙 교재 낱말 쓰기 숙제 포인트 — 서버 판정·라우트 배선·결과 칸 문구·호출 배선 (2026-11-03)
 //   정본 src/scene-words-points.ts 를 타입만 벗겨 «실제로» 돌리고, 화면 js 를 가짜 DOM·fetch 로 실제로 돌린다.
 //   변이시험: SW_SRC=<ts> · SWJS_SRC=<js/scene-words-points.js> · SWAPI_SRC=<api-points.ts> · SWCUR_SRC=<scene-curriculum.js> · SWHTML_SRC=<html>
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
-const ROOT = new URL('..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const R = (env, p) => readFileSync(process.env[env] || ROOT + p, 'utf8');
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) { pass++; console.log('  ✅ ' + m); } else { fail++; console.log('  ❌ FAIL ' + m); } };

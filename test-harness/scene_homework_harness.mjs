@@ -10,10 +10,11 @@ import { readFileSync, mkdtempSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
-import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CF = join(ROOT, 'cloudflare-deploy');
+const { buildSync } = createRequire(join(CF, 'package.json'))('esbuild');
 const rd = p => readFileSync(join(CF, p), 'utf8');
 let PASS = 0, FAIL = 0;
 const check = (name, cond, got) => { if (cond) { PASS++; } else { FAIL++; console.log('  ❌ ' + name + (got !== undefined ? '  →  ' + JSON.stringify(got) : '')); } };
@@ -23,7 +24,7 @@ function block(src, at) { const open = src.indexOf('{', at); let d = 0; for (let
 let mod = null;
 try {
   const out = join(mkdtempSync(join(tmpdir(), 'scene-hw-')), 'tp.mjs');
-  execFileSync(join(CF, 'node_modules', 'esbuild', 'bin', 'esbuild'), [join(CF, 'src', 'today-plan.ts'), '--bundle', '--format=esm', '--platform=neutral', `--outfile=${out}`, '--log-level=error']);
+  buildSync({ entryPoints: [join(CF, 'src', 'today-plan.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: out, logLevel: 'silent' });
   mod = await import(pathToFileURL(out).href);
 } catch (e) { console.log('  ❌ esbuild 번들 실패 — ' + (e && e.message)); FAIL++; }
 
@@ -205,7 +206,7 @@ try {
   let hw = null;
   try {
     const out = join(mkdtempSync(join(tmpdir(), 'scene-hw2-')), 'sh.mjs');
-    execFileSync(join(CF, 'node_modules', 'esbuild', 'bin', 'esbuild'), [join(CF, 'src', 'scene-homework.ts'), '--bundle', '--format=esm', '--platform=neutral', `--outfile=${out}`, '--log-level=error']);
+    buildSync({ entryPoints: [join(CF, 'src', 'scene-homework.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: out, logLevel: 'silent' });
     hw = await import(pathToFileURL(out).href);
   } catch (e) { console.log('  ❌ scene-homework 번들 실패 — ' + (e && e.message)); FAIL++; }
   if (hw) {

@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 /**
  * 🔁 단어장에서 틀린 낱말 → 웜업 대화·게임 (2026-10-18, 개선안 0순위 «약점 낱말 넣기»)
  *
@@ -20,7 +21,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { stripTypeScriptTypes } from 'node:module';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '..');
 const R = (rel, env) => fs.readFileSync(process.env[env] || path.join(ROOT, rel), 'utf8');
 const MOD = R('cloudflare-deploy/src/vocab-weak.ts', 'VW_MOD');
 const WW = R('cloudflare-deploy/src/weak-words.ts', 'VW_WW');

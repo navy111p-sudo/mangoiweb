@@ -1,3 +1,4 @@
+import { adminSrc as readAdminSource } from './_srcbundle.mjs';
 /* classes_today_mirror_dedupe_harness.mjs — 매니저 「오늘 수업」 의 카페24 «복사본» 빼기 (2026-10-20)
  *
  * 발단: 매니저 「today's class, still not all schedule have move button」.
@@ -19,7 +20,7 @@ import { createRequire } from 'node:module';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const CF = join(__dir, '..', 'cloudflare-deploy');
 const NOW_SRC = readFileSync(process.env.NOW_SRC || join(CF, 'src', 'classes-now.ts'), 'utf8');
-const ADM_SRC = readFileSync(process.env.ADMIN_SRC || join(CF, 'src', 'api-admin.ts'), 'utf8');
+const ADM_SRC = readAdminSource(process.env.ADMIN_SRC ? { 'api-admin.ts': readFileSync(process.env.ADMIN_SRC, 'utf8') } : {});
 
 let PASS = 0, FAIL = 0;
 const ok = (label, cond, extra = '') => {

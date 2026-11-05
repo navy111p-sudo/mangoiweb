@@ -1,7 +1,8 @@
+import { fileURLToPath } from 'node:url';
 // 🪙 망고 구조선(단어 게임) 결과 화면 «이번 판에 받은 포인트» (2026-11-02)
 // 화면의 RV_PTS·rescuePtsView·paintRescuePts·awardRescuePoints 를 오려 내 가짜 fetch 로 실제로 돌립니다.
 import fs from 'node:fs';
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('..', import.meta.url));
 const html = fs.readFileSync(root + 'cloudflare-deploy/public/student-game-rescue-voyage.html', 'utf8');
 let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) pass++; else { fail++; console.log('❌ FAIL', n); } };

@@ -1,8 +1,9 @@
+import { fileURLToPath } from 'node:url';
 // 📚 동화책 — 다시 열어도 «오늘 이 이야기로 받은 포인트» 가 보이는가(2026-11-03).
 // 184개 이야기 화면에서 STORY-REOPEN 블록을 오려 내 가짜 localStorage 로 실제로 돌린다.
 import fs from 'node:fs';
 import path from 'node:path';
-const DIR = new URL('../cloudflare-deploy/public/', import.meta.url).pathname;
+const DIR = fileURLToPath(new URL('../cloudflare-deploy/public/', import.meta.url));
 const ONE = process.env.STORY_SRC || path.join(DIR, 'story-s1-07.html');
 let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) { pass++; console.log('  ✅ ' + n); } else { fail++; console.log('  ❌ FAIL ' + n); } };

@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /**
  * payroll_minutes_source_harness.mjs
  * ── 「급여의 «분» 이 어디서 오는가」 회귀 감시 (2026-08-18) ──
@@ -26,7 +27,7 @@ const ok  = (m) => { pass++; console.log('  ✅ ' + m); };
 const bad = (m) => { fails.push(m); console.log('  ❌ ' + m); };
 const check = (m, c) => c ? ok(m) : bad(m);
 
-const adminTs = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+const adminTs = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
 const autoTs  = readFileSync(join(SRC, 'api-payroll-auto.ts'), 'utf8');
 const core    = readFileSync(join(PUB, 'js', 'adm-core.js'), 'utf8');
 

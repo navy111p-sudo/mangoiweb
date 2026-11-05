@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // enroll_class_minutes_harness.mjs — 수강신청 「수업 시간」(20/30/40분) 이 끝까지 이어지는지 (2026-08-26)
 //
 // ── 왜 ──────────────────────────────────────────────────────────────────────
@@ -35,7 +36,7 @@ function check(name, cond, detail) {
 }
 
 const policy   = readFileSync(join(CF, 'src', 'class-policy.ts'), 'utf8');
-const apiAdmin = readFileSync(join(CF, 'src', 'api-admin.ts'), 'utf8');
+const apiAdmin = readAdminSourceFromFile(join(CF, 'src', 'api-admin.ts'));
 const activate = readFileSync(join(CF, 'src', 'enroll-activate.ts'), 'utf8');
 const core     = readFileSync(join(PUB, 'js', 'adm-core.js'), 'utf8');
 const adminHtml= readFileSync(join(PUB, 'admin.html'), 'utf8');

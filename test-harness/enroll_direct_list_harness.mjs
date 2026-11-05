@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /* 📅 수강신청 목록 «직접 배정» 줄 + 목록 속도 (2026-09-29 사장님)
  *  ① groupDirectClasses 를 타입 제거로 실제로 돌린다(묶기·요일·기간)
  *  ② 서버 SQL 을 오려 내 진짜 SQLite 에 돌린다 — admin_ui 만 · 취소 제외 · 30일 전 일회성 제외 · 매주 수업은 남김
@@ -10,7 +11,7 @@ import { DatabaseSync } from 'node:sqlite';
 let PASS = 0, FAIL = 0;
 const ok = (c, n) => { if (c) { PASS++; console.log('  ✅ ' + n); } else { FAIL++; console.log('  ❌ ' + n); } };
 const SRC = readFileSync('cloudflare-deploy/src/enroll-direct.ts', 'utf8');
-const A = readFileSync('cloudflare-deploy/src/api-admin.ts', 'utf8');
+const A = readAdminSourceFromFile('cloudflare-deploy/src/api-admin.ts');
 const C = readFileSync('cloudflare-deploy/public/js/adm-core.js', 'utf8');
 
 const js = SRC.replace(/^export /gm, '')

@@ -258,7 +258,7 @@ console.log('\n[ C-2. 🍯 판단력 훈련 맛보기 — 게스트에게 열되
   const GUEST_SAFE = [
     ['Neo4j ETL(판단 그래프)', 'decision-graph.ts', /FROM judgment_events[\s\S]{0,240}?NOT LIKE 'guest%'/i,
      '거르지 않으면 맛보기 방문자가 «학생» 노드로 선생님 리포트에 올라온다'],
-    ['밴드별 정답률 통계', 'api-admin.ts', /FROM judgment_analysis[\s\S]{0,260}?NOT LIKE 'guest%'/i,
+    ['밴드별 정답률 통계', 'api-admin-stats.ts', /FROM judgment_analysis[\s\S]{0,260}?NOT LIKE 'guest%'/i,
      '이 수치가 «문장 난이도를 내릴까» 를 정한다 — 대충 눌러 본 사람이 섞이면 안 된다'],
     ['야간 성장 스냅샷(cron)', 'api-judgment.ts', /SELECT DISTINCT student_uid FROM judgment_analysis[\s\S]{0,200}?NOT LIKE 'guest%'/i,
      '게스트마다 스냅샷 행을 만들고 students 숫자를 부풀린다'],

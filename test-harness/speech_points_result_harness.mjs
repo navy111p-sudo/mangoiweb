@@ -1,6 +1,7 @@
+import { fileURLToPath } from 'node:url';
 // 🪙 발음 코칭 세트 완주 «받은 포인트» 상자 (2026-11-02) — 두 페이지의 awardSpeechPoints 를 가짜 fetch·DOM 으로 실제 실행
 import fs from 'node:fs';
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('..', import.meta.url));
 let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) pass++; else { fail++; console.log('❌ FAIL', n); } };
 function cut(h, a, b) { const i = h.indexOf(a), j = h.indexOf(b, i + 1); return i >= 0 && j > i ? h.slice(i, j) : ''; }

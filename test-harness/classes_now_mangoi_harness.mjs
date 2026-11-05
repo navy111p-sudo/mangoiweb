@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 🔴 「예약 기준 지금 수업」에 수강신청 수업도 뜨는가 — 2026-09-01
 //
 // [무엇이 문제였나]
@@ -25,7 +26,7 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const CF = resolve(__dir, '..', 'cloudflare-deploy');
 const rd = (p) => { try { return readFileSync(resolve(__dir, p), 'utf8'); } catch { return ''; } };
 
-const admin = rd('../cloudflare-deploy/src/api-admin.ts');
+const admin = readAdminModuleGraph(file => rd("../cloudflare-deploy/src/" + file));
 const mod = rd('../cloudflare-deploy/src/classes-now.ts');
 const s1 = rd('../cloudflare-deploy/public/js/adm-s1.js');
 const core = rd('../cloudflare-deploy/public/js/adm-core.js');

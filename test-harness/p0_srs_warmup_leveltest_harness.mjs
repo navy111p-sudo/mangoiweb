@@ -1,3 +1,5 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
+import { fileURLToPath } from 'node:url';
 // 2026-10-18 — 두 가지를 «실제로 돌려» 확인합니다.
 //   A. 단어 퀴즈(/api/vocab/quiz-submit) 결과가 복습 일정(SRS: level·next_review_at)에 반영되는가
 //      + 같은 퀴즈를 되풀이 제출해도 기록은 처음 한 번만 반영되는가 (짝: 처음 제출은 반영된다)
@@ -10,7 +12,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { stripTypeScriptTypes } from 'node:module';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '..');
 const GAMES = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/src/api-games.ts'), 'utf8');
 const INDEX = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/src/index.ts'), 'utf8');
 let pass = 0, fail = 0;
@@ -197,7 +199,7 @@ if (turnFn) {
 
 // ── C. 레벨테스트 정답·해설 잠금 ──
 console.log('\n[ C. 레벨테스트 정답·해설은 로그인 학생만 ]');
-const ADMIN = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/src/api-admin.ts'), 'utf8');
+const ADMIN = readAdminSourceFromFile(path.join(ROOT, 'cloudflare-deploy/src/api-admin.ts'));
 const cStart = ADMIN.indexOf('const reviewLocked = !authedUid;');
 const cEnd = cStart >= 0 ? ADMIN.indexOf('return json({ ok: true, ai_score', cStart) : -1;
 const cSrc = cStart >= 0 && cEnd > cStart ? ADMIN.slice(cStart, cEnd) : '';

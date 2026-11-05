@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /* ═══════════════════════════════════════════════════════════════════════════
    🌐 vc_net_line_harness.mjs — 「어느 인터넷 회선인가」 회귀 감시 (2026-09-03)
 
@@ -126,7 +127,7 @@ console.log('\n════════ ③ 서버 — 회선 값은 «서버가
 
 console.log('\n════════ ④ 집계 SQL — 진짜 SQLite 에 돌린다 ════════');
 {
-  const admin = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const admin = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
   const i = admin.indexOf("if (url.searchParams.get('by') === 'net')");
   ok(i > 0, '회선별 집계 블록을 찾았다');
   const blk = admin.slice(i, admin.indexOf('const BASE = `uid', i));

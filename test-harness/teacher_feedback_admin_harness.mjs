@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /**
  * 📋 강사·매니저 피드백 7건 회귀 하니스 (2026-07-23)
  *
@@ -43,7 +44,7 @@ const admS1     = read(join(PUB, 'js', 'adm-s1.js'));
 const admToday  = read(join(PUB, 'js', 'adm-today-classes.js'));
 const admQuick  = read(join(PUB, 'js', 'adm-quick-access.js'));
 const vcDock    = read(join(PUB, 'js', 'vc-dock.js'));
-const apiAdmin  = read(join(CF, 'src', 'api-admin.ts'));
+const apiAdmin  = readAdminModuleGraph(adminModuleFile => read(join(CF, 'src', adminModuleFile)));
 const apiMango  = read(join(CF, 'src', 'api-mango.ts'));
 const idxTs     = read(join(CF, 'src', 'index.ts'));
 

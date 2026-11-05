@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // 💳 결제관리(ph106) 실데이터 하니스 — 2026-08-17
 //
 //   왜 필요한가 —
@@ -32,7 +33,7 @@ const ok = (cond, label, detail) => {
 
 const board = readFileSync(join(SRC, 'payments-board.ts'), 'utf8');
 const acct  = readFileSync(join(SRC, 'accounting-reports.ts'), 'utf8');
-const admin = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+const admin = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
 const q7    = readFileSync(join(PUB, 'js', 'adm-q7.js'), 'utf8');
 const html  = readFileSync(join(PUB, 'admin.html'), 'utf8');
 

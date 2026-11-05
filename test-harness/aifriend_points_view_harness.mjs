@@ -1,7 +1,8 @@
+import { fileURLToPath } from 'node:url';
 // 🪙 AI 친구 «오늘 받은 포인트» 칸 — 서버가 실제로 적립한 값만 그리는가 (2026-11-02)
 // 화면 함수 aiFriendPtsView 를 오려 내 실제로 돌리고, 서버 earned_today 계산·배선을 확인합니다.
 import fs from 'node:fs';
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('..', import.meta.url));
 const html = fs.readFileSync(process.env.AIF_SRC || (root + 'cloudflare-deploy/public/ai-friend.html'), 'utf8');
 const ts = fs.readFileSync(root + 'cloudflare-deploy/src/api-ai.ts', 'utf8');
 let pass = 0, fail = 0;

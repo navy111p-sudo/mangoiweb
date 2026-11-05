@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // 2026-10-18 — «따라 말해 보기» 채점 (개선안 1순위 ④)
 //   js/repeat-score.js 를 가짜 DOM 위에서 실제로 돌리고, 웜업·AI 친구하기의 배선 블록을 오려 내 실행합니다.
 //   짝: «채점한다» 옆에 «겹치는 낱말이 없으면 안 그린다» · «시간이 지났으면 안 잰다» · «따라 말하기가 아니면 안 잰다».
@@ -5,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '..');
 const MOD = fs.readFileSync(process.env.RS_SRC || path.join(ROOT, 'cloudflare-deploy/public/js/repeat-score.js'), 'utf8');
 const WU = fs.readFileSync(process.env.WU_SRC || path.join(ROOT, 'cloudflare-deploy/public/warmup.html'), 'utf8');
 const AF = fs.readFileSync(process.env.AF_SRC || path.join(ROOT, 'cloudflare-deploy/public/ai-friend.html'), 'utf8');

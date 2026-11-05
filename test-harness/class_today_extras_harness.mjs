@@ -1,3 +1,5 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
+import { adminSrc as readAdminSource } from './_srcbundle.mjs';
 // class_today_extras_harness.mjs — 「오늘 수업」 일곱 칸 (2026-09-23 매니저 요청)
 //   날짜 · 강사 입장 · 결제유형 · 일정 · 지난/오늘 평가 · 학생 출결
 //   정본 src/class-today-extras.ts 를 node 타입 제거로 «실제로» 돌린다(컴파일 없음).
@@ -25,12 +27,12 @@ for (const f of ['class-today-extras', 'no-show-truth', 'd1-chunk', 'student-sch
 writeFileSync(join(tmp, 'auth-admin.ts'), 'export async function getAdminActor() { throw new Error("unexpected auth in read-only enrichment"); }');
 // 요일 정본(api-admin.ts admDowMatches)을 «그대로» 오려 와 주입한다 — 하니스에 규칙을 베끼지 않는다.
 {
-  const apiSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const apiSrc = readAdminSource({}, SRC);
   const a0 = apiSrc.indexOf('const ADM_DOW_MAP');
   const f0 = apiSrc.indexOf('function admDowMatches', a0);
   let i = apiSrc.indexOf('{', apiSrc.indexOf(')', f0)), d = 0;
   for (; i < apiSrc.length; i++) { if (apiSrc[i] === '{') d++; else if (apiSrc[i] === '}') { d--; if (!d) break; } }
-  const dowSrc = a0 > 0 && f0 > a0 ? apiSrc.slice(a0, i + 1) : '';
+  const dowSrc = a0 > 0 && f0 > a0 ? apiSrc.slice(a0, i + 1).replace("export function admDowMatches", "function admDowMatches") : '';
   ok('요일 정본 admDowMatches 를 오려 냈다', dowSrc.length > 200 && /function admDowMatches/.test(dowSrc));
   writeFileSync(join(tmp, 'dow.ts'), dowSrc + '\nexport { admDowMatches };\n');
 }
@@ -260,7 +262,7 @@ if (o) {
 }
 
 console.log('B. 배선');
-const api = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+const api = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
 const i0 = api.indexOf("path === '/api/admin/classes/today'");
 const iE = api.indexOf('await enrichClassesToday(', i0);
 const iJ = api.indexOf('const res = json({', i0);
@@ -385,7 +387,7 @@ ok('강사 포털: 조건 없이 try 로 감싼다', /\n[ \t]*try \{ await enric
   // 두 요일 파서가 같은 답을 내는가 — 한쪽만 좁으면 강사 화면 7칸이 관리자와 다르게 나온다
   const cut = (src, name) => { const i = src.indexOf('function ' + name + '('); if (i < 0) return ''; let d = 0, j = src.indexOf('{', i); for (; j < src.length; j++) { if (src[j] === '{') d++; else if (src[j] === '}') { d--; if (!d) break; } } return src.slice(i, j + 1); };
   const mapOf = (src, name) => { const i = src.indexOf('const ' + name); return i < 0 ? '' : src.slice(src.indexOf('{', i), src.indexOf('};', i) + 1); };
-  const admSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const admSrc = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
   let tDow = null, aDow = null;
   try { tDow = new Function('const DOW_MAP = ' + mapOf(tea, 'DOW_MAP:').replace(/^[^{]*/, '') + ';' + cut(tea, 'dowMatches').replace(/\(raw: any, target: number\): boolean/, '(raw, target)') + ' return dowMatches;')(); } catch (e) {}
   try { aDow = new Function('const ADM_DOW_MAP = ' + mapOf(admSrc, 'ADM_DOW_MAP:').replace(/^[^{]*/, '') + ';' + cut(admSrc, 'admDowMatches').replace(/\(raw: any, target: number\): boolean/, '(raw, target)') + ' return admDowMatches;')(); } catch (e) {}
