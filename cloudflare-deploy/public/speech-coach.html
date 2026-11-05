@@ -1787,7 +1787,11 @@ if (typeof window.speechSynthesis !== 'undefined') {
     document.addEventListener('pointerdown', once);
     document.addEventListener('keydown', once);
   }
-  if (document.readyState === 'complete') play(); else window.addEventListener('load', play);
+  // 🔇 (2026-11-05 사장님 지시) 다른 화면 «안»(관리자 «발음교정» 미리보기 등)에 들어 있으면
+  //   안내 음성·원어민 음성을 저절로 틀지 않는다 — 관리자 화면에서 «자 이제 준비되셨나요…» 가
+  //   저절로 나오던 것. 🔊 버튼을 누르면 그대로 들을 수 있다.
+  var EMBEDDED = false; try { EMBEDDED = (window.top !== window.self); } catch(e){ EMBEDDED = true; }
+  if (!EMBEDDED) { if (document.readyState === 'complete') play(); else window.addEventListener('load', play); }
 
   // 🔊 작은 아이콘 1개 — 상단 우측 홈 버튼 옆에 배치, 클릭 시 음소거/켜기 토글
   var btn = document.createElement('button');
