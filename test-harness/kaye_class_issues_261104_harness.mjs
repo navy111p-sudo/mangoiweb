@@ -493,7 +493,7 @@ function chatWorld(fetchImpl) {
 {
   /* 화면 상한(8초)이 서버 상한(5초 + 대체 번역)보다 길어야 한다 — 숫자를 하니스에 적지 않고 소스에서 읽는다 */
   const wait = Number((CHAT.match(/var WAIT_MS\s*=\s*(\d+)/) || [])[1] || 0);
-  const MANGO = readFileSync(join(CF, 'src', 'api-mango.ts'), 'utf8');
+  const MANGO = readFileSync(join(CF, 'src', 'api-translate.ts'), 'utf8');
   const srv = Number((MANGO.match(/CHAT_LLM_TIMEOUT_MS\s*=\s*(\d+)/) || [])[1] || 0);
   ok(`화면이 기다리는 시간(${wait}ms)이 서버 언어모델 상한(${srv}ms)보다 2초 이상 길다`, wait > 0 && srv > 0 && wait - srv >= 2000);
   const IDX = readFileSync(join(CF, 'public', 'index.html'), 'utf8');
