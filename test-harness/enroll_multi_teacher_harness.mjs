@@ -220,7 +220,8 @@ if (readSrc && addMonthsSrc) {
     ok(!!out[0] && !!out[1] && out[0].student_user_id === 'stu02' && out[1].student_user_id === 'stu02', 'B-4. 두 건 다 같은 학생');
     ok(!!out[0] && !!out[1] && out[0].duration_min === 40 && out[1].duration_min === 40, 'B-5. 수업 시간(분)은 두 건에 공유된다');
     ok(!!out[0] && !!out[1] && out[0].duration_months === '6' && out[1].duration_months === '6' && out[0].end_date === out[1].end_date && out[0].end_date === '2027-03-20', 'B-6. 수업 기간·종료일도 공유되고 정확히 계산된다(시작+6개월)');
-    ok(!!out[0] && !!out[1] && out[0].parent_phone === '01099998888' && out[1].parent_phone === '01099998888', 'B-7. 연락처도 두 건에 공유된다');
+    // 📞 (2026-11-05 사장님 결정) 등록표에 연락처 칸이 없다 — 번호는 학생 아이디 쪽에서 관리한다.
+    ok(!!out[0] && !!out[1] && !out[0].parent_phone && !out[1].parent_phone, 'B-7. 등록표는 연락처를 보내지 않는다(아이디의 번호를 씀)');
 
     // C~E. 계획 값이 이상해도 예외 없이 단일-강사 경로로 안전하게 떨어진다(A 와 짝)
     const rowC = makeRow({ uid: 'stu03', name: 'C', types: ['level'], days: ['wed'], time: '10:00', priority: 'schedule', multiPlan: '{not valid json' });
