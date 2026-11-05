@@ -33,7 +33,7 @@ async function fullRow(env: any, id: any): Promise<any | null> {
   return await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(id).first();
 }
 
-export async function undoMovedClass(env: any, actor: any, scheduleId: number, fromDate: any, nowMs: number = Date.now()) {
+export async function undoMovedClass(env: any, actor: any, scheduleId: number, fromDate: any, nowMs: number = Date.now(), historicalCorrection = false) {
   const from = String(fromDate ?? '').trim().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(from)) return fail(400, 'invalid_from_date', 'Pick the original class date again.');
   let row: any = null;
@@ -64,12 +64,19 @@ export async function undoMovedClass(env: any, actor: any, scheduleId: number, f
   if (!ch) return fail(409, 'not_moved', 'This class is already back on this date, or was not moved. Refresh the list.');
   const u = judgeMovedAwayUndo(row, ch, child, nowMs);
   if (!u) return fail(409, 'not_moved', 'This class is already back on this date, or was not moved. Refresh the list.');
-  if (!u.ok) return fail(409, String(u.reason), BLOCK_MESSAGE[String(u.reason)] || 'This class cannot be restored.');
+  if (historicalCorrection && u.historical_available !== true) return fail(409, 'historical_not_available', 'This class can no longer be corrected as an unstarted future destination. Refresh its history.');
+  const historical = historicalCorrection && u.historical_available === true;
+  if (historical) {
+    const destination = child || row;
+    const start = Date.parse(String(destination.scheduled_date) + 'T' + String(destination.start_time).padStart(5, '0') + ':00+09:00');
+    if (destination.status !== 'active' || !Number.isFinite(start) || start <= nowMs) return fail(409, 'target_not_active', 'Only an unstarted active destination can be corrected. Restore a cancelled future class separately.');
+  }
+  if (!u.ok && !historical) return fail(409, String(u.reason), BLOCK_MESSAGE[String(u.reason)] || 'This class cannot be restored.');
 
   const target = child || row;
   if (String(target.id) !== String(u.target_id)) return fail(409, 'schedule_changed', 'The class changed while checking. Refresh the list.');
   const result: any = await moveSchedulesAtomically(env, actor,
-    { ids: [String(target.id)], patch: { destination_date: u.from_date, start_time: u.from_time } }, [target], { undoMove: true });
+    { ids: [String(target.id)], patch: { destination_date: u.from_date, start_time: u.from_time } }, [target], { undoMove: true, historicalUndo: historical });
   return result.ok
     ? { ...result, id: Number(target.id), from_date: u.from_date, from_time: u.from_time }
     : result;

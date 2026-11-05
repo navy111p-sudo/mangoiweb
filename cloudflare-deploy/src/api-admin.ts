@@ -3746,7 +3746,7 @@ export async function handleAdminApi(
         sessions.push({
           schedule_id: s.id,
           source: 'mangoi',            // 🏷 망고아이 예약 = 우리 방이 있다 → 입장·참관 가능
-          observable: !_cancelled,     // ✕ 취소된 회차는 참관할 수업이 없다(빈 방을 열지 않는다)
+          observable: !_cancelled && !_postponed,     // ✕ 취소된 회차는 참관할 수업이 없다(빈 방을 열지 않는다)
           room_id: `class-${s.id}-${ymd}`,
           student_uid: s.user_id || null,
           // 🏷 (2026-09-28) 이름 칸이 빈 행(학생 상세 화면 등록분)은 명부 이름으로 보충 — 주간 스케줄과 같은 규칙
@@ -3956,7 +3956,7 @@ export async function handleAdminApi(
               schedule_id: s.id,
               source: 'mangoi',
               moved_away: true,            // ⏸ 이 날에서 다른 날로 옮겨 간 회차 — 입장·옮기기 없음, 「↩ 원래대로」(undo)만
-              undo: _undo ? { ok: _undo.ok, reason: _undo.reason, from_date: _undo.from_date, from_time: _undo.from_time } : null,
+              undo: _undo ? { ok: _undo.ok, reason: _undo.reason, historical_available: _undo.historical_available === true, from_date: _undo.from_date, from_time: _undo.from_time } : null,
               observable: false,
               room_id: null,
               student_uid: s.user_id || null,
@@ -7963,7 +7963,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
          🔒 본사 전용(위 enrollAdminHqOnly) — «연기 취소»(restore)와 같은 선. */
       if (body && body.action === 'undo_move') {
         const actor = await getAdminActor(request, env as any);
-        const result: any = await undoMovedClass(env, actor, id, body.from_date);
+        const result: any = await undoMovedClass(env, actor, id, body.from_date, Date.now(), body.historical_correction === true);
         return json(result, result.status);
       }
       /* ↩ (2026-10-07 매니저 요청 4) { action:'restore' } — 잘못 «수업 종료» 한 수업을 되살린다.
@@ -7987,31 +7987,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           const result = await moveSchedulesAtomically(env, actor, { ids: [id], patch: {} }, [row], { restorePostponed: true });
           return json(result.ok ? { ...result, id, status: 'active', from: fromSt } : result, result.status);
         }
-        const sd = String(row.scheduled_date || '').slice(0, 10);
-        const todayKst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
-        if (/^\d{4}-\d{2}-\d{2}$/.test(sd) && sd < todayKst) return json({ ok: false, error: 'past_date' }, 409);
-        /* ⛔ 날짜 없는 매주 반복 행은 여기서 되살리지 않는다 — 날짜·중복 확인을 할 수 없다(시간표에서 다시 등록). */
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(sd)) return json({ ok: false, error: 'weekly_row' }, 409);
-        /* ⚠️ 중복 확인을 못 하면 «없다» 로 넘기지 않는다(fail-closed) — 두 벌이 되는 쪽이 더 나쁘다.
-           학생 쪽(같은 학생·같은 시각)과 강사 쪽(같은 강사·같은 시각, LMS·시드 자리표시 제외)을 함께 본다. */
-        let dup: any = null;
-        try {
-          dup = await env.DB.prepare(
-            `SELECT id FROM class_schedules WHERE id <> ? AND scheduled_date = ? AND substr(start_time,1,5) = substr(?,1,5) AND status != 'cancelled'
-               AND (user_id = ? OR (? <> '' AND teacher_id = ? AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed'))) LIMIT 1`
-          ).bind(id, sd, String(row.start_time || ''), row.user_id, String(row.teacher_id || ''), String(row.teacher_id || '')).first();
-        } catch (e: any) { return json({ ok: false, error: 'lookup_failed' }, 409); }
-        if (dup) return json({ ok: false, error: 'slot_taken', other_id: dup.id }, 409);
-        const upd: any = await env.DB.prepare(`UPDATE class_schedules SET status='active', updated_at=? WHERE id=? AND status=?`).bind(Date.now(), id, fromSt).run();
-        if (!(upd && upd.meta && upd.meta.changes > 0)) return json({ ok: false, error: 'not_cancelled' }, 409);
-        await writeClassAudit(env, {
-          action: 'restore', schedule_id: id,
-          teacher_name: row.teacher_name || null, student_name: row.student_name || null,
-          lesson_date: sd || null, lesson_time: row.start_time || null,
-          actor: actor.name || actor.username || '관리자', actor_role: 'admin', source: 'ui',
-          reason: body.reason ? String(body.reason).slice(0, 300) : '수업 종료 되돌리기',
-        });
-        return json({ ok: true, id, status: 'active', from: fromSt });
+        const result = await moveSchedulesAtomically(env, actor, { ids: [id], patch: {}, reason: body.reason }, [row], { restoreCancelled: true });
+        return json(result.ok ? { ...result, id, status: 'active', from: fromSt } : result, result.status);
       }
       if (!body || body.action !== 'split') return json({ ok: false, error: 'unknown_action' }, 400);
       const dry = body.dry_run !== false;

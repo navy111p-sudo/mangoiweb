@@ -153,6 +153,22 @@ if (process.env.SGM_CHILD === '1') {
     return result;
   };
 
+  const restoreCancelled = id => move(env, actor, { ids: [id], patch: {} }, undefined, { restoreCancelled: true });
+  reset();
+  let cancelledId = seed({status:'cancelled'});
+  let cancelledResult = await restoreCancelled(cancelledId);
+  check('cancelled future restores same ID atomically', cancelledResult.ok && row(cancelledId).status === 'active' && auditCount() === 1, cancelledResult);
+  cancelledResult = await restoreCancelled(cancelledId);
+  check('cancelled repeated restore is rejected', !cancelledResult.ok && auditCount() === 1, cancelledResult);
+  for (const scenario of ['past','overlap','leave','race','audit']) {
+    reset(); cancelledId = seed({status:'cancelled', ...(scenario === 'past' ? {scheduled_date:'2026-10-04',start_time:'11:59'} : {})});
+    if (scenario === 'overlap') seed({user_id:'another',start_time:'09:10'});
+    if (scenario === 'leave') block({teacher_id:'1',start_time:'09:00',end_time:'10:00'});
+    if (scenario === 'race') beforeBatch = () => seed({user_id:'race',start_time:'09:10'});
+    if (scenario === 'audit') writeFailure = {match:sql=>/^INSERT INTO class_audit_log/.test(sql)};
+    cancelledResult = await restoreCancelled(cancelledId);
+    check('cancelled fails closed: '+scenario, !cancelledResult.ok && row(cancelledId).status === 'cancelled' && auditCount() === 0, cancelledResult);
+  }
   const restore = (id, originals) => move(env, actor, { ids: [id], patch: {} }, originals, { restorePostponed: true });
   reset();
   let restoredId = seed({ status: 'postponed', start_time: '07:40' });

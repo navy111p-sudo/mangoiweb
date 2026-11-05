@@ -1238,6 +1238,7 @@
                «수업이 취소됐다» 를 학생에게 알릴 길이라서. */
             act = '<span style="color:#b42318;font-size:11.5px;font-weight:700;margin-right:4px">'
               + T('✕ 취소된 수업 — 입장 없음', '✕ Cancelled — no class') + '</span>';
+            if (tcCanMessage() && s.schedule_id && Number(s.start_ts) > Date.now()) act += '<span class="tc-restore-pin" role="button" tabindex="0" data-sid="' + esc(s.schedule_id) + '" data-name="' + esc(s.student_name || s.student_uid || '') + '" data-when="' + esc(new Date(Number(s.start_ts) + 9 * 3600000).toISOString().slice(0,16).replace('T',' ')) + ' KST" style="cursor:pointer">' + T('↩ 취소 수업 복원', '↩ Restore cancelled class') + '</span>';
           } else if (s.holiday) {
             /* 🎌 공휴일 휴강 — 입장·참관 버튼을 주지 않는다(서버가 join_open=false 로 보낸다). */
             act = '<span style="color:#475569;font-size:11.5px;font-weight:700;margin-right:4px">'
@@ -1573,27 +1574,29 @@
   function tcUndoMoveHtml(s) {
     var u = s && s.undo;
     if (!u || !s.schedule_id || !tcCanMessage()) return '';
-    if (u.ok !== true) {
+    if (u.ok !== true && u.historical_available !== true) {
       var w = TC_UNDO_WHY[u.reason] || TC_UNDO_WHY.no_target;
       return '<span style="display:inline-block;margin-left:4px;color:#475467;font-size:11px">' + esc(T(w[0], w[1])) + '</span>';
     }
-    var back = (tcMd(u.from_date) + ' ' + (u.from_time || '')).trim();
+    var back = (String(u.from_date || '') + ' ' + (u.from_time || '')).trim();
     var ch = s.change || {};
-    var now = (tcMd(ch.to_date) + ' ' + (ch.to_time || '')).trim();
+    var now = (String(ch.to_date || '') + ' ' + (ch.to_time || '')).trim();
     return '<span class="tc-undo-pin" role="button" tabindex="0" data-sid="' + esc(s.schedule_id) + '" '
-      + 'data-from="' + esc(u.from_date || '') + '" data-back="' + esc(back) + '" data-now="' + esc(now) + '" '
+      + 'data-historical="' + (u.reason === 'orig_passed' ? '1' : '0') + '" data-from="' + esc(u.from_date || '') + '" data-back="' + esc(back) + '" data-now="' + esc(now) + '" '
       + 'data-name="' + esc(s.student_name || s.student_uid || '') + '" '
       + 'title="' + esc(T('연기·변경을 취소하고 원래 날짜·시각(' + back + ')으로 되돌립니다', 'Undo the move — back to the original date and time (' + back + ')')) + '" '
       + 'style="cursor:pointer;display:inline-block;white-space:nowrap;margin-left:4px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
       + 'background:#fff7ed;color:#b45309;border:1px solid #fcd9a8">'
-      + T('↩ 원래대로', '↩ Undo move') + '</span>';
+      + (u.reason === 'orig_passed' ? T('↩ 과거 기록 정정', '↩ Correct past record') : T('↩ 원래대로', '↩ Undo move')) + '</span>';
   }
   /* 서버가 거절하면 그 사유를 사람 말로(조용히 실패하지 않는다). 모르는 코드면 서버 문장(message)을 그대로. */
   async function tcUndoMove(el) {
     if (!el || el._busy) return;
     var sid = el.getAttribute('data-sid'), from = el.getAttribute('data-from') || '';
     var who = el.getAttribute('data-name') || '', back = el.getAttribute('data-back') || '', now = el.getAttribute('data-now') || '';
-    if (!confirm(T('연기·변경을 취소할까요?\n\n' + who + (now ? ' · 지금 ' + now : '') + ' → 원래 ' + back
+    var historical = el.getAttribute('data-historical') === '1';
+    if (historical && !confirm(T('과거 기록을 정정할까요? ' + back + ' (KST)\n현재 자리 ' + now + '의 수업은 제거되고 원래 자리에서 연기됨으로 남습니다. 출석·결제·급여는 바뀌지 않습니다.', 'Correct the past record? ' + back + ' (KST)\nThe class leaves its current slot ' + now + ' and remains postponed at the original time. Attendance, payments and payroll stay unchanged.'))) return;
+    if (!historical && !confirm(T('연기·변경을 취소할까요?\n\n' + who + (now ? ' · 지금 ' + now : '') + ' → 원래 ' + back
                    + '\n\n· 같은 수업이 원래 날짜·시각으로 돌아가 다시 열린 수업이 됩니다.\n· 담당 강사는 지금 그대로입니다.',
                    'Undo this move?\n\n' + who + (now ? ' · now ' + now : '') + ' → back to ' + back
                    + '\n\n· The same class returns to its original date and time and opens again.\n· The teacher stays as it is now.'))) return;
@@ -1604,7 +1607,7 @@
     try {
       var r = await fetch('/api/admin/class-schedules/' + encodeURIComponent(sid), {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'undo_move', from_date: from })
+        body: JSON.stringify({ action: 'undo_move', from_date: from, historical_correction: historical })
       });
       httpOk = r.ok;
       j = await r.json().catch(function () { return null; });
@@ -1634,8 +1637,8 @@
     var sid = el.getAttribute('data-sid');
     var who = el.getAttribute('data-name') || '';
     var when = el.getAttribute('data-when') || '';
-    if (!confirm(T('연기를 취소할까요?\n\n' + who + ' · ' + when + '\n\n· 원래 날짜·시각 그대로 다시 열린 수업이 됩니다.',
-                   'Undo this postponement?\n\n' + who + ' · ' + when + '\n\n· The class goes back to its original date and time.'))) return;
+    if (!confirm(T('수업을 복원할까요?\n\n' + who + ' · ' + when + '\n\n· 원래 날짜·시각에 활성 수업으로 복원되어 정상 출석·과금 규칙이 적용됩니다. 기존 출석·결제·급여 기록은 바뀌지 않습니다.',
+                   'Restore this class?\n\n' + who + ' · ' + when + '\n\n· The class becomes active at this time and normal attendance and billing rules apply. Existing attendance, payments and payroll records are unchanged.'))) return;
     el._busy = true;
     var old = el.textContent;
     el.textContent = T('되돌리는 중…', 'Restoring…');
