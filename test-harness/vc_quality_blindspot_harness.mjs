@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /* ═══════════════════════════════════════════════════════════════════════════
    📶 vc_quality_blindspot_harness.mjs — 화상수업 «회선품질 사각지대» 회귀 감시
       (2026-09-01, class-1015 「화면이 흐리고 소리가 끊긴다」 수리와 짝)
@@ -567,7 +568,7 @@ console.log('\n════════ ⑧ 화면 안내 — 회선이 나쁜 �
 
 console.log('\n════════ ⑨ 관리자 목록 — 누구인지 알 수 있나 ════════');
 {
-  const adm = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const adm = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
   ok(/e\.korean_name FROM students_erp e WHERE e\.user_id = q\.uid/.test(adm),
      '실명을 붙인다 — 예전엔 «juju5731» 만 나와 누구인지 알 수 없었다');
   ok(/e\.shop_name/.test(adm), '소속 매장도 함께 낸다(대리점 경유 연락용)');
@@ -677,7 +678,7 @@ console.log('\n════════ ⑦ 서버 — «모름»(-1) 을 0 으�
   ok(/ALTER TABLE vc_quality ADD COLUMN \$\{c\}/.test(api) && !/CREATE TABLE IF NOT EXISTS vc_quality[^`]*rx_loss/.test(api),
      '새 칸은 ALTER 로만 붙인다 (CREATE 가 두 벌이라 모양이 갈리면 안 된다)');
 
-  const adm = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const adm = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
   ok(/CASE WHEN rx_loss\s+>= 0 THEN rx_loss/.test(adm),
      '집계에서 «모름»(-1) 행을 평균에 섞지 않는다');
   ok(/rx_ready = false/.test(adm),
@@ -961,7 +962,7 @@ console.log('\n════════ ⑬ 경로(중계/직접) — «어떤 �
   ok(/ALTER TABLE vc_quality ADD COLUMN \$\{c\}/.test(APIM) && /"path TEXT DEFAULT ''"/.test(APIM) && /'path_ticks INTEGER DEFAULT 0'/.test(APIM), '네 칸은 ALTER 로만 붙인다(CREATE 두 벌 함정)');
   ok(/PATHS = \['relay', 'direct', 'mixed'\]/.test(APIM) && /indexOf\(String\(b\.path \|\| ''\)\) >= 0/.test(APIM), '모르는 path 문자열은 빈 값으로 떨어진다(본문을 그대로 믿지 않는다)');
   ok(/turnV = String\(b\.turn \|\| ''\)\.replace\(\/\[\^A-Za-z0-9\.:\\-_ \]\/g, ''\)\.slice\(0, 96\)/.test(APIM), 'turn 은 글자를 좁히고 96자에서 자른다');
-  const APIA = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const APIA = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
   ok(/SUM\(COALESCE\(relay_ticks, 0\)\) AS relay_ticks, SUM\(COALESCE\(path_ticks, 0\)\) AS path_ticks/.test(APIA), '관리자 집계가 relay_ticks·path_ticks 를 함께 낸다');
   const ADM = readFileSync(join(PUB, 'admin.html'), 'utf8');
   const cellM = ADM.match(/function vcqPathCell\(x\)\{[\s\S]*?\n    \}/);

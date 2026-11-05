@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 💾 신규 학생 등록 마법사 «진짜 저장» 하니스 — 의존성 없음 · node 로 바로 실행
 //   실행:  node test-harness/enroll_wizard_persist_harness.mjs
@@ -36,7 +37,7 @@ const check = (name, ok) => {
 };
 
 const html = R('cloudflare-deploy/public/admin/weekly-schedule.html');
-const aapi = R('cloudflare-deploy/src/api-admin.ts');
+const aapi = readAdminModuleGraph(adminModuleFile => R("cloudflare-deploy/src/" + adminModuleFile));
 
 // wizFinalize 본문만 떼어 본다 — 파일 전체에서 찾으면 남의 코드가 통과시켜 준다
 const s = html.indexOf('async function wizFinalize');

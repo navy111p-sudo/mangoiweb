@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🔗 수강 연장 «1회용 링크» 안전 하니스 (의존성 없음 · node 로 바로 실행)
 //   실행:  node test-harness/renew_link_harness.mjs
@@ -128,7 +129,7 @@ check('renew-link.ts 에 console 로그가 없다', !/console\.(log|warn|error|i
   check('renew-link 응답에 전화번호를 싣지 않는다', !!blk && !/phone/i.test(blk));
 }
 {
-  const api = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const api = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
   const apiC = codeOnly(api);
   check('관리자 응답이 발급된 토큰 원문을 되돌려주지 않는다',
     !/renew_link:\s*renewLink\s*\?\s*\{[^}]*token/.test(apiC));
@@ -146,7 +147,7 @@ check('연장 전용 모드는 자동연장(정기결제) 상자도 접는다 �
 
 console.log('\n[ H. 문자에 실리는 링크 ]');
 {
-  const api = codeOnly(readFileSync(join(SRC, 'api-admin.ts'), 'utf8'));
+  const api = codeOnly(readAdminSourceFromFile(join(SRC, 'api-admin.ts')));
   check('B2C 미연장 발송 때 학생별 링크를 발급한다', /issueRenewLink\(env, body\.user_id\)/.test(api));
   check('일괄 발송도 학생별 링크를 발급한다', /issueRenewLink\(env, row\.user_id\)/.test(api));
   check('B2B(미납)에는 연장 링크를 붙이지 않는다', !/isB2c\s*\?\s*[\s\S]{0,80}issueRenewLink[\s\S]{0,40}:\s*await issueRenewLink/.test(api));

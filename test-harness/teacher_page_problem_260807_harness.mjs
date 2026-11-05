@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🧾 「NEW TEACHER'S PAGE PROBLEM (2)」(마이마이, 2026-08-07 · 17건) 하네스
 //   실행: node test-harness/teacher_page_problem_260807_harness.mjs
@@ -24,7 +25,7 @@ const rd = (p) => { try {
 const tapi   = rd('../cloudflare-deploy/src/api-teacher.ts');
 const mapi   = rd('../cloudflare-deploy/src/api-mango.ts');
 const cew    = rd('../cloudflare-deploy/src/class-entry-window.ts');  // 🚪 입장 시간창 정본 (2026-09-11)
-const aapi   = rd('../cloudflare-deploy/src/api-admin.ts');
+const aapi   = readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile));
 const thtml  = rd('../cloudflare-deploy/public/teacher.html');
 const mypage = rd('../cloudflare-deploy/public/admin/mypage.html');
 const idx    = rd('../cloudflare-deploy/public/index.html');

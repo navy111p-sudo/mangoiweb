@@ -1,10 +1,11 @@
+import { fileURLToPath } from 'node:url';
 // 브라우저 검사 — 수강신청 등록 후 엑셀·워드 다운로드 «선택» (자동으로 안 돕니다, 사람이 부릅니다)
 //   PW=/opt/node-tools/node_modules/playwright-core node test-harness/manual/enroll-export-optional-browser.mjs [반복횟수]
 // 진짜 Chromium 에서 실제 «다운로드 이벤트» 를 센다. 서버(/api/**)는 스텁.
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
 const PW = process.env.PW || '/opt/node-tools/node_modules/playwright-core';
 const { chromium } = await import(PW + '/index.mjs');
-const ROOT = new URL('../../cloudflare-deploy/public/', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('../../cloudflare-deploy/public/', import.meta.url));
 const N = Number(process.argv[2] || 1);
 const srv = http.createServer((q, s) => {
   let p = decodeURIComponent(q.url.split('?')[0]); if (p === '/') p = '/index.html';

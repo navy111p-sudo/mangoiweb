@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 💸 미납 독촉 «오발송» 방지 하니스 (의존성 없음 · node 로 바로 실행)
 //   실행:  node test-harness/dunning_safety_harness.mjs
@@ -30,7 +31,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const SRC = resolve(__dir, '../cloudflare-deploy/src');
-const txt = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+const txt = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond, extra) {

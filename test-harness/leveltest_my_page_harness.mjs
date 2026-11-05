@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🎯 「레벨테스트 신청했는데 왜 내 페이지에서 안 뜨지?」 하네스 (2026-08-06)
 //   실행: node test-harness/leveltest_my_page_harness.mjs
@@ -22,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const rd = (p) => { try { return readFileSync(resolve(__dir, p), 'utf8'); } catch { return ''; } };
 
-const api    = rd('../cloudflare-deploy/src/api-admin.ts');
+const api    = readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile));
 const index  = rd('../cloudflare-deploy/src/index.ts');
 const parent = rd('../cloudflare-deploy/public/parent.html');
 const ltPage = rd('../cloudflare-deploy/public/level-test.html');

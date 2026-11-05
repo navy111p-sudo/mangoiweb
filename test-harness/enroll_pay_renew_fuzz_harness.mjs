@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /**
  * 🎲 학생 «수업 등록 · 연장 · 결제» 샌드박스 무작위 반복 검사 (2026-10-10 사장님 「오류가 없을 때까지 수백 번」)
  * ─────────────────────────────────────────────────────────────────────────────
@@ -73,7 +74,7 @@ if (process.env.EPRF_CHILD === '1') {
   const { signUidToken } = await imp('auth-token.ts');
   const { issueRenewLink } = await imp('renew-link.ts');
   const { checkAdminSession } = await imp('auth-admin.ts');
-  const adminSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const adminSrc = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
 
   const failures = [];          // { world, op, inv, detail }
   const stats = { ops: 0, kinds: {}, paid: 0, schedules: 0, renewPaid: 0, declined: 0, conflictsRejected: 0, invChecks: 0 };
@@ -547,7 +548,7 @@ writeFileSync(join(tmp, 'reg.mjs'), `import { register } from 'node:module'; reg
 function runChild(srcDir, extraEnv = {}) {
   const out = join(tmp, 'r' + Math.random().toString(36).slice(2) + '.json');
   const r = spawnSync(process.execPath,
-    ['--experimental-strip-types', '--no-warnings', '--import', join(tmp, 'reg.mjs'), SELF],
+    ['--experimental-strip-types', '--no-warnings', '--import', pathToFileURL(join(tmp, 'reg.mjs')).href, SELF],
     { encoding: 'utf8', env: { ...process.env, ...extraEnv, EPRF_CHILD: '1', EPRF_SRC: srcDir, EPRF_RESULT: out }, maxBuffer: 64 * 1024 * 1024, timeout: 900000 });
   if (!existsSync(out)) return { crashed: true, err: (r.stderr || '').slice(-3000) + String(r.error || '') };
   return JSON.parse(readFileSync(out, 'utf8'));

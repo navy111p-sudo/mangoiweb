@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 /**
  * 연기·변경 요청 «승인 없음» (2026-11-02 사장님 「승인 자체가 필요 없어」)
@@ -54,7 +55,7 @@ ok('수업표(class_schedules)는 건드리지 않는다', !/class_schedules/.te
 ok('던지지 않는다(try/catch)', /try \{[\s\S]*catch/.test(ex));
 
 console.log('\n② 강사 요청 자동 반영 조건(api-admin.ts)');
-const adm = SRC('src/api-admin.ts');
+const adm = readAdminModuleGraph(adminModuleFile => SRC("src/" + adminModuleFile));
 const ci = adm.indexOf("if (requesterRole === 'teacher' && body.requester_role !== 'admin'");
 ok('조건식을 찾았다', ci > 0);
 const condSrc = ci > 0 ? adm.slice(ci + 4, adm.indexOf(') {\n', ci)) : 'false';

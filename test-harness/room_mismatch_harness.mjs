@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 🚨 «같은 수업인데 서로 다른 방» 감시 (2026-10-07 — 10/6 delaware · LEN 실사고)
 // 정본 src/room-mismatch.ts 를 타입 제거로 «실제로» 돌리고, api-admin.ts classes-now 배선과
 // 화면(adm-core.js _renderRoomMismatch)을 오려 내 가짜 부품으로 실행한다.
@@ -94,7 +95,7 @@ ok('last_seen 0 은 아님(카페24 씨앗)', !M.isLiveNow({ last_seen_at: 0 }, 
 ok('퇴장 0 은 «없음»', M.isLiveNow({ last_seen_at: NOW, left_at: 0 }, NOW));
 
 console.log('⑤ 배선 — api-admin.ts classes-now');
-const API = rd(resolve(SRC, 'api-admin.ts'));
+const API = readAdminModuleGraph(adminModuleFile => rd(resolve(SRC, adminModuleFile)));
 ok('import 했다', /import \{ findRoomMismatches \} from '\.\/room-mismatch'/.test(API));
 const ci = API.indexOf("path === '/api/admin/classes-now'");
 const cBody = ci > 0 ? API.slice(ci, API.indexOf('/* 🔍 GET /api/admin/textbook-files/dup-report', ci)) : '';

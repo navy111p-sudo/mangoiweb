@@ -1,7 +1,8 @@
+import { fileURLToPath } from 'node:url';
 // 지사수수료 «귀속월» 기준 (2026-10-09) — monthActualOpex 의 쪼개기 블록을 소스에서 오려 내
 // 가짜 D1 로 «실제로» 돌려 본다. 문자열 검사로는 «어느 달로 가는가» 를 못 본다.
 import fs from 'node:fs';
-const SRC = process.env.ACC_SRC || new URL('../cloudflare-deploy/src/accounting-reports.ts', import.meta.url).pathname;
+const SRC = process.env.ACC_SRC || fileURLToPath(new URL('../cloudflare-deploy/src/accounting-reports.ts', import.meta.url));
 const s = fs.readFileSync(SRC, 'utf8');
 let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) { pass++; console.log('  ✅ ' + n); } else { fail++; console.log('  ❌ FAIL ' + n); } };

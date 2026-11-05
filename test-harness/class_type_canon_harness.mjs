@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 수업 종류 이름·색 통일 — 정규수업 · 보강수업 · 체험수업 · 레벨테스트 (2026-10-07 사장님)
 //
 // 왜: 학생 상세 「수업 예약 등록」의 「특정 날짜 / One-off」가 class_type 을 안 보내 «정규수업»(주황)으로
@@ -89,7 +90,7 @@ for (const junk of ['', 'one_off', 'recurring', 'MAKEUP', 'x', null, undefined, 
   ok('모르는 값은 정규·매주로(지어내지 않음): ' + String(junk), pick(junk).class_type === 'regular' && pick(junk).schedule_kind === 'recurring');
 
 /* ② 서버 허용식 */
-const api = rd('src/api-admin.ts');
+const api = readAdminModuleGraph(adminModuleFile => rd("src/" + adminModuleFile));
 const cl = api.match(/const classType = (\[[^\]]+\]\.includes\(String\(body\.class_type \|\| ''\)\) \? String\(body\.class_type\) : 'regular');/);
 ok('전제: 서버 class_type 허용식을 오려 냈다', !!cl);
 const srvType = cl ? new Function('body', 'return ' + cl[1]) : () => '?';

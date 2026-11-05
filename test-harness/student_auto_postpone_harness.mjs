@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /**
  * 학생 연기·변경 자동 승인 — 샌드박스 끝-끝 검사 (2026-10-06 「자동 연기되게」 → 2026-10-07 「대리점 승인 필요 없음, 즉각 반영」)
  * ─────────────────────────────────────────────────────────────────────────────
@@ -96,7 +97,7 @@ if (process.env.SMRS_CHILD === '1') {
   const { getScope } = await imp('scope.ts');
 
   const readSrc = (f) => readFileSync(join(SRC, f), 'utf8');
-  const adminSrc = readSrc('api-admin.ts');
+  const adminSrc = readAdminModuleGraph(adminModuleFile => readSrc(adminModuleFile));
 
   const BASE = 'https://mangoi.ai';
   const req = (method, path, { cookie, body } = {}) => {
@@ -410,7 +411,7 @@ writeFileSync(join(tmp, 'reg.mjs'), `import { register } from 'node:module'; reg
 
 function runChild(srcDir) {
   const r = spawnSync(process.execPath,
-    ['--experimental-strip-types', '--no-warnings', '--import', join(tmp, 'reg.mjs'), SELF],
+    ['--experimental-strip-types', '--no-warnings', '--import', pathToFileURL(join(tmp, 'reg.mjs')).href, SELF],
     { encoding: 'utf8', env: { ...process.env, SMRS_CHILD: '1', SMRS_SRC: srcDir, WEEKLY_RESULT: join(tmp, 'result.json') }, maxBuffer: 64 * 1024 * 1024, timeout: 180000 });
   if (r.status !== 0 || !existsSync(join(tmp,'result.json'))) return {crashed:true,err:(r.stderr||'') + String(r.error||'')};
   return JSON.parse(readFileSync(join(tmp,'result.json'),'utf8'));

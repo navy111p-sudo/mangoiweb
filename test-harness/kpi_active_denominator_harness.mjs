@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // 📊 경영 지표 «분모·기간» 회귀 감시 (2026-10-13)
 //
 // 왜: 경영 지표가 «활동 학생 28,825명 · 미납 28,771명(99.8%) · 매출 −80.1%» 라고 말했다.
@@ -118,7 +119,7 @@ if (o) {
 }
 
 // ── ② 배선: KPI 라우트와 브리핑이 정본을 실제로 쓰는가 ─────────────────
-const admin = readFileSync(ADMIN_TS, 'utf8');
+const admin = readAdminSourceFromFile(ADMIN_TS);
 const bodyAt = (src, anchor) => {
   const i = src.indexOf(anchor); if (i < 0) return '';
   const j = src.indexOf('{', i); let d = 0;

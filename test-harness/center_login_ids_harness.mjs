@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // 🪪 대리점 목록 «로그인 아이디» 칸 (2026-10-26 사장님 「엘리더잼영어 아이디가 뭔지 모르겠다」)
 //   서버(api-admin.ts GET /api/admin/centers)가 admin_scope(scope_type='agency') 를 대리점 «이름»
 //   정확일치로 이어 login_ids 를 싣고, 화면(adm-core.js _ctLoginCell)이 그린다.
@@ -6,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) { pass++; console.log('  ✅ ' + n); } else { fail++; console.log('  ❌ FAIL ' + n); } };
-const api = readFileSync(new URL('../cloudflare-deploy/src/api-admin.ts', import.meta.url), 'utf8');
+const api = readAdminSourceFromFile(new URL('../cloudflare-deploy/src/api-admin.ts', import.meta.url));
 const core = readFileSync(new URL('../cloudflare-deploy/public/js/adm-core.js', import.meta.url), 'utf8');
 const html = readFileSync(new URL('../cloudflare-deploy/public/admin.html', import.meta.url), 'utf8');
 

@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 🎌 holiday_closure_harness — 공휴일 휴강(중국어 제외) 정본을 «실제로» 돌린다 (2026-10-09)
 //
 // [왜] 한글날에 학생 홈 벨이 계속 울렸다. 판정 정본 src/holiday-closure.ts 를 진짜 SQLite(D1 모양 감싸기)
@@ -242,7 +243,7 @@ console.log(JSON.stringify({ kept: r.kept.map(x => x.room_id), closed: r.closed,
     ok('카페24 강사 열쇠: 예외 강사 원부 이름·«중국어»·chinese 면 «이름으로 연다»', q.key && q.key.byExName === q.EX && q.key.byChinese === q.EX);
     ok('짝: 그 밖의 이름·모름은 «예외 아님»(=휴강)', q.key && q.key.unknown === '' && q.key.none === '');
   }
-  const a = rd('src/api-admin.ts');
+  const a = readAdminModuleGraph(file => rd("src/" + file));
   const ri = a.indexOf("path === '/api/admin/classes-now'");
   const route = ri >= 0 ? a.slice(ri, a.indexOf('return json({', a.indexOf('dropHolidayClosed(', ri)) + 1200) : '';
   ok('관제탑: 합친 «뒤» 에 뺀다(카페24 짝이 되살아나지 않게)', /dropHolidayClosed\(mergeClassesNow\(/.test(route));
@@ -293,7 +294,7 @@ console.log('\n⑨ 매니저 오늘 수업');
     ok('학생 출결: 휴강에 안 온 것은 «holiday»(결석 아님)', safe(() => js('mangoi', S, 'holiday', null, 0)).state === 'holiday');
     ok('짝: 평일 끝난 수업에 안 왔으면 여전히 «absent»', safe(() => js('mangoi', S, 'ended', null, 0)).state === 'absent');
   }
-  const a = rd('src/api-admin.ts');
+  const a = readAdminModuleGraph(file => rd("src/" + file));
   const ri = a.indexOf("path === '/api/admin/classes/today'");
   const route = ri >= 0 ? a.slice(ri, a.indexOf("res.headers.set('Cache-Control', 'private, no-store');", ri)) : '';
   ok('전제: classes/today 경로를 오려 냈다', route.length > 3000);

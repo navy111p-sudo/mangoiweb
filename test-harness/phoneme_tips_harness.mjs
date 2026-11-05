@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // 2026-10-18 — «어느 소리가 약했나» 음소 피드백 (개선안 1순위 ①)
 //   js/phoneme-tips.js 를 실제로 돌리고, 음소를 «버리지 않는가» 를 두 경로(브라우저 SDK·서버 REST)에서 실행해 봅니다.
 //   그리고 speech-coach.html 의 renderWordMap 을 오려 내 가짜 DOM 에 그려 «한 줄이 실제로 나오는가» 를 봅니다.
@@ -7,7 +8,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { stripTypeScriptTypes } from 'node:module';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '..');
 const P = (rel, env) => fs.readFileSync(process.env[env] || path.join(ROOT, rel), 'utf8');
 const MOD = P('cloudflare-deploy/public/js/phoneme-tips.js', 'PT_SRC');
 const SDKJS = P('cloudflare-deploy/public/js/speech-azure.js', 'SA_SRC');

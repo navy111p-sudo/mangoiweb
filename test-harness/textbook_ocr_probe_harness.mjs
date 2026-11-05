@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // ═══════════════════════════════════════════════════════════════════════
 // 🧪 textbook_ocr_probe_harness — 교재 본문 추출 시험 (src/textbook-ocr.ts)
 //
@@ -428,7 +429,7 @@ Page 12`;
 /* ═══ E. 배선 — 관문·권한·저장하지 않음 ═══════════════════════════ */
 console.log('\n[ E. 배선 ]');
 {
-  const api = rd('cloudflare-deploy/src/api-admin.ts');
+  const api = readAdminModuleGraph(adminModuleFile => rd("cloudflare-deploy/src/" + adminModuleFile));
   const idx = rd('cloudflare-deploy/src/index.ts');
   const mango = rd('cloudflare-deploy/src/api-mango.ts');
 

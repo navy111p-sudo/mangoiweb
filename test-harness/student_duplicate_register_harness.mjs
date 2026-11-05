@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // student_duplicate_register_harness.mjs — 학생 수동 등록 «같은 사람 중복» 경고 (2026-09-14)
 //
 // 왜 만들었나
@@ -42,7 +43,7 @@ import { createRequire } from 'node:module';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const R = p => readFileSync(join(__dir, '..', p), 'utf8');
 const dupTs = R('cloudflare-deploy/src/student-duplicate.ts');
-const admin = R('cloudflare-deploy/src/api-admin.ts');
+const admin = readAdminModuleGraph(adminModuleFile => R("cloudflare-deploy/src/" + adminModuleFile));
 const core = R('cloudflare-deploy/public/js/adm-core.js');
 
 let pass = 0, fail = 0;

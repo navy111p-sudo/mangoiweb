@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 /**
  * 🧪 vocab_write_owner_gate_harness 변이시험 러너 (2026-10-19) — 사람이 부릅니다(게이트가 물어 가지 않음).
  *
@@ -12,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '../..');
 const HARNESS = path.join(ROOT, 'test-harness/vocab_write_owner_gate_harness.mjs');
 const F = { G: 'cloudflare-deploy/src/api-games.ts', MQ: 'cloudflare-deploy/public/micro-quiz.html', V: 'cloudflare-deploy/public/vocab.html' };
 const ENV = { G: 'VWG_GAMES', MQ: 'VWG_MQ', V: 'VWG_VOCAB' };

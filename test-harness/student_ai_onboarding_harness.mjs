@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // ═══════════════════════════════════════════════════════════════════════
 // 🎓 student_ai_onboarding_harness — 화상수업 없이 AI 학습도구만 쓰는 학생의 «1단계 배선»
 //
@@ -117,7 +118,7 @@ if (M) {
 
   /* 🔒 전수 — 레벨테스트가 실제로 낼 수 있는 값이 하나도 빠지지 않는가.
      ⛔ 「내가 아는 것만」 검사하면 안 된다. 값 목록을 **그 핸들러 소스에서 읽어 온다.** */
-  const admin = rd('cloudflare-deploy/src/api-admin.ts');
+  const admin = readAdminModuleGraph(adminModuleFile => rd("cloudflare-deploy/src/" + adminModuleFile));
   /* 🪜 (2026-09-14) 채점 순서의 정본이 student-placement.ts 의 CEFR_LADDER 로 옮겨갔다(홈 카드 게이지와 같은 눈금).
      api-admin 의 CEFR_ORDER 는 그것을 펼친 것뿐이라 리터럴이 없다 — 정본에서 읽고, api-admin 이 그것을 쓰는지 짝으로 본다. */
   const place = rd('cloudflare-deploy/src/student-placement.ts');
@@ -225,7 +226,7 @@ else {
 
 /* ═══ D. 배선 — 화면·서버가 실제로 이어져 있는가 ══════════════════════ */
 console.log('\n[ D. 배선 ]');
-const admin = rd('cloudflare-deploy/src/api-admin.ts');
+const admin = readAdminModuleGraph(adminModuleFile => rd("cloudflare-deploy/src/" + adminModuleFile));
 
 /* 🔒 /api/leveltest/diagnose 는 무인증 공개 경로다. 본문의 student_uid 로 적으면
    아무나 남의 학생 레벨을 바꾼다(CLAUDE.md 「본문에 적힌 «누구에게» 를 그대로 쓴다」). */

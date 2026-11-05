@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // 📖 A.i 동화책 4편 — 무작위 조작(퍼즈) 샌드박스 검사 · 2026-10-14
 // ⚠️ 자동으로 안 돕니다(manual/) — 사람이 부릅니다:
 //      SEEDS=75 STEPS=40 node test-harness/manual/story-fuzz-browser.mjs
@@ -21,7 +22,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-const DIR = path.dirname(new URL(import.meta.url).pathname);
+const DIR = path.dirname(fileURLToPath(new URL(import.meta.url)));
 const PUB = process.env.PUB || path.join(DIR, '..', '..', 'cloudflare-deploy', 'public');
 const SEEDS = +(process.env.SEEDS || 25);
 const STEPS = +(process.env.STEPS || 40);

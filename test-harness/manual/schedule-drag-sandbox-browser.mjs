@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from '../_srcbundle.mjs';
 /**
  * 🧪 관리자 스케줄 캘린더 드래그(연기·변경) 샌드박스 — 진짜 브라우저 · 진짜 화면 파일 · 진짜 서버 이동 모듈
  *
@@ -36,7 +37,7 @@ if (process.env.SDS_CHILD === '1') {
   const imp = f => import(pathToFileURL(join(SRC, f)).href);
   const { moveSchedulesAtomically: move, scheduleMoveVersion: version } = await imp('class-schedule-move.ts');
   const { ensureClassAuditTable } = await imp('class-audit.ts');
-  const adminSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const adminSrc = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
   const ddl = (src, t, needs = '') => { for (const m of src.matchAll(new RegExp('`(CREATE TABLE IF NOT EXISTS ' + t + '\\s*\\([\\s\\S]*?\\);?)`', 'g'))) if (m[1].includes(needs)) return m[1]; throw new Error(t); };
   sq.exec(ddl(adminSrc, 'class_schedules', 'duration_min INTEGER DEFAULT 20'));
   sq.exec('ALTER TABLE class_schedules ADD COLUMN starts_on TEXT');
@@ -131,7 +132,7 @@ export async function resolve(spec, ctx, next) {
  } return next(spec, ctx);
 }`);
 writeFileSync(join(tmp, 'reg.mjs'), `import { register } from 'node:module'; register('./hooks.mjs', import.meta.url);`);
-const child = spawn(process.execPath, ['--experimental-strip-types', '--no-warnings', '--import', join(tmp, 'reg.mjs'), SELF], { env: { ...process.env, SDS_CHILD: '1' } });
+const child = spawn(process.execPath, ['--experimental-strip-types', '--no-warnings', '--import', pathToFileURL(join(tmp, 'reg.mjs')).href, SELF], { env: { ...process.env, SDS_CHILD: '1' } });
 let childErr = '';
 child.stderr.on('data', d => { childErr += d; });
 const port = await new Promise((ok, no) => {

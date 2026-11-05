@@ -501,7 +501,7 @@ writeFileSync(join(tmp, 'reg.mjs'), `import { register } from 'node:module'; reg
 
 function runChild(srcDir) {
   const out = join(tmp, 'r' + Math.random().toString(36).slice(2) + '.json');
-  const r = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', '--import', join(tmp, 'reg.mjs'), SELF],
+  const r = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', '--import', pathToFileURL(join(tmp, 'reg.mjs')).href, SELF],
     { encoding: 'utf8', env: { ...process.env, B2B_CHILD: '1', B2B_SRC: srcDir, B2B_RESULT: out }, maxBuffer: 32 * 1024 * 1024, timeout: 300000 });
   if (!existsSync(out)) return { crashed: true, err: (r.stderr || '').slice(-2000) + String(r.error || '') };
   return { results: JSON.parse(readFileSync(out, 'utf8')) };

@@ -1,7 +1,8 @@
+import { fileURLToPath } from 'node:url';
 // 🪙 «오늘의 A.i 학습» 받은 포인트 — 활동별 나눔(정본 today-points.ts 실제 실행) + 화면 칩·카드 (2026-11-02)
 import fs from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('..', import.meta.url));
 let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) pass++; else { fail++; console.log('❌ FAIL', n); } };
 const ts = fs.readFileSync(root + 'cloudflare-deploy/src/today-points.ts', 'utf8');

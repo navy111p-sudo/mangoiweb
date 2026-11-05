@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -42,7 +43,7 @@ test('normalize numeric timestamp strings but never round approximate times', ()
 });
 
 test('admin handler filters before mapping, counts and enrichment', () => {
-  const src = readFileSync(new URL('../cloudflare-deploy/src/api-admin.ts', import.meta.url), 'utf8');
+  const src = readAdminSourceFromFile(new URL('../cloudflare-deploy/src/api-admin.ts', import.meta.url));
   const filter = src.indexOf('const c24SlotDuplicates = dropCafe24SlotDuplicates(c24Rows, sessions)');
   const map = src.indexOf('const tmap = await loadCafe24TeacherMap', filter);
   const assign = src.indexOf('c24Rows = c24SlotDuplicates.kept', filter);

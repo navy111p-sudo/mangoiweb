@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 📞 이탈 케어 «연락 기록» 한 곳으로 (2026-10-13 케어 보드 2단계)
 //
 // 정본: cloudflare-deploy/src/care-contact.ts — recordCareContact(쓰기) · lastContacts(읽기)
@@ -210,7 +211,7 @@ console.log('\n② lastContacts — 다섯 원천 중 가장 최근 «실제» �
 }
 
 console.log('\n③ 배선 — 다섯 곳이 정본을 쓰는가 (주석 벗긴 사본)');
-const adm = strip(rd(resolve(SRC, 'api-admin.ts')));
+const adm = strip(readAdminModuleGraph(adminModuleFile => rd(resolve(SRC, adminModuleFile))));
 const careBlk = blockAt(adm, "if (method === 'POST' && path === '/api/admin/retention/care')");
 ok(careBlk.length > 2000, '전제: A 화면 케어 핸들러를 오려 냈다', careBlk.length);
 {

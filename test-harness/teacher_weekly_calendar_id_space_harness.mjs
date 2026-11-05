@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 📅 「강사 스케줄(주간 통합 캘린더)에 레벨테스트가 안 뜬다」 하네스 (2026-08-06)
 //   실행: node test-harness/teacher_weekly_calendar_id_space_harness.mjs
@@ -21,7 +22,7 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const rd = (p) => { try { return readFileSync(resolve(__dir, p), 'utf8'); } catch { return ''; } };
 
 const q6   = rd('../cloudflare-deploy/public/js/adm-q6.js');
-const api  = rd('../cloudflare-deploy/src/api-admin.ts');
+const api  = readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile));
 const html = rd('../cloudflare-deploy/public/admin.html');
 
 let PASS = 0, FAIL = 0; const FAILS = [];

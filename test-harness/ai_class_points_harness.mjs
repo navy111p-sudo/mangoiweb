@@ -1,9 +1,10 @@
+import { fileURLToPath } from 'node:url';
 // 🪙 A.i 선생님 수업 포인트 — 서버 판정·라우트 배선·끝 창 문구·호출 배선 (2026-11-03)
 //   정본 src/ai-class-points.ts 를 타입만 벗겨 «실제로» 돌리고, 화면 js 를 가짜 DOM·fetch 로 실제로 돌린다.
 //   변이시험: AP_SRC=<고친 ts> · APJS_SRC=<고친 js> · APAPI_SRC=<고친 api-points.ts> · APHTML_SRC=<고친 ai-class.html>
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
-const ROOT = new URL('..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const R = (env, p) => readFileSync(process.env[env] || ROOT + p, 'utf8');
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) { pass++; console.log('  ✅ ' + m); } else { fail++; console.log('  ❌ FAIL ' + m); } };

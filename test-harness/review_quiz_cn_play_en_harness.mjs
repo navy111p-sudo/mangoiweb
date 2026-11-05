@@ -1,7 +1,8 @@
+import { fileURLToPath } from 'node:url';
 // 중국어 복습퀴즈 «문제 푸는 화면» EN/KO (2026-11-04)
 // renderQ·응원문구·isEn/T 를 소스에서 오려 내 가짜 DOM 으로 실제로 그려, 영어 모드에 한국어가 안 남는지·한국어는 그대로인지 짝으로 본다.
 import fs from 'node:fs';
-const root = new URL('../', import.meta.url).pathname;
+const root = fileURLToPath(new URL('../', import.meta.url));
 const SRC = process.env.RQ_CN || root + 'cloudflare-deploy/public/review-quiz-cn.html';
 const h = fs.readFileSync(SRC, 'utf8');
 let pass = 0, fail = 0;

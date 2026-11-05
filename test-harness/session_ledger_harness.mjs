@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // 📒 회차 원장 하니스 (2026-10-01)
 //   정본 src/session-ledger.ts 를 --experimental-strip-types 로 «실제로 돌려» 판정을 확인하고,
 //   배선(API·화면)이 그 정본을 쓰는지 본다.
@@ -141,7 +142,7 @@ if (R) {
 }
 
 // ── ② 급여와 같은 30분 기준인가(두 장부가 어긋나지 않게) ──
-const admin = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+const admin = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
 const mango = readFileSync(join(SRC, 'api-mango.ts'), 'utf8');
 ok('급여 쪽 연기 판정도 «30분 초과 = free»', /minutesBefore\s*>\s*30\s*\?\s*'free'\s*:\s*'paid'/.test(admin));
 

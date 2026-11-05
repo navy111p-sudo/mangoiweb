@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 🌏 강사 «구분»(필리핀 · 북미 · 중국) 하니스                              (2026-09-01)
 //
 //   왜 필요한가 —
@@ -34,7 +35,7 @@ const skipIt = (name) => { skip++; console.log('  ⏭ ' + name); };
 const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 
 const regionSrc = read('cloudflare-deploy/src/teacher-region.ts');
-const adminSrc  = read('cloudflare-deploy/src/api-admin.ts');
+const adminSrc  = readAdminModuleGraph(adminModuleFile => read("cloudflare-deploy/src/" + adminModuleFile));
 const coreSrc   = read('cloudflare-deploy/public/js/adm-core.js');
 const htmlSrc   = read('cloudflare-deploy/public/admin.html');
 const adminCode = strip(adminSrc);

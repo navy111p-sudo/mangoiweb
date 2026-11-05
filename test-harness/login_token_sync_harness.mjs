@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { fileURLToPath } from 'node:url';
 /* ═══════════════════════════════════════════════════════════════════════
  * 🔒 login_token_sync_harness — 「다른 기기에서 로그인되었습니다」 자가 퇴출 방지 (2026-09-22)
  *
@@ -18,7 +19,7 @@
  * ═══════════════════════════════════════════════════════════════════════ */
 import { readFileSync } from 'node:fs';
 
-const ROOT = new URL('..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 let pass = 0, fail = 0;
 const ok  = (name, cond, extra) => { if (cond) { pass++; } else { fail++; console.log(`❌ ${name}` + (extra ? ` — ${extra}` : '')); } };
 

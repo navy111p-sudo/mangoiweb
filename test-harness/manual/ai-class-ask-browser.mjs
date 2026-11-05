@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // ✋ A.i 선생님 수업 — «학생 질문 → Emma 즉답» 브라우저 검사 (CDP 직접) · 2026-10-08
 // ⚠️ 자동으로 안 돕니다(manual/) — 사람이 부릅니다:  node test-harness/manual/ai-class-ask-browser.mjs
 // 서버(/api/ai/class-ask)는 가짜로 흉내 냅니다 — 성공 · 실패(503) · 하루 상한(429) 세 가지.
@@ -9,7 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-const DIR = path.dirname(new URL(import.meta.url).pathname);
+const DIR = path.dirname(fileURLToPath(new URL(import.meta.url)));
 const PUB = process.env.PUB || path.join(DIR, '..', '..', 'cloudflare-deploy', 'public');
 const PORT = 8300 + Math.floor(Math.random() * 400);
 const PROF = path.join(os.tmpdir(), 'ai-class-ask-' + process.pid);

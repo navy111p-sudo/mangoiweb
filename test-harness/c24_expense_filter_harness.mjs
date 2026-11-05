@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 🧾 카페24 지출결의 — «우리 것이 아닌» 건 제외 하니스 (2026-08-24)
 //
 //   왜 필요한가 —
@@ -33,7 +34,7 @@ const check = (name, ok) => { if (ok) { pass++; console.log('  ✅ ' + name); } 
 const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
 const filterSrc = read('cloudflare-deploy/src/c24-expense-filter.ts');
-const adminSrc  = read('cloudflare-deploy/src/api-admin.ts');
+const adminSrc  = readAdminModuleGraph(adminModuleFile => read("cloudflare-deploy/src/" + adminModuleFile));
 const coreSrc   = read('cloudflare-deploy/public/js/adm-core.js');
 
 console.log('\n[ ① 판정 정본이 한 파일에 있다 ]');

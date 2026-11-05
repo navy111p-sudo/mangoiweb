@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 /**
  * 학생이 직접 내는 수업 연기·변경 요청 — POST /api/class/schedule/request (2026-09-30)
@@ -272,7 +273,7 @@ async function callFt({ tok, qs, mc, path = '/api/class/schedule/free-teachers',
    함정 대조(2026-09-30): 예전 decide 에는 teacher_id 를 바꾸는 코드가 한 줄도 없어서
    학생은 «선택됨», 관리자는 «승인·이동됨» 인데 수업은 원래 강사 그대로였다. */
 console.log('\n②-3 승인이 강사를 바꾸는가');
-const admin = SRC('src/api-admin.ts');
+const admin = readAdminModuleGraph(adminModuleFile => SRC("src/" + adminModuleFile));
 const dAt = admin.indexOf("if (method === 'POST' && path === '/api/admin/schedule-requests/decide') {");
 ok('decide 라우트를 찾았다', dAt > 0);
 let dBody = blockAt(admin, dAt);

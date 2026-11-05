@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /**
  * monitor_wall_harness.mjs — 🗼 수업 관제탑(/admin/monitor-wall.html) 회귀 감시 (2026-08-27)
  *
@@ -198,7 +199,7 @@ check('⑮ classes-now 가 forbidden_teacher 면 목록을 그리지 않는다',
 check('⑰ 회선 표본이 없으면 «—» 로 둔다 (0 으로 채우지 않는다)',
       /if \(!q(?: \|\| \([^)]*\))?\) return '<span style="color:var\(--muted\)">—<\/span>'/.test(bare));
 {
-  const api = readFileSync(join(PUB, '..', 'src', 'api-admin.ts'), 'utf8');
+  const api = readAdminSourceFromFile(join(PUB, '..', 'src', 'api-admin.ts'));
   check('⑰-2 서버 집계가 음수 손실(영상 없던 틱)을 평균에서 뺀다 (avg_loss >= 0)',
         /live[\s\S]{0,900}?avg_loss >= 0/.test(api));
 }

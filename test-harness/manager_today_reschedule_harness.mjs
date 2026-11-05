@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 /*
  * 📅 매니저 「오늘 전체 수업」 — 줄에서 바로 연기·변경·취소 (2026-09-22)
@@ -30,7 +31,7 @@ let DatabaseSync;
 try { ({ DatabaseSync } = await import('node:sqlite')); }
 catch { console.log('⏭  건너뜀 — 이 node 에는 node:sqlite 가 없습니다(Node 22+ 필요)'); process.exit(0); }
 
-const API = readFileSync(new URL('../cloudflare-deploy/src/api-admin.ts', import.meta.url), 'utf8');
+const API = readAdminSourceFromFile(new URL('../cloudflare-deploy/src/api-admin.ts', import.meta.url));
 const MGR = readFileSync(new URL('../cloudflare-deploy/public/manager.html', import.meta.url), 'utf8');
 
 let PASS = 0, FAIL = 0;

@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🇨🇳 중국어 수업 → 강선생님 스케줄 자동 배정 하니스 (의존성 없음)
 //   실행:  node test-harness/chinese_class_routing_harness.mjs
@@ -94,7 +95,7 @@ console.log('\n[ H. 기본 수업 20분 — 영어·중국어 공통 (사장님 
       !/class_schedules[\s\S]{0,400}?duration_min INTEGER DEFAULT 30/.test(s));
   }
   // 상담 슬롯은 수업이 아니므로 30분 그대로여야 한다(무분별한 일괄치환 방지)
-  check('상담 슬롯(counseling_slots)은 30분 유지', /counseling_slots[\s\S]{0,200}?duration_min INTEGER DEFAULT 30/.test(rd('api-admin.ts')));
+  check('상담 슬롯(counseling_slots)은 30분 유지', /counseling_slots[\s\S]{0,200}?duration_min INTEGER DEFAULT 30/.test(readAdminModuleGraph(adminModuleFile => rd(adminModuleFile))));
 
   // 운영 DB 는 옛 스키마(DEFAULT 30)라 INSERT 에서 생략하면 30 이 들어간다 → 반드시 명시해야 함
   for (const f of ['ai-command.ts', 'api-admin.ts']) {
