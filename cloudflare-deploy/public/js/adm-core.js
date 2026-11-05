@@ -12368,7 +12368,15 @@ async function mvDelete(id, title) {
 function togglePronPreview() {
   const el = document.getElementById('pron-preview');
   if (!el) return;
-  el.style.display = (el.style.display === 'none' || !el.style.display) ? 'block' : 'none';
+  const open = (el.style.display === 'none' || !el.style.display);
+  el.style.display = open ? 'block' : 'none';
+  // 🔇 (2026-11-05) 창은 열 때만 불러오고 닫으면 비운다 — 발음 코칭 안내 음성이
+  //   관리자 화면에서 저절로 나오거나 닫은 뒤에도 계속 들리지 않게.
+  const fr = el.querySelector('iframe');
+  if (fr) {
+    if (open) { const s = fr.getAttribute('data-src'); if (s && fr.getAttribute('src') !== s) fr.setAttribute('src', s); }
+    else { fr.removeAttribute('src'); try { fr.src = 'about:blank'; } catch (e) {} }
+  }
 }
 
 // 메뉴 카드 전체 펼치기/접기 — 자동으로 legacy 영역도 보이게 처리
