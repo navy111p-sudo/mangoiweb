@@ -3964,8 +3964,8 @@ function _startSttSession(){
   // 🎤 말 중간에 잠깐 숨을 쉬어도 안 끊기게 continuous=true. 브라우저의 성급한 자동종료(엔드포인팅)를
   //    끄고, 대신 "말이 끝나고 조용해지면" 우리가 직접 종료(침묵 감시 타이머)한다.
   _recog.continuous=true;
-  var _silence=null;
-  _warmMicCancel=function(){clearTimeout(_silence);};
+  var _silence=null, _micGrace=null;
+  _warmMicCancel=function(){clearTimeout(_silence);clearTimeout(_micGrace);_micGrace=null;};
   _micFastStop=function(){ return _micFast(true); };
   /* 🎤 (2026-07-23) 침묵 대기 시간을 상황에 맞게 — 2.6초 고정이라 "한두 마디 하면 꺼졌다".
      아직 아무 말도 못 들었으면 오래 기다리고(생각할 시간), 조각만 들렸으면 넉넉히,
@@ -3998,20 +3998,33 @@ function _startSttSession(){
     _silUnits=n;
     _silence=setTimeout(function(){ _micBySilence=true; _latSilence={ wait:Date.now()-_silAt, at:Date.now() }; if(_micFast()) return; try{ _recog && _recog.stop(); }catch(e){} }, Math.max(150, ms-(now-_silAt)));
   }
-  /* ⚡ (2026-11-05 사장님 「듣기 시간을 최소화 — 특히 휴대폰」) 자동으로 보낼 말이 있으면 브라우저의 onend 를 기다리지 않는다
-     / don't wait for the recognizer's onend when there are words to send.
-     [왜] stop() 뒤 onend 까지 브라우저가 «최종 결과» 를 다시 받느라 더 기다렸다(그동안 화면은 «듣는 중» 그대로).
-          이미 침묵 대기 동안 새 낱말이 없었으니 입력칸의 글자가 곧 보낼 말이다 → 그 자리에서 보낸다.
-     ✅ 그 인식기의 결과·onend 는 떼고 끈다(abort) — 늦게 온 결과가 같은 말을 또 보내지 않게.
+  /* ⚡ (2026-11-05 사장님 「듣기 시간을 최소화 — 특히 휴대폰」) 보낼 말이 있으면 브라우저의 onend 를 «한없이» 기다리지 않는다
+     / don't wait indefinitely for the recognizer's onend when there are words to send.
+     [왜] stop() 뒤 onend 까지 브라우저가 «최종 결과» 를 다시 받느라 더 기다렸다(느린 회선은 1초 넘게 — 그동안 화면은 «듣는 중» 그대로).
+     ✅ stop() 은 그대로 부른다 — abort() 는 «이미 말했지만 아직 안 적힌» 마지막 낱말을 버린다(⏹ 를 말 끝에 바로 누르면 흔하다 · 함정 대조).
+        그 최종 결과가 유예(침묵 끝 MIC_GRACE · ⏹ MIC_GRACE_USER) 안에 오면 예전처럼 onend 가 끝내고, 안 오면 그때까지 적힌 글자로 끝낸다.
+     ✅ 침묵 타이머를 먼저 지운다 — 안 지우면 옛 타이머가 «다음 턴» 의 전역(_recog·_micBase)에 대고 끊는다
+        (함정 대조 재현: ⏹ 뒤 다음 턴 31초에 학생이 말하는 도중 마이크가 꺼짐).
+     ✅ 유예가 끝나 직접 끝낼 때는 그 인식기의 onstart·onresult·onerror·onend 를 모두 떼고 abort — 늦게 온 결과가 같은 말을 또 보내거나
+        안드로이드 재시작의 onstart 가 «듣는 중» 을 다시 켜지 않게(pauseWarmup 과 같은 정리).
      ✅ ⏹ 를 누른 것(byUser)도 같다 — 버튼 모드가 기본이고 폰 크롬·아이폰 버튼 모드가 이 경로다.
      ⛔ 수동인데 침묵으로 끝난 것(입력칸에 남김)·빈손(서버 Whisper 로 한 번 더 듣기 / 다음부터 녹음 방식 — 마이크를 넘겨받아야 해서
-        인식기가 다 닫힌 뒤여야 함)은 예전처럼 onend 뒤에 끝낸다. */
+        인식기가 다 닫힌 뒤여야 함)은 예전처럼 onend 만 기다린다. */
+  var MIC_GRACE=400, MIC_GRACE_USER=800;
   function _micFast(byUser){
+    if(_micGrace) return true;                                   // 이미 마무리 중(유예 사이 늦은 결과가 침묵 타이머를 다시 켰을 때)
     if((!byUser && _micManual()) || !_micHeard() || !_recog) return false;
     var r=_recog;
-    r.onresult=null; r.onerror=null; r.onend=null;
-    try{ r.abort(); }catch(e){ try{ r.stop(); }catch(e2){} }
-    _finishMic();
+    if(_silence){ clearTimeout(_silence); _silence=null; }
+    try{ r.stop(); }catch(e){}
+    _micGrace=setTimeout(function(){
+      _micGrace=null;
+      if(_silence){ clearTimeout(_silence); _silence=null; }
+      if(_recog!==r || !_recognizing) return;                    // onend 가 이미 끝냈다(또는 새 세션이다)
+      r.onstart=null; r.onresult=null; r.onerror=null; r.onend=null;
+      try{ r.abort(); }catch(e){}
+      _finishMic();
+    }, byUser ? MIC_GRACE_USER : MIC_GRACE);
     return true;
   }
   /* 🎤 진짜로 말이 끝났을 때만 여기로 온다 → 들은 말을 합쳐서 전송 */
@@ -4089,6 +4102,7 @@ function _startSttSession(){
     if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return;
     if(_silence) clearTimeout(_silence);
     if(e.error==='no-speech') return;  // onend 에서 다시 듣는다 (안내문으로 말을 끊지 않음)
+    if(_micGrace){ clearTimeout(_micGrace); _micGrace=null; }   // 여기서 끝낸다 — 빠른 마무리 유예는 거둔다
     _micStopWanted=true;
     setMicState(false);
     _micBase=''; _micSess='';
@@ -4109,6 +4123,7 @@ function _startSttSession(){
   _recog.onend=function(){
     if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return;
     if(_silence) clearTimeout(_silence);
+    if(_micGrace){ clearTimeout(_micGrace); _micGrace=null; }   // 최종 결과가 유예 안에 왔다 — 예전처럼 여기서 끝낸다
     /* 아직 한 마디도 못 들었으면 재시작을 3회로 제한 — 안드로이드는 start() 마다
        '삐' 소리가 나서, 학생이 말을 안 하는데 8번씩 재시작하면 그게 더 성가시다. */
     var heardAnything = !!(_micBase || _micSess);
@@ -4120,7 +4135,7 @@ function _startSttSession(){
       _micRestarts++;
       try{ _recog.start(); return; }   // UI 는 계속 '듣는 중' 유지
       catch(err){
-        setTimeout(function(){ if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return;try{ _recog.start(); }catch(e2){ _finishMic(); } }, 250);
+        setTimeout(function(){ if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch || _micGrace)return;try{ _recog.start(); }catch(e2){ _finishMic(); } }, 250);
         return;
       }
     }

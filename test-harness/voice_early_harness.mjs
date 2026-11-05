@@ -54,7 +54,7 @@ async function run(level, sc = {}) {
   const sb = {
     console, Uint8Array, Math, Promise, Object, String, Number, RegExp, Error,
     Date: { now: () => clock.t },
-    navigator: { mediaDevices: { getUserMedia: () => Promise.resolve({ getTracks: () => [{ stop() {} }] }) } },
+    navigator: { userAgent: sc.ua || '', mediaDevices: { getUserMedia: () => Promise.resolve({ getTracks: () => [{ stop() {} }] }) } },
     MediaRecorder: FakeMR, AudioContext: FakeAC, Blob: FakeBlob, FormData: FakeFD,
     fetch: (url, init) => {
       const n = st.uploads.length + 1, size = init.body.f.audio.size;
@@ -167,6 +167,22 @@ ok('E-2 아무 말도 안 하면 미리받기를 안 한다(«첫 마디 대기�
 
 const old = await run(say([500, 2500]), { early: true, noPost: true });
 ok('E-3 공용 모듈이 옛 판(post 없음)이면 감싸지 않는다 — 예전 그대로 녹음·전사', old.requestData === 0 && old.uploads.length === 1 && old.text === 'I like pizza.' && near(old.stopAt, 2500 + SILENCE), { rd: old.requestData, up: old.uploads.length, text: old.text });
+
+
+console.log('\n[F] 함정 대조가 찾은 것 — 애플 WebKit · 미리받기 뒤 «작은 목소리»');
+const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 KAKAOTALK 10.8.0';
+const ip = await run(say([500, 2500]), { early: true, ua: IPHONE });   // iOS 18.4+ 는 webm 도 녹음한다 — 형식만으로는 못 가른다
+ok('F-1 아이폰(인앱 포함)은 webm 이어도 녹음 «도중» 을 잘라 보내지 않는다(예전 그대로)', ip.requestData === 0 && ip.uploads.length === 1 && near(ip.stopAt, 2500 + SILENCE), { rd: ip.requestData, up: ip.uploads.length, stop: ip.stopAt });
+const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
+const an = await run(say([500, 2500]), { early: true, ua: ANDROID_UA });
+ok('F-2 (짝) 안드로이드 크롬(UA 에 AppleWebKit 이 있어도)은 미리 받는다', an.requestData >= 1 && near(an.doneAt, 2500 + 500 + 800, 200), { rd: an.requestData, done: an.doneAt });
+// 크게 말하다 멈춘 뒤 «작게»(7 — 조용한 방 문턱 8 아래라 소리 판정은 조용함으로 본다) 이어 말하고, 한참 뒤 ⏹.
+// 미리받기(멈춤 + 0.5초)에는 그 작은 말이 없다 — 그대로 쓰면 그 말이 빠진다(함정 대조 재현). 오래 지났으면 전체를 다시 올려야 한다.
+const quietTail = (t) => (inAny(t, [[500, 2500]]) ? speech(t) : inAny(t, [[2700, 6000]]) ? 7 : room(t));
+const qt = await run(quietTail, { early: true, cfg: {}, stopAt: 6500, opts: { silenceMs: 30000, firstMs: 30000 },
+  text: (size) => (size < 4000 * BPMS ? 'I like pizza and' : 'I like pizza and chicken.') });
+ok('F-3 미리받기 뒤 한참(1.3초 넘게) 더 녹음됐으면 그 글자를 쓰지 않고 전체를 올린다(작은 목소리를 잃지 않음)', qt.text === 'I like pizza and chicken.' && qt.uploads.length === 2, { text: qt.text, up: qt.uploads.map((u) => u.size) });
+ok('F-4 (짝) 금방 ⏹(미리받기 0.5초 뒤)면 미리 받은 글자를 그대로 쓴다(D-4 와 같은 경우)', man.uploads.length === 1 && man.text === 'I like pizza.', { up: man.uploads.length, text: man.text });
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 if (fail) process.exit(1);

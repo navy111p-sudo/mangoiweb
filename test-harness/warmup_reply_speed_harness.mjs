@@ -214,38 +214,63 @@ if (ck) {
   ok('D-10 (짝) 빠른 마무리(_micFast)가 맡으면 stop() 을 또 부르지 않는다(한 번만 끝냄)', ck.fasts === 1 && ck.stops === 0 && !!ck.api.lat, { fasts: ck.fasts, stops: ck.stops });
 }
 
-console.log('\n[E] ⚡ 빠른 마무리 _micFast — 보낼 말이 있으면 onend 를 기다리지 않는다(2026-11-05 「듣기 시간 최소화」)');
-// _micFast 를 소스에서 오려 내 가짜 인식기·가짜 _finishMic 으로 실제로 돌린다.
+console.log('\n[E] ⚡ 빠른 마무리 _micFast — onend 를 «한없이» 기다리지 않는다(2026-11-05 「듣기 시간 최소화」)');
+// _micFast 와 유예 상수를 소스에서 오려 내 가짜 인식기·가짜 타이머로 실제로 돌린다(단위). 실제 세션 코드 전체는 [G] 가 돌린다.
 const fastFn = bodyAt(HTML, 'function _micFast(byUser){');
-ok('E-0 (전제) _micFast 를 오려 냈다', !!fastFn);
+const graceVars = HTML.match(/var MIC_GRACE=\d+, MIC_GRACE_USER=\d+;/);
+ok('E-0 (전제) _micFast·유예 상수를 오려 냈다', !!(fastFn && graceVars));
 ok('E-0b (전제) 침묵 타이머가 _micFast 를 «먼저» 묻고, 맡지 않을 때만 stop() 한다', !!armBody && /if\(_micFast\(\)\) return; try\{ _recog && _recog\.stop\(\); \}/.test(armBody));
-function runFast(isManual, heard, noRecog, byUser) {
-  const L = { finished: 0, aborted: 0, stopped: 0 };
-  const r = noRecog ? null : { onresult() {}, onerror() {}, onend() {}, abort() { L.aborted++; }, stop() { L.stopped++; } };
+const GR = graceVars ? Number(graceVars[0].match(/MIC_GRACE=(\d+)/)[1]) : NaN, GRU = graceVars ? Number(graceVars[0].match(/MIC_GRACE_USER=(\d+)/)[1]) : NaN;
+function fastBox(isManual, heard, opt = {}) {
+  const L = { finished: 0, aborted: 0, stopped: 0, timers: [], cleared: [] };
+  const r = opt.noRecog ? null : { onstart() {}, onresult() {}, onerror() {}, onend() {}, abort() { L.aborted++; }, stop() { L.stopped++; } };
+  L.r = r;
   try {
-    L.ret = new Function('isManual', 'heard', 'r', 'L', 'byUser',
-      `var _recog=r;
+    L.api = new Function('isManual', 'heard', 'r', 'L', 'setTimeout', 'clearTimeout',
+      `var _recog=r, _recognizing=true, _silence=${opt.pendingSilence ? '"S1"' : 'null'}, _micGrace=null;
        function _micManual(){ return isManual; }
        function _micHeard(){ return heard; }
-       function _finishMic(){ L.finished++; }
+       function _finishMic(){ L.finished++; _recognizing=false; }
+       ${graceVars ? graceVars[0] : ''}
        ${fastFn}
-       return _micFast(byUser);`)(isManual, heard, r, L, !!byUser);
+       return { fast:_micFast, endFirst:function(){ _recognizing=false; }, get silence(){ return _silence; } };`)(
+      isManual, heard, r, L, (fn, ms) => { const t = { fn, ms, id: 'G' + L.timers.length }; L.timers.push(t); return t.id; }, (id) => { L.cleared.push(id); });
   } catch (e) { L.err = String(e); }
-  L.detached = !!r && r.onresult === null && r.onend === null && r.onerror === null;
+  L.fire = () => { const t = L.timers[L.timers.length - 1]; if (t && !L.cleared.includes(t.id)) t.fn(); };
+  L.detached = () => !!r && r.onstart === null && r.onresult === null && r.onerror === null && r.onend === null;
   return L;
 }
-const f1 = runFast(false, 'I like pizza'), f2 = runFast(true, 'I like pizza'), f3 = runFast(false, ''), f4 = runFast(false, 'Yes', true);
-ok('E-1 자동 + 들은 말 있음 → 그 자리에서 보낸다(_finishMic 1번 · 인식기 abort · 결과·onend 떼기)', f1.ret === true && f1.finished === 1 && f1.aborted === 1 && f1.detached, f1);
-ok('E-2 (짝) 수동 → 맡지 않는다(⏹ 를 눌러야 보냄 · 인식기는 그대로)', f2.ret === false && f2.finished === 0 && f2.aborted === 0 && !f2.detached, f2);
-ok('E-3 (짝) 빈손 → 맡지 않는다(Whisper 한 번 더 듣기는 인식기가 다 닫힌 onend 뒤에)', f3.ret === false && f3.finished === 0 && f3.aborted === 0 && !f3.detached, f3);
-ok('E-4 인식기가 없으면 맡지 않는다(예외 없음)', f4.ret === false && !f4.err, f4);
-const f5 = runFast(true, 'I like pizza', false, true), f6 = runFast(true, '', false, true);
-ok('E-5 ⏹ 를 누름(수동이어도) + 들은 말 있음 → onend 를 안 기다리고 바로 보낸다', f5.ret === true && f5.finished === 1 && f5.aborted === 1 && f5.detached, f5);
-ok('E-6 (짝) ⏹ 를 눌렀는데 빈손 → 맡지 않는다(«다음부터 녹음 방식» 안내는 onend 뒤에)', f6.ret === false && f6.finished === 0 && f6.aborted === 0, f6);
+{
+  const a = fastBox(false, 'I like pizza');
+  const ret = a.api && a.api.fast(false);
+  ok('E-1 자동 + 들은 말 있음 → 맡는다 · abort 가 아니라 stop()(이미 말한 마지막 낱말의 최종 결과는 받는다) · 유예 타이머', ret === true && a.stopped === 1 && a.aborted === 0 && a.finished === 0 && a.timers.length === 1 && a.timers[0].ms === GR, { ret, a: { stopped: a.stopped, aborted: a.aborted, finished: a.finished, t: a.timers.map((t) => t.ms) }, err: a.err });
+  a.fire();
+  ok('E-2 유예 안에 onend 가 안 오면 → 그 인식기의 핸들러 4개를 다 떼고 abort · 그때까지 적힌 글자로 한 번 보낸다', a.finished === 1 && a.aborted === 1 && a.detached(), { finished: a.finished, aborted: a.aborted, detached: a.detached() });
+  const b = fastBox(false, 'I like pizza');
+  b.api.fast(false); b.api.endFirst(); b.fire();
+  ok('E-3 (짝) 유예 안에 onend 가 먼저 끝냈으면 유예는 아무것도 안 한다(두 번 안 보냄 · 핸들러 그대로)', b.finished === 0 && b.aborted === 0 && !b.detached(), { finished: b.finished, aborted: b.aborted });
+  const c = fastBox(false, 'I like pizza', { pendingSilence: true });
+  c.api.fast(true);
+  ok('E-4 남아 있던 침묵 타이머를 지운다(옛 타이머가 다음 턴을 끊지 않게 — 함정 대조 재현 사고)', c.cleared.includes('S1') && c.api.silence === null, { cleared: c.cleared, silence: c.api.silence });
+  const d = fastBox(false, 'I like pizza');
+  d.api.fast(false); const again = d.api.fast(false);
+  ok('E-5 마무리 중에 다시 불려도(늦은 결과가 침묵 타이머를 다시 켬) stop·유예를 또 만들지 않는다', again === true && d.stopped === 1 && d.timers.length === 1, { again, stopped: d.stopped, timers: d.timers.length });
+  const m = fastBox(true, 'I like pizza'); const mRet = m.api.fast(false);
+  ok('E-6 (짝) 수동 + 침묵으로 끝남 → 맡지 않는다(입력칸에 남기는 길은 onend 뒤 그대로)', mRet === false && m.stopped === 0 && m.timers.length === 0, { mRet, stopped: m.stopped });
+  const e0 = fastBox(false, ''); const eRet = e0.api.fast(false);
+  ok('E-7 (짝) 빈손 → 맡지 않는다(Whisper 한 번 더 듣기는 인식기가 다 닫힌 onend 뒤에)', eRet === false && e0.stopped === 0, { eRet });
+  const n0 = fastBox(false, 'Yes', { noRecog: true }); const nRet = n0.api ? n0.api.fast(false) : 'err';
+  ok('E-8 인식기가 없으면 맡지 않는다(예외 없음)', nRet === false && !n0.err, { nRet, err: n0.err });
+  const u = fastBox(true, 'I like pizza'); const uRet = u.api.fast(true);
+  ok('E-9 ⏹(수동이어도) + 들은 말 → 맡는다 · 유예는 ⏹ 쪽이 더 길다(말 끝에 바로 눌러 마지막 낱말이 늦게 적히는 경우)', uRet === true && u.timers[0] && u.timers[0].ms === GRU && GRU > GR, { uRet, ms: u.timers[0] && u.timers[0].ms, GR, GRU });
+  const ue = fastBox(true, ''); const ueRet = ue.api.fast(true);
+  ok('E-10 (짝) ⏹ 인데 빈손 → 맡지 않는다(«다음부터 녹음 방식» 안내는 onend 뒤에)', ueRet === false && ue.stopped === 0, { ueRet });
+  ok('E-11 유예는 «한없이» 가 아니라 1초 안쪽이다(침묵 끝 < ⏹ ≤ 1초)', GR > 0 && GR < GRU && GRU <= 1000, { GR, GRU });
+}
 const tgl = bodyAt(HTML, 'function toggleMic(){');
-ok('E-7 ⏹ 배선 — toggleMic 이 «멈춤 표시 → 빠른 마무리 → (안 맡으면) stop()» 순서로 부른다',
+ok('E-12 ⏹ 배선 — toggleMic 이 «멈춤 표시 → 빠른 마무리 → (안 맡으면) stop()» 순서로 부른다',
   /if\(_recognizing\)\{ _micStopWanted=true; _micUserStop=true; if\(_micFastStop && _micFastStop\(\)\) return; try\{ _recog && _recog\.stop\(\); \}catch\(e\)\{\} return; \}/.test(tgl), tgl.slice(0, 80));
-ok('E-8 ⏹ 배선 — 인식 세션이 «사람이 누름» 으로 _micFast 를 내보낸다', /_micFastStop=function\(\)\{ return _micFast\(true\); \};/.test(HTML));
+ok('E-13 ⏹ 배선 — 인식 세션이 «사람이 누름» 으로 _micFast 를 내보낸다', /_micFastStop=function\(\)\{ return _micFast\(true\); \};/.test(HTML));
 
 console.log('\n[F] ⚡ 미리 받아쓰기 배선 _micEarly — 녹음 경로가 실제로 감싸지는가');
 const earlyFn = bodyAt(HTML, 'function _micEarly(manual, o){');
@@ -276,6 +301,88 @@ const e3 = runEarly(false, undefined);
 ok('F-3 모듈이 없으면 예전 그대로(같은 opts)', e3.out && !e3.out.wrapped && e3.out.silenceMs === 1600, e3);
 const e4 = runEarly(false, { wrap() { throw new Error('boom'); } });
 ok('F-4 모듈이 던져도 예전 그대로(녹음은 계속된다)', e4.out && !e4.out.wrapped && e4.out.silenceMs === 1600, e4);
+
+
+console.log('\n[G] 🧪 실제 인식 세션 코드를 통째로 돌린다 — 다음 턴을 끊지 않는가 · 늦은 낱말 · 두 번 안 보냄 (함정 대조 재현 사고 2026-11-05)');
+// warmup.html 의 «var _recog=null, _recognizing=false;» ~ «4. 첫 안내 메시지» 사이(인식 세션 전체: toggleMic·_startSttSession·_finishMic …)를
+// 가짜 SpeechRecognition·가짜 시계로 vm 에서 실행한다. ⚠️ [E] 처럼 _finishMic 을 가짜로 바꾸면 «남은 타이머가 다음 세션을 끊는» 사고는 원리상 안 보인다.
+const vm = await import('node:vm');
+const lines = HTML.split('\n');
+const ga = lines.findIndex((l) => l.startsWith('var _recog=null, _recognizing=false;'));
+const gb = lines.findIndex((l, k) => k > ga && l.startsWith('/* ── 4. 첫 안내 메시지'));
+ok('G-0 (전제) 인식 세션 코드를 오려 냈다', ga > 0 && gb > ga, { ga, gb });
+function sttWorld(manual, { endMs = 300 } = {}) {
+  const clock = { t: 0 }, timers = []; let id = 1;
+  const log = [], recs = [];
+  const later = (ms, cb) => { const k = id++; timers.push({ k, at: clock.t + ms, cb }); return k; };
+  class SR {
+    constructor() { this.n = recs.length; recs.push(this); this.active = false; }
+    start() { this.active = true; later(50, () => { if (this.onstart) this.onstart(); }); }
+    stop() { log.push(['stop', this.n, clock.t]); if (!this.active) return; this.active = false; later(endMs, () => { if (this.onend) this.onend(); }); }
+    abort() { log.push(['abort', this.n, clock.t]); this.active = false; }
+    say(txt) { if (this.onresult) this.onresult({ results: [[{ transcript: txt }]] }); }
+  }
+  const inp = { value: '' };
+  const sb = {
+    console, Math, String, Number, RegExp, Object, Date: { now: () => clock.t },
+    setTimeout: (cb, ms) => later(ms || 0, cb), clearTimeout: (k) => { const x = timers.findIndex((y) => y.k === k); if (x >= 0) timers.splice(x, 1); },
+    localStorage: { getItem: () => null, setItem() {} },
+    document: { getElementById: (x) => (x === 'inp' ? inp : null) },
+    _warmPaused: false, _warmEpoch: 0, _warmVoiceEpoch: 0, _warmMicCancel: null, sending: false, _latSilence: null,
+    WarmupAutoTalk: { isOn: () => !manual, on() {} },
+    MangoiVoice: { supported: () => true, stop() {}, cancel() {} },
+    addMsg: (t) => log.push(['msg', String(t).slice(0, 24), clock.t]),
+    sendMsg: () => log.push(['SEND', inp.value, clock.t]),
+    unlockAudio() {}, _stopSpeak() {}, isZh: () => false, wuT: (k) => k,
+  };
+  sb.window = sb; sb.SpeechRecognition = SR;
+  vm.createContext(sb);
+  vm.runInContext(lines.slice(ga, gb).join('\n'), sb);
+  vm.runInContext('micViaWhisper=function(){ __whisper(); };', Object.assign(sb, { __whisper: () => log.push(['whisper', clock.t]) }));
+  const run = (until) => { while (clock.t < until) { clock.t += 10; for (;;) { timers.sort((x, y) => x.at - y.at); if (!timers.length || timers[0].at > clock.t) break; timers.shift().cb(); } } };
+  return { sb, recs, log, run, at: (t, f) => { run(t); f(); }, sends: () => log.filter((e) => e[0] === 'SEND') };
+}
+if (ga > 0 && gb > ga) {
+  // G-1 버튼 모드(기본): 1턴 ⏹ → 2턴에서 오래 말함. 옛 침묵 타이머(1턴 마지막 말 + 30초)가 2턴을 끊으면 안 된다.
+  const w1 = sttWorld(true);
+  w1.at(0, () => w1.sb.toggleMic()); w1.at(1000, () => w1.recs[0].say('I like pizza')); w1.at(1500, () => w1.sb.toggleMic());
+  w1.at(8000, () => w1.sb.toggleMic()); w1.at(9000, () => w1.recs[1].say('My favorite food'));
+  w1.at(20000, () => w1.recs[1].say('My favorite food is pizza')); w1.at(30800, () => w1.recs[1].say('My favorite food is pizza and chicken'));
+  w1.run(40000);
+  const held = w1.log.filter((e) => e[0] === 'msg' && e[2] < 40000 && e[2] > 8000);
+  ok('G-1 (버튼 모드) ⏹ 뒤 다음 턴에서 말하는 도중 마이크가 꺼지지 않는다(옛 침묵 타이머가 남지 않음)', w1.sends().length === 1 && held.length === 0 && w1.sb._recognizing === true, { sends: w1.sends(), held, rec: w1.sb._recognizing });
+  // G-2 자동 모드: 1턴 «I want to»(5초 대기) → ⏹ → 2턴이 빨리 열림. 옛 타이머가 2턴 조각(«My dog»)을 보내면 안 된다.
+  const w2 = sttWorld(false);
+  w2.at(0, () => w2.sb.toggleMic()); w2.at(1000, () => w2.recs[0].say('I want to')); w2.at(1200, () => w2.sb.toggleMic());
+  w2.at(3500, () => w2.sb.toggleMic()); w2.at(4500, () => w2.recs[1].say('My dog')); w2.at(6500, () => w2.recs[1].say('My dog is very cute'));
+  w2.run(20000);
+  const s2 = w2.sends().map((e) => e[1]);
+  ok('G-2 (자동) 다음 턴은 «다 말한 문장» 으로 보낸다(옛 타이머가 조각을 보내지 않음)', s2.length === 2 && s2[1] === 'My dog is very cute', w2.sends());
+  // G-3 ⏹ 뒤 onend 가 2초 늦는 기기: 유예(⏹ 쪽) 뒤에 보내고, 늦게 온 onend 는 두 번 보내지 않는다.
+  const w3 = sttWorld(true, { endMs: 2000 });
+  w3.at(0, () => w3.sb.toggleMic()); w3.at(1000, () => w3.recs[0].say('I like')); w3.at(1500, () => w3.sb.toggleMic());
+  w3.at(1800, () => w3.recs[0].say('I like pizza'));   // ⏹ 0.3초 뒤 «마지막 낱말» 의 최종 결과 — stop() 이라 아직 받는다
+  w3.run(6000);
+  const s3 = w3.sends();
+  ok('G-3 ⏹ 뒤 onend 가 늦어도 유예(⏹+' + GRU + 'ms)에 보낸다 · 그사이 온 마지막 낱말까지 담는다', s3.length === 1 && s3[0][1] === 'I like pizza' && s3[0][2] === 1500 + GRU, s3);
+  ok('G-4 (짝) 늦게 온 onend·결과로 두 번 보내지 않는다 · «듣는 중» 이 다시 켜지지 않는다', s3.length === 1 && w3.sb._recognizing === false, { s3, rec: w3.sb._recognizing });
+  // G-5 onend 가 빠른 기기(0.3초)는 예전과 똑같이 onend 에서 끝낸다
+  const w5 = sttWorld(true, { endMs: 300 });
+  w5.at(0, () => w5.sb.toggleMic()); w5.at(1000, () => w5.recs[0].say('I like pizza')); w5.at(1500, () => w5.sb.toggleMic());
+  w5.run(5000);
+  ok('G-5 (짝) onend 가 유예 안에 오면 예전처럼 그때 보낸다(⏹+0.3초 · abort 없음)', w5.sends().length === 1 && w5.sends()[0][2] === 1800 && !w5.log.some((e) => e[0] === 'abort'), w5.log);
+  // G-6 자동 · 침묵 끝 · onend 가 2초 늦는 기기: 침묵 대기 + 유예(침묵 쪽)에 보낸다(예전: + 2초)
+  const w6 = sttWorld(false, { endMs: 2000 });
+  w6.at(0, () => w6.sb.toggleMic()); w6.at(1000, () => w6.recs[0].say('I like pizza'));
+  w6.run(8000);
+  const done6 = run('I like pizza');
+  ok('G-6 (자동) 침묵 대기가 끝나면 onend(2초)를 다 안 기다리고 유예 뒤에 보낸다', w6.sends().length === 1 && w6.sends()[0][2] === 1000 + done6 + GR, { sends: w6.sends(), want: 1000 + done6 + GR });
+  // G-7 ⏹ 인데 빈손: 예전처럼 onend 뒤에 «다음부터 녹음 방식» 안내(빠른 마무리 안 탐)
+  const w7 = sttWorld(true, { endMs: 600 });
+  w7.at(0, () => w7.sb.toggleMic()); w7.at(1500, () => w7.sb.toggleMic());
+  w7.run(4000);
+  ok('G-7 (짝) ⏹ 인데 빈손 → 보내지 않고 onend 뒤 안내(빠른 마무리 안 탐)', w7.sends().length === 0 && w7.log.some((e) => e[0] === 'msg' && e[2] === 2100) && !w7.log.some((e) => e[0] === 'abort'), w7.log);
+}
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 if (fail) process.exit(1);

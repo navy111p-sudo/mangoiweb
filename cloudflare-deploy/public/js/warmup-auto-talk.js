@@ -31,15 +31,17 @@
   if (window.WarmupAutoTalk) return;
 
   var KEY = 'mangoi_warmup_talk_mode';   // 'auto' | 'button' — 사람이 고를 때만 쓴다
-  /* ⚡ (2026-11-05 사장님 「듣기 시간 최소화 — 특히 휴대폰」) 600 → 300ms. 마이크를 여는 데에도 시간이 들어
-     (권한 확인·getUserMedia·인식기 시작 0.1~0.5초) 실제로 듣기 시작하는 것은 이보다 늦다. 녹음 경로는 에코 제거가 켜져 있고
-     말/조용 판정이 소음 바닥에 맞춘다(mangoi-voice-input.js endGate). ⛔ 200ms 아래로 내리지 말 것(스피커 잔향을 말로 받음). */
-  var ARM_DELAY_MS = 300;                // AI 말이 끝난 뒤 이만큼 기다렸다 연다(잔향)
   var MISS_SETTLE_MS = 900;              // 듣기가 끝난 뒤 «Whisper 한 번 더» 가 이어지는지 기다림
   var MISS_LIMIT = 2;                    // 아무 말 없이 연속 N번이면 쉰다
 
   var EMBEDDED = (function () { try { return window.parent !== window; } catch (e) { return true; } })();
   var ANDROID = /Android/i.test(navigator.userAgent || '');
+  /* AI 말이 끝난 뒤 이만큼 기다렸다 연다(잔향).
+     ⚡ (2026-11-05 사장님 「듣기 시간 최소화 — 특히 휴대폰」) 안드로이드만 600 → 300ms — 그쪽은 녹음 경로(micViaWhisper)라
+        getUserMedia 에코 제거가 켜져 있고 말/조용 판정이 소음 바닥에 맞춘다(mangoi-voice-input.js endGate). 마이크 준비(0.1~0.5초)가 이 뒤에 또 붙는다.
+     ⛔ 그 밖(아이폰·PC)은 600 그대로 — 브라우저 음성인식에는 에코 제거를 걸 수 없고 블루투스 스피커는 소리가 0.3초 넘게 늦게 나올 수 있다(함정 대조).
+     ⛔ 200ms 아래로 내리지 말 것(스피커 잔향을 학생 말로 받음). */
+  var ARM_DELAY_MS = ANDROID ? 300 : 600;
 
   var S = {
     armTimer: null, missTimer: null, panelDeferred: false,

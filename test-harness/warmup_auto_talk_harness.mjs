@@ -84,13 +84,26 @@ function makeWorld({ embedded = false, android = false, mode = null, unlocked = 
   };
   return T;
 }
-/* ⚡ 2026-11-05 600 → 300ms(사장님 「듣기 시간 최소화」). 값은 글자로 못 박지 않고 모듈에서 읽는다 —
-   숫자를 바로잡을 때마다 멀쩡한 검사가 빨간불이 되지 않게. 대신 «너무 짧지도 길지도 않다» 를 짝으로 본다. */
-const DELAY = Number((MOD_SRC.match(/var ARM_DELAY_MS = (\d+);/) || [])[1]);
+/* ⚡ 2026-11-05 안드로이드만 600 → 300ms(사장님 「듣기 시간 최소화 — 특히 휴대폰」 · 그쪽은 에코 제거가 켜진 녹음 경로).
+   아이폰·PC 는 600 그대로(브라우저 인식엔 에코 제거가 없고 블루투스 소리는 늦게 나온다 — 함정 대조).
+   값은 글자로 못 박지 않고 모듈에서 읽는다. 대신 «범위» 와 «실제로 그 시각에 여는가» 를 짝으로 본다.
+   DELAY = 안드로이드가 아닌 기본 세계의 값(아래 검사 대부분이 그 세계다). */
+const armM = MOD_SRC.match(/var ARM_DELAY_MS = ANDROID \? (\d+) : (\d+);/) || [];
+const DELAY_ANDROID = Number(armM[1]), DELAY = Number(armM[2]);
 console.log('\n[0] 잔향 대기 값');
-ok('0-1 (전제) 잔향 대기(ARM_DELAY_MS)를 모듈에서 읽었다', Number.isFinite(DELAY), DELAY);
-ok('0-2 AI 말이 끝나고 0.4초 안에 마이크를 연다(빠르게)', DELAY <= 400, DELAY);
-ok('0-3 (짝) 그래도 0.2초는 기다린다(스피커 잔향을 학생 말로 받지 않게)', DELAY >= 200, DELAY);
+ok('0-1 (전제) 잔향 대기(ARM_DELAY_MS — 안드로이드·그 밖)를 모듈에서 읽었다', Number.isFinite(DELAY_ANDROID) && Number.isFinite(DELAY), armM[0]);
+ok('0-2 안드로이드(에코 제거 녹음 경로)는 AI 말이 끝나고 0.4초 안에 연다(빠르게)', DELAY_ANDROID <= 400, DELAY_ANDROID);
+ok('0-3 (짝) 그래도 0.2초는 기다린다(스피커 잔향을 학생 말로 받지 않게)', DELAY_ANDROID >= 200, DELAY_ANDROID);
+ok('0-4 (짝) 아이폰·PC(브라우저 인식 — 에코 제거 없음)는 0.5초 넘게 기다린다', DELAY >= 500, DELAY);
+{
+  const A = makeWorld({ mode: 'auto', android: true });
+  A.on('aiDone'); A.tick(DELAY_ANDROID - 1);
+  const before = A.calls.micViaWhisper; A.tick(1);
+  ok('0-5 안드로이드 세계에서 실제로 «그 시각» 에 녹음 경로로 연다(1ms 전엔 안 염)', before === 0 && A.calls.micViaWhisper === 1, { before, after: A.calls.micViaWhisper });
+  const W = makeWorld({ mode: 'auto', android: false });
+  W.on('aiDone'); W.tick(DELAY_ANDROID);
+  ok('0-6 (짝) 안드로이드가 아니면 0.3초에는 아직 안 연다', W.calls.toggleMic === 0, W.calls);
+}
 
 console.log('\n[A] 기본은 버튼 모드 — 기존 동작 보존');
 {
