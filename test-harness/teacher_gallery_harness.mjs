@@ -268,6 +268,13 @@ if (T.ytEmbed) {
   check('재생 중이면 사진 자리에 유튜브 재생기가 들어간다', /<iframe src="https:\/\/www\.youtube\.com\/embed\/dQw4w9WgXcQ/.test(d));
   const d2 = run(T.detailHTML, { id: 5, english_name: 'D', intro_video_url: 'https://youtu.be/' + id }, { index: 0, total: 1, playing: false }, 'ko');
   check('재생 전에는 «소개 영상 보기» 버튼만 있고 재생기는 없다 (짝)', /data-tg="video"/.test(d2) && !/<iframe/.test(d2));
+  // 2026-11-05 사장님 「교사소개에서 수업입장은 삭제해줘」 — 강사 소개 창에는 수업방 입구가 없다.
+  const d2en = run(T.detailHTML, { id: 5, english_name: 'D', intro_video_url: 'https://youtu.be/' + id }, { index: 0, total: 1, playing: false }, 'en');
+  const noVid = run(T.detailHTML, { id: 6, english_name: 'E' }, { index: 0, total: 1 }, 'ko');
+  check('프로필에 «수업 입장/Join class» 버튼이 없다 (KO·EN·영상 없는 강사)', [d2, d2en, noVid].every(h => !/data-tg="join"|수업 입장|Join class/.test(h)));
+  check('…그래도 «소개 영상 보기 / Watch intro video» 버튼은 남아 있다 (짝 — 버튼 줄을 통째로 지운 것이 아님)', /data-tg="video"[^>]*>[\s\S]*소개 영상 보기/.test(d2) && /Watch intro video/.test(d2en));
+  check('영상 없는 강사는 빈 버튼 줄(tg-d-actions)을 그리지 않는다', !/tg-d-actions/.test(noVid) && /tg-d-actions/.test(d2));
+  check('모듈이 수업방 입장 함수(mangoiJoinClass)를 부르지 않는다', !/mangoiJoinClass/.test(modSrc));
 }
 if (T.filterList) {
   const L = [
