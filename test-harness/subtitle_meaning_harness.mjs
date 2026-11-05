@@ -152,7 +152,7 @@ check("index.ts 게이트에 '/api/translate' 가 등록돼 있다", /path === '
 // 🗣️ (2026-08-24) 웜업 뜻 보기는 «의역» 모드로 묻는다 — 모드 없는 기본 경로(m2m100)가
 //   "Let's warm up before class" 를 «수업 전에 따뜻하게하자» 로 직역한 제보가 출발점.
 //   서버 learn 모드(언어모델 의역)와 화면의 mode:'learn' 은 짝이다 — 한쪽만 지우면 직역으로 돌아간다.
-const mango = read(P('src', 'api-mango.ts'));
+const mango = read(P('src', 'api-translate.ts'));
 check("warmup: 뜻 보기를 mode:'learn' 으로 묻는다", /mode:\s*['"]learn['"]/.test(wup));
 /* 🗣️ (2026-09-01) 고정 인사말의 의역 정본이 «서버» 로 옮겨졌다 — 화면(warmup.html)에도
    같은 정규식이 한 벌 있어서 「같은 판정이 두 곳」이던 것을 한 곳으로 모았다.

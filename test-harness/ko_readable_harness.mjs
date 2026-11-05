@@ -122,7 +122,7 @@ sec(`[ B. 템플릿 퍼즈 — 씨앗 ${SEED}, 4,000쌍 ]`);
 sec('[ C. 배선 — 다섯 기능이 정본을 실제로 쓴다(주석 벗긴 사본) ]');
 {
   const games = strip(rd('api-games.ts')), jud = strip(rd('api-judgment.ts')), ai = strip(rd('api-ai.ts')),
-        mango = strip(rd('api-mango.ts')), ask = rd('class-ask.ts');
+        mango = strip(rd('api-translate.ts')), ask = rd('class-ask.ts');
   check('C1 발음 코칭: 정본 import', /import \{[^}]*\bisReadableKo\b[^}]*\} from '\.\/ko-readable'/.test(games));
   check('C2 발음 코칭: 피드백·제안 둘 다 엄격 판정', /if \(j\.feedback && isReadableKo\(j\.feedback\)\)/.test(games) && /if \(j\.suggestion && isReadableKo\(j\.suggestion\)\)/.test(games));
   check('C3 AI 퀴즈: 문제 글이 깨진 문항은 빼고, 해설만 깨졌으면 비운다',

@@ -18,6 +18,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import ts from '../cloudflare-deploy/node_modules/typescript/lib/typescript.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dir, '..');
@@ -27,16 +28,24 @@ const ok = (c, m, extra) => { c ? (pass++, console.log('  ✅ ' + m)) : (fail++,
 const api = readFileSync(join(ROOT, 'cloudflare-deploy/src/api-mango.ts'), 'utf8');
 const idx = readFileSync(join(ROOT, 'cloudflare-deploy/public/js/idx-main.js'), 'utf8');
 
-/* verify-room 핸들러만 잘라 낸다.
-   ⚠️ 「길이로 자르기」(slice(i, i+N))는 옆 핸들러가 딸려 들어온다 — 구조를 앵커로 쓴다
-      (CLAUDE.md 함정: 검사 범위를 길이로 자르지 마라). */
+/* Parse the actual if statement. An adjacent route can move to another module;
+   its name is not the boundary of verify-room. The AST also handles braces in
+   comments, template strings and regular expressions without truncating code. */
 const START = "path === '/api/class/verify-room'";
-const s0 = api.indexOf(START);
-const s1 = api.indexOf("if (method === 'POST' && path === '/api/i18n/translate')", s0);
-const block = (s0 >= 0 && s1 > s0) ? api.slice(s0, s1) : '';
+const parsed = ts.createSourceFile('api-mango.ts', api, ts.ScriptTarget.Latest, true);
+let route;
+function visit(node) {
+  if (ts.isIfStatement(node) && node.expression.getText(parsed).includes(START)) {
+    route = node;
+    return;
+  }
+  if (!route) ts.forEachChild(node, visit);
+}
+visit(parsed);
+const block = route ? route.getText(parsed) : '';
 
 console.log('\n① verify-room 핸들러를 찾는가');
-ok(block.length > 500, 'verify-room 블록을 잘라 냈다', `s0=${s0} s1=${s1} len=${block.length}`);
+ok(block.length > 500, 'verify-room 블록을 잘라 냈다', `len=${block.length}`);
 
 console.log('\n② 조기 통과는 «참관» 만 — 관리자는 조회를 거친다');
 const early = block.match(/if \(role === 'observer'\) return json\(\{[^}]*reason: 'privileged'/);

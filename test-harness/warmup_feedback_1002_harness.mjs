@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HTML = fs.readFileSync(process.env.WARMUP_SRC || path.join(ROOT, 'cloudflare-deploy/public/warmup.html'), 'utf8');
 const AUD = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/src/warmup-audience.ts'), 'utf8');
-const API = fs.readFileSync(process.env.API_SRC || path.join(ROOT, 'cloudflare-deploy/src/api-mango.ts'), 'utf8');
+const API = fs.readFileSync(process.env.API_SRC || path.join(ROOT, 'cloudflare-deploy/src/api-translate.ts'), 'utf8');
 
 let pass = 0, fail = 0;
 function ok(name, cond, extra) {
