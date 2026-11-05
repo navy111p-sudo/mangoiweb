@@ -21,7 +21,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MOD = process.env.AAC_SRC || join(ROOT, 'cloudflare-deploy/src/ai-analysis-clean.ts');
-const API = process.env.AAC_API || join(ROOT, 'cloudflare-deploy/src/api-admin.ts');
+const API = process.env.AAC_API || join(ROOT, 'cloudflare-deploy/src/api-admin-student-analysis.ts');
 
 let pass = 0, fail = 0;
 const check = (name, cond) => { if (cond) { pass++; console.log('  ✅ ' + name); } else { fail++; console.log('  ❌ FAIL ' + name); } };

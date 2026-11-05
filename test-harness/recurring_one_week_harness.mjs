@@ -391,14 +391,14 @@ console.log('\n═ 변이시험 (복사본 src — 저장소 파일은 그대로
 const MUT = [
   { name: '읽는 쪽이 빠진 날을 모름', file: 'class-start-date.ts', from: "if (recurSkippedOn(row, ymd)) return false;", to: '' },
   { name: '급여가 빠진 날도 셈(이중 계산)', file: 'admin-lesson-fees.ts', from: "if (recurSkippedOn(row, _ymd)) continue;", to: '' },
-  { name: '승인이 예전처럼 기록만', file: 'api-admin.ts', from: "const _ow = await prepareRecurringOneWeek(", to: "const _ow = { ok: true, applied: 'recorded' as any, mutations: [] as any[], error: null as any, status: 200, conflict: null as any }; void (" },
+  { name: '승인이 예전처럼 기록만', file: 'api-admin-class-days.ts', from: "const _ow = await prepareRecurringOneWeek(", to: "const _ow = { ok: true, applied: 'recorded' as any, mutations: [] as any[], error: null as any, status: 200, conflict: null as any }; void (" },
   { name: '빠진 날 기록을 안 씀', file: 'recurring-one-week.ts', from: "env.DB.prepare(`UPDATE class_schedules SET skip_dates = ? WHERE id = ? AND scheduled_date IS NULL`).bind(nextSkips, cs.id),", to: '' },
   { name: '옮긴 날 겹침에서 반복 줄을 늘 뺌', file: 'recurring-one-week.ts', from: "const exclude = newDate === orig ? [cs.id] : [];", to: "const exclude = [cs.id];", also: ["excludeId: newDate === orig ? cs.id : undefined,", "excludeId: cs.id,"] },
   { name: '조건 뒤집기 — 지난 회차만 허용', file: 'recurring-one-week.ts', from: "if (orig < today) return 'orig_date_past';", to: "if (orig >= today) return 'orig_date_past';" },
   { name: '겹침 검사가 빠진 날을 모름', file: 'schedule-conflict.ts', from: "if (recurSkippedOn(recurring, d)) return false;", to: '' },
   { name: '«내 수업» 다음 회차가 빠진 날로', file: 'api-mango.ts', from: "guard < 60 && recurSkippedOn(r, nextDate)", to: "guard < 60 && false && recurSkippedOn(r, nextDate)" },
   { name: '연기 기록 줄 급여가 요청과 안 이어짐', file: 'admin-lesson-fees.ts', from: "|| (_rwParent ? postponeReq[`${_rwParent}|${dateStr}`] : null)", to: '' },
-  { name: '옛 요청도 409(기록만 폴백 제거)', file: 'api-admin.ts', from: "} else if (_oneWeekWhy && ONE_WEEK_FALLBACK.includes(_oneWeekWhy)) {", to: "} else if (false) {" },
+  { name: '옛 요청도 409(기록만 폴백 제거)', file: 'api-admin-class-days.ts', from: "} else if (_oneWeekWhy && ONE_WEEK_FALLBACK.includes(_oneWeekWhy)) {", to: "} else if (false) {" },
 ];
 if (!base.crashed) {
   for (const m of MUT) {

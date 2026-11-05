@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /* 🔀 «직접 배정» → 수강신청 합치기 (2026-09-30 사장님 «배정 경로가 어떠하든 같은 조건과 버튼»)
  *  ① 정본(enroll-direct.ts + enroll-direct-merge.ts)을 타입 제거로 «실제로» 돌린다 — 진짜 SQLite(D1 모양으로 감쌈)
  *     · dry 는 아무것도 안 쓴다 · 묶음마다 신청서 1건 · 수업 source 가 adm-enroll:<id> 로 바뀐다
@@ -14,7 +15,7 @@ let PASS = 0, FAIL = 0;
 const ok = (c, n) => { if (c) { PASS++; console.log('  ✅ ' + n); } else { FAIL++; console.log('  ❌ ' + n); } };
 const SRC_D = process.env.DIRECT_SRC || 'cloudflare-deploy/src/enroll-direct.ts';
 const SRC_M = process.env.MERGE_SRC || 'cloudflare-deploy/src/enroll-direct-merge.ts';
-const A = readFileSync(process.env.ADMIN_SRC || 'cloudflare-deploy/src/api-admin.ts', 'utf8');
+const A = readAdminSourceFromFile(process.env.ADMIN_SRC || 'cloudflare-deploy/src/api-admin.ts');
 const C = readFileSync(process.env.CORE_SRC || 'cloudflare-deploy/public/js/adm-core.js', 'utf8');
 
 const strip = (t) => stripTypeScriptTypes(t).replace(/^import .*$/gm, '').replace(/^export /gm, '');

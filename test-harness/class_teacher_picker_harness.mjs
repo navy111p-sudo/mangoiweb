@@ -27,7 +27,7 @@ const HTML = path.join(ROOT, 'cloudflare-deploy/public/admin/student.html');
 const API = path.join(ROOT, 'cloudflare-deploy/src/api-admin.ts');
 
 const html = fs.readFileSync(process.env.PICKER_HTML_SRC || HTML, 'utf8');
-const api = fs.readFileSync(process.env.PICKER_API_SRC || API, 'utf8');
+const api = readAdminSourceFromFile(process.env.PICKER_API_SRC || API);
 
 let pass = 0, fail = 0;
 const check = (name, ok, extra) => {

@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile, adminIfStatement } from './_srcbundle.mjs';
 /* ═══════════════════════════════════════════════════════════════════════════
    💾 schedule_drag_persist_harness.mjs — 주간 전체 스케줄 «드래그 이동» 이 서버에
       실제로 저장되는가 (2026-09-11)
@@ -36,7 +37,7 @@ import vm from 'node:vm';
 const WEEKLY = new URL('../cloudflare-deploy/public/admin/weekly-schedule.html', import.meta.url);
 const APIADM = new URL('../cloudflare-deploy/src/api-admin.ts', import.meta.url);
 const html = readFileSync(WEEKLY, 'utf8');
-const srv = readFileSync(APIADM, 'utf8');
+const srv = readAdminSourceFromFile(APIADM);
 const CF = join(fileURLToPath(new URL('../cloudflare-deploy/', import.meta.url)));
 const GATE_TS = readFileSync(new URL('../cloudflare-deploy/src/class-teacher-move.ts', import.meta.url), 'utf8');
 const AUTH_TS = readFileSync(new URL('../cloudflare-deploy/src/auth-admin.ts', import.meta.url), 'utf8');
@@ -392,9 +393,7 @@ if (G) {
 
 sec('⑦-2 서버 라우트 — 그 정본을 «부르고 결과를 조건으로 쓰는가»');
 {
-  const A = srv.indexOf("if ((method === 'PATCH' || method === 'PUT') && /^\\/api\\/admin\\/class-schedules");
-  const B = srv.indexOf('💰 Phase F1~F2', A > 0 ? A : 0);
-  const blk = (A > 0 && B > A) ? srv.slice(A, B) : '';
+  const blk = adminIfStatement(srv, condition => condition.includes("method === 'PATCH' || method === 'PUT'") && condition.includes('class-schedules'));
   ok(blk.length > 1000, 'PATCH 핸들러를 오려 내지 못했다 (길이 ' + blk.length + ')');
 
   /* 🪤 부정 검사는 **주석을 벗겨 낸 사본** 으로 판정한다 — 2026-09-11 실측: 「⛔ canEditOrg 로
