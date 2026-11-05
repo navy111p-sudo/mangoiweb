@@ -1091,6 +1091,21 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
         ? recheckBalancedFix(msg, async (msgs: any[]) => await runFriend(models[0], msgs, 480, 0.2, true))   // 480 = 집중교정 recoverFocusedFix 와 같은 여유(JSON 잘림 방지)
         : null;
       if (recheckP) recheckP.then((f: any) => previewGate.recheck(!!f));
+      /* ⚡ (2026-11-06 사장님 「휴대폰 A.i 말하기 3카드 모두 아바타가 더 빨리 응답」) 집중교정 «교정만 다시 묻기» 를
+         본 호출과 «동시에» 시작한다 / Focused mode: start the correction recheck alongside the main call.
+         [왜] 예전에는 본 답이 «다» 만들어진 뒤에야 이 호출을 «차례로» 불렀다 — 맞는 문장(교정 없음)이면 매 턴
+              모델 왕복이 하나 더 붙었고, 집중교정은 미리듣기가 없어서 그 시간을 학생이 통째로 기다렸다.
+         ⚠️ 쓰는 «순서» 는 그대로다 — 모델의 교정 → 과거형 보완 → 콩글리시 → 답장 속 «You can say» → 이것(아래 waitFocusedRecover).
+            그래서 규칙 보완이 잡는 문장이면 시작하지 않는다(어차피 안 쓰인다). 모델이 교정을 주면 결과를 버린다(호출 하나가 헛돈다 — 그 비용과 바꾼 것).
+         ⚠️ 모델 시간(latModelMs)에는 «본 호출과 안 겹친 나머지» 만 더한다 — 균형 다시 묻기와 같은 규칙(overlap).
+         ⛔ 던지지 않는다 — recoverFocusedFix 가 스스로 삼키고, 혹시 몰라 .catch 로 한 번 더 막는다(실패 = 교정 없음 = 예전과 같은 방향).
+         ⚠️ 본 호출이 «먼저» 나가게 한 박자(마이크로태스크) 뒤에 시작한다 — 바로 아래 for 문이 await 없이 곧장 env.AI.run 을 부르므로
+            그다음 차례에 이것이 돈다(여전히 «동시에»). 가짜 모델을 쓰는 하니스들이 «첫 호출 = 대화 답» 으로 대본을 짜 두었다
+            (CLAUDE.md 2장 «새 모델 호출을 더하면 대본이 한 칸 밀립니다» — conversation_connectors 가 실제로 밀렸다). */
+      const focusedRecoverP: Promise<any> | null =
+        (immediateFix && !focusedCandidate(backfillPastTenseFix(msg), msg) && !focusedCandidate(konglishFix(msg), msg))
+          ? Promise.resolve().then(() => recoverFocusedFix(msg, async (msgs: any[]) => await runFriend(models[0], msgs, 480, 0.2, true))).catch(() => null)
+          : null;
       for (const m of models) {
         try {
           /* 스트리밍은 «한 번만» 시도합니다 — 실패하면 같은 모델을 옛 방식으로 다시 불러
@@ -1154,11 +1169,22 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
          ⚠️ 다시 뽑은 것이 «같은 질문이 없거나 줄었고» 글자 반복도 아닐 때만 받는다 — 아니면 원래 답(대화를 끊지 않는다).
          ⚠️ 던지지 않는다 — 모델이 던지면 거기서 멈추고 지금까지의 답을 쓴다. */
       if (reply && usedModel && immediateFix) {
+        /* ⚡ 위에서 미리 시작한 다시 묻기를 받는다 — 안 겹친 나머지만 모델 시간에 더한다.
+           ⚠️ 미리 부른 것은 첫 모델(models[0])이다. 본 답이 «폴백 모델» 에서 나왔고 미리 부른 것이 빈손이면
+              예전처럼 그 모델로 한 번 더 묻는다(첫 모델이 흔들린 턴에 교정을 잃지 않게). */
+        const waitFocusedRecover = async (): Promise<any> => {
+          if (!focusedRecoverP) return await recoverFocusedFix(msg, (msgs) => runFriend(usedModel, msgs, 480, 0.2));
+          const w0 = Date.now();
+          let got: any = null;
+          try { got = await focusedRecoverP; } finally { latModelMs += Date.now() - w0; }
+          if (!got && usedModel !== models[0]) got = await recoverFocusedFix(msg, (msgs) => runFriend(usedModel, msgs, 480, 0.2));
+          return got;
+        };
         focusedFix = focusedCandidate(rawFix, msg)
           || focusedCandidate(backfillPastTenseFix(msg), msg)
           || focusedCandidate(konglishFix(msg), msg)
           || focusedReplyFix(reply, msg)
-          || await recoverFocusedFix(msg, (msgs) => runFriend(usedModel, msgs, 480, 0.2));
+          || await waitFocusedRecover();
         if (focusedFix) { rawFix = focusedFix; reply = focusedFix.now; }
       }
       if (reply && usedModel && !focusedFix) {
@@ -1390,6 +1416,32 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
          ⚠️ 저장(아래 INSERT)·응답 «전» 이어야 학생이 들은 문장과 다음 턴이 읽는 기록이 같다. */
       reply = finishFriendReply(reply, { mode: friendMode, verified: verifiedFix, shown: showFix, msg, fallback: usedFallback, suspect: !!rawFix });
 
+      /* 📦 화면이 «답» 을 그리고 읽는 데 쓰는 칸 — 아래 final 이벤트와 마지막 응답(done)이 «같은 함수» 로 만든다.
+         ⛔ 두 곳에 따로 적지 마세요 — 한쪽만 고치면 «먼저 읽은 답» 과 «정본» 이 갈립니다. */
+      const replyOut = (): any => ({
+        // 🚨 «AI 가 답을 못 만들었다» 를 화면이 알 수 있게. 옛 화면은 이 칸을 모르고
+        //    그냥 reply 를 그리므로 «고치기 전» 과 같습니다(안전한 방향).
+        ...(usedFallback ? { ai_unavailable: true } : {}),
+        fix: usedFallback ? null : showFix, repeat: usedFallback ? false : offerRepeat,
+        // 📡 스트리밍으로 미리 보낸 문장과 최종본이 «다른가» — 화면이 그때만 다시 읽습니다.
+        ...(wantStream ? { replaced: streamedText && streamedText.trim() !== reply.trim() ? 1 : 0 } : {}),
+      });
+      /* ⚡ (2026-11-06 사장님 「휴대폰 A.i 말하기 3카드 모두 더 빨리」) 최종 답을 «먼저» 보낸다 / Send the final reply first.
+         [왜] 예전에는 아래 대화 저장(INSERT 2)·포인트(D1 조회·적립 여러 번 «차례로»)·지연 기록·발음 채점까지 «다» 끝난 뒤에야
+              done 한 번으로 답을 보냈다. 집중교정(기본값)은 미리듣기가 없어서 그 시간을 학생이 통째로 기다렸다.
+         [어떻게] 답이 정해지는 이 자리에서 final 이벤트로 먼저 보내고, 나머지는 스트림을 연 채로 이어서 한다 —
+              응답 본문을 흘리는 동안은 워커가 살아 있다(Cloudflare 문서 «A Worker that is still streaming a response body
+              remains active») 그래서 waitUntil 이 필요 없다. 포인트·발음(pron_fix)은 예전처럼 done 에 실린다.
+         ⚠️ 저장은 «답이 정해진 뒤» 그대로라 학생이 들은 문장과 다음 턴이 읽는 기록이 같다(아래 INSERT 는 이 reply 를 쓴다).
+            화면은 done 이 올 때까지 보내기 버튼을 잠가 두므로 다음 턴이 저장보다 먼저 올 수 없다.
+         ⛔ 옛 화면은 final 을 모른다 — data 줄을 «done 이 아니면 문장(t)» 으로만 읽어서 t 가 없는 이 이벤트는 그냥 지나간다(예전과 같음).
+         ⛔ JSON 경로(stream 미사용)에는 보내지 않는다 — 응답 계약 그대로. */
+      let latFinalMs = 0;   // ⏱ 학생이 «답» 을 받은 시각(스트리밍) — 지연 기록의 ms 는 이것(없으면 끝까지)
+      if (sseSend) {
+        sseSend({ final: 1, ok: true, reply, ...replyOut() });
+        latFinalMs = Date.now() - latT0;
+      }
+
       // ⚠️ 이 저장은 반드시 기다린다 — 바로 아래 gam 스냅샷("오늘 몇 번째 대화")이
       //   이 INSERT 가 끝난 뒤의 개수를 세어야 정확하다. 백그라운드로 미루면 그 숫자가
       //   이번 메시지를 못 세거나(레이스) 다음 새로고침에야 반영돼 부정확해진다.
@@ -1484,7 +1536,9 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
         await recordAiLatency(env, {
           feature: 'chat-friend',
           model: usedModel || 'fallback',
-          ms: Date.now() - latT0,
+          /* ⏱ (2026-11-06) 스트리밍이면 «final 을 보낸 시각» — 그 뒤 저장·포인트는 학생이 기다리지 않는다.
+             ⚠️ 그래서 이날부터 chat-friend 의 ms 는 그 앞보다 «저장·포인트 시간만큼» 작게 나온다(재는 자리가 바뀐 것 — 비교할 때 감안). */
+          ms: latFinalMs || (Date.now() - latT0),
           model_ms: latModelMs,
           tries: latTries,
           chars: (reply || '').length,
@@ -1498,13 +1552,8 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
 
       const pronFix = await pronP;   // 🎯 발음 교정 결과(없으면 null)
       return { ok: true, reply, level, persona, model: usedModel || 'fallback', gam,
-                    // 🚨 «AI 가 답을 못 만들었다» 를 화면이 알 수 있게. 옛 화면은 이 칸을 모르고
-                    //    그냥 reply 를 그리므로 «고치기 전» 과 같습니다(안전한 방향).
-                    ...(usedFallback ? { ai_unavailable: true } : {}),
-                    fix: usedFallback ? null : showFix, repeat: usedFallback ? false : offerRepeat,
-                    ...(pronFix ? { pron_fix: pronFix } : {}),
-                    // 📡 스트리밍으로 미리 보낸 문장과 최종본이 «다른가» — 화면이 그때만 다시 읽습니다.
-                    ...(wantStream ? { replaced: streamedText && streamedText.trim() !== reply.trim() ? 1 : 0 } : {}) };
+                    ...replyOut(),   // ai_unavailable · fix · repeat · replaced — final 이벤트와 같은 함수(위 replyOut)
+                    ...(pronFix ? { pron_fix: pronFix } : {}) };
       };
 
       /* 📡 옛 경로 — stream 을 안 보내면 지금까지와 똑같습니다. */

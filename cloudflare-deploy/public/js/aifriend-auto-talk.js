@@ -6,6 +6,12 @@
   var mode = 'button', active = false, paused = false;
   var timer = null, speaking = 0, generation = 0, sending = false, misses = 0, turn = 0;
   var embedded = window.parent !== window;
+  /* AI 말이 끝난 뒤 이만큼 기다렸다 마이크를 연다(스피커 잔향).
+     ⚡ (2026-11-06 사장님 「휴대폰 A.i 말하기 3카드 모두 더 빨리」) 700 → 안드로이드 300 · 그 밖 600 — 웜업(js/warmup-auto-talk.js
+        ARM_DELAY_MS)과 «같은 값». 이 화면은 기기와 상관없이 늘 녹음 경로(getUserMedia 에코 제거 + 소음 바닥 판정)다.
+     ⛔ 아이폰·PC 는 600 아래로 내리지 않는다 — 블루투스 스피커는 소리가 0.3초 넘게 늦게 나올 수 있다(웜업 함정 대조와 같은 이유).
+     ⛔ 200ms 아래로 내리지 말 것(스피커 잔향을 학생 말로 받음). */
+  var ARM_DELAY_MS = /Android/i.test((navigator && navigator.userAgent) || '') ? 300 : 600;
   try { mode = localStorage.getItem('mangoi_aifriend_talk_mode') === 'auto' ? 'auto' : 'button'; } catch (_) {}
   function en() { return typeof isEn === 'function' && isEn(); }
   function text(ko, eng) { return en() ? eng : ko; }
@@ -36,7 +42,7 @@
       var audio = window.MangoiTTS && MangoiTTS.getAudioEl();
       if ((audio && !audio.paused && !audio.ended) || (window.speechSynthesis && speechSynthesis.speaking)) return;
       micViaWhisper(true);
-    }, 700);
+    }, ARM_DELAY_MS);
   }
   function paint() {
     var el = document.getElementById('friendTalkSwitch');
