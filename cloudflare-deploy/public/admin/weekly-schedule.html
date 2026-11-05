@@ -1007,6 +1007,9 @@ async function loadHolidays(){
   }catch(e){}
 }
 var TEACHERS=[],SLOTS={},activeCategory='all',searchQuery='';
+/* 🧯 (2026-11-05) 강사 목록을 «못 받았을» 때의 사유. 비어 있으면 «받았다». 받기 전엔 '…' — 
+   예전엔 실패가 «조건에 맞는 교사가 없습니다» 로 보여 «0명» 과 «못 받음» 이 같은 글자였다. */
+var TEACHERS_LOAD_ERR='…';
 /* 🧾 (2026-11-03 사장님 «주간 시간표도 똑같이») 취소·연기된 «날짜 회차» — 서버 /api/admin/schedules 의 off_items.
    ⛔ SLOTS 에 넣지 말 것 — SLOTS 에 있는 칸은 «수업이 있는 칸» 으로 읽혀(cellBusy·hourHasSlot·rangeHasSlot·
       드래그·이동·삭제·통계·가동률) 취소된 수업이 시간을 계속 막고 끌어 옮겨지기까지 한다.
@@ -1156,9 +1159,18 @@ async function loadData(){
   // URL ?demo=1 -> 무조건 데모 모드 (실 API 시도 안 함)
   var forceDemo=new URLSearchParams(location.search).get('demo')==='1';
   if(forceDemo){ loadDemoData(); return; }
+  TEACHERS_LOAD_ERR='…';
   try{
-    var tRes=await fetch('/api/admin/teachers',{credentials:'include'});
-    if(tRes.ok){
+    /* 🧯 한 번 실패하면 0.8초 뒤 한 번만 다시 묻는다(새 창을 막 열 때 잠깐 흔들린 경우). */
+    var tRes=null;
+    for(var _tTry=0;_tTry<2;_tTry++){
+      if(_tTry) await new Promise(function(r){setTimeout(r,800);});
+      try{ tRes=await fetch('/api/admin/teachers',{credentials:'include',cache:'no-store'}); }catch(_te){ tRes=null; TEACHERS_LOAD_ERR='network'; }
+      if(tRes&&tRes.ok)break;
+      if(tRes) TEACHERS_LOAD_ERR='HTTP '+tRes.status;
+    }
+    if(tRes&&tRes.ok){
+      TEACHERS_LOAD_ERR='';
       var data=await tRes.json();
       var list=Array.isArray(data)?data:(data.teachers||data.data||data.items||[]);
       if(list&&list.length>0){
@@ -1430,6 +1442,14 @@ function render(){
   if(freeEl)freeEl.textContent=totalFree.toLocaleString();
 
   var main=document.getElementById('main');
+  if(list.length===0&&TEACHERS.length===0&&TEACHERS_LOAD_ERR&&TEACHERS_LOAD_ERR!=='…'&&new URLSearchParams(location.search).get('demo')!=='1'){
+    /* 🧯 «0명» 이 아니라 «못 받음» — 사실대로 말하고 다시 시도할 길을 준다. */
+    main.innerHTML='<div class="empty-msg">'+(currentLang==='ko'
+      ?'⚠️ 강사 목록을 불러오지 못했습니다 ('+escapeHtml(TEACHERS_LOAD_ERR)+'). 잠시 뒤 다시 시도해 주세요.'
+      :'⚠️ Could not load the teacher list ('+escapeHtml(TEACHERS_LOAD_ERR)+'). Please try again.')
+      +'<br><button type="button" class="ws-retry-btn" onclick="reloadAndRender()" style="margin-top:10px;padding:7px 16px;border-radius:9px;border:1px solid var(--ac);background:transparent;color:inherit;font-weight:700;cursor:pointer">'+(currentLang==='ko'?'🔄 다시 불러오기':'🔄 Reload')+'</button></div>';
+    return;
+  }
   if(list.length===0){
     main.innerHTML='<div class="empty-msg">'+(currentLang==='ko'?'조건에 맞는 교사가 없습니다. 필터를 조정하거나 다른 키워드로 검색해보세요.':'No teachers match. Adjust the filter or try another keyword.')+'</div>';
     return;
