@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 /**
  * ko_readable_harness.mjs — AI 가 쓴 한국어 «깨짐» 거르기 감시 (2026-11-01)
  * ════════════════════════════════════════════════════════════════════════
@@ -121,7 +122,7 @@ sec(`[ B. 템플릿 퍼즈 — 씨앗 ${SEED}, 4,000쌍 ]`);
 
 sec('[ C. 배선 — 다섯 기능이 정본을 실제로 쓴다(주석 벗긴 사본) ]');
 {
-  const games = strip(rd('api-games.ts')), jud = strip(rd('api-judgment.ts')), ai = strip(rd('api-ai.ts')),
+  const games = strip(gamesSrc()), jud = strip(rd('api-judgment.ts')), ai = strip(rd('api-ai.ts')),
         mango = strip(rd('api-translate.ts')), ask = rd('class-ask.ts');
   check('C1 발음 코칭: 정본 import', /import \{[^}]*\bisReadableKo\b[^}]*\} from '\.\/ko-readable'/.test(games));
   check('C2 발음 코칭: 피드백·제안 둘 다 엄격 판정', /if \(j\.feedback && isReadableKo\(j\.feedback\)\)/.test(games) && /if \(j\.suggestion && isReadableKo\(j\.suggestion\)\)/.test(games));
@@ -156,7 +157,7 @@ sec('[ D. 수업 중 질문 핸들러를 가짜 환경으로 실제로 돌림 ]'
 
 sec('[ E. 발음 코칭 두 줄을 오려 내 실제로 돌림 ]');
 {
-  const games = rd('api-games.ts');
+  const games = gamesSrc();
   const m = games.match(/ {14}if \(j\.feedback && isReadableKo\(j\.feedback\)\)[^\n]*\n {14}if \(j\.suggestion && isReadableKo\(j\.suggestion\)\)[^\n]*/);
   check('E0 두 줄을 오려 냈다', !!m);
   if (m) {

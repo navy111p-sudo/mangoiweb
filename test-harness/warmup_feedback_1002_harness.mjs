@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 // warmup_feedback_1002_harness.mjs — A.i 말하기 연습 2026-10-02 피드백 다섯 가지 중 1~4번
 //   (5번 «수동 버튼인데 말이 안 끝났는데 올라감» 은 warmup_reply_speed_harness 가 본다)
 //
@@ -196,7 +197,7 @@ if (Sqlite) {
 console.log('\n[2-b] Jake 목소리 odysseus · 남자 «보통» 0.9배 — 세 화면');
 const AF = fs.readFileSync(process.env.AF_SRC || path.join(ROOT, 'cloudflare-deploy/public/ai-friend.html'), 'utf8');
 const SC = fs.readFileSync(process.env.SC_SRC || path.join(ROOT, 'cloudflare-deploy/public/speech-coach.html'), 'utf8');
-const GAMES = fs.readFileSync(process.env.GAMES_SRC || path.join(ROOT, 'cloudflare-deploy/src/api-games.ts'), 'utf8');
+const GAMES = gamesSrc(process.env.GAMES_SRC ? { 'api-games.ts': fs.readFileSync(process.env.GAMES_SRC, 'utf8') } : {});
 const jakeSpk = (src) => ((src.match(/jake:\s*\{[^}]*?speaker:\s*'([a-z]+)'/) || [])[1] || '');
 ok('2-b1 웜업 Jake = odysseus', jakeSpk(HTML) === 'odysseus', jakeSpk(HTML));
 ok('2-b2 A.i 친구 Jake = odysseus', jakeSpk(AF) === 'odysseus', jakeSpk(AF));

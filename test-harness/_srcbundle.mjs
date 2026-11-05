@@ -9,6 +9,33 @@ import { createRequire } from 'node:module';
 
 const SRC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../cloudflare-deploy/src');
 
+/** Follow only shipped learning/voice domain imports, dependencies first.
+ * Missing imported modules fail; unimported neighbouring files cannot satisfy a test.
+ * Overrides retain the source/mutation harnesses' ability to test changed code.
+ */
+export function gamesSrc(overrides = {}, directory = SRC_DIR) {
+  return gamesSrcUsing(file => overrides[file] ?? readFileSync(join(directory, file), 'utf8'));
+}
+
+export function gamesSrcUsing(readModule) {
+  const ts = createRequire(import.meta.url)('../cloudflare-deploy/node_modules/typescript');
+  const seen = new Set(), parts = [];
+  function visit(file) {
+    if (seen.has(file)) return;
+    seen.add(file);
+    const source = readModule(file);
+    const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+    for (const node of parsed.statements) {
+      if (!ts.isImportDeclaration(node)) continue;
+      const match = /^\.\/(api-games-[^/]+|api-voice-[^/]+)$/.exec(node.moduleSpecifier.text);
+      if (match) visit(match[1] + '.ts');
+    }
+    parts.push(source);
+  }
+  visit('api-games.ts');
+  return parts.join('\n/* learning module boundary */\n');
+}
+
 /** Read the actual admin module graph, dependencies first. Keep the old source
  * extraction tests tied to shipped code when a private helper moves modules.
  * Only admin domain imports are followed; missing modules fail the test.

@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 // 🎬 A.i영화더빙 회귀 감시 (2026-10-20)
 //
 //   왜 필요한가 —
@@ -308,7 +309,7 @@ for (const epId of readyIds) {
   check('⑥-15b ' + P + '대사 id 가 겹치지 않는다', new Set(allLines.map((l) => l.id)).size === allLines.length);
 
   /* 캐릭터 목소리는 서로 달라야 한다 — 서버가 Aura-2 → Aura-1 로 떨어져도(그 표를 소스에서 읽는다) */
-  const games = rd(join(ROOT, 'cloudflare-deploy', 'src', 'api-games.ts'));
+  const games = gamesSrc();
   const a1m = /const AURA1 = new Set\(\[([^\]]+)\]\)/.exec(games);
   const a2m = /const AURA2 = new Set\(\[([^\]]+)\]\)/.exec(games);
   const subm = /const AURA1_SUB[^{]*\{([\s\S]*?)\};/.exec(games);
