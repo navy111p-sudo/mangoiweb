@@ -52,7 +52,7 @@ import { recordAiLatency } from './ai-latency-log';   // ⏱ «학생이 얼마�
 import { createJsonTextTap, takeSentences } from './stream-json-text';   // 📡 스트리밍 본문 추출 (A-1)
 /* 🔁 «같은 질문 두 번 금지» 정본 — 엘리더잼·일반 A.i 말하기와 «같은 판정» (2026-10-28 사장님 「AI 영어친구에도 같은 질문 금지 적용해줘」).
    ⛔ 판정을 여기에 복제하지 말 것 — 이 화면은 부르기만 한다. */
-import { questionSession, questionMemory, askedQuestionsLine, repeatedQuestions, retryRepeatedQuestion, repeatQuestionHintEn, isReaskRequest } from './question-memory';
+import { questionSession, questionMemory, askedQuestionsLine, repeatedQuestions, retryRepeatedQuestion, repeatQuestionHintEn, isReaskRequest, isDontKnowAnswer } from './question-memory';
 import { FRIEND_FRAG_RETRY_BUDGET_MS as FRAG_RETRY_BUDGET_MS } from './reply-questions';   // ⏱ 다시 뽑기 시간 예산 — A.i 친구는 9초(웜업 5초와 다름 · 이유는 reply-questions.ts)
 
 let _awTopicColTried = false;   // 📅 topic_id 지연 ALTER — 워커당 한 번
@@ -657,12 +657,17 @@ Student text: """${text}"""`;
         .test(String(last.content || ''));
     };
     /* 🐢 "천천히 말해줘 / 다시 말해줘 / What? / 뭐라고?" 같은 부탁인가 — 무시하고 제 얘기만 하면 안 된다
-       ⚠️ 첫 줄 «I don't know» 하나만 이 화면이 더 받고, 나머지 세 줄은 정본 QM_REASK_KO·EN·ECHO(src/question-memory.ts)와 «글자 그대로» 같다.
-          하니스가 이 블록을 vm 으로 떼어 돌려 import 를 못 쓴다 — 한쪽만 고치지 말 것(ai_friend_no_repeat_question_harness ①-18 이 원문 대조). */
+       ⚠️ 네 줄 모두 정본 QM_REASK_KO·EN·ECHO·DONT_KNOW_MEANING(src/question-memory.ts)과 «글자 그대로» 같다.
+          하니스가 이 블록을 vm 으로 떼어 돌려 import 를 못 쓴다 — 한쪽만 고치지 말 것(ai_friend_no_repeat_question_harness ①-18 이 원문 대조).
+       🔴 (2026-11-05 실측) 예전엔 영어 줄 맨 앞에 «I don't know» 가 «문장 어디서나» 붙어 있었다 — 「I don't know, anyway I like riding
+          a bicycle.」·「I don't know. But I love Beauty and the Beast」 까지 «천천히 말해 달라» 로 읽혀, 지난 기록의 «I don't know» 턴
+          대부분이 「Yes! I will speak slowly.」 로 시작했고 «훨씬 짧게» 지시 탓에 「You like bike.」 같은 깨진 영어가 나왔다.
+          ⛔ 되살리지 말 것. «답을 모른다»(그 말만)는 정본 isDontKnowAnswer 가 따로 받고(dontKnowHint), «뜻을 모른다» 는 넷째 줄이 받는다. */
     const aiFriendIsMetaAsk = (s: string) =>
       /(?:천천히|느리게|쉽게|짧게|간단히|또박또박|크게|다시)\s*(?:(?:다시|좀|한\s*번)\s*)?(?:말씀|말|얘기|읽어|설명)\s*(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)|(?:천천히|느리게|쉽게|짧게|간단히|또박또박|크게|다시)\s*(?:좀\s*)?해\s*(?:줘(?![서야])|주세요|주실래|줄래|주시겠)|못\s*알아\s*(?:들었|듣겠)|알아\s*듣기\s*(?:힘들|어려)|쉬운\s*말로\s*(?:(?:말|얘기|설명)\s*)?(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)|모르겠|너무\s*(?:빠르게|빨리)\s*말|한\s*번\s*(?:더|만)\s*(?:말씀|말|얘기)\s*(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)/.test(String(s || '')) ||
-      /\bi don['’]?t know\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+slow down\b|\bslow down,? please\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:speak|talk|say (?:it|that)|read (?:it|that)|go)(?: english)?(?: a (?:little|bit))?(?: more)? (?:slowly|slower|slow)\b|\bplease(?: more)? (?:slowly|slower|slow)\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:a (?:little|bit) )?(?:more )?(?:slowly|slower|slow|simpler|easier|shorter),? please\b|\byou(?:['’]re| are)?\s+(?:(?:talk|talking|speak|speaking)\s+(?:too|so|very|really)|too) fast\b|\byour (?:voice|talking|speaking) is (?:too|so) fast\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:say|tell me) (?:it |that )?(?:again|one more time)\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+repeat(?: (?:it|that|please|again|the question|the sentence|one more time))?\b|\bi (?:don['’]?t|do not|can['’]?t|cannot|couldn['’]?t|didn['’]?t|not) (?:really )?understand(?: (?:you|that|it|this|anything|the question|your question|the word|the sentence|english|what you(?:['’]re| are) saying|what you (?:said|mean)|what (?:that|it) means))?(?=[^\p{L}\p{N}]*$|\s*[.!?](?:\s|$)|\s*,\s*(?:sorry|please|can you|could you|say|again|teacher)\b)|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:say|speak|talk|explain)(?: it| that)? (?:more )?(?:simply|simpler|easier|more easily|shorter)\b|\b(?:you|please)\s+make it (?:simple|simpler|easy|easier|short|shorter)\b|\b(?:simple|simpler|easy|easier|short|shorter) (?:words|english|sentences?),? please\b|\b(?:can you|please) use (?:easy|easier|simple|simpler) words\b|\b(?:didn['’]?t|can['’]?t|couldn['’]?t|did not|cannot|could not|don['’]?t) hear you\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+speak (?:up|slower|louder|more slowly)\b|\bwhat (?:was|is) the question\b/iu.test(String(s || '')) ||
-      /^[^\p{L}\p{N}]*(?:(?:oh|um+|uh+|wait|아|음|(?:eh|네|응|예|에|엥|어|sorry|excuse me)\s*[?？]|wha+t?|huh|sorry|excuse me|뭐|뭐라고요?|too fast|너무\s*빨라요?)[^\p{L}\p{N}]+){0,2}(?:wha+t?|huh|pardon(?: me)?|i beg your pardon|come again|say what|what was that|what (?:did|do) you (?:say|said|mean|ask)|what did you just say|what you (?:say|said)|what does (?:it|that) mean|again\s*[?？]|(?:once )?again,? please|(?:one more time|once more)(?:\s*[?？]|,? please)|(?:please )?(?:say (?:it |that )?again|tell me again|slow down|repeat(?: (?:it|that|again|the question|the sentence|one more time))?|(?:speak|talk|say it|read it|go)(?: a (?:little|bit))?(?: more slowly| slower)|speak (?:up|louder)|explain (?:it |that )?(?:more )?simply|use (?:easy|easier|simple|simpler) words)(?:,? please)?|(?:speak|talk|say it|read it)(?: more)? slowly,? please|too fast(?: for me)?(?:,? (?:teacher|please))?|(?:you(?:['’]re| are) )?(?:talking|speaking) too fast|louder|slower|more slowly|don['’]?t understand(?:,? sorry)?|not understand|(?:a (?:little|bit) )?(?:more )?(?:slow|slower|louder|slowly|simpler|easier|shorter),? please|i (?:can['’]?t|cannot|couldn['’]?t) hear(?: you)?(?: well)?|sorry,? i (?:didn['’]?t|did not|couldn['’]?t) (?:hear|catch)(?: (?:that|it|you|what you said))?|뭐|머|뭐라고|뭐라구|뭐라고요|뭐라구요|뭐요|뭐라고\s*(?:하셨어요|하셨죠|하셨나요|했어요?|했니|했지)|다시요?|(?:다시\s*)?한\s*번\s*(?:만\s*)?(?:더\s*)?요|(?:잘\s*)?(?:안|못)\s*(?:들려요?|들렸어요?|들었어요?)|(?:잘\s*)?못\s*알아\s*들어요?|소리가?\s*(?:잘\s*)?(?:안\s*들려요?|작아요?)|무슨\s*(?:말|뜻|말씀)이(?:에요|야|예요|세요)?|이해(?:가|를)?\s*(?:안\s*(?:돼|되|가)|못\s*(?:했|해))[^\s\p{P}]*|(?:천천히|다시|느리게|쉽게|크게|또박또박)\s*(?:다시\s*)?(?:말|얘기)\s*해(?:\s*봐(?:요)?)?|(?:(?:좀|더|조금만?|다시)\s*)?(?:천천히|느리게|쉽게|짧게|간단히)(?:\s*(?:좀|다시))?(?:\s*해(?:\s*(?:줘|주세요))?|요)?|너무\s*(?:빨라요?|빠르다|빠르네요?)|(?:eh|네|응|예|에|엥|어|sorry|excuse me)\s*[?？])[^\p{L}\p{N}]*$/iu.test(String(s || ''));
+      /\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+slow down\b|\bslow down,? please\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:speak|talk|say (?:it|that)|read (?:it|that)|go)(?: english)?(?: a (?:little|bit))?(?: more)? (?:slowly|slower|slow)\b|\bplease(?: more)? (?:slowly|slower|slow)\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:a (?:little|bit) )?(?:more )?(?:slowly|slower|slow|simpler|easier|shorter),? please\b|\byou(?:['’]re| are)?\s+(?:(?:talk|talking|speak|speaking)\s+(?:too|so|very|really)|too) fast\b|\byour (?:voice|talking|speaking) is (?:too|so) fast\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:say|tell me) (?:it |that )?(?:again|one more time)\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+repeat(?: (?:it|that|please|again|the question|the sentence|one more time))?\b|\bi (?:don['’]?t|do not|can['’]?t|cannot|couldn['’]?t|didn['’]?t|not) (?:really )?understand(?: (?:you|that|it|this|anything|the question|your question|the word|the sentence|english|what you(?:['’]re| are) saying|what you (?:said|mean)|what (?:that|it) means))?(?=[^\p{L}\p{N}]*$|\s*[.!?](?:\s|$)|\s*,\s*(?:sorry|please|can you|could you|say|again|teacher)\b)|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:say|speak|talk|explain)(?: it| that)? (?:more )?(?:simply|simpler|easier|more easily|shorter)\b|\b(?:you|please)\s+make it (?:simple|simpler|easy|easier|short|shorter)\b|\b(?:simple|simpler|easy|easier|short|shorter) (?:words|english|sentences?),? please\b|\b(?:can you|please) use (?:easy|easier|simple|simpler) words\b|\b(?:didn['’]?t|can['’]?t|couldn['’]?t|did not|cannot|could not|don['’]?t) hear you\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+speak (?:up|slower|louder|more slowly)\b|\bwhat (?:was|is) the question\b/iu.test(String(s || '')) ||
+      /^[^\p{L}\p{N}]*(?:(?:oh|um+|uh+|wait|아|음|(?:eh|네|응|예|에|엥|어|sorry|excuse me)\s*[?？]|wha+t?|huh|sorry|excuse me|뭐|뭐라고요?|too fast|너무\s*빨라요?)[^\p{L}\p{N}]+){0,2}(?:wha+t?|huh|pardon(?: me)?|i beg your pardon|come again|say what|what was that|what (?:did|do) you (?:say|said|mean|ask)|what did you just say|what you (?:say|said)|what does (?:it|that) mean|again\s*[?？]|(?:once )?again,? please|(?:one more time|once more)(?:\s*[?？]|,? please)|(?:please )?(?:say (?:it |that )?again|tell me again|slow down|repeat(?: (?:it|that|again|the question|the sentence|one more time))?|(?:speak|talk|say it|read it|go)(?: a (?:little|bit))?(?: more slowly| slower)|speak (?:up|louder)|explain (?:it |that )?(?:more )?simply|use (?:easy|easier|simple|simpler) words)(?:,? please)?|(?:speak|talk|say it|read it)(?: more)? slowly,? please|too fast(?: for me)?(?:,? (?:teacher|please))?|(?:you(?:['’]re| are) )?(?:talking|speaking) too fast|louder|slower|more slowly|don['’]?t understand(?:,? sorry)?|not understand|(?:a (?:little|bit) )?(?:more )?(?:slow|slower|louder|slowly|simpler|easier|shorter),? please|i (?:can['’]?t|cannot|couldn['’]?t) hear(?: you)?(?: well)?|sorry,? i (?:didn['’]?t|did not|couldn['’]?t) (?:hear|catch)(?: (?:that|it|you|what you said))?|뭐|머|뭐라고|뭐라구|뭐라고요|뭐라구요|뭐요|뭐라고\s*(?:하셨어요|하셨죠|하셨나요|했어요?|했니|했지)|다시요?|(?:다시\s*)?한\s*번\s*(?:만\s*)?(?:더\s*)?요|(?:잘\s*)?(?:안|못)\s*(?:들려요?|들렸어요?|들었어요?)|(?:잘\s*)?못\s*알아\s*들어요?|소리가?\s*(?:잘\s*)?(?:안\s*들려요?|작아요?)|무슨\s*(?:말|뜻|말씀)이(?:에요|야|예요|세요)?|이해(?:가|를)?\s*(?:안\s*(?:돼|되|가)|못\s*(?:했|해))[^\s\p{P}]*|(?:천천히|다시|느리게|쉽게|크게|또박또박)\s*(?:다시\s*)?(?:말|얘기)\s*해(?:\s*봐(?:요)?)?|(?:(?:좀|더|조금만?|다시)\s*)?(?:천천히|느리게|쉽게|짧게|간단히)(?:\s*(?:좀|다시))?(?:\s*해(?:\s*(?:줘|주세요))?|요)?|너무\s*(?:빨라요?|빠르다|빠르네요?)|(?:eh|네|응|예|에|엥|어|sorry|excuse me)\s*[?？])[^\p{L}\p{N}]*$/iu.test(String(s || '')) ||
+      /\bi (?:don['’]?t|do not) (?:really )?know what (?:(?:that|it|this|you|the (?:word|question|sentence)) (?:means?|meant|said|say)|you(?:['’]re| are) saying)(?=[^\p{L}\p{N}]*$|\s*[.!?](?:\s|$)|\s*,\s*(?:sorry|please|can you|could you|say|again|teacher)\b)/iu.test(String(s || ''));
     /* 🈚 (2026-07-27 사장님 신고) Llama 가 한국어 팁을 쓰다 중국어 단어를 섞는다
        ("💡猴子들은 바나나와 많은 과일들을 좋아해요"). 영어친구챗 답변에 한자가 정당하게
        나올 일은 없다 — 한자가 섞인 💡팁은 통째로 떼고(팁은 선택 요소·반쪽 문장을 남기지
@@ -762,9 +767,12 @@ Student text: """${text}"""`;
       /* 🐢 학생이 «다시·천천히·모르겠어요» 를 부탁했거나 말이 잘려 «다시 말해 줘» 를 시킬 턴이면, 방금 질문을 다시 묻는 것이
          요청을 들어주는 것이다 — 그 질문은 기억에서 뺀다(reask). 그 앞에 물은 질문은 그대로 막는다.
          (2026-10-28 함정 대조 실측: 「Can you say that again slowly?」 → 「Sure! Is your dog big?」 가 새 질문으로 바뀌었다.)
-         ⚠️ «요청» 판정은 정본 isReaskRequest — 아래 metaHint(aiFriendIsMetaAsk)보다 좁다(영어 «I don't know» 는 «답» 으로 본다).
-            정본이 요청이라 하면 metaHint 도 반드시 켜진다(하니스 ①-18 대조) — 판정은 «다시 물어도 된다» 인데 지시는 안 시키는 일이 없게. */
-      const reaskTurn = isReaskRequest(msg) || (aiFriendLooksCut(msg) && !aiFriendJustAskedAgain(history));
+         ⚠️ «요청» 판정은 정본 isReaskRequest — 아래 metaHint(aiFriendIsMetaAsk)와 정규식 원문이 같다(하니스 ①-18 대조).
+            정본이 요청이라 하면 metaHint 도 반드시 켜진다 — 판정은 «다시 물어도 된다» 인데 지시는 안 시키는 일이 없게.
+         🤷 (2026-11-05) «I don't know» 그 말만(isDontKnowAnswer)도 이번 턴엔 그 질문을 기억에서 뺀다 — dontKnowHint 가
+            «같은 것을 쉽게·두 개 중 고르기로» 다시 묻게 하므로 그것이 반복으로 잡히면 안 된다. */
+      const dontKnowTurn = isDontKnowAnswer(msg);
+      const reaskTurn = isReaskRequest(msg) || dontKnowTurn || (aiFriendLooksCut(msg) && !aiFriendJustAskedAgain(history));
       let qmem: ReturnType<typeof questionMemory> = null;
       try { qmem = questionMemory(questionSession(historyAll, latT0), msg, { reask: reaskTurn }); } catch (e: any) { console.warn('[chat-friend] question memory failed:', e?.message || e); }
       const repN = (t: string): number => { try { return repeatedQuestions(t, qmem).length; } catch { return 0; } };
@@ -843,8 +851,12 @@ Student text: """${text}"""`;
          ⛔ 되묻기 강제를 «없애서» 풀지 마세요 — 기초 학생은 질문이 없으면 대화가 그 자리에서
             끝납니다(2026-09-03 결정). 여기서 하는 일은 «물어본 턴에만» 대답을 먼저 시키는 것입니다. */
       const studentAsked = aiFriendStudentAsked(msg);
+      /* 🙋 (2026-11-05 사장님 「F1~F5 진행」) 첫마디 줄(THIS TURN'S OPENER)과 «무엇보다 먼저 대답» 이 같은 첫 자리를 다퉜다 —
+         「What about you?」 에 대답한 것이 10/21 이후 4번 중 1번(실측). 이제 «첫마디는 두어 낱말까지, 그다음 문장이 곧 대답» 으로
+         자리를 나누고, 되묻기(What/How about you?)는 «같은 질문을 AI 자신에 대해» 답하라고 못 박는다.
+         ⛔ 예문을 문장째 주지 말 것 — 모델이 그대로 베낀다(그래서 «your own favorite, your own day» 처럼 틀만 준다). */
       const answerRule = studentAsked
-        ? '- 🔴 THE STUDENT JUST ASKED YOU SOMETHING. Answer it first, in one short sentence, before anything else. Answering matters more than the cheer — drop the cheer if you need the room. Never reply to a question by only asking another question.\n'
+        ? '- 🔴 THE STUDENT JUST ASKED YOU SOMETHING. Answer it in your FIRST sentence — only the short opener (if any) may come before it. If they ask "What about you?" or "How about you?", answer that same question about YOURSELF. Answering matters more than the cheer — drop the cheer if you need the room. Never reply to a question by only asking another question.\n'
         : '';
       const askRule = lvSpec.plain
         ? (studentAsked
@@ -884,10 +896,11 @@ ${AVATAR_NATURAL_OPENERS}\n${connectorCtx ? connectorCtx + '\n' : ''}- Use 1-2 f
 - If the student writes Korean, warmly invite them to try English and give one simple example sentence they can copy.
 - NEVER write Korean inside "reply". Do not translate your own English, and do not add a grammar tip there — corrections go in the "fix" field below, which the student sees as its own card. Showing Korean next to the English stops them from reading the English at all, and they have a separate button for the meaning.
 - NEVER use Chinese characters (한자) or Japanese anywhere.
-${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Use it naturally sometimes, and cheer loudly if the student uses it.
+${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Use it only when it fits the talk — never force it into an unrelated sentence or use it after sad news; skipping it is fine. Cheer loudly if the student uses it.
 - NEVER repeat a reply you already gave. Every reply must be new — new words, a new question.
 ${askedLine}- A short answer is a GOOD answer. "Yes.", "Movies!", "I like it." are complete — just reply happily and keep the chat going. Only ask them to repeat when the message truly breaks off mid-word ("I", "and my"), and NEVER ask twice in a row: if your last reply already asked them to repeat, answer whatever you did understand this time.
-- If the student asks you to slow down, repeat, or speak more simply (in English or Korean), FIRST say yes to that request and then do it — use shorter, easier sentences right away. Never ignore the request and carry on with your own topic.
+- If the student asks you to slow down, repeat, or speak more simply (in English or Korean), FIRST agree to that request and then do it — use shorter, easier sentences right away, but keep every sentence complete and correct. Never ignore the request and carry on with your own topic.
+- "I don't know" means they don't know the answer, not "slow down": help with the same question (easier words or two choices). If they add something else, follow that.
 - Never break character. Never say you are an AI. Never use words far above the student's level.
 ${AI_FRIEND_CORRECTION_RULE}
 ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
@@ -907,8 +920,13 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
         ? ` [The student's message is very short or cut off — do NOT guess and do NOT repeat your last reply. Reply in ONE short line and ask them to say the whole sentence again.]`
         : (aiFriendLooksCut(msg)
           ? ` [You already asked them to repeat last time — do NOT ask again. Warmly answer whatever you did understand and ask ONE easy question.]` : '');
+      /* 🔴 (2026-11-05 실측) 옛 문구 「much shorter and easier words」 를 모델은 «문법 낱말을 버려라» 로 읽었다 —
+         「Yes! You like bike. Do you ride bike today?」·「You like movie. What movie?」. 짧게 하되 «완전한 문장» 을 함께 못 박는다. */
       const metaHint = aiFriendIsMetaAsk(msg)
-        ? ` [The student is asking you to slow down / repeat / speak more simply. Say yes to that first, then answer again in much shorter and easier words.]` : '';
+        ? ` [The student is asking you to slow down / repeat / speak more simply, or did not understand you. Agree in a word or two first (for example "Sure!"), then say it again in shorter, easier words — but keep every sentence complete and correct: never drop little words like "do", "a" or "the".]`
+        : (dontKnowTurn
+          ? ` [The student does not know the answer to your last question. That is okay — say so kindly, then ask the same thing again in an easier way, with two choices to pick from. Use complete, correct sentences and stay on the same topic.]`
+          : '');
       messages.push({ role: 'user', content: msg + cutHint + metaHint });
 
       // env.AI 가 binding 안되어 있을 가능성 방어
@@ -1002,7 +1020,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       let streamTried = false;
       /* 🎚️ (2026-11-03) 이 턴의 계획 — 규칙으로 잡힌 교정·칭찬 위험·균형 «다시 묻기» 여부(순수 함수, 던지지 않음).
          ⚠️ 잘린 말·«천천히 말해 줘» 같은 부탁은 교정할 문장이 아니다(cut). */
-      const turnPlan = planFriendTurn(friendMode, msg, { cut: aiFriendLooksCut(msg) || aiFriendIsMetaAsk(msg) });
+      const turnPlan = planFriendTurn(friendMode, msg, { cut: aiFriendLooksCut(msg) || aiFriendIsMetaAsk(msg) || dontKnowTurn });   // «I don't know» 그 말만은 교정할 문장이 아니다(예전처럼 다시 묻기 안 함 — 속도 그대로)
       /* 🔁 미리듣기 멈춤 — 이 대화에서 이미 물은 질문이 나오면 그 문장부터 안 흘려보낸다(최종본은 아래에서 다시 뽑힌다).
          안 멈추면 학생이 같은 질문을 «먼저 듣고», 그다음 바뀐 답을 또 듣는다.
          ⚠️ 시간 예산을 넘긴 턴은 다시 안 뽑으니 멈추지도 않는다(웜업 createWarmupLive 와 같은 규칙).

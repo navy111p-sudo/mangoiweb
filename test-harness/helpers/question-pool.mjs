@@ -122,6 +122,9 @@ export function talkKit(M, hintRe) {
     /* 고른 주제를 다 물으면 다른 주제로 넘어간다 — 실제 모델은 새 질문을 늘 지어낼 수 있으니 «물을 것이 바닥난» 상황은 만들지 않는다. */
     const topics = first.concat(Object.keys(POOL).filter((t) => !first.includes(t)));
     const covered = new Set();   // 정답 표 기준 «이미 다룬 개념»
+    /* 🤷 (2026-11-05) 학생이 «I don't know.» 그 말만 했으면 그 질문은 «아직 답하지 않은 것» — 바로 다음 AI 턴은 그것을 쉽게 다시 물어도 된다
+       (정본 question-memory.ts isDontKnowAnswer · 첫마디 «모름» 칸 «ask it again more easily»). 그 다음 턴부터는 다룬 것이다. */
+    let pending = [];
     let topicAt = 0;
     const newQ = () => {
       for (let t = topicAt; t < topics.length; t++) {
@@ -138,16 +141,21 @@ export function talkKit(M, hintRe) {
       first() { const repeat = covered.size && r() < drift; const q = (repeat ? oldQ() : null) || newQ() || oldQ(); return reply(q); },
       retry(msgs) { const hinted = hintRe.test(msgs[msgs.length - 1].content); const q = (hinted && r() < obey ? newQ() : oldQ()) || newQ(); return reply(q); },
       answer(aiText) {
+        for (const id of pending) covered.add(id);   // 지난 턴 «I don't know» 의 질문 — 이제는 다룬 것
+        pending = [];
         const qs = M.questionsIn(aiText).map((q) => [q, cidOf(q)]).filter((x) => x[1]);
         let said = pick(r, GENERIC);
+        const ids = [];
         for (const [, id] of qs) {
           const [t, c] = id.split('.');
-          covered.add(id);
-          for (const im of POOL[t][c].imply || []) covered.add(t + '.' + im);
+          ids.push(id);
+          for (const im of POOL[t][c].imply || []) ids.push(t + '.' + im);
           const pool = ANSWERS[c];
           if (pool) said = pick(r, pool);
           for (const rv of said[1]) covered.add(t + '.' + rv);
         }
+        if (/^i don't know\.?$/i.test(said[0])) pending = ids;
+        else for (const id of ids) covered.add(id);
         return said[0];
       },
     };
