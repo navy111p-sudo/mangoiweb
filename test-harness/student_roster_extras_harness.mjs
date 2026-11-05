@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /* ═══════════════════════════════════════════════════════════════════════════
    💰📅 학생 목록 «최근 결제»·«다음 수업» 칸 — 정본 실행 + 무작위 샌드박스 (2026-10-13)
    ───────────────────────────────────────────────────────────────────────────
@@ -78,14 +79,15 @@ ok(!!(M && M.pickLastPayments && M.pickNextClass && M.attachRosterExtras), '전�
 if (!M) { console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL}`); process.exit(1); }
 
 // ── 요일 정본(admDowMatches)을 api-admin.ts 에서 오려 낸다 ──
-const ADMIN = rd(resolve(SRC, 'api-admin.ts'));
+const ADMIN = readAdminModuleGraph(file => rd(resolve(SRC, "" + file)));
 let admDowMatches = null;
 {
   const a = ADMIN.indexOf('const ADM_DOW_MAP');
   const fi = ADMIN.indexOf('function admDowMatches(', a);
   let i = ADMIN.indexOf('{', fi), d = 0, e = i;
   for (; e < ADMIN.length; e++) { if (ADMIN[e] === '{') d++; else if (ADMIN[e] === '}' && --d === 0) break; }
-  const block = stripTypeScriptTypes(ADMIN.slice(a, e + 1));
+  const block = stripTypeScriptTypes(ADMIN.slice(a, e + 1))
+    .replace('export function admDowMatches(', 'function admDowMatches(');
   try { admDowMatches = new Function(block + '\nreturn admDowMatches;')(); } catch (er) { console.log('  dow 오려내기 실패 ' + er.message); }
 }
 ok(typeof admDowMatches === 'function' && admDowMatches('Mon', 1) && admDowMatches('1,3', 3) && admDowMatches('목', 4) && !admDowMatches('x', 1),

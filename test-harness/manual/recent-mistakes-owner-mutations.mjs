@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 /**
  * 🧪 recent_mistakes_reuse_harness 의 «웜업 최근 실수 본인 확인» 절 변이시험 (2026-10-19) — 사람이 부릅니다.
  *
@@ -12,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '../..');
 const HARNESS = path.join(ROOT, 'test-harness/recent_mistakes_reuse_harness.mjs');
 const IDX = path.join(ROOT, 'cloudflare-deploy/src/index.ts');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'rm-mut-'));

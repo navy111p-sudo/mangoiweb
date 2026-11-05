@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 🎥 녹화 목록이 «사실» 을 말하는지 감시 — 2026-08-28
 //
 // [무엇이 문제였나]
@@ -33,7 +34,7 @@ const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/
 const CORE  = rd('../cloudflare-deploy/public/js/adm-core.js');
 const MANGO = rd('../cloudflare-deploy/src/api-mango.ts');
 const ADMIN = rd('../cloudflare-deploy/public/admin.html');
-const APIADM = rd('../cloudflare-deploy/src/api-admin.ts');
+const APIADM = readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile));
 
 /* ══ ① 재생 칸 문구 — 소스에서 오려 내 «실제로 돌린다» ══════════════════════ */
 console.log('\n① 재생 칸 문구 — 상태마다 사실을 말하는가 (판정부를 실행)');

@@ -5,12 +5,12 @@
    ④ 듣기 문제는 답 전에 사진을 안 보여 준다(그림으로 맞히기 방지) · 뜻 문제는 보여 준다(짝) */
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pub = path.join(root, 'cloudflare-deploy/public');
 let pass = 0, fail = 0;
 const ok = (name, cond, extra) => { if (cond) { pass++; } else { fail++; console.log('❌ FAIL ' + name + (extra ? ' — ' + extra : '')); } };
-const { collect, PREFIX, quizPlanOk, QUIZ_PLAN } = await import(path.join(root, 'scripts/build-word-pictures.mjs'));
+const { collect, PREFIX, quizPlanOk, QUIZ_PLAN } = await import(pathToFileURL(path.join(root, 'scripts/build-word-pictures.mjs')).href);
 const file = path.join(pub, 'data/word-pictures.json');
 const committed = JSON.parse(fs.readFileSync(file, 'utf8'));
 const fresh = collect(path.join(pub, 'data/scene-curriculum/v1'));

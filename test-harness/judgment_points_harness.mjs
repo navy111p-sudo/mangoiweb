@@ -1,8 +1,9 @@
+import { fileURLToPath } from 'node:url';
 // 🪙 판단력 훈련 정답 2P (2026-11-02) — 정본 awardJudgmentPoint 를 진짜 SQLite 로 실제 실행 + 화면 judgPtsView 실행
 import fs from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { DatabaseSync } from 'node:sqlite';
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('..', import.meta.url));
 let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) pass++; else { fail++; console.log('❌ FAIL', n); } };
 const tsSrc = fs.readFileSync(root + 'cloudflare-deploy/src/judgment-points.ts', 'utf8');

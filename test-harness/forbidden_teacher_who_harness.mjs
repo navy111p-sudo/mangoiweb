@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /*
  * forbidden_teacher_who_harness.mjs — 「강사 권한으로는 …」 거절이 «지금 로그인한 계정» 을 말하는가
  *   (2026-09-11 신설 — 사장님 지시 「강사 계정 문구에 계정 이름도 같이 넣어줘」)
@@ -172,7 +173,7 @@ check('중앙 게이트가 고치기 전 문구를 그대로 넘긴다',
   /_teacherBlocked[\s\S]{0,900}?'강사 권한으로는 볼 수 없는 정보입니다\.'/.test(idx));
 
 /* 순수 게이트 둘 — 그 «호출부» 가 forbidden_teacher 일 때 헬퍼로 바꿔 주는가 */
-const adm = stripComments(read(join(SRC, 'api-admin.ts')));
+const adm = stripComments(readAdminModuleGraph(adminModuleFile => read(join(SRC, adminModuleFile))));
 check('textbookPurgeGate 호출부가 강사일 때 헬퍼로 답한다',
   /gate\.error === 'forbidden_teacher'\s*\?\s*forbiddenTeacherBody\(/.test(adm));
 check('teacherMoveDenyReason 호출부가 강사일 때 헬퍼로 답한다',

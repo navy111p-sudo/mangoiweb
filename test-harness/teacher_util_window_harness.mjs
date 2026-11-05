@@ -17,7 +17,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { stripTypeScriptTypes } from 'node:module';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-const SRC = process.env.UTIL_SRC || resolve(__dir, '../cloudflare-deploy/src/api-admin.ts');
+const SRC = process.env.UTIL_SRC || resolve(__dir, '../cloudflare-deploy/src/api-admin-stats.ts');
 const src = readFileSync(SRC, 'utf8');
 
 let PASS = 0, FAIL = 0;

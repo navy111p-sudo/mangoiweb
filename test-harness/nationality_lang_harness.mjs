@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🧪 국적 기반 화면 언어 + 강사 비번 재설정 하니스 (2026-07-23)
 //   실행:  node test-harness/nationality_lang_harness.mjs
@@ -25,7 +26,7 @@ function check(name, cond) {
 }
 
 const AUTH  = read('cloudflare-deploy/src/auth-admin.ts');
-const ADMTS = read('cloudflare-deploy/src/api-admin.ts');
+const ADMTS = readAdminModuleGraph(adminModuleFile => read("cloudflare-deploy/src/" + adminModuleFile));
 const IDX   = read('cloudflare-deploy/src/index.ts');
 const BOOT  = read('cloudflare-deploy/public/js/adm-lang-boot.js');
 const LOGIN = read('cloudflare-deploy/public/admin/login.html');

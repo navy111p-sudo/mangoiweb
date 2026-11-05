@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // ⏱ 주간 스케줄 — 10분 단위 · 수업시간 옵션 · 매니저 시간제한 우회 하니스 — 2026-08-12
 //
 //   사장님 수정요청 3건(프롬프트 블럭 #2·#3·#4)이 전부 admin/weekly-schedule.html 한 파일에 있다.
@@ -269,7 +270,7 @@ console.log('\n════════ 4부. LMS·시드 칸에 수업을 넣�
    ⛔ 이 검사들은 «지나치게 많이 지우는» 쪽을 막는 것이다. 느슨하게 고치지 말 것. */
 console.log('\n════ 5부. LMS·시드 일괄 정리 API 의 안전장치 ════');
 {
-  const api = readFileSync(join(ROOT, 'cloudflare-deploy', 'src', 'api-admin.ts'), 'utf8');
+  const api = readAdminSourceFromFile(join(ROOT, 'cloudflare-deploy', 'src', 'api-admin.ts'));
   const i = api.indexOf("path === '/api/admin/class-schedules/purge-placeholders'");
   const blk = i > 0 ? api.slice(i, i + 3500) : '';
   check('일괄 정리 API 가 있다', !!blk);
@@ -365,7 +366,7 @@ console.log('\n════ 6부. 수업 «만들기» 가 서버에 저장되�
 
   /* 수업 종류 매핑 — 서버 허용목록과 «함께» 본다. 한쪽만 늘리면 조용히 regular 가 된다
      (CLAUDE.md 2장 「화면에서 골랐는데 그 값만 저장이 안 됨」 과 같은 뿌리). */
-  const api2 = readFileSync(join(ROOT, 'cloudflare-deploy', 'src', 'api-admin.ts'), 'utf8');
+  const api2 = readAdminSourceFromFile(join(ROOT, 'cloudflare-deploy', 'src', 'api-admin.ts'));
   const allow = /\['regular', 'trial', 'level_test', 'makeup'\]\.includes\(String\(body\.class_type/.test(api2);
   check('서버의 class_type 허용목록을 찾았다', allow);
   const mapped = [...(src.match(/SLOT_TYPE_TO_CLASS_TYPE=\{[^}]*\}/) || [''])[0].matchAll(/:'([a-z_]+)'/g)].map(m => m[1]);

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /* schedule_once_and_sched_col_harness — 2026-09-21
  *
  * [왜] 사장님 제보 셋을 고친 뒤 되돌아가지 않게 못 박는다(jeong · 활성 예약 5건).
@@ -215,7 +216,7 @@ ok('렌더가 날짜를 다시 재지 않는다(정본은 mgsOnceInfo 한 곳)',
    ══════════════════════════════════════════════════════════════ */
 console.log('\n① 학생 명부 «예약» 칸 — 서버가 싣고 화면이 옮기는가');
 
-const ADMIN = rd('cloudflare-deploy/src/api-admin.ts');
+const ADMIN = readAdminModuleGraph(adminModuleFile => rd("cloudflare-deploy/src/" + adminModuleFile));
 const uniI = ADMIN.indexOf("path === '/api/admin/students/unified'");
 const uniBlock = uniI >= 0 ? braceBlock(ADMIN, uniI) : '';
 ok('[전제] unified 라우트 블록을 오려 냈다', uniBlock.length > 500);

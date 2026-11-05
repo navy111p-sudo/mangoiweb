@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /**
  * Independent schedule lifecycle QA. Only ephemeral in-memory SQLite and fake KV.
  * Actual Worker router, authentication, admin/student/teacher handlers and SQL.
@@ -99,7 +100,7 @@ if (process.env.SLS_CHILD === '1') {
   const { getScope } = await imp('scope.ts');
 
   const readSrc = (f) => readFileSync(join(SRC, f), 'utf8');
-  const adminSrc = readSrc('api-admin.ts');
+  const adminSrc = readAdminModuleGraph(adminModuleFile => readSrc(adminModuleFile));
 
   const BASE = 'https://mangoi.ai';
   const req = (method, path, { cookie, body, bearer } = {}) => {

@@ -1598,6 +1598,21 @@
     var u = s && s.undo;
     if (!u || !s.schedule_id || !tcCanMessage()) return '';
     if (u.ok !== true && u.historical_available !== true) {
+      /* ↩ (2026-11-06 사장님 «원래 시각이 지났어도 되돌리기 옵션») 새 자리가 «그 뒤 취소» 됐고 아직 시작 전이면 이 줄에서 바로
+         그 수업을 새 자리에 다시 연다 — 판정은 서버(u.restore_cancelled_available · 정본 judgeMovedAwayUndo), 실행은 대상 행
+         (u.target_id)에 action:'restore'(.tc-restore-pin → tcRestorePostponed, 새 날짜 줄의 «↩ 취소 수업 복원» 과 같은 엔진).
+         data-back 이 있으면 확인창이 «원래 시각 · 그 뒤 취소» 를 함께 말한다. 지난 원래 시각에는 열지 않는다. */
+      if (u.restore_cancelled_available === true && u.target_id) {
+        var at = (String(u.target_date || '') + ' ' + (u.target_time || '')).trim();
+        var orig = (String(u.from_date || '') + ' ' + (u.from_time || '')).trim();
+        return '<span class="tc-restore-pin" role="button" tabindex="0" data-sid="' + esc(u.target_id) + '" '
+          + 'data-name="' + esc(s.student_name || s.student_uid || '') + '" data-when="' + esc(at + ' KST') + '" '
+          + 'data-back="' + esc(orig) + '" data-past="' + (u.reason === 'orig_passed' ? '1' : '0') + '" data-undo="' + (u.reason === 'target_not_active' ? '1' : '0') + '" '
+          + 'title="' + esc(T('그 뒤 취소된 수업을 ' + at + ' 에 다시 엽니다', 'Reopen the later-cancelled class at ' + at)) + '" '
+          + 'style="cursor:pointer;display:inline-block;white-space:nowrap;margin-left:4px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
+          + 'background:#fff7ed;color:#b45309;border:1px solid #fcd9a8">'
+          + esc(T('↩ 수업 복원 · ' + (tcMd(u.target_date) + ' ' + (u.target_time || '')).trim(), '↩ Restore class · ' + (tcMd(u.target_date) + ' ' + (u.target_time || '')).trim())) + '</span>';
+      }
       var w = TC_UNDO_WHY[u.reason] || TC_UNDO_WHY.no_target;
       return '<span style="display:inline-block;margin-left:4px;color:#475467;font-size:11px">' + esc(T(w[0], w[1])) + '</span>';
     }
@@ -1654,13 +1669,32 @@
     if (err === 'not_moved' || err === 'no_move_record' || err === 'schedule_changed') { try { window.tcLoadToday(); } catch (e) {} }
   }
 
+  /* ↩ (2026-11-06) «다른 날로 옮김» 줄의 «수업 복원» 이 거절됐을 때의 사람 말 — manager.html taRestoreMoved 와 같은 뜻. */
+  function tcMovedRestoreWhy(err, when, j) {
+    return (err === 'slot_taken' || err === 'conflict') ? T(when + ' 에 학생이나 강사의 다른 수업이 이미 있습니다. 새 날짜에서 다른 시각으로 잡아 주세요.', 'The student or teacher already has another class at ' + when + '. Rebook it from the new date instead.')
+      : err === 'teacher_unavailable' ? T(when + ' 은 강사의 휴가·근무불가 시간입니다.', 'The teacher is on leave or unavailable at ' + when + '.')
+      : err === 'past_date' ? T('새 시각이 이미 시작해 복원할 수 없습니다.', 'The new time has already started, so it cannot be restored.')
+      : err === 'class_already_attended' ? T('이 수업에 이미 출석 기록이 있어 복원할 수 없습니다. 이력을 확인해 주세요.', 'This class already has attendance records. Please check its history.')
+      : (err === 'not_cancelled' || err === 'schedule_changed' || err === 'schedule_not_found') ? T('그 사이 수업이 바뀌었습니다. 목록을 새로고침합니다.', 'The class changed in the meantime. Refreshing the list.')
+      : (j && (j.message || j.error)) ? String(j.message || j.error)
+      : T('복원하지 못했습니다. 잠시 후 다시 시도해 주세요.', 'Could not restore. Please try again shortly.');
+  }
   /* ↩ 연기 취소 — 서버가 «왜 안 되는지» 를 말하면 그 사유를 사람 말로 보여 준다(조용히 실패하지 않는다). */
   async function tcRestorePostponed(el) {
     if (!el || el._busy) return;
     var sid = el.getAttribute('data-sid');
     var who = el.getAttribute('data-name') || '';
     var when = el.getAttribute('data-when') || '';
-    if (!confirm(T('수업을 복원할까요?\n\n' + who + ' · ' + when + '\n\n· 원래 날짜·시각에 활성 수업으로 복원되어 정상 출석·과금 규칙이 적용됩니다. 기존 출석·결제·급여 기록은 바뀌지 않습니다.',
+    /* ↩ (2026-11-06) «다른 날로 옮김» 줄에서 누른 경우(data-back) — 원래 시각이 아니라 «옮겨 간 새 시각» 에 다시 연다는 것을 말한다. */
+    var back = el.getAttribute('data-back') || '', past = el.getAttribute('data-past') === '1', canUndo = el.getAttribute('data-undo') === '1';
+    if (back) {
+      /* 마지막 줄은 «사실인 것만» — 원래 시각이 지났으면 «거기엔 못 연다», 원래 시각을 알고 아직 미래면 «↩ 원래대로» 안내,
+         원래 시각을 모르면(no_time) 아무 약속도 하지 않는다(복원 뒤에도 «원래대로» 가 안 나온다). */
+      var tailKo = past ? '\n· 원래 시각(' + back + ')은 이미 지나 그 자리에는 다시 열 수 없습니다.' : canUndo ? '\n· 그 뒤 원래 시각(' + back + ')으로 옮기려면 이 줄의 «↩ 원래대로» 를 누르세요.' : '';
+      var tailEn = past ? '\n· The original time has passed, so it cannot reopen at ' + back + '.' : canUndo ? '\n· To move it back to ' + back + ' afterwards, use «↩ Undo move» on this row.' : '';
+      if (!confirm(T('수업을 복원할까요?\n\n' + who + ' · ' + when + '\n(' + back + ' 에서 연기 → 그 뒤 취소됨)\n\n· ' + when + ' 에 다시 열린 수업이 되어 정상 출석·과금 규칙이 적용됩니다.\n· 기존 출석·결제·급여 기록은 바뀌지 않습니다.' + tailKo,
+                     'Restore this class?\n\n' + who + ' · ' + when + '\n(postponed from ' + back + ', later cancelled)\n\n· It becomes an active class again at ' + when + ' and normal attendance and billing rules apply.\n· Existing attendance, payments and payroll records are unchanged.' + tailEn))) return;
+    } else if (!confirm(T('수업을 복원할까요?\n\n' + who + ' · ' + when + '\n\n· 원래 날짜·시각에 활성 수업으로 복원되어 정상 출석·과금 규칙이 적용됩니다. 기존 출석·결제·급여 기록은 바뀌지 않습니다.',
                    'Restore this class?\n\n' + who + ' · ' + when + '\n\n· The class becomes active at this time and normal attendance and billing rules apply. Existing attendance, payments and payroll records are unchanged.'))) return;
     el._busy = true;
     var old = el.textContent;
@@ -1669,7 +1703,7 @@
     try {
       var r = await fetch('/api/admin/class-schedules/' + encodeURIComponent(sid), {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'restore', reason: '연기 취소 (오늘 수업 화면)' })
+        body: JSON.stringify({ action: 'restore', reason: back ? 'Restore cancelled class (moved-away row)' : '연기 취소 (오늘 수업 화면)' })
       });
       httpOk = r.ok;
       j = await r.json().catch(function () { return null; });
@@ -1681,6 +1715,12 @@
     }
     el.textContent = old;
     var err = j && j.error;
+    if (back) {   // «다른 날로 옮김» 줄에서 누른 복원 — 이 줄에 맞는 말(새 날짜 줄용 «📅 새 날짜로»·«연기 상태» 문구를 쓰지 않는다)
+      var mstale = err === 'not_cancelled' || err === 'schedule_changed' || err === 'schedule_not_found';
+      alert('↩ ' + tcMovedRestoreWhy(err, when, j));
+      if (mstale) { try { window.tcLoadToday(); } catch (e) {} }
+      return;
+    }
     var why = err === 'slot_taken' ? T('그 시각에 이미 다른 수업이 잡혀 있습니다. 「📅 새 날짜로」로 다른 시각을 고르세요.', 'Another class already uses that time slot. Use «📅 Rebook» to pick another time.')
       : err === 'past_date' ? T('원래 시각이 이미 시작했거나 지난 수업은 되돌릴 수 없습니다. 「📅 새 날짜로」로 다시 잡아 주세요.', 'This class\'s original time has already started or passed, so it cannot be restored. Use «📅 Rebook» to pick a new date.')
       : err === 'weekly_row' ? T('매주 반복 수업은 시간표에서 고쳐 주세요.', 'Weekly classes must be fixed in the timetable.')

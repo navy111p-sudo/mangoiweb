@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /* 🔒 org_scope_guard_harness — 지사·대리점 계정 차단 (2026-09-22)
  *
  * 지키는 것
@@ -116,7 +117,7 @@ const wiredGuard = (blk, denyVar) =>
 /* ── ② 학생 랭킹 ── */
 console.log('\n② 학생 랭킹 — /api/admin/stats/student-rankings');
 {
-  const t = stripComments(read('api-admin.ts'));
+  const t = stripComments(readAdminModuleGraph(adminModuleFile => read(adminModuleFile)));
   const a = t.indexOf("path === '/api/admin/stats/student-rankings'");
   check('②-0 전제: 라우트를 찾았다', a > 0);
   const body = a > 0 ? braceBlock(t, t.indexOf('{', a)) : '';

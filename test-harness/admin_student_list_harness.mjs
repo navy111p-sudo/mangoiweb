@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🐢 관리자 학생목록 안정화 하네스 (2026-08-05)
 //   실행: node test-harness/admin_student_list_harness.mjs
@@ -110,7 +111,7 @@ check('그래프 폴백 상태변수가 남아 있지 않다 (죽은 코드 금�
 check('출처 라벨이 항상 D1 이다 (없는 출처를 «그래프DB 실데이터» 로 광고하지 않는다)',
   !/그래프DB 실데이터/.test(core));
 check('⚠️ 그래도 서버 엔드포인트는 지우지 않았다 (진단·다른 화면용)',
-  /path === '\/api\/admin\/students\/graph-list'/.test(rd('../cloudflare-deploy/src/api-admin.ts')));
+  /path === '\/api\/admin\/students\/graph-list'/.test(readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile))));
 check('왜 뺐는지 근거가 코드에 남아 있다 (되살릴 사람이 읽어야 한다)',
   /가입일\(created_at\) · 수강신청\(enroll_package\) · 세션수\(sessions\) · 최근방문\(last_seen\)/.test(core));
 
@@ -158,7 +159,7 @@ check('bindStudentList 에서 btn 을 선언한다',
    (실측 결과: 12.6만 행·74ms / 검색 9.7만 행·51ms. 결과 집합은 옛 쿼리와 행 단위로 동일) */
 console.log('\n[ ⑦ 서버 쿼리 — 학생 한 명마다 테이블을 다시 훑지 않기 (2026-08-13 #01) ]');
 {
-  const adminTs = rd('../cloudflare-deploy/src/api-admin.ts');
+  const adminTs = readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile));
   // 핸들러 «전체» 를 본다 — 고정 길이로 자르면 주석이 길어질 때 뒷부분이 잘려
   // 있지도 않은 것을 «없다» 로 읽고 헛통과·헛실패한다(실제로 한 번 겪음).
   const i = adminTs.indexOf(`path === '/api/admin/students/unified'`);

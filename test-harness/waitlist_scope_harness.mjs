@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🪑 대기자 명단 지사·대리점 격리 하니스 (의존성 없음 · node 로 바로 실행)
 //   실행:  node test-harness/waitlist_scope_harness.mjs
@@ -175,7 +176,7 @@ console.log('\n  E. D1 바인드 100개 한도 — 지사가 늘어도 조용히
 
 console.log('\n  F. 회귀 감시 — api-admin.ts 에서 격리가 빠지면 잡는다');
 {
-  const txt = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const txt = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
   const i = txt.indexOf(`'/api/admin/stats/waitlist'`);
   // 블록 끝 = 다음 라우트 시작. 넉넉히 뒤까지 보되 파일 끝을 넘지 않는다.
   const blk = i < 0 ? '' : txt.slice(i, i + 9000);

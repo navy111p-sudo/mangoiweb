@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 /*
  * ⏸ 연기된 회차가 «오늘 열리지 않게» — 네 곳 + 다시 잡기 (2026-10-01)
@@ -164,7 +165,7 @@ console.log('\nG. 다음 수업 · 수업 관찰 · 내 수업 카드');
   const TH = strip(R('public/teacher.html'));
   const n = TH.indexOf('if (c.absence_hold) continue;');
   ok('teacher.html «다음 수업» 띠: 연기·취소를 건너뛴다', n > 0 && /if \(c\.class_state === 'postponed' \|\| c\.class_state === 'cancelled'\) continue;/.test(TH.slice(n, n + 400)));
-  const AS = strip(R('src/api-admin.ts'));
+  const AS = strip(readAdminModuleGraph(adminModuleFile => R("src/" + adminModuleFile)));
   ok('classes-now: status 를 싣고 연기 회차를 거른다', /cs\.duration_min, cs\.status, cs\.teacher_id\$\{_soSelCn\}/.test(AS) && /schedRows = \(\(rs2\.results \|\| \[\]\) as any\[\]\)\.filter\(\(r: any\) => !isPostponedOccurrence\(r\)\);/.test(AS));
   const MS = strip(R('src/api-mango.ts'));
   const i = MS.indexOf('const runMsPass = async');
@@ -175,7 +176,7 @@ console.log('\nG. 다음 수업 · 수업 관찰 · 내 수업 카드');
 
 // ── C. 오늘 수업 목록: 식을 실제로 평가 ──
 console.log('\nC. /api/admin/classes/today');
-const ADM = R('src/api-admin.ts');
+const ADM = readAdminModuleGraph(adminModuleFile => R("src/" + adminModuleFile));
 const ADM_S = strip(ADM);
 {
   const i = ADM_S.indexOf("path === '/api/admin/classes/today'");

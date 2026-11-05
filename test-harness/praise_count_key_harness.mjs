@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /* ═══════════════════════════════════════════════════════════════════════════
    ⭐ 「수업 중 칭찬 횟수」가 늘 0이던 것 감시 (2026-09-01 신설)
 
@@ -48,7 +49,7 @@ function strip(src) {
 
 const policy = strip(readFileSync(join(SRC, 'point-policy.ts'), 'utf8'));
 const points = strip(readFileSync(join(SRC, 'api-points.ts'), 'utf8'));
-const admin = strip(readFileSync(join(SRC, 'api-admin.ts'), 'utf8'));
+const admin = strip(readAdminSourceFromFile(join(SRC, 'api-admin.ts')));
 
 console.log('\n[ A. 세는 자리가 «한 곳» 이다 — 복사돼 있었기 때문에 둘 다 틀렸다 ]');
 {

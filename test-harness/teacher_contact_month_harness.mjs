@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 2026-10-27 강사·매니저 제안 세 건 — «실제로 돌려서» 본다.
 //   ① 강사 화면 연락처: 정본 loadContactPhones(notify-contacts.ts) — 받아 둔 번호 → 명부 → 이탈위험 스냅샷
 //   ② 관리자 «오늘 수업» 시간 칸: 16:00 → «4:00pm – 4:20pm» (KST 12시간제, 시작–끝)
@@ -201,7 +202,7 @@ const tc = rd(resolve(PUB, 'js/adm-today-classes.js'));
   ok(ctx.kstRange({ start_ts: NaN }) === '-', '(짝) 시작을 모르면 «-»');
   ok(ctx.kstRange({ ...S('2026-10-27T07:00:00Z', '2026-10-27T07:30:00Z'), end_known: false }) === '4:00pm',
     '카페24 줄의 끝을 서버가 지어냈으면(end_known=false) 시작만 그린다');
-  const aapi = rd(resolve(SRC, 'api-admin.ts'));
+  const aapi = readAdminModuleGraph(adminModuleFile => rd(resolve(SRC, adminModuleFile)));
   ok(/end_known: !!Number\(r\.left_at\)/.test(aapi) && /const end_ts = Number\(r\.left_at\) \|\| \(start_ts \+ 30 \* 60000\);/.test(aapi),
     '서버가 카페24 줄에 «끝을 아는가» 를 싣는다(left_at 이 없으면 끝은 지어낸 값)');
   ok(!/\d{2}:\d{2}/.test(ctx.kstRange(S('2026-10-27T11:00:00Z', '2026-10-27T11:25:00Z'))), '24시간제(20:00) 글자가 안 나온다');

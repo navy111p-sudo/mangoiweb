@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /**
  * 취소한 수업이 «사라지지 않고» 취소·연기 상태로 남는가 — 샌드박스 끝-끝 검사 (2026-11-03)
  * ─────────────────────────────────────────────────────────────────────────────
@@ -74,7 +75,7 @@ if (process.env.CCV_CHILD === '1') {
   const { handleTeacherApi } = await imp('api-teacher.ts');
   const { checkAdminSession } = await imp('auth-admin.ts');
   const { getScope } = await imp('scope.ts');
-  const adminSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const adminSrc = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
 
   const BASE = 'https://mangoi.ai';
   const req = (method, path, { cookie, body } = {}) => {

@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // vc_lowstep_relay_harness.mjs — 「교사 화면이 안 보인다」 재발 방지 (2026-08-21)
 //   실행: node test-harness/vc_lowstep_relay_harness.mjs
@@ -34,7 +35,7 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const R = (p) => readFileSync(resolve(__dir, p), 'utf8');
 const MAIN  = R('../cloudflare-deploy/public/js/idx-main.js');
 const MANGO = R('../cloudflare-deploy/src/api-mango.ts');
-const ADMIN = R('../cloudflare-deploy/src/api-admin.ts');
+const ADMIN = readAdminModuleGraph(adminModuleFile => R("../cloudflare-deploy/src/" + adminModuleFile));
 // 부정 검사는 주석을 벗겨 낸 사본으로 (자기 설명 주석에 걸리는 사고 방지)
 const CODE = MAIN.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 

@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /**
  * retention_purge_harness — 녹화 «실제 파기» 계약 검사
  *
@@ -269,7 +270,7 @@ console.log('\n⑩ 보관기간을 «여러 곳이 서로 같은 말을 하는�
   ok('녹화 화면 문구가 보관 개월수를 단정하지 않는다',
      !/보관\s*기?간?\s*3개월/.test(recPart) && !/\d+-month retention/.test(recPart) && !/\d+-day retention/.test(recPart),
      '한 숫자로 말하면 3개월분·6개월분 중 어느 쪽이든 거짓이 된다');
-  const ADMIN_TS = readFileSync('cloudflare-deploy/src/api-admin.ts', 'utf8');
+  const ADMIN_TS = readAdminSourceFromFile('cloudflare-deploy/src/api-admin.ts');
   ok('복원 거절 사유도 개월수를 단정하지 않는다',
      !/보관기간 3개월 경과/.test(ADMIN_TS) && !/3-month retention passed/.test(ADMIN_TS),
      '잰 것은 «R2 에 키가 없다» 까지다 — 사유는 만료일 수도 업로드 실패일 수도 있다');

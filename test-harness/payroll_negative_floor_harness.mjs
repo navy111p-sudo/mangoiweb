@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /**
  * payroll_negative_floor_harness.mjs
  * ── 「단가 없는 강사에게 공제만 붙어 실지급이 마이너스」 회귀 감시 (2026-08-18) ──
@@ -14,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const adminTs = readFileSync(join(__dirname, '..', 'cloudflare-deploy', 'src', 'api-admin.ts'), 'utf8');
+const adminTs = readAdminSourceFromFile(join(__dirname, '..', 'cloudflare-deploy', 'src', 'api-admin.ts'));
 const q3 = readFileSync(join(__dirname, '..', 'cloudflare-deploy', 'public', 'js', 'adm-q3.js'), 'utf8');
 const adminHtml = readFileSync(join(__dirname, '..', 'cloudflare-deploy', 'public', 'admin.html'), 'utf8');
 

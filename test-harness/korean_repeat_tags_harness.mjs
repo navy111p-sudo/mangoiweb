@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // 2026-10-18 — 한국인 학습자 «되풀이 작은 실수» 이어 받기 (개선안 2순위 ⑦)
 //   정본(recent-mistakes.ts 의 loadRecentFixTags·carryRepeatTags)과 교정 게이트(warmup-correction.ts
 //   decideWarmupFixShow)를 타입 제거로 실제 실행하고, 기록은 진짜 SQLite 에 넣어 봅니다.
@@ -8,7 +9,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { stripTypeScriptTypes } from 'node:module';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '..');
 const R = (rel, env) => fs.readFileSync(process.env[env] || path.join(ROOT, rel), 'utf8');
 const RM = R('cloudflare-deploy/src/recent-mistakes.ts', 'RM_SRC');
 const WC = R('cloudflare-deploy/src/warmup-correction.ts', 'WC_SRC');

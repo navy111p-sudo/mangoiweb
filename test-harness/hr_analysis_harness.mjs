@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🧪 인사평가 근거 분석 하니스 (2026-07-22)
 //   실행:  node test-harness/hr_analysis_harness.mjs
@@ -98,7 +99,7 @@ check('기준 모달이 미측정 처리 방식을 설명한다', /0점으로 �
 
 console.log('\n[6] 🌐 한/영 이중언어 (강사 다수가 필리핀·외국인 — 사장님 상시 지시)');
 //   라벨만 영어고 근거 문장이 한국어로 남는 것이 실제 사고 지점이라 서버 응답까지 검사한다.
-const ADMTS = read('cloudflare-deploy/src/api-admin.ts');
+const ADMTS = readAdminModuleGraph(adminModuleFile => read("cloudflare-deploy/src/" + adminModuleFile));
 // 인사평가 엔드포인트 구간만 잘라서 센다 (source: 같은 흔한 키가 다른 기능에도 있으므로)
 const HRBLOCK = ADMTS.slice(
   Math.max(0, ADMTS.indexOf("path === '/api/admin/teacher-hr-analysis'")),

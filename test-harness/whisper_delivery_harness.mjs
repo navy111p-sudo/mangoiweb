@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 📢 관리자·참관자 귓속말이 «강사에게만» 실제로 도착하는지 하니스
 //   실행:  node test-harness/whisper_delivery_harness.mjs
@@ -58,7 +59,7 @@ function blockAt(src, marker) {
 }
 
 const DO_SRC = R('cloudflare-deploy/src/video-call-room.ts');
-const ADMIN_SRC = R('cloudflare-deploy/src/api-admin.ts');
+const ADMIN_SRC = readAdminModuleGraph(adminModuleFile => R("cloudflare-deploy/src/" + adminModuleFile));
 const CLIENT_SRC = R('cloudflare-deploy/public/js/idx-main.js');
 /* 📢 그리기는 별도 파일(defer). idx-main.js 는 849KB 이고 index.html 첫 화면 blocking
    예산에 들어간다 — 강사만 쓰는 기능을 학생 29,000명에게 내려보내지 않는다. */

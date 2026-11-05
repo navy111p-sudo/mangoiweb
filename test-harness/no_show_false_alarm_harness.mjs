@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /* ══════════════════════════════════════════════════════════════════════════
    🔎 「강사 미입장」 오판 표시 — 회귀 감시 (2026-08-19)
 
@@ -33,7 +34,7 @@ let pass = 0; const fails = [];
 const check = (label, ok) => { if (ok) { pass++; console.log('  ✅ ' + label); } else { fails.push(label); console.log('  ❌ ' + label); } };
 
 const truth = read('cloudflare-deploy/src/no-show-truth.ts');
-const admin = read('cloudflare-deploy/src/api-admin.ts');
+const admin = readAdminModuleGraph(adminModuleFile => read("cloudflare-deploy/src/" + adminModuleFile));
 const q1 = read('cloudflare-deploy/public/js/adm-q1.js');
 
 console.log('\n[ ① 판정은 한 곳에만 있다 ]');

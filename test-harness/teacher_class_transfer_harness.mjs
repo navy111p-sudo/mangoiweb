@@ -17,7 +17,7 @@
  *     D. 배선 — 라우트·오늘 수업·화면 세 곳이 정본을 «부르는가»(주석 벗긴 사본으로)
  *     E. 화면 글자 함수(tcHiddenNoteHtml)를 오려 내 실제로 돌린다
  */
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -157,7 +157,10 @@ if (process.env.TCT_CHILD === '1') {
   check('B10 짝: 연기된 망고아이 줄은 그 시각에 수업이 없다 — 쌍둥이 아님', Array.isArray(rows[1].hidden_twins) && rows[1].hidden_twins.length === 0);
 
   // ── C. 진짜 핸들러 + 이동 엔진 + SQLite ──
-  const adminSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  // 2026-11-05 main(#2113)이 api-admin.ts 를 여러 모듈(admin-*.ts·api-admin-*.ts)로 나눠 teachers 등의 CREATE 가 옮겨 갔다 —
+  // DDL 은 «그 묶음 전체» 에서 찾는다(파일 이름을 하나로 못 박으면 다음 분리 때 또 «no such table» 로 죽는다).
+  const adminSrc = readdirSync(SRC).filter(f => f === 'api-admin.ts' || /^(admin-|api-admin-).*\.ts$/.test(f)).sort()
+    .map(f => readFileSync(join(SRC, f), 'utf8')).join('\n');
   const lessonSrc = readFileSync(join(SRC, 'api-lessons.ts'), 'utf8');
   const scopeSrc = readFileSync(join(SRC, 'scope.ts'), 'utf8');
   const ddl = (src, table, needs = '') => {

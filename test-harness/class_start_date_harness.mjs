@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // 📅 매주 반복 수업의 «시작일» (2026-09-24 사장님 「수업 시작 일자가 써있지 않아」·「수업을 입력하면 뒤로 수업이 가」)
 //
 // 정본 src/class-start-date.ts 를 타입 제거로 «실제로» 돌리고, 학생 상세 캘린더(admin/student.html)의
@@ -93,7 +94,7 @@ console.log('\n③ 배선');
 const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 ok(/id="ns-start"/.test(html), '폼에 시작일 칸(ns-start)이 있다');
 ok(/starts_on:\s*\(nsClassPick\(kindEl\.value\)\.schedule_kind === 'recurring'/.test(html), '매주 반복일 때 starts_on 을 보낸다'); // 2026-10-07: 종류→반복 여부는 정본 nsClassPick
-const adm = strip(readFileSync(resolve(SRC, 'api-admin.ts'), 'utf8'));
+const adm = strip(readAdminSourceFromFile(resolve(SRC, 'api-admin.ts')));
 ok(/INSERT INTO class_schedules \([^)]*starts_on\)/.test(adm), '등록 INSERT 가 starts_on 을 쓴다');
 ok(!/scheduled_date:\s*startsOn/.test(adm), '(부정) 시작일을 scheduled_date 로 적지 않는다');
 for (const [f, re] of [

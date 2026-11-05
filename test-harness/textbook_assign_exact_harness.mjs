@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 /* ═══════════════════════════════════════════════════════════════════════════
    🎯 교재 배정 «그 학생만» 정확일치 — 소스의 SQL 을 오려 내 진짜 SQLite 에 돌린다
@@ -18,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SRC = readFileSync(join(ROOT, 'cloudflare-deploy', 'src', 'api-admin.ts'), 'utf8');
+const SRC = readAdminSourceFromFile(join(ROOT, 'cloudflare-deploy', 'src', 'api-admin.ts'));
 
 let PASS = 0, FAIL = 0;
 const check = (n, ok, why) => {

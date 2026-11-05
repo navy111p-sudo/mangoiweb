@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🧾 「NEW TEACHER'S PAGE PROBLEM」 2026-08-13 접수분 하네스
 //   실행: node test-harness/teacher_page_problem_260813_harness.mjs
@@ -22,7 +23,7 @@ const rd = (p) => { try {
   return readFileSync(resolve(__dir, p), 'utf8');
 } catch { return ''; } };
 
-const aapi     = rd('../cloudflare-deploy/src/api-admin.ts');
+const aapi     = readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile));
 const index_ts = rd('../cloudflare-deploy/src/index.ts');
 const x3       = rd('../cloudflare-deploy/public/js/idx-x3.js');
 const main     = rd('../cloudflare-deploy/public/js/idx-main.js');

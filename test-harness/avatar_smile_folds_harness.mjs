@@ -17,7 +17,7 @@
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, dirname } from 'node:path';
+import { join, dirname, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -134,7 +134,7 @@ for (const f of files) {
   const t = readFileSync(f, 'utf8');
   for (const m of t.matchAll(URL_RE)) {
     refs++;
-    const rel = f.replace(PUB + '/', '');
+    const rel = relative(PUB, f).split(sep).join('/');
     if (!perFile.has(rel)) perFile.set(rel, new Set());
     perFile.get(rel).add(m[1] + '-' + m[2]);
     if (!m[4]) unversioned.push(rel + ' ' + m[0]);

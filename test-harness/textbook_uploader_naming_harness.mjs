@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 📚 교재 업로더 — «유닛 폴더가 교재 이름이 되는» 사고 감시 하니스 (2026-08-27)
 //
 //   왜 필요한가 —
@@ -245,7 +246,7 @@ console.log('\n[G] 🗣 한 화면이 «한 가지» 를 말하는가');
    ⚠️ 「그 글자가 있는가」가 아니라 «짝» 으로 묻는다 — 한쪽만 보면 반대로 무너진다.        */
 console.log('\n[ ⑧ 파일 고르기 · 숨김 안내 · 자동 저장 (2026-09-10) ]');
 {
-  const ADM = read('cloudflare-deploy/src/api-admin.ts');
+  const ADM = readAdminModuleGraph(adminModuleFile => read("cloudflare-deploy/src/" + adminModuleFile));
 
   // ① 파일 고르기 — 새 칸이 생겼고, «폴더 칸은 그대로» 여야 한다(짝)
   check('파일 고르기 칸이 있다', /id="file-input"[^>]*\bmultiple\b/.test(UP) || /<input[^>]*id="file-input"/.test(UP));

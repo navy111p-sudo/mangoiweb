@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // ✋🎤 A.i 선생님 수업 — «선생님께 질문» 의 「한국어로 말하기·영어로 말하기」 브라우저 검사 (CDP 직접 · 진짜 마우스) · 2026-10-13 (2차)
 // ⚠️ 자동으로 안 돕니다(manual/) — 사람이 부릅니다:  node test-harness/manual/ai-class-ask-mic-browser.mjs
 // 사고(2차): 「글자를 입력하면 되는데 말하기가 안 돼」 — 브라우저 음성인식이 «시작은 했는데 아무것도 못 듣는» PC 에서
@@ -12,7 +13,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-const DIR = path.dirname(new URL(import.meta.url).pathname);
+const DIR = path.dirname(fileURLToPath(new URL(import.meta.url)));
 const PUB = process.env.PUB || path.join(DIR, '..', '..', 'cloudflare-deploy', 'public');
 const PORT = 8300 + Math.floor(Math.random() * 400);
 const PROF = path.join(os.tmpdir(), 'ai-class-askmic-' + process.pid);

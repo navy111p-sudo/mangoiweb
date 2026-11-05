@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🚷 장기 결석생 하네스 (2026-08-13 수정요청 #05)
 //   실행: node test-harness/long_absent_harness.mjs
@@ -20,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const rd = (p) => { try { return readFileSync(resolve(__dir, p), 'utf8'); } catch { return ''; } };
 
-const admin = rd('../cloudflare-deploy/src/api-admin.ts');
+const admin = readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile));
 const mango = rd('../cloudflare-deploy/src/api-mango.ts');
 const html  = rd('../cloudflare-deploy/public/admin.html');
 const js    = rd('../cloudflare-deploy/public/js/adm-longabsent.js');

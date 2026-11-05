@@ -1,8 +1,9 @@
+import { fileURLToPath } from 'node:url';
 // 🪙 복습퀴즈 결과 «획득 포인트» 이유 (2026-11-02) — 서버 적립 블록을 오려 진짜 SQLite 로 실행 + 화면 rqPtsNote 실행(두 페이지)
 import fs from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { DatabaseSync } from 'node:sqlite';
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('..', import.meta.url));
 let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) pass++; else { fail++; console.log('❌ FAIL', n); } };
 const g = fs.readFileSync(root + 'cloudflare-deploy/src/api-games.ts', 'utf8');

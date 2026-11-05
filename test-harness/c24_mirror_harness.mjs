@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🪞 카페24 → 망고아이 시간표 미러 하니스 (의존성 없음 · node 로 바로 실행)
 //   실행:  node test-harness/c24_mirror_harness.mjs
@@ -60,7 +61,7 @@ process.on('exit', () => { for (const f of _tmps) { try { rmSync(f); } catch {} 
 const M = await loadTs('c24-mirror');
 const MIRROR_TS = SRC('c24-mirror.ts');
 const REPORTS = SRC('accounting-reports.ts');
-const ADMIN = SRC('api-admin.ts');
+const ADMIN = readAdminModuleGraph(file => SRC("" + file));
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond, extra) {
@@ -476,7 +477,7 @@ console.log('\n[ J. 2단계 — 실제로 만든다 (함수를 돌려서 확인)
   }
   // ⑪ 「사람 손이 이긴다」 도장이 화면 쪽(PATCH·DELETE)에 실제로 붙어 있다
   {
-    const ADMIN = SRC('api-admin.ts');
+    const ADMIN = readAdminModuleGraph(file => SRC("" + file));
     check('⑪ PATCH 가 미러 행에 도장을 찍는다',
       /=== MIRROR_SOURCE\)\s*\{[\s\S]{0,120}?sets\.push\('source = \?'\)/.test(ADMIN));
     check('⑪ 도장을 «같은 UPDATE 안에서» 찍는다(따로 찍으면 그 사이 미러가 되돌린다)',

@@ -3883,10 +3883,61 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     } catch (e) { alert(String(e.message || e)); }
     finally { el._busy = false; }
   }
+  /* ↩ (2026-11-06 사장님 «원래 시각이 지났어도 되돌리기 옵션») 새 자리가 «그 뒤 취소» 됐고 아직 시작 전이면 이 줄에서 바로
+     그 수업을 새 자리에 다시 연다 — 판정은 서버(r.undo.restore_cancelled_available · 정본 judgeMovedAwayUndo), 실행은
+     그 대상 행(r.undo.target_id)에 action:'restore'(새 날짜 줄의 «↩ 취소 수업 복원» 과 같은 엔진). 지난 원래 시각에는 열지 않는다. */
+  function taMd(d){ return /^\d{4}-\d{2}-\d{2}/.test(String(d || '')) ? String(d).slice(5, 10).replace('-', '/') : ''; }
+  function taRestoreMovedPill(r){
+    var u = r && r.undo;
+    if (!u || u.restore_cancelled_available !== true || !u.target_id || !r.schedule_id || !IS_HQ) return '';
+    var at = (taMd(u.target_date) + ' ' + (u.target_time || '')).trim();
+    return '<span class="tag ta-open" role="button" tabindex="0" data-undomv="' + esc(r.schedule_id) + '" data-restore-moved="1">'
+         + esc(T('↩ Restore class · ' + at, '↩ 수업 복원 · ' + at)) + '</span>';
+  }
+  async function taRestoreMoved(el, r){
+    var u = r && r.undo;
+    if (!el || el._busy || !IS_HQ || !u || u.restore_cancelled_available !== true || !u.target_id) return;
+    var at = (String(u.target_date || '') + ' ' + (u.target_time || '')).trim();
+    var back = (String(u.from_date || '') + ' ' + (u.from_time || '')).trim();
+    var who = r.student_name || r.student_uid || '';
+    var past = u.reason === 'orig_passed', canUndo = u.reason === 'target_not_active';
+    /* 마지막 줄은 «사실인 것만» — 원래 시각을 모르면(no_time) 복원 뒤에도 «원래대로» 가 안 나오므로 약속하지 않는다. */
+    var tailEn = past ? '\n· The original time has passed, so it cannot reopen at ' + back + '.' : canUndo ? '\n· To move it back to ' + back + ' afterwards, use «↩ Undo move» on this row.' : '';
+    var tailKo = past ? '\n· 원래 시각(' + back + ')은 이미 지나 그 자리에는 다시 열 수 없습니다.' : canUndo ? '\n· 그 뒤 원래 시각(' + back + ')으로 옮기려면 이 줄의 «↩ 원래대로» 를 누르세요.' : '';
+    if (!confirm(T('Restore this class?\n\n' + who + ' · ' + at + ' KST\n(postponed from ' + back + ', later cancelled)\n\n· It becomes an active class again at ' + at + ' and normal attendance and billing rules apply.\n· Existing attendance, payments and payroll records are unchanged.' + tailEn,
+                   '수업을 복원할까요?\n\n' + who + ' · ' + at + ' KST\n(' + back + ' 에서 연기 → 그 뒤 취소됨)\n\n· ' + at + ' 에 다시 열린 수업이 되어 정상 출석·과금 규칙이 적용됩니다.\n· 기존 출석·결제·급여 기록은 바뀌지 않습니다.' + tailKo))) return;
+    el._busy = true;
+    var old = el.textContent;
+    el.textContent = T('Restoring…', '복원하는 중…');
+    var j = null, httpOk = false;
+    try {
+      var res = await fetch('/api/admin/class-schedules/' + encodeURIComponent(u.target_id), {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restore', reason: 'Restore cancelled class (moved-away row)' })
+      });
+      httpOk = res.ok;
+      j = await res.json().catch(function(){ return null; });
+    } catch (e) { j = null; }
+    el._busy = false;
+    if (httpOk && j && j.ok === true) { taMarkStale(); try { window.loadTodayAll(); } catch (e) {} return; }
+    el.textContent = old;
+    var err = j && j.error;
+    var stale = err === 'not_cancelled' || err === 'schedule_changed' || err === 'schedule_not_found';
+    var why = (err === 'slot_taken' || err === 'conflict') ? T('The student or teacher already has another class at ' + at + '. Rebook it from the new date instead.', at + ' 에 학생이나 강사의 다른 수업이 이미 있습니다. 새 날짜에서 다른 시각으로 잡아 주세요.')
+      : err === 'teacher_unavailable' ? T('The teacher is on leave or unavailable at ' + at + '.', at + ' 은 강사의 휴가·근무불가 시간입니다.')
+      : err === 'past_date' ? T('The new time has already started, so it cannot be restored.', '새 시각이 이미 시작해 복원할 수 없습니다.')
+      : err === 'class_already_attended' ? T('This class already has attendance records. Please check its history.', '이 수업에 이미 출석 기록이 있어 복원할 수 없습니다. 이력을 확인해 주세요.')
+      : stale ? T('The class changed in the meantime. Refreshing the list.', '그 사이 수업이 바뀌었습니다. 목록을 새로고침합니다.')
+      : (j && (j.message || j.error)) ? String(j.message || j.error)
+      : T('Could not restore. Please try again shortly.', '복원하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    alert('↩ ' + why);
+    if (stale) { taMarkStale(); try { window.loadTodayAll(); } catch (e) {} }
+  }
   function taUndoPill(r){
     var u = r && r.undo;
     if (!u || !r.schedule_id || !IS_HQ) return '';
     if (u.ok !== true && u.historical_available !== true) {
+      if (u.restore_cancelled_available === true && u.target_id) return taRestoreMovedPill(r);
       var w = TA_UNDO_WHY[u.reason] || TA_UNDO_WHY.no_target;
       return '<span class="tag">' + esc(T(w[0], w[1])) + '</span>';
     }
@@ -4328,6 +4379,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var sid = el.getAttribute('data-undomv');
     var r = taRowOf(sid), u = r && r.undo;
     if (el.getAttribute('data-restore-cancelled') === '1') { taRestoreCancelled(el, r); return; }
+    if (el.getAttribute('data-restore-moved') === '1') { taRestoreMoved(el, r); return; }
     if (!u || (u.ok !== true && u.historical_available !== true)) return;
     var md = function(d){ return /^\d{4}-\d{2}-\d{2}/.test(String(d || '')) ? String(d).slice(5, 10).replace('-', '/') : ''; };
     var back = (String(u.from_date || '') + ' ' + (u.from_time || '')).trim();

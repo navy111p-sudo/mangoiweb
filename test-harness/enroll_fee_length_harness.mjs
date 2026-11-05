@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // enroll_fee_length_harness.mjs — 수강료가 «수업 시간 배수» 를 타는지 (2026-08-26 사장님 지시)
 //
 // ── 왜 ──────────────────────────────────────────────────────────────────────
@@ -34,7 +35,7 @@ function check(name, cond, detail) {
 }
 
 const feeSrc   = readFileSync(join(CF, 'src', 'enroll-fee.ts'), 'utf8');
-const apiAdmin = readFileSync(join(CF, 'src', 'api-admin.ts'), 'utf8');
+const apiAdmin = readAdminSourceFromFile(join(CF, 'src', 'api-admin.ts'));
 const activate = readFileSync(join(CF, 'src', 'enroll-activate.ts'), 'utf8');
 const apiPay   = readFileSync(join(CF, 'src', 'api-pay.ts'), 'utf8');
 const core     = readFileSync(join(PUB, 'js', 'adm-core.js'), 'utf8');

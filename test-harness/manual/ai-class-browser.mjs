@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // 🤖 A.i 선생님 수업(/ai-class.html) — 브라우저 하니스 (CDP 직접, 라이브러리 없음) · 2026-10-07
 // ⚠️ 자동으로 안 돕니다(manual/) — 사람이 부릅니다:
 //      REPS=3 node test-harness/manual/ai-class-browser.mjs        (VPF=pc 처럼 화면 하나만 골라도 됨)
@@ -11,7 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-const DIR = path.dirname(new URL(import.meta.url).pathname);
+const DIR = path.dirname(fileURLToPath(new URL(import.meta.url)));
 const REPS = +(process.env.REPS || 10);
 const PORT = 8800 + Math.floor(Math.random() * 500);
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.webp': 'image/webp', '.json': 'application/json', '.png': 'image/png' };

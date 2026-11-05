@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // 🧾 카페24 회계 실데이터 — 「케이씨피M」 매출 제외 하니스 (2026-08-18)
 //
 //   왜 필요한가 —
@@ -38,7 +39,7 @@ const ok = (cond, label, detail) => {
 };
 
 const acct  = readFileSync(join(SRC, 'accounting-reports.ts'), 'utf8');
-const admin = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+const admin = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
 const core  = readFileSync(join(PUB, 'js', 'adm-core.js'), 'utf8');
 const html  = readFileSync(join(PUB, 'admin.html'), 'utf8');
 

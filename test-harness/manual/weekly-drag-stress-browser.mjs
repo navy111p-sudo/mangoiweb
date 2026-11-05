@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from '../_srcbundle.mjs';
 /**
  * 🧪 주간 스케줄 «연기·변경» 드래그 스트레스 (2026-10-04 사장님
  *   「샌드박스랑 하니스를 이용해서 수업연기,변경 드래그 테스트를 수백번 해서 문제없을때까지」
@@ -94,7 +95,7 @@ if (process.env.WDS_SERVER === '1') {
   await getScope(env, new Request(BASE + '/x'));
   await prime('/api/admin/me', 'prime');
   await prime('/api/class/sessions/today?user_id=prime');
-  const adminSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const adminSrc = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
   const cutCreate = (src, name, must) => { const re = new RegExp('`(CREATE TABLE IF NOT EXISTS ' + name + '\\s*\\([\\s\\S]*?\\);?)`', 'g'); let m; while ((m = re.exec(src))) { if (!must || m[1].includes(must)) return m[1]; } return null; };
   const tIdx = adminSrc.indexOf('`CREATE TABLE IF NOT EXISTS teachers (`'); const tEnd = adminSrc.indexOf("].join(' ')", tIdx);
   const teachersDDL = [...adminSrc.slice(tIdx, tEnd).matchAll(/`([^`]*)`/g)].map(m => m[1]).join(' ');

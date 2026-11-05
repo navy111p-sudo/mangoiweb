@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🏯 본사 관리(조직 관리 › 본사) 하네스 (2026-08-18 수정요청 #13)
 //   실행: node test-harness/hq_org_profile_harness.mjs
@@ -23,7 +24,7 @@ const rd = (p) => { try { return readFileSync(resolve(__dir, p), 'utf8'); } catc
 
 const indexTs  = rd('../cloudflare-deploy/src/index.ts');
 const mangoTs  = rd('../cloudflare-deploy/src/api-mango.ts');
-const adminTs  = rd('../cloudflare-deploy/src/api-admin.ts');
+const adminTs  = readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile));
 const profTs   = rd('../cloudflare-deploy/src/hq-profile.ts');
 const gridJs   = rd('../cloudflare-deploy/public/js/idx-grid-menu.js');
 const admHtml  = rd('../cloudflare-deploy/public/admin.html');

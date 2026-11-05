@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 🔄 1회성 대체강사 배정 하니스 — 2026-08-30
 //
 // [무엇을 지키나]
@@ -33,7 +34,7 @@ const rd = (p) => { try { return readFileSync(resolve(__dir, p), 'utf8'); } catc
 const enroll = rd('../cloudflare-deploy/src/enroll-ops.ts');
 const auth = rd('../cloudflare-deploy/src/auth-admin.ts');
 const todayJs = rd('../cloudflare-deploy/public/js/adm-today-classes.js');
-const admin = rd('../cloudflare-deploy/src/api-admin.ts');
+const admin = readAdminModuleGraph(file => rd("../cloudflare-deploy/src/" + file));
 const teacher = rd('../cloudflare-deploy/src/api-teacher.ts');
 const mango = rd('../cloudflare-deploy/src/api-mango.ts');
 

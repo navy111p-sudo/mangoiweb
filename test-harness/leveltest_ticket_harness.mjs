@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🎟️ 레벨테스트 티켓(확인+입장 링크 하나) 하네스 (2026-08-06)
 //   실행: node test-harness/leveltest_ticket_harness.mjs
@@ -23,7 +24,7 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const rd = (p) => { try { return readFileSync(resolve(__dir, p), 'utf8'); } catch { return ''; } };
 
 const mod    = rd('../cloudflare-deploy/src/leveltest-ticket.ts');
-const api    = rd('../cloudflare-deploy/src/api-admin.ts');
+const api    = readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile));
 const index  = rd('../cloudflare-deploy/src/index.ts');
 const page   = rd('../cloudflare-deploy/public/t.html');
 const mango  = rd('../cloudflare-deploy/src/api-mango.ts');
@@ -350,7 +351,7 @@ console.log('\n[ ⑥-5 «1시간 전» 알림 + 입장 창 30분 (2026-08-07 ②
   const tk = rd('../cloudflare-deploy/src/leveltest-ticket.ts');
   const idx = rd('../cloudflare-deploy/src/index.ts');
   const mango = rd('../cloudflare-deploy/src/api-mango.ts');
-  const adm = rd('../cloudflare-deploy/src/api-admin.ts');
+  const adm = readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile));
   const tpage = rd('../cloudflare-deploy/public/t.html');
 
   check('1시간 전 스윕이 있고 크론에 물려 있다',

@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // ════════════════════════════════════════════════════════════════════════════
 // absence_rate_contract_harness.mjs — 「오늘의 미실시율」 타일이 다시 거짓말하지 않도록
 //
@@ -25,7 +26,7 @@ import { dirname, join } from 'node:path';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const R = (...p) => readFileSync(join(__dir, '..', 'cloudflare-deploy', ...p), 'utf8');
-const api = R('src', 'api-admin.ts');
+const api = readAdminModuleGraph(adminModuleFile => R('src', adminModuleFile));
 const core = R('public', 'js', 'adm-core.js');
 const mgr = R('public', 'manager.html');
 

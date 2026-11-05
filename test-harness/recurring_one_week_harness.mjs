@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /**
  * 🔁 반복 수업 «그 주 하루만» 연기·변경 — 샌드박스 끝-끝 검사 (2026-10-09 사장님 「반복 수업 그 주 하루만 연기 기능 만들어줘」)
  * ─────────────────────────────────────────────────────────────────────────────
@@ -94,7 +95,7 @@ if (process.env.SMRS_CHILD === '1') {
   const { getScope } = await imp('scope.ts');
 
   const readSrc = (f) => readFileSync(join(SRC, f), 'utf8');
-  const adminSrc = readSrc('api-admin.ts');
+  const adminSrc = readAdminModuleGraph(adminModuleFile => readSrc(adminModuleFile));
 
   const BASE = 'https://mangoi.ai';
   const req = (method, path, { cookie, body } = {}) => {
@@ -365,7 +366,7 @@ writeFileSync(join(tmp, 'reg.mjs'), `import { register } from 'node:module'; reg
 
 function runChild(srcDir) {
   const r = spawnSync(process.execPath,
-    ['--experimental-strip-types', '--no-warnings', '--import', join(tmp, 'reg.mjs'), SELF],
+    ['--experimental-strip-types', '--no-warnings', '--import', pathToFileURL(join(tmp, 'reg.mjs')).href, SELF],
     { encoding: 'utf8', env: { ...process.env, SMRS_CHILD: '1', SMRS_SRC: srcDir, WEEKLY_RESULT: join(tmp, 'result.json') }, maxBuffer: 64 * 1024 * 1024, timeout: 180000 });
   if (r.status !== 0 || !existsSync(join(tmp,'result.json'))) return {crashed:true,err:(r.stderr||'') + String(r.error||'')};
   return JSON.parse(readFileSync(join(tmp,'result.json'),'utf8'));
@@ -389,14 +390,14 @@ if (base.crashed) {
 console.log('\n═ 변이시험 (복사본 src — 저장소 파일은 그대로) ═');
 const MUT = [
   { name: '읽는 쪽이 빠진 날을 모름', file: 'class-start-date.ts', from: "if (recurSkippedOn(row, ymd)) return false;", to: '' },
-  { name: '급여가 빠진 날도 셈(이중 계산)', file: 'api-admin.ts', from: "if (recurSkippedOn(row, _ymd)) continue;", to: '' },
+  { name: '급여가 빠진 날도 셈(이중 계산)', file: 'admin-lesson-fees.ts', from: "if (recurSkippedOn(row, _ymd)) continue;", to: '' },
   { name: '승인이 예전처럼 기록만', file: 'api-admin.ts', from: "const _ow = await prepareRecurringOneWeek(", to: "const _ow = { ok: true, applied: 'recorded' as any, mutations: [] as any[], error: null as any, status: 200, conflict: null as any }; void (" },
   { name: '빠진 날 기록을 안 씀', file: 'recurring-one-week.ts', from: "env.DB.prepare(`UPDATE class_schedules SET skip_dates = ? WHERE id = ? AND scheduled_date IS NULL`).bind(nextSkips, cs.id),", to: '' },
   { name: '옮긴 날 겹침에서 반복 줄을 늘 뺌', file: 'recurring-one-week.ts', from: "const exclude = newDate === orig ? [cs.id] : [];", to: "const exclude = [cs.id];", also: ["excludeId: newDate === orig ? cs.id : undefined,", "excludeId: cs.id,"] },
   { name: '조건 뒤집기 — 지난 회차만 허용', file: 'recurring-one-week.ts', from: "if (orig < today) return 'orig_date_past';", to: "if (orig >= today) return 'orig_date_past';" },
   { name: '겹침 검사가 빠진 날을 모름', file: 'schedule-conflict.ts', from: "if (recurSkippedOn(recurring, d)) return false;", to: '' },
   { name: '«내 수업» 다음 회차가 빠진 날로', file: 'api-mango.ts', from: "guard < 60 && recurSkippedOn(r, nextDate)", to: "guard < 60 && false && recurSkippedOn(r, nextDate)" },
-  { name: '연기 기록 줄 급여가 요청과 안 이어짐', file: 'api-admin.ts', from: "|| (_rwParent ? postponeReq[`${_rwParent}|${dateStr}`] : null)", to: '' },
+  { name: '연기 기록 줄 급여가 요청과 안 이어짐', file: 'admin-lesson-fees.ts', from: "|| (_rwParent ? postponeReq[`${_rwParent}|${dateStr}`] : null)", to: '' },
   { name: '옛 요청도 409(기록만 폴백 제거)', file: 'api-admin.ts', from: "} else if (_oneWeekWhy && ONE_WEEK_FALLBACK.includes(_oneWeekWhy)) {", to: "} else if (false) {" },
 ];
 if (!base.crashed) {
