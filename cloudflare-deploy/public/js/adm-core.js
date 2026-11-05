@@ -4542,6 +4542,10 @@ async function addTeacherProfile() {
   // 수정 모드 감지 — 버튼 data-edit-id 가 있으면 PATCH
   const btn = document.getElementById('tp-add-btn');
   const editId = btn?.dataset?.editId;
+  /* 📦 (2026-11-05) 저장 «전» 상태 — 활동중에서 퇴사·비활동으로 «바뀐» 경우에만 남은 수업 창을 연다.
+     ⛔ 이미 퇴사인 강사의 전화번호만 고쳐도 «상태를 바꿨습니다» 라고 말하면 거짓말이다. 모르면(캐시 없음) 안 연다. */
+  const _tpPrevRow = editId ? (window._tpRowById || {})[editId] : null;
+  const _tpPrevStatus = _tpPrevRow ? _tpPrevRow.status : undefined;
   let r, d, action;
   if (editId) {
     r = await fetch('/api/admin/teacher-profiles/' + editId, {
@@ -4599,6 +4603,10 @@ async function addTeacherProfile() {
   }
   clearTeacherForm();
   loadTeacherProfiles();
+  /* 📦 (2026-11-05) 수정 창에서 퇴사·비활동으로 저장했으면 «남은 수업» 을 보여 준다(있을 때만 창이 열린다). */
+  if (editId && _tpPrevRow && _tpIsWorking(_tpPrevStatus) && !_tpIsWorking(body.status) && typeof window.tpOpenClassTransfer === 'function') {
+    window.tpOpenClassTransfer(editId, { onlyIfAny: true, fromStatus: body.status });
+  }
 }
 function clearTeacherForm() {
   ['tp-name','tp-en-name','tp-email','tp-phone','tp-kakao','tp-dob','tp-gender','tp-active-region','tp-origin-region',
@@ -5119,6 +5127,14 @@ window.tpOpenStatusMenu = function (id, btn) {
           (hidden ? '0' : '1') + '" title="' + (L ? hideTipEn : hideTipKo) + '">' +
           (hidden ? (L ? '👁 Show in roster' : '👁 명부에 다시 보이기')
                   : (L ? '🙈 Hide from roster' : '🙈 명부에서 숨기기')) + '</div>';
+  /* 📦 (2026-11-05 매니저 «Krystel 을 퇴사로 바꿨는데 수업이 그대로») 남은 수업 보기·넘기기 — 창은 js/adm-teacher-transfer.js.
+     ⚠️ «퇴사» 는 이미 잡힌 수업을 옮기지 않는다 — 이미 퇴사한 강사도 여기서 다시 열 수 있어야 한다(상태를 다시 안 바꿔도). */
+  if (typeof window.tpOpenClassTransfer === 'function') {
+    html += '<div class="tp-st-item" role="menuitem" tabindex="0" data-act="transfer" title="' +
+            (L ? 'Remaining classes of this teacher — hand them over to another teacher'
+               : '이 강사에게 남은 수업 — 다른 강사에게 넘기기') + '">' +
+            (L ? '📦 Hand over remaining classes' : '📦 남은 수업 넘기기') + '</div>';
+  }
   m.innerHTML = html;
   document.body.appendChild(m);
 
@@ -5128,6 +5144,7 @@ window.tpOpenStatusMenu = function (id, btn) {
     _tpStCloseMenu();
     if (act === 'status') window.tpSetTeacherStatus(id, val);
     else if (act === 'hidden') window.tpSetTeacherHidden(id, val === '1');
+    else if (act === 'transfer' && typeof window.tpOpenClassTransfer === 'function') window.tpOpenClassTransfer(id);
   };
   m.addEventListener('click', function (e) {
     var it = e.target && e.target.closest ? e.target.closest('.tp-st-item') : null;
@@ -5228,6 +5245,12 @@ window.tpSetTeacherStatus = async function (id, next, _isUndo) {
   _tpStToast(who + ' — ' + next + ' 으로 바꿨습니다',
              who + ' — changed to ' + next,
              function () { window.tpSetTeacherStatus(id, prev, true); });
+  /* 📦 (2026-11-05) 퇴사·비활동으로 내렸으면 «남은 수업» 을 바로 보여 준다 — 있을 때만 창이 열린다(js/adm-teacher-transfer.js). */
+  if (!_tpIsWorking(next) && typeof window.tpOpenClassTransfer === 'function') {
+    /* ↩ 창이 토스트를 덮으므로 «되돌리기» 를 창에 넘긴다(창 머리의 ↩ 버튼). */
+    window.tpOpenClassTransfer(id, { onlyIfAny: true, fromStatus: next,
+      undo: function () { window.tpSetTeacherStatus(id, prev, true); } });
+  }
 };
 
 /** 🙈 명부에서 숨기기 / 👁 다시 보이기 — status 와 «다른 축» 이다. 지우는 것이 아니다. */

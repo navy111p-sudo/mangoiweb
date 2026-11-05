@@ -4150,6 +4150,19 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         /* ❔ (2026-10-01 매니저 질문 «why other classes don't have move button?») 카페24(LMS) 줄은 망고아이 예약표에
            행이 없어 여기서 옮길 수 없다 — 버튼이 «없다» 대신 그 이유를 글자로 적는다(폰엔 hover 가 없다). */
         resch = '<span class="tag">' + esc(T('LMS class — change in cafe24', '카페24 수업 — 카페24에서 변경')) + '</span>';
+        /* 🙈 (2026-11-05 «mangoai_lee 를 연기하려는데 Move 버튼이 없다») 명부에서 숨긴(삭제) 계정 — 서버 정본 src/cafe24-hidden-student.ts 의
+           student_hidden·hidden_twins 를 그대로 말한다(admin.html js/adm-today-classes.js tcHiddenNoteHtml 과 같은 말 · 판정 복제 없음). */
+        if (r.student_hidden) {
+          var hw = (Array.isArray(r.hidden_twins) ? r.hidden_twins : []).map(function (t) {
+            return t.student_name ? (t.student_name + ' (' + t.student_uid + ')') : String(t.student_uid || '');
+          }).filter(Boolean).join(', ');
+          resch += '<div class="tag hot" style="white-space:normal;margin-top:4px;line-height:1.5;border-radius:8px;max-width:280px">'
+            + esc(T('🙈 Hidden (deleted) account — no Mangoi class, so it cannot be moved here.', '🙈 숨긴(삭제)된 계정 — 망고아이에 수업이 없어 옮길 수 없습니다.'))
+            + (hw ? '<br><b>' + esc(T('Same time & teacher in Mangoi: ', '같은 시각·같은 강사 망고아이 수업: ')) + esc(hw) + '</b><br>'
+                  + esc(T('→ Postpone/move from that row (📅). Clean up this cafe24 booking in cafe24.', '→ 연기·변경은 그 줄의 📅 버튼으로. 이 카페24 예약은 카페24에서 정리하세요.'))
+                : '<br>' + esc(T('→ Change or clean up this booking in cafe24.', '→ 이 예약은 카페24에서 바꾸거나 정리하세요.')))
+            + '</div>';
+        }
       } else if (r.schedule_id && r.can_move === false && r.can_split !== true) {
         /* 🔁 (2026-10-08) can_split(본사 계정·미러 아님)이면 아래 갈래가 «📅 연기·변경» 버튼을 준다(창이 먼저 나눈 뒤 그 날만). */
         /* 📅 (2026-10-08 매니저 요청 «move button even for future classes») 매주 반복 줄도 막다른 글자 대신

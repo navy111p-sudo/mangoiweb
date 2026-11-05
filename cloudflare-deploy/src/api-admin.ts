@@ -5,6 +5,8 @@ export type { Cafe24TeacherInfo } from './admin-teacher-core';
 import { handleAdminStatsApi } from './api-admin-stats';
 import { admCacheHit, admCachePut } from './admin-cache';
 import { dropCafe24SlotDuplicates } from './cafe24-slot-duplicates';
+import { markHiddenCafe24 } from './cafe24-hidden-student';   // 🙈 숨긴 계정의 카페24 줄 표시(2026-11-05)
+import { handleTeacherClassTransfer } from './teacher-class-transfer';   // 📦 퇴사·비활동 강사의 남은 수업 넘기기(2026-11-05)
 import { WEEKLY_POSTPONE, prepareWeeklyPostpone } from './weekly-postpone';
 import { WEAK_WHERE, WEAK_ORDER, weakSince } from './weak-words';
 import { counselingRecipient, sendCounselingSms } from './counseling-send';
@@ -95,7 +97,7 @@ import { handleEnrollActivateApi } from './enroll-activate';       // 📚 수�
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
 import { handleTeacherKakaoApi } from './teacher-kakao';                     // 💬 강사 카카오ID 명부 + 전달
 import { handlePaymentsBoardApi } from './payments-board';                   // 💳 결제관리 화면(ph106) 실데이터
-import { hiddenExcludeCond, hiddenOnlyCond } from './student-override';                       // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
+import { hiddenExcludeCond, hiddenOnlyCond, loadHiddenStudents } from './student-override';                       // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 import { setOverridePhones, loadOverridePhones } from './student-override';    // 📞 수업 전 안내문자가 읽는 번호(적기·읽기)
 import { MIRROR_SOURCE, MIRROR_SOURCE_MANUAL } from './c24-mirror';            // 🪞 카페24 미러 — 「사람 손이 이긴다」 도장
 import { duplicateGate } from './student-duplicate';                       // 👥 학생 수동 등록 «같은 사람» 판정 정본
@@ -1204,6 +1206,19 @@ export async function handleAdminApi(
         }
       } catch (e: any) { _mvAwayOk = false; console.warn('[classes/today] moved-away rows:', e?.message); }
 
+      /* 🙈 (2026-11-05 매니저 «mangoai_lee 를 연기하려는데 Move 버튼이 없다») 카페24 줄 중 «명부에서 숨긴(삭제) 계정» 에
+         표시를 단다 — 정본 src/cafe24-hidden-student.ts. 숨긴 계정은 미러가 일부러 안 만들어 망고아이에 행이 없다(옮길 수 없음).
+         ⛔ 줄은 빼지 않는다(숨긴 계정에도 진짜 수업이 남아 있다 — 실측 정우영2). 같은 시각·같은 강사의 망고아이 수업을 알려 줄 뿐.
+         ⛔ 던지지 않는다 — 못 읽으면 표시 없이 예전 그대로. */
+      let c24HiddenStudents = 0;
+      try {
+        const _hidUids = Array.from(new Set(sessions.filter(x => x.source === 'cafe24' && x.student_uid).map(x => String(x.student_uid))));
+        if (_hidUids.length) {
+          // 정본 loadHiddenStudents(student-override.ts — 미러의 student_hidden 과 같은 판정, fail-open)
+          c24HiddenStudents = markHiddenCafe24(sessions, await loadHiddenStudents(env as any, _hidUids), normTeacherName);
+        }
+      } catch (e: any) { console.warn('[classes/today] hidden students:', e?.message); }
+
       /* ☎ 연락처 — 본사·내부직원(_ctSeeContact)일 때만, 이미 스코프로 잘린 이 목록(두 갈래 모두)에만 붙인다.
          정본이 «다 물어봤나»(complete)를 함께 주므로, 조회가 실패하면 화면이 «번호가 없다» 가 아니라
          «확인하지 못했다» 고 말한다(contact_source='failed'). ⛔ 던지지 않는다 — 연락처 때문에 목록이 죽으면 안 된다. */
@@ -1246,6 +1261,8 @@ export async function handleAdminApi(
           // 🪞 미러 줄이 있어 뺀 카페24 «복사본» 수(위 dropMirroredCafe24) — 숫자가 줄어든 이유를 사람이 볼 수 있게
           cafe24_mirrored_hidden: c24MirroredHidden,
           cafe24_slot_duplicates_hidden: c24SlotDuplicates.hidden,
+          // 🙈 «명부에서 숨긴 계정» 이라고 표시한 카페24 줄 수(빼지 않고 표시만 — 위 markHiddenCafe24)
+          cafe24_hidden_student: c24HiddenStudents,
           joinable: sessions.filter(x => x.join_open).length,
           holiday: sessions.filter(x => x.holiday).length,
           // ✕⏸📅 (2026-11-03) 「취소·연기」 칸이 말하는 줄 수 — 화면 머리 줄이 «오늘 취소 N건» 을 말한다.
@@ -2007,6 +2024,16 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const _tpiActor = await getAdminActor(request, env as any);
       if (_tpiActor.isTeacher && method !== 'GET') {
         return json(forbiddenTeacherBody(_tpiActor, '강사는 강사 프로필을 수정·삭제할 수 없습니다.'), 403);
+      }
+      /* 📦 (2026-11-05 매니저 «Krystel 을 퇴사로 바꿨는데 수업이 그대로») 남은 수업 보기·넘기기 — 정본 src/teacher-class-transfer.ts.
+         ℹ️ 이 경로의 «비어 있던 POST» 를 쓴다(GET·PATCH·DELETE 만 쓰고 있었다) — src/index.ts·api-mango.ts 관문은 메서드를
+            안 가리고 이 경로를 이미 통과시킨다(CLAUDE.md 2장 「새 API 추가」의 «비어 있는 HTTP 메서드»). 모르는 action 은 정본이 400. */
+      if (method === 'POST') {
+        const _hoBody: any = await request.json().catch(() => ({}));
+        const _ho = await handleTeacherClassTransfer(env as any, _tpiActor, id, _hoBody, Date.now());
+        const _hoRes = json(_ho.body, _ho.status as any);
+        _hoRes.headers.set('Cache-Control', 'private, no-store');
+        return _hoRes;
       }
       if (method === 'GET') {
         /* 🔑 login_username — 목록 조회와 **똑같은 문장**을 쓴다(위 주석 참고).

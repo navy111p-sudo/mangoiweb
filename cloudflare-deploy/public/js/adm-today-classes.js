@@ -1224,6 +1224,10 @@
                옮길 대상이 없다 — 버튼이 «없는» 대신 이유를 글자로(폰엔 hover 없음). manager.html 과 같은 말. */
             act += '<span style="display:inline-block;white-space:nowrap;font-size:10.5px;color:#475467;padding:2px 8px;border-radius:99px;background:#f1f5f9;border:1px solid #cbd5e1">'
               + T('카페24 수업 — 카페24에서 변경', 'LMS class — change in cafe24') + '</span>';
+            /* 🙈 (2026-11-05 매니저 «mangoai_lee 를 연기하려는데 Move 버튼이 없다») 명부에서 숨긴(삭제) 계정 —
+               서버 정본 src/cafe24-hidden-student.ts 가 student_hidden·hidden_twins 를 실어 준다(판정을 여기서 다시 하지 않는다).
+               같은 시각·같은 강사의 망고아이 수업이 있으면 «연기는 그 줄에서» 를 글자로 알려 준다. */
+            if (s.student_hidden) act += tcHiddenNoteHtml(s);
           } else if (s.moved_away) {
             /* ⏸ (2026-11-04) 이 날에서 다른 날로 연기·변경한 수업 — «원래 날짜» 에 남긴 줄. 이 날 이 방에는 수업이 없다.
                입장·참관·초대 링크·연기·대체강사 버튼은 주지 않는다(서버도 join_open·observable·can_move 를 false 로 보낸다).
@@ -1571,6 +1575,25 @@
     no_time: ['원래 시각을 몰라 되돌릴 수 없음 — 새 날짜에서 옮기세요', 'Original time unknown — move it from the new date']
   };
   function tcMd(d) { return /^\d{4}-\d{2}-\d{2}/.test(String(d || '')) ? String(d).slice(5, 10).replace('-', '/') : ''; }
+  /* 🙈 (2026-11-05) 명부에서 숨긴(삭제) 계정의 카페24 줄 — 왜 Move 가 없는지와 «어디서 연기하나» 를 글자로.
+     서버가 준 hidden_twins(같은 시각·같은 강사의 망고아이 수업)만 그대로 말한다 — 계정끼리 «같은 사람» 이라고 잇지 않는다.
+     ⛔ <button> 대신 글자 — 카드 안 전역 button 규칙이 파란 알약으로 덮는다(CLAUDE.md 2장). */
+  function tcHiddenNoteHtml(s) {
+    var twins = (s && Array.isArray(s.hidden_twins)) ? s.hidden_twins : [];
+    var who = twins.map(function (t) {
+      return t.student_name ? (t.student_name + ' (' + t.student_uid + ')') : String(t.student_uid || '');
+    }).filter(Boolean).join(', ');
+    var box = '<div style="margin-top:4px;font-size:10.5px;line-height:1.5;color:#7c2d12;background-color:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:3px 8px;max-width:260px">'
+      + esc(T('🙈 숨긴(삭제)된 계정 — 망고아이에 수업이 없어 옮길 수 없습니다.', '🙈 Hidden (deleted) account — no Mangoi class, so it cannot be moved here.'));
+    if (who) {
+      box += '<br><b>' + esc(T('같은 시각·같은 강사 망고아이 수업: ', 'Same time & teacher in Mangoi: ')) + esc(who) + '</b>'
+        + '<br>' + esc(T('→ 연기·변경은 그 줄의 📅 버튼으로. 이 카페24 예약은 카페24에서 정리하세요.',
+                         '→ Postpone/move from that row (📅). Clean up this cafe24 booking in cafe24.'));
+    } else {
+      box += '<br>' + esc(T('→ 이 예약은 카페24에서 바꾸거나 정리하세요.', '→ Change or clean up this booking in cafe24.'));
+    }
+    return box + '</div>';
+  }
   function tcUndoMoveHtml(s) {
     var u = s && s.undo;
     if (!u || !s.schedule_id || !tcCanMessage()) return '';
