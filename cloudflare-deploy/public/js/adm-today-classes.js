@@ -1575,6 +1575,21 @@
     var u = s && s.undo;
     if (!u || !s.schedule_id || !tcCanMessage()) return '';
     if (u.ok !== true && u.historical_available !== true) {
+      /* ↩ (2026-11-06 사장님 «원래 시각이 지났어도 되돌리기 옵션») 새 자리가 «그 뒤 취소» 됐고 아직 시작 전이면 이 줄에서 바로
+         그 수업을 새 자리에 다시 연다 — 판정은 서버(u.restore_cancelled_available · 정본 judgeMovedAwayUndo), 실행은 대상 행
+         (u.target_id)에 action:'restore'(.tc-restore-pin → tcRestorePostponed, 새 날짜 줄의 «↩ 취소 수업 복원» 과 같은 엔진).
+         data-back 이 있으면 확인창이 «원래 시각 · 그 뒤 취소» 를 함께 말한다. 지난 원래 시각에는 열지 않는다. */
+      if (u.restore_cancelled_available === true && u.target_id) {
+        var at = (String(u.target_date || '') + ' ' + (u.target_time || '')).trim();
+        var orig = (String(u.from_date || '') + ' ' + (u.from_time || '')).trim();
+        return '<span class="tc-restore-pin" role="button" tabindex="0" data-sid="' + esc(u.target_id) + '" '
+          + 'data-name="' + esc(s.student_name || s.student_uid || '') + '" data-when="' + esc(at + ' KST') + '" '
+          + 'data-back="' + esc(orig) + '" data-past="' + (u.reason === 'orig_passed' ? '1' : '0') + '" '
+          + 'title="' + esc(T('그 뒤 취소된 수업을 ' + at + ' 에 다시 엽니다', 'Reopen the later-cancelled class at ' + at)) + '" '
+          + 'style="cursor:pointer;display:inline-block;white-space:nowrap;margin-left:4px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
+          + 'background:#fff7ed;color:#b45309;border:1px solid #fcd9a8">'
+          + T('↩ 수업 복원 · ' + (tcMd(u.target_date) + ' ' + (u.target_time || '')).trim(), '↩ Restore class · ' + (tcMd(u.target_date) + ' ' + (u.target_time || '')).trim()) + '</span>';
+      }
       var w = TC_UNDO_WHY[u.reason] || TC_UNDO_WHY.no_target;
       return '<span style="display:inline-block;margin-left:4px;color:#475467;font-size:11px">' + esc(T(w[0], w[1])) + '</span>';
     }
@@ -1637,7 +1652,14 @@
     var sid = el.getAttribute('data-sid');
     var who = el.getAttribute('data-name') || '';
     var when = el.getAttribute('data-when') || '';
-    if (!confirm(T('수업을 복원할까요?\n\n' + who + ' · ' + when + '\n\n· 원래 날짜·시각에 활성 수업으로 복원되어 정상 출석·과금 규칙이 적용됩니다. 기존 출석·결제·급여 기록은 바뀌지 않습니다.',
+    /* ↩ (2026-11-06) «다른 날로 옮김» 줄에서 누른 경우(data-back) — 원래 시각이 아니라 «옮겨 간 새 시각» 에 다시 연다는 것을 말한다. */
+    var back = el.getAttribute('data-back') || '', past = el.getAttribute('data-past') === '1';
+    if (back) {
+      if (!confirm(T('수업을 복원할까요?\n\n' + who + ' · ' + when + '\n(' + back + ' 에서 연기 → 그 뒤 취소됨)\n\n· ' + when + ' 에 다시 열린 수업이 되어 정상 출석·과금 규칙이 적용됩니다.\n· 기존 출석·결제·급여 기록은 바뀌지 않습니다.\n· '
+                       + (past ? '원래 시각(' + back + ')은 이미 지나 그 자리에는 다시 열 수 없습니다.' : '그 뒤 원래 시각(' + back + ')으로 옮기려면 이 줄의 «↩ 원래대로» 를 누르세요.'),
+                     'Restore this class?\n\n' + who + ' · ' + when + '\n(postponed from ' + back + ', later cancelled)\n\n· It becomes an active class again at ' + when + ' and normal attendance and billing rules apply.\n· Existing attendance, payments and payroll records are unchanged.\n· '
+                       + (past ? 'The original time has passed, so it cannot reopen at ' + back + '.' : 'To move it back to ' + back + ' afterwards, use «↩ Undo move» on this row.')))) return;
+    } else if (!confirm(T('수업을 복원할까요?\n\n' + who + ' · ' + when + '\n\n· 원래 날짜·시각에 활성 수업으로 복원되어 정상 출석·과금 규칙이 적용됩니다. 기존 출석·결제·급여 기록은 바뀌지 않습니다.',
                    'Restore this class?\n\n' + who + ' · ' + when + '\n\n· The class becomes active at this time and normal attendance and billing rules apply. Existing attendance, payments and payroll records are unchanged.'))) return;
     el._busy = true;
     var old = el.textContent;

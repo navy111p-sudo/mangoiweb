@@ -427,6 +427,12 @@ export type MovedAwayUndoBlock = 'no_target' | 'no_time' | 'orig_passed' | 'targ
 
 export interface MovedAwayUndo {
   historical_available?: boolean;
+  /** ↩ (2026-11-06) 옮겨 간 새 자리가 «그 뒤 취소» 됐고 아직 시작 전이면 true — 원래 날짜 줄에서 바로 «취소 수업 복원»
+   *  (action:'restore' → 대상 행, 정본 restoreCancelled 엔진)을 줄 수 있다. 원래 시각이 지났어도 된다(새 자리에 다시 여는 것). */
+  restore_cancelled_available?: boolean;
+  /** 대상(새 자리)의 날짜·시각 — «취소 수업 복원» 확인창에 그대로 보여 준다(화면이 지어내지 않게). */
+  target_date?: string | null;
+  target_time?: string | null;
   ok: boolean;
   /** 안 되는 이유(ok=false 일 때만) */
   reason: MovedAwayUndoBlock | null;
@@ -451,22 +457,31 @@ export function judgeMovedAwayUndo(row: any, ch: ClassChange | null | undefined,
   if (!from) return null;
   const fromTime = hhmm(ch.from_time);
   const target = ymd(row.scheduled_date) ? row : (child && ymd(child.scheduled_date) ? child : null);
+  /* 새 자리(대상)의 상태·시작 시각 — 아래 판정과 «취소 수업 복원» 판정이 같은 값을 쓴다. */
+  const tSt = target ? String(target.status ?? target.sched_status ?? 'active').trim().toLowerCase() : '';
+  const tStart = target ? kstStartMs(target.scheduled_date, target.start_time) : NaN;
+  /* ↩ (2026-11-06 사장님 «원래 시각이 지났어도 되돌리기 옵션을 달라» — 화면 «⏸ Postponed → 11/11 20:00 · later cancelled»
+     + «Original time has passed — cannot undo»). 새 자리가 그 뒤 «취소» 됐고 아직 시작 전이면, 원래 날짜 줄에서 바로
+     그 수업을 새 자리에 다시 열 수 있다 — 서버 정본 restore(restoreCancelled 엔진: 시작 여부·겹침·휴가·출석·동시 수정)를 그대로 탄다.
+     ⛔ 지난 원래 시각에 «열린 수업» 을 만들지 않는다(결석 감지·급여 — PR #2109 가 버린 길). 복원 뒤에는 이 줄이 다시 판정되어
+        원래 시각이 미래면 «↩ 원래대로», 지났으면 «↩ 과거 기록 정정» 이 뜬다. ⛔ 날짜 없이 다시 연기(postponed)된 대상은 해당 없음. */
+  const restoreCancelled = !!target && target.id != null && tSt === 'cancelled' && Number.isFinite(tStart) && tStart > nowMs;
   const out = (reason: MovedAwayUndoBlock | null): MovedAwayUndo => ({
     ok: reason === null, reason, from_date: from, from_time: fromTime || null,
     target_id: target && target.id != null ? String(target.id) : null,
+    target_date: target ? (ymd(target.scheduled_date) || null) : null,
+    target_time: target ? (hhmm(target.start_time) || null) : null,
+    restore_cancelled_available: restoreCancelled,
   });
   if (!target || target.id == null) return out('no_target');
   if (!fromTime) return out('no_time');
   const origStart = kstStartMs(from, fromTime);
   if (!Number.isFinite(origStart) || origStart <= nowMs) {
     const result = out('orig_passed');
-    const current = kstStartMs(target.scheduled_date, target.start_time);
-    result.historical_available = !!ymd(row.scheduled_date) && Number.isFinite(origStart) && String(target.status ?? target.sched_status ?? 'active') === 'active' && Number.isFinite(current) && current > nowMs;
+    result.historical_available = !!ymd(row.scheduled_date) && Number.isFinite(origStart) && String(target.status ?? target.sched_status ?? 'active') === 'active' && Number.isFinite(tStart) && tStart > nowMs;
     return result;
   }
-  const st = String(target.status ?? target.sched_status ?? 'active').trim().toLowerCase();
-  if (st && st !== 'active') return out('target_not_active');
-  const curStart = kstStartMs(target.scheduled_date, target.start_time);
-  if (!Number.isFinite(curStart) || curStart <= nowMs) return out('target_started');
+  if (tSt && tSt !== 'active') return out('target_not_active');
+  if (!Number.isFinite(tStart) || tStart <= nowMs) return out('target_started');
   return out(null);
 }
