@@ -17,6 +17,9 @@ import { counselingRecipient, sendCounselingSms } from './counseling-send';
 //   2회차(2026-07-14): Phase G1~G2 — 급여정산 7 + 수업연기 SR 3 + 피드백초안 FD 3
 //     (payroll rates·all·finalize·seed-demo 는 아직 api-mango — 3회차 예정)
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
+//   2026-11-06 모듈 지도: 통계 → api-admin-stats.ts, 급여 → api-admin-payroll.ts,
+//     수업료 계산 → admin-lesson-fees.ts, 강사 공용 계산 → admin-teacher-core.ts,
+//     응답 캐시 → admin-cache.ts. 기존 인증·정산 정책과 라우트 본문은 유지한다.
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody, invalidBody, today } from './api-util';
 import { agencyLoginGate } from './agency-login-gate';        // 🔒 대리점 로그인 계정 만들기·바꾸기 = 본사 전용 판정 정본
