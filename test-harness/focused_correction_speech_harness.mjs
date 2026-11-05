@@ -241,6 +241,16 @@ for (const kind of ['avatar', 'friend']) for (const stream of [0, 1]) {
     assert.equal(speech, final);
     assert.equal(events.filter(e => e.t).length, 0);
     if (kind === 'friend') assert.equal(raw.prepare("SELECT content FROM ai_friend_chats WHERE student_uid=? AND role='assistant'").get(uid)?.content, final);
+    /* ⚡ (2026-11-06) A.i 친구 스트리밍은 저장·포인트 «전» 에 final 로 같은 정본을 먼저 보낸다 — done 보다 앞, 같은 답·같은 교정. */
+    if (kind === 'friend' && stream) {
+      const fi = events.findIndex(e => e.final), di = events.findIndex(e => e.done);
+      assert.ok(fi >= 0 && fi < di, 'final event precedes done');
+      assert.equal(events[fi].reply, body.reply);
+      assert.equal(events[fi].fix?.now, body.fix?.now);
+      assert.equal(events[fi].repeat, body.repeat);
+      assert.equal(events[fi].replaced, body.replaced);
+      assert.equal(events[fi].gam, undefined, 'points stay on done');
+    }
   });
 }
 routeFix = { was: 'What you do? I go park yesterday.', now: 'What did you do? I went to the park yesterday.' };
@@ -272,8 +282,11 @@ for (const kind of ['avatar', 'friend']) for (const mode of ['focused', 'balance
         assert.equal(spoken, H.ensureFocusedFixSpoken(question, mode, 'partial', routeFix));
         assert.equal(events.filter(e => e.t).length, 0);
         const needsCheck = ['omitted', 'invalid'].includes(variant);
-        assert.equal(rechecks, needsCheck ? 1 : 0);
-        assert.equal(modelCalls, needsCheck ? 2 : 1);
+        /* ⚡ (2026-11-06) A.i 친구는 다시 묻기를 본 호출과 «동시에» 미리 시작한다(api-ai.ts focusedRecoverP) —
+           모델이 교정을 줘서 결과를 안 쓰는 턴에도 한 번은 불린다(호출 하나와 바꾼 기다림). 웜업(avatar)은 예전대로 «필요할 때만». */
+        const startsEarly = kind === 'friend';
+        assert.equal(rechecks, needsCheck || startsEarly ? 1 : 0);
+        assert.equal(modelCalls, needsCheck || startsEarly ? 2 : 1);
       } else if (mode === 'focused') {
         assert.equal(body.fix, null);
         assert.ok(!spoken.includes('You can say'));
