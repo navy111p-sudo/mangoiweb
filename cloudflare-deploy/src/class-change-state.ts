@@ -426,6 +426,7 @@ export function judgeMovedAway(row: any, ev: MovedAwayEvent | null | undefined, 
 export type MovedAwayUndoBlock = 'no_target' | 'no_time' | 'orig_passed' | 'target_not_active' | 'target_started';
 
 export interface MovedAwayUndo {
+  historical_available?: boolean;
   ok: boolean;
   /** 안 되는 이유(ok=false 일 때만) */
   reason: MovedAwayUndoBlock | null;
@@ -457,7 +458,12 @@ export function judgeMovedAwayUndo(row: any, ch: ClassChange | null | undefined,
   if (!target || target.id == null) return out('no_target');
   if (!fromTime) return out('no_time');
   const origStart = kstStartMs(from, fromTime);
-  if (!Number.isFinite(origStart) || origStart <= nowMs) return out('orig_passed');
+  if (!Number.isFinite(origStart) || origStart <= nowMs) {
+    const result = out('orig_passed');
+    const current = kstStartMs(target.scheduled_date, target.start_time);
+    result.historical_available = !!ymd(row.scheduled_date) && Number.isFinite(origStart) && String(target.status ?? target.sched_status ?? 'active') === 'active' && Number.isFinite(current) && current > nowMs;
+    return result;
+  }
   const st = String(target.status ?? target.sched_status ?? 'active').trim().toLowerCase();
   if (st && st !== 'active') return out('target_not_active');
   const curStart = kstStartMs(target.scheduled_date, target.start_time);

@@ -403,6 +403,17 @@ if (process.env.SMRS_CHILD === '1') {
   const pastDecision=await callAdmin('POST','/api/admin/schedule-requests/decide',{cookie:'tok_admin',body:{id:pastRebook.body.id,action:'approve'}});
   ok('7e past unheld original can use existing rebook path',pastDecision.body.ok===true&&getRow(pastId).scheduled_date==='2026-10-09'&&getRow(pastId).start_time==='19:40'&&getRow(pastId).status==='active',JSON.stringify({pastRebook,pastDecision}));
 
+  const historicalId = mkClass('stu_b','dated',null,'2026-09-30','06:20','2');
+  ins("INSERT INTO class_audit_log(action,schedule_id,lesson_date,lesson_time,actor,actor_role,source,created_at) VALUES('postpone',?,'2026-09-28','06:20','fixture','admin','ui',?)",historicalId,Date.now()-1000);
+  const historicalResult = await callAdmin('POST',`/api/admin/class-schedules/${historicalId}`,{cookie:'tok_admin',body:{action:'undo_move',from_date:'2026-09-28',historical_correction:true}});
+  ok('7f historical recovery stays postponed on original date',historicalResult.status===200&&getRow(historicalId).status==='postponed'&&getRow(historicalId).scheduled_date==='2026-09-28',JSON.stringify(historicalResult));
+  await both('7g historical recovery never opens a current class',historicalId,'stu_b','tok_beta',null,{present:false});
+  const historicalPortal = await portal('tok_beta');
+  ok('7h teacher future view loses removed destination',(historicalPortal.upcoming||[]).every(u=>Number(u.id)!==historicalId),JSON.stringify(historicalPortal.upcoming));
+  const historicalManager = await callAdmin('GET','/api/admin/classes/today?date=2026-09-28',{cookie:'tok_admin'});
+  const historicalView = (historicalManager.body.sessions||[]).find(s=>Number(s.schedule_id)===historicalId);
+  ok('7i manager historical row remains closed and postponed',!!historicalView&&historicalView.postponed&&!historicalView.join_open&&!historicalView.observable,JSON.stringify(historicalView));
+
   // Fuzz real API restore guards at distinct times, preserving counts and credits.
   for(let i=0;i<100;i++){
     const hh=String(7+Math.floor(i/3)%14).padStart(2,'0'),mm=['00','20','40'][i%3];

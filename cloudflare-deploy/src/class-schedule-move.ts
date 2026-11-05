@@ -29,14 +29,19 @@ async function snapshot(env: any, select: string, fields: string[], args: any[] 
   return { sql, args, value: row.value };
 }
 
-export async function moveSchedulesAtomically(env: any, actor: any, input: any, originalRows?: any[], options?: { restorePostponed?: boolean; undoMove?: boolean }) {
+export async function moveSchedulesAtomically(env: any, actor: any, input: any, originalRows?: any[], options?: { restorePostponed?: boolean; restoreCancelled?: boolean; undoMove?: boolean; historicalUndo?: boolean }) {
   if (!actor?.ok) return fail(401, 'auth_required', '로그인이 필요합니다.');
   const raw = input.ids;
   if (!Array.isArray(raw) || !raw.length || raw.length > 50 || raw.some((id: any) => !/^\d+$/.test(String(id)) || Number(id) <= 0))
     return fail(400, 'invalid_ids', '옮길 수업을 다시 선택해 주세요.');
   const ids = [...new Set(raw.map(String))] as string[];
   // Internal option: only the HQ restore route may request a status restoration.
-  const restore = options?.restorePostponed === true;
+  const cancelled = options?.restoreCancelled === true;
+  // Historical correction removes the unstarted future destination and returns
+  // the same row as POSTPONED. It never opens a past class or edits a ledger.
+  // No availability check is needed for a slot that remains closed.
+  const historical = options?.historicalUndo === true;
+  const restore = options?.restorePostponed === true || cancelled;
   // Internal option: only the HQ undo route (api-admin.ts action:'undo_move') may move a class back to the date it
   // was moved away from. It is an ordinary dated move (same conflict engine, same row — PR #1889) plus the restore
   // attendance/room-override guards, audited as 'restore' so no new «moved away» shadow appears on the left date.
@@ -81,6 +86,7 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
       OR user_id IN (SELECT value FROM json_each(?)) OR id IN (SELECT value FROM json_each(?)) ORDER BY id`;
     const csArgs = [JSON.stringify(teacherIds), JSON.stringify(userIds), JSON.stringify(ids)];
     const restoreRooms = rows.flatMap(r => [`class-${r.id}`, `class-${r.id}-${String(r.scheduled_date || '').replace(/-/g, '')}`]);
+    if (historical && p.destination_date) restoreRooms.push(...rows.map(r => `class-${r.id}-${String(p.destination_date).replace(/-/g, '')}`));
     const restoreOverrides = guarded && await env.DB.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='class_room_override'`).first();
     let overrideShot: Snapshot | null = null;
     if (restoreOverrides) {
@@ -134,7 +140,7 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
       && scheduleRowsOverlap(r, other, new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10)));
     for (const row of rows) {
       if (restore) {
-        if (!isPostponedOccurrence(row)) return fail(409, 'not_cancelled', 'This class is no longer postponed. Refresh the list.');
+        if (!(cancelled ? row.status === 'cancelled' && row.scheduled_date : isPostponedOccurrence(row))) return fail(409, 'not_cancelled', 'This class is no longer cancelled or postponed. Refresh the list.');
         const start = Date.parse(String(row.scheduled_date) + 'T' + String(row.start_time).padStart(5, '0') + ':00+09:00');
         if (!Number.isFinite(start)) return fail(409, 'availability_unknown', 'Check the original class date and time.');
         if (start <= Date.now()) return fail(409, 'past_date', 'A class that has already started cannot be restored.');
@@ -154,7 +160,7 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
         // H:MM spelling and recurring occurrences with the common overlap engine.
         if (slotTaken(row)) return fail(409, 'slot_taken', 'Another class already uses the original time. Rebook to a different date or time.');
       }
-      if (['cancelled','ended','completed'].includes(String(row.status || '')) || ['lms','type_seed'].includes(String(row.user_id).toLowerCase()))
+      if ((!cancelled && ['cancelled','ended','completed'].includes(String(row.status || ''))) || ['lms','type_seed'].includes(String(row.user_id).toLowerCase()))
         return fail(409, 'schedule_not_movable', '취소·종료 또는 자리표시 수업은 옮길 수 없습니다.');
       const patch = { ...p };
       if (patch.destination_date != null) {
@@ -174,18 +180,24 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
         if (deny) return { ok: false as const, ...deny };
       }
       if (dest.teacher_id && !names.has(String(dest.teacher_id))) return fail(400, 'teacher_not_found', '그 번호의 강사를 찾을 수 없습니다.');
-      const conflict = await findScheduleMoveConflicts(env, dest, String(names.get(String(dest.teacher_id)) || ''), ids, facts);
+      const conflict = historical ? null : await findScheduleMoveConflicts(env, dest, String(names.get(String(dest.teacher_id)) || ''), ids, facts);
       if (conflict) return { ok: false as const, ...conflict };
       if (row.source === 'c24-mirror') dest.source = 'c24-mirror:manual';
       if (isPostponedOccurrence(row) && (!same(dest.scheduled_date,row.scheduled_date) || !same(dest.start_time,row.start_time) || !same(dest.day_of_week,row.day_of_week))) dest.status = 'active';
       if (restore) dest.status = 'active';
-      if (undo && slotTaken(dest)) return fail(409, 'slot_taken', 'Another class already uses the original time. Rebook to a different date or time.');
+      if (historical) {
+        const start = Date.parse(String(dest.scheduled_date) + 'T' + String(dest.start_time).padStart(5, '0') + ':00+09:00');
+        const current = Date.parse(String(row.scheduled_date) + 'T' + String(row.start_time).padStart(5, '0') + ':00+09:00');
+        if (!undo || !Number.isFinite(start) || start > Date.now() || !Number.isFinite(current) || current <= Date.now()) return fail(409, 'schedule_changed', 'Refresh the class dates before correcting history.');
+        dest.status = 'postponed';
+      }
+      if (undo && !historical && slotTaken(dest)) return fail(409, 'slot_taken', 'Another class already uses the original time. Rebook to a different date or time.');
       dest.updated_at = now;
       destinations.push(dest);
     }
     // Excluding the source group must not hide collisions among its proposed rows.
     for (const dest of destinations) {
-      const conflict = await findScheduleMoveConflicts(env, dest, String(names.get(String(dest.teacher_id)) || ''), [dest.id],
+      const conflict = historical ? null : await findScheduleMoveConflicts(env, dest, String(names.get(String(dest.teacher_id)) || ''), [dest.id],
         { ...facts, rows: destinations.filter(r => String(r.id) !== String(dest.id)) });
       if (conflict) return { ok: false as const, ...conflict };
     }
@@ -197,9 +209,9 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
       const row=rows[i], dest=destinations[i];
       statements.push(env.DB.prepare(`UPDATE class_schedules SET teacher_id=?, scheduled_date=?, day_of_week=?, start_time=?, duration_min=?, source=?, status=?, updated_at=? WHERE id=?`)
         .bind(dest.teacher_id ?? null,dest.scheduled_date ?? null,dest.day_of_week ?? null,dest.start_time,dest.duration_min ?? null,dest.source ?? null,dest.status ?? null,now,row.id));
-      statements.push(env.DB.prepare(`INSERT INTO class_audit_log (action,schedule_id,teacher_name,student_name,lesson_date,lesson_time,actor,actor_role,source,detail,created_at) VALUES ('${guarded ? 'restore' : 'reschedule'}',?,?,?,?,?,?,?,'ui',?,?)`)
+      statements.push(env.DB.prepare(`INSERT INTO class_audit_log (action,schedule_id,teacher_name,student_name,lesson_date,lesson_time,actor,actor_role,source,detail,reason,created_at) VALUES ('${guarded ? 'restore' : 'reschedule'}',?,?,?,?,?,?,?,'ui',?,?,?)`)
         .bind(row.id,names.get(String(row.teacher_id)) || null,row.student_name || null,row.scheduled_date || null,row.start_time || null,actor.name || actor.username || '관리자',actor.isTeacher?'teacher':'admin',
-          JSON.stringify({ids,scheduled_date:dest.scheduled_date,day_of_week:dest.day_of_week,start_time:dest.start_time,teacher_id:dest.teacher_id,teacher_changed:!same(dest.teacher_id,row.teacher_id),...(undo ? { undo_move: true } : {})}),now));
+          JSON.stringify({ids,scheduled_date:dest.scheduled_date,day_of_week:dest.day_of_week,start_time:dest.start_time,teacher_id:dest.teacher_id,teacher_changed:!same(dest.teacher_id,row.teacher_id),...(undo ? { undo_move: true, historical_correction: historical, resulting_status: dest.status } : {})}),input.reason ? String(input.reason).slice(0,300) : (cancelled ? '수업 종료 되돌리기' : null),now));
     }
     statements.push(env.DB.prepare(`DELETE FROM schedule_move_guard WHERE token=?`).bind(token));
     const results = await env.DB.batch(statements);
