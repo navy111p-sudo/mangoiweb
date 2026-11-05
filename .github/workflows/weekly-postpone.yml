@@ -26,6 +26,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: 'cloudflare-deploy/package-lock.json'
+      # Source fixtures follow actual admin imports with the project's TypeScript parser.
+      # Install the locked dev dependencies just as the shared PR/deploy gate does.
+      - name: Install source harness dependencies
+        working-directory: cloudflare-deploy
+        run: npm ci
       - name: 600 transaction scenarios
         run: node test-harness/weekly_postpone_atomic_harness.mjs
       - name: 200 postponement and 200 change request workflows
