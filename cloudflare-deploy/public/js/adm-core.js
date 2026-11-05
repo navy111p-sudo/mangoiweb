@@ -7809,6 +7809,42 @@ async function loadEnrollments() {
    ⛔ __enShown 에 넣지 않는다 — 일괄 삭제·내보내기·상태 버튼은 «신청서» 에만 걸린다.
       (그 줄에서 취소·삭제를 누르면 신청서 id 로 나가 엉뚱한 행을 건드린다.)
       그래서 그 줄에는 체크박스·취소·삭제가 없고, 고치는 곳(주간 스케줄)으로 가는 링크를 둔다. */
+/* 📋 (2026-11-05 사장님 «기존 망고아이처럼») 신청 목록을 옛 망고아이 표처럼 «한 칸에 한 사실» 로 편다.
+   옛 표: No · 신청일 · 학생명 · 아이디 · 시작일 · 종료일 · 결제 · 과정명 · 수업타입 · 회수/주 · 학습시간/회 ·
+          수업스케줄 · 스케줄 상태(강사) · 수업 상태.
+   ⚠️ 칸 수는 EN_COLS 하나 — admin.html 의 머리줄(th)·빈 줄·처리 패널 colspan 이 이 값과 같아야 한다
+      (하니스 enroll_list_render 가 대조). ⛔ 모르는 값은 지어내지 않고 «—» 로 둔다(잔여 수업수·이전결제 종료일은
+      이 표에 없는 값이라 칸을 만들지 않았다). */
+const EN_COLS = 16;
+// 회/주 — 서버 정본 weeklyCountFromDays(src/enroll-fee.ts)와 같은 규칙(한글 요일 → 영문 요일 → 0)
+function _enWeekly(days) {
+  const s = String(days == null ? '' : days).trim();
+  if (!s) return 0;
+  const ko = s.match(/[월화수목금토일]/g);
+  if (ko && ko.length) return new Set(ko).size;
+  const en = s.match(/mon|tue|wed|thu|fri|sat|sun/gi);
+  if (en && en.length) return new Set(en.map(x => x.toLowerCase())).size;
+  return 0;
+}
+// 결제 방식 — notes·type 에 남은 흔적으로만 말한다(추측 금지 · 모르면 빈 문자열)
+function _enPayKind(it, en) {
+  const n = String(it.notes || '');
+  if (it.type === 'schedule_direct') return en ? 'Schedule' : '스케줄 배정';
+  if (/B2B/i.test(n)) return en ? 'B2B' : 'B2B 결제';
+  if (n.indexOf('토스 결제') >= 0) return en ? 'Card (B2C)' : 'B2C 결제';
+  return '';
+}
+function _enDay(v) {
+  if (v == null || v === '') return '';
+  if (typeof v === 'number' || /^\d{10,}$/.test(String(v))) {
+    // 옛 망고아이처럼 «2026-11-04» — 한국 시각 기준(브라우저 시간대와 무관하게 같은 날짜)
+    const d = new Date(Number(v) + 9 * 3600000);
+    return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+  }
+  return _esc(String(v).slice(0, 10));
+}
+const _enTd = 'padding:4px 6px;border-bottom:1px solid #e5e7eb;vertical-align:middle;line-height:1.35;';
+const _enDash = '<span style="color:#9ca3af">—</span>';
 function _enDirectList(q) {
   let list = _enDirect;
   if (q) list = list.filter(g => (
@@ -7821,27 +7857,30 @@ function _enDirectRow(g) {
   const en = (adminLang === 'en');
   const DOW = en ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
   const days = (g.dows || []).map(x => DOW[x] || '').filter(Boolean).join(',');
-  const when = g.kind === 'dated'
-    ? (g.first_date === g.last_date ? _esc(g.first_date || '') : _esc(g.first_date || '') + ' ~ ' + _esc(g.last_date || '')) +
-      ' · ' + (en ? g.count + ' class(es)' : g.count + '회')
-    : (en ? 'weekly' : '매주');
-  const sub = [days, _esc(g.start_time || ''), g.duration_min ? g.duration_min + (en ? 'min' : '분') : '',
-    g.teacher_name ? '👤 ' + _esc(g.teacher_name) : '', when].filter(Boolean).join(' · ');
+  const td = (h, ex) => '<td style="' + _enTd + (ex || '') + '">' + h + '</td>';
+  const sched = [days, _esc(g.start_time || '')].filter(Boolean).join(' ');
+  const cnt = g.kind === 'dated' ? (en ? g.count + ' class(es)' : g.count + '회') : (en ? 'weekly' : '매주');
   return '<tr>' +
-    '<td></td>' +
-    '<td style="white-space:nowrap">' + (g.created_at ? _fmtDate(g.created_at) : '—') + '</td>' +
-    '<td><b>' + _esc(g.student_name || g.user_id || '—') + '</b>' +
-      (g.user_id ? '<br><span style="font-size:11px;color:#6b7280">' + _esc(g.user_id) + '</span>' : '') + '</td>' +
-    '<td>' + (en ? 'Direct assignment' : '직접 배정') +
-      ' <span style="font-size:10px;font-weight:800;padding:1px 7px;border-radius:999px;background:#eff6ff;color:#1e3a8a" title="' +
+    td('') + td(_enDash, 'text-align:center') +
+    td(_enDay(g.created_at) || _enDash, 'white-space:nowrap') +
+    td('<b>' + _esc(g.student_name || g.user_id || '—') + '</b>', 'white-space:nowrap') +
+    td(g.user_id ? _esc(g.user_id) : _enDash, 'white-space:nowrap') +
+    td(_esc(g.first_date || '') || _enDash, 'white-space:nowrap') +
+    td(g.kind === 'dated' ? (_esc(g.last_date || '') || _enDash) : _enDash, 'white-space:nowrap') +
+    td('<span style="font-size:11.5px;color:#1e3a8a" title="' +
       (en ? 'Assigned in the weekly schedule — no enrollment form' : '주간 스케줄에서 배정한 수업 — 신청서 없음') + '">📅 ' +
-      (en ? 'schedule' : '스케줄') + '</span>' +
-      '<br><span style="font-size:11px;color:#6b7280">' + sub + '</span></td>' +
-    '<td style="text-align:right;color:#6b7280">—</td>' +
-    '<td><span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:800;background:#dbeafe;color:#1e40af">' +
-      (en ? 'Scheduled' : '배정됨') + '</span></td>' +
-    '<td style="font-size:11.5px"><a href="/admin/weekly-schedule.html" target="_blank" rel="noopener" style="font-weight:700;color:#1d4ed8">' +
-      (en ? 'Edit in schedule →' : '스케줄에서 관리 →') + '</a></td></tr>';
+      (en ? 'schedule' : '스케줄') + '</span>', 'white-space:nowrap') +
+    td((en ? 'Direct assignment' : '직접 배정') + '<br><span style="font-size:11px;color:#6b7280">' + cnt + '</span>') +
+    td(_enDash, 'text-align:center') +
+    td((g.dows || []).length ? (en ? g.dows.length + '/wk' : g.dows.length + '회/주') : _enDash, 'text-align:center;white-space:nowrap') +
+    td(g.duration_min ? g.duration_min + (en ? ' min' : '분') : _enDash, 'text-align:center;white-space:nowrap') +
+    td(sched || _enDash, 'white-space:nowrap') +
+    td(g.teacher_name ? _esc(g.teacher_name) : _enDash, 'white-space:nowrap') +
+    td('<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:800;background:#dbeafe;color:#1e40af">' +
+      (en ? 'Scheduled' : '배정됨') + '</span>', 'text-align:center') +
+    '<td class="en-act" style="' + _enTd + 'font-size:11.5px"><a href="/admin/weekly-schedule.html" target="_blank" rel="noopener" style="font-weight:700;color:#1d4ed8">' +
+      (en ? 'Edit in schedule →' : '스케줄에서 관리 →') + '</a></td>' +
+    '</tr>';
 }
 
 /* 🔀 (2026-09-30) 아직 신청서가 없는 «직접 배정» 을 신청서로 합친다 — 먼저 건수를 묻고(dry) 확인 뒤 실행.
@@ -7884,10 +7923,11 @@ function _enPhoneCell(it) {
   var p = String(it.notify_phone || '');
   var label = p
     ? '📞 ' + _esc(p.replace(/^(\d{2,3})(\d{3,4})(\d{4})$/, '$1-$2-$3'))
-    : (en ? '📵 no SMS — add number' : '📵 문자 안 감 · 번호 넣기');
+    : (en ? '📵 no SMS' : '📵 문자 안 감');
   return '<br><a href="#" onclick="enEditPhone(event,' + it.id + ')" ' +
     'style="font-size:11px;color:' + (p ? '#0f6b4a' : '#b45309') + ';text-decoration:none;border-bottom:1px dashed currentColor" ' +
-    'title="' + (en ? 'Where the 30-minutes-before class reminder is sent' : '수업 30분 전 안내문자가 갈 번호') + '">' +
+    'title="' + (p ? (en ? 'Where the 30-minutes-before class reminder is sent — click to change' : '수업 30분 전 안내문자가 갈 번호 — 눌러서 고치기')
+                   : (en ? 'No number — class reminders are not sent. Click to add one.' : '번호가 없어 수업 전 안내문자가 안 갑니다 — 눌러서 번호 넣기')) + '">' +
     label + '</a>';
 }
 
@@ -7995,7 +8035,7 @@ function _renderEnrollments() {
     .concat(directList.map(g => ({ t: Number(g.created_at) || 0, g: g })));
   merged.sort((x, y) => (y.t - x.t) || ((x.g ? 1 : 0) - (y.g ? 1 : 0)));
   if (!merged.length) {
-    tb.innerHTML = '<tr><td colspan="7" class="empty">' +
+    tb.innerHTML = '<tr><td colspan="' + EN_COLS + '" class="empty">' +
       (_enItems.length
         ? (en ? 'Nothing matches this filter' : '이 조건에 맞는 신청이 없습니다')
         : (en ? 'No enrollments visible to your role' : '권한 범위에 표시할 수강신청이 없습니다')) +
@@ -8010,41 +8050,51 @@ function _renderEnrollments() {
     const cur = String(it.status || '');
     const fee = it.monthly_fee_krw ? '₩' + Number(it.monthly_fee_krw).toLocaleString() : '—';
 
-    // 두 번째 줄 — DB 에 있는데 지금까지 표에서 버려지던 것들
-    const sched = [it.days_of_week, it.time, it.class_size].filter(Boolean).map(v => _esc(String(v))).join(' · ');
-    const who = it.student_user_id ? '<span style="font-size:11px;color:#9ca3af">' + _esc(it.student_user_id) + '</span>' : '';
-    const teacher = it.teacher_name
-      ? '<span style="font-size:11px;color:#6b7280">👤 ' + _esc(it.teacher_name) + '</span>'
+    // 📋 (2026-11-05) 옛 망고아이처럼 «한 칸에 한 사실» — 요일·시간·인원·강사·기간을 각자 칸으로 편다
+    const td = (h, ex) => '<td style="' + _enTd + (ex || '') + '">' + h + '</td>';
+    const teacherCell = it.teacher_name
+      ? _esc(it.teacher_name)
       : (cur === 'confirmed' || cur === 'active'
-          ? '<span style="font-size:11px;color:#b45309;font-weight:700">' + (en ? 'no teacher yet' : '강사 미배정') + '</span>' : '');
-    // 🧭 (2026-08-12) ③ 배정 우선순위 — 등록 때 무엇을 먼저 맞춰 달라고 했는지
+          ? '<span style="font-size:11px;color:#b45309;font-weight:700">' + (en ? 'no teacher yet' : '강사 미배정') + '</span>' : _enDash);
+    // 🧭 (2026-08-12) ③ 배정 우선순위 — 수업스케줄 칸 아래 작게
     const prio = it.assign_priority === 'teacher'
-      ? '<span style="font-size:11px;color:#6d28d9">' + (en ? '👨‍🏫 teacher first' : '👨‍🏫 강사 우선') + '</span>'
+      ? '<span style="font-size:10.5px;color:#6d28d9">' + (en ? '👨‍🏫 teacher first' : '👨‍🏫 강사 우선') + '</span>'
       : (it.assign_priority === 'schedule'
-          ? '<span style="font-size:11px;color:#0369a1">' + (en ? '⏰ day·time first' : '⏰ 요일·시간 우선') + '</span>' : '');
-    // 🗓️ (2026-08-14) ⑥ 수업 기간 — 등록 때 고른 회차(개월). 끝나는 날이 있으면 같이 보여 준다.
+          ? '<span style="font-size:10.5px;color:#0369a1">' + (en ? '⏰ day·time first' : '⏰ 요일·시간 우선') + '</span>' : '');
+    const sched = [it.days_of_week, it.time].filter(Boolean).map(v => _esc(String(v))).join(' ');
+    // 🗓️ (2026-08-14) ⑥ 수업 기간 — 종료일 칸 아래 작게
     const durTxt = _enDurLabel(it.duration_months, en);
-    const durChip = durTxt
-      ? '<span style="font-size:11px;color:#065f46">🗓️ ' + durTxt +
-        (it.duration_months !== 'unlimited' && it.end_date ? ' (~' + _esc(String(it.end_date)) + ')' : '') + '</span>'
-      : '';
-    const sub = [sched, prio, teacher, durChip].filter(Boolean).join(' · ');
-
+    const endDay = _enDay(it.end_date) || _enDay(it.ended_at);
+    const wk = _enWeekly(it.days_of_week);
+    const hasClass = !!(it.days_of_week || it.time);
+    // 수업 시간 — 안 고른 등록은 확정 단계가 기본 20분으로 만든다(enroll-activate DEFAULT_CLASS_MINUTES) → «(기본)» 이라고 말한다
+    const mins = it.duration_min ? (it.duration_min + (en ? ' min' : '분'))
+      : (hasClass ? '20' + (en ? ' min' : '분') + '<span style="font-size:10px;color:#9ca3af">' + (en ? ' (default)' : ' (기본)') + '</span>' : '');
+    const payKind = _enPayKind(it, en);
     const dupBadge = isDup(it)
       ? ' <span title="' + (en ? 'Same student, same package, more than one live enrollment' : '같은 학생·같은 패키지가 살아 있는 채로 2건 이상입니다')
         + '" style="font-size:10px;font-weight:800;padding:1px 7px;border-radius:999px;background:#fee2e2;color:#991b1b">'
         + (en ? 'DUP?' : '중복?') + '</span>' : '';
 
     return '<tr>' +
-      '<td style="text-align:center"><input type="checkbox" class="en-sel" data-id="' + it.id + '"' +
+      '<td style="' + _enTd + 'text-align:center"><input type="checkbox" class="en-sel" data-id="' + it.id + '"' +
         (__enSel.has(String(it.id)) ? ' checked' : '') + ' onchange="enToggleSel(this)" aria-label="' +
         (en ? 'Select for export' : '내보내기 선택') + '"></td>' +
-      '<td style="white-space:nowrap">' + _fmtDate(it.created_at) + '</td>' +
-      '<td><b>' + _esc(it.student_name) + '</b>' + dupBadge + (who ? '<br>' + who : '') + _enPhoneCell(it) + '</td>' +
-      '<td>' + _esc(it.package || '—') + (sub ? '<br><span style="font-size:11px;color:#6b7280">' + sub + '</span>' : '') + '</td>' +
-      '<td style="text-align:right;white-space:nowrap">' + fee + '</td>' +
-      '<td><span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:800;background:' + m.bg + ';color:' + m.fg + '">' + (en ? m.en : m.ko) + '</span></td>' +
-      '<td style="white-space:nowrap">' +
+      td(String(it.id), 'text-align:center;color:#475467') +
+      td(_enDay(it.created_at) || _enDash, 'white-space:nowrap') +
+      td('<b>' + _esc(it.student_name) + '</b>' + dupBadge + _enPhoneCell(it), 'white-space:nowrap') +
+      td(it.student_user_id ? _esc(it.student_user_id) : _enDash, 'white-space:nowrap') +
+      td(_enDay(it.started_at) || _enDash, 'white-space:nowrap') +
+      td((endDay || _enDash) + (durTxt ? '<br><span style="font-size:10.5px;color:#065f46">🗓️ ' + durTxt + '</span>' : ''), 'white-space:nowrap') +
+      td(fee + (payKind ? '<br><span style="font-size:10.5px;color:' + (/B2B/.test(payKind) ? '#1d4ed8' : '#b91c1c') + '">' + payKind + '</span>' : ''), 'text-align:right;white-space:nowrap') +
+      td(_esc(it.package || '—')) +
+      td(it.class_size ? _esc(String(it.class_size)) : _enDash, 'text-align:center;white-space:nowrap;color:#b45309') +
+      td(wk ? (en ? wk + '/wk' : wk + '회/주') : _enDash, 'text-align:center;white-space:nowrap') +
+      td(mins || _enDash, 'text-align:center;white-space:nowrap') +
+      td((sched || _enDash) + (prio ? '<br>' + prio : ''), 'white-space:nowrap') +
+      td(teacherCell, 'white-space:nowrap') +
+      '<td style="' + _enTd + 'text-align:center"><span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:800;background:' + m.bg + ';color:' + m.fg + '">' + (en ? m.en : m.ko) + '</span></td>' +
+      '<td class="en-act" style="' + _enTd + '">' +
         /* ✅ (2026-08-12) 등록 = 확정. 「✓ 확정」 버튼을 없앴다 — 등록하는 순간 파이프라인이
            같이 돈다(_enAutoConfirm). 그래도 막히는 건은 pending 으로 남으므로, **그때만**
            이유를 열어 보는 버튼을 둔다. 정상 등록건에는 아무 «다음 단계»도 안 보인다.
@@ -8075,7 +8125,7 @@ function _renderEnrollments() {
             'style="padding:3px 7px;font-size:11px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#b91c1c;cursor:pointer;margin-left:2px">🗑️</button>'
           : '') +
       '</td></tr>' +
-      '<tr id="en-panel-' + it.id + '" style="display:none"><td colspan="7" style="padding:0;background:#faf5ff"></td></tr>';
+      '<tr id="en-panel-' + it.id + '" style="display:none"><td colspan="' + EN_COLS + '" style="padding:0;background:#faf5ff"></td></tr>';
   }).join('');
 }
 
