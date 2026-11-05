@@ -2088,6 +2088,7 @@
            옛 서버(final 없음)·JSON 경로는 done 하나로 둘 다 한다 — 그리는 순서·내용은 예전과 같다.
            ⛔ 두 번 그리지 않는다 — final 을 그렸으면(fin) done 의 reply 는 다시 안 그린다(같은 함수로 만든 같은 답). */
         let fin = null;
+        let replyGen = null;
         const showReply = function (d) {   // ⚠️ 이름이 d 인 이유: 하니스가 이 블록을 오려 «d» 로 돌린다(바깥 d 와 같은 «답 묶음»)
           removeTyping();
           /* 미리보기 말풍선을 치웁니다 — 아래에서 정본(appendMsg)이 다시 그립니다. */
@@ -2123,6 +2124,8 @@
               const btns = document.querySelectorAll('.replay-btn');
               stmSpeak(lastRow && lastRow._speakBody ? lastRow._speakBody : d.reply, btns.length ? btns[btns.length - 1] : null, lastRow);
             }
+            // Keep the rendered reply's generation: stopping before done also cancels its pronunciation.
+            replyGen = _stmGen;
             return 'reply';
           }
           return '';
@@ -2132,7 +2135,6 @@
           if (kind === 'reply') { if (d.pron_fix) showPronFix(d.pron_fix, false); }   // 🎯 기준 낱말을 틀리게 발음 → 3번 들려주기
           applyGam(d.gam, wasVoice);
           if (kind !== 'reply') return;
-          const replyGen = _stmGen;
           _stmChain = _stmChain.then(function () {
             if (replyGen === _stmGen && isSoundOn() && d.pron_fix) return sayThrice(d.pron_fix.word, d.pron_fix.say_times || 3);
           });

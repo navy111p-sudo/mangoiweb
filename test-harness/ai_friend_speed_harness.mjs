@@ -187,10 +187,10 @@ function named(source, name) {
   (function visit(n) { if (ts.isFunctionDeclaration(n) && n.name?.text === name) found = n.getText(ast); ts.forEachChild(n, visit); })(ast);
   return found;
 }
-const uiSrc = ['stmRead', 'stmSpeak', 'stmReset', 'sayThrice', 'sendMsg'].map(n => named(inline || '', n));
-await check('③-0 (전제) 화면 함수 다섯을 오려 냈다', () => assert.ok(uiSrc.every(Boolean)));
+const uiSrc = ['stmRead', 'stmSpeak', 'stmReset', 'stopSpeakingNow', 'sayThrice', 'sendMsg'].map(n => named(inline || '', n));
+await check('③-0 (전제) 화면 함수 여섯을 오려 냈다', () => assert.ok(uiSrc.every(Boolean)));
 const REPLY = 'Yay! What toppings do you like?';
-async function uiTurn({ withFinal = true, doneOk = true, pron = false, mode = 'focused', tAfterFinal = '' } = {}) {
+async function uiTurn({ withFinal = true, doneOk = true, pron = false, mode = 'focused', tAfterFinal = '', interrupt = false } = {}) {
   const log = []; let releaseDone; const doneGate = new Promise(r => { releaseDone = r; });
   const fin = { final: 1, ok: true, reply: REPLY, fix: null, repeat: false, replaced: 0 };
   const done = doneOk ? { done: 1, ok: true, reply: REPLY, fix: null, repeat: false, replaced: 0, gam: { awarded: 2 },
@@ -200,7 +200,7 @@ async function uiTurn({ withFinal = true, doneOk = true, pron = false, mode = 'f
   const button = { disabled: false }, row = {};
   const doc = { getElementById: id => id === 'msgInput' ? input : id === 'sendBtn' ? button : {},
     querySelector: () => null, querySelectorAll: s => s === '.ai-row' ? [row] : [] };
-  const auto = { begin: () => 1, on: () => false, settled: () => log.push('settled') };
+  const auto = { begin: () => 1, on: () => false, stop() {}, settled: () => log.push('settled') };
   const ctx = vm.createContext({ console, TextDecoder, TextEncoder, Promise, Date, Event: class {},
     document: doc, currentCorr: mode, currentLevel: 'S3', currentPersona: 'friendly', currentTopic: null,
     currentSub: 'on', currentVoice: 'emma', _ttsLangSet: false, _pendingVoice: false, _lastRecBlob: null,
@@ -225,6 +225,7 @@ async function uiTurn({ withFinal = true, doneOk = true, pron = false, mode = 'f
   const p = vm.runInContext('sendMsg()', ctx);
   await sleep(30);                       // final 을 처리할 시간 — 아직 done 은 안 보냈다
   const beforeDone = log.slice();
+  if (interrupt) vm.runInContext('stopSpeakingNow()', ctx);
   releaseDone(); await p; await vm.runInContext('_stmChain', ctx); await sleep(5);
   return { beforeDone, log };
 }
@@ -246,6 +247,14 @@ async function uiTurn({ withFinal = true, doneOk = true, pron = false, mode = 'f
   await check('③-4 발음 카드·3번 듣기는 done 뒤, 답 낭독 «다음» 에', () => {
     const i = r.log.indexOf('speech:' + REPLY), j = r.log.indexOf('pron-card');
     assert.ok(i >= 0 && j > i && r.log.filter(x => x === 'speech:pizza').length === 3, JSON.stringify(r.log));
+  });
+}
+{
+  const r = await uiTurn({ pron: true, interrupt: true });
+  await check('③-9 final 뒤 중단하면 늦은 done 발음은 재생하지 않는다 (카드·포인트는 유지)', () => {
+    assert.ok(r.beforeDone.includes('speech:' + REPLY), JSON.stringify(r.log));
+    assert.equal(r.log.filter(x => x === 'speech:pizza').length, 0, JSON.stringify(r.log));
+    assert.ok(r.log.includes('pron-card') && r.log.includes('gam:2'), JSON.stringify(r.log));
   });
 }
 {

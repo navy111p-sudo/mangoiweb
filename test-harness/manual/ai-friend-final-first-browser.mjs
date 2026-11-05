@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { resolve, extname } from 'node:path';
+import { resolve, extname, sep } from 'node:path';
 const require = createRequire(import.meta.url);
 const { chromium } = require((process.env.PW_DIR || '/opt/node22/lib') + '/node_modules/playwright');
 const root = resolve('cloudflare-deploy/public');
@@ -29,7 +29,7 @@ const server = createServer(async (req, res) => {
   if (p.startsWith('/api/')) { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ ok: true, items: [], uid: 'guest_probe', token: 'test.token' })); return; }
   try {
     const f = resolve(root, '.' + p);
-    if (!f.startsWith(root + '/')) throw Error('path');
+    if (!f.startsWith(root + sep)) throw Error('path');
     res.setHeader('Content-Type', TYPES[extname(f)] || 'application/octet-stream');
     res.end(await readFile(f));
   } catch { res.statusCode = 404; res.end(); }
