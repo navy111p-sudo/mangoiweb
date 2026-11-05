@@ -129,5 +129,38 @@ ok('⑧ 화면: 서버 levels 를 읽어 탭을 그린다', /data\.levels/.test(
 const wu = readFileSync(root + '/cloudflare-deploy/public/warmup.html', 'utf8');
 ok('⑧ warmup.html 이 화면 스크립트를 싣는다', /<script src="\/js\/eleader-l1\.js\?v=\d+" defer><\/script>/.test(wu));
 
+// ⑨ 질문 사다리 (2026-11-05 이병엽 이사님 — L3 「가장 좋아하는 동물」에서 "Why do you think Jindo dogs are loyal to only one master?")
+//    지시문을 레벨마다 «실제로 만들어» 본다. 규칙이 있는가만이 아니라 «시작·후속 턴에 실리는가» 와 «레벨마다 다른가» 를 짝으로 본다.
+const OLD_LIST = /why, how, when, who, how they felt, or what they think/;   // 레벨 무관하게 이유·의견 질문을 시키던 옛 줄
+const BAN_WHY = /Never ask Why or How questions/;
+const QUIZ = /never quiz them on a fact you just told them/;
+const wordCap = (s) => Number((String(s).match(/under (\d+) words/) || [])[1]);
+for (const lv of L) {
+  const id = lv.topics[0].id;
+  const k0 = M.eleaderCapiPrompt(id, true), f0 = M.eleaderCapiPrompt(id, false, 'I like Jindo dogs.');
+  ok(`⑨ ${lv.label}: 옛 «why·how·what they think» 목록이 없다`, !OLD_LIST.test(k0) && !OLD_LIST.test(f0));
+  ok(`⑨ ${lv.label}: 시작·후속 턴 모두 레벨 규칙을 싣는다`, typeof lv.ask === 'string' && lv.ask.length > 40 && k0.includes(lv.ask) && f0.includes(lv.ask));
+  ok(`⑨ ${lv.label}: 공통 — 자기 삶만 묻고 방금 말한 사실을 퀴즈로 안 묻는다(시작·후속)`, /about the learner's own life/.test(k0) && QUIZ.test(k0) && QUIZ.test(f0));
+  const stuck = (f0.match(/If they say they don't know.*?make your next question easier: [^.]*\./) || [''])[0];
+  ok(`⑨ ${lv.label}: 후속 턴 — 막히면 예/아니오·둘 중 고르기로 내려간다`, /Yes\/No question or an A-or-B choice/.test(stuck));
+  ok(`⑨ ${lv.label}: 내려가기 조건에 «짧은 답» 은 없다(L2·L3 은 짧은 답이 정상)`, stuck !== '' && !/short/i.test(stuck));
+  ok(`⑨ ${lv.label}: 시작 턴엔 내려가기 지시가 없다(아직 대답이 없다)`, !/seem stuck/.test(k0) && /following the question rule/.test(k0));
+  ok(`⑨ ${lv.label}: 후속 턴 — 대답을 이어받는다(yes → 세부 하나 · no → 바람·고르기)`, /if they said yes, ask about one detail/.test(f0) && /if they said no, ask if they would like to, or which one they would choose/.test(f0));
+}
+ok('⑨ L2·L3 은 Why·How 질문 금지', BAN_WHY.test(L[0].ask) && BAN_WHY.test(L[1].ask));
+ok('⑨ (짝) L4·L5 는 통째 금지가 아니다 — 사다리이지 «전부 막기» 가 아니다', !BAN_WHY.test(L[2].ask) && !BAN_WHY.test(L[3].ask)
+  && /Why do you like it\?/.test(L[2].ask) && /why, how, or what they think/.test(L[3].ask));
+ok('⑨ L2 = 엔진 레벨 2 와 같은 말(Yes/No·A-or-B 만)', /only Yes\/No questions or A-or-B choices/.test(L[0].ask) && !/What\/Who/.test(L[0].ask));
+ok('⑨ L3 = 거기에 짧은 What/Who/Where/When 까지', /What\/Who\/Where\/When/.test(L[1].ask) && /answer in a few words/.test(L[1].ask));
+const caps = L.map(l => wordCap(l.ask));
+ok('⑨ 질문 길이 상한이 레벨 따라 오른다(8·10·12·15)', caps.join() === '8,10,12,15', caps.join());
+ok('⑨ 레벨 규칙은 레벨마다 다르다(옆 레벨 것을 빌려 쓰지 않는다)', new Set(L.map(l => l.ask)).size === L.length);
+ok('⑨ 레벨 규칙은 화면 응답(books)에 안 싣는다', Array.isArray(d.levels) && d.levels.length === 4 && d.levels.every(l => !('ask' in l)));
+// 실제 경로: L3 진돗개 턴이 엔진에 넘기는 지시에 L3 규칙이 실린다(핸들러를 진짜로 돈다)
+db.prepare("UPDATE eleader_l1_usage SET n = 0 WHERE uid = 'ed'").run();
+r = await call(req('chat', { token: tED, method: 'POST', body: { session_id: 'S9', student_input: 'I like Jindo dogs.', eleader_topic: 'c3-01' } }));
+const j9 = calls.at(-1);
+ok('⑨ 핸들러: L3 턴 → 엔진 지시에 L3 규칙 · Why 금지 · 옛 목록 없음', r.status === 200 && j9 && j9.lesson_topic.includes(L[1].ask) && BAN_WHY.test(j9.lesson_topic) && !OLD_LIST.test(j9.lesson_topic) && j9.difficulty === 3);
+
 console.log(`eleader_capi_topics_harness — PASS ${pass} / FAIL ${fail}`);
 if (fail) process.exit(1);
