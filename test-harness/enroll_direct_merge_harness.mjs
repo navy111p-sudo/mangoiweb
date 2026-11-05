@@ -177,13 +177,15 @@ console.log('④ 화면');
     for (let i = C.indexOf('{', i0); i0 > 0 && i < C.length; i++) { if (C[i] === '{') d++; else if (C[i] === '}') { d--; if (!d) { i1 = i; break; } } }
     return i1 > 0 ? C.slice(i0, i1 + 1) : '';
   };
+  /* 📋 (2026-11-05) 목록이 쓰는 칸 도우미(EN_COLS·_enTd·_enDay 등)도 정본에서 함께 오려 낸다 */
+  const HELP = (() => { const a = C.indexOf('const EN_COLS = '); const b = C.indexOf('function _enDirectList('); return (a > 0 && b > a) ? C.slice(a, b) : ''; })();
   const RE = cut('_renderEnrollments');
-  ok(!!RE && /async function enMergeDirect\(\)/.test(C), '전제: _renderEnrollments · enMergeDirect 가 있다');
+  ok(!!RE && !!HELP && /async function enMergeDirect\(\)/.test(C), '전제: _renderEnrollments · enMergeDirect 가 있다');
   const summary = (hq) => {
     const box = { innerHTML: '' }, tb = { innerHTML: '' };
     try {
       new Function('adminLang', '_enItems', '_enDirect', '_enQuery', '_enDupOnly', '_esc', '_fmtDate', 'document', 'window', 'EN_STATUS_META', 'EN_LIVE', '__enSel',
-        'let __enShown=[];function _enStatusMeta(){return {};}function _enDupKey(){return "";}function _enSyncSelUI(){}function _enDirectList(){return [];}function _enDirectRow(){return "";}\n' + RE + '\nreturn _renderEnrollments;')(
+        'let __enShown=[];function _enStatusMeta(){return {};}function _enDupKey(){return "";}function _enSyncSelUI(){}function _enDirectList(){return [];}function _enDirectRow(){return "";}\n' + HELP + '\n' + RE + '\nreturn _renderEnrollments;')(
         'ko', [], [{ key: 'k' }], '', false, (s) => String(s), () => '', { getElementById: (id) => (id === 'en-summary' ? box : id === 'enrollments-table' ? tb : null) },
         { _isHqMgrOrUp: hq }, {}, ['pending', 'confirmed', 'active'], new Set())();
     } catch (e) { return 'ERR ' + e.message; }

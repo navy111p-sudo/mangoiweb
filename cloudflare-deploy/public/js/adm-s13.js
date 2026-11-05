@@ -66,14 +66,14 @@
   function fixTextOnDark(card){
     /* 카드 자신이 색면인 경우도 포함해야 한다 — querySelectorAll('*') 은 자신을 빼므로
        그 안의 글자가 통째로 구제 대상에서 빠지던 버그가 있었다(26-07-22). */
-    var list = [card].concat(Array.prototype.slice.call(card.querySelectorAll('*')));
+    var list = [card].concat(visibleDesc(card));
     list.forEach(function(el){
       if (el.__ivTx) return;
       var bg = ownBgOf(el);
       if (!bg) return;
       var wantLight = lumOf(bg) < 0.4;   /* 어두운 면 → 밝은 글자 / 밝은 면 → 진한 글자 */
       el.__ivTx = true;
-      var targets = [el].concat(Array.prototype.slice.call(el.querySelectorAll('*')));
+      var targets = [el].concat(visibleDesc(el));
       targets.forEach(function(t){
         /* 🟢⏸️🚪 (2026-09-01) 강사 상태 배지 — 자기 배경(#dcfce7/#fef3c7/#fee2e2)을 함께
            들고 다녀 «어두운 면» 이 아니다. 여기서 글자를 밝게 바꾸면 연분홍 위 흰 글자가
@@ -88,6 +88,21 @@
         t.style.setProperty('color', wantLight ? '#f8fafc' : '#101828', 'important');
       });
     });
+  }
+  /* ⚡ (2026-11-05) 접힌 <details> 안은 화면에 없다 — 거기까지 getComputedStyle 을 걸지 않는다.
+     (adm-light-surfaces.js 의 visibleEls 와 같은 규칙. 펼쳐질 때 아래 toggle 리스너가 그 칸만 다시 칠한다.)
+     실측: 수강신청 카드를 열 때 이 페인터가 214ms(접힌 등록 폼까지 훑음). */
+  function visibleDesc(root){
+    var out = [];
+    try {
+      var w = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, { acceptNode: function(el){
+        var p = el.parentElement;
+        if (p && p.tagName === 'DETAILS' && !p.open && el.tagName !== 'SUMMARY') return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }});
+      var el; while ((el = w.nextNode())) out.push(el);
+      return out;
+    } catch (e) { return Array.prototype.slice.call(root.querySelectorAll('*')); }
   }
   function ivoryLighten(root){
     if (document.documentElement.getAttribute('data-admin-theme') !== 'ivory') {
@@ -118,7 +133,7 @@
     /* root 를 주면 그 카드만 다시 칠한다(카드 펼침 시 부분 재칠 — 전체 재스캔 회피) */
     var cards = root ? [root] : document.querySelectorAll('[id^="card-"]');
     Array.prototype.forEach.call(cards, function(card){
-      card.querySelectorAll('*').forEach(function(el){
+      visibleDesc(card).forEach(function(el){
         if (el.__ivLit) return;
         if (el.matches(EXCLUDE)) return;
         if (el.closest('#admin-theme-wrap') || el.closest('button') || el.closest('a')) return;
@@ -193,7 +208,14 @@
 
   document.addEventListener('toggle', function(e){
     var card = e.target;
-    if (!card || !card.open || !card.id || card.id.indexOf('card-') !== 0) return;
+    if (!card || !card.open) return;
+    /* 카드 «안» 의 접이칸이 펼쳐지면 그 칸만 칠한다(위 visibleDesc 가 접힌 칸을 건너뛰므로 짝). */
+    if (!(card.id && card.id.indexOf('card-') === 0)) {
+      if (card.tagName !== 'DETAILS' || !(card.closest && card.closest('[id^="card-"]'))) return;
+      if (document.documentElement.getAttribute('data-admin-theme') !== 'ivory') return;
+      setTimeout(function(){ ivoryLighten(card); }, 60);
+      return;
+    }
     if (document.documentElement.getAttribute('data-admin-theme') !== 'ivory') return;
     setTimeout(function(){ ivoryLighten(card); }, 60);   /* 렌더 직후 */
   }, true);
