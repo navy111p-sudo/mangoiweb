@@ -22,6 +22,7 @@ export interface CapiLevel {
   age: CapiAge;             // 웜업 엔진 연령대(src/warmup-audience.ts)
   cefr: string;             // 지시문에 싣는 수준 설명
   ask: string;              // 이 레벨에서 «물어도 되는 질문» 규칙(지시문에만 싣는다 — 화면엔 안 보낸다). 아래 ASK_* 참고
+  follow: string;           // 후속 턴 «대답 이어받기» 규칙(레벨마다 — 아래 FOLLOW_*). 시작 턴엔 안 싣는다
   topics: CapiTopic[];
 }
 
@@ -39,25 +40,32 @@ export interface CapiLevel {
  *     몫이라 사람 승인 대기. 감시: test-harness/eleader_capi_topics_harness.mjs ⑨절. */
 const ASK_COMMON =
   `Question rule: ask only about the learner's own life (what they did, have, like, want or feel). ` +
-  `Never ask them to explain facts or reasons they would need to study (like why an animal behaves a certain way), ` +
-  `and never quiz them on a fact you just told them: if you share a fun fact, follow it with a question about the learner. `;
+  `Never ask them to explain facts they would need to study, and never quiz them on a fact you just told them. `;
 const ASK_L2 =
-  `For this level, ask only Yes/No questions or A-or-B choices with both answer words inside the question ` +
-  `(like "Do you like cats or dogs?"). Never ask Why or How questions, and never ask what they think. Keep each question under 8 words. `;
+  `Level rule: only Yes/No questions or A-or-B choices with both answer words in the question, under 8 words. ` +
+  `Never ask Why or How questions, and never ask what they think. `;
 const ASK_L3 =
-  `For this level, ask Yes/No questions, A-or-B choices, or a simple What/Who/Where/When question about the learner ` +
-  `that they can answer in a few words (like "Do you have a pet?" then "What is its name?"). ` +
-  `Never ask Why or How questions, and never ask what they think about something. Keep each question under 10 words. `;
+  `Level rule: Yes/No, A-or-B, or a short What/Who/Where/When question about the learner, under 10 words. ` +
+  `Never ask Why or How questions, and never ask what they think about something. `;
 const ASK_L4 =
-  `For this level, ask simple questions about the learner's own experience. You may ask "Why do you like it?" ` +
-  `about their own choices and feelings, but not about facts. Keep each question under 12 words. `;
+  `Level rule: simple questions about the learner's own experience, under 12 words. ` +
+  `You may ask "Why do you like it?" about their own choices and feelings, but not about facts. `;
 const ASK_L5 =
-  `For this level, you may ask why, how, or what they think about their own life and ideas, ` +
-  `but never ask for exact facts, numbers or expert explanations. Keep each question under 15 words. `;
+  `Level rule: you may ask why, how or what they think about their own life and ideas, under 15 words, ` +
+  `but never ask for exact facts, numbers or expert explanations. `;
+/** 후속 턴 «대답 이어받기» — 레벨마다 따로(⚠️ L2 에 «이름·장소·때» 를 시키면 What/Where 질문이 되어 L2 규칙·엔진과 정반대). */
+const FOLLOW_L2 =
+  `Build on their answer with a Yes/No or A-or-B question: if they said yes, ask about one detail (like "Is it big or small?"); ` +
+  `if they said no, ask if they would like to. `;
+const FOLLOW_L3 =
+  `Build on their answer: if they said yes, ask about one detail (like "What is its name?" or "Is it white or brown?"); ` +
+  `if they said no, ask if they would like to. `;
+const FOLLOW_OPEN =
+  `Build on their answer: if they said yes, ask about one detail (a name, a place or a time); ` +
+  `if they said no, ask if they would like to, or which one they would choose. `;
 /** 막혔을 때 한 단계 내려가기 — «짧은 답» 이 아니라 «모름·한국어·막힘» 일 때만(L2·L3 은 짧은 답이 정상이다). */
 const ASK_STUCK =
-  `If they say they don't know, answer in Korean, or seem stuck, make your next question easier: ` +
-  `a Yes/No question or an A-or-B choice about the same thing. `;
+  `If they say they don't know, answer in Korean, or seem stuck, ask an easier Yes/No or A-or-B question about the same thing. `;
 
 type Row = [ko: string, en: string, point?: string];
 const make = (prefix: string, rows: Row[]): CapiTopic[] =>
@@ -200,13 +208,13 @@ const UNIT_LESSON = { ko: '단원', en: 'Unit' };
 /** 화면 탭 순서 그대로. 수준(difficulty)·연령(age)은 엔진 축에 맞춘 값 — 바꾸면 AI 말투가 바뀝니다. */
 export const ELEADER_CAPI_LEVELS: readonly CapiLevel[] = [
   { id: 'l2', label: 'Level 2', ko: '캐피 기본 레벨5', en: 'CAPI Basic Level 5', unit: UNIT_BOOK, difficulty: 2, age: 'kid',
-    cefr: 'young learners (about A1-A2)', ask: ASK_L2, topics: make('c2', L2) },
+    cefr: 'young learners (about A1-A2)', ask: ASK_L2, follow: FOLLOW_L2, topics: make('c2', L2) },
   { id: 'l3', label: 'Level 3', ko: '캐피 심화1', en: 'CAPI Advanced 1', unit: UNIT_LESSON, difficulty: 3, age: 'child',
-    cefr: 'primary learners (about A2)', ask: ASK_L3, topics: make('c3', L3) },
+    cefr: 'primary learners (about A2)', ask: ASK_L3, follow: FOLLOW_L3, topics: make('c3', L3) },
   { id: 'l4', label: 'Level 4', ko: '캐피 심화2', en: 'CAPI Advanced 2', unit: UNIT_LESSON, difficulty: 4, age: 'child',
-    cefr: 'primary learners (about A2+/B1)', ask: ASK_L4, topics: make('c4', L4) },
+    cefr: 'primary learners (about A2+/B1)', ask: ASK_L4, follow: FOLLOW_OPEN, topics: make('c4', L4) },
   { id: 'l5', label: 'Level 5', ko: '캐피 심화3', en: 'CAPI Advanced 3', unit: UNIT_LESSON, difficulty: 5, age: 'child',
-    cefr: 'upper-primary learners (about B1)', ask: ASK_L5, topics: make('c5', L5) },
+    cefr: 'upper-primary learners (about B1)', ask: ASK_L5, follow: FOLLOW_OPEN, topics: make('c5', L5) },
 ];
 
 /** 주제 id → 주제와 레벨. 모르는 값이면 null(본문 값을 믿지 않기 — 정확일치만). */
@@ -237,7 +245,7 @@ export function eleaderCapiPrompt(id: unknown, kickoff: boolean, learnerSaid?: u
   const { level, topic } = hit;
   const T = JSON.stringify(topic.en);
   const head = `Eleader Jam ${level.en} speaking practice for ${level.cefr}. Today's topic: ${T}. ` +
-    `This is a personal conversation topic, not a story to retell: help the learner talk about their own life, experiences, opinions and feelings about this topic. ` +
+    `This is a personal conversation topic, not a story to retell: help the learner talk about their own life, experiences and feelings about this topic. ` +
     `Talk like a warm, curious friend, not a quiz machine. Ask exactly ONE question per turn and keep every sentence complete and grammatical. ` +
     `Never use Korean in English sentences. Never ask the same question twice in this chat, not even in other words. ` +
     `Stay on this topic or on what the learner just told you; if the learner wants to talk about something else, kindly bring it back to the topic. ` +
@@ -256,7 +264,6 @@ export function eleaderCapiPrompt(id: unknown, kickoff: boolean, learnerSaid?: u
     `If the answer is very short, unclear or not English, kindly show them one simple way to say it in English. ` +
     ASK_STUCK +
     `Then ask ONE new follow-up question that helps them say a little more, following the question rule. ` +
-    `Build on their answer: if they said yes, ask about one detail of it (a name, a color, a place or a time); ` +
-    `if they said no, ask if they would like to, or which one they would choose. ` +
+    level.follow +
     `Never ask back what they just told you, and never invent facts about the learner.`;
 }
