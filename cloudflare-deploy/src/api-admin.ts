@@ -89,7 +89,7 @@ import { handleEnrollActivateApi } from './enroll-activate';       // 📚 수�
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
 import { handleTeacherKakaoApi } from './teacher-kakao';                     // 💬 강사 카카오ID 명부 + 전달
 import { handlePaymentsBoardApi } from './payments-board';                   // 💳 결제관리 화면(ph106) 실데이터
-import { hiddenExcludeCond, hiddenOnlyCond } from './student-override';                       // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
+import { hiddenExcludeCond, hiddenOnlyCond, loadHiddenStudents } from './student-override';                       // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 import { setOverridePhones, loadOverridePhones } from './student-override';    // 📞 수업 전 안내문자가 읽는 번호(적기·읽기)
 import { MIRROR_SOURCE, MIRROR_SOURCE_MANUAL } from './c24-mirror';            // 🪞 카페24 미러 — 「사람 손이 이긴다」 도장
 import { duplicateGate } from './student-duplicate';                       // 👥 학생 수동 등록 «같은 사람» 판정 정본
@@ -3998,9 +3998,8 @@ export async function handleAdminApi(
       try {
         const _hidUids = Array.from(new Set(sessions.filter(x => x.source === 'cafe24' && x.student_uid).map(x => String(x.student_uid))));
         if (_hidUids.length) {
-          const _hidRows = await selectInChunks<any>(env.DB, _hidUids,
-            (ph) => `SELECT user_id FROM student_erp_override WHERE hidden = 1 AND user_id IN (${ph})`, { swallowErrors: true });
-          c24HiddenStudents = markHiddenCafe24(sessions, new Set(_hidRows.map(r => String(r.user_id))), normTeacherName);
+          // 정본 loadHiddenStudents(student-override.ts — 미러의 student_hidden 과 같은 판정, fail-open)
+          c24HiddenStudents = markHiddenCafe24(sessions, await loadHiddenStudents(env as any, _hidUids), normTeacherName);
         }
       } catch (e: any) { console.warn('[classes/today] hidden students:', e?.message); }
 

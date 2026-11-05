@@ -114,6 +114,10 @@ if (process.env.TCT_CHILD === '1') {
     && parse({ ...okBody, ids: ['5', 'x'] }).ok === false && parse({ ...okBody, expected: { 5: 'v5' } }).ok === false
     && parse({ ...okBody, ids: ['0'] }).ok === false);
   check('A14 요청 검사: 상한을 넘으면 거절', parse({ to_teacher_id: '21', ids: Array.from({ length: T.TRANSFER_MAX_IDS + 1 }, (_, i) => String(i + 1)), expected: {} }).error === 'too_many');
+  const pg = parse({ ...okBody, allow_group_ids: ['6'] });
+  check('A14b 묶음 허용 목록: 없으면 빈 목록 · 있으면 그대로 · 잘못된 값은 거절',
+    p1.allowGroup instanceof Set && p1.allowGroup.size === 0 && pg.ok === true && pg.allowGroup.has('6')
+    && parse({ ...okBody, allow_group_ids: ['x'] }).ok === false && parse({ ...okBody, allow_group_ids: 'all' }).ok === false);
   const ch = chunkIds(Array.from({ length: 120 }, (_, i) => String(i + 1)));
   check('A15 50건 묶음(엔진 상한)', TRANSFER_CHUNK === 50 && ch.length === 3 && ch[0].length === 50 && ch[2].length === 20);
 
@@ -260,7 +264,16 @@ if (process.env.TCT_CHILD === '1') {
   check('C16 낡은 화면은 거절(다른 변경을 덮지 않는다) · 아무것도 안 바꿈', r.body.ok === false && r.body.error === 'schedule_changed' && snap() === before, r);
 
   const pick = [String(R.e1), String(R.e2), String(R.mir), String(R.week)];
+  // 👥 묶음이 되는 줄(e2)을 «허용» 없이 보내면 서버가 거절 — 화면을 거치지 않은 요청이어도 1:1 이 조용히 그룹이 되지 않게
   r = await call(hq, { action: 'transfer_apply', to_teacher_id: '21', ids: pick, expected: exp });
+  check('C16b 묶음 허용 없이 묶음이 되는 줄을 보내면 409 group_not_allowed · 아무것도 안 바꿈',
+    r.status === 409 && r.body.error === 'group_not_allowed' && JSON.stringify(r.body.ids) === JSON.stringify([String(R.e2)]) && snap() === before, r);
+  // 미리보기 «뒤» 에 넘겨받을 강사에게 같은 자리 수업이 새로 생긴 경우(TOCTOU) — e1(11/06 14:00)
+  const lateId = seed({ user_id: 'late_kid', teacher_id: '21', scheduled_date: '2026-11-06', start_time: '14:00', source: 'manual' });
+  r = await call(hq, { action: 'transfer_apply', to_teacher_id: '21', ids: [String(R.e1)], expected: { [R.e1]: exp[R.e1] } });
+  check('C16c 미리보기 뒤 새로 생긴 같은 자리 수업도 넘기는 순간 다시 잡는다(TOCTOU)', r.status === 409 && r.body.error === 'group_not_allowed' && tidOf(R.e1) === '16', r);
+  exec('DELETE FROM class_schedules WHERE id = ?', lateId);
+  r = await call(hq, { action: 'transfer_apply', to_teacher_id: '21', ids: pick, expected: exp, allow_group_ids: [String(R.e2)] });
   check('C17 넘기기 성공: 4건', r.status === 200 && r.body.ok === true && r.body.moved === 4, r);
   check('C18 넘긴 줄의 담당 강사가 KAYE(21)로 바뀌었다', pick.every(id => tidOf(id) === '21'), pick.map(tidOf));
   check('C17b 사람이 고른 «묶음 주의» 줄도 넘어간다(엔진의 묶음 계약)', tidOf(R.e2) === '21' && tidOf(R.kayeSame) === '21');
@@ -312,8 +325,8 @@ ok('D2 짝: 강사 차단(non-GET 403)이 POST «앞» 에 있다', tpBlock.inde
 // D3 오늘 수업: 숨김 조회 → markHiddenCafe24 → 응답 칸
 const todayAt = admin.indexOf("if (method === 'GET' && path === '/api/admin/classes/today')");
 const today = todayAt >= 0 ? block(admin, todayAt) : '';
-ok('D3 오늘 수업이 숨김 표(student_erp_override hidden=1)를 읽어 markHiddenCafe24 에 넘긴다',
-  /student_erp_override WHERE hidden = 1/.test(today) && /markHiddenCafe24\(\s*sessions\s*,\s*new Set\(/.test(today));
+ok('D3 오늘 수업이 숨김 정본 loadHiddenStudents(미러와 같은 판정)의 결과를 markHiddenCafe24 에 넘긴다(SQL 복제 없음)',
+  /markHiddenCafe24\(\s*sessions\s*,\s*await loadHiddenStudents\(/.test(today) && !/student_erp_override WHERE hidden = 1/.test(today));
 ok('D4 응답에 cafe24_hidden_student 를 싣는다(셈이 0 으로 하드코딩되지 않았다)', /cafe24_hidden_student:\s*c24HiddenStudents/.test(today) && /c24HiddenStudents\s*=\s*markHiddenCafe24/.test(today));
 ok('D5 짝: 숨긴 계정 줄을 «빼는» 코드가 없다(filter 로 student_hidden 을 거르지 않는다)', !/student_hidden[^;\n]*filter|filter\([^)]*student_hidden/.test(today));
 const markAt = today.indexOf('markHiddenCafe24(sessions');
@@ -326,17 +339,25 @@ ok('D8 manager.html: r.student_hidden 이면 숨김 안내와 hidden_twins 를 �
 const core = strip(rd('public/js/adm-core.js'));
 ok('D9 강사 명부 상태 메뉴에 «남은 수업 넘기기» 항목과 그 클릭이 창을 연다', /data-act="transfer"/.test(core) && /act === 'transfer'[^\n]*window\.tpOpenClassTransfer\(id\)/.test(core));
 ok('D10 퇴사·비활동으로 바꾼 직후(되돌리기 아님) 남은 수업이 있을 때만 창을 연다', /!_tpIsWorking\(next\)[^\n]*tpOpenClassTransfer/.test(core) && /tpOpenClassTransfer\(id,\s*\{\s*onlyIfAny:\s*true/.test(core));
+ok('D10b 창이 토스트를 덮으므로 «되돌리기» 를 창에 넘긴다(undo → 이전 상태로)', /undo:\s*function\s*\(\)\s*\{\s*window\.tpSetTeacherStatus\(id,\s*prev,\s*true\)/.test(core));
+ok('D10c 수정 창: «활동중 → 퇴사·비활동» 으로 바뀐 경우에만 연다(이미 퇴사인 강사의 다른 칸 저장은 안 연다)',
+  /editId && _tpPrevRow && _tpIsWorking\(_tpPrevStatus\) && !_tpIsWorking\(body\.status\)/.test(core) && /const _tpPrevRow = editId \? \(window\._tpRowById/.test(core)
+  && core.indexOf('const _tpPrevRow') < core.indexOf("'/api/admin/teacher-profiles/' + editId"));
 const xf = strip(rd('public/js/adm-teacher-transfer.js'));
 ok('D11 창이 같은 경로(POST teacher-profiles/:id)로 transfer_preview·transfer_apply 를 보낸다', /\/api\/admin\/teacher-profiles\//.test(xf) && /action:\s*'transfer_preview'/.test(xf) && /action:\s*'transfer_apply'/.test(xf));
 ok('D12 창은 «성공이라고 말했는가» 로 판정한다(d.ok === true)', /d\.ok === true/.test(xf));
 ok('D13 창은 넘기기 요청에 expected(move_version)를 싣는다 — 낡은 화면 거절', /expected\[r\.id\]\s*=\s*r\.move_version/.test(xf) && /expected:\s*expected/.test(xf));
 ok('D14 짝: 창에 data-ko/data-en 을 달지 않는다(i18n 이 textContent 를 갈아끼운다)', !/data-ko=|data-en=/.test(xf));
+ok('D14c 창이 «묶음 허용» 목록(allow_group_ids)을 싣고, 열 때 가려지는 토스트를 걷고 ↩ 되돌리기를 준다',
+  /allow_group_ids:\s*allowGroup/.test(xf) && /if \(r\.verdict === 'group'\) allowGroup\.push\(r\.id\)/.test(xf)
+  && /getElementById\('tp-st-toast'\)/.test(xf) && /t\.id === 'tpx-undo'/.test(xf));
 ok('D14b «묶음 주의» 줄은 사람이 고른 것만 넘긴다(기본 제외)', /r\.verdict === 'group'\) return !!\(S\.groupOn && S\.groupOn\[r\.id\]\)/.test(xf));
 const html = rd('public/admin.html');
 ok('D15 admin.html 이 adm-teacher-transfer.js 를 싣는다', /<script src="\/js\/adm-teacher-transfer\.js\?v=\d+" defer><\/script>/.test(html));
 const xfer = strip(rd('src/teacher-class-transfer.ts'));
 ok('D16 정본은 새 UPDATE 를 만들지 않고 이동 엔진(moveSchedulesAtomically)으로만 옮긴다', /moveSchedulesAtomically\(env,\s*actor,/.test(xfer) && !/UPDATE\s+class_schedules/i.test(xfer));
 ok('D17 정본은 본사 게이트(teacherMoveDenyReason)를 지난다', /teacherMoveDenyReason\(/.test(xfer));
+ok('D18 미리보기와 넘기기가 «같은 함수»(groupMembersFor)로 묶음을 판정한다', (xfer.match(/groupMembersFor\(/g) || []).length >= 3);
 
 const tmp = mkdtempSync(join(tmpdir(), 'teacher-class-transfer-'));
 try {

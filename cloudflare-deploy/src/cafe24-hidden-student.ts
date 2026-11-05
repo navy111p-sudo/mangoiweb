@@ -16,7 +16,7 @@
    ⛔ 계정끼리 «같은 사람» 이라고 잇지 않는다 — 이름 추측으로 남의 수업이 붙은 사고가 이 저장소에
       여러 번 있다. «같은 시각(절대 시각 정확일치) + 같은 강사(정규화 이름 정확일치)» 라는 사실만 말한다.
    ⚠️ 숨김 목록을 못 읽으면(빈 Set) 아무 표시도 안 한다 — 예전 화면 그대로(조용히 «숨김» 이라고 지어내지 않는다).
-   ℹ️ import 0 — 하니스가 그대로 불러 실제로 돌린다(tests: test-harness/classes_today_hidden_student_harness.mjs). */
+   ℹ️ import 0 — 하니스가 그대로 불러 실제로 돌린다(감시: test-harness/teacher_class_transfer_harness.mjs B·D·E절). */
 
 export interface HiddenTwin { student_uid: string; student_name: string | null }
 

@@ -4542,6 +4542,10 @@ async function addTeacherProfile() {
   // 수정 모드 감지 — 버튼 data-edit-id 가 있으면 PATCH
   const btn = document.getElementById('tp-add-btn');
   const editId = btn?.dataset?.editId;
+  /* 📦 (2026-11-05) 저장 «전» 상태 — 활동중에서 퇴사·비활동으로 «바뀐» 경우에만 남은 수업 창을 연다.
+     ⛔ 이미 퇴사인 강사의 전화번호만 고쳐도 «상태를 바꿨습니다» 라고 말하면 거짓말이다. 모르면(캐시 없음) 안 연다. */
+  const _tpPrevRow = editId ? (window._tpRowById || {})[editId] : null;
+  const _tpPrevStatus = _tpPrevRow ? _tpPrevRow.status : undefined;
   let r, d, action;
   if (editId) {
     r = await fetch('/api/admin/teacher-profiles/' + editId, {
@@ -4600,7 +4604,7 @@ async function addTeacherProfile() {
   clearTeacherForm();
   loadTeacherProfiles();
   /* 📦 (2026-11-05) 수정 창에서 퇴사·비활동으로 저장했으면 «남은 수업» 을 보여 준다(있을 때만 창이 열린다). */
-  if (editId && !_tpIsWorking(body.status) && typeof window.tpOpenClassTransfer === 'function') {
+  if (editId && _tpPrevRow && _tpIsWorking(_tpPrevStatus) && !_tpIsWorking(body.status) && typeof window.tpOpenClassTransfer === 'function') {
     window.tpOpenClassTransfer(editId, { onlyIfAny: true, fromStatus: body.status });
   }
 }
@@ -5243,7 +5247,9 @@ window.tpSetTeacherStatus = async function (id, next, _isUndo) {
              function () { window.tpSetTeacherStatus(id, prev, true); });
   /* 📦 (2026-11-05) 퇴사·비활동으로 내렸으면 «남은 수업» 을 바로 보여 준다 — 있을 때만 창이 열린다(js/adm-teacher-transfer.js). */
   if (!_tpIsWorking(next) && typeof window.tpOpenClassTransfer === 'function') {
-    window.tpOpenClassTransfer(id, { onlyIfAny: true, fromStatus: next });
+    /* ↩ 창이 토스트를 덮으므로 «되돌리기» 를 창에 넘긴다(창 머리의 ↩ 버튼). */
+    window.tpOpenClassTransfer(id, { onlyIfAny: true, fromStatus: next,
+      undo: function () { window.tpSetTeacherStatus(id, prev, true); } });
   }
 };
 

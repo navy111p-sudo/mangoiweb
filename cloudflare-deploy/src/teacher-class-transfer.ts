@@ -106,7 +106,7 @@ export function summarizeTransfer(rows: any[]): TransferSummary {
 
 /** 넘기기 요청 본문 검사 — 모르는 값은 거절한다(조용히 고치지 않는다). */
 export function parseTransferApply(body: any):
-  { ok: true; to: string; ids: string[]; expected: Record<string, string> } | { ok: false; error: string; message: string } {
+  { ok: true; to: string; ids: string[]; expected: Record<string, string>; allowGroup: Set<string> } | { ok: false; error: string; message: string } {
   const to = String(body?.to_teacher_id ?? '').trim();
   if (!/^\d+$/.test(to) || Number(to) <= 0) return { ok: false, error: 'target_required', message: '넘겨받을 강사를 골라 주세요.' };
   const raw = body?.ids;
@@ -119,7 +119,21 @@ export function parseTransferApply(body: any):
     return { ok: false, error: 'invalid_expected', message: '목록을 새로고침한 뒤 다시 시도해 주세요.' };
   const expected: Record<string, string> = {};
   for (const id of ids) expected[id] = ex[id];
-  return { ok: true, to, ids, expected };
+  // 👥 «묶음(그룹)이 되어도 넘긴다» 고 사람이 고른 줄 — 없으면 빈 목록(= 묶음이 되는 줄은 하나도 안 넘긴다)
+  const ag = body?.allow_group_ids;
+  if (ag != null && (!Array.isArray(ag) || ag.some((x: any) => !/^\d+$/.test(String(x)))))
+    return { ok: false, error: 'invalid_ids', message: '묶음 허용 목록이 올바르지 않습니다.' };
+  return { ok: true, to, ids, expected, allowGroup: new Set((ag || []).map((x: any) => String(x))) };
+}
+
+/** 👥 넘겨받을 강사의 «기존» 수업과 같은 자리에 들어가 묶음(그룹)이 되는 줄 → 그 기존 수업의 학생들.
+ *  엔진(findScheduleMoveConflicts)이 «같은 강사·같은 시각·같은 길이» 를 묶음으로 허용하므로, 겹침 검사를
+ *  통과한 줄에만 부른다. 넘길 후보끼리(candidateIds)는 원래 같은 강사의 묶음이라 세지 않는다.
+ *  미리보기와 넘기기가 «같은 함수» 로 판정한다 — 화면만 막으면 화면을 거치지 않은 요청이 그대로 묶음이 된다. */
+export function groupMembersFor(dest: any, factRows: any[], toId: string, candidateIds: Set<string>, today: string): string[] {
+  return (factRows || []).filter((o: any) => String(o.teacher_id) === String(toId) && !candidateIds.has(String(o.id))
+    && String(o.user_id) !== String(dest.user_id) && scheduleRowsOverlap(dest, o, today))
+    .map((o: any) => String(o.user_id || ''));
 }
 
 /** 넘길 묶음으로 자른다(엔진 상한 50). */
@@ -182,6 +196,8 @@ export async function loadCafe24Remaining(env: any, teacherId: string, nowMs: nu
               WHERE room_id LIKE 'c24-%' AND CAST(teacher_uid AS TEXT) IN (${ph}) AND date >= ? AND joined_at > ?
               ORDER BY joined_at LIMIT 5000`,
     { tail: [kstYmd(nowMs), nowMs], swallowErrors: true, onChunkError: () => { failed = true; } });
+  // ⚠️ 한도(5000)에 닿았으면 «더 있을 수 있다» — 조용히 잘린 숫자를 사실처럼 말하지 않는다(화면이 «⚠ 실제보다 적을 수 있음»)
+  if (rows.length >= 5000) failed = true;
   const byUser = new Map<string, { count: number; next: number; last: string }>();
   let first: string | null = null, last: string | null = null;
   for (const r of rows) {
@@ -270,6 +286,17 @@ export async function handleTeacherClassTransfer(env: any, actor: any, profileId
     const cand = new Set(rows.map(r => String(r.id)));
     const stray = p.ids.filter(id => !cand.has(id));
     if (stray.length) return { status: 409, body: { ok: false, error: 'not_candidate', message: '목록이 바뀌었습니다. 새로고침한 뒤 다시 시도해 주세요.', ids: stray } };
+    /* 👥 묶음 보호를 서버가 «넘기는 순간» 다시 판정한다(TOCTOU) — 미리보기 뒤에 넘겨받을 강사에게 같은 시각 수업이
+       새로 생겼거나, 화면을 거치지 않은 요청이어도 1:1 이 조용히 그룹이 되지 않게. 사람이 고른 줄(allow_group_ids)만 통과. */
+    let facts: any;
+    try { facts = await loadScheduleMoveFacts(env); }
+    catch { return bad(503, 'availability_check_failed', '넘겨받을 강사의 시간을 확인하지 못했습니다. 다시 시도해 주세요.'); }
+    const today = kstYmd(nowMs);
+    const byId = new Map(rows.map(r => [String(r.id), r]));
+    const unapproved = p.ids.filter(id => !p.allowGroup.has(id)
+      && groupMembersFor({ ...byId.get(id), teacher_id: to.id }, facts.rows, to.id, cand, today).length > 0);
+    if (unapproved.length) return { status: 409, body: { ok: false, error: 'group_not_allowed',
+      message: '넘겨받을 강사의 다른 수업과 같은 시각이라 묶음(그룹) 수업이 되는 줄이 있습니다. 목록을 새로고침해 확인한 뒤 골라 주세요.', ids: unapproved } };
     const reason = `강사 인계(퇴사·비활동): ${from?.name || '#' + fromTid} → ${to.name}`;
     const moved: string[] = [];
     const chunks = chunkIds(p.ids);
@@ -316,11 +343,10 @@ export async function handleTeacherClassTransfer(env: any, actor: any, profileId
          한 건씩 옮길 때는 사람이 눈으로 보지만, 수십 건을 한꺼번에 넘길 때 1:1 수업이 «조용히» 그룹이 되면 안 된다.
          그래서 넘겨받을 강사의 «기존» 수업과 같은 자리에 들어가는 줄은 'group' 으로 따로 알려 준다 —
          화면은 기본으로 빼 두고, 사람이 골라야만 넘긴다. (넘길 줄끼리의 기존 묶음은 그대로 묶음이라 알리지 않는다) */
-      const groupWith = facts.rows.filter((o: any) => String(o.teacher_id) === to.id && !ids.has(String(o.id))
-        && String(o.user_id) !== String(dest.user_id) && scheduleRowsOverlap(dest, o, today));
+      const groupWith = groupMembersFor(dest, facts.rows, to.id, ids, today);
       if (groupWith.length) {
         (out[i] as any).verdict = 'group';
-        (out[i] as any).group_with = groupWith.slice(0, 3).map((o: any) => String(o.user_id || ''));
+        (out[i] as any).group_with = groupWith.slice(0, 3);
         continue;
       }
       (out[i] as any).verdict = 'ok';

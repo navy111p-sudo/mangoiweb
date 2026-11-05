@@ -42,6 +42,12 @@
     other: ['기타', 'Other']
   };
   /* 서버 사유 코드 → 화면 글자. 한국어는 서버 message 를 그대로 쓰고, 영어는 코드로 고른다. */
+  /* 넘기기 실패 사유 — 영어 화면용(한국어는 서버 message 그대로). */
+  var FAIL_EN = {
+    group_not_allowed: 'Some classes would become group classes with the new teacher. Refresh the list and choose again.',
+    not_candidate: 'The list has changed. Refresh and try again.',
+    schedule_changed: 'Another change happened meanwhile. Refresh and try again.'
+  };
   var WHY_EN = {
     conflict: 'Time clash with another class',
     teacher_unavailable: 'Teacher unavailable / on vacation at this time',
@@ -122,6 +128,7 @@
     var tName = (d.teacher && d.teacher.name) || '';
     if (S.fromStatus) {
       h += '<div style="background-color:#fff7ed;border:1px solid #fdba74;color:#7c2d12;border-radius:10px;padding:8px 10px;margin-bottom:10px">'
+        + (S.undo ? '<span style="float:right;margin-left:8px">' + btn('tpx-undo', T('↩ 되돌리기', '↩ Undo'), false, !!S.busy) + '</span>' : '')
         + esc(T('상태를 «' + S.fromStatus + '» 로 바꿨습니다. 이미 잡힌 수업은 자동으로 옮겨지지 않습니다 — 아래에서 넘겨 주세요.',
                 'Status changed to «' + (STATUS_EN[S.fromStatus] || S.fromStatus) + '». Classes already booked are NOT moved automatically — hand them over below.'))
         + '</div>';
@@ -253,10 +260,14 @@
     var who = S.data.to.name;
     if (!window.confirm(T('선택한 ' + ids.length + '건의 담당 강사를 «' + who + '» 로 바꿉니다. 계속할까요?',
                           'Change the teacher of ' + ids.length + ' selected class(es) to «' + who + '»?'))) return;
-    var expected = {};
-    (S.data.rows || []).forEach(function (r) { if (ids.indexOf(r.id) >= 0) expected[r.id] = r.move_version; });
+    var expected = {}, allowGroup = [];
+    (S.data.rows || []).forEach(function (r) {
+      if (ids.indexOf(r.id) < 0) return;
+      expected[r.id] = r.move_version;
+      if (r.verdict === 'group') allowGroup.push(r.id);   // 👥 사람이 «묶음이 되어도 넘긴다» 고 고른 줄 — 서버가 다시 판정한다
+    });
     S.busy = true; S.msg = T('넘기는 중…', 'Handing over…'); S.msgOk = true; render();
-    var res = await post(S.pid, { action: 'transfer_apply', to_teacher_id: S.data.to.id, ids: ids, expected: expected });
+    var res = await post(S.pid, { action: 'transfer_apply', to_teacher_id: S.data.to.id, ids: ids, expected: expected, allow_group_ids: allowGroup });
     if (!S) return;
     S.busy = false;
     var moved = Number(res.d.moved || 0);
@@ -267,7 +278,7 @@
       S.msgOk = false;
       S.msg = (moved ? T(moved + '건은 넘겼고, 나머지는 못 넘겼습니다: ', moved + ' handed over; the rest failed: ')
                      : T('넘기지 못했습니다: ', 'Could not hand over: '))
-        + (res.d.message || res.d.error || ('HTTP ' + res.http));
+        + ((isEn() && FAIL_EN[res.d.error]) || res.d.message || res.d.error || ('HTTP ' + res.http));
     }
     var keep = S.msg, keepOk = S.msgOk;
     await load(S.data.to.id);   // 결과를 서버에서 다시 읽는다(화면이 추측하지 않는다)
@@ -278,6 +289,8 @@
     var t = e.target;
     if (!t || !S) return;
     if (t.id === 'tpx-close') { if (!S.busy) close(); return; }
+    /* ↩ 상태 되돌리기 — 이 창이 화면 전체를 덮어 5초 «되돌리기» 토스트를 가리므로 그 일을 여기서 대신한다. */
+    if (t.id === 'tpx-undo') { if (S.busy) return; var u = S.undo; close(); if (typeof u === 'function') u(); return; }
     if (t.id === 'tpx-go') { apply(); return; }
   }
   function onChange(e) {
@@ -313,7 +326,9 @@
       var n = Number((res.d.summary && res.d.summary.total) || 0) + Number((res.d.cafe24 && res.d.cafe24.count) || 0);
       if (!n) return;
       close();
-      S = { pid: pid, data: res.d, to: '', busy: false, msg: '', fromStatus: opts.fromStatus || '' };
+      S = { pid: pid, data: res.d, to: '', busy: false, msg: '', fromStatus: opts.fromStatus || '', undo: opts.undo || null };
+      /* 🪤 토스트(z-index 100002)는 이 창 «밑» 에 깔려 눌리지 않는다 — 되돌리기는 창 머리의 ↩ 로 옮기고 토스트는 걷는다. */
+      if (S.undo) { var oldToast = document.getElementById('tp-st-toast'); if (oldToast && oldToast.parentNode) oldToast.parentNode.removeChild(oldToast); }
       render();
       return;
     }
