@@ -67,6 +67,8 @@
 #mangoi-handover .mhb-field b{color:var(--mh-sub);font-size:15px}#mangoi-handover .mhb-field div{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7}
 #mangoi-handover .mhb-files{display:flex;flex-direction:column;gap:6px}#mangoi-handover .mhb-late{color:var(--mh-bad);font-weight:700}#mangoi-handover .mhb-by{margin-top:12px}
 #mangoi-handover .mhb-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}#mangoi-handover .mhb-actions p{flex-basis:100%}
+/* 🌐 한국어로 번역 (2026-11-05) — 펼친 보고 맨 위. 켜져 있으면 테두리·글자만 브랜드색(크기·위치는 고정). */
+#mangoi-handover .mhb-ko{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:12px 0 4px}#mangoi-handover .mhb-ko small{color:var(--mh-sub);font-size:15px}#mangoi-handover .mhb-ko button[aria-pressed=true]{border-color:var(--mh-brand);color:var(--mh-brand)}
 @media(max-width:720px){#mangoi-handover .mhb-summary{grid-template-columns:repeat(3,minmax(0,1fr))}#mangoi-handover .mhb-cell{font-size:14px}#mangoi-handover .mhb-head{grid-template-columns:minmax(0,1fr);row-gap:8px}#mangoi-handover .mhb-tag{grid-row:2;justify-self:start;white-space:normal}#mangoi-handover .mhb-what{grid-row:3}#mangoi-handover .mhb-field{grid-template-columns:1fr;gap:4px}}
 </style>
 <header><div><div class="brand">MANGO<span>I</span> <span class="crumb">관리자</span></div><div class="crumb">결재함 / 매일보고</div></div><span class="badge"><a href="/work">← 결재함 / Approvals</a></span></header>
@@ -100,6 +102,7 @@
 </div>
 <script src="/js/mangoi-voice-input.js?v=9" defer></script>
 <script src="/js/handover-dictation.js?v=2" defer></script>
-<script src="/js/daily-handover.js?v=20" defer></script>
-<script src="/js/daily-handover-board.js?v=2" defer></script>
+<script src="/js/handover-ko.js?v=1" defer></script>
+<script src="/js/daily-handover.js?v=21" defer></script>
+<script src="/js/daily-handover-board.js?v=3" defer></script>
 </body></html>
