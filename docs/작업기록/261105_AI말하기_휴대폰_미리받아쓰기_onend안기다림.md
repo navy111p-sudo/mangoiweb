@@ -40,7 +40,7 @@
   - ⚠️ 새 «상태값» 을 `onState` 로 퍼뜨리지 않은 이유: `student-game-avatar.html` 은 `stEl.textContent = m[state] || ''` 라 모르는 상태가 오면 안내 글자가 지워진다.
   - `early` 가 던져도 녹음은 계속된다(try/catch — 하니스 E-1).
 - 기본 업로드를 `post(fd)` 로 빼서 `MangoiVoice.post` 로 내보냄(미리 받아쓰기가 같은 주소·같은 응답 해석을 쓰게 — 베끼지 않음). 파일 만들기는 `form(blob)` 하나로(끝 업로드와 미리 받기가 같은 이름·언어 힌트).
-- **크기**: `index.html`·`student-games.html` 이 이 파일을 **첫 화면(blocking)** 으로 싣는데 `student-games.html` 여유가 **92바이트**였다(KB 반올림 기준으로 정확히 잼). 다른 줄과 겹치는 설명 주석을 줄여 파일은 원본보다 **+15바이트**(9,737 → 9,752). 판단 로직은 전부 ①의 defer 파일에 둔 이유가 이것이다.
+- **크기**: `index.html`·`student-games.html` 이 이 파일을 **첫 화면(blocking)** 으로 싣는데 `student-games.html` 여유가 **91바이트**였다(KB 반올림 기준 — 통과하는 마지막 값 325,119B 대 325,028B. 처음엔 «92» 로 적었다가 함정 대조가 1B 를 바로잡음 · 바뀐 뒤 **76바이트**). 다른 줄과 겹치는 설명 주석을 줄여 파일은 원본보다 **+15바이트**(9,737 → 9,752). 판단 로직은 전부 ①의 defer 파일에 둔 이유가 이것이다.
 - `?v=8 → ?v=9` 13개 화면 — **`index.html`(공동 금지구역)은 버전 숫자 한 줄**. 병합 버튼을 누르시는 것이 그 승인입니다(직전 PR #2098 과 같은 방식).
 
 ### ③ 브라우저 인식 경로 — `onend` 를 «한없이» 안 기다리기 (`warmup.html` `_micFast`)
@@ -105,6 +105,6 @@
   - 🪤 처음 C-4 가 FAIL 났는데 코드가 아니라 **하니스 산수**였다 — 음절 틈(0.08초) 때문에 4.5초 구간의 마지막 소리는 4.42초라 «말 끝 + 1초» 는 5.42초가 맞다. 구간 끝을 가정하지 않고 대본에서 «마지막 소리» 를 계산하게 고침(`lastSound`).
 - `warmup_reply_speed` **73/0** — B절이 `_micEarly(manual, {…})` 감싸기를 받게 고침 · D절에 `_micFast` 대역(진짜 판정은 E절) · **E절**(`_micFast` 를 오려 내 가짜 인식기로 실행: 자동+말 있음 → 즉시 전송·abort·핸들러 뗌 / 수동·빈손·인식기 없음 → 안 맡음) · **F절**(`_micEarly` 를 오려 내 실행: 자동은 `micUnfinished` 판정을 넘김 / 수동은 안 넘김 / 모듈 없음·던짐 → 예전 opts) · **G절**(실제 인식 세션 코드 통째 실행: 다음 턴 안 끊음 · 조각 안 보냄 · 늦은 onend 에 유예 뒤 한 번만 · 마지막 낱말 담음 · 빠른 onend 는 예전 그대로 · 빈손은 onend 뒤). 변이 9종 중 8종 실제 FAIL(«onend 가 유예를 안 거둠» 은 유예가 `!_recognizing` 을 다시 봐서 등가) · **검토 전 1차 판을 통째로 되살리면 G-1·G-2·G-3·G-5·G-6 실제 FAIL**.
 - `warmup_auto_talk` **93/0** — 잔향 대기 값을 글자 600 대신 **모듈에서 읽고**(안드로이드·그 밖) 범위와 «실제로 그 시각에 여는가» 를 짝으로(0-1~0-6).
-- 기존 `voice_end_noise` 18/0 · `voice_input_fallback` 58/0 · `voice_input_unify` 24/0 · `warmup_stream` 111/0 · `first_paint_budget` 유지(student-games 여유 92 → 77바이트).
+- 기존 `voice_end_noise` 18/0 · `voice_input_fallback` 58/0 · `voice_input_unify` 24/0 · `warmup_stream` 111/0 · `first_paint_budget` 유지(student-games 여유 91 → 76바이트).
 - 전체 `run.mjs --fast`: 이 브랜치 PASS 646 / FAIL 39, **origin/main 사본 PASS 645 / FAIL 39 — FAIL 목록이 이름까지 같다**(`comm` 대조 · 새 실패 0). 그 39건은 이 컨테이너에 `node_modules` 가 없어서(`ERR_MODULE_NOT_FOUND`·typescript) main 에서도 똑같이 실패하는 것들. PASS +1 은 새 하니스.
 - ⚠️ **실제 폰 체감은 못 쟀습니다.** 배포 뒤 안드로이드(자동으로)·아이폰에서 한 번씩 말해 보시고, `?lat=1` 로 숫자를 보시면 좋습니다.
