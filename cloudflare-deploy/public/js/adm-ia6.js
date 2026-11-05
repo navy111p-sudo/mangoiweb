@@ -1216,7 +1216,17 @@
             window.__ph125OpenedUntil > Date.now()) return;
         /* 📅 (2026-10-07) 직접 누르면 바로 그 화면으로 — 위 GROUPS 의 go 주석 참고. */
         var go = sub.getAttribute('data-ia6-go');
-        if (go) { location.href = go; return; }
+        /* 🪟 (2026-11-05 사장님) 이동이 아니라 «새 창» 으로 — 관리자 화면은 그대로 남는다.
+           ⚠️ 기능 문자열에 noopener 를 넣지 말 것 — 그러면 반환값이 늘 null 이라 아래 폴백이
+              «언제나» 돌아 이 화면까지 이동한다(CLAUDE.md 2장 window.open 함정). 대신 opener 를 끊는다.
+           카톡·문자앱 인앱 브라우저는 새 창을 못 열어 null — 그때만 예전처럼 같은 창에서 연다. */
+        if (go) {
+          var w = null;
+          try { w = window.open(go, '_blank'); } catch (err) { w = null; }
+          if (w) { try { w.opener = null; } catch (err) { /* 무시 */ } }
+          else location.href = go;
+          return;
+        }
         select(sub.getAttribute('data-ia6-item'));
         return;
       }
