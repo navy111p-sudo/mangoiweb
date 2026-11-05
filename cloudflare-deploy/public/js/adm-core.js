@@ -7916,60 +7916,9 @@ async function enMergeDirect() {
   loadEnrollments();
 }
 
-/* 📞 (2026-09-10 사장님 지시) 수업 30분 전 안내문자가 «갈 번호» 를 목록에서 바로 보고 고친다.
-   [왜 목록에도 필요한가] 등록 화면의 연락처 칸은 «앞으로 등록되는» 학생용이다. 이미 등록을
-     마친 학생(테스트 명단 9명이 그렇다)에게 번호를 넣을 자리가 없으면, 그 아이들에게는
-     안내문자를 영영 못 보낸다.
-   ⚠️ 여기 그리는 값은 `notify_phone` — «지금 발송이 실제로 읽는» 번호다(student_erp_override).
-      신청서에 적힌 `parent_phone` 을 그리면 두 값이 갈렸을 때 화면이 옛 값을 말하게 된다.
-   ⚠️ 번호가 없으면 «—» 가 아니라 «문자 안 감» 이라고 적는다. 빈칸은 «고장» 이나 «모름» 으로
-      읽히는데, 이 자리에서 빈칸의 뜻은 «이 학생에게는 안내가 안 나간다» 로 분명하다. */
-function _enPhoneCell(it) {
-  var en = (adminLang === 'en');
-  var p = String(it.notify_phone || '');
-  var label = p
-    ? '📞 ' + _esc(p.replace(/^(\d{2,3})(\d{3,4})(\d{4})$/, '$1-$2-$3'))
-    : (en ? '📵 no SMS' : '📵 문자 안 감');
-  return '<br><a href="#" onclick="enEditPhone(event,' + it.id + ')" ' +
-    'style="font-size:11px;color:' + (p ? '#0f6b4a' : '#b45309') + ';text-decoration:none;border-bottom:1px dashed currentColor" ' +
-    'title="' + (p ? (en ? 'Where the 30-minutes-before class reminder is sent — click to change' : '수업 30분 전 안내문자가 갈 번호 — 눌러서 고치기')
-                   : (en ? 'No number — class reminders are not sent. Click to add one.' : '번호가 없어 수업 전 안내문자가 안 갑니다 — 눌러서 번호 넣기')) + '">' +
-    label + '</a>';
-}
-
-/* 번호를 고친다. 서버가 신청서와 «발송이 읽는 자리» 둘 다에 적고 결과를 돌려준다.
-   ⛔ 성공을 지어내지 않는다 — `phone_saved.ok` 가 false 면 그대로 사람에게 말한다.
-      (조용히 넘기면 「넣었으니 가겠지」로 믿게 되는데 안 가고, 아무도 이유를 모른다.) */
-async function enEditPhone(ev, id) {
-  if (ev && ev.preventDefault) ev.preventDefault();
-  var en = (adminLang === 'en');
-  var cur = (_enItems.find(function (x) { return x.id === id; }) || {}).notify_phone || '';
-  var v = prompt(en
-    ? 'Guardian phone for class reminders (empty = remove):'
-    : '수업 전 안내문자를 받을 학부모 번호 (비우면 삭제):', cur);
-  if (v === null) return;                       // 취소 — 아무것도 안 한다
-  var digits = String(v).replace(/[^0-9]/g, '');
-  if (digits && digits.length < 9) {
-    alert(en ? 'That number looks too short.' : '번호가 너무 짧습니다.');
-    return;
-  }
-  try {
-    var r = await fetch('/api/admin/enrollments/' + id, {
-      method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ parent_phone: digits })
-    });
-    var d = await r.json().catch(function () { return {}; });
-    if (!r.ok || d.ok === false) throw new Error((d && d.error) || ('HTTP ' + r.status));
-    if (d.phone_saved && d.phone_saved.ok === false) {
-      alert((en ? 'Not saved: ' : '저장되지 않았습니다: ') + (d.phone_saved.reason || (en ? 'unknown' : '사유 불명')) +
-            (en ? '\nReminders will not be sent to this student.' : '\n이 학생에게는 안내문자가 안 나갑니다.'));
-    }
-    await loadEnrollments();
-  } catch (e) {
-    alert((en ? 'Failed: ' : '실패: ') + (e.message || e));
-  }
-}
-
+/* 📞 (2026-11-05 사장님 «이름 밑에 굳이 전화번호가 있어서 가독성이 떨어져 · 아이디에 등록된 번호가 있으니
+   수강신청에 또 넣을 필요 없어») 목록 이름 칸의 번호 줄(📞/📵)과 그 자리 «번호 고치기» 를 뺐다.
+   번호는 학생 아이디(학생 상세 › 연락처 · 「번호 없는 학생」 목록)에서 관리한다. */
 function _renderEnrollments() {
   const en = (adminLang === 'en');
   const tb = document.getElementById('enrollments-table');
@@ -8091,7 +8040,7 @@ function _renderEnrollments() {
         (en ? 'Select for export' : '내보내기 선택') + '"></td>' +
       td(String(it.id), 'text-align:center;color:#475467') +
       td(_enDay(it.created_at) || _enDash, 'white-space:nowrap') +
-      td('<b>' + _esc(it.student_name) + '</b>' + dupBadge + _enPhoneCell(it), 'white-space:nowrap') +
+      td('<b>' + _esc(it.student_name) + '</b>' + dupBadge, 'white-space:nowrap') +
       td(it.student_user_id ? _esc(it.student_user_id) : _enDash, 'white-space:nowrap') +
       td(_enDay(it.started_at) || _enDash, 'white-space:nowrap') +
       td((endDay || _enDash) + (durTxt ? '<br><span style="font-size:10.5px;color:#065f46">🗓️ ' + durTxt + '</span>' : ''), 'white-space:nowrap') +
@@ -9158,18 +9107,6 @@ function _addEnrollmentRow(prefill) {
     '<td class="en-c en-c-dur" data-label="' + (_enrIsEn ? 'Class period' : '수업 기간') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' +
       '<select class="en-row-duration" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + durOpts + '</select>' +
       '<div class="en-row-dur-note" style="font-size:10.5px;color:#9ca3af;margin-top:2px"></div></td>' +
-    /* 📞 (2026-09-10 사장님 지시) 학부모 연락처 — «수업 30분 전 안내문자» 가 갈 번호.
-       [왜 칸이 생겼나] 리마인더는 살아 있는데(최근 7일 671건 감지) 문자가 0건이었다.
-         학생 명부의 번호 칸이 29,485행 전부 비어 있고, 카페24 원본에 번호가 없기 때문이다.
-       ⚠️ 필수가 아니다 — 비워도 등록은 그대로 된다(모르는 번호를 지어내는 것이 더 나쁘다).
-       ⚠️ 서버는 이 값을 `student_erp_override` 에 적는다. 학생 명부에 적으면 카페24 동기화가
-          매일 밤 덮어써서 하룻밤이면 사라진다(체험계정 3개가 실제로 그렇게 잃었다). */
-    '<td class="en-c en-c-phone" data-label="' + (_enrIsEn ? 'Guardian phone' : '학부모 연락처') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' +
-      '<input class="en-row-phone" type="tel" inputmode="numeric" autocomplete="off" ' +
-        'placeholder="' + (_enrIsEn ? '010-0000-0000 (optional)' : '010-0000-0000 (선택)') + '" value="' + _esc(v.parent_phone || v.phone || '') + '" ' +
-        'title="' + (_enrIsEn ? 'Where the 30-minutes-before class reminder is sent. Optional.' : '수업 30분 전 안내문자가 갈 번호입니다. 비워 두어도 등록됩니다.') + '" ' +
-        'style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" />' +
-      '<div class="en-row-phone-note" style="font-size:10.5px;color:#9ca3af;margin-top:2px;min-height:13px"></div></td>' +
     '<td class="en-c en-c-del" style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center"><button type="button" class="en-row-del" title="이 행 삭제" style="background:transparent;border:0;color:#ef4444;font-size:14px;cursor:pointer;padding:0 6px">✕</button></td>';
   tbody.appendChild(tr);
   // 행 삭제 — 마지막 1행은 항상 유지
@@ -10171,11 +10108,6 @@ function _readEnrollmentRows() {
     if (types.length === 1 && types[0] === 'level') category = 'test_only';
     else if (types.length === 3) category = 'full';
     else if (types.length > 0) category = types.join('+');
-    /* 📞 (2026-09-10) 학부모 연락처 — 숫자만 남기고 9자리 미만은 «없는 것» 으로 본다.
-       서버·notify-contacts·student-override 가 전부 같은 규칙이다(한 곳이라도 다르면
-       「화면엔 넣었는데 저장이 안 된」 것처럼 보인다). 빈 값이면 안 보낸다 = 예전 그대로. */
-    const phoneRaw = (tr.querySelector('.en-row-phone')?.value || '').replace(/[^0-9]/g, '');
-    const parentPhone = phoneRaw.length >= 9 ? phoneRaw : '';
     /* 🎯 (2026-09-30) 「1회」(체험·레벨테스트뿐) — 개월 수는 보내지 않고(서버 허용목록에도 없다),
        종료일은 시작일, 패키지에 «총 N회» 를 붙여 확정 단계(planSessionCount ①)가 회차를 N개만 만들게 한다.
        ⚠️ «총 N회» 가 없으면 종료일=시작일 이어도 첫 수업 요일이 시작일 뒤면 옛 «주 N회 × 4주» 로 떨어진다. */
@@ -10201,7 +10133,6 @@ function _readEnrollmentRows() {
         out.push({
           student_name: name,
           student_user_id: uid || null,
-          parent_phone: parentPhone || null,
           package: pkgOut,
           monthly_fee_krw: fee ? parseInt(fee, 10) : null,
           started_at: start ? new Date(start).getTime() : null,
@@ -10234,7 +10165,6 @@ function _readEnrollmentRows() {
     out.push({
       student_name: name,
       student_user_id: uid || null,
-      parent_phone: parentPhone || null,
       package: pkgOut, // 패키지 비어있으면 유형으로 자동 채움 (1회면 «총 N회» 를 붙인다)
       monthly_fee_krw: fee ? parseInt(fee, 10) : null,
       started_at: start ? new Date(start).getTime() : null,
