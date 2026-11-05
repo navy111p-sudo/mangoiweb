@@ -252,7 +252,11 @@ for (const [file, label] of DOCS) {
    호스트 전용, 학생 mangoi_logged_user·mango_token 은 localStorage)이 통째로 갈리고,
    수업이면 «같은 방 번호인데 다른 교실» 이 그대로 재현된다.
    같은 날 ⑥-4(채팅 요약 문자, `-prod` 주소)도 함께 고쳤다 — 그쪽은 DO 가 안 갈리지만
-   **학생·학부모 문자**로 조건 없이 나가므로 로그인이 갈리는 반경이 제일 넓다.
+   **학생·학부모 문자**로 나가므로 받는 사람의 로그인이 갈린다.
+   ⚠️ 여기에 「조건 없이 나가므로 반경이 제일 넓다」고 적었던 것은 **틀렸다**(2026-11-05 정정).
+      라우트가 조건 없이 보내는 것은 맞지만 **사이트 안에서는 한 번도 안 불린다** —
+      호출자 0곳 · `typeof demoStudents === 'undefined'` 조기 return · 본문에 uid 없음.
+      ⛔ 그렇다고 「안전하다」도 아니다 — 무인증 라우트라 밖에서 uid 를 담아 부르면 나간다.
 
    ②절은 «문자를 보내는 모듈» 만 보고 있어서 이 넷을 한 번도 안 봤다. 그래서 따로 둔다.
 
@@ -332,9 +336,14 @@ const SPLIT_WORKER = /webrtc-unified-platform(?:-prod)?\.navy111p\.workers\.dev/
 }
 
 /* ⑥-4 채팅 요약 문자 → 학생·학부모 (api-notify.ts)
-   `POST /api/notify/chat-summary` 는 수업이 끝나고 1.5초 뒤 `js/idx-main.js` 가 부르고,
-   서버가 계정으로 찾은 **학생 번호와 학부모 번호 둘 다**에 조건 없이 보낸다
-   (resolveNotifyPhones → sendChatSummaryAlert). 그래서 ⑥ 넷 중 반경이 제일 넓다.
+   `POST /api/notify/chat-summary` 는 서버가 계정으로 찾은 **학생 번호와 학부모 번호 둘 다**에
+   조건 없이 보낸다(resolveNotifyPhones → sendChatSummaryAlert). **무인증 라우트**다.
+   ⚠️ 다만 **사이트 안에서는 한 번도 안 불린다**(2026-11-05 실측) — ⓐ 유일한 호출자
+      `vcNotifyLessonEnded`(public/js/idx-main.js:3729)를 부르는 곳이 0곳 ⓑ 불려도
+      `typeof demoStudents === 'undefined'` 에서 return(그 표는 idx-user-session.js 의
+      IIFE 안 var) ⓒ 지나가도 본문에 student_uid·parent_uid 가 없어 발송 0건.
+      그래서 «반경이 제일 넓다」고 적었던 첫 판을 정정했다. 고친 것(오리진)은 그대로 옳다 —
+      무인증이라 밖에서 uid 를 담아 부르면 그대로 나가기 때문이다.
    🔴 다만 그 주소가 가리키는 `/admin/chat-summary.html` 은 **저장소에 없다**(2026-10-30 실측,
       git 이력에도 없음). 게다가 `/admin/` 은 default-deny 로그인 게이트라 학부모가 눌러도
       로그인 화면으로 튕긴다. 오리진은 고쳤지만 **링크는 여전히 갈 곳이 없다** —
@@ -362,8 +371,37 @@ const SPLIT_WORKER = /webrtc-unified-platform(?:-prod)?\.navy111p\.workers\.dev/
   check('채팅 요약 — 전제: 발송 호출을 잘라 냈다', argBlock.length > 0);
   check('채팅 요약 — 그 주소를 실제로 발송에 넘긴다',
     /\bsummaryUrl\b/.test(argBlock), '인자 묶음: ' + argBlock.slice(0, 120));
+  /* ⚠️ 위 한 줄은 «그 이름이 인자 묶음에 있는가» 까지만 본다 — `summaryUrl: ''` 처럼
+     **이름은 남기고 값만 죽이는** 변이가 그대로 통과한다(2026-11-05 함정 대조가 실측).
+     그래서 «그 키에 묶인 값이 그 변수 자신인가» 를 짝으로 본다(축약형도 받는다). */
+  check('채팅 요약 — 그 키에 «변수» 를 묶는다 (빈 문자열·리터럴 금지)',
+    /(^|[\s,{])summaryUrl\s*(,|\}|:\s*summaryUrl\s*(,|\}))/.test(argBlock),
+    '값이 변수가 아니다: ' + argBlock.slice(0, 160));
   check('채팅 요약 — ⛔ 갈린 워커 주소가 코드에 없다',
     !SPLIT_WORKER.test(code));
+
+  /* 짝 — 주소·인자가 다 맞아도 **보내는 루프를 죽이면** 아무 데도 안 간다.
+     ⚠️ 「그 글자가 있는가」로 물으면 `for (const phone of (false ? targets : []))` 같은
+        «조건 뒤집기» 가 그대로 통과한다(2026-11-05 함정 대조가 실측). 그래서
+        ① 루프가 **게이트가 채운 그 변수**(targets)를 그대로 돈다
+        ② 그 라우트 안에 «항상 거짓» 인 죽은 조건이 없다 — 둘을 함께 본다. */
+  const routeAt = code.indexOf("path === '/api/notify/chat-summary'");
+  let routeBlock = '';
+  if (routeAt >= 0) {
+    const open = code.indexOf('{', code.indexOf(')', routeAt));
+    let d = 0;
+    for (let k = open; k < code.length; k++) {
+      if (code[k] === '{') d++;
+      else if (code[k] === '}') { d--; if (d === 0) { routeBlock = code.slice(open, k + 1); break; } }
+    }
+  }
+  check('채팅 요약 — 전제: 라우트 블록을 잘라 냈다', routeBlock.length > 0);
+  check('채팅 요약 — 번호 목록(targets)을 그대로 돌며 보낸다',
+    /for\s*\(\s*const\s+\w+\s+of\s+targets\s*\)/.test(routeBlock),
+    '루프가 targets 를 그대로 돌지 않는다');
+  check('채팅 요약 — ⛔ 라우트 안에 «항상 거짓» 인 죽은 조건이 없다',
+    !/(^|[^\w.])false\s*\?|&&\s*false\b|\bif\s*\(\s*false\s*\)/.test(routeBlock),
+    '죽은 조건이 있다');
 
   /* ℹ️ 사람 결정 대기 — 그 링크가 가리키는 페이지가 저장소에 있는가 */
   const pagePath = resolve(__dir, '../cloudflare-deploy/public/admin/chat-summary.html');

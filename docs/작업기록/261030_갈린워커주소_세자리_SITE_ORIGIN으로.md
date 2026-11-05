@@ -83,13 +83,53 @@ import { siteUrl } from './site-url';
 const summaryUrl = siteUrl(`/admin/chat-summary.html?room=${encodeURIComponent(roomId)}`);
 ```
 
-이 자리가 ①~③ 과 다른 점: **조건이 하나도 없습니다.** 수업이 끝나고 **1.5초 뒤**
-`public/js/idx-main.js:3750` 이 `POST /api/notify/chat-summary` 를 부르고, 서버가
-계정으로 찾은 **학생 번호와 학부모 번호 둘 다**에 보냅니다
-(`resolveNotifyPhones` → `sendChatSummaryAlert`). 그래서 반경이 제일 넓습니다.
+이 자리가 ①~③ 과 다른 점: **라우트에 조건이 하나도 없습니다.** 서버가 계정으로 찾은
+**학생 번호와 학부모 번호 둘 다**에 보냅니다(`resolveNotifyPhones` → `sendChatSummaryAlert`).
+게다가 `/api/notify/*` 는 **무인증**이라 밖에서 `student_uid` 를 담아 부르면 그대로 나갑니다.
+
+> 🔴 **처음에 여기 「수업이 끝나고 1.5초 뒤 조건 없이 나가므로 반경이 제일 넓다」고 적었는데
+> 틀렸습니다**(2026-11-05 함정 대조 지적 → 제가 다시 재서 확인). 자세한 것은 **§4** 입니다.
+> 고친 것(오리진)은 그대로 옳습니다 — 무인증 경로가 살아 있기 때문입니다.
 
 `-prod` 워커라 **DO 는 안 갈리지만** 오리진이 달라 **로그인은 그대로 갈립니다**
 (교사 쿠키는 호스트 전용, 학생 `mangoi_logged_user`·`mango_token` 은 `localStorage`).
+
+## 4. 🔴 ④ 의 «반경» 을 틀리게 적었습니다 — 라우트만 보고 호출자를 안 셌습니다
+
+> 🪤 번호 4 는 원래 비어 있었습니다(§5 를 끼우며 옛 4→6 으로 밀어 놓고 안 채웠습니다).
+> 그 자리에 이 정정을 넣습니다.
+
+처음 판에서 저는 **다섯 곳**(CLAUDE.md 2장 · 이 문서 §3-④·§5-3 · `api-notify.ts` 주석 ·
+하니스 ⑥-4 주석 · `docs/INDEX.md`)에 이렇게 적었습니다 —
+
+> 「수업이 끝나고 1.5초 뒤 학생·학부모에게 **조건 없이** 나가므로 반경이 제일 넓다」
+
+**라우트 코드만 보고 쓴 것이고, 사실이 아닙니다.** 2026-11-05 함정 대조가 잡았고
+**세 겹을 제가 각각 다시 쟀습니다.**
+
+| | 잰 것 | 방법 |
+|---|---|---|
+| ⓐ | 유일한 호출자 `vcNotifyLessonEnded`(`public/js/idx-main.js:3729`)를 **부르는 곳이 저장소에 0곳** — 그 이름이 나오는 자리가 **자기 정의 한 줄뿐**입니다(`window[...]` 류 동적 호출도 0건) | `grep -rnoE "vcNotifyLessonEnded" js/ *.html` |
+| ⓑ | 불려도 **넷째 줄에서 return** 합니다 — `const s = (typeof demoStudents !== 'undefined') ? demoStudents[u.uid] : null; if (!s) return;` 인데 `demoStudents` 는 `js/idx-user-session.js` 의 **IIFE 안 `var`** 라 전역이 아닙니다(전역은 `window.__demoStudents` 뿐). 게다가 그 표는 `hong`·`kim`·`lee`·`park`·`navy111p` **데모 5계정 하드코딩**입니다 | 그 파일을 `node:vm` 샌드박스에 실제로 실행 → `typeof window.demoStudents === 'undefined'` · `typeof window.__demoStudents === 'object'` |
+| ⓒ | 지나가도 **서버가 받을 것이 없습니다** — 클라이언트 본문은 `room_id`·`student_name`·`student_phone`·`parent_phone`·`lesson_title` 뿐이라 **`student_uid`·`parent_uid` 가 없고**, `resolveNotifyPhones` 는 그 둘이 비면 전부 건너뛰어 빈 값을 줍니다 → `targets` 빈 배열 → **발송 0건** | `idx-main.js:3752~3756` + `notify-contacts.ts:295~321` 코드 |
+
+### ⛔ 그렇다고 «안전하다» 로 뒤집지 마세요
+
+`/api/notify/*` 는 **무인증**입니다. 밖에서 `{room_id, student_uid}` 를 담아 부르면 서버가
+그 학생의 번호를 찾아 **갈 곳 없는 링크가 든 문자**를 그 학생·학부모에게 보냅니다.
+⟹ **오리진 수리는 여전히 옳고**, 바뀐 것은 «반경» 서술 하나입니다.
+
+### 다음에 안 밟으려면
+
+✅ **«조건 없이 보내는 코드» 를 봤으면 «그 요청이 실제로 나가는가» 를 호출자까지 거슬러 세세요**
+(`grep -c` 한 줄이면 됩니다). 특히 `typeof X !== 'undefined'` 가드가 줄줄이 달려 있으면
+그 자체가 **«그 이름이 전역이 아닐 수도»** 라는 신호입니다 — 이 저장소에만 그런 자리가
+`demoStudents` 하나로 **8곳**입니다.
+
+⚠️ 그리고 주석을 근거로 쓰지 마세요 — 그 자리 주석은
+「수업 종료 시 호출 (closeVideoCall 등에서 트리거)」라고 적혀 있는데 **부르는 곳이 없습니다.**
+CLAUDE.md 2장 「문서에 「고쳤다」고 적혀 있는데 같은 사고가 또 남」의 그 형태입니다.
+
 
 ## 5. 🔴 ④ 를 고치다 찾은 것 — 그 링크는 갈 곳이 없습니다
 
@@ -118,13 +158,18 @@ const summaryUrl = siteUrl(`/admin/chat-summary.html?room=${encodeURIComponent(r
 
 - **그 문자가 실제로 몇 건 나갔는지** — `SOLAPI_TEMPLATE_CHAT_SUMMARY` 시크릿을 볼 수 없고
   D1 `alimtalk_log` 도 못 봅니다. ⛔ 「안 나가고 있었을 것」으로 단정하지 마세요.
-- 참고로 `idx-main.js:3750` 은 아직 본문에 `student_phone`·`parent_phone` 을 싣는데,
-  서버는 그것을 **일부러 무시합니다**(`notify-contacts.ts`). 고장은 아닙니다.
+- 🔴 **처음에 「`idx-main.js:3750` 이 아직 `student_phone`·`parent_phone` 을 싣지만 서버가
+  일부러 무시한다 — 고장은 아니다」고 적었는데, 심각도를 거꾸로 봤습니다.** 서버가 무시하는
+  것은 맞지만, **그 본문에 `student_uid`·`parent_uid` 가 없는 것**이 곧 「아무에게도 안 간다」의
+  원인입니다(§4 ⓒ). CLAUDE.md 2장 「심각도를 낮추는 결론은 특히 조심하세요」에 걸립니다.
+- ⚠️ 덤 — 「D1 `alimtalk_log` 도 못 봅니다」라고 적었지만 **봐도 소용없습니다.**
+  `sendChatSummaryAlert` 는 `logContext` 를 **안 넘겨서** 그 표에 한 줄도 안 남습니다
+  (CLAUDE.md 2장 「그 기능은 한 번도 안 돌았다」를 로그 표가 비었다는 근거로 말하려 할 때).
 
 ## 6. 되돌아가지 않게 — 하니스 ⑥절
 
 `test-harness/outgoing_link_domain_harness.mjs` 는 **②절이 «문자를 보내는 모듈» 만** 보고 있어서
-이 네 자리를 한 번도 안 봤습니다. ⑥절(**17건**)을 신설했습니다.
+이 네 자리를 한 번도 안 봤습니다. ⑥절(**21건**)을 신설했습니다.
 
 - 세 TS 파일: `site-url` 을 가져오는가 · `SITE_ORIGIN`/`siteUrl()` 을 쓰는가 · ⛔ 갈린 워커 주소가 **코드에** 없는가
 - HTML: 머리글 링크의 `href` 가 **정확히 `/`** 인가 · ⛔ 갈린 워커 주소가 화면에 없는가
@@ -138,6 +183,16 @@ const summaryUrl = siteUrl(`/admin/chat-summary.html?room=${encodeURIComponent(r
 ⓓ 는 「그 이름이 파일에 있는가」로 묻지 않습니다 — `sendChatSummaryAlert(env, …)` 의
 **인자 묶음을 괄호 짝으로 잘라** 그 «안» 에서 봅니다. 그리고 **「잘라 냈다」를 전제 검사 한 줄로**
 뒀습니다(앵커가 어긋나면 빈 문자열을 보고 조용히 통과하니까).
+
+🔴 **그래도 구멍이 둘 남아 있었습니다**(2026-11-05 함정 대조가 실측 → 같은 날 메움).
+
+| 통과하던 변이 | 왜 | 메운 방법 |
+|---|---|---|
+| `summaryUrl: ''` — **이름은 남기고 값만 죽이기** | 검사가 `/\bsummaryUrl\b/` 라 «그 **이름**이 인자 묶음에 있는가» 까지만 물었다 | 「그 키에 묶인 값이 **그 변수 자신인가**」를 짝으로(축약형도 받음) |
+| `for (const phone of (false ? targets : []))` — **조건 뒤집기로 발송 루프 무력화** | 주소·인자가 다 맞아도 **아무 데도 안 간다**. 그 글자는 그대로 남아 전부 통과 | 라우트 블록을 중괄호 짝으로 잘라 ①「게이트가 채운 `targets` 를 그대로 도는가」 ②「**«항상 거짓» 인 죽은 조건이 없는가**」 둘을 짝으로 |
+
+⚠️ CLAUDE.md 가 콕 집어 말하는 그것입니다 — **「변이 N종 전부 FAIL」이라고 적을 때
+그 N 에 «조건 뒤집기» 가 들어 있는지 세어 보세요.** 제 열 종에는 **0종**이었습니다.
 
 ℹ️ **FAIL 이 아니라 이름만 찍는 줄**도 하나 넣었습니다 — 「채팅 요약이 가리키는
 `/admin/chat-summary.html` 이 아직 저장소에 없다」(5장). 나중에 그 페이지를 만들면
@@ -153,7 +208,7 @@ open-redirect 허용목록·아바타 TTS 처럼 **일부러** 워커 주소를 
 
 ### 변이시험 — 되돌리면 실제로 FAIL 나는가
 
-여섯 가지를 **실제로 소스에 넣어** 돌렸습니다(사본을 떠 두고 되돌림 — `git checkout` 금지).
+실제로 소스에 넣어 돌렸습니다(사본을 떠 두고 되돌림 — `git checkout` 금지).
 
 | 변이 | 결과 |
 |---|---|
@@ -167,8 +222,12 @@ open-redirect 허용목록·아바타 TTS 처럼 **일부러** 워커 주소를 
 | Ⓗ (짝) 발송 인자에서 `summaryUrl` 빼기 | FAIL 1 |
 | Ⓘ `site-url` import 줄 지우기 | FAIL 1 |
 | Ⓙ (전제) 발송 호출을 통째로 지우기 | FAIL 2 (전제 · 짝) |
+| Ⓗ' **이름은 남기고 값만 죽이기**(`summaryUrl: ''`) | FAIL 1 — ⚠️ 첫 판에서는 **통과했습니다** |
+| Ⓚ **조건 뒤집기**(`of (false ? targets : [])`) | FAIL 1 — ⚠️ 첫 판에서는 **통과했습니다** |
+| Ⓚ' 죽은 조건 없이 루프만 비우기(`targets.slice(0, 0)`) | FAIL 1 (「targets 를 그대로 돈다」가 잡음) |
 
-**열 가지 전부 실제 FAIL.** 되돌린 뒤 103/103 통과로 복귀하는 것도 확인했습니다.
+**열세 가지 전부 실제 FAIL**(그중 **조건 뒤집기 1종**). 되돌린 뒤 **107/107** 통과로
+복귀하는 것도 매번 확인했습니다.
 
 ## 7. 검토했다가 안 한 것
 

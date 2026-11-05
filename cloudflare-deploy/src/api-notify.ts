@@ -389,6 +389,15 @@ export async function handleNotifyApi(
       //    default-deny 로그인 게이트라, 학부모가 눌러도 로그인 화면으로 튕깁니다.
       //    ⟹ 오리진은 고쳤지만 **링크는 여전히 갈 곳이 없습니다.** 그 페이지를 만들지,
       //    링크를 빼고 건수만 알릴지는 사람이 정할 일입니다(작업기록 261030 §5-2).
+      //
+      // ⚠️ **이 라우트는 «조건 없이» 보내지만, 사이트 안에서는 한 번도 안 불립니다**
+      //    (2026-11-05 실측). 세 겹입니다 — ⓐ 유일한 호출자 `vcNotifyLessonEnded`
+      //    (`public/js/idx-main.js:3729`)를 부르는 곳이 저장소에 0곳 ⓑ 불려도
+      //    `typeof demoStudents === 'undefined'` 에서 return(그 표는 idx-user-session.js 의
+      //    IIFE 안 var — 전역은 `window.__demoStudents` 뿐이고 데모 5계정 하드코딩)
+      //    ⓒ 지나가도 본문에 student_uid·parent_uid 가 없어 발송 0건.
+      //    ⛔ 그렇다고 「그러니 안전하다」로 읽지 마세요 — 이 라우트는 **무인증**이라
+      //    밖에서 uid 를 담아 부르면 그 학생·학부모에게 그대로 나갑니다.
       const summaryUrl = siteUrl(`/admin/chat-summary.html?room=${encodeURIComponent(roomId)}`);
       const studentName = body.student_name || '학생';
       const lessonTitle = body.lesson_title || '영어 수업';
