@@ -304,7 +304,9 @@ export async function handleTeacherClassTransfer(env: any, actor: any, profileId
       const ch = chunks[i];
       const expected: Record<string, string> = {};
       for (const id of ch) expected[id] = p.expected[id];
-      const res: any = await moveSchedulesAtomically(env, actor, { ids: ch, expected, patch: { teacher_id: to.id }, reason });
+      // 👥 묶음 허용은 엔진 «안» 에서도 판정한다(스냅샷과 같은 사실 위 — 바깥 검사와 엔진 사이에 생긴 수업까지)
+      const res: any = await moveSchedulesAtomically(env, actor, { ids: ch, expected, patch: { teacher_id: to.id }, reason },
+        undefined, { groupJoin: { allow: p.allowGroup, ignore: cand } });
       if (!res || !res.ok) {
         return { status: moved.length ? 207 : (Number(res?.status) || 409), body: {
           ok: false, error: res?.error || 'move_failed', message: res?.message || '수업을 옮기지 못했습니다.',

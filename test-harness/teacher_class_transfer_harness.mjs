@@ -75,8 +75,12 @@ if (process.env.TCT_CHILD === '1') {
     async all() { return { success: true, results: sq.prepare(sql).all(...args).map(r => ({ ...r })), meta: {} }; },
     async run() { const r = sq.prepare(sql).run(...args); return { success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) }, results: [] }; },
   });
+  let onEngineStart = null;   // 이동 엔진이 시작하는 순간(= 바깥 묶음 검사 «뒤») 끼어드는 다른 관리자
   const DB = {
-    prepare: sql => statement(sql),
+    prepare: sql => {
+      if (onEngineStart && /CREATE TABLE IF NOT EXISTS schedule_move_guard/.test(sql)) { const h = onEngineStart; onEngineStart = null; h(); }
+      return statement(sql);
+    },
     async exec(sql) { sq.exec(sql); return { count: 1 }; },
     async batch(stmts) {
       const out = [];
@@ -273,6 +277,15 @@ if (process.env.TCT_CHILD === '1') {
   r = await call(hq, { action: 'transfer_apply', to_teacher_id: '21', ids: [String(R.e1)], expected: { [R.e1]: exp[R.e1] } });
   check('C16c 미리보기 뒤 새로 생긴 같은 자리 수업도 넘기는 순간 다시 잡는다(TOCTOU)', r.status === 409 && r.body.error === 'group_not_allowed' && tidOf(R.e1) === '16', r);
   exec('DELETE FROM class_schedules WHERE id = ?', lateId);
+  // 🏁 Codex 지적(PR #2114): 바깥 검사가 끝난 «뒤», 엔진이 스냅샷을 잡기 «전» 에 같은 자리 수업이 생기는 경우 —
+  //    엔진은 같은 자리 묶음을 원래 허용하므로, 묶음 허용은 엔진 «안» 에서 그 스냅샷과 같은 사실로 판정해야 한다.
+  let raceId = null;
+  onEngineStart = () => { raceId = seed({ user_id: 'race_kid', teacher_id: '21', scheduled_date: '2026-11-06', start_time: '14:00', source: 'manual' }); };
+  r = await call(hq, { action: 'transfer_apply', to_teacher_id: '21', ids: [String(R.e1)], expected: { [R.e1]: exp[R.e1] }, allow_group_ids: [] });
+  check('C16d 바깥 검사 뒤·엔진 스냅샷 전에 생긴 같은 자리 수업도 엔진이 거절(group_not_allowed) · e1 그대로',
+    raceId !== null && r.body.ok === false && r.body.error === 'group_not_allowed' && tidOf(R.e1) === '16', { r, raceId });
+  onEngineStart = null;
+  if (raceId) exec('DELETE FROM class_schedules WHERE id = ?', raceId);
   r = await call(hq, { action: 'transfer_apply', to_teacher_id: '21', ids: pick, expected: exp, allow_group_ids: [String(R.e2)] });
   check('C17 넘기기 성공: 4건', r.status === 200 && r.body.ok === true && r.body.moved === 4, r);
   check('C18 넘긴 줄의 담당 강사가 KAYE(21)로 바뀌었다', pick.every(id => tidOf(id) === '21'), pick.map(tidOf));

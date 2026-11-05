@@ -29,7 +29,7 @@ async function snapshot(env: any, select: string, fields: string[], args: any[] 
   return { sql, args, value: row.value };
 }
 
-export async function moveSchedulesAtomically(env: any, actor: any, input: any, originalRows?: any[], options?: { restorePostponed?: boolean; restoreCancelled?: boolean; undoMove?: boolean; historicalUndo?: boolean }) {
+export async function moveSchedulesAtomically(env: any, actor: any, input: any, originalRows?: any[], options?: { restorePostponed?: boolean; restoreCancelled?: boolean; undoMove?: boolean; historicalUndo?: boolean; groupJoin?: { allow: Set<string>; ignore: Set<string> } }) {
   if (!actor?.ok) return fail(401, 'auth_required', '로그인이 필요합니다.');
   const raw = input.ids;
   if (!Array.isArray(raw) || !raw.length || raw.length > 50 || raw.some((id: any) => !/^\d+$/.test(String(id)) || Number(id) <= 0))
@@ -182,6 +182,17 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
       if (dest.teacher_id && !names.has(String(dest.teacher_id))) return fail(400, 'teacher_not_found', '그 번호의 강사를 찾을 수 없습니다.');
       const conflict = historical ? null : await findScheduleMoveConflicts(env, dest, String(names.get(String(dest.teacher_id)) || ''), ids, facts);
       if (conflict) return { ok: false as const, ...conflict };
+      /* 👥 (2026-11-05, opt-in) «같은 강사·같은 시각·같은 길이» 묶음 합류를 사람이 허용한 줄만 — 강사 일괄 인계(teacher-class-transfer.ts)만 켠다.
+         ⚠️ 엔진 «안» 에서, 위 스냅샷 «뒤» 에 읽은 facts 로 판정해야 한다 — 바깥에서 한 번 보면 그 사이에 생긴 같은 자리 수업을
+            놓친다(PR #2114 Codex 지적 · 하니스 C16d). 스냅샷 가드(batch 의 CHECK)가 그 facts 가 쓰기 순간까지 그대로임을 보장한다.
+         ignore = 같은 인계로 옮기는 줄들(앞 묶음에서 이미 옮겨 간 원래 묶음 동료) — 그것과 합쳐지는 것은 «새 묶음» 이 아니다. */
+      if (options?.groupJoin && !same(dest.teacher_id, row.teacher_id)) {
+        const gj = options.groupJoin, today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+        const joins = facts.rows.some(o => !ids.includes(String(o.id)) && !gj.ignore.has(String(o.id))
+          && String(o.teacher_id) === String(dest.teacher_id) && String(o.user_id) !== String(dest.user_id)
+          && scheduleRowsOverlap(dest, o, today));
+        if (joins && !gj.allow.has(String(row.id))) return fail(409, 'group_not_allowed', '넘겨받을 강사의 다른 수업과 같은 시각이라 묶음(그룹) 수업이 됩니다. 목록을 새로고침해 확인한 뒤 골라 주세요.');
+      }
       if (row.source === 'c24-mirror') dest.source = 'c24-mirror:manual';
       if (isPostponedOccurrence(row) && (!same(dest.scheduled_date,row.scheduled_date) || !same(dest.start_time,row.start_time) || !same(dest.day_of_week,row.day_of_week))) dest.status = 'active';
       if (restore) dest.status = 'active';
