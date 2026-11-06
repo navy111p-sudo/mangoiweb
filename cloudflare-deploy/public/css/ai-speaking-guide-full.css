@@ -164,7 +164,8 @@
   .btn--ghost { padding: 0 10px; }
   .prep { grid-template-columns: 1fr; }
   .legend li { grid-template-columns: 24px minmax(0, 1fr); }
-  .legend li > :last-child { grid-column: 2; }
+  /* Both language descriptions occupy the text column; the final EN node may be hidden. */
+  .legend li > span { grid-column: 2; }
   .tbl th, .tbl td { padding: 9px 10px; }
   .tbl thead th { white-space: normal; }
 }
