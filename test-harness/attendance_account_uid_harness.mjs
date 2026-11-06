@@ -145,7 +145,7 @@ console.log('\n③ 전수 — attendance 를 «계정» 으로 찾는데 정본�
       매번 이름을 찍어 출력한다(사람 결정 대기). */
 const ALLOW = [
   ['api-students.ts', '주간 계획의 «카페24 예약 씨앗» 조회 — room_id LIKE \'c24-%\' 로 씨앗만 일부러 본다. 그 행의 user_id 는 «계정» 이라 이 자리는 user_id 가 맞다(2026-09-21 확인)'],
-  ['api-games.ts', 'computeAttendanceStreak 의 재귀 CTE — 주석이 idx_attendance_user_date 를 타는 것을 전제로 한다. OR 로 넓히면 30회 재귀가 인덱스를 못 타 무거워질 수 있어 사람이 정할 일(2026-09-21)'],
+  ['api-games-attendance-streak.ts', 'computeAttendanceStreak 의 재귀 CTE — 주석이 idx_attendance_user_date 를 타는 것을 전제로 한다. OR 로 넓히면 30회 재귀가 인덱스를 못 타 무거워질 수 있어 사람이 정할 일(2026-09-21)'],
   ['api-admin.ts', '학생 목록의 user_id IN (…) 4곳 — OR 로 넓히면 바인드가 2배가 되어 D1 100개 한도에 걸린다(지금도 90개씩 자른다). 별건(2026-09-21)'],
 ];
 /* 🔴 ALLOW 를 «파일 단위» 로 두면 그 파일에 «새» 실수가 생겨도 전부 통과한다
@@ -153,13 +153,13 @@ const ALLOW = [
    새로 넣었는데 0건으로 통과). 그래서 «그 SQL 의 지문» 으로 좁힌다. */
 const ALLOW_SQL = [
   [/FROM attendance\s+WHERE user_id = \? AND room_id LIKE 'c24-%'/, 'api-students.ts'],
-  [/WITH RECURSIVE[\s\S]*FROM attendance/,                            'api-games.ts'],
-  [/FROM walk[\s\S]*EXISTS[\s\S]*FROM attendance/,                     'api-games.ts'],   // 같은 재귀 CTE 의 두 번째 조각
+  [/WITH RECURSIVE[\s\S]*FROM attendance/,                            'api-games-attendance-streak.ts'],
+  [/FROM walk[\s\S]*EXISTS[\s\S]*FROM attendance/,                     'api-games-attendance-streak.ts'],   // 같은 재귀 CTE 의 두 번째 조각
 ];
 const allowedSql = (f, sql) => ALLOW_SQL.some(([re, file]) => file === f && re.test(sql));
 
 // SQL 문자열만 뽑아서 본다 — 「FROM attendance」 와 「user_id = ?」 가 같은 문자열에 있으면 후보
-const FILES = ['api-mango.ts','api-admin.ts','api-students.ts','api-reports.ts','api-games.ts',
+const FILES = ['api-mango.ts','api-admin.ts','api-students.ts','api-reports.ts','api-games.ts','api-games-attendance-streak.ts','api-games-badges.ts','api-games-streak.ts',
                'learning-insights.ts','lesson-insight.ts','absent-sweep.ts','api-points.ts',
                'api-teacher.ts','churn-graph.ts','retention.ts','no-show-truth.ts','marketing-studio.ts',
                'lesson-reminder.ts','accounting-reports.ts','ai-command.ts','api-sales-hr.ts'];
@@ -195,7 +195,8 @@ const MUST_USE = [
   ['api-students.ts', 2, '학부모 대시보드 자녀 출석 · 월간 리포트'],
   ['api-reports.ts', 1, '월간 성적표 출석일수'],
   ['learning-insights.ts', 1, '학습 인사이트 월별 출석'],
-  ['api-games.ts', 2, '배지(출석 1일) · 스트릭 «오늘 출석했나»'],
+  ['api-games-badges.ts', 1, '배지(출석 1일)'],
+  ['api-games-streak.ts', 1, '스트릭 «오늘 출석했나»'],
 ];
 MUST_USE.push(['api-students.ts@nocase', 2, '학생 본인 화면 2곳 — 원래 COLLATE NOCASE 였던 자리']);
 for (const [f0, n, why] of MUST_USE) {
