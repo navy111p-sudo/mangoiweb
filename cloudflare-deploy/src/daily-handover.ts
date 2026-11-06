@@ -45,6 +45,11 @@ export function checkHandover(d: ReturnType<typeof normalizeHandover>, day: stri
 }
 const ensure = oncePerIsolate(async (env: Env) => {
   await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS daily_handover_replies (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, report_id INTEGER NOT NULL, author TEXT NOT NULL,
+      author_name TEXT NOT NULL, body TEXT NOT NULL, created_at INTEGER NOT NULL,
+      confirmed_at INTEGER, push_state TEXT NOT NULL DEFAULT 'pending', request_key TEXT NOT NULL UNIQUE)`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS handover_replies_report ON daily_handover_replies(report_id,id)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS daily_handover_followup (
       report_id INTEGER NOT NULL, version INTEGER NOT NULL, opened_at INTEGER,
       due_at INTEGER, escalation_to TEXT, warning_level INTEGER NOT NULL DEFAULT 0,
@@ -551,6 +556,12 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
     if (!validDay(day)) return reply({ok:false,error:'date'},400);
     const me = String(actor.username), route = url.pathname.slice(prefix.length);
     const file=await fileRoute(request,url,env,actor,day);if(file)return file;
+    if(request.method==='GET'&&route==='/replies'){
+      const r:any=await env.DB.prepare('SELECT * FROM daily_handovers WHERE id=?').bind(Number(url.searchParams.get('id'))||0).first();
+      if(!r||!visible(r,actor))return reply({ok:false,error:'not_found'},404);
+      const items=await env.DB.prepare('SELECT * FROM daily_handover_replies WHERE report_id=? ORDER BY id').bind(r.id).all();
+      return reply({ok:true,replies:items.results||[],can_write:isExec(actor)&&r.username!==me&&r.status!=='draft',can_confirm:r.username===me});
+    }
     if(request.method==='GET'&&route==='/inbox'){
       // 👥 공동 수신자 앞 미확인 보고도 함께(INBOX_ALSO_SEES). 콤마 문자열 하나로 바인딩.
       const also=','+[me,...(INBOX_ALSO_SEES[me]||[])].join(',')+',';
@@ -563,12 +574,19 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       try{const boss=MISSED_REPORT_TO.includes(me);const all=await handoverDuty(env,kstDay(),boss?undefined:me);const mine=all.find(d=>d.username===me);writer=mine?{required:true,...dutyView(mine),warning:await writerWarning(env,mine)}:{required:false};
         if(boss)missed_staff=all.filter(d=>d.today_required&&d.prev_missed).map(d=>({username:d.username,name:d.name,prev_day:d.prev_day}));}
       catch{console.warn('[daily-handover] duty unavailable');}
+      // Existing change requests also require the author's explicit confirmation.
+      await env.DB.prepare(`INSERT OR IGNORE INTO daily_handover_replies(report_id,author,author_name,body,created_at,request_key)
+        SELECT id,acknowledged_by,acknowledged_by,feedback,COALESCE(acknowledged_at,updated_at),'return:'||id||':'||version
+        FROM daily_handovers WHERE username=? AND status='changes_requested' AND acknowledged_by IS NOT NULL AND trim(COALESCE(feedback,''))<>''`).bind(me).run();
+      const feedback=await env.DB.prepare(`SELECT f.id,f.report_id,f.author_name,f.body,f.created_at,h.report_date
+        FROM daily_handover_replies f JOIN daily_handovers h ON h.id=f.report_id
+        WHERE h.username=? AND f.confirmed_at IS NULL ORDER BY f.id`).bind(me).all();
       const enforced=REVIEW_ENFORCED.includes(me);
       const overdue_lock=enforced?await reviewOverdue(env,me):null;
       let reviewer_overdue:any[]=[];
       if(MISSED_REPORT_TO.includes(me)){const names=await accounts(env);for(const u of REVIEW_ENFORCED){if(u===me)continue;const it=await reviewOverdue(env,u);if(it&&it.length)reviewer_overdue.push({username:u,name:names.find(a=>a.username===u)?.name||u,count:it.length,max_late_hours:it[0].late_hours});}}
       return reply({ok:true,me:{username:me,name:actor.name||me},reader_mode:['admin','mgr_jjw'].includes(me),also_sees:INBOX_ALSO_SEES[me]||[],
-        overdue_lock,reviewer_overdue,read_min_sec:enforced?REVIEW_MIN_READ_SEC:0,total:count.n,reports:await withFollowups(env,result.results||[]),files:await attachmentsFor(env,result.results||[]),writer,missed_staff});
+        feedback:feedback.results||[],overdue_lock,reviewer_overdue,read_min_sec:enforced?REVIEW_MIN_READ_SEC:0,total:count.n,reports:await withFollowups(env,result.results||[]),files:await attachmentsFor(env,result.results||[]),writer,missed_staff});
     }
     // 📖 다시 읽기(2026-09-29) — 확인·보완요청한 보고는 «미확인» 목록에서 빠지므로 되돌아볼 길이 없었다.
     // 내가 받았거나 내가 확인한 것만(최근 30일). ⛔ 경영진 «전체 보기» 로 넓히지 않는다 — 그건 날짜별 «전체» 필터가 한다.
@@ -645,6 +663,9 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       const members = await accounts(env);
       const raw = await env.DB.prepare(`SELECT * FROM daily_handovers WHERE report_date=? AND status<>'draft' ORDER BY updated_at DESC LIMIT 300`).bind(day).all();
       const reports = await withFollowups(env, raw.results || []);
+      const feedbackCounts=await env.DB.prepare(`SELECT f.report_id,COUNT(*) total,SUM(CASE WHEN f.confirmed_at IS NULL THEN 1 ELSE 0 END) pending
+        FROM daily_handover_replies f JOIN daily_handovers h ON h.id=f.report_id WHERE h.report_date=? GROUP BY f.report_id`).bind(day).all<any>();
+      for(const report of reports){const c=(feedbackCounts.results||[]).find(x=>x.report_id===report.id);report.reply_total=c?.total||0;report.reply_pending=c?.pending||0;}
       let duty: any[] = [], duty_known = true;
       try { duty = await handoverDuty(env, day); } catch { duty_known = false; console.warn('[daily-handover] board duty unavailable'); }
       let sales: any = null;
@@ -672,6 +693,30 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
     if (raw.length > 20000) return reply({ok:false,error:'too_large'},413);
     let b: any; try { b=JSON.parse(raw); } catch { return reply({ok:false,error:'invalid_json'},400); }
     if (!b || typeof b !== 'object' || Array.isArray(b)) return reply({ok:false,error:'invalid_json'},400);
+    if(route==='/reply-confirm'){
+      const r:any=await env.DB.prepare(`SELECT f.id,h.username FROM daily_handover_replies f
+        JOIN daily_handovers h ON h.id=f.report_id WHERE f.id=?`).bind(Number(b.id)||0).first();
+      if(!r||r.username!==me)return reply({ok:false,error:'not_found'},404);
+      await env.DB.prepare('UPDATE daily_handover_replies SET confirmed_at=COALESCE(confirmed_at,?) WHERE id=?').bind(Date.now(),r.id).run();
+      return reply({ok:true});
+    }
+    if(route==='/reply'){
+      const r:any=await env.DB.prepare('SELECT * FROM daily_handovers WHERE id=?').bind(Number(b.id)||0).first();
+      if(!r||!visible(r,actor))return reply({ok:false,error:'not_found'},404);
+      if(!isExec(actor)||r.username===me||r.status==='draft')return reply({ok:false,error:'forbidden'},403);
+      if(typeof b.body!=='string'||!b.body.trim()||b.body.length>3000||typeof b.request_key!=='string'||!/^[a-f0-9-]{36}$/.test(b.request_key))return reply({ok:false,error:'feedback'},400);
+      const now=Date.now();
+      const result=await env.DB.prepare(`INSERT OR IGNORE INTO daily_handover_replies(report_id,author,author_name,body,created_at,request_key)
+        VALUES(?,?,?,?,?,?)`).bind(r.id,me,actor.name||me,b.body.trim(),now,b.request_key).run();
+      const saved:any=await env.DB.prepare('SELECT * FROM daily_handover_replies WHERE request_key=?').bind(b.request_key).first();
+      if(!saved||saved.report_id!==r.id||saved.author!==me||saved.body!==b.body.trim())return reply({ok:false,error:'conflict'},409);
+      if(result.meta.changes){
+        const state=await notify(env,r.username,'handover-reply:'+saved.id,'새 보고 피드백이 있습니다. 읽고 확인해 주세요. / New report feedback. Please read and confirm.',
+          '/daily-handover.html?view=mine&date='+r.report_date+'&report='+r.id);
+        await env.DB.prepare('UPDATE daily_handover_replies SET push_state=? WHERE id=?').bind(state,saved.id).run();
+      }
+      return reply({ok:true});
+    }
     if(['/opened','/followup','/hold'].includes(route)){
       const r:any=await env.DB.prepare('SELECT * FROM daily_handovers WHERE id=?').bind(Number(b.id)||0).first();
       if(!r||!visible(r,actor))return reply({ok:false,error:'not_found'},404);
@@ -771,6 +816,9 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
           .bind(status,me,now,feedback,now,r.id,version),
         env.DB.prepare(`INSERT INTO daily_handover_followup_events(report_id,version,actor,kind,detail,created_at)
           SELECT ?,?,?,?,?,? WHERE changes()=1`).bind(r.id,version,me,status,feedback,now),
+        env.DB.prepare(`INSERT OR IGNORE INTO daily_handover_replies(report_id,author,author_name,body,created_at,request_key)
+          SELECT ?,?,?,?,?,? WHERE changes()=1 AND ?='changes_requested'`)
+          .bind(r.id,me,actor.name||me,feedback,now,'return:'+r.id+':'+(version+1),status),
       ]);
       const duplicate=!result[0].meta.changes;
       if(duplicate){
@@ -782,6 +830,14 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
           WHERE h.id=? AND h.version=? AND h.status=? AND h.acknowledged_by=? AND h.feedback=? LIMIT 1`)
           .bind(version,r.id,version+1,status,me,feedback).first();
         if(!same)return reply({ok:false,error:'conflict'},409);
+      }
+      if(status==='changes_requested'){
+        const f:any=await env.DB.prepare('SELECT id,push_state FROM daily_handover_replies WHERE request_key=?').bind('return:'+r.id+':'+(version+1)).first();
+        if(f&&f.push_state==='pending'){
+          const state=await notify(env,r.username,'handover-reply:'+f.id,'보완 요청이 있습니다. 읽고 확인해 주세요. / Please read and confirm your change request.',
+            '/daily-handover.html?view=mine&date='+r.report_date+'&report='+r.id);
+          await env.DB.prepare('UPDATE daily_handover_replies SET push_state=? WHERE id=?').bind(state,f.id).run();
+        }
       }
       // Best-effort after commit, also on exact retries. Use the request's base
       // version, not the reloaded report version, to leave a newer revision alone.

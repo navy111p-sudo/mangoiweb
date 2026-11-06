@@ -93,6 +93,7 @@
     var bits = [row.issue ? '문제 있음 / Issue' : '문제 없음 / No issue'];
     if (row.urgent) bits.push('긴급 / Urgent');
     if (row.open) bits.push('남은 일 / Open' + (row.open.deadline ? ' · ' + row.open.deadline.slice(5).replace('T', ' ') : ''));
+    if(row.report.reply_total)bits.push('피드백 / Feedback '+row.report.reply_total+' · 매니저 미확인 / Unconfirmed '+row.report.reply_pending);
     var files = (row.report.payload.attachments || []).length;
     if (files) bits.push('첨부 / Files ' + files);
     meta.append(document.createTextNode(bits.join(' · ')));
@@ -183,6 +184,7 @@
     if (r.acknowledged_by) who += ' · 응답 / By: ' + nameOf(r.acknowledged_by) + ' ' + kst(r.acknowledged_at) + ' KST';
     b.append(el('p', who, 'small mhb-by'));
     if (r.feedback) b.append(el('p', '보완 요청 / Feedback: ' + r.feedback, 'notice'));
+    if(window.MangoiHandoverFeedback)window.MangoiHandoverFeedback(b,r);
     b.append(actions(row));
     return b;
   }
@@ -224,7 +226,7 @@
   async function respond(row, kind, button) {
     var feedback = '';
     if (kind === 'return') {
-      feedback = (prompt('보완할 내용을 적어 주세요. / What needs clarification?') || '').trim();
+      feedback = await window.MangoiHandoverFeedback.requestChanges();
       if (!feedback) return;
     }
     button.disabled = true;
@@ -323,7 +325,7 @@
   $('refresh').onclick = function () { say(''); load(current()); };
   $('show-all').onclick = function () { S.filter = 'all'; S.open = null; paint(); };
   document.addEventListener('mh:handover-changed', function (e) { if (!(e.detail && e.detail.from === 'board') && S.data) load(current()); });
-  setInterval(function () { if (S.data && !document.hidden && !S.loading) load(current()); }, 60000);
+  setInterval(function () { if (S.data && !document.hidden && !S.loading && !box.querySelector('.mh-feedback textarea:focus')) load(current()); }, 60000);
 
   // 첫 조회는 «오늘» 로 연다(오늘이 언제인지는 서버가 정한다 — KST). ?date= 로 왔으면 그 날짜를 이어서 연다.
   (async function init() {

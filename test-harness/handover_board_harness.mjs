@@ -171,8 +171,8 @@ const duty = (username, required = true, extra = {}) => ({ username, name: usern
   const runRespond = async (callImpl, kind = 'ack', answer = '') => {
     const events = [], calls = [], loads = [], btn = { disabled: false };
     const doc = { dispatchEvent: e => events.push(e) };
-    await new Function('prompt', 'call', 'say', 'document', 'CustomEvent', 'load', 'current', respondSrc + '\nreturn respond;')(
-      () => answer, async (p, b) => { calls.push([p, b]); return callImpl(p, b); }, () => {}, doc, FakeEvent, async d => loads.push(d), () => '')(
+    await new Function('window', 'call', 'say', 'document', 'CustomEvent', 'load', 'current', respondSrc + '\nreturn respond;')(
+      { MangoiHandoverFeedback: { requestChanges: async () => answer.trim() } }, async (p, b) => { calls.push([p, b]); return callImpl(p, b); }, () => {}, doc, FakeEvent, async d => loads.push(d), () => '')(
       { name: 'X', report: { id: 7, version: 3 } }, kind, btn);
     return { events, calls, loads, btn };
   };
