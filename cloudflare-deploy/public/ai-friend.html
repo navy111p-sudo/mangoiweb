@@ -1491,6 +1491,16 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _afVisemeWrap); else _afVisemeWrap();
     window.addEventListener('load', _afVisemeWrap);
 
+    /* Speech-only pronunciation repair for the reported baseball example.
+       Aura has no pronunciation-control API; its documented workaround is phonetic
+       spelling (https://developers.deepgram.com/docs/text-to-speech-prompting).
+       Keep this scoped: globally replacing `a` would break alphabet/grade lessons.
+       The displayed reply, history and correction targets must keep their spelling.
+       A different TTS input also bypasses cached audio with the old pronunciation. */
+    function friendSpeechText(text) {
+      return String(text || '').replace(/\ba(?=\s+home\s+run\b)/gi, 'uh');
+    }
+
     function speakText(text, btn, row, onDone) {
       if (!friendRatePreference.loaded) {
         const waitingGen = _stmGen;
@@ -1543,7 +1553,7 @@
         const _speaker = speakerFor();
         try { if (MangoiTTS.setSpeaker) MangoiTTS.setSpeaker(_speaker); } catch(e){}
         try { window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(charForPerson(_personNow)); } catch(e){}
-        MangoiTTS.speak(clean, rateFor(_personNow, currentRate), done);
+        MangoiTTS.speak(friendSpeechText(clean), rateFor(_personNow, currentRate), done);
       } catch(e){ done(); }
     }
 
