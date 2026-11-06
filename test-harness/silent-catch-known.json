@@ -28,7 +28,7 @@
     "api-games.ts|.bind(row.user_id, v?.id || null, isCorrect ? 1 : 0, Date.no",
     "api-games-microlearn.ts|await ensureMicroLearnSchema();",
     "api-games-review-quiz.ts|const quizzes = (((rs.results as any[]) || [])).map((row: an",
-    "api-games.ts|have.add(code);",
+    "api-games-badges.ts|have.add(code);",
     "api-games-review-quiz.ts|if (ds.length && (ds[0] === today || ds[0] === today - 1)) {",
     "api-judgment.ts|}), { expirationTtl: SCENARIO_RECENT_TTL });",
     "api-mango.ts|(여기서 재시도까지 하면 실패가 겹칠 때 수업 중 D1 쓰기가 늘어난다) */",
