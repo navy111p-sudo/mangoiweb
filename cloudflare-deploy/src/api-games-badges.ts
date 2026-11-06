@@ -137,7 +137,7 @@ export const checkAndAwardBadges = async (env: MangoEnv, userId: string): Promis
       return earned;
     };
 
-    
+
 export async function handleBadgesApi(request: Request, url: URL, env: MangoEnv): Promise<Response | null> {
   const path = url.pathname;
   const method = request.method;
