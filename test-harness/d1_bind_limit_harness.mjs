@@ -185,7 +185,7 @@ console.log('\nG. 회귀 감시 — src 의 손수 만든 IN 목록');
     'api-admin-class-monitor.ts': 'classesNowScanDates가 만든 짧은 조회 날짜 창 — classes_now_mangoi_harness가 경계 검사',
     'api-admin-school-attendance.ts': 'GHOST_SHOPS 고정 4개 제외 목록 — 사용자 입력으로 늘지 않음',
     'api-admin-scheduling.ts': 'UIDS는 lms/type_seed 고정 1~2개 제외 목록 — 사용자 입력으로 늘지 않음',
-    'api-ai.ts': '바로 위 쿼리가 LIMIT 10',
+    'api-ai-writing.ts': '바로 위 쿼리가 LIMIT 10',
     'api-mango.ts': '학생 1명의 이름 후보 4개(student_name·korean_name·english_name·username)',
     'index.ts': 'keys.slice(0, 50)',
     'd1-chunk.ts': '이 모듈 자신(주석 및 헬퍼 구현)',
@@ -209,7 +209,7 @@ console.log('\nG. 회귀 감시 — src 의 손수 만든 IN 목록');
   };
   const offenders = [];
   // A relocation must not silently allow additional builders in the new files.
-  const movedBuilderLimits = { 'api-admin-leveltest.ts': 1, 'api-admin-organizations.ts': 1, 'api-admin-class-monitor.ts': 1, 'api-admin-school-attendance.ts': 2, 'api-admin-scheduling.ts': 1 };
+  const movedBuilderLimits = { 'api-ai-writing.ts': 1, 'api-admin-leveltest.ts': 1, 'api-admin-organizations.ts': 1, 'api-admin-class-monitor.ts': 1, 'api-admin-school-attendance.ts': 2, 'api-admin-scheduling.ts': 1 };
   check('실제 placeholder 빌더를 센다', placeholderBuilderCount("const ph = ids.map(() => '?').join(',');") === 1);
   check('큰따옴표 빌더도 센다', placeholderBuilderCount('const ph = ids.map(() => "?").join(",");') === 1);
   check('주석·예제 문자열은 실행 코드로 세지 않는다', placeholderBuilderCount("// ids.map(() => '?')\nconst example = \"ids.map(() => '?')\";") === 0);

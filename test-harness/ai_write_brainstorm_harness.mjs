@@ -49,7 +49,7 @@ const HANGUL = /[가-힣ㄱ-ㅎㅏ-ㅣ]/;
 console.log('✍️🧠 AI 영작 브레인스토밍 하니스 · ' + new Date().toISOString());
 
 const HTML = read('cloudflare-deploy/public/ai-write.html');
-const API = read('cloudflare-deploy/src/api-ai.ts');
+const API = read('cloudflare-deploy/src/api-ai-writing.ts');
 check('ai-write.html · api-ai.ts 를 읽었다', HTML.length > 0 && API.length > 0);
 
 /* ═══════════════════════════════════════════════════════════════════

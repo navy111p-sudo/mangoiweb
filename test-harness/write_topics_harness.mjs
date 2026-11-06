@@ -816,7 +816,7 @@ console.log('\n[H] 숙제·마감일(제안 6) · 칭찬 먼저(제안 7) · 안
   r = await call('GET', '/api/class/write-topics?submits=' + HW.id, 'admin');
   ok(r.st === 200 && (r.j.items || []).length === 2 && (r.j.items || []).some(x => x.uid === 'kimsu'), '본사도 본다 · 본사는 아이디 전체');
   // 첨삭 기록 쪽 배선(api-ai.ts) — topic_id 를 적고, 칸이 없으면 옛 모양으로 다시 적는다
-  const AIS = rd(resolve(SRC, 'api-ai.ts'));
+  const AIS = rd(resolve(SRC, 'api-ai-writing.ts'));
   ok(/ADD COLUMN topic_id INTEGER/.test(AIS) && /Number\(b\.topic_id\)/.test(AIS), '6) 첨삭 기록에 topic_id 칸 · 화면이 보낸 번호를 숫자로만 받는다');
   const insAt = AIS.indexOf('INSERT INTO ai_writing_corrections');
   const insBlk = AIS.slice(insAt, AIS.indexOf('INSERT INTO ai_writing_corrections', insAt + 10) + 400);

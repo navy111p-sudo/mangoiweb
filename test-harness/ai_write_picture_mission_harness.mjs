@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 const ROOT = fileURLToPath(new URL('../cloudflare-deploy/', import.meta.url));
 const html = fs.readFileSync(ROOT + 'public/ai-write.html', 'utf8');
-const api = fs.readFileSync(ROOT + 'src/api-ai.ts', 'utf8');
+const api = fs.readFileSync(ROOT + 'src/api-ai-writing.ts', 'utf8');
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) { pass++; console.log('  ✅ ' + m); } else { fail++; console.log('  ❌ ' + m); } };
 const bodyAt = (src, at) => { const i = src.indexOf('{', at); let d = 0; for (let k = i; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return ''; };

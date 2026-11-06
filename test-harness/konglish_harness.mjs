@@ -9,7 +9,7 @@ import { stripTypeScriptTypes } from 'node:module';
 const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '..');
 const P = (rel, env) => fs.readFileSync(process.env[env] || path.join(ROOT, rel), 'utf8');
 const SRC = P('cloudflare-deploy/src/konglish.ts', 'KG_SRC');
-const AI = P('cloudflare-deploy/src/api-ai.ts', 'AI_SRC');
+const AI = P('cloudflare-deploy/src/api-ai.ts', 'AI_SRC').replace(/\r\n/g, '\n');
 let pass = 0, fail = 0;
 const check = (n, c, x) => { if (c) { pass++; console.log('  ✅ ' + n); } else { fail++; console.log('  ❌ FAIL ' + n + (x !== undefined ? ' ' + JSON.stringify(x) : '')); } };
 
