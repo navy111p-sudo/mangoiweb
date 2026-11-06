@@ -4725,6 +4725,27 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
       rawFix = null; rawHelp = null; rawGrade = null;
     }
 
+    // 상황 역할극은 작별말도 연습 중이다. 모든 재생성 뒤, 저장 전에 질문을 보장한다.
+    if (lessonTopic.includes(' 역할극 — 너는 ') && !/[?？]["”\s]*$/.test(aiText)) {
+      try {
+        const continued = await runWarmup(messages.concat([
+          { role: 'assistant', content: aiText },
+          { role: 'user', content: '(Continue the same roleplay with a new moment. React briefly, then end with exactly one new English question. The practice has not ended.)' },
+        ]), 0.8);
+        const continuedText = takeWarmupReply(continued);
+        if (continuedText && /[?？]["”\s]*$/.test(continuedText) &&
+            !replyRejectReason(continuedText, ctxLang === 'zh' ? 0 : (WARMUP_WORD_CAP[ctxDifficulty] || 0)) &&
+            !wrongSelfName(continuedText, ctxFriend, { askedName: askedOwnName(studentInput) }) &&
+            (!fragQ || fragmentQuestions(continuedText).length === 0) && !warmupIsRepeat(continuedText, history)) {
+          aiText = continuedText; commitFix();
+        }
+      } catch (e) { console.warn('[warmup] roleplay continuation failed'); }
+      if (!/[?？]["”\s]*$/.test(aiText)) {
+        aiText = 'Let us try another moment here. What would you like to do next?';
+        rawFix = null; rawHelp = null;
+      }
+    }
+
     /* 💛 (2026-09-09) 학생이 「학교 싫어」라고 한 턴에는 답장 앞머리의 칭찬 상투구를 떼어 낸다.
        [왜 여기인가] 히스토리에 «저장하기 전» 이라, 학생이 본 문장과 모델이 다음 턴에 보는 문장이
        같아진다. 뒤에 두면 화면과 기억이 어긋나 모델이 「내가 방금 칭찬했지」로 이어 간다.
