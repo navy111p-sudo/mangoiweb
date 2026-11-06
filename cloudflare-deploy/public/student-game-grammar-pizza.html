@@ -762,7 +762,13 @@ function _pzStop(){
   try{ if(_pzAudio){ _pzAudio.onended = _pzAudio.onerror = null; _pzAudio.pause(); } }catch(_){}
   try{ speechSynthesis.cancel(); }catch(_){}
 }
+function _pzSpeechText(text, lang){
+  // A lone pronoun has no context for TTS. Use its exact homophone /aɪ/;
+  // display text and complete sentences still use the original I.
+  return /^en(?:-|$)/i.test(lang) && /^i[.!?]?$/i.test(String(text).trim()) ? 'eye' : text;
+}
 function _pzFetch(text, lang){                             // 서버 오디오 → objectURL (캐시)
+  text = _pzSpeechText(text, lang); // Prefetch and playback must use the same new cache key.
   var key = lang + '|' + text;
   if(_pzCache[key]) return Promise.resolve(_pzCache[key]);
   var req = (lang === 'zh-CN')
@@ -787,6 +793,7 @@ function _pzSynth(text, lang, fin){                        // ③ 기기 음성 
 }
 function speak(text, done, lang){
   lang = lang || langOf(text);
+  text = _pzSpeechText(text, lang); // Native, server, and browser fallback all pronounce /aɪ/.
   _pzStop();
   var seq = _pzSeq;
   var called = false;
