@@ -131,3 +131,11 @@ export const FRAG_RETRY_BUDGET_MS = 5000;
 /** A.i 친구(api-ai.ts) 다시 뽑기 예산 — 9초 그대로(2026-11-05). 그 화면(ai-friend.html)은 미리듣기를 멈춘 뒤 다시 안 뽑으면
  *  정본을 처음부터 다시 읽어, 예산을 줄이면 «멈췄는데 안 뽑음» 이 잦아져 같은 문장을 두 번 듣는다. 줄이려면 그 화면부터 이어 읽기로. */
 export const FRIEND_FRAG_RETRY_BUDGET_MS = 9000;
+
+/** 상황별 말하기: 실제로 묻는 첫 질문만 남긴다. 따옴표 속 따라 말하기 예문은 질문 수에서 뺀다. */
+export function firstQuestionOnly(text: string): string {
+  const outside = text.replace(/"[^"]*"|“[^”]*”|‘[^’]*’|(?<!\w)'(?:[^']|'(?=\w))*?'(?!\w)/g,
+    quoted => ' '.repeat(quoted.length));
+  const questions = [...outside.matchAll(/[?？]+/g)];
+  return questions.length > 1 ? text.slice(0, questions[0].index! + questions[0][0].length).trimEnd() : text;
+}

@@ -32,7 +32,7 @@
  */
 import { createJsonTextTap, takeSentences } from './stream-json-text';
 import { replyRejectReason } from './reply-sanity';
-import { fragmentQuestions } from './reply-questions';
+import { fragmentQuestions, firstQuestionOnly } from './reply-questions';
 import { wrongSelfName, askedOwnName } from './ai-friends';
 import { studentSoundsNegative, isBareCheerHead, previewMayBeCheer } from './warmup-empathy';
 
@@ -130,7 +130,7 @@ const squash = (s: string) => String(s == null ? '' : s).replace(/\s+/g, ' ').tr
 
 export function createWarmupLive(
   send: (o: any) => void,
-  o: { lang: string; cap: number; friend: string; studentInput: string; fragQ?: boolean; repeatOf?: (sentence: string) => boolean; honest?: boolean; focused?: boolean },
+  o: { lang: string; cap: number; friend: string; studentInput: string; fragQ?: boolean; oneQuestion?: boolean; repeatOf?: (sentence: string) => boolean; honest?: boolean; focused?: boolean },
 ): WarmupLive {
   let text = '';
   let n = 0;
@@ -161,6 +161,7 @@ export function createWarmupLive(
       }
       const cand = text ? text + ' ' + s : s;
       let why = '';
+      if (o.oneQuestion && firstQuestionOnly(cand) !== cand) { halt = 'question_limit'; return false; }
       try { why = replyRejectReason(cand, o.cap); } catch { why = 'gate_error'; }
       if (!why) {
         try { if (wrongSelfName(cand, o.friend, { askedName })) why = 'name'; } catch { why = 'gate_error'; }

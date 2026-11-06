@@ -29,6 +29,29 @@ try { LV = await load('ai-friend-level.ts'); } catch (e) { console.log('  (ai-fr
 ok(!!(C && C.connectorRule && C.connectorPromptBlock && C.connectorIssues), '⓪ 전제: 정본(conversation-connectors.ts)을 불러왔다');
 ok(!!(RQ && RQ.fragmentQuestions) && !!(LV && LV.aiFriendBrokenQuestions && LV.AI_FRIEND_LEVELS), '⓪ 전제: 조각 질문·눈높이 판정 정본을 불러왔다');
 if (!C) finish();
+// 실제 음성 검사에서 나온 두 질문 + 인용 예문·축약형·줄바꿈 경계.
+const singleQuestionCases = [
+  ["I see. Let's take a closer look. Can you tell me more about your headache? Is it a sharp pain or a dull ache?", "I see. Let's take a closer look. Can you tell me more about your headache?"],
+  ["Dr. Mango is here. Do you have a fever? Do you cough?", "Dr. Mango is here. Do you have a fever?"],
+  ["I don't know yet. Does it hurt? When did it start?", "I don't know yet. Does it hurt?"],
+  ["You can ask \"Do you have a fever?\" Does it hurt? When did it start?", "You can ask \"Do you have a fever?\" Does it hurt?"],
+  ["You can ask 'What is your name?' Does it hurt? When did it start?", "You can ask 'What is your name?' Does it hurt?"],
+  ["You can ask 'What's your name?' Does it hurt? When did it start?", "You can ask 'What's your name?' Does it hurt?"],
+  ["You can ask “How are you?” Does it hurt? When did it start?", "You can ask “How are you?” Does it hurt?"],
+  ["You can ask ‘How are you?’ Does it hurt? When did it start?", "You can ask ‘How are you?’ Does it hurt?"],
+  ["Does it hurt?\nWhen did it start?", "Does it hurt?"],
+  ["Does it hurt?When did it start?", "Does it hurt?"],
+  ["Does it hurt?? When did it start?", "Does it hurt??"],
+  ["Does it hurt？ When did it start？", "Does it hurt？"],
+  ["Do you want water or juice?", "Do you want water or juice?"],
+  ["Hello. Do you feel better?", "Hello. Do you feel better?"],
+  ["Can you say \"Do you feel better?\" with me?", "Can you say \"Do you feel better?\" with me?"],
+  ["You can say \"Do you feel better?\"", "You can say \"Do you feel better?\""],
+  ["Hello, please have a seat.", "Hello, please have a seat."],
+  ["", ""]
+];
+for (const [input, expected] of singleQuestionCases) ok(RQ?.firstQuestionOnly(input) === expected, "한 질문: " + input.slice(0, 70), RQ?.firstQuestionOnly(input));
+
 const conn = rd(resolve(SRC, 'conversation-connectors.ts'));
 ok(!/^\s*import\s/m.test(conn), '⓪ 정본은 import 가 없다(하니스가 그대로 돌린다)');
 
@@ -458,6 +481,19 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
       scene.id + ': 서로 다른 연습 소재 12개 이상 + 계속 질문 지시가 모델에 전달된다');
     const saved = JSON.parse(kv.get('warmup:' + sid));
     ok(saved.at(-1).content === r.j.ai_response, scene.id + ': 화면과 서버 대화 기억이 같은 질문');
+    const two = "I see. Let's take a closer look. Can you tell me more about your headache? Is it a sharp pain or a dull ache?";
+    const first = "I see. Let's take a closer look. Can you tell me more about your headache?";
+    calls = 0;
+    AI.run = async (model, opts) => { seen.push(opts); calls++; return { response: JSON.stringify({ reply: two, fix: null }) }; };
+    const oneSid = sid + '-one';
+    const one = await post('/api/warmup/chat', { session_id: oneSid, student_input: 'Thank you.', lesson_topic: scene.role, difficulty: 4, correction_mode: 'free_talk' });
+    ok(one.status === 200 && one.j.ai_response === first && calls === 1, scene.id + ': 첫 질문만 내보내며 추가 모델 호출 없음', one.j);
+    ok(JSON.parse(kv.get('warmup:' + oneSid)).at(-1).content === first, scene.id + ': 버린 둘째 질문은 서버 기억에도 없음');
+    ok(one.sys.includes('[질문 순서]') && one.sys.includes('한 가지 정보만') && one.sys.includes('학생의 다음 답변을 받은 뒤'), scene.id + ': 한 문장에 여러 정보도 몰아 묻지 않도록 지시');
+    AI.run = async (model, opts) => { seen.push(opts); return { response: JSON.stringify({ reply: 'Is it a sharp pain or a dull ache?', fix: null }) }; };
+    const next = await post('/api/warmup/chat', { session_id: oneSid, student_input: 'It hurts on the left side.', lesson_topic: scene.role, difficulty: 4, correction_mode: 'free_talk' });
+    ok(next.status === 200 && next.j.ai_response === 'Is it a sharp pain or a dull ache?', scene.id + ': 학생이 답한 다음 턴에 다음 질문을 한다', next.j);
+
   }
   const doctor = box.MangoiSituations.find('doctor');
   for (const failure of ['no-question', 'error', 'fragment', 'wrong-name', 'repeat']) {
@@ -493,6 +529,24 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
   const events = (await streamed.text()).split('\n').filter(l => l.startsWith('data:')).map(l => JSON.parse(l.slice(5)));
   const done = events.find(e => e.done);
   ok(done?.ok && done.ai_response === 'Do you feel better?' && done.replaced === 1, '스트리밍도 먼저 읽은 마무리 인사를 최종 질문으로 교체', events);
+  const doubleReply = 'I see. Can you tell me more about your headache? Is it a sharp pain or a dull ache?';
+  AI.run = async (model, opts) => {
+    if (!opts.stream) return { response: JSON.stringify({ reply: doubleReply, fix: null }) };
+    return new ReadableStream({ start(c) {
+      c.enqueue(new TextEncoder().encode('data: ' + JSON.stringify({ response: JSON.stringify({ reply: doubleReply, fix: null }) }) + '\n\ndata: [DONE]\n\n'));
+      c.close();
+    } });
+  };
+  const oneStream = await W8.fetch(new Request('https://mangoi.ai/api/warmup/chat', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mangoi.ai' },
+    body: JSON.stringify({ session_id: 'scene-one-stream', student_input: 'Thank you.', lesson_topic: doctor.role, difficulty: 4, correction_mode: 'free_talk', stream: 1 }),
+  }), env, ctxW);
+  const oneEvents = (await oneStream.text()).split('\n').filter(l => l.startsWith('data:')).map(l => JSON.parse(l.slice(5)));
+  const oneDone = oneEvents.find(e => e.done);
+  ok(oneDone?.ok && oneDone.ai_response === 'I see. Can you tell me more about your headache?', 'SSE 최종 답변도 첫 질문 하나만', oneDone);
+  ok(!oneEvents.filter(e => e.t).some(e => e.t.includes('sharp pain')) && oneDone?.halted === 'question_limit', '둘째 질문은 미리보기 음성에 한 글자도 내보내지 않는다', oneEvents);
+  const ordinaryTwo = await post('/api/warmup/chat', { session_id: 'ordinary-two', student_input: 'Thank you.', correction_mode: 'free_talk' });
+  ok(ordinaryTwo.status === 200 && ordinaryTwo.j.ai_response === doubleReply, '상황별 밖의 대화에는 새 제한을 적용하지 않는다', ordinaryTwo.j);
   AI.run = saveRun;
 }
 
