@@ -42,7 +42,7 @@ const ok = (name, cond, extra = '') => {
 const count = (hay, needle) => String(hay).split(needle).length - 1;
 
 const F = load('friend-correction-flow.ts');
-const API = fs.readFileSync(path.join(CF, 'src/api-ai.ts'), 'utf8');
+const API = fs.readFileSync(path.join(CF, 'src/api-ai.ts'), 'utf8').replace(/\r\n/g, '\n');
 
 /* 사장님 화면의 그 문장 / The sentence from the owner's screen */
 const SAID = 'My birthday was tomorrow.';
