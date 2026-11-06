@@ -438,6 +438,64 @@ const post = async (p, body, tok) => {
   return { status: r.status, j, sys: String(seen[0]?.messages?.[0]?.content || '') };
 };
 const has = (sys, band) => sys.includes(C.connectorRule(band));
+// 상황 20개 모두: 실제 워커 + 가짜 AI/KV/SQLite. 운영 AI·DB는 부르지 않는다.
+{
+  const { runInNewContext } = await import('node:vm');
+  const box = {};
+  runInNewContext(rd(resolve(ROOT, 'cloudflare-deploy/public/js/ai-situations.js')), box);
+  const scenes = box.MangoiSituations.list;
+  const saveRun = AI.run;
+  for (const scene of scenes) {
+    let calls = 0;
+    AI.run = async (model, opts) => {
+      seen.push(opts); calls++;
+      return { response: JSON.stringify({ reply: calls === 1 ? "You are welcome! Get some rest now." : 'Do you need anything else?', fix: null }) };
+    };
+    const sid = 'scene-continue-' + scene.id;
+    const r = await post('/api/warmup/chat', { session_id: sid, student_input: 'Thank you.', lesson_topic: scene.role, difficulty: 3, correction_mode: 'free_talk' });
+    ok(r.status === 200 && r.j.ai_response.endsWith('?') && calls === 2, scene.id + ': 인사로 끝난 답변을 질문으로 재생성', r.j);
+    ok(r.sys.includes(scene.topics) && r.sys.includes('반드시 새 영어 질문 하나로 끝내') && scene.topics.split(',').length >= 12,
+      scene.id + ': 서로 다른 연습 소재 12개 이상 + 계속 질문 지시가 모델에 전달된다');
+    const saved = JSON.parse(kv.get('warmup:' + sid));
+    ok(saved.at(-1).content === r.j.ai_response, scene.id + ': 화면과 서버 대화 기억이 같은 질문');
+  }
+  const doctor = box.MangoiSituations.find('doctor');
+  for (const failure of ['no-question', 'error', 'fragment', 'wrong-name', 'repeat']) {
+    let calls = 0;
+    if (failure === 'repeat') kv.set('warmup:scene-fail-repeat', JSON.stringify([{ role: 'assistant', content: 'Oh, I see. Do you feel better?' }, { role: 'user', content: 'Yes.' }]));
+    AI.run = async () => {
+      calls++;
+      if (calls > 1 && failure === 'error') throw new Error('sandbox AI unavailable');
+      return { response: JSON.stringify({ reply: calls === 1 || failure === 'no-question' ? 'Get some rest now.' : failure === 'fragment' ? 'Your favorite food?' : failure === 'wrong-name' ? 'My name is WrongName. Do you feel better?' : failure === 'repeat' ? 'All right. Do you feel better?' : '', fix: null, speaking_help: null }) };
+    };
+    const r = await post('/api/warmup/chat', { session_id: 'scene-fail-' + failure, student_input: 'Thank you.', lesson_topic: doctor.role, difficulty: 3, correction_mode: 'free_talk' });
+    ok(r.status === 200 && r.j.ai_response === 'Let us try another moment here. What would you like to do next?', '재생성 ' + failure + ': 안전 질문으로 계속', r.j);
+  }
+  let calls = 0;
+  AI.run = async () => { calls++; return { response: JSON.stringify({ reply: 'Do you feel better?', fix: null }) }; };
+  const healthy = await post('/api/warmup/chat', { session_id: 'scene-healthy', student_input: 'Yes.', lesson_topic: doctor.role, correction_mode: 'free_talk' });
+  ok(healthy.status === 200 && healthy.j.ai_response === 'Do you feel better?' && calls === 1, '이미 질문이면 추가 AI 호출 없이 그대로');
+  AI.run = async () => ({ response: JSON.stringify({ reply: 'You are welcome.', fix: null }) });
+  const ordinary = await post('/api/warmup/chat', { session_id: 'scene-ordinary', student_input: 'Thank you.', correction_mode: 'free_talk' });
+  ok(ordinary.status === 200 && ordinary.j.ai_response === 'You are welcome.', '일반 교재·자유 대화에는 상황별 계속 질문을 강제하지 않는다');
+  AI.run = async (model, opts) => {
+    if (!opts.stream) return { response: JSON.stringify({ reply: 'Do you feel better?', fix: null }) };
+    const rawReply = JSON.stringify({ reply: 'Get some rest now. ', fix: null });
+    return new ReadableStream({ start(c) {
+      c.enqueue(new TextEncoder().encode('data: ' + JSON.stringify({ response: rawReply }) + '\n\ndata: [DONE]\n\n'));
+      c.close();
+    } });
+  };
+  const streamed = await W8.fetch(new Request('https://mangoi.ai/api/warmup/chat', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mangoi.ai' },
+    body: JSON.stringify({ session_id: 'scene-stream', student_input: 'Thank you.', lesson_topic: doctor.role, difficulty: 3, correction_mode: 'free_talk', stream: 1 }),
+  }), env, ctxW);
+  const events = (await streamed.text()).split('\n').filter(l => l.startsWith('data:')).map(l => JSON.parse(l.slice(5)));
+  const done = events.find(e => e.done);
+  ok(done?.ok && done.ai_response === 'Do you feel better?' && done.replaced === 1, '스트리밍도 먼저 읽은 마무리 인사를 최종 질문으로 교체', events);
+  AI.run = saveRun;
+}
+
 // 웜업 — 난이도별 수준 · 둘째 턴부터 «시작 말» 줄
 {
   for (const [d, band] of [[1, 'beginner'], [2, 'beginner'], [5, 'intermediate'], [7, 'advanced'], [0, 'beginner']]) {
