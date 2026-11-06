@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // ✒️ 문장 종결부호 하니스 (의존성 없음 · node 로 바로 실행)
 //   실행:  node test-harness/sentence_punct_harness.mjs
@@ -21,7 +22,7 @@ import { readFileSync } from 'node:fs';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const P = await import('file://' + resolve(__dir, '../cloudflare-deploy/src/sentence-punct.ts').replace(/\\/g, '/'));
 const SRC = (f) => readFileSync(resolve(__dir, '../cloudflare-deploy/src/' + f), 'utf8');
-const JUD = SRC('api-judgment.ts'), EXAM = SRC('api-exam.ts'), GAMES = SRC('api-games.ts');
+const JUD = SRC('api-judgment.ts'), EXAM = SRC('api-exam.ts'), GAMES = gamesSrc();
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond, extra) {

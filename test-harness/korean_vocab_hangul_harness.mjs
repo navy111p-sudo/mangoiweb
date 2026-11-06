@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
@@ -47,7 +48,7 @@ await repairKoreanGlosses(Array.from({ length: 41 }, () => ({ word: 'school', ko
 assert.equal(calls, 3);
 
 // Execute the real gen-quiz route with a fake database, preserving SQL routing and INSERT parameters.
-const src = readFileSync(new URL('../cloudflare-deploy/src/api-games.ts', import.meta.url), 'utf8');
+const src = gamesSrc();
 const start = src.indexOf("    if (method === 'POST' && path === '/api/vocab/gen-quiz')");
 const end = src.indexOf("    // ── POST /api/vocab/quiz-submit", start);
 assert.ok(start > 0 && end > start);

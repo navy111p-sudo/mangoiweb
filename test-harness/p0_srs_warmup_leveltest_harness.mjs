@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 import { fileURLToPath } from 'node:url';
 // 2026-10-18 — 두 가지를 «실제로 돌려» 확인합니다.
@@ -13,7 +14,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { stripTypeScriptTypes } from 'node:module';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '..');
-const GAMES = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/src/api-games.ts'), 'utf8');
+const GAMES = gamesSrc();
 const INDEX = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/src/index.ts'), 'utf8');
 let pass = 0, fail = 0;
 const check = (name, cond, extra) => { if (cond) { pass++; console.log('  ✅ ' + name); } else { fail++; console.log('  ❌ FAIL ' + name + (extra !== undefined ? ' ' + JSON.stringify(extra) : '')); } };
