@@ -544,7 +544,7 @@ const NOT_YET = [
   ['api-pay.ts', '자동결제 사전안내(prebill) — 돈이 걸린 경로'],
   ['api-admin.ts', 'AI 초안 승인 → feedback-drafts/approve'],
   ['enroll-activate.ts', '등록 확정 안내 (화면 기본값 OFF)'],
-  ['api-games.ts', 'microlearn 안내 (parent_phone 만)'],
+  ['api-games-microlearn.ts', 'microlearn 안내 (parent_phone 만)'],
 ];
 console.log('  ℹ️ 아직 번호 정본을 안 보는 학부모 문자 경로 (사람 결정 대기 — FAIL 아님):');
 for (const [f, what] of NOT_YET) {

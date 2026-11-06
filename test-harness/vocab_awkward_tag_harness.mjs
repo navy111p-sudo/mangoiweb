@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 // 🏷️ 단어장 «어색한 표현» 꼬리표 하니스 (2026-11-02)
 //   AI 영작에서 🟡 어색한 표현을 원어민 표현으로 고친 카드만 단어장 화면에 따로 표시되는가.
 //   ① 정본 src/vocab-tags.ts 를 진짜 SQLite(D1 모양)로 실제로 돌림 — 표시·읽기·실패해도 안 던짐
@@ -61,7 +62,7 @@ const AI = read('src/api-ai.ts');
 }
 
 console.log('[ ③ 목록·복습 API 가 꼬리표를 싣는가 — 헬퍼를 실제로 돌림 ]');
-const G = read('src/api-games.ts');
+const G = gamesSrc();
 {
   const blockOf = (route) => { const i = G.indexOf(`path === '${route}'`); return i < 0 ? '' : G.slice(i, G.indexOf('\n    }\n', i)); };
   const list = blockOf('/api/vocab/list'), due = blockOf('/api/vocab/due');

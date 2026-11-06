@@ -61,7 +61,7 @@ const BAD = [
   { re: /'stu_(?:id_)?'\s*\|\|\s*id/, what: "'stu_' || id 조립" },
   { re: /(?:UPDATE|DELETE\s+FROM)\s+students_erp[\s\S]*?\bWHERE\s+id\b/i, what: 'students_erp 를 WHERE id 로 직접 변경' },
 ];
-const FILES = ['api-admin.ts', 'api-mango.ts', 'api-students.ts', 'api-teacher.ts', 'api-lessons.ts', 'api-games.ts', 'index.ts', 'cafe24-sync.ts', 'student-override.ts'];
+const FILES = ['api-admin.ts', 'api-mango.ts', 'api-students.ts', 'api-teacher.ts', 'api-lessons.ts', 'api-games.ts', 'api-games-vocab.ts', 'api-games-microlearn.ts', 'api-games-vocab-core.ts', 'api-games-vocab-context.ts', 'index.ts', 'cafe24-sync.ts', 'student-override.ts'];
 let leftover = [];
 for (const f of FILES) {
   let src = ''; try { src = strip(rd('../cloudflare-deploy/src/' + f)); } catch { continue; }
