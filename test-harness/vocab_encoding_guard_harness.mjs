@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🔤 단어 퀴즈 깨진 글자(인코딩) 차단 하니스 (의존성 없음 · node 로 바로 실행)
 //   실행:  node test-harness/vocab_encoding_guard_harness.mjs
@@ -13,7 +14,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 const __dir = dirname(fileURLToPath(import.meta.url));
-const src = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-games.ts'), 'utf8');
+const src = gamesSrc();
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond, extra) {

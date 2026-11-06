@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 // 단어 뜻(korean) 빈 값 방어 하니스 — 2026-08-03
 //   배경: 운영 D1 vocabulary 163행 중 90행의 뜻이 빈 문자열이었다.
 //         원인은 /api/vocab/auto-generate 가 AI 응답을 검증 없이 그대로 INSERT 한 것.
@@ -11,7 +12,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const api = readFileSync(join(__dirname, '..', 'cloudflare-deploy', 'src', 'api-games.ts'), 'utf8');
+const api = gamesSrc();
 const html = readFileSync(join(__dirname, '..', 'cloudflare-deploy', 'public', 'micro-quiz.html'), 'utf8');
 
 let pass = 0, fail = 0;
