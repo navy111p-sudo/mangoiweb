@@ -1491,6 +1491,16 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _afVisemeWrap); else _afVisemeWrap();
     window.addEventListener('load', _afVisemeWrap);
 
+    /* Speech-only pronunciation repair for the reported baseball example.
+       Aura has no pronunciation-control API; its documented workaround is phonetic
+       spelling (https://developers.deepgram.com/docs/text-to-speech-prompting).
+       Keep this scoped: globally replacing `a` would break alphabet/grade lessons.
+       The displayed reply, history and correction targets must keep their spelling.
+       A different TTS input also bypasses cached audio with the old pronunciation. */
+    function friendSpeechText(text) {
+      return String(text || '').replace(/\ba(?=\s+home\s+run\b)/gi, 'uh');
+    }
+
     function speakText(text, btn, row, onDone) {
       if (!friendRatePreference.loaded) {
         const waitingGen = _stmGen;
@@ -1501,7 +1511,7 @@
       }
       if (!window.MangoiTTS) { if (onDone) onDone(); return; }
       if (!_ttsLangSet) { try { MangoiTTS.setLang('en'); } catch(e){} _ttsLangSet = true; }
-      const clean = String(text || '').replace(/^[⚠️❗️\s]+/, '').trim();
+      const clean = friendSpeechText(String(text || '').replace(/^[⚠️❗️\s]+/, '').trim());
       if (!clean || /^⚠️/.test(text)) { if (onDone) onDone(); return; }   // 시스템/오류 메시지는 읽지 않음
       const autoSpeech = window.FriendAutoTalk ? FriendAutoTalk.aiStart() : 0;
       document.querySelectorAll('.replay-btn.playing').forEach(x => x.classList.remove('playing'));
