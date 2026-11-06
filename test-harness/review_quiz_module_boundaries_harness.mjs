@@ -146,7 +146,8 @@ try {
         for (const [type, n] of Object.entries({ choice: 2, listen: 3, write: 1, speak: 2 }))
             assert.equal(idx.filter(j => bank[j].type === type).length, n);
         for (const j of idx)
-            assert(!('explain' in M.rqSafeOne(bank[j], j)));
+            for (const key of ['answer', 'answer_text', 'accept', 'explain', 'audio_text'])
+                assert(!(key in M.rqSafeOne(bank[j], j)), key + ' leaked from draw');
     } assert.equal(JSON.stringify(bank), snapshot); });
     await check('language filtering keeps legacy NULL English and excludes Chinese from English list', async () => { const f = await seeded(); try {
         f.raw.prepare('INSERT INTO review_quizzes(id,title,questions,active,created_at,lang) VALUES(?,?,?,?,?,?)').run(8, 'Chinese quiz', JSON.stringify(questions), 1, Date.now(), 'zh');

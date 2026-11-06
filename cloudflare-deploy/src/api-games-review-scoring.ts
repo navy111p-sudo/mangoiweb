@@ -73,14 +73,6 @@ import { endSentence } from './sentence-punct';
       return hit / t.length;
     };
     // 학생에게 안전한 문항 형태 (정답/듣기 원문 제외)
-    const rqSafeQuestions = (qs: any[]) => qs.map((q: any, i: number) => {
-      const type = q.type || 'choice';
-      const out: any = { idx: i, type, q: q.q };
-      if (type === 'choice' || type === 'listen') out.opts = q.opts;
-      if (type === 'speak') out.target = q.answer_text;
-      if (type === 'listen') out.has_audio = true;
-      return out;
-    });
     // 🎲 랜덤 출제(draw) — 유형별로 무작위 N개 뽑되 원본 bank index(idx) 보존
     const rqSafeOne = (q: any, i: number) => {
       const type = q.type || 'choice';
@@ -90,6 +82,8 @@ import { endSentence } from './sentence-punct';
       if (type === 'listen') out.has_audio = true;
       return out;
     };
+    // 일반 조회와 추첨 조회가 같은 비공개 필드 경계를 사용한다.
+    const rqSafeQuestions = (qs: any[]) => qs.map((q: any, i: number) => rqSafeOne(q, i));
     const rqShuffle = (arr: any[]) => { const a = arr.slice(); for (let k = a.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); const t = a[k]; a[k] = a[j]; a[j] = t; } return a; };
     const rqDrawIndices = (qs: any[], draw: any) => {
       const by: any = { listen: [], speak: [], choice: [], write: [] };
