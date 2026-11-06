@@ -49,7 +49,7 @@ const mod = await import('data:text/javascript,' + encodeURIComponent(modSrc));
 }
 
 console.log('[ ② 저장 경로 — 🟡 만 꼬리표 ]');
-const AI = read('src/api-ai.ts');
+const AI = read('src/api-ai-writing.ts');
 {
   const m = AI.match(/const vocabCands = (\[[^;]+\]);/);
   ok('②-1 후보 목록을 찾았다', !!m);

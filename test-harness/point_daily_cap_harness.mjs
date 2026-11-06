@@ -60,7 +60,7 @@ function strip(src) {
 }
 
 const points = strip(readFileSync(join(SRC, 'api-points.ts'), 'utf8'));
-const ai = strip(readFileSync(join(SRC, 'api-ai.ts'), 'utf8'));
+const ai = strip(readFileSync(join(SRC, 'api-ai.ts'), 'utf8') + '\n' + readFileSync(join(SRC, 'api-ai-writing.ts'), 'utf8'));
 const policy = strip(readFileSync(join(SRC, 'point-policy.ts'), 'utf8'));
 
 console.log('\n[ A. applyPointTransaction 을 지나는 적립 경로가 모두 정본 게이트를 지난다 ]');

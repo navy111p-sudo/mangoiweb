@@ -253,7 +253,7 @@ for (const id of ['red-umbrella', 'birthday-cake', 'robot-dance', 'treasure-map'
 
 /* ── ⑤ api-ai.ts 배선 ── */
 console.log('⑤ api-ai.ts 배선');
-const AI = rd(resolve(SRC, 'api-ai.ts'));
+const AI = rd(resolve(SRC, 'api-ai-writing.ts'));
 const pPost = AI.indexOf("if (method === 'POST' && path === '/api/ai/write-history')");
 const pGet = AI.indexOf("if (method === 'GET' && path === '/api/ai/write-history')");
 ok(pPost > 0 && pGet > pPost, '비어 있던 POST 에 얹음(src/index.ts 무수정)');
