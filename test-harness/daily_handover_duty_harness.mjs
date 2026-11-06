@@ -176,7 +176,7 @@ async function prime(t) {
   ok('매니저 화면(/manager) 복사본도 공유 스크립트와 같다', process.env.BANNER_SRC || mgr.includes(js.trim()));
   ok('매니저 화면에 배너 자리가 있다', /<section id="handover-inbox-banner" hidden><\/section>/.test(mgr));
   const cut = (name) => { const a = js.indexOf('function ' + name + '('); if (a < 0) return ''; let i = js.indexOf('{', a), d = 0; for (; i < js.length; i++) { if (js[i] === '{') d++; else if (js[i] === '}' && --d === 0) break; } return js.slice(a, i + 1); };
-  const src = 'var pushState=__ps;' + cut('line') + cut('kstNow') + cut('pushLine') + cut('renderWriter');
+  const src = 'var pushState=__ps,stopped=false,failed=false,writerAudioPending=false;' + cut('warning') + cut('writerText') + cut('writerHref') + cut('line') + cut('kstNow') + cut('pushLine') + cut('renderWriter');
   ok('전제: renderWriter 를 오려 냈다', /function renderWriter/.test(src));
   const el = (tag) => ({ tag, className: '', textContent: '', href: '', kids: [], append(...k) { this.kids.push(...k); } });
   const draw = (last, nowIso = '2026-10-13T05:00:00Z', ps = '') => {
@@ -205,7 +205,7 @@ async function prime(t) {
   r = draw(null);
   ok('응답 없으면 줄 없음(던지지 않음)', r.n === 0 && !r.err, JSON.stringify(r));
   ok('쓸 줄이 있으면 배너를 숨기지 않는다', /host\.hidden=!inbox&&!renderWriter\(\)/.test(js));
-  ok('admin.html 이 새 번호로 부른다', /handover-inbox-banner\.js\?v=8/.test(readFileSync('cloudflare-deploy/public/admin.html', 'utf8')));
+  ok('admin.html 이 새 번호로 부른다', /handover-inbox-banner\.js\?v=9/.test(readFileSync('cloudflare-deploy/public/admin.html', 'utf8')));
 
   // 🔔 기기 알림 자동 켜기 줄 — 상태별로 무엇을 말하는가(짝: 켜진 사람·명단 밖은 줄 없음)
   r = draw({ writer: { ...base, prev_missed: false, today_submitted: true } }, undefined, 'ask');
@@ -319,6 +319,27 @@ async function prime(t) {
   t.db.exec(`INSERT INTO daily_handover_schedule(username,enabled,weekdays,due_time,exempt_date,updated_at) VALUES('nobody',1,'1,2,3,4,5','19:00','',1)`);
   const r2 = await post('nobody', '/schedule', { enabled: false, weekdays: [1], due_time: '19:00', exempt_date: '' });
   ok('필수 아닌 사람은 예전처럼 스스로 끌 수 있다', r2.ok && !r2.locked && t.db.prepare(`SELECT enabled FROM daily_handover_schedule WHERE username='nobody'`).get().enabled === 0);
+}
+
+
+// Missing-submission escalation executes the production policy, never a live database.
+{
+ const t=setup(),s={enabled:1,weekdays:'1,2,3,4,5',due_time:'18:00',exempt_date:''};
+ const days=['2026-10-06','2026-10-07','2026-10-08','2026-10-09','2026-10-12'];
+ const check=(missing,day='2026-10-12',hm='18:00',extra={},hol=()=>false,closed=new Set())=>t.m.submissionWarning({...s,...extra},day,hm,new Set(days.filter(d=>!missing.includes(d))),hol,closed);
+ ok('1근무일 미제출: 1차',check(['2026-10-12']).level===1);
+ ok('2근무일 연속 미제출: 주말 건너 2차',check(['2026-10-09','2026-10-12']).level===2);
+ ok('3근무일 이상 미제출: 3차 상한',check(days).level===3&&check(days).consecutive_days===5);
+ ok('마감 전 오늘은 경고 없음',check(['2026-10-12'],'2026-10-12','17:59').level===0);
+ ok('오늘 제출해도 지난 미제출 유지',check(['2026-10-07','2026-10-08','2026-10-09']).level===3);
+ ok('모두 제출하면 해제',check([]).level===0);
+ ok('중간 제출은 연속 일수를 끊음',check(['2026-10-07','2026-10-09']).level===1);
+ ok('개인 휴무일 제외',check(['2026-10-12'],undefined,undefined,{exempt_date:'2026-10-12'}).level===0);
+ ok('국가 공휴일 제외',check(['2026-10-12'],undefined,undefined,{},(_,d)=>d==='2026-10-12').level===0);
+ ok('회사 휴무일 제외',check(['2026-10-12'],undefined,undefined,{},()=>false,new Set(['2026-10-12'])).level===0);
+ ok('명단 비활성 제외',check(days,undefined,undefined,{enabled:0}).level===0);
+ ok('규칙 시작 전 소급 없음',check([], '2026-10-05').level===0);
+ t.db.close();
 }
 
 console.log(`daily_handover_duty_harness — PASS ${pass} / FAIL ${fail}`);

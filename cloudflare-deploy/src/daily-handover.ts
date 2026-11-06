@@ -250,6 +250,34 @@ export async function handoverDuty(env: Env, day = kstDay(), only?: string) {
   return out;
 }
 const dutyView = (d: any) => { const { _s, ...v } = d; return v; };
+// Login warnings are for missing submissions, separate from reader/follow-up warnings.
+// Keep older gaps visible even when today's report has already been submitted.
+export function submissionWarning(s: any, day: string, hm: string, submitted: Set<string>,
+  holiday: (country: string, day: string) => boolean, closed: Set<string>) {
+  const missing: string[] = [];
+  let run = 0, longest = 0;
+  for (let d = DUTY_START; d <= day; d = shiftDay(d, 1)) {
+    if (!isWorkday(s, d, holiday) || closed.has(d) || (d === day && hm < s.due_time)) continue;
+    if (submitted.has(d)) run = 0;
+    else { missing.push(d); longest = Math.max(longest, ++run); }
+  }
+  return { level: Math.min(3, longest), missing_days: missing, consecutive_days: longest };
+}
+async function writerWarning(env: Env, duty: any, now = Date.now()) {
+  const day = kstDay(now);
+  const [reports, holidays, closures] = await Promise.all([
+    env.DB.prepare(`SELECT report_date FROM daily_handovers WHERE username=? AND report_date>=? AND report_date<=? AND submitted_at IS NOT NULL`)
+      .bind(duty.username, DUTY_START, day).all<any>(),
+    env.DB.prepare(`SELECT country,date FROM holidays WHERE date>=? AND date<=?`).bind(DUTY_START, day).all<any>(),
+    env.DB.prepare(`SELECT day FROM daily_handover_closed_days WHERE day>=? AND day<=?`).bind(DUTY_START, day).all<any>(),
+  ]);
+  // Unknown holiday/history data must not create a false escalation.
+  const holidaySet = new Set((holidays.results || []).map((r: any) => String(r.country).toUpperCase() + ':' + r.date));
+  return submissionWarning(duty._s, day, new Date(now + 9 * 3600000).toISOString().slice(11, 16),
+    new Set((reports.results || []).map((r: any) => String(r.report_date))),
+    (country, date) => holidaySet.has(country.toUpperCase() + ':' + date),
+    new Set((closures.results || []).map((r: any) => String(r.day))));
+}
 export async function runDailyHandoverSweep(env: Env) {
   await ensure(env);
   await runFollowups(env);
@@ -532,7 +560,7 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       // ✍️ 쓰는 쪽(2026-10-06) — 배너가 «오늘 아직 안 씀»·«어제 미제출» 을 말하게. 못 구하면 null(배너는 예전처럼).
       let writer:any=null,missed_staff:any=null;
       // 60초 폴링이라 대표님 말고는 «내 줄» 만 계산한다.
-      try{const boss=MISSED_REPORT_TO.includes(me);const all=await handoverDuty(env,kstDay(),boss?undefined:me);const mine=all.find(d=>d.username===me);writer=mine?{required:true,...dutyView(mine)}:{required:false};
+      try{const boss=MISSED_REPORT_TO.includes(me);const all=await handoverDuty(env,kstDay(),boss?undefined:me);const mine=all.find(d=>d.username===me);writer=mine?{required:true,...dutyView(mine),warning:await writerWarning(env,mine)}:{required:false};
         if(boss)missed_staff=all.filter(d=>d.today_required&&d.prev_missed).map(d=>({username:d.username,name:d.name,prev_day:d.prev_day}));}
       catch{console.warn('[daily-handover] duty unavailable');}
       const enforced=REVIEW_ENFORCED.includes(me);
