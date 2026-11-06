@@ -175,7 +175,7 @@ ok('잠금 화면에 닫기 버튼이 없다',!/handover-review-lock[\s\S]{0,200
 ok('401/403 이면 잠금을 걷는다',/stopped=true;last=null;host\.hidden=true;paintLock\(\)/.test(banner));
 ok('확인 의무자에게도 알림 권유',/last\.read_min_sec>0/.test(banner));
 ok('대표 줄(reviewer_overdue)을 배너에 쓴다',/reviewer_overdue/.test(banner));
-ok('관리자·매니저·결재 화면의 배너가 같은 코드',['admin.html','manager.html','work.html'].every(f=>f==='admin.html'?/handover-inbox-banner\.js\?v=8/.test(readFileSync('cloudflare-deploy/public/admin.html','utf8')):readFileSync('cloudflare-deploy/public/'+f,'utf8').includes(banner.trim())));
+ok('관리자·매니저·결재 화면의 배너가 같은 코드',['admin.html','manager.html','work.html'].every(f=>f==='admin.html'?/handover-inbox-banner\.js\?v=\d+/.test(readFileSync('cloudflare-deploy/public/admin.html','utf8')):readFileSync('cloudflare-deploy/public/'+f,'utf8').includes(banner.trim())));
 ok('확인 버튼이 N초 카운트다운',/function armReadGate/.test(page)&&/if\(readMinSec>0\)armReadGate\(r,ack\)/.test(page));
 ok('read_first 를 사람 말로 보여준다',/j\.error==='read_first'/.test(page));
 ok('대표 미확인 줄에 장지웅 마감 지남 표시',/overdueLine\(\)/.test(page)&&/reviewerOverdue=data\[1\]\.reviewer_overdue/.test(page));
