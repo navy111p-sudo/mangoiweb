@@ -176,6 +176,7 @@
     if(r.acknowledged_by)detail.append(node('p','확인 / Reviewed by: '+staffName(r.acknowledged_by)+(r.acknowledged_at?' · '+kst(r.acknowledged_at)+' KST':''),'small'));
     if(r.username===me.username)detail.append(node('p',ownStatusText(r),r.status==='changes_requested'?'notice':'small'));
     if(r.username===me.username&&r.status==='changes_requested'&&r.report_date===$('date').value){var fix=node('button','✏️ 보완해서 다시 보내기 / Revise & resend','primary');fix.type='button';fix.onclick=openEditor;detail.append(fix);}
+    if(window.MangoiHandoverFeedback)window.MangoiHandoverFeedback(detail,r);
     paintFollowup(detail,r);
     if(r.feedback)detail.append(node('p','보완 요청 / Feedback: '+r.feedback,'notice'));
     if(r.username!==me.username&&r.status==='submitted'&&(r.recipient===me.username||root.dataset.exec==='true'||alsoSees.indexOf(r.recipient)>=0)){
@@ -268,7 +269,7 @@
   function armReadGate(r,ack){var key=r.id+':'+r.version,start=openedAt[key]||Date.now(),label=ack.textContent;if(!openedAt[key])openedAt[key]=start;
     function tick(){if(!ack.isConnected)return;var left=Math.ceil((start+readMinSec*1000-Date.now())/1000);if(left>0){ack.disabled=true;ack.textContent='📖 '+left+'초 뒤 확인 가능 / Available in '+left+'s';setTimeout(tick,500);}else{ack.disabled=false;ack.textContent=label;}}
     tick();}
-  async function act(r,kind,button){var feedback='';if(kind==='return'){feedback=prompt('보완할 내용을 적어 주세요. / What needs clarification?')||'';if(!feedback.trim())return;}button.disabled=true;try{await call('/'+kind,{id:r.id,version:r.version,feedback:feedback});document.dispatchEvent(new CustomEvent('mh:handover-changed',{detail:{from:'inbox'}}));await loadList();}catch(e){networkError(e);button.disabled=false;}}
+  async function act(r,kind,button){var feedback='';if(kind==='return'){feedback=await window.MangoiHandoverFeedback.requestChanges();if(!feedback.trim())return;}button.disabled=true;try{await call('/'+kind,{id:r.id,version:r.version,feedback:feedback});document.dispatchEvent(new CustomEvent('mh:handover-changed',{detail:{from:'inbox'}}));await loadList();}catch(e){networkError(e);button.disabled=false;}}
   async function loadList(){
     var date=$('list-date').value, wantRead=$('filter').value==='read', wantMine=$('filter').value==='mine', data=await Promise.all([call('/home?date='+encodeURIComponent(date)),call('/inbox'),wantRead?call('/read-history'):null,wantMine?call('/mine'):null]);
     if(date!==$('list-date').value)return;var j=data[0];reports=j.reports;inbox=data[1].reports;inboxTotal=data[1].total;reviewerOverdue=data[1].reviewer_overdue||[];readMinSec=Number(data[1].read_min_sec)||0;mergeFiles(j.files);mergeFiles(data[1].files);if(data[2]){readHistory=data[2].reports||[];mergeFiles(data[2].files);}if(data[3]){mine=data[3].reports||[];mergeFiles(data[3].files);}if(date===$('date').value)paintOwn(j.own);var listState=JSON.stringify([date,$('filter').value,reports,inbox,readHistory,mine]);if(listState!==lastListState){paintList();lastListState=listState;}
