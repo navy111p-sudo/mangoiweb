@@ -771,12 +771,18 @@ function _pzFetch(text, lang){                             // 서버 오디오 �
   text = _pzSpeechText(text, lang); // Prefetch and playback must use the same new cache key.
   var key = lang + '|' + text;
   if(_pzCache[key]) return Promise.resolve(_pzCache[key]);
-  var req = (lang === 'zh-CN')
-    ? fetch('/api/tts-free?lang=zh&q=' + encodeURIComponent(text))
-    : fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text: text, lang: 'en' }) });
-  return req.then(function(r){
+  function checked(r){
     var ct = r.headers.get('content-type') || '';
     if(!r.ok || ct.indexOf('audio') < 0) throw new Error('tts');
+    return r;
+  }
+  // Use the existing reading voice before conversational AI (and its old cached pronunciations).
+  var req = fetch('/api/tts-free?lang=' + (lang === 'zh-CN' ? 'zh' : 'en') + '&q=' + encodeURIComponent(text))
+    .then(checked).catch(function(err){
+      if(lang === 'zh-CN') throw err;
+      return fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text: text, lang: 'en' }) }).then(checked);
+    });
+  return req.then(function(r){
     return r.blob();
   }).then(function(b){ var u = URL.createObjectURL(b); _pzCache[key] = u; return u; });
 }
