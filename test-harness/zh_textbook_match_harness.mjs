@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 // 🈶 중국어 교재 이름 해석 하니스 (2026-08-26)
 //
 //   왜 필요한가 —
@@ -39,7 +40,7 @@ const eq = (name, a, b) => check(`${name} (=${JSON.stringify(b)})`, JSON.stringi
 console.log('🈶 중국어 교재 이름 해석 하니스 · ' + new Date().toISOString());
 
 const SRC = read('cloudflare-deploy/src/zh-textbook.ts');
-const API = read('cloudflare-deploy/src/api-games.ts');
+const API = gamesSrc();
 
 /** 부정 검사는 주석을 벗긴 사본으로 — 설명 주석이 자기 검사에 걸린다
  *  (CLAUDE.md 2장 「부정 검사가 내 주석 때문에 FAIL」). */
