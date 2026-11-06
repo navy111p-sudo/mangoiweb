@@ -1511,7 +1511,7 @@
       }
       if (!window.MangoiTTS) { if (onDone) onDone(); return; }
       if (!_ttsLangSet) { try { MangoiTTS.setLang('en'); } catch(e){} _ttsLangSet = true; }
-      const clean = String(text || '').replace(/^[⚠️❗️\s]+/, '').trim();
+      const clean = friendSpeechText(String(text || '').replace(/^[⚠️❗️\s]+/, '').trim());
       if (!clean || /^⚠️/.test(text)) { if (onDone) onDone(); return; }   // 시스템/오류 메시지는 읽지 않음
       const autoSpeech = window.FriendAutoTalk ? FriendAutoTalk.aiStart() : 0;
       document.querySelectorAll('.replay-btn.playing').forEach(x => x.classList.remove('playing'));
@@ -1553,7 +1553,7 @@
         const _speaker = speakerFor();
         try { if (MangoiTTS.setSpeaker) MangoiTTS.setSpeaker(_speaker); } catch(e){}
         try { window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(charForPerson(_personNow)); } catch(e){}
-        MangoiTTS.speak(friendSpeechText(clean), rateFor(_personNow, currentRate), done);
+        MangoiTTS.speak(clean, rateFor(_personNow, currentRate), done);
       } catch(e){ done(); }
     }
 
