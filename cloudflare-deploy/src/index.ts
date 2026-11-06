@@ -70,7 +70,7 @@ import { focusedCandidate, focusedReplyFix, recoverFocusedFix, FOCUSED_DRAFT_RUL
 import { WARMUP_CORRECTION_RULE, WARMUP_ZH_CORRECTION_RULE, ZH_MEANING_CHANGING_TAGS, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat, correctionLeadIn } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
 import { resolveWarmupHonest, warmupHonestRule, parseWarmupGrade, finalizeWarmupGrade, applyHonestPraise, gateFixForMode, ensureFocusedFixSpoken, warmupSpeaksFixLead } from './warmup-honest';  // 🎯 정직한 칭찬 + 교정 모드(2026-10-29 시범 — 정본 그 파일)
 import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
-import { fragmentQuestions, fragmentQuestionHint, checksFragmentQuestions, fullQuestionRule, FRAG_RETRY_BUDGET_MS } from './reply-questions';   // 🧩 기초 단계 «조각 질문»(like space?) 막기
+import { firstQuestionOnly, fragmentQuestions, fragmentQuestionHint, checksFragmentQuestions, fullQuestionRule, FRAG_RETRY_BUDGET_MS } from './reply-questions';   // 🧩 기초 단계 «조각 질문»(like space?) 막기
 import { questionMemory, askedQuestionsLine, ASKED_LINE_HEAD, repeatedQuestions, retryRepeatedQuestion } from './question-memory';   // 🔁 같은 질문 두 번 금지(말만 바꾼 것·반대말 포함)
 import { connectorPromptBlock, linkBandForStep } from './conversation-connectors';
 import { AVATAR_NATURAL_OPENERS, turnOpenerLine } from './conversation-connectors';   // 🔗 연결 표현(2026-10-28 · 세 화면 공용 정본)
@@ -4278,6 +4278,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     const sessionId = (body && typeof body.session_id === 'string') ? body.session_id.trim() : '';
     const studentInput = (body && typeof body.student_input === 'string') ? body.student_input.trim() : '';
     const lessonTopic = (body && typeof body.lesson_topic === 'string') ? body.lesson_topic.trim() : '';
+    const ctxRoleplay = lessonTopic.includes(' 역할극 — 너는 ');
     const ctxUserId = (body && typeof body.user_id === 'string') ? body.user_id.trim().slice(0, 100) : '';
     const ctxTextbook = (body && typeof body.textbook === 'string') ? body.textbook.trim().slice(0, 200) : '';
     const ctxLevel = (body && typeof body.level === 'string') ? body.level.trim().slice(0, 100) : '';
@@ -4432,6 +4433,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
        질문의 앞부분(do you)을 떼어 낸다 — 문법이 먼저라고 예문으로 못 박는다. 정본·이유는 src/reply-questions.ts. */
     if (checksFragmentQuestions(ctxDifficulty, ctxLang)) sys += ' ' + fullQuestionRule(ctxDifficulty);
     if (lessonTopic) sys += ` 오늘의 대화 주제는 '${lessonTopic}' 이야.`;
+    if (ctxRoleplay) sys += ' [질문 순서] 한 턴에는 한 가지 정보만 묻는 영어 질문 하나로 끝내. and로 서로 다른 두 가지를 한 문장에 묶어 묻지 마. 다음 질문은 학생의 다음 답변을 받은 뒤에 해.';
     sys += await _preLesson;   // ⚡ 위에서 미리 시작한 조회 — 붙이는 순서는 예전 그대로
     sys += await _preMistake;
     sys += await _preWeakWord;
@@ -4559,7 +4561,9 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
          빈 응답은 이 저장소가 이미 아는 별개 현상이고 바로 아래에서 재시도한다. */
       if (!parsed.reply) warmupEmpty++;
       else if (!parsed.json) warmupPlain++;
-      return parsed.reply;
+      const reply = ctxRoleplay ? firstQuestionOnly(parsed.reply) : parsed.reply;
+      if (reply !== parsed.reply) stagedHelp = null;   // 버린 질문의 대답 도움말은 함께 버린다
+      return reply;
     };
     /* ⚠️ 교정은 «그 답장을 실제로 채택했을 때만» 확정한다.
        재시도 답장은 거절될 수 있는데(이름·반복 검사), 파싱하자마자 rawFix 를 덮으면
@@ -4591,7 +4595,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     /* 📡 P2 — 흘려보낼 문장을 «내보내기 직전» 에 같은 정본 판정(replyRejectReason·wrongSelfName)에 건다.
        걸리면 그 자리에서 미리보기를 멈춘다. 정본·이유는 src/warmup-stream.ts 머리말.
        🔁 이미 물은 질문(repeatOf)도 멈추되, 시간 예산을 넘긴 턴은 다시 안 뽑으니 멈추지도 않는다. */
-    const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput, fragQ, honest: !!honest, focused: honest?.mode === 'focused',
+    const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput, fragQ, oneQuestion: ctxRoleplay, honest: !!honest, focused: honest?.mode === 'focused',
       repeatOf: qmem ? (sen) => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS && repeatedQuestions(sen, qmem).length > 0 : undefined }) : null;
     try {
       const result: any = await runWarmup(messages, 0.7, live);
@@ -4726,7 +4730,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     }
 
     // 상황 역할극은 작별말도 연습 중이다. 모든 재생성 뒤, 저장 전에 질문을 보장한다.
-    if (lessonTopic.includes(' 역할극 — 너는 ') && !/[?？]["”\s]*$/.test(aiText)) {
+    if (ctxRoleplay && !/[?？]["”\s]*$/.test(aiText)) {
       try {
         const continued = await runWarmup(messages.concat([
           { role: 'assistant', content: aiText },
