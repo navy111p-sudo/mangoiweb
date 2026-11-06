@@ -460,12 +460,13 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
     ok(saved.at(-1).content === r.j.ai_response, scene.id + ': 화면과 서버 대화 기억이 같은 질문');
   }
   const doctor = box.MangoiSituations.find('doctor');
-  for (const failure of ['no-question', 'error', 'fragment', 'wrong-name']) {
+  for (const failure of ['no-question', 'error', 'fragment', 'wrong-name', 'repeat']) {
     let calls = 0;
+    if (failure === 'repeat') kv.set('warmup:scene-fail-repeat', JSON.stringify([{ role: 'assistant', content: 'Oh, I see. Do you feel better?' }, { role: 'user', content: 'Yes.' }]));
     AI.run = async () => {
       calls++;
       if (calls > 1 && failure === 'error') throw new Error('sandbox AI unavailable');
-      return { response: JSON.stringify({ reply: calls === 1 || failure === 'no-question' ? 'Get some rest now.' : failure === 'fragment' ? 'Your favorite food?' : failure === 'wrong-name' ? 'My name is WrongName. Do you feel better?' : '', fix: null, speaking_help: null }) };
+      return { response: JSON.stringify({ reply: calls === 1 || failure === 'no-question' ? 'Get some rest now.' : failure === 'fragment' ? 'Your favorite food?' : failure === 'wrong-name' ? 'My name is WrongName. Do you feel better?' : failure === 'repeat' ? 'All right. Do you feel better?' : '', fix: null, speaking_help: null }) };
     };
     const r = await post('/api/warmup/chat', { session_id: 'scene-fail-' + failure, student_input: 'Thank you.', lesson_topic: doctor.role, difficulty: 3, correction_mode: 'free_talk' });
     ok(r.status === 200 && r.j.ai_response === 'Let us try another moment here. What would you like to do next?', '재생성 ' + failure + ': 안전 질문으로 계속', r.j);

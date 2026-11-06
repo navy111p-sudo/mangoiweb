@@ -4736,7 +4736,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         if (continuedText && /[?？]["”\s]*$/.test(continuedText) &&
             !replyRejectReason(continuedText, ctxLang === 'zh' ? 0 : (WARMUP_WORD_CAP[ctxDifficulty] || 0)) &&
             !wrongSelfName(continuedText, ctxFriend, { askedName: askedOwnName(studentInput) }) &&
-            (!fragQ || fragmentQuestions(continuedText).length === 0) && !warmupIsRepeat(continuedText, history)) {
+            (!fragQ || fragmentQuestions(continuedText).length === 0) && !warmupIsRepeat(continuedText, history) &&
+            (!qmem || repeatedQuestions(continuedText, qmem).length === 0)) {
           aiText = continuedText; commitFix();
         }
       } catch (e) { console.warn('[warmup] roleplay continuation failed'); }
