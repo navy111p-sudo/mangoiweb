@@ -700,7 +700,7 @@
     function speakWord(text) {
       try {
         const zh = (lang === 'zh');
-        const u = new SpeechSynthesisUtterance(text);
+        const u = new SpeechSynthesisUtterance(zh ? text : text.toLowerCase());
         u.lang = zh ? 'zh-CN' : 'en-US';
         u.rate = zh ? 0.7 : 0.75;             // 한 글자·한 단어라 아주 또박또박
         const busy = wave && (wave.listening || wave.drilling);
@@ -1047,6 +1047,9 @@
       } catch (e) {}
     }
     function ttsUrl(text) {
+      // Display words are uppercase; short GO/TO can be read as initials by TTS.
+      // Normalize before both cache lookup and server request (including prefetch).
+      if (lang !== 'zh') text = text.toLowerCase();
       const key = lang + '|' + text;
       if (ttsCache.has(key)) return ttsCache.get(key);
       const p = fetch('/api/voice/tts', {
