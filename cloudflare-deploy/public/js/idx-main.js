@@ -12036,7 +12036,7 @@ async function pdfUpload(input) {
 
 async function pdfLoad(url, kind) {
     const isCurrent = arguments[2]; // Optional shared-request guard; existing two-argument callers are unchanged.
-    const generation = ++pdfLoadGeneration;
+    const generation = ++pdfLoadGeneration, accountAtStart = vcAccountSnapshot();
     const roomAtStart = typeof vcRoomId === 'undefined' ? '' : vcRoomId || '';
     const pendingText = document.getElementById('ph265-textinput');
     if (pendingText) pendingText.blur();
@@ -12076,7 +12076,7 @@ async function pdfLoad(url, kind) {
             disableStream: false
         }).promise;
     }
-    if ((typeof isCurrent === 'function' && !isCurrent()) || generation !== pdfLoadGeneration
+    if ((typeof isCurrent === 'function' && !isCurrent()) || generation !== pdfLoadGeneration || accountAtStart !== vcAccountSnapshot()
         || roomAtStart !== (typeof vcRoomId === 'undefined' ? '' : vcRoomId || '')) return false;
     if (typeof isCurrent !== 'function') {
         window.__vcPdfAnnoContext = null;
@@ -12089,7 +12089,12 @@ async function pdfLoad(url, kind) {
     window._vcCurrentPdfKind = kind || '';
     // Switching image pages must isolate notes, while returning restores them.
     try {
-        const docKey = (typeof vcRoomId === 'undefined' ? '' : vcRoomId || '') + '|' + (typeof window.__vcPdfAnnotationSession === 'number' ? window.__vcPdfAnnotationSession + '|' : '') + new URL(url, location.origin).href;
+        let owner = accountAtStart;
+        try {
+            const u = JSON.parse(accountAtStart);
+            if (u && u.uid && (typeof u.uid === 'string' || typeof u.uid === 'number')) owner = [u.uid, u.role || 'student'];
+        } catch (_) {}
+        const docKey = JSON.stringify([owner, typeof vcRoomId === 'undefined' ? '' : vcRoomId || '', typeof window.__vcPdfAnnotationSession === 'number' ? window.__vcPdfAnnotationSession : null, new URL(url, location.origin).href]);
         if (window._pdfAnnoDocKey !== docKey) {
             if (window._pdfAnnoDocKey) pdfAnnotationsByDoc.set(window._pdfAnnoDocKey, pdfAnnotations);
             window._pdfAnnoDocKey = docKey;

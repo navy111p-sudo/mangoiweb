@@ -130,4 +130,41 @@ await test('delayed page cannot move the same book after account changes',async(
     vm.runInContext('let _pdfBcTimer=null;'+ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='_pdfBroadcastPage').getText(ast),h.c);
     h.c._pdfBroadcastPage();h.c.account='different';timers[0]();assert.equal(sent.length,0);
 });
+
+for(const boundary of ['account','room','session','url'])await test('annotation cache isolates '+boundary+' and restores its original owner',async()=>{
+    const h=withRealLoader();h.c.account='account-A';h.c.__vcPdfAnnotationSession=1;
+    async function load(url){const pending=h.c.pdfLoad(url,'image');h.loads.at(-1).resolve({id:url});await pending;}
+    await load('/A.png');h.c.pdfAnnotations[1]=[{text:'A-owner-note'}];
+    if(boundary==='account')h.c.account='account-B';if(boundary==='room')h.c.vcRoomId='room-B';if(boundary==='session')h.c.__vcPdfAnnotationSession=2;
+    await load(boundary==='url'?'/B.png':'/A.png');
+    assert.equal(h.c.pdfAnnotations[1]?.length||0,0);
+    h.c.pdfAnnotations[1]=[{text:'B-owner-note'}];
+    h.c.account='account-A';h.c.vcRoomId='A';h.c.__vcPdfAnnotationSession=1;
+    await load('/A.png');assert.equal(h.c.pdfAnnotations[1][0].text,'A-owner-note');
+});
+for(const boundary of ['account','room'])await test('manual loader cannot commit across '+boundary+' ownership change',async()=>{
+    const h=withRealLoader();h.c.account='account-A';const before=h.c.pdfDoc;
+    const pending=h.c.pdfLoad('/private-A.png','image');
+    if(boundary==='account')h.c.account='account-B';else h.c.vcRoomId='room-B';
+    h.loads[0].resolve({id:'late-A'});assert.equal(await pending,false);
+    assert.equal(h.c.pdfDoc,before);assert.equal(h.c._vcCurrentPdfUrl,undefined);
+    assert.equal(h.c.pdfAnnotationsByDoc.size,0);assert.equal(h.render.length,0);
+});
+await test('same-account reconnect preserves the same document notes',async()=>{
+    const h=withRealLoader();const first=h.c.pdfLoad('/book.png','image');h.loads[0].resolve({id:'first'});await first;
+    h.c.pdfAnnotations[1]=[{text:'preserve-on-reconnect'}];h.c.vcConn={};h.c.vcUserId='rejoined';
+    const second=h.c.pdfLoad('/book.png','image');h.loads[1].resolve({id:'second'});await second;
+    assert.equal(h.c.pdfAnnotations[1][0].text,'preserve-on-reconnect');
+});
+
+for(const boundary of ['name','uid','role','default-role'])await test('login identity cache handles '+boundary+' changes',async()=>{
+    const h=withRealLoader();const original={uid:'uid-A',name:'Name A'};if(boundary!=='default-role')original.role='student';
+    h.c.account=JSON.stringify(original);
+    async function load(){const pending=h.c.pdfLoad('/book.png','image');h.loads.at(-1).resolve({id:'book'});await pending;}
+    await load();h.c.pdfAnnotations[1]=[{text:'owner-A'}];
+    const next={...original};if(boundary==='name')next.name='Name B';if(boundary==='uid')next.uid='uid-B';if(boundary==='role')next.role='teacher';if(boundary==='default-role')next.role='student';
+    h.c.account=JSON.stringify(next);await load();
+    if(boundary==='name'||boundary==='default-role')assert.equal(h.c.pdfAnnotations[1][0]?.text,'owner-A');
+    else {assert.equal(h.c.pdfAnnotations[1]?.length||0,0);h.c.account=JSON.stringify(original);await load();assert.equal(h.c.pdfAnnotations[1][0].text,'owner-A');}
+});
 console.log(`${pass} PASS / ${fail} FAIL (synthetic translation/DOM/load promises only)`);process.exitCode=fail?1:0;

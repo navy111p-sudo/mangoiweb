@@ -35,6 +35,8 @@ for (let seed = 0; seed < count; seed++) await scenario('annotation-files-and-lo
     pdfjsLib: { GlobalWorkerOptions: {}, getDocument: ({ url }) => ({ promise: Promise.resolve({ url }) }) } });
   ctx.window = ctx;
   vm.runInContext('let pdfDoc, pdfPageNum, pdfAnnotations = {}; const pdfAnnotationsByDoc = new Map(); let pdfLoadGeneration = 0; let vcRoomId = "r0";', ctx);
+  ctx.localStorage = { getItem: () => '{"uid":"fixture","role":"student"}' };
+  vm.runInContext(cut('function vcAccountSnapshot()', 'function vcPeerAttemptScope('), ctx);
   vm.runInContext(cut('async function pdfLoad(url, kind)', '// fix (2026-06-01) — 현재 화면의 교재 파일 다운로드'), ctx);
   for (let step = 0; step < 25; step++) {
     const room = 'r' + random(3), file = random(8), ext = file % 2 ? 'pdf' : 'jpg';
@@ -133,6 +135,8 @@ for (let seed = 0; seed < count; seed++) await scenario('pending-selection-room-
       pdfBuildImageDoc: url => new Promise(resolve => { finish = () => resolve({ url }); }) });
     ctx.window = ctx;
     vm.runInContext('let pdfDoc = null, pdfPageNum, pdfAnnotations = {}; const pdfAnnotationsByDoc = new Map(); let pdfLoadGeneration = 0; let vcRoomId = "old-room";', ctx);
+    ctx.localStorage = { getItem: () => '{"uid":"fixture","role":"student"}' };
+    vm.runInContext(cut('function vcAccountSnapshot()', 'function vcPeerAttemptScope('), ctx);
     vm.runInContext(cut('async function pdfLoad(url, kind)', '// fix (2026-06-01) — 현재 화면의 교재 파일 다운로드'), ctx);
     const load = ctx.pdfLoad('/old-room.jpg', 'image');
     vm.runInContext('vcRoomId = "new-room"', ctx);
