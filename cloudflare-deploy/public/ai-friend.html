@@ -1372,8 +1372,11 @@
       try { speakText(text, btn, null); } catch(e){ openMic(); return; }
       const t0 = Date.now();
       const tick = setInterval(function(){
-        if (!btn.classList.contains('playing') && Date.now() - t0 > 350) { clearInterval(tick); openMic(); }
-        else if (Date.now() - t0 > 15000) { clearInterval(tick); openMic(); }
+        const elapsed = Date.now() - t0;
+        if ((!btn.classList.contains('playing') && elapsed > 350) || elapsed > 15000) {
+          clearInterval(tick);
+          openMic();
+        }
       }, 200);
     }
 
