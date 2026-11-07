@@ -647,19 +647,33 @@ window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName, fromTe
     try { if (typeof pdfCurrentId !== 'undefined') pdfCurrentId = sPid || sUrl; } catch(_){}
     try { if (typeof vcSwitchTab === 'function') vcSwitchTab('pdf'); } catch(_){}
     try { if (typeof showToast === 'function') showToast('📥 교재 수신 — 여는 중 (' + (k || '자동') + ')'); } catch(_){}
-    Promise.resolve(pdfLoad(sUrl, k || undefined)).then(function(){
+    var roomAtStart = typeof vcRoomId === 'undefined' ? '' : vcRoomId || '';
+    var loading = pdfLoad(sUrl, k || undefined);
+    var generation = typeof pdfLoadGeneration === 'number' ? pdfLoadGeneration : null;
+    function isCurrentLoad(){
+      return key === window._vcShownPdfKey
+        && roomAtStart === (typeof vcRoomId === 'undefined' ? '' : vcRoomId || '')
+        && (generation === null || generation === pdfLoadGeneration);
+    }
+    Promise.resolve(loading).then(function(loaded){
+      if (loaded === false || !isCurrentLoad()) return;
       window._vcShownPdfUrl = sUrl;  // 현재 교재 URL 기록 (이후 페이지 이동은 재로드 없이)
       try { if (typeof pdfPageNum !== 'undefined') pdfPageNum = currentPage || 1; } catch(_){}
       try { if (typeof pdfRender === 'function') pdfRender(); } catch(_){}
       try { if (typeof showToast === 'function') showToast('✅ 교재 표시됨'); } catch(_){}
     }).catch(function(){
+      if (!isCurrentLoad()) return;
       var alt = (k === 'image') ? 'pdf' : 'image';
-      Promise.resolve(pdfLoad(sUrl, alt)).then(function(){
+      var retry = pdfLoad(sUrl, alt);
+      generation = typeof pdfLoadGeneration === 'number' ? pdfLoadGeneration : null;
+      Promise.resolve(retry).then(function(loaded){
+        if (loaded === false || !isCurrentLoad()) return;
         window._vcShownPdfUrl = sUrl;
         try { if (typeof pdfPageNum !== 'undefined') pdfPageNum = currentPage || 1; } catch(_){}
         try { if (typeof pdfRender === 'function') pdfRender(); } catch(_){}
         try { if (typeof showToast === 'function') showToast('✅ 교재 표시됨(재시도)'); } catch(_){}
       }).catch(function(e2){
+        if (!isCurrentLoad()) return;
         window._vcShownPdfKey = '';  // 실패 시 키 초기화 → 다음 폴링에서 재시도
         try { if (typeof showToast === 'function') showToast('❌ 교재 로드 실패: ' + (e2 && e2.message || e2)); } catch(_){}
       });
@@ -4205,12 +4219,8 @@ function vcHandleMessage(msg) {
                 }
                 if (/^blob:/i.test(jUrl)) { /* 로컬 blob 은 다른 기기에서 못 엶 — 무시 */ }
                 else if (/^https?:\/\//i.test(jUrl) || jUrl.charAt(0) === '/') {
-                    pdfCurrentId = jUrl;
-                    vcSwitchTab('pdf');
-                    Promise.resolve(pdfLoad(jUrl, jKind || undefined)).then(function(){ pdfPageNum = msg.data.pdfState.currentPage || 1; pdfRender(); }).catch(function(e){
-                        var alt = (jKind === 'image') ? 'pdf' : 'image';
-                        Promise.resolve(pdfLoad(jUrl, alt)).then(function(){ pdfPageNum = msg.data.pdfState.currentPage || 1; pdfRender(); }).catch(function(){});
-                    });
+                    window.vcApplySharedPdf(jUrl, jKind, msg.data.pdfState.currentPage,
+                        msg.data.pdfState.pdfId, msg.data.pdfState.name, false);
                 } else {
                     var epdfId = msg.data.pdfState.pdfId || jUrl.replace('/api/video-call/pdf/', '');
                     if (epdfId) pdfLoadRemote(epdfId, msg.data.pdfState.currentPage, jKind);
@@ -8013,7 +8023,11 @@ window.vcPerf = (function(){
       try {
         if (typeof vcBg !== 'undefined' && vcBg && vcBg.mode && vcBg.mode !== 'off') {
           if (typeof vcSetBg === 'function') vcSetBg('off');
-          else { vcBg.mode = 'off'; vcBg.isProcessing = false; }
+          else {
+            vcBg.mode = 'off';
+            if (typeof vcBgRestoreRaw === 'function') vcBgRestoreRaw();
+            else vcBg.isProcessing = false;
+          }
           api._toast('컴퓨터가 많이 느려져 가상배경을 잠시 껐어요. 얼굴 꾸미기는 그대로 쓸 수 있어요.');
           return;
         }
@@ -8174,31 +8188,42 @@ function vcLoadMediaPipe(){
 
 // --- 3) Segmenter 초기화 ---
 async function vcInitBgEngine(){
-  if (vcBg.segmenter) return;
-  if (typeof SelfieSegmentation === 'undefined') throw new Error('MediaPipe 로드 안됨');
-  vcBg.segmenter = new SelfieSegmentation({
-    // ph163 — 스크립트를 실제로 받아온 곳(vcBg.mpBase)에서 wasm·tflite 도 받는다.
-    //   로컬에서 받았으면 로컬, CDN 폴백이었으면 CDN. 둘을 섞으면 버전이 어긋난다.
-    locateFile: (f) => (vcBg.mpBase || VC_MP_LOCAL) + f
-  });
-  // Phase 7m: 가장자리 품질 우선 - modelSelection 0 (general, 256x256, 정밀한 edge)
-  //   ↳ 멈춤 방지는 vcBgRenderLoop 의 프레임 throttle (skipNext) 로 해결
-  // 🔋 모바일은 경량 landscape 모델(1, 144x256)로 전환해 발열·CPU 절감 → 연결 안정
-  vcBg.segmenter.setOptions({ modelSelection: vcIsMobileDevice() ? 1 : 0, selfieMode: false });
-  vcBg.segmenter.onResults(vcOnSegResults);
-  await vcBg.segmenter.initialize();
-  // 합성 캔버스
-  if (!vcBg.canvas) {
-    vcBg.canvas = document.createElement('canvas');
-    vcBg.canvas.width = 1280; vcBg.canvas.height = 720;
-    vcBg.ctx = vcBg.canvas.getContext('2d');
-  }
-  // Phase 7m: 마스크 전용 오프스크린 캔버스 (erosion + feather 처리용)
-  if (!vcBg.maskCanvas) {
-    vcBg.maskCanvas = document.createElement('canvas');
-    vcBg.maskCanvas.width = 1280; vcBg.maskCanvas.height = 720;
-    vcBg.maskCtx = vcBg.maskCanvas.getContext('2d');
-  }
+  if (vcBg._engineInitPromise) return vcBg._engineInitPromise;
+  if (vcBg.segmenter && vcBg.canvas && vcBg.maskCanvas) return;
+  // Existence of the model object does not mean initialize() has finished.
+  vcBg._engineInitPromise = (async () => {
+    if (typeof SelfieSegmentation === 'undefined') throw new Error('MediaPipe 로드 안됨');
+    vcBg.segmenter = new SelfieSegmentation({
+      // ph163 — 스크립트를 실제로 받아온 곳(vcBg.mpBase)에서 wasm·tflite 도 받는다.
+      //   로컬에서 받았으면 로컬, CDN 폴백이었으면 CDN. 둘을 섞으면 버전이 어긋난다.
+      locateFile: (f) => (vcBg.mpBase || VC_MP_LOCAL) + f
+    });
+    // Phase 7m: 가장자리 품질 우선 - modelSelection 0 (general, 256x256, 정밀한 edge)
+    //   ↳ 멈춤 방지는 vcBgRenderLoop 의 프레임 throttle (skipNext) 로 해결
+    // 🔋 모바일은 경량 landscape 모델(1, 144x256)로 전환해 발열·CPU 절감 → 연결 안정
+    vcBg.segmenter.setOptions({ modelSelection: vcIsMobileDevice() ? 1 : 0, selfieMode: false });
+    vcBg.segmenter.onResults(vcOnSegResults);
+    await vcBg.segmenter.initialize();
+    // 합성 캔버스
+    if (!vcBg.canvas) {
+      vcBg.canvas = document.createElement('canvas');
+      vcBg.canvas.width = 1280; vcBg.canvas.height = 720;
+      vcBg.ctx = vcBg.canvas.getContext('2d');
+    }
+    // Phase 7m: 마스크 전용 오프스크린 캔버스 (erosion + feather 처리용)
+    if (!vcBg.maskCanvas) {
+      vcBg.maskCanvas = document.createElement('canvas');
+      vcBg.maskCanvas.width = 1280; vcBg.maskCanvas.height = 720;
+      vcBg.maskCtx = vcBg.maskCanvas.getContext('2d');
+    }
+  })();
+  try { await vcBg._engineInitPromise; }
+  catch (error) {
+    const failed = vcBg.segmenter;
+    vcBg.segmenter = null;
+    try { const closed = failed && failed.close && failed.close(); if (closed && closed.catch) closed.catch(() => {}); } catch (_) {}
+    throw error;
+  } finally { vcBg._engineInitPromise = null; }
 }
 
 // --- 4) Segmentation 결과 합성 콜백 ---
@@ -8313,19 +8338,44 @@ async function vcBgRenderLoop(){
     // A 15fps camera can be displayed at 60Hz; do not infer the same frame again.
     if (typeof v.currentTime === 'number' && vcBg._lastFrameTime === v.currentTime) return;
     vcBg._lastFrameTime = v.currentTime;
-    vcBg.sending = true;
     const _t0 = window.vcPerf ? vcPerf.begin() : 0;   // ⏱ 모델 추론 + 합성(onResults) 시간 측정
     try {
-      await vcBg.segmenter.send({ image: v });
+      await vcBgSendFrame(v);
       vcBg.frameCount = (vcBg.frameCount || 0) + 1;
     } catch(e) {
       vcBg.errorCount = (vcBg.errorCount || 0) + 1;
       if (vcBg.errorCount < 5) console.warn('[vc-bg] send 실패 (계속 진행):', e && e.message || e);
     } finally {
       if (window.vcPerf) vcPerf.end(_t0);
-      vcBg.sending = false;
     }
   }
+}
+
+async function vcBgSendFrame(image){
+  if (vcBg._sendPromise) return vcBg._sendPromise;
+  // Both initial and RAF callers await the same model result before using its canvas.
+  vcBg.sending = true;
+  const pending = (async () => {
+    try { await vcBg.segmenter.send({ image }); }
+    finally { vcBg.sending = false; }
+  })();
+  vcBg._sendPromise = pending;
+  try { await pending; }
+  finally { if (vcBg._sendPromise === pending) vcBg._sendPromise = null; }
+}
+
+function vcBgRestoreRaw(){
+  vcBg.isProcessing = false;
+  if (vcBg.rafId) { cancelAnimationFrame(vcBg.rafId); vcBg.rafId = null; }
+  const video = document.getElementById('vc-local-video');
+  if (video) {
+    video.srcObject = vcLocalStream;
+    video.muted = true; video.setAttribute('playsinline', '');
+    try { const play = video.play(); if (play && play.catch) play.catch(() => {}); } catch (_) {}
+    try { vcInstallSmartFit(video); } catch (_) {}
+  }
+  const raw = vcLocalStream && vcLocalStream.getVideoTracks()[0];
+  if (raw) vcSwapVideoTrack(raw);
 }
 
 // --- 5-b) 숨겨진 카메라 비디오 준비 (원본 스트림 → segmenter 입력) ---
@@ -8717,6 +8767,8 @@ window.vcSetBackground = async function(mode){
     try { if (typeof showToast === 'function') showToast(_vcBgLockMsg(true)); } catch(_){}
     return;
   }
+  const generation = vcBg._changeGeneration = (vcBg._changeGeneration || 0) + 1;
+  const isCurrent = () => generation === vcBg._changeGeneration && vcBg.mode === mode;
   // 활성 타일 표시
   document.querySelectorAll('.vc-bg-tile').forEach(t => {
     if (t.getAttribute('data-bg') === mode) {
@@ -8732,22 +8784,19 @@ window.vcSetBackground = async function(mode){
 
   // 카메라 트랙 확보
   const camTrack = vcLocalStream && vcLocalStream.getVideoTracks()[0];
-  if (!camTrack) {
+  if (!camTrack && mode !== 'off') {
     if (status) status.textContent = '⚠ 카메라가 꺼져 있어 가상 배경을 적용할 수 없습니다.';
     return;
   }
 
   // OFF: 원본 카메라로 복귀 + CSS 프레임도 제거
   if (mode === 'off') {
-    vcBg.isProcessing = false;
-    if (vcBg.rafId) { cancelAnimationFrame(vcBg.rafId); vcBg.rafId = null; }
+    vcBgRestoreRaw();
     const v = document.getElementById('vc-local-video');
     if (v) {
-      v.srcObject = vcLocalStream;
       v.style.borderRadius = '';
       v.style.boxShadow = '';
       v.style.filter = '';
-      try { vcInstallSmartFit(v); } catch(_){}
     }
     const box = document.getElementById('vc-local-box');
     if (box) {
@@ -8755,8 +8804,6 @@ window.vcSetBackground = async function(mode){
       box.style.padding = '';
       box.style.borderRadius = '';
     }
-    const camTrk = vcLocalStream && vcLocalStream.getVideoTracks()[0];
-    if (camTrk) vcSwapVideoTrack(camTrk);
     if (status) status.textContent = '원본 카메라 사용 중';
     return;
   }
@@ -8794,13 +8841,19 @@ window.vcSetBackground = async function(mode){
   // 첫 적용: MediaPipe 로드 + 엔진 init + 배경 이미지 + 원본 트랙 보관 (best-effort)
   try {
     await vcLoadMediaPipe();
+    if (!isCurrent()) return;
     await vcInitBgEngine();
+    if (!isCurrent()) return;
     await vcEnsureHiddenVideo();
+    if (!isCurrent()) return;
     if (mode !== 'blur' && VC_BG_IMAGES[mode]) {
       await vcLoadBgImage(mode);
     }
+    if (!isCurrent()) return;
   } catch(e) {
+    if (!isCurrent()) return;
     if (status) status.textContent = '✅ ' + (({blur:'흐림',galaxy:'우주',desert:'사막',underwater:'바닷속',beach:'바닷가',jungle:'정글'})[mode]||mode) + ' 배경 (CSS 프레임 모드 - AI 처리 미사용)';
+    vcBgRestoreRaw();
     console.warn('[vc-bg] MediaPipe 로드 실패, CSS 프레임 모드 유지:', e);
     return;
   }
@@ -8812,9 +8865,16 @@ window.vcSetBackground = async function(mode){
   vcBg.isProcessing = true;
 
   // 첫 프레임 즉시 한 번 그려서 검정 화면 방지 (RAF 첫 콜백 전 대기 시간 동안)
-  try {
-    await vcBg.segmenter.send({ image: vcBg.hiddenVideo });
-  } catch(e) { console.warn('[vc-bg] 초기 프레임 송신 실패:', e); }
+  // Await a shared initial/RAF result; never connect an empty canvas early.
+  try { await vcBgSendFrame(vcBg.hiddenVideo); }
+  catch(e) {
+    if (!isCurrent()) return;
+    vcBgRestoreRaw();
+    if (status) status.textContent = '배경 프레임 (본인 화면만 - AI 처리 불가)';
+    console.warn('[vc-bg] 초기 프레임 송신 실패:', e);
+    return;
+  }
+  if (!isCurrent()) return;
   if (vcBg.isProcessing && !vcBg.rafId) vcBgRenderLoop();
 
   // 캔버스 스트림 생성 → 로컬 비디오에 연결 + sender 교체
@@ -8845,7 +8905,7 @@ window.vcSetBackground = async function(mode){
   vcBg.frameCount = 0;
   vcBg.errorCount = 0;
   setTimeout(() => {
-    if (vcBg.mode !== mode) return; // 사용자가 다른 배경으로 바꿈
+    if (!isCurrent()) return; // Also rejects a stale A→B→A request.
     const nameMap = {blur:'흐림',galaxy:'우주',desert:'사막',underwater:'바닷속',beach:'바닷가',jungle:'정글'};
     const niceName = nameMap[mode] || mode;
     if ((vcBg.frameCount || 0) > 0) {
@@ -8854,8 +8914,7 @@ window.vcSetBackground = async function(mode){
     } else {
       // AI 실패 - CSS 프레임만 유지 (검정화면 X, 본인+상대 모두 raw 카메라 + 본인 화면 프레임)
       if (status) status.textContent = '✅ ' + niceName + ' 배경 프레임 (본인 화면만 - AI 처리 불가)';
-      vcBg.isProcessing = false;
-      if (vcBg.rafId) { cancelAnimationFrame(vcBg.rafId); vcBg.rafId = null; }
+      vcBgRestoreRaw();
       // srcObject는 raw 카메라 유지, CSS 프레임만 표시
     }
   }, 2000);
@@ -11890,7 +11949,7 @@ async function pdfUpload(input) {
 
     const first = uploaded[0];
     pdfCurrentId = first.pdfId;
-    await pdfLoad(first.url, first.kind);
+    if (await pdfLoad(first.url, first.kind) === false) return;
     try { window._vcShownPdfName = first.name; } catch(_){}
     // 학생에게 공유 — vcShareTextbook 은 표시상태(_vcShownPdfKey)까지 맞춰줘서 폴링 중복 로드가 없다
     if (typeof window.vcShareTextbook === 'function') {
@@ -11960,7 +12019,8 @@ async function pdfUpload(input) {
 
             pdfCurrentId = u.pdfId;
             try { if (typeof vcSwitchTab === 'function') vcSwitchTab('pdf'); } catch(_){}
-            return Promise.resolve(pdfLoad(u.url, u.kind)).then(function(){
+            return Promise.resolve(pdfLoad(u.url, u.kind)).then(function(loaded){
+                if (loaded === false) return;
                 try { window._vcShownPdfName = u.name; } catch(_){}
                 if (typeof window.vcShareTextbook === 'function') window.vcShareTextbook(u.pdfId, u.url, u.kind, u.name, true);
                 else if (vcConn) vcConn.send({ type: 'pdf-share', data: { pdfId: u.pdfId, url: u.url, currentPage: 1, kind: u.kind } });
@@ -12061,7 +12121,9 @@ window.vcDownloadCurrentTextbook = vcDownloadCurrentTextbook;
 
 async function pdfLoadRemote(pdfId, page, kind) {
     pdfCurrentId = pdfId;
-    await pdfLoad(`/api/video-call/pdf/${pdfId}`, kind);
+    // A newer document or room may have cancelled this load while it was pending.
+    // Keep its stale page number out of the document that won the race.
+    if (await pdfLoad(`/api/video-call/pdf/${pdfId}`, kind) === false) return false;
     pdfPageNum = page || 1;
     pdfRender();
 }
@@ -12918,7 +12980,8 @@ function _pdfGoSeqFile(f) {
         return;
     }
     try { if (typeof vcSwitchTab === 'function') vcSwitchTab('pdf'); } catch(_){}
-    Promise.resolve(pdfLoad(f.url, f.kind)).then(function(){
+    Promise.resolve(pdfLoad(f.url, f.kind)).then(function(loaded){
+        if (loaded === false) return;
         if (typeof window.vcShareTextbook === 'function') window.vcShareTextbook('lib_' + f.id, f.url, f.kind, f.name);
         _pdfToast('📚 ' + (f.name || '교재 이동'));
     }).catch(function(e){

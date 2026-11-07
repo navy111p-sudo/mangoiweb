@@ -1,5 +1,12 @@
 name: Video recovery browser verification
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/vc-recovery-browser.yml'
+      - 'cloudflare-deploy/public/js/idx-main.js'
+      - 'cloudflare-deploy/public/js/idx-vc-textbook.js'
+      - 'cloudflare-deploy/public/js/idx-vc-officemode.js'
+      - 'test-harness/manual/**'
   push:
     branches: [fix/webrtc-fast-video-recovery, fix/video-recovery-retry-20260926, fix/webrtc-recovery-review-20261003]
   workflow_dispatch:
@@ -54,6 +61,15 @@ jobs:
           set -o pipefail
           node test-harness/manual/vc-aao-realpc-browser.mjs | tee "$RUNNER_TEMP/vc-realpc.log"
           grep -Eq '결과: PASS [1-9][0-9]* / FAIL 0' "$RUNNER_TEMP/vc-realpc.log"
+      - name: Textbook history, teacher guide and background lifecycle
+        env:
+          PW_DIR: ${{ runner.temp }}/vc-pw
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/vc-browser
+        run: |
+          set -o pipefail
+          node test-harness/manual/vc-eric-history-stress-browser.mjs | tee "$RUNNER_TEMP/vc-history.log"
+          node test-harness/manual/vc-eric-guide-browser.mjs | tee "$RUNNER_TEMP/vc-guide.log"
+          node test-harness/manual/vc-eric-background-browser.mjs | tee "$RUNNER_TEMP/vc-background.log"
       - name: Real outgoing audio after AudioContext failure
         env:
           PW_DIR: ${{ runner.temp }}/vc-pw
@@ -69,4 +85,7 @@ jobs:
           path: |
             ${{ runner.temp }}/vc-realpc.log
             ${{ runner.temp }}/vc-office-audio.log
+            ${{ runner.temp }}/vc-history.log
+            ${{ runner.temp }}/vc-guide.log
+            ${{ runner.temp }}/vc-background.log
           if-no-files-found: ignore
