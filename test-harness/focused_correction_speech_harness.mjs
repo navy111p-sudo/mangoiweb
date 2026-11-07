@@ -268,7 +268,7 @@ for (const variant of ['compact', 'compact-invalid', 'long']) {
   scenario = variant; modelCalls = 0; fastCalls = 0;
   const studentInput = variant === 'long' ? routeFix.was + '. ' + 'I also wanted to say more about my day. '.repeat(4) : routeFix.was;
   const r = await post('/api/warmup/chat', { session_id: variant, student_input: studentInput,
-    correction_mode: 'focused', difficulty: 3, stream: 1 });
+    correction_mode: 'focused', guided: 1, difficulty: 3, stream: 1 });
   const events = (await r.text()).split('\n').filter(s => s.startsWith('data:')).map(s => JSON.parse(s.slice(5)));
   const done = events.find(e => e.done);
   check('avatar ' + variant + ' validates compact output before speech', () => {
@@ -278,6 +278,7 @@ for (const variant of ['compact', 'compact-invalid', 'long']) {
     assert.equal(done.fix.was, routeFix.was);
     assert.equal(done.fix.now, routeFix.now);
     assert.equal(done.ai_response, H.ensureFocusedFixSpoken(question, 'focused', 'partial', routeFix));
+    assert.equal(done.speaking_help, null);
   });
 }
 scenario = 'normal';
