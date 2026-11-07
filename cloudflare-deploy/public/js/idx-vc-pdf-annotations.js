@@ -76,6 +76,13 @@ function vcPdfAnnotationGate(msg) {
         ctx.queue.push(msg); ctx.bytes += bytes;
         return true;
     }
+    // A failed replacement can leave the previous document visible. The requested
+    // URL is not proof that the document was committed by the loader.
+    if (ctx) {
+        try {
+            if (!window._vcCurrentPdfUrl || new URL(window._vcCurrentPdfUrl, location.origin).href !== new URL(ctx.url, location.origin).href) return true;
+        } catch (_) { return true; }
+    }
     return typeof pdfDoc !== 'undefined' && !pdfDoc;
 }
 

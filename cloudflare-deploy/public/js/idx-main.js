@@ -691,46 +691,48 @@ window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName, fromTe
   } catch(e){ console.warn('[vcApplySharedPdf]', e); }
 };
 window.vcStartPdfPoll = function(){
+  // Each response belongs to its captured room/account/connection/media generation.
   try {
-    // fix (2026-06-02) — 입장할 때마다 '표시 상태'를 초기화. 안 하면 이전 세션의 _vcShownPdfUrl 이 남아
-    //   같은 교재가 '이미 표시 중'으로 잘못 판단돼 페이지 이동만 하고 실제 로드를 건너뜀(학생 흰 화면 회귀).
-    window._vcShownPdfKey = '';
-    window._vcShownPdfUrl = '';
-    window.__vcSharedPdfPendingKey = '';
-      window.__vcSharedPdfPendingCurrent = null;
-    window._vcShownVideoUrl = '';
-    window._vcJoinedRoomId = '';   // ★ (2026-07-20) room-joined 수신 전엔 폴링 미적용 (아래 참조)
-    if (window._vcPdfPollTimer) clearInterval(window._vcPdfPollTimer);
-    // 입장 직후 즉시 1회 확인(3초 기다리지 않고 바로 교재 표시)
+    window.vcStopPdfPoll();
+    var session = window.__vcMediaPollSession = {};
+    var room = vcRoomId, issued = 0, applied = 0;
+    window._vcShownPdfKey = ''; window._vcShownPdfUrl = '';
+    window.__vcSharedPdfPendingKey = ''; window.__vcSharedPdfPendingCurrent = null;
+    window._vcShownVideoUrl = ''; window._vcJoinedRoomId = '';
     var _pollOnce = function(){
       try {
-        if (!vcRoomId) return;
-        // ★ (2026-07-20) WS 입장(room-joined)이 완료되기 전엔 방 미디어 상태를 적용하지 않는다.
-        //   서버(DO)가 '첫 입장 시 지난 수업 잔존 pdf/video 상태 정리'를 room-joined 전에 수행하므로,
-        //   그 전에 폴링이 먼저 닿으면 이미 지워질 낡은 유튜브/교재가 첫 화면을 한 번 차지할 수 있음.
-        if (window._vcJoinedRoomId !== vcRoomId) return;
-        // fix (2026-07-13) — /api/room-status 는 보안 잠금(관리자 전용)으로 학생에게 401.
-        //   참가자용 공개 미디어 상태 엔드포인트(/api/room-media, PII 없음)로 폴링.
-        fetch('/api/room-media/' + encodeURIComponent(vcRoomId), { cache: 'no-store' })
-          .then(function(r){ return r.ok ? r.json() : null; })
+        // Wait for room-joined: the server clears prior-class media before that response.
+        if (window.__vcMediaPollSession !== session || !room || vcRoomId !== room || window._vcJoinedRoomId !== room) return;
+        var self = vcUserId, connection = vcConn, account = vcAccountSnapshot();
+        var media = window.__vcSharedPdfRequest || 0, request = ++issued;
+        function current(){
+          return window.__vcMediaPollSession === session && vcRoomId === room && window._vcJoinedRoomId === room
+            && vcUserId === self && vcConn === connection && vcAccountSnapshot() === account
+            && (window.__vcSharedPdfRequest || 0) === media && request > applied;
+        }
+        // Participant media endpoint; room-status is admin-only.
+        fetch('/api/room-media/' + encodeURIComponent(room), { cache: 'no-store' })
+          .then(function(r){ return current() && r.ok ? r.json() : null; })
           .then(function(d){
-            if (d && d.pdfState && d.pdfState.url) {
-              window.vcApplySharedPdf(d.pdfState.url, d.pdfState.kind, d.pdfState.currentPage, d.pdfState.pdfId, d.pdfState.name, false, d.pdfState.annotationSession);
-            }
-            // 🎬 공유 중인 동영상도 폴링으로 복구 (WS 메시지를 놓친 학생 자가복구)
-            if (d && d.videoState && d.videoState.url) {
-              window.vcApplySharedVideo(d.videoState.url);
-            }
+            if (!d || !current()) return;
+            applied = request;
+            if (d.pdfState && d.pdfState.url) window.vcApplySharedPdf(d.pdfState.url, d.pdfState.kind, d.pdfState.currentPage, d.pdfState.pdfId, d.pdfState.name, false, d.pdfState.annotationSession);
+            if (d.videoState && d.videoState.url) window.vcApplySharedVideo(d.videoState.url);
           }).catch(function(){});
       } catch(_){}
     };
-    setTimeout(_pollOnce, 800);
+    window._vcPdfPollStartTimer = setTimeout(_pollOnce, 800);
     window._vcPdfPollTimer = setInterval(_pollOnce, 3000);
     console.log('[vcPdfPoll] 시작 — 입장 직후 + 3초마다 방 교재 상태 확인');
-  } catch(e){}
+  } catch(_){}
 };
 window.vcStopPdfPoll = function(){
-  try { if (window._vcPdfPollTimer) { clearInterval(window._vcPdfPollTimer); window._vcPdfPollTimer = null; } } catch(_){}
+  window.__vcMediaPollSession = null;
+  try {
+    if (window._vcPdfPollTimer) clearInterval(window._vcPdfPollTimer);
+    if (window._vcPdfPollStartTimer) clearTimeout(window._vcPdfPollStartTimer);
+    window._vcPdfPollTimer = null; window._vcPdfPollStartTimer = null;
+  } catch(_){}
 };
 
 /* 🎯 (2026-08-11 강사 피드백 — "영상이 멈춘다", "렉") 트랙에 «무엇을 찍고 있는지» 를 알려 준다.
@@ -4174,7 +4176,7 @@ function vcEnsurePdfAnnotationModule() {
     if ((window.__vcPdfAnnotationModuleRetries || 0) >= 3) return;
     window.__vcPdfAnnotationModuleLoading = true;
     var script = document.createElement('script');
-    script.src = '/js/idx-vc-pdf-annotations.js?v=1';
+    script.src = '/js/idx-vc-pdf-annotations.js?v=2';
     script.onerror = vcPdfAnnotationModuleError;
     document.head.appendChild(script);
 }
