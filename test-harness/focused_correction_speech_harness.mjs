@@ -194,26 +194,26 @@ const DB = { prepare(sql) {
 }, exec: d1ExecLikeProd(raw), batch: async ss => Promise.all(ss.map(s => s.run())) };
 const cache = new Map();
 let routeFix = fix;
-let scenario = 'normal', modelCalls = 0, rechecks = 0;
+let scenario = 'normal', modelCalls = 0, fastCalls = 0, rechecks = 0;
 const env = { DB, ROOM_JWT_SECRET: 'focused-local-fixture-only',
   SESSION_STATE: { get: async k => cache.get(k) ?? null, put: async (k, v) => cache.set(k, String(v)), list: async () => ({ keys: [] }) },
-  AI: { run: async (_model, opts) => {
+  AI: { run: async (model, opts) => {
+    if (model.includes('granite')) {
+      fastCalls++;
+      assert.ok(!opts.stream, 'the correction is validated before speech');
+      if (scenario === 'compact') return { response: JSON.stringify({
+        reply: routeFix.now, fix: { short: '문법에 맞게 고쳐요', tag: 'other' },
+      }) };
+      if (scenario === 'compact-invalid') return { response: JSON.stringify({
+        reply: 'I rode a spaceship to Mars', fix: { short: '문법에 맞게 고쳐요', tag: 'other' },
+      }) };
+      return { response: '{"reply":"OK","fix":null}' };
+    }
     modelCalls++;
     const recheck = opts.messages?.[0]?.content.includes('FOCUSED_CORRECTION_CHECK');
     if (recheck) rechecks++;
     const fullFix = { ...routeFix, why_ko: '문법에 맞게 고쳐요', tag: 'other', severity: 'minor' };
     let response = JSON.stringify({ reply: question, fix: fullFix, grade: 'partial' });
-    if (scenario === 'compact') {
-      assert.match(opts.messages[0].content, /집중교정 최종 JSON 형식/);
-      assert.ok(!opts.stream, 'verified correction does not need an upstream preview');
-      response = JSON.stringify({ reply: routeFix.now, fix: { short: fullFix.why_ko, tag: fullFix.tag }, grade: 'partial' });
-    }
-    if (scenario === 'compact-invalid' && modelCalls === 1) {
-      response = JSON.stringify({ reply: 'I rode a spaceship to Mars', fix: { short: fullFix.why_ko, tag: 'other' } });
-    }
-    if (scenario === 'long' || (scenario === 'compact-invalid' && modelCalls > 1)) {
-      assert.doesNotMatch(opts.messages[0].content, /집중교정 최종 JSON 형식/);
-    }
     if (scenario === 'repeated') response = JSON.stringify({ reply: H.ensureFocusedFixSpoken(question, 'focused', 'partial', routeFix), fix: fullFix });
     if (scenario === 'missing' || scenario === 'invalid') response = JSON.stringify({ reply: 'You can say... "' + routeFix.now + '"', fix: scenario === 'invalid' ? { ...fullFix, was: 'Invented text' } : null });
     if (scenario === 'truncated') response = JSON.stringify({ reply: 'You can say... "' + routeFix.now + '"' }).slice(0, -1) + ',"fix": {';
@@ -265,14 +265,15 @@ for (const kind of ['avatar', 'friend']) for (const stream of [0, 1]) {
   });
 }
 for (const variant of ['compact', 'compact-invalid', 'long']) {
-  scenario = variant; modelCalls = 0;
+  scenario = variant; modelCalls = 0; fastCalls = 0;
   const studentInput = variant === 'long' ? routeFix.was + '. ' + 'I also wanted to say more about my day. '.repeat(4) : routeFix.was;
   const r = await post('/api/warmup/chat', { session_id: variant, student_input: studentInput,
     correction_mode: 'focused', difficulty: 3, stream: 1 });
   const events = (await r.text()).split('\n').filter(s => s.startsWith('data:')).map(s => JSON.parse(s.slice(5)));
   const done = events.find(e => e.done);
   check('avatar ' + variant + ' validates compact output before speech', () => {
-    assert.equal(modelCalls, variant === 'compact-invalid' ? 2 : 1);
+    assert.equal(fastCalls, variant === 'long' ? 0 : 1);
+    assert.equal(modelCalls, variant === 'compact' ? 0 : 1);
     assert.deepEqual(events.filter(e => e.t), []);
     assert.equal(done.fix.was, routeFix.was);
     assert.equal(done.fix.now, routeFix.now);
