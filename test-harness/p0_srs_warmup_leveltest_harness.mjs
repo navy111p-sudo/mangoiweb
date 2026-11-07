@@ -193,9 +193,11 @@ if (turnFn) {
   const tNoKv = await turnFn({}, hist(25), 's3');
   check('KV 가 없으면 예전 계산(21)', tNoKv === 21, tNoKv);
   // KV 가 던지면 예전 계산으로 떨어지고 대화는 계속된다
-  const bad = { SESSION_STATE: { get: async () => { throw new Error('kv down'); }, put: async () => {} } };
+  let wroteAfterReadFailure = false;
+  const bad = { SESSION_STATE: { get: async () => { throw new Error('kv down'); }, put: async () => { wroteAfterReadFailure = true; } } };
   let tBad = null; try { tBad = await turnFn(bad, hist(3), 's4'); } catch (e) { tBad = 'threw'; }
   check('KV 가 실패해도 던지지 않고 예전 계산(4)', tBad === 4, tBad);
+  check('읽기 실패 때 저장된 턴 카운터를 덮어쓰지 않는다', !wroteAfterReadFailure);
 }
 
 // ── C. 레벨테스트 정답·해설 잠금 ──

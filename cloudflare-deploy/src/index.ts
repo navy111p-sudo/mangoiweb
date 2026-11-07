@@ -4312,8 +4312,6 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
 
     // ── 이전 대화 히스토리 불러오기 ──
     const hkey = 'warmup:' + sessionId;
-    const tkey = 'warmupturn:' + sessionId;
-    const previousTurn = env.SESSION_STATE?.get(tkey).catch(() => null);
     let history: any[] = [];
     try {
       const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(hkey) : null;
@@ -4792,10 +4790,13 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     /* 🔢 (2026-10-18) «몇 번째 턴인가» 는 단조 증가해야 한다 — 히스토리는 WARMUP_MAX_TURNS 로 잘려
        history 로만 세면 21에 붙어 교정 게이트(turnCount - lastShownTurn)가 영영 0 이 된다.
        세션별 카운터를 KV 에 두고, 없거나 못 읽으면 예전 계산 그대로(fail-open). */
+    const tkey = 'warmupturn:' + sessionId;
+    const previousTurn = env.SESSION_STATE?.get(tkey).catch(e => { console.warn('[warmup] turn counter read skipped:', e?.message || e); return undefined; });
     let turnCount = Math.floor(history.length / 2) + 1;
-    const prev = Number(await previousTurn);
+    const previousValue = await previousTurn;
+    const prev = Number(previousValue);
     if (Number.isFinite(prev) && prev > 0) turnCount = Math.max(turnCount, prev + 1);
-    const turnWrite = env.SESSION_STATE?.put(tkey, String(turnCount), { expirationTtl: 6 * 3600 })
+    const turnWrite = previousValue === undefined ? undefined : env.SESSION_STATE?.put(tkey, String(turnCount), { expirationTtl: 6 * 3600 })
       .catch(e => console.warn('[warmup] turn counter skipped:', e?.message || e));
 
     /* ✏️ 교정 카드 (2026-09-08) — 모델이 준 fix 를 «믿지 않고» 검증한 뒤, 보여 줄지까지 정한다.
