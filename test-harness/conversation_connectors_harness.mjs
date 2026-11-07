@@ -44,6 +44,8 @@ const singleQuestionCases = [
   ["Is $2.50 enough and do you need a receipt?", "Is $2.50 enough?"],
   ["Can you pay now or would you like to pay later?", "Can you pay now or would you like to pay later?"],
   ["How high is your fever, do you know?", "How high is your fever, do you know?"],
+  ["Got it! Do you have the receipt and the box it came in?", "Got it! Do you have the receipt?"],
+  ["Do you have a receipt or the order number?", "Do you have a receipt or the order number?"],
   ["I see, do you have the receipt?", "I see, do you have the receipt?"],
   ["Do you like apples and bananas?", "Do you like apples and bananas?"],
   ["I see. Let's take a closer look. Can you tell me more about your headache? Is it a sharp pain or a dull ache?", "I see. Let's take a closer look. Can you tell me more about your headache?"],
@@ -568,6 +570,7 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
   const separateReply = doubleReply;
   for (const [sessionId, scene, modelReply, expected] of [
     ['scene-one-stream', doctor, separateReply, 'I see. Can you tell me more about your headache?'],
+    ['scene-items-stream', box.MangoiSituations.find('exchange'), 'Got it! Do you have the receipt and the box it came in?', 'Got it! Do you have the receipt?'],
     ['scene-compound-stream', box.MangoiSituations.find('exchange'), 'I see. Did you buy it here and do you have the receipt?', 'I see. Did you buy it here?'],
     ['scene-attribute-stream', box.MangoiSituations.find('exchange'), 'I see. What color and size are you looking for?', 'I see. What color are you looking for?'],
   ]) {

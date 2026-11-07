@@ -159,8 +159,11 @@ export function firstQuestionOnly(text: string): string {
     if (!lead.split(/[,;:]/).some(part => partStarts(part) === true)) continue;
     const next = question.slice(split + join[0].length).trim().toLowerCase();
     if (/^(?:do you know|can you tell me|can you guess)$/.test(next)) continue;
+    // Two separately determined objects can each need a yes or no.
+    const twoItems = /^\s*(?:do|did) you have (?:a|an|the|your)\s+[^,]+$/i.test(lead)
+      && /^(?:a|an|the|your)\s+/.test(next) && !/\bor\b/i.test(lead + ' ' + next);
     const [head, subject] = next.split(/\s+/, 2);
-    if (WH.test(head) || (AUX.has(head) && /^(?:you|we|i|it|he|she|they|there|this|that)$/.test(subject))) {
+    if (twoItems || WH.test(head) || (AUX.has(head) && /^(?:you|we|i|it|he|she|they|there|this|that)$/.test(subject))) {
       stop = sentenceStart + split;
       break;
     }
