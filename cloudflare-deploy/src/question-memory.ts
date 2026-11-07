@@ -291,6 +291,9 @@ export function roleplayReconfirmsAnswer(text: string, memory: QuestionMemory | 
     if (echo && answer.replace(/^.*\b(?:im|i am) /, '') === echo[1]) return true;
     const destination = /^are you looking for (.+)$/.exec(question);
     if (destination && /\b(?:looking for|need to find|finding)\b/.test(answer) && answer.endsWith(' ' + destination[1])) return true;
+    const inActivity = /^is (?:the |a |an )?(.+) in your (\w+ing)$/.exec(question);
+    if (inActivity && new RegExp('^what are you ' + inActivity[2] + '\\b').test(questionNorm(last.q))
+        && answer.replace(/^(?:the|a|an) /, '') === inActivity[1]) return true;
     const choice = /^is (.+) your favou?rite (\w+)$/.exec(question);
     if (!choice) return false;
     const [, value, kind] = choice;
