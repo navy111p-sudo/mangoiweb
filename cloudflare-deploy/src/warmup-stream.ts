@@ -136,7 +136,7 @@ const squash = (s: string) => String(s == null ? '' : s).replace(/\s+/g, ' ').tr
 
 export function createWarmupLive(
   send: (o: any) => void,
-  o: { lang: string; cap: number; friend: string; studentInput: string; fragQ?: boolean; oneQuestion?: boolean; repeatOf?: (sentence: string) => boolean; honest?: boolean; focused?: boolean },
+  o: { lang: string; cap: number; friend: string; studentInput: string; fragQ?: boolean; oneQuestion?: boolean; repeatOf?: (sentence: string) => boolean; honest?: boolean; focused?: boolean; finalOnly?: boolean },
 ): WarmupLive {
   let text = '';
   let n = 0;
@@ -151,6 +151,7 @@ export function createWarmupLive(
     push(sen: string): boolean {
       let s = String(sen == null ? '' : sen).trim();
       if (!s || halt) return false;
+      if (o.finalOnly) { halt = 'final_only'; return false; }
       // Correction is only known after the model finishes: no question may be spoken first.
       if (o.focused) { halt = 'focused'; return false; }
       if (negative) { halt = 'empathy'; return false; }

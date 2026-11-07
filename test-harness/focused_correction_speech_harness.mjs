@@ -193,10 +193,14 @@ const DB = { prepare(sql) {
   catch { const z = { all: async () => ({ results: [] }), first: async () => null, run: async () => ({ meta: { changes: 0 } }) }; return { ...z, bind: () => z }; }
 }, exec: d1ExecLikeProd(raw), batch: async ss => Promise.all(ss.map(s => s.run())) };
 const cache = new Map();
+let holdHistory;
 let routeFix = fix;
 let scenario = 'normal', modelCalls = 0, rechecks = 0;
 const env = { DB, ROOM_JWT_SECRET: 'focused-local-fixture-only',
-  SESSION_STATE: { get: async k => cache.get(k) ?? null, put: async (k, v) => cache.set(k, String(v)), list: async () => ({ keys: [] }) },
+  SESSION_STATE: { get: async k => cache.get(k) ?? null, put: async (k, v) => {
+    if (holdHistory && k.startsWith('warmup:early-')) await holdHistory;
+    cache.set(k, String(v));
+  }, list: async () => ({ keys: [] }) },
   AI: { run: async (_model, opts) => {
     modelCalls++;
     const recheck = opts.messages?.[0]?.content.includes('FOCUSED_CORRECTION_CHECK');
@@ -257,6 +261,35 @@ const infinitives = [
   ["Yeah, it's really helpful for me understand", "Yeah, it's really helpful for me to understand"],
   ["It is difficult for us speak clearly.", "It is difficult for us to speak clearly."],
 ];
+for (const mode of ['focused', 'free_talk']) {
+  let release;
+  holdHistory = new Promise(resolve => { release = resolve; });
+  const key = 'early-' + mode;
+  try {
+    const r = await post('/api/warmup/chat', { session_id: key, student_input: fix.was,
+      correction_mode: mode, guided: 1, difficulty: 3, stream: 1, final_reply: 1 });
+    const reader = r.body.getReader();
+    const first = JSON.parse(new TextDecoder().decode((await reader.read()).value).slice(6));
+    check('avatar ' + mode + ' sends only the verified reply while history is held', () => {
+      assert.equal(first.final, 1);
+      assert.equal(first.ok, true);
+      assert.equal(cache.has('warmup:' + key), false);
+      assert.equal(first.ai_response, mode === 'focused' ? final : question);
+    });
+    release();
+    const done = JSON.parse(new TextDecoder().decode((await reader.read()).value).slice(6));
+    check('avatar ' + mode + ' done carries the same reply after history is saved', () => {
+      assert.equal(done.done, 1);
+      assert.equal(done.ai_response, first.ai_response);
+      assert.deepEqual(done.fix, first.fix);
+      assert.equal(cache.has('warmup:' + key), true);
+    });
+    await reader.read();
+  } finally {
+    release();
+    holdHistory = null;
+  }
+}
 for (const [i, [studentInput, corrected]] of infinitives.entries()) {
   modelCalls = 0;
   const r = await post('/api/warmup/chat', { session_id: 'infinitive-' + i, student_input: studentInput,

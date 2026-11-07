@@ -426,8 +426,18 @@ console.log('\n[I] warmup.html 배선 (나머지 연결 지점)');
     ok('I-6 닫을 때 들은 조각을 버리고 «보내지 않는다»', c.canceled === 1 && c.stopped === 1 && c._micStopWanted === true && c._micBase === '' && c._micSess === '' && c.sent === 0, c);
   }
   ok('I-7 모듈을 싣는다(defer)', /<script src="\/js\/warmup-auto-talk\.js\?v=\d+" defer><\/script>/.test(HTML));
-  const noHook = HTML.includes('function _autoHook(');
-  ok('I-8 _autoHook 은 모듈이 없어도 안 죽는다(try)', noHook && /function _autoHook\(ev, a\)\{ try\{/.test(HTML));
+  const hook = bodyOf(HTML, 'function _autoHook(ev, a){');
+  const sent = [];
+  const hookEnv = { window: {}, WarmupAutoTalk: { on: ev => sent.push(ev) },
+    _autoDonePending: false, _warmPaused: false, sending: true };
+  vm.createContext(hookEnv);
+  vm.runInContext(hook + "\n_autoHook('aiDone');", hookEnv);
+  ok('I-8 모듈이 없어도 안전하고, 저장 중에는 자동 듣기를 보류한다', hookEnv._autoDonePending && sent.length === 0);
+  hookEnv.window.WarmupAutoTalk = hookEnv.WarmupAutoTalk;
+  hookEnv.sending = false;
+  vm.runInContext("_autoHook('settled');", hookEnv);
+  ok('I-9 전송이 끝나면 보류했던 자동 듣기를 한 번만 연다',
+    sent.join(',') === 'settled,aiDone' && !hookEnv._autoDonePending);
 }
 
 console.log('\n[J] English idle prompt');

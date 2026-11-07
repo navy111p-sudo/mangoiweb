@@ -3653,7 +3653,7 @@ function _stmSentence(L, sen, typing){
   if(L.wake) L.wake();
 }
 /* SSE 읽기 — 30초 동안 아무것도 안 오면 끊는다(warmupFetch 의 20초 타이머는 «머리» 가 오면 꺼진다). */
-async function _stmRead(r, onSen, L){
+async function _stmRead(r, onSen, L, onFinal){
   var rd=r.body.getReader(), dec=new TextDecoder(), buf='', fin=null, idle=null;
   var kick=function(){ clearTimeout(idle); idle=setTimeout(function(){ try{ rd.cancel(); }catch(e){} }, 30000); };
   try{
@@ -3670,6 +3670,7 @@ async function _stmRead(r, onSen, L){
           var one=ln[j].trim(); if(one.indexOf('data:')!==0) continue;
           var o=null; try{ o=JSON.parse(one.slice(5).trim()); }catch(e){ continue; }
           if(o && o.done) fin=o;
+          else if(o && o.final && o.ok && o.status===200 && onFinal) onFinal(o);
           else if(o && typeof o.t==='string'){ try{ onSen(o.t); }catch(e){} }
         }
       }
@@ -3683,7 +3684,15 @@ async function _stmRead(r, onSen, L){
    자동 말하기 알림·지연 측정·교정 카드·등급을 건너뛰고, 실패하면 'fail' 을 돌려 부르는 쪽이 고정 인사말로 떨어진다. */
 async function _stmTurn(r, epoch, typing, lt0, ls, kick){
   var L={ q:[], i:0, pf:[], n:0, text:'', epoch:epoch, lt0:lt0, ls:ls, kick:!!kick };
-  var d=await _stmRead(r, function(s){ _stmSentence(L, s, typing); }, L);
+  var rendered=false;
+  var d=await _stmRead(r, function(s){ _stmSentence(L, s, typing); }, L, function(final){
+    if(rendered) return;
+    rendered=_stmRender(final, L, typing)==='done';
+  });
+  return rendered ? 'done' : _stmRender(d, L, typing);
+}
+function _stmRender(d, L, typing){
+  var epoch=L.epoch, lt0=L.lt0, ls=L.ls;
   if(_warmPaused || epoch!==_warmEpoch){ _stmDrop(L); return 'done'; }
   if(!d){
     if(!L.n) return 'retry';
@@ -4011,7 +4020,16 @@ function _blobHasVoice(blob){
 }
 /* ✨ 자동 말하기(베타, 2026-09-24) — 켜는 «시점» 만 js/warmup-auto-talk.js 가 정한다.
    듣기·말 끝 판단·전송은 이 파일의 기존 코드 그대로다. 모듈이 없거나 죽어도 버튼 모드는 그대로 돈다. */
-function _autoHook(ev, a){ try{ window.WarmupAutoTalk && WarmupAutoTalk.on(ev, a); }catch(e){} }
+var _autoDonePending=false;
+function _autoHook(ev, a){
+  if(ev==='sent' || ev==='aiStart') _autoDonePending=false;
+  if(ev==='aiDone' && sending){ _autoDonePending=true; return; }
+  try{ window.WarmupAutoTalk && WarmupAutoTalk.on(ev, a); }catch(e){}
+  if(ev==='settled' && _autoDonePending){
+    _autoDonePending=false;
+    if(!_warmPaused) _autoHook('aiDone');
+  }
+}
 /* 듣던 것을 «보내지 않고» 닫는다 — 자동으로 열려 있는데 AI 가 다시 말을 시작할 때만 쓴다
    (그대로 두면 AI 목소리를 학생 말로 받아 적는다). sendMsg 의 «먼저 보냄» 정리와 같은 방식. */
 function _micAbortQuiet(){
@@ -4990,7 +5008,7 @@ async function sendMsg(){
 
   try{
     var body = withCtx({ session_id: SESSION_ID, student_input: text });
-    var _stmOn = _stmWanted(); if(_stmOn) body.stream = 1;   // 📡 P2 — 문장 단위로 먼저 받기(옵트인)
+    var _stmOn = _stmWanted(); if(_stmOn){ body.stream = 1; body.final_reply = 1; }
     var r = await warmupFetch(warmupEndpoint(), {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
     });

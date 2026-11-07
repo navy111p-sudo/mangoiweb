@@ -4312,6 +4312,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
 
     // ── 이전 대화 히스토리 불러오기 ──
     const hkey = 'warmup:' + sessionId;
+    const tkey = 'warmupturn:' + sessionId;
+    const previousTurn = env.SESSION_STATE?.get(tkey).catch(() => null);
     let history: any[] = [];
     try {
       const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(hkey) : null;
@@ -4602,7 +4604,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     /* 📡 P2 — 흘려보낼 문장을 «내보내기 직전» 에 같은 정본 판정(replyRejectReason·wrongSelfName)에 건다.
        걸리면 그 자리에서 미리보기를 멈춘다. 정본·이유는 src/warmup-stream.ts 머리말.
        🔁 이미 물은 질문(repeatOf)도 멈추되, 시간 예산을 넘긴 턴은 다시 안 뽑으니 멈추지도 않는다. */
-    const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput, fragQ, oneQuestion: ctxRoleplay, honest: !!honest, focused: honest?.mode === 'focused',
+    const finalOnly = !!sseSend && body.final_reply === 1 && !ctxKickoff;
+    const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput, fragQ, oneQuestion: ctxRoleplay, honest: !!honest, focused: honest?.mode === 'focused', finalOnly,
       repeatOf: qmem ? (sen) => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS && repeatedQuestions(sen, qmem).length > 0 : undefined }) : null;
     try {
       if (honest?.mode === 'focused' && !ctxKickoff && !ctxRoleplay && !hasEleaderExpansion(request)) {
@@ -4790,14 +4793,10 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
        history 로만 세면 21에 붙어 교정 게이트(turnCount - lastShownTurn)가 영영 0 이 된다.
        세션별 카운터를 KV 에 두고, 없거나 못 읽으면 예전 계산 그대로(fail-open). */
     let turnCount = Math.floor(history.length / 2) + 1;
-    try {
-      if (env.SESSION_STATE) {
-        const tkey = 'warmupturn:' + sessionId;
-        const prev = Number(await env.SESSION_STATE.get(tkey));
-        if (Number.isFinite(prev) && prev > 0) turnCount = Math.max(turnCount, prev + 1);
-        await env.SESSION_STATE.put(tkey, String(turnCount), { expirationTtl: 6 * 3600 });
-      }
-    } catch (e: any) { console.warn('[warmup] turn counter skipped:', e?.message || e); }
+    const prev = Number(await previousTurn);
+    if (Number.isFinite(prev) && prev > 0) turnCount = Math.max(turnCount, prev + 1);
+    const turnWrite = env.SESSION_STATE?.put(tkey, String(turnCount), { expirationTtl: 6 * 3600 })
+      .catch(e => console.warn('[warmup] turn counter skipped:', e?.message || e));
 
     /* ✏️ 교정 카드 (2026-09-08) — 모델이 준 fix 를 «믿지 않고» 검증한 뒤, 보여 줄지까지 정한다.
        ⛔ 매 턴 고치지 않는다. 2026-09-03 AI 영어친구에서 「주제를 벗어나지 마」를 세 겹으로
@@ -4806,6 +4805,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
           그래서 통으로 try/catch 이고, 실패하면 fix 없이(=고치기 전과 똑같이) 내려간다. */
     let showFix: any = null;
     let offerRepeat = false;
+    let fixWrite: Promise<void> | undefined;
+    let parentLog: Promise<void> | undefined;
     /* 🔎 판정 사유 — 턴마다 한 줄 D1 에 남긴다(정본 src/warmup-fix-trace.ts). 학생 발화는 싣지 않는다. */
     let traceReason: WarmupFixTraceReason = 'fix_missing';
     let traceTag = '';
@@ -4836,28 +4837,29 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
               서명 토큰 uid(또는 같은 이름의 관리자 세션)가 그 아이디와 «정확히» 같을 때만 기록한다.
            ⚠️ 기록 실패는 대화를 멈추지 않는다(logWarmupFix 자체도 던지지 않는다). */
         if (showFix && ctxUserId) {
-          try {
-            let mine = false;
-            const tokUid = await authUidFromRequest(request, new URL(request.url), env, body);
-            if (tokUid && tokUid === ctxUserId) mine = true;
-            else {
-              const ses: any = await checkAdminSession(request, env as any);
-              if (ses && ses.ok && ses.username === ctxUserId) mine = true;
-            }
-            if (mine) await logWarmupFix(env, { sessionId, userId: ctxUserId, fix: showFix, lang: ctxLang });
-          } catch (e: any) { console.warn('[warmup-fix-log]', e?.message || e); }
+          const parentFix = showFix;
+          parentLog = (async () => {
+            try {
+              let mine = false;
+              const tokUid = await authUidFromRequest(request, new URL(request.url), env, body);
+              if (tokUid && tokUid === ctxUserId) mine = true;
+              else {
+                const ses: any = await checkAdminSession(request, env as any);
+                if (ses && ses.ok && ses.username === ctxUserId) mine = true;
+              }
+              if (mine) await logWarmupFix(env, { sessionId, userId: ctxUserId, fix: parentFix, lang: ctxLang });
+            } catch (e: any) { console.warn('[warmup-fix-log]', e?.message || e); }
+          })();
         }
         offerRepeat = warmupShouldOfferRepeat(decided.show, decided.memo, turnCount);
         if (honest) { const g = gateFixForMode(honest.mode, verified, showFix, offerRepeat); showFix = g.show; offerRepeat = g.repeat; }   // 🎯 교정 모드
         if (traceReason === 'shown' && !showFix) traceReason = 'mode_hidden';   // 🎯 보여줄 것이 있었는데 모드가 가렸다
         // 히스토리와 같은 6시간 — 세션이 끝나면 함께 사라진다(발화를 저장하는 것이 아니다)
-        try {
-          if (env.SESSION_STATE) await env.SESSION_STATE.put(mkey, JSON.stringify(decided.memo), { expirationTtl: 6 * 3600 });
-        } catch (e: any) {
+        fixWrite = env.SESSION_STATE?.put(mkey, JSON.stringify(decided.memo), { expirationTtl: 6 * 3600 }).catch(e => {
           /* 이게 조용히 실패하면 «연달아 교정하지 않기»·«두 번째부터 보여주기» 가 통째로
              풀려 매 턴 교정이 뜬다 — 그런데 화면은 멀쩡해 보인다. 반드시 한 줄 남긴다. */
           console.warn('[warmup] fix memo save failed:', e?.message || e);
-        }
+        });
       }
     } catch (e: any) {
       console.warn('[warmup] fix gate skipped:', e?.message || e);
@@ -4869,6 +4871,16 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     // Focused speech is already canonical; an internal '?' must not add a fourth copy.
     // 💬 자유대화는 카드만 — 고친 문장을 말로 붙이지 않는다(2026-11-04 · 판정 정본 warmupSpeaksFixLead).
     if (showFix && warmupSpeaksFixLead(honest?.mode)) aiText = correctionLeadIn(aiText, showFix, ctxLang === 'zh' ? 'zh' : 'en');
+
+    const reply = {
+      session_id: sessionId, ai_response: aiText, turn_count: turnCount,
+      answer_chips: ctxLang === 'zh' ? warmupZhAnswerChips(aiText, ctxDifficulty) : warmupAnswerChips(aiText, ctxDifficulty),
+      fix: showFix, repeat: offerRepeat, speaking_help: rawHelp,
+      ...(honest ? { grade: honestGrade || 'partial', correction_mode: honest.mode } : {}),
+      ...(live ? { replaced: live.replacedBy(aiText), streamed: live.sent(), ...(live.halted() ? { halted: live.halted() } : {}) } : {}),
+    };
+    // Speech can start while writes finish. The browser still waits for done before sending another turn.
+    if (finalOnly) sseSend?.({ ...reply, final: 1, status: 200, ok: true });
 
     /* 🔎 판정 사유 + 답장 «시작 말 종류» 한 줄 — 실패해도 대화는 계속된다(정본은 던지지 않는다).
        ⚠️ 교정 앞머리까지 붙은 «최종» 답장을 본다(학생이 들은 그대로). 답장 본문은 싣지 않는다 — 정본 src/warmup-reply-start.ts.
@@ -4883,32 +4895,22 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     else await fixTrace;
 
     // ── 히스토리 갱신(최근 N턴만) + 6시간 TTL 저장 ──
-    try {
+    const historyWrite = (async () => { try {
       const updated = history.concat([
         { role: 'user', content: studentInput },
         { role: 'assistant', content: aiText }
       ]).slice(-WARMUP_MAX_TURNS * 2);
       if (env.SESSION_STATE) await env.SESSION_STATE.put(hkey, JSON.stringify(updated), { expirationTtl: 6 * 3600 });
-    } catch {}
+    } catch {} })();
+    const stateWrites = Promise.all([turnWrite, fixWrite, parentLog, historyWrite]);
+    if (finalOnly && ctx) ctx.waitUntil(stateWrites);
+    await stateWrites;
 
     const latencyLog = logWarmupLatency(aiText, modelOk ? 1 : 0);
     if (ctx) ctx.waitUntil(latencyLog);
     else await latencyLog;
 
-    // 💬 「어떻게 대답하면 되나」 보기 칩 — AI 질문에서 «결정론적으로» 유도한다(src/warmup-answers.ts).
-    //    LLM 을 한 번 더 부르지 않으므로 응답이 느려지지 않고, 못 만들면 빈 배열이라 화면이 아무것도 안 그린다.
-    return new Response(JSON.stringify({
-      session_id: sessionId, ai_response: aiText, turn_count: turnCount,
-      /* 💬 «대답 보기» — 언어마다 정본이 다르다.
-         ⛔ 영어 정본을 중국어에 쓰지 말 것: 1·2단계에서 영어 «막혔을 때» 칩이 조건 없이 붙어
-            중국어를 고른 학생에게 영어 보기가 그대로 뜬다(src/warmup-zh.ts 의 주석 참고). */
-      answer_chips: ctxLang === 'zh' ? warmupZhAnswerChips(aiText, ctxDifficulty) : warmupAnswerChips(aiText, ctxDifficulty),
-      fix: showFix, repeat: offerRepeat, speaking_help: rawHelp,
-      ...(honest ? { grade: honestGrade || 'partial', correction_mode: honest.mode } : {}),   // 🎯 시범 학원만 — 화면이 팡파레를 이 값으로 정한다
-      /* 📡 P2 — 스트리밍 요청일 때만 싣는다(옛 응답 모양은 그대로). 흘려보낸 것과 최종본이 다르면
-         replaced:1 → 화면이 읽던 것을 멈추고 정본을 처음부터 읽는다. halted 는 «이유 코드» 뿐이다. */
-      ...(live ? { replaced: live.replacedBy(aiText), streamed: live.sent(), ...(live.halted() ? { halted: live.halted() } : {}) } : {}),
-    }), { status: 200, headers: _MS_JSON });
+    return new Response(JSON.stringify(reply), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ detail: 'warmup_failed: ' + String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
