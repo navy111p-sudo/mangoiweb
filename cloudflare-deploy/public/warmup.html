@@ -3877,7 +3877,7 @@ function _setListenLabel(txt){
   if(ind){ ind.style.display='flex'; ind.innerHTML='<span class="dot"></span> '+txt; }
 }
 /* ⚡ 미리 받아쓰기 (2026-11-05 사장님 「듣기·녹음 시간을 최소화 — 특히 휴대폰」) — 정본 js/mangoi-voice-early.js
-   말이 멎고 0.5초면 지금까지 녹음분을 먼저 받아 적어 둔다 → 침묵 대기가 끝나면 그 글자를 바로 보낸다(다시 안 올림).
+   말이 멎고 0.35초면 지금까지 녹음분을 먼저 받아 적어 둔다 → 침묵 대기가 끝나면 그 글자를 바로 보낸다(다시 안 올림).
    자동: 받은 글자가 «끝난 말»(브라우저 인식 경로와 같은 판정 micUnfinished)이면 1초 조용한 데서 끝낸다(1.6초를 다 안 채움).
    ✋ 수동: 끝내는 것은 ⏹ 뿐 — 미리 받기만 해서 ⏹ 뒤 «받아적는 중» 을 줄인다. 모듈이 없거나 실패하면 예전 그대로.
    EN: pre-transcribe on pause; auto mode ends early on a finished reply, manual mode only pre-transcribes. */
@@ -3940,7 +3940,7 @@ async function micViaWhisper(){
 }
 /* 🎤 녹음 파일 말소리 판정은 공용 정본 js/voice-has-speech.js — 없으면 null(예전대로 버림) */
 function _blobHasVoice(blob){
-  try{ return window.MangoiVoiceCheck ? MangoiVoiceCheck.blobHasVoice(blob) : Promise.resolve(null); }catch(e){ return Promise.resolve(null); }
+  try{ return window.MangoiVoiceCheck ? MangoiVoiceCheck.blobHasVoice(blob, true) : Promise.resolve(null); }catch(e){ return Promise.resolve(null); }
 }
 /* ✨ 자동 말하기(베타, 2026-09-24) — 켜는 «시점» 만 js/warmup-auto-talk.js 가 정한다.
    듣기·말 끝 판단·전송은 이 파일의 기존 코드 그대로다. 모듈이 없거나 죽어도 버튼 모드는 그대로 돈다. */
@@ -5249,8 +5249,8 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 }
 </style>
 <script defer src="/js/mangoi-voice-input.js?v=9"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
-<script defer src="/js/mangoi-voice-early.js?v=1"></script><!-- ⚡ 녹음 경로 «미리 받아쓰기» — 말이 멎으면 먼저 받아 적기 / early transcription -->
-<script defer src="/js/voice-has-speech.js?v=1"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
+<script defer src="/js/mangoi-voice-early.js?v=2"></script><!-- ⚡ 녹음 경로 «미리 받아쓰기» — 말이 멎으면 먼저 받아 적기 / early transcription -->
+<script defer src="/js/voice-has-speech.js?v=2"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
 <script defer src="/js/ai-diff.js?v=2"></script>
 <script defer src="/js/warmup-howto.js?v=11"></script><!-- 📘 A.i말하기 사용방법 쉽게 알기 안내창 (2026-10-03) --><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
 <script defer src="/js/back-nav.js"></script>
