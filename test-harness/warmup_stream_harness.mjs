@@ -462,7 +462,7 @@ function visBox(coarse, search) {
   const env = { V, loads: [], timers: [] };
   const turnPrompt = H.match(/window\.warmupTurnPrompt = \{[\s\S]*?\n\};/)[0];
   const f = new Function('window', 'navigator', 'location', 'matchMedia', 'setTimeout', 'AvatarVisemes',
-    turnPrompt + '\n' + vHold[0] + '\n' + vParts.join('\n') + '\n' + vLoad + '\nreturn { wrap:_visemeWrap, hook:_autoHook, get hold(){ return _visHold; } };');
+    'var sending=false, _autoDonePending=false;\n' + turnPrompt + '\n' + vHold[0] + '\n' + vParts.join('\n') + '\n' + vLoad + '\nreturn { wrap:_visemeWrap, hook:_autoHook, get hold(){ return _visHold; } };');
   const win = { AvatarVisemes: V, matchMedia: () => ({ matches: coarse }), addEventListener: (ev, fn) => { if (ev === 'load') env.loads.push(fn); } };
   env.api = f(win, { connection: { saveData: false, effectiveType: '4g' } }, { search: search || '', origin: 'https://warmup.test' }, win.matchMedia, (fn) => env.timers.push(fn), V);
   env.runLoad = () => { env.loads.forEach((fn) => fn()); env.timers.splice(0).forEach((fn) => fn()); };
