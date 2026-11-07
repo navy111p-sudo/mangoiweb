@@ -103,11 +103,11 @@
       { ko:'📒 회계 전표 / 분개장',              en:'📒 Journal Entries', anchor:'sub-acc-10' },
       { ko:'📊 매출 대시보드',                  en:'📊 Sales Dashboard', anchor:'sub-acc-11' },
       { ko:'💼 미수금 / 미지급금',               en:'💼 Receivables / Payables', anchor:'sub-receivables' },
-      { ko:'📈 손익 / 재무제표',                en:'📈 P&L / Financials', anchor:'acc-financials' },
+      { ko:'📈 손익·재무제표 조회',              en:'📈 View Financial Statements', anchor:'acc-financials' },
       { ko:'🔍 매출–입금 대사',                 en:'🔍 Revenue vs Deposits', anchor:'sub-acc-14' },
       { ko:'💳 법인카드 사용내역',                en:'💳 Corporate Card', anchor:'acc-corpcard' },
       { ko:'🏦 신한 계좌 입출금 (지출 분석)',      en:'🏦 Shinhan Bank Expenses', anchor:'acc-bankacct' },
-      { ko:'📥 회계 리포트 다운로드',              en:'📥 Accounting Reports', anchor:'sub-acc-16' },
+      { ko:'📥 회계 보고서·다운로드',             en:'📥 Accounting Reports & Downloads', anchor:'sub-acc-16' },
       { ko:'🏪 배정 못 한 결제 아이디 — 대리점 연결',   en:'🏪 Unassigned payer IDs', anchor:'acc-payer-box' },
       { ko:'🏦 배정 못 한 B2B 입금 — 가맹점 연결',   en:'🏦 Unassigned B2B deposits', anchor:'acc-b2b-box' },
       { ko:'🏷️ 지출 계정과목 분류 — 「기타출금」 쪼개기',  en:'🏷️ Expense categories', anchor:'acc-payee-box' }
