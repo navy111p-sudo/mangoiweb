@@ -517,11 +517,12 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
     ['birthday', 'What flavor of ice cream do you like best?', 'I like chocolate ice cream.', 'Is the chocolate ice cream your favorite flavor?', 'Do you want another scoop?'],
     ['directions', 'Can I help you?', 'Yes, I need help finding the library.', 'Are you looking for the library?', 'What street are you on?'],
     ['art-class', 'What are you drawing today?', 'A cat.', 'Is the cat in your drawing?', 'What color is the cat?'],
+    ['art-class', 'What are you drawing?', 'I am drawing a cat.', 'Is the cat in your drawing?', 'What color is the cat?'],
     ['library', 'Do you want a book about space or animals?', 'Space.', 'Oh, really?', 'Which planet interests you?'],
     ['train', 'Where would you like to go today?', "Hello, I'm going home.", "You're going home?", 'When do you want to leave?'],
     ['restaurant', 'Do you want ketchup or mustard with your fries?', 'I want ketchup with my fries.', "So, to confirm, you'd like fries with ketchup, right?", 'Would you like a drink?'],
   ]) {
-    const sid = 'scene-confirm-' + sceneId;
+    const sid = 'scene-confirm-' + sceneId + '-' + answer.length;
     kv.set('warmup:' + sid, JSON.stringify([{ role: 'assistant', content: prior }]));
     let calls = 0;
     AI.run = async () => ({ response: JSON.stringify({ reply: ++calls === 1 ? repeated : nextQuestion }) });
