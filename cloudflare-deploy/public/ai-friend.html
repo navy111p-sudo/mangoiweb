@@ -1390,10 +1390,13 @@
     var _stmSpoke = false;           // 이 턴에 스트리밍으로 읽은 것이 있나
     var _stmRow = null;              // 미리보기 말풍선 (done 에서 정본으로 갈아끼웁니다)
 
-    function stmReset() {
-      _stmGen++; _stmChain = Promise.resolve(); _stmSpoke = false;
+    function stmClearPreview() {
       if (_stmRow && _stmRow.parentNode) _stmRow.parentNode.removeChild(_stmRow);
       _stmRow = null;
+    }
+    function stmReset() {
+      _stmGen++; _stmChain = Promise.resolve(); _stmSpoke = false;
+      stmClearPreview();
     }
     /* ⏹ B (2026-09-11) — «AI 가 말하는 중에 학생이 말을 걸면 멈춘다».
        ⛔ MangoiTTS.stop() «만» 부르면 안 됩니다 — A-1 의 문장 큐가 다음 문장을 이어서
@@ -2092,8 +2095,7 @@
         const showReply = function (d) {   // ⚠️ 이름이 d 인 이유: 하니스가 이 블록을 오려 «d» 로 돌린다(바깥 d 와 같은 «답 묶음»)
           removeTyping();
           /* 미리보기 말풍선을 치웁니다 — 아래에서 정본(appendMsg)이 다시 그립니다. */
-          if (_stmRow && _stmRow.parentNode) { _stmRow.parentNode.removeChild(_stmRow); }
-          _stmRow = null;
+          stmClearPreview();
           /* 🚨 AI 가 답을 못 만든 턴 (2026-09-09 사장님 「이해못하고 이상한 주제로 질문해」).
              서버가 ai_unavailable 로 밝혀 줍니다. 그때 오는 reply 는 «학생이 무슨 말을 했든 똑같은»
              고정 문구라, 그대로 그리면 Lily 가 딴소리를 한 것처럼 보입니다(실측: 공룡 얘기 중에
@@ -2150,8 +2152,7 @@
         }
         removeTyping();
         /* 미리보기 말풍선은 오류 갈래에서도 치운다(예전과 같은 자리) — showReply 를 안 지나는 갈래가 있다. */
-        if (_stmRow && _stmRow.parentNode) { _stmRow.parentNode.removeChild(_stmRow); }
-        _stmRow = null;
+        stmClearPreview();
         if (fin) {
           /* 답은 이미 그리고 읽는 중 — done 이 정상이면 포인트·발음만. done 이 깨져도(저장 중 오류·끊김) 답은 이미 학생에게 갔다. */
           if (d && d.ok) showRest(fin.kind, d);

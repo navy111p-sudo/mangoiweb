@@ -115,7 +115,7 @@ check('friend canonical correction is applied before persistence', () => {
   assert.equal(FL.finishFriendReply(question, { mode: 'focused', verified: fix, shown: fix, msg: fix.was, fallback: true }), question);
 });
 
-const uiFunctions = ['stmRead', 'stmSpeak', 'stmReset', 'sayThrice', 'sendMsg'].map(n => named(inline, n)).join('\n');
+const uiFunctions = ['stmClearPreview', 'stmRead', 'stmSpeak', 'stmReset', 'sayThrice', 'sendMsg'].map(n => named(inline, n)).join('\n');
 async function uiTurn(mode, stream, { sound = true, pron = false, replaced = false, unavailable = false } = {}) {
   const said = [], events = [], payloads = [];
   const response = { ok: true, reply: mode === 'focused' ? final : question,

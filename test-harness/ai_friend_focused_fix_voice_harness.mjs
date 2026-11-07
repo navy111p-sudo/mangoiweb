@@ -22,6 +22,7 @@ let block = '';
   if (ts.isIfStatement(n) && /!_stmSpoke/.test(n.expression.getText(ast)) && /d\.replaced/.test(n.expression.getText(ast)) && /stmSpeak\(/.test(n.thenStatement.getText(ast))) block = n.getText(ast);
   ts.forEachChild(n, visit);
 })(ast);
+const clearPreview = findFunction(inline, 'stmClearPreview');
 const reset = findFunction(inline, 'stmReset');
 const queue = findFunction(inline, 'stmSpeak');
 const stop = findFunction(inline, 'stopSpeakingNow');
@@ -44,6 +45,7 @@ const run = new Function('format', `
     const setTimeout=(fn,ms)=>ms>1000?0:globalThis.setTimeout(fn,ms);
     function isSoundOn(){return sound;}
     function speakText(text,btn,row,done){spoken.push(String(text));if(o.interrupt)stopSpeakingNow();globalThis.setTimeout(done,0);}
+    ${clearPreview}
     ${reset}
     ${queue}
     ${stop}
@@ -102,5 +104,27 @@ for (const streamed of [false,true]) {
   const twice = await run({ d: { reply: canonical, fix: FIX } });
   ok('an already formatted reply still has exactly three copies', count(twice.spoken) === 3, twice);
 }
+// Clearing a preview must not invalidate the speech queue; resetting a turn must.
+{
+  const probe = new Function(`
+    let removed=0;
+    var _stmRow={parentNode:{removeChild(){removed++;}}};
+    var _stmGen=7, _stmSpoke=true, _stmChain=Promise.resolve();
+    const queued=_stmChain;
+    ${clearPreview}
+    ${reset}
+    stmClearPreview(); stmClearPreview();
+    const cleared=removed===1 && _stmRow===null && _stmGen===7 && _stmSpoke && _stmChain===queued;
+    _stmRow={parentNode:null}; stmClearPreview();
+    const detached=_stmRow===null;
+    _stmRow={parentNode:{removeChild(){removed++;}}};
+    stmReset();
+    return {cleared,detached,reset:removed===2 && _stmRow===null && _stmGen===8 && !_stmSpoke && _stmChain!==queued};
+  `)();
+  for (const [name,result] of Object.entries(probe)) {
+    ok('preview cleanup: '+name, result);
+  }
+}
+
 console.log('PASS ' + pass + ' / FAIL ' + fail);
 process.exit(fail ? 1 : 0);

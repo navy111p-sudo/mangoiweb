@@ -187,7 +187,7 @@ function named(source, name) {
   (function visit(n) { if (ts.isFunctionDeclaration(n) && n.name?.text === name) found = n.getText(ast); ts.forEachChild(n, visit); })(ast);
   return found;
 }
-const uiSrc = ['stmRead', 'stmSpeak', 'stmReset', 'stopSpeakingNow', 'sayThrice', 'sendMsg'].map(n => named(inline || '', n));
+const uiSrc = ['stmClearPreview', 'stmRead', 'stmSpeak', 'stmReset', 'stopSpeakingNow', 'sayThrice', 'sendMsg'].map(n => named(inline || '', n));
 await check('③-0 (전제) 화면 함수 여섯을 오려 냈다', () => assert.ok(uiSrc.every(Boolean)));
 const REPLY = 'Yay! What toppings do you like?';
 async function uiTurn({ withFinal = true, doneOk = true, pron = false, mode = 'focused', tAfterFinal = '', interrupt = false } = {}) {
