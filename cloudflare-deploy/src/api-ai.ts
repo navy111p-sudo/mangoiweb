@@ -629,8 +629,10 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
          ⚠️ 본 호출이 «먼저» 나가게 한 박자(마이크로태스크) 뒤에 시작한다 — 바로 아래 for 문이 await 없이 곧장 env.AI.run 을 부르므로
             그다음 차례에 이것이 돈다(여전히 «동시에»). 가짜 모델을 쓰는 하니스들이 «첫 호출 = 대화 답» 으로 대본을 짜 두었다
             (CLAUDE.md 2장 «새 모델 호출을 더하면 대본이 한 칸 밀립니다» — conversation_connectors 가 실제로 밀렸다). */
+      const focusedRuleFix = () => focusedCandidate(backfillPastTenseFix(msg), msg)
+        || focusedCandidate(konglishFix(msg), msg);
       const focusedRecoverP: Promise<any> | null =
-        (immediateFix && !focusedCandidate(backfillPastTenseFix(msg), msg) && !focusedCandidate(konglishFix(msg), msg))
+        (immediateFix && !focusedRuleFix())
           ? Promise.resolve().then(() => recoverFocusedFix(msg, async (msgs: any[]) => await runFriend(models[0], msgs, 480, 0.2, true))).catch(() => null)
           : null;
       const runMainReply = (model: string, run = runFriend) => run(model, messages, 300, 0.8);
@@ -709,8 +711,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
           return got;
         };
         focusedFix = focusedCandidate(rawFix, msg)
-          || focusedCandidate(backfillPastTenseFix(msg), msg)
-          || focusedCandidate(konglishFix(msg), msg)
+          || focusedRuleFix()
           || focusedReplyFix(reply, msg)
           || await waitFocusedRecover();
         if (focusedFix) { rawFix = focusedFix; reply = focusedFix.now; }
@@ -871,9 +872,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
         /* 🇰🇷 모델이 고친 것이 없으면(뜻이 통해 넘어간 경우) 규칙 보완(과거형·콩글리시 표)으로 한 번 더 본다.
            🎚️ 그래도 없으면 균형 «다시 묻기» 결과(이미 본 호출과 동시에 돌고 있다 — 안 겹친 나머지만 기다린다).
            ⛔ 모델의 교정이 있으면 그것이 먼저다 — 보완·다시 묻기는 «모델이 놓친 것» 만 받는다.
-           ⚠️ 이 식의 규칙 보완은 friend-correction-flow.ts 의 deterministicFriendFix(turnPlan.detFix)다.
-              집중교정 경로(위 focusedCandidate 줄)는 아직 backfill·konglish 를 «같은 순서로» 직접 부른다 —
-              규칙을 더할 때 두 자리를 함께 볼 것(합치는 것은 집중교정 하니스가 걸린 별건).
+           ⚠️ 이 식은 turnPlan.detFix를 쓴다. 집중교정의 focusedRuleFix는 두 후보에 집중교정 검증을 별도로 적용한다.
            ⏱ 다시 묻기는 «본 답이 끝난 뒤» 최대 RECHECK_EXTRA_WAIT_MS 만 더 기다린다(함정 대조 2026-11-03 — 상한이 없었다).
               모델이 다 실패한 폴백 턴이면 기다리지 않는다(학생이 못 볼 교정을 «보여 줬다» 로 남기지 않게). */
         const waitRecheck = async () => {
