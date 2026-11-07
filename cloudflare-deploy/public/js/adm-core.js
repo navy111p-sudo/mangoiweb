@@ -17065,7 +17065,9 @@ window.rebuildGlobalSearchIndex = function() {
         마감 ${esc(new Date((d.closed.closed_at||0)+9*3600*1000).toISOString().slice(0,16).replace('T',' '))} · ${esc(d.closed.closed_by||'')}
         ${d.closed.forced ? '<br><span style="color:#b45309">⚠️ 확인 필요 항목을 알고도 마감했습니다.</span>' : ''}
         ${d.closed.drift && d.closed.drift.changed ? `<br><b style="color:#b45309">⚠️ ${esc(d.closed.drift.message)}</b>` : ''}
-      </div>` : ''}
+      </div>` : `<div style="background:#fff7ed;border:1px solid #fed7aa;border-left:4px solid #b45309;border-radius:8px;padding:11px 14px;margin:12px 0;font-size:12.5px">
+        <b style="color:#92400e">마감 전</b> · 현재 집계 기준이며, 월 마감 전까지 숫자가 바뀔 수 있습니다.
+      </div>`}
       <div style="background:#fff7ed;border-radius:10px;padding:14px 18px;margin:12px 0;font-size:15px;line-height:1.65;font-weight:600;color:#111">${headline}</div>
       ${reconcileBanner(d.reconcile)}
       <div class="pl-box">
@@ -18576,13 +18578,21 @@ window.rebuildGlobalSearchIndex = function() {
     _fsFillQuarters();
     const mEl = document.getElementById('acc-fs-month');
     const qEl = document.getElementById('acc-fs-quarter');
+    const reportBtn = document.getElementById('acc-fs-monthly-report');
     /* ⚠️ hidden 속성 대신 display 를 직접 만진다 — 작성자 CSS 가 display 를 정해 두면
        브라우저 기본 [hidden]{display:none} 이 밀려서 «숨겼는데 그대로 보이는» 일이 난다. */
     if (mEl) mEl.style.display = mode === 'quarter' ? 'none' : '';
     if (qEl) qEl.style.display = mode === 'quarter' ? '' : 'none';
+    if (reportBtn) reportBtn.style.display = mode === 'quarter' ? 'none' : '';
     if (_fsGenerated) window.accGenStatement();
   };
   window.accFsPeriodChange = function(){ if (_fsGenerated) window.accGenStatement(); };
+  function _fsMonth(){
+    return (document.getElementById('acc-fs-month') || {}).value || _today().slice(0,7);
+  }
+  window.accFsOpenMonthlyReport = function(){
+    window.openReport('monthly', { period: _fsMonth() });
+  };
   function _statementUrl(format){
     const mode = (document.getElementById('acc-fs-mode') || {}).value || 'month';
     let period;
@@ -18592,7 +18602,7 @@ window.rebuildGlobalSearchIndex = function() {
             || _fsQuarterOf((document.getElementById('acc-fs-month') || {}).value)
             || _fsQuarterOf(_today().slice(0,7));
     } else {
-      period = (document.getElementById('acc-fs-month') || {}).value || _today().slice(0,7);
+      period = _fsMonth();
     }
     const type  = document.getElementById('acc-fs-type').value || 'pl';
     const qs = new URLSearchParams({ type, period });
