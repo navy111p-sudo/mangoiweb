@@ -104,7 +104,7 @@
   function ckey(text, w){ return curLang + '|' + spk(w) + '|' + text; }   // 언어·화자별 캐시 키
   var inflight={};   // 받는 중인 같은 문장은 요청을 함께 쓴다
   function fetchTTS(text, w){
-    var key = ckey(text, w), want = spk(w);   // 키·요청 화자는 «지금» 값으로 고정
+    var key = ckey(text, w), want = spk(w), lang = curLang;   // 키·요청 화자는 «지금» 값으로 고정
     if(inflight[key]) return inflight[key];
     var body = { text:text, lang:curLang };
     if (want) body.speaker = want;
@@ -116,12 +116,12 @@
           var e=new Error('tts'); e.noRetry=(r.status===429||r.status===503); throw e;
         }
         var got=''; try{ got=String(r.headers.get('X-TTS-Speaker')||'').toLowerCase(); }catch(_){}
-        return r.blob().then(function(b){ return { blob:b, got:got }; });
+        return r.blob().then(function(b){ return { blob:b, got:got, eng:String(r.headers.get('X-TTS-Engine')||'').toLowerCase() }; });
       })
       .then(function(o){
         var u=URL.createObjectURL(o.blob);
-        /* 🎙️ 서버가 «다른 화자» 로 대체한 음성은 캐시 안 함(남의 목소리로 굳음). 헤더가 없으면 예전처럼 캐시. */
-        if(!want || !o.got || o.got===want) cache[key]=u;
+        /* Same-name fallback voices must not persist after Aura-2 recovers. */
+        if((!want || !o.got || o.got===want) && (lang!=='en' || /^(?:r2-cache:)?aura-2$/.test(o.eng))) cache[key]=u;
         try{ window.AvatarVisemes && AvatarVisemes.prepare(u); }catch(_){}   // 입모양 미리 분석
         return u;
       });

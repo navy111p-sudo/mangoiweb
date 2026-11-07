@@ -66,7 +66,8 @@ export async function handleVoiceTtsApi(request: Request, url: URL, env: MangoEn
             const hit = await r2.get(cacheKey);
             if (hit) {
               const hitEng = String((hit as any)?.customMetadata?.eng || '').trim().toLowerCase();
-              return new Response(hit.body, { headers: { ...audioHeaders,
+              // Unlabelled English caches may contain Aura-1 fallback audio. Regenerate once.
+              if (!/^en/.test(lang) || hitEng === 'aura-2') return new Response(hit.body, { headers: { ...audioHeaders,
                 'X-TTS-Engine': hitEng ? 'r2-cache:' + hitEng : 'r2-cache',
                 'X-TTS-Speaker': (azVoice || String(b.speaker || 'asteria')).toLowerCase() } });
             }
@@ -87,7 +88,7 @@ export async function handleVoiceTtsApi(request: Request, url: URL, env: MangoEn
           if (eng) meta.customMetadata = { eng };
           try { await r2.put(key, bytes, meta); } catch {}
         };
-        const putCache = (bytes: ArrayBuffer | Uint8Array) => putCacheAs(cacheKey, bytes);
+        const putCache = (bytes: ArrayBuffer | Uint8Array) => putCacheAs(cacheKey, bytes, 'aura-2');
         const isQuota = (m: any) => /429|neuron|allocation|free allocation|capacity/i.test(String(m || ''));
         // MeloTTS — base64 MP3 반환 (en/zh 지원)
         //   ⚠️ 캐시 금지: Aura 일시 장애 때 만들어진 기계음이 Aura 화자 키에 저장되면
@@ -97,7 +98,7 @@ export async function handleVoiceTtsApi(request: Request, url: URL, env: MangoEn
           const b64 = typeof r === 'string' ? r : (r?.audio || '');
           if (!b64) throw new Error('melotts_empty');
           const bytes = b64ToBytes(b64);
-          return new Response(bytes, { headers: audioHeaders });
+          return new Response(bytes, { headers: { ...audioHeaders, 'X-TTS-Engine': 'melotts' } });
         };
         // MeloTTS 원본 바이트 (크기 검증용 — Workers AI 가 빈 WAV(44B) 반환하는 케이스 감지)
         const meloBytes = async (meloLang: string) => {
@@ -262,12 +263,7 @@ export async function handleVoiceTtsApi(request: Request, url: URL, env: MangoEn
             ? requested
             : (AURA1_SUB[requested] || (AURA2_MALE.has(requested) ? 'orion' : 'luna'));
           const buf = await auraRun('@cf/deepgram/aura-1', spk1);
-          /* ⚠️ «요청 화자» 키로 저장하면 안 된다 — 일시 장애가 영구가 된다.
-             바로 아래 melotts 주석이 같은 이유로 «캐시 금지» 를 못 박고 있었는데
-             이 한 단계만 빠져 있었다. 실제로 쓴 화자(spk1) 키로 저장하면
-             ① 요청 화자 키는 비어 있어 다음에 Aura-2 가 살아나면 제대로 만들고
-             ② 그 화자를 진짜로 고른 사람은 이 캐시를 정상적으로 재사용한다. */
-          await putCacheAs(await ttsKey(spk1), buf);
+          // Never cache fallback audio: Aura-1 and Aura-2 can share the same speaker name.
           return new Response(buf, { headers: { ...audioHeaders, 'X-TTS-Engine': 'aura-1', 'X-TTS-Speaker': spk1 } });
         } catch (auraErr: any) {
           if (isQuota(auraErr?.message)) quota = true;
