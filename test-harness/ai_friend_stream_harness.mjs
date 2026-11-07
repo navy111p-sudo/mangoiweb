@@ -187,7 +187,7 @@ ok('SSE 헤더를 준다', /text\/event-stream/.test(S));
 ok('자격증명 섞인 응답을 캐시하지 않는다', /'Cache-Control': 'private, no-store'/.test(S));
 ok('중간 버퍼링을 끈다 (X-Accel-Buffering)', /X-Accel-Buffering/.test(S));
 /* ⛔ 스트리밍이 실패해도 대화가 죽으면 안 됩니다 — 같은 모델을 옛 방식으로 다시. */
-ok('스트리밍 실패 시 옛 방식으로 떨어진다', /catch \(se: any\) \{[\s\S]{0,200}runFriend\(m, messages/.test(SRV));
+ok('스트리밍 실패 시 같은 모델을 비스트리밍으로 다시 부른다', /const runMainReply = \(model: string, run = runFriend\)/.test(S) && /catch \(se: any\) \{[\s\S]{0,200}await runMainReply\(m\);/.test(S));
 ok('스트리밍은 «한 번만» 시도한다 (streamTried)', /!streamTried/.test(S) && /streamTried = true/.test(S));
 /* 재시도로 답이 바뀌면 화면이 다시 읽어야 합니다. */
 ok('최종본과 다르면 replaced 를 준다', /replaced: streamedText && streamedText\.trim\(\) !== reply\.trim\(\)/.test(S));
