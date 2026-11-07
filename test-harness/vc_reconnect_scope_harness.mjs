@@ -138,6 +138,20 @@ await test('a successful newer share supersedes the same queued type',async()=>{
   assert.deepEqual(writes.map(m=>m.data.id),['new-fixture']);
 });
 const chat=source.slice(source.indexOf('function vcSendChat('),source.indexOf('function vcReceiveChat('));
+for(const family of ['pdf','video'])for(const latest of ['share','stop-share'])await test(family+': newer '+latest+' supersedes conflicting queued state',async()=>{
+  const h=sockets(),writes=[];h.all[0].open();h.all[0].send=()=>{throw Error('local interruption');};
+  h.connection.send({type:family+'-'+(latest==='share'?'stop-share':'share'),data:{fixture:true}});
+  h.connection.send({type:family+'-sync',data:{fixture:true}});
+  h.all[0].send=m=>writes.push(JSON.parse(m).type);
+  assert.equal(h.connection.send({type:family+'-'+latest,data:{fixture:true}}),true);
+  h.all[0].drop();h.connection.reconnectNow();h.all[1].send=m=>writes.push(JSON.parse(m).type);h.all[1].open();
+  assert.deepEqual(writes,[family+'-'+latest]);
+});
+for(const family of ['pdf','video'])await test(family+': offline stop replaces pending share and sync without affecting chat policy',async()=>{
+  const h=sockets(),writes=[];
+  for(const type of [family+'-share',family+'-sync',family+'-stop-share'])h.connection.send({type,data:{fixture:true}});
+  h.all[0].send=m=>writes.push(JSON.parse(m).type);h.all[0].open();assert.deepEqual(writes,[family+'-stop-share']);
+});
 function chatFixture(){
  const input={value:'local synthetic message'},writes=[],notices=[],fetches=[];
  const c={document:{getElementById:()=>input},vcRoomId:'room-a',vcUserId:'a',vcUsername:'synthetic',
