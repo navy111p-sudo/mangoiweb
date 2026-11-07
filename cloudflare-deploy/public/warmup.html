@@ -3635,7 +3635,7 @@ async function _stmTurn(r, epoch, typing, lt0, ls, kick){
     return 'done';
   }
   if(!L.n && !L.kick){ _autoHook('reply'); _latCur={ t0:lt0, t1:Date.now(), wait:(ls?ls.wait:null), tStop:(ls?ls.at:null) }; }
-  var finalText=d.ai_response || '(응답이 비어 있어요)';
+  var finalText=warmupReplyText(d);
   _stmDrop(L);
   var rest=(spoken && d.replaced && !interrupted) ? _stmRest(L.text, finalText) : null;   // ⚡ 나머지만 이어 읽기(_stmRest)
   if(spoken && (!d.replaced || interrupted || rest!==null)){
@@ -4865,6 +4865,15 @@ function saveApi(v){
   });
 })();
 
+function warmupReplyText(d){
+  var reply=d.ai_response || '(응답이 비어 있어요)';
+  if(isZh() || !d.fix || !d.fix.now ||
+     !reply.startsWith('You can say... "') || !reply.endsWith('Can you say it with me?')) return reply;
+  // 집중교정의 카드, 따라 말하기, 자동 낭독이 같은 문장을 쓰게 한다.
+  d.fix.now=d.fix.now.replace(/\breally hel(?:p)?ful\b/gi, 'actually helpful');
+  return 'Try saying it with me: ' + d.fix.now;
+}
+
 async function sendMsg(){
   await warmupRatePreference.ready;
   if(typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged(true);
@@ -4941,7 +4950,8 @@ async function sendMsg(){
       if(_warmPaused || epoch!==_warmEpoch)return;
       _autoHook('reply');
       _latCur={ t0:_lt0, t1:Date.now(), wait:(_ls?_ls.wait:null), tStop:(_ls?_ls.at:null) };   // ⏱ 첫 소리가 나면 _latMark 가 닫는다
-      addMsg(d.ai_response || '(응답이 비어 있어요)', 'ai');
+      d.ai_response=warmupReplyText(d);
+      addMsg(d.ai_response, 'ai');
       showFixCard(d.fix, d.repeat);         // ✏️ 서버가 «검증해서» 준 교정만 그린다(없으면 아무것도 안 그림)
       wuApplyGrade(d);                      // 🎯 등급이 «완벽» 일 때만 콤보·팡파레
       showAnswerChips(d.answer_chips,d.speaking_help);      // 💬 서버가 만든 «대답 보기»(못 만들면 빈 배열)
