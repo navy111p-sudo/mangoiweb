@@ -147,7 +147,8 @@ function _lastArgAt(src, callIdx) {
   return Number(src.slice(lastComma + 1, i).trim());
 }
 const _temps = (() => {
-  const firstIdx = ts.indexOf('runFriend(m, messages');
+  const mainCall = ts.indexOf('const runMainReply =');
+  const firstIdx = mainCall >= 0 ? ts.indexOf('=> run(model, messages,', mainCall) : -1;
   const rIdx = ts.indexOf('aiFriendIsRepeat(reply, history)');
   const retryIdx = rIdx > 0 ? ts.indexOf('runFriend(', rIdx) : -1;
   return {

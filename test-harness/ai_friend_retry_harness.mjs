@@ -166,8 +166,9 @@ ok('B-0 전제: 배선 블록을 오려 냈다', wiring.length > 100 && wiring.i
 ok('B-0 전제: 선언과 if 가 붙어 있다(사이에 딴 코드 없음)', declIdx > 0 && ifIdx > 0 && ifIdx - declIdx < 120);
 
 // 첫 시도의 maxTokens·temperature 를 소스에서 읽습니다(재시도도 «같은 조건» 이어야 합니다).
-const firstCall = /resp = await runFriend\(m, messages, (\d+), ([\d.]+)\)/.exec(SRV);
-ok('B-0 전제: 첫 시도의 호출 조건을 읽었다', !!firstCall);
+const mainCall = SRV.match(/^[ \t]*const runMainReply = [^\r\n]+/m)?.[0] || '';
+const firstCall = /=> run\(model, messages, (\d+), ([\d.]+)\)/.exec(mainCall);
+ok('B-0 전제: 첫 시도와 스트리밍이 공통 호출 조건을 쓴다', !!firstCall && SRV.includes('await runMainReply(m);') && SRV.includes('await runMainReply(m, runFriendStreaming);'));
 
 let runWiring = null;
 if (wiring) {
@@ -176,7 +177,7 @@ if (wiring) {
       + '  let reply = ctx.reply, usedModel = ctx.usedModel, lastErr = ctx.lastErr;\n'
       + '  const { models, latT0, runFriend, messages, takeFriendReply, commitFix, recordAiFailure, env,'
       + ' friendRF, friendPlain, friendEmpty, level, retryFriendModels } = ctx;\n'
-      + wiring + '\n'
+      + mainCall + '\n' + wiring + '\n'
       + '  return { reply, usedModel, lastErr, friendRetry };\n'
       + '})';
     // ⚠️ 함수로 «감싼 뒤» 타입을 벗깁니다(블록만 벗기면 실패해 검사가 헛돕니다 — CLAUDE.md 2장).

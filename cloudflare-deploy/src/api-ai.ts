@@ -633,6 +633,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
         (immediateFix && !focusedCandidate(backfillPastTenseFix(msg), msg) && !focusedCandidate(konglishFix(msg), msg))
           ? Promise.resolve().then(() => recoverFocusedFix(msg, async (msgs: any[]) => await runFriend(models[0], msgs, 480, 0.2, true))).catch(() => null)
           : null;
+      const runMainReply = (model: string, run = runFriend) => run(model, messages, 300, 0.8);
       for (const m of models) {
         try {
           /* 스트리밍은 «한 번만» 시도합니다 — 실패하면 같은 모델을 옛 방식으로 다시 불러
@@ -641,13 +642,13 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
           if (wantStream && sseSend && !streamTried) {
             streamTried = true;
             try {
-              resp = await runFriendStreaming(m, messages, 300, 0.8);
+              resp = await runMainReply(m, runFriendStreaming);
             } catch (se: any) {
               console.warn('[chat-friend] stream call failed, falling back:', se?.message || se);
-              resp = await runFriend(m, messages, 300, 0.8);
+              resp = await runMainReply(m);
             }
           } else {
-            resp = await runFriend(m, messages, 300, 0.8);
+            resp = await runMainReply(m);
           }
           reply = takeFriendReply(resp);
           if (reply) { usedModel = m; commitFix(); break; }
@@ -667,7 +668,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       if (!reply) {
         friendRetry = await retryFriendModels({
           models, startedAt: latT0,
-          call: (rm) => runFriend(rm, messages, 300, 0.8),
+          call: (rm) => runMainReply(rm),
           take: (r) => takeFriendReply(r),
           onError: (rm, e: any) => { lastErr = e; console.error(`[chat-friend] retry model ${rm} failed:`, e?.message || e); },
         });
