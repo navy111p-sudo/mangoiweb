@@ -4171,6 +4171,10 @@ function vcObserverStallReason() {
 
 // The deferred receiver may still be downloading when a socket snapshot arrives.
 window.__vcPdfAnnotationModuleLoading = true;
+function vcResetEarlyPdfAnnotations() {
+    window.__vcEarlyPdfPointer = null;
+    window.__vcEarlyPdfAnnotations = []; window.__vcEarlyPdfAnnotationBytes = 0; window.__vcEarlyPdfAnnotationOverflow = false;
+}
 function vcEnsurePdfAnnotationModule() {
     if (window.__vcPdfAnnotationModuleReady || window.__vcPdfAnnotationModuleLoading) return;
     if ((window.__vcPdfAnnotationModuleRetries || 0) >= 3) return;
@@ -4189,6 +4193,8 @@ function vcPdfAnnotationModuleError() {
 try { window.addEventListener('online', function(){ window.__vcPdfAnnotationModuleRetries = 0; vcEnsurePdfAnnotationModule(); }); } catch (_) {}
 function vcPdfAnnotationGate(msg) {
     if (!/^pdf-anno-(start|point|text|shape|clear|undo|replay)$/.test(msg.type)) return false;
+    // No active/pending document: do not retain operations across share-stop.
+    if (!window.__vcPdfAnnoContext && (typeof pdfDoc === 'undefined' || !pdfDoc)) return true;
     var queue = window.__vcEarlyPdfAnnotations = window.__vcEarlyPdfAnnotations || [];
     var bytes = new TextEncoder().encode(JSON.stringify(msg)).byteLength;
     if (queue.length >= 2000 || (window.__vcEarlyPdfAnnotationBytes || 0) + bytes > 4 * 1024 * 1024) {
@@ -4225,7 +4231,7 @@ function vcHandleMessage(msg) {
             vcUserId = msg.data.userId;
             window.__vcPdfAnnotationSession = msg.data.annotationSession;
             window.__vcPdfAnnotationSource = ''; window.__vcPdfAnnoContext = null;
-            window.__vcEarlyPdfAnnotations = []; window.__vcEarlyPdfAnnotationBytes = 0; window.__vcEarlyPdfAnnotationOverflow = false; window.__vcEarlyPdfPointer = null; window.__vcPdfAnnotationModuleRetries = 0;
+            vcResetEarlyPdfAnnotations(); window.__vcPdfAnnotationModuleRetries = 0;
             window._vcJoinedRoomId = msg.data.roomId || vcRoomId;   // ★ 이때부터 room-media 폴링 적용 허용
             updateUserCount(msg.data.userCount);
             // 🌟 학생이면 (방·피어ID → 내 계정 uid) 를 서버에 등록 → 선생님이 별 누르면 서버가 내 계정에 확실히 적립.
@@ -13198,8 +13204,7 @@ function pdfStopShare() {
     /* 📚 (2026-08-12 Melca 7번) 학생이 누르면 **반 전체의 교재가 사라진다** — 강사·관리자만. */
     if (!window.vcCanControlTextbook()) { window.vcTextbookDenied(); return; }
     var stoppedDocument = { annotationSession: window.__vcPdfAnnotationSession, documentUrl: window.__vcPdfAnnotationSource || window._vcCurrentPdfUrl };
-    window.__vcEarlyPdfPointer = null;
-    window.__vcEarlyPdfAnnotations = []; window.__vcEarlyPdfAnnotationBytes = 0; window.__vcEarlyPdfAnnotationOverflow = false;
+    vcResetEarlyPdfAnnotations();
     window.__vcPdfAnnoContext = null;
     window.__vcPdfAnnotationSession = undefined; window.__vcPdfAnnotationSource = '';
     ++pdfLoadGeneration;
@@ -13212,6 +13217,7 @@ function pdfStopShare() {
     if (vcConn) vcConn.send({ type: 'pdf-stop-share', data: stoppedDocument });
 }
 function pdfClearRemote() {
+    vcResetEarlyPdfAnnotations();
     window.__vcPdfAnnoContext = null;
     window.__vcPdfAnnotationSession = undefined; window.__vcPdfAnnotationSource = '';
     ++pdfLoadGeneration;

@@ -38,7 +38,7 @@ await test('current PDF failure still retries and restores its page',async()=>{c
 const ts=createRequire(new URL('../cloudflare-deploy/package.json',import.meta.url))('typescript');
 const ast=ts.createSourceFile('main.js',main,ts.ScriptTarget.Latest,true);
 const realLoad=ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='pdfLoad').getText(ast);
-function withRealLoader(){const h=pdf();Object.assign(h.c,{URL,TextEncoder,document:{getElementById:()=>null},setTimeout:()=>0,pdfDoc:{id:'a'},pdfAnnotations:{},pdfAnnotationsByDoc:new Map(),pdfBuildImageDoc(url){const d=defer();h.loads.push({url,...d});return d.promise}});vm.runInContext('let pdfLoadGeneration=0;'+realLoad,h.c);for(const name of ['vcPdfAnnotationGate','vcFlushPdfAnnotations','vcReplayPdfAnnotations']){const f=ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text===name);if(f)vm.runInContext(f.getText(ast),h.c)}return h}
+function withRealLoader(){const h=pdf();Object.assign(h.c,{URL,TextEncoder,document:{getElementById:()=>null},setTimeout:()=>0,pdfDoc:{id:'a'},pdfAnnotations:{},pdfAnnotationsByDoc:new Map(),pdfBuildImageDoc(url){const d=defer();h.loads.push({url,...d});return d.promise}});vm.runInContext('let pdfLoadGeneration=0;'+realLoad,h.c);for(const name of ['vcResetEarlyPdfAnnotations','vcPdfAnnotationGate','vcFlushPdfAnnotations','vcReplayPdfAnnotations']){const f=ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text===name);if(f)vm.runInContext(f.getText(ast),h.c)}return h}
 await test('real PDF loader cannot overwrite a return to the displayed book',async()=>{const h=withRealLoader();h.c._vcShownPdfUrl='https://fixture.invalid/a.png';h.c._vcCurrentPdfUrl=h.c._vcShownPdfUrl;h.c.vcApplySharedPdf('/b.png','image',9);await flush();h.c.vcApplySharedPdf('/a.png','image',3);await flush();assert.equal(h.loads.length,2);h.loads[1].resolve({id:'a'});await flush();h.loads[0].resolve({id:'b'});await flush();assert.equal(h.c.pdfDoc.id,'a');assert.equal(h.c.pdfPageNum,3);assert.equal(h.c._vcShownPdfUrl,'https://fixture.invalid/a.png')});
 await test('real loader false sentinel is not reported as a displayed book',async()=>{const h=withRealLoader();h.c.vcApplySharedPdf('/old.png','image',9);await flush();const manual=h.c.pdfLoad('/manual.png','image');await flush();h.loads[1].resolve({id:'manual'});await manual;h.loads[0].resolve({id:'old'});await flush();assert.equal(h.c.pdfDoc.id,'manual');assert.equal(h.c._vcShownPdfKey,'');assert.equal(h.c._vcShownPdfUrl,'')});
 await test('same book pending reconnect retries actual loader and restores page nine',async()=>{const h=withRealLoader();h.c.vcApplySharedPdf('/book.png','image',9);h.c.vcUserId='rejoined';h.c.vcApplySharedPdf('/book.png','image',9);await flush();assert.equal(h.loads.length,2);h.loads[1].resolve({id:'new'});await flush();h.loads[0].resolve({id:'old'});await flush();assert.equal(h.c.pdfDoc.id,'new');assert.equal(h.c.pdfPageNum,9)});
@@ -68,4 +68,50 @@ await test('deferred module retry is bounded and online can recover it',async()=
 await test('manual document commit supersedes an old coordinator annotation scope',async()=>{const h=annotationWorld();h.c.vcApplySharedPdf('/old.png','image',3);h.loads[0].resolve({id:'old'});await flush();const loading=h.c.pdfLoad('/manual.png','image');h.loads[1].resolve({id:'manual'});await loading;h.c.vcHandleMessage({type:'pdf-anno-text',data:{documentUrl:'/manual.png',page:1,stroke:{text:'manual-note'}}});assert.equal(h.c.pdfAnnotations[1][0].text,'manual-note')});
 await test('expired transport buffer is held without blocking later live notes',async()=>{const h=annotationWorld();let now=100000;h.c.Date={now:()=>now};h.c.vcApplySharedPdf('/book.png','image',3);h.c.vcHandleMessage(replay());now+=30001;h.c.vcHandleMessage(replay());assert.equal(h.c.__vcPdfAnnoContext.failed,true);h.loads[0].resolve({id:'book'});await flush();assert.equal(h.c.pdfAnnotations[3],undefined);h.c.vcHandleMessage({type:'pdf-anno-text',data:{documentUrl:'/book.png',page:1,stroke:{text:'current'}}});assert.equal(h.c.pdfAnnotations[1][0].text,'current')});
 await test('failed B load before deferred module cannot write B notes into displayed A',async()=>{const h=delayedModuleWorld();h.c.pdfDoc={id:'A'};h.c._vcCurrentPdfUrl='https://fixture.invalid/A.png';h.c.pdfAnnotations[1]=[{text:'A-note'}];h.c.vcApplySharedPdf('/B.png','image',1);h.c.vcHandleMessage({type:'pdf-anno-text',data:{documentUrl:'/B.png',page:1,stroke:{text:'B-queued'}}});h.loads[0].reject(Error('synthetic B failure'));await flush();assert.equal(h.c.__vcPdfAnnoContext.failed,true);h.load();h.c.vcHandleMessage({type:'pdf-anno-text',data:{documentUrl:'/B.png',page:1,stroke:{text:'B-late'}}});assert.equal(h.c.pdfDoc.id,'A');assert.deepEqual(h.c.pdfAnnotations[1],[{text:'A-note'}]);h.c.vcApplySharedPdf('/B.png','image',1);h.loads[1].resolve({id:'B'});await flush();h.c.vcHandleMessage({type:'pdf-anno-text',data:{documentUrl:'/B.png',page:1,stroke:{text:'B-valid'}}});assert.equal(h.c.pdfDoc.id,'B');assert.equal(h.c.pdfAnnotations[1][0].text,'B-valid')});
+
+for (const stop of ['pdfClearRemote', 'pdfStopShare']) {
+    await test(stop + ' retires deferred clear before same-book resume', async () => {
+        const h = delayedModuleWorld();
+        h.c.document.getElementById = () => ({ blur() {}, getContext: () => ({ clearRect() {} }) });
+        h.c.vcCanControlTextbook = () => true;
+        h.c.vcConn.send = () => {};
+        h.c.pdfApplyClear = pages => pages.forEach(page => { h.c.pdfAnnotations[page] = []; });
+        vm.runInContext(ast.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === stop).getText(ast), h.c);
+        h.c.vcApplySharedPdf('/book.png', 'image', 1);
+        h.loads[0].resolve({ id: 'old' });
+        await flush();
+        h.c.vcHandleMessage({ type: 'pdf-anno-clear', data: { documentUrl: '/book.png', pages: [1] } });
+        assert.equal(h.c.__vcEarlyPdfAnnotations.length, 1);
+        h.c.__vcEarlyPdfPointer = { data: { sticky: true } };
+        h.c[stop]();
+        assert.equal(h.c.__vcEarlyPdfPointer, null);
+        assert.equal(h.c.__vcEarlyPdfAnnotationBytes, 0);
+        // A frame arriving while sharing is stopped also belongs to no open document.
+        h.c.vcHandleMessage({ type: 'pdf-anno-clear', data: { documentUrl: '/book.png', pages: [1] } });
+        h.c.vcApplySharedPdf('/book.png', 'image', 1);
+        h.loads[1].resolve({ id: 'resumed' });
+        await flush();
+        h.c.pdfAnnotations[1] = [{ text: 'new-note' }];
+        h.load();
+        assert.equal(h.c.pdfAnnotations[1][0]?.text, 'new-note');
+        // A new clear in the current sharing session must still work.
+        h.c.vcHandleMessage({ type: 'pdf-anno-clear', data: { documentUrl: '/book.png', pages: [1] } });
+        assert.equal(h.c.pdfAnnotations[1].length, 0);
+    });
+}
+
+await test('denied stop preserves active deferred annotations', async () => {
+    const h = delayedModuleWorld();
+    h.c.vcCanControlTextbook = () => false;
+    h.c.vcTextbookDenied = () => {};
+    vm.runInContext(ast.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === 'pdfStopShare').getText(ast), h.c);
+    h.c.vcApplySharedPdf('/book.png', 'image', 3);
+    h.c.vcHandleMessage(replay());
+    h.c.pdfStopShare();
+    assert.equal(h.c.__vcEarlyPdfAnnotations.length, 1);
+    h.load();
+    h.loads[0].resolve({ id: 'book' });
+    await flush();
+    assert.equal(h.c.pdfAnnotations[3][0]._id, 'fixture');
+});
 console.log(`${pass} PASS / ${fail} FAIL (synthetic translation/DOM/load promises only)`);process.exitCode=fail?1:0;
