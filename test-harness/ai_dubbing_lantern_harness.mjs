@@ -20,7 +20,11 @@ for (const sc of ep.scenes) {
   assert.equal(sc.timing, 'synced');
   assert.equal(sc.voiceMode, 'stems');
   assert.equal(sc.videoAudio, 'mute');
-  assert.deepEqual(sc.sfx, [], 'Original effects already reside in the background track');
+  assert.ok(sc.sfx.length >= 1 && sc.sfx.length <= 3, 'Only sparse, reviewed accent cues');
+  for (const {cue,at} of C.timedCues(sc)) {
+    assert.ok(at >= 0 && at < sc.durationSec && cue.gain <= .25);
+    assert.ok(!sc.lines.some(l => at >= l.start-.1 && at <= l.end+.1), 'Accents start between dialogue cues');
+  }
   for (const url of [sc.video, sc.poster, sc.bgm, ...Object.values(sc.voices)]) {
     assert.match(url, /^\/media\/dubbing\/dub-008\//);
     const stat = fs.statSync(path.join(pub, url));

@@ -82,8 +82,24 @@
       "video": "/media/dubbing/dub-008/scene-1.mp4",
       "poster": "/media/dubbing/dub-008/scene-1.jpg",
       "videoAudio": "mute",
-      "bgm": "/media/dubbing/dub-008/scene-1-bgm.mp3",
-      "sfx": [],
+      "bgm": "/media/dubbing/dub-008/scene-1-bgm-v2.mp3",
+      "sfx": [
+        {
+          "t": 4.5,
+          "name": "birds",
+          "gain": 0.16
+        },
+        {
+          "t": 64.9,
+          "name": "sparkle",
+          "gain": 0.22
+        },
+        {
+          "t": 110,
+          "name": "whoosh",
+          "gain": 0.14
+        }
+      ],
       "voices": {
         "ollie": "/media/dubbing/dub-008/scene-1-ollie.mp3",
         "blue": "/media/dubbing/dub-008/scene-1-blue.mp3",
@@ -338,8 +354,19 @@
       "video": "/media/dubbing/dub-008/scene-2-v4.mp4",
       "poster": "/media/dubbing/dub-008/scene-2.jpg",
       "videoAudio": "mute",
-      "bgm": "/media/dubbing/dub-008/scene-2-bgm.mp3",
-      "sfx": [],
+      "bgm": "/media/dubbing/dub-008/scene-2-bgm-v2.mp3",
+      "sfx": [
+        {
+          "t": 11,
+          "name": "rumble",
+          "gain": 0.12
+        },
+        {
+          "t": 147,
+          "name": "sparkle",
+          "gain": 0.2
+        }
+      ],
       "voices": {
         "ollie": "/media/dubbing/dub-008/scene-2-ollie.mp3",
         "blue": "/media/dubbing/dub-008/scene-2-blue.mp3",
@@ -738,8 +765,19 @@
       "video": "/media/dubbing/dub-008/scene-3.mp4",
       "poster": "/media/dubbing/dub-008/scene-3.jpg",
       "videoAudio": "mute",
-      "bgm": "/media/dubbing/dub-008/scene-3-bgm.mp3",
-      "sfx": [],
+      "bgm": "/media/dubbing/dub-008/scene-3-bgm-v2.mp3",
+      "sfx": [
+        {
+          "t": 30,
+          "name": "rustle",
+          "gain": 0.15
+        },
+        {
+          "t": 159,
+          "name": "creak",
+          "gain": 0.17
+        }
+      ],
       "voices": {
         "ollie": "/media/dubbing/dub-008/scene-3-ollie.mp3",
         "blue": "/media/dubbing/dub-008/scene-3-blue.mp3",
@@ -1194,8 +1232,14 @@
       "video": "/media/dubbing/dub-008/scene-4.mp4",
       "poster": "/media/dubbing/dub-008/scene-4.jpg",
       "videoAudio": "mute",
-      "bgm": "/media/dubbing/dub-008/scene-4-bgm.mp3",
-      "sfx": [],
+      "bgm": "/media/dubbing/dub-008/scene-4-bgm-v2.mp3",
+      "sfx": [
+        {
+          "t": 5.5,
+          "name": "sparkle",
+          "gain": 0.2
+        }
+      ],
       "voices": {
         "ollie": "/media/dubbing/dub-008/scene-4-ollie.mp3",
         "puffy": "/media/dubbing/dub-008/scene-4-puffy.mp3",
@@ -1344,8 +1388,19 @@
       "video": "/media/dubbing/dub-008/scene-5.mp4",
       "poster": "/media/dubbing/dub-008/scene-5.jpg",
       "videoAudio": "mute",
-      "bgm": "/media/dubbing/dub-008/scene-5-bgm.mp3",
-      "sfx": [],
+      "bgm": "/media/dubbing/dub-008/scene-5-bgm-v2.mp3",
+      "sfx": [
+        {
+          "t": 43,
+          "name": "drumroll",
+          "gain": 0.16
+        },
+        {
+          "t": 48.2,
+          "name": "magic",
+          "gain": 0.24
+        }
+      ],
       "voices": {
         "puffy": "/media/dubbing/dub-008/scene-5-puffy.mp3",
         "mini": "/media/dubbing/dub-008/scene-5-mini.mp3",
@@ -1490,11 +1545,27 @@
       },
       "arc": "gyeol",
       "durationSec": 73.70833333333333,
-      "video": "/media/dubbing/dub-008/scene-6.mp4",
+      "video": "/media/dubbing/dub-008/scene-6-v2.mp4",
       "poster": "/media/dubbing/dub-008/scene-6.jpg",
       "videoAudio": "mute",
-      "bgm": "/media/dubbing/dub-008/scene-6-bgm.mp3",
-      "sfx": [],
+      "bgm": "/media/dubbing/dub-008/scene-6-bgm-v2.mp3",
+      "sfx": [
+        {
+          "t": 17,
+          "name": "wind",
+          "gain": 0.18
+        },
+        {
+          "t": 23.3,
+          "name": "whoosh",
+          "gain": 0.13
+        },
+        {
+          "t": 69.9,
+          "name": "fanfare",
+          "gain": 0.25
+        }
+      ],
       "voices": {
         "ollie": "/media/dubbing/dub-008/scene-6-ollie.mp3",
         "blue": "/media/dubbing/dub-008/scene-6-blue.mp3",

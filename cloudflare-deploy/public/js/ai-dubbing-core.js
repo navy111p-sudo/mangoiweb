@@ -310,6 +310,15 @@
    *  · lines가 있으면 대사와 앞뒤 0.12초를 건너뛰지 않는다. 최대 ±3% 속도로 따라가고 무음 구간에서만 위치를 맞춘다.
    *  ⚠️ 시계 요소(영상이 없을 때의 첫 소리 파일)는 건드리지 않는다. 처음부터 멈춰 있던 요소(자동재생 막힘 등)는 세우지도 깨우지도 않는다.
    *  돌려주는 값: 'ok' | 'hold'(이번에 세움) | 'held'(세운 채 기다림) | 'resume'(다시 출발) */
+  function canSeekMedia(el, time) {
+    var ranges = el && el.seekable;
+    if (!ranges || !isNum(time)) return false;
+    for (var i = 0; i < ranges.length; i++) {
+      if (ranges.end(i) > ranges.start(i) && time >= ranges.start(i) && time <= ranges.end(i)) return true;
+    }
+    return false;
+  }
+
   function clockFollower(opt) {
     opt = opt || {};
     var DRIFT = isNum(opt.drift) ? opt.drift : 0.2;
@@ -331,6 +340,7 @@
       var at = el.currentTime || 0;
       if (crossesSpeech(at, t)) { rate(el, Math.abs(t - at) < 0.04 ? 1 : (t > at ? 1.03 : 0.97)); return; }
       rate(el, 1);
+      if (!canSeekMedia(el, t)) return;
       try { el.currentTime = t; } catch (e) {}
       for (var i = 0; i < seeks.length; i++) if (seeks[i].el === el) { seeks[i].at = nowFn(); return; }
       seeks.push({ el: el, at: nowFn() });
@@ -428,6 +438,7 @@
     recordWindowSec: recordWindowSec,
     lineIndexAt: lineIndexAt,
     clockFollower: clockFollower,
+    canSeekMedia: canSeekMedia,
     summarize: summarize,
     ttsSpeakerFor: ttsSpeakerFor,
     SOUND_MOODS: SOUND_MOODS,

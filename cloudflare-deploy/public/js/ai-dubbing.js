@@ -1058,20 +1058,12 @@
   }
 
   /* 동기 모드 — 영상·BGM·캐릭터 음성이 함께 흐르고, 학생 캐릭터 음성만 0. 학생 대사 구간에 마이크를 연다. */
-  function canSeekMedia(el, time) {
-    var ranges = el && el.seekable;
-    if (!ranges) return false;
-    for (var i = 0; i < ranges.length; i++) {
-      if (time >= ranges.start(i) && time <= ranges.end(i)) return true;
-    }
-    return false;
-  }
   // A streaming response without byte ranges may silently seek back to zero.
   // Move the whole group only when every element can seek, and wait for the
   // decoded video frame before audio, captions or microphone capture can resume.
   function positionSyncedMedia(v, tracks, time, run) {
     var els = [v].concat(tracks.map(function (tr) { return tr.el; }));
-    if (!time || !els.every(function (el) { return canSeekMedia(el, time); })) return Promise.resolve(false);
+    if (!time || !els.every(function (el) { return C.canSeekMedia(el, time); })) return Promise.resolve(false);
     return Promise.all(els.map(function (el) {
       if (!el.seeking && Math.abs(el.currentTime - time) < 0.04) return Promise.resolve();
       return new Promise(function (resolve, reject) {
