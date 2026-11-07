@@ -46,7 +46,7 @@ function handlerBlock(src, pathLit) {
 }
 
 // 1) 세 엔드포인트 모두 토큰 검증 + uid 일치 확인이 DB 접근보다 먼저
-for (const p of ['/api/ai/chat-friend', '/api/ai/chat-history', '/api/ai/chat-clear']) {
+for (const p of ['/api/ai/chat-friend']) {
   const blk = handlerBlock(apiMango, `path === '${p}'`);
   ok((blk.includes('authUidGlobal') || blk.includes('authUidFromRequest')), `${p} — 서명 토큰 검증(authUidGlobal) 수행`);
   ok(/authUid\s*!==\s*uid/.test(blk), `${p} — 토큰 uid 와 요청 uid 일치 강제 (불일치 403)`);
@@ -54,6 +54,21 @@ for (const p of ['/api/ai/chat-friend', '/api/ai/chat-history', '/api/ai/chat-cl
   const dbIdx = blk.indexOf('env.DB.prepare');
   ok(authIdx > 0 && (dbIdx < 0 || authIdx < dbIdx), `${p} — 인증이 DB 접근보다 먼저 수행됨`);
   ok(/auth_required/.test(blk), `${p} — 토큰 없으면 401 auth_required`);
+}
+
+const historyGate = apiMango.match(/const denyChatHistoryAccess = async [\s\S]+?\n\s*};/)?.[0] || '';
+ok(historyGate.includes('await authUidGlobal(request, url, env, body)'), '기록 공통 게이트가 서명 토큰을 검증한다');
+ok(/if \(!authUid\).*auth_required.*401/.test(historyGate), '기록 공통 게이트: 토큰 없으면 401');
+ok(/if \(authUid !== uid\).*uid_mismatch.*403/.test(historyGate), '기록 공통 게이트: 다른 소유자는 403');
+for (const [method, path, args, operation] of [
+  ['GET', '/api/ai/chat-history', 'uid', 'env.DB.prepare'],
+  ['POST', '/api/ai/chat-history', 'uid, b', 'recordSuggestAnswer('],
+  ['POST', '/api/ai/chat-clear', 'uid, b', 'env.DB.prepare'],
+]) {
+  const blk = handlerBlock(apiMango, `method === '${method}' && path === '${path}'`);
+  const gate = blk.indexOf(`const denied = await denyChatHistoryAccess(${args});`);
+  const stop = blk.indexOf('if (denied) return denied;');
+  ok(gate > 0 && stop > gate && blk.indexOf(operation) > stop, `${method} ${path} — 본인 확인 실패 시 읽기·기록·삭제 전에 반환`);
 }
 
 // 2) 토큰 유틸: HMAC-SHA256 서명 + 만료 검증
