@@ -137,5 +137,24 @@ export function firstQuestionOnly(text: string): string {
   const outside = text.replace(/"[^"]*"|“[^”]*”|‘[^’]*’|(?<!\w)'(?:[^']|'(?=\w))*?'(?!\w)/g,
     quoted => ' '.repeat(quoted.length));
   const questions = [...outside.matchAll(/[?？]+/g)];
-  return questions.length > 1 ? text.slice(0, questions[0].index! + questions[0][0].length).trimEnd() : text;
+  const first = questions[0];
+  if (!first) return text;
+  const end = first.index!;
+  const before = outside.slice(0, end);
+  const boundary = [...before.matchAll(/[.!?]\s+/g)].at(-1);
+  const sentenceStart = boundary ? boundary.index! + boundary[0].length : 0;
+  const question = before.slice(sentenceStart);
+  // A second interrogative clause can share the first question mark. Keep alternatives and confirmation tags.
+  for (const join of question.matchAll(/[,;]\s*(?:and\s+)?|\s+and\s+/gi)) {
+    const split = join.index!;
+    const lead = question.slice(0, split);
+    if (!lead.split(/[,;:]/).some(part => partStarts(part) === true)) continue;
+    const next = question.slice(split + join[0].length).trim().toLowerCase();
+    if (/^(?:do you know|can you tell me|can you guess)$/.test(next)) continue;
+    const [head, subject] = next.split(/\s+/, 2);
+    if (WH.test(head) || (AUX.has(head) && /^(?:you|we|i|it|he|she|they|there|this|that)$/.test(subject))) {
+      return text.slice(0, sentenceStart + split).trimEnd() + first[0];
+    }
+  }
+  return questions.length > 1 ? text.slice(0, end + first[0].length).trimEnd() : text;
 }

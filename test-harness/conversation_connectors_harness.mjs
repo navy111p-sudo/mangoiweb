@@ -31,6 +31,15 @@ ok(!!(RQ && RQ.fragmentQuestions) && !!(LV && LV.aiFriendBrokenQuestions && LV.A
 if (!C) finish();
 // 실제 음성 검사에서 나온 두 질문 + 인용 예문·축약형·줄바꿈 경계.
 const singleQuestionCases = [
+  ["Did you buy it here and do you have the receipt?", "Did you buy it here?"],
+  ["I see! So the cheering really made a difference. How did you prepare for this race, was it hard to get ready?", "I see! So the cheering really made a difference. How did you prepare for this race?"],
+  ["What did you buy and how much did it cost?", "What did you buy?"],
+  ["What did you buy, and why?", "What did you buy?"],
+  ["Is $2.50 enough and do you need a receipt?", "Is $2.50 enough?"],
+  ["Can you pay now or would you like to pay later?", "Can you pay now or would you like to pay later?"],
+  ["How high is your fever, do you know?", "How high is your fever, do you know?"],
+  ["I see, do you have the receipt?", "I see, do you have the receipt?"],
+  ["Do you like apples and bananas?", "Do you like apples and bananas?"],
   ["I see. Let's take a closer look. Can you tell me more about your headache? Is it a sharp pain or a dull ache?", "I see. Let's take a closer look. Can you tell me more about your headache?"],
   ["Dr. Mango is here. Do you have a fever? Do you cough?", "Dr. Mango is here. Do you have a fever?"],
   ["I don't know yet. Does it hurt? When did it start?", "I don't know yet. Does it hurt?"],
@@ -529,7 +538,7 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
   const events = (await streamed.text()).split('\n').filter(l => l.startsWith('data:')).map(l => JSON.parse(l.slice(5)));
   const done = events.find(e => e.done);
   ok(done?.ok && done.ai_response === 'Do you feel better?' && done.replaced === 1, '스트리밍도 먼저 읽은 마무리 인사를 최종 질문으로 교체', events);
-  const doubleReply = 'I see. Can you tell me more about your headache? Is it a sharp pain or a dull ache?';
+  let doubleReply = 'I see. Can you tell me more about your headache? Is it a sharp pain or a dull ache?';
   AI.run = async (model, opts) => {
     if (!opts.stream) return { response: JSON.stringify({ reply: doubleReply, fix: null }) };
     return new ReadableStream({ start(c) {
@@ -537,14 +546,22 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
       c.close();
     } });
   };
-  const oneStream = await W8.fetch(new Request('https://mangoi.ai/api/warmup/chat', {
-    method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mangoi.ai' },
-    body: JSON.stringify({ session_id: 'scene-one-stream', student_input: 'Thank you.', lesson_topic: doctor.role, difficulty: 4, correction_mode: 'free_talk', stream: 1 }),
-  }), env, ctxW);
-  const oneEvents = (await oneStream.text()).split('\n').filter(l => l.startsWith('data:')).map(l => JSON.parse(l.slice(5)));
-  const oneDone = oneEvents.find(e => e.done);
-  ok(oneDone?.ok && oneDone.ai_response === 'I see. Can you tell me more about your headache?', 'SSE 최종 답변도 첫 질문 하나만', oneDone);
-  ok(!oneEvents.filter(e => e.t).some(e => e.t.includes('sharp pain')) && oneDone?.halted === 'question_limit', '둘째 질문은 미리보기 음성에 한 글자도 내보내지 않는다', oneEvents);
+  const separateReply = doubleReply;
+  for (const [sessionId, scene, modelReply, expected, omitted] of [
+    ['scene-one-stream', doctor, separateReply, 'I see. Can you tell me more about your headache?', 'sharp pain'],
+    ['scene-compound-stream', box.MangoiSituations.find('exchange'), 'I see. Did you buy it here and do you have the receipt?', 'I see. Did you buy it here?', 'receipt'],
+  ]) {
+    doubleReply = modelReply;
+    const oneStream = await W8.fetch(new Request('https://mangoi.ai/api/warmup/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mangoi.ai' },
+      body: JSON.stringify({ session_id: sessionId, student_input: 'Thank you.', lesson_topic: scene.role, difficulty: 4, correction_mode: 'free_talk', stream: 1 }),
+    }), env, ctxW);
+    const oneEvents = (await oneStream.text()).split('\n').filter(l => l.startsWith('data:')).map(l => JSON.parse(l.slice(5)));
+    const oneDone = oneEvents.find(e => e.done);
+    ok(oneDone?.ok && oneDone.ai_response === expected, 'SSE 최종 답변도 첫 질문 하나만', oneDone);
+    ok(!oneEvents.filter(e => e.t).some(e => e.t.includes(omitted)) && oneDone?.halted === 'question_limit', '둘째 질문은 미리보기 음성에 한 글자도 내보내지 않는다', oneEvents);
+  }
+  doubleReply = separateReply;
   const ordinaryTwo = await post('/api/warmup/chat', { session_id: 'ordinary-two', student_input: 'Thank you.', correction_mode: 'free_talk' });
   ok(ordinaryTwo.status === 200 && ordinaryTwo.j.ai_response === doubleReply, '상황별 밖의 대화에는 새 제한을 적용하지 않는다', ordinaryTwo.j);
   AI.run = saveRun;
