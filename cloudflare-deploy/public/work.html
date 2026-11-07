@@ -638,6 +638,18 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
 .toast.show{display:block}
 [hidden]{display:none !important}   /* 작성자 CSS 가 display 를 정하면 [hidden] 이 진다 — CLAUDE.md 함정 */
 </style>
+<style>
+#handover-approvals{display:none}
+html.handover-view .top,html.handover-view .offbar,
+html.handover-view .wrap > :not(#handover-approvals){display:none!important}
+html.handover-view .wrap{padding:0 10px 8px}
+html.handover-view #handover-approvals{display:block}
+#handover-approvals h2{margin-top:8px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.handover-request{border-bottom:1px solid #8b98a866}
+.handover-request>summary{cursor:pointer;padding:10px 4px;overflow-wrap:anywhere}
+.handover-request>summary small{display:block;padding-left:17px}
+.handover-original p{white-space:pre-wrap;overflow-wrap:anywhere}
+</style>
 </head>
 <body>
 
@@ -671,10 +683,14 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
 <section id="handover-inbox-banner" hidden></section>
 <script>
 // Inline copy of handover-inbox-banner.js: work.html must remain self-contained.
+if (window.frameElement && new URLSearchParams(location.search).get('view') === 'handover') {
+  document.documentElement.classList.add('handover-view');
+} else {
 /* Authenticated handover alerts. Web Audio failures remain visible; no acknowledgement on view. */
 (function(){
   'use strict';
   var host=document.getElementById('handover-inbox-banner');if(!host)return;
+  var onHandover=!!document.getElementById('mh-work-title');
   var shadow=host.attachShadow({mode:'open'}),pending=false,stopped=false,last=null,failed=false,mine=[];
   var audio=null,blocked=false,ringing=false,lastSignature='',lastRing=0,ringCount=0;
   shadow.innerHTML='<style>:host([hidden]){display:none!important}:host{display:block;margin:0 0 18px;color-scheme:light dark}*{box-sizing:border-box}.box{background:light-dark(#eef4ff,#20334e);color:light-dark(#193351,#edf4ff);border:2px solid light-dark(#b8cbe6,#4a6688);border-radius:12px;padding:18px 22px;font:18px/1.5 system-ui,sans-serif;display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}.box.warning{border-color:#c23425;background:light-dark(#fff0ec,#4b2020)}.title{font-size:23px;font-weight:700;margin:0}.note,.permission{font-size:16px;margin:6px 0 0}a,button{font:inherit;color:light-dark(#214faf,#bdd3ff);font-weight:650;display:inline-block;padding:10px;min-height:44px}button{cursor:pointer;border:1px solid currentColor;border-radius:8px;background:transparent}.actions{display:flex;gap:12px;flex-wrap:wrap}.primary{background:light-dark(#244fad,#b9d1ff);color:light-dark(#fff,#14243c);border-radius:8px;padding:12px 18px;text-decoration:none}[hidden]{display:none!important}.writer{display:flex;flex-direction:column;gap:10px;margin:0 0 12px}.wline{background:light-dark(#fff7e8,#3d2f14);color:light-dark(#4a3305,#fbe8c4);border:2px solid light-dark(#d39b2a,#b3842c);border-radius:12px;padding:14px 18px;font:18px/1.5 system-ui,sans-serif;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.wline.bad{border-color:#c23425;background:light-dark(#fff0ec,#4b2020);color:light-dark(#5b1a12,#ffe1da)}.wline b{font-size:19px}.wline button.push-allow,.wline a{background:light-dark(#9a5b00,#f2c46d);color:light-dark(#fff,#2a1d05);border-radius:8px;padding:10px 16px;text-decoration:none}@media(max-width:600px){.box{padding:16px}.title{font-size:22px}}</style><div class="writer" hidden></div><section class="box"><div><p class="title"></p><p class="note" role="status"></p><p class="permission"></p><p class="sound-status" role="status"></p></div><div class="actions"><a class="primary" href="/daily-handover.html"></a><a class="sent" href="/daily-handover.html?view=mine"></a><a class="appr" href="/work"></a><button class="sound" type="button"></button><button class="snooze" type="button"></button></div></section>';
@@ -845,8 +861,9 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
     snooze.textContent=t('30분간 소리 쉬기','Silence for 30 min');snooze.hidden=!last||!last.total;
     soundStatus.textContent=blocked?t('브라우저가 자동 소리를 막았습니다. ‘알람 소리 켜기’를 눌러 주세요.','Autoplay was blocked. Click Enable alarm sound.'):Number(get(key('snooze')))>Date.now()?t('소리는 잠시 쉬는 중 · 미응답 상태는 유지됩니다.','Sound is paused; reports still need a response.'):'';
     renderWriter();
+    if(onHandover&&!last)title.textContent=failed?t('받은 보고 · 상태 확인 실패','Received reports · Refresh failed'):t('받은 보고 · 확인 중','Received reports · Checking');
     if(!last){if(failed)note.textContent=t('새 보고 확인이 지연됩니다. 보고함을 열어 주세요.','Unable to refresh. Open the inbox.');return;}
-    title.textContent=t('매일보고 · 미응답 '+last.total+'건','Daily reports · '+last.total+' awaiting response');
+    title.textContent=failed&&onHandover?t('받은 보고 · 상태 확인 실패','Received reports · Refresh failed'):t('매일보고 · 미응답 '+last.total+'건','Daily reports · '+last.total+' awaiting response');
     var alerts=eligible(),urgent=alerts.some(function(r){return r.payload.priority==='urgent'||(r.followup&&r.followup.warning_level>0);}),overdue=alerts.filter(function(r){return r.followup&&r.followup.due_at&&r.followup.due_at<Date.now();}).length;
     var rl=reviewerLine();box.classList.toggle('warning',urgent||overdue>0||!!rl);
     note.textContent=failed?t('최신 상태 확인 실패 · 보고함을 열어 확인해 주세요.','Refresh failed; open the inbox to verify.'):last.total?(overdue?t('🔴 기한 초과 '+overdue+'건 · ','Overdue '+overdue+' · '):'')+t('확인 완료·보완 요청·사유 있는 보류 중 하나로 응답해 주세요.','Acknowledge, request changes, or give a hold reason.'):t('받은 보고를 모두 확인했습니다.','All received reports acknowledged.');if(rl)note.textContent+=' '+rl;
@@ -896,16 +913,18 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
       if(r.status===401||r.status===403){stopped=true;last=null;host.hidden=true;paintLock();closeWriterModal();paintFeedback();if(audio)audio.close().catch(function(){});return;}
       if(!r.ok)throw Error('unavailable');var j=await r.json();if(!j.ok)throw Error('unavailable');last=j;
       var m=await fetch('/api/approval/handover/mine',{credentials:'same-origin',cache:'no-store',signal:c.signal});if(!m.ok)throw Error('mine unavailable');var data=await m.json();if(!data.ok)throw Error('mine unavailable');mine=data.reports||[];
-      var inbox=!!(j.reader_mode||j.total||mine.some(function(x){return x.status==='submitted';}));box.hidden=!inbox;
+      var inbox=onHandover||!!(j.reader_mode||j.total||mine.some(function(x){return x.status==='submitted';}));box.hidden=!inbox;
       var first=j.reports[0];link.href=first?'/daily-handover.html?date='+encodeURIComponent(first.report_date)+'&report='+first.id:'/daily-handover.html';
       last=j;failed=false;autoPush();render();paintLock();host.hidden=!inbox&&!renderWriter();ring();
     }catch(e){failed=true;render();}finally{await feedbackRequest;clearTimeout(timer);pending=false;}
   }
   document.addEventListener('mh:feedback-changed',refresh);
+  if(onHandover)document.addEventListener('mh:handover-changed',refresh);
   render();refresh();setInterval(refresh,60000);window.addEventListener('focus',refresh);window.addEventListener('online',refresh);window.addEventListener('storage',render);
   document.addEventListener('mangoi:lang-changed',render);window.addEventListener('mangoi:lang-changed',render);
   try{new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});}catch(e){}
 })();
+}
 </script>
 
   <!-- 🧭 맨 위 요약(D안) — 아침에 한 번 열어 보는 자리.
@@ -925,6 +944,11 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
   <h2 id="ackHead" hidden><span data-en="To confirm" data-ko="확인할 것">To confirm</span></h2>
   <div id="ackBox"></div>
 
+  <div id="handover-approvals">
+    <h2><span id="handover-approval-count" role="status" data-en="Approvals · Loading…" data-ko="결재 대기 · 확인 중…">Approvals · Loading…</span>
+      <button type="button" class="tbtn" onclick="reloadAll(this)" data-en="Refresh" data-ko="새로고침">Refresh</button>
+    </h2>
+  </div>
   <h2><span data-en="Waiting for your decision" data-ko="내가 결재할 것">Waiting for your decision</span></h2>
   <div id="awayBox"></div>
   <div id="schedBox"></div>
@@ -1046,6 +1070,7 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
 'use strict';
 
 /* ── 언어 — 기본 영어(필리핀 매니저가 다수). 공통 키는 mangoi_lang. ─────────── */
+var HANDOVER_VIEW = document.documentElement.classList.contains('handover-view');
 var LANG = 'en';
 try {
   var saved = localStorage.getItem('mangoi_lang');
@@ -1286,6 +1311,7 @@ function load(fresh){
   if (fresh) opt.cache = 'reload';
   return fetch('/api/approval/home', opt)
     .then(function(r){
+      if (HANDOVER_VIEW && !r.ok) throw new Error('load_failed');
       /* 🔐 (2026-09-24) 401 과 403 은 다른 사실이다 — 갈라야 한다.
          401 = 로그인이 안 됨 → 로그인 창.  403 = 로그인은 됐는데 이 계정이 못 씀(지사·대리점).
          예전엔 둘 다 로그인 창으로 보내서, 지사 계정(branch1 폴정)이 다시 로그인해도 또 여기로
@@ -1302,14 +1328,24 @@ function load(fresh){
     })
     .then(function(j){
       if (!j || j.ok === false) throw new Error((j && j.error) || 'load_failed');
+      if (HANDOVER_VIEW && (!Array.isArray(j.inbox) || (j.summary && j.summary.inbox_unavailable))) throw new Error('load_failed');
+      if (HANDOVER_VIEW && D && JSON.stringify(j.inbox) === JSON.stringify(D.inbox) &&
+          j.summary?.inbox_capped === D.summary?.inbox_capped) return j;
       HOME_TRIED = true;              // 이제부터 문서함 자동 조회를 내보내도 된다
       D = j; offline(false);
-      try { localStorage.setItem(CACHE_KEY, JSON.stringify(j)); } catch (e) {}
+      if (!HANDOVER_VIEW) try { localStorage.setItem(CACHE_KEY, JSON.stringify(j)); } catch (e) {}
       repaint();
-      noteArrival(j);   // 🔊 새로 들어온 것이 있으면 소리로 알린다 (함수 선언이라 위로 끌어올려진다)
+      if (!HANDOVER_VIEW) noteArrival(j);
       return j;
     })
     .catch(function(err){
+      if (HANDOVER_VIEW) {
+        D = null;
+        document.getElementById('inbox').replaceChildren();
+        document.getElementById('handover-approval-count').textContent =
+          T('Approvals · Could not refresh', '결재 대기 · 상태 확인 실패');
+        throw err;
+      }
       if (String(err && err.message) === 'auth') throw err;
       HOME_TRIED = true;              // 실패도 «시도» 다 — 문서함이 영영 안 채워지면 안 된다
       offline(true);
@@ -1396,6 +1432,14 @@ function applyHome(){
 /* ── 그리기 ───────────────────────────────────────────────────────────────── */
 function repaint(){
   if (!D) return;
+  if (HANDOVER_VIEW) {
+    var n = D.inbox.length;
+    var capped = D.summary && D.summary.inbox_capped;
+    document.getElementById('handover-approval-count').textContent =
+      T('Approvals waiting · ' + n, '결재 대기 · ' + n + '건') + (capped ? '+' : '');
+    paintList('inbox', D.inbox, true);
+    return;
+  }
   applyHome();
   paintBadge();
   paintKinds();
@@ -1505,9 +1549,36 @@ function paintList(id, arr, decidable){
     return;
   }
   var h = '';
-  for (var i = 0; i < arr.length; i++) h += itemHtml(arr[i], decidable);
+  for (var i = 0; i < arr.length; i++) {
+    var r = arr[i];
+    if (HANDOVER_VIEW) {
+      h += '<details class="handover-request"><summary><b>' + esc(r.title) + '</b><small>' +
+           esc((r.requester_name || r.requester_username) + ' · ' + when(r.created_at)) +
+           '</small></summary>' + itemHtml(r, decidable) + '</details>';
+    } else {
+      h += itemHtml(r, decidable);
+    }
+  }
   host.innerHTML = h;
 }
+
+document.getElementById('inbox').addEventListener('toggle', async function(e){
+  var detail = e.target;
+  if (!detail.matches('.handover-original') || !detail.open || detail.dataset.loaded) return;
+  var body = detail.querySelector('p');
+  detail.dataset.loaded = 'loading';
+  body.textContent = T('Loading…', '불러오는 중…');
+  try {
+    var res = await fetch('/api/approval/requests/' + detail.dataset.id, { cache: 'no-store' });
+    var data = await res.json();
+    if (!res.ok || !data.ok || !data.item) throw new Error('load_failed');
+    body.textContent = data.item.body || T('No description.', '작성된 내용이 없습니다.');
+    detail.dataset.loaded = 'yes';
+  } catch (e) {
+    delete detail.dataset.loaded;
+    body.textContent = T('Could not load. Close and reopen to retry.', '불러오지 못했습니다. 닫았다 다시 열어 주세요.');
+  }
+}, true);
 
 /* 지연 판정은 **화면이 한다**. 서버가 «지금 지연인가»를 담아 보내면 내용이 그대로여도
    응답이 매초 달라져서, 「바뀐 것 없음(304)」으로 끝낼 수가 없다 — 느린 회선에서 그게 제일 아깝다.
@@ -2982,6 +3053,10 @@ function itemHtml(r, decidable, ackable){
   h += '<div>' + esc(T('Check: ', '확인: ') + (checks.length ? checks[0] : T('Review the original and attachments before deciding.', '원문과 첨부를 확인한 뒤 판단해 주세요.'))) + '</div></div>';
   h += '<div class="approval-translation"><button type="button" class="mini" onclick="translateApproval(' + Number(r.id) + ',this)">' +
        esc(T('Translate original into English', '원문 한국어 번역')) + '</button><div class="translation-result" aria-live="polite"></div></div>';
+  if (HANDOVER_VIEW && decidable) {
+    h += '<details class="handover-original" data-id="' + Number(r.id) + '"><summary>' +
+         esc(T('View request details', '신청 내용 보기')) + '</summary><p role="status"></p></details>';
+  }
 
   if (r.flags && r.flags.length) {
     h += '<div class="flags">';
@@ -3779,6 +3854,7 @@ function send(id, body){
     return { done: false, message: (res.j && (EN() ? res.j.message_en : res.j.message)) || null };
   })
   .catch(function(){
+    if (HANDOVER_VIEW) return { done: false, message: T('Could not confirm the decision. Refresh to check its status.', '결재 결과를 확인하지 못했습니다. 새로고침하여 상태를 확인해 주세요.') };
     outboxAdd({ id: id, body: body });
     return { queued: true };
   });
@@ -5012,6 +5088,17 @@ function subscribePush(){
 /* ── 시작 ─────────────────────────────────────────────────────────────────── */
 applyMode();
 applyLang();
+
+if (HANDOVER_VIEW) {
+  document.getElementById('handover-approvals').append(document.getElementById('inbox'));
+  new ResizeObserver(function(){
+    window.frameElement.style.height = Math.min(Math.ceil(document.body.getBoundingClientRect().height), 540) + 'px';
+  }).observe(document.body);
+  load().catch(function(){});
+  setInterval(function(){ if (!document.hidden) load().catch(function(){}); }, 60000);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) load().catch(function(){}); });
+  return;
+}
 
 // 캐시가 있으면 먼저 그린다 — 끊겨 있어도 흰 화면을 보지 않는다.
 try {

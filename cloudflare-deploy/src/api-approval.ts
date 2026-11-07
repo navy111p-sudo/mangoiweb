@@ -1243,7 +1243,7 @@ export async function handleApprovalApi(
       `SELECT COUNT(*) AS c FROM admin_scope WHERE scope_type = 'hq'`
     ).first(), null);
     const hourBucket = Math.floor(Date.now() / 3600_000);
-    const etag = `W/"a10-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
+    const etag = `W/"a11-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
                  `-${dsig?.c || 0}-${dsig?.mu || 0}-${lsig?.c || 0}-${lsig?.ma || 0}` +
                  `-${hsig?.c || 0}-${sig?.mk || 0}-${hourBucket}"`;
     const headers = {
@@ -1362,7 +1362,7 @@ export async function handleApprovalApi(
       `SELECT * FROM approval_requests
         WHERE status = 'pending' AND requester_username != ?
         ORDER BY (stage_due_at IS NULL) ASC, stage_due_at ASC, created_at ASC LIMIT 40`
-    ).bind(me).all<any>(), { results: [] as any[] } as any);
+    ).bind(me).all<any>(), null);
 
     const mineRs = await safe(async () => await env.DB.prepare(
       /* ↩️ origin_created_at 을 «함께 뽑는다» — rowOf 가 읽는 칸이라 안 뽑으면
@@ -1400,7 +1400,7 @@ export async function handleApprovalApi(
     ).bind(me).all<any>(), { results: [] as any[] } as any) : ({ results: [] as any[] } as any);
 
     // 단계는 **한 번에** 받는다 — 예전엔 행마다 따로 조회해서 쿼리가 40건 넘게 나갔다.
-    const pend = (pendRs.results || []), mineRows = (mineRs.results || []), urgRows = (urgRs.results || []);
+    const pend = (pendRs?.results || []), mineRows = (mineRs.results || []), urgRows = (urgRs.results || []);
     const ackRows = (ackRs.results || []);
     const allIds: number[] = [];
     for (const r of pend) allIds.push(Number(r.id));
@@ -1593,6 +1593,7 @@ export async function handleApprovalApi(
         /* 결재함은 20건에서 자른다(inbox 루프) — 「내가 결재할 것」 타일이
            정확한 수처럼 보이지 않게 «그 이상» 임을 알려 준다. */
         inbox_capped: inbox.length >= 20,
+        inbox_unavailable: !pendRs,
         /* ✅ 「확인할 것 N건」 — 결재가 아니라 «봤다»는 도장이 남은 수.
            ⚠️ 지금 화면은 이 숫자를 «타일» 로 그리지 않는다(구역 자체가 0건이면 숨는다).
               결재함 배지(paintBadge)와 섞지 않으려고 일부러 따로 둔 값이다. */
@@ -1622,7 +1623,7 @@ export async function handleApprovalApi(
       /* 🔗 수업 연기·변경 요청 — 결재함이 «가져오지» 않는다. 건수만 비춰 주고 원래 화면으로 보낸다.
          (같은 «요청 → 승인» 구조를 두 벌 만들면 반드시 어긋난다 — 데이터는 원래 자리에 둔다) */
       schedule_pending: scheduleWaiting,
-    }), { status: 200, headers });
+    }), { status: 200, headers: pendRs ? headers : { 'Content-Type': headers['Content-Type'], 'Cache-Control': 'no-store' } });
   }
 
   // ── 올리기 (기안) ─────────────────────────────────────────────────────────
