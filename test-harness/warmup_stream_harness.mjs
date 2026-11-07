@@ -222,7 +222,7 @@ if (lm) {
   ok('(짝) 원하지 않으면 live 는 null — 예전 경로 그대로', ev(null) === null);
 }
 ok('일반 대화는 첫 모델 호출을 스트리밍하고 간결 집중교정만 검증까지 기다린다',
-  /runWarmup\(\s*messages\s*,\s*0\.7\s*,\s*compactFocused\s*\?\s*null\s*:\s*live\s*\)/.test(hBody));
+  /runWarmup\(\s*initialMessages\s*,\s*0\.7\s*,\s*compactFocused\s*\?\s*null\s*:\s*live\s*\)/.test(hBody));
 ok('흘려보낼 때는 stream:true 로 부른다', /stream:\s*true/.test(hBody) && /readWarmupAiStream\(/.test(hBody));
 const fIdx = hBody.indexOf('...(live ? {');
 const fObj = fIdx >= 0 ? blockAt(hBody, fIdx + '...(live ? '.length) : '';

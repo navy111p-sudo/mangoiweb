@@ -67,7 +67,7 @@ import { logWarmupSessionStart, markWarmupFirstReply, warmupShouldMarkFirstReply
 import { warmupAnswerChips } from './warmup-answers';                    // 💬 웜업 «이렇게 대답해 보세요» 보기 칩
 import { backfillPastTenseFix } from './tense-backfill';
 import { focusedCandidate, focusedReplyFix, recoverFocusedFix, FOCUSED_DRAFT_RULE } from './focused-correction';
-import { WARMUP_CORRECTION_RULE, WARMUP_ZH_CORRECTION_RULE, ZH_MEANING_CHANGING_TAGS, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat, correctionLeadIn } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
+import { WARMUP_CORRECTION_RULE, WARMUP_ZH_CORRECTION_RULE, WARMUP_FIX_EN_MAX_CHARS, ZH_MEANING_CHANGING_TAGS, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat, correctionLeadIn } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
 import { resolveWarmupHonest, warmupHonestRule, parseWarmupGrade, finalizeWarmupGrade, applyHonestPraise, gateFixForMode, ensureFocusedFixSpoken, warmupSpeaksFixLead } from './warmup-honest';  // 🎯 정직한 칭찬 + 교정 모드(2026-10-29 시범 — 정본 그 파일)
 import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
 import { firstQuestionOnly, fragmentQuestions, fragmentQuestionHint, checksFragmentQuestions, fullQuestionRule, FRAG_RETRY_BUDGET_MS } from './reply-questions';   // 🧩 기초 단계 «조각 질문»(like space?) 막기
@@ -4463,12 +4463,12 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     /* 🎯 (2026-10-29 사장님 «제안서대로») 학생이 고른 교정 모드, 없으면 시범 학원만 «평가 등급 + 정직한 칭찬 + 교정 모드». 정본 src/warmup-honest.ts.
        ⛔ null 이면 아래 어디에서도 동작이 바뀌지 않는다(예전과 같음). 던지지 않는다. */
     const honest = await resolveWarmupHonest(env, sessionId, ctxUserId, { lang: ctxLang, chosen: body && body.correction_mode });
-    const compactFocused = honest?.mode === 'focused' && !ctxKickoff && !ctxRoleplay && body.guided !== 1 && !hasEleaderExpansion(request);
+    const compactFocused = honest?.mode === 'focused' && !ctxKickoff && !ctxRoleplay && body.guided !== 1 &&
+      !hasEleaderExpansion(request) && isEnglishText(studentInput, WARMUP_FIX_EN_MAX_CHARS);
     if (honest) sys += '\n' + warmupHonestRule(honest.mode);
     if (honest?.mode === 'focused') sys += '\n' + FOCUSED_DRAFT_RULE;
     sys += '\n' + warmupGuidanceRule(body, ctxLang);
     if (hasEleaderExpansion(request)) sys += ELEADER_EXPANSION_RULE;
-    if (compactFocused) sys += '\n[집중교정 최종 JSON 형식] 교정할 때는 {"reply":"고친 전체 영어 문장","fix":{"short":"아주 짧은 한국어 이유","tag":"위 교정 태그 하나"},"grade":"partial"}만 출력해. 끝나지 않은 문장이면 grade는 incomplete야. 학생의 뜻과 바른 어휘는 유지해. 교정문은 reply에 한 번만 써. 고칠 게 없으면 {"reply":"짧고 자연스러운 영어 답변","fix":null,"grade":"위 등급 중 하나"}만 출력해.';
     /* 🏷️ 첫 턴에는 «화면 인사» 를 모델 문맥에 넣어 준다 (2026-09-01).
        ⚠️ 이 파일은 공동 금지구역이다 — 2026-08-31 사장님이 「진행해」로 승인하신 «AI 가 자기
           이름을 못 지키는» 그 버그의 연장이고, 변경은 이 조립 1줄 + 주석뿐이다.
@@ -4483,6 +4483,11 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     const messages = [{ role: 'system', content: sys }]
       .concat(history.length ? history : [{ role: 'assistant', content: `Hi! I'm ${ctxFriend}.` }])
       .concat([{ role: 'user', content: studentInput }]);
+    // Retries keep the full format, which can correct just the erroneous part.
+    const initialMessages = compactFocused ? [{
+      role: 'system',
+      content: sys + '\n[집중교정 최종 JSON 형식] 교정할 때는 {"reply":"고친 전체 영어 문장","fix":{"short":"아주 짧은 한국어 이유","tag":"위 교정 태그 하나"},"grade":"partial"}만 출력해. 끝나지 않은 문장이면 grade는 incomplete야. 학생의 뜻과 바른 어휘는 유지해. 교정문은 reply에 한 번만 써. 고칠 게 없으면 {"reply":"짧고 자연스러운 영어 답변","fix":null,"grade":"위 등급 중 하나"}만 출력해.',
+    }, ...messages.slice(1)] : messages;
 
     // ── Workers AI 호출 ──
     let aiText = '';
@@ -4614,7 +4619,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
       repeatOf: qmem ? (sen) => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS && repeatedQuestions(sen, qmem).length > 0 : undefined }) : null;
     try {
       // Focused replies cannot preview speech until the correction has been verified.
-      const result: any = await runWarmup(messages, 0.7, compactFocused ? null : live);
+      const result: any = await runWarmup(initialMessages, 0.7, compactFocused ? null : live);
       aiText = takeWarmupReply(result); commitFix();
       // 🔁 (2026-07-27) Workers AI 가 드물게 빈 응답을 준다 — 이걸 그대로 두면 아래
       //    "Let's try again" 문구가 나가서, 학생은 자기가 잘 말했는데도 AI가 못 알아들은

@@ -27,6 +27,8 @@
 
 import { isEnglishText } from './english-only';
 
+export const WARMUP_FIX_EN_MAX_CHARS = 120;
+
 /** 교정 종류 — 화면이 색·아이콘을 고르는 데 쓰고, 같은 실수가 되풀이되는지 세는 열쇠이기도 하다. */
 export const WARMUP_FIX_TAGS = [
   'past_tense', 'verb_form', 'article', 'plural', 'preposition',
@@ -349,7 +351,7 @@ export function verifyWarmupFix(
     /* 영어 문장이어야 한다. 한글·한자·가나가 섞이면 버린다 — 판정 정본은 english-only.ts.
        상한을 웜업 기본 80 이 아니라 120 으로 두는 이유: 교정문은 원문보다 길어질 수 있고
        (관사·조동사가 붙는다), 멀쩡한 교정을 길이 때문에 버리면 학생이 손해다. */
-    if (!isEnglishText(was, 120) || !isEnglishText(now, 120)) return null;
+    if (!isEnglishText(was, WARMUP_FIX_EN_MAX_CHARS) || !isEnglishText(now, WARMUP_FIX_EN_MAX_CHARS)) return null;
   }
 
   // why_ko 는 한국어여야 한다(한글이 한 글자도 없으면 모델이 영어로 쓴 것 → 버린다)
