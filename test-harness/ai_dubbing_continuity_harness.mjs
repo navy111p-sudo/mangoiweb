@@ -8,7 +8,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../clou
 const ep = JSON.parse(fs.readFileSync(path.join(root, 'data/dubbing/dub-007.json')));
 let checks = 0;
 function media(t) {
-  return { _t:t, paused:false, playbackRate:1, seeks:[],
+  return { _t:t, paused:false, playbackRate:1, seeks:[], seekable:{length:1,start:()=>0,end:()=>1000},
     get currentTime(){return this._t;}, set currentTime(v){this.seeks.push(v);this._t=v;},
     pause(){this.paused=true;}, play(){this.paused=false;return Promise.resolve();} };
 }

@@ -7,12 +7,18 @@ const W = require('../cloudflare-deploy/public/js/ai-dubbing-watch.js');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const audios = [], progress = [], captions = [], seen = [];
 class Media {
-  constructor() { this.currentTime = 0; this.duration = 30; this.readyState = 4; this.paused = true; this.playbackRate = 1; }
+  constructor() { this.currentTime = 0; this.duration = 30; this.readyState = 4; this.paused = true; this.playbackRate = 1; this.seekable = {length:1,start:()=>0,end:()=>30}; }
   play() { this.paused = false; return Promise.resolve(); }
   pause() { this.paused = true; }
   addEventListener() {}
 }
 const video = new Media();
+assert.equal(C.canSeekMedia({seekable:{length:1,start:()=>0,end:()=>0}},0),false);
+assert.equal(C.canSeekMedia(video,NaN),false);
+assert.equal(C.canSeekMedia({seekable:{length:2,start:i=>i?10:0,end:i=>i?20:5}},7),false);
+const cold = new Media(); cold.currentTime=4; cold.seekable={length:0}; cold.paused=false;
+C.clockFollower().step(8,[cold],null);
+assert.equal(cold.currentTime,4,'automatic drift recovery cannot rewind a cold stream');
 const sc = { no: 1, timing: 'synced', durationSec: 30, playbackStartSec: 2,
   voices: { a: '/a.mp3', b: '/b.mp3' }, bgm: '/bgm.mp3', sfx: [],
   lines: [{ en: 'First', start: 2, end: 6 }, { en: 'Second', start: 10, end: 16 }] };
@@ -29,6 +35,17 @@ assert.equal(w.seek(9), true);
 assert.equal(video.currentTime, 11);
 assert.ok(audios.every(a => a.currentTime === 11), 'all voices and music seek together');
 assert.equal(captions.at(-1), 'Second', 'captions update immediately');
+const ranges = audios[0].seekable;
+for (const unavailable of [{length:0}, {length:1,start:()=>0,end:()=>0}, {length:1,start:()=>0,end:()=>5}]) {
+  audios[0].seekable = unavailable;
+  assert.equal(w.seek(20), false, 'reject seek before moving any element');
+  assert.ok([video,...audios].every(a=>a.currentTime===11), 'no partial group seek');
+  await sleep(10);
+  assert.equal(progress.at(-1).seekable,false,'loading voices cannot expose the seek slider');
+}
+audios[0].seekable=ranges;
+await sleep(10);
+assert.equal(progress.at(-1).seekable,true,'seeking becomes available when all streams are ready');
 for (const rate of [0.5, 0.75, 1, 1.25, 1.5, 2]) {
   w.setRate(rate);
   assert.equal(video.playbackRate, rate);
@@ -53,6 +70,15 @@ w.stop(); await done;
 assert.equal(w.seek(1), false);
 assert.ok([video, ...audios].every(a => a.paused), 'stop releases media');
 console.log('PASS: seeking, caption sync, all six speeds, paused seeking, bounds, next scene, cleanup');
+
+const cv = new Media(), ca = new Media(); ca.seekable={length:0};
+const cw = W.create({ C, opt:{cardMs:1,tickMs:5,stallMs:10000}, Audio:function(){return ca;},
+  video:()=>cv, waitVideo:()=>Promise.resolve(true), card(){}, clearLine(){}, showLine(){} });
+const coldDone=cw.start([{ep:{...ep,scenes:[{...sc,bgm:'',voices:{a:'/a.mp3'}}]},scIdx:0}]);
+for(let i=0;i<100 && ca.paused;i++) await sleep(2);
+assert.equal(cv.currentTime,0,'cold title skip starts the entire group at zero');
+assert.equal(ca.currentTime,0);
+cw.stop();await coldDone;
 
 // Legacy untimed/TTS scenes seek by dialogue boundary, without inventing timestamps.
 let resolveOld;

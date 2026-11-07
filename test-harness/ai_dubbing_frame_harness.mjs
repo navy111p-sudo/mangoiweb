@@ -2,8 +2,9 @@
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
+import C from '../cloudflare-deploy/public/js/ai-dubbing-core.js';
 const source = readFileSync(new URL('../cloudflare-deploy/public/js/ai-dubbing.js', import.meta.url), 'utf8');
-const helper = source.slice(source.indexOf('  function canSeekMedia('), source.indexOf('  function playSynced('));
+const helper = source.slice(source.indexOf('  function positionSyncedMedia('), source.indexOf('  function playSynced('));
 class Media {
   constructor(seekable = true) {
     this.seekable = { length: seekable ? 1 : 0, start: () => 0, end: () => 61 };
@@ -15,7 +16,7 @@ class Media {
   removeEventListener(k, f) { if (this.events.get(k) === f) this.events.delete(k); }
   decode(time = this.target) { this.time = time; this.seeking = false; this.events.get('seeked')?.(); }
 }
-const ctx = { setTimeout, clearTimeout, Promise, Error, Math };
+const ctx = { setTimeout, clearTimeout, Promise, Error, Math, C };
 vm.createContext(ctx); vm.runInContext(helper, ctx);
 const run = () => ({ wakers: [] });
 {

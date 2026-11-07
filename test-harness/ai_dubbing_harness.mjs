@@ -1021,7 +1021,7 @@ function loadWatch(src) {
 }
 const W_SPEED = 200;   // 가짜 영상은 실제 시간의 200배로 흐른다(20초 장면 = 0.1초)
 class WMedia {
-  constructor(dur) { this.paused = true; this._base = 0; this._at = 0; this.duration = dur; this.readyState = 4; this.speed = W_SPEED; this._rate = 1; }
+  constructor(dur) { this.paused = true; this._base = 0; this._at = 0; this.duration = dur; this.readyState = 4; this.speed = W_SPEED; this._rate = 1; this.seekable = {length:1,start:()=>0,end:()=>dur}; }
   get ended() { return this.currentTime >= this.duration - 0.001; }
   get currentTime() { return this.paused ? this._base : Math.min(this.duration, this._base + (Date.now() - this._at) / 1000 * this.speed * this._rate); }
   set currentTime(v) { this._base = v; this._at = Date.now(); }
@@ -1439,7 +1439,7 @@ for (const [name, from, to] of PW_MUTANTS) {
    옛 코드는 0.3초 넘게 벌어질 때 되감기만 했다 — 영상이 받는 중(버퍼링)이면 목소리만 앞서 가고,
    되감기가 되풀이되어 같은 소리가 겹쳐 들렸다. 정본을 가짜 소리 요소·가짜 시계로 «실제로» 돌린다. */
 class FEl {
-  constructor(t, paused) { this._t = t || 0; this.paused = !!paused; this.seeks = 0; this.plays = 0; this.pauses = 0; }
+  constructor(t, paused) { this._t = t || 0; this.paused = !!paused; this.seeks = 0; this.plays = 0; this.pauses = 0; this.seekable = {length:1,start:()=>0,end:()=>1000}; }
   get currentTime() { return this._t; }
   set currentTime(v) { this._t = v; this.seeks++; }
   play() { this.paused = false; this.plays++; return Promise.resolve(); }
