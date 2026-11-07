@@ -13,6 +13,7 @@
 import { WebSocketMessage, PdfShareData } from './types';
 import { verifyGhostObserveSig } from './auth-token';
 import { RoomWhiteboardHistory } from './room-whiteboard-history';
+import { PdfShareEpoch, PdfEpochRecord } from './pdf-share-epoch';
 
 const MAX_USERS = 10;
 
@@ -41,6 +42,7 @@ interface VcAttachment {
    *  hibernation 으로 DO 가 메모리에서 내려가도 attachment 는 살아남으므로,
    *  깨어난 알람이 «언제부터 조용한가» 를 판단할 바닥값으로 쓴다. */
   seenAt?: number;
+  pdfEpochHeld?: boolean;
   wbReplayBlocked?: boolean;
   wbResetGeneration?: number;
 }
@@ -119,6 +121,12 @@ export class VideoCallRoom {
   private pdfDocuments = new Map<string, { t: string; d: any }[]>();
   private pdfOffQuarantined = false;
   private pdfGeneration = 0;
+  private pdfEpochCore: PdfShareEpoch | null = null;
+  private pdfEpochRecord: PdfEpochRecord | null = null;
+  private pdfEpochBlocked = false;
+  private pdfEpochBoundaryPending = false;
+  private pdfEpochEnabled = false;
+  private pdfEpochRetired = false;
 
   private static readonly PDF_ANNO_OPS_MAX = 2000;
 
@@ -169,11 +177,12 @@ export class VideoCallRoom {
   private env: any;
 
   constructor(state: DurableObjectState, env?: any) {
-    const localTestOptions = arguments[2] as { replayPrototype: boolean } | undefined;
+    const localTestOptions = arguments[2] as { replayPrototype?: boolean; shareEpochProtocol?: boolean } | undefined;
     this.replayPrototypeAllowed = localTestOptions?.replayPrototype === true;
     this.state = state;
     this.roomId = '';
     this.env = env;
+    this.pdfEpochEnabled = localTestOptions?.shareEpochProtocol === true && env?.VC_PDF_SHARE_EPOCH === 'on';
     try { this.stickyUid = !!(env && env.VC_STICKY_UID === 'on'); } catch { this.stickyUid = false; }
     /* 💓 클라이언트(createWebSocket)가 25초마다 보내는 정확히 이 문자열에 자동 응답한다.
        문자열이 **완전히 일치**해야 발동하므로 `JSON.stringify({type:'ping'})` 와 한 글자도 달라선 안 된다.
@@ -212,6 +221,22 @@ export class VideoCallRoom {
       this.pdfHistoryEnabled = this.replayPrototypeAllowed && this.env?.VC_PDF_HISTORY === 'on';
       if (this.pdfHistoryEnabled) this.restorePdfHistory();
       else if (this.pdfState) delete this.pdfState.annotationSession;
+      // Deliberately local-only until protocol/browser/boundary review is complete.
+      if (this.pdfEpochEnabled) {
+        this.pdfEpochCore = new PdfShareEpoch(this.state.storage);
+        try {
+          if (this.pdfHistoryEnabled) throw new Error('PDF epoch and replay prototype cannot be combined');
+          this.adoptPdfEpoch(await this.pdfEpochCore.open());
+          await this.preparePdfEpochBoundary();
+        } catch { this.holdPdfEpoch(); }
+      } else if (await this.state.storage.get('pdfShareEpoch:v1')) {
+        this.pdfEpochRetired = true;
+        try {
+          await new PdfShareEpoch(this.state.storage).disable();
+          this.pdfState = (await this.state.storage.get<PdfShareData>('pdfState')) || null;
+          this.pdfAnnoDocUrl = this.pdfState?.url || '';
+        } catch { this.holdPdfEpoch(); }
+      }
       for (const k of ['bgLock', 'micLock', 'focusLock', 'drawLock'] as const) {
         this.lockState[k] = (await this.state.storage.get<boolean>(k)) || false;
       }
@@ -245,7 +270,7 @@ export class VideoCallRoom {
         /* 👁 observerCount — 관리자 표(adm-core.js «실시간 수업 현황»)가 «(관찰 N)» 으로 그리는 값.
            그동안 서버가 이걸 한 번도 안 보내 undefined 였다 → 배지가 영영 안 떴고,
            관리자는 [Ghost] 를 눌러도 «붙었는지» 를 표에서 확인할 길이 없었다. */
-        JSON.stringify({ roomId: this.roomId, userCount: users.length, observerCount: this.observerCount(), users, pdfState: this.pdfState, videoState: this.videoState, bgLock: this.lockState.bgLock, locks: this.lockState }),
+        JSON.stringify({ ...this.pdfEpochMeta(), roomId: this.roomId, userCount: users.length, observerCount: this.observerCount(), users, pdfState: this.pdfState, videoState: this.videoState, bgLock: this.lockState.bgLock, locks: this.lockState }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -497,7 +522,7 @@ export class VideoCallRoom {
       const userId = att.userId;
 
       switch (msg.type) {
-        case 'join-room':       this.handleJoinRoom(ws, userId, msg.data as any); break;
+        case 'join-room':       if (this.pdfEpochEnabled) await this.preparePdfEpochBoundary(); this.handleJoinRoom(ws, userId, msg.data as any); break;
         case 'join-observe':    await this.handleJoinObserve(ws, userId, msg.data as any); break;
         case 'leave-room':
           this.handleLeaveRoom(userId, ws, att.username, 'left');
@@ -565,11 +590,11 @@ export class VideoCallRoom {
           }
           /* ✍️ (2026-08-12 Melca) 교재 판서도 기록 — 늦게 들어온 강사에게 pdf-anno-replay 로 돌려준다 */
           if (msg.type.startsWith('pdf-anno-')) {
-            if (!this.pdfState) { if (this.pdfHistoryEnabled) this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfGeneration } }); break; } // stopped documents have no live annotation channel
+            if (!this.pdfState) { if (this.pdfHistoryEnabled || this.pdfEpochEnabled || this.pdfEpochBlocked) this.send(userId, { type: 'pdf-anno-status', data: { ...this.pdfEpochMeta(), saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); break; } // stopped documents have no live annotation channel
             if (!this.matchesClaimedPdfDocument(msg.data) || (this.pdfHistoryEnabled && (this.pdfHistoryPending || msg.data?.annotationSession !== this.pdfGeneration || msg.data?.documentUrl !== this.pdfAnnoDocUrl))) { this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); break; }
             if (!this.recordPdfAnno(msg.type, msg.data)) break;
           }
-          this.broadcast(userId, { type: msg.type, data: msg.type.startsWith('pdf-anno-') ? { ...msg.data, documentUrl: this.pdfState!.url, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } : msg.data });
+          this.broadcast(userId, { type: msg.type, data: msg.type.startsWith('pdf-anno-') ? { ...msg.data, ...this.pdfEpochMeta(), documentUrl: this.pdfState!.url, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } : msg.data });
           break;
         case 'bg-lock':              // 🔒 강사 → 학생 수업 통제 잠금 4종 (공통 처리)
         case 'mic-lock':             //    🎤 전체 음소거
@@ -697,7 +722,7 @@ export class VideoCallRoom {
 
     // attachment 에 사용자명/joined 기록 (재기동에도 유지) — 인계 시엔 물려받은 userId 사용
     const att = this.attOf(ws) || { userId: effectiveUserId, roomId: this.roomId };
-    ws.serializeAttachment({ ...att, userId: effectiveUserId, roomId: this.roomId, username, role: role || 'student', joined: true, clientId: clientId || att.clientId, seenAt: Date.now() } as VcAttachment);
+    ws.serializeAttachment({ ...att, userId: effectiveUserId, roomId: this.roomId, username, role: role || 'student', joined: true, pdfEpochHeld: this.pdfEpochBlocked || undefined, clientId: clientId || att.clientId, seenAt: Date.now() } as VcAttachment);
     // 💓 (2026-08-20) 죽은 소켓 청소 알람 시작 — 사람이 있는 동안만 스스로 이어 건다.
     this.lastSeen.set(ws, Date.now());
     this.scheduleLivenessAlarm();
@@ -743,13 +768,13 @@ export class VideoCallRoom {
     // 🔒 지난 수업의 통제 잠금(배경/음소거/집중)도 새 수업 첫 입장 시엔 해제 상태로 시작
     if (userCount <= 1) this.clearAllLocks();
     /* 방에 사람이 있으니 «비어 있던 시각» 은 지운다 — 다음에 다시 비면 그때 새로 찍는다. */
-    if (this.emptyAt && !this.wbResetPending && !this.pdfHistoryPending) { this.emptyAt = 0; void this.state.storage.delete('emptyAt'); }
+    if (this.emptyAt && !this.wbResetPending && !this.pdfHistoryPending && !this.pdfEpochBlocked) { this.emptyAt = 0; void this.state.storage.delete('emptyAt'); }
 
     // room-joined 는 반드시 물려받은 userId 로 회신한다 — 클라이언트가 이 값이 '직전 vcUserId 와 같은가'
     //   로 "정체성 유지됨 → 살아있는 연결 보존"을 판단한다.
     this.send(effectiveUserId, {
       type: 'room-joined',
-      data: { roomId: this.roomId, userId: effectiveUserId, userCount, pdfState: this.pdfState, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined }
+      data: { roomId: this.roomId, userId: effectiveUserId, userCount, pdfState: this.pdfState, ...this.pdfEpochMeta(), annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined }
     });
 
     const existingUsers = this.joinedUsers().filter(u => u.userId !== effectiveUserId);
@@ -777,7 +802,7 @@ export class VideoCallRoom {
     }
     /* ✍️ (2026-08-12 Melca) 교재 판서도 돌려준다 — 칠판만 replay 되고 교재는 빠져 있던 구멍 */
     if (this.pdfState && this.pdfAnnoOps.length) {
-      this.send(effectiveUserId, { type: 'pdf-anno-replay', data: { ops: this.pdfAnnoOps, documentUrl: this.pdfAnnoDocUrl, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } });
+      this.send(effectiveUserId, { type: 'pdf-anno-replay', data: { ...this.pdfEpochMeta(), ops: this.pdfAnnoOps, documentUrl: this.pdfAnnoDocUrl, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } });
     }
     if (this.pdfState) this.send(effectiveUserId, { type: 'pdf-sync', data: this.pdfState });
     // 🎬 공유 중인 동영상도 새 입장자에게 재전송 (예전엔 방송 1회뿐 → 늦게 온 학생은 영영 못 봄)
@@ -855,6 +880,7 @@ export class VideoCallRoom {
       return;
     }
 
+    if (this.pdfEpochEnabled) await this.preparePdfEpochBoundary();
     const OBSERVER_MAX = 4;   // ⚠️ 올릴 때는 위 주석의 «업로드 한 갈래» 계산을 다시 하세요
     // 정원 판정과 관리자 표의 «(관찰 N)» 이 같은 셈법을 쓰도록 helper 하나로 모았다.
     const observers = this.observerCount(ws);
@@ -875,10 +901,10 @@ export class VideoCallRoom {
     /* 👁 observers / observerMax — 참관 화면이 «지금 몇 명이 보고 있나» 를 알 수 있게 함께 보낸다.
        (2026-09-02) 상한을 4 로 올리면서 붙였다. 화면은 이 값으로 «회선 부담» 을 안내할 수 있고,
        관제탑은 /api/active-rooms 의 observerCount 로 «들어가기 전에» 같은 것을 판단한다. */
-    this.send(userId, { type: 'room-joined', data: { roomId: this.roomId, userId, userCount: users.length, pdfState: this.pdfState, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined, observer: true, observers: observers + 1, observerMax: OBSERVER_MAX } });
+    this.send(userId, { type: 'room-joined', data: { roomId: this.roomId, userId, userCount: users.length, pdfState: this.pdfState, ...this.pdfEpochMeta(), annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined, observer: true, observers: observers + 1, observerMax: OBSERVER_MAX } });
     this.send(userId, { type: 'existing-users', data: { users, pdfState: this.pdfState } });
     if (!this.wbResetPending && this.wbOps.length) this.send(userId, { type: 'whiteboard-replay', data: { ops: this.wbOps } });
-    if (this.pdfState && this.pdfAnnoOps.length) this.send(userId, { type: 'pdf-anno-replay', data: { ops: this.pdfAnnoOps, documentUrl: this.pdfAnnoDocUrl, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } });
+    if (this.pdfState && this.pdfAnnoOps.length) this.send(userId, { type: 'pdf-anno-replay', data: { ...this.pdfEpochMeta(), ops: this.pdfAnnoOps, documentUrl: this.pdfAnnoDocUrl, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } });
     if (this.pdfState) this.send(userId, { type: 'pdf-sync', data: this.pdfState });
     if (this.videoState) this.send(userId, { type: 'video-share', data: this.videoState });
     console.log(`[VideoChat] 👁 Observer joined room ${this.roomId} (uid=${userId}, watching ${users.length})`);
@@ -903,7 +929,7 @@ export class VideoCallRoom {
        «잠깐 나갔다 온 것(초 단위)» 과 «다음 수업(분 단위)» 을 가른다.
        이미 찍혀 있으면 덮지 않는다 — 마지막 한 명이 나간 그 시각이 기준이어야 한다. */
     if (userCount === 0 && !this.emptyAt) {
-      this.emptyAt = (this.wbResetPending || this.pdfHistoryPending) ? Date.now() - VideoCallRoom.NEW_CLASS_GAP_MS - 1 : Date.now();
+      this.emptyAt = (this.wbResetPending || this.pdfHistoryPending || this.pdfEpochBoundaryPending) ? Date.now() - VideoCallRoom.NEW_CLASS_GAP_MS - 1 : Date.now();
       void this.state.storage.put('emptyAt', this.emptyAt).catch(() => { console.warn('[VideoChat] empty-room boundary save failed'); });
     }
     // 🔒 방이 비면 통제 잠금도 전부 해제 — 다음 수업이 잠긴 채로 시작하지 않게
@@ -1320,11 +1346,112 @@ export class VideoCallRoom {
 
   // Missing claims retain the legacy contract; explicit claims must match the active share.
   private matchesClaimedPdfDocument(data: any): boolean {
-    return data?.documentUrl == null || data.documentUrl === this.pdfState?.url;
+    return !this.pdfEpochBlocked && !(this.pdfEpochRetired && !this.pdfEpochEnabled && data?.shareEpoch != null) && (!this.pdfEpochEnabled || (!!this.pdfEpochRecord && data?.shareEpoch === this.pdfEpochRecord.epoch))
+      && (data?.documentUrl == null || data.documentUrl === this.pdfState?.url);
+  }
+
+  private async preparePdfEpochBoundary(): Promise<void> {
+    if (!this.pdfEpochEnabled || !this.pdfEpochCore || !this.pdfEpochRecord) return;
+    const record = this.pdfEpochRecord;
+    const trusted = this.state.getWebSockets().some(ws => { const att = this.attOf(ws); return att?.joined && !att.pdfEpochHeld; });
+    const oldEmpty = this.emptyAt > 0 && Date.now() - this.emptyAt > VideoCallRoom.NEW_CLASS_GAP_MS;
+    const oldAge = !this.emptyAt && (!record.at || Date.now() - record.at > VideoCallRoom.SHARE_KEEP_MS);
+    if (!this.pdfEpochBoundaryPending && (!record.state || trusted || (!oldEmpty && !oldAge))) {
+      if (!this.pdfEpochBlocked) {
+        try { this.clearPdfEpochHolds(); } catch { this.holdPdfEpoch(); }
+      }
+      return;
+    }
+    this.pdfEpochBoundaryPending = true;
+    this.holdPdfEpoch();
+    try {
+      const result = await this.pdfEpochCore.change('stop', { shareEpoch: record.epoch, shareRevision: record.revision,
+        epochRequestId: 'boundary-' + crypto.randomUUID(), documentUrl: record.state?.url }, Date.now());
+      this.adoptPdfEpoch(result.record);
+      if (!result.ok) { this.holdPdfEpoch(); return; }
+      this.clearPdfEpochHolds();
+      this.pdfEpochBoundaryPending = false;
+    } catch { this.holdPdfEpoch(); }
+  }
+
+  private clearPdfEpochHolds(): void {
+    for (const ws of this.state.getWebSockets()) {
+      const att = this.attOf(ws);
+      if (att?.pdfEpochHeld) ws.serializeAttachment({ ...att, pdfEpochHeld: false } as VcAttachment);
+    }
+  }
+
+  private holdPdfEpoch(): void {
+    const trusted = this.state.getWebSockets().some(ws => { const a = this.attOf(ws); return a?.joined && !a.pdfEpochHeld; });
+    const at = this.pdfEpochRecord?.at ?? this.mediaAt;
+    if (!trusted && ((this.emptyAt > 0 && Date.now() - this.emptyAt > VideoCallRoom.NEW_CLASS_GAP_MS)
+      || (!this.emptyAt && (!at || Date.now() - at > VideoCallRoom.SHARE_KEEP_MS)))) this.pdfEpochBoundaryPending = true;
+    this.pdfEpochBlocked = true;
+    this.pdfState = null; this.pdfAnnoDocUrl = ''; this.pdfAnnoOps = []; this.pdfAnnoStrokes = {};
+  }
+
+  private adoptPdfEpoch(record: PdfEpochRecord): boolean {
+    if (this.pdfEpochRecord && record.revision < this.pdfEpochRecord.revision) return false;
+    if (record.epoch !== this.pdfEpochRecord?.epoch) {
+      this.pdfAnnoOps = []; this.pdfAnnoStrokes = {}; this.pdfVanishStrokes.clear();
+    }
+    this.pdfEpochRecord = record; this.pdfState = record.state; this.pdfAnnoDocUrl = record.state?.url || '';
+    this.pdfEpochBlocked = false;
+    return true;
+  }
+
+  private pdfEpochMeta(): any {
+    return this.pdfEpochEnabled ? { shareEpoch: this.pdfEpochRecord?.epoch, shareRevision: this.pdfEpochRecord?.revision,
+      epochReady: !this.pdfEpochBlocked && !!this.pdfEpochRecord } : {};
+  }
+
+  private async changePdfEpoch(userId: string, type: 'share' | 'page' | 'stop', data: any): Promise<void> {
+    try {
+      if (!this.pdfEpochCore || this.pdfHistoryEnabled) throw new Error('PDF share epoch is unavailable');
+      if (this.pdfEpochBlocked) this.adoptPdfEpoch(await this.pdfEpochCore.open());
+      await this.preparePdfEpochBoundary();
+      if (this.pdfEpochBlocked) throw new Error('PDF share boundary is held');
+      const beforeRevision = this.pdfEpochRecord?.revision || 0;
+      const result = await this.pdfEpochCore.change(type, data, Date.now());
+      const latest = this.adoptPdfEpoch(result.record);
+      this.send(userId, { type: 'pdf-share-epoch', data: { ...this.pdfEpochMeta(), ok: result.ok,
+        reason: result.reason, epochRequestId: data?.epochRequestId, pdfState: this.pdfState, roomId: this.roomId } });
+      if (!result.ok || !latest || result.record.revision === beforeRevision) return;
+      if (type === 'stop') this.broadcastAll({ type: 'pdf-stop-share', data: this.pdfEpochMeta() });
+      else if (type === 'page') this.broadcastAll({ type: 'pdf-page-change', data: {
+        ...this.pdfEpochMeta(), documentUrl: this.pdfState?.url, currentPage: this.pdfState?.currentPage, pageNum: this.pdfState?.currentPage } });
+      else this.broadcastAll({ type: 'pdf-sync', data: this.pdfState });
+    } catch {
+      this.holdPdfEpoch();
+      this.send(userId, { type: 'pdf-share-epoch', data: { ...this.pdfEpochMeta(), ok: false,
+        reason: 'unavailable', epochRequestId: data?.epochRequestId, roomId: this.roomId } });
+    }
+  }
+
+  private rejectRetiredPdfEpoch(userId: string, data: any): boolean {
+    if (!this.pdfEpochRetired || this.pdfEpochEnabled || data?.shareEpoch == null) return false;
+    this.send(userId, { type: 'pdf-anno-status', data: { saved: false } });
+    return true;
+  }
+
+  private async recoverPdfEpochLegacy(userId: string): Promise<boolean> {
+    try {
+      await new PdfShareEpoch(this.state.storage).disable();
+      this.pdfState = (await this.state.storage.get<PdfShareData>('pdfState')) || null;
+      this.pdfAnnoDocUrl = this.pdfState?.url || '';
+      this.clearPdfEpochHolds(); this.pdfEpochBlocked = false; this.pdfEpochBoundaryPending = false;
+      return false;
+    } catch {
+      this.send(userId, { type: 'pdf-anno-status', data: { saved: false } });
+      return true;
+    }
   }
 
   private async handlePdfShare(userId: string, att: VcAttachment, data: any): Promise<void> {
     if (!this.staffOnly(userId, att)) return;
+    if (this.pdfEpochBlocked && !this.pdfEpochEnabled && await this.recoverPdfEpochLegacy(userId)) return;
+    if (this.rejectRetiredPdfEpoch(userId, data)) return;
+    if (this.pdfEpochEnabled) return this.changePdfEpoch(userId, 'share', data);
     const { url, currentPage, kind, name } = data || {};
     if (!url) return;
     if (this.pdfRestoreFailed && !this.restorePdfHistory()) { this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfGeneration } }); return; }
@@ -1344,7 +1471,7 @@ export class VideoCallRoom {
     if (this.pdfState !== committed) return;
     if (this.pdfHistoryEnabled) this.send(userId, { type: 'pdf-sync', data: this.pdfState });
     this.broadcast(userId, { type: 'pdf-sync', data: this.pdfState });
-    if (this.pdfHistoryEnabled) this.broadcastAll({ type: 'pdf-anno-replay', data: { ops: this.pdfAnnoOps, documentUrl: this.pdfAnnoDocUrl, annotationSession: this.pdfGeneration } });
+    if (this.pdfHistoryEnabled) this.broadcastAll({ type: 'pdf-anno-replay', data: { ...this.pdfEpochMeta(), ops: this.pdfAnnoOps, documentUrl: this.pdfAnnoDocUrl, annotationSession: this.pdfGeneration } });
     console.log(`[VideoChat] PDF shared in room ${this.roomId}: ${url}`);
   }
 
@@ -1355,6 +1482,9 @@ export class VideoCallRoom {
   private async handlePdfPageChange(userId: string, att: VcAttachment, data: any): Promise<void> {
     const senderRole = (att.role || '').toLowerCase();
     if (!this.isJoined(userId) || (senderRole !== 'teacher' && senderRole !== 'admin')) return;
+    if (this.pdfEpochBlocked && !this.pdfEpochEnabled && await this.recoverPdfEpochLegacy(userId)) return;
+    if (this.rejectRetiredPdfEpoch(userId, data)) return;
+    if (this.pdfEpochEnabled) return this.changePdfEpoch(userId, 'page', data);
     if (!this.matchesClaimedPdfDocument(data) || (this.pdfHistoryEnabled && (!this.pdfState || data?.annotationSession !== this.pdfGeneration || data?.documentUrl !== this.pdfAnnoDocUrl))) { this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); return; }
     const committed = this.pdfState;
     const pageNum = (typeof data === 'number') ? data
@@ -1377,6 +1507,9 @@ export class VideoCallRoom {
 
   private async handlePdfStopShare(userId: string, att: VcAttachment, data?: any): Promise<void> {
     if (!this.staffOnly(userId, att)) return;
+    if (this.pdfEpochBlocked && !this.pdfEpochEnabled && await this.recoverPdfEpochLegacy(userId)) return;
+    if (this.rejectRetiredPdfEpoch(userId, data)) return;
+    if (this.pdfEpochEnabled) return this.changePdfEpoch(userId, 'stop', data);
     if ((this.pdfState && !this.matchesClaimedPdfDocument(data)) || (this.pdfHistoryEnabled && (data?.annotationSession !== this.pdfGeneration || data?.documentUrl !== this.pdfAnnoDocUrl))) { this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); return; }
     const previous = this.pdfState; this.pdfState = null;
     try { if (this.pdfHistoryEnabled) this.savePdfHistory(); else this.quarantineDisabledPdfHistory(); }

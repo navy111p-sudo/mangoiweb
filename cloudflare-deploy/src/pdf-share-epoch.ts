@@ -4,6 +4,7 @@ export interface PdfEpochRecord {
   version: 1;
   mode: 'strict' | 'disabled';
   revision: number;
+  at: number;
   epoch: string;
   state: PdfShareData | null;
   last: { id: string; fingerprint: string } | null;
@@ -25,7 +26,7 @@ export class PdfShareEpoch {
 
   private check(value: any): PdfEpochRecord {
     if (!value || value.version !== 1 || !['strict', 'disabled'].includes(value.mode)
-      || !Number.isSafeInteger(value.revision) || value.revision < 1
+      || !Number.isSafeInteger(value.revision) || value.revision < 1 || !Number.isFinite(value.at) || value.at < 0
       || typeof value.epoch !== 'string' || !value.epoch || value.epoch.length > 128
       || (value.state !== null && (typeof value.state?.url !== 'string' || value.state.shareEpoch !== value.epoch || value.state.shareRevision !== value.revision))
       || (value.last !== null && (typeof value.last?.id !== 'string' || typeof value.last?.fingerprint !== 'string')))
@@ -61,10 +62,10 @@ export class PdfShareEpoch {
       if (existing?.revision === Number.MAX_SAFE_INTEGER) throw new Error('PDF share revision exhausted');
       const revision = (existing?.revision || 0) + 1;
       const epoch = this.next(existing?.epoch);
-      const state = legacy ? { ...legacy, shareEpoch: epoch, shareRevision: revision } : null;
+      const state: PdfShareData | null = legacy ? { ...legacy, shareEpoch: epoch, shareRevision: revision } : null;
       if (state) delete state.annotationSession; // Never enable numeric authoritative replay by migration.
       const record: PdfEpochRecord = {
-        version: 1, mode: 'strict', revision, epoch, state, last: null,
+        version: 1, mode: 'strict', revision, at: (await tx.get<number>('mediaAt')) || 0, epoch, state, last: null,
       };
       await tx.put({ [PdfShareEpoch.KEY]: record, pdfState: record.state });
       return record;
@@ -78,7 +79,14 @@ export class PdfShareEpoch {
       const existing = await tx.get<PdfEpochRecord>(PdfShareEpoch.KEY);
       if (!existing) return;
       this.check(existing);
-      if (existing.mode === 'disabled') return;
+      if (existing.mode === 'disabled') {
+        const mirror = (await tx.get<PdfShareData>('pdfState')) || null;
+        if (mirror && ('shareEpoch' in mirror || 'shareRevision' in mirror)) {
+          delete mirror.shareEpoch; delete mirror.shareRevision;
+          await tx.put({ pdfState: mirror });
+        }
+        return;
+      }
       if (existing.revision === Number.MAX_SAFE_INTEGER) throw new Error('PDF share revision exhausted');
       const disabled: PdfEpochRecord = { ...existing, mode: 'disabled',
         revision: existing.revision + 1, epoch: this.next(existing.epoch), state: null, last: null };
@@ -116,7 +124,7 @@ export class PdfShareEpoch {
       } else if (state) { state = null; epoch = this.next(current.epoch); }
       if (current.revision === Number.MAX_SAFE_INTEGER) throw new Error('PDF share revision exhausted');
       if (state) state = { ...state, shareRevision: current.revision + 1 };
-      const record: PdfEpochRecord = { version: 1, mode: 'strict', revision: current.revision + 1,
+      const record: PdfEpochRecord = { version: 1, mode: 'strict', revision: current.revision + 1, at: now,
         epoch, state, last: { id, fingerprint } };
       await tx.put({ [PdfShareEpoch.KEY]: record, pdfState: state, mediaAt: now });
       return { ok: true, record };
