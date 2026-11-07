@@ -15,7 +15,7 @@ import { gamesSrc } from './_srcbundle.mjs';
  *   ① 화면이 쓰는 친구들의 기본 화자가 폴백해도 서로 겹치지 않는다
  *   ② 어떤 화자도 Emma 전용 목소리(asteria)로 떨어지지 않는다 (Emma 자신 제외)
  *   ③ 폴백은 성별을 유지한다
- *   ④ Aura-1 폴백 음성은 «실제로 쓴 화자» 키로만 캐시한다
+ *   ④ Aura-1 폴백 음성은 캐시하지 않는다(동일 화자 이름의 Aura-2 오염 방지)
  *   ⑤ 화면 세 곳이 쓰는 화자가 서버 Aura-2 허용목록 안에 있다
  */
 import { readFileSync } from 'node:fs';

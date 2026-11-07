@@ -73,8 +73,7 @@ export async function handleVoiceTtsApi(request: Request, url: URL, env: MangoEn
             }
           } catch {}
         }
-        /* 캐시 저장 — 키를 받는 형태로 둔다. Aura-1 폴백은 «요청 화자» 가 아니라
-           «실제로 쓴 화자» 키로 저장해야 하기 때문이다(아래 폴백 블록 주석 참고). */
+        // Chinese fallback cache keys describe the actual voice, never the requested Azure voice.
         const ttsKey = async (spk: string) => {
           const e = new TextEncoder().encode('v4|' + lang + '|' + spk + '|' + text);
           const d = await crypto.subtle.digest('SHA-256', e);
