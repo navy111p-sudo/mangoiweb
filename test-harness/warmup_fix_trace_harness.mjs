@@ -354,12 +354,13 @@ console.log('\n[10] index.ts 배선 — «최종» 답장을 넘기고, 첫마�
   const fnFrom = idx.indexOf('async function handleWarmupChat(');
   const leadIn = idx.indexOf('aiText = correctionLeadIn(aiText, showFix', fnFrom);
   const startAt = idx.indexOf('const traceStart = replyStartOf(aiText);', fnFrom);
-  const callAt = idx.indexOf('await logWarmupFixTrace(env, {', fnFrom);
+  const callAt = idx.indexOf('const fixTrace = logWarmupFixTrace(env, {', fnFrom);
   const histAt = idx.indexOf('// ── 히스토리 갱신', fnFrom);
   ok('분류를 부르는 줄이 살아 있다(주석 밖)', startAt > 0 && deadAt(idx, startAt, fnFrom) === '', deadAt(idx, startAt, fnFrom));
   ok('기록을 부르는 줄이 살아 있다(주석 밖)', callAt > 0 && deadAt(idx, callAt, fnFrom) === '', deadAt(idx, callAt, fnFrom));
   ok('순서: 교정 앞머리 붙이기 → 분류 → 기록 → 히스토리 저장', leadIn > 0 && leadIn < startAt && startAt < callAt && callAt < histAt, [leadIn, startAt, callAt, histAt]);
   const between = idx.slice(startAt, histAt);
+  ok('기록 작업은 응답 뒤에도 끝까지 보존한다', /if \(ctx\) ctx\.waitUntil\(fixTrace\);\s*else await fixTrace;/.test(between));
   ok('분류 뒤 히스토리 저장 전까지 답장을 다시 바꾸지 않는다(학생이 들은 그대로를 센다)', !/\baiText\s*=[^=]/.test(between.replace('replyStartOf(aiText)', '')));
   const callEnd = idx.indexOf('});', callAt);
   const call = idx.slice(callAt, callEnd + 3);

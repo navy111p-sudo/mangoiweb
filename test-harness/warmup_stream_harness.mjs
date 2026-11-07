@@ -205,11 +205,11 @@ if (M) {
 /* ═══════════════ B. index.ts 배선 ═══════════════ */
 console.log('\n[B] index.ts 배선');
 const I = strip(INDEX);
-ok('라우터가 입구를 지나 핸들러를 부른다', /warmupChatEntry\(\s*request\s*,\s*\(req,\s*send\)\s*=>\s*handleWarmupChat\(req,\s*env,\s*send\)\s*\)/.test(I));
+ok('라우터가 입구를 지나 핸들러에 스트림과 실행 컨텍스트를 넘긴다', /warmupChatEntry\(\s*request\s*,\s*\(req,\s*send\)\s*=>\s*handleWarmupChat\(req,\s*env,\s*send,\s*ctx\)\s*\)/.test(I));
 const hIdx = I.indexOf('async function handleWarmupChat(');
 const hOpen = hIdx >= 0 ? I.indexOf('Promise<Response> {', hIdx) + 'Promise<Response> '.length : -1;
 const hSig = hIdx >= 0 && hOpen > hIdx ? I.slice(hIdx, hOpen) : '';
-ok('핸들러가 sseSend 를 받고 기본값은 null', /sseSend[\s\S]*=\s*null\s*\)\s*:\s*Promise/.test(hSig), hSig);
+ok('핸들러가 sseSend 를 받고 기본값은 null', /sseSend[\s\S]*=\s*null\s*,\s*ctx\?:\s*ExecutionContext/.test(hSig), hSig);
 const hBody = hSig ? blockAt(I, hOpen) : '';
 ok('전제: 핸들러 몸통을 오려 냈다', hBody.length > 2000);
 const lm = /const live = ([^;]+);/.exec(hBody);
@@ -221,7 +221,8 @@ if (lm) {
   ok('스트림을 원하면 live 를 만든다', ev(() => {}) === 'LIVE');
   ok('(짝) 원하지 않으면 live 는 null — 예전 경로 그대로', ev(null) === null);
 }
-ok('첫 모델 호출이 live 를 넘긴다', /runWarmup\(\s*messages\s*,\s*0\.7\s*,\s*live\s*\)/.test(hBody));
+ok('일반 대화는 첫 모델 호출을 스트리밍하고 간결 집중교정만 검증까지 기다린다',
+  /runWarmup\(\s*messages\s*,\s*0\.7\s*,\s*compactFocused\s*\?\s*null\s*:\s*live\s*\)/.test(hBody));
 ok('흘려보낼 때는 stream:true 로 부른다', /stream:\s*true/.test(hBody) && /readWarmupAiStream\(/.test(hBody));
 const fIdx = hBody.indexOf('...(live ? {');
 const fObj = fIdx >= 0 ? blockAt(hBody, fIdx + '...(live ? '.length) : '';
@@ -237,8 +238,9 @@ if (fm) {
   const c = ev(null);
   ok('(짝) 옵트인 안 한 응답에는 칸이 하나도 안 늘어난다', c && Object.keys(c).length === 0);
 }
-const latCalls = (hBody.match(/await logWarmupLatency\(/g) || []).length;
-ok('지연 기록을 실패(502)·성공 두 길에서 남긴다', latCalls >= 2, String(latCalls));
+ok('지연 기록을 실패(502)·성공 두 길에서 남긴다',
+  /await logWarmupLatency\('', 0\)/.test(hBody) &&
+  /const latencyLog = logWarmupLatency\(aiText, modelOk \? 1 : 0\);\s*if \(ctx\) ctx\.waitUntil\(latencyLog\);\s*else await latencyLog;/.test(hBody));
 const lw = /const logWarmupLatency = async \([^)]*\)[^{]*=> \{/.exec(hBody);
 const lwBody = lw ? blockAt(hBody, lw.index + lw[0].length - 1) : '';
 ok("지연 기록은 feature 'warmup' 이고 try 로 감싼다", /feature:\s*'warmup'/.test(lwBody) && /try\s*\{[\s\S]*recordAiLatency\(/.test(lwBody) && /catch/.test(lwBody));
