@@ -582,7 +582,7 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
     const oneEvents = (await oneStream.text()).split('\n').filter(l => l.startsWith('data:')).map(l => JSON.parse(l.slice(5)));
     const oneDone = oneEvents.find(e => e.done);
     ok(oneDone?.ok && oneDone.ai_response === expected, 'SSE 최종 답변도 첫 질문 하나만', oneDone);
-    ok(oneEvents.filter(e => e.t).map(e => e.t).join(' ') === 'I see.' && oneDone?.halted === 'question_pending',
+    ok(oneEvents.filter(e => e.t).map(e => e.t).join(' ') === expected.match(/^[^.!]+[.!]/)?.[0] && oneDone?.halted === 'question_pending',
       '질문을 확정 전에는 읽지 않고 앞의 반응만 미리 읽는다', oneEvents);
   }
   const directions = box.MangoiSituations.find('directions');
