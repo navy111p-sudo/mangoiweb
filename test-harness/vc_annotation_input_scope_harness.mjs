@@ -34,12 +34,15 @@ function change(h,boundary) {
     if(boundary==='self')c.vcUserId='other';
     if(boundary==='session')c.__vcPdfAnnotationSession=2;
     if(boundary==='stop')c.pdfDoc=null;
+    if(boundary==='epoch')c.__vcPdfShareEpoch='new-epoch';
+    if(boundary==='pending-control')c.__vcPdfEpochControlPending=true;
+    if(boundary==='unavailable')c.__vcPdfEpochUnavailable=true;
     if(boundary==='detached')h.anno.isConnected=false;
     if(boundary==='pending-book'){c.__vcPdfAnnoContext={pending:true,url:'https://fixture.invalid/B.png'};c.__vcPdfAnnotationSource='/B.png';}
 }
 let pass=0,fail=0;
 async function test(name,fn){try{await fn();pass++;console.log('PASS '+name)}catch(error){fail++;console.log('FAIL '+name+' '+error.message)}}
-for(const boundary of ['book','connection','account','room','self','session','stop','detached','pending-book']) {
+for(const boundary of ['book','connection','account','room','self','session','stop','detached','pending-book','epoch','pending-control','unavailable']) {
     await test('late pen point/end rejected after '+boundary,()=>{
         const h=world();h.down();const stroke=h.c.pdfAnnotations[1][0];for(let i=0;i<4;i++)h.move();
         const count=h.sent.length,points=stroke.points.length;

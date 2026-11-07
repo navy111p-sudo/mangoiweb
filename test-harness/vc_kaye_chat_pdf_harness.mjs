@@ -167,4 +167,76 @@ for(const boundary of ['name','uid','role','default-role'])await test('login ide
     if(boundary==='name'||boundary==='default-role')assert.equal(h.c.pdfAnnotations[1][0]?.text,'owner-A');
     else {assert.equal(h.c.pdfAnnotations[1]?.length||0,0);h.c.account=JSON.stringify(original);await load();assert.equal(h.c.pdfAnnotations[1][0].text,'owner-A');}
 });
+
+function epochClientWorld(){
+    const h=annotationWorld(),sent=[],notes=[],timers=new Map();let id=0;const resolved=new Set();
+    h.c.queueMicrotask=queueMicrotask;h.c.crypto={randomUUID:()=>`epoch-request-${++id}`};h.c.showToast=text=>notes.push(text);
+    h.c.setTimeout=(fn,ms)=>{const key=++id;timers.set(key,{fn,ms});return key};h.c.clearTimeout=key=>timers.delete(key);
+    h.c.updateUserCount=()=>{};h.c.vcRegisterRosterIdentity=()=>{};h.c.vcCanControlTextbook=()=>true;
+    h.c.pdfAnnoElForPage=()=>null;h.c.pdfRedrawAnno=()=>{};h.c.pdfApplyClear=pages=>pages.forEach(page=>h.c.pdfAnnotations[page]=[]);
+    h.c.document.getElementById=key=>key==='pdf-canvas'?{getContext:()=>({clearRect(){}})}:key==='pdf-page-info'?{textContent:''}:null;
+    h.c.vcConn={ws:{readyState:1,send:raw=>sent.push(JSON.parse(raw))},send(frame){return h.c.vcPdfEpochSend(frame,this)}};
+    for(const name of ['vcAcceptPdfShareEpoch','pdfAnnoSend','pdfStopShare','pdfClearRemote'])vm.runInContext(ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text===name).getText(ast),h.c);
+    vm.runInContext(annotations,h.c);vm.runInContext(readFileSync(pub+'/js/idx-vc-pdf-epoch.js','utf8'),h.c);
+    const state=(epoch,revision)=>({url:'/same.png',kind:'image',currentPage:1,shareEpoch:epoch,shareRevision:revision});
+    return{...h,sent,notes,timers,state,async settle(){await flush();for(const load of h.loads){if(!resolved.has(load)){resolved.add(load);load.resolve({id:load.url})}}await flush()},
+        async join(){h.c.vcHandleMessage({type:'room-joined',data:{roomId:'A',userId:'u',userCount:1,epochReady:true,shareEpoch:'e0',shareRevision:1,pdfState:null}},h.c.vcConn.ws);await flush()},
+        async ack(epoch,revision,pdfState){const request=sent.at(-1);h.c.vcHandleMessage({type:'pdf-share-epoch',data:{roomId:'A',epochReady:true,ok:true,epochRequestId:request.data.epochRequestId,shareEpoch:epoch,shareRevision:revision,pdfState}},h.c.vcConn.ws);await this.settle()}};
+}
+await test('protected same-URL stop/re-share rejects retired and missing-epoch clears',async()=>{
+    const h=epochClientWorld();await h.join();h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png',kind:'image'}});await h.ack('e1',2,h.state('e1',2));
+    const old={type:'pdf-anno-clear',data:{documentUrl:'/same.png',shareEpoch:'e1',pages:[1]}};
+    h.c.pdfStopShare();await h.ack('e2',3,null);h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png',kind:'image'}});await h.ack('e3',4,h.state('e3',4));
+    h.c.pdfAnnotations[1]=[{text:'new generation'}];h.c.vcHandleMessage(old);h.c.vcHandleMessage({...old,data:{...old.data,shareEpoch:undefined}});
+    assert.equal(h.c.pdfAnnotations[1][0].text,'new generation');h.c.vcHandleMessage({...old,data:{...old.data,shareEpoch:'e3'}});assert.equal(h.c.pdfAnnotations[1].length,0);
+});
+await test('protected receiver holds late snapshots and stop broadcasts',async()=>{
+    const h=epochClientWorld();await h.join();h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png',kind:'image'}});await h.ack('e3',4,h.state('e3',4));const doc=h.c.pdfDoc;
+    assert.equal(h.c.vcPdfEpochSnapshot({epochReady:true,shareEpoch:'e1',shareRevision:2,pdfState:null}),false);
+    h.c.vcHandleMessage({type:'pdf-stop-share',data:{epochReady:true,shareEpoch:'e1',shareRevision:2}});assert.equal(h.c.pdfDoc,doc);
+    assert.equal(h.c.__vcPdfShareEpoch,'e3');
+});
+await test('protected raw annotation sender uses current epoch and refuses while control is pending',async()=>{
+    const h=epochClientWorld();await h.join();h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png',kind:'image'}});await h.ack('e1',2,h.state('e1',2));
+    h.c.pdfAnnoSend('pdf-anno-text',{page:1,stroke:{text:'valid'}});assert.equal(h.sent.at(-1).data.shareEpoch,'e1');
+    h.c.vcConn.send({type:'pdf-stop-share',data:{documentUrl:'/same.png'}});const count=h.sent.length;h.c.pdfAnnoSend('pdf-anno-text',{page:1,stroke:{text:'held'}});assert.equal(h.sent.length,count);
+});
+await test('protected ack for another request or old socket cannot replace the visible document',async()=>{
+    const h=epochClientWorld();await h.join();h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png',kind:'image'}});await h.ack('e1',2,h.state('e1',2));const doc=h.c.pdfDoc;
+    const data={roomId:'A',epochReady:true,ok:true,epochRequestId:'not-pending',shareEpoch:'wrong',shareRevision:99,pdfState:{...h.state('wrong',99),url:'/other.png'}};
+    h.c.vcHandleMessage({type:'pdf-share-epoch',data},h.c.vcConn.ws);h.c.vcHandleMessage({type:'pdf-sync',data:data.pdfState},{});
+    assert.equal(h.c.pdfDoc,doc);assert.equal(h.c.__vcPdfShareEpoch,'e1');
+});
+await test('manual pending loader cannot commit across a share epoch change',async()=>{
+    const h=withRealLoader();h.c.__vcPdfShareEpoch='e1';const before=h.c.pdfDoc;const pending=h.c.pdfLoad('/old.png','image');h.c.__vcPdfShareEpoch='e2';h.loads[0].resolve({id:'old'});assert.equal(await pending,false);assert.equal(h.c.pdfDoc,before);
+});
+
+await test('unavailable protected ACK blocks further writes while retaining media controls',async()=>{
+ const h=epochClientWorld();await h.join();h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png',kind:'image'}});const pending=h.sent[0];
+ h.c.vcHandleMessage({type:'pdf-share-epoch',data:{roomId:'A',ok:false,epochReady:false,epochRequestId:pending.data.epochRequestId}},h.c.vcConn.ws);
+ assert.equal(h.c.__vcPdfEpochUnavailable,true);const count=h.sent.length;
+ assert.equal(h.c.vcConn.send({type:'pdf-share',data:{url:'/other.png'}}),false);assert.equal(h.sent.length,count);
+ assert.equal(h.c.vcPdfEpochSend({type:'video-share',data:{url:'fixture'}},h.c.vcConn),undefined);
+});
+
+await test('protected new account cannot reuse the old socket admission even after a snapshot',async()=>{
+ const h=epochClientWorld();await h.join();h.c.account='account-B';h.c.vcPdfEpochSnapshot({epochReady:true,shareEpoch:'e0',shareRevision:1,pdfState:null});
+ assert.equal(h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png'}}),false);assert.equal(h.sent.length,0);
+ await h.join();assert.equal(h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png'}}),true);assert.equal(h.sent.length,1);
+});
+
+function lazyEpochWorld(){const h=epochClientWorld(),scripts=[];vm.runInContext('window.vcPdfEpochReceive=undefined;window.vcPdfEpochSend=undefined;window.vcPdfEpochSnapshot=undefined;',h.c);
+ h.c.document.createElement=()=>({remove(){}});h.c.document.head={appendChild:script=>scripts.push(script)};
+ vm.runInContext(ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='vcEnsurePdfEpochModule').getText(ast),h.c);
+ return{...h,scripts,load(){vm.runInContext(readFileSync(pub+'/js/idx-vc-pdf-epoch.js','utf8'),h.c)}};}
+for(const accountChange of [false,true])await test('late epoch module preserves join admission only for its owner '+accountChange,async()=>{
+ const h=lazyEpochWorld();h.c.vcHandleMessage({type:'room-joined',data:{roomId:'A',userId:'u',userCount:1,epochReady:true,shareEpoch:'e0',shareRevision:1,pdfState:null}},h.c.vcConn.ws);
+ h.c.vcHandleMessage({type:'pdf-sync',data:h.state('e1',2)},h.c.vcConn.ws);assert.equal(h.scripts.length,1);
+ if(accountChange)h.c.account='B';h.load();await h.settle();
+ assert.equal(h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png'}}),!accountChange);assert.equal(h.sent.length,accountChange?0:1);
+});
+await test('epoch module download retries are bounded and report exhausted attempts',async()=>{
+ const h=lazyEpochWorld();for(let i=0;i<3;i++){h.c.vcEnsurePdfEpochModule();h.scripts.at(-1).onerror();}
+ h.c.vcEnsurePdfEpochModule();assert.equal(h.scripts.length,3);assert.ok(h.notes.some(text=>text.includes('새로고침')));
+});
 console.log(`${pass} PASS / ${fail} FAIL (synthetic translation/DOM/load promises only)`);process.exitCode=fail?1:0;

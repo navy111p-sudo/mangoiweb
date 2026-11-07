@@ -258,10 +258,8 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
 
     connect(); // 최초 연결
 
-    // fix (2026-07-13) — 재연결 중 공유 메시지(교재/동영상) 유실 방지 큐.
-    //   예전엔 연결 끊김 상태에서 send() 하면 그냥 버림 → 교사가 튼 동영상/교재 신호가
-    //   사라져 학생이 폴링/재입장 때까지 못 봤음. 시그널링(offer/ice 등)은 재연결 시
-    //   어차피 새로 시작하므로 큐잉하지 않고, '내용 공유' 타입만 큐에 담아 재연결 즉시 재전송.
+    // Legacy content/control replay; signaling is rebuilt after reconnect.
+    // Protected PDF commands use the epoch outbox instead of this replay queue.
     const QUEUEABLE_TYPES = { 'pdf-share':1, 'pdf-sync':1, 'pdf-page-change':1, 'pdf-stop-share':1, 'video-share':1, 'video-sync':1, 'video-stop-share':1, 'file-share':1, 'tab-sync':1, 'bg-lock':1, 'mic-lock':1, 'focus-lock':1, 'pdf-drawlock':1 };
     let sendQueue = [];   // [{type,...}] 최대 20개 — 같은 type 은 마지막 것만 유지
     function flushQueue() {
@@ -271,7 +269,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
         console.log('[WebSocket] 재연결 후 대기 메시지 재전송:', q.length + '건');
     }
     const _origOnOpenFlush = onOpen;
-    // 🔴 (2026-10-20) 원래 onOpen(=join-room) «뒤에» 보낸다 — 앞이면 서버가 «아직 입장 전» 으로 보고 pdf-share 를 조용히 버린다
+    // Join before replaying legacy content.
     onOpen = function(sock){ try { if (_origOnOpenFlush) _origOnOpenFlush(sock); } finally { try { flushQueue(); } catch(e){} } };
 
     // 외부에서 사용할 수 있는 인터페이스 반환
@@ -279,6 +277,14 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
         get ws() { return ws; },
 
         send(data) {
+            if (window.vcPdfEpochSend) {
+                const handled = window.vcPdfEpochSend(data, this);
+                if (handled !== undefined) return handled;
+            } else if ((window.__vcPdfShareEpoch || window.__vcPdfEpochUnavailable) && /^pdf-(share|stop-share|page-change|anno-.+|pointer)$/.test(data?.type || '')) {
+                vcEnsurePdfEpochModule();
+                try { showToast('교재 연결 준비 후 다시 시도해 주세요.'); } catch (_) {}
+                return false;
+            }
             if (ws && ws.readyState === WebSocket.OPEN) {
                 try { ws.send(JSON.stringify(data)); return true; }
                 catch (_) { return false; }
@@ -537,24 +543,16 @@ async function acquireLocalMedia({ video = true, audio = true } = {}) {
 }
 
 
-/* ================================================================
-   5. 다자간 화상통화
-   ──────────────────────────────────────────────────────────────────
-   1:1과 비슷하지만, 여러 명이 참여하므로
-   각 참가자마다 별도의 RTCPeerConnection을 생성합니다.
-   (Mesh 토폴로지: 모든 참가자끼리 직접 연결)
-================================================================ */
-
+// Mesh room: one RTCPeerConnection per participant.
 let vcConn = null;              // WebSocket 연결
-// fix (2026-06-01) — 교재 공유 전용 전송 함수. selectFromTextbookLibrary(다른 스코프)가 window.vcConn 타이밍에
-//   의존하지 않고, 여기 '지역 vcConn'을 직접 써서 확실히 전송. 교사 화면에 전송 확인 토스트도 표시.
+// Cross-scope textbook callers share this lexical VC connection.
 window.vcShareTextbook = function(pdfId, url, kind, name, quiet){
   try {
     var shareUrl = url || '';
     if (shareUrl && shareUrl.charAt(0) === '/') shareUrl = location.origin + shareUrl;
     if (vcConn && typeof vcConn.send === 'function') {
       vcConn.send({ type: 'pdf-share', data: { annotationSession: window.__vcPdfAnnotationSession, pdfId: pdfId, url: shareUrl, currentPage: 1, kind: kind || '', name: name || '' } });
-      // 교사 자신은 이미 교재를 보고 있으므로, 폴링이 재로드하지 않도록 표시 키/URL 을 맞춰둠
+      // The teacher already loaded the book; avoid a polling reload.
       try { var _abs = (shareUrl && shareUrl.charAt(0)==='/') ? location.origin+shareUrl : shareUrl; window._vcShownPdfUrl = _abs; window._vcShownPdfKey = _abs + '|1'; window._vcShownPdfName = name || window._vcShownPdfName || ''; } catch(_){}
       console.log('[vcShareTextbook] ✅ 전송:', shareUrl, kind);
       if (!quiet) { try { if (typeof showToast === 'function') showToast('📤 교재 공유 전송됨 → 학생'); } catch(_){} }
@@ -577,49 +575,55 @@ window._vcShownPdfName = '';           // 현재 교재 이름 "[교재] 레슨 
 window._vcPdfPollTimer = null;
 /* @param fromTeacherPush  교사가 «지금» 교재를 연 신호(pdf-share)면 true.
                            주기 폴링으로 상태를 복원하는 경우는 false/생략. */
-window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName, fromTeacherPush, annotationSession){
+function vcEnsurePdfEpochModule() {
+  if (window.vcPdfEpochSend || window.__vcPdfEpochLoading || (window.__vcPdfEpochRetries || 0) >= 3) return;
+  window.__vcPdfEpochRetries = (window.__vcPdfEpochRetries || 0) + 1;
+  window.__vcPdfEpochLoading = true;
+  var script = document.createElement('script');
+  script.src = '/js/idx-vc-pdf-epoch.js?v=1';
+  script.onerror = function(){ window.__vcPdfEpochLoading = false; script.remove(); if (window.__vcPdfEpochRetries >= 3) { try { showToast('교재 연결 실패. 새로고침 후 다시 시도해 주세요.'); } catch (_) {} } };
+  document.head.appendChild(script);
+}
+function vcAcceptPdfShareEpoch(epoch, revision) {
+  if (typeof epoch !== 'string' || !Number.isSafeInteger(revision) || revision < 1) return false;
+  if (Number.isSafeInteger(window.__vcPdfShareRevision) && (revision < window.__vcPdfShareRevision
+    || (revision === window.__vcPdfShareRevision && epoch !== window.__vcPdfShareEpoch))) return false;
+  window.__vcPdfShareEpoch = epoch; window.__vcPdfShareRevision = revision;
+  return true;
+}
+window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName, fromTeacherPush, annotationSession, shareEpoch, shareRevision){
   try {
     if (!sUrl) return;
+    if (shareEpoch != null) { if (!vcAcceptPdfShareEpoch(shareEpoch, shareRevision)) return; }
+    else if (window.__vcPdfShareEpoch) return;
     window.__vcPdfAnnotationSource = sUrl;
     window.__vcPdfAnnotationSession = annotationSession;
     if (window.__vcPdfAnnoContext && !window.__vcPdfAnnoContext.current()) window.__vcPdfAnnoContext = null;
     if (/^blob:/i.test(sUrl)) return;  // 로컬 blob 은 다른 기기에서 열 수 없음
-    // 🥭 (2026-07-13) 교사가 교재를 공유 → 세로폰에서 '내용 크게(pip)'로 자동 전환.
+    // Reevaluate the shared-document layout.
     window.__vcPdfShared = true;
     try { window.__vcPheroReeval && window.__vcPheroReeval(); } catch(_){}
 
-    /* 🔴 (2026-08-08 마이마이 ⑤) 「교사가 교재를 열었는데 학생은 교재 버튼을 눌러야 보인다」
-       [원인] 탭 전환(vcSwitchTab('pdf'))이 이 함수 **한참 아래**에 있어서, 밑의 두 조기반환
-              ─ ①「이미 같은 교재/페이지」 ②「같은 교재, 페이지만 다름」 ─ 에 걸리면
-              **통째로 건너뛰어졌다.** 학생은 입장할 때 폴링(pdfState)이 이미 그 교재를 받아
-              키를 세워 두는 일이 많아, 정작 교사가 교재를 열면 «이미 갖고 있다» 며 아무 일도
-              일어나지 않았다 — 화면은 얼굴만 그대로.
-       [수정] 교사가 «지금 연» 신호일 때는 조기반환보다 **먼저** 교재를 앞으로 가져온다.
-              탭 전환은 idempotent 하고 비용이 없다. 아래 가드의 목적은 «PDF 재로드 방지» 지
-              «보여주지 않기» 가 아니었다.
-       ⚠️ 폴링에서는 하지 않는다 — 학생이 칠판·게임을 보는 중에 3초마다 교재로 끌려간다. */
+    // Reveal teacher pushes even for an already loaded page; polling must not steal the active tab.
     if (fromTeacherPush) {
       try { if (typeof vcSwitchTab === 'function') vcSwitchTab('pdf'); } catch(_){}
       try { if (typeof showToast === 'function') showToast('👩‍🏫 선생님이 교재를 열었어요'); } catch(_){}
     }
 
     if (sUrl.charAt(0) === '/') sUrl = location.origin + sUrl;
-    // 교재 이름("[교재] 레슨 / 파일")을 기억 — 화살표가 시퀀스를 서버에서 재구성할 때 책 이름으로 사용
+    // Keep the title for sequence reconstruction.
     if (sName) window._vcShownPdfName = sName;
-    // 이미 시퀀스를 갖고 있으면 현재 위치도 같이 맞춰둠 (다른 기기가 넘긴 뒤 인덱스 어긋남 방지)
+    // Align a known sequence after remote navigation.
     try { if (typeof pdfSyncSeqIdx === 'function') pdfSyncSeqIdx(sUrl); } catch(_){}
     var pg = currentPage || 1;
-    var key = sUrl + '|' + pg + (typeof annotationSession === 'number' ? '|s' + annotationSession : '');
-    if (key === window._vcShownPdfKey && (!window.__vcSharedPdfPendingCurrent || window.__vcSharedPdfPendingCurrent())) return;  // 이미 같은 교재/페이지 표시 중
-    // 같은 교재인데 페이지만 다르면 → 전체 재로드 없이 페이지 이동만(깜빡임 방지)
-    if (sUrl === window._vcShownPdfUrl && window._vcShownPdfSession === annotationSession && !(window.__vcSharedPdfPendingKey && window.__vcSharedPdfPendingKey !== key)) {
+    var key = sUrl + '|' + pg + (typeof annotationSession === 'number' ? '|s' + annotationSession : '') + (shareEpoch ? '|e' + shareEpoch : '');
+    if (key === window._vcShownPdfKey && (!window.__vcSharedPdfPendingCurrent || window.__vcSharedPdfPendingCurrent())) return;
+    // Navigate within the committed document without reloading.
+    if (sUrl === window._vcShownPdfUrl && window._vcShownPdfSession === annotationSession && window._vcShownPdfEpoch === shareEpoch && !(window.__vcSharedPdfPendingKey && window.__vcSharedPdfPendingKey !== key)) {
       window.__vcSharedPdfRequest = (window.__vcSharedPdfRequest || 0) + 1; // supersede an in-flight different book
-      /* 🔒 (2026-07-29) 방금 내가 넘긴 직후라면 폴링이 끌어가지 못하게 한다.
-         [문제] 넘긴 내용이 서버에 아직 반영되지 않았거나 전송이 막힌 경우, 3초 폴링이
-                옛 페이지(대개 1페이지)로 되돌려 버렸다. 강사가 "넘겨도 첫 페이지만 보인다"고
-                한 증상. 내가 조작 중일 때는 내 화면이 우선이다(5초). */
+      // Preserve local page navigation for five seconds while its broadcast catches up.
       if (Date.now() - (window._vcPdfLocalNavAt || 0) < 5000) {
-        try { window._pdfSyncShownKey && window._pdfSyncShownKey(); } catch(_){}   // 다른 <script> 블록이라 window 경유
+        try { window._pdfSyncShownKey && window._pdfSyncShownKey(); } catch(_){}
         return;
       }
       window._vcShownPdfKey = key;
@@ -635,7 +639,7 @@ window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName, fromTe
     var room = vcRoomId, self = vcUserId, conn = vcConn, account = vcAccountSnapshot();
     function current(){
       return window.__vcSharedPdfRequest === request && vcRoomId === room && vcUserId === self
-        && vcConn === conn && vcAccountSnapshot() === account;
+        && vcConn === conn && vcAccountSnapshot() === account && window.__vcPdfShareEpoch === shareEpoch;
     }
     function loadCurrent(kind){
       try { return Promise.resolve(current() ? pdfLoad(sUrl, kind, current) : undefined); }
@@ -645,10 +649,10 @@ window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName, fromTe
     window.__vcSharedPdfPendingKey = key;
     window.__vcSharedPdfPendingCurrent = current;
     var priorAnnotations = window.__vcPdfAnnoContext;
-    var sameAnnotations = priorAnnotations && priorAnnotations.current() && priorAnnotations.pending && !priorAnnotations.failed && priorAnnotations.url === sUrl && priorAnnotations.session === annotationSession;
-    var annotationContext = { url: sUrl, session: annotationSession, pending: true, failed: false, createdAt: sameAnnotations ? priorAnnotations.createdAt : Date.now(),
+    var sameAnnotations = priorAnnotations && priorAnnotations.current() && priorAnnotations.pending && !priorAnnotations.failed && priorAnnotations.url === sUrl && priorAnnotations.session === annotationSession && priorAnnotations.shareEpoch === shareEpoch;
+    var annotationContext = { url: sUrl, session: annotationSession, shareEpoch: shareEpoch, pending: true, failed: false, createdAt: sameAnnotations ? priorAnnotations.createdAt : Date.now(),
       current: function(){ return window.__vcPdfAnnoContext === annotationContext && vcRoomId === room && vcUserId === self
-        && vcConn === conn && vcAccountSnapshot() === account; },
+        && vcConn === conn && vcAccountSnapshot() === account && window.__vcPdfShareEpoch === shareEpoch; },
       queue: sameAnnotations ? priorAnnotations.queue : [], bytes: sameAnnotations ? priorAnnotations.bytes : 0 };
     window.__vcPdfAnnoContext = annotationContext;
     try { if (typeof pdfCurrentId !== 'undefined') pdfCurrentId = sPid || sUrl; } catch(_){}
@@ -659,7 +663,7 @@ window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName, fromTe
       window.__vcSharedPdfPendingKey = '';
       window.__vcSharedPdfPendingCurrent = null;
       if (loaded === false) { if (window.__vcPdfAnnoContext) { window.__vcPdfAnnoContext.failed = true; window.__vcPdfAnnoContext.queue = []; } window._vcShownPdfKey = ''; window._vcShownPdfUrl = ''; return; }
-      window._vcShownPdfSession = annotationSession;
+      window._vcShownPdfSession = annotationSession; window._vcShownPdfEpoch = shareEpoch;
       window._vcShownPdfUrl = sUrl;  // 현재 교재 URL 기록 (이후 페이지 이동은 재로드 없이)
       try { if (typeof pdfPageNum !== 'undefined') pdfPageNum = currentPage || 1; } catch(_){}
       try { if (typeof pdfRender === 'function') pdfRender(); } catch(_){}
@@ -673,7 +677,7 @@ window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName, fromTe
         window.__vcSharedPdfPendingKey = '';
       window.__vcSharedPdfPendingCurrent = null;
         if (loaded === false) { if (window.__vcPdfAnnoContext) { window.__vcPdfAnnoContext.failed = true; window.__vcPdfAnnoContext.queue = []; } window._vcShownPdfKey = ''; window._vcShownPdfUrl = ''; return; }
-        window._vcShownPdfSession = annotationSession;
+        window._vcShownPdfSession = annotationSession; window._vcShownPdfEpoch = shareEpoch;
       window._vcShownPdfUrl = sUrl;
         try { if (typeof pdfPageNum !== 'undefined') pdfPageNum = currentPage || 1; } catch(_){}
         try { if (typeof pdfRender === 'function') pdfRender(); } catch(_){}
@@ -716,7 +720,8 @@ window.vcStartPdfPoll = function(){
           .then(function(d){
             if (!d || !current()) return;
             applied = request;
-            if (d.pdfState && d.pdfState.url) window.vcApplySharedPdf(d.pdfState.url, d.pdfState.kind, d.pdfState.currentPage, d.pdfState.pdfId, d.pdfState.name, false, d.pdfState.annotationSession);
+            var pdfCurrent = !window.vcPdfEpochSnapshot || window.vcPdfEpochSnapshot(d);
+            if (pdfCurrent && d.pdfState && d.pdfState.url) window.vcApplySharedPdf(d.pdfState.url, d.pdfState.kind, d.pdfState.currentPage, d.pdfState.pdfId, d.pdfState.name, false, d.pdfState.annotationSession, d.pdfState.shareEpoch, d.pdfState.shareRevision);
             if (d.videoState && d.videoState.url) window.vcApplySharedVideo(d.videoState.url);
           }).catch(function(){});
       } catch(_){}
@@ -4190,7 +4195,7 @@ function vcPdfAnnotationModuleError() {
     if ((window.__vcEarlyPdfAnnotations || []).length && window.__vcPdfAnnotationModuleRetries < 3) setTimeout(vcEnsurePdfAnnotationModule, 3000);
     try { showToast('필기 복원을 잠시 사용할 수 없습니다. 연결 후 다시 시도해 주세요.'); } catch (_) {}
 }
-try { window.addEventListener('online', function(){ window.__vcPdfAnnotationModuleRetries = 0; vcEnsurePdfAnnotationModule(); }); } catch (_) {}
+try { window.addEventListener('online', function(){ window.__vcPdfAnnotationModuleRetries = 0; vcEnsurePdfAnnotationModule(); window.__vcPdfEpochRetries = 0; if (window.__vcPdfShareEpoch || window.__vcPdfEpochUnavailable) vcEnsurePdfEpochModule(); }); } catch (_) {}
 function vcPdfAnnotationGate(msg) {
     if (!/^pdf-anno-(start|point|text|shape|clear|undo|replay)$/.test(msg.type)) return false;
     // No active/pending document: do not retain operations across share-stop.
@@ -4211,12 +4216,20 @@ function vcPdfAnnotationGate(msg) {
 }
 
 function vcHandleMessage(msg) {
+    const sourceSocket = arguments[1];
+    if (sourceSocket && sourceSocket !== vcConn?.ws && (/^pdf-/.test(msg.type) || msg.type === 'room-joined' || msg.type === 'existing-users')) return;
+    if (window.vcPdfEpochReceive) { if (window.vcPdfEpochReceive(msg)) return; }
+    else if (msg.data && (msg.data.shareEpoch || msg.data.epochReady === false)) {
+        vcEnsurePdfEpochModule();
+        window.__vcPdfEpochBootstrap = msg;
+        if (msg.type === 'room-joined') window.__vcPdfEpochJoinBootstrap = { msg, owner: [vcRoomId, vcAccountSnapshot(), vcConn, sourceSocket || vcConn?.ws] };
+        window.__vcPdfEpochUnavailable = msg.data.epochReady === false;
+        if (msg.data.shareEpoch) vcAcceptPdfShareEpoch(msg.data.shareEpoch, msg.data.shareRevision);
+    }
     if (vcPdfAnnotationGate(msg)) return;
     switch (msg.type) {
         case 'room-joined': {
-            // 🔁 (2026-07-24) 무중단 재연결 판단 — onopen 에서 보류한 '기존 연결 정리'를 여기서 결정한다.
-            //   재연결인데 서버가 '같은 userId' 를 돌려줬다 = 정체성 유지 = 살아있는 PeerConnection 을 그대로 둔다.
-            //   userId 가 바뀌었다(스위치 off/첫 입장) = 예전처럼 전부 정리한다(안전한 쪽, 기존 동작 그대로).
+            // Sticky reconnect retains peers when the server identity is unchanged.
             const _prevUserId = vcUserId;
             const _wasReconnect = !!window.__vcWasReconnect;
             window.__vcWasReconnect = false;
@@ -4283,7 +4296,7 @@ function vcHandleMessage(msg) {
                 }
                 if (/^blob:/i.test(jUrl)) { /* 로컬 blob 은 다른 기기에서 못 엶 — 무시 */ }
                 else if (/^https?:\/\//i.test(jUrl) || jUrl.charAt(0) === '/') {
-                    window.vcApplySharedPdf(jUrl, jKind, msg.data.pdfState.currentPage, msg.data.pdfState.pdfId, msg.data.pdfState.name, false, msg.data.pdfState.annotationSession);
+                    window.vcApplySharedPdf(jUrl, jKind, msg.data.pdfState.currentPage, msg.data.pdfState.pdfId, msg.data.pdfState.name, false, msg.data.pdfState.annotationSession, msg.data.pdfState.shareEpoch, msg.data.pdfState.shareRevision);
                 } else {
                     var epdfId = msg.data.pdfState.pdfId || jUrl.replace('/api/video-call/pdf/', '');
                     if (epdfId) pdfLoadRemote(epdfId, msg.data.pdfState.currentPage, jKind);
@@ -4548,7 +4561,7 @@ function vcHandleMessage(msg) {
             if (sUrl && (/^https?:\/\//i.test(sUrl) || sUrl.charAt(0) === '/')) {
                 // 서버/절대 URL — 통합 함수로 직접 로드 (cross-device). 폴링과 동일 경로라 중복 로드 없음.
                 // ← 마지막 true = «교사가 지금 연 것». 학생 화면을 교재로 데려온다(위 함수 주석 참고)
-                window.vcApplySharedPdf(sUrl, msg.data.kind, msg.data.currentPage, sPid, msg.data.name, true, msg.data.annotationSession);
+                window.vcApplySharedPdf(sUrl, msg.data.kind, msg.data.currentPage, sPid, msg.data.name, true, msg.data.annotationSession, msg.data.shareEpoch, msg.data.shareRevision);
                 break;
             }
             // 화상수업 업로드 PDF (PDF_STORE) — 서버 엔드포인트로 로드
@@ -12036,7 +12049,7 @@ async function pdfUpload(input) {
 
 async function pdfLoad(url, kind) {
     const isCurrent = arguments[2]; // Optional shared-request guard; existing two-argument callers are unchanged.
-    const generation = ++pdfLoadGeneration, accountAtStart = vcAccountSnapshot();
+    const generation = ++pdfLoadGeneration, accountAtStart = vcAccountSnapshot(), epochAtStart = window.__vcPdfShareEpoch;
     const roomAtStart = typeof vcRoomId === 'undefined' ? '' : vcRoomId || '';
     const pendingText = document.getElementById('ph265-textinput');
     if (pendingText) pendingText.blur();
@@ -12076,7 +12089,7 @@ async function pdfLoad(url, kind) {
             disableStream: false
         }).promise;
     }
-    if ((typeof isCurrent === 'function' && !isCurrent()) || generation !== pdfLoadGeneration || accountAtStart !== vcAccountSnapshot()
+    if ((typeof isCurrent === 'function' && !isCurrent()) || generation !== pdfLoadGeneration || accountAtStart !== vcAccountSnapshot() || epochAtStart !== window.__vcPdfShareEpoch
         || roomAtStart !== (typeof vcRoomId === 'undefined' ? '' : vcRoomId || '')) return false;
     if (typeof isCurrent !== 'function') {
         window.__vcPdfAnnoContext = null;
@@ -12490,15 +12503,15 @@ function pdfBindAnnoEvents(annoId) {
 
 // Scope every drawing gesture to the document and participant that started it.
 function pdfAnnotationScope(anno) {
-    const doc = pdfDoc, url = window._vcCurrentPdfUrl, session = window.__vcPdfAnnotationSession;
+    const doc = pdfDoc, url = window._vcCurrentPdfUrl, session = window.__vcPdfAnnotationSession, epoch = window.__vcPdfShareEpoch;
     const room = vcRoomId, self = vcUserId, conn = vcConn, account = vcAccountSnapshot();
     const source = window.__vcPdfAnnotationSource, revision = anno && anno.__pdfAnnotationRevision;
     const normalize = value => { try { return new URL(value, location.origin).href; } catch (_) { return ''; } };
     let warned = false;
-    return { documentUrl: source && normalize(source) === normalize(url) ? source : url, annotationSession: session,
+    return { documentUrl: source && normalize(source) === normalize(url) ? source : url, annotationSession: session, shareEpoch: epoch,
         current(fresh) {
             const pending = window.__vcPdfAnnoContext;
-            const ok = !!doc && !!url && pdfDoc === doc && window._vcCurrentPdfUrl === url
+            const ok = !window.__vcPdfEpochControlPending && !window.__vcPdfEpochUnavailable && window.__vcPdfShareEpoch === epoch && !!doc && !!url && pdfDoc === doc && window._vcCurrentPdfUrl === url
                 && window.__vcPdfAnnotationSession === session && vcRoomId === room
                 && (fresh || (vcUserId === self && vcConn === conn)) && vcAccountSnapshot() === account && (!anno || (anno.isConnected !== false && anno.__pdfAnnotationRevision === revision))
                 && (!pending || !pending.pending || normalize(pending.url) === normalize(url));
@@ -12510,8 +12523,9 @@ function pdfAnnotationScope(anno) {
 function pdfAnnoSend(type, data, scope) {
     scope = scope || pdfAnnotationScope();
     if (!scope.current() || (data.documentUrl != null && data.documentUrl !== scope.documentUrl)
-        || (data.annotationSession != null && data.annotationSession !== scope.annotationSession)) return false;
-    data = Object.assign({}, data, { documentUrl: scope.documentUrl, annotationSession: scope.annotationSession });
+        || (data.annotationSession != null && data.annotationSession !== scope.annotationSession)
+        || (data.shareEpoch != null && data.shareEpoch !== scope.shareEpoch)) return false;
+    data = Object.assign({}, data, { documentUrl: scope.documentUrl, annotationSession: scope.annotationSession, shareEpoch: scope.shareEpoch });
     try { if (typeof vcConn !== 'undefined' && vcConn) { vcConn.send({ type, data }); return true; } } catch(_){}
     return false;
 }
@@ -12944,7 +12958,7 @@ function _pdfBroadcastPage() {
     _pdfBcTimer = setTimeout(function () {
         _pdfBcTimer = null;
         if (!scope.current()) return;
-        try { vcConn.send({ type: 'pdf-page-change', data: { currentPage: page, documentUrl: source, annotationSession: session } }); } catch (e) {}
+        try { vcConn.send({ type: 'pdf-page-change', data: { currentPage: page, documentUrl: source, annotationSession: session, shareEpoch: scope.shareEpoch } }); } catch (e) {}
     }, 150);
 }
 async function pdfPrevPage() {
@@ -13219,7 +13233,7 @@ window.pdfClosePageList = pdfClosePageList;
 function pdfStopShare() {
     /* 📚 (2026-08-12 Melca 7번) 학생이 누르면 **반 전체의 교재가 사라진다** — 강사·관리자만. */
     if (!window.vcCanControlTextbook()) { window.vcTextbookDenied(); return; }
-    var stoppedDocument = { annotationSession: window.__vcPdfAnnotationSession, documentUrl: window.__vcPdfAnnoContext ? window.__vcPdfAnnotationSource : pdfAnnotationScope().documentUrl };
+    var stoppedDocument = { shareEpoch: window.__vcPdfShareEpoch, annotationSession: window.__vcPdfAnnotationSession, documentUrl: window.__vcPdfAnnoContext ? window.__vcPdfAnnotationSource : pdfAnnotationScope().documentUrl };
     vcResetEarlyPdfAnnotations();
     window.__vcPdfAnnoContext = null;
     window.__vcPdfAnnotationSession = undefined; window.__vcPdfAnnotationSource = '';

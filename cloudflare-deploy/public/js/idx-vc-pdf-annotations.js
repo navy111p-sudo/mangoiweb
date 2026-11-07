@@ -54,6 +54,7 @@ function pdfReceivePointerReady(d) {
 }
 function vcPdfAnnotationGate(msg) {
     if (!/^pdf-anno-(start|point|text|shape|clear|undo|replay)$/.test(msg.type)) return false;
+    if (window.__vcPdfShareEpoch && msg.data?.shareEpoch !== window.__vcPdfShareEpoch) return true;
     var ctx = window.__vcPdfAnnoContext;
     if (ctx && !ctx.current()) return true;
     if (typeof msg.data?.annotationSession === 'number' && msg.data.annotationSession !== window.__vcPdfAnnotationSession) return true;
