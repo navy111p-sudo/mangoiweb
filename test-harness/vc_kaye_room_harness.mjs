@@ -62,4 +62,43 @@ await test('PDF opt-in without SQLite fails closed while default-off legacy rema
 await test('opt-in SQL commit publishes even if compatibility KV storage fails',async()=>{const w=world('off','on');try{const t=socket('t'),s=socket('s','student');w.sockets.push(t,s);let r=await w.room();const put=w.state.storage.put,del=w.state.storage.delete;w.state.storage.put=async()=>{throw Error('synthetic compatibility put')};await r.handlePdfShare('t',t.deserializeAttachment(),{annotationSession:r.pdfGeneration,url:'/committed.pdf'});assert.ok(s.messages.some(m=>m.type==='pdf-sync'&&m.data.url==='/committed.pdf'));await r.handlePdfPageChange('t',t.deserializeAttachment(),{annotationSession:r.pdfGeneration,documentUrl:'/committed.pdf',currentPage:4});assert.equal(r.pdfState.currentPage,4);w.state.storage.delete=async()=>{throw Error('synthetic compatibility delete')};await r.handlePdfStopShare('t',t.deserializeAttachment(),{annotationSession:r.pdfGeneration,documentUrl:'/committed.pdf'});assert.ok(s.messages.some(m=>m.type==='pdf-stop-share'));w.state.storage.put=put;w.state.storage.delete=del;r=await w.room();assert.equal(r.pdfState,null)}finally{w.close()}});
 await test('runtime environment flags alone cannot activate either unsafe replay prototype',async()=>{const w=world('on','on',true,false);try{const t=socket('t');w.sockets.push(t);const r=await w.room();assert.equal(r.pdfHistoryEnabled,false);assert.equal(r.wbHistoryEnabled,false);await draw(r,t);await r.handlePdfShare('t',t.deserializeAttachment(),{url:'/memory-only.pdf'});assert.equal(w.sq.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE name LIKE 'vc_whiteboard_%' OR name LIKE 'vc_pdf_%'").get().n,0)}finally{w.close()}});
 await test('normal runtime never probes experimental SQL, including a throwing legacy getter',async()=>{const w=world('on','on',true,false);try{Object.defineProperty(w.state.storage,'sql',{get(){throw Error('legacy SQL getter unavailable')}});const t=socket('t');w.sockets.push(t);const r=await w.room();await r.handlePdfShare('t',t.deserializeAttachment(),{url:'/legacy.pdf'});assert.equal(r.pdfState.url,'/legacy.pdf');assert.equal(r.recordPdfAnno('pdf-anno-text',{page:1,stroke:{text:'legacy'}}),true);await draw(r,t);assert.equal(r.wbOps.length,1)}finally{w.close()}});
+
+for (const mode of ['off', 'default-runtime', 'prototype']) {
+    await test('explicit stale PDF document cannot be relabeled in ' + mode, async () => {
+        const w = world('off', mode === 'off' ? 'off' : 'on', true, mode === 'prototype');
+        try {
+            const t = socket('t'), peer = socket('peer', 'student');
+            w.sockets.push(t, peer);
+            const r = await w.room();
+            await r.handlePdfShare('t', t.deserializeAttachment(), { url: '/B.pdf', annotationSession: r.pdfGeneration });
+            const before = JSON.stringify(r.pdfAnnoOps);
+            for (const type of ['pdf-anno-start', 'pdf-anno-point', 'pdf-anno-text', 'pdf-anno-clear']) {
+                peer.messages.length = 0;
+                await r.webSocketMessage(t, JSON.stringify({ type, data: {
+                    documentUrl: '/A.pdf', annotationSession: r.pdfHistoryEnabled ? r.pdfGeneration : undefined,
+                    page: 1, id: 'old-A', point: [0, 0], stroke: { text: 'old A' }, pages: [1]
+                }}));
+                assert.ok(!peer.messages.some(m => m.type === type));
+                assert.equal(JSON.stringify(r.pdfAnnoOps), before);
+            }
+            peer.messages.length = 0;
+            await r.webSocketMessage(t, JSON.stringify({ type: 'pdf-anno-text', data: {
+                documentUrl: '/B.pdf', annotationSession: r.pdfHistoryEnabled ? r.pdfGeneration : undefined,
+                page: 1, stroke: { text: 'valid B' }
+            }}));
+            assert.ok(peer.messages.some(m => m.type === 'pdf-anno-text' && m.data.documentUrl === '/B.pdf'));
+        } finally { w.close(); }
+    });
+}
+
+await test('default-off legacy missing document proof still relays while explicit malformed proof is held',async()=>{
+    const w=world('off','off');try{const t=socket('t'),peer=socket('peer','student');w.sockets.push(t,peer);const r=await w.room();
+    await r.handlePdfShare('t',t.deserializeAttachment(),{url:'/B.pdf'});peer.messages.length=0;
+    await r.webSocketMessage(t,JSON.stringify({type:'pdf-anno-text',data:{page:1,stroke:{text:'legacy'}}}));
+    assert.ok(peer.messages.some(m=>m.type==='pdf-anno-text'));
+    peer.messages.length=0;
+    await r.webSocketMessage(t,JSON.stringify({type:'pdf-anno-text',data:{documentUrl:42,page:1,stroke:{text:'invalid'}}}));
+    assert.ok(!peer.messages.some(m=>m.type==='pdf-anno-text'));
+    }finally{w.close()}
+});
 console.log(`${pass} PASS / ${fail} FAIL (actual DO methods; synthetic sockets + SQLite; reconstruction models eviction, not live hibernation)`);process.exitCode=fail?1:0;

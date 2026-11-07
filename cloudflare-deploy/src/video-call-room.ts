@@ -566,7 +566,7 @@ export class VideoCallRoom {
           /* ✍️ (2026-08-12 Melca) 교재 판서도 기록 — 늦게 들어온 강사에게 pdf-anno-replay 로 돌려준다 */
           if (msg.type.startsWith('pdf-anno-')) {
             if (!this.pdfState) { if (this.pdfHistoryEnabled) this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfGeneration } }); break; } // stopped documents have no live annotation channel
-            if (this.pdfHistoryEnabled && (this.pdfHistoryPending || msg.data?.annotationSession !== this.pdfGeneration || msg.data?.documentUrl !== this.pdfAnnoDocUrl)) { this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); break; }
+            if ((msg.data?.documentUrl != null && msg.data.documentUrl !== this.pdfState.url) || (this.pdfHistoryEnabled && (this.pdfHistoryPending || msg.data?.annotationSession !== this.pdfGeneration || msg.data?.documentUrl !== this.pdfAnnoDocUrl))) { this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); break; }
             if (!this.recordPdfAnno(msg.type, msg.data)) break;
           }
           this.broadcast(userId, { type: msg.type, data: msg.type.startsWith('pdf-anno-') ? { ...msg.data, documentUrl: this.pdfState!.url, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } : msg.data });

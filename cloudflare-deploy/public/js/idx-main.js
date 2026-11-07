@@ -12266,6 +12266,8 @@ function pdfSyncAnnoCanvas(annoId, pdfCanvas, pageNum) {
     anno.style.width = pdfCanvas.style.width || (pdfCanvas.width + 'px');
     anno.style.height = pdfCanvas.style.height || (pdfCanvas.height + 'px');
     anno.dataset.page = pageNum;
+    anno.__pdfAnnotationRevision = (anno.__pdfAnnotationRevision || 0) + 1;
+    anno.__pdfAnnotationScope = pdfAnnotationScope(anno);
     pdfRedrawAnno(anno, pageNum);
     pdfBindAnnoEvents(annoId);
     pdfApplyIdentity();   // 역할별 기본색 + 필기자 범례 (1회)
@@ -12367,15 +12369,18 @@ function pdfBindAnnoEvents(annoId) {
     const anno = document.getElementById(annoId);
     if (!anno || anno._bound) return;
     anno._bound = true;
-    let drawing = false, currentStroke = null;
+    let drawing = false, currentStroke = null, drawScope = null;
+    const boundScope = pdfAnnotationScope(anno);
     function pos(e) {
         const r = anno.getBoundingClientRect();
         return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height];
     }
     anno.addEventListener('pointerdown', (e) => {
         if (pdfDrawTool === 'none') return;
-        /* ✋ (2026-07-28 강사 피드백 Kaye 9번) "학생이 칠판·교재에 낙서한다 — 교사가 막을 수 있게"
-           교사가 잠그면 학생 쪽 그리기를 여기서 멈춘다. 교사·관리자 자신은 영향 없음. */
+        const canvasScope = anno.__pdfAnnotationScope || boundScope;
+        if (!canvasScope.current(true)) return;
+        const scope = pdfAnnotationScope(anno);
+        // Drawing lock still permits staff input.
         if (window.__pdfStudentDrawLock && !(typeof vcIsStaffNow === 'function' ? vcIsStaffNow()
                 : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin'))) {
             e.preventDefault();
@@ -12388,9 +12393,7 @@ function pdfBindAnnoEvents(annoId) {
             }
             return;
         }
-        /* ➡️ (2026-07-31) 콕 찍기 — 잉크를 남기지 않고 '머무는 표시'만 찍는다.
-           레이저는 손을 떼면 사라져서, 한 곳을 가리키며 설명하는 동안 유지가 안 된다는
-           강사 요청에서 나온 도구. 다음에 찍거나 '지우기'를 누를 때까지 그 자리에 남는다. */
+        // Sticky pointer: retained until replaced or cleared.
         if (pdfDrawTool === 'arrow') {
             e.preventDefault();
             const _r  = anno.getBoundingClientRect();
@@ -12401,19 +12404,19 @@ function pdfBindAnnoEvents(annoId) {
                 y: (e.clientY - _r.top)  / _r.height,
                 name: _me.name, color: _me.color, sticky: true
             };
-            pdfReceivePointer(_d);              // 내 화면에도 즉시 표시
-            pdfAnnoSend('pdf-pointer', _d);     // 상대 화면에 전송
+            pdfReceivePointer(_d);
+            pdfAnnoSend('pdf-pointer', _d, scope);
             return;
         }
         const color = document.getElementById('pdf-anno-color').value;
         const size  = parseInt(document.getElementById('pdf-anno-size').value) || 3;
         const pageNum = parseInt(anno.dataset.page);
-        // ph265: 텍스트 도구 — 클릭 위치에 input 띄우기
+
         if (pdfDrawTool === 'text') {
             e.preventDefault();
             const rect = anno.getBoundingClientRect();
             const fontSize = Math.max(14, size * 6);
-            // 기존 input 있으면 제거
+
             const old = document.getElementById('ph265-textinput');
             if (old) old.remove();
             const inp = document.createElement('input');
@@ -12430,13 +12433,13 @@ function pdfBindAnnoEvents(annoId) {
                 inp._committed = true;
                 const txt = inp.value.trim();
                 inp.remove();
-                if (!txt) return;
+                if (!txt || !scope.current()) return;
                 if (!pdfAnnotations[pageNum]) pdfAnnotations[pageNum] = [];
                 const tstroke = { tool:'text', text:txt, color:color, size:size, x:px, y:py, fontSize:fontSize };
                 pdfAnnotations[pageNum].push(tstroke);
                 pdfRedrawAnno(anno, pageNum);
-                // 🔄 상대에게 텍스트 주석 전송
-                pdfAnnoSend('pdf-anno-text', { page: pageNum, stroke: tstroke });
+
+                pdfAnnoSend('pdf-anno-text', { page: pageNum, stroke: tstroke }, scope);
             }
             inp.addEventListener('keydown', (ev) => {
                 if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
@@ -12445,51 +12448,67 @@ function pdfBindAnnoEvents(annoId) {
             inp.addEventListener('blur', commit);
             return;
         }
-        drawing = true;
+        drawing = true; drawScope = scope;
         anno.setPointerCapture(e.pointerId);
         const sid = pdfNewStrokeId();
         const p0 = pos(e);
-        // _t = 마지막으로 점이 찍힌 시각 — ✨ 사라지는 펜이 이 값으로 수명을 잰다
+        // _t drives transient-ink expiry.
         currentStroke = { tool: pdfDrawTool, color, size, points: [p0], _id: sid, _t: Date.now() };
         if (!pdfAnnotations[pageNum]) pdfAnnotations[pageNum] = [];
         pdfAnnotations[pageNum].push(currentStroke);
-        // 🔄 상대에게 획 시작 전송 (id 로 이어붙임)
-        pdfAnnoSend('pdf-anno-start', { page: pageNum, id: sid, tool: pdfDrawTool, color, size, point: p0 });
+
+        pdfAnnoSend('pdf-anno-start', { page: pageNum, id: sid, tool: pdfDrawTool, color, size, point: p0 }, drawScope);
     });
     anno.addEventListener('pointermove', (e) => {
-        if (!drawing || !currentStroke) return;
+        if (!drawing || !currentStroke || !drawScope.current()) return;
         const pt = pos(e);
         currentStroke.points.push(pt);
-        currentStroke._t = Date.now();          // ✨ 사라지는 펜 수명 갱신
+        currentStroke._t = Date.now();
         const pageNum = parseInt(anno.dataset.page);
         pdfRedrawAnno(anno, pageNum);
-        // 🔄 상대에게 좌표 추가 전송
-        pdfAnnoSend('pdf-anno-point', { page: pageNum, id: currentStroke._id, point: pt });
+
+        pdfAnnoSend('pdf-anno-point', { page: pageNum, id: currentStroke._id, point: pt }, drawScope);
     });
     function endDraw() {
-        // ✨ AI 도형 정리: 펜 자유선을 도형/축으로 자동 변환 (실패 시 원본 유지)
-        if (drawing && currentStroke && currentStroke.tool === 'pen' && wbAiMode) {
-            try { pdfTryBeautify(anno, currentStroke); } catch (e) { console.warn('[pdf-ai] 도형 정리 실패', e); }
+        // Shape detection is local; keep the original on failure.
+        if (drawing && currentStroke && drawScope.current() && currentStroke.tool === 'pen' && wbAiMode) {
+            try { pdfTryBeautify(anno, currentStroke, drawScope); } catch (e) { console.warn('[pdf-ai] 도형 정리 실패', e); }
         }
-        drawing = false; currentStroke = null;
+        drawing = false; currentStroke = null; drawScope = null;
     }
     anno.addEventListener('pointerup', endDraw);
     anno.addEventListener('pointerleave', endDraw);
     anno.addEventListener('pointercancel', endDraw);
-    // 🔴 레이저 포인터 — '보기' 모드에서 마우스 위치를 상대에게 점으로 표시
+
     pdfBindLaser(anno);
 }
 
-/* ================================================================
-   7a. 교재 위 양방향 판서 — 실시간 동기화 (교사·학생 모두 그리기 가능)
-   ──────────────────────────────────────────────────────────────────
-   - pdf-anno-start/point/text/clear/undo : 그리기 동기화
-   - pdf-pointer : 레이저 포인터(보기 모드)
-   - 필기자 구분 : 역할별 기본 색(교사=빨강, 학생=파랑)
-================================================================ */
-function pdfAnnoSend(type, data) {
-    data = Object.assign({}, data, { documentUrl: window.__vcPdfAnnotationSource || window._vcCurrentPdfUrl, annotationSession: window.__vcPdfAnnotationSession });
-    try { if (typeof vcConn !== 'undefined' && vcConn) vcConn.send({ type, data }); } catch(_){}
+// Scope every drawing gesture to the document and participant that started it.
+function pdfAnnotationScope(anno) {
+    const doc = pdfDoc, url = window._vcCurrentPdfUrl, session = window.__vcPdfAnnotationSession;
+    const room = vcRoomId, self = vcUserId, conn = vcConn, account = vcAccountSnapshot();
+    const source = window.__vcPdfAnnotationSource, revision = anno && anno.__pdfAnnotationRevision;
+    const normalize = value => { try { return new URL(value, location.origin).href; } catch (_) { return ''; } };
+    let warned = false;
+    return { documentUrl: source && normalize(source) === normalize(url) ? source : url, annotationSession: session,
+        current(fresh) {
+            const pending = window.__vcPdfAnnoContext;
+            const ok = !!doc && !!url && pdfDoc === doc && window._vcCurrentPdfUrl === url
+                && window.__vcPdfAnnotationSession === session && vcRoomId === room
+                && (fresh || (vcUserId === self && vcConn === conn)) && vcAccountSnapshot() === account && (!anno || (anno.isConnected !== false && anno.__pdfAnnotationRevision === revision))
+                && (!pending || !pending.pending || normalize(pending.url) === normalize(url));
+            if (!ok && !warned) { warned = true; try { showToast('교재가 바뀌어 이전 필기 입력을 중단했습니다.'); } catch (_) {} }
+            return ok;
+        }
+    };
+}
+function pdfAnnoSend(type, data, scope) {
+    scope = scope || pdfAnnotationScope();
+    if (!scope.current() || (data.documentUrl != null && data.documentUrl !== scope.documentUrl)
+        || (data.annotationSession != null && data.annotationSession !== scope.annotationSession)) return false;
+    data = Object.assign({}, data, { documentUrl: scope.documentUrl, annotationSession: scope.annotationSession });
+    try { if (typeof vcConn !== 'undefined' && vcConn) { vcConn.send({ type, data }); return true; } } catch(_){}
+    return false;
 }
 function pdfNewStrokeId() {
     return (vcUsername || 'u') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
@@ -12497,8 +12516,7 @@ function pdfNewStrokeId() {
 // 현재 사용자 식별(역할/이름/색)
 function pdfMyIdentity() {
     var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-    /* 🎭 (2026-08-08 Ana ①) 여기서 낡은 'teacher' 를 집으면 **학생 펜이 강사와 같은 빨강** 이 된다.
-       "학생이 그린 게 안 보인다" 는 신고에는 «구분이 안 된다» 도 섞여 있다 → 주인 확인을 거친다. */
+    // Prefer the current account role over stale room metadata.
     var role = (u && u.role) || (window.vcRoleStored ? window.vcRoleStored() : '') || 'student';
     var name = vcUsername || (u && u.name) || '참가자';
     var color = (role === 'teacher' || role === 'admin') ? '#ef4444' : '#2563eb';
@@ -12529,17 +12547,10 @@ function pdfApplyIdentity() {
         }
     });
 
-    /* ⌨️ (2026-07-21) 교재 페이지 넘기기 = 키보드 화살표 — 교사 피드백 반영
-       ← / PageUp = 이전,  → / PageDown = 다음.
-       입력창·채팅에 타이핑 중이거나 조합키(Ctrl/Alt/Meta)면 무시 → 기존 단축키와 충돌 없음. */
+    // Page navigation broadcasts to everyone: staff only, outside editing fields.
     document.addEventListener('keydown', function(e){
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'PageUp' && e.key !== 'PageDown') return;
         if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
-        /* 🔒 강사/관리자만 — 교재 페이지는 수업 전체에 방송되므로 학생이 화살표로
-           반 전체의 교재를 넘겨버릴 수 있었다(2026-07-21 화살표 기능 추가 시 생긴 구멍).
-           버튼은 원래 강사 UI 안에만 있어 노출되지 않았지만, 키보드는 화면 어디서나 먹는다.
-           ⌨️ (2026-08-07 Kaye 2번 "키보드로 교재가 안 넘어간다") 정확일치 대신 정본 판정을 쓴다 —
-              로비로 입장한 강사는 vcMyRole 이 비어 있어 여기서 조용히 걸렸다. */
         if (!(typeof vcIsStaffNow === 'function' ? vcIsStaffNow()
               : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin'))) return;
         if (!pdfDoc) return;                       // 교재가 떠 있을 때만
@@ -12602,7 +12613,9 @@ let _pdfRemoteStrokes = {};
 
 
 // ✨ 교재 펜 자유선 → 도형/축 자동 정리 (로컬)
-function pdfTryBeautify(anno, stroke) {
+function pdfTryBeautify(anno, stroke, scope) {
+    scope = scope || pdfAnnotationScope(anno);
+    if (!scope.current()) return;
     if (!stroke.points || stroke.points.length < 5) return;
     const W = anno.width, H = anno.height;
     const pxPts = stroke.points.map(p => [p[0] * W, p[1] * H]);
@@ -12616,7 +12629,7 @@ function pdfTryBeautify(anno, stroke) {
     if (idx >= 0) arr[idx] = shapeStroke; else arr.push(shapeStroke);
     pdfRedrawAnno(anno, pageNum);
     // 상대에게도 같은 id 의 획을 도형으로 교체하도록 전송
-    pdfAnnoSend('pdf-anno-shape', { page: pageNum, id: stroke._id, shape, color: stroke.color, size: stroke.size });
+    pdfAnnoSend('pdf-anno-shape', { page: pageNum, id: stroke._id, shape, color: stroke.color, size: stroke.size }, scope);
     try {
         if (typeof showToast === 'function') {
             const n = { line:'직선', rect:'사각형', ellipse:'원', triangle:'삼각형', axes:'좌표축' };
