@@ -441,6 +441,7 @@ console.log('\n[J] English idle prompt');
       _idleTimer: null, _idleShownForTurn: false, _warmPaused: false,
       sending: false, _recognizing: false, _speechOn: true, _audioUnlocked: true,
       _speechEverStarted: false, _ttsAudio: null, isZh: () => false,
+      warmupTurnPrompt: { text: "It's your turn! Try saying a few words." },
       document: { getElementById: (id) => ({ inp: { value: '' }, warmThought: { hidden: true } }[id]) },
       setTimeout: (fn, ms) => { timer = fn; delay = ms; return 1; },
       clearTimeout: () => { timer = null; },

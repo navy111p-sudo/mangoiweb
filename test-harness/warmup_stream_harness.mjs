@@ -438,10 +438,11 @@ ok('전제: 붙잡기 코드·load 리스너를 오려 냈다', !!vHold && vPart
 function visBox(coarse, search) {
   const V = { boots: 0, preps: 0, boot() { this.boots++; }, prepare() { this.preps++; return Promise.resolve(['cue']); } };
   const env = { V, loads: [], timers: [] };
+  const turnPrompt = H.match(/window\.warmupTurnPrompt = \{[\s\S]*?\n\};/)[0];
   const f = new Function('window', 'navigator', 'location', 'matchMedia', 'setTimeout', 'AvatarVisemes',
-    vHold[0] + '\n' + vParts.join('\n') + '\n' + vLoad + '\nreturn { wrap:_visemeWrap, hook:_autoHook, get hold(){ return _visHold; } };');
+    turnPrompt + '\n' + vHold[0] + '\n' + vParts.join('\n') + '\n' + vLoad + '\nreturn { wrap:_visemeWrap, hook:_autoHook, get hold(){ return _visHold; } };');
   const win = { AvatarVisemes: V, matchMedia: () => ({ matches: coarse }), addEventListener: (ev, fn) => { if (ev === 'load') env.loads.push(fn); } };
-  env.api = f(win, { connection: { saveData: false, effectiveType: '4g' } }, { search: search || '' }, win.matchMedia, (fn) => env.timers.push(fn), V);
+  env.api = f(win, { connection: { saveData: false, effectiveType: '4g' } }, { search: search || '', origin: 'https://warmup.test' }, win.matchMedia, (fn) => env.timers.push(fn), V);
   env.runLoad = () => { env.loads.forEach((fn) => fn()); env.timers.splice(0).forEach((fn) => fn()); };
   return env;
 }
@@ -453,6 +454,14 @@ if (vHold) {
     ok(label + ': 화면이 열려도(load) 엔진을 미리 켜지 않는다', b.api.hold === true && b.V.boots === 0);
     b.V.boot(); const pr = await b.V.prepare('blob:x');
     ok(label + ': boot·prepare 가 엔진을 안 켠다(prepare 는 곧바로 null — 소리 크기 입모양, 재생이 안 기다림)', b.V.boots === 0 && b.V.preps === 0 && pr === null);
+    for (const speaker of ['asteria', 'odysseus', 'thalia', 'aries']) {
+      const url = 'https://warmup.test/audio/warmup-turn-v1/' + speaker + '.mp3';
+      const cues = await b.V.prepare(url);
+      ok(label + ': prompt has voice-specific cues without booting analysis (' + speaker + ')',
+        new Set(cues?.map(cue => cue.value)).size > 2 && b.V.boots === 0 && b.V.preps === 0);
+    }
+    const foreign = await b.V.prepare('https://other.test/audio/warmup-turn-v1/asteria.mp3');
+    ok(label + ': only the bundled clip receives its timeline', foreign === null);
     b.api.hook('aiDone'); b.api.hook('reply');
     const pr2 = await b.V.prepare('blob:y');
     ok(label + ': 첫 인사가 끝나도(aiDone) 풀지 않는다', b.api.hold === true && b.V.boots === 0 && b.V.preps === 0 && pr2 === null);
