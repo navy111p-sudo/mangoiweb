@@ -114,4 +114,20 @@ await test('denied stop preserves active deferred annotations', async () => {
     await flush();
     assert.equal(h.c.pdfAnnotations[3][0]._id, 'fixture');
 });
+
+for(const action of ['page','stop'])await test('manual B '+action+' carries actual B rather than leftover A proof',async()=>{
+    const h=withRealLoader(),sent=[],timers=[];h.c.vcCanControlTextbook=()=>true;h.c.vcConn.send=m=>sent.push(m);
+    h.c.document.getElementById=()=>({blur(){},getContext:()=>({clearRect(){}})});
+    h.c.__vcPdfAnnotationSource='/A.png';const loading=h.c.pdfLoad('/B.png','image');h.loads[0].resolve({id:'B'});await loading;
+    h.c.setTimeout=f=>{timers.push(f);return timers.length};h.c.clearTimeout=()=>{};h.c._pdfSyncShownKey=()=>{};
+    const name=action==='page'?'_pdfBroadcastPage':'pdfStopShare';
+    vm.runInContext((action==='page'?'let _pdfBcTimer=null;':'')+ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text===name).getText(ast),h.c);
+    h.c[name]();if(action==='page')timers[0]();assert.equal(sent[0].data.documentUrl,'/B.png');
+});
+await test('delayed page cannot move the same book after account changes',async()=>{
+    const h=withRealLoader(),sent=[],timers=[];h.c.vcCanControlTextbook=()=>true;h.c.vcConn.send=m=>sent.push(m);
+    h.c.setTimeout=f=>{timers.push(f);return timers.length};h.c.clearTimeout=()=>{};h.c._pdfSyncShownKey=()=>{};h.c._vcCurrentPdfUrl='/book.png';
+    vm.runInContext('let _pdfBcTimer=null;'+ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='_pdfBroadcastPage').getText(ast),h.c);
+    h.c._pdfBroadcastPage();h.c.account='different';timers[0]();assert.equal(sent.length,0);
+});
 console.log(`${pass} PASS / ${fail} FAIL (synthetic translation/DOM/load promises only)`);process.exitCode=fail?1:0;

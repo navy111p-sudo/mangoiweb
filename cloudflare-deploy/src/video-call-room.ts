@@ -566,7 +566,7 @@ export class VideoCallRoom {
           /* ✍️ (2026-08-12 Melca) 교재 판서도 기록 — 늦게 들어온 강사에게 pdf-anno-replay 로 돌려준다 */
           if (msg.type.startsWith('pdf-anno-')) {
             if (!this.pdfState) { if (this.pdfHistoryEnabled) this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfGeneration } }); break; } // stopped documents have no live annotation channel
-            if ((msg.data?.documentUrl != null && msg.data.documentUrl !== this.pdfState.url) || (this.pdfHistoryEnabled && (this.pdfHistoryPending || msg.data?.annotationSession !== this.pdfGeneration || msg.data?.documentUrl !== this.pdfAnnoDocUrl))) { this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); break; }
+            if (!this.matchesClaimedPdfDocument(msg.data) || (this.pdfHistoryEnabled && (this.pdfHistoryPending || msg.data?.annotationSession !== this.pdfGeneration || msg.data?.documentUrl !== this.pdfAnnoDocUrl))) { this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); break; }
             if (!this.recordPdfAnno(msg.type, msg.data)) break;
           }
           this.broadcast(userId, { type: msg.type, data: msg.type.startsWith('pdf-anno-') ? { ...msg.data, documentUrl: this.pdfState!.url, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } : msg.data });
@@ -1318,6 +1318,11 @@ export class VideoCallRoom {
     return this.isJoined(userId) && (senderRole === 'teacher' || senderRole === 'admin');
   }
 
+  // Missing claims retain the legacy contract; explicit claims must match the active share.
+  private matchesClaimedPdfDocument(data: any): boolean {
+    return data?.documentUrl == null || data.documentUrl === this.pdfState?.url;
+  }
+
   private async handlePdfShare(userId: string, att: VcAttachment, data: any): Promise<void> {
     if (!this.staffOnly(userId, att)) return;
     const { url, currentPage, kind, name } = data || {};
@@ -1350,7 +1355,7 @@ export class VideoCallRoom {
   private async handlePdfPageChange(userId: string, att: VcAttachment, data: any): Promise<void> {
     const senderRole = (att.role || '').toLowerCase();
     if (!this.isJoined(userId) || (senderRole !== 'teacher' && senderRole !== 'admin')) return;
-    if (this.pdfHistoryEnabled && (!this.pdfState || data?.annotationSession !== this.pdfGeneration || data?.documentUrl !== this.pdfAnnoDocUrl)) { this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); return; }
+    if (!this.matchesClaimedPdfDocument(data) || (this.pdfHistoryEnabled && (!this.pdfState || data?.annotationSession !== this.pdfGeneration || data?.documentUrl !== this.pdfAnnoDocUrl))) { this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); return; }
     const committed = this.pdfState;
     const pageNum = (typeof data === 'number') ? data
       : (typeof data?.pageNum === 'number' ? data.pageNum
@@ -1372,7 +1377,7 @@ export class VideoCallRoom {
 
   private async handlePdfStopShare(userId: string, att: VcAttachment, data?: any): Promise<void> {
     if (!this.staffOnly(userId, att)) return;
-    if (this.pdfHistoryEnabled && (data?.annotationSession !== this.pdfGeneration || data?.documentUrl !== this.pdfAnnoDocUrl)) { this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); return; }
+    if ((this.pdfState && !this.matchesClaimedPdfDocument(data)) || (this.pdfHistoryEnabled && (data?.annotationSession !== this.pdfGeneration || data?.documentUrl !== this.pdfAnnoDocUrl))) { this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); return; }
     const previous = this.pdfState; this.pdfState = null;
     try { if (this.pdfHistoryEnabled) this.savePdfHistory(); else this.quarantineDisabledPdfHistory(); }
     catch { this.pdfState = previous; this.send(userId, { type: 'pdf-anno-status', data: { saved: false, annotationSession: this.pdfHistoryEnabled ? this.pdfGeneration : undefined } }); return; }

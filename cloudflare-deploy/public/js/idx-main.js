@@ -12934,13 +12934,11 @@ function _pdfBroadcastPage() {
     if (!window.vcCanControlTextbook()) return;
     if (!vcConn) return;
     if (_pdfBcTimer) clearTimeout(_pdfBcTimer);
-    var page = pdfPageNum, source = window.__vcPdfAnnotationSource || window._vcCurrentPdfUrl;
-    var session = window.__vcPdfAnnotationSession, book = window._vcCurrentPdfUrl, connection = vcConn;
-    var room = typeof vcRoomId === 'undefined' ? '' : vcRoomId, self = typeof vcUserId === 'undefined' ? '' : vcUserId;
+    var page = pdfPageNum, scope = pdfAnnotationScope();
+    var source = scope.documentUrl, session = scope.annotationSession;
     _pdfBcTimer = setTimeout(function () {
         _pdfBcTimer = null;
-        if (connection !== vcConn || book !== window._vcCurrentPdfUrl || session !== window.__vcPdfAnnotationSession
-            || room !== (typeof vcRoomId === 'undefined' ? '' : vcRoomId) || self !== (typeof vcUserId === 'undefined' ? '' : vcUserId)) return;
+        if (!scope.current()) return;
         try { vcConn.send({ type: 'pdf-page-change', data: { currentPage: page, documentUrl: source, annotationSession: session } }); } catch (e) {}
     }, 150);
 }
@@ -13216,7 +13214,7 @@ window.pdfClosePageList = pdfClosePageList;
 function pdfStopShare() {
     /* 📚 (2026-08-12 Melca 7번) 학생이 누르면 **반 전체의 교재가 사라진다** — 강사·관리자만. */
     if (!window.vcCanControlTextbook()) { window.vcTextbookDenied(); return; }
-    var stoppedDocument = { annotationSession: window.__vcPdfAnnotationSession, documentUrl: window.__vcPdfAnnotationSource || window._vcCurrentPdfUrl };
+    var stoppedDocument = { annotationSession: window.__vcPdfAnnotationSession, documentUrl: window.__vcPdfAnnoContext ? window.__vcPdfAnnotationSource : pdfAnnotationScope().documentUrl };
     vcResetEarlyPdfAnnotations();
     window.__vcPdfAnnoContext = null;
     window.__vcPdfAnnotationSession = undefined; window.__vcPdfAnnotationSource = '';

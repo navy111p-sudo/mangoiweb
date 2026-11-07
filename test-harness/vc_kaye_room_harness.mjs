@@ -101,4 +101,51 @@ await test('default-off legacy missing document proof still relays while explici
     assert.ok(!peer.messages.some(m=>m.type==='pdf-anno-text'));
     }finally{w.close()}
 });
+
+for (const mode of ['off', 'runtime', 'prototype']) for (const action of ['page', 'stop']) {
+    await test('stale A ' + action + ' cannot mutate shared B in ' + mode, async () => {
+        const w=world('off',mode==='off'?'off':'on',true,mode==='prototype');
+        try {
+            const t=socket('t'),peer=socket('peer','student');w.sockets.push(t,peer);const r=await w.room();
+            await r.handlePdfShare('t',t.deserializeAttachment(),{url:'/B.pdf',currentPage:3,annotationSession:r.pdfGeneration});
+            const before=JSON.stringify(r.pdfState),stored=JSON.stringify(w.kv.get('pdfState'));peer.messages.length=0;
+            const type=action==='page'?'pdf-page-change':'pdf-stop-share';
+            await r.webSocketMessage(t,JSON.stringify({type,data:{documentUrl:'/A.pdf',currentPage:9,annotationSession:r.pdfHistoryEnabled?r.pdfGeneration:undefined}}));
+            assert.equal(JSON.stringify(r.pdfState),before);assert.equal(JSON.stringify(w.kv.get('pdfState')),stored);
+            assert.ok(!peer.messages.some(m=>m.type===type));
+            await r.webSocketMessage(t,JSON.stringify({type,data:{documentUrl:'/B.pdf',currentPage:9,annotationSession:r.pdfHistoryEnabled?r.pdfGeneration:undefined}}));
+            if(action==='page')assert.equal(r.pdfState.currentPage,9);else assert.equal(r.pdfState,null);
+            assert.ok(peer.messages.some(m=>m.type===type));
+        } finally {w.close();}
+    });
+}
+
+await test('legacy numeric page and missing stop proof remain compatible, including repeated stop',async()=>{
+    const w=world('off','off');try{const t=socket('t'),peer=socket('peer','student');w.sockets.push(t,peer);const r=await w.room();
+    await r.handlePdfShare('t',t.deserializeAttachment(),{url:'/book.pdf'});
+    await r.webSocketMessage(t,JSON.stringify({type:'pdf-page-change',data:4}));assert.equal(r.pdfState.currentPage,4);
+    await r.webSocketMessage(t,JSON.stringify({type:'pdf-stop-share'}));assert.equal(r.pdfState,null);
+    t.messages.length=0;await r.webSocketMessage(t,JSON.stringify({type:'pdf-stop-share'}));
+    assert.ok(!t.messages.some(m=>m.type==='pdf-anno-status'));
+    }finally{w.close()}
+});
+
+await test('explicit repeated stop is idempotent without a false failure',async()=>{
+ const w=world('off','off');try{const t=socket('t');w.sockets.push(t);const r=await w.room();
+ await r.handlePdfShare('t',t.deserializeAttachment(),{url:'/book.pdf'});
+ await r.handlePdfStopShare('t',t.deserializeAttachment(),{documentUrl:'/book.pdf'});
+ t.messages.length=0;await r.handlePdfStopShare('t',t.deserializeAttachment(),{documentUrl:'/book.pdf'});
+ assert.ok(!t.messages.some(m=>m.type==='pdf-anno-status'));
+ }finally{w.close()}
+});
+await test('explicit stop retries a failed KV delete before reconstruction',async()=>{
+ const w=world('off','off');try{const t=socket('t');w.sockets.push(t);let r=await w.room();
+ await r.handlePdfShare('t',t.deserializeAttachment(),{url:'/book.pdf'});
+ const del=w.state.storage.delete;let calls=0;w.state.storage.delete=async key=>{calls++;if(calls===1)throw Error('synthetic delete failure');return del(key)};
+ await assert.rejects(r.handlePdfStopShare('t',t.deserializeAttachment(),{documentUrl:'/book.pdf'}));
+ assert.equal(r.pdfState,null);assert.equal(w.kv.get('pdfState').url,'/book.pdf');
+ await r.handlePdfStopShare('t',t.deserializeAttachment(),{documentUrl:'/book.pdf'});
+ assert.equal(calls,2);assert.equal(w.kv.has('pdfState'),false);r=await w.room();assert.equal(r.pdfState,null);
+ }finally{w.close()}
+});
 console.log(`${pass} PASS / ${fail} FAIL (actual DO methods; synthetic sockets + SQLite; reconstruction models eviction, not live hibernation)`);process.exitCode=fail?1:0;
