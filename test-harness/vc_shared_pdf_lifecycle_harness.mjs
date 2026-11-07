@@ -9,6 +9,7 @@ function fixture() {
   const jobs = [], shares = [], toasts = [];
   const load = (url, kind) => new Promise((resolve, reject) => jobs.push({ url, kind, resolve: () => resolve({ url }), reject: () => reject(new Error('fixture load failure')) }));
   const ctx = vm.createContext({ URL, Map, location: { origin: 'https://fixture.test' },
+    vcUserId: 'fixture', vcConn: {}, vcAccountSnapshot: () => 'fixture',
     console: { warn() {} }, document: { getElementById: () => null }, setTimeout() {}, pdfRender() {},
     pdfBuildImageDoc: url => load(url, 'image'), ensurePdfJs: async () => {},
     pdfjsLib: { GlobalWorkerOptions: { workerSrc: 'fixture' }, getDocument: ({ url }) => ({ promise: load(url, 'pdf') }) },

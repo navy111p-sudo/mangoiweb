@@ -11,6 +11,8 @@ const ctx = vm.createContext({ URL, Map, console, location: { origin: 'https://e
   pdfBuildImageDoc: async url => ({ url }), pdfRender() { rendered++; } });
 ctx.window = ctx;
 vm.runInContext('let pdfDoc, pdfPageNum, pdfAnnotations = {}; const pdfAnnotationsByDoc = new Map(); let pdfLoadGeneration = 0;', ctx);
+ctx.localStorage = { getItem: () => '{"uid":"fixture","role":"student"}' };
+vm.runInContext(section('function vcAccountSnapshot()', 'function vcPeerAttemptScope('), ctx);
 vm.runInContext(section('async function pdfLoad(url, kind)', '// fix (2026-06-01) — 현재 화면의 교재 파일 다운로드'), ctx);
 await ctx.pdfLoad('/a.jpg', 'image');
 vm.runInContext('pdfAnnotations[1] = [{tool:"text",text:"hello"}];', ctx);

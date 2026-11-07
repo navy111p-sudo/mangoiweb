@@ -26,6 +26,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+const ts = createRequire(new URL('../cloudflare-deploy/package.json', import.meta.url))('typescript');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -55,12 +57,19 @@ console.log('▶ 1. Durable Object — 공유 상태 보존');
      지켜야 할 규칙은 거리가 아니라 «무조건 지우지 않는다» 이다 —
      삭제를 감싼 if 조건에 사람 수 + 시간 판단이 둘 다 들어 있는지만 본다. */
   {
-    const di = join.indexOf("storage.delete('pdfState')");
-    const guard = di > 0 ? join.lastIndexOf('if (', di) : -1;
-    const cond = guard > 0 ? join.slice(guard, di) : '';
+    const tree = ts.createSourceFile('room.ts', DO, ts.ScriptTarget.Latest, true);
+    const cls = tree.statements.find(n => ts.isClassDeclaration(n) && n.name?.text === 'VideoCallRoom');
+    const method = cls?.members.find(n => ts.isMethodDeclaration(n) && n.name.getText(tree) === 'handleJoinRoom');
+    const guards = [];
+    function visit(node, parents = []) {
+      const next = ts.isIfStatement(node) ? [...parents, node.expression.getText(tree)] : parents;
+      if (ts.isCallExpression(node) && node.expression.getText(tree) === 'this.state.storage.delete'
+          && node.arguments[0]?.getText(tree) === "'pdfState'") guards.push(next);
+      ts.forEachChild(node, child => visit(child, next));
+    }
+    if (method) visit(method);
     check('③ 첫 입장 정리는 조건부다 — 사람 수 + 시간 판단 (무조건 삭제 금지)',
-      di > 0 && /userCount <= 1/.test(cond) && /(mediaAt|emptyAt)/.test(cond),
-      '조건: ' + cond.replace(/\s+/g, ' ').slice(0, 160));
+      guards.length > 0 && guards.every(path => path.some(cond => /userCount <= 1/.test(cond) && /(mediaAt|emptyAt)/.test(cond))));
   }
   check('④ 보존 한도 상수(SHARE_KEEP_MS)가 있고 1시간 이상이다',
     /SHARE_KEEP_MS\s*=\s*(\d+)\s*\*\s*60\s*\*\s*60\s*\*\s*1000/.test(DO) &&
@@ -74,8 +83,14 @@ console.log('\n▶ 2. mediaAt 스탬프');
 {
   const share = DO.slice(DO.indexOf('private async handlePdfShare'), DO.indexOf('private async handlePdfStopShare'));
   check('⑥ 교재 공유 시 mediaAt 저장', /mediaAt = Date\.now\(\)[\s\S]{0,300}put\('mediaAt'/.test(share));
+  const tree = ts.createSourceFile('room.ts', DO, ts.ScriptTarget.Latest, true);
+  let pageBody = '';
+  function findPage(n) { if (ts.isMethodDeclaration(n) && n.name.getText(tree) === 'handlePdfPageChange') pageBody = n.body.getText(tree); ts.forEachChild(n, findPage); }
+  findPage(tree);
   check('⑦ 페이지 넘김도 mediaAt 갱신 (수업 진행 중 증거)',
-    /pdfState\.currentPage = pageNum;[\s\S]{0,300}mediaAt = Date\.now\(\)/.test(DO));
+    pageBody.indexOf('this.pdfState.currentPage = pageNum') >= 0
+      && pageBody.indexOf('this.mediaAt = Date.now()') > pageBody.indexOf('this.pdfState.currentPage = pageNum')
+      && pageBody.includes("put('mediaAt', this.mediaAt)"));
   check('⑧ 재기동 복원 시 mediaAt 도 읽는다',
     /storage\.get<number>\('mediaAt'\)/.test(DO));
   check('⑨ 동영상 공유도 mediaAt 갱신', /videoState = \{ url, type[\s\S]{0,200}mediaAt = Date\.now\(\)/.test(DO));
