@@ -1256,9 +1256,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   }
   function reviewerLine(){return (last&&last.reviewer_overdue||[]).map(function(o){return t('⏰ '+o.name+' 확인 마감 지남 '+o.count+'건 · 최장 '+o.max_late_hours+'시간','⏰ '+o.name+' overdue '+o.count+' (max '+o.max_late_hours+'h)');}).join(' · ');}
   // No timeout or close action: only the report author can confirm each reply on the server.
-  var feedbackModal=null,feedbackId=null;
+  var feedbackModal=null,feedbackId=null,feedback=[];
   function paintFeedback(){
-    var f=!stopped&&last&&last.feedback&&last.feedback[0];
+    var f=!stopped&&feedback[0];
     if(!f){if(feedbackModal)feedbackModal.remove();feedbackModal=null;feedbackId=null;return;}
     if(feedbackModal&&feedbackId===f.id+':'+en())return;
     if(feedbackModal)feedbackModal.remove();
@@ -1267,7 +1267,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     overlay.style.cssText='position:fixed;inset:0;z-index:2147483100;background:rgba(15,23,42,.85);display:flex;align-items:center;justify-content:center;padding:12px';
     card.style.cssText='background:#fff;color:#14243c;border:3px solid #2454b5;border-radius:14px;padding:20px;width:100%;max-width:760px;max-height:96dvh;overflow:auto;font:18px/1.65 system-ui,sans-serif';
     h.id='handover-feedback-title';h.textContent=t('받은 피드백을 확인해 주세요','Please read your report feedback');h.style.cssText='margin:0 0 8px;font-size:24px';
-    meta.textContent=f.author_name+' · '+f.report_date+' · '+last.feedback.length+t('건 미확인',' unconfirmed');
+    meta.textContent=f.author_name+' · '+f.report_date+' · '+feedback.length+t('건 미확인',' unconfirmed');
     body.textContent=f.body;body.tabIndex=0;body.setAttribute('role','region');body.setAttribute('aria-label',t('피드백 본문','Feedback message'));body.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:45dvh;overflow:auto;padding:16px;background:#eef4ff;border:1px solid #adc2eb;border-radius:8px;font-size:20px;line-height:1.8';
     button.type='button';button.textContent=t('읽고 확인했습니다','I have read and confirmed');button.style.cssText='width:100%;min-height:52px;padding:12px;margin-top:16px;font:700 18px system-ui;background:#2454b5;color:#fff;border:0;border-radius:8px;cursor:pointer';button.disabled=true;
     status.setAttribute('role','status');status.textContent=t('본문을 끝까지 읽어 주세요. 확인 버튼은 5초 후 활성화됩니다.','Read to the end. Confirmation becomes available after 5 seconds.');
@@ -1277,7 +1277,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     button.onclick=async function(){
       button.disabled=true;
       try{var r=await fetch('/api/approval/handover/reply-confirm',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:f.id})});var j=await r.json();if(!r.ok||!j.ok)throw Error();
-        last.feedback=last.feedback.filter(function(x){return x.id!==f.id;});paintFeedback();document.dispatchEvent(new CustomEvent('mh:feedback-changed'));refresh();
+        feedback=feedback.filter(function(x){return x.id!==f.id;});paintFeedback();document.dispatchEvent(new CustomEvent('mh:feedback-changed'));refresh();
       }catch(e){status.textContent=t('확인을 저장하지 못했습니다. 다시 눌러 주세요.','Confirmation was not saved. Please try again.');button.disabled=false;}
     };
     overlay.addEventListener('keydown',function(e){if(e.key==='Escape'){e.preventDefault();e.stopPropagation();}if(e.key==='Tab'){e.preventDefault();(document.activeElement===body&&!button.disabled?button:body).focus();}});
@@ -1332,15 +1332,21 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   document.addEventListener('click',askPushOnce,true);document.addEventListener('keydown',askPushOnce,true);
   async function refresh(){
     if(pending||stopped||document.hidden)return;pending=true;var c=new AbortController(),timer=setTimeout(function(){c.abort();},10000);
+    // Show feedback independently of the inbox and daily submission checks.
+    var previousFeedback=feedback;
+    var feedbackRequest=fetch('/api/approval/handover/feedback-pending',{credentials:'same-origin',cache:'no-store',signal:c.signal})
+      .then(function(r){if(r.ok)return r.json();})
+      .then(function(j){if(j&&j.ok&&!stopped&&feedback===previousFeedback){feedback=j.feedback;paintFeedback();}})
+      .catch(function(){});
     try{
       var r=await fetch('/api/approval/handover/inbox',{credentials:'same-origin',cache:'no-store',signal:c.signal});
       if(r.status===401||r.status===403){stopped=true;last=null;host.hidden=true;paintLock();closeWriterModal();paintFeedback();if(audio)audio.close().catch(function(){});return;}
-      if(!r.ok)throw Error('unavailable');var j=await r.json();if(!j.ok)throw Error('unavailable');last=j;paintFeedback();
+      if(!r.ok)throw Error('unavailable');var j=await r.json();if(!j.ok)throw Error('unavailable');last=j;
       var m=await fetch('/api/approval/handover/mine',{credentials:'same-origin',cache:'no-store',signal:c.signal});if(!m.ok)throw Error('mine unavailable');var data=await m.json();if(!data.ok)throw Error('mine unavailable');mine=data.reports||[];
       var inbox=!!(j.reader_mode||j.total||mine.some(function(x){return x.status==='submitted';}));box.hidden=!inbox;
       var first=j.reports[0];link.href=first?'/daily-handover.html?date='+encodeURIComponent(first.report_date)+'&report='+first.id:'/daily-handover.html';
       last=j;failed=false;autoPush();render();paintLock();host.hidden=!inbox&&!renderWriter();ring();
-    }catch(e){failed=true;render();}finally{clearTimeout(timer);pending=false;}
+    }catch(e){failed=true;render();}finally{await feedbackRequest;clearTimeout(timer);pending=false;}
   }
   document.addEventListener('mh:feedback-changed',refresh);
   render();refresh();setInterval(refresh,60000);window.addEventListener('focus',refresh);window.addEventListener('online',refresh);window.addEventListener('storage',render);
