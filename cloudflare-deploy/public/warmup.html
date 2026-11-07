@@ -1342,6 +1342,42 @@ var _idleTimer=null, _idleShownForTurn=false;
    ⚠️ 2026-08-31 실제로 밟았다 — 8초로 고쳐 놓고도 화면은 그대로 즉시였고,
       브라우저로 재 보고서야 알았다(문자열 검사로는 안 보인다). */
 var _ansTimer = 0, ANS_DELAY_MS = 8000;
+// Each Rhubarb timeline was generated from its matching versioned audio clip.
+window.warmupTurnPrompt = {
+  text: "It's your turn! Try saying a few words.",
+  path: '/audio/warmup-turn-v1/',
+  cues: {
+    'asteria.mp3': [
+      {start:0,end:0.37,value:'A'}, {start:0.37,end:0.43,value:'B'}, {start:0.43,end:0.62,value:'F'},
+      {start:0.62,end:0.69,value:'B'}, {start:0.69,end:0.9,value:'E'}, {start:0.9,end:1.04,value:'C'},
+      {start:1.04,end:1.78,value:'A'}, {start:1.78,end:1.84,value:'C'}, {start:1.84,end:2.04,value:'B'},
+      {start:2.04,end:2.18,value:'C'}, {start:2.18,end:2.26,value:'A'}, {start:2.26,end:2.44,value:'F'},
+      {start:2.44,end:2.58,value:'E'}, {start:2.58,end:2.93,value:'B'}, {start:2.93,end:2.97,value:'A'}
+    ],
+    'odysseus.mp3': [
+      {start:0,end:0.32,value:'A'}, {start:0.32,end:0.41,value:'B'}, {start:0.41,end:0.62,value:'F'},
+      {start:0.62,end:0.69,value:'B'}, {start:0.69,end:0.97,value:'E'}, {start:0.97,end:1.04,value:'C'},
+      {start:1.04,end:1.36,value:'A'}, {start:1.36,end:1.82,value:'B'}, {start:1.82,end:1.89,value:'C'},
+      {start:1.89,end:2.1,value:'B'}, {start:2.1,end:2.21,value:'A'}, {start:2.21,end:2.45,value:'F'},
+      {start:2.45,end:2.59,value:'E'}, {start:2.59,end:2.87,value:'B'}, {start:2.87,end:2.92,value:'A'}
+    ],
+    'thalia.mp3': [
+      {start:0,end:0.14,value:'A'}, {start:0.14,end:0.23,value:'B'}, {start:0.23,end:0.44,value:'F'},
+      {start:0.44,end:0.51,value:'B'}, {start:0.51,end:0.79,value:'E'}, {start:0.79,end:0.93,value:'C'},
+      {start:0.93,end:1.07,value:'B'}, {start:1.07,end:1.21,value:'C'}, {start:1.21,end:1.35,value:'B'},
+      {start:1.35,end:1.42,value:'C'}, {start:1.42,end:1.63,value:'B'}, {start:1.63,end:1.73,value:'A'},
+      {start:1.73,end:1.96,value:'F'}, {start:1.96,end:2.1,value:'E'}, {start:2.1,end:2.45,value:'B'},
+      {start:2.45,end:2.49,value:'A'}
+    ],
+    'aries.mp3': [
+      {start:0,end:0.09,value:'A'}, {start:0.09,end:0.13,value:'B'}, {start:0.13,end:0.45,value:'F'},
+      {start:0.45,end:0.73,value:'E'}, {start:0.73,end:0.8,value:'C'}, {start:0.8,end:0.97,value:'B'},
+      {start:0.97,end:1.14,value:'A'}, {start:1.14,end:1.56,value:'B'}, {start:1.56,end:1.64,value:'A'},
+      {start:1.64,end:1.86,value:'F'}, {start:1.86,end:1.93,value:'E'}, {start:1.93,end:2.21,value:'B'},
+      {start:2.21,end:2.32,value:'A'}
+    ],
+  }
+};
 function scheduleIdleSuggest(){
   clearTimeout(_idleTimer);
   _idleTimer=setTimeout(function(){
@@ -1357,7 +1393,7 @@ function scheduleIdleSuggest(){
          (!_ttsAudio || _ttsAudio.paused || _ttsAudio.ended) &&
          (!window.speechSynthesis || !window.speechSynthesis.speaking) &&
          (!window.MangoWarmupFlow || !MangoWarmupFlow.blocksRecording())){
-        speak("It's your turn! Try saying a few words.");
+        speak(window.warmupTurnPrompt.text);
       }
       if(window.MangoWarmupGuide){MangoWarmupGuide.offerHelp();return;}
       loadFollowups();
@@ -3319,7 +3355,17 @@ function _visemeWrap(){
   var V = window.AvatarVisemes;
   if(!V || V.__warmHold || typeof V.prepare!=='function' || typeof V.boot!=='function') return;
   var p = V.prepare, b = V.boot;
-  V.prepare = function(){ return _visHold ? Promise.resolve(null) : p.apply(V, arguments); };
+  V.prepare = function(url){
+    var prompt=window.warmupTurnPrompt;
+    if(prompt && typeof url==='string'){
+      var prefix=location.origin+prompt.path;
+      var file=url.slice(prefix.length);
+      if(url.indexOf(prefix)===0 && Object.prototype.hasOwnProperty.call(prompt.cues,file)){
+        return Promise.resolve(prompt.cues[file]);
+      }
+    }
+    return _visHold ? Promise.resolve(null) : p.apply(V, arguments);
+  };
   V.boot = function(){ if(!_visHold) return b.apply(V, arguments); };
   V.__warmHold = true;
 }
@@ -3494,6 +3540,11 @@ function speak(text, btn){
      ⛔ 이 갈래를 «중국어 전체» 로 넓히지 마세요 — 메이(여자)는 서버 목소리 그대로가 맞습니다. */
   if(isZh() && _voiceGender()==='male' && _zhMaleVoiceReady()){ _synthSpeak(text, btn, done); return; }
   if(live && !btn){ _speakLive(live, spk, done, play); return; }   // 📡 P2 — 문장이 올 때마다 이어 읽기
+  var prompt=window.warmupTurnPrompt, promptFile=spk+'.mp3';
+  if(prompt && text===prompt.text && !isZh() && Object.prototype.hasOwnProperty.call(prompt.cues,promptFile)){
+    play0(location.origin+prompt.path+promptFile, false);
+    return;
+  }
   var key = spk + '|' + text;                  // 캐시도 목소리별로 분리
   if(_ttsCache[key]){ play(_ttsCache[key], _ttsEng[key]); return; }
   /* ⚡ 첫 문장부터 먼저 읽기(2026-09-25) — 아래 _speakChunks 머리말. 한 조각이면 예전 그대로. */
