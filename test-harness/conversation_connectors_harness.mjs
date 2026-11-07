@@ -520,6 +520,7 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
     ['art-class', 'What are you drawing?', 'I am drawing a cat.', 'Is the cat in your drawing?', 'What color is the cat?'],
     ['library', 'Do you want a book about space or animals?', 'Space.', 'Oh, really?', 'Which planet interests you?'],
     ['train', 'Where would you like to go today?', "Hello, I'm going home.", "You're going home?", 'When do you want to leave?'],
+    ['restaurant', 'Do you want ice in your lemonade?', 'Yes, I want ice.', 'Okay! So, to recap, you have the grilled chicken sandwich, fries, and a glass of lemonade with ice. Is that correct?', 'What would you like for dessert?'],
     ['restaurant', 'Do you want ketchup or mustard with your fries?', 'I want ketchup with my fries.', "So, to confirm, you'd like fries with ketchup, right?", 'Would you like a drink?'],
   ]) {
     const sid = 'scene-confirm-' + sceneId + '-' + answer.length;
