@@ -278,6 +278,26 @@ export function repeatedQuestions(text: unknown, memory: QuestionMemory | null |
   return out;
 }
 
+// Roleplay confirmations can repeat the student's answer even when the question changes form.
+export function roleplayReconfirmsAnswer(text: string, memory: QuestionMemory | null): boolean {
+  const last = memory?.items.at(-1);
+  if (!last?.a) return false;
+  return questionsIn(text).some(q => {
+    if (/\bto confirm\b.*\b(?:right|correct)\?$/i.test(q)) return true;
+    const question = questionNorm(q);
+    const answer = questionNorm(last.a);
+    const echo = /^(?:youre|you are|are you) (.+)$/.exec(question);
+    if (echo && answer.replace(/^.*\b(?:im|i am) /, '') === echo[1]) return true;
+    const destination = /^are you looking for (.+)$/.exec(question);
+    if (destination && /\b(?:looking for|need to find|finding)\b/.test(answer) && answer.endsWith(' ' + destination[1])) return true;
+    const choice = /^is (.+) your favou?rite (\w+)$/.exec(question);
+    if (!choice) return false;
+    const [, value, kind] = choice;
+    const selected = value.replace(/^the /, '');
+    return questionNorm(last.q).split(' ').includes(kind) && (' ' + answer + ' ').includes(' ' + selected + ' ');
+  });
+}
+
 /** 엔진이 다시 뽑을 때 모델에게 주는 말(한국어 — 웜업 지시와 같은 말). 인용은 JSON 문자열로만. */
 export function repeatQuestionHint(rep: readonly RepeatedQuestion[]): string {
   const list = rep.slice(0, 3).map(r => `${JSON.stringify(r.q)}(앞서 ${JSON.stringify(r.prev)} → 학생 답 ${r.a ? JSON.stringify(r.a) : '없음'})`).join(', ');
