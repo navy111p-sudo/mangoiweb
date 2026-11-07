@@ -133,7 +133,7 @@ async function testAiFriend() {
         '힌트 없으면 짧은 영어를 한국어로 오인식하는 사고 재발(2026-07-24)');
 
   const html2 = readFileSync(join(PUB, 'ai-friend.html'), 'utf8');
-  const code = extract(html2, 'let _recognizing = false, _pendingVoice = false;', '\n    updateSoundBtn();', 'ai-friend');
+  const code = extract(html2, 'let _whisperOn =', '\n    updateSoundBtn();', 'ai-friend');
 
   // 실제 네트워크 녹음 없이 배선만 검증: MangoiVoice 를 가짜로 물려 toggleMic 이
   // record({lang, onState}) 를 정확히 부르고, 결과 텍스트로 sendMsg 가 호출되는지 확인.
