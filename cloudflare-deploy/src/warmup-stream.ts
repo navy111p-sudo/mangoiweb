@@ -87,7 +87,13 @@ export async function readWarmupAiStream(st: any, lang: string, onSentence: (s: 
     const pay = one.slice(5).trim();
     if (!pay || pay === '[DONE]') return;
     let t = '';
-    try { const ev: any = JSON.parse(pay); t = typeof ev?.response === 'string' ? ev.response : ''; } catch { return; }
+    try {
+      const ev = JSON.parse(pay);
+      const delta = ev?.choices?.[0]?.delta?.content;
+      // Workers AI can coerce digit tokens in response to numbers. The delta retains their original spelling.
+      if (typeof ev?.response === 'string') t = ev.response;
+      else if (typeof delta === 'string') t = delta;
+    } catch { return; }
     if (!t) return;
     raw += t;
     pend += tap.push(t);

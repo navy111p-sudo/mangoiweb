@@ -126,6 +126,21 @@ if (M) {
   ok('문장 두 개를 순서대로 넘긴다', JSON.stringify(got) === '["Hello!","Do you like cats?"]', JSON.stringify(got));
   ok('교정(fix) 안의 글은 흘려보내지 않는다', !got.some(s => /Bad|Worse/.test(s)));
   ok('날것 전체를 돌려준다(교정은 부르는 쪽이 다시 읽는다)', raw === full, String(raw));
+  const numericEvents = [
+    { response: '{"reply":"It costs $' },
+    { response: 20, choices: [{ delta: { content: '20' } }] },
+    { response: '. Can you come at ' },
+    { response: 2, choices: [{ delta: { content: '2' } }] },
+    { response: ':' },
+    { response: 0, choices: [{ delta: { content: '00' } }] },
+    { response: ' pm?"}' },
+  ];
+  const numericSse = numericEvents.map(event => 'data: ' + JSON.stringify(event) + '\n\n').join('');
+  const numericPreview = [];
+  const numericRaw = await M.readWarmupAiStream(new Response(numericSse).body, 'en', s => numericPreview.push(s));
+  ok('숫자 response의 원래 표기를 최종 답변에 보존한다', JSON.parse(numericRaw).reply === 'It costs $20. Can you come at 2:00 pm?', numericRaw);
+  ok('가격과 시각을 미리 읽는 문장에도 그대로 전달한다',
+    JSON.stringify(numericPreview) === JSON.stringify(['It costs $20.', 'Can you come at 2:00 pm?']), numericPreview);
   const thrower = [];
   await attempt('콜백이 던져도', () => M.readWarmupAiStream({ getReader() { let i = 0; return { read: async () => i < chunks.length ? { value: enc.encode(chunks[i++]), done: false } : { done: true } }; } }, 'en', s => { thrower.push(s); throw new Error('x'); }));
   ok('미리보기 콜백이 던져도 끝까지 읽는다', thrower.length === 2);
