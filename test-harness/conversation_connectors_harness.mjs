@@ -31,6 +31,12 @@ ok(!!(RQ && RQ.fragmentQuestions) && !!(LV && LV.aiFriendBrokenQuestions && LV.A
 if (!C) finish();
 // 실제 음성 검사에서 나온 두 질문 + 인용 예문·축약형·줄바꿈 경계.
 const singleQuestionCases = [
+  ["You're welcome! What color and size are you looking for?", "You're welcome! What color are you looking for?"],
+  ["What size, color, and style would you like?", "What size would you like?"],
+  ["Can you tell me what brand and price you prefer?", "Can you tell me what brand you prefer?"],
+  ["What color and size do you need, and do you have the receipt?", "What color do you need?"],
+  ["Which color, red or blue, do you prefer?", "Which color, red or blue, do you prefer?"],
+  ["Do you want a large or a small size?", "Do you want a large or a small size?"],
   ["Did you buy it here and do you have the receipt?", "Did you buy it here?"],
   ["I see! So the cheering really made a difference. How did you prepare for this race, was it hard to get ready?", "I see! So the cheering really made a difference. How did you prepare for this race?"],
   ["What did you buy and how much did it cost?", "What did you buy?"],
@@ -550,6 +556,7 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
   for (const [sessionId, scene, modelReply, expected] of [
     ['scene-one-stream', doctor, separateReply, 'I see. Can you tell me more about your headache?'],
     ['scene-compound-stream', box.MangoiSituations.find('exchange'), 'I see. Did you buy it here and do you have the receipt?', 'I see. Did you buy it here?'],
+    ['scene-attribute-stream', box.MangoiSituations.find('exchange'), 'I see. What color and size are you looking for?', 'I see. What color are you looking for?'],
   ]) {
     doubleReply = modelReply;
     const oneStream = await W8.fetch(new Request('https://mangoi.ai/api/warmup/chat', {
