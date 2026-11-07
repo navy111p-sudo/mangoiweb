@@ -574,14 +574,14 @@ const cleanup = () => { try { rmSync(tmp, { recursive: true, force: true }); } c
 writeFileSync(join(tmp, 'hooks.mjs'), `
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-export async function resolve(spec, ctx, next) {
+export function resolve(spec, ctx, next) {
   if ((spec.startsWith('./') || spec.startsWith('../')) && !/\\.(ts|js|mjs|json)$/.test(spec) && ctx.parentURL) {
     const u = new URL(spec + '.ts', ctx.parentURL);
-    if (existsSync(fileURLToPath(u))) return next(u.href, ctx);
+    if (existsSync(fileURLToPath(u))) return { url: u.href, shortCircuit: true };
   }
   return next(spec, ctx);
 }`);
-writeFileSync(join(tmp, 'reg.mjs'), `import { register } from 'node:module'; register('./hooks.mjs', import.meta.url);`);
+writeFileSync(join(tmp, 'reg.mjs'), `import { registerHooks } from 'node:module'; import { resolve } from './hooks.mjs'; registerHooks({ resolve });`);
 
 /* ⏱ (2026-11-04) 변이가 40종을 넘어 «하나씩» 돌리면 --fast 동시 실행에서 90초 상한을 넘었다 — 변이만 동시에 돌린다.
    결과 줄은 원래 순서대로 찍는다(출력이 매번 같게). CCV_JOBS=1 이면 예전처럼 하나씩. */
@@ -747,26 +747,29 @@ const MUTANTS = [
   { name: '주간 시간표: 옮겨 간 칸에 누구에게나 누가·사유', expect: /I11 /,
     edits: [['api-admin-scheduling.ts', 'const ch = judgeMovedAway(r, ev, { showActor: _offShowActor },', 'const ch = judgeMovedAway(r, ev, { showActor: true },']] },
 ];
-const prepared = MUTANTS.map((m, idx) => {
-  const dir = join(tmp, 'm-' + idx);
-  cpSync(REAL_SRC, dir, { recursive: true });
-  let missing = '';
-  for (const [f, from, to] of m.edits) {
-    const p = join(dir, f), s = readFileSync(p, 'utf8');
-    if (!s.includes(from)) { missing = f; break; }
-    writeFileSync(p, s.replace(from, to));
-  }
-  return { m, dir, missing };
-});
+const prepared = MUTANTS.map(m => ({ m, missing: '' }));
 const JOBS = Math.max(1, Number(process.env.CCV_JOBS) || Math.min(4, (availableParallelism && availableParallelism()) || 2));
 const outcomes = new Array(prepared.length);
 let next = 0;
-await Promise.all(Array.from({ length: JOBS }, async () => {
+await Promise.all(Array.from({ length: JOBS }, async (_, worker) => {
+  // One private tree per worker; restore every edit before its next fresh child.
+  const dir = join(tmp, 'worker-' + worker);
+  cpSync(REAL_SRC, dir, { recursive: true });
   for (;;) {
     const k = next++;
     if (k >= prepared.length) return;
-    if (prepared[k].missing) continue;
-    outcomes[k] = await runChildAsync(prepared[k].dir);
+    const originals = new Map();
+    try {
+      for (const [f, from, to] of prepared[k].m.edits) {
+        const p = join(dir, f), s = readFileSync(p, 'utf8');
+        if (!originals.has(p)) originals.set(p, s);
+        if (!s.includes(from)) { prepared[k].missing = f; break; }
+        writeFileSync(p, s.replace(from, to));
+      }
+      if (!prepared[k].missing) outcomes[k] = await runChildAsync(dir);
+    } finally {
+      for (const [p, s] of originals) writeFileSync(p, s);
+    }
   }
 }));
 for (let k = 0; k < prepared.length; k++) {

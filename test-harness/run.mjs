@@ -109,7 +109,7 @@ const EXCLUSIVE = new Set([
 
 // 시간초과 표시 — classify 가 붙이고 ③ «혼자 다시» 가 이 값으로 알아본다(글자를 두 곳에 따로 적지 않게 한 벌).
 //   ⚠️ 여기(위쪽)에 둔다 — 아래 classify 옆에 두면 최상위 await 때문에 그 줄에 닿기 전에 불려 TDZ 오류가 난다.
-const TIMEOUT_NOTE = '⏱  timeout(90s) — netem 다중클라이언트 E2E';
+const TIMEOUT_NOTE = '⏱  timeout(90s)';
 
 // ── 실행할 하니스 고르기 / Pick harnesses ──
 const files = readdirSync(__dir).filter(f => f.endsWith('_harness.mjs')).sort();

@@ -358,7 +358,7 @@ import { fileURLToPath } from 'node:url';
 export function resolve(spec, ctx, next) {
   if ((spec.startsWith('./') || spec.startsWith('../')) && !/\\.(ts|js|mjs|json)$/.test(spec) && ctx.parentURL) {
     const u = new URL(spec + '.ts', ctx.parentURL);
-    if (existsSync(fileURLToPath(u))) return next(u.href, ctx);
+    if (existsSync(fileURLToPath(u))) return { url: u.href, shortCircuit: true };
   }
   return next(spec, ctx);
 }`);
