@@ -430,6 +430,44 @@ console.log('\n[I] warmup.html 배선 (나머지 연결 지점)');
   ok('I-8 _autoHook 은 모듈이 없어도 안 죽는다(try)', noHook && /function _autoHook\(ev, a\)\{ try\{/.test(HTML));
 }
 
+console.log('\n[J] English idle prompt');
+{
+  const idle = bodyOf(HTML, 'function scheduleIdleSuggest(){');
+  const hook = bodyOf(HTML, 'function idleHookOnMsg(who){');
+  function check(overrides = {}, reply = false) {
+    let timer, delay;
+    const spoken = [];
+    const c = {
+      _idleTimer: null, _idleShownForTurn: false, _warmPaused: false,
+      sending: false, _recognizing: false, _speechOn: true, _audioUnlocked: true,
+      _speechEverStarted: false, _ttsAudio: null, isZh: () => false,
+      document: { getElementById: (id) => ({ inp: { value: '' }, warmThought: { hidden: true } }[id]) },
+      setTimeout: (fn, ms) => { timer = fn; delay = ms; return 1; },
+      clearTimeout: () => { timer = null; },
+      speak: (line) => spoken.push(line), loadFollowups() {}, ...overrides,
+    };
+    c.window = c; c.parent = c;
+    vm.createContext(c);
+    vm.runInContext(idle + '\n' + hook + "\nidleHookOnMsg('ai');", c);
+    if (reply) vm.runInContext("idleHookOnMsg('me');", c);
+    timer?.();
+    timer?.();
+    return { spoken, delay };
+  }
+  const idleResult = check();
+  ok('J-1 avatar speaks once after 25 seconds', idleResult.delay === 25000 &&
+    idleResult.spoken.join() === "It's your turn! Try saying a few words.", idleResult);
+  ok('J-2 reply cancels the prompt', check({}, true).spoken.length === 0);
+  for (const [label, state] of Object.entries({
+    recording: { _recognizing: true },
+    playing: { _ttsAudio: { paused: false, ended: false } },
+    muted: { _speechOn: false },
+    Chinese: { isZh: () => true },
+  })) {
+    ok('J-3 prompt is silent when ' + label, check(state).spoken.length === 0);
+  }
+}
+
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
 

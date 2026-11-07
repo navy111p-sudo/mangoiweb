@@ -71,7 +71,7 @@ import { WARMUP_CORRECTION_RULE, WARMUP_ZH_CORRECTION_RULE, ZH_MEANING_CHANGING_
 import { resolveWarmupHonest, warmupHonestRule, parseWarmupGrade, finalizeWarmupGrade, applyHonestPraise, gateFixForMode, ensureFocusedFixSpoken, warmupSpeaksFixLead } from './warmup-honest';  // 🎯 정직한 칭찬 + 교정 모드(2026-10-29 시범 — 정본 그 파일)
 import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
 import { firstQuestionOnly, fragmentQuestions, fragmentQuestionHint, checksFragmentQuestions, fullQuestionRule, FRAG_RETRY_BUDGET_MS } from './reply-questions';   // 🧩 기초 단계 «조각 질문»(like space?) 막기
-import { questionMemory, askedQuestionsLine, ASKED_LINE_HEAD, repeatedQuestions, retryRepeatedQuestion } from './question-memory';   // 🔁 같은 질문 두 번 금지(말만 바꾼 것·반대말 포함)
+import { questionMemory, askedQuestionsLine, ASKED_LINE_HEAD, repeatedQuestions, retryRepeatedQuestion, roleplayReconfirmsAnswer } from './question-memory';   // 🔁 같은 질문 두 번 금지(말만 바꾼 것·반대말 포함)
 import { connectorPromptBlock, linkBandForStep } from './conversation-connectors';
 import { AVATAR_NATURAL_OPENERS, turnOpenerLine } from './conversation-connectors';   // 🔗 연결 표현(2026-10-28 · 세 화면 공용 정본)
 import { normalizeWarmupLang, warmupZhSystem, WARMUP_ZH_LEVELS, zhWarmupSentences, zhStudentByTeacher,
@@ -4433,7 +4433,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
        질문의 앞부분(do you)을 떼어 낸다 — 문법이 먼저라고 예문으로 못 박는다. 정본·이유는 src/reply-questions.ts. */
     if (checksFragmentQuestions(ctxDifficulty, ctxLang)) sys += ' ' + fullQuestionRule(ctxDifficulty);
     if (lessonTopic) sys += ` 오늘의 대화 주제는 '${lessonTopic}' 이야.`;
-    if (ctxRoleplay) sys += ' [질문 순서] 한 턴에는 한 가지 정보만 묻는 영어 질문 하나로 끝내. and로 서로 다른 두 가지를 한 문장에 묶어 묻지 마. 다음 질문은 학생의 다음 답변을 받은 뒤에 해.';
+    if (ctxRoleplay) sys += ' [질문 순서] 한 턴에는 한 가지 정보만 묻는 영어 질문 하나로 끝내. and로 서로 다른 두 가지를 한 문장에 묶어 묻지 마. 다음 질문은 학생의 다음 답변을 받은 뒤에 해. 학생이 분명히 답했으면 그 답은 짧게 인정하고 다른 정보를 물어봐. 방금 들은 답을 확인 질문으로 되묻지 마.';
     sys += await _preLesson;   // ⚡ 위에서 미리 시작한 조회 — 붙이는 순서는 예전 그대로
     sys += await _preMistake;
     sys += await _preWeakWord;
@@ -4730,22 +4730,23 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     }
 
     // 상황 역할극은 작별말도 연습 중이다. 모든 재생성 뒤, 저장 전에 질문을 보장한다.
-    if (ctxRoleplay && !/[?？]["”\s]*$/.test(aiText)) {
+    const needsRoleplayQuestion = (text: string) => !/[?？]["”\s]*$/.test(text)
+      || repeatedQuestions(text, qmem).length > 0 || roleplayReconfirmsAnswer(text, qmem);
+    if (ctxRoleplay && needsRoleplayQuestion(aiText)) {
       try {
         const continued = await runWarmup(messages.concat([
           { role: 'assistant', content: aiText },
-          { role: 'user', content: '(Continue the same roleplay with a new moment. React briefly, then end with exactly one new English question. The practice has not ended.)' },
+          { role: 'user', content: '(Continue the same roleplay with a new moment. Acknowledge the learner briefly, then ask exactly one English question about a detail they have not answered. The practice has not ended.)' },
         ]), 0.8);
         const continuedText = takeWarmupReply(continued);
-        if (continuedText && /[?？]["”\s]*$/.test(continuedText) &&
+        if (continuedText && !needsRoleplayQuestion(continuedText) &&
             !replyRejectReason(continuedText, ctxLang === 'zh' ? 0 : (WARMUP_WORD_CAP[ctxDifficulty] || 0)) &&
             !wrongSelfName(continuedText, ctxFriend, { askedName: askedOwnName(studentInput) }) &&
-            (!fragQ || fragmentQuestions(continuedText).length === 0) && !warmupIsRepeat(continuedText, history) &&
-            (!qmem || repeatedQuestions(continuedText, qmem).length === 0)) {
+            (!fragQ || fragmentQuestions(continuedText).length === 0) && !warmupIsRepeat(continuedText, history)) {
           aiText = continuedText; commitFix();
         }
       } catch (e) { console.warn('[warmup] roleplay continuation failed'); }
-      if (!/[?？]["”\s]*$/.test(aiText)) {
+      if (needsRoleplayQuestion(aiText)) {
         aiText = 'Let us try another moment here. What would you like to do next?';
         rawFix = null; rawHelp = null;
       }

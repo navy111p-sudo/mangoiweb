@@ -1351,6 +1351,14 @@ function scheduleIdleSuggest(){
       if(inp && inp.value.trim()) return;                       // 입력 중이면 방해 금지
       if(document.getElementById('qsCard')) return;               // 이미 추천 카드가 떠 있음
       _idleShownForTurn=true;
+      // Keep the current question visible while the avatar prompts for a reply.
+      if(!isZh() && _speechOn && window.parent===window && (_audioUnlocked || _speechEverStarted) &&
+         document.getElementById('warmThought').hidden &&
+         (!_ttsAudio || _ttsAudio.paused || _ttsAudio.ended) &&
+         (!window.speechSynthesis || !window.speechSynthesis.speaking) &&
+         (!window.MangoWarmupFlow || !MangoWarmupFlow.blocksRecording())){
+        speak("It's your turn! Try saying a few words.");
+      }
       if(window.MangoWarmupGuide){MangoWarmupGuide.offerHelp();return;}
       loadFollowups();
     }catch(e){}

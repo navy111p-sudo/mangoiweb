@@ -128,4 +128,25 @@ const fallback = await serverCase({ text: 'Yes.' }, { fail: true, strict: false 
 check('non-chat fallback remains available on actual failure', () => { assert.equal(fallback.body.text, 'Yes.'); assert.equal(fallback.calls.length, 2); });
 const valid = await serverCase({ text: 'Yes.', segments: [{ text: 'Yes.', avg_logprob: -.1 }] });
 check('valid server reply preserved', () => assert.equal(valid.body.text, 'Yes.'));
+const wrapped = await serverCase(Response.json({ text: 'I am twelve years old.' }));
+check('JSON Response body supplies the transcript, never the native text method', () => {
+  assert.equal(wrapped.body.text, 'I am twelve years old.');
+  assert.equal(wrapped.calls.length, 1);
+});
+const rateLimited = await serverCase(Response.json({ errors: ['busy'] }, { status: 429 }));
+check('strict response error is surfaced instead of being sent as speech', () => {
+  assert.equal(rateLimited.status, 503);
+  assert.equal(rateLimited.body.text, undefined);
+  assert.equal(rateLimited.calls.length, 1);
+});
+const wrappedFallback = await serverCase(Response.json({ text: 'Yes.' }), { fail: true, strict: false });
+check('base recognizer also reads the JSON response body', () => {
+  assert.equal(wrappedFallback.body.text, 'Yes.');
+  assert.equal(wrappedFallback.calls.length, 2);
+});
+const invalid = await serverCase({ text: () => 'not a transcript' });
+check('non-string text cannot become a student utterance', () => {
+  assert.equal(invalid.status, 503);
+  assert.equal(invalid.body.text, undefined);
+});
 console.log(`PASS ${count} / FAIL 0`);
