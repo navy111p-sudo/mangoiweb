@@ -562,6 +562,16 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       const items=await env.DB.prepare('SELECT * FROM daily_handover_replies WHERE report_id=? ORDER BY id').bind(r.id).all();
       return reply({ok:true,replies:items.results||[],can_write:isExec(actor)&&r.username!==me&&r.status!=='draft',can_confirm:r.username===me});
     }
+    if(request.method==='GET'&&route==='/feedback-pending'){
+      // Existing change requests also require the author's explicit confirmation.
+      await env.DB.prepare(`INSERT OR IGNORE INTO daily_handover_replies(report_id,author,author_name,body,created_at,request_key)
+        SELECT id,acknowledged_by,acknowledged_by,feedback,COALESCE(acknowledged_at,updated_at),'return:'||id||':'||version
+        FROM daily_handovers WHERE username=? AND status='changes_requested' AND acknowledged_by IS NOT NULL AND trim(COALESCE(feedback,''))<>''`).bind(me).run();
+      const feedback=await env.DB.prepare(`SELECT f.id,f.report_id,f.author_name,f.body,f.created_at,h.report_date
+        FROM daily_handover_replies f JOIN daily_handovers h ON h.id=f.report_id
+        WHERE h.username=? AND f.confirmed_at IS NULL ORDER BY f.id`).bind(me).all();
+      return reply({ok:true,feedback:feedback.results||[]});
+    }
     if(request.method==='GET'&&route==='/inbox'){
       // 👥 공동 수신자 앞 미확인 보고도 함께(INBOX_ALSO_SEES). 콤마 문자열 하나로 바인딩.
       const also=','+[me,...(INBOX_ALSO_SEES[me]||[])].join(',')+',';
@@ -574,19 +584,12 @@ export async function handleDailyHandover(request: Request, url: URL, env: Env, 
       try{const boss=MISSED_REPORT_TO.includes(me);const all=await handoverDuty(env,kstDay(),boss?undefined:me);const mine=all.find(d=>d.username===me);writer=mine?{required:true,...dutyView(mine),warning:await writerWarning(env,mine)}:{required:false};
         if(boss)missed_staff=all.filter(d=>d.today_required&&d.prev_missed).map(d=>({username:d.username,name:d.name,prev_day:d.prev_day}));}
       catch{console.warn('[daily-handover] duty unavailable');}
-      // Existing change requests also require the author's explicit confirmation.
-      await env.DB.prepare(`INSERT OR IGNORE INTO daily_handover_replies(report_id,author,author_name,body,created_at,request_key)
-        SELECT id,acknowledged_by,acknowledged_by,feedback,COALESCE(acknowledged_at,updated_at),'return:'||id||':'||version
-        FROM daily_handovers WHERE username=? AND status='changes_requested' AND acknowledged_by IS NOT NULL AND trim(COALESCE(feedback,''))<>''`).bind(me).run();
-      const feedback=await env.DB.prepare(`SELECT f.id,f.report_id,f.author_name,f.body,f.created_at,h.report_date
-        FROM daily_handover_replies f JOIN daily_handovers h ON h.id=f.report_id
-        WHERE h.username=? AND f.confirmed_at IS NULL ORDER BY f.id`).bind(me).all();
       const enforced=REVIEW_ENFORCED.includes(me);
       const overdue_lock=enforced?await reviewOverdue(env,me):null;
       let reviewer_overdue:any[]=[];
       if(MISSED_REPORT_TO.includes(me)){const names=await accounts(env);for(const u of REVIEW_ENFORCED){if(u===me)continue;const it=await reviewOverdue(env,u);if(it&&it.length)reviewer_overdue.push({username:u,name:names.find(a=>a.username===u)?.name||u,count:it.length,max_late_hours:it[0].late_hours});}}
       return reply({ok:true,me:{username:me,name:actor.name||me},reader_mode:['admin','mgr_jjw'].includes(me),also_sees:INBOX_ALSO_SEES[me]||[],
-        feedback:feedback.results||[],overdue_lock,reviewer_overdue,read_min_sec:enforced?REVIEW_MIN_READ_SEC:0,total:count.n,reports:await withFollowups(env,result.results||[]),files:await attachmentsFor(env,result.results||[]),writer,missed_staff});
+        overdue_lock,reviewer_overdue,read_min_sec:enforced?REVIEW_MIN_READ_SEC:0,total:count.n,reports:await withFollowups(env,result.results||[]),files:await attachmentsFor(env,result.results||[]),writer,missed_staff});
     }
     // 📖 다시 읽기(2026-09-29) — 확인·보완요청한 보고는 «미확인» 목록에서 빠지므로 되돌아볼 길이 없었다.
     // 내가 받았거나 내가 확인한 것만(최근 30일). ⛔ 경영진 «전체 보기» 로 넓히지 않는다 — 그건 날짜별 «전체» 필터가 한다.
