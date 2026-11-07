@@ -514,6 +514,7 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
   for (const [sceneId, prior, answer, repeated, nextQuestion] of [
     ['birthday', 'What flavor of ice cream do you like best?', 'I like chocolate ice cream.', 'Is the chocolate ice cream your favorite flavor?', 'Do you want another scoop?'],
     ['directions', 'Can I help you?', 'Yes, I need help finding the library.', 'Are you looking for the library?', 'What street are you on?'],
+    ['train', 'Where would you like to go today?', "Hello, I'm going home.", "You're going home?", 'When do you want to leave?'],
     ['restaurant', 'Do you want ketchup or mustard with your fries?', 'I want ketchup with my fries.', "So, to confirm, you'd like fries with ketchup, right?", 'Would you like a drink?'],
   ]) {
     const sid = 'scene-confirm-' + sceneId;

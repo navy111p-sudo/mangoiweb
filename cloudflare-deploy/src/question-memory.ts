@@ -286,6 +286,8 @@ export function roleplayReconfirmsAnswer(text: string, memory: QuestionMemory | 
     if (/\bto confirm\b.*\b(?:right|correct)\?$/i.test(q)) return true;
     const question = questionNorm(q);
     const answer = questionNorm(last.a);
+    const echo = /^(?:youre|you are|are you) (.+)$/.exec(question);
+    if (echo && answer.replace(/^.*\b(?:im|i am) /, '') === echo[1]) return true;
     const destination = /^are you looking for (.+)$/.exec(question);
     if (destination && /\b(?:looking for|need to find|finding)\b/.test(answer) && answer.endsWith(' ' + destination[1])) return true;
     const choice = /^is (.+) your favou?rite (\w+)$/.exec(question);
