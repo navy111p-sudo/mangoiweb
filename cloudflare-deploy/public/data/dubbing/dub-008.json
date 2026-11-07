@@ -106,7 +106,7 @@
         "puffy": "/media/dubbing/dub-008/scene-1-puffy.mp3",
         "mini": "/media/dubbing/dub-008/scene-1-mini.mp3",
         "green": "/media/dubbing/dub-008/scene-1-green.mp3",
-        "bubbles": "/media/dubbing/dub-008/scene-1-bubbles.mp3"
+        "bubbles": "/media/dubbing/dub-008/scene-1-bubbles-v2.mp3"
       },
       "lines": [
         {
@@ -1569,7 +1569,7 @@
       "voices": {
         "ollie": "/media/dubbing/dub-008/scene-6-ollie.mp3",
         "blue": "/media/dubbing/dub-008/scene-6-blue.mp3",
-        "puffy": "/media/dubbing/dub-008/scene-6-puffy.mp3",
+        "puffy": "/media/dubbing/dub-008/scene-6-puffy-v2.mp3",
         "mini": "/media/dubbing/dub-008/scene-6-mini.mp3",
         "green": "/media/dubbing/dub-008/scene-6-green.mp3"
       },
@@ -1587,7 +1587,7 @@
           "speaker": "puffy",
           "en": "Hold it with me.",
           "ko": "나와 함께 잡아 줘.",
-          "start": 6.836667,
+          "start": 6.5,
           "end": 8.476125
         },
         {
