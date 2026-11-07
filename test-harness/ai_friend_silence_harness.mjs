@@ -41,7 +41,7 @@ const page = read('public/ai-friend.html');
 const micCode = page.slice(page.indexOf('    async function friendRecordVoice(opts)'), page.indexOf('    function toggleMic()', page.indexOf('    async function micViaWhisper(auto)')));
 async function micCase({ voice = true, auto = true, text = hallucination, late = '', override = false } = {}) {
   const sent = [], hints = [], requests = []; let checks = 0;
-  const ctx = { Promise, String, _friendMicSeq: 0, _whisperOn: false, _recognizing: false,
+  const ctx = { Promise, String, _friendMicSeq: 0, _whisperOn: false,
     _lastRecBlob: null, _pendingVoice: false, document: { getElementById: () => ({ value: '' }) },
     updateMicUI() {}, stopSpeakingNow() {}, isEn: () => false,
     micHint: msg => hints.push(msg), sendMsg: () => sent.push('sent'),
