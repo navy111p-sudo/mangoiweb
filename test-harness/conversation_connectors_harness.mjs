@@ -547,9 +547,9 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
     } });
   };
   const separateReply = doubleReply;
-  for (const [sessionId, scene, modelReply, expected, omitted] of [
-    ['scene-one-stream', doctor, separateReply, 'I see. Can you tell me more about your headache?', 'sharp pain'],
-    ['scene-compound-stream', box.MangoiSituations.find('exchange'), 'I see. Did you buy it here and do you have the receipt?', 'I see. Did you buy it here?', 'receipt'],
+  for (const [sessionId, scene, modelReply, expected] of [
+    ['scene-one-stream', doctor, separateReply, 'I see. Can you tell me more about your headache?'],
+    ['scene-compound-stream', box.MangoiSituations.find('exchange'), 'I see. Did you buy it here and do you have the receipt?', 'I see. Did you buy it here?'],
   ]) {
     doubleReply = modelReply;
     const oneStream = await W8.fetch(new Request('https://mangoi.ai/api/warmup/chat', {
@@ -559,11 +559,28 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
     const oneEvents = (await oneStream.text()).split('\n').filter(l => l.startsWith('data:')).map(l => JSON.parse(l.slice(5)));
     const oneDone = oneEvents.find(e => e.done);
     ok(oneDone?.ok && oneDone.ai_response === expected, 'SSE 최종 답변도 첫 질문 하나만', oneDone);
-    ok(!oneEvents.filter(e => e.t).some(e => e.t.includes(omitted)) && oneDone?.halted === 'question_limit', '둘째 질문은 미리보기 음성에 한 글자도 내보내지 않는다', oneEvents);
+    ok(oneEvents.filter(e => e.t).map(e => e.t).join(' ') === 'I see.' && oneDone?.halted === 'question_pending',
+      '질문을 확정 전에는 읽지 않고 앞의 반응만 미리 읽는다', oneEvents);
   }
-  doubleReply = separateReply;
+  const directions = box.MangoiSituations.find('directions');
+  const walkingQuestion = 'But you wanted to walk, right?';
+  const initialWalking = walkingQuestion + " So, let's start walking down this street.";
+  AI.run = async (model, opts) => {
+    if (!opts.stream) return { response: JSON.stringify({ reply: walkingQuestion, fix: null }) };
+    const raw = JSON.stringify({ reply: initialWalking, fix: null });
+    return new Response('data: ' + JSON.stringify({ response: raw }) + '\n\ndata: [DONE]\n\n').body;
+  };
+  const walking = await W8.fetch(new Request('https://mangoi.ai/api/warmup/chat', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mangoi.ai' },
+    body: JSON.stringify({ session_id: 'scene-walk-play-once', student_input: 'I can see the bus stop from here.', lesson_topic: directions.role, difficulty: 4, correction_mode: 'free_talk', stream: 1 }),
+  }), env, ctxW);
+  const walkingEvents = (await walking.text()).split('\n').filter(l => l.startsWith('data:')).map(l => JSON.parse(l.slice(5)));
+  const walkingDone = walkingEvents.find(e => e.done);
+  ok(walkingDone?.ok && walkingDone.ai_response === walkingQuestion && walkingDone.streamed === 0 && !walkingEvents.some(e => e.t),
+    '길 묻기 실측 재현: 미리듣기에서 질문을 읽지 않고 재생성 확정 후 한 번만 전달', walkingEvents);
+  AI.run = async () => ({ response: JSON.stringify({ reply: separateReply, fix: null }) });
   const ordinaryTwo = await post('/api/warmup/chat', { session_id: 'ordinary-two', student_input: 'Thank you.', correction_mode: 'free_talk' });
-  ok(ordinaryTwo.status === 200 && ordinaryTwo.j.ai_response === doubleReply, '상황별 밖의 대화에는 새 제한을 적용하지 않는다', ordinaryTwo.j);
+  ok(ordinaryTwo.status === 200 && ordinaryTwo.j.ai_response === separateReply, '상황별 밖의 대화에는 새 제한을 적용하지 않는다', ordinaryTwo.j);
   AI.run = saveRun;
 }
 

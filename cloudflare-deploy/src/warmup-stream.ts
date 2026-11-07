@@ -32,7 +32,7 @@
  */
 import { createJsonTextTap, takeSentences } from './stream-json-text';
 import { replyRejectReason } from './reply-sanity';
-import { fragmentQuestions, firstQuestionOnly } from './reply-questions';
+import { fragmentQuestions } from './reply-questions';
 import { wrongSelfName, askedOwnName } from './ai-friends';
 import { studentSoundsNegative, isBareCheerHead, previewMayBeCheer } from './warmup-empathy';
 
@@ -167,7 +167,8 @@ export function createWarmupLive(
       }
       const cand = text ? text + ' ' + s : s;
       let why = '';
-      if (o.oneQuestion && firstQuestionOnly(cand) !== cand) { halt = 'question_limit'; return false; }
+      // A retry can replace the preview. Ask the roleplay question only once the final reply is ready.
+      if (o.oneQuestion && /[?？]/.test(s)) { halt = 'question_pending'; return false; }
       try { why = replyRejectReason(cand, o.cap); } catch { why = 'gate_error'; }
       if (!why) {
         try { if (wrongSelfName(cand, o.friend, { askedName })) why = 'name'; } catch { why = 'gate_error'; }
