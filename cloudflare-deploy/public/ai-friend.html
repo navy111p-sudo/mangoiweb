@@ -1366,7 +1366,7 @@
         if (opened) return; opened = true;
         btn.disabled = false;
         _repeatTarget = { text: text, at: Date.now() };
-        try { if (!_recognizing) toggleMic(); } catch(e){}
+        try { if (!_whisperOn) toggleMic(); } catch(e){}
       };
       btn.disabled = true;
       try { speakText(text, btn, null); } catch(e){ openMic(); return; }
@@ -1562,13 +1562,13 @@
        AI 음성코치에서 이미 검증된 방식이라 정확도가 높고, 세션마다 브라우저가 제멋대로 끊던
        문제도 없다(MediaRecorder는 멈추기 전까지 안 끊김). 실시간 자막은 사라지고 "녹음→전사"
        로 UX가 바뀌지만(사장님 승인), 그만큼 정답률이 오른다. */
-    let _recognizing = false, _pendingVoice = false;
+    let _whisperOn = false, _friendMicSeq = 0, _pendingVoice = false;
     let _lastRecBlob = null, _lastAiText = '';   // 🎯 발음 교정용 — 방금 녹음 파일 / AI 마지막 말
 
     function updateMicUI() {
       const b = document.getElementById('micBtn'); if (!b) return;
-      b.classList.toggle('recording', _recognizing);
-      b.textContent = _recognizing ? '⏹' : '🎤';
+      b.classList.toggle('recording', _whisperOn);
+      b.textContent = _whisperOn ? '⏹' : '🎤';
     }
     /* 🎤 마이크 상태·오류를 화면에 알려준다 — 그동안 ai-friend 는 아무 안내가 없어서
        권한이 꺼져 있거나 소리가 안 들려도 학생은 "마이크가 안 된다"고만 느꼈다. */
@@ -1590,12 +1590,11 @@
     }
 
     /* 🎤 녹음 → 서버 Whisper 전사(mangoi-voice-input.js). 모든 환경에서 이 방식 하나만 쓴다. */
-    let _whisperOn = false, _friendMicSeq = 0;
     function cancelFriendMic() {
       if (!_whisperOn) return;
       _friendMicSeq++;
       if (window.MangoiVoice) MangoiVoice.cancel();
-      _whisperOn = false; _recognizing = false; updateMicUI(); micHint(null);
+      _whisperOn = false; updateMicUI(); micHint(null);
     }
     // Shared by the inline mic and face conversation. Peaks are UI hints, never speech evidence.
     /* ⚡ (2026-11-06 사장님 「휴대폰 A.i 말하기 3카드 모두 아바타가 더 빨리」) «미리 받아쓰기» — 웜업과 같은 정본 js/mangoi-voice-early.js.
@@ -1670,7 +1669,7 @@
       try { window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); } catch(e){}
       const micSeq = ++_friendMicSeq;
       let voiceError = '';
-      _whisperOn = true; _recognizing = true; updateMicUI();
+      _whisperOn = true; updateMicUI();
       stopSpeakingNow();   // ⏹ 말을 걸었으니 AI 낭독을 멈춥니다(큐까지 함께 — B)
       let said = '', recBlob = null;   // 🎤 녹음 파일 — 판정이 놓친 작은 목소리를 다시 잰다(voice-has-speech.js)
       try { said = await friendRecordVoice({
@@ -1699,7 +1698,7 @@
         }
       }); } catch(e) { voiceError = 'server'; }
       if (micSeq !== _friendMicSeq) return;
-      _whisperOn = false; _recognizing = false; updateMicUI();
+      _whisperOn = false; updateMicUI();
       _lastRecBlob = said ? recBlob : null;   // 🎯 발음 교정에 쓸 녹음(음성으로 보낸 턴만)
       if (said) {
         micHint(null);
