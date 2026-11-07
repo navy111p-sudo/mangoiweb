@@ -4466,7 +4466,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     /* 🎯 (2026-10-29 사장님 «제안서대로») 학생이 고른 교정 모드, 없으면 시범 학원만 «평가 등급 + 정직한 칭찬 + 교정 모드». 정본 src/warmup-honest.ts.
        ⛔ null 이면 아래 어디에서도 동작이 바뀌지 않는다(예전과 같음). 던지지 않는다. */
     const honest = await resolveWarmupHonest(env, sessionId, ctxUserId, { lang: ctxLang, chosen: body && body.correction_mode });
-    const compactFocused = honest?.mode === 'focused' && !ctxKickoff && !ctxRoleplay && body.guided !== 1 &&
+    // A verified correction asks the student to repeat it, so question help only belongs to the fallback.
+    const compactFocused = honest?.mode === 'focused' && !ctxKickoff && !ctxRoleplay &&
       !hasEleaderExpansion(request) && isEnglishText(studentInput, WARMUP_FIX_EN_MAX_CHARS);
     if (honest) sys += '\n' + warmupHonestRule(honest.mode);
     if (honest?.mode === 'focused') sys += '\n' + FOCUSED_DRAFT_RULE;
