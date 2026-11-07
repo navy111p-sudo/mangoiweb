@@ -87,8 +87,10 @@ check('못 읽으면 «답했다» 로(묻지 않는 쪽)', (await L.recentlyAns
   check('서버: 목표는 정본 표에서 만든다', /AI_FRIEND_LEVELS as any\)\[k\]\.maxWordsPerSentence/.test(gBody));
   const pBody = AI.slice(p, p + 1400);
   check('서버 POST: 모르는 action 거절', /!== 'level_suggest'\) return json\(\{ ok: false, error: 'unknown_action' \}, 400\)/.test(pBody));
-  check('서버 POST: 토큰 uid 일치 검사(IDOR)', /if \(authUid !== uid\) return json\(\{ ok: false, error: 'uid_mismatch' \}, 403\)/.test(pBody));
-  check('서버 POST: 인증 검사가 기록보다 먼저', pBody.indexOf('uid_mismatch') > 0 && pBody.indexOf('uid_mismatch') < pBody.indexOf('recordSuggestAnswer('));
+  const gate = AI.match(/const denyChatHistoryAccess = async [\s\S]+?\n\s*};/)?.[0] || '';
+  check('서버 POST: 공통 소유자 검사(IDOR)', /if \(authUid !== uid\).*uid_mismatch.*403/.test(gate) && pBody.includes('await denyChatHistoryAccess(uid, b)'));
+  const denied = pBody.indexOf('if (denied) return denied;');
+  check('서버 POST: 인증 거절이 기록보다 먼저', denied > 0 && denied < pBody.indexOf('recordSuggestAnswer('));
 }
 // ── 배선: 화면 ──
 {

@@ -1112,14 +1112,20 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       } });
     }
 
+    // 기록 조회·레벨 응답·초기화는 같은 소유자 판정을 사용한다.
+    const denyChatHistoryAccess = async (uid: string, body?: unknown): Promise<Response | null> => {
+      const authUid = await authUidGlobal(request, url, env, body);
+      if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
+      if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      return null;
+    };
+
     if (method === 'GET' && path === '/api/ai/chat-history') {
       await ensureChatSchema();
       const uid = String(url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
-      // 🔐 IDOR 방지 — 서명 토큰의 uid 와 요청 uid 일치 필수 (타인 대화 열람 차단)
-      const authUid = await authUidGlobal(request, url, env);
-      if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
-      if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      const denied = await denyChatHistoryAccess(uid);
+      if (denied) return denied;
       const rs = await env.DB.prepare(
         `SELECT id, role, content, created_at FROM ai_friend_chats WHERE student_uid = ? ORDER BY id ASC LIMIT 200`
       ).bind(uid).all();
@@ -1152,9 +1158,8 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       if (String(b.action || '') !== 'level_suggest') return json({ ok: false, error: 'unknown_action' }, 400);
       const uid = String(b.uid || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
-      const authUid = await authUidGlobal(request, url, env, b);
-      if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
-      if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      const denied = await denyChatHistoryAccess(uid, b);
+      if (denied) return denied;
       const okRec = await recordSuggestAnswer(env.DB, uid, 'aifriend',
         { from: b.from, to: b.to, decision: b.decision, evidence: b.evidence }, Date.now());
       return okRec ? json({ ok: true }) : json({ ok: false, error: 'bad_answer' }, 400);
@@ -1165,10 +1170,8 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       const b: any = await request.json().catch(() => ({}));
       const uid = String(b.uid || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
-      // 🔐 IDOR 방지 — 서명 토큰의 uid 와 요청 uid 일치 필수 (타인 대화 삭제 차단)
-      const authUid = await authUidGlobal(request, url, env, b);
-      if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
-      if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      const denied = await denyChatHistoryAccess(uid, b);
+      if (denied) return denied;
       await env.DB.prepare(`DELETE FROM ai_friend_chats WHERE student_uid = ?`).bind(uid).run();
       /* ✏️ 교정 메모도 함께 지운다 (2026-09-09 함정 대조).
          턴 수는 위 DELETE 로 0 으로 돌아가는데 KV 의 lastShownTurn 은 6시간 남아 있어서,
