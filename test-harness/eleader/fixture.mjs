@@ -8,10 +8,14 @@ import { pathToFileURL } from 'node:url';
 const root = resolve(import.meta.dirname, '../..');
 const require = createRequire(root + '/cloudflare-deploy/package.json');
 const { build } = require('esbuild');
-export async function fixture(filename = ':memory:') {
+// Every fixture keeps fresh data; the imported module was already cached by Node.
+const apiModule = (async () => {
   const outfile = (handoffTmp()+'/eleader-test-api-') + process.pid + '.mjs';
   await build({ stdin:{ contents: "export { handleEleaderApi } from './src/api-eleader'; export { signUidToken } from './src/auth-token';",resolveDir:root+'/cloudflare-deploy'},bundle:true,platform:'node',format:'esm',outfile,logLevel:'silent' });
-  const {handleEleaderApi,signUidToken}=await import(pathToFileURL(outfile));
+  return import(pathToFileURL(outfile));
+})();
+export async function fixture(filename = ':memory:') {
+  const {handleEleaderApi,signUidToken}=await apiModule;
   const db=new DatabaseSync(filename); db.exec(readFileSync(root+'/cloudflare-deploy/sql/eleader-pilot.sql','utf8'));
   db.exec(`CREATE TABLE IF NOT EXISTS admin_account(id INTEGER PRIMARY KEY, username TEXT UNIQUE, password_hash TEXT, name TEXT, email TEXT, phone TEXT, created_at INTEGER, updated_at INTEGER);
   CREATE TABLE IF NOT EXISTS admin_sessions(token TEXT PRIMARY KEY, username TEXT, expires_at INTEGER, last_seen_at INTEGER);

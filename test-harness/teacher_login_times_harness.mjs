@@ -242,7 +242,8 @@ const makeCAS = (clockRef) => new Function('parseCookies', 'SESSION_COOKIE', 'en
   strip(casFn.text.replace(/^export\s+/, '')) + '\nreturn checkAdminSession;')(
   (req) => new Map([['sid', req.token]]), 'sid', async () => {}, M.dailySeenPlan, M.noteDailySeen,
   { now: () => clockRef.t });
-const flush = async () => { for (let i = 0; i < 5; i++) await new Promise(r => setTimeout(r, 0)); };
+// Drain the same five async turns without Windows timer-resolution delays.
+const flush = async () => { for (let i = 0; i < 5; i++) await new Promise(r => setImmediate(r)); };
 {
   // 손으로 한 시나리오 — 첫 요청이 적히고, 두 번째는 안 적히며, last_seen 은 매번 갱신
   const db = freshDb(); const env = { DB: d1(db) }; const clock = { t: 0 };
