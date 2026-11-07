@@ -627,7 +627,7 @@ const worker = {
       /* 📡 P2 (2026-10-02 사장님 승인) — 본문에 stream:1 이 있을 때만 SSE 로 문장을 먼저 흘린다.
          없으면 warmupChatEntry 가 아래 핸들러 응답을 «그대로» 돌려준다(옛 화면은 한 바이트도 안 바뀜).
          정본·안전문(gate)·done 계약은 src/warmup-stream.ts 머리말. */
-      return warmupChatEntry(request, (req, send) => handleWarmupChat(req, env, send));
+      return warmupChatEntry(request, (req, send) => handleWarmupChat(req, env, send, ctx));
     }
     if (path === '/api/warmup/context' && request.method === 'GET') {
       return handleWarmupContext(request, env);
@@ -4267,7 +4267,7 @@ async function handleGamesRecommend(request: Request, env: Env): Promise<Respons
   }
 }
 
-async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) => void) | null = null): Promise<Response> {
+async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) => void) | null = null, ctx?: ExecutionContext): Promise<Response> {
   /* ⏱ 지연 기록(feature='warmup') — 정본 ai-latency-log.ts. 학생 발화·답변은 싣지 않는다(길이만).
      📡 sseSend 가 있으면(P2) 첫 모델 호출의 문장을 먼저 흘린다 — 없으면 예전과 똑같다. */
   const latT0 = Date.now();
@@ -4417,13 +4417,20 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     //      비로그인·교재 미배정 세션만 여기서 처음 기록된다(INSERT OR IGNORE 라 겹쳐도 무해).
     //   ② 「입을 뗐다」 판정은 히스토리가 비었는지로 하면 «틀린다» — kickoff 합성 발화가 이미
     //      user 로 저장돼 있기 때문이다. 판정은 순수 함수 하나에 모아 두고 하니스가 직접 돌린다.
-    if (history.length === 0) {
-      await logWarmupSessionStart(env, {
-        sessionId, userId: ctxUserId, difficulty: ctxDifficulty, ageGroup: ctxAge,
-        textbook: ctxTextbook, level: ctxLevel,
-      });
+    const markFirstReply = warmupShouldMarkFirstReply(history, ctxKickoff);
+    if (history.length === 0 || markFirstReply) {
+      const sessionLog = (async () => {
+        if (history.length === 0) {
+          await logWarmupSessionStart(env, {
+            sessionId, userId: ctxUserId, difficulty: ctxDifficulty, ageGroup: ctxAge,
+            textbook: ctxTextbook, level: ctxLevel,
+          });
+        }
+        if (markFirstReply) await markWarmupFirstReply(env, sessionId);
+      })();
+      if (ctx) ctx.waitUntil(sessionLog);
+      else await sessionLog;
     }
-    if (warmupShouldMarkFirstReply(history, ctxKickoff)) await markWarmupFirstReply(env, sessionId);
 
     // ── 시스템 프롬프트(주제 + 오늘 배울 교재 반영) + 히스토리 + 이번 발화로 messages 구성 ──
     let sys = ctxLang === 'zh' ? warmupZhSystem(ctxFriend) : warmupSystem(ctxFriend);
@@ -4456,10 +4463,12 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     /* 🎯 (2026-10-29 사장님 «제안서대로») 학생이 고른 교정 모드, 없으면 시범 학원만 «평가 등급 + 정직한 칭찬 + 교정 모드». 정본 src/warmup-honest.ts.
        ⛔ null 이면 아래 어디에서도 동작이 바뀌지 않는다(예전과 같음). 던지지 않는다. */
     const honest = await resolveWarmupHonest(env, sessionId, ctxUserId, { lang: ctxLang, chosen: body && body.correction_mode });
+    const compactFocused = honest?.mode === 'focused' && !ctxKickoff && !ctxRoleplay && body.guided !== 1 && !hasEleaderExpansion(request);
     if (honest) sys += '\n' + warmupHonestRule(honest.mode);
     if (honest?.mode === 'focused') sys += '\n' + FOCUSED_DRAFT_RULE;
     sys += '\n' + warmupGuidanceRule(body, ctxLang);
     if (hasEleaderExpansion(request)) sys += ELEADER_EXPANSION_RULE;
+    if (compactFocused) sys += '\n[집중교정 최종 JSON 형식] 교정할 때는 {"reply":"고친 전체 영어 문장","fix":{"short":"아주 짧은 한국어 이유","tag":"위 교정 태그 하나"},"grade":"partial"}만 출력해. 끝나지 않은 문장이면 grade는 incomplete야. 학생의 뜻과 바른 어휘는 유지해. 교정문은 reply에 한 번만 써. 고칠 게 없으면 {"reply":"짧고 자연스러운 영어 답변","fix":null,"grade":"위 등급 중 하나"}만 출력해.';
     /* 🏷️ 첫 턴에는 «화면 인사» 를 모델 문맥에 넣어 준다 (2026-09-01).
        ⚠️ 이 파일은 공동 금지구역이다 — 2026-08-31 사장님이 「진행해」로 승인하신 «AI 가 자기
           이름을 못 지키는» 그 버그의 연장이고, 변경은 이 조립 1줄 + 주석뿐이다.
@@ -4554,6 +4563,12 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
          `r?.response ?? r?.result?.response` 로 읽는다(2026-09-08 실사고로 맞춤). */
       const parsed = parseWarmupOutput(r?.response ?? r?.result?.response ?? '');
       stagedFix = parsed.fix;
+      if (compactFocused && typeof parsed.fix?.short === 'string') {
+        stagedFix = focusedCandidate({
+          was: studentInput, now: parsed.reply, why_ko: parsed.fix.short, tag: parsed.fix.tag, severity: 'minor',
+        }, studentInput);
+        if (!stagedFix) parsed.reply = '';
+      }
       stagedGrade = parseWarmupGrade(r?.response ?? r?.result?.response ?? '');
       stagedHelp = body.guided === 1 ? parseSpeakingHelp(r?.response ?? r?.result?.response ?? '', ctxLang) : null;
       /* ⚠️ «빈 응답» 과 «평문이 왔다» 는 다른 사실이다 — 한 숫자로 뭉치면 그 로그를
@@ -4598,7 +4613,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput, fragQ, oneQuestion: ctxRoleplay, honest: !!honest, focused: honest?.mode === 'focused',
       repeatOf: qmem ? (sen) => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS && repeatedQuestions(sen, qmem).length > 0 : undefined }) : null;
     try {
-      const result: any = await runWarmup(messages, 0.7, live);
+      // Focused replies cannot preview speech until the correction has been verified.
+      const result: any = await runWarmup(messages, 0.7, compactFocused ? null : live);
       aiText = takeWarmupReply(result); commitFix();
       // 🔁 (2026-07-27) Workers AI 가 드물게 빈 응답을 준다 — 이걸 그대로 두면 아래
       //    "Let's try again" 문구가 나가서, 학생은 자기가 잘 말했는데도 AI가 못 알아들은
@@ -4861,11 +4877,13 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
        ⚠️ 교정 앞머리까지 붙은 «최종» 답장을 본다(학생이 들은 그대로). 답장 본문은 싣지 않는다 — 정본 src/warmup-reply-start.ts.
        첫마디 판정 조건은 위 [연결 표현] 줄과 같다(하니스가 대조). */
     const traceStart = replyStartOf(aiText);
-    await logWarmupFixTrace(env, {
+    const fixTrace = logWarmupFixTrace(env, {
       userId: ctxUserId, sessionId, lang: ctxLang, mode: honest ? honest.mode : '', reason: traceReason, tag: traceTag,
       openerTurn: openerTurnState(ctxLang !== 'zh' && !hasEleaderExpansion(request), history),
       startKind: traceStart.kind, startWord: traceStart.word, grade: honestGrade ? String(honestGrade) : '',
     });
+    if (ctx) ctx.waitUntil(fixTrace);
+    else await fixTrace;
 
     // ── 히스토리 갱신(최근 N턴만) + 6시간 TTL 저장 ──
     try {
@@ -4876,7 +4894,9 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
       if (env.SESSION_STATE) await env.SESSION_STATE.put(hkey, JSON.stringify(updated), { expirationTtl: 6 * 3600 });
     } catch {}
 
-    await logWarmupLatency(aiText, modelOk ? 1 : 0);
+    const latencyLog = logWarmupLatency(aiText, modelOk ? 1 : 0);
+    if (ctx) ctx.waitUntil(latencyLog);
+    else await latencyLog;
 
     // 💬 「어떻게 대답하면 되나」 보기 칩 — AI 질문에서 «결정론적으로» 유도한다(src/warmup-answers.ts).
     //    LLM 을 한 번 더 부르지 않으므로 응답이 느려지지 않고, 못 만들면 빈 배열이라 화면이 아무것도 안 그린다.
