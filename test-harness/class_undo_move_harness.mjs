@@ -757,7 +757,7 @@ try {
     { name: '이동: 기록을 옛 \'reschedule\' 로(되돌리기를 restore 로 안 적음)', expect: /^B1c |^B1e /,
       edits: [['src', 'class-schedule-move.ts', "VALUES ('${guarded ? 'restore' : 'reschedule'}'", "VALUES ('${restore ? 'restore' : 'reschedule'}'"]] },
     { name: '이동: 출석 기록 검사를 연기 취소에만', expect: /^B5 /,
-      edits: [['src', 'class-schedule-move.ts', '      if (guarded) {\n        const attendanceTable', '      if (restore) {\n        const attendanceTable']] },
+      edits: [['src', 'class-schedule-move.ts', '      if (attendanceTable) {', '      if (restore && attendanceTable) {']] },
     { name: '경로: 매주 반복도 반복 행 자체를 옮김(하루짜리 줄 무시)', expect: /^B10 /,
       edits: [['src', 'class-undo-move.ts', 'const target = child || row;', 'const target = row;']] },
     { name: '경로: 이력 조회 실패를 «기록 없음» 으로(모르면 막기 → 그냥 409)', expect: /^B9 /,
@@ -823,7 +823,7 @@ try {
     cpSync(join(REAL_PUB, 'manager.html'), join(pub, 'manager.html'));
     for (const [where, file, from, to] of m.edits) {
       const p = join(where === 'src' ? src : pub, file);
-      const t = readFileSync(p, 'utf8');
+      const t = readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
       if (!t.includes(from)) return { m, applied: false };
       writeFileSync(p, t.replace(from, to));
     }
