@@ -264,11 +264,22 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
     //   어차피 새로 시작하므로 큐잉하지 않고, '내용 공유' 타입만 큐에 담아 재연결 즉시 재전송.
     const QUEUEABLE_TYPES = { 'pdf-share':1, 'pdf-sync':1, 'pdf-page-change':1, 'pdf-stop-share':1, 'video-share':1, 'video-sync':1, 'video-stop-share':1, 'file-share':1, 'tab-sync':1, 'bg-lock':1, 'mic-lock':1, 'focus-lock':1, 'pdf-drawlock':1 };
     let sendQueue = [];   // [{type,...}] 최대 20개 — 같은 type 은 마지막 것만 유지
+    function discardSuperseded(type) {
+        const types = (type === 'pdf-share' || type === 'pdf-stop-share')
+            ? ['pdf-share', 'pdf-stop-share', 'pdf-sync', 'pdf-page-change']
+            : (type === 'video-share' || type === 'video-stop-share')
+                ? ['video-share', 'video-stop-share', 'video-sync'] : [type];
+        sendQueue = sendQueue.filter(d => !types.includes(d.type));
+    }
     function flushQueue() {
-        if (!ws || ws.readyState !== WebSocket.OPEN || !sendQueue.length) return;
-        const q = sendQueue; sendQueue = [];
-        q.forEach(d => { try { ws.send(JSON.stringify(d)); } catch(e){} });
-        console.log('[WebSocket] 재연결 후 대기 메시지 재전송:', q.length + '건');
+        let sent = 0;
+        while (ws && ws.readyState === WebSocket.OPEN && sendQueue.length) {
+            try { ws.send(JSON.stringify(sendQueue[0])); }
+            catch (_) { break; } // 실패한 공유 신호와 나머지는 다음 재연결까지 보존한다.
+            sendQueue.shift();
+            sent++;
+        }
+        if (sent) console.log('[WebSocket] 재연결 후 대기 메시지 재전송:', sent + '건');
     }
     const _origOnOpenFlush = onOpen;
     // 🔴 (2026-10-20) 원래 onOpen(=join-room) «뒤에» 보낸다 — 앞이면 서버가 «아직 입장 전» 으로 보고 pdf-share 를 조용히 버린다
@@ -280,10 +291,15 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
 
         send(data) {
             if (ws && ws.readyState === WebSocket.OPEN) {
-                try { ws.send(JSON.stringify(data)); return true; }
-                catch (_) { return false; }
-            } else if (data && QUEUEABLE_TYPES[data.type]) {
-                sendQueue = sendQueue.filter(d => d.type !== data.type);   // 같은 타입은 최신만
+                try {
+                    ws.send(JSON.stringify(data));
+                    if (data) discardSuperseded(data.type);
+                    return true;
+                }
+                catch (_) {} // OPEN이어도 전송이 거절되면 기존 공유 대기열로 보낸다.
+            }
+            if (data && QUEUEABLE_TYPES[data.type]) {
+                discardSuperseded(data.type);   // 최신 공유/중지는 이전 공유 상태를 대체한다.
                 if (sendQueue.length < 20) sendQueue.push(data);
                 console.warn('[WebSocket] 연결 끊김 → 재연결 시 재전송 예약:', data.type);
             } else {
