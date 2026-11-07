@@ -469,7 +469,12 @@ const KV = { get: async (k) => kv.get(k) ?? null, put: async (k, v) => { kv.set(
 const seen = [];
 let replyText = 'That sounds fun! Do you like cats?';
 const AI = { run: async (model, o) => { seen.push(o); return { response: JSON.stringify({ reply: replyText, fix: null }) }; } };
-const env = { AI, SESSION_STATE: KV, DB, ROOM_JWT_SECRET: 'LOCAL-ONLY-connectors-harness-not-a-secret' };
+// These scenarios inspect the conversation model's prompt after a correction miss.
+const env = {
+  AI: { run: (model, opts) => model === '@cf/ibm-granite/granite-4.0-h-micro'
+    ? Promise.resolve({ response: '{"reply":"OK","fix":null}' }) : AI.run(model, opts) },
+  SESSION_STATE: KV, DB, ROOM_JWT_SECRET: 'LOCAL-ONLY-connectors-harness-not-a-secret',
+};
 const ctxW = { waitUntil() {}, passThroughOnException() {} };
 const post = async (p, body, tok) => {
   seen.length = 0;
