@@ -247,7 +247,7 @@ ok('지연 기록에 글(본문)은 안 싣고 길이만', /chars:/.test(lwBody)
 /* ═══════════════ C. 화면 — 오려 내 실제로 돌린다 ═══════════════ */
 console.log('\n[C] 화면');
 const H = HTML;
-const names = ['_stopSpeak', '_stmWanted', '_speakLive', '_stmEnd', '_stmShow', '_stmDrop', '_stmRest', '_stmSentence', '_stmRead', '_stmTurn'];
+const names = ['_stopSpeak', '_stmWanted', '_speakLive', '_stmEnd', '_stmShow', '_stmDrop', '_stmRest', '_stmSentence', '_stmRead', '_stmTurn', 'warmupReplyText'];
 const parts = {};
 for (const n of names) { parts[n] = fnSrc(H, n); ok('전제: ' + n + ' 를 오려 냈다', parts[n].length > 20); }
 
@@ -261,6 +261,7 @@ function sandbox() {
     var localStorage={getItem:function(){return null;}};
     function warmThought(show){ C.thinking=show; }
     var ZHMALE=false; function _zhMaleWanted(){ return ZHMALE; }
+    function isZh(){ return false; }
     function mkEl(){ var e={ children:[], className:'', innerHTML:'', removed:false, remove:function(){ e.removed=true; },
       appendChild:function(c){ e.children.push(c); }, querySelector:function(){ return { set innerHTML(v){ e.text=v; } }; } }; return e; }
     var document={ createElement:function(){ return mkEl(); } };
