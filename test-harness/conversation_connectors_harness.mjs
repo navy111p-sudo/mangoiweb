@@ -511,6 +511,18 @@ const has = (sys, band) => sys.includes(C.connectorRule(band));
 
   }
   const doctor = box.MangoiSituations.find('doctor');
+  for (const [sceneId, prior, answer, repeated, nextQuestion] of [
+    ['birthday', 'What flavor of ice cream do you like best?', 'I like chocolate ice cream.', 'Is the chocolate ice cream your favorite flavor?', 'Do you want another scoop?'],
+    ['directions', 'Can I help you?', 'Yes, I need help finding the library.', 'Are you looking for the library?', 'What street are you on?'],
+    ['restaurant', 'Do you want ketchup or mustard with your fries?', 'I want ketchup with my fries.', "So, to confirm, you'd like fries with ketchup, right?", 'Would you like a drink?'],
+  ]) {
+    const sid = 'scene-confirm-' + sceneId;
+    kv.set('warmup:' + sid, JSON.stringify([{ role: 'assistant', content: prior }]));
+    let calls = 0;
+    AI.run = async () => ({ response: JSON.stringify({ reply: ++calls === 1 ? repeated : nextQuestion }) });
+    const r = await post('/api/warmup/chat', { session_id: sid, student_input: answer, lesson_topic: box.MangoiSituations.find(sceneId).role, correction_mode: 'free_talk' });
+    ok(r.status === 200 && r.j.ai_response === nextQuestion && calls === 2, sceneId + ': 이미 받은 답을 확인하는 대신 다음 질문', r.j);
+  }
   for (const failure of ['no-question', 'error', 'fragment', 'wrong-name', 'repeat']) {
     let calls = 0;
     if (failure === 'repeat') kv.set('warmup:scene-fail-repeat', JSON.stringify([{ role: 'assistant', content: 'Oh, I see. Do you feel better?' }, { role: 'user', content: 'Yes.' }]));

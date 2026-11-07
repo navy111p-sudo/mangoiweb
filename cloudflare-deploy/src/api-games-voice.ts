@@ -139,6 +139,13 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
           return { azure: (r && r.ok) ? r : null, azure_diag: r ? (r.ok ? 'ok' : r.reason) : 'none' };
         };
 
+        const readTranscript = async (raw: any) => {
+          if (raw instanceof Response && !raw.ok) throw new Error('whisper_http_' + raw.status);
+          const result = raw instanceof Response ? await raw.json() : raw;
+          if (typeof result?.text !== 'string') throw new Error('invalid_whisper_transcript');
+          return result;
+        };
+
         // whisper-large-v3-turbo 는 audio 를 base64 문자열로 받고 language 힌트를 지원한다.
         if (lang) {
           try {
@@ -157,8 +164,8 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
               hallucination_silence_threshold: 2,  // 2초 이상 침묵 구간은 건너뜀(무음에서 문장 지어내기 방지)
             };
             if (hintPrompt) turboParams.initial_prompt = hintPrompt;
-            const turbo: any = await ai.run('@cf/openai/whisper-large-v3-turbo', turboParams);
-            const ttRaw = String(turbo?.text || '').trim();
+            const turbo = await readTranscript(await ai.run('@cf/openai/whisper-large-v3-turbo', turboParams));
+            const ttRaw = turbo.text.trim();
             // A successful empty/VAD rejection is terminal, never a reason to try base Whisper.
             // Confidence rejection is for chat. Pronunciation coaching still needs weak speech to score it.
             const rejected = !ttRaw ? 'no_speech' : (strictSpeech ? sttRejectReason(turbo) : null);
@@ -194,10 +201,10 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
 
         // 폴백: 구 whisper (언어 힌트 미지원, 자동감지)
         const arr = [...new Uint8Array(audio)];
-        const result = await ai.run('@cf/openai/whisper', { audio: arr });
-        const baseText = String(result?.text || '');
+        const result = await readTranscript(await ai.run('@cf/openai/whisper', { audio: arr }));
+        const baseText = result.text;
         if (isSttRepeatLoop(baseText)) return json({ ok: true, text: '', dropped: 'repeat_loop', lang: lang || null, azure: null, azure_diag: 'dropped' });
-        return json({ ok: true, text: result?.text || '', vtt: result?.vtt || null, word_count: result?.word_count || 0, lang: lang || null, ...(await azureOut()) });
+        return json({ ok: true, text: baseText, vtt: result?.vtt || null, word_count: result?.word_count || 0, lang: lang || null, ...(await azureOut()) });
       } catch (e: any) {
         console.warn('[voice/transcribe] error:', e?.message);
         return json({ ok: false, error: e?.message || 'transcribe_failed' }, 500);
