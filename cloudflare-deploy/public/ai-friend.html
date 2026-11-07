@@ -1299,11 +1299,12 @@
       const again = document.createElement('button');
       again.type = 'button'; again.className = 'fix-speak';
       _fixLabel(again, '🔊 다시 듣기', '🔊 Listen again');
-      again.onclick = function () { sayThrice(pf.word, pf.say_times || 3); };
+      const replay = () => sayThrice(pf.word, pf.say_times || 3);
+      again.onclick = replay;
       card.appendChild(again);
       chat.appendChild(card);
       chat.scrollTop = chat.scrollHeight;
-      if (autoSpeak !== false) sayThrice(pf.word, pf.say_times || 3);
+      if (autoSpeak !== false) replay();
     }
     function showFixCard(fix, offerRepeat) {
       fixCardClear();
@@ -1324,8 +1325,9 @@
         const v = document.createElement('span'); v.className = cls; v.textContent = val;
         row.appendChild(l); row.appendChild(v); return row;
       };
+      const correctedText = String(fix.now);
       card.appendChild(mk('내가 말한 것', 'You said', String(fix.was), 'fix-was'));
-      card.appendChild(mk('이렇게', 'Better', String(fix.now), 'fix-now'));
+      card.appendChild(mk('이렇게', 'Better', correctedText, 'fix-now'));
 
       if (fix.why_ko) {
         const w = document.createElement('div'); w.className = 'fix-why';
@@ -1337,7 +1339,7 @@
       const listen = document.createElement('button');
       listen.type = 'button'; listen.className = 'fix-btn';
       _fixLabel(listen, '🔊 들어보기', '🔊 Listen');
-      listen.onclick = function(){ try { speakText(String(fix.now), listen, null); } catch(e){} };
+      listen.onclick = function(){ try { speakText(correctedText, listen, null); } catch(e){} };
       acts.appendChild(listen);
 
       /* 🎤 따라 말하기 — 되말해 주기만 하면 아이는 흘려 듣는다. 이 한 바퀴가 «수다» 를
@@ -1346,7 +1348,7 @@
         const say = document.createElement('button');
         say.type = 'button'; say.className = 'fix-btn';
         _fixLabel(say, '🎤 따라 말해 보기', '🎤 Say it with me');
-        say.onclick = function(){ fixSpeakThenMic(say, String(fix.now)); };
+        say.onclick = function(){ fixSpeakThenMic(say, correctedText); };
         acts.appendChild(say);
       }
       card.appendChild(acts);
