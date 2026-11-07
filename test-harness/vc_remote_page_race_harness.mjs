@@ -14,7 +14,7 @@ for (let seed = 0; seed < 300; seed++) {
   const pending = new Map();
   const build = url => new Promise(resolve => pending.set(url, () => resolve({ url })));
   const ctx = vm.createContext({
-    URL, Map, location: { origin: 'https://fixture.test' },
+    URL, Map, vcAccountSnapshot: () => 'fixture', location: { origin: 'https://fixture.test' },
     document: { getElementById: () => null }, setTimeout() {},
     pdfBuildImageDoc: build,
     async fetch() { return { headers: { get: () => seed % 2 ? 'image/jpeg' : 'application/pdf' } }; },

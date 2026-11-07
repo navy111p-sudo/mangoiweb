@@ -5905,6 +5905,12 @@ async function handleRoomMedia(roomId: string, env: Env): Promise<Response> {
       roomId,
       pdfState: (full && full.pdfState) || null,
       videoState: (full && full.videoState) || null,
+      ...(typeof full?.epochReady === 'boolean' ? {
+        epochReady: statusResp.ok && full.epochReady && typeof full.shareEpoch === 'string' && !!full.shareEpoch
+          && Number.isSafeInteger(full.shareRevision) && full.shareRevision > 0,
+        shareEpoch: typeof full.shareEpoch === 'string' ? full.shareEpoch : undefined,
+        shareRevision: Number.isSafeInteger(full.shareRevision) ? full.shareRevision : undefined,
+      } : {}),
     };
     return new Response(JSON.stringify(out), {
       status: 200,

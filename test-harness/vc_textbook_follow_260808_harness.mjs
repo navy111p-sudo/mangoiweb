@@ -18,6 +18,8 @@ import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이�
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { createRequire } from 'node:module';
+const ts = createRequire(new URL('../cloudflare-deploy/package.json', import.meta.url))('typescript');
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 // 🪤 (2026-08-08) 읽을 때 줄바꿈을 LF 로 통일한다.
@@ -47,6 +49,7 @@ function makeCtx(pre = {}) {
   const tabs = [], toasts = [], loaded = [];
   const ctx = {
     console, Promise,
+    vcRoomId: 'fixture', vcUserId: 'student', vcConn: {}, vcAccountSnapshot: () => '',
     location: { origin: 'https://x' },
     vcSwitchTab: (t) => tabs.push(t),
     showToast: (m) => toasts.push(m),
@@ -109,10 +112,15 @@ check('blob 교재는 여전히 거른다 (다른 기기에서 못 연다)', (()
   s.apply('blob:abc', 'image', 1, 'p1', 'x', true);
   return s.tabs.length === 0 && s.loaded.length === 0;
 })());
-check('호출부가 pdf-share 에서 «교사 신호» 로 표시해 부른다',
-  /vcApplySharedPdf\(sUrl, msg\.data\.kind, msg\.data\.currentPage, sPid, msg\.data\.name, true\)/.test(html));
-check('폴링 호출부는 그 표시를 하지 않는다',
-  /vcApplySharedPdf\(d\.pdfState\.url,[^)]*d\.pdfState\.name\)/.test(html));
+const callSource = readFileSync(resolve(__dir, '../cloudflare-deploy/public/js/idx-main.js'), 'utf8');
+const callTree = ts.createSourceFile('main.js', callSource, ts.ScriptTarget.Latest, true), calls = [];
+function visitCalls(n) { if (ts.isCallExpression(n) && n.expression.getText(callTree) === 'window.vcApplySharedPdf') calls.push(n.arguments.map(a => a.getText(callTree))); ts.forEachChild(n, visitCalls); }
+visitCalls(callTree);
+check('호출부가 pdf-share 에서 교사 신호와 수업 세대를 함께 전달한다',
+  calls.some(a => a[0] === 'sUrl' && a[5] === 'true' && a[6] === 'msg.data.annotationSession'));
+check('폴링 호출부는 교사 신호를 켜지 않고 수업 세대를 전달한다',
+  calls.some(a => a[0] === 'd.pdfState.url' && a[5] === 'false' && a[6] === 'd.pdfState.annotationSession'));
+
 
 console.log('\n[ 🧪 하네스가 진짜로 돌고 있는가 — 헛통과 방지 ]');
 check('가짜 브라우저에서 함수가 실제로 실행된다 (안 돌면 위 검사 전부 무의미)', (() => {

@@ -113,7 +113,7 @@ console.log('\n[ C. hibernation 전제(«그때는 방도 비어 있다»)가 �
 {
   /* ⚠️ 「storage 에 넣지 않는다」로 자르면 안 된다 — 89행 필드 선언에도 같은 말이 있다.
         ⚠️ 표시가 붙은 recordWb 쪽만 유일하게 걸린다. */
-  const { seg, hits } = sliceAt('⚠️ storage 에 넣지 않는다', 1400);
+  const { seg, hits } = sliceAt('Historical behavior before 2026-11-03', 2000);
   check('칠판 버퍼 주석을 «한 곳에서» 찾았다', seg.length > 100,
     hits === 0 ? '그 문구가 없다 — 구조가 바뀌었나?'
       : hits > 1 ? `그 문구가 ${hits}곳이라 어느 쪽인지 못 가린다` : '주석이 너무 짧다');
@@ -122,6 +122,7 @@ console.log('\n[ C. hibernation 전제(«그때는 방도 비어 있다»)가 �
     '소켓이 붙은 채로 잠드는 것이 hibernation 이다 — 방이 비지 않아도 버퍼가 사라진다');
   check('무엇이 복원되는지 적었다', /pdfState/.test(seg) && /잠금/.test(seg),
     '복원되는 것과 안 되는 것을 갈라 적어야 다음 사람이 헷갈리지 않는다');
+  check('기존 KV 복원과 실험 SQL/보호 프로토콜 경계를 구분했다', /Main runtime.*batched KV logs.*wbOps.*pdfAnnoOps/.test(seg) && /Experimental SQL.*local-only/.test(seg) && /never imports unversioned PDF logs/.test(seg));
   check('«얼마나 자주인지는 모른다» 고 적었다', /측정하지 못|모른다/.test(seg),
     '재 보지 않은 것을 단정하면 그것도 같은 종류의 거짓 주석이 된다');
 }
