@@ -169,14 +169,14 @@ if (route && vocabSrsNext) {
 // ── B. 웜업 턴 카운터 블록을 오려 내 가짜 KV 로 실행 ──
 console.log('\n[ B. 웜업 «몇 번째 턴» 은 계속 늘어난다 ]');
 const tStart = INDEX.indexOf('let turnCount = Math.floor(history.length / 2) + 1;');
-let tEnd = -1;
-if (tStart >= 0) { const tryAt = INDEX.indexOf('try {', tStart); const blk = braceBlock(INDEX, tryAt); const after = INDEX.indexOf('}', tryAt + blk.length); tEnd = INDEX.indexOf('\n', INDEX.indexOf("turn counter skipped", tStart)); }
+const tEnd = tStart >= 0 ? INDEX.indexOf('\n', INDEX.indexOf("turn counter skipped", tStart)) : -1;
 const tSrc = tStart >= 0 && tEnd > tStart ? INDEX.slice(tStart, tEnd) : '';
-check('턴 카운터 블록을 오려 냈다(전제)', /warmupturn:/.test(tSrc));
+const tRead = INDEX.match(/const tkey = 'warmupturn:' \+ sessionId;\s*const previousTurn = [^\n]+;/)?.[0] || '';
+check('턴 카운터 읽기와 쓰기 블록을 오려 냈다(전제)', !!tRead && /await previousTurn/.test(tSrc));
 check('예전 «const turnCount = history...» 한 줄만 남아 있지 않다', !/const turnCount = Math\.floor\(history\.length \/ 2\) \+ 1;/.test(INDEX));
 let turnFn = null;
 try {
-  turnFn = new AsyncFunction('env', 'history', 'sessionId', stripTypeScriptTypes(tSrc) + '\nreturn turnCount;');
+  turnFn = new AsyncFunction('env', 'history', 'sessionId', stripTypeScriptTypes(tRead + '\n' + tSrc) + '\nawait turnWrite;\nreturn turnCount;');
 } catch (e) { check('턴 블록 컴파일', false, e.message); }
 const hist = (pairs) => Array.from({ length: Math.min(pairs, 20) * 2 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: 'x' }));
 if (turnFn) {
@@ -193,9 +193,11 @@ if (turnFn) {
   const tNoKv = await turnFn({}, hist(25), 's3');
   check('KV 가 없으면 예전 계산(21)', tNoKv === 21, tNoKv);
   // KV 가 던지면 예전 계산으로 떨어지고 대화는 계속된다
-  const bad = { SESSION_STATE: { get: async () => { throw new Error('kv down'); }, put: async () => {} } };
+  let wroteAfterReadFailure = false;
+  const bad = { SESSION_STATE: { get: async () => { throw new Error('kv down'); }, put: async () => { wroteAfterReadFailure = true; } } };
   let tBad = null; try { tBad = await turnFn(bad, hist(3), 's4'); } catch (e) { tBad = 'threw'; }
   check('KV 가 실패해도 던지지 않고 예전 계산(4)', tBad === 4, tBad);
+  check('읽기 실패 때 저장된 턴 카운터를 덮어쓰지 않는다', !wroteAfterReadFailure);
 }
 
 // ── C. 레벨테스트 정답·해설 잠금 ──

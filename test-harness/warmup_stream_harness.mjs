@@ -217,7 +217,7 @@ ok('전제: live 를 만드는 식을 찾았다', !!lm);
 if (lm) {
   // 🔁 (2026-10-28) 미리듣기에 «이미 물은 질문» 판정도 넘긴다 — 기억(qmem)이 없으면 undefined(예전 그대로). 검사는 reply_fragment_question 6-2.
   const ev = (sseSend) => attempt('live 식', () => new Function('sseSend', 'createWarmupLive', 'ctxLang', 'sanityCap', 'ctxFriend', 'studentInput', 'fragQ',
-    'qmem', 'repeatedQuestions', 'latT0', 'FRAG_RETRY_BUDGET_MS', 'honest', 'ctxRoleplay', 'return ' + lm[1])(sseSend, () => 'LIVE', 'en', 0, 'Emma', 'hi', false, null, () => [], Date.now(), 9000, null));
+    'qmem', 'repeatedQuestions', 'latT0', 'FRAG_RETRY_BUDGET_MS', 'honest', 'ctxRoleplay', 'finalOnly', 'return ' + lm[1])(sseSend, () => 'LIVE', 'en', 0, 'Emma', 'hi', false, null, () => [], Date.now(), 9000, null, false, false));
   ok('스트림을 원하면 live 를 만든다', ev(() => {}) === 'LIVE');
   ok('(짝) 원하지 않으면 live 는 null — 예전 경로 그대로', ev(null) === null);
 }
@@ -248,7 +248,7 @@ ok('지연 기록에 글(본문)은 안 싣고 길이만', /chars:/.test(lwBody)
 /* ═══════════════ C. 화면 — 오려 내 실제로 돌린다 ═══════════════ */
 console.log('\n[C] 화면');
 const H = HTML;
-const names = ['_stopSpeak', '_stmWanted', '_speakLive', '_stmEnd', '_stmShow', '_stmDrop', '_stmRest', '_stmSentence', '_stmRead', '_stmTurn', 'warmupReplyText'];
+const names = ['_stopSpeak', '_stmWanted', '_speakLive', '_stmEnd', '_stmShow', '_stmDrop', '_stmRest', '_stmSentence', '_stmRead', '_stmTurn', '_stmRender', 'warmupReplyText'];
 const parts = {};
 for (const n of names) { parts[n] = fnSrc(H, n); ok('전제: ' + n + ' 를 오려 냈다', parts[n].length > 20); }
 
@@ -362,6 +362,27 @@ if (S) {
   ok('(짝) 공백만 다른 같은 답이면 덧붙일 것 없이 끝낸다', t.s.calls.speak.length === 1 && t.s.calls.play.length === 1 && t.s.api.done === 1, JSON.stringify(t.s.calls.play));
   t = await runTurn([{ done: 1, ok: true, status: 200, ai_response: 'Hi!', replaced: 0, halted: 'empathy' }]);
   ok('하나도 안 흘렸으면(공감 가드 등) 예전처럼 읽는다', t.s.calls.addMsg.length === 1 && t.s.calls.addMsg[0].quiet === false && t.s.calls.speak[0] === 'Hi!' && t.s.calls.hooks[0] === 'reply');
+  const early = sandbox();
+  const verified = { ok: true, status: 200, ai_response: 'What song do you like?', fix: null };
+  let releaseDone, waiting, reads = 0;
+  const waitingForDone = new Promise(resolve => { waiting = resolve; });
+  const allowDone = new Promise(resolve => { releaseDone = resolve; });
+  const encode = ev => ({ value: new TextEncoder().encode('data: ' + JSON.stringify(ev) + '\n\n') });
+  const turn = early.api._stmTurn({ body: { getReader: () => ({
+    read: async () => {
+      if (++reads === 1) return encode({ final: 1, ...verified });
+      if (reads > 2) return { done: true };
+      waiting();
+      await allowDone;
+      return encode({ done: 1, ...verified });
+    }, cancel() {},
+  }) } }, 1, typingEl(), Date.now(), null);
+  await waitingForDone;
+  ok('final을 받으면 done 전에 같은 말풍선과 음성을 시작한다',
+    early.calls.speak[0] === verified.ai_response && early.calls.addMsg[0]?.t === verified.ai_response);
+  releaseDone();
+  await turn;
+  ok('done은 final을 다시 그리거나 읽지 않는다', early.calls.speak.length === 1 && early.calls.addMsg.length === 1 && early.calls.fix === 1);
   t = await runTurn([]);
   ok('아무것도 못 받으면 retry(예전 방식으로 다시)', t.r === 'retry' && t.s.calls.addMsg.length === 0);
   t = await runTurn([{ done: 1, ok: false, status: 502, detail: 'ai_failed' }]);
@@ -410,8 +431,8 @@ ok("첫 인사: retry 면 stream 을 빼고 다시, 그 밖(fail)은 던져 고�
 console.log('\n[C5] sendMsg·speak·addMsg 배선');
 const send = strip(fnSrc(H, 'sendMsg'));
 ok('전제: sendMsg 를 오려 냈다', send.length > 500);
-const sm = /var _stmOn = ([^;]+);\s*if\(_stmOn\) body\.stream = 1;/.exec(send);
-ok('옵트인은 _stmWanted() 일 때만 stream:1', !!sm && /_stmWanted\(\)/.test(sm[1]));
+const sm = /var _stmOn = ([^;]+);\s*if\(_stmOn\)\{\s*body\.stream = 1;\s*body\.final_reply = 1;/.exec(send);
+ok('옵트인은 _stmWanted() 일 때만 stream:1과 final_reply:1', !!sm && /_stmWanted\(\)/.test(sm[1]));
 const cond = /if\(([^{]*?r\.ok[^{]*)\)\{\s*if\(await _stmTurn\(/.exec(send);   // ⚠️ «모양» 이 아니라 «답» 으로 — 조건을 뒤집어도 찾고, 평가해서 잡는다
 ok('전제: 스트림 분기 조건을 찾았다', !!cond);
 if (cond) {
@@ -441,7 +462,7 @@ function visBox(coarse, search) {
   const env = { V, loads: [], timers: [] };
   const turnPrompt = H.match(/window\.warmupTurnPrompt = \{[\s\S]*?\n\};/)[0];
   const f = new Function('window', 'navigator', 'location', 'matchMedia', 'setTimeout', 'AvatarVisemes',
-    turnPrompt + '\n' + vHold[0] + '\n' + vParts.join('\n') + '\n' + vLoad + '\nreturn { wrap:_visemeWrap, hook:_autoHook, get hold(){ return _visHold; } };');
+    'var sending=false, _autoDonePending=false;\n' + turnPrompt + '\n' + vHold[0] + '\n' + vParts.join('\n') + '\n' + vLoad + '\nreturn { wrap:_visemeWrap, hook:_autoHook, get hold(){ return _visHold; } };');
   const win = { AvatarVisemes: V, matchMedia: () => ({ matches: coarse }), addEventListener: (ev, fn) => { if (ev === 'load') env.loads.push(fn); } };
   env.api = f(win, { connection: { saveData: false, effectiveType: '4g' } }, { search: search || '', origin: 'https://warmup.test' }, win.matchMedia, (fn) => env.timers.push(fn), V);
   env.runLoad = () => { env.loads.forEach((fn) => fn()); env.timers.splice(0).forEach((fn) => fn()); };
