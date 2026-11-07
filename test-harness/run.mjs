@@ -103,11 +103,13 @@ const EXCLUSIVE = new Set([
      배포 게이트가 막혔다(PR #2093 CI · 병합 뒤 배포 run 41903024528 — 같은 코드가 다른 러너에선 통과: 경계에 있었다).
      ⛔ 상한(90초)을 늘리거나 이 하니스를 게이트에서 빼서 풀지 말 것 — 검사는 그대로, «언제 도는가» 만 바꾼다. */
   'class_cancelled_visible_harness.mjs',  // 자식 프로세스 40여 개(동시 4) — 풀에서 겹치면 90초 상한을 넘어 SKIP
+  'recurring_one_week_harness.mjs',      // 실제 핸들러 + 변이 10종 자식 실행 — Windows에서 풀 부하로 90초 초과
+  'watchdog_layer2_harness.mjs',         // Git Bash 프로세스 다수 — Windows 단독 85초, 동시 실행 102초
 ]);
 
 // 시간초과 표시 — classify 가 붙이고 ③ «혼자 다시» 가 이 값으로 알아본다(글자를 두 곳에 따로 적지 않게 한 벌).
 //   ⚠️ 여기(위쪽)에 둔다 — 아래 classify 옆에 두면 최상위 await 때문에 그 줄에 닿기 전에 불려 TDZ 오류가 난다.
-const TIMEOUT_NOTE = '⏱  timeout(90s) — netem 다중클라이언트 E2E';
+const TIMEOUT_NOTE = '⏱  timeout(90s)';
 
 // ── 실행할 하니스 고르기 / Pick harnesses ──
 const files = readdirSync(__dir).filter(f => f.endsWith('_harness.mjs')).sort();

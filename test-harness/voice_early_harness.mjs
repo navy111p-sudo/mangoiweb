@@ -116,7 +116,7 @@ ok('A-4 업로드 파일 이름·언어 힌트는 예전과 같다(speech.webm �
 
 console.log('\n[B] 미리 받아쓰기 — 빨라진다');
 const fin = await run(say([500, 2500]), { early: true });
-ok('B-1 «끝난 말» 이면 침묵 1.6초를 다 안 채우고 끝낸다(말 끝 + 0.5초 + 서버 0.8초 안팎)', near(fin.doneAt, 2500 + 500 + 800, 200), fin.doneAt);
+ok('B-1 «끝난 말» 이면 침묵 1.6초를 다 안 채우고 끝낸다(말 끝 + 0.35초 + 서버 0.8초 안팎)', near(fin.doneAt, 2500 + 350 + 800, 200), fin.doneAt);
 ok('B-2 그만큼 예전보다 1초 넘게 빠르다', fin.doneAt != null && base.doneAt - fin.doneAt >= 1000, { before: base.doneAt, after: fin.doneAt });
 ok('B-3 업로드는 한 번뿐(같은 말을 다시 올리지 않는다)', fin.uploads.length === 1, fin.uploads.map((u) => u.at));
 ok('B-4 받아 적은 글자를 그대로 준다', fin.text === 'I like pizza.', fin.text);
@@ -125,6 +125,11 @@ ok('B-5 «덜 끝난 말» 이면 침묵 1.6초는 그대로 기다린다', near
 ok('B-6 그래도 멈추자마자 글자가 있다(미리 받아 둠 — 다시 올리지 않음)', near(unf.doneAt, 2500 + SILENCE, 120) && unf.uploads.length === 1, { done: unf.doneAt, up: unf.uploads.length });
 const fast = await run(say([500, 2500]), { early: true, lat: 100 });
 ok('B-7 (짝) 서버가 아주 빨라도 «끝난 말» 은 최소 1초는 조용해야 끝낸다(숨 한 번 쉬고 이어 말할 틈)', fast.stopAt >= 2500 + 1000 - 40 && near(fast.stopAt, 2500 + 1000, 120), fast.stopAt);
+
+ok('B-8 첫 업로드는 말끝 0.35초 뒤에 시작한다', near(fin.uploads[0]?.at, 2850, 40), fin.uploads);
+const empty = await run(say([500, 2500]), { early: true, text: (_, n) => n === 1 ? ' ' : 'I like pizza.' });
+ok('B-9 미리 받은 결과가 비면 전체 녹음에서 다시 듣는다', empty.uploads.length === 2
+  && empty.uploads[1].size > empty.uploads[0].size && empty.text === 'I like pizza.', empty);
 
 console.log('\n[C] 짝 — 다시 말하면 안 끊고, 지난 말을 보내지 않는다');
 // 0.8초 쉼(미리받기가 시작됨) 뒤 다시 말함 — 결과(3.8초)가 «말하는 도중» 에 도착한다
@@ -148,10 +153,10 @@ const bad = await run(say([500, 2500]), { early: true, fail: (n) => n === 1 });
 ok('D-2 미리받기가 실패하면 끝에서 예전처럼 전체를 올린다(글자를 잃지 않음)', bad.uploads.length === 2 && bad.text === 'I like pizza.' && near(bad.stopAt, 2500 + SILENCE), { up: bad.uploads.length, text: bad.text, stop: bad.stopAt });
 const net = await run(say([500, 2500]), { early: true, fail: (n) => (n === 1 ? 'throw' : false) });
 ok('D-2b 네트워크 오류(예외)여도 같다', net.uploads.length === 2 && net.text === 'I like pizza.', { up: net.uploads.length, text: net.text });
-// 수동(⏹): 침묵으로 안 끝남 — 사람이 3.5초에 ⏹. 미리받기(3.0초 시작 → 3.8초 도착)를 그대로 쓴다
+// 수동(⏹): 침묵으로 안 끝남 — 사람이 3.5초에 ⏹. 미리받기(2.85초 시작 → 3.65초 도착)를 그대로 쓴다
 const man = await run(say([500, 2500]), { early: true, cfg: {}, stopAt: 3500, opts: { silenceMs: 30000, firstMs: 30000 } });
 ok('D-3 수동은 «끝난 말» 이어도 스스로 끝내지 않는다(⏹ 누른 3.5초에 멈춤)', man.stopAt === 3500, man.stopAt);
-ok('D-4 ⏹ 뒤 «받아적는 중» 이 줄어든다(⏹ + 0.8초가 아니라 미리받기 도착 3.8초 · 업로드 1번)', near(man.doneAt, 3800, 120) && man.uploads.length === 1, { done: man.doneAt, up: man.uploads.length });
+ok('D-4 ⏹ 뒤 «받아적는 중» 이 줄어든다(⏹ + 0.8초가 아니라 미리받기 도착 3.65초 · 업로드 1번)', near(man.doneAt, 3650, 80) && man.uploads.length === 1, { done: man.doneAt, up: man.uploads.length });
 // 길게 쉬며 말하기 — 쉼마다 «처음부터 지금까지» 를 올리므로 상한이 있어야 한다
 const spans = []; for (let i = 0; i < 9; i++) spans.push([500 + i * 1500, 500 + i * 1500 + 800]);
 const many = await run(say(...spans), { early: true, text: () => 'I like', opts: { maxMs: 30000 } });
@@ -175,7 +180,7 @@ const ip = await run(say([500, 2500]), { early: true, ua: IPHONE });   // iOS 18
 ok('F-1 아이폰(인앱 포함)은 webm 이어도 녹음 «도중» 을 잘라 보내지 않는다(예전 그대로)', ip.requestData === 0 && ip.uploads.length === 1 && near(ip.stopAt, 2500 + SILENCE), { rd: ip.requestData, up: ip.uploads.length, stop: ip.stopAt });
 const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
 const an = await run(say([500, 2500]), { early: true, ua: ANDROID_UA });
-ok('F-2 (짝) 안드로이드 크롬(UA 에 AppleWebKit 이 있어도)은 미리 받는다', an.requestData >= 1 && near(an.doneAt, 2500 + 500 + 800, 200), { rd: an.requestData, done: an.doneAt });
+ok('F-2 (짝) 안드로이드 크롬(UA 에 AppleWebKit 이 있어도)은 미리 받는다', an.requestData >= 1 && near(an.doneAt, 2500 + 350 + 800, 200), { rd: an.requestData, done: an.doneAt });
 // 크게 말하다 멈춘 뒤 «작게»(7 — 조용한 방 문턱 8 아래라 소리 판정은 조용함으로 본다) 이어 말하고, 한참 뒤 ⏹.
 // 미리받기(멈춤 + 0.5초)에는 그 작은 말이 없다 — 그대로 쓰면 그 말이 빠진다(함정 대조 재현). 오래 지났으면 전체를 다시 올려야 한다.
 const quietTail = (t) => (inAny(t, [[500, 2500]]) ? speech(t) : inAny(t, [[2700, 6000]]) ? 7 : room(t));

@@ -15,7 +15,7 @@
   'use strict';
 /* 🎤 녹음 파일에 «말소리» 가 있는가 — true / false / null(모름: 디코드 불가).
    소리 크기만이 아니라 «바닥 소음 대비» 로 본다: 완전 무음·일정한 잡음에서 Whisper 가 지어낸 글자는 계속 버린다. */
-function _voiceInSamples(x, sr){
+function _voiceInSamples(x, sr, noisy){
   if(!x || !x.length || !sr) return null;
   var n=Math.max(1, Math.round(sr*0.02)), fr=[];
   for(var i=0;i+n<=x.length;i+=n){ var s=0; for(var j=i;j<i+n;j++) s+=x[j]*x[j]; fr.push(Math.sqrt(s/n)); }
@@ -24,9 +24,13 @@ function _voiceInSamples(x, sr){
   var floor=srt[Math.floor(srt.length*0.02)], top=srt[srt.length-1];   // 하위 2% — 쉬지 않고 길게 말해도 말소리를 바닥으로 잡지 않게
   var th=Math.max(0.006, floor*3), loud=0;
   for(var k=0;k<fr.length;k++) if(fr[k]>th) loud++;
-  return top>=0.008 && top>=floor*4 && loud>=8;    // 8칸 = 160ms 이상 — 딸깍 한 번은 말이 아니다
+  if(top>=0.008 && top>=floor*4 && loud>=8) return true;    // 8칸 = 160ms 이상 — 딸깍 한 번은 말이 아니다
+  if(!noisy) return false;
+  // 2%의 순간 무음 대신 실제 배경에 가까운 20% 값으로 소음에 묻힌 발화를 확인한다.
+  var room=srt[Math.floor(srt.length*0.2)], minVoice=Math.max(0.008, room*1.65);
+  return room>=0.004 && srt[srt.length-8]>=minVoice;
 }
-function _blobHasVoice(blob){
+function _blobHasVoice(blob, noisy){
   return new Promise(function(res){
     try{
       var AC=window.AudioContext||window.webkitAudioContext;
@@ -34,7 +38,7 @@ function _blobHasVoice(blob){
       blob.arrayBuffer().then(function(ab){
         var ac=new AC(), done=false;
         function end(v){ if(done)return; done=true; try{ ac.close(); }catch(e){} res(v); }
-        var ok=function(buf){ try{ end(_voiceInSamples(buf.getChannelData(0), buf.sampleRate)); }catch(e){ end(null); } };
+        var ok=function(buf){ try{ end(_voiceInSamples(buf.getChannelData(0), buf.sampleRate, noisy)); }catch(e){ end(null); } };
         try{ var pr=ac.decodeAudioData(ab, ok, function(){ end(null); }); if(pr && pr.catch) pr.catch(function(){ end(null); }); }catch(e){ end(null); }
         setTimeout(function(){ end(null); }, 4000);
       }).catch(function(){ res(null); });

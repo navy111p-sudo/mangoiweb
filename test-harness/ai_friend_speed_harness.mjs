@@ -292,7 +292,7 @@ async function micCase({ early = true, voice = { snap: true, fin: true }, text =
   const snapBlob = { id: 'snap' }, finBlob = { id: 'fin' };
   const ctx = { Promise, String, Date, Map, Set, setTimeout, clearTimeout, console,
     navigator: { userAgent: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36' },
-    _friendMicSeq: 0, _whisperOn: false, _recognizing: false, _lastRecBlob: null, _pendingVoice: false,
+    _friendMicSeq: 0, _whisperOn: false, _lastRecBlob: null, _pendingVoice: false,
     document: { getElementById: () => ({ value: '' }) }, updateMicUI() {}, stopSpeakingNow() {}, isEn: () => false,
     micHint() {}, sendMsg: () => sent.push(ctx.__lastInput), AvatarVisemes: null,
     FriendAutoTalk: { micState: s => states.push(s), empty() {}, pause() {} },

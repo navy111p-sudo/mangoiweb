@@ -3139,12 +3139,28 @@ function _synthSpeak(text, btn, onDone){
     var _pit = (isZh() && _voiceGender()==='male') ? 0.85 : 1.02;
     u.lang=(_enVoice&&_enVoice.lang)||(isZh()?'zh-CN':'en-US'); u.rate=RATE_STEPS[_rateLevel]||0.95; u.pitch=_pit;
     if(_enVoice) u.voice=_enVoice;
-    var utteranceSeq=_speakSeq;
-    u.onstart=function(){ if(utteranceSeq!==_speakSeq)return; warmThought(false); _speechEverStarted=true; _latMark(); };
-    u.onend=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){} if(onDone) onDone(); };
-    u.onerror=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){} if(onDone) onDone(); };
+    var utteranceSeq=_speakSeq, mouthTimer, finished=false, pose=0;
+    // Device speech has no audio element; a paused server clip must not drive its mouth.
+    var poses=['medium','wide','medium','closed'];
+    function moveMouth(){
+      if(finished || utteranceSeq!==_speakSeq){ clearInterval(mouthTimer); return; }
+      try{ window.MangoAvatar && MangoAvatar.mouth(poses[pose++ % poses.length]); }catch(e){}
+    }
+    u.onstart=function(){
+      if(finished || utteranceSeq!==_speakSeq)return;
+      warmThought(false); _speechEverStarted=true; _latMark();
+      moveMouth();
+      mouthTimer=setInterval(moveMouth, 150);
+    };
+    u.onend=u.onerror=function(){
+      clearInterval(mouthTimer);
+      if(finished || utteranceSeq!==_speakSeq)return;
+      finished=true;
+      if(btn) btn.classList.remove('playing');
+      try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){}
+      if(onDone) onDone();
+    };
     window.speechSynthesis.cancel();
-    try{ window.MangoAvatar && MangoAvatar.plainStart(); }catch(e){}   // 👩‍🏫 실제 발화 시작 직전에 아바타 입 움직임 개시
     window.speechSynthesis.speak(u);
   }catch(e){ if(onDone) onDone(); }
 }
@@ -3635,7 +3651,7 @@ async function _stmTurn(r, epoch, typing, lt0, ls, kick){
     return 'done';
   }
   if(!L.n && !L.kick){ _autoHook('reply'); _latCur={ t0:lt0, t1:Date.now(), wait:(ls?ls.wait:null), tStop:(ls?ls.at:null) }; }
-  var finalText=d.ai_response || '(응답이 비어 있어요)';
+  var finalText=warmupReplyText(d);
   _stmDrop(L);
   var rest=(spoken && d.replaced && !interrupted) ? _stmRest(L.text, finalText) : null;   // ⚡ 나머지만 이어 읽기(_stmRest)
   if(spoken && (!d.replaced || interrupted || rest!==null)){
@@ -3877,7 +3893,7 @@ function _setListenLabel(txt){
   if(ind){ ind.style.display='flex'; ind.innerHTML='<span class="dot"></span> '+txt; }
 }
 /* ⚡ 미리 받아쓰기 (2026-11-05 사장님 「듣기·녹음 시간을 최소화 — 특히 휴대폰」) — 정본 js/mangoi-voice-early.js
-   말이 멎고 0.5초면 지금까지 녹음분을 먼저 받아 적어 둔다 → 침묵 대기가 끝나면 그 글자를 바로 보낸다(다시 안 올림).
+   말이 멎고 0.35초면 지금까지 녹음분을 먼저 받아 적어 둔다 → 침묵 대기가 끝나면 그 글자를 바로 보낸다(다시 안 올림).
    자동: 받은 글자가 «끝난 말»(브라우저 인식 경로와 같은 판정 micUnfinished)이면 1초 조용한 데서 끝낸다(1.6초를 다 안 채움).
    ✋ 수동: 끝내는 것은 ⏹ 뿐 — 미리 받기만 해서 ⏹ 뒤 «받아적는 중» 을 줄인다. 모듈이 없거나 실패하면 예전 그대로.
    EN: pre-transcribe on pause; auto mode ends early on a finished reply, manual mode only pre-transcribes. */
@@ -3940,7 +3956,7 @@ async function micViaWhisper(){
 }
 /* 🎤 녹음 파일 말소리 판정은 공용 정본 js/voice-has-speech.js — 없으면 null(예전대로 버림) */
 function _blobHasVoice(blob){
-  try{ return window.MangoiVoiceCheck ? MangoiVoiceCheck.blobHasVoice(blob) : Promise.resolve(null); }catch(e){ return Promise.resolve(null); }
+  try{ return window.MangoiVoiceCheck ? MangoiVoiceCheck.blobHasVoice(blob, true) : Promise.resolve(null); }catch(e){ return Promise.resolve(null); }
 }
 /* ✨ 자동 말하기(베타, 2026-09-24) — 켜는 «시점» 만 js/warmup-auto-talk.js 가 정한다.
    듣기·말 끝 판단·전송은 이 파일의 기존 코드 그대로다. 모듈이 없거나 죽어도 버튼 모드는 그대로 돈다. */
@@ -4865,6 +4881,15 @@ function saveApi(v){
   });
 })();
 
+function warmupReplyText(d){
+  var reply=d.ai_response || '(응답이 비어 있어요)';
+  if(isZh() || !d.fix || !d.fix.now ||
+     !reply.startsWith('You can say... "') || !reply.endsWith('Can you say it with me?')) return reply;
+  // 집중교정의 카드, 따라 말하기, 자동 낭독이 같은 문장을 쓰게 한다.
+  d.fix.now=d.fix.now.replace(/\breally hel(?:p)?ful\b/gi, 'actually helpful');
+  return 'Try saying it with me: ' + d.fix.now;
+}
+
 async function sendMsg(){
   await warmupRatePreference.ready;
   if(typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged(true);
@@ -4941,7 +4966,8 @@ async function sendMsg(){
       if(_warmPaused || epoch!==_warmEpoch)return;
       _autoHook('reply');
       _latCur={ t0:_lt0, t1:Date.now(), wait:(_ls?_ls.wait:null), tStop:(_ls?_ls.at:null) };   // ⏱ 첫 소리가 나면 _latMark 가 닫는다
-      addMsg(d.ai_response || '(응답이 비어 있어요)', 'ai');
+      d.ai_response=warmupReplyText(d);
+      addMsg(d.ai_response, 'ai');
       showFixCard(d.fix, d.repeat);         // ✏️ 서버가 «검증해서» 준 교정만 그린다(없으면 아무것도 안 그림)
       wuApplyGrade(d);                      // 🎯 등급이 «완벽» 일 때만 콤보·팡파레
       showAnswerChips(d.answer_chips,d.speaking_help);      // 💬 서버가 만든 «대답 보기»(못 만들면 빈 배열)
@@ -5249,8 +5275,8 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 }
 </style>
 <script defer src="/js/mangoi-voice-input.js?v=9"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
-<script defer src="/js/mangoi-voice-early.js?v=1"></script><!-- ⚡ 녹음 경로 «미리 받아쓰기» — 말이 멎으면 먼저 받아 적기 / early transcription -->
-<script defer src="/js/voice-has-speech.js?v=1"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
+<script defer src="/js/mangoi-voice-early.js?v=2"></script><!-- ⚡ 녹음 경로 «미리 받아쓰기» — 말이 멎으면 먼저 받아 적기 / early transcription -->
+<script defer src="/js/voice-has-speech.js?v=2"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
 <script defer src="/js/ai-diff.js?v=2"></script>
 <script defer src="/js/warmup-howto.js?v=11"></script><!-- 📘 A.i말하기 사용방법 쉽게 알기 안내창 (2026-10-03) --><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
 <script defer src="/js/back-nav.js"></script>

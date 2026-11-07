@@ -14,7 +14,7 @@
  *     ⛔ webm·ogg 만, 그리고 애플 WebKit(아이폰·아이패드·사파리·iOS 인앱)은 빼고 — iOS 18.4+ 는 webm 도 녹음하지만 녹음 «도중» 을
  *        잘라 낸 조각이 서버에서 읽히는지·«지금» 까지 다 담기는지 확인 못 했다(함정 대조). 그쪽은 예전대로(끝까지 녹음 → 한 번).
  *     ⛔ 미리 받은 뒤 REUSE_MS 넘게 더 녹음됐으면 그 글자를 쓰지 않고 전체를 올린다 — 그 사이 «작은 목소리» 를 소리 판정이 조용함으로
- *        봤을 수 있다(그 말이 빠진다 · 함정 대조 재현). 자동 모드의 침묵 끝(멈춤 + 1.6초)은 미리받기(멈춤 + 0.5초) 뒤 1.1초라 안에 든다.
+ *        봤을 수 있다(그 말이 빠진다 · 함정 대조 재현). 자동 모드의 침묵 끝(멈춤 + 1.6초)은 미리받기(멈춤 + 0.35초) 뒤 1.25초라 안에 든다.
  *     ⛔ 미리 받기는 한 녹음에 MAX_TRIES 번까지 — 매번 «처음부터 지금까지» 를 올리므로 길게 쉬며 말하면 비용이 쌓인다.
  *     ⛔ 판단은 전부 여기 둔다 — 공용 모듈(mangoi-voice-input.js)은 첫 화면(blocking)에 실려 여유가 수십 바이트다.
  *
@@ -27,7 +27,7 @@
   'use strict';
   if (window.MangoiVoiceEarly) return;
 
-  var WAIT_MS = 500;     // 말이 멎고 이만큼 지나면 미리 받아 적기 시작
+  var WAIT_MS = 350;     // 말이 멎고 이만큼 지나면 미리 받아 적기 시작
   var MIN_MS = 1000;     // «끝난 말» 이어도 최소 이만큼은 조용해야 끝낸다(숨 한 번 — 이어 말할 틈)
   var MAX_TRIES = 5;     // 한 녹음에서 미리 받기 최대 횟수
   var REUSE_MS = 1300;   // 미리 받은 뒤 이 안에 녹음이 끝났을 때만 그 글자를 쓴다(그보다 길면 전체를 다시 올림)
@@ -76,7 +76,7 @@
     /* 녹음이 끝나면 공용 모듈이 부른다 — 끝까지 조용했으면 미리 받은 글자를, 아니면(또는 실패면) 예전처럼 전체를 올린다 */
     o.transcribe = function (fd) {
       var s = spec;
-      if (s && s.gen === gen && Date.now() - s.at <= reuse) return s.p.then(function (d) { return (d && d.ok) ? d : send(fd); });
+      if (s && s.gen === gen && Date.now() - s.at <= reuse) return s.p.then(function (d) { return (d && d.ok && String(d.text || '').trim()) ? d : send(fd); });
       return send(fd);
     };
     return o;
