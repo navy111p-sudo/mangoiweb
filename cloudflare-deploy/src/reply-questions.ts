@@ -132,6 +132,12 @@ export const FRAG_RETRY_BUDGET_MS = 5000;
  *  정본을 처음부터 다시 읽어, 예산을 줄이면 «멈췄는데 안 뽑음» 이 잦아져 같은 문장을 두 번 듣는다. 줄이려면 그 화면부터 이어 읽기로. */
 export const FRIEND_FRAG_RETRY_BUDGET_MS = 9000;
 
+// Coordinated shopping attributes request separate answers even with one verb and question mark.
+const ATTRIBUTE = '(?:colou?rs?|sizes?|styles?|shapes?|brands?|prices?)';
+const ATTRIBUTE_LIST = new RegExp(
+  `\\b(?:what|which)\\s+${ATTRIBUTE}\\b((?:(?:\\s+and\\s+|,\\s*(?:and\\s+)?)(?:(?:what|which)\\s+)?${ATTRIBUTE}\\b)+)`, 'i',
+);
+
 /** 상황별 말하기: 실제로 묻는 첫 질문만 남긴다. 따옴표 속 따라 말하기 예문은 질문 수에서 뺀다. */
 export function firstQuestionOnly(text: string): string {
   const outside = text.replace(/"[^"]*"|“[^”]*”|‘[^’]*’|(?<!\w)'(?:[^']|'(?=\w))*?'(?!\w)/g,
@@ -144,17 +150,26 @@ export function firstQuestionOnly(text: string): string {
   const boundary = [...before.matchAll(/[.!?]\s+/g)].at(-1);
   const sentenceStart = boundary ? boundary.index! + boundary[0].length : 0;
   const question = before.slice(sentenceStart);
+  let stop = end;
   // A second interrogative clause can share the first question mark. Keep alternatives and confirmation tags.
   for (const join of question.matchAll(/[,;]\s*(?:and\s+)?|\s+and\s+/gi)) {
     const split = join.index!;
     const lead = question.slice(0, split);
+    if (join[0].startsWith(',') && /\b(?:what|which)\s+\w+,\s*[^,]+\s+or\s+[^,]+$/i.test(lead.trim())) continue;
     if (!lead.split(/[,;:]/).some(part => partStarts(part) === true)) continue;
     const next = question.slice(split + join[0].length).trim().toLowerCase();
     if (/^(?:do you know|can you tell me|can you guess)$/.test(next)) continue;
     const [head, subject] = next.split(/\s+/, 2);
     if (WH.test(head) || (AUX.has(head) && /^(?:you|we|i|it|he|she|they|there|this|that)$/.test(subject))) {
-      return text.slice(0, sentenceStart + split).trimEnd() + first[0];
+      stop = sentenceStart + split;
+      break;
     }
   }
+  const attributes = ATTRIBUTE_LIST.exec(outside.slice(sentenceStart, stop));
+  if (attributes) {
+    const afterList = sentenceStart + attributes.index + attributes[0].length;
+    return (text.slice(0, afterList - attributes[1].length) + text.slice(afterList, stop)).trimEnd() + first[0];
+  }
+  if (stop !== end) return text.slice(0, stop).trimEnd() + first[0];
   return questions.length > 1 ? text.slice(0, end + first[0].length).trimEnd() : text;
 }
