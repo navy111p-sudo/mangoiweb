@@ -104,7 +104,7 @@
         "ollie": "/media/dubbing/dub-008/scene-1-ollie.mp3",
         "blue": "/media/dubbing/dub-008/scene-1-blue.mp3",
         "puffy": "/media/dubbing/dub-008/scene-1-puffy.mp3",
-        "mini": "/media/dubbing/dub-008/scene-1-mini.mp3",
+        "mini": "/media/dubbing/dub-008/scene-1-mini-v2.mp3",
         "green": "/media/dubbing/dub-008/scene-1-green.mp3",
         "bubbles": "/media/dubbing/dub-008/scene-1-bubbles-v2.mp3"
       },
@@ -203,7 +203,7 @@
           "en": "Look! A butterfly!",
           "ko": "봐! 나비야!",
           "start": 46.11,
-          "end": 47.688125
+          "end": 48.088125
         },
         {
           "id": "s1-shot4-l2",
@@ -372,7 +372,7 @@
         "blue": "/media/dubbing/dub-008/scene-2-blue-v2.mp3",
         "puffy": "/media/dubbing/dub-008/scene-2-puffy.mp3",
         "mini": "/media/dubbing/dub-008/scene-2-mini.mp3",
-        "green": "/media/dubbing/dub-008/scene-2-green.mp3",
+        "green": "/media/dubbing/dub-008/scene-2-green-v2.mp3",
         "bubbles": "/media/dubbing/dub-008/scene-2-bubbles.mp3"
       },
       "lines": [
@@ -779,7 +779,7 @@
         }
       ],
       "voices": {
-        "ollie": "/media/dubbing/dub-008/scene-3-ollie.mp3",
+        "ollie": "/media/dubbing/dub-008/scene-3-ollie-v2.mp3",
         "blue": "/media/dubbing/dub-008/scene-3-blue.mp3",
         "puffy": "/media/dubbing/dub-008/scene-3-puffy.mp3",
         "mini": "/media/dubbing/dub-008/scene-3-mini.mp3",
