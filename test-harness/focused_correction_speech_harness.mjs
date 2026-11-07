@@ -206,7 +206,7 @@ const env = { DB, ROOM_JWT_SECRET: 'focused-local-fixture-only',
     if (scenario === 'compact') {
       assert.match(opts.messages[0].content, /집중교정 최종 JSON 형식/);
       assert.ok(!opts.stream, 'verified correction does not need an upstream preview');
-      response = JSON.stringify({ reply: routeFix.now, fix: { short: fullFix.why_ko, tag: fullFix.tag } });
+      response = JSON.stringify({ reply: routeFix.now, fix: { short: fullFix.why_ko, tag: fullFix.tag }, grade: 'partial' });
     }
     if (scenario === 'compact-invalid' && modelCalls === 1) {
       response = JSON.stringify({ reply: 'I rode a spaceship to Mars', fix: { short: fullFix.why_ko, tag: 'other' } });

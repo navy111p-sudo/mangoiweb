@@ -4468,7 +4468,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     if (honest?.mode === 'focused') sys += '\n' + FOCUSED_DRAFT_RULE;
     sys += '\n' + warmupGuidanceRule(body, ctxLang);
     if (hasEleaderExpansion(request)) sys += ELEADER_EXPANSION_RULE;
-    if (compactFocused) sys += '\n[집중교정 최종 JSON 형식] 교정할 때는 {"reply":"고친 전체 영어 문장","fix":{"short":"아주 짧은 한국어 이유","tag":"위 교정 태그 하나"}}만 출력해. 학생의 뜻과 어휘를 유지하고 문법만 고쳐. 교정문은 reply에 한 번만 써. 고칠 게 없으면 {"reply":"짧고 자연스러운 영어 답변","fix":null}만 출력해.';
+    if (compactFocused) sys += '\n[집중교정 최종 JSON 형식] 교정할 때는 {"reply":"고친 전체 영어 문장","fix":{"short":"아주 짧은 한국어 이유","tag":"위 교정 태그 하나"},"grade":"partial"}만 출력해. 끝나지 않은 문장이면 grade는 incomplete야. 학생의 뜻과 바른 어휘는 유지해. 교정문은 reply에 한 번만 써. 고칠 게 없으면 {"reply":"짧고 자연스러운 영어 답변","fix":null,"grade":"위 등급 중 하나"}만 출력해.';
     /* 🏷️ 첫 턴에는 «화면 인사» 를 모델 문맥에 넣어 준다 (2026-09-01).
        ⚠️ 이 파일은 공동 금지구역이다 — 2026-08-31 사장님이 「진행해」로 승인하신 «AI 가 자기
           이름을 못 지키는» 그 버그의 연장이고, 변경은 이 조립 1줄 + 주석뿐이다.
