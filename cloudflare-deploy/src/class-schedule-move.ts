@@ -97,18 +97,19 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
     const shots: Snapshot[] = [schema, await snapshot(env, csSelect,
       ['id','user_id','teacher_id','schedule_kind','scheduled_date','day_of_week','start_time','duration_min','status','source','updated_at',hasStarts?'starts_on':'NULL'], csArgs)];
     if (overrideShot) shots.push(overrideShot);
-    for (const [table, fields, where, args] of [
+    for (const [table, fields, where] of [
       ['teacher_unavailability', ['id','teacher_id','kind','start_date','end_date','day_of_week','start_time','end_time'], ''],
       ['calendar_events', ['id','event_type','teacher_name','date','end_date'], "WHERE event_type='vacation'"],
       ['teachers', ['id','name'], ''],
       ['admin_scope', ['username','scope_type'], ''],
-      ...(guarded ? [
-        ['attendance',['id','room_id','role','status'], 'WHERE room_id IN (SELECT value FROM json_each(?))', [JSON.stringify(restoreRooms)]],
-      ] : []),
-    ] as Array<[string, string[], string, any[]?]>) {
+    ] as Array<[string, string[], string]>) {
       const exists = await env.DB.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).bind(table).first();
-      if (exists) shots.push(await snapshot(env, `SELECT * FROM ${table} ${where} ORDER BY ${fields[0]}`, fields, args || []));
+      if (exists) shots.push(await snapshot(env, `SELECT * FROM ${table} ${where} ORDER BY ${fields[0]}`, fields));
     }
+    const attendanceTable = guarded && await env.DB.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='attendance'`).first();
+    if (attendanceTable) shots.push(await snapshot(env,
+      `SELECT * FROM attendance WHERE room_id IN (SELECT value FROM json_each(?)) ORDER BY id`,
+      ['id','room_id','role','status'], [JSON.stringify(restoreRooms)]));
     // Re-read after the snapshot: old caller rows and stale UI must both match it.
     const fresh = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id IN (SELECT value FROM json_each(?)) ORDER BY id`).bind(JSON.stringify(ids)).all();
     if (!Array.isArray(fresh?.results) || fresh.success === false) throw new Error('schedule_lookup_failed');
@@ -147,13 +148,10 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
       }
       if (undo && (!row.scheduled_date || String(row.status || 'active').trim().toLowerCase() !== 'active'))
         return fail(409, 'not_moved', 'This class is no longer an open dated class. Refresh the list.');
-      if (guarded) {
-        const attendanceTable = await env.DB.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='attendance'`).first();
-        if (attendanceTable) {
-          const attended = await env.DB.prepare(`SELECT id FROM attendance WHERE room_id IN (SELECT value FROM json_each(?)) AND status <> 'scheduled' LIMIT 1`)
-            .bind(JSON.stringify(restoreRooms)).first();
-          if (attended) return fail(409, 'class_already_attended', 'This class has attendance records. Ask head office to check its history before changing it.');
-        }
+      if (attendanceTable) {
+        const attended = await env.DB.prepare(`SELECT id FROM attendance WHERE room_id IN (SELECT value FROM json_each(?)) AND status <> 'scheduled' LIMIT 1`)
+          .bind(JSON.stringify(restoreRooms)).first();
+        if (attended) return fail(409, 'class_already_attended', 'This class has attendance records. Ask head office to check its history before changing it.');
       }
       if (restore) {
         // Preserve the old restore policy while also detecting staggered overlap,
