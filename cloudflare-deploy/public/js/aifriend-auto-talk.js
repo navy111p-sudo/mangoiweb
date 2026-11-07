@@ -22,11 +22,12 @@
     var el = document.getElementById('friendTalkStatus');
     if (el) { el.dataset.ko = ko; el.dataset.en = eng; el.textContent = text(ko, eng); }
   }
-  function cancelMic() {
+  function cancelListening() {
+    clear();
     if (typeof cancelFriendMic === 'function') cancelFriendMic();
   }
   function pause() {
-    paused = true; clear(); cancelMic();
+    paused = true; cancelListening();
     if (mode === 'auto') status('자동 말하기가 쉬고 있어요. ✨ 자동으로를 누르면 다시 시작해요.', 'Auto paused. Tap ✨ Auto to resume.');
   }
   function arm() {
@@ -54,7 +55,7 @@
       + '<button type="button" data-mode="auto" aria-pressed="' + (mode === 'auto') + '">' + text('✨ 자동으로', '✨ Auto') + ' <small>' + text('베타', 'beta') + '</small></button>';
   }
   function setMode(value) {
-    clear(); cancelMic();
+    cancelListening();
     mode = value === 'auto' ? 'auto' : 'button'; active = mode === 'auto'; paused = false; misses = 0;
     try { localStorage.setItem('mangoi_aifriend_talk_mode', mode); } catch (_) {}
     paint();
@@ -70,12 +71,12 @@
     press: function () { active = mode === 'auto'; paused = false; misses = 0; clear(); },
     stop: function () { clear(); speaking = 0; generation++; },
     aiStart: function () {
-      clear(); cancelMic(); speaking = ++generation;
+      cancelListening(); speaking = ++generation;
       if (on()) status('🔊 AI가 말하고 있어요.', '🔊 The AI is speaking.');
       return generation;
     },
     aiDone: function (id) { if (id !== generation) return; speaking = 0; arm(); },
-    begin: function () { sending = true; clear(); cancelMic(); return ++turn; },
+    begin: function () { sending = true; cancelListening(); return ++turn; },
     settled: function (ok, id) {
       if (id !== turn) return;
       sending = false;
