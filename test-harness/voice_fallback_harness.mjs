@@ -15,7 +15,7 @@ import { gamesSrc } from './_srcbundle.mjs';
  *   ① 화면이 쓰는 친구들의 기본 화자가 폴백해도 서로 겹치지 않는다
  *   ② 어떤 화자도 Emma 전용 목소리(asteria)로 떨어지지 않는다 (Emma 자신 제외)
  *   ③ 폴백은 성별을 유지한다
- *   ④ Aura-1 폴백 음성은 «실제로 쓴 화자» 키로만 캐시한다
+ *   ④ Aura-1 폴백 음성은 캐시하지 않는다(동일 화자 이름의 Aura-2 오염 방지)
  *   ⑤ 화면 세 곳이 쓰는 화자가 서버 Aura-2 허용목록 안에 있다
  */
 import { readFileSync } from 'node:fs';
@@ -130,11 +130,7 @@ if (a1Block) {
   ok(!/await putCache\(/.test(a1Block[0]),
     'Aura-1 폴백은 putCache(요청 화자 키)를 쓰지 않는다',
     '요청 화자 키로 저장하면 일시 장애가 영구가 된다 — 2026-08-31 실사고의 «두 번째 겹»');
-  /* ⚠️ 이 검사를 «그 코드 모양이 있는가» 로 쓰면 안 된다 — 표현만 바꿔도 FAIL 난다.
-     물어야 할 것은 «저장 키를 실제로 쓴 화자(spk1)로 만드는가» 다. */
-  ok(/putCacheAs\(\s*await ttsKey\(spk1\)|ttsKey\(spk1\)|spk1 \+ '\|' \+ text/.test(a1Block[0]),
-    '폴백 캐시 키는 «실제로 쓴 화자(spk1)» 로 만든다',
-    '그래야 ① 요청 화자 키가 비어 다음에 제대로 만들고 ② 그 화자를 진짜 고른 사람이 재사용한다');
+  ok(!/await putCacheAs\(/.test(a1Block[0]), 'Aura-1 폴백은 동일 화자 이름의 Aura-2 캐시에도 저장하지 않는다');
 }
 
 /* ── ⑤ 화면 화자가 서버 허용목록 안에 있는가 + 진단 헤더 ───────────────────── */
@@ -250,7 +246,7 @@ ok(/'v4\|' \+ lang/.test(G), '캐시 세대가 v4 로 올라갔다 (폴백 오�
     ok(/_synthSpeak\(text, btn, done\)/.test(sp[0]),
       'warmup: 그래도 안 되면 기기 목소리로 읽는다(폴백을 없애지 않았다)',
       '소리가 아예 안 나는 것이 더 나쁘다 — 앱 WebView·뉴런 소진 때는 그것뿐이다');
-    ok(/X-TTS-Speaker/.test(sp[0]) && /if\(!o\.got \|\| o\.got===spk\)/.test(sp[0]),
+    ok(/X-TTS-Speaker/.test(sp[0]) && /_ttsCacheable\(o, spk\)/.test(sp[0]),
       'warmup: 서버가 대체한 화자의 음성은 캐시하지 않는다',
       '캐시하면 그 문장은 세션 내내 남의 목소리로 굳는다 — 서버 R2 캐시와 같은 이유');
     ok(/seq!==_speakSeq/.test(sp[0]),
@@ -270,7 +266,7 @@ ok(/'v4\|' \+ lang/.test(G), '캐시 세대가 v4 로 올라갔다 (폴백 오�
     'game-tts: 한 번 실패했다고 곧바로 기기 목소리로 가지 않는다',
     'AI 영어친구·판단력 훈련·게임 여러 종이 이 모듈 하나로 소리를 낸다');
   ok(/synthSpeak\(text,/.test(GT), 'game-tts: 그래도 안 되면 기기 목소리로 읽는다(폴백 유지)');
-  ok(/X-TTS-Speaker/.test(GT) && /if\(!want \|\| !o\.got \|\| o\.got===want\) cache\[key\]=u;/.test(GT),
+  ok(/X-TTS-Speaker/.test(GT) && /!want \|\| !o\.got \|\| o\.got===want/.test(GT),
     'game-tts: 서버가 대체한 화자의 음성은 캐시하지 않는다',
     '캐시하면 그 문장이 세션 내내 남의 목소리로 굳는다');
   ok(/noRetry\s*=\s*\(r\.status===429\|\|r\.status===503\)/.test(GT),

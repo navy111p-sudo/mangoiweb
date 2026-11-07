@@ -67,19 +67,19 @@ try {
     assert.equal(aiCalls[0][1].text, 'Study.'); assert.equal(aiCalls[0][1].speaker, 'delia');
     assert.equal((await res.arrayBuffer()).byteLength, 400);
     const hit = await call('/api/voice/tts', env, post({ text: 'study', speaker: 'delia' }));
-    assert.equal(hit.headers.get('X-TTS-Engine'), 'r2-cache'); assert.equal(aiCalls.length, 1);
+    assert.equal(hit.headers.get('X-TTS-Engine'), 'r2-cache:aura-2'); assert.equal(aiCalls.length, 1);
     assert.deepEqual(trace, []);
   });
-  await check('Aura-1 fallback caches its actual voice, allowing requested voice to recover', async () => {
+  await check('Aura-1 fallback does not occupy another Aura-2 speaker cache', async () => {
     const { env, aiCalls } = fixture();
     env.AI.run = async (model, params) => { aiCalls.push([model, params]); return model.endsWith('aura-2-en') ? new Response('{}', { status: 429 }) : new Response(new Uint8Array(400), { headers: { 'Content-Type': 'audio/mpeg' } }); };
     const first = await call('/api/voice/tts', env, post({ text: 'study', speaker: 'delia' }));
     assert.equal(first.headers.get('X-TTS-Engine'), 'aura-1'); assert.equal(first.headers.get('X-TTS-Speaker'), 'luna');
     assert.equal(aiCalls.length, 2); // Quota errors do not retry Aura-2.
     const actualHit = await call('/api/voice/tts', env, post({ text: 'study', speaker: 'luna' }));
-    assert.equal(actualHit.headers.get('X-TTS-Engine'), 'r2-cache'); assert.equal(aiCalls.length, 2);
+    assert.equal(actualHit.headers.get('X-TTS-Engine'), 'aura-1'); assert.equal(aiCalls.length, 4);
     await call('/api/voice/tts', env, post({ text: 'study', speaker: 'delia' }));
-    assert.equal(aiCalls.length, 4);
+    assert.equal(aiCalls.length, 6);
   });
   await check('cache metadata reports actual engine rather than requested Azure provider', async () => {
     const { env, aiCalls } = fixture();

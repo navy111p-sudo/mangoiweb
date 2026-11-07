@@ -67,6 +67,7 @@ async function runTts(gotFirst, gotSecond) {
     function fetch(){ CALLS.n++; var got = CALLS.n===1 ? GOT1 : GOT2;
       return Promise.resolve({ ok:true, status:200, headers:{ get:function(h){ return h==='content-type'?'audio/mpeg':(h==='X-TTS-Speaker'?got:'aura-2'); } },
         blob:function(){ return Promise.resolve(got); } }); }
+    ${bodyOf('function _ttsCacheable(o, spk){')}
     ${fTts}
     _ttsSpeak('Hi.', 'thalia', 'thalia|Hi.', null, 1, function(){}, function(u){ PLAYED.push(u); }, 0);`;
   const box = { n: 0 };
