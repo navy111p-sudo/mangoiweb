@@ -101,6 +101,42 @@ await test('socket send reports rejected and accepted writes without queuing cha
   h.all[0].send=()=>{throw Error('local send failure');};
   assert.equal(h.connection.send({type:'chat-message',data:{message:'local fixture'}}),false);
 });
+await test('shared content rejected by an OPEN socket survives until reconnect',async()=>{
+  const h=sockets(),writes=[];h.all[0].open();
+  h.all[0].send=()=>{throw Error('local send failure');};
+  assert.equal(h.connection.send({type:'pdf-share',data:{id:'synthetic-book'}}),false);
+  h.all[0].drop();h.connection.reconnectNow();h.all[1].send=m=>writes.push(JSON.parse(m));h.all[1].open();
+  assert.deepEqual(writes.map(m=>m.type),['pdf-share']);
+});
+await test('partial queue flush retains only the unsent suffix in order',async()=>{
+  const h=sockets(),writes=[];
+  for(const type of ['pdf-share','pdf-page-change','pdf-sync'])h.connection.send({type,data:{fixture:true}});
+  h.all[0].send=m=>{const d=JSON.parse(m);if(d.type==='pdf-page-change')throw Error('local interruption');writes.push(d.type);};
+  h.all[0].open();assert.deepEqual(writes,['pdf-share']);
+  h.all[0].drop();h.connection.reconnectNow();h.all[1].send=m=>writes.push(JSON.parse(m).type);h.all[1].open();
+  assert.deepEqual(writes,['pdf-share','pdf-page-change','pdf-sync']);
+});
+await test('a newer share of the same type replaces a failed queued share',async()=>{
+  const h=sockets(),writes=[];h.connection.send({type:'pdf-share',data:{id:'old-fixture'}});
+  h.all[0].send=()=>{throw Error('local interruption');};h.all[0].open();h.all[0].drop();
+  h.connection.send({type:'pdf-share',data:{id:'new-fixture'}});h.connection.reconnectNow();
+  h.all[1].send=m=>writes.push(JSON.parse(m));h.all[1].open();
+  assert.deepEqual(writes.map(m=>m.data.id),['new-fixture']);
+});
+await test('normal close does not flush queued content or queue rejected chat',async()=>{
+  const h=sockets(),writes=[];h.connection.send({type:'pdf-share',data:{fixture:true}});
+  h.connection.send({type:'chat-message',data:{message:'synthetic'}});h.connection.close();
+  const next=sockets();next.all[0].send=m=>writes.push(JSON.parse(m));next.all[0].open();
+  assert.equal(h.all.length,1);assert.equal(writes.length,0);assert.equal(h.all[0].readyState,3);
+});
+await test('a successful newer share supersedes the same queued type',async()=>{
+  const h=sockets(),writes=[];h.all[0].open();h.all[0].send=()=>{throw Error('local interruption');};
+  h.connection.send({type:'pdf-share',data:{id:'old-fixture'}});
+  h.all[0].send=m=>writes.push(JSON.parse(m));
+  assert.equal(h.connection.send({type:'pdf-share',data:{id:'new-fixture'}}),true);
+  h.all[0].drop();h.connection.reconnectNow();h.all[1].send=m=>writes.push(JSON.parse(m));h.all[1].open();
+  assert.deepEqual(writes.map(m=>m.data.id),['new-fixture']);
+});
 const chat=source.slice(source.indexOf('function vcSendChat('),source.indexOf('function vcReceiveChat('));
 function chatFixture(){
  const input={value:'local synthetic message'},writes=[],notices=[],fetches=[];
