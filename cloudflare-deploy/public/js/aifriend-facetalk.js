@@ -366,9 +366,12 @@
   }
   function onFaceTap() {
     if (!active) return;
-    if (state === 'speak' || state === 'think' && pending > 0) { stopAll(); silentRuns = 0; clearHelp(); listen(); return; }
     if (state === 'listen') { try { MangoiVoice.stop(); } catch (e) {} return; }   // 다 말했으면 눌러서 바로 보내기
-    if (state === 'pause') { silentRuns = 0; clearHelp(); listen(); }
+    if (state === 'speak' || state === 'think' && pending > 0) stopAll();
+    else if (state !== 'pause') return;
+    silentRuns = 0;
+    clearHelp();
+    listen();
   }
 
   /* ── 켜기·끄기 ────────────────────────────────────────────────────── */
