@@ -285,6 +285,7 @@ export function roleplayReconfirmsAnswer(text: string, memory: QuestionMemory | 
   return questionsIn(text).some(q => {
     if (/\bto confirm\b.*\b(?:right|correct)\?$/i.test(q)) return true;
     const question = questionNorm(q);
+    if (/^(?:really|is that so|are you sure)$/.test(question)) return true;
     const answer = questionNorm(last.a);
     const echo = /^(?:youre|you are|are you) (.+)$/.exec(question);
     if (echo && answer.replace(/^.*\b(?:im|i am) /, '') === echo[1]) return true;

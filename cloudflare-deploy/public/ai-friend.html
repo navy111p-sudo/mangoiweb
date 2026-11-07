@@ -1372,8 +1372,11 @@
       try { speakText(text, btn, null); } catch(e){ openMic(); return; }
       const t0 = Date.now();
       const tick = setInterval(function(){
-        if (!btn.classList.contains('playing') && Date.now() - t0 > 350) { clearInterval(tick); openMic(); }
-        else if (Date.now() - t0 > 15000) { clearInterval(tick); openMic(); }
+        const elapsed = Date.now() - t0;
+        if ((!btn.classList.contains('playing') && elapsed > 350) || elapsed > 15000) {
+          clearInterval(tick);
+          openMic();
+        }
       }, 200);
     }
 
@@ -1596,7 +1599,7 @@
     }
     // Shared by the inline mic and face conversation. Peaks are UI hints, never speech evidence.
     /* ⚡ (2026-11-06 사장님 「휴대폰 A.i 말하기 3카드 모두 아바타가 더 빨리」) «미리 받아쓰기» — 웜업과 같은 정본 js/mangoi-voice-early.js.
-       말이 멎고 0.5초면 지금까지 녹음분을 먼저 받아 적어 두고, 녹음이 끝났을 때 그 사이 더 말하지 않았으면 그 글자를 그대로 쓴다
+       말이 멎고 0.35초면 지금까지 녹음분을 먼저 받아 적어 두고, 녹음이 끝났을 때 그 사이 더 말하지 않았으면 그 글자를 그대로 쓴다
        (끝난 뒤 «올리고 받아 적기» 약 1초를 건너뜀). ⛔ 여기서는 «미리 받기만» 한다(accept 없음) — 녹음을 일찍 끊는 «끝난 말» 판정은
        웜업 화면 안(micUnfinished)에만 있고 베끼지 않는다. 그래서 녹음이 끝나는 시점(침묵 1.5초·2.5초·⏹)은 예전 그대로다.
        ⛔ 애플 WebKit(아이폰·사파리·iOS 인앱)·webm/ogg 가 아닌 녹음은 그 모듈이 스스로 빼고 예전대로 한 번에 올린다.
@@ -1610,7 +1613,7 @@
       const verifyBlob = b => {
         if (!b) return Promise.resolve(null);
         if (!checks.has(b)) checks.set(b, Promise.resolve().then(() =>
-          window.MangoiVoiceCheck ? MangoiVoiceCheck.blobHasVoice(b) : null
+          window.MangoiVoiceCheck ? MangoiVoiceCheck.blobHasVoice(b, true) : null
         ).catch(() => null));
         return checks.get(b);
       };
@@ -2512,8 +2515,8 @@
 </style>
 <script defer src="/js/game-tts.js?v=9"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈. v4: getAudioEl(아바타 음량 립싱크). v6: 서버 실패 시 400ms 뒤 한 번 더 물어본 뒤에만 기기 목소리로 — 「목소리가 계속 변해」 -->
 <script defer src="/js/mangoi-voice-input.js?v=9"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
-<script defer src="/js/mangoi-voice-early.js?v=1"></script><!-- ⚡ 말이 멎으면 먼저 받아 적기(웜업과 같은 정본) / early transcription (2026-11-06) -->
-<script defer src="/js/voice-has-speech.js?v=1"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
+<script defer src="/js/mangoi-voice-early.js?v=2"></script><!-- ⚡ 말이 멎으면 먼저 받아 적기(웜업과 같은 정본) / early transcription (2026-11-06) -->
+<script defer src="/js/voice-has-speech.js?v=2"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
 <script defer src="/js/aifriend-auto-talk.js?v=2"></script><!-- ⚡ v2: 마이크 여는 대기 700 → 안드로이드 300·그 밖 600 (2026-11-06) -->
 <script defer src="/js/aifriend-facetalk.js?v=6"></script><!-- 😊 얼굴 대화도 공용 friendRecordVoice로 무음·잡음 차단 -->
 <script defer src="/js/ai-diff.js?v=2"></script><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->

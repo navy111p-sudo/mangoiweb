@@ -468,6 +468,41 @@ console.log('\n[J] English idle prompt');
   }
 }
 
+console.log('\n[K] Device speech mouth animation');
+{
+  const poses = [];
+  const timers = new Set();
+  let utterance, stops = 0, completions = 0;
+  const c = {
+    _speechOn: true, _enVoice: { lang: 'en-US' }, _rateLevel: 0, RATE_STEPS: [],
+    _speakSeq: 1, isZh: () => false, warmThought() {}, _latMark() {},
+    SpeechSynthesisUtterance: function (text) { this.text = text; },
+    speechSynthesis: { cancel() {}, speak(u) { utterance = u; } },
+    MangoAvatar: { mouth: (pose) => poses.push(pose), plainStop: () => stops++ },
+    setInterval: (fn) => { timers.add(fn); return fn; }, clearInterval: (fn) => timers.delete(fn),
+    done: () => completions++,
+  };
+  c.window = c;
+  vm.createContext(c);
+  vm.runInContext(bodyOf(HTML, 'function _synthSpeak(text, btn, onDone){'), c);
+  const start = () => vm.runInContext("_synthSpeak('Your turn!', null, done);", c);
+  start();
+  ok('K-1 mouth waits for actual device speech', poses.length === 0);
+  utterance.onstart();
+  for (const tick of timers) tick();
+  ok('K-2 device speech drives multiple mouth poses', poses.join() === 'medium,wide', poses);
+  utterance.onend();
+  ok('K-3 device speech end stops motion and completes once', !timers.size && stops === 1 && completions === 1);
+  start();
+  utterance.onstart();
+  c._speakSeq++;
+  const before = poses.length;
+  for (const tick of timers) tick();
+  utterance.onerror();
+  ok('K-4 canceled device speech cannot move or stop the next face', !timers.size && poses.length === before &&
+    stops === 1 && completions === 1);
+}
+
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
 

@@ -560,6 +560,16 @@ console.log('\nC. 화면 배선 (warmup.html)');
 {
   const W = readFileSync(join(PUB, 'warmup.html'), 'utf8');
   check('C-1 서버가 준 fix 를 그린다', /showFixCard\(\s*d\.fix\s*,\s*d\.repeat\s*\)/.test(W));
+  const replyFormatter = W.match(/^function warmupReplyText\(d\)\{[\s\S]*?^\}/m)?.[0];
+  check('C-1a 집중교정 문장 정리기가 있다', !!replyFormatter);
+  if (replyFormatter) {
+    const format = new Function('isZh', replyFormatter + '\nreturn warmupReplyText;')(() => false);
+    const now = "Yeah, it's really helpful";
+    const d = { ai_response: `You can say... "${now}" "${now}" "${now}" Can you say it with me?`, fix: { now } };
+    check('C-1b 집중교정은 카드와 같은 문장을 한 번 읽는다',
+      format(d) === "Try saying it with me: Yeah, it's actually helpful" && d.fix.now === "Yeah, it's actually helpful");
+    check('C-1c 일반 대화의 really helpful은 유지한다', format({ ai_response: now }) === now);
+  }
   /* ⚠️ «선언» 이 함께 매치되면 호출을 전부 지워도 통과한다 — 이 저장소에서 세 번째 밟은 함정이다.
      선언은 정확히 1개, «부르는 곳» 은 2곳 이상(보낼 때 + 그릴 때)이어야 한다. */
   const decl = (W.match(/function fixCardClear\(\)/g) || []).length;
