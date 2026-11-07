@@ -3139,12 +3139,28 @@ function _synthSpeak(text, btn, onDone){
     var _pit = (isZh() && _voiceGender()==='male') ? 0.85 : 1.02;
     u.lang=(_enVoice&&_enVoice.lang)||(isZh()?'zh-CN':'en-US'); u.rate=RATE_STEPS[_rateLevel]||0.95; u.pitch=_pit;
     if(_enVoice) u.voice=_enVoice;
-    var utteranceSeq=_speakSeq;
-    u.onstart=function(){ if(utteranceSeq!==_speakSeq)return; warmThought(false); _speechEverStarted=true; _latMark(); };
-    u.onend=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){} if(onDone) onDone(); };
-    u.onerror=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){} if(onDone) onDone(); };
+    var utteranceSeq=_speakSeq, mouthTimer, finished=false, pose=0;
+    // Device speech has no audio element; a paused server clip must not drive its mouth.
+    var poses=['medium','wide','medium','closed'];
+    function moveMouth(){
+      if(finished || utteranceSeq!==_speakSeq){ clearInterval(mouthTimer); return; }
+      try{ window.MangoAvatar && MangoAvatar.mouth(poses[pose++ % poses.length]); }catch(e){}
+    }
+    u.onstart=function(){
+      if(finished || utteranceSeq!==_speakSeq)return;
+      warmThought(false); _speechEverStarted=true; _latMark();
+      moveMouth();
+      mouthTimer=setInterval(moveMouth, 150);
+    };
+    u.onend=u.onerror=function(){
+      clearInterval(mouthTimer);
+      if(finished || utteranceSeq!==_speakSeq)return;
+      finished=true;
+      if(btn) btn.classList.remove('playing');
+      try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){}
+      if(onDone) onDone();
+    };
     window.speechSynthesis.cancel();
-    try{ window.MangoAvatar && MangoAvatar.plainStart(); }catch(e){}   // 👩‍🏫 실제 발화 시작 직전에 아바타 입 움직임 개시
     window.speechSynthesis.speak(u);
   }catch(e){ if(onDone) onDone(); }
 }
