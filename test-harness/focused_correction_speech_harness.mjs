@@ -194,21 +194,10 @@ const DB = { prepare(sql) {
 }, exec: d1ExecLikeProd(raw), batch: async ss => Promise.all(ss.map(s => s.run())) };
 const cache = new Map();
 let routeFix = fix;
-let scenario = 'normal', modelCalls = 0, fastCalls = 0, rechecks = 0;
+let scenario = 'normal', modelCalls = 0, rechecks = 0;
 const env = { DB, ROOM_JWT_SECRET: 'focused-local-fixture-only',
   SESSION_STATE: { get: async k => cache.get(k) ?? null, put: async (k, v) => cache.set(k, String(v)), list: async () => ({ keys: [] }) },
-  AI: { run: async (model, opts) => {
-    if (model.includes('granite')) {
-      fastCalls++;
-      assert.ok(!opts.stream, 'the correction is validated before speech');
-      if (scenario === 'compact') return { response: JSON.stringify({
-        reply: routeFix.now, fix: { short: '문법에 맞게 고쳐요', tag: 'other' },
-      }) };
-      if (scenario === 'compact-invalid') return { response: JSON.stringify({
-        reply: 'I rode a spaceship to Mars', fix: { short: '문법에 맞게 고쳐요', tag: 'other' },
-      }) };
-      return { response: '{"reply":"OK","fix":null}' };
-    }
+  AI: { run: async (_model, opts) => {
     modelCalls++;
     const recheck = opts.messages?.[0]?.content.includes('FOCUSED_CORRECTION_CHECK');
     if (recheck) rechecks++;
@@ -264,23 +253,32 @@ for (const kind of ['avatar', 'friend']) for (const stream of [0, 1]) {
     }
   });
 }
-for (const variant of ['compact', 'compact-invalid', 'long']) {
-  scenario = variant; modelCalls = 0; fastCalls = 0;
-  const studentInput = variant === 'long' ? routeFix.was + '. ' + 'I also wanted to say more about my day. '.repeat(4) : routeFix.was;
-  const r = await post('/api/warmup/chat', { session_id: variant, student_input: studentInput,
+const infinitives = [
+  ["Yeah, it's really helpful for me understand", "Yeah, it's really helpful for me to understand"],
+  ["It is difficult for us speak clearly.", "It is difficult for us to speak clearly."],
+];
+for (const [i, [studentInput, corrected]] of infinitives.entries()) {
+  modelCalls = 0;
+  const r = await post('/api/warmup/chat', { session_id: 'infinitive-' + i, student_input: studentInput,
     correction_mode: 'focused', guided: 1, difficulty: 3, stream: 1 });
   const events = (await r.text()).split('\n').filter(s => s.startsWith('data:')).map(s => JSON.parse(s.slice(5)));
   const done = events.find(e => e.done);
-  check('avatar ' + variant + ' validates compact output before speech', () => {
-    assert.equal(fastCalls, variant === 'long' ? 0 : 1);
-    assert.equal(modelCalls, variant === 'compact' ? 0 : 1);
+  check('avatar guided infinitive correction ' + i + ' needs zero model calls', () => {
+    assert.equal(modelCalls, 0);
     assert.deepEqual(events.filter(e => e.t), []);
-    assert.equal(done.fix.was, routeFix.was);
-    assert.equal(done.fix.now, routeFix.now);
-    assert.equal(done.ai_response, H.ensureFocusedFixSpoken(question, 'focused', 'partial', routeFix));
+    assert.equal(done.fix.was, studentInput);
+    assert.equal(done.fix.now, corrected);
+    assert.equal(done.ai_response, H.ensureFocusedFixSpoken(question, 'focused', 'partial', { now: corrected }));
     assert.equal(done.speaking_help, null);
   });
 }
+check('infinitive rule leaves correct clauses, modals, unrelated phrases and long input alone', () => {
+  for (const input of ["It's helpful for me to understand.", "It's helpful for me, understand?",
+    "It is important for me tomorrow.", "It's hard for us can speak.", "I am happy for you",
+    "It's hard for me read " + 'many different books '.repeat(7)]) {
+    assert.equal(F.focusedInfinitiveFix(input), null, input);
+  }
+});
 scenario = 'normal';
 routeFix = { was: 'What you do? I go park yesterday.', now: 'What did you do? I went to the park yesterday.' };
 const complex = await (await post('/api/warmup/chat', { session_id: 'focused-complex', student_input: routeFix.was,

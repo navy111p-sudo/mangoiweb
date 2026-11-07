@@ -9,6 +9,21 @@ export function focusedCandidate(raw: unknown, input: string): WarmupFix | null 
   return fix && !replyBreakReason(fix.now) ? fix : null;
 }
 
+/** In an adjective clause, the verb after "for + object pronoun" needs infinitive to. */
+export function focusedInfinitiveFix(input: string): WarmupFix | null {
+  const clause = /^(?:(?:yeah|yes|well),? )?it(?:['’]s| is| was) (?:not )?(?:(?:really|very|too|so|quite) )?(?:hard|easy|helpful|useful|important|difficult|necessary|possible|impossible|safe) for (?:me|you|him|her|us|them) /i.exec(input);
+  if (!clause) return null;
+  const tail = input.slice(clause[0].length);
+  if (!/^(?:be|communicate|concentrate|decide|explain|finish|improve|learn|listen|participate|practice|prepare|pronounce|read|remember|speak|study|understand|write)(?: |[.!?]?$)/i.test(tail)) return null;
+  return focusedCandidate({
+    was: input,
+    now: clause[0] + 'to ' + tail,
+    why_ko: 'for + 사람 뒤에는 to와 동사원형을 써요.',
+    tag: 'verb_form',
+    severity: 'minor',
+  }, input);
+}
+
 /** An explicit quoted correction can survive even when the trailing fix JSON was cut off.
  * Never treat an ordinary reply/question as a correction. The same source/meaning checks still apply.
  */
