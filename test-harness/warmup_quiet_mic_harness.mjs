@@ -24,7 +24,7 @@ try { f = new Function(src + '; return _voiceInSamples;')(); } catch (e) { conso
 const SR = 48000;
 function sig(sec, gen) { const x = new Float32Array(Math.round(SR * sec)); for (let i = 0; i < x.length; i++) x[i] = gen(i / SR); return x; }
 let seed = 7; const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648 * 2 - 1; };
-const run = (x) => { try { return f ? f(x, SR) : 'nofn'; } catch (e) { return 'throw:' + e.message; } };
+const run = (x, noisy) => { try { return f ? f(x, SR, noisy) : 'nofn'; } catch (e) { return 'throw:' + e.message; } };
 // 작은 말소리: 바닥잡음 0.002 위에 0.03 진폭(=128 기준 peak 약 4 — 모듈 문턱 8 아래) 말 덩어리
 const quietSpeech = sig(3, t => 0.002 * rnd() + ((t > 0.6 && t < 1.4) || (t > 1.7 && t < 2.3) ? 0.03 * Math.sin(2 * Math.PI * 180 * t) * (0.6 + 0.4 * Math.sin(2 * Math.PI * 4 * t)) : 0));
 ok('작은 말소리(peak≈4/128)는 «말소리 있음»', run(quietSpeech) === true);
@@ -32,6 +32,11 @@ ok('보통 크기 말소리도 «있음»', run(sig(2, t => 0.003 * rnd() + (t >
 ok('완전 무음은 «없음»(Whisper 환각은 계속 버림)', run(sig(3, () => 0)) === false);
 ok('일정한 잡음만은 «없음»', run(sig(3, () => 0.01 * rnd())) === false);
 ok('딸깍 한 번(20ms)은 «없음»', run(sig(3, t => 0.002 * rnd() + (t > 1 && t < 1.02 ? 0.5 : 0))) === false);
+const fan = t => 0.018 * Math.sin(2 * Math.PI * 120 * t);
+const inNoise = sig(3, t => fan(t) + (t > 0.6 && t < 1.4 ? 0.029 * Math.sin(2 * Math.PI * 210 * t) : 0));
+ok('배경 소음에 묻힌 작은 발화도 말하기 화면은 살린다', run(inNoise) === false && run(inNoise, true) === true);
+ok('소음 모드도 일정한 소음과 큰 충격음 하나는 버린다', run(sig(3, fan), true) === false
+  && run(sig(3, t => fan(t) + (t > 1 && t < 1.02 ? 0.5 : 0)), true) === false);
 ok('빈 입력은 null(모름)', run(new Float32Array(0)) === null);
 
 ok('정본이 전역으로 내보낸다', /window\.MangoiVoiceCheck\s*=\s*\{\s*inSamples\s*:\s*_voiceInSamples\s*,\s*blobHasVoice\s*:\s*_blobHasVoice/.test(jsSrc));
@@ -65,7 +70,7 @@ async function probe(samples, cancel = false) {
   let current = true, uploads = 0, checks = 0;
   const ctx = {
     Promise, String,
-    MangoiVoiceCheck: { blobHasVoice: async b => { checks++; if (cancel) current = false; return run(b.samples); } },
+    MangoiVoiceCheck: { blobHasVoice: async (b, noisy) => { checks++; if (cancel) current = false; return run(b.samples, noisy); } },
     MangoiVoice: { record: async opts => {
       opts.onAudio({ samples }); opts.onState('speaking', {}); // a peak is not an exemption
       const d = await opts.transcribe({ append() {} }); return d?.text || '';
@@ -82,6 +87,8 @@ for (const [label, samples] of [['무음', sig(3, () => 0)], ['딸깍', sig(3, t
   const r = await probe(samples);
   ok('A.i 친구하기: ' + label + '은 peak 이벤트가 있어도 업로드 전에 막는다', !r.said && r.uploads === 0);
 }
+const noisy = await probe(inNoise);
+ok('A.i 친구하기: 소음에 묻힌 발화도 실제로 전사에 보낸다', noisy.said === 'Yes.' && noisy.uploads === 1);
 const canceled = await probe(quietSpeech, true);
 ok('A.i 친구하기: 기다린 사이 새 녹음이 시작됐으면 물러난다', !canceled.said && canceled.uploads === 0);
 ok('A.i 친구하기: 버튼 모드는 9초에 끊지 않는다', /firstMs\s*:\s*auto\s*\?\s*0\s*:\s*20000/.test(fv));
