@@ -81,7 +81,7 @@ async function wallet(env: MangoEnv, uid: string, app: string, id: string, sourc
   } catch {}
   try {
     const rows = await env.DB.prepare(`SELECT badge_code FROM student_badges WHERE user_id=? ORDER BY awarded_at DESC`).bind(uid).all();
-    if (rows.success !== false && Array.isArray(rows.results)) rewards.badges = rows.results.map((row: any) => row.badge_code);
+    if ((rows as { success?: boolean }).success !== false && Array.isArray(rows.results)) rewards.badges = rows.results.map((row: any) => row.badge_code);
   } catch {}
   return rewards;
 }
