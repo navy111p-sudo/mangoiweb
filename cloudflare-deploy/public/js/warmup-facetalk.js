@@ -368,16 +368,23 @@
     setTimeout(function () { if (active && !open) { setOpen(true, false);
       setTimeout(function () { if (active && !noteEl.textContent) setOpen(false, false); }, 3500); } }, 1200);
   }
+  // 말하는 방법을 들어오기 전으로 — 저장값이 없던 사람은 «없음» 으로(기본 버튼 모드)
+  function restoreMode() {
+    try {
+      if (prevMode !== 'auto') { AT().setMode('button'); if (prevMode == null) localStorage.removeItem(MODE_KEY); }
+      else if (AT().mode() !== 'auto') AT().setMode('auto');   // ✋ 얼굴 화면에서 손 모드로 바꿨어도 원래(자동)로
+    } catch (e) {}
+  }
+  /* 얼굴 화면인 채 떠나도(탭 닫기·뒤로) «자동» 이 저장값으로 굳지 않게 — 시작이 곧 얼굴 화면이라 흔한 경로다(2026-11-09).
+     bfcache 로 돌아오면 다시 얼굴 화면의 방법으로. */
+  window.addEventListener('pagehide', function () { if (active) restoreMode(); });
+  window.addEventListener('pageshow', function (e) { if (e.persisted && active) { try { AT().setMode(handsFree() ? 'auto' : 'button'); } catch (x) {} } });
   function exit() {
     if (!active) return;
     active = false;
     if (poll) { clearInterval(poll); poll = null; }
     try { if (typeof window._micAbortQuiet === 'function') window._micAbortQuiet(); } catch (e) {}
-    // 말하는 방법을 들어오기 전으로 — 저장값이 없던 사람은 «없음» 으로(기본 버튼 모드)
-    try {
-      if (prevMode !== 'auto') { AT().setMode('button'); if (prevMode == null) localStorage.removeItem(MODE_KEY); }
-      else if (AT().mode() !== 'auto') AT().setMode('auto');   // ✋ 얼굴 화면에서 손 모드로 바꿨어도 원래(자동)로
-    } catch (e) {}
+    restoreMode();
     if (speechForced && g('_speechOn') === true && typeof window.toggleSpeech === 'function') window.toggleSpeech();
     speechForced = false;
     var ring = document.getElementById('tavatar-ring');
@@ -461,6 +468,33 @@
     window.addEventListener('resize', function () { if (active) refreshOpen(); });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
+
+  /* 🚪 «시작» 하면 곧바로 얼굴 대화(2026-11-09 사장님 「휴대폰 키면 이것을 default 로」) —
+     폰은 얼굴 전면, 넓은 창은 얼굴 + 오른쪽 대화 기록(ftk-call.js) 이라 «시작 = 이 화면» 하나로 둔다.
+     시작 버튼(startWarmup — 인라인 스크립트의 전역 함수)을 감싸 «설정이 닫힌 뒤» 한 번만 연다.
+     ✕ 로 나가면 이 페이지에서는 다시 안 연다(🎚️ 로 설정을 다시 열고 시작해도) — ▶ 로 언제든 다시 들어온다.
+     ⛔ ?setup=0(상황 연습·수업 흐름) 페이지는 끝까지 채팅 화면이다 — 장면 고르기 칸이 거기 있다(나중에 🎚️ 로 다시 시작해도).
+     ⛔ 엘리더잼(책·주제로 시작)은 열지 않는다 — 진행 막대(질문 n/20 · 💡 · 그만하기)가 채팅 화면에만 있다.
+     ⛔ 수업 안(iframe)은 enter() 가 스스로 막는다. */
+  var autoDone = /[?&]setup=0(?:&|$)/.test(location.search);
+  function eleaderOn() { try { return /^엘리더잼 L\d/.test(String((g('WCTX') || {}).textbook || '')); } catch (e) { return false; } }
+  function autoEnter() {
+    if (autoDone || active || eleaderOn()) return;
+    autoDone = true;
+    try { enter(); } catch (e) {}
+  }
+  (function wrapStart() {
+    var orig = window.startWarmup;
+    if (typeof orig !== 'function' || orig.__ftkWrapped) return;
+    var w = function () {
+      var r = orig.apply(this, arguments);
+      autoEnter();
+      return r;
+    };
+    w.__ftkWrapped = true;
+    window.startWarmup = w;
+    if (g('_warmStarted') === true) autoEnter();   // 이 파일이 오기 «전» 에 이미 «시작» 을 눌렀으면 지금 연다
+  })();
 
   /* 📞 영상통화 화면(js/ftk-call.js)에 건네는 손잡이 — 새 판정 없이 이 화면의 정본을 그대로 부른다 */
   var slowFrom = null;

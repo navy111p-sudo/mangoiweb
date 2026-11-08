@@ -66,6 +66,11 @@ try {
     try {
       await page.goto(origin + (app === 'friend' ? '/ai-friend.html' : '/warmup.html?setup=0'), { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => !!window.AiSpeakingProgress);
+      // 2026-11-09: A.i 친구하기는 열자마자 얼굴 대화가 뜬다 — 이 검사는 채팅 칸에 쓰므로 먼저 닫는다(✕ 와 같은 길)
+      if (app === 'friend') {
+        await page.waitForFunction(() => window.MangoiFaceTalk && MangoiFaceTalk.isActive(), null, { timeout: 5000 }).catch(() => {});
+        await page.evaluate(() => { if (window.MangoiFaceTalk && MangoiFaceTalk.isActive()) MangoiFaceTalk.exit(); });
+      }
       await page.evaluate(() => {
         if (window.MangoiTTS) { MangoiTTS.speak = (_, __, done) => { if (typeof done === 'function') done(); }; MangoiTTS.stop = () => {}; }
       });

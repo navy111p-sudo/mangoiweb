@@ -291,7 +291,7 @@
   function handsFree() { try { return !window.FtkCall || window.FtkCall.handsFree(); } catch (e) { return true; } }
   /* 다음 차례 — 자동이면 바로 듣고, ✋ 손 모드면 선생님 말이 끝난 뒤 쉬며 마이크(얼굴) 누르기를 기다린다 */
   async function next() {
-    if (handsFree()) return listen();
+    if (handsFree() && !needTap) return listen();
     var my = ++turnSeq;
     await waitQuiet(my);
     if (isCurrentTurn(my)) setState('pause');
@@ -395,12 +395,42 @@
   }
 
   /* ── 켜기·끄기 ────────────────────────────────────────────────────── */
-  function enter() {
+  /* 🔊 이 모드는 «목소리로 하는 대화» — 소리를 꺼 두었으면 «이 동안만» 켜고 나갈 때 되돌린다.
+     ⛔ 저장값을 '1' 로 덮은 채 두지 않는다 — 열자마자 열리므로(2026-11-09) 꺼 둔 학생의 설정이 방문마다 사라진다. */
+  var SOUND_KEY = 'mangoi_aifriend_sound', soundForced = false;
+  function forceSound() {
+    try {
+      if (soundForced || typeof isSoundOn !== 'function' || isSoundOn()) return;
+      localStorage.setItem(SOUND_KEY, '1'); soundForced = true;
+      if (typeof updateSoundBtn === 'function') updateSoundBtn();
+    } catch (e) {}
+  }
+  function restoreSound() {
+    if (!soundForced) return;
+    soundForced = false;
+    try { localStorage.setItem(SOUND_KEY, '0'); if (typeof updateSoundBtn === 'function') updateSoundBtn(); } catch (e) {}
+  }
+  window.addEventListener('pagehide', function () { if (active) restoreSound(); });          // 얼굴 화면인 채 떠나도 되돌린다
+  window.addEventListener('pageshow', function (e) { if (e.persisted && active) forceSound(); });
+  /* 🖐 손짓 없이 저절로 열렸으면(autoOpen) 첫 마이크는 사람이 누를 때 연다 — 그 전에 열면 마이크 권한 창이 저절로 뜨고,
+        손짓 없이 만든 AudioContext 는 멈춘 채라 «말소리» 를 못 잰다. 화면을 한 번이라도 누르면 그 뒤는 예전처럼 자동. */
+  var needTap = false, tapArmed = false;
+  /* 저절로 열렸을 때 «누르기(제스처)» 없이 소리·마이크 분석이 돌 수 있는가 — 막히면 첫 마이크는 학생이 눌러서 연다.
+     (같은 사이트에서 넘어온 탭처럼 브라우저가 허락한 경우 AudioContext 가 처음부터 running 이다 → 예전처럼 자동) */
+  function activated() {
+    try { if (navigator.userActivation && navigator.userActivation.hasBeenActive) return true; } catch (e) {}
+    try { var C = window.AudioContext || window.webkitAudioContext; if (!C) return false;
+      var c = new C(), on = c.state === 'running'; try { c.close(); } catch (x) {} return on; } catch (e) { return false; }
+  }
+  function enter(auto) {
     if (active) return;
     hideHint();
     var ring = document.getElementById('tavatar-ring');
     if (!ring) return;
     build();
+    needTap = auto === true && !activated();
+    if (!tapArmed) { tapArmed = true; var clr = function () { needTap = false; };
+      root.addEventListener('pointerdown', clr, true); root.addEventListener('keydown', clr, true); }
     if (window.FriendAutoTalk) FriendAutoTalk.pause();
     active = true;
     homeParent = ring.parentNode; homeNext = ring.nextSibling;
@@ -411,13 +441,7 @@
           이 모드 동안만 읽기 전용으로 둔다(값은 스크립트로 넣을 수 있다). 끌 때 원래대로. */
     var inp0 = document.getElementById('msgInput');
     if (inp0) { inp0.__ftkRO = inp0.readOnly; inp0.readOnly = true; }
-    /* 이 모드는 «목소리로 하는 대화» 다 — 소리를 꺼 두었으면 켠다 */
-    try {
-      if (typeof isSoundOn === 'function' && !isSoundOn()) {
-        localStorage.setItem('mangoi_aifriend_sound', '1');
-        if (typeof updateSoundBtn === 'function') updateSoundBtn();
-      }
-    } catch (e) {}
+    forceSound();
     try { window.UXT && UXT.hit('ux:aifriend-facetalk-open'); } catch (e) {}
     stopAll(); silentRuns = 0;
     clearHelp(); fillText();
@@ -431,7 +455,7 @@
     var my = ++turnSeq;
     var hi = '';
     try { if (typeof friendOf === 'function') hi = friendOf(personNow()).hi || ''; } catch (e) {}
-    if (!hi || typeof window.speakText !== 'function') return listen();
+    if (!hi || typeof window.speakText !== 'function') return next();
     teacherEl.textContent = hi; refreshOpen();
     said = [];
     setState('speak');
@@ -461,6 +485,7 @@
     if (!active) return;
     active = false;
     stopAll();
+    restoreSound(); needTap = false;
     var ring = document.getElementById('tavatar-ring');
     if (ring && homeParent) {
       if (homeNext && homeNext.parentNode === homeParent) homeParent.insertBefore(ring, homeNext);
@@ -473,7 +498,8 @@
     setState('pause');
     try { window.dispatchEvent(new Event('resize')); } catch (e) {}   // 원래 자리 얼굴 비율 다시 맞추기
     try { window.UXT && UXT.hit('ux:aifriend-facetalk-close'); } catch (e) {}
-    var chat = document.getElementById('chat'); if (chat) chat.scrollTop = chat.scrollHeight;
+    /* 나눈 말이 있을 때만 맨 아래(방금 대화)로 — 빈 화면을 내리면 작은 폰에서 «오늘의 단어» 카드가 아바타 밑으로 숨는다 */
+    var chat = document.getElementById('chat'); if (chat && !chat.querySelector('.empty-state')) chat.scrollTop = chat.scrollHeight;
   }
 
   /* ── 입구: 선생님 얼굴 카드 ───────────────────────────────────────── */
@@ -551,6 +577,7 @@
     parts: function () { return said.slice(); },
     audio: function () { return window.MangoiTTS && MangoiTTS.getAudioEl ? MangoiTTS.getAudioEl() : null; },
     tap: onFaceTap,
+    waitTap: function () { return needTap; },   // 첫 마이크를 «눌러서» 여는 중 — 상태 글자가 «쉬는 중» 대신 «눌러 말해요»
     close: exit,
     finish: function () { exit(); if (window.AiSpeakingProgress) window.AiSpeakingProgress.finish(); },
     replay: replay,
@@ -573,6 +600,27 @@
     type: function (txt) { if (!active || state === 'think') return false; stopAll(); send(txt, ++turnSeq, true); return true; }
   };
   arm();
+  /* 🚪 열자마자 얼굴 대화(2026-11-09 사장님 「휴대폰 열면 바로 나오게」) — 폰·태블릿은 얼굴 전면, 넓은 창은 얼굴 + 오른쪽 대화 기록(ftk-call.js).
+     대화 기록을 다 불러온 뒤 연다(window.__aiFriendHistory) — 그래야 «처음 인사» 와 «이어서 듣기» 가 바로 갈린다.
+     ⛔ 다른 화면 안(iframe)에서는 안 연다 — 마이크가 저절로 열린다.
+     ⛔ ?practice=(더빙 연습)는 입력칸에 문장을 넣어 두는 흐름이라 안 연다. ✕ 로 나가면 ▶ 로 다시 들어온다. */
+  (function autoOpen() {
+    var top = true; try { top = window.top === window; } catch (e) { top = false; }
+    if (!top || /[?&]practice=/.test(location.search)) return;
+    /* 기록을 불러오는 동안 학생이 먼저 손을 댔으면(🎤·글쓰기·고르기) 끼어들지 않는다 — enter() 가 그 녹음·대답을 끊는다 */
+    var touched = false, mark = function () { touched = true; };
+    document.addEventListener('pointerdown', mark, true); document.addEventListener('keydown', mark, true);
+    var go = function () {
+      document.removeEventListener('pointerdown', mark, true); document.removeEventListener('keydown', mark, true);
+      if (active || touched) return;
+      try { enter(true); } catch (e) {}
+    };
+    Promise.resolve(window.__aiFriendHistory).catch(function () {}).then(function () {
+      if (!document.hidden) return go();
+      var vis = function () { if (document.hidden) return; document.removeEventListener('visibilitychange', vis); go(); };
+      document.addEventListener('visibilitychange', vis);   // 숨은 탭에서 열렸으면 보일 때 연다
+    });
+  })();
 
   window.MangoiFaceTalk = { enter: enter, exit: exit, isActive: function () { return active; } };
 })();

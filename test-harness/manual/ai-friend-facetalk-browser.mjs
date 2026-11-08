@@ -70,8 +70,10 @@ for (const [w,h,name,seen] of [[390,844,'폰 세로',false],[1280,800,'노트북
   const pre=await page.evaluate(()=>{const r=document.getElementById('tavatar-ring');
     return {badge:!!(r&&r.querySelector('.ftk-badge')),role:r&&r.getAttribute('role'),ready:!!window.MangoiFaceTalk};});
   ok(name+': 얼굴 카드에 입구 표시(▶)가 있다', pre.badge && pre.role==='button', JSON.stringify(pre));
+  const autoOn=await page.evaluate(()=>MangoiFaceTalk.isActive()&&document.getElementById('ftk').classList.contains('on'));
+  ok(name+': 열자마자 얼굴 대화가 열린다(누르지 않아도 — 2026-11-09)', autoOn);
 
-  await page.click('#tavatar-ring');
+  if(!autoOn) await page.click('#tavatar-ring');   // 열린 뒤 누르면 «얼굴 누르기» 가 된다
   await page.waitForTimeout(400);
   await page.screenshot({path:`/tmp/ftk-face-${w}.png`});
   const on=await page.evaluate(()=>{const f=document.getElementById('ftk'), r=document.getElementById('tavatar-ring');
@@ -95,6 +97,13 @@ for (const [w,h,name,seen] of [[390,844,'폰 세로',false],[1280,800,'노트북
     ok(name+': 이미 본 기기는 평소에 판이 닫혀 있다(짝)', pk==='closed', pk);
   }
 
+  // 🎤 저절로 열렸고 이 브라우저는 «누르기 전» 소리를 막는다(--autoplay-policy 를 안 줌) → 인사 뒤 첫 마이크는 학생이 눌러 연다
+  await page.waitForFunction(()=>__log.indexOf('spoke')>=0 && document.getElementById('ftk').getAttribute('data-s')==='pause', null, {timeout:9000}).catch(()=>{});
+  const wt=await page.evaluate(()=>({s:document.getElementById('ftk').getAttribute('data-s'), recs:__log.filter(x=>x==='rec').length,
+    st:(document.querySelector('#ftk .fc-status')||{}).textContent||''}));
+  ok(name+': 소리가 막힌 채 저절로 열리면 인사 뒤 «눌러 말해요» 로 기다린다(녹음 안 함)', wt.s==='pause' && wt.recs===0 && /마이크를 눌러 말해요|Tap the mic to talk/.test(wt.st), JSON.stringify(wt));
+  ok(name+': 그때 «쉬는 중 · 다시 시작» 이라고 하지 않는다', !/쉬는 중|Paused/.test(wt.st), wt.st);
+  await page.click('#ftk .fc-mic');
   // 인사 → 듣기 → 보내기 → 대답 → 다시 듣기(무음 = 지어낸 말) → 유리판 자동 열림
   // ⚠️ 고정 대기로 재면 화면 캡처 시간에 따라 «쉬기» 로 넘어간 뒤를 잽니다(실제로 흔들렸습니다) —
   //    «대답 보기 칩이 뜬 순간» 을 기다려 잽니다.

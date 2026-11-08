@@ -20,6 +20,9 @@ try{
  const p=await browser.newPage();
  await p.route('**/api/**',r=>r.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,items:[],uid:'guest_probe',token:'test.token'})}));
  await p.goto('http://127.0.0.1:'+server.address().port+'/ai-friend.html');
+ // 2026-11-09: A.i 친구하기는 열자마자 얼굴 대화가 뜬다 — 이 검사는 채팅 화면을 보므로 먼저 닫는다(✕ 와 같은 길)
+ await p.waitForFunction(() => window.MangoiFaceTalk && MangoiFaceTalk.isActive(), null, { timeout: 5000 }).catch(() => {});
+ await p.evaluate(() => { if (window.MangoiFaceTalk && MangoiFaceTalk.isActive()) MangoiFaceTalk.exit(); });
  await p.evaluate(()=>{
   window.speedProbe={calls:[],recordings:0,options:[]};
   MangoiTTS.speak=(text,rate,done)=>speedProbe.calls.push({text,done});

@@ -45,7 +45,7 @@
         '두 번 연속 아무 말이 없으면 잠깐 쉬어요. 🎤 를 한 번 누르면 다시 시작해요.',
         '입력칸에 글을 쓰기 시작하면 그 차례에는 마이크가 저절로 안 켜져요.',
         '화상수업 안에서는 베타 동안 꺼져 있어요 — 🎤 버튼으로 말하기를 쓰세요.',
-        '😊 선생님 얼굴을 누르면 얼굴만 크게 보며 자동으로 대화해요. 아래 반투명 판을 누르면 대화 글과 대답 보기가 나오고, ✕ 로 끝내요.'
+        '😊 시작하면 선생님 얼굴 화면(영상통화처럼)이 열려 자동으로 대화해요. 아래 반투명 판을 누르면 대화 글과 대답 보기가 나와요. ✕ 로 닫으면 글 대화 화면이고, 선생님 얼굴(▶)을 누르면 다시 열려요.'
       ],
       faqT: '자주 묻는 것',
       faq: [
@@ -92,7 +92,7 @@
         'After two silent turns it rests. Tap 🎤 once to start again.',
         'If you start typing, the mic won’t open for that turn.',
         'Inside a live class it is off during beta — use 🎤 Tap mic.',
-        '😊 Tap the teacher’s face for face-only chat. Tap the glass panel at the bottom for the words and hints; close with ✕.'
+        '😊 After you start, the teacher’s face screen opens (like a video call) and you talk automatically. Tap the glass panel at the bottom for the words and hints. ✕ goes to the text chat; tap the teacher’s face (▶) to open it again.'
       ],
       faqT: 'Common questions',
       faq: [

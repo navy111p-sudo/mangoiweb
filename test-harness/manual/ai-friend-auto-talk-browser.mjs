@@ -34,6 +34,9 @@ try {
   let requests = 0;
   await page.route('**/api/ai/chat-friend', r => { requests++; return r.fulfill(json({ ok: true, reply: 'Great! What food do you like?', gam: null })); });
   await page.goto('http://127.0.0.1:' + server.address().port + '/ai-friend.html');
+  // 2026-11-09: A.i 친구하기는 열자마자 얼굴 대화가 뜬다 — 이 검사는 채팅 화면을 보므로 먼저 닫는다(✕ 와 같은 길)
+  await page.waitForFunction(() => window.MangoiFaceTalk && MangoiFaceTalk.isActive(), null, { timeout: 5000 }).catch(() => {});
+  await page.evaluate(() => { if (window.MangoiFaceTalk && MangoiFaceTalk.isActive()) MangoiFaceTalk.exit(); });
   await page.evaluate(() => {
     window.probe = { recordings: 0, ends: [], canceled: 0 };
     MangoiTTS.speak = (text, rate, done) => probe.ends.push(done);

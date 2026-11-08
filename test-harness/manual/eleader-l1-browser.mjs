@@ -36,6 +36,13 @@ async function open({ token, booksStatus = 200, lang, booksBody, warmLang } = {}
   return { c, p, log, errors };
 }
 async function send(p, text) { await p.fill('#inp', text); await p.click('#sendBtn'); await p.waitForTimeout(400); }
+/* 📞 일반 «시작» 은 얼굴 대화를 연다(2026-11-09 기본 화면) — 이 검사는 채팅 칸을 쓰므로 사람처럼 ✕ 로 닫는다 */
+async function closeFt(p) {
+  await p.waitForFunction(() => window.WarmupFaceTalk && WarmupFaceTalk.isActive(), null, { timeout: 4000 }).catch(() => {});
+  const on = await p.evaluate(() => !!(window.WarmupFaceTalk && WarmupFaceTalk.isActive()));
+  if (on) { await p.click('#ftk .fc-close').catch(() => p.evaluate(() => WarmupFaceTalk.exit())); await p.waitForTimeout(200); }
+  return on;
+}
 
 try {
   // ① ed 계정: 책 고르기가 보이고 시작하면 l1 통로로 첫 질문을 부른다
@@ -56,6 +63,7 @@ try {
   ok('start: l1 request has bearer token', log.l1[0]?.auth === 'Bearer tok-ed');
   ok('start: client topic/textbook not sent', log.l1[0] && log.l1[0].b.lesson_topic === undefined && log.l1[0].b.textbook === undefined);
   ok('start: no free warmup chat call', log.warm.length === 0);
+  ok('start: 엘리더잼 책으로 시작하면 얼굴 대화는 안 열린다(진행 막대가 채팅 쪽)', !(await p.evaluate(() => !!(window.WarmupFaceTalk && WarmupFaceTalk.isActive()))));
   ok('start: AI reply shown', /Reply 1/.test(await p.locator('#log').innerText()));
   ok('place B: bar is first in the answer area (.wg-composer), not inside the stage', await p.evaluate(() => { const b = document.getElementById('eleaderL1Bar'), c = document.querySelector('.wg-composer'), w = document.getElementById('wgWorkspace'); return !!(b && c && c.firstElementChild === b && !(w && w.contains(b))); }));
   ok('start: bar shows question 1/20', /질문 1 \/ 20/.test(await p.locator('#eleaderL1Bar').innerText()));
@@ -119,6 +127,7 @@ try {
   ({ c, p, log } = await open({ token: 'tok-ed' }));
   await p.locator('#eleaderL1').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
   await p.click('#wusStart'); await p.waitForTimeout(500);
+  ok('started: 자유 대화로 시작하면 얼굴 대화가 열린다(기본 화면)', await closeFt(p));
   await send(p, 'hi');
   ok('started: free talk first', log.warm.length >= 1 && log.l1.length === 0);
   await p.evaluate(() => window.openSetup(true)); await p.waitForTimeout(300);
@@ -194,6 +203,7 @@ try {
     ok(name + ': panel hidden', !(await p.locator('#eleaderL1').isVisible()));
     ok(name + ': start button still there', await p.locator('#wusStart').isVisible());
     await p.click('#wusStart'); await p.waitForTimeout(500);
+    await closeFt(p);
     await send(p, 'hello');
     ok(name + ': uses normal warmup chat', log.warm.length >= 1 && log.l1.length === 0);
     ok(name + ': no page errors', errors.length === 0, errors.join(' | '));

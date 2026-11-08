@@ -29,6 +29,9 @@ for(const [w,h,minW,name] of SIZES){
     if(u.pathname==='/api/voice/tts'){await route.fulfill({status:503,body:''});return;}
     await route.fulfill({json:{ok:true}});});
   await page.goto(base+'/ai-friend.html?x=1&_nc='+Date.now());
+  // 2026-11-09: A.i 친구하기는 열자마자 얼굴 대화가 뜬다 — 이 검사는 채팅 화면을 보므로 먼저 닫는다(✕ 와 같은 길)
+  await page.waitForFunction(() => window.MangoiFaceTalk && MangoiFaceTalk.isActive(), null, { timeout: 5000 }).catch(() => {});
+  await page.evaluate(() => { if (window.MangoiFaceTalk && MangoiFaceTalk.isActive()) MangoiFaceTalk.exit(); });
   await page.waitForTimeout(2500);
   const m=await page.evaluate(()=>{
     const R=e=>{const r=e.getBoundingClientRect();return {l:r.left,t:r.top,r:r.right,b:r.bottom,w:r.width,h:r.height};};
