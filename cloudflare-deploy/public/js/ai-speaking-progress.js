@@ -133,6 +133,7 @@
     window.addEventListener('storage', function (event) { if (event.key === 'mango_token' || event.key === null) paint(); });
     document.addEventListener('mangoi:lang-changed', paint);
   }
-  window.AiSpeakingProgress = { beforeTurn: beforeTurn, finish: finish, reset: reset, audioBase64: audioBase64 };
+  function activeSessionId() { return sessionToken && sessionToken === token() ? sessionId || undefined : undefined; }
+  window.AiSpeakingProgress = { activeSessionId: activeSessionId, beforeTurn: beforeTurn, finish: finish, reset: reset, audioBase64: audioBase64 };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
 })();

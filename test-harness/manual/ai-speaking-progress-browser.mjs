@@ -111,6 +111,7 @@ try {
       await page.locator(app === 'friend' ? '.ai-progress-close' : '#wgSummaryBack').click();
       await page.locator(app === 'friend' ? '.ai-progress-trigger' : '#wgFinish').click();
       check(posts.filter(p => p.action === 'finish').length === 1, name + ': reopening does not request evaluation again');
+      if (app === 'warmup') check(posts.find(p => p.award)?.meta?.speaking_session === chat.progress_session, name + ': award is tied to the authenticated practice');
       check(posts.filter(p => p.award).length === (app === 'warmup' ? 1 : 0), name + ': reopening adds no award request');
       await page.evaluate(() => { localStorage.setItem('mango_token', 'different-account-token'); window.dispatchEvent(new StorageEvent('storage', {key:'mango_token'})); });
       check(!(await page.locator('.ai-progress-card').innerText()).includes('50P'), name + ': cross-tab account change clears open private results');

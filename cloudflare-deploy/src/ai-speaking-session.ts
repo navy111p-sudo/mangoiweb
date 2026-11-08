@@ -93,11 +93,12 @@ async function wallet(env: MangoEnv, uid: string, app: string, id: string, sourc
   } catch {}
   try {
     const rules = app === 'friend' ? "rule_code IN ('ai_friend_chat','ai_friend_word','ai_friend_voice','ai_friend_listen')" : "rule_code='warmup_talk'";
-    const key = app === 'friend' ? '$.speaking_session' : '$.session_id';
+    const rowId = app === 'friend' ? id : sourceId;
     const row = await env.DB.prepare(`SELECT COALESCE(SUM(amount),0) AS earned FROM point_transactions
       WHERE user_id=? AND ${rules} AND created_at>=?
-      AND CASE WHEN json_valid(meta) THEN json_extract(meta,?) END=?`)
-      .bind(uid, startedAt, key, app === 'friend' ? id : sourceId).first<any>();
+      AND CASE WHEN json_valid(meta) THEN
+        COALESCE(json_extract(meta,'$.speaking_session')=?,json_extract(meta,'$.session_id')=?) END`)
+      .bind(uid, startedAt, id, rowId).first<any>();
     rewards.pointsEarned = row && Number.isSafeInteger(row.earned) ? row.earned : null;
   } catch {}
   try {

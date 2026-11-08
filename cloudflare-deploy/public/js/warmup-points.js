@@ -7,7 +7,7 @@
   'use strict';
   var NEED = 3;
   var pending = {};
-  var done = {};   // session_id → 마지막 결과(성공·한도만 기억)
+  var done = {};   // account and practice → 마지막 결과(성공·한도만 기억)
 
   function en() { try { return (typeof window.getLang === 'function' ? window.getLang() : '') === 'en'; } catch (e) { return false; } }
   function uid() {
@@ -64,20 +64,22 @@
     var sid = String(window.SESSION_ID || '');
     var u = uid();
     if (!u || /^guest/i.test(u)) { paint(view(null, { guest: true })); return; }
-    if (done[sid]) { paint(view(done[sid])); return Promise.resolve(done[sid]); }
-    if (pending[sid]) return pending[sid];
+    var progressId = window.AiSpeakingProgress?.activeSessionId();
+    var key = JSON.stringify([u, sid, progressId]);
+    if (done[key]) { paint(view(done[key])); return Promise.resolve(done[key]); }
+    if (pending[key]) return pending[key];
     paint(view(null, { pending: true }));
     var tk = ''; try { tk = localStorage.getItem('mango_token') || ''; } catch (e) {}
     var headers = { 'Content-Type': 'application/json' };
     if (tk) headers.Authorization = 'Bearer ' + tk;
-    return pending[sid] = fetch('/api/points/earn-by-rule', {
+    return pending[key] = fetch('/api/points/earn-by-rule', {
       method: 'POST', headers: headers,
-      body: JSON.stringify({ user_id: u, rule_code: 'warmup_talk', token: tk || undefined, meta: { session_id: sid } })
+      body: JSON.stringify({ user_id: u, rule_code: 'warmup_talk', token: tk || undefined, meta: { session_id: sid, speaking_session: progressId } })
     }).then(function (r) { return r.json(); }).then(function (d) {
-      if (d && (d.ok === true || d.error === 'daily_cap_reached' || d.error === 'daily_total_cap_reached')) done[sid] = d;
-      delete pending[sid];
-      paint(view(d)); return d;
-    }).catch(function () { delete pending[sid]; paint(view(null)); return null; });
+      if (d && (d.ok === true || d.error === 'daily_cap_reached' || d.error === 'daily_total_cap_reached')) done[key] = d;
+      delete pending[key];
+      if (uid() === u) paint(view(d)); return d;
+    }).catch(function () { delete pending[key]; if (uid() === u) paint(view(null)); return null; });
   }
 
   function arm() {
