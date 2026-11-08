@@ -108,15 +108,19 @@ for (const [w, h, label] of SIZES) {
   const b1 = await page.evaluate(async () => {
     document.getElementById('wusStart').click();
     await new Promise((r) => setTimeout(r, 500));
+    // 📞 «시작» 은 얼굴 대화를 연다(2026-11-09 기본 화면) — 사람처럼 ✕ 로 닫고 상단바를 본다
+    const ftOpen = !!(window.WarmupFaceTalk && WarmupFaceTalk.isActive());
+    const x = document.querySelector('#ftk .fc-close'); if (ftOpen && x) { x.click(); await new Promise((r) => setTimeout(r, 200)); }
     const t = document.getElementById('setupBtn');
     // ⚠️ 없으면 크래시 말고 «못 찾았다» 로 돌려준다 — 그래야 무엇이 깨졌는지 보인다
-    if (!t) return { missing: true, w: 0, inView: false, topMost: false, titleW: 999 };
+    if (!t) return { missing: true, w: 0, inView: false, topMost: false, titleW: 999, ftOpen };
     const r = t.getBoundingClientRect();
     const el = document.elementFromPoint(Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2));
     const h1 = document.querySelector('.top h1').getBoundingClientRect();
     return { w: Math.round(r.width), inView: r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth,
-      topMost: el === t || t.contains(el), titleW: Math.round(h1.width) };
+      topMost: el === t || t.contains(el), titleW: Math.round(h1.width), ftOpen };
   });
+  ck('«시작» 하면 얼굴 대화가 먼저 열린다(기본 화면 — ✕ 로 닫으면 상단바)', b1.ftOpen === true, JSON.stringify(b1));
   ck('🎚️ 버튼이 상단바에 보이고 눌린다', !b1.missing && b1.inView && b1.topMost && b1.w >= 28, JSON.stringify(b1));
   ck('제목이 뭉개지지 않는다(폭 60px 이상)', b1.titleW >= 60, '제목폭=' + b1.titleW);
   let opened = false;

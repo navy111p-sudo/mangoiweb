@@ -53,6 +53,9 @@ for(const width of [320,390,768,1366]){
   await route.fulfill({json:{ok:true,items:[]}});
  });
  await page.goto(base+'/ai-friend.html');await page.waitForSelector('#friendCorrectionTiming');
+ // 2026-11-09: A.i 친구하기는 열자마자 얼굴 대화가 뜬다 — 이 검사는 채팅 칸에 쓰므로 먼저 닫는다(✕ 와 같은 길)
+ await page.waitForFunction(()=>window.MangoiFaceTalk&&MangoiFaceTalk.isActive(),null,{timeout:5000}).catch(()=>{});
+ await page.evaluate(()=>{if(window.MangoiFaceTalk&&MangoiFaceTalk.isActive())MangoiFaceTalk.exit();});
  await page.locator('#friendCorrectionTiming').selectOption('after-lesson');
  await page.locator('#msgInput').fill('I like apple.');await page.locator('#sendBtn').click();await page.waitForFunction(()=>!document.getElementById('sendBtn').disabled);
  assert.equal(requests.at(-1).correction_timing,'after-lesson');assert.ok(requests.at(-1).practice_session);

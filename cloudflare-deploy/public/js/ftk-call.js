@@ -235,7 +235,7 @@
     el.auto.parentNode.setAttribute('aria-label', t('대화 방식', 'Talk mode'));
     el.status.textContent = s === 'listen' ? t('듣는 중...', 'Listening...')
       : s === 'think' ? t('생각 중...', 'Thinking...')
-      : s === 'pause' ? (hf ? t('쉬는 중 · 마이크를 누르면 다시 시작해요', 'Paused · tap the mic to resume') : t('마이크를 눌러 말해요', 'Tap the mic to talk'))
+      : s === 'pause' ? (hf && !call('waitTap') ? t('쉬는 중 · 마이크를 누르면 다시 시작해요', 'Paused · tap the mic to resume') : t('마이크를 눌러 말해요', 'Tap the mic to talk'))
       : '';
     el.dots.className = 'fc-dots' + (s === 'listen' ? ' live' : '') + (s === 'listen' && root.classList.contains('heard') ? ' heard' : '');
     var n = +call('turns') || 0, f = Math.min(1, n / GOAL);

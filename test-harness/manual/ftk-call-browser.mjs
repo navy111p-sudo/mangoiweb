@@ -70,13 +70,17 @@ async function open(hands,vp){
   await page.waitForTimeout(600);
   return {ctx,page,errs};
 }
+/* 2026-11-09 열자마자 얼굴 대화가 저절로 열린다 — 이미 열렸으면 누르지 않는다(열린 뒤 누르면 «얼굴 누르기» 가 된다) */
+const enterFt=async(page)=>{ if(!(await page.evaluate(()=>window.MangoiFaceTalk&&MangoiFaceTalk.isActive()))) await page.click('#tavatar-ring'); };
 const st=(page)=>page.evaluate(()=>{const f=document.getElementById('ftk');return {s:f.getAttribute('data-s'),status:f.querySelector('.fc-status').textContent};});
 
 /* ── A. 자동(기본) ── */
 console.log('▶ A. A.i 친구하기 · 자동 대화 · 폰 390x844');
 {
   const {ctx,page,errs}=await open('');
-  await page.click('#tavatar-ring');
+  const autoOn=await page.evaluate(()=>MangoiFaceTalk.isActive()&&document.getElementById('ftk').classList.contains('on'));
+  ok('열자마자 얼굴 대화가 열린다(누르지 않아도 — 2026-11-09 «휴대폰 열면 바로»)', autoOn);
+  await enterFt(page);
   await page.waitForTimeout(300);
   const ui=await page.evaluate(()=>{const f=document.getElementById('ftk');
     const v=(q)=>{const e=f.querySelector(q);return !!e&&getComputedStyle(e).display!=='none'&&e.getBoundingClientRect().width>0;};
@@ -175,7 +179,7 @@ console.log('▶ A. A.i 친구하기 · 자동 대화 · 폰 390x844');
 console.log('▶ B. A.i 친구하기 · 손 모드(누르고 말하기)');
 {
   const {ctx,page,errs}=await open('hand');
-  await page.click('#tavatar-ring');
+  await enterFt(page);
   await page.waitForFunction(()=>__log.includes('spoke'), null, {timeout:9000}).catch(()=>{});
   await page.waitForTimeout(1500);
   const a=await page.evaluate(()=>({recs:__log.filter(x=>x==='rec').length,hand:document.querySelector('#ftk .fc-hand').getAttribute('aria-pressed')}));
@@ -231,7 +235,7 @@ console.log('▶ C. A.i 말하기 연습(웜업)');
 console.log('▶ D. A.i 친구하기 · PC 1280x800 · 2단');
 {
   const {ctx,page,errs}=await open('',{width:1280,height:800});
-  await page.click('#tavatar-ring');
+  await enterFt(page);
   await page.waitForFunction(()=>__log.includes('spoke'), null, {timeout:9000}).catch(()=>{});
   const g=await page.evaluate(()=>{const f=document.getElementById('ftk'),sd=f.querySelector('.fc-side'),r=f.getBoundingClientRect(),q=sd.getBoundingClientRect();
     const st=f.querySelector('.ftk-stage').getBoundingClientRect();

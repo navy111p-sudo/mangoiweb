@@ -121,7 +121,8 @@ function world(initial = {}) {
   let stopped=0;const topics=[];
   w.ctx.stopSpeakingNow=()=>{stopped++;};w.ctx.setTopic=t=>topics.push(t);
   w.ctx.loadHistory=()=>Promise.resolve();w.ctx.document.readyState='loading';
-  const start=friend.indexOf('    loadHistory().then(function () {');
+  // 2026-11-09: 얼굴 대화 자동 열기가 기다리도록 (window.__aiFriendHistory = loadHistory()) 로 건넨다 — «식 모양» 대신 그 줄을 찾는다
+  const start=friend.search(/^ {4}\(?(?:window\.__aiFriendHistory = )?loadHistory\(\)\)?\.then\(function \(\) \{/m);
   assert.ok(start>=0);
   const end=friend.indexOf('\n  </script>',start);
   vm.runInContext(friend.slice(start,end),w.ctx);

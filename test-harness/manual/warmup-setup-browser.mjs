@@ -55,6 +55,15 @@ const check = (name, cond, extra = '') => {
   else { fail++; console.log('  ❌ ' + name + (extra ? '  → ' + extra : '')); }
 };
 
+
+/* 📞 «시작» 은 얼굴 대화를 연다(2026-11-09 기본 화면) — 이 검사는 채팅 칸을 쓰므로 사람처럼 ✕ 로 닫는다 */
+async function closeFt(page) {
+  await page.waitForFunction(() => window.WarmupFaceTalk && WarmupFaceTalk.isActive(), null, { timeout: 2000 }).catch(() => {});
+  if (await page.evaluate(() => !!(window.WarmupFaceTalk && WarmupFaceTalk.isActive()))) {
+    await page.click('#ftk .fc-close').catch(() => page.evaluate(() => WarmupFaceTalk.exit())); await page.waitForTimeout(200);
+  }
+}
+
 const browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbox'] });
 
 /* 2026-10-18 — 1100px 이상(높이 620 이상) PC 는 «3단계 카드(B안)» 로 바뀌어 연령·수준 버튼이 숨고
@@ -134,7 +143,7 @@ console.log('\n[ 2. 골라서 시작 — 고른 값이 그대로 서버 요청�
   check('고른 연령대에 «지금» 표시가 붙는다', marked.age, JSON.stringify(marked));
   check('고른 수준에 «지금» 표시가 붙는다', marked.lvl, JSON.stringify(marked));
   check('⋮ 메뉴 표시도 함께 바뀐다', /성인/.test(marked.menuAge) && /6단계/.test(marked.menuLvl), JSON.stringify(marked));
-  await page.click('#wusStart');
+  await page.click('#wusStart'); await closeFt(page);
   await page.waitForTimeout(1200);
   const after = await page.evaluate(() => ({
     hidden: document.getElementById('wuSetup').hidden,
@@ -198,7 +207,7 @@ console.log('\n[ 3. 🎯 내 수준 찾기 — 3번 눌러 끝나고, 서버를 
 console.log('\n[ 4. 대화 중 ⋮ 로 다시 고르기 — 대화를 새로 시작하지 않는다 ]');
 {
   const { ctx, page } = await openWarmup(TAB_W, 900);
-  await page.click('#wusStart');
+  await page.click('#wusStart'); await closeFt(page);
   await page.waitForTimeout(1000);
   const before = await page.evaluate(() => document.querySelectorAll('#log .msg.ai').length);
   await page.click('#menuBtn');
@@ -214,7 +223,7 @@ console.log('\n[ 4. 대화 중 ⋮ 로 다시 고르기 — 대화를 새로 시
   check('메뉴는 함께 닫힌다', !reopened.menuOpen);
   check('버튼이 «계속하기» 로 바뀐다', /계속하기/.test(reopened.cta), reopened.cta);
   await pickAge(page, 'kid');
-  await page.click('#wusStart');
+  await page.click('#wusStart'); await closeFt(page);
   await page.waitForTimeout(600);
   const after = await page.evaluate(() => ({
     ai: document.querySelectorAll('#log .msg.ai').length,
@@ -280,7 +289,7 @@ console.log('\n[ 5. 휴대폰 폭(390) — 넘치지 않고 글자가 쪼개지�
   check('설명 줄이 고른 단계로 바뀐다', /5~7단어/.test(picked.note), picked.note);
   check('⋮ 메뉴 표시도 함께 바뀐다', /2단계/.test(picked.menuLvl), picked.menuLvl);
   check('나이대 드롭다운으로 고르면 숨은 카드 선택·⋮ 메뉴도 바뀐다(짝)', picked.ageOn && picked.ageVal === 'adult' && /성인/.test(picked.menuAge), JSON.stringify(picked));
-  await page.click('#wusStart');
+  await page.click('#wusStart'); await closeFt(page);
   await page.waitForTimeout(1200);
   const saved = await page.evaluate(() => [localStorage.getItem('mangoi_warmup_level'), localStorage.getItem('mangoi_warmup_age')]);
   check('폰에서 고른 수준·나이대가 저장된다', saved[0] === '2' && saved[1] === 'adult', saved.join('/'));
@@ -439,7 +448,7 @@ console.log('\n[ 8. ⬅️ 뒤로 — 어디에서 왔느냐에 따라 돌아갈
   check('수준 찾기 중에 누르면 목록으로 돌아온다(페이지를 벗어나지 않는다)',
     back1.probe && back1.main && back1.setup, JSON.stringify(back1));
   // ② 대화 중 ⋮ 로 열었으면 → 대화로 (홈으로 튕기면 대화가 사라진다)
-  await page.click('#wusStart');
+  await page.click('#wusStart'); await closeFt(page);
   await page.waitForTimeout(900);
   const aiBefore = await page.evaluate(() => document.querySelectorAll('#log .msg.ai').length);
   await page.click('#menuBtn'); await page.waitForTimeout(150);
@@ -491,7 +500,7 @@ console.log('\n[ B안. PC(1920×945) — 3단계 카드 · 드롭다운이 기�
   }));
   check('드롭다운으로 고르면 기존 버튼 선택도 바뀐다(짝)', marked.age && marked.lvl, JSON.stringify(marked));
   check('수준 설명 줄이 채워진다', marked.note.trim().length > 0, marked.note);
-  await page.click('#wusStart');
+  await page.click('#wusStart'); await closeFt(page);
   await page.waitForTimeout(1200);
   const saved = await page.evaluate(() => [localStorage.getItem('mangoi_warmup_age'), localStorage.getItem('mangoi_warmup_level'),
     document.getElementById('wuSetup').hidden]);

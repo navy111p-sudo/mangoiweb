@@ -41,17 +41,18 @@ ok('되풀이해도 낱말 수가 줄지 않는다(비율 증가 = 자막 증가
 
 console.log('▶ ② A.i 친구 — 손 모드는 선생님 말이 끝난 뒤 «쉬며» 기다린다');
 const af = read('js/aifriend-facetalk.js');
-async function runNext(hands) {
+async function runNext(hands, needTap) {
   const log = [];
   const c = vm.createContext({ window: { FtkCall: { handsFree: () => hands } }, log,
     turnSeq: 0, active: true, waitQuiet: async () => { log.push('quiet'); return true; },
     listen: () => { log.push('listen'); }, setState: (s) => log.push('state:' + s) });
-  vm.runInContext('var turnSeq = 0, active = true;\n' + cut(af, 'function isCurrentTurn(') + '\n' + cut(af, 'function handsFree(') + '\n' + cut(af, 'async function next('), c);
+  vm.runInContext('var turnSeq = 0, active = true, needTap = ' + !!needTap + ';\n' + cut(af, 'function isCurrentTurn(') + '\n' + cut(af, 'function handsFree(') + '\n' + cut(af, 'async function next('), c);
   await vm.runInContext('next()', c);
   return log.join(',');
 }
 ok('자동(기본) → 바로 듣는다', (await runNext(true)) === 'listen', await runNext(true));
 ok('손 모드 → 말이 끝나길 기다린 뒤 쉰다(듣지 않는다)', (await runNext(false)) === 'quiet,state:pause', await runNext(false));
+ok('저절로 열렸고 아직 화면을 안 눌렀으면 자동이어도 첫 마이크는 안 연다(쉬며 기다림)', (await runNext(true, true)) === 'quiet,state:pause', await runNext(true, true));
 ok('대답 뒤·첫 인사 뒤·들어올 때 모두 next() 를 지난다(손 모드가 새지 않는다)',
   /\n\s*next\(\);\n\s*\}\n\s*\/\* 선생님이 말하기 시작하면/.test(af) && /if \(my === turnSeq\) next\(\);/.test(af) && /if \(!hasTalk\) greet\(\); else next\(\);/.test(af));
 
@@ -178,6 +179,178 @@ console.log('▶ ⑥ 넓은 화면(PC) 2단 · 버튼 글자 · 자막 겹침 (2
   const wA = wuType(false), wB = wuType(true);
   ok('웜업 글쓰기: 대답 고르기 길(pickChip)로 보내고 true', wA.r === true && wA.picks === 'Yes', JSON.stringify(wA));
   ok('웜업 글쓰기: 보내는 중이면 안 받는다(false, 글 남김)', wB.r === false && wB.picks === '', JSON.stringify(wB));
+}
+
+console.log('▶ ⑦ 웜업 «시작» 하면 곧바로 얼굴 대화(2026-11-09 — 휴대폰 키면 기본)');
+{
+  /* 감싸는 블록을 소스에서 오려 내 가짜 startWarmup·enter 로 실제로 돌린다 */
+  const i = wu.indexOf('  var autoDone = ');
+  const k = wu.indexOf('  (function wrapStart() {', i);
+  const body = i < 0 || k < 0 ? '' : wu.slice(i, wu.indexOf('  })();', k) + 7);
+  ok('전제: 감싸는 블록을 오려 냈다', body.length > 50 && /function wrapStart/.test(body) && /function eleaderOn/.test(body));
+  const run = (o) => {
+    o = o || {};
+    const log = [];
+    const c = vm.createContext({ log, active: false, location: { search: o.search || '' } });
+    c.window = c;
+    c.WCTX = { textbook: o.book || '' };
+    c._warmStarted = !!o.started;
+    vm.runInContext('function g(n){ try { return window[n]; } catch (e) { return undefined; } }\n'
+      + 'function startWarmup(){ log.push("start"); _warmStarted = true; return 7; }\n'
+      + 'function enter(){ log.push("enter"); active = true; }\n' + body, c);
+    return { c, log };
+  };
+  const safe = (o) => { try { return run(o); } catch (e) { ok('감싸기 실행', false, String(e)); return null; } };
+  const A = safe();
+  if (A) {
+    const r = A.c.startWarmup();
+    ok('시작 → 원래 시작을 먼저 부르고 그 뒤 얼굴 대화를 연다', A.log.join(',') === 'start,enter' && r === 7, A.log.join(','));
+    A.c.active = false;                               // ✕ 로 나간 뒤 🎚️ 로 다시 시작
+    A.c.startWarmup();
+    ok('✕ 로 나간 뒤 다시 시작해도 저절로 다시 열지 않는다(한 페이지 한 번)', A.log.join(',') === 'start,enter,start', A.log.join(','));
+  }
+  const S0 = safe({ search: '?setup=0&age=kid' });
+  if (S0) { S0.c.startWarmup(); S0.c.startWarmup();
+    ok('?setup=0(상황 연습·수업 흐름)은 끝까지 저절로 안 연다', S0.log.join(',') === 'start,start', S0.log.join(',')); }
+  const S1 = safe({ search: '?setup=01' });
+  if (S1) { S1.c.startWarmup();
+    ok('setup=01 처럼 다른 값은 예외가 아니다(짝)', S1.log.join(',') === 'start,enter', S1.log.join(',')); }
+  const E = safe({ book: '엘리더잼 L1 · Pets' });
+  if (E) { E.c.startWarmup();
+    ok('엘리더잼(진행 막대가 채팅 쪽)은 저절로 안 연다', E.log.join(',') === 'start', E.log.join(','));
+    E.c.WCTX.textbook = 'BTS 2 Korea';                 // 같은 페이지에서 일반 교재로 다시 시작
+    E.c.startWarmup();
+    ok('엘리더잼 뒤 일반 교재로 시작하면 그때 연다(«한 번» 을 엘리더잼이 먹지 않음)', E.log.join(',') === 'start,start,enter', E.log.join(',')); }
+  const B = safe({ book: 'BTS 1 001 (Welcome to school)' });
+  if (B) { B.c.startWarmup();
+    ok('일반 교재는 연다(짝)', B.log.join(',') === 'start,enter', B.log.join(',')); }
+  const Er = safe({ started: true });
+  ok('이 파일이 오기 «전» 에 이미 시작했으면 곧바로 연다', Er && Er.log.join(',') === 'enter', Er && Er.log.join(','));
+  const Er2 = safe({ started: true, search: '?setup=0' });
+  ok('…단 ?setup=0 이면 그때도 안 연다', Er2 && Er2.log.join(',') === '', Er2 && Er2.log.join(','));
+  /* 배선 — ?setup=0 부팅(감싸기 전에 시작)은 인라인이 먼저 돈다 */
+  const H = read('warmup.html');
+  ok('?setup=0 부팅은 인라인에서 startWarmup 을 바로 부른다(감싸기 전)',
+    /Q\.get\('setup'\)[^\n]*===\s*'0'\)\{\s*startWarmup\(\);/.test(H) && H.indexOf("Q.get('setup')") < H.indexOf('/js/warmup-facetalk.js'));
+  ok('수업 안(iframe)은 enter() 가 스스로 막는다', /function enter\(\)\s*\{[\s\S]{0,400}embedded\(\)/.test(wu));
+  ok('배선: _warmStarted·WCTX 는 var(전역 속성)라 g() 로 읽힌다', /\nvar WCTX = \{/.test(H) && /\nvar _warmStarted = false;/.test(H));
+  /* 손 모드 — 얼굴 대화가 «자동» 을 켜 두므로 떠날 때(pagehide) 학생 설정으로 되돌린다 */
+  ok('exit() 와 pagehide 가 같은 restoreMode 로 되돌린다',
+    /function exit\(\) \{[\s\S]{0,600}restoreMode\(\);/.test(wu) && /addEventListener\('pagehide', function \(\) \{ if \(active\) restoreMode\(\); \}\)/.test(wu));
+}
+
+console.log('▶ ⑧ A.i 친구하기는 열자마자 얼굴 대화(2026-11-09 — 휴대폰 열면 바로)');
+{
+  const leaked = []; const onLeak = (e) => leaked.push(String(e && e.message || e)); process.on('unhandledRejection', onLeak);
+  const i = af.indexOf('(function autoOpen() {');
+  const body = i < 0 ? '' : af.slice(i, af.indexOf('  })();', i) + 7);
+  ok('전제: 자동 열기 블록을 오려 냈다', body.length > 50 && /__aiFriendHistory/.test(body));
+  const run = async (o) => {
+    const log = [];
+    const L = {};
+    const doc = { hidden: !!o.hidden,
+      addEventListener: (t, f) => { (L[t] = L[t] || []).push(f); },
+      removeEventListener: (t, f) => { L[t] = (L[t] || []).filter(x => x !== f); } };
+    const fire = (t) => (L[t] || []).slice().forEach(f => f({}));
+    const c = vm.createContext({ log, active: !!o.active, location: { search: o.search || '' }, document: doc });
+    c.window = c;
+    if (o.iframe) c.window = { top: {} };              // 다른 화면 안
+    else c.window.top = c.window;
+    let release;
+    c.window.__aiFriendHistory = (o.history === 'none' || o.iframe) ? undefined
+      : o.history === 'fail' ? (function () { const p = Promise.reject(new Error('x')); p.catch(function () {}); return p; })()   // 하니스 쪽 «처리 안 된 거절» 로 죽지 않게
+      : new Promise(function (r) { release = r; });
+    try { vm.runInContext('function enter(a){ log.push("enter:" + a); active = true; }\n' + body, c); }
+    catch (e) { return { err: String(e), log }; }
+    await new Promise(r => setTimeout(r, 0));
+    const before = log.join(',');
+    if (o.touch) fire('pointerdown');                // 기록이 오기 전에 학생이 먼저 누름
+    if (release) release();
+    await new Promise(r => setTimeout(r, 0));
+    const mid = log.join(',');
+    if (o.hidden) { doc.hidden = false; fire('visibilitychange'); }
+    return { before, mid, after: log.join(','), left: (L.pointerdown || []).length + (L.keydown || []).length, log };
+  };
+  const A = await run({});
+  ok('기록을 다 불러온 «뒤» 에 «저절로» 표시(enter(true))로 연다', A.before === '' && A.after === 'enter:true', JSON.stringify(A));
+  ok('열고 나면 «먼저 누름» 감시를 걷는다', A.left === 0, JSON.stringify(A));
+  const B = await run({ history: 'none' });
+  ok('옛 HTML(기다릴 것이 없음)이어도 연다', B.after === 'enter:true', JSON.stringify(B));
+  const C = await run({ history: 'fail' });
+  ok('기록 불러오기가 실패해도 연다', C.after === 'enter:true', JSON.stringify(C));
+  await new Promise(r => setTimeout(r, 5));
+  ok('불러오기 실패가 «처리 안 된 거절» 로 새지 않는다', leaked.length === 0, leaked.join(';'));
+  process.off('unhandledRejection', onLeak);
+  const D = await run({ iframe: true });
+  ok('다른 화면 안(iframe)에서는 안 연다', D.after === '', JSON.stringify(D));
+  const E = await run({ search: '?practice=dubbing', history: 'none' });
+  ok('더빙 연습(?practice=)은 안 연다', E.after === '', JSON.stringify(E));
+  const F = await run({ search: '?x=1', history: 'none' });
+  ok('다른 쿼리는 그대로 연다(짝)', F.after === 'enter:true', JSON.stringify(F));
+  const G = await run({ active: true, history: 'none' });
+  ok('이미 열렸으면 다시 안 부른다', G.after === '', JSON.stringify(G));
+  const T = await run({ touch: true });
+  ok('기록이 오기 전에 학생이 먼저 눌렀으면 끼어들지 않는다', T.after === '' && T.left === 0, JSON.stringify(T));
+  const Hd = await run({ hidden: true });
+  ok('숨은 탭이면 보일 때까지 기다렸다 연다', Hd.mid === '' && Hd.after === 'enter:true', JSON.stringify(Hd));
+  const H = read('ai-friend.html');
+  ok('배선: HTML 이 기록 불러오기를 window.__aiFriendHistory 로 건넨다',
+    /\(window\.__aiFriendHistory\s*=\s*loadHistory\(\)\)\.then\(/.test(H));
+  ok('배선: 자동 열기는 arm() 뒤', af.indexOf('(function autoOpen() {') > af.indexOf('\n  arm();'));
+  ok('배선: ▶ 로 들어가면 «저절로» 표시 없이 enter() — 첫 마이크도 예전처럼 자동',
+    /ring\.addEventListener\('click', function \(\) \{ if \(!active\) enter\(\); \}\)/.test(af) && /needTap = auto === true && !activated\(\);/.test(af));
+
+  /* 🔊 소리 — «이 동안만» 켜고 나갈 때 되돌린다(열자마자 열리므로 저장값을 '1' 로 덮어 두면 방문마다 설정이 사라진다) */
+  const snd = (stored) => {
+    const ls = { v: stored };
+    const c = vm.createContext({ active: true,
+      localStorage: { getItem: () => ls.v, setItem: (k, v) => { ls.v = v; } },
+      isSoundOn: () => ls.v !== '0', updateSoundBtn: () => {}, window: { addEventListener: () => {} } });
+    const a = af.indexOf("  var SOUND_KEY = 'mangoi_aifriend_sound'");
+    const b = af.indexOf('  window.addEventListener(\'pagehide\'', a);
+    vm.runInContext(a < 0 || b < 0 ? 'throw new Error("cut")' : af.slice(a, b), c);
+    return { ls, c };
+  };
+  let S = null; try { S = snd('0'); } catch (e) { ok('소리 블록 실행', false, String(e)); }
+  if (S) {
+    vm.runInContext('forceSound()', S.c);
+    ok('꺼 둔 소리는 얼굴 화면 동안 켠다', S.ls.v === '1');
+    vm.runInContext('restoreSound()', S.c);
+    ok('나가면 꺼 둔 그대로(0) 되돌린다', S.ls.v === '0');
+    const S2 = snd(null);
+    vm.runInContext('forceSound(); restoreSound();', S2.c);
+    ok('원래 켜져 있었으면(값 없음) 아무것도 안 쓴다(짝)', S2.ls.v === null, String(S2.ls.v));
+  }
+  ok('배선: exit() 가 소리를 되돌린다 · 떠날 때(pagehide)도', /function exit\(\) \{\n    if \(!active\) return;\n    active = false;\n    stopAll\(\);\n    restoreSound\(\);/.test(af)
+    && /addEventListener\('pagehide', function \(\) \{ if \(active\) restoreSound\(\); \}\)/.test(af));
+  /* 🎤 첫 마이크 — 저절로 열렸는데 브라우저가 소리를 막는 중이면(누르기 전) 학생이 눌러서 연다 */
+  {
+    const a2 = af.indexOf('  function activated() {');
+    const b2 = a2 < 0 ? -1 : af.indexOf('\n  }\n', a2);
+    const src = a2 < 0 || b2 < 0 ? 'throw new Error("cut")' : af.slice(a2, b2 + 4);
+    const probe = (o) => {
+      const closed = [];
+      const c = vm.createContext({ navigator: o.ua === undefined ? {} : { userActivation: { hasBeenActive: !!o.ua } }, window: {} });
+      if (o.ctx) c.window.AudioContext = function () { if (o.ctx === 'throw') throw new Error('x'); this.state = o.ctx; this.close = () => closed.push(1); };
+      try { vm.runInContext(src, c); return { v: vm.runInContext('activated()', c), closed: closed.length }; } catch (e) { return { err: String(e) }; }
+    };
+    const P1 = probe({ ua: true });
+    ok('이미 누른 적 있으면(제스처) 자동 그대로', P1.v === true, JSON.stringify(P1));
+    const P2 = probe({ ua: false, ctx: 'running' });
+    ok('안 눌렀어도 브라우저가 소리를 허락하면(running) 자동 그대로 · 시험 상자는 닫는다', P2.v === true && P2.closed === 1, JSON.stringify(P2));
+    const P3 = probe({ ua: false, ctx: 'suspended' });
+    ok('막혀 있으면(suspended) 첫 마이크는 눌러서 연다', P3.v === false && P3.closed === 1, JSON.stringify(P3));
+    const P4 = probe({ ua: false });
+    ok('AudioContext 가 없으면 눌러서 연다', P4.v === false, JSON.stringify(P4));
+    const P5 = probe({ ua: false, ctx: 'throw' });
+    ok('만들다 던지면 눌러서 연다(던지지 않음)', P5.v === false, JSON.stringify(P5));
+  }
+  ok('배선: 화면에 «눌러 말해요» 를 알린다(waitTap) · 껍데기는 그때 «쉬는 중» 대신 «마이크를 눌러 말해요»',
+    /waitTap: function \(\) \{ return needTap; \}/.test(af)
+    && /s === 'pause' \? \(hf && !call\('waitTap'\) \?/.test(read('js/ftk-call.js')));
+  ok('나갈 때 빈 화면이면 맨 아래로 안 내린다(작은 폰에서 «오늘의 단어» 가 아바타 밑으로 숨음)',
+    /if \(chat && !chat\.querySelector\('\.empty-state'\)\) chat\.scrollTop = chat\.scrollHeight;/.test(af));
+  ok('옛 «영구히 1 로 덮기» 가 enter() 에 안 남았다', !/function enter\(auto\) \{[\s\S]{0,1500}localStorage\.setItem\('mangoi_aifriend_sound', '1'\)/.test(af));
 }
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
