@@ -177,8 +177,7 @@
       e.preventDefault();
       var v = el.in.value.trim();
       if (!v) return;
-      el.in.value = '';
-      call('type', v);
+      if (call('type', v) === true) el.in.value = '';   // 받았을 때만 비운다 — 생각 중·보내는 중이면 글이 그대로 남는다
     });
 
     /* 버튼 눌림이 뒤의 얼굴(#ftkStage 클릭 = 마이크)로 새지 않게 */

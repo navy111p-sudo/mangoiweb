@@ -497,7 +497,7 @@
       });
     },
     /* ⌨️ 넓은 화면 글쓰기 칸 — 대답 고르기와 같은 길(pickAnswer = 입력칸에 넣고 보내기) */
-    type: pickChip
+    type: function (txt) { if (!active || g('sending')) return false; pickChip(txt); return true; }
   };
 
   window.WarmupFaceTalk = { enter: enter, exit: exit, isActive: function () { return active; } };

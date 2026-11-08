@@ -87,7 +87,7 @@ for (const [file, mod, html] of [['js/aifriend-facetalk.js', af, 'ai-friend.html
 
 console.log('▶ ⑤ 스킨이 #ftk 의 속성을 «쓰지» 않는다(관찰자 되먹임 없음)');
 const body = call.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-ok('mount 밖에서 root.classList·root.setAttribute 를 쓰지 않는다', !/root\.(setAttribute|classList\.(add|remove|toggle))/.test(body.replace(/root = r; root\.classList\.add\('ftk-call'\);/, '')));
+ok('mount 밖에서 root.classList·root.setAttribute·className 을 쓰지 않는다', !/root\.(setAttribute|className\s*\+?=|classList\.(add|remove|toggle))/.test(body.replace(/root = r; root\.classList\.add\('ftk-call'\);/, '')));
 ok('관찰자는 #ftk 하나의 data-s·class 만 본다(body 아님)', /observe\(root, \{ attributes: true, attributeFilter: \['data-s', 'class'\] \}\)/.test(call) && !/observe\(document\.body/.test(call));
 
 console.log('▶ ⑥ 넓은 화면(PC) 2단 · 버튼 글자 · 자막 겹침 (2026-11-09 사장님 「추천한대로」)');
@@ -121,16 +121,28 @@ console.log('▶ ⑥ 넓은 화면(PC) 2단 · 버튼 글자 · 자막 겹침 (2
   ok('아이콘 버튼 6개에 글자 자리(LB)', ['fc-replay"><span>', 'fc-mic">', 'fc-slow"', 'fc-cc"', 'fc-auto">', 'fc-hand">']
     .every(k => { const i = btns.indexOf(k); return i > 0 && btns.slice(i, btns.indexOf('</button>', i)).includes('LB'); }));
   ok('paint() 가 그 6개 글자를 채운다', ['mic', 'slow', 'cc', 'auto', 'hand', 'replay'].every(k => new RegExp('lb\\(el\\.' + k + ',').test(cut(call, '  function paint() {'))));
-  ok('글쓰기 칸 → 손잡이 type(글)', /el\.type\.addEventListener\('submit'[\s\S]{0,160}call\('type', v\)/.test(btns));
+  /* 글쓰기 칸 — submit 핸들러를 실제로 돌린다: 받으면 비우고, 안 받으면(생각 중·보내는 중) 글을 남긴다 */
+  async function runSubmit(val, accept) {
+    let h = null; const sent = [];
+    const c = vm.createContext({ el: { type: { addEventListener: (n, f) => { if (n === 'submit') h = f; } }, in: { value: val } },
+      call: (n, v) => { sent.push(n + ':' + v); return accept; } });
+    vm.runInContext(cut(call, "    el.type.addEventListener('submit', function (e) {") + ');', c);
+    let prevented = false; h && h({ preventDefault: () => { prevented = true; } });
+    return { sent: sent.join(','), left: c.el.in.value, prevented };
+  }
+  const s1 = await runSubmit(' I love music ', true), s2 = await runSubmit('Wait', false), s3 = await runSubmit('   ', true);
+  ok('글쓰기: 받으면 손잡이 type(다듬은 글) 후 칸을 비운다', s1.sent === 'type:I love music' && s1.left === '' && s1.prevented, JSON.stringify(s1));
+  ok('글쓰기: 안 받으면(생각 중) 글이 칸에 그대로 남는다(짝)', s2.sent === 'type:Wait' && s2.left === 'Wait', JSON.stringify(s2));
+  ok('글쓰기: 빈 글은 보내지 않는다', s3.sent === '', JSON.stringify(s3));
 }
 {
   /* A.i 친구 — 글로 쓴 턴은 «말하기» 보너스를 세지 않고, 말한 턴은 그대로 센다(짝) */
-  async function runSend(typed) {
+  async function runSend(typed, start) {
     const seen = [];
     const c = vm.createContext({ seen, window: { sendMsg: async () => { seen.push(c._pendingVoice); } },
       document: { getElementById: () => ({ value: '', blur() {} }) },
       t: (a) => a, meEl: {}, teacherEl: {}, noteEl: {} });
-    vm.runInContext('var _pendingVoice = false, silentRuns = 0, said = [], spokeThisTurn = true, turnSeq = 1;\n'
+    vm.runInContext('var _pendingVoice = ' + !!start + ', silentRuns = 0, said = [], spokeThisTurn = true, turnSeq = 1;\n'
       + 'function clearHelp(){} function refreshOpen(){} function setState(){} function watchSpeakState(){} function fillText(){} function setOpen(){} function next(){} function exit(){}\n'
       + 'function isCurrentTurn(m){ return m === turnSeq; }\n' + cut(af, '  async function send('), c);
     await vm.runInContext('send("Hello", 1' + (typed ? ', true' : '') + ')', c);
@@ -138,6 +150,18 @@ console.log('▶ ⑥ 넓은 화면(PC) 2단 · 버튼 글자 · 자막 겹침 (2
   }
   ok('말로 보낸 턴 → 말하기 보너스 표시(true)', (await runSend(false)) === true);
   ok('글로 보낸 턴 → 보너스 표시 없음(false)', (await runSend(true)) === false);
+  ok('남아 있던 표시(true)가 있어도 글로 보낸 턴은 끈다', (await runSend(true, true)) === false);
+  /* 글쓰기 손잡이 — 생각 중이면 안 받고(false), 아니면 send(…, true) 로 보내고 true */
+  async function runType(state) {
+    const sends = [];
+    const c = vm.createContext({ sends });
+    vm.runInContext('var active = true, state = ' + JSON.stringify(state) + ', turnSeq = 0; function stopAll(){}\n'
+      + 'function send(t, m, typed){ sends.push(t + "|" + typed); }\nvar T = ({' + cut(af, '    type: function (txt) {') + '}).type;', c);
+    return { r: vm.runInContext('T("Hi")', c), sends: sends.join(',') };
+  }
+  const tA = await runType('listen'), tB = await runType('think');
+  ok('A.i 친구 글쓰기: 듣는 중이면 받아서 send(글, …, true)', tA.r === true && tA.sends === 'Hi|true', JSON.stringify(tA));
+  ok('A.i 친구 글쓰기: 생각 중이면 안 받는다(false, 안 보냄)', tB.r === false && tB.sends === '', JSON.stringify(tB));
   ok('글쓰기 손잡이는 send(…, true) 로 보낸다', /type: function \(txt\) \{[^}]*send\(txt, \+\+turnSeq, true\)/.test(af));
   /* 기록 손잡이 — 두 화면의 말풍선을 [{me, text}] 로 */
   const fake = (nodes) => ({ querySelectorAll: () => nodes });
@@ -147,7 +171,13 @@ console.log('▶ ⑥ 넓은 화면(PC) 2단 · 버튼 글자 · 자막 겹침 (2
   ok('A.i 친구 기록: 정본 말풍선(.ai-row .ai-text)과 흘러나오는 미리보기(.stm-preview)', /'#chat \.msg\.user, #chat \.ai-row \.ai-text, #chat \.stm-preview'/.test(af));
   const wuLog = vm.runInContext('({' + cut(wu, '    log: function () {') + '}).log', vm.createContext({ document: fake([node('msg ai', '이름표 Hi 🔊 다시 듣기', { _warmText: 'Hi' }), node('msg me', '나 Yes', { _warmText: 'Yes' })]) }));
   ok('웜업 기록: 이름표·버튼 글자 없이 원문(_warmText)만', JSON.stringify(wuLog()) === JSON.stringify([{ me: false, text: 'Hi' }, { me: true, text: 'Yes' }]));
-  ok('웜업 글쓰기 = 대답 고르기와 같은 길(pickChip)', /\n    type: pickChip\n/.test(wu));
+  const wuType = (sending) => { const picks = [];
+    const c = vm.createContext({ picks }); vm.runInContext('var active = true; function g(n){ return n === "sending" ? ' + sending + ' : undefined; }\n'
+      + 'function pickChip(t){ picks.push(t); }\nvar T = ({' + cut(wu, '    type: function (txt) {') + '}).type;', c);
+    return { r: vm.runInContext('T("Yes")', c), picks: picks.join(',') }; };
+  const wA = wuType(false), wB = wuType(true);
+  ok('웜업 글쓰기: 대답 고르기 길(pickChip)로 보내고 true', wA.r === true && wA.picks === 'Yes', JSON.stringify(wA));
+  ok('웜업 글쓰기: 보내는 중이면 안 받는다(false, 글 남김)', wB.r === false && wB.picks === '', JSON.stringify(wB));
 }
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);

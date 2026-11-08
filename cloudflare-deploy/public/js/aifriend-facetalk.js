@@ -353,7 +353,7 @@
     if (!input || typeof window.sendMsg !== 'function') { exit(); return; }
     input.value = text;
     /* 🎤 음성으로 보낸 턴 — 서버가 «말하기» 보너스를 셉니다(🎤 버튼과 같은 값) */
-    if (!typed) { try { _pendingVoice = true; } catch (e) {} }
+    try { _pendingVoice = !typed; } catch (e) {}   // 글로 쓴 턴은 남아 있던 표시까지 끈다
     watchSpeakState(my);
     try { await window.sendMsg(); } catch (e) {}
     try { input.blur(); } catch (e) {}
@@ -570,7 +570,7 @@
       });
     },
     /* ⌨️ 넓은 화면 글쓰기 칸 — 고른 대답(pickChip)과 같은 길. 글로 쓴 턴은 «말하기» 보너스를 세지 않는다 */
-    type: function (txt) { if (!active || state === 'think') return; stopAll(); send(txt, ++turnSeq, true); }
+    type: function (txt) { if (!active || state === 'think') return false; stopAll(); send(txt, ++turnSeq, true); return true; }
   };
   arm();
 
