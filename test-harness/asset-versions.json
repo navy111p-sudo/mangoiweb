@@ -1050,6 +1050,7 @@
   "/js/ai-speaking-guide.js?v=2": "58af30986e35cd01",
   "/js/ai-speaking-progress-view.js?v=1": "cf31b348d3e3b1c1",
   "/js/ai-speaking-progress-view.js?v=10": "c5e1b4ea664f1ceb",
+  "/js/ai-speaking-progress-view.js?v=11": "bd21df4499f98dee",
   "/js/ai-speaking-progress-view.js?v=2": "ab373b5181f6a3a5",
   "/js/ai-speaking-progress-view.js?v=3": "627641f9a2a09e7d",
   "/js/ai-speaking-progress-view.js?v=4": "6f9d5f45bab4c326",
@@ -1059,6 +1060,7 @@
   "/js/ai-speaking-progress-view.js?v=8": "40cfbdfefbaaecf9",
   "/js/ai-speaking-progress-view.js?v=9": "43f3e54b2ed81d24",
   "/js/ai-speaking-progress.js?v=10": "b5432a66d974faaa",
+  "/js/ai-speaking-progress.js?v=11": "900214b24c5141b3",
   "/js/ai-speaking-progress.js?v=5": "d8ec44bf2087ee3d",
   "/js/ai-speaking-progress.js?v=6": "99d502909c9aaef6",
   "/js/ai-speaking-progress.js?v=7": "8a649ccafe216a88",
@@ -1964,6 +1966,7 @@
   "/js/warmup-photo-icons.js?v=5": "80ef580c1403638b",
   "/js/warmup-points.js?v=1": "4a77a27831fd1fb6",
   "/js/warmup-points.js?v=3": "938de5c75e218539",
+  "/js/warmup-points.js?v=4": "8379a34e9fb38303",
   "/js/warmup-topbar.js?v=1": "0d058db1ff5166f8",
   "/js/warmup-topbar.js?v=2": "5af449be1a52c561",
   "/js/warmup-touch-bar.js?v=1": "b7803eeaca3f38ad",
@@ -1988,7 +1991,5 @@
   "/video-call/js/recorder.js?v=3": "57388328ad0b58f7",
   "/video-call/js/webrtc.js?v=20260805c": "7cadf5632b7bc206",
   "/video-call/js/webrtc.js?v=20260805d": "8ab78fa3a1291105",
-  "/video-call/js/whiteboard.js?v=20260805c": "97c63a2d61546afd",
-  "/js/ai-speaking-progress.js?v=11": "900214b24c5141b3",
-  "/js/ai-speaking-progress-view.js?v=11": "bd21df4499f98dee"
+  "/video-call/js/whiteboard.js?v=20260805c": "97c63a2d61546afd"
 }
