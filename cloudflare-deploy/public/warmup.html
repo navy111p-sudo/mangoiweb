@@ -3308,9 +3308,9 @@ function _speechChunks(text){
   var t=String(text||'');
   if(!_warmChunkOn()) return [t];
   // 문장 끝 = 영어 .!? 뒤에 «공백» 이 올 때(3.5 같은 숫자는 안 자른다) · 중국어 。！？ 는 바로 뒤
-  var parts=t.replace(/([.!?]+["'’”)]*)\s+/g,'$1^A')
-             .replace(/([。！？]+)/g,'$1^A')
-             .split('^A');
+  var parts=t.replace(/([.!?]+["'’”)]*)\s+/g,'$1\u0001')
+             .replace(/([。！？]+)/g,'$1\u0001')
+             .split('\u0001');
   var ps=[]; for(var i=0;i<parts.length;i++){ var x=parts[i].trim(); if(x) ps.push(x); }
   if(ps.length<2) return [t];
   var min=/[一-鿿]/.test(t) ? CHUNK_MIN_ZH : CHUNK_MIN_EN;
