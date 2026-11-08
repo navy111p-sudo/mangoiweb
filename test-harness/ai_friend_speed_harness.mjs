@@ -11,7 +11,7 @@
  *       짝: final 없는 옛 서버는 예전처럼 done 에서 그리고 읽는다 · final 뒤 done 이 깨져도 오류 말풍선을 안 띄운다
  *  ④ 화면 — 녹음 «미리 받아쓰기»(정본 js/mangoi-voice-early.js) — 조용히 있었으면 끝에서 다시 안 올린다
  *       짝: 조각이 말소리 아님·빈손이면 «조용히» 버리고 끝에서 예전처럼 판정 · 다시 말하면 버린다 · 모듈 없으면 예전 그대로
- *  ⑤ 화면 — 입모양 분석 엔진을 안 켠다(재생 전 0.25초 대기·28.7MB 다운로드 제거) · 짝: ?visemes=now 면 예전대로
+ *  ⑤ 화면 — 입모양 분석 엔진을 켠다(2026-11-09 다시 켬 — 11-06 에 껐던 것) · 짝: ?visemes=off 면 분석·부팅을 막는다
  *  ⑥ 자동 말하기 — AI 말이 끝나고 마이크를 여는 대기: 안드로이드 300ms · 그 밖 600ms(웜업과 같은 값) · 그 시각에 실제로 연다
  */
 import assert from 'node:assert/strict';
@@ -399,7 +399,7 @@ async function micCase({ early = true, voice = { snap: true, fin: true }, text =
 }
 
 /* ─────────────── ⑤ 화면 — 입모양 분석 엔진 ─────────────── */
-console.log('\n⑤ 화면 — 입모양 분석 엔진을 안 켠다 (?visemes=now 면 예전대로)');
+console.log('\n⑤ 화면 — 입모양 분석 엔진을 켠다 (2026-11-09 사장님 「다시 켜줘」 · ?visemes=off 면 끔)');
 const visA = HTML.indexOf('    var _afVisHold = (function(){');
 const visB = HTML.indexOf("window.addEventListener('load', _afVisemeWrap);", visA);
 const visCode = visA > 0 && visB > visA ? HTML.slice(visA, visB) + "window.addEventListener('load', _afVisemeWrap);" : '';
@@ -413,13 +413,19 @@ function visCase(search) {
 }
 {
   const r = visCase(''); const got = await r.V.prepare('blob:x'); r.V.boot();
-  await check('⑤-1 기본: prepare 는 곧바로 null (분석·0.25초 대기 없음) · boot 는 안 켠다', () => {
+  await check('⑤-1 기본: 입모양을 분석하고(prepare 원래대로) 엔진도 켠다(boot) — 2026-11-09 다시 켬', () => {
+    assert.equal(got, 'cues'); assert.deepEqual(r.n, { prep: 1, boot: 1 });
+  });
+}
+{
+  const r = visCase('?visemes=off'); const got = await r.V.prepare('blob:x'); r.V.boot();
+  await check('⑤-2 짝: ?visemes=off 면 prepare 는 곧바로 null · boot 는 안 켠다 (비교용 끄기)', () => {
     assert.equal(got, null); assert.deepEqual(r.n, { prep: 0, boot: 0 });
   });
 }
 {
-  const r = visCase('?visemes=now'); const got = await r.V.prepare('blob:x'); r.V.boot();
-  await check('⑤-2 짝: ?visemes=now 면 예전처럼 분석한다', () => { assert.equal(got, 'cues'); assert.deepEqual(r.n, { prep: 1, boot: 1 }); });
+  const r = visCase('?visemes=now'); const got = await r.V.prepare('blob:x');
+  await check('⑤-3 옛 스위치 ?visemes=now 도 «켬» 그대로 (옛 북마크가 꺼지지 않는다)', () => { assert.equal(got, 'cues'); assert.equal(r.n.prep, 1); });
 }
 
 /* ─────────────── ⑥ 자동 말하기 — 마이크 여는 대기 ─────────────── */
