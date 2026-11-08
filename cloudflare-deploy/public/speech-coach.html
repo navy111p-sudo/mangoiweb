@@ -1496,7 +1496,8 @@ function pcmStopToWav() {
    🎤 Azure 음소 발음평가 — **브라우저에서** 돌린다 (2026-08-08)
 
    왜 서버가 아니라 브라우저인가:
-     Azure 의 REST 짧은오디오 창구는 Pronunciation-Assessment 헤더를 **무시한다**(실측 확정).
+     Azure 의 REST 짧은오디오 창구는 Pronunciation-Assessment 헤더를 **무시한다** 고 봤다(2026-08-08).
+     ⚠️ 2026-11-08 정정: 점수는 평평하게 와 있었고 서버가 못 읽었다(azure-pronunciation.ts paOf). 이 화면은 그대로 SDK.
      문장은 완벽히 알아듣는데(«Mangoi» 까지) 평가 블록만 빠져서 온다. 공식 SDK 로만 받을 수 있다.
      SDK 는 브라우저용이라 여기서 돌린다.
 
@@ -1578,7 +1579,7 @@ async function processAudio(blob) {
     fd.append('audio', blob, _isWav ? 'rec.wav' : 'rec.webm');
     fd.append('lang', detectTtsLang(_target0));
     /* 🚫 (2026-08-08) 서버로 reference 를 보내지 않는다 — 보내면 서버가 Azure REST 를 부르는데,
-       그 창구는 발음평가 헤더를 **무시한다**(실측 확정: 문장은 알아듣고 평가 블록만 없음).
+       그 창구는 발음평가 헤더를 무시한다고 봤다(2026-08-08). 2026-11-08 정정: 서버가 평평한 점수를 못 읽었던 것.
        왕복만 늘고 얻는 게 없다. 평가는 아래에서 **브라우저 SDK** 가 한다.
        ⛔ 여기에 prompt(=Whisper initial_prompt)를 넣지 말 것 — 07-29 만점 사고. */
     // 🚫 (2026-07-30) 목표 문장을 Whisper 에 initial_prompt 로 넘기던 코드를 제거했다.

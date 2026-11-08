@@ -25,7 +25,7 @@
 - 개인 환경 `mangoiweb` 을 만들고 `koreacentral.stt.speech.microsoft.com` 만 열었다. 테스트 키는 네트워크 시크릿(값 비공개)으로 저장.
 - 새 스크립트 `test-harness/manual/azure-speech-live-check.mjs` — 정본 `assessPronunciation`·`referenceReadingEvidence` 를 번들해 합성 음성(ffmpeg flite) 7종(정상·오발화·일부만·느리게·무음·잡음·30초)을 실제 Azure 에 보낸다. 키 값은 찍지 않는다. 운영 DB·KV·R2 를 안 쓴다.
 - 결과: 프록시를 지나 Azure 까지 닿았으나 **모든 호출이 `http_401`**(프록시 `X-Proxy-Error: upstream auth failed`). 30초 음성은 호출 전에 `too_long` 으로 정상 거절.
-- ⟹ **실제 Azure 결과는 아직 0건.** 아래 4장은 전부 모의(가짜 Azure)다.
+- ⟹ (이 시점) 실제 Azure 결과 0건 — **6장에서 공개 토큰으로 실측해 정정했다.**
 
 필요한 것: 테스트 전용 Azure Speech(또는 다중 서비스) 리소스의 키 — 지역 **Korea Central**, 헤더 `Ocp-Apim-Subscription-Key`(Authorization Bearer 아님, 접두사 없음). 환경 설정 › Network secrets 에서 고친 뒤:
 
@@ -53,3 +53,26 @@ NODE_USE_ENV_PROXY=1 node test-harness/manual/azure-speech-live-check.mjs
 1. 테스트 키 수정(3장).
 2. 실제 Azure 에서 REST 발음평가가 «돌아오면» — `speech-coach` 가 `reference` 를 보내게 할지(그때 비로소 학부모 보고서 읽기 칸이 채워짐).
 3. 돌아오지 «않으면» — `pron-focus` 는 사실상 늘 비어 있으니 브라우저 SDK 로 옮길지, 그 기능을 접을지.
+
+## 6. 정정 — 같은 날 실제 Azure 실측 (2026-11-08 밤)
+
+테스트 키는 끝내 401 이었다(값은 아무도 못 봄 — 지역·키 종류 중 하나로 추정). 대신 **운영이 학생 브라우저에 내주는 공개 10분 토큰**(`/api/voice/azure-token`, DB 기록 없음)으로 운영 Azure 리소스(Korea Central)를 직접 쟀다. 틀린 테스트 키가 프록시에서 계속 덧붙어 «키 없는» 개인 환경을 따로 만들어 옮겼다.
+
+- **REST 발음평가는 동작한다.** 점수가 `NBest[0].AccuracyScore` 처럼 «평평하게» 온다(단어·음소도 같음). 정본은 SDK 식 중첩(`PronunciationAssessment`)만 읽어 **늘 `no_assessment2`** 였다 — 운영 8/7 기록과 같은 증상. 2026-08-08 의 «REST 는 헤더를 무시한다» 는 오진이었다.
+- 기존 하니스는 «코드가 기대한 모양» 으로 가짜 응답을 만들어 이것을 못 잡았다.
+- 수정: `azure-pronunciation.ts` 가 두 모양을 다 읽고(`paOf`), 잡음(Azure 가 `Success`·0점·Lexical `.` 을 줌)은 `recog_no_words` 로 거절. 실제 응답을 `test-harness/fixtures/azure-rest/` 에 두고 `azure_rest_real_shape_harness` 가 검사(되돌림 6종 전부 실제 FAIL).
+
+| 실제 Azure (합성 음성) | 수정 전 | 수정 후 |
+|---|---|---|
+| 정상 | no_assessment2 | 98 / 98 / 100 |
+| 느리게 | no_assessment2 | 93 / 95 / 100 |
+| 일부만 | no_assessment2 | 58 / 97 / 60 (빠진 말 Omission) |
+| 다른 문장 | no_assessment2 | 48 / 29 / 60 |
+| 무음 | InitialSilenceTimeout | recog_no_words |
+| 잡음 | no_assessment2 | recog_no_words (0점을 남기지 않음) |
+| 30초 | too_long (호출 안 함) | too_long |
+| 집중교정 «student» (문장 녹음) | no_assessment2 | 낱말 88점·오류 없음 → 교정 안 띄움 |
+
+영향: AI 친구 «집중 교정» 의 발음 짚기가 처음으로 실제로 동작한다(낱말 60점 미만 + Mispronunciation 일 때만). 기준 문장 읽기 근거는 여전히 `reference` 를 보내는 화면이 없어 비어 있다 — 음성 코칭이 서버로 보낼지는 사람이 정할 일.
+
+다시 재는 법(키 없이): `AZURE_TOKEN_URL=https://mangoi.ai/api/voice/azure-token NODE_USE_ENV_PROXY=1 node test-harness/manual/azure-speech-live-check.mjs`

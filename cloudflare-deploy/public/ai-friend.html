@@ -1283,10 +1283,14 @@
     function sayThrice(word, n) {
       const gen = _stmGen;
       return new Promise(function (resolve) {
-        let i = 0;
+        let i = 0, tick = 0;
+        /* ⚠️ 안전망 — 다른 소리(다시 듣기 등)가 끊으면 끝 신호가 영영 안 와 자동 모드가 멈춥니다(stmSpeak 와 같은 이유). 그때는 남은 횟수를 버리고 큐를 풉니다. */
+        const end = function () { i = n + 1; resolve(); };
         const next = function () {
-          if (gen !== _stmGen || !isSoundOn() || i++ >= n) return resolve();
-          try { speakText(word, null, null, next); } catch (e) { resolve(); }
+          const my = ++tick;
+          if (gen !== _stmGen || !isSoundOn() || i++ >= n) return end();
+          setTimeout(function () { if (my === tick) end(); }, 20000);
+          try { speakText(word, null, null, next); } catch (e) { end(); }
         };
         next();
       });
@@ -1304,7 +1308,7 @@
       w.textContent = String(pf.word);
       card.appendChild(w);
       const again = document.createElement('button');
-      again.type = 'button'; again.className = 'fix-speak';
+      again.type = 'button'; again.className = 'fix-speak fix-btn';
       _fixLabel(again, '🔊 다시 듣기', '🔊 Listen again');
       const replay = () => sayThrice(pf.word, pf.say_times || 3);
       again.onclick = replay;

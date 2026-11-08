@@ -10,6 +10,7 @@
  *
  *   node test-harness/manual/azure-speech-live-check.mjs
  *   AZURE_SPEECH_REGION=koreacentral (기본) · AZURE_SPEECH_KEY=<테스트 키> (로컬 PC)
+ *   또는 키 없이: AZURE_TOKEN_URL=https://mangoi.ai/api/voice/azure-token (공개 10분 토큰)
  */
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -24,10 +25,11 @@ const tmp = mkdtempSync(join(tmpdir(), 'azure-live-'));
 /* 정본 두 함수를 번들 — 하니스에 베끼지 않는다 */
 const entry = join(tmp, 'entry.ts');
 writeFileSync(entry, `export { assessPronunciation } from '${CF}/src/azure-pronunciation';\n`
-  + `export { referenceReadingEvidence } from '${CF}/src/speaking-audio-evidence';\n`);
+  + `export { referenceReadingEvidence } from '${CF}/src/speaking-audio-evidence';\n`
+  + `export { pronFixFromResult } from '${CF}/src/pron-focus';\n`);
 const out = join(tmp, 'bundle.mjs');
 execFileSync(join(CF, 'node_modules/.bin/esbuild'), [entry, '--bundle', '--format=esm', '--platform=neutral', '--outfile=' + out], { stdio: 'pipe' });
-const { assessPronunciation, referenceReadingEvidence } = await import(out);
+const { assessPronunciation, referenceReadingEvidence, pronFixFromResult } = await import(out);
 
 function wav(name, args) {
   const f = join(tmp, name + '.wav');
@@ -46,12 +48,32 @@ const CASES = [
   { id: 'silence', ref: REF, audio: () => wav('silence', ['-f', 'lavfi', '-t', '3', '-i', 'anullsrc=r=16000:cl=mono']), expect: 'fail' },
   { id: 'noise',   ref: REF, audio: () => wav('noise', ['-f', 'lavfi', '-t', '3', '-i', 'anoisesrc=r=16000:a=0.3:c=white']), expect: 'fail-or-low' },
   { id: 'too_long', ref: REF, audio: () => wav('long', ['-f', 'lavfi', '-t', '30', '-i', 'anullsrc=r=16000:cl=mono']), expect: 'too_long' },
+  /* AI 친구 «집중 교정»: 기준은 낱말 하나, 녹음은 문장 전체 (pron-focus.ts 와 같은 호출) */
+  { id: 'focus_ok',  ref: 'student', focus: 'student', audio: () => wav('focus_ok', say(REF)), expect: 'ok' },
+  { id: 'focus_bad', ref: 'student', focus: 'student', audio: () => wav('focus_bad', say('I am a stoo dint.')), expect: 'ok' },
 ];
 
 const env = {
   AZURE_SPEECH_KEY: process.env.AZURE_SPEECH_KEY || 'proxy-injected-placeholder-key',
   AZURE_SPEECH_REGION: process.env.AZURE_SPEECH_REGION || 'koreacentral',
 };
+
+/* 키 없이 재기: AZURE_TOKEN_URL=https://mangoi.ai/api/voice/azure-token
+ * 학생 브라우저가 받는 공개 10분 토큰을 받아, 정본이 보내는 요청에서 키 헤더만 토큰으로 바꿉니다.
+ * 나머지(발음평가 헤더·본문·응답 해석)는 정본 그대로 — 토큰 값은 찍지 않습니다. */
+if (process.env.AZURE_TOKEN_URL) {
+  const t = await (await fetch(process.env.AZURE_TOKEN_URL)).json();
+  if (!t.ok || !t.token) { console.log('⚠ 토큰을 못 받았습니다:', t.error || 'unknown'); process.exit(2); }
+  env.AZURE_SPEECH_REGION = t.region;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (u, init = {}) => {
+    if (!/\.stt\.speech\.microsoft\.com\//.test(String(u))) return realFetch(u, init);
+    const h = { ...(init.headers || {}) };
+    delete h['Ocp-Apim-Subscription-Key'];
+    h.Authorization = 'Bearer ' + t.token;
+    return realFetch(u, { ...init, headers: h });
+  };
+}
 
 let authFail = false;
 const rows = [];
@@ -69,6 +91,7 @@ for (const c of CASES) {
     fields: r.ok ? r.scoreFieldsPresent : null,
     heard: r.ok ? r.text.slice(0, 40) : '',
     evidence: ev ? `pron ${ev.skills.pronunciation} / flu ${ev.skills.fluency}` : '—',
+    focus: c.focus ? JSON.stringify(r.ok ? { w: r.words.find(w => w.word.toLowerCase() === c.focus), fix: pronFixFromResult(r, c.focus) } : null) : '',
   });
 }
 /* 같은 음성 두 번 — 결과가 흔들리는지(재시도 안정성) */
