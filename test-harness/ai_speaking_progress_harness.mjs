@@ -93,9 +93,12 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
   for (let n = 0; n < 5; n++) assert.deepEqual((await call({ action: 'finish', sessionId: id })).result, finished.result);
   fault = sql => sql.includes('SELECT finished_at,result_json,capture_limited');
   const withoutHistory = await call({action:'finish',sessionId:id}); fault = null;
-  check('history lookup failure preserves cached assessment without regrading', () => {
+  check('history lookup failure preserves unmeasured result without regrading', () => {
     assert.equal(withoutHistory.status,200);assert.equal(withoutHistory.result.weeklyVocabulary,null);
-    assert.equal(withoutHistory.result.skills.grammar,80);assert.equal(calls,priorCalls);
+    assert.deepEqual(withoutHistory.result.skills,{});assert.equal(withoutHistory.result.score,null);
+    assert.equal(withoutHistory.result.evaluationReason,'validated_evaluator_unavailable');
+    assert.equal(withoutHistory.result.rewards.pointsEarned,finished.result.rewards.pointsEarned);
+    assert.equal(calls,priorCalls);
   });
   await turn(id);
   check('reopening results neither grades nor records again', () => { assert.equal(calls, priorCalls); assert.equal(JSON.parse(sq.prepare('SELECT turns_json FROM ai_speaking_sessions WHERE id=?').get(id).turns_json).length, 1); });
