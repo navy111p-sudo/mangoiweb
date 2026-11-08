@@ -81,27 +81,27 @@ for (const [w,h,name,seen] of [[390,844,'폰 세로',false],[1280,800,'노트북
     const rr=r.getBoundingClientRect(); const log=document.getElementById('log').getBoundingClientRect();
     const top=document.elementFromPoint(innerWidth/2, Math.min(innerHeight-120, Math.max(5,log.top+10)));
     const inp=document.getElementById('inp');
-    return {on:f&&f.classList.contains('on'), inside:f&&f.contains(r), cover:rr.width*rr.height/(innerWidth*innerHeight),
+    return {on:f&&f.classList.contains('on'), inside:f&&f.contains(r), hgt:rr.height/innerHeight, mid:(rr.left+rr.width/2)/innerWidth,
       hid:!!(top&&f.contains(top)), ro:inp.readOnly, mode:localStorage.getItem('mangoi_warmup_talk_mode')};});
   ok(name+': 누르면 얼굴 화면이 켜지고 얼굴 카드가 그 안으로 옮겨진다', on.on && on.inside);
-  ok(name+': 얼굴이 화면 대부분을 차지한다(≥ 90%)', on.cover>=0.9, (on.cover*100).toFixed(0)+'%');
+  ok(name+': 상반신 얼굴이 화면 가운데 크게(높이 ≥ 60%) — 영상통화 화면(js/ftk-call.js)', on.hgt>=0.6 && Math.abs(on.mid-0.5)<0.05, (on.hgt*100).toFixed(0)+'% · 가운데 '+(on.mid*100).toFixed(0)+'%');
   ok(name+': 대화창·버튼은 가려져 안 보인다(맨 위가 얼굴 화면)', on.hid);
   ok(name+': 입력칸은 읽기 전용(폰 키보드가 안 튀어나옴)', on.ro===true);
   ok(name+': 들어와 있는 동안은 «자동으로 말하기» 가 켜진다', on.mode==='auto', String(on.mode));
   if (!seen) {
     await page.waitForTimeout(1400);
-    const pk=await page.evaluate(()=>document.getElementById('ftkGlass').style.transform);
-    ok(name+': 처음 들어온 기기는 판이 저절로 한 번 올라와 «여기에 글이 있다» 를 보여 준다', /translateY\(0px\)/.test(pk), pk);
+    const pk=await page.evaluate(()=>(getComputedStyle(document.getElementById('ftkGlass')).display!=='none'?'open':'closed'));
+    ok(name+': 처음 들어온 기기는 판이 저절로 한 번 올라와 «여기에 글이 있다» 를 보여 준다', pk==='open', pk);
   } else {
     await page.waitForTimeout(700);
-    const pk=await page.evaluate(()=>document.getElementById('ftkGlass').style.transform);
-    ok(name+': 이미 본 기기는 평소에 판이 닫혀 있다(짝)', !/translateY\(0px\)/.test(pk), pk);
+    const pk=await page.evaluate(()=>(getComputedStyle(document.getElementById('ftkGlass')).display!=='none'?'open':'closed'));
+    ok(name+': 이미 본 기기는 평소에 판이 닫혀 있다(짝)', pk==='closed', pk);
   }
 
   // 듣기 → 보내기 → 대답 → (말 끝난 뒤) 다시 듣기 → 무음 = 지어낸 말 → 유리판 자동 열림
   await page.waitForFunction(()=>document.querySelectorAll('#ftkChips button').length>0, null, {timeout:12000}).catch(()=>{});
   const mid=await page.evaluate(()=>({log:__log.slice(),rds:__recDuringSpeak,
-    tf:document.getElementById('ftkGlass').style.transform, chips:[...document.querySelectorAll('#ftkChips button')].map(b=>b.textContent),
+    tf:(getComputedStyle(document.getElementById('ftkGlass')).display!=='none'?'open':'closed'), chips:[...document.querySelectorAll('#ftkChips button')].map(b=>b.textContent),
     note:document.getElementById('ftkNote').textContent, teacher:document.getElementById('ftkTeacher').textContent,
     me:document.getElementById('ftkMe').textContent}));
   await page.waitForTimeout(600);             // 판이 올라오는 움직임(.4초)이 끝난 뒤 잰다
@@ -119,7 +119,7 @@ for (const [w,h,name,seen] of [[390,844,'폰 세로',false],[1280,800,'노트북
   ok(name+': 대답이 «끝난 뒤» 에 다시 듣는다', iSpoke>iSpk && iRec2>iSpoke, mid.log.join(' | '));
   ok(name+': 말하는 동안에는 한 번도 녹음하지 않는다', mid.rds===0, 'recDuringSpeak='+mid.rds);
   ok(name+': 무음에서 지어낸 말("Thank you.")은 보내지 않는다', !sent.some(s=>/thank you/i.test(s)), sent.join(' / '));
-  ok(name+': 막히면 유리판이 «저절로» 열린다', /translateY\(0px\)/.test(mid.tf), mid.tf);
+  ok(name+': 막히면 유리판이 «저절로» 열린다', mid.tf==='open', mid.tf);
   ok(name+': 열린 판에 선생님 말·내 말·대답 보기가 있다', /Do you have a dog/.test(mid.teacher) && /I like dogs/.test(mid.me) && mid.chips.length>=2, JSON.stringify(mid.chips));
   ok(name+': 대답 보기는 화면이 서버에서 받은 것 그대로', mid.chips.includes('Yes, I do.'), JSON.stringify(mid.chips));
 
@@ -136,13 +136,13 @@ for (const [w,h,name,seen] of [[390,844,'폰 세로',false],[1280,800,'노트북
   ok(name+': 쉬는 중 얼굴을 누르면 다시 듣는다', r2>p2, p2+'→'+r2);
   ok(name+': 다시 말한 것도 보낸다', sent.includes('Yes I do'), sent.join(' / '));
 
-  const before=await page.evaluate(()=>document.getElementById('ftkGlass').style.transform);
+  const before=await page.evaluate(()=>(getComputedStyle(document.getElementById('ftkGlass')).display!=='none'?'open':'closed'));
   await page.click('#ftkGrab');
   await page.waitForTimeout(500);
-  const after=await page.evaluate(()=>document.getElementById('ftkGlass').style.transform);
+  const after=await page.evaluate(()=>(getComputedStyle(document.getElementById('ftkGlass')).display!=='none'?'open':'closed'));
   ok(name+': 손잡이를 한 번 탭하면 판이 열리고 닫힌다', before!==after, before+' → '+after);
 
-  await page.click('#ftkX');
+  await page.click('#ftk .fc-close');   // 📞 영상통화 화면의 ✕(옛 #ftkX 는 숨김)
   await page.waitForTimeout(500);
   const off=await page.evaluate(()=>{const f=document.getElementById('ftk'), r=document.getElementById('tavatar-ring');
     const inp=document.getElementById('inp');
