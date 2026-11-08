@@ -254,10 +254,13 @@
     fillChips();
     setOpen(true, false);                      // ← «끌어올리기» 를 몰라도 저절로 열린다
   }
-  function showPauseNote() {
-    noteEl.textContent = t('잠깐 쉬는 중이에요. 선생님 얼굴을 누르면 다시 시작해요.', 'Paused. Tap the teacher to start again.');
+  function showNoteWithoutChips(message) {
+    noteEl.textContent = message;
     chipsEl.innerHTML = '';
     setOpen(true, false);
+  }
+  function showPauseNote() {
+    showNoteWithoutChips(t('잠깐 쉬는 중이에요. 선생님 얼굴을 누르면 다시 시작해요.', 'Paused. Tap the teacher to start again.'));
   }
 
   /* ── 대화 순서 ────────────────────────────────────────────────────── */
@@ -305,11 +308,11 @@
     // friendRecordVoice checked the recording even when a click triggered 'speaking'.
     if (errReason === 'denied' || errReason === 'unsupported') {
       setState('pause');
-      noteEl.textContent = errReason === 'denied'
+      showNoteWithoutChips(errReason === 'denied'
         ? t('🎤 마이크 권한이 꺼져 있어요. 주소창의 자물쇠(🔒)에서 마이크를 «허용» 한 뒤 선생님 얼굴을 눌러 주세요.',
             'Mic permission is off. Allow the microphone (🔒 in the address bar), then tap the teacher.')
-        : t('이 브라우저는 마이크를 쓸 수 없어요. ✕ 를 눌러 글로 대화해 주세요.', 'This browser cannot use the microphone. Tap ✕ to type instead.');
-      chipsEl.innerHTML = ''; setOpen(true, false); return;
+        : t('이 브라우저는 마이크를 쓸 수 없어요. ✕ 를 눌러 글로 대화해 주세요.', 'This browser cannot use the microphone. Tap ✕ to type instead.'));
+      return;
     }
     if (!said) {
       silentRuns++;
@@ -320,10 +323,10 @@
                      'Not sure what to say? Pick one below, or just try again.');
       return listen();
     }
-    silentRuns = 0;
     await send(said, my);
   }
   async function send(text, my) {
+    silentRuns = 0;
     clearHelp();
     meEl.textContent = t('나: ', 'Me: ') + text; teacherEl.textContent = '';
     refreshOpen();
@@ -360,7 +363,7 @@
     })();
   }
   function pickChip(text) {
-    stopAll(); silentRuns = 0;
+    stopAll();
     var my = ++turnSeq;
     send(text, my);
   }
