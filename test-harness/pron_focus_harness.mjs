@@ -89,6 +89,12 @@ for (const [q, want] of [
   ['Do you like dogs? 🐶 (💡 «dog» 보다 «dogs» 가 더 자연스러워요)', 'dogs'],
   ['Do you like music?\u200b', 'music'], ['Do you like cats? 🏴\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}', 'cats'],
   ['Nice job! (💡 팁이에요)', ''],
+  // 2차 리뷰가 확인한 가장자리(2026-11-09): 끝 따옴표 · «, too?» · 굽은 아포스트로피 · 로마자 밖 글자
+  ['Can you say "banana"?', 'banana'], ["Is it 'big' or 'small'?", 'small'], ['Can you say “apple”? 🍎', 'apple'],
+  ['Do you like dogs, too?', 'dogs'], ['Do you like pizza, too? 🍕', 'pizza'], ['Is it big, right?', 'big'],
+  ['You like dogs, don’t you?', ''], ['Do you like café? ☕', ''], ['Have you been to Zürich? 🇨🇭', ''],
+  // 짝: 꼬리말이 아닌 마지막 마디는 여전히 앞으로 넘어가지 않는다
+  ['I don\'t know Chiiecawa, what is it? 🐰', ''],
   ['Well said! Nice to meet you, Minji. What do you like to do?', ''],
   ['I don\'t know chiiecawa, what is it? 🐰', ''],
   ['Oh, really? That\'s okay! Why not? 🐶', ''],
