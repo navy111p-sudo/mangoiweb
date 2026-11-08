@@ -323,10 +323,10 @@
                      'Not sure what to say? Pick one below, or just try again.');
       return listen();
     }
-    silentRuns = 0;
     await send(said, my);
   }
   async function send(text, my) {
+    silentRuns = 0;
     clearHelp();
     meEl.textContent = t('나: ', 'Me: ') + text; teacherEl.textContent = '';
     refreshOpen();
@@ -363,7 +363,7 @@
     })();
   }
   function pickChip(text) {
-    stopAll(); silentRuns = 0;
+    stopAll();
     var my = ++turnSeq;
     send(text, my);
   }
