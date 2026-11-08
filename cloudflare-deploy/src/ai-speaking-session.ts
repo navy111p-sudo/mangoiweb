@@ -3,6 +3,7 @@ import { authUidFromRequest } from './auth-token';
 import { json } from './api-util';
 import { evaluateSpeaking } from './ai-speaking-progress';
 import { checkAndAwardBadges } from './api-games-badges';
+import { readSpeakingVocabularyWeek } from './ai-speaking-vocabulary';
 
 const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const MAX_TURNS = 100;
@@ -13,6 +14,8 @@ async function ensure(db: D1Database) {
     source_id TEXT, status TEXT NOT NULL DEFAULT 'open', turns_json TEXT NOT NULL DEFAULT '[]', capture_limited INTEGER NOT NULL DEFAULT 0,
     result_json TEXT, started_at INTEGER NOT NULL, finished_at INTEGER
   )`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_ai_speaking_student_finished
+    ON ai_speaking_sessions(student_uid,status,finished_at)`).run();
 }
 
 export async function clearSpeakingSessions(env: MangoEnv, uid: string) {
@@ -109,7 +112,8 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
     const row = await env.DB.prepare(`SELECT * FROM ai_speaking_sessions WHERE id=? AND student_uid=?`)
       .bind(body.sessionId, uid).first<any>();
     if (!row) return json({ ok: false, error: 'session_not_found' }, 404);
-    if (row.status === 'complete') return json({ ok: true, result: JSON.parse(row.result_json) });
+    if (row.status === 'complete') return json({ ok: true, result: { ...JSON.parse(row.result_json),
+      weeklyVocabulary: await readSpeakingVocabularyWeek(env.DB, uid) } });
     let turns = JSON.parse(row.turns_json);
     if (!turns.length) return json({ ok: false, error: 'no_completed_turns' }, 409);
     const claimAt = Date.now();
@@ -162,7 +166,7 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
       WHERE id=? AND student_uid=? AND status='evaluating' AND finished_at=?`)
       .bind(JSON.stringify(result), Date.now(), row.id, uid, claimAt).run();
     if (!saved.meta?.changes) throw new Error('result_not_saved');
-    return json({ ok: true, result });
+    return json({ ok: true, result: { ...result, weeklyVocabulary: await readSpeakingVocabularyWeek(env.DB, uid) } });
   } catch {
     return json({ ok: false, error: 'progress_unavailable' }, 503);
   }

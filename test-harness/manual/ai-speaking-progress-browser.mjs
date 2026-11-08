@@ -47,6 +47,7 @@ try {
           lessonId:body.sessionId, finishedNormally: true, score: state === 'zero' ? 0 : null,
           skills: state === 'unavailable' ? {} : state === 'zero' ? { pronunciation:0,fluency:0,grammar:0,vocabulary:0,sentence:0 } : { grammar:85,vocabulary:85,sentence:85 },
 
+          weeklyVocabulary: state === 'unavailable' ? null : Array.from({length:7},(_,i)=>({date:'2026-11-0'+(i+2),words:state === 'zero' ? 0 : i,limited:false})),
           uniqueWords: ['i', 'like', 'apples'], reviewWords: ['<img onerror="window.progressXss=1">'], recordedTurns: 1,
           evaluationStatus: state === 'unavailable' ? 'unavailable' : 'measured',
           rewards: { pointsEarned: 5, pointsBalance: 50, gemsBalance: 30, badges: ['first_class'] }
@@ -84,6 +85,9 @@ try {
       check((await page.locator('.ai-progress-skill').count()) === 5, name + ': all five skill rows are visible');
       check((await page.locator('.ai-progress-skill dd').allTextContents()).filter(x => x === 'Not measured').length >= (state === 'zero' ? 0 : 2), name + ': no fabricated acoustic score');
       check(content.includes('Points earned in this practice: 5P') && content.includes('Gem balance at completion: 30'), name + ': actual wallet is separately shown');
+      check((await page.locator('.ai-progress-bar').count()) === (state === 'unavailable' ? 0 : 7), name + ': seven vocabulary bars or explicit unavailable');
+      check(content.includes(state === 'unavailable' ? 'Vocabulary records are unavailable' : 'not a vocabulary ability score'), name + ': vocabulary distinguishes activity from ability');
+      if(state !== 'unavailable') check(await page.locator('.ai-progress-week').evaluate(el=>el.scrollWidth<=el.clientWidth+1), name + ': chart fits the card');
       check((await page.locator('.ai-progress-card img').count()) === 0 && !await page.evaluate(() => window.progressXss), name + ': words cannot inject markup');
       check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), name + ': no horizontal page overflow');
       await page.evaluate(() => { localStorage.setItem('mangoi_lang', 'ko'); window.dispatchEvent(new Event('mangoi:lang-changed')); });

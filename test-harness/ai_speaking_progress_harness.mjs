@@ -39,7 +39,7 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
     const statement = (args = []) => ({ bind: (...values) => statement(values),
       async run() { if (fault?.(sql)) throw Error('injected DB failure'); const r = sq.prepare(sql).run(...args); return { success: true, meta: { changes: Number(r.changes) } }; },
       async first() { if (fault?.(sql)) throw Error('injected DB failure'); return sq.prepare(sql).get(...args) || null; },
-      async all() { return { success: true, results: sq.prepare(sql).all(...args) }; }
+      async all() { if (fault?.(sql)) throw Error('injected DB failure'); return { success: true, results: sq.prepare(sql).all(...args) }; }
     }); return statement();
   }};
   let calls = 0, model = async () => ({ response: JSON.stringify({ skills: { grammar: 80, vocabulary: 90, sentence: 85, pronunciation: 100 } }) });
@@ -80,8 +80,18 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
   check('text engine cannot invent acoustic scores', () => { assert.equal(finished.result.skills.pronunciation, undefined); assert.equal(finished.result.skills.fluency, undefined); });
   check('unique words derive from student speech only', () => assert.deepEqual(finished.result.uniqueWords, ['i', 'like', 'apples', 'are', 'tasty']));
   check('confirmed per-turn reward is distinct from estimate', () => { assert.equal(finished.result.rewards.pointsEarned, 2); assert.equal(finished.result.rewards.gemsBalance, null); });
+  check('fresh completion includes this practice in seven-day vocabulary', () => {
+    assert.equal(finished.result.weeklyVocabulary.length,7);
+    assert.equal(finished.result.weeklyVocabulary.at(-1).words,5);
+  });
   const priorCalls = calls;
   for (let n = 0; n < 5; n++) assert.deepEqual((await call({ action: 'finish', sessionId: id })).result, finished.result);
+  fault = sql => sql.includes('SELECT finished_at,result_json,capture_limited');
+  const withoutHistory = await call({action:'finish',sessionId:id}); fault = null;
+  check('history lookup failure preserves cached assessment without regrading', () => {
+    assert.equal(withoutHistory.status,200);assert.equal(withoutHistory.result.weeklyVocabulary,null);
+    assert.equal(withoutHistory.result.skills.grammar,80);assert.equal(calls,priorCalls);
+  });
   await turn(id);
   check('reopening results neither grades nor records again', () => { assert.equal(calls, priorCalls); assert.equal(JSON.parse(sq.prepare('SELECT turns_json FROM ai_speaking_sessions WHERE id=?').get(id).turns_json).length, 1); });
   for (const bad of [null, '80', NaN, Infinity, -1, 101, {}, []]) {
