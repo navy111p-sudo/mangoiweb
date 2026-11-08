@@ -217,8 +217,16 @@ export function gateFixForMode(
  *   balanced  : 붙인다 — 질문보다 먼저 한 번.                                                 / spoken once, first
  *   null      : 붙인다 — 중국어 대화처럼 모드가 없는 턴은 예전 동작 그대로.                    / legacy
  * ⛔ 모르는 값도 «붙인다»(예전 동작) — 모르는 모드 때문에 교정 음성이 조용히 꺼지지 않게.
+ * ⏱️ 학생이 고른 교정 시점(timing)이 모드보다 이긴다 — 서버 프롬프트도 그렇게 덮는다(index.ts «Correction timing overrides»).
+ *   after-lesson : 안 붙인다 — 연습 중에는 교정을 말하지 않는다(모아서 나중에).               / review later
+ *   key-mistakes : 붙인다 — 카드가 뜬 턴은 이미 «큰 실수·최대 3번» 으로 걸러진 턴이다. 질문보다 먼저 한 번.
+ *                  (2026-11-09 사장님 B안 — 그 전에는 카드만 뜨고 아바타는 말하지 않았다.
+ *                   이 시점에선 ensureFocusedFixSpoken 이 안 돌아 집중교정이어도 «세 번» 이 겹치지 않는다.) / spoken once
+ *   그 밖(immediate·없음) : 위 모드 표 그대로.
  */
-export function warmupSpeaksFixLead(mode: unknown): boolean {
+export function warmupSpeaksFixLead(mode: unknown, timing?: unknown): boolean {
+  if (timing === 'after-lesson') return false;
+  if (timing === 'key-mistakes') return true;
   return !(mode === 'free_talk' || mode === 'focused');
 }
 

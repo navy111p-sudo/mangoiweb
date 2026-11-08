@@ -64,6 +64,68 @@ check('"Did you see a monster?" → monster', pickTarget('Did you see a monster?
 check('"What do you like?" → like 는 불용어라 건너뜀(빈 값)', pickTarget('What do you like?') === '', pickTarget('What do you like?'));
 check('물음표로 끝나지 않으면 기준 낱말 없음(교정 안 함)', pickTarget('Nice! You went to school yesterday.') === '');
 check('빈 입력은 빈 값', pickTarget('') === '' && pickTarget(null) === '');
+/* 2026-11-09: AI 친구는 질문 뒤에 이모지를 붙인다(실측: 질문으로 끝나는 답의 약 30%) — 이모지를 떼고 본다 */
+for (const [q, want] of [
+  ['Do you like dogs? 🐶', 'dogs'], ['What is your favorite food? 😋🍕', 'food'], ['Can you hear me now? 🗣️', 'hear'],
+  ['Is the weather good for a picnic? ☀️', 'picnic'], ['Do you play soccer? 👍🏻', 'soccer'], ['Do you like Korea? 🇰🇷', 'korea'],
+  ['Do you love your family? 👨‍👩‍👧', 'family'], ['Is it number one? 1️⃣', 'one'], ['Do you like cats?  \u00a0🐱 ', 'cats'],
+]) check(`이모지 뒤 질문: ${JSON.stringify(q)} → ${want}`, pickTarget(q) === want, pickTarget(q));
+check('짝: 질문 뒤에 평서문이 오면 여전히 없음', pickTarget('Do you like dogs? 🐶 I love them.') === '');
+check('짝: 이모지만 있고 물음표가 없으면 없음', pickTarget('Nice job! 😊') === '' && pickTarget('Are you dreaming, 🛋️') === '');
+check('짝: 숫자로 끝나는 평서문은 질문이 아니다', pickTarget('I am 7') === '');
+/* 기능어는 짚을 낱말이 아니다 */
+check('"Do you like dogs too?" → dogs (too 아님)', pickTarget('Do you like dogs too?') === 'dogs', pickTarget('Do you like dogs too?'));
+check('"Can you say it with me?" → 없음 (me 아님)', pickTarget('Can you say it with me?') === '', pickTarget('Can you say it with me?'));
+check('"What do you like to listen to?" → listen (to 아님)', pickTarget('What do you like to listen to?') === 'listen', pickTarget('What do you like to listen to?'));
+check('짝: 내용어는 그대로 — "Do you have a big family too? 🤗" → family', pickTarget('Do you have a big family too? 🤗') === 'family');
+// 마지막 질문 문장만 본다 — 앞 문장으로 넘어가면 따라 말할 예문·학생 이름·AI 가 받아 적은 낯선 낱말이 기준이 된다(2026-11-09 실데이터 재생)
+for (const [q, want] of [
+  ['You can say... "I saw a lion yesterday." "I saw a lion yesterday." Can you say it with me?', ''],
+  // 서버 ensureFocusedFixSpoken 의 실제 모양 — 따옴표 안에 마침표가 없다(운영 D1 49건 이 모양)
+  ['You can say... "I like chocolate cake" "I like chocolate cake" "I like chocolate cake" Can you say it with me?', ''],
+  ['You can say... "Let\'s talk about sports. Do you like soccer?" "Let\'s talk about sports. Do you like soccer?" Can you say it with me?', ''],
+  ['Do you like your day so far?', 'day'],
+  // 끝의 «(💡 …)» 팁(화면이 떼는 것)·보이지 않는 글자는 질문을 가리지 않는다
+  ['Do you like dogs? 🐶 (💡 «dog» 보다 «dogs» 가 더 자연스러워요)', 'dogs'],
+  ['Do you like music?\u200b', 'music'], ['Do you like cats? 🏴\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}', 'cats'],
+  ['Nice job! (💡 팁이에요)', ''],
+  // 2차 리뷰가 확인한 가장자리(2026-11-09): 끝 따옴표 · «, too?» · 굽은 아포스트로피 · 로마자 밖 글자
+  ['Can you say "banana"?', 'banana'], ["Is it 'big' or 'small'?", 'small'], ['Can you say “apple”? 🍎', 'apple'],
+  ['Do you like dogs, too?', 'dogs'], ['Do you like pizza, too? 🍕', 'pizza'], ['Is it big, right?', 'big'],
+  ['You like dogs, don’t you?', ''], ['Do you like café? ☕', ''], ['Have you been to Zürich? 🇨🇭', ''],
+  // 짝: 꼬리말이 아닌 마지막 마디는 여전히 앞으로 넘어가지 않는다
+  ['I don\'t know Chiiecawa, what is it? 🐰', ''],
+  ['Well said! Nice to meet you, Minji. What do you like to do?', ''],
+  ['I don\'t know chiiecawa, what is it? 🐰', ''],
+  ['Oh, really? That\'s okay! Why not? 🐶', ''],
+  ['My name is Lily. Are you okay?', ''],
+  ['You started to say something, can you say it again?', ''],
+  ['Do you have a dog at home? 🐶', 'home'],
+  ['Are you eating outside today? 🌳', 'outside'],
+  ['Do you like apples, bananas, or grapes?', 'grapes'],
+  ['Do you like K-pop?', ''], ['Do you watch Disney shows on TV?', 'shows'], ['You don\'t like it?', ''],
+]) check(`한 문장만: "${q}" → ${want || '없음'}`, pickTarget(q) === want, pickTarget(q));
+// 짝: 마지막 문장 안에 내용어가 있으면 그대로 고른다
+check('짝: 앞에 문장이 있어도 마지막 질문의 내용어 — "Great job! Do you like dogs? 🐶" → dogs', pickTarget('Great job! Do you like dogs? 🐶') === 'dogs');
+/* 같은 꼬리 떼기로 «AI 가 물었나»(입력 패널 펼치기)도 판정 — ☀️ 처럼 FE0F 가 붙은 이모지에서 예전엔 틀렸다 */
+{
+  let askSrc = '', tailSrc = '';
+  const tsx = createRequire(path.join(ROOT, 'cloudflare-deploy/package.json'))('typescript');
+  const src2 = [...HTML.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('function friendAiAsksQuestion(')) || '';
+  const ast2 = tsx.createSourceFile('friend2.js', src2, tsx.ScriptTarget.Latest, true);
+  (function visit(n) {
+    if (tsx.isFunctionDeclaration(n) && n.name?.text === 'friendAiAsksQuestion') askSrc = n.getText(ast2);
+    if (tsx.isFunctionDeclaration(n) && n.name?.text === 'aiTextTail') tailSrc = n.getText(ast2);
+    tsx.forEachChild(n, visit);
+  })(ast2);
+  check('전제: friendAiAsksQuestion·aiTextTail 를 화면에서 찾았다', !!askSrc && !!tailSrc);
+  let asks = null;
+  try { asks = new Function(tailSrc + '\n' + askSrc + '\nreturn friendAiAsksQuestion;')(); } catch (e) { check('friendAiAsksQuestion 실행', false, e.message); }
+  check('AI 가 물었나: "…sandwich? ☀️" → 물음', !!asks && asks('Is it a sandwich? ☀️') === true);
+  check('AI 가 물었나: "…now? 🗣️" → 물음', !!asks && asks('Can you hear me now? 🗣️') === true);
+  check('«(💡 …)» 팁이 붙어도 물음', !!asks && asks('Do you like dogs? 🐶 (💡 팁)') === true);
+  check('짝: 평서문 + 이모지 → 물음 아님', !!asks && asks('Great job! 🎉') === false);
+}
 
 // ── ④ 배선 ───────────────────────────────────────────────────────────
 console.log('\n── ④ 배선 ──');

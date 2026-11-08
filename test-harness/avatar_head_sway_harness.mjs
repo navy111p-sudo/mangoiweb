@@ -22,7 +22,7 @@
  *   ⑫ 그림 미리 올리기: 입모양 그림을 다 받으면 «말할 때 쓰는 그 comp» 에 알파 1/255 로 한 번 그리고 곧바로
  *      화면에 옮긴다(GPU 업로드를 말 첫마디가 아니라 지금 한다) · prepare() 는 두 프레임 뒤에 끝난다 ·
  *      숨은 탭(rAF 없음)에서도 300ms 타이머로 끝난다(짝) · 화면 밖 캔버스가 없으면 아무것도 안 한다
- *   ⑬ 입모양 그림 경로: 말 첫 장만 통째로, 그 뒤는 «입 칸·눈 칸» 만 지우고 줄여 둔 바탕 사본에서 같은 자리로
+ *   ⑬ 입모양 그림 경로: 말 첫 장만 통째로, 그 뒤는 «입 칸·눈 칸·(v21)턱 띠» 만 지우고 줄여 둔 바탕 사본에서 같은 자리로
  *      1:1 옮긴 뒤 입을 그린다 · 그 경로에서는 전환 섞기 사본을 안 뜬다(mei 는 뜬다 — 짝) ·
  *      캐릭터가 바뀌면 다시 통째로 · 안 쓰는 사본은 1x1 로 비운다
  *
@@ -66,6 +66,7 @@ const grab = (re, label) => { const m = CODE.match(re); try { return m && new Fu
 const HEAD = grab(/var HEAD\s*=\s*(\{[\s\S]*?\}\});/);
 const EYES = grab(/var EYES\s*=\s*(\{[^;]*\});/);
 const PREC = grab(/var PRECISION\s*=\s*(\{[\s\S]*?\}\});/);
+const JAW = grab(/var JAW\s*=\s*(\{[^;]*\});/);   // (v21) 턱 띠도 장마다 다시 깐다
 let CH = null;
 { const m = CODE.match(/var CHARACTERS = \{[\s\S]*?\n  \};/); try { CH = m && new Function(m[0].replace(/^var /, 'const ') + ' return CHARACTERS;')(); } catch { CH = null; } }
 const num = re => { const m = CODE.match(re); return m ? Number(m[1]) : NaN; };
@@ -520,8 +521,9 @@ console.log('\n■ ⑬ 입모양 그림 경로 — 바뀌는 칸(입·눈)만, �
   ok(ops.some(o => o.op === 'draw' && o.src === baseCv && o.base === 2 && o.a.length === 4 && o.a[2] === 320 && o.a[3] === 400),
     '(짝) 그 첫 장은 사본을 통째로(320 좌표 × 2배 = 장치 픽셀 1:1) 깐다');
   const EY = EYES && EYES.lily;
+  const BOXES = 2 + (JAW && JAW.lily ? 1 : 0);   // 입·눈 (+ v21 턱)
   ok(restore.length >= 2 * (mouths.length - 1) && restore.length === boxClear.length,
-    `그 뒤 장마다 «입 칸·눈 칸» 둘만 지우고 다시 깐다 (다시 깔기 ${restore.length} · 칸 지우기 ${boxClear.length} · 장 ${mouths.length - 1})`);
+    `그 뒤 장마다 «입 칸·눈 칸(·턱 띠)» 만 지우고 다시 깐다 (다시 깔기 ${restore.length} · 칸 지우기 ${boxClear.length} · 장 ${mouths.length - 1})`);
   ok(restore.every(o => o.a.length === 8 && o.a.every(Number.isInteger) && o.a[0] === o.a[4] && o.a[1] === o.a[5] && o.a[2] === o.a[6] && o.a[3] === o.a[7]),
     '다시 깔기는 장치 픽셀 정수 사각형을 «같은 자리» 로 1:1 옮긴다(원본을 다시 줄여 그리지 않는다)',
     '잘린 칸에 원본을 다시 줄여 그리면 배율이 정수가 아닌 얼굴(emma·jake)은 칸 안이 몇 단계(실측 최대 5/255) 달라집니다');
@@ -539,7 +541,7 @@ console.log('\n■ ⑬ 입모양 그림 경로 — 바뀌는 칸(입·눈)만, �
     // 칸은 입 그림보다 사방 2px 넉넉해야 한다 — 딱 맞으면 반올림·부드럽게 그리기 가장자리가 앞 프레임에 남는다.
     if (!rs.some(r => d[0] - r.a[4] >= 2 && d[1] - r.a[5] >= 2 && r.a[4] + r.a[6] - (d[0] + d[2]) >= 2 && r.a[5] + r.a[7] - (d[1] + d[3]) >= 2)) thin++;
     if (!(m.base === 2 && rs.every(r => r.seq < m.seq))) order++;
-    if (EY && rs.length !== 2) eyeMiss++;
+    if (EY && rs.length !== BOXES) eyeMiss++;
   }
   ok(bad === 0, `입 그림은 언제나 «다시 깐 칸» 안에 놓인다 (어긋난 장 ${bad})`, '칸 밖으로 나가면 앞 프레임 입이 겹쳐 남습니다');
   ok(thin === 0, `다시 깐 칸은 입 그림보다 사방 2px 이상 넉넉하다 (모자란 장 ${thin})`,

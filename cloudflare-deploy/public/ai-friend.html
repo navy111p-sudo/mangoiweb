@@ -352,7 +352,7 @@
   </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
 <script src="/js/avatar-visemes.js?v=5" defer></script>
-<script src="/js/mango-avatar.js?v=42" defer></script>
+<script src="/js/mango-avatar.js?v=43" defer></script>
 <script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 
 <style>
@@ -533,7 +533,7 @@
   </div>
 
   <script src="/js/speech-preferences.js?v=3"></script>
-  <script src="/js/speech-rate-request.js?v=1"></script>
+  <script src="/js/speech-rate-request.js?v=2"></script>
   <script>
     // 전체 사이트 로그인된 사용자(mango_user) + 서명 토큰 자동 사용
     // 서버가 uid 를 그대로 믿지 않으므로(타인 대화 열람/삭제 방지 = IDOR 차단)
@@ -1146,8 +1146,7 @@
       friendPanelFold(!(bar && bar.classList.contains('panel-folded')));
     }
     function friendAiAsksQuestion(content) {
-      const t = String(content || '').replace(/[\s\p{Extended_Pictographic}]+$/u, '');
-      return /\?$/.test(t);
+      return /\?$/.test(aiTextTail(content));
     }
     function appendMsg(role, content, hasFix) {
       if (role === 'ai') _lastAiText = String(content || '');
@@ -1234,13 +1233,30 @@
       el.textContent = isEn() ? en : ko;
     }
     /* 🎯 발음 교정 도우미 (2026-11-01) */
-    const PRON_STOP = new Set(['you','your','the','are','is','it','this','that','what','how','why','who','where','when','did','do','does','can','will','and','for','with','not','yes','ok','okay','say','see','like','have','has','got','about','from','into','just','really','was']);
+    /* 기능어(대명사·전치사·접속사·조동사)는 발음 짚을 낱말이 아니다 — «…dogs too?» 는 dogs, «…say it with me?» 는 없음 */
+    const PRON_STOP = new Set(['you','your','the','are','is','it','this','that','what','how','why','who','where','when','did','do','does','can','will','and','for','with','not','yes','ok','okay','say','see','like','have','has','got','about','from','into','just','really','was',
+      'me','my','we','us','our','he','she','him','her','his','its','they','them','their','there','an','am','be','were','would','could','should','to','of','in','on','at','or','so','if','but','too','again','any','some',
+      'want','try','something','anything','everything','today','tonight','now','often','lately','someday','together','also','ever','yet','very','much','more','most','along','far','been']);
+    /* 끝에 붙은 이모지(😊 ☀️ 👍🏻 🇰🇷 👨‍👩‍👧 1️⃣)·공백을 뗀다 — AI 친구는 질문 뒤에 이모지를 붙인다(2026-11-09 실측: 질문으로 끝나는 답의 약 30%) */
+    function aiTextTail(content) {
+      /* 끝에 붙은 «(💡 …)» 팁(화면·TTS 에서도 떼는 것)도 먼저 뗀다 · 보이지 않는 글자(U+200B·U+2060·U+00AD·태그 문자)도 함께 */
+      return String(content || '').replace(/\s*\(💡[^()]*\)\s*$/u, '')
+        .replace(/(?:[\s\u200B\u200D\u2060\u00AD\uFE0E\uFE0F\u{E0020}-\u{E007F}\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}]|[#*0-9]\uFE0F?\u20E3)+$/u, '');
+    }
     function pronTargetFromAi(text) {
-      const t = String(text || '').trim();
-      if (!/\?\s*$/.test(t)) return '';
-      const words = t.replace(/\?\s*$/, '').match(/[A-Za-z]{2,20}/g) || [];
+      const t = aiTextTail(text);
+      if (!/\?$/.test(t)) return '';
+      /* 마지막 질문 문장의 마지막 쉼표 뒤만 본다 — 앞 문장·따옴표 속 예문(«You can say… "…" Can you say it with me?»)·인사 속 학생 이름·AI 가 받아 적은 낯선 낱말로 넘어가지 않게 */
+      /* 끝 따옴표를 먼저 뗀다 — «Can you say "banana"?» 는 banana. «…dogs, too?» 처럼 꼬리말만 남으면 그 앞 마디를 본다 */
+      const clauses = t.slice(0, -1).replace(/["“”'‘’]+\s*$/u, '').split(/[.!?;:"“”]/).pop().split(',');
+      let part = clauses.pop();
+      if (clauses.length && /^\s*(too|either|right|ok|okay)\s*$/i.test(part)) part = clauses.pop();
+      /* \p{L} 로 낱말을 통째로 잡는다 — café·Zürich·don’t 가 caf·rich·don 조각이 되지 않게(조각은 아래에서 건너뜀) */
+      const words = part.match(/\p{L}[\p{L}'’-]*/gu) || [];
       for (let i = words.length - 1; i >= 0; i--) {
-        const w = words[i].toLowerCase();
+        const raw = words[i], w = raw.toLowerCase();
+        /* K-pop·don't·TV·EXO·café 는 Azure 기준 낱말로 못 믿는다 — 건너뜀 */
+        if (!/^[a-z]{2,20}$/.test(w) || (raw === raw.toUpperCase())) continue;
         if (!PRON_STOP.has(w)) return w;
       }
       return '';
@@ -1488,16 +1504,14 @@
       return out || { ok: false, error: 'stream_incomplete' };
     }
 
-    /* 🏎️ 입모양 분석 엔진(Rhubarb) — 이 화면도 «켜지 않는다» (2026-11-06 사장님 「휴대폰에서 A.i 말하기 3카드 모두
-       아바타가 더 빨리 응답」 — 웜업(교재·상황)은 2026-11-05 「입모양 일치하지 않아도 좋으니 최대한 빨리」로 이미 껐다).
-       Speed first: this page no longer boots the lip-sync analyser either.
-       [왜] 켜 두면 ① 문장마다 재생 «전» 에 분석을 최대 0.25초 기다리고(mango-avatar.js CUE_WAIT_MS)
-            ② 첫 마이크 때 약 28.7MB(압축) 모델 다운로드와 WASM 분석이 AI 답·음성 받기와 같은 회선·CPU 를 나눠 쓴다(폰에서 특히 큼).
-       그래서 prepare 는 곧바로 null(→ 입은 소리 크기로 움직임 — 예전부터 있던 폴백), boot 는 아무 일도 안 한다.
-       ⚠️ 웜업 warmup.html 의 _visemeWrap 과 «같은 모양» 이다 — 공용 파일(js/avatar-visemes.js·js/mango-avatar.js)은 안 건드린다.
-       🔧 정확한 입모양으로 되돌려 비교: 주소에 ?visemes=now */
+    /* 👄 입모양 분석 엔진(Rhubarb) — 이 화면은 «켠다» (2026-11-09 사장님 「입모양 분석은 다시 켜줘」).
+       Lip-sync analysis is ON again on this page (owner, 2026-11-09).
+       📜 2026-11-06 「휴대폰 A.i 말하기 3카드 모두 더 빨리」 때 껐다가(분석이 끝날 때까지 재생 전 최대 0.25초 대기 ·
+          첫 마이크 때 약 28.7MB 모델 다운로드) 되돌렸다. 그 대가는 그대로다 — 상한은 mango-avatar.js CUE_WAIT_MS(250ms).
+       ⚠️ 웜업 warmup.html 의 _visemeWrap 은 «끈 채» 다(2026-11-05 「입모양 일치하지 않아도 좋으니 최대한 빨리」 — 별개 지시).
+       🔧 끄고 비교: 주소에 ?visemes=off (그때는 prepare 가 곧바로 null → 입은 소리 크기로 움직이고, boot 는 아무 일도 안 함). */
     var _afVisHold = (function(){
-      try { return !/[?&]visemes=now\b/.test(location.search); } catch(e){ return true; }
+      try { return /[?&]visemes=off\b/.test(location.search); } catch(e){ return false; }
     })();
     function _afVisemeWrap() {
       var V = window.AvatarVisemes;
@@ -1676,7 +1690,7 @@
       if (_whisperOn) { MangoiVoice.stop(); return; }     // ⏹ — 지금까지 녹음분으로 전사
       /* ⚡ (2026-10-20) 입모양 분석기를 «지금» 켜 둔다 — 듣고·전사하고·AI 가 답을 만드는 동안 함께 준비된다.
          예전에는 첫 대답을 «재생하려는 순간» 에야 켜서(모델 37.8MB) 첫 대답 입모양이 늦었다. 이미 켜져 있으면 아무 일도 안 한다.
-         🏎️ (2026-11-06) 지금은 _afVisemeWrap 이 boot 를 막아 «?visemes=now» 일 때만 실제로 켜진다(위 speakText 앞 주석). */
+         👄 (2026-11-09) 다시 켰다 — «?visemes=off» 일 때만 _afVisemeWrap 이 boot 를 막는다(위 speakText 앞 주석). */
       try { window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); } catch(e){}
       const micSeq = ++_friendMicSeq;
       let voiceError = '';
@@ -2562,7 +2576,8 @@
 <script defer src="/js/mangoi-voice-early.js?v=2"></script><!-- ⚡ 말이 멎으면 먼저 받아 적기(웜업과 같은 정본) / early transcription (2026-11-06) -->
 <script defer src="/js/voice-has-speech.js?v=2"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
 <script defer src="/js/aifriend-auto-talk.js?v=3"></script>
-<script defer src="/js/aifriend-facetalk.js?v=10"></script><!-- 😊 얼굴 대화도 공용 friendRecordVoice로 무음·잡음 차단 -->
+<script defer src="/js/ftk-call.js?v=1"></script><!-- 📞 얼굴 대화를 영상통화 화면처럼(2026-11-08) -->
+<script defer src="/js/aifriend-facetalk.js?v=11"></script><!-- 😊 얼굴 대화도 공용 friendRecordVoice로 무음·잡음 차단 -->
 <script defer src="/js/ai-diff.js?v=2"></script><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js?v=20261101"></script>
@@ -2572,7 +2587,7 @@
 <script defer src="/js/ai-speaking-progress-view.js?v=11"></script>
 <script defer src="/js/ai-speaking-progress.js?v=11"></script>
 <script src="/js/ai-speaking-settings.js?v=3" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — 교정 버튼이 씀 (2026-11-04) -->
-<script src="/js/ai-speaking-session.js?v=9" defer></script>
+<script src="/js/ai-speaking-session.js?v=10" defer></script>
 <script defer src="/js/flow.js?v=23"></script><!-- 🚀 다음으로 이동(MangoFlow) -->
 
 <!-- ══════════════════════════════════════════════════════════════

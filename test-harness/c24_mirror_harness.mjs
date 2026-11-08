@@ -143,7 +143,13 @@ console.log('\n[ D. 미러는 «자기가 만든 행» 만 손댄다 ]');
   check('파일럿 수업이 그 자리에 있으면 conflict — 덮지 않는다', plan1(cls({}), pilot, 'all').verdict === 'conflict');
   check('conflict 는 무엇이 막고 있는지 말해 준다', /adm-enroll/.test(plan1(cls({}), pilot, 'all').detail || ''));
   check('취소된 행은 «없는 것» 으로 본다', plan1(cls({}), [row({ status: 'cancelled' })], 'all').verdict === 'ok');
-  check('다른 학생의 같은 시간은 방해하지 않는다', plan1(cls({}), [row({ uid: 'stu2' })], 'all').verdict === 'ok');
+  /* ⚠️ (2026-11-09) 이 검사는 원래 «같은 강사(28)» 의 다른 학생 행으로 'ok' 를 기대했다 — 그런데 운영 DB 의
+       uq_sched_teacher_slot(teacher_id, scheduled_date, start_time · active)이 그 INSERT 를 «거절» 한다(519337 실사고:
+       15분마다 UNIQUE 오류). 즉 실제로는 안 되는 일을 정답으로 못 박고 있었다. 뜻(다른 학생이 같은 시간에 있어도
+       막지 않는다)은 «다른 강사» 로 지키고, 같은 강사는 아래 짝(2-c)으로 갈라 묻는다. */
+  check('다른 학생의 같은 시간은 방해하지 않는다(다른 강사)', plan1(cls({}), [row({ uid: 'stu2', teacher_id: '8' })], 'all').verdict === 'ok');
+  check('짝(2-c): 같은 «강사» 의 같은 시각을 다른 학생이 쓰고 있으면 conflict — DB 유니크 색인이 어차피 거절한다',
+    plan1(cls({}), [row({ uid: 'stu2' })], 'all').verdict === 'conflict');
   // 미러가 «자기 source» 만 지운다는 계약이 코드에 남아 있는가
   check('MIRROR_SOURCE 는 c24-mirror 하나뿐', M.MIRROR_SOURCE === 'c24-mirror');
 }
@@ -1421,6 +1427,50 @@ console.log('\n[ Q. 🔁 사람이 «다른 날로 옮긴» 수업 — 원래 �
   }
   check('Q-4 배선: 성적표·쓰기 두 호출부가 모두 그 근거를 planMirror 에 넘긴다(한쪽만 넘기면 화면과 실제가 갈린다)',
     (MIRROR_TS.match(/planMirror\(classes, links, students, existing, mode, enabled, hidden, slotSeen, moved \? moved\.byClass : null\)/g) || []).length === 2);
+}
+
+console.log('\n[ R. 🧑‍🏫 강사 한 자리에 열린 수업은 하나 — 519337·519958 «UNIQUE 실패» 가 15분마다 쌓이던 것 (2026-11-09) ]');
+{
+  /* 운영 D1 실측: 11/10 21:10 LEN(원부 18) 자리는 망고아이 수강신청 #4407(`delaware` 김연숙, adm-enroll:123) —
+     카페24 예약 519337 은 같은 분의 다른 계정 `mangoai_delaware`. 계획이 'ok' 로 내보내 INSERT 가 uq_sched_teacher_slot 에 막혔다. */
+  const LINKS_R = new Map([['190', { name: 'Teacher Len', teacherId: '18' }], ['194', { name: 'Teacher Belle', teacherId: '2' }], ['37', { name: 'Teacher Janice', teacherId: '28' }]]);
+  const STU_R = new Map([['mangoai_delaware', '김연숙 MANGOAI'], ['mangoai_jjw', '장지웅 MANGOAI'], ['stu1', '김하나'], ['stu2', '이두리']]);
+  const c519 = cls({ id: '519337', uid: 'mangoai_delaware', date: '2026-11-10', time: '21:10', tid: '190' });
+  const h4407 = { id: 4407, user_id: 'delaware', teacher_id: '18', scheduled_date: '2026-11-10', start_time: '21:10', duration_min: 20, source: 'adm-enroll:123', status: 'active' };
+  const planR = (list, existing, mode = 'whitelist', en = ['18', '2', '28']) => M.planMirror(list, LINKS_R, STU_R, existing, mode, new Set(en));
+  const r1 = planR([c519], [h4407])[0];
+  check('🔴 R-1 강사 자리가 망고아이 수업으로 차 있으면 만들지 않는다 — conflict · 차지한 행 번호 · 계정·출처 · «같은 학생의 다른 계정» 표시',
+    r1.verdict === 'conflict' && r1.existing_id === 4407 && /delaware/.test(r1.detail || '') && /adm-enroll:123/.test(r1.detail || '') && /같은 학생의 다른 계정/.test(r1.detail || ''), JSON.stringify(r1));
+  check('R-1b 짝: 그 행이 취소돼 있으면 자리는 비어 있다 — ok', planR([c519], [{ ...h4407, status: 'cancelled' }])[0].verdict === 'ok');
+  check('R-1c 짝: «연기» 상태(postponed)도 열린 수업이 아니다 — ok(DB 색인도 active 만 본다)', planR([c519], [{ ...h4407, status: 'postponed' }])[0].verdict === 'ok');
+  check('R-1d 짝: 같은 시각이라도 «다른 강사» 면 ok', planR([c519], [{ ...h4407, teacher_id: '7' }])[0].verdict === 'ok');
+  check('R-1e 짝: 같은 강사라도 «다른 시각» 이면 ok', planR([c519], [{ ...h4407, start_time: '21:30' }])[0].verdict === 'ok');
+  check('R-1f 계정이 쌍둥이 꼴이 아니면 «다른 계정» 표시를 안 붙인다(지어내지 않는다)',
+    (() => { const r = planR([cls({ id: '519958', uid: 'mangoai_jjw', date: '2026-11-12', time: '18:00', tid: '194' })],
+      [{ id: 8104, user_id: 'jjy2323', teacher_id: '2', scheduled_date: '2026-11-12', start_time: '18:00', duration_min: 20, source: 'adm-enroll:153', status: 'active' }])[0];
+      return r.verdict === 'conflict' && r.existing_id === 8104 && /jjy2323/.test(r.detail || '') && !/같은 학생의 다른 계정/.test(r.detail || ''); })());
+  const two = planR([cls({ id: 'g1', uid: 'stu1', date: '2026-11-10', time: '19:00', tid: '37' }), cls({ id: 'g2', uid: 'stu2', date: '2026-11-10', time: '19:00', tid: '37' })], []);
+  check('R-2 같은 실행에서 같은 강사·시각을 두 학생이 잡으면 첫째만 ok · 둘째는 conflict(먼저 잡은 카페24 수업을 말한다)',
+    two[0].verdict === 'ok' && two[1].verdict === 'conflict' && /g1/.test(two[1].detail || ''), JSON.stringify(two.map(r => [r.class_id, r.verdict])));
+  const off = planR([cls({ id: 'g1', uid: 'stu1', date: '2026-11-10', time: '19:00', tid: '37' }), cls({ id: 'g2', uid: 'stu2', date: '2026-11-10', time: '19:00', tid: '37' })], [], 'whitelist', []);
+  check('R-2b 짝: «만들지 않는» 판정(아직 안 켠 강사)은 자리를 잡지 않는다 — 둘 다 not_whitelisted',
+    off.every(r => r.verdict === 'not_whitelisted'), JSON.stringify(off.map(r => r.verdict)));
+  /* 끝에서 끝까지 — applyMirror 가 그 자리에 INSERT 를 «시도조차» 안 한다(오류가 안 쌓인다) */
+  const sqls = [];
+  const fakeR = { exec: async () => {}, prepare(sql) {
+    const st = { _b: [], bind: (...a) => { st._b = a; return st; },
+      all: async () => ({ results: /FROM c24_mirror_teachers WHERE enabled = 0/.test(sql) ? [] : /FROM c24_mirror_teachers/.test(sql) ? [{ teacher_id: '18' }]
+        : /FROM teachers WHERE active/.test(sql) ? [{ id: 18, name: 'LEN' }] : /FROM teacher_payroll_auto/.test(sql) ? [{ c24: '190', teacher_name: 'Teacher Len' }]
+        : /FROM students_erp/.test(sql) ? [{ user_id: 'mangoai_delaware', korean_name: '김연숙 MANGOAI' }]
+        : /FROM class_schedules WHERE source = \?/.test(sql) ? [] : /\+source = \? AND id IN/.test(sql) ? [] : /FROM class_schedules/.test(sql) ? [h4407] : [] }),
+      first: async () => (/FROM c24_mirror_config/.test(sql) ? { v: 'whitelist' } : null),
+      run: async () => { sqls.push(sql.replace(/\s+/g, ' ').trim()); return {}; } };
+    return st; } };
+  const cy = async () => ({ fields: ['class_id', 'user_id', 'start_ms', 'end_ms', 'date', 'class_state', 'teacher_id'],
+    values: [['519337', 'mangoai_delaware', KST('2026-11-10', '21:10'), KST('2026-11-10', '21:30'), '2026-11-10', 1, '190']] });
+  const ar = await M.applyMirror({ DB: fakeR }, cy, { since: '2026-11-09', until: '2026-11-11', dry_run: false });
+  check('🔴 R-3 applyMirror 가 그 자리에 INSERT 를 시도하지 않는다 — 실행 기록에 UNIQUE 오류가 안 쌓인다',
+    !sqls.some(q => /^INSERT INTO class_schedules/.test(q)) && ar.errors.length === 0 && ar.summary.conflict === 1, JSON.stringify({ sqls, e: ar.errors, s: ar.summary }));
 }
 
 console.log(`\n${'─'.repeat(52)}`);

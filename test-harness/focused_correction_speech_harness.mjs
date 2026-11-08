@@ -197,6 +197,7 @@ let holdHistory;
 let routeFix = fix;
 let scenario = 'normal', modelCalls = 0, rechecks = 0, timingMajor = false;
 let delayMain = false, mainInflight = 0, recheckOverlapped = false;
+let rfMainModels = [];
 const env = { DB, ROOM_JWT_SECRET: 'focused-local-fixture-only',
   SESSION_STATE: { get: async k => cache.get(k) ?? null, put: async (k, v) => {
     if (holdHistory && k.startsWith('warmup:early-')) await holdHistory;
@@ -208,6 +209,7 @@ const env = { DB, ROOM_JWT_SECRET: 'focused-local-fixture-only',
     if (recheck) rechecks++;
     if (recheck && mainInflight > 0) recheckOverlapped = true;
     if (delayMain && !recheck) { mainInflight++; try { await new Promise(r => setTimeout(r, 30)); } finally { mainInflight--; } }
+    if (scenario === 'rf-reject' && !recheck) rfMainModels.push(_model);
     if (scenario === 'rf-reject' && opts.response_format) {   // 제약 거절 — 다시 묻기가 먼저 실패하고, 본 호출은 늦게 실패한다
       if (!recheck) await new Promise(r => setTimeout(r, 30));
       throw new Error('response_format is not supported');
@@ -265,6 +267,7 @@ for (const kind of ['avatar', 'friend']) for (const stream of [0, 1]) {
     }
   });
 }
+const keyLead='Let\'s say it like this: "'+fix.now+'."';
 for(const timing of ['immediate','after-lesson','key-mistakes']) for(const stream of [0,1]){
  timingMajor=true;
  const sid='timing-'+timing+'-'+stream;
@@ -275,9 +278,19 @@ for(const timing of ['immediate','after-lesson','key-mistakes']) for(const strea
   assert.equal(body.correction_timing,timing);assert.equal(body.progress.source,'warmup-verified-turn');assert.equal(body.progress.correction.now,fix.now);assert.deepEqual(body.progress.skills,{});assert.ok(body.progress.spokenWords.includes('park'));
   if(timing==='after-lesson'){assert.equal(body.fix,null);assert.equal(body.repeat,false);assert.ok(!body.ai_response.includes('You can say'));}
   if(timing==='immediate')assert.equal(body.fix.now,fix.now);
+  /* ⏱️ (2026-11-09 사장님 B안) 주요 실수 — 카드가 뜬 턴엔 고친 문장을 질문보다 먼저 «한 번» 말한다(집중교정의 세 번이 아님) */
+  if(timing==='key-mistakes'){assert.equal(body.fix?.now,fix.now);assert.equal(body.ai_response,keyLead+' '+question);assert.ok(!body.ai_response.includes('You can say'));}
  });
  if(timing==='key-mistakes'){
-  for(let i=0;i<4;i++){const r=await post('/api/warmup/chat',{session_id:sid,student_input:fix.was,correction_mode:'focused',correction_timing:timing,difficulty:3});const d=await r.json();if(i>=2)assert.equal(d.fix,null);}
+  const seen=[];
+  for(let i=0;i<4;i++){const r=await post('/api/warmup/chat',{session_id:sid,student_input:fix.was,correction_mode:'focused',correction_timing:timing,difficulty:3});const d=await r.json();seen.push([d.fix?.now||null,d.ai_response]);if(i>=2)assert.equal(d.fix,null);}
+  check('warmup key-mistakes speaks the fix once only while the card is shown (max 3) / '+stream,()=>{
+   for(const [now,said] of seen){
+    if(now){assert.equal(now,fix.now);assert.equal(said,keyLead+' '+question);}
+    else assert.equal(said,question);   // 3번을 넘긴 턴 — 카드도 말도 없음(짝)
+   }
+   assert.equal(seen.filter(x=>x[0]).length,2);   // 첫 턴 1 + 여기 2 = 최대 3
+  });
  }
  timingMajor=false;
 }
@@ -287,7 +300,9 @@ for(const timing of ['immediate','after-lesson','key-mistakes']) for(const strea
  const r=await post('/api/ai/chat-friend',{uid:auth.uid,msg:fix.was,level:'S3',correction_mode:'focused',correction_timing:timing,practice_session:'friend-timing-'+timing+'-'+stream,stream},auth.token);
  const events=stream?(await r.text()).split('\n').filter(s=>s.startsWith('data:')).map(s=>JSON.parse(s.slice(5))):[];
  const d=stream?events.find(e=>e.done):await r.json();
- check('actual friend timing and observed results '+timing+'/'+stream,()=>{assert.equal(d.progress.sessionId,'friend-timing-'+timing+'-'+stream);assert.equal(d.progress.correction.now,fix.now);assert.deepEqual(d.progress.skills,{});if(timing==='after-lesson'){assert.equal(d.fix,null);assert.equal(d.repeat,false);assert.ok(!d.reply.includes('You can say'));}});
+ check('actual friend timing and observed results '+timing+'/'+stream,()=>{assert.equal(d.progress.sessionId,'friend-timing-'+timing+'-'+stream);assert.equal(d.progress.correction.now,fix.now);assert.deepEqual(d.progress.skills,{});if(timing==='after-lesson'){assert.equal(d.fix,null);assert.equal(d.repeat,false);assert.ok(!d.reply.includes('You can say'));}
+  // AI 친구는 주요 실수 시점을 «균형» 으로 받아 이미 고친 문장을 한 번 먼저 말한다 — 웜업이 이제 같은 약속(2026-11-09 B안)
+  if(timing==='key-mistakes'){assert.equal(d.fix?.now,fix.now);assert.equal(d.reply,keyLead+' '+question);}});
  timingMajor=false;
 }
 const quickFixes = [
@@ -439,6 +454,19 @@ check('avatar main call still falls back when the concurrent recheck disabled re
   assert.equal(rfRes.status, 200);
   assert.equal(rfBody.ai_response, 'What do you like?');
 });
+// 🔴 A.i 친구도 같은 공유 플래그 모양이었다 — 그때는 502 가 아니라 «첫 모델 실패 → 다른 모델로 넘어감»(답이 바뀌고 늦어짐).
+{
+  scenario = 'rf-reject'; rfMainModels = [];
+  const auth = await (await post('/api/ai/chat-guest-token', {})).json();
+  const fr = await post('/api/ai/chat-friend', { uid: auth.uid, msg: routeFix.now, correction_mode: 'focused', stream: 0, level: 'S1' }, auth.token);
+  const fb = await fr.json();
+  check('friend main call keeps its own model when the concurrent recheck disabled response_format first', () => {
+    assert.equal(fr.status, 200);
+    assert.equal(fb.reply, 'What do you like?');
+    assert.ok(rfMainModels.length >= 2, 'main call retried: ' + rfMainModels.join(','));
+    assert.equal(new Set(rfMainModels).size, 1, 'no fallback to another model: ' + rfMainModels.join(','));
+  });
+}
 // 과거형 보완 규칙이 잡는 문장이면 결과를 안 쓰므로 다시 묻기를 시작하지도 않는다(헛 호출 0).
 scenario = 'omitted'; modelCalls = 0; rechecks = 0;
 await (await post('/api/warmup/chat', { session_id: 'overlap-backfill', student_input: 'I play soccer yesterday with my friends.',

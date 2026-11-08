@@ -766,7 +766,7 @@
 </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
 <script src="/js/avatar-visemes.js?v=5" defer></script>
-<script src="/js/mango-avatar.js?v=42" defer></script>
+<script src="/js/mango-avatar.js?v=43" defer></script>
 <script src="/js/game-track.js?v=4" defer></script>
 <script src="/js/eleader-entry.js?v=3" defer></script>
 <script src="/js/eleader-l1.js?v=12" defer></script>
@@ -1159,7 +1159,7 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
 </dialog>
 <script src="/js/warmup-guide.js?v=12"></script>
 <script src="/js/speech-preferences.js?v=3"></script>
-<script src="/js/speech-rate-request.js?v=1"></script>
+<script src="/js/speech-rate-request.js?v=2"></script>
 <script src="/js/ai-situations.js?v=3"></script><!-- 🎯 상황별 말하기 표(?sit=) — 정본은 그 파일 하나 -->
 <script>
 /* ── 1. URL 파라미터 / 저장값에서 설정 읽기 ─────────────────────── */
@@ -3340,17 +3340,28 @@ function _ttsPrefetch(text, spk){
     })
     .catch(function(){ return null; });
 }
-/* 🏎️ 입모양 분석 엔진(Rhubarb) — 이 화면은 «켜지 않는다» (2026-11-05 사장님 「입모양 일치하지 않아도 좋으니
-   최대한 빨리 답변하게 해줘」) / Speed first: this page never boots the lip-sync analyser.
-   [왜] 켜 두면 ① 대답마다 재생 «전» 에 분석을 최대 0.25초 기다리고(mango-avatar.js CUE_WAIT_MS)
-        ② 약 28.7MB(압축) 다운로드와 WASM 분석이 AI 답·음성 받기와 같은 회선·CPU 를 나눠 쓴다(폰에서 특히 큼).
-   그래서 prepare 는 곧바로 null(→ 입은 소리 크기로 움직임 — 예전부터 있던 폴백), boot 는 아무 일도 안 한다.
-   📜 2026-10-20 «화면 열 때 미리 켜기» → 2026-11-04 «폰은 첫 인사까지 미루기» → 이제 PC·폰 모두 «끝까지 끔».
-   ⚠️ 공용 파일(js/avatar-visemes.js·js/mango-avatar.js)은 안 건드린다 — A.i 친구 등 다른 화면은 예전 그대로.
-   🔧 정확한 입모양으로 되돌려 비교: 주소에 ?visemes=now */
-var _visHold = (function(){
-  try{ return !/[?&]visemes=now\b/.test(location.search); }catch(e){ return true; }
+/* 👄 입모양 분석 엔진(Rhubarb) — 이 화면도 «다시 켠다» (2026-11-09 사장님 「웜업 입모양도 다시 켜줘」).
+   Lip-sync analysis is ON again (owner, 2026-11-09) — PC boots it shortly after load, phones after the first greeting.
+   📜 2026-10-20 «화면 열 때 미리 켜기» → 2026-11-04 «폰은 첫 인사까지 미루기» → 2026-11-05 «끝까지 끔»
+      (「입모양 일치하지 않아도 좋으니 최대한 빨리」) → 2026-11-09 11-04 방식으로 되돌림.
+   [대가] 대답마다 분석이 안 끝났으면 재생 «전» 최대 0.25초 대기(mango-avatar.js CUE_WAIT_MS) · 약 28.7MB(압축) 모델 다운로드.
+   [폰] 그 다운로드·WASM 이 «첫 인사» 를 받는 회선·CPU 와 겹치지 않게, 첫 인사가 끝날 때(aiDone) — 또는 학생이 먼저 보내면(sent) —
+        풀어 준다(_visRelease). 그 전까지 prepare 는 곧바로 null(소리 크기 입모양 — 예전부터 있던 폴백), boot 는 아무 일도 안 한다.
+   ⚠️ prepare 가 엔진을 스스로 켜므로(avatar-visemes.js) prepare 도 함께 막아야 미룸이 된다.
+   ⚠️ 공용 파일(js/avatar-visemes.js·js/mango-avatar.js)은 안 건드린다.
+   🔧 끄고 비교: 주소에 ?visemes=off (PC·폰 모두 끝까지 끔) */
+var _visOff = (function(){
+  try{ return /[?&]visemes=off\b/.test(location.search); }catch(e){ return false; }
 })();
+var _visHold = (function(){
+  if(_visOff) return true;
+  try{ return !!(window.matchMedia && matchMedia('(pointer:coarse)').matches); }catch(e){ return false; }
+})();
+function _visRelease(){
+  if(_visOff || !_visHold) return;
+  _visHold = false;
+  try{ window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); }catch(e){}
+}
 function _visemeWrap(){
   var V = window.AvatarVisemes;
   if(!V || V.__warmHold || typeof V.prepare!=='function' || typeof V.boot!=='function') return;
@@ -3372,7 +3383,7 @@ function _visemeWrap(){
 if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _visemeWrap); else _visemeWrap();
 window.addEventListener('load', function(){
   _visemeWrap();
-  if(!_visHold) setTimeout(function(){ try{ window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); }catch(e){} }, 1000);   // ?visemes=now 일 때만 미리 켠다
+  if(!_visHold) setTimeout(function(){ try{ window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); }catch(e){} }, 1000);   // PC 는 화면이 열리고 1초 뒤 미리 켠다(폰은 _visRelease)
 });
 /* 🎙️ 영어 «남자» 목소리(Jake·Noah)는 너무 늘이지 않는다 (2026-10-02 피드백 「제이크랑 노아는 보이스가 어색함」).
    «보통» 이 0.8배라 브라우저가 소리를 늘여 재생하는데, 이 늘이기는 낮은 남자 목소리에서 «뚜벅뚜벅» 끊김이
@@ -4030,6 +4041,7 @@ var _autoDonePending=false;
 function _autoHook(ev, a){
   if(ev==='sent' || ev==='aiStart') _autoDonePending=false;
   if(ev==='aiDone' && sending){ _autoDonePending=true; return; }
+  if(ev==='aiDone' || ev==='sent') _visRelease();   // 👄 폰: 첫 인사가 끝나면(또는 학생이 먼저 보내면) 입모양 엔진을 켠다
   try{ window.WarmupAutoTalk && WarmupAutoTalk.on(ev, a); }catch(e){}
   if(ev==='settled' && _autoDonePending){
     _autoDonePending=false;
@@ -5368,19 +5380,20 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 <script src="/js/ux-track.js?v=1" defer></script>
 <script src="/js/repeat-score.js?v=1" defer></script><!-- 🎤 «따라 말해 보기» 채점 (2026-10-18) -->
 <script src="/js/warmup-auto-talk.js?v=10" defer></script><!-- ✨ 자동 말하기(베타) — 기본은 버튼 모드 -->
-<script src="/js/warmup-facetalk.js?v=4" defer></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 자동 말하기 엔진을 켜고 모양만 바꿈) -->
+<script src="/js/ftk-call.js?v=1" defer></script><!-- 📞 얼굴 대화를 영상통화 화면처럼(2026-11-08) -->
+<script src="/js/warmup-facetalk.js?v=5" defer></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 자동 말하기 엔진을 켜고 모양만 바꿈) -->
 <script src="/js/warmup-touch-bar.js?v=2" defer></script>
 <script src="/js/warmup-dock.js?v=2" defer></script><!-- 📱 세로 화면: 아래 버튼 줄 자동 접힘·손잡이 (2026-11-02) --><!-- 📱 터치 기기 전용 아래 3칸 바(도움·말하기·글쓰기) — 2026-09-26 시안 4 -->
 <link rel="stylesheet" href="/css/ai-speaking-progress.css?v=5">
 <script defer src="/js/ai-speaking-progress-view.js?v=11"></script>
 <script defer src="/js/ai-speaking-progress.js?v=11"></script>
 <script src="/js/ai-speaking-settings.js?v=3" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — setCorrMode 가 씀 (2026-11-04) -->
-<script src="/js/ai-speaking-session.js?v=9" defer></script>
+<script src="/js/ai-speaking-session.js?v=10" defer></script>
 <style>#wgSpeakingProgress{overflow-wrap:anywhere;max-width:100%;line-height:1.5}#wgSpeakingProgress .ai-progress-skills{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}#wgSpeakingProgress dd{margin:0}#wgSpeakingProgress .ai-progress-correction{padding:8px;border:1px solid currentColor;border-radius:8px}</style>
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 <script defer src="/js/warmup-photo-icons.js?v=5"></script>
 <link rel="stylesheet" href="/css/warmup-flow.css?v=6" />
-<script defer src="/js/warmup-flow.js?v=7"></script>
+<script defer src="/js/warmup-flow.js?v=8"></script>
 <script defer src="/js/warmup-points.js?v=4"></script><!-- 🪙 «끝내고 요약 보기» 창에 받은 포인트 한 줄 (2026-11-03) / points line in the summary -->
 <link rel="stylesheet" href="/css/warmup-topbar.css?v=2" />
 <script defer src="/js/warmup-topbar.js?v=2"></script><!-- 📱 휴대폰 위쪽 버튼 한 줄 — 세로 B(아이콘 한 줄) · 가로 C(떠 있는 바 + 숨기기) (2026-11-03) / one-row top bar on phones -->
