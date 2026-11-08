@@ -144,12 +144,41 @@ export type ParentWarmup = {
   /** false = 교정 기록 표가 아직 없음(기록이 연결되지 않음) — 0건과 다른 사실 */
   fixes_recorded: boolean;
   recent_fixes: Array<{ from: string; to: string; why_ko: string; at: number }>;
+  /** KST 최근 7일의 첫 발화가 기록된 대화 수. 완료 횟수·실력 점수가 아니다. */
+  weekly_activity: Array<{ date: string; sessions: number }> | null;
 };
+
+/** 기존 첫 발화 기록을 재사용한다. 조회 실패와 실제 0회를 구분한다. */
+export async function readWarmupWeek(db: any, uid: string, nowMs: number): Promise<ParentWarmup['weekly_activity']> {
+  if (!uid || !Number.isFinite(nowMs)) return null;
+  const today = Math.floor((nowMs + KST_MS) / DAY_MS) * DAY_MS - KST_MS;
+  const start = today - 6 * DAY_MS;
+  try {
+    const rs: any = await db.prepare(
+      `SELECT date(first_reply_at/1000, 'unixepoch', '+9 hours') AS day, COUNT(*) AS sessions
+         FROM warmup_session_log
+        WHERE user_id = ? AND first_reply_at >= ? AND first_reply_at <= ?
+        GROUP BY day ORDER BY day`
+    ).bind(uid, start, nowMs).all();
+    if (!rs || !Array.isArray(rs.results)) return null;
+    const counts = new Map<string, number>();
+    for (const row of rs.results) {
+      const n = Number(row.sessions);
+      if (!Number.isSafeInteger(n) || n < 0) return null;
+      counts.set(String(row.day), n);
+    }
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = new Date(start + i * DAY_MS + KST_MS).toISOString().slice(0, 10);
+      return { date, sessions: counts.get(date) || 0 };
+    });
+  } catch { return null; }
+}
 
 /** 학부모 대시보드용 — 부르는 쪽이 이미 «그 학생 계정 토큰» 게이트를 통과시킨 뒤에만 부르세요. */
 export async function readParentWarmup(db: any, uid: string, nowMs: number): Promise<ParentWarmup> {
   const { start, end, ym } = kstMonthRange(nowMs);
   const c = await warmupCountsBetween(db, uid, start, end);
+  const weeklyActivity = await readWarmupWeek(db, uid, nowMs);
   let fixesRecorded = false;
   let fixes: ParentWarmup['recent_fixes'] = [];
   try {
@@ -174,6 +203,7 @@ export async function readParentWarmup(db: any, uid: string, nowMs: number): Pro
     days_this_month: c ? c.days : null,
     fixes_recorded: fixesRecorded,
     recent_fixes: fixes,
+    weekly_activity: weeklyActivity,
   };
 }
 
