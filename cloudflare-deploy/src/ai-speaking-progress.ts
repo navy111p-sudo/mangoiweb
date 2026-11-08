@@ -1,6 +1,9 @@
 /**
  * A.i 말하기 학습 평가: 순수 함수 모듈.
- * 점수는 실제 평가 엔진에서 제공해야 하며 추정/임의 생성 금지.
+ * UI/DB 연결 전 단계. 점수는 실제 평가 엔진에서 제공해야 하며 추정/임의 생성 금지.
+ * validateEvaluation validates shape only: it does not authenticate an evaluator,
+ * verify lesson completion, authorize a student, or grant a wallet reward.
+ * Never expose this function as a client-submitted reward endpoint.
  */
 export type CorrectionMode = 'immediate' | 'key-mistakes' | 'after-lesson';
 export function correctionTimingOf(value: unknown): CorrectionMode | '' {
@@ -41,11 +44,13 @@ export function defaultCorrectionMode(level: number): CorrectionMode {
 }
 export function validateEvaluation(e: SpeakingEvaluation): void {
   if (!e || typeof e !== 'object') throw new Error('Missing evaluation');
-  if (![e.lessonId, e.studentId, e.evaluationSource].every(v => typeof v === 'string' && v.trim())) throw new Error('Missing evaluation identity/source');
+  if (![e.lessonId, e.studentId, e.evaluationSource].every(v => typeof v === 'string' && v.trim().length > 0 && v.length <= 200)) throw new Error('Missing evaluation identity/source');
   if (e.finishedNormally !== true) throw new Error('Incomplete lesson: no results');
-  if (typeof e.evaluatedAt !== 'string' || !Number.isFinite(Date.parse(e.evaluatedAt))) throw new Error('Invalid evaluation date');
+  if (typeof e.evaluatedAt !== 'string' || !Number.isFinite(Date.parse(e.evaluatedAt))) throw new Error('Invalid evaluation timestamp');
   if (!e.skills || typeof e.skills !== 'object' || Array.isArray(e.skills)) throw new Error('Invalid skills');
-  if (![e.spokenWords, e.correctedWords].every(words => Array.isArray(words) && words.every(w => typeof w === 'string'))) throw new Error('Invalid words');
+  for (const words of [e.spokenWords, e.correctedWords]) {
+    if (!Array.isArray(words) || words.length > 10000 || !words.every(w => typeof w === 'string' && w.length <= 200)) throw new Error('Invalid words');
+  }
   if (!Number.isSafeInteger(e.sentencesCompleted) || e.sentencesCompleted < 0) throw new Error('Invalid sentence count');
   for (const [key, value] of Object.entries(e.skills)) {
     if (!SKILLS.includes(key as Skill) || typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100) throw new Error('Invalid skill score');
@@ -54,6 +59,7 @@ export function validateEvaluation(e: SpeakingEvaluation): void {
 export function evaluateSpeaking(e: SpeakingEvaluation): SpeakingProgress {
   validateEvaluation(e);
   const scores = Object.values(e.skills).filter((n): n is number => typeof n === 'number');
+  // A partial assessment is not an overall five-skill score or a reward entitlement.
   const score = scores.length === SKILLS.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : null;
   const normalize = (words: string[]) => [...new Set(words.map(w=>w.trim().toLowerCase()).filter(Boolean))];
   const uniqueWords = normalize(e.spokenWords);

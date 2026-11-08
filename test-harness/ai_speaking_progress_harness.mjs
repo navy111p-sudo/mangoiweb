@@ -19,7 +19,7 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
     process.stdout.write(child.stdout || ''); process.stderr.write(child.stderr || '');
     process.exitCode = child.status ?? 1;
     if (!process.exitCode) {
-      const unit = spawnSync(process.execPath, ['--test', ...['ai-speaking-progress.test.ts', 'ai-speaking-progress-view.test.cjs', 'ai-speaking-progress-controller.test.cjs', 'ai-speaking-settings-timing.test.cjs'].map(f => join(ROOT, 'cloudflare-deploy/test', f))], { encoding: 'utf8', timeout: 30000 });
+      const unit = spawnSync(process.execPath, ['--test', ...['ai-speaking-progress.test.ts', 'ai-speaking-progress-view.test.cjs', 'ai-speaking-progress-controller.test.cjs', 'ai-speaking-settings-timing.test.cjs', 'ai-speaking-session.test.cjs', 'speaking-growth-view.test.cjs'].map(f => join(ROOT, 'cloudflare-deploy/test', f))], { encoding: 'utf8', timeout: 30000 });
       process.stdout.write(unit.stdout || ''); process.stderr.write(unit.stderr || ''); process.exitCode = unit.status ?? 1;
     }
   } finally { rmSync(dir, { recursive: true, force: true }); }
@@ -34,11 +34,11 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
   const check = (name, fn) => { fn(); pass++; console.log('PASS ' + name); };
   const sq = new DatabaseSync(':memory:');
   sq.exec('CREATE TABLE point_transactions(user_id TEXT,rule_code TEXT,amount INTEGER,created_at INTEGER,meta TEXT)');
-  let fault = null;
+  let fault = null, beforeFirst = async()=>{};
   const DB = { async exec(sql) { sq.exec(sql); }, prepare(sql) {
     const statement = (args = []) => ({ bind: (...values) => statement(values),
       async run() { if (fault?.(sql)) throw Error('injected DB failure'); const r = sq.prepare(sql).run(...args); return { success: true, meta: { changes: Number(r.changes) } }; },
-      async first() { if (fault?.(sql)) throw Error('injected DB failure'); return sq.prepare(sql).get(...args) || null; },
+      async first() { await beforeFirst(sql,args); if (fault?.(sql)) throw Error('injected DB failure'); return sq.prepare(sql).get(...args) || null; },
       async all() { if (fault?.(sql)) throw Error('injected DB failure'); return { success: true, results: sq.prepare(sql).all(...args) }; }
     }); return statement();
   }};
@@ -76,7 +76,7 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
   sq.prepare('INSERT INTO point_transactions VALUES(?,?,?,?,?)').run('alice', 'ai_friend_chat', 2, Date.now(), JSON.stringify({ speaking_session: id }));
   check('a replayed turn is stored once', () => assert.equal(JSON.parse(sq.prepare('SELECT turns_json FROM ai_speaking_sessions WHERE id=?').get(id).turns_json).length, 1));
   const finished = await call({ action: 'finish', sessionId: id, skills: { grammar: 100 }, gems: 99999 }, 'alice', handleAiApi);
-  check('real API route returns server-derived score and completion', () => { assert.equal(finished.result.score, null); assert.equal(finished.result.skills.grammar,80); assert.equal(finished.result.finishedNormally, true); });
+  check('real API route returns server-derived score and completion', () => { assert.equal(finished.result.score, null); assert.deepEqual(finished.result.skills,{}); assert.equal(finished.result.evaluationReason,'validated_evaluator_unavailable'); assert.equal(calls,0); assert.equal(finished.result.finishedNormally, true); });
   check('text engine cannot invent acoustic scores', () => { assert.equal(finished.result.skills.pronunciation, undefined); assert.equal(finished.result.skills.fluency, undefined); });
   check('unique words derive from student speech only', () => assert.deepEqual(finished.result.uniqueWords, ['i', 'like', 'apples', 'are', 'tasty']));
   check('confirmed per-turn reward is distinct from estimate', () => { assert.equal(finished.result.rewards.pointsEarned, 2); assert.equal(finished.result.rewards.gemsBalance, null); });
@@ -93,9 +93,12 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
   for (let n = 0; n < 5; n++) assert.deepEqual((await call({ action: 'finish', sessionId: id })).result, finished.result);
   fault = sql => sql.includes('SELECT finished_at,result_json,capture_limited');
   const withoutHistory = await call({action:'finish',sessionId:id}); fault = null;
-  check('history lookup failure preserves cached assessment without regrading', () => {
+  check('history lookup failure preserves unmeasured result without regrading', () => {
     assert.equal(withoutHistory.status,200);assert.equal(withoutHistory.result.weeklyVocabulary,null);
-    assert.equal(withoutHistory.result.skills.grammar,80);assert.equal(calls,priorCalls);
+    assert.deepEqual(withoutHistory.result.skills,{});assert.equal(withoutHistory.result.score,null);
+    assert.equal(withoutHistory.result.evaluationReason,'validated_evaluator_unavailable');
+    assert.equal(withoutHistory.result.rewards.pointsEarned,finished.result.rewards.pointsEarned);
+    assert.equal(calls,priorCalls);
   });
   await turn(id);
   check('reopening results neither grades nor records again', () => { assert.equal(calls, priorCalls); assert.equal(JSON.parse(sq.prepare('SELECT turns_json FROM ai_speaking_sessions WHERE id=?').get(id).turns_json).length, 1); });
@@ -103,7 +106,7 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
     check('invalid model score rejected: ' + String(bad), () => assert.throws(() => speakingTextScores({ skills: { grammar: bad, vocabulary: 80, sentence: 80 } })));
   }
   for (const score of [0, 1, 49, 75, 90, 99, 100]) {
-    check('measured score boundary ' + score, () => assert.equal(speakingTextScores({ skills: { grammar: score, vocabulary: score, sentence: score } }).grammar, score));
+    check('uncalibrated model number is rejected ' + score, () => assert.throws(()=>speakingTextScores({ skills: { grammar: score, vocabulary: score, sentence: score } }),/unvalidated_evaluator/));
   }
   const sample = { lessonId: 'x', studentId: 'alice', finishedNormally: true, evaluatedAt: new Date().toISOString(), evaluationSource: 'test', skills: {}, spokenWords: [], correctedWords: [], sentencesCompleted: 0 };
   for (const patch of [{ finishedNormally: 'true' }, { evaluatedAt: 'bad' }, { skills: null }, { spokenWords: [42] }, { studentId: {} }])
@@ -139,24 +142,23 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
   check('perfect-score badge uses the verified rubric rather than raw score >=10',()=>assert.equal(sq.prepare("SELECT count(*) AS n FROM student_badges WHERE user_id='alice' AND badge_code='eval_perfect'").get().n,1));
   const another=await start();await turn(another);await call({action:'finish',sessionId:another});
   check('repeated completion cannot duplicate existing badges',()=>assert.equal(sq.prepare("SELECT count(*) AS n FROM student_badges WHERE user_id='alice' AND badge_code IN ('points_1000','eval_perfect')").get().n,2));
-  let release, entered;
-  const ready = new Promise(resolve => { entered = resolve; });
-  model = () => { entered(); return new Promise(resolve => { release = resolve; }); };
-  const concurrent = await start(); await turn(concurrent);
-  const first = call({ action: 'finish', sessionId: concurrent }); await ready;
-  const second = await call({ action: 'finish', sessionId: concurrent });
-  check('double finish cannot run a second evaluator', () => assert.equal(second.error, 'evaluation_pending'));
-  release({ response: '{"skills":{"grammar":80,"vocabulary":80,"sentence":80}}' }); await first;
+  const concurrent=await start();await turn(concurrent);
+  let releaseFinish,enterFinish;const finishReady=new Promise(resolve=>{enterFinish=resolve;});
+  beforeFirst=async(sql,args)=>{if(sql.includes('SELECT turns_json,capture_limited')&&args[0]===concurrent){enterFinish();await new Promise(resolve=>{releaseFinish=resolve;});}};
+  const first=call({action:'finish',sessionId:concurrent});await finishReady;
+  const second=await call({action:'finish',sessionId:concurrent});
+  check('double finish cannot complete a second snapshot',()=>assert.equal(second.error,'evaluation_pending'));
+  releaseFinish();await first;beforeFirst=async()=>{};
   const interrupted = await start(); await turn(interrupted);
   sq.prepare("UPDATE ai_speaking_sessions SET status='evaluating',finished_at=? WHERE id=?").run(Date.now() - 31000, interrupted);
   model = async () => ({ response: '{"skills":{"grammar":80,"vocabulary":80,"sentence":80}}' });
   const recovered = await call({ action: 'finish', sessionId: interrupted });
-  check('expired interrupted claim can be recovered', () => assert.equal(recovered.result.skills.grammar, 80));
+  check('expired interrupted claim can be recovered', () => assert.deepEqual(recovered.result.skills, {}));
   const failure = await start(); await turn(failure);
   fault = sql => sql.includes("SET status='complete'");
   assert.equal((await call({ action: 'finish', sessionId: failure })).status, 503); fault = null;
   sq.prepare('UPDATE ai_speaking_sessions SET finished_at=? WHERE id=?').run(Date.now() - 31000, failure);
-  assert.equal((await call({ action: 'finish', sessionId: failure })).result.skills.grammar, 80);
+  assert.deepEqual((await call({ action: 'finish', sessionId: failure })).result.skills, {});
   check('failed persistence is retriable without awarding money', () => assert.deepEqual(sq.prepare('SELECT * FROM point_transactions').all(), ledgerBefore));
   const bounded = await start();
   for(let i=0;i<101;i++) await turn(bounded);
@@ -189,26 +191,30 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
   const warmResponse=await worker.fetch(warmRequest,workerEnv,context), warmBody=await warmResponse.json();
   check('full Worker records only its successful authenticated warmup reply',()=>{assert.equal(warmResponse.status,200,JSON.stringify(warmBody));assert.equal(JSON.parse(sq.prepare('SELECT turns_json FROM ai_speaking_sessions WHERE id=?').get(startedBody.sessionId).turns_json).length,1);});
   const timed = await start(); await turn(timed);
-  const nativeTimer = globalThis.setTimeout; let delay = 0;
-  model = () => new Promise(()=>{});
-  globalThis.setTimeout = (fn, ms) => { delay = ms; return nativeTimer(fn, 1); };
+  model = () => { throw new Error('Unvalidated model must not run'); };
+  const nativeTimer = globalThis.setTimeout;
+  globalThis.setTimeout = () => {throw new Error('No model timer should be allocated');};
   try {
     const r = await call({action:'finish',sessionId:timed});
-    check('evaluator timeout returns unmeasured results and releases its claim',()=>{assert.equal(delay,15000);assert.equal(r.result.score,null);assert.equal(r.result.evaluationStatus,'unavailable');});
-  } finally { globalThis.setTimeout = nativeTimer; }
-  const fenced = await start(); await turn(fenced);
-  const nativeNow=Date.now; let clock=nativeNow(), releaseOld, oldEntered;
-  Date.now=()=>clock;
-  const oldReady=new Promise(resolve=>{oldEntered=resolve;}); let attempt=0;
-  model=()=>++attempt===1?(oldEntered(),new Promise(resolve=>{releaseOld=resolve;})):Promise.resolve({response:'{"skills":{"grammar":80,"vocabulary":80,"sentence":80}}'});
-  try {
-    const older=call({action:'finish',sessionId:fenced}); await oldReady; clock+=31001;
-    const newer=await call({action:'finish',sessionId:fenced});
-    releaseOld({response:'{"skills":{"grammar":100,"vocabulary":100,"sentence":100}}'});
-    const stale=await older;
-    check('a stale evaluator cannot overwrite a recovered session result',()=>{assert.equal(newer.result.skills.grammar,80);assert.equal(stale.status,503);});
-    assert.equal((await call({action:'finish',sessionId:fenced})).result.skills.grammar,80);
-  } finally {Date.now=nativeNow;}
+    check('uncalibrated evaluator is never called or scheduled',()=>{assert.equal(calls,0);assert.deepEqual(r.result.skills,{});assert.equal(r.result.evaluationReason,'validated_evaluator_unavailable');});
+  } finally {globalThis.setTimeout=nativeTimer;}
+  // A stalled DB reader must not overwrite a later recovered completion.
+  const fenced=await start();await turn(fenced);
+  const nativeNow=Date.now;let clock=nativeNow(),releaseOld,entered;
+  const oldAt=clock,ready=new Promise(resolve=>{entered=resolve;});Date.now=()=>clock;
+  beforeFirst=async(sql,args)=>{if(sql.includes('SELECT turns_json,capture_limited')&&args[2]===oldAt){entered();await new Promise(resolve=>{releaseOld=resolve;});}};
+  try{
+    const older=call({action:'finish',sessionId:fenced});await ready;clock+=31001;
+    const newer=await call({action:'finish',sessionId:fenced});releaseOld();const stale=await older;
+    check('stale completion cannot overwrite a recovered result',()=>{assert.deepEqual(newer.result.skills,{});assert.equal(stale.status,503);});
+  }finally{Date.now=nativeNow;beforeFirst=async()=>{};}
+  const cached=await start();await turn(cached);await call({action:'finish',sessionId:cached});
+  const old=JSON.parse(sq.prepare('SELECT result_json FROM ai_speaking_sessions WHERE id=?').get(cached).result_json);
+  delete old.rewardAttributionVersion;
+  old.skills={grammar:99,vocabulary:99,sentence:99};old.evaluationStatus='measured';
+  sq.prepare('UPDATE ai_speaking_sessions SET result_json=? WHERE id=?').run(JSON.stringify(old),cached);
+  const reopened=await call({action:'finish',sessionId:cached});
+  check('legacy uncalibrated scores are suppressed when reopening',()=>{assert.deepEqual(reopened.result.skills,{});assert.equal(reopened.result.score,null);assert.equal(reopened.result.evaluationStatus,'unavailable');assert.equal(reopened.result.rewards.pointsEarned,null);});
   const bobSession=(await call({action:'start',app:'friend'},'bob')).sessionId;
   await turn(bobSession,{},'bob');
   const clearRequest = new Request('https://speaking.test/api/ai/chat-clear', { method: 'POST',

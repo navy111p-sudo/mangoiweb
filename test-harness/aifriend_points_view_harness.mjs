@@ -40,7 +40,7 @@ ok('⑧ applyGam 이 chat_capped 를 받음', /gamState\.chatCapped\s*=\s*g\.cha
 const snap = bodyAt(ts, 'const aiFriendGamSnapshot = async (uid: string) =>');
 ok('⑨ 스냅샷이 point_rule_log 의 ai_friend_* 합을 셈', /SUM\(amount\)[\s\S]*point_rule_log[\s\S]*ai_friend_chat/.test(snap) && /earned_today: earnedToday/.test(snap));
 ok('⑨ 조회 실패는 null(모름)', /let earnedToday: number \| null = guest \? 0 : null/.test(snap));
-ok('⑩ 이번 턴 적립을 더함 + 사유', /gam\.chat_capped = chatUsed >= 10 \? 'daily'/.test(ts) && /gam\.earned_today = Number\(gam\.earned_today\) \+ gam\.awarded/.test(ts));
+ok('⑩ 실제 적립을 더하고 재시도를 상한으로 오인하지 않음', /afterChatUsed>=10\?'daily':\(!afterAllowance\.ok\?'total':null\)/.test(ts) && /gam\.earned_today = Number\(gam\.earned_today\) \+ gam\.awarded/.test(ts));
 // ⑪ (2026-11-03) 축하 배너가 뜨는 턴에도 «이번에 받은 포인트» 를 함께 — applyGam 을 오려 내 실제로 돌림
 {
   const ag2 = bodyAt(html, 'function applyGam(');

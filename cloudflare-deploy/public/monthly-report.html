@@ -103,6 +103,7 @@
   }
 </style>
 <script src="/js/session-guard.js" defer></script>
+<script src="/js/speaking-growth-view.js?v=2"></script>
 </head>
 <body>
   <div class="topbar">
@@ -228,7 +229,7 @@
     var vo = d.voice||{};
     var att = (d.attendance||{}).days||0;
     var items = ev.items||[];
-    var hasData = (ev.count>0)||(att>0)||((vo.sessions||0)>0)||!!d.judgment||!!(d.scene_words&&d.scene_words.sessions>0);
+    var hasData = (ev.count>0)||(att>0)||((vo.sessions||0)>0)||!!d.judgment||!!(d.scene_words&&d.scene_words.sessions>0)||!!(d.speaking_growth&&d.speaking_growth.turns>0);
 
     var goals = items.map(function(r){return r.next_goals;}).filter(Boolean).slice(-3);
     var aiText = d.ai_text || (hasData ? t('이번 달 학습 요약입니다.','Monthly learning summary.') : '');
@@ -317,6 +318,7 @@
     html += '<div class="muted-note">'+t('이 레포트는 망고아이 학습 데이터를 바탕으로 자동 생성되었습니다.','Auto-generated from Mangoi learning data.')+'</div>';
     html += '</div></div>';
     document.getElementById('root').innerHTML = html;
+    if(window.SpeakingGrowthView&&d.speaking_growth){var growthBox=document.createElement('section');growthBox.id='monthly-speaking-growth';growthBox.className='card';document.getElementById('root').appendChild(growthBox);SpeakingGrowthView.render(growthBox,d.speaking_growth,lang==='en');}
   }
   /* 🗣️ 따라 읽기 말속도(2026-10-18) — 서버가 표본이 모자라면 null 을 준다 → 그때는 아무것도 안 그린다(지어내지 않음).
      ⛔ «WPM(대화 속도)» 이라 부르지 말 것 — 짧은 문장을 따라 읽는 속도라 앞뒤 쉼이 빠져 높게 나온다. */

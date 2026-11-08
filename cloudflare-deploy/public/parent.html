@@ -15,6 +15,7 @@
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
 <script src="/js/mango-i18n.js" defer></script>
+<script src="/js/speaking-growth-view.js?v=2"></script>
 <link rel="stylesheet" href="/css/mangoi-fonts.css?v=2"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
 <style>
   /* ═══ 2026-09-13 «B · 망고 카드» 디자인 — 사장님이 4종 시안 중 고른 안.
@@ -1180,6 +1181,11 @@ function pdRender(d){
   }
 
   // 평가서
+  if(window.SpeakingGrowthView){
+    let growthBox=document.getElementById('pd-speaking-growth');
+    if(!growthBox){growthBox=document.createElement('section');growthBox.id='pd-speaking-growth';growthBox.className='card';growthBox.style.marginTop='16px';document.getElementById('pd-warmup-card').after(growthBox);}
+    SpeakingGrowthView.render(growthBox,d.speaking_growth,!!(window.getLang&&getLang()==='en'));
+  }
   const evals = d.evaluations || [];
   document.getElementById('pd-evals').innerHTML = evals.length
     ? evals.map(e => `<div class="eval-item">

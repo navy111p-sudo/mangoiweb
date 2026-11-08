@@ -21,6 +21,7 @@ import { summarizeAttendance } from './attendance-truth';
 import { dropStudentCafe24Duplicates } from './student-cafe24-duplicates';
 import { ATTENDANCE_BY_UID, ATTENDANCE_BY_UID_NOCASE, attUidBinds } from './attendance-uid';
 import { readParentWarmup } from './warmup-parent';   // 👪 웜업 횟수·고쳐 준 표현(2026-10-02 P4)
+import { readSpeakingGrowth } from './speaking-growth';
 import { resolveStudentTrack } from './student-track';   // 🎯 화상수업 학생 / AI 전용 학생 판정 정본
 import { buildTodayPlan, bandFromLevelCell, kstParts, dowMatches, aiStreak, SAMPLE_BAND, SAMPLE_TEXTBOOK, sceneBookId, type ClassToday, type ToolKey } from './today-plan';   // 📅 «오늘의 A.i 학습» 정본 (2026-09-03)
 import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
@@ -130,6 +131,7 @@ export async function handleStudentsApi(
          ⚠️ childUid(DB 표기)로 정확일치. 실패해도 대시보드는 그대로 뜬다(readParentWarmup 은 던지지 않는다). */
       let warmup: any = null;
       try { warmup = await readParentWarmup(env.DB, childUid, Date.now()); } catch { warmup = null; }
+      const speakingGrowth=_authUid===childUid?await readSpeakingGrowth(env.DB,childUid,sinceMs,Date.now()):null;
       /* 🗓 (2026-10-10) 강사가 정한 4주 목표 + 그 뒤 연습 횟수 — 위 게이트 «뒤». 둘 다 던지지 않는다. */
       let goal: any = null;
       try {
@@ -155,6 +157,7 @@ export async function handleStudentsApi(
         attendance: attSummary,
         payments: pays.results || [],
         warmup,
+        speaking_growth:speakingGrowth,
         goal,
         parent_request: parentRequest,
         study_skill: studySkill,

@@ -68,6 +68,8 @@ import { logWarmupSessionStart, markWarmupFirstReply, warmupShouldMarkFirstReply
 import { warmupAnswerChips } from './warmup-answers';                    // 💬 웜업 «이렇게 대답해 보세요» 보기 칩
 import { backfillPastTenseFix } from './tense-backfill';
 import { focusedCandidate, focusedPastTenseFix, focusedArticleFix, focusedAgreementFix, focusedPrepositionFix, focusedInfinitiveFix, focusedReplyFix, recoverFocusedFix, FOCUSED_DRAFT_RULE } from './focused-correction';
+import { speakingObservation } from './speaking-observations';
+import { logSpeakingGrowth } from './speaking-growth';
 import { WARMUP_CORRECTION_RULE, WARMUP_ZH_CORRECTION_RULE, ZH_MEANING_CHANGING_TAGS, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat, correctionLeadIn } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
 import { correctionTimingOf, correctionPrompt, showDuringPractice } from './ai-speaking-progress';
 import { resolveWarmupHonest, warmupHonestRule, parseWarmupGrade, finalizeWarmupGrade, applyHonestPraise, gateFixForMode, ensureFocusedFixSpoken, warmupSpeaksFixLead } from './warmup-honest';  // 🎯 정직한 칭찬 + 교정 모드(2026-10-29 시범 — 정본 그 파일)
@@ -4466,10 +4468,11 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     /* 🎯 (2026-10-29 사장님 «제안서대로») 학생이 고른 교정 모드, 없으면 시범 학원만 «평가 등급 + 정직한 칭찬 + 교정 모드». 정본 src/warmup-honest.ts.
        ⛔ null 이면 아래 어디에서도 동작이 바뀌지 않는다(예전과 같음). 던지지 않는다. */
     const honest = await resolveWarmupHonest(env, sessionId, ctxUserId, { lang: ctxLang, chosen: body && body.correction_mode });
-    if (honest) sys += '\n' + warmupHonestRule(honest.mode);
-    if (honest?.mode === 'focused') sys += '\n' + FOCUSED_DRAFT_RULE;
-    const timing = ctxLang === 'en' ? correctionTimingOf(body?.correction_timing) : '';
-    if (timing) sys += '\nCorrection timing overrides earlier timing instructions: ' + correctionPrompt(timing);
+    const timing = ctxLang === 'en' && !hasEleaderExpansion(request) ? (correctionTimingOf(body?.correction_timing) || null) : null;
+    const focusedNow = timing !== 'after-lesson' && timing !== 'key-mistakes';
+    if (honest) sys += '\n' + warmupHonestRule(timing === 'after-lesson' ? 'free_talk' : timing === 'key-mistakes' ? 'balanced' : honest.mode);
+    if (honest?.mode === 'focused' && focusedNow) sys += '\n' + FOCUSED_DRAFT_RULE;
+    if (timing) sys += '\n[Correction timing overrides earlier instructions] ' + correctionPrompt(timing);
     sys += '\n' + warmupGuidanceRule(body, ctxLang);
     if (hasEleaderExpansion(request)) sys += ELEADER_EXPANSION_RULE;
     /* 🏷️ 첫 턴에는 «화면 인사» 를 모델 문맥에 넣어 준다 (2026-09-01).
@@ -4484,7 +4487,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
           여기서 필요한 것도 이름이므로 그대로 두지만, 단정해 적지 않는다.
        ⚠️ 첫 턴에만 넣는다. 둘째 턴부터는 진짜 히스토리에 이름이 이미 들어 있다. */
     const messages = [{ role: 'system', content: sys }]
-      .concat(history.length ? history : [{ role: 'assistant', content: `Hi! I'm ${ctxFriend}.` }])
+      .concat(history.length ? history.map(m => ({role:m.role,content:m.content})) : [{ role: 'assistant', content: `Hi! I'm ${ctxFriend}.` }])
       .concat([{ role: 'user', content: studentInput }]);
 
     // ── Workers AI 호출 ──
@@ -4611,7 +4614,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     const live = sseSend ? createWarmupLive(sseSend, { lang: ctxLang, cap: sanityCap, friend: ctxFriend, studentInput, fragQ, oneQuestion: ctxRoleplay, honest: !!honest, focused: honest?.mode === 'focused', finalOnly,
       repeatOf: qmem ? (sen) => Date.now() - latT0 <= FRAG_RETRY_BUDGET_MS && repeatedQuestions(sen, qmem).length > 0 : undefined }) : null;
     try {
-      if (honest?.mode === 'focused' && !ctxKickoff && !ctxRoleplay && !hasEleaderExpansion(request)) {
+      if (honest?.mode === 'focused' && focusedNow && !ctxKickoff && !ctxRoleplay && !hasEleaderExpansion(request)) {
         focusedFix = focusedInfinitiveFix(studentInput);
         if (finalOnly && !focusedFix) {
           focusedFix = focusedPastTenseFix(studentInput) || focusedArticleFix(studentInput)
@@ -4646,7 +4649,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
             src/warmup-zh.ts 의 WARMUP_ZH_CHAR_CAP 에 적어 두었다 — 쓰려면 별건.
          (sanityCap 선언은 📡 P2 로 첫 호출 «앞» 으로 옮겼다 — 값은 그대로) */
       // Lock a verified correction before conversational retries can replace it.
-      if (!focusedFix && aiText && honest?.mode === 'focused') {
+      if (!focusedFix && aiText && honest?.mode === 'focused' && focusedNow) {
         focusedFix = focusedCandidate(rawFix, studentInput)
           || focusedCandidate(backfillPastTenseFix(studentInput), studentInput)
           || focusedReplyFix(aiText, studentInput)
@@ -4792,7 +4795,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         honestGrade = finalizeWarmupGrade(modelOk ? rawGrade : null, vfix, studentInput);
         aiText = applyHonestPraise(aiText, honestGrade) || aiText;
         // 🎯 집중교정 — 고친 문장을 아바타가 소리 내어 말하게 한다(검증된 교정만, 히스토리 저장 전)
-        if (!vfix || showDuringPractice(timing, vfix)) aiText = ensureFocusedFixSpoken(aiText, honest.mode, honestGrade, vfix);
+        if (focusedNow) aiText = ensureFocusedFixSpoken(aiText, honest.mode, honestGrade, vfix);
       } catch (e: any) { honestGrade = 'partial'; console.warn('[warmup-honest] grade skipped:', e?.message || e); }
     }
 
@@ -4814,6 +4817,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
        ⚠️ 이 블록은 절대 던지면 안 된다 — 여기서 던지면 멀쩡한 대화가 통째로 500 이 된다.
           그래서 통으로 try/catch 이고, 실패하면 fix 없이(=고치기 전과 똑같이) 내려간다. */
     let showFix: any = null;
+    let observedFix: any = null;
     let reviewFix: any = null;
     let offerRepeat = false;
     let fixWrite: Promise<void> | undefined;
@@ -4829,6 +4833,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         /* 🀄 lang 을 빼면 검증기가 «영어 문장인가» 로 재서 **중국어 교정이 100% 버려집니다**
            (isEnglishText 가 한자를 떨어뜨리고 normEn 이 빈 문자열을 만듭니다 — 에러 없음). */
         ctxLang === 'zh' ? { majorTags: ZH_MEANING_CHANGING_TAGS, lang: 'zh' as const } : undefined);
+      observedFix = verified;
       /* 🔎 (2026-10-31 제안서 B) 교정이 «왜» 안 떴는지 Workers 로그에 남긴다 — 학생 발화·교정 문장은 싣지 않는다. */
       if (!verified) console.warn('[warmup-fix] no card:', rawFix ? 'fix-rejected' : 'fix-missing', 'lang=' + ctxLang);
       traceReason = verified ? 'shown' : (rawFix ? 'fix_rejected' : 'fix_missing');
@@ -4843,12 +4848,15 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
           const rawMemo = env.SESSION_STATE ? await env.SESSION_STATE.get(mkey) : null;
           if (rawMemo != null) memoIn = JSON.parse(rawMemo);
         } catch {}
-        const decided = decideWarmupFixShow(verified, memoIn, turnCount, { immediate: timing === 'immediate' || (!!honest && honest.mode === 'focused') });
+        const decided = decideWarmupFixShow(verified, memoIn, turnCount, { immediate: timing === 'immediate' || (!!honest && honest.mode === 'focused' && focusedNow) });
         showFix = decided.show;
         traceTag = verified.tag;
         if (!showFix) traceReason = 'held_gap';   // 검증은 통과 — 턴 간격 규칙이 이번 턴을 미뤘다
         offerRepeat = warmupShouldOfferRepeat(decided.show, decided.memo, turnCount);
         if (honest) { const g = gateFixForMode(honest.mode, verified, showFix, offerRepeat); showFix = g.show; offerRepeat = g.repeat; }   // 🎯 교정 모드
+        const shown = Number.isSafeInteger(memoIn?.timingShown) ? memoIn.timingShown : 0;
+        if (timing === 'after-lesson' || (timing === 'key-mistakes' && (!env.SESSION_STATE || verified.severity !== 'major' || shown >= 3))) { showFix = null; offerRepeat = false; }
+        (decided.memo as any).timingShown = shown + (timing === 'key-mistakes' && showFix ? 1 : 0);
         if (traceReason === 'shown' && !showFix) traceReason = 'mode_hidden';   // 🎯 보여줄 것이 있었는데 모드가 가렸다
         // 히스토리와 같은 6시간 — 세션이 끝나면 함께 사라진다(발화를 저장하는 것이 아니다)
         fixWrite = env.SESSION_STATE?.put(mkey, JSON.stringify(decided.memo), { expirationTtl: 6 * 3600 }).catch(e => {
@@ -4885,7 +4893,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
        ⚠️ 히스토리 저장은 이 보정 «뒤» 에 한다 — 학생이 본 문장과 모델이 다음 턴에 읽는 문장을 같게 두기 위해서다. */
     // Focused speech is already canonical; an internal '?' must not add a fourth copy.
     // 💬 자유대화는 카드만 — 고친 문장을 말로 붙이지 않는다(2026-11-04 · 판정 정본 warmupSpeaksFixLead).
-    if (showFix && warmupSpeaksFixLead(honest?.mode)) aiText = correctionLeadIn(aiText, showFix, ctxLang === 'zh' ? 'zh' : 'en');
+    if (showFix && timing !== 'after-lesson' && timing !== 'key-mistakes' && warmupSpeaksFixLead(honest?.mode)) aiText = correctionLeadIn(aiText, showFix, ctxLang === 'zh' ? 'zh' : 'en');
 
     const reply = {
       session_id: sessionId, ai_response: aiText, turn_count: turnCount,
@@ -4893,6 +4901,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
       fix: showFix, repeat: offerRepeat, speaking_help: rawHelp,
       ...(reviewFix ? { review_fix: reviewFix } : {}),
       ...(honest ? { grade: honestGrade || 'partial', correction_mode: honest.mode } : {}),
+      ...(timing ? { correction_timing: timing } : {}),
+      progress: speakingObservation({ sessionId, turn: turnCount, input: studentInput, lang: ctxLang, ok: modelOk, kickoff: ctxKickoff, grade: honestGrade, fix: observedFix }),
       ...(live ? { replaced: live.replacedBy(aiText), streamed: live.sent(), ...(live.halted() ? { halted: live.halted() } : {}) } : {}),
     };
     // Speech can start while writes finish. The browser still waits for done before sending another turn.
@@ -4913,12 +4923,18 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     // ── 히스토리 갱신(최근 N턴만) + 6시간 TTL 저장 ──
     const historyWrite = (async () => { try {
       const updated = history.concat([
-        { role: 'user', content: studentInput },
+        { role: 'user', content: studentInput, confirmed: modelOk && !ctxKickoff },
         { role: 'assistant', content: aiText }
       ]).slice(-WARMUP_MAX_TURNS * 2);
       if (env.SESSION_STATE) await env.SESSION_STATE.put(hkey, JSON.stringify(updated), { expirationTtl: 6 * 3600 });
     } catch {} })();
-    const stateWrites = Promise.all([turnWrite, fixWrite, parentLog, historyWrite]);
+    const growthWrite=(async()=>{try{
+      if(!reply.progress||!ctxUserId)return;
+      const tokenUid=await authUidFromRequest(request,new URL(request.url),env,body);
+      const sameLogin=tokenUid===ctxUserId||(await checkAdminSession(request,env as any))?.username===ctxUserId;
+      if(sameLogin)await logSpeakingGrowth(env.DB,ctxUserId,'warmup',reply.progress,String(turnCount));
+    }catch{console.warn('[speaking-growth] warmup log unavailable');}})();
+    const stateWrites = Promise.all([turnWrite, fixWrite, parentLog, historyWrite,growthWrite]);
     if (finalOnly && ctx) ctx.waitUntil(stateWrites);
     await stateWrites;
 

@@ -192,6 +192,8 @@ console.log('\nG. 회귀 감시 — src 의 손수 만든 IN 목록');
     // 🪙 GAME_QUIZ_RULES 는 코드에 박힌 상수 배열(현재 7개)이라 사용자 입력으로 늘지 않는다.
     //    규칙을 90개 넘게 추가할 일이 생기면 그때 selectInChunks 로 바꿀 것.
     'point-policy.ts': '게임·퀴즈 규칙 코드 상수 배열(고정 7개) — 입력으로 늘지 않음',
+    'warmup-point-credit.ts': 'CAP_EXEMPT_RULES·CAP_UNCOUNTED_RULES 정책 상수만(현재 2개); 아래 실제 배열+고정 바인드 15개 합계가 100 이하인지 검사',
+    'ai-friend-point-credit.ts': '같은 정책 상수 목록만(현재 2개); 고정 바인드 최대 15개와 합계 한도를 아래에서 검사',
     // 🇵🇭 PH_MANAGERS 는 코드에 박힌 상수 배열(현재 3명)이라 사용자 입력으로 늘지 않는다.
     //    필리핀 본사 매니저가 90명을 넘길 일은 없다(사람이 손으로 추가하는 명단이다).
     'auth-admin.ts': '필리핀 매니저 명단 PH_MANAGERS 코드 상수 배열(현재 3명) — 입력으로 늘지 않음',
@@ -207,6 +209,9 @@ console.log('\nG. 회귀 감시 — src 의 손수 만든 IN 목록');
     //    설령 이름이 겹쳐도 100개를 넘을 수 없다 — 사용자 입력으로 늘지 않는 값이다.
     'api-teacher.ts': '로그인한 강사 본인의 teachers.id 후보(보통 0~1개) + username 1개 — teachers 표 전체가 100행 미만',
   };
+  const policy = await import(pathToFileURL(join(SRC, 'point-policy.ts')).href);
+  check('웜업 원자 지급: 정책 상수 목록 + 고정 바인드가 D1 한도 이내',
+    policy.CAP_EXEMPT_RULES.length + policy.CAP_UNCOUNTED_RULES.length + 15 <= D1_MAX_BIND);
   const offenders = [];
   // A relocation must not silently allow additional builders in the new files.
   const movedBuilderLimits = { 'api-ai-writing.ts': 1, 'api-admin-leveltest.ts': 1, 'api-admin-organizations.ts': 1, 'api-admin-class-monitor.ts': 1, 'api-admin-school-attendance.ts': 2, 'api-admin-scheduling.ts': 1 };
