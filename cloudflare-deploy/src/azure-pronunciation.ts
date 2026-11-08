@@ -53,8 +53,43 @@ export interface AzureWordScore {
 /** Azure Words[].Phonemes → 우리 모양. 이상한 값은 버린다(던지지 않는다). */
 export function phonemesOf(w: any, num: (v: any) => number): { p: string; acc: number }[] {
   const arr = Array.isArray(w?.Phonemes) ? w.Phonemes : [];
-  return arr.slice(0, 20).map((p: any) => ({ p: String(p?.Phoneme || ''), acc: num(p?.PronunciationAssessment?.AccuracyScore) }))
+  return arr.slice(0, 20).map((p: any) => ({ p: String(p?.Phoneme || ''), acc: num(paOf(p)?.AccuracyScore) }))
     .filter((p: { p: string }) => !!p.p);
+}
+
+/* 🔴 (2026-11-08 실제 Azure 실측) REST 짧은오디오 창구는 점수를 «평평하게» 준다 —
+   NBest[0].AccuracyScore · Words[].AccuracyScore/ErrorType · Phonemes[].AccuracyScore.
+   Speech SDK 의 JSON 은 같은 값을 PronunciationAssessment 안에 «중첩» 해서 준다.
+   예전 코드는 중첩만 읽어서 점수가 와도 늘 no_assessment 였고, 그것을 2026-08-08 에
+   «REST 는 발음평가 헤더를 무시한다» 로 잘못 결론 냈다. 이제 둘 다 받는다. */
+const paOf = (x: any): any => x?.PronunciationAssessment ?? x;
+const SCORE_KEYS = ['AccuracyScore', 'FluencyScore', 'CompletenessScore', 'PronScore'];
+/* 네 칸이 «다» 있어야 측정값이다 — 일부만 오면(재시도의 기본 Dimension 등) 빠진 칸을 0 으로 지어내게 된다 */
+const hasScores = (pa: any) => SCORE_KEYS.every(k => typeof pa?.[k] === 'number' && Number.isFinite(pa[k]) && pa[k] >= 0 && pa[k] <= 100);
+const clamp100 = (v: any) => { const n = Number(v); return isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0; };
+
+function toResult(best: any, d: any): AzurePronResult | AzurePronFail {
+  const pa = paOf(best);
+  const text = String(best?.Display || d?.DisplayText || '').trim();
+  /* 잡음만 들어오면 Azure 는 Success · 전부 0점 · Lexical "." 를 준다(실측).
+     그 0점은 «못 읽었다» 가 아니라 «말이 없었다» 다 — 측정값으로 남기지 않는다.
+     Lexical 로 본다: Display 는 «seven» 을 «7» 로 바꿔 글자가 없어질 수 있다. */
+  if (!/\p{L}/u.test(String(best?.Lexical ?? text))) return { ok: false, reason: 'recog_no_words' };
+  return {
+    ok: true,
+    scoreFieldsPresent: SCORE_KEYS.every(k => typeof pa?.[k] === 'number' && Number.isFinite(pa[k]) && pa[k] >= 0 && pa[k] <= 100),
+    accuracy: clamp100(pa?.AccuracyScore),
+    fluency: clamp100(pa?.FluencyScore),
+    completeness: clamp100(pa?.CompletenessScore),
+    pron: clamp100(pa?.PronScore),
+    text,
+    words: Array.isArray(best?.Words) ? best.Words.slice(0, 40).map((w: any) => ({
+      word: String(w?.Word || ''),
+      accuracy: clamp100(paOf(w)?.AccuracyScore),
+      errorType: paOf(w)?.ErrorType || undefined,
+      phonemes: phonemesOf(w, clamp100),
+    })) : [],
+  };
 }
 
 /* 🔍 «왜 발음평가가 안 붙었나» 를 화면에서 바로 알 수 있게 사유를 돌려준다 (2026-08-08).
@@ -224,12 +259,12 @@ export async function assessPronunciation(
       return { ok: false, reason: 'recog_' + String(d?.RecognitionStatus || 'unknown') };
     }
     const best = Array.isArray(d?.NBest) ? d.NBest[0] : null;
-    const pa = best?.PronunciationAssessment;
-    if (!pa) {
+    if (!hasScores(paOf(best))) {
       /* 🔍 여기가 둘로 갈린다. 구분이 안 되면 다음 사람이 또 처음부터 헤맨다.
          · heard="" → Azure 가 **아무 말도 못 알아들었다** (오디오·형식 문제)
          · heard="…" → 말은 알아들었는데 **발음평가 블록만 빠졌다** (헤더가 무시된 것)
-         2026-08-08 실측: heard 는 완벽했다(«Mangoi» 까지). 즉 헤더가 무시된 쪽이다.
+         2026-08-08 실측: heard 는 완벽했다(«Mangoi» 까지). 「헤더가 무시됐다」 고 봤지만
+         실제로는 점수가 «평평하게» 와 있었다(2026-11-08 — 위 paOf). 지금 이 갈래는 정말 빠졌을 때뿐.
          → EnableMiscue 를 뺀 «최소 형태» 로 한 번만 다시 청한다. 이 조합이 가장 널리 쓰인다.
          🪤 반드시 오디오 사본을 새로 뜬다 — 같은 버퍼를 재사용하면 «Network connection lost». */
       const heard = String(best?.Display || d?.DisplayText || '').slice(0, 60);
@@ -255,22 +290,7 @@ export async function assessPronunciation(
             return { ok: false, reason: 'recog_' + String(d2?.RecognitionStatus || 'unknown') };
           }
           const b2 = Array.isArray(d2?.NBest) ? d2.NBest[0] : null;
-          const pa2 = b2?.PronunciationAssessment;
-          if (pa2) {
-            const n2 = (v: any) => { const x = Number(v); return isFinite(x) ? Math.max(0, Math.min(100, Math.round(x))) : 0; };
-            return {
-              ok: true,
-              scoreFieldsPresent: ['AccuracyScore','FluencyScore','CompletenessScore','PronScore'].every(k=>typeof pa2[k]==='number'&&Number.isFinite(pa2[k])&&pa2[k]>=0&&pa2[k]<=100),
-              accuracy: n2(pa2.AccuracyScore), fluency: n2(pa2.FluencyScore),
-              completeness: n2(pa2.CompletenessScore), pron: n2(pa2.PronScore),
-              text: String(b2?.Display || d2?.DisplayText || '').trim(),
-              words: Array.isArray(b2?.Words) ? b2.Words.slice(0, 40).map((w: any) => ({
-                word: String(w?.Word || ''), accuracy: n2(w?.PronunciationAssessment?.AccuracyScore),
-                errorType: w?.PronunciationAssessment?.ErrorType || undefined,
-                phonemes: phonemesOf(w, n2),
-              })) : [],
-            };
-          }
+          if (hasScores(paOf(b2))) return toResult(b2, d2);
           return { ok: false, reason: `no_assessment2 heard="${heard}"` };
         }
         return { ok: false, reason: `no_assessment retry_http_${r2.status} heard="${heard}"` };
@@ -279,29 +299,7 @@ export async function assessPronunciation(
       }
     }
 
-    const num = (v: any) => {
-      const n = Number(v);
-      return isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0;
-    };
-    const words: AzureWordScore[] = Array.isArray(best?.Words)
-      ? best.Words.slice(0, 40).map((w: any) => ({
-          word: String(w?.Word || ''),
-          accuracy: num(w?.PronunciationAssessment?.AccuracyScore),
-          errorType: w?.PronunciationAssessment?.ErrorType || undefined,
-          phonemes: phonemesOf(w, num),
-        }))
-      : [];
-
-    return {
-      ok: true,
-      scoreFieldsPresent: ['AccuracyScore','FluencyScore','CompletenessScore','PronScore'].every(k=>typeof pa[k]==='number'&&Number.isFinite(pa[k])&&pa[k]>=0&&pa[k]<=100),
-      accuracy: num(pa.AccuracyScore),
-      fluency: num(pa.FluencyScore),
-      completeness: num(pa.CompletenessScore),
-      pron: num(pa.PronScore),
-      text: String(best?.Display || d?.DisplayText || '').trim(),
-      words,
-    };
+    return toResult(best, d);
   } catch (e: any) {
     // 타임아웃(abort) 포함 — 전부 «없던 일» 로 만들고 Whisper 채점으로 돌아간다
     console.warn('[azure-pron] failed:', e?.name === 'AbortError' ? 'timeout' : (e?.message || e));
