@@ -12,3 +12,14 @@ test('period vocabulary reports measured zero, unknown and partial capture separ
  view().render(c,{sessions:0,turns:0,vocabulary:null},false);
  assert.match(JSON.stringify(c),/확인할 수 없습니다/);assert.doesNotMatch(JSON.stringify(c),/고유 단어: 0/);
 });
+
+test('language toggle redraws the drawn report without new data',()=>{
+ const L={},w={getLang:()=>'ko',addEventListener:(k,f)=>{(L[k]=L[k]||[]).push(f);}};
+ vm.runInNewContext(src,{window:w,document:{createElement:el,addEventListener(){}}});
+ const c=el();w.SpeakingGrowthView.render(c,{sessions:2,turns:3,grades:{},reading:{samples:0},corrections:[]},false);
+ assert.match(JSON.stringify(c),/확인된 말하기 연습 기록/);
+ L['mangoi:lang-changed'].forEach(f=>f({detail:{lang:'en'}}));
+ const s=JSON.stringify(c);assert.match(s,/Confirmed speaking records/);assert.match(s,/Recorded sessions: 2/);assert.doesNotMatch(s,/확인된 말하기/);
+ w.getLang=()=>'ko';L['mangoi:lang-changed'].forEach(f=>f());assert.match(JSON.stringify(c),/기록된 연습: 2회/);
+ const gone=el();gone.isConnected=false;w.SpeakingGrowthView.render(gone,null,false);L['mangoi:lang-changed'].forEach(f=>f({detail:{lang:'en'}}));assert.equal(gone.hidden,true);
+});
