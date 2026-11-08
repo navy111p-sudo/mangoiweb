@@ -102,4 +102,7 @@ NODE_USE_ENV_PROXY=1 node test-harness/manual/azure-speech-live-check.mjs
 - 적대적 검토(관점 4개 × 검증 2명): 확정 4건(전부 낮음) — `recog_Error` 를 «말 없음» 으로 보고 SDK 를 건너뛰던 것 · 녹음마다 «기록된 연습» 이 늘던 것 · 하니스의 길이 창·주석 미제거 · 작업기록의 «닿았다/못 닿았다» 오기. 넷 다 고침.
 - 남긴 것: 정상 경로에서는 브라우저 SDK(369KB)를 안 받는다 — 폴백 때만.
 
+- 배포(2026-11-09 05:08 KST, #2218) 뒤 운영에서 합성 음성으로 `POST /api/voice/transcribe` + reference(비로그인 = 기록 없음) → `azure_diag: ok` · 98/98/100 · pron 93 · **prosody 83** · 낱말 5개.
+- 브라우저 검사 `test-harness/manual/speech-coach-server-azure-browser.mjs`(34종 — 자동으로 안 돕니다, 사람이 부릅니다): 진짜 화면을 크로미움에 띄우고 두 창구만 가짜로 답해 `processAudio` 를 실제로 부른다. 서버 점수 → SDK·토큰 안 부름 · 화면에 «🎵 운율 83점»·단어 지도 / http_401·recog_Error·timeout → SDK 폴백 / recog_NoMatch·too_long → SDK 안 부름 / 영어 화면 «Prosody 83». 변이 5종(배포 전 화면·옛 정규식·조건 뒤집기·토큰 빼기·서버 점수 무시) 전부 실제 FAIL.
+
 **사람이 볼 것**: 배포 뒤 로그인한 학생이 음성 코칭을 한 번 하면 `speaking_growth_events` 표가 처음 생긴다(지연 생성). 2026-11-09 23:10 KST 재측정 예약이 그 표를 센다.

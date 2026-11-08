@@ -4,6 +4,8 @@
 > 사람이 읽는 상세 문서는 [MAINTENANCE.md](MAINTENANCE.md)입니다. 작업 전에 함께 참고하세요.
 >
 > **2인 공동 유지보수 중입니다.** 내 판단만으로 남의 영역을 바꾸지 마세요.
+>
+> 공용 에이전트 지침(Codex·Claude 공통)도 함께 읽습니다: @AGENTS.md — 스킬은 `.claude/skills/mangoi-*` · `.agents/skills/mangoi-*`.
 
 ---
 
