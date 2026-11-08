@@ -68,12 +68,15 @@ check('빈 입력은 빈 값', pickTarget('') === '' && pickTarget(null) === '')
 // ── ④ 배선 ───────────────────────────────────────────────────────────
 console.log('\n── ④ 배선 ──');
 const API = R('cloudflare-deploy/src/api-ai.ts');
-check('chat-friend: pron 은 집중교정에서만 받는다', /friendMode === 'focused' && b\.pron && typeof b\.pron === 'object'/.test(API));
+check('chat-friend: pron 은 집중교정의 기본·즉시 시점에서만 받는다',
+  /const immediateFix = friendMode === 'focused'/.test(API) &&
+  /immediateFix && \(!timing \|\| timing === 'immediate'\) && b\.pron && typeof b\.pron === 'object'/.test(API));
 check('chat-friend: 발음 판정은 응답 전에 «미리» 시작한다', /const pronP: Promise<any> = pronIn \? assessPronFix/.test(API));
 check('chat-friend: 응답에 pron_fix 를 싣는다', /pron_fix: pronFix/.test(API) && /const pronFix = await pronP;/.test(API));
 check('chat-friend: 판정 실패는 응답을 막지 않는다(assessPronFix 는 던지지 않음)', /catch \{\s*return null;\s*\}/.test(PF_SRC));
 check('화면: 음성 턴이면 WAV 와 기준 낱말을 보낸다', /pron: pronBody/.test(HTML) && /pronPayload\(_lastRecBlob, tgt\)/.test(HTML));
-check('화면: 집중교정 모드에서만 보낸다', /wasVoice && currentCorr === 'focused' && _lastRecBlob/.test(HTML));
+check('화면: 집중교정의 기본·즉시 시점인 음성 턴에서만 보낸다',
+  /wasVoice && currentCorr === 'focused' && \(!turnTiming \|\| turnTiming === 'immediate'\) && _lastRecBlob/.test(HTML));
 check('화면: 응답의 pron_fix 를 그린다', /if \(d\.pron_fix\) showPronFix\(d\.pron_fix, false\)/.test(HTML));
 // Execute the actual queue, including its completion signal and cancellation.
 const ts = createRequire(path.join(ROOT, 'cloudflare-deploy/package.json'))('typescript');

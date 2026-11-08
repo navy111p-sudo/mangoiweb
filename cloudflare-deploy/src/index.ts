@@ -69,6 +69,7 @@ import { warmupAnswerChips } from './warmup-answers';                    // 💬
 import { backfillPastTenseFix } from './tense-backfill';
 import { focusedCandidate, focusedPastTenseFix, focusedArticleFix, focusedAgreementFix, focusedPrepositionFix, focusedInfinitiveFix, focusedReplyFix, recoverFocusedFix, FOCUSED_DRAFT_RULE } from './focused-correction';
 import { WARMUP_CORRECTION_RULE, WARMUP_ZH_CORRECTION_RULE, ZH_MEANING_CHANGING_TAGS, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat, correctionLeadIn } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
+import { correctionTimingOf, correctionPrompt, showDuringPractice } from './ai-speaking-progress';
 import { resolveWarmupHonest, warmupHonestRule, parseWarmupGrade, finalizeWarmupGrade, applyHonestPraise, gateFixForMode, ensureFocusedFixSpoken, warmupSpeaksFixLead } from './warmup-honest';  // 🎯 정직한 칭찬 + 교정 모드(2026-10-29 시범 — 정본 그 파일)
 import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
 import { firstQuestionOnly, fragmentQuestions, fragmentQuestionHint, checksFragmentQuestions, fullQuestionRule, FRAG_RETRY_BUDGET_MS } from './reply-questions';   // 🧩 기초 단계 «조각 질문»(like space?) 막기
@@ -4466,6 +4467,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     const honest = await resolveWarmupHonest(env, sessionId, ctxUserId, { lang: ctxLang, chosen: body && body.correction_mode });
     if (honest) sys += '\n' + warmupHonestRule(honest.mode);
     if (honest?.mode === 'focused') sys += '\n' + FOCUSED_DRAFT_RULE;
+    const timing = ctxLang === 'en' ? correctionTimingOf(body?.correction_timing) : '';
+    if (timing) sys += '\nCorrection timing overrides earlier timing instructions: ' + correctionPrompt(timing);
     sys += '\n' + warmupGuidanceRule(body, ctxLang);
     if (hasEleaderExpansion(request)) sys += ELEADER_EXPANSION_RULE;
     /* 🏷️ 첫 턴에는 «화면 인사» 를 모델 문맥에 넣어 준다 (2026-09-01).
@@ -4788,7 +4791,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         honestGrade = finalizeWarmupGrade(modelOk ? rawGrade : null, vfix, studentInput);
         aiText = applyHonestPraise(aiText, honestGrade) || aiText;
         // 🎯 집중교정 — 고친 문장을 아바타가 소리 내어 말하게 한다(검증된 교정만, 히스토리 저장 전)
-        aiText = ensureFocusedFixSpoken(aiText, honest.mode, honestGrade, vfix);
+        if (!vfix || showDuringPractice(timing, vfix)) aiText = ensureFocusedFixSpoken(aiText, honest.mode, honestGrade, vfix);
       } catch (e: any) { honestGrade = 'partial'; console.warn('[warmup-honest] grade skipped:', e?.message || e); }
     }
 
@@ -4810,6 +4813,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
        ⚠️ 이 블록은 절대 던지면 안 된다 — 여기서 던지면 멀쩡한 대화가 통째로 500 이 된다.
           그래서 통으로 try/catch 이고, 실패하면 fix 없이(=고치기 전과 똑같이) 내려간다. */
     let showFix: any = null;
+    let reviewFix: any = null;
     let offerRepeat = false;
     let fixWrite: Promise<void> | undefined;
     let parentLog: Promise<void> | undefined;
@@ -4827,14 +4831,18 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
       /* 🔎 (2026-10-31 제안서 B) 교정이 «왜» 안 떴는지 Workers 로그에 남긴다 — 학생 발화·교정 문장은 싣지 않는다. */
       if (!verified) console.warn('[warmup-fix] no card:', rawFix ? 'fix-rejected' : 'fix-missing', 'lang=' + ctxLang);
       traceReason = verified ? 'shown' : (rawFix ? 'fix_rejected' : 'fix_missing');
-      if (verified) {
+      if (verified && timing && !showDuringPractice(timing, verified)) {
+        if (timing === 'after-lesson' && modelOk) reviewFix = verified;
+        traceTag = verified.tag;
+        traceReason = 'mode_hidden';
+      } else if (verified) {
         const mkey = 'warmupfix:' + sessionId;
         let memoIn: any = null;
         try {
           const rawMemo = env.SESSION_STATE ? await env.SESSION_STATE.get(mkey) : null;
           if (rawMemo != null) memoIn = JSON.parse(rawMemo);
         } catch {}
-        const decided = decideWarmupFixShow(verified, memoIn, turnCount, { immediate: !!honest && honest.mode === 'focused' });
+        const decided = decideWarmupFixShow(verified, memoIn, turnCount, { immediate: timing === 'immediate' || (!!honest && honest.mode === 'focused') });
         showFix = decided.show;
         traceTag = verified.tag;
         if (!showFix) traceReason = 'held_gap';   // 검증은 통과 — 턴 간격 규칙이 이번 턴을 미뤘다
@@ -4882,6 +4890,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
       session_id: sessionId, ai_response: aiText, turn_count: turnCount,
       answer_chips: ctxLang === 'zh' ? warmupZhAnswerChips(aiText, ctxDifficulty) : warmupAnswerChips(aiText, ctxDifficulty),
       fix: showFix, repeat: offerRepeat, speaking_help: rawHelp,
+      ...(reviewFix ? { review_fix: reviewFix } : {}),
       ...(honest ? { grade: honestGrade || 'partial', correction_mode: honest.mode } : {}),
       ...(live ? { replaced: live.replacedBy(aiText), streamed: live.sent(), ...(live.halted() ? { halted: live.halted() } : {}) } : {}),
     };

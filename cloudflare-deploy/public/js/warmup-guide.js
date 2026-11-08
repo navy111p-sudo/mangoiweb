@@ -264,13 +264,20 @@
   function summary() {
     var title=WCTX.textbook || LESSON_TOPIC || (zh()?'中文对话':'Free conversation');
     var cnt=function(k){return answers.filter(function(a){return (a.help||(a.assisted?'example':'own'))===k;}).length;};
+    var uniqueWords = new Set();
+    answers.forEach(function(a){
+      if(a.lang !== 'en') return;
+      var words = a.text.toLowerCase().replace(/’/g, "'").match(/[a-z]+(?:'[a-z]+)*/g) || [];
+      words.forEach(function(word){uniqueWords.add(word);});
+    });
     return ['Speaking practice summary / 말하기 연습 요약',
       'Topic: '+title+(WCTX.lesson_no?' · Lesson '+WCTX.lesson_no:''),
       'Language / Level: '+(zh()?'Chinese':'English')+' / '+_warmLevel,
       'Submitted replies / 답변: '+answers.length,
+      uniqueWords.size ? 'Unique English words in recent replies / 최근 답변의 고유 영어 단어: '+uniqueWords.size : '',
       answers.length?'On own / 혼자: '+cnt('own')+' · After meaning / 뜻 본 뒤: '+cnt('meaning')+' · With example / 예시 사용: '+cnt('example'):'',
       answers.length?'Student’s last reply: '+answers[answers.length-1].text:'No student reply yet.',
-      fixes.length?'Practice expression: '+fixes[fixes.length-1]:'',
+      fixes.length?'Expressions to review / 복습 표현: '+Array.from(new Set(fixes)).join(' · '):'',
       answers.length?'Teacher: ask one follow-up about the student’s last reply.':'Teacher: help the student begin with an easy choice.',
     ].filter(Boolean).join('\n');
   }
