@@ -67,10 +67,28 @@ try {
         if (window.MangoiTTS) { MangoiTTS.speak = (_, __, done) => { if (typeof done === 'function') done(); }; MangoiTTS.stop = () => {}; }
       });
       check(posts.filter(p => p.action === 'finish').length === 0, name + ': page load does not finish/evaluate');
-      await page.locator(app === 'friend' ? '#msgInput' : '#inp').fill('I like apples.');
-      await page.locator('#sendBtn').click();
+      if (app === 'warmup' && state === 'zero') {
+        await page.locator('#wgVoiceAssessment').check();
+        await page.evaluate(() => {
+          MangoiVoice.supported = () => true;
+          MangoiVoice.stop = () => window.finishTestRecording();
+          MangoiVoice.record = options => {
+            options.onState('speaking');
+            options.onAudio(new Blob(['fixture audio']));
+            return new Promise(resolve => { window.finishTestRecording = () => resolve('I like apples.'); });
+          };
+          AiSpeakingProgress.audioBase64 = async () => 'fixture-audio';
+        });
+        await page.locator('#micBtn').click();
+        await page.waitForFunction(() => typeof window.finishTestRecording === 'function');
+        await page.locator('#micBtn').click();
+      } else {
+        await page.locator(app === 'friend' ? '#msgInput' : '#inp').fill('I like apples.');
+        await page.locator('#sendBtn').click();
+      }
       await page.waitForFunction(() => !document.getElementById('sendBtn').disabled);
       const chat = posts.find(p => p.chat && !p.kickoff);
+      if (app === 'warmup' && state === 'zero') check(chat?.progress_audio === 'fixture-audio', name + ': opt-in recording sends the audio sample');
       check(!!chat?.progress_session && !!chat?.progress_turn, name + ': actual send carries server session and replay key');
       check(posts.filter(p => p.action === 'start').length === 1, name + ': one session per practice');
       if(app === 'friend') {
