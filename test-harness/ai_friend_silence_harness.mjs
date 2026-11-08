@@ -81,7 +81,7 @@ check('submission boundary catches recorder override', () => assert.equal(overri
 const empty = await micCase({ text: '' });
 check('server rejection creates no user turn', () => assert.equal(empty.sent.length, 0));
 const face = read('public/js/aifriend-facetalk.js');
-const faceListen = face.slice(face.indexOf('  async function listen()'), face.indexOf('  async function send('));
+const faceListen = face.slice(face.indexOf('  function isCurrentTurn(my)'), face.indexOf('  async function send('));
 for (const voice of [false, true, null]) {
   const r = await micCase({ voice, text: 'Yes.' });
   r.sent.length = 0; r.requests.length = 0;
