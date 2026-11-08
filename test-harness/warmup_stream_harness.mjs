@@ -449,49 +449,79 @@ ok('speak: 큐 모드는 다시 듣기(btn)에는 안 쓴다', /if\(live && !btn
 const am = strip(fnSrc(H, 'addMsg'));
 ok('addMsg: 조용히 모드면 speak 대신 다시 듣기 글만 맞춘다', /if\(_addMsgQuiet\)\{[^}]*_lastAiSpeak=/.test(am) && /else speak\(text\)/.test(am));
 
-console.log('\n[C7] 입모양 분석 엔진은 이 화면에서 «켜지 않는다» — 속도 우선(2026-11-05 사장님)');
-// 📜 2026-11-04 판은 «폰만 첫 인사까지 미룸» 이었다. 이제 PC·폰 모두, 끝까지(aiDone 에도 안 푼다). ?visemes=now 만 예외.
+console.log('\n[C7] 입모양 분석 엔진 — 다시 켬(2026-11-09 사장님): PC 는 열리고 곧 · 폰은 첫 인사 뒤 · ?visemes=off 는 끝까지 끔');
+// 📜 2026-11-04 «폰만 첫 인사까지 미룸» → 2026-11-05 «끝까지 끔» → 2026-11-09 11-04 방식으로 되돌림.
+const vOff = /var _visOff = \(function\(\)\{[\s\S]*?\}\)\(\);/.exec(H);
 const vHold = /var _visHold = \(function\(\)\{[\s\S]*?\}\)\(\);/.exec(H);
-const vParts = ['_visemeWrap', '_autoHook'].map(n => fnSrc(H, n));
+const vParts = ['_visRelease', '_visemeWrap', '_autoHook'].map(n => fnSrc(H, n));
 // load 때 «미리 켜기» 줄 — 글자로 못 박지 않고 그 리스너를 오려 내 실제로 돌린다
 const vLoadAt = H.indexOf("window.addEventListener('load', function(){\n  _visemeWrap();");
 const vLoad = vLoadAt >= 0 ? H.slice(vLoadAt, H.indexOf('});', vLoadAt) + 3) : '';
-ok('전제: 붙잡기 코드·load 리스너를 오려 냈다', !!vHold && vParts.every(x => x.length > 20) && vLoad.length > 40);
+ok('전제: 끄기 스위치·붙잡기 코드·풀기·load 리스너를 오려 냈다', !!vOff && !!vHold && vParts.every(x => x.length > 20) && vLoad.length > 40);
 function visBox(coarse, search) {
   const V = { boots: 0, preps: 0, boot() { this.boots++; }, prepare() { this.preps++; return Promise.resolve(['cue']); } };
   const env = { V, loads: [], timers: [] };
   const turnPrompt = H.match(/window\.warmupTurnPrompt = \{[\s\S]*?\n\};/)[0];
   const f = new Function('window', 'navigator', 'location', 'matchMedia', 'setTimeout', 'AvatarVisemes',
-    'var sending=false, _autoDonePending=false;\n' + turnPrompt + '\n' + vHold[0] + '\n' + vParts.join('\n') + '\n' + vLoad + '\nreturn { wrap:_visemeWrap, hook:_autoHook, get hold(){ return _visHold; } };');
+    'var sending=false, _autoDonePending=false, _warmPaused=false;\n' + turnPrompt + '\n' + vOff[0] + '\n' + vHold[0] + '\n' + vParts.join('\n') + '\n' + vLoad + '\nreturn { wrap:_visemeWrap, hook:_autoHook, get hold(){ return _visHold; } };');
   const win = { AvatarVisemes: V, matchMedia: () => ({ matches: coarse }), addEventListener: (ev, fn) => { if (ev === 'load') env.loads.push(fn); } };
   env.api = f(win, { connection: { saveData: false, effectiveType: '4g' } }, { search: search || '', origin: 'https://warmup.test' }, win.matchMedia, (fn) => env.timers.push(fn), V);
   env.runLoad = () => { env.loads.forEach((fn) => fn()); env.timers.splice(0).forEach((fn) => fn()); };
   return env;
 }
-if (vHold) {
-  for (const [label, coarse] of [['폰', true], ['PC', false]]) {
-    const b = attempt(label + ' 샌드박스', () => visBox(coarse));
-    if (!b) continue;
-    b.runLoad();
-    ok(label + ': 화면이 열려도(load) 엔진을 미리 켜지 않는다', b.api.hold === true && b.V.boots === 0);
-    b.V.boot(); const pr = await b.V.prepare('blob:x');
-    ok(label + ': boot·prepare 가 엔진을 안 켠다(prepare 는 곧바로 null — 소리 크기 입모양, 재생이 안 기다림)', b.V.boots === 0 && b.V.preps === 0 && pr === null);
-    for (const speaker of ['asteria', 'odysseus', 'thalia', 'aries']) {
-      const url = 'https://warmup.test/audio/warmup-turn-v1/' + speaker + '.mp3';
-      const cues = await b.V.prepare(url);
-      ok(label + ': prompt has voice-specific cues without booting analysis (' + speaker + ')',
-        new Set(cues?.map(cue => cue.value)).size > 2 && b.V.boots === 0 && b.V.preps === 0);
-    }
-    const foreign = await b.V.prepare('https://other.test/audio/warmup-turn-v1/asteria.mp3');
-    ok(label + ': only the bundled clip receives its timeline', foreign === null);
-    b.api.hook('aiDone'); b.api.hook('reply');
-    const pr2 = await b.V.prepare('blob:y');
-    ok(label + ': 첫 인사가 끝나도(aiDone) 풀지 않는다', b.api.hold === true && b.V.boots === 0 && b.V.preps === 0 && pr2 === null);
+async function bundledCues(b, label) {
+  for (const speaker of ['asteria', 'odysseus', 'thalia', 'aries']) {
+    const before = b.V.boots + b.V.preps;
+    const url = 'https://warmup.test/audio/warmup-turn-v1/' + speaker + '.mp3';
+    const cues = await b.V.prepare(url);
+    ok(label + ': prompt has voice-specific cues without booting analysis (' + speaker + ')',
+      new Set(cues?.map(cue => cue.value)).size > 2 && b.V.boots + b.V.preps === before);
   }
-  const b = attempt('?visemes=now 샌드박스', () => visBox(true, '?visemes=now'));
-  if (b) {
-    b.runLoad(); const pr = await b.V.prepare('blob:z');
-    ok('(짝) ?visemes=now 면 예전처럼 미리 켜고 prepare 도 원래대로(비교·되돌리기용)', b.api.hold === false && b.V.boots === 1 && b.V.preps === 1 && Array.isArray(pr));
+}
+if (vOff && vHold) {
+  {
+    const b = attempt('폰 샌드박스', () => visBox(true));
+    if (b) {
+      b.runLoad();
+      ok('폰: 화면이 열려도(load) 엔진을 미리 켜지 않는다 (첫 인사와 회선·CPU 를 안 나눔)', b.api.hold === true && b.V.boots === 0);
+      const pr = await b.V.prepare('blob:x'); b.V.boot();
+      ok('폰: 첫 인사 «전» 에는 prepare 가 곧바로 null · boot 도 안 켠다', pr === null && b.V.boots === 0 && b.V.preps === 0);
+      await bundledCues(b, '폰');
+      const foreign = await b.V.prepare('https://other.test/audio/warmup-turn-v1/asteria.mp3');
+      ok('폰: only the bundled clip receives its timeline', foreign === null);
+      b.api.hook('aiDone');
+      ok('폰: 첫 인사가 끝나면(aiDone) 풀고 엔진을 켠다', b.api.hold === false && b.V.boots === 1);
+      const pr2 = await b.V.prepare('blob:y');
+      ok('폰: 그 뒤 prepare 는 원래대로 분석한다', Array.isArray(pr2) && b.V.preps === 1);
+      b.api.hook('aiDone');
+      ok('폰: 두 번째 aiDone 에 엔진을 또 켜지 않는다 (한 번만)', b.V.boots === 1);
+    }
+  }
+  {
+    const b = attempt('폰(학생이 먼저 보냄) 샌드박스', () => visBox(true));
+    if (b) {
+      b.runLoad(); b.api.hook('sent');
+      ok('폰: 첫 인사 전에 학생이 먼저 보내도(sent) 풀린다', b.api.hold === false && b.V.boots === 1);
+    }
+  }
+  {
+    const b = attempt('PC 샌드박스', () => visBox(false));
+    if (b) {
+      ok('PC: load 전에는 붙잡지 않는다 (hold=false)', b.api.hold === false);
+      b.runLoad();
+      ok('PC: 화면이 열리면(load+1초) 엔진을 미리 켠다', b.V.boots === 1);
+      const pr = await b.V.prepare('blob:x');
+      ok('PC: prepare 는 원래대로 분석한다', Array.isArray(pr) && b.V.preps === 1);
+      await bundledCues(b, 'PC');
+    }
+  }
+  for (const [label, coarse] of [['폰', true], ['PC', false]]) {
+    const b = attempt('?visemes=off ' + label + ' 샌드박스', () => visBox(coarse, '?visemes=off'));
+    if (!b) continue;
+    b.runLoad(); b.V.boot(); b.api.hook('aiDone'); b.api.hook('sent');
+    const pr = await b.V.prepare('blob:z');
+    ok('(짝) ?visemes=off ' + label + ': 끝까지 끈다 — 미리 켜지도·첫 인사 뒤 풀지도 않고 prepare 는 null', b.api.hold === true && b.V.boots === 0 && b.V.preps === 0 && pr === null);
+    await bundledCues(b, '?visemes=off ' + label);
   }
 }
 
