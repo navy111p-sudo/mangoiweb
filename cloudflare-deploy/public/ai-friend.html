@@ -2075,12 +2075,13 @@
       }
       _lastRecBlob = null;
       try {
+        const progressMeta = window.AiSpeakingProgress ? await window.AiSpeakingProgress.beforeTurn() : {};
         const r = await fetch('/api/ai/chat-friend', {
           method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
           // 🧑 friend — 서버가 「너는 Lily 야」로 프롬프트를 만든다. 안 보내면 AI 가 자기를
           //    'Mango' 로 알고, 「Hi! I'm Lily」로 인사해 놓고 이름을 물으면 다른 이름을 댄다
           //    (2026-08-31 사장님 제보). 「번갈아」면 personNow() 가 그 턴의 사람을 준다.
-          body: JSON.stringify({ uid: auth.uid, msg, level: currentLevel, persona: currentPersona,
+          body: JSON.stringify({ ...progressMeta, uid: auth.uid, msg, level: currentLevel, persona: currentPersona,
                                  friend: personNow(),
                                  correction_mode: turnCorr,   // 🎚️ 교정 방식 (서버 기본값 = 집중교정)
                                  pron: pronBody,                 // 🎯 발음 교정용 WAV + 기준 낱말(없으면 null)
@@ -2366,8 +2367,13 @@
       stopSpeakingNow();
       const auth = await getAuth();
       if (auth) {
-        try { await fetch('/api/ai/chat-clear', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization': 'Bearer ' + auth.token}, body: JSON.stringify({ uid: auth.uid }) }); } catch(e){}
+        try {
+          const response = await fetch('/api/ai/chat-clear', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization': 'Bearer ' + auth.token}, body: JSON.stringify({ uid: auth.uid }) });
+          const data = await response.json();
+          if(!response.ok || data.ok !== true) throw new Error('clear_failed');
+        } catch(e){ alert(isEn() ? 'Could not clear your history. Please try again.' : '대화 기록을 지우지 못했어요. 다시 시도해 주세요.'); return; }
       }
+      if (window.AiSpeakingProgress) window.AiSpeakingProgress.reset();
       if (window.wodPark) window.wodPark();         // 🛟 위와 같은 이유 — 지우기 직전에 피신
       document.getElementById('chat').innerHTML = '';
       setTopic(null);                                // 🗺 대화를 지우면 주제도 처음부터
@@ -2523,6 +2529,9 @@
 <script defer src="/js/mg-sidebar.js?v=20261101"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 <script src="/js/repeat-score.js?v=1" defer></script><!-- 🎤 «따라 말해 보기» 채점 (2026-10-18) -->
+<link rel="stylesheet" href="/css/ai-speaking-progress.css?v=2">
+<script defer src="/js/ai-speaking-progress-view.js?v=3"></script>
+<script defer src="/js/ai-speaking-progress.js?v=3"></script>
 <script src="/js/ai-speaking-settings.js?v=2" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — 교정 버튼이 씀 (2026-11-04) -->
 <script defer src="/js/flow.js?v=23"></script><!-- 🚀 다음으로 이동(MangoFlow) -->
 

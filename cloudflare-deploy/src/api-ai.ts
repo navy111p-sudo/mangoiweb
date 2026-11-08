@@ -1,4 +1,5 @@
 import { handleWritingApi } from './api-ai-writing';
+import { handleSpeakingSession, recordSpeakingTurn, clearSpeakingSessions } from './ai-speaking-session';
 import type { EleaderEngines } from './eleader-engines';
 import { handleEleaderApi } from './api-eleader';
 // ═══════════════════════════════════════════════════════════════════════
@@ -58,6 +59,7 @@ export async function handleAiApi(
 ): Promise<Response | null> {
   const path = url.pathname;
   const method = request.method;
+  if (path === '/api/ai/speaking-progress') return handleSpeakingSession(request, url, env);
   if (path.startsWith('/api/ai/eleader/')) return handleEleaderApi(request, url, env, eleaderEngines);
 
   const writingResponse = await handleWritingApi(request, url, env);
@@ -1018,7 +1020,8 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
                ⚠️ 여기서 던지지는 않는다 — 포인트가 대화를 막으면 안 된다. */
             const allow = await checkEarnAllowed(env, uid, code, amount);
             if (!allow.ok) { console.log('[ai-friend] 포인트 상한 — 적립 건너뜀:', code, allow.error); return false; }
-            const r = await applyPointTransaction(env, { userId: uid, type: 'earn', amount, reason: label, ruleCode: code });
+            const r = await applyPointTransaction(env, { userId: uid, type: 'earn', amount, reason: label, ruleCode: code,
+              meta: typeof b.progress_session === 'string' && b.progress_session.length <= 100 ? { speaking_session: b.progress_session } : undefined });
             await env.DB.prepare(`INSERT INTO point_rule_log (user_id, rule_code, amount, triggered_at, txn_id, meta) VALUES (?,?,?,?,?,NULL)`).bind(uid, code, amount, Date.now(), r.txnId).run();
             return true;
           };
@@ -1078,6 +1081,8 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       }
 
       const pronFix = await pronP;   // 🎯 발음 교정 결과(없으면 null)
+      if (!usedFallback && b.progress_session) await recordSpeakingTurn(request, env, b, { app: 'friend', student: msg, assistant: reply,
+        correction: showFix?.now || '' });
       return { ok: true, reply, level, persona, model: usedModel || 'fallback', gam,
                     ...replyOut(),   // ai_unavailable · fix · repeat · replaced — final 이벤트와 같은 함수(위 replyOut)
                     ...(pronFix ? { pron_fix: pronFix } : {}) };
@@ -1173,6 +1178,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       const denied = await denyChatHistoryAccess(uid, b);
       if (denied) return denied;
       await env.DB.prepare(`DELETE FROM ai_friend_chats WHERE student_uid = ?`).bind(uid).run();
+      await clearSpeakingSessions(env, uid);
       /* ✏️ 교정 메모도 함께 지운다 (2026-09-09 함정 대조).
          턴 수는 위 DELETE 로 0 으로 돌아가는데 KV 의 lastShownTurn 은 6시간 남아 있어서,
          「대화 초기화」를 누른 학생은 최대 6시간 동안 교정이 조용히 억제된다.

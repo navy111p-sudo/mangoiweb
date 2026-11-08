@@ -14,6 +14,10 @@ function render(container,result,lang){
  var score=result.score;
  var valid=typeof score==='number'&&Number.isFinite(score)&&score>=0&&score<=100;
  container.appendChild(node('p','ai-progress-score',valid?Math.round(score)+'/100':ko?'종합 점수 미측정':'Overall score unavailable'));
+ container.appendChild(node('p','ai-progress-note',ko?'기록된 영어 대화의 AI 평가입니다. 발음·유창성은 음성 평가가 없으면 미측정으로 표시해요.':'AI assessment of recorded English conversation. Pronunciation and fluency remain unmeasured without audio assessment.'));
+ if(Number.isSafeInteger(result.recordedTurns)) container.appendChild(node('p','ai-progress-note',ko?'기록된 발화 '+result.recordedTurns+'회 기준 · 점수는 측정된 영역의 평균입니다.':'Based on '+result.recordedTurns+' recorded turns. The score averages measured skills only.'));
+ if(result.captureLimited) container.appendChild(node('p','ai-progress-note',ko?'대화가 길어 일부 기록을 기준으로 한 결과입니다.':'This long conversation is assessed from a limited recording of the text.'));
+ if(result.evaluationStatus==='unavailable') container.appendChild(node('p','ai-progress-note',ko?'지금은 평가를 완료하지 못했어요. 기록된 단어와 확인된 보상만 표시합니다.':'Assessment is unavailable. Recorded words and confirmed rewards are shown below.'));
  var names={pronunciation:['발음','Pronunciation'],fluency:['유창성','Fluency'],grammar:['문법','Grammar'],vocabulary:['어휘','Vocabulary'],sentence:['문장 구성','Sentence structure']};
  var list=node('dl','ai-progress-skills');
  Object.keys(names).forEach(function(k){
@@ -26,12 +30,22 @@ function render(container,result,lang){
  });container.appendChild(list);
  var words=Array.isArray(result.uniqueWords)?result.uniqueWords:[];
  var review=Array.isArray(result.reviewWords)?result.reviewWords:[];
- container.appendChild(node('p','ai-progress-words',(ko?'사용한 고유 단어: ':'Unique words used: ')+words.length));
- container.appendChild(node('p','ai-progress-review',(ko?'복습할 단어: ':'Words to review: ')+review.slice(0,12).map(text).join(', ')));
+ container.appendChild(node('p','ai-progress-words',(ko?'사용한 영어 고유 단어: ':'Unique English words used: ')+words.length));
+ container.appendChild(node('p','ai-progress-review',(ko?'교정문에서 복습할 표현: ':'Expressions from your corrections: ')+(review.length?review.slice(0,12).map(text).join(', '):ko?'아직 없어요':'None recorded')));
  // These are *informational* numbers only, not a wallet balance or award transaction.
  var stars=Number.isSafeInteger(result.stars)&&result.stars>=0?result.stars:0;
  var gems=Number.isSafeInteger(result.gems)&&result.gems>=0?result.gems:0;
- container.appendChild(node('p','ai-progress-reward',(ko?'예상 보상':'Estimated rewards')+' · ⭐ '+stars+' · 💎 '+gems));
+ container.appendChild(node('p','ai-progress-reward',(ko?'학습 성취 예상값':'Estimated learning achievements')+' · ⭐ '+stars+' · 💎 '+gems));
+ container.appendChild(node('p','ai-progress-note',ko?'예상값은 실제 지급액이나 보석 잔액이 아닙니다.':'Estimates are separate from awarded points and your gem balance.'));
+ var r=result.rewards;
+ if(r){
+  var value=function(v){return Number.isSafeInteger(v)&&v>=0?String(v):(ko?'확인 불가':'Unavailable');};
+  container.appendChild(node('h3','',ko?'확인된 보상':'Confirmed rewards'));
+  container.appendChild(node('p','', (ko?'이 연습의 적립 포인트: ':'Points earned in this practice: ')+value(r.pointsEarned)+(Number.isSafeInteger(r.pointsEarned)&&r.pointsEarned>=0?'P':'')));
+  container.appendChild(node('p','', (ko?'포인트 잔액: ':'Point balance: ')+value(r.pointsBalance)+(Number.isSafeInteger(r.pointsBalance)&&r.pointsBalance>=0?'P':'')));
+  container.appendChild(node('p','', '💎 '+(ko?'보유 보석: ':'Gem balance: ')+value(r.gemsBalance)));
+  container.appendChild(node('p','', (ko?'확인된 배지: ':'Recorded badges: ')+(Array.isArray(r.badges)?r.badges.length:(ko?'확인 불가':'Unavailable'))));
+ }
 }
 root.AiSpeakingProgressView={render:render};
 })(typeof window!=='undefined'?window:globalThis);

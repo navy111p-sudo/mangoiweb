@@ -1,3 +1,4 @@
+import { recordSpeakingTurn } from './ai-speaking-session';
 import { eleaderStagedResponse } from './eleader-release';
 import { ELEADER_EXPANSION_RULE, markEleaderExpansion, hasEleaderExpansion } from './eleader-expansion';
 import { ephemeralEleaderEnv } from './eleader-engines';
@@ -4910,6 +4911,9 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     const stateWrites = Promise.all([turnWrite, fixWrite, parentLog, historyWrite]);
     if (finalOnly && ctx) ctx.waitUntil(stateWrites);
     await stateWrites;
+
+    if (modelOk && !ctxKickoff && body.progress_session) await recordSpeakingTurn(request, env, body,
+      { app: 'warmup', student: studentInput, assistant: aiText, correction: showFix?.now || '' });
 
     const latencyLog = logWarmupLatency(aiText, modelOk ? 1 : 0);
     if (ctx) ctx.waitUntil(latencyLog);
