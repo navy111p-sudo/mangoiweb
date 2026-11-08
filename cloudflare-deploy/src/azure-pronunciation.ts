@@ -64,7 +64,8 @@ export function phonemesOf(w: any, num: (v: any) => number): { p: string; acc: n
    «REST 는 발음평가 헤더를 무시한다» 로 잘못 결론 냈다. 이제 둘 다 받는다. */
 const paOf = (x: any): any => x?.PronunciationAssessment ?? x;
 const SCORE_KEYS = ['AccuracyScore', 'FluencyScore', 'CompletenessScore', 'PronScore'];
-const hasScores = (pa: any) => SCORE_KEYS.some(k => typeof pa?.[k] === 'number');
+/* 네 칸이 «다» 있어야 측정값이다 — 일부만 오면(재시도의 기본 Dimension 등) 빠진 칸을 0 으로 지어내게 된다 */
+const hasScores = (pa: any) => SCORE_KEYS.every(k => typeof pa?.[k] === 'number' && Number.isFinite(pa[k]) && pa[k] >= 0 && pa[k] <= 100);
 const clamp100 = (v: any) => { const n = Number(v); return isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0; };
 
 function toResult(best: any, d: any): AzurePronResult | AzurePronFail {

@@ -100,6 +100,12 @@ cancelled = new Function('speakText', 'isSoundOn', 'var _stmGen=0; ' + saySource
   (word, _b, _r, done) => { cut.push(word); cancelled.stop(); queueMicrotask(done); }, () => true);
 await cancelled.say('bug', 3);
 check('짝: 새 턴·정지 뒤에는 남은 발음 반복을 이어 읽지 않는다', cut.length === 1);
+const hung = [];
+const hungDone = await Promise.race([
+  new Function('speakText', 'isSoundOn', 'setTimeout', 'clearTimeout', 'var _stmGen=0; ' + saySource + '; return sayThrice;')(
+    (w) => hung.push(w), () => true, (f) => { queueMicrotask(f); return 1; }, () => {})('bug', 3).then(() => true),
+  new Promise(r => setTimeout(() => r(false), 1000))]);
+check('짝: 끝 신호가 안 와도(다른 소리가 끊음) 큐를 풀고 더 읽지 않는다', hungDone && hung.length === 1, { hungDone, n: hung.length });
 check('화면: 녹음 파일을 발음 교정 뒤에 비운다', /_lastRecBlob = null;/.test(HTML));
 check('화면: AI 마지막 말을 기억한다', /if \(role === 'ai'\) _lastAiText = String\(content \|\| ''\);/.test(HTML));
 
