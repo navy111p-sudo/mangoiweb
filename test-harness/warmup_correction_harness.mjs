@@ -367,9 +367,16 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
       ['Wow!', 'Wow.'], ['I like pizza!!', 'I like pizza.'], ['It is fun.', 'It is fun!'],
       ["Yes, I'm healthy.", "I'm healthy."],                                                          // 실측 — 말머리만 뗌
       ['Yeah, my dog is big.', 'My dog is big.'], ['Oh, I like it.', 'I like it.'], ['Um, uh, I play soccer.', 'I play soccer.'],
-      ['No, I don’t like it.', 'I don’t like it.'], ['I like cats, okay.', 'I like cats.'],
+      ['No, I don’t like it.', 'I don’t like it.'], ['No, I don’t like it.', "I don't like it."], ['I like cats, okay.', 'I like cats.'],   // 굽은 따옴표 ↔ 곧은 따옴표는 같은 글자
       ['Not cats. I sing with my kids.', 'I sing with my kids.'],                                  // 실측 — 따로 떨어진 문장 지움
       ['I like dogs. They are cute.', 'I like dogs.'], ['Hi! My name is Amy. I am ten.', 'My name is Amy.'],
+      /* 2026-11-08 함정 대조 2차 — 인사·머뭇거림 말머리 · 가운데 말머리 · 말줄임표 · 끝 부호 떼기 · 물음·긴 대답 지우기 */
+      ['Hi, I like pizza.', 'I like pizza.'], ['Hello, I am Tom.', 'I am Tom.'], ['Hey, I like it.', 'I like it.'], ['Mm, I like it.', 'I like it.'],
+      ['Hm, I like it.', 'I like it.'], ['Er, I like it.', 'I like it.'], ['Haha, I like it.', 'I like it.'], ['Uh-huh, I like it.', 'I like it.'],
+      ['I, um, like pizza.', 'I like pizza.'], ['I like dogs. Wow. They are cute.', 'I like dogs. They are cute.'], ['And I like pizza.', 'I like pizza.'],
+      ['I like pizza…', 'I like pizza.'], ['I like it!', 'I like it'], ['I like it !', 'I like it.'],
+      ['Of course I can. I can swim.', 'I can swim.'], ['I think I can. I can swim.', 'I can swim.'], ['Sure, I can. I can swim.', 'I can swim.'],
+      ['What do you think? I think it is fun.', 'I think it is fun.'], ['What do you like? I like pizza.', 'I like pizza.'], ['Come on. Let us play.', 'Let us play.'],
     ];
     const bad = REJECT.filter(([w, n]) => V(w, n) !== null).map(x => x.join(' → '));
     t('B-9d 🙅 맞는 문장을 고친 척하는 교정은 버린다 (끝 부호 !↔. · 말머리 떼기 · 따로 떨어진 문장 지우기 — 운영 실측 3건 포함)', bad.length === 0, bad.join(' | '));
@@ -382,6 +389,11 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
       ['Yes, I goed home.', 'I went home.'], ['Not cats. I sing with my kid.', 'I sing with my kids.'],            // 떼면서 진짜로 고침
       ['No, they have, they don’t have time.', 'They don’t have time.'],                                 // 더듬은 말 정리(내용어)
       ['K-pop music', 'K-pop'], ['I sing well yesterday', 'I sang well yesterday'], ['I go to school yesterday!', 'I went to school yesterday.'],
+      /* 2026-11-08 함정 대조 2차 — 말머리를 떼면서 부호를 고친 것(?·쉼표·하이픈) · 감탄문의 ! · 이름이 되는 낱말 · was 에서 이미 문장 첫머리였던 낱말 */
+      ['Um, where is it.', 'Where is it?'], ['Yes, do you like soccer.', 'Do you like soccer?'], ['Oh, what is your name.', 'What is your name?'], ['So what is it.', 'What is it?'],
+      ['Yes, I like pizza cake and juice', 'I like pizza, cake, and juice.'], ['Yes I like pizza', 'I like pizza.'], ['Yes, my e mail is here', 'My e-mail is here.'],
+      ['I like, pizza.', 'I like pizza.'], ['What a big dog.', 'What a big dog!'], ['How beautiful.', 'How beautiful!'],
+      ['yes, may is my birthday month.', 'May is my birthday month.'], ['Oh, will is my friend.', 'Will is my friend.'], ['I like dogs. my cat is big.', 'My cat is big.'],
     ];
     const lost = KEEP.filter(([w, n]) => V(w, n) === null).map(x => x.join(' → '));
     t('B-9e (짝) 진짜 교정·사장님이 지키라 한 교정은 그대로 통과한다', lost.length === 0, lost.join(' | '));
@@ -400,12 +412,19 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
       ['I am. I like pizza.', 'I like pizza.'], ['I want... I like pizza.', 'I like pizza.'], ['I play. I play soccer.', 'I play soccer.'],
       ['My mom... I like pizza.', 'I like pizza.'], ['Um, I like. I like pizza.', 'I like pizza.'], ['I want to. I want to be a doctor.', 'I want to be a doctor.'],
       ['Yes, I. I like pizza.', 'I like pizza.'], ['No, the. The dog is big.', 'The dog is big.'], ['Yes, my dog is the. My dog is big.', 'My dog is big.'],   // 대답 말머리 뒤에서 멈춘 말
+      /* 더듬기와 남긴 말 사이에 «말머리뿐인 문장» 이 끼었거나(I want... um...) 더듬기 뒤에 말머리가 붙은 것(I want, um.) */
+      ['I want... um... I like pizza.', 'I like pizza.'], ['I. Um. I like pizza.', 'I like pizza.'], ['My dog... uh... my dog is big.', 'My dog is big.'],
+      ['I want, um. I want a dog.', 'I want a dog.'], ['I like, uh. I like pizza.', 'I like pizza.'],
     ];
     const FS_REJECT = [
       ['Yes, I am. I like pizza.', 'I like pizza.'], ['I swim. I like pizza.', 'I like pizza.'], ['I am happy. I like pizza.', 'I like pizza.'],
       ['Me too. I like pizza.', 'I like pizza.'], ['Okay, I can. I play soccer.', 'I play soccer.'],
       ['My favorite food is pizza, I think. I like pizza.', 'I like pizza.'], ['I know where my school is. I like pizza.', 'I like pizza.'],
-      ['Yes, I can. I can swim.', 'I can swim.'], ['Yes, he can swim. He can swim fast.', 'He can swim fast.'], ['Yes, pizza. Pizza is good.', 'Pizza is good.'],   // 대답은 완결된 말   // 길고 완결된 말이 «덜 끝난 낱말» 로 끝나도 더듬기가 아니다
+      ['Yes, I can. I can swim.', 'I can swim.'], ['Yes, he can swim. He can swim fast.', 'He can swim fast.'], ['Yes, pizza. Pizza is good.', 'Pizza is good.'],   // 대답은 완결된 말
+      /* 길고 완결된 말이 조동사·전치사로 끝나도(Of course I can. / Come on.) · 물음(What do you like?)은 더듬기가 아니다 */
+      ['Of course I can. I can swim.', 'I can swim.'], ['I think I can. I can swim.', 'I can swim.'], ['Sure, I can. I can swim.', 'I can swim.'],
+      ['What do you think? I think it is fun.', 'I think it is fun.'], ['What do you like? I like pizza.', 'I like pizza.'], ['Come on. Let us play.', 'Let us play.'],
+      ['That is what I like. I like pizza.', 'I like pizza.'], ['I like it a lot, really. I like pizza.', 'I like pizza.'],   // 다섯 낱말 넘는 완결된 말이 like·really 로 끝남
     ];
     const fsLost = FS_KEEP.filter(([w, n]) => V(w, n) === null).map(x => x.join(' → '));
     const fsLeak = FS_REJECT.filter(([w, n]) => V(w, n) !== null).map(x => x.join(' → '));
@@ -420,20 +439,26 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
     const pnLeak = PN_REJECT.filter(([w, n]) => V(w, n) !== null).map(x => x.join(' → '));
     t('B-9l 말머리를 뗀 뒤 고유명사를 대문자로 고친 교정은 남는다 (korea → Korea)', pnLost.length === 0, pnLost.join(' | '));
     t('B-9l2 (짝) 흔한 낱말이 문장 첫머리라 대문자가 된 것만은 교정이 아니다 (the → The)', pnLeak.length === 0, pnLeak.join(' | '));
-    /* B-9m 길이 상한 — 함수만 따로 불려도 느려지지 않는다(상한 없을 때 1,200자 17초 실측). 넘으면 판정하지 않고 교정을 남긴다. */
+    /* B-9m 길이 상한 — 함수만 따로 불려도 느려지지 않게. 넘으면 판정하지 않고 교정을 남긴다(앞단 verifyWarmupFix 는 120자에서 이미 자름). */
     {
       const longWas = Array.from({ length: 16 }, (_, i) => 'Ok. I like ' + ['cats', 'dogs', 'pizza'][i % 3] + '.').join(' ');
       const t0 = Date.now(); const r = fixIsNotACorrection(longWas, 'I like pizza.'); const ms = Date.now() - t0;
       t('B-9m 상한을 넘는 긴 말은 판정하지 않는다(교정을 남김) · 빠르다 — ' + longWas.length + '자 ' + ms + 'ms',
         FIX_JUDGE_MAX_LEN >= 120 && longWas.length > FIX_JUDGE_MAX_LEN && r === false && ms < 100);
-      const nearCap = 'Yes, ' + 'I like pizza and pasta and cake and juice and milk and bread and soup and rice and fish and eggs '.repeat(4).slice(0, FIX_JUDGE_MAX_LEN - 7).trim() + '.';
-      t('B-9m2 (짝) 상한 안에서는 그대로 판정한다 — ' + nearCap.length + '자', nearCap.length <= FIX_JUDGE_MAX_LEN && fixIsNotACorrection(nearCap, nearCap.slice(5)) === true);
+      /* ⚠️ 199자로 «고정» — 상한에서 계산해 만들면 상한을 줄여도 함께 줄어 검사가 헛돈다(2026-11-08 함정 대조). */
+      const nearCap = 'Yes, ' + 'I like pizza and pasta and cake and juice and milk and bread and soup and rice and fish and eggs and tea and jam and corn and peas and pie and nuts and figs and plums and beans and ham and kiwi.';
+      t('B-9m2 (짝) 199자 말도 그대로 판정한다 — ' + nearCap.length + '자', nearCap.length === 199 && fixIsNotACorrection(nearCap, nearCap.slice(5)) === true);
+      /* B-9m3 상한 안의 최악 모양(말머리뿐인 문장 50개 · 낱말 100개)도 빠르다 — 판정이 문장 범위 × 정렬이라 모양에 따라 느려질 수 있다 */
+      const WORST = [['Um. '.repeat(50).trim(), 'Um um.'], ['I.'.repeat(99), 'pizza'], ['um, '.repeat(49).trim() + ' x.', 'um um um um um um um um um um x.']];
+      let worstMs = 0;
+      for (const [w, nn] of WORST) { const t1 = Date.now(); for (let r2 = 0; r2 < 3; r2++) fixIsNotACorrection(w, nn); worstMs = Math.max(worstMs, (Date.now() - t1) / 3); }
+      t('B-9m3 상한 안 최악 모양 3가지도 빠르다 — 한 번에 ' + worstMs.toFixed(1) + 'ms', WORST.every(([w]) => w.length <= FIX_JUDGE_MAX_LEN) && worstMs < 250);
     }
     /* 반복 퍼즈 — 맞는 문장 × 말머리·끝 부호·덧붙인 문장 조합을 수천 번 돌려 «하나도 통과 못 한다», 같은 문장의 진짜 시제 교정은 «전부 통과» */
     const CORE = ['I like pizza', 'My dog is big', 'We play soccer after school', 'She has two cats', 'It is very fun', 'I want to be a doctor', 'They live in Seoul', 'He can swim fast'];
     const PAST = { 'I like pizza': 'I liked pizza', 'My dog is big': 'My dog was big', 'We play soccer after school': 'We played soccer after school', 'She has two cats': 'She had two cats', 'It is very fun': 'It was very fun', 'I want to be a doctor': 'I wanted to be a doctor', 'They live in Seoul': 'They lived in Seoul', 'He can swim fast': 'He could swim fast' };
-    const PRE = ['', 'Yes, ', 'Yeah, ', 'Oh, ', 'Um, ', 'No, ', 'Okay, ', 'So ', 'Uh, um, ', 'Wow! '];
-    const END = ['.', '!', '!!'];
+    const PRE = ['', 'Yes, ', 'Yeah, ', 'Oh, ', 'Um, ', 'No, ', 'Okay, ', 'So ', 'Uh, um, ', 'Wow! ', 'Hi, ', 'Hello! ', 'Hey, ', 'Mm, '];
+    const END = ['.', '!', '!!', '…'];
     const TAIL = ['', ' I am happy.', ' Thank you!', ' It is fun.'];
     let n = 0, leaked = [], dropped = [];
     for (const c of CORE) for (const pre of PRE) for (const e of END) for (const tail of TAIL) for (const e2 of END) {
@@ -447,6 +472,18 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
       }
       const past = (pre + PAST[c] + e + tail).replace(/^[a-z]/, (m) => m.toUpperCase());
       if (V(was, past) === null) dropped.push(was + ' → ' + past);
+    }
+    /* 가운데 말머리(I, um, like pizza) — 버린다 · 말머리를 떼며 ? 를 찍은 물음 — 남긴다 */
+    for (const c of CORE) {
+      const w = c.split(' ');
+      for (let k = 1; k < w.length; k++) for (const f of ['um', 'uh', 'oh']) {
+        const was = w.slice(0, k).join(' ') + ', ' + f + ', ' + w.slice(k).join(' ') + '.';
+        n++; if (V(was, c + '.') !== null) leaked.push(was + ' → ' + c + '.');
+      }
+    }
+    for (const q of ['where is it', 'what is your name', 'do you like soccer', 'can you swim', 'is it fun']) for (const pre of ['Um, ', 'Yes, ', 'Oh, ', 'So ', 'Hi, ']) {
+      const was = pre + q + '.', now = q[0].toUpperCase() + q.slice(1) + '?';
+      if (V(was, now) === null) dropped.push(was + ' → ' + now);
     }
     let fsN = 0; const fsDrop = [], fsLeak2 = [];
     for (const c of CORE) {
