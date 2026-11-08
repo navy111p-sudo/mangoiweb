@@ -306,6 +306,113 @@ function wordOverlap(a: string, b: string,
 export const WHY_KO_FOREIGN_SCRIPT =
   /[\u2E80-\u2FDF\u3005\u3007\u3040-\u30FA\u30FC-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\uFF66-\uFF9D\u{20000}-\u{3134F}]/u;
 
+/* ─────────────────────────────────────────────────────────────
+   «맞는 문장을 고친 척» 하는 교정 — 바뀐 것이 «교정» 이 아닌 경우 (2026-11-08 2차 재측정 · 운영 D1)
+   [잰 것] AI 영어친구가 이미 맞는 말을 «고쳐» 따라 말하게 시켰다:
+     「Let's talk about sports! Do you like soccer?」 → 「Let's talk about sports. Do you like soccer?」 (끝 부호만)
+     「Yes, I'm healthy.」 → 「I'm healthy.」 (말머리 Yes, 만 뗌)
+     「Not cats. I sing with my kids.」 → 「I sing with my kids.」 (따로 떨어진 문장을 통째로 지움)
+   학생은 «내가 틀렸나?» 로 받아들이는데 배울 것이 없다 — 그래서 이 셋은 교정에서 뺀다.
+   ⛔ 넓히지 말 것 — 지키는 것: 사장님 2026-10-31 결정 = 대소문자(Secret→secret · i→I)·마침표 «찍기»(I go to school → .).
+      그 밖에 진짜 교정으로 보고 남기는 것: 가운데 낱말 빼기(the dogs → dogs) · 더듬은 앞부분 빼기 —
+      부호가 없어도(I am I like pizza) 있어도(I am. / I want... / I play. I play soccer.) — · 말머리를 뗀 뒤
+      고유명사 대문자(yes, korea → Korea). 하니스 B-9e·B-9k.
+   ⛔ 더듬은 앞부분 판정(isFalseStart)을 넓히지 말 것 — 「Yes, I am.」(대답)·「I swim.」(완결 문장)까지 넣으면
+      맞는 말을 지운 «교정» 이 다시 샌다(하니스 B-9k 짝).
+   ⛔ 말머리 목록에 «내용어» 를 넣지 말 것 — well·right·sure 등은 «I sing well» 처럼 뜻이 있는 자리에도 와서 아예 넣지 않았다(하니스 B-9g).
+   ───────────────────────────────────────────────────────────── */
+/** 떼어도 «교정» 이 아닌 말머리·맞장구 낱말(소문자). */
+export const FIX_FILLER_WORDS: ReadonlySet<string> = new Set([
+  'yes', 'yeah', 'yep', 'yup', 'no', 'nope', 'oh', 'uh', 'um', 'umm', 'uhm', 'hmm', 'ah', 'ok', 'okay', 'so', 'wow', 'and',
+]);
+/** 앞을 떼 «문장 첫 낱말» 이 됐을 때 대문자로 써도 교정이 아닌 흔한 낱말(소문자). 여기 없는 낱말(korea·monday·english …)의
+ *  대문자는 진짜 교정으로 본다 — 모르면 교정을 남기는 쪽(예전 동작)으로 실패한다. */
+const SENTENCE_START_WORDS: ReadonlySet<string> = new Set([
+  'my', 'your', 'his', 'her', 'its', 'our', 'their', 'the', 'a', 'an', 'this', 'that', 'these', 'those',
+  'it', "it's", 'we', "we're", 'you', "you're", 'he', "he's", 'she', "she's", 'they', "they're", 'there', "there's", 'here',
+  'what', 'where', 'when', 'why', 'how', 'who', 'which', 'is', 'are', 'am', 'was', 'were', 'do', 'does', 'did',
+  "don't", "doesn't", "didn't", 'can', "can't", 'could', 'will', "won't", 'would', 'should', 'may', 'might', "let's",
+  'me', 'not', 'maybe', 'then', 'now', 'today', 'yesterday', 'tomorrow', 'because', 'but', 'or', 'if',
+  'in', 'on', 'at', 'to', 'for', 'with', 'of', 'from', 'after', 'before', 'every', 'some', 'many', 'all', 'both',
+  'one', 'two', 'please', 'thank', 'thanks', 'sorry', 'hello', 'hi', 'very', 'really', 'just', 'also', 'too',
+]);
+/** 대답의 말머리(이 말로 시작한 앞 문장은 «더듬기» 가 아니라 «대답» 이다 — 「Yes, I am.」). */
+const ANSWER_WORDS: ReadonlySet<string> = new Set(['yes', 'yeah', 'yep', 'yup', 'no', 'nope', 'ok', 'okay']);
+/** 이 낱말로 끝나면 덜 끝난 말이다 — 대답 말머리 뒤에서도(「Yes, I want.」「No, the.」). */
+const HARD_DANGLING_WORDS: ReadonlySet<string> = new Set([
+  'the', 'a', 'an', 'my', 'your', 'to', 'want', 'like', 'and', 'or', 'but', 'with', 'of', 'in', 'on', 'at', 'for', 'very', 'really', 'think',
+]);
+/** 조동사·be — 말머리 없이 끝나면 덜 끝난 말(「I am.」)이지만, 대답 말머리 뒤에서는 완결된 대답이다(「Yes, I am.」「Yes, I can.」). */
+const AUX_END_WORDS: ReadonlySet<string> = new Set(['am', 'is', 'are', 'was', 'were', 'can', 'will', 'would', 'should', 'have', 'has']);
+/** fixIsNotACorrection 이 판정하는 최대 길이 — 넘으면 판정하지 않는다(예전 동작 = 교정을 남긴다).
+ *  ⚠️ 앞단 verifyWarmupFix 가 120자에서 이미 자르지만, 이 함수만 따로 불려도 느려지지 않게 둔다(1,200자 17초 실측). */
+export const FIX_JUDGE_MAX_LEN = 200;
+
+/** 구두점만 걷고 «대소문자·아포스트로피» 는 남긴 낱말들(don't ≠ dont 로 본다 — 그 차이는 진짜 교정이다). */
+function lightTokens(s: string): string[] {
+  return s.replace(/[‘’ʼ]/g, "'").replace(/[^A-Za-z0-9' ]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+}
+/** now 가 was 의 «연속한 한 토막» 이고, 그 토막에서 대소문자 교정이 없는가. head = was 앞쪽을 뗐는가. */
+function sameSpanNoCaseFix(spanW: string[], N: string[], head: boolean): boolean {
+  if (spanW.length !== N.length) return false;
+  for (let j = 0; j < N.length; j++) {
+    if (spanW[j].toLowerCase() !== N[j].toLowerCase()) return false;
+    if (spanW[j] === N[j]) continue;
+    /* 대소문자만 다르다 — 앞을 떼서 «문장 첫 낱말» 이 된 자리의 대문자는 교정이 아니다(Yes, my dog → My dog).
+       ⚠️ 그래도 i/i'm 의 대문자는 어디서나 진짜 교정이다(yes, i'm → I'm).
+       ⚠️ 흔한 낱말(SENTENCE_START_WORDS)만 그렇게 본다 — 「yes, korea is big」→「Korea is big.」 의 Korea 는 고유명사 교정이다. */
+    if (j === 0 && head && !/^i(?:'|$)/i.test(N[j]) && spanW[j] === N[j].toLowerCase()
+        && SENTENCE_START_WORDS.has(spanW[j])) continue;
+    return false;
+  }
+  return true;
+}
+/** 바로 앞에서 뗀 문장이 «더듬은 앞부분» 인가(그것을 지운 것은 진짜 교정이다).
+ *  ① 말끝을 흐림(I want...) ② 남긴 말을 같은 낱말로 다시 시작(I play. → I play soccer) ③ 덜 끝난 짧은 말(I am.).
+ *  ⛔ 대답(Yes, I am. / Yes, he can swim.)·완결 문장(I swim. / Not cats.)은 아니다 — 대답 말머리 뒤에서는 더 좁게 본다. */
+function isFalseStart(prevRaw: string, kept: string[]): boolean {
+  const all = lightTokens(prevRaw);
+  let k = 0;
+  while (k < all.length && FIX_FILLER_WORDS.has(all[k].toLowerCase())) k++;
+  const D = all.slice(k).map(x => x.toLowerCase());
+  if (!D.length || !kept.length) return false;
+  if (/(?:\.\.|…)\s*$/.test(prevRaw.trim())) return true;
+  const last = D[D.length - 1];
+  if (D.length <= 4 && HARD_DANGLING_WORDS.has(last)) return true;
+  if (all.slice(0, k).some(x => ANSWER_WORDS.has(x.toLowerCase()))) {
+    /* 대답 말머리 뒤 — 「Yes, I am.」「Yes, he can swim.」 은 완결된 대답이라 더듬기가 아니다.
+       「Yes, I. I like pizza.」 처럼 대명사·관사 한 낱말에서 멈춘 것만 다시 시작으로 본다. */
+    return D.length === 1 && (D[0] === 'i' || SENTENCE_START_WORDS.has(D[0])) && D[0] === kept[0].toLowerCase();
+  }
+  if (D.length < kept.length && D.every((x, j) => x === kept[j].toLowerCase())) return true;
+  return D.length <= 4 && AUX_END_WORDS.has(last);
+}
+
+/** 고친 것이 «교정» 이 아니면 true — ① 끝 부호 !↔. 만 바뀜 ② 말머리·맞장구만 뗌 ③ 따로 떨어진 문장을 통째로 뗌. */
+export function fixIsNotACorrection(wasRaw: unknown, nowRaw: unknown): boolean {
+  const was = String(wasRaw == null ? '' : wasRaw).trim(), now = String(nowRaw == null ? '' : nowRaw).trim();
+  if (!was || !now || was === now) return false;
+  if (was.length > FIX_JUDGE_MAX_LEN || now.length > FIX_JUDGE_MAX_LEN) return false;
+  // ① 이미 있던 끝 부호를 다른 끝 부호로만 바꿈 — «찍기»(없던 부호 추가)는 남긴다(B-9c).
+  const endMark = (x: string) => x.replace(/[.!]+/g, '.').replace(/\s+/g, ' ');
+  if (endMark(was) === endMark(now)) return true;
+  const N = lightTokens(now);
+  if (!N.length || N.length >= lightTokens(was).length) return false;
+  /* ②③ now = «연속한 문장 몇 개(전부도 됨)» 에서 «말머리·맞장구 낱말만» 뗀 것 그대로.
+     ⚠️ 둘을 따로 보면 겹친 경우가 샌다 — 「Yes, I like pizza. I am happy.」 → 「I like pizza.」(퍼즈 B-9i 가 잡음). */
+  const sents = (was.match(/[^.!?]+[.!?]*/g) || []).map(x => x.trim()).filter(x => lightTokens(x).length);
+  for (let a = 0; a < sents.length; a++) for (let b = a + 1; b <= sents.length; b++) {
+    if (a > 0 && isFalseStart(sents[a - 1], N)) continue;   // 더듬은 앞부분을 지운 것 — 진짜 교정
+    const J = lightTokens(sents.slice(a, b).join(' '));
+    for (let i = 0; i + N.length <= J.length; i++) {
+      const dropped = J.slice(0, i).concat(J.slice(i + N.length));
+      if (!dropped.every(t => FIX_FILLER_WORDS.has(t.toLowerCase()))) continue;
+      if (sameSpanNoCaseFix(J.slice(i, i + N.length), N, a > 0 || i > 0)) return true;
+    }
+  }
+  return false;
+}
+
 export function verifyWarmupFix(
   fixRaw: any,
   studentInput: unknown,
@@ -371,6 +478,9 @@ export function verifyWarmupFix(
   /* 🔴 2026-10-31 사장님 «Secret → secret» 같은 대소문자·구두점 교정이 버려졌다.
      norm 은 대소문자·구두점을 지우므로 여기서 nWas===nNow 가 된다 — 그래서 «글자 자체가 같을 때» 만 버린다. */
   if (nWas === nNow && was === now) return null;
+  /* 🙅 맞는 문장을 고친 척 — 끝 부호 !↔. · 말머리(Yes,) 떼기 · 따로 떨어진 문장 지우기 (2026-11-08 운영 실측 · 위 fixIsNotACorrection).
+     ⚠️ 중국어에는 걸지 않는다(낱말·문장 경계가 영어 기준). */
+  if (!zhMode && fixIsNotACorrection(was, now)) return null;
   // 통째로 새 문장을 지어낸 경우(교정이 아니라 창작) 차단
   if (now.length > Math.max(60, said.length * 2.5)) return null;
   /* ⛔ 낱말 겹침만으로 자르지 않는다 — "I don't went" → "I didn't go" 처럼 «형태가 바뀌는»
