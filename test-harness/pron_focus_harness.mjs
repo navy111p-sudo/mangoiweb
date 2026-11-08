@@ -64,6 +64,11 @@ check('"Did you see a monster?" → monster', pickTarget('Did you see a monster?
 check('"What do you like?" → like 는 불용어라 건너뜀(빈 값)', pickTarget('What do you like?') === '', pickTarget('What do you like?'));
 check('물음표로 끝나지 않으면 기준 낱말 없음(교정 안 함)', pickTarget('Nice! You went to school yesterday.') === '');
 check('빈 입력은 빈 값', pickTarget('') === '' && pickTarget(null) === '');
+// 2026-11-09 — 운영 AI 친구 대답 30일 263개 중 66개가 «? 이모지» 로 끝났다(D1 실측).
+check('"Do you like dogs? 🐶" → dogs (끝 이모지는 뗀다)', pickTarget('Do you like dogs? 🐶') === 'dogs', pickTarget('Do you like dogs? 🐶'));
+check('"Is it a bug?  🐛 " → bug (공백·이모지 여러 개)', pickTarget('Is it a bug?  🐛 ') === 'bug', pickTarget('Is it a bug?  🐛 '));
+check('"Do you have a pet? 🐶🐱" → pet (이모지 두 개)', pickTarget('Do you have a pet? 🐶🐱') === 'pet', pickTarget('Do you have a pet? 🐶🐱'));
+check('짝: 이모지 뒤가 질문이 아니면 여전히 빈 값', pickTarget('I love pizza! 🍕') === '' && pickTarget('Pizza? 🍕 I love it.') === '');
 
 // ── ④ 배선 ───────────────────────────────────────────────────────────
 console.log('\n── ④ 배선 ──');

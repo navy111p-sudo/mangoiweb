@@ -1236,7 +1236,9 @@
     /* 🎯 발음 교정 도우미 (2026-11-01) */
     const PRON_STOP = new Set(['you','your','the','are','is','it','this','that','what','how','why','who','where','when','did','do','does','can','will','and','for','with','not','yes','ok','okay','say','see','like','have','has','got','about','from','into','just','really','was']);
     function pronTargetFromAi(text) {
-      const t = String(text || '').trim();
+      /* 끝에 붙은 이모지·공백은 떼고 본다(2026-11-09) — 대답의 25%가 «dogs? 🐶» 꼴이라 그 턴은 발음 짚기가 안 돌았다.
+         / Ignore a trailing emoji: about a quarter of replies end like "dogs? 🐶". */
+      const t = String(text || '').replace(/[\s\u0080-\uffff]+$/, '');
       if (!/\?\s*$/.test(t)) return '';
       const words = t.replace(/\?\s*$/, '').match(/[A-Za-z]{2,20}/g) || [];
       for (let i = words.length - 1; i >= 0; i--) {
