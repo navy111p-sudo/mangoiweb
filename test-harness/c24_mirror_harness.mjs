@@ -1285,6 +1285,144 @@ console.log('\n[ O. 강사 변경 잔재 막기 — 2026-09-01 Zee 실사고 (�
     /메모도 함께 지워집니다/.test(UNB));
 }
 
+console.log('\n[ Q. 🔁 사람이 «다른 날로 옮긴» 수업 — 원래 자리에 다시 만들지 않고, 옮긴 보강을 취소하지 않는다 (2026-11-08 실사고) ]');
+/* 운영 D1 실측: 11/04 18:03 #7730(c24:519537, 11/04 20:00)을 «연기보강» 으로 11/11 로 옮김 → 18:15 미러가 11/04 20:00 에
+   같은 예약을 #7772 로 다시 만듦(①) → 11/04 이 창을 지나가자 11/11 보강이 «카페24에서 사라진 수업» 으로 감사 기록 없이 취소(②). */
+{
+  const MV = (o = {}) => ({ id: 7730, user_id: 'hiseoyun', teacher_id: '7', scheduled_date: '2026-11-11', start_time: '20:00', duration_min: 20,
+    source: 'c24-mirror', status: 'active', notes: 'c24:519537 · 연기보강 (11월 4일 연기)', ...o });
+  const C519 = cls({ id: '519537', uid: 'hiseoyun', date: '2026-11-04', time: '20:00', tid: '37' });
+  const STU_Q = new Map([['hiseoyun', '정서윤'], ['stu1', '김하나']]);
+  const planQ = (c, moved, existing = []) => M.planMirror([c], LINKS, STU_Q, existing, 'all', new Set(), new Set(), new Map(), moved)[0];
+  const mmap = (...rows) => { const m = new Map(); for (const r of rows) { const k = M.mirrorNoteClassId(r.notes); m.set(k, [...(m.get(k) || []), r]); } return m; };
+
+  // ── Q-1 판정(순수 함수) ──
+  const q1 = planQ(C519, mmap(MV()));
+  check('🔴 Q-1 같은 수업번호를 사람이 다른 날(11/11)로 옮겼으면 원래 자리(11/04)에 안 만든다 — diverged · 그 행 번호 · 옮긴 날짜를 말한다',
+    q1.verdict === 'diverged' && q1.existing_id === 7730 && /2026-11-11/.test(q1.detail || '') && /다시 만들지 않습니다/.test(q1.detail || ''), JSON.stringify(q1));
+  check('Q-1b 짝: 근거를 못 읽었으면(null) 예전 그대로 ok(판정만 건너뛴다 — 쓰기 경로가 따로 막는다)', planQ(C519, null).verdict === 'ok', planQ(C519, null).verdict);
+  check('Q-1c 짝: 옮긴 행이 없으면 ok', planQ(C519, new Map()).verdict === 'ok');
+  check('Q-1d 그 뒤 취소된 옮긴 행이어도 안 만든다 · «그 뒤 취소됨» 을 말한다',
+    (() => { const r = planQ(C519, mmap(MV({ status: 'cancelled', source: 'c24-mirror:manual' }))); return r.verdict === 'diverged' && /그 뒤 취소됨/.test(r.detail || ''); })());
+  check('Q-1e ⛔ 학생이 다르면 막지 않는다', planQ(C519, mmap(MV({ user_id: 'stu1' }))).verdict === 'ok');
+  check('Q-1f ⛔ 같은 날짜에 있는 행은 이 판정 몫이 아니다(시각만 바꾼 것·되돌린 것은 위 manual·sameSlot 이 맡는다)',
+    planQ(C519, mmap(MV({ scheduled_date: '2026-11-04', start_time: '20:30' }))).verdict === 'ok');
+  check('Q-1g 이미 같은 자리에 미러 행이 있으면 예전 판정(already) 그대로 — 옛 중복을 «diverged» 로 바꿔 덮지 않는다',
+    planQ(C519, mmap(MV()), [{ id: 7772, user_id: 'hiseoyun', teacher_id: '28', scheduled_date: '2026-11-04', start_time: '20:00', duration_min: 20, source: 'c24-mirror', status: 'active', notes: 'c24:519537' }]).verdict === 'already');
+
+  // ── Q-2 근거 읽기 — 정본 loadMirrorMoved 를 진짜 SQLite 에 물려 돌린다 ──
+  const mkSql = () => {
+    const db = new DatabaseSync(':memory:');
+    db.exec(`CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, user_id TEXT, teacher_id TEXT, scheduled_date TEXT, start_time TEXT,
+             duration_min INTEGER, source TEXT, status TEXT, notes TEXT);
+             CREATE INDEX idx_sched_source ON class_schedules(source);
+             CREATE TABLE schedule_change_requests (id INTEGER PRIMARY KEY, schedule_id INTEGER, status TEXT);
+             CREATE TABLE class_audit_log (id INTEGER PRIMARY KEY, action TEXT, schedule_id INTEGER, created_at INTEGER);`);
+    const cs = db.prepare(`INSERT INTO class_schedules (id,user_id,teacher_id,scheduled_date,start_time,duration_min,source,status,notes) VALUES (?,?,?,?,?,?,?,?,?)`);
+    cs.run(10, 'hiseoyun', '7', '2026-11-11', '20:00', 20, 'c24-mirror', 'active', 'c24:519537 · 연기보강 (11월 4일 연기)');   // 승인 요청으로 옮김(도장 없음)
+    cs.run(11, 'stu1', '7', '2026-11-05', '18:00', 20, 'c24-mirror:manual', 'active', 'c24:222');                       // 사람 손 도장
+    cs.run(12, 'stu1', '7', '2026-11-06', '18:00', 20, 'c24-mirror', 'active', 'c24:333');                              // 손 안 댄 미러 행
+    cs.run(13, 'stu1', '7', '2026-11-07', '18:00', 20, 'adm-enroll:1', 'active', 'x');                                  // 미러 행 아님
+    cs.run(14, 'stu1', '7', '2026-11-20', '18:00', 20, 'c24-mirror', 'active', 'c24:444');                              // PATCH 이동 기록
+    cs.run(15, 'stu1', '7', '2026-11-08', '18:00', 20, 'c24-mirror', 'active', 'c24:555');                              // 대기 중 요청만
+    for (let i = 100; i < 400; i++) cs.run(i, 'u' + i, '7', '2026-10-01', '10:00', 20, 'c24-mirror', 'active', 'c24:' + (900000 + i));
+    db.exec(`INSERT INTO schedule_change_requests (schedule_id,status) VALUES (10,'approved'),(13,'approved'),(15,'pending');
+             INSERT INTO class_audit_log (action,schedule_id,created_at) VALUES ('reschedule',14,1),('end',12,1);`);
+    return db;
+  };
+  const d1Of = (db, failRe) => ({
+    prepare(sql) {
+      const st = { _b: [], bind(...a) { st._b = a; return st; },
+        async all() { if (failRe && failRe.test(sql)) throw new Error('injected'); return { results: db.prepare(sql).all(...st._b) }; },
+        async first() { if (failRe && failRe.test(sql)) throw new Error('injected'); return db.prepare(sql).get(...st._b) ?? null; },
+        async run() { return {}; } };
+      return st;
+    },
+    exec: async () => {},
+  });
+  {
+    const db = mkSql();
+    const got = await M.loadMirrorMoved({ DB: d1Of(db) });
+    const ids = got ? [...got.ids].sort((a, b) => a - b) : null;
+    check('🔴 Q-2 정본이 «사람이 옮긴 미러 행» 만 모은다 — 도장(11)·승인 요청(10)·이동 기록(14) · 손 안 댄 미러(12)·남의 행(13)·대기 요청(15)은 뺀다',
+      JSON.stringify(ids) === JSON.stringify(['10', '11', '14']), JSON.stringify(ids));
+    check('Q-2b 수업번호로 묶는다 — notes 에 이름이 덧붙어도(연기보강) 그 번호로', !!got && (got.byClass.get('519537') || []).some(r => r.id === 10) && got.byClass.has('222') && got.byClass.has('444'), got && JSON.stringify([...got.byClass.keys()]));
+    const qp = db.prepare(`EXPLAIN QUERY PLAN SELECT id FROM class_schedules WHERE +source = 'c24-mirror' AND id IN (SELECT schedule_id FROM schedule_change_requests WHERE status = 'approved' AND schedule_id IS NOT NULL UNION SELECT schedule_id FROM class_audit_log WHERE action IN ('postpone','reschedule') AND schedule_id IS NOT NULL)`).all().map(r => r.detail).join(' | ');
+    check('Q-2c 💰 실행 계획 — 이동 기록에서 출발해 번호(PK)로 찾는다(source 색인으로 미러 행 전체를 훑지 않는다)',
+      /PRIMARY KEY|rowid/i.test(qp) && !/idx_sched_source/.test(qp), qp);
+    check('🔴 Q-2c2 소스의 그 조회가 실제로 `+source` 를 쓴다(빼면 위 계획이 무너진다)', /\+source = \? AND id IN \(/.test(MIRROR_TS));
+    const noReq = mkSql(); noReq.exec('DROP TABLE schedule_change_requests');
+    const got2 = await M.loadMirrorMoved({ DB: d1Of(noReq) });
+    check('Q-2d 표가 없으면 그 근거만 «기록 없음» — 나머지(도장·이동 기록)는 그대로 읽는다', !!got2 && [...got2.ids].sort().join(',') === '11,14', got2 && [...got2.ids].join(','));
+    check('🔴 Q-2e 조회가 실패하면 null(«모름») — «옮긴 행 없음» 으로 읽지 않는다', (await M.loadMirrorMoved({ DB: d1Of(mkSql(), /id IN \(/) })) === null);
+    db.close();
+  }
+
+  // ── Q-3 쓰기 경로(applyMirror) 끝에서 끝까지 — 두 실사고를 그대로 재현하고, 짝으로 «예전이면 그랬다» 를 본다 ──
+  const makeDbQ = (scn) => {
+    const sqls = [];
+    const pick = (sql, b) => {
+      if (/FROM c24_mirror_config/.test(sql)) return { first: { v: 'whitelist' } };
+      if (/FROM c24_mirror_teachers WHERE enabled = 0/.test(sql)) return { all: [] };
+      if (/FROM c24_mirror_teachers/.test(sql)) return { all: [{ teacher_id: '7' }] };
+      if (/FROM teachers WHERE active/.test(sql)) return { all: [{ id: 7, name: 'ANA' }] };
+      if (/FROM teacher_payroll_auto/.test(sql)) return { all: [{ c24: '182', teacher_name: 'Teacher Ana' }] };
+      if (/FROM students_erp/.test(sql)) return { all: [{ user_id: 'hiseoyun', korean_name: '정서윤' }] };
+      if (/FROM sqlite_master/.test(sql)) return { first: { name: b[0] } };
+      if (/\+source = \? AND id IN/.test(sql)) return scn.movedFail ? { boom: true } : { all: scn.moved || [] };
+      if (/FROM class_schedules WHERE source = \?/.test(sql)) return { all: (scn.existing || []).filter(r => r.source === b[0]) };
+      if (/FROM class_schedules/.test(sql)) return { all: scn.existing || [] };
+      return { all: [], first: null };
+    };
+    return {
+      sqls, exec: async () => {},
+      prepare(sql) {
+        const st = { _b: [], bind: (...a) => { st._b = a; return st; },
+          all: async () => { const r = pick(sql, st._b); if (r.boom) throw new Error('moved lookup down'); return { results: r.all || [] }; },
+          first: async () => { const r = pick(sql, st._b); if (r.boom) throw new Error('moved lookup down'); return r.first ?? null; },
+          run: async () => { sqls.push({ sql: sql.replace(/\s+/g, ' ').trim(), binds: st._b || [] }); return {}; } };
+        return st;
+      },
+    };
+  };
+  const cq = (cid, date, hm) => ({ class_id: cid, user_id: 'hiseoyun', date, start_ms: KST(date, hm), end_ms: KST(date, hm) + 1200000, class_state: 1, teacher_id: '182' });
+  const cyQ = (rows) => async () => ({ fields: ['class_id', 'user_id', 'start_ms', 'end_ms', 'date', 'class_state', 'teacher_id'],
+    values: rows.map(c => [c.class_id, c.user_id, c.start_ms, c.end_ms, c.date, c.class_state, c.teacher_id]) });
+  const ins = (w) => w.filter(x => /^INSERT INTO class_schedules/.test(x.sql));
+  const cancelsOf = (w) => w.filter(x => /^UPDATE class_schedules SET status='cancelled'/.test(x.sql));
+  const MVW = MV({ teacher_id: '7' });
+  // ① 같은 날(11/04 18:15) — 카페24에는 원래 자리(11/04)에 그대로, 망고아이 행은 11/11 로 옮겨 감
+  {
+    const run = async (moved) => { const db = makeDbQ({ existing: [MVW], moved }); const r = await M.applyMirror({ DB: db }, cyQ([cq('519537', '2026-11-04', '20:00'), cq('600001', '2026-11-06', '20:00')]), { since: '2026-11-04', until: '2026-11-18', dry_run: false }); return { r, w: db.sqls }; };
+    const a = await run([MVW]);
+    check('🔴 Q-3① 옮긴 수업은 원래 자리에 다시 만들지 않는다(INSERT 에 c24:519537 없음) · 다른 수업(600001)은 그대로 만든다',
+      !ins(a.w).some(x => x.binds.includes('c24:519537')) && ins(a.w).some(x => x.binds.includes('c24:600001')) && a.r.summary.diverged === 1, JSON.stringify({ ins: ins(a.w).map(x => x.binds.at(-1)), s: a.r.summary }));
+    const b = await run([]);
+    check('Q-3①b 짝(재현): 이동 근거가 없으면 예전처럼 원래 자리에 다시 만든다 — 위 검사가 헛돌지 않는다는 증거',
+      ins(b.w).some(x => x.binds.includes('c24:519537')), JSON.stringify(ins(b.w).map(x => x.binds.at(-1))));
+  }
+  // ② 다음 날(11/05) — 원래 날짜(11/04)가 창을 지나 카페24 목록에서 빠짐
+  {
+    const plain = { id: 8000, user_id: 'hiseoyun', teacher_id: '7', scheduled_date: '2026-11-12', start_time: '20:00', duration_min: 20, source: 'c24-mirror', status: 'active', notes: 'c24:700001' };
+    const run = async (moved) => { const db = makeDbQ({ existing: [MVW, plain], moved }); const r = await M.applyMirror({ DB: db }, cyQ([cq('600001', '2026-11-06', '20:00')]), { since: '2026-11-05', until: '2026-11-19', dry_run: false }); return { r, w: db.sqls }; };
+    const a = await run([MVW]);
+    check('🔴 Q-3② 원래 날짜가 지나도 옮긴 보강(11/11)을 «사라진 수업» 으로 취소하지 않는다 · 짝: 손 안 댄 미러 행(카페24에서 정말 사라짐)은 그대로 취소',
+      !cancelsOf(a.w).some(x => x.binds.includes(7730)) && cancelsOf(a.w).some(x => x.binds.includes(8000)), JSON.stringify(cancelsOf(a.w).map(x => x.binds)));
+    const b = await run([]);
+    check('Q-3②b 짝(재현): 이동 근거가 없으면 예전처럼 보강을 취소한다 — 운영 #7730 이 그렇게 내려갔다',
+      cancelsOf(b.w).some(x => x.binds.includes(7730)), JSON.stringify(cancelsOf(b.w).map(x => x.binds)));
+  }
+  // ③ 근거 조회가 실패하면 «쓰지 않는다»
+  {
+    const db = makeDbQ({ existing: [MVW], movedFail: true });
+    const r = await M.applyMirror({ DB: db }, cyQ([cq('519537', '2026-11-04', '20:00'), cq('600001', '2026-11-06', '20:00')]), { since: '2026-11-04', until: '2026-11-18', dry_run: false });
+    check('🔴 Q-3③ 옮긴 수업 목록을 못 읽으면 만들기·취소를 둘 다 건너뛰고 그 이유를 남긴다(모르는 채로 쓰지 않는다)',
+      ins(db.sqls).length === 0 && cancelsOf(db.sqls).length === 0 && /못 읽었습니다/.test(r.create_skipped || '') && /못 읽었습니다/.test(r.cancel_skipped || ''), JSON.stringify({ c: r.create_skipped, x: r.cancel_skipped, w: db.sqls.length }));
+  }
+  check('Q-4 배선: 성적표·쓰기 두 호출부가 모두 그 근거를 planMirror 에 넘긴다(한쪽만 넘기면 화면과 실제가 갈린다)',
+    (MIRROR_TS.match(/planMirror\(classes, links, students, existing, mode, enabled, hidden, slotSeen, moved \? moved\.byClass : null\)/g) || []).length === 2);
+}
+
 console.log(`\n${'─'.repeat(52)}`);
 console.log(`  PASS ${PASS} / FAIL ${FAIL}`);
 if (FAIL) { console.log('\n실패 목록:'); FAILS.forEach(f => console.log('  · ' + f)); }
