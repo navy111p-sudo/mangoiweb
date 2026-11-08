@@ -257,6 +257,7 @@ for (const kind of ['avatar', 'friend']) for (const stream of [0, 1]) {
     }
   });
 }
+const keyLead='Let\'s say it like this: "'+fix.now+'."';
 for(const timing of ['immediate','after-lesson','key-mistakes']) for(const stream of [0,1]){
  timingMajor=true;
  const sid='timing-'+timing+'-'+stream;
@@ -267,9 +268,19 @@ for(const timing of ['immediate','after-lesson','key-mistakes']) for(const strea
   assert.equal(body.correction_timing,timing);assert.equal(body.progress.source,'warmup-verified-turn');assert.equal(body.progress.correction.now,fix.now);assert.deepEqual(body.progress.skills,{});assert.ok(body.progress.spokenWords.includes('park'));
   if(timing==='after-lesson'){assert.equal(body.fix,null);assert.equal(body.repeat,false);assert.ok(!body.ai_response.includes('You can say'));}
   if(timing==='immediate')assert.equal(body.fix.now,fix.now);
+  /* ⏱️ (2026-11-09 사장님 B안) 주요 실수 — 카드가 뜬 턴엔 고친 문장을 질문보다 먼저 «한 번» 말한다(집중교정의 세 번이 아님) */
+  if(timing==='key-mistakes'){assert.equal(body.fix?.now,fix.now);assert.equal(body.ai_response,keyLead+' '+question);assert.ok(!body.ai_response.includes('You can say'));}
  });
  if(timing==='key-mistakes'){
-  for(let i=0;i<4;i++){const r=await post('/api/warmup/chat',{session_id:sid,student_input:fix.was,correction_mode:'focused',correction_timing:timing,difficulty:3});const d=await r.json();if(i>=2)assert.equal(d.fix,null);}
+  const seen=[];
+  for(let i=0;i<4;i++){const r=await post('/api/warmup/chat',{session_id:sid,student_input:fix.was,correction_mode:'focused',correction_timing:timing,difficulty:3});const d=await r.json();seen.push([d.fix?.now||null,d.ai_response]);if(i>=2)assert.equal(d.fix,null);}
+  check('warmup key-mistakes speaks the fix once only while the card is shown (max 3) / '+stream,()=>{
+   for(const [now,said] of seen){
+    if(now){assert.equal(now,fix.now);assert.equal(said,keyLead+' '+question);}
+    else assert.equal(said,question);   // 3번을 넘긴 턴 — 카드도 말도 없음(짝)
+   }
+   assert.equal(seen.filter(x=>x[0]).length,2);   // 첫 턴 1 + 여기 2 = 최대 3
+  });
  }
  timingMajor=false;
 }
@@ -279,7 +290,9 @@ for(const timing of ['immediate','after-lesson','key-mistakes']) for(const strea
  const r=await post('/api/ai/chat-friend',{uid:auth.uid,msg:fix.was,level:'S3',correction_mode:'focused',correction_timing:timing,practice_session:'friend-timing-'+timing+'-'+stream,stream},auth.token);
  const events=stream?(await r.text()).split('\n').filter(s=>s.startsWith('data:')).map(s=>JSON.parse(s.slice(5))):[];
  const d=stream?events.find(e=>e.done):await r.json();
- check('actual friend timing and observed results '+timing+'/'+stream,()=>{assert.equal(d.progress.sessionId,'friend-timing-'+timing+'-'+stream);assert.equal(d.progress.correction.now,fix.now);assert.deepEqual(d.progress.skills,{});if(timing==='after-lesson'){assert.equal(d.fix,null);assert.equal(d.repeat,false);assert.ok(!d.reply.includes('You can say'));}});
+ check('actual friend timing and observed results '+timing+'/'+stream,()=>{assert.equal(d.progress.sessionId,'friend-timing-'+timing+'-'+stream);assert.equal(d.progress.correction.now,fix.now);assert.deepEqual(d.progress.skills,{});if(timing==='after-lesson'){assert.equal(d.fix,null);assert.equal(d.repeat,false);assert.ok(!d.reply.includes('You can say'));}
+  // AI 친구는 주요 실수 시점을 «균형» 으로 받아 이미 고친 문장을 한 번 먼저 말한다 — 웜업이 이제 같은 약속(2026-11-09 B안)
+  if(timing==='key-mistakes'){assert.equal(d.fix?.now,fix.now);assert.equal(d.reply,keyLead+' '+question);}});
  timingMajor=false;
 }
 const quickFixes = [

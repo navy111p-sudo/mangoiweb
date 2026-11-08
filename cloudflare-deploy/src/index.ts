@@ -4893,7 +4893,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
        ⚠️ 히스토리 저장은 이 보정 «뒤» 에 한다 — 학생이 본 문장과 모델이 다음 턴에 읽는 문장을 같게 두기 위해서다. */
     // Focused speech is already canonical; an internal '?' must not add a fourth copy.
     // 💬 자유대화는 카드만 — 고친 문장을 말로 붙이지 않는다(2026-11-04 · 판정 정본 warmupSpeaksFixLead).
-    if (showFix && timing !== 'after-lesson' && timing !== 'key-mistakes' && warmupSpeaksFixLead(honest?.mode)) aiText = correctionLeadIn(aiText, showFix, ctxLang === 'zh' ? 'zh' : 'en');
+    // ⏱️ 교정 시점이 모드보다 이긴다 — 주요 실수(최대 3번)는 말로 한 번, 연습 후는 안 붙임(2026-11-09 사장님 B안).
+    if (showFix && warmupSpeaksFixLead(honest?.mode, timing)) aiText = correctionLeadIn(aiText, showFix, ctxLang === 'zh' ? 'zh' : 'en');
 
     const reply = {
       session_id: sessionId, ai_response: aiText, turn_count: turnCount,
