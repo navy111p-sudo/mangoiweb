@@ -1146,8 +1146,7 @@
       friendPanelFold(!(bar && bar.classList.contains('panel-folded')));
     }
     function friendAiAsksQuestion(content) {
-      const t = String(content || '').replace(/[\s\p{Extended_Pictographic}]+$/u, '');
-      return /\?$/.test(t);
+      return /\?$/.test(aiTextTail(content));
     }
     function appendMsg(role, content, hasFix) {
       if (role === 'ai') _lastAiText = String(content || '');
@@ -1234,11 +1233,17 @@
       el.textContent = isEn() ? en : ko;
     }
     /* 🎯 발음 교정 도우미 (2026-11-01) */
-    const PRON_STOP = new Set(['you','your','the','are','is','it','this','that','what','how','why','who','where','when','did','do','does','can','will','and','for','with','not','yes','ok','okay','say','see','like','have','has','got','about','from','into','just','really','was']);
+    /* 기능어(대명사·전치사·접속사·조동사)는 발음 짚을 낱말이 아니다 — «…dogs too?» 는 dogs, «…say it with me?» 는 없음 */
+    const PRON_STOP = new Set(['you','your','the','are','is','it','this','that','what','how','why','who','where','when','did','do','does','can','will','and','for','with','not','yes','ok','okay','say','see','like','have','has','got','about','from','into','just','really','was',
+      'me','my','we','us','our','he','she','him','her','his','its','they','them','their','there','an','am','be','were','would','could','should','to','of','in','on','at','or','so','if','but','too','again','any','some']);
+    /* 끝에 붙은 이모지(😊 ☀️ 👍🏻 🇰🇷 👨‍👩‍👧 1️⃣)·공백을 뗀다 — AI 친구는 질문 뒤에 이모지를 붙인다(2026-11-09 실측: 질문으로 끝나는 답의 약 30%) */
+    function aiTextTail(content) {
+      return String(content || '').replace(/(?:[\s\u200D\uFE0E\uFE0F\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}]|[#*0-9]\uFE0F?\u20E3)+$/u, '');
+    }
     function pronTargetFromAi(text) {
-      const t = String(text || '').trim();
-      if (!/\?\s*$/.test(t)) return '';
-      const words = t.replace(/\?\s*$/, '').match(/[A-Za-z]{2,20}/g) || [];
+      const t = aiTextTail(text);
+      if (!/\?$/.test(t)) return '';
+      const words = t.slice(0, -1).match(/[A-Za-z]{2,20}/g) || [];
       for (let i = words.length - 1; i >= 0; i--) {
         const w = words[i].toLowerCase();
         if (!PRON_STOP.has(w)) return w;
