@@ -273,17 +273,18 @@
     return new Promise(function (res) {
       var t0 = Date.now();
       (function tick() {
-        if (my !== turnSeq || !active) return res(false);
+        if (!isCurrentTurn(my)) return res(false);
         var quiet = pending === 0 && !avatarSpeaking() && Date.now() - lastSpeakEnd >= QUIET_MS;
         if (quiet || Date.now() - t0 > SPEAK_WAIT_MS) return res(true);
         setTimeout(tick, 150);
       })();
     });
   }
+  function isCurrentTurn(my) { return my === turnSeq && active; }
   async function listen() {
     var my = ++turnSeq;
     await waitQuiet(my);
-    if (my !== turnSeq || !active) return;
+    if (!isCurrentTurn(my)) return;
     if (!window.MangoiVoice || !MangoiVoice.supported()) {
       setState('pause');
       noteEl.textContent = t('이 브라우저는 마이크를 쓸 수 없어요. ✕ 를 눌러 글로 대화해 주세요.',
@@ -293,7 +294,7 @@
     setState('listen');
     var errReason = '';
     var said = await friendRecordVoice({
-      isCurrent: function () { return my === turnSeq && active; },
+      isCurrent: function () { return isCurrentTurn(my); },
       lang: 'en',
       silenceMs: 1500, // Faster hands-free turn end; retain the 700ms speaker echo guard.
       onState: function (s, info) {
@@ -303,7 +304,7 @@
         else if (s === 'error') errReason = (info && info.reason) || 'server';
       }
     });
-    if (my !== turnSeq || !active) return;
+    if (!isCurrentTurn(my)) return;
     said = String(said || '').trim();
     // friendRecordVoice checked the recording even when a click triggered 'speaking'.
     if (errReason === 'denied' || errReason === 'unsupported') {
@@ -340,7 +341,7 @@
     watchSpeakState(my);
     try { await window.sendMsg(); } catch (e) {}
     try { input.blur(); } catch (e) {}
-    if (my !== turnSeq || !active) return;
+    if (!isCurrentTurn(my)) return;
     fillText();
     /* 답을 못 만든 턴(서버 오류·AI 불가)은 소리가 없다 — 그대로 다시 들으면 오류가 반복된다 */
     if (!spokeThisTurn) {
@@ -354,7 +355,7 @@
   /* 선생님이 말하기 시작하면 주황 — 폴링은 이 턴 동안만 산다 */
   function watchSpeakState(my) {
     (function tick() {
-      if (my !== turnSeq || !active) return;
+      if (!isCurrentTurn(my)) return;
       if (state === 'think' && (avatarSpeaking() || pending > 0 && spokeThisTurn)) {
         setState('speak');
         var s = lastTeacherText(); if (s) { teacherEl.textContent = s; refreshOpen(); }
