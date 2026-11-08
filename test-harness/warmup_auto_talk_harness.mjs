@@ -429,7 +429,8 @@ console.log('\n[I] warmup.html 배선 (나머지 연결 지점)');
   const hook = bodyOf(HTML, 'function _autoHook(ev, a){');
   const sent = [];
   const hookEnv = { window: {}, WarmupAutoTalk: { on: ev => sent.push(ev) },
-    _autoDonePending: false, _warmPaused: false, sending: true };
+    _autoDonePending: false, _warmPaused: false, sending: true, rel: 0 };
+  hookEnv._visRelease = () => { hookEnv.rel++; };   // 👄 입모양 엔진 풀기(warmup.html — 2026-11-09 다시 켬) 대역
   vm.createContext(hookEnv);
   vm.runInContext(hook + "\n_autoHook('aiDone');", hookEnv);
   ok('I-8 모듈이 없어도 안전하고, 저장 중에는 자동 듣기를 보류한다', hookEnv._autoDonePending && sent.length === 0);
@@ -438,6 +439,7 @@ console.log('\n[I] warmup.html 배선 (나머지 연결 지점)');
   vm.runInContext("_autoHook('settled');", hookEnv);
   ok('I-9 전송이 끝나면 보류했던 자동 듣기를 한 번만 연다',
     sent.join(',') === 'settled,aiDone' && !hookEnv._autoDonePending);
+  ok('I-10 입모양 엔진은 «보류된» aiDone 에서는 안 풀고, 실제로 처리할 때 한 번 푼다', hookEnv.rel === 1, { rel: hookEnv.rel });
 }
 
 console.log('\n[J] English idle prompt');
