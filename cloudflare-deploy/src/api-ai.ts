@@ -29,6 +29,7 @@ import { assessPronFix } from './pron-focus';   // 🎯 집중교정 발음 교�
    ⛔ 파일 이름이 warmup 이라고 복제해 오지 말 것. 판정이 두 벌이 되면 한쪽만 고쳐진다. */
 import { backfillPastTenseFix } from './tense-backfill';
 import { focusedCandidate, focusedReplyFix, recoverFocusedFix, FOCUSED_DRAFT_RULE } from './focused-correction';
+import { correctionTimingOf, correctionPrompt, showDuringPractice } from './ai-speaking-progress';
 import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
          decideWarmupFixShow, warmupShouldOfferRepeat, isRfRejection } from './warmup-correction';
 import type { MangoEnv } from './api-mango';
@@ -238,10 +239,11 @@ export async function handleAiApi(
       const msg = String(b.msg || '').trim();
       /* 🎯 집중교정이면 옛 게이트(두 번째부터·연달아 막기)를 건너뛰고 검증된 교정을 매번 보여 준다(2026-10-31). */
       const friendMode = correctionModeOf(b.correction_mode);   // 🎚️ 값이 없으면 집중교정
-      const immediateFix = friendMode === 'focused';
+      const timing = correctionTimingOf(b.correction_timing);
+      const immediateFix = friendMode === 'focused' && timing !== 'after-lesson';
       /* 🎯 발음 교정 — 집중교정 + 음성(WAV) + 기준 낱말이 있을 때만 Azure 발음평가를 «미리» 돌린다.
          응답을 기다리게 하지 않으려고 여기서 시작하고, 응답을 만들 때 결과만 받는다(실패는 null). */
-      const pronIn: any = (friendMode === 'focused' && b.pron && typeof b.pron === 'object') ? b.pron : null;
+      const pronIn: any = (immediateFix && (!timing || timing === 'immediate') && b.pron && typeof b.pron === 'object') ? b.pron : null;
       const pronP: Promise<any> = pronIn ? assessPronFix(env as any, pronIn.audio_b64, pronIn.target) : Promise.resolve(null);
       /* 🪜 여덟 칸으로 넓히면서, 학생 브라우저에 남아 있는 옛 키(A1…C1)도 그대로 받습니다.
          ⛔ 정규화를 빼면 옛 값이 «모르는 값» 이 되어 조용히 기본값으로 떨어집니다 —
@@ -430,7 +432,8 @@ ${askedLine}- A short answer is a GOOD answer. "Yes.", "Movies!", "I like it." a
 - "I don't know" means they don't know the answer, not "slow down": help with the same question (easier words or two choices). If they add something else, follow that.
 - Never break character. Never say you are an AI. Never use words far above the student's level.
 ${AI_FRIEND_CORRECTION_RULE}
-${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
+${immediateFix ? FOCUSED_DRAFT_RULE : ''}
+${timing ? 'Correction timing overrides earlier timing instructions: ' + correctionPrompt(timing) : ''}`;
 
       const messages: any[] = [{ role: 'system', content: system }];
       for (const h of history) {
@@ -891,7 +894,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
            낱말 안 겹침…). 평문·빈 응답에는 이미 로그가 있는데 이것만 없었습니다.
            ⛔ 학생 발화나 교정 문장을 로그에 싣지 마세요 — «버렸다» 는 사실만 남깁니다. */
         if (!verified && rawFix) console.warn('[chat-friend] fix rejected by verify');
-        if (verified) {
+        if (verified && showDuringPractice(timing, verified)) {
           /* 이번 답장까지 세어 1부터 시작한다.
              🔴 2026-09-09 까지는 turnNo 가 1 이면 게이트가 «막았습니다» — `turnCount - lastShownTurn(0) < 2`
                 가 1-0=1 로 걸려 «학생의 맨 첫 마디» 는 원리상 교정해 줄 수 없었습니다(정본을 돌려 실측).
@@ -916,7 +919,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
           // 🇰🇷 최근 14일에 이미 고쳐 준 관사·복수·전치사는 «한 번 센 것» 으로 이어 받는다(정본 recent-mistakes.ts).
           //    작은 실수일 때만 조회한다 — 큰 실수는 원래 바로 고친다.
           if (verified && verified.severity !== 'major') memoIn = carryRepeatTags(memoIn, await loadRecentFixTags(env.DB, uid, Date.now()));
-          const decided = decideWarmupFixShow(verified, memoIn, turnNo, { immediate: immediateFix });
+          const decided = decideWarmupFixShow(verified, memoIn, turnNo, { immediate: immediateFix || timing === 'immediate' });
           // 🎚️ 모드별 게이트 — 자유대화는 따라 말하기 없음, 집중교정은 검증된 교정을 매번(warmup-honest gateFixForMode).
           showFix = gateFixForMode(friendMode, verified, decided.show, false).show;
           // 🔁 보여 준 교정은 남겨 다음 대화에서 다시 쓰게 한다(KV 메모는 6시간 «간격» 만 기억). 던지지 않는다.
@@ -950,6 +953,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
         //    그냥 reply 를 그리므로 «고치기 전» 과 같습니다(안전한 방향).
         ...(usedFallback ? { ai_unavailable: true } : {}),
         fix: usedFallback ? null : showFix, repeat: usedFallback ? false : offerRepeat,
+        ...(!usedFallback && timing === 'after-lesson' && verifiedFix ? { review_fix: verifiedFix } : {}),
         // 📡 스트리밍으로 미리 보낸 문장과 최종본이 «다른가» — 화면이 그때만 다시 읽습니다.
         ...(wantStream ? { replaced: streamedText && streamedText.trim() !== reply.trim() ? 1 : 0 } : {}),
       });

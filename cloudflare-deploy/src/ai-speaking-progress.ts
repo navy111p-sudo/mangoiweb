@@ -3,6 +3,14 @@
  * UI/DB 연결 전 단계. 점수는 실제 평가 엔진에서 제공해야 하며 추정/임의 생성 금지.
  */
 export type CorrectionMode = 'immediate' | 'key-mistakes' | 'after-lesson';
+export function correctionTimingOf(value: unknown): CorrectionMode | '' {
+  return value === 'immediate' || value === 'key-mistakes' || value === 'after-lesson' ? value : '';
+}
+
+export function showDuringPractice(timing: CorrectionMode | '', fix: { severity: 'major' | 'minor' }): boolean {
+  return timing !== 'after-lesson' && (timing !== 'key-mistakes' || fix.severity === 'major');
+}
+
 export type Skill = 'pronunciation' | 'fluency' | 'grammar' | 'vocabulary' | 'sentence';
 export interface SpeakingEvaluation {
   lessonId: string;
@@ -47,8 +55,8 @@ export function evaluateSpeaking(e: SpeakingEvaluation): SpeakingProgress {
 export function correctionPrompt(mode: CorrectionMode): string {
   switch(mode) {
     case 'immediate': return 'Correct each meaningful mistake promptly, kindly and briefly, then resume conversation.';
-    case 'key-mistakes': return 'Prioritize communication. Correct at most three important mistakes during the lesson.';
-    case 'after-lesson': return 'Do not interrupt for language corrections; collect errors and summarize them after the lesson.';
+    case 'key-mistakes': return 'Prioritize communication. Correct only major mistakes during the lesson. For minor mistakes, fill fix but keep corrections out of reply.';
+    case 'after-lesson': return 'Put any correction in fix only. Keep corrections, recasts, and repetition requests out of reply. Continue the conversation normally.';
     default: throw new Error('Unknown correction mode');
   }
 }

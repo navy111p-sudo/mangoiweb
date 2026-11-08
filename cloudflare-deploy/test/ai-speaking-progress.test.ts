@@ -1,8 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultCorrectionMode, correctionPrompt, evaluateSpeaking } from '../src/ai-speaking-progress.ts';
+import { defaultCorrectionMode, correctionPrompt, correctionTimingOf, showDuringPractice, evaluateSpeaking } from '../src/ai-speaking-progress.ts';
 test('level defaults',()=>{assert.equal(defaultCorrectionMode(1),'immediate');assert.equal(defaultCorrectionMode(3),'key-mistakes');assert.equal(defaultCorrectionMode(5),'after-lesson');});
 test('correction prompts',()=>{for(const mode of ['immediate','key-mistakes','after-lesson'] as const) assert.ok(correctionPrompt(mode).length > 30);});
+test('timing independently filters validated corrections',()=>{
+  const major = {severity:'major'} as const, minor = {severity:'minor'} as const;
+  assert.equal(correctionTimingOf('focused'),'');
+  assert.equal(showDuringPractice('',minor),true);
+  assert.equal(showDuringPractice('immediate',minor),true);
+  assert.equal(showDuringPractice('key-mistakes',minor),false);
+  assert.equal(showDuringPractice('key-mistakes',major),true);
+  assert.equal(showDuringPractice('after-lesson',major),false);
+});
 const sample={lessonId:'l1',studentId:'s1',finishedNormally:true,evaluatedAt:'2026-11-08T00:00:00Z',skills:{pronunciation:90,fluency:80,grammar:85},spokenWords:['Apple','apple','hello'],correctedWords:['Hello'],sentencesCompleted:4,evaluationSource:'verified-engine'};
 test('overall score requires all five measured skills',()=>{
   const partial=evaluateSpeaking(sample);

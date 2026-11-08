@@ -61,7 +61,7 @@
   }
   /* 교정 정도(free_talk/balanced/focused)와 교정 시점은 서로 다른 설정이다. */
   function chooseTiming(ls, timing) {
-    if (TIMING.indexOf(timing) < 0) return false;
+    if (timing !== '' && TIMING.indexOf(timing) < 0) return false;
     return set(ls, K.timing, timing);
   }
   function effectiveTiming(ls, level) {
