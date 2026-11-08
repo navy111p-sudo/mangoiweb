@@ -306,6 +306,64 @@ function wordOverlap(a: string, b: string,
 export const WHY_KO_FOREIGN_SCRIPT =
   /[\u2E80-\u2FDF\u3005\u3007\u3040-\u30FA\u30FC-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\uFF66-\uFF9D\u{20000}-\u{3134F}]/u;
 
+/* ─────────────────────────────────────────────────────────────
+   «맞는 문장을 고친 척» 하는 교정 — 바뀐 것이 «교정» 이 아닌 경우 (2026-11-08 2차 재측정 · 운영 D1)
+   [잰 것] AI 영어친구가 이미 맞는 말을 «고쳐» 따라 말하게 시켰다:
+     「Let's talk about sports! Do you like soccer?」 → 「Let's talk about sports. Do you like soccer?」 (끝 부호만)
+     「Yes, I'm healthy.」 → 「I'm healthy.」 (말머리 Yes, 만 뗌)
+     「Not cats. I sing with my kids.」 → 「I sing with my kids.」 (따로 떨어진 문장을 통째로 지움)
+   학생은 «내가 틀렸나?» 로 받아들이는데 배울 것이 없다 — 그래서 이 셋은 교정에서 뺀다.
+   ⛔ 넓히지 말 것 — 지키는 것: 사장님 2026-10-31 결정 = 대소문자(Secret→secret · i→I)·마침표 «찍기»(I go to school → .).
+      그 밖에 진짜 교정으로 보고 남기는 것: 가운데 낱말 빼기(the dogs → dogs)·구두점 없는 더듬은 앞부분 빼기(I am I like pizza). 하니스 B-9e.
+   ⚠️ 미해결(함정 대조 2026-11-08): ⓐ 구두점이 낀 더듬은 앞부분(「I am. I like pizza.」「I want... I like pizza.」)은 ③에 걸려 버려진다
+      ⓑ 말머리를 뗀 뒤 고유명사 대문자 교정(「yes, korea is big」→「Korea is big.」)도 버려진다(첫 낱말은 i/I 만 교정으로 봄)
+      ⓒ 함수 안에 길이 상한이 없다(앞단 verifyWarmupFix 의 120자가 막고 있음). — 이 상태로 main 에 내보내지 말 것.
+   ⛔ 말머리 목록에 «내용어» 를 넣지 말 것 — well·right·sure 등은 «I sing well» 처럼 뜻이 있는 자리에도 와서 아예 넣지 않았다(하니스 B-9g).
+   ───────────────────────────────────────────────────────────── */
+/** 떼어도 «교정» 이 아닌 말머리·맞장구 낱말(소문자). */
+export const FIX_FILLER_WORDS: ReadonlySet<string> = new Set([
+  'yes', 'yeah', 'yep', 'yup', 'no', 'nope', 'oh', 'uh', 'um', 'umm', 'uhm', 'hmm', 'ah', 'ok', 'okay', 'so', 'wow', 'and',
+]);
+/** 구두점만 걷고 «대소문자·아포스트로피» 는 남긴 낱말들(don't ≠ dont 로 본다 — 그 차이는 진짜 교정이다). */
+function lightTokens(s: string): string[] {
+  return s.replace(/[‘’ʼ]/g, "'").replace(/[^A-Za-z0-9' ]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+}
+/** now 가 was 의 «연속한 한 토막» 이고, 그 토막에서 대소문자 교정이 없는가. head = was 앞쪽을 뗐는가. */
+function sameSpanNoCaseFix(spanW: string[], N: string[], head: boolean): boolean {
+  if (spanW.length !== N.length) return false;
+  for (let j = 0; j < N.length; j++) {
+    if (spanW[j].toLowerCase() !== N[j].toLowerCase()) return false;
+    if (spanW[j] === N[j]) continue;
+    /* 대소문자만 다르다 — 앞을 떼서 «문장 첫 낱말» 이 된 자리의 대문자는 교정이 아니다(Yes, my dog → My dog).
+       ⚠️ 그래도 i/i'm 의 대문자는 어디서나 진짜 교정이다(yes, i'm → I'm). */
+    if (j === 0 && head && !/^i(?:'|$)/i.test(N[j])) continue;
+    return false;
+  }
+  return true;
+}
+/** 고친 것이 «교정» 이 아니면 true — ① 끝 부호 !↔. 만 바뀜 ② 말머리·맞장구만 뗌 ③ 따로 떨어진 문장을 통째로 뗌. */
+export function fixIsNotACorrection(wasRaw: unknown, nowRaw: unknown): boolean {
+  const was = String(wasRaw == null ? '' : wasRaw).trim(), now = String(nowRaw == null ? '' : nowRaw).trim();
+  if (!was || !now || was === now) return false;
+  // ① 이미 있던 끝 부호를 다른 끝 부호로만 바꿈 — «찍기»(없던 부호 추가)는 남긴다(B-9c).
+  const endMark = (x: string) => x.replace(/[.!]+/g, '.').replace(/\s+/g, ' ');
+  if (endMark(was) === endMark(now)) return true;
+  const N = lightTokens(now);
+  if (!N.length || N.length >= lightTokens(was).length) return false;
+  /* ②③ now = «연속한 문장 몇 개(전부도 됨)» 에서 «말머리·맞장구 낱말만» 뗀 것 그대로.
+     ⚠️ 둘을 따로 보면 겹친 경우가 샌다 — 「Yes, I like pizza. I am happy.」 → 「I like pizza.」(퍼즈 B-9i 가 잡음). */
+  const sents = (was.match(/[^.!?]+[.!?]*/g) || []).map(x => x.trim()).filter(x => lightTokens(x).length);
+  for (let a = 0; a < sents.length; a++) for (let b = a + 1; b <= sents.length; b++) {
+    const J = lightTokens(sents.slice(a, b).join(' '));
+    for (let i = 0; i + N.length <= J.length; i++) {
+      const dropped = J.slice(0, i).concat(J.slice(i + N.length));
+      if (!dropped.every(t => FIX_FILLER_WORDS.has(t.toLowerCase()))) continue;
+      if (sameSpanNoCaseFix(J.slice(i, i + N.length), N, a > 0 || i > 0)) return true;
+    }
+  }
+  return false;
+}
+
 export function verifyWarmupFix(
   fixRaw: any,
   studentInput: unknown,
@@ -371,6 +429,9 @@ export function verifyWarmupFix(
   /* 🔴 2026-10-31 사장님 «Secret → secret» 같은 대소문자·구두점 교정이 버려졌다.
      norm 은 대소문자·구두점을 지우므로 여기서 nWas===nNow 가 된다 — 그래서 «글자 자체가 같을 때» 만 버린다. */
   if (nWas === nNow && was === now) return null;
+  /* 🙅 맞는 문장을 고친 척 — 끝 부호 !↔. · 말머리(Yes,) 떼기 · 따로 떨어진 문장 지우기 (2026-11-08 운영 실측 · 위 fixIsNotACorrection).
+     ⚠️ 중국어에는 걸지 않는다(낱말·문장 경계가 영어 기준). */
+  if (!zhMode && fixIsNotACorrection(was, now)) return null;
   // 통째로 새 문장을 지어낸 경우(교정이 아니라 창작) 차단
   if (now.length > Math.max(60, said.length * 2.5)) return null;
   /* ⛔ 낱말 겹침만으로 자르지 않는다 — "I don't went" → "I didn't go" 처럼 «형태가 바뀌는»

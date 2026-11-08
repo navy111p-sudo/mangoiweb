@@ -50,7 +50,7 @@ const live = (needle, label) => {
   const why = at < 0 ? 'missing' : deadAt(src, at, hStart);
   ok(`⓪ ${label} — 주석 밖에 살아 있다`, why === '', { needle, why });
 };
-live('questionMemory(questionSession(historyAll, latT0), msg, { reask: reaskTurn })', '기억은 «지금 이어지는 대화» 로 만든다(요청 턴이면 방금 질문은 뺀다)');
+live('questionMemory(questionSession(historyAll, latT0), msg, { reask: reaskTurn, maxMsgs: QM_FRIEND_ROWS })', '기억은 «지금 이어지는 대화» 로 만든다(요청 턴이면 방금 질문은 뺀다)');
 live('const reaskTurn = isReaskRequest(msg) || dontKnowTurn || (aiFriendLooksCut(msg) && !aiFriendJustAskedAgain(history))', '«요청 턴» 판정은 정본 + «I don\'t know» 그 말만 + cutHint 와 같은 조건이다');
 live('const dontKnowTurn = isDontKnowAnswer(msg);', '«I don\'t know» 그 말만은 정본(isDontKnowAnswer)으로 판정한다');
 live('${askedLine}', '지시에 «이미 물은 질문» 줄을 싣는다');
@@ -62,6 +62,7 @@ live('${askedLine}', '지시에 «이미 물은 질문» 줄을 싣는다');
   ok('⓪ 웜업·엘리더잼도 이번 학생 말을 넘겨 같은 정본을 부른다 — 주석 밖에 살아 있다', a0 > 0 && deadAt(idx, a1, a0) === '' && deadAt(el, b1) === '' && deadAt(el, b2, b1) === '', { a0, a1, b1, b2 });
 }
 live('hintFor: repeatQuestionHintEn', '다시 뽑을 때 영어 힌트를 쓴다');
+live('ORDER BY id DESC LIMIT ?`).bind(uid, QM_FRIEND_ROWS)', '기억은 최근 QM_FRIEND_ROWS 줄로 만든다(40줄이면 20턴 넘은 대화에서 앞 질문을 잊는다 — ④)');
 live('repN(rn) <= repN(reply)', '이름 다시 뽑기가 같은 질문을 새로 들여오지 않는다');
 live('repN(st2) <= repN(reply)', '짧게 다시 뽑기가 같은 질문을 새로 들여오지 않는다');
 
@@ -740,6 +741,82 @@ console.log('③ «I don\'t know»·오늘의 단어·«What about you?» — �
   ok('③-12 «What about you?» → 첫 문장이 곧 대답(첫마디만 앞에) · 같은 질문을 AI 자신에 대해 답하라',
     /Answer it in your FIRST sentence — only the short opener \(if any\) may come before it\./.test(q1.sys) && /If they ask "What about you\?" or "How about you\?", answer that same question about YOURSELF\./.test(q1.sys), '');
   ok('③-13 (짝) 묻지 않은 턴엔 «먼저 대답» 규칙이 없다', !/THE STUDENT JUST ASKED YOU SOMETHING/.test(q2.sys) && /THE STUDENT JUST ASKED YOU SOMETHING/.test(q1.sys), '');
+  script = () => 'Hi! 😊 Do you like games?';
+}
+
+// ─── ④ (2026-11-08 2차 재측정 · 운영 D1) 긴 대화 — 20턴 넘게 이어지면 앞에서 물은 질문을 잊던 것 ────────
+/* [잰 것] 성인 학생에게 12번째 턴의 「Do you have a favorite singer?」를 44번째 턴에 또 물어 학생이 「Told you.」·
+   「I told you I like EXO.」 라고 했다. 다른 학생에게는 「favorite animal」을 1·22·34번째 턴에 물었다.
+   [원인] 기억(qmem)을 최근 40줄(20턴)로만 만들었다 — 위 ② 샌드박스는 대화가 14~20턴이라 원리상 못 봤다.
+   ⚠️ 여기는 일부러 40~70턴으로 돌린다. 짝: 지시에 싣는 목록은 길어지지 않는다(QM_SHOW — 속도 그대로). */
+console.log('④ 긴 대화 — 40~70턴');
+{
+  ok('④ 기억 줄 수가 80턴 이상이다(전제 — 아래 대화 길이와 짝)', Number(M.QM_FRIEND_ROWS) >= 160, M.QM_FRIEND_ROWS);
+  ok('④ (짝) 웜업·엘리더잼 기본 기억은 그대로 40줄(KV 기록 길이) — AI 친구만 넘겨 받는다', Number(M.QM_MEMORY_MSGS) === 40, M.QM_MEMORY_MSGS);
+  // ④-1 실제 대화 모양 그대로 — 31턴 전에 물은 질문을 다시 물으면 다시 뽑는다
+  const g = await guest();
+  const THINGS = ['apples', 'bananas', 'trains', 'robots', 'rabbits', 'kites', 'puzzles', 'cookies', 'tigers', 'boats', 'pianos', 'lemons', 'rockets',
+    'turtles', 'carrots', 'castles', 'drums', 'ducks', 'parks', 'clouds', 'jeans', 'tents', 'candles', 'shells', 'buses', 'socks', 'whales', 'grapes', 'maps', 'bells', 'owls'];
+  const rows = [['user', 'Hi!', 0], ['assistant', 'Hi! 😊 Do you have a favorite singer?', 0], ['user', "I don't have a favorite singer, but I like good songs.", 0]];
+  for (const th of THINGS) rows.push(['assistant', `Cool! Do you like ${th}?`, 0], ['user', 'Yes, I do.', 0]);
+  const n = rows.length;
+  seedRows(g.uid, rows.map((r, k) => [r[0], r[1], (n - k) * 0.5 * MIN]));   // 30초 간격 — 1시간 쉼이 없는 한 대화
+  script = seq(['Great! Do you have a favorite singer?', 'Nice! What song do you sing in the car?']);
+  const res = await chat(g, 'Yes, I do.');
+  const ks = kinds(res);
+  ok('④-1 31턴 전에 물은 질문(favorite singer)을 또 물으면 다시 뽑는다 · 학생에게 안 나간다', ks.includes('repeat') && !/favorite singer/i.test(res.reply), { ks, reply: res.reply });
+  const sys1 = String(res.calls[0]?.o?.messages?.[0]?.content || '');
+  const line1 = sys1.slice(sys1.indexOf(M.ASKED_LINE_HEAD)).split('\n')[0];
+  const items1 = (line1.match(/\d+\) "/g) || []).length;
+  ok('④-1 (짝) 지시의 «이미 물은 질문» 목록은 QM_SHOW 개를 넘지 않는다 — 기억이 길어져도 프롬프트는 안 길어진다', items1 > 0 && items1 <= M.QM_SHOW, { items1, QM_SHOW: M.QM_SHOW });
+  const hist1 = (res.calls[0]?.o?.messages || []).filter((m) => m.role === 'user' || m.role === 'assistant').length;
+  ok('④-1 (짝) 모델에게 보여 주는 대화는 예전처럼 최근 20줄 + 이번 말(지시를 늘리지 않음)', hist1 <= 21, hist1);
+
+  // ④-2 샌드박스 — 긴 대화를 실제 핸들러로. 모델 흉내가 «20턴도 더 전에» 다룬 질문을 다시 내는지 세고(전제), 그것이 학생에게 안 나가는지 본다.
+  const LONG = [{ drift: 0.35, obey: 1 }, { drift: 0.7, obey: 1 }];
+  const L = { convs: 0, turns: 0, oldFirst: 0, final: 0, streamRep: 0, notOk: 0, items: 0, stream: 0 };
+  for (let li = 0; li < LONG.length; li++) for (let c = 0; c < 5; c++) {
+    const { drift, obey } = LONG[li];
+    const seedNo = 90001 + li * 97 + c * 13;
+    const talk = kit.makeTalk(seedNo, TOPIC_SETS[(c + li) % TOPIC_SETS.length], drift, obey);
+    const g2 = await guest();
+    const stream = c % 2 === 1;
+    if (stream) L.stream++;
+    const at = new Map();   // 개념 → 처음 다룬 턴
+    let said = 'Hi!';
+    const turns = 42 + c * 6;
+    L.convs++;
+    for (let t = 0; t < turns; t++) {
+      L.turns++;
+      let first = null, sys = '';
+      script = (o) => {
+        const k = kindOf(o);
+        if (k === 'first') { first = talk.first(); sys = String(o.messages[0].content || ''); return first; }
+        if (k === 'repeat' || k === 'generic') return talk.retry(o.messages);
+        return String(o.messages[o.messages.length - 2].content || '');
+      };
+      const r = await chat(g2, said, { level: 'S6', ...(stream ? { stream: 1 } : {}) });
+      if (r.ok !== true || typeof r.reply !== 'string') { L.notOk++; break; }
+      for (const q of M.questionsIn(first)) { const id = kit.cidOf(q); if (id && talk.covered.has(id) && at.has(id) && t - at.get(id) > 20) L.oldFirst++; }
+      if (kit.repeatsIn(r.reply, talk.covered)) {
+        L.final++;
+        if (process.env.AIF_DEBUG) console.log('    [debug ④]', JSON.stringify({ li, c, t, first, reply: r.reply, kinds: kinds(r) }));
+      }
+      if (stream) for (const s2 of r.sent) if (kit.repeatsIn(s2, talk.covered)) L.streamRep++;
+      if (sys.includes(M.ASKED_LINE_HEAD)) {
+        const ln = sys.slice(sys.indexOf(M.ASKED_LINE_HEAD)).split('\n')[0];
+        L.items = Math.max(L.items, (ln.match(/\d+\) "/g) || []).length);
+      }
+      said = talk.answer(r.reply);
+      for (const id of talk.covered) if (!at.has(id)) at.set(id, t);
+    }
+  }
+  console.log(`  · 긴 대화 ${L.convs}(스트리밍 ${L.stream}) · 턴 ${L.turns} · 모델이 20턴도 더 전에 다룬 질문을 다시 낸 횟수 ${L.oldFirst} · 학생에게 나간 같은 질문 ${L.final}`);
+  ok('④-2 긴 대화가 매 턴 정상으로 답했다', L.notOk === 0, L.notOk);
+  ok('④-2 모델 흉내가 «20턴도 더 전» 질문을 실제로 다시 냈다(전제 — 시험이 헛돌지 않게)', L.oldFirst > 0, L.oldFirst);
+  ok('④-2 긴 대화에서도 같은 질문이 학생에게 한 번도 안 나간다(따르는 모델)', L.final === 0, L.final);
+  ok('④-2 스트리밍 미리듣기로도 안 나간다 · 스트리밍 대화를 실제로 돌렸다(전제)', L.streamRep === 0 && L.stream > 0, { streamRep: L.streamRep, stream: L.stream });
+  ok('④-2 (짝) 지시의 목록은 끝까지 QM_SHOW 개 이하다', L.items > 0 && L.items <= M.QM_SHOW, L.items);
   script = () => 'Hi! 😊 Do you like games?';
 }
 finish();

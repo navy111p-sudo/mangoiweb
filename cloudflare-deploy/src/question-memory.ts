@@ -103,6 +103,15 @@ export function questionRepeats(question: unknown, memory: QuestionMemory | null
 
 /** 지시에 싣는 «이미 물은 질문» 개수(최근 것부터) — 판정(done)은 기록 전체로 한다. */
 export const QM_SHOW = 10;
+/** AI 영어친구가 «같은 질문 두 번 금지» 기억을 만들려고 읽는 최근 줄 수(학생 말 + AI 답 — 80턴).
+ *  🔴 (2026-11-08 2차 재측정 · 운영 D1) 예전엔 40줄(20턴)이라, 20턴 넘게 이어진 대화에서 앞에서 물은 질문을 잊었다 —
+ *     성인 학생에게 12번째 턴의 「Do you have a favorite singer?」를 44번째 턴에 또 물어 학생이 「Told you.」라고 했다.
+ *  ⚠️ 모델에게 보여 주는 대화는 그대로 최근 20줄이고 지시에 싣는 목록도 QM_SHOW(10)개라 프롬프트는 안 길어진다(속도 그대로).
+ *     [잰 것 — 운영 D1 2026-11-08] 같은 학생(84줄)에 LIMIT 40·160 을 걸면 둘 다 rows_read 169(색인 idx_chat_uid 로 그 학생 행을 다 읽고 정렬).
+ *  ⚠️ 1시간 넘게 쉬면 거기서 끊는 것(questionSession)은 그대로다 — 이 숫자는 «한 번 이어진 대화» 의 상한일 뿐. */
+export const QM_FRIEND_ROWS = 160;
+/** questionMemory 가 기본으로 보는 줄 수 — 웜업·엘리더잼의 KV 기록 길이(WARMUP_MAX_TURNS×2 = 40)와 같다. 더 길게 보려면 opts.maxMsgs. */
+export const QM_MEMORY_MSGS = 40;
 const clip = (s: unknown, max: number): string => typeof s === 'string' ? s.replace(/\s+/g, ' ').trim().slice(0, max) : '';
 /** 글 속의 질문들(물음표로 끝나는 조각) — 영어 낱말이 없는 조각은 뺀다. */
 export function questionsIn(text: unknown): string[] {
@@ -210,9 +219,12 @@ export function isAskAgainQuestion(q: unknown): boolean {
  *  ⚠️ 학생이 그 질문에 «다시·천천히·모르겠어요» 로 답했으면(isReaskRequest — 이번 말은 opts.reask 로 덮어쓸 수 있다)
  *     그 질문은 «아직 안 다룬 것» 으로 둔다 — AI 가 요청대로 다시 물어도 반복이 아니다. 그 앞에 물은 질문은 그대로 기억한다.
  *  ⚠️ AI 의 «다시 말해 줄래?»(isAskAgainQuestion)는 기억하지 않는다. */
-export function questionMemory(history: unknown, said?: unknown, opts?: { reask?: boolean }): QuestionMemory | null {
+export function questionMemory(history: unknown, said?: unknown, opts?: { reask?: boolean; maxMsgs?: number }): QuestionMemory | null {
   if (!Array.isArray(history)) return null;
-  const msgs = history.filter((m: any) => m && (m.role === 'assistant' || m.role === 'user') && typeof m.content === 'string').slice(-40);
+  /* ⚠️ 상한 — 기본 QM_MEMORY_MSGS(40줄 = 웜업·엘리더잼 KV 기록 길이). AI 영어친구만 opts.maxMsgs 로 QM_FRIEND_ROWS(160줄)를 넘긴다.
+     2026-11-08 전에는 AI 친구 조회만 40 → 160 으로 늘려도 여기 .slice(-40) 때문에 기억이 여전히 20턴이었다(긴 대화 샌드박스 ④가 잡음). */
+  const cap = opts && Number(opts.maxMsgs) > 0 ? Math.floor(Number(opts.maxMsgs)) : QM_MEMORY_MSGS;
+  const msgs = history.filter((m: any) => m && (m.role === 'assistant' || m.role === 'user') && typeof m.content === 'string').slice(-cap);
   const asked: { q: string; a: string }[] = [], done: Set<string>[] = [], texts = new Set<string>(), items: QuestionMemoryItem[] = [];
   for (let k = 0; k < msgs.length; k++) {
     if (msgs[k].role !== 'assistant') continue;
