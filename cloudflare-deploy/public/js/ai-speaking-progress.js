@@ -10,7 +10,7 @@
   }
   function t(ko, english) { return en() ? english : ko; }
   function token() { try { return localStorage.getItem('mango_token') || ''; } catch (_) { return ''; } }
-  function reset() { generation++; sessionId = ''; sessionToken = ''; starting = null; closed = false; result = null; }
+  function reset() { generation++; sessionId = ''; sessionToken = ''; starting = null; finishing = null; evaluatingId = ''; closed = false; result = null; if (card) card.replaceChildren(); }
   async function api(body) {
     var response = await fetch('/api/ai/speaking-progress', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() },
@@ -48,6 +48,7 @@
     }
   }
   function paint() {
+    if (sessionToken && sessionToken !== token()) reset();
     if (result) window.AiSpeakingProgressView.render(card, result, en() ? 'en' : 'ko');
     if (trigger) trigger.textContent = t('학습 결과', 'Results');
     if (dialog) {
@@ -56,6 +57,7 @@
     }
   }
   async function finish() {
+    if (sessionToken && sessionToken !== token()) reset();
     if (finishing) return finishing;
     if (document.getElementById('sendBtn')?.disabled) { message(t('AI 응답이 끝난 뒤 결과를 확인해 주세요.', 'Wait for the AI reply before viewing results.')); return; }
     if (dialog && !dialog.open) {
@@ -84,7 +86,7 @@
           evaluation_pending: t('평가 중이에요. 잠시 뒤 다시 확인해 주세요.', 'Assessment is in progress. Try again shortly.')
         };
         message(texts[error.message] || t('결과를 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.', 'Results are unavailable. Please try again shortly.'), true);
-      } finally { finishing = null; evaluatingId = ''; }
+      } finally { if (evaluatingId === requestedId) { finishing = null; evaluatingId = ''; } }
     })();
     return finishing;
   }
@@ -109,6 +111,7 @@
     if (send && finishButton) new MutationObserver(function () { finishButton.disabled = send.disabled; }).observe(send, { attributes: true, attributeFilter: ['disabled'] });
     paint();
     window.addEventListener('mangoi:lang-changed', paint);
+    window.addEventListener('storage', function (event) { if (event.key === 'mango_token' || event.key === null) paint(); });
     document.addEventListener('mangoi:lang-changed', paint);
   }
   window.AiSpeakingProgress = { beforeTurn: beforeTurn, finish: finish, reset: reset };

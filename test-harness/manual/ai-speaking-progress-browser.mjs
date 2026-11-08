@@ -93,6 +93,11 @@ try {
       await page.locator(app === 'friend' ? '.ai-progress-trigger' : '#wgFinish').click();
       check(posts.filter(p => p.action === 'finish').length === 1, name + ': reopening does not request evaluation again');
       check(posts.filter(p => p.award).length === (app === 'warmup' ? 1 : 0), name + ': reopening adds no award request');
+      await page.evaluate(() => { localStorage.setItem('mango_token', 'different-account-token'); window.dispatchEvent(new StorageEvent('storage', {key:'mango_token'})); });
+      check(!(await page.locator('.ai-progress-card').innerText()).includes('50P'), name + ': cross-tab account change clears open private results');
+      await page.locator(app === 'friend' ? '.ai-progress-close' : '#wgSummaryBack').click();
+      await page.locator(app === 'friend' ? '.ai-progress-trigger' : '#wgFinish').click();
+      check(!(await page.locator('.ai-progress-card').innerText()).includes('50P'), name + ': cached wallet is cleared when the account changes');
       check(errors.length === 0, name + ': no browser exceptions: ' + errors.join(';'));
     } catch (error) { await page.screenshot({ path: join(output, `FAIL-${width}-${app}-${state}.png`) }); throw error; }
     finally { await context.close(); }
