@@ -81,10 +81,10 @@ for (const [w,h,name,seen] of [[390,844,'폰 세로',false],[1280,800,'노트북
     const rr=r.getBoundingClientRect(); const log=document.getElementById('log').getBoundingClientRect();
     const top=document.elementFromPoint(innerWidth/2, Math.min(innerHeight-120, Math.max(5,log.top+10)));
     const inp=document.getElementById('inp');
-    return {on:f&&f.classList.contains('on'), inside:f&&f.contains(r), hgt:rr.height/innerHeight, mid:(rr.left+rr.width/2)/innerWidth,
+    return {on:f&&f.classList.contains('on'), inside:f&&f.contains(r), hgt:rr.height/innerHeight, mid:(rr.left+rr.width/2-f.getBoundingClientRect().left)/f.getBoundingClientRect().width,
       hid:!!(top&&f.contains(top)), ro:inp.readOnly, mode:localStorage.getItem('mangoi_warmup_talk_mode')};});
   ok(name+': 누르면 얼굴 화면이 켜지고 얼굴 카드가 그 안으로 옮겨진다', on.on && on.inside);
-  ok(name+': 상반신 얼굴이 화면 가운데 크게(높이 ≥ 60%) — 영상통화 화면(js/ftk-call.js)', on.hgt>=0.6 && Math.abs(on.mid-0.5)<0.05, (on.hgt*100).toFixed(0)+'% · 가운데 '+(on.mid*100).toFixed(0)+'%');
+  ok(name+': 상반신 얼굴이 «얼굴 칸» 가운데 크게(높이 ≥ 60% · PC 는 왼쪽 칸) — 영상통화 화면(js/ftk-call.js)', on.hgt>=0.6 && Math.abs(on.mid-0.5)<0.05, (on.hgt*100).toFixed(0)+'% · 가운데 '+(on.mid*100).toFixed(0)+'%');
   ok(name+': 대화창·버튼은 가려져 안 보인다(맨 위가 얼굴 화면)', on.hid);
   ok(name+': 입력칸은 읽기 전용(폰 키보드가 안 튀어나옴)', on.ro===true);
   ok(name+': 들어와 있는 동안은 «자동으로 말하기» 가 켜진다', on.mode==='auto', String(on.mode));

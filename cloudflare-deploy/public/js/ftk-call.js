@@ -108,9 +108,35 @@
     + '#ftk.ftk-call .ftk-chips button{background:#f3f4f6;border-color:#e5e7eb;color:#111}#ftk.ftk-call .ftk-chips button small{color:#6b7280}'
     + '#ftk.ftk-call .ftk-ask{top:calc(env(safe-area-inset-top,0px) + 64px);left:16px;height:38px;background:rgba(255,255,255,.78);color:#111;font-size:15px}'
     + '@media (min-width:640px){#ftk .fc-replay{border-radius:29px}}'
+    /* 도움판이 열리면 같은 선생님 말이 카드에 있다 — 흰 자막이 카드 뒤로 겹쳐 비치지 않게(2026-11-09 사장님 화면) */
+    + '#ftk.ftk-call.gl-open .fc-cap{visibility:hidden}'
+    /* 🏷 아이콘만 있던 버튼 밑에 짧은 글자 — 처음 쓰는 아이도 뜻을 안다(2026-11-09 「추천한대로」) */
+    + '#ftk .fc-bar .fc-b{position:relative}#ftk .fc-bar .fc-mic{width:52px;height:52px}'
+    + '#ftk .fc-lb{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:5px;font-size:11px;font-weight:700;line-height:1.2;'
+    + ' color:rgba(255,255,255,.92);white-space:nowrap;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.6)}'
+    /* 다시 듣기 글자 — 위 «.fc-replay span»(42px 동그라미) 모양을 이긴다 */
+    + '#ftk .fc-replay .fc-lb{display:block;width:auto;height:auto;padding:1px 6px;border-radius:8px;background:rgba(255,255,255,.85);color:#3f3f46;text-shadow:none}'
+    /* 🖥 넓은 화면(PC·태블릿 가로) — 왼쪽 얼굴 · 오른쪽 대화 기록 + 글쓰기. 폰·좁은 창은 위 그대로 얼굴이 화면 가득.
+       기준은 기기가 아니라 «창 폭»(수업 안 좁은 iframe 은 폰 모양) */
+    + '#ftk .fc-side{display:none}'
+    + '@media (min-width:1024px){#ftk.ftk-call{right:36%}'
+    + '#ftk .fc-side{display:flex;flex-direction:column;position:fixed;top:0;right:0;bottom:0;width:36%;z-index:8;background:#f4f4f5;color:#18181b;'
+    + ' border-left:1px solid #d4d4d8;-webkit-user-select:text;user-select:text;touch-action:auto}}'
+    + '#ftk .fc-sideh{margin:0;padding:calc(env(safe-area-inset-top,0px) + 18px) 20px 12px;font-size:15px;font-weight:800;color:#52525b;border-bottom:1px solid #e4e4e7}'
+    + '#ftk .fc-log{flex:1;min-height:0;overflow-y:auto;list-style:none;margin:0;padding:16px 20px;display:flex;flex-direction:column;gap:10px}'
+    + '#ftk .fc-log li{max-width:85%;padding:10px 13px;border-radius:16px 16px 16px 4px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08);'
+    + ' font-size:15px;line-height:1.45;overflow-wrap:anywhere}'
+    + '#ftk .fc-log li.me{align-self:flex-end;border-radius:16px 16px 4px 16px;background:#dcfce7;color:#14532d}'
+    + '#ftk .fc-log:empty::before{content:attr(data-empty);color:#71717a;font-size:14px}'
+    + '#ftk .fc-type{display:flex;gap:8px;padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 16px);border-top:1px solid #e4e4e7}'
+    + '#ftk .fc-type[hidden]{display:none}'
+    + '#ftk .fc-in{flex:1;min-width:0;height:44px;padding:0 14px;border:1px solid #d4d4d8;border-radius:12px;font:inherit;font-size:15px;background:#fff;color:#18181b}'
+    + '#ftk .fc-send{height:44px;padding:0 18px;border:0;border-radius:12px;background:#18181b;color:#fff;font:inherit;font-weight:800;cursor:pointer}'
+    + '#ftk .fc-in:focus-visible,#ftk .fc-send:focus-visible{outline:3px solid #2563eb;outline-offset:2px}'
     + '@media (prefers-reduced-motion:reduce){#ftk .fc-dots.heard i{animation:none;height:20px}}';
 
-  var root = null, A = null, el = {}, wasOn = false, slowOn = false, camStream = null;
+  var LB = '<span class="fc-lb" aria-hidden="true"></span>';   // 버튼 밑 짧은 글자(뜻은 aria-label 이 따로 말한다)
+  var root = null, A = null, el = {}, wasOn = false, slowOn = false, camStream = null, logKey = '';
   var cap = { raf: 0, parts: [], idx: -1, src: '', last: 0, key: '', endAt: 0, hide: 0 };
 
   function t(ko, en) { try { return A && A.en && A.en() ? en : ko; } catch (e) { return ko; } }
@@ -128,22 +154,31 @@
       + '<button type="button" class="fc-b fc-cam" aria-pressed="false">' + I.cam + '</button>'
       + '<button type="button" class="fc-b fc-close">' + I.x + '</button></div>'
       + '<video class="fc-self" muted playsinline autoplay hidden></video>'
-      + '<button type="button" class="fc-b fc-replay"><span>' + I.wave + '</span></button>'
+      + '<button type="button" class="fc-b fc-replay"><span>' + I.wave + '</span>' + LB + '</button>'
       + '<div class="fc-cap"><p></p></div>'
       + '<div class="fc-status" role="status" aria-live="polite"></div>'
       + '<div class="fc-bar">'
-      + '<button type="button" class="fc-b fc-mic">' + I.mic + '</button>'
-      + '<button type="button" class="fc-b fc-slow" aria-pressed="false">.5X</button>'
-      + '<button type="button" class="fc-b fc-cc" aria-pressed="true">CC</button>'
+      + '<button type="button" class="fc-b fc-mic">' + I.mic + LB + '</button>'
+      + '<button type="button" class="fc-b fc-slow" aria-pressed="false">.5X' + LB + '</button>'
+      + '<button type="button" class="fc-b fc-cc" aria-pressed="true">CC' + LB + '</button>'
       + '<span class="fc-dots" aria-hidden="true"><i></i><i></i><i></i></span>'
-      + '<span class="fc-modes" role="group"><button type="button" class="fc-b fc-auto">' + I.auto + '</button>'
-      + '<button type="button" class="fc-b fc-hand">' + I.hand + '</button></span>'
+      + '<span class="fc-modes" role="group"><button type="button" class="fc-b fc-auto">' + I.auto + LB + '</button>'
+      + '<button type="button" class="fc-b fc-hand">' + I.hand + LB + '</button></span>'
       + '</div>'
-      + '<div class="fc-prog" role="progressbar" aria-valuemin="0" aria-valuemax="' + GOAL + '"><i></i></div>';
+      + '<div class="fc-prog" role="progressbar" aria-valuemin="0" aria-valuemax="' + GOAL + '"><i></i></div>'
+      + '<aside class="fc-side"><h2 class="fc-sideh"></h2><ol class="fc-log"></ol>'
+      + '<form class="fc-type"><input class="fc-in" type="text" autocomplete="off" enterkeyhint="send"><button type="submit" class="fc-send"></button></form></aside>';
     root.appendChild(w);
-    ['title', 'done', 'cam', 'close', 'self', 'replay', 'cap', 'status', 'mic', 'slow', 'cc', 'dots', 'auto', 'hand', 'prog']
+    ['title', 'done', 'cam', 'close', 'self', 'replay', 'cap', 'status', 'mic', 'slow', 'cc', 'dots', 'auto', 'hand', 'prog',
+     'sideh', 'log', 'type', 'in', 'send']
       .forEach(function (k) { el[k] = w.querySelector('.fc-' + k); });
     el.capP = el.cap.querySelector('p');
+    el.type.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var v = el.in.value.trim();
+      if (!v) return;
+      if (call('type', v) === true) el.in.value = '';   // 받았을 때만 비운다 — 생각 중·보내는 중이면 글이 그대로 남는다
+    });
 
     /* 버튼 눌림이 뒤의 얼굴(#ftkStage 클릭 = 마이크)로 새지 않게 */
     w.addEventListener('click', function (e) { if (e.target.closest('.fc-b')) e.stopPropagation(); });
@@ -209,6 +244,35 @@
     el.prog.setAttribute('aria-valuenow', String(Math.min(n, GOAL)));
     el.prog.setAttribute('aria-label', t('오늘 말한 횟수 ', 'Turns spoken ') + Math.min(n, GOAL) + '/' + GOAL);
     el.cap.hidden = !ccOn();
+    lb(el.mic, s === 'listen' ? t('보내기', 'Send') : t('말하기', 'Talk'));
+    lb(el.slow, t('천천히', 'Slow')); lb(el.cc, t('자막', 'Captions'));
+    lb(el.auto, t('자동', 'Auto')); lb(el.hand, t('버튼', 'Button')); lb(el.replay, t('다시 듣기', 'Replay'));
+    el.sideh.textContent = t('대화 기록', 'Conversation');
+    el.log.setAttribute('data-empty', t('아직 대화가 없어요', 'No messages yet'));
+    el.in.placeholder = t('글로 써서 보내기', 'Type your answer');
+    el.in.setAttribute('aria-label', el.in.placeholder);
+    el.send.textContent = t('보내기', 'Send');
+    el.type.hidden = !A || typeof A.type !== 'function';
+    paintLog();
+  }
+  function lb(b, s) { var x = b.querySelector('.fc-lb'); if (x && x.textContent !== s) x.textContent = s; }
+  /* 🖥 넓은 화면 오른쪽 대화 기록 — 손잡이 log() 가 화면의 말풍선을 [{me, text}] 로 준다(여기서 새로 저장하지 않는다).
+     바뀐 것이 없으면 다시 그리지 않는다. 좁은 화면에선 CSS 로 숨어 있다. */
+  function paintLog() {
+    var items = call('log') || [];
+    var last = items.length ? items[items.length - 1] : null;
+    var key = items.length + '|' + (last ? (last.me ? 1 : 0) + last.text : '');
+    if (key === logKey) return;
+    logKey = key;
+    el.log.textContent = '';
+    items.slice(-40).forEach(function (m) {
+      if (!m || !m.text) return;
+      var li = document.createElement('li');
+      if (m.me) li.className = 'me';
+      li.textContent = m.text;
+      el.log.appendChild(li);
+    });
+    el.log.scrollTop = el.log.scrollHeight;
   }
 
   function sync() {
@@ -251,7 +315,7 @@
       cap.idx = parts.length;   // shortcut: 기기 목소리(재생 위치를 모름)는 한 번에 전부 보인다 — 서버 목소리가 기본이라 드묾
     }
     var s = capText(parts, cap.idx, frac);
-    if (el.capP.textContent !== s) el.capP.textContent = s;
+    if (el.capP.textContent !== s) { el.capP.textContent = s; paintLog(); }   // 낱말이 바뀔 때만 — 흘러나오는 대답도 기록에 따라 붙는다
   }
 
   window.FtkCall = {
@@ -262,6 +326,7 @@
       build(); sync();
     },
     handsFree: handsFree,
-    _capText: capText   // test-harness/ftk_call_harness.mjs
+    _capText: capText,   // test-harness/ftk_call_harness.mjs
+    _paintLog: paintLog
   };
 })();

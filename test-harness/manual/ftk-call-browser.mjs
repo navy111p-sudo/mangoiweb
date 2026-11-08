@@ -54,8 +54,8 @@ const STUB=`(function(){
   patch();
 })();`;
 
-async function open(hands){
-  const ctx=await browser.newContext({viewport:{width:390,height:844}});
+async function open(hands,vp){
+  const ctx=await browser.newContext({viewport:vp||{width:390,height:844}});
   await ctx.addInitScript(STUB);
   await ctx.addInitScript((h)=>{ try{ localStorage.setItem('mangoi_ftk_peeked','1'); if(h) localStorage.setItem('mangoi_ftk_hands',h); }catch(e){} }, hands||'');
   const page=await ctx.newPage();
@@ -90,6 +90,13 @@ console.log('▶ A. A.i 친구하기 · 자동 대화 · 폰 390x844');
   ok('밝은 회색 배경(옛 남색 아님)', /linear-gradient\(rgb\(2[0-9]{2}/.test(ui.bg), ui.bg.slice(0,60));
   ok('내 카메라는 기본 꺼짐(빨강)', ui.cam==='false');
   ok('자동 대화가 기본', ui.auto==='true');
+  const nw=await page.evaluate(()=>{const f=document.getElementById('ftk'),sd=f.querySelector('.fc-side');
+    const lb=[...f.querySelectorAll('.fc-lb')].map(e=>e.textContent), pr=f.querySelector('.fc-prog').getBoundingClientRect();
+    const low=Math.max(...[...f.querySelectorAll('.fc-bar .fc-lb')].map(e=>e.getBoundingClientRect().bottom));
+    return {side:getComputedStyle(sd).display, w:f.getBoundingClientRect().width, vw:document.body.clientWidth, lb, low, prTop:pr.top};});
+  ok('폰: 오른쪽 대화 칸은 없고 얼굴이 화면 가득(2026-11-09)', nw.side==='none' && nw.w===nw.vw, nw.side+' '+nw.w+'/'+nw.vw);
+  ok('폰: 아이콘 버튼 밑에 글자(다시 듣기·말하기·천천히·자막·자동·버튼)', nw.lb.join(',')==='다시 듣기,말하기,천천히,자막,자동,버튼', nw.lb.join(','));
+  ok('폰: 버튼 글자가 진행 막대 위에서 끝난다(겹침 없음)', nw.low<=nw.prTop, nw.low+' ≤ '+nw.prTop);
   await page.screenshot({path:'/tmp/ftk-call-390.png'});
 
   // 첫 인사가 끝날 때까지
@@ -217,6 +224,58 @@ console.log('▶ C. A.i 말하기 연습(웜업)');
   const m2=await page.evaluate(()=>({m:WarmupAutoTalk.mode(),off:!document.getElementById('ftk').classList.contains('on')}));
   ok('나가면 원래 «자동» 으로 되돌린다(짝)', m2.off && m2.m==='auto', JSON.stringify(m2));
   await page.evaluate(()=>localStorage.setItem('mangoi_ftk_hands','auto'));
+  ok('페이지 스크립트 오류 없음', errs.length===0, errs.slice(0,2).join(' | '));
+  await ctx.close();
+}
+/* ── D. 넓은 화면(PC 1280x800) — 왼쪽 얼굴 · 오른쪽 대화 기록 + 글쓰기 (2026-11-09 사장님 「추천한대로」) ── */
+console.log('▶ D. A.i 친구하기 · PC 1280x800 · 2단');
+{
+  const {ctx,page,errs}=await open('',{width:1280,height:800});
+  await page.click('#tavatar-ring');
+  await page.waitForFunction(()=>__log.includes('spoke'), null, {timeout:9000}).catch(()=>{});
+  const g=await page.evaluate(()=>{const f=document.getElementById('ftk'),sd=f.querySelector('.fc-side'),r=f.getBoundingClientRect(),q=sd.getBoundingClientRect();
+    const st=f.querySelector('.ftk-stage').getBoundingClientRect();
+    return {vw:document.body.clientWidth, fw:r.width, sx:q.left, sw:q.width, sh:q.height, disp:getComputedStyle(sd).display, head:f.querySelector('.fc-sideh').textContent,
+      stageIn: st.left>=0 && st.right<=r.right+1, form:!f.querySelector('.fc-type').hidden, ph:f.querySelector('.fc-in').placeholder,
+      hit:document.elementFromPoint(q.left+q.width/2, q.top+q.height/2).closest('.fc-side')!==null};});
+  ok('왼쪽 얼굴 칸 ≈ 64%', Math.abs(g.fw-g.vw*0.64)<2, g.fw+'/'+g.vw);
+  ok('오른쪽 대화 칸 ≈ 36% · 화면 높이 가득', g.disp==='flex' && Math.abs(g.sx-g.fw)<2 && Math.abs(g.sx+g.sw-g.vw)<2 && Math.abs(g.sw-g.vw*0.36)<2 && g.sh===800, `${g.sx}+${g.sw}x${g.sh}`);
+  ok('얼굴이 왼쪽 칸 안에 있다(오른쪽 칸에 안 가림)', g.stageIn);
+  ok('오른쪽 칸이 맨 위에 보인다(뒤 화면에 안 가림)', g.hit);
+  ok('제목 «대화 기록» · 글쓰기 칸이 보인다', g.head==='대화 기록' && g.form && g.ph==='글로 써서 보내기', g.head+' / '+g.ph);
+  await page.waitForFunction(()=>document.querySelectorAll('#ftk .fc-log li.me').length>=1 && document.querySelectorAll('#ftk .fc-log li:not(.me)').length>=1, null, {timeout:15000}).catch(()=>{});
+  const l1=await page.evaluate(()=>({items:[...document.querySelectorAll('#ftk .fc-log li')].map(e=>(e.className==='me'?'나:':'')+e.textContent),
+    chat:document.querySelectorAll('#chat .msg.user').length}));
+  ok('말한 대화가 오른쪽 기록에 쌓인다(내 말 + 선생님 말)', l1.items.some(x=>x==='나:I like dogs') && l1.items.some(x=>!x.startsWith('나:')), l1.items.join(' | ').slice(0,120));
+  /* 글쓰기 — 말하는 중이 아닐 때까지 기다렸다가 */
+  await page.waitForFunction(()=>{const s=document.getElementById('ftk').getAttribute('data-s');return s==='listen'||s==='pause';}, null, {timeout:20000}).catch(()=>{});
+  const pv=await page.evaluate(()=>{ window.__pv=[]; const o=window.sendMsg; window.sendMsg=function(){ window.__pv.push(typeof _pendingVoice!=='undefined'?_pendingVoice:'?'); return o.apply(this,arguments); }; return true; });
+  await page.fill('#ftk .fc-in','I love music too');
+  await page.press('#ftk .fc-in','Enter');
+  await page.waitForFunction(()=>[...document.querySelectorAll('#chat .msg.user')].some(e=>e.textContent.trim()==='I love music too'), null, {timeout:9000}).catch(()=>{});
+  await page.waitForTimeout(400);
+  const t1=await page.evaluate(()=>({sent:[...document.querySelectorAll('#chat .msg.user')].some(e=>e.textContent.trim()==='I love music too'),
+    inLog:[...document.querySelectorAll('#ftk .fc-log li.me')].some(e=>e.textContent==='I love music too'), cleared:document.querySelector('#ftk .fc-in').value==='',
+    pv:window.__pv, on:document.getElementById('ftk').classList.contains('on')}));
+  ok('글로 써서 보내면 대화에 들어가고(얼굴 화면은 그대로)', t1.sent && t1.on && t1.cleared);
+  ok('보낸 글이 오른쪽 기록에도 보인다', t1.inLog);
+  ok('글로 보낸 턴은 «말하기» 보너스를 세지 않는다', t1.pv.length>=1 && t1.pv[0]===false, JSON.stringify(t1.pv));
+  /* 도움판이 열리면 흰 자막이 감춰진다(겹침) */
+  await page.evaluate(()=>{ const f=document.getElementById('ftk'); f.querySelector('#ftkGrab').click(); });
+  await page.waitForTimeout(200);
+  const gl=await page.evaluate(()=>({open:document.getElementById('ftk').classList.contains('gl-open'),cap:getComputedStyle(document.querySelector('#ftk .fc-cap')).visibility}));
+  ok('도움판이 열리면 흰 자막이 감춰진다(카드 뒤 겹침 없음)', gl.open && gl.cap==='hidden', JSON.stringify(gl));
+  await page.evaluate(()=>{ document.querySelector('#ftk #ftkGrab').click(); });
+  await page.waitForTimeout(200);
+  const gl2=await page.evaluate(()=>getComputedStyle(document.querySelector('#ftk .fc-cap')).visibility);
+  ok('닫으면 자막이 다시 보인다(짝)', gl2==='visible', gl2);
+  await page.screenshot({path:'/tmp/ftk-call-1280.png'});
+  /* EN */
+  await page.evaluate(()=>{ try{ localStorage.setItem('mangoi_lang','en'); if(window.setLang) setLang('en'); }catch(e){} window.dispatchEvent(new Event('mangoi:lang-changed')); document.getElementById('ftk').setAttribute('data-s', document.getElementById('ftk').getAttribute('data-s')); });
+  await page.waitForTimeout(300);
+  const en=await page.evaluate(()=>({h:document.querySelector('#ftk .fc-sideh').textContent,s:document.querySelector('#ftk .fc-send').textContent,lb:[...document.querySelectorAll('#ftk .fc-lb')].map(e=>e.textContent).join(',')}));
+  ok('EN: 대화 기록·보내기·버튼 글자가 영어로', en.h==='Conversation' && en.s==='Send' && /Replay,(Talk|Send),Slow,Captions,Auto,Button/.test(en.lb), JSON.stringify(en));
+  await page.screenshot({path:'/tmp/ftk-call-1280-en.png'});
   ok('페이지 스크립트 오류 없음', errs.length===0, errs.slice(0,2).join(' | '));
   await ctx.close();
 }

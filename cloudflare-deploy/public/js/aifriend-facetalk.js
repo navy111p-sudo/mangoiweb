@@ -341,7 +341,7 @@
     }
     await send(said, my);
   }
-  async function send(text, my) {
+  async function send(text, my, typed) {
     silentRuns = 0;
     clearHelp();
     meEl.textContent = t('나: ', 'Me: ') + text; teacherEl.textContent = '';
@@ -353,7 +353,7 @@
     if (!input || typeof window.sendMsg !== 'function') { exit(); return; }
     input.value = text;
     /* 🎤 음성으로 보낸 턴 — 서버가 «말하기» 보너스를 셉니다(🎤 버튼과 같은 값) */
-    try { _pendingVoice = true; } catch (e) {}
+    try { _pendingVoice = !typed; } catch (e) {}   // 글로 쓴 턴은 남아 있던 표시까지 끈다
     watchSpeakState(my);
     try { await window.sendMsg(); } catch (e) {}
     try { input.blur(); } catch (e) {}
@@ -562,7 +562,15 @@
     },
     /* 자동으로 바꾸는 순간 쉬고 있으면(안내가 없을 때) 바로 듣는다 */
     hands: function (auto) { if (auto && active && state === 'pause' && !noteEl.textContent) { silentRuns = 0; listen(); } },
-    turns: function () { return document.querySelectorAll('#chat .msg.user').length; }
+    turns: function () { return document.querySelectorAll('#chat .msg.user').length; },
+    /* 🖥 넓은 화면 오른쪽 대화 기록 — 화면 말풍선 그대로(흘러나오는 중인 대답 미리보기 포함) */
+    log: function () {
+      return [].map.call(document.querySelectorAll('#chat .msg.user, #chat .ai-row .ai-text, #chat .stm-preview'), function (n) {
+        return { me: n.classList.contains('user'), text: String(n.textContent || '').trim() };
+      });
+    },
+    /* ⌨️ 넓은 화면 글쓰기 칸 — 고른 대답(pickChip)과 같은 길. 글로 쓴 턴은 «말하기» 보너스를 세지 않는다 */
+    type: function (txt) { if (!active || state === 'think') return false; stopAll(); send(txt, ++turnSeq, true); return true; }
   };
   arm();
 
