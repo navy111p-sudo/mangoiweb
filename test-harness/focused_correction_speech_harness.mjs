@@ -196,6 +196,7 @@ const cache = new Map();
 let holdHistory;
 let routeFix = fix;
 let scenario = 'normal', modelCalls = 0, rechecks = 0, timingMajor = false;
+let delayMain = false, mainInflight = 0, recheckOverlapped = false;
 const env = { DB, ROOM_JWT_SECRET: 'focused-local-fixture-only',
   SESSION_STATE: { get: async k => cache.get(k) ?? null, put: async (k, v) => {
     if (holdHistory && k.startsWith('warmup:early-')) await holdHistory;
@@ -205,6 +206,8 @@ const env = { DB, ROOM_JWT_SECRET: 'focused-local-fixture-only',
     modelCalls++;
     const recheck = opts.messages?.[0]?.content.includes('FOCUSED_CORRECTION_CHECK');
     if (recheck) rechecks++;
+    if (recheck && mainInflight > 0) recheckOverlapped = true;
+    if (delayMain && !recheck) { mainInflight++; try { await new Promise(r => setTimeout(r, 30)); } finally { mainInflight--; } }
     const fullFix = { ...routeFix, why_ko: '문법에 맞게 고쳐요', tag: 'other', severity: timingMajor ? 'major' : 'minor' };
     let response = JSON.stringify({ reply: question, fix: fullFix, grade: 'partial' });
     if (scenario === 'repeated') response = JSON.stringify({ reply: H.ensureFocusedFixSpoken(question, 'focused', 'partial', routeFix), fix: fullFix });
@@ -393,9 +396,9 @@ for (const kind of ['avatar', 'friend']) for (const mode of ['focused', 'balance
         assert.equal(spoken, H.ensureFocusedFixSpoken(question, mode, 'partial', routeFix));
         assert.equal(events.filter(e => e.t).length, 0);
         const needsCheck = ['omitted', 'invalid'].includes(variant);
-        /* ⚡ (2026-11-06) A.i 친구는 다시 묻기를 본 호출과 «동시에» 미리 시작한다(api-ai.ts focusedRecoverP) —
-           모델이 교정을 줘서 결과를 안 쓰는 턴에도 한 번은 불린다(호출 하나와 바꾼 기다림). 웜업(avatar)은 예전대로 «필요할 때만». */
-        const startsEarly = kind === 'friend';
+        /* ⚡ 다시 묻기를 본 호출과 «동시에» 미리 시작한다 — A.i 친구(2026-11-06 api-ai.ts focusedRecoverP)·웜업(2026-11-08 index.ts focusedRecoverP).
+           모델이 교정을 줘서 결과를 안 쓰는 턴에도 한 번은 불린다(호출 하나와 바꾼 기다림). */
+        const startsEarly = true;
         assert.equal(rechecks, needsCheck || startsEarly ? 1 : 0);
         assert.equal(modelCalls, needsCheck || startsEarly ? 2 : 1);
       } else if (mode === 'focused') {
@@ -408,6 +411,26 @@ for (const kind of ['avatar', 'friend']) for (const mode of ['focused', 'balance
     });
   }
 }
+// ⚡ (2026-11-08) 웜업 집중교정 다시 묻기는 본 호출이 «아직 도는 동안» 시작해야 한다(차례로 부르면 맞는 문장마다 왕복 하나가 더 붙는다).
+// omitted 은 final_reply 없이 — 화면 경로(final_reply:1)에선 관사 규칙이 모델 «전» 에 잡아 모델을 아예 안 부른다.
+for (const [variant, input, needs, finalReply] of [['correct', routeFix.now, 1, 1], ['omitted', routeFix.was, 1, 0]]) {
+  scenario = variant; modelCalls = 0; rechecks = 0; delayMain = true; recheckOverlapped = false;
+  const ev = (await (await post('/api/warmup/chat', { session_id: 'overlap-' + variant, student_input: input,
+    correction_mode: 'focused', stream: 1, final_reply: finalReply, difficulty: 1 })).text()).split('\n').filter(x => x.startsWith('data:')).map(x => JSON.parse(x.slice(5)));
+  delayMain = false;
+  const done = ev.find(e => e.done);
+  check('avatar focused recheck overlaps the main call: ' + variant, () => {
+    assert.equal(rechecks, needs);
+    assert.equal(recheckOverlapped, true, 'recheck must start while the main reply is still in flight');
+    if (variant === 'correct') assert.equal(done.fix, null);
+    else assert.equal(done.fix?.now, routeFix.now);
+  });
+}
+// 과거형 보완 규칙이 잡는 문장이면 결과를 안 쓰므로 다시 묻기를 시작하지도 않는다(헛 호출 0).
+scenario = 'omitted'; modelCalls = 0; rechecks = 0;
+await (await post('/api/warmup/chat', { session_id: 'overlap-backfill', student_input: 'I play soccer yesterday with my friends.',
+  correction_mode: 'focused', stream: 1, difficulty: 1 })).text();
+check('avatar focused recheck is skipped when the past-tense rule already supplies the correction', () => assert.equal(rechecks, 0));
 check('quoted correction recovery requires explicit framing, source overlap and a real change', () => {
   assert.equal(F.focusedReplyFix('You can say... "My favorite animal is a lion"', routeFix.was)?.now, routeFix.now);
   for (const reply of ['What is your favorite animal?', 'You can say... "I drove to the moon"', 'You can say... "' + routeFix.was + '"']) {

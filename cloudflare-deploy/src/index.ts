@@ -4538,7 +4538,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     /* 📡 live(P2) 는 «첫 호출» 에만 넘긴다 — 재시도까지 흘리면 이미 보낸 문장과 새 답이 뒤섞인다
        (그때는 done 의 replaced:1 로 화면이 정본을 다시 읽는다). 스트림이 안 되면(모델·계정이
        지원 안 함·중간에 끊김) 같은 호출을 «예전 방식» 으로 다시 해 이득만 잃는다. */
-    const runWarmup = async (msgs: any[], temperature: number, live: any = null): Promise<any> => {
+    // overlap = 본 호출과 동시에 도는 호출 — 겹친 시간은 기다리는 쪽이 «안 겹친 나머지» 만 더한다(api-ai.ts runFriend 와 같은 규칙).
+    const runWarmup = async (msgs: any[], temperature: number, live: any = null, overlap = false): Promise<any> => {
       const mT0 = Date.now();   // ⏱ 실패한 호출도 센다(그 시간도 학생은 기다린다) — finally 인 이유
       latTries++;
       try {
@@ -4560,7 +4561,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         latTries++;
         return await env.AI.run(WARMUP_MODEL, warmupAIOpts(msgs, temperature));
       } finally {
-        latModelMs += Date.now() - mT0;
+        if (!overlap) latModelMs += Date.now() - mT0;
       }
     };
     const takeWarmupReply = (r: any): string => {
@@ -4622,7 +4623,18 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         }
         if (focusedFix) { aiText = focusedFix.now; rawFix = focusedFix; }
       }
+      /* ⚡ (2026-11-08 사장님 「휴대폰 A.i 말하기를 Loora 응답속도처럼」) 집중교정 «교정만 다시 묻기» 를 본 호출과 «동시에» 시작한다
+         — A.i 친구(api-ai.ts focusedRecoverP, 2026-11-06)와 같은 방식. 예전엔 본 답이 다 나온 뒤 차례로 불러,
+         맞는 문장(교정 없음 · 집중교정 턴의 약 74%)마다 모델 왕복 하나를 학생이 통째로 더 기다렸다(집중교정은 미리듣기도 없다).
+         ⚠️ 쓰는 «순서» 는 그대로(아래 결정 자리). 과거형 보완 규칙이 잡는 문장이면 어차피 안 쓰여 시작하지 않는다.
+         ⚠️ 모델이 스스로 교정을 준 턴에는 결과를 버린다 — 호출 하나와 바꾼 기다림(A.i 친구와 같은 맞바꿈).
+         ⚠️ 본 호출이 «먼저» 나가게 한 박자 뒤에 시작한다(가짜 모델 하니스의 «첫 호출 = 대화 답» 대본). 던지지 않는다(실패 = 교정 없음). */
+      let focusedRecoverP: Promise<any> | null = null;
       if (!focusedFix) {
+        // .then 은 아래 runWarmup 이 env.AI.run 을 부른 «뒤» 에 돈다 — 본 호출이 먼저 나간다.
+        if (honest?.mode === 'focused' && focusedNow && !focusedCandidate(backfillPastTenseFix(studentInput), studentInput)) {
+          focusedRecoverP = Promise.resolve().then(() => recoverFocusedFix(studentInput, (msgs) => runWarmup(msgs, 0.2, null, true))).catch(() => null);
+        }
         const result: any = await runWarmup(messages, 0.7, live);
         aiText = takeWarmupReply(result); commitFix();
       }
@@ -4653,7 +4665,11 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         focusedFix = focusedCandidate(rawFix, studentInput)
           || focusedCandidate(backfillPastTenseFix(studentInput), studentInput)
           || focusedReplyFix(aiText, studentInput)
-          || await recoverFocusedFix(studentInput, (msgs) => runWarmup(msgs, 0.2));
+          || await (async () => {
+            if (!focusedRecoverP) return recoverFocusedFix(studentInput, (msgs) => runWarmup(msgs, 0.2));
+            const w0 = Date.now();   // ⏱ 미리 시작한 다시 묻기 — 본 호출과 «안 겹친 나머지» 만 모델 시간에 더한다
+            try { return await focusedRecoverP; } finally { latModelMs += Date.now() - w0; }
+          })();
         if (focusedFix) { rawFix = focusedFix; aiText = focusedFix.now; }
       }
       // A correction is deliberately repeated later; it is not a new topic question.
