@@ -3,6 +3,7 @@ import { authUidFromRequest } from './auth-token';
 import { json } from './api-util';
 import { evaluateSpeaking } from './ai-speaking-progress';
 import { checkAndAwardBadges } from './api-games-badges';
+import { readSpeakingVocabularyWeek } from './ai-speaking-vocabulary';
 
 const MAX_TURNS = 100;
 
@@ -12,6 +13,8 @@ async function ensure(db: D1Database) {
     source_id TEXT, status TEXT NOT NULL DEFAULT 'open', turns_json TEXT NOT NULL DEFAULT '[]', capture_limited INTEGER NOT NULL DEFAULT 0,
     result_json TEXT, started_at INTEGER NOT NULL, finished_at INTEGER
   )`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_ai_speaking_student_finished
+    ON ai_speaking_sessions(student_uid,status,finished_at)`).run();
 }
 
 export async function clearSpeakingSessions(env: MangoEnv, uid: string) {
@@ -101,6 +104,7 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
   if (!uid || /^(guest|anon)/i.test(uid)) return json({ ok: false, error: 'auth_required' }, 401);
   try {
     await ensure(env.DB);
+    if (body.action === 'history') return json({ ok: true, weeklyVocabulary: await readSpeakingVocabularyWeek(env.DB, uid) });
     if (body.action === 'start') {
       if (!['friend', 'warmup'].includes(body.app)) return json({ ok: false, error: 'invalid_app' }, 400);
       if (body.app === 'warmup' && (typeof body.sourceId !== 'string' || !body.sourceId || body.sourceId.length > 200))
@@ -123,7 +127,7 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
         const current = await wallet(env, uid, row.app, row.id, row.source_id, row.started_at);
         result.rewards = { ...result.rewards, pointsEarned: current.pointsEarned };
       }
-      return json({ ok: true, result });
+      return json({ ok: true, result: { ...result, weeklyVocabulary: await readSpeakingVocabularyWeek(env.DB, uid) } });
     }
     let turns = JSON.parse(row.turns_json);
     if (!turns.length) return json({ ok: false, error: 'no_completed_turns' }, 409);
@@ -156,7 +160,7 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
       WHERE id=? AND student_uid=? AND status='evaluating' AND finished_at=?`)
       .bind(JSON.stringify(result), Date.now(), row.id, uid, claimAt).run();
     if (!saved.meta?.changes) throw new Error('result_not_saved');
-    return json({ ok: true, result });
+    return json({ ok: true, result: { ...result, weeklyVocabulary: await readSpeakingVocabularyWeek(env.DB, uid) } });
   } catch {
     return json({ ok: false, error: 'progress_unavailable' }, 503);
   }

@@ -3,14 +3,14 @@
   'use strict';
   var warmup = /\/warmup\.html$/.test(location.pathname), app = warmup ? 'warmup' : 'friend';
   var sessionId = '', sessionToken = '', starting = null, finishing = null, evaluatingId = '', closed = false, result = null;
-  var generation = 0;
+  var generation = 0, refreshing = null;
   var card, dialog, trigger;
   function en() {
     try { return String(localStorage.getItem('mangoi_lang') || '').indexOf('en') === 0; } catch (_) { return false; }
   }
   function t(ko, english) { return en() ? english : ko; }
   function token() { try { return localStorage.getItem('mango_token') || ''; } catch (_) { return ''; } }
-  function reset() { if(window.AiSpeakingSession&&window.AiSpeakingSession.clear)window.AiSpeakingSession.clear(); generation++; sessionId = ''; sessionToken = ''; starting = null; finishing = null; evaluatingId = ''; closed = false; result = null; if(card)card.replaceChildren(); }
+  function reset() { if(window.AiSpeakingSession&&window.AiSpeakingSession.clear)window.AiSpeakingSession.clear(); generation++; sessionId = ''; sessionToken = ''; starting = null; finishing = null; refreshing = null; evaluatingId = ''; closed = false; result = null; if (card) card.replaceChildren(); }
   async function api(body) {
     var response = await fetch('/api/ai/speaking-progress', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() },
@@ -67,7 +67,21 @@
       if (typeof window.stopSpeakingNow === 'function') window.stopSpeakingNow();
       dialog.showModal();
     }
-    if (result) { paint(); return; }
+    if (result) {
+      paint();
+      if (refreshing) return refreshing;
+      var epoch = generation, cached = result, expectedToken = sessionToken;
+      var refresh = (async function () {
+        var week = null;
+        try { week = (await api({ action: 'history' })).weeklyVocabulary || null; } catch (_) {}
+        if (epoch === generation && cached === result && expectedToken === token()) {
+          result.weeklyVocabulary = week; paint();
+        }
+      })();
+      refreshing = refresh;
+      try { await refresh; } finally { if (refreshing === refresh) refreshing = null; }
+      return;
+    }
     if (!sessionId) {
       var local = window.AiSpeakingSession && AiSpeakingSession.result(typeof window.wuProgressContext==='function'?wuProgressContext():'');
       if(local && local.turns>0){window.AiSpeakingProgressView.render(card,local,en()?'en':'ko');return;}
