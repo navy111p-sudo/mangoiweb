@@ -407,6 +407,7 @@ console.log('\n── ⑨ A.i 친구 — 단어장 약점을 «낱말 (뜻)» �
   const cmEnd = WH.indexOf('\n}\n', WH.indexOf('export function correctionModeOf')) + 3;
   const cmSrc = stripTypeScriptTypes(WH.slice(cmStart, WH.indexOf('\n', WH.indexOf('export const WARMUP_DEFAULT_MODE'))) + '\n' + WH.slice(WH.indexOf('export function correctionModeOf'), cmEnd)).replace(/^export /gm, '');
   const correctionModeOf = new Function(cmSrc + '\nreturn correctionModeOf;')();
+  const { correctionTimingOf } = await import('../cloudflare-deploy/src/ai-speaking-progress.ts');
   const VMARK = [{ word: 'apple', korean: '사과' }];
   async function runHead(authUid) {
     const calls = [];
@@ -414,12 +415,12 @@ console.log('\n── ⑨ A.i 친구 — 단어장 약점을 «낱말 (뜻)» �
     let out;
     try {
       // 함수로 «먼저» 감싼 뒤 타입을 지운다 — stripTypeScriptTypes 는 모듈로 읽어 맨 위 return 을 거절한다
-      const body = stripTypeScriptTypes('async function __h(request, url, env, ensureChatSchema, authUidGlobal, json, aiFriendNormalizeLevel, WEAK_WHERE, WEAK_ORDER, weakSince, loadActiveGoal, loadRecentMistakes, loadVocabWeakRows, correctionModeOf){\n' +
+      const body = stripTypeScriptTypes('async function __h(request, url, env, ensureChatSchema, authUidGlobal, json, aiFriendNormalizeLevel, WEAK_WHERE, WEAK_ORDER, weakSince, loadActiveGoal, loadRecentMistakes, loadVocabWeakRows, correctionModeOf, correctionTimingOf){\n' +
         headSrc + '\nreturn { __reached: true, ' + names.join(', ') + ' }; }');
       const fn = new Function(body + '\nreturn __h;')();
       out = await fn({ json: async () => ({ uid: 'Kim01', msg: 'hi' }) }, new URL('https://mangoi.ai/api/ai/chat-friend'), { DB: fakeDb },
         async () => {}, async () => authUid, (o, st) => ({ __json: o, __status: st || 200 }), (l) => l,
-        'WW', 'WO', () => 0, async () => null, async () => ['RECENT'], async (...a) => { calls.push(a); return VMARK; }, correctionModeOf);
+        'WW', 'WO', () => 0, async () => null, async () => ['RECENT'], async (...a) => { calls.push(a); return VMARK; }, correctionModeOf, correctionTimingOf);
     } catch (e) { out = { __threw: e.message }; }
     return { out, calls, fakeDb };
   }
