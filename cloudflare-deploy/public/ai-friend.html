@@ -1235,7 +1235,8 @@
     /* 🎯 발음 교정 도우미 (2026-11-01) */
     /* 기능어(대명사·전치사·접속사·조동사)는 발음 짚을 낱말이 아니다 — «…dogs too?» 는 dogs, «…say it with me?» 는 없음 */
     const PRON_STOP = new Set(['you','your','the','are','is','it','this','that','what','how','why','who','where','when','did','do','does','can','will','and','for','with','not','yes','ok','okay','say','see','like','have','has','got','about','from','into','just','really','was',
-      'me','my','we','us','our','he','she','him','her','his','its','they','them','their','there','an','am','be','were','would','could','should','to','of','in','on','at','or','so','if','but','too','again','any','some']);
+      'me','my','we','us','our','he','she','him','her','his','its','they','them','their','there','an','am','be','were','would','could','should','to','of','in','on','at','or','so','if','but','too','again','any','some',
+      'want','try','something','anything','everything','today','tonight','now','often','lately','someday','together','also','ever','yet','very','much','more','most','along','far']);
     /* 끝에 붙은 이모지(😊 ☀️ 👍🏻 🇰🇷 👨‍👩‍👧 1️⃣)·공백을 뗀다 — AI 친구는 질문 뒤에 이모지를 붙인다(2026-11-09 실측: 질문으로 끝나는 답의 약 30%) */
     function aiTextTail(content) {
       return String(content || '').replace(/(?:[\s\u200D\uFE0E\uFE0F\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}]|[#*0-9]\uFE0F?\u20E3)+$/u, '');
@@ -1243,9 +1244,13 @@
     function pronTargetFromAi(text) {
       const t = aiTextTail(text);
       if (!/\?$/.test(t)) return '';
-      const words = t.slice(0, -1).match(/[A-Za-z]{2,20}/g) || [];
+      /* 마지막 질문 문장의 마지막 쉼표 뒤만 본다 — 앞 문장·따옴표 속 예문(«You can say… "…" Can you say it with me?»)·인사 속 학생 이름·AI 가 받아 적은 낯선 낱말로 넘어가지 않게 */
+      const part = t.slice(0, -1).split(/[.!?;:"“”]/).pop().split(',').pop();
+      const words = part.match(/[A-Za-z][A-Za-z'-]*/g) || [];
       for (let i = words.length - 1; i >= 0; i--) {
-        const w = words[i].toLowerCase();
+        const raw = words[i], w = raw.toLowerCase();
+        /* K-pop·don't·TV·EXO 는 Azure 기준 낱말로 못 믿는다 — 건너뜀 */
+        if (!/^[a-z]{2,20}$/.test(w) || (raw === raw.toUpperCase())) continue;
         if (!PRON_STOP.has(w)) return w;
       }
       return '';

@@ -66,7 +66,7 @@ check('물음표로 끝나지 않으면 기준 낱말 없음(교정 안 함)', p
 check('빈 입력은 빈 값', pickTarget('') === '' && pickTarget(null) === '');
 /* 2026-11-09: AI 친구는 질문 뒤에 이모지를 붙인다(실측: 질문으로 끝나는 답의 약 30%) — 이모지를 떼고 본다 */
 for (const [q, want] of [
-  ['Do you like dogs? 🐶', 'dogs'], ['What is your favorite food? 😋🍕', 'food'], ['Can you hear me now? 🗣️', 'now'],
+  ['Do you like dogs? 🐶', 'dogs'], ['What is your favorite food? 😋🍕', 'food'], ['Can you hear me now? 🗣️', 'hear'],
   ['Is the weather good for a picnic? ☀️', 'picnic'], ['Do you play soccer? 👍🏻', 'soccer'], ['Do you like Korea? 🇰🇷', 'korea'],
   ['Do you love your family? 👨‍👩‍👧', 'family'], ['Is it number one? 1️⃣', 'one'], ['Do you like cats?  \u00a0🐱 ', 'cats'],
 ]) check(`이모지 뒤 질문: ${JSON.stringify(q)} → ${want}`, pickTarget(q) === want, pickTarget(q));
@@ -78,6 +78,25 @@ check('"Do you like dogs too?" → dogs (too 아님)', pickTarget('Do you like d
 check('"Can you say it with me?" → 없음 (me 아님)', pickTarget('Can you say it with me?') === '', pickTarget('Can you say it with me?'));
 check('"What do you like to listen to?" → listen (to 아님)', pickTarget('What do you like to listen to?') === 'listen', pickTarget('What do you like to listen to?'));
 check('짝: 내용어는 그대로 — "Do you have a big family too? 🤗" → family', pickTarget('Do you have a big family too? 🤗') === 'family');
+// 마지막 질문 문장만 본다 — 앞 문장으로 넘어가면 따라 말할 예문·학생 이름·AI 가 받아 적은 낯선 낱말이 기준이 된다(2026-11-09 실데이터 재생)
+for (const [q, want] of [
+  ['You can say... "I saw a lion yesterday." "I saw a lion yesterday." Can you say it with me?', ''],
+  // 서버 ensureFocusedFixSpoken 의 실제 모양 — 따옴표 안에 마침표가 없다(운영 D1 49건 이 모양)
+  ['You can say... "I like chocolate cake" "I like chocolate cake" "I like chocolate cake" Can you say it with me?', ''],
+  ['You can say... "Let\'s talk about sports. Do you like soccer?" "Let\'s talk about sports. Do you like soccer?" Can you say it with me?', ''],
+  ['Do you like your day so far?', 'day'],
+  ['Well said! Nice to meet you, Minji. What do you like to do?', ''],
+  ['I don\'t know chiiecawa, what is it? 🐰', ''],
+  ['Oh, really? That\'s okay! Why not? 🐶', ''],
+  ['My name is Lily. Are you okay?', ''],
+  ['You started to say something, can you say it again?', ''],
+  ['Do you have a dog at home? 🐶', 'home'],
+  ['Are you eating outside today? 🌳', 'outside'],
+  ['Do you like apples, bananas, or grapes?', 'grapes'],
+  ['Do you like K-pop?', ''], ['Do you watch Disney shows on TV?', 'shows'], ['You don\'t like it?', ''],
+]) check(`한 문장만: "${q}" → ${want || '없음'}`, pickTarget(q) === want, pickTarget(q));
+// 짝: 마지막 문장 안에 내용어가 있으면 그대로 고른다
+check('짝: 앞에 문장이 있어도 마지막 질문의 내용어 — "Great job! Do you like dogs? 🐶" → dogs', pickTarget('Great job! Do you like dogs? 🐶') === 'dogs');
 /* 같은 꼬리 떼기로 «AI 가 물었나»(입력 패널 펼치기)도 판정 — ☀️ 처럼 FE0F 가 붙은 이모지에서 예전엔 틀렸다 */
 {
   let askSrc = '', tailSrc = '';
