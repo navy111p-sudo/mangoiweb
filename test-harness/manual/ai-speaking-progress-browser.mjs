@@ -42,11 +42,13 @@ try {
       const send = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
       if (url.pathname === '/api/ai/speaking-progress') {
         posts.push(body);
+        if (body.action === 'history') return send({ok:true,weeklyVocabulary:Array.from({length:7},(_,i)=>({date:'2026-11-0'+(i+2),words:42,limited:false}))});
         if (body.action === 'start') return send({ ok: true, sessionId: 'local-session-' + name });
-        return send({ ok: true, vocabularyWeeks: [{date:'2026-11-02',uniqueWords:3},{date:'2026-11-09',uniqueWords:6}], result: {
+        return send({ ok: true, result: {
           lessonId:body.sessionId, finishedNormally: true, score: state === 'zero' ? 0 : null,
           skills: state === 'unavailable' ? {} : state === 'zero' ? { pronunciation:0,fluency:0,grammar:0,vocabulary:0,sentence:0 } : { grammar:85,vocabulary:85,sentence:85 },
 
+          weeklyVocabulary: state === 'unavailable' ? null : Array.from({length:7},(_,i)=>({date:'2026-11-0'+(i+2),words:state === 'zero' ? 0 : i,limited:false})),
           uniqueWords: ['i', 'like', 'apples'], reviewWords: ['<img onerror="window.progressXss=1">'], recordedTurns: 1,
           evaluationStatus: state === 'unavailable' ? 'unavailable' : 'measured',
           rewards: { pointsEarned: 5, pointsBalance: 50, gemsBalance: 30, badges: ['first_class'] }
@@ -99,10 +101,12 @@ try {
       await page.locator('.ai-progress-title').waitFor();
       const content = await page.locator('.ai-progress-card').innerText();
       check(content.includes(state === 'zero' ? '0/100' : 'Overall score unavailable'), name + ': measured/zero/missing result renders');
-      check((await page.locator('.ai-progress-vocabulary progress').count()) === 2 && content.includes('2026-11-09 · 6 words'), name + ': vocabulary chart renders recorded counts');
       check((await page.locator('.ai-progress-skill').count()) === 5, name + ': all five skill rows are visible');
       check((await page.locator('.ai-progress-skill dd').allTextContents()).filter(x => x === 'Not measured').length >= (state === 'zero' ? 0 : 2), name + ': no fabricated acoustic score');
       check(content.includes('Points earned in this practice: 5P') && content.includes('Gem balance at completion: 30'), name + ': actual wallet is separately shown');
+      check((await page.locator('.ai-progress-bar').count()) === (state === 'unavailable' ? 0 : 7), name + ': seven vocabulary bars or explicit unavailable');
+      check(content.includes(state === 'unavailable' ? 'Vocabulary records are unavailable' : 'not a vocabulary ability score'), name + ': vocabulary distinguishes activity from ability');
+      if(state !== 'unavailable') check(await page.locator('.ai-progress-week').evaluate(el=>el.scrollWidth<=el.clientWidth+1), name + ': chart fits the card');
       check((await page.locator('.ai-progress-card img').count()) === 0 && !await page.evaluate(() => window.progressXss), name + ': words cannot inject markup');
       check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), name + ': no horizontal page overflow');
       await page.evaluate(() => { localStorage.setItem('mangoi_lang', 'ko'); window.dispatchEvent(new Event('mangoi:lang-changed')); });
@@ -110,6 +114,8 @@ try {
       await page.screenshot({ path: join(output, `${width}-${app}-${state}.png`), fullPage: false });
       await page.locator(app === 'friend' ? '.ai-progress-close' : '#wgSummaryBack').click();
       await page.locator(app === 'friend' ? '.ai-progress-trigger' : '#wgFinish').click();
+      await page.locator('.ai-progress-count').filter({hasText:'42'}).first().waitFor();
+      check(posts.filter(p=>p.action==='history').length===1, name + ': reopening refreshes observed words');
       check(posts.filter(p => p.action === 'finish').length === 1, name + ': reopening does not request evaluation again');
       if (app === 'warmup') check(posts.find(p => p.award)?.meta?.speaking_session === chat.progress_session, name + ': award is tied to the authenticated practice');
       check(posts.filter(p => p.award).length === (app === 'warmup' ? 1 : 0), name + ': reopening adds no award request');

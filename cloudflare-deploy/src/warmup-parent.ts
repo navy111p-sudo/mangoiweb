@@ -264,15 +264,3 @@ export async function readSpeakingReport(db: D1Database, uid: string, start: num
   } catch { /* Keep the verified vocabulary counts if score history is unavailable. */ }
   return result;
 }
-
-export async function speakingVocabularyWeeks(db: D1Database, uid: string, now: number) {
-  const end = Math.floor((now + KST_MS) / DAY_MS) * DAY_MS - KST_MS + DAY_MS;
-  const week = 7 * DAY_MS;
-  const start = end - 4 * week;
-  const rows = await readVocabulary(db, uid, start, end, week);
-  if (!rows) return null;
-  return Array.from({ length: 4 }, (_, bucket) => ({
-    date: new Date(start + bucket * week + KST_MS).toISOString().slice(0, 10),
-    uniqueWords: rows.find(row => row.bucket === bucket)?.uniqueWords ?? 0,
-  }));
-}

@@ -3,14 +3,14 @@
   'use strict';
   var warmup = /\/warmup\.html$/.test(location.pathname), app = warmup ? 'warmup' : 'friend';
   var sessionId = '', sessionToken = '', starting = null, finishing = null, evaluatingId = '', closed = false, result = null;
-  var generation = 0;
+  var generation = 0, refreshing = null;
   var card, dialog, trigger;
   function en() {
     try { return String(localStorage.getItem('mangoi_lang') || '').indexOf('en') === 0; } catch (_) { return false; }
   }
   function t(ko, english) { return en() ? english : ko; }
   function token() { try { return localStorage.getItem('mango_token') || ''; } catch (_) { return ''; } }
-  function reset() { generation++; sessionId = ''; sessionToken = ''; starting = null; finishing = null; evaluatingId = ''; closed = false; result = null; if (card) card.replaceChildren(); }
+  function reset() { generation++; sessionId = ''; sessionToken = ''; starting = null; finishing = null; refreshing = null; evaluatingId = ''; closed = false; result = null; if (card) card.replaceChildren(); }
   async function api(body) {
     var response = await fetch('/api/ai/speaking-progress', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() },
@@ -85,7 +85,21 @@
       if (typeof window.stopSpeakingNow === 'function') window.stopSpeakingNow();
       dialog.showModal();
     }
-    if (result) { paint(); return; }
+    if (result) {
+      paint();
+      if (refreshing) return refreshing;
+      var epoch = generation, cached = result, expectedToken = sessionToken;
+      var refresh = (async function () {
+        var week = null;
+        try { week = (await api({ action: 'history' })).weeklyVocabulary || null; } catch (_) {}
+        if (epoch === generation && cached === result && expectedToken === token()) {
+          result.weeklyVocabulary = week; paint();
+        }
+      })();
+      refreshing = refresh;
+      try { await refresh; } finally { if (refreshing === refresh) refreshing = null; }
+      return;
+    }
     if (!sessionId) { message(t('로그인 후 대화를 나누면 학습 결과를 확인할 수 있어요.', 'Log in and have a conversation to see your results.')); return; }
     message(t('기록된 대화를 평가하고 있어요…', 'Assessing your recorded conversation…'));
     evaluatingId = sessionId;
@@ -96,7 +110,7 @@
         if (warmup && window.__mgWarmupPts) await window.__mgWarmupPts.run();
         var data = await api({ action: 'finish', sessionId: requestedId });
         if (!data.result || data.result.finishedNormally !== true || data.result.lessonId !== requestedId) throw new Error('progress_unavailable');
-        if(sessionId === requestedId) { result = Object.assign({}, data.result, { vocabularyWeeks: data.vocabularyWeeks }); closed = true; paint(); }
+        if(sessionId === requestedId) { result = data.result; closed = true; paint(); }
       } catch (error) {
         if(sessionId !== requestedId) return;
         var texts = {

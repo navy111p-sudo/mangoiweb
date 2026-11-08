@@ -3982,6 +3982,10 @@ async function micViaWhisper(){
   var recBlob=null;               // 🎤 녹음 파일 — 모듈의 소리크기 판정이 놓쳤을 때 다시 재 본다(_blobHasVoice)
   var said = await MangoiVoice.record(_micEarly(manual, {
     onAudio: function(b){ recBlob=b; },
+    transcribe: _wuCorrMode === 'focused' && _warmLang === 'en' ? function(fd){
+      fd.set('check_preposition', '1');
+      return MangoiVoice.post(fd);
+    } : undefined,
     firstMs: manual ? MIC_MANUAL_IDLE : 0,        // ✋ 수동: 판정이 말소리를 못 봐도 9초에 끊지 않는다(⏹ 로 끝냄). 0 = 모듈 기본값
     lang: _warmLang,              // 🀄 서버 Whisper 언어 힌트 — 안 주면 자동감지로 떨어져 오인식이 는다
     silenceMs: manual ? MIC_MANUAL_IDLE : 1600,   // ✋ 수동은 침묵으로 끝내지 않는다(30초는 안전장치). ⚡ 자동: 2.5초(기본) → 1.8초(2026-09-25) → 1.6초(2026-10-02). 녹음 경로는 «문장이 끝났나» 를 모르므로 1.5초까지는 안 줄인다
@@ -5376,9 +5380,9 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 <script src="/js/warmup-facetalk.js?v=4" defer></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 자동 말하기 엔진을 켜고 모양만 바꿈) -->
 <script src="/js/warmup-touch-bar.js?v=2" defer></script>
 <script src="/js/warmup-dock.js?v=2" defer></script><!-- 📱 세로 화면: 아래 버튼 줄 자동 접힘·손잡이 (2026-11-02) --><!-- 📱 터치 기기 전용 아래 3칸 바(도움·말하기·글쓰기) — 2026-09-26 시안 4 -->
-<link rel="stylesheet" href="/css/ai-speaking-progress.css?v=3">
-<script defer src="/js/ai-speaking-progress-view.js?v=5"></script>
-<script defer src="/js/ai-speaking-progress.js?v=8"></script>
+<link rel="stylesheet" href="/css/ai-speaking-progress.css?v=4">
+<script defer src="/js/ai-speaking-progress-view.js?v=6"></script>
+<script defer src="/js/ai-speaking-progress.js?v=9"></script>
 <script src="/js/ai-speaking-settings.js?v=3" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — setCorrMode 가 씀 (2026-11-04) -->
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 <script defer src="/js/warmup-photo-icons.js?v=5"></script>

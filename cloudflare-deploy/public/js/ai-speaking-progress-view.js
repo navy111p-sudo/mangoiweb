@@ -6,6 +6,26 @@
 function text(v){return String(v == null ? '' : v);}
 function measured(v){return typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=100;}
 function node(tag,cls,content){var el=document.createElement(tag);if(cls)el.className=cls;if(content!=null)el.textContent=text(content);return el;}
+function vocabularyWeek(container,week,ko){
+ if(week===undefined)return;
+ container.appendChild(node('h3','',ko?'최근 7일 사용한 영어 단어':'English words used in the last 7 days'));
+ var valid=Array.isArray(week)&&week.length===7&&week.every(function(d,i){
+  if(!d||!/^\d{4}-\d{2}-\d{2}$/.test(d.date)||!Number.isSafeInteger(d.words)||d.words<0||typeof d.limited!=='boolean')return false;
+  var at=Date.parse(d.date+'T00:00:00Z');
+  return Number.isFinite(at)&&new Date(at).toISOString().slice(0,10)===d.date&&(!i||at-Date.parse(week[i-1].date+'T00:00:00Z')===86400000);
+ });
+ if(!valid){container.appendChild(node('p','ai-progress-note',ko?'어휘 사용 기록을 확인할 수 없어요.':'Vocabulary records are unavailable.'));return;}
+ container.appendChild(node('p','ai-progress-note',ko?'한국 시간 기준 · 완료한 연습에서 하루 중복을 제외한 단어 수예요. 어휘 실력 점수는 아닙니다.':'Korea time · Distinct words per day from completed practice, not a vocabulary ability score.'));
+ var list=node('ol','ai-progress-week'),max=Math.max.apply(null,week.map(function(d){return d.words;}).concat([1]));
+ week.forEach(function(d){
+  var row=node('li','ai-progress-day');
+  row.appendChild(node('span','',d.date.slice(5).replace('-','/')));
+  var bar=node('progress','ai-progress-bar');bar.max=max;bar.value=d.words;
+  bar.setAttribute('aria-label',d.date+': '+d.words+(ko?'개 단어':' words'));row.appendChild(bar);
+  row.appendChild(node('span','ai-progress-count',d.words+(ko?'개':' words')));list.appendChild(row);
+ });container.appendChild(list);
+ if(week.some(function(d){return d.limited;}))container.appendChild(node('p','ai-progress-note',ko?'긴 대화의 일부만 기록된 날이 포함되어 있어요.':'Some days include conversations with limited text capture.'));
+}
 function render(container,result,lang){
  if(!container)throw new Error('Missing container');
  container.replaceChildren();
@@ -34,18 +54,7 @@ function render(container,result,lang){
  var review=Array.isArray(result.reviewWords)?result.reviewWords:[];
  container.appendChild(node('p','ai-progress-words',(ko?'사용한 영어 고유 단어: ':'Unique English words used: ')+words.length));
  container.appendChild(node('p','ai-progress-review',(ko?'교정문에서 복습할 표현: ':'Expressions from your corrections: ')+(review.length?review.slice(0,12).map(text).join(', '):ko?'아직 없어요':'None recorded')));
- var weeks=Array.isArray(result.vocabularyWeeks)?result.vocabularyWeeks:[];
- if(weeks.length){
-  container.appendChild(node('h3','',ko?'최근 4주 영어 단어 사용':'English vocabulary over four weeks'));
-  var chart=node('ul','ai-progress-vocabulary');
-  var max=Math.max(1,...weeks.map(function(w){return w.uniqueWords;}));
-  weeks.forEach(function(w){
-   var item=node('li','',w.date+' · '+w.uniqueWords+(ko?'개':' words'));
-   var bar=node('progress',''); bar.max=max; bar.value=w.uniqueWords;
-   bar.setAttribute('aria-label',item.textContent); item.appendChild(bar); chart.appendChild(item);
-  });
-  container.appendChild(chart);
- }
+ vocabularyWeek(container,result.weeklyVocabulary,ko);
  var r=result.rewards;
  if(r){
   var value=function(v){return Number.isSafeInteger(v)&&v>=0?String(v):(ko?'확인 불가':'Unavailable');};

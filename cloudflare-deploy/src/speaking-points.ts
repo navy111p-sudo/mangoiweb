@@ -15,12 +15,12 @@ export async function awardSpeakingPoints(db: D1Database, award: {
     db.prepare(`INSERT INTO point_awards (award_id,user_id,credited_at)
       SELECT ?,?,? WHERE (SELECT COUNT(*) FROM point_rule_log WHERE user_id=? AND rule_code=? AND triggered_at>=?) < ?
       AND (SELECT COALESCE(SUM(amount),0) FROM point_transactions WHERE user_id=? AND type='earn'
-        AND amount>0 AND created_at>=? AND (rule_code IS NULL OR rule_code NOT IN (${excluded.map(() => '?').join(',')}))) + ? <= ?
+        AND amount>0 AND created_at>=? AND (rule_code IS NULL OR rule_code NOT IN (SELECT value FROM json_each(?)))) + ? <= ?
       AND (? IS NULL OR NOT EXISTS (SELECT 1 FROM point_transactions WHERE user_id=? AND rule_code=?
         AND created_at>=? AND CASE WHEN json_valid(meta) THEN json_extract(meta,'$.session_id') END=?))
       ON CONFLICT(award_id) DO NOTHING`)
       .bind(awardId, uid, now, uid, rule, today, dailyCap,
-        uid, today, ...excluded, amount, POINT_POLICY.DAILY_TOTAL_CAP, meta.session_id ?? null, uid, rule, today, meta.session_id ?? null),
+        uid, today, JSON.stringify(excluded), amount, POINT_POLICY.DAILY_TOTAL_CAP, meta.session_id ?? null, uid, rule, today, meta.session_id ?? null),
     db.prepare(`INSERT INTO student_points (user_id,student_name,balance,lifetime_earned,last_earned_at,updated_at)
       SELECT ?,?,?,?,?,? WHERE changes()=1 ON CONFLICT(user_id) DO UPDATE SET
       balance=balance+excluded.balance,lifetime_earned=lifetime_earned+excluded.lifetime_earned,

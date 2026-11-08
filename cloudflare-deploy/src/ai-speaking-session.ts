@@ -1,11 +1,11 @@
 import type { MangoEnv } from './api-mango';
 import { authUidFromRequest } from './auth-token';
 import { json } from './api-util';
-import { speakingVocabularyWeeks } from './warmup-parent';
 import { assessPronunciation } from './azure-pronunciation';
 import { decodePronAudio } from './pron-focus';
 import { evaluateSpeaking } from './ai-speaking-progress';
 import { checkAndAwardBadges } from './api-games-badges';
+import { readSpeakingVocabularyWeek } from './ai-speaking-vocabulary';
 
 const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const MAX_TURNS = 100;
@@ -16,8 +16,8 @@ async function ensure(db: D1Database) {
     source_id TEXT, status TEXT NOT NULL DEFAULT 'open', turns_json TEXT NOT NULL DEFAULT '[]', capture_limited INTEGER NOT NULL DEFAULT 0,
     result_json TEXT, started_at INTEGER NOT NULL, finished_at INTEGER
   )`).run();
-  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_ai_speaking_completed_student
-    ON ai_speaking_sessions(student_uid,finished_at) WHERE status='complete'`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_ai_speaking_student_finished
+    ON ai_speaking_sessions(student_uid,status,finished_at)`).run();
 }
 
 export async function clearSpeakingSessions(env: MangoEnv, uid: string) {
@@ -117,6 +117,7 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
   if (!uid || /^guest/i.test(uid)) return json({ ok: false, error: 'auth_required' }, 401);
   try {
     await ensure(env.DB);
+    if (body.action === 'history') return json({ ok: true, weeklyVocabulary: await readSpeakingVocabularyWeek(env.DB, uid) });
     if (body.action === 'start') {
       if (!['friend', 'warmup'].includes(body.app)) return json({ ok: false, error: 'invalid_app' }, 400);
       if (body.app === 'warmup' && (typeof body.sourceId !== 'string' || !body.sourceId || body.sourceId.length > 200))
@@ -131,8 +132,8 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
     const row = await env.DB.prepare(`SELECT * FROM ai_speaking_sessions WHERE id=? AND student_uid=?`)
       .bind(body.sessionId, uid).first<any>();
     if (!row) return json({ ok: false, error: 'session_not_found' }, 404);
-    if (row.status === 'complete') return json({ ok: true, result: JSON.parse(row.result_json),
-      vocabularyWeeks: await speakingVocabularyWeeks(env.DB, uid, Date.now()) });
+    if (row.status === 'complete') return json({ ok: true, result: { ...JSON.parse(row.result_json),
+      weeklyVocabulary: await readSpeakingVocabularyWeek(env.DB, uid) } });
     let turns = JSON.parse(row.turns_json);
     if (!turns.length) return json({ ok: false, error: 'no_completed_turns' }, 409);
     const claimAt = Date.now();
@@ -188,7 +189,7 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
       WHERE id=? AND student_uid=? AND status='evaluating' AND finished_at=?`)
       .bind(JSON.stringify(result), Date.now(), row.id, uid, claimAt).run();
     if (!saved.meta?.changes) throw new Error('result_not_saved');
-    return json({ ok: true, result, vocabularyWeeks: await speakingVocabularyWeeks(env.DB, uid, Date.now()) });
+    return json({ ok: true, result: { ...result, weeklyVocabulary: await readSpeakingVocabularyWeek(env.DB, uid) } });
   } catch {
     return json({ ok: false, error: 'progress_unavailable' }, 503);
   }

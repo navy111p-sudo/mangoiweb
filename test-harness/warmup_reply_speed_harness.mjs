@@ -328,7 +328,7 @@ function sttWorld(manual, { endMs = 300 } = {}) {
     setTimeout: (cb, ms) => later(ms || 0, cb), clearTimeout: (k) => { const x = timers.findIndex((y) => y.k === k); if (x >= 0) timers.splice(x, 1); },
     localStorage: { getItem: () => null, setItem() {} },
     document: { getElementById: (x) => (x === 'inp' ? inp : null) },
-    _warmPaused: false, _warmEpoch: 0, _warmVoiceEpoch: 0, _warmMicCancel: null, sending: false, _latSilence: null,
+    _warmLang: 'en', _warmPaused: false, _warmEpoch: 0, _warmVoiceEpoch: 0, _warmMicCancel: null, sending: false, _latSilence: null,
     WarmupAutoTalk: { isOn: () => !manual, on() {} },
     MangoiVoice: { supported: () => true, stop() {}, cancel() {} },
     addMsg: (t) => log.push(['msg', String(t).slice(0, 24), clock.t]),

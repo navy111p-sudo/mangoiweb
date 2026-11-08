@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import vm from 'node:vm';
-import { readWarmupWeek, readParentWarmup, readSpeakingReport, speakingVocabularyWeeks } from '../src/warmup-parent.ts';
+import { readWarmupWeek, readParentWarmup, readSpeakingReport } from '../src/warmup-parent.ts';
 import { WARMUP_LOG_DDL } from '../src/warmup-log.ts';
 
 function database() {
@@ -108,7 +108,7 @@ test('unknown or malformed weekly data has no chart, old server response stays c
   assert.doesNotMatch(render({},true),/last 7 days|Recent activity records/);
 });
 
-test('vocabulary deduplicates across completed sessions and isolates accounts and weeks', async () => {
+test('vocabulary deduplicates across completed sessions and isolates accounts and report periods', async () => {
   const {sql, db} = database();
   try {
     sql.exec('CREATE TABLE ai_speaking_sessions(id TEXT, student_uid TEXT, status TEXT, finished_at INTEGER, result_json TEXT)');
@@ -120,7 +120,6 @@ test('vocabulary deduplicates across completed sessions and isolates accounts an
     const bindings = db as unknown as D1Database;
     const expected = {sessions:2,uniqueWords:3,skills:{grammar:{average:40,samples:2},pronunciation:{average:82,samples:1}}};
     assert.deepEqual(await readSpeakingReport(bindings,'Lee',start,now+1),expected);
-    assert.deepEqual((await speakingVocabularyWeeks(bindings,'Lee',now))?.map(w=>w.uniqueWords),[0,0,0,3]);
     assert.deepEqual((await readParentWarmup(db,'Lee',now)).speaking_report,expected);
   } finally { sql.close(); }
 });
