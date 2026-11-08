@@ -48,7 +48,7 @@ test('cross-tab logout clears an open cached result immediately', async () => {
 });
 test('late old-account finish cannot render or clear the new-account in-flight finish', async () => {
   const s=setup(true); await start(s,'alice'); const old=s.api.finish(); s.storage.set('mango_token','bob');
-  await start(s,'bob'); const current=s.api.finish(); complete(s,1,'alice'); await old;
+  await start(s,'bob'); const current=s.api.finish(); assert.equal(s.requests.length,4); complete(s,1,'alice'); await old;
   assert.notEqual(s.card.textContent,'alice'); const repeated=s.api.finish(); assert.equal(s.requests.length,4);
   complete(s,3,'bob'); await Promise.all([current,repeated]); assert.equal(s.card.textContent,'bob');
 });
