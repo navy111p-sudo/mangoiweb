@@ -108,6 +108,33 @@ try {
       if (!strict) assert.equal((await r.json()).text, 'Hello.');
     }
   });
+  await check('focused English recording recovers on only with a matching second transcript', async () => {
+    for (const [first, second, enabled, expected, calls] of [
+      ['I am interested in music.', 'I am interested on music.', true, 'I am interested on music.', 2],
+      ['I am interested in music.', 'I am interested in music.', true, 'I am interested in music.', 2],
+      ['I am interested in music.', 'I am interested on movies.', true, 'I am interested in music.', 2],
+      ['I am interested in music.', null, true, 'I am interested in music.', 2],
+      ['I am interested on music.', '', true, 'I am interested on music.', 1],
+      ['I am interested in music.', 'I am interested on music.', false, 'I am interested in music.', 1],
+    ]) {
+      const { env, aiCalls } = fixture();
+      env.AI.run = async model => {
+        aiCalls.push(model);
+        if (model.includes('turbo')) return { text: first };
+        if (second === null) throw Error('synthetic unavailable');
+        return { text: second };
+      };
+      const fd = new FormData();
+      fd.set('audio', new Blob([new Uint8Array(200)]), 'speech.webm');
+      fd.set('lang', 'en');
+      if (enabled) fd.set('check_preposition', '1');
+      const r = await call('/api/voice/transcribe', env, { method: 'POST', body: fd });
+      const data = await r.json();
+      assert.equal(data.text, expected);
+      assert.equal(aiCalls.length, calls);
+      assert.equal(data.preposition_recheck, expected !== first ? 'recovered' : undefined);
+    }
+  });
   await check('coach denies writes for another student before AI or record insert', async () => {
     const { env, trace, aiCalls } = fixture();
     const r = await call('/api/voice/coach', env, post({ target: 'Hello.', spoken: 'Hello.', student_uid: 'other-student' }));

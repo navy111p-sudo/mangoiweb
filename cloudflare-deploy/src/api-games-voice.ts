@@ -8,6 +8,7 @@ import { assessPronunciation } from './azure-pronunciation';
 import type { MangoEnv } from './api-mango';
 import { isSttRepeatLoop } from './stt-loop';
 import { sttRejectReason } from './stt-confidence';
+import { focusedPrepositionFix } from './focused-correction';
 import { handleVoiceTtsApi } from './api-voice-tts';
 import { referenceReadingEvidence } from './speaking-audio-evidence';
 import { logSpeakingGrowth } from './speaking-growth';
@@ -80,10 +81,12 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
         let hintLang = '';
         let hintPrompt = '';
         let strictSpeech = false;
+        let checkPreposition = false;
         let paReference = '';   // 🎤 Azure 발음평가 모범 문장 (Whisper 로는 절대 안 넘어간다)
         if (ct.includes('multipart/form-data')) {
           const fd = await request.formData();
           strictSpeech = fd.get('strict') === '1';
+          checkPreposition = fd.get('check_preposition') === '1';
           const file = fd.get('audio') as File | null;
           if (!file) return json({ ok: false, error: 'no_audio_file' }, 400);
           audio = await file.arrayBuffer();
@@ -190,6 +193,25 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
             if (ttRaw && isSttRepeatLoop(ttRaw)) {
               console.warn('[voice/transcribe] repeat-loop dropped len=' + ttRaw.length);
               return json({ ok: true, text: '', dropped: 'repeat_loop', lang, segments: null, transcription_info: null, azure: null, azure_diag: 'dropped' });
+            }
+            // shortcut: check this known normalization only, widen after paired audio confirms other prepositions.
+            const normalize = (text: string) => text.trim().toLowerCase().replace(/[.!]+$/, '').replace(/\s+/g, ' ');
+            const expected = normalize(ttRaw).replace(/\binterested in\b/, 'interested on');
+            if (checkPreposition && lang === 'en' && !strictSpeech && !paReference && !hintPrompt &&
+                audio.byteLength <= 512 * 1024 && expected !== normalize(ttRaw) && focusedPrepositionFix(expected)) {
+              let timer: ReturnType<typeof setTimeout> | undefined;
+              try {
+                const alternate = await Promise.race([
+                  ai.run('@cf/openai/whisper', { audio: [...new Uint8Array(audio)] }).then(readTranscript),
+                  new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), 1700); }),
+                ]);
+                if (alternate && normalize(alternate.text) === expected) {
+                  return json({ ok: true, text: alternate.text.trim(), lang, vtt: alternate.vtt || null,
+                    word_count: alternate.word_count || 0, azure: null, azure_diag: 'no_reference', preposition_recheck: 'recovered' });
+                }
+              } catch {
+                // Keep the first transcript if the second recognizer is unavailable.
+              } finally { clearTimeout(timer); }
             }
             const tt = ttRaw;
             // 🎧 (2026-07-30) segments/transcription_info 를 함께 돌려준다 — 발음 채점(또렷함·흐름)이
