@@ -85,6 +85,10 @@ for (const [q, want] of [
   ['You can say... "I like chocolate cake" "I like chocolate cake" "I like chocolate cake" Can you say it with me?', ''],
   ['You can say... "Let\'s talk about sports. Do you like soccer?" "Let\'s talk about sports. Do you like soccer?" Can you say it with me?', ''],
   ['Do you like your day so far?', 'day'],
+  // 끝의 «(💡 …)» 팁(화면이 떼는 것)·보이지 않는 글자는 질문을 가리지 않는다
+  ['Do you like dogs? 🐶 (💡 «dog» 보다 «dogs» 가 더 자연스러워요)', 'dogs'],
+  ['Do you like music?\u200b', 'music'], ['Do you like cats? 🏴\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}', 'cats'],
+  ['Nice job! (💡 팁이에요)', ''],
   ['Well said! Nice to meet you, Minji. What do you like to do?', ''],
   ['I don\'t know chiiecawa, what is it? 🐰', ''],
   ['Oh, really? That\'s okay! Why not? 🐶', ''],
@@ -113,6 +117,7 @@ check('짝: 앞에 문장이 있어도 마지막 질문의 내용어 — "Great 
   try { asks = new Function(tailSrc + '\n' + askSrc + '\nreturn friendAiAsksQuestion;')(); } catch (e) { check('friendAiAsksQuestion 실행', false, e.message); }
   check('AI 가 물었나: "…sandwich? ☀️" → 물음', !!asks && asks('Is it a sandwich? ☀️') === true);
   check('AI 가 물었나: "…now? 🗣️" → 물음', !!asks && asks('Can you hear me now? 🗣️') === true);
+  check('«(💡 …)» 팁이 붙어도 물음', !!asks && asks('Do you like dogs? 🐶 (💡 팁)') === true);
   check('짝: 평서문 + 이모지 → 물음 아님', !!asks && asks('Great job! 🎉') === false);
 }
 

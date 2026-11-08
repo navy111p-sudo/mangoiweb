@@ -1239,7 +1239,9 @@
       'want','try','something','anything','everything','today','tonight','now','often','lately','someday','together','also','ever','yet','very','much','more','most','along','far']);
     /* 끝에 붙은 이모지(😊 ☀️ 👍🏻 🇰🇷 👨‍👩‍👧 1️⃣)·공백을 뗀다 — AI 친구는 질문 뒤에 이모지를 붙인다(2026-11-09 실측: 질문으로 끝나는 답의 약 30%) */
     function aiTextTail(content) {
-      return String(content || '').replace(/(?:[\s\u200D\uFE0E\uFE0F\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}]|[#*0-9]\uFE0F?\u20E3)+$/u, '');
+      /* 끝에 붙은 «(💡 …)» 팁(화면·TTS 에서도 떼는 것)도 먼저 뗀다 · 보이지 않는 글자(U+200B·U+2060·U+00AD·태그 문자)도 함께 */
+      return String(content || '').replace(/\s*\(💡[^()]*\)\s*$/u, '')
+        .replace(/(?:[\s\u200B\u200D\u2060\u00AD\uFE0E\uFE0F\u{E0020}-\u{E007F}\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}]|[#*0-9]\uFE0F?\u20E3)+$/u, '');
     }
     function pronTargetFromAi(text) {
       const t = aiTextTail(text);
