@@ -31,6 +31,34 @@ try{
  globalThis.setTimeout=()=>{throw new Error('Invalid configuration must not allocate a request timer');};
  assert.equal((await M.assessPronunciation({...fixtureEnv,AZURE_SPEECH_KEY:'short'},ab(wav()),'This is a local test.','en')).reason,'key_too_short');
  globalThis.setTimeout=originalTimer;
+ // Retry responses must satisfy the same recognition gate and timeout as the first request.
+ const scores={AccuracyScore:0,FluencyScore:75,CompletenessScore:100,PronScore:50};
+ for(const status of ['NoMatch','InitialSilenceTimeout','', 'Success']){
+  let requests=0,firstSignal,retrySignal;
+  globalThis.fetch=async(url,options)=>{
+   requests++;
+   if(requests===1){firstSignal=options.signal;return Response.json({RecognitionStatus:'Success',NBest:[{Display:'This is a local test.'}]});}
+   retrySignal=options.signal;
+   return Response.json({RecognitionStatus:status,NBest:[{Display:'This is a local test.',PronunciationAssessment:scores}]});
+  };
+  const result=await M.assessPronunciation(fixtureEnv,ab(wav()),'This is a local test.','en');
+  assert.equal(requests,2);
+  assert.equal(retrySignal,firstSignal,'retry shares the total request deadline');
+  assert.equal(result.ok,status==='Success','retry rejects unsuccessful recognition even with scores');
+  if(status==='Success'){assert.equal(result.scoreFieldsPresent,true);assert.equal(result.accuracy,0);}
+ }
+ let deadline,requests=0;
+ globalThis.setTimeout=fn=>{deadline=fn;return 0;};
+ globalThis.fetch=async(url,options)=>{
+  if(++requests===1)return Response.json({RecognitionStatus:'Success',NBest:[{}]});
+  deadline();
+  assert.equal(options.signal.aborted,true,'retry is aborted by the original deadline');
+  throw new DOMException('fixture deadline','AbortError');
+ };
+ assert.equal((await M.assessPronunciation(fixtureEnv,ab(wav()),'This is a local test.','en')).ok,false);
+ globalThis.setTimeout=originalTimer;
+ globalThis.fetch=async()=>{calls++;throw new Error('Live network forbidden');};
+ console.log('PASS retry recognition status, measured zero and shared request deadline');
  const audioIndex=process.argv.indexOf('--audio');
  if(audioIndex>=0){
   const b=readFileSync(process.argv[audioIndex+1]),seconds=M.wavSeconds(ab(b));

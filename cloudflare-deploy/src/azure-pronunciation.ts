@@ -247,9 +247,13 @@ export async function assessPronunciation(
             })),
           },
           body: audio.slice(0),
+          signal: ctl.signal,
         });
         if (r2.ok) {
           const d2: any = await r2.json();
+          if (d2?.RecognitionStatus !== 'Success') {
+            return { ok: false, reason: 'recog_' + String(d2?.RecognitionStatus || 'unknown') };
+          }
           const b2 = Array.isArray(d2?.NBest) ? d2.NBest[0] : null;
           const pa2 = b2?.PronunciationAssessment;
           if (pa2) {
