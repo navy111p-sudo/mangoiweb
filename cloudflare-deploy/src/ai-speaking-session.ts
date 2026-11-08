@@ -1,3 +1,4 @@
+import type { MangoEnv } from './api-mango';
 import { authUidFromRequest } from './auth-token';
 import { json } from './api-util';
 import { evaluateSpeaking } from './ai-speaking-progress';
@@ -6,7 +7,7 @@ import { checkAndAwardBadges } from './api-games-badges';
 const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const MAX_TURNS = 100;
 
-async function ensure(db: any) {
+async function ensure(db: D1Database) {
   await db.prepare(`CREATE TABLE IF NOT EXISTS ai_speaking_sessions (
     id TEXT PRIMARY KEY, student_uid TEXT NOT NULL, app TEXT NOT NULL,
     source_id TEXT, status TEXT NOT NULL DEFAULT 'open', turns_json TEXT NOT NULL DEFAULT '[]', capture_limited INTEGER NOT NULL DEFAULT 0,
@@ -14,13 +15,13 @@ async function ensure(db: any) {
   )`).run();
 }
 
-export async function clearSpeakingSessions(env: any, uid: string) {
+export async function clearSpeakingSessions(env: MangoEnv, uid: string) {
   await ensure(env.DB);
   await env.DB.prepare(`DELETE FROM ai_speaking_sessions WHERE student_uid=? AND app='friend'`).bind(uid).run();
 }
 
 /** Only the conversation handlers call this, after producing a real reply. */
-export async function recordSpeakingTurn(request: Request, env: any, body: any,
+export async function recordSpeakingTurn(request: Request, env: MangoEnv, body: any,
   turn: { app: 'friend' | 'warmup'; student: string; assistant: string; correction?: string }) {
   if (!body.progress_session || body.kickoff) return;
   try {
@@ -58,15 +59,15 @@ export function speakingTextScores(raw: any): Record<string, number> {
   return out;
 }
 
-async function wallet(env: any, uid: string, app: string, id: string, sourceId: string, startedAt: number) {
+async function wallet(env: MangoEnv, uid: string, app: string, id: string, sourceId: string, startedAt: number) {
   const rewards: any = { pointsBalance: null, gemsBalance: null, pointsEarned: null, badges: null };
   // A missing legacy table or failed lookup means unknown, never a made-up zero.
   try {
-    const row = await env.DB.prepare(`SELECT balance FROM student_points WHERE user_id=?`).bind(uid).first();
+    const row = await env.DB.prepare(`SELECT balance FROM student_points WHERE user_id=?`).bind(uid).first<any>();
     rewards.pointsBalance = row && Number.isSafeInteger(row.balance) ? row.balance : null;
   } catch {}
   try {
-    const row = await env.DB.prepare(`SELECT gems FROM student_streaks WHERE student_uid=?`).bind(uid).first();
+    const row = await env.DB.prepare(`SELECT gems FROM student_streaks WHERE student_uid=?`).bind(uid).first<any>();
     rewards.gemsBalance = row && Number.isSafeInteger(row.gems) ? row.gems : null;
   } catch {}
   try {
@@ -75,7 +76,7 @@ async function wallet(env: any, uid: string, app: string, id: string, sourceId: 
     const row = await env.DB.prepare(`SELECT COALESCE(SUM(amount),0) AS earned FROM point_transactions
       WHERE user_id=? AND ${rules} AND created_at>=?
       AND CASE WHEN json_valid(meta) THEN json_extract(meta,?) END=?`)
-      .bind(uid, startedAt, key, app === 'friend' ? id : sourceId).first();
+      .bind(uid, startedAt, key, app === 'friend' ? id : sourceId).first<any>();
     rewards.pointsEarned = row && Number.isSafeInteger(row.earned) ? row.earned : null;
   } catch {}
   try {
@@ -85,7 +86,7 @@ async function wallet(env: any, uid: string, app: string, id: string, sourceId: 
   return rewards;
 }
 
-export async function handleSpeakingSession(request: Request, url: URL, env: any): Promise<Response | null> {
+export async function handleSpeakingSession(request: Request, url: URL, env: MangoEnv): Promise<Response | null> {
   if (url.pathname !== '/api/ai/speaking-progress') return null;
   if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
   const body: any = await request.json().catch(() => null);
@@ -106,7 +107,7 @@ export async function handleSpeakingSession(request: Request, url: URL, env: any
     if (body.action !== 'finish' || typeof body.sessionId !== 'string' || body.sessionId.length > 100)
       return json({ ok: false, error: 'invalid_request' }, 400);
     const row = await env.DB.prepare(`SELECT * FROM ai_speaking_sessions WHERE id=? AND student_uid=?`)
-      .bind(body.sessionId, uid).first();
+      .bind(body.sessionId, uid).first<any>();
     if (!row) return json({ ok: false, error: 'session_not_found' }, 404);
     if (row.status === 'complete') return json({ ok: true, result: JSON.parse(row.result_json) });
     let turns = JSON.parse(row.turns_json);
@@ -117,7 +118,7 @@ export async function handleSpeakingSession(request: Request, url: URL, env: any
       .bind(claimAt, row.id, uid, claimAt - 30000).run();
     if (!claim.meta?.changes) return json({ ok: false, error: 'evaluation_pending' }, 409);
     const captured = await env.DB.prepare(`SELECT turns_json,capture_limited FROM ai_speaking_sessions WHERE id=? AND student_uid=? AND finished_at=?`)
-      .bind(row.id, uid, claimAt).first();
+      .bind(row.id, uid, claimAt).first<any>();
     if (!captured) throw new Error('session_changed');
     turns = JSON.parse(captured.turns_json);
     const words = turns.flatMap((turn: any) => speakingWords(turn.student));
