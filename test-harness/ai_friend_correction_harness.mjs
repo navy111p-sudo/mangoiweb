@@ -124,8 +124,10 @@ console.log('\nA. 서버 배선 (api-ai.ts 의 chat-friend 핸들러 «안» 만
         /friendRF\s*=\s*false/.test(Hc));
   /* ⛔ «거절되면 다시 부른다» 만 보면, 429·타임아웃까지 재시도해 JSON 모드가 조용히
      꺼지는 결함이 그대로 통과한다 — 판정을 실제로 «부르는지» 까지 본다. */
+  /* ⚠️ (2026-11-08) 공유 friendRF 가 아니라 «이 호출이 실제로 제약을 실었나»(sentRF)로 가른다 — 동시에 도는 다시 묻기가
+     먼저 꺼 버리면 본 호출이 폴백 없이 실패해 다른 모델로 넘어간다(focused_correction_speech 의 friend rf-reject 가 실제로 돌림). */
   check('A-5c 🔴 그 판정(isRfRejection)을 실제로 호출한다 (선언만 두면 무의미)',
-        /!friendRF\s*\|\|\s*!isRfRejection\(/.test(Hc));
+        /!sentRF\s*\|\|\s*!isRfRejection\(/.test(Hc));
 
   check('A-6 모델이 준 fix 를 그대로 싣지 않고 «반드시» 검증한다',
         /verifyWarmupFix\(\s*rawFix\s*,\s*msg\s*\)/.test(Hc) && !/fix:\s*rawFix/.test(Hc));
