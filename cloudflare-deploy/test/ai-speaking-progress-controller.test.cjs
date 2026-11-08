@@ -2,7 +2,7 @@ const test = require('node:test'), assert = require('node:assert/strict'), vm = 
 const source = fs.readFileSync(path.join(__dirname, '../public/js/ai-speaking-progress.js'), 'utf8');
 function setup(armed = false) {
   const events = {}, card = { replaceChildren() { this.textContent = ''; }, setAttribute() {}, appendChild(p) { this.textContent = p.textContent; } };
-  const root = {addEventListener(name, cb) { events[name] = cb; }, AiSpeakingProgressView: {render(_, data) { card.textContent = data.lessonId; }}}, requests = [], storage = new Map([['mango_token', 'local-token-A']]);
+  const root = {addEventListener(name, cb) { events[name] = cb; }, AiSpeakingProgressView: {render(_, data) { card.textContent = data.lessonId; card.weeklyVocabulary=data.weeklyVocabulary; }}}, requests = [], storage = new Map([['mango_token', 'local-token-A']]);
   vm.runInNewContext(source, { window: root, location: { pathname: '/warmup.html' }, crypto: globalThis.crypto,
     localStorage: { getItem: key => storage.get(key) || '' }, document: { readyState: armed ? 'complete' : 'loading', addEventListener() {}, createElement() { return card; }, querySelector() { return {insertBefore() {}}; }, getElementById() { return null; } },
     fetch: async (_, options) => new Promise(resolve => requests.push({ options, reply: data => resolve({ ok: true, json: async () => data }) })) });
@@ -55,4 +55,24 @@ test('late old-account finish cannot render or clear the new-account in-flight f
 test('token changes while grading cannot paint the old result', async () => {
   const s=setup(true); await start(s,'alice'); const old=s.api.finish(); s.storage.set('mango_token','bob');
   complete(s,1,'alice'); await old; assert.notEqual(s.card.textContent,'alice');
+});
+
+test('reopening refreshes history once without finishing or awarding again',async()=>{
+ const s=setup(true);await start(s,'alice');const done=s.api.finish();complete(s,1,'alice');await done;
+ const a=s.api.finish(),b=s.api.finish();assert.equal(s.requests.length,3);
+ assert.equal(JSON.parse(s.requests[2].options.body).action,'history');
+ s.requests[2].reply({ok:true,weeklyVocabulary:[{words:42}]});await Promise.all([a,b]);
+ assert.equal(s.card.weeklyVocabulary[0].words,42);assert.equal(s.card.textContent,'alice');
+ const retry=s.api.finish();s.requests[3].reply({ok:false,error:'offline'});await retry;
+ assert.equal(s.card.weeklyVocabulary,null);assert.equal(s.card.textContent,'alice');
+ const recovered=s.api.finish();s.requests[4].reply({ok:true,weeklyVocabulary:[{words:43}]});await recovered;
+ assert.equal(s.card.weeklyVocabulary[0].words,43);
+});
+test('late history response cannot repaint another account or a new practice',async()=>{
+ for(const change of ['account','practice']){
+  const s=setup(true);await start(s,'alice');const done=s.api.finish();complete(s,1,'alice');await done;
+  const old=s.api.finish();if(change==='account')s.storage.set('mango_token','bob');
+  await start(s,'new');s.requests[2].reply({ok:true,weeklyVocabulary:[{words:999}]});await old;
+  assert.notEqual(s.card.weeklyVocabulary?.[0]?.words,999);
+ }
 });

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const result = spawnSync(process.execPath, ['--test',
   'cloudflare-deploy/test/ai-speaking-progress.test.ts',
+  'cloudflare-deploy/test/ai-speaking-vocabulary.test.ts',
   'cloudflare-deploy/test/ai-speaking-progress-view.test.cjs',
   'cloudflare-deploy/test/warmup-learning-report.test.ts',
 ], {cwd: root, stdio: 'inherit'});
