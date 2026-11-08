@@ -30,6 +30,9 @@ import { assessPronFix } from './pron-focus';   // 🎯 집중교정 발음 교�
    ⛔ 파일 이름이 warmup 이라고 복제해 오지 말 것. 판정이 두 벌이 되면 한쪽만 고쳐진다. */
 import { backfillPastTenseFix } from './tense-backfill';
 import { focusedCandidate, focusedReplyFix, recoverFocusedFix, FOCUSED_DRAFT_RULE } from './focused-correction';
+import { speakingObservation } from './speaking-observations';
+import { creditFriendAward, friendRequestId, FRIEND_AWARDS } from './ai-friend-point-credit';
+import { logSpeakingGrowth } from './speaking-growth';
 import { correctionTimingOf, correctionPrompt, showDuringPractice } from './ai-speaking-progress';
 import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
          decideWarmupFixShow, warmupShouldOfferRepeat, isRfRejection } from './warmup-correction';
@@ -240,13 +243,13 @@ export async function handleAiApi(
       const uid = String(b.uid || '').trim();
       const msg = String(b.msg || '').trim();
       /* 🎯 집중교정이면 옛 게이트(두 번째부터·연달아 막기)를 건너뛰고 검증된 교정을 매번 보여 준다(2026-10-31). */
-      const friendMode = correctionModeOf(b.correction_mode);   // 🎚️ 값이 없으면 집중교정
-      const timing = correctionTimingOf(b.correction_timing);
-      const immediateFix = friendMode === 'focused' && timing !== 'after-lesson';
+      const timing = (correctionTimingOf(b.correction_timing) || null);
+      const practiceSession = typeof b.practice_session === 'string' && /^[a-zA-Z0-9-]{1,100}$/.test(b.practice_session) ? b.practice_session : '';
+      const friendMode = correctionModeOf(timing === 'after-lesson' ? 'free_talk' : timing === 'key-mistakes' ? 'balanced' : b.correction_mode);
+      const immediateFix = friendMode === 'focused' || timing === 'immediate';
       /* 🎯 발음 교정 — 집중교정 + 음성(WAV) + 기준 낱말이 있을 때만 Azure 발음평가를 «미리» 돌린다.
          응답을 기다리게 하지 않으려고 여기서 시작하고, 응답을 만들 때 결과만 받는다(실패는 null). */
-      const pronIn: any = (immediateFix && (!timing || timing === 'immediate') && b.pron && typeof b.pron === 'object') ? b.pron : null;
-      const pronP: Promise<any> = pronIn ? assessPronFix(env as any, pronIn.audio_b64, pronIn.target) : Promise.resolve(null);
+      const pronIn: any = (friendMode === 'focused' && (!timing || timing === 'immediate') && b.pron && typeof b.pron === 'object') ? b.pron : null;
       /* 🪜 여덟 칸으로 넓히면서, 학생 브라우저에 남아 있는 옛 키(A1…C1)도 그대로 받습니다.
          ⛔ 정규화를 빼면 옛 값이 «모르는 값» 이 되어 조용히 기본값으로 떨어집니다 —
             학생이 고른 레벨이 리셋된 것처럼 보입니다. */
@@ -264,6 +267,9 @@ export async function handleAiApi(
       const authUid = await authUidGlobal(request, url, env, b);
       if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
       if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      // Start paid audio work only after the existing ownership gate.
+      const pronP: Promise<any> = pronIn ? assessPronFix(env as any, pronIn.audio_b64, pronIn.target) : Promise.resolve(null);
+      const awardRequestId=friendRequestId(b.request_id) || (b.request_id == null ? friendRequestId(b.progress_turn) : null);
 
       // 🐢 (2026-07-27) 응답 지연 최소화 — 서로 무관한 조회들을 순서대로 기다리지 않고 한꺼번에 보낸다.
       //   (gamSnapshot 은 "오늘 몇 번째 대화인가"를 이번 메시지가 기록된 뒤에 세야 정확해서
@@ -907,7 +913,7 @@ ${timing ? 'Correction timing overrides earlier timing instructions: ' + correct
                 ⛔ 「조회가 실패해도 전부 통과한다」고 적지 마세요 — major 만 통과합니다. */
           if (!turns) console.warn('[chat-friend] turn count query failed — 작은 실수 교정이 계속 막힙니다');
           const turnNo = Number((turns && (turns as any).n) || 0) + 1;
-          const mkey = 'aifriendfix:' + uid;
+          const mkey = 'aifriendfix:' + uid + (timing && practiceSession ? ':' + practiceSession : '');
           let memoIn: any = null;
           try {
             const rawMemo = (env as any).SESSION_STATE ? await (env as any).SESSION_STATE.get(mkey) : null;
@@ -921,14 +927,18 @@ ${timing ? 'Correction timing overrides earlier timing instructions: ' + correct
           // 🇰🇷 최근 14일에 이미 고쳐 준 관사·복수·전치사는 «한 번 센 것» 으로 이어 받는다(정본 recent-mistakes.ts).
           //    작은 실수일 때만 조회한다 — 큰 실수는 원래 바로 고친다.
           if (verified && verified.severity !== 'major') memoIn = carryRepeatTags(memoIn, await loadRecentFixTags(env.DB, uid, Date.now()));
-          const decided = decideWarmupFixShow(verified, memoIn, turnNo, { immediate: immediateFix || timing === 'immediate' });
+          const decided = decideWarmupFixShow(verified, memoIn, turnNo, { immediate: immediateFix });
           // 🎚️ 모드별 게이트 — 자유대화는 따라 말하기 없음, 집중교정은 검증된 교정을 매번(warmup-honest gateFixForMode).
           showFix = gateFixForMode(friendMode, verified, decided.show, false).show;
+          const shown = Number.isSafeInteger(memoIn?.timingShown) ? memoIn.timingShown : 0;
+          if (timing === 'after-lesson' || (timing === 'key-mistakes' && (!(env as any).SESSION_STATE || verified.severity !== 'major' || shown >= 3))) showFix = null;
+          (decided.memo as any).timingShown = shown + (timing === 'key-mistakes' && showFix ? 1 : 0);
           // 🔁 보여 준 교정은 남겨 다음 대화에서 다시 쓰게 한다(KV 메모는 6시간 «간격» 만 기억). 던지지 않는다.
           if (showFix) await logAiFriendFix(env.DB, uid, showFix, Date.now());
           offerRepeat = warmupShouldOfferRepeat(decided.show, decided.memo, turnNo);
           if (friendMode === 'free_talk') offerRepeat = false;
           else if (friendMode === 'focused') offerRepeat = !!showFix;
+          if (timing === 'after-lesson' || !showFix) offerRepeat = false;
           try {
             if ((env as any).SESSION_STATE) {
               await (env as any).SESSION_STATE.put(mkey, JSON.stringify(decided.memo), { expirationTtl: 6 * 3600 });
@@ -978,6 +988,7 @@ ${timing ? 'Correction timing overrides earlier timing instructions: ' + correct
       // ⚠️ 이 저장은 반드시 기다린다 — 바로 아래 gam 스냅샷("오늘 몇 번째 대화")이
       //   이 INSERT 가 끝난 뒤의 개수를 세어야 정확하다. 백그라운드로 미루면 그 숫자가
       //   이번 메시지를 못 세거나(레이스) 다음 새로고침에야 반영돼 부정확해진다.
+      let chatSaved=false;
       try {
         const now = Date.now();
         await env.DB.prepare(`INSERT INTO ai_friend_chats (student_uid, role, content, level, created_at) VALUES (?,?,?,?,?)`).bind(uid, 'user', msg, level, now).run();
@@ -991,11 +1002,16 @@ ${timing ? 'Correction timing overrides earlier timing instructions: ' + correct
            ⚠️ 대신 폴백의 흔적이 D1 에 안 남습니다 — 이 뒤로 빈도의 정본은 아래 console.error 뿐입니다. */
         if (!usedFallback) {
           await env.DB.prepare(`INSERT INTO ai_friend_chats (student_uid, role, content, level, created_at) VALUES (?,?,?,?,?)`).bind(uid, 'assistant', reply, level, now + 1).run();
+          chatSaved=true;
         }
       } catch (e: any) {
         console.error('[chat-friend] DB insert failed:', e?.message || e);
         // DB 실패해도 reply는 반환
       }
+
+      const captured = !usedFallback && chatSaved
+        ? await recordSpeakingTurn(request, env, b, { app:'friend',student:msg,assistant:reply,correction:verifiedFix?.now || '' }) : false;
+      const rewardSession = captured && friendRequestId(b.progress_turn) === awardRequestId ? String(b.progress_session) : undefined;
 
       // 🎮 게임화 — 포인트/스트릭/오늘의 단어 보너스. 실패해도 채팅 응답은 정상 반환.
       //   메시지당 2P(하루 10회) · 오늘의 단어 사용 +5P(하루 1회) · 🎤말하기 +1P(하루 5회)
@@ -1004,7 +1020,7 @@ ${timing ? 'Correction timing overrides earlier timing instructions: ' + correct
       try {
         gam = await aiFriendGamSnapshot(uid);
         gam.awarded = 0; gam.word_bonus = 0; gam.voice_bonus = 0; gam.listen_bonus = 0;
-        if (!/^guest/i.test(uid)) {
+        if (!/^guest/i.test(uid) && !usedFallback && chatSaved && awardRequestId && (!b.progress_session || rewardSession)) {
           await ensurePointTables(env);
           const KST_OFF = 9 * 3600 * 1000;
           const todayMs = Math.floor((Date.now() + KST_OFF) / 86400000) * 86400000 - KST_OFF;
@@ -1012,9 +1028,8 @@ ${timing ? 'Correction timing overrides earlier timing instructions: ' + correct
             const c: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE user_id=? AND rule_code=? AND triggered_at>=?`).bind(uid, code, todayMs).first();
             return c?.c || 0;
           };
-          // ⚠️ 적립 자체(logAward)는 잔액을 읽고-쓰는 순서라 같은 유저에 대해 동시 실행하면
-          //   레이스로 한쪽 적립이 유실될 수 있다 — 반드시 순서대로. "오늘 이미 썼나" 조회만
-          //   서로 무관한 읽기라 한꺼번에 보낸다.
+          // 각 지급은 D1 batch 안에서 청구·한도·지갑·두 원장을 함께 커밋한다.
+          // 아래 조회는 표시와 불필요한 시도 감소용이며, 최종 지급 판단은 원자적 SQL에서 한다.
           const logAward = async (code: string, amount: number, label: string) => {
             /* 🪙 (2026-09-01) 하루 전체 상한(100점)을 여기서도 본다 — 정본 checkEarnAllowed.
                ⚠️ **«줬는지» 를 반드시 돌려준다.** 처음엔 조용히 return 했는데, 부르는 쪽이
@@ -1022,12 +1037,10 @@ ${timing ? 'Correction timing overrides earlier timing instructions: ' + correct
                   말했다(ai-friend.html 이 그 값으로 축하 토스트를 그린다). 없는 포인트를 지어내는
                   것은 상한을 넘기는 것보다 나쁘다 — 규칙서 2장 「⛔ 지어내지 마세요」.
                ⚠️ 여기서 던지지는 않는다 — 포인트가 대화를 막으면 안 된다. */
-            const allow = await checkEarnAllowed(env, uid, code, amount);
-            if (!allow.ok) { console.log('[ai-friend] 포인트 상한 — 적립 건너뜀:', code, allow.error); return false; }
-            const r = await applyPointTransaction(env, { userId: uid, type: 'earn', amount, reason: label, ruleCode: code,
-              meta: typeof b.progress_session === 'string' && b.progress_session.length <= 100 ? { speaking_session: b.progress_session } : undefined });
-            await env.DB.prepare(`INSERT INTO point_rule_log (user_id, rule_code, amount, triggered_at, txn_id, meta) VALUES (?,?,?,?,?,NULL)`).bind(uid, code, amount, Date.now(), r.txnId).run();
-            return true;
+            const policy=FRIEND_AWARDS[code as keyof typeof FRIEND_AWARDS];
+            if(!policy||policy.amount!==amount)return false;
+            try{return (await creditFriendAward(env.DB,uid,awardRequestId,code as keyof typeof FRIEND_AWARDS,rewardSession))===amount;}
+            catch{console.warn('[ai-friend] atomic award unavailable',code);return false;}
           };
           const wod = gam.word;
           const wantWord = !!(wod && new RegExp(`\\b${wod.w}\\b`, 'i').test(msg));
@@ -1051,7 +1064,9 @@ ${timing ? 'Correction timing overrides earlier timing instructions: ' + correct
           if (wantVoice && voiceUsed < 5 && await logAward('ai_friend_voice', 1, '영어로 말하기')) gam.voice_bonus = 1;
           if (wantListen && listenUsed < 5 && await logAward('ai_friend_listen', 1, '자막 없이 듣기')) gam.listen_bonus = 1;
           /* 🪙 이번 턴에 대화 포인트를 못 받은 이유 — 화면이 «왜 0P 인지» 를 말하게. 'daily'=오늘 10번 다 받음 · 'total'=하루 전체 상한 */
-          gam.chat_capped = chatUsed >= 10 ? 'daily' : (gam.awarded ? null : 'total');
+          const afterChatUsed=gam.awarded?chatUsed:await usedToday('ai_friend_chat');
+          const afterAllowance=gam.awarded?{ok:true}:await checkEarnAllowed(env,uid,'ai_friend_chat',2);
+          gam.chat_capped=afterChatUsed>=10?'daily':(!afterAllowance.ok?'total':null);
           if (gam.earned_today != null) gam.earned_today = Number(gam.earned_today) + gam.awarded + gam.word_bonus + gam.voice_bonus + gam.listen_bonus;
         }
       } catch (e: any) {
@@ -1085,9 +1100,11 @@ ${timing ? 'Correction timing overrides earlier timing instructions: ' + correct
       }
 
       const pronFix = await pronP;   // 🎯 발음 교정 결과(없으면 null)
-      if (!usedFallback && b.progress_session) await recordSpeakingTurn(request, env, b, { app: 'friend', student: msg, assistant: reply,
-        correction: verifiedFix?.now || showFix?.now || '' });
+      const progress=practiceSession?speakingObservation({sessionId:practiceSession,turn:latT0,input:msg,lang:'en',ok:!usedFallback,kickoff:false,grade:null,fix:verifiedFix,eventId:awardRequestId||undefined}):null;
+      if(progress&&chatSaved&&awardRequestId)await logSpeakingGrowth(env.DB,uid,'friend',progress,awardRequestId);
+
       return { ok: true, reply, level, persona, model: usedModel || 'fallback', gam,
+                    progress,
                     ...replyOut(),   // ai_unavailable · fix · repeat · replaced — final 이벤트와 같은 함수(위 replyOut)
                     ...(pronFix ? { pron_fix: pronFix } : {}) };
       };

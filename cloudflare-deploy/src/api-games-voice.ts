@@ -9,6 +9,8 @@ import type { MangoEnv } from './api-mango';
 import { isSttRepeatLoop } from './stt-loop';
 import { sttRejectReason } from './stt-confidence';
 import { handleVoiceTtsApi } from './api-voice-tts';
+import { referenceReadingEvidence } from './speaking-audio-evidence';
+import { logSpeakingGrowth } from './speaking-growth';
 
 export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv): Promise<Response | null> {
   const path = url.pathname;
@@ -136,6 +138,16 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
            ⛔ azure_diag 에는 사유 «이름» 만 담긴다 — 키도, 응답 본문도 들어가지 않는다. */
         const azureOut = async () => {
           const r: any = await runAzure();
+          const evidence=referenceReadingEvidence(r,paReference,lang);
+          if(evidence){try{
+            const owner=await authUidGlobal(request,url,env);
+            if(owner&&!/^(guest|anon)/i.test(owner)){
+              const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',audio!))).map(x=>x.toString(16).padStart(2,'0')).join('');
+              const key=hash+':'+lang+':'+paReference;
+              const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(key)))).map(x=>x.toString(16).padStart(2,'0')).join('');
+              await logSpeakingGrowth(env.DB,owner,'speech-coach',{source:'warmup-verified-turn',sessionId:'reading-'+digest},digest,evidence);
+            }
+          }catch{console.warn('[speaking-growth] audio evidence unavailable');}}
           return { azure: (r && r.ok) ? r : null, azure_diag: r ? (r.ok ? 'ok' : r.reason) : 'none' };
         };
 

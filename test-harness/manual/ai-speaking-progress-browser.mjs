@@ -24,7 +24,7 @@ const browser = await pw.chromium.launch({ executablePath: process.env.CHROMIUM_
 let checks = 0;
 function check(value, name) { assert.ok(value, name); checks++; console.log('PASS ' + name); }
 try {
-  for (const width of [390, 1360]) for (const app of ['friend', 'warmup']) for (const state of ['partial', 'zero', 'unavailable']) {
+  for (const width of [320, 390, 768, 1366]) for (const app of ['friend', 'warmup']) for (const state of ['partial', 'zero', 'unavailable']) {
     const name = `${width}/${app}/${state}`, posts = [], errors = [];
     const context = await browser.newContext({ viewport: { width, height: 900 } });
     await context.addInitScript(() => {
@@ -71,6 +71,7 @@ try {
       await page.locator('#sendBtn').click();
       await page.waitForFunction(() => !document.getElementById('sendBtn').disabled);
       const chat = posts.find(p => p.chat && !p.kickoff);
+      if(app === 'friend')check(chat?.request_id === chat?.progress_turn, name + ': award and recorded-turn replay keys agree');
       check(!!chat?.progress_session && !!chat?.progress_turn, name + ': actual send carries server session and replay key');
       check(posts.filter(p => p.action === 'start').length === 1, name + ': one session per practice');
       if(app === 'friend') {
@@ -81,6 +82,7 @@ try {
       await page.locator('.ai-progress-title').waitFor();
       const content = await page.locator('.ai-progress-card').innerText();
       check(content.includes(state === 'zero' ? '0/100' : 'Overall score unavailable'), name + ': measured/zero/missing result renders');
+      check((await page.locator('.ai-progress-card').count()) === 1, name + ': a single result surface');
       check((await page.locator('.ai-progress-skill').count()) === 5, name + ': all five skill rows are visible');
       check((await page.locator('.ai-progress-skill dd').allTextContents()).filter(x => x === 'Not measured').length >= (state === 'zero' ? 0 : 2), name + ': no fabricated acoustic score');
       check(content.includes('Points earned in this practice: 5P') && content.includes('Gem balance at completion: 30'), name + ': actual wallet is separately shown');
@@ -93,6 +95,11 @@ try {
       await page.locator(app === 'friend' ? '.ai-progress-trigger' : '#wgFinish').click();
       check(posts.filter(p => p.action === 'finish').length === 1, name + ': reopening does not request evaluation again');
       check(posts.filter(p => p.award).length === (app === 'warmup' ? 1 : 0), name + ': reopening adds no award request');
+      if(width===320&&app==='friend'&&state==='unavailable'){
+        await page.evaluate(async()=>{localStorage.setItem('mango_token','another-account');await AiSpeakingProgress.finish();});
+        const changed=await page.locator('.ai-progress-card').innerText();
+        check(!changed.includes('50P')&&!changed.includes('30'),name+': switching accounts cannot reopen cached balances');
+      }
       await page.evaluate(() => { localStorage.setItem('mango_token', 'different-account-token'); window.dispatchEvent(new StorageEvent('storage', {key:'mango_token'})); });
       check(!(await page.locator('.ai-progress-card').innerText()).includes('50P'), name + ': cross-tab account change clears open private results');
       await page.locator(app === 'friend' ? '.ai-progress-close' : '#wgSummaryBack').click();
@@ -102,5 +109,5 @@ try {
     } catch (error) { await page.screenshot({ path: join(output, `FAIL-${width}-${app}-${state}.png`) }); throw error; }
     finally { await context.close(); }
   }
-  console.log(JSON.stringify({ checks, failures: 0, viewports: [390, 1360], scope: 'actual pages with synthetic API/audio responses; server SQL covered separately' }));
+  console.log(JSON.stringify({ checks, failures: 0, viewports: [320, 390, 768, 1366], scope: 'actual pages with synthetic API/audio responses; server SQL covered separately' }));
 } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }

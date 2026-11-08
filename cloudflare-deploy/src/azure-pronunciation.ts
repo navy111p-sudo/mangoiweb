@@ -65,6 +65,8 @@ export interface AzurePronFail { ok: false; reason: string; }
 
 export interface AzurePronResult {
   ok: true;
+  /** Provenance guard for new reports: missing fields must never become measured zero. */
+  scoreFieldsPresent?: boolean;
   /** 음소 단위 발음 정확도 0~100 — 이게 «또렷함» 을 대체한다 */
   accuracy: number;
   /** 끊김·머뭇거림 0~100 */
@@ -99,16 +101,32 @@ export function azureLocale(lang: string): string | null {
   return m[String(lang || '').toLowerCase()] || null;
 }
 
-/** 16kHz 16bit mono WAV 의 길이(초). 헤더를 못 읽으면 null. */
+/** Duration of supported PCM WAV data; metadata chunks are not audio samples. */
 export function wavSeconds(buf: ArrayBuffer): number | null {
   try {
     const dv = new DataView(buf);
     if (dv.byteLength < 44) return null;
-    // "RIFF" .... "WAVE"
     if (dv.getUint32(0, false) !== 0x52494646 || dv.getUint32(8, false) !== 0x57415645) return null;
-    const byteRate = dv.getUint32(28, true);          // fmt 청크의 byteRate
-    if (!byteRate) return null;
-    return (dv.byteLength - 44) / byteRate;
+    if (dv.getUint32(4, true) + 8 !== dv.byteLength) return null;
+    let rate = 0, dataBytes: number | null = null;
+    for (let offset = 12; offset < dv.byteLength;) {
+      if (offset + 8 > dv.byteLength) return null;
+      const tag = dv.getUint32(offset, false), size = dv.getUint32(offset + 4, true);
+      const begin = offset + 8, end = begin + size, next = end + (size & 1);
+      if (next > dv.byteLength) return null;
+      if (tag === 0x666d7420) { // fmt
+        if (rate || size < 16) return null;
+        if (dv.getUint16(begin, true) !== 1 || dv.getUint16(begin + 2, true) !== 1 ||
+            dv.getUint32(begin + 4, true) !== 16000 || dv.getUint16(begin + 12, true) !== 2 ||
+            dv.getUint16(begin + 14, true) !== 16 || dv.getUint32(begin + 8, true) !== 32000) return null;
+        rate = 32000;
+      } else if (tag === 0x64617461) { // data
+        if (dataBytes !== null || !size || size % 2) return null;
+        dataBytes = size;
+      }
+      offset = next;
+    }
+    return rate && dataBytes !== null ? dataBytes / rate : null;
   } catch { return null; }
 }
 
@@ -160,15 +178,14 @@ export async function assessPronunciation(
      slice(0) 는 여기서 «동기» 로 실행되므로 Whisper 가 버퍼를 만지기 전에 복사가 끝난다. */
   const bodyCopy = audio.slice(0);
 
-  const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), AZURE_TUNING.TIMEOUT_MS);
-
   /* 🪤 (2026-08-08) 키가 짧게 들어가도 Azure 는 **본문 없는 400** 만 준다 — 401 이 아니다.
      그래서 «키가 틀렸다» 는 걸 응답만 봐서는 알 수 없었다(붙여넣기 실패로 2글자가 들어가
      있었는데 한참 못 찾았다). 명백히 틀린 길이는 여기서 미리 잘라 사유로 알려 준다.
      ⛔ 키 «값» 은 어디에도 담지 않는다. 길이 판정만 한다. */
   if (key.length < 20) return { ok: false, reason: 'key_too_short' };
 
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), AZURE_TUNING.TIMEOUT_MS);
   try {
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -239,6 +256,7 @@ export async function assessPronunciation(
             const n2 = (v: any) => { const x = Number(v); return isFinite(x) ? Math.max(0, Math.min(100, Math.round(x))) : 0; };
             return {
               ok: true,
+              scoreFieldsPresent: ['AccuracyScore','FluencyScore','CompletenessScore','PronScore'].every(k=>typeof pa2[k]==='number'&&Number.isFinite(pa2[k])&&pa2[k]>=0&&pa2[k]<=100),
               accuracy: n2(pa2.AccuracyScore), fluency: n2(pa2.FluencyScore),
               completeness: n2(pa2.CompletenessScore), pron: n2(pa2.PronScore),
               text: String(b2?.Display || d2?.DisplayText || '').trim(),
@@ -272,6 +290,7 @@ export async function assessPronunciation(
 
     return {
       ok: true,
+      scoreFieldsPresent: ['AccuracyScore','FluencyScore','CompletenessScore','PronScore'].every(k=>typeof pa[k]==='number'&&Number.isFinite(pa[k])&&pa[k]>=0&&pa[k]<=100),
       accuracy: num(pa.AccuracyScore),
       fluency: num(pa.FluencyScore),
       completeness: num(pa.CompletenessScore),

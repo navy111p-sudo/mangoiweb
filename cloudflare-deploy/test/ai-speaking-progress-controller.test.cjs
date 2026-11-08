@@ -56,3 +56,14 @@ test('token changes while grading cannot paint the old result', async () => {
   const s=setup(true); await start(s,'alice'); const old=s.api.finish(); s.storage.set('mango_token','bob');
   complete(s,1,'alice'); await old; assert.notEqual(s.card.textContent,'alice');
 });
+
+test('same-tab token changes during finish cannot reveal the old account result',async()=>{
+ const s=setup(true),start=s.api.beforeTurn();s.requests[0].reply({ok:true,sessionId:'alice'});await start;
+ const pending=s.api.finish();s.storage.set('mango_token','changed');
+ s.requests[1].reply({ok:true,result:{finishedNormally:true,lessonId:'alice',rewards:{pointsBalance:999}}});await pending;
+ assert.doesNotMatch(s.card.textContent,/alice|999/);
+});
+test('logout clears account metadata before guest practice',async()=>{
+ const s=setup(),start=s.api.beforeTurn();s.requests[0].reply({ok:true,sessionId:'alice'});await start;
+ s.storage.delete('mango_token');assert.equal(JSON.stringify(await s.api.beforeTurn()),'{}');assert.equal(s.requests.length,1);
+});

@@ -70,7 +70,7 @@ console.log('\n── ④ 배선 ──');
 const API = R('cloudflare-deploy/src/api-ai.ts');
 check('chat-friend: pron 은 집중교정의 기본·즉시 시점에서만 받는다',
   /const immediateFix = friendMode === 'focused'/.test(API) &&
-  /immediateFix && \(!timing \|\| timing === 'immediate'\) && b\.pron && typeof b\.pron === 'object'/.test(API));
+  /friendMode === 'focused' && \(!timing \|\| timing === 'immediate'\) && b\.pron && typeof b\.pron === 'object'/.test(API));
 check('chat-friend: 발음 판정은 응답 전에 «미리» 시작한다', /const pronP: Promise<any> = pronIn \? assessPronFix/.test(API));
 check('chat-friend: 응답에 pron_fix 를 싣는다', /pron_fix: pronFix/.test(API) && /const pronFix = await pronP;/.test(API));
 check('chat-friend: 판정 실패는 응답을 막지 않는다(assessPronFix 는 던지지 않음)', /catch \{\s*return null;\s*\}/.test(PF_SRC));
