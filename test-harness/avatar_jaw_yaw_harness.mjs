@@ -40,7 +40,9 @@ if (!JAW || !OPEN || !PREC || !EYES || !HEAD) { console.log(`\n${pass} PASS / ${
 // ① ~ ③
 const names = Object.keys(JAW);
 ok(names.length >= 2 && names.every(n => PREC[n]), `① 턱 표는 그림 입모양 캐릭터만 (${names.join(', ')})`);
-for (const n of names) {
+ok(!('mei' in JAW) && !('long' in JAW), '① mei·long 은 턱 표에 없다 — 입 벌린 그림에 턱이 이미 내려가 있다',
+  '실측(2026-11-09) 턱끝 Mei +18 · Long +31 원본 px. 띠로 또 늘이면 턱이 두 번 내려간다');
+for (const n of names.filter(n => PREC[n])) {   // 입 칸이 없는 캐릭터는 ①이 이미 FAIL — 여기서 죽지 않게
   const j = JAW[n], r = PREC[n], e = EYES[n], h = HEAD[n];
   ok(j.x0 < j.x1 && j.top < j.b0 && j.b0 <= j.b1 && j.b1 < j.bot && j.D > 0, `① ${n}: 순서 top<b0≤b1<bot · x0<x1 · D>0`);
   const squeeze = (j.bot - j.b1) / (j.bot - j.b1 - j.D);
