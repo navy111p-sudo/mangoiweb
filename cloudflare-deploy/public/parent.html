@@ -15,6 +15,7 @@
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
 <script src="/js/mango-i18n.js" defer></script>
+<script src="/js/speaking-growth-view.js?v=3"></script>
 <link rel="stylesheet" href="/css/mangoi-fonts.css?v=2"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
 <style>
   /* ═══ 2026-09-13 «B · 망고 카드» 디자인 — 사장님이 4종 시안 중 고른 안.
@@ -534,21 +535,6 @@ function pdWarmupHtml(w, en) {
     }
   }
   h += '<div style="font-weight:800;color:var(--pd-accent);margin:14px 0 8px;font-size:15px">' + T('✏️ A.i 가 고쳐 준 표현', '✏️ Expressions the A.i corrected') + '</div>';
-  const spoken = w.speaking_report;
-  if (spoken && Number.isSafeInteger(spoken.sessions) && spoken.sessions > 0 && Number.isSafeInteger(spoken.uniqueWords)) {
-    h += '<div class="stat">' + T('이번 달 사용한 영어 고유 단어', 'Unique English words used this month')
-      + '<span class="v gold">' + fmt(spoken.uniqueWords) + '</span></div>';
-    const skills = [['pronunciation','발음','Pronunciation'],['fluency','유창성','Fluency'],['grammar','문법','Grammar'],
-      ['vocabulary','어휘','Vocabulary'],['sentence','문장 구성','Sentence structure']];
-    h += '<div style="font-weight:800;margin:14px 0 8px">' + T('이번 달 A.i 말하기 평가', 'A.i speaking assessment this month') + '</div>';
-    for (const [key, ko, english] of skills) {
-      const score = spoken.skills?.[key];
-      h += '<div class="stat">' + T(ko, english) + '<span class="v">'
-        + (score && Number.isFinite(score.average) && Number.isSafeInteger(score.samples) && score.samples > 0
-          ? fmt(score.average) + '/100 · ' + fmt(score.samples) + T('회 측정', ' measured')
-          : T('미측정', 'Not measured')) + '</span></div>';
-    }
-  }
   const fixes = Array.isArray(w.recent_fixes) ? w.recent_fixes.slice(0, 2) : [];
   if (!w.fixes_recorded) {
     h += '<div class="empty" style="padding:14px 12px">' + T('고쳐 준 표현은 아직 기록하고 있지 않아요. 기록이 시작되면 이곳에 보여 드려요.', 'Corrected expressions are not being recorded yet. They will appear here once recording starts.') + '</div>';
@@ -1195,6 +1181,11 @@ function pdRender(d){
   }
 
   // 평가서
+  if(window.SpeakingGrowthView){
+    let growthBox=document.getElementById('pd-speaking-growth');
+    if(!growthBox){growthBox=document.createElement('section');growthBox.id='pd-speaking-growth';growthBox.className='card';growthBox.style.marginTop='16px';document.getElementById('pd-warmup-card').after(growthBox);}
+    SpeakingGrowthView.render(growthBox,d.speaking_growth,!!(window.getLang&&getLang()==='en'));
+  }
   const evals = d.evaluations || [];
   document.getElementById('pd-evals').innerHTML = evals.length
     ? evals.map(e => `<div class="eval-item">

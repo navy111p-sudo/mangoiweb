@@ -7,6 +7,8 @@
 import { SCENE_WORDS_POINT_RULE, SCENE_WORDS_POINT_AMOUNT, SCENE_WORDS_POINT_DAILY_CAP, sceneWordsPointGate } from './scene-words-points';   // ✍️ 교재 낱말 쓰기 숙제 포인트 정본(2026-11-03)
 import { AI_CLASS_POINT_RULE, AI_CLASS_POINT_AMOUNT, AI_CLASS_POINT_DAILY_CAP, aiClassPointGate } from './ai-class-points';   // 🧑‍🏫 A.i 선생님 수업 포인트 정본(2026-11-03)
 import { WARMUP_POINT_RULE, WARMUP_POINT_AMOUNT, WARMUP_POINT_DAILY_CAP, WARMUP_POINT_MIN_TURNS, warmupPointGate } from './warmup-points';   // 🗣️ 웜업 포인트 정본(2026-11-03)
+import { creditWarmupPoints } from './warmup-point-credit';
+import { FRIEND_AWARDS } from './ai-friend-point-credit';
 import { json, today } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession, getAdminActor, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
@@ -15,8 +17,7 @@ import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook } from './gift
 import type { MangoEnv } from './api-mango';
 import { isPrivateDubbingKey } from './api-dubbing';
 // 🪙 포인트 정책 정본(2026-08-07 사장님 승인 7가지) — 금액·상한·유효기간·교환최소는 여기 한 곳에서만 정한다
-import { POINT_POLICY, checkEarnAllowed, syncApprovedRuleAmounts, praiseCountForRoom, kstDayStart } from './point-policy';
-import { awardSpeakingPoints } from './speaking-points';
+import { POINT_POLICY, checkEarnAllowed, syncApprovedRuleAmounts, praiseCountForRoom } from './point-policy';
 import { awardJudgmentPoint } from './judgment-points';   // 🪙 판단력 훈련 정답 2P(2026-11-02)
 /* 🍯 맛보기 상한 판정 정본 — 라우트는 «부르기만» 한다(하니스가 그 함수를 실제로 돌린다) */
 import { SAMPLE_SCENARIO_CAP, sampleScenarioAllowed } from './judgment-sample-gate';
@@ -303,6 +304,11 @@ export async function handlePointsApi(
       if ((await resolveOwnerScope(request, url, env as any, userId, body)) === 'deny') {
         return json({ ok: false, error: 'auth_required', message: '로그인 후 본인만 적립됩니다.' }, 401);
       }
+      // These awards require a saved, successful server chat and its request ID.
+      // The generic rule endpoint cannot establish that evidence, even for an owner.
+      if (Object.prototype.hasOwnProperty.call(FRIEND_AWARDS, ruleCode)) {
+        return json({ ok: false, error: 'server_verified_award_required' }, 403);
+      }
       // 🌟 실시간 수업 칭찬 포인트 — 학생 본인 브라우저가 자기 계정으로 적립하는 경로.
       //   awardId(멱등키)를 함께 넘겨, 서버-선생님적립 경로(/api/points/award-praise)와 겹쳐도 1점만 적립.
       if (ruleCode === 'teacher_praise_point') {
@@ -336,28 +342,20 @@ export async function handlePointsApi(
         await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES (?,'A.i 말하기 연습',?,0,?,1,'한 대화에서 학생이 직접 3번 이상 말하고 «끝내고 요약 보기» 를 누르면 지급(하루 1번)',?) ON CONFLICT(code) DO NOTHING`)
           .bind(WARMUP_POINT_RULE, WARMUP_POINT_AMOUNT, WARMUP_POINT_DAILY_CAP, Date.now()).run();
         const sid = String(body.meta?.session_id || '').trim();
-        const progressId = body.meta?.speaking_session;
-        if (progressId != null) {
-          if (typeof progressId !== 'string' || !progressId || progressId.length > 100)
-            return json({ ok: false, error: 'session_required' }, 400);
-          const progress = await env.DB.prepare(`SELECT json_array_length(turns_json) AS turns FROM ai_speaking_sessions
-            WHERE id=? AND student_uid=? AND source_id=? AND app='warmup'`).bind(progressId, userId, sid).first<{ turns: number }>();
-          if (!progress) return json({ ok: false, error: 'session_mismatch' }, 403);
-          if (progress.turns < WARMUP_POINT_MIN_TURNS)
-            return json({ ok: false, error: 'not_enough_turns', have: progress.turns, need: WARMUP_POINT_MIN_TURNS });
-          body.meta = { session_id: sid, speaking_session: progressId, turns: progress.turns };
-        } else {
-          let historyRaw: string | null | undefined = undefined;
-          let sessionOwner: string | null | undefined = undefined;
-          try { historyRaw = (env as any).SESSION_STATE && sid ? await (env as any).SESSION_STATE.get('warmup:' + sid) : null; } catch { historyRaw = undefined; }
-          try {
-            const row: any = sid ? await env.DB.prepare(`SELECT user_id FROM warmup_session_log WHERE session_id = ?`).bind(sid).first() : null;
-            sessionOwner = row && row.user_id ? String(row.user_id) : null;
-          } catch (e: any) { sessionOwner = /no such table/i.test(String(e?.message || e)) ? null : undefined; }
-          const g = warmupPointGate({ sessionId: sid, historyRaw, userId, sessionOwner });
-          if (!g.ok) return json({ ok: false, error: g.error, have: g.have, need: WARMUP_POINT_MIN_TURNS });
-          body.meta = { session_id: sid, turns: g.have };
-        }
+        let historyRaw: string | null | undefined = undefined;
+        let sessionOwner: string | null | undefined = undefined;
+        try { historyRaw = (env as any).SESSION_STATE && sid ? await (env as any).SESSION_STATE.get('warmup:' + sid) : null; } catch { historyRaw = undefined; }
+        try {
+          const row: any = sid ? await env.DB.prepare(`SELECT user_id FROM warmup_session_log WHERE session_id = ?`).bind(sid).first() : null;
+          sessionOwner = row && row.user_id ? String(row.user_id) : null;
+        } catch (e: any) { sessionOwner = /no such table/i.test(String(e?.message || e)) ? null : undefined; }
+        const g = warmupPointGate({ sessionId: sid, historyRaw, userId, sessionOwner, requireConfirmed: true });
+        if (!g.ok) return json({ ok: false, error: g.error, have: g.have, need: WARMUP_POINT_MIN_TURNS });
+        const tokenUid = await authUidGlobal(request, url, env, body);
+        const sameLogin = tokenUid === userId || (await checkAdminSession(request, env as any))?.username === userId;
+        if (!sameLogin || /^(guest|anon)/i.test(userId)) return json({ok:false,error:'auth_required'},401);
+        if (sessionOwner !== userId) return json({ok:false,error:'session_mismatch'},403);
+        body.meta = { session_id: sid, turns: g.have };
       }
       // 🧑‍🏫 A.i 선생님 수업 — 수업을 끝까지 마치고 별 1개 이상이면 한 번. 정본 src/ai-class-points.ts (2026-11-03).
       //   ⚠️ 진행이 화면에서만 돌아 서버가 완주를 검증 못 한다 — 그래서 5P · 하루 1번으로 묶었다(사장님 승인).
@@ -414,10 +412,7 @@ export async function handlePointsApi(
       // 적립
       try {
         if (ruleCode === WARMUP_POINT_RULE) {
-          const r = await awardSpeakingPoints(env.DB, { uid: userId, rule: ruleCode, key: body.meta.speaking_session ?? JSON.stringify([body.meta.session_id, kstDayStart(now)]),
-            amount: rule.amount, label: rule.label, dailyCap: WARMUP_POINT_DAILY_CAP, meta: body.meta, studentName: body.student_name });
-          if (!r) return json({ ok: false, error: 'daily_cap_reached', cap: WARMUP_POINT_DAILY_CAP });
-          return json({ ok: true, ...r, rule: { code: rule.code, label: rule.label, amount: rule.amount } });
+          return json(await creditWarmupPoints(env.DB, userId, body.meta.session_id, body.meta.turns));
         }
         const r = await applyPointTransaction(env, {
           userId, studentName: body.student_name, type: 'earn',

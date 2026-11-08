@@ -412,7 +412,7 @@ console.log('\n[I] warmup.html 배선 (나머지 연결 지점)');
   const tm = bodyOf(HTML, 'function toggleMic(){');
   const tmS = tm && strip(tm);
   ok('I-2 toggleMic 이 «눌림» 을 알린다 — 멈춤·전송 가드 «뒤»', !!tmS && tmS.indexOf("_autoHook('press')") > tmS.indexOf('if(_warmPaused || sending)return;') && tmS.indexOf('if(_warmPaused || sending)return;') >= 0);
-  const sm = bodyOf(HTML, 'async function sendMsg(recordedAudio){');
+  const sm = bodyOf(HTML, 'async function sendMsg(){');
   const smS = sm && strip(sm);
   ok('I-3 sendMsg 가 sent·reply·settled 를 알린다', !!smS && ["'sent'", "'reply'", "'settled'"].every((k) => smS.includes('_autoHook(' + k)));
   ok('I-4 reply 는 AI 말풍선을 그리기 «전»', !!smS && smS.indexOf("_autoHook('reply')") < smS.indexOf("addMsg(d.ai_response"));

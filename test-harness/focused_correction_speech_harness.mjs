@@ -195,7 +195,7 @@ const DB = { prepare(sql) {
 const cache = new Map();
 let holdHistory;
 let routeFix = fix;
-let scenario = 'normal', modelCalls = 0, rechecks = 0;
+let scenario = 'normal', modelCalls = 0, rechecks = 0, timingMajor = false;
 const env = { DB, ROOM_JWT_SECRET: 'focused-local-fixture-only',
   SESSION_STATE: { get: async k => cache.get(k) ?? null, put: async (k, v) => {
     if (holdHistory && k.startsWith('warmup:early-')) await holdHistory;
@@ -205,7 +205,7 @@ const env = { DB, ROOM_JWT_SECRET: 'focused-local-fixture-only',
     modelCalls++;
     const recheck = opts.messages?.[0]?.content.includes('FOCUSED_CORRECTION_CHECK');
     if (recheck) rechecks++;
-    const fullFix = { ...routeFix, why_ko: '문법에 맞게 고쳐요', tag: 'other', severity: 'minor' };
+    const fullFix = { ...routeFix, why_ko: '문법에 맞게 고쳐요', tag: 'other', severity: timingMajor ? 'major' : 'minor' };
     let response = JSON.stringify({ reply: question, fix: fullFix, grade: 'partial' });
     if (scenario === 'repeated') response = JSON.stringify({ reply: H.ensureFocusedFixSpoken(question, 'focused', 'partial', routeFix), fix: fullFix });
     if (scenario === 'missing' || scenario === 'invalid') response = JSON.stringify({ reply: 'You can say... "' + routeFix.now + '"', fix: scenario === 'invalid' ? { ...fullFix, was: 'Invented text' } : null });
@@ -256,6 +256,31 @@ for (const kind of ['avatar', 'friend']) for (const stream of [0, 1]) {
       assert.equal(events[fi].gam, undefined, 'points stay on done');
     }
   });
+}
+for(const timing of ['immediate','after-lesson','key-mistakes']) for(const stream of [0,1]){
+ timingMajor=true;
+ const sid='timing-'+timing+'-'+stream;
+ const reply=await post('/api/warmup/chat',{session_id:sid,student_input:fix.was,correction_mode:'focused',correction_timing:timing,stream,difficulty:3});
+ const events=stream?(await reply.text()).split('\n').filter(s=>s.startsWith('data:')).map(s=>JSON.parse(s.slice(5))):[];
+ const body=stream?events.find(e=>e.done):await reply.json();
+ check('actual warmup timing and observed results '+timing+'/'+stream,()=>{
+  assert.equal(body.correction_timing,timing);assert.equal(body.progress.source,'warmup-verified-turn');assert.equal(body.progress.correction.now,fix.now);assert.deepEqual(body.progress.skills,{});assert.ok(body.progress.spokenWords.includes('park'));
+  if(timing==='after-lesson'){assert.equal(body.fix,null);assert.equal(body.repeat,false);assert.ok(!body.ai_response.includes('You can say'));}
+  if(timing==='immediate')assert.equal(body.fix.now,fix.now);
+ });
+ if(timing==='key-mistakes'){
+  for(let i=0;i<4;i++){const r=await post('/api/warmup/chat',{session_id:sid,student_input:fix.was,correction_mode:'focused',correction_timing:timing,difficulty:3});const d=await r.json();if(i>=2)assert.equal(d.fix,null);}
+ }
+ timingMajor=false;
+}
+for(const timing of ['immediate','after-lesson','key-mistakes']) for(const stream of [0,1]){
+ timingMajor=true;
+ const auth=await(await post('/api/ai/chat-guest-token',{})).json();
+ const r=await post('/api/ai/chat-friend',{uid:auth.uid,msg:fix.was,level:'S3',correction_mode:'focused',correction_timing:timing,practice_session:'friend-timing-'+timing+'-'+stream,stream},auth.token);
+ const events=stream?(await r.text()).split('\n').filter(s=>s.startsWith('data:')).map(s=>JSON.parse(s.slice(5))):[];
+ const d=stream?events.find(e=>e.done):await r.json();
+ check('actual friend timing and observed results '+timing+'/'+stream,()=>{assert.equal(d.progress.sessionId,'friend-timing-'+timing+'-'+stream);assert.equal(d.progress.correction.now,fix.now);assert.deepEqual(d.progress.skills,{});if(timing==='after-lesson'){assert.equal(d.fix,null);assert.equal(d.repeat,false);assert.ok(!d.reply.includes('You can say'));}});
+ timingMajor=false;
 }
 const quickFixes = [
   ["Yeah, it's really helpful for me understand", "Yeah, it's really helpful for me to understand"],

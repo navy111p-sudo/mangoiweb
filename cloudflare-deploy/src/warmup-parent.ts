@@ -146,7 +146,6 @@ export type ParentWarmup = {
   recent_fixes: Array<{ from: string; to: string; why_ko: string; at: number }>;
   /** KST 최근 7일의 첫 발화가 기록된 대화 수. 완료 횟수·실력 점수가 아니다. */
   weekly_activity: Array<{ date: string; sessions: number }> | null;
-  speaking_report: SpeakingReport | null;
 };
 
 /** 기존 첫 발화 기록을 재사용한다. 조회 실패와 실제 0회를 구분한다. */
@@ -205,7 +204,6 @@ export async function readParentWarmup(db: any, uid: string, nowMs: number): Pro
     fixes_recorded: fixesRecorded,
     recent_fixes: fixes,
     weekly_activity: weeklyActivity,
-    speaking_report: await readSpeakingReport(db, uid, start, end),
   };
 }
 
@@ -224,43 +222,3 @@ export async function readParentWarmup(db: any, uid: string, nowMs: number): Pro
       안 되지만 «글자» 는 심깁니다. 막으려면 이 한 줄을 넣을 때 mango_token(resolveOwnerScope 'self')
       을 확인하는 조건을 함께 거세요 — 그것도 사람이 정할 일입니다.
    ───────────────────────────────────────────────────────────────────── */
-
-export type SpeakingVocabulary = { sessions: number; uniqueWords: number };
-const SPEAKING_REPORT_SKILLS = ['pronunciation', 'fluency', 'grammar', 'vocabulary', 'sentence'] as const;
-type SpeakingSkill = typeof SPEAKING_REPORT_SKILLS[number];
-type SpeakingReport = SpeakingVocabulary & { skills: Partial<Record<SpeakingSkill, { average: number; samples: number }>> };
-
-async function readVocabulary(db: D1Database, uid: string, start: number, end: number, bucketMs: number) {
-  try {
-    const rows = await db.prepare(`SELECT CAST((s.finished_at - ?) / ? AS INTEGER) AS bucket,
-      COUNT(DISTINCT s.id) AS sessions, COUNT(DISTINCT word.value) AS uniqueWords
-      FROM ai_speaking_sessions s
-      LEFT JOIN json_each(CASE WHEN json_valid(s.result_json) THEN s.result_json END, '$.uniqueWords') word
-        ON word.type = 'text'
-      WHERE s.student_uid = ? AND s.status = 'complete' AND s.finished_at >= ? AND s.finished_at < ?
-      GROUP BY bucket ORDER BY bucket`).bind(start, bucketMs, uid, start, end).all<SpeakingVocabulary & { bucket: number }>();
-    return Array.isArray(rows.results) ? rows.results : null;
-  } catch {
-    return null;
-  }
-}
-
-export async function readSpeakingReport(db: D1Database, uid: string, start: number, end: number): Promise<SpeakingReport | null> {
-  const rows = await readVocabulary(db, uid, start, end, end - start);
-  if (!rows) return null;
-  const result: SpeakingReport = { sessions: rows[0]?.sessions ?? 0, uniqueWords: rows[0]?.uniqueWords ?? 0, skills: {} };
-  if (!result.sessions) return result;
-  try {
-    const measured = await db.prepare(`SELECT score.key AS skill, AVG(score.value) AS average, COUNT(*) AS samples
-      FROM ai_speaking_sessions s
-      JOIN json_each(CASE WHEN json_valid(s.result_json) THEN s.result_json END, '$.skills') score
-      WHERE s.student_uid = ? AND s.status = 'complete' AND s.finished_at >= ? AND s.finished_at < ?
-        AND score.type IN ('integer','real') AND score.value BETWEEN 0 AND 100
-      GROUP BY score.key`).bind(uid, start, end).all<{ skill: string; average: number; samples: number }>();
-    for (const skill of SPEAKING_REPORT_SKILLS) {
-      const row = measured.results.find(item => item.skill === skill);
-      if (row) result.skills[skill] = { average: Math.round(row.average), samples: row.samples };
-    }
-  } catch { /* Keep the verified vocabulary counts if score history is unavailable. */ }
-  return result;
-}

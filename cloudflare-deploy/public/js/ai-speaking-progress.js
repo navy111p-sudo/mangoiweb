@@ -10,7 +10,7 @@
   }
   function t(ko, english) { return en() ? english : ko; }
   function token() { try { return localStorage.getItem('mango_token') || ''; } catch (_) { return ''; } }
-  function reset() { generation++; sessionId = ''; sessionToken = ''; starting = null; finishing = null; refreshing = null; evaluatingId = ''; closed = false; result = null; if (card) card.replaceChildren(); }
+  function reset() { if(window.AiSpeakingSession&&window.AiSpeakingSession.clear)window.AiSpeakingSession.clear(); generation++; sessionId = ''; sessionToken = ''; starting = null; finishing = null; refreshing = null; evaluatingId = ''; closed = false; result = null; if (card) card.replaceChildren(); }
   async function api(body) {
     var response = await fetch('/api/ai/speaking-progress', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() },
@@ -21,7 +21,8 @@
     return data;
   }
   async function beforeTurn() {
-    if (sessionId && sessionToken !== token()) reset();
+    if (sessionToken && sessionToken !== token()) reset();
+    if (!token()) return {};
     if (closed || (evaluatingId && sessionId === evaluatingId)) reset();
     if (!sessionId) {
       if (!starting) {
@@ -38,25 +39,6 @@
       finally { if (starting === pending) starting = null; }
     }
     return { progress_session: sessionId, progress_turn: crypto.randomUUID() };
-  }
-  async function audioBase64(blob, encodeWav) {
-    try {
-      var AC = window.AudioContext || window.webkitAudioContext;
-      var OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-      if (!AC || !OAC || !blob || blob.size > 2000000) return undefined;
-      var decoder = new AC(), audio;
-      try { audio = await decoder.decodeAudioData(await blob.arrayBuffer()); }
-      finally { await decoder.close().catch(function () {}); }
-      if (!audio || audio.duration > 11) return undefined;
-      var offline = new OAC(1, Math.max(1, Math.ceil(audio.duration * 16000)), 16000);
-      var source = offline.createBufferSource();
-      source.buffer = audio; source.connect(offline.destination); source.start();
-      var wav = encodeWav(await offline.startRendering());
-      var bytes = new Uint8Array(await wav.arrayBuffer()), binary = '';
-      for (var i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-      var encoded = btoa(binary);
-      return encoded.length <= 500000 ? encoded : undefined;
-    } catch (_) { return undefined; }
   }
   function message(text, retry) {
     card.replaceChildren();
@@ -100,26 +82,32 @@
       try { await refresh; } finally { if (refreshing === refresh) refreshing = null; }
       return;
     }
-    if (!sessionId) { message(t('로그인 후 대화를 나누면 학습 결과를 확인할 수 있어요.', 'Log in and have a conversation to see your results.')); return; }
-    message(t('기록된 대화를 평가하고 있어요…', 'Assessing your recorded conversation…'));
+    if (!sessionId) {
+      var local = window.AiSpeakingSession && AiSpeakingSession.result(typeof window.wuProgressContext==='function'?wuProgressContext():'');
+      if(local && local.turns>0){window.AiSpeakingProgressView.render(card,local,en()?'en':'ko');return;}
+      message(t('로그인 후 대화를 나누면 학습 결과를 확인할 수 있어요.', 'Log in and have a conversation to see your results.')); return;
+    }
+    message(t('확인된 연습 결과를 불러오고 있어요…', 'Loading your confirmed practice results…'));
     evaluatingId = sessionId;
-    var requestedId = sessionId;
+    var requestedId = sessionId, expectedToken = sessionToken, requestedGeneration = generation;
     finishing = (async function () {
       try {
         // Finish reuses the existing point flow; its in-flight request is shared.
         if (warmup && window.__mgWarmupPts) await window.__mgWarmupPts.run();
         var data = await api({ action: 'finish', sessionId: requestedId });
+        if (generation !== requestedGeneration || sessionId !== requestedId) return;
+        if (token() !== expectedToken || sessionToken !== expectedToken) { reset(); message(t('현재 계정으로 새 대화를 시작해 주세요.', 'Start a new conversation with the current account.')); return; }
         if (!data.result || data.result.finishedNormally !== true || data.result.lessonId !== requestedId) throw new Error('progress_unavailable');
         if(sessionId === requestedId) { result = data.result; closed = true; paint(); }
       } catch (error) {
-        if(sessionId !== requestedId) return;
+        if(generation !== requestedGeneration || sessionId !== requestedId) return;
         var texts = {
           auth_required: t('로그인 후 결과를 확인해 주세요.', 'Log in to view your results.'),
           no_completed_turns: t('AI와 대화를 한 번 마친 뒤 확인해 주세요.', 'Complete a conversation turn first.'),
           evaluation_pending: t('평가 중이에요. 잠시 뒤 다시 확인해 주세요.', 'Assessment is in progress. Try again shortly.')
         };
         message(texts[error.message] || t('결과를 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.', 'Results are unavailable. Please try again shortly.'), true);
-      } finally { if (evaluatingId === requestedId) { finishing = null; evaluatingId = ''; } }
+      } finally { if (generation === requestedGeneration && evaluatingId === requestedId) { finishing = null; evaluatingId = ''; } }
     })();
     return finishing;
   }
@@ -147,7 +135,6 @@
     window.addEventListener('storage', function (event) { if (event.key === 'mango_token' || event.key === null) paint(); });
     document.addEventListener('mangoi:lang-changed', paint);
   }
-  function activeSessionId() { return sessionToken && sessionToken === token() ? sessionId || undefined : undefined; }
-  window.AiSpeakingProgress = { activeSessionId: activeSessionId, beforeTurn: beforeTurn, finish: finish, reset: reset, audioBase64: audioBase64 };
+  window.AiSpeakingProgress = { beforeTurn: beforeTurn, finish: finish, reset: reset };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
 })();

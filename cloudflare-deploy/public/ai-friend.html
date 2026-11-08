@@ -2082,21 +2082,20 @@
         const tgt = pronTargetFromAi(_lastAiText);
         if (tgt) pronBody = await pronPayload(_lastRecBlob, tgt);
       }
-      const progressBlob = wasVoice ? _lastRecBlob : null;
       _lastRecBlob = null;
       try {
         const progressMeta = window.AiSpeakingProgress ? await window.AiSpeakingProgress.beforeTurn() : {};
-        const progressAudio = progressMeta.progress_session && !pronBody && progressBlob
-          ? (await pronPayload(progressBlob, msg))?.audio_b64 : undefined;
         const r = await fetch('/api/ai/chat-friend', {
           method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
           // 🧑 friend — 서버가 「너는 Lily 야」로 프롬프트를 만든다. 안 보내면 AI 가 자기를
           //    'Mango' 로 알고, 「Hi! I'm Lily」로 인사해 놓고 이름을 물으면 다른 이름을 댄다
           //    (2026-08-31 사장님 제보). 「번갈아」면 personNow() 가 그 턴의 사람을 준다.
-          body: JSON.stringify({ ...progressMeta, progress_audio: progressAudio, uid: auth.uid, msg, level: currentLevel, persona: currentPersona,
+          body: JSON.stringify({ ...progressMeta, uid: auth.uid, msg, level: currentLevel, persona: currentPersona,
                                  friend: personNow(),
                                  correction_timing: turnTiming || undefined,
                                  correction_mode: turnCorr,   // 🎚️ 교정 방식 (서버 기본값 = 집중교정)
+                                 practice_session: window.SESSION_ID,
+                                 request_id: progressMeta.progress_turn || (window.AiSpeakingSession ? AiSpeakingSession.requestId() : undefined),
                                  pron: pronBody,                 // 🎯 발음 교정용 WAV + 기준 낱말(없으면 null)
                                  topic: currentTopic ? currentTopic.id : '', via: wasVoice ? 'voice' : 'text',
                                  sub: currentSub,     // 🎧 자막을 끄고 대화하면 서버가 덤 1P (하루 5회)
@@ -2157,6 +2156,7 @@
         };
         /* 포인트·발음 카드 — 답을 그린 «뒤» 에 온다(done). 발음 3번 듣기는 답 낭독 큐 «뒤» 에 잇는다. */
         const showRest = function (kind, d) {
+          if(kind==='reply'&&d&&d.ok&&!d.ai_unavailable&&window.AiSpeakingSession)AiSpeakingSession.record(d.progress,wuProgressContext());
           if (kind === 'reply') { if (d.pron_fix) showPronFix(d.pron_fix, false); }   // 🎯 기준 낱말을 틀리게 발음 → 3번 들려주기
           applyGam(d.gam, wasVoice);
           if (kind !== 'reply') return;
@@ -2379,6 +2379,7 @@
         chat.parentNode.insertBefore(box, chat);
       } catch (e) {}
     }
+    function wuProgressContext(){return [window.SESSION_ID,authCache&&authCache.uid,currentLevel,currentTopic&&currentTopic.id].join('|');}
     const friendReviewFixes = new Set();
     function openFriendReview() {
       if (window.FriendAutoTalk) FriendAutoTalk.pause();
@@ -2407,6 +2408,7 @@
       if (window.AiSpeakingProgress) window.AiSpeakingProgress.reset();
       if (window.wodPark) window.wodPark();         // 🛟 위와 같은 이유 — 지우기 직전에 피신
       document.getElementById('chat').innerHTML = '';
+      if(window.AiSpeakingSession)window.SESSION_ID=crypto.randomUUID();
       friendReviewFixes.clear();
       document.getElementById('friendReviewBtn').hidden = true;
       setTopic(null);                                // 🗺 대화를 지우면 주제도 처음부터
@@ -2563,9 +2565,10 @@
 <script src="/js/ux-track.js?v=1" defer></script>
 <script src="/js/repeat-score.js?v=1" defer></script><!-- 🎤 «따라 말해 보기» 채점 (2026-10-18) -->
 <link rel="stylesheet" href="/css/ai-speaking-progress.css?v=4">
-<script defer src="/js/ai-speaking-progress-view.js?v=6"></script>
-<script defer src="/js/ai-speaking-progress.js?v=9"></script>
+<script defer src="/js/ai-speaking-progress-view.js?v=9"></script>
+<script defer src="/js/ai-speaking-progress.js?v=10"></script>
 <script src="/js/ai-speaking-settings.js?v=3" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — 교정 버튼이 씀 (2026-11-04) -->
+<script src="/js/ai-speaking-session.js?v=8" defer></script>
 <script defer src="/js/flow.js?v=23"></script><!-- 🚀 다음으로 이동(MangoFlow) -->
 
 <!-- ══════════════════════════════════════════════════════════════

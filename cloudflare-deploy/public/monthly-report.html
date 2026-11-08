@@ -103,6 +103,7 @@
   }
 </style>
 <script src="/js/session-guard.js" defer></script>
+<script src="/js/speaking-growth-view.js?v=3"></script>
 </head>
 <body>
   <div class="topbar">
@@ -228,7 +229,7 @@
     var vo = d.voice||{};
     var att = (d.attendance||{}).days||0;
     var items = ev.items||[];
-    var hasData = (ev.count>0)||(att>0)||((vo.sessions||0)>0)||!!d.judgment||!!d.speaking_report?.sessions||!!(d.scene_words&&d.scene_words.sessions>0);
+    var hasData = (ev.count>0)||(att>0)||((vo.sessions||0)>0)||!!d.judgment||!!(d.scene_words&&d.scene_words.sessions>0)||!!(d.speaking_growth&&d.speaking_growth.turns>0);
 
     var goals = items.map(function(r){return r.next_goals;}).filter(Boolean).slice(-3);
     var aiText = d.ai_text || (hasData ? t('이번 달 학습 요약입니다.','Monthly learning summary.') : '');
@@ -289,19 +290,6 @@
           '</div>';
       }
       /* ✍️ 교재 낱말 쓰기 숙제 — 한 판이라도 했을 때만(서버가 null 이면 카드째 생략). 약한 낱말은 «다시 볼 것» 으로만 말한다. */
-      var spoken=d.speaking_report;
-      if(spoken&&spoken.sessions>0){
-        html += '<div class="card"><h3>'+t('A.i 말하기 어휘','A.i Speaking Vocabulary')+'</h3><p>'+
-          esc(spoken.sessions)+t('회 완료 · 사용한 영어 고유 단어 ',' completed sessions · unique English words used ')+
-          esc(spoken.uniqueWords)+'</p>';
-        [['pronunciation','발음','Pronunciation'],['fluency','유창성','Fluency'],['grammar','문법','Grammar'],
-          ['vocabulary','어휘','Vocabulary'],['sentence','문장 구성','Sentence structure']].forEach(function(skill){
-          var score=spoken.skills&&spoken.skills[skill[0]];
-          html += '<div>'+t(skill[1],skill[2])+' · '+(score&&Number.isFinite(score.average)&&Number.isSafeInteger(score.samples)&&score.samples>0
-            ? esc(score.average)+'/100 · '+esc(score.samples)+t('회 측정',' measured') : t('미측정','Not measured'))+'</div>';
-        });
-        html += '</div>';
-      }
       var sw=d.scene_words;
       if(sw&&sw.sessions>0){
         html += '<div class="card"><h3>✍️ '+t('교재 낱말 쓰기 숙제','Textbook Word Writing')+'</h3>'+
@@ -330,6 +318,7 @@
     html += '<div class="muted-note">'+t('이 레포트는 망고아이 학습 데이터를 바탕으로 자동 생성되었습니다.','Auto-generated from Mangoi learning data.')+'</div>';
     html += '</div></div>';
     document.getElementById('root').innerHTML = html;
+    if(window.SpeakingGrowthView&&d.speaking_growth){var growthBox=document.createElement('section');growthBox.id='monthly-speaking-growth';growthBox.className='card';document.getElementById('root').appendChild(growthBox);SpeakingGrowthView.render(growthBox,d.speaking_growth,lang==='en');}
   }
   /* 🗣️ 따라 읽기 말속도(2026-10-18) — 서버가 표본이 모자라면 null 을 준다 → 그때는 아무것도 안 그린다(지어내지 않음).
      ⛔ «WPM(대화 속도)» 이라 부르지 말 것 — 짧은 문장을 따라 읽는 속도라 앞뒤 쉼이 빠져 높게 나온다. */

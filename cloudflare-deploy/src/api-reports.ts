@@ -10,7 +10,8 @@ import { computeGrowthForStudent } from './api-judgment';  // 🧠 판단력 성
 import type { MangoEnv } from './api-mango';
 
 import { ATTENDANCE_BY_UID, attUidBinds } from './attendance-uid';
-import { readSpeakingReport, warmupCountsBetween } from './warmup-parent';   // 👪 웜업 횟수(2026-10-02 P4)
+import { warmupCountsBetween } from './warmup-parent';   // 👪 웜업 횟수(2026-10-02 P4)
+import { readSpeakingGrowth } from './speaking-growth';
 // ═══════════════════════════════════════════════════════════════════════
 // 📊 월간 AI 레포트 — 공용 헬퍼 (생성 + AI + 카카오 발송 + 월간 배치)
 //   엔드포인트: /api/admin/monthly-report/{generate,send,list}, /api/report/monthly-view
@@ -283,6 +284,7 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
   //   ⛔ ai_activity_count 에 더하지 않는다 — 그 칸의 뜻(단어장+복습퀴즈)을 바꾸지 않고 따로 둔다.
   //   null = 모름(표 없음·조회 실패) — 0 과 다른 사실이라 화면이 «—» 로 그려야 한다.
   const warmupCounts = await warmupCountsBetween(env.DB, uid, start, end);
+  const speakingGrowth=await readSpeakingGrowth(env.DB,uid,start,end);
 
   // ✍️ 교재 낱말 쓰기 숙제(장면 탐험대 «그림 단어장», 2026-09-24) — 한 판이라도 했을 때만 싣는다.
   //   약한 낱말 = 이 기간에 다시 만났고 «틀린 횟수 ≥ 맞힌 횟수» 인 낱말(handleGamesWeak 과 같은 기준).
@@ -450,7 +452,7 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
     growth_highlight: growthHighlight,
     ai_activity_count: aiActivityCount,
     warmup: warmupCounts,
-    speaking_report: await readSpeakingReport(env.DB, uid, start, end),
+    speaking_growth:speakingGrowth,
     teacher_name: teacherName,
     ai_text: aiDraftCommentKo,  // 기존 monthly-report.html "담임의 한마디" 카드 하위호환(Phase 2 전까지)
     ai_draft_comment_ko: aiDraftCommentKo,

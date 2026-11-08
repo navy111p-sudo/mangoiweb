@@ -1,3 +1,4 @@
+import { referenceReadingEvidence } from '../cloudflare-deploy/src/speaking-audio-evidence.ts';
 import { gamesSrc } from './_srcbundle.mjs';
 // Execute the real page function and server route with local doubles. No live AI/DB calls.
 import assert from 'node:assert/strict';
@@ -100,7 +101,7 @@ for (const voice of [false, true, null]) {
 const api = gamesSrc();
 const start = api.indexOf("    if (method === 'POST' && path === '/api/voice/transcribe')");
 const end = api.indexOf('    // ── POST /api/voice/coach', start);
-const route = new Function('request', 'env', 'json', 'sttRejectReason', 'isSttRepeatLoop', 'assessPronunciation',
+const route = new Function('request', 'env', 'json', 'sttRejectReason', 'isSttRepeatLoop', 'assessPronunciation', 'referenceReadingEvidence',
   stripTypeScriptTypes(`function run(){return (async () => {const method='POST', path='/api/voice/transcribe', url=new URL(request.url); ${api.slice(start, end)} })()} `) + 'return run();');
 async function serverCase(result, { strict = true, fail = false } = {}) {
   const calls = []; const fd = new FormData(); fd.append('audio', new Blob([new Uint8Array(2000)]), 'speech.webm');
@@ -109,7 +110,7 @@ async function serverCase(result, { strict = true, fail = false } = {}) {
   const r = await route(req, { AI: { run: async (model) => {
     calls.push(model); if (fail && model.includes('turbo')) throw new Error('offline');
     return result;
-  } } }, (body, status = 200) => ({ body, status }), sttRejectReason, isSttRepeatLoop, async () => null);
+  } } }, (body, status = 200) => ({ body, status }), sttRejectReason, isSttRepeatLoop, async () => null, referenceReadingEvidence);
   return { ...r, calls };
 }
 for (const strict of [true, false]) {

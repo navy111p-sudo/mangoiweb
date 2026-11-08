@@ -191,7 +191,7 @@ const body = idx.slice(idx.indexOf('async function handleWarmupChat('), idx.inde
 const at = (s) => body.indexOf(s);
 ok('핸들러를 잘라 냈다(전제)', body.length > 1000 && at('handleWarmupChat') >= 0);
 ok('시범 여부를 정본으로 묻는다', at('const honest = await resolveWarmupHonest(') > 0);
-ok('규칙은 시범일 때만 붙인다', /if \(honest\) sys \+= '\\n' \+ warmupHonestRule\(honest\.mode\);/.test(body));
+ok('규칙은 honest 모드에서만 붙이고 명시한 교정 시점을 반영한다', /if \(honest\) sys \+= '\\n' \+ warmupHonestRule\(timing === 'after-lesson' \? 'free_talk' : timing === 'key-mistakes' \? 'balanced' : honest\.mode\);/.test(body));
 ok('모델 등급을 커밋할 때 함께 확정(교정과 같은 답장)', /commitFix = \(\) => \{[^}]*rawGrade = stagedGrade/.test(body));
 ok('등급 확인·칭찬 떼기가 히스토리 저장보다 «앞»', at('applyHonestPraise(aiText') > 0 && at('applyHonestPraise(aiText') < at('SESSION_STATE.put(hkey'));
 ok('모델이 실패한 턴은 등급을 null 로(→ partial)', /finalizeWarmupGrade\(modelOk \? rawGrade : null/.test(body));
@@ -232,15 +232,15 @@ ok('스트림: 첫 문장이 칭찬 말머리면 미리 읽지 않음', /if \(o\
   }
   let runLead = null;
   try {
-    runLead = new Function('showFix', 'honest', 'aiText', 'ctxLang', 'warmupSpeaksFixLead', 'correctionLeadIn',
+    runLead = new Function('showFix', 'honest', 'aiText', 'ctxLang', 'warmupSpeaksFixLead', 'correctionLeadIn', 'timing',
       stmt + '\nreturn aiText;');
   } catch (e) { ok('⑦-2 그 줄을 실행할 수 있다(전제)', false, String(e)); }
   if (runLead && typeof H.warmupSpeaksFixLead === 'function') {
     const F = { was: 'I go park yesterday', now: 'I went to the park yesterday' };
     const R = 'What did you do there?';
     const lead = (t, f) => 'LEAD:' + f.now + ' ' + t;
-    const go = (mode, fix = F, lang = 'en') => {
-      try { return runLead(fix, mode === null ? null : { mode }, R, lang, H.warmupSpeaksFixLead, lead); }
+    const go = (mode, fix = F, lang = 'en', timing = null) => {
+      try { return runLead(fix, mode === null ? null : { mode }, R, lang, H.warmupSpeaksFixLead, lead, timing); }
       catch (e) { return 'THROW:' + String(e && e.message || e); }   // 다른 이름을 부르면 여기로 — 하니스가 죽지 않고 FAIL 로 남긴다
     };
     ok('⑦-2 자유대화 + 교정 카드 → 답장 그대로(고친 문장을 말로 안 붙임)', go('free_talk') === R, go('free_talk'));
@@ -248,6 +248,7 @@ ok('스트림: 첫 문장이 칭찬 말머리면 미리 읽지 않음', /if \(o\
     ok('⑦-2 집중교정 → 네 번째를 붙이지 않음', go('focused') === R, go('focused'));
     ok('⑦-2 모드 없음(중국어 등) → 예전처럼 붙임', go(null, F, 'zh') === lead(R, F), go(null, F, 'zh'));
     ok('⑦-2 교정 카드가 없으면 어느 모드도 안 붙임', ['free_talk', 'balanced', 'focused'].every((m) => go(m, null) === R));
+    ok('명시한 종료 후·주요 실수 시점에는 교정 말머리를 붙이지 않는다', ['after-lesson','key-mistakes'].every(t=>go('balanced',F,'en',t)===R));
   }
 }
 

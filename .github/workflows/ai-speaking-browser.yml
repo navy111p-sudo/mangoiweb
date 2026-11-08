@@ -7,12 +7,19 @@ on:
       - 'cloudflare-deploy/public/ai-friend.html'
       - 'cloudflare-deploy/public/js/mango-avatar.js'
       - 'cloudflare-deploy/public/js/eleader-entry.js'
-      - 'cloudflare-deploy/public/js/ai-speaking-progress*.js'
-      - 'cloudflare-deploy/public/js/warmup-points.js'
-      - 'cloudflare-deploy/public/css/ai-speaking-progress.css'
+      - 'cloudflare-deploy/public/js/ai-speaking-*.js'
+      - 'cloudflare-deploy/public/js/warmup-flow.js'
+      - 'cloudflare-deploy/public/js/speaking-growth-view.js'
+      - 'cloudflare-deploy/public/parent.html'
+      - 'cloudflare-deploy/public/monthly-report.html'
       - 'cloudflare-deploy/public/css/warmup-guide.css'
       - 'test-harness/manual/ai-speaking-browser.mjs'
       - 'test-harness/manual/ai-speaking-progress-browser.mjs'
+      - 'test-harness/manual/ai-speaking-observations-browser.mjs'
+      - 'test-harness/manual/speaking-growth-report-browser.mjs'
+      - 'cloudflare-deploy/public/js/ai-speaking-progress*.js'
+      - 'cloudflare-deploy/public/js/warmup-points.js'
+      - 'cloudflare-deploy/public/css/ai-speaking-progress.css'
       - 'test-harness/helpers/browser-pool.mjs'
       - '.github/workflows/ai-speaking-browser.yml'
   workflow_dispatch:
@@ -46,7 +53,15 @@ jobs:
         env:
           PW_DIR: ${{ runner.temp }}/speaking-pw
         run: node test-harness/manual/ai-speaking-browser.mjs
-      - name: Speaking results on real PC and mobile pages (offline API/audio)
+      - name: Connected results and correction timing (localhost only)
         env:
           PW_DIR: ${{ runner.temp }}/speaking-pw
-        run: node test-harness/manual/ai-speaking-progress-browser.mjs
+        run: |
+          node --input-type=module <<'JS'
+          import { createRequire } from 'node:module';
+          const require = createRequire(import.meta.url);
+          process.env.MANGOI_CHROME_EXECUTABLE = require(process.env.PW_DIR + '/node_modules/playwright').chromium.executablePath();
+          await import('./test-harness/manual/ai-speaking-progress-browser.mjs');
+          await import('./test-harness/manual/ai-speaking-observations-browser.mjs');
+          await import('./test-harness/manual/speaking-growth-report-browser.mjs');
+          JS
