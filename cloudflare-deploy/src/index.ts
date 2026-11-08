@@ -4542,6 +4542,8 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     const runWarmup = async (msgs: any[], temperature: number, live: any = null, overlap = false): Promise<any> => {
       const mT0 = Date.now();   // ⏱ 실패한 호출도 센다(그 시간도 학생은 기다린다) — finally 인 이유
       latTries++;
+      // ⚠️ «이 호출이 실제로 제약을 실었나» — 공유 warmupRF 는 동시에 도는 다시 묻기가 먼저 꺼 버릴 수 있다(그러면 본 호출이 폴백 없이 502).
+      let sentRF = warmupRF;
       try {
         if (live) {
           try {
@@ -4553,9 +4555,10 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
             latTries++;
           }
         }
+        sentRF = warmupRF;
         return await env.AI.run(WARMUP_MODEL, warmupAIOpts(msgs, temperature));
       } catch (rfErr: any) {
-        if (!warmupRF || !isRfRejection(rfErr)) throw rfErr;   // 제약 탓이 아니면 그대로 위로 올린다
+        if (!sentRF || !isRfRejection(rfErr)) throw rfErr;   // 제약 탓이 아니면 그대로 위로 올린다
         console.warn('[warmup] response_format rejected, retrying without:', rfErr?.message || rfErr);
         warmupRF = false;
         latTries++;

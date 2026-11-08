@@ -208,6 +208,11 @@ const env = { DB, ROOM_JWT_SECRET: 'focused-local-fixture-only',
     if (recheck) rechecks++;
     if (recheck && mainInflight > 0) recheckOverlapped = true;
     if (delayMain && !recheck) { mainInflight++; try { await new Promise(r => setTimeout(r, 30)); } finally { mainInflight--; } }
+    if (scenario === 'rf-reject' && opts.response_format) {   // 제약 거절 — 다시 묻기가 먼저 실패하고, 본 호출은 늦게 실패한다
+      if (!recheck) await new Promise(r => setTimeout(r, 30));
+      throw new Error('response_format is not supported');
+    }
+    if (scenario === 'rf-reject') return { response: recheck ? JSON.stringify({ reply: 'Checked.', fix: null }) : JSON.stringify({ reply: 'What do you like?', fix: null }) };
     const fullFix = { ...routeFix, why_ko: '문법에 맞게 고쳐요', tag: 'other', severity: timingMajor ? 'major' : 'minor' };
     let response = JSON.stringify({ reply: question, fix: fullFix, grade: 'partial' });
     if (scenario === 'repeated') response = JSON.stringify({ reply: H.ensureFocusedFixSpoken(question, 'focused', 'partial', routeFix), fix: fullFix });
@@ -426,6 +431,14 @@ for (const [variant, input, needs, finalReply] of [['correct', routeFix.now, 1, 
     else assert.equal(done.fix?.now, routeFix.now);
   });
 }
+// 🔴 동시에 도는 다시 묻기가 response_format 거절로 공유 플래그를 먼저 꺼도, 본 호출은 자기 폴백(제약 없이 다시)을 한다 — 502 가 아니다.
+scenario = 'rf-reject'; modelCalls = 0; rechecks = 0;
+const rfRes = await post('/api/warmup/chat', { session_id: 'overlap-rf', student_input: routeFix.now, correction_mode: 'focused', difficulty: 1 });
+const rfBody = await rfRes.json();
+check('avatar main call still falls back when the concurrent recheck disabled response_format first', () => {
+  assert.equal(rfRes.status, 200);
+  assert.equal(rfBody.ai_response, 'What do you like?');
+});
 // 과거형 보완 규칙이 잡는 문장이면 결과를 안 쓰므로 다시 묻기를 시작하지도 않는다(헛 호출 0).
 scenario = 'omitted'; modelCalls = 0; rechecks = 0;
 await (await post('/api/warmup/chat', { session_id: 'overlap-backfill', student_input: 'I play soccer yesterday with my friends.',

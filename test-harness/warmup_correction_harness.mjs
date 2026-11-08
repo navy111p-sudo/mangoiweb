@@ -130,8 +130,10 @@ const CORR = readFileSync(join(SRC, 'warmup-correction.ts'), 'utf8');
     check('A-8b-3 🔴 429·타임아웃·5xx 는 다시 부르지 않는다 (JSON 모드가 조용히 꺼지면 회귀가 되살아난다)',
           NO.every((m) => isRf(new Error(m)) === false),
           NO.filter((m) => isRf(new Error(m)) !== false).join(' | ') || '7/7');
+    /* ⚠️ (2026-11-08) 공유 warmupRF 가 아니라 «이 호출이 실제로 제약을 실었나»(sentRF)로 가른다 — 집중교정 다시 묻기가
+       동시에 돌며 먼저 꺼 버리면 본 호출이 폴백 없이 502 가 된다(Codex 지적 · focused_correction_speech 의 rf-reject 시나리오가 실제로 돌림). */
     check('A-8b-4 그 가드를 실제로 호출한다 (선언만 두고 안 쓰면 무의미)',
-          /!warmupRF\s*\|\|\s*!isRfRejection\(/.test(code));
+          /!sentRF\s*\|\|\s*!isRfRejection\(/.test(code));
   }
   check('A-8c 모델이 평문을 주면 로그로 남긴다 (다시 조용해지지 않게)',
         /warmupPlain\+\+/.test(code) && /no JSON/.test(H));
