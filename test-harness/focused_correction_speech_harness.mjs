@@ -257,9 +257,13 @@ for (const kind of ['avatar', 'friend']) for (const stream of [0, 1]) {
     }
   });
 }
-const infinitives = [
+const quickFixes = [
   ["Yeah, it's really helpful for me understand", "Yeah, it's really helpful for me to understand"],
   ["It is difficult for us speak clearly.", "It is difficult for us to speak clearly."],
+  ['Yesterday I go to the park with my sister.', 'Yesterday I went to the park with my sister.'],
+  ['I eat pizza yesterday.', 'I ate pizza yesterday.'],
+  ['My favorite animal is lion.', 'My favorite animal is a lion.'],
+  ['I saw elephant.', 'I saw an elephant.'],
 ];
 for (const mode of ['focused', 'free_talk']) {
   let release;
@@ -290,13 +294,13 @@ for (const mode of ['focused', 'free_talk']) {
     holdHistory = null;
   }
 }
-for (const [i, [studentInput, corrected]] of infinitives.entries()) {
+for (const [i, [studentInput, corrected]] of quickFixes.entries()) {
   modelCalls = 0;
   const r = await post('/api/warmup/chat', { session_id: 'infinitive-' + i, student_input: studentInput,
-    correction_mode: 'focused', guided: 1, difficulty: 3, stream: 1 });
+    correction_mode: 'focused', guided: 1, difficulty: 3, stream: 1, final_reply: 1 });
   const events = (await r.text()).split('\n').filter(s => s.startsWith('data:')).map(s => JSON.parse(s.slice(5)));
   const done = events.find(e => e.done);
-  check('avatar guided infinitive correction ' + i + ' needs zero model calls', () => {
+  check('avatar guided verified correction ' + i + ' needs zero model calls', () => {
     assert.equal(modelCalls, 0);
     assert.deepEqual(events.filter(e => e.t), []);
     assert.equal(done.fix.was, studentInput);
@@ -305,6 +309,16 @@ for (const [i, [studentInput, corrected]] of infinitives.entries()) {
     assert.equal(done.speaking_help, null);
   });
 }
+check('fast rules leave ambiguous, complex and already-correct forms for the model', () => {
+  for (const input of ['Yesterday I go park.', 'I go there every week but yesterday I stayed home.',
+    'Yesterday I went to the park.', 'I play the game today.', 'I play chess after work yesterday.']) {
+    assert.equal(F.focusedPastTenseFix(input), null, input);
+  }
+  for (const input of ['My favorite animal is a lion.', 'My favorite animal is lions.',
+    'My favorite food is rice.', 'This is elephant habitat.']) {
+    assert.equal(F.focusedArticleFix(input), null, input);
+  }
+});
 check('infinitive rule leaves correct clauses, modals, unrelated phrases and long input alone', () => {
   for (const input of ["It's helpful for me to understand.", "It's helpful for me, understand?",
     "It is important for me tomorrow.", "It's hard for us can speak.", "I am happy for you",
