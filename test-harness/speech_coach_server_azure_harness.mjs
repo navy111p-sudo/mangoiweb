@@ -99,14 +99,15 @@ async function runScreen({ srv, token = 'tok123', whisperText = 'hello i am stud
   const r = await runScreen({ srv: SRV_OK, token: '' });
   ok('비로그인은 Authorization 을 안 싣는다', !r.err && r.calls.transcribe && !('Authorization' in r.calls.transcribe.headers), r.err);
 }
-for (const reason of ['http_401 ', 'timeout', 'no_key', 'dropped', 'not_wav']) {
+/* recog_Error(Azure 내부 오류 — «다시 해 보라» 는 상태)·recog_unknown 은 «말 없음» 이 아니라서 SDK 로 다시 잰다 */
+for (const reason of ['http_401 ', 'timeout', 'no_key', 'dropped', 'not_wav', 'recog_Error', 'recog_unknown']) {
   const r = await runScreen({ srv: reason === 'dropped' ? 'dropped' : { ok: false, reason } });
   ok(`서버 실패(${reason.trim()})면 브라우저 SDK 로 한 번 더 잰다`, !r.err && r.calls.sdk === 1, r.err || 'sdk=' + r.calls.sdk);
   ok(`  그때 사유에 서버·SDK 둘 다 남는다 (${reason.trim()})`, r.calls.coach && /^server:.+\|ok\(sdk\)/.test(r.calls.coach.azure_diag), r.calls.coach && r.calls.coach.azure_diag);
 }
-for (const reason of ['recog_no_words', 'recog_NoMatch', 'too_long']) {
+for (const reason of ['recog_no_words', 'recog_NoMatch', 'recog_InitialSilenceTimeout', 'recog_BabbleTimeout', 'too_long']) {
   const r = await runScreen({ srv: { ok: false, reason } });
-  ok(`서버가 Azure 에 닿아 «${reason}» 면 SDK 로 다시 안 묻는다`, !r.err && r.calls.sdk === 0, r.err || 'sdk=' + r.calls.sdk);
+  ok(`서버가 «말 없음·너무 김»(${reason}) 이면 SDK 로 다시 안 묻는다`, !r.err && r.calls.sdk === 0, r.err || 'sdk=' + r.calls.sdk);
   ok(`  점수 없이 Whisper 글자로 채점 (${reason})`, r.calls.coach && r.calls.coach.azure === null && r.calls.coach.spoken === 'hello i am student'
      && r.calls.coach.azure_diag === 'server:' + reason + '|sdk:skip', r.calls.coach && r.calls.coach.azure_diag);
 }
@@ -180,7 +181,94 @@ const bodyAt = (src, from) => {
 };
 const raBody = ra > 0 ? bodyAt(games, ra) : '';
 ok('전제: runAzure 몸통을 잘라 냈다', /catch/.test(raBody) && /no_reference/.test(raBody));
-ok('전사 창구가 운율을 켜서 Azure 를 부른다', /assessPronunciation\(\s*env as any,\s*audio,\s*paReference,\s*lang \|\| 'en',\s*\{\s*prosody:\s*true\s*\}\s*\)/.test(raBody));
-ok('⛔ 모범 문장은 Whisper 쪽으로 안 간다', (() => { const t = games.indexOf('const turboParams'); return t > 0 && !games.slice(t, t + 900).includes('paReference'); })());
+/* 주석을 벗긴 사본으로 판정한다 — 설명 주석에 «paReference» 가 들어가도, 주석 처리된 호출이 남아도 헛돌지 않게.
+   문자열 안의 // (https://) 는 지우지 않는다(글자를 훑으며 문자열 안인지 따라간다) */
+const strip = src => {
+  let o = '', q = '';
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i], n = src[i + 1];
+    if (q) { o += c; if (c === '\\') { o += n || ''; i++; } else if (c === q) q = ''; continue; }
+    if (c === '/' && n === '/') { while (i < src.length && src[i] !== '\n') i++; o += '\n'; continue; }
+    if (c === '/' && n === '*') { const e = src.indexOf('*/', i + 2); i = e < 0 ? src.length : e + 1; continue; }
+    if (c === "'" || c === '"' || c === '`') q = c;
+    o += c;
+  }
+  return o;
+};
+/* 여는 괄호부터 짝이 맞는 닫는 괄호까지 */
+const spanAt = (src, o, open, close) => {
+  if (o < 0 || src[o] !== open) return '';
+  let d = 0, q = '';
+  for (let i = o; i < src.length; i++) {
+    const c = src[i];
+    if (q) { if (c === '\\') i++; else if (c === q) q = ''; continue; }
+    if (c === "'" || c === '"' || c === '`') q = c;
+    else if (c === open) d++;
+    else if (c === close && --d === 0) return src.slice(o, i + 1);
+  }
+  return '';
+};
+const raLive = strip(raBody);
+const callAt = raLive.indexOf('assessPronunciation(');
+const callArgs = callAt >= 0 ? spanAt(raLive, callAt + 'assessPronunciation'.length, '(', ')') : '';
+ok('전제: runAzure 안의 assessPronunciation 호출 인자를 잘라 냈다', callArgs.length > 10, callArgs);
+ok('전사 창구가 모범 문장(paReference)으로 Azure 를 부른다', /\bpaReference\b/.test(callArgs));
+ok('  그때 운율을 켠다(prosody: true)', /\bprosody\s*:\s*true\b/.test(callArgs));
+const gLive = strip(games);
+const tp = gLive.indexOf('const turboParams');
+const tpObj = tp >= 0 ? spanAt(gLive, gLive.indexOf('{', tp), '{', '}') : '';
+ok('전제: Whisper 요청 객체(turboParams)를 잘라 냈다', /language/.test(tpObj) && /task/.test(tpObj), tpObj.slice(0, 80));
+ok('⛔ 모범 문장은 Whisper 요청 객체에 안 들어간다', !/\bpaReference\b/.test(tpObj));
+ok('⛔ 나중에 turboParams 에 붙이는 값도 paReference 가 아니다', !/turboParams\s*(\.\w+|\[[^\]]*\])\s*=[^;]*\bpaReference\b/.test(gLive));
+ok('⛔ initial_prompt 는 hintPrompt 에서만 오고 hintPrompt 는 reference 를 안 받는다', !/hintPrompt\s*=[^;]*(paReference|'reference')/.test(gLive));
+
+/* ── ④ 실제 전사 창구 실행 — «기록된 연습» 은 하루를 한 번으로 센다 ───────────────────
+   진짜 SQLite + 진짜 토큰 검증 + 진짜 handleVoiceApi. Whisper·Azure 만 고정 응답이다. */
+let V = null;
+try {
+  const { DatabaseSync } = await import('node:sqlite');
+  const ventry = join(tmp, 'ventry.ts'), vout = join(tmp, 'ventry.mjs');
+  writeFileSync(ventry, ['speaking-growth', 'api-games-voice', 'auth-token'].map(n => `export * from ${from(n)};`).join('\n'));
+  createRequire(join(CF, 'package.json'))('esbuild').buildSync({ entryPoints: [ventry], outfile: vout, bundle: true, platform: 'node', format: 'esm', logLevel: 'silent' });
+  V = { M: await import(pathToFileURL(vout).href), DatabaseSync };
+} catch (e) { console.log('SKIP ④ 전사 창구 실행 — 준비 실패: ' + String(e.message).slice(0, 100)); }
+if (V) {
+  const sq = new V.DatabaseSync(':memory:');
+  const stmt = (sql, args = []) => ({ bind: (...a) => stmt(sql, a), async first() { return sq.prepare(sql).get(...args) || null; },
+    async all() { return { results: sq.prepare(sql).all(...args) }; },
+    async run() { const r = sq.prepare(sql).run(...args); return { success: true, meta: { changes: Number(r.changes) } }; } });
+  const kv = new Map();
+  const FX = join(ROOT, 'test-harness', 'fixtures', 'azure-rest');
+  const env = { DB: { prepare: stmt, async exec(x) { for (const l of x.split('\n')) if (l.trim()) sq.exec(l); } },
+    ROOM_JWT_SECRET: 'isolated-speech-coach-fixture', SESSION_STATE: { async get(k) { return kv.get(k) || null; }, async put(k, v) { kv.set(k, v); } },
+    AZURE_SPEECH_KEY: 'x'.repeat(32), AZURE_SPEECH_REGION: 'koreacentral',
+    AI: { async run() { return { text: 'Hello I am a student.' }; } } };
+  const token = await V.M.signUidToken('coach-user', env);
+  const wavOf = seed => { const n = 16000, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf), s = (o, t) => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+    s(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); s(8, 'WAVE'); s(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); s(36, 'data'); v.setUint32(40, n * 2, true);
+    v.setInt16(44, seed, true); return buf; };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(readFileSync(join(FX, 'prosody.json'), 'utf8'), { headers: { 'Content-Type': 'application/json' } });
+  const say = async (seed, ref, tok = token) => {
+    const fd = new FormData(); fd.append('audio', new Blob([wavOf(seed)], { type: 'audio/wav' }), 'rec.wav'); fd.append('lang', 'en'); fd.append('reference', ref);
+    const u = new URL('https://local.test/api/voice/transcribe');
+    const r = await V.M.handleVoiceApi(new Request(u, { method: 'POST', body: fd, headers: tok ? { Authorization: 'Bearer ' + tok } : {} }), u, env);
+    return r.json();
+  };
+  try {
+    const first = await say(1, 'Hello, I am a student.');
+    ok('전사 창구가 서버 Azure 점수를 돌려준다(운율 포함)', first.ok && first.azure && first.azure.prosody === 83 && first.azure_diag === 'ok', JSON.stringify({ d: first.azure_diag, p: first.azure && first.azure.prosody }));
+    await say(2, 'I like apples.'); await say(3, 'My dog is big.');
+    const g = await V.M.readSpeakingGrowth(env.DB, 'coach-user', 0, Date.now() + 1000);
+    ok('같은 날 세 문장 → 확인된 결과 3건', g && g.reading.samples === 3, JSON.stringify(g && g.reading));
+    ok('  «기록된 연습» 은 1회(하루 = 한 번) — 녹음마다 따로 세지 않는다', g && g.sessions === 1, 'sessions=' + (g && g.sessions));
+    await say(3, 'My dog is big.');
+    ok('같은 소리를 다시 보내도 한 건만 남는다', (await V.M.readSpeakingGrowth(env.DB, 'coach-user', 0, Date.now() + 1000)).reading.samples === 3);
+    await say(4, 'Hello, I am a student.', '');
+    ok('비로그인은 기록하지 않는다', sq.prepare('SELECT COUNT(*) n FROM speaking_growth_events').get().n === 3);
+  } catch (e) { ok('④ 전사 창구 실행이 던지지 않는다', false, String(e && e.stack || e).slice(0, 300)); }
+  finally { globalThis.fetch = realFetch; }
+}
 
 done();

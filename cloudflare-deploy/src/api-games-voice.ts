@@ -151,7 +151,10 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
               const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',audio!))).map(x=>x.toString(16).padStart(2,'0')).join('');
               const key=hash+':'+lang+':'+paReference;
               const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(key)))).map(x=>x.toString(16).padStart(2,'0')).join('');
-              await logSpeakingGrowth(env.DB,owner,'speech-coach',{source:'warmup-verified-turn',sessionId:'reading-'+digest},digest,evidence);
+              /* 📅 «기록된 연습» 은 대화 단위로 센다 — 문장 읽기는 KST 하루를 한 번의 연습으로 묶는다(녹음마다 따로 세면 15문장=15회가 된다).
+                 같은 소리를 다시 보내면 digest 가 같아 그날 안에서는 한 건만 남는다. */
+              const day=new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
+              await logSpeakingGrowth(env.DB,owner,'speech-coach',{source:'warmup-verified-turn',sessionId:'reading-'+day},digest,evidence);
             }
           }catch{console.warn('[speaking-growth] audio evidence unavailable');}}
           return { azure: (r && r.ok) ? r : null, azure_diag: r ? (r.ok ? 'ok' : r.reason) : 'none' };

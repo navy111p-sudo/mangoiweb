@@ -1493,11 +1493,12 @@ function pcmStopToWav() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   🎤 Azure 음소 발음평가 — **브라우저에서** 돌린다 (2026-08-08)
+   🎤 Azure 음소 발음평가 — 브라우저 SDK (2026-08-08)
+   ⚠️ 2026-11-09 사장님 결정으로 채점은 «서버» 가 먼저 한다(processAudio). 아래 SDK 는 서버가 못 잴 때만 쓰는 폴백이다.
 
    왜 서버가 아니라 브라우저인가:
      Azure 의 REST 짧은오디오 창구는 Pronunciation-Assessment 헤더를 **무시한다** 고 봤다(2026-08-08).
-     ⚠️ 2026-11-08 정정: 점수는 평평하게 와 있었고 서버가 못 읽었다(azure-pronunciation.ts paOf). 이 화면은 그대로 SDK.
+     ⚠️ 2026-11-08 정정: 점수는 평평하게 와 있었고 서버가 못 읽었다(azure-pronunciation.ts paOf). 그래서 지금은 서버가 잰다.
      문장은 완벽히 알아듣는데(«Mangoi» 까지) 평가 블록만 빠져서 온다. 공식 SDK 로만 받을 수 있다.
      SDK 는 브라우저용이라 여기서 돌린다.
 
@@ -1580,7 +1581,7 @@ async function processAudio(blob) {
     fd.append('lang', detectTtsLang(_target0));
     /* 🎤 (2026-11-09 사장님 결정) 서버가 Azure 로 채점한다 — 모범 문장을 reference 로 보낸다.
        서버가 직접 잰 점수만 학부모 보고서 «기준 문장 읽기» 근거가 된다(로그인 학생만 · 토큰으로 본인 확인).
-       서버가 Azure 와 통신을 못 했을 때만 아래에서 예전처럼 브라우저 SDK 로 한 번 더 잰다.
+       서버가 못 쟀을 때(아래 판정)만 예전처럼 브라우저 SDK 로 한 번 더 잰다.
        reference 는 서버에서 Azure 에만 쓰이고 Whisper 로는 안 간다.
        ⛔ 여기에 prompt(=Whisper initial_prompt)를 넣지 말 것 — 07-29 만점 사고. */
     fd.append('reference', _target0);
@@ -1614,13 +1615,14 @@ async function processAudio(blob) {
     /* 🎤 (2026-08-08) Azure 음소 발음평가 결과를 그대로 넘긴다. 서버가 있으면 «또렷함·흐름» 을
        이걸로 대체한다(Whisper 확신도는 흔한 문장을 뭉갠 것을 못 잡는다).
        키가 없거나 Azure 가 실패하면 서버가 null 을 주므로 이 값도 null → 예전과 똑같이 동작. */
-    /* 🎤 서버 Azure 결과를 먼저 쓴다. 서버가 Azure 에 «닿아서» 말이 없다고 했거나(recog_*) 너무 길면(too_long)
-       브라우저로 다시 물어도 같은 답이라 다시 안 묻는다(잡음은 SDK 가 0점을 지어낸다).
-       그 밖의 실패(키·통신·Whisper 가 못 들음 등)만 예전 브라우저 SDK 로 한 번 더. 실패해도 채점은 계속된다.
+    /* 🎤 서버 Azure 결과를 먼저 쓴다. Azure 가 «말이 없다» 고 답했거나(NoMatch·InitialSilenceTimeout·BabbleTimeout·no_words)
+       녹음이 너무 길면(too_long — 서버가 Azure 를 부르기 전에 거른다) 브라우저로 다시 물어도 같은 답이라 다시 안 묻는다
+       (잡음은 SDK 가 0점을 지어낸다). 그 밖의 실패(키·HTTP 오류·시간 초과·Azure 내부 오류 recog_Error·Whisper 가 못 들음 등)는
+       예전 브라우저 SDK 로 한 번 더. 실패해도 채점은 계속된다.
        ⏱ 전사와 «동시에» 돌리지 않는다 — 같은 오디오를 두 곳이 물면 탈이 난다(서버에서 겪음). */
     const _srvAz = (trD.azure && trD.azure.ok) ? trD.azure : null;
     const _srvWhy = String(trD.azure_diag || 'none').slice(0, 40);
-    const _az = _srvAz || (/^(recog_|too_long)/.test(_srvWhy) ? { ok: false, reason: 'skip' }
+    const _az = _srvAz || (/^(recog_(NoMatch|InitialSilenceTimeout|BabbleTimeout|no_words)|too_long)$/.test(_srvWhy) ? { ok: false, reason: 'skip' }
       : await azAssess(blob, _target0, detectTtsLang(_target0)));
     const _scAzure = (_az && _az.ok) ? _az : null;
 
