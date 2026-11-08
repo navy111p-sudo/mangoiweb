@@ -268,6 +268,8 @@ export function planMirror(
   /* 🔴 «같은 자리 경합» (2026-09-02 최검 실사고) — 같은 학생·같은 날·같은 시각을 카페24가
        «둘 이상의 강사» 로 들고 있는가. 그 자리에 한 강사가 잡혀 있어도 강사가 다르면 «잔재» 다.
        아래 1-b) 절이 이 표와 slotSeen 으로 «누가 진짜인가» 를 정한다. */
+  /* 🧑‍🏫 (2026-11-09) 이번 계획에서 «만들기(ok)» 로 잡은 강사 자리 — 강사·날짜·시각. 아래 2-c) 가 같은 자리를 두 번 잡지 않게 한다. */
+  const okTeacherSlot = new Map<string, string>();
   const perSlot = new Map<string, Set<string>>();
   for (const c of classes) {
     const k = `${String(c.user_id || '')}|${String(c.date || '')}|${msToKstHm(c.start_ms)}`;
@@ -399,6 +401,36 @@ export function planMirror(
     const other = mine.find(e => String(e.source || '') !== MIRROR_SOURCE);
     if (other) { push('conflict', `그 시간에 이미 수업이 있습니다 (${other.source || '출처 미상'})`); continue; }
 
+    /* ── 2-c) ⛔ 그 «강사» 의 그 날짜·시각이 이미 다른 수업으로 차 있으면 만들지 않는다 (2026-11-09) ──
+       발단(운영 D1 실측): 미러 실행 기록에 매번 «create 519337: UNIQUE constraint failed: class_schedules.teacher_id,
+             scheduled_date, start_time». 11/10 21:10 LEN 자리는 망고아이 수강신청 수업 #4407(`delaware` 김연숙,
+             adm-enroll:123)이 이미 쓰고, 카페24 예약은 같은 분의 다른 계정 `mangoai_delaware` 였다(519958 도 같은 모양 —
+             11/12 18:00 BELLE · #8104 `jjy2323` ↔ `mangoai_jjw`). 위 판정은 «같은 학생 계정» 만 봐서 'ok' 로 내보냈고,
+             DB 의 유니크 색인 `uq_sched_teacher_slot`(teacher_id, scheduled_date, start_time · status='active')이
+             INSERT 를 거절했다 — 15분마다 같은 오류가 쌓였다.
+       ✅ DB 가 지키는 규칙(한 강사·한 시각에 열린 수업은 하나)을 계획이 «먼저» 안다 — conflict 로 두고 누가 차지했는지 말한다.
+          같은 실행 안에서 이미 'ok' 로 잡은 자리도 같다(카페24가 같은 강사·시각에 두 학생을 둔 경우 — 둘째는 어차피 거절된다).
+       ⛔ 차지한 쪽을 바꾸거나 지우지 않는다 — 어느 쪽이 정본인지는 사람이 정한다(망고아이 수강신청 쪽이 이기는 것이
+          학생 화면의 쌍둥이 규칙 sessionSourceRank 와도 같다).
+       ℹ️ 강사 겹침 감시(teacher-clash)는 conflict 를 빼지 않으므로 그 자리는 그쪽에 그대로 잡힌다. */
+    const tSlot = teacherId ? `${teacherId}|${date}|${time}` : '';
+    const holder = tSlot ? existing.find(e => String(e.teacher_id ?? '') === teacherId
+      && String(e.scheduled_date || '') === date && String(e.start_time || '').slice(0, 5) === time
+      && (e.status == null || String(e.status) === 'active')) : undefined;
+    if (holder) {
+      const hu = String(holder.user_id || '');
+      const twinLike = hu === 'mangoai_' + uid || uid === 'mangoai_' + hu;
+      push('conflict', `강사 ${teacherName || teacherId} 의 ${date} ${time} 자리에 이미 수업이 있습니다 — 계정 ${hu || '?'} · ${holder.source || '출처 미상'}`
+        + (twinLike ? ' (같은 학생의 다른 계정으로 보입니다)' : '')
+        + ' · 한 강사·한 시각에 열린 수업은 하나라 만들지 않습니다', holder.id);
+      continue;
+    }
+    const firstOk = tSlot ? okTeacherSlot.get(tSlot) : undefined;
+    if (firstOk) {
+      push('conflict', `강사 ${teacherName || teacherId} 의 ${date} ${time} 자리를 같은 실행에서 카페24 수업 ${firstOk} 가 먼저 잡았습니다 — 한 강사·한 시각에 열린 수업은 하나라 만들지 않습니다`);
+      continue;
+    }
+
     /* ── 2-b) 🔴 «강사 변경 잔재» 막기 (2026-09-01 실사고) ────────────────────
        발단: Zee 를 켠 날, 강사 화면에 **없는 수업**이 떴다 — 9/1 17:40 허윤아(카페24 511745).
              카페24가 강사를 바꿀 때 옛 예약을 지우지 않고 남기는데, 미러는 카페24를 정본으로
@@ -450,6 +482,7 @@ export function planMirror(
         + ' — 강사 변경 잔재로 의심되어 만들지 않았습니다. 카페24에서 확인해 주세요');
       continue;
     }
+    if (tSlot) okTeacherSlot.set(tSlot, String(c.class_id || ''));
     push('ok');
   }
 
