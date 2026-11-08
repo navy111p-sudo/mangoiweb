@@ -84,6 +84,11 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
     assert.equal(finished.result.weeklyVocabulary.length,7);
     assert.equal(finished.result.weeklyVocabulary.at(-1).words,5);
   });
+  const beforeHistoryCalls=calls;
+  const history=await call({action:'history'});
+  check('history reads are authenticated and never evaluate or award',()=>{assert.equal(history.weeklyVocabulary.at(-1).words,5);assert.equal(calls,beforeHistoryCalls);});
+  assert.equal((await call({action:'history'},'missing')).status,401);
+  assert.equal((await call({action:'history'},'bob')).weeklyVocabulary.at(-1).words,0);
   const priorCalls = calls;
   for (let n = 0; n < 5; n++) assert.deepEqual((await call({ action: 'finish', sessionId: id })).result, finished.result);
   fault = sql => sql.includes('SELECT finished_at,result_json,capture_limited');

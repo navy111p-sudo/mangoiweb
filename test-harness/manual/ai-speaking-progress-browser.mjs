@@ -42,6 +42,7 @@ try {
       const send = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
       if (url.pathname === '/api/ai/speaking-progress') {
         posts.push(body);
+        if (body.action === 'history') return send({ok:true,weeklyVocabulary:Array.from({length:7},(_,i)=>({date:'2026-11-0'+(i+2),words:42,limited:false}))});
         if (body.action === 'start') return send({ ok: true, sessionId: 'local-session-' + name });
         return send({ ok: true, result: {
           lessonId:body.sessionId, finishedNormally: true, score: state === 'zero' ? 0 : null,
@@ -95,6 +96,8 @@ try {
       await page.screenshot({ path: join(output, `${width}-${app}-${state}.png`), fullPage: false });
       await page.locator(app === 'friend' ? '.ai-progress-close' : '#wgSummaryBack').click();
       await page.locator(app === 'friend' ? '.ai-progress-trigger' : '#wgFinish').click();
+      await page.locator('.ai-progress-count').filter({hasText:'42'}).first().waitFor();
+      check(posts.filter(p=>p.action==='history').length===1, name + ': reopening refreshes observed words');
       check(posts.filter(p => p.action === 'finish').length === 1, name + ': reopening does not request evaluation again');
       check(posts.filter(p => p.award).length === (app === 'warmup' ? 1 : 0), name + ': reopening adds no award request');
       await page.evaluate(() => { localStorage.setItem('mango_token', 'different-account-token'); window.dispatchEvent(new StorageEvent('storage', {key:'mango_token'})); });

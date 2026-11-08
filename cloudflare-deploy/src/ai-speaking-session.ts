@@ -98,6 +98,7 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
   if (!uid || /^guest/i.test(uid)) return json({ ok: false, error: 'auth_required' }, 401);
   try {
     await ensure(env.DB);
+    if (body.action === 'history') return json({ ok: true, weeklyVocabulary: await readSpeakingVocabularyWeek(env.DB, uid) });
     if (body.action === 'start') {
       if (!['friend', 'warmup'].includes(body.app)) return json({ ok: false, error: 'invalid_app' }, 400);
       if (body.app === 'warmup' && (typeof body.sourceId !== 'string' || !body.sourceId || body.sourceId.length > 200))
