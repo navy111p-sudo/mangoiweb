@@ -52,7 +52,7 @@ import { recordAiLatency } from './ai-latency-log';   // ⏱ «학생이 얼마�
 import { createJsonTextTap, takeSentences } from './stream-json-text';   // 📡 스트리밍 본문 추출 (A-1)
 /* 🔁 «같은 질문 두 번 금지» 정본 — 엘리더잼·일반 A.i 말하기와 «같은 판정» (2026-10-28 사장님 「AI 영어친구에도 같은 질문 금지 적용해줘」).
    ⛔ 판정을 여기에 복제하지 말 것 — 이 화면은 부르기만 한다. */
-import { questionSession, questionMemory, askedQuestionsLine, repeatedQuestions, retryRepeatedQuestion, repeatQuestionHintEn, isReaskRequest, isDontKnowAnswer } from './question-memory';
+import { questionSession, questionMemory, askedQuestionsLine, repeatedQuestions, retryRepeatedQuestion, repeatQuestionHintEn, isReaskRequest, isDontKnowAnswer, QM_FRIEND_ROWS } from './question-memory';
 import { FRIEND_FRAG_RETRY_BUDGET_MS as FRAG_RETRY_BUDGET_MS } from './reply-questions';   // ⏱ 다시 뽑기 시간 예산 — A.i 친구는 9초(웜업 5초와 다름 · 이유는 reply-questions.ts)
 
 export async function handleAiApi(
@@ -277,9 +277,10 @@ export async function handleAiApi(
       //   (gamSnapshot 은 "오늘 몇 번째 대화인가"를 이번 메시지가 기록된 뒤에 세야 정확해서
       //   여기서 같이 시작하지 않는다 — 채팅 로그 저장 이후에 계산한다.)
       const [recent, st, wk, turns, goalNow, pastFixes, vw]: any[] = await Promise.all([
-        /* 🔁 40줄 + 시각 — «같은 질문 두 번 금지» 의 기억(qmem)은 지금 이어지는 대화(1시간 넘게 쉬면 끊음) 40줄까지 본다.
+        /* 🔁 QM_FRIEND_ROWS(160줄) + 시각 — «같은 질문 두 번 금지» 의 기억(qmem)은 지금 이어지는 대화(1시간 넘게 쉬면 끊음)를 그만큼 본다.
+           (2026-11-08 운영 실측: 40줄일 때 20턴 넘은 대화에서 앞 질문을 잊고 또 물었다 — 정본 주석 question-memory.ts)
            ⚠️ 모델에게 보여 주는 대화(history)는 예전처럼 최근 20줄만 — 지시를 늘리지 않는다. */
-        env.DB.prepare(`SELECT role, content, created_at FROM ai_friend_chats WHERE student_uid = ? ORDER BY id DESC LIMIT 40`).bind(uid).all(),
+        env.DB.prepare(`SELECT role, content, created_at FROM ai_friend_chats WHERE student_uid = ? ORDER BY id DESC LIMIT ?`).bind(uid, QM_FRIEND_ROWS).all(),
         env.DB.prepare(`SELECT english_name, korean_name, textbook, level FROM students_erp WHERE user_id = ? LIMIT 1`).bind(uid).first().catch(() => null),
         // 🎯 약점 단어 — 정본 src/weak-words.ts(최근 60일 · 최근 먼저). 오래된 약점을 «요즘» 으로 말하지 않게.
         env.DB.prepare(`SELECT item, ko FROM game_progress WHERE user_id = ? AND lang = 'en' AND ${WEAK_WHERE} ORDER BY ${WEAK_ORDER} LIMIT 5`).bind(uid, weakSince(Date.now())).all().catch(() => null),
@@ -313,7 +314,7 @@ export async function handleAiApi(
       const dontKnowTurn = isDontKnowAnswer(msg);
       const reaskTurn = isReaskRequest(msg) || dontKnowTurn || (aiFriendLooksCut(msg) && !aiFriendJustAskedAgain(history));
       let qmem: ReturnType<typeof questionMemory> = null;
-      try { qmem = questionMemory(questionSession(historyAll, latT0), msg, { reask: reaskTurn }); } catch (e: any) { console.warn('[chat-friend] question memory failed:', e?.message || e); }
+      try { qmem = questionMemory(questionSession(historyAll, latT0), msg, { reask: reaskTurn, maxMsgs: QM_FRIEND_ROWS }); } catch (e: any) { console.warn('[chat-friend] question memory failed:', e?.message || e); }
       const repN = (t: string): number => { try { return repeatedQuestions(t, qmem).length; } catch { return 0; } };
 
       /* 🧑 이름은 학생이 고른다(Emma·Jake·Lily·Noah) — 예전에는 네 갈래가 전부 "named Mango" 라,
