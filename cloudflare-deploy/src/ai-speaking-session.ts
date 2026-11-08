@@ -57,6 +57,21 @@ export function speakingWords(text: string): string[] {
   return text.match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g) || [];
 }
 
+/** Bound observed vocabulary without rejecting an otherwise completed session. */
+function wordEvidence(words: string[]) {
+  const unique = new Set<string>();
+  let limited = false;
+  for (const word of words) {
+    const normalized = word.toLowerCase();
+    if (word.length > 200 || (!unique.has(normalized) && unique.size >= 10000)) {
+      limited = true;
+      continue;
+    }
+    unique.add(normalized);
+  }
+  return { words: [...unique], limited };
+}
+
 /** A model's numeric output is not a calibrated measurement contract. */
 export function speakingTextScores(_raw: unknown): Record<string, number> {
   throw new Error('unvalidated_evaluator');
@@ -125,7 +140,7 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
       // Refresh only attributable results; legacy unknown attribution stays unknown.
       if (result.rewardAttributionVersion === 1) {
         const current = await wallet(env, uid, row.app, row.id, row.source_id, row.started_at);
-        result.rewards = { ...result.rewards, pointsEarned: current.pointsEarned };
+        result.rewards = { ...result.rewards, pointsEarned: current.pointsEarned, pointsBalance: current.pointsBalance };
       }
       return json({ ok: true, result: { ...result, weeklyVocabulary: await readSpeakingVocabularyWeek(env.DB, uid) } });
     }
@@ -140,25 +155,25 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
       .bind(row.id, uid, claimAt).first<any>();
     if (!captured) throw new Error('session_changed');
     turns = JSON.parse(captured.turns_json);
-    const words = turns.flatMap((turn: any) => speakingWords(turn.student));
-    const review = turns.flatMap((turn: any) => {
+    const words = wordEvidence(turns.flatMap((turn: any) => speakingWords(turn.student)));
+    const review = wordEvidence(turns.flatMap((turn: any) => {
       const original = new Set(speakingWords(turn.student).map(word => word.toLowerCase()));
       return speakingWords(turn.correction).filter(word => !original.has(word.toLowerCase()));
-    });
+    }));
     // Preserve confirmed words/rewards; no unvalidated model scores or paid inference.
     const skills: Record<string, number> = {};
     const evaluationStatus = 'unavailable', evaluationReason = 'validated_evaluator_unavailable';
     try { await checkAndAwardBadges(env, uid); }
     catch { console.warn('[speaking-progress] badge check unavailable'); }
     const result = { ...evaluateSpeaking({ lessonId: row.id, studentId: uid, finishedNormally: true,
-      evaluatedAt: new Date().toISOString(), skills, spokenWords: words, correctedWords: review,
+      evaluatedAt: new Date().toISOString(), skills, spokenWords: words.words, correctedWords: review.words,
       // Turn count is observed; completed sentence count has not been measured.
       sentencesCompleted: 0, evaluationSource: 'server-confirmed-session-observations' }),
-      evaluationStatus, evaluationReason, evaluationSource:'server-confirmed-session-observations', evaluatedSkills: Object.keys(skills).length, recordedTurns: turns.length, captureLimited: !!captured.capture_limited, sentenceCountStatus: 'unmeasured',
+      evaluationStatus, evaluationReason, evaluationSource:'server-confirmed-session-observations', evaluatedSkills: Object.keys(skills).length, recordedTurns: turns.length, captureLimited: !!captured.capture_limited || words.limited || review.limited, sentenceCountStatus: 'unmeasured',
       rewardAttributionVersion:1, rewards: await wallet(env, uid, row.app, row.id, row.source_id, row.started_at) };
-    const saved = await env.DB.prepare(`UPDATE ai_speaking_sessions SET status='complete',result_json=?,finished_at=?
+    const saved = await env.DB.prepare(`UPDATE ai_speaking_sessions SET status='complete',result_json=?,finished_at=?,capture_limited=?
       WHERE id=? AND student_uid=? AND status='evaluating' AND finished_at=?`)
-      .bind(JSON.stringify(result), Date.now(), row.id, uid, claimAt).run();
+      .bind(JSON.stringify(result), Date.now(), result.captureLimited ? 1 : 0, row.id, uid, claimAt).run();
     if (!saved.meta?.changes) throw new Error('result_not_saved');
     return json({ ok: true, result: { ...result, weeklyVocabulary: await readSpeakingVocabularyWeek(env.DB, uid) } });
   } catch {

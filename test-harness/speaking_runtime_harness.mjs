@@ -83,6 +83,7 @@ try{
  assert.equal(late.body.paid,2);
  const refreshed=await call('/api/ai/speaking-progress',{action:'finish',sessionId:session},ownToken);
  assert.equal(refreshed.body.result.rewards.pointsEarned,4,'completed result re-reads attributable ledger after late payout');
+ assert.equal(refreshed.body.result.rewards.pointsBalance,4,'completed result refreshes the actual wallet balance after late payout');
  assert.deepEqual(refreshed.body.result.skills,{},'ledger refresh never restores unvalidated scores');
  assert.equal(egress,0,'no external request during actual D1 tests');
  const probe=await mf.dispatchFetch('http://local.test/__egress');assert.equal(await probe.text(),'blocked');assert.equal(egress,1,'network deny rule is exercised');

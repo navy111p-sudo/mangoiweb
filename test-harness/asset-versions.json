@@ -1070,6 +1070,7 @@
   "/js/ai-speaking-session.js?v=6": "4e38d20e3b71f802",
   "/js/ai-speaking-session.js?v=7": "1008f0d4a40cc886",
   "/js/ai-speaking-session.js?v=8": "d53b44352df16506",
+  "/js/ai-speaking-session.js?v=9": "a2ef5a2c92b0fdbd",
   "/js/ai-speaking-settings.js?v=1": "b59a896e92016b24",
   "/js/ai-speaking-settings.js?v=2": "924c286c09a34eaf",
   "/js/ai-speaking-settings.js?v=3": "5e47c368c914fc1a",
@@ -1836,6 +1837,7 @@
   "/js/speaking-growth-view.js?v=1": "2023e7fde482887d",
   "/js/speaking-growth-view.js?v=2": "0654c51c349c65dc",
   "/js/speaking-growth-view.js?v=3": "7a9c030da1a2dbb0",
+  "/js/speaking-growth-view.js?v=4": "69b56396e9a54309",
   "/js/speech-azure.js?v=1": "fd0eda699dd82910",
   "/js/speech-azure.js?v=2": "6ac90eb0e742e1e2",
   "/js/speech-preferences.js?v=3": "ae3509b4b266585a",
@@ -1985,5 +1987,7 @@
   "/video-call/js/recorder.js?v=3": "57388328ad0b58f7",
   "/video-call/js/webrtc.js?v=20260805c": "7cadf5632b7bc206",
   "/video-call/js/webrtc.js?v=20260805d": "8ab78fa3a1291105",
-  "/video-call/js/whiteboard.js?v=20260805c": "97c63a2d61546afd"
+  "/video-call/js/whiteboard.js?v=20260805c": "97c63a2d61546afd",
+  "/js/ai-speaking-progress.js?v=11": "900214b24c5141b3",
+  "/js/ai-speaking-progress-view.js?v=11": "bd21df4499f98dee"
 }

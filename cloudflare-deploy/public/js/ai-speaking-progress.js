@@ -70,12 +70,19 @@
     if (result) {
       paint();
       if (refreshing) return refreshing;
-      var epoch = generation, cached = result, expectedToken = sessionToken;
+      var epoch = generation, cached = result, expectedToken = sessionToken, cachedId = sessionId;
       var refresh = (async function () {
-        var week = null;
-        try { week = (await api({ action: 'history' })).weeklyVocabulary || null; } catch (_) {}
-        if (epoch === generation && cached === result && expectedToken === token()) {
-          result.weeklyVocabulary = week; paint();
+        try {
+          // Completed-session reads refresh the ledger and vocabulary without awarding or regrading.
+          var updated = (await api({ action: 'finish', sessionId: cachedId })).result;
+          if (!updated || updated.finishedNormally !== true || updated.lessonId !== cachedId) throw new Error('progress_unavailable');
+          if (epoch === generation && cached === result && expectedToken === token() && cachedId === sessionId) {
+            result = updated; paint();
+          }
+        } catch (_) {
+          if (epoch === generation && cached === result && expectedToken === token() && cachedId === sessionId) {
+            result.weeklyVocabulary = null; paint();
+          }
         }
       })();
       refreshing = refresh;
