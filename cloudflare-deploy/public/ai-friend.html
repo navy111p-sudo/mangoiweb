@@ -1488,16 +1488,14 @@
       return out || { ok: false, error: 'stream_incomplete' };
     }
 
-    /* 🏎️ 입모양 분석 엔진(Rhubarb) — 이 화면도 «켜지 않는다» (2026-11-06 사장님 「휴대폰에서 A.i 말하기 3카드 모두
-       아바타가 더 빨리 응답」 — 웜업(교재·상황)은 2026-11-05 「입모양 일치하지 않아도 좋으니 최대한 빨리」로 이미 껐다).
-       Speed first: this page no longer boots the lip-sync analyser either.
-       [왜] 켜 두면 ① 문장마다 재생 «전» 에 분석을 최대 0.25초 기다리고(mango-avatar.js CUE_WAIT_MS)
-            ② 첫 마이크 때 약 28.7MB(압축) 모델 다운로드와 WASM 분석이 AI 답·음성 받기와 같은 회선·CPU 를 나눠 쓴다(폰에서 특히 큼).
-       그래서 prepare 는 곧바로 null(→ 입은 소리 크기로 움직임 — 예전부터 있던 폴백), boot 는 아무 일도 안 한다.
-       ⚠️ 웜업 warmup.html 의 _visemeWrap 과 «같은 모양» 이다 — 공용 파일(js/avatar-visemes.js·js/mango-avatar.js)은 안 건드린다.
-       🔧 정확한 입모양으로 되돌려 비교: 주소에 ?visemes=now */
+    /* 👄 입모양 분석 엔진(Rhubarb) — 이 화면은 «켠다» (2026-11-09 사장님 「입모양 분석은 다시 켜줘」).
+       Lip-sync analysis is ON again on this page (owner, 2026-11-09).
+       📜 2026-11-06 「휴대폰 A.i 말하기 3카드 모두 더 빨리」 때 껐다가(분석이 끝날 때까지 재생 전 최대 0.25초 대기 ·
+          첫 마이크 때 약 28.7MB 모델 다운로드) 되돌렸다. 그 대가는 그대로다 — 상한은 mango-avatar.js CUE_WAIT_MS(250ms).
+       ⚠️ 웜업 warmup.html 의 _visemeWrap 은 «끈 채» 다(2026-11-05 「입모양 일치하지 않아도 좋으니 최대한 빨리」 — 별개 지시).
+       🔧 끄고 비교: 주소에 ?visemes=off (그때는 prepare 가 곧바로 null → 입은 소리 크기로 움직이고, boot 는 아무 일도 안 함). */
     var _afVisHold = (function(){
-      try { return !/[?&]visemes=now\b/.test(location.search); } catch(e){ return true; }
+      try { return /[?&]visemes=off\b/.test(location.search); } catch(e){ return false; }
     })();
     function _afVisemeWrap() {
       var V = window.AvatarVisemes;
@@ -1676,7 +1674,7 @@
       if (_whisperOn) { MangoiVoice.stop(); return; }     // ⏹ — 지금까지 녹음분으로 전사
       /* ⚡ (2026-10-20) 입모양 분석기를 «지금» 켜 둔다 — 듣고·전사하고·AI 가 답을 만드는 동안 함께 준비된다.
          예전에는 첫 대답을 «재생하려는 순간» 에야 켜서(모델 37.8MB) 첫 대답 입모양이 늦었다. 이미 켜져 있으면 아무 일도 안 한다.
-         🏎️ (2026-11-06) 지금은 _afVisemeWrap 이 boot 를 막아 «?visemes=now» 일 때만 실제로 켜진다(위 speakText 앞 주석). */
+         👄 (2026-11-09) 다시 켰다 — «?visemes=off» 일 때만 _afVisemeWrap 이 boot 를 막는다(위 speakText 앞 주석). */
       try { window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); } catch(e){}
       const micSeq = ++_friendMicSeq;
       let voiceError = '';
