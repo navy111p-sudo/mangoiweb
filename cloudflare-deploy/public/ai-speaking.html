@@ -39,6 +39,9 @@
        📖 2026-11-04 8차(사장님 「적당한 곳에 누르면 보이게」) — «오늘은 …» 줄 오른쪽 «사용 안내» 버튼이
        사용 안내서(/ai-speaking-guide.html · 한 장 판, 초등 눈높이 · KO/EN · 인쇄·PDF·Word)를 이 화면 위 창(dialog)에 연다.
        화면 언어(ui)를 ?lang= 으로 넘기고, 창을 열 때만 iframe 을 불러온다(첫 화면 비용 0). 창을 못 여는 옛 브라우저는 같은 탭으로 간다.
+       🏷️ 2026-11-08 9차 — 두 설정이 «얼마나» 와 «언제» 로 읽히게 이름을 바꿨다: 교정 정도 → 교정 강도(Correction strength) ·
+       교정 시점 → 피드백 타이밍(Feedback timing). 피드백 타이밍도 고른 값의 뜻을 아래 #timingState 한 줄로 보여 준다
+       (문구는 option 의 data-hint-ko/en). 저장 동작은 그대로다.
        ⛔ 이 변경은 설정 읽기·쓰기·상황 목록 코드를 건드리지 않는다. -->
   <style>
     :root{--sky:#0b1026;--card:#161d3f;--card2:#1c2550;--line:#283160;--ring:#5b6bb5;--ink:#ffffff;--sub:#b8c1e6;--soft:#dde3ff;
@@ -215,7 +218,7 @@
           <button type="button" data-lang="en" aria-pressed="false">English</button>
         </div></div>
       <div class="tile"><label class="lab" for="setLevel"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-5"/><path d="M12 20V10"/><path d="M19 20V4"/></svg><span data-ko="수준" data-en="Level">수준</span></label><select id="setLevel"></select></div>
-      <div class="tile"><span class="lab" id="corrLab"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9"/><path d="M17 7h3"/><circle cx="15" cy="7" r="2"/><path d="M4 17h3"/><path d="M11 17h9"/><circle cx="9" cy="17" r="2"/></svg><span data-ko="교정 정도" data-en="Corrections">교정 정도</span></span>
+      <div class="tile"><span class="lab" id="corrLab"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9"/><path d="M17 7h3"/><circle cx="15" cy="7" r="2"/><path d="M4 17h3"/><path d="M11 17h9"/><circle cx="9" cy="17" r="2"/></svg><span data-ko="교정 강도" data-en="Correction strength">교정 강도</span></span>
         <!-- 💬 고른 단계의 뜻(아래 #corrState 한 줄). 문구는 서버 동작과 «짝» 이다 — src/warmup-honest.ts
              자유 free_talk = 따라 말하기 없음(흐름을 끊지 않음) · 균형 balanced = 뜻이 바뀌는 큰 실수는 매번·작은 실수는 연달아 안 고침(낱말 고르기 word_choice 는 두 번째부터) → «위주로 / Mostly», 따라 말하기는 WARMUP_REPEAT_GAP_TURNS(3)턴에 한 번까지(src/warmup-correction.ts) — 그래서 «가끔»
              · 집중 focused = 실수를 모두 고친 문장을 FOCUSED_FIX_REPEATS(3)번 들려주고 따라 말하기.
@@ -228,13 +231,17 @@
         </div>
         <small class="state" id="corrState"></small></div>
     </div>
-    <div class="tile"><label class="lab" for="setTiming" data-ko="교정 시점" data-en="Correction timing">교정 시점</label>
-      <select id="setTiming">
-        <option value="" data-ko="기존 방식" data-en="Current behavior">기존 방식</option>
-        <option value="immediate" data-ko="즉시" data-en="Right away">즉시</option>
-        <option value="key-mistakes" data-ko="대화 중 중요한 실수만" data-en="Key mistakes during practice">대화 중 중요한 실수만</option>
-        <option value="after-lesson" data-ko="연습 후" data-en="After practice">연습 후</option>
+    <div class="tile"><label class="lab" for="setTiming" data-ko="피드백 타이밍" data-en="Feedback timing">피드백 타이밍</label>
+      <!-- 💬 고른 값의 뜻(아래 #timingState 한 줄). 문구는 서버 동작과 «짝» 이다 — src/index.ts(교재·상황) · src/api-ai.ts(AI 친구) 의 timing 분기:
+           '' = timing 을 안 보냄 → 교정 강도대로 · immediate = 강도대로 바로 · key-mistakes = 뜻이 바뀌는 큰 실수(major)만, 세션에 3번까지
+           · after-lesson = 대화 중엔 안 보여 주고 끝에 모아(최대 3개) 보여 줌. ⚠️ 서버 동작을 바꾸면 이 문구도 함께 바꾸세요. -->
+      <select id="setTiming" aria-describedby="timingState">
+        <option value="" data-ko="기존 방식" data-en="Current behavior" data-hint-ko="교정 강도 설정대로 고쳐요" data-hint-en="Follows your correction strength.">기존 방식</option>
+        <option value="immediate" data-ko="즉시" data-en="Right away" data-hint-ko="말할 때마다 바로 고쳐 줘요" data-hint-en="Fixes right after you speak.">즉시</option>
+        <option value="key-mistakes" data-ko="대화 중 중요한 실수만" data-en="Key mistakes during practice" data-hint-ko="대화 중엔 큰 실수만, 최대 3번 고쳐요" data-hint-en="Only big mistakes, up to 3 times.">대화 중 중요한 실수만</option>
+        <option value="after-lesson" data-ko="연습 후" data-en="After practice" data-hint-ko="대화는 안 끊고, 끝나고 모아 보여 줘요" data-hint-en="No interruptions. Review at the end.">연습 후</option>
       </select>
+      <small class="state" id="timingState"></small>
     </div>
     <!-- ✅ 확인 — 글자는 renderOk 가 상태에 맞춰 쓴다(data-ko/en 을 달지 않는다: i18n 루프가 본문을 갈아끼움) -->
     <div class="set-foot"><button type="button" class="ok-btn" id="setOk" disabled><span id="setOkTxt">확인</span></button></div>
@@ -317,6 +324,12 @@
         : picked ? picked.getAttribute(ui === 'en' ? 'data-hint-en' : 'data-hint-ko')
         : T('아직 안 정함 (화면 기본)', 'Not set (screen default)');
     }
+    var ts = document.getElementById('timingState');
+    if(ts){
+      // 💬 9차 — 피드백 타이밍의 뜻 한 줄. cur.timing 은 SET.TIMING 셋 또는 '' 뿐(read·select 값)이라 선택자에 그대로 써도 안전하다.
+      var tOpt = document.querySelector('#setTiming option[value="' + cur.timing + '"]');
+      ts.textContent = tOpt ? tOpt.getAttribute(ui === 'en' ? 'data-hint-en' : 'data-hint-ko') : '';
+    }
     renderOk();
   }
   // 아직 안 고른 것 — '' 이면 확인할 수 있다. «화면마다 다름»(mixed)도 «안 고름» 으로 본다(하나로 맞춰야 세 연습이 같아진다).
@@ -331,9 +344,9 @@
     b.disabled = !!miss;
     b.setAttribute('data-state', miss ? '' : okState);
     t.textContent = miss === 'off' ? T('설정을 불러오지 못했어요', 'Settings unavailable')
-      : miss === 'both' ? T('수준·교정 정도를 골라 주세요', 'Choose a level and corrections')
+      : miss === 'both' ? T('수준·교정 강도를 골라 주세요', 'Choose a level and correction strength')
       : miss === 'level' ? T('수준을 골라 주세요', 'Choose a level')
-      : miss === 'corr' ? T('교정 정도를 골라 주세요', 'Choose corrections')
+      : miss === 'corr' ? T('교정 강도를 골라 주세요', 'Choose correction strength')
       : okState === 'saved' ? T('✅ 적용됐어요', '✅ Applied')
       : okState === 'fail' ? T('⚠️ 이 기기에선 저장이 안 돼요', '⚠️ Could not save here')
       : T('확인', 'Confirm');
@@ -389,9 +402,9 @@
     syncUntouched();
     var miss = draftMissing();   // 'level'·'corr' — 바꾼 것이 있는데 나머지를 안 골라 «확인» 이 잠긴 경우
     setText('leaveTitle', T('설정을 아직 적용하지 않았어요', 'Your settings are not applied yet'));
-    setText('leaveBody', miss === 'level' ? T('수준을 골라야 «확인»할 수 있어요. 이대로 나가면 바꾼 교정 정도가 적용되지 않아요.', 'Choose a level to confirm. If you leave now, your new corrections will not apply.')
-      : miss === 'corr' ? T('교정 정도를 골라야 «확인»할 수 있어요. 이대로 나가면 바꾼 수준이 적용되지 않아요.', 'Choose corrections to confirm. If you leave now, your new level will not apply.')
-      : T('바꾼 수준·교정 정도는 «확인»을 눌러야 교재 연습·상황별 말하기·AI 친구에 적용돼요.', 'Your new level and corrections apply to all three practices only after you confirm.'));
+    setText('leaveBody', miss === 'level' ? T('수준을 골라야 «확인»할 수 있어요. 이대로 나가면 바꾼 교정 강도가 적용되지 않아요.', 'Choose a level to confirm. If you leave now, your new correction strength will not apply.')
+      : miss === 'corr' ? T('교정 강도를 골라야 «확인»할 수 있어요. 이대로 나가면 바꾼 수준이 적용되지 않아요.', 'Choose correction strength to confirm. If you leave now, your new level will not apply.')
+      : T('바꾼 수준·교정 강도는 «확인»을 눌러야 교재 연습·상황별 말하기·AI 친구에 적용돼요.', 'Your new level and correction strength apply to all three practices only after you confirm.'));
     var parts = [];
     if(typeof draft.level === 'number' && draft.level >= 1) parts.push(T('수준 ' + draft.level + '단계', 'Level ' + draft.level));
     if(corrName(draft.corr)) parts.push(T('교정 ', 'Corrections: ') + corrName(draft.corr));

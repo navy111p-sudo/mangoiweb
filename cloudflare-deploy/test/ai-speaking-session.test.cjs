@@ -19,9 +19,9 @@ function friendPage(lang,chooseOk){
 }
 test('AI friend timing dropdown follows the language toggle and keeps the choice',()=>{
  const lang={v:'ko'},p=friendPage(lang,true);
- assert.equal(p.label.textContent,'교정 시점');assert.equal(p.select.options[1].textContent,'바로 교정');assert.equal(p.select.value,'immediate');
+ assert.equal(p.label.textContent,'피드백 타이밍');assert.equal(p.select.options[1].textContent,'바로 교정');assert.equal(p.select.value,'immediate');
  lang.v='en';p.fire();
- assert.equal(p.label.textContent,'Correction timing');assert.equal(p.select.options[1].textContent,'Correct immediately');assert.equal(p.select.value,'immediate');
+ assert.equal(p.label.textContent,'Feedback timing');assert.equal(p.select.options[1].textContent,'Correct immediately');assert.equal(p.select.value,'immediate');
  lang.v='ko';p.fire();assert.equal(p.select.options[3].textContent,'연습 후 모아서 보기');
 });
 test('save failure message is shown and switches language too',()=>{

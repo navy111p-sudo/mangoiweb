@@ -35,7 +35,7 @@ function armFriend(){
  // Painted again on 🌐 so the dropdown never stays in the language it was first drawn in.
  function paint(){
   var en=false;try{en=typeof root.getLang==='function'&&root.getLang()==='en';}catch(e){}
-  label.textContent=en?'Correction timing':'교정 시점';
+  label.textContent=en?'Feedback timing':'피드백 타이밍';
   opts.forEach(function(x,i){select.options[i].textContent=en?x[2]:x[1];});
   note.textContent=failed?(en?'Could not save this setting.':'설정을 저장하지 못했어요.'):'';
  }
