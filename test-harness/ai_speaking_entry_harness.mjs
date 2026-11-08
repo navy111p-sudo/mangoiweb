@@ -191,9 +191,9 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
     + cutLines(AIF, 'const decided = decideWarmupFixShow(verified, memoIn, turnNo', "else if (friendMode === 'focused') offerRepeat");
   ok(wSnip.includes('warmupShouldOfferRepeat(') && fSnip.includes('warmupShouldOfferRepeat(') && fSnip.includes('const immediateFix'), 'wiring: decide→repeat lines cut out of src/index.ts (warmup) and src/api-ai.ts (AI friend)');
   let wire = ''; try { wire = stripTypeScriptTypes(
-    'export async function warm(decideWarmupFixShow, warmupShouldOfferRepeat, gateFixForMode, verified, memoIn, turnCount, honest, ctxUserId) {\n'
+    'export async function warm(decideWarmupFixShow, warmupShouldOfferRepeat, gateFixForMode, verified, memoIn, turnCount, honest, ctxUserId, timing = "") {\n'
     + "  let showFix = null, traceTag = '', traceReason = 'shown', offerRepeat = false;\n" + wSnip + '\n  return { showFix, offerRepeat, memo: decided.memo };\n}\n'
-    + 'export async function friend(decideWarmupFixShow, warmupShouldOfferRepeat, gateFixForMode, verified, memoIn, turnNo, friendMode, logAiFriendFix, env, uid) {\n'
+    + 'export async function friend(decideWarmupFixShow, warmupShouldOfferRepeat, gateFixForMode, verified, memoIn, turnNo, friendMode, logAiFriendFix, env, uid, timing = "") {\n'
     + '  let showFix = null, offerRepeat = false;\n' + fSnip + '\n  return { showFix, offerRepeat, memo: decided.memo };\n}\n'); } catch (e) { wire = ''; }
   fs.writeFileSync(path.join(tmp, 'wire.mjs'), wire);
   let W = null; try { if (!wire) throw new Error('strip failed'); W = await import(pathToFileURL(path.join(tmp, 'wire.mjs')).href); } catch (e) { W = null; }
@@ -239,7 +239,7 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   const run = (lang, corr) => {
     const a = tags.map(attrs);
     const buttons = a.map(o => ({ getAttribute: k => (k in o ? o[k] : null), setAttribute: (k, v) => { o[k] = String(v); } }));
-    const el = { corrState: { textContent: '' }, setLevel: { innerHTML: '' } };
+    const el = { corrState: { textContent: '' }, setLevel: { innerHTML: '' }, setTiming: { value: '' } };
     const document = {
       getElementById: id => el[id] || null,
       querySelectorAll: sel => (sel === '[data-corr]' ? buttons : []),
@@ -321,7 +321,7 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
     const ls = mkLS(init, opts);
     const corr = CORR.map(id => mkEl(attrs(hub.match(new RegExp('<button[^>]*data-corr="' + id + '"[^>]*>'))[0])));
     const lang = ['ko', 'en'].map(l => mkEl({ 'data-lang': l }));
-    const els = { setLevel: mkEl(), corrState: mkEl(), setOk: mkEl(), setOkTxt: mkEl(), setMsg: mkEl(),
+    const els = { setTiming: mkEl(), setLevel: mkEl(), corrState: mkEl(), setOk: mkEl(), setOkTxt: mkEl(), setMsg: mkEl(),
       leaveAsk: mkEl(), leaveTitle: mkEl(), leaveBody: mkEl(), leavePick: mkEl(), leaveGo: mkEl(), leaveSkip: mkEl(), leaveStay: mkEl() };
     els.leaveAsk.hidden = true;   // markup: <div class="leave" id="leaveAsk" hidden>
     const wrap = mkEl(); active = null;

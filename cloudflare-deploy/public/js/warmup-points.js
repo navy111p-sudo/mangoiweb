@@ -6,6 +6,7 @@
 (function () {
   'use strict';
   var NEED = 3;
+  var pending = {};
   var done = {};   // session_id → 마지막 결과(성공·한도만 기억)
 
   function en() { try { return (typeof window.getLang === 'function' ? window.getLang() : '') === 'en'; } catch (e) { return false; } }
@@ -63,18 +64,20 @@
     var sid = String(window.SESSION_ID || '');
     var u = uid();
     if (!u || /^guest/i.test(u)) { paint(view(null, { guest: true })); return; }
-    if (done[sid]) { paint(view(done[sid])); return; }
+    if (done[sid]) { paint(view(done[sid])); return Promise.resolve(done[sid]); }
+    if (pending[sid]) return pending[sid];
     paint(view(null, { pending: true }));
     var tk = ''; try { tk = localStorage.getItem('mango_token') || ''; } catch (e) {}
     var headers = { 'Content-Type': 'application/json' };
     if (tk) headers.Authorization = 'Bearer ' + tk;
-    fetch('/api/points/earn-by-rule', {
+    return pending[sid] = fetch('/api/points/earn-by-rule', {
       method: 'POST', headers: headers,
       body: JSON.stringify({ user_id: u, rule_code: 'warmup_talk', token: tk || undefined, meta: { session_id: sid } })
     }).then(function (r) { return r.json(); }).then(function (d) {
       if (d && (d.ok === true || d.error === 'daily_cap_reached' || d.error === 'daily_total_cap_reached')) done[sid] = d;
-      paint(view(d));
-    }).catch(function () { paint(view(null)); });
+      delete pending[sid];
+      paint(view(d)); return d;
+    }).catch(function () { delete pending[sid]; paint(view(null)); return null; });
   }
 
   function arm() {

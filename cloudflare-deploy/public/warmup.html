@@ -1157,7 +1157,7 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
     </div>
   </div>
 </dialog>
-<script src="/js/warmup-guide.js?v=9"></script>
+<script src="/js/warmup-guide.js?v=12"></script>
 <script src="/js/speech-preferences.js?v=3"></script>
 <script src="/js/speech-rate-request.js?v=1"></script>
 <script src="/js/ai-situations.js?v=3"></script><!-- 🎯 상황별 말하기 표(?sit=) — 정본은 그 파일 하나 -->
@@ -3733,6 +3733,7 @@ function _stmRender(d, L, typing){
   }
   if(d.cut && !L.kick) addMsg('답변이 중간에 끊겼어요. 이어서 말해 주세요.', 'sys');
   if(!L.kick){                 // 🚀 첫 인사는 학생 말이 아니다 — 교정·등급 없음
+    if(d.review_fix && window.MangoWarmupGuide) MangoWarmupGuide.fix(d.review_fix);
     showFixCard(d.fix, d.repeat);
     wuApplyGrade(d);
   }
@@ -4414,6 +4415,10 @@ function withCtx(body){
   //       이름을 물으면 다른 이름을 댄다(2026-08-31 사장님 제보).
   //    「번갈아」면 _voicePerson() 이 그 턴의 사람을 준다 — 목소리와 같은 사람이 된다.
   try{ body.friend = _voicePerson(); }catch(e){}
+  try {
+    var timing = window.AiSpeakSettings && AiSpeakSettings.read(localStorage).timing;
+    if(timing && _warmLang === 'en') body.correction_timing = timing;
+  } catch(e){}
   if(_wuCorrMode) body.correction_mode = _wuCorrMode;   // 🎚️ 사람이 고른 교정 방식만(안 골랐으면 안 보냄)
 
   if(WCTX.textbook) body.textbook = WCTX.textbook;
@@ -5008,6 +5013,7 @@ async function sendMsg(){
 
   try{
     var body = withCtx({ session_id: SESSION_ID, student_input: text });
+    if(window.AiSpeakingProgress) Object.assign(body, await window.AiSpeakingProgress.beforeTurn());
     var _stmOn = _stmWanted(); if(_stmOn){ body.stream = 1; body.final_reply = 1; }
     var r = await warmupFetch(warmupEndpoint(), {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
@@ -5037,6 +5043,7 @@ async function sendMsg(){
       _latCur={ t0:_lt0, t1:Date.now(), wait:(_ls?_ls.wait:null), tStop:(_ls?_ls.at:null) };   // ⏱ 첫 소리가 나면 _latMark 가 닫는다
       d.ai_response=warmupReplyText(d);
       addMsg(d.ai_response, 'ai');
+      if(d.review_fix && window.MangoWarmupGuide) MangoWarmupGuide.fix(d.review_fix);
       showFixCard(d.fix, d.repeat);         // ✏️ 서버가 «검증해서» 준 교정만 그린다(없으면 아무것도 안 그림)
       wuApplyGrade(d);                      // 🎯 등급이 «완벽» 일 때만 콤보·팡파레
       showAnswerChips(d.answer_chips,d.speaking_help);      // 💬 서버가 만든 «대답 보기»(못 만들면 빈 배열)
@@ -5357,12 +5364,15 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 <script src="/js/warmup-facetalk.js?v=4" defer></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 자동 말하기 엔진을 켜고 모양만 바꿈) -->
 <script src="/js/warmup-touch-bar.js?v=2" defer></script>
 <script src="/js/warmup-dock.js?v=2" defer></script><!-- 📱 세로 화면: 아래 버튼 줄 자동 접힘·손잡이 (2026-11-02) --><!-- 📱 터치 기기 전용 아래 3칸 바(도움·말하기·글쓰기) — 2026-09-26 시안 4 -->
-<script src="/js/ai-speaking-settings.js?v=1" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — setCorrMode 가 씀 (2026-11-04) -->
+<link rel="stylesheet" href="/css/ai-speaking-progress.css?v=3">
+<script defer src="/js/ai-speaking-progress-view.js?v=4"></script>
+<script defer src="/js/ai-speaking-progress.js?v=5"></script>
+<script src="/js/ai-speaking-settings.js?v=3" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — setCorrMode 가 씀 (2026-11-04) -->
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 <script defer src="/js/warmup-photo-icons.js?v=5"></script>
 <link rel="stylesheet" href="/css/warmup-flow.css?v=6" />
 <script defer src="/js/warmup-flow.js?v=6"></script>
-<script defer src="/js/warmup-points.js?v=1"></script><!-- 🪙 «끝내고 요약 보기» 창에 받은 포인트 한 줄 (2026-11-03) / points line in the summary -->
+<script defer src="/js/warmup-points.js?v=3"></script><!-- 🪙 «끝내고 요약 보기» 창에 받은 포인트 한 줄 (2026-11-03) / points line in the summary -->
 <link rel="stylesheet" href="/css/warmup-topbar.css?v=2" />
 <script defer src="/js/warmup-topbar.js?v=2"></script><!-- 📱 휴대폰 위쪽 버튼 한 줄 — 세로 B(아이콘 한 줄) · 가로 C(떠 있는 바 + 숨기기) (2026-11-03) / one-row top bar on phones -->
 <link rel="stylesheet" href="/css/warmup-body.css?v=1" />

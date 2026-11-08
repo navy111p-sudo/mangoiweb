@@ -228,6 +228,14 @@
         </div>
         <small class="state" id="corrState"></small></div>
     </div>
+    <div class="tile"><label class="lab" for="setTiming" data-ko="교정 시점" data-en="Correction timing">교정 시점</label>
+      <select id="setTiming">
+        <option value="" data-ko="기존 방식" data-en="Current behavior">기존 방식</option>
+        <option value="immediate" data-ko="즉시" data-en="Right away">즉시</option>
+        <option value="key-mistakes" data-ko="대화 중 중요한 실수만" data-en="Key mistakes during practice">대화 중 중요한 실수만</option>
+        <option value="after-lesson" data-ko="연습 후" data-en="After practice">연습 후</option>
+      </select>
+    </div>
     <!-- ✅ 확인 — 글자는 renderOk 가 상태에 맞춰 쓴다(data-ko/en 을 달지 않는다: i18n 루프가 본문을 갈아끼움) -->
     <div class="set-foot"><button type="button" class="ok-btn" id="setOk" disabled><span id="setOkTxt">확인</span></button></div>
     <p id="setMsg" class="sr" role="status" aria-live="polite"></p>
@@ -255,7 +263,7 @@
   </div>
 </div>
 <script src="/js/ai-situations.js?v=3"></script>
-<script src="/js/ai-speaking-settings.js?v=1"></script>
+<script src="/js/ai-speaking-settings.js?v=3"></script>
 <script>
 (function(){
   'use strict';
@@ -286,7 +294,7 @@
     }).join('');
   }
   // ✅ 고른 값(draft) — 버튼을 눌러도 여기만 바뀐다. 저장은 confirmSettings 한 곳(«확인»).
-  function readDraft(){ var c = SET ? SET.read(LS) : { level: 0, corr: '' }; return { level: c.level, corr: c.corr }; }
+  function readDraft(){ var c = SET ? SET.read(LS) : { level: 0, corr: '' }; return { level: c.level, corr: c.corr, timing: c.timing || '' }; }
   var draft = readDraft();
   // 이 화면에서 사람이 만진 칸 — 안 만진 칸은 저장소를 따른다(다른 탭·화면이 그 사이 바꿨을 수 있다. 6차 함정 대조)
   var touched = { level: false, corr: false };
@@ -294,6 +302,7 @@
   function renderSettings(){
     if(!SET){ renderOk(); return; }
     var cur = draft;
+    document.getElementById('setTiming').value = cur.timing;
     var lv = document.getElementById('setLevel');
     var lvHead = cur.level === 'mixed' ? T('화면마다 다름 — 고르면 맞춰요', 'Differs by screen — pick one') : T('아직 안 정함 (화면 기본)', 'Not set (screen default)');
     // 안 정함(0)·화면마다 다름이면 머리 줄을 둔다 — 없으면 «1단계» 가 골라진 것처럼 보이고, 1을 골라도 change 가 안 난다
@@ -332,7 +341,7 @@
   function status(s){ var m = document.getElementById('setMsg'); if(m) m.textContent = s; }
   function pick(k, v){ draft[k] = v; touched[k] = true; okState = ''; status(''); renderSettings(); syncLeaveGuard(); }
   // 안 만진 칸을 저장소 값으로 — 그래야 «확인»·«적용하고 이동» 이 다른 탭이 새로 정한 값을 옛 값으로 덮지 않는다
-  function syncUntouched(){ if(!SET) return; var c = SET.read(LS); if(!touched.level) draft.level = c.level; if(!touched.corr) draft.corr = c.corr; }
+  function syncUntouched(){ if(!SET) return; var c = SET.read(LS); if(!touched.level) draft.level = c.level; if(!touched.corr) draft.corr = c.corr; if(!touched.timing) draft.timing = c.timing; }
   // 확인 — 수준·교정을 두 화면 키에 함께 쓴다. 언어는 누를 때 이미 저장했으므로 여기서 쓰지 않는다
   // (확인 때 다시 쓰면 계정 자동판정 언어가 «사람이 고름» 으로 굳는다 — mangoi_lang_by).
   function confirmSettings(){
@@ -340,7 +349,8 @@
     syncUntouched();
     if(draftMissing()) return false;
     var a = SET.chooseLevel(LS, draft.level), c = SET.chooseCorr(LS, draft.corr);
-    var ok = !!(a && c);
+    var t = !touched.timing || SET.chooseTiming(LS, draft.timing);
+    var ok = !!(a && c && t);
     okState = ok ? 'saved' : 'fail';
     if(ok) touched = { level: false, corr: false };
     renderSettings(); syncLeaveGuard();
@@ -356,7 +366,7 @@
   function unapplied(){
     if(!SET || LS.dead || okState === 'fail') return false;
     var s = SET.read(LS);
-    return (touched.level && draft.level !== s.level) || (touched.corr && draft.corr !== s.corr);
+    return (touched.level && draft.level !== s.level) || (touched.corr && draft.corr !== s.corr) || (touched.timing && draft.timing !== s.timing);
   }
   // 뒤로가기·새로고침·탭 닫기 — 브라우저 기본 창. 바꾼 것이 있을 때만 건다(MDN 권고: 늘 걸어 두면 «뒤로가기 보관»(bfcache)을 막는 브라우저가 있다 — 이 저장소에서 재지는 않음).
   function onBeforeUnload(e){ if(leaving || !unapplied()) return; e.preventDefault(); e.returnValue = 'unapplied'; return 'unapplied'; }
@@ -430,6 +440,8 @@
     }); });
     var lv = document.getElementById('setLevel');
     if(lv) lv.addEventListener('change', function(){ if(!lv.value) return; pick('level', Number(lv.value)); });
+    var timingSelect = document.getElementById('setTiming');
+    timingSelect.addEventListener('change', function(){ pick('timing', timingSelect.value); });
     var okBtn = document.getElementById('setOk');
     if(okBtn) okBtn.addEventListener('click', function(){ confirmSettings(); });
     // 🚪 화면 안 링크로 나갈 때 — 위임(상황 카드는 나중에 그려진다). 새 탭·같은 화면 안(#)·이미 막힌 클릭은 건드리지 않는다.

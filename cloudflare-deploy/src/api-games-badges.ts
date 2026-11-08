@@ -1,5 +1,6 @@
 // 배지 카탈로그·자동 지급·조회 API. 외부 액션도 같은 지급 함수를 사용한다.
 import { json } from './api-util';
+import { evaluationScoreProjection } from './evaluation-scores';
 import type { MangoEnv } from './api-mango';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { ATTENDANCE_BY_UID, attUidBinds } from './attendance-uid';
@@ -10,7 +11,7 @@ export const BADGE_CATALOG = [
       { code: 'first_class',       icon: '🎓', name: '첫 수업 입장',       name_en: 'First Class',          desc: '첫 화상수업 참여',             desc_en: 'Joined a first video class',                 rule: 'attendance_1' },
       { code: 'streak_7',          icon: '📅', name: '7일 연속 출석',      name_en: '7-Day Streak',         desc: '일주일 매일 출석',             desc_en: 'Attended every day for a week',              rule: 'streak_7' },
       { code: 'streak_30',         icon: '🔥', name: '30일 연속 출석',     name_en: '30-Day Streak',        desc: '한달 매일 출석',               desc_en: 'Attended every day for a month',             rule: 'streak_30' },
-      { code: 'eval_perfect',      icon: '⭐', name: '평가서 만점',        name_en: 'Perfect Score',        desc: '평가서 종합 10점',             desc_en: 'Overall score of 10 on an evaluation',       rule: 'eval_10' },
+      { code: 'eval_perfect',      icon: '⭐', name: '평가서 만점',        name_en: 'Perfect Score',        desc: '확인된 평가서 종합 만점',             desc_en: 'Perfect score on a verified evaluation',       rule: 'eval_10' },
       { code: 'voice_practice_10', icon: '🎙', name: '음성 코칭 10회',     name_en: '10 Voice Sessions',    desc: 'AI 음성 코칭 10회 완료',       desc_en: 'Completed 10 AI voice coaching sessions',    rule: 'voice_10' },
       { code: 'voice_score_90',    icon: '🌟', name: '발음 마스터',        name_en: 'Pronunciation Master', desc: 'AI 음성 코칭 90점 이상',       desc_en: 'Scored 90+ in AI voice coaching',            rule: 'voice_90' },
       { code: 'writing_first',     icon: '✍️', name: '첫 영작',            name_en: 'First Writing',        desc: 'AI 영작 첨삭 첫 도전',         desc_en: 'First try at AI writing feedback',           rule: 'writing_1' },
@@ -68,8 +69,9 @@ export const checkAndAwardBadges = async (env: MangoEnv, userId: string): Promis
 
       // 평가서 만점
       try {
-        const e: any = await env.DB.prepare(`SELECT MAX(score_overall) AS m FROM student_evaluations WHERE student_uid = ?`).bind(userId).first();
-        if ((e?.m || 0) >= 10) await award('eval_perfect');
+        const projection = await evaluationScoreProjection(env.DB);
+        const e: any = await env.DB.prepare(`${projection} SELECT MAX(score_normalized_100) AS m FROM normalized_evaluations WHERE student_uid = ?`).bind(userId).first();
+        if (e?.m === 100) await award('eval_perfect');
       } catch {}
 
       // 음성 코칭

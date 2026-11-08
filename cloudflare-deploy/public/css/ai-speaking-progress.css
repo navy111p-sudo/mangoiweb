@@ -1,0 +1,16 @@
+.ai-progress-dialog{width:min(92vw,580px);max-height:85dvh;padding:22px;border:1px solid #475569;border-radius:20px;background:#172033;color:#f8fafc;box-sizing:border-box;overflow:auto;font-family:inherit}
+.ai-progress-dialog::backdrop{background:#020617b3}
+.ai-progress-card{margin:12px 0;line-height:1.6;text-align:left;overflow-wrap:anywhere}
+.ai-progress-title{font-size:1.3rem;margin:0 0 8px}
+.ai-progress-score{font-size:2rem;font-weight:800;margin:4px 0}
+.ai-progress-note{font-size:.85rem;color:#cbd5e1}
+.ai-progress-skills{display:grid;gap:7px}
+.ai-progress-skill{display:flex;justify-content:space-between;gap:14px;border-bottom:1px solid #475569;padding:5px 0}
+.ai-progress-skill dd{margin:0;white-space:nowrap}
+.ai-progress-trigger,.ai-progress-close,.ai-progress-retry{border:1px solid #64748b;border-radius:10px;padding:9px 13px;background:#26364e;color:#fff;font:inherit;cursor:pointer;min-height:42px}
+.ai-progress-trigger:focus-visible,.ai-progress-close:focus-visible,.ai-progress-retry:focus-visible{outline:3px solid #38bdf8;outline-offset:2px}
+.ai-progress-trigger{font-size:12px;padding:5px 9px;white-space:nowrap;flex-shrink:0}
+.ai-progress-actions{display:flex;align-items:center;justify-content:center;gap:8px;padding:0 12px 6px;flex-shrink:0}
+.ai-progress-actions .next-bottom{flex:0 1 420px;min-width:0;padding:0}
+.ai-progress-close{position:sticky;top:0;z-index:1}
+@media(max-width:420px){.ai-progress-dialog{padding:16px}.ai-progress-trigger{font-size:11px;padding-inline:6px}.ai-progress-score{font-size:1.7rem}}
