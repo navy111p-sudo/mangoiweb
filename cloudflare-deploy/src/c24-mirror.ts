@@ -250,6 +250,11 @@ export function planMirror(
         (같은 방어가 이 파일의 «취소 단계 건너뛰기» 에도 있다).
      ⚠️ 기본값은 빈 Map 이다 — 옛 호출부·하니스가 그대로 돈다. */
   slotSeen: Map<string, number> = new Map(),
+  /* 🔁 (2026-11-08) 사람이 «다른 날로 옮긴» 미러 수업 — 카페24 수업번호 → 그 행들(loadMirrorMoved).
+       아래 2-a) 절이 «원래 자리에 다시 만들지 않는다» 를 이것으로 정한다.
+     ⚠️ null = «못 읽었다» — 그 판정을 건너뛴다(예전 동작). 쓰기 경로(applyMirror)는 null 이면 만들기·취소를 아예 안 한다.
+     ⚠️ 기본값은 null 이다 — 옛 호출부·하니스가 그대로 돈다. */
+  moved: Map<string, ExistingRow[]> | null = null,
 ): PlanRow[] {
   const out: PlanRow[] = [];
 
@@ -372,6 +377,23 @@ export function planMirror(
       if (sameTeacher && sameDur) push('already', undefined, mirrored.id);
       else if (contestLoser) push('suspect_dup', contestDetail + ' (이미 있는 행을 덮어쓰지 않음)', mirrored.id);
       else push('update', sameTeacher ? `수업 길이 ${mirrored.duration_min}분 → ${dur}분` : `강사 변경 → ${teacherName}`, mirrored.id);
+      continue;
+    }
+    /* ── 2-a) 🔁 사람이 «다른 날로 옮긴» 수업은 원래 자리에 다시 만들지 않는다 (2026-11-08 실사고) ──
+       발단(운영 D1 실측): 11/04 18:03 매니저가 카페24 미러 수업 #7730(11/04 20:00, c24:519537)을 «연기보강» 으로
+             11/11 로 옮겼는데, 12분 뒤 미러가 11/04 20:00 에 같은 예약을 #7772 로 «다시 만들었다» — 위 manual 찾기는
+             «같은 날짜» 만 보고, 미러의 부분 유니크 인덱스(notes, source='c24-mirror')는 연기보강이 notes 에 이름을
+             덧붙인 순간(«c24:519537 · 연기보강 …») 더는 막지 못한다. 한 예약이 두 줄이 되고, 원래 날짜에는 «옮겨 감» 줄과
+             «다시 생긴 수업» 이 함께 섰다(사장님·매니저 Mai 의 «연기 되돌리기» 요청이 여기서 나왔다).
+       ✅ 같은 카페24 수업번호의 «사람이 옮긴 행» 이 다른 날짜에 있으면 diverged — 손대지 않고 알린다(사람 손이 이긴다).
+       ⛔ 같은 날짜면 해당 없음 — 위 manual·mirrored·sameSlot 이 이미 맡는다(시각만 바꾼 것·되돌린 것).
+       ⛔ 학생이 다르면 해당 없음 — 수업번호가 같아도 «다른 학생의 수업» 을 막지 않는다. */
+    const away = moved ? (moved.get(String(c.class_id || '')) || [])
+      .find(e => String(e.user_id || '') === uid && String(e.scheduled_date || '') !== date) : undefined;
+    if (away) {
+      push('diverged', `카페24 ${date} ${time} ↔ 망고아이 ${away.scheduled_date || '날짜 없음'} ${String(away.start_time || '').slice(0, 5)}`
+        + (String(away.status || '') === 'cancelled' ? ' (그 뒤 취소됨)' : '')
+        + ' — 사람이 다른 날로 옮긴 수업이라 원래 자리에 다시 만들지 않습니다', away.id);
       continue;
     }
     const other = mine.find(e => String(e.source || '') !== MIRROR_SOURCE);
@@ -588,6 +610,50 @@ export async function loadStudents(env: MirrorEnv, uids: string[]): Promise<Map<
   return out;
 }
 
+/**
+ * 🔁 (2026-11-08) 사람이 손대거나 «다른 날로 옮긴» 미러 행 — 카페24 수업번호 → 그 행들 · 그 행 번호 집합.
+ *   [왜] 미러는 «카페24 수업번호 = 창 안의 그 날짜 행» 으로 맞춰 왔다. 그런데 사람이 날짜를 옮긴 행은 창 밖에 있거나
+ *        다른 날짜에 있어 ① 원래 자리가 «빈 칸» 으로 보여 같은 예약을 다시 만들고(planMirror 2-a) ② 원래 날짜가 창을
+ *        지나가면 그 수업번호가 카페24 목록에서 빠져 «카페24에서 사라진 수업» 으로 보고 옮긴 보강을 «취소» 했다
+ *        (운영 실측 #7730 — 11/04 원래 날짜가 지나자 11/11 보강이 감사 기록 없이 cancelled. applyMirror 의 취소 단계).
+ *   [근거] 미러 행(c24-mirror·c24-mirror:manual) 중 ① 사람 손 도장 ② 승인된 변경 요청(schedule_change_requests)
+ *        ③ 이동 기록(class_audit_log postpone·reschedule) 이 있는 것. 변경 요청 승인은 «날짜가 바뀌면» 일부러 도장을
+ *        안 찍으므로(api-admin-class-days.ts — 찍으면 유니크 인덱스 밖으로 나가 유령이 생겼다) ②③ 이 꼭 필요하다.
+ *   💰 비용: ② ③ 은 기록 쪽에서 출발해 PK 로 찾는다(`+source` — 색인 함정, CLAUDE.md «source 색인»).
+ *        [잰 것 — 2026-11-08 운영 D1] rows_read 395 · 결과 8행. ⛔ `+` 를 빼면 c24-mirror 6천여 행을 통째로 훑는다.
+ *   ⚠️ 표가 없으면 그 근거만 «기록 없음» 으로 본다(옛 DB·하니스). 조회가 실패하면 null(«모름») — 던지지 않는다.
+ */
+export interface MirrorMoved { byClass: Map<string, ExistingRow[]>; ids: Set<string> }
+export async function loadMirrorMoved(env: MirrorEnv): Promise<MirrorMoved | null> {
+  const COLS = 'id, user_id, teacher_id, scheduled_date, start_time, duration_min, source, status, notes';
+  const out: MirrorMoved = { byClass: new Map(), ids: new Set() };
+  const add = (r: any) => {
+    if (!r || r.id == null) return;
+    const src = String(r.source || '');
+    if (src !== MIRROR_SOURCE && src !== MIRROR_SOURCE_MANUAL) return;
+    const cid = mirrorNoteClassId(r.notes);
+    if (!cid || out.ids.has(String(r.id))) return;
+    out.ids.add(String(r.id));
+    const arr = out.byClass.get(cid);
+    if (arr) arr.push(r as ExistingRow); else out.byClass.set(cid, [r as ExistingRow]);
+  };
+  try {
+    const manual: any = await env.DB.prepare(`SELECT ${COLS} FROM class_schedules WHERE source = ?`).bind(MIRROR_SOURCE_MANUAL).all();
+    for (const r of (manual?.results || [])) if (String(r?.source || '') === MIRROR_SOURCE_MANUAL) add(r);
+    const exists = async (t: string) => !!(await env.DB.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).bind(t).first());
+    const subs: string[] = [];
+    if (await exists('schedule_change_requests')) subs.push(`SELECT schedule_id FROM schedule_change_requests WHERE status = 'approved' AND schedule_id IS NOT NULL`);
+    if (await exists('class_audit_log')) subs.push(`SELECT schedule_id FROM class_audit_log WHERE action IN ('postpone','reschedule') AND schedule_id IS NOT NULL`);
+    if (subs.length) {
+      const mv: any = await env.DB.prepare(
+        `SELECT ${COLS} FROM class_schedules WHERE +source = ? AND id IN (${subs.join(' UNION ')})`
+      ).bind(MIRROR_SOURCE).all();
+      for (const r of (mv?.results || [])) add(r);
+    }
+    return out;
+  } catch { return null; }
+}
+
 /** 창 안의 기존 시간표. ⚠️ 양쪽 경계 필수 */
 export async function loadExisting(env: MirrorEnv, since: string, until: string): Promise<ExistingRow[]> {
   try {
@@ -757,7 +823,8 @@ export async function c24MirrorReport(
 
   const hidden = await loadHiddenStudents(env as any, Array.from(students.keys()));
   const slotSeen = dupGuard ? await loadSlotHistory(env, classes.map(c => c.user_id)) : new Map<string, number>();
-  const rows = planMirror(classes, links, students, existing, mode, enabled, hidden, slotSeen);
+  const moved = await loadMirrorMoved(env);   // 🔁 사람이 옮긴 행 — 못 읽으면 null(그 판정만 건너뛴다)
+  const rows = planMirror(classes, links, students, existing, mode, enabled, hidden, slotSeen, moved ? moved.byClass : null);
   const summary = summarize(rows);
 
   /* ⚔️ 강사 겹침 — 실패해도 성적표는 그대로 낸다(대신 clashes=null 로 «못 봤다» 고 말한다). */
@@ -834,6 +901,8 @@ export interface MirrorApplyResult {
   errors: string[];
   /** ⚠️ 취소 단계를 건너뛴 이유(있을 때만). 「0건이었다」와 「안 봤다」는 다르다. */
   cancel_skipped?: string;
+  /** ⚠️ 만들기 단계를 건너뛴 이유(있을 때만 — 사람이 옮긴 수업 목록을 못 읽었을 때). */
+  create_skipped?: string;
 }
 
 /**
@@ -867,7 +936,10 @@ export async function applyMirror(
   const hidden = await loadHiddenStudents(env as any, Array.from(students.keys()));
   /* 🕰️ 「강사 변경 잔재」 판정의 근거. 못 읽으면 빈 Map 이고, 빈 Map 은 «그 판정을 건너뛴다» 다. */
   const slotSeen = dupGuard ? await loadSlotHistory(env, classes.map(c => c.user_id)) : new Map<string, number>();
-  const rows = planMirror(classes, links, students, existing, mode, enabled, hidden, slotSeen);
+  /* 🔁 (2026-11-08) 사람이 옮긴 행 — 원래 자리에 다시 만들지 않고(planMirror 2-a), 옮긴 보강을 «사라진 수업» 으로 취소하지 않는다.
+     ⚠️ 못 읽으면(null) 아래에서 만들기·취소를 «둘 다» 건너뛴다 — 모르는 채로 쓰면 그 두 사고가 그대로 난다(실패 방향은 «안 쓴다»). */
+  const moved = await loadMirrorMoved(env);
+  const rows = planMirror(classes, links, students, existing, mode, enabled, hidden, slotSeen, moved ? moved.byClass : null);
   const summary = summarize(rows);
   const byState: Record<string, number> = {};
   for (const r of rows) byState[String(r.class_state)] = (byState[String(r.class_state)] || 0) + 1;
@@ -883,7 +955,7 @@ export async function applyMirror(
     return mode === 'all' || enabled.has(tid);
   };
 
-  const creates = rows.filter(r => r.verdict === 'ok' && touch(r.teacher_id));
+  const creates = moved ? rows.filter(r => r.verdict === 'ok' && touch(r.teacher_id)) : [];
   const updates = rows.filter(r => r.verdict === 'update' && touch(r.teacher_id) && r.existing_id);
 
   /* ── 카페24에서 «사라진» 수업 되짚기 ──────────────────────────────
@@ -895,10 +967,16 @@ export async function applyMirror(
   let cancelSkipped: string | undefined;
   if (!classes.length) {
     cancelSkipped = '카페24에서 읽은 수업이 0건 — 취소 단계를 건너뜁니다(조회 실패와 구분할 수 없습니다)';
+  } else if (!moved) {
+    cancelSkipped = '사람이 옮긴 수업 목록을 못 읽었습니다 — 옮긴 보강을 잘못 취소하지 않도록 취소 단계를 건너뜁니다';
   } else {
     const liveIds = new Set(classes.map(c => String(c.class_id)));
+    /* 🔁 (2026-11-08) ⛔ 사람이 날짜를 옮긴 행은 «사라진 수업» 이 아니다 — 그 수업번호는 «원래 날짜» 의 카페24 수업이라,
+       원래 날짜가 창을 지나가면 목록에서 빠질 뿐이다(운영 실측 #7730 11/11 보강이 그렇게 감사 기록 없이 취소됐다). */
+    const movedIds = moved.ids;
     cancels = existing.filter(e =>
       String(e.source || '') === MIRROR_SOURCE          // ⛔ 내가 만든 행만
+      && !movedIds.has(String(e.id))                    // ⛔ 사람이 옮긴 행은 빼고
       && String(e.status || '') !== 'cancelled'
       && touch(e.teacher_id == null ? null : String(e.teacher_id))
       && (() => { const cid = mirrorNoteClassId(e.notes); return !!cid && !liveIds.has(cid); })());
@@ -913,6 +991,7 @@ export async function applyMirror(
     summary, by_state: byState, changes: [], errors: [],
   };
   if (cancelSkipped) result.cancel_skipped = cancelSkipped;
+  if (!moved) result.create_skipped = '사람이 옮긴 수업 목록을 못 읽었습니다 — 같은 예약을 원래 자리에 다시 만들지 않도록 만들기 단계를 건너뜁니다';
 
   const brief = (action: 'create' | 'update' | 'cancel', r: PlanRow) => ({
     action, class_id: r.class_id, date: r.date, start_time: r.start_time,

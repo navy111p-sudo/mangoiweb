@@ -408,6 +408,8 @@ console.log('\n── ⑨ A.i 친구 — 단어장 약점을 «낱말 (뜻)» �
   const cmSrc = stripTypeScriptTypes(WH.slice(cmStart, WH.indexOf('\n', WH.indexOf('export const WARMUP_DEFAULT_MODE'))) + '\n' + WH.slice(WH.indexOf('export function correctionModeOf'), cmEnd)).replace(/^export /gm, '');
   const correctionModeOf = new Function(cmSrc + '\nreturn correctionModeOf;')();
   const { correctionTimingOf } = await import('../cloudflare-deploy/src/ai-speaking-progress.ts');
+  // 2026-11-08 — 병렬 조회가 «같은 질문 금지» 기억 줄 수(정본 상수)를 쓴다. 숫자를 베끼지 않고 정본에서 받는다.
+  const { QM_FRIEND_ROWS } = await import('../cloudflare-deploy/src/question-memory.ts');
   const requestSrc=R('cloudflare-deploy/src/ai-friend-point-credit.ts','FRIEND_POINT_CREDIT_SRC');
   const requestStart=requestSrc.indexOf('export function friendRequestId'),requestEnd=requestSrc.indexOf('\n}',requestStart)+2;
   const friendRequestId=new Function(stripTypeScriptTypes(requestSrc.slice(requestStart,requestEnd)).replace(/^export /gm,'')+'\nreturn friendRequestId;')();
@@ -418,12 +420,12 @@ console.log('\n── ⑨ A.i 친구 — 단어장 약점을 «낱말 (뜻)» �
     let out;
     try {
       // 함수로 «먼저» 감싼 뒤 타입을 지운다 — stripTypeScriptTypes 는 모듈로 읽어 맨 위 return 을 거절한다
-      const body = stripTypeScriptTypes('async function __h(request, url, env, ensureChatSchema, authUidGlobal, json, aiFriendNormalizeLevel, WEAK_WHERE, WEAK_ORDER, weakSince, loadActiveGoal, loadRecentMistakes, loadVocabWeakRows, correctionModeOf, correctionTimingOf, friendRequestId){\n' +
+      const body = stripTypeScriptTypes('async function __h(request, url, env, ensureChatSchema, authUidGlobal, json, aiFriendNormalizeLevel, WEAK_WHERE, WEAK_ORDER, weakSince, loadActiveGoal, loadRecentMistakes, loadVocabWeakRows, correctionModeOf, correctionTimingOf, friendRequestId, QM_FRIEND_ROWS){\n' +
         headSrc + '\nreturn { __reached: true, ' + names.join(', ') + ' }; }');
       const fn = new Function(body + '\nreturn __h;')();
       out = await fn({ json: async () => ({ uid: 'Kim01', msg: 'hi' }) }, new URL('https://mangoi.ai/api/ai/chat-friend'), { DB: fakeDb },
         async () => {}, async () => authUid, (o, st) => ({ __json: o, __status: st || 200 }), (l) => l,
-        'WW', 'WO', () => 0, async () => null, async () => ['RECENT'], async (...a) => { calls.push(a); return VMARK; }, correctionModeOf, correctionTimingOf, friendRequestId);
+        'WW', 'WO', () => 0, async () => null, async () => ['RECENT'], async (...a) => { calls.push(a); return VMARK; }, correctionModeOf, correctionTimingOf, friendRequestId, QM_FRIEND_ROWS);
     } catch (e) { out = { __threw: e.message }; }
     return { out, calls, fakeDb };
   }
