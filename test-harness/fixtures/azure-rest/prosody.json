@@ -1,0 +1,346 @@
+{
+  "RecognitionStatus": "Success",
+  "Offset": 1200000,
+  "Duration": 17600000,
+  "DisplayText": "Hello I am a student.",
+  "SNR": 35.266052,
+  "NBest": [
+    {
+      "Confidence": 0.9757488,
+      "Lexical": "hello i am a student",
+      "ITN": "hello i am a student",
+      "MaskedITN": "hello i am a student",
+      "Display": "Hello I am a student.",
+      "AccuracyScore": 98,
+      "FluencyScore": 98,
+      "ProsodyScore": 83.4,
+      "CompletenessScore": 100,
+      "PronScore": 92.6,
+      "Words": [
+        {
+          "Word": "hello",
+          "Offset": 1200000,
+          "Duration": 6900000,
+          "Confidence": 0,
+          "AccuracyScore": 94,
+          "ErrorType": "None",
+          "Syllables": [
+            {
+              "Syllable": "hax",
+              "Grapheme": "hel",
+              "Offset": 1200000,
+              "Duration": 2900000,
+              "AccuracyScore": 86
+            },
+            {
+              "Syllable": "low",
+              "Grapheme": "lo",
+              "Offset": 4200000,
+              "Duration": 3900000,
+              "AccuracyScore": 100
+            }
+          ],
+          "Phonemes": [
+            {
+              "Phoneme": "h",
+              "Offset": 1200000,
+              "Duration": 1700000,
+              "AccuracyScore": 80
+            },
+            {
+              "Phoneme": "ax",
+              "Offset": 3000000,
+              "Duration": 1100000,
+              "AccuracyScore": 94
+            },
+            {
+              "Phoneme": "l",
+              "Offset": 4200000,
+              "Duration": 1300000,
+              "AccuracyScore": 100
+            },
+            {
+              "Phoneme": "ow",
+              "Offset": 5600000,
+              "Duration": 2500000,
+              "AccuracyScore": 100
+            }
+          ],
+          "Feedback": {
+            "Prosody": {
+              "Break": {
+                "ErrorTypes": [
+                  "None"
+                ],
+                "BreakLength": 0
+              },
+              "Intonation": {
+                "ErrorTypes": [
+                  "Monotone"
+                ],
+                "Monotone": {
+                  "Confidence": 0,
+                  "WordPitchSlopeConfidence": 0,
+                  "SyllablePitchDeltaConfidence": 0.27834114
+                }
+              }
+            }
+          }
+        },
+        {
+          "Word": "i",
+          "Offset": 8600000,
+          "Duration": 1800000,
+          "Confidence": 0,
+          "AccuracyScore": 97,
+          "ErrorType": "None",
+          "Syllables": [
+            {
+              "Syllable": "ay",
+              "Grapheme": "i",
+              "Offset": 8600000,
+              "Duration": 1800000,
+              "AccuracyScore": 97
+            }
+          ],
+          "Phonemes": [
+            {
+              "Phoneme": "ay",
+              "Offset": 8600000,
+              "Duration": 1800000,
+              "AccuracyScore": 97
+            }
+          ],
+          "Feedback": {
+            "Prosody": {
+              "Break": {
+                "ErrorTypes": [
+                  "None"
+                ],
+                "UnexpectedBreak": {
+                  "Confidence": 0.16184975
+                },
+                "MissingBreak": {
+                  "Confidence": 0.91907513
+                },
+                "BreakLength": 400000
+              },
+              "Intonation": {
+                "ErrorTypes": [
+                  "Monotone"
+                ],
+                "Monotone": {
+                  "Confidence": 0,
+                  "WordPitchSlopeConfidence": 0,
+                  "SyllablePitchDeltaConfidence": 0.27834114
+                }
+              }
+            }
+          }
+        },
+        {
+          "Word": "am",
+          "Offset": 10500000,
+          "Duration": 1400000,
+          "Confidence": 0,
+          "AccuracyScore": 100,
+          "ErrorType": "None",
+          "Syllables": [
+            {
+              "Syllable": "aem",
+              "Grapheme": "am",
+              "Offset": 10500000,
+              "Duration": 1400000,
+              "AccuracyScore": 100
+            }
+          ],
+          "Phonemes": [
+            {
+              "Phoneme": "ae",
+              "Offset": 10500000,
+              "Duration": 700000,
+              "AccuracyScore": 100
+            },
+            {
+              "Phoneme": "m",
+              "Offset": 11300000,
+              "Duration": 600000,
+              "AccuracyScore": 100
+            }
+          ],
+          "Feedback": {
+            "Prosody": {
+              "Break": {
+                "ErrorTypes": [
+                  "None"
+                ],
+                "UnexpectedBreak": {
+                  "Confidence": 4.0462428e-8
+                },
+                "MissingBreak": {
+                  "Confidence": 1
+                },
+                "BreakLength": 0
+              },
+              "Intonation": {
+                "ErrorTypes": [
+                  "Monotone"
+                ],
+                "Monotone": {
+                  "Confidence": 0,
+                  "WordPitchSlopeConfidence": 0,
+                  "SyllablePitchDeltaConfidence": 0.27834114
+                }
+              }
+            }
+          }
+        },
+        {
+          "Word": "a",
+          "Offset": 12000000,
+          "Duration": 700000,
+          "Confidence": 0,
+          "AccuracyScore": 100,
+          "ErrorType": "None",
+          "Syllables": [
+            {
+              "Syllable": "ax",
+              "Grapheme": "a",
+              "Offset": 12000000,
+              "Duration": 700000,
+              "AccuracyScore": 100
+            }
+          ],
+          "Phonemes": [
+            {
+              "Phoneme": "ax",
+              "Offset": 12000000,
+              "Duration": 700000,
+              "AccuracyScore": 100
+            }
+          ],
+          "Feedback": {
+            "Prosody": {
+              "Break": {
+                "ErrorTypes": [
+                  "None"
+                ],
+                "UnexpectedBreak": {
+                  "Confidence": 4.0462428e-8
+                },
+                "MissingBreak": {
+                  "Confidence": 1
+                },
+                "BreakLength": 0
+              },
+              "Intonation": {
+                "ErrorTypes": [
+                  "Monotone"
+                ],
+                "Monotone": {
+                  "Confidence": 0,
+                  "WordPitchSlopeConfidence": 0,
+                  "SyllablePitchDeltaConfidence": 0.27834114
+                }
+              }
+            }
+          }
+        },
+        {
+          "Word": "student",
+          "Offset": 12800000,
+          "Duration": 6000000,
+          "Confidence": 0,
+          "AccuracyScore": 97,
+          "ErrorType": "None",
+          "Syllables": [
+            {
+              "Syllable": "stuw",
+              "Grapheme": "stu",
+              "Offset": 12800000,
+              "Duration": 2300000,
+              "AccuracyScore": 98
+            },
+            {
+              "Syllable": "daxnt",
+              "Grapheme": "dent",
+              "Offset": 15200000,
+              "Duration": 3600000,
+              "AccuracyScore": 88
+            }
+          ],
+          "Phonemes": [
+            {
+              "Phoneme": "s",
+              "Offset": 12800000,
+              "Duration": 300000,
+              "AccuracyScore": 88
+            },
+            {
+              "Phoneme": "t",
+              "Offset": 13200000,
+              "Duration": 1300000,
+              "AccuracyScore": 100
+            },
+            {
+              "Phoneme": "uw",
+              "Offset": 14600000,
+              "Duration": 500000,
+              "AccuracyScore": 100
+            },
+            {
+              "Phoneme": "d",
+              "Offset": 15200000,
+              "Duration": 500000,
+              "AccuracyScore": 100
+            },
+            {
+              "Phoneme": "ax",
+              "Offset": 15800000,
+              "Duration": 500000,
+              "AccuracyScore": 100
+            },
+            {
+              "Phoneme": "n",
+              "Offset": 16400000,
+              "Duration": 700000,
+              "AccuracyScore": 100
+            },
+            {
+              "Phoneme": "t",
+              "Offset": 17200000,
+              "Duration": 1600000,
+              "AccuracyScore": 73
+            }
+          ],
+          "Feedback": {
+            "Prosody": {
+              "Break": {
+                "ErrorTypes": [
+                  "None"
+                ],
+                "UnexpectedBreak": {
+                  "Confidence": 4.0462428e-8
+                },
+                "MissingBreak": {
+                  "Confidence": 1
+                },
+                "BreakLength": 0
+              },
+              "Intonation": {
+                "ErrorTypes": [
+                  "Monotone"
+                ],
+                "Monotone": {
+                  "Confidence": 0,
+                  "WordPitchSlopeConfidence": 0,
+                  "SyllablePitchDeltaConfidence": 0.27834114
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

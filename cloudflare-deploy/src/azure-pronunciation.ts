@@ -82,6 +82,8 @@ function toResult(best: any, d: any): AzurePronResult | AzurePronFail {
     fluency: clamp100(pa?.FluencyScore),
     completeness: clamp100(pa?.CompletenessScore),
     pron: clamp100(pa?.PronScore),
+    /* 🎵 운율 — 요청에서 켰을 때만 온다(EnableProsodyAssessment · en-US). 없으면 null(0 을 지어내지 않음) */
+    prosody: (typeof pa?.ProsodyScore === 'number' && Number.isFinite(pa.ProsodyScore) && pa.ProsodyScore >= 0 && pa.ProsodyScore <= 100) ? Math.round(pa.ProsodyScore) : null,
     text,
     words: Array.isArray(best?.Words) ? best.Words.slice(0, 40).map((w: any) => ({
       word: String(w?.Word || ''),
@@ -110,6 +112,8 @@ export interface AzurePronResult {
   completeness: number;
   /** Azure 종합 발음점수 0~100 */
   pron: number;
+  /** 운율(억양·강세·리듬) 0~100 — prosody 를 켠 호출에서만 값, 아니면 null / prosody only when requested */
+  prosody?: number | null;
   /** Azure 가 알아들은 텍스트(참고용 — 채점의 «정확도» 축은 여전히 Whisper 전사를 쓴다) */
   text: string;
   /** 단어별 점수 — 어느 단어가 틀렸는지 학생에게 보여주기 위함 */
@@ -172,9 +176,10 @@ export function wavSeconds(buf: ArrayBuffer): number | null {
  * @param audio    WAV(PCM) 바이트. webm 등 다른 형식이면 호출부에서 걸러 보내지 말 것.
  * @param reference 모범 문장. Azure 는 이 문장의 음소와 실제 소리를 맞춰 본다.
  * @param lang     'en' | 'ko' | 'zh' …
+ * @param opts.prosody 운율 평가도 켠다(en-US 만 지원). 음성 코칭 «운율 N점» 용 — AI 친구 낱말 짚기는 안 켬
  */
 export async function assessPronunciation(
-  env: any, audio: ArrayBuffer, reference: string, lang: string,
+  env: any, audio: ArrayBuffer, reference: string, lang: string, opts?: { prosody?: boolean },
 ): Promise<AzurePronResult | AzurePronFail> {
   const key = String(env?.AZURE_SPEECH_KEY || '').trim();
   const region = String(env?.AZURE_SPEECH_REGION || '').trim().toLowerCase();
@@ -200,6 +205,8 @@ export async function assessPronunciation(
     Granularity: 'Phoneme',
     Dimension: 'Comprehensive',
     EnableMiscue: true,
+    /* 🎵 (2026-11-09) 실제 Azure 실측: 켜면 NBest[0].ProsodyScore 가 평평하게 온다. 브라우저 SDK 가 켜 둔 것과 같은 값 */
+    ...(opts?.prosody && locale === 'en-US' ? { EnableProsodyAssessment: true } : {}),
   }));
 
   const endpoint = `https://${region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1`
