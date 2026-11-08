@@ -26,6 +26,46 @@ function vocabularyWeek(container,week,ko){
  });container.appendChild(list);
  if(week.some(function(d){return d.limited;}))container.appendChild(node('p','ai-progress-note',ko?'긴 대화의 일부만 기록된 날이 포함되어 있어요.':'Some days include conversations with limited text capture.'));
 }
+function nextFocus(result){
+ // Pick from server-confirmed corrections only; nothing confirmed means nothing shown.
+ var fixes=Array.isArray(result.corrections)?result.corrections:[];
+ for(var i=fixes.length-1;i>=0;i--){var f=fixes[i];if(f&&typeof f.now==='string'&&f.now.trim())return f.now.trim().slice(0,160);}
+ var review=Array.isArray(result.reviewWords)?result.reviewWords:[];
+ return review.length&&text(review[0]).trim()?text(review[0]).trim().slice(0,160):'';
+}
+function shareText(result,ko,focus){
+ var lines=[ko?'망고아이 A.i 말하기':'Mangoi A.i Speaking'];
+ var turns=Number.isSafeInteger(result.turns)?result.turns:result.recordedTurns;
+ if(Number.isSafeInteger(turns)&&turns>0)lines.push(ko?'답변 '+turns+'회':turns+' replies');
+ var words=Array.isArray(result.uniqueWords)?result.uniqueWords.length:0;
+ if(result.wordCountMeasured!==false&&words>0)lines.push(ko?'사용한 영어 단어 '+words+'개':words+' English words used');
+ if(focus)lines.push((ko?'다음 연습: ':'Next practice: ')+focus);
+ return lines.join('\n');
+}
+function share(result,ko,focus,msg){
+ var body=shareText(result,ko,focus),url='https://mangoi.ai',nav=root.navigator||{};
+ var copied=function(){msg.textContent=ko?'복사했어요. 카카오톡·문자에 붙여넣어 보내세요.':'Copied. Paste it into KakaoTalk or a message.';};
+ var manual=function(){msg.textContent=(ko?'아래 글을 복사해서 보내세요:\n':'Copy this text to share:\n')+body+'\n'+url;};
+ var copy=function(){try{nav.clipboard.writeText(body+'\n'+url).then(copied,manual);}catch(_){manual();}};
+ // Phones get the share sheet (KakaoTalk is there); PCs copy, like shareRecordingLink in adm-core.js.
+ if((nav.maxTouchPoints||0)>0&&nav.share){
+  nav.share({title:ko?'망고아이 A.i 말하기':'Mangoi A.i Speaking',text:body,url:url}).catch(function(e){if(!(e&&(e.name==='AbortError'||e.name==='NotAllowedError')))copy();});
+  return;
+ }
+ copy();
+}
+function nextStep(container,result,ko){
+ var focus=nextFocus(result);
+ if(focus){
+  container.appendChild(node('h3','',ko?'다음에 연습할 한 가지':'One thing to practice next'));
+  container.appendChild(node('p','ai-progress-focus',focus));
+ }
+ var row=node('div','ai-progress-next'),msg=node('p','ai-progress-note','');
+ var btn=node('button','ai-progress-retry',ko?'결과 공유하기':'Share result');btn.type='button';
+ btn.onclick=function(){share(result,ko,focus,msg);};
+ var link=node('a','ai-progress-retry',ko?'다음 원어민 수업 보기':'See my next class');link.href='/my-schedule.html';
+ row.appendChild(btn);row.appendChild(link);container.appendChild(row);container.appendChild(msg);
+}
 function render(container,result,lang){
  if(!container)throw new Error('Missing container');
  container.replaceChildren();
@@ -76,6 +116,7 @@ function render(container,result,lang){
   container.appendChild(node('p','', '💎 '+(ko?'완료 시점 보유 보석: ':'Gem balance at completion: ')+value(r.gemsBalance)));
   container.appendChild(node('p','', (ko?'확인된 배지: ':'Recorded badges: ')+(Array.isArray(r.badges)?r.badges.length:(ko?'확인 불가':'Unavailable'))));
  }
+ nextStep(container,result,ko);
 }
 root.AiSpeakingProgressView={render:render};
 })(typeof window!=='undefined'?window:globalThis);
