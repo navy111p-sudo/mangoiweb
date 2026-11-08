@@ -59,3 +59,18 @@ test('week rolls over at KST midnight without including expired words', async ()
     assert.deepEqual(week?.map(d => d.words), [0,0,0,0,0,0,1]);
   } finally { sql.close(); }
 });
+
+// The same completed-practice evidence is used in parent and academy period reports.
+import {readSpeakingVocabularyCounts} from '../src/speaking-growth.ts';
+test('report vocabulary deduplicates the period and preserves account and time boundaries',async()=>{
+ const {sql,db,insert}=database();try{
+  insert('Lee',start,['Hello','world']);insert('Lee',now,['hello','apple'],'complete',1);
+  insert('lee',now,['private']);insert('Lee',now,['unfinished'],'open');insert('Lee',now+1,['future']);
+  assert.deepEqual(await readSpeakingVocabularyCounts(db,'Lee',start,now+1),{sessions:2,uniqueWords:3,limited:true});
+  assert.deepEqual(await readSpeakingVocabularyCounts(db,'none',start,now+1),{sessions:0,uniqueWords:0,limited:false});
+  sql.prepare("UPDATE ai_speaking_sessions SET result_json='broken' WHERE student_uid='Lee'").run();
+  assert.equal(await readSpeakingVocabularyCounts(db,'Lee',start,now+1),null);
+ }finally{sql.close();}
+ assert.equal(await readSpeakingVocabularyCounts({},'Lee',start,now+1),null);
+ assert.equal(await readSpeakingVocabularyCounts({},'Lee',now,start),null);
+});

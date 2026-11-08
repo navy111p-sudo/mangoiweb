@@ -23,6 +23,28 @@ export async function logSpeakingGrowth(db: D1Database, uid: string, feature: 'w
   }catch{console.warn('[speaking-growth] write unavailable');return false;}
 }
 
+/** Distinct recorded English words in completed practices, not an ability score. */
+export async function readSpeakingVocabularyCounts(db: any, uid: string, start: number, end: number) {
+  if (!uid || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+  try {
+    const rows = await db.prepare(`SELECT result_json,capture_limited FROM ai_speaking_sessions
+      WHERE student_uid=? AND status='complete' AND finished_at>=? AND finished_at<?`)
+      .bind(uid,start,end).all();
+    if(rows.success===false || !Array.isArray(rows.results)) return null;
+    const words = new Set<string>(); let limited=false;
+    for(const row of rows.results){
+      const r=JSON.parse(row.result_json);
+      if(!Array.isArray(r?.uniqueWords))return null;
+      for(const word of r.uniqueWords){
+        if(typeof word!=='string'||!/^[a-z]+(?:['’-][a-z]+)*$/i.test(word))return null;
+        words.add(word.toLowerCase());
+      }
+      limited ||= !!row.capture_limited;
+    }
+    return {sessions:rows.results.length,uniqueWords:words.size,limited};
+  }catch{return null;}
+}
+
 export async function readSpeakingGrowth(db: D1Database, uid: string, start: number, end: number) {
   if(!uid||!Number.isFinite(start)||!Number.isFinite(end)||end<=start)return null;
   try{
@@ -30,6 +52,6 @@ export async function readSpeakingGrowth(db: D1Database, uid: string, start: num
     const audio:any=await db.prepare(`SELECT COUNT(*) AS samples,AVG(json_extract(skills_json,'$.pronunciation')) AS pronunciation,AVG(json_extract(skills_json,'$.fluency')) AS fluency FROM speaking_growth_events WHERE user_id=? AND created_at>=? AND created_at<? AND kind='reference-reading' AND source='azure-server-reference-sentence'`).bind(uid,start,end).first();
     const fixes:any=await db.prepare(`SELECT correction_json FROM speaking_growth_events WHERE user_id=? AND created_at>=? AND created_at<? AND correction_json IS NOT NULL ORDER BY created_at DESC,event_id DESC LIMIT 2`).bind(uid,start,end).all();
     const measured=(v:any)=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=100?Math.round(v):null;
-    return {turns:Number(row?.turns||0),sessions:Number(row?.sessions||0),grades:{perfect:Number(row?.perfect||0),partial:Number(row?.partial||0),incomplete:Number(row?.incomplete||0)},reading:{samples:Number(audio?.samples||0),pronunciation:measured(audio?.pronunciation),fluency:measured(audio?.fluency)},skills:{pronunciation:null,fluency:null,grammar:null,vocabulary:null,sentence:null},corrections:(fixes.results||[]).map((x:any)=>JSON.parse(x.correction_json)),basis:'authenticated-server-events',start,end};
+    return {vocabulary:await readSpeakingVocabularyCounts(db,uid,start,end),turns:Number(row?.turns||0),sessions:Number(row?.sessions||0),grades:{perfect:Number(row?.perfect||0),partial:Number(row?.partial||0),incomplete:Number(row?.incomplete||0)},reading:{samples:Number(audio?.samples||0),pronunciation:measured(audio?.pronunciation),fluency:measured(audio?.fluency)},skills:{pronunciation:null,fluency:null,grammar:null,vocabulary:null,sentence:null},corrections:(fixes.results||[]).map((x:any)=>JSON.parse(x.correction_json)),basis:'authenticated-server-events',start,end};
   }catch{return null;}
 }
