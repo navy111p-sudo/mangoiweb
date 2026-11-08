@@ -183,6 +183,8 @@ export async function loadClassChangeAudits(db: any, scheduleIds: any[]): Promis
      · schedule_change_requests 승인 행(status='approved', orig_date·orig_time = 접수 때 서버가 적은 원래 자리)
      · class_audit_log 'postpone'·'reschedule'(lesson_date·lesson_time = 옮기기 전 자리 — class-schedule-move.ts 는 batch 안)
      ⛔ 'restore' 는 안 읽는다 — «연기 취소» 는 원래 자리로 «돌아온» 것이라 남길 줄이 없다.
+        단 하나의 예외(2026-11-08): source=HELD_UNDO_SOURCE 인 'restore'(«연기 되돌리기 — 원래 시각에 이미 열린 수업») 는
+        «줄을 지우는» 표식으로만 읽는다(줄을 만들지 않는다).
    [규칙]
      ① **지금 행이 결정한다** — 날짜가 정해진 행(scheduled_date)이고, 그 날짜가 이 날과 «다를 때만».
         같은 날로 돌아왔으면(되돌림·같은 날 시각만 변경) 줄을 안 만든다(그 행이 그 날 목록에 이미 있다).
@@ -226,6 +228,12 @@ function moveToOf(detail: any): { to_date: string | null; to_time: string | null
 export function movedAwayKey(scheduleId: any, fromDate: string): string {
   return String(scheduleId) + '|' + String(fromDate);
 }
+
+/** ↩ (2026-11-08) «연기 되돌리기 — 원래 시각에 이미 열린 수업» 기록의 표식(class_audit_log.source).
+ *  그 기록(action='restore', lesson_date = 원래 날짜)이 이동 기록보다 «나중» 이면 원래 날짜의 «옮겨 감» 줄을 지운다(loadMovedAwayEvents).
+ *  🔒 서버 경로(class-undo-move.ts undoHeldMove)만 이 값을 쓴다 — 범용 POST /api/admin/class-audit 는 이 source 를 받지 않는다
+ *     (그 길로 적으면 아무 줄이나 숨길 수 있다). */
+export const HELD_UNDO_SOURCE = 'undo-held';
 
 /** [from, to] 날짜 범위에서 «원래 자리였던» 이동 기록을 모은다. 실패하면 그 근거만 빠지고 complete=false. 던지지 않는다. */
 export async function loadMovedAwayEvents(db: any, fromDate: string, toDate: string): Promise<{ byKey: Map<string, MovedAwayEvent>; complete: boolean }> {
@@ -280,7 +288,69 @@ export async function loadMovedAwayEvents(db: any, fromDate: string, toDate: str
         ...moveToOf(r.detail) });
     }
   } catch { complete = false; }
+  /* ↩ (2026-11-08) «연기 되돌리기 — 원래 시각에 이미 열린 수업»(HELD_UNDO_SOURCE) 기록이 이동 기록보다 나중이면 그 줄은 끝난 일이다.
+     ⚠️ 못 읽으면 줄이 «남는» 쪽으로 실패한다(보여 주기 전용 — 숨기는 쪽으로 실패하면 연기 사실이 사라진다) · complete=false 로 알린다. */
+  if (byKey.size) {
+    try {
+      const rs: any = await db.prepare(
+        `SELECT schedule_id, lesson_date, created_at
+           FROM class_audit_log
+          WHERE action = 'restore' AND source = ? AND created_at >= ? AND schedule_id IS NOT NULL
+            AND substr(COALESCE(lesson_date,''),1,10) BETWEEN ? AND ?
+          LIMIT ${CAP + 1}`
+      ).bind(HELD_UNDO_SOURCE, since, f, t).all();
+      const list: any[] = (rs?.results as any[]) || [];
+      if (list.length > CAP) complete = false;
+      for (const r of list.slice(0, CAP)) {
+        const k = movedAwayKey(String(r.schedule_id ?? '').trim(), ymd(r.lesson_date));
+        const e = byKey.get(k);
+        if (e && (Number(r.created_at) || 0) >= (Number(e.at) || 0)) byKey.delete(k);
+      }
+    } catch { complete = false; }
+  }
   return { byKey, complete };
+}
+
+/** ↩ (2026-11-08) 그 날짜에 «살아 있는» 날짜 지정 수업의 자리 — 열쇠 slotKeyOf(날짜, 시각, 학생) → [{id, teacher_id}].
+ *  «원래 자리에 같은 수업이 이미 열려 있나»(heldIdFor) 의 근거. 오늘 수업 API(버튼을 줄지)와 되돌리기 API(실제로 할지)가 «같은 이 함수».
+ *  ⚠️ 못 읽으면 null — «없다» 가 아니라 «모른다»(부르는 쪽: 버튼 안 줌 · API 는 거절). 던지지 않는다.
+ *  ⛔ 매주 반복 행은 안 본다(날짜 지정 행끼리만 — 반복 행의 «그 주» 판정은 이 기능 밖이다). */
+export async function loadLiveDatedSlots(db: any, date: string, uids: any[]): Promise<Map<string, Array<{ id: string; teacher_id: string }>> | null> {
+  const d = ymd(date);
+  const want = Array.from(new Set((uids || []).map(u => String(u ?? '').trim()).filter(Boolean)));
+  const out = new Map<string, Array<{ id: string; teacher_id: string }>>();
+  if (!d || !db) return null;
+  if (!want.length) return out;
+  let failed = false;
+  try {
+    const rows = await selectInChunks<any>(db, want,
+      (ph) => `SELECT id, user_id, start_time, teacher_id, status FROM class_schedules WHERE user_id IN (${ph}) AND scheduled_date = ?`,
+      { tail: [d], swallowErrors: true, onChunkError: () => { failed = true; } });
+    if (failed) return null;
+    for (const r of rows || []) {
+      const st = r.status == null ? 'active' : String(r.status);
+      if (st !== 'active') continue;
+      const k = slotKeyOf(d, r.start_time, r.user_id);
+      if (!k) continue;
+      const arr = out.get(k);
+      const item = { id: String(r.id), teacher_id: String(r.teacher_id ?? '') };
+      if (arr) arr.push(item); else out.set(k, [item]);
+    }
+  } catch { return null; }
+  return out;
+}
+
+/** 원래 자리에 «같은 수업» 이 이미 열려 있으면 그 행 번호 — 같은 학생·같은 날짜·같은 시각·**같은 강사**, 옮긴 행 자신은 뺀다.
+ *  ⛔ 강사가 다르면 «다른 수업» 일 수 있다(그 자리에 새로 잡은 다른 수업) — 옮겨 간 보강을 닫아 버리면 안 되므로 null. */
+export function heldIdFor(slots: Map<string, Array<{ id: string; teacher_id: string }>> | null, date: any, time: any, uid: any, teacherId: any, excludeId: any): string | null {
+  if (!slots) return null;
+  const k = slotKeyOf(date, time, uid);
+  const tid = String(teacherId ?? '').trim();
+  if (!k || !tid) return null;
+  const hit = (slots.get(k) || []).filter(x => x.teacher_id === tid && x.id !== String(excludeId));
+  if (!hit.length) return null;
+  hit.sort((a, b) => Number(a.id) - Number(b.id));
+  return hit[0].id;
 }
 
 /* 🔁 «그 주 하루만» 옮긴 매주 반복 수업의 하루짜리 줄(recurring-one-week.ts 가 만든다).
@@ -441,6 +511,26 @@ export interface MovedAwayUndo {
   from_time: string | null;
   /** 실제로 옮길 행 번호(날짜 지정 행 = 그 행, 매주 반복 = 하루짜리 줄). 못 찾으면 null */
   target_id: string | null;
+  /** ↩ (2026-11-08) 원래 자리(같은 학생·날짜·시각·강사)에 «같은 수업» 이 이미 열려 있으면 true — 옮겨 간 사본을 닫고 이 줄을 정리하는
+   *  «↩ 연기 되돌리기» 를 줄 수 있다. 원래 시각이 지났어도 된다(새 수업을 열지 않는다). true 면 «취소 수업 복원»·«과거 기록 정정» 은 끈다
+   *  (복원하면 한 수업이 두 번 열리고, 정정하면 열린 수업 옆에 «연기됨» 이 남는다). */
+  held_available?: boolean;
+  /** 원래 자리에 열려 있는 그 행 번호(held_available 일 때만) */
+  held_id?: string | null;
+  /** 옮겨 간 사본의 지금 상태 — 'cancelled'(그대로 둔다) | 'active'(아직 시작 전 — 되돌리면 취소된다). held_available 일 때만 */
+  held_copy_status?: 'cancelled' | 'active' | null;
+}
+
+/** ↩ (2026-11-08) 옮겨 간 사본이 «연기 되돌리기» 로 정리될 수 있는 상태인가 — 날짜 지정 행만(매주 반복의 하루짜리 줄은 해당 없음).
+ *  'cancelled' = 그 뒤 취소됨(행은 그대로) · 'active' = 아직 시작 전(되돌리면 취소) · null = 해당 없음(시작했거나 다른 상태).
+ *  ⚠️ 판정(judgeMovedAwayUndo)과 실행(class-undo-move.ts undoHeldMove)이 «같은 이 함수» 를 쓴다. 상태는 정확일치(NULL = active). */
+export function heldCopyState(row: any, child: any, nowMs: number): 'cancelled' | 'active' | null {
+  if (!row || row.id == null || child || !ymd(row.scheduled_date)) return null;
+  const st = row.status == null ? 'active' : String(row.status);
+  if (st === 'cancelled') return 'cancelled';
+  const start = kstStartMs(row.scheduled_date, row.start_time);
+  if (st === 'active' && Number.isFinite(start) && start > nowMs) return 'active';
+  return null;
 }
 
 /** KST «날짜 + HH:MM» → ms. 모양이 틀리면 NaN. */
@@ -450,8 +540,25 @@ function kstStartMs(date: any, time: any): number {
 }
 
 /** 원래 날짜 줄(judgeMovedAway 가 null 이 아니었던 줄)을 «되돌릴 수 있나». ch 가 moved_away 가 아니면 null.
- *  row·child 는 judgeMovedAway 에 넘긴 것과 같은 것. nowMs 는 부르는 쪽의 «지금». */
-export function judgeMovedAwayUndo(row: any, ch: ClassChange | null | undefined, child: any, nowMs: number): MovedAwayUndo | null {
+ *  row·child 는 judgeMovedAway 에 넘긴 것과 같은 것. nowMs 는 부르는 쪽의 «지금».
+ *  heldId — (2026-11-08) 원래 자리에 이미 열려 있는 «같은 수업» 의 행 번호(heldIdFor · D1 은 부르는 쪽이 읽는다). 모르면 생략.
+ *  [왜 heldId] 2026-11-08 사장님·매니저 Mai 재요청(같은 화면 «⏸ Postponed → 11/11 20:00 · later cancelled» + «↩ Restore class · 11/11 20:00»).
+ *    운영 D1 실측: 11/04 18:03 #7730(카페24 미러 수업)을 11/11 로 연기 → 18:15 카페24 미러가 11/04 20:00 에 같은 예약(c24:519537)을
+ *    #7772 로 «다시 만들었고» 카페24 출석은 present(수업이 원래 시각에 열렸다). 11/06 Mai 는 «수업 복원 · 11/11» 을 눌렀다가 1분 뒤 다시
+ *    취소했다 — 원한 것은 11/11 에 여는 것이 아니라 «11/04 의 연기를 없던 일로» 였다. */
+export function judgeMovedAwayUndo(row: any, ch: ClassChange | null | undefined, child: any, nowMs: number, heldId?: string | null): MovedAwayUndo | null {
+  const u = judgeMovedAwayUndoBase(row, ch, child, nowMs);
+  if (!u) return u;
+  const copy = heldCopyState(row, child, nowMs);
+  const held = !!u.from_time && heldId != null && String(heldId) !== '' && String(heldId) !== String(row.id) && copy !== null;
+  u.held_available = held;
+  u.held_id = held ? String(heldId) : null;
+  u.held_copy_status = held ? copy : null;
+  if (held) { u.restore_cancelled_available = false; u.historical_available = false; }
+  return u;
+}
+
+function judgeMovedAwayUndoBase(row: any, ch: ClassChange | null | undefined, child: any, nowMs: number): MovedAwayUndo | null {
   if (!row || !ch || ch.kind !== 'moved_away') return null;
   const from = ymd(ch.from_date);
   if (!from) return null;

@@ -1597,6 +1597,22 @@
   function tcUndoMoveHtml(s) {
     var u = s && s.undo;
     if (!u || !s.schedule_id || !tcCanMessage()) return '';
+    /* ↩ (2026-11-08 사장님·매니저 Mai «원래 시각이 지났어도 연기 되돌리기») 원래 시각에 «같은 수업»(같은 학생·강사·시각)이 이미
+       열려 있으면 — 카페24 미러가 다시 만든 경우 등(판정은 서버 u.held_available · 정본 judgeMovedAwayUndo) — 새 날짜에 다시 여는
+       «수업 복원» 대신 «↩ 연기 되돌리기». 누르면 action:'undo_move' + held:true(tcUndoHeld) — 새 수업을 열지 않고 옮겨 간 수업
+       (시작 전이면)을 취소하고 이 줄을 정리한다. */
+    if (u.held_available === true && u.from_date) {
+      var hBack = (String(u.from_date || '') + ' ' + (u.from_time || '')).trim();
+      var hCh = s.change || {};
+      var hNow = (String(hCh.to_date || '') + ' ' + (hCh.to_time || '')).trim();
+      return '<span class="tc-undo-pin" role="button" tabindex="0" data-held="1" data-sid="' + esc(s.schedule_id) + '" '
+        + 'data-from="' + esc(u.from_date) + '" data-back="' + esc(hBack) + '" data-now="' + esc(hNow) + '" '
+        + 'data-copy="' + (u.held_copy_status === 'active' ? 'active' : 'cancelled') + '" data-name="' + esc(s.student_name || s.student_uid || '') + '" '
+        + 'title="' + esc(T('원래 시각(' + hBack + ')에 같은 수업이 이미 열려 있습니다 — 연기를 없던 일로 합니다', 'The same class is already scheduled at the original time (' + hBack + ') — cancel the postponement')) + '" '
+        + 'style="cursor:pointer;display:inline-block;white-space:nowrap;margin-left:4px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
+        + 'background:#fff7ed;color:#b45309;border:1px solid #fcd9a8">'
+        + esc(T('↩ 연기 되돌리기', '↩ Undo postponement')) + '</span>';
+    }
     if (u.ok !== true && u.historical_available !== true) {
       /* ↩ (2026-11-06 사장님 «원래 시각이 지났어도 되돌리기 옵션») 새 자리가 «그 뒤 취소» 됐고 아직 시작 전이면 이 줄에서 바로
          그 수업을 새 자리에 다시 연다 — 판정은 서버(u.restore_cancelled_available · 정본 judgeMovedAwayUndo), 실행은 대상 행
@@ -1630,6 +1646,7 @@
   /* 서버가 거절하면 그 사유를 사람 말로(조용히 실패하지 않는다). 모르는 코드면 서버 문장(message)을 그대로. */
   async function tcUndoMove(el) {
     if (!el || el._busy) return;
+    if (el.getAttribute('data-held') === '1') return tcUndoHeld(el);
     var sid = el.getAttribute('data-sid'), from = el.getAttribute('data-from') || '';
     var who = el.getAttribute('data-name') || '', back = el.getAttribute('data-back') || '', now = el.getAttribute('data-now') || '';
     var historical = el.getAttribute('data-historical') === '1';
@@ -1667,6 +1684,43 @@
       : T('되돌리지 못했습니다. 잠시 후 다시 시도해 주세요.', 'Could not undo. Please try again shortly.');
     alert('↩ ' + why);
     if (err === 'not_moved' || err === 'no_move_record' || err === 'schedule_changed') { try { window.tcLoadToday(); } catch (e) {} }
+  }
+
+  /* ↩ (2026-11-08) «연기 되돌리기 — 원래 시각에 같은 수업이 이미 열림» — POST {action:'undo_move', from_date, held:true}.
+     서버(class-undo-move.ts undoHeldMove)가 근거(원래 자리의 열린 수업)를 다시 찾는다. 새 수업을 열지 않는다.
+     확인창은 «사실인 것만» — 옮겨 간 수업이 아직 시작 전이면 «취소됩니다», 이미 취소면 «그대로 둡니다». manager.html taUndoHeld 와 같은 뜻. */
+  async function tcUndoHeld(el) {
+    var sid = el.getAttribute('data-sid'), from = el.getAttribute('data-from') || '';
+    var who = el.getAttribute('data-name') || '', back = el.getAttribute('data-back') || '', now = el.getAttribute('data-now') || '';
+    var copyActive = el.getAttribute('data-copy') === 'active';
+    if (!confirm(T('연기를 되돌릴까요?\n\n' + who + ' · 원래 ' + back + '\n같은 수업(같은 강사·같은 시각)이 원래 시각에 이미 열려 있습니다.\n\n· '
+                   + (copyActive ? now + ' 로 옮긴 수업은 취소됩니다(아직 시작 전).' : now + ' 로 옮긴 수업은 이미 취소돼 있어 그대로 둡니다.')
+                   + '\n· 이 날의 «다른 날로 옮김» 표시가 사라집니다.\n· 새 수업을 열지 않습니다. 출석·결제·급여 기록은 바뀌지 않습니다.',
+                   'Undo this postponement?\n\n' + who + ' · original ' + back + '\nThe same class (same teacher, same time) is already scheduled at the original time.\n\n· '
+                   + (copyActive ? 'The moved class at ' + now + ' will be cancelled (not started yet).' : 'The moved class at ' + now + ' is already cancelled and stays cancelled.')
+                   + '\n· The «Moved to another day» mark on this date is removed.\n· No new class is opened. Attendance, payments and payroll records are unchanged.'))) return;
+    el._busy = true;
+    var old = el.textContent;
+    el.textContent = T('되돌리는 중…', 'Undoing…');
+    var j = null, httpOk = false;
+    try {
+      var r = await fetch('/api/admin/class-schedules/' + encodeURIComponent(sid), {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'undo_move', from_date: from, held: true })
+      });
+      httpOk = r.ok;
+      j = await r.json().catch(function () { return null; });
+    } catch (e) { j = null; }
+    el._busy = false;
+    if (httpOk && j && j.ok === true) { try { window.tcLoadToday(); } catch (e) {} return; }
+    el.textContent = old;
+    var err = j && j.error;
+    var stale = err === 'held_not_available' || err === 'not_moved' || err === 'no_move_record' || err === 'schedule_changed';
+    alert('↩ ' + (stale ? T('그 사이 원래 시각의 수업이나 연기 상태가 바뀌었습니다. 목록을 새로고침합니다.', 'The class at the original time or this postponement changed. Refreshing the list.')
+      : err === 'class_already_attended' ? T('옮겨 간 수업에 이미 출석 기록이 있어 되돌릴 수 없습니다. 이력을 확인해 주세요.', 'The moved class already has attendance records, so it cannot be undone. Please check its history.')
+      : (j && (j.message || j.error)) ? String(j.message || j.error)
+      : T('되돌리지 못했습니다. 잠시 후 다시 시도해 주세요.', 'Could not undo. Please try again shortly.')));
+    if (stale) { try { window.tcLoadToday(); } catch (e) {} }
   }
 
   /* ↩ (2026-11-06) «다른 날로 옮김» 줄의 «수업 복원» 이 거절됐을 때의 사람 말 — manager.html taRestoreMoved 와 같은 뜻. */

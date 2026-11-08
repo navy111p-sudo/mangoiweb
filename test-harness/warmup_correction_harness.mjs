@@ -277,7 +277,7 @@ console.log('\nB. 정본 실행 (node 타입 제거 — 컴파일 없이 진짜�
   writeFileSync(join(tmp, 'warmup-correction.ts'), fixImp(readFileSync(join(SRC, 'warmup-correction.ts'), 'utf8')));
   writeFileSync(join(tmp, 'english-only.ts'), fixImp(readFileSync(join(SRC, 'english-only.ts'), 'utf8')));
   const runner = `
-import { parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat, correctionLeadIn } from './warmup-correction.ts';
+import { parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat, correctionLeadIn, fixIsNotACorrection, FIX_FILLER_WORDS, FIX_JUDGE_MAX_LEN } from './warmup-correction.ts';
 const out = [];
 const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String(extra)]);
 
@@ -359,6 +359,114 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
     verifyWarmupFix({ was: 'i go to school', now: 'I go to school', why_ko: '문장 첫 글자는 대문자예요', tag: 'other', severity: 'minor' }, 'i go to school') !== null);
   t('B-9c 구두점만 바뀐 교정은 통과한다 (마침표 추가)',
     verifyWarmupFix({ was: 'I go to school', now: 'I go to school.', why_ko: '문장 끝에는 마침표를 찍어요', tag: 'other', severity: 'minor' }, 'I go to school') !== null);
+
+  /* 2026-11-08 2차 재측정(운영 D1) — AI 영어친구가 «이미 맞는 말» 을 고쳐 따라 말하게 했다. 그 셋은 교정이 아니다.
+     ⚠️ 짝: 사장님 2026-10-31 결정으로 지키는 것(대소문자·마침표 찍기·가운데 낱말 빼기·더듬은 앞부분 빼기)은 그대로 통과. */
+  {
+    const V = (was, now, said) => verifyWarmupFix({ was, now, why_ko: '이렇게 말해요', tag: 'other', severity: 'minor' }, said || was);
+    const REJECT = [
+      ["Let's talk about sports! Do you like soccer?", "Let's talk about sports. Do you like soccer?"],   // 실측 — 끝 부호만
+      ['Wow!', 'Wow.'], ['I like pizza!!', 'I like pizza.'], ['It is fun.', 'It is fun!'],
+      ["Yes, I'm healthy.", "I'm healthy."],                                                          // 실측 — 말머리만 뗌
+      ['Yeah, my dog is big.', 'My dog is big.'], ['Oh, I like it.', 'I like it.'], ['Um, uh, I play soccer.', 'I play soccer.'],
+      ['No, I don’t like it.', 'I don’t like it.'], ['I like cats, okay.', 'I like cats.'],
+      ['Not cats. I sing with my kids.', 'I sing with my kids.'],                                  // 실측 — 따로 떨어진 문장 지움
+      ['I like dogs. They are cute.', 'I like dogs.'], ['Hi! My name is Amy. I am ten.', 'My name is Amy.'],
+    ];
+    const bad = REJECT.filter(([w, n]) => V(w, n) !== null).map(x => x.join(' → '));
+    t('B-9d 🙅 맞는 문장을 고친 척하는 교정은 버린다 (끝 부호 !↔. · 말머리 떼기 · 따로 떨어진 문장 지우기 — 운영 실측 3건 포함)', bad.length === 0, bad.join(' | '));
+    const KEEP = [
+      ['not Secret', 'not secret'], ['i go to school', 'I go to school'], ['I go to school', 'I go to school.'],   // 2026-10-31 결정
+      ['I like the dogs', 'I like dogs'], ['I am I like pizza', 'I like pizza'],                                   // 가운데·더듬은 앞부분
+      ['Do you like soccer.', 'Do you like soccer?'],                                                              // 물음표는 진짜 부호 교정
+      ['yes, i’m healthy', 'I’m healthy'],                                                               // i → I 는 앞을 떼도 교정
+      ['Yes, I dont like it', "I don't like it"],                                                                  // 아포스트로피는 교정
+      ['Yes, I goed home.', 'I went home.'], ['Not cats. I sing with my kid.', 'I sing with my kids.'],            // 떼면서 진짜로 고침
+      ['No, they have, they don’t have time.', 'They don’t have time.'],                                 // 더듬은 말 정리(내용어)
+      ['K-pop music', 'K-pop'], ['I sing well yesterday', 'I sang well yesterday'], ['I go to school yesterday!', 'I went to school yesterday.'],
+    ];
+    const lost = KEEP.filter(([w, n]) => V(w, n) === null).map(x => x.join(' → '));
+    t('B-9e (짝) 진짜 교정·사장님이 지키라 한 교정은 그대로 통과한다', lost.length === 0, lost.join(' | '));
+    t('B-9f (짝) 판정 함수가 거르는 쪽·남기는 쪽을 실제로 가른다(전제 — verifyWarmupFix 의 다른 관문에 가려 헛돌지 않게)',
+      REJECT.every(([w, n]) => fixIsNotACorrection(w, n)) && KEEP.every(([w, n]) => !fixIsNotACorrection(w, n)));
+    t('B-9g 말머리 목록에 내용어(well·right·sure·good·like)가 없다 — «I sing well» 같은 자리에도 오는 말',
+      !['well', 'right', 'sure', 'good', 'like', 'very'].some(w => FIX_FILLER_WORDS.has(w)));
+    /* 🔴 2026-11-08 함정 대조: 옛 B-9h 는 전각 «！。» 라 영어 판정이 원래 false — 아무것도 검사하지 않았다.
+       ASCII 부호로 «영어 판정이면 버려질 교정» 을 만들고(전제), 중국어에서는 남는지 본다. */
+    t('B-9h0 (전제) 그 중국어 교정은 영어 판정이라면 버려질 교정이다', fixIsNotACorrection('我很好!', '我很好.') === true);
+    t('B-9h 중국어 교정에는 걸지 않는다(낱말·문장 경계가 영어 기준)',
+      verifyWarmupFix({ was: '我很好!', now: '我很好.', why_ko: '마침표를 써요', tag: 'other', severity: 'minor' }, '我很好!', { lang: 'zh' }) !== null);
+    /* B-9k 더듬은 앞부분 — 부호가 끼어 있어도(Whisper 는 머뭇거림을 «.»·«...» 로 적는다) 지운 것은 진짜 교정이다.
+       ⚠️ 짝: 대답(Yes, I am.)·완결 문장(I swim. / Not cats. / I am happy.)을 지운 것은 여전히 버린다. */
+    const FS_KEEP = [
+      ['I am. I like pizza.', 'I like pizza.'], ['I want... I like pizza.', 'I like pizza.'], ['I play. I play soccer.', 'I play soccer.'],
+      ['My mom... I like pizza.', 'I like pizza.'], ['Um, I like. I like pizza.', 'I like pizza.'], ['I want to. I want to be a doctor.', 'I want to be a doctor.'],
+      ['Yes, I. I like pizza.', 'I like pizza.'], ['No, the. The dog is big.', 'The dog is big.'], ['Yes, my dog is the. My dog is big.', 'My dog is big.'],   // 대답 말머리 뒤에서 멈춘 말
+    ];
+    const FS_REJECT = [
+      ['Yes, I am. I like pizza.', 'I like pizza.'], ['I swim. I like pizza.', 'I like pizza.'], ['I am happy. I like pizza.', 'I like pizza.'],
+      ['Me too. I like pizza.', 'I like pizza.'], ['Okay, I can. I play soccer.', 'I play soccer.'],
+      ['My favorite food is pizza, I think. I like pizza.', 'I like pizza.'], ['I know where my school is. I like pizza.', 'I like pizza.'],
+      ['Yes, I can. I can swim.', 'I can swim.'], ['Yes, he can swim. He can swim fast.', 'He can swim fast.'], ['Yes, pizza. Pizza is good.', 'Pizza is good.'],   // 대답은 완결된 말   // 길고 완결된 말이 «덜 끝난 낱말» 로 끝나도 더듬기가 아니다
+    ];
+    const fsLost = FS_KEEP.filter(([w, n]) => V(w, n) === null).map(x => x.join(' → '));
+    const fsLeak = FS_REJECT.filter(([w, n]) => V(w, n) !== null).map(x => x.join(' → '));
+    t('B-9k0 (전제) 판정 함수가 더듬기·대답을 실제로 가른다(다른 관문에 가려 헛돌지 않게)',
+      FS_KEEP.every(([w, n]) => !fixIsNotACorrection(w, n)) && FS_REJECT.every(([w, n]) => fixIsNotACorrection(w, n)));
+    t('B-9k 더듬은 앞부분을 지운 교정은 부호가 끼어 있어도 남는다 (I am. / I want... / I play. I play soccer.)', fsLost.length === 0, fsLost.join(' | '));
+    t('B-9k2 (짝) 대답·완결 문장을 지운 «교정» 은 여전히 버린다', fsLeak.length === 0, fsLeak.join(' | '));
+    /* B-9l 말머리를 뗀 뒤 고유명사 대문자는 진짜 교정(사장님 2026-10-31 «대소문자 살림») — 흔한 낱말의 문장 첫 대문자는 아니다 */
+    const PN_KEEP = [['yes, korea is big.', 'Korea is big.'], ['oh, monday is busy', 'Monday is busy'], ['Yes, english is fun.', 'English is fun.']];
+    const PN_REJECT = [['Yes, the dog is big.', 'The dog is big.'], ['Oh, we play soccer.', 'We play soccer.'], ['yeah, it is fun', 'It is fun'], ['No, there is a cat.', 'There is a cat.']];
+    const pnLost = PN_KEEP.filter(([w, n]) => V(w, n) === null).map(x => x.join(' → '));
+    const pnLeak = PN_REJECT.filter(([w, n]) => V(w, n) !== null).map(x => x.join(' → '));
+    t('B-9l 말머리를 뗀 뒤 고유명사를 대문자로 고친 교정은 남는다 (korea → Korea)', pnLost.length === 0, pnLost.join(' | '));
+    t('B-9l2 (짝) 흔한 낱말이 문장 첫머리라 대문자가 된 것만은 교정이 아니다 (the → The)', pnLeak.length === 0, pnLeak.join(' | '));
+    /* B-9m 길이 상한 — 함수만 따로 불려도 느려지지 않는다(상한 없을 때 1,200자 17초 실측). 넘으면 판정하지 않고 교정을 남긴다. */
+    {
+      const longWas = Array.from({ length: 16 }, (_, i) => 'Ok. I like ' + ['cats', 'dogs', 'pizza'][i % 3] + '.').join(' ');
+      const t0 = Date.now(); const r = fixIsNotACorrection(longWas, 'I like pizza.'); const ms = Date.now() - t0;
+      t('B-9m 상한을 넘는 긴 말은 판정하지 않는다(교정을 남김) · 빠르다 — ' + longWas.length + '자 ' + ms + 'ms',
+        FIX_JUDGE_MAX_LEN >= 120 && longWas.length > FIX_JUDGE_MAX_LEN && r === false && ms < 100);
+      const nearCap = 'Yes, ' + 'I like pizza and pasta and cake and juice and milk and bread and soup and rice and fish and eggs '.repeat(4).slice(0, FIX_JUDGE_MAX_LEN - 7).trim() + '.';
+      t('B-9m2 (짝) 상한 안에서는 그대로 판정한다 — ' + nearCap.length + '자', nearCap.length <= FIX_JUDGE_MAX_LEN && fixIsNotACorrection(nearCap, nearCap.slice(5)) === true);
+    }
+    /* 반복 퍼즈 — 맞는 문장 × 말머리·끝 부호·덧붙인 문장 조합을 수천 번 돌려 «하나도 통과 못 한다», 같은 문장의 진짜 시제 교정은 «전부 통과» */
+    const CORE = ['I like pizza', 'My dog is big', 'We play soccer after school', 'She has two cats', 'It is very fun', 'I want to be a doctor', 'They live in Seoul', 'He can swim fast'];
+    const PAST = { 'I like pizza': 'I liked pizza', 'My dog is big': 'My dog was big', 'We play soccer after school': 'We played soccer after school', 'She has two cats': 'She had two cats', 'It is very fun': 'It was very fun', 'I want to be a doctor': 'I wanted to be a doctor', 'They live in Seoul': 'They lived in Seoul', 'He can swim fast': 'He could swim fast' };
+    const PRE = ['', 'Yes, ', 'Yeah, ', 'Oh, ', 'Um, ', 'No, ', 'Okay, ', 'So ', 'Uh, um, ', 'Wow! '];
+    const END = ['.', '!', '!!'];
+    const TAIL = ['', ' I am happy.', ' Thank you!', ' It is fun.'];
+    let n = 0, leaked = [], dropped = [];
+    for (const c of CORE) for (const pre of PRE) for (const e of END) for (const tail of TAIL) for (const e2 of END) {
+      const was = pre + c + e + tail;
+      const nows = [c + e2];
+      if (pre && !tail) nows.push(c + e);
+      for (const now of nows) {
+        if (now === was) continue;
+        n++;
+        if (V(was, now) !== null) leaked.push(was + ' → ' + now);
+      }
+      const past = (pre + PAST[c] + e + tail).replace(/^[a-z]/, (m) => m.toUpperCase());
+      if (V(was, past) === null) dropped.push(was + ' → ' + past);
+    }
+    let fsN = 0; const fsDrop = [], fsLeak2 = [];
+    for (const c of CORE) {
+      const w = c.split(' ');
+      for (let k = 1; k < w.length; k++) for (const mark of ['.', '...']) {
+        fsN++; const was = w.slice(0, k).join(' ') + mark + ' ' + c + '.';
+        if (V(was, c + '.') === null) fsDrop.push(was);
+      }
+      for (const before of ['I am happy. ', 'Thank you! ', 'Yes, I am. ', 'Me too. ', 'No, I can. ']) {
+        fsN++; const was = before + c + '.';
+        if (V(was, c + '.') !== null) fsLeak2.push(was);
+      }
+    }
+    t('B-9k3 반복 퍼즈 — 같은 낱말로 다시 시작한 더듬기 ' + fsN + '가지: 지운 교정은 전부 남고 완결 문장·대답을 지운 것은 전부 버린다',
+      fsDrop.length === 0 && fsLeak2.length === 0 && fsN > 60, fsDrop.slice(0, 3).concat(fsLeak2.slice(0, 3)).join(' | '));
+    t('B-9i 반복 퍼즈 — 맞는 문장을 «말머리·끝 부호·덧붙은 문장만» 바꾼 교정 ' + n + '가지가 하나도 안 통과한다', leaked.length === 0 && n > 1000, leaked.slice(0, 5).join(' | '));
+    t('B-9j (짝) 같은 문장의 진짜 시제 교정은 전부 통과한다', dropped.length === 0, dropped.slice(0, 5).join(' | '));
+  }
 
   t('B-10 why_ko 가 비면 버린다',
     verifyWarmupFix({ was: 'I go', now: 'I went', why_ko: '', tag: 'past_tense', severity: 'minor' }, said) === null);

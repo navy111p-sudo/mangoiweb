@@ -8,6 +8,7 @@
   var NEED = 3;
   var pending = {};
   var done = {};   // session_id → 마지막 결과(성공·한도만 기억)
+  var FINAL = { daily_cap_reached: 1, daily_total_cap_reached: 1, claim_not_awarded: 1, session_mismatch: 1 };
 
   function en() { try { return (typeof window.getLang === 'function' ? window.getLang() : '') === 'en'; } catch (e) { return false; } }
   function uid() {
@@ -36,6 +37,9 @@
     }
     if (e === 'daily_cap_reached') return { cls: 'info', ko: '✅ 오늘 A.i 말하기 포인트는 이미 받았어요 — 내일 또 받아요', en: "✅ You already got today's speaking points — come back tomorrow" };
     if (e === 'daily_total_cap_reached' || e === 'game_daily_cap_reached') return { cls: 'info', ko: '✅ 오늘 받을 수 있는 포인트를 다 채웠어요 — 내일 또 만나요', en: "✅ You've reached today's point limit — see you tomorrow" };
+    /* Final refusals: pressing again cannot change them, so never say «try again». */
+    if (e === 'claim_not_awarded') return { cls: 'info', ko: '✅ 이번 대화로는 포인트가 더 붙지 않았어요 — 오늘 이미 받았거나 오늘 받을 수 있는 포인트를 다 채웠어요', en: '✅ No more points from this conversation — you already got them today or reached the daily limit' };
+    if (e === 'session_mismatch') return { cls: 'info', ko: '🔑 이 대화는 다른 계정에서 시작했어요 — 지금 계정으로 새 대화를 하면 받을 수 있어요', en: '🔑 This conversation started on another account — start a new one with this account to earn points' };
     if (e === 'auth_required') return { cls: 'warn', ko: '🔑 로그인이 풀렸어요 — 다시 로그인하면 포인트를 받을 수 있어요', en: '🔑 Your login expired — log in again to earn points' };
     return { cls: 'warn', ko: '⚠️ 포인트를 확인하지 못했어요 — 잠시 뒤 다시 «끝내고 요약 보기» 를 눌러 주세요', en: "⚠️ Couldn't check points — press «Finish» again in a moment" };
   }
@@ -74,7 +78,7 @@
       method: 'POST', headers: headers,
       body: JSON.stringify({ user_id: u, rule_code: 'warmup_talk', token: tk || undefined, meta: { session_id: sid } })
     }).then(function (r) { return r.json(); }).then(function (d) {
-      if (d && (d.ok === true || d.error === 'daily_cap_reached' || d.error === 'daily_total_cap_reached')) done[sid] = d;
+      if (d && (d.ok === true || FINAL[d.error])) done[sid] = d;
       delete pending[sid];
       paint(view(d)); return d;
     }).catch(function () { delete pending[sid]; paint(view(null)); return null; });
