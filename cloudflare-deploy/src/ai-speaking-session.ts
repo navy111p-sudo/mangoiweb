@@ -115,7 +115,16 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
     const row = await env.DB.prepare(`SELECT * FROM ai_speaking_sessions WHERE id=? AND student_uid=?`)
       .bind(body.sessionId, uid).first<any>();
     if (!row) return json({ ok: false, error: 'session_not_found' }, 404);
-    if (row.status === 'complete') return json({ ok: true, result: measuredOnlyResult(JSON.parse(row.result_json)) });
+    if (row.status === 'complete') {
+      const result = measuredOnlyResult(JSON.parse(row.result_json));
+      // A confirmed turn can finish its atomic payout after the result snapshot.
+      // Refresh only attributable results; legacy unknown attribution stays unknown.
+      if (result.rewardAttributionVersion === 1) {
+        const current = await wallet(env, uid, row.app, row.id, row.source_id, row.started_at);
+        result.rewards = { ...result.rewards, pointsEarned: current.pointsEarned };
+      }
+      return json({ ok: true, result });
+    }
     let turns = JSON.parse(row.turns_json);
     if (!turns.length) return json({ ok: false, error: 'no_completed_turns' }, 409);
     const claimAt = Date.now();

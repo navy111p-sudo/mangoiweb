@@ -18,7 +18,7 @@ try{
   if(url.pathname==='/__aiCalls')return Response.json({modelCalls});
   env.AI={async run(){modelCalls++;return{response:JSON.stringify({reply:'What do you enjoy?',fix:null})};}};
   if(url.pathname==='/__token')return Response.json({token:await signUidToken(url.searchParams.get('uid'),env)});
-  if(url.pathname==='/__credit'){const b=await body();return Response.json({paid:await creditFriendAward(env.DB,b.uid,b.id,b.code)});}
+  if(url.pathname==='/__credit'){const b=await body();return Response.json({paid:await creditFriendAward(env.DB,b.uid,b.id,b.code,b.speakingSession)});}
   if(url.pathname==='/__growth'){const b=await body();await logSpeakingGrowth(env.DB,b.uid,'friend',b.observation,b.id);return Response.json(await readSpeakingGrowth(env.DB,b.uid,0,Date.now()+1000));}
   if(url.pathname==='/__egress'){try{const r=await fetch('https://not-permitted.invalid/');return new Response(r.ok?'allowed':'blocked');}catch{return new Response('blocked');}}
   if(url.pathname.startsWith('/api/ai/'))return await handleAiApi(request,url,env,ctx)||new Response('missing',{status:404});
@@ -78,6 +78,12 @@ try{
  const forgedTurn=crypto.randomUUID();const rejectedAttribution=await call('/api/ai/chat-friend',{...chat,progress_session:foreignSession,progress_turn:forgedTurn,request_id:forgedTurn},ownToken);assert.equal(rejectedAttribution.body.gam.awarded,0);
  assert.equal((await call('/api/ai/speaking-progress',{action:'finish',sessionId:foreignSession},foreignToken)).body.error,'no_completed_turns');
  const forged=await db.prepare('SELECT meta FROM point_transactions WHERE user_id=? ORDER BY id DESC LIMIT 1').bind(uid).first();assert.equal(JSON.parse(forged.meta).speaking_session,session,'foreign session cannot receive reward attribution');
+ // A server-confirmed turn's atomic payout may commit after the finish snapshot.
+ const late=await call('/__credit',{uid,id:crypto.randomUUID(),code:'ai_friend_chat',speakingSession:session});
+ assert.equal(late.body.paid,2);
+ const refreshed=await call('/api/ai/speaking-progress',{action:'finish',sessionId:session},ownToken);
+ assert.equal(refreshed.body.result.rewards.pointsEarned,4,'completed result re-reads attributable ledger after late payout');
+ assert.deepEqual(refreshed.body.result.skills,{},'ledger refresh never restores unvalidated scores');
  assert.equal(egress,0,'no external request during actual D1 tests');
  const probe=await mf.dispatchFetch('http://local.test/__egress');assert.equal(await probe.text(),'blocked');assert.equal(egress,1,'network deny rule is exercised');
  console.log('PASS isolated workerd/D1/KV: generic award bypass denied, auth, atomic replay/cap/rollback, growth provenance; egress blocked');
