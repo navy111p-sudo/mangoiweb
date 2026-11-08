@@ -376,9 +376,15 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
       ['Hi, I like pizza.', 'I like pizza.'], ['Hello, I am Tom.', 'I am Tom.'], ['Hey, I like it.', 'I like it.'], ['Mm, I like it.', 'I like it.'],
       ['Hm, I like it.', 'I like it.'], ['Er, I like it.', 'I like it.'], ['Haha, I like it.', 'I like it.'], ['Uh-huh, I like it.', 'I like it.'],
       ['I, um, like pizza.', 'I like pizza.'], ['I like dogs. Wow. They are cute.', 'I like dogs. They are cute.'], ['And I like pizza.', 'I like pizza.'],
-      ['I like pizza…', 'I like pizza.'], ['I like it!', 'I like it'], ['I like it !', 'I like it.'],
+      ['I like pizza…', 'I like pizza.'], ['I like it!', 'I like it'],
       ['Of course I can. I can swim.', 'I can swim.'], ['I think I can. I can swim.', 'I can swim.'], ['Sure, I can. I can swim.', 'I can swim.'],
       ['What do you think? I think it is fun.', 'I think it is fun.'], ['What do you like? I like pizza.', 'I like pizza.'], ['Come on. Let us play.', 'Let us play.'],
+      /* 함정 대조 3차 — 물음은 감탄문이 아님 · 늘인 말머리 · 둘째 문장 말머리 · 다른 문장의 ! · 쉼표로 감싼 가운데 망설임 */
+      ['How are you.', 'How are you!'], ['How old are you.', 'How old are you!'], ['I like cats okay. I like dogs.', 'I like cats. I like dogs.'],
+      ['Ummm, I like it.', 'I like it.'], ['Hmmm, I like it.', 'I like it.'], ['Yeahh, I like it.', 'I like it.'], ['Ohh, I like it.', 'I like it.'],
+      ['Nah, I like it.', 'I like it.'], ['Mhm, I like it.', 'I like it.'], ['Aww, I like it.', 'I like it.'],
+      ['Yes, my dog is big. Yes, my cat is big.', 'My dog is big. My cat is big.'], ['Wow! What a big dog!', 'What a big dog!'], ['I like pizza, um, and cake.', 'I like pizza and cake.'],
+      ['I like um pizza.', 'I like pizza.'], ['I like uh pizza.', 'I like pizza.'],
     ];
     const bad = REJECT.filter(([w, n]) => V(w, n) !== null).map(x => x.join(' → '));
     t('B-9d 🙅 맞는 문장을 고친 척하는 교정은 버린다 (끝 부호 !↔. · 말머리 떼기 · 따로 떨어진 문장 지우기 — 운영 실측 3건 포함)', bad.length === 0, bad.join(' | '));
@@ -396,6 +402,19 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
       ['Yes, I like pizza cake and juice', 'I like pizza, cake, and juice.'], ['Yes I like pizza', 'I like pizza.'], ['Yes, my e mail is here', 'My e-mail is here.'],
       ['I like, pizza.', 'I like pizza.'], ['What a big dog.', 'What a big dog!'], ['How beautiful.', 'How beautiful!'],
       ['yes, may is my birthday month.', 'May is my birthday month.'], ['Oh, will is my friend.', 'Will is my friend.'], ['I like dogs. my cat is big.', 'My cat is big.'],
+      /* 함정 대조 3차 — 문장 가운데 내용 낱말 빼기(이중부정·남는 and) · 조각문 붙이기 · 끝 말머리를 떼며 마침표 찍기 · a/an 없는 감탄문 ·
+         다른 문장에 ! 가 있는 감탄문 · 부호 앞뒤 띄어쓰기 · 말머리를 떼며 ? 찍기 */
+      ["I don't have no money.", "I don't have money."], ["I don't want no pizza.", "I don't want pizza."], ["There isn't no milk.", "There isn't milk."],
+      ['I like and pizza.', 'I like pizza.'], ['My mom and is a teacher.', 'My mom is a teacher.'], ['We play and soccer.', 'We play soccer.'],
+      ['I like pizza. because it is yummy.', 'I like pizza because it is yummy.'], ['I like cats. and dogs.', 'I like cats and dogs.'],
+      ['I went home. and I slept.', 'I went home and I slept.'], ['I like pizza. so I eat it.', 'I like pizza so I eat it.'],
+      ['I like cats okay', 'I like cats.'], ['I like cats, okay', 'I like cats.'], ['Um, I like pizza, um', 'I like pizza.'],
+      ['What big dogs.', 'What big dogs!'], ['What fun.', 'What fun!'], ['What beautiful flowers.', 'What beautiful flowers!'],
+      ['Wow! What a big dog.', 'Wow! What a big dog!'], ['What a big dog. I love it!', 'What a big dog! I love it!'],
+      ['I like it !', 'I like it!'], ['I like it !', 'I like it.'], ['Hello , my name is Amy .', 'Hello, my name is Amy.'], ['I like it.I like dogs.', 'I like it. I like dogs.'], ['Yes , I like it .', 'Yes, I like it.'],
+      ['Where is it, um.', 'Where is it?'], ['Do you like soccer, yes.', 'Do you like soccer?'],
+      ['Do you like soccer? Yes.', 'Do you like soccer.'], ['I like cats, okay I like dogs', 'I like cats. I like dogs.'], ['I like cats, okay I like dogs.', 'I like cats. I like dogs.'],
+      ['Do you like it? Um. I like it.', 'Do you like it. I like it.'], ['Really? Um, I like it.', 'Really I like it.'], ['Hmm… what a big dog.', 'Hmm… what a big dog!'],
     ];
     const lost = KEEP.filter(([w, n]) => V(w, n) === null).map(x => x.join(' → '));
     t('B-9e (짝) 진짜 교정·사장님이 지키라 한 교정은 그대로 통과한다', lost.length === 0, lost.join(' | '));
@@ -417,6 +436,10 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
       /* 더듬기와 남긴 말 사이에 «말머리뿐인 문장» 이 끼었거나(I want... um...) 더듬기 뒤에 말머리가 붙은 것(I want, um.) */
       ['I want... um... I like pizza.', 'I like pizza.'], ['I. Um. I like pizza.', 'I like pizza.'], ['My dog... uh... my dog is big.', 'My dog is big.'],
       ['I want, um. I want a dog.', 'I want a dog.'], ['I like, uh. I like pizza.', 'I like pizza.'],
+      /* 덜 끝난 be·전치사·to 끝 · 끝을 올려 «?» 가 붙은 같은 낱말 다시 시작(Whisper) */
+      ['My favorite is. My favorite food is pizza.', 'My favorite food is pizza.'], ['The weather is. It is sunny.', 'It is sunny.'],
+      ['I went to. I like the park.', 'I like the park.'], ['I play with. I like soccer.', 'I like soccer.'],
+      ['I want? I want a dog.', 'I want a dog.'], ['My dog is? My dog is big.', 'My dog is big.'],
     ];
     const FS_REJECT = [
       ['Yes, I am. I like pizza.', 'I like pizza.'], ['I swim. I like pizza.', 'I like pizza.'], ['I am happy. I like pizza.', 'I like pizza.'],
@@ -427,6 +450,7 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
       ['Of course I can. I can swim.', 'I can swim.'], ['I think I can. I can swim.', 'I can swim.'], ['Sure, I can. I can swim.', 'I can swim.'],
       ['What do you think? I think it is fun.', 'I think it is fun.'], ['What do you like? I like pizza.', 'I like pizza.'], ['Come on. Let us play.', 'Let us play.'],
       ['That is what I like. I like pizza.', 'I like pizza.'], ['I like it a lot, really. I like pizza.', 'I like pizza.'],   // 다섯 낱말 넘는 완결된 말이 like·really 로 끝남
+      ['I want to. I like pizza.', 'I like pizza.'], ['I think. I like pizza.', 'I like pizza.'], ['Here it is. I like it.', 'I like it.'], ['Yes, it is. It is fun.', 'It is fun.'],   // to·think·대명사 뒤 be 로 끝난 완결된 말
     ];
     const fsLost = FS_KEEP.filter(([w, n]) => V(w, n) === null).map(x => x.join(' → '));
     const fsLeak = FS_REJECT.filter(([w, n]) => V(w, n) !== null).map(x => x.join(' → '));
@@ -450,11 +474,12 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
       /* ⚠️ 199자로 «고정» — 상한에서 계산해 만들면 상한을 줄여도 함께 줄어 검사가 헛돈다(2026-11-08 함정 대조). */
       const nearCap = 'Yes, ' + 'I like pizza and pasta and cake and juice and milk and bread and soup and rice and fish and eggs and tea and jam and corn and peas and pie and nuts and figs and plums and beans and ham and kiwi.';
       t('B-9m2 (짝) 199자 말도 그대로 판정한다 — ' + nearCap.length + '자', nearCap.length === 199 && fixIsNotACorrection(nearCap, nearCap.slice(5)) === true);
-      /* B-9m3 상한 안의 최악 모양(말머리뿐인 문장 50개 · 낱말 100개)도 빠르다 — 판정이 문장 범위 × 정렬이라 모양에 따라 느려질 수 있다 */
-      const WORST = [['Um. '.repeat(50).trim(), 'Um um.'], ['I.'.repeat(99), 'pizza'], ['um, '.repeat(49).trim() + ' x.', 'um um um um um um um um um um x.']];
+      /* B-9m3 상한 안에서 «정렬이 끝까지 실패하는» 모양도 빠르다 — 첫 모양(쉼표 30개 뒤 마침표 찍기)은 메모를 지우면 약 2초 걸린다(2026-11-08 실측).
+         ⚠️ 금방 성공하거나 사전 거름에서 끝나는 모양만 두면 이 검사는 아무것도 못 잡는다(함정 대조 2차). */
+      const WORST = [['uh, '.repeat(30) + 'uh', 'uh '.repeat(12) + 'uh.'], ['Um. '.repeat(50).trim(), 'Um um.'], ['I.'.repeat(99), 'pizza'], ['um uh '.repeat(33).trim(), 'um uh um uh um uh um uh um uh um uh.']];
       let worstMs = 0;
-      for (const [w, nn] of WORST) { const t1 = Date.now(); for (let r2 = 0; r2 < 3; r2++) fixIsNotACorrection(w, nn); worstMs = Math.max(worstMs, (Date.now() - t1) / 3); }
-      t('B-9m3 상한 안 최악 모양 3가지도 빠르다 — 한 번에 ' + worstMs.toFixed(1) + 'ms', WORST.every(([w]) => w.length <= FIX_JUDGE_MAX_LEN) && worstMs < 250);
+      for (const [w, nn] of WORST) { fixIsNotACorrection(w, nn); for (let r2 = 0; r2 < 3; r2++) { const t1 = Date.now(); fixIsNotACorrection(w, nn); worstMs = Math.max(worstMs, Date.now() - t1); } }
+      t('B-9m3 상한 안 최악 모양 ' + WORST.length + '가지도 빠르다 — 가장 느린 한 번 ' + worstMs + 'ms (문턱 50ms)', WORST.every(([w]) => w.length <= FIX_JUDGE_MAX_LEN) && fixIsNotACorrection(WORST[0][0], WORST[0][1]) === false && worstMs < 50);
     }
     /* 반복 퍼즈 — 맞는 문장 × 말머리·끝 부호·덧붙인 문장 조합을 수천 번 돌려 «하나도 통과 못 한다», 같은 문장의 진짜 시제 교정은 «전부 통과» */
     const CORE = ['I like pizza', 'My dog is big', 'We play soccer after school', 'She has two cats', 'It is very fun', 'I want to be a doctor', 'They live in Seoul', 'He can swim fast'];
@@ -690,11 +715,13 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
 process.stdout.write('@@JSON@@' + JSON.stringify(out));
 `;
   writeFileSync(join(tmp, 'run.mjs'), runner);
-  const r = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', join(tmp, 'run.mjs')], { encoding: 'utf8' });
+  /* 시간 제한 — 판정이 멈추면(예: 메모를 빼 지수 시간이 되면) 그 하위 프로세스를 죽이고 FAIL 로 끝낸다.
+     제한이 없으면 부모(run.mjs 90초)만 죽고 자식은 남아 CPU 를 계속 쓴다(실제로 밟음). 평소 1초 안팎. */
+  const r = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', join(tmp, 'run.mjs')], { encoding: 'utf8', timeout: 45000, killSignal: 'SIGKILL' });
   rmSync(tmp, { recursive: true, force: true });
   const marker = (r.stdout || '').indexOf('@@JSON@@');
   if (r.status !== 0 || marker < 0) {
-    check('B-0 정본 실행', false, '종료코드 ' + r.status);
+    check('B-0 정본 실행', false, r.error && r.error.code === 'ETIMEDOUT' ? '45초 안에 끝나지 않음(판정이 멈춤)' : '종료코드 ' + r.status);
     console.log((r.stderr || '').slice(0, 900));
   } else {
     check('B-0 정본 실행', true);
