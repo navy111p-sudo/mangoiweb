@@ -41,7 +41,9 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
     if (ttsResponse) return ttsResponse;
 
     /* ── GET /api/voice/azure-token — 브라우저 발음평가용 «10분 임시 출입증» (2026-08-08) ──
-       왜: Azure 의 REST 짧은오디오 창구는 Pronunciation-Assessment 헤더를 **무시한다**(실측 확정).
+       왜: 2026-08-08 에는 «REST 짧은오디오 창구가 Pronunciation-Assessment 헤더를 무시한다» 고 봤다.
+           ⚠️ 2026-11-08 정정 — 점수는 «평평하게» 와 있었고 서버가 못 읽었던 것(azure-pronunciation.ts paOf).
+           브라우저 SDK 는 그대로 쓴다(음성 코칭·더빙이 이 토큰을 씀).
            평가는 브라우저 Speech SDK 가 직접 해야 한다. 그런데 SDK 에 구독 키를 주면
            **키가 학생 브라우저로 나간다** — 그건 절대 안 된다.
        → Azure 가 주는 «임시 토큰»(유효 10분)만 내려보낸다. 키는 서버에만 남는다.
