@@ -215,6 +215,32 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
   sq.prepare('UPDATE ai_speaking_sessions SET result_json=? WHERE id=?').run(JSON.stringify(old),cached);
   const reopened=await call({action:'finish',sessionId:cached});
   check('legacy uncalibrated scores are suppressed when reopening',()=>{assert.deepEqual(reopened.result.skills,{});assert.equal(reopened.result.score,null);assert.equal(reopened.result.evaluationStatus,'unavailable');assert.equal(reopened.result.rewards.pointsEarned,null);});
+  const repeated=await start(), oversized=await start();
+  for(let n=0;n<18;n++)await recordSpeakingTurn(request({}),env,{progress_session:repeated,progress_turn:crypto.randomUUID()},
+    {app:'friend',student:'apple '.repeat(600),assistant:'Continue.'});
+  await recordSpeakingTurn(request({}),env,{progress_session:oversized,progress_turn:crypto.randomUUID()},
+    {app:'friend',student:'pear '+'a'.repeat(200)+' '+'b'.repeat(201),assistant:'Continue.',correction:'c'.repeat(201)});
+  const repeatedResult=await call({action:'finish',sessionId:repeated}), oversizedResult=await call({action:'finish',sessionId:oversized});
+  console.log('Boundary reproduction statuses',repeatedResult.status,oversizedResult.status);
+  check('over 10000 repeated observed words still produce an exact unique-word result',()=>{
+    assert.equal(repeatedResult.status,200);assert.deepEqual(repeatedResult.result.uniqueWords,['apple']);
+    assert.equal(repeatedResult.result.captureLimited,false);assert.deepEqual(repeatedResult.result.skills,{});
+  });
+  check('201-character spoken and correction tokens are omitted with disclosed limits',()=>{
+    assert.equal(oversizedResult.status,200);assert.deepEqual(oversizedResult.result.uniqueWords,['pear','a'.repeat(200)]);
+    assert.deepEqual(oversizedResult.result.reviewWords,[]);assert.equal(oversizedResult.result.captureLimited,true);
+    assert.equal(oversizedResult.result.weeklyVocabulary.at(-1).limited,true);
+    assert.equal(sq.prepare('SELECT capture_limited FROM ai_speaking_sessions WHERE id=?').get(oversized).capture_limited,1);
+  });
+  const wordBoundSession=await start();
+  const unique=Array.from({length:10500},(_,i)=>{let word='';for(let n=0;n<5;n++){word=String.fromCharCode(97+i%26)+word;i=Math.floor(i/26);}return word;});
+  for(let n=0;n<unique.length;n+=500)await recordSpeakingTurn(request({}),env,{progress_session:wordBoundSession,progress_turn:crypto.randomUUID()},
+    {app:'friend',student:unique.slice(n,n+500).join(' '),assistant:'Continue.'});
+  const wordBoundResult=await call({action:'finish',sessionId:wordBoundSession});
+  check('unique word capacity is bounded without failing the entire result',()=>{
+    assert.equal(wordBoundResult.status,200);assert.equal(wordBoundResult.result.uniqueWords.length,10000);
+    assert.deepEqual(wordBoundResult.result.uniqueWords,unique.slice(0,10000));assert.equal(wordBoundResult.result.captureLimited,true);
+  });
   const bobSession=(await call({action:'start',app:'friend'},'bob')).sessionId;
   await turn(bobSession,{},'bob');
   const clearRequest = new Request('https://speaking.test/api/ai/chat-clear', { method: 'POST',

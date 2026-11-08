@@ -44,14 +44,15 @@ try {
         posts.push(body);
         if (body.action === 'history') return send({ok:true,weeklyVocabulary:Array.from({length:7},(_,i)=>({date:'2026-11-0'+(i+2),words:42,limited:false}))});
         if (body.action === 'start') return send({ ok: true, sessionId: 'local-session-' + name });
+        const reopened = posts.filter(p=>p.action==='finish').length > 1;
         return send({ ok: true, result: {
           lessonId:body.sessionId, finishedNormally: true, score: state === 'zero' ? 0 : null,
           skills: state === 'unavailable' ? {} : state === 'zero' ? { pronunciation:0,fluency:0,grammar:0,vocabulary:0,sentence:0 } : { grammar:85,vocabulary:85,sentence:85 },
 
-          weeklyVocabulary: state === 'unavailable' ? null : Array.from({length:7},(_,i)=>({date:'2026-11-0'+(i+2),words:state === 'zero' ? 0 : i,limited:false})),
+          weeklyVocabulary: reopened ? Array.from({length:7},(_,i)=>({date:'2026-11-0'+(i+2),words:42,limited:false})) : state === 'unavailable' ? null : Array.from({length:7},(_,i)=>({date:'2026-11-0'+(i+2),words:state === 'zero' ? 0 : i,limited:false})),
           uniqueWords: ['i', 'like', 'apples'], reviewWords: ['<img onerror="window.progressXss=1">'], recordedTurns: 1,
           evaluationStatus: state === 'unavailable' ? 'unavailable' : 'measured',
-          rewards: { pointsEarned: 5, pointsBalance: 50, gemsBalance: 30, badges: ['first_class'] }
+          rewards: { pointsEarned: reopened ? 7 : 5, pointsBalance: reopened ? 52 : 50, gemsBalance: 30, badges: ['first_class'] }
         } });
       }
       if (url.pathname === '/api/ai/chat-friend' || url.pathname === '/api/warmup/chat') {
@@ -99,8 +100,10 @@ try {
       await page.locator(app === 'friend' ? '.ai-progress-close' : '#wgSummaryBack').click();
       await page.locator(app === 'friend' ? '.ai-progress-trigger' : '#wgFinish').click();
       await page.locator('.ai-progress-count').filter({hasText:'42'}).first().waitFor();
-      check(posts.filter(p=>p.action==='history').length===1, name + ': reopening refreshes observed words');
-      check(posts.filter(p => p.action === 'finish').length === 1, name + ': reopening does not request evaluation again');
+      check(posts.filter(p=>p.action==='history').length===0, name + ': reopening reads the full completed result');
+      check(posts.filter(p => p.action === 'finish').length === 2, name + ': reopening reads the same session once');
+      const refreshed=await page.locator('.ai-progress-card').innerText();
+      check(refreshed.includes('7P')&&refreshed.includes('52P'),name+': reopening displays late points and refreshed balance');
       check(posts.filter(p => p.award).length === (app === 'warmup' ? 1 : 0), name + ': reopening adds no award request');
       if(width===320&&app==='friend'&&state==='unavailable'){
         await page.evaluate(async()=>{localStorage.setItem('mango_token','another-account');await AiSpeakingProgress.finish();});
