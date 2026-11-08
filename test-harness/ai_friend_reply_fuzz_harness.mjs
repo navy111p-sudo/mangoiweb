@@ -68,18 +68,22 @@ const D_CORE = ["I don't know", 'I do not know', 'I dont know', "I really don't 
   'I dunno', 'idk', 'No idea', 'I have no idea', "I'm not sure", "I'm not really sure", 'Not sure'];
 const D_PRE = ['', 'Um, ', 'Umm ', 'Uh, ', 'Uhm, ', 'Hm, ', 'Hmm... ', 'Ah, ', 'Er, ', 'Mmm, ', 'Well, ', 'Oh, ', 'Sorry, ', 'Actually, ', 'Honestly, ', 'Teacher, ', 'So, '];
 const D_SUF = ['', '.', '!', '...', '?', ', teacher.', ', sorry.', ' yet.', ' haha', ' ㅠㅠ', ', sorry teacher.', ' either.'];
-const D_KO = ['몰라요', '잘 몰라요', '몰라', '음 몰라요', '몰라요ㅠㅠ', '그건 잘 모르겠어요', '그건 모르겠어요.', '이건 진짜 모르겠어요', '어... 몰라요'];
+const D_KO = ['몰라요', '잘 몰라요', '몰라', '음 몰라요', '몰라요ㅠㅠ', '그건 잘 모르겠어요', '그건 모르겠어요.', '이건 진짜 모르겠어요', '어... 몰라요',
+  '이거 모르겠어요', '그거는 진짜 모르겠어요ㅠㅠ', '음... 몰라요', '몰라요 선생님', '잘 몰라요ㅠ'];
 const D = uniq([...D_CORE.flatMap((c) => D_PRE.flatMap((p) => D_SUF.flatMap((s) => variants(p + c + s)))), ...D_KO]);
 // R — 못 알아들었다(다시·천천히·뜻을 모른다). 한국어 «모르겠어요» 는 «그 말만» 일 때 R 이다(한국어로는 «못 알아들었다» 로 더 자주 쓴다).
 const R = uniq([
   'Can you say that again?', 'Can you say that again slowly?', 'Sorry, what?', 'What?', 'Huh?', 'Pardon?', "I don't understand.", "I don't understand the question.",
   'Can you speak slowly?', 'Please speak slowly.', 'Too fast!', 'Say it again, please.', 'Repeat please.', "I didn't hear you.", 'Can you use easy words?',
   "I don't know what that means.", "I don't know what that word means.", "I don't know what this word means, sorry.", "I don't know what you said.",
-  "I don't know what you mean.", "I don't know what hobby means.", "I don't know what 'pet' means.", 'What does hobby mean?', "What does 'pet' mean, teacher?",
+  "I don't know what you mean.", "I don't know what the word hobby means.", "I don't know what 'pet' means.", 'What does the word hobby mean?', "What does 'pet' mean, teacher?",
   'Um, what does that word mean?', 'What do you mean?', 'What does it mean?',
   '모르겠어요', '잘 모르겠어요', '음... 모르겠어요', '선생님 모르겠어요', '선생님, 무슨 말인지 모르겠어요', '무슨 말인지 모르겠어요', '뭔 소리인지 하나도 모르겠어요',
   '무슨 뜻인지 잘 모르겠어요.', '영어를 잘 모르겠어요', '질문을 모르겠어요', '잘 모르겠는데요?', '모르겠어요ㅠㅠ', '모르겠어요 선생님', '쌤 진짜 모르겠어요', '모르겠습니다.',
   '천천히 말해 주세요', '다시 말해 줘', '뭐라고요?', '못 알아들었어요', '이해가 안 가요', '모르겠어요. 다시 말해 주세요.', '모르겠어요, 천천히 말해 주세요',
+  // 함정 대조(2026-11-08)가 짚은 «그 말만» 되묻기 — 첫 판이 «답» 으로 놓쳤다(일부는 화면 음성도 안 느려졌다)
+  '너무 빨라서 모르겠어요', '무슨 말인지 모르겠어요 천천히요', '모르겠어요 천천히', '뭐라는지 모르겠어요', '무슨 소린지 모르겠어요', '뭔소린지 모르겠어요',
+  '질문이 뭔지 모르겠어요', '모르겠어요 다시요', '어려워서 모르겠어요', '모르겠어요 ㅠ ㅠ', '저는 잘 모르겠어요', '저도 모르겠어요',
 ].flatMap(variants));
 // A — 답(이야기). «모른다» 뒤에 이야기가 이어지거나 앞에 대답이 있으면 «그 말만» 이 아니다 — 학생이 꺼낸 얘기를 따라간다.
 const A_STORY = [', anyway I like riding a bicycle.', '. But I love Beauty and the Beast.', ', but I like pizza.', ', maybe blue.', '. My favorite is soccer.', ', so let\'s talk about cats.'];
@@ -92,6 +96,11 @@ const A = uniq([
   'A snail is slow.', 'My sister is talking too fast.', "I don't understand it, but it is fun.",
   '모르겠어요, 근데 저는 축구 좋아해요.', 'I like dogs. 이유는 모르겠어요.', '이유는 모르겠어요', '몰라요, 근데 피자 좋아해요.', '왜 좋은지는 모르겠어요.', '엄마도 모르겠대요.',
   '아직 잘 모르겠지만 축구가 재밌어요.', '천천히 걸어요', '네',
+  // 함정 대조(2026-11-08)가 짚은 «답» — 대명사·사람 이름의 «뜻» 은 낱말 질문이 아니다(첫 판이 되묻기로 삼켰다)
+  'Yes. But sometimes I don\'t know what she means.', 'The doctor said something. I don\'t know what he meant.', "I don't know what they mean.",
+  "I don't know what Grandpa means.", 'What does Mom mean?', 'What does she mean?', 'What does BTS mean?', 'What does Santa mean?', 'What does your dog mean to you?',
+  // ⚠️ 따옴표·«the word» 없는 낱말 하나는 사람 이름과 가를 수 없어 «답» 으로 둔다(먼저 대답 규칙이 뜻을 설명하게 한다)
+  "I don't know what hobby means.", 'What does hobby mean?',
 ].flatMap(variants));
 // Q — 학생이 AI 에게 묻는다(답이기도 하다 — 힌트 없음).
 const Q = ['What about you?', 'How about you?', 'Do you like pizza?', 'What is your favorite food?', 'Do you have a dog?', 'What is your hobby?'];
@@ -140,7 +149,7 @@ const CHEER = ['Nice!', 'Cool!', 'Great!', 'Wow!', 'Okay!'];
 const pickW = (r, w) => { let x = r() * w.reduce((s, v) => s + v[1], 0); for (const [k, v] of w) { if ((x -= v) < 0) return k; } return w[w.length - 1][0]; };
 const POOLS = { R, D, A, Q };
 const stat = { convs: 0, turns: 0, stream: 0, byLabel: { R: 0, D: 0, A: 0, Q: 0 } };
-const bad = { notOk: [], streamNotDone: [], R: [], D: [], A: [], Q: [], recheck: [], calls: [], rows: [] };
+const bad = { notOk: [], streamNotDone: [], R: [], D: [], A: [], Q: [], earlier: [], recheck: [], calls: [], rows: [] };
 const t0 = Date.now();
 // 핸들러의 진단 로그(「[student-twin] lookup failed」 등 — 가짜 D1 에 그 표가 없어서)는 이 절 동안 끈다. 판정은 반환값으로만 한다.
 const quiet = { log: console.log, warn: console.warn, error: console.error };
@@ -162,6 +171,7 @@ for (let c = 0; c < CONVS; c++) {
   if (stream) stat.stream++;
   const turns = 5 + Math.floor(r() * 6);
   let said = 'Hi!', label = 'A', sent = 0, ended = false, prevQ = '';
+  const answered = [];   // { q, label } — 그 질문에 학생이 무엇으로 답했나(R 로 답한 질문은 «아직 안 다룬 것» 이라 기억에 없다)
   for (let t = 0; t <= turns; t++) {
     const res = await SB.chat(g, said, extra);
     stat.turns++;
@@ -181,6 +191,10 @@ for (let c = 0; c < CONVS; c++) {
       if (label === 'A' && !(!m && !d && listed)) bad.A.push({ ...where, meta: m, dk: d, listed });
       if (label === 'Q' && !(!m && !d && listed && res.sys.includes(ASKED_RULE))) bad.Q.push({ ...where, meta: m, dk: d, listed, asked: res.sys.includes(ASKED_RULE) });
       if ((label === 'R' || label === 'D') && res.rechecks.balanced !== 0) bad.recheck.push({ ...where, rechecks: res.rechecks });
+      // 짝 — 방금 질문만 빠지고 «그 앞» 에 답을 들은 질문은 그대로 막는다(통째로 풀어 주면 같은 질문이 또 나간다)
+      const earlier = [...answered].reverse().find((x) => x.label !== 'R');
+      if (earlier && !res.sys.includes(JSON.stringify(earlier.q) + ' →')) bad.earlier.push({ ...where, earlier: earlier.q });
+      if (prevQ) answered.push({ q: prevQ, label });
     }
     prevQ = lastQuestion(res.reply);   // 학생이 «실제로 들은» 답장의 질문(다시 뽑혔으면 그 결과)
     label = pickW(r, [['R', 3], ['D', 3], ['A', 3], ['Q', 1]]);
@@ -203,6 +217,7 @@ ok('②-3 R 턴 — «천천히·다시» 힌트만 붙고 방금 질문은 «�
 ok('②-4 D 턴 — «쉽게·두 개 중 고르기» 힌트만 붙고 방금 질문은 빠진다 · «Anyway, 다음 질문» 규칙 없음', bad.D.length === 0, bad.D.slice(0, 4));
 ok('②-5 A 턴 — 힌트가 없고 방금 질문은 학생 답과 함께 «이미 물은 질문» 에 실린다(짝)', bad.A.length === 0, bad.A.slice(0, 4));
 ok('②-6 Q 턴 — 학생이 물으면 «먼저 대답» 규칙이 실리고 힌트는 없다', bad.Q.length === 0, bad.Q.slice(0, 4));
+ok('②-6b (짝) 어느 턴이든 «그 앞» 에 답을 들은 질문은 «이미 물은 질문» 에 남는다 — R·D 턴에 기억을 통째로 풀지 않는다', bad.earlier.length === 0, bad.earlier.slice(0, 4));
 ok('②-7 R·D 턴은 균형 «교정 다시 묻기» 를 안 부른다(교정할 문장이 아니다 — 속도·비용 그대로)', bad.recheck.length === 0, bad.recheck.slice(0, 4));
 ok('②-8 한 턴의 대화 모델 호출은 많아야 세 번(다시 뽑기 두 번까지)', bad.calls.length === 0, bad.calls.slice(0, 4));
 ok('②-9 주고받은 말이 빠짐없이 기록에 남는다(학생 말 + AI 답 = 턴 × 2)', bad.rows.length === 0, bad.rows.slice(0, 4));
@@ -216,8 +231,8 @@ console.log('③ 속도 — 키워드 × 공백 5만 자');
   }
   ok('③ 전제: 지시 쪽 정규식 네 줄을 소스에서 읽었다', lits.length === 4, lits.length);
   const RES = [M.QM_REASK_KO, M.QM_REASK_EN, M.QM_REASK_ECHO, M.QM_REASK_DONT_KNOW_MEANING, ...lits];
-  const KEYS = ['모르겠', '모르겠어요', '잘 모르겠', '선생님', '무슨 말인지', '뭔 소리인지', '영어를', '음', '어', 'ㅠ', "i don't know what", "i don't know what hobby",
-    'what does', 'what does hobby', 'um', 'sorry', 'teacher', '천천히 말', 'too fast', "i don't understand"];
+  const KEYS = ['모르겠', '모르겠어요', '잘 모르겠', '선생님', '무슨 말인지', '뭔 소리인지', '영어를', '음', '어', 'ㅠ', '빨라서', '뭐라는지', '저는', '모르겠어요 ㅠ', "i don't know what", "i don't know what hobby",
+    'what does', 'what does hobby', "what does 'hobby", 'what does the word', "i don't know what the word", 'um', 'sorry', 'teacher', '천천히 말', 'too fast', "i don't understand"];
   let worst = 0, at = '';
   for (const k of KEYS) for (const sep of [' ', ', ', '?', 'ㅠ', '. ']) {
     const t = k + sep.repeat(50000) + 'x', s0 = performance.now();
