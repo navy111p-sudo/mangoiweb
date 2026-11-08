@@ -1,5 +1,7 @@
 # 📚 망고아이 문서 인덱스
 
+- [2026-11-08 A.i 말하기 음성평가 실제 Azure 점검 준비·현재 상태](작업기록/261108_speaking_live_azure_check.md)
+
 - [2026-11-08 A.i 말하기 후속 PR 준비·배포 확인](작업기록/261108_speaking_pr_readiness.md)
 
 - [2026-11-08 A.i 말하기 결과 통합·평가 근거·보상 귀속 수정](작업기록/261108_speaking_integration_reconciliation.md)
