@@ -35,6 +35,7 @@
   function zh() { try { return typeof window.isZh === 'function' && window.isZh(); } catch (e) { return false; } }
   function t(ko, e) { return en() ? e : ko; }
   function embedded() { var a = AT(); return !!(a && a._cfg && a._cfg.EMBEDDED); }
+  function handsFree() { try { return !window.FtkCall || window.FtkCall.handsFree(); } catch (e) { return true; } }
 
   /* ── 화면 — js/aifriend-facetalk.js 와 같은 모양(같은 id·같은 색) ── */
   var CSS = ''
@@ -151,6 +152,7 @@
     root.querySelector('#ftkStage').addEventListener('click', onFaceTap);
     document.addEventListener('keydown', function (e) { if (active && e.key === 'Escape') exit(); });
     labels();
+    try { window.FtkCall && window.FtkCall.mount(root, CALL); } catch (e) {}
   }
   function labels() {
     if (!root) return;
@@ -172,6 +174,7 @@
   function setOpen(on, byUser) {
     open = !!on;
     if (!glass) return;
+    root.classList.toggle('gl-open', open);
     var grab = root.querySelector('#ftkGrab');
     var closedH = grab ? grab.offsetHeight : 34, full = glass.offsetHeight;
     var shift = open ? 0 : Math.max(0, full - closedH);
@@ -274,6 +277,7 @@
       if (state !== 'pause') showPauseNote();
       setState('pause'); return;
     }
+    if (s === 'idle' && !handsFree()) { setState('pause'); return; }   // ✋ 손 모드 — 마이크(얼굴)를 누를 때까지 기다린다(버튼 모드 엔진)
     if (s === 'idle') {
       /* 쉬기 전 «못 들음» — 엔진은 다음 AI 말까지 기다리지만, 얼굴 화면에는 버튼이 없으니
          대답 보기를 펼치고 한 번 더 듣는다. 못 들은 횟수는 엔진이 세어 두 번이면 쉰다. */
@@ -347,7 +351,7 @@
     if (g('_speechOn') === false && typeof window.toggleSpeech === 'function') { window.toggleSpeech(); speechForced = true; }
     // 자동 말하기 켜기 — 원래 고른 값을 기억했다가 나갈 때 되돌린다
     try { prevMode = localStorage.getItem(MODE_KEY); } catch (e) { prevMode = null; }
-    try { AT().setMode('auto'); } catch (e) {}
+    try { AT().setMode(handsFree() ? 'auto' : 'button'); } catch (e) {}
     try { window.UXT && UXT.hit('ux:warmup-facetalk-open'); } catch (e) {}
     lastTeacher = lastMe = ''; stuckShownAt = -1; idleSince = 0; rearmedForIdle = false;
     clearHelp(); fillText(); labels();
@@ -372,6 +376,7 @@
     // 말하는 방법을 들어오기 전으로 — 저장값이 없던 사람은 «없음» 으로(기본 버튼 모드)
     try {
       if (prevMode !== 'auto') { AT().setMode('button'); if (prevMode == null) localStorage.removeItem(MODE_KEY); }
+      else if (AT().mode() !== 'auto') AT().setMode('auto');   // ✋ 얼굴 화면에서 손 모드로 바꿨어도 원래(자동)로
     } catch (e) {}
     if (speechForced && g('_speechOn') === true && typeof window.toggleSpeech === 'function') window.toggleSpeech();
     speechForced = false;
@@ -456,6 +461,36 @@
     window.addEventListener('resize', function () { if (active) refreshOpen(); });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
+
+  /* 📞 영상통화 화면(js/ftk-call.js)에 건네는 손잡이 — 새 판정 없이 이 화면의 정본을 그대로 부른다 */
+  var slowFrom = null;
+  var CALL = {
+    en: en,
+    title: function () { return zh() ? t('A.i 중국어 말하기', 'A.i Chinese Speaking') : t('A.i 말하기', 'A.i Speaking'); },
+    text: teacherText,
+    /* 소리 조각 = 화면이 실제로 나눠 읽는 그 규칙(_speechChunks) — 없으면 통째로 한 조각 */
+    parts: function (text) { try { return typeof window._speechChunks === 'function' ? window._speechChunks(text) : [text]; } catch (e) { return [text]; } },
+    audio: function () { return g('_ttsAudio') || null; },
+    tap: onFaceTap,
+    close: exit,
+    finish: function () { exit(); var b = document.getElementById('wgFinish'); if (b && !b.disabled) b.click(); },
+    /* 🔁 다시 듣기 — 화면의 «다시 듣기» 와 같은 길(btn 을 넘기면 대화 차례로 세지 않는다) */
+    replay: function () {
+      var s = teacherText();
+      if (!active || !s || g('sending') || typeof window.speak !== 'function') return;
+      try { if (typeof window._micAbortQuiet === 'function') window._micAbortQuiet(); } catch (e) {}
+      clearHelp();
+      window.speak(s, document.createElement('button'));
+    },
+    /* .5X — 이 화면에서만 «아주 느리게»(1단계, 저장 안 함). 끄거나 나가면 원래 속도로 */
+    slow: function (on) {
+      if (typeof window.setRate !== 'function') return;
+      if (on && slowFrom == null) { slowFrom = g('_rateLevel'); window.setRate(1, false); }
+      else if (!on && slowFrom != null) { window.setRate(slowFrom, false); slowFrom = null; }
+    },
+    hands: function (auto) { try { AT().setMode(auto ? 'auto' : 'button'); } catch (e) {} },
+    turns: function () { return document.querySelectorAll('#log .msg.me').length; }
+  };
 
   window.WarmupFaceTalk = { enter: enter, exit: exit, isActive: function () { return active; } };
 })();

@@ -41,12 +41,15 @@
         최상위 함수 선언이라 window 속성과 «같은 바인딩» 이다 — 여기서 갈아 끼우면 화면 안의
         맨이름 호출(stmSpeak·sendMsg)도 이 감싼 판을 부른다. */
   var pending = 0, lastSpeakEnd = 0, spokeThisTurn = false, speechEpoch = 0;
+  var said = [];               // 이번 차례에 소리로 나간 조각들(순서대로) — 자막용
   (function wrapSpeak() {
     if (typeof window.speakText !== 'function' || window.speakText.__ftk) return;
     var orig = window.speakText;
     var wrapped = function (text, btn, row, onDone) {
       var fired = false, epoch = speechEpoch;
       pending++; spokeThisTurn = true;
+      var said1 = String(text || '').replace(/^[\s\u2757\uFE0F]+/, '').trim();
+      if (said1 && !/^\u26A0/.test(said1)) said.push(said1);   // ⚠️ 줄은 소리가 안 난다(speakText 와 같은 규칙)
       var fin = function () {
         if (fired) return; fired = true;
         if (epoch === speechEpoch) { pending = Math.max(0, pending - 1); lastSpeakEnd = Date.now(); }
@@ -186,6 +189,7 @@
       if (active && document.hidden) { stopAll(); setState('pause'); showPauseNote(); }
     });
     labels();
+    try { window.FtkCall && window.FtkCall.mount(root, CALL); } catch (e) {}
   }
   function labels() {
     if (!root) return;
@@ -207,6 +211,7 @@
   function setOpen(on, byUser) {
     open = !!on;
     if (!glass) return;
+    root.classList.toggle('gl-open', open);
     var h = glassHeight();
     var shift = open ? 0 : Math.max(0, h.full - h.closedH);
     var wide = window.matchMedia && window.matchMedia('(min-width:760px)').matches;
@@ -274,6 +279,8 @@
       var t0 = Date.now();
       (function tick() {
         if (!isCurrentTurn(my)) return res(false);
+        /* 대답이 늦게 소리 나면 sendMsg 가 먼저 끝나 watchSpeakState 가 멈춘다 — 기다리는 동안에도 «말하는 중» 으로 보인다(자막·영상통화 화면) */
+        if (state === 'think' && (pending > 0 || avatarSpeaking())) setState('speak');
         var quiet = pending === 0 && !avatarSpeaking() && Date.now() - lastSpeakEnd >= QUIET_MS;
         if (quiet || Date.now() - t0 > SPEAK_WAIT_MS) return res(true);
         setTimeout(tick, 150);
@@ -281,6 +288,14 @@
     });
   }
   function isCurrentTurn(my) { return my === turnSeq && active; }
+  function handsFree() { try { return !window.FtkCall || window.FtkCall.handsFree(); } catch (e) { return true; } }
+  /* 다음 차례 — 자동이면 바로 듣고, ✋ 손 모드면 선생님 말이 끝난 뒤 쉬며 마이크(얼굴) 누르기를 기다린다 */
+  async function next() {
+    if (handsFree()) return listen();
+    var my = ++turnSeq;
+    await waitQuiet(my);
+    if (isCurrentTurn(my)) setState('pause');
+  }
   async function listen() {
     var my = ++turnSeq;
     await waitQuiet(my);
@@ -330,6 +345,7 @@
     silentRuns = 0;
     clearHelp();
     meEl.textContent = t('나: ', 'Me: ') + text; teacherEl.textContent = '';
+    said = [];
     refreshOpen();
     setState('think');
     spokeThisTurn = false;
@@ -350,7 +366,7 @@
                              'The teacher could not answer just now. Tap the teacher to try again.');
       setOpen(true, false); return;
     }
-    listen();
+    next();
   }
   /* 선생님이 말하기 시작하면 주황 — 폴링은 이 턴 동안만 산다 */
   function watchSpeakState(my) {
@@ -409,7 +425,7 @@
     root.querySelector('#ftkX').focus({ preventScroll: true });
     firstPeek();
     var hasTalk = !!lastTeacherText();
-    if (!hasTalk) greet(); else listen();
+    if (!hasTalk) greet(); else next();
   }
   function greet() {
     var my = ++turnSeq;
@@ -417,9 +433,21 @@
     try { if (typeof friendOf === 'function') hi = friendOf(personNow()).hi || ''; } catch (e) {}
     if (!hi || typeof window.speakText !== 'function') return listen();
     teacherEl.textContent = hi; refreshOpen();
+    said = [];
     setState('speak');
     window.speakText(hi, null, null, function () {});
-    if (my === turnSeq) listen();
+    if (my === turnSeq) next();
+  }
+  /* 🔁 선생님 말 다시 듣기(영상통화 화면 왼쪽 버튼) — 첫 인사와 같은 길: 읽고, 끝나면 다음 차례 */
+  function replay() {
+    var s = lastTeacherText();
+    if (!active || !s || state === 'think' || typeof window.speakText !== 'function') return;
+    stopAll(); clearHelp(); silentRuns = 0;
+    teacherEl.textContent = s; refreshOpen();
+    said = [];
+    setState('speak');
+    window.speakText(s, null, null, function () {});
+    next();
   }
   /* 처음 한 번은 저절로 올라왔다 내려가며 «여기에 글이 있다» 를 보여 준다 */
   function firstPeek() {
@@ -514,6 +542,28 @@
     window.addEventListener('mangoi:lang-changed', onLang);
     window.addEventListener('resize', function () { if (active) refreshOpen(); });
   }
+  /* 📞 영상통화 화면(js/ftk-call.js)에 건네는 손잡이 — 새 판정 없이 이 파일의 정본을 그대로 부른다 */
+  var slowFrom = null;
+  var CALL = {
+    en: en,
+    title: function () { return t('A.i 친구하기', 'A.i Friend'); },
+    text: lastTeacherText,
+    parts: function () { return said.slice(); },
+    audio: function () { return window.MangoiTTS && MangoiTTS.getAudioEl ? MangoiTTS.getAudioEl() : null; },
+    tap: onFaceTap,
+    close: exit,
+    finish: function () { exit(); if (window.AiSpeakingProgress) window.AiSpeakingProgress.finish(); },
+    replay: replay,
+    /* .5X — 이 화면에서만 «아주 느리게»(저장 안 함). 끄거나 나가면 원래 속도로 */
+    slow: function (on) {
+      if (typeof applyRate !== 'function' || typeof RATE_STEPS_AF === 'undefined') return;
+      if (on && slowFrom == null) { slowFrom = currentRate; applyRate(RATE_STEPS_AF[0], false); }
+      else if (!on && slowFrom != null) { applyRate(slowFrom, false); slowFrom = null; }
+    },
+    /* 자동으로 바꾸는 순간 쉬고 있으면(안내가 없을 때) 바로 듣는다 */
+    hands: function (auto) { if (auto && active && state === 'pause' && !noteEl.textContent) { silentRuns = 0; listen(); } },
+    turns: function () { return document.querySelectorAll('#chat .msg.user').length; }
+  };
   arm();
 
   window.MangoiFaceTalk = { enter: enter, exit: exit, isActive: function () { return active; } };
