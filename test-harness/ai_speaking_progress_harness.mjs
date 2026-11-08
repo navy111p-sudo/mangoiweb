@@ -27,6 +27,7 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
   globalThis.fetch = async () => { throw new Error('External network is forbidden in this sandbox'); };
   const { DatabaseSync } = await import('node:sqlite');
   const { handleSpeakingSession, recordSpeakingTurn, speakingTextScores } = await import('../cloudflare-deploy/src/ai-speaking-session.ts');
+  const { awardSpeakingPoints } = await import('../cloudflare-deploy/src/speaking-points.ts');
   const { handleAiApi } = await import('../cloudflare-deploy/src/api-ai.ts');
   const { signUidToken } = await import('../cloudflare-deploy/src/auth-token.ts');
   const { evaluateSpeaking } = await import('../cloudflare-deploy/src/ai-speaking-progress.ts');
@@ -62,6 +63,43 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
     const r = await call({ action: 'start', app: 'friend' }, uid);
     check(uid + ' cannot create evaluated sessions', () => assert.equal(r.status, 401));
   }
+  const voice = await start();
+  const wav = Buffer.alloc(32044);
+  wav.write('RIFF'); wav.writeUInt32LE(wav.length-8,4); wav.write('WAVEfmt ',8);
+  wav.writeUInt32LE(16,16); wav.writeUInt16LE(1,20); wav.writeUInt16LE(1,22);
+  wav.writeUInt32LE(16000,24); wav.writeUInt32LE(32000,28); wav.writeUInt16LE(2,32); wav.writeUInt16LE(16,34);
+  wav.write('data',36); wav.writeUInt32LE(wav.length-44,40);
+  const blockExternal = globalThis.fetch;
+  let voiceRequests = 0;
+  globalThis.fetch = async (url, init) => {
+    assert.match(String(url), /^https:\/\/koreacentral\.stt\.speech\.microsoft\.com/);
+    assert.equal(init.body.byteLength, wav.length);
+    voiceRequests++;
+    return Response.json({RecognitionStatus:'Success', NBest:[{Display:'I like apples.',
+      PronunciationAssessment:{AccuracyScore:91,FluencyScore:82,CompletenessScore:100}}]});
+  };
+  env.AZURE_SPEECH_KEY = 'sandbox-azure-speech-only';
+  env.AZURE_SPEECH_REGION = 'koreacentral';
+  try {
+    const audio = {progress_audio:wav.toString('base64')};
+    await turn(voice,audio,'bob');
+    const first = await turn(voice,audio);
+    await turn(voice,first);
+    const measured = await call({action:'finish',sessionId:voice});
+    check('voice marks use the authenticated audio assessment and five-skill overall score', () => {
+      assert.equal(voiceRequests,1);
+      assert.equal(measured.result.skills.pronunciation,91);
+      assert.equal(measured.result.skills.fluency,82);
+      assert.equal(measured.result.score,86);
+      assert.equal(measured.result.acousticSample,true);
+      assert.doesNotMatch(sq.prepare('SELECT turns_json FROM ai_speaking_sessions WHERE id=?').get(voice).turns_json,/UklGR/);
+    });
+  } finally {
+    globalThis.fetch = blockExternal;
+    delete env.AZURE_SPEECH_KEY;
+    delete env.AZURE_SPEECH_REGION;
+  }
+  calls = 0;
   const id = await start();
   const empty = await call({ action: 'finish', sessionId: id });
   check('empty session cannot finish', () => assert.equal(empty.error, 'no_completed_turns'));
@@ -147,6 +185,40 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
   for(let i=0;i<101;i++) await turn(bounded);
   const boundedResult = await call({action:'finish',sessionId:bounded});
   check('long conversations have bounded storage and an explicit partial-data flag',()=>{assert.equal(boundedResult.result.recordedTurns,100);assert.equal(boundedResult.result.captureLimited,true);});
+  const pointSql = new DatabaseSync(':memory:');
+  try {
+    pointSql.exec(`CREATE TABLE point_awards(award_id TEXT PRIMARY KEY,user_id,credited_at);
+      CREATE TABLE student_points(user_id TEXT PRIMARY KEY,student_name,balance,lifetime_earned,last_earned_at,updated_at);
+      CREATE TABLE point_transactions(id INTEGER PRIMARY KEY,user_id,student_name,type,amount,balance_after,reason,rule_code,created_at,meta);
+      CREATE TABLE point_rule_log(user_id,rule_code,amount,triggered_at,txn_id,meta);`);
+    let abortLedger = true;
+    const db = {
+      prepare(sql) { return {bind:(...args)=>({sql,args})}; },
+      async batch(statements) {
+        pointSql.exec('BEGIN');
+        try {
+          const results = statements.map(({sql,args}) => {
+            if (abortLedger && sql.includes('INSERT INTO point_transactions')) throw Error('ledger unavailable');
+            const stmt = pointSql.prepare(sql);
+            const results = sql.includes('RETURNING') ? stmt.all(...args) : (stmt.run(...args), []);
+            return {meta:{changes:pointSql.prepare('SELECT changes() AS n').get().n},results};
+          });
+          pointSql.exec('COMMIT');
+          return results;
+        } catch(error) { pointSql.exec('ROLLBACK'); throw error; }
+      }
+    };
+    const award = {uid:'alice',rule:'warmup_talk',key:'warm-1',amount:5,label:'practice',dailyCap:1,meta:{session_id:'warm-1'}};
+    await assert.rejects(awardSpeakingPoints(db,award));
+    abortLedger = false;
+    const paid = await Promise.all([awardSpeakingPoints(db,award),awardSpeakingPoints(db,award),
+      awardSpeakingPoints(db,{...award,key:'warm-2',meta:{session_id:'warm-2'}})]);
+    check('reward rollback allows retry; duplicates and parallel daily awards pay once', () => {
+      assert.equal(paid.filter(Boolean).length,1);
+      assert.equal(pointSql.prepare('SELECT balance FROM student_points').get().balance,5);
+      assert.equal(pointSql.prepare('SELECT txn_id FROM point_rule_log').get().txn_id,paid.find(Boolean).txnId);
+    });
+  } finally { pointSql.close(); }
   const corrected = await start();
   await recordSpeakingTurn(request({}),env,{progress_session:corrected,progress_turn:crypto.randomUUID()}, {app:'friend',student:'He go home.',assistant:'Where does he live?',correction:'He goes home.'});
   const correctedResult = await call({action:'finish',sessionId:corrected});

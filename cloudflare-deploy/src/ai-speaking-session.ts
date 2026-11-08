@@ -1,6 +1,9 @@
 import type { MangoEnv } from './api-mango';
 import { authUidFromRequest } from './auth-token';
 import { json } from './api-util';
+import { speakingVocabularyWeeks } from './warmup-parent';
+import { assessPronunciation } from './azure-pronunciation';
+import { decodePronAudio } from './pron-focus';
 import { evaluateSpeaking } from './ai-speaking-progress';
 import { checkAndAwardBadges } from './api-games-badges';
 
@@ -28,8 +31,24 @@ export async function recordSpeakingTurn(request: Request, env: MangoEnv, body: 
     const uid = await authUidFromRequest(request, new URL(request.url), env, body);
     if (!uid || /^guest/i.test(uid)) return;
     if (typeof body.progress_turn !== 'string' || body.progress_turn.length > 100) return;
-    const item = { id: body.progress_turn, student: turn.student.slice(0, 4000), assistant: turn.assistant.slice(0, 4000),
+    const item = { acoustic: null as { pronunciation: number; fluency: number } | null, id: body.progress_turn, student: turn.student.slice(0, 4000), assistant: turn.assistant.slice(0, 4000),
       correction: String(turn.correction || '').slice(0, 1000) };
+    const audio = decodePronAudio(body.progress_audio ?? body.pron?.audio_b64);
+    const ref = item.student;
+    if (audio && ref.length <= 500 && speakingWords(ref).length >= 3) {
+      const eligible = await env.DB.prepare(`SELECT 1 FROM ai_speaking_sessions
+        WHERE id=? AND student_uid=? AND app=? AND status='open' AND (app='friend' OR source_id=?)
+        AND json_array_length(turns_json) < ?
+        AND NOT EXISTS (SELECT 1 FROM json_each(turns_json) WHERE json_extract(value,'$.id')=?)
+        AND NOT EXISTS (SELECT 1 FROM json_each(turns_json) WHERE json_type(value,'$.acoustic')='object')`)
+        .bind(body.progress_session, uid, turn.app, body.session_id || '', MAX_TURNS, item.id).first();
+      if (eligible) {
+        const scores = await assessPronunciation(env, audio, ref, 'en');
+        if (scores?.ok && scores.acousticMeasured && scores.completeness >= 80) {
+          item.acoustic = { pronunciation: scores.accuracy, fluency: scores.fluency };
+        }
+      }
+    }
     await env.DB.prepare(`UPDATE ai_speaking_sessions SET
       capture_limited=CASE WHEN json_array_length(turns_json)>=? OR ? THEN 1 ELSE capture_limited END,
       turns_json=CASE WHEN json_array_length(turns_json)<? THEN json_insert(turns_json,'$[#]',json(?)) ELSE turns_json END
@@ -109,7 +128,8 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
     const row = await env.DB.prepare(`SELECT * FROM ai_speaking_sessions WHERE id=? AND student_uid=?`)
       .bind(body.sessionId, uid).first<any>();
     if (!row) return json({ ok: false, error: 'session_not_found' }, 404);
-    if (row.status === 'complete') return json({ ok: true, result: JSON.parse(row.result_json) });
+    if (row.status === 'complete') return json({ ok: true, result: JSON.parse(row.result_json),
+      vocabularyWeeks: await speakingVocabularyWeeks(env.DB, uid, Date.now()) });
     let turns = JSON.parse(row.turns_json);
     if (!turns.length) return json({ ok: false, error: 'no_completed_turns' }, 409);
     const claimAt = Date.now();
@@ -150,19 +170,22 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
       console.warn('[speaking-progress] evaluation unavailable:', evaluationReason);
       // The recorded conversation remains useful when the evaluator is unavailable.
     } finally { clearTimeout(timer); }
+    // shortcut: the first measured voice turn is a sample, increase coverage after staging latency is measured.
+    const acoustic = turns.find((turn: any) => turn.acoustic)?.acoustic;
+    if (acoustic) Object.assign(skills, acoustic);
     try { await checkAndAwardBadges(env, uid); }
     catch { console.warn('[speaking-progress] badge check unavailable'); }
     const result = { ...evaluateSpeaking({ lessonId: row.id, studentId: uid, finishedNormally: true,
       evaluatedAt: new Date().toISOString(), skills, spokenWords: words, correctedWords: review,
       // Turn count is observed; completed sentence count has not been measured.
-      sentencesCompleted: 0, evaluationSource: 'workers-ai-text' }),
-      evaluationStatus, evaluationReason, evaluatedSkills: Object.keys(skills).length, recordedTurns: turns.length, captureLimited: !!captured.capture_limited, sentenceCountStatus: 'unmeasured',
+      sentencesCompleted: 0, evaluationSource: acoustic ? 'workers-ai-text+azure-speech' : 'workers-ai-text' }),
+      evaluationStatus, evaluationReason, acousticSample: !!acoustic, evaluatedSkills: Object.keys(skills).length, recordedTurns: turns.length, captureLimited: !!captured.capture_limited, sentenceCountStatus: 'unmeasured',
       rewards: await wallet(env, uid, row.app, row.id, row.source_id, row.started_at) };
     const saved = await env.DB.prepare(`UPDATE ai_speaking_sessions SET status='complete',result_json=?,finished_at=?
       WHERE id=? AND student_uid=? AND status='evaluating' AND finished_at=?`)
       .bind(JSON.stringify(result), Date.now(), row.id, uid, claimAt).run();
     if (!saved.meta?.changes) throw new Error('result_not_saved');
-    return json({ ok: true, result });
+    return json({ ok: true, result, vocabularyWeeks: await speakingVocabularyWeeks(env.DB, uid, Date.now()) });
   } catch {
     return json({ ok: false, error: 'progress_unavailable' }, 503);
   }

@@ -15,6 +15,7 @@ import { loadVocabWeakRows, friendWeakList } from './vocab-weak';   // 🔁 단�
 import { json } from './api-util';
 import { applyEmpathyGuard, FRIEND_EMPATHY_RULE } from './warmup-empathy';   // 💛 힘들다는 아이에게 칭찬으로 시작하지 않기(2026-09-09)
 import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token';
+import { awardSpeakingPoints } from './speaking-points';
 import { ensurePointTables, applyPointTransaction } from './api-points';
 import { checkEarnAllowed } from './point-policy';   // 🪙 하루 상한 정본(복제 금지)
 
@@ -1015,7 +1016,12 @@ ${timing ? 'Correction timing overrides earlier timing instructions: ' + correct
           // ⚠️ 적립 자체(logAward)는 잔액을 읽고-쓰는 순서라 같은 유저에 대해 동시 실행하면
           //   레이스로 한쪽 적립이 유실될 수 있다 — 반드시 순서대로. "오늘 이미 썼나" 조회만
           //   서로 무관한 읽기라 한꺼번에 보낸다.
-          const logAward = async (code: string, amount: number, label: string) => {
+          const hasProgress = b.progress_session != null || b.progress_turn != null;
+          const awardSession = hasProgress && typeof b.progress_session === 'string' && !!b.progress_session && b.progress_session.length <= 100 &&
+            typeof b.progress_turn === 'string' && !!b.progress_turn && b.progress_turn.length <= 100 &&
+            await env.DB.prepare(`SELECT 1 FROM ai_speaking_sessions WHERE id=? AND student_uid=? AND app='friend' AND status='open'`)
+              .bind(b.progress_session, uid).first();
+          const logAward = async (code: string, amount: number, label: string, dailyCap: number) => {
             /* 🪙 (2026-09-01) 하루 전체 상한(100점)을 여기서도 본다 — 정본 checkEarnAllowed.
                ⚠️ **«줬는지» 를 반드시 돌려준다.** 처음엔 조용히 return 했는데, 부르는 쪽이
                   그 뒤에서 무조건 gam.awarded = 2 를 써서 **적립 0인데 학생 화면이 «+5P»** 라고
@@ -1024,6 +1030,11 @@ ${timing ? 'Correction timing overrides earlier timing instructions: ' + correct
                ⚠️ 여기서 던지지는 않는다 — 포인트가 대화를 막으면 안 된다. */
             const allow = await checkEarnAllowed(env, uid, code, amount);
             if (!allow.ok) { console.log('[ai-friend] 포인트 상한 — 적립 건너뜀:', code, allow.error); return false; }
+            if (hasProgress) {
+              if (!awardSession || usedFallback) return false;
+              return !!await awardSpeakingPoints(env.DB, { uid, rule: code, key: JSON.stringify([b.progress_session,b.progress_turn]),
+                amount, label, dailyCap, meta: { speaking_session: b.progress_session, speaking_turn: b.progress_turn } });
+            }
             const r = await applyPointTransaction(env, { userId: uid, type: 'earn', amount, reason: label, ruleCode: code,
               meta: typeof b.progress_session === 'string' && b.progress_session.length <= 100 ? { speaking_session: b.progress_session } : undefined });
             await env.DB.prepare(`INSERT INTO point_rule_log (user_id, rule_code, amount, triggered_at, txn_id, meta) VALUES (?,?,?,?,?,NULL)`).bind(uid, code, amount, Date.now(), r.txnId).run();
@@ -1046,10 +1057,10 @@ ${timing ? 'Correction timing overrides earlier timing instructions: ' + correct
           ]);
           /* ⚠️ 화면 값은 «실제로 줬을 때만» 쓴다 — logAward 가 false 면 그 자리는 비운다.
              안 그러면 적립 0인데 학생 화면이 «+5P» 라고 축하한다(2026-09-01 실측 경로). */
-          if (chatUsed < 10 && await logAward('ai_friend_chat', 2, '망고와 영어 수다')) gam.awarded = 2;
-          if (wantWord && wordUsed < 1 && await logAward('ai_friend_word', 5, `오늘의 단어(${wod.w}) 사용`)) gam.word_bonus = 5;
-          if (wantVoice && voiceUsed < 5 && await logAward('ai_friend_voice', 1, '영어로 말하기')) gam.voice_bonus = 1;
-          if (wantListen && listenUsed < 5 && await logAward('ai_friend_listen', 1, '자막 없이 듣기')) gam.listen_bonus = 1;
+          if (chatUsed < 10 && await logAward('ai_friend_chat', 2, '망고와 영어 수다', 10)) gam.awarded = 2;
+          if (wantWord && wordUsed < 1 && await logAward('ai_friend_word', 5, `오늘의 단어(${wod.w}) 사용`, 1)) gam.word_bonus = 5;
+          if (wantVoice && voiceUsed < 5 && await logAward('ai_friend_voice', 1, '영어로 말하기', 5)) gam.voice_bonus = 1;
+          if (wantListen && listenUsed < 5 && await logAward('ai_friend_listen', 1, '자막 없이 듣기', 5)) gam.listen_bonus = 1;
           /* 🪙 이번 턴에 대화 포인트를 못 받은 이유 — 화면이 «왜 0P 인지» 를 말하게. 'daily'=오늘 10번 다 받음 · 'total'=하루 전체 상한 */
           gam.chat_capped = chatUsed >= 10 ? 'daily' : (gam.awarded ? null : 'total');
           if (gam.earned_today != null) gam.earned_today = Number(gam.earned_today) + gam.awarded + gam.word_bonus + gam.voice_bonus + gam.listen_bonus;

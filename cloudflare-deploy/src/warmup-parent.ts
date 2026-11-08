@@ -146,6 +146,7 @@ export type ParentWarmup = {
   recent_fixes: Array<{ from: string; to: string; why_ko: string; at: number }>;
   /** KST 최근 7일의 첫 발화가 기록된 대화 수. 완료 횟수·실력 점수가 아니다. */
   weekly_activity: Array<{ date: string; sessions: number }> | null;
+  speaking_vocabulary: SpeakingVocabulary | null;
 };
 
 /** 기존 첫 발화 기록을 재사용한다. 조회 실패와 실제 0회를 구분한다. */
@@ -204,6 +205,7 @@ export async function readParentWarmup(db: any, uid: string, nowMs: number): Pro
     fixes_recorded: fixesRecorded,
     recent_fixes: fixes,
     weekly_activity: weeklyActivity,
+    speaking_vocabulary: await speakingVocabularyBetween(db, uid, start, end),
   };
 }
 
@@ -222,3 +224,37 @@ export async function readParentWarmup(db: any, uid: string, nowMs: number): Pro
       안 되지만 «글자» 는 심깁니다. 막으려면 이 한 줄을 넣을 때 mango_token(resolveOwnerScope 'self')
       을 확인하는 조건을 함께 거세요 — 그것도 사람이 정할 일입니다.
    ───────────────────────────────────────────────────────────────────── */
+
+export type SpeakingVocabulary = { sessions: number; uniqueWords: number };
+
+async function readVocabulary(db: D1Database, uid: string, start: number, end: number, bucketMs: number) {
+  try {
+    const rows = await db.prepare(`SELECT CAST((s.finished_at - ?) / ? AS INTEGER) AS bucket,
+      COUNT(DISTINCT s.id) AS sessions, COUNT(DISTINCT word.value) AS uniqueWords
+      FROM ai_speaking_sessions s
+      LEFT JOIN json_each(CASE WHEN json_valid(s.result_json) THEN s.result_json END, '$.uniqueWords') word
+        ON word.type = 'text'
+      WHERE s.student_uid = ? AND s.status = 'complete' AND s.finished_at >= ? AND s.finished_at < ?
+      GROUP BY bucket ORDER BY bucket`).bind(start, bucketMs, uid, start, end).all<SpeakingVocabulary & { bucket: number }>();
+    return Array.isArray(rows.results) ? rows.results : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function speakingVocabularyBetween(db: D1Database, uid: string, start: number, end: number): Promise<SpeakingVocabulary | null> {
+  const rows = await readVocabulary(db, uid, start, end, end - start);
+  return rows && { sessions: rows[0]?.sessions ?? 0, uniqueWords: rows[0]?.uniqueWords ?? 0 };
+}
+
+export async function speakingVocabularyWeeks(db: D1Database, uid: string, now: number) {
+  const end = Math.floor((now + KST_MS) / DAY_MS) * DAY_MS - KST_MS + DAY_MS;
+  const week = 7 * DAY_MS;
+  const start = end - 4 * week;
+  const rows = await readVocabulary(db, uid, start, end, week);
+  if (!rows) return null;
+  return Array.from({ length: 4 }, (_, bucket) => ({
+    date: new Date(start + bucket * week + KST_MS).toISOString().slice(0, 10),
+    uniqueWords: rows.find(row => row.bucket === bucket)?.uniqueWords ?? 0,
+  }));
+}

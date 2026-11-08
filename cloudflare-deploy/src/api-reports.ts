@@ -10,7 +10,7 @@ import { computeGrowthForStudent } from './api-judgment';  // 🧠 판단력 성
 import type { MangoEnv } from './api-mango';
 
 import { ATTENDANCE_BY_UID, attUidBinds } from './attendance-uid';
-import { warmupCountsBetween } from './warmup-parent';   // 👪 웜업 횟수(2026-10-02 P4)
+import { speakingVocabularyBetween, warmupCountsBetween } from './warmup-parent';   // 👪 웜업 횟수(2026-10-02 P4)
 // ═══════════════════════════════════════════════════════════════════════
 // 📊 월간 AI 레포트 — 공용 헬퍼 (생성 + AI + 카카오 발송 + 월간 배치)
 //   엔드포인트: /api/admin/monthly-report/{generate,send,list}, /api/report/monthly-view
@@ -450,6 +450,7 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
     growth_highlight: growthHighlight,
     ai_activity_count: aiActivityCount,
     warmup: warmupCounts,
+    speaking_vocabulary: await speakingVocabularyBetween(env.DB, uid, start, end),
     teacher_name: teacherName,
     ai_text: aiDraftCommentKo,  // 기존 monthly-report.html "담임의 한마디" 카드 하위호환(Phase 2 전까지)
     ai_draft_comment_ko: aiDraftCommentKo,

@@ -253,7 +253,7 @@ const stepsOf = (html, isAF) => {
 };
 const PAGES = [
   { file: 'ai-friend.html', head: 'function maybeAdjustRate(text) {', send: 'async function sendMsg(e) {', call: 'maybeAdjustRate(msg);' },
-  { file: 'warmup.html', head: 'function maybeAdjustRate(text){', send: 'async function sendMsg(){', call: 'maybeAdjustRate(text);' },
+  { file: 'warmup.html', head: 'function maybeAdjustRate(text){', send: 'async function sendMsg(recordedAudio){', call: 'maybeAdjustRate(text);' },
 ];
 for (const pg of PAGES) {
   const html = read(path.join(PUB, pg.file));

@@ -63,8 +63,14 @@ export function phonemesOf(w: any, num: (v: any) => number): { p: string; acc: n
    ⛔ 키·응답 본문 같은 민감한 값은 절대 담지 않는다. 사유 «이름» 뿐이다. */
 export interface AzurePronFail { ok: false; reason: string; }
 
+function acousticMeasured(scores: any): boolean {
+  return [scores.AccuracyScore, scores.FluencyScore, scores.CompletenessScore]
+    .every(value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100);
+}
+
 export interface AzurePronResult {
   ok: true;
+  acousticMeasured: boolean;
   /** 음소 단위 발음 정확도 0~100 — 이게 «또렷함» 을 대체한다 */
   accuracy: number;
   /** 끊김·머뭇거림 0~100 */
@@ -239,6 +245,7 @@ export async function assessPronunciation(
             const n2 = (v: any) => { const x = Number(v); return isFinite(x) ? Math.max(0, Math.min(100, Math.round(x))) : 0; };
             return {
               ok: true,
+              acousticMeasured: acousticMeasured(pa2),
               accuracy: n2(pa2.AccuracyScore), fluency: n2(pa2.FluencyScore),
               completeness: n2(pa2.CompletenessScore), pron: n2(pa2.PronScore),
               text: String(b2?.Display || d2?.DisplayText || '').trim(),
@@ -272,6 +279,7 @@ export async function assessPronunciation(
 
     return {
       ok: true,
+      acousticMeasured: acousticMeasured(pa),
       accuracy: num(pa.AccuracyScore),
       fluency: num(pa.FluencyScore),
       completeness: num(pa.CompletenessScore),

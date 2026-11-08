@@ -4013,7 +4013,7 @@ async function micViaWhisper(){
      알아듣지 못했다(src/stt-loop.ts). 아무 말 없이 넘어가면 학생은 기다리기만 한다 — 사실대로 말한다. */
   if(!said && heard && !errored) addMsg(wuT('🎤 잘 못 알아들었어요. 조금 더 또박또박 다시 말해 주세요.', '🎤 I didn\'t catch that. Please say it again more clearly.'), 'sys');
   if(said && manual && !_whisperUserStop){ _micManualHold(said); return; }   // ✋ 수동: ⏹ 를 눌러야 보낸다
-  if(said){ document.getElementById('inp').value=said; sendMsg(); }
+  if(said){ document.getElementById('inp').value=said; sendMsg(recBlob); }
 }
 /* 🎤 녹음 파일 말소리 판정은 공용 정본 js/voice-has-speech.js — 없으면 null(예전대로 버림) */
 function _blobHasVoice(blob){
@@ -4964,7 +4964,7 @@ function warmupReplyText(d){
   return 'Try saying it with me: ' + d.fix.now;
 }
 
-async function sendMsg(){
+async function sendMsg(recordedAudio){
   await warmupRatePreference.ready;
   if(typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged(true);
   if(_warmPaused)return;
@@ -5014,6 +5014,10 @@ async function sendMsg(){
   try{
     var body = withCtx({ session_id: SESSION_ID, student_input: text });
     if(window.AiSpeakingProgress) Object.assign(body, await window.AiSpeakingProgress.beforeTurn());
+    if(body.progress_session && recordedAudio && _warmLang === 'en') {
+      body.progress_audio = await AiSpeakingProgress.audioBase64(recordedAudio, _wavBlob);
+      if(_warmPaused || epoch!==_warmEpoch) return;
+    }
     var _stmOn = _stmWanted(); if(_stmOn){ body.stream = 1; body.final_reply = 1; }
     var r = await warmupFetch(warmupEndpoint(), {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
@@ -5365,8 +5369,8 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 <script src="/js/warmup-touch-bar.js?v=2" defer></script>
 <script src="/js/warmup-dock.js?v=2" defer></script><!-- 📱 세로 화면: 아래 버튼 줄 자동 접힘·손잡이 (2026-11-02) --><!-- 📱 터치 기기 전용 아래 3칸 바(도움·말하기·글쓰기) — 2026-09-26 시안 4 -->
 <link rel="stylesheet" href="/css/ai-speaking-progress.css?v=3">
-<script defer src="/js/ai-speaking-progress-view.js?v=4"></script>
-<script defer src="/js/ai-speaking-progress.js?v=6"></script>
+<script defer src="/js/ai-speaking-progress-view.js?v=5"></script>
+<script defer src="/js/ai-speaking-progress.js?v=7"></script>
 <script src="/js/ai-speaking-settings.js?v=3" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — setCorrMode 가 씀 (2026-11-04) -->
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 <script defer src="/js/warmup-photo-icons.js?v=5"></script>

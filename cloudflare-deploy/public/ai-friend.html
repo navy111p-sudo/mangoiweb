@@ -2082,15 +2082,18 @@
         const tgt = pronTargetFromAi(_lastAiText);
         if (tgt) pronBody = await pronPayload(_lastRecBlob, tgt);
       }
+      const progressBlob = wasVoice ? _lastRecBlob : null;
       _lastRecBlob = null;
       try {
         const progressMeta = window.AiSpeakingProgress ? await window.AiSpeakingProgress.beforeTurn() : {};
+        const progressAudio = progressMeta.progress_session && !pronBody && progressBlob
+          ? (await pronPayload(progressBlob, msg))?.audio_b64 : undefined;
         const r = await fetch('/api/ai/chat-friend', {
           method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
           // 🧑 friend — 서버가 「너는 Lily 야」로 프롬프트를 만든다. 안 보내면 AI 가 자기를
           //    'Mango' 로 알고, 「Hi! I'm Lily」로 인사해 놓고 이름을 물으면 다른 이름을 댄다
           //    (2026-08-31 사장님 제보). 「번갈아」면 personNow() 가 그 턴의 사람을 준다.
-          body: JSON.stringify({ ...progressMeta, uid: auth.uid, msg, level: currentLevel, persona: currentPersona,
+          body: JSON.stringify({ ...progressMeta, progress_audio: progressAudio, uid: auth.uid, msg, level: currentLevel, persona: currentPersona,
                                  friend: personNow(),
                                  correction_timing: turnTiming || undefined,
                                  correction_mode: turnCorr,   // 🎚️ 교정 방식 (서버 기본값 = 집중교정)
@@ -2560,8 +2563,8 @@
 <script src="/js/ux-track.js?v=1" defer></script>
 <script src="/js/repeat-score.js?v=1" defer></script><!-- 🎤 «따라 말해 보기» 채점 (2026-10-18) -->
 <link rel="stylesheet" href="/css/ai-speaking-progress.css?v=3">
-<script defer src="/js/ai-speaking-progress-view.js?v=4"></script>
-<script defer src="/js/ai-speaking-progress.js?v=6"></script>
+<script defer src="/js/ai-speaking-progress-view.js?v=5"></script>
+<script defer src="/js/ai-speaking-progress.js?v=7"></script>
 <script src="/js/ai-speaking-settings.js?v=3" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — 교정 버튼이 씀 (2026-11-04) -->
 <script defer src="/js/flow.js?v=23"></script><!-- 🚀 다음으로 이동(MangoFlow) -->
 

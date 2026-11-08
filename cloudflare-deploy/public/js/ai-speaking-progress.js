@@ -39,6 +39,25 @@
     }
     return { progress_session: sessionId, progress_turn: crypto.randomUUID() };
   }
+  async function audioBase64(blob, encodeWav) {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      var OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      if (!AC || !OAC || !blob || blob.size > 2000000) return undefined;
+      var decoder = new AC(), audio;
+      try { audio = await decoder.decodeAudioData(await blob.arrayBuffer()); }
+      finally { await decoder.close().catch(function () {}); }
+      if (!audio || audio.duration > 11) return undefined;
+      var offline = new OAC(1, Math.max(1, Math.ceil(audio.duration * 16000)), 16000);
+      var source = offline.createBufferSource();
+      source.buffer = audio; source.connect(offline.destination); source.start();
+      var wav = encodeWav(await offline.startRendering());
+      var bytes = new Uint8Array(await wav.arrayBuffer()), binary = '';
+      for (var i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      var encoded = btoa(binary);
+      return encoded.length <= 500000 ? encoded : undefined;
+    } catch (_) { return undefined; }
+  }
   function message(text, retry) {
     card.replaceChildren();
     var p = document.createElement('p'); p.setAttribute('role', 'status'); p.textContent = text; card.appendChild(p);
@@ -77,7 +96,7 @@
         if (warmup && window.__mgWarmupPts) await window.__mgWarmupPts.run();
         var data = await api({ action: 'finish', sessionId: requestedId });
         if (!data.result || data.result.finishedNormally !== true || data.result.lessonId !== requestedId) throw new Error('progress_unavailable');
-        if(sessionId === requestedId) { result = data.result; closed = true; paint(); }
+        if(sessionId === requestedId) { result = Object.assign({}, data.result, { vocabularyWeeks: data.vocabularyWeeks }); closed = true; paint(); }
       } catch (error) {
         if(sessionId !== requestedId) return;
         var texts = {
@@ -114,6 +133,6 @@
     window.addEventListener('storage', function (event) { if (event.key === 'mango_token' || event.key === null) paint(); });
     document.addEventListener('mangoi:lang-changed', paint);
   }
-  window.AiSpeakingProgress = { beforeTurn: beforeTurn, finish: finish, reset: reset };
+  window.AiSpeakingProgress = { beforeTurn: beforeTurn, finish: finish, reset: reset, audioBase64: audioBase64 };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
 })();

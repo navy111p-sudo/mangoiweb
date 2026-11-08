@@ -16,6 +16,7 @@ import type { MangoEnv } from './api-mango';
 import { isPrivateDubbingKey } from './api-dubbing';
 // 🪙 포인트 정책 정본(2026-08-07 사장님 승인 7가지) — 금액·상한·유효기간·교환최소는 여기 한 곳에서만 정한다
 import { POINT_POLICY, checkEarnAllowed, syncApprovedRuleAmounts, praiseCountForRoom } from './point-policy';
+import { awardSpeakingPoints } from './speaking-points';
 import { awardJudgmentPoint } from './judgment-points';   // 🪙 판단력 훈련 정답 2P(2026-11-02)
 /* 🍯 맛보기 상한 판정 정본 — 라우트는 «부르기만» 한다(하니스가 그 함수를 실제로 돌린다) */
 import { SAMPLE_SCENARIO_CAP, sampleScenarioAllowed } from './judgment-sample-gate';
@@ -400,6 +401,12 @@ export async function handlePointsApi(
       }
       // 적립
       try {
+        if (ruleCode === WARMUP_POINT_RULE) {
+          const r = await awardSpeakingPoints(env.DB, { uid: userId, rule: ruleCode, key: body.meta.session_id,
+            amount: rule.amount, label: rule.label, dailyCap: WARMUP_POINT_DAILY_CAP, meta: body.meta, studentName: body.student_name });
+          if (!r) return json({ ok: false, error: 'daily_cap_reached', cap: WARMUP_POINT_DAILY_CAP });
+          return json({ ok: true, ...r, rule: { code: rule.code, label: rule.label, amount: rule.amount } });
+        }
         const r = await applyPointTransaction(env, {
           userId, studentName: body.student_name, type: 'earn',
           amount: rule.amount, reason: rule.label, ruleCode, meta: body.meta,

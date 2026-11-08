@@ -228,7 +228,7 @@
     var vo = d.voice||{};
     var att = (d.attendance||{}).days||0;
     var items = ev.items||[];
-    var hasData = (ev.count>0)||(att>0)||((vo.sessions||0)>0)||!!d.judgment||!!(d.scene_words&&d.scene_words.sessions>0);
+    var hasData = (ev.count>0)||(att>0)||((vo.sessions||0)>0)||!!d.judgment||!!d.speaking_vocabulary?.sessions||!!(d.scene_words&&d.scene_words.sessions>0);
 
     var goals = items.map(function(r){return r.next_goals;}).filter(Boolean).slice(-3);
     var aiText = d.ai_text || (hasData ? t('이번 달 학습 요약입니다.','Monthly learning summary.') : '');
@@ -289,6 +289,12 @@
           '</div>';
       }
       /* ✍️ 교재 낱말 쓰기 숙제 — 한 판이라도 했을 때만(서버가 null 이면 카드째 생략). 약한 낱말은 «다시 볼 것» 으로만 말한다. */
+      var spoken=d.speaking_vocabulary;
+      if(spoken&&spoken.sessions>0){
+        html += '<div class="card"><h3>'+t('A.i 말하기 어휘','A.i Speaking Vocabulary')+'</h3><p>'+
+          esc(spoken.sessions)+t('회 완료 · 사용한 영어 고유 단어 ',' completed sessions · unique English words used ')+
+          esc(spoken.uniqueWords)+'</p></div>';
+      }
       var sw=d.scene_words;
       if(sw&&sw.sessions>0){
         html += '<div class="card"><h3>✍️ '+t('교재 낱말 쓰기 숙제','Textbook Word Writing')+'</h3>'+

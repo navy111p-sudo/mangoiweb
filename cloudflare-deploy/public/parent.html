@@ -534,6 +534,11 @@ function pdWarmupHtml(w, en) {
     }
   }
   h += '<div style="font-weight:800;color:var(--pd-accent);margin:14px 0 8px;font-size:15px">' + T('✏️ A.i 가 고쳐 준 표현', '✏️ Expressions the A.i corrected') + '</div>';
+  const spoken = w.speaking_vocabulary;
+  if (spoken && Number.isSafeInteger(spoken.sessions) && spoken.sessions > 0 && Number.isSafeInteger(spoken.uniqueWords)) {
+    h += '<div class="stat">' + T('이번 달 사용한 영어 고유 단어', 'Unique English words used this month')
+      + '<span class="v gold">' + fmt(spoken.uniqueWords) + '</span></div>';
+  }
   const fixes = Array.isArray(w.recent_fixes) ? w.recent_fixes.slice(0, 2) : [];
   if (!w.fixes_recorded) {
     h += '<div class="empty" style="padding:14px 12px">' + T('고쳐 준 표현은 아직 기록하고 있지 않아요. 기록이 시작되면 이곳에 보여 드려요.', 'Corrected expressions are not being recorded yet. They will appear here once recording starts.') + '</div>';
