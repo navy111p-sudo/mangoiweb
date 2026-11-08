@@ -76,3 +76,12 @@ NODE_USE_ENV_PROXY=1 node test-harness/manual/azure-speech-live-check.mjs
 영향: AI 친구 «집중 교정» 의 발음 짚기가 처음으로 실제로 동작한다(낱말 60점 미만 + Mispronunciation 일 때만). 기준 문장 읽기 근거는 여전히 `reference` 를 보내는 화면이 없어 비어 있다 — 음성 코칭이 서버로 보낼지는 사람이 정할 일.
 
 다시 재는 법(키 없이): `AZURE_TOKEN_URL=https://mangoi.ai/api/voice/azure-token NODE_USE_ENV_PROXY=1 node test-harness/manual/azure-speech-live-check.mjs`
+
+## 7. 후속 — AI 친구 발음 짚기 기준 낱말 (2026-11-09, #2210)
+
+6장 수정으로 발음 짚기가 실제로 돌기 시작해, 화면이 고르는 «기준 낱말» 을 운영 D1(SELECT 만, 최근 60일 AI 답 281건)에 다시 대 봤다.
+
+- 질문으로 끝나는 답의 약 30%(78건)가 `? 🐶` 처럼 이모지로 끝나 기준 낱말이 비었다. `☀️`·`🗣️`(FE0F) 는 «AI 가 물었나» 판정까지 틀렸다.
+- 이모지만 떼면 앞 문장으로 넘어가 따라 말할 예문(«You can say… "…" Can you say it with me?» 49건 — 따옴표 안에 마침표가 없다)·인사 속 학생 이름·AI 가 받아 적은 틀린 철자를 골랐다.
+- 고침(`ai-friend.html`): `aiTextTail()` 이 끝 이모지·보이지 않는 글자·«(💡 …)» 팁을 떼고, `pronTargetFromAi()` 는 마지막 질문 문장의 마지막 쉼표 뒤만 본다(`K-pop`·`don't`·`TV`·`EXO` 건너뜀, 시간 부사 불용어).
+- 남긴 것: 문장 중간 고유명사(Baekhyun)는 여전히 기준 낱말이 될 수 있다(막으면 Korea 도 빠짐 — 사람이 정할 일).
