@@ -135,7 +135,8 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
            → **전사가 끝난 뒤 순차로** 부른다. 0.5~1초 늘지만 결과가 확실하다. */
         const runAzure = async (): Promise<any> => {
           if (!paReference) return { ok: false, reason: 'no_reference' };
-          try { return await assessPronunciation(env as any, audio, paReference, lang || 'en'); }
+          /* 🎵 이 창구를 쓰는 곳은 음성 코칭(모범 문장 읽기)뿐 — 브라우저 SDK 때처럼 운율도 함께 잰다 */
+          try { return await assessPronunciation(env as any, audio, paReference, lang || 'en', { prosody: true }); }
           catch (e: any) { return { ok: false, reason: 'throw ' + String(e?.message || e).slice(0, 80) }; }
         };
         /* 🔍 결과를 «점수» 와 «사유» 로 나눠 돌려준다. 사유가 없으면 실패가 전부 조용한 null 이라

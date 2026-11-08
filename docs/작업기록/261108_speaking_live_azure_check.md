@@ -85,3 +85,19 @@ NODE_USE_ENV_PROXY=1 node test-harness/manual/azure-speech-live-check.mjs
 - 이모지만 떼면 앞 문장으로 넘어가 따라 말할 예문(«You can say… "…" Can you say it with me?» 49건 — 따옴표 안에 마침표가 없다)·인사 속 학생 이름·AI 가 받아 적은 틀린 철자를 골랐다.
 - 고침(`ai-friend.html`): `aiTextTail()` 이 끝 이모지·보이지 않는 글자·«(💡 …)» 팁을 떼고, `pronTargetFromAi()` 는 마지막 질문 문장의 마지막 쉼표 뒤만 본다(`K-pop`·`don't`·`TV`·`EXO` 건너뜀, 시간 부사 불용어).
 - 남긴 것: 문장 중간 고유명사(Baekhyun)는 여전히 기준 낱말이 될 수 있다(막으면 Korea 도 빠짐 — 사람이 정할 일).
+
+## 8. 음성 코칭 — 서버 채점으로 교체 (2026-11-09, 사장님 결정)
+
+**왜**: 학부모 리포트 «기준 문장 읽기» 칸은 서버가 Azure 로 «잰» 결과만 근거로 쌓는다(`referenceReadingEvidence`). 그런데 음성 코칭(`speech-coach.html`)은 서버에 `reference` 를 안 보내고 브라우저 Speech SDK 로만 채점해, 그 칸이 원리상 비어 있었다.
+
+**고침**
+- 화면: `/api/voice/transcribe` 에 `reference`(모범 문장)와 로그인 토큰(`Authorization: Bearer`)을 함께 보낸다. 서버가 Azure 로 잰 결과(`azure.ok`)를 먼저 쓰고, 서버가 Azure 에 «못 닿았을» 때(`http_*`·`timeout`·`no_key`·`dropped`·`not_wav`…)만 예전 브라우저 SDK 로 한 번 더 잰다. 서버가 Azure 에 닿았는데 말이 없었으면(`recog_*`)·너무 길면(`too_long`) 다시 안 잰다(같은 소리를 두 번 과금 + SDK 는 잡음에 0점을 지어냄).
+- 서버: `assessPronunciation(…, { prosody: true })` — en-US 에서만 `EnableProsodyAssessment` 를 켜 «🎵 운율 N점» 이 서버 채점에서도 나온다(AI 친구 발음 짚기는 안 켬).
+- 진단 글자: `ok(server)` / `server:<사유>|ok(sdk)` / `server:<사유>|sdk:<사유>` / `server:<사유>|sdk:skip`.
+
+**잰 것**
+- 실제 Azure REST(Korea Central, 합성 음성 «Hello, I am a student.»)에 운율을 켜면 `NBest[0].ProsodyScore` 가 평평하게 온다(83.4 · PronScore 92.6) — 고정 파일 `test-harness/fixtures/azure-rest/prosody.json`(개인정보 없음).
+- 하니스 `speech_coach_server_azure_harness`(38종): 화면 `processAudio` 를 오려 내 가짜 fetch·SDK 로 실제 실행 + 정본을 esbuild 로 묶어 고정 파일로 실행. 변이 11종 전부 실제 FAIL(조건 뒤집기 포함).
+- 남긴 것: 정상 경로에서는 브라우저 SDK(369KB)를 안 받는다 — 폴백 때만.
+
+**사람이 볼 것**: 배포 뒤 로그인한 학생이 음성 코칭을 한 번 하면 `speaking_growth_events` 표가 처음 생긴다(지연 생성). 2026-11-09 23:10 KST 재측정 예약이 그 표를 센다.

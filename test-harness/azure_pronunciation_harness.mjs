@@ -181,15 +181,16 @@ ok('프론트: WAV 만들기가 실패하면 예전 webm 으로 돌아간다', /
 ok('프론트: prompt 는 여전히 안 보낸다 (07-29 사고)', !/fd\.append\('prompt'/.test(html));
 
 /* ── 🎤 브라우저 SDK 경로 (2026-08-08 · 2026-08-10 모듈 이사) ────────────────
-   평가는 브라우저 SDK 가 한다. (2026-08-08 «REST 가 헤더를 무시» 는 오진 — 2026-11-08 실측: REST 점수는 «평평하게» 온다.
-   서버로 reference 를 보낼지는 사람이 정할 일이라, 아래 검사는 «지금 동작» 을 그대로 지킨다.)
+   (2026-08-08 «REST 가 헤더를 무시» 는 오진 — 2026-11-08 실측: REST 점수는 «평평하게» 온다.)
+   🔄 2026-11-09 사장님 결정: 서버가 먼저 채점한다(reference 를 보냄). 브라우저 SDK 는 서버가 Azure 에
+   못 닿았을 때만 — 그 짝 동작은 speech_coach_server_azure_harness 가 화면을 실제로 돌려 본다.
    2026-08-10: SDK 호출 구현이 공용 서비스 계층 js/speech-azure.js 로 이사했다(중국어 코치와
    공유). 화면(html)에는 얇은 azAssess 위임만 남는다 — 그래서 아래 검사는 «화면+모듈» 을 함께 본다.
    여기서 지키는 것은 «키가 브라우저로 새지 않는가» 와 «없어도 굴러가는가» 두 가지다. */
 const azMod = readFileSync(join(ROOT, 'cloudflare-deploy', 'public', 'js', 'speech-azure.js'), 'utf8');
-ok('프론트: 서버로 reference 를 보내지 않는다 (지금 동작 — 바꿀지는 사람이 정할 일)',
-   !/fd\.append\('reference'/.test(html));
-ok('프론트: 브라우저 SDK 로 평가한다 (화면 azAssess → 공용 모듈)',
+ok('프론트: 서버로 reference 를 보낸다 (2026-11-09 사장님 결정 — 서버 채점)',
+   /fd\.append\('reference', _target0\)/.test(html));
+ok('프론트: 폴백용 브라우저 SDK 경로는 남아 있다 (화면 azAssess → 공용 모듈)',
    /async function azAssess/.test(html) && /SpeechAzure\.assess/.test(html) && /PronunciationAssessmentConfig/.test(azMod));
 ok('프론트: SDK 는 «녹음을 마친 뒤» 지연 로딩한다(369KB)', /function loadSdk[\s\S]{0,400}?createElement\('script'\)/.test(azMod));
 ok('프론트: 음소 단위 + 빠뜨린 단어 잡기를 켠다',
