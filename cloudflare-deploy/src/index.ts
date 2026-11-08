@@ -66,7 +66,7 @@ import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // �
 import { logWarmupSessionStart, markWarmupFirstReply, warmupShouldMarkFirstReply } from './warmup-log';  // 📊 웜업 «몇 단계로 쓰는가» 기록
 import { warmupAnswerChips } from './warmup-answers';                    // 💬 웜업 «이렇게 대답해 보세요» 보기 칩
 import { backfillPastTenseFix } from './tense-backfill';
-import { focusedCandidate, focusedInfinitiveFix, focusedReplyFix, recoverFocusedFix, FOCUSED_DRAFT_RULE } from './focused-correction';
+import { focusedCandidate, focusedPastTenseFix, focusedArticleFix, focusedInfinitiveFix, focusedReplyFix, recoverFocusedFix, FOCUSED_DRAFT_RULE } from './focused-correction';
 import { WARMUP_CORRECTION_RULE, WARMUP_ZH_CORRECTION_RULE, ZH_MEANING_CHANGING_TAGS, parseWarmupOutput, verifyWarmupFix, decideWarmupFixShow, warmupShouldOfferRepeat, correctionLeadIn } from './warmup-correction';  // ✏️ 웜업 «교정 카드» 정본
 import { resolveWarmupHonest, warmupHonestRule, parseWarmupGrade, finalizeWarmupGrade, applyHonestPraise, gateFixForMode, ensureFocusedFixSpoken, warmupSpeaksFixLead } from './warmup-honest';  // 🎯 정직한 칭찬 + 교정 모드(2026-10-29 시범 — 정본 그 파일)
 import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
@@ -4582,7 +4582,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
       try {
         await recordAiLatency(env, {
           feature: 'warmup',
-          model: focusedFix && latTries === 0 ? 'warmup-infinitive-rule' : WARMUP_MODEL,
+          model: focusedFix && latTries === 0 ? 'warmup-' + focusedFix.tag + '-rule' : WARMUP_MODEL,
           ms: Date.now() - latT0,
           model_ms: latModelMs,
           tries: latTries,
@@ -4608,6 +4608,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     try {
       if (honest?.mode === 'focused' && !ctxKickoff && !ctxRoleplay && !hasEleaderExpansion(request)) {
         focusedFix = focusedInfinitiveFix(studentInput);
+        if (finalOnly && !focusedFix) focusedFix = focusedPastTenseFix(studentInput) || focusedArticleFix(studentInput);
         if (focusedFix) { aiText = focusedFix.now; rawFix = focusedFix; }
       }
       if (!focusedFix) {
