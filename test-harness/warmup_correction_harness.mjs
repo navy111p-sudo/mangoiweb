@@ -385,6 +385,19 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
       ['Nah, I like it.', 'I like it.'], ['Mhm, I like it.', 'I like it.'], ['Aww, I like it.', 'I like it.'],
       ['Yes, my dog is big. Yes, my cat is big.', 'My dog is big. My cat is big.'], ['Wow! What a big dog!', 'What a big dog!'], ['I like pizza, um, and cake.', 'I like pizza and cake.'],
       ['I like um pizza.', 'I like pizza.'], ['I like uh pizza.', 'I like pizza.'],
+      /* 함정 대조 4차 — 말머리 뒤 대답·접속사 · 짧은 머뭇거림(eh·em·ehm) · 부르는 말(Teacher, …) · 의문문의 ! · 쉼표 뒤 끝 말머리 ·
+         쉼표로 감싼 가운데 말머리 · 말머리뿐인 문장 지우기 · 끝 말머리를 떼면 문장 첫머리가 되는 말머리의 대문자 */
+      ['Um, yes, I do.', 'Yes, I do.'], ["Um, no, I don't like it.", "No, I don't like it."], ['Um, yes.', 'Yes.'], ['Oh, okay.', 'Okay.'],
+      ['Um, so I went home.', 'So I went home.'], ['Um, and I like dogs.', 'And I like dogs.'], ['Um so I like it.', 'I like it.'], ['Um, oh I like it.', 'Oh I like it.'],
+      ['Eh, I like pizza.', 'I like pizza.'], ['Em, I like pizza.', 'I like pizza.'], ['Ehm, I like pizza.', 'I like pizza.'], ['Aha, I like pizza.', 'I like pizza.'],
+      ['Yay, I like pizza.', 'I like pizza.'], ['Oops, I like pizza.', 'I like pizza.'], ['Teacher, I like pizza.', 'I like pizza.'], ['Lily, I like pizza.', 'I like pizza.'],
+      ['Mom, I am hungry.', 'I am hungry.'], ['How big is it.', 'How big is it!'], ['What food do you like.', 'What food do you like!'],
+      ['I like it, no.', 'I like it.'], ['I like cats okay.', 'I like cats.'], ['Wow, what a big dog!', 'What a big dog!'],
+      ['My dog, oh, is big.', 'My dog is big.'], ['My dog, yes, is big.', 'My dog is big.'], ['I went there and, um, I ate.', 'I went there and I ate.'],
+      ['I like it. Um. I like dogs.', 'I like it. I like dogs.'], ['What do you like...? I like pizza.', 'I like pizza.'], ['You can? I can swim.', 'I can swim.'],
+      ['How about you.', 'How about you!'], ['What about you.', 'What about you!'], ['I like em pizza.', 'I like pizza.'], ['I like eh pizza.', 'I like pizza.'],
+      ['What a big dog! Wow, what a big dog…', 'What a big dog! Wow, what a big dog.'], ['Mom, how cute! How cute.', 'Mom, how cute! How cute…'],   // 원래 있던 «!» 문장을 «새 감탄» 으로 세지 않는다
+      ['What a big, wow, dog!', 'What a big dog!'], ['Wow, what a big, oh, dog!', 'Wow, what a big dog!'], ['It is big, how cute? So how cute!', 'How cute!'],   // 이미 «!» 인 감탄문에서 가운데 말머리만 뗀 것 — 견줄 때 말머리를 «전부» 떼야 잡힌다
     ];
     const bad = REJECT.filter(([w, n]) => V(w, n) !== null).map(x => x.join(' → '));
     t('B-9d 🙅 맞는 문장을 고친 척하는 교정은 버린다 (끝 부호 !↔. · 말머리 떼기 · 따로 떨어진 문장 지우기 — 운영 실측 3건 포함)', bad.length === 0, bad.join(' | '));
@@ -415,6 +428,19 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
       ['Where is it, um.', 'Where is it?'], ['Do you like soccer, yes.', 'Do you like soccer?'],
       ['Do you like soccer? Yes.', 'Do you like soccer.'], ['I like cats, okay I like dogs', 'I like cats. I like dogs.'], ['I like cats, okay I like dogs.', 'I like cats. I like dogs.'],
       ['Do you like it? Um. I like it.', 'Do you like it. I like it.'], ['Really? Um, I like it.', 'Really I like it.'], ['Hmm… what a big dog.', 'Hmm… what a big dog!'],
+      /* 함정 대조 4차 — 말머리·부르는 말이 앞에 선 감탄문 · 쉼표 없이 붙은 말머리 · 쉼표 «앞» 의 내용 낱말(no·and) · 문장 끝의 and·no ·
+         말머리 문장을 지우며 조각문 붙이기(끝 부호가 사라짐) · 붙어 있던 문장 띄우기 · 문장 첫 대문자 */
+      ['Wow, what a big dog.', 'Wow, what a big dog!'], ['Oh, how cute.', 'Oh, how cute!'], ['Mom, what a big dog.', 'Mom, what a big dog!'],
+      ['what a um big dog.', 'what a big dog!'], ['wow,what a big dog.', 'What a big dog!'], ['What a big dog it is.', 'What a big dog it is!'], ['How cute you are.', 'How cute you are!'],
+      ["I don't have, no money.", "I don't have money."], ["I don't have, um, no money.", "I don't have money."], ["I don't want, no pizza.", "I don't want pizza."],
+      ['My mom, and is a teacher.', 'My mom is a teacher.'], ['My mom, um, and is a teacher.', 'My mom is a teacher.'],
+      ['I like cats and dogs and.', 'I like cats and dogs.'], ['I go to school and.', 'I go to school.'], ["I don't like it no.", "I don't like it."],
+      ['I like pizza. Um, because it is yummy.', 'I like pizza because it is yummy.'], ['I like cats. Um, and dogs.', 'I like cats and dogs.'],
+      ['I like pizza okay? Um, because it is yummy.', 'I like pizza because it is yummy.'], ['I like it.Um, I like dogs.', 'I like it. I like dogs.'],
+      ['I like dogs. yes, I do.', 'I like dogs. Yes, I do.'], ['I like pizza. oh, it is good.', 'I like pizza. Oh, it is good.'], ['I am so happy.', 'I am happy.'],
+      ['I said yes to my mom.', 'I said to my mom.'], ['Lily is my friend.', 'Is my friend.'],   // 문장 가운데 «내용» 으로 쓴 맞장구 · 쉼표 없는 이름
+      ['I like it… what a big dog.', 'I like it… what a big dog!'], ['What a big dog! What a big dog.', 'What a big dog! What a big dog!'],   // 말줄임표 뒤 감탄문 · 같은 감탄문이 한 번 더
+      ['What a big, wow, dog.', 'What a big dog!'], ['What fun, okay.', 'What fun!'],   // 가운데·끝 말머리를 떼며 감탄문에 ! 
     ];
     const lost = KEEP.filter(([w, n]) => V(w, n) === null).map(x => x.join(' → '));
     t('B-9e (짝) 진짜 교정·사장님이 지키라 한 교정은 그대로 통과한다', lost.length === 0, lost.join(' | '));
@@ -476,10 +502,15 @@ const t = (name, ok, extra) => out.push([name, !!ok, extra == null ? '' : String
       t('B-9m2 (짝) 199자 말도 그대로 판정한다 — ' + nearCap.length + '자', nearCap.length === 199 && fixIsNotACorrection(nearCap, nearCap.slice(5)) === true);
       /* B-9m3 상한 안에서 «정렬이 끝까지 실패하는» 모양도 빠르다 — 첫 모양(쉼표 30개 뒤 마침표 찍기)은 메모를 지우면 약 2초 걸린다(2026-11-08 실측).
          ⚠️ 금방 성공하거나 사전 거름에서 끝나는 모양만 두면 이 검사는 아무것도 못 잡는다(함정 대조 2차). */
-      const WORST = [['uh, '.repeat(30) + 'uh', 'uh '.repeat(12) + 'uh.'], ['Um. '.repeat(50).trim(), 'Um um.'], ['I.'.repeat(99), 'pizza'], ['um uh '.repeat(33).trim(), 'um uh um uh um uh um uh um uh um uh.']];
-      let worstMs = 0;
-      for (const [w, nn] of WORST) { fixIsNotACorrection(w, nn); for (let r2 = 0; r2 < 3; r2++) { const t1 = Date.now(); fixIsNotACorrection(w, nn); worstMs = Math.max(worstMs, Date.now() - t1); } }
-      t('B-9m3 상한 안 최악 모양 ' + WORST.length + '가지도 빠르다 — 가장 느린 한 번 ' + worstMs + 'ms (문턱 50ms)', WORST.every(([w]) => w.length <= FIX_JUDGE_MAX_LEN) && fixIsNotACorrection(WORST[0][0], WORST[0][1]) === false && worstMs < 50);
+      /* 함정 대조 4차 — 말머리뿐인 문장이 66개 이어진 모양은 «시작 문장마다» 표를 새로 채우면 41~68ms 걸린다(메모를 시작 문장끼리 나눠 쓰면 약 6ms · 2026-11-08 실측).
+         뒤 셋이 그 모양이다(마지막 것은 그 변이를 최대로 느리게 만드는 모양을 언덕 오르기로 찾은 것). 합계도 본다(한 번 재기는 흔들림이 크다). */
+      const WORST = [['uh, '.repeat(30) + 'uh', 'uh '.repeat(12) + 'uh.'], ['Um. '.repeat(50).trim(), 'Um um.'], ['I.'.repeat(99), 'pizza'], ['um uh '.repeat(33).trim(), 'um uh um uh um uh um uh um uh um uh.'],
+        ['um!'.repeat(66), 'um.'.repeat(43) + 'um?'], ['um!'.repeat(66), 'um.'.repeat(32) + 'um, ' + 'um.'.repeat(11) + 'um?'],
+        ["um!um!um!um!um!um!um!uh um!um!um!um!um!uh!um!um!um!um!um!um!um!um!um!um!um!um!um!um!um!um!um!um!um!um!um!um!um!um!um!um!um!um!um!uh.um!um!um!um!um!um!um!um!um…um!um!uh,um!um!um!um!um!um!um!um!um!um!", "um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um.um?"]];
+      let worstMs = 0, sumMs = 0;
+      for (const [w, nn] of WORST) { fixIsNotACorrection(w, nn); for (let r2 = 0; r2 < 3; r2++) { const t1 = performance.now(); fixIsNotACorrection(w, nn); const d = performance.now() - t1; worstMs = Math.max(worstMs, d); sumMs += d; } }
+      t('B-9m3 상한 안 최악 모양 ' + WORST.length + '가지도 빠르다 — 가장 느린 한 번 ' + worstMs.toFixed(1) + 'ms (문턱 50ms) · 합계 ' + sumMs.toFixed(1) + 'ms (문턱 150ms)',
+        WORST.every(([w]) => w.length <= FIX_JUDGE_MAX_LEN) && WORST.every(([w, nn]) => fixIsNotACorrection(w, nn) === false) && worstMs < 50 && sumMs < 150);
     }
     /* 반복 퍼즈 — 맞는 문장 × 말머리·끝 부호·덧붙인 문장 조합을 수천 번 돌려 «하나도 통과 못 한다», 같은 문장의 진짜 시제 교정은 «전부 통과» */
     const CORE = ['I like pizza', 'My dog is big', 'We play soccer after school', 'She has two cats', 'It is very fun', 'I want to be a doctor', 'They live in Seoul', 'He can swim fast'];
