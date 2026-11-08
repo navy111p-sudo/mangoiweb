@@ -8,7 +8,7 @@ import { teacherPresenceByRoom } from './no-show-truth';
 import { DEFAULT_CLASS_MINUTES } from './class-policy';
 import { enrollAdminHqOnly } from './enroll-ops';
 import { moveSchedulesAtomically, scheduleMoveVersion } from './class-schedule-move';
-import { undoMovedClass } from './class-undo-move';
+import { undoMovedClass, undoHeldMove } from './class-undo-move';
 import { findScheduleConflicts, findScheduleMoveConflicts, loadScheduleMoveFacts } from './schedule-conflict';
 import { sendPushToUser } from './api-notify';
 import { getScope, canEditOrg } from './scope';
@@ -1499,7 +1499,11 @@ export async function handleAdminSchedulingApi(request: Request, url: URL, env: 
          🔒 본사 전용(위 enrollAdminHqOnly) — «연기 취소»(restore)와 같은 선. */
       if (body && body.action === 'undo_move') {
         const actor = await getAdminActor(request, env as any);
-        const result: any = await undoMovedClass(env, actor, id, body.from_date, Date.now(), body.historical_correction === true);
+        /* ↩ (2026-11-08) held:true — 원래 시각에 «같은 수업» 이 이미 열려 있을 때의 «연기 되돌리기»(정본 class-undo-move.ts undoHeldMove).
+           새 수업을 열지 않는다: 옮겨 간 사본(시작 전이면)을 취소하고 원래 날짜의 «옮겨 감» 줄을 정리한다. */
+        const result: any = body.held === true
+          ? await undoHeldMove(env, actor, id, body.from_date, Date.now())
+          : await undoMovedClass(env, actor, id, body.from_date, Date.now(), body.historical_correction === true);
         return json(result, result.status);
       }
       /* ↩ (2026-10-07 매니저 요청 4) { action:'restore' } — 잘못 «수업 종료» 한 수업을 되살린다.
