@@ -21,6 +21,14 @@ const groupMinute = (value: any): number | null => /^(?:[01]?\d|2[0-3]):[0-5]\d$
 const occurrenceOn = (row: any, date: string) => row.scheduled_date ? row.scheduled_date === date
   : (!row.starts_on || row.starts_on <= date) && scheduleDays(row).includes(new Date(date + 'T00:00:00Z').getUTCDay());
 
+/** 스냅샷 가드 표 — batch 첫 문장의 CHECK 가 «읽은 뒤 바뀌었으면» batch 전체를 되돌린다. 이 엔진과 class-undo-move.ts 가 함께 쓴다.
+ *  ⛔ D1 의 exec() 는 «줄마다» 따로 실행해 여러 줄 CREATE 가 실패한다(2026-10-04 실사고: 이 표가 운영 DB 에 한 번도 안 생겨
+ *     모든 저장이 503). 한 문장은 prepare().run() 으로. */
+export async function ensureScheduleMoveGuard(env: any): Promise<void> {
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS schedule_move_guard (
+      token TEXT PRIMARY KEY, valid INTEGER NOT NULL CONSTRAINT schedule_move_snapshot CHECK(valid=1))`).run();
+}
+
 type Snapshot = { sql: string; args: any[]; value: string };
 async function snapshot(env: any, select: string, fields: string[], args: any[] = []): Promise<Snapshot> {
   const sql = `SELECT json_group_array(json_array(${fields.join(',')})) AS value FROM (${select})`;
@@ -63,10 +71,7 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
     return fail(400, 'invalid_expected', '수업 정보를 새로고침한 뒤 다시 시도해 주세요.');
   try {
     // This table is empty outside a batch. Failed guards/updates roll back together.
-    // ⛔ D1 의 exec() 는 «줄마다» 따로 실행해 여러 줄 CREATE 가 실패한다(2026-10-04 실사고:
-    //    이 표가 운영 DB 에 한 번도 안 생겨 모든 저장이 503). 한 문장은 prepare().run() 으로.
-    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS schedule_move_guard (
-      token TEXT PRIMARY KEY, valid INTEGER NOT NULL CONSTRAINT schedule_move_snapshot CHECK(valid=1))`).run();
+    await ensureScheduleMoveGuard(env);
     await ensureClassAuditTable(env);
     const schema = await snapshot(env, `SELECT name, sql FROM sqlite_master WHERE type='table'
       AND name IN ('class_schedules','teacher_unavailability','calendar_events','teachers','admin_scope'${guarded ? ",'attendance','class_room_override'" : ''}) ORDER BY name`, ['name','sql']);

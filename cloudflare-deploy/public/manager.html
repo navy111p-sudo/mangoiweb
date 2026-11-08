@@ -4024,6 +4024,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   function taUndoPill(r){
     var u = r && r.undo;
     if (!u || !r.schedule_id || !IS_HQ) return '';
+    /* ↩ (2026-11-08 사장님·매니저 Mai «원래 시각이 지났어도 연기 되돌리기») 원래 시각에 «같은 수업»(같은 학생·강사·시각)이 이미
+       열려 있으면(카페24 미러가 다시 만든 경우 등 — 판정은 서버 r.undo.held_available · 정본 judgeMovedAwayUndo) «수업 복원» 대신
+       «↩ 연기 되돌리기» — 누르면 taUndoHeld(action:'undo_move' + held:true). admin.html(tcUndoMoveHtml)과 같은 서버 값. */
+    if (u.held_available === true && u.from_date) return '<span class="tag ta-open" role="button" tabindex="0" data-undomv="' + esc(r.schedule_id) + '" data-undo-held="1">'
+         + esc(T('↩ Undo postponement', '↩ 연기 되돌리기')) + '</span>';
     if (u.ok !== true && u.historical_available !== true) {
       if (u.restore_cancelled_available === true && u.target_id) return taRestoreMovedPill(r);
       var w = TA_UNDO_WHY[u.reason] || TA_UNDO_WHY.no_target;
@@ -4460,6 +4465,44 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       });
     });
   }
+  /* ↩ (2026-11-08) «연기 되돌리기 — 원래 시각에 같은 수업이 이미 열림» — POST {action:'undo_move', from_date, held:true}.
+     서버(class-undo-move.ts undoHeldMove)가 근거를 다시 찾는다. 새 수업을 열지 않는다. 확인창은 «사실인 것만»(admin tcUndoHeld 와 같은 뜻). */
+  function taUndoHeld(el, r){
+    var u = r && r.undo;
+    if (!el || el._busy || !IS_HQ || !u || u.held_available !== true || !u.from_date) return;
+    var back = (String(u.from_date || '') + ' ' + (u.from_time || '')).trim();
+    var ch = r.change || {};
+    var now = (String(ch.to_date || '') + ' ' + (ch.to_time || '')).trim();
+    var who = r.student_name || r.student_uid || '';
+    var copyActive = u.held_copy_status === 'active';
+    if (!confirm(T('Undo this postponement?\n\n' + who + ' · original ' + back + '\nThe same class (same teacher, same time) is already scheduled at the original time.\n\n· '
+                   + (copyActive ? 'The moved class at ' + now + ' will be cancelled (not started yet).' : 'The moved class at ' + now + ' is already cancelled and stays cancelled.')
+                   + '\n· The «Moved to another day» mark on this date is removed.\n· No new class is opened. Attendance, payments and payroll records are unchanged.',
+                   '연기를 되돌릴까요?\n\n' + who + ' · 원래 ' + back + '\n같은 수업(같은 강사·같은 시각)이 원래 시각에 이미 열려 있습니다.\n\n· '
+                   + (copyActive ? now + ' 로 옮긴 수업은 취소됩니다(아직 시작 전).' : now + ' 로 옮긴 수업은 이미 취소돼 있어 그대로 둡니다.')
+                   + '\n· 이 날의 «다른 날로 옮김» 표시가 사라집니다.\n· 새 수업을 열지 않습니다. 출석·결제·급여 기록은 바뀌지 않습니다.'))) return;
+    el._busy = true;
+    var old = el.textContent;
+    el.textContent = T('Undoing…', '되돌리는 중…');
+    fetch('/api/admin/class-schedules/' + encodeURIComponent(r.schedule_id), {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'undo_move', from_date: u.from_date, held: true })
+    }).then(function(res){
+      return res.json().then(function(j){ return { ok: res.ok, j: j }; }, function(){ return { ok: res.ok, j: null }; });
+    }, function(){ return { ok: false, j: null }; }).then(function(x){
+      el._busy = false;
+      var j = x.j;
+      if (x.ok && j && j.ok === true) { taMarkStale(); try { window.loadTodayAll(); } catch (e) {} return; }
+      el.textContent = old;
+      var err = j && j.error;
+      var stale = err === 'held_not_available' || err === 'not_moved' || err === 'no_move_record' || err === 'schedule_changed';
+      alert('↩ ' + (stale ? T('The class at the original time or this postponement changed. Refreshing the list.', '그 사이 원래 시각의 수업이나 연기 상태가 바뀌었습니다. 목록을 새로고침합니다.')
+        : err === 'class_already_attended' ? T('The moved class already has attendance records, so it cannot be undone. Please check its history.', '옮겨 간 수업에 이미 출석 기록이 있어 되돌릴 수 없습니다. 이력을 확인해 주세요.')
+        : (j && (j.message || j.error)) ? String(j.message || j.error)
+        : T('Could not undo. Please try again shortly.', '되돌리지 못했습니다. 잠시 후 다시 시도해 주세요.')));
+      if (stale) { taMarkStale(); try { window.loadTodayAll(); } catch (e) {} }
+    });
+  }
   /* ↩ 「원래대로」 — 서버(POST /class-schedules/:id {action:'undo_move'})가 원래 자리를 이동 기록에서 다시 찾는다.
      거절되면 그 사유를 사람 말로(조용히 실패하지 않는다). 모르는 코드면 서버 문장(message) 그대로. */
   function taUndoMove(el){
@@ -4468,6 +4511,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var r = taRowOf(sid), u = r && r.undo;
     if (el.getAttribute('data-restore-cancelled') === '1') { taRestoreCancelled(el, r); return; }
     if (el.getAttribute('data-restore-moved') === '1') { taRestoreMoved(el, r); return; }
+    if (el.getAttribute('data-undo-held') === '1') { taUndoHeld(el, r); return; }
     if (!u || (u.ok !== true && u.historical_available !== true)) return;
     var md = function(d){ return /^\d{4}-\d{2}-\d{2}/.test(String(d || '')) ? String(d).slice(5, 10).replace('-', '/') : ''; };
     var back = (String(u.from_date || '') + ' ' + (u.from_time || '')).trim();

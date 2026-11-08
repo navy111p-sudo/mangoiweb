@@ -28,7 +28,7 @@ import { loadHiddenStudents } from './student-override';
 import { MIRROR_SOURCE, MIRROR_SOURCE_MANUAL } from './c24-mirror';
 import { ensureStartsOnColumn, recurStartedOn } from './class-start-date';
 import { isPostponedOccurrence, REACTIVATE_POSTPONED_SQL } from './class-postponed';
-import { isCancelledOccurrence, liveOrCancelledInRangeSql, judgeClassChange, loadClassChangeAudits, loadMovedAwayEvents, judgeMovedAway, judgeMovedAwayUndo, movedAwayKey, loadRecurWeekChildren, recurWeekChildFor, slotKeyOf, movedAwayBlocked, movedAwayOrder } from './class-change-state';
+import { isCancelledOccurrence, liveOrCancelledInRangeSql, judgeClassChange, loadClassChangeAudits, loadMovedAwayEvents, judgeMovedAway, judgeMovedAwayUndo, movedAwayKey, loadRecurWeekChildren, recurWeekChildFor, slotKeyOf, movedAwayBlocked, movedAwayOrder, loadLiveDatedSlots, heldIdFor, HELD_UNDO_SOURCE } from './class-change-state';
 import { loadHolidayClosure, isHolidayClosedFor } from './holiday-closure';
 
 export async function handleAdminClassDaysApi(request: Request, url: URL, env: MangoEnv): Promise<Response | null> {
@@ -855,6 +855,9 @@ export async function handleAdminClassDaysApi(request: Request, url: URL, env: M
           const _rw = _rwIds.length ? await loadRecurWeekChildren(env.DB, _rwIds) : null;
           if (_rw && !_rw.complete) _mvAwayOk = false;
           const _taken = new Set(sessions.filter(x => x.source === 'mangoi').map(x => slotKeyOf(dateStr, x.start_time, x.student_uid)));
+          /* ↩ (2026-11-08) 원래 자리에 «같은 수업» 이 이미 열려 있나(같은 학생·시각·강사 — 카페24 미러가 다시 만든 경우 등) —
+             되돌리기 API(undoHeldMove)와 «같은» 근거·판정. 못 읽으면 null → 그 버튼을 안 준다(예전 동작). 날짜 지정 행만. */
+          const _heldSlots = await loadLiveDatedSlots(env.DB, dateStr, _mvRows.filter((s: any) => !!s.scheduled_date).map((s: any) => s.user_id));
           const _ghostAt = new Set<string>();
           for (const s of [..._mvRows].sort((a: any, b: any) => movedAwayOrder(a) - movedAwayOrder(b))) {
             const _isRecur = !s.scheduled_date;
@@ -863,7 +866,7 @@ export async function handleAdminClassDaysApi(request: Request, url: URL, env: M
             if (!ch) continue;
             /* ↩ (2026-11-04) «원래대로» 버튼을 줄지 — 되돌리기 API 와 «같은» 판정 정본(judgeMovedAwayUndo). 화면은 ok 면 버튼,
                아니면 reason 으로 «왜 못 하는지» 를 글자로(누르면 거절되는 버튼을 두지 않는다). 권한(본사)은 화면이 한 번 더 가린다. */
-            const _undo = judgeMovedAwayUndo(s, ch, _child, nowMs);
+            const _undo = judgeMovedAwayUndo(s, ch, _child, nowMs, _isRecur ? null : heldIdFor(_heldSlots, dateStr, ch.from_time, s.user_id, s.teacher_id, s.id));
             const _slot = slotKeyOf(dateStr, ch.from_time || s.start_time, s.user_id);
             if (movedAwayBlocked(_slot, _isRecur, _taken, _ghostAt)) continue;
             if (_slot) _ghostAt.add(_slot);
@@ -876,7 +879,9 @@ export async function handleAdminClassDaysApi(request: Request, url: URL, env: M
               moved_away: true,            // ⏸ 이 날에서 다른 날로 옮겨 간 회차 — 입장·옮기기 없음, 「↩ 원래대로」(undo)만
               undo: _undo ? { ok: _undo.ok, reason: _undo.reason, historical_available: _undo.historical_available === true, from_date: _undo.from_date, from_time: _undo.from_time,
                 /* ↩ (2026-11-06) 새 자리가 그 뒤 취소됐고 아직 시작 전 → 이 줄에서 «취소 수업 복원»(그 대상 행에 action:'restore') */
-                restore_cancelled_available: _undo.restore_cancelled_available === true, target_id: _undo.target_id, target_date: _undo.target_date ?? null, target_time: _undo.target_time ?? null } : null,
+                restore_cancelled_available: _undo.restore_cancelled_available === true, target_id: _undo.target_id, target_date: _undo.target_date ?? null, target_time: _undo.target_time ?? null,
+                /* ↩ (2026-11-08) 원래 시각에 같은 수업이 이미 열림 → 이 줄에서 «↩ 연기 되돌리기»(action:'undo_move', held:true) */
+                held_available: _undo.held_available === true, held_id: _undo.held_id ?? null, held_copy_status: _undo.held_copy_status ?? null } : null,
               observable: false,
               room_id: null,
               student_uid: s.user_id || null,
@@ -1033,7 +1038,8 @@ export async function handleAdminClassDaysApi(request: Request, url: URL, env: M
         lesson_time: body.lesson_time || null,
         actor: _cawActor.name || (body.actor ? String(body.actor).slice(0, 60) : '관리자'),
         actor_role: _cawActor.isTeacher ? 'teacher' : (_cawActor.name ? 'admin' : 'system'),
-        source: String(body.source || 'ui').slice(0, 20),
+        /* 🔒 (2026-11-08) HELD_UNDO_SOURCE 는 서버 경로(undoHeldMove)만 쓴다 — 그 기록은 원래 날짜의 «옮겨 감» 줄을 지운다(이 길로 적으면 아무 줄이나 숨김). */
+        source: String(body.source || 'ui').slice(0, 20) === HELD_UNDO_SOURCE ? 'ui' : String(body.source || 'ui').slice(0, 20),
         reason: body.reason ? String(body.reason).slice(0, 300) : null,
         detail: body.detail ? String(body.detail).slice(0, 500) : null,
       });
