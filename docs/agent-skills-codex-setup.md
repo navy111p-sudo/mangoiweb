@@ -16,7 +16,7 @@
 Clone/open the same repository in Claude Code, check that `.claude/skills/` is discoverable, and ask it to read the shared skill referenced by each wrapper. Verify before relying on automatic skill selection.
 
 ## Release safety
-Production deploys and PR merges require passing relevant checks, environment authorization and explicit approval. Skills cannot trigger an unattended deployment or override permissions. Never include secrets in prompts, PRs or logs.
+PR merges follow CLAUDE.md 4-1-1: merge once every CI gate is green (fix red CI, never bypass it), and stop to ask a human for real conflicts, D1 data changes, deletions or reverts, out-of-scope work or shared no-go files. A push to `main` auto-deploys through GitHub Actions; manual `deploy.ps1` is only for an authorized person (CLAUDE.md 1-2). Skills cannot override permissions. Never include secrets in prompts, PRs or logs.
 
 ## Verification checklist
 - [ ] Codex can read AGENTS.md
@@ -24,4 +24,4 @@ Production deploys and PR merges require passing relevant checks, environment au
 - [ ] Claude Code can discover all five wrappers and shared skill references
 - [ ] Test task creates PR without altering production
 - [ ] Relevant CI passes
-- [ ] Approved merge and deployment verified separately
+- [ ] Merge after green CI and the deploy run verified separately
