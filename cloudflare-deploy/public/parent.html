@@ -534,10 +534,20 @@ function pdWarmupHtml(w, en) {
     }
   }
   h += '<div style="font-weight:800;color:var(--pd-accent);margin:14px 0 8px;font-size:15px">' + T('✏️ A.i 가 고쳐 준 표현', '✏️ Expressions the A.i corrected') + '</div>';
-  const spoken = w.speaking_vocabulary;
+  const spoken = w.speaking_report;
   if (spoken && Number.isSafeInteger(spoken.sessions) && spoken.sessions > 0 && Number.isSafeInteger(spoken.uniqueWords)) {
     h += '<div class="stat">' + T('이번 달 사용한 영어 고유 단어', 'Unique English words used this month')
       + '<span class="v gold">' + fmt(spoken.uniqueWords) + '</span></div>';
+    const skills = [['pronunciation','발음','Pronunciation'],['fluency','유창성','Fluency'],['grammar','문법','Grammar'],
+      ['vocabulary','어휘','Vocabulary'],['sentence','문장 구성','Sentence structure']];
+    h += '<div style="font-weight:800;margin:14px 0 8px">' + T('이번 달 A.i 말하기 평가', 'A.i speaking assessment this month') + '</div>';
+    for (const [key, ko, english] of skills) {
+      const score = spoken.skills?.[key];
+      h += '<div class="stat">' + T(ko, english) + '<span class="v">'
+        + (score && Number.isFinite(score.average) && Number.isSafeInteger(score.samples) && score.samples > 0
+          ? fmt(score.average) + '/100 · ' + fmt(score.samples) + T('회 측정', ' measured')
+          : T('미측정', 'Not measured')) + '</span></div>';
+    }
   }
   const fixes = Array.isArray(w.recent_fixes) ? w.recent_fixes.slice(0, 2) : [];
   if (!w.fixes_recorded) {

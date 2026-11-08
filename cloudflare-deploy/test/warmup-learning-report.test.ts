@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import vm from 'node:vm';
-import { readWarmupWeek, readParentWarmup, speakingVocabularyBetween, speakingVocabularyWeeks } from '../src/warmup-parent.ts';
+import { readWarmupWeek, readParentWarmup, readSpeakingReport, speakingVocabularyWeeks } from '../src/warmup-parent.ts';
 import { WARMUP_LOG_DDL } from '../src/warmup-log.ts';
 
 function database() {
@@ -113,13 +113,14 @@ test('vocabulary deduplicates across completed sessions and isolates accounts an
   try {
     sql.exec('CREATE TABLE ai_speaking_sessions(id TEXT, student_uid TEXT, status TEXT, finished_at INTEGER, result_json TEXT)');
     const insert = sql.prepare('INSERT INTO ai_speaking_sessions VALUES (?, ?, ?, ?, ?)');
-    insert.run('a','Lee','complete',now-86400000,JSON.stringify({uniqueWords:['apple','pear']}));
-    insert.run('b','Lee','complete',now,JSON.stringify({uniqueWords:['apple','plum']}));
-    insert.run('c','lee','complete',now,JSON.stringify({uniqueWords:['banana']}));
+    insert.run('a','Lee','complete',now-86400000,JSON.stringify({uniqueWords:['apple','pear'],skills:{grammar:0,pronunciation:82}}));
+    insert.run('b','Lee','complete',now,JSON.stringify({uniqueWords:['apple','plum'],skills:{grammar:80}}));
+    insert.run('c','lee','complete',now,JSON.stringify({uniqueWords:['banana'],skills:{pronunciation:100}}));
     insert.run('d','Lee','open',now,JSON.stringify({uniqueWords:['melon']}));
     const bindings = db as unknown as D1Database;
-    assert.deepEqual(await speakingVocabularyBetween(bindings,'Lee',start,now+1),{sessions:2,uniqueWords:3});
+    const expected = {sessions:2,uniqueWords:3,skills:{grammar:{average:40,samples:2},pronunciation:{average:82,samples:1}}};
+    assert.deepEqual(await readSpeakingReport(bindings,'Lee',start,now+1),expected);
     assert.deepEqual((await speakingVocabularyWeeks(bindings,'Lee',now))?.map(w=>w.uniqueWords),[0,0,0,3]);
-    assert.deepEqual((await readParentWarmup(db,'Lee',now)).speaking_vocabulary,{sessions:2,uniqueWords:3});
+    assert.deepEqual((await readParentWarmup(db,'Lee',now)).speaking_report,expected);
   } finally { sql.close(); }
 });

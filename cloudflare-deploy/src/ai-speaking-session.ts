@@ -16,6 +16,8 @@ async function ensure(db: D1Database) {
     source_id TEXT, status TEXT NOT NULL DEFAULT 'open', turns_json TEXT NOT NULL DEFAULT '[]', capture_limited INTEGER NOT NULL DEFAULT 0,
     result_json TEXT, started_at INTEGER NOT NULL, finished_at INTEGER
   )`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_ai_speaking_completed_student
+    ON ai_speaking_sessions(student_uid,finished_at) WHERE status='complete'`).run();
 }
 
 export async function clearSpeakingSessions(env: MangoEnv, uid: string) {
