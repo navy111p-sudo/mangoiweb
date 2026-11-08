@@ -28,10 +28,6 @@ function render(container,result,lang){
  var review=Array.isArray(result.reviewWords)?result.reviewWords:[];
  container.appendChild(node('p','ai-progress-words',(ko?'사용한 고유 단어: ':'Unique words used: ')+words.length));
  container.appendChild(node('p','ai-progress-review',(ko?'복습할 단어: ':'Words to review: ')+review.slice(0,12).map(text).join(', ')));
- // These are *informational* numbers only, not a wallet balance or award transaction.
- var stars=Number.isSafeInteger(result.stars)&&result.stars>=0?result.stars:0;
- var gems=Number.isSafeInteger(result.gems)&&result.gems>=0?result.gems:0;
- container.appendChild(node('p','ai-progress-reward',(ko?'예상 보상':'Estimated rewards')+' · ⭐ '+stars+' · 💎 '+gems));
 }
 root.AiSpeakingProgressView={render:render};
 })(typeof window!=='undefined'?window:globalThis);

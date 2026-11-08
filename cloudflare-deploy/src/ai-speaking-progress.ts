@@ -1,5 +1,5 @@
 /**
- * A.i 말하기 학습 평가 및 보상: 순수 함수 모듈.
+ * A.i 말하기 학습 평가: 순수 함수 모듈.
  * UI/DB 연결 전 단계. 점수는 실제 평가 엔진에서 제공해야 하며 추정/임의 생성 금지.
  */
 export type CorrectionMode = 'immediate' | 'key-mistakes' | 'after-lesson';
@@ -20,8 +20,6 @@ export interface SpeakingProgress {
   skills: Partial<Record<Skill, number>>;
   uniqueWords: string[];
   reviewWords: string[];
-  stars: number;
-  gems: number;
   sentencesCompleted: number;
 }
 const SKILLS: Skill[] = ['pronunciation','fluency','grammar','vocabulary','sentence'];
@@ -31,7 +29,7 @@ export function defaultCorrectionMode(level: number): CorrectionMode {
 }
 export function validateEvaluation(e: SpeakingEvaluation): void {
   if (!e.lessonId || !e.studentId || !e.evaluationSource) throw new Error('Missing evaluation identity/source');
-  if (!e.finishedNormally) throw new Error('Incomplete lesson: no rewards');
+  if (!e.finishedNormally) throw new Error('Incomplete lesson: no results');
   if (!Number.isSafeInteger(e.sentencesCompleted) || e.sentencesCompleted < 0) throw new Error('Invalid sentence count');
   for (const [key, value] of Object.entries(e.skills)) {
     if (!SKILLS.includes(key as Skill) || typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100) throw new Error('Invalid skill score');
@@ -40,14 +38,11 @@ export function validateEvaluation(e: SpeakingEvaluation): void {
 export function evaluateSpeaking(e: SpeakingEvaluation): SpeakingProgress {
   validateEvaluation(e);
   const scores = Object.values(e.skills).filter((n): n is number => typeof n === 'number');
-  const score = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : null;
+  const score = scores.length === SKILLS.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : null;
   const normalize = (words: string[]) => [...new Set(words.map(w=>w.trim().toLowerCase()).filter(Boolean))];
   const uniqueWords = normalize(e.spokenWords);
   const reviewWords = normalize(e.correctedWords);
-  // 보상은 실제 평가가 존재할 때만 지급. 상한 설정으로 남용 억제.
-  const stars = score === null ? 0 : Math.min(15, Math.max(0, Math.floor(score / 10) + Math.min(5, e.sentencesCompleted)));
-  const gems = score === null ? 0 : score >= 90 ? 10 : score >= 75 ? 5 : 0;
-  return {score,skills:e.skills,uniqueWords,reviewWords,stars,gems,sentencesCompleted:e.sentencesCompleted};
+  return {score,skills:e.skills,uniqueWords,reviewWords,sentencesCompleted:e.sentencesCompleted};
 }
 export function correctionPrompt(mode: CorrectionMode): string {
   switch(mode) {
