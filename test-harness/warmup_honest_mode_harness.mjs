@@ -94,6 +94,11 @@ if (typeof H.warmupSpeaksFixLead === 'function') {
   ok('④-2 균형 → 붙인다(질문보다 먼저 한 번)', H.warmupSpeaksFixLead('balanced') === true);
   ok('④-2 모드 없음(중국어 등 null/undefined) → 붙인다(예전 동작)', H.warmupSpeaksFixLead(null) === true && H.warmupSpeaksFixLead(undefined) === true);
   ok('④-2 모르는 값 → 붙인다(조용히 끄지 않음)', H.warmupSpeaksFixLead('strict') === true && H.warmupSpeaksFixLead('') === true);
+  /* ⏱️ (2026-11-09 사장님 B안) 교정 시점이 모드보다 이긴다 — 주요 실수(최대 3번)는 어느 모드든 한 번 말로, 연습 후는 안 붙임 */
+  const MODES = ['free_talk', 'balanced', 'focused', null, undefined];
+  ok('④-2 주요 실수 시점 → 어느 모드든 붙인다', MODES.every((m) => H.warmupSpeaksFixLead(m, 'key-mistakes') === true));
+  ok('④-2 연습 후 시점 → 어느 모드든 안 붙인다(짝)', MODES.every((m) => H.warmupSpeaksFixLead(m, 'after-lesson') === false));
+  ok('④-2 바로 교정·시점 없음 → 모드 표 그대로', MODES.every((m) => H.warmupSpeaksFixLead(m, 'immediate') === H.warmupSpeaksFixLead(m) && H.warmupSpeaksFixLead(m, null) === H.warmupSpeaksFixLead(m)));
 }
 
 const mkEnv = (rows, { throwDb = false, kvInit = {} } = {}) => {
@@ -248,7 +253,11 @@ ok('스트림: 첫 문장이 칭찬 말머리면 미리 읽지 않음', /if \(o\
     ok('⑦-2 집중교정 → 네 번째를 붙이지 않음', go('focused') === R, go('focused'));
     ok('⑦-2 모드 없음(중국어 등) → 예전처럼 붙임', go(null, F, 'zh') === lead(R, F), go(null, F, 'zh'));
     ok('⑦-2 교정 카드가 없으면 어느 모드도 안 붙임', ['free_talk', 'balanced', 'focused'].every((m) => go(m, null) === R));
-    ok('명시한 종료 후·주요 실수 시점에는 교정 말머리를 붙이지 않는다', ['after-lesson','key-mistakes'].every(t=>go('balanced',F,'en',t)===R));
+    ok('⑦-2 연습 후 시점 → 어느 모드든 교정 말머리를 붙이지 않는다', ['free_talk','balanced','focused',null].every(m=>go(m,F,'en','after-lesson')===R));
+    /* ⏱️ (2026-11-09 사장님 B안) 주요 실수 시점 — 카드가 뜬 턴(큰 실수·최대 3번)은 어느 모드든 질문보다 먼저 «한 번» 말한다 */
+    ok('⑦-2 주요 실수 시점 + 카드 → 어느 모드든 고친 문장을 앞에 한 번', ['free_talk','balanced','focused',null].every(m=>go(m,F,'en','key-mistakes')===lead(R,F)), go('focused',F,'en','key-mistakes'));
+    ok('⑦-2 주요 실수 시점 + 카드 없음 → 안 붙임(짝)', ['free_talk','balanced','focused',null].every(m=>go(m,null,'en','key-mistakes')===R));
+    ok('⑦-2 바로 교정 시점 → 모드 표 그대로(자유대화·집중은 안 붙이고 균형은 붙임)', go('free_talk',F,'en','immediate')===R && go('focused',F,'en','immediate')===R && go('balanced',F,'en','immediate')===lead(R,F));
   }
 }
 
