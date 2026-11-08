@@ -1,8 +1,19 @@
 /* Read-only report rendering. Unknown scores stay unknown; text is never HTML. */
 (function(root){
 'use strict';
+var shown=[];
+// Remember what was drawn so 🌐 can redraw it in the new language without fetching again.
 function render(host,g,en){
- if(!host)return;host.replaceChildren();host.hidden=!g;if(!g)return;
+ if(!host)return;host.__sgvData=g;if(shown.indexOf(host)<0)shown.push(host);paint(host,g,en);
+}
+function relang(e){
+ var l=e&&e.detail&&e.detail.lang,en=l==='en';
+ if(!l)try{en=typeof root.getLang==='function'&&root.getLang()==='en';}catch(_){}
+ shown=shown.filter(function(h){return h.isConnected!==false;});
+ shown.forEach(function(h){paint(h,h.__sgvData,en);});
+}
+function paint(host,g,en){
+ host.replaceChildren();host.hidden=!g;if(!g)return;
  function add(tag,text){var e=document.createElement(tag);e.textContent=text;host.appendChild(e);return e;}
  add('h3',en?'Confirmed speaking records':'확인된 말하기 연습 기록');
  add('p',(en?'Recorded sessions: ':'기록된 연습: ')+g.sessions+(en?' · Confirmed results: ':'회 · 확인된 결과: ')+g.turns+(en?'':'건'));
@@ -25,4 +36,6 @@ function render(host,g,en){
  host.style.overflowWrap='anywhere';
 }
 root.SpeakingGrowthView={render:render};
+if(root.addEventListener)root.addEventListener('mangoi:lang-changed',relang);
+if(typeof document!=='undefined'&&document.addEventListener)document.addEventListener('mangoi:lang-changed',relang);
 })(typeof window!=='undefined'?window:globalThis);

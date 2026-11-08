@@ -25,15 +25,22 @@ function arm(){if(!document.getElementById('wgFinish'))armFriend();}
 function armFriend(){
  var chat=document.getElementById('chat');if(!chat)return;
  if(!root.SESSION_ID)root.SESSION_ID=root.crypto.randomUUID();
- var english=typeof root.getLang==='function'&&root.getLang()==='en';
  var tools=document.createElement('div');tools.id='friendProgressTools';tools.style.cssText='display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px;max-width:100%;box-sizing:border-box';
- var label=document.createElement('label');label.htmlFor='friendCorrectionTiming';label.textContent=english?'Correction timing':'교정 시점';
+ var label=document.createElement('label');label.htmlFor='friendCorrectionTiming';
  var select=document.createElement('select');select.id='friendCorrectionTiming';select.style.maxWidth='100%';
- [['',english?'Keep existing policy':'기존 정책 유지'],['immediate',english?'Correct immediately':'바로 교정'],['key-mistakes',english?'Up to 3 key corrections':'주요 실수 최대 3회'],['after-lesson',english?'Review after practice':'연습 후 모아서 보기']].forEach(function(x){var o=document.createElement('option');o.value=x[0];o.textContent=x[1];select.appendChild(o);});
+ var opts=[['','기존 정책 유지','Keep existing policy'],['immediate','바로 교정','Correct immediately'],['key-mistakes','주요 실수 최대 3회','Up to 3 key corrections'],['after-lesson','연습 후 모아서 보기','Review after practice']];
+ opts.forEach(function(x){var o=document.createElement('option');o.value=x[0];select.appendChild(o);});
  try{select.value=root.AiSpeakSettings.read(localStorage).timing;}catch(e){}
- var note=document.createElement('span');note.setAttribute('role','status');
- select.onchange=function(){try{if(!root.AiSpeakSettings.chooseTiming(localStorage,select.value))throw new Error();note.textContent='';}catch(e){note.textContent=english?'Could not save this setting.':'설정을 저장하지 못했어요.';}};
-
+ var note=document.createElement('span');note.setAttribute('role','status');var failed=false;
+ // Painted again on 🌐 so the dropdown never stays in the language it was first drawn in.
+ function paint(){
+  var en=false;try{en=typeof root.getLang==='function'&&root.getLang()==='en';}catch(e){}
+  label.textContent=en?'Correction timing':'교정 시점';
+  opts.forEach(function(x,i){select.options[i].textContent=en?x[2]:x[1];});
+  note.textContent=failed?(en?'Could not save this setting.':'설정을 저장하지 못했어요.'):'';
+ }
+ select.onchange=function(){try{failed=!root.AiSpeakSettings.chooseTiming(localStorage,select.value);}catch(e){failed=true;}paint();};
+ paint();root.addEventListener('mangoi:lang-changed',paint);document.addEventListener('mangoi:lang-changed',paint);
  tools.append(label,select,note);chat.before(tools);
 }
 if(typeof document!=='undefined'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',arm);else arm();}
