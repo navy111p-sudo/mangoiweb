@@ -525,10 +525,12 @@ ${timing ? 'Correction timing overrides earlier timing instructions: ' + correct
               겹친 시간까지 더하면 model_ms 가 전체 ms 보다 커진다. 안 겹친 나머지는 기다리는 쪽이 더한다. */
         const mT0 = Date.now();
         latTries++;
+        // ⚠️ «이 호출이 실제로 제약을 실었나» — 공유 friendRF 는 동시에 도는 다시 묻기가 먼저 꺼 버릴 수 있다(그러면 본 호출이 폴백 없이 실패).
+        const sentRF = friendRF;
         try {
           return await env.AI.run(model, friendAIOpts(msgs, maxTokens, temperature));
         } catch (rfErr: any) {
-          if (!friendRF || !isRfRejection(rfErr)) throw rfErr;
+          if (!sentRF || !isRfRejection(rfErr)) throw rfErr;
           console.warn('[chat-friend] response_format rejected, retrying without:', rfErr?.message || rfErr);
           friendRF = false;
           latTries++;

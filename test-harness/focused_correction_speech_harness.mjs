@@ -197,6 +197,7 @@ let holdHistory;
 let routeFix = fix;
 let scenario = 'normal', modelCalls = 0, rechecks = 0, timingMajor = false;
 let delayMain = false, mainInflight = 0, recheckOverlapped = false;
+let rfMainModels = [];
 const env = { DB, ROOM_JWT_SECRET: 'focused-local-fixture-only',
   SESSION_STATE: { get: async k => cache.get(k) ?? null, put: async (k, v) => {
     if (holdHistory && k.startsWith('warmup:early-')) await holdHistory;
@@ -208,6 +209,7 @@ const env = { DB, ROOM_JWT_SECRET: 'focused-local-fixture-only',
     if (recheck) rechecks++;
     if (recheck && mainInflight > 0) recheckOverlapped = true;
     if (delayMain && !recheck) { mainInflight++; try { await new Promise(r => setTimeout(r, 30)); } finally { mainInflight--; } }
+    if (scenario === 'rf-reject' && !recheck) rfMainModels.push(_model);
     if (scenario === 'rf-reject' && opts.response_format) {   // 제약 거절 — 다시 묻기가 먼저 실패하고, 본 호출은 늦게 실패한다
       if (!recheck) await new Promise(r => setTimeout(r, 30));
       throw new Error('response_format is not supported');
@@ -452,6 +454,19 @@ check('avatar main call still falls back when the concurrent recheck disabled re
   assert.equal(rfRes.status, 200);
   assert.equal(rfBody.ai_response, 'What do you like?');
 });
+// 🔴 A.i 친구도 같은 공유 플래그 모양이었다 — 그때는 502 가 아니라 «첫 모델 실패 → 다른 모델로 넘어감»(답이 바뀌고 늦어짐).
+{
+  scenario = 'rf-reject'; rfMainModels = [];
+  const auth = await (await post('/api/ai/chat-guest-token', {})).json();
+  const fr = await post('/api/ai/chat-friend', { uid: auth.uid, msg: routeFix.now, correction_mode: 'focused', stream: 0, level: 'S1' }, auth.token);
+  const fb = await fr.json();
+  check('friend main call keeps its own model when the concurrent recheck disabled response_format first', () => {
+    assert.equal(fr.status, 200);
+    assert.equal(fb.reply, 'What do you like?');
+    assert.ok(rfMainModels.length >= 2, 'main call retried: ' + rfMainModels.join(','));
+    assert.equal(new Set(rfMainModels).size, 1, 'no fallback to another model: ' + rfMainModels.join(','));
+  });
+}
 // 과거형 보완 규칙이 잡는 문장이면 결과를 안 쓰므로 다시 묻기를 시작하지도 않는다(헛 호출 0).
 scenario = 'omitted'; modelCalls = 0; rechecks = 0;
 await (await post('/api/warmup/chat', { session_id: 'overlap-backfill', student_input: 'I play soccer yesterday with my friends.',
