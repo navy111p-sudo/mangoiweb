@@ -1,7 +1,7 @@
 /**
  * 📝 웜업 «고쳐 준 표현» 기록 — 본인 확인 게이트 (2026-10-02, 파일럿 후속 P4)
  *
- * src/index.ts handleWarmupChat 의 `if (showFix && ctxUserId) { … }` 블록과
+ * src/index.ts handleWarmupChat 의 `if ((showFix || reviewFix) && ctxUserId) { … }` 블록과
  * public/warmup.html 의 warmupFetch 토큰 첨부를 **소스에서 오려 내 실제로 돌린다.**
  *   ① 토큰 uid == user_id 면 기록 / 다르면 안 함 / 토큰 없으면 안 함 (짝)
  *   ② 관리자 세션은 «같은 이름» 일 때만 (jeong 처럼 관리자 폴백으로 들어온 본인)
@@ -29,16 +29,17 @@ function blockAt(src, anchor) {
   for (let k = b; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}') { d--; if (d === 0) return src.slice(i, k + 1); } }
   return '';
 }
-const blk = blockAt(IDX, 'if (showFix && ctxUserId)');
+const blk = blockAt(IDX, 'if ((showFix || reviewFix) && ctxUserId)');
 ok('전제: 서버 블록을 오려 냈다', blk.length > 50);
 const js = blk.replace(/\s+as\s+any\b/g, '').replace(/:\s*any\b/g, '').replace(/\(e\s*\)/g, '(e)');
-async function run({ tok, ses, throwAuth = false }) {
+async function run({ tok, ses, throwAuth = false, deferred = false }) {
   const logged = [];
   let fn;
-  try { fn = new Function('showFix', 'ctxUserId', 'authUidFromRequest', 'checkAdminSession', 'logWarmupFix', 'request', 'env', 'body', 'sessionId', 'ctxLang', 'URL', 'console',
-    `return (async () => { ${js} })();`); } catch (e) { return { threw: true, logged, compile: e.message }; }
+  try { fn = new Function('showFix', 'reviewFix', 'ctxUserId', 'authUidFromRequest', 'checkAdminSession', 'logWarmupFix', 'request', 'env', 'body', 'sessionId', 'ctxLang', 'URL', 'console',
+    `return (async () => { let parentLog; ${js} await parentLog; })();`); } catch (e) { return { threw: true, logged, compile: e.message }; }
   try {
-    await fn({ was: 'I go yesterday', now: 'I went yesterday' }, 'kim01',
+    const correction = { was: 'I go yesterday', now: 'I went yesterday' };
+    await fn(deferred ? null : correction, deferred ? correction : null, 'kim01',
       async () => { if (throwAuth) throw new Error('boom'); return tok; },
       async () => ses || { ok: false },
       async (_e, o) => { logged.push(o.userId); return true; },
@@ -52,6 +53,8 @@ ok('①-2 짝: 토큰 uid 가 다르면 기록 안 함', (await run({ tok: 'lee0
 ok('①-3 짝: 토큰이 없으면 기록 안 함', (await run({ tok: null })).logged.length === 0);
 ok('②-1 관리자 세션이 같은 이름이면 기록', (await run({ tok: null, ses: { ok: true, username: 'kim01' } })).logged.length === 1);
 ok('②-2 짝: 다른 이름의 관리자 세션은 기록 안 함', (await run({ tok: null, ses: { ok: true, username: 'admin' } })).logged.length === 0);
+ok('연습 후 교정도 같은 본인 인증으로 기록', (await run({ tok: 'kim01', deferred: true })).logged.length === 1);
+ok('연습 후 교정도 남의 계정에는 기록 안 함', (await run({ tok: 'lee02', deferred: true })).logged.length === 0);
 const t = await run({ throwAuth: true });
 ok('③ 확인 중 예외가 나도 던지지 않는다', !t.threw && t.logged.length === 0);
 

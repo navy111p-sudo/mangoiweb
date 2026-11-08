@@ -4847,25 +4847,6 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
         showFix = decided.show;
         traceTag = verified.tag;
         if (!showFix) traceReason = 'held_gap';   // 검증은 통과 — 턴 간격 규칙이 이번 턴을 미뤘다
-        /* 📝 학부모 화면 «AI가 고쳐 준 표현» 기록 (2026-10-02 파일럿 후속 P4 — 정본 src/warmup-parent.ts)
-           ⛔ ctxUserId 는 화면이 보내는 값이라 그대로 믿으면 남의 아이 학부모 화면에 글자를 심을 수 있다 —
-              서명 토큰 uid(또는 같은 이름의 관리자 세션)가 그 아이디와 «정확히» 같을 때만 기록한다.
-           ⚠️ 기록 실패는 대화를 멈추지 않는다(logWarmupFix 자체도 던지지 않는다). */
-        if (showFix && ctxUserId) {
-          const parentFix = showFix;
-          parentLog = (async () => {
-            try {
-              let mine = false;
-              const tokUid = await authUidFromRequest(request, new URL(request.url), env, body);
-              if (tokUid && tokUid === ctxUserId) mine = true;
-              else {
-                const ses: any = await checkAdminSession(request, env as any);
-                if (ses && ses.ok && ses.username === ctxUserId) mine = true;
-              }
-              if (mine) await logWarmupFix(env, { sessionId, userId: ctxUserId, fix: parentFix, lang: ctxLang });
-            } catch (e: any) { console.warn('[warmup-fix-log]', e?.message || e); }
-          })();
-        }
         offerRepeat = warmupShouldOfferRepeat(decided.show, decided.memo, turnCount);
         if (honest) { const g = gateFixForMode(honest.mode, verified, showFix, offerRepeat); showFix = g.show; offerRepeat = g.repeat; }   // 🎯 교정 모드
         if (traceReason === 'shown' && !showFix) traceReason = 'mode_hidden';   // 🎯 보여줄 것이 있었는데 모드가 가렸다
@@ -4875,6 +4856,25 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
              풀려 매 턴 교정이 뜬다 — 그런데 화면은 멀쩡해 보인다. 반드시 한 줄 남긴다. */
           console.warn('[warmup] fix memo save failed:', e?.message || e);
         });
+      }
+      /* 📝 학부모 화면 «AI가 고쳐 준 표현» 기록 (2026-10-02 파일럿 후속 P4 — 정본 src/warmup-parent.ts)
+         ⛔ ctxUserId 는 화면이 보내는 값이라 그대로 믿으면 남의 아이 학부모 화면에 글자를 심을 수 있다 —
+            서명 토큰 uid(또는 같은 이름의 관리자 세션)가 그 아이디와 «정확히» 같을 때만 기록한다.
+         ⚠️ 기록 실패는 대화를 멈추지 않는다(logWarmupFix 자체도 던지지 않는다). */
+      if ((showFix || reviewFix) && ctxUserId) {
+        const parentFix = showFix || reviewFix;
+        parentLog = (async () => {
+          try {
+            let mine = false;
+            const tokUid = await authUidFromRequest(request, new URL(request.url), env, body);
+            if (tokUid && tokUid === ctxUserId) mine = true;
+            else {
+              const ses: any = await checkAdminSession(request, env as any);
+              if (ses && ses.ok && ses.username === ctxUserId) mine = true;
+            }
+            if (mine) await logWarmupFix(env, { sessionId, userId: ctxUserId, fix: parentFix, lang: ctxLang });
+          } catch (e: any) { console.warn('[warmup-fix-log]', e?.message || e); }
+        })();
       }
     } catch (e: any) {
       console.warn('[warmup] fix gate skipped:', e?.message || e);

@@ -517,6 +517,22 @@ function pdWarmupHtml(w, en) {
   if (known && all > spoke) {
     h += '<div style="font-size:12.5px;color:var(--pd-muted);margin-top:4px">' + T(`열었지만 말하기 전에 나간 ${all - spoke}회는 빼고 셌어요.`, `${all - spoke} session(s) opened but left before speaking are not counted.`) + '</div>';
   }
+  if (Object.prototype.hasOwnProperty.call(w, 'weekly_activity')) {
+    h += '<div style="font-weight:800;margin:14px 0 8px">' + T('최근 7일 말하기 활동', 'Speaking activity over the last 7 days') + '</div>';
+    const week = w.weekly_activity;
+    const validWeek = Array.isArray(week) && week.length === 7 && week.every(d => d && /^\d{4}-\d{2}-\d{2}$/.test(d.date) && Number.isSafeInteger(d.sessions) && d.sessions >= 0);
+    if (!validWeek) {
+      h += '<p>' + T('최근 활동 기록을 확인하지 못했어요.', 'Recent activity records are unavailable.') + '</p>';
+    } else {
+      const max = Math.max(1, ...week.map(d => d.sessions));
+      h += '<ol style="list-style:none;padding:0;margin:0">';
+      h += week.map(d => '<li style="display:grid;grid-template-columns:3.5em minmax(0,1fr) auto;gap:8px;align-items:center;margin:6px 0;font-size:14px">'
+        + '<time datetime="' + esc(d.date) + '">' + esc(d.date.slice(5).replace('-', '/')) + '</time>'
+        + '<div aria-hidden="true" style="height:10px;background:var(--pd-tint);border-radius:6px;overflow:hidden"><div style="height:100%;background:var(--pd-accent);width:' + (100 * d.sessions / max).toFixed(2) + '%"></div></div>'
+        + '<span>' + fmt(d.sessions) + T('회', ' sessions') + '</span></li>').join('');
+      h += '</ol><p style="font-size:12.5px;color:var(--pd-muted)">' + T('한국 시간 기준, 첫 답변을 한 대화 수예요. 학습 완료 횟수나 실력 점수는 아니에요.', 'Conversations with a first reply, by Korea time. These are activity counts, not completion counts or skill scores.') + '</p>';
+    }
+  }
   h += '<div style="font-weight:800;color:var(--pd-accent);margin:14px 0 8px;font-size:15px">' + T('✏️ A.i 가 고쳐 준 표현', '✏️ Expressions the A.i corrected') + '</div>';
   const fixes = Array.isArray(w.recent_fixes) ? w.recent_fixes.slice(0, 2) : [];
   if (!w.fixes_recorded) {
