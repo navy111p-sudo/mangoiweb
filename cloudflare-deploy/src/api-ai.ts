@@ -1086,7 +1086,7 @@ ${timing ? 'Correction timing overrides earlier timing instructions: ' + correct
 
       const pronFix = await pronP;   // 🎯 발음 교정 결과(없으면 null)
       if (!usedFallback && b.progress_session) await recordSpeakingTurn(request, env, b, { app: 'friend', student: msg, assistant: reply,
-        correction: showFix?.now || '' });
+        correction: verifiedFix?.now || showFix?.now || '' });
       return { ok: true, reply, level, persona, model: usedModel || 'fallback', gam,
                     ...replyOut(),   // ai_unavailable · fix · repeat · replaced — final 이벤트와 같은 함수(위 replyOut)
                     ...(pronFix ? { pron_fix: pronFix } : {}) };

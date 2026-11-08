@@ -1563,6 +1563,7 @@ const worker = {
         path === '/api/ai/write-leaderboard' ||
         // 💬 Phase CF AI 영어 친구 챗봇
         path === '/api/ai/chat-friend' ||
+        path === '/api/ai/speaking-progress' ||
         path === '/api/ai/chat-history' ||
         path === '/api/ai/chat-clear' ||
         path === '/api/ai/chat-guest-token' ||
@@ -4922,7 +4923,7 @@ async function handleWarmupChat(request: Request, env: Env, sseSend: ((o: any) =
     await stateWrites;
 
     if (modelOk && !ctxKickoff && body.progress_session) await recordSpeakingTurn(request, env, body,
-      { app: 'warmup', student: studentInput, assistant: aiText, correction: showFix?.now || '' });
+      { app: 'warmup', student: studentInput, assistant: aiText, correction: reviewFix?.now || showFix?.now || '' });
 
     const latencyLog = logWarmupLatency(aiText, modelOk ? 1 : 0);
     if (ctx) ctx.waitUntil(latencyLog);

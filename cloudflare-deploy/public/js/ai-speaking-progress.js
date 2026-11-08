@@ -32,6 +32,7 @@
       try {
         var started = await pending;
         if (epoch !== generation || expectedToken !== token()) return {};
+        if (typeof started.sessionId !== 'string' || !started.sessionId || started.sessionId.length > 100) return {};
         sessionId = started.sessionId;
       } catch (_) { return {}; }
       finally { if (starting === pending) starting = null; }
@@ -60,6 +61,7 @@
     if (dialog && !dialog.open) {
       if (window.FriendAutoTalk) window.FriendAutoTalk.pause();
       if (typeof window.cancelFriendMic === 'function') window.cancelFriendMic();
+      if (typeof window.stopSpeakingNow === 'function') window.stopSpeakingNow();
       dialog.showModal();
     }
     if (result) { paint(); return; }
@@ -72,6 +74,7 @@
         // Finish reuses the existing point flow; its in-flight request is shared.
         if (warmup && window.__mgWarmupPts) await window.__mgWarmupPts.run();
         var data = await api({ action: 'finish', sessionId: requestedId });
+        if (!data.result || data.result.finishedNormally !== true || data.result.lessonId !== requestedId) throw new Error('progress_unavailable');
         if(sessionId === requestedId) { result = data.result; closed = true; paint(); }
       } catch (error) {
         if(sessionId !== requestedId) return;
@@ -91,7 +94,6 @@
       var host = document.querySelector('#wgSummary .wg-summary-inner');
       if (!host) return;
       host.insertBefore(card, document.getElementById('wgSummaryText'));
-      document.getElementById('wgFinish').addEventListener('click', finish);
     } else {
       dialog = document.createElement('dialog'); dialog.className = 'ai-progress-dialog'; dialog.setAttribute('aria-label', t('말하기 학습 결과', 'Speaking results'));
       var close = document.createElement('button'); close.type = 'button'; close.className = 'ai-progress-close'; close.onclick = function () { dialog.close(); };

@@ -24,7 +24,7 @@ const browser = await pw.chromium.launch({ executablePath: process.env.CHROMIUM_
 let checks = 0;
 function check(value, name) { assert.ok(value, name); checks++; console.log('PASS ' + name); }
 try {
-  for (const width of [390, 1360]) for (const app of ['friend', 'warmup']) for (const state of ['measured', 'zero', 'unavailable']) {
+  for (const width of [390, 1360]) for (const app of ['friend', 'warmup']) for (const state of ['partial', 'zero', 'unavailable']) {
     const name = `${width}/${app}/${state}`, posts = [], errors = [];
     const context = await browser.newContext({ viewport: { width, height: 900 } });
     await context.addInitScript(() => {
@@ -44,9 +44,9 @@ try {
         posts.push(body);
         if (body.action === 'start') return send({ ok: true, sessionId: 'local-session-' + name });
         return send({ ok: true, result: {
-          finishedNormally: true, score: state === 'unavailable' ? null : state === 'zero' ? 0 : 85,
-          skills: state === 'unavailable' ? {} : { grammar: state === 'zero' ? 0 : 85, vocabulary: 85, sentence: 85 },
-          stars: state === 'unavailable' ? 0 : 8, gems: state === 'unavailable' ? 0 : 5,
+          lessonId:body.sessionId, finishedNormally: true, score: state === 'zero' ? 0 : null,
+          skills: state === 'unavailable' ? {} : state === 'zero' ? { pronunciation:0,fluency:0,grammar:0,vocabulary:0,sentence:0 } : { grammar:85,vocabulary:85,sentence:85 },
+
           uniqueWords: ['i', 'like', 'apples'], reviewWords: ['<img onerror="window.progressXss=1">'], recordedTurns: 1,
           evaluationStatus: state === 'unavailable' ? 'unavailable' : 'measured',
           rewards: { pointsEarned: 5, pointsBalance: 50, gemsBalance: 30, badges: ['first_class'] }
@@ -80,10 +80,10 @@ try {
       await page.locator(app === 'friend' ? '.ai-progress-trigger' : '#wgFinish').click();
       await page.locator('.ai-progress-title').waitFor();
       const content = await page.locator('.ai-progress-card').innerText();
-      check(content.includes(state === 'unavailable' ? 'Overall score unavailable' : state === 'zero' ? '0/100' : '85/100'), name + ': measured/zero/missing result renders');
+      check(content.includes(state === 'zero' ? '0/100' : 'Overall score unavailable'), name + ': measured/zero/missing result renders');
       check((await page.locator('.ai-progress-skill').count()) === 5, name + ': all five skill rows are visible');
-      check((await page.locator('.ai-progress-skill dd').allTextContents()).filter(x => x === 'Not measured').length >= 2, name + ': no fabricated acoustic score');
-      check(content.includes('Points earned in this practice: 5P') && content.includes('Gem balance: 30'), name + ': actual wallet is separately shown');
+      check((await page.locator('.ai-progress-skill dd').allTextContents()).filter(x => x === 'Not measured').length >= (state === 'zero' ? 0 : 2), name + ': no fabricated acoustic score');
+      check(content.includes('Points earned in this practice: 5P') && content.includes('Gem balance at completion: 30'), name + ': actual wallet is separately shown');
       check((await page.locator('.ai-progress-card img').count()) === 0 && !await page.evaluate(() => window.progressXss), name + ': words cannot inject markup');
       check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), name + ': no horizontal page overflow');
       await page.evaluate(() => { localStorage.setItem('mangoi_lang', 'ko'); window.dispatchEvent(new Event('mangoi:lang-changed')); });

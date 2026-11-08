@@ -12,5 +12,5 @@
 .ai-progress-trigger{font-size:12px;padding:5px 9px;white-space:nowrap;flex-shrink:0}
 .ai-progress-actions{display:flex;align-items:center;justify-content:center;gap:8px;padding:0 12px 6px;flex-shrink:0}
 .ai-progress-actions .next-bottom{flex:0 1 420px;min-width:0;padding:0}
-.ai-progress-reward{padding:10px;background:#334155;border-radius:10px}
+.ai-progress-close{position:sticky;top:0;z-index:1}
 @media(max-width:420px){.ai-progress-dialog{padding:16px}.ai-progress-trigger{font-size:11px;padding-inline:6px}.ai-progress-score{font-size:1.7rem}}

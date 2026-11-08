@@ -1,8 +1,8 @@
 import { authUidFromRequest } from './auth-token';
 import { json } from './api-util';
 import { evaluateSpeaking } from './ai-speaking-progress';
+import { checkAndAwardBadges } from './api-games-badges';
 
-const TABLE = 'ai_speaking_sessions';
 const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const MAX_TURNS = 100;
 
@@ -79,7 +79,7 @@ async function wallet(env: any, uid: string, app: string, id: string, sourceId: 
     rewards.pointsEarned = row && Number.isSafeInteger(row.earned) ? row.earned : null;
   } catch {}
   try {
-    const rows = await env.DB.prepare(`SELECT badge_code FROM student_badges WHERE user_id=? ORDER BY awarded_at DESC LIMIT 12`).bind(uid).all();
+    const rows = await env.DB.prepare(`SELECT badge_code FROM student_badges WHERE user_id=? ORDER BY awarded_at DESC`).bind(uid).all();
     if (rows.success !== false && Array.isArray(rows.results)) rewards.badges = rows.results.map((row: any) => row.badge_code);
   } catch {}
   return rewards;
@@ -125,7 +125,7 @@ export async function handleSpeakingSession(request: Request, url: URL, env: any
       const original = new Set(speakingWords(turn.student).map(word => word.toLowerCase()));
       return speakingWords(turn.correction).filter(word => !original.has(word.toLowerCase()));
     });
-    let skills: Record<string, number> = {}, evaluationStatus = 'unavailable';
+    let skills: Record<string, number> = {}, evaluationStatus = 'unavailable', evaluationReason: string | null = null;
     const transcript = turns.map((turn: any) => ({ student: turn.student, tutor: turn.assistant }));
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
@@ -143,14 +143,19 @@ export async function handleSpeakingSession(request: Request, url: URL, env: any
       const text = typeof out?.response === 'string' ? out.response : '';
       skills = speakingTextScores(JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, '')));
       evaluationStatus = 'measured';
-    } catch {
+    } catch (error: any) {
+      evaluationReason = ['transcript_too_long', 'no_english_evidence', 'evaluation_timeout', 'invalid_evaluation'].includes(error?.message)
+        ? error.message : 'engine_or_response_unavailable';
+      console.warn('[speaking-progress] evaluation unavailable:', evaluationReason);
       // The recorded conversation remains useful when the evaluator is unavailable.
     } finally { clearTimeout(timer); }
+    try { await checkAndAwardBadges(env, uid); }
+    catch { console.warn('[speaking-progress] badge check unavailable'); }
     const result = { ...evaluateSpeaking({ lessonId: row.id, studentId: uid, finishedNormally: true,
       evaluatedAt: new Date().toISOString(), skills, spokenWords: words, correctedWords: review,
       // Turn count is observed; completed sentence count has not been measured.
       sentencesCompleted: 0, evaluationSource: 'workers-ai-text' }),
-      evaluationStatus, evaluatedSkills: Object.keys(skills).length, recordedTurns: turns.length, captureLimited: !!captured.capture_limited, sentenceCountStatus: 'unmeasured',
+      evaluationStatus, evaluationReason, evaluatedSkills: Object.keys(skills).length, recordedTurns: turns.length, captureLimited: !!captured.capture_limited, sentenceCountStatus: 'unmeasured',
       rewards: await wallet(env, uid, row.app, row.id, row.source_id, row.started_at) };
     const saved = await env.DB.prepare(`UPDATE ai_speaking_sessions SET status='complete',result_json=?,finished_at=?
       WHERE id=? AND student_uid=? AND status='evaluating' AND finished_at=?`)

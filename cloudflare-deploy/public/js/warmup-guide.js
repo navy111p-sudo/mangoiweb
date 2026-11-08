@@ -290,6 +290,7 @@
       $('wgSummaryNotice').textContent=tr('수업 화면으로 요약을 보냈어요. 선생님 연결 여부는 수업 화면에서 확인해 주세요.','Summary sent to the classroom. Check the classroom for teacher connectivity.');
     }
     $('wgSummary').showModal();
+    if(window.AiSpeakingProgress) window.AiSpeakingProgress.finish();
   }
   var guide=window.MangoWarmupGuide={start:start,onMessage:onMessage,receiveHelp:receiveHelp,showAnswers:showAnswers,offerHelp:offerHelp,meaningOpened:meaningOpened,fix:fix,finish:finish,pauseScene:pauseScene,reset:reset,
     scene:function(){return scene;}, metrics:function(){return {firstReplyMs:firstReplyMs,replies:answers.length};}};
