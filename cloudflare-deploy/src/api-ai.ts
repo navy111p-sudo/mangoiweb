@@ -969,22 +969,6 @@ ${timing ? 'Correction timing overrides earlier timing instructions: ' + correct
         // 📡 스트리밍으로 미리 보낸 문장과 최종본이 «다른가» — 화면이 그때만 다시 읽습니다.
         ...(wantStream ? { replaced: streamedText && streamedText.trim() !== reply.trim() ? 1 : 0 } : {}),
       });
-      /* ⚡ (2026-11-06 사장님 「휴대폰 A.i 말하기 3카드 모두 더 빨리」) 최종 답을 «먼저» 보낸다 / Send the final reply first.
-         [왜] 예전에는 아래 대화 저장(INSERT 2)·포인트(D1 조회·적립 여러 번 «차례로»)·지연 기록·발음 채점까지 «다» 끝난 뒤에야
-              done 한 번으로 답을 보냈다. 집중교정(기본값)은 미리듣기가 없어서 그 시간을 학생이 통째로 기다렸다.
-         [어떻게] 답이 정해지는 이 자리에서 final 이벤트로 먼저 보내고, 나머지는 스트림을 연 채로 이어서 한다 —
-              응답 본문을 흘리는 동안은 워커가 살아 있다(Cloudflare 문서 «A Worker that is still streaming a response body
-              remains active») 그래서 waitUntil 이 필요 없다. 포인트·발음(pron_fix)은 예전처럼 done 에 실린다.
-         ⚠️ 저장은 «답이 정해진 뒤» 그대로라 학생이 들은 문장과 다음 턴이 읽는 기록이 같다(아래 INSERT 는 이 reply 를 쓴다).
-            화면은 done 이 올 때까지 보내기 버튼을 잠가 두므로 다음 턴이 저장보다 먼저 올 수 없다.
-         ⛔ 옛 화면은 final 을 모른다 — data 줄을 «done 이 아니면 문장(t)» 으로만 읽어서 t 가 없는 이 이벤트는 그냥 지나간다(예전과 같음).
-         ⛔ JSON 경로(stream 미사용)에는 보내지 않는다 — 응답 계약 그대로. */
-      let latFinalMs = 0;   // ⏱ 학생이 «답» 을 받은 시각(스트리밍) — 지연 기록의 ms 는 이것(없으면 끝까지)
-      if (sseSend) {
-        sseSend({ final: 1, ok: true, reply, ...replyOut() });
-        latFinalMs = Date.now() - latT0;
-      }
-
       // ⚠️ 이 저장은 반드시 기다린다 — 바로 아래 gam 스냅샷("오늘 몇 번째 대화")이
       //   이 INSERT 가 끝난 뒤의 개수를 세어야 정확하다. 백그라운드로 미루면 그 숫자가
       //   이번 메시지를 못 세거나(레이스) 다음 새로고침에야 반영돼 부정확해진다.
@@ -1012,6 +996,25 @@ ${timing ? 'Correction timing overrides earlier timing instructions: ' + correct
       const captured = !usedFallback && chatSaved
         ? await recordSpeakingTurn(request, env, b, { app:'friend',student:msg,assistant:reply,correction:verifiedFix?.now || '' }) : false;
       const rewardSession = captured && friendRequestId(b.progress_turn) === awardRequestId ? String(b.progress_session) : undefined;
+
+      /* ⚡ (2026-11-06 사장님 「휴대폰 A.i 말하기 3카드 모두 더 빨리」) 최종 답을 «먼저» 보낸다 / Send the final reply first.
+         [왜] 예전에는 포인트(D1 조회·적립 여러 번 «차례로»)·지연 기록·발음 채점까지 «다» 끝난 뒤에야 done 한 번으로
+              답을 보냈다. 집중교정(기본값)은 미리듣기가 없어서 그 시간을 학생이 통째로 기다렸다.
+         [어떻게] 기록 저장(위 대화 INSERT 2 + 말하기 세션 기록) «뒤», 포인트 «앞» 에서 final 이벤트로 먼저 보내고,
+              나머지는 스트림을 연 채로 이어서 한다 — 응답 본문을 흘리는 동안은 워커가 살아 있다(Cloudflare 문서
+              «A Worker that is still streaming a response body remains active»). 포인트·발음(pron_fix)은 예전처럼 done 에 실린다.
+         ⚠️ 저장을 final «앞» 에 둔 이유(함정 대조 2026-11-06): 답을 듣자마자 앱을 닫아 접속이 끊기면 그 뒤 작업은 취소될 수 있다 —
+            «학생은 들었는데 그 턴이 기록에 없다» 가 되지 않게, 들은 문장(이 reply)이 먼저 저장된다. 대가는 D1 쓰기 몇 번(수십 ms).
+            끊겨서 못 받을 수 있는 것은 포인트뿐이다(«덜 주는» 쪽 — 화면은 done 이 와야 +P 를 그린다).
+            화면은 done 이 올 때까지 보내기 버튼을 잠가 두므로 다음 턴이 포인트 처리보다 먼저 올 수도 없다.
+         ⛔ 옛 화면은 final 을 모른다 — data 줄을 «done 이 아니면 문장(t)» 으로만 읽어서 t 가 없는 이 이벤트는 그냥 지나간다(예전과 같음).
+         ⛔ JSON 경로(stream 미사용)에는 보내지 않는다 — 응답 계약 그대로.
+         ⛔ 이 블록을 저장 «위» 로 되돌리지 마세요 — ai_friend_speed_harness ②-8·②-9 가 잡습니다. */
+      let latFinalMs = 0;   // ⏱ 학생이 «답» 을 받은 시각(스트리밍) — 지연 기록의 ms 는 이것(없으면 끝까지)
+      if (sseSend) {
+        sseSend({ final: 1, ok: true, reply, ...replyOut() });
+        latFinalMs = Date.now() - latT0;
+      }
 
       // 🎮 게임화 — 포인트/스트릭/오늘의 단어 보너스. 실패해도 채팅 응답은 정상 반환.
       //   메시지당 2P(하루 10회) · 오늘의 단어 사용 +5P(하루 1회) · 🎤말하기 +1P(하루 5회)
