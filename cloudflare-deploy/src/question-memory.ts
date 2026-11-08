@@ -103,6 +103,15 @@ export function questionRepeats(question: unknown, memory: QuestionMemory | null
 
 /** 지시에 싣는 «이미 물은 질문» 개수(최근 것부터) — 판정(done)은 기록 전체로 한다. */
 export const QM_SHOW = 10;
+/** AI 영어친구가 «같은 질문 두 번 금지» 기억을 만들려고 읽는 최근 줄 수(학생 말 + AI 답 — 80턴).
+ *  🔴 (2026-11-08 2차 재측정 · 운영 D1) 예전엔 40줄(20턴)이라, 20턴 넘게 이어진 대화에서 앞에서 물은 질문을 잊었다 —
+ *     성인 학생에게 12번째 턴의 「Do you have a favorite singer?」를 44번째 턴에 또 물어 학생이 「Told you.」라고 했다.
+ *  ⚠️ 모델에게 보여 주는 대화는 그대로 최근 20줄이고 지시에 싣는 목록도 QM_SHOW(10)개라 프롬프트는 안 길어진다(속도 그대로).
+ *     [잰 것 — 운영 D1 2026-11-08] 같은 학생(84줄)에 LIMIT 40·160 을 걸면 둘 다 rows_read 169(색인 idx_chat_uid 로 그 학생 행을 다 읽고 정렬).
+ *  ⚠️ 1시간 넘게 쉬면 거기서 끊는 것(questionSession)은 그대로다 — 이 숫자는 «한 번 이어진 대화» 의 상한일 뿐. */
+export const QM_FRIEND_ROWS = 160;
+/** questionMemory 가 기본으로 보는 줄 수 — 웜업·엘리더잼의 KV 기록 길이(WARMUP_MAX_TURNS×2 = 40)와 같다. 더 길게 보려면 opts.maxMsgs. */
+export const QM_MEMORY_MSGS = 40;
 const clip = (s: unknown, max: number): string => typeof s === 'string' ? s.replace(/\s+/g, ' ').trim().slice(0, max) : '';
 /** 글 속의 질문들(물음표로 끝나는 조각) — 영어 낱말이 없는 조각은 뺀다. */
 export function questionsIn(text: unknown): string[] {
@@ -136,7 +145,7 @@ export function questionSession(rows: unknown, nowMs: number, gapMs = QM_SESSION
  *  🔑 틀리는 방향이 둘이다 — 진짜 답을 «요청» 으로 보면 그 질문이 기억에서 빠져 나중에 «같은 질문이 다시» 나간다(고치려던 버그).
  *     요청을 «답» 으로 보면 예전처럼 새 질문으로 바뀔 뿐이다. 그래서 «답일 수도 있는 말» 은 요청으로 안 본다.
  *  ⚠️ 영어 «I don't know» 는 요청이 아니라 «답» 으로 본다 — 질문은 알아들었고 답을 모르는 것이라, 같은 질문을 또 물으면
- *     학생에게는 반복이다(샌드박스 정답 표도 그렇게 본다). «I don't understand»·「모르겠어요」(영어 질문을 못 알아들음)는 요청이다.
+ *     학생에게는 반복이다(샌드박스 정답 표도 그렇게 본다). «I don't understand»·「모르겠어요」(그 말만 — 영어 질문을 못 알아들음)는 요청이다.
  *  ⚠️ api-ai.ts 의 aiFriendIsMetaAsk(지시 metaHint 를 켜는 판정 — 하니스가 vm 으로 떼어 돌려 import 를 못 쓴다)는 이 세 줄에
  *     «I don't know» 하나만 더 받는다. 이것이 «요청» 이라 하면 그쪽도 반드시 요청이어야 한다(그래야 지시도 «다시 물어라» 를 준다) —
  *     ai_friend_no_repeat_question_harness ①-18 이 두 곳의 정규식 원문을 직접 견준다. 한쪽만 고치지 말 것.
@@ -145,7 +154,10 @@ export function questionSession(rows: unknown, nowMs: number, gapMs = QM_SESSION
  *  세 줄로 나눈다(2026-10-28 사장님 「what?·huh? 같은 되묻기도」 → 「원래부터 있던 오판도 고쳐줘」 · 함정 대조 세 번 반영).
  *   · QM_REASK_KO — 문장 어디서나, 단 «부탁 어미» 가 있을 때만: 「천천히/느리게/쉽게/짧게/간단히/또박또박/크게/다시 + (말/말씀/얘기/읽어/설명)해 +
  *     줘·주세요·주실래·줄래·주시겠어요·줄 수 있어요」·「천천히 해 줘」·「쉬운 말로 해 주세요」·「못 알아들었어 / 못 알아듣겠어」·「알아듣기 힘들어요」·
- *     「모르겠어요」·「너무 빨리 말해」·「한 번 더 말해 주세요」.
+ *     「너무 빨리 말해」·「한 번 더 말해 주세요」.
+ *     🔴 (2026-11-08) 「모르겠」 은 이 줄(문장 어디서나)에서 뺐다 — 「모르겠어요, 근데 저는 축구 좋아해요」·「I like dogs. 이유는 모르겠어요.」 까지
+ *        «천천히 다시 말해 달라» 로 읽혔다(11/5 영어 «I don't know» F1 과 같은 병 — ai_friend_reply_fuzz_harness 말뭉치 실측). 이제 «그 말만» 이면 ECHO 가 받는다.
+ *        ⛔ 되살리지 말 것. ⚠️ /u 를 붙였다(ECHO·EN 과 같게 — 뜻은 안 바뀐다).
  *     ⛔ 「말해요·말했어요·말하면·말해 줘야·말해 줘서」 는 진술이다(「아빠는 천천히 말해요」·「할머니한테 크게 말해 줘야 해요」·「크게 해 줘서 좋았어요」).
  *     ⛔ 「말이 빨라요」 를 받지 말 것 — 동물 «말» 이다(「얼룩말이 너무 빨라요」). 「다시 해 봐요」(엘리더잼 「Can you try again?」 의 답)도 답.
  *     ⛔ 「못 알아들어요」(현재)는 문장 속에서는 답이다 — 「우리 강아지는 제 말을 못 알아들어요」. 그 말만 했을 때만 요청(ECHO).
@@ -167,6 +179,12 @@ export function questionSession(rows: unknown, nowMs: number, gapMs = QM_SESSION
  *     ⛔ 영어 한 낱말 원급은 답이다 — 「Slow.」·「Slowly.」·「Easier.」·「Short, please.」·「Easy please.」(고르기 질문의 답). 「Talk slowly.」(엘리더잼 답)도 답.
  *     ⛔ 「Sorry」·「Excuse me」·「네」·「응」·「예」·「어」·「eh」 는 물음표가 있을 때만(엘리더잼 「Excuse me.」·「Sorry.」 는 답). 앞말로는 물음표 없이도 받는다(「Sorry, what?」).
  *     ⛔ 「천천히 해요」·「또박또박 말해요」 는 답이다(진술). 문장 속 what 으로 넓히지 말 것(「What about you?」). 「영어로 뭐라고 해요?」 는 낱말 질문이다.
+ *     🇰🇷 (2026-11-08) 「모르겠어요」 «그 말만» — 앞에 「(음·어·선생님·쌤·저는·저도) (잘·정말·진짜·아직·하나도·전혀·좀) ((너무) 빨라서·어려워서·안 들려서)
+ *        (영어를·질문이·그 말을) (무슨 말인지·무슨 소린지·뭔소린지·뭐라는지·뭐라고 하는지·뭔지)」 가 붙어도, 뒤에 「선생님」·「천천히(요)」·「다시(요)」·「ㅠㅠ / ㅠ ㅠ」
+ *        가 붙어도 요청이다(「선생님, 무슨 말인지 하나도 모르겠어요ㅠㅠ」·「너무 빨라서 모르겠어요」·「모르겠어요 천천히」·「질문이 뭔지 모르겠어요」).
+ *        (첫 판이 앞말·뒷말을 좁게 잡아 이 모양들을 «답» 으로 놓쳤다 — 함정 대조 실측. 그중 «천천히·빨라서» 가 든 말은 화면 음성도 안 느려졌다.)
+ *        ⛔ 뒤에 이야기가 이어지거나 앞에 다른 말이 있으면 답이다(「모르겠어요, 근데 축구 좋아해요」·「이유는 모르겠어요」·「아직 잘 모르겠지만 재밌어요」).
+ *        ⚠️ 「그건 (잘) 모르겠어요」 는 «그것(답)을 모른다» 라 아래 QM_DONT_KNOW 다.
  *     ⚠️ 알고 택한 모호함 — 「Slower.」·「Louder.」·「More slowly.」·「Shorter, please.」·「One more time, please!」·「Slow down!」·「너무 빨라요」·「too fast」·
  *        「천천히(요)」·「느리게」·「짧게요」·「크게 해 주세요」·「Wow, you are too fast!」·「No, I don't understand it.」 는 답일 수도 있지만 요청으로 둔다.
  *        반대로 「I didn't get it.」·「I didn't catch that.」·「Again.」·「Hmm?」·「Yes?」 는 답으로 흔해서 요청으로 안 본다.
@@ -174,14 +192,19 @@ export function questionSession(rows: unknown, nowMs: number, gapMs = QM_SESSION
  *  ⚠️ 정규식은 길이에 비례해야 한다 — 2026-10-28 한 판이 「(말)\s*해?\s*(줘)」 처럼 \s* 두 개 사이에 선택 낱말을 두어 «천천히 말» + 공백 14만 자에
  *     8초가 걸렸다(함정 대조 실측). 하니스가 키워드 × 공백 5만 자를 재서 막는다.
  *  ⚠️ /iu 의 u 는 빼지 말 것 — 끝 조건(lookahead 의 \p{L})이 u 없이도 «오류 없이» 컴파일되어 조용히 넓어진다. */
-export const QM_REASK_KO = /(?:천천히|느리게|쉽게|짧게|간단히|또박또박|크게|다시)\s*(?:(?:다시|좀|한\s*번)\s*)?(?:말씀|말|얘기|읽어|설명)\s*(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)|(?:천천히|느리게|쉽게|짧게|간단히|또박또박|크게|다시)\s*(?:좀\s*)?해\s*(?:줘(?![서야])|주세요|주실래|줄래|주시겠)|못\s*알아\s*(?:들었|듣겠)|알아\s*듣기\s*(?:힘들|어려)|쉬운\s*말로\s*(?:(?:말|얘기|설명)\s*)?(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)|모르겠|너무\s*(?:빠르게|빨리)\s*말|한\s*번\s*(?:더|만)\s*(?:말씀|말|얘기)\s*(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)/;
+export const QM_REASK_KO = /(?:천천히|느리게|쉽게|짧게|간단히|또박또박|크게|다시)\s*(?:(?:다시|좀|한\s*번)\s*)?(?:말씀|말|얘기|읽어|설명)\s*(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)|(?:천천히|느리게|쉽게|짧게|간단히|또박또박|크게|다시)\s*(?:좀\s*)?해\s*(?:줘(?![서야])|주세요|주실래|줄래|주시겠)|못\s*알아\s*(?:들었|듣겠)|알아\s*듣기\s*(?:힘들|어려)|쉬운\s*말로\s*(?:(?:말|얘기|설명)\s*)?(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)|너무\s*(?:빠르게|빨리)\s*말|한\s*번\s*(?:더|만)\s*(?:말씀|말|얘기)\s*(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)/u;
 export const QM_REASK_EN = /\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+slow down\b|\bslow down,? please\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:speak|talk|say (?:it|that)|read (?:it|that)|go)(?: english)?(?: a (?:little|bit))?(?: more)? (?:slowly|slower|slow)\b|\bplease(?: more)? (?:slowly|slower|slow)\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:a (?:little|bit) )?(?:more )?(?:slowly|slower|slow|simpler|easier|shorter),? please\b|\byou(?:['’]re| are)?\s+(?:(?:talk|talking|speak|speaking)\s+(?:too|so|very|really)|too) fast\b|\byour (?:voice|talking|speaking) is (?:too|so) fast\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:say|tell me) (?:it |that )?(?:again|one more time)\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+repeat(?: (?:it|that|please|again|the question|the sentence|one more time))?\b|\bi (?:don['’]?t|do not|can['’]?t|cannot|couldn['’]?t|didn['’]?t|not) (?:really )?understand(?: (?:you|that|it|this|anything|the question|your question|the word|the sentence|english|what you(?:['’]re| are) saying|what you (?:said|mean)|what (?:that|it) means))?(?=[^\p{L}\p{N}]*$|\s*[.!?](?:\s|$)|\s*,\s*(?:sorry|please|can you|could you|say|again|teacher)\b)|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:say|speak|talk|explain)(?: it| that)? (?:more )?(?:simply|simpler|easier|more easily|shorter)\b|\b(?:you|please)\s+make it (?:simple|simpler|easy|easier|short|shorter)\b|\b(?:simple|simpler|easy|easier|short|shorter) (?:words|english|sentences?),? please\b|\b(?:can you|please) use (?:easy|easier|simple|simpler) words\b|\b(?:didn['’]?t|can['’]?t|couldn['’]?t|did not|cannot|could not|don['’]?t) hear you\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+speak (?:up|slower|louder|more slowly)\b|\bwhat (?:was|is) the question\b/iu;
-export const QM_REASK_ECHO = /^[^\p{L}\p{N}]*(?:(?:oh|um+|uh+|wait|아|음|(?:eh|네|응|예|에|엥|어|sorry|excuse me)\s*[?？]|wha+t?|huh|sorry|excuse me|뭐|뭐라고요?|too fast|너무\s*빨라요?)[^\p{L}\p{N}]+){0,2}(?:wha+t?|huh|pardon(?: me)?|i beg your pardon|come again|say what|what was that|what (?:did|do) you (?:say|said|mean|ask)|what did you just say|what you (?:say|said)|what does (?:it|that) mean|again\s*[?？]|(?:once )?again,? please|(?:one more time|once more)(?:\s*[?？]|,? please)|(?:please )?(?:say (?:it |that )?again|tell me again|slow down|repeat(?: (?:it|that|again|the question|the sentence|one more time))?|(?:speak|talk|say it|read it|go)(?: a (?:little|bit))?(?: more slowly| slower)|speak (?:up|louder)|explain (?:it |that )?(?:more )?simply|use (?:easy|easier|simple|simpler) words)(?:,? please)?|(?:speak|talk|say it|read it)(?: more)? slowly,? please|too fast(?: for me)?(?:,? (?:teacher|please))?|(?:you(?:['’]re| are) )?(?:talking|speaking) too fast|louder|slower|more slowly|don['’]?t understand(?:,? sorry)?|not understand|(?:a (?:little|bit) )?(?:more )?(?:slow|slower|louder|slowly|simpler|easier|shorter),? please|i (?:can['’]?t|cannot|couldn['’]?t) hear(?: you)?(?: well)?|sorry,? i (?:didn['’]?t|did not|couldn['’]?t) (?:hear|catch)(?: (?:that|it|you|what you said))?|뭐|머|뭐라고|뭐라구|뭐라고요|뭐라구요|뭐요|뭐라고\s*(?:하셨어요|하셨죠|하셨나요|했어요?|했니|했지)|다시요?|(?:다시\s*)?한\s*번\s*(?:만\s*)?(?:더\s*)?요|(?:잘\s*)?(?:안|못)\s*(?:들려요?|들렸어요?|들었어요?)|(?:잘\s*)?못\s*알아\s*들어요?|소리가?\s*(?:잘\s*)?(?:안\s*들려요?|작아요?)|무슨\s*(?:말|뜻|말씀)이(?:에요|야|예요|세요)?|이해(?:가|를)?\s*(?:안\s*(?:돼|되|가)|못\s*(?:했|해))[^\s\p{P}]*|(?:천천히|다시|느리게|쉽게|크게|또박또박)\s*(?:다시\s*)?(?:말|얘기)\s*해(?:\s*봐(?:요)?)?|(?:(?:좀|더|조금만?|다시)\s*)?(?:천천히|느리게|쉽게|짧게|간단히)(?:\s*(?:좀|다시))?(?:\s*해(?:\s*(?:줘|주세요))?|요)?|너무\s*(?:빨라요?|빠르다|빠르네요?)|(?:eh|네|응|예|에|엥|어|sorry|excuse me)\s*[?？])[^\p{L}\p{N}]*$/iu;
+export const QM_REASK_ECHO = /^[^\p{L}\p{N}]*(?:(?:oh|um+|uh+|wait|아|음|(?:eh|네|응|예|에|엥|어|sorry|excuse me)\s*[?？]|wha+t?|huh|sorry|excuse me|뭐|뭐라고요?|too fast|너무\s*빨라요?)[^\p{L}\p{N}]+){0,2}(?:wha+t?|huh|pardon(?: me)?|i beg your pardon|come again|say what|what was that|what (?:did|do) you (?:say|said|mean|ask)|what did you just say|what you (?:say|said)|what does (?:it|that) mean|again\s*[?？]|(?:once )?again,? please|(?:one more time|once more)(?:\s*[?？]|,? please)|(?:please )?(?:say (?:it |that )?again|tell me again|slow down|repeat(?: (?:it|that|again|the question|the sentence|one more time))?|(?:speak|talk|say it|read it|go)(?: a (?:little|bit))?(?: more slowly| slower)|speak (?:up|louder)|explain (?:it |that )?(?:more )?simply|use (?:easy|easier|simple|simpler) words)(?:,? please)?|(?:speak|talk|say it|read it)(?: more)? slowly,? please|too fast(?: for me)?(?:,? (?:teacher|please))?|(?:you(?:['’]re| are) )?(?:talking|speaking) too fast|louder|slower|more slowly|don['’]?t understand(?:,? sorry)?|not understand|(?:a (?:little|bit) )?(?:more )?(?:slow|slower|louder|slowly|simpler|easier|shorter),? please|i (?:can['’]?t|cannot|couldn['’]?t) hear(?: you)?(?: well)?|sorry,? i (?:didn['’]?t|did not|couldn['’]?t) (?:hear|catch)(?: (?:that|it|you|what you said))?|뭐|머|뭐라고|뭐라구|뭐라고요|뭐라구요|뭐요|뭐라고\s*(?:하셨어요|하셨죠|하셨나요|했어요?|했니|했지)|다시요?|(?:다시\s*)?한\s*번\s*(?:만\s*)?(?:더\s*)?요|(?:잘\s*)?(?:안|못)\s*(?:들려요?|들렸어요?|들었어요?)|(?:잘\s*)?못\s*알아\s*들어요?|소리가?\s*(?:잘\s*)?(?:안\s*들려요?|작아요?)|무슨\s*(?:말|뜻|말씀)이(?:에요|야|예요|세요)?|이해(?:가|를)?\s*(?:안\s*(?:돼|되|가)|못\s*(?:했|해))[^\s\p{P}]*|(?:천천히|다시|느리게|쉽게|크게|또박또박)\s*(?:다시\s*)?(?:말|얘기)\s*해(?:\s*봐(?:요)?)?|(?:(?:좀|더|조금만?|다시)\s*)?(?:천천히|느리게|쉽게|짧게|간단히)(?:\s*(?:좀|다시))?(?:\s*해(?:\s*(?:줘|주세요))?|요)?|너무\s*(?:빨라요?|빠르다|빠르네요?)|(?:eh|네|응|예|에|엥|어|sorry|excuse me)\s*[?？]|(?:(?:선생님|쌤|teacher|어+|흠+|저도|저는|전|나도|난)[^\p{L}\p{N}]+){0,2}(?:(?:잘|정말|진짜|아직|하나도|전혀|좀|솔직히)\s*)?(?:(?:너무\s*)?(?:빨라서|빠르게\s*말해서|빨리\s*말해서|어려워서|길어서|안\s*들려서)\s*)?(?:(?:영어|질문|그\s*말|이\s*말|선생님\s*말)(?:를|을|가|이|는|은|도)?\s*)?(?:(?:(?:무슨|뭔)\s*(?:말|소리|뜻|말씀)인지|(?:무슨|뭔)\s*소린지|뭐라는지|뭐라시는지|뭐라고\s*(?:하는|하시는|하셨는|했는)지|뭔지)\s*)?(?:(?:잘|정말|진짜|하나도|전혀|좀)\s*)?모르겠(?:어요?|네요?|는데요?|습니다|다|음)?(?:[^\p{L}\p{N}]+(?:선생님|쌤|teacher|천천히(?:\s*(?:말해\s*)?(?:주세요|줘|요))?|다시(?:\s*(?:말해\s*)?(?:주세요|줘|요))?))?(?:[^\p{L}\p{N}]*[ㅠㅜ]+(?:\s[ㅠㅜ]+)?)?)[^\p{L}\p{N}]*$/iu;
 /** 🤷 (2026-11-05) 「I don't know what that mean(s)」·「I don't know what you said」 — 질문을 «못 알아들은» 것이다(답을 모르는 것이 아니다).
+ *  (2026-11-08) 「I don't know what that word means」·「…what the word hobby means」·「…what 'pet' means」(따옴표) 와, «그 말만»
+ *  「What does that word mean?」·「What does the word hobby mean?」·「What does 'pet' mean, teacher?」 도 받는다(반복 검사 말뭉치에서 놓치던 것).
+ *  ⛔ 따옴표도 «word» 도 없는 낱말 하나는 안 받는다 — 「I don't know what she/they/Grandpa means」·「What does Mom/BTS mean?」 처럼 사람·이름과
+ *     글자로 가를 수 없다(첫 판이 받아 진짜 답을 되묻기로 삼켰다 — 함정 대조 실측). 그래서 「What does hobby mean?」 도 답으로 두고 «먼저 대답» 규칙이 뜻을 설명한다.
+ *  ⛔ 「What does your dog mean to you?」(두 낱말)·「What is your hobby?」(mean 없음)·「I don't know what he said.」(이야기 속 사람) 은 답이다.
  *  2026-11-04 AI 친구 실측: 이 말에 «Okay, let's start again! What's your favorite thing to do?» 로 주제가 통째로 바뀌었다.
  *  ⛔ 「I don't know what to say.」·「I don't know what it is.」 는 답이다(뜻을 묻지 않음) — mean·meant·said·say·saying 만 받는다.
  *  ⚠️ 끝 조건은 위 «I don't understand» 줄과 같다 — 뒤에 이야기가 이어지면(「…, but it was fun」) 답이다. */
-export const QM_REASK_DONT_KNOW_MEANING = /\bi (?:don['’]?t|do not) (?:really )?know what (?:(?:that|it|this|you|the (?:word|question|sentence)) (?:means?|meant|said|say)|you(?:['’]re| are) saying)(?=[^\p{L}\p{N}]*$|\s*[.!?](?:\s|$)|\s*,\s*(?:sorry|please|can you|could you|say|again|teacher)\b)/iu;
+export const QM_REASK_DONT_KNOW_MEANING = /\bi (?:don['’]?t|do not) (?:really )?know what (?:(?:(?:that|this|the) (?:word|question|sentence)|that|it|this|you) (?:means?|meant|said|say)|(?:(?:that|this|the) word )?["'“”‘’][\p{L}-]+["'“”‘’] (?:means?|meant)|(?:that|this|the) word [\p{L}-]+ (?:means?|meant)|you(?:['’]re| are) saying)(?=[^\p{L}\p{N}]*$|\s*[.!?](?:\s|$)|\s*,\s*(?:sorry|please|can you|could you|say|again|teacher)\b)|^[^\p{L}\p{N}]*(?:(?:um+|uh+|sorry|teacher|but|and|so|oh)[^\p{L}\p{N}]+){0,2}what (?:does|do) (?:(?:the|this|that) word(?: ["'“”‘’]?[\p{L}-]+["'“”‘’]?)?|["'“”‘’][\p{L}-]+["'“”‘’]) mean(?:[^\p{L}\p{N}]+(?:teacher|please|in korean))?[^\p{L}\p{N}]*$/iu;
 /** 이보다 긴 말은 되묻기로 보지 않는다(위 ⚠️). */
 export const QM_REASK_MAX_LEN = 1000;
 export function isReaskRequest(s: unknown): boolean {
@@ -192,8 +215,13 @@ export function isReaskRequest(s: unknown): boolean {
  *  그 질문은 «아직 답하지 않은 것» 이라 이번 턴에는 기억에서 뺀다(questionMemory) — AI 가 같은 것을 «쉬운 말·두 개 중 고르기» 로
  *  다시 물어도 반복이 아니다(첫마디 «모름» 칸 지시와 짝 — conversation-connectors.ts turnOpenerLine).
  *  ⛔ 「I don't know, anyway I like riding a bicycle.」 처럼 뒤에 이야기가 이어지면 «그 말만» 이 아니다 — 학생이 새 얘기를 꺼낸 것이다.
- *  ⛔ 「모르겠어요」 는 여기 아니라 위 QM_REASK_KO(되묻기)다 — 한국어로는 «못 알아들었다» 로 더 자주 쓴다. */
-export const QM_DONT_KNOW = /^[^\p{L}\p{N}]*(?:(?:um+|uh+|hmm+|well|oh|sorry|teacher)[^\p{L}\p{N}]+){0,2}(?:i (?:don['’]?t|do not|dont) (?:really )?know|i dunno|dunno|no idea|i have no idea|i(?:['’]m| am) not sure|not sure|(?:잘\s*)?몰라요?)(?:[^\p{L}\p{N}]+(?:teacher|sorry|yet|still|either))?[^\p{L}\p{N}]*$/iu;
+ *  ⛔ 「모르겠어요」 «그 말만» 은 여기 아니라 위 QM_REASK_ECHO(되묻기)다 — 한국어로는 «못 알아들었다» 로 더 자주 쓴다.
+ *     「그건 (잘) 모르겠어요」·「이거 모르겠어요」 처럼 «그것» 을 모른다고 하면 여기다.
+ *  (2026-11-08 반복 검사 말뭉치 실측 — 16개를 «평범한 답» 으로 놓쳤다) 「I really/just don't know」·「I don't know the answer」·「Idk」·
+ *  「I'm not really sure」·앞말 「Uhm/Hm/Ah/Er/Mmm/Actually/Honestly/So/음/어」·뒷말 두 개(「, sorry teacher」·「haha」)·「ㅠㅠ」 도 받는다.
+ *  ⛔ 「I don't know that.」·「I don't know about that.」 은 일부러 안 받는다 — «그 말» 이 무엇인지에 따라 답일 수 있다(틀리면 같은 질문이 또 나간다).
+ *  ⚠️ 앞 고정(^)을 풀지 말 것 — 「Maybe pizza, I don't know.」 가 «모른다» 로 잡히고(대답을 놓침) 긴 입력에서 제곱이 된다. */
+export const QM_DONT_KNOW = /^[^\p{L}\p{N}]*(?:(?:um+|uh+m*|h+m+|a+h+|e+r+m*|m{2,}|well|oh|so|actually|honestly|sorry|teacher|음+|어+|흠+)[^\p{L}\p{N}]+){0,2}(?:i (?:really |just |honestly )?(?:don['’]?t|do not|dont) (?:really )?know(?: the answer)?|i dunno|dunno|idk|no idea|i have no idea|i(?:['’]m| am) not (?:really )?sure|not (?:really )?sure|(?:잘\s*)?몰라요?|(?:그건|그거는|그건요|이건|그거|이거)\s*(?:(?:잘|정말|진짜|아직)\s*)?모르겠(?:어요?|네요?|는데요?|습니다|다|음))(?:[^\p{L}\p{N}]+(?:teacher|sorry|yet|still|either|ha(?:ha)+|he(?:he)+|lol|선생님|쌤)){0,2}(?:[^\p{L}\p{N}]*[ㅠㅜㅋ]+)?[^\p{L}\p{N}]*$/iu;
 export function isDontKnowAnswer(s: unknown): boolean {
   const t = typeof s === 'string' ? s.trim() : '';
   return !!t && t.length <= 200 && QM_DONT_KNOW.test(t);
@@ -210,9 +238,12 @@ export function isAskAgainQuestion(q: unknown): boolean {
  *  ⚠️ 학생이 그 질문에 «다시·천천히·모르겠어요» 로 답했으면(isReaskRequest — 이번 말은 opts.reask 로 덮어쓸 수 있다)
  *     그 질문은 «아직 안 다룬 것» 으로 둔다 — AI 가 요청대로 다시 물어도 반복이 아니다. 그 앞에 물은 질문은 그대로 기억한다.
  *  ⚠️ AI 의 «다시 말해 줄래?»(isAskAgainQuestion)는 기억하지 않는다. */
-export function questionMemory(history: unknown, said?: unknown, opts?: { reask?: boolean }): QuestionMemory | null {
+export function questionMemory(history: unknown, said?: unknown, opts?: { reask?: boolean; maxMsgs?: number }): QuestionMemory | null {
   if (!Array.isArray(history)) return null;
-  const msgs = history.filter((m: any) => m && (m.role === 'assistant' || m.role === 'user') && typeof m.content === 'string').slice(-40);
+  /* ⚠️ 상한 — 기본 QM_MEMORY_MSGS(40줄 = 웜업·엘리더잼 KV 기록 길이). AI 영어친구만 opts.maxMsgs 로 QM_FRIEND_ROWS(160줄)를 넘긴다.
+     2026-11-08 전에는 AI 친구 조회만 40 → 160 으로 늘려도 여기 .slice(-40) 때문에 기억이 여전히 20턴이었다(긴 대화 샌드박스 ④가 잡음). */
+  const cap = opts && Number(opts.maxMsgs) > 0 ? Math.floor(Number(opts.maxMsgs)) : QM_MEMORY_MSGS;
+  const msgs = history.filter((m: any) => m && (m.role === 'assistant' || m.role === 'user') && typeof m.content === 'string').slice(-cap);
   const asked: { q: string; a: string }[] = [], done: Set<string>[] = [], texts = new Set<string>(), items: QuestionMemoryItem[] = [];
   for (let k = 0; k < msgs.length; k++) {
     if (msgs[k].role !== 'assistant') continue;
