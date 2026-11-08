@@ -489,7 +489,15 @@
       else if (!on && slowFrom != null) { window.setRate(slowFrom, false); slowFrom = null; }
     },
     hands: function (auto) { try { AT().setMode(auto ? 'auto' : 'button'); } catch (e) {} },
-    turns: function () { return document.querySelectorAll('#log .msg.me').length; }
+    turns: function () { return document.querySelectorAll('#log .msg.me').length; },
+    /* 🖥 넓은 화면 오른쪽 대화 기록 — 화면 말풍선 그대로(_warmText = 화면이 그 말풍선에 넣은 원문) */
+    log: function () {
+      return [].map.call(document.querySelectorAll('#log .msg.me, #log .msg.ai'), function (d) {
+        return { me: d.classList.contains('me'), text: String(d._warmText || '').trim() };
+      });
+    },
+    /* ⌨️ 넓은 화면 글쓰기 칸 — 대답 고르기와 같은 길(pickAnswer = 입력칸에 넣고 보내기) */
+    type: pickChip
   };
 
   window.WarmupFaceTalk = { enter: enter, exit: exit, isActive: function () { return active; } };

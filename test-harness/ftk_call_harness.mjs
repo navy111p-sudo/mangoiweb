@@ -77,7 +77,7 @@ console.log('▶ ④ 연결 — 두 얼굴 화면이 손잡이를 넘기고, HTM
 for (const [file, mod, html] of [['js/aifriend-facetalk.js', af, 'ai-friend.html'], ['js/warmup-facetalk.js', wu, 'warmup.html']]) {
   const b = cut(mod, '  function build() {');
   ok(file + ': build() 안에서 FtkCall.mount(root, CALL)', /FtkCall\.mount\(root, CALL\)/.test(b));
-  for (const k of ['en', 'title', 'text', 'parts', 'audio', 'tap', 'close', 'finish', 'replay', 'slow', 'hands', 'turns'])
+  for (const k of ['en', 'title', 'text', 'parts', 'audio', 'tap', 'close', 'finish', 'replay', 'slow', 'hands', 'turns', 'log', 'type'])
     ok(file + ': 손잡이 ' + k, new RegExp('\\n    ' + k + ': ').test(mod));
   ok(file + ': 도움판이 열리면 gl-open(영상통화 화면은 그때만 보인다)', /root\.classList\.toggle\('gl-open', open\)/.test(mod));
   const h = readFileSync(join(pub, html), 'utf8');
@@ -89,6 +89,66 @@ console.log('▶ ⑤ 스킨이 #ftk 의 속성을 «쓰지» 않는다(관찰자
 const body = call.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 ok('mount 밖에서 root.classList·root.setAttribute 를 쓰지 않는다', !/root\.(setAttribute|classList\.(add|remove|toggle))/.test(body.replace(/root = r; root\.classList\.add\('ftk-call'\);/, '')));
 ok('관찰자는 #ftk 하나의 data-s·class 만 본다(body 아님)', /observe\(root, \{ attributes: true, attributeFilter: \['data-s', 'class'\] \}\)/.test(call) && !/observe\(document\.body/.test(call));
+
+console.log('▶ ⑥ 넓은 화면(PC) 2단 · 버튼 글자 · 자막 겹침 (2026-11-09 사장님 「추천한대로」)');
+{
+  /* 대화 기록 — 손잡이 log() 를 실제로 돌려 그린다 */
+  const mk = () => { const kids = []; return { kids, set textContent(v) { if (v === '') kids.length = 0; }, appendChild(c) { kids.push(c); }, scrollTop: 0, scrollHeight: 999 }; };
+  const logEl = mk(); let items = [];
+  const c = vm.createContext({ el: { log: logEl }, call: (n) => (n === 'log' ? items : undefined),
+    document: { createElement: () => ({ className: '', textContent: '' }) } });
+  vm.runInContext("var logKey = '';\n" + cut(call, '  function paintLog('), c);
+  ok('전제: paintLog 를 소스에서 오려 냈다', typeof c.paintLog === 'function');
+  items = [{ me: false, text: 'Hi!' }, { me: true, text: 'I like guitar.' }, { me: false, text: "That's cool!" }];
+  c.paintLog();
+  ok('말풍선 순서 그대로 · 내 말은 me', logEl.kids.map(k => (k.className === 'me' ? '나:' : '') + k.textContent).join('|') === "Hi!|나:I like guitar.|That's cool!", logEl.kids.map(k => k.textContent).join('|'));
+  ok('맨 아래로 스크롤', logEl.scrollTop === 999);
+  logEl.kids.push('표식'); c.paintLog();
+  ok('바뀐 것이 없으면 다시 그리지 않는다', logEl.kids.length === 4);
+  items = items.concat([{ me: true, text: 'Yes!' }]); c.paintLog();
+  ok('새 말이 오면 다시 그린다', logEl.kids.length === 4 && logEl.kids[3].textContent === 'Yes!' && logEl.kids[3].className === 'me');
+  items = Array.from({ length: 60 }, (_, i) => ({ me: i % 2 === 1, text: 'm' + i })); c.paintLog();
+  ok('긴 대화는 마지막 40개만', logEl.kids.length === 40 && logEl.kids[39].textContent === 'm59');
+  items = [{ me: false, text: '' }, { me: true, text: 'ok' }]; c.paintLog();
+  ok('빈 말풍선은 건너뛴다', logEl.kids.length === 1);
+  /* 화면 모양 — 좁으면 얼굴 가득, 넓으면 오른쪽 칸 */
+  const css = call.slice(call.indexOf('var CSS'), call.indexOf('var LB'));
+  const wide = css.slice(css.indexOf('@media (min-width:1024px)'));
+  ok('기본(폰)은 오른쪽 칸을 숨긴다', /#ftk \.fc-side\{display:none\}/.test(css));
+  ok('1024px 이상에서만 얼굴을 왼쪽으로 줄이고 오른쪽 칸을 편다', /^@media \(min-width:1024px\)\{#ftk\.ftk-call\{right:36%\}/.test(wide) && /#ftk \.fc-side\{display:flex/.test(wide.slice(0, wide.indexOf('}}'))));
+  ok('도움판이 열리면 흰 자막을 감춘다(카드 뒤로 겹쳐 비치던 것)', /#ftk\.ftk-call\.gl-open \.fc-cap\{visibility:hidden\}/.test(css));
+  const btns = cut(call, '  function build() {');
+  ok('아이콘 버튼 6개에 글자 자리(LB)', ['fc-replay"><span>', 'fc-mic">', 'fc-slow"', 'fc-cc"', 'fc-auto">', 'fc-hand">']
+    .every(k => { const i = btns.indexOf(k); return i > 0 && btns.slice(i, btns.indexOf('</button>', i)).includes('LB'); }));
+  ok('paint() 가 그 6개 글자를 채운다', ['mic', 'slow', 'cc', 'auto', 'hand', 'replay'].every(k => new RegExp('lb\\(el\\.' + k + ',').test(cut(call, '  function paint() {'))));
+  ok('글쓰기 칸 → 손잡이 type(글)', /el\.type\.addEventListener\('submit'[\s\S]{0,160}call\('type', v\)/.test(btns));
+}
+{
+  /* A.i 친구 — 글로 쓴 턴은 «말하기» 보너스를 세지 않고, 말한 턴은 그대로 센다(짝) */
+  async function runSend(typed) {
+    const seen = [];
+    const c = vm.createContext({ seen, window: { sendMsg: async () => { seen.push(c._pendingVoice); } },
+      document: { getElementById: () => ({ value: '', blur() {} }) },
+      t: (a) => a, meEl: {}, teacherEl: {}, noteEl: {} });
+    vm.runInContext('var _pendingVoice = false, silentRuns = 0, said = [], spokeThisTurn = true, turnSeq = 1;\n'
+      + 'function clearHelp(){} function refreshOpen(){} function setState(){} function watchSpeakState(){} function fillText(){} function setOpen(){} function next(){} function exit(){}\n'
+      + 'function isCurrentTurn(m){ return m === turnSeq; }\n' + cut(af, '  async function send('), c);
+    await vm.runInContext('send("Hello", 1' + (typed ? ', true' : '') + ')', c);
+    return seen[0];
+  }
+  ok('말로 보낸 턴 → 말하기 보너스 표시(true)', (await runSend(false)) === true);
+  ok('글로 보낸 턴 → 보너스 표시 없음(false)', (await runSend(true)) === false);
+  ok('글쓰기 손잡이는 send(…, true) 로 보낸다', /type: function \(txt\) \{[^}]*send\(txt, \+\+turnSeq, true\)/.test(af));
+  /* 기록 손잡이 — 두 화면의 말풍선을 [{me, text}] 로 */
+  const fake = (nodes) => ({ querySelectorAll: () => nodes });
+  const node = (cls, text, extra) => Object.assign({ classList: { contains: (k) => cls.split(' ').includes(k) }, textContent: text }, extra || {});
+  const afLog = vm.runInContext('({' + cut(af, '    log: function () {') + '}).log', vm.createContext({ document: fake([node('msg user', ' I like guitar. '), node('ai-text', "That's cool!")]) }));
+  ok('A.i 친구 기록: 내 말·선생님 말을 가른다', JSON.stringify(afLog()) === JSON.stringify([{ me: true, text: 'I like guitar.' }, { me: false, text: "That's cool!" }]));
+  ok('A.i 친구 기록: 정본 말풍선(.ai-row .ai-text)과 흘러나오는 미리보기(.stm-preview)', /'#chat \.msg\.user, #chat \.ai-row \.ai-text, #chat \.stm-preview'/.test(af));
+  const wuLog = vm.runInContext('({' + cut(wu, '    log: function () {') + '}).log', vm.createContext({ document: fake([node('msg ai', '이름표 Hi 🔊 다시 듣기', { _warmText: 'Hi' }), node('msg me', '나 Yes', { _warmText: 'Yes' })]) }));
+  ok('웜업 기록: 이름표·버튼 글자 없이 원문(_warmText)만', JSON.stringify(wuLog()) === JSON.stringify([{ me: false, text: 'Hi' }, { me: true, text: 'Yes' }]));
+  ok('웜업 글쓰기 = 대답 고르기와 같은 길(pickChip)', /\n    type: pickChip\n/.test(wu));
+}
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);
