@@ -39,6 +39,47 @@ export function focusedArticleFix(input: string): WarmupFix | null {
   }, input);
 }
 
+const THIRD_PERSON: Readonly<Record<string, string>> = {
+  do: 'does', eat: 'eats', go: 'goes', have: 'has', like: 'likes', live: 'lives',
+  play: 'plays', read: 'reads', speak: 'speaks', study: 'studies', want: 'wants', watch: 'watches', work: 'works',
+};
+
+export function focusedAgreementFix(input: string): WarmupFix | null {
+  // shortcut: simple pronoun-led statements only, use the model for compound subjects or clauses.
+  const match = /^(i|you|he|she|it|we|they) ([a-z]+)((?: [a-z]+)*[.!]?)$/i.exec(input);
+  if (!match || /\b(?:and|or|but|when|while|if|because|that|yesterday|last|ago)\b/i.test(match[3])) return null;
+  const [, subject, verb, rest] = match;
+  const third = /^(he|she|it)$/i.test(subject);
+  const base = verb.toLowerCase();
+  let corrected = '';
+  if (/^(am|are|is)$/.test(base)) corrected = /^i$/i.test(subject) ? 'am' : third ? 'is' : 'are';
+  else if (third && Object.hasOwn(THIRD_PERSON, base)) corrected = THIRD_PERSON[base];
+  if (!corrected || corrected === base) return null;
+  return focusedCandidate({
+    was: input, now: subject + ' ' + corrected + rest,
+    why_ko: '주어에 맞게 동사 형태를 바꿔요.', tag: 'subject_verb', severity: 'minor',
+  }, input);
+}
+
+const ADJECTIVE_PREPOSITIONS: Readonly<Record<string, string>> = {
+  'interested on': 'in', 'afraid from': 'of', 'responsible of': 'for',
+};
+
+export function focusedPrepositionFix(input: string): WarmupFix | null {
+  // shortcut: only clear adjective–preposition pairs, use the model for context-dependent prepositions.
+  const match = /^((?:(?:i|you|he|she|it|we|they) (?:am|is|are|was|were)|i['’]m|(?:he|she|it)['’]s|(?:you|we|they)['’]re) (interested|afraid|responsible) )(on|from|of)((?: [a-z]+)+[.!]?)$/i.exec(input);
+  if (!match || /\b(?:and|or|but|when|while|if|because|that)\b/i.test(match[4])) return null;
+  const [, prefix, adjective, preposition, rest] = match;
+  if (/^on$/i.test(preposition) &&
+      !/^ (?:art|books|chess|cooking|dancing|history|math|movies|music|science|sports|travel)[.!]?$/i.test(rest)) return null;
+  const corrected = ADJECTIVE_PREPOSITIONS[(adjective + ' ' + preposition).toLowerCase()];
+  if (!corrected) return null;
+  return focusedCandidate({
+    was: input, now: prefix + corrected + rest,
+    why_ko: adjective + ' 뒤에는 ' + corrected + '을 써요.', tag: 'preposition', severity: 'minor',
+  }, input);
+}
+
 /** In an adjective clause, the verb after "for + object pronoun" needs infinitive to. */
 export function focusedInfinitiveFix(input: string): WarmupFix | null {
   const clause = /^(?:(?:yeah|yes|well),? )?it(?:['’]s| is| was) (?:not )?(?:(?:really|very|too|so|quite) )?(?:hard|easy|helpful|useful|important|difficult|necessary|possible|impossible|safe) for (?:me|you|him|her|us|them) /i.exec(input);

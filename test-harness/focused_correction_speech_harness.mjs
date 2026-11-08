@@ -264,6 +264,10 @@ const quickFixes = [
   ['I eat pizza yesterday.', 'I ate pizza yesterday.'],
   ['My favorite animal is lion.', 'My favorite animal is a lion.'],
   ['I saw elephant.', 'I saw an elephant.'],
+  ['She like cats.', 'She likes cats.'],
+  ['They is ready.', 'They are ready.'],
+  ['I am interested on music.', 'I am interested in music.'],
+  ["She's responsible of the project.", "She's responsible for the project."],
 ];
 for (const mode of ['focused', 'free_talk']) {
   let release;
@@ -317,6 +321,14 @@ check('fast rules leave ambiguous, complex and already-correct forms for the mod
   for (const input of ['My favorite animal is a lion.', 'My favorite animal is lions.',
     'My favorite food is rice.', 'This is elephant habitat.']) {
     assert.equal(F.focusedArticleFix(input), null, input);
+  }
+  for (const input of ['She likes cats.', 'They are ready.', 'My friends likes music.',
+    'She go park yesterday.', 'She like cats and we like dogs.', 'Does she like cats?']) {
+    assert.equal(F.focusedAgreementFix(input), null, input);
+  }
+  for (const input of ['I am interested in music.', 'She is afraid of spiders.', 'I am good in class.',
+    'I am interested on Monday.', 'I am interested on music because I sing.']) {
+    assert.equal(F.focusedPrepositionFix(input), null, input);
   }
 });
 check('infinitive rule leaves correct clauses, modals, unrelated phrases and long input alone', () => {
