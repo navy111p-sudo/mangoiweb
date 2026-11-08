@@ -30,3 +30,35 @@ test('malformed or unavailable week has no fabricated bars',()=>{
   assert.match(JSON.stringify(c),/Vocabulary records are unavailable/);assert.doesNotMatch(JSON.stringify(c),/ai-progress-bar|<script>/);
  }
 });
+function viewWith(navigator){const root={navigator};vm.runInNewContext(src,{window:root,document:{createElement:element}});return root.AiSpeakingProgressView}
+const all=(c,out=[])=>{for(const x of c.children){out.push(x);all(x,out);}return out};
+const shareBtn=c=>all(c).find(x=>x.tagName==='button');
+test('next practice comes from the latest confirmed correction, never invented',()=>{
+ const c=element('section');view().render(c,{source:'warmup-session-observations',turns:3,corrections:[{was:'I go',now:'I went'},{was:'He go',now:'He goes'}]},'ko');
+ const s=JSON.stringify(c);assert.match(s,/다음에 연습할 한 가지/);assert.equal(all(c).find(x=>x.className==='ai-progress-focus').textContent,'He goes');
+ for(const r of [{finishedNormally:true,skills:{},reviewWords:[]},{source:'warmup-session-observations',turns:2,corrections:[{was:'x',now:'  '}]}]){
+  const e=element('section');view().render(e,r,'en');assert.doesNotMatch(JSON.stringify(e),/One thing to practice next/);
+ }
+});
+test('next class link and share button are always offered after a result',()=>{
+ for(const lang of ['ko','en']){const c=element('section');view().render(c,{finishedNormally:true,skills:{},reviewWords:['went']},lang);
+  const a=all(c).find(x=>x.tagName==='a');assert.equal(a.href,'/my-schedule.html');assert.equal(shareBtn(c).type,'button');
+  assert.match(a.textContent,lang==='ko'?/다음 원어민 수업/:/next class/);}
+ const e=element('section');view().render(e,null,'ko');assert.equal(shareBtn(e),undefined);
+});
+test('phone share sheet gets a summary without the student id',async()=>{
+ let sent=null,copied=null;const nav={maxTouchPoints:5,share:async x=>{sent=x;},clipboard:{writeText:async t=>{copied=t;}}};
+ const c=element('section');viewWith(nav).render(c,{finishedNormally:true,studentId:'kim2024',lessonId:'L1',recordedTurns:4,uniqueWords:['i','went'],reviewWords:['went'],skills:{}},'ko');
+ shareBtn(c).onclick();await new Promise(r=>setTimeout(r,0));
+ assert.equal(sent.url,'https://mangoi.ai');assert.match(sent.text,/답변 4회/);assert.match(sent.text,/영어 단어 2개/);assert.match(sent.text,/다음 연습: went/);
+ assert.doesNotMatch(JSON.stringify(sent),/kim2024|L1/);assert.equal(copied,null);
+});
+test('closing the share sheet is not a failure; PC copies instead',async()=>{
+ let copied=null;const abort={maxTouchPoints:5,share:async()=>{const e=new Error('x');e.name='AbortError';throw e;},clipboard:{writeText:async t=>{copied=t;}}};
+ const c=element('section');viewWith(abort).render(c,{finishedNormally:true,skills:{}},'en');shareBtn(c).onclick();await new Promise(r=>setTimeout(r,0));assert.equal(copied,null);
+ const pc={maxTouchPoints:0,share:async()=>{throw new Error('should not open sheet on PC');},clipboard:{writeText:async t=>{copied=t;}}};
+ const d=element('section');viewWith(pc).render(d,{finishedNormally:true,skills:{}},'en');shareBtn(d).onclick();await new Promise(r=>setTimeout(r,0));
+ assert.match(copied,/https:\/\/mangoi\.ai/);assert.match(JSON.stringify(d),/Copied\. Paste it into KakaoTalk/);
+ const none={maxTouchPoints:0};const f=element('section');viewWith(none).render(f,{finishedNormally:true,skills:{}},'ko');shareBtn(f).onclick();
+ assert.match(JSON.stringify(f),/아래 글을 복사해서 보내세요/);
+});

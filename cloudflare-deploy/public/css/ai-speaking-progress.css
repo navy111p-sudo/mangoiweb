@@ -17,4 +17,8 @@
 .ai-progress-day{display:grid;grid-template-columns:3.2em minmax(0,1fr) auto;align-items:center;gap:10px;font-size:.85rem}
 .ai-progress-bar{width:100%;height:12px;accent-color:#38bdf8}
 .ai-progress-count{min-width:3em;text-align:right;font-variant-numeric:tabular-nums}
+.ai-progress-focus{font-size:1.05rem;font-weight:700;margin:4px 0}
+.ai-progress-next{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.ai-progress-next+.ai-progress-note{white-space:pre-line}
+.ai-progress-next a.ai-progress-retry{display:inline-flex;align-items:center;text-decoration:none;box-sizing:border-box}
 @media(max-width:420px){.ai-progress-dialog{padding:16px}.ai-progress-trigger{font-size:11px;padding-inline:6px}.ai-progress-score{font-size:1.7rem}}
