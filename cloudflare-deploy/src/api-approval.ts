@@ -2437,10 +2437,20 @@ export async function handleApprovalApi(
       if (finalStatus === 'approved' && cur.reverses_id) {
         reversal = await applyReversal(env, Number(cur.reverses_id), id, String(actor.username));
       }
-      // 끝났으면 올린 사람에게 결과를 알린다.
-      await notify(env, [String(cur.requester_username)],
+      // 끝났으면 올린 사람에게 결과를 알린다. 반려면 피드백(memo)도 알림에 싣는다 — 열기 전에 «왜» 가 보이게.
+      const resultTo = [String(cur.requester_username)];
+      /* 💬 이 단계의 «주» 결재자가 아닌 사람이 반려했으면(경영진이 결재권자 몫을 대신) 결재권자에게도
+         그 피드백을 알린다 (2026-11-09 사장님 「승인자에게 반려해서 피드백」). 승인은 그대로 기안자만. */
+      if (decision === 'rejected' && !isPrimaryApprover(actor, role, ph)) {
+        for (const u of await approversFor(env, String(role), cur.requester_username)) {
+          if (u !== String(actor.username) && resultTo.indexOf(u) < 0) resultTo.push(u);
+        }
+      }
+      await notify(env, resultTo,
                    decision === 'approved' ? 'Approved' : 'Rejected',
-                   String(cur.title || '').slice(0, 80), id, 'approval-result');
+                   (String(cur.title || '').slice(0, 80) +
+                    (decision === 'rejected' && memo ? ' — ' + memo.slice(0, 160) : '')),
+                   id, 'approval-result');
     }
 
     return json({

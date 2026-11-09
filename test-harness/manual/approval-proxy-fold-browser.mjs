@@ -127,6 +127,10 @@ const hasProxyBtn = (page, id) => page.evaluate((n) => {
       if (u.indexOf('/api/approval/home') === 0) {
         return Promise.resolve(new Response(JSON.stringify(home), { status: 200 }));
       }
+      if (/\/api\/approval\/requests\/\d+\/decide/.test(u)) {
+        (window.__SENT = window.__SENT || []).push({ url: u, body: JSON.parse((o && o.body) || '{}') });
+        return Promise.resolve(new Response(JSON.stringify({ ok: true, status: 'rejected' }), { status: 200 }));
+      }
       if (u.indexOf('/api/push/vapid-public-key') === 0) {
         return Promise.resolve(new Response(JSON.stringify({ ok: true, key: '' }), { status: 200 }));
       }
@@ -147,7 +151,8 @@ const hasProxyBtn = (page, id) => page.evaluate((n) => {
   /* ── ① 접힘 ──────────────────────────────────────────────────────────── */
   console.log('\n[1] 소액(결재권자 몫)은 접혀 있다');
   check('#51 에 «승인» 버튼이 없다', (await hasApprove(page, 51)) === false);
-  check('#51 에 «반려» 버튼도 없다 (접힌 상태)', (await hasReject(page, 51)) === false);
+  /* 💬 2026-11-09 사장님 「여기도 피드백 줄 칸」 — 반려·피드백은 접지 않는다(승인만 접힘). */
+  check('#51 에 «반려 · 피드백» 버튼은 있다 (접힌 상태)', (await hasReject(page, 51)) === true);
   check('#51 에 «대신 결재하기» 버튼이 있다', (await hasProxyBtn(page, 51)) === true);
 
   const note51 = await page.evaluate(() =>
@@ -239,9 +244,44 @@ const hasProxyBtn = (page, id) => page.evaluate((n) => {
 
   /* ── ⑥ 60초 뒤 다시 그려도 펼침이 남는가 ─────────────────────────────── */
   console.log('\n[6] 다시 그려도 펼침이 안 접힌다');
-  await page.evaluate(() => { if (typeof repaint === 'function') repaint(); });
+  // ⚠️ repaint 는 닫힌 스코프라 전역에 없다(예전 줄은 헛돌았다) — proxyOpen 이 안에서 진짜 repaint 를 부른다.
+  await page.evaluate(() => { proxyOpen(53); });
   await page.waitForTimeout(200);
   check('repaint 뒤에도 #51 의 «승인» 이 남아 있다', (await hasApprove(page, 51)) === true);
+
+  /* ── ⑥-2 접힌 카드에서 피드백 쓰고 반려 ─────────────────────────────── */
+  console.log('\n[6-2] 접힌 카드에서 피드백 쓰고 반려');
+  await page.evaluate(() => {
+    const c = document.getElementById('req-55');
+    Array.from(c.querySelectorAll('button')).find((x) => /askWhy\(/.test(x.getAttribute('onclick') || '')).click();
+  });
+  await page.waitForTimeout(150);
+  check('#55 에 피드백 칸이 열렸다', await page.evaluate(() => !!document.getElementById('whyt-55')));
+  check('짝 — #55 는 여전히 «승인» 이 없다', (await hasApprove(page, 55)) === false);
+  await page.fill('#whyt-55', '영수증 원본을 다시 올려 주세요');
+  /* ⚠️ repaint 는 닫힌 스코프라 전역에 없다 — proxyOpen(이미 펼친 #51) 이 안에서 진짜 repaint 를 부른다.
+     «새 노드인가» 를 함께 재야 «다시 그려졌다» 가 증명된다(안 그리면 남는 게 당연하다). */
+  await page.evaluate(() => { const t = document.getElementById('whyt-55'); t.__old = 1; t.blur(); proxyOpen(51); });
+  await page.waitForTimeout(150);
+  const re55 = await page.evaluate(() => { const t = document.getElementById('whyt-55');
+    return t ? { fresh: !t.__old, v: t.value } : null; });
+  check('다시 그려도(새 노드) 쓰던 피드백이 남는다',
+    re55 && re55.fresh && re55.v === '영수증 원본을 다시 올려 주세요', JSON.stringify(re55));
+  const box55 = await page.evaluate(() => {
+    const t = document.getElementById('whyt-55');
+    return t ? { w: t.getBoundingClientRect().width, fs: getComputedStyle(t).fontSize } : null;
+  });
+  check('피드백 칸이 카드 폭에 맞고 글자 16px (iOS 확대 방지)',
+    box55 && box55.w > 250 && box55.fs === '16px', JSON.stringify(box55));
+  await page.locator('#req-55').screenshot({ path: (process.env.SHOT_DIR || '/tmp') + '/reject-feedback.png' });
+  await page.evaluate(() => {
+    Array.from(document.querySelectorAll('#why-55 button')).find((x) => /whyOther\(/.test(x.getAttribute('onclick') || '')).click();
+  });
+  await page.waitForTimeout(400);
+  const SENT = await page.evaluate(() => window.__SENT || []);
+  check('반려가 그 피드백으로 서버에 갔다', SENT.some((s) =>
+    /\/requests\/55\/decide/.test(s.url) && s.body.decision === 'rejected' && s.body.memo === '영수증 원본을 다시 올려 주세요'),
+    JSON.stringify(SENT));
 
   /* ── ⑦ 조용한 실패가 없는가 ──────────────────────────────────────────── */
   console.log('\n[7] 실행 중 오류');
