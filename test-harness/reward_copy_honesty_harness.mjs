@@ -38,10 +38,11 @@ console.log('\n[ A. 스트릭 화면의 보석 숫자 = 서버 지급 단계 ]')
   check(`화면에 «출석할 때마다 +${base}💎» 가 있다`, streakHtml.includes(`+${base}💎`), '기본 보석이 화면에 없으면 아이가 받는 양을 모른다');
   for (const [day, gem] of tiers) {
     check(`${day}일째 «매일» 보너스 +${gem}💎`,
-      streakHtml.includes(`${day}일째부터 매일 보너스`) && streakHtml.includes(`+${gem}💎`),
+      streakHtml.includes(`${day}일째부터 매일 보너스</span><span class="ms-gem">+${gem}💎`),   // 날짜와 금액을 «같은 줄» 로
       '서버는 그 단계부터 매일 준다 — «한 번» 처럼 적으면 안 된다');
   }
   check('보석이 포인트상점에서 쓰이지 않는다고 알린다', /포인트상점에서는 쓰지 않아요/.test(streakHtml));
+  check('보너스는 «가장 높은 단계 하나» 라고 알린다(서버 else-if)', /가장 높은 단계 하나만/.test(streakHtml) && /only the highest tier/.test(streakHtml));
   check('순위 제목이 «이번 주» 라고 말하지 않는다(전체 기간 정렬)', !/이번 주 리더보드/.test(streakHtml));
 }
 
@@ -50,8 +51,10 @@ console.log('\n[ C. FAQ 숫자 = point-policy.ts ]');
   const num = (k) => Number((policy.match(new RegExp(k + ':\\s*(\\d+)')) || [])[1]);
   const cap = num('DAILY_TOTAL_CAP'), game = num('game_quiz_daily'), min = num('MIN_REDEEM'), exp = num('EXPIRY_MONTHS');
   check('정책 숫자 4개를 읽었다', cap && game && min && exp, `${cap}/${game}/${min}/${exp}`);
-  check(`FAQ: 하루 최대 ${cap}P(게임·퀴즈 ${game}P)`, faq.includes(`하루 최대 ${cap}P(게임·퀴즈는 ${game}P)`));
-  check(`FAQ: ${min.toLocaleString('en-US')}P부터 교환`, faq.includes(`${min.toLocaleString('en-US')}P부터 교환`));
+  check(`FAQ: 하루 최대 ${cap}P(게임·퀴즈 ${game}P) · 연속 보너스 예외(한·영)`,
+    faq.includes(`하루 최대 ${cap}P(게임·퀴즈는 ${game}P, 연속 학습 보너스는 별도)`) && faq.includes(`up to ${cap}P a day (${game}P from games and quizzes; streak bonuses are extra)`),
+    'CAP_EXEMPT_RULES(연속 보너스)는 하루 상한 밖이다');
+  check(`FAQ: ${min.toLocaleString('en-US')}P부터 교환(한·영)`, faq.includes(`${min.toLocaleString('en-US')}P부터 교환`) && faq.includes(`redeem from ${min.toLocaleString('en-US')}P`));
   check(`FAQ: ${exp}개월 소멸`, faq.includes(`${exp}개월이 지나면 소멸`));
   check('FAQ: 보석 항목이 있다(한·영)', /보석\(💎\)은 포인트와/.test(faq) && /gems \(💎\) different/.test(faq));
 }

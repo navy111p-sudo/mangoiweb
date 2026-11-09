@@ -149,9 +149,9 @@ console.log('\n[ C. 공개 랭킹은 «아이디» 를 내주지 않는다 ]');
     const streak = rd(join(SRC, 'api-games-streak.ts'));
     const blk = handlerBlock(streak, `path === '/api/streak/leaderboard'`);
     const pub = blk ? stripComments(blk.slice(blk.indexOf('checkAdminSession'))) : '';
-    const adminLine = blk ? (stripComments(blk).split('\n').find((l) => /return json\(\{ ok: true, items \}\)/.test(l)) || '') : '';
+    // 글자 검사는 «모양» 까지만 — 조건을 뒤집는 변이는 badges_streak_module_boundaries_harness 가 진짜 핸들러로 잡는다
     check('[연속 출석 순위] 원본 행은 관리자 세션일 때만 준다',
-      /if\s*\(\(await checkAdminSession\(request/.test(adminLine),
+      !!blk && /if\s*\(\(await checkAdminSession\(request[^)]*\)\)\.ok\)\s*\{\s*const r = json\(\{ ok: true, items \}\)/.test(stripComments(blk)),
       '관리자 판정 없이 rs.results 를 그대로 주면 아이디가 무인증으로 샌다');
     const pubBody = pub.slice(pub.indexOf('\n'));
     check('[연속 출석 순위] 공개 응답에 student_uid 를 담지 않고 me 로만 표시한다',

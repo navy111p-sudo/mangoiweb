@@ -197,7 +197,11 @@ export async function handleStreakApi(request: Request, url: URL, env: MangoEnv)
       const rs = await env.DB.prepare(STREAK_LEADERBOARD_SQL).all();
       const items = (rs.results || []) as any[];
       // 관리자 화면(adm-core.js «연속 출석 랭킹»)은 같은 주소를 쿠키로 부른다 — 관리자 세션이면 종전 그대로.
-      if ((await checkAdminSession(request, env as any)).ok) return json({ ok: true, items });
+      if ((await checkAdminSession(request, env as any)).ok) {
+        const r = json({ ok: true, items });
+        r.headers.set('Cache-Control', 'private, no-store');   // 같은 주소가 쿠키에 따라 아이디를 담는다 — 공유 캐시 금지
+        return r;
+      }
       /* 🔴 (2026-11-09) 공개 응답에 student_uid 를 더는 담지 않는다 — /api/points/leaderboard 와 같은 이유
          (학생 비밀번호가 없어 «아이디 = 로그인»). 이름이 아이디와 같으면 이름도 뺀다. 본인 표시는 서버가 me 로만. */
       const meUid = (url.searchParams.get('uid') || '').trim();
