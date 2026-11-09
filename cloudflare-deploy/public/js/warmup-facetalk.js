@@ -484,7 +484,12 @@
     audio: function () { return g('_ttsAudio') || null; },
     tap: onFaceTap,
     close: exit,
-    finish: function () { exit(); var b = document.getElementById('wgFinish'); if (b && !b.disabled) b.click(); },
+    /* AI 대답 중(#wgFinish 꺼짐)이면 버리지 않고 대답이 끝난 뒤 누른다(2026-11-09) */
+    finish: function () {
+      exit(); var b = document.getElementById('wgFinish'); if (!b) return;
+      var go = function () { if (!b.disabled) b.click(); };
+      if (window.AiSpeakingProgress && window.AiSpeakingProgress.afterReply) window.AiSpeakingProgress.afterReply(go); else go();
+    },
     /* 🔁 다시 듣기 — 화면의 «다시 듣기» 와 같은 길(btn 을 넘기면 대화 차례로 세지 않는다) */
     replay: function () {
       var s = teacherText();

@@ -31,7 +31,7 @@ export async function recordSpeakingTurn(request: Request, env: MangoEnv, body: 
     if (!uid || /^(guest|anon)/i.test(uid)) return false;
     if (typeof body.progress_turn !== 'string' || (!body.progress_turn || body.progress_turn.length > 100)) return false;
     const item = { id: body.progress_turn.toLowerCase(), student: turn.student.slice(0, 4000), assistant: turn.assistant.slice(0, 4000),
-      correction: String(turn.correction || '').slice(0, 1000) };
+      correction: String(turn.correction || '').slice(0, 1000), at: Date.now() };   // at = 자동 마감의 «마지막 활동» 근거
     const saved = await env.DB.prepare(`UPDATE ai_speaking_sessions SET
       capture_limited=CASE WHEN json_array_length(turns_json)>=? OR ? THEN 1 ELSE capture_limited END,
       turns_json=CASE WHEN json_array_length(turns_json)<? THEN json_insert(turns_json,'$[#]',json(?)) ELSE turns_json END
@@ -70,6 +70,60 @@ function wordEvidence(words: string[]) {
     unique.add(normalized);
   }
   return { words: [...unique], limited };
+}
+
+/** Words and turn counts the server itself recorded — the same shape for a pressed finish and an auto-close. */
+function sessionObservations(id: string, uid: string, turns: any[], capturedLimited: boolean) {
+  const words = wordEvidence(turns.flatMap((turn: any) => speakingWords(turn.student)));
+  const review = wordEvidence(turns.flatMap((turn: any) => {
+    const original = new Set(speakingWords(turn.student).map(word => word.toLowerCase()));
+    return speakingWords(turn.correction).filter(word => !original.has(word.toLowerCase()));
+  }));
+  const skills: Record<string, number> = {};
+  return { ...evaluateSpeaking({ lessonId: id, studentId: uid, finishedNormally: true,
+    evaluatedAt: new Date().toISOString(), skills, spokenWords: words.words, correctedWords: review.words,
+    // Turn count is observed; completed sentence count has not been measured.
+    sentencesCompleted: 0, evaluationSource: 'server-confirmed-session-observations' }),
+    evaluationStatus: 'unavailable', evaluationReason: 'validated_evaluator_unavailable', evaluationSource:'server-confirmed-session-observations',
+    evaluatedSkills: Object.keys(skills).length, recordedTurns: turns.length,
+    captureLimited: capturedLimited || words.limited || review.limited, sentenceCountStatus: 'unmeasured' };
+}
+
+const AUTO_CLOSE_MAX = 5;
+const AUTO_CLOSE_IDLE_MS = 10 * 60 * 1000;
+/** 🔒 자동 마감 (2026-11-09 사장님 결정) — «끝내기» 없이 새로고침·이동·닫기로 떠난 대화는
+ *  같은 학생이 새 대화를 «시작» 할 때 닫는다. 결과 화면은 안 띄우고 단어·성장 기록(status='complete')에만 넣는다.
+ *  · 마지막 활동(시작 시각·마지막 턴 시각 중 늦은 것) 뒤 10분이 지난 것만 닫는다 — 다른 탭에서 아직 이어 가는 대화를
+ *    닫으면 그 탭의 다음 턴이 기록되지 않는다. 그래서 막 떠난 대화는 그다음 시작 때 닫힌다(오래된 것부터).
+ *    (이 변경 전에 기록된 턴에는 시각이 없어 시작 시각만 본다.)
+ *  · 0턴 대화는 건드리지 않는다 — 셀 낱말이 없고, 다른 탭이 막 시작한 대화일 수 있다.
+ *  · finished_at 은 마감한 시각이 아니라 «마지막 활동» 시각 — 단어·성장 기록이 대화한 날·달로 들어간다.
+ *  · finishedNormally:true 는 결과 화면이 그리려면 필요해 그대로 두고, 자동 마감은 closedBy 로 가른다.
+ *  · 보상(포인트·배지)은 셈하지 않는다 — 모르면 null(지어낸 0 금지). 배지 검사도 안 돈다(새 세션 시작을 늦추지 않게).
+ *  · 그 사이 다른 탭이 턴을 더했으면(turns_json 이 달라짐) 건드리지 않는다 — 다음 시작 때 다시 본다.
+ *  · 실패해도 던지지 않는다 — 새 대화 시작을 막지 않는다.
+ *  EN: a session left without «finish» is closed when the same student starts the next one. Never throws. */
+async function closeAbandoned(env: MangoEnv, uid: string, keepId: string) {
+  try {
+    const idleBefore = Date.now() - AUTO_CLOSE_IDLE_MS;
+    const rows = await env.DB.prepare(`SELECT id,turns_json,capture_limited,started_at FROM ai_speaking_sessions
+      WHERE student_uid=? AND status='open' AND id<>? AND started_at<? AND turns_json<>'[]' ORDER BY started_at ASC LIMIT ?`)
+      .bind(uid, keepId, idleBefore, AUTO_CLOSE_MAX).all();
+    for (const row of (rows.results || []) as any[]) {
+      try {   // 한 줄이 깨져도 나머지는 닫는다
+        const turns = JSON.parse(row.turns_json);
+        const lastAt = Math.max(Number(row.started_at) || 0, ...(Array.isArray(turns) ? turns : []).map((t: any) => Number(t && t.at) || 0));
+        if (lastAt >= idleBefore) continue;   // 아직 이어 가는 중일 수 있다
+        if (!Array.isArray(turns) || !turns.length) continue;   // 말한 것이 없으면 셀 것도 없다 — 그대로 둔다
+        const result = { ...sessionObservations(row.id, uid, turns, !!row.capture_limited), closedBy: 'auto-next-session',
+          rewards: { pointsBalance: null, gemsBalance: null, pointsEarned: null, badges: null } };
+        // finished_at = 마지막 활동 시각 — 마감한 «지금» 을 적으면 10/31 대화가 11월 단어·월간 성적표로 넘어간다
+        await env.DB.prepare(`UPDATE ai_speaking_sessions SET status='complete',result_json=?,finished_at=?,capture_limited=?
+          WHERE id=? AND student_uid=? AND status='open' AND turns_json=?`)
+          .bind(JSON.stringify(result), lastAt, result.captureLimited ? 1 : 0, row.id, uid, row.turns_json).run();
+      } catch { console.warn('[speaking-progress] auto-close row skipped'); }
+    }
+  } catch { console.warn('[speaking-progress] auto-close unavailable'); }
 }
 
 /** A model's numeric output is not a calibrated measurement contract. */
@@ -127,6 +181,7 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
       const id = crypto.randomUUID();
       await env.DB.prepare(`INSERT INTO ai_speaking_sessions (id,student_uid,app,source_id,started_at) VALUES (?,?,?,?,?)`)
         .bind(id, uid, body.app, body.app === 'warmup' ? body.sourceId : null, Date.now()).run();
+      await closeAbandoned(env, uid, id);
       return json({ ok: true, sessionId: id });
     }
     if (body.action !== 'finish' || typeof body.sessionId !== 'string' || body.sessionId.length > 100)
@@ -155,21 +210,10 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
       .bind(row.id, uid, claimAt).first<any>();
     if (!captured) throw new Error('session_changed');
     turns = JSON.parse(captured.turns_json);
-    const words = wordEvidence(turns.flatMap((turn: any) => speakingWords(turn.student)));
-    const review = wordEvidence(turns.flatMap((turn: any) => {
-      const original = new Set(speakingWords(turn.student).map(word => word.toLowerCase()));
-      return speakingWords(turn.correction).filter(word => !original.has(word.toLowerCase()));
-    }));
     // Preserve confirmed words/rewards; no unvalidated model scores or paid inference.
-    const skills: Record<string, number> = {};
-    const evaluationStatus = 'unavailable', evaluationReason = 'validated_evaluator_unavailable';
     try { await checkAndAwardBadges(env, uid); }
     catch { console.warn('[speaking-progress] badge check unavailable'); }
-    const result = { ...evaluateSpeaking({ lessonId: row.id, studentId: uid, finishedNormally: true,
-      evaluatedAt: new Date().toISOString(), skills, spokenWords: words.words, correctedWords: review.words,
-      // Turn count is observed; completed sentence count has not been measured.
-      sentencesCompleted: 0, evaluationSource: 'server-confirmed-session-observations' }),
-      evaluationStatus, evaluationReason, evaluationSource:'server-confirmed-session-observations', evaluatedSkills: Object.keys(skills).length, recordedTurns: turns.length, captureLimited: !!captured.capture_limited || words.limited || review.limited, sentenceCountStatus: 'unmeasured',
+    const result = { ...sessionObservations(row.id, uid, turns, !!captured.capture_limited),
       rewardAttributionVersion:1, rewards: await wallet(env, uid, row.app, row.id, row.source_id, row.started_at) };
     const saved = await env.DB.prepare(`UPDATE ai_speaking_sessions SET status='complete',result_json=?,finished_at=?,capture_limited=?
       WHERE id=? AND student_uid=? AND status='evaluating' AND finished_at=?`)

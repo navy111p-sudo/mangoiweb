@@ -91,3 +91,94 @@ test('late completed-result refresh cannot repaint another account or a new prac
   assert.notEqual(s.card.weeklyVocabulary?.[0]?.words,999);
  }
 });
+
+// ⏳ AI 대답 중에 누른 «끝내기» 는 버리지 않고 대답이 끝나면 한 번 한다(2026-11-09).
+function setupBusy() {
+  const clock = { now: 1_800_000_000_000 };
+  const timers = [], send = { disabled: true }, nodes = [], requests = [], storage = new Map([['mango_token', 'local-token-A']]);
+  const el = () => ({ style: {}, hidden: false, textContent: '', setAttribute() {}, replaceChildren() {}, appendChild() {} });
+  const root = { addEventListener() {}, AiSpeakingProgressView: { render() {} } };
+  vm.runInNewContext(source, { window: root, location: { pathname: '/warmup.html' }, crypto: globalThis.crypto,
+    localStorage: { getItem: key => storage.get(key) || '' }, Date: { now: () => clock.now },
+    setTimeout: fn => { timers.push(fn); return timers.length; }, clearTimeout() {},
+    document: { readyState: 'complete', addEventListener() {}, body: { appendChild(n) { nodes.push(n); } }, createElement: el,
+      querySelector() { return { insertBefore() {} }; }, getElementById: id => id === 'sendBtn' ? send : null },
+    fetch: async (_, options) => new Promise(resolve => requests.push({ options, reply: data => resolve({ ok: true, json: async () => data }) })) });
+  const tick = () => { const due = timers.splice(0); due.forEach(fn => fn()); };
+  return { api: root.AiSpeakingProgress, send, timers, tick, nodes, requests, clock };
+}
+test('not busy: the action runs at once with no wait', () => {
+  const s = setupBusy(); s.send.disabled = false; let n = 0; s.api.afterReply(() => n++);
+  assert.equal(n, 1); assert.equal(s.timers.length, 0); assert.equal(s.nodes.length, 0);
+});
+test('busy: the action waits, says so, then runs exactly once', () => {
+  const s = setupBusy(); let n = 0; s.api.afterReply(() => n++);
+  assert.equal(n, 0); assert.match(s.nodes[0].textContent, /AI 대답이 끝나면/); assert.equal(s.nodes[0].hidden, false);
+  s.tick(); assert.equal(n, 0, 'still replying');
+  s.send.disabled = false; s.tick(); assert.equal(n, 1); assert.equal(s.nodes[0].hidden, true);
+  s.tick(); assert.equal(n, 1); assert.equal(s.timers.length, 0);
+});
+test('pressing again while waiting keeps one wait and runs the latest', () => {
+  const s = setupBusy(); let a = 0, b = 0; s.api.afterReply(() => a++); s.api.afterReply(() => b++);
+  assert.equal(s.timers.length, 1); s.send.disabled = false; s.tick(); assert.equal(a, 0); assert.equal(b, 1);
+});
+test('a reply that never ends gives up after 30 seconds and says so', () => {
+  const s = setupBusy(); let n = 0; s.api.afterReply(() => n++);
+  let ticks = 0; while (/AI 대답이 끝나면/.test(s.nodes[0].textContent) && ticks < 1000) { s.tick(); ticks++; }
+  assert.ok(ticks >= 98 && ticks <= 100, 'about 30 s of 300 ms checks, got ' + ticks);
+  assert.equal(n, 0); assert.match(s.nodes[0].textContent, /아직 안 끝났어요/);
+  s.send.disabled = false; s.tick(); assert.equal(n, 0, 'no late run after giving up');
+});
+test('starting over cancels a waiting finish', () => {
+  const s = setupBusy(); let n = 0; s.api.afterReply(() => n++); s.api.reset();
+  assert.equal(s.nodes[0].hidden, true); s.send.disabled = false; s.tick(); assert.equal(n, 0);
+});
+test('finish pressed during the AI reply is not dropped', async () => {
+  const s = setupBusy(); s.send.disabled = false; const start = s.api.beforeTurn(); s.requests[0].reply({ ok: true, sessionId: 'one' }); await start;
+  s.send.disabled = true; await s.api.finish(); s.tick(); assert.equal(s.requests.length, 1, 'not sent while replying');
+  s.send.disabled = false; s.tick(); await new Promise(r => setImmediate(r)); assert.equal(s.requests.length, 2);
+  assert.deepEqual(JSON.parse(s.requests[1].options.body), { action: 'finish', sessionId: 'one' });
+});
+
+// 얼굴 대화·하단 바의 «끝내기» 도 같은 기다림을 지난다 — 함수를 오려 내 실제로 돌린다.
+function cut(file, startText) {
+  const src = fs.readFileSync(path.join(__dirname, '../public/js', file), 'utf8'), i = src.indexOf(startText);
+  assert.ok(i >= 0, 'found ' + startText); let d = 0, j = src.indexOf('{', i);
+  for (let k = j; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && !--d) return src.slice(i, k + 1); }
+  throw new Error('unbalanced');
+}
+for (const [name, code, wrap] of [
+  ['face-talk finish', () => cut('warmup-facetalk.js', 'finish: function'), c => '({' + c + '}).finish()'],
+  ['touch bar finish', () => cut('warmup-touch-bar.js', 'function onSheet'), c => c + ';onSheet({target:{closest(){return{id:"x",getAttribute(){return "tbFin"}}}}})'],
+]) {
+  test(name + ' waits for the reply instead of dropping the press', () => {
+    for (const busy of [true, false]) {
+      const btn = { disabled: busy, clicks: 0, click() { if (!this.disabled) this.clicks++; } }, waits = [];
+      const ctx = { exit() {}, closeSheet() {}, click() {}, $: () => btn, document: { getElementById: () => btn },
+        window: { AiSpeakingProgress: { afterReply(fn) { waits.push(fn); } } } };
+      vm.runInNewContext(wrap(code()), ctx);
+      assert.equal(waits.length, 1, 'goes through afterReply'); btn.disabled = false; waits[0](); assert.equal(btn.clicks, 1);
+    }
+  });
+}
+// ✓ «끝내기» 글자·이름은 test-harness/ftk_call_harness.mjs 가 paint() 를 실제로 돌려 본다.
+
+// 🔒 9분 넘게 쉰 대화는 새 기록으로 — 서버가 10분 쉰 대화를 자동 마감하므로 그 기록에 턴을 보내지 않는다(2026-11-09).
+async function talk(s) { const n = s.requests.length, p = s.api.beforeTurn(); await new Promise(r => setImmediate(r));
+  if (s.requests.length > n) s.requests.at(-1).reply({ ok: true, sessionId: 'S' + s.requests.length }); return p; }
+test('a short pause keeps the same record', async () => {
+  const s = setupBusy(); s.send.disabled = false; const a = await talk(s);
+  s.clock.now += 8 * 60 * 1000; const b = await talk(s); s.clock.now += 8 * 60 * 1000; const c = await talk(s);
+  assert.equal(s.requests.length, 1); assert.equal(b.progress_session, a.progress_session); assert.equal(c.progress_session, a.progress_session);
+});
+test('after more than 9 idle minutes the next turn starts a new record', async () => {
+  const s = setupBusy(); s.send.disabled = false; const a = await talk(s);
+  s.clock.now += 9 * 60 * 1000 + 1; const b = await talk(s);
+  assert.equal(s.requests.length, 2); assert.notEqual(b.progress_session, a.progress_session);
+  assert.equal(JSON.parse(s.requests[1].options.body).action, 'start');
+});
+test('the idle clock starts from the last turn, not the first', async () => {
+  const s = setupBusy(); s.send.disabled = false; await talk(s);
+  for (let i = 0; i < 5; i++) { s.clock.now += 5 * 60 * 1000; await talk(s); }
+  assert.equal(s.requests.length, 1, '25 minutes of steady talk stays one record');
+});

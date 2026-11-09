@@ -101,6 +101,13 @@ console.log('▶ A. A.i 친구하기 · 자동 대화 · 폰 390x844');
   ok('폰: 오른쪽 대화 칸은 없고 얼굴이 화면 가득(2026-11-09)', nw.side==='none' && nw.w===nw.vw, nw.side+' '+nw.w+'/'+nw.vw);
   ok('폰: 아이콘 버튼 밑에 글자(다시 듣기·말하기·천천히·자막·자동·버튼)', nw.lb.join(',')==='다시 듣기,말하기,천천히,자막,자동,버튼', nw.lb.join(','));
   ok('폰: 버튼 글자가 진행 막대 위에서 끝난다(겹침 없음)', nw.low<=nw.prTop, nw.low+' ≤ '+nw.prTop);
+  // ✓ 만으로는 못 찾아서 «끝내기» 글자를 함께(2026-11-09) — 보이고·화면 안이고·맨 위인가
+  const top=await page.evaluate(()=>{const f=document.getElementById('ftk'),d=f.querySelector('.fc-done'),x=f.querySelector('.fc-close'),r=d.getBoundingClientRect();
+    const hitEl=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
+    return {txt:d.textContent.trim(),xr:x.getBoundingClientRect().right,vw:innerWidth,tw:f.querySelector('.fc-title').getBoundingClientRect().width,h:r.height,hit:!!hitEl&&hitEl.closest('.fc-done')===d};});
+  ok('✓ 버튼에 «끝내기» 글자가 보인다', top.txt==='끝내기', top.txt);
+  ok('위쪽 줄이 화면 안(✕ 까지)이고 제목 자리가 남는다', top.xr<=top.vw && top.tw>=60, top.xr+'/'+top.vw+' title '+top.tw);
+  ok('끝내기 버튼이 그 자리의 맨 위(눌린다)', top.hit && top.h>=40, top.h);
   await page.screenshot({path:'/tmp/ftk-call-390.png'});
 
   // 첫 인사가 끝날 때까지
