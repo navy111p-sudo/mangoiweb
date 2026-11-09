@@ -142,6 +142,29 @@ console.log('\n[ C. 공개 랭킹은 «아이디» 를 내주지 않는다 ]');
       narrow.length === 0,
       narrow.length ? '좁은 패턴이 남은 파일: ' + narrow.join(', ') : "src/*.ts 전수 · `guest%` 만 씀");
   }
+  /* 🔴 (2026-11-09) 연속 출석 순위(/api/streak/leaderboard)도 같은 구멍이었다 — 무인증 GET 이
+     student_uid + 실명을 20명분 내줬다. 관리자 화면(adm-core.js)이 같은 주소를 쿠키로 부르므로
+     «관리자 세션일 때만» 종전 그대로 주고, 공개 응답은 이름·me 만 준다. */
+  {
+    const streak = rd(join(SRC, 'api-games-streak.ts'));
+    const blk = handlerBlock(streak, `path === '/api/streak/leaderboard'`);
+    const pub = blk ? stripComments(blk.slice(blk.indexOf('checkAdminSession'))) : '';
+    const adminLine = blk ? (stripComments(blk).split('\n').find((l) => /return json\(\{ ok: true, items \}\)/.test(l)) || '') : '';
+    check('[연속 출석 순위] 원본 행은 관리자 세션일 때만 준다',
+      /if\s*\(\(await checkAdminSession\(request/.test(adminLine),
+      '관리자 판정 없이 rs.results 를 그대로 주면 아이디가 무인증으로 샌다');
+    const pubBody = pub.slice(pub.indexOf('\n'));
+    check('[연속 출석 순위] 공개 응답에 student_uid 를 담지 않고 me 로만 표시한다',
+      !!blk && !/student_uid\s*:/.test(pubBody) && /\bme\s*:/.test(pubBody),
+      '학생은 비밀번호가 없어 «아이디 = 로그인» 이다');
+    check('[연속 출석 순위] 이름이 아이디와 같으면 «이름 없음» 으로 준다',
+      /!==\s*uidStr/.test(pubBody), 'student_name 이 아이디 그 자체인 행이 실재한다');
+    check('[연속 출석 순위] 게스트를 공개 순위에서 뺀다',
+      /\^guest\/i/.test(pubBody), '포인트 랭킹과 같은 규칙');
+    const sh = rd(join(PUB, 'streak.html'));
+    check('[연속 출석 순위] 화면이 아이디를 그리지 않는다',
+      !/it\.student_uid/.test(sh) && /it\.me/.test(sh), '서버가 더는 아이디를 주지 않는다');
+  }
   const c = rd(join(PUB, 'js', 'idx-daily-checkin.js'));
   check('화면이 user_id 대신 me 로 «(나)» 를 표시한다',
     /x\s*=>\s*x\.me/.test(c) && !/s\.user_id\s*===/.test(c),

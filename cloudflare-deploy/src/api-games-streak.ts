@@ -1,7 +1,7 @@
 // 출석 체크인·보석·출결 기반 상태·리더보드 API.
 import { json } from './api-util';
 import type { MangoEnv } from './api-mango';
-import { resolveOwnerScope } from './auth-admin';
+import { resolveOwnerScope, checkAdminSession } from './auth-admin';
 import { ATTENDANCE_BY_UID, attUidBinds } from './attendance-uid';
 import { computeAttendanceStreak, reconcileAllStreaks } from './api-games-attendance-streak';
 
@@ -195,7 +195,23 @@ export async function handleStreakApi(request: Request, url: URL, env: MangoEnv)
     if (method === 'GET' && path === '/api/streak/leaderboard') {
       await ensureStreakSchema();
       const rs = await env.DB.prepare(STREAK_LEADERBOARD_SQL).all();
-      return json({ ok: true, items: rs.results || [] });
+      const items = (rs.results || []) as any[];
+      // 관리자 화면(adm-core.js «연속 출석 랭킹»)은 같은 주소를 쿠키로 부른다 — 관리자 세션이면 종전 그대로.
+      if ((await checkAdminSession(request, env as any)).ok) return json({ ok: true, items });
+      /* 🔴 (2026-11-09) 공개 응답에 student_uid 를 더는 담지 않는다 — /api/points/leaderboard 와 같은 이유
+         (학생 비밀번호가 없어 «아이디 = 로그인»). 이름이 아이디와 같으면 이름도 뺀다. 본인 표시는 서버가 me 로만. */
+      const meUid = (url.searchParams.get('uid') || '').trim();
+      // 게스트는 공개 순위에서 뺀다(포인트 랭킹과 같은 규칙 · resolveOwnerScope 도 /^guest/i)
+      return json({ ok: true, items: items.filter((r) => !/^guest/i.test(String(r.student_uid || ''))).map((r) => {
+        const uidStr = String(r.student_uid || '');
+        const nm = String(r.student_name || '').trim();
+        return {
+          student_name: (nm && nm !== uidStr) ? nm : null,
+          current_streak: Number(r.current_streak) || 0,
+          longest_streak: Number(r.longest_streak) || 0,
+          me: !!meUid && uidStr === meUid,
+        };
+      }) });
     }
 
     // 🔁 관리자 수동 트리거 — 전 학생 streak 일괄 정합화 (출결 기준)

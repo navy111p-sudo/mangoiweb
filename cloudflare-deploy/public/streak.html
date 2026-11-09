@@ -58,7 +58,9 @@
     .ms-row .ms-icon { font-size: 20px; }
     .ms-row .ms-name { flex: 1; font-size: 13px; font-weight: 700; }
     .ms-row .ms-gem { font-size: 13px; color: var(--gold); font-weight: 800; }
-    .ms-row.done { opacity: 0.5; text-decoration: line-through; }
+    /* 보너스는 «한 번» 이 아니라 그 단계부터 «매일» 붙는다(api-games-streak.ts) — 지운 줄처럼 보이면 안 된다 */
+    .ms-row.done .ms-name::after { content: ' ✓'; color: #10b981; }
+    .ms-note { margin: 10px 0 0; font-size: 12px; color: var(--text2); line-height: 1.6; }
     .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
       background: linear-gradient(135deg, #10b981, #059669); color: #fff;
       padding: 14px 22px; border-radius: 12px; font-weight: 700; font-size: 14px;
@@ -104,15 +106,17 @@
     </button>
 
     <div class="milestones">
-      <h3>🎁 <span data-ko="마일스톤 보상" data-en="Milestones">마일스톤 보상</span></h3>
-      <div class="ms-row" id="ms3"><span class="ms-icon">💪</span><span class="ms-name" data-ko="3일 연속" data-en="3-day streak">3일 연속</span><span class="ms-gem">+5💎</span></div>
-      <div class="ms-row" id="ms7"><span class="ms-icon">✨</span><span class="ms-name" data-ko="7일 연속" data-en="7-day streak">7일 연속</span><span class="ms-gem">+20💎</span></div>
-      <div class="ms-row" id="ms14"><span class="ms-icon">🔥</span><span class="ms-name" data-ko="2주 연속" data-en="2-week streak">2주 연속</span><span class="ms-gem">+30💎</span></div>
-      <div class="ms-row" id="ms30"><span class="ms-icon">🏆</span><span class="ms-name" data-ko="30일 연속" data-en="30-day streak">30일 연속</span><span class="ms-gem">+50💎</span></div>
+      <h3>🎁 <span data-ko="출석 보석 (매일)" data-en="Daily check-in gems">출석 보석 (매일)</span></h3>
+      <div class="ms-row"><span class="ms-icon">✅</span><span class="ms-name" data-ko="출석할 때마다" data-en="Every check-in">출석할 때마다</span><span class="ms-gem">+10💎</span></div>
+      <div class="ms-row" id="ms3"><span class="ms-icon">💪</span><span class="ms-name" data-ko="3일째부터 매일 보너스" data-en="Daily bonus from day 3">3일째부터 매일 보너스</span><span class="ms-gem">+5💎</span></div>
+      <div class="ms-row" id="ms7"><span class="ms-icon">✨</span><span class="ms-name" data-ko="7일째부터 매일 보너스" data-en="Daily bonus from day 7">7일째부터 매일 보너스</span><span class="ms-gem">+20💎</span></div>
+      <div class="ms-row" id="ms14"><span class="ms-icon">🔥</span><span class="ms-name" data-ko="14일째부터 매일 보너스" data-en="Daily bonus from day 14">14일째부터 매일 보너스</span><span class="ms-gem">+30💎</span></div>
+      <div class="ms-row" id="ms30"><span class="ms-icon">🏆</span><span class="ms-name" data-ko="30일째부터 매일 보너스" data-en="Daily bonus from day 30">30일째부터 매일 보너스</span><span class="ms-gem">+50💎</span></div>
+      <p class="ms-note" data-ko="💡 보석은 연속 출석 기록이에요. 포인트(P)와 따로 쌓이며, 포인트상점에서는 쓰지 않아요." data-en="💡 Gems record your check-in streak. They are separate from points (P) and are not spent in the Point Shop.">💡 보석은 연속 출석 기록이에요. 포인트(P)와 따로 쌓이며, 포인트상점에서는 쓰지 않아요.</p>
     </div>
 
     <div class="leaders">
-      <h3>🏅 <span data-ko="이번 주 리더보드" data-en="Leaderboard">이번 주 리더보드</span></h3>
+      <h3>🏅 <span data-ko="연속 출석 순위 (전체 기간)" data-en="Streak ranking (all time)">연속 출석 순위 (전체 기간)</span></h3>
       <div id="leaderList"><div style="color:var(--text2);font-size:13px;padding:12px">불러오는 중…</div></div>
     </div>
   </div>
@@ -152,9 +156,11 @@
       setTimeout(() => t.classList.remove('show'), 3000);
     }
     function updateMilestones(streak) {
+      // 서버는 보너스를 «가장 높은 단계 하나» 만 준다(else-if) — 지금 받는 단계에만 ✓
+      const now = [30, 14, 7, 3].find((n) => streak >= n);
       [['ms3', 3], ['ms7', 7], ['ms14', 14], ['ms30', 30]].forEach(([id, n]) => {
         const el = document.getElementById(id);
-        if (el) el.classList.toggle('done', streak >= n);
+        if (el) el.classList.toggle('done', n === now);
       });
     }
     async function loadStatus() {
@@ -177,15 +183,19 @@
     }
     async function loadLeaderboard() {
       try {
-        const r = await fetch('/api/streak/leaderboard');
+        // 서버는 아이디를 주지 않는다(이름·me 만) — 본인 표시용으로 내 uid 만 보낸다
+        const r = await fetch('/api/streak/leaderboard?uid=' + encodeURIComponent(getUid()));
         const d = await r.json();
         const wrap = document.getElementById('leaderList');
+        const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const en = (function(){ try { return localStorage.getItem('mangoi_lang') === 'en'; } catch(e){ return false; } })();
+        const t = (ko, eng) => `<span data-ko="${ko}" data-en="${eng}">${en ? eng : ko}</span>`;
         if (d.ok && d.items.length) {
           wrap.innerHTML = d.items.slice(0, 10).map((it, i) =>
             `<div class="leader-row">
               <span class="leader-rank">${i+1}</span>
-              <span class="leader-uid">${(it.student_uid || '').slice(0, 12)}</span>
-              <span class="leader-streak">🔥 ${it.current_streak}일</span>
+              <span class="leader-uid">${it.student_name ? esc(it.student_name) : t('학생', 'Student')}${it.me ? ' ' + t('(나)', '(me)') : ''}</span>
+              <span class="leader-streak">🔥 ${Number(it.current_streak) || 0}${t('일', 'd')}</span>
             </div>`).join('');
         } else {
           wrap.innerHTML = '<div style="color:var(--text2);font-size:13px;padding:12px">아직 데이터가 없어요. 출석 체크로 시작해보세요!</div>';
