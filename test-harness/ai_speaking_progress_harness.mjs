@@ -255,7 +255,7 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
     if (turnsToo) { const t = JSON.parse(sq.prepare('SELECT turns_json FROM ai_speaking_sessions WHERE id=?').get(id).turns_json);
       sq.prepare('UPDATE ai_speaking_sessions SET turns_json=? WHERE id=?').run(JSON.stringify(t.map(x => ({ ...x, at: OLD }))), id); }
   };
-  const row = id => sq.prepare('SELECT status,result_json FROM ai_speaking_sessions WHERE id=?').get(id);
+  const row = id => sq.prepare('SELECT status,result_json,finished_at FROM ai_speaking_sessions WHERE id=?').get(id);
   const carolStart = async () => (await call({ action: 'start', app: 'friend' }, 'carol')).sessionId;
   const left = await carolStart(); await turn(left, {}, 'carol'); age(left);
   const emptyLeft = await carolStart(); age(emptyLeft, false);
@@ -269,14 +269,15 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
     assert.ok(auto.uniqueWords.includes('apples')); assert.equal(auto.recordedTurns, 1); assert.deepEqual(auto.skills, {});
   });
   check('auto-closed results never invent rewards', () => { assert.equal(auto.rewards.pointsEarned, null); assert.equal(auto.rewards.badges, null); });
+  check('auto-closed conversations count on the day they were spoken, not the day they were closed', () => assert.equal(row(left).finished_at, OLD));
   check('the new conversation and empty ones stay open', () => { assert.equal(row(next).status, 'open'); assert.equal(row(emptyLeft).status, 'open'); });
   check('recent or still-active conversations are not closed', () => { assert.equal(row(recent).status, 'open'); assert.equal(row(longActive).status, 'open'); });
   check('another student is never touched', () => assert.equal(row(bobLeft).status, 'open'));
-  const vocabBefore = (await call({ action: 'history' }, 'carol')).weeklyVocabulary.at(-1).words;
+  const vocabBefore = (await call({ action: 'history' }, 'carol')).weeklyVocabulary.reduce((n, d) => n + d.words, 0);
   const reopened2 = await call({ action: 'finish', sessionId: left }, 'carol');
   check('finishing an auto-closed conversation shows its result and counts its words', () => {
     assert.equal(reopened2.status, 200); assert.equal(reopened2.result.rewards.pointsEarned, null);
-    assert.ok(vocabBefore >= auto.uniqueWords.length, 'auto-closed words are in today\'s vocabulary count');
+    assert.ok(vocabBefore >= auto.uniqueWords.length, 'auto-closed words are in this week\'s vocabulary count');
   });
   const many = [];
   for (let i = 0; i < 7; i++) { const id = await carolStart(); await turn(id, {}, 'carol'); many.push(id); }

@@ -94,17 +94,18 @@ test('late completed-result refresh cannot repaint another account or a new prac
 
 // ⏳ AI 대답 중에 누른 «끝내기» 는 버리지 않고 대답이 끝나면 한 번 한다(2026-11-09).
 function setupBusy() {
+  const clock = { now: 1_800_000_000_000 };
   const timers = [], send = { disabled: true }, nodes = [], requests = [], storage = new Map([['mango_token', 'local-token-A']]);
   const el = () => ({ style: {}, hidden: false, textContent: '', setAttribute() {}, replaceChildren() {}, appendChild() {} });
   const root = { addEventListener() {}, AiSpeakingProgressView: { render() {} } };
   vm.runInNewContext(source, { window: root, location: { pathname: '/warmup.html' }, crypto: globalThis.crypto,
-    localStorage: { getItem: key => storage.get(key) || '' },
+    localStorage: { getItem: key => storage.get(key) || '' }, Date: { now: () => clock.now },
     setTimeout: fn => { timers.push(fn); return timers.length; }, clearTimeout() {},
     document: { readyState: 'complete', addEventListener() {}, body: { appendChild(n) { nodes.push(n); } }, createElement: el,
       querySelector() { return { insertBefore() {} }; }, getElementById: id => id === 'sendBtn' ? send : null },
     fetch: async (_, options) => new Promise(resolve => requests.push({ options, reply: data => resolve({ ok: true, json: async () => data }) })) });
   const tick = () => { const due = timers.splice(0); due.forEach(fn => fn()); };
-  return { api: root.AiSpeakingProgress, send, timers, tick, nodes, requests };
+  return { api: root.AiSpeakingProgress, send, timers, tick, nodes, requests, clock };
 }
 test('not busy: the action runs at once with no wait', () => {
   const s = setupBusy(); s.send.disabled = false; let n = 0; s.api.afterReply(() => n++);
@@ -160,8 +161,24 @@ for (const [name, code, wrap] of [
     }
   });
 }
-test('face-talk «finish» shows its word, not only a check mark', () => {
-  const src = fs.readFileSync(path.join(__dirname, '../public/js/ftk-call.js'), 'utf8');
-  assert.match(src, /class="fc-b fc-done">' \+ I\.check \+ '<span class="fc-done-t"><\/span>/);
-  assert.match(src, /querySelector\('\.fc-done-t'\); if \(dt\) dt\.textContent = t\('끝내기', 'Finish'\)/);
+// ✓ «끝내기» 글자·이름은 test-harness/ftk_call_harness.mjs 가 paint() 를 실제로 돌려 본다.
+
+// 🔒 9분 넘게 쉰 대화는 새 기록으로 — 서버가 10분 쉰 대화를 자동 마감하므로 그 기록에 턴을 보내지 않는다(2026-11-09).
+async function talk(s) { const n = s.requests.length, p = s.api.beforeTurn(); await new Promise(r => setImmediate(r));
+  if (s.requests.length > n) s.requests.at(-1).reply({ ok: true, sessionId: 'S' + s.requests.length }); return p; }
+test('a short pause keeps the same record', async () => {
+  const s = setupBusy(); s.send.disabled = false; const a = await talk(s);
+  s.clock.now += 8 * 60 * 1000; const b = await talk(s); s.clock.now += 8 * 60 * 1000; const c = await talk(s);
+  assert.equal(s.requests.length, 1); assert.equal(b.progress_session, a.progress_session); assert.equal(c.progress_session, a.progress_session);
+});
+test('after more than 9 idle minutes the next turn starts a new record', async () => {
+  const s = setupBusy(); s.send.disabled = false; const a = await talk(s);
+  s.clock.now += 9 * 60 * 1000 + 1; const b = await talk(s);
+  assert.equal(s.requests.length, 2); assert.notEqual(b.progress_session, a.progress_session);
+  assert.equal(JSON.parse(s.requests[1].options.body).action, 'start');
+});
+test('the idle clock starts from the last turn, not the first', async () => {
+  const s = setupBusy(); s.send.disabled = false; await talk(s);
+  for (let i = 0; i < 5; i++) { s.clock.now += 5 * 60 * 1000; await talk(s); }
+  assert.equal(s.requests.length, 1, '25 minutes of steady talk stays one record');
 });

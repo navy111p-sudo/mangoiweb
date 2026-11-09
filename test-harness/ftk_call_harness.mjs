@@ -374,5 +374,23 @@ console.log('▶ ⑧ A.i 친구하기는 열자마자 얼굴 대화(2026-11-09 �
   ok('옛 «영구히 1 로 덮기» 가 enter() 에 안 남았다', !/function enter\(auto\) \{[\s\S]{0,1500}localStorage\.setItem\('mangoi_aifriend_sound', '1'\)/.test(af));
 }
 
+// ✓ 끝내기 — 보이는 글자가 생기고, 그 글자로 시작하는 이름(음성 조작으로 부를 수 있게 · WCAG 2.5.3) · 2026-11-09
+console.log('▶ ✓ 끝내기 글자와 이름');
+for (const lang of ['ko', 'en']) {
+  const mk = () => { const kids = {}, at = {}; return { kids, at, style: {}, textContent: '', hidden: false, title: '', placeholder: '', firstChild: { style: {} },
+    classList: { toggle() {}, contains() { return false; } }, setAttribute(k, v) { at[k] = v; }, getAttribute(k) { return at[k]; },
+    querySelector(q) { return kids[q] || (kids[q] = mk()); }, parentNode: { setAttribute() {} } }; };
+  const names = ['title', 'done', 'cam', 'close', 'replay', 'mic', 'slow', 'cc', 'auto', 'hand', 'status', 'dots', 'prog', 'cap', 'sideh', 'log', 'in', 'send', 'type'];
+  const el = Object.fromEntries(names.map(n => [n, mk()]));
+  const c = vm.createContext({ el, root: { getAttribute() { return 'pause'; }, classList: { contains() { return false; } } },
+    t: (k, e) => lang === 'en' ? e : k, handsFree: () => true, call: () => '', camStream: null, slowOn: false, ccOn: () => true, GOAL: 10, A: {}, paintLog() {} });
+  let ran = true;
+  try { vm.runInContext(cut(call, '  function label(') + '\n' + cut(call, '  function lb(') + '\n' + cut(call, '  function paint() {') + '\npaint();', c); } catch (e) { ran = String(e); }
+  const word = el.done.kids['.fc-done-t'] && el.done.kids['.fc-done-t'].textContent, name = el.done.at['aria-label'] || '';
+  ok(lang + ': paint() 가 실제로 돈다(전제)', ran === true, ran);
+  ok(lang + ': ✓ 버튼에 «' + (lang === 'en' ? 'Finish' : '끝내기') + '» 글자', word === (lang === 'en' ? 'Finish' : '끝내기'), word);
+  ok(lang + ': 버튼 이름이 보이는 글자로 시작한다', !!word && name.indexOf(word) === 0, name);
+}
+
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);

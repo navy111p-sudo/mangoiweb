@@ -4,13 +4,18 @@
   var warmup = /\/warmup\.html$/.test(location.pathname), app = warmup ? 'warmup' : 'friend';
   var sessionId = '', sessionToken = '', starting = null, finishing = null, evaluatingId = '', closed = false, result = null;
   var generation = 0, refreshing = null;
+  /* 🔒 오래 쉰 대화는 새 기록으로 — 서버는 같은 학생이 새 대화를 시작할 때 «마지막 활동 뒤 10분» 넘은 대화를 자동 마감한다
+     (src/ai-speaking-session.ts closeAbandoned). 그보다 1분 먼저(9분) 여기서 새로 시작해, 서버가 닫았을지 모르는 기록에
+     턴을 보내지 않는다(보내면 그 턴·포인트가 조용히 빠진다). 뒤로가기로 되살아난 화면도 이 규칙 하나로 처리된다.
+     EN: after 9 idle minutes start a fresh record — the server may auto-close one idle for 10. */
+  var IDLE_RESTART_MS = 9 * 60 * 1000, lastActive = 0;
   var card, dialog, trigger;
   function en() {
     try { return String(localStorage.getItem('mangoi_lang') || '').indexOf('en') === 0; } catch (_) { return false; }
   }
   function t(ko, english) { return en() ? english : ko; }
   function token() { try { return localStorage.getItem('mango_token') || ''; } catch (_) { return ''; } }
-  function reset() { if(window.AiSpeakingSession&&window.AiSpeakingSession.clear)window.AiSpeakingSession.clear(); generation++; sessionId = ''; sessionToken = ''; starting = null; finishing = null; refreshing = null; evaluatingId = ''; closed = false; result = null; queued = null; if (notice) notice.hidden = true; if (card) card.replaceChildren(); }
+  function reset() { if(window.AiSpeakingSession&&window.AiSpeakingSession.clear)window.AiSpeakingSession.clear(); generation++; sessionId = ''; sessionToken = ''; lastActive = 0; starting = null; finishing = null; refreshing = null; evaluatingId = ''; closed = false; result = null; queued = null; if (notice) notice.hidden = true; if (card) card.replaceChildren(); }
   async function api(body) {
     var response = await fetch('/api/ai/speaking-progress', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() },
@@ -24,6 +29,7 @@
     if (sessionToken && sessionToken !== token()) reset();
     if (!token()) return {};
     if (closed || (evaluatingId && sessionId === evaluatingId)) reset();
+    if (sessionId && lastActive && Date.now() - lastActive > IDLE_RESTART_MS) reset();
     if (!sessionId) {
       if (!starting) {
         sessionToken = token();
@@ -38,6 +44,7 @@
       } catch (_) { return {}; }
       finally { if (starting === pending) starting = null; }
     }
+    lastActive = Date.now();
     return { progress_session: sessionId, progress_turn: crypto.randomUUID() };
   }
   /* ⏳ AI 대답 중(#sendBtn 꺼짐)에 누른 끝내기를 대답이 끝날 때까지 기다렸다 한 번 한다(최대 30초).
@@ -47,7 +54,8 @@
   function note(text, ms) {
     if (!notice) {
       notice = document.createElement('div'); notice.id = 'aiProgressNotice'; notice.setAttribute('role', 'status');
-      notice.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 96px);z-index:9000;width:max-content;max-width:calc(100% - 32px);box-sizing:border-box;padding:10px 16px;border-radius:12px;background:#1f2937;color:#fff;font-size:14px;line-height:1.4;box-shadow:0 4px 16px rgba(0,0,0,.25)';
+      // 위쪽 가운데 · 눌림을 가리지 않음 · 마이크 안내(#micHint, 아래쪽 z 9999)와 안 겹치고 그 위 · 드로어(99999~)보다 아래
+      notice.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 72px);z-index:10000;pointer-events:none;width:max-content;max-width:calc(100% - 32px);box-sizing:border-box;padding:10px 16px;border-radius:12px;background:#1f2937;color:#fff;font-size:14px;line-height:1.4;box-shadow:0 4px 16px rgba(0,0,0,.25)';
       document.body.appendChild(notice);
     }
     clearTimeout(noticeTimer); notice.textContent = text; notice.hidden = !text;
@@ -170,7 +178,5 @@
     document.addEventListener('mangoi:lang-changed', paint);
   }
   window.AiSpeakingProgress = { beforeTurn: beforeTurn, finish: finish, reset: reset, afterReply: afterReply };
-  // 뒤로가기로 되살아난 화면은 그 사이 서버가 자동 마감한 기록을 쥐고 있을 수 있다 — 결과가 안 떠 있으면 새로 시작한다.
-  window.addEventListener('pageshow', function (e) { if (e.persisted && !result && !finishing) reset(); });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
 })();

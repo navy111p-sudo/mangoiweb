@@ -97,6 +97,8 @@ const AUTO_CLOSE_IDLE_MS = 10 * 60 * 1000;
  *    닫으면 그 탭의 다음 턴이 기록되지 않는다. 그래서 막 떠난 대화는 그다음 시작 때 닫힌다(오래된 것부터).
  *    (이 변경 전에 기록된 턴에는 시각이 없어 시작 시각만 본다.)
  *  · 0턴 대화는 건드리지 않는다 — 셀 낱말이 없고, 다른 탭이 막 시작한 대화일 수 있다.
+ *  · finished_at 은 마감한 시각이 아니라 «마지막 활동» 시각 — 단어·성장 기록이 대화한 날·달로 들어간다.
+ *  · finishedNormally:true 는 결과 화면이 그리려면 필요해 그대로 두고, 자동 마감은 closedBy 로 가른다.
  *  · 보상(포인트·배지)은 셈하지 않는다 — 모르면 null(지어낸 0 금지). 배지 검사도 안 돈다(새 세션 시작을 늦추지 않게).
  *  · 그 사이 다른 탭이 턴을 더했으면(turns_json 이 달라짐) 건드리지 않는다 — 다음 시작 때 다시 본다.
  *  · 실패해도 던지지 않는다 — 새 대화 시작을 막지 않는다.
@@ -109,16 +111,16 @@ async function closeAbandoned(env: MangoEnv, uid: string, keepId: string) {
       .bind(uid, keepId, idleBefore, AUTO_CLOSE_MAX).all();
     for (const row of (rows.results || []) as any[]) {
       try {   // 한 줄이 깨져도 나머지는 닫는다
-        const now = Date.now();
         const turns = JSON.parse(row.turns_json);
         const lastAt = Math.max(Number(row.started_at) || 0, ...(Array.isArray(turns) ? turns : []).map((t: any) => Number(t && t.at) || 0));
         if (lastAt >= idleBefore) continue;   // 아직 이어 가는 중일 수 있다
         if (!Array.isArray(turns) || !turns.length) continue;   // 말한 것이 없으면 셀 것도 없다 — 그대로 둔다
         const result = { ...sessionObservations(row.id, uid, turns, !!row.capture_limited), closedBy: 'auto-next-session',
           rewards: { pointsBalance: null, gemsBalance: null, pointsEarned: null, badges: null } };
+        // finished_at = 마지막 활동 시각 — 마감한 «지금» 을 적으면 10/31 대화가 11월 단어·월간 성적표로 넘어간다
         await env.DB.prepare(`UPDATE ai_speaking_sessions SET status='complete',result_json=?,finished_at=?,capture_limited=?
           WHERE id=? AND student_uid=? AND status='open' AND turns_json=?`)
-          .bind(JSON.stringify(result), now, result.captureLimited ? 1 : 0, row.id, uid, row.turns_json).run();
+          .bind(JSON.stringify(result), lastAt, result.captureLimited ? 1 : 0, row.id, uid, row.turns_json).run();
       } catch { console.warn('[speaking-progress] auto-close row skipped'); }
     }
   } catch { console.warn('[speaking-progress] auto-close unavailable'); }

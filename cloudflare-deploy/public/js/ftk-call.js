@@ -220,7 +220,7 @@
     if (!root || !el.title) return;
     var s = root.getAttribute('data-s') || 'pause', hf = handsFree();
     el.title.textContent = call('title') || t('A.i 말하기', 'A.i Speaking');
-    label(el.done, '끝내고 결과 보기', 'Finish and see results');
+    label(el.done, '끝내기 · 결과 보기', 'Finish and see results');   // 보이는 글자(끝내기/Finish)로 시작해야 음성 조작으로 부를 수 있다
     var dt = el.done.querySelector('.fc-done-t'); if (dt) dt.textContent = t('끝내기', 'Finish');
     label(el.cam, camStream ? '내 카메라 끄기' : '내 카메라 켜기(나만 보여요)', camStream ? 'Turn my camera off' : 'Turn my camera on (only you see it)');
     el.cam.setAttribute('aria-pressed', camStream ? 'true' : 'false');
