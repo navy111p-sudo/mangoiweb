@@ -1559,7 +1559,9 @@ function paintList(id, arr, decidable){
   for (var i = 0; i < arr.length; i++) {
     var r = arr[i];
     if (HANDOVER_VIEW) {
-      h += '<details class="handover-request"><summary><b>' + esc(r.title) + '</b><small>' +
+      // 펼쳐 둔 「대신 결재」·쓰던 반려 칸이 있으면 다시 그려도 카드를 연 채로 둔다.
+      h += '<details class="handover-request"' + (PROXY_OPEN[r.id] || WHY_DRAFT[r.id] != null ? ' open' : '') +
+           '><summary><b>' + esc(r.title) + '</b><small>' +
            esc((r.requester_name || r.requester_username) + ' · ' + when(r.created_at)) +
            '</small></summary>' + itemHtml(r, decidable) + '</details>';
     } else {

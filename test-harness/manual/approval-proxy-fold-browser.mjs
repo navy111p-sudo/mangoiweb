@@ -27,6 +27,10 @@
  */
 
 import { requireBrowser, fileUrl } from './_pw.mjs';
+import { writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const { chromium, exe } = requireBrowser();
 const FILE = fileUrl('cloudflare-deploy/public/work.html');
@@ -112,14 +116,15 @@ const hasProxyBtn = (page, id) => page.evaluate((n) => {
 }, id);
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbox'] });
+  // --allow-file-access-from-files — 매일보고 화면(iframe) 검사에서 file:// 부모·자식이 같은 출처여야 frameElement 가 보인다.
+  const browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbox', '--allow-file-access-from-files'] });
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('dialog', (d) => d.accept());
 
-  await page.addInitScript((home) => {
+  await ctx.addInitScript((home) => {   // ctx — 매일보고 iframe 탭(⑥-3)에도 같은 가짜 API
     try { localStorage.setItem('mangoi_lang', 'ko'); } catch (e) {}
     const rf = window.fetch;
     window.fetch = function (u, o) {
@@ -273,6 +278,17 @@ const hasProxyBtn = (page, id) => page.evaluate((n) => {
   });
   check('피드백 칸이 카드 폭에 맞고 글자 16px (iOS 확대 방지)',
     box55 && box55.w > 250 && box55.fs === '16px', JSON.stringify(box55));
+  /* 60초 갱신(load)이 쓰는 도중에 오면 — 'online' 이 진짜 load() 를 부른다.
+     쓰는 중(포커스)이면 칸을 갈아 끼우지 않고(같은 노드·포커스 유지), 짝 — 손을 떼면 다시 그린다. */
+  await page.evaluate(() => { const t = document.getElementById('whyt-55'); t.__keep = 1; t.focus();
+    window.dispatchEvent(new Event('online')); });
+  await page.waitForTimeout(400);
+  check('쓰는 중엔 자동 갱신이 칸을 갈아 끼우지 않는다 (포커스 유지)', await page.evaluate(() => {
+    const t = document.getElementById('whyt-55'); return !!(t && t.__keep && document.activeElement === t); }));
+  await page.evaluate(() => { document.getElementById('whyt-55').blur(); window.dispatchEvent(new Event('online')); });
+  await page.waitForTimeout(400);
+  check('짝 — 손을 떼면 자동 갱신이 다시 그린다 (글은 남음)', await page.evaluate(() => {
+    const t = document.getElementById('whyt-55'); return !!(t && !t.__keep && t.value === '영수증 원본을 다시 올려 주세요'); }));
   await page.locator('#req-55').screenshot({ path: (process.env.SHOT_DIR || '/tmp') + '/reject-feedback.png' });
   await page.evaluate(() => {
     Array.from(document.querySelectorAll('#why-55 button')).find((x) => /whyOther\(/.test(x.getAttribute('onclick') || '')).click();
@@ -282,6 +298,38 @@ const hasProxyBtn = (page, id) => page.evaluate((n) => {
   check('반려가 그 피드백으로 서버에 갔다', SENT.some((s) =>
     /\/requests\/55\/decide/.test(s.url) && s.body.decision === 'rejected' && s.body.memo === '영수증 원본을 다시 올려 주세요'),
     JSON.stringify(SENT));
+
+  /* ── ⑥-3 매일보고 화면(iframe ?view=handover) — 다시 그려도 카드가 안 접힌다 ──
+     사장님 화면이 바로 이것이다. 건마다 <details> 라 다시 그리면 접혀 «펼친 것·쓰던 반려 칸» 이 사라져 보였다. */
+  console.log('\n[6-3] 매일보고 화면에서 다시 그려도 카드가 안 접힌다');
+  const parentFile = join(tmpdir(), 'approval-handover-parent.html');
+  writeFileSync(parentFile, '<!doctype html><iframe id="f" style="width:420px;height:900px" src="' + FILE + '?view=handover"></iframe>');
+  const hp = await ctx.newPage();
+  hp.on('pageerror', (e) => errors.push('handover: ' + String(e)));
+  await hp.goto(pathToFileURL(parentFile).href, { waitUntil: 'load' });
+  await hp.waitForTimeout(900);
+  const fr = hp.frame({ url: /work\.html/ });
+  const hv = fr && await fr.evaluate(() => document.documentElement.classList.contains('handover-view'));
+  check('전제 — 매일보고 화면으로 그려졌다', hv === true);
+  if (fr && hv) {
+    await fr.evaluate(() => {
+      const d = document.getElementById('req-55').closest('details'); d.open = true;
+      Array.from(document.querySelectorAll('#req-55 button')).find((x) => /askWhy\(/.test(x.getAttribute('onclick') || '')).click();
+      document.getElementById('whyt-55').value = '다시 확인'; whyInput(55, document.getElementById('whyt-55'));
+      proxyOpen(51);                                   // 진짜 repaint
+    });
+    await hp.waitForTimeout(200);
+    const st = await fr.evaluate(() => ({
+      o55: !!document.getElementById('req-55').closest('details').open,
+      v55: (document.getElementById('whyt-55') || {}).value,
+      o51: !!document.getElementById('req-51').closest('details').open,
+      o52: !!document.getElementById('req-52').closest('details').open,
+    }));
+    check('쓰던 반려 칸이 있는 카드는 다시 그려도 열려 있고 글도 남는다', st.o55 && st.v55 === '다시 확인', JSON.stringify(st));
+    check('「대신 결재하기」 로 펼친 카드도 열려 있다', st.o51, JSON.stringify(st));
+    check('짝 — 손대지 않은 카드는 접혀 있다', st.o52 === false, JSON.stringify(st));
+  }
+  await hp.close();
 
   /* ── ⑦ 조용한 실패가 없는가 ──────────────────────────────────────────── */
   console.log('\n[7] 실행 중 오류');

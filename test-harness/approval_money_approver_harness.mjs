@@ -218,6 +218,9 @@ console.log('\n[Ⓒ-2] 결재권자 «본인» 이 올렸을 때 — 알림이 �
       .replace(/:\s*ActorLike\s*=/g, ' =')
       .replace(/:\s*string\[\]\s*=/g, ' =')
       .replace(/ as any/g, '');
+    /* 인자 목록도 소스에서 읽는다(타입만 벗김) — 손으로 적으면 기본값(widen = true)이 바뀌어도 못 본다. */
+    const params = /async function approversFor\(([^)]*)\)/.exec(API_SRC)[1].split(',')
+      .map(x => x.trim().replace('?', '').replace(/:\s*[^=]+/, '')).join(', ');
     const HQ = [
       { username: EXEC_UID, name: '대표' },
       { username: APPROVER_UID, name: '장 부장' },
@@ -227,7 +230,7 @@ console.log('\n[Ⓒ-2] 결재권자 «본인» 이 올렸을 때 — 알림이 �
     const PH = ['mgr_melca', 'mgr_maimai', 'mgr_karl'];
     const approversFor = new Function(
       'hqAccounts', 'isPrimaryApprover', 'canDecideStage', 'isPhManager',
-      `return async function approversFor(env, role, exceptUser) {${body}};`
+      `return async function approversFor(${params}) {${body}};`
     )(async () => HQ, isPrimaryApprover, canDecideStage,
       (a) => PH.includes(String(a.username || '').toLowerCase()));
 
@@ -252,6 +255,13 @@ console.log('\n[Ⓒ-2] 결재권자 «본인» 이 올렸을 때 — 알림이 �
        알림을 받게 되어 「결재는 장 부장이 한다」가 다시 무너진다. */
     check('폴백은 주 결재자가 없을 때만 돈다',
       !fromPlain.includes(EXEC_UID) && !fromBoss.includes(EXEC_UID));
+    /* 💬 2026-11-09 반려 «결과» 알림은 widen=false — 기안자가 이미 받으니 넓히지 않는다(엉뚱한 경영진 방지).
+       짝 — 평소(주 결재자가 있을 때)는 widen=false 여도 그대로 결재권자를 돌려준다. */
+    const noWidenApprover = await approversFor(null, 'mgr', APPROVER_UID, false);
+    const noWidenPlain = await approversFor(null, 'mgr', PLAIN_UID, false);
+    check('widen=false 면 결재권자 본인 건에서도 폴백으로 안 넓힌다', noWidenApprover.length === 0, JSON.stringify(noWidenApprover));
+    check('짝 — widen=false 여도 주 결재자는 그대로 돌려준다',
+      noWidenPlain.length === 1 && noWidenPlain[0] === APPROVER_UID, JSON.stringify(noWidenPlain));
   }
 }
 
@@ -367,7 +377,8 @@ check('주 결재자가 0명이면 넓혀서 알린다 (조용히 사라지지 �
     const i = API_SRC.indexOf('async function approversFor');
     if (i < 0) return false;
     const body = API_SRC.slice(i, i + 2600);
-    return /if \(out\.length\) return out;/.test(body) && body.includes('canDecideStage(');
+    // `|| !widen` — 결과 알림만 끄는 스위치(2026-11-09). 기본값(widen=true)에서 넓히는지는 Ⓒ-2 가 실제로 돌려 본다.
+    return /if \(out\.length( \|\| !widen)?\) return out;/.test(body) && body.includes('canDecideStage(');
   })());
 check('«결재할 수 있는 사람 수» 는 여전히 canDecideStage 로 센다 (대신 결재도 세어야 한다)',
   (() => {

@@ -104,29 +104,64 @@ const fold = (() => {
 check('전제 — 접힌 카드 갈래를 오려 냈다', fold.length > 200, 'len=' + fold.length);
 check('접힌 카드에 「반려 · 피드백」 버튼이 있다', /onclick="askWhy\(' \+ r\.id/.test(fold));
 check('짝 — 접힌 카드에 «승인» 은 여전히 없다', !/'approved'/.test(fold));
-check('반려 칸 자리가 두 갈래 모두 열린 칸을 그린다',
-  (WORK.match(/<div id="why-' \+ r\.id \+ '">' \+ whyBoxHtml\(r\.id\)/g) || []).length === 2);
+/* ⛔ 개수로 못 박지 않는다 — «빈 자리로 그리는 곳이 남았나» 와 «열린 칸을 그리는 곳이 있나» 를 짝으로. */
+check('반려 칸 자리를 빈 채로 그리는 곳이 없다', !/<div id="why-' \+ r\.id \+ '"><\/div>/.test(WORK));
+check('짝 — 반려 칸 자리가 열린 칸(whyBoxHtml)을 그린다', /<div id="why-' \+ r\.id \+ '">' \+ whyBoxHtml\(r\.id\)/.test(WORK));
+check('매일보고 화면은 펼침·쓰던 반려 칸이 있으면 카드를 연 채로 그린다',
+  /<details class="handover-request"' \+ \(PROXY_OPEN\[r\.id\] \|\| WHY_DRAFT\[r\.id\] != null \? ' open' : ''\)/.test(WORK));
 
 /* ── C. 쓰는 동안 지켜 주기 ───────────────────────────────────────────── */
 console.log('\n[C] 60초 자동 갱신이 쓰던 글을 안 날린다');
 const load = cut(WORK, 'function load(fresh){');
-check('쓰는 중(포커스가 피드백 칸)이면 다시 그리지 않는다',
-  /activeElement[\s\S]{0,120}\/\^whyt-\/\.test[\s\S]{0,40}\)\) repaint\(\);/.test(load));
+const GUARD = "if (!(ae && /^whyt-/.test(ae.id || ''))) repaint();";
+check('전제 — load() 를 오려 냈다', load.length > 500, 'len=' + load.length);
+/* 성공 경로(D = j … noteArrival) 의 다시 그리기만 본다 — catch 의 repaint 는 `if (!D)`(첫 화면)라 쓰는 중엔 안 닿는다. */
+const okPath = (() => { const a = load.indexOf('D = j; offline(false);'), b = load.indexOf('noteArrival(j)', a);
+  return a >= 0 && b > a ? load.slice(a, b) : ''; })();
+check('load() 성공 경로의 다시 그리기는 전부 «쓰는 중이면 미룸» 가드를 지난다',
+  okPath.includes(GUARD) && okPath.split('repaint()').length - 1 === 1, 'len=' + okPath.length);
+// 가드 식 자체를 실제로 돌린다 — 쓰는 중이면 안 그리고(짝) 아니면 그린다
+const guardRun = (id) => { let n = 0; new Function('ae', 'repaint', GUARD)(id == null ? null : { id }, () => n++); return n; };
+check('피드백 칸에 포커스면 다시 그리지 않는다', guardRun('whyt-55') === 0);
+check('짝 — 다른 곳·포커스 없음이면 다시 그린다', guardRun('kw') === 1 && guardRun(null) === 1);
 check('결정된 건은 반려 칸도 닫는다', /function removeLocal\(id\)\{\s*delete WHY_DRAFT\[id\];/.test(WORK));
 
-/* ── D. 서버 — 결재권자에게도 피드백 ────────────────────────────────────── */
+/* ── D. 서버 — 결재권자에게도 피드백 (그 블록을 오려 내 실제로 돌린다) ──── */
 console.log('\n[D] 서버 — 대신 반려하면 결재권자에게도 알린다');
-const dec = (() => {
-  const a = API.indexOf("const mDecide = path.match(");
-  const b = API.indexOf('const mDel = path.match(', a);
-  return a >= 0 && b > a ? API.slice(a, b) : '';
+const blk = (() => {
+  const a = API.indexOf('const resultTo = [String(cur.requester_username)];');
+  const b = API.indexOf("id, 'approval-result');", a);
+  return a >= 0 && b > a ? API.slice(a, b + "id, 'approval-result');".length) : '';
 })();
-check('전제 — 결정 라우트를 오려 냈다', dec.length > 1000, 'len=' + dec.length);
-check('반려 + «주» 결재자가 아님일 때만 결재권자를 더한다',
-  /if \(decision === 'rejected' && !isPrimaryApprover\(actor, role, ph\)\) \{[\s\S]{0,200}approversFor\(env, String\(role\)/.test(dec));
-check('누른 사람 자신에게는 안 보낸다', /u !== String\(actor\.username\)/.test(dec));
-check('그 목록으로 결과를 알린다', /await notify\(env, resultTo,/.test(dec));
-check('피드백은 «반려» 일 때만 알림 본문에', /decision === 'rejected' && memo \? ' — ' \+ memo\.slice\(0, 160\)/.test(dec));
+check('전제 — 결과 알림 블록을 오려 냈다', blk.length > 200, 'len=' + blk.length);
+const AF = new Function('return async function(){}').call().constructor;
+async function notifyRun({ decision, primary, memo = null, pool = ['mgr_jjw', 'admin'] }) {
+  const sent = [], afArgs = [];
+  await new AF('cur', 'decision', 'memo', 'actor', 'role', 'ph', 'env', 'id', 'isPrimaryApprover', 'approversFor', 'notify', blk)(
+    { requester_username: 'mgr_karl', title: 'Projector' }, decision, memo, { username: 'admin' }, 'mgr', false, {}, 55,
+    () => primary,
+    async (...a) => { afArgs.push(a); return pool.slice(); },
+    async (env, to, title, body) => { sent.push({ to, title, body }); });
+  return { sent: sent[0], afArgs };
+}
+const r1 = await notifyRun({ decision: 'rejected', primary: false, memo: '영수증 원본\n[EN] Original receipt please' });
+check('대신 반려 → 기안자 + 결재권자에게 (누른 본인은 빼고)',
+  r1.sent && JSON.stringify(r1.sent.to) === JSON.stringify(['mgr_karl', 'mgr_jjw']), JSON.stringify(r1.sent));
+check('결재권자 목록은 넓히지 않고(widen=false) 기안자를 뺀 채 묻는다',
+  r1.afArgs.length === 1 && r1.afArgs[0][1] === 'mgr' && r1.afArgs[0][2] === 'mgr_karl' && r1.afArgs[0][3] === false,
+  JSON.stringify(r1.afArgs));
+check('반려 알림 본문에 피드백 — 영어 번역이 앞', r1.sent && r1.sent.title === 'Rejected' &&
+  r1.sent.body === 'Projector — Original receipt please / 영수증 원본', r1.sent && r1.sent.body);
+const r2 = await notifyRun({ decision: 'rejected', primary: true, memo: 'x' });
+check('짝 — 주 결재자 본인이 반려하면 기안자에게만', r2.sent && JSON.stringify(r2.sent.to) === '["mgr_karl"]' && !r2.afArgs.length);
+const r3 = await notifyRun({ decision: 'approved', primary: false, memo: '메모' });
+check('짝 — 승인은 기안자에게만, 본문에 메모 없음',
+  r3.sent && JSON.stringify(r3.sent.to) === '["mgr_karl"]' && r3.sent.body === 'Projector' && r3.sent.title === 'Approved');
+const r4 = await notifyRun({ decision: 'rejected', primary: false, pool: ['mgr_karl', 'mgr_jjw', 'mgr_jjw'] });
+check('같은 사람에게 두 번 안 보낸다', r4.sent && JSON.stringify(r4.sent.to) === '["mgr_karl","mgr_jjw"]', JSON.stringify(r4.sent));
+const fnAF = cut(API, 'async function approversFor(');
+check('approversFor 는 widen=false 면 폴백(누를 수 있는 사람 전원)으로 안 넓힌다',
+  /if \(out\.length \|\| !widen\) return out;/.test(fnAF) && /widen = true\)/.test(fnAF));
 
 console.log('\n결과: PASS ' + PASS + ' / FAIL ' + FAIL);
 process.exit(FAIL ? 1 : 0);
