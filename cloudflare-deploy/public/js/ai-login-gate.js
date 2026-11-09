@@ -79,6 +79,7 @@
   //   이 게이트는 «화면» 게이트일 뿐 보안 경계가 아니다(서버 API 는 따로). 게이트 자체 검사는
   //   window.__mgAiGateForce = true 로 강제한다(test-harness/ai_login_gate_harness.mjs).
   try { if (navigator.webdriver && !window.__mgAiGateForce) return; } catch (e) {}
+  if (window.__mgAiGateOff) return;   // CDP 로 직접 띄운 크롬(webdriver 아님) 화면 검사용
   if (loggedIn()) return;
 
   function show() {

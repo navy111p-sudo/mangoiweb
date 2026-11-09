@@ -54,6 +54,8 @@ const evaluate = async expr => {
   return r.result?.result?.value;
 };
 await cmd('Page.enable'); await cmd('Runtime.enable');
+// 🔑 A.i 학습 로그인 게이트(js/ai-login-gate.js)를 끈다 — 이 검사는 비로그인으로 웜업 화면을 연다.
+await cmd('Page.addScriptToEvaluateOnNewDocument', { source: 'window.__mgAiGateOff = true;' });
 await cmd('Network.setCacheDisabled', { cacheDisabled: true });
 await cmd('Network.setBypassServiceWorker', { bypass: true });
 async function open(url){

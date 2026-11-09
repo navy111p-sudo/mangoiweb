@@ -17,7 +17,7 @@ function b64url(o) { return Buffer.from(JSON.stringify(o)).toString('base64').re
 const GOOD = b64url({ uid: 'stu01', exp: Date.now() + 86400000 }) + '.sig';
 const OLD = b64url({ uid: 'stu01', exp: Date.now() - 1000 }) + '.sig';
 
-function run({ mode = 'page', store = {}, webdriver = false, force = false, parentInCall = null } = {}) {
+function run({ mode = 'page', store = {}, webdriver = false, force = false, off = false, parentInCall = null } = {}) {
   const appended = [];
   const listeners = {};
   const body = { appendChild: (el) => { appended.push(el); el.parentNode = body; }, classList: { contains: () => false } };
@@ -29,7 +29,7 @@ function run({ mode = 'page', store = {}, webdriver = false, force = false, pare
     getElementById: (id) => appended.find((e) => e.id === id) || (id === 'ai-friends-ov' ? { style: {} } : null),
     addEventListener: (t, fn) => { listeners[t] = fn; },
   };
-  const win = { __mgAiGateForce: force };
+  const win = { __mgAiGateForce: force, __mgAiGateOff: off };
   win.window = win;
   win.parent = parentInCall === null ? win : { document: { body: { classList: { contains: (c) => c === 'vc-in-call' && parentInCall } } } };
   let loginOpened = 0;
@@ -56,6 +56,7 @@ ok('화상수업 안 iframe → 안 막는다', !run({ parentInCall: true }).gat
 ok('수업이 아닌 화면의 iframe → 막는다', !!run({ parentInCall: false }).gate);
 ok('자동화 브라우저 → 비켜선다', !run({ webdriver: true }).gate);
 ok('자동화 브라우저 + 강제 → 막는다', !!run({ webdriver: true, force: true }).gate);
+ok('검사용 끄기 스위치 → 비켜선다', !run({ off: true }).gate);
 ok('안내의 로그인 링크는 /?menu=login', /href="\/\?menu=login"/.test(run({}).gate.innerHTML));
 
 console.log('② 홈 «AI와 친구하기» 카드');
