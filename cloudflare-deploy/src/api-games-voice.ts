@@ -191,8 +191,9 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
               hallucination_silence_threshold: 2,  // 2초 이상 침묵 구간은 건너뜀(무음에서 문장 지어내기 방지)
             };
             if (hintPrompt) turboParams.initial_prompt = hintPrompt;
+            const recheckStarted = Date.now();
+            const recheckUntil = recheckStarted + 3650;
             const primary = ai.run('@cf/openai/whisper-large-v3-turbo', turboParams);
-            const recheckUntil = Date.now() + 3650;
             if (startBackup) backup = runBase(bytes).catch(() => null);
             const turbo = await readTranscript(await primary);
             const ttRaw = turbo.text.trim();
@@ -213,18 +214,34 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
             const normalize = (text: string) => text.trim().toLowerCase().replace(/[.!]+$/, '').replace(/\s+/g, ' ');
             const expected = normalize(ttRaw).replace(/\binterested in\b/, 'interested on');
             let prepositionRecheck: 'unchanged' | 'unavailable' | undefined;
+            let prepositionRetry: true | undefined;
             if (backup && expected !== normalize(ttRaw) && focusedPrepositionFix(expected)) {
               let timer: ReturnType<typeof setTimeout> | undefined;
+              const waitUntil = (until: number) => new Promise<null>(resolve => {
+                timer = setTimeout(() => resolve(null), Math.max(0, until - Date.now()));
+              });
+              const usable = (transcript: { text: string } | null) => {
+                if (!transcript?.text.trim()) throw new Error('backup_transcript_unavailable');
+                return transcript;
+              };
               try {
-                const alternate = await Promise.race([
-                  backup,
-                  new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), Math.max(0, recheckUntil - Date.now())); }),
-                ]);
+                let alternate = await Promise.race([backup, waitUntil(recheckStarted + 1500)]);
+                clearTimeout(timer);
+                // A slow or failed backup gets one more attempt within the original response budget.
+                if (!alternate?.text.trim() && Date.now() < recheckUntil) {
+                  prepositionRetry = true;
+                  const firstUsable = Promise.any([
+                    backup.then(usable),
+                    runBase(bytes).then(usable),
+                  ]).catch(() => null);
+                  alternate = await Promise.race([firstUsable, waitUntil(recheckUntil)]);
+                }
                 if (alternate && normalize(alternate.text) === expected) {
                   return json({ ok: true, text: alternate.text.trim(), lang, vtt: alternate.vtt || null,
-                    word_count: alternate.word_count || 0, azure: null, azure_diag: 'no_reference', preposition_recheck: 'recovered' });
+                    word_count: alternate.word_count || 0, azure: null, azure_diag: 'no_reference',
+                    preposition_recheck: 'recovered', preposition_retry: prepositionRetry });
                 }
-                prepositionRecheck = alternate ? 'unchanged' : 'unavailable';
+                prepositionRecheck = alternate?.text.trim() ? 'unchanged' : 'unavailable';
               } finally { clearTimeout(timer); }
             }
             const tt = ttRaw;
@@ -235,7 +252,7 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
               ok: true, text: tt, vtt: turbo?.vtt || null, word_count: turbo?.word_count || 0, lang,
               segments: Array.isArray(turbo?.segments) ? turbo.segments.slice(0, 30) : null,
               transcription_info: turbo?.transcription_info || null,
-              preposition_recheck: prepositionRecheck,
+              preposition_recheck: prepositionRecheck, preposition_retry: prepositionRetry,
               // 🎤 발음평가 결과(없으면 null) + 왜 없는지. 프론트는 azure 를 /api/voice/coach 로 넘긴다.
               ...(await azureOut()),
             });
