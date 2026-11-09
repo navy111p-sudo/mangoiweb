@@ -81,7 +81,7 @@ ok('A-6 (수동) 덜 끝난 문장·빈 말도 20초 넘게 기다린다', runM(
 
 console.log('\n[B] 녹음(Whisper) 경로');
 // ⚡ 2026-11-05 «미리 받아쓰기» — 호출이 MangoiVoice.record(_micEarly(manual, { … })) 로 감싸였다(감싸지 않은 옛 모양도 받는다)
-const rec = HTML.match(/MangoiVoice\.record\((?:_micEarly\(manual,\s*)?\{([\s\S]*?)onState/);
+const rec = HTML.match(/var opts = _micEarly\(manual,\s*\{([\s\S]*?)onState/);
 const sm = rec && rec[1].match(/silenceMs:\s*([^,]+),/);
 ok('B-0 (전제) 웜업의 녹음 호출을 찾았다', !!(rec && sm));
 const evalSil = (isManual) => {
@@ -275,7 +275,7 @@ ok('E-13 ⏹ 배선 — 인식 세션이 «사람이 누름» 으로 _micFast �
 console.log('\n[F] ⚡ 미리 받아쓰기 배선 _micEarly — 녹음 경로가 실제로 감싸지는가');
 const earlyFn = bodyAt(HTML, 'function _micEarly(manual, o){');
 ok('F-0 (전제) _micEarly 를 오려 냈다', !!earlyFn);
-ok('F-0b 웜업 녹음 호출이 _micEarly(manual, …) 로 감싸여 있다', /MangoiVoice\.record\(_micEarly\(manual,\s*\{/.test(wh));
+ok('F-0b 웜업 녹음 호출이 _micEarly(manual, …) 로 감싸여 있다', /var opts = _micEarly\(manual,\s*\{/.test(wh) && /MangoiVoice\.record\(opts\)/.test(wh));
 ok('F-0c 미리 받아쓰기 모듈을 싣는다', /<script defer src="\/js\/mangoi-voice-early\.js\?v=\d+"><\/script>/.test(HTML));
 function runEarly(isManual, mod) {
   const seen = {};
