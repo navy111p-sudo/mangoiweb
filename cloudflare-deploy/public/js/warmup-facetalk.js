@@ -478,8 +478,10 @@
      ⛔ 수업 안(iframe)은 enter() 가 스스로 막는다. */
   var autoDone = /[?&]setup=0(?:&|$)/.test(location.search);
   function eleaderOn() { try { return /^엘리더잼 L\d/.test(String((g('WCTX') || {}).textbook || '')); } catch (e) { return false; } }
+  /* 🖥️ AI 말하기 › 공통 설정 «대화 화면» 에서 «학습 도구» 를 고르면 채팅 화면 그대로 둔다(js/ai-speaking-settings.js KEYS.screen) */
+  function wantsTools() { try { return localStorage.getItem('mangoi_ai_screen_mode') === 'full'; } catch (e) { return false; } }
   function autoEnter() {
-    if (autoDone || active || eleaderOn()) return;
+    if (autoDone || active || eleaderOn() || wantsTools()) return;
     autoDone = true;
     try { enter(); } catch (e) {}
   }
