@@ -10,7 +10,7 @@
   }
   function t(ko, english) { return en() ? english : ko; }
   function token() { try { return localStorage.getItem('mango_token') || ''; } catch (_) { return ''; } }
-  function reset() { if(window.AiSpeakingSession&&window.AiSpeakingSession.clear)window.AiSpeakingSession.clear(); generation++; sessionId = ''; sessionToken = ''; starting = null; finishing = null; refreshing = null; evaluatingId = ''; closed = false; result = null; if (card) card.replaceChildren(); }
+  function reset() { if(window.AiSpeakingSession&&window.AiSpeakingSession.clear)window.AiSpeakingSession.clear(); generation++; sessionId = ''; sessionToken = ''; starting = null; finishing = null; refreshing = null; evaluatingId = ''; closed = false; result = null; queued = null; if (notice) notice.hidden = true; if (card) card.replaceChildren(); }
   async function api(body) {
     var response = await fetch('/api/ai/speaking-progress', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() },
@@ -40,6 +40,32 @@
     }
     return { progress_session: sessionId, progress_turn: crypto.randomUUID() };
   }
+  /* ⏳ AI 대답 중(#sendBtn 꺼짐)에 누른 끝내기를 대답이 끝날 때까지 기다렸다 한 번 한다(최대 30초).
+     EN: a finish pressed while the AI is replying runs once the reply ends (30 s cap). */
+  var queued = null, notice = null, noticeTimer = 0;
+  function busy() { var s = document.getElementById('sendBtn'); return !!(s && s.disabled); }
+  function note(text, ms) {
+    if (!notice) {
+      notice = document.createElement('div'); notice.id = 'aiProgressNotice'; notice.setAttribute('role', 'status');
+      notice.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 96px);z-index:9000;width:max-content;max-width:calc(100% - 32px);box-sizing:border-box;padding:10px 16px;border-radius:12px;background:#1f2937;color:#fff;font-size:14px;line-height:1.4;box-shadow:0 4px 16px rgba(0,0,0,.25)';
+      document.body.appendChild(notice);
+    }
+    clearTimeout(noticeTimer); notice.textContent = text; notice.hidden = !text;
+    if (text && ms) noticeTimer = setTimeout(function () { notice.hidden = true; }, ms);
+  }
+  function afterReply(fn) {
+    if (!busy()) { fn(); return; }
+    if (queued) { queued.fn = fn; return; }
+    var q = queued = { fn: fn }, waited = 0;
+    note(t('AI 대답이 끝나면 바로 이어서 할게요…', 'Finishing right after the AI reply…'));
+    (function tick() {
+      if (queued !== q) return;
+      if (!busy()) { queued = null; note(''); try { q.fn(); } catch (_) {} return; }
+      waited += 300;
+      if (waited >= 30000) { queued = null; note(t('AI 대답이 아직 안 끝났어요. 잠시 뒤 다시 눌러 주세요.', 'The AI reply has not finished. Please press again shortly.'), 5000); return; }
+      setTimeout(tick, 300);
+    })();
+  }
   function message(text, retry) {
     card.replaceChildren();
     var p = document.createElement('p'); p.setAttribute('role', 'status'); p.textContent = text; card.appendChild(p);
@@ -60,7 +86,8 @@
   async function finish() {
     if (sessionToken && sessionToken !== token()) reset();
     if (finishing) return finishing;
-    if (document.getElementById('sendBtn')?.disabled) { message(t('AI 응답이 끝난 뒤 결과를 확인해 주세요.', 'Wait for the AI reply before viewing results.')); return; }
+    // AI 대답 중에 누른 «끝내기» 는 버리지 않고 대답이 끝나면 이어서 한다(2026-11-09 — 예전엔 닫힌 창에 안내만 쓰고 끝났다).
+    if (busy()) { afterReply(finish); return; }
     if (dialog && !dialog.open) {
       if (window.FriendAutoTalk) window.FriendAutoTalk.pause();
       if (typeof window.cancelFriendMic === 'function') window.cancelFriendMic();
@@ -142,6 +169,8 @@
     window.addEventListener('storage', function (event) { if (event.key === 'mango_token' || event.key === null) paint(); });
     document.addEventListener('mangoi:lang-changed', paint);
   }
-  window.AiSpeakingProgress = { beforeTurn: beforeTurn, finish: finish, reset: reset };
+  window.AiSpeakingProgress = { beforeTurn: beforeTurn, finish: finish, reset: reset, afterReply: afterReply };
+  // 뒤로가기로 되살아난 화면은 그 사이 서버가 자동 마감한 기록을 쥐고 있을 수 있다 — 결과가 안 떠 있으면 새로 시작한다.
+  window.addEventListener('pageshow', function (e) { if (e.persisted && !result && !finishing) reset(); });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
 })();

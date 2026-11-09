@@ -45,7 +45,7 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
   let calls = 0, model = async () => ({ response: JSON.stringify({ skills: { grammar: 80, vocabulary: 90, sentence: 85, pronunciation: 100 } }) });
   const env = { DB, ROOM_JWT_SECRET: 'local-sandbox-only', AI: { async run(...args) { calls++; return model(...args); } } };
   const tokens = {};
-  for (const uid of ['alice', 'bob', 'guest-local']) tokens[uid] = await signUidToken(uid, env);
+  for (const uid of ['alice', 'bob', 'guest-local', 'carol']) tokens[uid] = await signUidToken(uid, env);
   const request = (body, uid = 'alice') => new Request('https://speaking.test/api/ai/speaking-progress', { method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(tokens[uid] ? { Authorization: 'Bearer ' + tokens[uid] } : {}) }, body: JSON.stringify(body) });
   const call = async (body, uid = 'alice', route = handleSpeakingSession) => {
@@ -248,5 +248,54 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
   const cleared = await handleAiApi(clearRequest, new URL(clearRequest.url), env);
   check('clear chat also removes its copied result transcripts', () => { assert.equal(cleared.status, 200); assert.equal(sq.prepare("SELECT count(*) AS n FROM ai_speaking_sessions WHERE student_uid='alice' AND app='friend'").get().n, 0); });
   check('clearing friend history preserves other accounts, warmup history and wallet', () => { assert.ok(sq.prepare("SELECT count(*) AS n FROM ai_speaking_sessions WHERE app='warmup'").get().n > 0);assert.ok(sq.prepare("SELECT count(*) AS n FROM ai_speaking_sessions WHERE student_uid='bob'").get().n > 0); assert.deepEqual(sq.prepare('SELECT * FROM point_transactions').all(), ledgerBefore); });
+  // 🔒 자동 마감 (2026-11-09) — «끝내기» 없이 떠난 대화는 같은 학생의 다음 «시작» 때 닫는다(10분 넘게 쉰 것만).
+  const OLD = Date.now() - 11 * 60 * 1000;
+  const age = (id, turnsToo = true) => {
+    sq.prepare('UPDATE ai_speaking_sessions SET started_at=? WHERE id=?').run(OLD, id);
+    if (turnsToo) { const t = JSON.parse(sq.prepare('SELECT turns_json FROM ai_speaking_sessions WHERE id=?').get(id).turns_json);
+      sq.prepare('UPDATE ai_speaking_sessions SET turns_json=? WHERE id=?').run(JSON.stringify(t.map(x => ({ ...x, at: OLD }))), id); }
+  };
+  const row = id => sq.prepare('SELECT status,result_json FROM ai_speaking_sessions WHERE id=?').get(id);
+  const carolStart = async () => (await call({ action: 'start', app: 'friend' }, 'carol')).sessionId;
+  const left = await carolStart(); await turn(left, {}, 'carol'); age(left);
+  const emptyLeft = await carolStart(); age(emptyLeft, false);
+  const bobLeft = (await call({ action: 'start', app: 'friend' }, 'bob')).sessionId; await turn(bobLeft, {}, 'bob'); age(bobLeft);
+  const recent = await carolStart(); await turn(recent, {}, 'carol');
+  const longActive = await carolStart(); await turn(longActive, {}, 'carol'); age(longActive, false);
+  const next = await carolStart();
+  const auto = JSON.parse(row(left).result_json || 'null');
+  check('a left conversation is closed when the same student starts the next one', () => {
+    assert.equal(row(left).status, 'complete'); assert.equal(auto.closedBy, 'auto-next-session');
+    assert.ok(auto.uniqueWords.includes('apples')); assert.equal(auto.recordedTurns, 1); assert.deepEqual(auto.skills, {});
+  });
+  check('auto-closed results never invent rewards', () => { assert.equal(auto.rewards.pointsEarned, null); assert.equal(auto.rewards.badges, null); });
+  check('the new conversation and empty ones stay open', () => { assert.equal(row(next).status, 'open'); assert.equal(row(emptyLeft).status, 'open'); });
+  check('recent or still-active conversations are not closed', () => { assert.equal(row(recent).status, 'open'); assert.equal(row(longActive).status, 'open'); });
+  check('another student is never touched', () => assert.equal(row(bobLeft).status, 'open'));
+  const vocabBefore = (await call({ action: 'history' }, 'carol')).weeklyVocabulary.at(-1).words;
+  const reopened2 = await call({ action: 'finish', sessionId: left }, 'carol');
+  check('finishing an auto-closed conversation shows its result and counts its words', () => {
+    assert.equal(reopened2.status, 200); assert.equal(reopened2.result.rewards.pointsEarned, null);
+    assert.ok(vocabBefore >= auto.uniqueWords.length, 'auto-closed words are in today\'s vocabulary count');
+  });
+  const many = [];
+  for (let i = 0; i < 7; i++) { const id = await carolStart(); await turn(id, {}, 'carol'); many.push(id); }
+  many.forEach((id, i) => { age(id); sq.prepare('UPDATE ai_speaking_sessions SET started_at=? WHERE id=?').run(OLD - (7 - i) * 1000, id); });
+  await carolStart();
+  check('one start closes at most five, oldest first', () => assert.deepEqual(many.map(id => row(id).status), ['complete', 'complete', 'complete', 'complete', 'complete', 'open', 'open']));
+  await carolStart();
+  check('the rest close on the following start', () => assert.ok(many.every(id => row(id).status === 'complete')));
+  const raced = await carolStart(); await turn(raced, {}, 'carol'); age(raced);
+  fault = sql => { if (/SET status='complete',result_json/.test(sql) && !/claim/.test(sql)) sq.prepare(`UPDATE ai_speaking_sessions SET turns_json=json_insert(turns_json,'$[#]',json('{"id":"late","student":"late"}')) WHERE id=?`).run(raced); return false; };
+  await carolStart(); fault = null;
+  check('a turn added meanwhile keeps the conversation open', () => assert.equal(row(raced).status, 'open'));
+  const empties = []; for (let i = 0; i < 6; i++) empties.push(await carolStart());
+  const behindEmpties = await carolStart(); await turn(behindEmpties, {}, 'carol');
+  empties.forEach((id, i) => sq.prepare('UPDATE ai_speaking_sessions SET started_at=? WHERE id=?').run(OLD - (10 - i) * 1000, id)); age(behindEmpties);
+  await carolStart();
+  check('many empty conversations never starve a left one', () => { assert.equal(row(behindEmpties).status, 'complete'); assert.ok(empties.every(id => row(id).status === 'open')); });
+  fault = sql => /status='open' AND id<>\?/.test(sql);
+  const survived = await call({ action: 'start', app: 'friend' }, 'carol'); fault = null;
+  check('auto-close failure never blocks starting a conversation', () => { assert.equal(survived.status, 200); assert.ok(survived.sessionId); });
   console.log(`Speaking progress: PASS ${pass} / FAIL 0`);
 }

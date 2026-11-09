@@ -62,7 +62,7 @@
     + '#ftk .fc-top{position:absolute;z-index:6;top:calc(env(safe-area-inset-top,0px) + 10px);left:max(18px,calc(50% - 300px));right:max(12px,calc(50% - 300px));display:flex;align-items:center;gap:10px}'
     + '#ftk .fc-title{flex:1;margin:0;font-size:20px;font-weight:800;color:#111;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
     + '#ftk .fc-top .fc-b{width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.72);color:#222;box-shadow:0 1px 4px rgba(0,0,0,.12)}'
-    + '#ftk .fc-top .fc-done{background:#fff}'
+    + '#ftk .fc-top .fc-done{background:#fff;width:auto;border-radius:21px;padding:0 14px 0 10px;display:flex;align-items:center;gap:6px;font-size:15px;font-weight:800;white-space:nowrap}'   /* ✓ 만으로는 못 찾아서 «끝내기» 글자를 함께(2026-11-09) */
     + '#ftk .fc-top .fc-cam{background:#ef4444;color:#fff}'
     + '#ftk .fc-top .fc-cam[aria-pressed="true"]{background:#fff;color:#222}#ftk .fc-cam[aria-pressed="true"] .sl{display:none}'
     + '#ftk .fc-self{position:absolute;z-index:6;top:calc(env(safe-area-inset-top,0px) + 64px);right:max(12px,calc(50% - 300px));width:96px;height:128px;'
@@ -150,7 +150,7 @@
     w.innerHTML = ''
       + '<div class="fc-shade"></div>'
       + '<div class="fc-top"><h1 class="fc-title"></h1>'
-      + '<button type="button" class="fc-b fc-done">' + I.check + '</button>'
+      + '<button type="button" class="fc-b fc-done">' + I.check + '<span class="fc-done-t"></span></button>'
       + '<button type="button" class="fc-b fc-cam" aria-pressed="false">' + I.cam + '</button>'
       + '<button type="button" class="fc-b fc-close">' + I.x + '</button></div>'
       + '<video class="fc-self" muted playsinline autoplay hidden></video>'
@@ -221,6 +221,7 @@
     var s = root.getAttribute('data-s') || 'pause', hf = handsFree();
     el.title.textContent = call('title') || t('A.i 말하기', 'A.i Speaking');
     label(el.done, '끝내고 결과 보기', 'Finish and see results');
+    var dt = el.done.querySelector('.fc-done-t'); if (dt) dt.textContent = t('끝내기', 'Finish');
     label(el.cam, camStream ? '내 카메라 끄기' : '내 카메라 켜기(나만 보여요)', camStream ? 'Turn my camera off' : 'Turn my camera on (only you see it)');
     el.cam.setAttribute('aria-pressed', camStream ? 'true' : 'false');
     label(el.close, '나가기', 'Leave');

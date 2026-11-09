@@ -93,6 +93,23 @@ function confirmAsked(said) {
 }
 ok('3-7 한 번이라도 말했으면 한 번 묻는다(잘못 누름 막기)', confirmAsked(1) === 1 && confirmAsked(3) === 1, [confirmAsked(1), confirmAsked(3)]);
 ok('3-8 (짝) 아직 한 마디도 안 했으면 묻지 않고 바로 시작', confirmAsked(0) === 0, confirmAsked(0));
+// 2026-11-09 — 새 대화는 새 진행 기록으로(옛 기록은 옛 SESSION_ID 의 턴만 받는다) · 실제로 돌려 «바꾼 뒤 리셋» 인가 본다
+function progressReset(withApi) {
+  const seen = [];
+  try {
+    new Function('seen', 'withApi', `var Q={get:function(){return '';}}; function getLang(){return 'ko';}
+      var log={querySelectorAll:function(){ return {length:0}; }, innerHTML:''};
+      var SESSION_ID='old', sessionStorage={setItem:function(){}}, document={getElementById:function(){ return null; }};
+      function closeMenu(){} function pauseWarmup(){} function _newWarmupSid(){ return 'new'; }
+      function ansCardClear(){ throw new Error('stop'); }
+      var window = withApi ? {AiSpeakingProgress:{reset:function(){ seen.push(SESSION_ID); }}} : {};
+      var AiSpeakingProgress = window.AiSpeakingProgress;
+      try{ (${nwc.replace('function newWarmupChat(){', 'function(){')})(); }catch(e){ if(e.message!=='stop') throw e; }`)(seen, withApi);
+  } catch (e) { return String(e); }
+  return seen;
+}
+ok('3-9 새 대화를 시작하면 진행 기록을 새로(새 SESSION_ID 로 바꾼 뒤) 시작한다', JSON.stringify(progressReset(true)) === '["new"]', progressReset(true));
+ok('3-10 (짝) 진행 기록 모듈이 없어도 새 대화는 그대로 시작된다', JSON.stringify(progressReset(false)) === '[]', progressReset(false));
 
 // ───────────────────────── 4) 성인 수준
 console.log('\n[4] 성인 — 교재 순서와 «아이 말» 금지');

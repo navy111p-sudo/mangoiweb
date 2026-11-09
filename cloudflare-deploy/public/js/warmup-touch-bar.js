@@ -159,7 +159,10 @@
     if (k === 'tbHist') click('wgHistory');
     else if (k === 'tbAns') click('wgHelpOpen');
     else if (k === 'tbQs') click('qsBtn');
-    else if (k === 'tbFin') click('wgFinish');
+    else if (k === 'tbFin') {   // AI 대답 중이면 대답이 끝난 뒤 누른다(2026-11-09 — 꺼진 버튼 클릭은 아무 일도 안 했다)
+      var P = window.AiSpeakingProgress, b = $('wgFinish');
+      if (P && P.afterReply && b) P.afterReply(function () { if (!b.disabled) b.click(); }); else click('wgFinish');
+    }
   }
 
   function mount() {
