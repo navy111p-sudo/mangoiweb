@@ -191,7 +191,8 @@ console.log('▶ ⑦ 웜업 «시작» 하면 곧바로 얼굴 대화(2026-11-09
   const run = (o) => {
     o = o || {};
     const log = [];
-    const c = vm.createContext({ log, active: false, location: { search: o.search || '' } });
+    const c = vm.createContext({ log, active: false, location: { search: o.search || '' },
+      localStorage: { getItem: (k) => (k === 'mangoi_ai_screen_mode' && o.screen != null ? o.screen : null) } });
     c.window = c;
     c.WCTX = { textbook: o.book || '' };
     c._warmStarted = !!o.started;
@@ -211,7 +212,25 @@ console.log('▶ ⑦ 웜업 «시작» 하면 곧바로 얼굴 대화(2026-11-09
   }
   const S0 = safe({ search: '?setup=0&age=kid' });
   if (S0) { S0.c.startWarmup(); S0.c.startWarmup();
-    ok('?setup=0(상황 연습·수업 흐름)은 끝까지 저절로 안 연다', S0.log.join(',') === 'start,start', S0.log.join(',')); }
+    ok('?setup=0 수업 흐름(sit 없음)은 끝까지 저절로 안 연다', S0.log.join(',') === 'start,start', S0.log.join(',')); }
+  /* 상황별 말하기(?setup=0&sit=…)는 공통 설정 «대화 화면» 을 따른다(2026-11-09 사장님) — 수업 흐름(sit 없음)은 그대로 채팅 */
+  const Sit = safe({ search: '?setup=0&lang=en&sit=store' });
+  if (Sit) { Sit.c.startWarmup();
+    ok('상황별(?setup=0&sit=)은 설정 안 정함이면 얼굴 대화를 연다', Sit.log.join(',') === 'start,enter', Sit.log.join(',')); }
+  const SitS = safe({ search: '?setup=0&lang=en&sit=store', screen: 'simple' });
+  if (SitS) { SitS.c.startWarmup();
+    ok('상황별 + «간단 대화» 는 연다', SitS.log.join(',') === 'start,enter', SitS.log.join(',')); }
+  const SitF = safe({ search: '?setup=0&lang=en&sit=store', screen: 'full' });
+  if (SitF) { SitF.c.startWarmup();
+    ok('상황별 + «학습 도구» 는 채팅 그대로(짝)', SitF.log.join(',') === 'start', SitF.log.join(',')); }
+  const SitE = safe({ search: '?setup=0&sit=' });
+  if (SitE) { SitE.c.startWarmup();
+    ok('sit= 이 비었으면 상황이 아니다 — 안 연다', SitE.log.join(',') === 'start', SitE.log.join(',')); }
+  const SitB = safe({ started: true, search: '?setup=0&lang=en&sit=store' });
+  ok('상황별 부팅(감싸기 전에 이미 시작)도 곧바로 연다', SitB && SitB.log.join(',') === 'enter', SitB && SitB.log.join(','));
+  const TbF = safe({ screen: 'full' });
+  if (TbF) { TbF.c.startWarmup();
+    ok('교재 + «학습 도구» 는 채팅 그대로', TbF.log.join(',') === 'start', TbF.log.join(',')); }
   const S1 = safe({ search: '?setup=01' });
   if (S1) { S1.c.startWarmup();
     ok('setup=01 처럼 다른 값은 예외가 아니다(짝)', S1.log.join(',') === 'start,enter', S1.log.join(',')); }
@@ -252,7 +271,8 @@ console.log('▶ ⑧ A.i 친구하기는 열자마자 얼굴 대화(2026-11-09 �
       addEventListener: (t, f) => { (L[t] = L[t] || []).push(f); },
       removeEventListener: (t, f) => { L[t] = (L[t] || []).filter(x => x !== f); } };
     const fire = (t) => (L[t] || []).slice().forEach(f => f({}));
-    const c = vm.createContext({ log, active: !!o.active, location: { search: o.search || '' }, document: doc });
+    const c = vm.createContext({ log, active: !!o.active, location: { search: o.search || '' }, document: doc,
+      localStorage: { getItem: (k) => (k === 'mangoi_ai_screen_mode' && o.screen != null ? o.screen : null) } });
     c.window = c;
     if (o.iframe) c.window = { top: {} };              // 다른 화면 안
     else c.window.top = c.window;
@@ -289,6 +309,10 @@ console.log('▶ ⑧ A.i 친구하기는 열자마자 얼굴 대화(2026-11-09 �
   ok('다른 쿼리는 그대로 연다(짝)', F.after === 'enter:true', JSON.stringify(F));
   const G = await run({ active: true, history: 'none' });
   ok('이미 열렸으면 다시 안 부른다', G.after === '', JSON.stringify(G));
+  const Ws = await run({ screen: 'simple' });
+  ok('공통 설정 «간단 대화» 면 연다', Ws.after === 'enter:true', JSON.stringify(Ws));
+  const Wf = await run({ screen: 'full' });
+  ok('공통 설정 «학습 도구» 면 채팅 그대로(짝)', Wf.after === '' && Wf.left === 0, JSON.stringify(Wf));
   const T = await run({ touch: true });
   ok('기록이 오기 전에 학생이 먼저 눌렀으면 끼어들지 않는다', T.after === '' && T.left === 0, JSON.stringify(T));
   const Hd = await run({ hidden: true });
