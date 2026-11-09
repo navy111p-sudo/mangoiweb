@@ -603,10 +603,12 @@
   /* 🚪 열자마자 얼굴 대화(2026-11-09 사장님 「휴대폰 열면 바로 나오게」) — 폰·태블릿은 얼굴 전면, 넓은 창은 얼굴 + 오른쪽 대화 기록(ftk-call.js).
      대화 기록을 다 불러온 뒤 연다(window.__aiFriendHistory) — 그래야 «처음 인사» 와 «이어서 듣기» 가 바로 갈린다.
      ⛔ 다른 화면 안(iframe)에서는 안 연다 — 마이크가 저절로 열린다.
-     ⛔ ?practice=(더빙 연습)는 입력칸에 문장을 넣어 두는 흐름이라 안 연다. ✕ 로 나가면 ▶ 로 다시 들어온다. */
+     ⛔ ?practice=(더빙 연습)는 입력칸에 문장을 넣어 두는 흐름이라 안 연다. ✕ 로 나가면 ▶ 로 다시 들어온다.
+     ⛔ 공통 설정 «대화 화면» = «학습 도구» 면 채팅 그대로(웜업 wantsTools 와 같은 키). */
   (function autoOpen() {
     var top = true; try { top = window.top === window; } catch (e) { top = false; }
-    if (!top || /[?&]practice=/.test(location.search)) return;
+    var tools = false; try { tools = localStorage.getItem('mangoi_ai_screen_mode') === 'full'; } catch (e) {}
+    if (!top || tools || /[?&]practice=/.test(location.search)) return;
     /* 기록을 불러오는 동안 학생이 먼저 손을 댔으면(🎤·글쓰기·고르기) 끼어들지 않는다 — enter() 가 그 녹음·대답을 끊는다 */
     var touched = false, mark = function () { touched = true; };
     document.addEventListener('pointerdown', mark, true); document.addEventListener('keydown', mark, true);

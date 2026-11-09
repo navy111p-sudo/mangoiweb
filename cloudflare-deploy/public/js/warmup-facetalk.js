@@ -473,10 +473,11 @@
      폰은 얼굴 전면, 넓은 창은 얼굴 + 오른쪽 대화 기록(ftk-call.js) 이라 «시작 = 이 화면» 하나로 둔다.
      시작 버튼(startWarmup — 인라인 스크립트의 전역 함수)을 감싸 «설정이 닫힌 뒤» 한 번만 연다.
      ✕ 로 나가면 이 페이지에서는 다시 안 연다(🎚️ 로 설정을 다시 열고 시작해도) — ▶ 로 언제든 다시 들어온다.
-     ⛔ ?setup=0(상황 연습·수업 흐름) 페이지는 끝까지 채팅 화면이다 — 장면 고르기 칸이 거기 있다(나중에 🎚️ 로 다시 시작해도).
+     ⛔ ?setup=0 수업 흐름(sit= 없음) 페이지는 끝까지 채팅 화면이다(나중에 🎚️ 로 다시 시작해도).
+     ✅ 상황별(?setup=0&sit=…)은 공통 설정 «대화 화면» 을 따른다(2026-11-09 사장님).
      ⛔ 엘리더잼(책·주제로 시작)은 열지 않는다 — 진행 막대(질문 n/20 · 💡 · 그만하기)가 채팅 화면에만 있다.
      ⛔ 수업 안(iframe)은 enter() 가 스스로 막는다. */
-  var autoDone = /[?&]setup=0(?:&|$)/.test(location.search);
+  var autoDone = /[?&]setup=0(?:&|$)/.test(location.search) && !/[?&]sit=[^&]/.test(location.search);
   function eleaderOn() { try { return /^엘리더잼 L\d/.test(String((g('WCTX') || {}).textbook || '')); } catch (e) { return false; } }
   /* 🖥️ AI 말하기 › 공통 설정 «대화 화면» 에서 «학습 도구» 를 고르면 채팅 화면 그대로 둔다(js/ai-speaking-settings.js KEYS.screen) */
   function wantsTools() { try { return localStorage.getItem('mangoi_ai_screen_mode') === 'full'; } catch (e) { return false; } }
