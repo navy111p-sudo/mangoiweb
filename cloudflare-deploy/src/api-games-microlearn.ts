@@ -1,6 +1,6 @@
 // 마이크로러닝 단어 생성·퀴즈·발송 API. 단어장과 같은 SRS·쓰기 권한 정본을 사용한다.
 import { json } from './api-util';
-import { KOREAN_GLOSS_RULE, hasForeignGloss, normalizeKoreanGloss, isKoreanGloss, repairKoreanGlosses } from './korean-vocab';
+import { KOREAN_GLOSS_RULE, hasForeignGloss, normalizeKoreanGloss, isKoreanGloss, isShortGloss, repairKoreanGlosses } from './korean-vocab';
 import type { MangoEnv } from './api-mango';
 import { endSentence } from './sentence-punct';
 import { isCleanText, vocabSrsNext, vocabWriteDenied } from './api-games-vocab-core';
@@ -304,7 +304,8 @@ Variety: mix of nouns, verbs, adjectives.`;
         // 정답(뜻)이 깨진 단어는 아예 출제하지 않습니다 — 문제 자체가 읽을 수 없게 되므로.
         //   (그 단어는 학생 단어장에는 그대로 남아 있어 확인·수정할 수 있습니다)
         if (!isCleanText(w.korean)) continue;
-        const pool = [...distractors, ...myDistractors].filter(d => d !== w.korean);
+        // 오답은 «짧은 뜻» 만 — 문장(안내문)이 보기로 새지 않게(isShortGloss).
+        const pool = [...distractors, ...myDistractors].filter(d => d !== w.korean && isShortGloss(d));
         // 중복 제거 + 셔플 + 3개 선택
         const uniq = [...new Set(pool)];
         for (let i = uniq.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [uniq[i],uniq[j]] = [uniq[j],uniq[i]]; }
