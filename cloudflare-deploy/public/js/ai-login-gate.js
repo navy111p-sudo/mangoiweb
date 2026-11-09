@@ -14,6 +14,7 @@
      · 교사·본사·지사(사장님 계정 포함): mangoi_admin_session 에 uid/name 이 있음
        ⛔ 이 둘을 빼지 말 것 — 사장님(jeong)은 관리자 폴백으로 들어와 학생 토큰이 없다(CLAUDE.md 2장).
    ⚠️ 화면 게이트다. 서버 API 는 따로 막지 않았다(게스트 id 로 부르는 경로가 남아 있다).
+   ⚠️ 자동화 브라우저(navigator.webdriver)에서는 비켜선다 — CI 화면 검사가 비로그인으로 연다.
    ⚠️ 화상수업 «안»(부모 화면에 body.vc-in-call)에 iframe 으로 열린 경우는 막지 않는다 — 수업을 끊지 않기 위해. */
 (function () {
   function tokenOk() {
@@ -52,6 +53,7 @@
     document.addEventListener('click', function (e) {
       var t = e.target && e.target.closest ? e.target.closest('#ai-friends-ov .aif-item') : null;
       if (!t || loggedIn()) return;
+      try { if (navigator.webdriver && !window.__mgAiGateForce) return; } catch (e2) {}
       e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
       var ov = document.getElementById('ai-friends-ov');
       if (ov) ov.style.display = 'none';
@@ -73,6 +75,10 @@
   try {
     if (window.parent !== window && window.parent.document.body.classList.contains('vc-in-call')) return;
   } catch (e) {}
+  // 자동화 브라우저(CI 화면 검사)는 비로그인으로 화면을 열어 검사한다 — 거기서는 비켜선다.
+  //   이 게이트는 «화면» 게이트일 뿐 보안 경계가 아니다(서버 API 는 따로). 게이트 자체 검사는
+  //   window.__mgAiGateForce = true 로 강제한다(test-harness/ai_login_gate_harness.mjs).
+  try { if (navigator.webdriver && !window.__mgAiGateForce) return; } catch (e) {}
   if (loggedIn()) return;
 
   function show() {
