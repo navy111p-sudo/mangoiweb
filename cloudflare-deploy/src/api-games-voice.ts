@@ -167,6 +167,10 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
           return result;
         };
 
+        const runBase = async (bytes: Uint8Array) =>
+          readTranscript(await ai.run('@cf/openai/whisper', { audio: [...bytes] }));
+        let backup: Promise<any> | undefined;
+
         // whisper-large-v3-turbo 는 audio 를 base64 문자열로 받고 language 힌트를 지원한다.
         if (lang) {
           try {
@@ -185,7 +189,12 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
               hallucination_silence_threshold: 2,  // 2초 이상 침묵 구간은 건너뜀(무음에서 문장 지어내기 방지)
             };
             if (hintPrompt) turboParams.initial_prompt = hintPrompt;
-            const turbo = await readTranscript(await ai.run('@cf/openai/whisper-large-v3-turbo', turboParams));
+            const primary = ai.run('@cf/openai/whisper-large-v3-turbo', turboParams);
+            const recheckUntil = Date.now() + 3650;
+            if (checkPreposition && lang === 'en' && !strictSpeech && !paReference && !hintPrompt && bytes.length <= 512 * 1024) {
+              backup = runBase(bytes).catch(() => null);
+            }
+            const turbo = await readTranscript(await primary);
             const ttRaw = turbo.text.trim();
             // A successful empty/VAD rejection is terminal, never a reason to try base Whisper.
             // Confidence rejection is for chat. Pronunciation coaching still needs weak speech to score it.
@@ -203,20 +212,19 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
             // shortcut: check this known normalization only, widen after paired audio confirms other prepositions.
             const normalize = (text: string) => text.trim().toLowerCase().replace(/[.!]+$/, '').replace(/\s+/g, ' ');
             const expected = normalize(ttRaw).replace(/\binterested in\b/, 'interested on');
-            if (checkPreposition && lang === 'en' && !strictSpeech && !paReference && !hintPrompt &&
-                audio.byteLength <= 512 * 1024 && expected !== normalize(ttRaw) && focusedPrepositionFix(expected)) {
+            let prepositionRecheck: 'unchanged' | 'unavailable' | undefined;
+            if (backup && expected !== normalize(ttRaw) && focusedPrepositionFix(expected)) {
               let timer: ReturnType<typeof setTimeout> | undefined;
               try {
                 const alternate = await Promise.race([
-                  ai.run('@cf/openai/whisper', { audio: [...new Uint8Array(audio)] }).then(readTranscript),
-                  new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), 1700); }),
+                  backup,
+                  new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), Math.max(0, recheckUntil - Date.now())); }),
                 ]);
                 if (alternate && normalize(alternate.text) === expected) {
                   return json({ ok: true, text: alternate.text.trim(), lang, vtt: alternate.vtt || null,
                     word_count: alternate.word_count || 0, azure: null, azure_diag: 'no_reference', preposition_recheck: 'recovered' });
                 }
-              } catch {
-                // Keep the first transcript if the second recognizer is unavailable.
+                prepositionRecheck = alternate ? 'unchanged' : 'unavailable';
               } finally { clearTimeout(timer); }
             }
             const tt = ttRaw;
@@ -227,6 +235,7 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
               ok: true, text: tt, vtt: turbo?.vtt || null, word_count: turbo?.word_count || 0, lang,
               segments: Array.isArray(turbo?.segments) ? turbo.segments.slice(0, 30) : null,
               transcription_info: turbo?.transcription_info || null,
+              preposition_recheck: prepositionRecheck,
               // 🎤 발음평가 결과(없으면 null) + 왜 없는지. 프론트는 azure 를 /api/voice/coach 로 넘긴다.
               ...(await azureOut()),
             });
@@ -240,8 +249,8 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
         }
 
         // 폴백: 구 whisper (언어 힌트 미지원, 자동감지)
-        const arr = [...new Uint8Array(audio)];
-        const result = await readTranscript(await ai.run('@cf/openai/whisper', { audio: arr }));
+        const result = backup ? await backup : await runBase(new Uint8Array(audio));
+        if (!result) return json({ ok: false, error: 'transcribe_failed' }, 503);
         const baseText = result.text;
         if (isSttRepeatLoop(baseText)) return json({ ok: true, text: '', dropped: 'repeat_loop', lang: lang || null, azure: null, azure_diag: 'dropped' });
         return json({ ok: true, text: baseText, vtt: result?.vtt || null, word_count: result?.word_count || 0, lang: lang || null, ...(await azureOut()) });

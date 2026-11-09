@@ -114,13 +114,26 @@ try {
       ['I am interested in music.', 'I am interested in music.', true, 'I am interested in music.', 2],
       ['I am interested in music.', 'I am interested on movies.', true, 'I am interested in music.', 2],
       ['I am interested in music.', null, true, 'I am interested in music.', 2],
-      ['I am interested on music.', '', true, 'I am interested on music.', 1],
+      ['I am interested on music.', '', true, 'I am interested on music.', 2],
       ['I am interested in music.', 'I am interested on music.', false, 'I am interested in music.', 1],
     ]) {
       const { env, aiCalls } = fixture();
+      let backupStarted;
+      const started = new Promise(resolve => { backupStarted = resolve; });
       env.AI.run = async model => {
         aiCalls.push(model);
-        if (model.includes('turbo')) return { text: first };
+        if (model.includes('turbo')) {
+          if (enabled) {
+            let timer;
+            try {
+              await Promise.race([started, new Promise((_, reject) => {
+                timer = setTimeout(() => reject(Error('backup did not start alongside primary')), 50);
+              })]);
+            } finally { clearTimeout(timer); }
+          }
+          return { text: first };
+        }
+        backupStarted();
         if (second === null) throw Error('synthetic unavailable');
         return { text: second };
       };
@@ -132,7 +145,8 @@ try {
       const data = await r.json();
       assert.equal(data.text, expected);
       assert.equal(aiCalls.length, calls);
-      assert.equal(data.preposition_recheck, expected !== first ? 'recovered' : undefined);
+      if (!enabled || !first.includes('interested in')) assert.equal(data.preposition_recheck, undefined);
+      else assert.equal(data.preposition_recheck, expected !== first ? 'recovered' : second === null ? 'unavailable' : 'unchanged');
     }
   });
   await check('coach denies writes for another student before AI or record insert', async () => {
