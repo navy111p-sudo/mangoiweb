@@ -15,7 +15,10 @@
   }
   function t(ko, english) { return en() ? english : ko; }
   function token() { try { return localStorage.getItem('mango_token') || ''; } catch (_) { return ''; } }
-  function reset() { if(window.AiSpeakingSession&&window.AiSpeakingSession.clear)window.AiSpeakingSession.clear(); generation++; sessionId = ''; sessionToken = ''; lastActive = 0; starting = null; finishing = null; refreshing = null; evaluatingId = ''; closed = false; result = null; queued = null; if (notice) notice.hidden = true; if (card) card.replaceChildren(); }
+  /* restart = 기록만 새로(대답 중에 눌러 둔 끝내기는 그대로 — beforeTurn 이 쉼·마감 뒤 새로 시작할 때 그것을 버리지 않게).
+     reset = 사람이 «새 대화» 를 눌렀거나 계정이 바뀜 — 기다리던 끝내기도 버린다. EN: restart keeps a queued finish; reset drops it. */
+  function restart() { if(window.AiSpeakingSession&&window.AiSpeakingSession.clear)window.AiSpeakingSession.clear(); generation++; sessionId = ''; sessionToken = ''; lastActive = 0; starting = null; finishing = null; refreshing = null; evaluatingId = ''; closed = false; result = null; if (card) card.replaceChildren(); }
+  function reset() { queued = null; if (notice) notice.hidden = true; restart(); }
   async function api(body) {
     var response = await fetch('/api/ai/speaking-progress', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() },
@@ -28,8 +31,8 @@
   async function beforeTurn() {
     if (sessionToken && sessionToken !== token()) reset();
     if (!token()) return {};
-    if (closed || (evaluatingId && sessionId === evaluatingId)) reset();
-    if (sessionId && lastActive && Date.now() - lastActive > IDLE_RESTART_MS) reset();
+    if (closed || (evaluatingId && sessionId === evaluatingId)) restart();
+    if (sessionId && lastActive && Date.now() - lastActive > IDLE_RESTART_MS) restart();
     if (!sessionId) {
       if (!starting) {
         sessionToken = token();
@@ -62,7 +65,7 @@
     if (text && ms) noticeTimer = setTimeout(function () { notice.hidden = true; }, ms);
   }
   function afterReply(fn) {
-    if (!busy()) { fn(); return; }
+    if (!busy()) { if (queued) { queued = null; note(''); } fn(); return; }   // 기다리던 것은 취소 — 두 번 안 함
     if (queued) { queued.fn = fn; return; }
     var q = queued = { fn: fn }, waited = 0;
     note(t('AI 대답이 끝나면 바로 이어서 할게요…', 'Finishing right after the AI reply…'));

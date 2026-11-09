@@ -182,3 +182,26 @@ test('the idle clock starts from the last turn, not the first', async () => {
   for (let i = 0; i < 5; i++) { s.clock.now += 5 * 60 * 1000; await talk(s); }
   assert.equal(s.requests.length, 1, '25 minutes of steady talk stays one record');
 });
+
+// 🔁 대답 중에 눌러 둔 끝내기는 beforeTurn 이 기록을 새로 시작해도 살아 있어야 한다(쉼·이미 끝낸 기록 — 2026-11-09 검토).
+//    EN: a finish queued during the reply survives beforeTurn's internal restart and finishes the record in use.
+for (const why of ['idle', 'closed']) {
+  test('a finish waiting for the reply survives a ' + why + ' restart and finishes the new record', async () => {
+    const s = setupBusy(); s.send.disabled = false; const a = await talk(s);
+    if (why === 'closed') {
+      const done = s.api.finish(); await new Promise(r => setImmediate(r));
+      s.requests.at(-1).reply({ ok: true, result: { finishedNormally: true, lessonId: a.progress_session } }); await done;
+    } else s.clock.now += 9 * 60 * 1000 + 1;
+    s.send.disabled = true; s.api.finish(); assert.equal(s.nodes.at(-1).hidden, false, 'says it will finish after the reply');
+    const b = await talk(s);
+    assert.notEqual(b.progress_session, a.progress_session, 'new record started');
+    assert.equal(s.nodes.at(-1).hidden, false, 'the wait is still promised');
+    s.send.disabled = false; s.tick(); await new Promise(r => setImmediate(r));
+    assert.deepEqual(JSON.parse(s.requests.at(-1).options.body), { action: 'finish', sessionId: b.progress_session });
+  });
+}
+test('a press right after the reply ends cancels the waiting one, so it runs once', () => {
+  const s = setupBusy(); let n = 0; s.api.afterReply(() => n++);
+  s.send.disabled = false; s.api.afterReply(() => n++); assert.equal(n, 1); assert.equal(s.nodes[0].hidden, true);
+  s.tick(); s.tick(); assert.equal(n, 1, 'the earlier wait never fires again');
+});

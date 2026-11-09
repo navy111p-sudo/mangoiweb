@@ -32,15 +32,28 @@ export async function recordSpeakingTurn(request: Request, env: MangoEnv, body: 
     if (typeof body.progress_turn !== 'string' || (!body.progress_turn || body.progress_turn.length > 100)) return false;
     const item = { id: body.progress_turn.toLowerCase(), student: turn.student.slice(0, 4000), assistant: turn.assistant.slice(0, 4000),
       correction: String(turn.correction || '').slice(0, 1000), at: Date.now() };   // at = 자동 마감의 «마지막 활동» 근거
-    const saved = await env.DB.prepare(`UPDATE ai_speaking_sessions SET
+    const append = () => env.DB.prepare(`UPDATE ai_speaking_sessions SET
       capture_limited=CASE WHEN json_array_length(turns_json)>=? OR ? THEN 1 ELSE capture_limited END,
       turns_json=CASE WHEN json_array_length(turns_json)<? THEN json_insert(turns_json,'$[#]',json(?)) ELSE turns_json END
       WHERE id=? AND student_uid=? AND app=? AND status='open'
       AND (app='friend' OR source_id=?)
       AND NOT EXISTS (SELECT 1 FROM json_each(turns_json) WHERE json_extract(value,'$.id')=?)`)
       .bind(MAX_TURNS, turn.student.length > 4000 ? 1 : 0, MAX_TURNS, JSON.stringify(item), body.progress_session, uid, turn.app, body.session_id || '', item.id).run();
+    let saved = await append();
     if ((saved as {success?:boolean}).success === false) return false;
     if (saved.meta?.changes === 1) return true;
+    // 🔓 자동 마감(closeAbandoned)은 «쉬어 보이는» 대화를 닫을 뿐이다 — 서버의 마지막 활동은 기록된 턴으로만 재는데
+    //    100턴을 넘었거나 실패한 턴은 안 남아, 아직 쓰는 대화가 닫힐 수 있다. 같은 학생의 다음 턴이 오면 다시 열어 이어 받는다
+    //    (자동 마감은 보상을 안 줬으므로 다시 열어도 이중 지급이 없다). 끝내기로 닫은 대화(closedBy 없음)는 절대 다시 안 연다.
+    //    EN: reopen a session auto-closed as idle when its own student sends the next turn; never reopen a finished one.
+    const reopened = await env.DB.prepare(`UPDATE ai_speaking_sessions SET status='open', result_json=NULL, finished_at=NULL
+      WHERE id=? AND student_uid=? AND app=? AND status='complete' AND (app='friend' OR source_id=?)
+      AND instr(COALESCE(result_json,''),'"closedBy":"auto-next-session"')>0`)
+      .bind(body.progress_session, uid, turn.app, body.session_id || '').run();
+    if (reopened.meta?.changes === 1) {
+      saved = await append();
+      if (saved.meta?.changes === 1) return true;
+    }
     // A concurrent retry may have recorded the same turn before this request.
     const existing = await env.DB.prepare(`SELECT turns_json FROM ai_speaking_sessions
       WHERE id=? AND student_uid=? AND app=? AND status='open' AND (app='friend' OR source_id=?)`)
