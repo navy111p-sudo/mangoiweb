@@ -275,10 +275,18 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
   check('another student is never touched', () => assert.equal(row(bobLeft).status, 'open'));
   const vocabBefore = (await call({ action: 'history' }, 'carol')).weeklyVocabulary.reduce((n, d) => n + d.words, 0);
   const reopened2 = await call({ action: 'finish', sessionId: left }, 'carol');
-  check('finishing an auto-closed conversation shows its result and counts its words', () => {
-    assert.equal(reopened2.status, 200); assert.equal(reopened2.result.rewards.pointsEarned, null);
-    assert.ok(vocabBefore >= auto.uniqueWords.length, 'auto-closed words are in this week\'s vocabulary count');
+  check('auto-closed words already count in this week\'s vocabulary', () => assert.ok(vocabBefore >= auto.uniqueWords.length));
+  check('pressing finish on an auto-closed conversation finishes it normally (full rewards, not «unavailable»)', () => {
+    assert.equal(reopened2.status, 200); assert.equal(reopened2.result.closedBy, undefined);
+    assert.equal(reopened2.result.rewardAttributionVersion, 1); assert.equal(typeof reopened2.result.rewards.pointsEarned, 'number');
+    assert.equal(reopened2.result.recordedTurns, 1); assert.equal(row(left).status, 'complete');
+    assert.ok(!String(row(left).result_json).includes('auto-next-session'));
   });
+  sq.prepare('UPDATE ai_speaking_sessions SET finished_at=? WHERE id=?').run(OLD - 5, left);
+  const again = await call({ action: 'finish', sessionId: left }, 'carol');
+  check('(pair) a normally finished conversation is not re-finished — same stored result', () => {
+    assert.equal(again.status, 200); assert.equal(again.result.closedBy, undefined);
+    assert.equal(row(left).status, 'complete'); assert.equal(row(left).finished_at, OLD - 5, 'not claimed again'); });
   const many = [];
   for (let i = 0; i < 7; i++) { const id = await carolStart(); await turn(id, {}, 'carol'); many.push(id); }
   many.forEach((id, i) => { age(id); sq.prepare('UPDATE ai_speaking_sessions SET started_at=? WHERE id=?').run(OLD - (7 - i) * 1000, id); });
@@ -298,5 +306,34 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
   fault = sql => /status='open' AND id<>\?/.test(sql);
   const survived = await call({ action: 'start', app: 'friend' }, 'carol'); fault = null;
   check('auto-close failure never blocks starting a conversation', () => { assert.equal(survived.status, 200); assert.ok(survived.sessionId); });
+  // 🔓 다시 열기 (2026-11-09 검토) — 쉬어 «보여» 자동 마감된 대화에 같은 학생의 다음 턴이 오면 다시 열어 이어 받는다.
+  //    (서버의 마지막 활동은 기록된 턴으로만 재므로 100턴 상한·실패한 턴 뒤에는 쓰는 중인 대화도 닫힐 수 있다)
+  const say = (sid, uid = 'carol') => recordSpeakingTurn(request({}, uid), env,
+    { progress_session: sid, progress_turn: crypto.randomUUID(), session_id: 'warm-1' },
+    { app: 'friend', student: 'I like bananas.', assistant: 'Nice!', correction: '' });
+  const stillUsed = await carolStart(); await turn(stillUsed, {}, 'carol'); age(stillUsed);
+  await carolStart();
+  const closedFirst = row(stillUsed).status;
+  const bobTry = await say(stillUsed, 'bob');
+  check('another student cannot reopen an auto-closed conversation', () => {
+    assert.equal(closedFirst, 'complete'); assert.equal(bobTry, false); assert.equal(row(stillUsed).status, 'complete'); });
+  const back = await say(stillUsed);
+  check('the same student\'s next turn reopens an auto-closed conversation and records it', () => {
+    assert.equal(back, true); const r = row(stillUsed);
+    assert.equal(r.status, 'open'); assert.equal(r.result_json, null); assert.equal(r.finished_at, null);
+    assert.equal(JSON.parse(sq.prepare('SELECT turns_json FROM ai_speaking_sessions WHERE id=?').get(stillUsed).turns_json).length, 2); });
+  const backDone = await call({ action: 'finish', sessionId: stillUsed }, 'carol');
+  check('a reopened conversation finishes normally with both turns', () => {
+    assert.equal(backDone.status, 200); assert.equal(backDone.result.closedBy, undefined); assert.equal(backDone.result.recordedTurns, 2); });
+  const lateAfterFinish = await say(stillUsed);
+  check('(pair) a conversation the student finished is never reopened by a late turn', () => {
+    assert.equal(lateAfterFinish, false); assert.equal(row(stillUsed).status, 'complete'); });
+  const capped = await carolStart();
+  sq.prepare('UPDATE ai_speaking_sessions SET turns_json=? WHERE id=?').run(JSON.stringify(Array.from({ length: 100 },
+    (_, i) => ({ id: 'cap' + i, student: 'I like pears.', assistant: 'Ok.', correction: '', at: OLD }))), capped); age(capped, false);
+  await carolStart();
+  const cappedClosed = row(capped).status, cappedBack = await say(capped);
+  check('a 100-turn conversation closed as idle reopens on the next turn and still counts as captured', () => {
+    assert.equal(cappedClosed, 'complete'); assert.equal(cappedBack, true); assert.equal(row(capped).status, 'open'); });
   console.log(`Speaking progress: PASS ${pass} / FAIL 0`);
 }
