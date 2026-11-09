@@ -16,6 +16,18 @@ export function isKoreanGloss(value: unknown): boolean {
     && !text.includes(String.fromCharCode(0xfffd));
 }
 
+/** 🧩 «오답 보기» 로 써도 되는 짧은 뜻인가 — 다른 학생 단어장의 뜻을 오답으로 빌려 오므로,
+ *  단어 뜻 자리에 문장(안내문·FAQ)을 넣은 행이 보기로 새어 나왔다(2026-11-09 사장님 화면:
+ *  「휴대폰·태블릿·PC 모두 돼요. 크롬(Chrome)이나 엣지(Edge)를 추천해요. …」).
+ *  ⛔ 정답(학생 자신의 뜻)에는 쓰지 않는다 — 그 학생이 적은 뜻은 그대로 존중한다.
+ *  길이 24자 이하 · 문장부호(. ! ? 。) 없음 · 줄바꿈 없음 · 낱말 6개 이하. */
+export function isShortGloss(value: unknown): boolean {
+  const text = String(value ?? '').trim();
+  if (!text || text.length > 24) return false;
+  if (/[.!?。！？\n\r]/.test(text)) return false;
+  return text.split(/\s+/).length <= 6;
+}
+
 export type GlossRow = { word: string; korean: string; example?: string };
 type GlossAI = { run: (model: string, input: any) => Promise<any> };
 
