@@ -2416,6 +2416,7 @@
       if (!confirm(isEn() ? 'Clear all messages?' : '대화 내용을 모두 지울까요?')) return;
       if (window.FriendAutoTalk) FriendAutoTalk.pause();
       stopSpeakingNow();
+      if (window.AiSpeakingProgress) window.AiSpeakingProgress.reset();   // 기다리던 «끝내기» 를 먼저 버린다 — 아래 await 사이에 지울 대화를 마감하지 않게 / drop a queued finish before awaiting
       const auth = await getAuth();
       if (auth) {
         try {

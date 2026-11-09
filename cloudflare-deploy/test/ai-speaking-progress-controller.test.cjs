@@ -205,3 +205,18 @@ test('a press right after the reply ends cancels the waiting one, so it runs onc
   s.send.disabled = false; s.api.afterReply(() => n++); assert.equal(n, 1); assert.equal(s.nodes[0].hidden, true);
   s.tick(); s.tick(); assert.equal(n, 1, 'the earlier wait never fires again');
 });
+
+// 🗑 «대화 초기화» 는 기다리던 끝내기를 await 전에 버린다 — 지울 대화를 마감하지 않게(2026-11-09 검토). 함수를 오려 내 실제로 돌린다.
+test('clear chat drops a waiting finish before it awaits the server', async () => {
+  const src = fs.readFileSync(path.join(__dirname, '../public/ai-friend.html'), 'utf8'), i = src.indexOf('async function clearChat');
+  assert.ok(i >= 0); let d = 0, j = src.indexOf('{', i), code = '';
+  for (let k = j; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && !--d) { code = src.slice(i, k + 1); break; } }
+  const log = [], el = { innerHTML: 'x', hidden: false };
+  const ctx = { confirm: () => true, isEn: () => false, stopSpeakingNow() {}, alert() {}, crypto: globalThis.crypto,
+    getAuth: async () => { log.push('await'); return null; }, fetch: async () => { log.push('fetch'); },
+    document: { getElementById: () => el }, friendReviewFixes: { clear() {} }, setTopic() {}, renderEmpty() {},
+    window: { AiSpeakingProgress: { reset() { log.push('reset'); } } } };
+  await vm.runInNewContext(code + ';clearChat()', ctx);
+  assert.equal(log[0], 'reset', 'reset runs first: ' + log.join(','));
+  assert.ok(log.indexOf('reset') < log.indexOf('await'));
+});

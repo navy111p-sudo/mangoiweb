@@ -275,10 +275,18 @@ export async function resolve(spec,ctx,next){if(spec.startsWith('.')&&!/\\.(ts|j
   check('another student is never touched', () => assert.equal(row(bobLeft).status, 'open'));
   const vocabBefore = (await call({ action: 'history' }, 'carol')).weeklyVocabulary.reduce((n, d) => n + d.words, 0);
   const reopened2 = await call({ action: 'finish', sessionId: left }, 'carol');
-  check('finishing an auto-closed conversation shows its result and counts its words', () => {
-    assert.equal(reopened2.status, 200); assert.equal(reopened2.result.rewards.pointsEarned, null);
-    assert.ok(vocabBefore >= auto.uniqueWords.length, 'auto-closed words are in this week\'s vocabulary count');
+  check('auto-closed words already count in this week\'s vocabulary', () => assert.ok(vocabBefore >= auto.uniqueWords.length));
+  check('pressing finish on an auto-closed conversation finishes it normally (full rewards, not «unavailable»)', () => {
+    assert.equal(reopened2.status, 200); assert.equal(reopened2.result.closedBy, undefined);
+    assert.equal(reopened2.result.rewardAttributionVersion, 1); assert.equal(typeof reopened2.result.rewards.pointsEarned, 'number');
+    assert.equal(reopened2.result.recordedTurns, 1); assert.equal(row(left).status, 'complete');
+    assert.ok(!String(row(left).result_json).includes('auto-next-session'));
   });
+  sq.prepare('UPDATE ai_speaking_sessions SET finished_at=? WHERE id=?').run(OLD - 5, left);
+  const again = await call({ action: 'finish', sessionId: left }, 'carol');
+  check('(pair) a normally finished conversation is not re-finished — same stored result', () => {
+    assert.equal(again.status, 200); assert.equal(again.result.closedBy, undefined);
+    assert.equal(row(left).status, 'complete'); assert.equal(row(left).finished_at, OLD - 5, 'not claimed again'); });
   const many = [];
   for (let i = 0; i < 7; i++) { const id = await carolStart(); await turn(id, {}, 'carol'); many.push(id); }
   many.forEach((id, i) => { age(id); sq.prepare('UPDATE ai_speaking_sessions SET started_at=? WHERE id=?').run(OLD - (7 - i) * 1000, id); });

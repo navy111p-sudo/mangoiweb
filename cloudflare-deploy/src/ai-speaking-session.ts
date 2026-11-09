@@ -48,8 +48,8 @@ export async function recordSpeakingTurn(request: Request, env: MangoEnv, body: 
     //    EN: reopen a session auto-closed as idle when its own student sends the next turn; never reopen a finished one.
     const reopened = await env.DB.prepare(`UPDATE ai_speaking_sessions SET status='open', result_json=NULL, finished_at=NULL
       WHERE id=? AND student_uid=? AND app=? AND status='complete' AND (app='friend' OR source_id=?)
-      AND instr(COALESCE(result_json,''),'"closedBy":"auto-next-session"')>0`)
-      .bind(body.progress_session, uid, turn.app, body.session_id || '').run();
+      AND instr(COALESCE(result_json,''),?)>0`)
+      .bind(body.progress_session, uid, turn.app, body.session_id || '', AUTO_CLOSED_MARK).run();
     if (reopened.meta?.changes === 1) {
       saved = await append();
       if (saved.meta?.changes === 1) return true;
@@ -103,6 +103,8 @@ function sessionObservations(id: string, uid: string, turns: any[], capturedLimi
 }
 
 const AUTO_CLOSE_MAX = 5;
+/** 자동 마감 결과에만 들어가는 표시 — 다시 열기·끝내기가 «자동 마감된 것» 을 가를 때 같은 글자를 쓴다. */
+const AUTO_CLOSED_MARK = '"closedBy":"auto-next-session"';
 const AUTO_CLOSE_IDLE_MS = 10 * 60 * 1000;
 /** 🔒 자동 마감 (2026-11-09 사장님 결정) — «끝내기» 없이 새로고침·이동·닫기로 떠난 대화는
  *  같은 학생이 새 대화를 «시작» 할 때 닫는다. 결과 화면은 안 띄우고 단어·성장 기록(status='complete')에만 넣는다.
@@ -202,7 +204,11 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
     const row = await env.DB.prepare(`SELECT * FROM ai_speaking_sessions WHERE id=? AND student_uid=?`)
       .bind(body.sessionId, uid).first<any>();
     if (!row) return json({ ok: false, error: 'session_not_found' }, 404);
-    if (row.status === 'complete') {
+    // 🔓 쉬어 보여 자동 마감된 대화에 학생이 직접 «끝내기» 를 누르면 보통 끝내기로 마감한다(보상·배지가 «확인 불가» 인
+    //    자동 결과 대신 온전한 결과). 넘겨받기는 아래 claim UPDATE 한 문장이 해서 동시 자동 마감과 경합하지 않는다.
+    //    EN: an explicit finish on an auto-closed session re-finishes it normally (atomic claim below).
+    const autoClosed = row.status === 'complete' && String(row.result_json || '').includes(AUTO_CLOSED_MARK);
+    if (row.status === 'complete' && !autoClosed) {
       const result = measuredOnlyResult(JSON.parse(row.result_json));
       // A confirmed turn can finish its atomic payout after the result snapshot.
       // Refresh only attributable results; legacy unknown attribution stays unknown.
@@ -216,8 +222,9 @@ export async function handleSpeakingSession(request: Request, url: URL, env: Man
     if (!turns.length) return json({ ok: false, error: 'no_completed_turns' }, 409);
     const claimAt = Date.now();
     const claim = await env.DB.prepare(`UPDATE ai_speaking_sessions SET status='evaluating',finished_at=?
-      WHERE id=? AND student_uid=? AND (status='open' OR (status='evaluating' AND finished_at<?))`)
-      .bind(claimAt, row.id, uid, claimAt - 30000).run();
+      WHERE id=? AND student_uid=? AND (status='open' OR (status='evaluating' AND finished_at<?)
+        OR (status='complete' AND instr(COALESCE(result_json,''),?)>0))`)
+      .bind(claimAt, row.id, uid, claimAt - 30000, AUTO_CLOSED_MARK).run();
     if (!claim.meta?.changes) return json({ ok: false, error: 'evaluation_pending' }, 409);
     const captured = await env.DB.prepare(`SELECT turns_json,capture_limited FROM ai_speaking_sessions WHERE id=? AND student_uid=? AND finished_at=?`)
       .bind(row.id, uid, claimAt).first<any>();
