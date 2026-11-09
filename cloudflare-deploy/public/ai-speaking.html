@@ -126,6 +126,17 @@
       font:inherit;font-size:14px;font-weight:800;cursor:pointer}
     .seg button[aria-pressed="true"]{background:var(--lime);color:var(--on)}
     .state{padding:0 6px;font-size:13px;color:var(--sub);min-height:1em}
+    /* 🖥️ 대화 화면 — 작은 미리보기가 달린 두 버튼(누르면 바로 저장, 언어처럼) */
+    .screen-tile{margin-bottom:18px}
+    .scr-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .scr{display:flex;align-items:center;gap:12px;min-width:0;padding:10px;border-radius:18px;border:2px solid var(--line);background:var(--sky);
+      color:var(--ink);font:inherit;text-align:left;cursor:pointer;transition:border-color .15s}
+    .scr:hover{border-color:var(--soft)}
+    .scr[aria-pressed="true"]{border-color:var(--lime)}
+    .scr img{flex:0 0 auto;width:96px;height:60px;border-radius:10px;object-fit:cover;border:1px solid var(--line);background:#000}
+    .scr b{display:block;font-size:15px;font-weight:900}
+    .scr small{display:block;font-size:12.5px;color:var(--sub)}
+    .scr span{min-width:0}
     /* ✅ 확인 — 고른 세 값을 한꺼번에 저장. 잠김(무엇을 고를지) · 준비(라임) · 저장됨(라임 테두리) · 실패(주황 테두리) */
     .set-foot{display:flex;justify-content:flex-end;margin-top:18px}
     .ok-btn{min-width:220px;min-height:52px;padding:6px 28px;border:2px solid var(--lime);border-radius:999px;background:var(--lime);color:var(--on);
@@ -166,7 +177,7 @@
       .sit-list{grid-template-columns:repeat(3,minmax(0,1fr))}
       .sheet,#situations{padding:26px 28px}
     }
-    @media (max-width:640px){.set-row{grid-template-columns:1fr}.ok-btn{width:100%;min-width:0}}
+    @media (max-width:640px){.set-row,.scr-row{grid-template-columns:1fr}.ok-btn{width:100%;min-width:0}}
     @media (max-width:420px){.sit-list{grid-template-columns:1fr}header h1{font-size:24px}}
     @media (max-width:640px){#guideDlg{width:100vw;height:100vh;height:100dvh;border-radius:0;border:0}}
     @media (prefers-reduced-motion:reduce){.mode,.sit,.guide-btn{transition:none}}
@@ -212,6 +223,16 @@
 
   <section class="sheet" aria-labelledby="setTitle">
     <h2 id="setTitle" data-ko="공통 설정" data-en="Common settings">공통 설정</h2>
+    <!-- 🖥️ 대화 화면(2026-11-09) — 교재로 연습을 시작할 때 열리는 화면. 누르면 바로 저장한다(언어처럼 «확인» 과 무관).
+         상황별 말하기(?setup=0)·엘리더잼은 원래대로 늘 채팅 화면이다 — js/warmup-facetalk.js autoEnter. -->
+    <div class="tile screen-tile"><span class="lab" id="scrLab"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span data-ko="대화 화면" data-en="Practice screen">대화 화면</span></span>
+      <div class="scr-row" role="group" aria-labelledby="scrLab" aria-describedby="scrState">
+        <button type="button" class="scr" data-screen="simple" aria-pressed="false"><img src="/img/ai-speaking/screen-simple.webp" alt="" width="96" height="60" decoding="async">
+          <span><b data-ko="간단 대화" data-en="Simple talk">간단 대화</b><small data-ko="선생님 얼굴을 크게 보며 자연스럽게 대화해요" data-en="Talk naturally with the teacher's face up close">선생님 얼굴을 크게 보며 자연스럽게 대화해요</small></span></button>
+        <button type="button" class="scr" data-screen="full" aria-pressed="false"><img src="/img/ai-speaking/screen-full.webp" alt="" width="96" height="60" decoding="async">
+          <span><b data-ko="학습 도구" data-en="Study tools">학습 도구</b><small data-ko="교재·힌트·글쓰기 등 여러 기능을 함께 써요" data-en="Use textbook, hints, typing and more">교재·힌트·글쓰기 등 여러 기능을 함께 써요</small></span></button>
+      </div>
+      <small class="state" id="scrState"></small></div>
     <div class="set-row">
       <div class="tile"><span class="lab" id="langLab"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg><span data-ko="언어" data-en="Language">언어</span></span>
         <div class="seg" role="group" aria-labelledby="langLab">
@@ -271,7 +292,7 @@
   </div>
 </div>
 <script src="/js/ai-situations.js?v=3"></script>
-<script src="/js/ai-speaking-settings.js?v=3"></script>
+<script src="/js/ai-speaking-settings.js?v=4"></script>
 <script>
 (function(){
   'use strict';
@@ -307,6 +328,16 @@
   // 이 화면에서 사람이 만진 칸 — 안 만진 칸은 저장소를 따른다(다른 탭·화면이 그 사이 바꿨을 수 있다. 6차 함정 대조)
   var touched = { level: false, corr: false };
   var okState = '';   // '' 아직 · 'saved' 저장됨 · 'fail' 저장 못 함 — 무엇이든 다시 고르면 ''
+  // 🖥️ 대화 화면 — 저장소 값을 그대로 그린다(안 정함 = 간단 대화, 지금 기본 동작). scrFail = 이 기기에서 저장 못 함
+  var scrFail = false;
+  function renderScreen(){
+    var s = (SET && SET.read(LS).screen) || 'simple';
+    document.querySelectorAll('[data-screen]').forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-screen') === s ? 'true' : 'false'); });
+    var st = document.getElementById('scrState');
+    if(st) st.textContent = scrFail ? T('⚠️ 이 기기에선 저장이 안 돼요', '⚠️ Could not save here')
+      : s === 'full' ? T('교재로 연습을 시작하면 학습 도구 화면으로 열려요', 'Textbook practice opens with study tools')
+      : T('교재로 연습을 시작하면 선생님 얼굴 화면으로 열려요', 'Textbook practice opens with the teacher\'s face');
+  }
   function renderSettings(){
     if(!SET){ renderOk(); return; }
     var cur = draft;
@@ -446,11 +477,15 @@
       var l = b.getAttribute('data-lang'); if(l === ui) return;
       var ok = SET ? SET.chooseLang(LS, l) : false;
       ui = l; if(!ok) okState = 'fail';
-      applyUi(); renderSituations(); renderSettings(); syncLeaveGuard();
+      applyUi(); renderSituations(); renderSettings(); renderScreen(); syncLeaveGuard();
       status(ok ? '' : T('이 기기에서는 언어 저장이 안 돼요. 다른 화면에서는 예전 언어로 보여요.', 'Could not save the language on this device. Other screens keep the old language.'));
     }); });
     document.querySelectorAll('[data-corr]').forEach(function(b){ b.addEventListener('click', function(){
       pick('corr', b.getAttribute('data-corr'));
+    }); });
+    document.querySelectorAll('[data-screen]').forEach(function(b){ b.addEventListener('click', function(){
+      scrFail = !(SET && SET.chooseScreen(LS, b.getAttribute('data-screen')));
+      renderScreen();
     }); });
     var lv = document.getElementById('setLevel');
     if(lv) lv.addEventListener('change', function(){ if(!lv.value) return; pick('level', Number(lv.value)); });
@@ -498,13 +533,13 @@
       leaving = false; leaveFrom = null; hideLeave();
       if(SET) ui = SET.read(LS).lang;
       draft = readDraft(); touched = { level: false, corr: false }; okState = ''; status('');
-      applyUi(); renderSituations(); renderSettings(); syncLeaveGuard();
+      applyUi(); renderSituations(); renderSettings(); renderScreen(); syncLeaveGuard();
     });
     // 다른 탭이 설정을 바꾸면 — 안 만진 칸은 그 값으로 다시 그리고, «✅ 적용됐어요» 는 더 이상 사실이 아닐 수 있으니 거둔다
     window.addEventListener('storage', function(){
       if(!SET) return;
       syncUntouched(); if(okState === 'saved') okState = '';
-      renderSettings(); syncLeaveGuard();
+      renderSettings(); renderScreen(); syncLeaveGuard();
     });
   }
   // 📖 사용 안내 — 안내서를 창 안에 연다. 화면 언어(ui)를 ?lang= 으로 넘긴다(안내서가 그 언어로 뜬다).
@@ -540,7 +575,7 @@
       if(e.data === 'ai-speaking-guide:close' && e.origin === location.origin && fr && e.source === fr.contentWindow && dlg.open) dlg.close();
     });
   }
-  applyUi(); renderSituations(); renderSettings(); wire(); wireGuide();
+  applyUi(); renderSituations(); renderSettings(); renderScreen(); wire(); wireGuide();
 })();
 </script>
 </body>
