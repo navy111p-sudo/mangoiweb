@@ -3975,6 +3975,7 @@ function _micEarly(manual, o){
   try{ return window.MangoiVoiceEarly ? MangoiVoiceEarly.wrap(o, manual ? {} : { accept:function(t){ return !micUnfinished(t); } }) : o; }
   catch(e){ return o; }
 }
+var _prepositionRepeatEpoch=null;
 async function micViaWhisper(){
   if(_warmPaused)return;
   var epoch=_warmEpoch, voiceEpoch=_warmVoiceEpoch;
@@ -3988,7 +3989,8 @@ async function micViaWhisper(){
   _whisperOn=true; setMicState(true);
   var heard=false, errored=false; // 🔇 말소리가 한 번도 안 들렸나 — Whisper 는 무음에서 "Thank you." 를 지어낸다
   var recBlob=null;               // 🎤 녹음 파일 — 모듈의 소리크기 판정이 놓쳤을 때 다시 재 본다(_blobHasVoice)
-  var said = await MangoiVoice.record(_micEarly(manual, {
+  var prepositionUnconfirmed=false;
+  var opts = _micEarly(manual, {
     onAudio: function(b){ recBlob=b; },
     transcribe: _wuCorrMode === 'focused' && _warmLang === 'en' ? function(fd){
       fd.set('check_preposition', '1');
@@ -4011,7 +4013,17 @@ async function micViaWhisper(){
              : '🎤 음성 입력에 실패했어요. 아래에 글로 입력해 주세요.', 'sys');
       }
     }
-  }));
+  });
+  if(opts.transcribe){
+    // Read the selected result after the early-recording wrapper has discarded stale snapshots.
+    var transcribe=opts.transcribe;
+    opts.transcribe=async function(fd){
+      var result=await transcribe(fd);
+      prepositionUnconfirmed=!!(result && result.ok && result.preposition_recheck==='unavailable');
+      return result;
+    };
+  }
+  var said=await MangoiVoice.record(opts);
   if(_warmPaused || epoch!==_warmEpoch || voiceEpoch!==_warmVoiceEpoch)return;
   _whisperOn=false; setMicState(false);
   /* 🔇 (2026-09-26) 말소리가 한 번도 안 들린 녹음의 전사는 버린다 — 학생이 하지도 않은 말로 대화가 이어진다.
@@ -4029,6 +4041,19 @@ async function micViaWhisper(){
   /* 🔁 (2026-10-02) 말소리는 들렸는데 받아쓴 글자가 비었다 = 서버가 «oah, oah…» 같은 반복 환각을 걸러냈거나
      알아듣지 못했다(src/stt-loop.ts). 아무 말 없이 넘어가면 학생은 기다리기만 한다 — 사실대로 말한다. */
   if(!said && heard && !errored) addMsg(wuT('🎤 잘 못 알아들었어요. 조금 더 또박또박 다시 말해 주세요.', '🎤 I didn\'t catch that. Please say it again more clearly.'), 'sys');
+  if(said && prepositionUnconfirmed){
+    if(_prepositionRepeatEpoch===epoch){
+      addMsg(wuT('🎤 아직 잘 안 들려요. 아래에 문장을 써 주세요.', '🎤 I still couldn’t hear that clearly. Please type your sentence below.'), 'sys');
+      return;
+    }
+    _prepositionRepeatEpoch=epoch;
+    ansCardClear(); fixCardClear();
+    var repeatPrompt='Please say that again.';
+    addMsg(repeatPrompt, 'ai');
+    _autoHook('sent'); _autoHook('reply');
+    speak(repeatPrompt);
+    return;
+  }
   if(said && manual && !_whisperUserStop){ _micManualHold(said); return; }   // ✋ 수동: ⏹ 를 눌러야 보낸다
   if(said){ document.getElementById('inp').value=said; sendMsg(); }
 }
@@ -4992,6 +5017,7 @@ async function sendMsg(){
   inp._bargeDone = false;                  // ⏹ 다음 답변에도 끼어들 수 있게
   var text = (inp.value||'').trim();
   if(!text || sending) return;
+  _prepositionRepeatEpoch=null;
   _stopSpeak();
   /* ⏱ 이번 턴 재기 시작 — 침묵 타이머가 2.5초 안에 끊은 것만 «말로 보낸 것» 으로 본다(글로 친 것·옛 기록 제외) */
   var _lt0=Date.now(), _ls=_latSilence; _latSilence=null; _latCur=null;

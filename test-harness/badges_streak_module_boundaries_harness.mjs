@@ -186,9 +186,24 @@ try {
   await check('leaderboard keeps top twenty ordering, ERP and attendance name fallback without an id column', async () => {
     const f = fixture(); try {
       await init(f); for (let i=0;i<22;i++) streak(f, 'u'+i, 22-i, 22-i, null, i);
-      f.raw.exec("INSERT INTO students_erp VALUES('u0','정본 이름',NULL,NULL); INSERT INTO attendance(user_id,username,date) VALUES('u1','출결 이름','2026-11-07')");
-      const r = await call('/api/streak/leaderboard', f); assert.equal(r.status, 200); const b = await r.json();
-      assert.equal(b.items.length, 20); assert.equal(b.items[0].student_uid, 'u0'); assert.equal(b.items[0].student_name, '정본 이름'); assert.equal(b.items[1].student_name, '출결 이름'); assert.equal(b.items[2].student_name, null); assert(!b.items.some(x => x.student_uid === 'u21'));
+      f.raw.exec("INSERT INTO students_erp VALUES('u0','정본 이름',NULL,NULL); INSERT INTO students_erp VALUES('u3','u3',NULL,NULL); INSERT INTO attendance(user_id,username,date) VALUES('u1','출결 이름','2026-11-07')");
+      const r = await call('/api/streak/leaderboard?uid=u1', f); assert.equal(r.status, 200); const b = await r.json();
+      // 2026-11-09: 공개 응답은 아이디를 주지 않는다(«아이디 = 로그인»). 순서·이름 폴백은 그대로, 본인은 me 로만.
+      assert.equal(b.items.length, 20); assert(!b.items.some(x => 'student_uid' in x)); assert.equal(b.items[0].student_name, '정본 이름'); assert.equal(b.items[1].student_name, '출결 이름'); assert.equal(b.items[2].student_name, null); assert.equal(b.items[3].student_name, null, 'name equal to the id is withheld'); assert.equal(b.items[19].current_streak, 3);
+      assert.deepEqual(b.items.map(x => x.me).indexOf(true), 1); assert.equal(b.items.filter(x => x.me).length, 1);
+      const up = await (await call('/api/streak/leaderboard?uid=U1', f)).json(); assert(!up.items.some(x => x.me), 'U1 is not u1 (exact match)');
+    } finally { f.close(); }
+  });
+  await check('leaderboard gives the raw rows (with ids) only to an admin session — adm-core.js streak ranking', async () => {
+    const f = fixture(); try {
+      await init(f); streak(f, 'u0', 5); streak(f, 'guest_x', 4);
+      const pub = await (await call('/api/streak/leaderboard', f, { headers: { cookie: 'mango_admin_session=nope' } })).json();
+      assert.deepEqual(pub.items.map(x => x.student_uid), [undefined], 'wrong cookie = public shape, guest removed');
+      f.raw.prepare('INSERT INTO admin_sessions(token,username,ip,user_agent,created_at,expires_at,last_seen_at) VALUES(?,?,?,?,?,?,?)').run('tok', 'admin', '', '', NOW, NOW + DAY, NOW);
+      const adm = await (await call('/api/streak/leaderboard', f, { headers: { cookie: 'mango_admin_session=tok' } })).json();
+      assert.deepEqual(adm.items.map(x => x.student_uid), ['u0', 'guest_x']);
+      // 관리자 응답(아이디 포함)은 공유 캐시에 남지 않는다
+      const admRes = await call('/api/streak/leaderboard', f, { headers: { cookie: 'mango_admin_session=tok' } }); assert.equal(admRes.headers.get('Cache-Control'), 'private, no-store');
     } finally { f.close(); }
   });
   await check('badge stats and admin reconcile remain routed through their real handlers', async () => {

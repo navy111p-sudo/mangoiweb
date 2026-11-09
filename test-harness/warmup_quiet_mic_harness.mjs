@@ -57,6 +57,44 @@ ok('그 재기는 «판정이 놓친 경우» 에만', /if\(\s*said\s*&&\s*!hear
 ok('true 일 때만 살린다(모르면 예전대로 버림)', /if\(\s*_v\s*===\s*true\s*\)\s*heard\s*=\s*true/.test(mv));
 ok('수동 모드는 판정이 못 봐도 9초에 끊지 않는다', /firstMs\s*:\s*manual\s*\?\s*MIC_MANUAL_IDLE/.test(mv));
 
+// Execute the warmup recorder with a stale early result and the final selected result.
+const spoken=[], messages=[], submitted=[];
+const input={value:''};
+let recheck='unavailable';
+const warm={
+  _prepositionRepeatEpoch:null, _warmPaused:false, _warmEpoch:1, _warmVoiceEpoch:0, _whisperOn:false,
+  _warmLang:'en', _wuCorrMode:'focused', wuT:(ko,en)=>en,
+  MIC_MANUAL_IDLE:30000, MIC_MANUAL_MAX:180000, _micManual:()=>false,
+  setMicState(){}, _setListenLabel(){}, _autoHook(){}, ansCardClear(){}, fixCardClear(){},
+  addMsg:(text,who)=>messages.push([text,who]), speak:text=>spoken.push(text),
+  document:{getElementById:()=>input}, sendMsg:()=>submitted.push(input.value),
+  _micEarly:(manual,opts)=>{
+    const post=opts.transcribe;
+    return {...opts, transcribe:async fd=>{
+      await post(new Map([['stale',true]]));
+      return post(fd);
+    }};
+  },
+  MangoiVoice:{
+    supported:()=>true,
+    post:async fd=>({ok:true,text:'I am interested in music.',preposition_recheck:fd.get('stale')?'unavailable':recheck}),
+    record:async opts=>{
+      opts.onState('speaking',{});
+      return (await opts.transcribe(new Map())).text;
+    }
+  }
+};
+warm.window=warm; vm.createContext(warm); vm.runInContext('async '+mv,warm);
+await warm.micViaWhisper();
+await warm.micViaWhisper();
+ok('두 보조 인식 실패: 화면과 음성에 같은 재질문을 한 번만 내보내고 대화 요청은 막는다',
+   spoken.length===1 && messages.filter(m=>m[1]==='ai').length===1 &&
+   spoken[0]===messages[0][0] && messages[1][1]==='sys' && submitted.length===0);
+recheck='unchanged';
+await warm.micViaWhisper();
+ok('최종 전사가 in을 유지하면 이전 미리받기 실패와 상관없이 그대로 전송한다',
+   submitted[0]==='I am interested in music.' && spoken.length===1);
+
 // 배선 — A.i 친구하기 micViaWhisper(async) 몸통
 html = fHtml;
 const fv = (() => { const i = fHtml.indexOf('async function micViaWhisper('); if (i < 0) return ''; let d = 0; for (let k = fHtml.indexOf('{', i); k < fHtml.length; k++) { if (fHtml[k] === '{') d++; else if (fHtml[k] === '}' && --d === 0) return fHtml.slice(i, k + 1); } return ''; })();

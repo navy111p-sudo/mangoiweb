@@ -109,11 +109,14 @@ try {
     }
   });
   await check('focused English recording recovers on only with a matching second transcript', async () => {
-    for (const [first, second, enabled, expected, calls] of [
+    for (const [first, second, enabled, expected, calls, retry] of [
       ['I am interested in music.', 'I am interested on music.', true, 'I am interested on music.', 2],
       ['I am interested in music.', 'I am interested in music.', true, 'I am interested in music.', 2],
       ['I am interested in music.', 'I am interested on movies.', true, 'I am interested in music.', 2],
-      ['I am interested in music.', null, true, 'I am interested in music.', 2],
+      ['I am interested in music.', null, true, 'I am interested in music.', 3, null],
+      ['I am interested in music.', null, true, 'I am interested on music.', 3, 'I am interested on music.'],
+      ['I am interested in music.', null, true, 'I am interested in music.', 3, 'I am interested in music.'],
+      ['I am interested in music.', 'pending', true, 'I am interested on music.', 3, 'I am interested on music.'],
       ['I am interested on music.', '', true, 'I am interested on music.', 2],
       ['I am interested in music.', 'I am interested on music.', false, 'I am interested in music.', 1],
     ]) {
@@ -134,8 +137,10 @@ try {
           return { text: first };
         }
         backupStarted();
-        if (second === null) throw Error('synthetic unavailable');
-        return { text: second };
+        const transcript = aiCalls.length === 3 ? retry : second;
+        if (transcript === 'pending') return new Promise(() => {});
+        if (transcript === null) throw Error('synthetic unavailable');
+        return { text: transcript };
       };
       const fd = new FormData();
       fd.set('audio', new Blob([new Uint8Array(200)]), 'speech.webm');
@@ -145,8 +150,9 @@ try {
       const data = await r.json();
       assert.equal(data.text, expected);
       assert.equal(aiCalls.length, calls);
+      assert.equal(data.preposition_retry, calls === 3 ? true : undefined);
       if (!enabled || !first.includes('interested in')) assert.equal(data.preposition_recheck, undefined);
-      else assert.equal(data.preposition_recheck, expected !== first ? 'recovered' : second === null ? 'unavailable' : 'unchanged');
+      else assert.equal(data.preposition_recheck, expected !== first ? 'recovered' : retry === null ? 'unavailable' : 'unchanged');
     }
   });
   await check('coach denies writes for another student before AI or record insert', async () => {
