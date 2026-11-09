@@ -191,8 +191,10 @@ console.log('▶ ⑦ 웜업 «시작» 하면 곧바로 얼굴 대화(2026-11-09
   const run = (o) => {
     o = o || {};
     const log = [];
-    const c = vm.createContext({ log, active: false, location: { search: o.search || '' } });
+    const c = vm.createContext({ log, active: false, location: { search: o.search || '' },
+      localStorage: { getItem: (k) => (k === 'mangoi_ai_screen_mode' ? (o.screen || null) : null) } });
     c.window = c;
+    if (o.sit) c.situationActive = () => true;          // warmup.html 전역(?sit= 가 유효한 상황)
     c.WCTX = { textbook: o.book || '' };
     c._warmStarted = !!o.started;
     vm.runInContext('function g(n){ try { return window[n]; } catch (e) { return undefined; } }\n'
@@ -211,7 +213,26 @@ console.log('▶ ⑦ 웜업 «시작» 하면 곧바로 얼굴 대화(2026-11-09
   }
   const S0 = safe({ search: '?setup=0&age=kid' });
   if (S0) { S0.c.startWarmup(); S0.c.startWarmup();
-    ok('?setup=0(상황 연습·수업 흐름)은 끝까지 저절로 안 연다', S0.log.join(',') === 'start,start', S0.log.join(',')); }
+    ok('?setup=0(수업 흐름·공유 링크, 상황 아님)은 끝까지 저절로 안 연다', S0.log.join(',') === 'start,start', S0.log.join(',')); }
+  /* 🎯 상황별 말하기(?setup=0&sit=) — «대화 화면» 설정을 따른다(2026-11-09 사장님 「상황 고르기에서도 간단 대화」) */
+  const Sit = safe({ started: true, search: '?setup=0&lang=en&sit=store', sit: true });
+  ok('상황 연습 + 간단 대화(기본) → 얼굴 화면을 연다(인라인이 먼저 시작한 경로)', Sit && Sit.log.join(',') === 'enter', Sit && Sit.log.join(','));
+  const SitS = safe({ started: true, search: '?setup=0&sit=store', sit: true, screen: 'simple' });
+  ok('상황 연습 + «간단 대화» 를 고름 → 연다', SitS && SitS.log.join(',') === 'enter', SitS && SitS.log.join(','));
+  const SitF = safe({ started: true, search: '?setup=0&sit=store', sit: true, screen: 'full' });
+  ok('상황 연습 + «학습 도구» 를 고름 → 채팅 화면 그대로(짝)', SitF && SitF.log.join(',') === '', SitF && SitF.log.join(','));
+  const SitN = safe({ started: true, search: '?setup=0&sit=zzz' });
+  ok('모르는 상황(situationActive 거짓)은 예전처럼 안 연다(짝)', SitN && SitN.log.join(',') === '', SitN && SitN.log.join(','));
+  const SitX = safe({ search: '?setup=0&sit=store', sit: true });
+  if (SitX) { SitX.c.startWarmup(); SitX.c.active = false; SitX.c.startWarmup();
+    ok('상황 연습도 ✕ 로 나간 뒤 🎚️ 로 다시 시작하면 다시 안 연다(한 페이지 한 번)', SitX.log.join(',') === 'start,enter,start', SitX.log.join(',')); }
+  /* 배선 — 상황 판정은 warmup.html 의 전역 situationActive() 하나(새 판정을 만들지 않는다) */
+  ok('autoDone 은 setup=0 이고 «상황이 아닐 때만» 참', /var autoDone = \/\[\?&\]setup=0\(\?:&\|\$\)\/\.test\(location\.search\) && !sitOn\(\);/.test(wu));
+  /* 🪤 ?setup=0 은 이 파일이 실리는 «그 순간» enter() 가 돈다 — 자동 열기 블록이 CALL 보다 위면 var CALL 이 undefined 라
+     영상통화 화면이 빈 손잡이(A = {})로 붙어 제목·✕·다시 듣기·끝내기가 죽는다(2026-11-09 브라우저 실측) */
+  ok('자동 열기 블록은 var CALL «뒤» (먼저 시작한 경로에서도 손잡이가 찬다)', wu.indexOf('  var CALL = {') > 0 && wu.indexOf('  var CALL = {') < wu.indexOf('  var autoDone = '));
+  ok('sitOn 은 warmup.html 의 situationActive 를 부른다', /function sitOn\(\)[^\n]*window\.situationActive\(\)/.test(wu)
+    && /\nfunction situationActive\(\)\{/.test(read('warmup.html')));
   const S1 = safe({ search: '?setup=01' });
   if (S1) { S1.c.startWarmup();
     ok('setup=01 처럼 다른 값은 예외가 아니다(짝)', S1.log.join(',') === 'start,enter', S1.log.join(',')); }

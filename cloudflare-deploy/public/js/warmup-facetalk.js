@@ -469,40 +469,15 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
 
-  /* 🚪 «시작» 하면 곧바로 얼굴 대화(2026-11-09 사장님 「휴대폰 키면 이것을 default 로」) —
-     폰은 얼굴 전면, 넓은 창은 얼굴 + 오른쪽 대화 기록(ftk-call.js) 이라 «시작 = 이 화면» 하나로 둔다.
-     시작 버튼(startWarmup — 인라인 스크립트의 전역 함수)을 감싸 «설정이 닫힌 뒤» 한 번만 연다.
-     ✕ 로 나가면 이 페이지에서는 다시 안 연다(🎚️ 로 설정을 다시 열고 시작해도) — ▶ 로 언제든 다시 들어온다.
-     ⛔ ?setup=0(상황 연습·수업 흐름) 페이지는 끝까지 채팅 화면이다 — 장면 고르기 칸이 거기 있다(나중에 🎚️ 로 다시 시작해도).
-     ⛔ 엘리더잼(책·주제로 시작)은 열지 않는다 — 진행 막대(질문 n/20 · 💡 · 그만하기)가 채팅 화면에만 있다.
-     ⛔ 수업 안(iframe)은 enter() 가 스스로 막는다. */
-  var autoDone = /[?&]setup=0(?:&|$)/.test(location.search);
-  function eleaderOn() { try { return /^엘리더잼 L\d/.test(String((g('WCTX') || {}).textbook || '')); } catch (e) { return false; } }
-  /* 🖥️ AI 말하기 › 공통 설정 «대화 화면» 에서 «학습 도구» 를 고르면 채팅 화면 그대로 둔다(js/ai-speaking-settings.js KEYS.screen) */
-  function wantsTools() { try { return localStorage.getItem('mangoi_ai_screen_mode') === 'full'; } catch (e) { return false; } }
-  function autoEnter() {
-    if (autoDone || active || eleaderOn() || wantsTools()) return;
-    autoDone = true;
-    try { enter(); } catch (e) {}
-  }
-  (function wrapStart() {
-    var orig = window.startWarmup;
-    if (typeof orig !== 'function' || orig.__ftkWrapped) return;
-    var w = function () {
-      var r = orig.apply(this, arguments);
-      autoEnter();
-      return r;
-    };
-    w.__ftkWrapped = true;
-    window.startWarmup = w;
-    if (g('_warmStarted') === true) autoEnter();   // 이 파일이 오기 «전» 에 이미 «시작» 을 눌렀으면 지금 연다
-  })();
-
   /* 📞 영상통화 화면(js/ftk-call.js)에 건네는 손잡이 — 새 판정 없이 이 화면의 정본을 그대로 부른다 */
   var slowFrom = null;
   var CALL = {
     en: en,
-    title: function () { return zh() ? t('A.i 중국어 말하기', 'A.i Chinese Speaking') : t('A.i 말하기', 'A.i Speaking'); },
+    /* 🎯 상황 연습이면 상황 이름을 붙인다 — 채팅 화면의 «상황:» 줄이 얼굴 화면에는 없다 */
+    title: function () {
+      var s = sitOn() && g('SITUATION');
+      return zh() ? t('A.i 중국어 말하기', 'A.i Chinese Speaking') : t('A.i 말하기', 'A.i Speaking') + (s ? ' · ' + t(s.ko, s.en) : '');
+    },
     text: teacherText,
     /* 소리 조각 = 화면이 실제로 나눠 읽는 그 규칙(_speechChunks) — 없으면 통째로 한 조각 */
     parts: function (text) { try { return typeof window._speechChunks === 'function' ? window._speechChunks(text) : [text]; } catch (e) { return [text]; } },
@@ -540,6 +515,39 @@
     /* ⌨️ 넓은 화면 글쓰기 칸 — 대답 고르기와 같은 길(pickAnswer = 입력칸에 넣고 보내기) */
     type: function (txt) { if (!active || g('sending')) return false; pickChip(txt); return true; }
   };
+
+  /* ⚠️ 이 블록은 CALL «뒤» 에 둔다 — ?setup=0 은 인라인이 먼저 startWarmup() 을 불러 이 파일이 실리는 «그 순간» enter() 가 돈다.
+     CALL 보다 위에 있으면 var CALL 이 아직 undefined 라 영상통화 화면이 빈 손잡이로 붙는다(제목·✕·다시 듣기·끝내기가 죽음, 2026-11-09 실측). */
+  /* 🚪 «시작» 하면 곧바로 얼굴 대화(2026-11-09 사장님 「휴대폰 키면 이것을 default 로」) —
+     폰은 얼굴 전면, 넓은 창은 얼굴 + 오른쪽 대화 기록(ftk-call.js) 이라 «시작 = 이 화면» 하나로 둔다.
+     시작 버튼(startWarmup — 인라인 스크립트의 전역 함수)을 감싸 «설정이 닫힌 뒤» 한 번만 연다.
+     ✕ 로 나가면 이 페이지에서는 다시 안 연다(🎚️ 로 설정을 다시 열고 시작해도) — ▶ 로 언제든 다시 들어온다.
+     ⛔ ?setup=0(수업 흐름·공유 링크) 페이지는 끝까지 채팅 화면이다 — 장면 고르기 칸이 거기 있다(나중에 🎚️ 로 다시 시작해도).
+     ✅ 단 상황별 말하기(?setup=0&sit=…)는 «대화 화면» 설정을 따른다(2026-11-09 사장님 「상황 고르기에서도 간단 대화」).
+     ⛔ 엘리더잼(책·주제로 시작)은 열지 않는다 — 진행 막대(질문 n/20 · 💡 · 그만하기)가 채팅 화면에만 있다.
+     ⛔ 수업 안(iframe)은 enter() 가 스스로 막는다. */
+  var autoDone = /[?&]setup=0(?:&|$)/.test(location.search) && !sitOn();
+  function sitOn() { try { return typeof window.situationActive === 'function' && !!window.situationActive(); } catch (e) { return false; } }
+  function eleaderOn() { try { return /^엘리더잼 L\d/.test(String((g('WCTX') || {}).textbook || '')); } catch (e) { return false; } }
+  /* 🖥️ AI 말하기 › 공통 설정 «대화 화면» 에서 «학습 도구» 를 고르면 채팅 화면 그대로 둔다(js/ai-speaking-settings.js KEYS.screen) */
+  function wantsTools() { try { return localStorage.getItem('mangoi_ai_screen_mode') === 'full'; } catch (e) { return false; } }
+  function autoEnter() {
+    if (autoDone || active || eleaderOn() || wantsTools()) return;
+    autoDone = true;
+    try { enter(); } catch (e) {}
+  }
+  (function wrapStart() {
+    var orig = window.startWarmup;
+    if (typeof orig !== 'function' || orig.__ftkWrapped) return;
+    var w = function () {
+      var r = orig.apply(this, arguments);
+      autoEnter();
+      return r;
+    };
+    w.__ftkWrapped = true;
+    window.startWarmup = w;
+    if (g('_warmStarted') === true) autoEnter();   // 이 파일이 오기 «전» 에 이미 «시작» 을 눌렀으면 지금 연다
+  })();
 
   window.WarmupFaceTalk = { enter: enter, exit: exit, isActive: function () { return active; } };
 })();

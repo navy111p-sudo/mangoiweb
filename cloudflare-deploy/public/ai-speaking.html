@@ -224,7 +224,7 @@
   <section class="sheet" aria-labelledby="setTitle">
     <h2 id="setTitle" data-ko="공통 설정" data-en="Common settings">공통 설정</h2>
     <!-- 🖥️ 대화 화면(2026-11-09) — 교재로 연습을 시작할 때 열리는 화면. 누르면 바로 저장한다(언어처럼 «확인» 과 무관).
-         상황별 말하기(?setup=0)·엘리더잼은 원래대로 늘 채팅 화면이다 — js/warmup-facetalk.js autoEnter. -->
+         상황별 말하기(?setup=0&sit=)도 이 설정을 따른다(2026-11-09). 엘리더잼은 원래대로 늘 채팅 화면이다 — js/warmup-facetalk.js autoEnter. -->
     <div class="tile screen-tile"><span class="lab" id="scrLab"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span data-ko="대화 화면" data-en="Practice screen">대화 화면</span></span>
       <div class="scr-row" role="group" aria-labelledby="scrLab" aria-describedby="scrState">
         <button type="button" class="scr" data-screen="simple" aria-pressed="false"><img src="/img/ai-speaking/screen-simple.webp" alt="" width="96" height="60" decoding="async">
@@ -335,8 +335,8 @@
     document.querySelectorAll('[data-screen]').forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-screen') === s ? 'true' : 'false'); });
     var st = document.getElementById('scrState');
     if(st) st.textContent = scrFail ? T('⚠️ 이 기기에선 저장이 안 돼요', '⚠️ Could not save here')
-      : s === 'full' ? T('교재로 연습을 시작하면 학습 도구 화면으로 열려요', 'Textbook practice opens with study tools')
-      : T('교재로 연습을 시작하면 선생님 얼굴 화면으로 열려요', 'Textbook practice opens with the teacher\'s face');
+      : s === 'full' ? T('교재·상황 연습을 시작하면 학습 도구 화면으로 열려요', 'Textbook and situation practice open with study tools')
+      : T('교재·상황 연습을 시작하면 선생님 얼굴 화면으로 열려요', 'Textbook and situation practice open with the teacher\'s face');
   }
   function renderSettings(){
     if(!SET){ renderOk(); return; }
