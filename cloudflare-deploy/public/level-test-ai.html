@@ -565,6 +565,10 @@
       /* 결과 화면은 되돌아올 수 없는 끝이다 → 여기서만 저장을 지운다.
          ⛔ 제출 «전» 에 지우면 채점이 실패했을 때 24문항이 통째로 날아간다. */
       clearSaved();
+      /* 🎯 «AI와 친구하기» 목록의 «처음이면 레벨 진단부터» 권유를 끄는 표식(같은 계정만 · idx-allmenu.js).
+         명부 행이 없어 레벨이 안 적힌 학생에게도 권유가 계속 뜨지 않게 — 서버 판정을 대신하지는 않는다. */
+      try { var _ltl = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null'), _ltu = (_ltl && (_ltl.uid || _ltl.user_id)) || detectUid(); if (_ltu) localStorage.setItem('mangoi_leveltest_done_v1', JSON.stringify({ uid: _ltu, level: d.level, t: Date.now() })); } catch(e){}
+      try { sessionStorage.removeItem('mangoi_aif_lt_v1'); } catch(e){}
       showResult(d);
     })
     .catch(function(){ gradeFailed(); });

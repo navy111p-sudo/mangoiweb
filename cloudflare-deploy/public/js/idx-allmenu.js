@@ -574,10 +574,110 @@
     head.appendChild(a);
   }
 
+  /* 🎯 «AI 학습이 처음이면 레벨 진단부터» (2026-11-09 사장님 지시)
+     [왜] AI 도구는 레벨(밴드)에 맞춰 문장을 고르는데, 처음 온 학생은 레벨이 비어 있어
+          자기 수준을 «짐작» 으로 고르고 있었다. 짧은 객관 테스트(기존 /level-test-ai.html,
+          24문항·약 5분 · 결과는 서버가 students_erp.level 에 «비어 있을 때만» 적음)로 먼저 보낸다.
+     [판정] 화면이 레벨을 추측하지 않는다 — 서버 정본 /api/student/today 의 plan.mode === 'unassigned'
+          (= band 없음, today-plan.ts) 일 때만 띄운다. 비로그인·직원·조회 실패·모름 → 안 띄움(막지 않는다).
+     ⛔ 목록을 가리거나 막지 않는다 — 카드 위 한 줄 권유일 뿐, «나중에» 로 이 탭에서는 다시 안 뜬다.
+     ⚠️ 진단을 끝냈는데 명부 행이 없어 레벨이 안 적힌 학생(not_found)은 서버로는 계속 «미배정» 이다
+        → 진단 화면이 끝날 때 남기는 표식(mangoi_leveltest_done_v1, 같은 계정)이 있으면 안 띄운다. */
+  var LTF_CACHE = 'mangoi_aif_lt_v1', LTF_SKIP = 'mangoi_aif_lt_skip', LTF_MS = 10 * 60 * 1000;
+  var LTF_TXT = {
+    hKo: 'AI 학습이 처음이세요?', hEn: 'New to AI learning?',
+    rKo: '레벨 진단을 하다 멈췄어요', rEn: 'You paused your level check',
+    sKo: '5분 레벨 진단(24문항)부터 해 보세요 — 내 수준에 맞는 문장으로 공부할 수 있어요.',
+    sEn: 'Take the 5-minute level check (24 questions) first — every tool then fits your level.',
+    bKo: '진단 시작하기 →', bEn: 'Start the check →',
+    cKo: '이어서 하기 →', cEn: 'Continue →',
+    lKo: '나중에', lEn: 'Later'
+  };
+  function ltfDoneLocally(uid){
+    try { var o = JSON.parse(localStorage.getItem('mangoi_leveltest_done_v1') || 'null');
+          return !!(o && o.uid && o.uid === uid); } catch(e){ return false; }
+  }
+  function ltfInProgress(){
+    try { return localStorage.getItem('mangoi_leveltest_ai_progress') != null; } catch(e){ return false; }
+  }
+  function ltfStyle(){
+    if (document.getElementById('aif-lt-style')) return;
+    var st = document.createElement('style'); st.id = 'aif-lt-style';
+    st.textContent =
+      '#ai-friends-ov .aif-lt{display:flex;flex-wrap:wrap;align-items:center;gap:12px 14px;margin:0 0 16px;padding:16px 18px;'
+     +'border-radius:18px;border:1.5px solid rgba(251,191,36,.75);background:rgba(251,191,36,.12);text-align:left}'
+     +'#ai-friends-ov .aif-lt-ic{font-size:30px;line-height:1;flex:none}'
+     +'#ai-friends-ov .aif-lt-tx{flex:1 1 220px;min-width:0}'
+     +'#ai-friends-ov .aif-lt-tx b{display:block;font-size:18px;font-weight:900;color:#fdf6e3;line-height:1.3}'
+     +'#ai-friends-ov .aif-lt-tx span{display:block;margin-top:4px;font-size:14px;color:#e8dcc0;line-height:1.45}'
+     +'#ai-friends-ov .aif-lt-act{display:flex;align-items:center;gap:8px;flex:none}'
+     +'#ai-friends-ov .aif-lt-go{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:99px;'
+     +'background:linear-gradient(135deg,#fde68a,#fbbf24 55%,#f59e0b);color:#1a1a1a;font-size:15.5px;font-weight:900;text-decoration:none;white-space:nowrap}'
+     +'#ai-friends-ov .aif-lt-go:hover,#ai-friends-ov .aif-lt-go:focus-visible{background:#fde68a;outline:none}'
+     +'#ai-friends-ov .aif-lt-later{min-height:44px;padding:0 12px;border:0;border-radius:99px;background:transparent;color:#d7c9a6;'
+     +'font:inherit;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap}'
+     +'#ai-friends-ov .aif-lt-later:hover{background:rgba(255,255,255,.08)}'
+     +'@media(max-width:560px){#ai-friends-ov .aif-lt{padding:14px}#ai-friends-ov .aif-lt-act{width:100%;justify-content:space-between}}';
+    document.head.appendChild(st);
+  }
+  function ltfSpan(tag, ko, en){
+    var el = document.createElement(tag);
+    el.setAttribute('data-ko', ko); el.setAttribute('data-en', en);
+    el.textContent = allmenuIsEn() ? en : ko;
+    return el;
+  }
+  function ltfShow(ov){
+    if (!ov || ov.querySelector('.aif-lt')) return;
+    var grid = ov.querySelector('.aif-grid');
+    if (!grid || !grid.parentNode) return;
+    ltfStyle();
+    var resume = ltfInProgress(), T = LTF_TXT;
+    var box = document.createElement('div'); box.className = 'aif-lt';
+    var ic = document.createElement('span'); ic.className = 'aif-lt-ic'; ic.setAttribute('aria-hidden', 'true'); ic.textContent = '🎯';
+    var tx = document.createElement('div'); tx.className = 'aif-lt-tx';
+    tx.appendChild(ltfSpan('b', resume ? T.rKo : T.hKo, resume ? T.rEn : T.hEn));
+    tx.appendChild(ltfSpan('span', T.sKo, T.sEn));
+    var act = document.createElement('div'); act.className = 'aif-lt-act';
+    var go = ltfSpan('a', resume ? T.cKo : T.bKo, resume ? T.cEn : T.bEn);
+    go.className = 'aif-lt-go'; go.href = '/level-test-ai.html';
+    var later = ltfSpan('button', T.lKo, T.lEn);
+    later.type = 'button'; later.className = 'aif-lt-later';
+    later.addEventListener('click', function(e){
+      e.stopPropagation();
+      try { sessionStorage.setItem(LTF_SKIP, '1'); } catch(_){}
+      if (box.parentNode) box.parentNode.removeChild(box);
+    });
+    act.appendChild(go); act.appendChild(later);
+    box.appendChild(ic); box.appendChild(tx); box.appendChild(act);
+    grid.parentNode.insertBefore(box, grid);
+  }
+  function firstTestDecorate(ov){
+    var uid = _trackUid();
+    if (!uid || mangoiIsStaff() || ltfDoneLocally(uid)) return;
+    try { if (sessionStorage.getItem(LTF_SKIP) === '1') return; } catch(e){}
+    try {
+      var c = JSON.parse(sessionStorage.getItem(LTF_CACHE) || 'null');
+      if (c && c.uid === uid && (Date.now() - (c.t || 0)) < LTF_MS) { if (c.unassigned === true) ltfShow(ov); return; }
+    } catch(e){}
+    var tok = '';
+    try { tok = localStorage.getItem('mango_token') || ''; } catch(e){}
+    fetch('/api/student/today?uid=' + encodeURIComponent(uid) + '&token=' + encodeURIComponent(tok), { credentials: 'include' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        /* «성공이라고 말했는가» 로 본다 — 모르면 안 띄운다 */
+        if (!d || d.ok !== true || !d.plan) return;
+        var un = d.plan.mode === 'unassigned';
+        try { sessionStorage.setItem(LTF_CACHE, JSON.stringify({ uid: uid, unassigned: un, t: Date.now() })); } catch(e){}
+        if (un && _trackUid() === uid) ltfShow(document.getElementById('ai-friends-ov'));
+      })
+      .catch(function(){ /* 모르면 그대로 */ });
+  }
+
   /* 목록이 body 에 «붙는 순간» 한 번에 꾸민다 — 감시자는 하나만(class 감시 금지, CLAUDE.md 2장) */
   function aifDecorate(ov){
     aidiffDecorate(ov);
     guideDecorate(ov);
+    firstTestDecorate(ov);
   }
   var _adNow = document.getElementById('ai-friends-ov');
   if (_adNow) aifDecorate(_adNow);
