@@ -181,6 +181,8 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
               binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CHUNK)) as any);
             }
             const b64 = btoa(binary);
+            const startBackup = checkPreposition && lang === 'en' && !strictSpeech &&
+              !paReference && !hintPrompt && bytes.length <= 512 * 1024;
             const turboParams: any = {
               audio: b64, language: lang, task: 'transcribe', vad_filter: true,
               // 🚫 환각 억제 — 07-29 에 initial_prompt(정답 유출)로 잡으려다 만점 사고가 났다.
@@ -191,9 +193,7 @@ export async function handleVoiceApi(request: Request, url: URL, env: MangoEnv):
             if (hintPrompt) turboParams.initial_prompt = hintPrompt;
             const primary = ai.run('@cf/openai/whisper-large-v3-turbo', turboParams);
             const recheckUntil = Date.now() + 3650;
-            if (checkPreposition && lang === 'en' && !strictSpeech && !paReference && !hintPrompt && bytes.length <= 512 * 1024) {
-              backup = runBase(bytes).catch(() => null);
-            }
+            if (startBackup) backup = runBase(bytes).catch(() => null);
             const turbo = await readTranscript(await primary);
             const ttRaw = turbo.text.trim();
             // A successful empty/VAD rejection is terminal, never a reason to try base Whisper.
