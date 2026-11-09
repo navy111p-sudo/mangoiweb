@@ -518,6 +518,10 @@ html.dark .why b{color:#9fb0c2}
 .whybtns{display:flex;gap:6px;flex-wrap:wrap}
 .whybtns button{font:inherit;font-size:13.5px;padding:9px 12px;border:1px solid #ccd4de;background:#fff;border-radius:7px;cursor:pointer;min-height:42px;color:#16202c}
 html.dark .whybtns button{background:#1d2836;border-color:#33404f;color:#e6edf3}
+/* 💬 반려 피드백 칸 — 16px 아래로 내리지 않는다(iOS 확대). */
+.why textarea{display:block;box-sizing:border-box;width:100%;margin:8px 0 6px;padding:9px 10px;font:inherit;font-size:16px;
+  border:1px solid #ccd4de;border-radius:7px;background:#fff;color:#16202c;resize:vertical}
+html.dark .why textarea{background:#1d2836;border-color:#33404f;color:#e6edf3}
 
 /* ↩️🔁 내가 올린 건에 손대는 작은 버튼들 — 회수 · 다시 올리기 · 취소 요청.
    ⚠️ 글자는 16px 아래로 내리지 않는다(iOS 가 누를 때 화면을 확대한다).
@@ -1286,6 +1290,7 @@ var D = null;                       // 마지막으로 받은 /api/approval/home
 var PICK = null;                    // 고른 분류
 var CUR = 'PHP';
 var PROXY_OPEN = {};                // 💳 「대신 결재」를 펼쳐 둔 건 id — 60초마다 다시 그려도 안 접히게
+var WHY_DRAFT = {};                 // 💬 열어 둔 반려 칸 {id: 쓰던 피드백} — 다시 그려도 안 닫히고 글이 안 날아가게
 var OCR = null;                     // 영수증에서 읽은 값 {amount, spent_at, vendor}
 var PHOTO_SEQ = 0;
 var PHOTO_Q = '';                   // 📷 사진 상태 'ok'|'blurry'|'dark'|''(못 잼) — 7단계
@@ -1334,7 +1339,9 @@ function load(fresh){
       HOME_TRIED = true;              // 이제부터 문서함 자동 조회를 내보내도 된다
       D = j; offline(false);
       if (!HANDOVER_VIEW) try { localStorage.setItem(CACHE_KEY, JSON.stringify(j)); } catch (e) {}
-      repaint();
+      // 💬 피드백을 쓰는 중이면 다시 그리지 않는다 — 커서·폰 키보드가 튀지 않게(글은 WHY_DRAFT 가 지킨다).
+      var ae = document.activeElement;
+      if (!(ae && /^whyt-/.test(ae.id || ''))) repaint();
       if (!HANDOVER_VIEW) noteArrival(j);
       return j;
     })
@@ -1552,7 +1559,9 @@ function paintList(id, arr, decidable){
   for (var i = 0; i < arr.length; i++) {
     var r = arr[i];
     if (HANDOVER_VIEW) {
-      h += '<details class="handover-request"><summary><b>' + esc(r.title) + '</b><small>' +
+      // 펼쳐 둔 「대신 결재」·쓰던 반려 칸이 있으면 다시 그려도 카드를 연 채로 둔다.
+      h += '<details class="handover-request"' + (PROXY_OPEN[r.id] || WHY_DRAFT[r.id] != null ? ' open' : '') +
+           '><summary><b>' + esc(r.title) + '</b><small>' +
            esc((r.requester_name || r.requester_username) + ' · ' + when(r.created_at)) +
            '</small></summary>' + itemHtml(r, decidable) + '</details>';
     } else {
@@ -3216,10 +3225,14 @@ function itemHtml(r, decidable, ackable){
               '이 단계는 결재권자가 결재합니다. 이 뒤에 결재 단계가 더 있습니다.')
           : T('The approver decides this one. You only confirm it after it is approved.',
               '이 단계는 결재권자가 결재합니다. 대표님은 승인된 뒤 「확인」만 하시면 됩니다.')) + '</div>';
+    /* 💬 「반려 · 피드백」은 접지 않는다 (2026-11-09 사장님 「여기도 피드백 줄 칸」).
+       돈이 안 나가는 방향이고, 서버가 결재권자에게도 그 피드백을 알린다. 「승인」만 접힌 채 둔다. */
     h += '<div class="acts">' +
          '<button class="mini" onclick="proxyOpen(' + r.id + ')">' +
          esc(T('Decide on their behalf', '대신 결재하기')) + '</button>' +
-         '</div>';
+         '<button class="mini danger" onclick="askWhy(' + r.id + ')">' +
+         esc(T('Reject with feedback', '반려 · 피드백')) + '</button>' +
+         '</div><div id="why-' + r.id + '">' + whyBoxHtml(r.id) + '</div>';
   } else if (decidable) {
     /* 💳 펼친 「대신 결재」 — 자리를 비운 결재권자를 대신해 누르는 자리. */
     if (r.by_proxy) {
@@ -3241,7 +3254,7 @@ function itemHtml(r, decidable, ackable){
          (r.same_decider ? '' :
            '<button class="big ok" onclick="decide(' + r.id + ',\'approved\')">' + esc(T('Approve', '승인')) + '</button>') +
          '<button class="big no" onclick="askWhy(' + r.id + ')">' + esc(T('Reject', '반려')) + '</button>' +
-         '</div><div id="why-' + r.id + '"></div>';
+         '</div><div id="why-' + r.id + '">' + whyBoxHtml(r.id) + '</div>';
   }
 
   h += '</div>';
@@ -3717,10 +3730,10 @@ window.proxyOpen = function(id){
   PROXY_OPEN[id] = true;
   repaint();
 };
-window.askWhy = function(id){
-  var host = document.getElementById('why-' + id);
-  if (!host) return;
-  if (host.innerHTML) { host.innerHTML = ''; return; }     // 한 번 더 누르면 닫기
+/* 반려 칸 — 사유 버튼(한 번 누르면 바로 반려) + 직접 쓰는 피드백 칸.
+   열려 있는 동안(WHY_DRAFT[id] 가 있을 때)만 그린다 — 카드를 다시 그려도 쓰던 글이 남는다. */
+function whyBoxHtml(id){
+  if (WHY_DRAFT[id] == null) return '';
   var h = '<div class="why"><b>' + esc(T('Why are you rejecting this?', '반려 사유를 골라 주세요')) + '</b><div class="whybtns">';
   for (var i = 0; i < WHYS.length; i++) {
     var w = EN() ? WHYS[i].en : WHYS[i].ko;
@@ -3728,14 +3741,30 @@ window.askWhy = function(id){
     var wm = WHYS[i].en + ' / ' + WHYS[i].ko;
     h += '<button onclick="decide(' + id + ',\'rejected\',' + JSON.stringify(wm).replace(/"/g, '&quot;') + ')">' + esc(w) + '</button>';
   }
-  h += '<button onclick="whyOther(' + id + ')">' + esc(T('Other reason', '직접 입력')) + '</button>';
-  h += '</div></div>';
-  host.innerHTML = h;
+  h += '</div><textarea id="whyt-' + id + '" rows="3" maxlength="300" oninput="whyInput(' + id + ',this)"' +
+       ' aria-label="' + esc(T('Feedback', '피드백')) + '"' +
+       ' placeholder="' + esc(T('Or write your feedback (what to fix)', '또는 피드백 직접 쓰기 (무엇을 고치면 되는지)')) + '">' +
+       esc(WHY_DRAFT[id]) + '</textarea>' +
+       '<div class="whybtns"><button class="danger" onclick="whyOther(' + id + ')">' +
+       esc(T('Reject with this feedback', '이 피드백으로 반려')) + '</button></div></div>';
+  return h;
+}
+window.askWhy = function(id){
+  var host = document.getElementById('why-' + id);
+  if (!host) return;
+  if (WHY_DRAFT[id] != null) { delete WHY_DRAFT[id]; host.innerHTML = ''; return; }   // 한 번 더 누르면 닫기
+  WHY_DRAFT[id] = '';
+  host.innerHTML = whyBoxHtml(id);
 };
+window.whyInput = function(id, el){ WHY_DRAFT[id] = el.value; };
 window.whyOther = function(id){
-  var t = prompt(T('Reason for rejecting', '반려 사유'));
-  if (t == null) return;
-  decide(id, 'rejected', String(t).slice(0, 300));
+  var t = String(WHY_DRAFT[id] || '').trim();
+  if (!t) {
+    toast(T('Write the feedback first.', '피드백을 먼저 적어 주세요.'));
+    var ta = document.getElementById('whyt-' + id); if (ta) ta.focus();
+    return;
+  }
+  decide(id, 'rejected', t.slice(0, 300));
 };
 
 /* ── 결정 — 누르는 즉시 화면에 반영하고, 실패하면 되돌린다. ──────────────── */
@@ -3861,6 +3890,7 @@ function send(id, body){
 }
 
 function removeLocal(id){
+  delete WHY_DRAFT[id];             // 결정된 건의 반려 칸은 닫는다
   if (!D) return;
   var f = function(a){ return (a || []).filter(function(x){ return x.id !== id; }); };
   D.inbox = f(D.inbox);

@@ -248,7 +248,7 @@ async function hqAccounts(env: ApprovalEnv): Promise<AccountRow[]> {
  * 이 역할 단계를 결재할 수 있는 사람들의 계정명.
  *   exceptUser = 기안자. 자기 건은 자기가 결재할 수 없으므로 알림도 보내지 않는다.
  */
-async function approversFor(env: ApprovalEnv, role: string, exceptUser?: string | null): Promise<string[]> {
+async function approversFor(env: ApprovalEnv, role: string, exceptUser?: string | null, widen = true): Promise<string[]> {
   const rows = await hqAccounts(env);
   const out: string[] = [];
   for (const r of rows) {
@@ -262,7 +262,8 @@ async function approversFor(env: ApprovalEnv, role: string, exceptUser?: string 
        알려야 할 사람은 다른 질문이다. */
     if (isPrimaryApprover(actor, role as any, isPhManager(actor))) out.push(u);
   }
-  if (out.length) return out;
+  // widen=false — «결과» 알림처럼 기안자가 이미 받는 자리는 넓히지 않는다(엉뚱한 경영진에게 안 가게).
+  if (out.length || !widen) return out;
 
   /* 🔴 주 결재자가 한 명도 없다 — **결재권자 본인이 올린 건**이 정확히 그렇다
        (자기가 올린 결재는 자기가 결재할 수 없으므로 exceptUser 로 빠진다).
@@ -2437,10 +2438,21 @@ export async function handleApprovalApi(
       if (finalStatus === 'approved' && cur.reverses_id) {
         reversal = await applyReversal(env, Number(cur.reverses_id), id, String(actor.username));
       }
-      // 끝났으면 올린 사람에게 결과를 알린다.
-      await notify(env, [String(cur.requester_username)],
+      // 끝났으면 올린 사람에게 결과를 알린다. 반려면 피드백(memo)도 알림에 싣는다 — 열기 전에 «왜» 가 보이게.
+      const resultTo = [String(cur.requester_username)];
+      /* 💬 이 단계의 «주» 결재자가 아닌 사람이 반려했으면(경영진이 결재권자 몫을 대신) 결재권자에게도
+         그 피드백을 알린다 (2026-11-09 사장님 「승인자에게 반려해서 피드백」). 승인은 그대로 기안자만. */
+      if (decision === 'rejected' && !isPrimaryApprover(actor, role, ph)) {
+        for (const u of await approversFor(env, String(role), cur.requester_username, false)) {
+          if (u !== String(actor.username) && resultTo.indexOf(u) < 0) resultTo.push(u);
+        }
+      }
+      await notify(env, resultTo,
                    decision === 'approved' ? 'Approved' : 'Rejected',
-                   String(cur.title || '').slice(0, 80), id, 'approval-result');
+                   (String(cur.title || '').slice(0, 80) +
+                    // 영어 번역([EN])이 붙어 있으면 앞으로 — 필리핀 기안자가 잘린 한국어만 보지 않게.
+                    (decision === 'rejected' && memo ? ' — ' + memo.split('\n[EN] ').reverse().join(' / ').slice(0, 200) : '')),
+                   id, 'approval-result');
     }
 
     return json({
