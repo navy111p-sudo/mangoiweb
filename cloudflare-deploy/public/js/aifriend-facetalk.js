@@ -184,7 +184,8 @@
     });
     /* 얼굴을 누르면 — 말하는 중이면 끊고 바로 듣기, 쉬는 중이면 다시 시작 */
     root.querySelector('#ftkStage').addEventListener('click', onFaceTap);
-    document.addEventListener('keydown', function (e) { if (active && e.key === 'Escape') exit(); });
+    /* 캡처 단계 — 설정 시트의 Esc 처리보다 먼저 봐야 «설정만 닫기» 가 된다 */
+    document.addEventListener('keydown', function (e) { if (active && e.key === 'Escape' && !document.body.classList.contains('sheet-open')) exit(); }, true);
     document.addEventListener('visibilitychange', function () {
       if (active && document.hidden) { stopAll(); setState('pause'); showPauseNote(); }
     });
@@ -574,6 +575,14 @@
   var CALL = {
     en: en,
     title: function () { return t('A.i 친구하기', 'A.i Friend'); },
+    /* ⋮ 설정 — 이 화면의 ⚙ 설정 시트(레벨·속도·친구·자막…)를 그대로 연다. 시트는 얼굴 화면보다 위에 뜬다 */
+    menu: function () {
+      var b = document.getElementById('optsToggle'); if (!active || !b) return;
+      if (!b.__ftk) { b.__ftk = 1;   // 시트의 «자막» 을 고르면 얼굴 화면 자막(CC)도 같이 — 한 번만 건다
+        [].forEach.call(document.querySelectorAll('.opt[data-sub]'), function (o) {
+          o.addEventListener('click', function () { if (active) window.FtkCall.setCc(o.getAttribute('data-sub')); }); }); }
+      b.click();
+    },
     text: lastTeacherText,
     parts: function () { return said.slice(); },
     audio: function () { return window.MangoiTTS && MangoiTTS.getAudioEl ? MangoiTTS.getAudioEl() : null; },

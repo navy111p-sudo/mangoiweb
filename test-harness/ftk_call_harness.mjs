@@ -390,7 +390,7 @@ for (const lang of ['ko', 'en']) {
   const mk = () => { const kids = {}, at = {}; return { kids, at, style: {}, textContent: '', hidden: false, title: '', placeholder: '', firstChild: { style: {} },
     classList: { toggle() {}, contains() { return false; } }, setAttribute(k, v) { at[k] = v; }, getAttribute(k) { return at[k]; },
     querySelector(q) { return kids[q] || (kids[q] = mk()); }, parentNode: { setAttribute() {} } }; };
-  const names = ['title', 'done', 'cam', 'close', 'replay', 'mic', 'slow', 'cc', 'auto', 'hand', 'status', 'dots', 'prog', 'cap', 'sideh', 'log', 'in', 'send', 'type'];
+  const names = ['title', 'done', 'cam', 'menu', 'close', 'replay', 'mic', 'slow', 'cc', 'auto', 'hand', 'status', 'dots', 'prog', 'cap', 'sideh', 'log', 'in', 'send', 'type'];
   const el = Object.fromEntries(names.map(n => [n, mk()]));
   const c = vm.createContext({ el, root: { getAttribute() { return 'pause'; }, classList: { contains() { return false; } } },
     t: (k, e) => lang === 'en' ? e : k, handsFree: () => true, call: () => '', camStream: null, slowOn: false, ccOn: () => true, GOAL: 10, A: {}, paintLog() {} });
@@ -441,7 +441,7 @@ console.log('▶ 기다림을 사실대로 — 집중교정은 «확인 중», �
   ok('아니면 빈 값(짝 — 기본 «생각 중» 으로 떨어진다)', think(false, 'ko') === '');
   const status = (txt) => { const mk = () => { const kids = {}, at = {}; return { kids, at, style: {}, textContent: '', firstChild: { style: {} }, classList: { toggle() {}, contains() { return false; } },
       setAttribute(k, v) { at[k] = v; }, querySelector(q) { return kids[q] || (kids[q] = mk()); }, parentNode: { setAttribute() {} } }; };
-    const names = ['title', 'done', 'cam', 'close', 'replay', 'mic', 'slow', 'cc', 'auto', 'hand', 'status', 'dots', 'prog', 'cap', 'sideh', 'log', 'in', 'send', 'type'];
+    const names = ['title', 'done', 'cam', 'menu', 'close', 'replay', 'mic', 'slow', 'cc', 'auto', 'hand', 'status', 'dots', 'prog', 'cap', 'sideh', 'log', 'in', 'send', 'type'];
     const el = Object.fromEntries(names.map(n => [n, mk()]));
     const c = vm.createContext({ el, root: { getAttribute() { return 'think'; }, classList: { contains() { return false; } } }, t: (k) => k, handsFree: () => true,
       call: (n) => n === 'thinking' ? txt : '', camStream: null, slowOn: false, ccOn: () => true, GOAL: 10, A: {}, paintLog() {} });
@@ -449,6 +449,35 @@ console.log('▶ 기다림을 사실대로 — 집중교정은 «확인 중», �
     return el.status.textContent; };
   ok('화면이 준 글자가 있으면 상태 줄이 그 글자다', status('틀린 곳 확인 중') === '틀린 곳 확인 중', status('틀린 곳 확인 중'));
   ok('없으면 «생각 중...» 그대로(짝 — A.i 친구는 안 바뀐다)', status('') === '생각 중...', status(''));
+}
+
+// ⋮ 설정 버튼 (2026-11-10 사장님 「간단대화에도 점 3개 — 교재·상황·친구 모두」) — 화면 모양·눌림은 manual/ftk-settings-menu-browser.mjs
+console.log('▶ ⋮ 설정 버튼 — 손잡이(menu)가 있을 때만 보이고, 설정의 자막이 이 화면 자막도 움직인다');
+{
+  const mk = () => { const kids = {}, at = {}; return { kids, at, style: {}, textContent: '', hidden: false, title: '', placeholder: '', firstChild: { style: {} },
+    classList: { toggle() {}, contains() { return false; } }, setAttribute(k, v) { at[k] = v; }, getAttribute(k) { return at[k]; },
+    querySelector(q) { return kids[q] || (kids[q] = mk()); }, parentNode: { setAttribute() {} } }; };
+  const names = ['title', 'done', 'cam', 'menu', 'close', 'replay', 'mic', 'slow', 'cc', 'auto', 'hand', 'status', 'dots', 'prog', 'cap', 'sideh', 'log', 'in', 'send', 'type'];
+  const menuOf = (A, lang) => { const el = Object.fromEntries(names.map(n => [n, mk()]));
+    const c = vm.createContext({ el, root: { getAttribute() { return 'pause'; }, classList: { contains() { return false; } } },
+      t: (k, e) => lang === 'en' ? e : k, handsFree: () => true, call: () => '', camStream: null, slowOn: false, ccOn: () => true, GOAL: 10, A, paintLog() {} });
+    vm.runInContext(cut(call, '  function label(') + '\n' + cut(call, '  function lb(') + '\n' + cut(call, '  function paint() {') + '\npaint();', c);
+    return el.menu; };
+  ok('menu 손잡이가 있으면 보인다 · 이름 «설정»', menuOf({ menu() {} }, 'ko').hidden === false && menuOf({ menu() {} }, 'ko').at['aria-label'] === '설정');
+  ok('EN 이름 «Settings»', menuOf({ menu() {} }, 'en').at['aria-label'] === 'Settings');
+  ok('손잡이가 없으면 숨는다(짝 — 눌러도 아무 일 없는 버튼을 안 보인다)', menuOf({}, 'ko').hidden === true);
+  /* setCc 를 오려 내 실제로 돌린다 */
+  const cc = (mode) => { const st = { v: null, blur: null, painted: 0 };
+    const c = vm.createContext({ CC_KEY: 'k', ls: (k, v) => { st.v = v; }, el: { cap: { classList: { toggle(n, on) { st.blur = on; } } } }, paint() { st.painted++; } });
+    vm.runInContext(cut(call, '  function setCc(') + '\nsetCc(' + JSON.stringify(mode) + ');', c); return st; };
+  ok('자막 «완전 끄기»(off) → CC 꺼짐', cc('off').v === '0' && cc('off').blur === false && cc('off').painted === 1, JSON.stringify(cc('off')));
+  ok('«가리기»(blur) → CC 켜짐 + 흐리게', cc('blur').v === '1' && cc('blur').blur === true);
+  ok('«보이기»(on) → CC 켜짐 · 흐림 없음(짝)', cc('on').v === '1' && cc('on').blur === false);
+  const wf = read('js/warmup-facetalk.js'), aff = read('js/aifriend-facetalk.js');
+  ok('배선: 세 파일 — 버튼이 menu 를 부르고, 두 화면이 menu 손잡이를 준다',
+    /el\.menu\.onclick = function \(\) \{ call\('menu'\); \};/.test(call) && /\n    menu: function \(\) \{/.test(wf) && /\n    menu: function \(\) \{/.test(aff));
+  ok('배선: 웜업은 나갈 때 패널을 원래 자리로 돌려놓는다(exit → menuBack)', /function exit\(\) \{[\s\S]{0,400}menuBack\(\);/.test(wf));
+  ok('배선: 공개 손잡이 setHands·setCc', /setHands: setHands, setCc: setCc/.test(call));
 }
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
