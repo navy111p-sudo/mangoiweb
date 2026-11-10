@@ -81,6 +81,12 @@ for k in [k for k in POSES if k != 'rest']:
     report[k] = dict(matches=len(good), inliers=int(inl.sum()))
 OUT.mkdir(parents=True, exist_ok=True)
 keyed = {k: key_green(img)[TOP:] for k, img in out.items()}
+# EN: the black band fades over ~3 more rows below TOP; keying only removes green, so those rows stayed
+#     opaque black and showed as a line above the hair on light backgrounds (2026-11-10 report).
+# KO: 검은 띠가 TOP 아래로 3줄쯤 더 번져 있다 — 초록만 지우는 키잉에는 안 걸려 불투명한 검은 줄로 남았고,
+#     밝은 배경(얼굴 대화 화면)에서 머리 위 가로선으로 보였다(2026-11-10 제보). 알파만 0 으로.
+EDGE = 3
+for _k in keyed.values(): _k[:EDGE, :, 3] = 0
 for name, k in TIERS.items():
     Image.fromarray(keyed[k], 'RGBA').save(OUT / f'jake-{name}.webp', quality=88, method=6)
 # 9칸 아틀라스(3열) — mango-avatar.js PRECISION.jake 의 x,y,w,h 와 짝
