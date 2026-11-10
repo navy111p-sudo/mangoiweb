@@ -433,6 +433,7 @@
        near/rest 로 가르므로, 수준보다 «앞» 에 두면 고르는 도중 목록이 눈앞에서 재정렬됩니다.
        그래서 «펼친 순간» 의 수준을 _btsSortLv 에 붙잡아 둡니다(btsSortLevel).
        ⛔ 그 고정을 지우지 마세요 — 지우는 순간 그 재정렬이 그대로 되살아납니다.
+       🔄 2026-11-10 — 단, 사람이 «수준» 을 직접 고르면 그 수준으로 다시 붙잡습니다(wireSetup data-lvl).
      ⚠️ bottom 값은 시작 버튼 높이(실측 PC 56 · 폰 49) + 겹침 여백입니다 — 버튼 크기를
        바꾸면 여기도 함께. 숫자를 못 박는 대신 브라우저 검사가 «겹치지 않는가» 로 봅니다. */
   .wus-booknow{position:sticky;bottom:60px;z-index:2;display:block;width:100%;margin-top:22px;
@@ -851,7 +852,8 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
                사라져 「방금 고른 교재가 없어졌다」가 된다(교재는 영어 전용이다).
              ⛔ 이 두 줄을 지우고 교재 목록을 수준 «위» 로 그냥 올리지 마세요 — btsListHtml() 이
                고른 수준으로 권을 near/rest 로 가르므로 고르는 도중 목록이 눈앞에서 재정렬됩니다.
-               그래서 «펼친 순간의 수준» 을 _btsSortLv 에 고정합니다(btsSortLevel). -->
+               그래서 «펼친 순간의 수준» 을 _btsSortLv 에 고정합니다(btsSortLevel).
+               (2026-11-10 — 수준을 «직접» 고르면 그 수준으로 다시 고정합니다.) -->
         <div id="wusTwoSec">
           <span class="wus-short" data-ko="주제" data-en="Topic">주제</span>
           <div class="wus-sub" data-ko="📚 오늘은 어떻게 이야기할까요?" data-en="📚 How do you want to talk today?">📚 오늘은 어떻게 이야기할까요?</div>
@@ -2515,7 +2517,13 @@ function wusSelSync(){
       renderSetup(); return;
     }
     var n = parseInt(t.getAttribute('data-lvl'),10);
-    if(n>=1 && n<=8) setLevel(n, false);
+    if(n>=1 && n<=8){
+      setLevel(n, false);
+      /* 📘 사람이 «수준» 을 직접 바꾸면 교재 목록도 그 수준으로 다시 정렬한다 (2026-11-10 사장님
+         「레벨을 바꾸면 교재 목록도 그 레벨에 맞게」). ⚠️ 여기(수준 고르기)에서만 — 교재를 골라
+         수준이 따라 바뀌는 경우(applyBtsBook syncBand)는 고정을 유지해 누른 자리가 튀지 않게 한다. */
+      if(_btsSortLv) _btsSortLv = _bookSortBase();
+    }
     renderSetup();
   });
   var st = document.getElementById('wusStart');
