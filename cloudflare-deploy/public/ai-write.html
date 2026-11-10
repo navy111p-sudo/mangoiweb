@@ -1040,46 +1040,46 @@
     }
     // 🎲 오늘의 글감 — 클릭하면 문장 시작을 넣어줌
     const TOPICS = [
-      { ko: '🍕 내가 좋아하는 음식', en: '🍕 My favorite food', starter: 'My favorite food is ' },
-      { ko: '🌤️ 오늘 하루', en: '🌤️ My day today', starter: 'Today I ' },
-      { ko: '👨‍👩‍👧 우리 가족', en: '👨‍👩‍👧 My family', starter: 'My family ' },
-      { ko: '🐶 내가 키우고 싶은 동물', en: '🐶 A pet I want', starter: 'I want to have ', ph: '예) a puppy · two cats' },
-      { ko: '✈️ 가고 싶은 나라', en: '✈️ A country I want to visit', starter: 'I want to visit ' },
-      { ko: '🎮 좋아하는 게임', en: '🎮 My favorite game', starter: 'My favorite game is ' },
-      { ko: '📚 학교에서 있었던 일', en: '📚 Something at school', starter: 'At school, ' },
-      { ko: '🌙 어젯밤 꿈', en: '🌙 Last night I dreamed', starter: 'Last night, I dreamed ' },
-      { ko: '⚽ 좋아하는 운동', en: '⚽ My favorite sport', starter: 'I like playing ' },
-      { ko: '🎂 최고의 생일', en: '🎂 My best birthday', starter: 'My best birthday was ' },
-      { ko: '🦸 내가 슈퍼히어로라면', en: '🦸 If I were a superhero', starter: 'If I were a superhero, ' },
-      { ko: '🍦 여름에 하고 싶은 것', en: '🍦 What I want to do this summer', starter: 'This summer, I want to ' },
-      { ko: '🎬 재미있게 본 영화', en: '🎬 A movie I enjoyed', starter: 'I watched a movie called ' },
-      { ko: '💛 나의 친한 친구', en: '💛 My best friend', starter: 'My best friend is ' },
-      { ko: '🚀 미래의 나', en: '🚀 Me in the future', starter: 'In the future, I will ' },
+      { cat:'me', ko: '🍕 내가 좋아하는 음식', en: '🍕 My favorite food', starter: 'My favorite food is ' },
+      { cat:'past', ko: '🌤️ 오늘 하루', en: '🌤️ My day today', starter: 'Today I ' },
+      { cat:'people', ko: '👨‍👩‍👧 우리 가족', en: '👨‍👩‍👧 My family', starter: 'My family ' },
+      { cat:'dream', ko: '🐶 내가 키우고 싶은 동물', en: '🐶 A pet I want', starter: 'I want to have ', ph: '예) a puppy · two cats' },
+      { cat:'dream', ko: '✈️ 가고 싶은 나라', en: '✈️ A country I want to visit', starter: 'I want to visit ' },
+      { cat:'me', ko: '🎮 좋아하는 게임', en: '🎮 My favorite game', starter: 'My favorite game is ' },
+      { cat:'people', ko: '📚 학교에서 있었던 일', en: '📚 Something at school', starter: 'At school, ' },
+      { cat:'past', ko: '🌙 어젯밤 꿈', en: '🌙 Last night I dreamed', starter: 'Last night, I dreamed ' },
+      { cat:'me', ko: '⚽ 좋아하는 운동', en: '⚽ My favorite sport', starter: 'I like playing ' },
+      { cat:'past', ko: '🎂 최고의 생일', en: '🎂 My best birthday', starter: 'My best birthday was ' },
+      { cat:'dream', ko: '🦸 내가 슈퍼히어로라면', en: '🦸 If I were a superhero', starter: 'If I were a superhero, ' },
+      { cat:'dream', ko: '🍦 여름에 하고 싶은 것', en: '🍦 What I want to do this summer', starter: 'This summer, I want to ' },
+      { cat:'me', ko: '🎬 재미있게 본 영화', en: '🎬 A movie I enjoyed', starter: 'I watched a movie called ' },
+      { cat:'people', ko: '💛 나의 친한 친구', en: '💛 My best friend', starter: 'My best friend is ' },
+      { cat:'dream', ko: '🚀 미래의 나', en: '🚀 Me in the future', starter: 'In the future, I will ' },
       /* ➕ (2026-08-31 사장님 지시) 글감 20개 추가 — 15 → 35.
          ⚠️ 이모지는 Unicode 12 이하만(Win10 두부 방지, CLAUDE.md 1-4).
          ⚠️ starter 는 «학생이 이어 쓸» 문장 시작이라 완성 문장이 아니어도 되지만,
             브레인스토밍 첫 질문이 이 문장을 그대로 쓰므로(goThemeFromTopic)
             뒤에 낱말이 자연스럽게 붙는 형태 + 끝에 공백 하나로 끝나야 한다. */
-      { ko: '🐱 우리 집 반려동물', en: '🐱 My pet', starter: 'My pet is ' },
-      { ko: '🏫 우리 학교', en: '🏫 My school', starter: 'My school is ' },
-      { ko: '👩‍🏫 좋아하는 선생님', en: '👩‍🏫 My favorite teacher', starter: 'My favorite teacher is ' },
-      { ko: '📖 재미있게 읽은 책', en: '📖 A book I enjoyed', starter: 'I read a book about ' },
-      { ko: '🎵 좋아하는 노래', en: '🎵 My favorite song', starter: 'My favorite song is ' },
-      { ko: '🍜 엄마가 해주시는 음식', en: '🍜 Food my mom cooks', starter: 'My mom cooks ' },
-      { ko: '🧸 내가 아끼는 물건', en: '🧸 My treasure', starter: 'My favorite thing is ' },
-      { ko: '🌧️ 비 오는 날', en: '🌧️ On a rainy day', starter: 'On a rainy day, I ' },
-      { ko: '❄️ 겨울에 하고 싶은 것', en: '❄️ What I want to do in winter', starter: 'In winter, I want to ' },
-      { ko: '🚲 지난 주말에 한 일', en: '🚲 What I did last weekend', starter: 'Last weekend, I ' },
-      { ko: '🎨 내가 잘하는 것', en: '🎨 What I am good at', starter: 'I am good at ' },
-      { ko: '😀 나를 웃게 하는 것', en: '😀 What makes me smile', starter: 'It makes me happy when ' },
-      { ko: '🧑‍🚀 커서 되고 싶은 것', en: '🧑‍🚀 What I want to be', starter: 'When I grow up, I want to be ' },
-      { ko: '🏝️ 무인도에 가져갈 것', en: '🏝️ What I would take to an island', starter: 'I would take ' },
-      { ko: '🎁 받고 싶은 선물', en: '🎁 A gift I want', starter: 'I really want ' },
-      { ko: '🕹️ 친구와 하는 놀이', en: '🕹️ What I play with friends', starter: 'My friends and I like to ' },
-      { ko: '🍳 내가 만들 수 있는 요리', en: '🍳 Food I can make', starter: 'I can make ' },
-      { ko: '🌏 배우고 싶은 것', en: '🌏 What I want to learn', starter: 'I want to learn ' },
-      { ko: '🐣 어렸을 때 이야기', en: '🐣 When I was little', starter: 'When I was little, I ' },
-      { ko: '🙏 고마운 사람', en: '🙏 Someone I thank', starter: 'I want to say thank you to ' },
+      { cat:'people', ko: '🐱 우리 집 반려동물', en: '🐱 My pet', starter: 'My pet is ' },
+      { cat:'people', ko: '🏫 우리 학교', en: '🏫 My school', starter: 'My school is ' },
+      { cat:'people', ko: '👩‍🏫 좋아하는 선생님', en: '👩‍🏫 My favorite teacher', starter: 'My favorite teacher is ' },
+      { cat:'me', ko: '📖 재미있게 읽은 책', en: '📖 A book I enjoyed', starter: 'I read a book about ' },
+      { cat:'me', ko: '🎵 좋아하는 노래', en: '🎵 My favorite song', starter: 'My favorite song is ' },
+      { cat:'people', ko: '🍜 엄마가 해주시는 음식', en: '🍜 Food my mom cooks', starter: 'My mom cooks ' },
+      { cat:'me', ko: '🧸 내가 아끼는 물건', en: '🧸 My treasure', starter: 'My favorite thing is ' },
+      { cat:'past', ko: '🌧️ 비 오는 날', en: '🌧️ On a rainy day', starter: 'On a rainy day, I ' },
+      { cat:'dream', ko: '❄️ 겨울에 하고 싶은 것', en: '❄️ What I want to do in winter', starter: 'In winter, I want to ' },
+      { cat:'past', ko: '🚲 지난 주말에 한 일', en: '🚲 What I did last weekend', starter: 'Last weekend, I ' },
+      { cat:'me', ko: '🎨 내가 잘하는 것', en: '🎨 What I am good at', starter: 'I am good at ' },
+      { cat:'me', ko: '😀 나를 웃게 하는 것', en: '😀 What makes me smile', starter: 'It makes me happy when ' },
+      { cat:'dream', ko: '🧑‍🚀 커서 되고 싶은 것', en: '🧑‍🚀 What I want to be', starter: 'When I grow up, I want to be ' },
+      { cat:'dream', ko: '🏝️ 무인도에 가져갈 것', en: '🏝️ What I would take to an island', starter: 'I would take ' },
+      { cat:'dream', ko: '🎁 받고 싶은 선물', en: '🎁 A gift I want', starter: 'I really want ' },
+      { cat:'people', ko: '🕹️ 친구와 하는 놀이', en: '🕹️ What I play with friends', starter: 'My friends and I like to ' },
+      { cat:'me', ko: '🍳 내가 만들 수 있는 요리', en: '🍳 Food I can make', starter: 'I can make ' },
+      { cat:'dream', ko: '🌏 배우고 싶은 것', en: '🌏 What I want to learn', starter: 'I want to learn ' },
+      { cat:'past', ko: '🐣 어렸을 때 이야기', en: '🐣 When I was little', starter: 'When I was little, I ' },
+      { cat:'people', ko: '🙏 고마운 사람', en: '🙏 Someone I thank', starter: 'I want to say thank you to ' },
     ];
     /* 🎲 (2026-10-19) «오늘의 글감» 칩 줄(shuffleTopics · #topicRow)은 지웠다 — 글감은 위 «🎬 장면·글감 선택» 목록 하나에서 고른다(awBuildPicker).
        TOPICS 목록은 그대로 두고 그 목록의 «🎲 오늘의 글감» 묶음으로 쓴다. */
@@ -1399,47 +1399,47 @@
        tone: 아이가 보는 화면이라 무섭지 않고 밝은 장면만 쓴다. */
     const PIC_SCENES = [
       // Reviewed action illustrations: people, expressions and at least three visible actions.
-      { img:'birthday-action', action:true, bg:'#503626', ko:'생일 파티! 친구들은 무엇을 하고 있나요?', en:'Birthday party! What are the friends doing?', starter:'The children are celebrating a birthday. ', verbs:'blow out candles · clap · give a gift', example:'A boy is blowing out the candles.', altKo:'아이가 케이크의 촛불을 불고, 친구 두 명이 박수를 치고, 다른 친구가 선물을 건네요.', altEn:'A child blows out cake candles, two friends clap, and another friend offers a gift.' },
-      { img:'playground-action', action:true, bg:'#345b32', ko:'운동장 놀이! 누가 공을 차고 있나요?', en:'Playground fun! Who is kicking the ball?', starter:'The children are playing outside. ', verbs:'kick · jump rope · cheer', example:'A girl is jumping rope.', altKo:'두 아이가 축구를 하고, 한 아이는 줄넘기를 하고, 다른 아이는 두 팔을 들고 응원해요.', altEn:'Two children play soccer, one jumps rope, and another cheers with raised arms.' },
-      { img:'cooking-action', action:true, bg:'#705334', ko:'가족 요리! 각자 무엇을 만들고 있나요?', en:'Cooking together! What is each person doing?', starter:'The family is making pancakes together. ', verbs:'stir · put berries on · flip', example:'A boy is stirring the batter.', altKo:'아이는 반죽을 젓고, 다른 아이는 팬케이크에 과일을 올리고, 아빠는 팬케이크를 뒤집어요.', altEn:'A child stirs batter, another puts berries on pancakes, and their dad flips a pancake.' },
-      { img:'helping-action', action:true, bg:'#395830', ko:'함께 가꾸는 공원! 친구들은 어떻게 돕나요?', en:'Helping in the park! How are the friends helping?', starter:'The children are taking care of the park. ', verbs:'pick up · hold · water', example:'A boy is watering the flowers.', altKo:'아이가 집게로 종이컵을 줍고, 친구는 쓰레기봉투를 잡고, 다른 친구는 꽃에 물을 줘요.', altEn:'A child picks up a cup with a grabber, a friend holds a rubbish bag, and another waters flowers.' },
-      { img:'dino-school', bg:'#2f6fb0', ko:'공룡이 학교에 왔어요! 무슨 일이 벌어질까?', en:'A dinosaur came to school! What happens next?', starter:'One day, a dinosaur came to my school. ' },
-      { img:'space',       bg:'#151a3a', ko:'우주로 떠나는 여행! 무엇이 보일까?', en:'A trip into space! What can you see?', starter:'I am flying to space in my rocket. ' },
-      { img:'beach',       bg:'#2fa6c8', ko:'신나는 바닷가! 오늘 뭐 하고 놀까?', en:'A sunny beach! What will you do today?', starter:'I went to the beach with my family. ' },
-      { img:'jungle',      bg:'#22491f', ko:'정글 탐험! 어떤 동물을 만났을까?', en:'Jungle adventure! Which animals did you meet?', starter:'In the jungle, I saw many animals. ' },
-      { img:'castle',      bg:'#5b3f8f', ko:'마법의 성! 용과 마법사가 있어요.', en:'A magic castle! There is a dragon and a wizard.', starter:'Once upon a time, there was a magic castle. ' },
-      { img:'restaurant',  bg:'#6b3f1e', ko:'맛있는 레스토랑! 무엇을 주문할까?', en:'A tasty restaurant! What will you order?', starter:'I am at my favorite restaurant. ' },
-      { img:'ocean',       bg:'#12628f', ko:'바닷속 세상! 물고기 친구들을 만나요.', en:'Under the sea! Meet your fish friends.', starter:'Under the sea, I can see many fish. ' },
-      { img:'robot',       bg:'#3b4a5a', ko:'로봇 공장! 나만의 로봇을 만들어요.', en:'A robot workshop! Build your own robot.', starter:'I am building my own robot. ' },
-      { img:'circus',      bg:'#a2591f', ko:'서커스에 왔어요! 제일 재미있는 건 뭘까?', en:'The circus is here! What is the most fun part?', starter:'The circus came to town today. ' },
-      { img:'soccer',      bg:'#1f6b34', ko:'축구 경기! 우리 팀이 이길 수 있을까?', en:'The big game! Can your team win?', starter:'Today is the big soccer game. ' },
-      { img:'birthday',    bg:'#a03a6b', ko:'생일 파티! 소원을 빌어볼까?', en:'A birthday party! What will you wish for?', starter:'It is my birthday party today. ' },
-      { img:'haunted',     bg:'#3b2a5c', ko:'유령의 집! 용감하게 들어가 볼까?', en:'A haunted house! Are you brave enough to go in?', starter:'I walked into the spooky haunted house. ' },
+      { img:'birthday-action', cat:'home', ic:'🎂', action:true, bg:'#503626', ko:'생일 파티! 친구들은 무엇을 하고 있나요?', en:'Birthday party! What are the friends doing?', starter:'The children are celebrating a birthday. ', verbs:'blow out candles · clap · give a gift', example:'A boy is blowing out the candles.', altKo:'아이가 케이크의 촛불을 불고, 친구 두 명이 박수를 치고, 다른 친구가 선물을 건네요.', altEn:'A child blows out cake candles, two friends clap, and another friend offers a gift.' },
+      { img:'playground-action', cat:'school', ic:'⚽', action:true, bg:'#345b32', ko:'운동장 놀이! 누가 공을 차고 있나요?', en:'Playground fun! Who is kicking the ball?', starter:'The children are playing outside. ', verbs:'kick · jump rope · cheer', example:'A girl is jumping rope.', altKo:'두 아이가 축구를 하고, 한 아이는 줄넘기를 하고, 다른 아이는 두 팔을 들고 응원해요.', altEn:'Two children play soccer, one jumps rope, and another cheers with raised arms.' },
+      { img:'cooking-action', cat:'home', ic:'🥞', action:true, bg:'#705334', ko:'가족 요리! 각자 무엇을 만들고 있나요?', en:'Cooking together! What is each person doing?', starter:'The family is making pancakes together. ', verbs:'stir · put berries on · flip', example:'A boy is stirring the batter.', altKo:'아이는 반죽을 젓고, 다른 아이는 팬케이크에 과일을 올리고, 아빠는 팬케이크를 뒤집어요.', altEn:'A child stirs batter, another puts berries on pancakes, and their dad flips a pancake.' },
+      { img:'helping-action', cat:'out', ic:'🌳', action:true, bg:'#395830', ko:'함께 가꾸는 공원! 친구들은 어떻게 돕나요?', en:'Helping in the park! How are the friends helping?', starter:'The children are taking care of the park. ', verbs:'pick up · hold · water', example:'A boy is watering the flowers.', altKo:'아이가 집게로 종이컵을 줍고, 친구는 쓰레기봉투를 잡고, 다른 친구는 꽃에 물을 줘요.', altEn:'A child picks up a cup with a grabber, a friend holds a rubbish bag, and another waters flowers.' },
+      { img:'dino-school', cat:'fancy', ic:'🦖', bg:'#2f6fb0', ko:'공룡이 학교에 왔어요! 무슨 일이 벌어질까?', en:'A dinosaur came to school! What happens next?', starter:'One day, a dinosaur came to my school. ' },
+      { img:'space', cat:'fancy', ic:'🚀',       bg:'#151a3a', ko:'우주로 떠나는 여행! 무엇이 보일까?', en:'A trip into space! What can you see?', starter:'I am flying to space in my rocket. ' },
+      { img:'beach', cat:'out', ic:'🏖️',       bg:'#2fa6c8', ko:'신나는 바닷가! 오늘 뭐 하고 놀까?', en:'A sunny beach! What will you do today?', starter:'I went to the beach with my family. ' },
+      { img:'jungle', cat:'fancy', ic:'🐒',      bg:'#22491f', ko:'정글 탐험! 어떤 동물을 만났을까?', en:'Jungle adventure! Which animals did you meet?', starter:'In the jungle, I saw many animals. ' },
+      { img:'castle', cat:'fancy', ic:'🏰',      bg:'#5b3f8f', ko:'마법의 성! 용과 마법사가 있어요.', en:'A magic castle! There is a dragon and a wizard.', starter:'Once upon a time, there was a magic castle. ' },
+      { img:'restaurant', cat:'home', ic:'🍝',  bg:'#6b3f1e', ko:'맛있는 레스토랑! 무엇을 주문할까?', en:'A tasty restaurant! What will you order?', starter:'I am at my favorite restaurant. ' },
+      { img:'ocean', cat:'fancy', ic:'🐠',       bg:'#12628f', ko:'바닷속 세상! 물고기 친구들을 만나요.', en:'Under the sea! Meet your fish friends.', starter:'Under the sea, I can see many fish. ' },
+      { img:'robot', cat:'fancy', ic:'🤖',       bg:'#3b4a5a', ko:'로봇 공장! 나만의 로봇을 만들어요.', en:'A robot workshop! Build your own robot.', starter:'I am building my own robot. ' },
+      { img:'circus', cat:'fancy', ic:'🎪',      bg:'#a2591f', ko:'서커스에 왔어요! 제일 재미있는 건 뭘까?', en:'The circus is here! What is the most fun part?', starter:'The circus came to town today. ' },
+      { img:'soccer', cat:'school', ic:'🥅',      bg:'#1f6b34', ko:'축구 경기! 우리 팀이 이길 수 있을까?', en:'The big game! Can your team win?', starter:'Today is the big soccer game. ' },
+      { img:'birthday', cat:'home', ic:'🎈',    bg:'#a03a6b', ko:'생일 파티! 소원을 빌어볼까?', en:'A birthday party! What will you wish for?', starter:'It is my birthday party today. ' },
+      { img:'haunted', cat:'fancy', ic:'👻',     bg:'#3b2a5c', ko:'유령의 집! 용감하게 들어가 볼까?', en:'A haunted house! Are you brave enough to go in?', starter:'I walked into the spooky haunted house. ' },
       /* ➕ (2026-08-31 사장님 지시) 그림 20장 추가 — 12 → 32.
          이미지는 /img/write-scenes/<img>.webp (Higgsfield 생성 · 1440x611 webp, 기존 12장과 같은 규격).
          ⚠️ starter 는 «완성된 한 문장» 이어야 합니다 — 브레인스토밍의 서론 첫 줄로 그대로 들어갑니다
             (goThemeFromScene 의 open). 미완성 문장을 넣으면 뼈대 첫 줄이 깨집니다.
          ⚠️ bg 는 사진이 뜨기 전 깔리는 대표색입니다(흰 화면 번쩍임 방지). 사진의 어두운 편 색으로. */
-      { img:'farm',        bg:'#5b7a2e', ko:'농장의 아침! 어떤 동물이 있을까?', en:'Morning at the farm! Which animals are there?', starter:'This morning, I visited a big farm. ' },
-      { img:'zoo',         bg:'#2f6b4f', ko:'동물원 나들이! 제일 보고 싶은 동물은?', en:'A day at the zoo! Which animal do you want to see most?', starter:'Today I went to the zoo with my class. ' },
-      { img:'bakery',      bg:'#8a5a2b', ko:'빵집에 왔어요! 무엇을 고를까?', en:'At the bakery! What will you choose?', starter:'The bakery smells so good today. ' },
-      { img:'library',     bg:'#4a5a86', ko:'도서관! 어떤 책을 읽을까?', en:'At the library! Which book will you read?', starter:'I found a great book at the library. ' },
-      { img:'playground',  bg:'#3f7fae', ko:'놀이터! 친구들과 무엇을 하고 놀까?', en:'The playground! What will you play with your friends?', starter:'After school, I ran to the playground. ' },
-      { img:'snow',        bg:'#5f7fa6', ko:'눈 오는 날! 무엇을 만들어 볼까?', en:'A snowy day! What will you build?', starter:'It snowed all night, so we went outside. ' },
-      { img:'rain',        bg:'#3c5a70', ko:'비 오는 날! 우산 쓰고 어디 갈까?', en:'A rainy day! Where will you go with your umbrella?', starter:'It was raining, so I took my umbrella. ' },
-      { img:'market',      bg:'#8a6a2f', ko:'시장 구경! 무엇을 살까?', en:'At the market! What will you buy?', starter:'My mom and I went to the market. ' },
-      { img:'camping',     bg:'#22304a', ko:'캠핑장의 밤! 모닥불 앞에서 무슨 이야기를 할까?', en:'A night at the campsite! What story will you tell?', starter:'We put up our tent before the sun went down. ' },
-      { img:'train',       bg:'#3a5f7a', ko:'기차 여행! 창밖에 무엇이 보일까?', en:'A train trip! What can you see out the window?', starter:'I am on a train, and the window is full of green hills. ' },
-      { img:'airport',     bg:'#3f6d9c', ko:'공항에 왔어요! 어디로 떠날까?', en:'At the airport! Where are you flying to?', starter:'I am at the airport with my family. ' },
-      { img:'clinic',      bg:'#4f7f8a', ko:'병원에 갔어요! 의사 선생님이 뭐라고 하실까?', en:'A visit to the clinic! What will the doctor say?', starter:'I went to see the doctor today. ' },
-      { img:'firestation', bg:'#8a3a2f', ko:'소방서 견학! 소방차를 타 볼까?', en:'A visit to the fire station! Will you ride the fire truck?', starter:'Our class visited the fire station. ' },
-      { img:'aquarium',    bg:'#1f5f86', ko:'아쿠아리움! 어떤 물고기를 만났을까?', en:'At the aquarium! Which fish did you meet?', starter:'Inside the aquarium tunnel, fish swam over my head. ' },
-      { img:'musicroom',   bg:'#6b4a86', ko:'음악실! 어떤 악기를 연주해 볼까?', en:'The music room! Which instrument will you play?', starter:'In the music room, I picked up an instrument. ' },
-      { img:'artroom',     bg:'#8a5a6b', ko:'미술 시간! 무엇을 그릴까?', en:'Art class! What will you draw?', starter:'In art class today, I started a new picture. ' },
-      { img:'sportsday',   bg:'#3f7a4a', ko:'운동회 날! 우리 팀이 이길 수 있을까?', en:'Sports day! Can your team win?', starter:'Today is sports day at my school. ' },
-      { img:'picnic',      bg:'#5f8a3f', ko:'공원 소풍! 도시락에 무엇이 들었을까?', en:'A picnic in the park! What is in your lunch box?', starter:'We spread our blanket under the blossom trees. ' },
-      { img:'treehouse',   bg:'#4a6b2f', ko:'나무 위 오두막! 여기서 무엇을 할까?', en:'A treehouse! What will you do up there?', starter:'I climbed the rope ladder up to my treehouse. ' },
-      { img:'balloon',     bg:'#7a5f9c', ko:'열기구를 타고 하늘로! 아래에 무엇이 보일까?', en:'Up in a hot air balloon! What can you see below?', starter:'The hot air balloon lifted me above the hills. ' },
+      { img:'farm', cat:'out', ic:'🐄',        bg:'#5b7a2e', ko:'농장의 아침! 어떤 동물이 있을까?', en:'Morning at the farm! Which animals are there?', starter:'This morning, I visited a big farm. ' },
+      { img:'zoo', cat:'out', ic:'🦁',         bg:'#2f6b4f', ko:'동물원 나들이! 제일 보고 싶은 동물은?', en:'A day at the zoo! Which animal do you want to see most?', starter:'Today I went to the zoo with my class. ' },
+      { img:'bakery', cat:'home', ic:'🥐',      bg:'#8a5a2b', ko:'빵집에 왔어요! 무엇을 고를까?', en:'At the bakery! What will you choose?', starter:'The bakery smells so good today. ' },
+      { img:'library', cat:'school', ic:'📚',     bg:'#4a5a86', ko:'도서관! 어떤 책을 읽을까?', en:'At the library! Which book will you read?', starter:'I found a great book at the library. ' },
+      { img:'playground', cat:'school', ic:'🎠',  bg:'#3f7fae', ko:'놀이터! 친구들과 무엇을 하고 놀까?', en:'The playground! What will you play with your friends?', starter:'After school, I ran to the playground. ' },
+      { img:'snow', cat:'home', ic:'⛄',        bg:'#5f7fa6', ko:'눈 오는 날! 무엇을 만들어 볼까?', en:'A snowy day! What will you build?', starter:'It snowed all night, so we went outside. ' },
+      { img:'rain', cat:'home', ic:'☔',        bg:'#3c5a70', ko:'비 오는 날! 우산 쓰고 어디 갈까?', en:'A rainy day! Where will you go with your umbrella?', starter:'It was raining, so I took my umbrella. ' },
+      { img:'market', cat:'home', ic:'🛒',      bg:'#8a6a2f', ko:'시장 구경! 무엇을 살까?', en:'At the market! What will you buy?', starter:'My mom and I went to the market. ' },
+      { img:'camping', cat:'out', ic:'⛺',     bg:'#22304a', ko:'캠핑장의 밤! 모닥불 앞에서 무슨 이야기를 할까?', en:'A night at the campsite! What story will you tell?', starter:'We put up our tent before the sun went down. ' },
+      { img:'train', cat:'out', ic:'🚆',       bg:'#3a5f7a', ko:'기차 여행! 창밖에 무엇이 보일까?', en:'A train trip! What can you see out the window?', starter:'I am on a train, and the window is full of green hills. ' },
+      { img:'airport', cat:'out', ic:'✈️',     bg:'#3f6d9c', ko:'공항에 왔어요! 어디로 떠날까?', en:'At the airport! Where are you flying to?', starter:'I am at the airport with my family. ' },
+      { img:'clinic', cat:'home', ic:'🩺',      bg:'#4f7f8a', ko:'병원에 갔어요! 의사 선생님이 뭐라고 하실까?', en:'A visit to the clinic! What will the doctor say?', starter:'I went to see the doctor today. ' },
+      { img:'firestation', cat:'out', ic:'🚒', bg:'#8a3a2f', ko:'소방서 견학! 소방차를 타 볼까?', en:'A visit to the fire station! Will you ride the fire truck?', starter:'Our class visited the fire station. ' },
+      { img:'aquarium', cat:'out', ic:'🐬',    bg:'#1f5f86', ko:'아쿠아리움! 어떤 물고기를 만났을까?', en:'At the aquarium! Which fish did you meet?', starter:'Inside the aquarium tunnel, fish swam over my head. ' },
+      { img:'musicroom', cat:'school', ic:'🎹',   bg:'#6b4a86', ko:'음악실! 어떤 악기를 연주해 볼까?', en:'The music room! Which instrument will you play?', starter:'In the music room, I picked up an instrument. ' },
+      { img:'artroom', cat:'school', ic:'🎨',     bg:'#8a5a6b', ko:'미술 시간! 무엇을 그릴까?', en:'Art class! What will you draw?', starter:'In art class today, I started a new picture. ' },
+      { img:'sportsday', cat:'school', ic:'🏃',   bg:'#3f7a4a', ko:'운동회 날! 우리 팀이 이길 수 있을까?', en:'Sports day! Can your team win?', starter:'Today is sports day at my school. ' },
+      { img:'picnic', cat:'out', ic:'🧺',      bg:'#5f8a3f', ko:'공원 소풍! 도시락에 무엇이 들었을까?', en:'A picnic in the park! What is in your lunch box?', starter:'We spread our blanket under the blossom trees. ' },
+      { img:'treehouse', cat:'fancy', ic:'🌲',   bg:'#4a6b2f', ko:'나무 위 오두막! 여기서 무엇을 할까?', en:'A treehouse! What will you do up there?', starter:'I climbed the rope ladder up to my treehouse. ' },
+      { img:'balloon', cat:'fancy', ic:'☁️',     bg:'#7a5f9c', ko:'열기구를 타고 하늘로! 아래에 무엇이 보일까?', en:'Up in a hot air balloon! What can you see below?', starter:'The hot air balloon lifted me above the hills. ' },
     ];
     PIC_SCENES.forEach(sc => {
       const media = (window.WRITE_SCENE_MEDIA || {})[sc.img];
@@ -2874,10 +2874,22 @@
       { key:'hw',     ko:'📅 숙제',           en:'📅 Homework' },
       { key:'mine',   ko:'📝 내 주제 · 🔒 나만 보여요', en:'📝 My topics · 🔒 just for you' },
       { key:'custom', ko:'📌 선생님 글감',    en:"📌 Teacher's topics" },
-      { key:'pic',    ko:'🎬 그림 장면',      en:'🎬 Picture scenes' },
+      { key:'pic',    ko:'🎬 그림 장면',      en:'🎬 Picture scenes', subs:[
+        { cat:'school', ko:'🏫 학교·친구', en:'🏫 School & friends' },
+        { cat:'home',   ko:'🏠 집·동네 생활', en:'🏠 Home & town' },
+        { cat:'out',    ko:'🧭 나들이·여행', en:'🧭 Trips & outings' },
+        { cat:'fancy',  ko:'🐉 상상·모험', en:'🐉 Fantasy & adventure' } ] },
       { key:'story',  ko:'🧠 내 경험 이야기', en:'🧠 My own story' },
-      { key:'topic',  ko:'🎲 오늘의 글감',    en:'🎲 Writing topics' },
+      { key:'topic',  ko:'🎲 오늘의 글감',    en:'🎲 Writing topics', subs:[
+        { cat:'me',     ko:'🙋 나에 대해', en:'🙋 About me' },
+        { cat:'people', ko:'👪 가족·친구·학교', en:'👪 Family, friends & school' },
+        { cat:'past',   ko:'📆 있었던 일', en:'📆 Things that happened' },
+        { cat:'dream',  ko:'🌈 꿈·상상', en:'🌈 Dreams & imagination' } ] },
     ];
+    /* 🗂 (2026-11-10 사장님 «그림 장면과 글감이 기준·카테고리 없이 나와 가독성이 떨어진다»)
+       그림 장면·오늘의 글감은 주제별 작은 묶음(subs)으로 나눠 그린다 — 묶음 이름 «🎬 그림 장면 · 🏫 학교·친구 (7)».
+       항목의 cat 이 subs 에 없으면(새로 더하고 cat 을 빠뜨림) 맨 끝 «기타» 묶음으로 — 조용히 사라지지 않게.
+       값(pic:3 · topic:4)은 그대로라 고르는 동작은 안 바뀐다. */
     /* 📅 숙제(제안 6, 2026-10-26) — 선생님 글감에 마감일(due_date)이 있으면 숙제. 서버 정본 src/write-topics.ts.
        제출 = 그 주제로 «AI 첨삭 받기» 를 한 것(서버가 쓴 글에 topic_id 를 적는다). 학생은 서버가 준 done_ids 로 ✓ 를 그린다.
        ⚠️ done_ids 를 못 받았으면(null) ✓ 도 «마감 지남» 도 그리지 않는다 — 모르는 것을 «안 냈다» 로 말하지 않는다. */
@@ -2976,9 +2988,9 @@
         });
         return out;
       }
-      if (key === 'pic') return PIC_SCENES.map((sc, i) => ({ v: 'pic:' + i, ko: sc.ko, en: sc.en }));
+      if (key === 'pic') return PIC_SCENES.map((sc, i) => ({ v: 'pic:' + i, cat: sc.cat, ko: (sc.ic ? sc.ic + ' ' : '') + sc.ko, en: (sc.ic ? sc.ic + ' ' : '') + sc.en }));
       if (key === 'story') return GO_THEMES.map(t => ({ v: 'story:' + t.id, ko: t.icon + ' ' + t.ko, en: t.icon + ' ' + t.en }));
-      if (key === 'topic') return TOPICS.map((t, i) => ({ v: 'topic:' + i, ko: t.ko, en: t.en || t.ko }));
+      if (key === 'topic') return TOPICS.map((t, i) => ({ v: 'topic:' + i, cat: t.cat, ko: t.ko, en: t.en || t.ko }));
       return [];
     }
     function awBuildPicker() {
@@ -2988,15 +3000,25 @@
       AW_GROUPS.forEach(g => {
         const list = awPickerEntries(g.key);
         if (!list.length) return;   // 선생님 글감이 하나도 없으면 그 묶음은 안 보인다
-        const og = document.createElement('optgroup');
-        og.label = en ? g.en : g.ko;
-        list.forEach(e => {
-          const o = document.createElement('option');
-          o.value = e.v; o.textContent = en ? e.en : e.ko;
-          o.setAttribute('data-ko', e.ko); o.setAttribute('data-en', e.en);
-          og.appendChild(o);
+        const head = en ? g.en : g.ko;
+        const parts = [];
+        if (g.subs) {
+          const known = new Set(g.subs.map(x => x.cat));
+          g.subs.forEach(sub => parts.push({ label: head + ' · ' + (en ? sub.en : sub.ko), items: list.filter(e => e.cat === sub.cat) }));
+          parts.push({ label: head + ' · ' + (en ? 'Others' : '기타'), items: list.filter(e => !known.has(e.cat)) });
+        } else parts.push({ label: head, items: list });
+        parts.forEach(pt => {
+          if (!pt.items.length) return;
+          const og = document.createElement('optgroup');
+          og.label = g.subs ? pt.label + ' (' + pt.items.length + ')' : pt.label;
+          pt.items.forEach(e => {
+            const o = document.createElement('option');
+            o.value = e.v; o.textContent = en ? e.en : e.ko;
+            o.setAttribute('data-ko', e.ko); o.setAttribute('data-en', e.en);
+            og.appendChild(o);
+          });
+          picChoice.appendChild(og);
         });
-        picChoice.appendChild(og);
       });
       awSyncPicker();
     }

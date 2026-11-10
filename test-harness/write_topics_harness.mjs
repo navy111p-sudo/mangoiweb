@@ -407,14 +407,24 @@ const cust = w.awPickerEntries('custom');
 ok(cust.length === 2 && cust[0].v === 'custom:7' && cust[1].v === 'custom:9' && /아직 안 올림/.test(cust[1].ko) && !/아직 안 올림/.test(cust[0].ko), '선생님 묶음: 올린 것 + 내 초안(«아직 안 올림») · 같은 글감은 한 번만 · 지운 것은 빠짐');
 w.awBuildPicker();
 const labelsKo = w.picChoice.children.map(g => g.label);
-ok(labelsKo.length === 4 && /선생님/.test(labelsKo[0]) && /그림/.test(labelsKo[1]) && /경험/.test(labelsKo[2]) && /글감/.test(labelsKo[3]), '목록 하나에 네 묶음(선생님·그림·경험·글감)', labelsKo.join(' | '));
+// 🗂 (2026-11-10) 그림 장면·오늘의 글감은 주제별 작은 묶음으로 갈라 그린다 — 큰 묶음 순서는 그대로(선생님 → 그림 → 경험 → 글감)
+const bigOf = l => /선생님/.test(l) ? 'custom' : /^🎬 그림/.test(l) ? 'pic' : /경험/.test(l) ? 'story' : /^🎲/.test(l) ? 'topic' : '?';
+const bigSeq = labelsKo.map(bigOf).filter((k, i, a) => k !== a[i - 1]);
+ok(bigSeq.join(',') === 'custom,pic,story,topic', '목록 하나에 큰 묶음 넷(선생님·그림·경험·글감) 순서 그대로', labelsKo.join(' | '));
+const picGs = labelsKo.filter(l => bigOf(l) === 'pic'), topGs = labelsKo.filter(l => bigOf(l) === 'topic');
+ok(picGs.length === 4 && topGs.length === 4 && picGs.every(l => / · .+ \(\d+\)$/.test(l)) && topGs.every(l => / · .+ \(\d+\)$/.test(l)),
+  '그림 장면·글감은 각각 주제별 4묶음 + 개수(기타 없음 = 모든 항목에 주제가 있다)', picGs.concat(topGs).join(' | '));
+ok(w.PIC_SCENES.every(sc => sc.cat && sc.ic) && w.TOPICS.every(t => t.cat), '모든 그림·글감에 주제(cat)가 있다(그림은 아이콘도)');
+{ const wX = mk({ picIdx: 0 }); wX.TOPICS.push({ ko: '🧪 새 글감', en: '🧪 New', starter: 'I ' }); wX.awBuildPicker();
+  const lx = wX.picChoice.children.map(g => g.label);
+  ok(lx.some(l => /기타 \(1\)$/.test(l)) && wX.picChoice.options.some(o => o.attrs['data-ko'] === '🧪 새 글감'), '(짝) 주제를 빠뜨린 새 글감은 «기타» 로 — 조용히 사라지지 않는다', lx.join(' | ')); }
 ok(w.picChoice.options.length === 2 + w.PIC_SCENES.length + w.GO_THEMES.length + w.TOPICS.length, '모든 글감이 한 목록에 다 들어 있다(빠진 것 없음)');
 ok(w.picChoice.options.every(o => o.attrs['data-ko'] && o.attrs['data-en']), '항목마다 한/영 글자를 함께 단다');
 const wEn = mk({ picIdx: 0, items: [ITEM], lang: 'en' }); wEn.awBuildPicker();
 const labelsEn = wEn.picChoice.children.map(g => g.label);
-ok(/Teacher/.test(labelsEn[0]) && /Picture/.test(labelsEn[1]) && wEn.picChoice.options.some(o => o.textContent === '⛺ My first camping trip'), 'EN: 묶음 이름·항목이 영어(optgroup label 은 i18n 이 못 바꿔서 다시 그린다)');
+ok(/Teacher/.test(labelsEn[0]) && /^🎬 Picture scenes · 🏫 School/.test(labelsEn[1]) && wEn.picChoice.options.some(o => o.textContent === '⛺ My first camping trip'), 'EN: 묶음 이름·항목이 영어(optgroup label 은 i18n 이 못 바꿔서 다시 그린다)');
 const wNone = mk({ picIdx: 0 }); wNone.awBuildPicker();
-ok(wNone.picChoice.children.length === 3 && !/선생님/.test(wNone.picChoice.children[0].label), '(짝) 선생님 글감이 하나도 없으면 그 묶음은 안 보인다');
+ok(!wNone.picChoice.children.some(g => /선생님/.test(g.label)) && /^🎬 그림/.test(wNone.picChoice.children[0].label), '(짝) 선생님 글감이 하나도 없으면 그 묶음은 안 보인다');
 ok(wNone.picChoice.value === 'pic:0', '기본 선택 = 지금 그림');
 
 console.log('\n[D] 화면 구조 — 고르는 곳 하나 · 그림 바로 밑 브레인스토밍 (2026-10-19)');

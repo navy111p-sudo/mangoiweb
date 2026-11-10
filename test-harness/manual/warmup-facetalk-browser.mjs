@@ -130,12 +130,29 @@ for (const [w,h,name,seen] of [[390,844,'폰 세로',false],[1280,800,'노트북
   const p2=await page.evaluate(()=>__log.filter(x=>x==='rec').length);
   ok(name+': 쉬는 동안에는 더 녹음하지 않는다', p2===p.recs, p.recs+'→'+p2);
 
+  /* 도움판이 열렸다 닫히는 것을 빠짐없이 적는다(고정 대기로 재면 다음 «막힘» 이 다시 열어 흔들린다) */
+  const glWatch=()=>page.evaluate(()=>{const f=document.getElementById('ftk');window.__gl=[f.classList.contains('gl-open')];
+    if(!window.__glObs){window.__glObs=new MutationObserver(()=>{const o=f.classList.contains('gl-open');if(__gl[__gl.length-1]!==o)__gl.push(o);});
+      window.__glObs.observe(f,{attributes:true,attributeFilter:['class']});} return __gl[0];});
+  const openAtTap=await glWatch();
   await page.mouse.click(w/2, h*0.3);
   await page.waitForTimeout(2000);
   const r2=await page.evaluate(()=>__log.filter(x=>x==='rec').length);
   ok(name+': 쉬는 중 얼굴을 누르면 다시 듣는다', r2>p2, p2+'→'+r2);
   ok(name+': 다시 말한 것도 보낸다', sent.includes('Yes I do'), sent.join(' / '));
+  const gl1=await page.evaluate(()=>__gl.slice());
+  ok(name+': 말해서 보내면 열려 있던 도움판이 저절로 내려간다(2026-11-09)', openAtTap===true && gl1.indexOf(false)>0, JSON.stringify(gl1));
+  /* 대답을 골라도 내려간다 — 다음 «막힘» 에 칩이 뜨면 바로 누른다 */
+  await page.waitForFunction(()=>document.querySelectorAll('#ftkChips button').length>0 && document.getElementById('ftk').classList.contains('gl-open'), null, {timeout:12000}).catch(()=>{});
+  await glWatch();
+  const ck=await page.evaluate(()=>{const b=document.querySelector('#ftkChips button');if(!b)return {txt:''};
+    const txt=(b.firstChild&&b.firstChild.nodeType===3?b.firstChild.textContent:b.textContent).trim();b.click();return {txt};});
+  await page.waitForTimeout(900);
+  const gl2=await page.evaluate(()=>__gl.slice());
+  ok(name+': 대답을 고르면 보내고 도움판이 저절로 내려간다(2026-11-09)', !!ck.txt && sent.includes(ck.txt) && gl2[0]===true && gl2.indexOf(false)>0, ck.txt+' '+JSON.stringify(gl2));
 
+  /* 📞 영상통화 화면의 손잡이는 «열린 판» 에만 있다 — 골라 보낸 뒤 내려갔으니 다음 막힘(쉬기 안내)으로 다시 열릴 때 잰다 */
+  await page.waitForFunction(()=>document.getElementById('ftk').classList.contains('gl-open'), null, {timeout:15000}).catch(()=>{});
   const before=await page.evaluate(()=>(getComputedStyle(document.getElementById('ftkGlass')).display!=='none'?'open':'closed'));
   await page.click('#ftkGrab');
   await page.waitForTimeout(500);

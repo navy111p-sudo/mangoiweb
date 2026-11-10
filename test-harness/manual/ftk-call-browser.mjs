@@ -276,10 +276,18 @@ console.log('▶ D. A.i 친구하기 · PC 1280x800 · 2단');
   await page.waitForTimeout(200);
   const gl=await page.evaluate(()=>({open:document.getElementById('ftk').classList.contains('gl-open'),cap:getComputedStyle(document.querySelector('#ftk .fc-cap')).visibility}));
   ok('도움판이 열리면 흰 자막이 감춰진다(카드 뒤 겹침 없음)', gl.open && gl.cap==='hidden', JSON.stringify(gl));
+  /* 도움판도 자막처럼 투명 바탕 — 실제로 그려진 값을 잰다(2026-11-09 「계속 투명한 바탕에」) */
+  const gs=await page.evaluate(()=>{const g=document.querySelector('#ftk .ftk-glass'),cs=getComputedStyle(g),t=getComputedStyle(g.querySelector('.ftk-teacher'));
+    return {bg:cs.backgroundColor,shadow:cs.boxShadow,shown:cs.display!=='none'&&g.getBoundingClientRect().height>0,tc:t.color,ts:t.textShadow,shade:document.querySelector('#ftk .fc-shade').getBoundingClientRect().height/document.getElementById('ftk').getBoundingClientRect().height};});
+  ok('열린 도움판이 보이고 바탕은 투명(흰 카드 아님)', gs.shown && gs.bg==='rgba(0, 0, 0, 0)' && gs.shadow==='none', JSON.stringify(gs));
+  ok('도움판 글자는 흰색 + 그림자', gs.tc==='rgb(255, 255, 255)' && gs.ts!=='none', gs.tc+' / '+gs.ts);
+  ok('열린 동안 아래 어둠이 넓다(>50%)', gs.shade>0.5, gs.shade.toFixed(2));
   await page.evaluate(()=>{ document.querySelector('#ftk #ftkGrab').click(); });
   await page.waitForTimeout(200);
   const gl2=await page.evaluate(()=>getComputedStyle(document.querySelector('#ftk .fc-cap')).visibility);
   ok('닫으면 자막이 다시 보인다(짝)', gl2==='visible', gl2);
+  const sh2=await page.evaluate(()=>document.querySelector('#ftk .fc-shade').getBoundingClientRect().height/document.getElementById('ftk').getBoundingClientRect().height);
+  ok('닫으면 아래 어둠도 원래 폭(짝)', sh2<0.4, sh2.toFixed(2));
   await page.screenshot({path:'/tmp/ftk-call-1280.png'});
   /* EN */
   await page.evaluate(()=>{ try{ localStorage.setItem('mangoi_lang','en'); if(window.setLang) setLang('en'); }catch(e){} window.dispatchEvent(new Event('mangoi:lang-changed')); document.getElementById('ftk').setAttribute('data-s', document.getElementById('ftk').getAttribute('data-s')); });

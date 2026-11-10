@@ -344,6 +344,7 @@
   async function send(text, my, typed) {
     silentRuns = 0;
     clearHelp();
+    setOpen(false, false);   // 말했거나 대답을 고른 뒤엔 도움판을 내린다 — 자막이 다시 보인다(2026-11-09 사장님)
     meEl.textContent = t('나: ', 'Me: ') + text; teacherEl.textContent = '';
     said = [];
     refreshOpen();

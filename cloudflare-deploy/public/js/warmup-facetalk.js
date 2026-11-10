@@ -109,7 +109,7 @@
 
   var root, glass, teacherEl, meEl, noteEl, chipsEl;
   var state = 'pause', open = false, active = false, homeParent = null, homeNext = null;
-  var poll = null, idleSince = 0, rearmedForIdle = false, stuckShownAt = -1;
+  var poll = null, idleSince = 0, rearmedForIdle = false, stuckShownAt = -1, lastMe0 = 0;
   var prevMode = null, speechForced = false, lastTeacher = '', lastMe = '';
   var backAfterAsk = false;                    // ✋ 질문 창을 얼굴 화면에서 열었나 — 닫히면 얼굴 화면으로 돌아온다
 
@@ -194,6 +194,7 @@
     var c = el.cloneNode(true); var w = c.querySelector('.who'); if (w) w.remove();
     return (c.textContent || '').trim();
   }
+  function myTurns() { return document.querySelectorAll('#log .msg.me').length; }
   function sysText() {                          // 🎤 권한 꺼짐 같은 안내는 화면이 #log 에 «sys» 로 남긴다
     var log = document.getElementById('log'); var last = log && log.lastElementChild;
     return last && last.classList && last.classList.contains('sys') ? (last.textContent || '').trim() : '';
@@ -275,6 +276,9 @@
     if (s !== 'idle') { idleSince = 0; rearmedForIdle = false; }
     if (s === 'listen' && S.phase === 'speak' && noteEl.textContent) clearHelp();   // 학생이 말하기 시작하면 도움말을 걷는다
     if (s === 'think' && (noteEl.textContent || chipsEl.firstChild)) clearHelp();
+    /* 내가 말했거나 대답을 골라 «내 말풍선이 하나 늘면» 도움판을 내린다 — 자막이 다시 보인다(2026-11-09 사장님)
+       ⚠️ «생각 중» 상태로 재지 않는다: 보내기·받아적기가 빠르면 250ms 틈에 안 잡힌다(브라우저 검사에서 실제로 놓침) */
+    var nMe = myTurns(); if (nMe > lastMe0 && open) setOpen(false, false); lastMe0 = nMe;
     if (s === 'pause') {
       if (state !== 'pause') showPauseNote();
       setState('pause'); return;
@@ -356,7 +360,7 @@
     try { prevMode = localStorage.getItem(MODE_KEY); } catch (e) { prevMode = null; }
     try { AT().setMode(handsFree() ? 'auto' : 'button'); } catch (e) {}
     try { window.UXT && UXT.hit('ux:warmup-facetalk-open'); } catch (e) {}
-    lastTeacher = lastMe = ''; stuckShownAt = -1; idleSince = 0; rearmedForIdle = false;
+    lastTeacher = lastMe = ''; stuckShownAt = -1; idleSince = 0; rearmedForIdle = false; lastMe0 = myTurns();
     clearHelp(); fillText(); labels();
     setState('think');
     setOpen(false, false);
@@ -509,7 +513,7 @@
       else if (!on && slowFrom != null) { window.setRate(slowFrom, false); slowFrom = null; }
     },
     hands: function (auto) { try { AT().setMode(auto ? 'auto' : 'button'); } catch (e) {} },
-    turns: function () { return document.querySelectorAll('#log .msg.me').length; },
+    turns: myTurns,
     /* 🖥 넓은 화면 오른쪽 대화 기록 — 화면 말풍선 그대로(_warmText = 화면이 그 말풍선에 넣은 원문) */
     log: function () {
       return [].map.call(document.querySelectorAll('#log .msg.me, #log .msg.ai'), function (d) {

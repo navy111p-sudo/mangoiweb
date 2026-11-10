@@ -118,6 +118,16 @@ console.log('▶ ⑥ 넓은 화면(PC) 2단 · 버튼 글자 · 자막 겹침 (2
   ok('기본(폰)은 오른쪽 칸을 숨긴다', /#ftk \.fc-side\{display:none\}/.test(css));
   ok('1024px 이상에서만 얼굴을 왼쪽으로 줄이고 오른쪽 칸을 편다', /^@media \(min-width:1024px\)\{#ftk\.ftk-call\{right:36%\}/.test(wide) && /#ftk \.fc-side\{display:flex/.test(wide.slice(0, wide.indexOf('}}'))));
   ok('도움판이 열리면 흰 자막을 감춘다(카드 뒤로 겹쳐 비치던 것)', /#ftk\.ftk-call\.gl-open \.fc-cap\{visibility:hidden\}/.test(css));
+  /* 도움판도 자막처럼 투명 바탕(2026-11-09 「계속 투명한 바탕에」) — 규칙 «한 개» 를 잘라 그 안에서 묻는다 */
+  const rule = (sel) => { const i = css.indexOf(sel + '{'); return i < 0 ? '' : css.slice(i, css.indexOf('}', i)); };
+  const gl = rule('#ftk.ftk-call .ftk-glass');
+  ok('전제: 도움판 규칙을 잘라 냈다', gl.length > 40, gl.slice(0, 60));
+  ok('도움판 바탕이 투명하다(흰 카드 아님)', /background:transparent/.test(gl) && !/rgba\(255,255,255,\.9/.test(gl), gl);
+  ok('투명 바탕이라 글자에 그림자(자막과 같은 읽힘)', /text-shadow:[^;]*rgba\(0,0,0/.test(gl) && /color:#fff/.test(gl));
+  ok('선생님 글은 흰색 · 내 글은 밝은 초록(흰 카드용 짙은 색이 아님)', /\.ftk-teacher\{color:#fff/.test(css) && /\.ftk-me\{color:#bbf7d0/.test(css) && !/\.ftk-teacher\{color:#111/.test(css));
+  ok('고르기 단추는 어두운 바탕(투명 위에서도 단추로 보인다)', /\.ftk-chips button\{background:rgba\(32,34,38/.test(css));
+  ok('도움판이 열리면 아래 어둠을 넓힌다(밝은 셔츠 위 흰 글자 방지)', /#ftk\.ftk-call\.gl-open \.fc-shade\{height:(5\d|6\d)%\}/.test(css));
+  ok('도움판이 열린 동안 «다시 듣기» 는 숨는다(투명 글과 겹침 방지)', /#ftk\.ftk-call\.gl-open \.fc-replay\{visibility:hidden\}/.test(css));
   const btns = cut(call, '  function build() {');
   ok('아이콘 버튼 6개에 글자 자리(LB)', ['fc-replay"><span>', 'fc-mic">', 'fc-slow"', 'fc-cc"', 'fc-auto">', 'fc-hand">']
     .every(k => { const i = btns.indexOf(k); return i > 0 && btns.slice(i, btns.indexOf('</button>', i)).includes('LB'); }));
@@ -408,6 +418,7 @@ console.log('▶ 기다림을 사실대로 — 집중교정은 «확인 중», �
       + 'function fillText(){} function clearHelp(){} function showStuck(){} function showPauseNote(){} function handsFree(){ return true; }\n'
       + 'function speaking(){ return false; } function listening(){ return false; }\n'
       + 'function t(ko, e){ return ko; } var teacherText = null;\n'
+      + 'function myTurns(){ return 0; } function setOpen(){} var lastMe0 = 0, open = false;\n'   // 도움판 접기(2026-11-09) — 이 절이 재는 것이 아니라 대역만
       + cut(wu, '  function setState(') + '\n' + cut(wu, '  function tick() {'), c);
     const seen = [];
     for (const at of o.at) { c.now = at; vm.runInContext('tick()', c); seen.push(vm.runInContext('state', c)); }

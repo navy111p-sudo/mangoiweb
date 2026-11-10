@@ -98,14 +98,19 @@
     + ' bottom:calc(env(safe-area-inset-bottom,0px) + 24px);height:6px;border-radius:3px;background:rgba(255,255,255,.14);overflow:hidden}'
     + '#ftk .fc-prog i{display:block;height:100%;width:0;border-radius:3px;background:#f2c94c;transition:width .5s,background .5s}'
     + '#ftk .fc-prog.done i{background:#6fd99a}'
-    /* 막혔을 때만 뜨는 도움판(대답 보기·안내) — 밝은 카드로, 조작줄 위에 */
+    /* 막혔을 때만 뜨는 도움판(대답 보기·안내) — 자막처럼 투명 바탕 + 글자 그림자, 조작줄 위에
+       (2026-11-09 사장님 「계속 투명한 바탕에」 — 흰 카드는 자막과 모양이 달라 «화면이 바뀐» 것처럼 보였다) */
     + '#ftk.ftk-call .ftk-glass{display:none;transform:none!important;left:0;right:0;margin:0 auto;width:min(560px,calc(100% - 24px));'
-    + ' bottom:calc(env(safe-area-inset-bottom,0px) + 112px);z-index:7;border:0;border-radius:18px;background:rgba(255,255,255,.96);'
-    + ' color:#1f2937;box-shadow:0 10px 30px rgba(0,0,0,.25);max-height:46%}'
-    + '#ftk.ftk-call.gl-open .ftk-glass{display:block}#ftk.ftk-call .ftk-grab i{background:#cbd5e1}'
+    + ' bottom:calc(env(safe-area-inset-bottom,0px) + 112px);z-index:7;border:0;border-radius:18px;background:transparent;'
+    + ' color:#fff;box-shadow:none;max-height:46%;text-shadow:0 1px 3px rgba(0,0,0,.55),0 0 14px rgba(0,0,0,.25)}'
+    + '#ftk.ftk-call.gl-open .ftk-glass{display:block}#ftk.ftk-call .ftk-grab i{background:rgba(255,255,255,.7)}'
     + '#ftk.ftk-call.gl-open .fc-status{visibility:hidden}'
-    + '#ftk.ftk-call .ftk-teacher{color:#111}#ftk.ftk-call .ftk-me{color:#15803d}#ftk.ftk-call .ftk-note{color:#b45309}'
-    + '#ftk.ftk-call .ftk-chips button{background:#f3f4f6;border-color:#e5e7eb;color:#111}#ftk.ftk-call .ftk-chips button small{color:#6b7280}'
+    /* 바탕이 없으니 글이 길면 밝은 셔츠 위로 올라간다 — 그때만 아래 어둠을 넓혀 흰 글자가 읽히게 */
+    + '#ftk.ftk-call.gl-open .fc-shade{height:56%}'
+    /* 흰 카드일 땐 카드가 «다시 듣기» 를 덮었다 — 투명이면 글과 겹쳐 보이니 열린 동안만 같은 모양(숨김)으로 */
+    + '#ftk.ftk-call.gl-open .fc-replay{visibility:hidden}'
+    + '#ftk.ftk-call .ftk-teacher{color:#fff;font-weight:800}#ftk.ftk-call .ftk-me{color:#bbf7d0;font-weight:700}#ftk.ftk-call .ftk-note{color:#fde68a;font-weight:700}'
+    + '#ftk.ftk-call .ftk-chips button{background:rgba(32,34,38,.82);border-color:rgba(255,255,255,.28);color:#fff;text-shadow:none}#ftk.ftk-call .ftk-chips button small{color:#d4d4d8}'
     + '#ftk.ftk-call .ftk-ask{top:calc(env(safe-area-inset-top,0px) + 64px);left:16px;height:38px;background:rgba(255,255,255,.78);color:#111;font-size:15px}'
     + '@media (min-width:640px){#ftk .fc-replay{border-radius:29px}}'
     /* 도움판이 열리면 같은 선생님 말이 카드에 있다 — 흰 자막이 카드 뒤로 겹쳐 비치지 않게(2026-11-09 사장님 화면) */
