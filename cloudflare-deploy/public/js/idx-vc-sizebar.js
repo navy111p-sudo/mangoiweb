@@ -162,6 +162,31 @@
     });
   }
 
+  /* 📌 얼굴을 접은 동안에도 «얼굴 띄우기»(끌어 옮기는 작은 창)로 가는 길 — ⋯ 메뉴가 얼굴 영역과 함께 사라지기 때문.
+     표시는 기존 복귀 알약과 같은 body 클래스에 CSS 로 맡긴다(관찰자·타이머 없음). 2026-11-10 강사 제보 */
+  function floatChip() {
+    if ($('vc-side-float')) return;
+    var st = document.createElement('style');
+    st.textContent = '#vc-side-float{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 148px);z-index:9500;display:none;' +
+      'align-items:center;padding:11px 16px;min-height:44px;background:rgba(15,23,42,.92);border:1.5px solid rgba(251,191,36,.65);' +
+      'border-radius:99px;color:#fcd34d;font-size:13.5px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.45)}' +
+      'body.vc-in-call.vc-side-collapsed-on #vc-side-float{display:inline-flex}';
+    document.head.appendChild(st);
+    var en = false;
+    try { en = localStorage.getItem('mangoi_lang') === 'en'; } catch (e) {}
+    var c = document.createElement('button');
+    c.id = 'vc-side-float';
+    c.type = 'button';
+    c.setAttribute('data-ko', '📌 얼굴 띄우기');
+    c.setAttribute('data-en', '📌 Float faces');
+    c.setAttribute('data-ko-title', '학생 얼굴을 작은 창으로 띄웁니다 (끌어서 옮기기·크기 조절)');
+    c.setAttribute('data-en-title', "Show the student's face in a small window you can drag and resize");
+    c.textContent = c.getAttribute(en ? 'data-en' : 'data-ko');
+    c.title = c.getAttribute(en ? 'data-en-title' : 'data-ko-title');
+    c.addEventListener('click', function () { try { window.vcTogglePip(); } catch (e) {} });
+    document.body.appendChild(c);
+  }
+
   function boot() {
     var bar = $(BAR);
     if (!bar) return;
@@ -185,6 +210,7 @@
       });
     }
 
+    try { floatChip(); } catch (e) {}   /* 칩이 실패해도 아래 wrap 은 돌아야 한다 */
     wrap('vcSetVideoSize');
     wrap('vcScreenSet');
     wrap('vcToggleFreeResize');

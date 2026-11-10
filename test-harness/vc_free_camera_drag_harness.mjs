@@ -95,7 +95,7 @@ for (const sel of ['button', '#vc-vp-grip', '.video-size-bar', 'input']) {
   const w = world(); const css = w.css.join('\n');
   ok('⑥ 자유 모드의 얼굴 영역에만 touch-action:none', /#vc-main-row\.video-free[^{]*#vc-video-grid\{[^}]*touch-action:none/.test(css));
   ok('⑥ 자유 모드 창을 position:fixed!important 로 띄운다(id 두 개 선택자)', /#vc-main-row\.video-free > #vc-video-pane\{[^}]*position:fixed!important/.test(css));
-  ok('⑥ 자유 모드가 아닌 선택자에는 아무것도 안 건다', css.split('}').filter(r => r.trim()).every(r => r.includes('.video-free')));
+  ok('⑥ 자유 모드가 아닌 선택자에는 아무것도 안 건다', css.split('}').filter(r => r.trim() && !r.includes('#vc-side-float') /* 같은 파일의 «얼굴 띄우기» 칩 규칙은 끌기와 무관 */).every(r => r.includes('.video-free')));
 }
 
 console.log(`\n  ${fail ? '❌' : '🎉'} ${pass} PASS / ${fail} FAIL`);
