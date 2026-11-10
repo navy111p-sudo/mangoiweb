@@ -7,9 +7,11 @@
   var faces = { emma:'/img/teacher-avatar.png', jake:'/img/hero-avatar.png',
     lily:'/img/lily-closed.webp?v=4', noah:'/img/noah-closed.webp?v=4',  // same address as mango-avatar.js
     mei:'/img/mei-closed.webp', long:'/img/long-closed.webp' };
+  // Language tiles: real flags, so English and Chinese no longer share one globe (2026-11-10).
+  var flags = { flag_us:'/img/flag-us.svg', flag_cn:'/img/flag-cn.svg' };
   var icons = {
     '🧑‍🎓':'child', '🧑‍💼':'adult', '👩‍🏫':'mei', '👨‍🏫':'long',
-    '🇺🇸':'globe', '🇨🇳':'globe', '🧒':'kid', '🎒':'teen', '👩':'emma', '🦸':'jake', '👧':'lily', '👦':'noah',
+    '🇺🇸':'flag_us', '🇨🇳':'flag_cn', '🧒':'kid', '🎒':'teen', '👩':'emma', '🦸':'jake', '👧':'lily', '👦':'noah',
     '📘':'book', '📗':'book', '📚':'book', '📖':'book', '💬':'conversation',
     '🗣️':'conversation', '🗣':'conversation', '🌐':'globe', '🏠':'home',
     '🎤':'microphone', '🎙️':'microphone', '🎙':'microphone', '🎯':'target',
@@ -31,8 +33,8 @@
     while ((match = pattern.exec(value))) {
       fragment.appendChild(document.createTextNode(value.slice(last,match.index)));
       var key = icons[match[0]], img = document.createElement('img');
-      img.className = 'wu-photo-icon' + (faces[key] ? ' wu-photo-face' : '') + (match[0]==='🔇' ? ' wu-photo-muted' : '');
-      img.src = faces[key] || base + key + '.webp';
+      img.className = 'wu-photo-icon' + (faces[key] ? ' wu-photo-face' : '') + (flags[key] ? ' wu-photo-flag' : '') + (match[0]==='🔇' ? ' wu-photo-muted' : '');
+      img.src = faces[key] || flags[key] || base + key + '.webp';
       img.setAttribute('data-wu-emoji', match[0]);
       img.alt = ''; img.setAttribute('aria-hidden','true');
       img.width = 24; img.height = 24; img.decoding = 'async';
