@@ -48,9 +48,9 @@ test('result is detached from mutable evaluation scores',()=>{
   assert.equal(result.skills.grammar,90);
 });
 test('real evaluator output can be consumed by the result view',()=>{
-  function element(tag:string):any{return {tagName:tag,children:[],textContent:'',className:'',appendChild(x:any){this.children.push(x)},replaceChildren(){this.children=[]}};}
+  function element(tag:string):any{return {tagName:tag,children:[],textContent:'',className:'',setAttribute(k:string,v:any){this[k]=v},appendChild(x:any){this.children.push(x)},replaceChildren(){this.children=[]}};}
   const window:any={};
-  vm.runInNewContext(readFileSync(new URL('../public/js/ai-speaking-progress-view.js',import.meta.url),'utf8'),{window,document:{createElement:element}});
+  vm.runInNewContext(readFileSync(new URL('../public/js/ai-speaking-progress-view.js',import.meta.url),'utf8'),{window,document:{createElement:element,createElementNS:(_:string,tag:string)=>element(tag)}});
   const result=evaluateSpeaking(sample);
   assert.equal(result.studentId,'s1');
   assert.equal(result.lessonId,'l1');

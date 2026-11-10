@@ -1,7 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
 const src=fs.readFileSync(path.join(__dirname,'../public/js/ai-speaking-progress-view.js'),'utf8');
 function element(tag){return {tagName:tag,children:[],textContent:'',className:'',setAttribute(k,v){this[k]=v},appendChild(x){this.children.push(x)},replaceChildren(){this.children=[]}}}
-function view(){const root={};vm.runInNewContext(src,{window:root,document:{createElement:element}});return root.AiSpeakingProgressView}
+function view(){const root={};vm.runInNewContext(src,{window:root,document:{createElement:element,createElementNS:(_,tag)=>element(tag)}});return root.AiSpeakingProgressView}
 test('does not display fabricated scores for missing result',()=>{const c=element('section');view().render(c,null,'ko');assert.match(c.children[0].textContent,/정상 종료/);});
 test('shows unmeasured fields explicitly',()=>{const c=element('section');view().render(c,{finishedNormally:true,skills:{grammar:90},uniqueWords:[],reviewWords:[]},'ko');assert.match(JSON.stringify(c),/미측정/);});
 test('ignores reward estimates',()=>{const c=element('section');view().render(c,{finishedNormally:true,stars:15,gems:10},'en');assert.doesNotMatch(JSON.stringify(c),/reward/i);});
@@ -30,7 +30,7 @@ test('malformed or unavailable week has no fabricated bars',()=>{
   assert.match(JSON.stringify(c),/Vocabulary records are unavailable/);assert.doesNotMatch(JSON.stringify(c),/ai-progress-bar|<script>/);
  }
 });
-function viewWith(navigator){const root={navigator};vm.runInNewContext(src,{window:root,document:{createElement:element}});return root.AiSpeakingProgressView}
+function viewWith(navigator){const root={navigator};vm.runInNewContext(src,{window:root,document:{createElement:element,createElementNS:(_,tag)=>element(tag)}});return root.AiSpeakingProgressView}
 const all=(c,out=[])=>{for(const x of c.children){out.push(x);all(x,out);}return out};
 const shareBtn=c=>all(c).find(x=>x.tagName==='button');
 test('next practice comes from the latest confirmed correction, never invented',()=>{
@@ -61,4 +61,26 @@ test('closing the share sheet is not a failure; PC copies instead',async()=>{
  assert.match(copied,/https:\/\/mangoi\.ai/);assert.match(JSON.stringify(d),/Copied\. Paste it into KakaoTalk/);
  const none={maxTouchPoints:0};const f=element('section');viewWith(none).render(f,{finishedNormally:true,skills:{}},'ko');shareBtn(f).onclick();
  assert.match(JSON.stringify(f),/아래 글을 복사해서 보내세요/);
+});
+
+const tri=c=>all(c).filter(x=>x.tagName==='svg');
+const shape=c=>all(c).find(x=>x.className==='ai-progress-tri-shape'||x['class']==='ai-progress-tri-shape');
+test('triangle chart plots only confirmed sentence grades',()=>{
+ for(const lang of ['ko','en']){
+  const c=element('section');view().render(c,{source:'warmup-session-observations',turns:4,grades:{perfect:2,partial:1,incomplete:1}},lang);
+  assert.equal(tri(c).length,1);assert.match(tri(c)[0]['aria-label'],lang==='ko'?/오류 없음 2, 교정 필요 1, 미완성 1/:/Error-free 2, To fix 1, Incomplete 1/);
+  // perfect = 2/4 of radius 64 straight up from (130,104)
+  assert.match(shape(c).points,/^130\.0,72\.0 /);
+ }
+ const none=element('section');view().render(none,{source:'warmup-session-observations',turns:2},'ko');
+ assert.equal(tri(none).length,0);assert.match(JSON.stringify(none),/문장 등급 미제공/);
+});
+test('skill triangle never draws a shape through an unmeasured axis',()=>{
+ const full=element('section');view().render(full,{finishedNormally:true,skills:{grammar:100,vocabulary:50,sentence:0}},'en');
+ assert.match(shape(full).points,/^130\.0,40\.0 157\.7,120\.0 130\.0,104\.0$/);
+ const part=element('section');view().render(part,{finishedNormally:true,skills:{grammar:90}},'en');
+ assert.equal(tri(part).length,1);assert.equal(shape(part),undefined);assert.match(tri(part)[0]['aria-label'],/Grammar 90, Vocabulary Not measured/);
+ for(const r of [{finishedNormally:true,skills:{}},{finishedNormally:true,evaluationStatus:'unavailable',skills:{grammar:99,vocabulary:99,sentence:99}}]){
+  const e=element('section');view().render(e,r,'en');assert.equal(tri(e).length,0);
+ }
 });
