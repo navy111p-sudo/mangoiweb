@@ -810,7 +810,8 @@ if (window.frameElement && new URLSearchParams(location.search).get('view') === 
   //    못 읽으면(실패·401) 덮지 않는다 — 관리자 화면이 통째로 멈추는 것이 더 나쁘다.
   var lock=null;
   function paintLock(){
-    var items=!stopped&&last&&last.overdue_lock;
+    // 보고 화면(daily-handover)에서는 잠그지 않는다 — 거기서 확인해야 하는데, 덮으면 «지금 읽고 확인하기» 가 같은 화면을 다시 열며 무한 반복(2026-11-10).
+    var items=!onHandover&&!stopped&&last&&last.overdue_lock;
     if(!items||!items.length){if(lock){lock.remove();lock=null;}return;}
     if(!lock){lock=document.createElement('div');lock.id='handover-review-lock';lock.setAttribute('role','alertdialog');lock.setAttribute('aria-modal','true');
       lock.style.cssText='position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;padding:16px';
