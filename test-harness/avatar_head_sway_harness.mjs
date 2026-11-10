@@ -519,6 +519,8 @@ console.log('\n■ ⑬ 입모양 그림 경로 — 바뀌는 칸(입·눈)만, �
   const restore = ops.filter(o => o.op === 'draw' && o.src === baseCv && o.base === 1);
   const mouths = ops.filter(o => o.op === 'draw' && srcName(o) === 'lily-mouths.webp');
   ok(mouths.length >= 55, `(전제) 말하는 동안 입모양을 프레임마다 그렸다 (${mouths.length}/60)`, '이 경로가 안 돌면 아래 검사가 아무것도 안 잽니다');
+  ok(mouths.length > 0 && mouths.every(o => o.src && o.src.ctx), `(v22) 입은 언제나 작은 캔버스(mouthTile)를 거쳐 그린다 — 아틀라스에서 바로 ${mouths.filter(o => !(o.src && o.src.ctx)).length}장`,
+    '아틀라스에서 칸을 바로 늘이면 옆 칸 픽셀이 번져 코 옆 볼에 1px 선(2026-11-10 사장님 제보)');
   ok(whole.length === 1, `통째로 지우고 그리는 것은 말 첫 장 한 번뿐이다 (통째 지우기 ${whole.length}회 / ${mouths.length}장)`,
     '매 프레임 2배 얼굴 전체를 다시 그리면 재생을 다시 시작하는 순간 메인 스레드가 멈춰(헤드리스 실측) 1.3배속의 짧은 입모양을 놓쳤습니다');
   ok(ops.some(o => o.op === 'draw' && o.src === baseCv && o.base === 2 && o.a.length === 4 && o.a[2] === 320 && o.a[3] === 400),

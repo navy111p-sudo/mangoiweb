@@ -96,16 +96,17 @@ ok((SRC.match(/blendBand\(/g) || []).length >= 3, '⑧ 턱·고개 두 띠가 �
 const tm = SRC.match(/var mouthCv = null;\s*(function mouthTile\([\s\S]*?\n    \})/);
 let mouthTile = null; const calls = []; let smooth = null, throwIt = false;
 const fakeDoc = { createElement: () => { if (throwIt) throw new Error('no canvas'); return { width: 0, height: 0,
-  getContext: () => ({ set imageSmoothingEnabled(v) { smooth = v; }, clearRect() {}, drawImage: (...a) => calls.push({ a, smooth }) }) }; } };
+  getContext: () => ({ set imageSmoothingEnabled(v) { smooth = v; }, clearRect: (...a) => calls.push({ clear: a }), drawImage: (...a) => calls.push({ a, smooth }) }) }; } };
 try { mouthTile = tm && new Function('document', 'var mouthCv = null;' + tm[1] + '; return mouthTile;')(fakeDoc); } catch { mouthTile = null; }
 ok(typeof mouthTile === 'function', '(전제) mouthTile 을 소스에서 떼어 돌릴 수 있다');
 if (mouthTile) {
-  const sp = {}, cv = mouthTile(sp, 288, 122, 144, 122), c0 = calls[0];
+  const sp = {}, cv = mouthTile(sp, 288, 122, 144, 122), c0 = calls.find(c => c.a), cl = calls[0];
   ok(cv && cv.width === 144 && cv.height === 122, '⑨ 칸 크기 캔버스를 돌려준다');
   ok(c0 && c0.a[0] === sp && c0.a.slice(1).join() === '288,122,144,122,0,0,144,122', `⑨ 칸을 1:1 로 옮긴다 (${c0 && c0.a.slice(1).join()})`);
   ok(c0 && c0.smooth === false, '⑨ 보간을 끄고 옮긴다 — 켜면 옆 칸 픽셀이 섞일 수 있다');
+  ok(cl && cl.clear && cl.clear.join() === '0,0,144,122', '⑨ 옮기기 «전» 에 캔버스를 통째로 지운다 — 안 지우면 반투명 입 그림(Noah)에 앞 장 입이 비친다');
   const again = mouthTile(sp, 0, 0, 144, 122);
-  ok(again === cv && calls.length === 2, '⑨ (짝) 캔버스는 한 번 만들어 다시 쓴다');
+  ok(again === cv && calls.filter(c => c.a).length === 2, '⑨ (짝) 캔버스는 한 번 만들어 다시 쓴다');
   const fresh = new Function('document', 'var mouthCv = null;' + tm[1] + '; return mouthTile;')((throwIt = true, fakeDoc));
   ok(fresh(sp, 0, 0, 144, 122) === null, '⑨ (짝) 캔버스를 못 만들면 null — 예전처럼 아틀라스에서 바로 그린다');
 }

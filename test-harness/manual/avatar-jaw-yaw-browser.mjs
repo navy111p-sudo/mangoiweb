@@ -17,7 +17,7 @@
 //     ⑤ 너무 크지 않다 — ≤ 1.5 × 계획
 //     ⑥ 얼굴 윤곽(눈 높이 양끝)은 그대로 — 이목구비만 옆으로 가야 «돌아보는» 것
 //     ⑦ 띠 양끝에 반투명한 세로줄이 없다 — 끝 열을 덜 덮으면 섞기에서 비칩니다(2026-11-09 실제로 났던 것)
-//   🪡 입 칸 둘레 (v22 — 사장님 「코 양옆 볼에 선」, 같은 장면을 «아틀라스에서 바로 늘인 판(BLEED)» 과 1:1 비교)
+//   🧵 입 칸 둘레 (v22 — 사장님 「코 양옆 볼에 선」, 같은 장면을 «아틀라스에서 바로 늘인 판(BLEED)» 과 1:1 비교)
 //     ⑨ 아틀라스의 «다른 칸» 을 자홍색으로 칠해 넣고(PROBE) 재생 — 옆 칸이 번지면 칸 둘레에 자홍색이 나온다.
 //        지금 판: 자홍 픽셀 0 · (짝) BLEED 판: 자홍 픽셀이 실제로 나온다(이 검사가 번짐을 볼 수 있다는 증거)
 //
@@ -41,7 +41,7 @@ const CH = new Function(chm[0].replace(/^var /, 'const ') + ' return CHARACTERS;
 const CUES = [{ start: 0, end: .5, value: 'A' }, { start: .5, end: 1.6, value: 'D' }, { start: 1.6, end: 2.2, value: 'A' }];
 
 let SRC = NEW, PROBE = false;
-// 🪡 ⑨ PROBE — 그 캐릭터 입 아틀라스에서 A(1)·D(4) 칸만 남기고 나머지 칸을 자홍색으로 칠한 그림을 쓰게 한다(전환 시트는 404 → 앵커만)
+// 🧵 ⑨ PROBE — 그 캐릭터 입 아틀라스에서 A(1)·D(4) 칸만 남기고 나머지 칸을 자홍색으로 칠한 그림을 쓰게 한다(전환 시트는 404 → 앵커만)
 const probeJs = name => { const p = PREC[name] || {}, url = p.atlas || '/img/visemes/' + name + '-mouths.webp';
   return `(async()=>{const r=await fetch(${JSON.stringify(url)});const im=await createImageBitmap(await r.blob());
 const c=document.createElement('canvas');c.width=im.width;c.height=im.height;const x=c.getContext('2d');x.fillStyle='#f0f';x.fillRect(0,0,c.width,c.height);
@@ -201,13 +201,13 @@ function yawCompare(name, a, b) {
   }
   return { eye, edge, found, hole, plan: YAW * hw * m.kx };
 }
-// 🪡 ⑨ 자홍 픽셀 수 — 얼굴·입술·머리카락·투명 배경에는 «초록보다 파랑·빨강이 훨씬 큰» 픽셀이 없다
+// 🧵 ⑨ 자홍 픽셀 수 — 얼굴·입술·머리카락·투명 배경에는 «초록보다 파랑·빨강이 훨씬 큰» 픽셀이 없다
 const BLEED = NEW.replace('mc=mouthTile(sprite,tx,ty,r.w,r.h)', 'mc=null');
 const magenta = img => { let n = 0; for (let i = 0; i < img.d.length; i += 4) { const [r, g, b, a] = [img.d[i], img.d[i + 1], img.d[i + 2], img.d[i + 3]];
   if (a > 0 && b - g > 15 && r - g > 30) n++; } return n; };
 const NOYAW = NEW.replace(/var SWAY_YAW\s*=\s*[\d.]+/, 'var SWAY_YAW = 0');
 
-let bleedSum = 0, lilyBleed = Infinity;
+let lilyBleed = Infinity;
 try {
   for (const name of Object.keys(JAW)) {
     console.log(`\n■ 턱 · ${name}`);
@@ -225,7 +225,7 @@ try {
         const base = magenta(s[k]), now = pn[k] ? magenta(pn[k]) - base : NaN, bl = pb[k] ? magenta(pb[k]) - base : NaN;
         ok(now === 0, `⑨ (${k}) 옆 칸이 번지지 않는다 — 늘어난 자홍 픽셀 ${now}${pn.errs[0] ? ' · ' + pn.errs[0] : ''}`);
         console.log(`     (짝 참고) 아틀라스에서 바로 늘인 판: 늘어난 자홍 픽셀 ${bl}`);
-        bleedSum += bl > 0 ? bl : 0; if (name === 'lily') lilyBleed = Math.min(lilyBleed, bl);
+        if (name === 'lily') lilyBleed = Math.min(lilyBleed, bl);
       }
     } else ok(false, '⑨ (전제) BLEED 판을 만들 자리(mc=mouthTile(...))를 소스에서 못 찾았다');
     if (OLD) {
