@@ -108,9 +108,64 @@
   }
   function closeMenu() { openMenu(false); }
 
+  /* 🖐 떠 있는(자유 크기) 얼굴 창을 «얼굴 영역» 을 잡고 끌어 옮긴다 (2026-11-10 강사 제보:
+     「카메라 창이 필기도구를 가리는데 옮길 수가 없다」).
+     [왜] 우상단 그립을 끌면 창이 자유 모드로 떠서 교재 위 도구를 덮는데, 옮기는 손잡이인
+          제목줄(.video-size-bar)은 그림 4칸 개편(2026-08-25) 뒤 버튼으로 꽉 차 잡을 자리가 없었다.
+     · 위치 계산·저장은 idx-main.js 의 vcApplyFreeBox / vcSaveFreeBox 를 그대로 쓴다.
+     · 6px 넘게 움직여야 끌기로 본다 — 타일 안 버튼·탭(칭찬 등)은 그대로 눌린다.
+     shortcut: 자유 모드에서는 얼굴 목록의 «터치 스크롤» 이 끌기에 먹힌다(휠 스크롤은 그대로),
+               참가자가 많은 반에서 불편하다는 제보가 오면 손잡이를 따로 둘 것. */
+  function armPaneDrag() {
+    var pane = $('vc-video-pane'), row = $('vc-main-row');
+    if (!pane || !row || pane.__vsbDrag) return;
+    pane.__vsbDrag = true;
+    var st = document.createElement('style');
+    /* 둘째 줄: 가로 ≤1024px·높이 ≤600px 미디어쿼리가 얼굴 칸을 position:relative!important 로 못 박아,
+       자유 모드의 화면 좌표(left/top)가 «제자리 + 그만큼» 으로 먹어 창이 화면 밖으로 나갔다
+       (2026-11-10 실측 1024x700: left 1387). id 두 개로 이긴다 — 클래스로는 못 이긴다. */
+    st.textContent = '#vc-main-row.video-free > #vc-video-pane #vc-video-grid{cursor:move;touch-action:none}' +
+      'body.vc-in-call #vc-main-row.video-free > #vc-video-pane{position:fixed!important;z-index:60!important}';
+    document.head.appendChild(st);
+    var s = null;
+    function move(e) {
+      if (!s) return;
+      var dx = e.clientX - s.x, dy = e.clientY - s.y;
+      if (!s.on && Math.abs(dx) + Math.abs(dy) < 6) return;
+      s.on = true;
+      try { window.vcApplyFreeBox({ left: s.l + dx, top: s.t + dy, width: s.w, height: s.h }); } catch (_) {}
+      e.preventDefault();
+    }
+    function end() {
+      var moved = s && s.on;
+      s = null;
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', end);
+      document.removeEventListener('pointercancel', end);
+      if (!moved) return;
+      try { window.vcSaveFreeBox(); } catch (_) {}
+      /* 끌고 난 뒤의 click 한 번은 삼킨다 — 놓은 자리의 타일이 «눌린 것» 이 되지 않게 */
+      var eat = function (ev) { ev.stopPropagation(); ev.preventDefault(); };
+      document.addEventListener('click', eat, true);
+      setTimeout(function () { document.removeEventListener('click', eat, true); }, 0);
+    }
+    pane.addEventListener('pointerdown', function (e) {
+      if (!row.classList.contains('video-free') || e.button) return;
+      var t = e.target;
+      /* 제목줄은 idx-main.js 가 이미 옮긴다(두 번 잡지 않는다). 그립은 크기 조절. */
+      if (!t || !t.closest || t.closest('button,a,input,select,textarea,.video-size-bar,#vc-vp-grip')) return;
+      var r = pane.getBoundingClientRect();
+      s = { x: e.clientX, y: e.clientY, l: r.left, t: r.top, w: r.width, h: r.height, on: false };
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', end);
+      document.addEventListener('pointercancel', end);
+    });
+  }
+
   function boot() {
     var bar = $(BAR);
     if (!bar) return;
+    armPaneDrag();
 
     var more = $(MORE), menu = $(MENU);
     if (more && !more.__vsb2) {
