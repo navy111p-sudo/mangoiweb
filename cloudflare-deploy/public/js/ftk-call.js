@@ -235,7 +235,7 @@
     label(el.hand, '누르고 말하기', 'Tap to talk'); el.hand.setAttribute('aria-pressed', hf ? 'false' : 'true');
     el.auto.parentNode.setAttribute('aria-label', t('대화 방식', 'Talk mode'));
     el.status.textContent = s === 'listen' ? t('듣는 중...', 'Listening...')
-      : s === 'think' ? t('생각 중...', 'Thinking...')
+      : s === 'think' ? (call('thinking') || t('생각 중...', 'Thinking...'))   // 화면이 «왜 기다리는지» 를 알면 그 말을 쓴다(웜업 집중교정)
       : s === 'pause' ? (hf && !call('waitTap') ? t('쉬는 중 · 마이크를 누르면 다시 시작해요', 'Paused · tap the mic to resume') : t('마이크를 눌러 말해요', 'Tap the mic to talk'))
       : '';
     el.dots.className = 'fc-dots' + (s === 'listen' ? ' live' : '') + (s === 'listen' && root.classList.contains('heard') ? ' heard' : '');
