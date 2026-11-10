@@ -235,8 +235,10 @@
        입모양 6가지: rest·spread(이)·teeth·open·wide(아)·round(오/우) → PRECISION.jake 아틀라스.
        만드는 도구: tools/build-jake-poses.py (입 밖 픽셀은 rest 와 바이트 단위로 같음 — assert).
        ⛔ 영상 줄로 되돌리지 마세요(jake_classic 은 폴백 전용). */
-    jake: { frames:{ closed:'/img/jake-closed.webp', medium:'/img/jake-mid.webp', wide:'/img/jake-wide.webp' },
-            still:'/img/jake-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
+    /* 🧹 (2026-11-11) ?v=2 — 맨 윗줄 검은 줄을 지운 그림. 같은 이름은 7일 캐시라 옛 그림이 남아 번호를 붙였다.
+       EN: cache-bust for the re-cut Jake stills (top black row removed). Bump on every image swap. */
+    jake: { frames:{ closed:'/img/jake-closed.webp?v=2', medium:'/img/jake-mid.webp?v=2', wide:'/img/jake-wide.webp?v=2' },
+            still:'/img/jake-closed.webp?v=2', rect:{ l:0, t:0, r:1, b:1 },
             aspect:512/496, keyed:false, fallback:'jake_classic' },
     jake_classic: { sources:[['/img/hero-avatar.mp4','video/mp4']],
             still:'/img/hero-avatar.png', rect:{ l:0, t:16/512, r:1, b:1 },
@@ -457,7 +459,7 @@
       emma:{extra:true,base:'/img/visemes/emma-v2-rest.webp',atlas:'/img/visemes/emma-v2-mouths.webp',x:183,y:282,w:146,h:126},
       // 🦸 Jake 6가지 입모양(9칸 XABCDEFGH 에 배치) — x,y,w,h 는 build-jake-poses.py 출력과 짝.
       //    중간 모양 시트가 없어 transitions 는 못 받으면 그냥 9칸 앵커만 씁니다(keyFrame 이 확인).
-      jake:{extra:true,base:'/img/jake-closed.webp',atlas:'/img/visemes/jake-mouths.webp',transitions:false,x:188,y:304,w:136,h:92}};
+      jake:{extra:true,base:'/img/jake-closed.webp?v=2',atlas:'/img/visemes/jake-mouths.webp',transitions:false,x:188,y:304,w:136,h:92}};
     // 🔥 (v13) 큰 입모양 그림(전환 시트는 2592x1952)을 «말하기 전에» 그 comp 로 한 번 올려 둔다.
     //    그림 캐릭터 comp 는 그리기 전용(GPU)이라 그림을 «처음 그리는 순간» GPU 로 올리는데, 그 순간이
     //    말 첫마디면 그 프레임들이 통째로 밀려 짧은 입모양을 놓칩니다.
