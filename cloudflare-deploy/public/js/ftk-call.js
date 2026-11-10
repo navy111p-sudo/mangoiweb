@@ -41,6 +41,7 @@
     check: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.2 12.4l2.6 2.6 5-5.4"/></svg>',
     cam: '<svg viewBox="0 0 24 24"><rect x="3" y="7" width="12" height="10" rx="2"/><path d="M15 10.5l5-3v9l-5-3"/><path class="sl" d="M3 3l18 18"/></svg>',
     x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    dots: '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></svg>',
     wave: '<svg viewBox="0 0 24 24"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 10v4"/></svg>',
     mic: '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>',
     auto: '<svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M17 7.5a4 4 0 0 1 0 5M19.5 5a7.5 7.5 0 0 1 0 10"/></svg>',
@@ -65,6 +66,10 @@
     + '#ftk .fc-top .fc-done{background:#fff;width:auto;border-radius:21px;padding:0 14px 0 10px;display:flex;align-items:center;gap:6px;font-size:15px;font-weight:800;white-space:nowrap}'   /* ✓ 만으로는 못 찾아서 «끝내기» 글자를 함께(2026-11-09) */
     + '#ftk .fc-top .fc-cam{background:#ef4444;color:#fff}'
     + '#ftk .fc-top .fc-cam[aria-pressed="true"]{background:#fff;color:#222}#ftk .fc-cam[aria-pressed="true"] .sl{display:none}'
+    /* ⋮ 설정 — 화면이 menu 손잡이를 줄 때만 보인다(.fc-b 의 display:grid 가 hidden 을 이기므로 따로 숨긴다) */
+    + '#ftk .fc-top .fc-menu[hidden]{display:none}#ftk .fc-cap.blur p{filter:blur(7px)}'
+    /* 좁은 폰 — 버튼이 하나 늘어난 만큼 제목 자리를 돌려준다 */
+    + '@media (max-width:400px){#ftk .fc-top{gap:6px}#ftk .fc-title{font-size:17px}#ftk .fc-top .fc-b:not(.fc-done){width:38px;height:38px}}'
     + '#ftk .fc-self{position:absolute;z-index:6;top:calc(env(safe-area-inset-top,0px) + 64px);right:max(12px,calc(50% - 300px));width:96px;height:128px;'
     + ' border-radius:14px;object-fit:cover;transform:scaleX(-1);background:#222;box-shadow:0 4px 14px rgba(0,0,0,.25)}'
     + '#ftk .fc-self[hidden]{display:none}'
@@ -157,6 +162,7 @@
       + '<div class="fc-top"><h1 class="fc-title"></h1>'
       + '<button type="button" class="fc-b fc-done">' + I.check + '<span class="fc-done-t"></span></button>'
       + '<button type="button" class="fc-b fc-cam" aria-pressed="false">' + I.cam + '</button>'
+      + '<button type="button" class="fc-b fc-menu" aria-haspopup="dialog" hidden>' + I.dots + '</button>'
       + '<button type="button" class="fc-b fc-close">' + I.x + '</button></div>'
       + '<video class="fc-self" muted playsinline autoplay hidden></video>'
       + '<button type="button" class="fc-b fc-replay"><span>' + I.wave + '</span>' + LB + '</button>'
@@ -174,7 +180,7 @@
       + '<aside class="fc-side"><h2 class="fc-sideh"></h2><ol class="fc-log"></ol>'
       + '<form class="fc-type"><input class="fc-in" type="text" autocomplete="off" enterkeyhint="send"><button type="submit" class="fc-send"></button></form></aside>';
     root.appendChild(w);
-    ['title', 'done', 'cam', 'close', 'self', 'replay', 'cap', 'status', 'mic', 'slow', 'cc', 'dots', 'auto', 'hand', 'prog',
+    ['title', 'done', 'cam', 'menu', 'close', 'self', 'replay', 'cap', 'status', 'mic', 'slow', 'cc', 'dots', 'auto', 'hand', 'prog',
      'sideh', 'log', 'type', 'in', 'send']
       .forEach(function (k) { el[k] = w.querySelector('.fc-' + k); });
     el.capP = el.cap.querySelector('p');
@@ -189,6 +195,7 @@
     w.addEventListener('click', function (e) { if (e.target.closest('.fc-b')) e.stopPropagation(); });
     el.mic.onclick = function () { call('tap'); };
     el.close.onclick = function () { call('close'); };
+    el.menu.onclick = function () { call('menu'); };
     el.done.onclick = function () { call('finish'); };
     el.replay.onclick = function () { call('replay'); };
     el.slow.onclick = function () { setSlow(!slowOn); };
@@ -205,6 +212,8 @@
   function call(name, arg) { try { return A && typeof A[name] === 'function' ? A[name](arg) : undefined; } catch (e) { return undefined; } }
   function ccOn() { return ls(CC_KEY) !== '0'; }
   function setHands(on) { ls(HANDS_KEY, on ? 'auto' : 'hand'); call('hands', on); paint(); }
+  /* 설정 창의 «자막» 이 이 화면 자막도 움직인다 — off = 끔 · blur = 흐리게 · on = 보임 */
+  function setCc(mode) { ls(CC_KEY, mode === 'off' ? '0' : '1'); if (el.cap) el.cap.classList.toggle('blur', mode === 'blur'); paint(); }
   function setSlow(on) { slowOn = !!on; call('slow', slowOn); paint(); }
 
   function toggleCam() {
@@ -230,6 +239,7 @@
     label(el.cam, camStream ? '내 카메라 끄기' : '내 카메라 켜기(나만 보여요)', camStream ? 'Turn my camera off' : 'Turn my camera on (only you see it)');
     el.cam.setAttribute('aria-pressed', camStream ? 'true' : 'false');
     label(el.close, '나가기', 'Leave');
+    label(el.menu, '설정', 'Settings'); el.menu.hidden = !A || typeof A.menu !== 'function';
     label(el.replay, '선생님 말 다시 듣기', 'Hear the teacher again');
     label(el.mic, s === 'listen' ? '다 말했어요(보내기)' : s === 'speak' ? '끊고 내가 말하기' : '눌러서 말하기',
       s === 'listen' ? "I'm done (send)" : s === 'speak' ? 'Interrupt and talk' : 'Tap to talk');
@@ -332,6 +342,7 @@
       build(); sync();
     },
     handsFree: handsFree,
+    setHands: setHands, setCc: setCc,   // 설정 창(⋮)에서 고른 값을 이 화면에 맞춘다
     _capText: capText,   // test-harness/ftk_call_harness.mjs
     _paintLog: paintLog
   };

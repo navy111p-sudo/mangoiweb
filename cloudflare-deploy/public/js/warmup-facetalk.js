@@ -42,6 +42,12 @@
     + '#ftk{position:fixed;inset:0;z-index:2147483050;background:radial-gradient(circle at 50% 38%,#1d2550,#070a18 72%);'
     + ' display:none;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;--st:#fb923c}'
     + '#ftk.on{display:block}'
+    /* ⋮ 설정 — 채팅 화면의 그 패널(#menuPanel)을 이 화면 안으로 잠깐 옮겨 온다(CALL.menu). 화면 밑에서 열리는 것들은 감춘다 */
+    + '#ftk .menu-mask{z-index:9}'
+    + '#ftk .menu-panel{position:absolute;top:calc(env(safe-area-inset-top,0px) + 60px);right:max(12px,calc(50% - 300px));z-index:10;'
+    + ' max-height:calc(100% - 76px);touch-action:auto;text-align:left}'
+    + '#ftk .menu-caret,#ftk .menu-reopen,#ftk .menu-scenes,#ftk .menu-howto,#ftk #newChatGroup{display:none}'
+    + '#ftk .menu-group:has(> .menu-scenes),#ftk .menu-group:has(> .menu-howto){display:none}'   /* 빈 칸 줄까지 — :has 를 모르는 브라우저는 빈 줄만 남는다 */
     + '#ftk[data-s="listen"]{--st:#22c55e}#ftk[data-s="think"]{--st:#facc15}#ftk[data-s="speak"]{--st:#fb923c}#ftk[data-s="pause"]{--st:#64748b}'
     + '#ftk .ftk-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}'
     /* 옮겨 온 얼굴 — mango-avatar.js·refitAvatar 가 넣는 인라인 높이를 !important 로 이긴다 */
@@ -150,7 +156,7 @@
       if (dy < -30) setOpen(true, true); else if (dy > 30) setOpen(false, true);
     });
     root.querySelector('#ftkStage').addEventListener('click', onFaceTap);
-    document.addEventListener('keydown', function (e) { if (active && e.key === 'Escape') exit(); });
+    document.addEventListener('keydown', function (e) { if (active && e.key === 'Escape' && !menuOpen()) exit(); }, true);   // 캡처 단계 — 설정이 열려 있으면 Esc 는 설정만 닫는다
     labels();
     try { window.FtkCall && window.FtkCall.mount(root, CALL); } catch (e) {}
   }
@@ -391,6 +397,7 @@
     active = false;
     if (poll) { clearInterval(poll); poll = null; }
     try { if (typeof window._micAbortQuiet === 'function') window._micAbortQuiet(); } catch (e) {}
+    menuBack();
     restoreMode();
     if (speechForced && g('_speechOn') === true && typeof window.toggleSpeech === 'function') window.toggleSpeech();
     speechForced = false;
@@ -477,9 +484,34 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
 
   /* 📞 영상통화 화면(js/ftk-call.js)에 건네는 손잡이 — 새 판정 없이 이 화면의 정본을 그대로 부른다 */
-  var slowFrom = null;
+  var slowFrom = null, menuHome = null;
+  function menuOpen() { var p = document.getElementById('menuPanel'); return !!(p && p.parentNode === root && p.classList.contains('open')); }
+  /* 나갈 때 설정 패널을 원래 자리(상단바 ⋮)로 */
+  function menuBack() {
+    var p = document.getElementById('menuPanel'), m = document.getElementById('menuMask');
+    if (!menuHome || !p || !m) return;
+    try { if (typeof window.closeMenu === 'function') window.closeMenu(); } catch (e) {}
+    menuHome.appendChild(m); menuHome.appendChild(p); menuHome = null;
+  }
+  /* 설정 창에서 고른 «말하는 방법»·«자막» 을 얼굴 화면(자동/버튼 · CC)에도 맞춘다 — 한 번만 건다 */
+  function menuWire() {
+    var tb = document.getElementById('menuTalkBtns'), sb = document.getElementById('subBtns'), F = window.FtkCall;
+    if (tb && !tb.__ftk) { tb.__ftk = 1; tb.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('[data-talk]');
+      if (b && active) F.setHands(b.getAttribute('data-talk') === 'auto'); }); }
+    if (sb && !sb.__ftk) { sb.__ftk = 1; sb.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('[data-s]');
+      if (b && active) F.setCc(b.getAttribute('data-s')); }); }
+  }
   var CALL = {
     en: en,
+    /* ⋮ 설정 — 새 창을 만들지 않고 채팅 화면의 설정 패널을 그대로 연다(말하는 방법·속도·레벨·연령대·친구·자막) */
+    menu: function () {
+      var p = document.getElementById('menuPanel'), m = document.getElementById('menuMask');
+      if (!active || !p || !m || typeof window.toggleMenu !== 'function') return;
+      if (p.parentNode !== root) { menuHome = p.parentNode; root.appendChild(m); root.appendChild(p); menuWire(); }
+      window.toggleMenu();
+    },
     /* 🎯 상황 연습이면 상황 이름을 붙인다 — 채팅 화면의 «상황:» 줄이 얼굴 화면에는 없다 */
     title: function () {
       var s = sitOn() && g('SITUATION');
