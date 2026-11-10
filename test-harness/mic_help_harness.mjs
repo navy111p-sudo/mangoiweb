@@ -28,12 +28,13 @@ function makeEl(tag) {
     addEventListener(t, f) { (this.listeners[t] ||= []).push(f); }, appendChild(c) { this.children.push(c); c.parentNode = this; return c; },
     remove() { if (this.parentNode) this.parentNode.children = this.parentNode.children.filter((x) => x !== this); this.parentNode = null; },
     querySelector() { return null; }, querySelectorAll() { return []; },
+    offsetWidth: 190, offsetHeight: 34, contains(x) { return x === this; }, closest() { return null; },
   };
   return e;
 }
 
 /** 가짜 브라우저에서 src 를 돌린다. gum: (constraints) => Promise. */
-async function boot(src, { gum, inFrame = false, SR } = {}) {
+async function boot(src, { gum, inFrame = false, SR, efp } = {}) {
   const body = makeEl('body'), head = makeEl('head');
   const byId = (root, id) => { for (const c of root.children) { if (c.id === id) return c; const r = byId(c, id); if (r) return r; } return null; };
   const document = {
@@ -41,11 +42,13 @@ async function boot(src, { gum, inFrame = false, SR } = {}) {
     createElement: makeEl, getElementById: (id) => byId(body, id) || byId(head, id),
     addEventListener() {}, removeEventListener() {},
   };
+  if (efp) document.elementsFromPoint = efp;
   const mediaDevices = { getUserMedia: gum || (() => Promise.resolve({ getTracks: () => [] })) };
   const win = { document, navigator: { userAgent: 'Mozilla/5.0 (Windows NT 10.0) Chrome/130', mediaDevices, maxTouchPoints: 0 }, location: { reload() {} } };
+  Object.assign(win, { innerWidth: 390, innerHeight: 844, addEventListener() {} });
   win.window = win; win.self = win; win.top = inFrame ? {} : win;
   if (SR) win.webkitSpeechRecognition = SR;
-  vm.runInNewContext(src, Object.assign(win, { setTimeout, clearTimeout, requestAnimationFrame: () => 0, cancelAnimationFrame() {} }));
+  vm.runInNewContext(src, Object.assign(win, { setTimeout, clearTimeout, setInterval: () => 0, requestAnimationFrame: () => 0, cancelAnimationFrame() {} }));
   await new Promise((r) => setTimeout(r, 0));
   return { win, body, mediaDevices, find: (id) => byId(body, id) };
 }
@@ -101,6 +104,15 @@ async function suite(src, quiet) {
   try { await b.mediaDevices.getUserMedia({ audio: true }); } catch {}
   await new Promise((r) => setTimeout(r, 0));
   ok('E iframe 에서도 문제가 생기면 알림은 뜬다', !!b.find('mgmh-alert'));
+  // P — 자리 고르기: 왼쪽 아래에 버튼이 있으면 그 자리를 피한다(짝: 비어 있으면 왼쪽 아래)
+  const btn = { closest: () => btn };
+  b = await boot(src, { efp: (x, y) => (x < 200 && y > 780 ? [btn] : []) });
+  const pl = b.find('mgmh-pill');
+  ok('P 왼쪽 아래 버튼이 있으면 다른 자리로 옮긴다', pl && pl.style.left !== '12px' && pl.style.visibility !== 'hidden');
+  b = await boot(src, { efp: () => [] });
+  ok('P 비어 있으면 왼쪽 아래', b.find('mgmh-pill')?.style.left === '12px' && b.find('mgmh-pill')?.style.top === (844 - 12 - 34) + 'px');
+  b = await boot(src, { efp: () => [btn] });
+  ok('P 어디나 막히면 가린다(버튼을 덮지 않음)', b.find('mgmh-pill')?.style.visibility === 'hidden');
   return bad;
 }
 
@@ -119,6 +131,7 @@ const MUT = [
   ['권한 거부 판정 뒤집기', "name === 'NotAllowedError' ||", "name === 'NotAllowedErrorX' ||"],
   ['SR no-speech 도 알림', "c === 'not-allowed' || c === 'service-not-allowed'", "c === 'not-allowed' || c === 'no-speech'"],
   ['iframe 에도 버튼', 'if (inFrame || pill', 'if (pill'],
+  ['버튼 위도 그냥 둔다', 'if (c && c !== document.body && !pill.contains(c)) return true;', ''],
 ];
 for (const [name, from, to] of MUT) {
   if (!SRC.includes(from)) { check(`G 변이 앵커: ${name}`, false, '앵커를 못 찾음'); continue; }

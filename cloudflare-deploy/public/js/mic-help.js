@@ -91,13 +91,14 @@
 
   /* ── 화면 ─────────────────────────────────────────── */
   var css = [
-    '#mgmh-pill{position:fixed;left:12px;bottom:12px;z-index:2147482000;display:flex;align-items:center;gap:6px;',
+    /* 자리(left/top 등)는 placePill() 이 정한다 — 화면의 버튼을 가리지 않는 곳을 고른다.
+       z 는 대화 화면(#ftk, 2147483050) 위 — 그 화면이 학생이 마이크를 쓰는 바로 그 자리다. */
+    '#mgmh-pill{position:fixed;left:12px;bottom:12px;z-index:2147483100;display:flex;align-items:center;gap:6px;',
     'padding:8px 13px;border-radius:999px;border:1px solid #fcd34d;background:#fffbeb;color:#92400e;',
     'font:700 13px/1.2 system-ui,-apple-system,"Malgun Gothic",sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.18);cursor:pointer}',
     '#mgmh-pill:hover{background:#fef3c7}',
-    /* 대화 화면(#ftk, z 2147483050)이 열리면 그 위로 — 아래쪽은 말하기·자막 버튼 자리라 「✋ 질문」 옆(위쪽)으로 옮긴다.
-       :has 를 모르는 옛 브라우저는 예전 자리(대화 화면 뒤)에 남는다 — 버튼을 가리는 것보다 낫다. 문제가 생기면 아래 큰 알림은 그대로 뜬다. */
-    'body:has(#ftk.on) #mgmh-pill{z-index:2147483100;top:66px;bottom:auto;left:112px}',
+    '#mgmh-pill.mgmh-mini{padding:0;width:40px;height:40px;justify-content:center;font-size:18px}',
+    '#mgmh-pill.mgmh-mini .mgmh-txt{display:none}',
     '#mgmh-pill.mgmh-hot{background:#dc2626;border-color:#dc2626;color:#fff;animation:mgmhPulse 1.4s ease-in-out 4}',
     '@keyframes mgmhPulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.55)}50%{box-shadow:0 0 0 10px rgba(220,38,38,0)}}',
     '#mgmh-alert{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483600;width:min(440px,calc(100vw - 32px));',
@@ -142,10 +143,69 @@
     if (inFrame || pill || !document.body) return;
     ensureCss();
     pill = el('button', { id: 'mgmh-pill', type: 'button', 'aria-label': '마이크 인식이 안 되시나요? 해결 방법 보기' },
-      '<span aria-hidden="true">🎤</span><span>마이크 인식이 안 되시나요?</span>');
+      '<span aria-hidden="true">🎤</span><span class="mgmh-txt">마이크 인식이 안 되시나요?</span>');
     pill.addEventListener('click', function () { openManual(lastProblem); });
     document.body.appendChild(pill);
     if (lastProblem) markPill();
+    placePill();
+    setInterval(function () { if (!document.hidden) placePill(); }, 1500);
+    window.addEventListener('resize', placePill);
+  }
+
+  /* 버튼을 가리지 않는 자리 고르기 — 왼쪽 아래 → 오른쪽 아래 → 「✋ 질문」 옆(대화 화면 위쪽) → 오른쪽 가운데.
+     다 막히면 아이콘만 남긴 동그라미로 같은 순서를 다시 보고, 그래도 막히면 잠시 숨긴다(문제가 생기면 큰 알림은 그대로 뜬다).
+     ⛔ body 를 지켜보는 MutationObserver 를 쓰지 않는다(이 저장소에서 홈 정지 사고를 두 번 낸 형태) — 1.5초마다 몇 점만 잰다. */
+  var SPOTS = [
+    function (w, h, W, H) { return [12, H - 12 - h]; },
+    function (w, h, W, H) { return [W - 12 - w, H - 12 - h]; },
+    function (w, h, W, H) { return [112, 66]; },
+    function (w, h, W, H) { return [W - 12 - w, Math.round(H * 0.45)]; }
+  ];
+  var CLICKABLE = 'button,a[href],input,select,textarea,summary,label,[role="button"],[onclick]';
+  var curSpot = '';
+  function blocked(x, y, w, h) {
+    var W = window.innerWidth, H = window.innerHeight;
+    if (x < 0 || y < 0 || x + w > W || y + h > H) return true;
+    var pts = [[x + 3, y + 3], [x + w - 3, y + 3], [x + 3, y + h - 3], [x + w - 3, y + h - 3], [x + w / 2, y + h / 2]];
+    for (var i = 0; i < pts.length; i++) {
+      var list = document.elementsFromPoint ? document.elementsFromPoint(pts[i][0], pts[i][1]) : [];
+      for (var j = 0; j < list.length; j++) {
+        var e = list[j];
+        if (e === pill || pill.contains(e)) continue;
+        if (e === document.body || e === document.documentElement) break;
+        var c = e.closest && e.closest(CLICKABLE);
+        if (c && c !== document.body && !pill.contains(c)) return true;
+        break; // 맨 위에 보이는 것 하나만 본다(그 밑은 가려져 눌리지 않는다)
+      }
+    }
+    return false;
+  }
+  function placePill() {
+    if (!pill || !document.elementsFromPoint) return;
+    try {
+      var W = window.innerWidth, H = window.innerHeight;
+      var wasMini = pill.classList.contains('mgmh-mini');
+      if (wasMini) pill.classList.remove('mgmh-mini');
+      var fw = pill.offsetWidth, fh = pill.offsetHeight;
+      if (wasMini) pill.classList.add('mgmh-mini');
+      for (var f = 0; f < 2; f++) {
+        var mini = f === 1, w = mini ? 40 : fw, h = mini ? 40 : fh;
+        for (var i = 0; i < SPOTS.length; i++) {
+          var xy = SPOTS[i](w, h, W, H);
+          if (blocked(xy[0], xy[1], w, h)) continue;
+          var key = (mini ? 'm' : 'f') + xy[0] + ',' + xy[1];
+          if (key !== curSpot) {
+            curSpot = key;
+            pill.classList.toggle('mgmh-mini', mini);
+            pill.style.left = xy[0] + 'px'; pill.style.top = xy[1] + 'px';
+            pill.style.right = 'auto'; pill.style.bottom = 'auto';
+          }
+          pill.style.visibility = '';
+          return;
+        }
+      }
+      curSpot = ''; pill.style.visibility = 'hidden';
+    } catch (e) {}
   }
   function markPill() { if (pill) pill.classList.add('mgmh-hot'); }
   function unmarkPill() { if (pill) pill.classList.remove('mgmh-hot'); }
