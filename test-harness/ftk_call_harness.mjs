@@ -402,5 +402,54 @@ for (const lang of ['ko', 'en']) {
   ok(lang + ': 버튼 이름이 보이는 글자로 시작한다', !!word && name.indexOf(word) === 0, name);
 }
 
+// ⏱️ «생각 중» 이 멈춘 것처럼 보이지 않게 (2026-11-10 사장님 「집중교정 — 반응이 없다」)
+console.log('▶ 기다림을 사실대로 — 집중교정은 «확인 중», 마이크가 안 열리면 «쉬는 중»');
+{
+  /* 웜업 tick() 을 오려 내 실제로 돌린다 — 시계·엔진 상태·전역을 넣어 «화면 상태» 를 답으로 묻는다 */
+  const runTick = (o) => {
+    const cls = new Set(), w = { sending: !!o.sending, _wuCorrMode: o.mode || '' };
+    const S = { phase: o.phase || '', armTimer: null, misses: 0, resting: false };
+    const node = { textContent: '', firstChild: null };
+    const c = vm.createContext({ window: w, document: { getElementById: () => null, querySelectorAll: () => [], activeElement: null },
+      Date: { now: () => c.now }, now: 0, S, armed: 0,
+      root: { classList: { toggle: (k, f) => { f ? cls.add(k) : cls.delete(k); }, contains: (k) => cls.has(k) }, setAttribute() {} } });
+    vm.runInContext('var active = true, state = "think", idleSince = 0, rearmedForIdle = false, stuckShownAt = -1, IDLE_REARM_MS = 1500, noteEl = ' + JSON.stringify(node) + ', chipsEl = { firstChild: null };\n'
+      + 'function g(n){ return window[n]; } function AT(){ return { _state: S, arm: function(){ armed++; if (' + !!o.opens + ') S.armTimer = 1; } }; }\n'
+      + 'function fillText(){} function clearHelp(){} function showStuck(){} function showPauseNote(){} function handsFree(){ return true; }\n'
+      + 'function speaking(){ return false; } function listening(){ return false; }\n'
+      + 'function t(ko, e){ return ko; } var teacherText = null;\n'
+      + 'function myTurns(){ return 0; } function setOpen(){} var lastMe0 = 0, open = false;\n'   // 도움판 접기(2026-11-09) — 이 절이 재는 것이 아니라 대역만
+      + cut(wu, '  function setState(') + '\n' + cut(wu, '  function tick() {'), c);
+    const seen = [];
+    for (const at of o.at) { c.now = at; vm.runInContext('tick()', c); seen.push(vm.runInContext('state', c)); }
+    return { seen: seen.join(','), fixing: cls.has('fixing'), armed: c.armed };
+  };
+  const stuck = runTick({ at: [100, 1100, 1700, 2000, 5100] });   // 시계는 0 이 아닌 값에서(0 은 «아직 안 셈» 표시)
+  ok('전제: tick() 을 오려 내 돌렸고, 조용한 채 1.5초가 지나면 다시 듣기를 한 번 건다', stuck.armed === 1, JSON.stringify(stuck));
+  ok('다시 걸어도 마이크가 안 열리면 «생각 중» 에 머물지 않고 «쉬는 중»(pause) 으로 말한다', stuck.seen === 'think,think,pause,pause,pause', stuck.seen);
+  const opens = runTick({ at: [100, 1700, 2000], opens: true });
+  ok('다시 건 듣기가 열리는 중이면 «듣는 중»(짝 — 쉬는 중으로 안 떨어진다)', opens.seen === 'think,listen,listen', opens.seen);
+  ok('답을 기다리는 동안은 오래 걸려도 «생각 중» 그대로(짝)', runTick({ at: [0, 3000, 9000], sending: true }).seen === 'think,think,think');
+  ok('집중교정 + 답 기다리는 중 → fixing 표시를 단다', runTick({ at: [0], sending: true, mode: 'focused' }).fixing === true);
+  ok('균형이면 fixing 을 안 단다(짝)', runTick({ at: [0], sending: true, mode: 'balanced' }).fixing === false);
+  ok('집중교정이어도 답을 기다리는 중이 아니면 안 단다(짝)', runTick({ at: [0], mode: 'focused' }).fixing === false);
+
+  /* 글자 — CALL.thinking 을 오려 내 돌리고, 영상통화 화면 paint() 가 그 글자를 실제로 쓰는지 본다 */
+  const think = (has, lang) => { const c = vm.createContext({ root: { classList: { contains: () => has } }, t: (k, e) => lang === 'en' ? e : k });
+    return vm.runInContext('(' + cut(wu, 'thinking: function ()').replace(/^thinking:\s*/, '') + ')()', c); };
+  ok('fixing 이면 KO·EN «확인 중» 글자를 준다', /확인 중/.test(think(true, 'ko')) && /Checking/.test(think(true, 'en')), think(true, 'ko') + ' | ' + think(true, 'en'));
+  ok('아니면 빈 값(짝 — 기본 «생각 중» 으로 떨어진다)', think(false, 'ko') === '');
+  const status = (txt) => { const mk = () => { const kids = {}, at = {}; return { kids, at, style: {}, textContent: '', firstChild: { style: {} }, classList: { toggle() {}, contains() { return false; } },
+      setAttribute(k, v) { at[k] = v; }, querySelector(q) { return kids[q] || (kids[q] = mk()); }, parentNode: { setAttribute() {} } }; };
+    const names = ['title', 'done', 'cam', 'close', 'replay', 'mic', 'slow', 'cc', 'auto', 'hand', 'status', 'dots', 'prog', 'cap', 'sideh', 'log', 'in', 'send', 'type'];
+    const el = Object.fromEntries(names.map(n => [n, mk()]));
+    const c = vm.createContext({ el, root: { getAttribute() { return 'think'; }, classList: { contains() { return false; } } }, t: (k) => k, handsFree: () => true,
+      call: (n) => n === 'thinking' ? txt : '', camStream: null, slowOn: false, ccOn: () => true, GOAL: 10, A: {}, paintLog() {} });
+    vm.runInContext(cut(call, '  function label(') + '\n' + cut(call, '  function lb(') + '\n' + cut(call, '  function paint() {') + '\npaint();', c);
+    return el.status.textContent; };
+  ok('화면이 준 글자가 있으면 상태 줄이 그 글자다', status('틀린 곳 확인 중') === '틀린 곳 확인 중', status('틀린 곳 확인 중'));
+  ok('없으면 «생각 중...» 그대로(짝 — A.i 친구는 안 바뀐다)', status('') === '생각 중...', status(''));
+}
+
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);

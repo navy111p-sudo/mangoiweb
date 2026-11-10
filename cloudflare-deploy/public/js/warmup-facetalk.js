@@ -271,6 +271,8 @@
     else if (S.resting) s = 'pause';
     else s = 'idle';
 
+    /* ⏱️ 집중교정은 답이 다 나와야 말한다(미리듣기 없음) — 그 기다림을 «틀린 곳 확인 중» 으로 말한다(글자는 CALL.thinking) */
+    root.classList.toggle('fixing', s === 'think' && g('_wuCorrMode') === 'focused');
     if (s !== 'idle') { idleSince = 0; rearmedForIdle = false; }
     if (s === 'listen' && S.phase === 'speak' && noteEl.textContent) clearHelp();   // 학생이 말하기 시작하면 도움말을 걷는다
     if (s === 'think' && (noteEl.textContent || chipsEl.firstChild)) clearHelp();
@@ -291,7 +293,8 @@
         rearmedForIdle = true;
         try { a && typeof a.arm === 'function' && a.arm(); } catch (e) {}
       }
-      setState(S.armTimer ? 'listen' : 'think');
+      /* 다시 걸어 봤는데도 마이크가 안 열렸으면(설정 창·글 입력·숨은 탭 등) «생각 중» 이 아니라 «쉬는 중 · 마이크를 누르면» 으로 말한다 */
+      setState(S.armTimer ? 'listen' : rearmedForIdle ? 'pause' : 'think');
       return;
     }
     if (S.misses === 0) stuckShownAt = -1;
@@ -482,6 +485,7 @@
       var s = sitOn() && g('SITUATION');
       return zh() ? t('A.i 중국어 말하기', 'A.i Chinese Speaking') : t('A.i 말하기', 'A.i Speaking') + (s ? ' · ' + t(s.ko, s.en) : '');
     },
+    thinking: function () { return root && root.classList.contains('fixing') ? t('틀린 곳 확인 중... 조금 걸려요', 'Checking your sentence... one moment') : ''; },
     text: teacherText,
     /* 소리 조각 = 화면이 실제로 나눠 읽는 그 규칙(_speechChunks) — 없으면 통째로 한 조각 */
     parts: function (text) { try { return typeof window._speechChunks === 'function' ? window._speechChunks(text) : [text]; } catch (e) { return [text]; } },
