@@ -24,3 +24,5 @@
 }
 
 #menuPanel .menu-label>span:first-child{word-break:keep-all}
+/* 🇺🇸🇨🇳 language flags — keep the size rules' height, but draw a 3:2 flag instead of a square */
+.wu-photo-icon.wu-photo-flag{width:auto!important;aspect-ratio:3/2;object-fit:cover;border-radius:5px;background:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.35),0 2px 6px rgba(0,0,0,.35)}
