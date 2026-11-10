@@ -1687,8 +1687,25 @@ function setVoiceMode(m, announce){
   syncVoiceBtnsForLang();
   applyVoiceFace();     // 이름표 + 고른 사람 얼굴로 즉시 교체(다음 답변까지 기다리지 않게)
   _enVoice = null; pickVoice();          // 브라우저 폴백 보이스도 성별에 맞춰 재선택
+  /* 🧑 (2026-11-10 제보 「Jake 로 바꿨는데 아직도 Emma 가 나와」)
+     KO: 학생이 아직 한 마디도 안 했는데 첫 인사만 떠 있으면, 그 인사를 «새 친구» 로 다시 받는다.
+         안 그러면 얼굴·목소리는 Jake 인데 말풍선은 「Hi, I'm Emma!」 로 남고, 서버 대화 기록에도
+         Emma 의 인사가 남는다. 새 인사가 곧 «귀로 확인» 이라 hi 는 따로 읽지 않는다.
+         학생이 이미 말했으면 지난 말풍선은 «그때 말한 사람» 의 기록이라 그대로 둔다.
+     EN: Friend changed before the student said anything: re-greet as the new friend, otherwise the
+         face/voice is Jake while the bubble (and server history) still says "I'm Emma".
+     ⚠️ newWarmupChat 은 수업방(?room=·?session=)에서는 아무것도 안 한다 — 그때는 예전처럼 hi 만 읽는다. */
+  if(announce && changed && _regreetAsNewFriend()) return;
   // 바꾸자마자 그 친구가 자기 목소리로 인사 → 누구를 골랐는지 «귀로» 확인시켜 준다
   if(announce && changed) speak(VOICE_MODES[m].hi);
+}
+function _regreetAsNewFriend(){
+  try{
+    if(!_warmStarted || Q.get('room') || Q.get('session')) return false;
+    if(!log || log.querySelector('.msg.me')) return false;   // 인사가 아직 오는 중이어도(말풍선 0개) 옛 친구 이름으로 도착하므로 같이 다시 받는다
+    newWarmupChat();
+    return true;
+  }catch(e){ return false; }
 }
 
 /* ══ 👁 자막 3단계 (2026-08-07) ══
