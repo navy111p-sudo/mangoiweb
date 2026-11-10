@@ -172,6 +172,15 @@ const banner=readFileSync('cloudflare-deploy/public/js/handover-inbox-banner.js'
 const page=readFileSync('cloudflare-deploy/public/js/daily-handover.js','utf8');
 ok('배너가 overdue_lock 으로 잠금 화면을 그린다',/function paintLock\(\)/.test(banner)&&/last\.overdue_lock/.test(banner)&&/paintLock\(\);host\.hidden/.test(banner));
 ok('잠금 화면에 닫기 버튼이 없다',!/handover-review-lock[\s\S]{0,2000}(닫기|close\(\)|Close)/.test(banner.slice(banner.indexOf('function paintLock'),banner.indexOf('function reviewerLine'))));
+{ // 2026-11-10 무한 새로고침: 보고 화면에서 잠금을 그리면 «지금 읽고 확인하기» 가 같은 화면을 다시 연다 — paintLock 을 오려 실제로 돌린다
+  const src=banner.slice(banner.indexOf('function paintLock'),banner.indexOf('function reviewerLine'));
+  const run=(onHandover)=>{let appended=0;const el=()=>({style:{},setAttribute(){},append(){},replaceChildren(){},remove(){}});
+    const document={createElement:el,body:{append(){appended++;}}};
+    const f=new Function('document','onHandover','stopped','last','pushState','t',src+';var lock=null;paintLock();return 0;');
+    f(document,onHandover,false,{overdue_lock:[{id:1,report_date:'2026-11-09',staff_name:'K',late_hours:3}]},'',(a)=>a);return appended;};
+  ok('보고 화면(onHandover)에서는 잠금을 그리지 않는다',run(true)===0);
+  ok('다른 화면에서는 여전히 잠근다(짝)',run(false)===1);
+}
 ok('401/403 이면 잠금을 걷는다',/stopped=true;last=null;host\.hidden=true;paintLock\(\)/.test(banner));
 ok('확인 의무자에게도 알림 권유',/last\.read_min_sec>0/.test(banner));
 ok('대표 줄(reviewer_overdue)을 배너에 쓴다',/reviewer_overdue/.test(banner));
