@@ -199,6 +199,8 @@
   #log[data-sub="blur"] .msg.ai:not(.sub-shown) .wu-text{filter:blur(6px);cursor:pointer;user-select:none}
   #log[data-sub="off"] .msg.ai:not(.sub-shown) .wu-text{display:none}
   #log[data-sub="off"] .msg.ai:not(.sub-shown) .sub-veil{display:inline}
+  #log[data-fs="s"] .msg{zoom:.85}
+  #log[data-fs="l"] .msg{zoom:1.2}
   /* 👁 «가리기» 상태를 말풍선 자신이 말하게 한다 (2026-08-31) — ai-friend 와 같은 사정.
      흐린 글자만 있으면 «글자가 잘 안 나온다»=고장 으로 읽힌다.
      ⚠️ .wu-text 밖에 두어야 한다 — 안에 두면 이 안내까지 흐려진다. */
@@ -1037,6 +1039,16 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
           <div class="ls-ends"><span data-ko="🌱 읽으며" data-en="🌱 Read along">🌱 읽으며</span><span data-ko="귀로만 👂" data-en="Ears only 👂">귀로만 👂</span></div>
         </div>
 
+        <!-- 🔠 글자 크기 3단계 (2026-11-09) — 말풍선 글자만. AI 친구하기(ai-friend.html)와 같은 배율 -->
+        <div class="menu-group">
+          <div class="menu-label"><span data-ko="🔠 글자 크기" data-en="🔠 Text size">🔠 글자 크기</span></div>
+          <div class="sub-btns" id="fsBtns" role="radiogroup" aria-label="글자 크기 선택">
+            <button type="button" data-fs="s" onclick="setFsMode('s')" data-ko="작게" data-en="Small">작게</button>
+            <button type="button" data-fs="m" onclick="setFsMode('m')" data-ko="보통" data-en="Normal">보통</button>
+            <button type="button" data-fs="l" onclick="setFsMode('l')" data-ko="크게" data-en="Large">크게</button>
+          </div>
+        </div>
+
         <!-- 🗑 새로 시작 (2026-09-23) — AI 친구하기의 «대화 초기화» 에 해당. 설정 «맨 아래» 굴러가는 칸 안에 둔다:
              ⓐ 한 번 잘못 누르면 대화가 통째로 사라지므로 상단바에 드러내지 않는다
              ⓑ 굴러가는 칸 «안» 이라 카드 높이가 안 늘어난다(노트북에서 «다시 고르기» 가 화면 밖으로 밀리던 2026-09-15 사고).
@@ -1704,6 +1716,17 @@ function setSubMode(m, announce){
   if(m !== 'on'){ var shown = document.querySelectorAll('#log .msg.ai.sub-shown');
     for(var j=0;j<shown.length;j++) shown[j].classList.remove('sub-shown'); }
 }
+
+/* 🔠 글자 크기 3단계 (2026-11-09) — 모르는 값·저장 실패는 «보통» */
+function setFsMode(m){
+  if(m!=='s' && m!=='l') m = 'm';
+  try{ localStorage.setItem('mangoi_warmup_fs', m); }catch(e){}
+  var bs = document.querySelectorAll('#fsBtns button');
+  for(var i=0;i<bs.length;i++){ var on = (bs[i].getAttribute('data-fs')===m);
+    bs[i].classList.toggle('on', on); bs[i].setAttribute('aria-checked', on?'true':'false'); }
+  var lg = document.getElementById('log'); if(lg) lg.dataset.fs = m;
+}
+setFsMode((function(){ try{ return localStorage.getItem('mangoi_warmup_fs'); }catch(e){ return 'm'; } })());
 
 /* ══ 뜻 보기 — 누른 문장만, 그때 번역 ══
    미리 다 번역하면 보지도 않을 문장까지 비용이 든다. 서버(/api/translate)가 KV 에 캐시하므로
@@ -5422,7 +5445,7 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
 <script defer src="/js/warmup-photo-icons.js?v=5"></script>
 <link rel="stylesheet" href="/css/warmup-flow.css?v=6" />
 <script defer src="/js/warmup-flow.js?v=8"></script>
-<script defer src="/js/warmup-points.js?v=4"></script><!-- 🪙 «끝내고 요약 보기» 창에 받은 포인트 한 줄 (2026-11-03) / points line in the summary -->
+<script defer src="/js/warmup-points.js?v=5"></script><!-- 🪙 «끝내고 요약 보기» 창에 받은 포인트 한 줄 (2026-11-03) / points line in the summary -->
 <link rel="stylesheet" href="/css/warmup-topbar.css?v=2" />
 <script defer src="/js/warmup-topbar.js?v=2"></script><!-- 📱 휴대폰 위쪽 버튼 한 줄 — 세로 B(아이콘 한 줄) · 가로 C(떠 있는 바 + 숨기기) (2026-11-03) / one-row top bar on phones -->
 <link rel="stylesheet" href="/css/warmup-body.css?v=1" />

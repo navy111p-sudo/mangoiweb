@@ -61,7 +61,8 @@
     var b = box(); if (!b) return;
     var c = COLORS[v.cls] || COLORS.info;
     b.style.background = c[0]; b.style.color = c[1];
-    b.textContent = en() ? v.en : v.ko;
+    /* 🎁 받았을 때만 사용처 한 줄 (2026-11-09) — 사실은 ai-guide.html «포인트는 어디에 쓰나요?» 와 같다(교환 최소 3,000P) */
+    b.textContent = (en() ? v.en : v.ko) + (v.cls !== 'earn' ? '' : en() ? ' 🎁 From 3,000P, exchange for gift coupons at the Point Shop on the home screen.' : ' 🎁 3,000P부터 홈 화면 포인트상점에서 기프티콘으로 바꿀 수 있어요.');
   }
 
   function run() {
