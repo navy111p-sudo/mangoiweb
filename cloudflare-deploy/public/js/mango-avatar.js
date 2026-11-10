@@ -186,6 +186,14 @@
          ② 고개 좌우 돌리기(yaw, 2.5D) — 눈~입 띠를 가로로 밀되 얼굴 윤곽(양끝)은 0 → 이목구비만 옆으로 가서 돌아보는 것처럼.
             머리 층(present)에서만 하므로 몸은 그대로 · «움직임 줄이기» 면 안 한다.
        ⚠️ 두 띠 모두 «바깥은 원본과 섞는다(destination-out → lighter)» — source-over 로 얹으면 가장자리 투명한 곳에 옛 윤곽이 겹쳐 보입니다. */
+/* v22: (2026-11-10) 사장님 「코 양옆 볼에 선이 있어 · 말할 때 더 이상해」 — 입 칸(PRECISION) 둘레의 1px 선이었습니다.
+         아틀라스(3칸·18칸 시트)에서 칸 하나를 «바로 늘여» 그리면 크롬이 칸 밖 옆 칸 픽셀까지 섞어(보간) 둘레에 옆 칸의
+         턱 그림자·반대쪽 볼이 한 줄로 번집니다. 말할 때는 칸이 계속 바뀌어 선이 깜빡였습니다.
+         [잰 것 — 2026-11-10, 헤드리스 크로미움 · Lily 480px · 선 세기 = |픽셀 − 주변 5x5 중앙값| 의 p95]
+           고치기 전 21~26(최대 37) → 고친 뒤 3~9(최대 15, 남은 것은 원래 얼굴 결)
+         ✅ 칸을 작은 캔버스에 1:1(보간 없이) 먼저 오려 낸 뒤 늘입니다(mouthTile) — 그 캔버스 밖에는 픽셀이 없어 번질 게 없습니다.
+         ℹ️ 같은 경로를 쓰는 Noah·Emma·Jake 도 함께 고쳐집니다. 고개 돌림·턱 띠(v21)는 렌더로 봤을 때 선을 만들지 않았습니다.
+         ⛔ 아틀라스에서 바로 늘여 그리는 것으로 되돌리지 마세요(avatar_jaw_yaw_harness ⑨ · avatar-jaw-yaw-browser ⑨). */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -959,6 +967,18 @@
     //    ⚠️ 메모리: 이 경로는 전환 섞기(fadeCv)를 안 쓰므로 그 사본을 비우고 baseCv 를 씁니다 —
     //       다른 경로로 가면 반대로 baseCv 를 비웁니다(두 사본이 함께 커지지 않습니다).
     var preciseKey = '', baseCv = null, baseKey = '';
+    // 🪡 (v22) 입 칸을 작은 캔버스에 1:1(보간 없이) 오려 낸다 — 아틀라스에서 바로 늘여 그리면 옆 칸 픽셀이 번져
+    //   패치 둘레에 1px 선이 생겼습니다(머리말 v22). 못 만들면 null(예전처럼 아틀라스에서 바로 그린다).
+    var mouthCv = null;
+    function mouthTile(sp, sx, sy, w, h){
+      try {
+        if (!mouthCv) mouthCv = document.createElement('canvas');
+        if (mouthCv.width !== w || mouthCv.height !== h){ mouthCv.width = w; mouthCv.height = h; }
+        var t = mouthCv.getContext('2d'); t.imageSmoothingEnabled = false;
+        t.clearRect(0, 0, w, h); t.drawImage(sp, sx, sy, w, h, 0, 0, w, h);
+        return mouthCv;
+      } catch(e){ return null; }
+    }
     // 입모양 그림 경로를 «지금» 쓰는가 — composeFrame 과 showTier 가 같은 판정을 쓴다.
     function preciseReady(){
       var pf = precisionFace();
@@ -1032,8 +1052,9 @@
           (sampled.to==='D' && (sampled.from==='X'||sampled.from==='A'))))transition=false;
         var sprite=transition?pf.transitions:pf.mouths,columns=transition?18:3;
         if(transition)ix=tile;
-        ctx.drawImage(sprite,(ix%columns)*r.w,Math.floor(ix/columns)*r.h,r.w,r.h,
-          (r.x-bx)/sw*canvas.width,(r.y-by)/sh*canvas.height,r.w/sw*canvas.width,r.h/sh*canvas.height);
+        var tx=(ix%columns)*r.w,ty=Math.floor(ix/columns)*r.h,mc=mouthTile(sprite,tx,ty,r.w,r.h),
+          dx=(r.x-bx)/sw*canvas.width,dy=(r.y-by)/sh*canvas.height,dw=r.w/sw*canvas.width,dh=r.h/sh*canvas.height;
+        if(mc) ctx.drawImage(mc,0,0,r.w,r.h,dx,dy,dw,dh); else ctx.drawImage(sprite,tx,ty,r.w,r.h,dx,dy,dw,dh);
         jawWarp(jawOpen(sampled,pose),bx,by,sw,sh);   // 🦴 (v21) 입이 열린 만큼 턱도
         return;
       }
