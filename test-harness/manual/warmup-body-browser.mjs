@@ -64,6 +64,15 @@ async function use(p,who){
   const seamCss=m.canvas[3],bodySeam=m.body[2]*(m.nat[1]-320)/m.nat[0];
   ck(Math.abs(seamCss-bodySeam)<1.0,`1366 ${who}: seam lines up within 1px (${seamCss.toFixed(2)} vs ${bodySeam.toFixed(2)}, canvas ${m.intr})`);
   ck(m.ring[3]>m.canvas[3]+20,`1366 ${who}: card shows torso below the face`);
+  // no visible seam line: the largest row-to-row colour step within ±6px of the seam, on screen.
+  const png=(await p.locator('#tavatar-ring').screenshot()).toString('base64');
+  const step=await p.evaluate(async([b64,seam])=>{const im=new Image();im.src='data:image/png;base64,'+b64;await im.decode();
+   const c=document.createElement('canvas');c.width=im.width;c.height=im.height;const g=c.getContext('2d');g.drawImage(im,0,0);
+   const k=im.width/document.getElementById('tavatar-ring').getBoundingClientRect().width,x0=Math.round(im.width*0.1),w=Math.round(im.width*0.8),y0=Math.round((seam-6)*k),h=Math.round(12*k);
+   const d=g.getImageData(x0,y0,w,h).data;let max=0;
+   for(let y=1;y<h;y++){let s=0;for(let i=0;i<w*4;i++)if(i%4<3)s+=Math.abs(d[y*w*4+i]-d[(y-1)*w*4+i]);max=Math.max(max,s/(w*3));}
+   return max;},[png,m.canvas[1]+m.canvas[3]]);
+  ck(step<20,`1366 ${who}: no seam line (max row step ${step.toFixed(1)} < 20; old Jake 36, Jake neckline ink ~15)`);
  }
  ck(errors.length===0,'1366: no page errors '+errors.join('|'));await close();}
 

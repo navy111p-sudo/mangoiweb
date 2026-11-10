@@ -41,6 +41,9 @@ S = 2            # output pixels per canvas pixel (sharp on 2x screens)
 EXT = 160        # canvas px of torso drawn below the seam (40% of a 400px canvas)
 OVERLAP = 20     # canvas px repeated above the seam
 BAND = 14        # canvas px sampled above the seam to learn the garment
+CUT = 4          # canvas px: the drawn torso starts this far above the seam, under the canvas's
+                 # faded bottom edge (css/warmup-body.css mask), so a picture's own last rows
+                 # (Emma's lighter bottom line) never touch the torso. Must stay < the fade.
 
 # Same sources and crop rects as mango-avatar.js CHARACTERS (read-only).
 #   canvas: the face canvas size the engine uses for that friend.
@@ -117,7 +120,7 @@ def arm_geometry(cfg: dict, W: int, ext: int):
     reveal = np.clip((y - start) / 0.18, 0, 1) ** 1.5             # crease grows in, no hard start
     d = np.minimum(np.abs(x - xl), np.abs(x - xr)) * W
     in_arm = (x < xl) | (x > xr)
-    return x, y, d, in_arm, reveal
+    return x, y, d, in_arm, reveal, xl
 
 
 def photo_torso(src: np.ndarray, seam: int, ext: int, cfg: dict, seed: int) -> np.ndarray:
@@ -138,7 +141,7 @@ def photo_torso(src: np.ndarray, seam: int, ext: int, cfg: dict, seed: int) -> n
     hf = band[..., :3] - np.asarray(bandimg.filter(ImageFilter.GaussianBlur(3 * S))).astype(np.float32)[..., :3]
     grain = fabric_noise((ext, W), np.minimum(hf.reshape(-1, 3).std(0), 6.0) * 0.45, seed)
 
-    x, y, d, in_arm, reveal = arm_geometry(cfg, W, ext)
+    x, y, d, in_arm, reveal, _ = arm_geometry(cfg, W, ext)
     blend = (np.clip(y / 0.22, 0, 1) ** 1.2)[..., None]
     colour = edge[None] * (1 - blend) + col_g[None] * blend
     colour = colour + grain * np.clip(y / 0.06, 0, 1)[..., None]
@@ -162,24 +165,36 @@ def photo_torso(src: np.ndarray, seam: int, ext: int, cfg: dict, seed: int) -> n
 
 
 def comic_torso(src: np.ndarray, seam: int, ext: int, cfg: dict) -> np.ndarray:
-    """Jake is a comic drawing whose cut falls on the neck: draw a plain hero suit
-    (no logo) in the picture's own palette, flat cel shading and ink outlines."""
+    """Jake is a comic drawing whose cut falls on the neck: grow a plain hero suit (no logo)
+    out of the cut itself, so nothing changes at the seam. The cape's front edge starts at
+    the neck, where the picture's cape ends, and sweeps out to the arm; the neckline starts
+    at the neck's own edges; colours come from the picture; light is smooth (no flat
+    blocks); and the first rows cross-fade from the picture's last row."""
     W = src.shape[1]
     ink = np.array(cfg['ink'], np.float32)
     last = src[seam - 2 * S:seam]
     a = last[..., 3].mean(0)
     rgb_last = last[..., :3].mean(0)
-    skin = np.array([236, 190, 140], np.float32)
-    is_skin = (a > 200) & (np.linalg.norm(rgb_last - skin, axis=1) < 70)
+    skin_ref = np.array([236, 190, 140], np.float32)
+    is_skin = (a > 200) & (np.linalg.norm(rgb_last - skin_ref, axis=1) < 70)
+    is_skin[:int(W * 0.2)] = is_skin[int(W * 0.8):] = False       # the neck is central
     reds = rgb_last[(a > 200) & (rgb_last[:, 0] > 150) & (rgb_last[:, 1] < 90)]
     red = reds.mean(0) if len(reds) else np.array([200, 40, 30], np.float32)
+    skin = rgb_last[is_skin].mean(0) if is_skin.any() else skin_ref
     blue = np.array([38, 72, 150], np.float32)                     # suit body
     xs = np.where(is_skin)[0]
     nl, nr = (xs.min(), xs.max()) if len(xs) else (int(W * 0.35), int(W * 0.65))
 
-    x, y, d, in_arm, reveal = arm_geometry(cfg, W, ext)
-    yy = y * ext
-    xx = x * W
+    x, y, _, _, _, xl = arm_geometry(cfg, W, ext)
+    yy, xx = y * ext, x * W
+    # cape front edges: from the neck at the seam (where the picture's cape ends) out to
+    # the arm creases, ease-out; below that they are the arm creases.
+    sweep = 1 - (1 - np.clip(y / 0.32, 0, 1)) ** 2
+    el = nl / W + (xl - nl / W) * sweep
+    er = nr / W + (1 - xl - nr / W) * sweep
+    in_cape = (x < el) | (x > er)
+    dc = np.minimum(np.abs(x - el), np.abs(x - er)) * W            # px to a cape edge
+    ax = np.abs(x - 0.5)
     # neckline: a shallow U joining the skin edges of the neck.
     cx, half = (nl + nr) / 2, max((nr - nl) / 2, 1)
     u = np.clip(1 - ((xx - cx) / half) ** 2, 0, 1)
@@ -187,33 +202,42 @@ def comic_torso(src: np.ndarray, seam: int, ext: int, cfg: dict) -> np.ndarray:
     in_neck = (np.abs(xx - cx) < half) & (yy < neck_y)
     rgb = np.empty((ext, W, 3), np.float32)
     rgb[:] = blue
-    rgb[in_arm] = red                                              # cape over the arms
+    rgb[in_cape] = red
     rgb[in_neck] = skin
-    # cel shading: one darker tone on the lower half and away from centre.
-    shade = (y > 0.55) | (np.abs(x - 0.5) > 0.27)
-    rgb[shade & ~in_neck] *= 0.82
-    # ink: arm crease lines and the neckline.
-    line = (d < 1.4 * S) & (reveal > 0.3)
+    # smooth light: darker downwards, chest centre brighter, soft depth beside the cape.
+    light = (1.0 - 0.16 * y ** 1.2) * (1.0 + 0.07 * np.exp(-((x - 0.5) / 0.2) ** 2))
+    light = light * (1 - 0.18 * np.exp(-(dc / (7 * S)) ** 2) * ~in_cape)
+    light = light * (1 - 0.10 * np.clip((ax - 0.36) / 0.14, 0, 1) * in_cape)
+    rgb *= light[..., None]
+    # ink: one line along the cape edge (the neck outline continues into it) and the neckline.
+    line = dc < 1.3 * S
     line |= (np.abs(yy - neck_y) < 1.3 * S) & (np.abs(xx - cx) < half)
     rgb[line] = ink
     alpha = np.full((ext, W), 255, np.float32)
     alpha[:, (src[seam - 1, :, 3] < 10)] = 0                       # keep the picture's side margins
-    return np.dstack([rgb, alpha])
+    # first rows: cross-fade from the picture's own last row, so the cut never shows.
+    t = np.clip(yy[:, :1] / (8 * S), 0, 1)
+    t = t * t * (3 - 2 * t)
+    row = src[seam - 1]
+    rgb = row[None, :, :3] * (1 - t[..., None]) + rgb * t[..., None]
+    alpha = row[None, :, 3] * (1 - t) + alpha * t
+    return np.dstack([rgb.clip(0, 255), alpha])
 
 
 def build(name: str, cfg: dict) -> Image.Image:
     cw, ch = cfg['canvas']
     W, seam, ext = cw * S, ch * S, EXT * S
     src = to_canvas(name, cfg)
+    top = seam - CUT * S                                           # first drawn row
     if cfg['ink'] is None:
-        body = photo_torso(src, seam, ext, cfg, seed=sum(map(ord, name)))
+        body = photo_torso(src, top, seam + ext - top, cfg, seed=sum(map(ord, name)))
     else:
-        body = comic_torso(src, seam, ext, cfg)
+        body = comic_torso(src, top, seam + ext - top, cfg)
 
     # 5) assemble: transparent canvas area, overlap band of real pixels, drawn torso.
     full = np.zeros((seam + ext, W, 4), np.float32)
-    full[seam - OVERLAP * S:seam] = src[seam - OVERLAP * S:seam]
-    full[seam:] = body
+    full[seam - OVERLAP * S:top] = src[seam - OVERLAP * S:top]
+    full[top:] = body
     return Image.fromarray(full.round().astype(np.uint8), 'RGBA')
 
 

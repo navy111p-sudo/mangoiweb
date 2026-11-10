@@ -12,7 +12,7 @@
 (function(){
   'use strict';
   if(window.MangoWarmupBody)return;
-  var VERSION=1;
+  var VERSION=2;
   var FRIENDS={emma:1,lily:1,noah:1,jake:1,mei:1,long:1};
   var ALIAS={female:'emma',male:'jake'};
   var ring=null, canvas=null, video=null, img=null, wanted='', loadSeq=0;
