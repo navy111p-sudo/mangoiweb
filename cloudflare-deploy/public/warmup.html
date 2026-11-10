@@ -1703,7 +1703,11 @@ function _regreetAsNewFriend(){
   try{
     if(!_warmStarted || Q.get('room') || Q.get('session')) return false;
     if(!log || log.querySelector('.msg.me')) return false;   // 인사가 아직 오는 중이어도(말풍선 0개) 옛 친구 이름으로 도착하므로 같이 다시 받는다
+    /* KO: 쓰던 답은 지킨다 — newWarmupChat 이 입력칸을 비우는데, 친구만 바꾼 학생의 초안까지 지우면 안 된다.
+       EN: keep the unsent draft; newWarmupChat clears the input, but switching friends must not discard it. */
+    var ip = document.getElementById('inp'), draft = ip ? ip.value : '';
     newWarmupChat();
+    if(ip && draft) ip.value = draft;
     return true;
   }catch(e){ return false; }
 }

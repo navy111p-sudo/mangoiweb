@@ -51,6 +51,15 @@ const sid=p=>p.evaluate(()=>SESSION_ID);
  ok(await p.evaluate(()=>document.querySelector('#log .replay-btn').__who==='jake'),'1 replay speaks as Jake');
  ok(errs.length===0,'1 no page errors '+errs.join('|'));await ctx.close();}
 
+// 1b) 쓰다 만 답(보내기 전)은 친구를 바꿔도 남는다 / an unsent draft survives the re-greeting
+{const {p,errs,ctx}=await open();
+ await p.evaluate(()=>{document.getElementById('inp').value='I like music';});
+ await p.evaluate(()=>setVoiceMode('jake',true));
+ await p.waitForFunction(()=>/I'm Jake/.test(document.getElementById('log').innerText),null,{timeout:15000});
+ ok(await p.evaluate(()=>document.getElementById('inp').value)==='I like music','1b unsent draft kept after switching');
+ ok(!/Emma/.test(await all(p)),'1b still re-greets as Jake');
+ ok(errs.length===0,'1b no page errors '+errs.join('|'));await ctx.close();}
+
 // 2) 서버 인사 — friend 값이 jake 로 다시 요청된다
 {const {p,chats,errs,ctx}=await open({serverGreets:true,query:'?setup=0&textbook=BTS%201&unit=Food'});
  ok(/I'm Emma/.test((await ai(p)).join('|')),'2 server greets as Emma');
