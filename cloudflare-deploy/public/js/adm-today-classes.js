@@ -1910,6 +1910,42 @@
     tcSetDate(tcYmd(k.getUTCFullYear(), k.getUTCMonth() + 1, k.getUTCDate()));
   }
 
+  /* 🔁 (2026-11-10 매니저 제안 «새로고침하면 오늘 날짜·전체 강사로 돌아간다») 떠날 때 이 탭(sessionStorage)에
+     «오늘 수업을 보고 있었나 · 날짜 · 학원 · 강사» 를 적고, 새로고침하면 그대로 다시 연다(manager.html mgr_view_v1 과 같은 약속).
+     ⚠️ 탭을 닫으면 사라진다 · 날짜는 «오늘이 아닌 날» 만 적는다(내일 새로고침해도 어제에 갇히지 않게).
+     ⛔ 상주 타이머·MutationObserver 없음 — 사이드바가 늦게 뜨면 정해진 몇 번만 다시 본다. */
+  var TC_VIEW_KEY = 'adm_tc_view_v1';
+  function tcViewSnap() {
+    var d = $('sm-today-classes'), dt = $('tc-date');
+    var day = dt && /^\d{4}-\d{2}-\d{2}$/.test(dt.value || '') && dt.value !== kstTodayStr() ? dt.value : '';
+    return { on: !!(d && d.open && d.offsetParent !== null), d: day, a: pickVal('tc-academy'), t: pickVal('tc-teacher') };
+  }
+  function tcViewSave() { try { sessionStorage.setItem(TC_VIEW_KEY, JSON.stringify(tcViewSnap())); } catch (e) {} }
+  /* 고를 목록은 불러온 뒤에야 생긴다 — 값만 먼저 앉혀 두면 첫 render 의 fillPick 이 이어받는다(목록에 없으면 «전체») */
+  function tcPreset(id, v) {
+    var el = $(id);
+    if (!el || !v) return;
+    el.innerHTML = '<option value=""></option><option value="' + esc(v) + '"></option>';
+    el.value = v;
+  }
+  function tcViewReopen(tries) {
+    if (window.ph161Go && document.querySelector('#ph85-sidebar [data-ia6-item][data-card="card-students-mgmt"]')) {
+      window.ph161Go('card-students-mgmt', 'sm-today-classes');
+      return;
+    }
+    if (tries > 0) setTimeout(function () { tcViewReopen(tries - 1); }, 700);
+  }
+  function tcViewRestore() {
+    var v = null;
+    try { v = JSON.parse(sessionStorage.getItem(TC_VIEW_KEY) || 'null'); } catch (e) {}
+    if (!v || !v.on) return;
+    var dt = $('tc-date');
+    if (dt && /^\d{4}-\d{2}-\d{2}$/.test(v.d || '') && v.d !== kstTodayStr()) dt.value = v.d;
+    tcPreset('tc-academy', v.a);
+    tcPreset('tc-teacher', v.t);
+    tcViewReopen(8);
+  }
+
   function bind() {
     var b = $('tc-load');
     if (b && !b._tcBound) { b._tcBound = true; b.addEventListener('click', window.tcLoadToday); }
@@ -1939,6 +1975,7 @@
        ⚠️ render() 가 아니라 로더를 부른다. 날짜가 바뀌면 «서버에서 다시» 받아야 한다. */
     var dt = $('tc-date');
     if (dt && !dt._tcBound) { dt._tcBound = true; dt.addEventListener('change', function () { window.tcLoadToday(); }); }
+    if (dt && !dt._tcView) { dt._tcView = true; tcViewRestore(); window.addEventListener('pagehide', tcViewSave); }
     tcDatePick();
     /* 카드를 처음 펼칠 때 1회 자동 로드 — 매니저가 버튼을 또 누르지 않아도 되게 */
     var d = $('sm-today-classes');
