@@ -4729,7 +4729,7 @@ async function cancelAiSchedule(id) {
       if (r.status === 409 && j && j.error === 'conflict') {
         addBtn.disabled = false; addBtn.style.opacity = '1';
         say('⚠️ ' + (j.message || '같은 시간에 이미 예약이 있습니다.') + '<br><span style="color:#94a3b8">' + (j.message_en || '') + '</span>', '#fbbf24', 'submit');
-        if (confirm((j.message || '같은 시간에 이미 예약이 있습니다.') + '\n\n그래도 등록할까요? / Register anyway?')) return submit(true);
+        if (confirm((j.message || '같은 시간에 이미 예약이 있습니다.') + (j.message_en ? '\n' + j.message_en : '') + '\n\n그래도 등록할까요? / Register anyway?')) return submit(true);
         return;
       }
       if (!j || !j.ok) {

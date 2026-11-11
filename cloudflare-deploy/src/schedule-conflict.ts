@@ -269,6 +269,22 @@ export async function findScheduleConflicts(
   return { has: true, student, teacher, ko, en, cap: null };
 }
 
+/** ➕ (2026-11-11) 같은 날 «다른 시각» 에 이미 수업이 있는 학생에게 일회성 수업을 «추가» 하면 한 번 되묻는다.
+ *  [왜] 11/10 매니저가 KAYE 13:20 수업(#4284)을 21:30 으로 «옮긴다» 며 「수업 추가」(#8370)를 눌러, 원래 수업은 그대로 열려 있고
+ *       「취소·연기」 칸은 «—» 였다(옮김 이력이 없으니). 시간 변경은 그 줄의 📅 연기·변경이어야 이력이 남는다.
+ *  rows = 그 학생의 그 날짜 살아 있는 날짜 수업(activeRowsFor). 시간이 «겹치는» 줄은 findScheduleConflicts 가 먼저 말한다.
+ *  shortcut: 매주 반복 행이 그 날에 걸리는 경우는 안 본다(일회성 겹침 검사와 같은 범위) — 반복 수업 학생에게도 같은 일이 나면 넓힌다. */
+export function sameDayAddNotice(rows: any[] | null | undefined, date: string): { ko: string; en: string; times: string[] } | null {
+  const times = [...new Set((rows || []).map((r: any) => String(r?.start_time || '').trim()).filter(Boolean))].sort();
+  if (!times.length) return null;
+  const d = String(date || '').slice(5, 10).replace('-', '/'), t = times.join(', ');
+  return {
+    times,
+    ko: `이 학생은 같은 날(${d}) ${t} 수업이 이미 있습니다. 그 수업의 «시간을 바꾸는» 거라면 여기서 취소하고 그 수업 줄의 📅 연기·변경을 쓰세요 — 그래야 원래 수업이 남지 않고 «언제·누가 옮겼는지» 가 기록됩니다. 보강으로 한 번 «더» 넣는 거라면 계속 등록하세요.`,
+    en: `This student already has a class on ${d} at ${t}. If you are changing that class's time, cancel here and use 📅 Move on that class's row — otherwise the old class stays open and the change is not recorded. Continue only if this is an extra (makeup) class.`,
+  };
+}
+
 
 /** Move validation is deliberately fail-closed. The older registration helper above
  * allows overrides and falls back on lookup failures; neither is safe for a move.

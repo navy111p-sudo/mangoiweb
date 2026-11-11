@@ -13,7 +13,7 @@
         ⛔ 매주 반복 행(scheduled_date 없음)의 cancelled 는 «회차» 가 아니다 — 「날짜별로 나누기」가
            원본 매주 줄을 cancelled 로 내리고(schedule-split.ts) 수강 종료도 매주 줄을 내린다.
            그것까지 띄우면 매주 같은 자리에 «취소됨» 이 영원히 뜬다. (연기 정본 class-postponed.ts 와 같은 선)
-     ② 「취소·연기」 칸은 상태 «하나» 만 말한다 — 취소 > 연기 > (날짜를 옮겨 온) 이동.
+     ② 「취소·연기」 칸은 상태 «하나» 만 말한다 — 취소 > 연기 > (날짜를 옮겨 온) 이동 > 「수업 추가」로 넣음(2026-11-11).
         이동은 이력(class_audit_log)의 연기·변경 기록이 «원래 날짜·시각» 을 갖고 있고, 그것이 지금
         날짜·시각과 다를 때만 말한다(같으면 이동이 아니다 — 강사만 바꾼 변경 등).
      ③ 누가·왜는 **본사·내부직원에게만** 싣는다(호출부가 showActor 로 정한다) — 지사·대리점에
@@ -45,7 +45,8 @@ export function liveOrCancelledInRangeSql(alias = ''): string {
 }
 
 /* 'moved_away' (2026-11-04) = «이 날짜에서 다른 날로 옮겨 간» 회차 — 원래 날짜 목록에만 남기는 줄(아래 judgeMovedAway). */
-export type ClassChangeKind = 'cancelled' | 'postponed' | 'moved' | 'moved_away';
+/* 'added' (2026-11-11) = 관리자 화면 「수업 추가」로 넣은 날짜 수업(이력 'add') — 누가·언제 넣었는지를 같은 칸에(옮김이 있으면 옮김이 먼저). */
+export type ClassChangeKind = 'cancelled' | 'postponed' | 'moved' | 'moved_away' | 'added';
 
 export interface ClassChange {
   kind: ClassChangeKind;
@@ -83,8 +84,9 @@ export interface AuditLite {
 
 const CANCEL_ACTIONS = ['remove', 'end', 'cancel'];
 const MOVE_ACTIONS = ['postpone', 'reschedule'];
+const ADD_ACTIONS = ['add'];   // api-admin-scheduling.ts POST /api/admin/class-schedules 만 적는다
 /** 이 정본이 읽는 이력 종류 전부 — 조회 SQL 이 이 목록을 그대로 쓴다(두 벌 금지). */
-export const CLASS_CHANGE_AUDIT_ACTIONS = [...CANCEL_ACTIONS, ...MOVE_ACTIONS];
+export const CLASS_CHANGE_AUDIT_ACTIONS = [...CANCEL_ACTIONS, ...MOVE_ACTIONS, ...ADD_ACTIONS];
 
 function ymd(v: any): string {
   const s = String(v ?? '').trim().slice(0, 10);
@@ -105,6 +107,7 @@ function kstShort(ms: number | null): string | null {
 function labelsOf(kind: ClassChangeKind, via: ClassChange['via'], fromDate: string | null, fromTime: string | null): { ko: string; en: string } {
   if (kind === 'cancelled') return { ko: '✕ 취소됨', en: '✕ Cancelled' };
   if (kind === 'postponed') return { ko: '⏸ 연기됨 — 새 날짜 미정', en: '⏸ Postponed — no new date' };
+  if (kind === 'added') return { ko: '➕ 추가된 수업', en: '➕ Added class' };
   const from = ((fromDate ? fromDate.slice(5).replace('-', '/') : '') + (fromTime ? ' ' + fromTime : '')).trim();
   return via === 'postpone'
     ? { ko: `📅 ${from} 에서 연기됨`, en: `📅 Postponed from ${from}` }
@@ -142,12 +145,14 @@ export function judgeClassChange(row: any, audits: AuditLite[] | null | undefine
   if (!curDate) return null;
   const st = String(row.status ?? row.sched_status ?? 'active').trim().toLowerCase();
   if (st && st !== 'active') return null;
+  // ➕ 옮김이 아니면 «추가» 이력 — 11/10 «옮긴다» 며 새 수업을 추가한 줄이 «—» 로 보여 언제·누가 넣었는지 몰랐다.
+  const added = () => { const a = latest(list, ADD_ACTIONS); return a ? base('added', a) : null; };
   const e = latest(list, MOVE_ACTIONS);
-  if (!e) return null;
+  if (!e) return added();
   const fromDate = ymd(e.lesson_date), fromTime = hhmm(e.lesson_time);
-  if (!fromDate) return null;
+  if (!fromDate) return added();
   const curTime = hhmm(row.start_time);
-  if (fromDate === curDate && (!fromTime || !curTime || fromTime === curTime)) return null;
+  if (fromDate === curDate && (!fromTime || !curTime || fromTime === curTime)) return added();
   return base('moved', e, String(e.action) === 'postpone' ? 'postpone' : 'reschedule', fromDate, fromTime || null);
 }
 
