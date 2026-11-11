@@ -1,9 +1,9 @@
 // Offline layout check. Requires Playwright and Chromium; run from repository root.
-const {chromium}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES ? process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/playwright' : 'playwright');
+const {chromium}=require(process.env.PW_DIR ? process.env.PW_DIR+'/node_modules/playwright' : (process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES ? process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/playwright' : 'playwright'));
 const fs=require('fs');
 (async()=>{
  const root=process.cwd()+'/cloudflare-deploy/public';
- const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+ const browser=await chromium.launch({...(process.env.CHROMIUM_PATH ? {executablePath:process.env.CHROMIUM_PATH} : {}),headless:true,args:['--no-sandbox']});
  const page=await browser.newPage();
  // Actual production HTML/CSS; suppress executable page scripts and all remote traffic.
  let html=fs.readFileSync(root+'/index.html','utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');
