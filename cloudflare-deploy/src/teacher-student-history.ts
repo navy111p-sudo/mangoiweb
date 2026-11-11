@@ -128,6 +128,8 @@ export async function historyLmsLessons(db: D1Database, uid: string, from: strin
     return { date: evaluationKstDate(r.date)!, start: start > 0 ? hhmm(start) : null,
       duration_min: start > 0 && endMs > start ? Math.max(1, Math.round((endMs - start) / 60000)) : null,
       schedule_id: null, room_id: String(r.room_id), teacher_name: nameOf(r.teacher_uid),
+      // Internal only — markWritableLessons judges «my lesson» by it, then removes it before the response.
+      lms_teacher_uid: String(r.teacher_uid || '').trim() || null,
       teacher_source: 'lms', teacher_changed: false, state: 'done', label_en: 'Attended (old LMS)', label_ko: '출석 (옛 LMS)' };
   };
   // joined_at stays beside the lesson: slot de-duplication compares exact timestamps, never rounded times.
@@ -210,6 +212,38 @@ export async function historyTwinOf(db: D1Database, uid: string): Promise<{ twin
     .map(r => confirmedTwinName(r.n, account)).filter(Boolean));
   const mine = names(uid), theirs = names(twin);
   return { twin: mine.size === 1 && theirs.size === 1 && [...mine][0] === [...theirs][0] ? twin : null, unread: false };
+}
+
+/* ✎ (2026-11-11 teacher request «add and write feedback at summary / calendar») — can this teacher write the report here?
+   The server decides; the calendar only draws the button. A lesson is writable when ALL hold:
+     · it is MY lesson (isMine — the route knows who is logged in; a substitute owns only their own day)
+     · a report was due (same states as the calendar's «Report: not written» line) and none is written
+     · the report check itself worked (report_loaded !== false — «could not check» never becomes «not written»),
+       and the twin account's reports were read (warning twin_account → NO buttons at all: an unread report must not
+       become «not written» — a second log sends the parent a second SMS, which cannot be taken back)
+     · the old LMS does not say another teacher taught that slot (lms_disagrees)
+     · it has a room and a student account, and it has already started (KST)
+   Pure function. Also drops the internal fields so cafe24 numbers never leave the server. */
+const REPORT_DUE_STATES = new Set(['done', 'student_absent', 'late_postpone', 'unknown']);
+export function markWritableLessons(data: any, isMine: (it: any) => boolean, nowMs: number): any {
+  const unsure = (data.warnings || []).includes('twin_account');
+  for (const it of data.items || []) {
+    const start = Date.parse(`${it.date}T${hhmmKey(it.start) || '00:00'}:00+09:00`);
+    it.can_write = !unsure && !it.feedback && !(it.today_eval && it.today_eval.id) && !it.lms_disagrees
+      && REPORT_DUE_STATES.has(it.state) && it.report_loaded !== false
+      && !!it.room_id && !!it.student_uid && Number.isFinite(start) && start <= nowMs && isMine(it) === true;
+    delete it.lms_teacher_uid; delete it.lms_disagrees;
+  }
+  if (data.previous) delete data.previous.lms_teacher_uid;
+  return data;
+}
+
+/** «My lesson» — reservation: the name finally shown for that day equals one of MY teachers.name values, exactly
+ *  (never a substring: «ANNA» ≠ «HANNAH», «TEACHER A» ≠ «TEACHER AB»). Old LMS: the cafe24 teacher number equals mine
+ *  (both must be known). Unknown → not mine. */
+export function isMyLesson(it: any, myNames: Set<string>, lmsTid: string): boolean {
+  if (it.teacher_source === 'lms') return !!lmsTid && !!it.lms_teacher_uid && String(it.lms_teacher_uid) === String(lmsTid);
+  return !!it.teacher_name && myNames.has(String(it.teacher_name).trim().toUpperCase());
 }
 
 /** Read only. Student identity must come from an authorized schedule, never the query string. */
@@ -385,6 +419,7 @@ export async function loadTeacherStudentHistory(env: any, uid: string, month: st
   for (const [it, m] of merged) {
     if (it.teacher_source === 'feedback' || teacherAgrees(it.teacher_name, m.lesson.teacher_name)) continue;
     Object.assign(it, m.was); delete it.attendance_source; delete it.lms_room_id;
+    it.lms_disagrees = true;   // the old LMS says another teacher taught this slot — no ✎ here (markWritableLessons)
     items.push({ ...m.lesson, student_uid: m.owner });
   }
   items.sort((a, b) => (a.date + (a.start || '')).localeCompare(b.date + (b.start || '')));
