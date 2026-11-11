@@ -63,6 +63,16 @@ async function sectionA(M, label = '') {
   const pq = M.parseLlmJson('{"corrected": """She said "hi" and left.\nThe end.""", "score": 70}');
   t('A8 """ 안의 따옴표·줄바꿈도 그대로', pq && pq.corrected === 'She said "hi" and left.\nThe end.' && pq.score === 70);
   t('A9 이미 객체면 그대로 · 배열 객체는 null', M.parseLlmJson({ a: 1 }).a === 1 && M.parseLlmJson([1]) === null);
+  // 2026-11-11 스트레스가 찾은 것: 고친 문장이 따옴표로 끝나면 닫는 """ 앞에 " 가 하나 더 붙는다
+  const pe = M.parseLlmJson('{"corrected": """They said "Happy birthday!"""", "score": 90}');
+  t('A10 """ 내용이 " 로 끝나도(…!"""") 그대로', pe && pe.corrected === 'They said "Happy birthday!"' && pe.score === 90);
+  const pb = M.parseLlmJson('Format {corrected, score}:\n{"corrected":"Hi.","score":80}');
+  t('A11 앞 설명에 {…} 가 있어도 진짜 답을 고른다', pb && pb.corrected === 'Hi.' && pb.score === 80);
+  const pv = M.parseLlmJson('Example: {"score": 0}\n{"corrected":"Hi.","score":80,"issues":[]}');
+  t('A12 앞 설명의 {…} 가 그 자체로 JSON 이어도 더 긴 진짜 답을 고른다', pv && pv.corrected === 'Hi.' && pv.score === 80);
+  // 운영 #57·#58 발췌 그대로: 빈 reason 을 "" 대신 """ 로 씀
+  const p57 = M.parseLlmJson('{\n  "corrected": "It\'s my birthday and I blew out the candles.",\n  "score": 80,\n  "issues": [\n    {"original": "I blow out the Kindle Fire", "suggested": "I blew out the candles", "reason": """},\n    {"original": "some color gift", "suggested": "some colorful gifts", "reason": ""}\n  ]\n}');
+  t('A13 #57 «"reason": """}» → 빈 이유로 읽힌다', p57 && p57.score === 80 && p57.issues.length === 2 && p57.issues[0].reason === '' && p57.issues[1].suggested === 'some colorful gifts');
   return bad;
 }
 
@@ -167,6 +177,8 @@ if (handleWritingApi) {
 
   const r4 = await callCorrect([JSON.stringify({ corrected: 'I like cats.', score: 95, issues: [], tip: '잘 썼어요.', reply: 'Me too!', upgrades: [] })], 'I like cats.');
   check('D14 멀쩡한 JSON(고칠 곳 없음) → 그대로 ok · 95점', r4.d.ok === true && r4.d.score === 95 && r4.d.issues.length === 0);
+  const sc = async (v) => (await callCorrect([JSON.stringify({ corrected: 'I like dogs.', score: v })], 'I like cats.')).d.score;
+  check('D15 점수가 "high"·85.5·"88"·120·-5 여도 0~100 정수', (await sc('high')) === 75 && (await sc(85.5)) === 86 && (await sc('88')) === 88 && (await sc(120)) === 100 && (await sc(-5)) === 0);
 }
 
 console.log('\nE. 변이시험 — 정본을 고장 내면 잡히는가');
@@ -174,6 +186,9 @@ const mutants = [
   ['""" 처리 제거', LJ_SRC.replace("if (s.startsWith('\"\"\"', i)) {", "if (false) {")],
   ['문자열 안 줄바꿈 이스케이프 제거', LJ_SRC.replace("out += c === '\\n' ? '\\\\n'", "out += c === '\\u0000' ? '\\\\n'")],
   ['꼬리 쉼표 제거 끔', LJ_SRC.replace("out = out.replace(/,\\s*$/, '');", "out = out;")],
+  ['«"""} = 빈 값» 처리 제거', LJ_SRC.replace("if (/^\\s*[,}\\]]/.test(s.slice(i + 3, i + 40))) { out += '\"\"'; i += 2; continue; }", '')],
+  ['닫는 따옴표 묶음 처리 제거',LJ_SRC.replace("while (s[end + 3] === '\"') end++;", '')],
+  ['«가장 긴 덩어리» 대신 첫 덩어리만', LJ_SRC.replace('if (body.length <= bestLen) continue;', 'if (bestLen >= 0) break;')],
 ];
 for (const [name, src] of mutants) {
   if (src === LJ_SRC) { check(`E 변이 «${name}» 적용됨`, false, '치환 대상 문자열을 못 찾음 — 정본이 바뀌었으면 하니스도 맞출 것'); continue; }

@@ -24,8 +24,11 @@ export function repairJsonText(s: string): string {
       continue;
     }
     if (s.startsWith('"""', i)) {
-      const end = s.indexOf('"""', i + 3);
+      // `"reason": """},` — 빈 문자열 "" 에 " 가 하나 더 붙은 것(운영 #57·#58). 바로 뒤가 , } ] 이면 "" 로 읽는다
+      if (/^\s*[,}\]]/.test(s.slice(i + 3, i + 40))) { out += '""'; i += 2; continue; }
+      let end = s.indexOf('"""', i + 3);
       if (end < 0) return out;   // 닫히지 않은 """ — 잘린 답이라 읽지 않는다
+      while (s[end + 3] === '"') end++;   // 내용이 "로 끝나면(…said "hi"""") 따옴표 묶음의 마지막 """ 가 닫는 것
       out += JSON.stringify(s.slice(i + 3, end));
       i = end + 2;
       continue;
@@ -37,29 +40,35 @@ export function repairJsonText(s: string): string {
   return out;
 }
 
-/** 짝이 맞는 첫 { … } — 뒤에 붙은 설명 글의 } 를 먹지 않는다(옛 /\{[\s\S]*\}/ 는 먹었다). */
-export function firstJsonObject(s: string): string | null {
+/** 문자열 밖의 짝 맞는 { … } 덩어리들(겹치지 않음, 최대 20) — 뒤 설명의 } 를 먹지 않는다(옛 /\{[\s\S]*\}/ 는 먹었다). */
+function topObjects(s: string): string[] {
+  const out: string[] = [];
   let depth = 0, start = -1, inStr = false;
-  for (let i = 0; i < s.length; i++) {
+  for (let i = 0; i < s.length && out.length < 20; i++) {
     const c = s[i];
     if (inStr) { if (c === '\\') i++; else if (c === '"') inStr = false; continue; }
     if (c === '"') inStr = true;
     else if (c === '{') { if (depth++ === 0) start = i; }
-    else if (c === '}' && depth > 0 && --depth === 0) return s.slice(start, i + 1);
+    else if (c === '}' && depth > 0 && --depth === 0) out.push(s.slice(start, i + 1));
   }
-  return null;
+  return out;
 }
 
-/** 모델 답 → 객체(배열·원시값은 null). 이미 객체면 그대로. 던지지 않는다. */
+/** 모델 답 → 객체(배열·원시값은 null). 이미 객체면 그대로. 던지지 않는다.
+ *  앞 설명에 {…} 가 있을 수 있어(「Format {corrected, score}:」) 읽히는 덩어리 중 «가장 긴 것» 을 고른다.
+ *  shortcut: 앞 설명에 «닫히지 않은 {» 가 있으면 못 읽는다(null → 다음 모델), 운영 실패에 그 모양이 보이면 그때 손본다. */
 export function parseLlmJson(raw: unknown): any | null {
   if (raw && typeof raw === 'object') return Array.isArray(raw) ? null : raw;
   const s = String(raw ?? '');
   const at = s.indexOf('{');
   if (at < 0) return null;
-  const body = firstJsonObject(repairJsonText(s.slice(at)));
-  if (!body) return null;
-  try {
-    const p = JSON.parse(body);
-    return p && typeof p === 'object' && !Array.isArray(p) ? p : null;
-  } catch { return null; }
+  let best: any = null, bestLen = -1;
+  for (const body of topObjects(repairJsonText(s.slice(at)))) {
+    if (body.length <= bestLen) continue;
+    try {
+      const p = JSON.parse(body);
+      if (p && typeof p === 'object' && !Array.isArray(p)) { best = p; bestLen = body.length; }
+    } catch { /* 다음 덩어리 */ }
+  }
+  return best;
 }

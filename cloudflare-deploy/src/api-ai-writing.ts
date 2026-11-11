@@ -117,7 +117,8 @@ Student text: """${text}"""`;
         corrected = text.charAt(0).toUpperCase() + text.slice(1);
         if (!/[.!?]$/.test(corrected.trim())) corrected = corrected.trim() + '.';
       }
-      const score = Math.max(0, Math.min(100, Number(parsed.score || 75)));
+      // 모델이 점수를 "high"·85.5 로 줄 때도 0~100 정수로(그전엔 NaN → 화면 «null점»). 0·없음은 예전처럼 75.
+      const score = Math.max(0, Math.min(100, Math.round(Number(parsed.score)) || 75));
       // ✍️ [2026-07-27] 첨삭에 '왜 고쳤는지'가 안 보이던 문제(직원 피드백 #14).
       //   프롬프트는 이유(reason)를 한국어로 요구하고 화면도 이유를 렌더링한다 — 그런데
       //   모델이 reason 을 비워 보내도 서버가 그대로 통과시켜, 학생 화면에 "with → to" 만 떴다.
