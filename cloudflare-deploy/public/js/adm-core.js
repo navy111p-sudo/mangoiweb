@@ -3474,6 +3474,15 @@ async function loadTeacherProfiles() {
         .some(function(v){ return v && String(v).toLowerCase().indexOf(searchQ) >= 0; });
     });
   }
+  // 🚀 행 데이터 캐시 — 목록이 SELECT * 라 모든 필드 보유. 상세/수정 버튼이 재요청 없이 즉시 열도록.
+  //    🗂 탭으로 거르기 «전» 에 채운다 — 탭 건수(_tpTabSync)와 다른 탭 강사의 되돌리기가 이 캐시를 본다.
+  window._tpRowById = {};
+  items.forEach(t => { if (t && t.id != null) window._tpRowById[t.id] = t; });
+  // 🗂 상태 드롭다운으로 상태 하나를 골랐으면 탭은 «전체» 로 비켜 선다(둘이 겹치면 0명 → «고장» 으로 읽힘)
+  if (status && status !== TP_STATUS_HIDDEN_FILTER) _tpTab = 'all';
+  _tpTabSync();
+  const _tpTotal = items.length;
+  items = items.filter(_tpTabKeep);
   if (cnt) cnt.textContent = items.length + '명';
   /* 🔴 (2026-09-01) 명부와 원부가 어긋나면 화면이 말한다.
        발단: 사장님 「Mariane 은 퇴사했는데 왜 아직 명부에 있나」. 재직 여부가 두 곳에 있다 —
@@ -3485,12 +3494,11 @@ async function loadTeacherProfiles() {
      ⛔ 화면이 자동으로 고치지 않는다 — 어느 쪽이 맞는지는 사람이 안다. 말해 주기만 한다. */
   try { _tpRenderRosterMismatch(res); } catch (e) {}
   if (items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="17" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="17" class="empty">' + (_tpTotal
+      ? (window.adminLang === 'en' ? 'No teachers in this tab — try another tab above' : '이 탭에 해당하는 강사가 없습니다 — 위 탭을 바꿔 보세요')
+      : '강사 데이터 없음 — 위에서 신규 등록') + '</td></tr>';
     return;
   }
-  // 🚀 행 데이터 캐시 — 목록이 SELECT * 라 모든 필드 보유. 상세/수정 버튼이 재요청 없이 즉시 열도록.
-  window._tpRowById = {};
-  items.forEach(t => { if (t && t.id != null) window._tpRowById[t.id] = t; });
 
   // 인사평가 점수·순위는 서버가 실제 수업기록으로 계산 → 표를 먼저 그리고 비동기로 채운다
   //   (셀 id: hrv-<강사id> = 점수, hrr-<강사id> = 순위 / 채우는 쪽은 adm-hr-analysis.js)
@@ -4999,6 +5007,34 @@ function _tpIsWorking(status) {
 }
 window._tpIsWorking = _tpIsWorking;
 
+/* 🗂 (2026-11-11 직원 요청 «LMS 처럼 Active / Inactive 를 따로 보게») 강사 명부 탭.
+   Active = 활동중, Inactive = 비활동·퇴사 — 판정은 위 _tpIsWorking 하나(서버 정본과 같은 규칙).
+   ⚠️ 상태 드롭다운과 «한 번에 하나만» 건다 — 탭을 누르면 드롭다운의 상태 값을 비우고,
+      드롭다운으로 상태를 고르면 탭이 «전체» 로 비켜 선다(loadTeacherProfiles).
+   ⚠️ 건수는 탭으로 거르기 «전» 캐시(_tpRowById)로 센다 — 상태를 그 자리에서 바꿔도(_tpStRepaint) 따라온다. */
+var _tpTab = 'active';
+function _tpTabKeep(t) { return _tpTab === 'all' || (_tpTab === 'active') === _tpIsWorking(t && t.status); }
+function _tpTabSync() {
+  var m = window._tpRowById || {}, n = { all: 0, active: 0 };
+  for (var k in m) { n.all++; if (_tpIsWorking(m[k] && m[k].status)) n.active++; }
+  n.inactive = n.all - n.active;
+  var btns = document.querySelectorAll('#tp-tabs .tp-tab');
+  for (var i = 0; i < btns.length; i++) {
+    var b = btns[i], tab = b.getAttribute('data-tab'), on = (tab === _tpTab);
+    // ⚠️ classList 는 «바뀔 때만» 쓴다(무의미한 class 쓰기로 홈이 두 번 멎은 전력)
+    if (on !== b.classList.contains('tp-tab-on')) b.classList.toggle('tp-tab-on', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+    var c = b.querySelector('.tp-tab-n');
+    if (c) c.textContent = String(n[tab] == null ? '—' : n[tab]);
+  }
+}
+window.tpSetTab = function (tab) {
+  _tpTab = (tab === 'inactive' || tab === 'all') ? tab : 'active';
+  var sel = document.getElementById('tp-filter-status');
+  if (sel && sel.value && sel.value !== TP_STATUS_HIDDEN_FILTER) sel.value = '';   // 🙈 안보임(다른 축)은 그대로 둔다
+  loadTeacherProfiles();
+};
+
 var _tpStMenu = null;      // 열려 있는 메뉴 element
 var _tpStUndoT = null;     // 되돌리기 토스트 타이머
 
@@ -5060,6 +5096,7 @@ function _tpStRepaint(id) {
   td.innerHTML = _tpStatusCell(t);
   var tr = td.closest ? td.closest('tr') : null;
   if (tr) tr.setAttribute('data-hidden', Number(t.list_hidden || 0) === 1 ? '1' : '0');
+  _tpTabSync();   // 🗂 상태가 바뀌면 탭 건수도 (줄은 되돌리기를 위해 그 자리에 둔다 — 새로고침 때 탭대로 정리)
 }
 
 function _tpStCloseMenu() {
