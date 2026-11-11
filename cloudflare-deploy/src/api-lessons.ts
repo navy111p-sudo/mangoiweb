@@ -442,7 +442,8 @@ export async function handleLessonsApi(
 
     // ── PATCH /api/eval/:id — 평가(1분 수업일지) 글 고치기 (2026-10-01 매니저 요청) ──
     //   ⚠️ 라우팅 허용목록의 /^\/api\/eval\/\d+$/ 는 메서드를 안 가린다 — src/index.ts 를 안 고치고 붙는다.
-    //   고치는 칸은 «글» 뿐(note_en·note_ko·teacher_comment). 점수는 안 고친다(eval_band·공제 판정이 걸려 있다).
+    //   고치는 칸은 «글»(note_en·note_ko·teacher_comment)과 수업 출결(attendance_status — 2026-11-11 매니저 제안). 점수는 안 고친다(eval_band·공제 판정이 걸려 있다).
+    //   출결은 목록 안 값 또는 '' 만(''·null = 지움). 그 밖은 400 — 잘못 보낸 값으로 기록이 조용히 지워지지 않게. 급여·노쇼 판정에는 안 쓰인다(eval-attendance.ts).
     //   ⛔ 학부모에게 문자를 «다시» 보내지 않는다 — 이미 받은 문자는 되돌릴 수 없고, eval.html 만 새 글을 보여 준다.
     //      그래서 응답에 parent_notified 를 실어 화면이 그 사실을 말하게 한다.
     if (method === 'PATCH' && /^\/api\/eval\/\d+$/.test(path)) {
@@ -460,6 +461,13 @@ export async function handleLessonsApi(
         ? (String(body[k] == null ? '' : body[k]).trim().slice(0, 2000) || null) : undefined;
       const next: Record<string, string | null> = {};
       for (const k of ['note_en', 'note_ko', 'teacher_comment']) { const v = pick(k); if (v !== undefined) next[k] = v; }
+      if (Object.prototype.hasOwnProperty.call(body, 'attendance_status')) {
+        const att = normalizeEvalAttendance(body.attendance_status);
+        if (att === null && String(body.attendance_status == null ? '' : body.attendance_status).trim() !== '') {
+          return json({ ok: false, error: 'bad_attendance_status' }, 400);
+        }
+        next.attendance_status = att;
+      }
       const keys = Object.keys(next);
       if (!keys.length) return json({ ok: false, error: 'nothing_to_update' }, 400);
       // 학부모가 읽는 칸 — 만들 때와 같은 «한국어인가» 검사(만들 때 서버가 정본이었던 것을 고칠 때도 지킨다)

@@ -193,7 +193,9 @@
            고치기 전 21~26(최대 37) → 고친 뒤 3~9(최대 15, 남은 것은 원래 얼굴 결)
          ✅ 칸을 작은 캔버스에 1:1(보간 없이) 먼저 오려 낸 뒤 늘입니다(mouthTile) — 그 캔버스 밖에는 픽셀이 없어 번질 게 없습니다.
          ℹ️ 같은 경로라 Noah·Emma·Jake 에도 함께 적용됩니다(Emma·Jake 는 320px 에서 옛 판도 번지지 않아 효과를 못 쟀습니다). 고개 돌림·턱 띠(v21)는 렌더로 봤을 때 선을 만들지 않았습니다.
-         ⛔ 아틀라스에서 바로 늘여 그리는 것으로 되돌리지 마세요(avatar_jaw_yaw_harness ⑨ · avatar-jaw-yaw-browser ⑨). */
+         ⛔ 아틀라스에서 바로 늘여 그리는 것으로 되돌리지 마세요(avatar_jaw_yaw_harness ⑨ · avatar-jaw-yaw-browser ⑨).
+   그림 ?v=5: (2026-11-11) 그래도 남던 선은 그림 «안» 이었습니다 — 입 조각의 볼(힘 뺀 볼)이 바탕(크게 웃는 볼)과 만나는 대각선 이음매.
+         tools/heal-cheek-seams.py 가 코 옆 두 다각형 안을 주변 피부로 메웠습니다(lily 그림 4장 + 사이 그림 재생성). */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -254,10 +256,12 @@
     // ?v=2 (2026-10-18): smile-line creases beside the mouth retouched (tools/remove-smile-folds.py).
     // ?v=3 (2026-10-18): mouth shrunk to 0.9x relative to the face (tools/shrink-mouth.py) · Noah's patch rect widened.
     // ?v=4 (2026-10-18): «O» poses E·F cleaned (folds softened, Noah's pale red square → portrait skin tone) · Noah G·H
-    //      were black ovals (failed generation) → B·C (tools/clean-o-mouths.py). All lily/noah URLs share one version.
+    //      were black ovals (failed generation) → B·C (tools/clean-o-mouths.py).
+    // ?v=5 (2026-11-11, lily only): cheek seam beside the nose healed (tools/heal-cheek-seams.py) — noah stays ?v=4.
+    //   Each character's URLs share one version (avatar_smile_folds_harness ④).
     //   Media without ?v= is cached 7 days, so a retouched file needs a new address. Bump on every change.
-    lily: { frames:{ closed:'/img/lily-closed.webp?v=4', medium:'/img/lily-mid.webp?v=4', wide:'/img/lily-wide.webp?v=4' },
-            still:'/img/lily-closed.webp?v=4', rect:{ l:0.05, t:0.02, r:0.95, b:0.92 },
+    lily: { frames:{ closed:'/img/lily-closed.webp?v=5', medium:'/img/lily-mid.webp?v=5', wide:'/img/lily-wide.webp?v=5' },
+            still:'/img/lily-closed.webp?v=5', rect:{ l:0.05, t:0.02, r:0.95, b:0.92 },
             aspect:0.8, keyed:false, fallback:'emma_classic' },
     noah: { frames:{ closed:'/img/noah-closed.webp?v=4', medium:'/img/noah-mid.webp?v=4', wide:'/img/noah-wide.webp?v=4' },
             still:'/img/noah-closed.webp?v=4', rect:{ l:0.05, t:0.02, r:0.95, b:0.92 },
@@ -462,7 +466,7 @@
     // Reviewed nine-pose anchors plus 288 optical-flow inbetweens per actor.
     // The latter are transition shapes, not additional recognized phonemes.
     // base/atlas/trans must carry the same ?v= as the CHARACTERS frames above (one retouch, one version).
-    var PRECISION={lily:{extra:true,base:'/img/lily-closed.webp?v=4',atlas:'/img/visemes/lily-mouths.webp?v=4',trans:'/img/visemes/lily-transitions.webp?v=4',x:250,y:294,w:144,h:122},
+    var PRECISION={lily:{extra:true,base:'/img/lily-closed.webp?v=5',atlas:'/img/visemes/lily-mouths.webp?v=5',trans:'/img/visemes/lily-transitions.webp?v=5',x:250,y:294,w:144,h:122},
       noah:{extra:true,base:'/img/noah-closed.webp?v=4',atlas:'/img/visemes/noah-mouths.webp?v=4',trans:'/img/visemes/noah-transitions.webp?v=4',x:214,y:364,w:214,h:130},
       emma:{extra:true,base:'/img/visemes/emma-v2-rest.webp',atlas:'/img/visemes/emma-v2-mouths.webp',x:183,y:282,w:146,h:126},
       // 🦸 Jake 6가지 입모양(9칸 XABCDEFGH 에 배치) — x,y,w,h 는 build-jake-poses.py 출력과 짝.

@@ -41,7 +41,10 @@ const MS = readJson(join(ROOT, 'tools/mouth-scale-report.json'));
 const OC = readJson(join(ROOT, 'tools/o-mouth-clean-report.json'));
 const link = (R, a, rel, want) => { const f = R && R.actors && R.actors[a] && R.actors[a].files && R.actors[a].files[rel];
   return f && f.sourceSha256 === want ? f.sha256 : null; };
-const chained = (a, rel, want) => { const m = link(MS, a, rel, want); return m ? (link(OC, a, rel, m) || m) : null; };
+// 2026-11-11: tools/heal-cheek-seams.py 가 그 끝(입모양 묶음은 «오» 정리 출력, 얼굴 3장은 shrink-mouth 출력)을 다시 받았습니다.
+const CS = readJson(join(ROOT, 'tools/cheek-seams-report.json'));
+const chained = (a, rel, want) => { let m = link(MS, a, rel, want); if (!m) return null;
+  m = link(OC, a, rel, m) || m; return link(CS, a, rel, m) || m; };
 
 console.log('⓪ 전제');
 ok(!!CFG && !!CFG.actors && !!CFG.params, 'tools/smile-folds-roi.json 을 읽었다');
@@ -65,7 +68,7 @@ for (const a of ACTORS) {
     if (!existsSync(abs)) continue;
     filesSeen++;
     const now = sha(abs);
-    ok(now === info.sha256 || now === chained(a, rel, info.sha256), `${a}: ${rel} 이 도구가 만든 그대로다(또는 그 출력을 입력으로 한 shrink-mouth 출력)`,
+    ok(now === info.sha256 || now === chained(a, rel, info.sha256), `${a}: ${rel} 이 도구가 만든 그대로다(또는 그 출력에서 이어진 shrink-mouth·«오»·볼 이음매 출력)`,
       '그림만 바꾸고 보고서를 안 갱신했거나 손으로 고쳤다 — python3 tools/remove-smile-folds.py 로 다시 만들 것');
     ok(info.sourceSha256 !== info.sha256, `${a}: ${rel} 이 원본과 다르다(실제로 고쳤다)`);
   }

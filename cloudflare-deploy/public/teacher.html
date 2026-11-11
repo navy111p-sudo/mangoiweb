@@ -2065,7 +2065,8 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     document.dispatchEvent(new CustomEvent('teacher-feedback-new',{ detail:{
       which:'last', student_uid:stuUid(c), student_name:c.student_name,
       teacher_uid:DATA.me && DATA.me.username, teacher_name:DATA.me && DATA.me.name,
-      room_id:c.room_id, class_date:c.class_date || c.date || DATA.today, prev_classes:c.prev_classes
+      room_id:c.room_id, class_date:c.class_date || c.date || DATA.today, prev_classes:c.prev_classes,
+      level:c.level, eval_band:c.eval_band
     }}));
   });
   /* 하루치 목록 — 주간 카드와 합친 카드의 «다른 날» 보기가 같은 줄 모양을 쓴다(한 곳에서만 고친다). */
@@ -2647,15 +2648,29 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
   document.addEventListener('click',function(e){
     // History opens a read-only dialog. Keep its action separate from legacy student-filter controls.
     var button=e.target.closest && e.target.closest('[data-teacher-history]');if(!button)return;
-    var context={scheduleId:button.getAttribute('data-history-schedule'),roomId:button.getAttribute('data-history-room')||'',studentUid:button.getAttribute('data-history-uid')||'',date:button.getAttribute('data-history-date'),name:button.getAttribute('data-history-name'),opener:button};
+    var context={scheduleId:button.getAttribute('data-history-schedule'),roomId:button.getAttribute('data-history-room')||'',studentUid:button.getAttribute('data-history-uid')||'',date:button.getAttribute('data-history-date'),name:button.getAttribute('data-history-name'),opener:button,onWrite:function(row){openEval(historyEvalItem(row));}};
     function show(){window.MangoiTeacherHistory.open(context);}
     if(window.MangoiTeacherHistory){show();return;}
     if(button.disabled)return;button.disabled=true;
-    var script=document.createElement('script');script.src='/js/teacher-student-history.js?v=5';
+    var script=document.createElement('script');script.src='/js/teacher-student-history.js?v=6';
     script.onload=function(){button.disabled=false;show();};
     script.onerror=function(){button.disabled=false;script.remove();alert(T('Could not load class history. Please try again.','수업 이력을 불러오지 못했습니다. 다시 시도해 주세요.'));};
     document.head.appendChild(script);
   });
+  /* ✎ (2026-11-11 강사 건의 «Summary / Calendar 에서 피드백 작성») 이력 달력의 한 수업 → 지금 쓰는 수업 일지 창(openEval)의 줄.
+     쓸 수 있는지는 서버(can_write — src/teacher-student-history.ts markWritableLessons)가 정했다. 여기서는 모양만 맞춘다.
+     학생은 «그 수업의 계정»(row.student_uid — 쌍둥이 계정이면 그쪽)만 쓴다. 이름·레벨은 같은 계정의 오늘/주간 줄에서만 빌린다.
+     출결은 «학생 결석» 으로 기록된 수업만 결석을 미리 고른다 — 나머지는 강사가 고른다(지어내지 않는다). */
+  function historyEvalItem(row){
+    var uid=String(row.student_uid||''), pool=((DATA&&DATA.classes)||[]).slice(), base=null;
+    if(WK_DATA&&WK_DATA.days) WK_DATA.days.forEach(function(d){ pool=pool.concat(d.items||[]); });
+    for(var i=0;i<pool.length&&!base;i++) if(pool[i]&&uid&&stuUid(pool[i])===uid) base=pool[i];
+    return { kind:'class', schedule_id:row.schedule_id||null, room_id:row.room_id, student_uid:uid,
+      student_name:base?base.student_name:'', student_name_en:base?base.student_name_en:'',
+      level:base?base.level:'', level_scope:base?base.level_scope:'', eval_band:base?base.eval_band:'',
+      class_date:row.date, start_time:row.start||'', duration_min:row.duration_min||0,
+      attendance:row.state==='student_absent'?{state:'absent'}:null };
+  }
   // 검색·학원·시간 정렬·필터 지우기가 함께 쓰는 «다시 그리기» 한 곳 — 오늘 목록 + 주간(+다른 날 보기)
   function portalRefresh(){
     lastSig = null;
@@ -5618,7 +5633,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
   function load(go){
     if (window.mgEvalQuick) return go();
     var sc = document.createElement('script');
-    sc.src = '/js/eval-quick-view.js?v=3';
+    sc.src = '/js/eval-quick-view.js?v=5';
     sc.onload = go;
     sc.onerror = function(){ alert(en() ? 'Could not load the viewer — please tap again.' : '전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.'); };
     document.head.appendChild(sc);

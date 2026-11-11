@@ -18,11 +18,15 @@ import { btsFixtureSource } from './bts-fixture.mjs';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripTypeScriptTypes } from 'node:module';
 import vm from 'node:vm';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CF = join(ROOT, 'cloudflare-deploy');
 const LES = readFileSync(process.env.LES_SRC || join(CF, 'src', 'api-lessons.ts'), 'utf8');
+/* 출결 정본(src/eval-attendance.ts)을 그대로 실행해 라우트에 넘긴다 — 하니스에 목록을 베끼지 않는다 */
+const { normalizeEvalAttendance } = new Function(stripTypeScriptTypes(readFileSync(join(CF, 'src', 'eval-attendance.ts'), 'utf8'))
+  .replace(/^export /gm, '') + '\nreturn { normalizeEvalAttendance };')();
 const AUTH = readFileSync(join(CF, 'src', 'auth-admin.ts'), 'utf8');
 const VIEW = readFileSync(process.env.EVQ_SRC || join(CF, 'public', 'js', 'eval-quick-view.js'), 'utf8');
 const TCH = readFileSync(process.env.TCH_SRC || join(CF, 'public', 'teacher.html'), 'utf8');
@@ -108,7 +112,7 @@ async function callPatch(actor, row, body) {
       method: 'PATCH', path: '/api/eval/' + (row ? row.id : 9), env: { DB },
       request: { json: async () => body },
       getAdminActor: async () => actor, ensureEvalTable: async () => {}, json,
-      evalEditAllowed: allowForRoute, Date, JSON, String, Number, Object,
+      evalEditAllowed: allowForRoute, normalizeEvalAttendance, Date, JSON, String, Number, Object,
     });
   } catch (e) { resp = { status: 'THROW', body: { error: e.message } }; }
   return { resp, runs };
@@ -149,6 +153,34 @@ if (routeFn) {
     const { resp } = await callPatch(T1, { ...ROW }, { score_overall: 5, room_id: 'x' });
     ok('B-13 글 칸이 없으면 400 nothing_to_update', resp.status === 400 && resp.body.error === 'nothing_to_update');
   }
+  /* 🗓 (2026-11-11 매니저 제안) 수업 출결도 고친다 — 목록 안 값 · '' = 지움 · 그 밖은 400(짝) */
+  const ROW_ATT = { ...ROW, attendance_status: 'attended' };
+  {
+    const { resp, runs } = await callPatch(MGR_ACT, { ...ROW_ATT }, { attendance_status: 'late' });
+    const up = runs.find(r => /UPDATE student_evaluations/.test(r.sql));
+    ok('B-16 출결만 바꿔도 200 + attendance_status 를 고친다', resp.status === 200 && up && /attendance_status = \?/.test(up.sql) && up.binds[0] === 'late', JSON.stringify(resp));
+    const hist = up && up.binds.find(b => typeof b === 'string' && b.startsWith('['));
+    ok('B-17 고치기 전 출결(attended)을 이력에 남긴다', !!hist && JSON.parse(hist).slice(-1)[0].attendance_status === 'attended', hist);
+  }
+  {
+    const { resp, runs } = await callPatch(MGR_ACT, { ...ROW_ATT }, { attendance_status: '' });
+    const up = runs.find(r => /UPDATE student_evaluations/.test(r.sql));
+    ok('B-18 빈 값이면 출결을 지운다(null)', resp.status === 200 && up && up.binds[0] === null, JSON.stringify(up && up.binds));
+  }
+  {
+    const { resp, runs } = await callPatch(MGR_ACT, { ...ROW_ATT }, { attendance_status: 'present' });
+    ok('B-19 목록 밖 값은 400 bad_attendance_status — 조용히 지우지 않는다(짝)', resp.status === 400 && resp.body.error === 'bad_attendance_status');
+    ok('B-20 그때 UPDATE 는 안 나간다', !runs.some(r => /UPDATE/.test(r.sql)));
+  }
+  {
+    const { resp, runs } = await callPatch(T1, { ...ROW_ATT, teacher_uid: 'mangoi_007' }, { attendance_status: 'absent' });
+    ok('B-21 남의 일지 출결은 강사가 못 고친다(403)', resp.status === 403 && !runs.some(r => /UPDATE/.test(r.sql)));
+  }
+  {
+    const { runs } = await callPatch(MGR_ACT, { ...ROW_ATT }, { note_en: 'only text' });
+    const up = runs.find(r => /UPDATE student_evaluations/.test(r.sql));
+    ok('B-22 출결을 안 보내면 출결 칸은 건드리지 않는다(짝)', up && !/attendance_status/.test(up.sql));
+  }
 }
 {
   const gi = LES.indexOf("if (method === 'GET' && /^\\/api\\/eval\\/\\d+$/.test(path))");
@@ -174,6 +206,17 @@ if (R && RE) {
   ok('C-5 안 갔으면 그 말을 안 한다(짝)', !RE({ ...E, parent_notified: 0 }, false).includes('문자는 다시 안 갑니다'));
   ok('C-6 점수 칸은 고치기 화면에 없다', !/score/.test(ed));
   ok('C-7 글을 탈출한다(XSS)', !RE({ ...E, note_en: '</textarea><img src=x onerror=1>' }, true).includes('<img'));
+  const onOf = (h) => (h.match(/class="evq-chip on" data-v="(\w+)"/g) || []).map(s => s.replace(/.*data-v="(\w+)"/, '$1'));
+  const ea = RE({ ...E, attendance_status: 'late', student_level: 'Lv 7' }, true);
+  ok('C-10 고치기 화면에 출결 칩 셋 — 저장된 값(late)만 켜짐', /data-evq-chips="att"/.test(ea) && JSON.stringify(onOf(ea)) === '["late"]', onOf(ea));
+  ok('C-11 출결이 없던 일지는 아무것도 안 켜짐(짝)', JSON.stringify(onOf(RE({ ...E }, true))) === '[]');
+  ok('C-12 레벨은 저장 당시 값을 «보기만»(고르는 칸 없음)', ea.includes('Lv 7') && !/data-evq-chips="(level|band)"/.test(ea));
+}
+{ // 배선 — 실제로 눌러 PATCH 본문을 보는 검사는 manual/eval-add-edit-browser.mjs G절
+  const si = VIEW.indexOf('function showEdit(ev, en, opts)');
+  const se = si >= 0 ? braceFrom(VIEW, si) : '';
+  ok('C-13 고치기 화면: 칩을 배선하고 «바뀐 출결만» 본문에 싣는다', /wireChips\(b2\)/.test(se)
+    && /if \(att !== String\(ev\.attendance_status \|\| ''\)\) body\.attendance_status = att;/.test(se));
 }
 ok('C-8 서버가 can_edit 을 «true 로 말할 때만» 켠다', /__canEdit = x\.d\.can_edit === true/.test(VIEW));
 ok('C-9 저장 성공은 «ok === true» 로 가른다', /x\.st === 200 && x\.d && x\.d\.ok === true/.test(VIEW));

@@ -107,6 +107,17 @@ if (R) {
   ok('A-12 «보기 전용» 이라고 말한다(수정 API 는 아직 없음)', en.includes('View only') && ko.includes('보기 전용'));
 }
 
+// Saved class details must survive viewing/editing, without inventing historical values.
+for (const [state, en, ko] of [['attended', 'Attended', '출석'], ['late', 'Late', '지각'], ['absent', 'Absent', '결석']]) {
+  const record = { id: 7, student_level: 'Lv 5', attendance_status: state, note_en: 'Lesson note' };
+  ok('Saved status ' + state, R(record, true).includes('>' + en + '<') && R(record, false).includes('>' + ko + '<'));
+  // (2026-11-11) 고치기 화면의 출결은 칩 — 저장된 값이 «켜진 칩» 으로 남아야 한다(바꿀 수 있게)
+  ok('Edit retains saved details ' + state, winA.mgEvalQuick._renderEdit(record, true).includes('Lv 5') && winA.mgEvalQuick._renderEdit(record, true).includes('class="evq-chip on" data-v="' + state + '"'));
+}
+ok('Old logs explicitly have no recorded details', (R({ id: 1 }, true).match(/Not recorded/g) || []).length === 2);
+ok('Unknown status is not attendance', R({ id: 1, attendance_status: 'constructor' }, true).includes('Not recorded'));
+ok('Saved level is escaped', !R({ id: 1, student_level: '<img onerror=alert(1)>' }, true).includes('<img'));
+
 /* ── B. mgEvalQuick 흐름 ───────────────────────────────────── */
 console.log('\n[B] mgEvalQuick 를 가짜 fetch 로 돌린다');
 async function runFlow(plan) {
@@ -192,6 +203,13 @@ const BRIEF = { id: 55, date: '2026-09-22', score: 5, max: 5, text: 'The student
     const T = (en) => en;
     const h = mk(esc, T, { eval_hidden: false })(BRIEF);
     ok('C-7 매니저: 링크가 붙는다', /data-evq="55"/.test(h));
+    const render = mk(esc, T, { eval_hidden: false });
+    const oldLog = render({ id: 55, student_level: 'Lv 2', attendance_status: 'absent' });
+    const todayLog = render({ id: 56, student_level: 'Lv 5', attendance_status: 'attended' });
+    ok('Manager keeps each log snapshot separate', oldLog.includes('Lv 2') && oldLog.includes('Absent') && !oldLog.includes('Lv 5') && todayLog.includes('Lv 5') && todayLog.includes('Attended'));
+    ok('Manager escapes saved level', !render({ id: 55, student_level: '<img>' }).includes('<img>'));
+    ok('Manager does not invent legacy details', (render({ id: 55 }).match(/Not recorded/g) || []).length === 2);
+
     ok('C-8 매니저: 숨김이면 «HQ only» 만(짝)', mk(esc, T, { eval_hidden: true })(BRIEF) === 'HQ only');
     ok('C-9 매니저: 평가가 없으면 «—»(짝)', mk(esc, T, { eval_hidden: false })(null) === '—');
   }
