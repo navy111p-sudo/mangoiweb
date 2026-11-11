@@ -79,9 +79,10 @@ try {
       const saved=f.raw.prepare('SELECT student_uid,topic_id,feedback FROM ai_writing_corrections').get();assert.equal(saved.student_uid,'guest_writing');assert.equal(saved.topic_id,7);assert.equal(JSON.parse(saved.feedback).issues.length,1);assert.equal(f.calls.length,1);
     }finally{f.close();}
   });
-  await check('model fallback and invalid JSON preserve the existing honest fallback response',async()=>{
+  // 2026-11-11 계약 변경(엘리더잼 피드백): 못 읽은 답을 «원문 = 수정본·75점» 으로 저장하던 것이 바로 그 버그 → 모든 모델을 시도하고, 그래도 못 읽으면 솔직히 실패(저장 0건).
+  await check('model fallback tries every model and unreadable JSON fails honestly without saving a fake correction',async()=>{
     const f=fixture();try { f.env.AI={async run(model){f.calls.push(model);if(f.calls.length===1)throw Error('synthetic unavailable model');return {response:'not JSON'};}};
-      const b=await(await call('/api/ai/write-correct',f,post({text:'hello there'}))).json();assert.equal(f.calls.length,2);assert.equal(b.corrected,'Hello there.');assert.equal(b.points_guest,true);assert.equal(b.topic_recorded,false);assert.deepEqual(b.issues,[]);assert.equal(b.reply,'');assert.equal(f.raw.prepare('SELECT COUNT(*) n FROM ai_writing_corrections').get().n,1);
+      const r=await call('/api/ai/write-correct',f,post({text:'hello there'}));const b=await r.json();assert.equal(r.status,502);assert.equal(f.calls.length,3);assert.equal(b.ok,false);assert.equal(b.error,'ai_unreadable');assert.equal(b.corrected,undefined);assert.equal(f.raw.prepare('SELECT COUNT(*) n FROM ai_writing_corrections').get().n,0);
     }finally{f.close();}
   });
   await check('legacy table insert fallback does not claim topic submission and persistence failures still return correction',async()=>{

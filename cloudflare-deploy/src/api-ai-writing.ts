@@ -9,6 +9,7 @@ import { triageIssues, isReadableKo, isEnglishReply } from './write-issue-triage
 import { markVocabTag, VOCAB_TAG_AWKWARD } from './vocab-tags';
 import { handleStoryApi } from './story-correct';
 import { recordAiFailure } from './ai-failure-log';
+import { parseLlmJson } from './llm-json';
 import type { MangoEnv } from './api-mango';
 
 let _awTopicColTried = false;   // 📅 topic_id 지연 ALTER — 워커당 한 번
@@ -73,10 +74,13 @@ Student text: """${text}"""`;
         '@cf/meta/llama-3.1-8b-instruct',
         '@cf/meta/llama-3-8b-instruct',
       ];
-      let raw = '';
+      let parsed: any = null;
       let lastErr: any = null;
+      let unreadable = 0, empty = 0;
+      // 🧩 «읽을 수 있는 답(corrected 있음)» 이 나올 때까지 다음 모델로 — 글자만 왔다고 멈추면 못 읽는 답이 그대로 나간다(2026-11-11)
       for (const m of models) {
         try {
+          let raw = '';   // 모델마다 새로 — 앞 모델의 못 읽은 답이 남지 않게
           const resp: any = await env.AI.run(m, {
             messages: [{ role: 'user', content: prompt }],
             max_tokens: 1500, temperature: 0.3,
@@ -86,19 +90,27 @@ Student text: """${text}"""`;
           else if (resp && resp.response) raw = JSON.stringify(resp.response);
           else if (resp && resp.result && typeof resp.result === 'string') raw = resp.result;
           raw = String(raw || '').trim();
-          if (raw) break;
+          if (!raw) { empty++; continue; }
+          parsed = parseLlmJson(raw);
+          if (parsed && String(parsed.corrected || '').trim()) break;
+          parsed = null; unreadable++;
+          console.warn(`[write-correct] model ${m} reply unreadable:`, raw.slice(0, 200));
         } catch (e: any) {
           lastErr = e;
           console.error(`[write-correct] model ${m} failed:`, e?.message || e);
         }
       }
 
-      // JSON 추출 시도 — 다양한 응답 형식 대응
-      const mm = raw.match(/\{[\s\S]*\}/);
-      let parsed: any = {};
-      try { parsed = JSON.parse(mm ? mm[0] : raw); } catch {}
+      /* ⛔ [2026-11-11 엘리더잼 원장님 피드백] 못 읽었으면 «원문 = 수정본 · 75점» 으로 지어내지 않고 솔직히 실패로 돌려준다.
+         (그 가짜 결과에 포인트까지 적립되고 기록에도 «고칠 곳 없음» 으로 남았다 — 운영 45건 중 8건) */
+      if (!parsed) {
+        try {
+          await recordAiFailure(env, { feature: 'write-correct', models: models.join(','), err: String(lastErr?.message || lastErr || 'unreadable_json'), rf: 0, plain: unreadable, empty, level });
+        } catch (e: any) { console.error('[write-correct] recordAiFailure failed:', e?.message || e); }
+        return json({ ok: false, error: 'ai_unreadable', detail: 'AI 답을 읽지 못했어요. 한 번 더 «AI 첨삭 받기» 를 눌러 주세요.\nCould not read the AI reply. Please press «Get AI Correction» again.' }, 502);
+      }
 
-      // AI 가 JSON 으로 응답 안 했을 때 안전한 폴백
+      // 모델이 원문을 그대로 돌려줬을 때 — 첫 글자 대문자·마침표만 다듬는다
       let corrected = String(parsed.corrected || '').trim();
       if (!corrected || corrected === text) {
         // 기본 폴백: 첫 글자 대문자화 + 마침표 추가
@@ -178,10 +190,7 @@ Student text: """${text}"""`;
         // 복수형(-s/-es)도 «썼다» 로 센다 — 그림 속 미션 단어는 단수로 주는데 아이들은 «candles» 로 쓴다(2026-10-08)
         new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:s|es)?\\b`, 'i').test(text));
 
-      // raw 가 있긴 한데 JSON 파싱 실패 → AI 응답 텍스트를 tip 에 일부 포함
-      const meta = raw && !Object.keys(parsed).length
-        ? { ai_raw_excerpt: raw.slice(0, 500), parsed: false }
-        : { parsed: true };
+      const meta = { parsed: true };
 
       // 📅 어느 주제로 쓴 글인가(숙제 제출 확인용) — 양의 정수만. 화면이 보낸 번호라 «제출» 의 근거일 뿐 권한·포인트에는 안 쓴다.
       const _tid = Number(b.topic_id);
@@ -320,8 +329,6 @@ Student text: """${text}"""`;
         } catch (e: any) { console.warn('[write-correct] judgment capture skip:', e?.message); }
       }
 
-      // raw 도 lastErr 도 없을 일이 거의 없지만, 어느쪽이든 결과는 반환 (ok: true)
-      // 단 진짜로 AI 가 완전히 안 됐으면 errCode 도 표시
       return json({
         ok: true,
         corrected, score, issues, suggestions, tip, reply, upgrades, level,
@@ -329,7 +336,6 @@ Student text: """${text}"""`;
         points: pointsEarned, mission_bonus: missionBonus, streak_bonus: streakBonus, points_guest: pointsGuest,
         earned_badges: earnedBadges, vocab_saved: vocabSaved,
         topic_recorded: topicRecorded,
-        ...(raw ? {} : { ai_unavailable: true, fallback: true }),
       });
     }
 
