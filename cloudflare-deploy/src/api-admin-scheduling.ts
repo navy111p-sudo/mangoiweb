@@ -9,7 +9,7 @@ import { DEFAULT_CLASS_MINUTES } from './class-policy';
 import { enrollAdminHqOnly } from './enroll-ops';
 import { moveSchedulesAtomically, scheduleMoveVersion } from './class-schedule-move';
 import { undoMovedClass, undoHeldMove } from './class-undo-move';
-import { findScheduleConflicts, findScheduleMoveConflicts, loadScheduleMoveFacts } from './schedule-conflict';
+import { findScheduleConflicts, findScheduleMoveConflicts, loadScheduleMoveFacts, activeRowsFor, sameDayAddNotice, type ScheduleSlotQuery } from './schedule-conflict';
 import { sendPushToUser } from './api-notify';
 import { getScope, canEditOrg } from './scope';
 import { writeClassAudit } from './class-audit';
@@ -1347,12 +1347,18 @@ export async function handleAdminSchedulingApi(request: Request, url: URL, env: 
       //   응답 코드는 기존과 같은 'conflict' 를 유지한다 → 화면(admin/student.html)이
       //     이미 409+conflict 를 확인창으로 처리하고 있어 프론트 수정이 필요 없다.
       //   판정은 schedule-conflict.ts 한 곳에만 둔다 — 경로마다 복사하면 또 어긋난다.
-      const conf = await findScheduleConflicts(env, {
-        kind, userId, teacherId, days, schedDate, startTime, durationMin,
-      });
+      const slotQ: ScheduleSlotQuery = { kind, userId, teacherId, days, schedDate, startTime, durationMin };
+      const stuDay = kind === 'one_off' ? await activeRowsFor(env, 'user_id', userId, slotQ) : null;   // 한 번만 읽어 겹침·같은 날 둘 다에 쓴다
+      const conf = await findScheduleConflicts(env, slotQ, stuDay ? { student: stuDay } : undefined);
       if (conf.has && !body.force) {
         return bad('conflict', conf.ko + ' 그래도 등록하려면 다시 확인해 주세요.', conf.en + ' Confirm again to register anyway.',
           { conflicts: conf.student, teacher_conflicts: conf.teacher }, 409);
+      }
+      /* ➕ (2026-11-11) 같은 날 다른 시각에 수업이 있으면 «옮기기» 를 «추가» 로 한 것일 수 있다 — 한 번 되묻는다.
+         'conflict' 로 돌려주는 이유: 화면 두 곳(weekly-schedule·student.html)이 이미 409 conflict 를 «확인창 → force» 로 처리한다. */
+      const sameDay = !conf.has && stuDay ? sameDayAddNotice(stuDay, schedDate) : null;
+      if (sameDay && !body.force) {
+        return bad('conflict', sameDay.ko, sameDay.en, { conflicts: stuDay, same_day: sameDay.times }, 409);
       }
 
       // ── 🚫 강사 근무불가(휴가·휴식시간) 검사 — 강사 피드백(2026-07-24):

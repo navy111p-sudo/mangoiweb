@@ -2481,7 +2481,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var label = c ? T(c.label_en || '', c.label_ko || '') : '';
     if (!label) return '';
     var tail = [c.by || '', c.at_kst || ''].filter(Boolean).join(' · ');
-    return '<span class="tag' + (c.kind === 'moved' ? '' : ' hot') + '">' + esc(label) + '</span>'
+    return '<span class="tag' + (c.kind === 'moved' || c.kind === 'added' ? '' : ' hot') + '">' + esc(label) + '</span>'
       + (tail ? ' ' + esc(tail) : '') + (c.reason ? ' · ' + esc(c.reason) : '');
   }
   function paintTodayAll(){
