@@ -50,7 +50,7 @@ jobs:
       - name: Install isolated browser dependencies
         run: |
           npm install --prefix "$RUNNER_TEMP/vc-pw" playwright@1.58.2
-          "$RUNNER_TEMP/vc-pw/node_modules/.bin/playwright" install --with-deps chromium
+          "$RUNNER_TEMP/vc-pw/node_modules/.bin/playwright" install chromium
           mkdir -p "$RUNNER_TEMP/vc-browser/installed/chrome-linux"
           PW_ROOT="$RUNNER_TEMP/vc-pw" node -e 'const {chromium}=require(process.env.PW_ROOT+"/node_modules/playwright");require("fs").symlinkSync(chromium.executablePath(),process.env.RUNNER_TEMP+"/vc-browser/installed/chrome-linux/chrome");'
       - name: Real peer frame recovery timing
