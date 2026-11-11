@@ -5,7 +5,7 @@
   'use strict';
   var base = '/img/warmup-photos/';
   var faces = { emma:'/img/teacher-avatar.png', jake:'/img/hero-avatar.png',
-    lily:'/img/lily-closed.webp?v=4', noah:'/img/noah-closed.webp?v=4',  // same address as mango-avatar.js
+    lily:'/img/lily-closed.webp?v=5', noah:'/img/noah-closed.webp?v=4',  // same address as mango-avatar.js
     mei:'/img/mei-closed.webp', long:'/img/long-closed.webp' };
   // Language tiles: real flags, so English and Chinese no longer share one globe (2026-11-10).
   var flags = { flag_us:'/img/flag-us.svg', flag_cn:'/img/flag-cn.svg' };

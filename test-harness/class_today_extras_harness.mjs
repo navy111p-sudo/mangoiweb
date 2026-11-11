@@ -74,6 +74,7 @@ out.e_today = pk.today && pk.today.id; out.e_last = pk.last && pk.last.id;
 const pk2 = X.pickEvals(evs, 'class-5-20260923', '2026-09-23', day);
 out.e_other_today = pk2.today; out.e_other_last = pk2.last && pk2.last.id;
 out.brief = X.briefEval(evs[1]);
+out.savedBrief = X.briefEval({ student_level: 'Lv 5', attendance_status: 'late' });
 // ➕ (2026-10-28) 「지난 피드백 추가」 — 지난 수업 방 번호로 «오늘» 쓴 글은 지난 평가다(오늘 평가가 아니다)
 {
   const late = { id: 7, room_id: 'class-9-20260921', created_at: S + 30*M, note_en: 'added later' };
@@ -226,6 +227,8 @@ if (o) {
     ok('로더: 학생 줄에 prev_classes 를 싣는다(예약 행 번호로)', kim.length > 0 && kim[0].room_id === 'class-32-20260918', kim);
   }
   ok('평가: roomYmd 는 결정론 방 번호만 날짜로 읽는다', JSON.stringify(o.room_ymd) === JSON.stringify(['2026-09-21', '', '', '']), o.room_ymd);
+  ok('Log snapshots survive the summary', o.savedBrief.student_level === 'Lv 5' && o.savedBrief.attendance_status === 'late');
+  ok('Legacy summaries do not invent snapshots', o.brief.student_level === null && o.brief.attendance_status === null);
   ok('평가: 100점 만점 값은 max=100', o.brief.max === 100 && o.brief.score === 88);
   ok('지사·대리점(evals:false): 평가 내용이 응답에 없다', o.hid.today === null && o.hid.last === null, o.hid);
   ok('지사·대리점(evals:false): 평가 표를 «조회조차» 안 한다', o.hid.queried === false, o.hid);
