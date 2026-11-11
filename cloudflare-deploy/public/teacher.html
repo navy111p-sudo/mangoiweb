@@ -2562,6 +2562,12 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
   }
   /* 🖥 D — PC 폭에서만 보이는 상태 상자(입장 버튼 자리). 폰은 CSS 가 숨기고 이름 아래 한 줄(A)이 대신한다.
      «누가·언제» 는 서버가 찾았을 때만(postponed_info) — 없으면 지어내지 않는다. */
+  /* 💰 (2026-11-11 maimai) 연기 수업 «Paid / Unpaid» — 서버가 급여와 같은 식으로 계산해 실었을 때만(pay_pct). 없으면 빈 글자. */
+  function payPctText(pi){
+    var p = pi && typeof pi.pay_pct === 'number' ? pi.pay_pct : null;
+    if (p === null) return '';
+    return p >= 100 ? T('Paid', '수업료 지급') : p <= 0 ? T('Unpaid', '수업료 미지급') : T('Paid ' + p + '%', '수업료 ' + p + '% 지급');
+  }
   function sboxHtml(c, kind){
     if (kind === 'cancel') return '<div class="cls-act cls-sact"><div class="cls-sbox sb-cancel">✕ ' + esc(T('Cancelled', '취소됨')) + '</div></div>';
     var pi = c.postponed_info || null, sub = [];
@@ -2569,6 +2575,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
       try { sub.push(new Date(pi.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' })); } catch (e) {}
     }
     if (pi && pi.by) sub.push(String(pi.by));
+    if (payPctText(pi)) sub.push(payPctText(pi));
     sub.push(T('no need to wait', '기다리지 않아도 됩니다'));
     return '<div class="cls-act cls-sact"><div class="cls-sbox sb-post">⏸ ' + esc(T('Postponed', '연기됨'))
          + '<small>' + esc(sub.join(' · ')) + '</small></div></div>';
@@ -3053,7 +3060,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
            // 👪 학부모 요청도 — 안 넣으면 «반영함» 을 누른 뒤나 새 요청이 와도 옛 칸이 남는다.
            + ':' + (sc.parent_request ? sc.parent_request.id + sc.parent_request.status : '')
            + ':' + (sc.absence_hold ? 'H' : '')
-           + ':' + (sc.postponed_info ? (sc.postponed_info.at || '') + (sc.postponed_info.by || '') : '')
+           + ':' + (sc.postponed_info ? (sc.postponed_info.at || '') + (sc.postponed_info.by || '') + (sc.postponed_info.pay_pct == null ? '' : '$' + sc.postponed_info.pay_pct) : '')
            // 📋 출결·강사 입장·평가도 넣는다 — 안 넣으면 학생이 들어와도 «바뀐 게 없다» 로 보고 옛 칸이 남는다.
            + ':' + (sc.attendance ? sc.attendance.state + (sc.attendance.at || '') : '')
            + ':' + (sc.teacher_entry ? sc.teacher_entry.state + (sc.teacher_entry.at || '') : '')
@@ -3082,7 +3089,8 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
         wi: function(c, i){ return (t >= c.start_ts) ? i : -1; },
         act: function(c, i){
           if (c.class_state === 'cancelled') return '';
-          if (c.class_state === 'postponed') return '<span class="cls-tbl-pnote">' + esc(T('No need to wait in the room','방에서 기다리지 않아도 됩니다')) + '</span>';
+          if (c.class_state === 'postponed') return '<span class="cls-tbl-pnote">' + esc(T('No need to wait in the room','방에서 기다리지 않아도 됩니다'))
+            + (payPctText(c.postponed_info) ? ' &middot; <b>' + esc(payPctText(c.postponed_info)) + '</b>' : '') + '</span>';   // 💰 2026-11-11
           if (c.absence_hold) return '<button class="btn btn-gray btn-sm" type="button" data-join="' + i + '">'
             + esc(T('Student came? Enter','학생이 왔으면 입장')) + '</button>';
           return classActHtml(c, i, t, t >= c.open_at_ts && t <= c.close_at_ts, t > c.close_at_ts) + awayHtml(c, i);
@@ -3214,7 +3222,8 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
                   ? T('Korean public holiday (' + c.holiday_name + ') — no class today. No need to wait in the room.',
                       '공휴일(' + c.holiday_name + ') 휴강입니다 — 방에서 기다리지 않아도 됩니다.')
                   : T('This class was postponed — no need to wait in the room. A new date will be set later.',
-                      '연기된 수업입니다 — 방에서 기다리지 않아도 됩니다. 새 날짜는 나중에 잡힙니다.')) + ' &middot; </b>'
+                      '연기된 수업입니다 — 방에서 기다리지 않아도 됩니다. 새 날짜는 나중에 잡힙니다.'))
+          +       (payPctText(c.postponed_info) ? ' &middot; ' + esc(payPctText(c.postponed_info)) : '') + ' &middot; </b>'   /* 💰 폰 줄 — PC 는 상자가 말한다 */
           +       c.duration_min + T(' min', '분') + '</div>'
           +   '</div>'
           +   sboxHtml(c, 'post')

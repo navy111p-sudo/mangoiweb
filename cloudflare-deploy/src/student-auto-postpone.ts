@@ -171,6 +171,7 @@ export async function autoApproveStudentPostpone(env: any, requestId: number | n
       teacher_name: row.teacher_name || null, student_name: row.student_name || null,
       lesson_date: row.orig_date || null, lesson_time: row.orig_time || null,
       actor: row.requester_name || row.requester_uid || (row.requester_role === 'teacher' ? '강사' : '학생'), actor_role: row.requester_role === 'teacher' ? 'teacher' : 'student',
+      teacher_id: cs.teacher_id ?? null,   // 🔔 바꾸기 «전» 담당에게 알림(teacher-change-alert.ts)
       source: 'schedule-request-auto', reason: row.reason || null,
       detail: (row.new_date || row.new_time) ? `→ ${row.new_date || ''} ${row.new_time || ''}`.trim() + ' · 자동승인' : '자동승인',
     } as any);

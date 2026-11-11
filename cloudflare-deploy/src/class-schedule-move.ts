@@ -6,6 +6,7 @@ import { findScheduleMoveConflicts, loadScheduleMoveFacts, scheduleDays, schedul
 import { teacherMoveDenyReason, moveFieldConflict } from './class-teacher-move';
 import { ensureClassAuditTable } from './class-audit';
 import { isPostponedOccurrence } from './class-postponed';
+import { alertTeacherOfClassChange } from './teacher-change-alert';   // 🔔 이동한 수업 → 강사 푸시(2026-11-11)
 
 export function scheduleMoveVersion(row: any): string {
   return JSON.stringify([String(row.teacher_id ?? ''), row.scheduled_date ?? null, row.day_of_week ?? null,
@@ -230,6 +231,13 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
     statements.push(env.DB.prepare(`DELETE FROM schedule_move_guard WHERE token=?`).bind(token));
     const results = await env.DB.batch(statements);
     if (!Array.isArray(results) || results.some((r: any) => !r || r.success === false)) throw new Error('move_batch_failed');
+    // 🔔 (2026-11-11) 날짜·시각이 바뀐 수업은 «원래» 담당 강사에게 푸시(teacher-change-alert.ts — 24시간 안·강사 본인 변경 제외). 던지지 않는다.
+    if (!guarded && !actor.isTeacher) for (let i = 0; i < rows.length; i++) {
+      const row = rows[i], dest = destinations[i];
+      if (same(dest.scheduled_date, row.scheduled_date) && same(dest.start_time, row.start_time)) continue;
+      await alertTeacherOfClassChange(env, { action: 'reschedule', schedule_id: row.id, lesson_date: row.scheduled_date,
+        lesson_time: row.start_time, student_name: row.student_name, actor_role: 'admin', teacher_id: row.teacher_id });
+    }
     return { ok: true as const, status: 200, ids, count: ids.length,
       move_versions: Object.fromEntries(destinations.map(r => [String(r.id), scheduleMoveVersion(r)])) };
   } catch (e: any) {

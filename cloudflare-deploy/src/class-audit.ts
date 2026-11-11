@@ -6,6 +6,8 @@
 //   ⚠️ 기록 실패가 본 작업(삭제/종료 등)을 막으면 안 되므로 항상 best-effort(에러 삼킴).
 // ═══════════════════════════════════════════════════════════════
 
+import { alertTeacherOfClassChange } from './teacher-change-alert';
+
 export type ClassAuditAction = 'postpone' | 'reschedule' | 'remove' | 'end' | 'restore';
 
 export interface ClassAuditEntry {
@@ -21,6 +23,7 @@ export interface ClassAuditEntry {
   source?: string | null;     // ui | ai-command | schedule-request | api
   reason?: string | null;
   detail?: string | null;     // 자유 텍스트/JSON (예: 새 일시)
+  teacher_id?: number | string | null;   // 🔔 알림 받을 «원래» 담당(teachers.id) — DB 에는 안 씀. 강사가 함께 바뀌는 경로만 넘긴다
 }
 
 export async function ensureClassAuditTable(env: any): Promise<void> {
@@ -63,6 +66,8 @@ export async function writeClassAudit(env: any, e: ClassAuditEntry): Promise<voi
   } catch (err: any) {
     try { console.warn('[class-audit] write failed:', err?.message); } catch {}
   }
+  // 🔔 (2026-11-11) 취소·연기·변경이면 담당 강사 폰으로 — 이력 기록이 실패해도 변경은 이미 저장됐으니 따로 돈다. 던지지 않는다.
+  await alertTeacherOfClassChange(env, e);
 }
 
 export interface ClassAuditFilter {
