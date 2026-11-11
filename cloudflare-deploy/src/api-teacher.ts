@@ -33,6 +33,7 @@ import { applyRoomOverrides } from './class-room-override';   // 🚪 「오늘�
 import { applyStudentElsewhere } from './teacher-student-elsewhere';   // 🚪 «학생이 다른 방에 있어요»(2026-10-21) — 방을 갈아 끼운 «뒤» 에 본다
 import { loadHoldRanges, heldOnFor } from './absence-hold';   // ⏸ 연속 결석 보류(2026-09-25) — 강사에게 «기다리지 말라» 를 알린다
 import { isPostponedOccurrence } from './class-postponed';   // ⏸ 연기된 회차 판정 정본(2026-10-01)
+import { postponePayPercent, loadPostponePayRules } from './postpone-pay';   // 💰 연기 수업 Paid/Unpaid — 급여와 같은 식(2026-11-11)
 import { isCancelledOccurrence, liveOrCancelledInRangeSql, loadMovedAwayEvents, judgeMovedAway, recurWeekChildFor, slotKeyOf, movedAwayBlocked, RECUR_WEEK_CHILD_PREFIX } from './class-change-state';   // ✕ 취소된 회차 판정 정본(2026-11-03)
 import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holiday-closure';   // 🎌 공휴일 휴강 정본(2026-10-09)
 import { loadHandovers } from './teacher-handover';   // 🤝 강사 인수인계 카드(2026-10-10)
@@ -1003,16 +1004,20 @@ export async function handleTeacherApi(
     if (classes.some((c: any) => c.class_state === 'postponed')) {
       try {
         const pr: any = await env.DB.prepare(
-          `SELECT schedule_id, decided_at, decided_by, requester_name FROM schedule_change_requests
+          `SELECT schedule_id, decided_at, decided_by, requester_name, fee_type FROM schedule_change_requests
             WHERE status = 'approved' AND request_type = 'postpone' AND orig_date = ?
             ORDER BY decided_at DESC`
         ).bind(todayStr).all<any>();
         const pmap = new Map<string, any>();
         for (const r of (pr?.results || [])) { const k = String(r.schedule_id); if (!pmap.has(k)) pmap.set(k, r); }
+        /* 💰 (2026-11-11 maimai) «Paid / Unpaid» — 급여와 같은 식(postpone-pay.ts). 규칙을 못 읽으면 pay_pct 를 안 싣는다(지어내지 않음). */
+        let payRules: any = null;
+        try { payRules = await loadPostponePayRules(env.DB); } catch (e: any) { console.warn('[teacher-portal] postpone pay rules:', e?.message); }
         for (const c of classes as any[]) {
           if (c.class_state !== 'postponed') continue;
           const r = pmap.get(String(c.schedule_id));
-          if (r) c.postponed_info = { at: Number(r.decided_at) || null, by: r.decided_by || r.requester_name || null };
+          if (r) c.postponed_info = { at: Number(r.decided_at) || null, by: r.decided_by || r.requester_name || null,
+            pay_pct: payRules ? postponePayPercent(payRules, r.fee_type) : null };
         }
       } catch (e: any) { console.warn('[teacher-portal] postponed info:', e?.message); }
     }
