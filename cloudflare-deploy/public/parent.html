@@ -1251,7 +1251,10 @@ function pdWireBadgeTips(box, badges, en) {
     let wasOpen = false;
     card.addEventListener('pointerdown', () => { wasOpen = (cur === card && tip.style.display === 'block'); });
     card.addEventListener('click', () => { if (wasOpen) hide(); else show(card); wasOpen = false; });
-    card.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hide();
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (cur === card && tip.style.display === 'block') hide(); else show(card); }
+    });
   });
 }
 
