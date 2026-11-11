@@ -314,7 +314,7 @@
   function evqLoad(go) {
     if (window.mgEvalQuick) return go();
     var sc = document.createElement('script');
-    sc.src = '/js/eval-quick-view.js?v=3';
+    sc.src = '/js/eval-quick-view.js?v=4';
     sc.onload = go;
     sc.onerror = function () { alert(T('전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.', 'Could not load the viewer — please tap again.')); };
     document.head.appendChild(sc);
